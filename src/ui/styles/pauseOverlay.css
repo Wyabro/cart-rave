@@ -4,7 +4,6 @@
   --esc-mono: var(--mono);
   --esc-cyan: var(--color-cyan);
   --esc-magenta: var(--color-magenta);
-  --esc-surface: var(--surface-dark-40);
   --esc-border: var(--border-white-10);
   --esc-section-gap: clamp(10px, 2vw, 14px);
   position: fixed;
@@ -21,13 +20,18 @@
   text-rendering: optimizeLegibility;
 }
 
-/* .cc-scrim (stickers.css) supplies the flat printed-dark backdrop — no blur. */
+/* The mock's field, not a thin wash: .cc-scrim's rgba(4,2,10,0.78) left the
+   frozen arena reading through as grey, so the panel floated on someone else's
+   picture instead of on the screen's own dark. Same recipe as the mock — one
+   faint magenta bloom over a deep ink radial. Still flat (no blur). */
 #esc-overlay .esc-backdrop {
   position: absolute;
   inset: 0;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 30%, rgba(255, 43, 214, 0.08), transparent 65%),
+    radial-gradient(ellipse at 50% 55%, rgba(16, 10, 24, 0.95) 0%, rgba(4, 2, 10, 0.97) 95%);
 }
 
-/* .cc-panel (stickers.css) supplies the opaque ink surface + die-cut edge. */
 #esc-overlay .esc-panel {
   position: relative;
   z-index: 1;
@@ -42,6 +46,13 @@
   flex-direction: column;
   gap: clamp(12px, 2.4vw, 24px);
   overflow: hidden;
+  /* Mock 7f panel material — a shade off the backdrop, not a separate object. */
+  background: rgba(12, 10, 17, 0.94);
+  border: 1px solid var(--border-white-12);
+  border-radius: 14px;
+  box-shadow: 4px 4px 0 var(--color-ink-deep), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 /* Header: PAUSED left, frozen round/clock hard right, on one baseline. */
@@ -54,8 +65,6 @@
   min-width: 0;
 }
 
-/* .cc-title (stickers.css) supplies stack-A lettering (sticker-white fill,
-   ink stroke, hard extrude); local rules here are size/spacing only. */
 /* PAUSED wears the same treatment as every other 7x screen title: flat warm
    white with one magenta glow — no die-cut stroke, no hard extrude (which is
    why the element no longer carries .cc-title). */
@@ -98,7 +107,9 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--esc-section-gap);
-  align-items: start;
+  /* Equal-height cards (mock). Each card then distributes its own content, so
+     the shorter one gains even breathing room instead of a dead pocket. */
+  align-items: stretch;
   min-height: 0;
   flex: 1 1 auto;
   overflow-y: auto;
@@ -187,26 +198,52 @@
   box-shadow: none;
 }
 
+/* Mock 7f cards are an outline on the panel, not a darker box floated on it —
+   the black wash (--esc-surface) read as a third material. */
 #esc-overlay .esc-section {
   display: flex;
   flex-direction: column;
-  gap: clamp(8px, 1.5vw, 10px);
-  padding: clamp(12px, 2.5vw, 16px);
-  border-radius: 12px;
-  background: var(--esc-surface);
+  gap: clamp(10px, 1.8vw, 16px);
+  padding: clamp(14px, 2.2vw, 22px) clamp(16px, 2.6vw, 26px);
+  border-radius: 10px;
+  background: transparent;
   border: 1px solid var(--esc-border);
   min-height: 0;
   min-width: 0;
+}
+
+/* Card bodies own the leftover height so their content can distribute. */
+#esc-overlay .esc-section-body {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(10px, 1.8vw, 16px);
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* The toggle chips sit on the card's floor (mock), so any spare height lands
+   between the sliders and the chips instead of pooling under them. */
+#esc-overlay .esc-toggle-grid {
+  margin-top: auto;
+}
+
+/* Control rows spread across the taller card rather than bunching at the top. */
+#esc-overlay .esc-ctl-list {
+  flex: 1 1 auto;
+  justify-content: space-between;
 }
 
 /* Plain label, no dashed rule — the mock's cards are open, and the 7c settings
    cards read the same way. */
 #esc-overlay .esc-section-hd {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 8px;
   flex-shrink: 0;
+  /* Fixed header line on BOTH cards so the AUDIO card's mute chip can't push
+     its body below the CONTROLS rows beside it. */
+  min-height: 30px;
 }
 
 #esc-overlay .esc-section-label {
@@ -302,26 +339,21 @@
   text-align: right;
 }
 
-#esc-overlay .esc-audio-row {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
+/* Header-mounted (see pauseOverlay.js): a compact chip on the AUDIO card's
+   header line, opposite its label — where CONTROLS carries its KEYBOARD tag. */
 #esc-overlay .esc-mute-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: clamp(42px, 10vw, 46px);
-  height: clamp(42px, 10vw, 46px);
+  width: 30px;
+  height: 30px;
   flex-shrink: 0;
-  border-radius: var(--radius-sm);
-  border: none;
-  background: var(--color-ink);
-  box-shadow: var(--slab-shadow-sm);
-  color: var(--color-sticker-white);
-  font-size: clamp(14px, 3.5vw, 16px);
+  border-radius: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: transparent;
+  box-shadow: none;
+  color: var(--color-muted);
+  font-size: clamp(13px, 3vw, 15px);
   cursor: pointer;
   touch-action: manipulation;
   transition: box-shadow 120ms var(--ease-slap), color 80ms ease;
@@ -456,9 +488,14 @@
     padding: clamp(10px, 2.5vw, 12px);
   }
 
+  /* Touch target grows, but it is a header chip now — square, not a 48px slab.
+     The header grows with it so both cards' bodies still start on one line. */
+  #esc-overlay .esc-section-hd {
+    min-height: 38px;
+  }
   #esc-overlay .esc-mute-btn {
-    width: 48px;
-    height: 48px;
+    width: 38px;
+    height: 38px;
   }
 
   #esc-overlay .esc-vol-track-wrap {

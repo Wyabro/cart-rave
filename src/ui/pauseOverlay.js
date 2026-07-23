@@ -241,7 +241,7 @@ function makeEscActionButton(label, variantClasses) {
  * Builds a labeled Esc overlay section card with a dashed header divider.
  * @param {string} label
  * @param {string} [tag]
- * @returns {{ section: HTMLElement, body: HTMLElement }}
+ * @returns {{ section: HTMLElement, hd: HTMLElement, body: HTMLElement }}
  */
 function createEscSection(label, tag = "") {
   const section = document.createElement("section");
@@ -267,7 +267,7 @@ function createEscSection(label, tag = "") {
 
   section.appendChild(hd);
   section.appendChild(body);
-  return { section, body };
+  return { section, hd, body };
 }
 
 /**
@@ -578,7 +578,9 @@ export function init(options = {}, hudContext = {}) {
   elements.escBackdrop.addEventListener("click", hide);
 
   elements.escPanel = document.createElement("div");
-  elements.escPanel.className = "esc-panel cc-panel";
+  // * No .cc-panel: this panel carries the mock's own material (softer ink, 14px
+  // * radius, 4px extrude, blur) and .cc-panel's `backdrop-filter: none` fights it.
+  elements.escPanel.className = "esc-panel";
   elements.escPanel.addEventListener("click", (e) => e.stopPropagation());
 
   elements.escTitle = document.createElement("h2");
@@ -622,9 +624,6 @@ export function init(options = {}, hudContext = {}) {
 
   const audioSection = createEscSection("AUDIO");
   audioSection.section.classList.add("esc-section--audio");
-  const escAudioRow = document.createElement("div");
-  escAudioRow.className = "esc-audio-row";
-
   elements.escMuteBtn = document.createElement("button");
   elements.escMuteBtn.type = "button";
   elements.escMuteBtn.className = "esc-mute-btn";
@@ -654,9 +653,11 @@ export function init(options = {}, hudContext = {}) {
   escVolStack.className = "esc-vol-stack";
   escVolStack.appendChild(elements.escMusicVol.row);
   escVolStack.appendChild(elements.escSfxVol.row);
-  escAudioRow.appendChild(elements.escMuteBtn);
-  escAudioRow.appendChild(escVolStack);
-  audioSection.body.appendChild(escAudioRow);
+  // * Mute rides the card header, not the slider row: sitting beside MUSIC/SFX
+  // * it crowded their labels and pushed the whole stack off the card's left
+  // * edge, out of line with the mock (and with the CONTROLS card beside it).
+  audioSection.hd.appendChild(elements.escMuteBtn);
+  audioSection.body.appendChild(escVolStack);
 
   // * 7f: the four in-match toggles share ONE 2×2 grid (QUALITY / POST-FX /
   // * ANNOUNCER / CALLOUTS) and live INSIDE the AUDIO card, per the mock — the
