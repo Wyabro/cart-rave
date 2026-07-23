@@ -259,17 +259,18 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-23 (UI — fight-night redesign, full-screen sub-screens) — Branch
+2026-07-23 (UI — fight-night redesign, all 7 sub-screens done) — Branch
 `redesign/fight-night-ui`, **unpushed**. Path A (restyled centred cards) was **reversed at the
-07-22 review**: sub-screens now get the mock's literal full-screen layouts on a shared
-`.cr-screen` shell. **6 of 7 rebuilt plus 7e** (`f504b9a`..`50b0af7`): customize (7a),
-settings (7c), challenges (7b), how-to (7d), results podium + receipt (7g), and Friends —
-invite chrome (`26d6fa3`) + full-screen CHECKOUT LINE lobby (`50b0af7`), netcode seam
-untouched (one slot→row resolver, one ready send, gate `phase === "lobby" && friends`).
-**7f Pause** is all that's left and is a trim, not a rebuild (mock keeps it centred 860px).
-Verified by DOM/computed-style introspection only; the **HUD, results-in-match and a live
-friends lobby remain unseen** (Browser pane can't composite or complete mode entry on this
-host). Progress log:
+07-22 review**: sub-screens got the mock's literal full-screen layouts on a shared `.cr-screen`
+shell. **7a–7g all rebuilt** (`f504b9a`..`3451819`): customize (7a), settings (7c), challenges
+(7b), how-to (7d), results podium + receipt (7g), Friends invite chrome + full-screen CHECKOUT
+LINE lobby (7e, netcode seam untouched — one slot→row resolver, one ready send, gate
+`phase === "lobby" && friends`), and pause (7f, the one screen that stays a centred 860px panel;
+three review rounds — flattened skew from the entrance animation, then mock interior detail, then
+a short-window scroll from width-based clamps). **Next: 3a menu + 6a HUD still don't match their
+mocks** (built pre-reversal). Verified by DOM/computed-style introspection only; the **HUD,
+results-in-match and a live friends lobby remain unseen** (Browser pane can't composite or
+complete mode entry on this host). Progress log:
 [planning/fight-night-ui-handover.md](./planning/fight-night-ui-handover.md).
 
 2026-07-22 (B1 AI-DIFF-1 SHIPPED) — `49bfc2a` / `index-Dxyw7U08.js` / Version `4e33515b`.

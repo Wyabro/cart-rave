@@ -11,8 +11,9 @@
 - **Design source:** `~/Downloads/Game Menu UI Refinement.zip` → `design_handoff_main_menu/README.md` +
   `Menu Redesign Concepts.dc.html`. The README's 7a–7g section carries the per-screen prose; the
   `.dc.html` carries the exact measurements. Extract it — the plan does *not* restate every number.
-- **State: the full-screen rebuild is 6 of 7 done, plus 7e.** Only **7f Pause** is left — and it is a
-  *trim*, not a rebuild: the mock keeps it a centred 860px panel.
+- **State: all 7 sub-screens are done** (7a–7g). What remains is not screens — it is the **owed
+  verifications** (below) plus Wyatt's next target: **3a main menu and 6a HUD still don't fully match
+  their mocks**.
 - **Verification caveat:** the Browser pane **won't composite screenshots on this host** → everything
   was verified via DOM + computed-style + scripted-interaction introspection, **never by eye**. No
   screen has had a visual sign-off except 7a and 7c (Wyatt looked at those in a real browser).
@@ -27,9 +28,9 @@
 | 7d How To | ✅ rebuilt — three aisle tags across + SCORING / FULL CONTROLS strips |
 | 7g Results | ✅ rebuilt + reviewed — podium left / receipt right, ledger cut, YOU pill, spill + challenge lines |
 | 7e Friends | ✅ rebuilt — invite chrome on the shell + full-screen CHECKOUT LINE lobby (netcode seam untouched) |
-| **7f Pause** | ⬜ **NEXT** — **stays a centred 860px panel** (mock says so): only needs right-aligned round/time context, 860px width, and the extra SCORING section dropped |
+| 7f Pause | ✅ re-laid out + **three review rounds with Wyatt** — the only screen that stays a centred panel (860px) |
 
-## ⚠️ READ FIRST — three traps that have each bitten more than once
+## ⚠️ READ FIRST — five traps that have each bitten more than once
 
 ### 1. Retired CSS beats the new shell on source order
 
@@ -81,6 +82,33 @@ The pane runs with `document.visibilityState === "hidden"`, which freezes rAF an
   needs the pseudo passed as the *second* arg — a helper that drops it silently returns the element's
   own box and you will "measure" a hole that is 370px wide.
 
+### 4. Anything that writes `transform` inline will flatten a skewed slab
+
+Every action slab in this redesign is a parallelogram: `skewX(-8deg)` on the button, `skewX(8deg)` on
+an inner label. **Inline `transform` beats that CSS rule**, so any animation or feedback helper that
+writes `transform` silently un-skews the slab and leaves its label slanted — the exact inverse of the
+design. Three separate helpers have done it:
+
+1. `wireButtonPressFeedback` / anime.js `scale` on press (`0d20900`, 7a) → fixed by animating an
+   **inner** node via `getTarget` (`getMenuPressTarget`, `lobbyPressTarget`, `escPressTarget`).
+2. `animateMenuReveal` in the pause entrance (`ef0df3d`, 7f) → the reveal's `y` wrote
+   `translateY` over the skew. Fixed by fading the slabs in with **opacity only**.
+3. `resetEscOverlayAnimState` pre-seeding `style.transform = "translateY(8px)"` — same commit.
+
+**The rule:** a skewed slab needs three layers — outer (skew) / inner (press target) / label
+(counter-skew) — and **nothing** may animate `transform` on the outer node. When you verify, run the
+**real** show path; forcing `display:flex` skips the entrance and the skew will measure correct while
+being broken in the actual app (that is how 2 slipped through).
+
+### 5. Width-based clamps don't shrink for a short window
+
+7f is the one screen that must fit *inside* a viewport rather than fill it (`max-height: 92dvh`).
+Review 2 grew its card padding, gaps and header line — all `clamp(x, Nvw, y)` — which pushed the panel
+from 415px to 509px and made it scroll on any window under ~553px tall. Verifying at 1440×900 and
+380×800 hid it completely, because both are tall enough. The panel's vertical rhythm is `vh`-based
+now (`--esc-mute-size`, `min(6vw, 9vh)` on the headline). **On a centred panel, check a SHORT
+viewport, not just a narrow one.**
+
 ## Locked decisions
 
 1. **One branch**, all parts; commit per cut.
@@ -119,6 +147,10 @@ The pane runs with `document.visibilityState === "hidden"`, which freezes rAF an
 | `d8e3c8b` | 7g review | YOU pill; SPILLS CAUSED + CHALLENGE receipt lines; **ledger removed**; Settings sliders made draggable. |
 | `26d6fa3` | **7e menu side** | FRIENDS invite chrome onto the shell — ROOM CODE card (36px cyan + hairline COPY + link + share hint) beside the host BOT DIFFICULTY card; retired modal CSS + both band blocks deleted; `main.js` untouched. |
 | `50b0af7` | **7e lobby side** | CHECKOUT LINE — title top-left, ROOM CODE slab + READY/LEAVE left, 560px roster right, hint bar. Gate/resolver/READY-proxy unchanged. |
+| `c5be94f` | **7f Pause** | 860px panel; PAUSED + right-aligned round/clock on one baseline; body = AUDIO \| CONTROLS (toggle grid moved inside AUDIO); actions to one bottom row; **SCORING deleted**. |
+| `ef0df3d` | 7f review 1 | Action slabs were flat with slanted labels (entrance animation — see trap 4); restart note removed; keycaps matched to the Settings chart; title/headers/sliders/chips finished to the mock. |
+| `2df8e6b` | 7f review 2 | Mute → AUDIO card header (it crowded MUSIC/SFX); cards made equal height with chips on the card floor; backdrop/panel/cards → the mock's dark. |
+| `3451819` | 7f review 3 | Review 2 spent 94px of height on width-based clamps → the panel scrolled under ~553px of window height. Rhythm is `vh`-aware now; threshold ~410px. |
 
 ## Key implementation facts (so you don't re-derive)
 
@@ -133,15 +165,16 @@ The pane runs with `document.visibilityState === "hidden"`, which freezes rAF an
 - **Difficulty chips:** `updateDiffButtons`/`initDiffSelect` drive **every** `.cr-diff-row .cr-diff-btn` in the document — one write path to `settingsStore.aiDifficulty`, no new wiring needed for a new row.
 - **Results DOM** is built in `resultsOverlay.js` and returns `{overlay, panel, kicker, title, verdict, finalScores, receipt, playAgain, mainMenuBtn}` — `statsLine`/`history` are **gone**. `.results-body` is podium / receipt / actions and nothing else.
 - **Results stats** (`matchStats.js` → `snapshotMatchStats()`): BODIES=`localKos`, SPILLS CAUSED=`localSpills` (recorded in simulation.js beside the SPILL progression event), BEST COMBO=`maxComboTier`, TIMES BODIED=`localDeaths`, plus optional `leaderDowns`/`criticalKos`. The CHALLENGE receipt line diffs against `challengesCompleteAtRoundStart`, snapshotted at countdown in main.js.
+- **Pause overlay (7f) specifics:** the panel carries its own material (no `.cc-panel`/`.cc-title` — both fought the mock); `createEscSection` returns `{section, hd, body}` so the mute chip can mount on the AUDIO header line; the CONTROLS chart mirrors the Settings one row for row (`W A S D` split, wide `SHIFT`/`SPACE`, per-action `--esc-kc` accent) but uses **fixed palette tokens**, because Settings tints from the live arena palette inside `cart-rave-menu.js`'s closure and this module can't reach it. Unifying them is a shared-module extraction, deliberately not done.
 - **main.js rewrites the results button labels at runtime** (rematch countdown, "WAITING FOR HOST…") — any decoration inside those buttons must live in CSS pseudo-elements, not child spans.
 
 ## Remaining work
 
-**7f Pause (the last screen) — a trim, not a rebuild.** `src/ui/pauseOverlay.js` + `pauseOverlay.css`
-(`.esc-*`) already carry the PAUSED headline and the 2×2 OPTIONS grid from `2192461`. Per the mock:
-860px centred panel, round/time context **right-aligned** in the header, and the extra SCORING
-section dropped. Actions stay RESUME (yellow) / RESTART ROUND (cyan, solo-only via
-`syncRestartVisibility`) / MAIN MENU (ghost).
+**All 7 sub-screens are done.** The next target is **Part 1 (3a main menu) and Part 2 (6a HUD)** —
+Wyatt's call at the 7f sign-off: they were built in cuts 2 and 3 *before* the path-A reversal and
+**still don't fully match their mocks**. Diff each against `Menu Redesign Concepts.dc.html` §3a / §6a
+the way 7f finally was — interior detail by interior detail, not just structure — and expect the same
+class of finding: title material, header rhythm, chip weight, slider treatment.
 
 **Owed verifications (need a visible browser — `npm run dev:local`, not the pane):**
 1. **A real match** → the whole **HUD** (6a), then **results on a finished round**: count-up + receipt print cadence, the new SPILLS/CHALLENGE lines with real data, defeat/victory treatments, PLAY AGAIN host gating.
@@ -173,15 +206,16 @@ current state, the three traps that have each bitten more than once, and what my
 lies about. Then the design source (design_handoff_main_menu/README.md + "Menu Redesign
 Concepts.dc.html" inside ~/Downloads/Game Menu UI Refinement.zip) and `git log --oneline`.
 
-7a–7e and 7g are rebuilt as full-screen surfaces on the shared .cr-screen shell. 7f PAUSE is the
-last one and it is a TRIM, not a rebuild — the mock keeps it a centred 860px panel: right-align
-the round/time context in the header, hold 860px, drop the extra SCORING section. Read the plan's
-7f section and the "Known-but-parked" list before touching anything.
+All seven sub-screens (7a-7g) are done and signed off. Next is 3a MAIN MENU and 6a HUD, which were
+built before the path-A reversal and still don't match their mocks. Diff them against "Menu Redesign
+Concepts.dc.html" interior detail by interior detail - structure alone is how 7f needed three review
+rounds. Read the "Known-but-parked" list before touching anything.
 
 Rules of engagement: plan → my ack → apply. One screen per cut. Commit by EXPLICIT path and
 `git diff` your own files right before committing — a second agent session shares this checkout
 and has already both swept my lines into its commit and clobbered an edit outright. Delete the
 old modal CSS for each screen you rebuild rather than layering over it, and use a two-class
-selector whenever you override a shared shell class. Nothing in-match (HUD, results on a real
-round, a live friends lobby) has ever been seen — that still needs a visible browser.
+selector whenever you override a shared shell class, and never animate transform on a skewed slab.
+Nothing in-match (HUD, results on a real round, a live friends lobby) has ever been seen in this
+harness - that still needs a visible browser.
 ```
