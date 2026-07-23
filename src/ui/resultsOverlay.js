@@ -635,15 +635,17 @@ export function initResultsOverlay(hooks = {}) {
   overlay.setAttribute("role", "dialog");
   overlay.setAttribute("aria-label", "Round results");
 
+  // * 7g full-screen: the panel is the whole surface now, so it carries no
+  // * billboard sticker material — the layout grid lives in results.css.
   const panel = document.createElement("div");
-  panel.className = "results-panel cc-billboard";
+  panel.className = "results-panel";
 
   // * PA callout header (7g): store-voice kicker over the announcer headline; the
   // * per-round verdict ("NAME wins — 12 pts") drops to its own line beneath, since
   // * the podium below now carries who won.
   const kicker = document.createElement("div");
-  kicker.className = "results-kicker cc-kicker";
-  kicker.textContent = "◆ STORE PA";
+  kicker.className = "results-kicker";
+  kicker.textContent = "◆ ATTENTION SHOPPERS";
 
   const title = document.createElement("h2");
   title.className = "results-title";
@@ -675,7 +677,7 @@ export function initResultsOverlay(hooks = {}) {
 
   const mainMenuBtn = document.createElement("button");
   mainMenuBtn.type = "button";
-  mainMenuBtn.className = "results-btn cc-btn cc-btn--ghost";
+  mainMenuBtn.className = "results-btn results-btn--ghost cc-btn cc-btn--ghost";
   mainMenuBtn.textContent = "MAIN MENU";
   mainMenuBtn.setAttribute("data-gamepad-focusable", "true");
   mainMenuBtn.addEventListener("click", () => {

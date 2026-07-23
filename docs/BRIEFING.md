@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (also runs inside `npm run qa`).
-> Generated 2026-07-23 at commit `c603119` on `redesign/fight-night-ui`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
-> Source digest: `187906aa`
+> Generated 2026-07-23 at commit `561007d` on `redesign/fight-night-ui`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
+> Source digest: `ab742120`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -14,16 +14,15 @@
 
 ## Mission
 
-Playtesting and stabilization — Tier A drained. B1 AI-DIFF-1 shipped (`49bfc2a`). B2 CARGO-WT-1 closed (Wyatt feel accept 07-22 — life-scoped boss/glass + bay count ramp; look → CARGO-VIS-1). ARENA-BAL-1 closed (Wyatt 07-22, no code). Active: HIT-FEEL-1 (weak normals + noisy incoming). CARGO-VIS-1 queued (full-bay + rim overflow). Before public/external playtest: reset analytics DO (see Gotchas).
+Playtesting and stabilization — Tier A drained. B1 AI-DIFF-1 shipped (`49bfc2a`). B2 CARGO-WT-1 closed (Wyatt feel accept 07-22). B3 HIT-FEEL-1 PASS (Wyatt playtest 07-22 — quieter incoming + woken normals; `?tune` ramming.fx). ARENA-BAL-1 closed (Wyatt 07-22, no code). CARGO-VIS-1 queued (full-bay + rim overflow). Before public/external playtest: reset analytics DO (see Gotchas).
 
 ## ACTIVE CARD
 
-B3 HIT-FEEL-1 Round 1 — in tree (unpushed): softer vignette remap + `hitDirMinIntensity` 0.14 + `crashVolumeFloor` 0.22. Wyatt playtest love-taps vs hard rams; then Round 2 ack (shake gate + tune pane)
+CARGO-VIS-1 (SHIP-1 C2, High) — basket groceries must fill the full bay and overflow the rim when full (count ramp shipped; look still wrong)
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 
 Self-directed queue (one at a time, within the declared phase):
-- **B3 HIT-FEEL-1** hit feedback — weak normals + noisy incoming — 🔧 ACTIVE — Round 1 in tree (await playtest)
 - **C2 CARGO-VIS-1** full-bay fill + rim overflow look — 📋 pre-ship (High) — count ramp exists; layout/scale wrong
 - **MAIN-1 / BUNDLE-1** main.js seam / code-split — 📋 post-gate
 
@@ -33,6 +32,7 @@ Self-directed queue (one at a time, within the declared phase):
 - **A1 COUNTDOWN-SYNC-1** non-host countdown clock-domain sync — ✅ PASS (Wyatt playtest 07-22; empty quickplay edge case logged to BACKLOG)
 - **A3 MP-FX-1** non-host gameplay VFX parity — ✅ PASS (Wyatt playtest 07-22: opponent charge glow + hop land dust/thud on non-host)
 - **A4 ARENA-COL-1** Cart Rave pit KO detection & kill-zone reliability — ✅ PASS (Wyatt playtest 07-22 — rim entry pose/time → buildKOEvent)
+- **B3 HIT-FEEL-1** hit feedback — weak normals + noisy incoming — ✅ PASS (Wyatt playtest 07-22; unpushed)
 
 ## Do not
 

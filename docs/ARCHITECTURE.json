@@ -2,15 +2,15 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-07-23T04:44:49.890Z",
-    "commit": "c603119"
+    "at": "2026-07-23T05:01:45.506Z",
+    "commit": "561007d"
   },
-  "source_digest": "4ac79742",
+  "source_digest": "8d6a57ec",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
     "production_url": "https://cart-rave.wyabro.workers.dev/",
-    "mission": "Playtesting and stabilization — Tier A drained. B1 AI-DIFF-1 shipped (`49bfc2a`). B2 CARGO-WT-1 closed (Wyatt feel accept 07-22 — life-scoped boss/glass + bay count ramp; look → CARGO-VIS-1). ARENA-BAL-1 closed (Wyatt 07-22, no code). Active: HIT-FEEL-1 (weak normals + noisy incoming). CARGO-VIS-1 queued (full-bay + rim overflow). Before public/external playtest: reset analytics DO (see Gotchas).",
+    "mission": "Playtesting and stabilization — Tier A drained. B1 AI-DIFF-1 shipped (`49bfc2a`). B2 CARGO-WT-1 closed (Wyatt feel accept 07-22). B3 HIT-FEEL-1 PASS (Wyatt playtest 07-22 — quieter incoming + woken normals; `?tune` ramming.fx). ARENA-BAL-1 closed (Wyatt 07-22, no code). CARGO-VIS-1 queued (full-bay + rim overflow). Before public/external playtest: reset analytics DO (see Gotchas).",
     "phase": "Playtesting & stabilization — stabilize after Run 7; prove residuals; no auto-advance to RC",
     "phases": [
       {
@@ -918,8 +918,8 @@
       {
         "id": "B3 HIT-FEEL-1",
         "what": "hit feedback — weak normals + noisy incoming",
-        "status": "🔧 ACTIVE — Round 1 in tree (await playtest)",
-        "state": "waiting"
+        "status": "✅ PASS (Wyatt playtest 07-22; unpushed)",
+        "state": "done"
       },
       {
         "id": "ARENA-BAL-1",
@@ -956,8 +956,8 @@
       }
     ],
     "next_actions": [
-      "B3 HIT-FEEL-1 Round 1 — in tree (unpushed): softer vignette remap + `hitDirMinIntensity` 0.14 + `crashVolumeFloor` 0.22. Wyatt playtest love-taps vs hard rams; then Round 2 ack (shake gate + tune pane).",
       "CARGO-VIS-1 (SHIP-1 C2, High) — basket groceries must fill the full bay and overflow the rim when full (count ramp shipped; look still wrong).",
+      "HIT-FEEL-1 / B2 cargo — playtest PASS in tree but unpushed; ship only on Wyatt \"ship it\".",
       "Before public/external playtest: `DELETE /api/analytics?token=…` (clear DO) so ANLX evidence is strangers-only — see Gotchas."
     ],
     "open_issues": [
@@ -1184,8 +1184,8 @@
         "counts": {
           "Medium": 2,
           "Low": 6,
-          "Done": 3,
-          "High": 2
+          "Done": 4,
+          "High": 1
         },
         "rows": [
           {
@@ -1243,9 +1243,9 @@
             "ship1": "B1"
           },
           {
-            "pri": "High",
+            "pri": "Done",
             "item": "HIT-FEEL-1 — hit feedback `[SHIP-1 B3]`",
-            "notes": "**ACTIVE** — Round 1 in tree (quieter incoming); await playtest → Round 2 wake normals + tune pane.",
+            "notes": "PASS 07-22 (Wyatt) — quieter incoming + woken normals; `?tune` ramming.fx. Unpushed until ship.",
             "ship1": "B3"
           },
           {
@@ -1472,7 +1472,7 @@
           {
             "col0": "B3",
             "item": "HIT-FEEL-1 — hit feedback (weak normals + noisy incoming)",
-            "notes": "**ACTIVE** — Round 1 in tree (vignette + crashVolumeFloor); await playtest → Round 2. ARENA-BAL-1 closed 07-22."
+            "notes": "**PASS 07-22** (Wyatt playtest) — quieter incoming + woken normals; `?tune` ramming.fx. ARENA-BAL-1 closed 07-22. Unpushed until ship."
           }
         ]
       },
@@ -1668,6 +1668,11 @@
       "Cross-module change? Read docs/reference/control-flow.md first — most edges are not imports."
     ],
     "settled_decisions": [
+      {
+        "id": "D-HIT-FEEL-1",
+        "date": "07-22",
+        "text": "HIT-FEEL-1 PASS — quieter incoming (vignette remap + `crashVolumeFloor` 0.22 + `hitDirMin` 0.14) and woken normals (`shakeMinIntensity` 0.22 / boost 0.16); `?tune` exposes `ramming.fx.*`. Wyatt playtest confirmed. Still unpushed until \"ship it\"."
+      },
       {
         "id": "D-HIT-FEEL-QUEUE-1",
         "date": "07-22",

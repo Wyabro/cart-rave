@@ -3377,7 +3377,7 @@ async function main() {
       // * 7g podium — one column per slot, block height by finish (design ratios
       // * 250/170/120/80 scaled to the panel). Winner reads magenta + crown, the
       // * local player cyan, everyone else a hairline.
-      const PODIUM_HEIGHTS = [150, 102, 72, 48];
+      const PODIUM_HEIGHTS = [250, 170, 120, 80];
       const RANK_LABELS = ["1st", "2nd", "3rd", "4th"];
       const myPodiumSlotIdx = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
       rankedSlots.forEach((i, rank) => {
