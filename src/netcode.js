@@ -21,7 +21,7 @@ import { UnlockTracker } from "./stores/unlockStore.js";
 import { getCurrentLevelId } from "./levelManager.js";
 import { announce } from "./announcer/announcerManager.js";
 import { applyRemoteDirective, clearDirectiveOnHostMigration, getDirectiveWireState } from "./directives/directiveEngine.js";
-import { armSpillBoost } from "./cargoLoad.js";
+import { armSpillBoost, stripLifeCargo } from "./cargoLoad.js";
 import { clamp } from "./utils.js";
 import { playSfx } from "./audioManager.js";
 import { recordDiagEvent } from "./utils/diagnostics.js";
@@ -51,7 +51,7 @@ const _slerpQuatOut = [0, 0, 0, 0];
 /** Scratch pair result for findSnapshotPair — callers must destructure/consume before the next call. */
 const _snapshotPairScratch = { before: null, after: null, beforeIndex: -1 };
 /** Scratch cart snapshot (extrapolation/passthrough/interpolation) — avoids a fresh object alloc per cart per frame. */
-const _cartSnapScratch = { p: null, q: null, lv: null, av: null, b: undefined, h: undefined, ch: undefined, c: undefined, s: undefined };
+const _cartSnapScratch = { p: null, q: null, lv: null, av: null, b: undefined, h: undefined, ch: undefined, c: undefined, s: undefined, lc: undefined };
 const _cartSnapPosOut = [0, 0, 0];
 
 /** Copies a cart snapshot's fields into a scratch object (avoids a `{...snap}` alloc). */
@@ -65,6 +65,7 @@ function copyCartSnapIntoScratch(scratch, snap) {
   scratch.ch = snap.ch;
   scratch.c = snap.c;
   scratch.s = snap.s;
+  scratch.lc = snap.lc;
   return scratch;
 }
 
@@ -1104,6 +1105,7 @@ function writeInterpolatedRemoteTargets(cart, b, a, alpha) {
   _cartSnapScratch.ch = a.ch ?? b.ch;
   _cartSnapScratch.c = a.c ?? b.c;
   _cartSnapScratch.s = a.s ?? b.s;
+  _cartSnapScratch.lc = a.lc ?? b.lc;
 
   applyCartState(cart, _cartSnapScratch, { interpolate: true });
 }
@@ -1259,6 +1261,13 @@ export function applyCartState(cart, snap, options = {}) {
     if (!snap.s && cart._shatterState && !isShatterAnimating(cart, performance.now())) {
       doRespawnRef?.(cart);
     }
+  }
+
+  // * Life-scoped cargo weight (CARGO-WT-1) — host padding byte; drives bay/handling.
+  if (typeof snap.lc === "number" && Number.isFinite(snap.lc)) {
+    const full = Math.max(1, CONFIG.cargo?.fullScore ?? 8);
+    cart.lifeCargoPoints = Math.max(0, Math.min(full, snap.lc | 0));
+    cart.cargoFullness01 = cart.lifeCargoPoints / full;
   }
 }
 
@@ -1763,6 +1772,7 @@ export function serializeCartToWire(c) {
     ch: Boolean(c.isChargingBoost),
     c: c.cargoBay ? Boolean(c.cargoBay.visible) : true,
     s: Boolean(c.hasSpilled),
+    lc: Math.max(0, Math.min(255, Number(c.lifeCargoPoints) || 0)) | 0,
   };
 }
 
@@ -3499,11 +3509,8 @@ function handleRemoteSpill(msg) {
   if (cart && !cart.hasSpilled) cart.hasSpilled = true;
   // * Always despawn basket cargo on the wire spill (hide every bay under the cart).
   if (cart) GroceryPool.hideCargoBay(cart);
-  // * Living Cargo spill comeback — arm the "empty cart is fast" window locally so the
-  // * predicted local cart matches the host's buffed drive (and cargoLoad.js can run
-  // * the restock timer + announcer nudge on every client). Note the window anchors to
-  // * wire-receive time, so it lags the host's by one-way latency — reconciliation
-  // * absorbs the edges (see docs/planning/living-store-test-plan.md).
+  // * Life-scoped strip + spill announce window (drive surge is the stripped curve).
+  stripLifeCargo(cart);
   armSpillBoost(cart);
 
   GroceryPool.triggerSpill(

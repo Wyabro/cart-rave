@@ -68,7 +68,7 @@ Full record: [planning/production-passes.md](./planning/production-passes.md) an
 
 ## Current focus
 
-**Playtesting and stabilization.** Tier A drained. **B1 AI-DIFF-1 shipped** (`49bfc2a` / `index-Dxyw7U08.js`) — Easy/Med/Hard NPC tiers (Medium = baseline; Solo default Easy; Quickplay Medium; Friends host pick). Wyatt playtested local; Easy −15% / Hard +15% tune included. Next: Wyatt picks B2+ or wait. **Before public/external playtest: reset analytics DO** (see Gotchas).
+**Playtesting and stabilization.** Tier A drained. **B1 AI-DIFF-1 shipped** (`49bfc2a`). **B2 CARGO-WT-1 closed** (Wyatt feel accept 07-22). **B3 HIT-FEEL-1 PASS** (Wyatt playtest 07-22 — quieter incoming + woken normals; `?tune` ramming.fx). **ARENA-BAL-1 closed** (Wyatt 07-22, no code). **CARGO-VIS-1** queued (full-bay + rim overflow). **Before public/external playtest: reset analytics DO** (see Gotchas).
 
 Run 7 mission closed; NET-2 / NET-MIG-3 passed live; NET-PRES-1 landed (loss-on-drop residual accepted). Stay in this phase until Wyatt advances the marker.
 
@@ -114,6 +114,10 @@ Run 7 mission (below) is historical evidence, superseded as the live queue by
 | **A6** NET-SIM-1 | Reconnect / socket-lifecycle sims | ✅ **closed** (Cap-200 shipped + menu PASS; hostReload 13/13) |
 | **COUNTDOWN-ARM-1** | Play-ready-gated continuous `game_start` | ✅ **PASS** (Wyatt smoke 07-22 on `e08e5f5` — full 3-2-1) |
 | **A7** ANLX-VIEW-1 | analytics reading surface (`analytics:pull` + CC panel) | ✅ **PASS** (Wyatt smoke 07-22) |
+| **B2** CARGO-WT-1 | life-scoped grocery weight (boss/glass) | ✅ **closed** (Wyatt feel accept 07-22; look → CARGO-VIS-1) |
+| **B3** HIT-FEEL-1 | hit feedback — weak normals + noisy incoming | ✅ **PASS** (Wyatt playtest 07-22) |
+| **ARENA-BAL-1** | Sundial + Storerooms self-KO rate | ✅ **closed** (Wyatt 07-22, no code) |
+| **C2** CARGO-VIS-1 | full-bay fill + rim overflow look | 📋 pre-ship (High) — count ramp exists; layout/scale wrong |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
 | BRAND-1 | Domain cutover | 🧊 frozen |
 
@@ -133,9 +137,8 @@ Triage docs superseded: [playtest-triage-2026-07-17](./planning/playtest-triage-
 
 ### Next actions
 
-1. Waiting on Wyatt to name the next card (Tier A drained except reminders) or say wait / advance phase.
+1. **CARGO-VIS-1** (SHIP-1 C2, High) — basket groceries must fill the full bay and overflow the rim when full (count ramp shipped; look still wrong).
 2. **Before public/external playtest:** `DELETE /api/analytics?token=…` (clear DO) so ANLX evidence is strangers-only — see Gotchas.
-3. Pre-ship ordering: [planning/SHIP-1.md](./planning/SHIP-1.md).
 
 ## Open issues (top)
 
@@ -159,6 +162,8 @@ When named: other residual or RC exit criteria in [ROADMAP.md](./planning/ROADMA
 
 One line each; full text in [archive/decision-log-2026-07.md](./archive/decision-log-2026-07.md). Newest first.
 
+- **D-HIT-FEEL-1** (07-22): HIT-FEEL-1 PASS — quieter incoming (vignette remap + `crashVolumeFloor` 0.22 + `hitDirMin` 0.14) and woken normals (`shakeMinIntensity` 0.22 / boost 0.16); `?tune` exposes `ramming.fx.*`. Wyatt playtest confirmed.
+- **D-HIT-FEEL-QUEUE-1** (07-22): Closed B2 CARGO-WT-1 (feel accept) + ARENA-BAL-1 (no code). Active card → HIT-FEEL-1; Round 1 = vignette remap + `CONFIG.ramming.fx.crashVolumeFloor` (volume floor, not gate); Round 2 = shake gate + expose `ramming.fx.*` in gameplayTunePane.
 - **D-ARENA-COL-1** (07-22): Cart Rave pit KO reliability (ARENA-COL-1) PASS — rim entry `fallEntryPos` / `fallEntryTimeMs` feed `buildKOEvent` as `{ classifyPos, creditTimeMs }` so 30m shaft drift and ricochet delay no longer misclassify center_hole or expire hit credit. Wyatt playtest confirmed.
 - **D-MPFX-1** (07-22): Non-host gameplay VFX parity (MP-FX-1) PASS — synced `isChargingBoost` via snapshot flag bit 16 through interp scratch; remote hop-land thud/dust via takeoff-anchored vy heuristic + bridged `onHopLand`. Wyatt 2-browser playtest confirmed opponent charge glow + hop land FX.
 
@@ -254,46 +259,58 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
+2026-07-23 (UI — fight-night redesign, 6a HUD reworked) — Branch
+`redesign/fight-night-ui`, **unpushed**. HUD rebuilt to mock 6a in 3 cuts + 2 review rounds
+(`530825f`..`3240e6e`): directive → accent price-tag slab with a new placeholder `blurb` line;
+timer `TO CLOSE` + clock moved off Bungee (proportional digits resized the card every tick);
+rank digits and the cart-colour edge stripe deleted, score prints over a barcode, YOU cyan;
+kill feed → one **TRANSACTION LOG** receipt; nameplates → mini price tags (cart colour demoted to
+the punched hole's ring) + leader crown off a single new `getLeaderSlotIndex()`; boost → labelled
+360px slab with a hazard overcharge zone; combo → **CARNAGE COUPON** with a live countdown.
+**Next: 3a main menu** — the last surface, built pre-reversal and never diffed against its mock.
+
+2026-07-23 (UI — fight-night redesign, all 7 sub-screens done) — Branch
+`redesign/fight-night-ui`, **unpushed**. Path A (restyled centred cards) was **reversed at the
+07-22 review**: sub-screens got the mock's literal full-screen layouts on a shared `.cr-screen`
+shell. **7a–7g all rebuilt** (`f504b9a`..`3451819`): customize (7a), settings (7c), challenges
+(7b), how-to (7d), results podium + receipt (7g), Friends invite chrome + full-screen CHECKOUT
+LINE lobby (7e, netcode seam untouched — one slot→row resolver, one ready send, gate
+`phase === "lobby" && friends`), and pause (7f, the one screen that stays a centred 860px panel;
+three review rounds — flattened skew from the entrance animation, then mock interior detail, then
+a short-window scroll from width-based clamps). Verified by DOM/computed-style introspection only; the **HUD,
+results-in-match and a live friends lobby remain unseen** (Browser pane can't composite or
+complete mode entry on this host). Progress log:
+[planning/fight-night-ui-handover.md](./planning/fight-night-ui-handover.md).
+
 2026-07-22 (B1 AI-DIFF-1 SHIPPED) — `49bfc2a` / `index-Dxyw7U08.js` / Version `4e33515b`.
 Easy/Med/Hard NPC decision tiers on prod. Medium = baseline identity; Solo default Easy +
-Arenas picker; Quickplay forced Medium; Friends host pick via `host_round.aiDifficulty`.
+Arenas picker (`cr-diff-btn`); Quickplay forced Medium; Friends host pick via store +
+`host_round.aiDifficulty` latch (mirrors `levelId`; no `roundValidation` touch).
 Playtest-tuned Easy −15% / Hard +15% vs first pass. Hard `steerGainMax` ≤ 1.85.
-
-2026-07-22 (B1 AI-DIFF-1 — implemented, unpushed) — Easy/Med/Hard NPC decision tiers.
-Medium = identity (current baseline). Solo default Easy + menu picker under Arenas
-(`cr-diff-btn`); Quickplay forced Medium; Friends host pick via store + `host_round.aiDifficulty`
-latch (mirrors `levelId`; no `roundValidation` touch). Hard `steerGainMax` capped at 1.85.
-Gates: `npm run qa` green (767 tests). Awaiting Wyatt playtest before ship.
 
 2026-07-22 (A7 ANLX-VIEW-1 PASS) — Wyatt smoke: `analytics:pull` + Command Center Analytics
 panel. Reading surface closed. Reminder: clear analytics DO before public playtest
 (`DELETE /api/analytics`). Unpushed until Wyatt ships.
 
-2026-07-22 (COUNTDOWN-ARM-1 PASS) — Wyatt two-browser quickplay smoke on `e08e5f5`:
-full 3-2-1. Cap-200 menu PASS earlier. A6 closed. Battery was 5/6 (spawnlock only —
-`countdown_3` miss under load after gameharness; drive checks green). No active card.
+2026-07-22 (COUNTDOWN-ARM-1 SHIPPED + PASS) — Continuous-mode server waits for
+`MSG.clientPlayReady` (post-`ensureSessionCartsReady`) before minting `startsAtMs`, with a
+`PLAY_READY_TIMEOUT_MS=12s` ceiling that arms a fresh full window; Cap-200 client defer stays
+as straggler safety net. Shipped `e08e5f5`; Wyatt two-browser quickplay smoke on it = full
+3-2-1. A6 closed, no active card. Battery 5/6 (spawnlock only — `countdown_3` miss under load
+after gameharness; drive checks green).
 
-2026-07-22 (COUNTDOWN-ARM-1) — Continuous-mode server waits for `MSG.clientPlayReady`
-(post-`ensureSessionCartsReady`) before minting `startsAtMs`, with
-`PLAY_READY_TIMEOUT_MS=12s` ceiling that arms a fresh full window (timeout A). Cap-200
-client defer stays as straggler safety net. Shipped `e08e5f5`.
-
-2026-07-22 (Cap-200 — A6b false green) — Cap-200 (2eedc04, reloader, 4090) showed
-`menuVisible:false` while DOM menu resurrected: boot-splash late `CartRave.show()` after
-`commitMenuHiddenForGame`. Continuous-mode `colorPick` arm also truncated host countdown to
-1/GO. Fix shipped `8646dae`: `shouldBootRevealMenu` guard; host-MP defer; harness +
-`crRootDisplay`. Wyatt smoke: menu PASS; countdown better but Cap-203 residual → COUNTDOWN-ARM-1.
+2026-07-22 (A6b + Cap-200 — false green, then fixed) — netharness `hostReload` (mid-round
+host tab reload) read 13/13 live but was a **false green**: a flag-only assert. Cap-200
+(2eedc04, reloader, 4090) showed `menuVisible:false` while the DOM menu resurrected —
+boot-splash late `CartRave.show()` after `commitMenuHiddenForGame`; continuous-mode
+`colorPick` arm also truncated the host countdown to 1/GO. Fix shipped `8646dae`
+(`shouldBootRevealMenu` guard, host-MP defer, harness `crRootDisplay`); Wyatt smoke: menu
+PASS, countdown residual → COUNTDOWN-ARM-1 above.
 
 2026-07-22 (process — plan→ack→apply firewall) — Cold-start docs made the A6b skip
 impossible to miss: BRIEFING tag **ACTIVE CARD** (was DO THIS NOW) + explicit
 "not permission to edit"; STATUS Do-not #1; AGENTS HOW WORK step 0; paste-able opener.
 Lesson: buried STANDING bullets lose to a loud "do this now" heading.
-
-2026-07-22 (A6b — netharness `hostReload`) — Mid-round host tab reload scenario:
-survivor promotes, reloaded tab rejoins as non-host (sole-host), menu not stuck over game
-(`menuVisible`/`axisWired`), both drive, zero sim errors. **13/13 live** — later **false
-green** on Cap-200 (flag-only assert); see Cap-200 entry above. Continuous-mode lobby arm
-kept. A6a+A6b still unpushed pending Cap-200 smoke.
 
 2026-07-21 (ARCH — living architecture intelligence layer) — Extends the Command Center with a
 generated codebase map, both machine- and human-facing. New `npm run arch` (in `qa` + dashboard

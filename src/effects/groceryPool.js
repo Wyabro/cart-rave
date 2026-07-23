@@ -685,23 +685,17 @@ export function createCargoBay(hw, hl) {
 }
 
 /**
- * * Living Cargo — shows the first N groceries of a bay's fill-order list, where N maps
- * * fullness 0→1 onto CONFIG.cargo.baseItems→maxItems. The cart is the scoreboard:
- * * callers derive fullness from the synced round scores, so every client agrees.
+ * * Living Cargo — shows the first N groceries of a bay's fill-order list.
  * * Cheap enough to call per frame (visibility writes are skipped when unchanged).
  *
  * @param {THREE.Group | null | undefined} cargoBay Bay group built by {@link createCargoBay}.
- * @param {number} fullness01 Cargo fullness in [0, 1].
+ * @param {number} count Exact visible grocery count (clamped to the bay's item list).
  */
-export function setCargoFill(cargoBay, fullness01) {
+export function setCargoFillCount(cargoBay, count) {
   const items = cargoBay?.userData?.cargoItems;
   if (!items || items.length === 0) return;
 
-  const cargoCfg = CONFIG.cargo;
-  const base = THREE.MathUtils.clamp(cargoCfg?.baseItems ?? 2, 0, items.length);
-  const max = THREE.MathUtils.clamp(cargoCfg?.maxItems ?? items.length, base, items.length);
-  const f = THREE.MathUtils.clamp(fullness01, 0, 1);
-  const visibleCount = Math.round(THREE.MathUtils.lerp(base, max, f));
+  const visibleCount = Math.max(0, Math.min(items.length, Math.round(count)));
 
   if (cargoBay.userData.cargoFillCount === visibleCount) return;
   cargoBay.userData.cargoFillCount = visibleCount;
@@ -709,6 +703,22 @@ export function setCargoFill(cargoBay, fullness01) {
   for (let i = 0; i < items.length; i += 1) {
     items[i].visible = i < visibleCount;
   }
+}
+
+/**
+ * * Legacy fullness mapper — N maps fullness 0→1 onto CONFIG.cargo.baseItems→maxItems.
+ * * Prefer {@link setCargoFillCount} + life-cargo visual counts (CARGO-WT-1).
+ *
+ * @param {THREE.Group | null | undefined} cargoBay Bay group built by {@link createCargoBay}.
+ * @param {number} fullness01 Cargo fullness in [0, 1].
+ */
+export function setCargoFill(cargoBay, fullness01) {
+  const cargoCfg = CONFIG.cargo;
+  const itemsLen = cargoBay?.userData?.cargoItems?.length ?? 0;
+  const base = THREE.MathUtils.clamp(cargoCfg?.baseItems ?? 2, 0, itemsLen || 18);
+  const max = THREE.MathUtils.clamp(cargoCfg?.maxItems ?? (itemsLen || 18), base, itemsLen || 18);
+  const f = THREE.MathUtils.clamp(fullness01, 0, 1);
+  setCargoFillCount(cargoBay, Math.round(THREE.MathUtils.lerp(base, max, f)));
 }
 
 /**

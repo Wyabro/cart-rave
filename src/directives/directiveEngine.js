@@ -38,6 +38,7 @@ import { ANNOUNCER_EVENTS } from "../announcer/announcerEvents.js";
 import { getRoundClockNowMs } from "../roundClock.js";
 import { ROUND_DURATION_MS } from "../../shared/roundConstants.js";
 import { DIRECTIVES } from "./directives.js";
+import { grantLifeCargoForSlot } from "../cargoLoad.js";
 
 /**
  * @typedef {object} DirectiveEngineDeps
@@ -45,6 +46,7 @@ import { DIRECTIVES } from "./directives.js";
  * @property {(payload: object) => void} sendP2PEvent
  * @property {(eventId: string, data?: object) => void} announce
  * @property {(slotIndex: number, points: number) => void} addScore Host-authoritative score path.
+ * @property {() => Array<object | null | undefined> | null | undefined} [getAllCarts] For life-cargo grants.
  * @property {() => Map<number, { attackerSlotIndex: number, timestamp: number }>} getLastHitBy
  * @property {(info: {
  *   attackerSlotIndex: number,
@@ -134,6 +136,7 @@ function applyDirective(def, nowMs, durationMs) {
   activeView = {
     id: def.id,
     title: def.title,
+    blurb: def.blurb || "",
     startedAtMs: nowMs,
     untilMs: nowMs + durationMs,
     accent: ANNOUNCER_EVENTS[def.announceEvent]?.callout?.accent ?? "#22e6ff",
@@ -323,6 +326,7 @@ export function onHostSpill(victimSlotIndex) {
 
   const attackerSlotIndex = hit.attackerSlotIndex;
   deps.addScore(attackerSlotIndex, points);
+  grantLifeCargoForSlot(deps.getAllCarts?.() ?? null, attackerSlotIndex, points);
   // * Score path is host-authoritative; fan presentation after the award so a failed
   // * addScore (none today) would still not show a false float. Callback is optional
   // * so unit tests stay pure number-recordings.
@@ -347,14 +351,14 @@ export function onHostSpill(victimSlotIndex) {
  * Cached public view of the active directive. Built ONCE per apply (all fields are
  * stable for the window's life) so the per-frame HUD read doesn't allocate — see the
  * scratch-object convention in frameVisuals.js/simulation.js.
- * @type {{ id: string, title: string, startedAtMs: number, untilMs: number, accent: string } | null}
+ * @type {{ id: string, title: string, blurb: string, startedAtMs: number, untilMs: number, accent: string } | null}
  */
 let activeView = null;
 
 /**
  * The active directive (or null) — for HUD/debug surfaces. `accent` mirrors the
  * directive's announcer callout color so the HUD chip matches the big callout.
- * @returns {{ id: string, title: string, startedAtMs: number, untilMs: number, accent: string } | null}
+ * @returns {{ id: string, title: string, blurb: string, startedAtMs: number, untilMs: number, accent: string } | null}
  */
 export function getActiveDirective() {
   return activeView;

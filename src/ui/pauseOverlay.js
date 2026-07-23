@@ -31,6 +31,7 @@ const elements = {
   escBackdrop: null,
   escPanel: null,
   escTitle: null,
+  escContext: null,
   escSections: [],
   resumeBtn: null,
   restartBtn: null,
@@ -57,6 +58,24 @@ function syncRestartVisibility() {
 }
 
 /**
+ * Fills the sub-title context line with the live round + clock.
+ *
+ * Read straight off the HUD timer's own DOM rather than re-deriving from the
+ * round store — the HUD is suppressed (not destroyed) while paused, so its
+ * last painted "RD n" / ":37" is exactly the frozen state the player left, and
+ * the round-duration source stays single-sourced in hud.js.
+ */
+function syncPauseContext() {
+  if (!elements.escContext) return;
+  const rd = document.querySelector(".hud-timer-rd")?.textContent?.trim() || "";
+  const clock = document.querySelector(".hud-timer-num")?.textContent?.trim() || "";
+  // * HUD renders sub-minute time as ":37" and longer as "1:23".
+  const clockText = clock.startsWith(":") ? `${clock.slice(1)}S LEFT` : `${clock} LEFT`;
+  const parts = [rd, clock ? clockText : ""].filter(Boolean);
+  elements.escContext.textContent = parts.length ? parts.join(" · ") : "MATCH HELD";
+}
+
+/**
  * Syncs the quality cycle button label to the active (or pending) tier.
  * Module-scope so show() can re-sync after auto-quality step-downs.
  * @param {string} [tierOverride]
@@ -73,10 +92,11 @@ function syncQualityTierButtonState(tierOverride) {
  * @param {string} labelText
  * @param {(gain: number) => void} onChange
  * @param {string} ariaLabel
+ * @param {string} [variant] Row modifier ("music" / "sfx") — drives the accent.
  */
-function createEscVolumeRow(labelText, onChange, ariaLabel) {
+function createEscVolumeRow(labelText, onChange, ariaLabel, variant = "") {
   const row = document.createElement("div");
-  row.className = "esc-vol-row";
+  row.className = variant ? `esc-vol-row esc-vol-row--${variant}` : "esc-vol-row";
 
   const label = document.createElement("span");
   label.className = "esc-vol-label";
@@ -185,10 +205,43 @@ function wireEscButtonFeedback(btn) {
 }
 
 /**
+ * Press feedback animates the INNER node of a skewed slab: anime.js writes
+ * `transform` inline, which would wipe the outer skewX() for the duration of
+ * the press and snap the parallelogram flat (the 7a bug, `0d20900`).
+ * @param {HTMLElement} btn
+ * @returns {HTMLElement}
+ */
+function escPressTarget(btn) {
+  return /** @type {HTMLElement} */ (btn.querySelector(".esc-btn-inner") || btn);
+}
+
+/**
+ * Builds one bottom-row action slab — outer owns the skew, inner is the press
+ * target, label counter-skews. Same three-layer split as the menu sub-screens.
+ * @param {string} label
+ * @param {string} variantClasses
+ * @returns {HTMLButtonElement}
+ */
+function makeEscActionButton(label, variantClasses) {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = `esc-btn cc-btn ${variantClasses}`;
+  const inner = document.createElement("span");
+  inner.className = "esc-btn-inner";
+  const labelEl = document.createElement("span");
+  labelEl.className = "esc-btn-label";
+  labelEl.textContent = label;
+  inner.appendChild(labelEl);
+  btn.appendChild(inner);
+  wireButtonPressFeedback(btn, { scale: 0.96, getTarget: escPressTarget });
+  return btn;
+}
+
+/**
  * Builds a labeled Esc overlay section card with a dashed header divider.
  * @param {string} label
  * @param {string} [tag]
- * @returns {{ section: HTMLElement, body: HTMLElement }}
+ * @returns {{ section: HTMLElement, hd: HTMLElement, body: HTMLElement }}
  */
 function createEscSection(label, tag = "") {
   const section = document.createElement("section");
@@ -214,18 +267,25 @@ function createEscSection(label, tag = "") {
 
   section.appendChild(hd);
   section.appendChild(body);
-  return { section, body };
+  return { section, hd, body };
 }
 
 /**
  * Builds a controls reference row with keycaps and a label.
+ *
+ * Mirrors the SETTINGS controls chart (`.cr-settings-ctl-*`, 7c) exactly: the
+ * same key splits, the same all-caps labels, and a per-action accent on the
+ * lettering. The accent comes from a row modifier in CSS rather than an inline
+ * `--kc` like Settings uses, because Settings tints from the live arena palette
+ * in the menu module's closure, which this module can't reach.
  * @param {string|string[]} keys
  * @param {string} labelText
  * @param {boolean} [wide=false]
+ * @param {string} [action] Row modifier ("move"/"boost"/"hop"/"mute"/"menu").
  */
-function createEscControlRow(keys, labelText, wide = false) {
+function createEscControlRow(keys, labelText, wide = false, action = "") {
   const row = document.createElement("div");
-  row.className = "esc-ctl-row";
+  row.className = action ? `esc-ctl-row esc-ctl-row--${action}` : "esc-ctl-row";
 
   const keysEl = document.createElement("span");
   keysEl.className = "esc-ctl-keys";
@@ -264,6 +324,7 @@ function resetEscOverlayAnimState(overlay) {
     panel.style.transform = "translateY(18px) scale(0.96)";
   }
   if (title) title.style.opacity = "0";
+  if (elements.escContext) elements.escContext.style.opacity = "0";
 
   for (const section of elements.escSections) {
     if (!section) continue;
@@ -271,10 +332,12 @@ function resetEscOverlayAnimState(overlay) {
     section.style.transform = "translateY(10px)";
   }
 
+  // * Opacity ONLY on the action slabs. They carry their skew in CSS `transform`,
+  // * and anime.js writes `transform` inline — a translateY reveal here silently
+  // * flattened the parallelograms and left their counter-skewed labels slanted.
   for (const btn of [elements.resumeBtn, elements.restartBtn, elements.quitBtn]) {
     if (!btn) continue;
     btn.style.opacity = "0";
-    btn.style.transform = "translateY(8px)";
   }
 }
 
@@ -298,6 +361,7 @@ function animateEscOverlayShow() {
     panel.style.opacity = "1";
     panel.style.transform = "";
     if (title) title.style.opacity = "1";
+    if (elements.escContext) elements.escContext.style.opacity = "1";
     for (const section of elements.escSections) {
       if (!section) continue;
       section.style.opacity = "1";
@@ -306,7 +370,6 @@ function animateEscOverlayShow() {
     for (const btn of [elements.resumeBtn, elements.restartBtn, elements.quitBtn]) {
       if (!btn) continue;
       btn.style.opacity = "1";
-      btn.style.transform = "";
     }
     return;
   }
@@ -318,16 +381,19 @@ function animateEscOverlayShow() {
 
     animateMenuCardEnter(panel, { duration: 300, y: 18, ease: "outBack(1.25)" });
     animateMenuReveal(title, { delay: 40, duration: 260, y: 10, ease: "outExpo" });
+    animateMenuReveal(elements.escContext, { delay: 70, duration: 240, y: 8, ease: "outExpo" });
 
-    // Hero actions lead (top of the panel), then the lower settings/reference zone.
+    // Action slabs fade in staggered — deliberately NOT animateMenuReveal, which
+    // writes `transform` inline and would overwrite their CSS skew (see the
+    // reset above). Nothing may animate transform on these buttons. fadeIn has
+    // no delay of its own, so the stagger is a timer (token-guarded like the
+    // rest of the entrance).
     [elements.resumeBtn, elements.restartBtn, elements.quitBtn].forEach((btn, i) => {
       if (!btn) return;
-      animateMenuReveal(btn, {
-        delay: 90 + i * 35,
-        duration: 240,
-        y: 8,
-        ease: "outBack(1.2)",
-      });
+      window.setTimeout(() => {
+        if (token !== escEntranceToken) return;
+        fadeIn(btn, 240, { ease: "outQuad" });
+      }, 90 + i * 35);
     });
 
     elements.escSections.forEach((section, i) => {
@@ -404,6 +470,8 @@ export function show() {
 
     // * Re-sync in case the auto-quality watchdog stepped the session tier down.
     syncQualityTierButtonState();
+    // * Freeze-frame the round/time the player paused on.
+    syncPauseContext();
     // * Solo-only RESTART — resolve per-open (mode unknown at build time).
     syncRestartVisibility();
 
@@ -510,49 +578,52 @@ export function init(options = {}, hudContext = {}) {
   elements.escBackdrop.addEventListener("click", hide);
 
   elements.escPanel = document.createElement("div");
-  elements.escPanel.className = "esc-panel cc-panel";
+  // * No .cc-panel: this panel carries the mock's own material (softer ink, 14px
+  // * radius, 4px extrude, blur) and .cc-panel's `backdrop-filter: none` fights it.
+  elements.escPanel.className = "esc-panel";
   elements.escPanel.addEventListener("click", (e) => e.stopPropagation());
 
   elements.escTitle = document.createElement("h2");
-  elements.escTitle.className = "esc-title cc-title";
-  elements.escTitle.textContent = "MENU";
+  // * No .cc-title: the mock's PAUSED is the same flat warm-white + magenta glow
+  // * as every other 7x screen title, not the die-cut stroke + hard extrude.
+  elements.escTitle.className = "esc-title";
+  elements.escTitle.textContent = "PAUSED";
 
-  const controlsSection = createEscSection("◇ CONTROLS", touchDevice ? "TOUCH" : "KEYBOARD");
+  // * Round/time context under the title — the HUD is suppressed while paused,
+  // * so this is the only place the frozen clock is still readable.
+  elements.escContext = document.createElement("p");
+  elements.escContext.className = "esc-context";
+  elements.escContext.textContent = "MATCH HELD";
+
+  const controlsSection = createEscSection("CONTROLS", touchDevice ? "TOUCH" : "KEYBOARD");
   controlsSection.section.classList.add("esc-section--controls");
   const controlsList = document.createElement("div");
   controlsList.className = "esc-ctl-list";
 
-  if (touchDevice) {
-    /** @type {Array<[string[], string]>} */
-    const touchControls = [
-      [["Stick"], "Drive"],
-      [["Boost"], "Boost (hold to charge)"],
-      [["Hop"], "Hop"],
-      [["Menu"], "Open / close"],
+  // * Key splits, casing and wording track the SETTINGS chart row for row — a
+  // * player who reads the keys there and then pauses must see one chart.
+  /** @type {Array<[string[], string, boolean, string]>} */
+  const escControls = touchDevice
+    ? [
+      [["STICK"], "MOVE", true, "move"],
+      [["BOOST"], "BOOST", true, "boost"],
+      [["HOP"], "HOP", true, "hop"],
+      [["MENU"], "MENU", true, "menu"],
+    ]
+    : [
+      [["W", "A", "S", "D"], "MOVE", false, "move"],
+      [["SHIFT"], "BOOST", true, "boost"],
+      [["SPACE"], "HOP", true, "hop"],
+      [["M"], "MUTE", false, "mute"],
+      [["ESC"], "MENU", false, "menu"],
     ];
-    touchControls.forEach(([keys, labelText]) => {
-      controlsList.appendChild(createEscControlRow(keys, labelText));
-    });
-  } else {
-    controlsList.appendChild(createEscControlRow(["WASD / Arrows"], "Drive", true));
-    /** @type {Array<[string[], string, boolean?]>} */
-    const kbControls = [
-      [["Shift"], "Boost", true],
-      [["Space"], "Hop", true],
-      [["M"], "Mute"],
-      [["Esc"], "Close menu"],
-    ];
-    kbControls.forEach(([keys, labelText, wide]) => {
-      controlsList.appendChild(createEscControlRow(keys, labelText, wide));
-    });
-  }
+  escControls.forEach(([keys, labelText, wide, action]) => {
+    controlsList.appendChild(createEscControlRow(keys, labelText, wide, action));
+  });
   controlsSection.body.appendChild(controlsList);
 
-  const audioSection = createEscSection("◇ AUDIO");
+  const audioSection = createEscSection("AUDIO");
   audioSection.section.classList.add("esc-section--audio");
-  const escAudioRow = document.createElement("div");
-  escAudioRow.className = "esc-audio-row";
-
   elements.escMuteBtn = document.createElement("button");
   elements.escMuteBtn.type = "button";
   elements.escMuteBtn.className = "esc-mute-btn";
@@ -570,28 +641,32 @@ export function init(options = {}, hudContext = {}) {
   });
   wireButtonPressFeedback(elements.escMuteBtn, { scale: 0.92 });
 
-  elements.escMusicVol = createEscVolumeRow("♫", (v) => {
+  // * Mock 7f labels these in words, not glyphs — same as the SETTINGS sliders.
+  elements.escMusicVol = createEscVolumeRow("MUSIC", (v) => {
     if (_options.setMusicGain) _options.setMusicGain(v);
-  }, "Music volume");
-  elements.escSfxVol = createEscVolumeRow("⚡", (v) => {
+  }, "Music volume", "music");
+  elements.escSfxVol = createEscVolumeRow("SFX", (v) => {
     if (_options.setSfxVolume) _options.setSfxVolume(v);
-  }, "SFX volume");
+  }, "SFX volume", "sfx");
 
   const escVolStack = document.createElement("div");
   escVolStack.className = "esc-vol-stack";
   escVolStack.appendChild(elements.escMusicVol.row);
   escVolStack.appendChild(elements.escSfxVol.row);
-  escAudioRow.appendChild(elements.escMuteBtn);
-  escAudioRow.appendChild(escVolStack);
-  audioSection.body.appendChild(escAudioRow);
+  // * Mute rides the card header, not the slider row: sitting beside MUSIC/SFX
+  // * it crowded their labels and pushed the whole stack off the card's left
+  // * edge, out of line with the mock (and with the CONTROLS card beside it).
+  audioSection.hd.appendChild(elements.escMuteBtn);
+  audioSection.body.appendChild(escVolStack);
 
-  // * Store PA announcer toggles — own compact section rather than crowding
-  // * AUDIO further; ANNOUNCER gates all announcer audio (voice + stings),
-  // * CALLOUTS gates only the on-screen banner (announcerDisplay.js).
-  const announcerSection = createEscSection("◇ ANNOUNCER");
-  announcerSection.section.classList.add("esc-section--announcer");
-  const announcerRow = document.createElement("div");
-  announcerRow.className = "esc-announcer-row";
+  // * 7f: the four in-match toggles share ONE 2×2 grid (QUALITY / POST-FX /
+  // * ANNOUNCER / CALLOUTS) and live INSIDE the AUDIO card, per the mock — the
+  // * body is exactly two cards, AUDIO and CONTROLS. The chips self-label
+  // * ("QUALITY: HIGH"), so the retired OPTIONS header would only add noise.
+  // * ANNOUNCER gates all announcer audio (voice + stings); CALLOUTS gates only
+  // * the on-screen banner (announcerDisplay.js).
+  const togglesGrid = document.createElement("div");
+  togglesGrid.className = "esc-toggle-grid";
 
   const syncAnnouncerVoiceButtonState = (enabled) => {
     if (!elements.announcerVoiceBtn) return;
@@ -628,90 +703,24 @@ export function init(options = {}, hudContext = {}) {
   wireEscButtonFeedback(elements.announcerVoiceBtn);
   wireEscButtonFeedback(elements.announcerCalloutsBtn);
 
-  announcerRow.appendChild(elements.announcerVoiceBtn);
-  announcerRow.appendChild(elements.announcerCalloutsBtn);
-  announcerSection.body.appendChild(announcerRow);
-
-  const scoringSection = createEscSection("◇ SCORING");
-  scoringSection.section.classList.add("esc-section--scoring");
-
-  const scoreList = document.createElement("ul");
-  scoreList.className = "esc-score-list";
-  // * Names must match HOW TO PLAY (index.html) — same events, same vocabulary
-  // * (style guide §8: Edge KO / Hazard KO are the scoring terms).
-  [
-    ["Edge KO", "◆", "+1"],
-    ["Hazard KO", "◆◆", "+2"],
-    ["Critical", "◆◆◆", "+1 bonus"],
-    ["Leader down", "◆◆◆◆", "+1 bonus"],
-    ["High ground (Sundial)", "◆◆◆◆◆", "+1 bonus"],
-  ].forEach(([name, icon, pts]) => {
-    const item = document.createElement("li");
-    item.className = "esc-score-row";
-
-    const nameEl = document.createElement("span");
-    nameEl.className = "esc-score-name";
-    nameEl.textContent = name;
-
-    const ptsEl = document.createElement("span");
-    ptsEl.className = "esc-score-pts";
-    const iconEl = document.createElement("span");
-    iconEl.className = "esc-score-icon";
-    iconEl.textContent = icon;
-    iconEl.setAttribute("aria-hidden", "true");
-    ptsEl.appendChild(iconEl);
-    ptsEl.appendChild(document.createTextNode(pts));
-
-    item.appendChild(nameEl);
-    item.appendChild(ptsEl);
-    scoreList.appendChild(/** @type {any} */ (item));
-  });
-  scoringSection.body.appendChild(scoreList);
-
-  const scoreFootnote = document.createElement("p");
-  scoreFootnote.className = "esc-score-footnote";
-  scoreFootnote.textContent = "Bonuses stack on top of the base KO points";
-  scoringSection.body.appendChild(scoreFootnote);
-
-  const leaderHint = document.createElement("p");
-  leaderHint.className = "esc-leader-hint";
-  const leaderDot = document.createElement("span");
-  leaderDot.className = "esc-leader-dot";
-  leaderDot.setAttribute("aria-hidden", "true");
-  leaderHint.appendChild(leaderDot);
-  leaderHint.appendChild(document.createTextNode("Leader glows white"));
-  scoringSection.body.appendChild(leaderHint);
-
-  // ── Primary actions (hero) — the decisions players open the menu to make ──
+  // ── Actions — one row along the bottom (mock 7f), RESUME leading ──────────
   const actions = document.createElement("div");
   actions.className = "esc-actions";
 
-  elements.resumeBtn = document.createElement("button");
-  elements.resumeBtn.type = "button";
-  elements.resumeBtn.className = "esc-btn esc-btn--resume cc-btn cc-btn--primary";
-  elements.resumeBtn.textContent = "RESUME";
-
-  elements.restartBtn = document.createElement("button");
-  elements.restartBtn.type = "button";
-  elements.restartBtn.className = "esc-btn cc-btn cc-btn--secondary";
-  elements.restartBtn.textContent = "RESTART";
+  elements.resumeBtn = makeEscActionButton("RESUME", "esc-btn--resume cc-btn--primary");
   // * Restart is a clean local re-entry only in single-player; online rematch is
   // * host-authoritative and lives on the podium PLAY AGAIN flow. The overlay is
   // * built once at startup before any room exists, so visibility is resolved on
   // * every show() (see syncRestartVisibility) rather than here.
+  elements.restartBtn = makeEscActionButton("RESTART ROUND", "cc-btn--secondary");
   elements.restartBtn.style.display = "none";
 
-  elements.quitBtn = document.createElement("button");
-  elements.quitBtn.type = "button";
-  elements.quitBtn.className = "esc-btn cc-btn cc-btn--danger";
-  elements.quitBtn.textContent = "QUIT TO MENU";
+  // * 7f: leaving the match is the recessive choice — ghost, not danger red.
+  elements.quitBtn = makeEscActionButton("MAIN MENU", "cc-btn--ghost");
 
-  const escActionsSecondary = document.createElement("div");
-  escActionsSecondary.className = "esc-actions-secondary";
-  escActionsSecondary.appendChild(elements.restartBtn);
-  escActionsSecondary.appendChild(elements.quitBtn);
   actions.appendChild(elements.resumeBtn);
-  actions.appendChild(escActionsSecondary);
+  actions.appendChild(elements.restartBtn);
+  actions.appendChild(elements.quitBtn);
 
   // ── DISPLAY settings — grouped with AUDIO/ANNOUNCER, out of the actions row ──
   const postFxEnabled = () => (_options.getBloomEnabled ? _options.getBloomEnabled() : true) && (_options.getFxPassEnabled ? _options.getFxPassEnabled() : true);
@@ -744,54 +753,40 @@ export function init(options = {}, hudContext = {}) {
     if (_options.onQualityTierChange) _options.onQualityTierChange(next);
   });
 
-  const displaySection = createEscSection("◇ DISPLAY");
-  displaySection.section.classList.add("esc-section--display");
-  const displayRow = document.createElement("div");
-  displayRow.className = "esc-display-row";
-  displayRow.appendChild(elements.postFxBtn);
-  displayRow.appendChild(elements.lowQualityBtn);
-  displaySection.body.appendChild(displayRow);
+  // * Grid order reads left→right, top→bottom: QUALITY · POST-FX / ANNOUNCER · CALLOUTS.
+  togglesGrid.appendChild(elements.lowQualityBtn);
+  togglesGrid.appendChild(elements.postFxBtn);
+  togglesGrid.appendChild(elements.announcerVoiceBtn);
+  togglesGrid.appendChild(elements.announcerCalloutsBtn);
+  audioSection.body.appendChild(togglesGrid);
 
-  wireEscButtonFeedback(elements.resumeBtn);
-  wireEscButtonFeedback(elements.restartBtn);
-  wireEscButtonFeedback(elements.quitBtn);
+  // * The three action slabs wire their own press feedback (inner node) in
+  // * makeEscActionButton — only the toggle chips need the plain wiring.
   wireEscButtonFeedback(elements.postFxBtn);
   wireEscButtonFeedback(elements.lowQualityBtn);
 
-  // * Entrance order = settings first (top of the lower zone), reference last.
+  // * Entrance order matches the read: AUDIO then CONTROLS.
   elements.escSections = [
     audioSection.section,
-    announcerSection.section,
-    displaySection.section,
     controlsSection.section,
-    scoringSection.section,
   ];
 
-  elements.escPanel.appendChild(elements.escTitle);
+  // Header row (mock 7f): PAUSED left, frozen round/clock hard right.
+  const escHd = document.createElement("div");
+  escHd.className = "esc-hd";
+  escHd.appendChild(elements.escTitle);
+  escHd.appendChild(elements.escContext);
+  elements.escPanel.appendChild(escHd);
 
-  // Priority read: actions (hero) → settings cluster → recessed reference.
+  // Body = the two cards side by side; it is the only zone that scrolls, so the
+  // actions row below stays reachable on a short viewport.
   const escBody = document.createElement("div");
   escBody.className = "esc-body";
+  escBody.appendChild(audioSection.section);
+  escBody.appendChild(controlsSection.section);
 
-  const escSettings = document.createElement("div");
-  escSettings.className = "esc-settings";
-  escSettings.appendChild(audioSection.section);
-  escSettings.appendChild(announcerSection.section);
-  escSettings.appendChild(displaySection.section);
-
-  const escReference = document.createElement("div");
-  escReference.className = "esc-reference";
-  escReference.appendChild(controlsSection.section);
-  escReference.appendChild(scoringSection.section);
-
-  const escLower = document.createElement("div");
-  escLower.className = "esc-lower";
-  escLower.appendChild(escSettings);
-  escLower.appendChild(escReference);
-
-  escBody.appendChild(actions);
-  escBody.appendChild(escLower);
   elements.escPanel.appendChild(escBody);
+  elements.escPanel.appendChild(actions);
   elements.escOverlay.appendChild(elements.escBackdrop);
   elements.escOverlay.appendChild(elements.escPanel);
   document.body.appendChild(elements.escOverlay);

@@ -113,8 +113,9 @@ export function encodeHostStateSnapshot(state) {
     if (c.s) flags |= 8;
     if (c.ch) flags |= 16;
     view.setUint8(offset, flags); offset += 1;
-    // 3 bytes padding
-    view.setUint8(offset, 0); offset += 1;
+    // * Padding[0] = life cargo points (CARGO-WT-1); remaining two bytes reserved.
+    const lc = Math.max(0, Math.min(255, Number(c.lc) || 0)) | 0;
+    view.setUint8(offset, lc); offset += 1;
     view.setUint8(offset, 0); offset += 1;
     view.setUint8(offset, 0); offset += 1;
   }
@@ -155,6 +156,8 @@ function nextDecodeRingEntry() {
         h: false,
         c: false,
         s: false,
+        ch: false,
+        lc: 0,
       });
     }
     entry = {
@@ -242,7 +245,8 @@ export function decodeHostStateSnapshot(buffer) {
     const ackSeq = view.getUint32(offset, true); offset += 4;
     
     const flags = view.getUint8(offset); offset += 1;
-    offset += 3; // padding
+    const lc = view.getUint8(offset); offset += 1;
+    offset += 2; // remaining padding
     
     // Refill the pooled cart record in place (same shape as the original JSON structure).
     const cart = ringEntry.cartPool[i];
@@ -256,6 +260,7 @@ export function decodeHostStateSnapshot(buffer) {
     cart.c = (flags & 4) === 4;
     cart.s = (flags & 8) === 8;
     cart.ch = (flags & 16) === 16;
+    cart.lc = lc;
     carts.push(cart);
   }
   

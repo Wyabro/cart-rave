@@ -59,15 +59,15 @@ opportunistically when touched — no dedicated refactor pass.
 | # | Item | Notes |
 |---|------|-------|
 | B1 | AI-DIFF-1 — NPC difficulty tiers (also sharpens Solo-as-tutorial) | **Shipped 07-22** (`49bfc2a`) — Easy/Med/Hard; Medium = baseline; Solo default Easy; Quickplay Medium; Friends host pick. |
-| B2 | CARGO-WT-1 — grocery weight risk/reward | |
-| B3 | HIT-FEEL-1 — hit feedback · ARENA-BAL-1 self-KO tuning as playtests dictate | |
+| B2 | CARGO-WT-1 — grocery weight risk/reward | **Closed 07-22** (Wyatt feel accept) — life-scoped boss/glass; bay **count** ramp shipped (look → CARGO-VIS-1) |
+| B3 | HIT-FEEL-1 — hit feedback (weak normals + noisy incoming) | **PASS 07-22** (Wyatt playtest) — quieter incoming + woken normals; `?tune` ramming.fx. ARENA-BAL-1 closed 07-22. |
 
 ## Tier C — Cart model → patterns (one workstream, Wyatt-led art)
 
 | # | Item |
 |---|------|
 | C1 | New cart basket/model (completes the prototype-era cart design). **While in Blender: clean body UVs / 2nd UV channel** — the exact blocker on patterns ([cart-pattern-reuv.md](../guides/cart-pattern-reuv.md)). |
-| C2 | CARGO-VIS-1 — groceries visibly fill the (new) basket |
+| C2 | CARGO-VIS-1 — basket fill + overflow look (full bay; pile overflows the rim at boss/full) |
 | C3 | PATTERNS tab in customize UI — unblocked by C1 |
 
 ## Tier D — Trust & leaderboard (biggest lift; builds on A5a's tested helpers)

@@ -54,7 +54,7 @@ post-launch unless Wyatt pulls them forward.
 | Medium | Wilting-groceries Defeat screen reads as "confetti / something good" `[SHIP-1 E2]` | Needs art-direction call before code. |
 | High | CART-MODEL-1 — new cart basket/model `[SHIP-1 C1]` | Wyatt-led Blender work completing the prototype-era cart design. While in Blender: clean body UVs / 2nd UV channel — unblocks patterns ([cart-pattern-reuv.md](../guides/cart-pattern-reuv.md)). |
 | Medium | Pattern customize UI `[SHIP-1 C3]` | Unblocked by CART-MODEL-1's re-UV. |
-| Medium | CARGO-VIS-1 — groceries visibly fill the basket `[SHIP-1 C2]` | Visual half of CARGO-WT-1; follows the new basket. |
+| High | CARGO-VIS-1 — basket fill + overflow look `[SHIP-1 C2]` | Pre-ship: groceries must **fill the full basket** and **overflow the top** at boss/full life-cargo. Count ramp exists (CARGO-WT-1); layout/scale/pile still wrong. Prefer after C1 new basket; can prototype on current bay if needed. |
 | Low | Sunglasses finish materials broken `[SHIP-1 E2]` | |
 | Low | Asset filename rebrand (`cart-rave-base*.glb` etc.) | Deliberate asset pass — [brand.md](../brand.md). |
 
@@ -77,11 +77,11 @@ post-launch unless Wyatt pulls them forward.
 | Low | Death-cam "follow killer" revisit | Previously reverted. |
 | Low | Animate the customize sunglasses-tab camera zoom | |
 | Low | Subtle monetization path | Idea stage only. |
-| High | CARGO-WT-1 — grocery weight as risk/reward `[SHIP-1 B2]` | Host-side physics; evaluate rubberband + MP balance. |
+| Done | CARGO-WT-1 — grocery weight as risk/reward `[SHIP-1 B2]` | Closed 07-22 (Wyatt feel accept) — life-scoped boss/glass; bay count ramp; look → CARGO-VIS-1. |
 | Done | AI-DIFF-1 — NPC difficulty modes `[SHIP-1 B1]` | Shipped 07-22 (`49bfc2a`). Medium = baseline; Solo Easy default + menu; Quickplay Medium; Friends host pick. |
-| High | HIT-FEEL-1 — hit feedback `[SHIP-1 B3]` | Weak normals + noisy incoming. |
+| Done | HIT-FEEL-1 — hit feedback `[SHIP-1 B3]` | PASS 07-22 (Wyatt) — quieter incoming + woken normals; `?tune` ramming.fx. |
 | High | INPUT-KB-1 — keyboard parity with controller `[SHIP-1 A2]` | |
-| Medium | ARENA-BAL-1 — self-KO rate on Sundial + Storerooms `[SHIP-1 B3]` | |
+| Done | ARENA-BAL-1 — self-KO rate on Sundial + Storerooms `[SHIP-1 B3]` | Closed 07-22 (Wyatt, no code). |
 | Low | Controller vibration strength *(pre-ship 07-19)* | |
 
 ## UI / UX

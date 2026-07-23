@@ -37,6 +37,12 @@
   --color-bg-deep: #0a0014;
   --color-bg-black: #000;
 
+  /* UI text greys (Fight Night redesign) — secondary body, muted labels, faint
+     meta. Map the mock's #d8d4e0 / #8a8494 / #6f6a7c here so screens use tokens. */
+  --color-text-secondary: #d8d4e0;
+  --color-muted: #8a8494;
+  --color-faint: #6f6a7c;
+
   /* Hue-derived live accent — follows --hue (registered @property), so it
      re-skins with the active arena and can be smoothly animated. */
   --accent-live: oklch(0.72 0.2 var(--hue));
@@ -178,6 +184,23 @@
     0 0 0 2.5px var(--color-sticker-white),
     1px 1px 0 2.5px var(--color-ink-deep),
     inset 0 2px 0 rgba(255,255,255,0.07);
+
+  /* Slab material — "Fight Night" redesign (2026-07). Hairline border + hard
+     ink extrude + plastic inner highlight, NO white die-cut contour. This
+     replaces the sticker contour on panels/chips/buttons game-wide; the white
+     die-cut edge survives ONLY on personality emblems (icons.js) + big Road
+     Rage lettering (.cc-title) + the CUSTOM color chip / hue knobs. Pair the
+     border (--border-white-12) with --slab-shadow on the element; add
+     skewX(-8deg) on the container + skewX(8deg) on its content for the
+     interactive parallelogram. */
+  --slab-extrude: 3px 3px 0 var(--color-ink-deep);
+  --slab-extrude-sm: 2px 2px 0 var(--color-ink-deep);
+  --slab-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  --slab-shadow: var(--slab-extrude), var(--slab-highlight);
+  --slab-shadow-sm: var(--slab-extrude-sm), var(--slab-highlight);
+  /* Hover: edge pops (bigger offset). Pressed: pushed flat toward the surface. */
+  --slab-shadow-hover: 5px 6px 0 var(--color-ink-deep), var(--slab-highlight);
+  --slab-shadow-pressed: 1px 1px 0 var(--color-ink-deep), var(--slab-highlight);
 
   /* Hazard stripes — printed retail urgency (45° yellow/ink, red variant). */
   --hazard-yellow: repeating-linear-gradient(

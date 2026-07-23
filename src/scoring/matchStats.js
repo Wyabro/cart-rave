@@ -15,6 +15,7 @@
  * @property {number} maxComboTier
  * @property {number} criticalKos
  * @property {number} leaderDowns
+ * @property {number} localSpills groceries the local player knocked out of a rival
  * @property {number[]} kosBySlot length 4
  * @property {number[]} deathsBySlot length 4
  */
@@ -29,6 +30,7 @@ function emptyStats() {
     maxComboTier: 0,
     criticalKos: 0,
     leaderDowns: 0,
+    localSpills: 0,
     kosBySlot: [0, 0, 0, 0],
     deathsBySlot: [0, 0, 0, 0],
   };
@@ -46,6 +48,16 @@ let localSlotIndex = -1;
  */
 export function resetMatchStats() {
   stats = emptyStats();
+}
+
+/**
+ * Records one spill the local player forced out of a rival. Called from the same
+ * simulation site that feeds the SPILL progression event, so the receipt counts
+ * exactly what the challenges count.
+ * @returns {void}
+ */
+export function recordLocalSpillForMatchStats() {
+  stats.localSpills += 1;
 }
 
 /**
@@ -77,6 +89,7 @@ export function snapshotMatchStats() {
     maxComboTier: stats.maxComboTier,
     criticalKos: stats.criticalKos,
     leaderDowns: stats.leaderDowns,
+    localSpills: stats.localSpills,
     kosBySlot: stats.kosBySlot.slice(),
     deathsBySlot: stats.deathsBySlot.slice(),
   };

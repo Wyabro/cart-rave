@@ -79,14 +79,13 @@ import { STAGE_PRIORITY } from "./ui/centerStage.js";
 import * as Input from "./input.js";
 import * as Netcode from "./netcode.js";
 import * as GameState from "./gameState.js";
-import { getNpcPersonality, PERSONALITY_META } from "./npcNames.js";
+import { getNpcPersonality, PERSONALITY_META, emblemForSlot } from "./npcNames.js";
 import { svgIcon } from "./ui/icons.js";
 import { ChallengeTracker, challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
 import { onUnlockGranted, unlockStore } from "./stores/unlockStore.js";
 import { PROGRESSION_EVENTS } from "./progression/eventIds.js";
 import {
   getMatchStats,
-  matchSuperlatives,
   resetMatchStats,
   setMatchStatsLocalSlot,
   snapshotMatchStats,
@@ -110,17 +109,22 @@ function escapeHtml(text) {
  * @param {boolean} isHost
  * @returns {string}
  */
-function nametagHtml(name, meta, mode, isHost) {
+function nametagHtml(name, meta, mode, isHost, isLeader = false) {
   const hostGlyph = isHost
     ? `<span style="opacity:.85;margin-right:5px;">${svgIcon("host", { label: "Host" })}</span>`
     : "";
-  if (!meta) return `${hostGlyph}${escapeHtml(name)}`;
+  // * Mock 6a puts the crown on the leader's plate, same mark as the scoreboard.
+  // * Who leads comes from HUD.getLeaderSlotIndex() — one rule, not two.
+  const crown = isLeader
+    ? `<span class="cart-nametag-crown">${svgIcon("crown", { label: "Leader" })}</span>`
+    : "";
+  if (!meta) return `${hostGlyph}${escapeHtml(name)}${crown}`;
   const icon = `<span style="color:${meta.color};margin-right:6px;">${svgIcon(meta.icon, { label: meta.label })}</span>`;
   if (mode === "intro") {
     // * Countdown teach-moment: icon + personality word, collapses to icon-only at GO.
-    return `${icon}<span style="color:${meta.color};">${meta.label}</span>`;
+    return `${icon}<span style="color:${meta.color};">${meta.label}</span>${crown}`;
   }
-  return `${icon}${escapeHtml(name)}`;
+  return `${icon}${escapeHtml(name)}${crown}`;
 }
 import * as AudioManager from "./audioManager.js";
 import * as ArenaAmbience from "./ambience/arenaAmbience.js";
@@ -129,7 +133,7 @@ import * as CameraMod from "./camera.js";
 import * as Effects from "./effects.js";
 import * as GroceryPool from "./effects/groceryPool.js";
 import { initDirectiveEngine, getDirectiveKoRewardMultiplier, onHostSpill as directiveOnHostSpill, shiftDirectiveTimersBy, clearActiveDirective } from "./directives/directiveEngine.js";
-import { armSpillBoost, spillCountForCart } from "./cargoLoad.js";
+import { armSpillBoost, spillCountForCart, stripLifeCargo } from "./cargoLoad.js";
 import { loadLevel, resolveLevelId, prefetchLevelChunks, LEVEL_STORAGE_KEY, PREFETCHABLE_LEVEL_IDS } from "./levels/index.js";
 import { DEV_UNLOCKS_STORAGE_KEY, LEVEL_UNLOCKS } from "./unlockConfig.js";
 import { updateLevelLod } from "./utils/levelLod.js";
@@ -534,6 +538,14 @@ let leaderHum = null;
  * @type {{ endedAtMs: number, winnerSlotIndex: number | "draw", scores: Record<number, number>, mode?: "solo" | "quickplay" | "testdrive" | "friends" }[]}
  */
 let matchHistory = [];
+
+/**
+ * Challenge ids already complete when this round started. The receipt diffs
+ * against it to report a challenge finished DURING the match, rather than one
+ * that was already done days ago.
+ * @type {Set<string>}
+ */
+let challengesCompleteAtRoundStart = new Set();
 
 /** @type {ReturnType<typeof setTimeout> | null} */
 let roundPodiumTimeoutId = null;
@@ -1099,8 +1111,8 @@ async function main() {
   function triggerLocalRamShake(intensity, isBoosting = false) {
     const fx = /** @type {Record<string, any>} */ (CONFIG.ramming?.fx ?? {});
     const minI = isBoosting
-      ? (fx.shakeBoostMinIntensity ?? 0.24)
-      : (fx.shakeMinIntensity ?? 0.38);
+      ? (fx.shakeBoostMinIntensity ?? 0.16)
+      : (fx.shakeMinIntensity ?? 0.22);
     if (intensity < minI) return;
     const clampedI = Math.min(intensity, 1.2);
     const boostMul = isBoosting ? 1.3 : 1.0;
@@ -1114,8 +1126,8 @@ async function main() {
       armFovPunch(8, 100);
     }
   }
-  // * Victim-side ram feedback — shake/post-FX only on hard hits; directional DOM
-  // * vignette arms on lighter rams too (most impulses sit below shakeMinIntensity).
+  // * Victim-side ram feedback — shake/post-FX from shakeMinIntensity; directional DOM
+  // * vignette from hitDirMinIntensity (HIT-FEEL-1: Round 1 quiet incoming, Round 2 wake normals).
   /**
    * @param {number} intensity
    * @param {boolean} [isBoosting]
@@ -1128,14 +1140,14 @@ async function main() {
 
     // * Directional hit cue first — lower floor than shake so everyday rams still read.
     // * fxIntensity is impulse/maxImpulse; typical non-boost rams often land ~0.1–0.35.
-    const vignetteMin = fx.hitDirMinIntensity ?? 0.08;
+    const vignetteMin = fx.hitDirMinIntensity ?? 0.14;
     if (clampedI >= vignetteMin) {
       pulseLocalHitDirectionVignette(clampedI, hitFromX, hitFromZ);
     }
 
     const minI = isBoosting
-      ? (fx.shakeBoostMinIntensity ?? 0.24)
-      : (fx.shakeMinIntensity ?? 0.38);
+      ? (fx.shakeBoostMinIntensity ?? 0.16)
+      : (fx.shakeMinIntensity ?? 0.22);
     if (clampedI < minI) return;
     const boostMul = isBoosting ? 1.3 : 1.0;
     shakeIntensity = clampedI * (fx.shakePixelScale ?? 5.5) * boostMul;
@@ -1159,9 +1171,12 @@ async function main() {
     const cart = localCartForConnId();
     if (!cart?.body || typeof HUD.pulseHitDirection !== "function") return;
 
-    // * Remap low impulse intensities into a readable display range (tuned +25% then +10%).
-    // * sqrt eases mid-hits up without washing out boost rams.
-    const displayI = Math.min(1, 0.46 + Math.sqrt(Math.min(clampedI, 1.2)) * 0.79);
+    // * Remap low impulse intensities into a readable display range (HIT-FEEL-1 Round 1:
+    // * quieter love-taps; hard/nitro still near full via sqrt). Knobs on CONFIG.ramming.fx.
+    const fx = /** @type {Record<string, any>} */ (CONFIG.ramming?.fx ?? {});
+    const bias = fx.hitDirDisplayBias ?? 0.3;
+    const scale = fx.hitDirDisplayScale ?? 0.62;
+    const displayI = Math.min(1, bias + Math.sqrt(Math.min(clampedI, 1.2)) * scale);
 
     const len = Math.hypot(hitFromX, hitFromZ);
     let top = 0;
@@ -1411,6 +1426,7 @@ async function main() {
     sendP2PEvent: (payload) => Netcode.sendP2PEvent(payload),
     announce,
     addScore: GameState.addScore,
+    getAllCarts: () => allCartsRef,
     getLastHitBy: () => GameState.getLastHitBy(),
     // * Host-local presentation; non-hosts get the same path via MSG.spillBonus.
     onSpillBonusAward: (award) => presentSpillBonusAward(award),
@@ -1901,6 +1917,9 @@ async function main() {
         const menuRoot = document.getElementById("cr-root");
 
         if (friendsLink) friendsLink.value = roomLink;
+        // * The code is what people read out loud; the link is what they paste.
+        const friendsCode = document.getElementById("cr-friends-code");
+        if (friendsCode) friendsCode.textContent = roomId.toUpperCase();
         window.CartRave?.stopAnimations?.();
         if (menuRoot) menuRoot.style.display = "none";
         if (friendsScreen) {
@@ -2201,6 +2220,9 @@ async function main() {
       handleSoloPauseOverlay(open);
     },
     onQuitToMenu: () => gameSession.returnToMenu({ reason: "esc" }),
+    // * CHECKOUT LINE "LEAVE ROOM" rides the same teardown as the pause menu's
+    // * MAIN MENU — socket close + ?room= clear live there (no second path).
+    onLeaveRoom: () => gameSession.returnToMenu({ reason: "lobby-leave" }),
     // * Pause-menu RESTART (solo/test-drive only): reuse the host solo re-entry
     // * path — reset the world and re-run the countdown, no menu round-trip.
     onRestart: () => onHostPlayAgainClick(),
@@ -3195,7 +3217,7 @@ async function main() {
 
   function updateResultsOverlay() {
     if (!resultsUi) return;
-    const { overlay, panel, title, finalScores, history, playAgain, statsLine, mainMenuBtn } = resultsUi;
+    const { overlay, panel, title, verdict, finalScores, receipt, playAgain, mainMenuBtn } = resultsUi;
     const roundState = GameState.getRoundState();
     if (roundState.phase === "podium") {
       // * Ensure host + all clients share the same winner-cam presentation path.
@@ -3322,9 +3344,12 @@ async function main() {
 
       const slotDisplayName = (slotIndex) => Netcode.getNetSlots()[slotIndex]?.name || `P${slotIndex + 1}`;
 
+      // * 7g: the headline is the PA callout ("THE STORE IS NOW CLOSED", set once
+      // * in initResultsOverlay); the per-round verdict lives on its own line and
+      // * the winner's color still drives --title-glow on the headline.
       const winnerIdx = roundState.winnerSlotIndex;
       if (winnerIdx === "draw") {
-        title.textContent = "DRAW";
+        verdict.textContent = "DRAW";
         title.style.setProperty("--title-glow", "#ffe53d");
       } else {
         const idx = Number.isFinite(winnerIdx) ? winnerIdx : null;
@@ -3341,19 +3366,19 @@ async function main() {
           }
           const tieSuffix = tiedAtTop > 1 ? " (TIEBREAK)" : "";
           if (roundState.endReason === "lastStanding") {
-            title.textContent = `${slotDisplayName(idx)} wins — LAST CART STANDING`;
+            verdict.textContent = `${slotDisplayName(idx)} wins — LAST CART STANDING`;
           } else {
-            title.textContent = `${slotDisplayName(idx)} wins — ${score} pts${tieSuffix}`;
+            verdict.textContent = `${slotDisplayName(idx)} wins — ${score} pts${tieSuffix}`;
           }
           title.style.setProperty("--title-glow", displayCssColorForSlot(Netcode.getNetSlots()[idx]));
         } else {
-          title.textContent = "ROUND COMPLETE";
+          verdict.textContent = "ROUND COMPLETE";
           title.style.setProperty("--title-glow", "#ffffff");
         }
       }
 
       finalScores.replaceChildren();
-      /** @type {Array<{ row: HTMLElement, valEl: HTMLElement, score: number, isWinner: boolean, badge: HTMLElement | null }>} */
+      /** @type {Array<{ row: HTMLElement, valEl: HTMLElement, score: number, isWinner: boolean, badge: HTMLElement | null, format?: (n: number) => string }>} */
       const scoreRows = [];
       // * Winner pinned first explicitly — under lastStanding/Sudden Death they can
       // * hold a lower score than a fallen rival, so score-desc alone isn't enough.
@@ -3364,20 +3389,51 @@ async function main() {
         const byScore = Number(scores[b] ?? 0) - Number(scores[a] ?? 0);
         return byScore !== 0 ? byScore : a - b;
       });
-      for (const i of rankedSlots) {
+      // * 7g podium — one column per slot, block height by finish (design ratios
+      // * 250/170/120/80 scaled to the panel). Winner reads magenta + crown, the
+      // * local player cyan, everyone else a hairline.
+      const PODIUM_HEIGHTS = [250, 170, 120, 80];
+      const RANK_LABELS = ["1st", "2nd", "3rd", "4th"];
+      const myPodiumSlotIdx = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
+      rankedSlots.forEach((i, rank) => {
         const s = scores[i] != null ? scores[i] : 0;
-        const row = document.createElement("div");
-        row.className = "results-score-row";
+        const netSlot = Netcode.getNetSlots()[i];
+        const col = document.createElement("div");
+        col.className = "results-podium-col";
         const isWinner = winnerIdx !== "draw" && winnerIdx === i;
-        if (isWinner) row.classList.add("is-winner");
-        row.style.setProperty("--slot-glow", displayCssColorForSlot(Netcode.getNetSlots()[i]));
+        if (isWinner) col.classList.add("is-winner");
+        if (i === myPodiumSlotIdx) col.classList.add("is-you");
+        col.style.setProperty("--slot-glow", displayCssColorForSlot(netSlot));
+        col.style.setProperty("--podium-h", `${PODIUM_HEIGHTS[rank] ?? 48}px`);
+
+        const cap = document.createElement("div");
+        cap.className = "results-podium-cap";
+
+        // * Same resolver as the HUD roster: NPCs get their personality emblem,
+        // * humans the cart-color shopper glyph.
+        const emblemInfo = emblemForSlot(netSlot);
+        if (emblemInfo) {
+          const emblemEl = document.createElement("span");
+          emblemEl.className = "results-podium-emblem";
+          emblemEl.innerHTML = svgIcon(emblemInfo.icon, { label: emblemInfo.label });
+          emblemEl.style.color = emblemInfo.color;
+          cap.appendChild(emblemEl);
+        }
 
         const nameEl = document.createElement("span");
-        nameEl.className = "results-score-name";
+        nameEl.className = "results-score-name results-podium-name";
         nameEl.textContent = slotDisplayName(i);
 
-        const mySlotIdx = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
-        if (i === mySlotIdx && isNewPersonalBest) {
+        // * 7g: the cyan YOU pill next to your own name — the podium's cyan block
+        // * border alone doesn't say which cart was yours.
+        if (i === myPodiumSlotIdx) {
+          const youPill = document.createElement("span");
+          youPill.className = "results-you-pill";
+          youPill.textContent = "YOU";
+          nameEl.appendChild(youPill);
+        }
+
+        if (i === myPodiumSlotIdx && isNewPersonalBest) {
           const pbBadge = document.createElement("span");
           pbBadge.className = "pb-badge";
           pbBadge.textContent = "NEW PB!";
@@ -3391,138 +3447,138 @@ async function main() {
           // * Purpose-built sticker crown (icons.js), not the OS emoji — matches
           // * the HUD leader pip and colors to gold via .results-winner-badge CSS.
           winnerBadge.innerHTML = svgIcon("crown", { label: "Winner", size: "1.15em" });
-          nameEl.prepend(winnerBadge);
+          cap.prepend(winnerBadge);
         }
+        cap.appendChild(nameEl);
+
+        const block = document.createElement("div");
+        block.className = "results-podium-block";
+
+        const rankEl = document.createElement("span");
+        rankEl.className = "results-podium-rank";
+        rankEl.textContent = String(rank + 1);
 
         const valEl = document.createElement("span");
         valEl.className = "results-score-val";
-        valEl.textContent = `${s} pts`;
+        const rankLabel = RANK_LABELS[rank] ?? `${rank + 1}th`;
+        const formatScore = (n) => `${rankLabel} · ${Math.round(n)} PTS`;
+        valEl.textContent = formatScore(s);
 
-        row.appendChild(nameEl);
-        row.appendChild(valEl);
-        finalScores.appendChild(row);
-        scoreRows.push({ row, valEl, score: s, isWinner, badge: winnerBadge });
-      }
+        block.appendChild(rankEl);
+        block.appendChild(valEl);
+        col.appendChild(cap);
+        col.appendChild(block);
+        finalScores.appendChild(col);
+        scoreRows.push({ row: col, valEl, score: s, isWinner, badge: winnerBadge, format: formatScore });
+      });
 
-      history.replaceChildren();
-      const historyLimit = isTouchDevice() ? 2 : matchHistory.length;
-      if (matchHistory.length === 0) {
-        const emptyRow = document.createElement("div");
-        emptyRow.textContent = "No prior rounds this session.";
-        history.appendChild(emptyRow);
-      } else {
-        const startIdx = Math.max(0, matchHistory.length - historyLimit);
-        for (let i = matchHistory.length - 1; i >= startIdx; i -= 1) {
-          const m = matchHistory[i];
-          const row = document.createElement("div");
-          row.className = "results-history-row";
-          const parts = [0, 1, 2, 3]
-            .map((j) => `${slotDisplayName(j)} ${m.scores[j] ?? 0}`)
-            .join(" · ");
-          row.textContent =
-            m.winnerSlotIndex === "draw"
-              ? `DRAW — ${parts} · ${new Date(m.endedAtMs).toLocaleTimeString()}`
-              : `${slotDisplayName(m.winnerSlotIndex)} won — ${parts} · ${new Date(m.endedAtMs).toLocaleTimeString()}`;
-          history.appendChild(row);
-        }
-      }
+      // ── Match receipt (7g) — this round's till slip, existing stats only ──
+      /** @type {HTMLElement[]} */
+      const receiptLines = [];
+      if (receipt) {
+        receipt.replaceChildren();
+        const snap = snapshotMatchStats();
+        const comboLabel = snap.maxComboTier >= 3
+          ? "CARNAGE"
+          : snap.maxComboTier >= 2
+            ? "RAMPAGE"
+            : snap.maxComboTier >= 1
+              ? "STREAK"
+              : "—";
+        const myScore = myPodiumSlotIdx >= 0 ? Number(scores[myPodiumSlotIdx] ?? 0) : 0;
 
-      // Update personal stats display
-      if (statsLine) {
-        const ps = getPersonalStats();
-        statsLine.replaceChildren();
+        const hd = document.createElement("div");
+        hd.className = "results-receipt-hd";
+        hd.textContent = "— MATCH RECEIPT —";
+        receipt.appendChild(hd);
+        receiptLines.push(hd);
 
-        const tag = document.createElement("div");
-        tag.className = "results-stats-tag";
-        const pulse = document.createElement("i");
-        pulse.style.cssText =
-          "display:inline-block;width:5px;height:5px;border-radius:50%;" +
-          "background:#ff00ff;box-shadow:0 0 4px #ff00ff;flex-shrink:0";
-        tag.appendChild(pulse);
-        tag.appendChild(document.createTextNode("\u00a0YOUR STATS"));
-        statsLine.appendChild(tag);
-
-        const statDefs = [
-          { num: String(ps.wins), lbl: "WINS" },
-          { num: String(ps.matches), lbl: "PLAYED" },
-          { num: ps.totalPoints.toLocaleString(), lbl: "POINTS" },
-          { num: String(ps.soloGames || 0), lbl: "SOLO" },
+        // * EXPRESS LANE HELD is deliberately absent — nothing tracks it (see plan
+        // * 7g); leaderDowns rides along only when the player actually earned one.
+        /** @type {Array<[string, string]>} */
+        const lines = [
+          ["BODIES", String(snap.localKos)],
+          ["SPILLS CAUSED", String(snap.localSpills)],
+          ["BEST COMBO", comboLabel],
+          ["TIMES BODIED", String(snap.localDeaths)],
         ];
-        statDefs.forEach((def, idx) => {
-          if (idx > 0) {
-            const sep = document.createElement("div");
-            sep.className = "results-stats-div";
-            statsLine.appendChild(sep);
-          }
-          const item = document.createElement("div");
-          item.className = "results-stats-item";
-          const numEl = document.createElement("span");
-          numEl.className = "results-stats-num";
-          numEl.textContent = def.num;
-          const lblEl = document.createElement("span");
-          lblEl.className = "results-stats-lbl";
-          lblEl.textContent = def.lbl;
-          item.appendChild(numEl);
-          item.appendChild(lblEl);
-          statsLine.appendChild(item);
-        });
+        if (snap.leaderDowns > 0) lines.push(["LEADER DOWNS", String(snap.leaderDowns)]);
+        if (snap.criticalKos > 0) lines.push(["CRITICALS", String(snap.criticalKos)]);
 
-        // * This-match superlatives (matchStats spine) — local-focused solo retention beat.
-        const matchSnap = snapshotMatchStats();
-        const supers = matchSuperlatives(matchSnap);
-        if (supers.length > 0) {
-          let superLine = statsLine.parentElement?.querySelector?.(".results-superlatives") ?? null;
-          if (!superLine) {
-            superLine = document.createElement("div");
-            superLine.className = "results-superlatives";
-            statsLine.insertAdjacentElement("afterend", superLine);
-          }
-          superLine.replaceChildren();
-          for (const line of supers) {
-            const chip = document.createElement("span");
-            chip.className = "results-superlative";
-            chip.textContent = line;
-            superLine.appendChild(chip);
-          }
+        for (const [label, value] of lines) {
+          const line = document.createElement("div");
+          line.className = "results-receipt-line";
+          const lbl = document.createElement("span");
+          lbl.className = "results-receipt-lbl";
+          lbl.textContent = label;
+          const val = document.createElement("span");
+          val.className = "results-receipt-val";
+          val.textContent = value;
+          line.appendChild(lbl);
+          line.appendChild(val);
+          receipt.appendChild(line);
+          receiptLines.push(line);
         }
 
-        // * Challenge progress — the results screen is the reward moment, so daily/
-        // * weekly progress earned this match finally shows up right here.
-        let challengesLine = statsLine.parentElement?.querySelector?.(".results-challenges") ?? null;
-        if (!challengesLine) {
-          challengesLine = document.createElement("div");
-          challengesLine.className = "results-challenges";
-          statsLine.insertAdjacentElement("afterend", challengesLine);
+        // * Challenges finished DURING this round — diffed against the snapshot
+        // * taken at countdown, so an objective completed last week never prints.
+        const chNow = challengeStore.getState();
+        const completedThisMatch = [...(chNow.dailyChallenges || []), ...(chNow.weeklyChallenges || [])]
+          .filter((c) => c?.isComplete && !challengesCompleteAtRoundStart.has(c.id))
+          .map((c) => CHALLENGE_POOL.find((meta) => meta.id === c.id)?.title)
+          .filter(Boolean);
+        const challengeLine = document.createElement("div");
+        challengeLine.className = "results-receipt-line results-receipt-challenge";
+        const chLbl = document.createElement("span");
+        chLbl.className = "results-receipt-lbl";
+        chLbl.textContent = "CHALLENGE";
+        const chVal = document.createElement("span");
+        chVal.className = "results-receipt-val";
+        if (completedThisMatch.length > 0) {
+          challengeLine.classList.add("is-complete");
+          chVal.textContent = completedThisMatch.length > 1
+            ? `✓ ${completedThisMatch.length} REDEEMED`
+            : `✓ ${completedThisMatch[0]}`;
+        } else {
+          chVal.textContent = "—";
         }
-        challengesLine.replaceChildren();
-        const chState = challengeStore.getState();
-        const challengeRows = [...(chState.dailyChallenges || []), ...(chState.weeklyChallenges || [])];
-        for (const ch of challengeRows) {
-          const meta = CHALLENGE_POOL.find((c) => c.id === ch.id);
-          if (!meta) continue;
-          const row = document.createElement("div");
-          row.className = `results-challenge-row${ch.isComplete ? " complete" : ""}`;
-          const nameEl2 = document.createElement("span");
-          nameEl2.className = "results-challenge-name";
-          nameEl2.textContent = meta.title;
-          const progEl = document.createElement("span");
-          progEl.className = "results-challenge-prog";
-          progEl.textContent = ch.isComplete
-            ? "✓ DONE"
-            : `${Math.min(ch.progress ?? 0, meta.goal)}/${meta.goal}`;
-          row.appendChild(nameEl2);
-          row.appendChild(progEl);
-          challengesLine.appendChild(row);
-        }
+        challengeLine.appendChild(chLbl);
+        challengeLine.appendChild(chVal);
+        receipt.appendChild(challengeLine);
+        receiptLines.push(challengeLine);
+
+        const total = document.createElement("div");
+        total.className = "results-receipt-line results-receipt-total";
+        const totalLbl = document.createElement("span");
+        totalLbl.className = "results-receipt-lbl";
+        totalLbl.textContent = "TOTAL";
+        const totalVal = document.createElement("span");
+        totalVal.className = "results-receipt-val";
+        totalVal.textContent = `${myScore} PTS`;
+        total.appendChild(totalLbl);
+        total.appendChild(totalVal);
+        receipt.appendChild(total);
+        receiptLines.push(total);
+
+        const barcode = document.createElement("div");
+        barcode.className = "results-receipt-barcode";
+        barcode.setAttribute("aria-hidden", "true");
+        receipt.appendChild(barcode);
+
+        const foot = document.createElement("div");
+        foot.className = "results-receipt-foot";
+        foot.textContent = "THANK YOU FOR SHOPPING";
+        receipt.appendChild(foot);
+        receiptLines.push(foot);
       }
 
       animateResultsPodiumShow({
         overlay,
         panel,
         title,
+        verdict,
         scoreRows,
-        statsLine,
-        history,
+        receiptLines,
         playAgain,
         mainMenuBtn,
       });
@@ -3600,9 +3656,11 @@ async function main() {
     const el = document.createElement("div");
     el.className = "cart-nametag";
     el.innerHTML = contentHtml;
-    // * Layout/size live in hud.css (fluid + mobile/coarse). Only the cart-color
-    // * edge is dynamic — do not set padding/fontSize here or media queries lose.
-    el.style.borderColor = color;
+    // * Layout/size live in hud.css (fluid + mobile/coarse). Only the cart color
+    // * is dynamic — do not set padding/fontSize here or media queries lose.
+    // * 6a demotes it from a 2.5px neon edge to the punched hole's ring: the
+    // * plate is a hairline price tag, identity rides the tag's own hardware.
+    el.style.setProperty("--nt", color);
 
     const label = new CSS2DObject(el);
     label.center.set(0.5, 0);
@@ -3612,6 +3670,7 @@ async function main() {
   let allCarts = [];
 
   function updateNameLabels() {
+    const leaderSlot = HUD.getLeaderSlotIndex();
     for (let i = 0; i < allCarts.length; i++) {
       const slot = Netcode.getNetSlots()[i];
       const cart = allCarts[i];
@@ -3627,7 +3686,7 @@ async function main() {
       const mode = detectGameMode();
       const hostGlyphEligible = mode !== "solo" && mode !== "testdrive";
       const isHostSlot = hostGlyphEligible && Boolean(slot.connId && slot.connId === Netcode.getHostId());
-      const contentHtml = nametagHtml(name, meta, introMode, isHostSlot);
+      const contentHtml = nametagHtml(name, meta, introMode, isHostSlot, i === leaderSlot);
 
       if (nameLabels[i]) {
         if (
@@ -3635,7 +3694,7 @@ async function main() {
           nameLabels[i]._labelColor !== colorCSS
         ) {
           nameLabels[i].element.innerHTML = contentHtml;
-          nameLabels[i].element.style.borderColor = colorCSS;
+          nameLabels[i].element.style.setProperty("--nt", colorCSS);
           nameLabels[i]._labelHtml = contentHtml;
           nameLabels[i]._labelColor = colorCSS;
         }
@@ -4429,8 +4488,16 @@ async function main() {
     cancelLastCartStandingFinish();
     GameState.setRoundEndReason(null);
     clearRoundCountdownTimeout();
-    // * Fresh match-stat spine for superlatives / challenges this round.
+    // * Fresh match-stat spine for the receipt this round.
     resetMatchStats();
+    {
+      const chState = challengeStore.getState();
+      challengesCompleteAtRoundStart = new Set(
+        [...(chState.dailyChallenges || []), ...(chState.weeklyChallenges || [])]
+          .filter((c) => c?.isComplete)
+          .map((c) => c.id)
+      );
+    }
     setMatchStatsLocalSlot(Netcode.strictSlotIndexForConn(Netcode.getYouConnId()));
     syncRoundPhase("countdown");
     gameCtx.slowMo.active = false;
@@ -4948,6 +5015,7 @@ async function main() {
       GroceryPool.triggerSpill(String(slotIndex), pos, quat, vel, spillCount, cargoBay || cart?.cargoBay || null);
       // * Always clear every cargoBay under the cart mesh (ref can be stale after rebuild).
       GroceryPool.hideCargoBay(cart || cargoBay);
+      stripLifeCargo(cart);
       armSpillBoost(cart);
       // * Living Store "Spill Bonus" — host awards the recent rammer while active.
       directiveOnHostSpill(slotIndex);
@@ -4983,6 +5051,7 @@ async function main() {
       const spillCount = spillCountForCart(cart);
       GroceryPool.triggerSpill(String(cart.slotIndex), pos, quat, vel, spillCount, cargoBay);
       GroceryPool.hideCargoBay(cart);
+      stripLifeCargo(cart);
       armSpillBoost(cart);
       // * Living Store "Spill Bonus" — host awards the recent rammer while active.
       directiveOnHostSpill(cart.slotIndex);

@@ -223,43 +223,61 @@ const physics = {
       particleCountPerIntensity: 16, // count — extra particles per unit intensity
       particleBoostCountBonus: 6, // count — extra particles when rammer is boosting
       particleMaxCount: 28, // count — hard cap per burst (pool performance guard)
-      shakeMinIntensity: 0.38, // unitless — min intensity for local ram screen shake
-      shakeBoostMinIntensity: 0.22, // unitless — lower shake threshold during nitro rams
+      // * HIT-FEEL-1 Round 2: normals often land ~0.1–0.35; old 0.38 gate muted most of them.
+      shakeMinIntensity: 0.22, // unitless — min intensity for local ram screen shake / pulse / rumble
+      shakeBoostMinIntensity: 0.16, // unitless — lower shake threshold during nitro rams
       shakePixelScale: 5.5, // px — screen shake amplitude scale
       // * Directional hit vignette (DOM) — lower than shake so everyday rams still cue.
-      hitDirMinIntensity: 0.08, // unitless — min collision intensity for hit-from vignette
+      // * HIT-FEEL-1 Round 1: raised floor + softer display remap so love-taps don't scream.
+      hitDirMinIntensity: 0.14, // unitless — min collision intensity for hit-from vignette
+      hitDirDisplayBias: 0.3, // unitless — displayI = bias + sqrt(intensity) * scale
+      hitDirDisplayScale: 0.62, // unitless — was 0.46 + sqrt * 0.79 (too loud on soft hits)
+      // * Crash SFX volume floor (not an intensity gate — SFX still fires when fxIntensity > 0).
+      crashVolumeFloor: 0.22, // unitless — playCartCrash volume max(floor, floor + intensity * 0.7)
     },
   },
 
-  // * Living Cargo — the cart IS the scoreboard. The cargo bay visibly fills with the
-  // * slot's round score, spilling grants a short "empty cart is a fast cart" comeback
-  // * boost, and a full cart trades a little lateral grip for swagger. Fullness derives
-  // * from synced roundScores, so host and clients agree with zero extra netcode.
+  // * Living Cargo — life-scoped weight (CARGO-WT-1). Round score still wins on the HUD;
+  // * cart groceries / handling follow lifeCargoPoints this life only: spawn at baseline
+  // * (today's feel), score while alive → slower kiteable boss (harder to launch), spill →
+  // * stripped fast/glass until you score again, respawn → baseline. Synced via snapshot
+  // * cart padding byte (lc), not roundScores.
   cargo: {
-    fullScore: 8, // points — round score at which the cargo bay reads "overflowing" (fullness 1.0)
-    baseItems: 7, // count — groceries visible in the bay at score 0 (a stocked floor, not half-empty)
+    fullScore: 8, // points — life cargo at which the bay / weight reads "boss" (weight01 1.0)
+    baselinePoints: 3, // points — spawn/respawn stocked load (maps to today's handling = 1.0)
+    baseItems: 7, // count — groceries visible at visual fullness 0 (stocked floor)
     maxItems: 18, // count — groceries visible at full cargo (packed basket, all 3 layers; GRID length)
-    // * Top-heavy handling — lateral grip multiplier at FULL cargo (lerped from 1.0 when
-    // * empty). Gentle by design: a loaded leader slides wider; it never flips them.
-    gripFullFactor: 0.8, // unitless — lateral grip scale at fullness 1.0
+    // * Top-heavy handling — lateral grip at BOSS weight (piecewise: baseline stays 1.0).
+    gripFullFactor: 0.58, // unitless — lateral grip scale at weight01 1.0 (readable slide)
+    // * Drive curve vs baseline 1.0 (piecewise stripped ↔ baseline ↔ boss).
+    // * First Solo pass felt soft — boss pushed harder; stripped kept near prior (liked).
+    driveSpeedAtStripped: 1.14, // × driving.maxSpeed at life cargo 0
+    driveAccelAtStripped: 1.50, // × driving.accel at life cargo 0
+    driveSpeedAtBoss: 0.76, // × driving.maxSpeed at life cargo full
+    driveAccelAtBoss: 0.65, // × driving.accel at life cargo full
+    // * Incoming ram mul (victim weight) — boss shrugs hard, stripped launches easier.
+    ramIncomingAtStripped: 1.32, // × impulseMagBase at life cargo 0
+    ramIncomingAtBoss: 0.52, // × impulseMagBase at life cargo full
+    // * Soft Rapier mass (drive stays mass-compensated; inertia / contacts only).
+    massAtStripped: 0.85, // × base mass at life cargo 0
+    massAtBoss: 1.45, // × base mass at life cargo full
     // * Taste-gated experiment — raise center of mass with fullness. OFF by default:
     // * raising CoM can flip carts into the pit; the grip slide is the shipped feel.
     comRaise: {
       enabled: false,
       maxRaiseY: 0.25, // meters — CoM lift at fullness 1.0 (base CoM y is -0.55)
     },
-    // * Spill comeback — brief speed/accel buff from the spill moment (ram spills apply
-    // * immediately; fall spills leave the tail of the window after the 600ms respawn).
-    // * Never stacks with nitro: nitro's boosted values win while a boost window is open.
+    // * Spill announce / VFX window only — drive speed/accel come from the stripped curve
+    // * (muls stay 1.0 so we do not double-dip). Bay fill follows lifeCargoPoints.
     spillBoost: {
-      durationMs: 2600, // ms — buff window from the spill moment
-      speedMul: 1.12, // × driving.maxSpeed while buffed (26.3 — still below nitro's 27)
-      accelMul: 1.35, // × driving.accel while buffed
-      restockDelayMs: 400, // ms — after the buff ends, the basket visually restocks
+      durationMs: 2600, // ms — spill_rush announce / VFX window from the spill moment
+      speedMul: 1.0, // retired — stripped drive curve owns surge
+      accelMul: 1.0, // retired — stripped drive curve owns surge
+      restockDelayMs: 400, // unused for weight restore (kept for tune-pane compat)
     },
-    // * Spill size scales with fullness — the leader drops a BIGGER mess.
-    spillCountBase: 3, // groceries launched at empty cargo
-    spillCountMax: 12, // groceries launched at full cargo
+    // * Spill size scales with life-cargo weight — the boss drops a BIGGER mess.
+    spillCountBase: 3, // groceries launched at stripped cargo
+    spillCountMax: 12, // groceries launched at boss cargo
   },
 
   // * The Living Store — the Store PA issues short mini-mutator "directives" mid-round

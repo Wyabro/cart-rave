@@ -14,10 +14,16 @@ const MIN_MODE_ENTRY_VISIBLE_MS = 720;
 /** Warm same-level path: skip most of the artificial floor (brand flash only). */
 const MIN_MODE_ENTRY_WARM_MS = 200;
 
-/** @type {Record<"classic" | "backrooms" | "zanzibar", { title: string, subtitle: string, progress: string, messages: string[] }>} */
+/**
+ * Kickers are the store voice the rest of the redesign speaks in ("WEEKLY
+ * RESTOCK", "STORE POLICY · ALL SALES FINAL", "THE STORE IS NOW CLOSED") — a
+ * loading screen is the store getting an aisle ready for you.
+ * @type {Record<"classic" | "backrooms" | "zanzibar", { title: string, kicker: string, subtitle: string, progress: string, messages: string[] }>}
+ */
 const THEME_COPY = {
   classic: {
     title: "CART RAVE",
+    kicker: "RESTOCKING THE DANCE FLOOR",
     subtitle: "Spinning up the vinyl arena...",
     progress: "Loading crowd & lights...",
     messages: [
@@ -35,6 +41,7 @@ const THEME_COPY = {
   },
   backrooms: {
     title: "THE STOREROOMS",
+    kicker: "AISLE INVENTORY IN PROGRESS",
     subtitle: "The fluorescent hum grows louder...",
     progress: "Mapping the liminal aisles...",
     messages: [
@@ -52,6 +59,7 @@ const THEME_COPY = {
   },
   zanzibar: {
     title: "SUNDIAL STATION",
+    kicker: "OPENING THE SUNDECK",
     subtitle: "The tide carries the bassline in...",
     progress: "Aligning the gnomon...",
     messages: [
@@ -71,6 +79,7 @@ const THEME_COPY = {
 
 let modeOverlayEl = null;
 let modeTitleEl = null;
+let modeKickerEl = null;
 let modeSubtitleEl = null;
 let modeVisualSlot = null;
 let modeEntryVisible = false;
@@ -139,27 +148,6 @@ function buildZanzibarDecor() {
   return wrap;
 }
 
-function buildProgressBlock() {
-  const wrap = document.createElement("div");
-  wrap.className = "cr-load__progress-wrap";
-  
-  const segBar = document.createElement("div");
-  segBar.className = "cr-seg-bar cr-seg-bar--theme";
-  segBar.setAttribute("role", "progressbar");
-  segBar.setAttribute("aria-valuemin", "0");
-  segBar.setAttribute("aria-valuemax", "100");
-  segBar.setAttribute("aria-valuenow", "0");
-
-  for (let i = 0; i < 20; i++) {
-    const seg = document.createElement("div");
-    seg.className = "cr-seg";
-    segBar.appendChild(seg);
-  }
-  
-  wrap.appendChild(segBar);
-  return wrap;
-}
-
 function ensureModeOverlay() {
   if (modeOverlayEl) return modeOverlayEl;
 
@@ -168,23 +156,37 @@ function ensureModeOverlay() {
   modeOverlayEl.className = "cr-load cr-load--hidden";
   modeOverlayEl.setAttribute("aria-live", "polite");
   modeOverlayEl.setAttribute("aria-busy", "false");
+  // * Shell geometry, mirroring `.cr-screen`: header top-left (Road Rage title
+  // * over a Goldman kicker), centre stage for the arena decor, full-bleed strip
+  // * along the bottom carrying the progress slab and the rotating line.
   modeOverlayEl.innerHTML =
     '<div class="cr-load__bg"></div>' +
-    '<div class="cr-load__scan"></div>' +
     '<div class="cr-load__vignette"></div>' +
-    '<div class="cr-load__panel">' +
-    '<div class="cr-load__tag">◆ LOADING ◆</div>' +
+    '<div class="cr-load__shell">' +
+    '<div class="cr-load__hd">' +
+    '<div class="cr-load__kicker"></div>' +
     '<div class="cr-load__title"></div>' +
+    "</div>" +
+    '<div class="cr-load__stage"></div>' +
+    '<div class="cr-load__strip">' +
+    '<div class="cr-load__meter">' +
+    '<div class="cr-load__meter-inner">' +
+    '<span class="cr-load__meter-label">STOCKING</span>' +
+    '<div class="cr-load__track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">' +
+    '<span class="cr-load__fill"></span>' +
+    "</div>" +
+    '<span class="cr-load__pct">0%</span>' +
+    "</div>" +
+    "</div>" +
     '<div class="cr-load__subtitle"></div>' +
+    "</div>" +
     "</div>";
 
-  const panel = modeOverlayEl.querySelector(".cr-load__panel");
   modeTitleEl = modeOverlayEl.querySelector(".cr-load__title");
+  modeKickerEl = modeOverlayEl.querySelector(".cr-load__kicker");
   modeSubtitleEl = modeOverlayEl.querySelector(".cr-load__subtitle");
-  modeVisualSlot = document.createElement("div");
-  const progressWrap = buildProgressBlock();
-  panel?.appendChild(modeVisualSlot);
-  panel?.appendChild(progressWrap);
+  // * The stage IS the decor slot — applyTheme() swaps its children per arena.
+  modeVisualSlot = modeOverlayEl.querySelector(".cr-load__stage");
 
   document.body.appendChild(modeOverlayEl);
   return modeOverlayEl;
@@ -192,16 +194,13 @@ function ensureModeOverlay() {
 
 function setProgress(pct, label) {
   const clamped = Math.max(0, Math.min(100, pct));
-  const segBar = modeOverlayEl?.querySelector(".cr-seg-bar--theme");
-  if (segBar) {
-    segBar.setAttribute("aria-valuenow", Math.round(clamped).toString());
-    const segments = segBar.children;
-    const litCount = Math.round((clamped / 100) * 20);
-    for (let i = 0; i < segments.length; i++) {
-      if (i < litCount) segments[i].classList.add("lit");
-      else segments[i].classList.remove("lit");
-    }
-  }
+  const rounded = Math.round(clamped);
+  const track = modeOverlayEl?.querySelector(".cr-load__track");
+  const fill = modeOverlayEl?.querySelector(".cr-load__fill");
+  const pctEl = modeOverlayEl?.querySelector(".cr-load__pct");
+  if (track) track.setAttribute("aria-valuenow", rounded.toString());
+  if (fill instanceof HTMLElement) fill.style.width = `${clamped}%`;
+  if (pctEl) pctEl.textContent = `${rounded}%`;
   if (label && modeSubtitleEl) {
     modeSubtitleEl.textContent = label;
   }
@@ -261,6 +260,7 @@ function applyTheme(theme) {
 
   const copy = THEME_COPY[theme] || THEME_COPY.classic;
   if (modeTitleEl) modeTitleEl.textContent = copy.title;
+  if (modeKickerEl) modeKickerEl.textContent = copy.kicker;
 
   if (modeVisualSlot) {
     modeVisualSlot.replaceChildren();
@@ -326,15 +326,13 @@ export function dismissInitialBootSplash() {
     // @ts-ignore
     if (window.bootMsgTimer) { clearInterval(window.bootMsgTimer); window.bootMsgTimer = null; }
 
-    // 2. Force to 100%
+    // 2. Force to 100% (the boot meter is a track + fill, not lit segments)
     const bar = document.getElementById('boot-seg-bar');
-    if (bar) {
-      bar.setAttribute('aria-valuenow', '100');
-      const segments = bar.children;
-      for (let i = 0; i < segments.length; i++) {
-        segments[i].classList.add('lit');
-      }
-    }
+    if (bar) bar.setAttribute('aria-valuenow', '100');
+    const bootFill = document.getElementById('cr-boot-fill');
+    if (bootFill instanceof HTMLElement) bootFill.style.width = '100%';
+    const bootPct = document.getElementById('cr-boot-pct');
+    if (bootPct) bootPct.textContent = '100%';
 
     // 3. Wait 200ms so the user sees it hit 100%, then fade out cleanly
     setTimeout(() => {
@@ -574,6 +572,7 @@ export function showQualityApplyLoading() {
   }
 
   if (modeTitleEl) modeTitleEl.textContent = "QUALITY";
+  if (modeKickerEl) modeKickerEl.textContent = "ADJUSTING THE HOUSE LIGHTS";
   if (modeSubtitleEl) modeSubtitleEl.textContent = "Applying quality settings…";
   setProgress(100, "Applying…");
   modeEntryShownAt = performance.now();

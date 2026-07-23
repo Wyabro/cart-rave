@@ -20,6 +20,13 @@ export const CHALLENGE_POOL = [
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * DAY_MS;
 
+/**
+ * Rotation windows, exported so UI can show a real "restocks in …" countdown off
+ * `lastDailyReset` / `lastWeeklyReset` instead of re-deriving the periods.
+ * @type {{ daily: number, weekly: number }}
+ */
+export const CHALLENGE_ROTATION_MS = { daily: DAY_MS, weekly: WEEK_MS };
+
 function shuffleArray(arr) {
   const list = [...arr];
   for (let i = list.length - 1; i > 0; i--) {

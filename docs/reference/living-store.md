@@ -1,45 +1,50 @@
 # The Living Store — Living Cargo + PA Directives
 
-As-built reference for the two gameplay layers shipped 2026-07-10 (commits `03edc7c`,
-`b7ceeb2`, `70a737b`, `e2dea5c`). Deferred multiplayer checks:
+As-built reference for the Living Store layers (Living Cargo shipped 2026-07-10;
+**CARGO-WT-1 life-scoped weight** 2026-07-22). Deferred multiplayer checks:
 [living-store-test-plan.md](../planning/living-store-test-plan.md). Sibling refs:
 [announcer.md](./announcer.md), [scoring-event-system.md](./scoring-event-system.md).
 
-North Star: the cart IS the scoreboard, and the Store PA graduates from commentator to
-game-master. Both layers change what the five core verbs (drive/boost/hop/ram/survive)
-are *worth* — never the verbs themselves.
+North Star: the cart carries **this life's** grocery weight (boss / glass loop), and the
+Store PA graduates from commentator to game-master. Round score still wins on the HUD —
+the cart is **not** a cumulative round scoreboard after death. Both layers change what the
+five core verbs (drive/boost/hop/ram/survive) are *worth* — never the verbs themselves.
 
 ---
 
-## Living Cargo (`src/cargoLoad.js`)
+## Living Cargo (`src/cargoLoad.js`) — CARGO-WT-1
 
 Per-frame reconciler (ticked from `frameVisuals` right after `GroceryPool.update`)
-that derives per-cart state from the **synced round scores** — host and clients agree
-with zero extra netcode.
+that syncs each cart from **life-scoped** `lifeCargoPoints` (host-authoritative, synced
+on the binary snapshot cart padding byte `lc`).
 
 | Mechanic | How | Where |
 |---|---|---|
-| Cart = scoreboard | Bay shows `baseItems→maxItems` (7→18) groceries as score approaches `fullScore` | `GroceryPool.setCargoFill` (visibility toggles on an 18-slot GRID, fill-order list in `group.userData.cargoItems`) |
-| Spill comeback | ~2.6s speed/accel buff from the spill moment; never stacks with nitro | `armSpillBoost(cart)` (exported here, used by main.js spill sites + netcode `handleRemoteSpill`) → drive block in `simulation.js` |
-| Top-heavy | Lateral grip × `lerp(1, gripFullFactor, fullness)` | `applyArcadeControls` in `simulation.js`; fullness set here as `cart.cargoFullness01` |
-| Bigger mess | Spill count 3→12 scales with fullness; `count` rides `MSG.spill` | `spillCountForCart(cart)` (exported here) |
-| Restock | Bay re-shows after the buff lapses (+`restockDelayMs`); fall spills restock via respawn | `updateCargoLoad` |
-| PA moments | `cart_overflow` (first full bay per slot/round), `spill_rush` (local comeback nudge) | edge-tracked here, arbitration in announcer |
+| Life cargo | Spawn/respawn → `baselinePoints` (today's feel). KO / SD award / Spill Bonus → `grantLifeCargo`. Spill → `stripLifeCargo` (0). | `cargoLoad.js` + `gameFlow` / `directiveEngine` / spill sites |
+| Cart weight curve | `weight01 = lifeCargo / fullScore`: stripped (fast/glass) ↔ baseline (1.0) ↔ boss (slower, harder to launch) | drive + ram-incoming in `simulation.js`; soft mass via `applyCartMassPropertiesOverride` |
+| Bay fill | `GroceryPool.setCargoFill` from weight01; bay **hidden** while stripped | `updateCargoLoad` |
+| Spill announce | `armSpillBoost` still arms `spill_rush` window; drive surge is the **stripped curve** (spillBoost speed/accel muls = 1.0) | spill sites + `simulation.js` |
+| Bigger mess | Spill count 3→12 scales with weight01; `count` rides `MSG.spill` | `spillCountForCart` |
+| PA moments | `cart_overflow` first boss fill **this life** (`clearCargoOverflowForSlot` on respawn); `spill_rush` on local strip | edge-tracked here |
 
-All tunables: `CONFIG.cargo` (config.js). `comRaise` is a taste-gated experiment,
-**off by default** (raising CoM can flip carts into the pit; the grip slide is the
-shipped feel). DEV console handle: `window.__cartClashCargo()`.
+All tunables: `CONFIG.cargo` (config.js). `comRaise` stays off. DEV: `window.__cartClashCargo()`.
 
-Cart fields (set in `entities.createCart`): `cargoFullness01`, `spillBoostUntilMs`
-(deliberately NOT cleared by `resetCartTransientState` — a fall keeps the buff tail
-after respawn).
+Cart fields: `lifeCargoPoints`, `cargoFullness01` (= weight01), `spillBoostUntilMs`
+(deliberately NOT cleared by `resetCartTransientState` — announce window can fire after fall respawn). Respawn sets life cargo back to `baselinePoints`.
+
+### Sync
+
+Host packs `lifeCargoPoints` as uint8 into cart snapshot **padding byte 0** (`binary.js`).
+Non-hosts apply `snap.lc` in `applyCartState`. Same deploy ships encode+decode.
+
+---
 
 ## PA Directives (`src/directives/`)
 
 - **`directives.js`** — frozen data table (house pattern: pure data, no imports).
   Five launch directives: `flash_sale` (ramming.strength ×1.5), `double_bag`
   (koRewardMul 2), `express_lane` (boost cooldowns ×0.5, charge ×0.55), `spill_bonus`
-  (+1 pt to the attributed rammer per forced spill), `rush_hour` (driving.maxSpeed
+  (+1 pt to attributed rammer — also fills life cargo), `rush_hour` (driving.maxSpeed
   ×1.12, accel ×1.25, boostedMaxSpeed ×1.08 — nitro keeps headroom). New directives
   are table entries + two announcer lines; overrides are dot-path multipliers into
   CONFIG so they track future base-tuning.
@@ -64,8 +69,8 @@ after respawn).
   (and effective `reward.multiplier` = combo × directive) rides `falls[]`, so client
   presentation matches without directive state.
 - Spill Bonus awards go through the host `addScore` path with `lastHitBy`
-  attribution (window-checked, self-spills excluded). Presentation: `onSpillBonusAward`
-  fans out a score float + feed line (July 10 solo polish).
+  attribution (window-checked, self-spills excluded) **and** `grantLifeCargoForSlot`.
+  Presentation: `onSpillBonusAward` fans out a score float + feed line.
 
 ### Safety rails
 
@@ -73,7 +78,7 @@ after respawn).
   leaving the running phase, or a stray late packet all restore/refuse. A gameStore
   subscription (not the rAF tick) performs the phase-exit restore, so overrides can't
   leak while the menu freezes the loop.
-- `tests/directiveEngine.test.js` (13 tests) pins slot firing, stale-skip, finale
+- `tests/directiveEngine.test.js` pins slot firing, stale-skip, finale
   guard, apply/restore integrity, SD/phase rails, remote apply, and scoring hooks.
 
 ## Announcer integration

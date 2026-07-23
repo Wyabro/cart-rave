@@ -170,7 +170,8 @@
   padding: clamp(6px, 1vw, 10px) clamp(18px, 3vw, 30px) clamp(6px, 1vw, 10px) clamp(20px, 3.2vw, 34px);
   color: var(--color-cyan);
   background: var(--color-ink);
-  box-shadow: var(--sticker-panel);
+  border: 1px solid var(--border-white-12);
+  box-shadow: var(--slab-shadow);
   border-radius: 6px;
   transform: skewX(-10deg);
   white-space: nowrap;
@@ -185,16 +186,19 @@
 
 /* Rampage Combo badge — a tilted ticket slapped on from camera (momentary,
    so it earns the tilt). Opaque ink, die-cut edge, no blur, no resting glow. */
+/* Combo = the CARNAGE COUPON (mock 6a): an ink slab tilted off-square, the
+   multiplier as the hero number, and the coupon's small print — tier name,
+   countdown, drain bar — stacked beside it. */
 #hud .hud-combo-badge {
-  transform: scale(1.18) rotate(-2deg);
+  transform: skewX(-8deg) rotate(-2deg) scale(1.18);
   display: none;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: clamp(6px, 1vw, 10px) clamp(16px, 2.5vw, 24px);
+  gap: clamp(10px, 1.4vw, 14px);
+  padding: clamp(10px, 1.2vw, 12px) clamp(12px, 1.6vw, 16px);
   background: var(--color-ink);
-  border-radius: var(--hud-radius);
-  box-shadow: var(--sticker-chip);
+  border-radius: 8px;
+  border: 1px solid var(--border-white-12);
+  box-shadow: var(--slab-shadow);
   pointer-events: none;
   z-index: 15;
   opacity: 0;
@@ -203,38 +207,58 @@
 #hud .hud-combo-badge.active {
   display: flex;
   opacity: 1;
-  transform: scale(1) rotate(-2deg);
+  transform: skewX(-8deg) rotate(-2deg) scale(1);
 }
+/* Counter-skew on the content, not the slab — the tier-up punch animates the
+   slab's transform and would wipe a counter-skew declared on it. */
 #hud .hud-combo-content {
   display: flex;
-  align-items: baseline;
-  gap: clamp(6px, 1vw, 10px);
+  align-items: center;
+  gap: clamp(10px, 1.4vw, 14px);
+  padding: 4px 8px;
+  transform: skewX(8deg);
 }
 #hud .hud-combo-multiplier {
-  font-family: var(--hud-display);
-  font-size: clamp(24px, 4vw, 42px);
-  font-weight: 900;
+  font-family: var(--hud-mono);
+  font-size: clamp(20px, 2.6vw, 28px);
+  font-weight: 700;
   line-height: 1;
-  letter-spacing: 1px;
+  letter-spacing: 0.02em;
   color: var(--color-combo-t1);
-  paint-order: stroke fill;
-  -webkit-text-stroke: 0.08em var(--color-ink-deep);
-  text-shadow: 0.06em 0.06em 0 var(--color-ink-deep);
+  -webkit-text-stroke: 0;
+  text-shadow: none;
+}
+#hud .hud-combo-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
 }
 #hud .hud-combo-tier {
-  font-family: var(--hud-mono);
-  font-size: clamp(12px, 1.8vw, 18px);
-  font-weight: 900;
-  letter-spacing: 2px;
+  font-family: var(--hud-ui);
+  font-size: clamp(8px, 0.9vw, 9px);
+  font-weight: 400;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: #ffffff;
+  color: rgba(242, 237, 228, 0.55);
+  white-space: nowrap;
 }
+#hud .hud-combo-secs {
+  font-family: var(--hud-mono);
+  font-size: clamp(9px, 1vw, 10px);
+  font-weight: 700;
+  color: rgba(242, 237, 228, 0.7);
+  font-variant-numeric: tabular-nums;
+}
+/* Label left, countdown hard right — the coupon's terms line. */
+#hud .hud-combo-meta { position: relative; }
+#hud .hud-combo-meta > .hud-combo-tier { padding-right: 3.4em; }
+#hud .hud-combo-secs { position: absolute; right: 0; top: 0; }
 #hud .hud-combo-bar-track {
-  width: 100%;
+  width: clamp(110px, 12vw, 150px);
   height: 4px;
-  background: rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.12);
   border-radius: 2px;
-  margin-top: 6px;
   overflow: hidden;
 }
 #hud .hud-combo-bar-fill {
@@ -272,7 +296,8 @@
    The white edge is the padded sticker-white layer under the clip; the hard
    shadow rides the region (drop-shadow follows the clipped silhouette). */
 #hud .hud-region-match {
-  filter: drop-shadow(4px 4px 0 var(--color-ink-deep));
+  /* Fight Night: each slab carries its own extrude (box-shadow); no region-wide drop-shadow. */
+  filter: none;
   /* Column layout so the directive chip centers under the round timer. */
   display: flex;
   flex-direction: column;
@@ -284,51 +309,47 @@
   align-items: stretch;
   justify-content: flex-start;
   flex-direction: row;
-  background: var(--color-sticker-white);
-  padding: 3px;
-  clip-path: polygon(
-    22px 0,
-    calc(100% - 8px) 0,
-    100% 8px,
-    100% calc(100% - 8px),
-    calc(100% - 8px) 100%,
-    22px 100%,
-    0 50%
-  );
+  background: var(--color-ink);
+  border: 1px solid var(--border-white-12);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--slab-shadow);
+  transform: skewX(-8deg);
   overflow: hidden;
   pointer-events: none;
   font-size: clamp(1rem, 3vw, 1.5rem);
 }
 
-/* Punched tag hole. */
-#hud .hud-timer::after {
+/* Hazard-stripe header band (replaces the die-cut tag point + hole). */
+#hud .hud-timer::before {
   content: "";
   position: absolute;
-  left: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--color-ink-deep);
-  box-shadow: 0 0 0 2px var(--color-sticker-white);
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 6px;
+  background: var(--hazard-yellow);
+  z-index: 2;
 }
+#hud .hud-timer::after { content: none; }
 
-/* State zone in the tag point: flat when healthy, warehouse hazard when not. */
-#hud .hud-timer-stripe {
-  width: clamp(20px, 2.4vw, 26px);
-  background: var(--color-timer-ok);
-  flex: 0 0 auto;
-}
+#hud .hud-timer-stripe { display: none; }
 
 #hud .hud-timer-body {
-  background: var(--color-ink);
-  box-shadow: inset 0 2px 0 rgba(255,255,255,0.07);
-  padding: clamp(6px, 1vw, 10px) clamp(10px, 1.5vw, 20px) clamp(8px, 1vw, 12px) clamp(10px, 1vw, 16px);
-  min-width: clamp(120px, 15vw, 200px);
+  background: transparent;
+  transform: skewX(8deg);
+  padding: clamp(12px, 1.7vw, 16px) clamp(14px, 2vw, 24px) clamp(8px, 1vw, 12px);
+  min-width: clamp(150px, 15vw, 200px);
   display: flex;
   flex-direction: column;
   gap: clamp(4px, 0.8vw, 8px);
+}
+
+/* Clock left, round meta hard right, one baseline (mock 6a). */
+#hud .hud-timer-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: clamp(10px, 1.4vw, 18px);
 }
 
 #hud .hud-timer-meta {
@@ -351,22 +372,43 @@
   flex: 0 0 auto;
 }
 
+/* "RD n" over "TO CLOSE" (mock 6a). The second line is a pseudo-element so the
+   per-frame textContent write on this node can't wipe it, and :not(:empty)
+   keeps it from lingering when the timer clears between rounds. */
 #hud .hud-timer-rd {
   margin-left: auto;
   color: rgba(255,255,255,0.55);
   font-size: clamp(10px, 1.1vw, 12px);
   letter-spacing: 1px;
+  text-align: right;
+  line-height: 1.25;
 }
 
+#hud .hud-timer-rd:not(:empty)::after {
+  content: "TO CLOSE";
+  display: block;
+  letter-spacing: 0.16em;
+}
+
+/* Goldman, not Bungee (mock 6a): Bungee's digits are proportional, so the clock
+   re-laid itself out on every tick and dragged the round meta with it. Goldman
+   + tabular figures makes each digit the same box, and the em-based floor holds
+   the width across the 1:00 boundary too, where the string loses a character. */
 #hud .hud-timer-num {
-  font-family: var(--hud-display);
-  font-size: clamp(28px, 5.5vw, 54px);
+  font-family: var(--hud-mono);
+  font-weight: 700;
+  font-size: clamp(28px, 5.5vw, 46px);
   line-height: 1;
-  letter-spacing: 1px;
+  letter-spacing: 0.02em;
   color: var(--color-sticker-white);
-  paint-order: stroke fill;
-  -webkit-text-stroke: 0.06em var(--color-ink-deep);
-  text-shadow: 0.05em 0.05em 0 var(--color-ink-deep);
+  -webkit-text-stroke: 0;
+  text-shadow: none;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  /* Goldman does not actually ship tabular figures — "0" measures wider than
+     "2" — so the floor, not the font, is what guarantees a fixed box. Sized
+     above the widest 4-character clock the formatter can produce. */
+  min-width: 2.95em;
 }
 
 #hud .hud-timer-bar {
@@ -391,19 +433,28 @@
    caps); the hard shadow comes from the region-match drop-shadow filter.
    margin-left offsets the timer's 22px arrow point so the chip optically
    centers under the timer BODY, not the full clip-path footprint. */
+/* Directive tag (mock 6a): a price-tag slab in the directive's OWN accent, not
+   the mock's fixed yellow — five directives share this chip and the accent is
+   how you tell which one is running at a glance. Ink lettering on the accent,
+   the store-voice rule line beneath, drain bar along the bottom. */
 #hud .hud-directive {
   --directive-accent: var(--color-cyan);
   display: none;
   flex-direction: column;
-  gap: 4px;
-  margin-top: 9px;
-  margin-left: 22px;
-  padding: 5px 10px 6px;
-  max-width: clamp(120px, 16vw, 190px);
-  background: var(--color-ink);
-  border-left: 3px solid var(--directive-accent);
-  border-radius: 8px;
+  gap: 3px;
+  margin-top: 10px;
+  margin-left: 14px;
+  padding: 7px 16px 8px;
+  max-width: clamp(150px, 20vw, 250px);
+  background: var(--directive-accent);
+  border: none;
+  border-radius: 6px;
+  transform: skewX(-8deg) rotate(-1.5deg);
+  box-shadow: var(--slab-extrude), inset 0 1px 0 rgba(255, 255, 255, 0.35);
 }
+
+/* Counter-skew the contents so the copy stays upright inside the slanted tag. */
+#hud .hud-directive > * { transform: skewX(8deg); }
 
 #hud .hud-directive--active {
   display: flex;
@@ -422,21 +473,38 @@
 
 #hud .hud-directive-name {
   font-size: clamp(11px, 1.2vw, 13px);
-  color: var(--directive-accent);
+  color: var(--color-ink-deep);
   white-space: nowrap;
 }
 
 #hud .hud-directive-secs {
+  font-family: var(--hud-mono);
   font-size: clamp(11px, 1.2vw, 13px);
   font-weight: 700;
-  color: var(--color-sticker-white);
+  color: var(--color-ink-deep);
   letter-spacing: 0.06em;
   font-variant-numeric: tabular-nums;
 }
 
+/* Store-voice rule line under the title (mock 6a). Placeholder copy lives in
+   directives.js `blurb`. */
+#hud .hud-directive-blurb {
+  font-family: var(--hud-mono);
+  font-size: clamp(7px, 0.75vw, 8px);
+  letter-spacing: 0.22em;
+  line-height: 1.3;
+  color: rgba(8, 5, 15, 0.65);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The window draining, printed INTO the tag — ink on the accent, not the other
+   way round now that the slab carries the colour. */
 #hud .hud-directive-bar {
   height: 3px;
-  background: rgba(255, 255, 255, 0.12);
+  margin-top: 2px;
+  background: rgba(8, 5, 15, 0.22);
   border-radius: var(--radius-pill);
   overflow: hidden;
 }
@@ -445,7 +513,7 @@
   display: block;
   height: 100%;
   width: 100%;
-  background: var(--directive-accent);
+  background: var(--color-ink-deep);
   border-radius: var(--radius-pill);
 }
 
@@ -477,54 +545,51 @@
   align-items: center;
   gap: clamp(4px, 0.8vw, 8px);
   background: var(--color-ink);
-  border-radius: var(--radius-panel);
-  box-shadow: var(--sticker-chip);
+  border-radius: 8px 8px 8px 22px;
+  border: 1px solid var(--border-white-12);
+  box-shadow: var(--slab-shadow);
+  transform: skewX(-8deg);
   overflow: hidden;
 }
 
-/* Cart-color edge stripe — the chip's identity mark. */
-#hud .hud-scoreBox::before {
+/* No cart-colour edge stripe: mock 6a carries identity in the emblem and the
+   leader/YOU border, and the stripe fought the punched tag nose. */
+/* Counter-skew the contents so text stays upright inside the skewed tag. */
+#hud .hud-scoreBox > * { transform: skewX(8deg); }
+/* Punched tag hole at the nose. */
+#hud .hud-scoreBox::after {
   content: "";
   position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 4px;
-  background: var(--hud-glow);
+  left: 9px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-ink-deep);
+  box-shadow: inset 0 0 0 1.5px rgba(242, 237, 228, 0.4);
+  z-index: 1;
 }
 
 /* Rank is signaled with material, not light: the leader's die-cut edge turns
    sticker-yellow (shelf-talker flash); YOU gets a thicker white edge. */
+/* Rank is signaled by border color + a soft glow (no white/yellow contour):
+   YOU = cyan, the leader = magenta (6a). */
 #hud .hud-scoreBox.isLocal {
-  box-shadow:
-    0 0 0 3px var(--color-sticker-white),
-    3px 3px 0 3px var(--color-ink-deep),
-    inset 0 2px 0 rgba(255,255,255,0.07);
+  border-color: rgba(34, 230, 255, 0.55);
+  box-shadow: var(--slab-shadow), 0 0 22px var(--glow-cyan-24);
 }
 #hud .hud-scoreBox.isLeader {
-  box-shadow:
-    0 0 0 2.5px var(--color-yellow),
-    3px 3px 0 2.5px var(--color-ink-deep),
-    inset 0 2px 0 rgba(255,255,255,0.07);
+  border-color: rgba(255, 43, 214, 0.6);
+  box-shadow: var(--slab-shadow), 0 0 22px var(--glow-magenta-16);
 }
 #hud .hud-scoreBox.isLocal.isLeader {
-  box-shadow:
-    0 0 0 3px var(--color-yellow),
-    3px 3px 0 3px var(--color-ink-deep),
-    inset 0 2px 0 rgba(255,255,255,0.07);
+  border-color: rgba(255, 43, 214, 0.6);
+  box-shadow: var(--slab-shadow), 0 0 22px var(--glow-magenta-16);
 }
 /* YOU reads ~15% larger than the field. */
-#hud .hud-scoreBox.isLocal .hud-scoreRank { font-size: clamp(14px, 1.6vw, 18px); }
 #hud .hud-scoreBox.isLocal .hud-scoreLabel { font-size: clamp(12px, 1.4vw, 16px); }
-#hud .hud-scoreBox.isLocal .hud-scoreValue { font-size: clamp(15px, 1.8vw, 21px); }
-
-#hud .hud-scoreRank {
-  font-family: var(--hud-display);
-  font-size: clamp(12px, 1.4vw, 16px);
-  color: var(--hud-glow);
-  min-width: 16px;
-  flex-shrink: 0;
-}
+#hud .hud-scoreBox.isLocal .hud-scoreValue { font-size: clamp(17px, 2vw, 25px); }
 
 #hud .hud-scoreLabel {
   font-family: var(--hud-ui);
@@ -539,55 +604,135 @@
   color: var(--color-sticker-white);
 }
 
-#hud .hud-scoreValue {
-  font-family: var(--hud-display);
-  font-size: clamp(13px, 1.5vw, 18px);
-  color: var(--hud-glow);
-  min-width: 1.5em;
+/* Score prints like a till total (mock 6a): the number over a barcode strip. */
+#hud .hud-scoreValueWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
   flex-shrink: 0;
-  text-align: right;
 }
 
+#hud .hud-scoreValue {
+  font-family: var(--hud-mono);
+  font-weight: 700;
+  font-size: clamp(15px, 1.7vw, 22px);
+  color: var(--color-sticker-white);
+  min-width: 1.2em;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+#hud .hud-scoreBarcode {
+  display: block;
+  width: 26px;
+  height: 7px;
+  margin-top: 3px;
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(242, 237, 228, 0.7) 0 1px,
+    transparent 1px 3px,
+    rgba(242, 237, 228, 0.7) 3px 5px,
+    transparent 5px 6px
+  );
+}
+
+/* Everyone but the leader and YOU prints at 68% — the mock's quiet field. */
+#hud .hud-scoreBox:not(.isLocal):not(.isLeader) .hud-scoreValue,
+#hud .hud-scoreBox:not(.isLocal):not(.isLeader) .hud-scoreLabel {
+  color: rgba(242, 237, 228, 0.68);
+}
+
+#hud .hud-scoreBox:not(.isLocal):not(.isLeader) .hud-scoreBarcode {
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(242, 237, 228, 0.4) 0 1px,
+    transparent 1px 3px,
+    rgba(242, 237, 228, 0.4) 3px 5px,
+    transparent 5px 6px
+  );
+}
+
+/* YOU is cyan in the mock — the one fixed identity colour, not the cart tint
+   (which is already carried by the emblem). */
 #hud .hud-scoreYou {
-  font-family: var(--hud-display);
+  font-family: var(--hud-mono);
+  font-weight: 700;
   font-size: 10px;
-  background: var(--hud-glow);
+  background: var(--color-cyan);
   color: var(--color-ink-deep);
   padding: 2px 5px;
   border-radius: 4px;
   letter-spacing: 1px;
-  box-shadow: var(--sticker-micro);
+  border: 1px solid var(--border-white-12);
+  box-shadow: var(--slab-shadow-sm);
   flex-shrink: 0;
   display: none;
 }
 
+/* Kill feed = the store's TRANSACTION LOG (mock 6a): ONE receipt slab with a
+   printed header, not a scatter of per-KO plates. The slab owns the skew; the
+   inner wrapper owns the counter-skew and is never animated, because the rows
+   inside it are (a counter-skew on the row would be overwritten inline). */
 #hud .hud-feed {
+  display: block;
+  pointer-events: none;
+  padding: 9px 18px 11px;
+  background: var(--color-ink);
+  border: 1px solid var(--border-white-12);
+  border-radius: 6px;
+  box-shadow: var(--slab-shadow);
+  transform: skewX(-8deg);
+  font-family: var(--hud-mono);
+}
+
+/* No transactions yet → no receipt (never a bare header over the arena). */
+#hud .hud-feed.is-empty { display: none; }
+
+#hud .hud-feed-inner { transform: skewX(8deg); }
+
+#hud .hud-feed-hd {
+  font-size: clamp(7px, 0.8vw, 8px);
+  letter-spacing: 0.3em;
+  color: rgba(242, 237, 228, 0.4);
+  text-align: center;
+  margin-bottom: 6px;
+  white-space: nowrap;
+}
+
+#hud .hud-feed-rows {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: clamp(6px, 0.9vw, 10px);
+  gap: clamp(4px, 0.6vw, 7px);
   text-align: right;
-  pointer-events: none;
-  /* Room for each plate's hard shadow. */
-  padding: 2px 5px 6px 2px;
 }
 
-/* Each elimination is its own little sticker plate — the KO gets celebrated,
-   not logged. The VERB is the hero word: it's the joke. */
+/* A row is a printed line on the receipt now — the slab material moved up to
+   the panel, so the row keeps only its type and rhythm. */
 #hud .hud-feed-row {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 7px;
-  padding: 4px 10px;
-  background: var(--color-ink);
-  border-radius: 8px;
-  box-shadow: var(--sticker-micro);
-  font-size: clamp(11px, 1.3vw, 14px);
-  letter-spacing: 0.5px;
+  gap: 10px;
+  font-size: clamp(11px, 1.3vw, 13px);
+  letter-spacing: 0.04em;
   text-transform: uppercase;
+  white-space: nowrap;
   opacity: 0;
   will-change: transform, opacity;
+}
+
+/* Streak pip on a logged KO — the mock's orange chip between actor and victim. */
+#hud .hud-feed-pip {
+  font-family: var(--hud-mono);
+  font-weight: 700;
+  font-size: clamp(9px, 1vw, 11px);
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: var(--color-combo-t3, #ff8a3d);
+  color: var(--color-ink-deep);
+  flex-shrink: 0;
 }
 
 #hud .hud-feed-icon {
@@ -656,25 +801,22 @@
   paint-order: stroke fill;
   -webkit-text-stroke: 0.05em var(--color-ink-deep);
   text-shadow: 0.06em 0.06em 0 var(--color-ink-deep);
-  box-shadow: var(--sticker-panel);
+  border: 1px solid var(--border-white-12);
+  box-shadow: var(--slab-shadow);
   transition: transform 120ms ease, box-shadow 120ms ease, filter 180ms ease;
   animation: readyPulse 2s ease-in-out infinite;
 }
 
+/* Slab material, and NO `transform` here: the lobby READY button is a skewed
+   slab (`.hud-lobby-btn`), so writing translate() on the outer node flattens it
+   and leaves the label slanted (trap 4). The press beat lives on the inner node
+   via lobbyPressTarget(); hover/active only move the extrude. */
 #hud .hud-ready-btn:hover {
-  transform: translate(-1px, -1px);
-  box-shadow:
-    0 0 0 3px var(--color-sticker-white),
-    5px 5px 0 3px var(--color-ink-deep),
-    inset 0 2px 0 rgba(255,255,255,0.07);
+  box-shadow: var(--slab-shadow-hover);
 }
 
 #hud .hud-ready-btn:active {
-  transform: translate(2px, 2px);
-  box-shadow:
-    0 0 0 3px var(--color-sticker-white),
-    2px 2px 0 3px var(--color-ink-deep),
-    inset 0 2px 0 rgba(255,255,255,0.07);
+  box-shadow: var(--slab-shadow-pressed);
 }
 
 #hud .hud-ready-btn.is-ready {
@@ -698,13 +840,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: clamp(30px, 3.4vw, 36px);
-  height: clamp(30px, 3.4vw, 36px);
-  border-radius: 9px;
-  border: none;
+  /* Mock 6a: a 48px ink slab on the top strip's height rhythm. */
+  width: clamp(38px, 3.4vw, 48px);
+  height: clamp(38px, 3.4vw, 48px);
+  border-radius: 8px;
   background: var(--color-ink);
-  box-shadow: var(--sticker-chip);
-  color: var(--color-sticker-white);
+  border: 1px solid var(--border-white-12);
+  box-shadow: var(--slab-shadow);
+  color: rgba(242, 237, 228, 0.55);
   cursor: pointer;
   font-size: clamp(14px, 1.7vw, 17px);
   transition: transform 100ms ease, box-shadow 100ms ease, background 150ms ease;
@@ -714,10 +857,7 @@
 }
 #hud .hud-mute-btn:active {
   transform: translate(2px, 2px);
-  box-shadow:
-    0 0 0 2.5px var(--color-sticker-white),
-    1px 1px 0 2.5px var(--color-ink-deep),
-    inset 0 2px 0 rgba(255,255,255,0.07);
+  box-shadow: var(--slab-shadow-pressed);
 }
 /* Muted is unmistakable: the sticker turns alert-red. */
 #hud .hud-mute-btn.muted {
@@ -757,9 +897,6 @@
   #hud .hud-scoreBox {
     padding: clamp(4px, 1vw, 10px) clamp(6px, 1.2vw, 12px);
     gap: clamp(3px, 0.6vw, 6px);
-  }
-  #hud .hud-scoreRank {
-    font-size: clamp(11px, 1.2vw, 14px);
   }
   #hud .hud-scoreLabel {
     font-size: clamp(10px, 1.1vw, 12px);
@@ -829,10 +966,6 @@
     justify-content: center;
     gap: 2px;
     padding: clamp(4px, 1.2vw, 6px) clamp(2px, 0.8vw, 4px);
-    min-width: 0;
-  }
-  #hud:not(.hud-touch) .hud-scoreRank {
-    font-size: clamp(9px, 2.2vw, 11px);
     min-width: 0;
   }
   #hud:not(.hud-touch) .hud-scoreLabel {
@@ -999,7 +1132,8 @@
   border-radius: clamp(10px, 2.5vmin, 12px);
   border: none;
   background: var(--color-ink);
-  box-shadow: var(--sticker-chip);
+  border: 1px solid var(--border-white-12);
+  box-shadow: var(--slab-shadow);
   color: var(--color-sticker-white);
   font-size: clamp(17px, 4.5vmin, 20px);
   line-height: 1;
@@ -1015,10 +1149,7 @@
 
 #hud .hud-menu-btn:active {
   transform: translate(2px, 2px);
-  box-shadow:
-    0 0 0 2.5px var(--color-sticker-white),
-    1px 1px 0 2.5px var(--color-ink-deep),
-    inset 0 2px 0 rgba(255,255,255,0.07);
+  box-shadow: var(--slab-shadow-pressed);
 }
 
 /* Suppress HUD chrome when Esc overlay is open on touch devices. */
@@ -1036,23 +1167,56 @@
 /* Sticker nametags (CSS2D) — size lives here (not inline) so media queries win.
    Desktop keeps the bold billboard read (~22–24px); mobile/coarse is a clear
    step down without going micro. */
+/* World-space nameplate = mini price tag (mock 6a): tag nose, punched hole,
+   hairline edge, 2px extrude. The cart colour moved OFF the border (a 2.5px
+   neon edge on four carts was the loudest thing on screen) and onto the hole's
+   ring, which is where a real tag carries its hardware. `--nt` is set per cart
+   in main.js. */
 .cart-nametag {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-family: "Russo One", var(--ui, sans-serif);
   font-size: 24px;
   font-weight: 700;
   line-height: 1;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   white-space: nowrap;
-  padding: 4px 12px;
-  border-radius: 8px;
-  border: 2.5px solid var(--color-cyan, #22e6ff); /* borderColor set per-cart in JS */
+  padding: 5px 14px 5px 20px;
+  border-radius: 5px 5px 5px 14px;
+  border: 1px solid var(--border-white-12, rgba(255, 255, 255, 0.12));
   background: var(--color-ink, #14101e);
   color: var(--color-sticker-white, #f2ede4);
-  box-shadow: 3px 3px 0 var(--color-ink-deep, #08050f);
+  box-shadow: 2px 2px 0 var(--color-ink-deep, #08050f);
   text-shadow: 0 1.5px 0 var(--color-ink-deep, #08050f);
   transform: translate(-50%, 0);
   pointer-events: none;
+}
+
+/* Punched hole at the nose — its ring is the cart's colour. */
+.cart-nametag::before {
+  content: "";
+  position: absolute;
+  left: 7px;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  transform: translateY(-50%);
+  border-radius: 50%;
+  background: var(--color-bg-black, #05030a);
+  box-shadow: inset 0 0 0 1.5px var(--nt, rgba(242, 237, 228, 0.35));
+}
+
+/* Leader crown — same mark as the scoreboard, gated by HUD.getLeaderSlotIndex(). */
+.cart-nametag-crown {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.55em;
+  color: var(--color-yellow, #ffe53d);
+  transform: rotate(-8deg);
+  filter: drop-shadow(1px 1px 0 var(--color-ink-deep, #08050f));
 }
 
 /* Touch / mobile — phone landscape is often >768 wide, so width-only never
@@ -1061,10 +1225,16 @@
 @media (max-width: 768px), (pointer: coarse) {
   .cart-nametag {
     font-size: 13px;
-    padding: 3px 8px;
-    border-width: 2px;
-    border-radius: 6px;
+    gap: 6px;
+    padding: 3px 9px 3px 15px;
+    border-width: 1px;
+    border-radius: 4px 4px 4px 11px;
     box-shadow: 2px 2px 0 var(--color-ink-deep, #08050f);
+  }
+  .cart-nametag::before {
+    left: 5px;
+    width: 5px;
+    height: 5px;
   }
   .cart-nametag svg {
     width: 1em;
@@ -1151,7 +1321,8 @@
   height: 1.5em;
   border-radius: 50%;
   background: var(--color-ink);
-  box-shadow: var(--sticker-micro);
+  border: 1px solid var(--border-white-12);
+  box-shadow: var(--slab-shadow-sm);
   color: rgba(242, 237, 228, 0.9);
   font-size: 0.85em;
   flex-shrink: 0;
@@ -1169,7 +1340,8 @@
   background: var(--color-alert);
   border: none;
   border-radius: var(--radius-pill);
-  box-shadow: var(--sticker-micro);
+  border: 1px solid var(--border-white-12);
+  box-shadow: var(--slab-shadow-sm);
   font-family: var(--hud-mono);
   font-size: clamp(9px, 1.1vw, 11px);
   font-weight: 700;
@@ -1203,7 +1375,8 @@
   border-radius: 4px;
   color: var(--color-ink-deep);
   background: #ff8a3d;
-  box-shadow: var(--sticker-micro);
+  border: 1px solid var(--border-white-12);
+  box-shadow: var(--slab-shadow-sm);
 }
 #hud .hud-scorePip[data-tier="2"] {
   background: #ff5e3d;
@@ -1297,28 +1470,72 @@
 
 /* ── Boost gauge (keyboard/gamepad) — a chunky sticker capsule with a bolt,
       not an ability bar. Color state IS the information. ── */
+/* Boost = the cart handle (mock 6a): a 360px ink slab carrying the word, the
+   track and the charge readout. Slab owns the skew, inner owns the counter. */
 #hud .hud-boost {
   display: none;
-  align-items: center;
-  gap: 9px;
   pointer-events: none;
-  padding: 0 5px 5px 0;
+  width: clamp(240px, 26vw, 360px);
+  padding: 10px 20px;
+  background: var(--color-ink);
+  border: 1px solid var(--border-white-12);
+  border-radius: 6px;
+  box-shadow: var(--slab-shadow);
+  transform: skewX(-8deg);
+}
+/* width:100% is load-bearing — hud.js writes `display:flex` inline on the slab
+   when it shows, which makes this a content-sized flex ITEM and collapses the
+   track's flex:1 to nothing (the bar vanished, value slid up beside the label). */
+#hud .hud-boost-inner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  transform: skewX(8deg);
 }
 #hud .hud-boost-label {
-  display: inline-flex;
-  align-items: center;
-  font-size: clamp(13px, 1.5vw, 16px);
+  font-family: var(--hud-mono);
+  font-weight: 700;
+  font-size: clamp(9px, 1vw, 10px);
+  letter-spacing: 0.18em;
   color: var(--color-cyan);
-  filter: drop-shadow(1px 1px 0 var(--color-ink-deep));
+  white-space: nowrap;
+}
+#hud .hud-boost-value {
+  font-family: var(--hud-mono);
+  font-weight: 700;
+  font-size: clamp(11px, 1.2vw, 12px);
+  color: var(--color-cyan);
+  min-width: 2.2em;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 #hud .hud-boost-track {
-  width: clamp(120px, 14vw, 170px);
-  height: clamp(11px, 1.4vw, 14px);
-  background: var(--color-ink);
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
   border: none;
   border-radius: var(--radius-pill);
-  box-shadow: var(--sticker-micro);
+  box-shadow: none;
   overflow: hidden;
+}
+/* Overcharge zone — the top slice of the track is hazard-taped, so the moment
+   the charge is worth spending is a place on the bar, not a number to watch. */
+#hud .hud-boost-track::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 22%;
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(255, 229, 61, 0.35) 0 5px,
+    transparent 5px 10px
+  );
+  pointer-events: none;
 }
 #hud .hud-boost-fill {
   display: block;
@@ -1326,6 +1543,7 @@
   width: 100%;
   background: var(--color-cyan);
   border-radius: var(--radius-pill);
+  box-shadow: 0 0 12px var(--glow-cyan-50, rgba(34, 230, 255, 0.5));
   transition: width 60ms linear;
 }
 #hud .hud-boost[data-state="charging"] .hud-boost-fill {
@@ -1355,7 +1573,8 @@
   background: var(--color-ink);
   border: none;
   border-radius: var(--hud-radius);
-  box-shadow: var(--sticker-panel);
+  border: 1px solid var(--border-white-12);
+  box-shadow: var(--slab-shadow);
   outline: 2px dashed rgba(242, 237, 228, 0.45);
   outline-offset: -7px;
   opacity: 0;
@@ -1483,14 +1702,9 @@
 #hud.hud-touch .hud-scoreBadge {
   display: none !important;
 }
-#hud.hud-touch .hud-scoreRank {
-  font-size: clamp(10px, 2.4vw, 12px);
-  min-width: 0;
-}
 #hud.hud-touch .hud-scoreValue {
   font-size: clamp(12px, 2.8vw, 15px);
 }
-#hud.hud-touch .hud-scoreBox.isLocal .hud-scoreRank { font-size: clamp(11px, 2.7vw, 14px); }
 #hud.hud-touch .hud-scoreBox.isLocal .hud-scoreValue { font-size: clamp(14px, 3.2vw, 17px); }
 
 /* Kill feed — top-right under utility, right-aligned (desktop side).
@@ -1611,4 +1825,444 @@
   #hud .hud-combo-multiplier {
     -webkit-text-stroke-width: 0.03em;
   }
+}
+
+/* ═══ FRIENDS CHECKOUT LINE — full-screen lobby (7e, model B) ═══════════════
+   Body-level surface (outside #hud) shown only while phase === "lobby" in a
+   private room; it clears before the countdown so the 3-2-1 owns the frame.
+   Start rule B1: READY only — the server auto-arms, there is no START button. */
+.hud-lobby {
+  --lobby-pad-x: clamp(20px, 5vw, 96px);
+  position: fixed;
+  inset: 0;
+  z-index: 24000;
+  /* Same region grid as the menu sub-screens: title band, left invite column /
+     right roster, hint bar. Expressed locally rather than by borrowing
+     .cr-screen from cart-rave-menu.css — a cross-stylesheet override of a
+     shared shell class would be decided by bundle order. */
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: clamp(12px, 2vw, 28px) clamp(16px, 3vw, 48px);
+  padding:
+    max(clamp(20px, 3.4vh, 56px), env(safe-area-inset-top, 0px))
+    max(var(--lobby-pad-x), env(safe-area-inset-right, 0px))
+    0
+    max(var(--lobby-pad-x), env(safe-area-inset-left, 0px));
+  overflow: hidden;
+  /* Left-weighted printed scrim over the frozen arena — no blur. Darkest under
+     the title/invite column, lighter where the roster slabs carry their own
+     ink, so the arena still reads behind the screen. */
+  background: linear-gradient(
+    100deg,
+    rgba(10, 8, 16, 0.95) 0%,
+    rgba(10, 8, 16, 0.95) 30%,
+    rgba(10, 8, 16, 0.8) 70%,
+    rgba(10, 8, 16, 0.92) 100%
+  );
+  font-family: var(--mono);
+  color: var(--color-sticker-white);
+}
+
+.hud-lobby[hidden] { display: none; }
+
+.hud-lobby-hd {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.hud-lobby-kicker {
+  font-size: clamp(9px, 1vw, 12px);
+  letter-spacing: 0.34em;
+  color: rgba(255, 255, 255, 0.55);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hud-lobby-title {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: clamp(34px, 6.4vw, 96px);
+  line-height: 0.9;
+  letter-spacing: 0.02em;
+  color: var(--color-sticker-white);
+  transform: skewX(-4deg);
+  transform-origin: left center;
+  text-shadow: 0 0 50px var(--glow-magenta-30, rgba(255, 43, 214, 0.3));
+  white-space: nowrap;
+}
+
+/* Left column — invite slab over the actions (mock 7e). */
+.hud-lobby-left {
+  grid-column: 1;
+  grid-row: 2;
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(12px, 2.4vh, 28px);
+  width: min(520px, 100%);
+  margin-top: clamp(8px, 4vh, 64px);
+  min-height: 0;
+}
+
+.hud-lobby-code-card {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(8px, 1.4vh, 14px);
+  padding: clamp(16px, 1.8vw, 28px) clamp(18px, 2vw, 32px);
+  background: rgba(12, 10, 17, 0.85);
+  border: 1px solid var(--border-white-10);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--slab-shadow);
+}
+
+.hud-lobby-code-lbl {
+  font-size: clamp(9px, 1vw, 11px);
+  letter-spacing: 0.26em;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.hud-lobby-code-row {
+  display: flex;
+  align-items: center;
+  gap: clamp(10px, 1.4vw, 16px);
+  min-width: 0;
+}
+
+/* The code is read out loud, so it never wraps and never shrinks below legible. */
+.hud-lobby-code {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 700;
+  font-size: clamp(20px, 2.6vw, 36px);
+  letter-spacing: 0.12em;
+  color: var(--color-cyan);
+  white-space: nowrap;
+}
+
+.hud-lobby-copy {
+  flex: 0 0 auto;
+  padding: 8px clamp(12px, 1.3vw, 16px);
+  background: transparent;
+  border: 1px solid rgba(34, 230, 255, 0.45);
+  border-radius: 5px;
+  color: var(--color-cyan);
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: clamp(10px, 1.05vw, 11px);
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 120ms var(--ease-slap), color 120ms var(--ease-slap);
+}
+
+.hud-lobby-copy:hover {
+  background: rgba(34, 230, 255, 0.12);
+  color: var(--color-sticker-white);
+}
+
+.hud-lobby-copy:active {
+  background: var(--color-cyan);
+  color: var(--color-ink);
+}
+
+.hud-lobby-share {
+  margin: 0;
+  padding-top: clamp(10px, 1.2vh, 16px);
+  border-top: 1px solid var(--border-white-10);
+  font-size: clamp(9px, 0.95vw, 11px);
+  letter-spacing: 0.06em;
+  line-height: 1.6;
+  color: rgba(242, 237, 228, 0.45);
+}
+
+/* Right column — the roster itself. */
+.hud-lobby-roster {
+  grid-column: 2;
+  grid-row: 2;
+  align-self: start;
+  justify-self: end;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(8px, 1.4vh, 14px);
+  width: min(560px, 100%);
+  margin-top: clamp(8px, 4vh, 64px);
+  /* align-self:start means this box takes its CONTENT height, so overflow-y
+     alone never engages — without the cap it grows past its grid row and lands
+     on the hint bar (the 7b lesson). */
+  max-height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.hud-lobby-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: clamp(9px, 1vw, 11px);
+  letter-spacing: 0.26em;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.hud-lobby-count { color: var(--color-cyan); }
+
+.hud-lobby-slots {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(8px, 1.2vh, 14px);
+  width: 100%;
+}
+
+/* Price-tag lane per seat: emblem · name · pips · status. */
+.hud-lobby-slot {
+  display: flex;
+  align-items: center;
+  gap: clamp(8px, 1vw, 14px);
+  padding: clamp(11px, 1.2vw, 16px) clamp(14px, 1.6vw, 22px) clamp(11px, 1.2vw, 16px) clamp(24px, 2.4vw, 34px);
+  position: relative;
+  background: rgba(12, 10, 17, 0.85);
+  border: 1px solid var(--border-white-12);
+  border-radius: 8px 8px 8px 22px;
+  box-shadow: var(--slab-shadow-sm);
+}
+
+.hud-lobby-slot::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  transform: translateY(-50%);
+  border-radius: 50%;
+  background: var(--color-bg-black);
+  box-shadow: inset 0 0 0 1.5px rgba(242, 237, 228, 0.4);
+}
+
+/* An empty lane is a dashed outline holding one centred line — no tag nose, no
+   punched hole, nothing that reads as an occupied seat. */
+.hud-lobby-slot.is-empty {
+  justify-content: center;
+  /* Symmetric again — the extra left pad exists to clear the tag nose + punched
+     hole, and an empty lane has neither, so it would push the line off centre. */
+  padding: clamp(14px, 1.5vw, 18px) clamp(14px, 1.6vw, 22px);
+  background: transparent;
+  border-style: dashed;
+  border-color: rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+.hud-lobby-slot.is-empty::before { display: none; }
+
+/* The name box keeps flex:1 even while empty, which would hold the centred line
+   off to the right — an empty lane shows nothing but its one line. */
+.hud-lobby-slot.is-empty .hud-lobby-name,
+.hud-lobby-slot.is-empty .hud-lobby-emblem,
+.hud-lobby-slot.is-empty .hud-lobby-pips { display: none; }
+
+.hud-lobby-slot.is-you { border-color: var(--color-cyan); }
+.hud-lobby-slot.is-ready .hud-lobby-status-cell { color: var(--color-portal); }
+
+/* Emblems are self-contained stickers (backing + ring baked into the SVG, and
+   off-limits) — this only sizes the 1em glyph and matches the scoreboard's
+   ink drop shadow. The mock's drawn-on ring would be a second ring. */
+.hud-lobby-emblem {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  font-size: clamp(18px, 1.7vw, 24px);
+  line-height: 1;
+  filter: drop-shadow(1px 1px 0 var(--color-ink-deep));
+}
+
+.hud-lobby-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--ui);
+  font-size: clamp(13px, 1.3vw, 17px);
+  letter-spacing: 0.06em;
+}
+
+.hud-lobby-pips { display: inline-flex; gap: 4px; }
+
+.hud-lobby-pip {
+  display: inline-flex;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--color-bg-black);
+  box-shadow: 2px 2px 0 var(--color-bg-black);
+}
+
+/* HOST is the mock's cyan chip; YOU has to sit beside it on the same row, so it
+   takes the neutral warm white rather than a second cyan. */
+.hud-lobby-pip--host { background: var(--color-cyan); }
+.hud-lobby-pip--you { background: var(--color-sticker-white); }
+
+.hud-lobby-status-cell {
+  margin-left: auto;
+  text-align: right;
+  font-size: clamp(9px, 1vw, 12px);
+  letter-spacing: 0.14em;
+  color: rgba(242, 237, 228, 0.4);
+  white-space: nowrap;
+}
+
+.hud-lobby-slot.is-empty .hud-lobby-status-cell {
+  margin-left: 0;
+  letter-spacing: 0.18em;
+  color: rgba(242, 237, 228, 0.35);
+}
+
+.hud-lobby-status {
+  margin: 0;
+  font-size: clamp(9px, 1vw, 11px);
+  letter-spacing: 0.24em;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.hud-lobby-status.is-go { color: var(--color-portal); }
+
+.hud-lobby-actions {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(8px, 1.2vh, 12px);
+  width: 100%;
+}
+
+/* Every interactive slab on this screen is the SAME parallelogram (the menu
+   sub-screens' rule). Two-class against .cc-btn so its own hover/active
+   transforms can't drop the skew — that flashing was bug 0d20900. */
+.cc-btn.hud-lobby-btn {
+  width: 100%;
+  min-height: 48px;
+  padding: 14px clamp(20px, 2.5vw, 40px);
+  border-radius: var(--radius-sm);
+  font-family: var(--ui);
+  font-size: clamp(13px, 1.3vw, 18px);
+  letter-spacing: 0.1em;
+  text-align: center;
+  cursor: pointer;
+  transform: skewX(-8deg);
+  transition: transform 120ms var(--ease-slap), box-shadow 120ms var(--ease-slap);
+}
+
+.cc-btn.hud-lobby-btn:hover,
+.cc-btn.hud-lobby-btn:focus-visible {
+  transform: skewX(-8deg) translate(-1px, -2px);
+}
+
+.cc-btn.hud-lobby-btn:active {
+  transform: skewX(-8deg) translate(2px, 2px);
+}
+
+.cc-btn.hud-lobby-btn--ready {
+  border: none;
+  box-shadow: var(--slab-extrude), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+/* LEAVE ROOM is the quieter half of the pair. */
+.hud-lobby-btn.cc-btn--ghost {
+  font-size: clamp(11px, 1.1vw, 15px);
+  color: var(--color-muted);
+}
+
+/* Three-layer split, same as the menu action slabs: outer owns the skew, inner
+   is the press target (press writes transform inline), label counter-skews. */
+.hud-lobby-btn-inner {
+  display: inline-block;
+}
+
+.hud-lobby-btn-label {
+  display: inline-block;
+  transform: skewX(8deg);
+}
+
+/* Already checked out — the button recedes to a confirmed state. */
+.hud-lobby-btn--ready.is-ready {
+  background: var(--color-portal);
+  color: var(--color-ink-deep);
+}
+
+/* Hint bar — full-bleed against the screen edges, so it negates the shell pad. */
+.hud-lobby-hint {
+  grid-column: 1 / -1;
+  grid-row: 3;
+  display: flex;
+  align-items: center;
+  gap: clamp(14px, 2.4vw, 36px);
+  margin: 0 calc(var(--lobby-pad-x) * -1);
+  padding: clamp(10px, 1.5vh, 16px) var(--lobby-pad-x);
+  padding-bottom: max(clamp(10px, 1.5vh, 16px), env(safe-area-inset-bottom, 0px));
+  background: rgba(9, 7, 13, 0.9);
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  font-size: clamp(9px, 1vw, 12px);
+  letter-spacing: 0.12em;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.hud-lobby-hint-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.hud-lobby-hint kbd {
+  padding: 2px 8px;
+  border: 1px solid var(--border-white-25, rgba(255, 255, 255, 0.25));
+  border-radius: 4px;
+  font-family: var(--mono);
+  color: var(--color-sticker-white);
+}
+
+.hud-lobby-link {
+  margin-left: auto;
+  color: rgba(255, 255, 255, 0.4);
+  white-space: nowrap;
+}
+
+.hud-lobby-link.is-warn { color: var(--color-alert); }
+
+/* ≤900: the invite column drops under the roster — the roster is the reason the
+   screen exists, so it keeps the top of the frame. */
+@media (max-width: 900px) {
+  .hud-lobby {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+  }
+  .hud-lobby-roster {
+    grid-column: 1;
+    grid-row: 2;
+    justify-self: stretch;
+    width: 100%;
+    margin-top: clamp(6px, 2vh, 24px);
+  }
+  .hud-lobby-left {
+    grid-column: 1;
+    grid-row: 3;
+    width: 100%;
+    margin-top: 0;
+  }
+  .hud-lobby-hint { grid-row: 4; }
+}
+
+@media (max-width: 480px) {
+  .hud-lobby { gap: 10px; }
+  .hud-lobby-slot { gap: 8px; }
+  .hud-lobby-code-card { padding: 14px 16px; }
 }

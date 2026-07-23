@@ -74,16 +74,10 @@ html, body {
 /* Hide entrance targets until Anime.js runs (removed when sequence completes). */
 .cr-root.cr-menu-enter-pending .cr-tagline,
 .cr-root.cr-menu-enter-pending .cr-title-word,
-.cr-root.cr-menu-enter-pending .cr-buttons .cr-btn,
-.cr-root.cr-menu-enter-pending .cr-levels-hd,
-.cr-root.cr-menu-enter-pending .cr-level-btn:not(.cr-level-btn--disabled),
-.cr-root.cr-menu-enter-pending .cr-diff-hd,
-.cr-root.cr-menu-enter-pending .cr-diff-btn,
-.cr-root.cr-menu-enter-pending #cr-player-card,
-.cr-root.cr-menu-enter-pending #cr-stats-local,
-.cr-root.cr-menu-enter-pending #cr-audio-panel,
-.cr-root.cr-menu-enter-pending #cr-controls,
-.cr-root.cr-menu-enter-pending .cr-menu-extras {
+.cr-root.cr-menu-enter-pending .cr-commandlist .cr-cmd,
+.cr-root.cr-menu-enter-pending .cr-plate,
+.cr-root.cr-menu-enter-pending .cr-context,
+.cr-root.cr-menu-enter-pending .cr-hintbar {
   opacity: 0;
 }
 
@@ -98,32 +92,14 @@ html, body {
   transition: opacity 280ms ease;
 }
 
+/* Fight Night 3a: regions are absolutely positioned within this container
+   (hero left · plate top-right · context bottom-right · hint bar bottom).
+   The desktop composition lives here; the named responsive bands at the end of
+   this file switch it to a stacked scroll column. */
 .cr-content {
   position: absolute; inset: 0;
   z-index: 20;
-  display: grid;
-  grid-template-columns: 1fr 1.2fr 1fr; /* Slightly wider center for ultrawide cohesion */
-  align-items: center;
-  /* `safe center` keeps vertical centering when the columns fit, but falls back
-     to top-align the moment a column is taller than the viewport — which is what
-     happens under high OS DPI scaling (a 1080p panel at 125% reports a ~760px
-     CSS viewport) or browser zoom. Without it, a centered-then-overflowing
-     column has its top AND bottom clipped and the overflow is unreachable even
-     with a scrollbar. Paired declaration = graceful fallback on engines that
-     don't parse the `safe` keyword. */
-  align-items: safe center;
-  align-content: safe center;
-  justify-items: center;
-  padding: var(--pad-content);
-  gap: clamp(16px, 2.5vw, 32px); /* Tighter gap on smaller screens, wider on ultrawide */
-  width: 100%;
-  max-width: 1500px; /* Slightly tighter cap to prevent extreme stretching */
-  margin: 0 auto;
-  /* Scroll instead of hard-clipping when the columns exceed the viewport height
-     (short windows / DPI scaling / zoom). No-op when everything fits. This is
-     the desktop safety net; the mobile + <=680px blocks already scroll. */
-  overflow-y: auto;
-  scrollbar-width: thin;
+  overflow: hidden;
 }
 
 .cr-left {
@@ -168,7 +144,7 @@ html, body {
   border-radius: var(--radius-pill);
   background: var(--color-ink);
   border: none;
-  box-shadow: var(--sticker-chip);
+  box-shadow: var(--slab-shadow);
   color: rgba(255, 255, 255, 0.82);
   font-family: var(--mono);
   font-size: clamp(10px, 1.2vw, 11px);
@@ -250,7 +226,7 @@ html, body {
   border-radius: var(--radius-pill);
   background: var(--color-ink);
   border: none;
-  box-shadow: var(--sticker-chip);
+  box-shadow: var(--slab-shadow);
   pointer-events: auto;
   touch-action: none;
 }
@@ -265,7 +241,7 @@ html, body {
   border-radius: var(--radius-pill);
   background: var(--color-sticker-white);
   border: none;
-  box-shadow: var(--sticker-micro);
+  box-shadow: var(--slab-shadow-sm);
 }
 
 .cr-touch-btns {
@@ -288,7 +264,7 @@ html, body {
   font-size: 11px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  box-shadow: var(--sticker-chip);
+  box-shadow: var(--slab-shadow);
   touch-action: none;
 }
 
@@ -302,7 +278,7 @@ html, body {
 
 .cr-touch-btn:active {
   transform: translate(2px, 2px);
-  box-shadow: var(--sticker-chip-pressed);
+  box-shadow: var(--slab-shadow-pressed);
 }
 
 @media (pointer: coarse) {
@@ -322,7 +298,7 @@ html, body {
   background: var(--color-ink);
   border: none;
   border-radius: var(--radius-lg);
-  box-shadow: var(--sticker-panel);
+  box-shadow: var(--slab-shadow);
   width: 100%;
   justify-content: center;
 }
@@ -355,7 +331,7 @@ html, body {
   background: var(--color-sticker-white);
   border: none;
   border-radius: 4px;
-  box-shadow: var(--sticker-micro);
+  box-shadow: var(--slab-shadow-sm);
   font-family: var(--mono);
   font-size: 9px; letter-spacing: 0.22em;
   color: var(--color-ink-deep);
@@ -436,39 +412,26 @@ html, body {
   text-transform: uppercase;
   cursor: pointer;
   transition: transform 120ms var(--ease-slap), box-shadow 120ms var(--ease-slap);
-  box-shadow: var(--sticker-chip);
+  box-shadow: var(--slab-shadow);
 }
 
 .cr-btn:hover,
 .cr-btn:focus-visible {
   transform: translate(-1px, -2px);
-  box-shadow:
-    0 0 0 2.5px var(--color-sticker-white),
-    5px 6px 0 2.5px var(--color-ink-deep),
-    inset 0 2px 0 rgba(255,255,255,0.07);
+  box-shadow: var(--slab-shadow-hover);
 }
 
 .cr-btn:active {
   transform: translate(2px, 2px);
-  box-shadow: var(--sticker-chip-pressed);
+  box-shadow: var(--slab-shadow-pressed);
 }
 
 /* Color grammar — each play action is a solid brand-palette sticker with
    ink-deep lettering. SOLO (yellow) leads as the primary CTA; QUICKPLAY,
    FRIENDS and CUSTOMIZE spread cyan / green / magenta so the stack reads as a
    colorful arcade select screen instead of one hero button over dead chrome. */
-#cr-solo {
-  background: var(--color-yellow);
-  color: var(--color-ink-deep);
-}
-.cr-btn[data-action="quickplay"] {
-  background: var(--color-cyan);
-  color: var(--color-ink-deep);
-}
-.cr-btn[data-action="friends"] {
-  background: var(--color-portal);
-  color: var(--color-ink-deep);
-}
+/* Fight Night: the command list handles its own idle/selected colors
+   (.cr-cmd below); the old solid per-action button fills are retired. */
 
 /* Press scale handled by Anime.js on .cr-btn-inner — keep outer lift only. */
 
@@ -496,7 +459,7 @@ html, body {
   background: var(--color-ink);
   border: none;
   border-radius: var(--radius-panel);
-  box-shadow: var(--sticker-panel);
+  box-shadow: var(--slab-shadow);
 }
 
 .cr-levels-hd {
@@ -534,7 +497,7 @@ html, body {
   font-family: var(--ui);
   cursor: pointer;
   transition: transform 120ms var(--ease-slap), box-shadow 120ms var(--ease-slap);
-  box-shadow: var(--sticker-micro);
+  box-shadow: var(--slab-shadow-sm);
   text-align: center;
 }
 
@@ -565,9 +528,7 @@ html, body {
 
 .cr-level-btn:hover:not(.cr-level-btn--disabled) {
   transform: translate(-1px, -2px);
-  box-shadow:
-    0 0 0 1.5px var(--color-sticker-white),
-    4px 5px 0 1.5px var(--color-ink-deep);
+  box-shadow: var(--slab-shadow-hover);
 }
 
 /* Press scale handled by Anime.js on .cr-level-btn-inner. */
@@ -628,7 +589,7 @@ html, body {
   font-family: var(--ui);
   cursor: pointer;
   transition: transform 120ms var(--ease-slap), box-shadow 120ms var(--ease-slap);
-  box-shadow: var(--sticker-micro);
+  box-shadow: var(--slab-shadow-sm);
   text-align: center;
 }
 
@@ -651,9 +612,7 @@ html, body {
 
 .cr-diff-btn:hover {
   transform: translate(-1px, -2px);
-  box-shadow:
-    0 0 0 1.5px var(--color-sticker-white),
-    4px 5px 0 1.5px var(--color-ink-deep);
+  box-shadow: var(--slab-shadow-hover);
 }
 
 .cr-diff-btn.active {
@@ -679,7 +638,7 @@ html, body {
   background: var(--color-ink);
   border: none;
   border-radius: var(--radius-panel);
-  box-shadow: var(--sticker-panel);
+  box-shadow: var(--slab-shadow);
   width: 100%;
 }
 
@@ -734,7 +693,6 @@ html, body {
 .cr-name-display:hover { border-color: rgba(255,255,255,0.2); }
 
 .cr-tag { opacity: 0.6; margin-right: 2px; }
-.cr-edit-hint { font-family: var(--mono); font-size: clamp(9px, 1.1vw, 11px); opacity: 0.4; margin-left: var(--space-xs); }
 
 .cr-name-input {
   flex: 1;
@@ -755,7 +713,7 @@ html, body {
   border-radius: var(--radius-sm);
   background: var(--color-ink);
   border: none;
-  box-shadow: var(--sticker-micro);
+  box-shadow: var(--slab-shadow-sm);
   color: var(--color-sticker-white);
   font-family: var(--ui);
   font-size: clamp(14px, 2vw, 18px);
@@ -779,9 +737,11 @@ html, body {
   margin-bottom: var(--space-xs);
 }
 
+/* 7a: 3-across chip grid in the right panel (mock 3×2, 64px cells). */
 .cr-color-row--customize {
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-xs);
+  gap: 10px;
+  margin-bottom: 0;
 }
 
 .cr-color-chip--custom {
@@ -797,14 +757,20 @@ html, body {
 }
 
 .cr-custom-hue-wrap {
-  margin: 4px 0 0;
-  padding-top: var(--space-xs);
+  margin: clamp(14px, 1.4vw, 22px) 0 0;
+  padding-top: clamp(12px, 1.2vw, 18px);
   border-top: 1px solid var(--border-white-10);
 }
 
-.cr-custom-hue-wrap .cr-color-label {
-  margin-bottom: 2px;
-  font-size: clamp(7px, 1vw, 8px);
+/* Label + degree readout share one row (mock), the swatch colour on the value. */
+.cr-custom-hue-hd {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+  font-size: clamp(8px, 1vw, 10px);
+  letter-spacing: 0.2em;
 }
 
 .cr-custom-hue-wrap[hidden] {
@@ -821,7 +787,7 @@ html, body {
 .cr-custom-hue-slider {
   flex: 1;
   min-width: 0;
-  height: 6px;
+  height: 10px;
   -webkit-appearance: none;
   appearance: none;
   border-radius: 3px;
@@ -841,33 +807,39 @@ html, body {
 .cr-custom-hue-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 14px;
-  height: 14px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
-  border: 2px solid #fff;
+  border: none;
   background: var(--cr-hue-thumb, var(--color-cyan));
-  box-shadow: 0 0 10px var(--cr-hue-thumb, var(--color-cyan)), 0 0 4px rgba(0, 0, 0, 0.5);
+  box-shadow:
+    0 0 0 2px var(--color-sticker-white),
+    2px 2px 0 2px var(--color-ink-deep),
+    0 0 10px var(--cr-hue-thumb, var(--color-cyan));
   cursor: grab;
 }
 
 .cr-custom-hue-slider::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
-  border: 2px solid #fff;
+  border: none;
   background: var(--cr-hue-thumb, var(--color-cyan));
-  box-shadow: 0 0 10px var(--cr-hue-thumb, var(--color-cyan)), 0 0 4px rgba(0, 0, 0, 0.5);
+  box-shadow:
+    0 0 0 2px var(--color-sticker-white),
+    2px 2px 0 2px var(--color-ink-deep),
+    0 0 10px var(--cr-hue-thumb, var(--color-cyan));
   cursor: grab;
 }
 
 .cr-custom-hue-slider::-webkit-slider-runnable-track {
-  height: 6px;
-  border-radius: 3px;
+  height: 10px;
+  border-radius: 5px;
 }
 
 .cr-custom-hue-slider::-moz-range-track {
-  height: 6px;
-  border-radius: 3px;
+  height: 10px;
+  border-radius: 5px;
   background: transparent;
 }
 
@@ -881,28 +853,45 @@ html, body {
   flex-shrink: 0;
 }
 
+/* Slab chips (7a): dark ink card carrying the neon cart SVG; the cart color
+   lives in the border/glow, never as a filled swatch. */
 .cr-color-chip {
   position: relative;
   display: flex; align-items: center; justify-content: center;
-  height: clamp(36px, 5vw, 44px);
-  min-height: 36px;
+  height: clamp(44px, 4.4vw, 64px);
+  min-height: 44px;
   padding: 2px 4px;
-  border-radius: var(--radius-chip);
-  background: var(--surface-dark-40);
-  border: 2px solid color-mix(in oklab, var(--cc), transparent 75%);
+  border-radius: 10px;
+  background: var(--color-ink);
+  border: 1px solid color-mix(in oklab, var(--cc), transparent 60%);
+  box-shadow: var(--slab-shadow-sm);
   cursor: pointer;
   transition: var(--transition-interactive);
 }
 
 .cr-color-chip:hover {
   border-color: var(--cc);
+  box-shadow: var(--slab-shadow-hover);
   transform: var(--transform-hover-lift-sm);
 }
 
 .cr-color-chip.active {
   border-color: var(--cc);
-  background: color-mix(in oklab, var(--cc), transparent 85%);
-  box-shadow: 0 0 0 1px var(--cc) inset, var(--sticker-micro);
+  background: color-mix(in oklab, var(--cc), var(--color-ink) 88%);
+  box-shadow:
+    0 0 0 1px var(--cc) inset,
+    0 0 12px -2px var(--cc),
+    var(--slab-shadow-sm);
+}
+
+/* CUSTOM is a chip like the others: ink card with its hue in the border and
+   glow, never a filled swatch. The mock drew it as a solid purple slab under a
+   white die-cut ring, which read as the odd one out on the shelf (Wyatt, review).
+   Only the resting hue is declared here — hover/active come from the base rules,
+   so it can never drift from its five siblings again. `--cc` is the family's
+   colour hook; the hue picker overwrites it inline once a custom hue is chosen. */
+.cr-color-chip--custom {
+  --cc: var(--personality-lurker);
 }
 
 .cr-color-chip.active::after {
@@ -923,7 +912,7 @@ html, body {
   background: var(--color-ink);
   border: none;
   border-radius: var(--radius-panel);
-  box-shadow: var(--sticker-panel);
+  box-shadow: var(--slab-shadow);
 }
 
 .cr-audio-hd {
@@ -949,7 +938,7 @@ html, body {
   height: clamp(26px, 3.5vw, 30px);
   border-radius: var(--radius-sm);
   border: none;
-  box-shadow: var(--sticker-micro);
+  box-shadow: var(--slab-shadow-sm);
   background: var(--color-ink);
   color: var(--mc, var(--color-cyan));
   cursor: pointer;
@@ -965,13 +954,6 @@ html, body {
   color: #888;
 }
 
-.cr-vol-stack {
-  display: flex;
-  flex-direction: column;
-  flex: 1 1 auto;
-  gap: var(--space-xs);
-  min-width: 0;
-}
 
 .cr-vol-row {
   display: flex;
@@ -995,6 +977,59 @@ html, body {
   border-radius: 3px;
   cursor: pointer;
   overflow: hidden;
+}
+
+/* ─── 7c sliders: named label, 8px track, white knob riding the fill ───────
+   The knob sits on the TRACK (not inside the fill) — the fill is scaleX'd, and
+   a child of it would be stretched with it. --vol-scale is mirrored onto the
+   track in syncSettingsAudioUi so the knob can follow. */
+.cr-settings-panel .cr-vol-row {
+  gap: clamp(10px, 1.2vw, 16px);
+}
+
+.cr-settings-panel .cr-vol-label {
+  width: clamp(44px, 4.6vw, 70px);
+  text-align: left;
+  font-family: var(--mono);
+  font-size: clamp(10px, 1.05vw, 12px);
+  letter-spacing: 0.14em;
+  color: rgba(242, 237, 228, 0.7);
+}
+
+.cr-settings-panel .cr-vol-track {
+  position: relative;
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: none;
+  overflow: visible;
+}
+
+.cr-settings-panel .cr-vol-fill {
+  border-radius: 4px;
+  background: var(--vol-accent, var(--color-cyan));
+}
+
+.cr-settings-panel .cr-vol-track::after {
+  content: "";
+  position: absolute;
+  left: clamp(0%, calc(var(--vol-scale, 0.25) * 100%), 100%);
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: var(--color-sticker-white);
+  box-shadow: 2px 2px 0 var(--color-ink-deep);
+  pointer-events: none;
+}
+
+.cr-settings-panel .cr-vol-val {
+  width: 36px;
+  min-width: 36px;
+  font-weight: 700;
+  font-size: clamp(10px, 1.05vw, 12px);
+  color: var(--vol-accent, var(--color-cyan));
 }
 
 .cr-vol-fill {
@@ -1023,7 +1058,7 @@ html, body {
   background: var(--color-ink);
   border: none;
   border-radius: var(--radius-panel);
-  box-shadow: var(--sticker-panel);
+  box-shadow: var(--slab-shadow);
   width: 100%;
 }
 
@@ -1051,7 +1086,7 @@ html, body {
   padding: 0 7px;
   background: var(--color-ink-deep);
   border: none;
-  box-shadow: var(--sticker-micro);
+  box-shadow: var(--slab-shadow-sm);
   border-radius: 4px;
   font-family: var(--display);
   font-size: clamp(9px, 1.2vw, 11px);
@@ -1072,9 +1107,6 @@ html, body {
 }
 
 /* === GRAPHICS TOGGLES === */
-.cr-graphics-btns {
-  display: flex; gap: var(--gap-buttons);
-}
 
 .cr-btn--graphics {
   flex: 1;
@@ -1091,97 +1123,127 @@ html, body {
   opacity: 0.78;
 }
 
-/* === FRIENDS SCREEN === */
+/* ═══ 7e FRIENDS — invite chrome on the shared .cr-screen shell ═════════════
+   The modal-era invite card (.cr-overlay-panel--friends, .cr-friends-title /
+   -desc / -code-block / -code-lbl / -diff / -diff-lbl / -link-row) is GONE, not
+   layered over: those rules sat later in this file than .cr-screen*, so they
+   would have beaten the shell on source order (the bug that bit 7a and 7c).
+   Mock 7e is a connected room — its left column is this screen (ROOM CODE +
+   share hint), its right roster is the in-game CHECKOUT LINE (hud.css). No
+   socket exists yet here, so the right card is the host's pre-connect BOT
+   DIFFICULTY rather than an invented roster. */
+
+/* Same left-weighted scrim as 7a/7b, overriding the centred radial base. */
 #cr-friends-screen {
   position: fixed;
   inset: 0;
   z-index: 1001;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  background: radial-gradient(ellipse at center, var(--color-bg-deep) 0%, var(--color-bg-black) 90%);
+  align-items: stretch;
+  justify-content: stretch;
+  background:
+    linear-gradient(100deg, #0a0810 0%, #0a0810 30%, rgba(10, 8, 16, 0.6) 70%, rgba(10, 8, 16, 0.9) 100%),
+    radial-gradient(ellipse at 50% 55%, var(--color-bg-deep) 0%, var(--color-bg-black) 95%);
 }
 
-/* Friends panel consolidated onto .cr-overlay-panel (markup adds
-   .cr-overlay-panel--friends); this modifier only carries the center-aligned
-   layout diffs and inherits the ink material + max-height/overflow safety net. */
-.cr-overlay-panel--friends {
-  align-items: center;
-  gap: var(--gap-section);
-  max-width: 520px;
+/* Two cards, mock-width (520px each + gap) — two-class so no single-class band
+   rule on .cr-screen-panels can outrank it from further down the file. */
+.cr-screen-panels.cr-friends-body {
+  max-width: 1064px;
+  align-content: start;
+  align-items: start;
 }
 
-.cr-friends-title {
-  font-family: var(--display);
-  font-weight: 400;
-  font-size: clamp(24px, 4vw, 32px);
-  color: var(--color-sticker-white);
-  paint-order: stroke fill;
-  -webkit-text-stroke: 0.07em var(--color-ink-deep);
-  text-shadow:
-    0.05em 0.05em 0 var(--color-ink-deep),
-    0.1em 0.1em 0 var(--color-ink-deep);
-  letter-spacing: 0.02em;
-  margin: 0;
+.cr-friends-card {
+  gap: clamp(12px, 1.4vw, 18px);
 }
 
-.cr-friends-desc {
-  font-family: var(--mono);
-  font-size: clamp(11px, 1.5vw, 12px);
-  line-height: 1.7;
-  color: rgba(255, 255, 255, 0.65);
-  text-align: center;
-  letter-spacing: 0.03em;
-  margin: 0;
-}
-
-.cr-friends-link-row {
+/* The room CODE is the headline (it is what people read out loud); the link
+   underneath is the paste path. */
+.cr-friends-code-row {
   display: flex;
-  width: 100%;
-  gap: var(--space-sm);
+  align-items: center;
+  gap: clamp(10px, 1.4vw, 16px);
+  min-width: 0;
+}
+
+.cr-friends-code {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: clamp(20px, 2.6vw, 36px);
+  letter-spacing: 0.12em;
+  color: var(--color-cyan);
+  white-space: nowrap;
+}
+
+/* Hairline cyan, matching the mock — plain text, no inner span: main.js swaps
+   this button's textContent to "COPIED!" and would delete any child markup. */
+.cr-friends-copy {
+  flex: 0 0 auto;
+  padding: 8px clamp(12px, 1.3vw, 16px);
+  background: transparent;
+  border: 1px solid rgba(34, 230, 255, 0.45);
+  border-radius: 5px;
+  box-shadow: none;
+  color: var(--color-cyan);
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: clamp(10px, 1.05vw, 11px);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 120ms var(--ease-slap), color 120ms var(--ease-slap);
+}
+
+.cr-friends-copy:hover {
+  background: rgba(34, 230, 255, 0.12);
+  color: var(--color-sticker-white);
+}
+
+.cr-friends-copy:active {
+  background: var(--color-cyan);
+  color: var(--color-ink);
 }
 
 .cr-friends-link {
-  flex: 1;
-  padding: var(--pad-audio);
+  width: 100%;
+  padding: 9px 12px;
   background: var(--color-ink-deep);
-  border: none;
-  box-shadow: var(--sticker-micro);
+  border: 1px solid var(--border-white-10);
   border-radius: var(--radius-sm);
-  color: var(--color-cyan);
+  box-shadow: none;
+  color: rgba(34, 230, 255, 0.8);
   font-family: var(--mono);
-  font-size: clamp(11px, 1.5vw, 13px);
+  font-size: clamp(10px, 1.05vw, 12px);
+  letter-spacing: 0.02em;
   outline: none;
   min-width: 0;
 }
 
-.cr-friends-copy {
-  padding: var(--pad-copy-btn);
-  background: var(--color-ink);
-  border: none;
-  box-shadow: var(--sticker-chip);
-  border-radius: var(--radius-sm);
-  color: var(--color-cyan);
-  font-family: var(--ui);
-  text-transform: uppercase;
-  font-size: clamp(11px, 1.5vw, 13px);
-  cursor: pointer;
-  letter-spacing: 0.08em;
-  transition: transform 120ms var(--ease-slap), box-shadow 120ms var(--ease-slap);
-  flex-shrink: 0;
+.cr-friends-hint {
+  margin: auto 0 0;
+  padding-top: clamp(12px, 1.2vw, 18px);
+  border-top: 1px solid var(--border-white-10);
+  font-family: var(--mono);
+  font-size: clamp(9px, 0.95vw, 11px);
+  letter-spacing: 0.06em;
+  line-height: 1.6;
+  color: rgba(242, 237, 228, 0.45);
 }
 
-.cr-friends-copy:hover {
-  transform: translate(-1px, -2px);
-  box-shadow:
-    0 0 0 2.5px var(--color-sticker-white),
-    5px 6px 0 2.5px var(--color-ink-deep),
-    inset 0 2px 0 rgba(255,255,255,0.07);
-}
-
-.cr-friends-copy:active {
-  transform: translate(2px, 2px);
-  box-shadow: var(--sticker-chip-pressed);
+/* Host-side pre-connect difficulty — rides the normal join through
+   settingsStore (a LIVE change would have to go through the room broadcast).
+   Driven by the same updateDiffButtons/initDiffSelect write path as the menu. */
+.cr-diff-row--friends {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-xs);
+  width: 100%;
 }
 
 /* === CUSTOMIZE SCREEN === */
@@ -1190,61 +1252,427 @@ html, body {
   inset: 0;
   z-index: 1001;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  background: radial-gradient(ellipse at center, var(--color-bg-deep) 0%, var(--color-bg-black) 92%);
+  align-items: stretch;
+  justify-content: stretch;
+  /* 7a backdrop from the mock: left-weighted scrim over the arena radial, so the
+     screen title side stays legible and the centre keeps depth behind the cart. */
+  background:
+    linear-gradient(100deg, #0a0810 0%, #0a0810 30%, rgba(10, 8, 16, 0.6) 70%, rgba(10, 8, 16, 0.9) 100%),
+    radial-gradient(ellipse at 50% 55%, var(--color-bg-deep) 0%, var(--color-bg-black) 95%);
 }
 
-/* Customize panel consolidated onto .cr-overlay-panel (markup adds it alongside
-   the retained .cr-customize-panel hook JS queries). Compound selector wins the
-   source-order tie so the narrower max-width sticks. */
-.cr-overlay-panel.cr-customize-panel {
-  max-width: 520px;
-  max-height: min(92dvh, 720px);
+/* ═══ SHARED FULL-SCREEN SUB-SCREEN SHELL (7a–7g) ═══════════════════════════
+   The mock's sub-screens are full surfaces, not centred modal cards: Road Rage
+   screen title top-left over a Goldman store-voice kicker, content in named
+   regions, one hint bar along the bottom. Regions are a grid (not the mock's
+   absolute pixel offsets) so the 1920×1080 composition collapses per band
+   instead of overflowing. Consumed by .cr-customize-panel first; the other
+   sub-screens adopt it as they are rebuilt. */
+.cr-screen {
+  --screen-pad-x: clamp(20px, 5vw, 96px);
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  gap: clamp(12px, 2vw, 28px) clamp(16px, 3vw, 48px);
+  width: 100%;
+  height: 100%;
+  padding:
+    max(clamp(20px, 3.4vh, 56px), env(safe-area-inset-top, 0px))
+    max(var(--screen-pad-x), env(safe-area-inset-right, 0px))
+    0
+    max(var(--screen-pad-x), env(safe-area-inset-left, 0px));
+  overflow: hidden;
 }
 
-.cr-customize-title {
+.cr-screen-hd {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cr-screen-kicker {
+  font-family: var(--mono);
+  font-size: clamp(9px, 1vw, 12px);
+  letter-spacing: 0.34em;
+  color: rgba(255, 255, 255, 0.55);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Road Rage at screen scale — the mock's 110px, floored so it survives 380px. */
+.cr-screen-title {
+  margin: 0;
   font-family: var(--display);
   font-weight: 400;
-  font-size: clamp(22px, 4vw, 30px);
-  color: var(--color-sticker-white);
-  paint-order: stroke fill;
-  -webkit-text-stroke: 0.07em var(--color-ink-deep);
-  text-shadow:
-    0.05em 0.05em 0 var(--color-ink-deep),
-    0.1em 0.1em 0 var(--color-ink-deep);
+  font-size: clamp(38px, 7.2vw, 110px);
+  line-height: 0.9;
   letter-spacing: 0.02em;
-  margin: 0;
-  text-align: center;
+  color: var(--color-sticker-white);
+  transform: skewX(-4deg);
+  transform-origin: left center;
+  text-shadow: 0 0 50px var(--glow-magenta-30, rgba(255, 43, 214, 0.3));
+  white-space: nowrap;
 }
 
-.cr-customize-desc {
+/* Left rail — the command-list slab pattern, reused as a tab strip. */
+.cr-screen-rail {
+  grid-column: 1;
+  grid-row: 2;
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: clamp(150px, 15.6vw, 300px);
+  padding-top: clamp(8px, 4vh, 64px);
+}
+
+/* Centre stage — owns the 3D preview / hero content. */
+.cr-screen-stage {
+  grid-column: 2;
+  grid-row: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* Right panel — the active region's controls. */
+.cr-screen-panel {
+  grid-column: 3;
+  grid-row: 2;
+  align-self: start;
+  width: clamp(240px, 22vw, 400px);
+  margin-top: clamp(8px, 4vh, 64px);
+  padding: clamp(16px, 1.6vw, 26px) clamp(18px, 1.9vw, 30px);
+  background: rgba(12, 10, 17, 0.85);
+  border: 1px solid var(--border-white-10);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--slab-shadow);
+  backdrop-filter: blur(6px);
+  max-height: 100%;
+  overflow-y: auto;
+}
+
+/* Panels variant (7c and friends): no rail/stage — the body row is a grid of
+   equal cards spanning the full width. */
+.cr-screen--panels {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.cr-screen-panels {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  align-self: start;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(12px, 1.6vw, 24px);
+  width: 100%;
+  max-width: 1176px; /* mock: two 560px panels + 24px gap */
+  margin-top: clamp(8px, 3vh, 48px);
+  min-height: 0;
+  /* align-self:start means this box takes its CONTENT height, so overflow-y
+     alone never engages — without the cap it grows past its grid row and lands
+     on top of the actions row (seen at 812×375). Matches .cr-screen-panel. */
+  max-height: 100%;
+  overflow-y: auto;
+}
+
+.cr-screen-card {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(10px, 1.2vw, 18px);
+  padding: clamp(16px, 1.8vw, 28px) clamp(18px, 2vw, 32px);
+  background: rgba(12, 10, 17, 0.85);
+  border: 1px solid var(--border-white-10);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--slab-shadow);
+}
+
+/* Reference cards (e.g. CONTROLS) run the full width under the accent pair. */
+.cr-screen-card--wide {
+  grid-column: 1 / -1;
+}
+
+.cr-screen-card-hd {
   font-family: var(--mono);
-  font-size: clamp(10px, 1.4vw, 12px);
-  line-height: 1.6;
+  font-size: clamp(9px, 1vw, 11px);
+  letter-spacing: 0.26em;
   color: rgba(255, 255, 255, 0.55);
-  text-align: center;
-  letter-spacing: 0.04em;
-  margin: -8px 0 0;
 }
 
+/* Label ── control row, the shared line pattern inside a card. */
+.cr-settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cr-settings-row--rule {
+  margin-top: auto;
+  padding-top: clamp(12px, 1.2vw, 18px);
+  border-top: 1px solid var(--border-white-10);
+}
+
+.cr-settings-row-lbl {
+  font-family: var(--mono);
+  font-size: clamp(10px, 1.05vw, 12px);
+  letter-spacing: 0.14em;
+  color: rgba(242, 237, 228, 0.7);
+  white-space: nowrap;
+}
+
+/* Chip form shared by MUTE ALL and POST-FX — same silhouette as .cr-seg-chip so
+   every control on this screen reads as one family. */
+.cr-settings-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  /* Chips never absorb the row's shrink — MUTE ALL was squeezing its own icon
+     to 0 width at phone widths, leaving a bare "OFF". */
+  flex: 0 0 auto;
+  width: auto;
+  height: auto;
+  min-height: 0;
+  padding: 5px 14px;
+  border: 1px solid var(--border-white-18, rgba(255, 255, 255, 0.18));
+  border-radius: 5px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--color-muted);
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: clamp(9px, 1vw, 11px);
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: background 120ms var(--ease-slap), color 120ms var(--ease-slap);
+}
+
+/* The responsive bands re-inflate both base classes for their menu-side roles:
+   .cr-btn becomes a full-width row (width:100%, min-height:54px, landscape
+   flex:1) and .cr-mute-btn becomes a 44px round touch target. A chip must stay
+   chip-sized everywhere, so these two-class rules outrank every single-class
+   band rule no matter where it sits in the file. */
+.cr-btn.cr-settings-chip,
+.cr-mute-btn.cr-settings-chip {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 0;
+  height: auto;
+  min-height: 0;
+  padding: 5px 14px;
+  font-size: clamp(9px, 1vw, 11px);
+}
+
+.cr-settings-chip:hover { color: var(--color-sticker-white); }
+
+/* ON is the active state → the screen's yellow, matching the quality segment. */
+.cr-btn--graphics.cr-settings-chip {
+  /* .cr-btn--graphics carries flex:1 from the retired menu row, which stretched
+     this chip across the whole card. Chips size to their label, like QUALITY. */
+  flex: 0 0 auto;
+  background: var(--color-yellow);
+  border-color: transparent;
+  color: var(--color-ink);
+}
+
+.cr-btn--graphics.cr-settings-chip.cr-btn--gfx-off {
+  background: transparent;
+  border-color: var(--border-white-18, rgba(255, 255, 255, 0.18));
+  color: var(--color-muted);
+}
+
+.cr-btn--graphics.cr-settings-chip .cr-btn-inner,
+.cr-btn--graphics.cr-settings-chip .cr-btn-label {
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: inherit;
+  letter-spacing: 0.06em;
+  color: inherit;
+}
+
+/* Muted reads as alert, not as "active". */
+.cr-mute-btn.cr-settings-chip.muted {
+  border-color: var(--color-alert);
+  color: var(--color-alert);
+}
+
+.cr-mute-state {
+  font-family: var(--mono);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.cr-settings-footnote {
+  margin: auto 0 0;
+  padding-top: clamp(12px, 1.2vw, 18px);
+  border-top: 1px solid var(--border-white-10);
+  font-family: var(--mono);
+  font-size: clamp(8px, 0.9vw, 10px);
+  letter-spacing: 0.08em;
+  line-height: 1.5;
+  color: rgba(242, 237, 228, 0.35);
+}
+
+.cr-screen-actions {
+  grid-column: 1 / -1;
+  grid-row: 3;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  padding-bottom: clamp(8px, 1.5vh, 16px);
+}
+
+/* Hint bar — full-bleed against the screen edges, so it negates the shell pad. */
+.cr-screen-hint {
+  grid-column: 1 / -1;
+  grid-row: 4;
+  display: flex;
+  align-items: center;
+  gap: clamp(14px, 2.4vw, 36px);
+  margin: 0 calc(var(--screen-pad-x) * -1);
+  padding: clamp(10px, 1.5vh, 16px) var(--screen-pad-x);
+  padding-bottom: max(clamp(10px, 1.5vh, 16px), env(safe-area-inset-bottom, 0px));
+  background: rgba(9, 7, 13, 0.9);
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  font-family: var(--mono);
+  font-size: clamp(9px, 1vw, 12px);
+  letter-spacing: 0.12em;
+  color: rgba(255, 255, 255, 0.55);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.cr-screen-hint::-webkit-scrollbar { display: none; }
+
+.cr-screen-hint-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.cr-screen-hint kbd {
+  padding: 2px 8px;
+  border: 1px solid var(--border-white-25, rgba(255, 255, 255, 0.25));
+  border-radius: 4px;
+  font-family: var(--mono);
+  color: var(--color-sticker-white);
+}
+
+/* ── Named collapse (per the tokens.css breakpoint contract) ────────────────
+   ≤1024: the right panel drops under the stage, rail stays.
+   ≤768:  single column — title, rail as a horizontal strip, stage, panel. */
+@media (max-width: 1024px) {
+  .cr-screen {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto auto auto;
+  }
+  .cr-screen-panel {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    width: 100%;
+    margin-top: 0;
+  }
+  .cr-screen-actions { grid-row: 4; }
+  .cr-screen-hint { grid-row: 5; }
+}
+
+@media (max-width: 768px) {
+  .cr-screen {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr) auto auto auto;
+    gap: 10px;
+  }
+  .cr-screen-rail {
+    grid-column: 1;
+    grid-row: 2;
+    flex-direction: row;
+    width: 100%;
+    padding-top: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .cr-screen-rail::-webkit-scrollbar { display: none; }
+  .cr-screen-rail > * { flex: 1 1 0; min-width: 0; }
+  .cr-screen-stage { grid-column: 1; grid-row: 3; }
+  .cr-screen-panel { grid-row: 4; }
+  .cr-screen-actions { grid-row: 5; justify-content: stretch; }
+  .cr-screen-actions > * { flex: 1 1 0; }
+  .cr-screen-hint { grid-row: 6; }
+}
+
+/* (.cr-overlay-panel.cr-customize-panel + .cr-customize-desc retired in the 7a
+   full-screen rebuild — CUSTOMIZE is a .cr-screen now, not a centred card.
+   .cr-customize-title only adds the screen-title hooks .cr-screen-title lacks.) */
+
+/* Actions inside the full-screen shell. Every interactive slab on this screen is
+   the SAME parallelogram — DONE (yellow, primary) and BACK (ghost) differ only in
+   weight, never in geometry, so nothing pops between slanted and straight. */
+.cr-screen-actions .cr-overlay-done,
+.cr-screen-actions .cr-overlay-back {
+  width: auto;
+  padding: 16px clamp(20px, 2.5vw, 48px);
+  border-radius: var(--radius-sm);
+  transform: skewX(-8deg);
+  transition: transform 120ms var(--ease-slap), box-shadow 120ms var(--ease-slap);
+}
+
+.cr-screen-actions .cr-overlay-done {
+  border: none;
+  box-shadow: var(--slab-extrude), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+/* Same three-layer split as the tabs: inner = press target, label = counter-skew. */
+.cr-screen-btn-inner {
+  display: inline-block;
+}
+
+.cr-screen-btn-label {
+  display: inline-block;
+  transform: skewX(8deg);
+}
+
+.cr-screen-actions .cr-overlay-done:hover,
+.cr-screen-actions .cr-overlay-done:focus-visible,
+.cr-screen-actions .cr-overlay-back:hover,
+.cr-screen-actions .cr-overlay-back:focus-visible {
+  transform: skewX(-8deg) translate(-1px, -2px);
+}
+
+.cr-screen-actions .cr-overlay-done:active,
+.cr-screen-actions .cr-overlay-back:active {
+  transform: skewX(-8deg) translate(2px, 2px);
+}
+
+/* 7a centre stage: the cart owns the middle of the screen (mock 520×420) with a
+   coloured ground glow beneath it instead of a drop shadow. */
 .cr-customize-preview {
   position: relative;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: clamp(120px, 22vw, 160px);
-  margin: 4px 0;
+  gap: clamp(8px, 1.8vh, 20px);
+  min-height: 0;
+  margin: 0;
 }
 
 .cr-customize-preview-shadow {
-  position: absolute;
-  bottom: 6%;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 72%;
-  height: 28px;
-  border-radius: 50%;
+  position: static;
+  transform: none;
+  width: min(320px, 62%);
+  height: clamp(14px, 2.4vh, 26px);
+  border-radius: 0;
+  flex: none;
   pointer-events: none;
 }
 
@@ -1256,16 +1684,23 @@ html, body {
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  width: min(100%, 280px);
-  max-height: clamp(120px, 22vw, 160px);
-  aspect-ratio: 4 / 3;
+  /* Mock: 520×420 centre stage. Driven by HEIGHT (width follows the aspect
+     ratio) and allowed to shrink — otherwise the ratio pins the stage row open
+     and pushes the hint bar off the bottom of short viewports. */
+  height: auto;
+  width: auto;
+  max-height: min(52vh, 420px);
+  max-width: min(100%, 520px);
+  min-height: 0;
+  flex: 1 1 0;
+  aspect-ratio: 520 / 420;
   margin: 0 auto;
   padding: var(--space-sm);
   overflow: hidden;
   background: var(--color-ink-deep);
-  border: none;
-  border-radius: var(--radius-panel);
-  box-shadow: var(--sticker-panel);
+  border: 1px solid var(--border-white-10);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--slab-shadow);
 }
 
 .cr-customize-preview-cart svg {
@@ -1295,31 +1730,58 @@ html, body {
   50% { filter: brightness(1.08); }
 }
 
-.cr-customize-tabs {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-xs);
+/* NOTE: .cr-customize-tabs deliberately declares NO display/direction — the tab
+   strip is a .cr-screen-rail now and the rail owns its layout (column on
+   desktop, row ≤768). The old `display: grid; repeat(3, 1fr)` from the modal
+   layout survived the 7a rebuild and beat the rail's flex rule on source order:
+   the three tabs laid out side by side, overflowed the 242px rail, and PATTERN
+   ended up underneath the centre stage — which ate its clicks. */
+
+/* 7a tab rail: the command-list parallelogram, not a chip. Idle rows are bare
+   (no slab) exactly like the menu list; the active row is the screen's yellow. */
+.cr-customize-tab {
+  padding: 15px clamp(16px, 1.6vw, 30px);
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
+  text-align: left;
+  color: rgba(255, 255, 255, 0.55);
+  font-family: var(--ui);
+  font-size: clamp(13px, 1.1vw, 17px);
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  transform: skewX(-8deg);
+  transition: color 120ms var(--ease-slap), background 140ms var(--ease-slap);
 }
 
-.cr-customize-tab {
-  padding: var(--space-sm) var(--space-xs);
-  background: var(--color-ink);
-  border: none;
-  box-shadow: var(--sticker-micro);
-  border-radius: var(--radius-sm);
-  color: rgba(255, 255, 255, 0.75);
-  font-family: var(--mono);
-  font-size: clamp(7px, 1.1vw, 9px);
-  letter-spacing: 0.12em;
-  cursor: pointer;
-  transition: transform 120ms var(--ease-slap), box-shadow 120ms var(--ease-slap);
+/* Three layers, on purpose: the row owns the skew, the INNER is the press
+   target (kept transform-free so anime.js can scale it without clobbering
+   anything), and the LABEL carries the counter-skew that keeps text upright.
+   Collapsing these is what makes a slab flash from slanted to straight. */
+.cr-customize-tab-inner {
+  display: inline-block;
+}
+
+.cr-customize-tab-label {
+  display: inline-block;
+  transform: skewX(8deg);
+}
+
+.cr-customize-tab:hover:not(.active):not(.cr-customize-tab--soon) {
+  color: var(--color-sticker-white);
 }
 
 .cr-customize-tab.active {
-  color: var(--color-cyan);
-  box-shadow:
-    0 0 0 1.5px var(--color-cyan),
-    2px 2px 0 1.5px var(--color-ink-deep);
+  padding: 16px clamp(14px, 1.4vw, 26px);
+  color: var(--color-ink-deep);
+  background: linear-gradient(
+    90deg,
+    rgba(255, 229, 61, 0.92),
+    rgba(255, 229, 61, 0.75) 60%,
+    transparent 98%
+  );
+  font-size: clamp(15px, 1.25vw, 20px);
 }
 
 .cr-customize-tab--soon {
@@ -1343,20 +1805,25 @@ html, body {
   margin-bottom: 0;
 }
 
+/* Same recipe as .cr-color-chip — geometry, resting border, hover and selected
+   state all come from the colour-chip family so the three tabs read as one shelf.
+   `--chip-c` is the per-family colour hook: each finish sets `--mc` inline. */
 .cr-sunglasses-chip {
+  --chip-c: var(--mc, var(--color-cyan));
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 2px;
-  min-height: 36px;
+  min-height: 44px;
   padding: 2px 4px;
   background: var(--color-ink);
-  border: none;
-  box-shadow: var(--sticker-micro);
-  border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in oklab, var(--chip-c), transparent 60%);
+  box-shadow: var(--slab-shadow-sm);
+  border-radius: 10px;
   cursor: pointer;
-  transition: transform 120ms var(--ease-slap), box-shadow 150ms ease;
+  transition: var(--transition-interactive);
 }
 
 /* * Mirrored lens swatch: gradient sweep matching the 3D finish (hot core → cool edge,
@@ -1381,13 +1848,30 @@ html, body {
 }
 
 .cr-sunglasses-chip:hover {
-  transform: translate(-1px, -2px);
+  border-color: var(--chip-c);
+  box-shadow: var(--slab-shadow-hover);
+  transform: var(--transform-hover-lift-sm);
 }
 
+/* Selected = brighter border + glow in the item's own colour, per the 7a spec.
+   It was a flat yellow ring, but yellow is already the active rail tab AND the
+   DONE button on this screen — three yellows competing for "this one". */
 .cr-sunglasses-chip.active {
+  border-color: var(--chip-c);
+  background: color-mix(in oklab, var(--chip-c), var(--color-ink) 88%);
   box-shadow:
-    0 0 0 2px var(--color-cyan),
-    2px 2px 0 2px var(--color-ink-deep);
+    0 0 0 1px var(--chip-c) inset,
+    0 0 12px -2px var(--chip-c),
+    var(--slab-shadow-sm);
+}
+
+.cr-sunglasses-chip.active::after {
+  content: ""; position: absolute;
+  top: 3px; right: 3px;
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--chip-c);
+  box-shadow: 0 0 var(--space-xs) var(--chip-c);
 }
 
 .cr-sunglasses-chip-label {
@@ -1407,7 +1891,12 @@ html, body {
   margin-bottom: 0;
 }
 
+/* Same recipe as .cr-color-chip (see .cr-sunglasses-chip). `--pc` is set inline
+   per chip to the live cart colour — the same value its mini-cart SVG is drawn
+   in — so the shelf agrees with the preview. */
 .cr-pattern-chip {
+  --chip-c: var(--pc, var(--color-magenta));
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1416,11 +1905,11 @@ html, body {
   min-height: 44px;
   padding: var(--space-xs);
   background: var(--color-ink);
-  border: none;
-  box-shadow: var(--sticker-micro);
-  border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in oklab, var(--chip-c), transparent 60%);
+  box-shadow: var(--slab-shadow-sm);
+  border-radius: 10px;
   cursor: pointer;
-  transition: transform 120ms var(--ease-slap), box-shadow 150ms ease;
+  transition: var(--transition-interactive);
 }
 
 .cr-pattern-chip svg {
@@ -1428,13 +1917,27 @@ html, body {
 }
 
 .cr-pattern-chip:hover {
-  transform: translate(-1px, -2px);
+  border-color: var(--chip-c);
+  box-shadow: var(--slab-shadow-hover);
+  transform: var(--transform-hover-lift-sm);
 }
 
 .cr-pattern-chip.active {
+  border-color: var(--chip-c);
+  background: color-mix(in oklab, var(--chip-c), var(--color-ink) 88%);
   box-shadow:
-    0 0 0 2px var(--color-cyan),
-    2px 2px 0 2px var(--color-ink-deep);
+    0 0 0 1px var(--chip-c) inset,
+    0 0 12px -2px var(--chip-c),
+    var(--slab-shadow-sm);
+}
+
+.cr-pattern-chip.active::after {
+  content: ""; position: absolute;
+  top: 3px; right: 3px;
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--chip-c);
+  box-shadow: 0 0 var(--space-xs) var(--chip-c);
 }
 
 .cr-pattern-chip-label {
@@ -1492,15 +1995,11 @@ html, body {
     max(clamp(14px, 2.5vw, 24px), env(safe-area-inset-bottom, 0px))
     max(clamp(14px, 2.5vw, 24px), env(safe-area-inset-left, 0px));
   background: var(--color-ink);
-  border: none;
-  border-radius: var(--radius-panel);
-  box-shadow: var(--sticker-billboard);
+  border: 1px solid var(--border-white-12);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--slab-shadow);
 }
 
-.cr-overlay-panel--settings {
-  gap: clamp(6px, 1vw, 10px);
-  padding: clamp(10px, 1.8vw, 16px) clamp(10px, 1.8vw, 16px);
-}
 
 .cr-overlay-title {
   font-family: var(--display);
@@ -1529,11 +2028,12 @@ html, body {
 
 /* The one DONE/BACK pair for every sub-screen (howto/challenges/settings/
    customize/friends). DONE = portal-green sticker fill + ink text; BACK = ghost. */
+/* DONE = the screen's single yellow primary; BACK = ghost hairline. */
 .cr-overlay-done {
   width: 100%;
   padding: var(--pad-btn);
-  background: var(--color-portal);
-  border: none;
+  background: var(--color-yellow);
+  border: 1px solid var(--border-white-12);
   border-radius: var(--radius-sm);
   color: var(--color-ink-deep);
   font-family: var(--ui);
@@ -1542,28 +2042,25 @@ html, body {
   letter-spacing: 0.06em;
   cursor: pointer;
   transition: transform 120ms var(--ease-slap), box-shadow 120ms var(--ease-slap);
-  box-shadow: var(--sticker-chip);
+  box-shadow: var(--slab-shadow);
 }
 
 .cr-overlay-done:hover,
 .cr-overlay-done:focus-visible {
   transform: translate(-1px, -2px);
-  box-shadow:
-    0 0 0 2.5px var(--color-sticker-white),
-    5px 6px 0 2.5px var(--color-ink-deep),
-    inset 0 2px 0 rgba(255,255,255,0.07);
+  box-shadow: var(--slab-shadow-hover);
 }
 
 .cr-overlay-done:active {
   transform: translate(2px, 2px);
-  box-shadow: var(--sticker-chip-pressed);
+  box-shadow: var(--slab-shadow-pressed);
 }
 
 .cr-overlay-back {
   padding: var(--space-sm) 20px;
   background: transparent;
-  border: none;
-  box-shadow: 0 0 0 1.5px var(--color-sticker-white);
+  border: 1px solid var(--border-white-20);
+  box-shadow: none;
   border-radius: var(--radius-sm);
   color: var(--color-sticker-white);
   font-family: var(--mono);
@@ -1579,172 +2076,221 @@ html, body {
 .cr-overlay-back:focus-visible {
   background: var(--color-ink);
   transform: translate(-1px, -2px);
-  box-shadow: var(--sticker-micro);
+  box-shadow: var(--slab-shadow-sm);
 }
 
 .cr-overlay-back:active {
   transform: translate(1px, 1px);
-  box-shadow: 0 0 0 1.5px var(--color-sticker-white);
+  box-shadow: none;
 }
 
-/* === HOW TO PLAY CONTENT ===
-   Expanded sections replace the old one-line scoring strip + main-menu cart
-   tooltip. Controls rows stay JS-built (input-mode aware); everything else is
-   static HTML so design-doc copy stays in one place. */
-.cr-overlay-panel--howto {
-  max-width: 600px;
-  gap: clamp(10px, 1.4vw, 14px);
-  /* Fits the condensed howto copy without a scrollbar on desktop — the shared
-     92dvh/740px cap was clipping it. The dvh term keeps the overflow backstop
-     for short (DPI-scaled) viewports where it genuinely can't all fit. */
-  max-height: min(94dvh, 860px);
+/* ═══ 7d HOW TO PLAY — three aisle tags across, strips beneath ══════════════
+   The centred modal (.cr-overlay-panel--howto + its short-height tuning block)
+   is GONE, not layered over: those rules sat later in the file than .cr-screen*
+   and would have won on source order (the trap that hit 7a and 7c).
+   Per the mock the accent lives in the Road Rage aisle number, not in a left
+   edge stripe, and the strips are single rows — label, then facts inline. */
+#cr-howto-screen {
+  align-items: stretch;
+  justify-content: stretch;
+  background:
+    linear-gradient(100deg, #0a0810 0%, #0a0810 30%, rgba(10, 8, 16, 0.6) 70%, rgba(10, 8, 16, 0.9) 100%),
+    radial-gradient(ellipse at 50% 55%, var(--color-bg-deep) 0%, var(--color-bg-black) 95%);
 }
 
-/* Short desktop/laptop heights — e.g. a 1080p panel at 125% DPI (≈760–800px CSS).
-   Tighten the howto panel's internal rhythm so the condensed copy clears the fold
-   without a scrollbar there too. Tall screens keep the roomier spacing above. */
-@media (min-width: 1025px) and (max-height: 820px) {
-  .cr-overlay-panel--howto { gap: clamp(6px, 0.9vh, 10px); }
-  .cr-overlay-panel--howto .cr-overlay-desc { margin-top: -4px; }
-  .cr-overlay-panel--howto .cr-howto-section {
-    gap: 4px;
-    padding: clamp(6px, 0.9vh, 9px) clamp(10px, 1.4vw, 14px);
-  }
-  .cr-overlay-panel--howto .cr-howto-bullets { gap: 3px; }
-  .cr-overlay-panel--howto .cr-howto-bullets li { line-height: 1.38; }
-  .cr-overlay-panel--howto .cr-howto-directive { padding: 5px clamp(8px, 1.2vw, 10px); }
+/* One column of blocks (aisle row, then the two strips) rather than the shell's
+   default card pair, and no 1176px cap — the mock runs this content edge to
+   edge between the screen's 96px gutters. Two-class selector on purpose: the
+   responsive bands re-set .cr-screen-panels (1 column at <=768, 2 again in
+   landscape) from later in the file, and a single-class rule would lose to
+   them — which put a strip beside the aisles at 812x375. */
+.cr-screen-panels.cr-howto-body {
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  max-width: none;
 }
 
-.cr-howto-section {
+.cr-howto-aisles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(12px, 1.6vw, 20px);
+}
+
+.cr-howto-aisle {
+  --aisle: var(--color-cyan);
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: clamp(6px, 1vw, 8px);
-  padding: clamp(8px, 1.2vw, 12px) clamp(10px, 1.4vw, 14px);
+  padding:
+    clamp(16px, 1.8vw, 28px)
+    clamp(18px, 2vw, 30px)
+    clamp(16px, 1.8vw, 28px)
+    clamp(28px, 2.9vw, 44px);
+  background: rgba(12, 10, 17, 0.85);
+  border: 1px solid var(--border-white-10);
+  border-radius: 12px 12px 12px 30px;
+  box-shadow: var(--slab-shadow);
+}
+
+/* Punched hole at the tag nose (matches .cc-slab--tag). */
+.cr-howto-aisle::before {
+  content: "";
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  transform: translateY(-50%);
+  border-radius: 50%;
   background: var(--color-ink-deep);
-  border: none;
-  border-left: 3px solid var(--color-cyan);
-  border-radius: var(--radius-panel);
+  box-shadow: inset 0 0 0 1.5px rgba(242, 237, 228, 0.35);
 }
 
-.cr-howto-section:nth-of-type(2) { border-left-color: var(--color-portal); }
-.cr-howto-section:nth-of-type(3) { border-left-color: var(--color-yellow); }
-.cr-howto-section:nth-of-type(4) { border-left-color: var(--color-magenta); }
+.cr-howto-aisle--2 { --aisle: var(--color-magenta); }
+.cr-howto-aisle--3 { --aisle: var(--color-yellow); }
 
-.cr-howto-section-hd {
-  margin: 0;
+/* The aisle sign itself — Road Rage at shelf scale, one accent per card. */
+.cr-howto-aisle-no {
+  font-family: var(--display);
+  font-size: clamp(24px, 3vw, 44px);
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: var(--aisle);
+}
+
+.cr-howto-aisle-name {
+  margin: 6px 0 0;
   font-family: var(--ui);
-  font-size: clamp(9px, 1.15vw, 11px);
-  letter-spacing: 0.18em;
-  color: rgba(255, 255, 255, 0.72);
+  font-size: clamp(12px, 1.5vw, 16px);
+  letter-spacing: 0.06em;
+  color: var(--color-sticker-white);
 }
 
-.cr-howto-blurb {
-  margin: 0;
+.cr-howto-aisle-body {
+  margin: clamp(8px, 1vw, 14px) 0 0;
   font-family: var(--mono);
-  font-size: clamp(9px, 1.2vw, 11px);
-  line-height: 1.55;
+  font-size: clamp(9px, 1.15vw, 12px);
+  line-height: 1.7;
   letter-spacing: 0.03em;
-  color: rgba(255, 255, 255, 0.62);
+  color: rgba(242, 237, 228, 0.55);
 }
 
-.cr-howto-blurb strong {
+.cr-howto-aisle-body strong {
   color: var(--color-sticker-white);
   font-weight: 700;
 }
 
-.cr-howto-note {
-  margin: 0;
+/* Inline keycaps stay white-on-hairline so they read as keys, not as a second
+   accent competing with the aisle number. */
+.cr-howto-aisle-body kbd {
+  display: inline-block;
+  min-width: 16px;
+  margin: 0 1px;
+  padding: 1px 6px;
   font-family: var(--mono);
-  font-size: clamp(8px, 1.05vw, 10px);
-  line-height: 1.5;
-  letter-spacing: 0.04em;
-  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.88em;
+  text-align: center;
+  color: var(--color-sticker-white);
+  background: var(--color-ink-deep);
+  border: 1px solid var(--border-white-25, rgba(255, 255, 255, 0.25));
+  border-radius: 3px;
+  box-shadow: var(--slab-extrude-sm);
 }
 
-.cr-howto-bullets {
-  margin: 0;
-  padding: 0 0 0 clamp(14px, 1.8vw, 18px);
-  list-style: disc;
+/* ─── 7d strips: SCORING price row + FULL CONTROLS keycaps ───────────────── */
+.cr-howto-strip {
   display: flex;
-  flex-direction: column;
-  gap: clamp(4px, 0.7vw, 6px);
+  align-items: center;
+  gap: clamp(14px, 2.2vw, 40px);
+  padding: clamp(12px, 1.4vw, 22px) clamp(16px, 1.9vw, 30px);
+  background: rgba(12, 10, 17, 0.85);
+  border: 1px solid var(--border-white-10);
+  border-radius: 12px;
+  box-shadow: var(--slab-shadow);
 }
 
-.cr-howto-bullets--compact {
-  gap: 2px;
-}
-
-.cr-howto-bullets li {
+.cr-howto-strip-hd {
+  margin: 0;
+  flex-shrink: 0;
   font-family: var(--mono);
-  font-size: clamp(9px, 1.2vw, 11px);
-  line-height: 1.5;
-  letter-spacing: 0.03em;
-  color: rgba(255, 255, 255, 0.78);
+  font-size: clamp(9px, 1.15vw, 11px);
+  letter-spacing: 0.26em;
+  color: rgba(255, 255, 255, 0.55);
+  white-space: nowrap;
 }
 
-.cr-howto-bullets strong {
-  color: var(--color-cyan);
-  font-weight: 700;
-}
-
-.cr-howto-section:nth-of-type(2) .cr-howto-bullets strong { color: var(--color-portal); }
-.cr-howto-section:nth-of-type(3) .cr-howto-bullets strong { color: var(--color-yellow); }
-.cr-howto-section:nth-of-type(4) .cr-howto-bullets strong { color: var(--color-magenta); }
-
-.cr-howto-directive-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+.cr-howto-strip-row {
+  display: flex;
+  flex-wrap: wrap;
   gap: clamp(5px, 0.8vw, 8px);
 }
 
-.cr-howto-directive {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: clamp(6px, 1vw, 8px) clamp(8px, 1.2vw, 10px);
-  background: rgba(0, 0, 0, 0.28);
+/* Gamepad line sits hard right on the FULL CONTROLS strip, per the mock. */
+.cr-howto-pad {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: clamp(8px, 1vw, 11px);
+  letter-spacing: 0.14em;
+  color: var(--color-cyan);
+  white-space: nowrap;
+}
+
+.cr-howto-price,
+.cr-howto-ctl {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px clamp(7px, 1vw, 9px);
+  background: var(--color-ink-deep);
+  border: 1px solid var(--border-white-10);
   border-radius: var(--radius-sm);
-  box-shadow: 0 0 0 1px var(--border-white-10);
+  box-shadow: var(--slab-extrude-sm);
+  white-space: nowrap;
 }
 
-.cr-howto-directive-name {
-  font-family: var(--ui);
-  font-size: clamp(9px, 1.15vw, 11px);
-  letter-spacing: 0.1em;
-  color: var(--color-magenta);
+.cr-howto-price-lbl,
+.cr-howto-ctl-lbl {
+  font-family: var(--mono);
+  font-size: clamp(7px, 0.95vw, 9px);
+  letter-spacing: 0.12em;
+  color: rgba(255, 255, 255, 0.6);
 }
 
-.cr-howto-directive-desc {
+.cr-howto-price-val {
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: clamp(10px, 1.3vw, 12px);
+  color: var(--color-yellow);
+}
+
+.cr-howto-keys {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.cr-howto-keys kbd {
+  display: inline-block;
+  min-width: 16px;
+  padding: 1px 4px;
   font-family: var(--mono);
   font-size: clamp(8px, 1.05vw, 10px);
-  line-height: 1.35;
-  letter-spacing: 0.03em;
-  color: rgba(255, 255, 255, 0.55);
+  text-align: center;
+  color: var(--color-cyan);
+  background: var(--color-ink);
+  border: 1px solid var(--border-white-12);
+  border-radius: 3px;
+  box-shadow: var(--slab-extrude-sm);
 }
 
-/* === SETTINGS SECTIONS === */
-.cr-settings-section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-  padding: clamp(6px, 1vw, 10px) clamp(8px, 1.2vw, 12px);
-  background: var(--color-ink-deep);
-  border: none;
-  box-shadow: var(--sticker-micro);
-  border-radius: var(--radius-panel);
+.cr-howto-keys kbd.wide {
+  letter-spacing: 0.08em;
 }
 
-.cr-settings-section-hd {
-  font-family: var(--ui);
-  font-size: clamp(8px, 1vw, 9px);
-  letter-spacing: 0.2em;
-  color: rgba(255, 255, 255, 0.6);
-  padding-bottom: var(--space-xs);
-  border-bottom: 1px dashed var(--border-white-10);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
+/* (.cr-howto-note retired — the gamepad line is now .cr-howto-pad, inline on
+   the FULL CONTROLS strip.) */
 
 .cr-settings-ctl-badge {
   font-family: var(--mono);
@@ -1754,17 +2300,6 @@ html, body {
 }
 
 /* Settings audio */
-.cr-settings-audio {
-  display: flex;
-  align-items: center;
-  gap: var(--space-md);
-  width: 100%;
-  box-sizing: border-box;
-  padding: var(--pad-audio);
-  background: var(--color-ink-deep);
-  border: none;
-  border-radius: var(--radius-panel);
-}
 
 /* Settings controls */
 .cr-settings-controls {
@@ -1786,27 +2321,30 @@ html, body {
   flex-shrink: 0;
 }
 
+/* Keycaps are slabs, not die-cut stickers: hairline + hard extrude, sized up so
+   the CONTROLS card reads as a reference chart rather than fine print. One rule
+   serves all three input modes (keyboard / gamepad / touch). */
 .cr-settings-ctl-key kbd {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 22px;
-  height: 22px;
-  padding: 0 6px;
+  min-width: 32px;
+  height: 30px;
+  padding: 0 10px;
   background: var(--color-ink);
-  border: none;
-  box-shadow: var(--sticker-micro);
-  border-radius: 4px;
+  border: 1px solid var(--border-white-12);
+  box-shadow: var(--slab-extrude-sm);
+  border-radius: 5px;
   font-family: var(--display);
-  font-size: clamp(8px, 1vw, 10px);
+  font-size: clamp(11px, 1.3vw, 14px);
   font-weight: 400;
   color: var(--kc, var(--color-sticker-white));
   letter-spacing: 0.04em;
 }
 
 .cr-settings-ctl-key kbd.wide {
-  min-width: 48px;
-  font-size: clamp(7px, 0.95vw, 9px);
+  min-width: 64px;
+  font-size: clamp(9px, 1.15vw, 12px);
   letter-spacing: 0.1em;
 }
 
@@ -1818,14 +2356,7 @@ html, body {
   text-transform: uppercase;
 }
 
-.cr-settings-ctl-note {
-  font-family: var(--mono);
-  font-size: clamp(7px, 0.85vw, 8px);
-  color: rgba(255, 255, 255, 0.35);
-  letter-spacing: 0.04em;
-  text-align: center;
-  margin: 2px 0 0;
-}
+/* (.cr-settings-ctl-note retired with the key-remapping notice.) */
 
 /* === MENU EXTRAS (How To Play / Challenges / Settings buttons on main menu) === */
 .cr-menu-extras {
@@ -1859,30 +2390,9 @@ html, body {
   overflow-wrap: break-word;
 }
 
-/* Completed-challenges count chip on the CHALLENGES menu button */
-.cr-challenges-chip {
-  position: absolute;
-  top: 3px;
-  right: 3px;
-  z-index: 2;
-  padding: 1px 5px;
-  background: var(--color-sticker-white);
-  border: none;
-  box-shadow: var(--sticker-micro);
-  border-radius: var(--radius-pill);
-  font-family: var(--mono);
-  font-size: clamp(7px, 0.9vw, 8px);
-  letter-spacing: 0.08em;
-  line-height: 1.4;
-  color: var(--color-ink-deep);
-  pointer-events: none;
-}
-
-/* First-timer "NEW" cue — magenta attention pill (vs the white ✓N progress chip). */
-.cr-challenges-chip--new {
-  background: var(--color-magenta);
-  color: var(--color-sticker-white);
-}
+/* The CHALLENGES badge (NEW / ✓N) is the command row's own `.cr-cmd-new` pill in
+   the Fight Night 3a block — the retired absolutely-positioned sticker chip that
+   used to sit here was never counter-skewed, so it rode the -8deg row slanted. */
 
 /* Focus visible for overlay buttons */
 .cr-btn:focus-visible,
@@ -1931,7 +2441,8 @@ html, body {
   }
 
   .cr-stat-div { height: clamp(18px, 2.5vw, 24px); }
-  .cr-title-stack { font-size: clamp(63.25px, 10.78vw, 138px); }
+  /* Title band rules moved to the 3a block's own responsive section — the 3a rule
+     is later in the file, so no override up here can reach the lockup. */
   .cr-buttons, .cr-levels { max-width: 100%; }
 }
 
@@ -1973,13 +2484,7 @@ html, body {
     gap: clamp(6px, 1.6vw, 8px);
   }
 
-  .cr-title { margin: 0 0 clamp(2px, 0.6dvh, 6px); }
-
-  .cr-title-stack {
-    font-size: clamp(40.25px, 10.35dvh, 74.75px);
-    line-height: 0.82;
-  }
-  .cr-title-stack .cr-title-word:nth-child(2) { margin-top: -0.08em; }
+  /* Title band rules live in the 3a block's responsive section (see ≤1024). */
 
   .cr-buttons, .cr-levels {
     width: 100%;
@@ -2067,17 +2572,19 @@ html, body {
   .cr-player-hd { font-size: clamp(8px, 2.2vw, 10px); margin-bottom: clamp(8px, 1.6dvh, 10px); }
   .cr-name-row { margin-bottom: clamp(10px, 2dvh, 12px); gap: clamp(8px, 2.2vw, 10px); }
   .cr-name-display, .cr-name-input { font-size: clamp(15px, 4.2vw, 19px); line-height: 1.25; }
+  /* The matching ✎ touch target is in the 3a block's ≤768 band — a rule up here
+     cannot outrank `.cr-plate .cr-plate-btn`, which is later in the file. */
   .cr-reroll { width: 44px; height: 44px; min-width: 44px; min-height: 44px; font-size: clamp(14px, 3.6vw, 16px); }
 
-  .cr-customize-tabs { grid-template-columns: repeat(3, 1fr); }
-  .cr-customize-tab { min-height: 40px; }
+  .cr-customize-tab { min-height: 44px; padding: 10px 12px; font-size: clamp(11px, 3vw, 13px); }
+  .cr-customize-tab.active { padding: 10px 12px; font-size: clamp(12px, 3.2vw, 14px); }
   .cr-sunglasses-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .cr-pattern-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 
   .cr-color-label { font-size: clamp(8px, 2.2vw, 10px); margin-bottom: clamp(8px, 1.6dvh, 10px); letter-spacing: 0.16em; }
   .cr-color-row { gap: clamp(6px, 1.8vw, 8px); }
-  .cr-color-row--customize { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-xs); }
-  .cr-color-chip { min-height: 36px; height: clamp(32px, 9vw, 40px); }
+  .cr-color-row--customize { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .cr-color-chip { min-height: 44px; height: clamp(44px, 12vw, 56px); }
   .cr-color-chip svg { width: clamp(28px, 7.5vw, 36px) !important; height: auto !important; }
 
   /* Audio widget — demoted/compacted: the same control lives in Settings, so
@@ -2092,40 +2599,8 @@ html, body {
   .cr-vol-label { width: auto; min-width: 18px; font-size: clamp(12px, 3.2vw, 14px); }
   .cr-vol-val { font-size: clamp(10px, 2.6vw, 12px); min-width: 28px; }
 
-  /* Settings overlay — prevent overflow on mobile */
-  .cr-overlay-panel--settings {
-    gap: clamp(6px, 1.2dvh, 8px);
-    padding: clamp(8px, 2vw, 12px) clamp(8px, 2vw, 12px);
-    max-height: 88dvh;
-  }
-
-  .cr-overlay-panel--settings .cr-overlay-title {
-    font-size: clamp(16px, 4vw, 22px);
-  }
-
-  /* Graphics buttons — stack vertically on narrow screens */
-  .cr-overlay-panel--settings .cr-graphics-btns {
-    flex-direction: column;
-    gap: clamp(6px, 1.2dvh, 8px);
-  }
-
-  .cr-overlay-panel--settings .cr-btn--graphics {
-    flex: none;
-    width: 100%;
-    min-height: 44px;
-    padding: 0;
-    font-size: clamp(10px, 2.8vw, 12px);
-    border-width: 2px;
-  }
-
-  .cr-overlay-panel--settings .cr-btn--graphics .cr-btn-inner {
-    min-height: 44px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 10px 12px;
-  }
-
+  /* Settings screen — one card column on mobile */
+  .cr-screen-panels { grid-template-columns: minmax(0, 1fr); }
 
   /* Controls — single column on mobile */
   .cr-settings-controls {
@@ -2139,34 +2614,19 @@ html, body {
   }
 
   .cr-settings-ctl-key kbd {
-    min-width: 18px;
-    height: 20px;
-    padding: 0 5px;
-    font-size: clamp(7px, 1.8vw, 9px);
+    min-width: 28px;
+    height: 26px;
+    padding: 0 8px;
+    font-size: clamp(10px, 2.6vw, 12px);
   }
 
   .cr-settings-ctl-key kbd.wide {
-    min-width: 36px;
-    font-size: clamp(6px, 1.6vw, 8px);
+    min-width: 54px;
+    font-size: clamp(8px, 2.2vw, 10px);
   }
 
   .cr-settings-ctl-lbl {
     font-size: clamp(7px, 1.8vw, 9px);
-  }
-
-  .cr-settings-section {
-    padding: clamp(4px, 1vw, 6px) clamp(6px, 1.2vw, 8px);
-    gap: var(--space-xs);
-  }
-
-  .cr-settings-section-hd {
-    font-size: clamp(7px, 1.8vw, 8px);
-    padding-bottom: 2px;
-  }
-
-  .cr-settings-ctl-note {
-    font-size: clamp(6px, 1.5vw, 7px);
-    margin: 1px 0 0;
   }
 
   /* Menu extras — three compact buttons stay side by side without overflow */
@@ -2180,36 +2640,40 @@ html, body {
     letter-spacing: 0.02em;
   }
 
-  /* How To Play overlay — stack action + keys on narrow screens */
-  .cr-overlay-panel--howto {
-    gap: clamp(10px, 2.4vw, 14px);
-    max-height: min(90dvh, 720px);
+  /* 7d — three aisle signs don't survive a phone's width: stack them, and let
+     each strip stack its label over its facts (the gamepad line included). */
+  .cr-howto-aisles {
+    grid-template-columns: minmax(0, 1fr);
+    gap: clamp(8px, 2vw, 12px);
   }
 
-  .cr-overlay-panel--howto .cr-overlay-title {
-    font-size: clamp(16px, 4vw, 22px);
+  .cr-howto-aisle {
+    padding: clamp(10px, 2.4vw, 14px) clamp(12px, 2.6vw, 16px) clamp(10px, 2.4vw, 14px) 28px;
   }
 
-  .cr-howto-section {
-    padding: clamp(6px, 1.5vw, 10px) clamp(8px, 2vw, 12px);
-    gap: clamp(4px, 1vw, 6px);
+  .cr-howto-aisle-no {
+    font-size: clamp(22px, 6vw, 30px);
   }
 
-  .cr-howto-section-hd {
+  .cr-howto-strip {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: clamp(6px, 1.6vw, 10px);
+    padding: clamp(10px, 2.4vw, 14px) clamp(12px, 2.6vw, 16px);
+  }
+
+  .cr-howto-aisle-name,
+  .cr-howto-strip-hd {
+    font-size: clamp(9px, 2.4vw, 11px);
+  }
+
+  .cr-howto-aisle-body {
     font-size: clamp(8px, 2.2vw, 10px);
   }
 
-  .cr-howto-blurb,
-  .cr-howto-bullets li {
-    font-size: clamp(8px, 2.2vw, 10px);
-  }
-
-  .cr-howto-note {
-    font-size: clamp(7px, 2vw, 9px);
-  }
-
-  .cr-howto-directive-grid {
-    grid-template-columns: 1fr;
+  .cr-howto-pad {
+    margin-left: 0;
+    white-space: normal;
   }
 
   .cr-overlay-done {
@@ -2222,65 +2686,44 @@ html, body {
     font-size: clamp(9px, 2vw, 11px);
   }
 
-  /* Friends overlay — compact on mobile */
-  .cr-overlay-panel--friends {
-    gap: clamp(10px, 2.4dvh, 14px);
-  }
-  .cr-friends-title {
-    font-size: clamp(18px, 4.6vw, 24px);
-  }
-  .cr-friends-desc {
-    font-size: clamp(10px, 2.6vw, 12px);
-    line-height: 1.5;
-  }
-  .cr-friends-link-row {
-    gap: clamp(6px, 1.6vw, 8px);
+  /* 7e — the code shrinks so a 9-character room still fits beside COPY on one
+     line (it must never wrap: it is read out loud, not parsed). */
+  .cr-friends-code {
+    font-size: clamp(17px, 4.6vw, 24px);
+    letter-spacing: 0.08em;
   }
   .cr-friends-link {
-    font-size: clamp(10px, 2.8vw, 12px);
-  }
-  .cr-friends-copy {
-    font-size: clamp(10px, 2.8vw, 12px);
-    padding: clamp(8px, 2vw, 10px) clamp(10px, 2.6vw, 14px);
-  }
-
-  /* Challenges overlay — compact list rows on mobile */
-  #cr-challenges-screen .cr-overlay-title {
-    font-size: clamp(16px, 4vw, 22px);
-  }
-  #cr-challenges-screen .cr-overlay-desc {
-    font-size: clamp(10px, 2.6vw, 12px);
-  }
-  .cr-challenges-list {
-    gap: clamp(5px, 1.2vw, 6px);
-  }
-  .challenge-row {
-    padding: clamp(5px, 1.2vw, 6px) clamp(7px, 1.8vw, 8px);
-  }
-  .challenge-name {
-    font-size: clamp(9px, 2.6vw, 11px);
-  }
-  .challenge-desc {
-    font-size: clamp(8px, 2.2vw, 9px);
-  }
-
-  /* Customize overlay — compact preview + copy on mobile (tabs/chip grids
-     already get their own overrides above) */
-  .cr-overlay-panel.cr-customize-panel {
-    gap: clamp(8px, 1.8dvh, 12px);
-  }
-  .cr-customize-title {
-    font-size: clamp(16px, 4vw, 22px);
-  }
-  .cr-customize-desc {
     font-size: clamp(9px, 2.4vw, 11px);
   }
-  .cr-customize-preview {
-    min-height: clamp(90px, 18dvh, 130px);
-    margin: 2px 0;
+  .cr-friends-copy {
+    padding: 7px clamp(10px, 2.6vw, 14px);
+  }
+
+  /* 7b — the tag grid folds to one column; two 160px tags don't hold a name,
+     a badge and a bar on the same line. */
+  .cr-challenges-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  /* The restock kicker carries two live clocks, so it is the one screen title
+     line that can outgrow a phone — let it wrap rather than lose the weekly. */
+  .cr-challenges-panel .cr-screen-kicker {
+    white-space: normal;
+    line-height: 1.4;
+  }
+  .cr-chal-name {
+    font-size: clamp(12px, 3.2vw, 15px);
+  }
+  .cr-chal-desc {
+    font-size: clamp(9px, 2.4vw, 11px);
+  }
+
+  /* Customize screen — compact preview on mobile (tabs/chip grids already get
+     their own overrides above). */
+  .cr-customize-panel {
+    gap: clamp(8px, 1.8dvh, 12px);
   }
   .cr-customize-preview-cart {
-    max-height: clamp(90px, 18dvh, 130px);
+    max-height: clamp(120px, 24dvh, 200px);
   }
 }
 
@@ -2321,7 +2764,8 @@ html, body {
   padding: 6px 14px;
   border-radius: var(--radius-sm, 8px);
   background: var(--color-ink, #14101e);
-  box-shadow: var(--sticker-chip, 0 0 0 2.5px #f2ede4, 3px 3px 0 2.5px #08050f);
+  border: 1px solid var(--border-white-12, rgba(255,255,255,0.12));
+  box-shadow: var(--slab-shadow, 3px 3px 0 #08050f, inset 0 1px 0 rgba(255,255,255,0.07));
   font-family: var(--ui, "Russo One", sans-serif);
   font-size: 10px;
   letter-spacing: 0.08em;
@@ -2396,7 +2840,7 @@ html, body {
     overflow-y: auto;
   }
 
-  .cr-title-stack { font-size: clamp(25.875px, 6.9dvh, 40.25px); line-height: 0.81; margin: 0; }
+  /* Title sizing for this band is in the 3a block's responsive section. */
   .cr-tagline { font-size: clamp(6px, 1.6dvh, 8px); letter-spacing: 0.12em; }
 
   .cr-buttons { flex-direction: row; flex-wrap: nowrap; width: 100%; gap: clamp(6px, 1.2dvh, 8px); }
@@ -2426,47 +2870,12 @@ html, body {
   .cr-vol-track { height: 8px; min-height: 8px; min-width: 48px; }
   .cr-vol-val { font-size: clamp(8px, 2vh, 10px); min-width: 24px; }
 
-  /* Settings overlay — compact for landscape phones */
-  .cr-overlay-panel--settings {
-    gap: clamp(4px, 0.8dvh, 6px);
-    padding: clamp(6px, 1.4vh, 8px) clamp(6px, 2vw, 8px);
-    max-height: 94dvh;
-  }
+  /* Settings screen — compact for landscape phones */
+  .cr-screen-panels { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .cr-screen-card { padding: clamp(8px, 1.6vh, 12px) clamp(10px, 1.4vw, 14px); gap: 6px; }
 
-  .cr-overlay-panel--settings .cr-overlay-title {
-    font-size: clamp(13px, 2.8dvh, 16px);
-    margin: 0;
-  }
-
-  .cr-overlay-panel--settings .cr-graphics-btns {
-    flex-direction: row;
-    flex-wrap: nowrap;
-    gap: clamp(4px, 1vw, 6px);
-  }
-
-  .cr-overlay-panel--settings .cr-btn--graphics {
-    flex: 1 1 0;
-    min-width: 0;
-    min-height: 34px;
-    font-size: clamp(8px, 1.6dvh, 10px);
-  }
-
-  .cr-overlay-panel--settings .cr-btn--graphics .cr-btn-inner {
-    min-height: 34px;
-    padding: 6px 8px;
-  }
-
-
-  .cr-settings-section {
-    padding: clamp(3px, 0.8vh, 4px) clamp(4px, 1.2vw, 6px);
-    gap: 2px;
-  }
-
-  .cr-settings-section-hd {
-    font-size: clamp(6px, 1.3dvh, 7px);
-    padding-bottom: 1px;
-  }
-
+  
+  
   .cr-settings-controls {
     grid-template-columns: 1fr 1fr;
     gap: 2px clamp(3px, 1vw, 4px);
@@ -2478,15 +2887,15 @@ html, body {
   }
 
   .cr-settings-ctl-key kbd {
-    min-width: 16px;
-    height: 18px;
-    padding: 0 4px;
-    font-size: clamp(6px, 1.3dvh, 7px);
+    min-width: 24px;
+    height: 22px;
+    padding: 0 6px;
+    font-size: clamp(8px, 1.9dvh, 10px);
   }
 
   .cr-settings-ctl-key kbd.wide {
-    min-width: 28px;
-    font-size: clamp(5px, 1.1dvh, 7px);
+    min-width: 44px;
+    font-size: clamp(7px, 1.6dvh, 9px);
   }
 
   .cr-settings-ctl-lbl {
@@ -2499,56 +2908,37 @@ html, body {
     letter-spacing: 0.02em;
   }
 
-  /* How To Play overlay — compact for landscape phones */
-  .cr-overlay-panel--howto {
-    gap: clamp(5px, 1dvh, 7px);
-    padding: clamp(8px, 1.8vh, 10px) clamp(8px, 2vw, 10px);
-    max-height: 94dvh;
+  /* 7d — landscape phones keep the three aisles across (width is what they have)
+     and spend the savings on padding and type. */
+  .cr-howto-aisles {
+    gap: clamp(6px, 1.2vw, 10px);
   }
 
-  .cr-overlay-panel--howto .cr-overlay-title {
-    font-size: clamp(14px, 3dvh, 18px);
-    margin: 0;
+  .cr-howto-aisle {
+    padding: clamp(8px, 1.8dvh, 12px) clamp(10px, 1.6vw, 14px) clamp(8px, 1.8dvh, 12px) 26px;
   }
 
-  .cr-overlay-panel--howto .cr-overlay-desc {
-    font-size: clamp(8px, 1.8dvh, 10px);
-    margin: -4px 0 0;
+  .cr-howto-aisle-no {
+    font-size: clamp(18px, 4.4dvh, 26px);
   }
 
-  .cr-howto-section {
-    padding: clamp(4px, 1vh, 6px) clamp(6px, 1.5vw, 8px);
-    gap: 3px;
+  .cr-howto-strip {
+    padding: clamp(6px, 1.4dvh, 10px) clamp(10px, 1.6vw, 14px);
+    gap: clamp(8px, 1.6vw, 16px);
   }
 
-  .cr-howto-section-hd {
+  .cr-howto-aisle-name,
+  .cr-howto-strip-hd {
+    font-size: clamp(8px, 1.7dvh, 10px);
+  }
+
+  .cr-howto-aisle-body {
     font-size: clamp(7px, 1.6dvh, 9px);
   }
 
-  .cr-howto-blurb,
-  .cr-howto-bullets li {
-    font-size: clamp(7px, 1.6dvh, 9px);
-  }
-
-  .cr-howto-note {
-    font-size: clamp(6px, 1.4dvh, 8px);
-  }
-
-  .cr-howto-directive-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 4px;
-  }
-
-  .cr-howto-directive {
-    padding: 4px 6px;
-  }
-
-  .cr-howto-directive-name {
-    font-size: clamp(7px, 1.5dvh, 9px);
-  }
-
-  .cr-howto-directive-desc {
-    font-size: clamp(6px, 1.3dvh, 8px);
+  .cr-howto-price,
+  .cr-howto-ctl {
+    padding: 3px 6px;
   }
 
   .cr-overlay-done {
@@ -2561,93 +2951,63 @@ html, body {
     font-size: clamp(8px, 1.8dvh, 10px);
   }
 
-  /* Friends overlay — compact for landscape phones */
-  .cr-overlay-panel--friends {
-    gap: clamp(6px, 1.4dvh, 8px);
-    max-height: 94dvh;
+  /* 7e — landscape phones are short, not narrow: the two cards stay side by
+     side (the band above re-sets .cr-screen-panels to 2 columns) and only the
+     vertical rhythm tightens. */
+  .cr-friends-card {
+    gap: clamp(6px, 1.4dvh, 10px);
   }
-  .cr-friends-title {
-    font-size: clamp(14px, 3dvh, 18px);
-    margin: 0;
-  }
-  .cr-friends-desc {
-    font-size: clamp(8px, 1.8dvh, 10px);
-    line-height: 1.4;
-  }
-  .cr-friends-link-row {
-    gap: 4px;
+  .cr-friends-code {
+    font-size: clamp(15px, 3.4dvh, 22px);
+    letter-spacing: 0.08em;
   }
   .cr-friends-link {
     font-size: clamp(9px, 1.8dvh, 11px);
     padding: clamp(4px, 1vh, 6px) clamp(6px, 1.5vw, 8px);
   }
   .cr-friends-copy {
-    font-size: clamp(9px, 1.8dvh, 11px);
-    padding: clamp(6px, 1.4vh, 8px) clamp(10px, 2.5vw, 12px);
+    padding: clamp(5px, 1.2vh, 7px) clamp(10px, 2.5vw, 12px);
+  }
+  .cr-friends-hint {
+    padding-top: clamp(6px, 1.4dvh, 10px);
+    line-height: 1.45;
   }
 
-  /* Challenges overlay — compact for landscape phones, list scrolls
-     internally so the panel itself never needs more than a sliver */
-  #cr-challenges-screen .cr-overlay-panel {
-    gap: clamp(5px, 1dvh, 7px);
-    padding: clamp(8px, 1.8vh, 10px) clamp(8px, 2vw, 10px);
-    max-height: 94dvh;
+  /* 7b — landscape phones have height, not width: keep the two tag columns and
+     spend the savings on card padding + type instead. */
+  .cr-chal-card {
+    gap: 3px;
+    padding: clamp(8px, 1.6dvh, 12px) clamp(10px, 1.6vw, 14px) clamp(8px, 1.6dvh, 12px) clamp(22px, 2.4vw, 28px);
   }
-  #cr-challenges-screen .cr-overlay-title {
-    font-size: clamp(14px, 3dvh, 18px);
-    margin: 0;
+  .cr-chal-name {
+    font-size: clamp(10px, 2.2dvh, 13px);
   }
-  #cr-challenges-screen .cr-overlay-desc {
-    font-size: clamp(8px, 1.8dvh, 10px);
-    margin: -4px 0 0;
+  .cr-chal-desc {
+    font-size: clamp(8px, 1.7dvh, 10px);
   }
-  .cr-challenges-list {
-    gap: 4px;
-    max-height: clamp(120px, 34dvh, 200px);
-    overflow-y: auto;
-  }
-  .challenge-row {
-    padding: clamp(4px, 1vh, 5px) clamp(6px, 1.5vw, 8px);
-    gap: 2px;
-  }
-  .challenge-name {
-    font-size: clamp(8px, 1.8dvh, 10px);
-  }
-  .challenge-desc {
-    font-size: clamp(7px, 1.6dvh, 8px);
-  }
-  .challenge-footer {
-    margin-top: 1px;
+  .cr-chal-ft {
+    margin-top: 2px;
   }
 
-  /* Customize overlay — compact for landscape phones */
-  .cr-overlay-panel.cr-customize-panel {
-    gap: clamp(5px, 1dvh, 7px);
-    padding: clamp(8px, 1.8vh, 10px) clamp(8px, 2vw, 10px);
-    max-height: 94dvh;
+  /* Customize screen — compact for landscape phones */
+  .cr-customize-panel {
+    gap: clamp(5px, 1dvh, 7px) clamp(10px, 2vw, 16px);
   }
-  .cr-customize-title {
-    font-size: clamp(14px, 3dvh, 18px);
-    margin: 0;
-  }
-  .cr-customize-desc {
-    font-size: clamp(8px, 1.8dvh, 10px);
-    margin: -2px 0 0;
-  }
-  .cr-customize-preview {
-    min-height: clamp(64px, 14dvh, 96px);
-    margin: 0;
+  .cr-screen-title {
+    font-size: clamp(26px, 7dvh, 40px);
   }
   .cr-customize-preview-cart {
-    max-height: clamp(64px, 14dvh, 96px);
+    max-height: clamp(64px, 34dvh, 150px);
     padding: 4px;
   }
-  .cr-customize-tabs {
-    gap: 3px;
-  }
   .cr-customize-tab {
-    padding: 4px 3px;
-    font-size: clamp(6px, 1.4dvh, 8px);
+    min-height: 34px;
+    padding: 6px 10px;
+    font-size: clamp(9px, 2.2dvh, 11px);
+  }
+  .cr-customize-tab.active {
+    padding: 6px 10px;
+    font-size: clamp(10px, 2.4dvh, 12px);
   }
   .cr-customize-section {
     padding: 4px 0 0;
@@ -2689,114 +3049,178 @@ html, body {
   }
 }
 
-/* === CHALLENGES LIST === */
-.cr-challenges-list {
-  display: flex;
-  flex-direction: column;
-  gap: clamp(6px, 1vw, 8px);
+/* ═══ 7b CHALLENGES — price-tag card grid on the shared .cr-screen shell ═════
+   The modal-era list (.cr-challenges-list / .challenge-*) is GONE, not layered
+   over: it sat later in this file than .cr-screen*, so it would have beaten the
+   shell on source order (the bug that bit 7a and 7c).
+   Cards are price tags — punched hole + tag nose. The mock's magenta reward pip
+   is dropped: challengeStore has no reward field, so "+N PTS" would be invented
+   economy; the DAILY/WEEKLY rotation badge owns that corner instead. */
+
+/* This screen keeps the mock's left-weighted scrim (same as 7a), overriding the
+   shared overlay base's centred radial — which is declared earlier in the file. */
+#cr-challenges-screen {
+  align-items: stretch;
+  justify-content: stretch;
+  background:
+    linear-gradient(100deg, #0a0810 0%, #0a0810 30%, rgba(10, 8, 16, 0.6) 70%, rgba(10, 8, 16, 0.9) 100%),
+    radial-gradient(ellipse at 50% 55%, var(--color-bg-deep) 0%, var(--color-bg-black) 95%);
 }
 
-.challenge-row {
+/* Cards keep their own height (3 active challenges = a 2 + 1 grid, and the
+   orphan must not stretch to fill the row). */
+.cr-challenges-grid {
+  align-content: start;
+  align-items: start;
+}
+
+.cr-chal-card {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  padding: clamp(6px, 1vw, 8px) clamp(8px, 1.2vw, 10px);
-  border-radius: var(--radius-panel);
+  gap: clamp(5px, 0.7vw, 8px);
+  padding:
+    clamp(14px, 1.6vw, 24px)
+    clamp(16px, 1.9vw, 28px)
+    clamp(14px, 1.6vw, 24px)
+    clamp(26px, 2.7vw, 40px);
+  background: rgba(12, 10, 17, 0.85);
+  border: 1px solid var(--border-white-10);
+  border-radius: 10px 10px 10px 26px;
+  box-shadow: var(--slab-shadow);
+}
+
+.cr-chal-card.is-complete {
+  border-color: rgba(43, 255, 122, 0.45);
+}
+
+/* Punched tag hole at the nose — same recipe as the HUD scoreboard tag. */
+.cr-chal-card::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
   background: var(--color-ink-deep);
-  border: none;
-  box-shadow: var(--sticker-micro);
-  transition: box-shadow 150ms ease;
+  box-shadow: inset 0 0 0 1.5px rgba(242, 237, 228, 0.35);
 }
 
-.challenge-row.is-complete {
-  box-shadow:
-    0 0 0 1.5px var(--color-portal),
-    2px 2px 0 1.5px var(--color-ink-deep);
-}
-
-.challenge-header {
+.cr-chal-hd {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-sm);
+  gap: clamp(8px, 1vw, 12px);
 }
 
-.challenge-name {
+.cr-chal-name {
   font-family: var(--ui);
-  font-size: clamp(10px, 1.1vw, 12px);
-  color: #ffffff;
-  letter-spacing: 0.05em;
+  font-size: clamp(13px, 1.4vw, 19px);
+  letter-spacing: 0.06em;
   line-height: 1.2;
+  color: var(--color-sticker-white);
 }
 
-.challenge-badge {
+.cr-chal-card.is-complete .cr-chal-name {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+.cr-chal-badge {
+  flex-shrink: 0;
   font-family: var(--mono);
-  font-size: clamp(8px, 0.9vw, 9px);
-  letter-spacing: 0.08em;
-  padding: 1px 6px;
-  border-radius: 3px;
+  font-weight: 700;
+  font-size: clamp(8px, 0.85vw, 10px);
+  letter-spacing: 0.1em;
+  padding: 3px 9px;
+  border-radius: 4px;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
-.challenge-badge.type-daily {
+.cr-chal-badge.type-daily {
   background: rgba(34, 230, 255, 0.15);
   color: var(--color-cyan);
   border: 1px solid rgba(34, 230, 255, 0.35);
 }
 
-.challenge-badge.type-weekly {
+.cr-chal-badge.type-weekly {
   background: rgba(255, 43, 214, 0.15);
   color: var(--color-magenta);
   border: 1px solid rgba(255, 43, 214, 0.35);
 }
 
-.challenge-row.is-complete .challenge-badge {
-  background: rgba(43, 255, 122, 0.2);
-  color: var(--color-portal);
-  border: 1px solid rgba(43, 255, 122, 0.5);
-}
-
-.challenge-desc {
+/* Completed = a tilted portal-green rubber stamp. */
+.cr-chal-stamp {
+  flex-shrink: 0;
   font-family: var(--mono);
-  font-size: clamp(9px, 1vw, 10px);
-  color: rgba(255, 255, 255, 0.55);
-  line-height: 1.2;
+  font-weight: 700;
+  font-size: clamp(9px, 0.95vw, 12px);
+  letter-spacing: 0.16em;
+  padding: 3px 10px;
+  border: 2px solid var(--color-portal);
+  border-radius: 4px;
+  color: var(--color-portal);
+  transform: rotate(-6deg);
+  white-space: nowrap;
 }
 
-.challenge-footer {
+.cr-chal-desc {
+  font-family: var(--mono);
+  font-size: clamp(9px, 1vw, 12px);
+  line-height: 1.35;
+  color: rgba(242, 237, 228, 0.55);
+}
+
+.cr-chal-card.is-complete .cr-chal-desc {
+  color: rgba(242, 237, 228, 0.4);
+}
+
+.cr-chal-ft {
   display: flex;
   align-items: center;
-  gap: var(--space-md);
-  margin-top: 2px;
+  gap: clamp(8px, 1vw, 12px);
+  margin-top: clamp(4px, 0.8vw, 8px);
 }
 
-.challenge-bar-wrap {
+/* Progress runs the boost-bar recipe: flat track, flat fill, no contour. */
+.cr-chal-bar {
   flex: 1;
-  height: 5px;
-  background: var(--color-ink-deep);
-  box-shadow: inset 0 0 0 1.5px rgba(242, 237, 228, 0.28);
+  height: 6px;
   border-radius: 3px;
+  background: rgba(255, 255, 255, 0.1);
   overflow: hidden;
 }
 
-.challenge-bar-fill {
-  height: 100%;
+.cr-chal-bar-fill {
   width: 0%;
+  height: 100%;
   background: var(--color-cyan);
-  border-radius: 3px;
   transition: width 250ms ease;
 }
 
-.challenge-row.is-complete .challenge-bar-fill {
+.cr-chal-card.is-complete .cr-chal-bar-fill {
   background: var(--color-portal);
 }
 
-.challenge-progress-text {
-  font-family: var(--mono);
-  font-size: clamp(9px, 0.95vw, 10px);
-  color: rgba(255, 255, 255, 0.7);
-  letter-spacing: 0.05em;
+.cr-chal-count {
   flex-shrink: 0;
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: clamp(9px, 1vw, 12px);
+  letter-spacing: 0.05em;
+  color: var(--color-cyan);
+}
+
+/* Untouched objectives don't get to glow cyan — that's for real progress. */
+.cr-chal-count.is-zero {
+  color: rgba(242, 237, 228, 0.45);
+}
+
+.cr-chal-card.is-complete .cr-chal-count {
+  color: var(--color-portal);
 }
 
 
@@ -2837,7 +3261,7 @@ html, body {
   font-size: clamp(12px, 2.2vw, 14px);
   letter-spacing: 0.04em;
   text-align: center;
-  box-shadow: var(--sticker-chip);
+  box-shadow: var(--slab-shadow);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.25s ease, transform 0.25s ease;
@@ -2872,4 +3296,359 @@ html, body {
     transition: box-shadow 120ms ease;
     transform: none !important;
   }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FIGHT NIGHT — Part 1 main menu (badge 3a).
+   Command list over the live attract render; plate + context right; hint bar.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+/* ── LEFT hero: tagline · title lockup · command list ── */
+.cr-content { --cr-hint-h: 64px; }
+.cr-hero {
+  position: absolute;
+  left: clamp(24px, 5vw, 96px);
+  /* Top-anchored like the mock (96px in, 60px down), and the box stops ABOVE the
+     hint bar: centring it over the full height slid SETTINGS under the bar on any
+     short window (1280x720 put the last row 14px under it) while looking fine at
+     1080. The vertical rhythm below is vh-aware for the same reason. */
+  top: 0; bottom: var(--cr-hint-h);
+  width: min(480px, 44vw);
+  display: flex; flex-direction: column; justify-content: flex-start;
+  padding-top: clamp(20px, 5.6vh, 60px);
+  gap: 0;
+  z-index: 22;
+}
+.cr-hero .cr-tagline {
+  display: block; width: 100%;
+  font-family: var(--mono);
+  font-size: clamp(9px, 1vw, 12px);
+  letter-spacing: 0.34em;
+  color: var(--color-muted);
+  text-transform: uppercase;
+  text-align: center;
+}
+.cr-hero .cr-title-stack {
+  align-items: center; text-align: center; width: 100%;
+  /* Mock 3a: 170px @1920, line-height 0.78, no tracking. Same clamp shape as the
+     base rule — the vh term is the short-window ceiling — scaled to the mock cap. */
+  font-size: clamp(68px, min(10.94vw, 16.8vh), 170px);
+  line-height: 0.78;
+  letter-spacing: 0;
+  /* Glow only: the ink die-cut stroke that .cr-title carries is retired here. */
+  -webkit-text-stroke: 0;
+  paint-order: normal;
+  /* The beat pulse arrives as a scalar custom property (animLoop). NOTHING may
+     write `transform` on this node — an inline transform wipes the -4deg lean,
+     which is exactly how the lockup lost it (the rAF write set `scale()`). */
+  transform: skewX(-4deg) scale(var(--cr-title-beat, 1));
+  margin: clamp(8px, 1.9vh, 20px) 0 clamp(20px, 4.8vh, 52px);
+}
+.cr-hero .cr-title-stack .cr-title-word:nth-child(1) {
+  color: var(--color-sticker-white);
+  text-shadow: 0 0 50px var(--glow-magenta-40);
+}
+.cr-hero .cr-title-stack .cr-title-word:nth-child(2) {
+  color: var(--color-magenta);
+  text-shadow: 4px 4px 0 var(--glow-cyan-30), 0 0 60px var(--glow-magenta-40);
+  margin-top: -0.06em;
+}
+
+/* ── Command list — skewed rows; selected row is the ONLY solid yellow ── */
+.cr-commandlist {
+  display: flex; flex-direction: column; gap: 2px;
+  width: 100%; max-width: 480px; margin: 0;
+}
+.cr-cmd {
+  position: relative;
+  display: flex; align-items: center; gap: 16px;
+  width: 100%;
+  /* Mock's 15px at 1080. Seven rows make this the biggest vertical lever on a
+     short window, so the padding is vh-aware — it holds the mock's rhythm at
+     full height and compresses before the list can reach the hint bar. */
+  padding: clamp(9px, 1.4vh, 15px) 30px;
+  background: transparent; border: none; border-radius: 0; box-shadow: none;
+  transform: skewX(-8deg);
+  margin-left: -8px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 130ms var(--ease-slap), padding 130ms var(--ease-slap);
+}
+.cr-cmd .cr-btn-inner { justify-content: flex-start; gap: 0; }
+/* Counter-skew lives on the label, NOT on .cr-btn-inner — inner is the press
+   target (getMenuPressTarget) and anime.js overwrites its transform. */
+.cr-cmd .cr-btn-label { display: inline-block; transform: skewX(8deg); }
+.cr-cmd .cr-btn-label {
+  font-family: var(--ui); font-weight: 700;
+  font-size: clamp(18px, 1.9vw, 24px);
+  letter-spacing: 0.1em;
+  color: var(--color-muted);
+  transition: color 130ms var(--ease-slap), font-size 130ms var(--ease-slap);
+}
+.cr-cmd-qual {
+  transform: skewX(8deg);
+  margin-left: auto;
+  font-family: var(--mono); font-weight: 700; font-size: 13px;
+  letter-spacing: 0.12em; color: var(--color-ink);
+  white-space: nowrap; opacity: 0;
+}
+.cr-cmd-new {
+  transform: skewX(8deg);
+  background: var(--color-magenta); color: var(--color-ink);
+  font-family: var(--ui); font-weight: 800; font-size: 10px; letter-spacing: 0.1em;
+  padding: 3px 8px; border-radius: 3px;
+}
+/* Same pill carries the ✓N progress count once a challenge completes — portal
+   green is the completion voice everywhere else (7b's REDEEMED stamp). */
+.cr-cmd-new--done { background: var(--color-portal); }
+.cr-cmd-new[hidden] { display: none; }
+.cr-cmd:hover .cr-btn-label { color: var(--color-sticker-white); }
+/* A command row is NOT a sticker button. `.cr-btn:hover/:focus-visible/:active`
+   (0,2,0) outranks `.cr-cmd` (0,1,0), so hover was repainting the retired white
+   die-cut ring AND replacing skewX(-8deg) with a translate — the row went flat
+   while its label kept the counter-skew. Hover is selection here, so this fired
+   constantly. Two classes so no single-class band rule can outrank it either. */
+.cr-btn.cr-cmd:hover,
+.cr-btn.cr-cmd:focus-visible,
+.cr-btn.cr-cmd:active {
+  transform: skewX(-8deg);
+  box-shadow: none;
+}
+.cr-cmd.is-selected {
+  background: linear-gradient(90deg, rgba(255,229,61,0.92), rgba(255,229,61,0.75) 60%, transparent 98%);
+  padding: clamp(10px, 1.5vh, 16px) 30px;
+}
+.cr-cmd.is-selected .cr-btn-label { color: var(--color-ink); font-size: clamp(22px, 2.3vw, 30px); }
+.cr-cmd.is-selected .cr-cmd-qual { opacity: 1; }
+.cr-cmd:focus-visible { outline: 2px dashed var(--color-yellow); outline-offset: 2px; }
+
+/* ── TOP-RIGHT player plate + BOTTOM-RIGHT context: shared dark-glass panel ── */
+.cr-plate, .cr-context {
+  position: absolute;
+  right: clamp(24px, 5vw, 96px);
+  background: rgba(12, 10, 17, 0.85);
+  border: 1px solid var(--border-white-10);
+  border-radius: 12px;
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  z-index: 22;
+}
+.cr-plate {
+  top: clamp(20px, 4vh, 44px);
+  width: min(430px, 34vw);
+  padding: 22px 26px;
+}
+.cr-plate-hd {
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.24em;
+  color: var(--color-muted); white-space: nowrap;
+}
+.cr-plate .cr-name-row {
+  display: flex; align-items: center; gap: 10px; margin-top: 10px;
+}
+.cr-plate .cr-name-display {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--ui); font-weight: 700; font-size: clamp(26px, 3vw, 36px);
+  color: var(--color-sticker-white); letter-spacing: 0.02em; cursor: pointer;
+  /* Mock 3a: the name is plain type. The retired rename affordance (inset pad +
+     dashed contour) is gone — the pencil button beside it carries that job. */
+  padding: 0; border: 0;
+}
+.cr-plate .cr-name-input {
+  flex: 1; min-width: 0; font-family: var(--ui); font-weight: 700; font-size: clamp(24px, 2.6vw, 32px);
+  color: var(--color-sticker-white); background: transparent;
+  border: none; border-bottom: 1px solid var(--border-white-20); outline: none;
+}
+/* Twin 36px hairline buttons: ✎ rename (the mock's) + ⟲ re-roll (kept). The
+   two-class scope also clears the white die-cut ring `.cr-reroll` inherits from
+   --sticker-micro, which the mock's panel style does not have. */
+.cr-plate .cr-plate-btn {
+  width: 36px; height: 36px; flex: 0 0 36px;
+  display: grid; place-items: center;
+  border-radius: 8px; border: 1px solid var(--border-white-20);
+  background: transparent; box-shadow: none;
+  color: #b5afc0; font-size: 15px; line-height: 1; cursor: pointer;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+.cr-plate .cr-plate-btn:hover { color: var(--color-sticker-white); border-color: var(--border-white-20); }
+.cr-plate #cr-name-edit { margin-left: auto; }
+.cr-plate .cr-reroll { margin-left: 0; }
+.cr-plate .cr-stats {
+  display: flex; margin-top: 16px; padding: 14px 0 0;
+  background: none; border: none; border-top: 1px solid var(--border-white-10);
+  box-shadow: none; border-radius: 0;
+}
+.cr-plate .cr-stat { flex: 1; text-align: center; }
+.cr-plate .cr-stat-num {
+  font-family: var(--ui); font-weight: 700; font-size: clamp(18px, 2vw, 24px);
+  color: var(--color-sticker-white);
+}
+.cr-plate #stat-wins { color: var(--color-magenta); }
+.cr-plate .cr-stat-lbl {
+  display: block; font-family: var(--mono); font-size: 9px; letter-spacing: 0.18em;
+  color: var(--color-muted); margin-top: 2px;
+}
+/* `height: auto` is load-bearing: the base rule's fixed clamp beat align-self
+   and left the separators 28px tall inside a ~40px strip. */
+.cr-plate .cr-stat-div { width: 1px; height: auto; align-self: stretch; background: var(--border-white-10); }
+
+/* ── Context panel — driven by the highlighted command ── */
+.cr-context {
+  bottom: clamp(88px, 14vh, 130px);
+  width: min(500px, 40vw);
+  padding: 26px 30px;
+}
+.cr-context-kicker {
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.26em; color: var(--color-magenta);
+}
+.cr-context-desc {
+  font-size: 15px; color: var(--color-text-secondary); line-height: 1.55; margin-top: 10px;
+}
+.cr-context-arena {
+  display: flex; align-items: center; gap: 16px;
+  margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--border-white-10);
+}
+.cr-context-arena[hidden], .cr-context .cr-diff-row[hidden] { display: none; }
+/* The radiogroup is the arena DATA MODEL, never a visible control here — the
+   pager reads it and writes back through selectLevel(). The `hidden` attribute
+   alone does NOT hide it: `.cr-level-row { display: grid }` (0,1,0) outranks the
+   UA `[hidden]` rule, so all three arena cards rendered on top of the pager and
+   squeezed the arena name to a clipped stub. Attribute + two classes so no
+   responsive band can bring them back. */
+.cr-context .cr-level-row[hidden] { display: none; }
+.cr-arena-page {
+  width: 34px; height: 34px; flex-shrink: 0;
+  border-radius: 8px; border: 1px solid var(--border-white-20); background: transparent;
+  color: #b5afc0; display: grid; place-items: center; font-size: 15px; cursor: pointer;
+}
+.cr-arena-page:hover { color: var(--color-sticker-white); border-color: var(--border-white-15); }
+.cr-arena-display { flex: 1; text-align: center; min-width: 0; }
+.cr-arena-name {
+  font-family: var(--ui); font-weight: 700; font-size: clamp(20px, 2.2vw, 26px);
+  letter-spacing: 0.06em; color: var(--color-cyan); white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.cr-arena-sub {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em;
+  color: var(--color-muted); margin-top: 2px;
+}
+.cr-context .cr-diff-row {
+  display: flex; gap: 8px; margin-top: 16px;
+}
+/* box-shadow:none in all three states — the base `.cr-diff-btn` chip is sticker
+   material (white ring on hover, yellow 2px ring + 3px extrude when active) and
+   the mock's chips are a flat hairline / solid yellow with neither. */
+.cr-context .cr-diff-btn {
+  flex: 1; text-align: center; padding: 9px; cursor: pointer;
+  border-radius: 6px; border: 1px solid var(--border-white-14); background: transparent;
+  font-family: var(--ui); font-weight: 700; font-size: 12px; letter-spacing: 0.1em;
+  color: var(--color-muted);
+  box-shadow: none;
+}
+.cr-context .cr-diff-btn .cr-diff-btn-label { color: inherit; }
+.cr-context .cr-diff-btn:hover {
+  transform: none; box-shadow: none; color: var(--color-sticker-white);
+}
+.cr-context .cr-diff-btn.active {
+  background: rgba(255, 229, 61, 0.9); border-color: transparent; color: var(--color-ink);
+  box-shadow: none;
+}
+.cr-context .cr-diff-btn.active .cr-diff-btn-label { color: var(--color-ink); }
+
+/* ── Bottom hint bar — device-aware ── */
+.cr-hintbar {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  display: flex; align-items: center; gap: clamp(16px, 3vw, 36px);
+  padding: 16px clamp(24px, 5vw, 96px);
+  background: rgba(9, 7, 13, 0.9);
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  font-family: var(--mono); font-size: 12px; letter-spacing: 0.12em;
+  color: var(--color-muted);
+  z-index: 23;
+}
+.cr-hint-device {
+  display: inline-flex; align-items: center; gap: 8px;
+  border: 1px solid rgba(255, 68, 212, 0.45); border-radius: var(--radius-pill);
+  padding: 6px 16px; color: var(--color-magenta); white-space: nowrap;
+}
+.cr-hint-keys { display: flex; align-items: center; gap: clamp(12px, 2vw, 28px); flex-wrap: wrap; }
+.cr-hint-keys .cr-hint-item { white-space: nowrap; }
+.cr-hint-keys .cr-key {
+  display: inline-block; border: 1px solid var(--border-white-20); border-radius: 4px;
+  padding: 2px 8px; color: var(--color-sticker-white); margin: 0 2px;
+}
+.cr-hint-meta { margin-left: auto; color: var(--color-faint); white-space: nowrap; }
+
+@media (prefers-reduced-motion: reduce) {
+  .cr-cmd, .cr-cmd .cr-btn-label { transition: none; }
+}
+
+/* ── Named responsive collapse (tokens.css breakpoint contract) ── */
+@media (max-width: 1024px) {
+  .cr-content {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 18px; padding: 24px 16px 92px; overflow-y: auto;
+  }
+  .cr-hero, .cr-plate, .cr-context {
+    position: static; inset: auto; right: auto; left: auto; bottom: auto; top: auto;
+    width: min(480px, 94vw);
+  }
+  /* padding-top is the desktop column's 60px top anchor — the stacked band gets
+     its spacing from .cr-content's padding, so drop it or it doubles up. */
+  .cr-hero { justify-content: flex-start; padding-top: 0; }
+  .cr-context { order: 3; }
+}
+@media (max-width: 768px) {
+  .cr-hintbar { gap: 12px; padding: 12px 16px; font-size: 11px; }
+  .cr-hint-meta { display: none; }
+  .cr-plate .cr-stats { margin-top: 12px; }
+  /* Both plate buttons take the 44px touch target: the shared band forces ⟲ to 44
+     via min-width/min-height, so ✎ has to match or the pair reads lopsided. */
+  .cr-plate .cr-plate-btn { width: 44px; height: 44px; flex-basis: 44px; }
+}
+@media (max-width: 380px) {
+  .cr-cmd { padding: 12px 20px; }
+  .cr-cmd.is-selected { padding: 13px 20px; }
+  .cr-cmd .cr-btn-label { font-size: 18px; }
+  .cr-cmd-qual { white-space: normal; }
+}
+
+/* Title lockup across the bands. These were single-class `.cr-title-stack` rules
+   up in the shared responsive section; the 3a rule above is two classes AND later
+   in the file, so nothing up there could reach the lockup any more. Same values,
+   same breakpoints — moved, not changed. Order matches the original file. */
+@media (max-width: 1024px) {
+  .cr-hero .cr-title-stack { font-size: clamp(63.25px, 10.78vw, 138px); }
+}
+@media (max-width: 768px), (max-width: 1024px) and (pointer: coarse) {
+  .cr-hero .cr-title-stack {
+    font-size: clamp(40.25px, 10.35dvh, 74.75px);
+    line-height: 0.82;
+    margin: 0 0 clamp(2px, 0.6dvh, 6px);
+  }
+  .cr-hero .cr-title-stack .cr-title-word:nth-child(2) { margin-top: -0.08em; }
+}
+@media (orientation: landscape) and (max-height: 600px) and (max-width: 1024px) {
+  .cr-hero .cr-title-stack { font-size: clamp(25.875px, 6.9dvh, 40.25px); line-height: 0.81; margin: 0; }
+}
+
+/* Settings — segmented QUALITY control (LOW/MED/HIGH; active = yellow, 7c). */
+.cr-quality-seg { display: flex; gap: 6px; }
+.cr-seg-chip {
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: clamp(9px, 1vw, 11px);
+  padding: 5px 12px;
+  border-radius: 5px;
+  border: 1px solid var(--border-white-14);
+  background: transparent;
+  color: var(--color-muted);
+  cursor: pointer;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transition: background 120ms var(--ease-slap), color 120ms var(--ease-slap);
+}
+.cr-seg-chip:hover { color: var(--color-sticker-white); }
+.cr-seg-chip.is-active {
+  background: var(--color-yellow);
+  border-color: transparent;
+  color: var(--color-ink);
 }

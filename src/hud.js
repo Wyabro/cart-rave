@@ -17,12 +17,12 @@ import { updateBoostRing } from "./touchControls.js";
 import { clamp, clampInt } from "./utils.js";
 import { resolveCartNeonCss } from "./customization.js";
 import { playTimerTick } from "./sfxSynth.js";
-import { getConnectionState, getHostId, getHostClockOffsetMs, getNetSlots } from "./netcode.js";
+import { getConnectionState, getHostId, getHostClockOffsetMs, getNetSlots, resolvedPartyRoomFromUrl } from "./netcode.js";
 import { getRoundClockNowMs, getRoundRemainingMs } from "./roundClock.js";
 import { ROUND_DURATION_MS } from "../shared/roundConstants.js";
 import { announce } from "./announcer/announcerManager.js";
 import { gameStore } from "./stores/gameStore.js";
-import { getNpcPersonality, PERSONALITY_META } from "./npcNames.js";
+import { emblemForSlot } from "./npcNames.js";
 import { isWorldBootstrapped } from "./bootstrap.js";
 import {
   show as showPauseOverlay,
@@ -137,13 +137,24 @@ const elements = {
   timerFill: null,
   scores: null,
   feed: null,
+  feedRows: null,
   scoreBoxes: [],
   readyBtn: null,
+  lobbyScreen: null,
+  lobbySlots: [],
+  lobbyCount: null,
+  lobbyCode: null,
+  lobbyCopy: null,
+  lobbyStatus: null,
+  lobbyLink: null,
+  lobbyReadyBtn: null,
+  lobbyReadyLabel: null,
   menuBtn: null,
   audio: null,
   comboBadge: null,
   comboMultiplier: null,
   comboTier: null,
+  comboSecs: null,
   comboBarFill: null,
   escOverlay: null,
   escBackdrop: null,
@@ -162,6 +173,7 @@ const elements = {
   edgeDanger: null,
   boost: null,
   boostFill: null,
+  boostValue: null,
   toast: null,
   toastTitle: null,
 };
@@ -206,6 +218,17 @@ let _wasSuddenDeath = false;
 let _toastTimeoutId = null;
 /** Previous local ready state — drives ready-button toggle animation. */
 let _lastReadyState = null;
+/**
+ * Slot index of the sole leader (top score, non-zero, no tie), or -1.
+ * The world-space nameplates read this so the crown rule lives in exactly one
+ * place — the scoreboard's `isLeader` and the cart's crown can never disagree.
+ */
+let _leaderSlotIndex = -1;
+
+/** Watches the transaction-log rows so the receipt hides itself when empty. */
+let _feedRowObserver = null;
+/** Revert timeout for the lobby COPY button's "COPIED!" confirmation. */
+let _lobbyCopyTimeoutId = null;
 /** Quantized (0.5%) round-timer fill last written — skip redundant per-frame style writes. */
 let _hudTimerFillHalfPct = -1;
 /** Non-zero while the host-stall toast for the current stall has been shown (run-6). */
@@ -786,11 +809,12 @@ let _hudDirectiveId = null;
 let _hudDirectiveFillTenths = -1;
 
 /**
- * Living Store directive chip under the round timer. Called every frame from
- * frameVisuals with the engine's active directive (or null). Shows the directive
- * name, whole seconds remaining, and a drain bar in the directive's accent color.
+ * Living Store directive tag under the round timer. Called every frame from
+ * frameVisuals with the engine's active directive (or null). The tag is a price
+ * slab in the directive's own accent: title, whole seconds remaining, the
+ * store-voice rule line, and a drain bar.
  *
- * @param {{ id: string, title: string, startedAtMs: number, untilMs: number, accent: string } | null} directive
+ * @param {{ id: string, title: string, blurb?: string, startedAtMs: number, untilMs: number, accent: string } | null} directive
  * @param {number} nowMs performance.now() for this frame.
  * @returns {void}
  */
@@ -815,6 +839,12 @@ export function setHudDirective(directive, nowMs) {
     _hudDirectiveId = directive.id;
     el.style.setProperty("--directive-accent", directive.accent);
     elements.directiveName.textContent = directive.title;
+    // * Store-voice rule line (mock 6a) — fixed for the window, written with the name.
+    if (elements.directiveBlurb) {
+      const blurb = directive.blurb || "";
+      elements.directiveBlurb.textContent = blurb;
+      elements.directiveBlurb.style.display = blurb ? "" : "none";
+    }
   }
   const secsText = `${Math.ceil(remainingMs / 1000)}s`;
   if (elements.directiveSecs.textContent !== secsText) {
@@ -853,19 +883,6 @@ function compareScoreboardDisplayOrder(a, b, youConnId) {
   const scoreDiff = b.score - a.score;
   if (scoreDiff !== 0) return scoreDiff;
   return a.slotIndex - b.slotIndex;
-}
-
-/**
- * Maps slot index → score rank (1 = highest score).
- * @param {Array<{ slotIndex: number, score: number }>} rows
- * @returns {Map<number, number>}
- */
-function scoreRanksBySlot(rows) {
-  const ranks = new Map();
-  [...rows]
-    .sort((a, b) => (b.score - a.score) || (a.slotIndex - b.slotIndex))
-    .forEach((row, i) => ranks.set(row.slotIndex, i + 1));
-  return ranks;
 }
 
 /**
@@ -937,6 +954,34 @@ function syncRowIndicators(entry, isLeader) {
  * @param {Array<object>|null} netSlots
  * @param {string|null} youConnId
  */
+/**
+ * One slot→row model for every roster surface. The compact in-corner scoreboard
+ * and the full-screen Friends CHECKOUT LINE both read this, so ready/kind/color
+ * state is derived in exactly one place (null-safe on every slot field).
+ * @param {Array<object>|null} netSlots
+ * @param {Record<number, number>|null|undefined} roundScores
+ * @param {boolean} isLobbyRoster When true, `score` carries ready state (1/0/-1) instead of points.
+ * @returns {Array<{ slotIndex: number, score: number, slotName: string, slotColor: string|null, kind: string, connId: string|null, isReady: boolean }>}
+ */
+function buildRosterRows(netSlots, roundScores, isLobbyRoster) {
+  const rows = [];
+  for (let i = 0; i < 4; i += 1) {
+    const slot = netSlots?.[i];
+    rows.push({
+      slotIndex: i,
+      score: isLobbyRoster
+        ? (slot?.kind === "human" ? (slot.isReady ? 1 : 0) : -1)
+        : Number(roundScores?.[i] ?? 0),
+      slotName: slot?.name || `P${i + 1}`,
+      slotColor: slot?.color || null,
+      kind: slot?.kind ?? "",
+      connId: slot?.connId || null,
+      isReady: Boolean(slot?.isReady),
+    });
+  }
+  return rows;
+}
+
 function updateScores(roundState, netSlots, youConnId) {
   const roundPhase = roundState?.phase;
   const roundScores = roundState?.scores;
@@ -974,21 +1019,7 @@ function updateScores(roundState, netSlots, youConnId) {
     }
 
     if (dataChanged || localChanged) {
-      const nextRows = [];
-      for (let i = 0; i < 4; i += 1) {
-        const slot = netSlots?.[i];
-        nextRows.push({
-          slotIndex: i,
-          score: isLobbyRoster
-            ? (slot?.kind === "human" ? (slot.isReady ? 1 : 0) : -1)
-            : Number(roundScores?.[i] ?? 0),
-          slotName: slot?.name || `P${i + 1}`,
-          slotColor: slot?.color || null,
-          kind: slot?.kind ?? "",
-          connId: slot?.connId || null,
-          isReady: Boolean(slot?.isReady),
-        });
-      }
+      const nextRows = buildRosterRows(netSlots, roundScores, isLobbyRoster);
       // * Lobby: seat order (stable roster). Running: score rank order.
       if (isLobbyRoster) {
         nextRows.sort((a, b) => a.slotIndex - b.slotIndex);
@@ -1001,34 +1032,27 @@ function updateScores(roundState, netSlots, youConnId) {
 
     if (dataChanged || localChanged) {
       const rows = _sortedScoreRows || [];
-      const ranks = isLobbyRoster ? null : scoreRanksBySlot(rows);
       for (let pos = 0; pos < 4; pos += 1) {
         const entry = elements.scoreBoxes[pos];
         const row = rows[pos];
         if (!entry || !row) continue;
 
-        entry.rank.textContent = isLobbyRoster
-          ? String(row.slotIndex + 1)
-          : String(ranks?.get(row.slotIndex) ?? pos + 1);
         entry.label.textContent = row.slotName;
 
         const slot = netSlots?.[row.slotIndex];
-        if (slot && slot.kind === "npc") {
-          const p = getNpcPersonality(slot.name);
-          const info = p ? PERSONALITY_META[p.name] : null;
-          if (info) {
-            if (entry.badge.dataset.icon !== info.icon) {
-              entry.badge.dataset.icon = info.icon;
-              entry.badge.innerHTML = svgIcon(info.icon, { label: info.label });
-              // * Native tooltip is sentence case (style guide §4); the on-chip
-              // * label keeps its all-caps HUD styling.
-              entry.badge.title = info.label.charAt(0) + info.label.slice(1).toLowerCase();
-            }
-            entry.badge.style.color = info.color;
-            entry.badge.style.display = "inline-flex";
-          } else {
-            entry.badge.style.display = "none";
+        // * One resolver for everyone: NPCs get their personality emblem, humans
+        // * get the cart-color shopper glyph, empty slots get nothing.
+        const info = emblemForSlot(slot);
+        if (info) {
+          if (entry.badge.dataset.icon !== info.icon) {
+            entry.badge.dataset.icon = info.icon;
+            entry.badge.innerHTML = svgIcon(info.icon, { label: info.label });
+            // * Native tooltip is sentence case (style guide §4); the on-chip
+            // * label keeps its all-caps HUD styling.
+            entry.badge.title = info.label.charAt(0) + info.label.slice(1).toLowerCase();
           }
+          entry.badge.style.color = info.color;
+          entry.badge.style.display = "inline-flex";
         } else {
           entry.badge.style.display = "none";
         }
@@ -1074,6 +1098,7 @@ function updateScores(roundState, netSlots, youConnId) {
     // * Crown + rampage pips refresh every frame — pips decay on a timer (not on score
     // * changes), and the crown derives from the same rows the boxes already show.
     const rowsNow = _sortedScoreRows || [];
+    _leaderSlotIndex = -1;
     let topScore = 0;
     let topCount = 0;
     for (const r of rowsNow) {
@@ -1106,6 +1131,7 @@ function updateScores(roundState, netSlots, youConnId) {
         }
       }
       const isLeader = Boolean(row && topScore > 0 && topCount === 1 && row.score === topScore);
+      if (isLeader && row) _leaderSlotIndex = row.slotIndex;
       entry.box.classList.toggle("isLeader", isLeader);
       // * Host glyph follows the host slot every frame so migration moves it immediately.
       if (entry.host) {
@@ -1128,7 +1154,6 @@ function updateScores(roundState, netSlots, youConnId) {
       if (entry) {
         entry.box.classList.remove("isLocal");
         entry.value.textContent = "";
-        entry.rank.textContent = String(i + 1);
         entry.you.style.display = "none";
         if (entry.crown) entry.crown.style.display = "none";
         if (entry.pip) entry.pip.style.display = "none";
@@ -1186,6 +1211,136 @@ function updateReadyButton(roundPhase, netSlots, youConnId, menuVisible) {
 }
 
 /**
+ * Press feedback animates the INNER node of a lobby slab, never the button:
+ * anime.js writes `transform` inline, which would wipe the outer skewX() and
+ * snap the parallelogram flat for the duration of the press (the 7a bug).
+ * @param {HTMLElement} btn
+ * @returns {HTMLElement}
+ */
+function lobbyPressTarget(btn) {
+  return /** @type {HTMLElement} */ (btn.querySelector(".hud-lobby-btn-inner") || btn);
+}
+
+/**
+ * Friends-only full-screen CHECKOUT LINE lobby (7e, model B).
+ *
+ * Gate is `phase === "lobby"` — deliberately NOT the compact roster's
+ * `lobby || countdown`, so the screen clears before the 3-2-1 owns the frame.
+ * Quickplay/continuous keep the in-corner roster (auto-ready would make a full
+ * lobby screen feel wrong). Slots and ready state come from the same
+ * buildRosterRows model the compact scoreboard uses, and READY proxies the
+ * existing hud-ready-btn so the socket send lives in one place.
+ *
+ * Start rule B1: no host START button — the server auto-arms once every live
+ * human is ready, so both host and guests only ever press READY.
+ *
+ * @param {string|null|undefined} roundPhase
+ * @param {Array<object>|null} netSlots
+ * @param {string|null} youConnId
+ * @param {boolean} menuVisible
+ */
+function updateLobbyScreen(roundPhase, netSlots, youConnId, menuVisible) {
+  const screen = elements.lobbyScreen;
+  if (!screen) return;
+
+  const isFriends = _options.detectGameMode?.() === "friends";
+  const active = roundPhase === "lobby" && !menuVisible && isFriends;
+  if (!active) {
+    if (!screen.hidden) screen.hidden = true;
+    return;
+  }
+  screen.hidden = false;
+
+  // * One lobby surface: the compact roster and corner ready button stand down
+  // * while the full screen is up (both are restored by their own updaters).
+  setHudDisplay(elements.scores, "none", "scores");
+  if (elements.readyBtn) elements.readyBtn.style.display = "none";
+
+  const rows = buildRosterRows(netSlots, null, true);
+  const hostId = getHostId();
+  let humans = 0;
+  let readyHumans = 0;
+
+  for (let i = 0; i < 4; i += 1) {
+    const cell = elements.lobbySlots[i];
+    const row = rows[i];
+    if (!cell || !row) continue;
+    const slot = netSlots?.[i] ?? null;
+    const isEmpty = row.kind !== "human" && row.kind !== "npc";
+    const isLocal = Boolean(row.connId && youConnId && row.connId === youConnId);
+    if (row.kind === "human") {
+      humans += 1;
+      if (row.isReady) readyHumans += 1;
+    }
+
+    cell.root.classList.toggle("is-empty", isEmpty);
+    cell.root.classList.toggle("is-you", isLocal);
+    cell.root.classList.toggle("is-ready", row.kind === "human" && row.isReady);
+    // * An empty lane is a dashed outline with one centred line (mock 7e) — no
+    // * name, no emblem, nothing that reads as a player who is already here.
+    cell.name.textContent = isEmpty ? "" : row.slotName;
+
+    const info = isEmpty ? null : emblemForSlot(slot);
+    if (info) {
+      if (cell.emblem.dataset.icon !== info.icon) {
+        cell.emblem.dataset.icon = info.icon;
+        cell.emblem.innerHTML = svgIcon(info.icon, { label: info.label });
+      }
+      cell.emblem.style.color = info.color;
+      cell.emblem.style.display = "inline-flex";
+    } else {
+      cell.emblem.style.display = "none";
+    }
+
+    const isHostSlot = Boolean(hostId && row.connId && row.connId === hostId);
+    cell.host.style.display = isHostSlot ? "inline-flex" : "none";
+    cell.you.style.display = isLocal ? "inline-flex" : "none";
+    cell.status.textContent = isEmpty
+      ? "WAITING FOR SHOPPER…"
+      : row.kind === "npc"
+        ? "BOT"
+        : row.isReady
+          ? "READY"
+          : "IN LINE";
+  }
+
+  if (elements.lobbyCount) elements.lobbyCount.textContent = `${humans}/4`;
+  if (elements.lobbyCode) {
+    const code = String(resolvedPartyRoomFromUrl() || "").toUpperCase();
+    if (elements.lobbyCode.textContent !== code) elements.lobbyCode.textContent = code;
+  }
+  if (elements.lobbyCopy) {
+    // * Nothing to share without a room id (shouldn't happen in a private room).
+    const canCopy = Boolean(resolvedPartyRoomFromUrl());
+    elements.lobbyCopy.style.display = canCopy ? "" : "none";
+  }
+  if (elements.lobbyLink) {
+    // * Region · ping (the mock's meta) is not instrumented; this is the link
+    // * state the netcode actually tracks.
+    const reconnecting = getConnectionState() === "reconnecting";
+    const next = reconnecting ? "RECONNECTING…" : "LINK OK";
+    if (elements.lobbyLink.textContent !== next) elements.lobbyLink.textContent = next;
+    elements.lobbyLink.classList.toggle("is-warn", reconnecting);
+  }
+  if (elements.lobbyStatus) {
+    const allReady = humans > 0 && readyHumans === humans;
+    elements.lobbyStatus.textContent = allReady
+      ? "ALL CHECKED OUT — STARTING…"
+      : "WAITING FOR CHECKOUT…";
+    elements.lobbyStatus.classList.toggle("is-go", allReady);
+  }
+  // * Mirror the corner button's already-computed label/state — no second
+  // * derivation of who is ready.
+  if (elements.lobbyReadyBtn && elements.readyBtn) {
+    const label = elements.readyBtn.textContent || "READY UP!";
+    if (elements.lobbyReadyLabel && elements.lobbyReadyLabel.textContent !== label) {
+      elements.lobbyReadyLabel.textContent = label;
+    }
+    elements.lobbyReadyBtn.classList.toggle("is-ready", elements.readyBtn.classList.contains("is-ready"));
+  }
+}
+
+/**
  * Builds HUD DOM, injects styles, and wires event listeners.
  * @param {object} options Callbacks and getters from the game layer.
  * @returns {object} HUD element references and helpers for legacy callers.
@@ -1205,6 +1360,7 @@ export function init(options) {
   _goUntilMs = 0;
   _goSoundPlayed = false;
   _lastReadyState = null;
+  _leaderSlotIndex = -1;
   _lastUrgentTickSecond = null;
   _lastTimeBeatSecond = null;
   _wasSuddenDeath = false;
@@ -1212,6 +1368,10 @@ export function init(options) {
   if (_toastTimeoutId) {
     clearTimeout(_toastTimeoutId);
     _toastTimeoutId = null;
+  }
+  if (_lobbyCopyTimeoutId) {
+    clearTimeout(_lobbyCopyTimeoutId);
+    _lobbyCopyTimeoutId = null;
   }
   resetStage();
 
@@ -1269,8 +1429,13 @@ export function init(options) {
   elements.timerFill = document.createElement("i");
   timerBar.appendChild(elements.timerFill);
 
-  timerBody.appendChild(timerMeta);
-  timerBody.appendChild(elements.timerNum);
+  // * Mock 6a reads left-to-right on ONE line: the clock, then the round meta
+  // * hard right of it. Stacked, the meta was reading as a title above the time.
+  const timerHead = document.createElement("div");
+  timerHead.className = "hud-timer-head";
+  timerHead.appendChild(elements.timerNum);
+  timerHead.appendChild(timerMeta);
+  timerBody.appendChild(timerHead);
   timerBody.appendChild(timerBar);
   elements.timer.appendChild(timerStripe);
   elements.timer.appendChild(timerBody);
@@ -1288,27 +1453,49 @@ export function init(options) {
   elements.directiveSecs.className = "hud-directive-secs";
   directiveRow.appendChild(elements.directiveName);
   directiveRow.appendChild(elements.directiveSecs);
+  elements.directiveBlurb = document.createElement("span");
+  elements.directiveBlurb.className = "hud-directive-blurb";
   const directiveBar = document.createElement("div");
   directiveBar.className = "hud-directive-bar";
   elements.directiveFill = document.createElement("i");
   directiveBar.appendChild(elements.directiveFill);
   elements.directive.appendChild(directiveRow);
+  elements.directive.appendChild(elements.directiveBlurb);
   elements.directive.appendChild(directiveBar);
 
   elements.scores = document.createElement("div");
   elements.scores.className = "hud-scores";
 
+  // ── Kill feed = the store's TRANSACTION LOG receipt (mock 6a) ──────────────
+  // * The panel is the skewed slab; the counter-skew lives on an inner wrapper
+  // * that NOTHING animates. Rows are transform-animated on entry/exit, so a
+  // * counter-skew on the row itself would be overwritten inline (the 7a/7f bug).
   elements.feed = document.createElement("div");
-  elements.feed.className = "hud-feed";
+  elements.feed.className = "hud-feed is-empty";
+  const feedInner = document.createElement("div");
+  feedInner.className = "hud-feed-inner";
+  const feedHd = document.createElement("div");
+  feedHd.className = "hud-feed-hd";
+  feedHd.textContent = "— TRANSACTION LOG —";
+  elements.feedRows = document.createElement("div");
+  elements.feedRows.className = "hud-feed-rows";
+  feedInner.appendChild(feedHd);
+  feedInner.appendChild(elements.feedRows);
+  elements.feed.appendChild(feedInner);
+  // * Rows are also removed by animations.js's own exit timer, which hud.js has
+  // * no completion hook into — so emptiness is observed rather than tracked at
+  // * each call site. (CSS :has() would do it, but Vite's default target still
+  // * includes browsers without it, and the failure mode is a bare header.)
+  _feedRowObserver?.disconnect();
+  _feedRowObserver = new MutationObserver(() => {
+    elements.feed?.classList.toggle("is-empty", !elements.feedRows?.firstElementChild);
+  });
+  _feedRowObserver.observe(elements.feedRows, { childList: true });
 
   elements.scoreBoxes = [];
   for (let i = 0; i < 4; i += 1) {
     const box = document.createElement("div");
     box.className = "hud-scoreBox";
-
-    const rank = document.createElement("div");
-    rank.className = "hud-scoreRank";
-    rank.textContent = String(i + 1);
 
     const badge = document.createElement("span");
     badge.className = "hud-scoreBadge";
@@ -1329,9 +1516,19 @@ export function init(options) {
     you.className = "hud-scoreYou";
     you.textContent = "YOU";
 
+    // * Score prints like a till total: the number over a barcode strip (mock 6a).
+    // * No rank digit — the tags are already in score order, and the mock reads
+    // * position from the row, not from a number nobody looks at.
+    const valueWrap = document.createElement("div");
+    valueWrap.className = "hud-scoreValueWrap";
     const value = document.createElement("div");
     value.className = "hud-scoreValue";
     value.textContent = "0";
+    const barcode = document.createElement("i");
+    barcode.className = "hud-scoreBarcode";
+    barcode.setAttribute("aria-hidden", "true");
+    valueWrap.appendChild(value);
+    valueWrap.appendChild(barcode);
 
     // * In-match leader crown — mirrors the results-screen crown so "who's winning"
     // * is glanceable mid-round, not just at the podium.
@@ -1353,16 +1550,15 @@ export function init(options) {
     dizzy.style.display = "none";
     box.appendChild(dizzy);
 
-    box.appendChild(rank);
     box.appendChild(crown);
     box.appendChild(badge);
     box.appendChild(label);
     box.appendChild(host);
     box.appendChild(you);
     box.appendChild(pip);
-    box.appendChild(value);
+    box.appendChild(valueWrap);
     elements.scores.appendChild(box);
-    elements.scoreBoxes.push({ root: elements.root, box, rank, badge, label, host, you, value, crown, pip, dizzy, dizzyTimeoutId: null, slotIndex: -1 });
+    elements.scoreBoxes.push({ root: elements.root, box, badge, label, host, you, value, barcode, crown, pip, dizzy, dizzyTimeoutId: null, slotIndex: -1 });
   }
 
   elements.readyBtn = document.createElement("button");
@@ -1378,6 +1574,197 @@ export function init(options) {
   });
   wireButtonPressFeedback(elements.readyBtn, { scale: 0.96 });
 
+  // ── Friends CHECKOUT LINE lobby (7e) — full-screen, gated in updateLobbyScreen ──
+  elements.lobbyScreen = document.createElement("div");
+  elements.lobbyScreen.className = "hud-lobby";
+  elements.lobbyScreen.hidden = true;
+  elements.lobbyScreen.setAttribute("role", "dialog");
+  elements.lobbyScreen.setAttribute("aria-label", "Checkout line lobby");
+
+  // Screen title top-left over a store-voice kicker — the same composition the
+  // menu sub-screens (.cr-screen) use, re-expressed locally: adopting that class
+  // would put a hud.css override of a cart-rave-menu.css class at the mercy of
+  // bundle order, which is exactly how 7a/7c lost to retired rules.
+  const lobbyHd = document.createElement("header");
+  lobbyHd.className = "hud-lobby-hd";
+
+  const lobbyKicker = document.createElement("span");
+  lobbyKicker.className = "hud-lobby-kicker";
+  lobbyKicker.textContent = "PRIVATE ROOM · EVERYONE READIES UP TO START";
+
+  const lobbyTitle = document.createElement("h2");
+  lobbyTitle.className = "hud-lobby-title";
+  lobbyTitle.textContent = "CHECKOUT LINE";
+
+  lobbyHd.appendChild(lobbyKicker);
+  lobbyHd.appendChild(lobbyTitle);
+
+  // Left column: the invite slab, then the actions (mock 7e).
+  const lobbyLeft = document.createElement("div");
+  lobbyLeft.className = "hud-lobby-left";
+
+  const lobbyCodeCard = document.createElement("div");
+  lobbyCodeCard.className = "hud-lobby-code-card";
+
+  const lobbyCodeLbl = document.createElement("span");
+  lobbyCodeLbl.className = "hud-lobby-code-lbl";
+  lobbyCodeLbl.textContent = "ROOM CODE";
+
+  const lobbyCodeRow = document.createElement("div");
+  lobbyCodeRow.className = "hud-lobby-code-row";
+  elements.lobbyCode = document.createElement("span");
+  elements.lobbyCode.className = "hud-lobby-code";
+
+  elements.lobbyCopy = document.createElement("button");
+  elements.lobbyCopy.type = "button";
+  elements.lobbyCopy.className = "hud-lobby-copy";
+  elements.lobbyCopy.textContent = "COPY";
+  elements.lobbyCopy.addEventListener("click", () => {
+    // * Same invite link the menu screen hands out: clean origin + ?room=.
+    const code = String(resolvedPartyRoomFromUrl() || "");
+    if (!code) return;
+    const link = new URL(window.location.origin + window.location.pathname);
+    link.searchParams.set("room", code);
+    navigator.clipboard?.writeText(link.toString()).catch(() => {});
+    elements.lobbyCopy.textContent = "COPIED!";
+    if (_lobbyCopyTimeoutId) clearTimeout(_lobbyCopyTimeoutId);
+    _lobbyCopyTimeoutId = setTimeout(() => {
+      _lobbyCopyTimeoutId = null;
+      if (elements.lobbyCopy) elements.lobbyCopy.textContent = "COPY";
+    }, 1500);
+  });
+
+  lobbyCodeRow.appendChild(elements.lobbyCode);
+  lobbyCodeRow.appendChild(elements.lobbyCopy);
+
+  const lobbyShare = document.createElement("p");
+  lobbyShare.className = "hud-lobby-share";
+  lobbyShare.textContent = "SHARE THE CODE OR SEND THE LINK — EMPTY LANES FILL WITH BOTS";
+
+  lobbyCodeCard.appendChild(lobbyCodeLbl);
+  lobbyCodeCard.appendChild(lobbyCodeRow);
+  lobbyCodeCard.appendChild(lobbyShare);
+
+  // Right column: the roster itself.
+  const lobbyRoster = document.createElement("div");
+  lobbyRoster.className = "hud-lobby-roster";
+
+  const lobbyMeta = document.createElement("div");
+  lobbyMeta.className = "hud-lobby-meta";
+  const lobbyMetaLbl = document.createElement("span");
+  lobbyMetaLbl.textContent = "IN LINE ·";
+  elements.lobbyCount = document.createElement("span");
+  elements.lobbyCount.className = "hud-lobby-count";
+  elements.lobbyCount.textContent = "1/4";
+  lobbyMeta.appendChild(lobbyMetaLbl);
+  lobbyMeta.appendChild(elements.lobbyCount);
+
+  const lobbySlotWrap = document.createElement("div");
+  lobbySlotWrap.className = "hud-lobby-slots";
+  elements.lobbySlots = [];
+  for (let i = 0; i < 4; i += 1) {
+    const root = document.createElement("div");
+    root.className = "hud-lobby-slot";
+    const emblem = document.createElement("span");
+    emblem.className = "hud-lobby-emblem";
+    const name = document.createElement("span");
+    name.className = "hud-lobby-name";
+    const pips = document.createElement("span");
+    pips.className = "hud-lobby-pips";
+    const host = document.createElement("span");
+    host.className = "hud-lobby-pip hud-lobby-pip--host";
+    host.textContent = "HOST";
+    host.style.display = "none";
+    const you = document.createElement("span");
+    you.className = "hud-lobby-pip hud-lobby-pip--you";
+    you.textContent = "YOU";
+    you.style.display = "none";
+    pips.appendChild(host);
+    pips.appendChild(you);
+    const status = document.createElement("span");
+    status.className = "hud-lobby-status-cell";
+    root.appendChild(emblem);
+    root.appendChild(name);
+    root.appendChild(pips);
+    root.appendChild(status);
+    lobbySlotWrap.appendChild(root);
+    elements.lobbySlots.push({ root, emblem, name, host, you, status });
+  }
+
+  elements.lobbyStatus = document.createElement("p");
+  elements.lobbyStatus.className = "hud-lobby-status";
+  elements.lobbyStatus.textContent = "WAITING FOR CHECKOUT…";
+
+  lobbyRoster.appendChild(lobbyMeta);
+  lobbyRoster.appendChild(lobbySlotWrap);
+  lobbyRoster.appendChild(elements.lobbyStatus);
+
+  const lobbyActions = document.createElement("div");
+  lobbyActions.className = "hud-lobby-actions";
+
+  // * Proxy, not a second implementation: the real ready send lives on
+  // * elements.readyBtn (start rule B1 — there is deliberately no START button).
+  // * The label rides a child span so the skewed slab can counter-skew its text
+  // * (same three-layer split the menu action slabs use).
+  elements.lobbyReadyBtn = document.createElement("button");
+  elements.lobbyReadyBtn.type = "button";
+  elements.lobbyReadyBtn.className = "hud-lobby-btn hud-lobby-btn--ready cc-btn cc-btn--primary";
+  const lobbyReadyInner = document.createElement("span");
+  lobbyReadyInner.className = "hud-lobby-btn-inner";
+  elements.lobbyReadyLabel = document.createElement("span");
+  elements.lobbyReadyLabel.className = "hud-lobby-btn-label";
+  elements.lobbyReadyLabel.textContent = "READY UP!";
+  lobbyReadyInner.appendChild(elements.lobbyReadyLabel);
+  elements.lobbyReadyBtn.appendChild(lobbyReadyInner);
+  elements.lobbyReadyBtn.addEventListener("click", () => {
+    elements.readyBtn?.click();
+  });
+  wireButtonPressFeedback(elements.lobbyReadyBtn, { scale: 0.96, getTarget: lobbyPressTarget });
+
+  const lobbyLeaveBtn = document.createElement("button");
+  lobbyLeaveBtn.type = "button";
+  lobbyLeaveBtn.className = "hud-lobby-btn cc-btn cc-btn--ghost";
+  const lobbyLeaveInner = document.createElement("span");
+  lobbyLeaveInner.className = "hud-lobby-btn-inner";
+  const lobbyLeaveLabel = document.createElement("span");
+  lobbyLeaveLabel.className = "hud-lobby-btn-label";
+  lobbyLeaveLabel.textContent = "LEAVE ROOM";
+  lobbyLeaveInner.appendChild(lobbyLeaveLabel);
+  lobbyLeaveBtn.appendChild(lobbyLeaveInner);
+  lobbyLeaveBtn.addEventListener("click", () => {
+    // * Rides the EXISTING leave/teardown path — no second teardown story.
+    _options.onLeaveRoom?.();
+  });
+  wireButtonPressFeedback(lobbyLeaveBtn, { scale: 0.96, getTarget: lobbyPressTarget });
+
+  lobbyActions.appendChild(elements.lobbyReadyBtn);
+  lobbyActions.appendChild(lobbyLeaveBtn);
+
+  lobbyLeft.appendChild(lobbyCodeCard);
+  lobbyLeft.appendChild(lobbyActions);
+
+  // Hint bar along the bottom. The mock's right-hand meta is "US-EAST · 24 MS";
+  // neither region nor RTT is instrumented (region/ping meta is parked with the
+  // Part-1 polish), so the slot carries the link state we DO track.
+  const lobbyHint = document.createElement("div");
+  lobbyHint.className = "hud-lobby-hint";
+  const lobbyHintEsc = document.createElement("span");
+  lobbyHintEsc.className = "hud-lobby-hint-item";
+  const lobbyHintKbd = document.createElement("kbd");
+  lobbyHintKbd.textContent = "ESC";
+  lobbyHintEsc.appendChild(lobbyHintKbd);
+  lobbyHintEsc.appendChild(document.createTextNode(" PAUSE"));
+  elements.lobbyLink = document.createElement("span");
+  elements.lobbyLink.className = "hud-lobby-link";
+  elements.lobbyLink.textContent = "LINK OK";
+  lobbyHint.appendChild(lobbyHintEsc);
+  lobbyHint.appendChild(elements.lobbyLink);
+
+  elements.lobbyScreen.appendChild(lobbyHd);
+  elements.lobbyScreen.appendChild(lobbyLeft);
+  elements.lobbyScreen.appendChild(lobbyRoster);
+  elements.lobbyScreen.appendChild(lobbyHint);
+
   regions.stage.appendChild(elements.status);
   regions.stage.appendChild(elements.arenaSplash);
   regions.match.appendChild(elements.timer);
@@ -1391,19 +1778,27 @@ export function init(options) {
   elements.comboBadge.className = "hud-combo-badge";
   const comboContent = document.createElement("div");
   comboContent.className = "hud-combo-content";
+  // * Mock 6a's carnage coupon: the multiplier is the hero, and the tier name,
+  // * countdown and drain bar sit beside it as the coupon's small print.
   elements.comboMultiplier = document.createElement("span");
   elements.comboMultiplier.className = "hud-combo-multiplier";
+  const comboMeta = document.createElement("span");
+  comboMeta.className = "hud-combo-meta";
   elements.comboTier = document.createElement("span");
   elements.comboTier.className = "hud-combo-tier";
+  elements.comboSecs = document.createElement("span");
+  elements.comboSecs.className = "hud-combo-secs";
+  comboMeta.appendChild(elements.comboTier);
+  comboMeta.appendChild(elements.comboSecs);
   comboContent.appendChild(elements.comboMultiplier);
-  comboContent.appendChild(elements.comboTier);
+  comboContent.appendChild(comboMeta);
   const comboTrack = document.createElement("div");
   comboTrack.className = "hud-combo-bar-track";
   elements.comboBarFill = document.createElement("div");
   elements.comboBarFill.className = "hud-combo-bar-fill";
   comboTrack.appendChild(elements.comboBarFill);
+  comboMeta.appendChild(comboTrack);
   elements.comboBadge.appendChild(comboContent);
-  elements.comboBadge.appendChild(comboTrack);
   regions.pod.insertBefore(elements.comboBadge, elements.readyBtn);
 
   // * Kill-confirm — the cartoon KO burst stamps at screen center on a local KO.
@@ -1431,16 +1826,26 @@ export function init(options) {
   elements.boost = document.createElement("div");
   elements.boost.className = "hud-boost";
   elements.boost.style.display = "none";
+  // * Mock 6a: a cart-handle slab — "BOOST" in words, the track with its hazard
+  // * overcharge zone, and the charge printed as a number. The slab owns the
+  // * skew; an inner wrapper owns the counter-skew.
+  const boostInner = document.createElement("div");
+  boostInner.className = "hud-boost-inner";
   const boostLabel = document.createElement("span");
   boostLabel.className = "hud-boost-label";
-  boostLabel.innerHTML = svgIcon("bolt", { label: "Boost" });
+  boostLabel.textContent = "BOOST";
   const boostTrack = document.createElement("div");
   boostTrack.className = "hud-boost-track";
   elements.boostFill = document.createElement("i");
   elements.boostFill.className = "hud-boost-fill";
   boostTrack.appendChild(elements.boostFill);
-  elements.boost.appendChild(boostLabel);
-  elements.boost.appendChild(boostTrack);
+  elements.boostValue = document.createElement("span");
+  elements.boostValue.className = "hud-boost-value";
+  elements.boostValue.textContent = "0";
+  boostInner.appendChild(boostLabel);
+  boostInner.appendChild(boostTrack);
+  boostInner.appendChild(elements.boostValue);
+  elements.boost.appendChild(boostInner);
   regions.pod.insertBefore(elements.boost, elements.readyBtn);
 
   // * Challenge-complete / unlock toast (top center, auto-hides).
@@ -1501,6 +1906,9 @@ export function init(options) {
   regions.utility.appendChild(elements.menuBtn);
 
   document.body.appendChild(elements.root);
+  // * Body-level (not inside a HUD region) — it's a full-screen surface that must
+  // * cover the frozen arena, and HUD region layout/scale must not touch it.
+  document.body.appendChild(elements.lobbyScreen);
 
   const pauseOverlayElements = initPauseOverlay(_options, {
     setHudSuppressed,
@@ -1580,12 +1988,15 @@ export function update({
     setHudDisplay(elements.status, "none", "status");
     if (elements.readyBtn) elements.readyBtn.style.display = "none";
     if (elements.feed) elements.feed.style.display = "none";
+    if (elements.lobbyScreen) elements.lobbyScreen.hidden = true;
     scheduleHudLayoutSync();
     return;
   }
 
   if (suppressHud) {
     if (elements.feed) elements.feed.style.display = "none";
+    // * Pause overlay owns the screen — the lobby stands down with the rest of the HUD.
+    if (elements.lobbyScreen) elements.lobbyScreen.hidden = true;
     return;
   }
 
@@ -1595,6 +2006,9 @@ export function update({
   updateTimer(roundState, matchHistoryLength);
   updateScores(roundState, netSlots, youConnId);
   updateReadyButton(roundPhase, netSlots, youConnId, menuVisible);
+  // * After updateScores/updateReadyButton — it mirrors their computed state and,
+  // * when active, stands the compact roster + corner ready button down.
+  updateLobbyScreen(roundPhase, netSlots, youConnId, menuVisible);
   updateComboWidget();
   updateBoostWidget(roundState);
   updateConnectionPill();
@@ -1670,6 +2084,11 @@ function updateBoostWidget(roundState) {
   if (fillHalfPct !== _boostFillHalfPct) {
     _boostFillHalfPct = fillHalfPct;
     elements.boostFill.style.width = `${fillHalfPct / 2}%`;
+    // * Whole percent only — the readout shares the bar's quantised source.
+    if (elements.boostValue) {
+      const pctText = String(Math.round(fillHalfPct / 2));
+      if (elements.boostValue.textContent !== pctText) elements.boostValue.textContent = pctText;
+    }
   }
   if (elements.boost.dataset.state !== state) elements.boost.dataset.state = state;
 }
@@ -2083,8 +2502,13 @@ function updateComboWidget() {
   const tierNames = { 1: "RAMPAGE", 2: "SAVAGE", 3: "CARNAGE" };
   const tierName = tierNames[tier] || "COMBO";
 
-  if (elements.comboMultiplier) elements.comboMultiplier.textContent = `${multiplier.toFixed(1)}x`;
-  if (elements.comboTier) elements.comboTier.textContent = tierName;
+  if (elements.comboMultiplier) elements.comboMultiplier.textContent = `${multiplier.toFixed(1)}X`;
+  // * "CARNAGE COUPON" in the mock — the tier names the coupon, retail-voiced.
+  if (elements.comboTier) elements.comboTier.textContent = `${tierName} COUPON`;
+  if (elements.comboSecs) {
+    const secsText = `${(remainingMs / 1000).toFixed(1)}S`;
+    if (elements.comboSecs.textContent !== secsText) elements.comboSecs.textContent = secsText;
+  }
   if (elements.comboBarFill) elements.comboBarFill.style.width = `${decayPct}%`;
 
   if (!elements.comboBadge.classList.contains("active")) {
@@ -2098,9 +2522,9 @@ function updateComboWidget() {
     // * not a balloon inflating. (Badge rests at rotate(-2deg); keep it.)
     elements.comboBadge.animate(
       [
-        { transform: "scale(1) rotate(-2deg)" },
-        { transform: "scale(1.42) rotate(-2deg)", offset: 0.3 },
-        { transform: "scale(1) rotate(-2deg)" },
+        { transform: "skewX(-8deg) rotate(-2deg) scale(1)" },
+        { transform: "skewX(-8deg) rotate(-2deg) scale(1.42)", offset: 0.3 },
+        { transform: "skewX(-8deg) rotate(-2deg) scale(1)" },
       ],
       { duration: 220, easing: "cubic-bezier(0.16, 1, 0.3, 1)" }
     );
@@ -2136,8 +2560,31 @@ export function refreshScoreBoxGlows(slots, youConnId) {
   });
 }
 
+/**
+ * Slot index of the sole leader, or -1 when the round is tied or scoreless.
+ * @returns {number}
+ */
+export function getLeaderSlotIndex() {
+  return _leaderSlotIndex;
+}
+
 export function syncColors(slots) {
   refreshScoreBoxGlows(slots, _options.getYouConnId ? _options.getYouConnId() : null);
+}
+
+/** Empties the transaction-log rows and returns the receipt to its empty state. */
+function clearKillFeedRows() {
+  const rows = elements.feedRows;
+  if (!rows) return;
+  while (rows.firstChild) {
+    const child = rows.firstChild;
+    if (child instanceof HTMLElement) {
+      cancelKillFeedExitTimer(child);
+      cancelElementAnimations(child);
+    }
+    rows.removeChild(child);
+  }
+  elements.feed?.classList.add("is-empty");
 }
 
 /**
@@ -2159,10 +2606,17 @@ export function addKillFeedEntry(actorName, actorColor, verb, targetName, target
   row.style.setProperty("--c", clampAccentLuminance(actorColor || "rgba(255,255,255,0.9)"));
   row.style.setProperty("--c2", clampAccentLuminance(targetColor || "rgba(255,255,255,0.9)"));
 
-  let displayVerb = verb;
+  const displayVerb = verb;
+  // * Mock 6a prints the streak as its own orange pip between actor and victim,
+  // * not as "[3.0x CARNAGE]" glued onto the verb.
+  let comboPip = null;
   if (comboTier > 0 && comboMultiplier > 1.0) {
+    comboPip = document.createElement("span");
+    comboPip.className = "hud-feed-pip";
+    comboPip.dataset.tier = String(comboTier);
+    comboPip.textContent = `${comboMultiplier.toFixed(1)}X`;
     const tierName = comboTier === 1 ? "RAMPAGE" : comboTier === 2 ? "SAVAGE" : "CARNAGE";
-    displayVerb = `${verb} [${comboMultiplier.toFixed(1)}x ${tierName}]`;
+    comboPip.title = tierName;
   }
 
   // * Cartoon KO marker — impact burst for attributed kills (attacker color),
@@ -2194,6 +2648,7 @@ export function addKillFeedEntry(actorName, actorColor, verb, targetName, target
     if (isHostPlayerName(actorName)) row.appendChild(makeHostGlyph());
     row.appendChild(actor);
     row.appendChild(v);
+    if (comboPip) row.appendChild(comboPip);
     if (isHostPlayerName(targetName)) row.appendChild(makeHostGlyph());
     row.appendChild(target);
   } else {
@@ -2207,14 +2662,19 @@ export function addKillFeedEntry(actorName, actorColor, verb, targetName, target
     if (isHostPlayerName(targetName)) row.appendChild(makeHostGlyph());
     row.appendChild(target);
     row.appendChild(v);
+    if (comboPip) row.appendChild(comboPip);
   }
 
-  elements.feed.prepend(row);
+  const rowHost = elements.feedRows || elements.feed;
+  rowHost.prepend(row);
+  // * The receipt only exists while it has transactions — otherwise a bare
+  // * "TRANSACTION LOG" header floats over the arena all round.
+  elements.feed.classList.remove("is-empty");
   animateKillFeedEnter(row);
 
   // * Trim overflow synchronously — animated exit is only for timed auto-dismiss.
-  while (elements.feed.children.length > 4) {
-    const last = elements.feed.lastElementChild;
+  while (rowHost.children.length > 4) {
+    const last = rowHost.lastElementChild;
     if (!last) break;
     if (last instanceof HTMLElement) {
       cancelKillFeedExitTimer(last);
@@ -2284,14 +2744,9 @@ export function hideGameplayElements() {
   if (elements.conn) elements.conn.style.display = "none";
   if (elements.feed) {
     elements.feed.style.display = "none";
-    while (elements.feed.firstChild) {
-      const child = elements.feed.firstChild;
-      if (child instanceof HTMLElement) {
-        cancelKillFeedExitTimer(child);
-        cancelElementAnimations(child);
-      }
-      elements.feed.removeChild(child);
-    }
+    // * Clear the ROWS, not the panel: the header + counter-skew wrapper are
+    // * permanent structure, not content.
+    clearKillFeedRows();
   }
   // * Score-chip KO doodads (hidden with scores, but stop dangling timers).
   if (elements.scoreBoxes) {
@@ -2333,14 +2788,9 @@ export function showGameplayElements() {
 export function clearFeed() {
   if (elements.feed) {
     elements.feed.style.display = "none";
-    while (elements.feed.firstChild) {
-      const child = elements.feed.firstChild;
-      if (child instanceof HTMLElement) {
-        cancelKillFeedExitTimer(child);
-        cancelElementAnimations(child);
-      }
-      elements.feed.removeChild(child);
-    }
+    // * Clear the ROWS, not the panel: the header + counter-skew wrapper are
+    // * permanent structure, not content.
+    clearKillFeedRows();
   }
 }
 

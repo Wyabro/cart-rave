@@ -17,6 +17,9 @@
  * @typedef {object} DirectiveDef
  * @property {string} id Unique directive id — also the table key.
  * @property {string} title Short display name, shown on the HUD countdown chip.
+ * @property {string} blurb One-line store-voice rule under the title on the HUD tag
+ *   (mock 6a: "10 ITEMS OR LESS · NO EXCEPTIONS"). PLACEHOLDER COPY — written to be
+ *   replaced; it is display-only and nothing reads it but the HUD.
  * @property {string} announceEvent Announcer event id fired when the directive starts.
  * @property {number} weight Relative pick weight (higher = more common).
  * @property {ReadonlyArray<DirectiveOverride>} [overrides] Temporary CONFIG mutations for the window.
@@ -35,6 +38,7 @@ export const DIRECTIVES = Object.freeze({
   flash_sale: Object.freeze({
     id: "flash_sale",
     title: "FLASH SALE",
+    blurb: "EVERYTHING MUST GO · RAMS HIT HARDER",
     announceEvent: "directive_flash_sale",
     weight: 1,
     overrides: Object.freeze([
@@ -44,6 +48,7 @@ export const DIRECTIVES = Object.freeze({
   double_bag: Object.freeze({
     id: "double_bag",
     title: "DOUBLE BAG",
+    blurb: "TWO FOR ONE · EVERY BODY COUNTS TWICE",
     announceEvent: "directive_double_bag",
     weight: 1,
     koRewardMul: 2,
@@ -51,6 +56,7 @@ export const DIRECTIVES = Object.freeze({
   express_lane: Object.freeze({
     id: "express_lane",
     title: "EXPRESS LANE",
+    blurb: "10 ITEMS OR LESS · NO EXCEPTIONS",
     announceEvent: "directive_express_lane",
     weight: 1,
     overrides: Object.freeze([
@@ -62,6 +68,7 @@ export const DIRECTIVES = Object.freeze({
   spill_bonus: Object.freeze({
     id: "spill_bonus",
     title: "SPILL BONUS",
+    blurb: "CLEAN UP ON EVERY AISLE · SPILLS PAY",
     announceEvent: "directive_spill_bonus",
     weight: 1,
     spillBonusPoints: 1,
@@ -72,6 +79,7 @@ export const DIRECTIVES = Object.freeze({
   rush_hour: Object.freeze({
     id: "rush_hour",
     title: "RUSH HOUR",
+    blurb: "PEAK TRADING HOURS · EVERYONE MOVES",
     announceEvent: "directive_rush_hour",
     weight: 1,
     overrides: Object.freeze([

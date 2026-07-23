@@ -50,21 +50,6 @@
   background: radial-gradient(ellipse at center 38%, #0a0014 0%, #000 88%);
 }
 
-.cr-load__scan {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0.06;
-  background: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 2px,
-    rgba(255, 255, 255, 0.04) 2px,
-    rgba(255, 255, 255, 0.04) 4px
-  );
-  animation: cr-load-scan 8s linear infinite;
-}
-
 .cr-load__vignette {
   position: absolute;
   inset: 0;
@@ -72,28 +57,47 @@
   background: radial-gradient(ellipse at center, transparent 40%, rgba(0, 0, 0, 0.65) 100%);
 }
 
-/* Opaque ink card with a die-cut edge — the title/progress cluster sits on
-   a surface instead of floating over the raw arena backdrop. */
-.cr-load__panel {
+/* ── Shell ──────────────────────────────────────────────────────────────────
+   The geometry every other full-screen surface uses: Road Rage title top-left
+   over a Goldman kicker, centre stage, full-bleed strip along the bottom. The
+   retired centred die-cut card is gone — loading is a screen, not a dialog.
+
+   Deliberately re-expressed under `.cr-load__*` instead of reusing `.cr-screen`:
+   a loadingScreen.css override of a cart-rave-menu.css shell class is settled by
+   BUNDLE ORDER, which is the same reason the 7e lobby re-expresses the shell in
+   hud.css rather than borrowing it. */
+.cr-load__shell {
+  --cr-load-pad-x: clamp(20px, 5vw, 96px);
   position: relative;
   z-index: 2;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: clamp(14px, 3vh, 22px);
-  padding: clamp(20px, 4vw, 36px);
-  text-align: center;
-  max-width: min(92vw, 520px);
-  background: var(--color-ink);
-  border-radius: var(--radius-panel);
-  box-shadow: var(--sticker-panel);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  width: 100%;
+  height: 100%;
+  padding: clamp(20px, 3.4vh, 56px) var(--cr-load-pad-x) 0;
+  overflow: hidden;
   transform: scale(1);
   transition: transform var(--cr-load-fade-ms) var(--cr-load-fade-ease), opacity var(--cr-load-fade-ms) var(--cr-load-fade-ease);
 }
 
-.cr-load.cr-load--exit .cr-load__panel {
+.cr-load.cr-load--exit .cr-load__shell {
   transform: scale(1.04);
   opacity: 0;
+}
+
+.cr-load__hd {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cr-load__stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 0;
 }
 
 /* Run-6 handoff polish: the exit beat used to hold the opaque backdrop at full
@@ -101,44 +105,53 @@
    right before the countdown reveal. Fade the backdrop layers WITH the panel so
    the live arena crossfades in the moment the exit starts. */
 .cr-load__bg,
-.cr-load__scan,
 .cr-load__vignette {
   transition: opacity 320ms var(--cr-load-fade-ease);
 }
 
 .cr-load.cr-load--exit .cr-load__bg,
-.cr-load.cr-load--exit .cr-load__scan,
 .cr-load.cr-load--exit .cr-load__vignette {
   opacity: 0;
 }
 
-.cr-load__tag {
-  font-size: clamp(9px, 2.2vw, 11px);
-  letter-spacing: 0.28em;
-  color: rgba(255, 255, 255, 0.45);
+/* Kicker + title match `.cr-screen-kicker` / `.cr-screen-title` value for value.
+   The ink die-cut stroke the old lockup carried is dropped: every other
+   full-screen title is glow-only, and matching them is the whole point here.
+   The brightness pulse stays — it is the one cue that this screen is working. */
+.cr-load__kicker {
+  font-family: var(--cr-load-mono);
+  font-size: clamp(9px, 1vw, 12px);
+  letter-spacing: 0.34em;
+  color: rgba(255, 255, 255, 0.55);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* Stack-A lettering: sticker-white fill, ink stroke, hard extrude — no
-   resting glow. The brightness pulse is a subtle idle beat, not a glow. */
 .cr-load__title {
+  margin: 0;
   font-family: var(--cr-load-display);
-  font-size: clamp(3rem, 12vw, 5.1rem);
-  line-height: 0.95;
-  letter-spacing: 0.04em;
+  font-weight: 400;
+  font-size: clamp(38px, 7.2vw, 110px);
+  line-height: 0.9;
+  letter-spacing: 0.02em;
   color: var(--color-sticker-white);
-  paint-order: stroke fill;
-  -webkit-text-stroke: 0.06em var(--color-ink-deep);
-  text-shadow:
-    0.04em 0.04em 0 var(--color-ink-deep),
-    0.08em 0.08em 0 var(--color-ink-deep);
+  transform: skewX(-4deg);
+  transform-origin: left center;
+  text-shadow: 0 0 50px var(--glow-magenta-30, rgba(255, 43, 214, 0.3));
+  white-space: nowrap;
   animation: cr-load-title-pulse 2.4s ease-in-out infinite;
 }
 
 .cr-load__subtitle {
-  font-size: clamp(10px, 2.4vw, 12px);
-  letter-spacing: 0.22em;
+  font-family: var(--cr-load-mono);
+  font-size: clamp(9px, 1vw, 12px);
+  letter-spacing: 0.12em;
   color: rgba(255, 255, 255, 0.55);
   min-height: 1.2em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .cr-load__visual {
@@ -148,7 +161,8 @@
   margin: clamp(4px, 1vh, 8px) 0;
 }
 
-/* Structural die-cut ring only — the resting magenta glow is gone. */
+/* Hairline rim, not the retired white die-cut ring (locked decision 2 keeps that
+   contour only on the baked emblem SVGs). */
 .cr-load__vinyl {
   position: absolute;
   inset: 0;
@@ -156,7 +170,7 @@
   background:
     radial-gradient(circle at center, #111 0%, #111 18%, transparent 19%),
     repeating-radial-gradient(circle at center, #1a1a1a 0 2px, #0d0d0d 2px 4px);
-  box-shadow: 0 0 0 2px var(--color-sticker-white);
+  box-shadow: 0 0 0 1px var(--border-white-12), var(--slab-extrude-sm);
   animation: cr-load-spin 3.2s linear infinite;
 }
 
@@ -168,43 +182,101 @@
   background: radial-gradient(circle, var(--cr-load-magenta) 0%, #ff6be8 40%, #220018 100%);
 }
 
-.cr-load__progress-wrap {
-  width: min(280px, 72vw);
+/* ── Bottom strip — the hint-bar recipe (full-bleed, negating the shell pad). ── */
+.cr-load__strip {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-  align-items: stretch;
+  align-items: center;
+  gap: clamp(14px, 2.4vw, 36px);
+  margin: 0 calc(var(--cr-load-pad-x) * -1);
+  padding: clamp(10px, 1.5vh, 16px) var(--cr-load-pad-x);
+  padding-bottom: max(clamp(10px, 1.5vh, 16px), env(safe-area-inset-bottom, 0px));
+  background: rgba(9, 7, 13, 0.9);
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  min-width: 0;
 }
 
-/* Flat printed track — hazard-yellow stripes replace the magenta/cyan glow
-   gradient (see .cc-meter--hazard, stickers.css). */
-.cr-load__progress-track {
+/* Progress is the 6a boost-meter slab: ink, hairline, extrude, -8deg skew with
+   counter-skewed contents. Same recipe drives the HUD boost bar and 7b's
+   challenge bars, so the loading bar is no longer its own invention. */
+.cr-load__meter {
+  flex: 0 1 clamp(240px, 34vw, 420px);
+  padding: 10px 20px;
+  background: var(--color-ink);
+  border: 1px solid var(--border-white-12);
+  border-radius: 6px;
+  box-shadow: var(--slab-shadow);
+  transform: skewX(-8deg);
+}
+
+.cr-load__meter-inner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  transform: skewX(8deg);
+}
+
+.cr-load__meter-label {
+  font-family: var(--cr-load-mono);
+  font-weight: 700;
+  font-size: clamp(9px, 1vw, 10px);
+  letter-spacing: 0.18em;
+  color: var(--cr-load-accent, var(--cr-load-magenta));
+  white-space: nowrap;
+}
+
+.cr-load__pct {
+  font-family: var(--cr-load-mono);
+  font-weight: 700;
+  font-size: clamp(11px, 1.2vw, 12px);
+  color: var(--cr-load-accent, var(--cr-load-magenta));
+  min-width: 2.6em;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.cr-load__track {
   position: relative;
-  height: 3px;
+  flex: 1;
+  min-width: 0;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
   border-radius: var(--radius-pill);
-  background: var(--color-ink-deep);
   overflow: hidden;
 }
 
-.cr-load__progress-fill {
+.cr-load__fill {
+  display: block;
   height: 100%;
   width: 0%;
-  border-radius: inherit;
-  background: var(--hazard-yellow);
-  background-size: 20px 20px;
-  transition: width 120ms ease-out;
+  border-radius: var(--radius-pill);
+  background: var(--cr-load-accent, var(--cr-load-magenta));
+  transition: width 450ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.cr-load__progress-label {
-  font-size: clamp(8px, 2vw, 10px);
-  letter-spacing: 0.18em;
-  color: rgba(255, 255, 255, 0.42);
-  text-align: center;
+/* On a phone the rotating line is the readable part, and sharing one row with
+   the meter squeezed it to ~56px. Stack them instead. */
+@media (max-width: 768px) {
+  .cr-load__strip {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .cr-load__meter,
+  .cr-load__subtitle {
+    flex: 1 1 100%;
+  }
 }
 
 #cr-mode-load {
   z-index: 999995;
 }
+
+/* One accent per theme drives the meter label, fill and readout — the same
+   arena colour the old segmented bar used to light up. */
+.cr-load--classic { --cr-load-accent: var(--cr-load-magenta); }
+.cr-load--solo { --cr-load-accent: var(--cr-load-cyan); }
+.cr-load--backrooms { --cr-load-accent: var(--cr-load-backrooms); }
+.cr-load--zanzibar { --cr-load-accent: var(--cr-load-sunset); }
 
 .cr-load--solo .cr-load__vinyl {
   animation-duration: 2.2s;
@@ -266,9 +338,7 @@
 
 .cr-load--backrooms .cr-load__title {
   color: #e8e4c8;
-  text-shadow:
-    0.04em 0.04em 0 var(--color-ink-deep),
-    0.08em 0.08em 0 var(--color-ink-deep);
+  text-shadow: 0 0 50px rgba(200, 216, 106, 0.28);
   animation: cr-load-backrooms-flicker 4.5s steps(1) infinite;
 }
 
@@ -285,10 +355,6 @@
   display: none;
 }
 
-.cr-load--backrooms .cr-load__scan {
-  opacity: 0.12;
-}
-
 /* ── Sundial Station theme (level id "zanzibar"): sunset over water ── */
 .cr-load--zanzibar .cr-load__bg {
   background:
@@ -298,9 +364,7 @@
 
 .cr-load--zanzibar .cr-load__title {
   color: #ffd9a0;
-  text-shadow:
-    0.04em 0.04em 0 var(--color-ink-deep),
-    0.08em 0.08em 0 var(--color-ink-deep);
+  text-shadow: 0 0 50px rgba(255, 154, 74, 0.3);
 }
 
 .cr-load--zanzibar .cr-load__subtitle {
@@ -309,10 +373,6 @@
 
 .cr-load--zanzibar .cr-load__vinyl {
   display: none;
-}
-
-.cr-load--zanzibar .cr-load__scan {
-  opacity: 0.1;
 }
 
 .cr-load__seaside {
@@ -381,11 +441,6 @@
   50% { filter: brightness(1.12); }
 }
 
-@keyframes cr-load-scan {
-  from { transform: translateY(0); }
-  to { transform: translateY(4px); }
-}
-
 @keyframes cr-load-laser {
   0%, 100% { opacity: 0.15; }
   50% { opacity: 0.55; }
@@ -421,50 +476,19 @@
   .cr-load__title,
   .cr-load__laser,
   .cr-load__crowd span,
-  .cr-load__fluoro,
-  .cr-load__scan {
+  .cr-load__fluoro {
     animation: none !important;
+  }
+  /* The meter is the one thing that must still move — it is the progress
+     report — but it steps instead of gliding. */
+  .cr-load__fill {
+    transition-duration: 1ms;
   }
 }
 
-/* Boot splash segmented bar — flat printed fill on an ink track, no resting glow. */
-.cr-seg {
-  flex: 1;
-  height: 100%;
-  border-radius: 1px;
-  background: var(--color-ink-deep);
-  transition: background-color 120ms ease;
-}
-
-.cr-seg.lit {
-  background: var(--cr-load-magenta);
-}
-
-/* Theme-colored lit segments for mode-entry overlay */
-.cr-load--classic .cr-seg.lit {
-  background: var(--cr-load-magenta);
-}
-
-.cr-load--backrooms .cr-seg.lit {
-  background: var(--cr-load-backrooms);
-}
-
-.cr-load--zanzibar .cr-seg.lit {
-  background: var(--cr-load-sunset);
-}
-
-/* Segmented bar for mode-entry overlay */
-.cr-seg-bar {
-  display: flex;
-  gap: 3px;
-  width: 100%;
-  height: 8px;
-}
-
-/* Smooth easing for the mode-entry bar */
-.cr-load__progress-fill {
-  transition: width 450ms cubic-bezier(0.4, 0, 0.2, 1) !important;
-}
+/* Segmented progress bars are retired on both loading surfaces — each is the
+   boost-meter slab now (`.cr-load__meter` here, `.cr-boot-meter` inline in
+   index.html, which must paint before this bundle arrives). */
 
 /* ── Backrooms furniture pile visual ── */
 
@@ -562,7 +586,6 @@ button.gamepad-focused, a.gamepad-focused, [role="button"].gamepad-focused, inpu
 @media (prefers-reduced-motion: reduce) {
   .cr-load__vinyl,
   .cr-load__title,
-  .cr-load__scan,
   .cr-load__laser,
   .cr-load__crowd span {
     animation: none !important;

@@ -113,12 +113,15 @@
       text-align: center;
     }
     #cr-boot-error.cr-boot-error--visible { display: flex; }
-    /* Die-cut ink panel — matches the sticker material (literals: bundle CSS
-       tokens may not be loaded when a module-load failure shows this). */
+    /* Ink slab — hairline + extrude + inner highlight, matching every other
+       surface. The white die-cut contour that used to ring this card is retired
+       game-wide. Literals: bundle CSS tokens may not be loaded when a
+       module-load failure shows this. */
     #cr-boot-error > div {
       background: #14101e;
+      border: 1px solid rgba(255,255,255,0.12);
       border-radius: 10px;
-      box-shadow: 0 0 0 3px #f2ede4, 4px 4px 0 3px #08050f;
+      box-shadow: 3px 3px 0 #08050f, inset 0 1px 0 rgba(255,255,255,0.07);
       padding: 24px 28px;
       max-width: 480px;
     }
@@ -133,43 +136,52 @@
       color: #08050f;
       font-family: inherit;
       font-size: 14px;
+      letter-spacing: 0.06em;
       cursor: pointer;
-      box-shadow: 0 0 0 2.5px #f2ede4, 3px 3px 0 2.5px #08050f;
+      box-shadow: 2px 2px 0 #08050f, inset 0 1px 0 rgba(255,255,255,0.35);
     }
-    .cr-boot-panel {
+    /* Shell — the geometry every full-screen surface uses: title top-left over a
+       Goldman kicker, centre stage, full-bleed strip along the bottom. Mirrors
+       .cr-screen / .cr-load__shell in literals, because this paints before any
+       bundle CSS or token is available. */
+    .cr-boot-shell {
+      --boot-pad-x: clamp(20px, 5vw, 96px);
       position: relative;
       z-index: 2;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 16px;
-      text-align: center;
-      padding: 20px;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) auto;
       width: 100%;
-      max-width: 580px;
+      height: 100%;
+      padding: max(clamp(20px, 3.4vh, 56px), env(safe-area-inset-top, 0px)) max(var(--boot-pad-x), env(safe-area-inset-right, 0px)) 0 max(var(--boot-pad-x), env(safe-area-inset-left, 0px));
+      overflow: hidden;
       transform: scale(1);
       transition: transform 200ms cubic-bezier(0.1, 0.9, 0.2, 1), opacity 200ms cubic-bezier(0.1, 0.9, 0.2, 1);
     }
-    #cr-boot-splash.cr-load--exit .cr-boot-panel {
+    #cr-boot-splash.cr-load--exit .cr-boot-shell {
       transform: scale(1.06);
       opacity: 0;
     }
-    .cr-boot-tag {
-      font-size: 10px;
-      letter-spacing: 0.28em;
-      color: rgba(255,255,255,0.45);
+    .cr-boot-hd { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .cr-boot-kicker {
+      font-size: clamp(9px, 1vw, 12px);
+      letter-spacing: 0.34em;
+      color: rgba(255,255,255,0.55);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
-    /* Road Rage stack-A: sticker-white fill, ink stroke via paint-order, hard
-       2-step extrude (literals — this renders before bundle CSS/tokens load). */
+    /* Glow-only Road Rage, matching every other screen title. The ink stroke and
+       double extrude this used to carry are gone. */
     .cr-boot-title {
       font-family: "Road Rage", "Goldman", sans-serif;
-      font-size: clamp(2rem, 8vw, 3.2rem);
-      line-height: 0.95;
+      font-size: clamp(38px, 7.2vw, 110px);
+      line-height: 0.9;
       color: #f2ede4;
-      paint-order: stroke fill;
-      -webkit-text-stroke: 0.06em #08050f;
-      text-shadow: 0.05em 0.05em 0 #08050f, 0.1em 0.1em 0 #08050f;
+      text-shadow: 0 0 50px rgba(255,43,214,0.3);
       letter-spacing: 0.02em;
+      white-space: nowrap;
+      transform: skewX(-4deg);
+      transform-origin: left center;
       animation: cr-boot-pulse 2.4s ease-in-out infinite;
     }
     /* ── Crash stage: full-width band, carts are the focal point ── */
@@ -179,6 +191,9 @@
       width: min(92vw, 540px);
       height: clamp(90px, 18vh, 150px);
       margin: clamp(6px, 2vh, 16px) 0;
+      /* Grid item in the shell's centre row — without this it stretches/pins left. */
+      justify-self: center;
+      align-self: center;
       animation: bootShake var(--boot-loop) linear infinite;
     }
     .cr-boot-ground {
@@ -262,16 +277,46 @@
       opacity: 0;
       animation: bootSpark var(--boot-loop) linear infinite;
     }
-    #boot-seg-bar {
+    /* Bottom strip — the hint-bar recipe, full-bleed against the screen edges. */
+    .cr-boot-strip {
       display: flex;
-      gap: 3px;
-      width: min(280px, 70vw);
-      height: 8px;
+      align-items: center;
+      gap: clamp(14px, 2.4vw, 36px);
+      margin: 0 calc(var(--boot-pad-x) * -1);
+      padding: clamp(10px, 1.5vh, 16px) var(--boot-pad-x);
+      padding-bottom: max(clamp(10px, 1.5vh, 16px), env(safe-area-inset-bottom, 0px));
+      background: rgba(9,7,13,0.9);
+      border-top: 1px solid rgba(255,255,255,0.07);
+      min-width: 0;
     }
-    /* Inline copies so the bar/message render before bundle CSS (dev first paint) */
-    #boot-seg-bar .cr-seg { flex: 1; height: 100%; border-radius: 1px; background: rgba(242,237,228,0.12); transition: background-color 120ms ease; }
-    #boot-seg-bar .cr-seg.lit { background: #ffe53d; }
-    #cr-boot-splash .cr-boot-msg { font-size: clamp(8px, 2vw, 10px); letter-spacing: 0.18em; color: rgba(255,255,255,0.42); text-align: center; min-height: 1.2em; }
+    /* Progress is the 6a boost-meter slab (literals — pre-bundle). */
+    .cr-boot-meter {
+      flex: 0 1 clamp(240px, 34vw, 420px);
+      padding: 10px 20px;
+      background: #14101e;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 6px;
+      box-shadow: 3px 3px 0 #08050f, inset 0 1px 0 rgba(255,255,255,0.07);
+      transform: skewX(-8deg);
+    }
+    .cr-boot-meter-inner { display: flex; align-items: center; gap: 12px; width: 100%; transform: skewX(8deg); }
+    .cr-boot-meter-label { font-weight: 700; font-size: clamp(9px, 1vw, 10px); letter-spacing: 0.18em; color: #ffe53d; white-space: nowrap; }
+    .cr-boot-pct { font-weight: 700; font-size: clamp(11px, 1.2vw, 12px); color: #ffe53d; min-width: 2.6em; text-align: right; font-variant-numeric: tabular-nums; }
+    #boot-seg-bar {
+      position: relative;
+      flex: 1;
+      min-width: 0;
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.1);
+      overflow: hidden;
+    }
+    #cr-boot-fill { display: block; height: 100%; width: 0%; border-radius: 999px; background: #ffe53d; transition: width 200ms ease-out; }
+    #cr-boot-splash .cr-boot-msg { font-size: clamp(9px, 1vw, 12px); letter-spacing: 0.12em; color: rgba(255,255,255,0.55); min-height: 1.2em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    @media (max-width: 768px) {
+      .cr-boot-strip { flex-wrap: wrap; gap: 8px; }
+      .cr-boot-meter, #cr-boot-splash .cr-boot-msg { flex: 1 1 100%; }
+    }
     /* ── Master timeline keyframes ── */
     @keyframes bootTravel {
       0%       { transform: translateX(3cqw); }
@@ -372,9 +417,11 @@
 </head>
 <body class="cr-boot-pending">
   <div id="cr-boot-splash" class="cr-load" aria-live="polite" aria-busy="true" aria-label="Loading Cart Clash">
-    <div class="cr-boot-panel">
-      <div class="cr-boot-tag">◆ CART CLASH ◆</div>
-      <div class="cr-boot-title">CART CLASH</div>
+    <div class="cr-boot-shell">
+      <div class="cr-boot-hd">
+        <div class="cr-boot-kicker">THE STORE IS NOW OPENING</div>
+        <div class="cr-boot-title">CART CLASH</div>
+      </div>
       <div class="cr-boot-stage" aria-hidden="true">
         <div class="cr-boot-ground"></div>
         <!-- Cart SVG is drawn FACING RIGHT (handle at back-left, shades over the
@@ -490,22 +537,26 @@
           <div class="cr-bspark" style="--dx: -16px; --dy: 48px;  --rot: 108deg; --sc: #ff2bd6;"></div>
         </div>
       </div>
-      <div id="boot-seg-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+      <div class="cr-boot-strip">
+        <div class="cr-boot-meter">
+          <div class="cr-boot-meter-inner">
+            <span class="cr-boot-meter-label">OPENING</span>
+            <div id="boot-seg-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+              <span id="cr-boot-fill"></span>
+            </div>
+            <span class="cr-boot-pct" id="cr-boot-pct">0%</span>
+          </div>
+        </div>
+        <div class="cr-boot-msg" id="cr-boot-msg"></div>
       </div>
-      <div class="cr-boot-msg" id="cr-boot-msg"></div>
     </div>
   </div>
   <script>
     (function() {
       window.bootStartTime = performance.now();
       const bar = document.getElementById('boot-seg-bar');
-      if (bar) {
-        for (let i = 0; i < 20; i++) {
-          const seg = document.createElement('div');
-          seg.className = 'cr-seg';
-          bar.appendChild(seg);
-        }
-      }
+      const fillEl = document.getElementById('cr-boot-fill');
+      const pctEl = document.getElementById('cr-boot-pct');
       const msgEl = document.getElementById('cr-boot-msg');
       const messages = [
         "Strapping in…",
@@ -528,14 +579,11 @@
       window.bootMsgTimer = setInterval(updateMsg, 1800);
 
       let bootProgress = 0;
-      const segs = bar ? bar.children : [];
       function paintBootProgress() {
-        if (bar) bar.setAttribute('aria-valuenow', Math.round(bootProgress).toString());
-        const litCount = Math.round((bootProgress / 100) * 20);
-        for (let i = 0; i < segs.length; i++) {
-          if (i < litCount) segs[i].classList.add('lit');
-          else segs[i].classList.remove('lit');
-        }
+        const rounded = Math.round(bootProgress);
+        if (bar) bar.setAttribute('aria-valuenow', rounded.toString());
+        if (fillEl) fillEl.style.width = bootProgress + '%';
+        if (pctEl) pctEl.textContent = rounded + '%';
       }
       window.bootTimer = setInterval(() => {
         bootProgress += Math.random() * 8;
@@ -580,359 +628,387 @@
 
     <!-- Main content -->
     <div class="cr-content">
-      <!-- Left column: player name + stats + arenas -->
-      <div class="cr-left">
-        <div class="cr-player-card" id="cr-player-card">
-          <div class="cr-player-hd">
-            <span>◇ YOUR NAME</span>
-            <span class="cr-player-status">
-              <i class="cr-pulse cr-pulse--online"></i> ONLINE
-            </span>
-          </div>
-
-          <div class="cr-name-row">
-            <div class="cr-name-display" id="cr-name-display" aria-label="Your username">
-              <span class="cr-tag">@</span><span id="cr-name-text"></span>
-              <span class="cr-edit-hint">✎</span>
-            </div>
-            <input class="cr-name-input" id="cr-name-input" name="username" autocomplete="username" style="display:none" maxlength="12" aria-label="Your username" />
-            <button class="cr-reroll" id="cr-reroll" title="Re-roll handle" aria-label="Re-roll username">⟲</button>
-          </div>
-        </div>
-
-        <div class="cr-stats" id="cr-stats-local">
-          <div class="cr-stats-tag">
-            <i class="cr-pulse cr-pulse--stats"></i> YOUR STATS
-          </div>
-          <div class="cr-stat">
-            <span class="cr-stat-num" id="stat-wins">0</span>
-            <span class="cr-stat-lbl">WINS</span>
-          </div>
-          <div class="cr-stat-div"></div>
-          <div class="cr-stat">
-            <span class="cr-stat-num" id="stat-played">0</span>
-            <span class="cr-stat-lbl">PLAYED</span>
-          </div>
-          <div class="cr-stat-div"></div>
-          <div class="cr-stat">
-            <span class="cr-stat-num" id="stat-pts">0</span>
-            <span class="cr-stat-lbl">POINTS</span>
-          </div>
-          <div class="cr-stat-div"></div>
-          <div class="cr-stat">
-            <span class="cr-stat-num" id="stat-solo">0</span>
-            <span class="cr-stat-lbl">SOLO</span>
-          </div>
-        </div>
-
-        <div class="cr-levels" id="cr-levels">
-          <div class="cr-levels-hd">◇ ARENAS</div>
-          <div class="cr-level-row" id="cr-level-row" role="radiogroup" aria-label="Choose your arena">
-            <button type="button" class="cr-level-btn active" data-level="classicRecord" data-colorkey="secondary" aria-pressed="true">
-              <span class="cr-level-btn-inner">
-                <span class="cr-level-btn-label">CART RAVE</span>
-                <span class="cr-level-btn-sub">Neon vinyl arena</span>
-              </span>
-            </button>
-            <button type="button" class="cr-level-btn" data-level="backrooms" data-colorkey="primary" aria-pressed="false">
-              <span class="cr-level-btn-inner">
-                <span class="cr-level-btn-label">THE STOREROOMS</span>
-                <span class="cr-level-btn-sub">Liminal battleground</span>
-              </span>
-            </button>
-            <button type="button" class="cr-level-btn" data-level="zanzibar" data-colorkey="p2" aria-pressed="false">
-              <span class="cr-level-btn-inner">
-                <span class="cr-level-btn-label">SUNDIAL STATION</span>
-                <span class="cr-level-btn-sub">Offshore sunset showdown</span>
-              </span>
-            </button>
-          </div>
-          <div class="cr-diff-hd">◇ BOT DIFFICULTY</div>
-          <div class="cr-diff-row" id="cr-diff-row" role="radiogroup" aria-label="Choose bot difficulty">
-            <button type="button" class="cr-diff-btn" data-difficulty="easy" data-colorkey="secondary" aria-pressed="false">
-              <span class="cr-diff-btn-inner">
-                <span class="cr-diff-btn-label">EASY</span>
-              </span>
-            </button>
-            <button type="button" class="cr-diff-btn" data-difficulty="medium" data-colorkey="primary" aria-pressed="false">
-              <span class="cr-diff-btn-inner">
-                <span class="cr-diff-btn-label">MEDIUM</span>
-              </span>
-            </button>
-            <button type="button" class="cr-diff-btn" data-difficulty="hard" data-colorkey="p2" aria-pressed="false">
-              <span class="cr-diff-btn-inner">
-                <span class="cr-diff-btn-label">HARD</span>
-              </span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Center column -->
-      <div class="cr-center">
-        <div class="cr-tagline">
-          <span>◆</span>
-          <span>SHOPPING CART BRAWLER</span>
-          <span>◆</span>
-        </div>
+      <!-- LEFT: tagline · title lockup · command list (Fight Night 3a) -->
+      <div class="cr-hero">
+        <div class="cr-tagline">SHOPPING CART BRAWLER</div>
         <h1 class="cr-title cr-title-stack" id="cr-title">
           <span class="cr-title-word">CART</span>
           <span class="cr-title-word">CLASH</span>
         </h1>
 
-        <div class="cr-buttons">
-          <button class="cr-btn" id="cr-solo" data-action="solo" data-colorkey="primary">
-            <span class="cr-btn-inner"><span class="cr-btn-label">SOLO</span></span>          </button>
-          <button class="cr-btn" id="cr-quickplay" data-action="quickplay" data-colorkey="secondary">
-            <span class="cr-btn-inner"><span class="cr-btn-label">QUICKPLAY</span></span>          </button>
-          <button class="cr-btn" id="cr-friends" data-action="friends" data-colorkey="tertiary">
-            <span class="cr-btn-inner"><span class="cr-btn-label">FRIENDS</span></span>          </button>
-          <button class="cr-btn cr-btn--customize" data-action="customize" data-colorkey="p2" type="button">
-            <span class="cr-btn-inner"><span class="cr-btn-label">CUSTOMIZE</span></span>          </button>
+        <nav class="cr-buttons cr-commandlist" id="cr-commandlist" aria-label="Main menu">
+          <button class="cr-btn cr-cmd" id="cr-solo" data-action="solo" data-cmd="solo">
+            <span class="cr-btn-inner"><span class="cr-btn-label">SOLO</span></span>
+            <span class="cr-cmd-qual">VS BOTS</span>
+          </button>
+          <button class="cr-btn cr-cmd" id="cr-quickplay" data-action="quickplay" data-cmd="quickplay">
+            <span class="cr-btn-inner"><span class="cr-btn-label">QUICKPLAY</span></span>
+            <span class="cr-cmd-qual">ONLINE</span>
+          </button>
+          <button class="cr-btn cr-cmd" id="cr-friends" data-action="friends" data-cmd="friends">
+            <span class="cr-btn-inner"><span class="cr-btn-label">FRIENDS</span></span>
+            <span class="cr-cmd-qual">PRIVATE</span>
+          </button>
+          <button class="cr-btn cr-cmd" data-action="customize" data-cmd="customize" type="button">
+            <span class="cr-btn-inner"><span class="cr-btn-label">CUSTOMIZE</span></span>
+          </button>
+          <button class="cr-btn cr-cmd" data-action="challenges" data-cmd="challenges" type="button">
+            <span class="cr-btn-inner"><span class="cr-btn-label">CHALLENGES</span></span>
+            <span class="cr-cmd-new" id="cr-cmd-new-pill" hidden>NEW</span>
+          </button>
+          <button class="cr-btn cr-cmd" data-action="howto" data-cmd="howto" type="button">
+            <span class="cr-btn-inner"><span class="cr-btn-label">HOW TO PLAY</span></span>
+          </button>
+          <button class="cr-btn cr-cmd" data-action="settings" data-cmd="settings" type="button">
+            <span class="cr-btn-inner"><span class="cr-btn-label">SETTINGS</span></span>
+          </button>
+        </nav>
+      </div>
+
+      <!-- TOP-RIGHT: player plate (CART NAME) -->
+      <div class="cr-plate" id="cr-player-card">
+        <div class="cr-plate-hd">CART NAME</div>
+        <div class="cr-name-row">
+          <div class="cr-name-display" id="cr-name-display" aria-label="Your cart name">
+            <span id="cr-name-text"></span>
+          </div>
+          <input class="cr-name-input" id="cr-name-input" name="username" autocomplete="username" style="display:none" maxlength="12" aria-label="Your cart name" />
+          <button class="cr-plate-btn" id="cr-name-edit" type="button" title="Rename cart" aria-label="Rename cart">✎</button>
+          <button class="cr-reroll cr-plate-btn" id="cr-reroll" title="Re-roll handle" aria-label="Re-roll username">⟲</button>
+        </div>
+        <div class="cr-stats" id="cr-stats-local">
+          <div class="cr-stat"><span class="cr-stat-num" id="stat-wins">0</span><span class="cr-stat-lbl">WINS</span></div>
+          <div class="cr-stat-div"></div>
+          <div class="cr-stat"><span class="cr-stat-num" id="stat-played">0</span><span class="cr-stat-lbl">PLAYED</span></div>
+          <div class="cr-stat-div"></div>
+          <div class="cr-stat"><span class="cr-stat-num" id="stat-pts">0</span><span class="cr-stat-lbl">POINTS</span></div>
+          <div class="cr-stat-div"></div>
+          <div class="cr-stat"><span class="cr-stat-num" id="stat-solo">0</span><span class="cr-stat-lbl">SOLO</span></div>
         </div>
       </div>
 
-      <!-- Right column: audio + controls + how-to / challenges / settings -->
-      <div class="cr-right">
-        <div class="cr-audio-panel" id="cr-audio-panel">
-          <div class="cr-audio-hd">
-            <span>◇ AUDIO</span>
+      <!-- BOTTOM-RIGHT: context panel (driven by the highlighted command) -->
+      <div class="cr-context" id="cr-context">
+        <div class="cr-context-kicker" id="cr-context-kicker">SOLO · VS BOTS</div>
+        <div class="cr-context-desc" id="cr-context-desc">Brawl three bots. Most points when the store closes wins.</div>
+
+        <div class="cr-context-arena" id="cr-context-arena">
+          <button class="cr-arena-page" id="cr-arena-prev" type="button" aria-label="Previous arena">◂</button>
+          <div class="cr-arena-display">
+            <div class="cr-arena-name" id="cr-arena-name">CART RAVE</div>
+            <div class="cr-arena-sub" id="cr-arena-sub">NEON VINYL ARENA · 1/3</div>
           </div>
+          <button class="cr-arena-page" id="cr-arena-next" type="button" aria-label="Next arena">▸</button>
+          <!-- hidden radiogroup: arena data source + existing selectLevel wiring -->
+          <div class="cr-level-row" id="cr-level-row" role="radiogroup" aria-label="Choose your arena" hidden>
+            <button type="button" class="cr-level-btn active" data-level="classicRecord" data-colorkey="secondary" aria-pressed="true"><span class="cr-level-btn-inner"><span class="cr-level-btn-label">CART RAVE</span><span class="cr-level-btn-sub">Neon vinyl arena</span></span></button>
+            <button type="button" class="cr-level-btn" data-level="backrooms" data-colorkey="primary" aria-pressed="false"><span class="cr-level-btn-inner"><span class="cr-level-btn-label">THE STOREROOMS</span><span class="cr-level-btn-sub">Liminal battleground</span></span></button>
+            <button type="button" class="cr-level-btn" data-level="zanzibar" data-colorkey="p2" aria-pressed="false"><span class="cr-level-btn-inner"><span class="cr-level-btn-label">SUNDIAL STATION</span><span class="cr-level-btn-sub">Offshore sunset showdown</span></span></button>
+          </div>
+        </div>
+
+        <div class="cr-diff-row" id="cr-diff-row" role="radiogroup" aria-label="Choose bot difficulty">
+          <button type="button" class="cr-diff-btn" data-difficulty="easy" data-colorkey="secondary" aria-pressed="false"><span class="cr-diff-btn-inner"><span class="cr-diff-btn-label">EASY</span></span></button>
+          <button type="button" class="cr-diff-btn" data-difficulty="medium" data-colorkey="primary" aria-pressed="false"><span class="cr-diff-btn-inner"><span class="cr-diff-btn-label">MEDIUM</span></span></button>
+          <button type="button" class="cr-diff-btn" data-difficulty="hard" data-colorkey="p2" aria-pressed="false"><span class="cr-diff-btn-inner"><span class="cr-diff-btn-label">HARD</span></span></button>
+        </div>
+      </div>
+
+      <!-- BOTTOM: device-aware input hint bar -->
+      <div class="cr-hintbar" id="cr-hintbar">
+        <span class="cr-hint-device" id="cr-hint-device">⌨ KEYBOARD</span>
+        <span class="cr-hint-keys" id="cr-hint-keys"></span>
+        <span class="cr-hint-meta" id="cr-hint-meta"></span>
+      </div>
+
+      <!-- Hidden legacy controls, kept mounted so existing JS wiring keeps working
+           (audio is mirrored in Settings; M mutes; #cr-controls feeds the hint bar). -->
+      <div class="cr-legacy" hidden aria-hidden="true">
+        <div class="cr-audio-panel" id="cr-audio-panel">
           <div class="cr-audio" id="cr-audio">
             <button class="cr-mute-btn" id="cr-mute-btn" title="Mute" aria-label="Toggle mute">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M11 5 6 9H3v6h3l5 4z"/>
-                <path d="M15.5 8.5a5 5 0 0 1 0 7"/>
-                <path d="M18.5 5.5a9 9 0 0 1 0 13"/>
+                <path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/>
               </svg>
             </button>
-            <div class="cr-vol-stack">
-              <div class="cr-vol-row">
-                <span class="cr-vol-label">♫</span>
-                <div class="cr-vol-track" id="cr-music-vol-track">
-                  <div class="cr-vol-fill" id="cr-music-vol-fill"></div>
-                </div>
-                <span class="cr-vol-val" id="cr-music-vol-val">25</span>
-              </div>
-            </div>
+            <div class="cr-vol-stack"><div class="cr-vol-row"><span class="cr-vol-label">♫</span><div class="cr-vol-track" id="cr-music-vol-track"><div class="cr-vol-fill" id="cr-music-vol-fill"></div></div><span class="cr-vol-val" id="cr-music-vol-val">25</span></div></div>
           </div>
         </div>
-
-        <!-- Controls reference -->
-        <div class="cr-controls" id="cr-controls">
-          <div class="cr-controls-hd">
-            <span>◇ CONTROLS</span>
-            <span style="opacity:.4">KEYBOARD</span>
-          </div>
-          <div class="cr-ctl-row">
-            <span class="cr-ctl-keys" id="ctl-wasd">
-              <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>
-            </span>
-            <span class="cr-ctl-lbl">Move Cart</span>
-          </div>
-          <div class="cr-ctl-row">
-            <span class="cr-ctl-keys" id="ctl-shift"><kbd class="wide">SHIFT</kbd></span>
-            <span class="cr-ctl-lbl">Boost Cart</span>
-          </div>
-          <div class="cr-ctl-row">
-            <span class="cr-ctl-keys" id="ctl-space"><kbd class="wide">SPACE</kbd></span>
-            <span class="cr-ctl-lbl">Hop</span>
-          </div>
-          <div class="cr-ctl-row">
-            <span class="cr-ctl-keys" id="ctl-m"><kbd>M</kbd></span>
-            <span class="cr-ctl-lbl">Mute Audio</span>
-          </div>
-          <div class="cr-ctl-row">
-            <span class="cr-ctl-keys" id="ctl-esc"><kbd>ESC</kbd></span>
-            <span class="cr-ctl-lbl">Open Menu</span>
-          </div>
-        </div>
-
-        <!-- Settings / Challenges access -->
-        <div class="cr-menu-extras">
-          <button type="button" class="cr-btn cr-btn--extra" data-action="howto" data-colorkey="tertiary">
-            <span class="cr-btn-inner"><span class="cr-btn-label">HOW TO PLAY</span></span>          </button>
-          <button type="button" class="cr-btn cr-btn--extra" data-action="challenges" data-colorkey="secondary">
-            <span class="cr-btn-inner"><span class="cr-btn-label">CHALLENGES</span></span>          </button>
-          <button type="button" class="cr-btn cr-btn--extra" data-action="settings" data-colorkey="primary">
-            <span class="cr-btn-inner"><span class="cr-btn-label">SETTINGS</span></span>          </button>
-        </div>
+        <div class="cr-controls" id="cr-controls"></div>
       </div>
     </div>
   </div>
   <div id="cr-customize-screen" style="display:none;" aria-hidden="true">
-    <div class="cr-overlay-panel cr-customize-panel">
-      <h2 class="cr-customize-title">YOUR CART</h2>
-      <p class="cr-customize-desc">Pick your color and theme — preview matches in-game.</p>
+    <div class="cr-screen cr-customize-panel">
+      <header class="cr-screen-hd">
+        <span class="cr-screen-kicker">CART DETAILING DEPT.</span>
+        <h2 class="cr-screen-title cr-customize-title">CUSTOMIZE</h2>
+      </header>
 
-      <div class="cr-customize-preview">
-        <div class="cr-customize-preview-shadow" id="cr-customize-cart-shadow"></div>
-        <div class="cr-customize-preview-cart" id="cr-customize-cart-holder"></div>
-      </div>
-
-      <nav class="cr-customize-tabs" role="tablist" aria-label="Cart customization categories">
-        <button type="button" class="cr-customize-tab active" role="tab" aria-selected="true" aria-controls="cr-customize-section-color" data-tab="body">BODY COLOR</button>
-        <button type="button" class="cr-customize-tab" role="tab" aria-selected="false" aria-controls="cr-customize-section-pattern" data-tab="pattern">PATTERN</button>
-        <button type="button" class="cr-customize-tab" role="tab" aria-selected="false" aria-controls="cr-customize-section-sunglasses" data-tab="sunglasses">SUNGLASSES</button>
+      <nav class="cr-screen-rail cr-customize-tabs" role="tablist" aria-label="Cart customization categories">
+        <button type="button" class="cr-customize-tab active" role="tab" aria-selected="true" aria-controls="cr-customize-section-color" data-tab="body"><span class="cr-customize-tab-inner"><span class="cr-customize-tab-label">COLOR</span></span></button>
+        <button type="button" class="cr-customize-tab" role="tab" aria-selected="false" aria-controls="cr-customize-section-sunglasses" data-tab="sunglasses"><span class="cr-customize-tab-inner"><span class="cr-customize-tab-label">SUNGLASSES</span></span></button>
+        <button type="button" class="cr-customize-tab" role="tab" aria-selected="false" aria-controls="cr-customize-section-pattern" data-tab="pattern"><span class="cr-customize-tab-inner"><span class="cr-customize-tab-label">PATTERN</span></span></button>
       </nav>
 
-      <div class="cr-customize-section" id="cr-customize-section-color" data-section="body" role="tabpanel">
-        <div class="cr-color-label">CHOOSE COLOR</div>
-        <div class="cr-color-row cr-color-row--customize" id="cr-customize-color-row" role="radiogroup" aria-label="Choose cart color"></div>
-        <div class="cr-custom-hue-wrap" id="cr-custom-hue-wrap" hidden>
-          <div class="cr-color-label">CUSTOM HUE</div>
-          <div class="cr-custom-hue-row">
-            <input type="range" class="cr-custom-hue-slider" id="cr-custom-hue-slider" min="0" max="360" value="280" aria-label="Custom cart hue" />
-            <span class="cr-custom-hue-val" id="cr-custom-hue-val" aria-hidden="true">280°</span>
-          </div>
-        </div>
+      <div class="cr-screen-stage cr-customize-preview">
+        <div class="cr-customize-preview-cart" id="cr-customize-cart-holder"></div>
+        <div class="cr-customize-preview-shadow" id="cr-customize-cart-shadow"></div>
       </div>
 
-      <div class="cr-customize-section" id="cr-customize-section-pattern" data-section="pattern" role="tabpanel" hidden>
-        <div class="cr-color-label">CHOOSE PATTERN</div>
-        <div class="cr-pattern-row" id="cr-customize-pattern-row" role="radiogroup" aria-label="Choose cart pattern"></div>
-      </div>
-
-      <div class="cr-customize-section" id="cr-customize-section-sunglasses" data-section="sunglasses" role="tabpanel" hidden>
-        <div class="cr-color-label">MIRROR FINISH</div>
-        <div class="cr-sunglasses-row" id="cr-customize-sunglasses-row" role="radiogroup" aria-label="Choose sunglasses mirror finish"></div>
-      </div>
-
-      <button class="cr-overlay-done" id="cr-customize-done" type="button">DONE</button>
-      <button class="cr-overlay-back" id="cr-customize-back" type="button">← BACK</button>
-    </div>
-  </div>
-  <div id="cr-howto-screen" style="display:none;" aria-hidden="true">
-    <div class="cr-overlay-panel cr-overlay-panel--howto">
-      <h2 class="cr-overlay-title">HOW TO PLAY</h2>
-      <p class="cr-overlay-desc">
-        Chaotic shopping cart brawler — ram rivals off the arena, stack bonuses, and
-        end the round with the most points. Ties go to Sudden Death.
-      </p>
-
-      <section class="cr-howto-section" aria-labelledby="cr-howto-score-hd">
-        <h3 class="cr-howto-section-hd" id="cr-howto-score-hd">◇ HOW TO SCORE</h3>
-        <p class="cr-howto-blurb">
-          You only score when <strong>you</strong> force a rival off — self-falls count for
-          nothing. Bonuses add first, then combo multipliers apply.
-        </p>
-        <ul class="cr-howto-bullets cr-howto-bullets--compact">
-          <li><strong>Edge KO</strong> — 1 pt, off the perimeter</li>
-          <li><strong>Hazard KO</strong> — 2 pts, into the center pit or corner voids</li>
-          <li><strong>Critical</strong> — +1 when your ram is high-speed</li>
-          <li><strong>Leader down</strong> — +1 for KOing the sole leader (they glow)</li>
-          <li><strong>High ground</strong> — +1 on Sundial from the podium</li>
-        </ul>
-      </section>
-
-      <section class="cr-howto-section" aria-labelledby="cr-howto-combo-hd">
-        <h3 class="cr-howto-section-hd" id="cr-howto-combo-hd">◇ COMBOS</h3>
-        <p class="cr-howto-blurb">
-          Chain KOs before the ~5s streak fades — each tier multiplies the whole reward:
-          <strong>RAMPAGE</strong> ×1.5 · <strong>SAVAGE</strong> ×2.0 · <strong>CARNAGE</strong> ×3.0
-        </p>
-      </section>
-
-      <section class="cr-howto-section" aria-labelledby="cr-howto-store-hd">
-        <h3 class="cr-howto-section-hd" id="cr-howto-store-hd">◇ LIVING STORE</h3>
-        <ul class="cr-howto-bullets cr-howto-bullets--compact">
-          <li><strong>Cargo bay</strong> — scoring fills your cart; fuller = heavier handling, bigger spill</li>
-          <li><strong>Spill rush</strong> — forcing a spill grants a short speed comeback buff</li>
-          <li><strong>PA directives</strong> — mid-round rule twists (~18s); watch the HUD chip under the timer:</li>
-        </ul>
-        <div class="cr-howto-directive-grid" role="list">
-          <div class="cr-howto-directive" role="listitem">
-            <span class="cr-howto-directive-name">FLASH SALE</span>
-            <span class="cr-howto-directive-desc">Harder rams</span>
-          </div>
-          <div class="cr-howto-directive" role="listitem">
-            <span class="cr-howto-directive-name">DOUBLE BAG</span>
-            <span class="cr-howto-directive-desc">KO rewards ×2</span>
-          </div>
-          <div class="cr-howto-directive" role="listitem">
-            <span class="cr-howto-directive-name">EXPRESS LANE</span>
-            <span class="cr-howto-directive-desc">Faster boost charge</span>
-          </div>
-          <div class="cr-howto-directive" role="listitem">
-            <span class="cr-howto-directive-name">SPILL BONUS</span>
-            <span class="cr-howto-directive-desc">+1 per forced spill</span>
-          </div>
-          <div class="cr-howto-directive" role="listitem">
-            <span class="cr-howto-directive-name">RUSH HOUR</span>
-            <span class="cr-howto-directive-desc">Everyone drives faster</span>
-          </div>
-        </div>
-      </section>
-
-      <button class="cr-overlay-done" id="cr-howto-done" type="button">LET'S ROLL</button>
-      <button class="cr-overlay-back" id="cr-howto-back" type="button">← BACK</button>
-    </div>
-  </div>
-  <div id="cr-challenges-screen" style="display:none;" aria-hidden="true">
-    <div class="cr-overlay-panel">
-      <h2 class="cr-overlay-title">CHALLENGES</h2>
-      <p class="cr-overlay-desc">Daily &amp; weekly goals — fresh stock every rotation.</p>
-      <div class="cr-challenges-list" id="cr-challenges-list"></div>
-      <button class="cr-overlay-done" id="cr-challenges-done" type="button">DONE</button>
-      <button class="cr-overlay-back" id="cr-challenges-back" type="button">← BACK</button>
-    </div>
-  </div>
-  <div id="cr-settings-screen" style="display:none;" aria-hidden="true">
-    <div class="cr-overlay-panel cr-overlay-panel--settings">
-      <h2 class="cr-overlay-title">SETTINGS</h2>
-
-      <div class="cr-settings-section">
-        <div class="cr-settings-section-hd">◇ AUDIO</div>
-        <div class="cr-settings-audio" id="cr-settings-audio">
-          <button class="cr-mute-btn" id="cr-settings-mute-btn" title="Mute" aria-label="Toggle mute">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M11 5 6 9H3v6h3l5 4z"/>
-              <path d="M15.5 8.5a5 5 0 0 1 0 7"/>
-              <path d="M18.5 5.5a9 9 0 0 1 0 13"/>
-            </svg>
-          </button>
-          <div class="cr-vol-stack">
-            <div class="cr-vol-row">
-              <span class="cr-vol-label">♫</span>
-              <div class="cr-vol-track" id="cr-settings-vol-track">
-                <div class="cr-vol-fill" id="cr-settings-vol-fill"></div>
-              </div>
-              <span class="cr-vol-val" id="cr-settings-vol-val">25</span>
+      <div class="cr-screen-panel">
+        <div class="cr-customize-section" id="cr-customize-section-color" data-section="body" role="tabpanel">
+          <div class="cr-color-label">CHOOSE COLOR</div>
+          <div class="cr-color-row cr-color-row--customize" id="cr-customize-color-row" role="radiogroup" aria-label="Choose cart color"></div>
+          <div class="cr-custom-hue-wrap" id="cr-custom-hue-wrap" hidden>
+            <div class="cr-color-label cr-custom-hue-hd">
+              <span>CUSTOM HUE</span>
+              <span class="cr-custom-hue-val" id="cr-custom-hue-val" aria-hidden="true">280°</span>
+            </div>
+            <div class="cr-custom-hue-row">
+              <input type="range" class="cr-custom-hue-slider" id="cr-custom-hue-slider" min="0" max="360" value="280" aria-label="Custom cart hue" />
             </div>
           </div>
         </div>
-      </div>
 
-      <div class="cr-settings-section">
-        <div class="cr-settings-section-hd">◇ GRAPHICS</div>
-        <div class="cr-graphics-btns">
-          <button type="button" class="cr-btn cr-btn--graphics" id="cr-gfx-btn" data-action="toggle-postfx">
-            <span class="cr-btn-inner"><span class="cr-btn-label">POST-FX: ON</span></span>          </button>
-          <button type="button" class="cr-btn cr-btn--graphics" id="cr-lq-btn" data-action="toggle-lowquality">
-            <span class="cr-btn-inner"><span class="cr-btn-label">QUALITY: HIGH</span></span>          </button>
+        <div class="cr-customize-section" id="cr-customize-section-pattern" data-section="pattern" role="tabpanel" hidden>
+          <div class="cr-color-label">CHOOSE PATTERN</div>
+          <div class="cr-pattern-row" id="cr-customize-pattern-row" role="radiogroup" aria-label="Choose cart pattern"></div>
+        </div>
+
+        <div class="cr-customize-section" id="cr-customize-section-sunglasses" data-section="sunglasses" role="tabpanel" hidden>
+          <div class="cr-color-label">MIRROR FINISH</div>
+          <div class="cr-sunglasses-row" id="cr-customize-sunglasses-row" role="radiogroup" aria-label="Choose sunglasses mirror finish"></div>
         </div>
       </div>
 
-      <div class="cr-settings-section">
-        <div class="cr-settings-section-hd" id="cr-settings-ctl-hd">◇ CONTROLS</div>
-        <div class="cr-settings-controls" id="cr-settings-controls"></div>
-        <p class="cr-settings-ctl-note">Key remapping not supported yet.</p>
+      <div class="cr-screen-actions">
+        <button class="cr-overlay-back" id="cr-customize-back" type="button"><span class="cr-screen-btn-inner"><span class="cr-screen-btn-label">← BACK</span></span></button>
+        <button class="cr-overlay-done" id="cr-customize-done" type="button"><span class="cr-screen-btn-inner"><span class="cr-screen-btn-label">DONE</span></span></button>
       </div>
 
-      <button class="cr-overlay-done" id="cr-settings-done" type="button">DONE</button>
-      <button class="cr-overlay-back" id="cr-settings-back" type="button">← BACK</button>
+      <div class="cr-screen-hint">
+        <span class="cr-screen-hint-item"><kbd>W/S</kbd> TAB</span>
+        <span class="cr-screen-hint-item"><kbd>◂ ▸</kbd> PICK</span>
+        <span class="cr-screen-hint-item"><kbd>ESC</kbd> BACK</span>
+      </div>
+    </div>
+  </div>
+  <div id="cr-howto-screen" style="display:none;" aria-hidden="true">
+    <div class="cr-screen cr-screen--panels cr-howto-panel">
+      <header class="cr-screen-hd">
+        <span class="cr-screen-kicker">STORE POLICY · ALL SALES FINAL</span>
+        <h2 class="cr-screen-title">HOW TO PLAY</h2>
+      </header>
+
+      <div class="cr-screen-panels cr-howto-body">
+        <div class="cr-howto-aisles">
+          <section class="cr-howto-aisle cr-howto-aisle--1" aria-labelledby="cr-howto-aisle1-hd">
+            <span class="cr-howto-aisle-no">AISLE 1</span>
+            <h3 class="cr-howto-aisle-name" id="cr-howto-aisle1-hd">RAM THEM OUT</h3>
+            <p class="cr-howto-aisle-body">
+              You only score when <strong>you</strong> force a rival off — self-falls count for
+              nothing. Steer with <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>, close the gap on
+              <kbd>SHIFT</kbd>, and time a <kbd>SPACE</kbd> hop over the pit.
+            </p>
+          </section>
+
+          <section class="cr-howto-aisle cr-howto-aisle--2" aria-labelledby="cr-howto-aisle2-hd">
+            <span class="cr-howto-aisle-no">AISLE 2</span>
+            <h3 class="cr-howto-aisle-name" id="cr-howto-aisle2-hd">CHAIN COMBOS</h3>
+            <p class="cr-howto-aisle-body">
+              Bonuses add first, then the combo multiplier hits the whole reward. Chain KOs before
+              the ~5s streak fades: <strong>RAMPAGE</strong> ×1.5 · <strong>SAVAGE</strong> ×2.0 ·
+              <strong>CARNAGE</strong> ×3.0.
+            </p>
+          </section>
+
+          <section class="cr-howto-aisle cr-howto-aisle--3" aria-labelledby="cr-howto-aisle3-hd">
+            <span class="cr-howto-aisle-no">AISLE 3</span>
+            <h3 class="cr-howto-aisle-name" id="cr-howto-aisle3-hd">THE LIVING STORE</h3>
+            <p class="cr-howto-aisle-body">
+              Scoring fills your <strong>cargo bay</strong> — fuller means heavier handling and a
+              bigger spill. Forcing a spill grants a short speed buff. Every ~18s the PA calls a
+              directive: <strong>FLASH SALE</strong> · <strong>DOUBLE BAG</strong> ·
+              <strong>EXPRESS LANE</strong> · <strong>SPILL BONUS</strong> ·
+              <strong>RUSH HOUR</strong>.
+            </p>
+          </section>
+        </div>
+
+        <section class="cr-howto-strip" aria-labelledby="cr-howto-score-hd">
+          <h3 class="cr-howto-strip-hd" id="cr-howto-score-hd">SCORING</h3>
+          <div class="cr-howto-strip-row" role="list">
+            <span class="cr-howto-price" role="listitem"><span class="cr-howto-price-lbl">EDGE KO</span><span class="cr-howto-price-val">1</span></span>
+            <span class="cr-howto-price" role="listitem"><span class="cr-howto-price-lbl">HAZARD KO</span><span class="cr-howto-price-val">2</span></span>
+            <span class="cr-howto-price" role="listitem"><span class="cr-howto-price-lbl">CRITICAL</span><span class="cr-howto-price-val">+1</span></span>
+            <span class="cr-howto-price" role="listitem"><span class="cr-howto-price-lbl">LEADER DOWN</span><span class="cr-howto-price-val">+1</span></span>
+            <span class="cr-howto-price" role="listitem"><span class="cr-howto-price-lbl">HIGH GROUND</span><span class="cr-howto-price-val">+1</span></span>
+          </div>
+        </section>
+
+        <section class="cr-howto-strip" aria-labelledby="cr-howto-ctl-hd">
+          <h3 class="cr-howto-strip-hd" id="cr-howto-ctl-hd">FULL CONTROLS</h3>
+          <div class="cr-howto-strip-row" role="list">
+            <span class="cr-howto-ctl" role="listitem"><span class="cr-howto-keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span><span class="cr-howto-ctl-lbl">MOVE</span></span>
+            <span class="cr-howto-ctl" role="listitem"><span class="cr-howto-keys"><kbd class="wide">SHIFT</kbd></span><span class="cr-howto-ctl-lbl">BOOST</span></span>
+            <span class="cr-howto-ctl" role="listitem"><span class="cr-howto-keys"><kbd class="wide">SPACE</kbd></span><span class="cr-howto-ctl-lbl">HOP</span></span>
+            <span class="cr-howto-ctl" role="listitem"><span class="cr-howto-keys"><kbd>M</kbd></span><span class="cr-howto-ctl-lbl">MUTE</span></span>
+            <span class="cr-howto-ctl" role="listitem"><span class="cr-howto-keys"><kbd>ESC</kbd></span><span class="cr-howto-ctl-lbl">MENU</span></span>
+          </div>
+          <span class="cr-howto-pad">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M6 12h4M8 10v4"/><circle cx="15" cy="11" r="1"/><circle cx="17.5" cy="13.5" r="1"/>
+              <path d="M17.3 6H6.7A4.7 4.7 0 0 0 2 10.7v2.6A4.7 4.7 0 0 0 6.7 18c1.3 0 2-.6 2.6-1.3l.6-.7h4.2l.6.7c.6.7 1.3 1.3 2.6 1.3a4.7 4.7 0 0 0 4.7-4.7v-2.6A4.7 4.7 0 0 0 17.3 6z"/>
+            </svg>GAMEPAD SUPPORTED — PLUG &amp; PLAY
+          </span>
+        </section>
+      </div>
+
+      <div class="cr-screen-actions">
+        <button class="cr-overlay-back" id="cr-howto-back" type="button"><span class="cr-screen-btn-inner"><span class="cr-screen-btn-label">← BACK</span></span></button>
+        <button class="cr-overlay-done" id="cr-howto-done" type="button"><span class="cr-screen-btn-inner"><span class="cr-screen-btn-label">LET'S ROLL</span></span></button>
+      </div>
+
+      <div class="cr-screen-hint">
+        <span class="cr-screen-hint-item"><kbd>ESC</kbd> BACK</span>
+      </div>
+    </div>
+  </div>
+  <div id="cr-challenges-screen" style="display:none;" aria-hidden="true">
+    <div class="cr-screen cr-screen--panels cr-challenges-panel">
+      <header class="cr-screen-hd">
+        <span class="cr-screen-kicker" id="cr-challenges-kicker">RESTOCK</span>
+        <h2 class="cr-screen-title">CHALLENGES</h2>
+      </header>
+
+      <div class="cr-screen-panels cr-challenges-grid" id="cr-challenges-list"></div>
+
+      <div class="cr-screen-actions">
+        <button class="cr-overlay-back" id="cr-challenges-back" type="button"><span class="cr-screen-btn-inner"><span class="cr-screen-btn-label">← BACK</span></span></button>
+        <button class="cr-overlay-done" id="cr-challenges-done" type="button"><span class="cr-screen-btn-inner"><span class="cr-screen-btn-label">DONE</span></span></button>
+      </div>
+
+      <div class="cr-screen-hint">
+        <span class="cr-screen-hint-item"><kbd>ESC</kbd> BACK</span>
+      </div>
+    </div>
+  </div>
+  <div id="cr-settings-screen" style="display:none;" aria-hidden="true">
+    <div class="cr-screen cr-screen--panels cr-settings-panel">
+      <header class="cr-screen-hd">
+        <span class="cr-screen-kicker">STORE PREFERENCES</span>
+        <h2 class="cr-screen-title">SETTINGS</h2>
+      </header>
+
+      <div class="cr-screen-panels">
+        <section class="cr-screen-card" id="cr-settings-audio" aria-labelledby="cr-settings-audio-hd">
+          <div class="cr-screen-card-hd" id="cr-settings-audio-hd">AUDIO</div>
+
+          <div class="cr-vol-row cr-vol-row--music">
+            <span class="cr-vol-label">MUSIC</span>
+            <div class="cr-vol-track" id="cr-settings-vol-track" role="slider" tabindex="0" aria-label="Music volume" aria-valuemin="0" aria-valuemax="100" aria-valuenow="25">
+              <div class="cr-vol-fill" id="cr-settings-vol-fill"></div>
+            </div>
+            <span class="cr-vol-val" id="cr-settings-vol-val">25</span>
+          </div>
+
+          <div class="cr-vol-row cr-vol-row--sfx">
+            <span class="cr-vol-label">SFX</span>
+            <div class="cr-vol-track" id="cr-settings-sfx-track" role="slider" tabindex="0" aria-label="Sound effects volume" aria-valuemin="0" aria-valuemax="100" aria-valuenow="25">
+              <div class="cr-vol-fill" id="cr-settings-sfx-fill"></div>
+            </div>
+            <span class="cr-vol-val" id="cr-settings-sfx-val">25</span>
+          </div>
+
+          <div class="cr-settings-row cr-settings-row--rule">
+            <span class="cr-settings-row-lbl">MUTE ALL</span>
+            <button class="cr-mute-btn cr-settings-chip" id="cr-settings-mute-btn" title="Mute" aria-label="Toggle mute">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M11 5 6 9H3v6h3l5 4z"/>
+                <path d="M15.5 8.5a5 5 0 0 1 0 7"/>
+                <path d="M18.5 5.5a9 9 0 0 1 0 13"/>
+              </svg><span class="cr-mute-state">OFF</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="cr-screen-card" aria-labelledby="cr-settings-gfx-hd">
+          <div class="cr-screen-card-hd" id="cr-settings-gfx-hd">GRAPHICS</div>
+
+          <div class="cr-settings-row">
+            <span class="cr-settings-row-lbl">QUALITY</span>
+            <div class="cr-quality-seg" id="cr-quality-seg" role="radiogroup" aria-label="Graphics quality">
+              <button type="button" class="cr-seg-chip" data-tier="low" role="radio" aria-checked="false">LOW</button>
+              <button type="button" class="cr-seg-chip" data-tier="medium" role="radio" aria-checked="false">MEDIUM</button>
+              <button type="button" class="cr-seg-chip" data-tier="high" role="radio" aria-checked="false">HIGH</button>
+            </div>
+          </div>
+
+          <div class="cr-settings-row">
+            <span class="cr-settings-row-lbl">POST-FX</span>
+            <button type="button" class="cr-btn cr-btn--graphics cr-settings-chip" id="cr-gfx-btn" data-action="toggle-postfx">
+              <span class="cr-btn-inner"><span class="cr-btn-label">ON</span></span>
+            </button>
+          </div>
+
+          <p class="cr-settings-footnote">AUTO-QUALITY MAY STEP DOWN DURING HEAVY FRAMES</p>
+        </section>
+
+        <section class="cr-screen-card cr-screen-card--wide" aria-labelledby="cr-settings-ctl-hd">
+          <div class="cr-screen-card-hd" id="cr-settings-ctl-hd">CONTROLS</div>
+          <div class="cr-settings-controls" id="cr-settings-controls"></div>
+        </section>
+      </div>
+
+      <div class="cr-screen-actions">
+        <button class="cr-overlay-back" id="cr-settings-back" type="button"><span class="cr-screen-btn-inner"><span class="cr-screen-btn-label">← BACK</span></span></button>
+        <button class="cr-overlay-done" id="cr-settings-done" type="button"><span class="cr-screen-btn-inner"><span class="cr-screen-btn-label">DONE</span></span></button>
+      </div>
+
+      <div class="cr-screen-hint">
+        <span class="cr-screen-hint-item"><kbd>ESC</kbd> BACK</span>
+      </div>
     </div>
   </div>
   <div id="cr-friends-screen" style="display:none;" role="dialog" aria-modal="true" aria-label="Invite friends" aria-hidden="true">
-    <div class="cr-overlay-panel cr-overlay-panel--friends">
-      <h2 class="cr-friends-title">INVITE FRIENDS</h2>
-      <p class="cr-friends-desc">Your invite link is copied to your clipboard. Send it to your friends — they'll pick a name and color, then roll into your lobby.</p>
-      <div class="cr-friends-link-row">
-        <input class="cr-friends-link" id="cr-friends-link" name="room-link" readonly aria-label="Invite link" />
-        <button class="cr-friends-copy" id="cr-friends-copy">COPY</button>
+    <div class="cr-screen cr-screen--panels cr-friends-panel">
+      <header class="cr-screen-hd">
+        <span class="cr-screen-kicker">PRIVATE ROOM · INVITE YOUR CREW</span>
+        <h2 class="cr-screen-title">FRIENDS</h2>
+      </header>
+
+      <div class="cr-screen-panels cr-friends-body">
+        <section class="cr-screen-card cr-friends-card" aria-labelledby="cr-friends-code-hd">
+          <div class="cr-screen-card-hd" id="cr-friends-code-hd">ROOM CODE</div>
+          <div class="cr-friends-code-row">
+            <span class="cr-friends-code" id="cr-friends-code">——</span>
+            <button class="cr-friends-copy" id="cr-friends-copy" type="button">COPY</button>
+          </div>
+          <input class="cr-friends-link" id="cr-friends-link" name="room-link" readonly aria-label="Invite link" />
+          <p class="cr-friends-hint">SHARE THE CODE OR SEND THE LINK — THE ROOM STARTS WHEN EVERYONE'S READY</p>
+        </section>
+
+        <section class="cr-screen-card cr-friends-card" aria-labelledby="cr-friends-diff-hd">
+          <div class="cr-screen-card-hd" id="cr-friends-diff-hd">BOT DIFFICULTY</div>
+          <div class="cr-diff-row cr-diff-row--friends" role="group" aria-label="Bot difficulty">
+            <button type="button" class="cr-diff-btn" data-difficulty="easy" aria-pressed="false"><span class="cr-diff-btn-inner">EASY</span></button>
+            <button type="button" class="cr-diff-btn" data-difficulty="medium" aria-pressed="false"><span class="cr-diff-btn-inner">MEDIUM</span></button>
+            <button type="button" class="cr-diff-btn" data-difficulty="hard" aria-pressed="false"><span class="cr-diff-btn-inner">HARD</span></button>
+          </div>
+          <p class="cr-settings-footnote">EMPTY LANES FILL WITH BOTS AT THIS DIFFICULTY</p>
+        </section>
       </div>
-      <button class="cr-overlay-done" id="cr-friends-enter">ENTER GAME</button>
-      <button class="cr-overlay-back" id="cr-friends-back">← BACK</button>
+
+      <div class="cr-screen-actions">
+        <button class="cr-overlay-back" id="cr-friends-back" type="button"><span class="cr-screen-btn-inner"><span class="cr-screen-btn-label">← BACK</span></span></button>
+        <button class="cr-overlay-done" id="cr-friends-enter" type="button"><span class="cr-screen-btn-inner"><span class="cr-screen-btn-label">ENTER GAME</span></span></button>
+      </div>
+
+      <div class="cr-screen-hint">
+        <span class="cr-screen-hint-item"><kbd>↵</kbd> ENTER GAME</span>
+        <span class="cr-screen-hint-item"><kbd>ESC</kbd> BACK</span>
+      </div>
     </div>
   </div>
   <canvas id="game"></canvas>
