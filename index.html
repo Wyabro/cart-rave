@@ -113,12 +113,15 @@
       text-align: center;
     }
     #cr-boot-error.cr-boot-error--visible { display: flex; }
-    /* Die-cut ink panel — matches the sticker material (literals: bundle CSS
-       tokens may not be loaded when a module-load failure shows this). */
+    /* Ink slab — hairline + extrude + inner highlight, matching every other
+       surface. The white die-cut contour that used to ring this card is retired
+       game-wide. Literals: bundle CSS tokens may not be loaded when a
+       module-load failure shows this. */
     #cr-boot-error > div {
       background: #14101e;
+      border: 1px solid rgba(255,255,255,0.12);
       border-radius: 10px;
-      box-shadow: 0 0 0 3px #f2ede4, 4px 4px 0 3px #08050f;
+      box-shadow: 3px 3px 0 #08050f, inset 0 1px 0 rgba(255,255,255,0.07);
       padding: 24px 28px;
       max-width: 480px;
     }
@@ -133,8 +136,9 @@
       color: #08050f;
       font-family: inherit;
       font-size: 14px;
+      letter-spacing: 0.06em;
       cursor: pointer;
-      box-shadow: 0 0 0 2.5px #f2ede4, 3px 3px 0 2.5px #08050f;
+      box-shadow: 2px 2px 0 #08050f, inset 0 1px 0 rgba(255,255,255,0.35);
     }
     .cr-boot-panel {
       position: relative;
