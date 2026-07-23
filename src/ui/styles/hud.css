@@ -186,15 +186,17 @@
 
 /* Rampage Combo badge — a tilted ticket slapped on from camera (momentary,
    so it earns the tilt). Opaque ink, die-cut edge, no blur, no resting glow. */
+/* Combo = the CARNAGE COUPON (mock 6a): an ink slab tilted off-square, the
+   multiplier as the hero number, and the coupon's small print — tier name,
+   countdown, drain bar — stacked beside it. */
 #hud .hud-combo-badge {
-  transform: scale(1.18) rotate(-2deg);
+  transform: skewX(-8deg) rotate(-2deg) scale(1.18);
   display: none;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: clamp(6px, 1vw, 10px) clamp(16px, 2.5vw, 24px);
+  gap: clamp(10px, 1.4vw, 14px);
+  padding: clamp(10px, 1.2vw, 12px) clamp(12px, 1.6vw, 16px);
   background: var(--color-ink);
-  border-radius: var(--hud-radius);
+  border-radius: 8px;
   border: 1px solid var(--border-white-12);
   box-shadow: var(--slab-shadow);
   pointer-events: none;
@@ -205,38 +207,58 @@
 #hud .hud-combo-badge.active {
   display: flex;
   opacity: 1;
-  transform: scale(1) rotate(-2deg);
+  transform: skewX(-8deg) rotate(-2deg) scale(1);
 }
+/* Counter-skew on the content, not the slab — the tier-up punch animates the
+   slab's transform and would wipe a counter-skew declared on it. */
 #hud .hud-combo-content {
   display: flex;
-  align-items: baseline;
-  gap: clamp(6px, 1vw, 10px);
+  align-items: center;
+  gap: clamp(10px, 1.4vw, 14px);
+  padding: 4px 8px;
+  transform: skewX(8deg);
 }
 #hud .hud-combo-multiplier {
-  font-family: var(--hud-display);
-  font-size: clamp(24px, 4vw, 42px);
-  font-weight: 900;
+  font-family: var(--hud-mono);
+  font-size: clamp(20px, 2.6vw, 28px);
+  font-weight: 700;
   line-height: 1;
-  letter-spacing: 1px;
+  letter-spacing: 0.02em;
   color: var(--color-combo-t1);
-  paint-order: stroke fill;
-  -webkit-text-stroke: 0.08em var(--color-ink-deep);
-  text-shadow: 0.06em 0.06em 0 var(--color-ink-deep);
+  -webkit-text-stroke: 0;
+  text-shadow: none;
+}
+#hud .hud-combo-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
 }
 #hud .hud-combo-tier {
-  font-family: var(--hud-mono);
-  font-size: clamp(12px, 1.8vw, 18px);
-  font-weight: 900;
-  letter-spacing: 2px;
+  font-family: var(--hud-ui);
+  font-size: clamp(8px, 0.9vw, 9px);
+  font-weight: 400;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: #ffffff;
+  color: rgba(242, 237, 228, 0.55);
+  white-space: nowrap;
 }
+#hud .hud-combo-secs {
+  font-family: var(--hud-mono);
+  font-size: clamp(9px, 1vw, 10px);
+  font-weight: 700;
+  color: rgba(242, 237, 228, 0.7);
+  font-variant-numeric: tabular-nums;
+}
+/* Label left, countdown hard right — the coupon's terms line. */
+#hud .hud-combo-meta { position: relative; }
+#hud .hud-combo-meta > .hud-combo-tier { padding-right: 3.4em; }
+#hud .hud-combo-secs { position: absolute; right: 0; top: 0; }
 #hud .hud-combo-bar-track {
-  width: 100%;
+  width: clamp(110px, 12vw, 150px);
   height: 4px;
-  background: rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.12);
   border-radius: 2px;
-  margin-top: 6px;
   overflow: hidden;
 }
 #hud .hud-combo-bar-fill {
@@ -320,6 +342,14 @@
   display: flex;
   flex-direction: column;
   gap: clamp(4px, 0.8vw, 8px);
+}
+
+/* Clock left, round meta hard right, one baseline (mock 6a). */
+#hud .hud-timer-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: clamp(10px, 1.4vw, 18px);
 }
 
 #hud .hud-timer-meta {
@@ -1453,10 +1483,14 @@
   box-shadow: var(--slab-shadow);
   transform: skewX(-8deg);
 }
+/* width:100% is load-bearing — hud.js writes `display:flex` inline on the slab
+   when it shows, which makes this a content-sized flex ITEM and collapses the
+   track's flex:1 to nothing (the bar vanished, value slid up beside the label). */
 #hud .hud-boost-inner {
   display: flex;
   align-items: center;
   gap: 12px;
+  width: 100%;
   transform: skewX(8deg);
 }
 #hud .hud-boost-label {

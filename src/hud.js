@@ -154,6 +154,7 @@ const elements = {
   comboBadge: null,
   comboMultiplier: null,
   comboTier: null,
+  comboSecs: null,
   comboBarFill: null,
   escOverlay: null,
   escBackdrop: null,
@@ -1428,8 +1429,13 @@ export function init(options) {
   elements.timerFill = document.createElement("i");
   timerBar.appendChild(elements.timerFill);
 
-  timerBody.appendChild(timerMeta);
-  timerBody.appendChild(elements.timerNum);
+  // * Mock 6a reads left-to-right on ONE line: the clock, then the round meta
+  // * hard right of it. Stacked, the meta was reading as a title above the time.
+  const timerHead = document.createElement("div");
+  timerHead.className = "hud-timer-head";
+  timerHead.appendChild(elements.timerNum);
+  timerHead.appendChild(timerMeta);
+  timerBody.appendChild(timerHead);
   timerBody.appendChild(timerBar);
   elements.timer.appendChild(timerStripe);
   elements.timer.appendChild(timerBody);
@@ -1772,19 +1778,27 @@ export function init(options) {
   elements.comboBadge.className = "hud-combo-badge";
   const comboContent = document.createElement("div");
   comboContent.className = "hud-combo-content";
+  // * Mock 6a's carnage coupon: the multiplier is the hero, and the tier name,
+  // * countdown and drain bar sit beside it as the coupon's small print.
   elements.comboMultiplier = document.createElement("span");
   elements.comboMultiplier.className = "hud-combo-multiplier";
+  const comboMeta = document.createElement("span");
+  comboMeta.className = "hud-combo-meta";
   elements.comboTier = document.createElement("span");
   elements.comboTier.className = "hud-combo-tier";
+  elements.comboSecs = document.createElement("span");
+  elements.comboSecs.className = "hud-combo-secs";
+  comboMeta.appendChild(elements.comboTier);
+  comboMeta.appendChild(elements.comboSecs);
   comboContent.appendChild(elements.comboMultiplier);
-  comboContent.appendChild(elements.comboTier);
+  comboContent.appendChild(comboMeta);
   const comboTrack = document.createElement("div");
   comboTrack.className = "hud-combo-bar-track";
   elements.comboBarFill = document.createElement("div");
   elements.comboBarFill.className = "hud-combo-bar-fill";
   comboTrack.appendChild(elements.comboBarFill);
+  comboMeta.appendChild(comboTrack);
   elements.comboBadge.appendChild(comboContent);
-  elements.comboBadge.appendChild(comboTrack);
   regions.pod.insertBefore(elements.comboBadge, elements.readyBtn);
 
   // * Kill-confirm — the cartoon KO burst stamps at screen center on a local KO.
@@ -2488,8 +2502,13 @@ function updateComboWidget() {
   const tierNames = { 1: "RAMPAGE", 2: "SAVAGE", 3: "CARNAGE" };
   const tierName = tierNames[tier] || "COMBO";
 
-  if (elements.comboMultiplier) elements.comboMultiplier.textContent = `${multiplier.toFixed(1)}x`;
-  if (elements.comboTier) elements.comboTier.textContent = tierName;
+  if (elements.comboMultiplier) elements.comboMultiplier.textContent = `${multiplier.toFixed(1)}X`;
+  // * "CARNAGE COUPON" in the mock — the tier names the coupon, retail-voiced.
+  if (elements.comboTier) elements.comboTier.textContent = `${tierName} COUPON`;
+  if (elements.comboSecs) {
+    const secsText = `${(remainingMs / 1000).toFixed(1)}S`;
+    if (elements.comboSecs.textContent !== secsText) elements.comboSecs.textContent = secsText;
+  }
   if (elements.comboBarFill) elements.comboBarFill.style.width = `${decayPct}%`;
 
   if (!elements.comboBadge.classList.contains("active")) {
@@ -2503,9 +2522,9 @@ function updateComboWidget() {
     // * not a balloon inflating. (Badge rests at rotate(-2deg); keep it.)
     elements.comboBadge.animate(
       [
-        { transform: "scale(1) rotate(-2deg)" },
-        { transform: "scale(1.42) rotate(-2deg)", offset: 0.3 },
-        { transform: "scale(1) rotate(-2deg)" },
+        { transform: "skewX(-8deg) rotate(-2deg) scale(1)" },
+        { transform: "skewX(-8deg) rotate(-2deg) scale(1.42)", offset: 0.3 },
+        { transform: "skewX(-8deg) rotate(-2deg) scale(1)" },
       ],
       { duration: 220, easing: "cubic-bezier(0.16, 1, 0.3, 1)" }
     );

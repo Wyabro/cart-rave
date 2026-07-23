@@ -58,17 +58,18 @@
    size difference itself tells players "this one changes the rules". */
 #announcer-display .announcer-kicker {
   font-family: var(--announcer-ui);
-  font-size: clamp(0.54rem, 1.35vw, 0.75rem);
+  font-size: clamp(0.62rem, 1.5vw, 0.82rem);
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--color-ink-deep, #08050f);
   background: var(--callout-accent);
-  padding: 2px 12px;
+  padding: 3px 14px;
   border-radius: 5px;
-  box-shadow:
-    0 0 0 1.5px var(--color-sticker-white, #f2ede4),
-    2px 2px 0 1.5px var(--color-ink-deep, #08050f);
+  /* Slab, not sticker: the white die-cut ring is the retired material this
+     redesign replaced game-wide (Foundation decision 2). Mock 6a draws the PA
+     kicker as pigment + ink extrude only. */
+  box-shadow: 2px 2px 0 var(--color-ink-deep, #08050f);
   transform: rotate(-2deg);
   white-space: nowrap;
 }
