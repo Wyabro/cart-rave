@@ -1628,3 +1628,177 @@
     -webkit-text-stroke-width: 0.03em;
   }
 }
+
+/* ═══ FRIENDS CHECKOUT LINE — full-screen lobby (7e, model B) ═══════════════
+   Body-level surface (outside #hud) shown only while phase === "lobby" in a
+   private room; it clears before the countdown so the 3-2-1 owns the frame.
+   Start rule B1: READY only — the server auto-arms, there is no START button. */
+.hud-lobby {
+  position: fixed;
+  inset: 0;
+  z-index: 24000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  /* Flat printed scrim over the frozen arena — no blur. */
+  background: rgba(4, 2, 10, 0.82);
+  font-family: var(--mono);
+  color: var(--color-sticker-white);
+}
+
+.hud-lobby[hidden] { display: none; }
+
+.hud-lobby-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(10px, 1.6vw, 14px);
+  width: min(560px, 92vw);
+  max-height: 92dvh;
+  padding: clamp(20px, 3vw, 28px);
+  background: var(--color-ink);
+  border: 1px solid var(--border-white-12);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--slab-shadow);
+  overflow-y: auto;
+}
+
+.hud-lobby-title {
+  margin: 0;
+  font-family: var(--display);
+  font-size: clamp(30px, 6vw, 52px);
+  line-height: 1;
+  letter-spacing: 0.03em;
+  text-align: center;
+}
+
+.hud-lobby-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: clamp(9px, 1.5vw, 11px);
+  letter-spacing: 0.22em;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.hud-lobby-count { color: var(--color-cyan); }
+
+.hud-lobby-slots {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+/* Price-tag lane per seat: emblem · name · pips · status. */
+.hud-lobby-slot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px 10px 26px;
+  position: relative;
+  background: var(--color-ink-deep);
+  border: 1px solid var(--border-white-10);
+  border-radius: 8px 8px 8px 22px;
+  box-shadow: var(--slab-shadow-sm);
+}
+
+.hud-lobby-slot::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  transform: translateY(-50%);
+  border-radius: 50%;
+  background: var(--color-ink);
+  box-shadow: inset 0 0 0 1.5px rgba(242, 237, 228, 0.4);
+}
+
+.hud-lobby-slot.is-empty {
+  border-style: dashed;
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow: none;
+}
+
+.hud-lobby-slot.is-you { border-color: var(--color-cyan); }
+.hud-lobby-slot.is-ready .hud-lobby-status-cell { color: var(--color-timer-ok); }
+
+.hud-lobby-emblem {
+  display: inline-flex;
+  font-size: 17px;
+  line-height: 1;
+}
+
+.hud-lobby-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: clamp(11px, 1.8vw, 13px);
+  letter-spacing: 0.06em;
+}
+
+.hud-lobby-slot.is-empty .hud-lobby-name { color: rgba(255, 255, 255, 0.35); }
+
+.hud-lobby-pips { display: inline-flex; gap: 4px; }
+
+.hud-lobby-pip {
+  display: inline-flex;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 8px;
+  letter-spacing: 0.14em;
+  color: var(--color-ink-deep);
+  background: var(--color-cyan);
+}
+
+.hud-lobby-pip--host { background: var(--color-yellow); }
+
+.hud-lobby-status-cell {
+  min-width: 62px;
+  text-align: right;
+  font-size: clamp(8px, 1.4vw, 10px);
+  letter-spacing: 0.14em;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.hud-lobby-status {
+  margin: 0;
+  font-size: clamp(9px, 1.5vw, 11px);
+  letter-spacing: 0.24em;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.hud-lobby-status.is-go { color: var(--color-timer-ok); }
+
+.hud-lobby-actions {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+}
+
+.hud-lobby-btn {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 44px;
+  font-family: var(--ui);
+  font-size: clamp(11px, 1.8vw, 14px);
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+/* Already checked out — the button recedes to a confirmed state. */
+.hud-lobby-btn--ready.is-ready {
+  background: var(--color-timer-ok);
+  color: var(--color-ink-deep);
+}
+
+@media (max-width: 480px) {
+  .hud-lobby-inner { padding: 16px 14px; gap: 10px; }
+  .hud-lobby-slot { padding: 8px 10px 8px 24px; gap: 8px; }
+  .hud-lobby-actions { flex-direction: column; }
+}

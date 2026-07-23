@@ -17,7 +17,7 @@ import { updateBoostRing } from "./touchControls.js";
 import { clamp, clampInt } from "./utils.js";
 import { resolveCartNeonCss } from "./customization.js";
 import { playTimerTick } from "./sfxSynth.js";
-import { getConnectionState, getHostId, getHostClockOffsetMs, getNetSlots } from "./netcode.js";
+import { getConnectionState, getHostId, getHostClockOffsetMs, getNetSlots, resolvedPartyRoomFromUrl } from "./netcode.js";
 import { getRoundClockNowMs, getRoundRemainingMs } from "./roundClock.js";
 import { ROUND_DURATION_MS } from "../shared/roundConstants.js";
 import { announce } from "./announcer/announcerManager.js";
@@ -139,6 +139,12 @@ const elements = {
   feed: null,
   scoreBoxes: [],
   readyBtn: null,
+  lobbyScreen: null,
+  lobbySlots: [],
+  lobbyCount: null,
+  lobbyCode: null,
+  lobbyStatus: null,
+  lobbyReadyBtn: null,
   menuBtn: null,
   audio: null,
   comboBadge: null,
@@ -937,6 +943,34 @@ function syncRowIndicators(entry, isLeader) {
  * @param {Array<object>|null} netSlots
  * @param {string|null} youConnId
  */
+/**
+ * One slot→row model for every roster surface. The compact in-corner scoreboard
+ * and the full-screen Friends CHECKOUT LINE both read this, so ready/kind/color
+ * state is derived in exactly one place (null-safe on every slot field).
+ * @param {Array<object>|null} netSlots
+ * @param {Record<number, number>|null|undefined} roundScores
+ * @param {boolean} isLobbyRoster When true, `score` carries ready state (1/0/-1) instead of points.
+ * @returns {Array<{ slotIndex: number, score: number, slotName: string, slotColor: string|null, kind: string, connId: string|null, isReady: boolean }>}
+ */
+function buildRosterRows(netSlots, roundScores, isLobbyRoster) {
+  const rows = [];
+  for (let i = 0; i < 4; i += 1) {
+    const slot = netSlots?.[i];
+    rows.push({
+      slotIndex: i,
+      score: isLobbyRoster
+        ? (slot?.kind === "human" ? (slot.isReady ? 1 : 0) : -1)
+        : Number(roundScores?.[i] ?? 0),
+      slotName: slot?.name || `P${i + 1}`,
+      slotColor: slot?.color || null,
+      kind: slot?.kind ?? "",
+      connId: slot?.connId || null,
+      isReady: Boolean(slot?.isReady),
+    });
+  }
+  return rows;
+}
+
 function updateScores(roundState, netSlots, youConnId) {
   const roundPhase = roundState?.phase;
   const roundScores = roundState?.scores;
@@ -974,21 +1008,7 @@ function updateScores(roundState, netSlots, youConnId) {
     }
 
     if (dataChanged || localChanged) {
-      const nextRows = [];
-      for (let i = 0; i < 4; i += 1) {
-        const slot = netSlots?.[i];
-        nextRows.push({
-          slotIndex: i,
-          score: isLobbyRoster
-            ? (slot?.kind === "human" ? (slot.isReady ? 1 : 0) : -1)
-            : Number(roundScores?.[i] ?? 0),
-          slotName: slot?.name || `P${i + 1}`,
-          slotColor: slot?.color || null,
-          kind: slot?.kind ?? "",
-          connId: slot?.connId || null,
-          isReady: Boolean(slot?.isReady),
-        });
-      }
+      const nextRows = buildRosterRows(netSlots, roundScores, isLobbyRoster);
       // * Lobby: seat order (stable roster). Running: score rank order.
       if (isLobbyRoster) {
         nextRows.sort((a, b) => a.slotIndex - b.slotIndex);
@@ -1179,6 +1199,109 @@ function updateReadyButton(roundPhase, netSlots, youConnId, menuVisible) {
     elements.readyBtn.style.display = "none";
     elements.readyBtn.classList.remove("is-ready");
     _lastReadyState = null;
+  }
+}
+
+/**
+ * Friends-only full-screen CHECKOUT LINE lobby (7e, model B).
+ *
+ * Gate is `phase === "lobby"` — deliberately NOT the compact roster's
+ * `lobby || countdown`, so the screen clears before the 3-2-1 owns the frame.
+ * Quickplay/continuous keep the in-corner roster (auto-ready would make a full
+ * lobby screen feel wrong). Slots and ready state come from the same
+ * buildRosterRows model the compact scoreboard uses, and READY proxies the
+ * existing hud-ready-btn so the socket send lives in one place.
+ *
+ * Start rule B1: no host START button — the server auto-arms once every live
+ * human is ready, so both host and guests only ever press READY.
+ *
+ * @param {string|null|undefined} roundPhase
+ * @param {Array<object>|null} netSlots
+ * @param {string|null} youConnId
+ * @param {boolean} menuVisible
+ */
+function updateLobbyScreen(roundPhase, netSlots, youConnId, menuVisible) {
+  const screen = elements.lobbyScreen;
+  if (!screen) return;
+
+  const isFriends = _options.detectGameMode?.() === "friends";
+  const active = roundPhase === "lobby" && !menuVisible && isFriends;
+  if (!active) {
+    if (!screen.hidden) screen.hidden = true;
+    return;
+  }
+  screen.hidden = false;
+
+  // * One lobby surface: the compact roster and corner ready button stand down
+  // * while the full screen is up (both are restored by their own updaters).
+  setHudDisplay(elements.scores, "none", "scores");
+  if (elements.readyBtn) elements.readyBtn.style.display = "none";
+
+  const rows = buildRosterRows(netSlots, null, true);
+  const hostId = getHostId();
+  let humans = 0;
+  let readyHumans = 0;
+
+  for (let i = 0; i < 4; i += 1) {
+    const cell = elements.lobbySlots[i];
+    const row = rows[i];
+    if (!cell || !row) continue;
+    const slot = netSlots?.[i] ?? null;
+    const isEmpty = row.kind !== "human" && row.kind !== "npc";
+    const isLocal = Boolean(row.connId && youConnId && row.connId === youConnId);
+    if (row.kind === "human") {
+      humans += 1;
+      if (row.isReady) readyHumans += 1;
+    }
+
+    cell.root.classList.toggle("is-empty", isEmpty);
+    cell.root.classList.toggle("is-you", isLocal);
+    cell.root.classList.toggle("is-ready", row.kind === "human" && row.isReady);
+    cell.name.textContent = isEmpty ? "OPEN LANE" : row.slotName;
+
+    const info = isEmpty ? null : emblemForSlot(slot);
+    if (info) {
+      if (cell.emblem.dataset.icon !== info.icon) {
+        cell.emblem.dataset.icon = info.icon;
+        cell.emblem.innerHTML = svgIcon(info.icon, { label: info.label });
+      }
+      cell.emblem.style.color = info.color;
+      cell.emblem.style.display = "inline-flex";
+    } else {
+      cell.emblem.style.display = "none";
+    }
+
+    const isHostSlot = Boolean(hostId && row.connId && row.connId === hostId);
+    cell.host.style.display = isHostSlot ? "inline-flex" : "none";
+    cell.you.style.display = isLocal ? "inline-flex" : "none";
+    cell.status.textContent = isEmpty
+      ? "WAITING…"
+      : row.kind === "npc"
+        ? "BOT"
+        : row.isReady
+          ? "READY"
+          : "IN LINE";
+  }
+
+  if (elements.lobbyCount) elements.lobbyCount.textContent = `${humans}/4`;
+  if (elements.lobbyCode) {
+    const code = String(resolvedPartyRoomFromUrl() || "").toUpperCase();
+    const next = code ? `ROOM ${code}` : "";
+    if (elements.lobbyCode.textContent !== next) elements.lobbyCode.textContent = next;
+  }
+  if (elements.lobbyStatus) {
+    const allReady = humans > 0 && readyHumans === humans;
+    elements.lobbyStatus.textContent = allReady
+      ? "ALL CHECKED OUT — STARTING…"
+      : "WAITING FOR CHECKOUT…";
+    elements.lobbyStatus.classList.toggle("is-go", allReady);
+  }
+  // * Mirror the corner button's already-computed label/state — no second
+  // * derivation of who is ready.
+  if (elements.lobbyReadyBtn && elements.readyBtn) {
+    const label = elements.readyBtn.textContent || "READY UP!";
+    if (elements.lobbyReadyBtn.textContent !== label) elements.lobbyReadyBtn.textContent = label;
+    elements.lobbyReadyBtn.classList.toggle("is-ready", elements.readyBtn.classList.contains("is-ready"));
   }
 }
 
@@ -1375,6 +1498,105 @@ export function init(options) {
   });
   wireButtonPressFeedback(elements.readyBtn, { scale: 0.96 });
 
+  // ── Friends CHECKOUT LINE lobby (7e) — full-screen, gated in updateLobbyScreen ──
+  elements.lobbyScreen = document.createElement("div");
+  elements.lobbyScreen.className = "hud-lobby";
+  elements.lobbyScreen.hidden = true;
+  elements.lobbyScreen.setAttribute("role", "dialog");
+  elements.lobbyScreen.setAttribute("aria-label", "Checkout line lobby");
+
+  const lobbyInner = document.createElement("div");
+  lobbyInner.className = "hud-lobby-inner";
+
+  const lobbyKicker = document.createElement("span");
+  lobbyKicker.className = "hud-lobby-kicker cc-kicker";
+  lobbyKicker.textContent = "◆ PRIVATE ROOM";
+
+  const lobbyTitle = document.createElement("h2");
+  lobbyTitle.className = "hud-lobby-title cc-title";
+  lobbyTitle.textContent = "CHECKOUT LINE";
+
+  const lobbyMeta = document.createElement("div");
+  lobbyMeta.className = "hud-lobby-meta";
+  elements.lobbyCount = document.createElement("span");
+  elements.lobbyCount.className = "hud-lobby-count";
+  elements.lobbyCount.textContent = "1/4";
+  elements.lobbyCode = document.createElement("span");
+  elements.lobbyCode.className = "hud-lobby-code";
+  lobbyMeta.appendChild(elements.lobbyCount);
+  lobbyMeta.appendChild(elements.lobbyCode);
+
+  const lobbySlotWrap = document.createElement("div");
+  lobbySlotWrap.className = "hud-lobby-slots";
+  elements.lobbySlots = [];
+  for (let i = 0; i < 4; i += 1) {
+    const root = document.createElement("div");
+    root.className = "hud-lobby-slot";
+    const emblem = document.createElement("span");
+    emblem.className = "hud-lobby-emblem";
+    const name = document.createElement("span");
+    name.className = "hud-lobby-name";
+    const pips = document.createElement("span");
+    pips.className = "hud-lobby-pips";
+    const host = document.createElement("span");
+    host.className = "hud-lobby-pip hud-lobby-pip--host";
+    host.textContent = "HOST";
+    host.style.display = "none";
+    const you = document.createElement("span");
+    you.className = "hud-lobby-pip hud-lobby-pip--you";
+    you.textContent = "YOU";
+    you.style.display = "none";
+    pips.appendChild(host);
+    pips.appendChild(you);
+    const status = document.createElement("span");
+    status.className = "hud-lobby-status-cell";
+    root.appendChild(emblem);
+    root.appendChild(name);
+    root.appendChild(pips);
+    root.appendChild(status);
+    lobbySlotWrap.appendChild(root);
+    elements.lobbySlots.push({ root, emblem, name, host, you, status });
+  }
+
+  elements.lobbyStatus = document.createElement("p");
+  elements.lobbyStatus.className = "hud-lobby-status";
+  elements.lobbyStatus.textContent = "WAITING FOR CHECKOUT…";
+
+  const lobbyActions = document.createElement("div");
+  lobbyActions.className = "hud-lobby-actions";
+
+  // * Proxy, not a second implementation: the real ready send lives on
+  // * elements.readyBtn (start rule B1 — there is deliberately no START button).
+  elements.lobbyReadyBtn = document.createElement("button");
+  elements.lobbyReadyBtn.type = "button";
+  elements.lobbyReadyBtn.className = "hud-lobby-btn hud-lobby-btn--ready cc-btn cc-btn--primary";
+  elements.lobbyReadyBtn.textContent = "READY UP!";
+  elements.lobbyReadyBtn.addEventListener("click", () => {
+    elements.readyBtn?.click();
+  });
+  wireButtonPressFeedback(elements.lobbyReadyBtn, { scale: 0.96 });
+
+  const lobbyLeaveBtn = document.createElement("button");
+  lobbyLeaveBtn.type = "button";
+  lobbyLeaveBtn.className = "hud-lobby-btn cc-btn cc-btn--ghost";
+  lobbyLeaveBtn.textContent = "LEAVE ROOM";
+  lobbyLeaveBtn.addEventListener("click", () => {
+    // * Rides the EXISTING leave/teardown path — no second teardown story.
+    _options.onLeaveRoom?.();
+  });
+  wireButtonPressFeedback(lobbyLeaveBtn, { scale: 0.96 });
+
+  lobbyActions.appendChild(elements.lobbyReadyBtn);
+  lobbyActions.appendChild(lobbyLeaveBtn);
+
+  lobbyInner.appendChild(lobbyKicker);
+  lobbyInner.appendChild(lobbyTitle);
+  lobbyInner.appendChild(lobbyMeta);
+  lobbyInner.appendChild(lobbySlotWrap);
+  lobbyInner.appendChild(elements.lobbyStatus);
+  lobbyInner.appendChild(lobbyActions);
+  elements.lobbyScreen.appendChild(lobbyInner);
+
   regions.stage.appendChild(elements.status);
   regions.stage.appendChild(elements.arenaSplash);
   regions.match.appendChild(elements.timer);
@@ -1498,6 +1720,9 @@ export function init(options) {
   regions.utility.appendChild(elements.menuBtn);
 
   document.body.appendChild(elements.root);
+  // * Body-level (not inside a HUD region) — it's a full-screen surface that must
+  // * cover the frozen arena, and HUD region layout/scale must not touch it.
+  document.body.appendChild(elements.lobbyScreen);
 
   const pauseOverlayElements = initPauseOverlay(_options, {
     setHudSuppressed,
@@ -1577,12 +1802,15 @@ export function update({
     setHudDisplay(elements.status, "none", "status");
     if (elements.readyBtn) elements.readyBtn.style.display = "none";
     if (elements.feed) elements.feed.style.display = "none";
+    if (elements.lobbyScreen) elements.lobbyScreen.hidden = true;
     scheduleHudLayoutSync();
     return;
   }
 
   if (suppressHud) {
     if (elements.feed) elements.feed.style.display = "none";
+    // * Pause overlay owns the screen — the lobby stands down with the rest of the HUD.
+    if (elements.lobbyScreen) elements.lobbyScreen.hidden = true;
     return;
   }
 
@@ -1592,6 +1820,9 @@ export function update({
   updateTimer(roundState, matchHistoryLength);
   updateScores(roundState, netSlots, youConnId);
   updateReadyButton(roundPhase, netSlots, youConnId, menuVisible);
+  // * After updateScores/updateReadyButton — it mirrors their computed state and,
+  // * when active, stands the compact roster + corner ready button down.
+  updateLobbyScreen(roundPhase, netSlots, youConnId, menuVisible);
   updateComboWidget();
   updateBoostWidget(roundState);
   updateConnectionPill();

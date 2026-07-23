@@ -2201,6 +2201,9 @@ async function main() {
       handleSoloPauseOverlay(open);
     },
     onQuitToMenu: () => gameSession.returnToMenu({ reason: "esc" }),
+    // * CHECKOUT LINE "LEAVE ROOM" rides the same teardown as the pause menu's
+    // * MAIN MENU — socket close + ?room= clear live there (no second path).
+    onLeaveRoom: () => gameSession.returnToMenu({ reason: "lobby-leave" }),
     // * Pause-menu RESTART (solo/test-drive only): reuse the host solo re-entry
     // * path — reset the world and re-run the countdown, no menu round-trip.
     onRestart: () => onHostPlayAgainClick(),
