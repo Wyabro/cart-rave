@@ -1479,6 +1479,9 @@ html, body {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  /* Chips never absorb the row's shrink — MUTE ALL was squeezing its own icon
+     to 0 width at phone widths, leaving a bare "OFF". */
+  flex: 0 0 auto;
   width: auto;
   height: auto;
   min-height: 0;
@@ -1496,10 +1499,29 @@ html, body {
   transition: background 120ms var(--ease-slap), color 120ms var(--ease-slap);
 }
 
+/* The responsive bands re-inflate both base classes for their menu-side roles:
+   .cr-btn becomes a full-width row (width:100%, min-height:54px, landscape
+   flex:1) and .cr-mute-btn becomes a 44px round touch target. A chip must stay
+   chip-sized everywhere, so these two-class rules outrank every single-class
+   band rule no matter where it sits in the file. */
+.cr-btn.cr-settings-chip,
+.cr-mute-btn.cr-settings-chip {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 0;
+  height: auto;
+  min-height: 0;
+  padding: 5px 14px;
+  font-size: clamp(9px, 1vw, 11px);
+}
+
 .cr-settings-chip:hover { color: var(--color-sticker-white); }
 
 /* ON is the active state → the screen's yellow, matching the quality segment. */
 .cr-btn--graphics.cr-settings-chip {
+  /* .cr-btn--graphics carries flex:1 from the retired menu row, which stretched
+     this chip across the whole card. Chips size to their label, like QUALITY. */
+  flex: 0 0 auto;
   background: var(--color-yellow);
   border-color: transparent;
   color: var(--color-ink);
@@ -2303,27 +2325,30 @@ html, body {
   flex-shrink: 0;
 }
 
+/* Keycaps are slabs, not die-cut stickers: hairline + hard extrude, sized up so
+   the CONTROLS card reads as a reference chart rather than fine print. One rule
+   serves all three input modes (keyboard / gamepad / touch). */
 .cr-settings-ctl-key kbd {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 22px;
-  height: 22px;
-  padding: 0 6px;
+  min-width: 32px;
+  height: 30px;
+  padding: 0 10px;
   background: var(--color-ink);
-  border: none;
-  box-shadow: var(--sticker-micro);
-  border-radius: 4px;
+  border: 1px solid var(--border-white-12);
+  box-shadow: var(--slab-extrude-sm);
+  border-radius: 5px;
   font-family: var(--display);
-  font-size: clamp(8px, 1vw, 10px);
+  font-size: clamp(11px, 1.3vw, 14px);
   font-weight: 400;
   color: var(--kc, var(--color-sticker-white));
   letter-spacing: 0.04em;
 }
 
 .cr-settings-ctl-key kbd.wide {
-  min-width: 48px;
-  font-size: clamp(7px, 0.95vw, 9px);
+  min-width: 64px;
+  font-size: clamp(9px, 1.15vw, 12px);
   letter-spacing: 0.1em;
 }
 
@@ -2335,14 +2360,7 @@ html, body {
   text-transform: uppercase;
 }
 
-.cr-settings-ctl-note {
-  font-family: var(--mono);
-  font-size: clamp(7px, 0.85vw, 8px);
-  color: rgba(255, 255, 255, 0.35);
-  letter-spacing: 0.04em;
-  text-align: center;
-  margin: 2px 0 0;
-}
+/* (.cr-settings-ctl-note retired with the key-remapping notice.) */
 
 /* === MENU EXTRAS (How To Play / Challenges / Settings buttons on main menu) === */
 .cr-menu-extras {
@@ -2624,26 +2642,19 @@ html, body {
   }
 
   .cr-settings-ctl-key kbd {
-    min-width: 18px;
-    height: 20px;
-    padding: 0 5px;
-    font-size: clamp(7px, 1.8vw, 9px);
+    min-width: 28px;
+    height: 26px;
+    padding: 0 8px;
+    font-size: clamp(10px, 2.6vw, 12px);
   }
 
   .cr-settings-ctl-key kbd.wide {
-    min-width: 36px;
-    font-size: clamp(6px, 1.6vw, 8px);
+    min-width: 54px;
+    font-size: clamp(8px, 2.2vw, 10px);
   }
 
   .cr-settings-ctl-lbl {
     font-size: clamp(7px, 1.8vw, 9px);
-  }
-
-  
-  
-  .cr-settings-ctl-note {
-    font-size: clamp(6px, 1.5vw, 7px);
-    margin: 1px 0 0;
   }
 
   /* Menu extras — three compact buttons stay side by side without overflow */
@@ -2908,15 +2919,15 @@ html, body {
   }
 
   .cr-settings-ctl-key kbd {
-    min-width: 16px;
-    height: 18px;
-    padding: 0 4px;
-    font-size: clamp(6px, 1.3dvh, 7px);
+    min-width: 24px;
+    height: 22px;
+    padding: 0 6px;
+    font-size: clamp(8px, 1.9dvh, 10px);
   }
 
   .cr-settings-ctl-key kbd.wide {
-    min-width: 28px;
-    font-size: clamp(5px, 1.1dvh, 7px);
+    min-width: 44px;
+    font-size: clamp(7px, 1.6dvh, 9px);
   }
 
   .cr-settings-ctl-lbl {
