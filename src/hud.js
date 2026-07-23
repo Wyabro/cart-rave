@@ -137,6 +137,7 @@ const elements = {
   timerFill: null,
   scores: null,
   feed: null,
+  feedRows: null,
   scoreBoxes: [],
   readyBtn: null,
   lobbyScreen: null,
@@ -215,6 +216,8 @@ let _wasSuddenDeath = false;
 let _toastTimeoutId = null;
 /** Previous local ready state — drives ready-button toggle animation. */
 let _lastReadyState = null;
+/** Watches the transaction-log rows so the receipt hides itself when empty. */
+let _feedRowObserver = null;
 /** Revert timeout for the lobby COPY button's "COPIED!" confirmation. */
 let _lobbyCopyTimeoutId = null;
 /** Quantized (0.5%) round-timer fill last written — skip redundant per-frame style writes. */
@@ -874,19 +877,6 @@ function compareScoreboardDisplayOrder(a, b, youConnId) {
 }
 
 /**
- * Maps slot index → score rank (1 = highest score).
- * @param {Array<{ slotIndex: number, score: number }>} rows
- * @returns {Map<number, number>}
- */
-function scoreRanksBySlot(rows) {
-  const ranks = new Map();
-  [...rows]
-    .sort((a, b) => (b.score - a.score) || (a.slotIndex - b.slotIndex))
-    .forEach((row, i) => ranks.set(row.slotIndex, i + 1));
-  return ranks;
-}
-
-/**
  * Per-slot rampage pip state (last-known combo streak from KO events, 5s decay).
  * @type {Array<{ tier: number, multiplier: number, expiryMs: number }>}
  */
@@ -1033,15 +1023,11 @@ function updateScores(roundState, netSlots, youConnId) {
 
     if (dataChanged || localChanged) {
       const rows = _sortedScoreRows || [];
-      const ranks = isLobbyRoster ? null : scoreRanksBySlot(rows);
       for (let pos = 0; pos < 4; pos += 1) {
         const entry = elements.scoreBoxes[pos];
         const row = rows[pos];
         if (!entry || !row) continue;
 
-        entry.rank.textContent = isLobbyRoster
-          ? String(row.slotIndex + 1)
-          : String(ranks?.get(row.slotIndex) ?? pos + 1);
         entry.label.textContent = row.slotName;
 
         const slot = netSlots?.[row.slotIndex];
@@ -1157,7 +1143,6 @@ function updateScores(roundState, netSlots, youConnId) {
       if (entry) {
         entry.box.classList.remove("isLocal");
         entry.value.textContent = "";
-        entry.rank.textContent = String(i + 1);
         entry.you.style.display = "none";
         if (entry.crown) entry.crown.style.display = "none";
         if (entry.pip) entry.pip.style.display = "none";
@@ -1464,17 +1449,36 @@ export function init(options) {
   elements.scores = document.createElement("div");
   elements.scores.className = "hud-scores";
 
+  // ── Kill feed = the store's TRANSACTION LOG receipt (mock 6a) ──────────────
+  // * The panel is the skewed slab; the counter-skew lives on an inner wrapper
+  // * that NOTHING animates. Rows are transform-animated on entry/exit, so a
+  // * counter-skew on the row itself would be overwritten inline (the 7a/7f bug).
   elements.feed = document.createElement("div");
-  elements.feed.className = "hud-feed";
+  elements.feed.className = "hud-feed is-empty";
+  const feedInner = document.createElement("div");
+  feedInner.className = "hud-feed-inner";
+  const feedHd = document.createElement("div");
+  feedHd.className = "hud-feed-hd";
+  feedHd.textContent = "— TRANSACTION LOG —";
+  elements.feedRows = document.createElement("div");
+  elements.feedRows.className = "hud-feed-rows";
+  feedInner.appendChild(feedHd);
+  feedInner.appendChild(elements.feedRows);
+  elements.feed.appendChild(feedInner);
+  // * Rows are also removed by animations.js's own exit timer, which hud.js has
+  // * no completion hook into — so emptiness is observed rather than tracked at
+  // * each call site. (CSS :has() would do it, but Vite's default target still
+  // * includes browsers without it, and the failure mode is a bare header.)
+  _feedRowObserver?.disconnect();
+  _feedRowObserver = new MutationObserver(() => {
+    elements.feed?.classList.toggle("is-empty", !elements.feedRows?.firstElementChild);
+  });
+  _feedRowObserver.observe(elements.feedRows, { childList: true });
 
   elements.scoreBoxes = [];
   for (let i = 0; i < 4; i += 1) {
     const box = document.createElement("div");
     box.className = "hud-scoreBox";
-
-    const rank = document.createElement("div");
-    rank.className = "hud-scoreRank";
-    rank.textContent = String(i + 1);
 
     const badge = document.createElement("span");
     badge.className = "hud-scoreBadge";
@@ -1495,9 +1499,19 @@ export function init(options) {
     you.className = "hud-scoreYou";
     you.textContent = "YOU";
 
+    // * Score prints like a till total: the number over a barcode strip (mock 6a).
+    // * No rank digit — the tags are already in score order, and the mock reads
+    // * position from the row, not from a number nobody looks at.
+    const valueWrap = document.createElement("div");
+    valueWrap.className = "hud-scoreValueWrap";
     const value = document.createElement("div");
     value.className = "hud-scoreValue";
     value.textContent = "0";
+    const barcode = document.createElement("i");
+    barcode.className = "hud-scoreBarcode";
+    barcode.setAttribute("aria-hidden", "true");
+    valueWrap.appendChild(value);
+    valueWrap.appendChild(barcode);
 
     // * In-match leader crown — mirrors the results-screen crown so "who's winning"
     // * is glanceable mid-round, not just at the podium.
@@ -1519,16 +1533,15 @@ export function init(options) {
     dizzy.style.display = "none";
     box.appendChild(dizzy);
 
-    box.appendChild(rank);
     box.appendChild(crown);
     box.appendChild(badge);
     box.appendChild(label);
     box.appendChild(host);
     box.appendChild(you);
     box.appendChild(pip);
-    box.appendChild(value);
+    box.appendChild(valueWrap);
     elements.scores.appendChild(box);
-    elements.scoreBoxes.push({ root: elements.root, box, rank, badge, label, host, you, value, crown, pip, dizzy, dizzyTimeoutId: null, slotIndex: -1 });
+    elements.scoreBoxes.push({ root: elements.root, box, badge, label, host, you, value, barcode, crown, pip, dizzy, dizzyTimeoutId: null, slotIndex: -1 });
   }
 
   elements.readyBtn = document.createElement("button");
@@ -2506,6 +2519,21 @@ export function syncColors(slots) {
   refreshScoreBoxGlows(slots, _options.getYouConnId ? _options.getYouConnId() : null);
 }
 
+/** Empties the transaction-log rows and returns the receipt to its empty state. */
+function clearKillFeedRows() {
+  const rows = elements.feedRows;
+  if (!rows) return;
+  while (rows.firstChild) {
+    const child = rows.firstChild;
+    if (child instanceof HTMLElement) {
+      cancelKillFeedExitTimer(child);
+      cancelElementAnimations(child);
+    }
+    rows.removeChild(child);
+  }
+  elements.feed?.classList.add("is-empty");
+}
+
 /**
  * Prepends a kill-feed row and auto-fades it after a few seconds.
  * @param {string|null} actorName
@@ -2525,10 +2553,17 @@ export function addKillFeedEntry(actorName, actorColor, verb, targetName, target
   row.style.setProperty("--c", clampAccentLuminance(actorColor || "rgba(255,255,255,0.9)"));
   row.style.setProperty("--c2", clampAccentLuminance(targetColor || "rgba(255,255,255,0.9)"));
 
-  let displayVerb = verb;
+  const displayVerb = verb;
+  // * Mock 6a prints the streak as its own orange pip between actor and victim,
+  // * not as "[3.0x CARNAGE]" glued onto the verb.
+  let comboPip = null;
   if (comboTier > 0 && comboMultiplier > 1.0) {
+    comboPip = document.createElement("span");
+    comboPip.className = "hud-feed-pip";
+    comboPip.dataset.tier = String(comboTier);
+    comboPip.textContent = `${comboMultiplier.toFixed(1)}X`;
     const tierName = comboTier === 1 ? "RAMPAGE" : comboTier === 2 ? "SAVAGE" : "CARNAGE";
-    displayVerb = `${verb} [${comboMultiplier.toFixed(1)}x ${tierName}]`;
+    comboPip.title = tierName;
   }
 
   // * Cartoon KO marker — impact burst for attributed kills (attacker color),
@@ -2560,6 +2595,7 @@ export function addKillFeedEntry(actorName, actorColor, verb, targetName, target
     if (isHostPlayerName(actorName)) row.appendChild(makeHostGlyph());
     row.appendChild(actor);
     row.appendChild(v);
+    if (comboPip) row.appendChild(comboPip);
     if (isHostPlayerName(targetName)) row.appendChild(makeHostGlyph());
     row.appendChild(target);
   } else {
@@ -2573,14 +2609,19 @@ export function addKillFeedEntry(actorName, actorColor, verb, targetName, target
     if (isHostPlayerName(targetName)) row.appendChild(makeHostGlyph());
     row.appendChild(target);
     row.appendChild(v);
+    if (comboPip) row.appendChild(comboPip);
   }
 
-  elements.feed.prepend(row);
+  const rowHost = elements.feedRows || elements.feed;
+  rowHost.prepend(row);
+  // * The receipt only exists while it has transactions — otherwise a bare
+  // * "TRANSACTION LOG" header floats over the arena all round.
+  elements.feed.classList.remove("is-empty");
   animateKillFeedEnter(row);
 
   // * Trim overflow synchronously — animated exit is only for timed auto-dismiss.
-  while (elements.feed.children.length > 4) {
-    const last = elements.feed.lastElementChild;
+  while (rowHost.children.length > 4) {
+    const last = rowHost.lastElementChild;
     if (!last) break;
     if (last instanceof HTMLElement) {
       cancelKillFeedExitTimer(last);
@@ -2650,14 +2691,9 @@ export function hideGameplayElements() {
   if (elements.conn) elements.conn.style.display = "none";
   if (elements.feed) {
     elements.feed.style.display = "none";
-    while (elements.feed.firstChild) {
-      const child = elements.feed.firstChild;
-      if (child instanceof HTMLElement) {
-        cancelKillFeedExitTimer(child);
-        cancelElementAnimations(child);
-      }
-      elements.feed.removeChild(child);
-    }
+    // * Clear the ROWS, not the panel: the header + counter-skew wrapper are
+    // * permanent structure, not content.
+    clearKillFeedRows();
   }
   // * Score-chip KO doodads (hidden with scores, but stop dangling timers).
   if (elements.scoreBoxes) {
@@ -2699,14 +2735,9 @@ export function showGameplayElements() {
 export function clearFeed() {
   if (elements.feed) {
     elements.feed.style.display = "none";
-    while (elements.feed.firstChild) {
-      const child = elements.feed.firstChild;
-      if (child instanceof HTMLElement) {
-        cancelKillFeedExitTimer(child);
-        cancelElementAnimations(child);
-      }
-      elements.feed.removeChild(child);
-    }
+    // * Clear the ROWS, not the panel: the header + counter-skew wrapper are
+    // * permanent structure, not content.
+    clearKillFeedRows();
   }
 }
 

@@ -512,16 +512,8 @@
   overflow: hidden;
 }
 
-/* Cart-color edge stripe — the chip's identity mark. */
-#hud .hud-scoreBox::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 4px;
-  background: var(--hud-glow);
-}
+/* No cart-colour edge stripe: mock 6a carries identity in the emblem and the
+   leader/YOU border, and the stripe fought the punched tag nose. */
 /* Counter-skew the contents so text stays upright inside the skewed tag. */
 #hud .hud-scoreBox > * { transform: skewX(8deg); }
 /* Punched tag hole at the nose. */
@@ -556,17 +548,8 @@
   box-shadow: var(--slab-shadow), 0 0 22px var(--glow-magenta-16);
 }
 /* YOU reads ~15% larger than the field. */
-#hud .hud-scoreBox.isLocal .hud-scoreRank { font-size: clamp(14px, 1.6vw, 18px); }
 #hud .hud-scoreBox.isLocal .hud-scoreLabel { font-size: clamp(12px, 1.4vw, 16px); }
-#hud .hud-scoreBox.isLocal .hud-scoreValue { font-size: clamp(15px, 1.8vw, 21px); }
-
-#hud .hud-scoreRank {
-  font-family: var(--hud-display);
-  font-size: clamp(12px, 1.4vw, 16px);
-  color: var(--hud-glow);
-  min-width: 16px;
-  flex-shrink: 0;
-}
+#hud .hud-scoreBox.isLocal .hud-scoreValue { font-size: clamp(17px, 2vw, 25px); }
 
 #hud .hud-scoreLabel {
   font-family: var(--hud-ui);
@@ -581,19 +564,62 @@
   color: var(--color-sticker-white);
 }
 
-#hud .hud-scoreValue {
-  font-family: var(--hud-display);
-  font-size: clamp(13px, 1.5vw, 18px);
-  color: var(--hud-glow);
-  min-width: 1.5em;
+/* Score prints like a till total (mock 6a): the number over a barcode strip. */
+#hud .hud-scoreValueWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
   flex-shrink: 0;
-  text-align: right;
 }
 
+#hud .hud-scoreValue {
+  font-family: var(--hud-mono);
+  font-weight: 700;
+  font-size: clamp(15px, 1.7vw, 22px);
+  color: var(--color-sticker-white);
+  min-width: 1.2em;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+#hud .hud-scoreBarcode {
+  display: block;
+  width: 26px;
+  height: 7px;
+  margin-top: 3px;
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(242, 237, 228, 0.7) 0 1px,
+    transparent 1px 3px,
+    rgba(242, 237, 228, 0.7) 3px 5px,
+    transparent 5px 6px
+  );
+}
+
+/* Everyone but the leader and YOU prints at 68% — the mock's quiet field. */
+#hud .hud-scoreBox:not(.isLocal):not(.isLeader) .hud-scoreValue,
+#hud .hud-scoreBox:not(.isLocal):not(.isLeader) .hud-scoreLabel {
+  color: rgba(242, 237, 228, 0.68);
+}
+
+#hud .hud-scoreBox:not(.isLocal):not(.isLeader) .hud-scoreBarcode {
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(242, 237, 228, 0.4) 0 1px,
+    transparent 1px 3px,
+    rgba(242, 237, 228, 0.4) 3px 5px,
+    transparent 5px 6px
+  );
+}
+
+/* YOU is cyan in the mock — the one fixed identity colour, not the cart tint
+   (which is already carried by the emblem). */
 #hud .hud-scoreYou {
-  font-family: var(--hud-display);
+  font-family: var(--hud-mono);
+  font-weight: 700;
   font-size: 10px;
-  background: var(--hud-glow);
+  background: var(--color-cyan);
   color: var(--color-ink-deep);
   padding: 2px 5px;
   border-radius: 4px;
@@ -604,34 +630,69 @@
   display: none;
 }
 
+/* Kill feed = the store's TRANSACTION LOG (mock 6a): ONE receipt slab with a
+   printed header, not a scatter of per-KO plates. The slab owns the skew; the
+   inner wrapper owns the counter-skew and is never animated, because the rows
+   inside it are (a counter-skew on the row would be overwritten inline). */
 #hud .hud-feed {
+  display: block;
+  pointer-events: none;
+  padding: 9px 18px 11px;
+  background: var(--color-ink);
+  border: 1px solid var(--border-white-12);
+  border-radius: 6px;
+  box-shadow: var(--slab-shadow);
+  transform: skewX(-8deg);
+  font-family: var(--hud-mono);
+}
+
+/* No transactions yet → no receipt (never a bare header over the arena). */
+#hud .hud-feed.is-empty { display: none; }
+
+#hud .hud-feed-inner { transform: skewX(8deg); }
+
+#hud .hud-feed-hd {
+  font-size: clamp(7px, 0.8vw, 8px);
+  letter-spacing: 0.3em;
+  color: rgba(242, 237, 228, 0.4);
+  text-align: center;
+  margin-bottom: 6px;
+  white-space: nowrap;
+}
+
+#hud .hud-feed-rows {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: clamp(6px, 0.9vw, 10px);
+  gap: clamp(4px, 0.6vw, 7px);
   text-align: right;
-  pointer-events: none;
-  /* Room for each plate's hard shadow. */
-  padding: 2px 5px 6px 2px;
 }
 
-/* Each elimination is its own little sticker plate — the KO gets celebrated,
-   not logged. The VERB is the hero word: it's the joke. */
+/* A row is a printed line on the receipt now — the slab material moved up to
+   the panel, so the row keeps only its type and rhythm. */
 #hud .hud-feed-row {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 7px;
-  padding: 4px 10px;
-  background: var(--color-ink);
-  border-radius: 8px;
-  border: 1px solid var(--border-white-12);
-  box-shadow: var(--slab-shadow-sm);
-  font-size: clamp(11px, 1.3vw, 14px);
-  letter-spacing: 0.5px;
+  gap: 10px;
+  font-size: clamp(11px, 1.3vw, 13px);
+  letter-spacing: 0.04em;
   text-transform: uppercase;
+  white-space: nowrap;
   opacity: 0;
   will-change: transform, opacity;
+}
+
+/* Streak pip on a logged KO — the mock's orange chip between actor and victim. */
+#hud .hud-feed-pip {
+  font-family: var(--hud-mono);
+  font-weight: 700;
+  font-size: clamp(9px, 1vw, 11px);
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: var(--color-combo-t3, #ff8a3d);
+  color: var(--color-ink-deep);
+  flex-shrink: 0;
 }
 
 #hud .hud-feed-icon {
@@ -804,9 +865,6 @@
     padding: clamp(4px, 1vw, 10px) clamp(6px, 1.2vw, 12px);
     gap: clamp(3px, 0.6vw, 6px);
   }
-  #hud .hud-scoreRank {
-    font-size: clamp(11px, 1.2vw, 14px);
-  }
   #hud .hud-scoreLabel {
     font-size: clamp(10px, 1.1vw, 12px);
   }
@@ -875,10 +933,6 @@
     justify-content: center;
     gap: 2px;
     padding: clamp(4px, 1.2vw, 6px) clamp(2px, 0.8vw, 4px);
-    min-width: 0;
-  }
-  #hud:not(.hud-touch) .hud-scoreRank {
-    font-size: clamp(9px, 2.2vw, 11px);
     min-width: 0;
   }
   #hud:not(.hud-touch) .hud-scoreLabel {
@@ -1535,14 +1589,9 @@
 #hud.hud-touch .hud-scoreBadge {
   display: none !important;
 }
-#hud.hud-touch .hud-scoreRank {
-  font-size: clamp(10px, 2.4vw, 12px);
-  min-width: 0;
-}
 #hud.hud-touch .hud-scoreValue {
   font-size: clamp(12px, 2.8vw, 15px);
 }
-#hud.hud-touch .hud-scoreBox.isLocal .hud-scoreRank { font-size: clamp(11px, 2.7vw, 14px); }
 #hud.hud-touch .hud-scoreBox.isLocal .hud-scoreValue { font-size: clamp(14px, 3.2vw, 17px); }
 
 /* Kill feed — top-right under utility, right-aligned (desktop side).
