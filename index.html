@@ -924,27 +924,43 @@
     </div>
   </div>
   <div id="cr-friends-screen" style="display:none;" role="dialog" aria-modal="true" aria-label="Invite friends" aria-hidden="true">
-    <div class="cr-overlay-panel cr-overlay-panel--friends">
-      <h2 class="cr-friends-title">INVITE FRIENDS</h2>
-      <p class="cr-friends-desc">Your invite link is copied to your clipboard. Send it to your friends — they'll pick a name and color, then roll into your lobby.</p>
-      <div class="cr-friends-code-block">
-        <span class="cr-friends-code-lbl">ROOM CODE</span>
-        <span class="cr-friends-code" id="cr-friends-code">——</span>
+    <div class="cr-screen cr-screen--panels cr-friends-panel">
+      <header class="cr-screen-hd">
+        <span class="cr-screen-kicker">PRIVATE ROOM · INVITE YOUR CREW</span>
+        <h2 class="cr-screen-title">FRIENDS</h2>
+      </header>
+
+      <div class="cr-screen-panels cr-friends-body">
+        <section class="cr-screen-card cr-friends-card" aria-labelledby="cr-friends-code-hd">
+          <div class="cr-screen-card-hd" id="cr-friends-code-hd">ROOM CODE</div>
+          <div class="cr-friends-code-row">
+            <span class="cr-friends-code" id="cr-friends-code">——</span>
+            <button class="cr-friends-copy" id="cr-friends-copy" type="button">COPY</button>
+          </div>
+          <input class="cr-friends-link" id="cr-friends-link" name="room-link" readonly aria-label="Invite link" />
+          <p class="cr-friends-hint">SHARE THE CODE OR SEND THE LINK — THE ROOM STARTS WHEN EVERYONE'S READY</p>
+        </section>
+
+        <section class="cr-screen-card cr-friends-card" aria-labelledby="cr-friends-diff-hd">
+          <div class="cr-screen-card-hd" id="cr-friends-diff-hd">BOT DIFFICULTY</div>
+          <div class="cr-diff-row cr-diff-row--friends" role="group" aria-label="Bot difficulty">
+            <button type="button" class="cr-diff-btn" data-difficulty="easy" aria-pressed="false"><span class="cr-diff-btn-inner">EASY</span></button>
+            <button type="button" class="cr-diff-btn" data-difficulty="medium" aria-pressed="false"><span class="cr-diff-btn-inner">MEDIUM</span></button>
+            <button type="button" class="cr-diff-btn" data-difficulty="hard" aria-pressed="false"><span class="cr-diff-btn-inner">HARD</span></button>
+          </div>
+          <p class="cr-settings-footnote">EMPTY LANES FILL WITH BOTS AT THIS DIFFICULTY</p>
+        </section>
       </div>
-      <div class="cr-friends-link-row">
-        <input class="cr-friends-link" id="cr-friends-link" name="room-link" readonly aria-label="Invite link" />
-        <button class="cr-friends-copy" id="cr-friends-copy">COPY</button>
+
+      <div class="cr-screen-actions">
+        <button class="cr-overlay-back" id="cr-friends-back" type="button"><span class="cr-screen-btn-inner"><span class="cr-screen-btn-label">← BACK</span></span></button>
+        <button class="cr-overlay-done" id="cr-friends-enter" type="button"><span class="cr-screen-btn-inner"><span class="cr-screen-btn-label">ENTER GAME</span></span></button>
       </div>
-      <div class="cr-friends-diff" id="cr-friends-diff">
-        <span class="cr-friends-diff-lbl">BOT DIFFICULTY</span>
-        <div class="cr-diff-row cr-diff-row--friends" role="group" aria-label="Bot difficulty">
-          <button type="button" class="cr-diff-btn" data-difficulty="easy" aria-pressed="false"><span class="cr-diff-btn-inner">EASY</span></button>
-          <button type="button" class="cr-diff-btn" data-difficulty="medium" aria-pressed="false"><span class="cr-diff-btn-inner">MEDIUM</span></button>
-          <button type="button" class="cr-diff-btn" data-difficulty="hard" aria-pressed="false"><span class="cr-diff-btn-inner">HARD</span></button>
-        </div>
+
+      <div class="cr-screen-hint">
+        <span class="cr-screen-hint-item"><kbd>↵</kbd> ENTER GAME</span>
+        <span class="cr-screen-hint-item"><kbd>ESC</kbd> BACK</span>
       </div>
-      <button class="cr-overlay-done" id="cr-friends-enter">ENTER GAME</button>
-      <button class="cr-overlay-back" id="cr-friends-back">← BACK</button>
     </div>
   </div>
   <canvas id="game"></canvas>

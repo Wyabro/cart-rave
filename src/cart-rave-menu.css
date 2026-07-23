@@ -1143,151 +1143,127 @@ html, body {
   opacity: 0.78;
 }
 
-/* === FRIENDS SCREEN === */
+/* ═══ 7e FRIENDS — invite chrome on the shared .cr-screen shell ═════════════
+   The modal-era invite card (.cr-overlay-panel--friends, .cr-friends-title /
+   -desc / -code-block / -code-lbl / -diff / -diff-lbl / -link-row) is GONE, not
+   layered over: those rules sat later in this file than .cr-screen*, so they
+   would have beaten the shell on source order (the bug that bit 7a and 7c).
+   Mock 7e is a connected room — its left column is this screen (ROOM CODE +
+   share hint), its right roster is the in-game CHECKOUT LINE (hud.css). No
+   socket exists yet here, so the right card is the host's pre-connect BOT
+   DIFFICULTY rather than an invented roster. */
+
+/* Same left-weighted scrim as 7a/7b, overriding the centred radial base. */
 #cr-friends-screen {
   position: fixed;
   inset: 0;
   z-index: 1001;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  background: radial-gradient(ellipse at center, var(--color-bg-deep) 0%, var(--color-bg-black) 90%);
+  align-items: stretch;
+  justify-content: stretch;
+  background:
+    linear-gradient(100deg, #0a0810 0%, #0a0810 30%, rgba(10, 8, 16, 0.6) 70%, rgba(10, 8, 16, 0.9) 100%),
+    radial-gradient(ellipse at 50% 55%, var(--color-bg-deep) 0%, var(--color-bg-black) 95%);
 }
 
-/* Friends panel consolidated onto .cr-overlay-panel (markup adds
-   .cr-overlay-panel--friends); this modifier only carries the center-aligned
-   layout diffs and inherits the ink material + max-height/overflow safety net. */
-.cr-overlay-panel--friends {
-  align-items: center;
-  gap: var(--gap-section);
-  max-width: 520px;
+/* Two cards, mock-width (520px each + gap) — two-class so no single-class band
+   rule on .cr-screen-panels can outrank it from further down the file. */
+.cr-screen-panels.cr-friends-body {
+  max-width: 1064px;
+  align-content: start;
+  align-items: start;
 }
 
-.cr-friends-title {
-  font-family: var(--display);
-  font-weight: 400;
-  font-size: clamp(24px, 4vw, 32px);
-  color: var(--color-sticker-white);
-  paint-order: stroke fill;
-  -webkit-text-stroke: 0.07em var(--color-ink-deep);
-  text-shadow:
-    0.05em 0.05em 0 var(--color-ink-deep),
-    0.1em 0.1em 0 var(--color-ink-deep);
-  letter-spacing: 0.02em;
-  margin: 0;
+.cr-friends-card {
+  gap: clamp(12px, 1.4vw, 18px);
 }
 
-.cr-friends-desc {
-  font-family: var(--mono);
-  font-size: clamp(11px, 1.5vw, 12px);
-  line-height: 1.7;
-  color: rgba(255, 255, 255, 0.65);
-  text-align: center;
-  letter-spacing: 0.03em;
-  margin: 0;
-}
-
-/* 7e invite chrome: the room CODE is the headline (readable over voice chat);
-   the link row underneath is the paste path. */
-.cr-friends-code-block {
+/* The room CODE is the headline (it is what people read out loud); the link
+   underneath is the paste path. */
+.cr-friends-code-row {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 4px;
-  width: 100%;
-  padding: clamp(8px, 1.4vw, 12px);
-  background: var(--color-ink-deep);
-  border: 1px solid var(--border-white-12);
-  border-radius: var(--radius-sm);
-  box-shadow: var(--slab-shadow-sm);
-}
-
-.cr-friends-code-lbl {
-  font-family: var(--mono);
-  font-size: clamp(8px, 1.1vw, 9px);
-  letter-spacing: 0.24em;
-  color: rgba(255, 255, 255, 0.45);
+  gap: clamp(10px, 1.4vw, 16px);
+  min-width: 0;
 }
 
 .cr-friends-code {
-  font-family: var(--ui);
-  font-size: clamp(18px, 3.4vw, 26px);
-  letter-spacing: 0.18em;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: clamp(20px, 2.6vw, 36px);
+  letter-spacing: 0.12em;
   color: var(--color-cyan);
   white-space: nowrap;
 }
 
-/* Host-side pre-connect difficulty — rides the normal join through
-   settingsStore (a LIVE change would have to go through the room broadcast). */
-.cr-friends-diff {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
-}
-
-.cr-friends-diff-lbl {
+/* Hairline cyan, matching the mock — plain text, no inner span: main.js swaps
+   this button's textContent to "COPIED!" and would delete any child markup. */
+.cr-friends-copy {
+  flex: 0 0 auto;
+  padding: 8px clamp(12px, 1.3vw, 16px);
+  background: transparent;
+  border: 1px solid rgba(34, 230, 255, 0.45);
+  border-radius: 5px;
+  box-shadow: none;
+  color: var(--color-cyan);
   font-family: var(--mono);
-  font-size: clamp(8px, 1.1vw, 9px);
-  letter-spacing: 0.24em;
-  color: rgba(255, 255, 255, 0.45);
+  font-weight: 700;
+  font-size: clamp(10px, 1.05vw, 11px);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 120ms var(--ease-slap), color 120ms var(--ease-slap);
 }
 
+.cr-friends-copy:hover {
+  background: rgba(34, 230, 255, 0.12);
+  color: var(--color-sticker-white);
+}
+
+.cr-friends-copy:active {
+  background: var(--color-cyan);
+  color: var(--color-ink);
+}
+
+.cr-friends-link {
+  width: 100%;
+  padding: 9px 12px;
+  background: var(--color-ink-deep);
+  border: 1px solid var(--border-white-10);
+  border-radius: var(--radius-sm);
+  box-shadow: none;
+  color: rgba(34, 230, 255, 0.8);
+  font-family: var(--mono);
+  font-size: clamp(10px, 1.05vw, 12px);
+  letter-spacing: 0.02em;
+  outline: none;
+  min-width: 0;
+}
+
+.cr-friends-hint {
+  margin: auto 0 0;
+  padding-top: clamp(12px, 1.2vw, 18px);
+  border-top: 1px solid var(--border-white-10);
+  font-family: var(--mono);
+  font-size: clamp(9px, 0.95vw, 11px);
+  letter-spacing: 0.06em;
+  line-height: 1.6;
+  color: rgba(242, 237, 228, 0.45);
+}
+
+/* Host-side pre-connect difficulty — rides the normal join through
+   settingsStore (a LIVE change would have to go through the room broadcast).
+   Driven by the same updateDiffButtons/initDiffSelect write path as the menu. */
 .cr-diff-row--friends {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-xs);
   width: 100%;
-}
-
-.cr-friends-link-row {
-  display: flex;
-  width: 100%;
-  gap: var(--space-sm);
-}
-
-.cr-friends-link {
-  flex: 1;
-  padding: var(--pad-audio);
-  background: var(--color-ink-deep);
-  border: none;
-  box-shadow: var(--sticker-micro);
-  border-radius: var(--radius-sm);
-  color: var(--color-cyan);
-  font-family: var(--mono);
-  font-size: clamp(11px, 1.5vw, 13px);
-  outline: none;
-  min-width: 0;
-}
-
-.cr-friends-copy {
-  padding: var(--pad-copy-btn);
-  background: var(--color-ink);
-  border: none;
-  box-shadow: var(--sticker-chip);
-  border-radius: var(--radius-sm);
-  color: var(--color-cyan);
-  font-family: var(--ui);
-  text-transform: uppercase;
-  font-size: clamp(11px, 1.5vw, 13px);
-  cursor: pointer;
-  letter-spacing: 0.08em;
-  transition: transform 120ms var(--ease-slap), box-shadow 120ms var(--ease-slap);
-  flex-shrink: 0;
-}
-
-.cr-friends-copy:hover {
-  transform: translate(-1px, -2px);
-  box-shadow:
-    0 0 0 2.5px var(--color-sticker-white),
-    5px 6px 0 2.5px var(--color-ink-deep),
-    inset 0 2px 0 rgba(255,255,255,0.07);
-}
-
-.cr-friends-copy:active {
-  transform: translate(2px, 2px);
-  box-shadow: var(--sticker-chip-pressed);
 }
 
 /* === CUSTOMIZE SCREEN === */
@@ -2717,26 +2693,17 @@ html, body {
     font-size: clamp(9px, 2vw, 11px);
   }
 
-  /* Friends overlay — compact on mobile */
-  .cr-overlay-panel--friends {
-    gap: clamp(10px, 2.4dvh, 14px);
-  }
-  .cr-friends-title {
-    font-size: clamp(18px, 4.6vw, 24px);
-  }
-  .cr-friends-desc {
-    font-size: clamp(10px, 2.6vw, 12px);
-    line-height: 1.5;
-  }
-  .cr-friends-link-row {
-    gap: clamp(6px, 1.6vw, 8px);
+  /* 7e — the code shrinks so a 9-character room still fits beside COPY on one
+     line (it must never wrap: it is read out loud, not parsed). */
+  .cr-friends-code {
+    font-size: clamp(17px, 4.6vw, 24px);
+    letter-spacing: 0.08em;
   }
   .cr-friends-link {
-    font-size: clamp(10px, 2.8vw, 12px);
+    font-size: clamp(9px, 2.4vw, 11px);
   }
   .cr-friends-copy {
-    font-size: clamp(10px, 2.8vw, 12px);
-    padding: clamp(8px, 2vw, 10px) clamp(10px, 2.6vw, 14px);
+    padding: 7px clamp(10px, 2.6vw, 14px);
   }
 
   /* 7b — the tag grid folds to one column; two 160px tags don't hold a name,
@@ -2990,29 +2957,26 @@ html, body {
     font-size: clamp(8px, 1.8dvh, 10px);
   }
 
-  /* Friends overlay — compact for landscape phones */
-  .cr-overlay-panel--friends {
-    gap: clamp(6px, 1.4dvh, 8px);
-    max-height: 94dvh;
+  /* 7e — landscape phones are short, not narrow: the two cards stay side by
+     side (the band above re-sets .cr-screen-panels to 2 columns) and only the
+     vertical rhythm tightens. */
+  .cr-friends-card {
+    gap: clamp(6px, 1.4dvh, 10px);
   }
-  .cr-friends-title {
-    font-size: clamp(14px, 3dvh, 18px);
-    margin: 0;
-  }
-  .cr-friends-desc {
-    font-size: clamp(8px, 1.8dvh, 10px);
-    line-height: 1.4;
-  }
-  .cr-friends-link-row {
-    gap: 4px;
+  .cr-friends-code {
+    font-size: clamp(15px, 3.4dvh, 22px);
+    letter-spacing: 0.08em;
   }
   .cr-friends-link {
     font-size: clamp(9px, 1.8dvh, 11px);
     padding: clamp(4px, 1vh, 6px) clamp(6px, 1.5vw, 8px);
   }
   .cr-friends-copy {
-    font-size: clamp(9px, 1.8dvh, 11px);
-    padding: clamp(6px, 1.4vh, 8px) clamp(10px, 2.5vw, 12px);
+    padding: clamp(5px, 1.2vh, 7px) clamp(10px, 2.5vw, 12px);
+  }
+  .cr-friends-hint {
+    padding-top: clamp(6px, 1.4dvh, 10px);
+    line-height: 1.45;
   }
 
   /* 7b — landscape phones have height, not width: keep the two tag columns and
