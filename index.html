@@ -824,10 +824,17 @@
           <div class="cr-vol-stack">
             <div class="cr-vol-row">
               <span class="cr-vol-label">♫</span>
-              <div class="cr-vol-track" id="cr-settings-vol-track">
+              <div class="cr-vol-track" id="cr-settings-vol-track" role="slider" tabindex="0" aria-label="Music volume" aria-valuemin="0" aria-valuemax="100" aria-valuenow="25">
                 <div class="cr-vol-fill" id="cr-settings-vol-fill"></div>
               </div>
               <span class="cr-vol-val" id="cr-settings-vol-val">25</span>
+            </div>
+            <div class="cr-vol-row">
+              <span class="cr-vol-label">⚡</span>
+              <div class="cr-vol-track" id="cr-settings-sfx-track" role="slider" tabindex="0" aria-label="Sound effects volume" aria-valuemin="0" aria-valuemax="100" aria-valuenow="25">
+                <div class="cr-vol-fill" id="cr-settings-sfx-fill"></div>
+              </div>
+              <span class="cr-vol-val" id="cr-settings-sfx-val">25</span>
             </div>
           </div>
         </div>

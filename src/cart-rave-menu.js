@@ -29,7 +29,7 @@ import { getQualityTier } from "./utils/qualityMode.js";
 import { settingsStore } from "./stores/settingsStore.js";
 import { DEFAULT_SOLO, normalizeDifficulty } from "./aiDifficulty.js";
 import { togglePostFx, applyQualityTier } from "./ui/graphicsToggles.js";
-import { setAllAudioMuted, setMusicGainValue } from "./ui/audioControls.js";
+import { setAllAudioMuted, setMusicGainValue, setSfxSliderVolume } from "./ui/audioControls.js";
 import { playUiClick } from "./sfxSynth.js";
 import { AUDIO_VOLUME_MAX } from "./stores/audioStore.js";
 import { getRoundState } from "./gameState.js";
@@ -290,6 +290,10 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
   const settingsMuteBtn = $("cr-settings-mute-btn");
   const settingsVolFill = $("cr-settings-vol-fill");
   const settingsVolVal = $("cr-settings-vol-val");
+  const settingsSfxFill = $("cr-settings-sfx-fill");
+  const settingsSfxVal = $("cr-settings-sfx-val");
+  const settingsVolTrackEl = $("cr-settings-vol-track");
+  const settingsSfxTrackEl = $("cr-settings-sfx-track");
   let currentCustomizeCartSvg = null;
   /** @type {CartPreview | null} Live 3D cart preview while customize screen is open. */
   let cartPreview = null;
@@ -1203,13 +1207,14 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
   /**
    * Cached audio state from the last {@link syncAudioUi} call.
    * Used as fallback when syncSettingsAudioUi runs without params (e.g. on Settings open).
-   * @type {{ muted: boolean, musicPct: number, musicNorm?: number } | null}
+   * @type {{ muted: boolean, musicPct: number, musicNorm?: number, sfxPct?: number, sfxNorm?: number } | null}
    */
   let _lastSettingsAudioSync = null;
 
   /**
-   * Syncs Settings overlay mute button and volume display from main-owned audio state.
-   * @param {{ muted: boolean, musicPct: number, musicNorm?: number }} [audio]
+   * Syncs Settings overlay mute button and volume displays (music + SFX) from
+   * main-owned audio state.
+   * @param {{ muted: boolean, musicPct: number, musicNorm?: number, sfxPct?: number, sfxNorm?: number }} [audio]
    */
   function syncSettingsAudioUi(audio) {
     // * Cache the last explicit sync so openSettingsScreen() can reuse it.
@@ -1218,13 +1223,24 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
     const muted = src ? src.muted : audioUiMuted;
     const pct = src ? src.musicPct : 25;
     const norm = src ? (src.musicNorm ?? (src.muted ? 0 : src.musicPct / 100)) : 0.25;
+    const sfxPct = src ? (src.sfxPct ?? 25) : 25;
+    const sfxNorm = src ? (src.sfxNorm ?? (src.muted ? 0 : sfxPct / 100)) : 0.25;
     settingsAudioUiMuted = muted;
     if (settingsVolFill) {
       settingsVolFill.style.setProperty('--vol-scale', String(muted ? 0 : norm));
-      // * Flat printed fill in the palette secondary (sticker material — no gradient/glow).
-      settingsVolFill.style.background = state.palette.secondary;
+      // * Flat printed fill (slab material — no gradient/glow). MUSIC rides the
+      // * palette primary (brand/magenta), SFX the secondary (support/cyan), so the
+      // * two rows read apart while still morphing with the arena palette.
+      settingsVolFill.style.background = state.palette.primary;
     }
     if (settingsVolVal) settingsVolVal.textContent = String(muted ? 'OFF' : pct);
+    if (settingsSfxFill) {
+      settingsSfxFill.style.setProperty('--vol-scale', String(muted ? 0 : sfxNorm));
+      settingsSfxFill.style.background = state.palette.secondary;
+    }
+    if (settingsSfxVal) settingsSfxVal.textContent = String(muted ? 'OFF' : sfxPct);
+    settingsVolTrackEl?.setAttribute('aria-valuenow', String(muted ? 0 : pct));
+    settingsSfxTrackEl?.setAttribute('aria-valuenow', String(muted ? 0 : sfxPct));
     if (!settingsMuteBtn) return;
     if (muted) {
       settingsMuteBtn.classList.add('muted');
@@ -1347,15 +1363,37 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
         }
       });
     }
-    // * Proxy the volume track click so the position calculation works on its rect.
-    const settingsVolTrack = document.getElementById('cr-settings-vol-track');
-    if (settingsVolTrack) {
-      settingsVolTrack.addEventListener('click', (e) => {
-        const rect = settingsVolTrack.getBoundingClientRect();
-        const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-        setMusicGainValue(Math.round(ratio * AUDIO_VOLUME_MAX * 100) / 100);
-      });
-    }
+    // * Proxy the volume track clicks so the position calculation works on each rect.
+    // * Both rows share one handler; only the setter differs (music gain vs SFX gain).
+    wireSettingsVolTrack(settingsVolTrackEl, setMusicGainValue);
+    wireSettingsVolTrack(settingsSfxTrackEl, setSfxSliderVolume);
+  }
+
+  /**
+   * Wires one Settings volume track: click/drag-free position → normalized gain,
+   * plus ←/→ keyboard steps for the slider role.
+   * @param {HTMLElement | null} track
+   * @param {(v: number) => void} setValue
+   */
+  function wireSettingsVolTrack(track, setValue) {
+    if (!track) return;
+    const applyRatio = (ratio) => {
+      const clamped = Math.max(0, Math.min(1, ratio));
+      setValue(Math.round(clamped * AUDIO_VOLUME_MAX * 100) / 100);
+    };
+    track.addEventListener('click', (e) => {
+      const rect = track.getBoundingClientRect();
+      applyRatio((e.clientX - rect.left) / rect.width);
+    });
+    track.addEventListener('keydown', (e) => {
+      const step = e.key === 'ArrowRight' || e.key === 'ArrowUp' ? 0.05
+        : e.key === 'ArrowLeft' || e.key === 'ArrowDown' ? -0.05
+        : 0;
+      if (!step) return;
+      e.preventDefault();
+      const cur = Number(track.getAttribute('aria-valuenow') || 0) / 100;
+      applyRatio(cur + step);
+    });
   }
 
   // sRGB hex -> OKLCH {L, C, H(deg)}. Drives the registered --wash-* props so
@@ -1505,15 +1543,15 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
   // ─── Mute / volume (view only — main.js owns audio state) ─────────────────
   /**
    * Syncs menu mute button and music slider from main-owned audio state.
-   * @param {{ muted: boolean, musicPct: number, musicNorm?: number }} audio
+   * @param {{ muted: boolean, musicPct: number, musicNorm?: number, sfxPct?: number, sfxNorm?: number }} audio
    */
-  function syncAudioUi({ muted, musicPct, musicNorm }) {
+  function syncAudioUi({ muted, musicPct, musicNorm, sfxPct, sfxNorm }) {
     audioUiMuted = Boolean(muted);
     const scale = muted ? 0 : (musicNorm ?? musicPct / 100);
     if (musicVolFill) musicVolFill.style.setProperty('--vol-scale', String(scale));
     if (musicVolVal) musicVolVal.textContent = String(muted ? 'OFF' : musicPct);
     // * Always sync the Settings overlay, even if the main-menu muteBtn is missing.
-    syncSettingsAudioUi({ muted, musicPct, musicNorm });
+    syncSettingsAudioUi({ muted, musicPct, musicNorm, sfxPct, sfxNorm });
     if (!muteBtn) return;
     if (muted) {
       muteBtn.classList.add('muted');
