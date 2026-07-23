@@ -691,45 +691,59 @@
     </div>
   </div>
   <div id="cr-customize-screen" style="display:none;" aria-hidden="true">
-    <div class="cr-overlay-panel cr-customize-panel">
-      <h2 class="cr-customize-title">YOUR CART</h2>
-      <p class="cr-customize-desc">Pick your color and theme — preview matches in-game.</p>
+    <div class="cr-screen cr-customize-panel">
+      <header class="cr-screen-hd">
+        <span class="cr-screen-kicker">CART DETAILING DEPT.</span>
+        <h2 class="cr-screen-title cr-customize-title">CUSTOMIZE</h2>
+      </header>
 
-      <div class="cr-customize-preview">
-        <div class="cr-customize-preview-shadow" id="cr-customize-cart-shadow"></div>
-        <div class="cr-customize-preview-cart" id="cr-customize-cart-holder"></div>
-      </div>
-
-      <nav class="cr-customize-tabs" role="tablist" aria-label="Cart customization categories">
-        <button type="button" class="cr-customize-tab active" role="tab" aria-selected="true" aria-controls="cr-customize-section-color" data-tab="body">BODY COLOR</button>
-        <button type="button" class="cr-customize-tab" role="tab" aria-selected="false" aria-controls="cr-customize-section-pattern" data-tab="pattern">PATTERN</button>
-        <button type="button" class="cr-customize-tab" role="tab" aria-selected="false" aria-controls="cr-customize-section-sunglasses" data-tab="sunglasses">SUNGLASSES</button>
+      <nav class="cr-screen-rail cr-customize-tabs" role="tablist" aria-label="Cart customization categories">
+        <button type="button" class="cr-customize-tab active" role="tab" aria-selected="true" aria-controls="cr-customize-section-color" data-tab="body"><span class="cr-customize-tab-inner">COLOR</span></button>
+        <button type="button" class="cr-customize-tab" role="tab" aria-selected="false" aria-controls="cr-customize-section-sunglasses" data-tab="sunglasses"><span class="cr-customize-tab-inner">SUNGLASSES</span></button>
+        <button type="button" class="cr-customize-tab" role="tab" aria-selected="false" aria-controls="cr-customize-section-pattern" data-tab="pattern"><span class="cr-customize-tab-inner">PATTERN</span></button>
       </nav>
 
-      <div class="cr-customize-section" id="cr-customize-section-color" data-section="body" role="tabpanel">
-        <div class="cr-color-label">CHOOSE COLOR</div>
-        <div class="cr-color-row cr-color-row--customize" id="cr-customize-color-row" role="radiogroup" aria-label="Choose cart color"></div>
-        <div class="cr-custom-hue-wrap" id="cr-custom-hue-wrap" hidden>
-          <div class="cr-color-label">CUSTOM HUE</div>
-          <div class="cr-custom-hue-row">
-            <input type="range" class="cr-custom-hue-slider" id="cr-custom-hue-slider" min="0" max="360" value="280" aria-label="Custom cart hue" />
-            <span class="cr-custom-hue-val" id="cr-custom-hue-val" aria-hidden="true">280°</span>
+      <div class="cr-screen-stage cr-customize-preview">
+        <div class="cr-customize-preview-cart" id="cr-customize-cart-holder"></div>
+        <div class="cr-customize-preview-shadow" id="cr-customize-cart-shadow"></div>
+      </div>
+
+      <div class="cr-screen-panel">
+        <div class="cr-customize-section" id="cr-customize-section-color" data-section="body" role="tabpanel">
+          <div class="cr-color-label">CHOOSE COLOR</div>
+          <div class="cr-color-row cr-color-row--customize" id="cr-customize-color-row" role="radiogroup" aria-label="Choose cart color"></div>
+          <div class="cr-custom-hue-wrap" id="cr-custom-hue-wrap" hidden>
+            <div class="cr-color-label cr-custom-hue-hd">
+              <span>CUSTOM HUE</span>
+              <span class="cr-custom-hue-val" id="cr-custom-hue-val" aria-hidden="true">280°</span>
+            </div>
+            <div class="cr-custom-hue-row">
+              <input type="range" class="cr-custom-hue-slider" id="cr-custom-hue-slider" min="0" max="360" value="280" aria-label="Custom cart hue" />
+            </div>
           </div>
+        </div>
+
+        <div class="cr-customize-section" id="cr-customize-section-pattern" data-section="pattern" role="tabpanel" hidden>
+          <div class="cr-color-label">CHOOSE PATTERN</div>
+          <div class="cr-pattern-row" id="cr-customize-pattern-row" role="radiogroup" aria-label="Choose cart pattern"></div>
+        </div>
+
+        <div class="cr-customize-section" id="cr-customize-section-sunglasses" data-section="sunglasses" role="tabpanel" hidden>
+          <div class="cr-color-label">MIRROR FINISH</div>
+          <div class="cr-sunglasses-row" id="cr-customize-sunglasses-row" role="radiogroup" aria-label="Choose sunglasses mirror finish"></div>
         </div>
       </div>
 
-      <div class="cr-customize-section" id="cr-customize-section-pattern" data-section="pattern" role="tabpanel" hidden>
-        <div class="cr-color-label">CHOOSE PATTERN</div>
-        <div class="cr-pattern-row" id="cr-customize-pattern-row" role="radiogroup" aria-label="Choose cart pattern"></div>
+      <div class="cr-screen-actions">
+        <button class="cr-overlay-done" id="cr-customize-done" type="button"><span>DONE</span></button>
+        <button class="cr-overlay-back" id="cr-customize-back" type="button">← BACK</button>
       </div>
 
-      <div class="cr-customize-section" id="cr-customize-section-sunglasses" data-section="sunglasses" role="tabpanel" hidden>
-        <div class="cr-color-label">MIRROR FINISH</div>
-        <div class="cr-sunglasses-row" id="cr-customize-sunglasses-row" role="radiogroup" aria-label="Choose sunglasses mirror finish"></div>
+      <div class="cr-screen-hint">
+        <span class="cr-screen-hint-item"><kbd>W/S</kbd> TAB</span>
+        <span class="cr-screen-hint-item"><kbd>◂ ▸</kbd> PICK</span>
+        <span class="cr-screen-hint-item"><kbd>ESC</kbd> BACK</span>
       </div>
-
-      <button class="cr-overlay-done" id="cr-customize-done" type="button">DONE</button>
-      <button class="cr-overlay-back" id="cr-customize-back" type="button">← BACK</button>
     </div>
   </div>
   <div id="cr-howto-screen" style="display:none;" aria-hidden="true">
