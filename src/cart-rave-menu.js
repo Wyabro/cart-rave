@@ -1540,13 +1540,20 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
   }
 
   function syncGfxButtonStates() {
-    if (!gfxBtn || !lqBtn) return;
-    const postFxOn = getPostFxEnabled();
-    gfxBtn.querySelector(".cr-btn-label").textContent = postFxOn ? "POST-FX: ON" : "POST-FX: OFF";
-    gfxBtn.classList.toggle("cr-btn--gfx-off", !postFxOn);
-    const tier = getQualityTier();
-    lqBtn.querySelector(".cr-btn-label").textContent = `QUALITY: ${tier.toUpperCase()}`;
-    lqBtn.classList.toggle("cr-btn--lq-on", tier === "low");
+    if (gfxBtn) {
+      const postFxOn = getPostFxEnabled();
+      gfxBtn.querySelector(".cr-btn-label").textContent = postFxOn ? "POST-FX: ON" : "POST-FX: OFF";
+      gfxBtn.classList.toggle("cr-btn--gfx-off", !postFxOn);
+    }
+    const seg = document.getElementById("cr-quality-seg");
+    if (seg) {
+      const tier = getQualityTier();
+      seg.querySelectorAll(".cr-seg-chip").forEach((chip) => {
+        const on = chip.dataset.tier === tier;
+        chip.classList.toggle("is-active", on);
+        chip.setAttribute("aria-checked", on ? "true" : "false");
+      });
+    }
   }
 
   if (gfxBtn) {
@@ -1560,13 +1567,14 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
     });
   }
 
-  if (lqBtn) {
-    lqBtn.addEventListener("click", () => {
-      const order = /** @type {import("./utils/qualityMode.js").QualityTier[]} */ (["low", "medium", "high"]);
-      const next = order[(order.indexOf(getQualityTier()) + 1) % order.length];
-      applyQualityTier(next);
-      syncGfxButtonStates();
-      animateTogglePop(lqBtn);
+  const qualitySeg = document.getElementById("cr-quality-seg");
+  if (qualitySeg) {
+    qualitySeg.querySelectorAll(".cr-seg-chip").forEach((chip) => {
+      chip.addEventListener("click", () => {
+        applyQualityTier(/** @type {import("./utils/qualityMode.js").QualityTier} */ (chip.dataset.tier));
+        syncGfxButtonStates();
+        animateTogglePop(chip);
+      });
     });
   }
 

@@ -838,8 +838,14 @@
         <div class="cr-graphics-btns">
           <button type="button" class="cr-btn cr-btn--graphics" id="cr-gfx-btn" data-action="toggle-postfx">
             <span class="cr-btn-inner"><span class="cr-btn-label">POST-FX: ON</span></span>          </button>
-          <button type="button" class="cr-btn cr-btn--graphics" id="cr-lq-btn" data-action="toggle-lowquality">
-            <span class="cr-btn-inner"><span class="cr-btn-label">QUALITY: HIGH</span></span>          </button>
+          <div class="cr-gfx-seg-row">
+            <span class="cr-gfx-seg-label">QUALITY</span>
+            <div class="cr-quality-seg" id="cr-quality-seg" role="radiogroup" aria-label="Graphics quality">
+              <button type="button" class="cr-seg-chip" data-tier="low" role="radio" aria-checked="false">LOW</button>
+              <button type="button" class="cr-seg-chip" data-tier="medium" role="radio" aria-checked="false">MEDIUM</button>
+              <button type="button" class="cr-seg-chip" data-tier="high" role="radio" aria-checked="false">HIGH</button>
+            </div>
+          </div>
         </div>
       </div>
 

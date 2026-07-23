@@ -3087,3 +3087,39 @@ html, body {
   .cr-cmd .cr-btn-label { font-size: 18px; }
   .cr-cmd-qual { white-space: normal; }
 }
+
+/* Settings — segmented QUALITY control (LOW/MED/HIGH; active = yellow, 7c). */
+.cr-gfx-seg-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+.cr-gfx-seg-label {
+  font-family: var(--mono);
+  font-size: clamp(10px, 1.1vw, 12px);
+  letter-spacing: 0.14em;
+  color: var(--color-muted);
+  text-transform: uppercase;
+}
+.cr-quality-seg { display: flex; gap: 6px; }
+.cr-seg-chip {
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: clamp(9px, 1vw, 11px);
+  padding: 5px 12px;
+  border-radius: 5px;
+  border: 1px solid var(--border-white-14);
+  background: transparent;
+  color: var(--color-muted);
+  cursor: pointer;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transition: background 120ms var(--ease-slap), color 120ms var(--ease-slap);
+}
+.cr-seg-chip:hover { color: var(--color-sticker-white); }
+.cr-seg-chip.is-active {
+  background: var(--color-yellow);
+  border-color: transparent;
+  color: var(--color-ink);
+}
