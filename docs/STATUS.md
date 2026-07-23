@@ -254,46 +254,46 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
+2026-07-22 (UI — fight-night redesign, sub-screens + results + friends) — Branch
+`redesign/fight-night-ui`, **unpushed**, 6 new cuts (`690d5c6`..`de6797f`): settings SFX
+slider (7c), customize slab chips + yellow tabs (7a), how-to aisle cards + scoring/controls
+strips (7d), pause re-layout with PAUSED headline + 2×2 toggle grid (7f), results podium +
+match receipt (7g), Friends CHECKOUT LINE full-screen lobby + invite chrome (7e, model B /
+start-rule B1). Path A (restyled cards) throughout — full-screen 7a–7g rebuilds still
+deferred to a joint visual review. Verified by DOM/computed-style introspection only; the
+**HUD, results-in-match and a live friends room remain unseen** (Browser pane can't
+composite or complete mode entry on this host). Progress log:
+[planning/fight-night-ui-handover.md](./planning/fight-night-ui-handover.md).
+
 2026-07-22 (B1 AI-DIFF-1 SHIPPED) — `49bfc2a` / `index-Dxyw7U08.js` / Version `4e33515b`.
 Easy/Med/Hard NPC decision tiers on prod. Medium = baseline identity; Solo default Easy +
-Arenas picker; Quickplay forced Medium; Friends host pick via `host_round.aiDifficulty`.
+Arenas picker (`cr-diff-btn`); Quickplay forced Medium; Friends host pick via store +
+`host_round.aiDifficulty` latch (mirrors `levelId`; no `roundValidation` touch).
 Playtest-tuned Easy −15% / Hard +15% vs first pass. Hard `steerGainMax` ≤ 1.85.
-
-2026-07-22 (B1 AI-DIFF-1 — implemented, unpushed) — Easy/Med/Hard NPC decision tiers.
-Medium = identity (current baseline). Solo default Easy + menu picker under Arenas
-(`cr-diff-btn`); Quickplay forced Medium; Friends host pick via store + `host_round.aiDifficulty`
-latch (mirrors `levelId`; no `roundValidation` touch). Hard `steerGainMax` capped at 1.85.
-Gates: `npm run qa` green (767 tests). Awaiting Wyatt playtest before ship.
 
 2026-07-22 (A7 ANLX-VIEW-1 PASS) — Wyatt smoke: `analytics:pull` + Command Center Analytics
 panel. Reading surface closed. Reminder: clear analytics DO before public playtest
 (`DELETE /api/analytics`). Unpushed until Wyatt ships.
 
-2026-07-22 (COUNTDOWN-ARM-1 PASS) — Wyatt two-browser quickplay smoke on `e08e5f5`:
-full 3-2-1. Cap-200 menu PASS earlier. A6 closed. Battery was 5/6 (spawnlock only —
-`countdown_3` miss under load after gameharness; drive checks green). No active card.
+2026-07-22 (COUNTDOWN-ARM-1 SHIPPED + PASS) — Continuous-mode server waits for
+`MSG.clientPlayReady` (post-`ensureSessionCartsReady`) before minting `startsAtMs`, with a
+`PLAY_READY_TIMEOUT_MS=12s` ceiling that arms a fresh full window; Cap-200 client defer stays
+as straggler safety net. Shipped `e08e5f5`; Wyatt two-browser quickplay smoke on it = full
+3-2-1. A6 closed, no active card. Battery 5/6 (spawnlock only — `countdown_3` miss under load
+after gameharness; drive checks green).
 
-2026-07-22 (COUNTDOWN-ARM-1) — Continuous-mode server waits for `MSG.clientPlayReady`
-(post-`ensureSessionCartsReady`) before minting `startsAtMs`, with
-`PLAY_READY_TIMEOUT_MS=12s` ceiling that arms a fresh full window (timeout A). Cap-200
-client defer stays as straggler safety net. Shipped `e08e5f5`.
-
-2026-07-22 (Cap-200 — A6b false green) — Cap-200 (2eedc04, reloader, 4090) showed
-`menuVisible:false` while DOM menu resurrected: boot-splash late `CartRave.show()` after
-`commitMenuHiddenForGame`. Continuous-mode `colorPick` arm also truncated host countdown to
-1/GO. Fix shipped `8646dae`: `shouldBootRevealMenu` guard; host-MP defer; harness +
-`crRootDisplay`. Wyatt smoke: menu PASS; countdown better but Cap-203 residual → COUNTDOWN-ARM-1.
+2026-07-22 (A6b + Cap-200 — false green, then fixed) — netharness `hostReload` (mid-round
+host tab reload) read 13/13 live but was a **false green**: a flag-only assert. Cap-200
+(2eedc04, reloader, 4090) showed `menuVisible:false` while the DOM menu resurrected —
+boot-splash late `CartRave.show()` after `commitMenuHiddenForGame`; continuous-mode
+`colorPick` arm also truncated the host countdown to 1/GO. Fix shipped `8646dae`
+(`shouldBootRevealMenu` guard, host-MP defer, harness `crRootDisplay`); Wyatt smoke: menu
+PASS, countdown residual → COUNTDOWN-ARM-1 above.
 
 2026-07-22 (process — plan→ack→apply firewall) — Cold-start docs made the A6b skip
 impossible to miss: BRIEFING tag **ACTIVE CARD** (was DO THIS NOW) + explicit
 "not permission to edit"; STATUS Do-not #1; AGENTS HOW WORK step 0; paste-able opener.
 Lesson: buried STANDING bullets lose to a loud "do this now" heading.
-
-2026-07-22 (A6b — netharness `hostReload`) — Mid-round host tab reload scenario:
-survivor promotes, reloaded tab rejoins as non-host (sole-host), menu not stuck over game
-(`menuVisible`/`axisWired`), both drive, zero sim errors. **13/13 live** — later **false
-green** on Cap-200 (flag-only assert); see Cap-200 entry above. Continuous-mode lobby arm
-kept. A6a+A6b still unpushed pending Cap-200 smoke.
 
 2026-07-21 (ARCH — living architecture intelligence layer) — Extends the Command Center with a
 generated codebase map, both machine- and human-facing. New `npm run arch` (in `qa` + dashboard
