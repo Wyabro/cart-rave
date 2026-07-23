@@ -256,7 +256,7 @@
   display: inline-flex; align-items: center; gap: 5px;
   padding: 1px 8px;
   background: var(--color-ink);
-  box-shadow: var(--sticker-micro);
+  box-shadow: var(--slab-shadow-sm);
   border-radius: var(--radius-sm);
   font-family: var(--results-mono);
   font-size: 8px;

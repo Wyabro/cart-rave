@@ -237,7 +237,7 @@
   border-radius: var(--radius-sm);
   border: none;
   background: var(--color-ink);
-  box-shadow: var(--sticker-micro);
+  box-shadow: var(--slab-shadow-sm);
   color: var(--color-sticker-white);
   font-size: clamp(14px, 3.5vw, 16px);
   cursor: pointer;

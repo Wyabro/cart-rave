@@ -1458,9 +1458,9 @@ html, body {
     max(clamp(14px, 2.5vw, 24px), env(safe-area-inset-bottom, 0px))
     max(clamp(14px, 2.5vw, 24px), env(safe-area-inset-left, 0px));
   background: var(--color-ink);
-  border: none;
-  border-radius: var(--radius-panel);
-  box-shadow: var(--sticker-billboard);
+  border: 1px solid var(--border-white-12);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--slab-shadow);
 }
 
 .cr-overlay-panel--settings {
@@ -1495,11 +1495,12 @@ html, body {
 
 /* The one DONE/BACK pair for every sub-screen (howto/challenges/settings/
    customize/friends). DONE = portal-green sticker fill + ink text; BACK = ghost. */
+/* DONE = the screen's single yellow primary; BACK = ghost hairline. */
 .cr-overlay-done {
   width: 100%;
   padding: var(--pad-btn);
-  background: var(--color-portal);
-  border: none;
+  background: var(--color-yellow);
+  border: 1px solid var(--border-white-12);
   border-radius: var(--radius-sm);
   color: var(--color-ink-deep);
   font-family: var(--ui);
@@ -1508,28 +1509,25 @@ html, body {
   letter-spacing: 0.06em;
   cursor: pointer;
   transition: transform 120ms var(--ease-slap), box-shadow 120ms var(--ease-slap);
-  box-shadow: var(--sticker-chip);
+  box-shadow: var(--slab-shadow);
 }
 
 .cr-overlay-done:hover,
 .cr-overlay-done:focus-visible {
   transform: translate(-1px, -2px);
-  box-shadow:
-    0 0 0 2.5px var(--color-sticker-white),
-    5px 6px 0 2.5px var(--color-ink-deep),
-    inset 0 2px 0 rgba(255,255,255,0.07);
+  box-shadow: var(--slab-shadow-hover);
 }
 
 .cr-overlay-done:active {
   transform: translate(2px, 2px);
-  box-shadow: var(--sticker-chip-pressed);
+  box-shadow: var(--slab-shadow-pressed);
 }
 
 .cr-overlay-back {
   padding: var(--space-sm) 20px;
   background: transparent;
-  border: none;
-  box-shadow: 0 0 0 1.5px var(--color-sticker-white);
+  border: 1px solid var(--border-white-20);
+  box-shadow: none;
   border-radius: var(--radius-sm);
   color: var(--color-sticker-white);
   font-family: var(--mono);
@@ -1545,12 +1543,12 @@ html, body {
 .cr-overlay-back:focus-visible {
   background: var(--color-ink);
   transform: translate(-1px, -2px);
-  box-shadow: var(--sticker-micro);
+  box-shadow: var(--slab-shadow-sm);
 }
 
 .cr-overlay-back:active {
   transform: translate(1px, 1px);
-  box-shadow: 0 0 0 1.5px var(--color-sticker-white);
+  box-shadow: none;
 }
 
 /* === HOW TO PLAY CONTENT ===
