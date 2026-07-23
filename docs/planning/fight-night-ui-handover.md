@@ -11,8 +11,10 @@
 - **Design source:** `~/Downloads/Game Menu UI Refinement.zip` → `design_handoff_main_menu/README.md` +
   `Menu Redesign Concepts.dc.html`. The README's 7a–7g section carries the per-screen prose; the
   `.dc.html` carries the exact measurements. Extract it — the plan does *not* restate every number.
-- **State: every surface is built — 7a–7g, 6a HUD, 3a main menu, and both loading screens.** What
-  remains is the **owed verifications** below, all of which need a real browser and a real match.
+- **State: every surface is built — 7a–7g, 6a HUD, 3a main menu, both loading screens — and locked
+  decision 2 (the die-cut sweep) is finished and audited.** What remains is the **owed
+  verifications** below, all of which need a real browser and a real match. **Merge + deploy to
+  production for full verification is the declared next step** (Wyatt, 2026-07-23).
 - **The loading screens were outside the design source** (it covers 3a / 6a / 7a–7g only). Don't go
   hunting for a mock — their language is derived from the shared shell, screen by screen.
 - **Verification caveat:** the Browser pane **won't composite screenshots on this host** → everything
@@ -163,12 +165,14 @@ Grep a screen for `[hidden]` and assert `display === "none"` on each before sign
 ## Locked decisions
 
 1. **One branch**, all parts; commit per cut.
-2. **Slab material** replaces the white die-cut contour on panels/chips/buttons **game-wide** (kept only on emblems + Road Rage lettering). The loading screens and the boot-error card were the last holdouts — swept in `5e8585e` / `9f669ba`. "Game-wide" means surfaces nobody thinks of as screens too; grep for `sticker-panel`, `sticker-micro` and literal `#f2ede4` ring shadows before believing it is done.
+2. **Slab material** replaces the white die-cut contour on panels/chips/buttons **game-wide**. ✅ **DONE — audited against a live DOM in `f4fc5cc`.** The only survivors are **the hue-slider knobs (2 rules) and the CUSTOM colour chip's `:hover`/`.active` (2)**, plus the emblem SVGs (baked) and Road Rage lettering. If you grep, use `var(--sticker-` — a pattern that only looks for `--sticker-panel|--sticker-micro` misses `--sticker-chip` and will undercount, which it did twice.
+   - **Amended 2026-07-23:** the CUSTOM chip's *resting* white ring is gone too. The mock specified "solid `--personality-lurker` purple with white sticker ring", and Wyatt reversed it at review — it read as the odd one out. It is now an ordinary `.cr-color-chip` that declares only its hue.
 3. **Human emblem** = cart-color "shopper" glyph via shared `emblemForSlot(slot)`; host/leader/YOU stay **separate pips**.
 4. **Results** = podium + receipt. `EXPRESS LANE HELD` is **not tracked → dropped**. Spills *were* added as new instrumentation at review (see below).
 5. **Friends** = **model B** (post-enter full-screen lobby, reuse netcode lifecycle) with **start-rule B1** (rounds auto-arm on all-ready; **no host START button**).
 6. ~~Sub-screens = path A~~ → **REVERSED at the 2026-07-22 review**: sub-screens get the literal full-screen 7a–7g layouts on the shared `.cr-screen` shell.
 7. **Part-1 polish deferred** to the refine pass: gamepad→command-list nav, hint-bar region/ping meta, mobile/touch pass, inline-rename flow check.
+8. **Yellow = the active tab and the primary action, nothing else** (`9c263bd`). A *selected chip* is a brighter border + glow in the item's own colour, per the 7a spec. Sunglasses and patterns had a yellow selected border, which put three yellows on Customize at once (rail tab, DONE button, chip).
 
 ## Commits on the branch (newest last)
 
@@ -211,6 +215,8 @@ Grep a screen for `[hidden]` and assert `display === "none"` on each before sign
 | `f279b08` | 3a review | The arena radiogroup was never actually hidden (author `display` beat `[hidden]`) — three cards on top of the pager; QUICKPLAY's arena picker dropped (matchmaking picks). |
 | `5e8585e` | **Loading 1/2** | Mode-entry overlay onto the shell — die-cut card + vinyl ring + scanlines out, title glow-only, 20-seg bar → boost-meter slab, store-voice kickers, boot-error card to slab material. |
 | `9f669ba` | **Loading 2/2** | Boot splash onto the shell in literal hexes — same header/strip/meter, `THE STORE IS NOW OPENING`, `#boot-seg-bar` becomes the track, cart-crash animation untouched. |
+| `f4fc5cc` | **Die-cut sweep** | Decision 2 finished: every remaining white contour → slab, across friends diff chips, the Settings POST-FX chip, the 7e READY button, both 6a HUD buttons, touch controls, all three toasts and the portrait hint. Also killed a trap-4 `translate()` on the skewed READY slab. |
+| `9c263bd` | 7a chips | One chip recipe across COLOR / SUNGLASSES / PATTERN — CUSTOM stops being a purple slab under a white ring; yellow retires from chip selection (it was fighting the active tab and DONE); selected = item colour border + glow + pip. |
 
 ## Key implementation facts (so you don't re-derive)
 
@@ -235,6 +241,7 @@ Grep a screen for `[hidden]` and assert `display === "none"` on each before sign
 - **Both re-express `.cr-screen` rather than reusing it** — same bundle-order reason as the 7e lobby. `.cr-load__shell/-hd/-kicker/-title/-stage/-strip/-meter` mirrors the shell's values; `.cr-boot-shell/-hd/-kicker/-title/-stage/-strip/-meter` mirrors them again in literals. Change one and you must change all three (shell, overlay, splash) or they drift apart.
 - **Loading progress is the boost-meter slab.** Both bars are track + fill now, not lit segments. `#boot-seg-bar` **kept its id and `role="progressbar"`** but is the *track* — `paintBootProgress()` (inline) and `dismissInitialBootSplash()` (loadingScreen.js) both write `#cr-boot-fill`'s width and `#cr-boot-pct`'s text. `setProgress()` does the same for `.cr-load__fill` / `.cr-load__pct`. Anything that used to add `.lit` is gone.
 - **The boot splash cannot be measured in place** — it is removed from the DOM the moment boot completes. To inspect it, fetch `/index.html`, mount its `<style>` and the `#cr-boot-splash` subtree yourself, then measure. `showQualityApplyLoading()` is the one loading entry point that is fully synchronous, so it is the only one the pane can drive end to end (`withModeEntryLoading` awaits rAF and stalls there).
+- **Customize runs ONE chip recipe across all three tabs** (`9c263bd`). `.cr-color-chip` is the reference: 10px radius, 44px floor, ink fill, resting border `color-mix(--chip-colour, transparent 60%)`, `--slab-shadow-sm`; hover moves border + `--slab-shadow-hover` + lift; `.active` = item-colour border, tinted fill, `0 0 0 1px inset` + `0 0 12px -2px` glow, and an `::after` corner pip. Sunglasses/patterns map their own hook into `--chip-c` (`--mc` per finish, `--pc` per pattern from `getActiveColorCss()`). **Add a fourth chip family the same way — map a colour into `--chip-c`, don't re-invent the states.**
 - **A dynamic `import()` of loadingScreen.js from the console creates a SECOND module instance** with its own `#cr-mode-load` — `document.getElementById` then returns the app's, which never updates, and it looks like the code did nothing. Query `document.querySelectorAll('#cr-mode-load')` and remove the duplicate when you're done.
 
 ## Remaining work
@@ -250,13 +257,15 @@ real browser and a real match, which is exactly the work the pane cannot do.
 4. **Golden visual baselines** are still invalidated — regen (`npm run shoot`) once the review signs off.
 5. **Every `[hidden]` on the menu** — assert the computed `display` is actually `none` (trap 7). Only
    `#cr-level-row`, `#cr-context-arena`, `#cr-diff-row` and `#cr-cmd-new-pill` were checked.
-6. **Finish the decision-2 sweep.** A grep after the loading cuts still finds **22** die-cut ring
-   usages in `cart-rave-menu.css` and **5** in `hud.css` (`--sticker-panel`, `--sticker-micro`,
-   `0 0 0 Npx var(--color-sticker-white)`). Most are base rules that a rebuilt screen overrides —
-   `.cr-reroll` and `.cr-diff-btn` were exactly that, and both still painted the ring until 3a
-   pinned them — so each one needs checking against a surface that actually renders it, not just
-   reading. Results / pause / stickers / announcer / index.html are already clean.
-7. **Both loading screens, in their real moment.** The **boot splash** was measured by remounting the
+6. **Surfaces the die-cut sweep and the chip cut changed but nobody has looked at**: the FRIENDS
+   difficulty chips, the Settings POST-FX chip, the 7e READY button, both 6a HUD buttons, the touch
+   controls, all three toasts, the portrait hint — and the whole Customize chip shelf. Hover and
+   press feedback moved on every one of them.
+7. **Silver mirror's selected state.** With yellow retired from chip selection, the silver finish
+   now selects in near-white (`#c8c8d0`) — the subtlest of the six. Border, glow and pip all read in
+   the numbers, but it wants an eye. If it's weak, the one-line fix is to drive all six finishes
+   from the cart colour instead of per-finish `--mc`.
+8. **Both loading screens, in their real moment.** The **boot splash** was measured by remounting the
    served markup — it is ripped out of the DOM before any probe can reach it, so nobody has seen the
    real first paint or its exit beat. The **mode-entry overlay** has never had `applyTheme` run
    against it: the per-arena decor inside the new centre stage (vinyl / furniture pile / seaside) and
@@ -264,6 +273,20 @@ real browser and a real match, which is exactly the work the pane cannot do.
    Watch a cold boot, then enter each of the three arenas.
 
 **Known-but-parked:**
+- **Victory confetti + defeat wilt are missing in multiplayer** (Wyatt, 2026-07-23). Parked for a
+  later polish pass — investigated, not fixed. Both effects hang off ONE gate in
+  `updateResultsOverlay` (main.js ~3316): the wilt needs `isLocalLoser`, which requires
+  `typeof winnerSlotIndex === "number"`, and the confetti branch type-checks the same field. A
+  `null` winner kills **both at once**, which is why that is the leading hypothesis. Ruled out: the
+  winner *is* replicated on the `running → podium` transition (netcode.js ~2798) and again
+  unconditionally in the same handler (~2846), and `host_round` does carry `winnerSlotIndex`. NOT
+  ruled out: the paths that reach podium without `prevPhase === "running"` — a `MSG.hello` arriving
+  with `phase: "podium"` (late join / reconnect), and `shouldHoldNonHostCountdownPhase`, which
+  already proves clients run a different phase timeline. In both, `?? null` at ~2846 writes null
+  when the field is absent. **The decisive test is one line in a real two-client room:** on the
+  losing client at podium, read `GameState.getRoundState().winnerSlotIndex`. A number → it is not
+  netcode, look at z-order (the confetti canvas mounts as the overlay's FIRST child so the panel
+  paints above it, and the rebuilt 7g panel is now full-screen). `null` → it is the phase handling.
 - `.results-defeat .results-title { --title-glow }` **never applies** — main.js sets that custom property inline and no stylesheet rule can outrank it. Cosmetic only (the panel filter desaturates anyway). Pre-existing.
 - `?room=` JOIN rehome — FRIENDS row → "JOIN LOBBY" → `enterPlayMode`; still on main.js's old ad-hoc path.
 - Part-1 polish (item 7 above).
@@ -273,7 +296,7 @@ real browser and a real match, which is exactly the work the pane cannot do.
 
 ## How to continue / verify
 
-- **Dev server:** `.claude/launch.json` has `vite` (3210), `vite-alt` (3211), `vite-perf` (3212). The other session sometimes holds **all three** — when it does, `preview_start {url: "http://127.0.0.1:3212/"}` opens a pane tab against the server it is already running (same working directory, so it serves your edits). A hidden-tab HMR update will **not** repaint: re-`navigate` with a fresh query string (`?v=2`) to force a clean boot, and confirm the served CSS actually contains your change (`fetch('/src/cart-rave-menu.css?direct')`) before trusting a measurement.
+- **Dev server:** `.claude/launch.json` has `vite` (3210), `vite-alt` (3211), `vite-perf` (3212). Try `preview_start {name: "vite-perf"}` first — as of 2026-07-23 all three are free again. If the other session holds all of them, `preview_start {url: "http://127.0.0.1:3212/"}` opens a pane tab against the server it is already running (same working directory, so it serves your edits) — but that server can vanish under you, and the tab then goes silently blank (empty document, `styleTags: 0`), which looks exactly like a boot failure. A hidden-tab HMR update will **not** repaint: re-`navigate` with a fresh query string (`?v=2`) to force a clean boot, and confirm the served CSS actually contains your change (`fetch('/src/cart-rave-menu.css?direct')`) before trusting a measurement.
 - **Gates:** `npm run qa` (report by number) + `npm run build` (CSS is in the client bundle). Last run: **773/773 tests, 77 files**, all sub-gates green.
 - **Forcing a round to end (dev):** `window.CartClashDev.run("scores 7 4 2 9")` then `run("rewind 800")` → podium in ~2s. `CartClashDev.help()` lists the rest.
 - **Gotchas:** index.html line numbers shift as you edit (re-grep before editing); `status:size` gates on docs/STATUS.md tokens; menu nav is *correctly* blocked while an overlay is open.
@@ -296,21 +319,29 @@ READ IN THIS ORDER before touching anything:
    3a / 6a / 7a-7g ONLY — the loading screens have no mock and never did.
 3. `git log --oneline -30` on the branch.
 
-State: EVERY surface is built — 7a-7g, 6a HUD, 3a main menu (e228636 + f279b08) and both loading
-screens (5e8585e + 9f669ba). The construction phase is over. What is left is verification, and
-almost all of it needs a real browser and a real match, which is exactly what the Browser pane on
-this host cannot do.
+State: EVERY surface is built — 7a-7g, 6a HUD, 3a main menu (e228636 + f279b08), both loading
+screens (5e8585e + 9f669ba) — and the decision-2 die-cut sweep is finished and audited against a
+live DOM (f4fc5cc), with one chip recipe now shared across all three Customize tabs (9c263bd).
+The construction phase is over. Merging and deploying to production for full verification is the
+declared next step. What is left is verification, and almost all of it needs a real browser and a
+real match, which is exactly what the Browser pane on this host cannot do.
 
 Only 7a, 7c and 3a have ever been looked at by a human. Everything else was signed off on DOM
 geometry and computed styles alone. Treat "verified" in this doc as "measured", not "seen" — and
 the loading screens are the worst case: the boot splash is torn out of the DOM before a probe can
 reach it, and the mode-entry overlay has never had applyTheme run against it at all.
 
+Known and PARKED, do not start on it unless I say so: victory confetti and the defeat wilt are
+missing in multiplayer. The investigation (leading hypothesis, what was ruled out, and the
+one-line two-client test that settles it) is written up under "Known-but-parked".
+
 Ask me what to work on — do not pick a card yourself. The owed list is in the handover's
 "Remaining work": a live match for the HUD and results on a finished round, a two-client friends
 lobby (the CHECKOUT LINE has NEVER rendered), a cold boot plus one entry into each of the three
 arenas for the loading screens, the responsive sweep, an audit that every [hidden] on the menu
-actually computes display:none, and a golden-baseline regen (`npm run shoot`) once I sign off.
+actually computes display:none, an eye on every surface the die-cut sweep and the chip cut touched
+(their hover/press feedback all moved), and a golden-baseline regen (`npm run shoot`) once I sign
+off.
 
 Rules of engagement:
 - plan -> my ack -> apply. One item per cut.
