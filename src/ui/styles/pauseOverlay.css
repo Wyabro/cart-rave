@@ -32,75 +32,62 @@
   position: relative;
   z-index: 1;
   pointer-events: auto;
-  width: min(680px, 96vw);
-  max-height: min(92vh, 720px);
-  max-height: min(92dvh, 720px);
-  padding: clamp(14px, 2.5vw, 20px);
+  /* 7f stays a centred panel (the mock's 860px) — it is the only surface that
+     is not a full-screen rebuild, because it sits over frozen gameplay. */
+  width: min(860px, 96vw);
+  max-height: min(92vh, 760px);
+  max-height: min(92dvh, 760px);
+  padding: clamp(16px, 2.6vw, 32px) clamp(16px, 3vw, 40px);
   display: flex;
   flex-direction: column;
-  gap: clamp(10px, 2vw, 14px);
+  gap: clamp(12px, 2.4vw, 24px);
   overflow: hidden;
+}
+
+/* Header: PAUSED left, frozen round/clock hard right, on one baseline. */
+#esc-overlay .esc-hd {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: clamp(10px, 2vw, 20px);
+  flex-shrink: 0;
+  min-width: 0;
 }
 
 /* .cc-title (stickers.css) supplies stack-A lettering (sticker-white fill,
    ink stroke, hard extrude); local rules here are size/spacing only. */
 #esc-overlay .esc-title {
   font-family: var(--esc-display);
-  /* 7f: PAUSED is the screen's headline — Road Rage at display scale (the
-     mock's 72px, floored to what a mid-match panel can spend). */
-  font-size: clamp(32px, 6vw, 56px);
+  /* 7f: PAUSED is the screen's headline — Road Rage at the mock's 72px, floored
+     to what a mid-match panel can spend. */
+  font-size: clamp(32px, 6vw, 72px);
   letter-spacing: 0.03em;
   margin: 0;
-  text-align: center;
   line-height: 1;
   flex-shrink: 0;
+  transform: skewX(-4deg);
+  transform-origin: left center;
+  white-space: nowrap;
 }
 
-/* Round + frozen clock under the headline (the HUD timer is suppressed). */
+/* Round + frozen clock, hard right of the headline (the HUD timer is suppressed
+   while paused, so this is the only place the clock is still readable). */
 #esc-overlay .esc-context {
-  margin: -2px 0 0;
-  text-align: center;
+  margin: 0;
+  text-align: right;
   font-family: var(--mono, monospace);
   font-size: clamp(9px, 1.6vw, 11px);
-  letter-spacing: 0.22em;
+  letter-spacing: 0.26em;
   color: rgba(242, 237, 228, 0.5);
   flex-shrink: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* Priority read: hero actions pinned at top, then a scrollable lower zone
-   (settings cluster + recessed reference). */
+/* Body = AUDIO | CONTROLS. The ONLY zone that scrolls, so the actions row below
+   it stays reachable on a short viewport (the mock is a 1080p still). */
 #esc-overlay .esc-body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--esc-section-gap);
-  min-height: 0;
-  flex: 1 1 auto;
-}
-
-/* Hero actions — RESUME leads (big), RESTART/QUIT share the row beneath it. */
-#esc-overlay .esc-actions {
-  display: flex;
-  flex-direction: column;
-  gap: clamp(8px, 1.5vw, 10px);
-  flex-shrink: 0;
-}
-/* Extra class raises specificity over the base #esc-overlay .esc-btn font-size
-   (same 1-1-0 specificity, but that rule is declared later in the file). */
-#esc-overlay .esc-actions .esc-btn--resume {
-  font-size: clamp(15px, 3vw, 19px);
-  padding-block: clamp(12px, 2.2vw, 16px);
-}
-#esc-overlay .esc-actions-secondary {
-  display: flex;
-  gap: clamp(8px, 1.5vw, 10px);
-}
-#esc-overlay .esc-actions-secondary > .esc-btn {
-  flex: 1 1 0;
-  min-width: 0;
-}
-
-/* Lower zone: settings (primary) beside recessed reference; only this scrolls. */
-#esc-overlay .esc-lower {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--esc-section-gap);
@@ -111,21 +98,53 @@
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
 }
-#esc-overlay .esc-settings,
-#esc-overlay .esc-reference {
+
+/* Actions — one row along the bottom: RESUME leads, then RESTART / MAIN MENU.
+   Same parallelogram as every other screen's action slabs. */
+#esc-overlay .esc-actions {
   display: flex;
-  flex-direction: column;
-  gap: var(--esc-section-gap);
+  gap: clamp(8px, 1.5vw, 14px);
+  flex-shrink: 0;
+}
+#esc-overlay .esc-actions .esc-btn {
+  flex: 1 1 0;
   min-width: 0;
+  transform: skewX(-8deg);
+  transition: transform 120ms var(--ease-slap), box-shadow 120ms var(--ease-slap);
 }
-/* Reference (controls + scoring) is tertiary mid-match — recede it (transparent
-   surface, dimmed) so the actions and settings win the read. */
-#esc-overlay .esc-reference {
-  opacity: 0.7;
+/* Two-class against .cc-btn so its own hover/active transforms cannot drop the
+   skew mid-interaction (the 7a flashing bug). */
+#esc-overlay .esc-actions .esc-btn:hover,
+#esc-overlay .esc-actions .esc-btn:focus-visible {
+  transform: skewX(-8deg) translate(-1px, -2px);
 }
-#esc-overlay .esc-reference .esc-section {
-  background: transparent;
-  border-color: rgba(255, 255, 255, 0.06);
+#esc-overlay .esc-actions .esc-btn:active {
+  transform: skewX(-8deg) translate(2px, 2px);
+}
+#esc-overlay .esc-btn-inner {
+  display: inline-block;
+}
+#esc-overlay .esc-btn-label {
+  display: inline-block;
+  transform: skewX(8deg);
+}
+/* Extra class raises specificity over the base #esc-overlay .esc-btn font-size
+   (same 1-1-0 specificity, but that rule is declared later in the file). */
+#esc-overlay .esc-actions .esc-btn--resume {
+  flex: 1.2 1 0;
+  font-size: clamp(15px, 3vw, 19px);
+  padding-block: clamp(12px, 2.2vw, 16px);
+}
+
+/* Shown only when RESTART is hidden — it explains an absence. */
+#esc-overlay .esc-restart-note {
+  margin: 0;
+  flex-shrink: 0;
+  text-align: center;
+  font-family: var(--esc-mono);
+  font-size: clamp(8px, 1.5vw, 9px);
+  letter-spacing: 0.14em;
+  color: rgba(242, 237, 228, 0.3);
 }
 /* 7f: one 2×2 toggle grid — QUALITY · POST-FX / ANNOUNCER · CALLOUTS. */
 #esc-overlay .esc-toggle-grid {
@@ -210,26 +229,31 @@
   flex-shrink: 0;
 }
 
+/* Keycaps are slabs, not die-cut stickers — the SAME recipe as the SETTINGS
+   CONTROLS card (`.cr-settings-ctl-key kbd`, 7c): hairline + hard extrude at
+   32×30, Road Rage lettering. A player who reads the keys in Settings and then
+   mid-match must see one chart, not two. Keep the two in sync. */
 #esc-overlay .esc-ctl-keys kbd {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: clamp(26px, 6vw, 30px);
-  height: clamp(24px, 5.5vw, 28px);
-  padding: 0 6px;
+  min-width: 32px;
+  height: 30px;
+  padding: 0 10px;
   border-radius: 5px;
-  background: var(--color-ink-deep);
-  border: none;
-  font-family: var(--esc-ui);
-  font-size: clamp(9px, 1.8vw, 10px);
+  background: var(--color-ink);
+  border: 1px solid var(--border-white-12);
+  box-shadow: var(--slab-extrude-sm);
+  font-family: var(--esc-display);
+  font-weight: 400;
+  font-size: clamp(11px, 1.3vw, 14px);
   letter-spacing: 0.04em;
-  color: var(--esc-cyan);
-  box-shadow: 0 0 0 1.5px var(--esc-cyan);
+  color: var(--color-sticker-white);
 }
 
 #esc-overlay .esc-ctl-keys kbd.wide {
-  min-width: clamp(48px, 12vw, 58px);
-  font-size: clamp(8px, 1.6vw, 9px);
+  min-width: 64px;
+  font-size: clamp(9px, 1.15vw, 12px);
   letter-spacing: 0.1em;
 }
 
@@ -345,97 +369,10 @@
   letter-spacing: 0.04em;
 }
 
-#esc-overlay .esc-score-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: clamp(4px, 1vw, 6px);
-  flex: 1 1 auto;
-  min-height: 0;
-}
-
-#esc-overlay .esc-score-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: clamp(6px, 1.5vw, 10px);
-  padding: clamp(5px, 1.2vw, 7px) clamp(8px, 1.8vw, 10px);
-  border-radius: var(--radius-sm);
-  background: var(--color-ink-deep);
-  border: none;
-}
-
-#esc-overlay .esc-score-name {
-  font-family: var(--esc-mono);
-  font-size: clamp(9px, 1.8vw, 10px);
-  letter-spacing: 0.06em;
-  color: rgba(255, 255, 255, 0.78);
-  text-transform: uppercase;
-  line-height: 1.25;
-}
-
-#esc-overlay .esc-score-pts {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  flex-shrink: 0;
-  font-family: var(--esc-ui);
-  font-size: clamp(11px, 2.2vw, 13px);
-  letter-spacing: 0.06em;
-  color: var(--esc-cyan);
-}
-
-#esc-overlay .esc-score-icon {
-  font-size: 0.85em;
-  opacity: 0.85;
-  letter-spacing: -0.08em;
-}
-
-#esc-overlay .esc-score-footnote {
-  margin: clamp(4px, 1vw, 6px) 0 0;
-  font-family: var(--esc-mono);
-  font-size: clamp(8px, 1.6vw, 9px);
-  letter-spacing: 0.08em;
-  color: rgba(255, 255, 255, 0.42);
-  text-align: center;
-  line-height: 1.35;
-  flex-shrink: 0;
-}
-
-#esc-overlay .esc-leader-hint {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  margin: clamp(6px, 1.2vw, 8px) 0 0;
-  padding: clamp(6px, 1.2vw, 8px) clamp(8px, 1.8vw, 10px);
-  border-radius: var(--radius-sm);
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  font-family: var(--esc-mono);
-  font-size: clamp(9px, 1.8vw, 10px);
-  letter-spacing: 0.12em;
-  color: rgba(255, 255, 255, 0.72);
-  text-transform: uppercase;
-  flex-shrink: 0;
-}
-
-#esc-overlay .esc-leader-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--color-sticker-white);
-  box-shadow: 0 0 0 2px var(--color-ink-deep);
-  flex-shrink: 0;
-  animation: esc-leader-pulse 1.6s ease-in-out infinite;
-}
-
-@keyframes esc-leader-pulse {
-  0%, 100% { opacity: 0.75; transform: scale(0.92); }
-  50% { opacity: 1; transform: scale(1); }
-}
+/* The SCORING reference is GONE from the pause overlay (7f): the mock's panel is
+   AUDIO | CONTROLS, and that chart now lives on 7d HOW TO PLAY, which a paused
+   player can still reach. Deleted, not hidden — .esc-score-* / .esc-leader-*
+   and the leader-pulse keyframes went with it. */
 
 /* Material now comes from .cc-btn (+ .cc-btn--primary/--danger/--ghost,
    stickers.css) added alongside .esc-btn in pauseOverlay.js. These rules are
@@ -503,15 +440,24 @@
   }
 }
 
-/* Portrait / narrow: stack the lower zone (settings above recessed reference). */
+/* Portrait / narrow: AUDIO above CONTROLS, and the three action slabs stack —
+   RESTART ROUND does not hold its label beside two siblings at phone width. */
 @media (max-width: 768px), (pointer: coarse) and (orientation: portrait) {
-  #esc-overlay .esc-lower {
+  #esc-overlay .esc-body {
     grid-template-columns: 1fr;
+  }
+  #esc-overlay .esc-actions {
+    flex-direction: column;
+  }
+  /* flex:1 1 0 down a column with auto height collapses to min-content. */
+  #esc-overlay .esc-actions .esc-btn,
+  #esc-overlay .esc-actions .esc-btn--resume {
+    flex: 0 0 auto;
   }
 }
 
-/* Short landscape phones: keep settings | reference side-by-side (uses the width),
-   let the lower zone scroll under the pinned actions. */
+/* Short landscape phones: keep AUDIO | CONTROLS side by side (uses the width),
+   let the body scroll under the pinned actions row. */
 @media (pointer: coarse) and (orientation: landscape) {
   #esc-overlay .esc-btn {
     min-height: 42px;
@@ -519,12 +465,5 @@
   }
   #esc-overlay .esc-btn--resume {
     min-height: 46px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  #esc-overlay .esc-leader-dot {
-    animation: none;
-    opacity: 1;
   }
 }

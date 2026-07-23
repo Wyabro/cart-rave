@@ -35,6 +35,7 @@ const elements = {
   escSections: [],
   resumeBtn: null,
   restartBtn: null,
+  restartNote: null,
   quitBtn: null,
   postFxBtn: null,
   lowQualityBtn: null,
@@ -55,6 +56,8 @@ function syncRestartVisibility() {
   const mode = _options.detectGameMode ? _options.detectGameMode() : "";
   const solo = mode === "solo" || mode === "testdrive";
   elements.restartBtn.style.display = solo ? "" : "none";
+  // * The note explains an ABSENCE — in solo the button is right there.
+  if (elements.restartNote) elements.restartNote.style.display = solo ? "none" : "";
 }
 
 /**
@@ -201,6 +204,39 @@ function createEscVolumeRow(labelText, onChange, ariaLabel) {
  */
 function wireEscButtonFeedback(btn) {
   wireButtonPressFeedback(btn, { scale: 0.96 });
+}
+
+/**
+ * Press feedback animates the INNER node of a skewed slab: anime.js writes
+ * `transform` inline, which would wipe the outer skewX() for the duration of
+ * the press and snap the parallelogram flat (the 7a bug, `0d20900`).
+ * @param {HTMLElement} btn
+ * @returns {HTMLElement}
+ */
+function escPressTarget(btn) {
+  return /** @type {HTMLElement} */ (btn.querySelector(".esc-btn-inner") || btn);
+}
+
+/**
+ * Builds one bottom-row action slab — outer owns the skew, inner is the press
+ * target, label counter-skews. Same three-layer split as the menu sub-screens.
+ * @param {string} label
+ * @param {string} variantClasses
+ * @returns {HTMLButtonElement}
+ */
+function makeEscActionButton(label, variantClasses) {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = `esc-btn cc-btn ${variantClasses}`;
+  const inner = document.createElement("span");
+  inner.className = "esc-btn-inner";
+  const labelEl = document.createElement("span");
+  labelEl.className = "esc-btn-label";
+  labelEl.textContent = label;
+  inner.appendChild(labelEl);
+  btn.appendChild(inner);
+  wireButtonPressFeedback(btn, { scale: 0.96, getTarget: escPressTarget });
+  return btn;
 }
 
 /**
@@ -616,11 +652,11 @@ export function init(options = {}, hudContext = {}) {
   audioSection.body.appendChild(escAudioRow);
 
   // * 7f: the four in-match toggles share ONE 2×2 grid (QUALITY / POST-FX /
-  // * ANNOUNCER / CALLOUTS) instead of separate ANNOUNCER + DISPLAY sections.
+  // * ANNOUNCER / CALLOUTS) and live INSIDE the AUDIO card, per the mock — the
+  // * body is exactly two cards, AUDIO and CONTROLS. The chips self-label
+  // * ("QUALITY: HIGH"), so the retired OPTIONS header would only add noise.
   // * ANNOUNCER gates all announcer audio (voice + stings); CALLOUTS gates only
   // * the on-screen banner (announcerDisplay.js).
-  const togglesSection = createEscSection("◇ OPTIONS");
-  togglesSection.section.classList.add("esc-section--toggles");
   const togglesGrid = document.createElement("div");
   togglesGrid.className = "esc-toggle-grid";
 
@@ -659,87 +695,30 @@ export function init(options = {}, hudContext = {}) {
   wireEscButtonFeedback(elements.announcerVoiceBtn);
   wireEscButtonFeedback(elements.announcerCalloutsBtn);
 
-  const scoringSection = createEscSection("◇ SCORING");
-  scoringSection.section.classList.add("esc-section--scoring");
-
-  const scoreList = document.createElement("ul");
-  scoreList.className = "esc-score-list";
-  // * Names must match HOW TO PLAY (index.html) — same events, same vocabulary
-  // * (style guide §8: Edge KO / Hazard KO are the scoring terms).
-  [
-    ["Edge KO", "◆", "+1"],
-    ["Hazard KO", "◆◆", "+2"],
-    ["Critical", "◆◆◆", "+1 bonus"],
-    ["Leader down", "◆◆◆◆", "+1 bonus"],
-    ["High ground (Sundial)", "◆◆◆◆◆", "+1 bonus"],
-  ].forEach(([name, icon, pts]) => {
-    const item = document.createElement("li");
-    item.className = "esc-score-row";
-
-    const nameEl = document.createElement("span");
-    nameEl.className = "esc-score-name";
-    nameEl.textContent = name;
-
-    const ptsEl = document.createElement("span");
-    ptsEl.className = "esc-score-pts";
-    const iconEl = document.createElement("span");
-    iconEl.className = "esc-score-icon";
-    iconEl.textContent = icon;
-    iconEl.setAttribute("aria-hidden", "true");
-    ptsEl.appendChild(iconEl);
-    ptsEl.appendChild(document.createTextNode(pts));
-
-    item.appendChild(nameEl);
-    item.appendChild(ptsEl);
-    scoreList.appendChild(/** @type {any} */ (item));
-  });
-  scoringSection.body.appendChild(scoreList);
-
-  const scoreFootnote = document.createElement("p");
-  scoreFootnote.className = "esc-score-footnote";
-  scoreFootnote.textContent = "Bonuses stack on top of the base KO points";
-  scoringSection.body.appendChild(scoreFootnote);
-
-  const leaderHint = document.createElement("p");
-  leaderHint.className = "esc-leader-hint";
-  const leaderDot = document.createElement("span");
-  leaderDot.className = "esc-leader-dot";
-  leaderDot.setAttribute("aria-hidden", "true");
-  leaderHint.appendChild(leaderDot);
-  leaderHint.appendChild(document.createTextNode("Leader glows white"));
-  scoringSection.body.appendChild(leaderHint);
-
-  // ── Primary actions (hero) — the decisions players open the menu to make ──
+  // ── Actions — one row along the bottom (mock 7f), RESUME leading ──────────
   const actions = document.createElement("div");
   actions.className = "esc-actions";
 
-  elements.resumeBtn = document.createElement("button");
-  elements.resumeBtn.type = "button";
-  elements.resumeBtn.className = "esc-btn esc-btn--resume cc-btn cc-btn--primary";
-  elements.resumeBtn.textContent = "RESUME";
-
-  elements.restartBtn = document.createElement("button");
-  elements.restartBtn.type = "button";
-  elements.restartBtn.className = "esc-btn cc-btn cc-btn--secondary";
-  elements.restartBtn.textContent = "RESTART ROUND";
+  elements.resumeBtn = makeEscActionButton("RESUME", "esc-btn--resume cc-btn--primary");
   // * Restart is a clean local re-entry only in single-player; online rematch is
   // * host-authoritative and lives on the podium PLAY AGAIN flow. The overlay is
   // * built once at startup before any room exists, so visibility is resolved on
   // * every show() (see syncRestartVisibility) rather than here.
+  elements.restartBtn = makeEscActionButton("RESTART ROUND", "cc-btn--secondary");
   elements.restartBtn.style.display = "none";
 
   // * 7f: leaving the match is the recessive choice — ghost, not danger red.
-  elements.quitBtn = document.createElement("button");
-  elements.quitBtn.type = "button";
-  elements.quitBtn.className = "esc-btn cc-btn cc-btn--ghost";
-  elements.quitBtn.textContent = "MAIN MENU";
+  elements.quitBtn = makeEscActionButton("MAIN MENU", "cc-btn--ghost");
 
-  const escActionsSecondary = document.createElement("div");
-  escActionsSecondary.className = "esc-actions-secondary";
-  escActionsSecondary.appendChild(elements.restartBtn);
-  escActionsSecondary.appendChild(elements.quitBtn);
   actions.appendChild(elements.resumeBtn);
-  actions.appendChild(escActionsSecondary);
+  actions.appendChild(elements.restartBtn);
+  actions.appendChild(elements.quitBtn);
+
+  // * Only worth saying when the button ISN'T there: in solo it sits right above
+  // * this line. syncRestartVisibility() owns when it shows.
+  elements.restartNote = document.createElement("p");
+  elements.restartNote.className = "esc-restart-note";
+  elements.restartNote.textContent = "RESTART IS SOLO ONLY — ONLINE REMATCHES RUN FROM THE PODIUM";
 
   // ── DISPLAY settings — grouped with AUDIO/ANNOUNCER, out of the actions row ──
   const postFxEnabled = () => (_options.getBloomEnabled ? _options.getBloomEnabled() : true) && (_options.getFxPassEnabled ? _options.getFxPassEnabled() : true);
@@ -777,47 +756,36 @@ export function init(options = {}, hudContext = {}) {
   togglesGrid.appendChild(elements.postFxBtn);
   togglesGrid.appendChild(elements.announcerVoiceBtn);
   togglesGrid.appendChild(elements.announcerCalloutsBtn);
-  togglesSection.body.appendChild(togglesGrid);
+  audioSection.body.appendChild(togglesGrid);
 
-  wireEscButtonFeedback(elements.resumeBtn);
-  wireEscButtonFeedback(elements.restartBtn);
-  wireEscButtonFeedback(elements.quitBtn);
+  // * The three action slabs wire their own press feedback (inner node) in
+  // * makeEscActionButton — only the toggle chips need the plain wiring.
   wireEscButtonFeedback(elements.postFxBtn);
   wireEscButtonFeedback(elements.lowQualityBtn);
 
-  // * Entrance order = settings first (top of the lower zone), reference last.
+  // * Entrance order matches the read: AUDIO then CONTROLS.
   elements.escSections = [
     audioSection.section,
-    togglesSection.section,
     controlsSection.section,
-    scoringSection.section,
   ];
 
-  elements.escPanel.appendChild(elements.escTitle);
-  elements.escPanel.appendChild(elements.escContext);
+  // Header row (mock 7f): PAUSED left, frozen round/clock hard right.
+  const escHd = document.createElement("div");
+  escHd.className = "esc-hd";
+  escHd.appendChild(elements.escTitle);
+  escHd.appendChild(elements.escContext);
+  elements.escPanel.appendChild(escHd);
 
-  // Priority read: actions (hero) → settings cluster → recessed reference.
+  // Body = the two cards side by side; it is the only zone that scrolls, so the
+  // actions row below stays reachable on a short viewport.
   const escBody = document.createElement("div");
   escBody.className = "esc-body";
+  escBody.appendChild(audioSection.section);
+  escBody.appendChild(controlsSection.section);
 
-  const escSettings = document.createElement("div");
-  escSettings.className = "esc-settings";
-  escSettings.appendChild(audioSection.section);
-  escSettings.appendChild(togglesSection.section);
-
-  const escReference = document.createElement("div");
-  escReference.className = "esc-reference";
-  escReference.appendChild(controlsSection.section);
-  escReference.appendChild(scoringSection.section);
-
-  const escLower = document.createElement("div");
-  escLower.className = "esc-lower";
-  escLower.appendChild(escSettings);
-  escLower.appendChild(escReference);
-
-  escBody.appendChild(actions);
-  escBody.appendChild(escLower);
   elements.escPanel.appendChild(escBody);
+  elements.escPanel.appendChild(actions);
+  elements.escPanel.appendChild(elements.restartNote);
   elements.escOverlay.appendChild(elements.escBackdrop);
   elements.escOverlay.appendChild(elements.escPanel);
   document.body.appendChild(elements.escOverlay);
