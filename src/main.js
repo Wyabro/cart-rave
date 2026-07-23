@@ -535,6 +535,14 @@ let leaderHum = null;
  */
 let matchHistory = [];
 
+/**
+ * Challenge ids already complete when this round started. The receipt diffs
+ * against it to report a challenge finished DURING the match, rather than one
+ * that was already done days ago.
+ * @type {Set<string>}
+ */
+let challengesCompleteAtRoundStart = new Set();
+
 /** @type {ReturnType<typeof setTimeout> | null} */
 let roundPodiumTimeoutId = null;
 const LAST_CART_STANDING_FLOURISH_MS = 3000;
@@ -1099,8 +1107,8 @@ async function main() {
   function triggerLocalRamShake(intensity, isBoosting = false) {
     const fx = /** @type {Record<string, any>} */ (CONFIG.ramming?.fx ?? {});
     const minI = isBoosting
-      ? (fx.shakeBoostMinIntensity ?? 0.24)
-      : (fx.shakeMinIntensity ?? 0.38);
+      ? (fx.shakeBoostMinIntensity ?? 0.16)
+      : (fx.shakeMinIntensity ?? 0.22);
     if (intensity < minI) return;
     const clampedI = Math.min(intensity, 1.2);
     const boostMul = isBoosting ? 1.3 : 1.0;
@@ -1114,8 +1122,8 @@ async function main() {
       armFovPunch(8, 100);
     }
   }
-  // * Victim-side ram feedback — shake/post-FX only on hard hits; directional DOM
-  // * vignette arms on lighter rams too (most impulses sit below shakeMinIntensity).
+  // * Victim-side ram feedback — shake/post-FX from shakeMinIntensity; directional DOM
+  // * vignette from hitDirMinIntensity (HIT-FEEL-1: Round 1 quiet incoming, Round 2 wake normals).
   /**
    * @param {number} intensity
    * @param {boolean} [isBoosting]
@@ -1128,14 +1136,14 @@ async function main() {
 
     // * Directional hit cue first — lower floor than shake so everyday rams still read.
     // * fxIntensity is impulse/maxImpulse; typical non-boost rams often land ~0.1–0.35.
-    const vignetteMin = fx.hitDirMinIntensity ?? 0.08;
+    const vignetteMin = fx.hitDirMinIntensity ?? 0.14;
     if (clampedI >= vignetteMin) {
       pulseLocalHitDirectionVignette(clampedI, hitFromX, hitFromZ);
     }
 
     const minI = isBoosting
-      ? (fx.shakeBoostMinIntensity ?? 0.24)
-      : (fx.shakeMinIntensity ?? 0.38);
+      ? (fx.shakeBoostMinIntensity ?? 0.16)
+      : (fx.shakeMinIntensity ?? 0.22);
     if (clampedI < minI) return;
     const boostMul = isBoosting ? 1.3 : 1.0;
     shakeIntensity = clampedI * (fx.shakePixelScale ?? 5.5) * boostMul;
@@ -1159,9 +1167,12 @@ async function main() {
     const cart = localCartForConnId();
     if (!cart?.body || typeof HUD.pulseHitDirection !== "function") return;
 
-    // * Remap low impulse intensities into a readable display range (tuned +25% then +10%).
-    // * sqrt eases mid-hits up without washing out boost rams.
-    const displayI = Math.min(1, 0.46 + Math.sqrt(Math.min(clampedI, 1.2)) * 0.79);
+    // * Remap low impulse intensities into a readable display range (HIT-FEEL-1 Round 1:
+    // * quieter love-taps; hard/nitro still near full via sqrt). Knobs on CONFIG.ramming.fx.
+    const fx = /** @type {Record<string, any>} */ (CONFIG.ramming?.fx ?? {});
+    const bias = fx.hitDirDisplayBias ?? 0.3;
+    const scale = fx.hitDirDisplayScale ?? 0.62;
+    const displayI = Math.min(1, bias + Math.sqrt(Math.min(clampedI, 1.2)) * scale);
 
     const len = Math.hypot(hitFromX, hitFromZ);
     let top = 0;
@@ -4547,8 +4558,16 @@ async function main() {
     cancelLastCartStandingFinish();
     GameState.setRoundEndReason(null);
     clearRoundCountdownTimeout();
-    // * Fresh match-stat spine for superlatives / challenges this round.
+    // * Fresh match-stat spine for the receipt this round.
     resetMatchStats();
+    {
+      const chState = challengeStore.getState();
+      challengesCompleteAtRoundStart = new Set(
+        [...(chState.dailyChallenges || []), ...(chState.weeklyChallenges || [])]
+          .filter((c) => c?.isComplete)
+          .map((c) => c.id)
+      );
+    }
     setMatchStatsLocalSlot(Netcode.strictSlotIndexForConn(Netcode.getYouConnId()));
     syncRoundPhase("countdown");
     gameCtx.slowMo.active = false;

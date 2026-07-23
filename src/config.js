@@ -223,11 +223,17 @@ const physics = {
       particleCountPerIntensity: 16, // count — extra particles per unit intensity
       particleBoostCountBonus: 6, // count — extra particles when rammer is boosting
       particleMaxCount: 28, // count — hard cap per burst (pool performance guard)
-      shakeMinIntensity: 0.38, // unitless — min intensity for local ram screen shake
-      shakeBoostMinIntensity: 0.22, // unitless — lower shake threshold during nitro rams
+      // * HIT-FEEL-1 Round 2: normals often land ~0.1–0.35; old 0.38 gate muted most of them.
+      shakeMinIntensity: 0.22, // unitless — min intensity for local ram screen shake / pulse / rumble
+      shakeBoostMinIntensity: 0.16, // unitless — lower shake threshold during nitro rams
       shakePixelScale: 5.5, // px — screen shake amplitude scale
       // * Directional hit vignette (DOM) — lower than shake so everyday rams still cue.
-      hitDirMinIntensity: 0.08, // unitless — min collision intensity for hit-from vignette
+      // * HIT-FEEL-1 Round 1: raised floor + softer display remap so love-taps don't scream.
+      hitDirMinIntensity: 0.14, // unitless — min collision intensity for hit-from vignette
+      hitDirDisplayBias: 0.3, // unitless — displayI = bias + sqrt(intensity) * scale
+      hitDirDisplayScale: 0.62, // unitless — was 0.46 + sqrt * 0.79 (too loud on soft hits)
+      // * Crash SFX volume floor (not an intensity gate — SFX still fires when fxIntensity > 0).
+      crashVolumeFloor: 0.22, // unitless — playCartCrash volume max(floor, floor + intensity * 0.7)
     },
   },
 

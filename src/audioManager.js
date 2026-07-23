@@ -881,7 +881,9 @@ export function prefetchAmbienceAsync(keys, opts = {}) {
 export function playCartCrash(intensity = 1, opts = {}) {
   const isBoosting = Boolean(opts.isBoosting);
   const rate = (isBoosting ? 0.72 : 0.82) + Math.random() * 0.43;
-  const volume = Math.max(0.45, Math.min(1, 0.45 + (intensity ?? 1) * 0.7));
+  // * Volume floor (HIT-FEEL-1) — not an intensity gate; soft hits still play, just quieter.
+  const floor = CONFIG.ramming?.fx?.crashVolumeFloor ?? 0.22;
+  const volume = Math.max(floor, Math.min(1, floor + (intensity ?? 1) * 0.7));
   return playSfx("cartCrash", undefined, { rate, volume });
 }
 

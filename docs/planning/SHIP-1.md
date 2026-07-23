@@ -59,8 +59,8 @@ opportunistically when touched — no dedicated refactor pass.
 | # | Item | Notes |
 |---|------|-------|
 | B1 | AI-DIFF-1 — NPC difficulty tiers (also sharpens Solo-as-tutorial) | **Shipped 07-22** (`49bfc2a`) — Easy/Med/Hard; Medium = baseline; Solo default Easy; Quickplay Medium; Friends host pick. |
-| B2 | CARGO-WT-1 — grocery weight risk/reward | **In tree 07-22** — life-scoped boss/glass; feel tune open; bay **count** ramp shipped (look → CARGO-VIS-1) |
-| B3 | HIT-FEEL-1 — hit feedback · ARENA-BAL-1 self-KO tuning as playtests dictate | |
+| B2 | CARGO-WT-1 — grocery weight risk/reward | **Closed 07-22** (Wyatt feel accept) — life-scoped boss/glass; bay **count** ramp shipped (look → CARGO-VIS-1) |
+| B3 | HIT-FEEL-1 — hit feedback (weak normals + noisy incoming) | **PASS 07-22** (Wyatt playtest) — quieter incoming + woken normals; `?tune` ramming.fx. ARENA-BAL-1 closed 07-22. |
 
 ## Tier C — Cart model → patterns (one workstream, Wyatt-led art)
 

@@ -77,11 +77,11 @@ post-launch unless Wyatt pulls them forward.
 | Low | Death-cam "follow killer" revisit | Previously reverted. |
 | Low | Animate the customize sunglasses-tab camera zoom | |
 | Low | Subtle monetization path | Idea stage only. |
-| High | CARGO-WT-1 — grocery weight as risk/reward `[SHIP-1 B2]` | **In tree 07-22** — life-scoped boss/glass; feel tune open. |
+| Done | CARGO-WT-1 — grocery weight as risk/reward `[SHIP-1 B2]` | Closed 07-22 (Wyatt feel accept) — life-scoped boss/glass; bay count ramp; look → CARGO-VIS-1. |
 | Done | AI-DIFF-1 — NPC difficulty modes `[SHIP-1 B1]` | Shipped 07-22 (`49bfc2a`). Medium = baseline; Solo Easy default + menu; Quickplay Medium; Friends host pick. |
-| High | HIT-FEEL-1 — hit feedback `[SHIP-1 B3]` | Weak normals + noisy incoming. |
+| Done | HIT-FEEL-1 — hit feedback `[SHIP-1 B3]` | PASS 07-22 (Wyatt) — quieter incoming + woken normals; `?tune` ramming.fx. |
 | High | INPUT-KB-1 — keyboard parity with controller `[SHIP-1 A2]` | |
-| Medium | ARENA-BAL-1 — self-KO rate on Sundial + Storerooms `[SHIP-1 B3]` | |
+| Done | ARENA-BAL-1 — self-KO rate on Sundial + Storerooms `[SHIP-1 B3]` | Closed 07-22 (Wyatt, no code). |
 | Low | Controller vibration strength *(pre-ship 07-19)* | |
 
 ## UI / UX

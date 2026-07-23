@@ -70,6 +70,14 @@ const GROUPS = [
       ["ramming.alignmentDotMin", "Aim cone (dot, lower=wider)", -0.2, 0.8, 0.01],
       ["ramming.boostImpulseMultiplier", "Nitro ram ×", 1, 5, 0.05],
       ["ramming.spreadSteps", "Impulse spread (frames)", 1, 8, 1],
+      // * HIT-FEEL-1 — feel knobs (not knockback). Live via CONFIG.ramming.fx.
+      ["ramming.fx.shakeMinIntensity", "Shake gate (normals)", 0, 1, 0.01],
+      ["ramming.fx.shakeBoostMinIntensity", "Shake gate (nitro)", 0, 1, 0.01],
+      ["ramming.fx.shakePixelScale", "Shake amplitude (px)", 0, 16, 0.1],
+      ["ramming.fx.hitDirMinIntensity", "Hit-dir vignette gate", 0, 1, 0.01],
+      ["ramming.fx.hitDirDisplayBias", "Hit-dir display bias", 0, 1, 0.01],
+      ["ramming.fx.hitDirDisplayScale", "Hit-dir display scale", 0, 1.5, 0.01],
+      ["ramming.fx.crashVolumeFloor", "Crash SFX volume floor", 0, 1, 0.01],
     ],
   },
   {

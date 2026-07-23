@@ -68,7 +68,7 @@ Full record: [planning/production-passes.md](./planning/production-passes.md) an
 
 ## Current focus
 
-**Playtesting and stabilization.** Tier A drained. **B1 AI-DIFF-1 shipped** (`49bfc2a`). **B2 CARGO-WT-1** — life-scoped cargo weight (boss/glass) + louder boss tune + readable bay count ramp; feel still iterating. **CARGO-VIS-1** queued (full-bay + rim overflow look). **Before public/external playtest: reset analytics DO** (see Gotchas).
+**Playtesting and stabilization.** Tier A drained. **B1 AI-DIFF-1 shipped** (`49bfc2a`). **B2 CARGO-WT-1 closed** (Wyatt feel accept 07-22). **B3 HIT-FEEL-1 PASS** (Wyatt playtest 07-22 — quieter incoming + woken normals; `?tune` ramming.fx). **ARENA-BAL-1 closed** (Wyatt 07-22, no code). **CARGO-VIS-1** queued (full-bay + rim overflow). **Before public/external playtest: reset analytics DO** (see Gotchas).
 
 Run 7 mission closed; NET-2 / NET-MIG-3 passed live; NET-PRES-1 landed (loss-on-drop residual accepted). Stay in this phase until Wyatt advances the marker.
 
@@ -114,7 +114,9 @@ Run 7 mission (below) is historical evidence, superseded as the live queue by
 | **A6** NET-SIM-1 | Reconnect / socket-lifecycle sims | ✅ **closed** (Cap-200 shipped + menu PASS; hostReload 13/13) |
 | **COUNTDOWN-ARM-1** | Play-ready-gated continuous `game_start` | ✅ **PASS** (Wyatt smoke 07-22 on `e08e5f5` — full 3-2-1) |
 | **A7** ANLX-VIEW-1 | analytics reading surface (`analytics:pull` + CC panel) | ✅ **PASS** (Wyatt smoke 07-22) |
-| **B2** CARGO-WT-1 | life-scoped grocery weight (boss/glass) | 🔧 **in tree** — Solo/MP feel tune open |
+| **B2** CARGO-WT-1 | life-scoped grocery weight (boss/glass) | ✅ **closed** (Wyatt feel accept 07-22; look → CARGO-VIS-1) |
+| **B3** HIT-FEEL-1 | hit feedback — weak normals + noisy incoming | ✅ **PASS** (Wyatt playtest 07-22) |
+| **ARENA-BAL-1** | Sundial + Storerooms self-KO rate | ✅ **closed** (Wyatt 07-22, no code) |
 | **C2** CARGO-VIS-1 | full-bay fill + rim overflow look | 📋 pre-ship (High) — count ramp exists; layout/scale wrong |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
 | BRAND-1 | Domain cutover | 🧊 frozen |
@@ -135,9 +137,8 @@ Triage docs superseded: [playtest-triage-2026-07-17](./planning/playtest-triage-
 
 ### Next actions
 
-1. **B2 CARGO-WT-1** — continue Solo/MP feel tune; ship only on Wyatt "ship it".
-2. **CARGO-VIS-1** (SHIP-1 C2, High) — basket groceries must fill the full bay and overflow the rim when full (count ramp shipped; look still wrong).
-3. **Before public/external playtest:** `DELETE /api/analytics?token=…` (clear DO) so ANLX evidence is strangers-only — see Gotchas.
+1. **CARGO-VIS-1** (SHIP-1 C2, High) — basket groceries must fill the full bay and overflow the rim when full (count ramp shipped; look still wrong).
+2. **Before public/external playtest:** `DELETE /api/analytics?token=…` (clear DO) so ANLX evidence is strangers-only — see Gotchas.
 
 ## Open issues (top)
 
@@ -161,6 +162,8 @@ When named: other residual or RC exit criteria in [ROADMAP.md](./planning/ROADMA
 
 One line each; full text in [archive/decision-log-2026-07.md](./archive/decision-log-2026-07.md). Newest first.
 
+- **D-HIT-FEEL-1** (07-22): HIT-FEEL-1 PASS — quieter incoming (vignette remap + `crashVolumeFloor` 0.22 + `hitDirMin` 0.14) and woken normals (`shakeMinIntensity` 0.22 / boost 0.16); `?tune` exposes `ramming.fx.*`. Wyatt playtest confirmed.
+- **D-HIT-FEEL-QUEUE-1** (07-22): Closed B2 CARGO-WT-1 (feel accept) + ARENA-BAL-1 (no code). Active card → HIT-FEEL-1; Round 1 = vignette remap + `CONFIG.ramming.fx.crashVolumeFloor` (volume floor, not gate); Round 2 = shake gate + expose `ramming.fx.*` in gameplayTunePane.
 - **D-ARENA-COL-1** (07-22): Cart Rave pit KO reliability (ARENA-COL-1) PASS — rim entry `fallEntryPos` / `fallEntryTimeMs` feed `buildKOEvent` as `{ classifyPos, creditTimeMs }` so 30m shaft drift and ricochet delay no longer misclassify center_hole or expire hit credit. Wyatt playtest confirmed.
 - **D-MPFX-1** (07-22): Non-host gameplay VFX parity (MP-FX-1) PASS — synced `isChargingBoost` via snapshot flag bit 16 through interp scratch; remote hop-land thud/dust via takeoff-anchored vy heuristic + bridged `onHopLand`. Wyatt 2-browser playtest confirmed opponent charge glow + hop land FX.
 
