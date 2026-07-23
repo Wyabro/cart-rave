@@ -259,6 +259,16 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
+2026-07-23 (UI — fight-night redesign, 6a HUD reworked) — Branch
+`redesign/fight-night-ui`, **unpushed**. HUD rebuilt to mock 6a in 3 cuts + 2 review rounds
+(`530825f`..`3240e6e`): directive → accent price-tag slab with a new placeholder `blurb` line;
+timer `TO CLOSE` + clock moved off Bungee (proportional digits resized the card every tick);
+rank digits and the cart-colour edge stripe deleted, score prints over a barcode, YOU cyan;
+kill feed → one **TRANSACTION LOG** receipt; nameplates → mini price tags (cart colour demoted to
+the punched hole's ring) + leader crown off a single new `getLeaderSlotIndex()`; boost → labelled
+360px slab with a hazard overcharge zone; combo → **CARNAGE COUPON** with a live countdown.
+**Next: 3a main menu** — the last surface, built pre-reversal and never diffed against its mock.
+
 2026-07-23 (UI — fight-night redesign, all 7 sub-screens done) — Branch
 `redesign/fight-night-ui`, **unpushed**. Path A (restyled centred cards) was **reversed at the
 07-22 review**: sub-screens got the mock's literal full-screen layouts on a shared `.cr-screen`
@@ -267,8 +277,7 @@ shell. **7a–7g all rebuilt** (`f504b9a`..`3451819`): customize (7a), settings 
 LINE lobby (7e, netcode seam untouched — one slot→row resolver, one ready send, gate
 `phase === "lobby" && friends`), and pause (7f, the one screen that stays a centred 860px panel;
 three review rounds — flattened skew from the entrance animation, then mock interior detail, then
-a short-window scroll from width-based clamps). **Next: 3a menu + 6a HUD still don't match their
-mocks** (built pre-reversal). Verified by DOM/computed-style introspection only; the **HUD,
+a short-window scroll from width-based clamps). Verified by DOM/computed-style introspection only; the **HUD,
 results-in-match and a live friends lobby remain unseen** (Browser pane can't composite or
 complete mode entry on this host). Progress log:
 [planning/fight-night-ui-handover.md](./planning/fight-night-ui-handover.md).

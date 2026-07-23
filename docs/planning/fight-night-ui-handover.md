@@ -11,9 +11,9 @@
 - **Design source:** `~/Downloads/Game Menu UI Refinement.zip` → `design_handoff_main_menu/README.md` +
   `Menu Redesign Concepts.dc.html`. The README's 7a–7g section carries the per-screen prose; the
   `.dc.html` carries the exact measurements. Extract it — the plan does *not* restate every number.
-- **State: all 7 sub-screens are done** (7a–7g). What remains is not screens — it is the **owed
-  verifications** (below) plus Wyatt's next target: **3a main menu and 6a HUD still don't fully match
-  their mocks**.
+- **State: all 7 sub-screens (7a–7g) are done, and 6a HUD has been reworked to its mock.** What
+  remains is **3a main menu** (built in cut 2, never diffed against its mock) plus the **owed
+  verifications** below.
 - **Verification caveat:** the Browser pane **won't composite screenshots on this host** → everything
   was verified via DOM + computed-style + scripted-interaction introspection, **never by eye**. No
   screen has had a visual sign-off except 7a and 7c (Wyatt looked at those in a real browser).
@@ -29,8 +29,10 @@
 | 7g Results | ✅ rebuilt + reviewed — podium left / receipt right, ledger cut, YOU pill, spill + challenge lines |
 | 7e Friends | ✅ rebuilt — invite chrome on the shell + full-screen CHECKOUT LINE lobby (netcode seam untouched) |
 | 7f Pause | ✅ re-laid out + **three review rounds with Wyatt** — the only screen that stays a centred panel (860px) |
+| **6a HUD** | ✅ reworked in 3 cuts + 2 review rounds — top strip, standings, feed, nameplates, boost, coupon, clock |
+| **3a Menu** | ⬜ **NEXT** — built in cut 2 (`62baedf`) *before* the path-A reversal and never diffed against its mock |
 
-## ⚠️ READ FIRST — five traps that have each bitten more than once
+## ⚠️ READ FIRST — six traps that have each bitten more than once
 
 ### 1. Retired CSS beats the new shell on source order
 
@@ -109,6 +111,24 @@ from 415px to 509px and made it scroll on any window under ~553px tall. Verifyin
 now (`--esc-mute-size`, `min(6vw, 9vh)` on the headline). **On a centred panel, check a SHORT
 viewport, not just a narrow one.**
 
+### 6. Probing an element in a state the app never renders proves nothing
+
+Every visual bug that reached Wyatt this session was "verified" first. Each time the probe created a
+state the running app doesn't use:
+
+1. **7f skew** — measured after forcing `display:flex`, which skips `show()`. The entrance animation
+   is what flattened the slabs, so the probe measured a skew that the real screen never had.
+2. **7f scroll** — measured at 1440×900 and 380×800. The panel only overflows when the window is
+   SHORT; both probes were tall.
+3. **6a boost** — measured after setting `display:block` on the meter by hand. `hud.js` writes
+   `display:flex`, which turned the counter-skew wrapper into a content-sized flex item and collapsed
+   the track to zero width. The bar was simply absent in-game.
+
+**The rule:** drive the real entry point (`show()`, the real updater, the real display value), and
+probe the geometry the failure would live in — short viewports for a centred panel, a filled roster
+for a scoreboard. If you cannot reach the real state (mode entry never completes in the pane), say so
+in the report instead of implying it was seen.
+
 ## Locked decisions
 
 1. **One branch**, all parts; commit per cut.
@@ -151,6 +171,11 @@ viewport, not just a narrow one.**
 | `ef0df3d` | 7f review 1 | Action slabs were flat with slanted labels (entrance animation — see trap 4); restart note removed; keycaps matched to the Settings chart; title/headers/sliders/chips finished to the mock. |
 | `2df8e6b` | 7f review 2 | Mute → AUDIO card header (it crowded MUSIC/SFX); cards made equal height with chips on the card floor; backdrop/panel/cards → the mock's dark. |
 | `3451819` | 7f review 3 | Review 2 spent 94px of height on width-based clamps → the panel scrolled under ~553px of window height. Rhythm is `vh`-aware now; threshold ~410px. |
+| `530825f` | **6a-1 HUD top** | Directive → accent price-tag slab + `blurb` rule line (new data, placeholder copy); timer meta gains `TO CLOSE`; mute → 48px ink slab. |
+| `79c9898` | **6a-2 standings** | Rank digits + edge stripe deleted; score prints over a barcode; YOU cyan; feed → one **TRANSACTION LOG** receipt with an orange streak pip. |
+| `e99b8d1` | **6a-3 world/pod** | Nameplates → mini price tag (cart colour moved to the punched hole's ring) + leader crown via new `getLeaderSlotIndex()`; boost → 360px slab w/ label, value, hazard overcharge zone. |
+| `174e390` | 6a review 1 | Timer meta onto the clock's baseline; combo → **CARNAGE COUPON** w/ live countdown; boost track had collapsed to 0; PA kicker lost the retired white ring. |
+| `3240e6e` | 6a review 2 | Clock was Bungee (proportional digits) → resized every tick; now Goldman + an em floor. |
 
 ## Key implementation facts (so you don't re-derive)
 
@@ -165,16 +190,18 @@ viewport, not just a narrow one.**
 - **Difficulty chips:** `updateDiffButtons`/`initDiffSelect` drive **every** `.cr-diff-row .cr-diff-btn` in the document — one write path to `settingsStore.aiDifficulty`, no new wiring needed for a new row.
 - **Results DOM** is built in `resultsOverlay.js` and returns `{overlay, panel, kicker, title, verdict, finalScores, receipt, playAgain, mainMenuBtn}` — `statsLine`/`history` are **gone**. `.results-body` is podium / receipt / actions and nothing else.
 - **Results stats** (`matchStats.js` → `snapshotMatchStats()`): BODIES=`localKos`, SPILLS CAUSED=`localSpills` (recorded in simulation.js beside the SPILL progression event), BEST COMBO=`maxComboTier`, TIMES BODIED=`localDeaths`, plus optional `leaderDowns`/`criticalKos`. The CHALLENGE receipt line diffs against `challengesCompleteAtRoundStart`, snapshotted at countdown in main.js.
+- **HUD (6a) specifics:** `hud.js` owns the ONE leader rule and exports `getLeaderSlotIndex()` — the cart crown and the scoreboard's magenta tag read the same value, so they cannot disagree. The kill-feed receipt hides itself via a **MutationObserver** on its rows, because `animations.js`'s exit timer removes rows and hud.js has no completion hook (`:has()` was rejected: Vite's default target still includes browsers without it). Directive copy (`blurb`) is **placeholder** and lives in `directives/directives.js`. The clock's fixed width comes from an em `min-width` floor, NOT from `tabular-nums` — Goldman doesn't ship tabular figures.
 - **Pause overlay (7f) specifics:** the panel carries its own material (no `.cc-panel`/`.cc-title` — both fought the mock); `createEscSection` returns `{section, hd, body}` so the mute chip can mount on the AUDIO header line; the CONTROLS chart mirrors the Settings one row for row (`W A S D` split, wide `SHIFT`/`SPACE`, per-action `--esc-kc` accent) but uses **fixed palette tokens**, because Settings tints from the live arena palette inside `cart-rave-menu.js`'s closure and this module can't reach it. Unifying them is a shared-module extraction, deliberately not done.
 - **main.js rewrites the results button labels at runtime** (rematch countdown, "WAITING FOR HOST…") — any decoration inside those buttons must live in CSS pseudo-elements, not child spans.
 
 ## Remaining work
 
-**All 7 sub-screens are done.** The next target is **Part 1 (3a main menu) and Part 2 (6a HUD)** —
-Wyatt's call at the 7f sign-off: they were built in cuts 2 and 3 *before* the path-A reversal and
-**still don't fully match their mocks**. Diff each against `Menu Redesign Concepts.dc.html` §3a / §6a
-the way 7f finally was — interior detail by interior detail, not just structure — and expect the same
-class of finding: title material, header rhythm, chip weight, slider treatment.
+**3a MAIN MENU is the last surface.** It was built in cut 2 (`62baedf`) before the path-A reversal
+and has never been diffed against its mock. Do it the way 6a and 7f finally were: open
+`Menu Redesign Concepts.dc.html` §3a and compare **interior detail by interior detail**, not
+structure. Every prior screen's findings were the same class — retired sticker material still on
+titles/pills, wrong font on a numeric readout, chip weight, stacked-vs-inline rhythm — so look there
+first.
 
 **Owed verifications (need a visible browser — `npm run dev:local`, not the pane):**
 1. **A real match** → the whole **HUD** (6a), then **results on a finished round**: count-up + receipt print cadence, the new SPILLS/CHALLENGE lines with real data, defeat/victory treatments, PLAY AGAIN host gating.
@@ -196,26 +223,47 @@ class of finding: title material, header rhythm, chip weight, slider treatment.
 - **Gates:** `npm run qa` (report by number) + `npm run build` (CSS is in the client bundle). Last run: **773/773 tests, 77 files**, all sub-gates green.
 - **Forcing a round to end (dev):** `window.CartClashDev.run("scores 7 4 2 9")` then `run("rewind 800")` → podium in ~2s. `CartClashDev.help()` lists the rest.
 - **Gotchas:** index.html line numbers shift as you edit (re-grep before editing); `status:size` gates on docs/STATUS.md tokens; menu nav is *correctly* blocked while an overlay is open.
+- **Probing the HUD without a match:** `#hud` is built at init, so the DOM exists on the menu. The top strip (timer, directive, mute) can be driven directly; the scoreboard, feed, nameplates, boost and coupon only populate in a round, so seed them (`.hud-scoreBox` text + `isLeader`/`isLocal` classes, a hand-built `.hud-feed-row`, `.hud-combo-badge.active`). Remember `getComputedStyle(el, '::after')` needs the pseudo as the SECOND argument — a `cs = e => getComputedStyle(e)` helper silently returns the element's own box, which cost three re-measures this session.
 
 ## Paste-able opener for the next window
 
 ```text
 Continue the "Fight Night" UI redesign on branch redesign/fight-night-ui (repo cart-rave).
-START with the "READ FIRST" section of docs/planning/fight-night-ui-handover.md — it has the
-current state, the three traps that have each bitten more than once, and what my Browser pane
-lies about. Then the design source (design_handoff_main_menu/README.md + "Menu Redesign
-Concepts.dc.html" inside ~/Downloads/Game Menu UI Refinement.zip) and `git log --oneline`.
+Everything is committed there and UNPUSHED.
 
-All seven sub-screens (7a-7g) are done and signed off. Next is 3a MAIN MENU and 6a HUD, which were
-built before the path-A reversal and still don't match their mocks. Diff them against "Menu Redesign
-Concepts.dc.html" interior detail by interior detail - structure alone is how 7f needed three review
-rounds. Read the "Known-but-parked" list before touching anything.
+READ IN THIS ORDER before touching anything:
+1. docs/planning/fight-night-ui-handover.md — the whole file. Its "READ FIRST" section is six
+   traps that have each bitten more than once in this work; traps 4 and 6 caused every bug that
+   reached me in the last session.
+2. The design source: extract ~/Downloads/"Game Menu UI Refinement.zip" and read
+   design_handoff_main_menu/README.md plus "Menu Redesign Concepts.dc.html". The README has the
+   per-screen prose, the .dc.html has the exact numbers. The plan does not restate them.
+3. `git log --oneline -30` on the branch.
 
-Rules of engagement: plan → my ack → apply. One screen per cut. Commit by EXPLICIT path and
-`git diff` your own files right before committing — a second agent session shares this checkout
-and has already both swept my lines into its commit and clobbered an edit outright. Delete the
-old modal CSS for each screen you rebuild rather than layering over it, and use a two-class
-selector whenever you override a shared shell class, and never animate transform on a skewed slab.
-Nothing in-match (HUD, results on a real round, a live friends lobby) has ever been seen in this
-harness - that still needs a visible browser.
+State: all seven sub-screens (7a-7g) are rebuilt as full-screen surfaces, and 6a HUD has been
+reworked to its mock. 3a MAIN MENU is the last surface — it was built in cut 2 (62baedf) before
+the path-A reversal and has NEVER been diffed against its mock.
+
+Your job is 3a. Do it the way 6a and 7f finally got done: compare against .dc.html §3a interior
+detail by interior detail, not structurally. Every screen so far produced the same class of
+finding — retired white die-cut material still on titles and pills, the wrong font on a numeric
+readout, chip weight too heavy, meta stacked where the mock puts it inline.
+
+Rules of engagement:
+- plan -> my ack -> apply. One screen per cut.
+- Commit by EXPLICIT path, and `git diff` your own files immediately before committing. A second
+  agent session shares this checkout and has already both swept my lines into its commit and
+  clobbered an edit outright. Never `git add -A`.
+- Delete a screen's retired CSS when you rebuild it; don't layer over it.
+- Two-class selectors when overriding a shared shell class.
+- Never animate `transform` on a skewed slab.
+- Verify in the state the app ACTUALLY renders (real show()/updater, real display value, short
+  viewports for centred panels). If you can't reach the real state, say so plainly instead of
+  implying you saw it — the Browser pane on this host cannot composite screenshots and never
+  completes mode entry.
+- Gates: `npm run qa` + `npm run build`, reported by number.
+
+Still owed and needing a real browser (not the pane): a live match for the HUD and results on a
+finished round, a two-client friends lobby (the CHECKOUT LINE has never rendered), the responsive
+sweep, and a golden-baseline regen (`npm run shoot`) once I sign off.
 ```
