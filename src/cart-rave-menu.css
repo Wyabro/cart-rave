@@ -144,7 +144,7 @@ html, body {
   border-radius: var(--radius-pill);
   background: var(--color-ink);
   border: none;
-  box-shadow: var(--sticker-chip);
+  box-shadow: var(--slab-shadow);
   color: rgba(255, 255, 255, 0.82);
   font-family: var(--mono);
   font-size: clamp(10px, 1.2vw, 11px);
@@ -226,7 +226,7 @@ html, body {
   border-radius: var(--radius-pill);
   background: var(--color-ink);
   border: none;
-  box-shadow: var(--sticker-chip);
+  box-shadow: var(--slab-shadow);
   pointer-events: auto;
   touch-action: none;
 }
@@ -241,7 +241,7 @@ html, body {
   border-radius: var(--radius-pill);
   background: var(--color-sticker-white);
   border: none;
-  box-shadow: var(--sticker-micro);
+  box-shadow: var(--slab-shadow-sm);
 }
 
 .cr-touch-btns {
@@ -264,7 +264,7 @@ html, body {
   font-size: 11px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  box-shadow: var(--sticker-chip);
+  box-shadow: var(--slab-shadow);
   touch-action: none;
 }
 
@@ -278,7 +278,7 @@ html, body {
 
 .cr-touch-btn:active {
   transform: translate(2px, 2px);
-  box-shadow: var(--sticker-chip-pressed);
+  box-shadow: var(--slab-shadow-pressed);
 }
 
 @media (pointer: coarse) {
@@ -298,7 +298,7 @@ html, body {
   background: var(--color-ink);
   border: none;
   border-radius: var(--radius-lg);
-  box-shadow: var(--sticker-panel);
+  box-shadow: var(--slab-shadow);
   width: 100%;
   justify-content: center;
 }
@@ -331,7 +331,7 @@ html, body {
   background: var(--color-sticker-white);
   border: none;
   border-radius: 4px;
-  box-shadow: var(--sticker-micro);
+  box-shadow: var(--slab-shadow-sm);
   font-family: var(--mono);
   font-size: 9px; letter-spacing: 0.22em;
   color: var(--color-ink-deep);
@@ -412,21 +412,18 @@ html, body {
   text-transform: uppercase;
   cursor: pointer;
   transition: transform 120ms var(--ease-slap), box-shadow 120ms var(--ease-slap);
-  box-shadow: var(--sticker-chip);
+  box-shadow: var(--slab-shadow);
 }
 
 .cr-btn:hover,
 .cr-btn:focus-visible {
   transform: translate(-1px, -2px);
-  box-shadow:
-    0 0 0 2.5px var(--color-sticker-white),
-    5px 6px 0 2.5px var(--color-ink-deep),
-    inset 0 2px 0 rgba(255,255,255,0.07);
+  box-shadow: var(--slab-shadow-hover);
 }
 
 .cr-btn:active {
   transform: translate(2px, 2px);
-  box-shadow: var(--sticker-chip-pressed);
+  box-shadow: var(--slab-shadow-pressed);
 }
 
 /* Color grammar — each play action is a solid brand-palette sticker with
@@ -462,7 +459,7 @@ html, body {
   background: var(--color-ink);
   border: none;
   border-radius: var(--radius-panel);
-  box-shadow: var(--sticker-panel);
+  box-shadow: var(--slab-shadow);
 }
 
 .cr-levels-hd {
@@ -500,7 +497,7 @@ html, body {
   font-family: var(--ui);
   cursor: pointer;
   transition: transform 120ms var(--ease-slap), box-shadow 120ms var(--ease-slap);
-  box-shadow: var(--sticker-micro);
+  box-shadow: var(--slab-shadow-sm);
   text-align: center;
 }
 
@@ -531,9 +528,7 @@ html, body {
 
 .cr-level-btn:hover:not(.cr-level-btn--disabled) {
   transform: translate(-1px, -2px);
-  box-shadow:
-    0 0 0 1.5px var(--color-sticker-white),
-    4px 5px 0 1.5px var(--color-ink-deep);
+  box-shadow: var(--slab-shadow-hover);
 }
 
 /* Press scale handled by Anime.js on .cr-level-btn-inner. */
@@ -594,7 +589,7 @@ html, body {
   font-family: var(--ui);
   cursor: pointer;
   transition: transform 120ms var(--ease-slap), box-shadow 120ms var(--ease-slap);
-  box-shadow: var(--sticker-micro);
+  box-shadow: var(--slab-shadow-sm);
   text-align: center;
 }
 
@@ -617,9 +612,7 @@ html, body {
 
 .cr-diff-btn:hover {
   transform: translate(-1px, -2px);
-  box-shadow:
-    0 0 0 1.5px var(--color-sticker-white),
-    4px 5px 0 1.5px var(--color-ink-deep);
+  box-shadow: var(--slab-shadow-hover);
 }
 
 .cr-diff-btn.active {
@@ -645,7 +638,7 @@ html, body {
   background: var(--color-ink);
   border: none;
   border-radius: var(--radius-panel);
-  box-shadow: var(--sticker-panel);
+  box-shadow: var(--slab-shadow);
   width: 100%;
 }
 
@@ -720,7 +713,7 @@ html, body {
   border-radius: var(--radius-sm);
   background: var(--color-ink);
   border: none;
-  box-shadow: var(--sticker-micro);
+  box-shadow: var(--slab-shadow-sm);
   color: var(--color-sticker-white);
   font-family: var(--ui);
   font-size: clamp(14px, 2vw, 18px);
@@ -896,6 +889,8 @@ html, body {
 .cr-color-chip--custom {
   background: color-mix(in oklab, var(--personality-lurker), var(--color-ink) 82%);
   border-color: transparent;
+  /* KEEP the die-cut contour — one of the four exceptions the token comment
+     names (emblems, Road Rage lettering, the CUSTOM chip, the hue knobs). */
   box-shadow: var(--sticker-micro);
 }
 
@@ -931,7 +926,7 @@ html, body {
   background: var(--color-ink);
   border: none;
   border-radius: var(--radius-panel);
-  box-shadow: var(--sticker-panel);
+  box-shadow: var(--slab-shadow);
 }
 
 .cr-audio-hd {
@@ -957,7 +952,7 @@ html, body {
   height: clamp(26px, 3.5vw, 30px);
   border-radius: var(--radius-sm);
   border: none;
-  box-shadow: var(--sticker-micro);
+  box-shadow: var(--slab-shadow-sm);
   background: var(--color-ink);
   color: var(--mc, var(--color-cyan));
   cursor: pointer;
@@ -1077,7 +1072,7 @@ html, body {
   background: var(--color-ink);
   border: none;
   border-radius: var(--radius-panel);
-  box-shadow: var(--sticker-panel);
+  box-shadow: var(--slab-shadow);
   width: 100%;
 }
 
@@ -1105,7 +1100,7 @@ html, body {
   padding: 0 7px;
   background: var(--color-ink-deep);
   border: none;
-  box-shadow: var(--sticker-micro);
+  box-shadow: var(--slab-shadow-sm);
   border-radius: 4px;
   font-family: var(--display);
   font-size: clamp(9px, 1.2vw, 11px);
@@ -2746,7 +2741,8 @@ html, body {
   padding: 6px 14px;
   border-radius: var(--radius-sm, 8px);
   background: var(--color-ink, #14101e);
-  box-shadow: var(--sticker-chip, 0 0 0 2.5px #f2ede4, 3px 3px 0 2.5px #08050f);
+  border: 1px solid var(--border-white-12, rgba(255,255,255,0.12));
+  box-shadow: var(--slab-shadow, 3px 3px 0 #08050f, inset 0 1px 0 rgba(255,255,255,0.07));
   font-family: var(--ui, "Russo One", sans-serif);
   font-size: 10px;
   letter-spacing: 0.08em;
@@ -3242,7 +3238,7 @@ html, body {
   font-size: clamp(12px, 2.2vw, 14px);
   letter-spacing: 0.04em;
   text-align: center;
-  box-shadow: var(--sticker-chip);
+  box-shadow: var(--slab-shadow);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.25s ease, transform 0.25s ease;

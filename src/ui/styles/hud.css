@@ -807,20 +807,16 @@
   animation: readyPulse 2s ease-in-out infinite;
 }
 
+/* Slab material, and NO `transform` here: the lobby READY button is a skewed
+   slab (`.hud-lobby-btn`), so writing translate() on the outer node flattens it
+   and leaves the label slanted (trap 4). The press beat lives on the inner node
+   via lobbyPressTarget(); hover/active only move the extrude. */
 #hud .hud-ready-btn:hover {
-  transform: translate(-1px, -1px);
-  box-shadow:
-    0 0 0 3px var(--color-sticker-white),
-    5px 5px 0 3px var(--color-ink-deep),
-    inset 0 2px 0 rgba(255,255,255,0.07);
+  box-shadow: var(--slab-shadow-hover);
 }
 
 #hud .hud-ready-btn:active {
-  transform: translate(2px, 2px);
-  box-shadow:
-    0 0 0 3px var(--color-sticker-white),
-    2px 2px 0 3px var(--color-ink-deep),
-    inset 0 2px 0 rgba(255,255,255,0.07);
+  box-shadow: var(--slab-shadow-pressed);
 }
 
 #hud .hud-ready-btn.is-ready {
@@ -861,10 +857,7 @@
 }
 #hud .hud-mute-btn:active {
   transform: translate(2px, 2px);
-  box-shadow:
-    0 0 0 2.5px var(--color-sticker-white),
-    1px 1px 0 2.5px var(--color-ink-deep),
-    inset 0 2px 0 rgba(255,255,255,0.07);
+  box-shadow: var(--slab-shadow-pressed);
 }
 /* Muted is unmistakable: the sticker turns alert-red. */
 #hud .hud-mute-btn.muted {
@@ -1156,10 +1149,7 @@
 
 #hud .hud-menu-btn:active {
   transform: translate(2px, 2px);
-  box-shadow:
-    0 0 0 2.5px var(--color-sticker-white),
-    1px 1px 0 2.5px var(--color-ink-deep),
-    inset 0 2px 0 rgba(255,255,255,0.07);
+  box-shadow: var(--slab-shadow-pressed);
 }
 
 /* Suppress HUD chrome when Esc overlay is open on touch devices. */
