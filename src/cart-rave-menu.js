@@ -34,6 +34,7 @@ import { playUiClick } from "./sfxSynth.js";
 import { AUDIO_VOLUME_MAX } from "./stores/audioStore.js";
 import { getRoundState } from "./gameState.js";
 import { setInputMode, updateControlsPanelUI, getInputMode, onInputModeChange } from "./input.js";
+import { readBuildInfo } from "./utils/buildInfo.js";
 import {
   animateButtonPress,
   animateButtonRelease,
@@ -401,6 +402,7 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
     if (levelId === state.level) return;
     persistLevel(levelId);
     updateLevelButtons();
+    updateArenaPager();
     applyLevelAmbience(levelId);
     window.dispatchEvent(new CustomEvent("cartrave:level-changed"));
     if (levelRow) {
@@ -1596,6 +1598,159 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
     });
   });
 
+  // ─── Fight Night command-list selection controller ────────────────────────
+  const MENU_ITEMS = {
+    solo:       { kicker: "SOLO · VS BOTS",         desc: "Brawl three bots. Most points when the store closes wins.", arena: true,  diff: true },
+    quickplay:  { kicker: "QUICKPLAY · ONLINE",     desc: "Jump into a public four-cart brawl.",                        arena: true,  diff: false },
+    friends:    { kicker: "FRIENDS · PRIVATE ROOM", desc: "Spin up a private room and invite your crew.",               arena: false, diff: false },
+    customize:  { kicker: "CART DETAILING",         desc: "Paint your cart — colors, sunglasses and patterns.",         arena: false, diff: false },
+    challenges: { kicker: "WEEKLY RESTOCK",         desc: "Weekly goals for bonus points.",                             arena: false, diff: false },
+    howto:      { kicker: "STORE POLICY",           desc: "Learn to drive, body carts, and win before closing.",        arena: false, diff: false },
+    settings:   { kicker: "STORE PREFERENCES",      desc: "Audio, graphics and controls.",                              arena: false, diff: false },
+  };
+
+  let cmdButtons = [];
+  let cmdIndex = 0;
+  let lastNavTick = 0;
+
+  function playNavTick() {
+    const now = performance.now();
+    if (now - lastNavTick < 55) return;
+    lastNavTick = now;
+    playUiClick();
+  }
+
+  function updateContextPanel(cmd) {
+    const meta = MENU_ITEMS[cmd] || { kicker: "", desc: "", arena: false, diff: false };
+    const kickerEl = $("cr-context-kicker");
+    const descEl = $("cr-context-desc");
+    const arenaWrap = $("cr-context-arena");
+    if (kickerEl) kickerEl.textContent = meta.kicker;
+    if (descEl) descEl.textContent = meta.desc;
+    if (arenaWrap) arenaWrap.hidden = !meta.arena;
+    if (diffRow) diffRow.hidden = !meta.diff;
+  }
+
+  function setMenuSelection(i, opts = {}) {
+    if (!cmdButtons.length) return;
+    const n = cmdButtons.length;
+    const next = (((i % n) + n) % n);
+    const changed = next !== cmdIndex;
+    cmdIndex = next;
+    cmdButtons.forEach((b, idx) => b.classList.toggle("is-selected", idx === next));
+    updateContextPanel(cmdButtons[next].dataset.cmd);
+    if (changed && !opts.silent) playNavTick();
+  }
+
+  function activateMenuSelection() {
+    cmdButtons[cmdIndex]?.click();
+  }
+
+  function menuVisible() {
+    return !!root && root.getClientRects().length > 0;
+  }
+
+  function isMenuOverlayOpen() {
+    return ["cr-customize-screen", "cr-howto-screen", "cr-challenges-screen", "cr-settings-screen", "cr-friends-screen"]
+      .some((id) => {
+        const el = $(id);
+        return el && el.style.display !== "none" && getComputedStyle(el).display !== "none";
+      });
+  }
+
+  function arenaContextShown() {
+    const arenaWrap = $("cr-context-arena");
+    return !!arenaWrap && !arenaWrap.hidden;
+  }
+
+  function pageArena(dir) {
+    if (!levelRow) return;
+    const btns = Array.from(levelRow.querySelectorAll(".cr-level-btn"));
+    if (!btns.length) return;
+    let idx = btns.findIndex((b) => b.classList.contains("active"));
+    if (idx < 0) idx = 0;
+    const n = btns.length;
+    for (let step = 1; step <= n; step += 1) {
+      const cand = btns[(((idx + dir * step) % n) + n) % n];
+      if (!cand.classList.contains("cr-level-btn--locked")) {
+        selectLevel(cand.dataset.level);
+        return;
+      }
+    }
+  }
+
+  function updateArenaPager() {
+    if (!levelRow) return;
+    const btns = Array.from(levelRow.querySelectorAll(".cr-level-btn"));
+    if (!btns.length) return;
+    const active = btns.find((b) => b.classList.contains("active")) || btns[0];
+    const nameEl = $("cr-arena-name");
+    const subEl = $("cr-arena-sub");
+    const label = active.querySelector(".cr-level-btn-label")?.textContent?.trim() || "";
+    const sub = (active.querySelector(".cr-level-btn-sub")?.textContent?.trim() || "").toUpperCase();
+    const idx = btns.indexOf(active);
+    if (nameEl) nameEl.textContent = label;
+    if (subEl) subEl.textContent = sub ? `${sub} · ${idx + 1}/${btns.length}` : `${idx + 1}/${btns.length}`;
+  }
+
+  function toggleMenuMute() {
+    muteBtn?.click();
+  }
+
+  function updateHintBar() {
+    const mode = getInputMode();
+    const deviceEl = $("cr-hint-device");
+    const keysEl = $("cr-hint-keys");
+    const metaEl = $("cr-hint-meta");
+    if (deviceEl) deviceEl.textContent = mode === "gamepad" ? "🎮 GAMEPAD" : "⌨ KEYBOARD";
+    const cap = (t) => `<span class="cr-key">${t}</span>`;
+    if (keysEl) {
+      keysEl.innerHTML = mode === "gamepad"
+        ? `<span class="cr-hint-item">D-PAD&nbsp; NAVIGATE</span><span class="cr-hint-item">${cap("Ⓐ")}&nbsp; SELECT</span><span class="cr-hint-item">LB / RB&nbsp; ARENA</span>`
+        : `<span class="cr-hint-item">${cap("W")}${cap("S")}&nbsp; NAVIGATE</span><span class="cr-hint-item">${cap("↵")}&nbsp; SELECT</span><span class="cr-hint-item">${cap("◂")}${cap("▸")}&nbsp; ARENA</span><span class="cr-hint-item">${cap("M")}&nbsp; MUTE</span>`;
+    }
+    if (metaEl) {
+      const build = readBuildInfo();
+      metaEl.textContent = build?.version ? `v${build.version}` : "";
+    }
+  }
+
+  function onMenuNavKeydown(e) {
+    if (!menuVisible() || isMenuOverlayOpen()) return;
+    if (document.activeElement === nameInput) return;
+    switch (e.key) {
+      case "w": case "W": case "ArrowUp":
+        e.preventDefault(); setMenuSelection(cmdIndex - 1); break;
+      case "s": case "S": case "ArrowDown":
+        e.preventDefault(); setMenuSelection(cmdIndex + 1); break;
+      case "Enter":
+        if (cmdButtons.includes(document.activeElement)) break; // native click handles it
+        e.preventDefault(); activateMenuSelection(); break;
+      case "ArrowLeft":
+        if (arenaContextShown()) { e.preventDefault(); pageArena(-1); } break;
+      case "ArrowRight":
+        if (arenaContextShown()) { e.preventDefault(); pageArena(1); } break;
+      case "m": case "M":
+        toggleMenuMute(); break;
+      default: break;
+    }
+  }
+
+  function initCommandList() {
+    cmdButtons = Array.from(document.querySelectorAll("#cr-commandlist .cr-cmd"));
+    cmdButtons.forEach((btn, idx) => {
+      btn.addEventListener("mouseenter", () => setMenuSelection(idx));
+      btn.addEventListener("focus", () => setMenuSelection(idx, { silent: true }));
+    });
+    $("cr-arena-prev")?.addEventListener("click", () => pageArena(-1));
+    $("cr-arena-next")?.addEventListener("click", () => pageArena(1));
+    updateArenaPager();
+    setMenuSelection(0, { silent: true });
+    updateHintBar();
+    onInputModeChange(() => updateHintBar());
+    document.addEventListener("keydown", onMenuNavKeydown);
+  }
+
   // ─── Beat + tilt animation ────────────────────────────────────────────────
   let lastBeat = performance.now();
   const animStart = performance.now();
@@ -1764,8 +1919,7 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
 
     setMenuEntrancePending(true);
 
-    // * Pacing: whole cascade lands in ~700ms (was ~1060ms — read as sluggish).
-    const STAGGER = 30;
+    // * Pacing: scrim/title already placed → rows stagger → panels → hint bar.
     let t = 0;
 
     document.querySelectorAll(".cr-tagline").forEach((el) => {
@@ -1778,50 +1932,27 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
       animateMenuCardEnter(titleWords, { delay: stagger(24, { start: t }), duration: 280, y: 14 });
     }
 
-    t += 70;
-    const menuButtons = Array.from(document.querySelectorAll(".cr-buttons .cr-btn")).filter((el) => el instanceof HTMLElement);
-    if (menuButtons.length > 0) {
-      animateMenuCardEnter(menuButtons, { delay: stagger(STAGGER, { start: t }), duration: 300, y: 18 });
+    t += 90;
+    const cmdRows = Array.from(document.querySelectorAll(".cr-commandlist .cr-cmd")).filter((el) => el instanceof HTMLElement);
+    if (cmdRows.length > 0) {
+      animateMenuCardEnter(cmdRows, { delay: stagger(40, { start: t }), duration: 300, y: 16 });
     }
 
-    t += STAGGER * 4 + 24;
-    const levelsHd = document.querySelector(".cr-levels-hd");
-    if (levelsHd instanceof HTMLElement) animateMenuReveal(levelsHd, { delay: t, duration: 220, y: 8 });
+    t += 40 * cmdRows.length + 20;
+    const plate = $("cr-player-card");
+    if (plate instanceof HTMLElement) animateMenuReveal(plate, { delay: t, duration: 300, y: 12 });
 
-    const levelCards = Array.from(document.querySelectorAll(".cr-level-btn:not(.cr-level-btn--disabled)")).filter((el) => el instanceof HTMLElement);
-    if (levelCards.length > 0) {
-      animateMenuCardEnter(levelCards, { delay: stagger(STAGGER, { start: t + 20 }), duration: 280, y: 16 });
-    }
+    const ctx = $("cr-context");
+    if (ctx instanceof HTMLElement) animateMenuReveal(ctx, { delay: t + 40, duration: 300, y: 12 });
 
-    const diffHd = document.querySelector(".cr-diff-hd");
-    if (diffHd instanceof HTMLElement) animateMenuReveal(diffHd, { delay: t + 40, duration: 200, y: 6 });
-
-    const diffCards = Array.from(document.querySelectorAll(".cr-diff-btn")).filter((el) => el instanceof HTMLElement);
-    if (diffCards.length > 0) {
-      animateMenuCardEnter(diffCards, { delay: stagger(STAGGER, { start: t + 56 }), duration: 260, y: 14 });
-    }
-
-    t += STAGGER * 2 + 48;
-
-    const stats = $("cr-stats-local");
-    if (stats instanceof HTMLElement) animateMenuReveal(stats, { delay: t, duration: 280, y: 12 });
-
-    if (playerCard instanceof HTMLElement) animateMenuReveal(playerCard, { delay: t + 16, duration: 320, y: 14 });
-
-    const audioPanel = $("cr-audio-panel");
-    if (audioPanel instanceof HTMLElement) animateMenuReveal(audioPanel, { delay: t + 56, duration: 260, y: 10 });
-
-    const controls = $("cr-controls");
-    if (controls instanceof HTMLElement) animateMenuReveal(controls, { delay: t + 80, duration: 260, y: 10 });
-
-    const menuExtras = document.querySelector(".cr-menu-extras");
-    if (menuExtras instanceof HTMLElement) animateMenuReveal(menuExtras, { delay: t + 100, duration: 240, y: 8 });
+    const hintbar = $("cr-hintbar");
+    if (hintbar instanceof HTMLElement) animateMenuReveal(hintbar, { delay: t + 90, duration: 260, y: 8 });
 
     clearMenuEntranceTimeout();
     menuEntranceTimeoutId = window.setTimeout(() => {
       menuEntranceTimeoutId = null;
       if (token === menuEntranceToken) setMenuEntrancePending(false);
-    }, t + 100 + 320);
+    }, t + 90 + 320);
   }
 
   // ─── Init ─────────────────────────────────────────────────────────────────
@@ -1842,6 +1973,7 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
   updateCustomHueUi();
   initLevelSelect();
   initDiffSelect();
+  initCommandList();
   initCustomizeScreen();
   initHowToScreen();
   initChallengesScreen();

@@ -74,16 +74,10 @@ html, body {
 /* Hide entrance targets until Anime.js runs (removed when sequence completes). */
 .cr-root.cr-menu-enter-pending .cr-tagline,
 .cr-root.cr-menu-enter-pending .cr-title-word,
-.cr-root.cr-menu-enter-pending .cr-buttons .cr-btn,
-.cr-root.cr-menu-enter-pending .cr-levels-hd,
-.cr-root.cr-menu-enter-pending .cr-level-btn:not(.cr-level-btn--disabled),
-.cr-root.cr-menu-enter-pending .cr-diff-hd,
-.cr-root.cr-menu-enter-pending .cr-diff-btn,
-.cr-root.cr-menu-enter-pending #cr-player-card,
-.cr-root.cr-menu-enter-pending #cr-stats-local,
-.cr-root.cr-menu-enter-pending #cr-audio-panel,
-.cr-root.cr-menu-enter-pending #cr-controls,
-.cr-root.cr-menu-enter-pending .cr-menu-extras {
+.cr-root.cr-menu-enter-pending .cr-commandlist .cr-cmd,
+.cr-root.cr-menu-enter-pending .cr-plate,
+.cr-root.cr-menu-enter-pending .cr-context,
+.cr-root.cr-menu-enter-pending .cr-hintbar {
   opacity: 0;
 }
 
@@ -98,32 +92,14 @@ html, body {
   transition: opacity 280ms ease;
 }
 
+/* Fight Night 3a: regions are absolutely positioned within this container
+   (hero left · plate top-right · context bottom-right · hint bar bottom).
+   The desktop composition lives here; the named responsive bands at the end of
+   this file switch it to a stacked scroll column. */
 .cr-content {
   position: absolute; inset: 0;
   z-index: 20;
-  display: grid;
-  grid-template-columns: 1fr 1.2fr 1fr; /* Slightly wider center for ultrawide cohesion */
-  align-items: center;
-  /* `safe center` keeps vertical centering when the columns fit, but falls back
-     to top-align the moment a column is taller than the viewport — which is what
-     happens under high OS DPI scaling (a 1080p panel at 125% reports a ~760px
-     CSS viewport) or browser zoom. Without it, a centered-then-overflowing
-     column has its top AND bottom clipped and the overflow is unreachable even
-     with a scrollbar. Paired declaration = graceful fallback on engines that
-     don't parse the `safe` keyword. */
-  align-items: safe center;
-  align-content: safe center;
-  justify-items: center;
-  padding: var(--pad-content);
-  gap: clamp(16px, 2.5vw, 32px); /* Tighter gap on smaller screens, wider on ultrawide */
-  width: 100%;
-  max-width: 1500px; /* Slightly tighter cap to prevent extreme stretching */
-  margin: 0 auto;
-  /* Scroll instead of hard-clipping when the columns exceed the viewport height
-     (short windows / DPI scaling / zoom). No-op when everything fits. This is
-     the desktop safety net; the mobile + <=680px blocks already scroll. */
-  overflow-y: auto;
-  scrollbar-width: thin;
+  overflow: hidden;
 }
 
 .cr-left {
@@ -457,18 +433,8 @@ html, body {
    ink-deep lettering. SOLO (yellow) leads as the primary CTA; QUICKPLAY,
    FRIENDS and CUSTOMIZE spread cyan / green / magenta so the stack reads as a
    colorful arcade select screen instead of one hero button over dead chrome. */
-#cr-solo {
-  background: var(--color-yellow);
-  color: var(--color-ink-deep);
-}
-.cr-btn[data-action="quickplay"] {
-  background: var(--color-cyan);
-  color: var(--color-ink-deep);
-}
-.cr-btn[data-action="friends"] {
-  background: var(--color-portal);
-  color: var(--color-ink-deep);
-}
+/* Fight Night: the command list handles its own idle/selected colors
+   (.cr-cmd below); the old solid per-action button fills are retired. */
 
 /* Press scale handled by Anime.js on .cr-btn-inner — keep outer lift only. */
 
@@ -2872,4 +2838,248 @@ html, body {
     transition: box-shadow 120ms ease;
     transform: none !important;
   }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FIGHT NIGHT — Part 1 main menu (badge 3a).
+   Command list over the live attract render; plate + context right; hint bar.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+/* ── LEFT hero: tagline · title lockup · command list ── */
+.cr-hero {
+  position: absolute;
+  left: clamp(24px, 5vw, 96px);
+  top: 0; bottom: 0;
+  width: min(480px, 44vw);
+  display: flex; flex-direction: column; justify-content: center;
+  gap: clamp(6px, 1.2vh, 14px);
+  z-index: 22;
+}
+.cr-hero .cr-tagline {
+  display: block; width: 100%;
+  font-family: var(--mono);
+  font-size: clamp(9px, 1vw, 12px);
+  letter-spacing: 0.34em;
+  color: var(--color-muted);
+  text-transform: uppercase;
+  text-align: center;
+}
+.cr-hero .cr-title-stack {
+  align-items: center; text-align: center; width: 100%;
+  transform: skewX(-4deg);
+  margin: clamp(6px, 1vh, 18px) 0 clamp(18px, 3.4vh, 44px);
+}
+.cr-hero .cr-title-stack .cr-title-word:nth-child(1) {
+  color: var(--color-sticker-white);
+  text-shadow: 0 0 50px var(--glow-magenta-40);
+}
+.cr-hero .cr-title-stack .cr-title-word:nth-child(2) {
+  color: var(--color-magenta);
+  text-shadow: 4px 4px 0 var(--glow-cyan-30), 0 0 60px var(--glow-magenta-40);
+  margin-top: -0.06em;
+}
+
+/* ── Command list — skewed rows; selected row is the ONLY solid yellow ── */
+.cr-commandlist {
+  display: flex; flex-direction: column; gap: 2px;
+  width: 100%; max-width: 480px; margin: 0;
+}
+.cr-cmd {
+  position: relative;
+  display: flex; align-items: center; gap: 16px;
+  width: 100%;
+  padding: 15px 30px;
+  background: transparent; border: none; border-radius: 0; box-shadow: none;
+  transform: skewX(-8deg);
+  margin-left: -8px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 130ms var(--ease-slap), padding 130ms var(--ease-slap);
+}
+.cr-cmd .cr-btn-inner { justify-content: flex-start; transform: skewX(8deg); gap: 0; }
+.cr-cmd .cr-btn-label {
+  font-family: var(--ui); font-weight: 700;
+  font-size: clamp(18px, 1.9vw, 24px);
+  letter-spacing: 0.1em;
+  color: var(--color-muted);
+  transition: color 130ms var(--ease-slap), font-size 130ms var(--ease-slap);
+}
+.cr-cmd-qual {
+  transform: skewX(8deg);
+  margin-left: auto;
+  font-family: var(--mono); font-weight: 700; font-size: 13px;
+  letter-spacing: 0.12em; color: var(--color-ink);
+  white-space: nowrap; opacity: 0;
+}
+.cr-cmd-new {
+  transform: skewX(8deg);
+  background: var(--color-magenta); color: var(--color-ink);
+  font-family: var(--ui); font-weight: 800; font-size: 10px; letter-spacing: 0.1em;
+  padding: 3px 8px; border-radius: 3px;
+}
+.cr-cmd-new[hidden] { display: none; }
+.cr-cmd:hover .cr-btn-label { color: var(--color-sticker-white); }
+.cr-cmd.is-selected {
+  background: linear-gradient(90deg, rgba(255,229,61,0.92), rgba(255,229,61,0.75) 60%, transparent 98%);
+  padding: 16px 30px;
+}
+.cr-cmd.is-selected .cr-btn-label { color: var(--color-ink); font-size: clamp(22px, 2.3vw, 30px); }
+.cr-cmd.is-selected .cr-cmd-qual { opacity: 1; }
+.cr-cmd:focus-visible { outline: 2px dashed var(--color-yellow); outline-offset: 2px; }
+
+/* ── TOP-RIGHT player plate + BOTTOM-RIGHT context: shared dark-glass panel ── */
+.cr-plate, .cr-context {
+  position: absolute;
+  right: clamp(24px, 5vw, 96px);
+  background: rgba(12, 10, 17, 0.85);
+  border: 1px solid var(--border-white-10);
+  border-radius: 12px;
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  z-index: 22;
+}
+.cr-plate {
+  top: clamp(20px, 4vh, 44px);
+  width: min(430px, 34vw);
+  padding: 22px 26px;
+}
+.cr-plate-hd {
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.24em;
+  color: var(--color-muted); white-space: nowrap;
+}
+.cr-plate .cr-name-row {
+  display: flex; align-items: center; gap: 10px; margin-top: 10px;
+}
+.cr-plate .cr-name-display {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--ui); font-weight: 700; font-size: clamp(26px, 3vw, 36px);
+  color: var(--color-sticker-white); letter-spacing: 0.02em; cursor: pointer;
+}
+.cr-plate .cr-name-display .cr-edit-hint { font-size: 15px; color: #b5afc0; }
+.cr-plate .cr-name-input {
+  flex: 1; min-width: 0; font-family: var(--ui); font-weight: 700; font-size: clamp(24px, 2.6vw, 32px);
+  color: var(--color-sticker-white); background: transparent;
+  border: none; border-bottom: 1px solid var(--border-white-20); outline: none;
+}
+.cr-plate .cr-reroll {
+  margin-left: auto; width: 36px; height: 36px; flex-shrink: 0;
+  border-radius: 8px; border: 1px solid var(--border-white-15);
+  background: transparent; color: #b5afc0; cursor: pointer; font-size: 15px;
+}
+.cr-plate .cr-reroll:hover { color: var(--color-sticker-white); border-color: var(--border-white-20); }
+.cr-plate .cr-stats {
+  display: flex; margin-top: 16px; padding: 14px 0 0;
+  background: none; border: none; border-top: 1px solid var(--border-white-10);
+  box-shadow: none; border-radius: 0;
+}
+.cr-plate .cr-stat { flex: 1; text-align: center; }
+.cr-plate .cr-stat-num {
+  font-family: var(--ui); font-weight: 700; font-size: clamp(18px, 2vw, 24px);
+  color: var(--color-sticker-white);
+}
+.cr-plate #stat-wins { color: var(--color-magenta); }
+.cr-plate .cr-stat-lbl {
+  display: block; font-family: var(--mono); font-size: 9px; letter-spacing: 0.18em;
+  color: var(--color-muted); margin-top: 2px;
+}
+.cr-plate .cr-stat-div { width: 1px; align-self: stretch; background: var(--border-white-10); }
+
+/* ── Context panel — driven by the highlighted command ── */
+.cr-context {
+  bottom: clamp(88px, 14vh, 130px);
+  width: min(500px, 40vw);
+  padding: 26px 30px;
+}
+.cr-context-kicker {
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.26em; color: var(--color-magenta);
+}
+.cr-context-desc {
+  font-size: 15px; color: var(--color-text-secondary); line-height: 1.55; margin-top: 10px;
+}
+.cr-context-arena {
+  display: flex; align-items: center; gap: 16px;
+  margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--border-white-10);
+}
+.cr-context-arena[hidden], .cr-context .cr-diff-row[hidden] { display: none; }
+.cr-arena-page {
+  width: 34px; height: 34px; flex-shrink: 0;
+  border-radius: 8px; border: 1px solid var(--border-white-20); background: transparent;
+  color: #b5afc0; display: grid; place-items: center; font-size: 15px; cursor: pointer;
+}
+.cr-arena-page:hover { color: var(--color-sticker-white); border-color: var(--border-white-15); }
+.cr-arena-display { flex: 1; text-align: center; min-width: 0; }
+.cr-arena-name {
+  font-family: var(--ui); font-weight: 700; font-size: clamp(20px, 2.2vw, 26px);
+  letter-spacing: 0.06em; color: var(--color-cyan); white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.cr-arena-sub {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em;
+  color: var(--color-muted); margin-top: 2px;
+}
+.cr-context .cr-diff-row {
+  display: flex; gap: 8px; margin-top: 16px;
+}
+.cr-context .cr-diff-btn {
+  flex: 1; text-align: center; padding: 9px; cursor: pointer;
+  border-radius: 6px; border: 1px solid var(--border-white-14); background: transparent;
+  font-family: var(--ui); font-weight: 700; font-size: 12px; letter-spacing: 0.1em;
+  color: var(--color-muted);
+}
+.cr-context .cr-diff-btn .cr-diff-btn-label { color: inherit; }
+.cr-context .cr-diff-btn.active {
+  background: rgba(255, 229, 61, 0.9); border-color: transparent; color: var(--color-ink);
+}
+.cr-context .cr-diff-btn.active .cr-diff-btn-label { color: var(--color-ink); }
+
+/* ── Bottom hint bar — device-aware ── */
+.cr-hintbar {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  display: flex; align-items: center; gap: clamp(16px, 3vw, 36px);
+  padding: 16px clamp(24px, 5vw, 96px);
+  background: rgba(9, 7, 13, 0.9);
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  font-family: var(--mono); font-size: 12px; letter-spacing: 0.12em;
+  color: var(--color-muted);
+  z-index: 23;
+}
+.cr-hint-device {
+  display: inline-flex; align-items: center; gap: 8px;
+  border: 1px solid rgba(255, 68, 212, 0.45); border-radius: var(--radius-pill);
+  padding: 6px 16px; color: var(--color-magenta); white-space: nowrap;
+}
+.cr-hint-keys { display: flex; align-items: center; gap: clamp(12px, 2vw, 28px); flex-wrap: wrap; }
+.cr-hint-keys .cr-hint-item { white-space: nowrap; }
+.cr-hint-keys .cr-key {
+  display: inline-block; border: 1px solid var(--border-white-20); border-radius: 4px;
+  padding: 2px 8px; color: var(--color-sticker-white); margin: 0 2px;
+}
+.cr-hint-meta { margin-left: auto; color: var(--color-faint); white-space: nowrap; }
+
+@media (prefers-reduced-motion: reduce) {
+  .cr-cmd, .cr-cmd .cr-btn-label { transition: none; }
+}
+
+/* ── Named responsive collapse (tokens.css breakpoint contract) ── */
+@media (max-width: 1024px) {
+  .cr-content {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 18px; padding: 24px 16px 92px; overflow-y: auto;
+  }
+  .cr-hero, .cr-plate, .cr-context {
+    position: static; inset: auto; right: auto; left: auto; bottom: auto; top: auto;
+    width: min(480px, 94vw);
+  }
+  .cr-hero { justify-content: flex-start; }
+  .cr-context { order: 3; }
+}
+@media (max-width: 768px) {
+  .cr-hintbar { gap: 12px; padding: 12px 16px; font-size: 11px; }
+  .cr-hint-meta { display: none; }
+  .cr-plate .cr-stats { margin-top: 12px; }
+}
+@media (max-width: 380px) {
+  .cr-cmd { padding: 12px 20px; }
+  .cr-cmd.is-selected { padding: 13px 20px; }
+  .cr-cmd .cr-btn-label { font-size: 18px; }
+  .cr-cmd-qual { white-space: normal; }
 }

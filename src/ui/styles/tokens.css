@@ -37,6 +37,12 @@
   --color-bg-deep: #0a0014;
   --color-bg-black: #000;
 
+  /* UI text greys (Fight Night redesign) — secondary body, muted labels, faint
+     meta. Map the mock's #d8d4e0 / #8a8494 / #6f6a7c here so screens use tokens. */
+  --color-text-secondary: #d8d4e0;
+  --color-muted: #8a8494;
+  --color-faint: #6f6a7c;
+
   /* Hue-derived live accent — follows --hue (registered @property), so it
      re-skins with the active arena and can be smoothly animated. */
   --accent-live: oklch(0.72 0.2 var(--hue));
