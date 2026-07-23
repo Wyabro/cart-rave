@@ -1679,7 +1679,9 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
   // ─── Fight Night command-list selection controller ────────────────────────
   const MENU_ITEMS = {
     solo:       { kicker: "SOLO · VS BOTS",         desc: "Brawl three bots. Most points when the store closes wins.", arena: true,  diff: true },
-    quickplay:  { kicker: "QUICKPLAY · ONLINE",     desc: "Jump into a public four-cart brawl.",                        arena: true,  diff: false },
+    // * QUICKPLAY has no arena picker: matchmaking decides the arena, so offering
+    // * the pager here promised a choice the mode does not honour.
+    quickplay:  { kicker: "QUICKPLAY · ONLINE",     desc: "Jump into a public four-cart brawl.",                        arena: false, diff: false },
     friends:    { kicker: "FRIENDS · PRIVATE ROOM", desc: "Spin up a private room and invite your crew.",               arena: false, diff: false },
     customize:  { kicker: "CART DETAILING",         desc: "Paint your cart — colors, sunglasses and patterns.",         arena: false, diff: false },
     challenges: { kicker: "WEEKLY RESTOCK",         desc: "Weekly goals for bonus points.",                             arena: false, diff: false },

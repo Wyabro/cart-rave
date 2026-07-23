@@ -3488,6 +3488,13 @@ html, body {
   margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--border-white-10);
 }
 .cr-context-arena[hidden], .cr-context .cr-diff-row[hidden] { display: none; }
+/* The radiogroup is the arena DATA MODEL, never a visible control here — the
+   pager reads it and writes back through selectLevel(). The `hidden` attribute
+   alone does NOT hide it: `.cr-level-row { display: grid }` (0,1,0) outranks the
+   UA `[hidden]` rule, so all three arena cards rendered on top of the pager and
+   squeezed the arena name to a clipped stub. Attribute + two classes so no
+   responsive band can bring them back. */
+.cr-context .cr-level-row[hidden] { display: none; }
 .cr-arena-page {
   width: 34px; height: 34px; flex-shrink: 0;
   border-radius: 8px; border: 1px solid var(--border-white-20); background: transparent;
