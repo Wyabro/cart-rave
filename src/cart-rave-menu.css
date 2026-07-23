@@ -847,6 +847,8 @@ html, body {
   flex-shrink: 0;
 }
 
+/* Slab chips (7a): dark ink card carrying the neon cart SVG; the cart color
+   lives in the border/glow, never as a filled swatch. */
 .cr-color-chip {
   position: relative;
   display: flex; align-items: center; justify-content: center;
@@ -854,21 +856,48 @@ html, body {
   min-height: 36px;
   padding: 2px 4px;
   border-radius: var(--radius-chip);
-  background: var(--surface-dark-40);
-  border: 2px solid color-mix(in oklab, var(--cc), transparent 75%);
+  background: var(--color-ink);
+  border: 1px solid color-mix(in oklab, var(--cc), transparent 60%);
+  box-shadow: var(--slab-shadow-sm);
   cursor: pointer;
   transition: var(--transition-interactive);
 }
 
 .cr-color-chip:hover {
   border-color: var(--cc);
+  box-shadow: var(--slab-shadow-hover);
   transform: var(--transform-hover-lift-sm);
 }
 
 .cr-color-chip.active {
   border-color: var(--cc);
-  background: color-mix(in oklab, var(--cc), transparent 85%);
-  box-shadow: 0 0 0 1px var(--cc) inset, var(--sticker-micro);
+  background: color-mix(in oklab, var(--cc), var(--color-ink) 88%);
+  box-shadow:
+    0 0 0 1px var(--cc) inset,
+    0 0 12px -2px var(--cc),
+    var(--slab-shadow-sm);
+}
+
+/* CUSTOM keeps the die-cut white ring (KEEP spec) — it reads as the odd one
+   out on purpose, purple slab under a white contour. */
+.cr-color-chip--custom {
+  background: color-mix(in oklab, var(--personality-lurker), var(--color-ink) 82%);
+  border-color: transparent;
+  box-shadow: var(--sticker-micro);
+}
+
+.cr-color-chip--custom:hover {
+  box-shadow:
+    0 0 0 1.5px var(--color-sticker-white),
+    3px 3px 0 1.5px var(--color-ink-deep);
+}
+
+.cr-color-chip--custom.active {
+  background: color-mix(in oklab, var(--cc), var(--color-ink) 80%);
+  box-shadow:
+    0 0 0 1.5px var(--color-sticker-white),
+    2px 2px 0 1.5px var(--color-ink-deep),
+    0 0 14px -2px var(--cc);
 }
 
 .cr-color-chip.active::after {
@@ -1270,8 +1299,8 @@ html, body {
 .cr-customize-tab {
   padding: var(--space-sm) var(--space-xs);
   background: var(--color-ink);
-  border: none;
-  box-shadow: var(--sticker-micro);
+  border: 1px solid var(--border-white-12);
+  box-shadow: var(--slab-shadow-sm);
   border-radius: var(--radius-sm);
   color: rgba(255, 255, 255, 0.75);
   font-family: var(--mono);
@@ -1281,11 +1310,18 @@ html, body {
   transition: transform 120ms var(--ease-slap), box-shadow 120ms var(--ease-slap);
 }
 
+.cr-customize-tab:hover:not(.active):not(.cr-customize-tab--soon) {
+  color: var(--color-sticker-white);
+  border-color: var(--border-white-20);
+}
+
+/* Yellow = selection, game-wide. The active tab is the only solid fill here. */
 .cr-customize-tab.active {
-  color: var(--color-cyan);
-  box-shadow:
-    0 0 0 1.5px var(--color-cyan),
-    2px 2px 0 1.5px var(--color-ink-deep);
+  color: var(--color-ink-deep);
+  background: var(--color-yellow);
+  border-color: var(--color-yellow);
+  font-weight: 700;
+  box-shadow: var(--slab-shadow-sm);
 }
 
 .cr-customize-tab--soon {
@@ -1318,8 +1354,8 @@ html, body {
   min-height: 36px;
   padding: 2px 4px;
   background: var(--color-ink);
-  border: none;
-  box-shadow: var(--sticker-micro);
+  border: 1px solid var(--border-white-12);
+  box-shadow: var(--slab-shadow-sm);
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: transform 120ms var(--ease-slap), box-shadow 150ms ease;
@@ -1351,9 +1387,11 @@ html, body {
 }
 
 .cr-sunglasses-chip.active {
+  /* Yellow ring = the selected item (selection law); the swatch keeps its own hue. */
+  border-color: var(--color-yellow);
   box-shadow:
-    0 0 0 2px var(--color-cyan),
-    2px 2px 0 2px var(--color-ink-deep);
+    0 0 0 1px var(--color-yellow) inset,
+    var(--slab-shadow-sm);
 }
 
 .cr-sunglasses-chip-label {
@@ -1382,8 +1420,8 @@ html, body {
   min-height: 44px;
   padding: var(--space-xs);
   background: var(--color-ink);
-  border: none;
-  box-shadow: var(--sticker-micro);
+  border: 1px solid var(--border-white-12);
+  box-shadow: var(--slab-shadow-sm);
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: transform 120ms var(--ease-slap), box-shadow 150ms ease;
@@ -1398,9 +1436,11 @@ html, body {
 }
 
 .cr-pattern-chip.active {
+  /* Yellow ring = the selected item (selection law); the swatch keeps its own hue. */
+  border-color: var(--color-yellow);
   box-shadow:
-    0 0 0 2px var(--color-cyan),
-    2px 2px 0 2px var(--color-ink-deep);
+    0 0 0 1px var(--color-yellow) inset,
+    var(--slab-shadow-sm);
 }
 
 .cr-pattern-chip-label {
