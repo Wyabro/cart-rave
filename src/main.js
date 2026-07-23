@@ -1901,6 +1901,9 @@ async function main() {
         const menuRoot = document.getElementById("cr-root");
 
         if (friendsLink) friendsLink.value = roomLink;
+        // * The code is what people read out loud; the link is what they paste.
+        const friendsCode = document.getElementById("cr-friends-code");
+        if (friendsCode) friendsCode.textContent = roomId.toUpperCase();
         window.CartRave?.stopAnimations?.();
         if (menuRoot) menuRoot.style.display = "none";
         if (friendsScreen) {

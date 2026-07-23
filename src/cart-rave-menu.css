@@ -1130,6 +1130,60 @@ html, body {
   margin: 0;
 }
 
+/* 7e invite chrome: the room CODE is the headline (readable over voice chat);
+   the link row underneath is the paste path. */
+.cr-friends-code-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: clamp(8px, 1.4vw, 12px);
+  background: var(--color-ink-deep);
+  border: 1px solid var(--border-white-12);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--slab-shadow-sm);
+}
+
+.cr-friends-code-lbl {
+  font-family: var(--mono);
+  font-size: clamp(8px, 1.1vw, 9px);
+  letter-spacing: 0.24em;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.cr-friends-code {
+  font-family: var(--ui);
+  font-size: clamp(18px, 3.4vw, 26px);
+  letter-spacing: 0.18em;
+  color: var(--color-cyan);
+  white-space: nowrap;
+}
+
+/* Host-side pre-connect difficulty — rides the normal join through
+   settingsStore (a LIVE change would have to go through the room broadcast). */
+.cr-friends-diff {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.cr-friends-diff-lbl {
+  font-family: var(--mono);
+  font-size: clamp(8px, 1.1vw, 9px);
+  letter-spacing: 0.24em;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.cr-diff-row--friends {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-xs);
+  width: 100%;
+}
+
 .cr-friends-link-row {
   display: flex;
   width: 100%;

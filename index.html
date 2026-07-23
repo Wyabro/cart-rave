@@ -873,9 +873,21 @@
     <div class="cr-overlay-panel cr-overlay-panel--friends">
       <h2 class="cr-friends-title">INVITE FRIENDS</h2>
       <p class="cr-friends-desc">Your invite link is copied to your clipboard. Send it to your friends — they'll pick a name and color, then roll into your lobby.</p>
+      <div class="cr-friends-code-block">
+        <span class="cr-friends-code-lbl">ROOM CODE</span>
+        <span class="cr-friends-code" id="cr-friends-code">——</span>
+      </div>
       <div class="cr-friends-link-row">
         <input class="cr-friends-link" id="cr-friends-link" name="room-link" readonly aria-label="Invite link" />
         <button class="cr-friends-copy" id="cr-friends-copy">COPY</button>
+      </div>
+      <div class="cr-friends-diff" id="cr-friends-diff">
+        <span class="cr-friends-diff-lbl">BOT DIFFICULTY</span>
+        <div class="cr-diff-row cr-diff-row--friends" role="group" aria-label="Bot difficulty">
+          <button type="button" class="cr-diff-btn" data-difficulty="easy" aria-pressed="false"><span class="cr-diff-btn-inner">EASY</span></button>
+          <button type="button" class="cr-diff-btn" data-difficulty="medium" aria-pressed="false"><span class="cr-diff-btn-inner">MEDIUM</span></button>
+          <button type="button" class="cr-diff-btn" data-difficulty="hard" aria-pressed="false"><span class="cr-diff-btn-inner">HARD</span></button>
+        </div>
       </div>
       <button class="cr-overlay-done" id="cr-friends-enter">ENTER GAME</button>
       <button class="cr-overlay-back" id="cr-friends-back">← BACK</button>

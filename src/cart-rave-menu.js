@@ -441,13 +441,22 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
     });
   }
 
+  /**
+   * Every difficulty chip row in the document — the menu context panel's row and
+   * the Friends invite screen's host row. One controller drives both so the two
+   * can't disagree about `settingsStore.aiDifficulty`.
+   * @returns {HTMLElement[]}
+   */
+  function allDiffButtons() {
+    return /** @type {HTMLElement[]} */ ([...document.querySelectorAll(".cr-diff-row .cr-diff-btn")]);
+  }
+
   function updateDiffButtons() {
-    if (!diffRow) return;
     const current = normalizeDifficulty(
       settingsStore.getState().aiDifficulty,
       DEFAULT_SOLO,
     );
-    diffRow.querySelectorAll(".cr-diff-btn").forEach((btn) => {
+    allDiffButtons().forEach((btn) => {
       const id = btn.dataset.difficulty || "";
       const isActive = id === current;
       btn.classList.toggle("active", isActive);
@@ -476,8 +485,7 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
       normalizeDifficulty(settingsStore.getState().aiDifficulty, DEFAULT_SOLO),
     );
     updateDiffButtons();
-    if (!diffRow) return;
-    diffRow.querySelectorAll(".cr-diff-btn").forEach((btn) => {
+    allDiffButtons().forEach((btn) => {
       btn.addEventListener("click", () => selectDifficulty(btn.dataset.difficulty));
     });
   }
