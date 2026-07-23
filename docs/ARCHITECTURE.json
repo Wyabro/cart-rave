@@ -2,15 +2,15 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-07-23T04:33:27.929Z",
-    "commit": "2e5c625"
+    "at": "2026-07-23T04:44:49.890Z",
+    "commit": "c603119"
   },
-  "source_digest": "7f11fd62",
+  "source_digest": "4ac79742",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
     "production_url": "https://cart-rave.wyabro.workers.dev/",
-    "mission": "Playtesting and stabilization — Tier A drained. B1 AI-DIFF-1 shipped (`49bfc2a`). B2 CARGO-WT-1 — life-scoped cargo weight (boss/glass) + louder boss tune + readable bay count ramp; feel still iterating. CARGO-VIS-1 queued (full-bay + rim overflow look). Before public/external playtest: reset analytics DO (see Gotchas).",
+    "mission": "Playtesting and stabilization — Tier A drained. B1 AI-DIFF-1 shipped (`49bfc2a`). B2 CARGO-WT-1 closed (Wyatt feel accept 07-22 — life-scoped boss/glass + bay count ramp; look → CARGO-VIS-1). ARENA-BAL-1 closed (Wyatt 07-22, no code). Active: HIT-FEEL-1 (weak normals + noisy incoming). CARGO-VIS-1 queued (full-bay + rim overflow). Before public/external playtest: reset analytics DO (see Gotchas).",
     "phase": "Playtesting & stabilization — stabilize after Run 7; prove residuals; no auto-advance to RC",
     "phases": [
       {
@@ -912,8 +912,20 @@
       {
         "id": "B2 CARGO-WT-1",
         "what": "life-scoped grocery weight (boss/glass)",
-        "status": "🔧 in tree — Solo/MP feel tune open",
+        "status": "✅ closed (Wyatt feel accept 07-22; look → CARGO-VIS-1)",
+        "state": "done"
+      },
+      {
+        "id": "B3 HIT-FEEL-1",
+        "what": "hit feedback — weak normals + noisy incoming",
+        "status": "🔧 ACTIVE — Round 1 in tree (await playtest)",
         "state": "waiting"
+      },
+      {
+        "id": "ARENA-BAL-1",
+        "what": "Sundial + Storerooms self-KO rate",
+        "status": "✅ closed (Wyatt 07-22, no code)",
+        "state": "done"
       },
       {
         "id": "C2 CARGO-VIS-1",
@@ -944,7 +956,7 @@
       }
     ],
     "next_actions": [
-      "B2 CARGO-WT-1 — continue Solo/MP feel tune; ship only on Wyatt \"ship it\".",
+      "B3 HIT-FEEL-1 Round 1 — in tree (unpushed): softer vignette remap + `hitDirMinIntensity` 0.14 + `crashVolumeFloor` 0.22. Wyatt playtest love-taps vs hard rams; then Round 2 ack (shake gate + tune pane).",
       "CARGO-VIS-1 (SHIP-1 C2, High) — basket groceries must fill the full bay and overflow the rim when full (count ramp shipped; look still wrong).",
       "Before public/external playtest: `DELETE /api/analytics?token=…` (clear DO) so ANLX evidence is strangers-only — see Gotchas."
     ],
@@ -1170,10 +1182,10 @@
       {
         "title": "Design / Gameplay",
         "counts": {
-          "Medium": 3,
+          "Medium": 2,
           "Low": 6,
-          "High": 3,
-          "Done": 1
+          "Done": 3,
+          "High": 2
         },
         "rows": [
           {
@@ -1219,9 +1231,9 @@
             "ship1": null
           },
           {
-            "pri": "High",
+            "pri": "Done",
             "item": "CARGO-WT-1 — grocery weight as risk/reward `[SHIP-1 B2]`",
-            "notes": "**In tree 07-22** — life-scoped boss/glass; feel tune open.",
+            "notes": "Closed 07-22 (Wyatt feel accept) — life-scoped boss/glass; bay count ramp; look → CARGO-VIS-1.",
             "ship1": "B2"
           },
           {
@@ -1233,7 +1245,7 @@
           {
             "pri": "High",
             "item": "HIT-FEEL-1 — hit feedback `[SHIP-1 B3]`",
-            "notes": "Weak normals + noisy incoming.",
+            "notes": "**ACTIVE** — Round 1 in tree (quieter incoming); await playtest → Round 2 wake normals + tune pane.",
             "ship1": "B3"
           },
           {
@@ -1243,9 +1255,9 @@
             "ship1": "A2"
           },
           {
-            "pri": "Medium",
+            "pri": "Done",
             "item": "ARENA-BAL-1 — self-KO rate on Sundial + Storerooms `[SHIP-1 B3]`",
-            "notes": "",
+            "notes": "Closed 07-22 (Wyatt, no code).",
             "ship1": "B3"
           },
           {
@@ -1455,12 +1467,12 @@
           {
             "col0": "B2",
             "item": "CARGO-WT-1 — grocery weight risk/reward",
-            "notes": "**In tree 07-22** — life-scoped boss/glass; feel tune open; bay **count** ramp shipped (look → CARGO-VIS-1)"
+            "notes": "**Closed 07-22** (Wyatt feel accept) — life-scoped boss/glass; bay **count** ramp shipped (look → CARGO-VIS-1)"
           },
           {
             "col0": "B3",
-            "item": "HIT-FEEL-1 — hit feedback · ARENA-BAL-1 self-KO tuning as playtests dictate",
-            "notes": ""
+            "item": "HIT-FEEL-1 — hit feedback (weak normals + noisy incoming)",
+            "notes": "**ACTIVE** — Round 1 in tree (vignette + crashVolumeFloor); await playtest → Round 2. ARENA-BAL-1 closed 07-22."
           }
         ]
       },
@@ -1656,6 +1668,11 @@
       "Cross-module change? Read docs/reference/control-flow.md first — most edges are not imports."
     ],
     "settled_decisions": [
+      {
+        "id": "D-HIT-FEEL-QUEUE-1",
+        "date": "07-22",
+        "text": "Closed B2 CARGO-WT-1 (feel accept) + ARENA-BAL-1 (no code). Active card → HIT-FEEL-1; Round 1 = vignette remap + `CONFIG.ramming.fx.crashVolumeFloor` (volume floor, not gate); Round 2 = shake gate + expose `ramming.fx.*` in gameplayTunePane."
+      },
       {
         "id": "D-ARENA-COL-1",
         "date": "07-22",

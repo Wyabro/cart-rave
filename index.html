@@ -747,72 +747,84 @@
     </div>
   </div>
   <div id="cr-howto-screen" style="display:none;" aria-hidden="true">
-    <div class="cr-overlay-panel cr-overlay-panel--howto">
-      <h2 class="cr-overlay-title">HOW TO PLAY</h2>
-      <p class="cr-overlay-desc">
-        Chaotic shopping cart brawler — ram rivals off the arena, stack bonuses, and
-        end the round with the most points. Ties go to Sudden Death.
-      </p>
+    <div class="cr-screen cr-screen--panels cr-howto-panel">
+      <header class="cr-screen-hd">
+        <span class="cr-screen-kicker">STORE POLICY · ALL SALES FINAL</span>
+        <h2 class="cr-screen-title">HOW TO PLAY</h2>
+      </header>
 
-      <div class="cr-howto-aisles">
-        <section class="cr-howto-aisle cr-howto-aisle--1" aria-labelledby="cr-howto-aisle1-hd">
-          <span class="cr-howto-aisle-no">AISLE 1</span>
-          <h3 class="cr-howto-aisle-name" id="cr-howto-aisle1-hd">RAM THEM OUT</h3>
-          <p class="cr-howto-aisle-body">
-            You only score when <strong>you</strong> force a rival off — self-falls count for
-            nothing. Steer with <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>, close the gap on
-            <kbd>SHIFT</kbd>, and time a <kbd>SPACE</kbd> hop over the pit.
-          </p>
+      <div class="cr-screen-panels cr-howto-body">
+        <div class="cr-howto-aisles">
+          <section class="cr-howto-aisle cr-howto-aisle--1" aria-labelledby="cr-howto-aisle1-hd">
+            <span class="cr-howto-aisle-no">AISLE 1</span>
+            <h3 class="cr-howto-aisle-name" id="cr-howto-aisle1-hd">RAM THEM OUT</h3>
+            <p class="cr-howto-aisle-body">
+              You only score when <strong>you</strong> force a rival off — self-falls count for
+              nothing. Steer with <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>, close the gap on
+              <kbd>SHIFT</kbd>, and time a <kbd>SPACE</kbd> hop over the pit.
+            </p>
+          </section>
+
+          <section class="cr-howto-aisle cr-howto-aisle--2" aria-labelledby="cr-howto-aisle2-hd">
+            <span class="cr-howto-aisle-no">AISLE 2</span>
+            <h3 class="cr-howto-aisle-name" id="cr-howto-aisle2-hd">CHAIN COMBOS</h3>
+            <p class="cr-howto-aisle-body">
+              Bonuses add first, then the combo multiplier hits the whole reward. Chain KOs before
+              the ~5s streak fades: <strong>RAMPAGE</strong> ×1.5 · <strong>SAVAGE</strong> ×2.0 ·
+              <strong>CARNAGE</strong> ×3.0.
+            </p>
+          </section>
+
+          <section class="cr-howto-aisle cr-howto-aisle--3" aria-labelledby="cr-howto-aisle3-hd">
+            <span class="cr-howto-aisle-no">AISLE 3</span>
+            <h3 class="cr-howto-aisle-name" id="cr-howto-aisle3-hd">THE LIVING STORE</h3>
+            <p class="cr-howto-aisle-body">
+              Scoring fills your <strong>cargo bay</strong> — fuller means heavier handling and a
+              bigger spill. Forcing a spill grants a short speed buff. Every ~18s the PA calls a
+              directive: <strong>FLASH SALE</strong> · <strong>DOUBLE BAG</strong> ·
+              <strong>EXPRESS LANE</strong> · <strong>SPILL BONUS</strong> ·
+              <strong>RUSH HOUR</strong>.
+            </p>
+          </section>
+        </div>
+
+        <section class="cr-howto-strip" aria-labelledby="cr-howto-score-hd">
+          <h3 class="cr-howto-strip-hd" id="cr-howto-score-hd">SCORING</h3>
+          <div class="cr-howto-strip-row" role="list">
+            <span class="cr-howto-price" role="listitem"><span class="cr-howto-price-lbl">EDGE KO</span><span class="cr-howto-price-val">1</span></span>
+            <span class="cr-howto-price" role="listitem"><span class="cr-howto-price-lbl">HAZARD KO</span><span class="cr-howto-price-val">2</span></span>
+            <span class="cr-howto-price" role="listitem"><span class="cr-howto-price-lbl">CRITICAL</span><span class="cr-howto-price-val">+1</span></span>
+            <span class="cr-howto-price" role="listitem"><span class="cr-howto-price-lbl">LEADER DOWN</span><span class="cr-howto-price-val">+1</span></span>
+            <span class="cr-howto-price" role="listitem"><span class="cr-howto-price-lbl">HIGH GROUND</span><span class="cr-howto-price-val">+1</span></span>
+          </div>
         </section>
 
-        <section class="cr-howto-aisle cr-howto-aisle--2" aria-labelledby="cr-howto-aisle2-hd">
-          <span class="cr-howto-aisle-no">AISLE 2</span>
-          <h3 class="cr-howto-aisle-name" id="cr-howto-aisle2-hd">CHAIN COMBOS</h3>
-          <p class="cr-howto-aisle-body">
-            Bonuses add first, then the combo multiplier hits the whole reward. Chain KOs before the
-            ~5s streak fades: <strong>RAMPAGE</strong> ×1.5 · <strong>SAVAGE</strong> ×2.0 ·
-            <strong>CARNAGE</strong> ×3.0.
-          </p>
-        </section>
-
-        <section class="cr-howto-aisle cr-howto-aisle--3" aria-labelledby="cr-howto-aisle3-hd">
-          <span class="cr-howto-aisle-no">AISLE 3</span>
-          <h3 class="cr-howto-aisle-name" id="cr-howto-aisle3-hd">THE LIVING STORE</h3>
-          <p class="cr-howto-aisle-body">
-            Scoring fills your <strong>cargo bay</strong> — fuller means heavier handling and a
-            bigger spill. Forcing a spill grants a short speed buff. Every ~18s the PA calls a
-            directive: <strong>FLASH SALE</strong> · <strong>DOUBLE BAG</strong> ·
-            <strong>EXPRESS LANE</strong> · <strong>SPILL BONUS</strong> ·
-            <strong>RUSH HOUR</strong>.
-          </p>
+        <section class="cr-howto-strip" aria-labelledby="cr-howto-ctl-hd">
+          <h3 class="cr-howto-strip-hd" id="cr-howto-ctl-hd">FULL CONTROLS</h3>
+          <div class="cr-howto-strip-row" role="list">
+            <span class="cr-howto-ctl" role="listitem"><span class="cr-howto-keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span><span class="cr-howto-ctl-lbl">MOVE</span></span>
+            <span class="cr-howto-ctl" role="listitem"><span class="cr-howto-keys"><kbd class="wide">SHIFT</kbd></span><span class="cr-howto-ctl-lbl">BOOST</span></span>
+            <span class="cr-howto-ctl" role="listitem"><span class="cr-howto-keys"><kbd class="wide">SPACE</kbd></span><span class="cr-howto-ctl-lbl">HOP</span></span>
+            <span class="cr-howto-ctl" role="listitem"><span class="cr-howto-keys"><kbd>M</kbd></span><span class="cr-howto-ctl-lbl">MUTE</span></span>
+            <span class="cr-howto-ctl" role="listitem"><span class="cr-howto-keys"><kbd>ESC</kbd></span><span class="cr-howto-ctl-lbl">MENU</span></span>
+          </div>
+          <span class="cr-howto-pad">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M6 12h4M8 10v4"/><circle cx="15" cy="11" r="1"/><circle cx="17.5" cy="13.5" r="1"/>
+              <path d="M17.3 6H6.7A4.7 4.7 0 0 0 2 10.7v2.6A4.7 4.7 0 0 0 6.7 18c1.3 0 2-.6 2.6-1.3l.6-.7h4.2l.6.7c.6.7 1.3 1.3 2.6 1.3a4.7 4.7 0 0 0 4.7-4.7v-2.6A4.7 4.7 0 0 0 17.3 6z"/>
+            </svg>GAMEPAD SUPPORTED — PLUG &amp; PLAY
+          </span>
         </section>
       </div>
 
-      <section class="cr-howto-strip" aria-labelledby="cr-howto-score-hd">
-        <h3 class="cr-howto-strip-hd" id="cr-howto-score-hd">SCORING</h3>
-        <div class="cr-howto-price-row" role="list">
-          <span class="cr-howto-price" role="listitem"><span class="cr-howto-price-lbl">EDGE KO</span><span class="cr-howto-price-val">1</span></span>
-          <span class="cr-howto-price" role="listitem"><span class="cr-howto-price-lbl">HAZARD KO</span><span class="cr-howto-price-val">2</span></span>
-          <span class="cr-howto-price" role="listitem"><span class="cr-howto-price-lbl">CRITICAL</span><span class="cr-howto-price-val">+1</span></span>
-          <span class="cr-howto-price" role="listitem"><span class="cr-howto-price-lbl">LEADER DOWN</span><span class="cr-howto-price-val">+1</span></span>
-          <span class="cr-howto-price" role="listitem"><span class="cr-howto-price-lbl">HIGH GROUND</span><span class="cr-howto-price-val">+1</span></span>
-        </div>
-      </section>
+      <div class="cr-screen-actions">
+        <button class="cr-overlay-back" id="cr-howto-back" type="button"><span class="cr-screen-btn-inner"><span class="cr-screen-btn-label">← BACK</span></span></button>
+        <button class="cr-overlay-done" id="cr-howto-done" type="button"><span class="cr-screen-btn-inner"><span class="cr-screen-btn-label">LET'S ROLL</span></span></button>
+      </div>
 
-      <section class="cr-howto-strip" aria-labelledby="cr-howto-ctl-hd">
-        <h3 class="cr-howto-strip-hd" id="cr-howto-ctl-hd">FULL CONTROLS</h3>
-        <div class="cr-howto-ctl-row" role="list">
-          <span class="cr-howto-ctl" role="listitem"><span class="cr-howto-keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span><span class="cr-howto-ctl-lbl">MOVE</span></span>
-          <span class="cr-howto-ctl" role="listitem"><span class="cr-howto-keys"><kbd class="wide">SHIFT</kbd></span><span class="cr-howto-ctl-lbl">BOOST</span></span>
-          <span class="cr-howto-ctl" role="listitem"><span class="cr-howto-keys"><kbd class="wide">SPACE</kbd></span><span class="cr-howto-ctl-lbl">HOP</span></span>
-          <span class="cr-howto-ctl" role="listitem"><span class="cr-howto-keys"><kbd>M</kbd></span><span class="cr-howto-ctl-lbl">MUTE</span></span>
-          <span class="cr-howto-ctl" role="listitem"><span class="cr-howto-keys"><kbd>ESC</kbd></span><span class="cr-howto-ctl-lbl">MENU</span></span>
-        </div>
-        <p class="cr-howto-note">Gamepad — L-stick or d-pad steers · A boost · B hop · START menu.</p>
-      </section>
-
-      <button class="cr-overlay-done" id="cr-howto-done" type="button">LET'S ROLL</button>
-      <button class="cr-overlay-back" id="cr-howto-back" type="button">← BACK</button>
+      <div class="cr-screen-hint">
+        <span class="cr-screen-hint-item"><kbd>ESC</kbd> BACK</span>
+      </div>
     </div>
   </div>
   <div id="cr-challenges-screen" style="display:none;" aria-hidden="true">

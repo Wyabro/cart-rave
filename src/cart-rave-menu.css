@@ -2091,45 +2091,36 @@ html, body {
   box-shadow: none;
 }
 
-/* === HOW TO PLAY CONTENT ===
-   Expanded sections replace the old one-line scoring strip + main-menu cart
-   tooltip. Controls rows stay JS-built (input-mode aware); everything else is
-   static HTML so design-doc copy stays in one place. */
-.cr-overlay-panel--howto {
-  max-width: 600px;
-  gap: clamp(10px, 1.4vw, 14px);
-  /* Fits the condensed howto copy without a scrollbar on desktop — the shared
-     92dvh/740px cap was clipping it. The dvh term keeps the overflow backstop
-     for short (DPI-scaled) viewports where it genuinely can't all fit. */
-  max-height: min(94dvh, 860px);
+/* ═══ 7d HOW TO PLAY — three aisle tags across, strips beneath ══════════════
+   The centred modal (.cr-overlay-panel--howto + its short-height tuning block)
+   is GONE, not layered over: those rules sat later in the file than .cr-screen*
+   and would have won on source order (the trap that hit 7a and 7c).
+   Per the mock the accent lives in the Road Rage aisle number, not in a left
+   edge stripe, and the strips are single rows — label, then facts inline. */
+#cr-howto-screen {
+  align-items: stretch;
+  justify-content: stretch;
+  background:
+    linear-gradient(100deg, #0a0810 0%, #0a0810 30%, rgba(10, 8, 16, 0.6) 70%, rgba(10, 8, 16, 0.9) 100%),
+    radial-gradient(ellipse at 50% 55%, var(--color-bg-deep) 0%, var(--color-bg-black) 95%);
 }
 
-/* Short desktop/laptop heights — e.g. a 1080p panel at 125% DPI (≈760–800px CSS).
-   Tighten the howto panel's internal rhythm so the condensed copy clears the fold
-   without a scrollbar there too. Tall screens keep the roomier spacing above. */
-@media (min-width: 1025px) and (max-height: 820px) {
-  .cr-overlay-panel--howto { gap: clamp(6px, 0.9vh, 10px); }
-  .cr-overlay-panel--howto .cr-overlay-desc { margin-top: -4px; }
-  .cr-overlay-panel--howto .cr-howto-aisle {
-    gap: 3px;
-    padding: clamp(6px, 0.9vh, 9px) clamp(10px, 1.4vw, 14px) clamp(6px, 0.9vh, 9px) 26px;
-  }
-  .cr-overlay-panel--howto .cr-howto-aisles { gap: 5px; }
-  .cr-overlay-panel--howto .cr-howto-aisle-body { line-height: 1.35; font-size: 10px; }
-  .cr-overlay-panel--howto .cr-howto-strip {
-    gap: 4px;
-    padding: clamp(5px, 0.8vh, 8px) clamp(10px, 1.4vw, 14px);
-  }
-  .cr-overlay-panel--howto .cr-howto-price,
-  .cr-overlay-panel--howto .cr-howto-ctl { padding: 3px 7px; }
-  .cr-overlay-panel--howto .cr-howto-note { font-size: 8px; }
+/* One column of blocks (aisle row, then the two strips) rather than the shell's
+   default card pair, and no 1176px cap — the mock runs this content edge to
+   edge between the screen's 96px gutters. Two-class selector on purpose: the
+   responsive bands re-set .cr-screen-panels (1 column at <=768, 2 again in
+   landscape) from later in the file, and a single-class rule would lose to
+   them — which put a strip beside the aisles at 812x375. */
+.cr-screen-panels.cr-howto-body {
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  max-width: none;
 }
 
-/* ─── 7d aisles: three price-tag rule cards, one accent each ─────────────── */
 .cr-howto-aisles {
-  display: flex;
-  flex-direction: column;
-  gap: clamp(6px, 0.9vw, 9px);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(12px, 1.6vw, 20px);
 }
 
 .cr-howto-aisle {
@@ -2137,54 +2128,58 @@ html, body {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: clamp(3px, 0.6vw, 5px);
-  padding: clamp(8px, 1.2vw, 12px) clamp(10px, 1.4vw, 14px) clamp(8px, 1.2vw, 12px) 28px;
-  background: var(--color-ink);
-  border: 1px solid var(--border-white-12);
-  border-left: 3px solid var(--aisle);
-  border-radius: 8px 8px 8px 22px;
-  box-shadow: var(--slab-shadow-sm);
+  padding:
+    clamp(16px, 1.8vw, 28px)
+    clamp(18px, 2vw, 30px)
+    clamp(16px, 1.8vw, 28px)
+    clamp(28px, 2.9vw, 44px);
+  background: rgba(12, 10, 17, 0.85);
+  border: 1px solid var(--border-white-10);
+  border-radius: 12px 12px 12px 30px;
+  box-shadow: var(--slab-shadow);
 }
 
 /* Punched hole at the tag nose (matches .cc-slab--tag). */
 .cr-howto-aisle::before {
   content: "";
   position: absolute;
-  left: 11px;
+  left: 14px;
   top: 50%;
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   transform: translateY(-50%);
   border-radius: 50%;
   background: var(--color-ink-deep);
-  box-shadow: inset 0 0 0 1.5px rgba(242, 237, 228, 0.4);
+  box-shadow: inset 0 0 0 1.5px rgba(242, 237, 228, 0.35);
 }
 
 .cr-howto-aisle--2 { --aisle: var(--color-magenta); }
 .cr-howto-aisle--3 { --aisle: var(--color-yellow); }
 
+/* The aisle sign itself — Road Rage at shelf scale, one accent per card. */
 .cr-howto-aisle-no {
-  font-family: var(--mono);
-  font-size: clamp(7px, 0.95vw, 9px);
-  letter-spacing: 0.22em;
-  color: rgba(255, 255, 255, 0.42);
-}
-
-.cr-howto-aisle-name {
-  margin: 0;
-  font-family: var(--ui);
-  font-size: clamp(11px, 1.4vw, 14px);
-  letter-spacing: 0.08em;
+  font-family: var(--display);
+  font-size: clamp(24px, 3vw, 44px);
+  line-height: 1;
+  letter-spacing: 0.02em;
   color: var(--aisle);
 }
 
+.cr-howto-aisle-name {
+  margin: 6px 0 0;
+  font-family: var(--ui);
+  font-size: clamp(12px, 1.5vw, 16px);
+  letter-spacing: 0.06em;
+  color: var(--color-sticker-white);
+}
+
 .cr-howto-aisle-body {
-  margin: 0;
+  margin: clamp(8px, 1vw, 14px) 0 0;
   font-family: var(--mono);
-  font-size: clamp(9px, 1.2vw, 11px);
-  line-height: 1.55;
+  font-size: clamp(9px, 1.15vw, 12px);
+  line-height: 1.7;
   letter-spacing: 0.03em;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(242, 237, 228, 0.55);
 }
 
 .cr-howto-aisle-body strong {
@@ -2192,17 +2187,19 @@ html, body {
   font-weight: 700;
 }
 
+/* Inline keycaps stay white-on-hairline so they read as keys, not as a second
+   accent competing with the aisle number. */
 .cr-howto-aisle-body kbd {
   display: inline-block;
   min-width: 16px;
   margin: 0 1px;
-  padding: 1px 4px;
+  padding: 1px 6px;
   font-family: var(--mono);
   font-size: 0.88em;
   text-align: center;
-  color: var(--aisle);
+  color: var(--color-sticker-white);
   background: var(--color-ink-deep);
-  border: 1px solid var(--border-white-12);
+  border: 1px solid var(--border-white-25, rgba(255, 255, 255, 0.25));
   border-radius: 3px;
   box-shadow: var(--slab-extrude-sm);
 }
@@ -2210,28 +2207,42 @@ html, body {
 /* ─── 7d strips: SCORING price row + FULL CONTROLS keycaps ───────────────── */
 .cr-howto-strip {
   display: flex;
-  flex-direction: column;
-  gap: clamp(5px, 0.8vw, 7px);
-  padding: clamp(8px, 1.2vw, 12px) clamp(10px, 1.4vw, 14px);
-  background: var(--color-ink);
-  border: 1px solid var(--border-white-12);
-  border-radius: var(--radius-panel);
-  box-shadow: var(--slab-shadow-sm);
+  align-items: center;
+  gap: clamp(14px, 2.2vw, 40px);
+  padding: clamp(12px, 1.4vw, 22px) clamp(16px, 1.9vw, 30px);
+  background: rgba(12, 10, 17, 0.85);
+  border: 1px solid var(--border-white-10);
+  border-radius: 12px;
+  box-shadow: var(--slab-shadow);
 }
 
 .cr-howto-strip-hd {
   margin: 0;
-  font-family: var(--ui);
+  flex-shrink: 0;
+  font-family: var(--mono);
   font-size: clamp(9px, 1.15vw, 11px);
-  letter-spacing: 0.18em;
+  letter-spacing: 0.26em;
   color: rgba(255, 255, 255, 0.55);
+  white-space: nowrap;
 }
 
-.cr-howto-price-row,
-.cr-howto-ctl-row {
+.cr-howto-strip-row {
   display: flex;
   flex-wrap: wrap;
   gap: clamp(5px, 0.8vw, 8px);
+}
+
+/* Gamepad line sits hard right on the FULL CONTROLS strip, per the mock. */
+.cr-howto-pad {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: clamp(8px, 1vw, 11px);
+  letter-spacing: 0.14em;
+  color: var(--color-cyan);
+  white-space: nowrap;
 }
 
 .cr-howto-price,
@@ -2285,16 +2296,8 @@ html, body {
   letter-spacing: 0.08em;
 }
 
-.cr-howto-note {
-  margin: 0;
-  font-family: var(--mono);
-  font-size: clamp(8px, 1.05vw, 10px);
-  line-height: 1.5;
-  letter-spacing: 0.04em;
-  color: rgba(255, 255, 255, 0.45);
-}
-
-
+/* (.cr-howto-note retired — the gamepad line is now .cr-howto-pad, inline on
+   the FULL CONTROLS strip.) */
 
 .cr-settings-ctl-badge {
   font-family: var(--mono);
@@ -2668,23 +2671,26 @@ html, body {
     letter-spacing: 0.02em;
   }
 
-  /* How To Play overlay — stack action + keys on narrow screens */
-  .cr-overlay-panel--howto {
-    gap: clamp(10px, 2.4vw, 14px);
-    max-height: min(90dvh, 720px);
-  }
-
-  .cr-overlay-panel--howto .cr-overlay-title {
-    font-size: clamp(16px, 4vw, 22px);
+  /* 7d — three aisle signs don't survive a phone's width: stack them, and let
+     each strip stack its label over its facts (the gamepad line included). */
+  .cr-howto-aisles {
+    grid-template-columns: minmax(0, 1fr);
+    gap: clamp(8px, 2vw, 12px);
   }
 
   .cr-howto-aisle {
-    padding: clamp(6px, 1.5vw, 10px) clamp(8px, 2vw, 12px) clamp(6px, 1.5vw, 10px) 24px;
-    gap: 3px;
+    padding: clamp(10px, 2.4vw, 14px) clamp(12px, 2.6vw, 16px) clamp(10px, 2.4vw, 14px) 28px;
+  }
+
+  .cr-howto-aisle-no {
+    font-size: clamp(22px, 6vw, 30px);
   }
 
   .cr-howto-strip {
-    padding: clamp(6px, 1.5vw, 10px) clamp(8px, 2vw, 12px);
+    flex-direction: column;
+    align-items: flex-start;
+    gap: clamp(6px, 1.6vw, 10px);
+    padding: clamp(10px, 2.4vw, 14px) clamp(12px, 2.6vw, 16px);
   }
 
   .cr-howto-aisle-name,
@@ -2696,8 +2702,9 @@ html, body {
     font-size: clamp(8px, 2.2vw, 10px);
   }
 
-  .cr-howto-note {
-    font-size: clamp(7px, 2vw, 9px);
+  .cr-howto-pad {
+    margin-left: 0;
+    white-space: normal;
   }
 
   .cr-overlay-done {
@@ -2940,31 +2947,23 @@ html, body {
     letter-spacing: 0.02em;
   }
 
-  /* How To Play overlay — compact for landscape phones */
-  .cr-overlay-panel--howto {
-    gap: clamp(5px, 1dvh, 7px);
-    padding: clamp(8px, 1.8vh, 10px) clamp(8px, 2vw, 10px);
-    max-height: 94dvh;
-  }
-
-  .cr-overlay-panel--howto .cr-overlay-title {
-    font-size: clamp(14px, 3dvh, 18px);
-    margin: 0;
-  }
-
-  .cr-overlay-panel--howto .cr-overlay-desc {
-    font-size: clamp(8px, 1.8dvh, 10px);
-    margin: -4px 0 0;
+  /* 7d — landscape phones keep the three aisles across (width is what they have)
+     and spend the savings on padding and type. */
+  .cr-howto-aisles {
+    gap: clamp(6px, 1.2vw, 10px);
   }
 
   .cr-howto-aisle {
-    padding: clamp(4px, 1vh, 6px) clamp(6px, 1.5vw, 8px) clamp(4px, 1vh, 6px) 22px;
-    gap: 2px;
+    padding: clamp(8px, 1.8dvh, 12px) clamp(10px, 1.6vw, 14px) clamp(8px, 1.8dvh, 12px) 26px;
+  }
+
+  .cr-howto-aisle-no {
+    font-size: clamp(18px, 4.4dvh, 26px);
   }
 
   .cr-howto-strip {
-    padding: clamp(4px, 1vh, 6px) clamp(6px, 1.5vw, 8px);
-    gap: 4px;
+    padding: clamp(6px, 1.4dvh, 10px) clamp(10px, 1.6vw, 14px);
+    gap: clamp(8px, 1.6vw, 16px);
   }
 
   .cr-howto-aisle-name,
@@ -2974,10 +2973,6 @@ html, body {
 
   .cr-howto-aisle-body {
     font-size: clamp(7px, 1.6dvh, 9px);
-  }
-
-  .cr-howto-note {
-    font-size: clamp(6px, 1.4dvh, 8px);
   }
 
   .cr-howto-price,

@@ -1003,7 +1003,7 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
     howtoScreen.style.display = 'flex';
     howtoScreen.setAttribute('aria-hidden', 'false');
     howtoDoneBtn?.focus();
-    const panel = howtoScreen.querySelector('.cr-overlay-panel');
+    const panel = howtoScreen.querySelector('.cr-howto-panel');
     if (panel instanceof HTMLElement) {
       animateMenuReveal(panel, {
         delay: 0,
@@ -1026,7 +1026,7 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
       document.activeElement.blur();
     }
     howtoScreen.setAttribute('aria-hidden', 'true');
-    const panel = howtoScreen.querySelector('.cr-overlay-panel');
+    const panel = howtoScreen.querySelector('.cr-howto-panel');
     animateMenuDismiss(panel instanceof HTMLElement ? panel : null, {
       container: howtoScreen,
       abortIf: () => howtoScreen.getAttribute('aria-hidden') === 'false',

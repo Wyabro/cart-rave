@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (also runs inside `npm run qa`).
-> Generated 2026-07-23 at commit `2e5c625` on `redesign/fight-night-ui`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
-> Source digest: `c65e780d`
+> Generated 2026-07-23 at commit `c603119` on `redesign/fight-night-ui`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
+> Source digest: `187906aa`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -14,16 +14,16 @@
 
 ## Mission
 
-Playtesting and stabilization — Tier A drained. B1 AI-DIFF-1 shipped (`49bfc2a`). B2 CARGO-WT-1 — life-scoped cargo weight (boss/glass) + louder boss tune + readable bay count ramp; feel still iterating. CARGO-VIS-1 queued (full-bay + rim overflow look). Before public/external playtest: reset analytics DO (see Gotchas).
+Playtesting and stabilization — Tier A drained. B1 AI-DIFF-1 shipped (`49bfc2a`). B2 CARGO-WT-1 closed (Wyatt feel accept 07-22 — life-scoped boss/glass + bay count ramp; look → CARGO-VIS-1). ARENA-BAL-1 closed (Wyatt 07-22, no code). Active: HIT-FEEL-1 (weak normals + noisy incoming). CARGO-VIS-1 queued (full-bay + rim overflow). Before public/external playtest: reset analytics DO (see Gotchas).
 
 ## ACTIVE CARD
 
-B2 CARGO-WT-1 — continue Solo/MP feel tune; ship only on Wyatt "ship it"
+B3 HIT-FEEL-1 Round 1 — in tree (unpushed): softer vignette remap + `hitDirMinIntensity` 0.14 + `crashVolumeFloor` 0.22. Wyatt playtest love-taps vs hard rams; then Round 2 ack (shake gate + tune pane)
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 
 Self-directed queue (one at a time, within the declared phase):
-- **B2 CARGO-WT-1** life-scoped grocery weight (boss/glass) — 🔧 in tree — Solo/MP feel tune open
+- **B3 HIT-FEEL-1** hit feedback — weak normals + noisy incoming — 🔧 ACTIVE — Round 1 in tree (await playtest)
 - **C2 CARGO-VIS-1** full-bay fill + rim overflow look — 📋 pre-ship (High) — count ramp exists; layout/scale wrong
 - **MAIN-1 / BUNDLE-1** main.js seam / code-split — 📋 post-gate
 
