@@ -11,12 +11,11 @@
 - **Design source:** `~/Downloads/Game Menu UI Refinement.zip` → `design_handoff_main_menu/README.md` +
   `Menu Redesign Concepts.dc.html`. The README's 7a–7g section carries the per-screen prose; the
   `.dc.html` carries the exact measurements. Extract it — the plan does *not* restate every number.
-- **State: all 7 sub-screens (7a–7g) are done, and 6a HUD has been reworked to its mock.** What
-  remains is **3a main menu** (built in cut 2, never diffed against its mock) plus the **owed
-  verifications** below.
+- **State: every surface is built — 7a–7g, 6a HUD, and now 3a main menu.** What remains is the
+  **owed verifications** below, all of which need a real browser and a real match.
 - **Verification caveat:** the Browser pane **won't composite screenshots on this host** → everything
-  was verified via DOM + computed-style + scripted-interaction introspection, **never by eye**. No
-  screen has had a visual sign-off except 7a and 7c (Wyatt looked at those in a real browser).
+  was verified via DOM + computed-style + scripted-interaction introspection, **never by eye**. Only
+  7a, 7c and 3a have had a visual sign-off (Wyatt looked at those in a real browser).
 
 ## Screen status
 
@@ -30,9 +29,9 @@
 | 7e Friends | ✅ rebuilt — invite chrome on the shell + full-screen CHECKOUT LINE lobby (netcode seam untouched) |
 | 7f Pause | ✅ re-laid out + **three review rounds with Wyatt** — the only screen that stays a centred panel (860px) |
 | **6a HUD** | ✅ reworked in 3 cuts + 2 review rounds — top strip, standings, feed, nameplates, boost, coupon, clock |
-| **3a Menu** | ⬜ **NEXT** — built in cut 2 (`62baedf`) *before* the path-A reversal and never diffed against its mock |
+| **3a Menu** | ✅ diffed to its mock + reviewed — hover skew/ring, title lean + size, NEW pill, plate buttons, hint bar, arena picker |
 
-## ⚠️ READ FIRST — six traps that have each bitten more than once
+## ⚠️ READ FIRST — seven traps that have each bitten more than once
 
 ### 1. Retired CSS beats the new shell on source order
 
@@ -83,19 +82,33 @@ The pane runs with `document.visibilityState === "hidden"`, which freezes rAF an
 - **Mode entry never completes**, so nothing in-match is reachable. `getComputedStyle(el, '::before')`
   needs the pseudo passed as the *second* arg — a helper that drops it silently returns the element's
   own box and you will "measure" a hole that is 370px wide.
+- **`getComputedStyle` on a live element lies whenever a CSS `transition` touches that property.**
+  Frozen WAAPI means every `CSSTransition` sits at `progress: 0` *forever*, so you read the value the
+  property was leaving, not the one it settled on. In the 3a pass this reported a title with no skew,
+  a name field with a magenta dashed border, plate buttons with black text on black borders, and
+  command labels at 13.33px — **all four were phantoms**. Tell them apart with
+  `el.getAnimations()`: a running `CSSTransition` at progress 0 means the reading is worthless.
+  **The fix: measure a freshly created probe node with the same classes and `style.transition =
+  'none'`.** A fresh node has no in-flight transition and computes the real cascaded value.
 
 ### 4. Anything that writes `transform` inline will flatten a skewed slab
 
 Every action slab in this redesign is a parallelogram: `skewX(-8deg)` on the button, `skewX(8deg)` on
 an inner label. **Inline `transform` beats that CSS rule**, so any animation or feedback helper that
 writes `transform` silently un-skews the slab and leaves its label slanted — the exact inverse of the
-design. Three separate helpers have done it:
+design. Four separate helpers have done it:
 
 1. `wireButtonPressFeedback` / anime.js `scale` on press (`0d20900`, 7a) → fixed by animating an
    **inner** node via `getTarget` (`getMenuPressTarget`, `lobbyPressTarget`, `escPressTarget`).
 2. `animateMenuReveal` in the pause entrance (`ef0df3d`, 7f) → the reveal's `y` wrote
    `translateY` over the skew. Fixed by fading the slabs in with **opacity only**.
 3. `resetEscOverlayAnimState` pre-seeding `style.transform = "translateY(8px)"` — same commit.
+4. `animLoop`'s title beat writing `style.transform = scale(...)` **every rAF** onto the 3a lockup
+   (`e228636`, 3a) → the mock's `skewX(-4deg)` lean never rendered *at all*, from frame one. Fixed by
+   handing the beat to CSS as a scalar (`--cr-title-beat`) so the rule composes
+   `skewX(-4deg) scale(var(--cr-title-beat, 1))` and nothing writes `transform`. **Note the pane
+   cannot show this class of bug** — rAF is frozen there, so the write never happens and the lean
+   measures correct. It was found by reading `animLoop`, then proved by replicating that one write.
 
 **The rule:** a skewed slab needs three layers — outer (skew) / inner (press target) / label
 (counter-skew) — and **nothing** may animate `transform` on the outer node. When you verify, run the
@@ -128,6 +141,21 @@ state the running app doesn't use:
 probe the geometry the failure would live in — short viewports for a centred panel, a filled roster
 for a scoreboard. If you cannot reach the real state (mode entry never completes in the pane), say so
 in the report instead of implying it was seen.
+
+### 7. `hidden` does not hide anything if an author rule sets `display`
+
+The UA rule is `[hidden] { display: none }` at specificity (0,0,1). **Any** author `display`
+declaration outranks it. `#cr-level-row` carries `hidden` *and* this doc called it "the hidden
+`.cr-level-btn` radiogroup" — but `.cr-level-row { display: grid }` (0,1,0) won, so all three arena
+cards rendered inside the 3a context panel, sat on top of the pager and squeezed the arena name to a
+clipped stub. It shipped in cut 2 and survived a full detail-by-detail diff of the screen, because
+the buttons were read as "the hidden data model" in the a11y tree without ever checking whether they
+were painting. Wyatt caught it from a screenshot (`f279b08`).
+
+**The rules:** a `hidden` attribute is *not* evidence of `display: none` — read the computed value.
+When you rely on `hidden` for an element that has a `display` rule, back it with an explicit
+attribute selector at enough specificity to survive the bands (`.cr-context .cr-level-row[hidden]`).
+Grep a screen for `[hidden]` and assert `display === "none"` on each before signing off.
 
 ## Locked decisions
 
@@ -176,12 +204,17 @@ in the report instead of implying it was seen.
 | `e99b8d1` | **6a-3 world/pod** | Nameplates → mini price tag (cart colour moved to the punched hole's ring) + leader crown via new `getLeaderSlotIndex()`; boost → 360px slab w/ label, value, hazard overcharge zone. |
 | `174e390` | 6a review 1 | Timer meta onto the clock's baseline; combo → **CARNAGE COUPON** w/ live countdown; boost track had collapsed to 0; PA kicker lost the retired white ring. |
 | `3240e6e` | 6a review 2 | Clock was Bungee (proportional digits) → resized every tick; now Goldman + an em floor. |
+| `e228636` | **3a Menu** | Hover kept the sticker ring + flattened the row; title lean died to the rAF beat write; title to 170/0.78/no-stroke; rings off re-roll + diff chips; NEW pill moved onto the row's own `.cr-cmd-new`; hero top-anchored + hint-bar reserve (it overlapped at 1280×720); plate name plain + twin 36px ✎/⟲; hint bar SVG chip + sha fallback; title band rules moved into the 3a block. |
+| `f279b08` | 3a review | The arena radiogroup was never actually hidden (author `display` beat `[hidden]`) — three cards on top of the pager; QUICKPLAY's arena picker dropped (matchmaking picks). |
 
 ## Key implementation facts (so you don't re-derive)
 
 - **Menu markup** lives in `index.html` (invariant — `cart-rave-menu.html` is deleted, don't recreate). Old audio + controls panels stay **mounted-but-hidden** in `.cr-legacy[hidden]` so `syncAudioUi` / mute / `updateControlsPanelUI` keep working.
 - **`.cr-screen` shell** (`cart-rave-menu.css` ~1315): Road Rage title top-left over a Goldman kicker; named regions `-rail` / `-stage` / `-panel` / `-panels` / `-actions` / `-hint`; collapse at 1024 and 768. Rebuilding a screen is markup restructure + region contents, not a new layout system.
-- **Arena picker** is a pager (`#cr-arena-prev/next`) backed by the **hidden `.cr-level-btn` radiogroup** — the buttons stay the data model.
+- **Arena picker** is a pager (`#cr-arena-prev/next`) backed by the `.cr-level-btn` radiogroup — the buttons stay the data model, and they are hidden by `.cr-context .cr-level-row[hidden]`, **not** by the `hidden` attribute alone (trap 7). The pager shows only for modes with `arena: true` in `MENU_ITEMS`: **SOLO only** — QUICKPLAY's was dropped at review because matchmaking picks the arena. `arena: false` also gates ◂/▸ paging via `arenaContextShown()`.
+- **3a title beat** goes through `--cr-title-beat` (a scalar `animLoop` sets), never `style.transform` — the lockup carries `skewX(-4deg)` (trap 4). Its size/rhythm is `vh`-aware and its **responsive band rules live inside the 3a block**, because the shared band section sits earlier in the file and could no longer outrank the two-class `.cr-hero .cr-title-stack` rule.
+- **3a command rows** are `.cr-btn` elements, so they inherit sticker hover/press. `.cr-btn.cr-cmd:hover/:focus-visible/:active` re-declares `skewX(-8deg)` + `box-shadow: none` to hold them off; hover *is* selection on this screen, so any new state must keep that pair.
+- **CHALLENGES badge** renders into the row's own `.cr-cmd-new` pill (`updateChallengesBadge`) — NEW, or `✓N` in portal green via `.cr-cmd-new--done`. The old absolutely-positioned `.cr-challenges-chip` is deleted; it was never counter-skewed.
 - **emblemForSlot(slot)** (npcNames.js): NPC → personality emblem; human → shopper glyph tinted by cart colour; empty → null.
 - **Roster model (7e — still true after the rebuild):** `buildRosterRows(netSlots, roundScores, isLobbyRoster)` in hud.js is the ONE slot→row resolver — compact scoreboard and CHECKOUT LINE both read it. The lobby READY button is a **proxy** that clicks `elements.readyBtn`; never add a second `MSG.readyToggle` send. The lobby element is mounted on `document.body` and forced hidden in the menu-visible and `suppressHud` branches. Full-screen gate is **`phase === "lobby"` && friends** only — `isLobbyRoster` (`lobby || countdown`) would cover the 3-2-1.
 - **The lobby deliberately does NOT use `.cr-screen`.** It re-expresses the same geometry under `.hud-lobby-*` in `hud.css`, because a hud.css override of a cart-rave-menu.css shell class is settled by **bundle order** — trap #1 with two stylesheets in play. Copy the pattern if another HUD-side surface needs the shell look.
@@ -196,18 +229,17 @@ in the report instead of implying it was seen.
 
 ## Remaining work
 
-**3a MAIN MENU is the last surface.** It was built in cut 2 (`62baedf`) before the path-A reversal
-and has never been diffed against its mock. Do it the way 6a and 7f finally were: open
-`Menu Redesign Concepts.dc.html` §3a and compare **interior detail by interior detail**, not
-structure. Every prior screen's findings were the same class — retired sticker material still on
-titles/pills, wrong font on a numeric readout, chip weight, stacked-vs-inline rhythm — so look there
-first.
+**Every surface is built. What is left is verification, not construction** — and all of it needs a
+real browser and a real match, which is exactly the work the pane cannot do.
 
 **Owed verifications (need a visible browser — `npm run dev:local`, not the pane):**
 1. **A real match** → the whole **HUD** (6a), then **results on a finished round**: count-up + receipt print cadence, the new SPILLS/CHALLENGE lines with real data, defeat/victory treatments, PLAY AGAIN host gating.
 2. **A live friends room, two clients** → the rebuilt CHECKOUT LINE has **never rendered** (mode entry never completes in the pane; it was verified by mounting its structure and measuring). Check roster/ready streaming, the **lobby→countdown handoff**, **rematch** re-entry, LEAVE ROOM teardown, `?room=` JOIN, and the new COPY button.
-3. **Responsive sweep** at 1025 / 1024 / 768 / 380 + `prefers-reduced-motion`.
+3. **Responsive sweep** at 1025 / 1024 / 768 / 380 + `prefers-reduced-motion`. 3a was measured at
+   1920×1080 / 1280×720 / 1025×600 / 1024×768 / 768×1024 / 380×800, but by geometry, not by eye.
 4. **Golden visual baselines** are still invalidated — regen (`npm run shoot`) once the review signs off.
+5. **Every `[hidden]` on the menu** — assert the computed `display` is actually `none` (trap 7). Only
+   `#cr-level-row`, `#cr-context-arena`, `#cr-diff-row` and `#cr-cmd-new-pill` were checked.
 
 **Known-but-parked:**
 - `.results-defeat .results-title { --title-glow }` **never applies** — main.js sets that custom property inline and no stylesheet rule can outrank it. Cosmetic only (the panel filter desaturates anyway). Pre-existing.
@@ -219,7 +251,7 @@ first.
 
 ## How to continue / verify
 
-- **Dev server:** `.claude/launch.json` has `vite` (3210), `vite-alt` (3211), `vite-perf` (3212). The other session usually holds 3210/3211 — use `vite-perf`.
+- **Dev server:** `.claude/launch.json` has `vite` (3210), `vite-alt` (3211), `vite-perf` (3212). The other session sometimes holds **all three** — when it does, `preview_start {url: "http://127.0.0.1:3212/"}` opens a pane tab against the server it is already running (same working directory, so it serves your edits). A hidden-tab HMR update will **not** repaint: re-`navigate` with a fresh query string (`?v=2`) to force a clean boot, and confirm the served CSS actually contains your change (`fetch('/src/cart-rave-menu.css?direct')`) before trusting a measurement.
 - **Gates:** `npm run qa` (report by number) + `npm run build` (CSS is in the client bundle). Last run: **773/773 tests, 77 files**, all sub-gates green.
 - **Forcing a round to end (dev):** `window.CartClashDev.run("scores 7 4 2 9")` then `run("rewind 800")` → podium in ~2s. `CartClashDev.help()` lists the rest.
 - **Gotchas:** index.html line numbers shift as you edit (re-grep before editing); `status:size` gates on docs/STATUS.md tokens; menu nav is *correctly* blocked while an overlay is open.
@@ -232,38 +264,40 @@ Continue the "Fight Night" UI redesign on branch redesign/fight-night-ui (repo c
 Everything is committed there and UNPUSHED.
 
 READ IN THIS ORDER before touching anything:
-1. docs/planning/fight-night-ui-handover.md — the whole file. Its "READ FIRST" section is six
-   traps that have each bitten more than once in this work; traps 4 and 6 caused every bug that
-   reached me in the last session.
+1. docs/planning/fight-night-ui-handover.md — the whole file. Its "READ FIRST" section is seven
+   traps that have each bitten more than once in this work. Traps 3, 4, 6 and 7 caused every bug
+   that reached me in the last two sessions, and trap 3 will make you report things you did not
+   actually see.
 2. The design source: extract ~/Downloads/"Game Menu UI Refinement.zip" and read
    design_handoff_main_menu/README.md plus "Menu Redesign Concepts.dc.html". The README has the
    per-screen prose, the .dc.html has the exact numbers. The plan does not restate them.
 3. `git log --oneline -30` on the branch.
 
-State: all seven sub-screens (7a-7g) are rebuilt as full-screen surfaces, and 6a HUD has been
-reworked to its mock. 3a MAIN MENU is the last surface — it was built in cut 2 (62baedf) before
-the path-A reversal and has NEVER been diffed against its mock.
+State: EVERY surface is built — 7a-7g, 6a HUD, and 3a main menu (e228636 + f279b08). The
+construction phase is over. What is left is verification, and almost all of it needs a real
+browser and a real match, which is exactly what the Browser pane on this host cannot do.
 
-Your job is 3a. Do it the way 6a and 7f finally got done: compare against .dc.html §3a interior
-detail by interior detail, not structurally. Every screen so far produced the same class of
-finding — retired white die-cut material still on titles and pills, the wrong font on a numeric
-readout, chip weight too heavy, meta stacked where the mock puts it inline.
+Only 7a, 7c and 3a have ever been looked at by a human. Everything else was signed off on DOM
+geometry and computed styles alone. Treat "verified" in this doc as "measured", not "seen".
+
+Ask me what to work on — do not pick a card yourself. The owed list is in the handover's
+"Remaining work": a live match for the HUD and results on a finished round, a two-client friends
+lobby (the CHECKOUT LINE has NEVER rendered), the responsive sweep, an audit that every [hidden]
+on the menu actually computes display:none, and a golden-baseline regen (`npm run shoot`) once I
+sign off.
 
 Rules of engagement:
-- plan -> my ack -> apply. One screen per cut.
+- plan -> my ack -> apply. One item per cut.
 - Commit by EXPLICIT path, and `git diff` your own files immediately before committing. A second
   agent session shares this checkout and has already both swept my lines into its commit and
   clobbered an edit outright. Never `git add -A`.
 - Delete a screen's retired CSS when you rebuild it; don't layer over it.
-- Two-class selectors when overriding a shared shell class.
+- Two-class selectors when overriding a shared shell class — and check where your rule sits in the
+  file, because equal specificity is settled by source order and the 3a block is near the end.
 - Never animate `transform` on a skewed slab.
 - Verify in the state the app ACTUALLY renders (real show()/updater, real display value, short
   viewports for centred panels). If you can't reach the real state, say so plainly instead of
-  implying you saw it — the Browser pane on this host cannot composite screenshots and never
-  completes mode entry.
+  implying you saw it. In the pane, a computed style on a live element is pinned mid-transition —
+  measure a fresh probe node with `transition: none` (trap 3).
 - Gates: `npm run qa` + `npm run build`, reported by number.
-
-Still owed and needing a real browser (not the pane): a live match for the HUD and results on a
-finished round, a two-client friends lobby (the CHECKOUT LINE has never rendered), the responsive
-sweep, and a golden-baseline regen (`npm run shoot`) once I sign off.
 ```
