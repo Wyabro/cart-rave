@@ -486,9 +486,9 @@
   }
 }
 
-/* The mode-entry segmented bar is retired — progress is the `.cr-load__meter`
-   slab above. The boot splash keeps its own segments, scoped inline in
-   index.html under `#boot-seg-bar .cr-seg` so they paint before this bundle. */
+/* Segmented progress bars are retired on both loading surfaces — each is the
+   boost-meter slab now (`.cr-load__meter` here, `.cr-boot-meter` inline in
+   index.html, which must paint before this bundle arrives). */
 
 /* ── Backrooms furniture pile visual ── */
 

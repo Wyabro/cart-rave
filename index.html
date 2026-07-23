@@ -140,40 +140,48 @@
       cursor: pointer;
       box-shadow: 2px 2px 0 #08050f, inset 0 1px 0 rgba(255,255,255,0.35);
     }
-    .cr-boot-panel {
+    /* Shell — the geometry every full-screen surface uses: title top-left over a
+       Goldman kicker, centre stage, full-bleed strip along the bottom. Mirrors
+       .cr-screen / .cr-load__shell in literals, because this paints before any
+       bundle CSS or token is available. */
+    .cr-boot-shell {
+      --boot-pad-x: clamp(20px, 5vw, 96px);
       position: relative;
       z-index: 2;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 16px;
-      text-align: center;
-      padding: 20px;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) auto;
       width: 100%;
-      max-width: 580px;
+      height: 100%;
+      padding: max(clamp(20px, 3.4vh, 56px), env(safe-area-inset-top, 0px)) max(var(--boot-pad-x), env(safe-area-inset-right, 0px)) 0 max(var(--boot-pad-x), env(safe-area-inset-left, 0px));
+      overflow: hidden;
       transform: scale(1);
       transition: transform 200ms cubic-bezier(0.1, 0.9, 0.2, 1), opacity 200ms cubic-bezier(0.1, 0.9, 0.2, 1);
     }
-    #cr-boot-splash.cr-load--exit .cr-boot-panel {
+    #cr-boot-splash.cr-load--exit .cr-boot-shell {
       transform: scale(1.06);
       opacity: 0;
     }
-    .cr-boot-tag {
-      font-size: 10px;
-      letter-spacing: 0.28em;
-      color: rgba(255,255,255,0.45);
+    .cr-boot-hd { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .cr-boot-kicker {
+      font-size: clamp(9px, 1vw, 12px);
+      letter-spacing: 0.34em;
+      color: rgba(255,255,255,0.55);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
-    /* Road Rage stack-A: sticker-white fill, ink stroke via paint-order, hard
-       2-step extrude (literals — this renders before bundle CSS/tokens load). */
+    /* Glow-only Road Rage, matching every other screen title. The ink stroke and
+       double extrude this used to carry are gone. */
     .cr-boot-title {
       font-family: "Road Rage", "Goldman", sans-serif;
-      font-size: clamp(2rem, 8vw, 3.2rem);
-      line-height: 0.95;
+      font-size: clamp(38px, 7.2vw, 110px);
+      line-height: 0.9;
       color: #f2ede4;
-      paint-order: stroke fill;
-      -webkit-text-stroke: 0.06em #08050f;
-      text-shadow: 0.05em 0.05em 0 #08050f, 0.1em 0.1em 0 #08050f;
+      text-shadow: 0 0 50px rgba(255,43,214,0.3);
       letter-spacing: 0.02em;
+      white-space: nowrap;
+      transform: skewX(-4deg);
+      transform-origin: left center;
       animation: cr-boot-pulse 2.4s ease-in-out infinite;
     }
     /* ── Crash stage: full-width band, carts are the focal point ── */
@@ -183,6 +191,9 @@
       width: min(92vw, 540px);
       height: clamp(90px, 18vh, 150px);
       margin: clamp(6px, 2vh, 16px) 0;
+      /* Grid item in the shell's centre row — without this it stretches/pins left. */
+      justify-self: center;
+      align-self: center;
       animation: bootShake var(--boot-loop) linear infinite;
     }
     .cr-boot-ground {
@@ -266,16 +277,46 @@
       opacity: 0;
       animation: bootSpark var(--boot-loop) linear infinite;
     }
-    #boot-seg-bar {
+    /* Bottom strip — the hint-bar recipe, full-bleed against the screen edges. */
+    .cr-boot-strip {
       display: flex;
-      gap: 3px;
-      width: min(280px, 70vw);
-      height: 8px;
+      align-items: center;
+      gap: clamp(14px, 2.4vw, 36px);
+      margin: 0 calc(var(--boot-pad-x) * -1);
+      padding: clamp(10px, 1.5vh, 16px) var(--boot-pad-x);
+      padding-bottom: max(clamp(10px, 1.5vh, 16px), env(safe-area-inset-bottom, 0px));
+      background: rgba(9,7,13,0.9);
+      border-top: 1px solid rgba(255,255,255,0.07);
+      min-width: 0;
     }
-    /* Inline copies so the bar/message render before bundle CSS (dev first paint) */
-    #boot-seg-bar .cr-seg { flex: 1; height: 100%; border-radius: 1px; background: rgba(242,237,228,0.12); transition: background-color 120ms ease; }
-    #boot-seg-bar .cr-seg.lit { background: #ffe53d; }
-    #cr-boot-splash .cr-boot-msg { font-size: clamp(8px, 2vw, 10px); letter-spacing: 0.18em; color: rgba(255,255,255,0.42); text-align: center; min-height: 1.2em; }
+    /* Progress is the 6a boost-meter slab (literals — pre-bundle). */
+    .cr-boot-meter {
+      flex: 0 1 clamp(240px, 34vw, 420px);
+      padding: 10px 20px;
+      background: #14101e;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 6px;
+      box-shadow: 3px 3px 0 #08050f, inset 0 1px 0 rgba(255,255,255,0.07);
+      transform: skewX(-8deg);
+    }
+    .cr-boot-meter-inner { display: flex; align-items: center; gap: 12px; width: 100%; transform: skewX(8deg); }
+    .cr-boot-meter-label { font-weight: 700; font-size: clamp(9px, 1vw, 10px); letter-spacing: 0.18em; color: #ffe53d; white-space: nowrap; }
+    .cr-boot-pct { font-weight: 700; font-size: clamp(11px, 1.2vw, 12px); color: #ffe53d; min-width: 2.6em; text-align: right; font-variant-numeric: tabular-nums; }
+    #boot-seg-bar {
+      position: relative;
+      flex: 1;
+      min-width: 0;
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.1);
+      overflow: hidden;
+    }
+    #cr-boot-fill { display: block; height: 100%; width: 0%; border-radius: 999px; background: #ffe53d; transition: width 200ms ease-out; }
+    #cr-boot-splash .cr-boot-msg { font-size: clamp(9px, 1vw, 12px); letter-spacing: 0.12em; color: rgba(255,255,255,0.55); min-height: 1.2em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    @media (max-width: 768px) {
+      .cr-boot-strip { flex-wrap: wrap; gap: 8px; }
+      .cr-boot-meter, #cr-boot-splash .cr-boot-msg { flex: 1 1 100%; }
+    }
     /* ── Master timeline keyframes ── */
     @keyframes bootTravel {
       0%       { transform: translateX(3cqw); }
@@ -376,9 +417,11 @@
 </head>
 <body class="cr-boot-pending">
   <div id="cr-boot-splash" class="cr-load" aria-live="polite" aria-busy="true" aria-label="Loading Cart Clash">
-    <div class="cr-boot-panel">
-      <div class="cr-boot-tag">◆ CART CLASH ◆</div>
-      <div class="cr-boot-title">CART CLASH</div>
+    <div class="cr-boot-shell">
+      <div class="cr-boot-hd">
+        <div class="cr-boot-kicker">THE STORE IS NOW OPENING</div>
+        <div class="cr-boot-title">CART CLASH</div>
+      </div>
       <div class="cr-boot-stage" aria-hidden="true">
         <div class="cr-boot-ground"></div>
         <!-- Cart SVG is drawn FACING RIGHT (handle at back-left, shades over the
@@ -494,22 +537,26 @@
           <div class="cr-bspark" style="--dx: -16px; --dy: 48px;  --rot: 108deg; --sc: #ff2bd6;"></div>
         </div>
       </div>
-      <div id="boot-seg-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+      <div class="cr-boot-strip">
+        <div class="cr-boot-meter">
+          <div class="cr-boot-meter-inner">
+            <span class="cr-boot-meter-label">OPENING</span>
+            <div id="boot-seg-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+              <span id="cr-boot-fill"></span>
+            </div>
+            <span class="cr-boot-pct" id="cr-boot-pct">0%</span>
+          </div>
+        </div>
+        <div class="cr-boot-msg" id="cr-boot-msg"></div>
       </div>
-      <div class="cr-boot-msg" id="cr-boot-msg"></div>
     </div>
   </div>
   <script>
     (function() {
       window.bootStartTime = performance.now();
       const bar = document.getElementById('boot-seg-bar');
-      if (bar) {
-        for (let i = 0; i < 20; i++) {
-          const seg = document.createElement('div');
-          seg.className = 'cr-seg';
-          bar.appendChild(seg);
-        }
-      }
+      const fillEl = document.getElementById('cr-boot-fill');
+      const pctEl = document.getElementById('cr-boot-pct');
       const msgEl = document.getElementById('cr-boot-msg');
       const messages = [
         "Strapping in…",
@@ -532,14 +579,11 @@
       window.bootMsgTimer = setInterval(updateMsg, 1800);
 
       let bootProgress = 0;
-      const segs = bar ? bar.children : [];
       function paintBootProgress() {
-        if (bar) bar.setAttribute('aria-valuenow', Math.round(bootProgress).toString());
-        const litCount = Math.round((bootProgress / 100) * 20);
-        for (let i = 0; i < segs.length; i++) {
-          if (i < litCount) segs[i].classList.add('lit');
-          else segs[i].classList.remove('lit');
-        }
+        const rounded = Math.round(bootProgress);
+        if (bar) bar.setAttribute('aria-valuenow', rounded.toString());
+        if (fillEl) fillEl.style.width = bootProgress + '%';
+        if (pctEl) pctEl.textContent = rounded + '%';
       }
       window.bootTimer = setInterval(() => {
         bootProgress += Math.random() * 8;
