@@ -1634,52 +1634,184 @@
    private room; it clears before the countdown so the 3-2-1 owns the frame.
    Start rule B1: READY only — the server auto-arms, there is no START button. */
 .hud-lobby {
+  --lobby-pad-x: clamp(20px, 5vw, 96px);
   position: fixed;
   inset: 0;
   z-index: 24000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  /* Flat printed scrim over the frozen arena — no blur. */
-  background: rgba(4, 2, 10, 0.82);
+  /* Same region grid as the menu sub-screens: title band, left invite column /
+     right roster, hint bar. Expressed locally rather than by borrowing
+     .cr-screen from cart-rave-menu.css — a cross-stylesheet override of a
+     shared shell class would be decided by bundle order. */
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: clamp(12px, 2vw, 28px) clamp(16px, 3vw, 48px);
+  padding:
+    max(clamp(20px, 3.4vh, 56px), env(safe-area-inset-top, 0px))
+    max(var(--lobby-pad-x), env(safe-area-inset-right, 0px))
+    0
+    max(var(--lobby-pad-x), env(safe-area-inset-left, 0px));
+  overflow: hidden;
+  /* Left-weighted printed scrim over the frozen arena — no blur. Darkest under
+     the title/invite column, lighter where the roster slabs carry their own
+     ink, so the arena still reads behind the screen. */
+  background: linear-gradient(
+    100deg,
+    rgba(10, 8, 16, 0.95) 0%,
+    rgba(10, 8, 16, 0.95) 30%,
+    rgba(10, 8, 16, 0.8) 70%,
+    rgba(10, 8, 16, 0.92) 100%
+  );
   font-family: var(--mono);
   color: var(--color-sticker-white);
 }
 
 .hud-lobby[hidden] { display: none; }
 
-.hud-lobby-inner {
+.hud-lobby-hd {
+  grid-column: 1 / -1;
+  grid-row: 1;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: clamp(10px, 1.6vw, 14px);
-  width: min(560px, 92vw);
-  max-height: 92dvh;
-  padding: clamp(20px, 3vw, 28px);
-  background: var(--color-ink);
-  border: 1px solid var(--border-white-12);
-  border-radius: var(--radius-panel);
-  box-shadow: var(--slab-shadow);
-  overflow-y: auto;
+  gap: 2px;
+  min-width: 0;
+}
+
+.hud-lobby-kicker {
+  font-size: clamp(9px, 1vw, 12px);
+  letter-spacing: 0.34em;
+  color: rgba(255, 255, 255, 0.55);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .hud-lobby-title {
   margin: 0;
   font-family: var(--display);
-  font-size: clamp(30px, 6vw, 52px);
-  line-height: 1;
-  letter-spacing: 0.03em;
-  text-align: center;
+  font-weight: 400;
+  font-size: clamp(34px, 6.4vw, 96px);
+  line-height: 0.9;
+  letter-spacing: 0.02em;
+  color: var(--color-sticker-white);
+  transform: skewX(-4deg);
+  transform-origin: left center;
+  text-shadow: 0 0 50px var(--glow-magenta-30, rgba(255, 43, 214, 0.3));
+  white-space: nowrap;
+}
+
+/* Left column — invite slab over the actions (mock 7e). */
+.hud-lobby-left {
+  grid-column: 1;
+  grid-row: 2;
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(12px, 2.4vh, 28px);
+  width: min(520px, 100%);
+  margin-top: clamp(8px, 4vh, 64px);
+  min-height: 0;
+}
+
+.hud-lobby-code-card {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(8px, 1.4vh, 14px);
+  padding: clamp(16px, 1.8vw, 28px) clamp(18px, 2vw, 32px);
+  background: rgba(12, 10, 17, 0.85);
+  border: 1px solid var(--border-white-10);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--slab-shadow);
+}
+
+.hud-lobby-code-lbl {
+  font-size: clamp(9px, 1vw, 11px);
+  letter-spacing: 0.26em;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.hud-lobby-code-row {
+  display: flex;
+  align-items: center;
+  gap: clamp(10px, 1.4vw, 16px);
+  min-width: 0;
+}
+
+/* The code is read out loud, so it never wraps and never shrinks below legible. */
+.hud-lobby-code {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 700;
+  font-size: clamp(20px, 2.6vw, 36px);
+  letter-spacing: 0.12em;
+  color: var(--color-cyan);
+  white-space: nowrap;
+}
+
+.hud-lobby-copy {
+  flex: 0 0 auto;
+  padding: 8px clamp(12px, 1.3vw, 16px);
+  background: transparent;
+  border: 1px solid rgba(34, 230, 255, 0.45);
+  border-radius: 5px;
+  color: var(--color-cyan);
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: clamp(10px, 1.05vw, 11px);
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 120ms var(--ease-slap), color 120ms var(--ease-slap);
+}
+
+.hud-lobby-copy:hover {
+  background: rgba(34, 230, 255, 0.12);
+  color: var(--color-sticker-white);
+}
+
+.hud-lobby-copy:active {
+  background: var(--color-cyan);
+  color: var(--color-ink);
+}
+
+.hud-lobby-share {
+  margin: 0;
+  padding-top: clamp(10px, 1.2vh, 16px);
+  border-top: 1px solid var(--border-white-10);
+  font-size: clamp(9px, 0.95vw, 11px);
+  letter-spacing: 0.06em;
+  line-height: 1.6;
+  color: rgba(242, 237, 228, 0.45);
+}
+
+/* Right column — the roster itself. */
+.hud-lobby-roster {
+  grid-column: 2;
+  grid-row: 2;
+  align-self: start;
+  justify-self: end;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(8px, 1.4vh, 14px);
+  width: min(560px, 100%);
+  margin-top: clamp(8px, 4vh, 64px);
+  /* align-self:start means this box takes its CONTENT height, so overflow-y
+     alone never engages — without the cap it grows past its grid row and lands
+     on the hint bar (the 7b lesson). */
+  max-height: 100%;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .hud-lobby-meta {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: clamp(9px, 1.5vw, 11px);
-  letter-spacing: 0.22em;
-  color: rgba(255, 255, 255, 0.5);
+  gap: 6px;
+  font-size: clamp(9px, 1vw, 11px);
+  letter-spacing: 0.26em;
+  color: rgba(255, 255, 255, 0.55);
 }
 
 .hud-lobby-count { color: var(--color-cyan); }
@@ -1687,7 +1819,7 @@
 .hud-lobby-slots {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: clamp(8px, 1.2vh, 14px);
   width: 100%;
 }
 
@@ -1695,11 +1827,11 @@
 .hud-lobby-slot {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 14px 10px 26px;
+  gap: clamp(8px, 1vw, 14px);
+  padding: clamp(11px, 1.2vw, 16px) clamp(14px, 1.6vw, 22px) clamp(11px, 1.2vw, 16px) clamp(24px, 2.4vw, 34px);
   position: relative;
-  background: var(--color-ink-deep);
-  border: 1px solid var(--border-white-10);
+  background: rgba(12, 10, 17, 0.85);
+  border: 1px solid var(--border-white-12);
   border-radius: 8px 8px 8px 22px;
   box-shadow: var(--slab-shadow-sm);
 }
@@ -1713,23 +1845,45 @@
   height: 8px;
   transform: translateY(-50%);
   border-radius: 50%;
-  background: var(--color-ink);
+  background: var(--color-bg-black);
   box-shadow: inset 0 0 0 1.5px rgba(242, 237, 228, 0.4);
 }
 
+/* An empty lane is a dashed outline holding one centred line — no tag nose, no
+   punched hole, nothing that reads as an occupied seat. */
 .hud-lobby-slot.is-empty {
+  justify-content: center;
+  /* Symmetric again — the extra left pad exists to clear the tag nose + punched
+     hole, and an empty lane has neither, so it would push the line off centre. */
+  padding: clamp(14px, 1.5vw, 18px) clamp(14px, 1.6vw, 22px);
+  background: transparent;
   border-style: dashed;
-  border-color: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
   box-shadow: none;
 }
 
-.hud-lobby-slot.is-you { border-color: var(--color-cyan); }
-.hud-lobby-slot.is-ready .hud-lobby-status-cell { color: var(--color-timer-ok); }
+.hud-lobby-slot.is-empty::before { display: none; }
 
+/* The name box keeps flex:1 even while empty, which would hold the centred line
+   off to the right — an empty lane shows nothing but its one line. */
+.hud-lobby-slot.is-empty .hud-lobby-name,
+.hud-lobby-slot.is-empty .hud-lobby-emblem,
+.hud-lobby-slot.is-empty .hud-lobby-pips { display: none; }
+
+.hud-lobby-slot.is-you { border-color: var(--color-cyan); }
+.hud-lobby-slot.is-ready .hud-lobby-status-cell { color: var(--color-portal); }
+
+/* Emblems are self-contained stickers (backing + ring baked into the SVG, and
+   off-limits) — this only sizes the 1em glyph and matches the scoreboard's
+   ink drop shadow. The mock's drawn-on ring would be a second ring. */
 .hud-lobby-emblem {
   display: inline-flex;
-  font-size: 17px;
+  align-items: center;
+  flex: 0 0 auto;
+  font-size: clamp(18px, 1.7vw, 24px);
   line-height: 1;
+  filter: drop-shadow(1px 1px 0 var(--color-ink-deep));
 }
 
 .hud-lobby-name {
@@ -1738,67 +1892,179 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: clamp(11px, 1.8vw, 13px);
+  font-family: var(--ui);
+  font-size: clamp(13px, 1.3vw, 17px);
   letter-spacing: 0.06em;
 }
-
-.hud-lobby-slot.is-empty .hud-lobby-name { color: rgba(255, 255, 255, 0.35); }
 
 .hud-lobby-pips { display: inline-flex; gap: 4px; }
 
 .hud-lobby-pip {
   display: inline-flex;
-  padding: 2px 6px;
-  border-radius: 3px;
-  font-size: 8px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 10px;
   letter-spacing: 0.14em;
-  color: var(--color-ink-deep);
-  background: var(--color-cyan);
+  color: var(--color-bg-black);
+  box-shadow: 2px 2px 0 var(--color-bg-black);
 }
 
-.hud-lobby-pip--host { background: var(--color-yellow); }
+/* HOST is the mock's cyan chip; YOU has to sit beside it on the same row, so it
+   takes the neutral warm white rather than a second cyan. */
+.hud-lobby-pip--host { background: var(--color-cyan); }
+.hud-lobby-pip--you { background: var(--color-sticker-white); }
 
 .hud-lobby-status-cell {
-  min-width: 62px;
+  margin-left: auto;
   text-align: right;
-  font-size: clamp(8px, 1.4vw, 10px);
+  font-size: clamp(9px, 1vw, 12px);
   letter-spacing: 0.14em;
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(242, 237, 228, 0.4);
+  white-space: nowrap;
+}
+
+.hud-lobby-slot.is-empty .hud-lobby-status-cell {
+  margin-left: 0;
+  letter-spacing: 0.18em;
+  color: rgba(242, 237, 228, 0.35);
 }
 
 .hud-lobby-status {
   margin: 0;
-  font-size: clamp(9px, 1.5vw, 11px);
+  font-size: clamp(9px, 1vw, 11px);
   letter-spacing: 0.24em;
   color: rgba(255, 255, 255, 0.45);
 }
 
-.hud-lobby-status.is-go { color: var(--color-timer-ok); }
+.hud-lobby-status.is-go { color: var(--color-portal); }
 
 .hud-lobby-actions {
   display: flex;
-  gap: 10px;
+  flex-direction: column;
+  gap: clamp(8px, 1.2vh, 12px);
   width: 100%;
 }
 
-.hud-lobby-btn {
-  flex: 1 1 0;
-  min-width: 0;
-  min-height: 44px;
+/* Every interactive slab on this screen is the SAME parallelogram (the menu
+   sub-screens' rule). Two-class against .cc-btn so its own hover/active
+   transforms can't drop the skew — that flashing was bug 0d20900. */
+.cc-btn.hud-lobby-btn {
+  width: 100%;
+  min-height: 48px;
+  padding: 14px clamp(20px, 2.5vw, 40px);
+  border-radius: var(--radius-sm);
   font-family: var(--ui);
-  font-size: clamp(11px, 1.8vw, 14px);
-  letter-spacing: 0.08em;
+  font-size: clamp(13px, 1.3vw, 18px);
+  letter-spacing: 0.1em;
+  text-align: center;
   cursor: pointer;
+  transform: skewX(-8deg);
+  transition: transform 120ms var(--ease-slap), box-shadow 120ms var(--ease-slap);
+}
+
+.cc-btn.hud-lobby-btn:hover,
+.cc-btn.hud-lobby-btn:focus-visible {
+  transform: skewX(-8deg) translate(-1px, -2px);
+}
+
+.cc-btn.hud-lobby-btn:active {
+  transform: skewX(-8deg) translate(2px, 2px);
+}
+
+.cc-btn.hud-lobby-btn--ready {
+  border: none;
+  box-shadow: var(--slab-extrude), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+/* LEAVE ROOM is the quieter half of the pair. */
+.hud-lobby-btn.cc-btn--ghost {
+  font-size: clamp(11px, 1.1vw, 15px);
+  color: var(--color-muted);
+}
+
+/* Three-layer split, same as the menu action slabs: outer owns the skew, inner
+   is the press target (press writes transform inline), label counter-skews. */
+.hud-lobby-btn-inner {
+  display: inline-block;
+}
+
+.hud-lobby-btn-label {
+  display: inline-block;
+  transform: skewX(8deg);
 }
 
 /* Already checked out — the button recedes to a confirmed state. */
 .hud-lobby-btn--ready.is-ready {
-  background: var(--color-timer-ok);
+  background: var(--color-portal);
   color: var(--color-ink-deep);
 }
 
+/* Hint bar — full-bleed against the screen edges, so it negates the shell pad. */
+.hud-lobby-hint {
+  grid-column: 1 / -1;
+  grid-row: 3;
+  display: flex;
+  align-items: center;
+  gap: clamp(14px, 2.4vw, 36px);
+  margin: 0 calc(var(--lobby-pad-x) * -1);
+  padding: clamp(10px, 1.5vh, 16px) var(--lobby-pad-x);
+  padding-bottom: max(clamp(10px, 1.5vh, 16px), env(safe-area-inset-bottom, 0px));
+  background: rgba(9, 7, 13, 0.9);
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  font-size: clamp(9px, 1vw, 12px);
+  letter-spacing: 0.12em;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.hud-lobby-hint-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.hud-lobby-hint kbd {
+  padding: 2px 8px;
+  border: 1px solid var(--border-white-25, rgba(255, 255, 255, 0.25));
+  border-radius: 4px;
+  font-family: var(--mono);
+  color: var(--color-sticker-white);
+}
+
+.hud-lobby-link {
+  margin-left: auto;
+  color: rgba(255, 255, 255, 0.4);
+  white-space: nowrap;
+}
+
+.hud-lobby-link.is-warn { color: var(--color-alert); }
+
+/* ≤900: the invite column drops under the roster — the roster is the reason the
+   screen exists, so it keeps the top of the frame. */
+@media (max-width: 900px) {
+  .hud-lobby {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+  }
+  .hud-lobby-roster {
+    grid-column: 1;
+    grid-row: 2;
+    justify-self: stretch;
+    width: 100%;
+    margin-top: clamp(6px, 2vh, 24px);
+  }
+  .hud-lobby-left {
+    grid-column: 1;
+    grid-row: 3;
+    width: 100%;
+    margin-top: 0;
+  }
+  .hud-lobby-hint { grid-row: 4; }
+}
+
 @media (max-width: 480px) {
-  .hud-lobby-inner { padding: 16px 14px; gap: 10px; }
-  .hud-lobby-slot { padding: 8px 10px 8px 24px; gap: 8px; }
-  .hud-lobby-actions { flex-direction: column; }
+  .hud-lobby { gap: 10px; }
+  .hud-lobby-slot { gap: 8px; }
+  .hud-lobby-code-card { padding: 14px 16px; }
 }

@@ -143,8 +143,11 @@ const elements = {
   lobbySlots: [],
   lobbyCount: null,
   lobbyCode: null,
+  lobbyCopy: null,
   lobbyStatus: null,
+  lobbyLink: null,
   lobbyReadyBtn: null,
+  lobbyReadyLabel: null,
   menuBtn: null,
   audio: null,
   comboBadge: null,
@@ -212,6 +215,8 @@ let _wasSuddenDeath = false;
 let _toastTimeoutId = null;
 /** Previous local ready state — drives ready-button toggle animation. */
 let _lastReadyState = null;
+/** Revert timeout for the lobby COPY button's "COPIED!" confirmation. */
+let _lobbyCopyTimeoutId = null;
 /** Quantized (0.5%) round-timer fill last written — skip redundant per-frame style writes. */
 let _hudTimerFillHalfPct = -1;
 /** Non-zero while the host-stall toast for the current stall has been shown (run-6). */
@@ -1203,6 +1208,17 @@ function updateReadyButton(roundPhase, netSlots, youConnId, menuVisible) {
 }
 
 /**
+ * Press feedback animates the INNER node of a lobby slab, never the button:
+ * anime.js writes `transform` inline, which would wipe the outer skewX() and
+ * snap the parallelogram flat for the duration of the press (the 7a bug).
+ * @param {HTMLElement} btn
+ * @returns {HTMLElement}
+ */
+function lobbyPressTarget(btn) {
+  return /** @type {HTMLElement} */ (btn.querySelector(".hud-lobby-btn-inner") || btn);
+}
+
+/**
  * Friends-only full-screen CHECKOUT LINE lobby (7e, model B).
  *
  * Gate is `phase === "lobby"` — deliberately NOT the compact roster's
@@ -1257,7 +1273,9 @@ function updateLobbyScreen(roundPhase, netSlots, youConnId, menuVisible) {
     cell.root.classList.toggle("is-empty", isEmpty);
     cell.root.classList.toggle("is-you", isLocal);
     cell.root.classList.toggle("is-ready", row.kind === "human" && row.isReady);
-    cell.name.textContent = isEmpty ? "OPEN LANE" : row.slotName;
+    // * An empty lane is a dashed outline with one centred line (mock 7e) — no
+    // * name, no emblem, nothing that reads as a player who is already here.
+    cell.name.textContent = isEmpty ? "" : row.slotName;
 
     const info = isEmpty ? null : emblemForSlot(slot);
     if (info) {
@@ -1275,7 +1293,7 @@ function updateLobbyScreen(roundPhase, netSlots, youConnId, menuVisible) {
     cell.host.style.display = isHostSlot ? "inline-flex" : "none";
     cell.you.style.display = isLocal ? "inline-flex" : "none";
     cell.status.textContent = isEmpty
-      ? "WAITING…"
+      ? "WAITING FOR SHOPPER…"
       : row.kind === "npc"
         ? "BOT"
         : row.isReady
@@ -1286,8 +1304,20 @@ function updateLobbyScreen(roundPhase, netSlots, youConnId, menuVisible) {
   if (elements.lobbyCount) elements.lobbyCount.textContent = `${humans}/4`;
   if (elements.lobbyCode) {
     const code = String(resolvedPartyRoomFromUrl() || "").toUpperCase();
-    const next = code ? `ROOM ${code}` : "";
-    if (elements.lobbyCode.textContent !== next) elements.lobbyCode.textContent = next;
+    if (elements.lobbyCode.textContent !== code) elements.lobbyCode.textContent = code;
+  }
+  if (elements.lobbyCopy) {
+    // * Nothing to share without a room id (shouldn't happen in a private room).
+    const canCopy = Boolean(resolvedPartyRoomFromUrl());
+    elements.lobbyCopy.style.display = canCopy ? "" : "none";
+  }
+  if (elements.lobbyLink) {
+    // * Region · ping (the mock's meta) is not instrumented; this is the link
+    // * state the netcode actually tracks.
+    const reconnecting = getConnectionState() === "reconnecting";
+    const next = reconnecting ? "RECONNECTING…" : "LINK OK";
+    if (elements.lobbyLink.textContent !== next) elements.lobbyLink.textContent = next;
+    elements.lobbyLink.classList.toggle("is-warn", reconnecting);
   }
   if (elements.lobbyStatus) {
     const allReady = humans > 0 && readyHumans === humans;
@@ -1300,7 +1330,9 @@ function updateLobbyScreen(roundPhase, netSlots, youConnId, menuVisible) {
   // * derivation of who is ready.
   if (elements.lobbyReadyBtn && elements.readyBtn) {
     const label = elements.readyBtn.textContent || "READY UP!";
-    if (elements.lobbyReadyBtn.textContent !== label) elements.lobbyReadyBtn.textContent = label;
+    if (elements.lobbyReadyLabel && elements.lobbyReadyLabel.textContent !== label) {
+      elements.lobbyReadyLabel.textContent = label;
+    }
     elements.lobbyReadyBtn.classList.toggle("is-ready", elements.readyBtn.classList.contains("is-ready"));
   }
 }
@@ -1332,6 +1364,10 @@ export function init(options) {
   if (_toastTimeoutId) {
     clearTimeout(_toastTimeoutId);
     _toastTimeoutId = null;
+  }
+  if (_lobbyCopyTimeoutId) {
+    clearTimeout(_lobbyCopyTimeoutId);
+    _lobbyCopyTimeoutId = null;
   }
   resetStage();
 
@@ -1505,26 +1541,83 @@ export function init(options) {
   elements.lobbyScreen.setAttribute("role", "dialog");
   elements.lobbyScreen.setAttribute("aria-label", "Checkout line lobby");
 
-  const lobbyInner = document.createElement("div");
-  lobbyInner.className = "hud-lobby-inner";
+  // Screen title top-left over a store-voice kicker — the same composition the
+  // menu sub-screens (.cr-screen) use, re-expressed locally: adopting that class
+  // would put a hud.css override of a cart-rave-menu.css class at the mercy of
+  // bundle order, which is exactly how 7a/7c lost to retired rules.
+  const lobbyHd = document.createElement("header");
+  lobbyHd.className = "hud-lobby-hd";
 
   const lobbyKicker = document.createElement("span");
-  lobbyKicker.className = "hud-lobby-kicker cc-kicker";
-  lobbyKicker.textContent = "◆ PRIVATE ROOM";
+  lobbyKicker.className = "hud-lobby-kicker";
+  lobbyKicker.textContent = "PRIVATE ROOM · EVERYONE READIES UP TO START";
 
   const lobbyTitle = document.createElement("h2");
-  lobbyTitle.className = "hud-lobby-title cc-title";
+  lobbyTitle.className = "hud-lobby-title";
   lobbyTitle.textContent = "CHECKOUT LINE";
+
+  lobbyHd.appendChild(lobbyKicker);
+  lobbyHd.appendChild(lobbyTitle);
+
+  // Left column: the invite slab, then the actions (mock 7e).
+  const lobbyLeft = document.createElement("div");
+  lobbyLeft.className = "hud-lobby-left";
+
+  const lobbyCodeCard = document.createElement("div");
+  lobbyCodeCard.className = "hud-lobby-code-card";
+
+  const lobbyCodeLbl = document.createElement("span");
+  lobbyCodeLbl.className = "hud-lobby-code-lbl";
+  lobbyCodeLbl.textContent = "ROOM CODE";
+
+  const lobbyCodeRow = document.createElement("div");
+  lobbyCodeRow.className = "hud-lobby-code-row";
+  elements.lobbyCode = document.createElement("span");
+  elements.lobbyCode.className = "hud-lobby-code";
+
+  elements.lobbyCopy = document.createElement("button");
+  elements.lobbyCopy.type = "button";
+  elements.lobbyCopy.className = "hud-lobby-copy";
+  elements.lobbyCopy.textContent = "COPY";
+  elements.lobbyCopy.addEventListener("click", () => {
+    // * Same invite link the menu screen hands out: clean origin + ?room=.
+    const code = String(resolvedPartyRoomFromUrl() || "");
+    if (!code) return;
+    const link = new URL(window.location.origin + window.location.pathname);
+    link.searchParams.set("room", code);
+    navigator.clipboard?.writeText(link.toString()).catch(() => {});
+    elements.lobbyCopy.textContent = "COPIED!";
+    if (_lobbyCopyTimeoutId) clearTimeout(_lobbyCopyTimeoutId);
+    _lobbyCopyTimeoutId = setTimeout(() => {
+      _lobbyCopyTimeoutId = null;
+      if (elements.lobbyCopy) elements.lobbyCopy.textContent = "COPY";
+    }, 1500);
+  });
+
+  lobbyCodeRow.appendChild(elements.lobbyCode);
+  lobbyCodeRow.appendChild(elements.lobbyCopy);
+
+  const lobbyShare = document.createElement("p");
+  lobbyShare.className = "hud-lobby-share";
+  lobbyShare.textContent = "SHARE THE CODE OR SEND THE LINK — EMPTY LANES FILL WITH BOTS";
+
+  lobbyCodeCard.appendChild(lobbyCodeLbl);
+  lobbyCodeCard.appendChild(lobbyCodeRow);
+  lobbyCodeCard.appendChild(lobbyShare);
+
+  // Right column: the roster itself.
+  const lobbyRoster = document.createElement("div");
+  lobbyRoster.className = "hud-lobby-roster";
 
   const lobbyMeta = document.createElement("div");
   lobbyMeta.className = "hud-lobby-meta";
+  const lobbyMetaLbl = document.createElement("span");
+  lobbyMetaLbl.textContent = "IN LINE ·";
   elements.lobbyCount = document.createElement("span");
   elements.lobbyCount.className = "hud-lobby-count";
   elements.lobbyCount.textContent = "1/4";
-  elements.lobbyCode = document.createElement("span");
-  elements.lobbyCode.className = "hud-lobby-code";
+  lobbyMeta.appendChild(lobbyMetaLbl);
   lobbyMeta.appendChild(elements.lobbyCount);
-  lobbyMeta.appendChild(elements.lobbyCode);
 
   const lobbySlotWrap = document.createElement("div");
   lobbySlotWrap.className = "hud-lobby-slots";
@@ -1562,40 +1655,75 @@ export function init(options) {
   elements.lobbyStatus.className = "hud-lobby-status";
   elements.lobbyStatus.textContent = "WAITING FOR CHECKOUT…";
 
+  lobbyRoster.appendChild(lobbyMeta);
+  lobbyRoster.appendChild(lobbySlotWrap);
+  lobbyRoster.appendChild(elements.lobbyStatus);
+
   const lobbyActions = document.createElement("div");
   lobbyActions.className = "hud-lobby-actions";
 
   // * Proxy, not a second implementation: the real ready send lives on
   // * elements.readyBtn (start rule B1 — there is deliberately no START button).
+  // * The label rides a child span so the skewed slab can counter-skew its text
+  // * (same three-layer split the menu action slabs use).
   elements.lobbyReadyBtn = document.createElement("button");
   elements.lobbyReadyBtn.type = "button";
   elements.lobbyReadyBtn.className = "hud-lobby-btn hud-lobby-btn--ready cc-btn cc-btn--primary";
-  elements.lobbyReadyBtn.textContent = "READY UP!";
+  const lobbyReadyInner = document.createElement("span");
+  lobbyReadyInner.className = "hud-lobby-btn-inner";
+  elements.lobbyReadyLabel = document.createElement("span");
+  elements.lobbyReadyLabel.className = "hud-lobby-btn-label";
+  elements.lobbyReadyLabel.textContent = "READY UP!";
+  lobbyReadyInner.appendChild(elements.lobbyReadyLabel);
+  elements.lobbyReadyBtn.appendChild(lobbyReadyInner);
   elements.lobbyReadyBtn.addEventListener("click", () => {
     elements.readyBtn?.click();
   });
-  wireButtonPressFeedback(elements.lobbyReadyBtn, { scale: 0.96 });
+  wireButtonPressFeedback(elements.lobbyReadyBtn, { scale: 0.96, getTarget: lobbyPressTarget });
 
   const lobbyLeaveBtn = document.createElement("button");
   lobbyLeaveBtn.type = "button";
   lobbyLeaveBtn.className = "hud-lobby-btn cc-btn cc-btn--ghost";
-  lobbyLeaveBtn.textContent = "LEAVE ROOM";
+  const lobbyLeaveInner = document.createElement("span");
+  lobbyLeaveInner.className = "hud-lobby-btn-inner";
+  const lobbyLeaveLabel = document.createElement("span");
+  lobbyLeaveLabel.className = "hud-lobby-btn-label";
+  lobbyLeaveLabel.textContent = "LEAVE ROOM";
+  lobbyLeaveInner.appendChild(lobbyLeaveLabel);
+  lobbyLeaveBtn.appendChild(lobbyLeaveInner);
   lobbyLeaveBtn.addEventListener("click", () => {
     // * Rides the EXISTING leave/teardown path — no second teardown story.
     _options.onLeaveRoom?.();
   });
-  wireButtonPressFeedback(lobbyLeaveBtn, { scale: 0.96 });
+  wireButtonPressFeedback(lobbyLeaveBtn, { scale: 0.96, getTarget: lobbyPressTarget });
 
   lobbyActions.appendChild(elements.lobbyReadyBtn);
   lobbyActions.appendChild(lobbyLeaveBtn);
 
-  lobbyInner.appendChild(lobbyKicker);
-  lobbyInner.appendChild(lobbyTitle);
-  lobbyInner.appendChild(lobbyMeta);
-  lobbyInner.appendChild(lobbySlotWrap);
-  lobbyInner.appendChild(elements.lobbyStatus);
-  lobbyInner.appendChild(lobbyActions);
-  elements.lobbyScreen.appendChild(lobbyInner);
+  lobbyLeft.appendChild(lobbyCodeCard);
+  lobbyLeft.appendChild(lobbyActions);
+
+  // Hint bar along the bottom. The mock's right-hand meta is "US-EAST · 24 MS";
+  // neither region nor RTT is instrumented (region/ping meta is parked with the
+  // Part-1 polish), so the slot carries the link state we DO track.
+  const lobbyHint = document.createElement("div");
+  lobbyHint.className = "hud-lobby-hint";
+  const lobbyHintEsc = document.createElement("span");
+  lobbyHintEsc.className = "hud-lobby-hint-item";
+  const lobbyHintKbd = document.createElement("kbd");
+  lobbyHintKbd.textContent = "ESC";
+  lobbyHintEsc.appendChild(lobbyHintKbd);
+  lobbyHintEsc.appendChild(document.createTextNode(" PAUSE"));
+  elements.lobbyLink = document.createElement("span");
+  elements.lobbyLink.className = "hud-lobby-link";
+  elements.lobbyLink.textContent = "LINK OK";
+  lobbyHint.appendChild(lobbyHintEsc);
+  lobbyHint.appendChild(elements.lobbyLink);
+
+  elements.lobbyScreen.appendChild(lobbyHd);
+  elements.lobbyScreen.appendChild(lobbyLeft);
+  elements.lobbyScreen.appendChild(lobbyRoster);
+  elements.lobbyScreen.appendChild(lobbyHint);
 
   regions.stage.appendChild(elements.status);
   regions.stage.appendChild(elements.arenaSplash);
