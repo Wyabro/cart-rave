@@ -63,7 +63,7 @@ import {
   unlockStore,
 } from "./stores/unlockStore.js";
 import { LEVEL_UNLOCKS } from "./unlockConfig.js";
-import { challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
+import { challengeStore, CHALLENGE_POOL, CHALLENGE_ROTATION_MS } from "./stores/challengeStore.js";
 import { NPC_NAME_POOL } from "./npcNames.js";
 import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
 
@@ -278,6 +278,7 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
   const gfxBtn = $("cr-gfx-btn");
   const lqBtn = $("cr-lq-btn");
   const challengesListEl = $("cr-challenges-list");
+  const challengesKickerEl = $("cr-challenges-kicker");
   const challengesScreen = $("cr-challenges-screen");
   const challengesDoneBtn = $("cr-challenges-done");
   const challengesBackBtn = $("cr-challenges-back");
@@ -1143,7 +1144,7 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
     challengesScreen.style.display = 'flex';
     challengesScreen.setAttribute('aria-hidden', 'false');
     challengesDoneBtn?.focus();
-    const panel = challengesScreen.querySelector('.cr-overlay-panel');
+    const panel = challengesScreen.querySelector('.cr-challenges-panel');
     if (panel instanceof HTMLElement) {
       animateMenuReveal(panel, {
         delay: 0,
@@ -1159,7 +1160,7 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
       document.activeElement.blur();
     }
     challengesScreen.setAttribute('aria-hidden', 'true');
-    const panel = challengesScreen.querySelector('.cr-overlay-panel');
+    const panel = challengesScreen.querySelector('.cr-challenges-panel');
     animateMenuDismiss(panel instanceof HTMLElement ? panel : null, {
       container: challengesScreen,
       abortIf: () => challengesScreen.getAttribute('aria-hidden') === 'false',
@@ -2083,11 +2084,40 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
   applyPalette();
   nameText.textContent = state.name;
 
+  /**
+   * "2D 14H" / "7H" / "12M" — coarse store-voice countdown for the restock kicker.
+   * @param {number} ms milliseconds remaining
+   */
+  function formatRestockIn(ms) {
+    const left = Math.max(0, ms);
+    const hours = Math.floor(left / 3600000);
+    if (hours >= 24) {
+      const days = Math.floor(hours / 24);
+      const rem = hours % 24;
+      return rem ? `${days}D ${rem}H` : `${days}D`;
+    }
+    if (hours >= 1) return `${hours}H`;
+    return `${Math.max(1, Math.ceil(left / 60000))}M`;
+  }
+
+  /**
+   * Kicker line for 7b: real rotation clocks read off the store's
+   * `lastDailyReset` / `lastWeeklyReset` — never a hardcoded window.
+   * @param {{ lastDailyReset?: number, lastWeeklyReset?: number }} cState
+   */
+  function challengesKicker(cState) {
+    const now = Date.now();
+    const daily = (cState.lastDailyReset || now) + CHALLENGE_ROTATION_MS.daily - now;
+    const weekly = (cState.lastWeeklyReset || now) + CHALLENGE_ROTATION_MS.weekly - now;
+    return `RESTOCK · DAILY IN ${formatRestockIn(daily)} · WEEKLY IN ${formatRestockIn(weekly)}`;
+  }
+
   function renderChallengesPanel() {
     if (!challengesListEl) return;
     challengesListEl.innerHTML = "";
 
     const cState = challengeStore.getState();
+    if (challengesKickerEl) challengesKickerEl.textContent = challengesKicker(cState);
     const active = [
       ...cState.dailyChallenges,
       ...cState.weeklyChallenges,
@@ -2097,51 +2127,57 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
       const meta = CHALLENGE_POOL.find((c) => c.id === item.id);
       if (!meta) return;
 
-      const row = document.createElement("div");
-      row.className = `challenge-row${item.isComplete ? " is-complete" : ""}`;
+      // * 7b: each challenge is a price tag (punch hole + tag nose via CSS).
+      const card = document.createElement("div");
+      card.className = `cr-chal-card${item.isComplete ? " is-complete" : ""}`;
 
       const header = document.createElement("div");
-      header.className = "challenge-header";
+      header.className = "cr-chal-hd";
 
       const name = document.createElement("span");
-      name.className = "challenge-name";
+      name.className = "cr-chal-name";
       name.textContent = meta.title;
 
+      // * The mock's magenta reward pip has no data behind it (CHALLENGE_POOL
+      //   carries no reward field), so the rotation badge owns that slot; a
+      //   completed challenge swaps it for the REDEEMED stamp.
       const badge = document.createElement("span");
-      badge.className = `challenge-badge type-${meta.type}`;
+      badge.className = item.isComplete
+        ? "cr-chal-stamp"
+        : `cr-chal-badge type-${meta.type}`;
       badge.textContent = item.isComplete ? "REDEEMED" : meta.type;
 
       header.appendChild(name);
       header.appendChild(badge);
 
       const desc = document.createElement("div");
-      desc.className = "challenge-desc";
+      desc.className = "cr-chal-desc";
       desc.textContent = meta.description;
 
       const footer = document.createElement("div");
-      footer.className = "challenge-footer";
+      footer.className = "cr-chal-ft";
 
       const barWrap = document.createElement("div");
-      barWrap.className = "challenge-bar-wrap";
+      barWrap.className = "cr-chal-bar";
 
       const barFill = document.createElement("div");
-      barFill.className = "challenge-bar-fill";
+      barFill.className = "cr-chal-bar-fill";
       const pct = Math.min(100, Math.round((item.progress / meta.goal) * 100));
       barFill.style.width = `${pct}%`;
       barWrap.appendChild(barFill);
 
       const progressText = document.createElement("span");
-      progressText.className = "challenge-progress-text";
+      progressText.className = `cr-chal-count${item.progress > 0 || item.isComplete ? "" : " is-zero"}`;
       progressText.textContent = `${item.progress}/${meta.goal}`;
 
       footer.appendChild(barWrap);
       footer.appendChild(progressText);
 
-      row.appendChild(header);
-      row.appendChild(desc);
-      row.appendChild(footer);
+      card.appendChild(header);
+      card.appendChild(desc);
+      card.appendChild(footer);
 
-      challengesListEl.appendChild(row);
+      challengesListEl.appendChild(card);
     });
   }
 

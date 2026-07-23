@@ -816,12 +816,22 @@
     </div>
   </div>
   <div id="cr-challenges-screen" style="display:none;" aria-hidden="true">
-    <div class="cr-overlay-panel">
-      <h2 class="cr-overlay-title">CHALLENGES</h2>
-      <p class="cr-overlay-desc">Daily &amp; weekly goals — fresh stock every rotation.</p>
-      <div class="cr-challenges-list" id="cr-challenges-list"></div>
-      <button class="cr-overlay-done" id="cr-challenges-done" type="button">DONE</button>
-      <button class="cr-overlay-back" id="cr-challenges-back" type="button">← BACK</button>
+    <div class="cr-screen cr-screen--panels cr-challenges-panel">
+      <header class="cr-screen-hd">
+        <span class="cr-screen-kicker" id="cr-challenges-kicker">RESTOCK</span>
+        <h2 class="cr-screen-title">CHALLENGES</h2>
+      </header>
+
+      <div class="cr-screen-panels cr-challenges-grid" id="cr-challenges-list"></div>
+
+      <div class="cr-screen-actions">
+        <button class="cr-overlay-back" id="cr-challenges-back" type="button"><span class="cr-screen-btn-inner"><span class="cr-screen-btn-label">← BACK</span></span></button>
+        <button class="cr-overlay-done" id="cr-challenges-done" type="button"><span class="cr-screen-btn-inner"><span class="cr-screen-btn-label">DONE</span></span></button>
+      </div>
+
+      <div class="cr-screen-hint">
+        <span class="cr-screen-hint-item"><kbd>ESC</kbd> BACK</span>
+      </div>
     </div>
   </div>
   <div id="cr-settings-screen" style="display:none;" aria-hidden="true">

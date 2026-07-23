@@ -1421,6 +1421,10 @@ html, body {
   max-width: 1176px; /* mock: two 560px panels + 24px gap */
   margin-top: clamp(8px, 3vh, 48px);
   min-height: 0;
+  /* align-self:start means this box takes its CONTENT height, so overflow-y
+     alone never engages — without the cap it grows past its grid row and lands
+     on top of the actions row (seen at 812×375). Matches .cr-screen-panel. */
+  max-height: 100%;
   overflow-y: auto;
 }
 
@@ -2717,24 +2721,22 @@ html, body {
     padding: clamp(8px, 2vw, 10px) clamp(10px, 2.6vw, 14px);
   }
 
-  /* Challenges overlay — compact list rows on mobile */
-  #cr-challenges-screen .cr-overlay-title {
-    font-size: clamp(16px, 4vw, 22px);
+  /* 7b — the tag grid folds to one column; two 160px tags don't hold a name,
+     a badge and a bar on the same line. */
+  .cr-challenges-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
-  #cr-challenges-screen .cr-overlay-desc {
-    font-size: clamp(10px, 2.6vw, 12px);
+  /* The restock kicker carries two live clocks, so it is the one screen title
+     line that can outgrow a phone — let it wrap rather than lose the weekly. */
+  .cr-challenges-panel .cr-screen-kicker {
+    white-space: normal;
+    line-height: 1.4;
   }
-  .cr-challenges-list {
-    gap: clamp(5px, 1.2vw, 6px);
+  .cr-chal-name {
+    font-size: clamp(12px, 3.2vw, 15px);
   }
-  .challenge-row {
-    padding: clamp(5px, 1.2vw, 6px) clamp(7px, 1.8vw, 8px);
-  }
-  .challenge-name {
-    font-size: clamp(9px, 2.6vw, 11px);
-  }
-  .challenge-desc {
-    font-size: clamp(8px, 2.2vw, 9px);
+  .cr-chal-desc {
+    font-size: clamp(9px, 2.4vw, 11px);
   }
 
   /* Customize screen — compact preview on mobile (tabs/chip grids already get
@@ -3007,38 +3009,20 @@ html, body {
     padding: clamp(6px, 1.4vh, 8px) clamp(10px, 2.5vw, 12px);
   }
 
-  /* Challenges overlay — compact for landscape phones, list scrolls
-     internally so the panel itself never needs more than a sliver */
-  #cr-challenges-screen .cr-overlay-panel {
-    gap: clamp(5px, 1dvh, 7px);
-    padding: clamp(8px, 1.8vh, 10px) clamp(8px, 2vw, 10px);
-    max-height: 94dvh;
+  /* 7b — landscape phones have height, not width: keep the two tag columns and
+     spend the savings on card padding + type instead. */
+  .cr-chal-card {
+    gap: 3px;
+    padding: clamp(8px, 1.6dvh, 12px) clamp(10px, 1.6vw, 14px) clamp(8px, 1.6dvh, 12px) clamp(22px, 2.4vw, 28px);
   }
-  #cr-challenges-screen .cr-overlay-title {
-    font-size: clamp(14px, 3dvh, 18px);
-    margin: 0;
+  .cr-chal-name {
+    font-size: clamp(10px, 2.2dvh, 13px);
   }
-  #cr-challenges-screen .cr-overlay-desc {
-    font-size: clamp(8px, 1.8dvh, 10px);
-    margin: -4px 0 0;
+  .cr-chal-desc {
+    font-size: clamp(8px, 1.7dvh, 10px);
   }
-  .cr-challenges-list {
-    gap: 4px;
-    max-height: clamp(120px, 34dvh, 200px);
-    overflow-y: auto;
-  }
-  .challenge-row {
-    padding: clamp(4px, 1vh, 5px) clamp(6px, 1.5vw, 8px);
-    gap: 2px;
-  }
-  .challenge-name {
-    font-size: clamp(8px, 1.8dvh, 10px);
-  }
-  .challenge-desc {
-    font-size: clamp(7px, 1.6dvh, 8px);
-  }
-  .challenge-footer {
-    margin-top: 1px;
+  .cr-chal-ft {
+    margin-top: 2px;
   }
 
   /* Customize screen — compact for landscape phones */
@@ -3101,120 +3085,178 @@ html, body {
   }
 }
 
-/* === CHALLENGES LIST === */
-.cr-challenges-list {
-  display: flex;
-  flex-direction: column;
-  gap: clamp(6px, 1vw, 8px);
+/* ═══ 7b CHALLENGES — price-tag card grid on the shared .cr-screen shell ═════
+   The modal-era list (.cr-challenges-list / .challenge-*) is GONE, not layered
+   over: it sat later in this file than .cr-screen*, so it would have beaten the
+   shell on source order (the bug that bit 7a and 7c).
+   Cards are price tags — punched hole + tag nose. The mock's magenta reward pip
+   is dropped: challengeStore has no reward field, so "+N PTS" would be invented
+   economy; the DAILY/WEEKLY rotation badge owns that corner instead. */
+
+/* This screen keeps the mock's left-weighted scrim (same as 7a), overriding the
+   shared overlay base's centred radial — which is declared earlier in the file. */
+#cr-challenges-screen {
+  align-items: stretch;
+  justify-content: stretch;
+  background:
+    linear-gradient(100deg, #0a0810 0%, #0a0810 30%, rgba(10, 8, 16, 0.6) 70%, rgba(10, 8, 16, 0.9) 100%),
+    radial-gradient(ellipse at 50% 55%, var(--color-bg-deep) 0%, var(--color-bg-black) 95%);
 }
 
-.challenge-row {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  padding: clamp(6px, 1vw, 8px) clamp(8px, 1.2vw, 10px);
-  border-radius: var(--radius-panel);
-  background: var(--color-ink);
-  border: 1px solid var(--border-white-12);
-  box-shadow: var(--slab-shadow-sm);
-  transition: box-shadow 150ms ease;
+/* Cards keep their own height (3 active challenges = a 2 + 1 grid, and the
+   orphan must not stretch to fill the row). */
+.cr-challenges-grid {
+  align-content: start;
+  align-items: start;
 }
 
-.challenge-row.is-complete {
+.cr-chal-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(5px, 0.7vw, 8px);
+  padding:
+    clamp(14px, 1.6vw, 24px)
+    clamp(16px, 1.9vw, 28px)
+    clamp(14px, 1.6vw, 24px)
+    clamp(26px, 2.7vw, 40px);
+  background: rgba(12, 10, 17, 0.85);
+  border: 1px solid var(--border-white-10);
+  border-radius: 10px 10px 10px 26px;
+  box-shadow: var(--slab-shadow);
+}
+
+.cr-chal-card.is-complete {
   border-color: rgba(43, 255, 122, 0.45);
 }
-.challenge-row.is-complete .challenge-name {
+
+/* Punched tag hole at the nose — same recipe as the HUD scoreboard tag. */
+.cr-chal-card::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-ink-deep);
+  box-shadow: inset 0 0 0 1.5px rgba(242, 237, 228, 0.35);
+}
+
+.cr-chal-hd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: clamp(8px, 1vw, 12px);
+}
+
+.cr-chal-name {
+  font-family: var(--ui);
+  font-size: clamp(13px, 1.4vw, 19px);
+  letter-spacing: 0.06em;
+  line-height: 1.2;
+  color: var(--color-sticker-white);
+}
+
+.cr-chal-card.is-complete .cr-chal-name {
   text-decoration: line-through;
   opacity: 0.6;
 }
 
-.challenge-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm);
-}
-
-.challenge-name {
-  font-family: var(--ui);
-  font-size: clamp(10px, 1.1vw, 12px);
-  color: #ffffff;
-  letter-spacing: 0.05em;
-  line-height: 1.2;
-}
-
-.challenge-badge {
+.cr-chal-badge {
+  flex-shrink: 0;
   font-family: var(--mono);
-  font-size: clamp(8px, 0.9vw, 9px);
-  letter-spacing: 0.08em;
-  padding: 1px 6px;
-  border-radius: 3px;
+  font-weight: 700;
+  font-size: clamp(8px, 0.85vw, 10px);
+  letter-spacing: 0.1em;
+  padding: 3px 9px;
+  border-radius: 4px;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
-.challenge-badge.type-daily {
+.cr-chal-badge.type-daily {
   background: rgba(34, 230, 255, 0.15);
   color: var(--color-cyan);
   border: 1px solid rgba(34, 230, 255, 0.35);
 }
 
-.challenge-badge.type-weekly {
+.cr-chal-badge.type-weekly {
   background: rgba(255, 43, 214, 0.15);
   color: var(--color-magenta);
   border: 1px solid rgba(255, 43, 214, 0.35);
 }
 
-/* Completed = a tilted portal-green "REDEEMED" rubber stamp. */
-.challenge-row.is-complete .challenge-badge {
-  background: transparent;
-  color: var(--color-portal);
-  border: 2px solid var(--color-portal);
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  transform: rotate(-6deg);
-}
-
-.challenge-desc {
+/* Completed = a tilted portal-green rubber stamp. */
+.cr-chal-stamp {
+  flex-shrink: 0;
   font-family: var(--mono);
-  font-size: clamp(9px, 1vw, 10px);
-  color: rgba(255, 255, 255, 0.55);
-  line-height: 1.2;
+  font-weight: 700;
+  font-size: clamp(9px, 0.95vw, 12px);
+  letter-spacing: 0.16em;
+  padding: 3px 10px;
+  border: 2px solid var(--color-portal);
+  border-radius: 4px;
+  color: var(--color-portal);
+  transform: rotate(-6deg);
+  white-space: nowrap;
 }
 
-.challenge-footer {
+.cr-chal-desc {
+  font-family: var(--mono);
+  font-size: clamp(9px, 1vw, 12px);
+  line-height: 1.35;
+  color: rgba(242, 237, 228, 0.55);
+}
+
+.cr-chal-card.is-complete .cr-chal-desc {
+  color: rgba(242, 237, 228, 0.4);
+}
+
+.cr-chal-ft {
   display: flex;
   align-items: center;
-  gap: var(--space-md);
-  margin-top: 2px;
+  gap: clamp(8px, 1vw, 12px);
+  margin-top: clamp(4px, 0.8vw, 8px);
 }
 
-.challenge-bar-wrap {
+/* Progress runs the boost-bar recipe: flat track, flat fill, no contour. */
+.cr-chal-bar {
   flex: 1;
-  height: 5px;
-  background: var(--color-ink-deep);
-  box-shadow: inset 0 0 0 1.5px rgba(242, 237, 228, 0.28);
+  height: 6px;
   border-radius: 3px;
+  background: rgba(255, 255, 255, 0.1);
   overflow: hidden;
 }
 
-.challenge-bar-fill {
-  height: 100%;
+.cr-chal-bar-fill {
   width: 0%;
+  height: 100%;
   background: var(--color-cyan);
-  border-radius: 3px;
   transition: width 250ms ease;
 }
 
-.challenge-row.is-complete .challenge-bar-fill {
+.cr-chal-card.is-complete .cr-chal-bar-fill {
   background: var(--color-portal);
 }
 
-.challenge-progress-text {
-  font-family: var(--mono);
-  font-size: clamp(9px, 0.95vw, 10px);
-  color: rgba(255, 255, 255, 0.7);
-  letter-spacing: 0.05em;
+.cr-chal-count {
   flex-shrink: 0;
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: clamp(9px, 1vw, 12px);
+  letter-spacing: 0.05em;
+  color: var(--color-cyan);
+}
+
+/* Untouched objectives don't get to glow cyan — that's for real progress. */
+.cr-chal-count.is-zero {
+  color: rgba(242, 237, 228, 0.45);
+}
+
+.cr-chal-card.is-complete .cr-chal-count {
+  color: var(--color-portal);
 }
 
 
