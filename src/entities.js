@@ -342,9 +342,11 @@ function getBasketCargoParams(mesh) {
   const centerX = (box.max.x + box.min.x) * 0.5;
   // * Nudge cargo slightly toward the basket front (−Z in cart space) away from the handle shelf.
   const centerZ = (box.max.z + box.min.z) * 0.5 - outerHl * 0.08;
-  // * Interior cavity ≪ outer hull (walls + rim consume a lot of the AABB).
-  const hw = Math.max(0.18, outerHw * 0.48);
-  const hl = Math.max(0.2, outerHl * 0.42);
+  // * Interior cavity vs outer hull: the rave basket walls are thin — session-3 Wyatt
+  // * annotation (07-30) showed the old 0.48/0.42 insets left the pile floating in the
+  // * middle of a basket twice its size. Keep just enough inset to clear the wall shell.
+  const hw = Math.max(0.18, outerHw * 0.68);
+  const hl = Math.max(0.2, outerHl * 0.6);
   // * Basket floor sits above the chassis bottom of the body mesh.
   const floorY = box.min.y + bodyH * 0.28;
   // * Rim height in BAY-LOCAL space: the bay group is parented at floorY + 0.02, so the

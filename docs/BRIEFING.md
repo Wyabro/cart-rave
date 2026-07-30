@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (also runs inside `npm run qa`).
-> Generated 2026-07-30 at commit `4ea3b79` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
-> Source digest: `09a6d41c`
+> Generated 2026-07-30 at commit `b25c3d6` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
+> Source digest: `5a0c3a2e`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -19,7 +19,7 @@ Playtesting and stabilization — Tier A drained. B1 AI-DIFF-1 shipped (`49bfc2a
 ## ACTIVE CARD
 
 C2 CARGO-VIS-1 — full-bay fill + rim overflow look
-Pass looks like: ▶ session 2 (07-30) — CartFrame fix landed: rave bays build on real dims (probe: bay y −0.046, itemYTop 0.80 vs 0.61 fallback); boss-18 spans the basket, stacks, crests the rear rim, reads at gameplay distance; hi-res shots sent; Wyatt eyes = the close
+Pass looks like: ▶ session 3 pass 1 (07-30) — insets 0.68/0.60 · cargoScale 0.60 · crest guard 2.2·halfY; pile reaches the walls, crest breaks the rear rim at gameplay distance; Wyatt eyes; denser = GRID slots + maxItems lever (needs own flag — changes fill pacing)
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 

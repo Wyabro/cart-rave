@@ -89,8 +89,10 @@ const MODEL_DEFS = GROCERY_DEFINITIONS;
  * every loaded model (spill + cargo) so tuning sessions see real numbers.
  */
 const GROCERY_SCALES = {
-  /** Global basket-cargo multiplier ("compact pile" factor). */
-  cargoScale: 0.52,
+  /** Global basket-cargo multiplier ("compact pile" factor). 0.52 → 0.60 in the
+   * CARGO-VIS-1 session-3 retune — 18 items at 0.52 read as confetti once the bay
+   * footprint matched the real (wider) rave cavity. */
+  cargoScale: 0.6,
   /** @type {Record<string, { sizeM: number, cargoMul: number }>} */
   perModel: Object.fromEntries(
     MODEL_DEFS.map((definition) => [
@@ -681,12 +683,13 @@ function populateCargoBay(group, hw, hl, rimY) {
     const reachZ = Math.max(0.015, halfL - horiz);
     // * Layers 0/1 stack physically off item height. Layer 2 is the CARGO-VIS-1 overflow
     // * crest: pull it up toward the rim (item centre at rimY + 0.6·halfY → most of the
-    // * item pokes above the rim), but never more than ~1.4·halfY above its natural
+    // * item pokes above the rim), but never more than ~2.2·halfY above its natural
     // * stack so deep baskets (procedural cart, rim ≫ pile) don't get floating groceries.
+    // * (1.4 → 2.2 in session 3: 1.4 capped the crest below the real rave rim.)
     const stackLift = slot.layer * (halfY * 1.7 + 0.02);
     const layerLift =
       slot.layer === 2 && Number.isFinite(rimY)
-        ? Math.max(stackLift, Math.min(rimY - halfY * 0.35, stackLift + halfY * 1.4))
+        ? Math.max(stackLift, Math.min(rimY - halfY * 0.35, stackLift + halfY * 2.2))
         : stackLift;
     mesh.position.set(
       slot.u * reachX + (Math.random() - 0.5) * 0.03,

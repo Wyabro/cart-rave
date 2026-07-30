@@ -132,7 +132,7 @@ Run 7 mission (below) is historical evidence, superseded as the live queue by
 | **ARENA-BAL-1** | Sundial + Storerooms self-KO rate | ✅ **closed** (Wyatt 07-22, no code) |
 | **QA-STATUS-1** | STATUS token overage broke `qa` | ✅ closed this commit — 07-21 log archived, queue reordered |
 | **HYGIENE-1** | 4-item sweep: sourcemaps off · boot-error filter · default branch · profiler `--dpr` | ✅ 07-30 — 3 branches deleted; dist has 0 `.map`; **one Wyatt step left: GitHub Settings → default branch → `cart-clash`** (classifier blocked `gh repo edit`) |
-| **C2** CARGO-VIS-1 | full-bay fill + rim overflow look | ▶ session 2 (07-30) — CartFrame fix landed: rave bays build on **real dims** (probe: bay y −0.046, itemYTop 0.80 vs 0.61 fallback); boss-18 spans the basket, stacks, crests the rear rim, reads at gameplay distance; hi-res shots sent; **Wyatt eyes = the close** |
+| **C2** CARGO-VIS-1 | full-bay fill + rim overflow look | ▶ session 3 pass 1 (07-30) — insets 0.68/0.60 · cargoScale 0.60 · crest guard 2.2·halfY; pile reaches the walls, crest breaks the rear rim at gameplay distance; **Wyatt eyes**; denser = GRID slots + maxItems lever (needs own flag — changes fill pacing) |
 | **WARM-IGPU-1** | first-play warm stall swallows countdown (medium iGPUs) | 📋 [P0 acked 07-30](./planning/warm-igpu-1.md); P0b (watchdog disproof + tier telemetry) and P1 need own acks |
 | **CARGO-HUD-1a** | cargo-readout mock on BOTH hosts, 3-state — Wyatt picks | 📋 after WARM P0; before WARM P1 |
 | **SKYBOX-1** | restore never-built sceneExtras skybox (review C-01) | 📋 after WARM P1 — Wyatt eyes close |
@@ -287,14 +287,22 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-30 (CARGO-VIS-1 session 2 — CartFrame fix applied; real-dims bays proven live) —
+2026-07-30 (CARGO-VIS-1 session 3 — fill retune pass 1, Wyatt-acked levers) — Wyatt annotated
+the session-2 "full" shot: pile occupied ~⅓ of the true cavity (the 0.48/0.42 insets were
+never-rendered guesses). Three levers: rave cavity insets 0.48/0.42 → **0.68/0.60**
+(entities.js), **cargoScale 0.52 → 0.60**, crest float-guard **1.4 → 2.2·halfY**
+(groceryPool.js). Pass-1 reshoot: pile reaches the right wall + front edge, crest breaks the
+rear rim in profile and at gameplay distance (boss-wide; bay1 orange fully tops the rim); left
+third still reads open in shadow. qa 773/773. Next lever if Wyatt wants denser: more GRID
+slots + `maxItems` — flagged separately, it changes fill pacing not just look. Shots sent —
+Wyatt eyes.
+
+2026-07-30 (CARGO-VIS-1 session 2 — CartFrame fix; real-dims bays proven live) —
 `getBasketCargoParams` (entities.js) now matches `CartFrame` (the instance name — cartRaveGltf
-renames the authored `tripo_part_0` at prep) so live rave carts hit the measured-bounds path
-instead of the conservative fallback. Live probe on all 4 bays: bay origin computed
-({0.002, −0.046, −0.217}; fallback was {0, −0.1, 0}), itemYTop 0.80 (was 0.61–0.70), footprint
-±0.28. Reshoot (same rig): boss-18 spans the basket, stacks 2–3 layers, crests the rear rim,
-and the crest reads at gameplay distance (boss-wide). qa 773/773. Shots sent — Wyatt eyes =
-the close; crest intensity is the remaining taste call.
+renames the authored `tripo_part_0` at prep) so live rave carts hit the measured-bounds path.
+Probe on all 4 bays: origin computed ({0.002, −0.046, −0.217} vs fallback {0, −0.1, 0}),
+itemYTop 0.80 (was 0.61–0.70). qa 773/773. **Superseded by Wyatt's red-line review:** pile
+still ≪ real cavity → session 3 retune above.
 
 2026-07-30 (CARGO-VIS-1 session 1c — hi-res rig + root cause; 1b look-claims superseded) —
 Rig recipe (reusable for SHEET-1): hardware-GPU headless (`--enable-gpu --ignore-gpu-blocklist
@@ -307,11 +315,9 @@ Found: every rave bay built from getBasketCargoParams' conservative fallback (ba
 name match never hit → boss-18 low + tight, no crest. 1b's "cresting" read (900×600 SwiftShader,
 cold-boot carts) superseded by this measured pass. Fix → session 2 above.
 
-2026-07-30 (CARGO-VIS-1 session 1b — evidence delivered) — With CARGO-RACE-1 self-heal in,
-the rig works: cold `?room=solo` + `freeze=1` + manual camera pose → clean into-basket shots
-off a live round (`.diag-captures/cargo-vis-1/`). Empty = bare bay; stocked-7 = sparse floor
-scatter across the full footprint; boss-18 = dense heap cresting the rim, items over the
-front edge. Sent to Wyatt — card closes on his eyes.
+2026-07-30 (CARGO-VIS-1 session 1b) — first rig pass off the CARGO-RACE-1 self-heal: 3-state
+shots (`.diag-captures/cargo-vis-1/`, SwiftShader 900×600, cold-boot carts). Look-claims
+superseded by 1c / 2 / 3 above.
 
 2026-07-30 (CARGO-RACE-1 fixed — cold-boot empty cargo bays now self-heal) — `createCargoBay()`
 queues bays built before `GroceryPool.init` resolves (`pendingBays`, mirrors the pendingSpills
