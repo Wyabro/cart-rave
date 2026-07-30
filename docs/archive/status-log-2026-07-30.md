@@ -90,6 +90,22 @@ Full-bay fill + rim overflow across 3 sessions + a KO-drift hotfix; live values 
 (**D-CARGO-VIS-1** — the pile crests the rim; do not "fix" it back under). Two bugs fixed en
 route: CARGO-RACE-1 (empty bays now self-heal) and KO-respawn bay drift.
 
+## Prod verification gotcha — `__cartRavePerf.scene` is DEV-ONLY
+
+Post-deploy checks for SKYBOX-1 reported `classicSkyRoot` **not built** on a real 4090 in
+production, which looked like a failed ship. It was a measurement artifact:
+`main.js:1543` gates `probe.__cartRavePerf = { …, scene, camera, composer }` behind
+`import.meta.env.DEV`, so **in production `window.__cartRavePerf.scene` does not exist**.
+`scene?.traverse(...)` / `scene?.children` then silently yield nothing and every scene probe
+returns empty. `window.__cartRave.stats()` is available in prod (it is `?harness=1`, not
+DEV-gated) but its `drawCalls`/`triangles` read `renderer.info` after a settle and frequently
+come back as 1 — not trustworthy either.
+
+**Verify prod visually** (screenshot + the build stamp in the corner), or with
+`sampleBlack`-style pixel measures. Scene-graph introspection only works against the Vite dev
+server. Same class of trap as `import("/src/…")`, which also resolves only in dev — prod is a
+bundled build.
+
 ## Deploy gotcha (seen on both ships this day)
 
 HTML is `max-age=0, must-revalidate` and each edge PoP revalidates independently — for ~30s

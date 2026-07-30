@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-07-30T22:17:14.592Z",
-    "commit": "38d0dfc"
+    "at": "2026-07-30T23:05:42.861Z",
+    "commit": "c074c2a"
   },
-  "source_digest": "bd329c41",
+  "source_digest": "f74822bc",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -834,6 +834,7 @@
     "Rapier WASM: standard build default; SIMD opt-in only (borrow error).",
     "Concurrent agent sessions may `git add -A` — commit surgically when working alongside one.",
     "Diagnostics globals namespace is `__cc*` (`__ccTest` / `__ccDiag` / `__ccLoopDbg`).",
+    "`window.__cartRavePerf.scene` is DEV-ONLY (`main.js:1543`) — in prod it does not exist, so scene-graph probes silently return empty and read as \"not built\". `import(\"/src/…\")` likewise only resolves against the dev server. Verify prod visually (screenshot + build stamp), not by scene introspection; `__cartRave.stats()` drawCalls often reads 1 after a settle.",
     "A round that ends with no scores is a legitimate draw → neither `victory` nor `defeat`.",
     "Rapier `world.castRay(...)` reads `.handle` off the exclude args — pass Collider/RigidBody objects, never raw handles.",
     "`MSG.readyToggle` without a `ready` field is a TOGGLE — programmatic ready must send `{ ready: true }`.",

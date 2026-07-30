@@ -279,6 +279,7 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 - Rapier WASM: standard build default; SIMD opt-in only (borrow error).
 - Concurrent agent sessions may `git add -A` — commit surgically when working alongside one.
 - Diagnostics globals namespace is `__cc*` (`__ccTest` / `__ccDiag` / `__ccLoopDbg`).
+- **`window.__cartRavePerf.scene` is DEV-ONLY** (`main.js:1543`) — in prod it does not exist, so scene-graph probes silently return empty and read as "not built". `import("/src/…")` likewise only resolves against the dev server. **Verify prod visually** (screenshot + build stamp), not by scene introspection; `__cartRave.stats()` drawCalls often reads 1 after a settle.
 - A round that ends with **no scores is a legitimate draw** → neither `victory` nor `defeat`.
 - Rapier `world.castRay(...)` reads `.handle` off the exclude args — pass Collider/RigidBody objects, never raw handles.
 - **`MSG.readyToggle` without a `ready` field is a TOGGLE** — programmatic ready must send `{ ready: true }`.
@@ -301,7 +302,8 @@ builds it** (back to the exact 146-draw baseline; HIGH/MEDIUM pay +54). Switchin
 exposed a UFO bug nobody could have seen before — `createUfos` only positions the saucers
 inside `update()`, which the menu attract loop never ticks, so two flat-grey 3m domes parked
 in the KO pit for the whole attract screen; now seated at construction (verified in orbit at
-100m/126m during attract, where nothing ticks). **Open:** WARM-SOLO-1 (cap-206's solo stall,
+100m/126m during attract, where nothing ticks). Live at `c074c2a` / Version `8e5bb259`,
+verified by prod screenshot + build stamp. **Open:** WARM-SOLO-1 (cap-206's solo stall,
 telemetry-gated). **Deploy gotcha:** each edge PoP
 revalidates HTML independently — for ~30s a root fetch may name the old entry or alternate;
 poll several times before judging a deploy failed.
