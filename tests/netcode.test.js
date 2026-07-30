@@ -213,6 +213,35 @@ describe("non-host countdown hold (cap-59/61/63)", () => {
   });
 });
 
+describe("WARM-IGPU-1 Lever A — arena-rotation warm gates play-ready", () => {
+  // * The gate predicate main.js installs. Rotation runs a full-budget compile
+  // * (warm.render.default.play-full) with carts already seated and no cart bootstrap
+  // * pending, so carts-ready alone reported READY and the server could arm game_start
+  // * mid-compile — the countdown overlap the 07-21 forensics attributed.
+  const gate = (cartsReady, rotating) => cartsReady && !rotating;
+
+  it("is not play-ready while an arena rotation is in flight", () => {
+    expect(gate(true, true)).toBe(false);
+  });
+
+  it("is play-ready once the rotation settles (carts still ready)", () => {
+    expect(gate(true, false)).toBe(true);
+  });
+
+  it("still requires carts-ready — rotation state cannot substitute for it", () => {
+    expect(gate(false, false)).toBe(false);
+    expect(gate(false, true)).toBe(false);
+  });
+
+  it("exposes a module-level re-signal so a settled rotation does not wait out the 12s ceiling", async () => {
+    const netcode = await import("../src/netcode.js");
+    // * Must exist and be safe to call before any socket is bound — rotateLoadedArenaInPlace's
+    // * finally calls it unconditionally, including on the failure path.
+    expect(typeof netcode.signalPlayReadyNow).toBe("function");
+    expect(() => netcode.signalPlayReadyNow()).not.toThrow();
+  });
+});
+
 describe("netcode game bridge wires session play ready (cap-63)", () => {
   it("forwards isSessionPlayReady from context (was missing → hold always true)", async () => {
     const { buildNetcodeGameBridge } = await import("../src/gameSession.js");

@@ -1410,6 +1410,23 @@ export function reapplyCachedCartsSnapshot() {
 }
 
 /**
+ * Bound by the socket closure so module-level callers can re-signal play-ready.
+ * @type {(() => void) | null}
+ */
+let _sendClientPlayReadyRef = null;
+
+/**
+ * WARM-IGPU-1 Lever A: re-signal `MSG.clientPlayReady` the moment a gate-blocking warm
+ * finishes (arena rotation). Without this the client would only re-signal on the next
+ * inbound message, and a quiet lobby would sit until the server's 12s
+ * PLAY_READY_TIMEOUT_MS ceiling armed anyway — trading a countdown stall for a lobby one.
+ * No-op before the socket exists and in solo/testdrive (see sendClientPlayReady).
+ */
+export function signalPlayReadyNow() {
+  _sendClientPlayReadyRef?.();
+}
+
+/**
  * Appends a host-authoritative cart snapshot to the client-side interpolation buffer.
  * Drops oldest entries when the buffer exceeds `CONFIG.net.stateBufferMaxSize`.
  *
@@ -2339,6 +2356,8 @@ export function initNetcode(roomOverride) {
     lastPlayReadySendAtMs = now;
     partySocket.send(JSON.stringify({ type: MSG.clientPlayReady }));
   };
+  // * Expose to module scope for signalPlayReadyNow() (WARM-IGPU-1 Lever A).
+  _sendClientPlayReadyRef = sendClientPlayReady;
 
   /** Rematch / lobby heartbeat: re-signal playReady when session carts are already warm. */
   const maybeSendPlayReadyLobby = () => {

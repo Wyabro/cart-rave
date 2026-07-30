@@ -113,12 +113,26 @@ DO before that playtest** so the sample is strangers-only.
 
 ### Phase 1 — fix (ONE lever, chosen after Phase 0 evidence)
 
-- **Lever A (recommended — the sanctioned lever verbatim):** fold the flyover-framing warm
-  into the pre-countdown play-ready gate (`isSessionPlayReady`,
-  [netcode.js:371](../../src/netcode.js)) that COUNTDOWN-ARM-1 already arms `game_start` on.
-  All link cost lands before the countdown arms; countdown is never delayed once armed.
-  Total entry time unchanged — this converts Laptop-A's swallowed countdown into
-  Laptop-B's clean one.
+- **Lever A — ✅ SHIPPED 07-30 (awaiting Wyatt desktop spot check).** `isSessionPlayReady`
+  now also requires `!arenaRotationInFlight` ([main.js](../../src/main.js)), plus
+  `Netcode.signalPlayReadyNow()` in the rotation's `finally` so a settled rotation re-arms
+  immediately instead of waiting out the server's 12 s `PLAY_READY_TIMEOUT_MS`.
+
+  **The hole it closed:** `rotateLoadedArenaInPlace` runs
+  `warmupActiveSceneShaders({ forPlay: true })` — full compile budget, no loading overlay —
+  while carts already exist and no cart bootstrap is pending. `isSessionCartsReady()` alone
+  therefore reported READY *during* that compile, so the server could arm `game_start` and
+  the countdown could start into it. That is precisely the overlap the 07-21 forensics
+  attributed to `warm.render.default.play-full`. The countdown is never delayed once armed —
+  this withholds the *arm*, which is what the reverted `c8df8fd` got wrong.
+
+  **Scope limit — read before assuming cap-206 is fixed.** Arena rotation is **quickplay
+  only** (`rotateLoadedArenaInPlace` is unreachable in solo). Laptop A's cap-206 was a
+  **solo** session, where the flyover warm already ran inside the gate via
+  `ensureSessionCartsReady`. So this lever does **not** explain or fix that capture's 6.4 s
+  post-`carts-ready` stall. The proxy's finding 2 (13.1 s frame, 235 ms attributed) says that
+  residual is driver-side first-draw cost — tracked as **WARM-SOLO-1** in BACKLOG, to be
+  worked only on real telemetry, not speculation.
 - **Lever B (fallback/adjunct):** scale the compileAsync readiness budget by quality tier
   (medium/low wait for real readiness) so `play-shader-end` stops firing early. Mind the
   three-r185 poll gotcha documented in scene.js.
@@ -129,18 +143,28 @@ DO before that playtest** so the sample is strangers-only.
 Original criterion (**unreachable — hardware gone**): cold-cache first play on a medium-tier
 machine showing countdown `elapsedMs` ≈ 3600 with no >500 ms longtask inside the countdown.
 
-#### Verification without the hardware
+#### Verification without the hardware — results 07-30
 
-- **Structural proof (agent, headless):** on the SwiftShader cold-cache rig, assert the warm
-  settle + flyover warm both complete **before** the countdown arms — i.e. no `warmupSettle`
-  or `warm.*` span timestamps fall between the `lobby→countdown` round event and GO. That is
-  the property Lever A actually changes, and it is machine-independent: it holds or fails
-  identically on a 4090 and a UHD 630.
-- **No-regression (Wyatt, desktop):** COUNTDOWN-WARM-1 feel unchanged, entry time not longer.
-- `npm run qa` green.
-- **Deferred real-world confirmation:** first weak-GPU playtester's `warmupSettle` /
-  `qualityStepDown` telemetry. Card closes on the structural proof; this is the follow-up
-  that either confirms it in the wild or reopens with fresh evidence.
+- ✅ **Structural proof (headless, SwiftShader cold cache).** No `warmupSettle` /
+  `warmupCompile` event and no `warm.*` span falls between the `lobby→countdown` round event
+  and GO; zero >500 ms long frames in that window. Countdown ran **3624 ms against a 3600 ms
+  config** (cap-206's was 8163 ms). Machine-independent: it holds or fails identically on a
+  4090 and a UHD 630.
+- ✅ **Unit (4 new, `tests/netcode.test.js`).** Gate predicate is false while rotating, true
+  once settled, still requires carts-ready; `signalPlayReadyNow()` exists and is safe to call
+  before a socket exists (the rotation `finally` calls it unconditionally, including on the
+  failure path).
+- ✅ **Two-client MP no-regression.** `netharness --scenario mpIntegration` 18/18, including
+  *"both clients advance into a fresh round (rematch works) — host=countdown joiner=countdown"*
+  — the rematch → lobby → play-ready → arm path this lever changes.
+- ✅ `npm run qa` green — 777 tests.
+- ⬜ **Owed (Wyatt, desktop):** COUNTDOWN-WARM-1 feel unchanged, quickplay entry not longer.
+- ⬜ **Not verified end-to-end:** an actual quickplay arena *rotation* under two live clients.
+  No rotation scenario exists in netharness; the gate predicate and the re-signal are unit-
+  covered, the rotation call site is not. Worth adding if a rotation bug ever resurfaces.
+- ⬜ **Deferred real-world confirmation:** first weak-GPU playtester's `warmupSettle` /
+  `qualityStepDown` telemetry — the only thing that can confirm the iGPU case we cannot
+  reproduce.
 
 ## Caveat
 

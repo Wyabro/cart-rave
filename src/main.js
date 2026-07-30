@@ -2957,6 +2957,10 @@ async function main() {
     } finally {
       setLevelSwapping(false);
       arenaRotationInFlight = false;
+      // * WARM-IGPU-1 Lever A: the rotation warm above held clientPlayReady (see
+      // * isSessionPlayReady). Re-signal now that the compile is done so the server arms
+      // * game_start immediately — otherwise a quiet lobby waits out the 12s ceiling.
+      Netcode.signalPlayReadyNow();
       // * menuVisible guard: a disconnect mid-swap returns to the menu (which stops
       // * ambience + music) — don't restart a bed/track under the menu music.
       if (!menuVisible) {
@@ -3836,7 +3840,16 @@ async function main() {
     onCountdownCancelled: () => { onCountdownCancelledRef?.(); },
     endCinematicCountdown: () => { CameraMod.endCinematicCountdown(camera); },
     // * Cap-59: netcode holds host_round countdown phase until carts/shaders ready.
-    isSessionPlayReady: () => isSessionCartsReady(),
+    // * WARM-IGPU-1 Lever A: an in-flight arena rotation ALSO means "not play ready". Its
+    // * warm pass (`warm.render.default.play-full`, rotateLoadedArenaInPlace below) runs a
+    // * full-budget compile with no loading overlay; carts already exist and no cart
+    // * bootstrap is pending, so isSessionCartsReady() alone reported ready and the server
+    // * could arm game_start while that compile was still running — the 07-21 forensics'
+    // * countdown overlap. Withholding clientPlayReady moves the cost BEFORE the countdown
+    // * arms; it never delays a countdown already armed (that was the reverted `c8df8fd`).
+    // * Server-side PLAY_READY_TIMEOUT_MS (12s) remains the backstop, and the rotation's
+    // * finally re-signals immediately so we never actually wait on it.
+    isSessionPlayReady: () => isSessionCartsReady() && !arenaRotationInFlight,
     hasPendingNonHostCountdownApply: () => nonHostCountdownApplyPending,
     getMenuVisible: () => menuVisible,
     invokeHideMenu: () => {
