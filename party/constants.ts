@@ -14,6 +14,22 @@ export const RATE_LIMIT_MAX_PER_SEC = 100;
 /** Sliding window length for per-connection message rate limiting. */
 export const RATE_LIMIT_WINDOW_MS = 1_000;
 
+/** Max simultaneous WS connections accepted from one IP (SEC-BEACON-1). */
+export const IP_CONNECTION_CAP = 5;
+
+/**
+ * Max open-beacon POSTs accepted per IP per BEACON_WINDOW_MS — enforced
+ * independently inside EACH log DO (ErrorLog / CaptureLog / AnalyticsLog), so the
+ * aggregate across all three routes is 3× this. Each DO defends its own ring.
+ */
+export const BEACON_MAX_PER_WINDOW = 30;
+
+/** Sliding window length for open-beacon rate limiting. */
+export const BEACON_WINDOW_MS = 60_000;
+
+/** Max distinct IPs a log DO tracks before it starts evicting cold buckets. */
+export const BEACON_MAX_TRACKED_IPS = 5_000;
+
 /**
  * Connections with no message for this long are forcibly removed.
  * PartyKit onClose is not guaranteed (tab crash, airplane mode, phone sleep).
@@ -67,4 +83,33 @@ export function setPlayReadyTimeoutOverride(ms: number | null): void {
 /** Effective playReady ceiling (override ?? PLAY_READY_TIMEOUT_MS). */
 export function getPlayReadyTimeoutMs(): number {
   return playReadyTimeoutOverrideMs ?? PLAY_READY_TIMEOUT_MS;
+}
+
+// ── Test-only beacon-limit overrides (SEC-BEACON-1) ────────────────────────
+// Used by tests/party-do so a flood case doesn't need 30 requests inside a real
+// 60s window. Production never calls setBeaconLimitOverrides. Pass null to clear.
+let beaconMaxOverride: number | null = null;
+let beaconWindowOverrideMs: number | null = null;
+
+/** Test-only. Shrink the beacon cap / window. Pass null to clear both. */
+export function setBeaconLimitOverrides(
+  opts: { maxPerWindow?: number; windowMs?: number } | null,
+): void {
+  if (opts == null) {
+    beaconMaxOverride = null;
+    beaconWindowOverrideMs = null;
+    return;
+  }
+  if (typeof opts.maxPerWindow === "number") beaconMaxOverride = opts.maxPerWindow;
+  if (typeof opts.windowMs === "number") beaconWindowOverrideMs = opts.windowMs;
+}
+
+/** Effective beacon cap (override ?? BEACON_MAX_PER_WINDOW). */
+export function getBeaconMaxPerWindow(): number {
+  return beaconMaxOverride ?? BEACON_MAX_PER_WINDOW;
+}
+
+/** Effective beacon window (override ?? BEACON_WINDOW_MS). */
+export function getBeaconWindowMs(): number {
+  return beaconWindowOverrideMs ?? BEACON_WINDOW_MS;
 }

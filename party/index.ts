@@ -32,7 +32,12 @@ type Slot = {
 
 import { MSG } from '../shared/protocol.js';
 import { COUNTDOWN_MS } from '../shared/roundConstants.js';
-import { getPlayReadyTimeoutMs, getReapThrottleMs, getReapTimeoutMs } from './constants';
+import {
+  IP_CONNECTION_CAP,
+  getPlayReadyTimeoutMs,
+  getReapThrottleMs,
+  getReapTimeoutMs,
+} from './constants';
 import { COUNTDOWN_ABORT_GRACE_MS, isContinuousModeRoom, seatReadyState } from '../shared/readiness.js';
 import { validateHostRound, type RoundState } from './roundValidation';
 import {
@@ -859,7 +864,7 @@ export class CartRaveServer extends Server {
     // Security: Enforce connection rate limit per IP
     const ip = ctx.request.headers.get("cf-connecting-ip") || "unknown";
     const currentConnections = this.#ipConnectionCounts.get(ip) ?? 0;
-    if (currentConnections >= 5) {
+    if (currentConnections >= IP_CONNECTION_CAP) {
       conn.close(4029, "Too many connections");
       return;
     }
