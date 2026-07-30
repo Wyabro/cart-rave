@@ -287,44 +287,26 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-30 (CARGO-VIS-1 sessions 2–3 DEPLOYED) — `npm run ship` at `7660623`; Worker Version
-`9752ef69-d48d-457d-acd3-5f75adc521a1`, entry `index-C06DMhvl.js` — **verified against the
-fetched assets** (`fillPhases` + `CartFrame` in the entry, build sha in `scene-DA9pQ7f6.js`).
-HTML edge-cache may serve one stale paint (known gotcha — reload fixes). Wyatt prod playtest
-= the close.
-
-2026-07-30 (CARGO-VIS-1 session 3 — fill retune pass 1, Wyatt-acked levers) — Wyatt annotated
-the session-2 "full" shot: pile occupied ~⅓ of the true cavity (the 0.48/0.42 insets were
-never-rendered guesses). Three levers: rave cavity insets 0.48/0.42 → **0.68/0.60**
-(entities.js), **cargoScale 0.52 → 0.60**, crest float-guard **1.4 → 2.2·halfY**
-(groceryPool.js). Pass-1 reshoot: pile reaches the right wall + front edge, crest breaks the
-rear rim in profile and at gameplay distance (boss-wide; bay1 orange fully tops the rim); left
-third still read open → Wyatt flagged the GRID lever. **Pass 2:** GRID 18→25 + `maxItems` 25.
-**Pass 3 (Wyatt: 4 phases, 5>10>20>30):** `CONFIG.cargo.fillPhases` [5,10,20,30] + stepped
+2026-07-30 (CARGO-VIS-1 sessions 2–3 — CartFrame fix + 4-pass retune, DEPLOYED `7660623`) —
+**Session 2:** `getBasketCargoParams` matches `CartFrame` (instance rename of authored
+`tripo_part_0`) → live rave carts hit the measured-bounds path; Wyatt red-line review: still
+~⅓ of the true cavity (0.48/0.42 insets were never-rendered guesses). **Session 3, 4 acked
+passes:** (1) insets → 0.68/0.60, cargoScale 0.52→0.60, crest guard 1.4→2.2·halfY;
+(2) GRID 18→25; (3) Wyatt 4-phase pacing 5>10>20>30 — `CONFIG.cargo.fillPhases` + stepped
 `lifeCargoVisibleCount` (quarter-split; weight01 stays continuous), GRID → 30 (15/10/5),
-base/max 10/30. All 4 phases verified live (rig reloads at life 2/3/6/8). **Pass 4 (Wyatt:
-rear strip always empty):** getBasketCargoParams front-nudge 0.08→0.02 + hl 0.6→0.7 — the
-old pair left a permanent dead band along the handle wall; rear-view rig shot confirms items
-sit inside the rear shell (no clip-through) and the crest tops the rim in side profile.
-qa 773/773 each pass.
+base/max 10/30, all phases verified live (rig reloads at life 2/3/6/8); (4) rear dead-strip:
+front-nudge 0.08→0.02 + hl 0.6→0.7, rear-view shot proves no clip-through, crest tops the rim
+in profile. qa 773/773 each pass. **Shipped:** Worker Version `9752ef69-…`, entry
+`index-C06DMhvl.js`, **verified against fetched assets** (`fillPhases`+`CartFrame` in entry,
+sha in `scene-DA9pQ7f6.js`). Wyatt prod playtest = the close (edge-cache stale paint: reload).
 
-2026-07-30 (CARGO-VIS-1 session 2 — CartFrame fix; real-dims bays proven live) —
-`getBasketCargoParams` (entities.js) matches `CartFrame` (instance rename of authored
-`tripo_part_0`), so live rave carts hit the measured-bounds path (probe ×4: origin computed,
-itemYTop 0.80). qa 773/773. Superseded by Wyatt's red-line review → session 3 above.
-
-2026-07-30 (CARGO-VIS-1 session 1c — hi-res rig + root cause; 1b look-claims superseded) —
-Rig recipe (reusable for SHEET-1): hardware-GPU headless (`--enable-gpu --ignore-gpu-blocklist
---use-gl=angle` — kills SwiftShader blur + software-mode modal); warm reload for real rave carts
-(cold boots spawn the procedural fallback, entities.js:162 — clear `sessionStorage
-cartRaveEngagedRoom` first or main.js:1794 strips `?room=solo`); boss fill via in-page
-`import("/src/config.js")` → `cargo.baselinePoints` before the first cargo frame. Root cause
-of the buried pile: rave bays built on fallback dims (`tripo_part_0` renamed `CartFrame`, name
-match never hit; bay y −0.1 ×4 proved it) → fixed in session 2 above.
-
-2026-07-30 (CARGO-VIS-1 session 1b) — first rig pass off the CARGO-RACE-1 self-heal: 3-state
-shots (`.diag-captures/cargo-vis-1/`, SwiftShader 900×600, cold-boot carts). Look-claims
-superseded by 1c / 2 / 3 above.
+2026-07-30 (CARGO-VIS-1 session 1b+1c — rig hardened; root cause found) — Rig recipe (reusable
+for SHEET-1): hardware-GPU headless (`--enable-gpu --ignore-gpu-blocklist --use-gl=angle` —
+kills SwiftShader blur + modal); warm reload = real rave carts (cold boots spawn the procedural
+fallback, entities.js:162; clear `cartRaveEngagedRoom` sessionStorage first or main.js:1794
+strips `?room=solo`); fill lever = in-page `import("/src/config.js")` → `cargo.baselinePoints`
+pre-first-cargo-frame. 1b's SwiftShader 900×600 look-claims superseded. Root cause of the
+buried pile: fallback bay dims (`tripo_part_0` renamed `CartFrame`) → fixed, session 2.
 
 2026-07-30 (CARGO-RACE-1 fixed — cold-boot empty cargo bays now self-heal) — `createCargoBay()`
 queues bays built before `GroceryPool.init` resolves (`pendingBays`, mirrors the pendingSpills
