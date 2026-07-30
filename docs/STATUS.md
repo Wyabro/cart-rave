@@ -309,7 +309,14 @@ READY *during* that compile. This withholds the **arm** — it never delays an a
 and GO; countdown 3624ms vs 3600 config — cap-206's was 8163ms), 4 unit tests, `netharness
 mpIntegration` **18/18** incl. rematch→countdown. qa 777/777. **Scope limit:** rotation is
 quickplay-only, so this does NOT fix cap-206 (**solo**, warm already inside the gate) — that
-residual is **WARM-SOLO-1** in BACKLOG, telemetry-gated. Owed: Wyatt desktop spot check.
+residual is **WARM-SOLO-1** in BACKLOG, telemetry-gated. **DEPLOYED `a9dbc7d`** — Worker
+Version `127d5f63-ac94-4251-a28d-7f8ab9ab8ae8`, entry `index-Cx6o2I9L.js`, scene
+`scene-DaISp9cv.js`. **Asset-verified against fetched bytes** (not the upload log):
+`signalPlayReadyNow` + `arenaRotationInFlight` + `qualityStepDown` + `gpuClass` in the entry,
+`warmupSettle` + `budget-expired` + `compilePoll` and the `a9dbc7d` sha in the scene chunk,
+**zero `sourceMappingURL`** (HYGIENE-1 S-01 confirmed live in prod). Prod boot smoke: HTTP 200,
+bootstrapped, diag active, no page errors. Owed: Wyatt prod playtest — quickplay round-start
+feel + entry time. (Edge-cached HTML: a stale first paint resolves on reload.)
 
 2026-07-30 (CARGO-VIS-1 CLOSED — Wyatt prod playtest PASS on `b13bafb`) — Full-bay fill + rim
 overflow shipped across sessions 1–3 plus a KO-drift hotfix. Live: `CONFIG.cargo.fillPhases`
