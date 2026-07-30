@@ -132,7 +132,7 @@ Run 7 mission (below) is historical evidence, superseded as the live queue by
 | **ARENA-BAL-1** | Sundial + Storerooms self-KO rate | ✅ **closed** (Wyatt 07-22, no code) |
 | **QA-STATUS-1** | STATUS token overage broke `qa` | ✅ closed this commit — 07-21 log archived, queue reordered |
 | **HYGIENE-1** | 4-item sweep: sourcemaps off · boot-error filter · default branch · profiler `--dpr` | ✅ 07-30 — 3 branches deleted; dist has 0 `.map`; **one Wyatt step left: GitHub Settings → default branch → `cart-clash`** (classifier blocked `gh repo edit`) |
-| **C2** CARGO-VIS-1 | full-bay fill + rim overflow look | ▶ session 1c (07-30) — hi-res GPU rig + live bay probe: rave bays build on **fallback dims** (`tripo_part_0` renamed `CartFrame` → entities.js:321 never matches) so boss-18 sits low, **no rim crest**; 1b crest read contested (SwiftShader 900×600, cold-boot carts); one-line fix needs ack; Wyatt eyes owed |
+| **C2** CARGO-VIS-1 | full-bay fill + rim overflow look | ▶ session 2 (07-30) — CartFrame fix landed: rave bays build on **real dims** (probe: bay y −0.046, itemYTop 0.80 vs 0.61 fallback); boss-18 spans the basket, stacks, crests the rear rim, reads at gameplay distance; hi-res shots sent; **Wyatt eyes = the close** |
 | **WARM-IGPU-1** | first-play warm stall swallows countdown (medium iGPUs) | 📋 [P0 acked 07-30](./planning/warm-igpu-1.md); P0b (watchdog disproof + tier telemetry) and P1 need own acks |
 | **CARGO-HUD-1a** | cargo-readout mock on BOTH hosts, 3-state — Wyatt picks | 📋 after WARM P0; before WARM P1 |
 | **SKYBOX-1** | restore never-built sceneExtras skybox (review C-01) | 📋 after WARM P1 — Wyatt eyes close |
@@ -287,23 +287,25 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-30 (CARGO-VIS-1 session 1c — hi-res evidence + root cause; 1b look-claims contested) —
-Rig upgrades: hardware-GPU headless (`--enable-gpu --ignore-gpu-blocklist --use-gl=angle`, the
-perf-profile recipe — kills the SwiftShader LOW blur + software-mode modal) and a warm reload so
-carts are the real rave GLTF (cold boots spawn the procedural fallback, entities.js:162; the
-reload needs `sessionStorage cartRaveEngagedRoom` cleared or main.js:1794 strips `?room=solo`).
-Boss state via live-CONFIG lever in page context (`import("/src/config.js")` →
-`cargo.baselinePoints = fullScore` before the first cargo frame). Shots: boss-18 + baseline-7,
-into-basket/rim-profile/wide, 1600×1000 (`.diag-captures/cargo-vis-1/boss-*`, `baseline-*`).
-**Root cause found (code-provable): every rave-cart bay is built from `getBasketCargoParams`'s
-conservative fallback** ({hw:0.38, hl:0.48, rimY:0.5}; measured `bay.position.y −0.1` on all 4
-live bays proves the branch) — cartRaveGltf.js:2290 renames `tripo_part_0` → `"CartFrame"` at
-instance prep, so the entities.js:321 name match can never hit. Real cavity is wider, real rim
-far higher → boss-18 reads as a low center cluster, **no rim crest**. 1b's "dense heap cresting
-the rim" was read off 900×600 SwiftShader captures of cold-boot carts — superseded by this
-measured pass. Session-2 fix sketch (needs ack): match `CartFrame`/`userData.isCartFrame` in
-getBasketCargoParams, then re-tune GRID/crest against true dims (note: deep-basket float guard
-also caps the crest below the 1.03 procedural rim by design — retune together).
+2026-07-30 (CARGO-VIS-1 session 2 — CartFrame fix applied; real-dims bays proven live) —
+`getBasketCargoParams` (entities.js) now matches `CartFrame` (the instance name — cartRaveGltf
+renames the authored `tripo_part_0` at prep) so live rave carts hit the measured-bounds path
+instead of the conservative fallback. Live probe on all 4 bays: bay origin computed
+({0.002, −0.046, −0.217}; fallback was {0, −0.1, 0}), itemYTop 0.80 (was 0.61–0.70), footprint
+±0.28. Reshoot (same rig): boss-18 spans the basket, stacks 2–3 layers, crests the rear rim,
+and the crest reads at gameplay distance (boss-wide). qa 773/773. Shots sent — Wyatt eyes =
+the close; crest intensity is the remaining taste call.
+
+2026-07-30 (CARGO-VIS-1 session 1c — hi-res rig + root cause; 1b look-claims superseded) —
+Rig recipe (reusable for SHEET-1): hardware-GPU headless (`--enable-gpu --ignore-gpu-blocklist
+--use-gl=angle` — kills SwiftShader blur + software-mode modal); warm reload for real rave carts
+(cold boots spawn the procedural fallback, entities.js:162 — clear `sessionStorage
+cartRaveEngagedRoom` first or main.js:1794 strips `?room=solo`); boss fill via in-page
+`import("/src/config.js")` → `cargo.baselinePoints = fullScore` before the first cargo frame.
+Found: every rave bay built from getBasketCargoParams' conservative fallback (bay y −0.1 on all
+4 live bays) — cartRaveGltf.js renames `tripo_part_0` → `CartFrame` at prep, the entities.js
+name match never hit → boss-18 low + tight, no crest. 1b's "cresting" read (900×600 SwiftShader,
+cold-boot carts) superseded by this measured pass. Fix → session 2 above.
 
 2026-07-30 (CARGO-VIS-1 session 1b — evidence delivered) — With CARGO-RACE-1 self-heal in,
 the rig works: cold `?room=solo` + `freeze=1` + manual camera pose → clean into-basket shots

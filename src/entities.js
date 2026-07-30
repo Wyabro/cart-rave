@@ -297,9 +297,12 @@ function applyCartPhysicsOverrides(body, collider, { label, hx, hyPhys, hz, coll
 
 /**
  * * Computes the *interior cargo cavity* (not the outer body hull) for cargo placement.
- * * Procedural carts use known basket dims; rave GLTF derives from tripo_part_0 then
+ * * Procedural carts use known basket dims; rave GLTF derives from the body mesh then
  * * insets heavily — outer AABB includes thick walls/handle shelf, so using it raw
- * * puts groceries through the rear of the basket.
+ * * puts groceries through the rear of the basket. The body mesh is authored as
+ * * `tripo_part_0` but renamed `CartFrame` at instance prep (cartRaveGltf.js) — match
+ * * both, or every live rave cart silently gets the conservative fallback (CARGO-VIS-1
+ * * session 1c: fallback dims buried the boss pile with no rim crest).
  *
  * @param {THREE.Object3D} mesh
  * @returns {{ floorY: number, hw: number, hl: number, centerX: number, centerZ: number, rimY: number }}
@@ -318,7 +321,7 @@ function getBasketCargoParams(mesh) {
   let found = false;
   mesh.traverse((child) => {
     if (found) return;
-    if (child.name === "tripo_part_0" && /** @type {any} */ (child).isMesh) {
+    if ((child.name === "CartFrame" || child.name === "tripo_part_0") && /** @type {any} */ (child).isMesh) {
       const worldBox = new THREE.Box3().setFromObject(child);
       const inv = new THREE.Matrix4().copy(mesh.matrixWorld).invert();
       worldBox.applyMatrix4(inv);
