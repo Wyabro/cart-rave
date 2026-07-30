@@ -132,7 +132,7 @@ Run 7 mission (below) is historical evidence, superseded as the live queue by
 | **ARENA-BAL-1** | Sundial + Storerooms self-KO rate | ✅ **closed** (Wyatt 07-22, no code) |
 | **QA-STATUS-1** | STATUS token overage broke `qa` | ✅ closed this commit — 07-21 log archived, queue reordered |
 | **HYGIENE-1** | 4-item sweep: sourcemaps off · boot-error filter · default branch · profiler `--dpr` | ✅ 07-30 — 3 branches deleted; dist has 0 `.map`; **one Wyatt step left: GitHub Settings → default branch → `cart-clash`** (classifier blocked `gh repo edit`) |
-| **C2** CARGO-VIS-1 | full-bay fill + rim overflow look | ▶ session 3 pass 3 (07-30) — Wyatt 4-phase pacing: `fillPhases` **5/10/20/30**, stepped `lifeCargoVisibleCount`, GRID 30 (15 floor · 10 mid · 5 crest); all 4 phases verified live; phase-strip shots sent; **Wyatt eyes = the close** |
+| **C2** CARGO-VIS-1 | full-bay fill + rim overflow look | ▶ session 3 pass 4 (07-30) — 4-phase pacing 5/10/20/30 + rear dead-strip fix (front-nudge 0.08→0.02, hl 0.6→0.7); wall-to-wall fill, crest over the rim, rear-clip check clean; **Wyatt eyes = the close** |
 | **WARM-IGPU-1** | first-play warm stall swallows countdown (medium iGPUs) | 📋 [P0 acked 07-30](./planning/warm-igpu-1.md); P0b (watchdog disproof + tier telemetry) and P1 need own acks |
 | **CARGO-HUD-1a** | cargo-readout mock on BOTH hosts, 3-state — Wyatt picks | 📋 after WARM P0; before WARM P1 |
 | **SKYBOX-1** | restore never-built sceneExtras skybox (review C-01) | 📋 after WARM P1 — Wyatt eyes close |
@@ -295,10 +295,12 @@ never-rendered guesses). Three levers: rave cavity insets 0.48/0.42 → **0.68/0
 rear rim in profile and at gameplay distance (boss-wide; bay1 orange fully tops the rim); left
 third still read open → Wyatt flagged the GRID lever. **Pass 2:** GRID 18→25 + `maxItems` 25.
 **Pass 3 (Wyatt: 4 phases, 5>10>20>30):** `CONFIG.cargo.fillPhases` [5,10,20,30] + stepped
-`lifeCargoVisibleCount` (quarter-split over fullScore: life 1–2 / 3–4 / 5–7 / 8; weight01
-stays continuous — only the LOOK steps), GRID → 30 (15 floor · 10 mid · 5 crest), baseItems
-10 / maxItems 30. All 4 phases verified live (fill 5/10/20/30 on every cart, rig reloads at
-life 2/3/6/8); phase-strip shots sent. qa 773/773 each pass. Wyatt eyes = the close.
+`lifeCargoVisibleCount` (quarter-split; weight01 stays continuous), GRID → 30 (15/10/5),
+base/max 10/30. All 4 phases verified live (rig reloads at life 2/3/6/8). **Pass 4 (Wyatt:
+rear strip always empty):** getBasketCargoParams front-nudge 0.08→0.02 + hl 0.6→0.7 — the
+old pair left a permanent dead band along the handle wall; rear-view rig shot confirms items
+sit inside the rear shell (no clip-through) and the crest tops the rim in side profile.
+qa 773/773 each pass. Wyatt eyes = the close.
 
 2026-07-30 (CARGO-VIS-1 session 2 — CartFrame fix; real-dims bays proven live) —
 `getBasketCargoParams` (entities.js) matches `CartFrame` (instance rename of authored
@@ -310,11 +312,9 @@ Rig recipe (reusable for SHEET-1): hardware-GPU headless (`--enable-gpu --ignore
 --use-gl=angle` — kills SwiftShader blur + software-mode modal); warm reload for real rave carts
 (cold boots spawn the procedural fallback, entities.js:162 — clear `sessionStorage
 cartRaveEngagedRoom` first or main.js:1794 strips `?room=solo`); boss fill via in-page
-`import("/src/config.js")` → `cargo.baselinePoints = fullScore` before the first cargo frame.
-Found: every rave bay built from getBasketCargoParams' conservative fallback (bay y −0.1 on all
-4 live bays) — cartRaveGltf.js renames `tripo_part_0` → `CartFrame` at prep, the entities.js
-name match never hit → boss-18 low + tight, no crest. 1b's "cresting" read (900×600 SwiftShader,
-cold-boot carts) superseded by this measured pass. Fix → session 2 above.
+`import("/src/config.js")` → `cargo.baselinePoints` before the first cargo frame. Root cause
+of the buried pile: rave bays built on fallback dims (`tripo_part_0` renamed `CartFrame`, name
+match never hit; bay y −0.1 ×4 proved it) → fixed in session 2 above.
 
 2026-07-30 (CARGO-VIS-1 session 1b) — first rig pass off the CARGO-RACE-1 self-heal: 3-state
 shots (`.diag-captures/cargo-vis-1/`, SwiftShader 900×600, cold-boot carts). Look-claims

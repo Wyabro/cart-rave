@@ -340,13 +340,15 @@ function getBasketCargoParams(mesh) {
   const outerHl = (box.max.z - box.min.z) * 0.5;
   const bodyH = box.max.y - box.min.y;
   const centerX = (box.max.x + box.min.x) * 0.5;
-  // * Nudge cargo slightly toward the basket front (−Z in cart space) away from the handle shelf.
-  const centerZ = (box.max.z + box.min.z) * 0.5 - outerHl * 0.08;
+  // * Tiny front nudge (−Z, away from the handle shelf). Was 0.08 — combined with the old
+  // * 0.6 length inset it left a permanent dead strip along the rear wall (session-3 pass 4,
+  // * Wyatt annotation); rear-shelf clipping is re-checked by the rig's rear-view shot.
+  const centerZ = (box.max.z + box.min.z) * 0.5 - outerHl * 0.02;
   // * Interior cavity vs outer hull: the rave basket walls are thin — session-3 Wyatt
   // * annotation (07-30) showed the old 0.48/0.42 insets left the pile floating in the
   // * middle of a basket twice its size. Keep just enough inset to clear the wall shell.
   const hw = Math.max(0.18, outerHw * 0.68);
-  const hl = Math.max(0.2, outerHl * 0.6);
+  const hl = Math.max(0.2, outerHl * 0.7);
   // * Basket floor sits above the chassis bottom of the body mesh.
   const floorY = box.min.y + bodyH * 0.28;
   // * Rim height in BAY-LOCAL space: the bay group is parented at floorY + 0.02, so the
