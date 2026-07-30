@@ -128,6 +128,46 @@ tune the background window; `--scene menu|round|all` picks scenes.
 
 ---
 
+## Traps that cost real time (07-30 — CARGO-VIS-1 / CARGO-HUD-1 / SKYBOX-1)
+
+Learned the hard way while building one-off rigs. Each of these produced a **confident wrong
+answer**, not an error, so none of them announce themselves.
+
+1. **`shoot.mjs` passes no GPU flags.** Headless falls back to SwiftShader, which is blurry and
+   raises a full-screen "graphics running in software mode" modal that covers the shot. For
+   look-critical captures launch Chromium yourself with
+   `--enable-gpu --ignore-gpu-blocklist --use-gl=angle` (and dismiss the modal if it still
+   appears). `tools/perf-profile.mjs --gpu` does this, and every run now records the actual
+   `UNMASKED_RENDERER` as `gpuVendor` — check it before trusting absolute numbers.
+
+2. **`window.__cartRavePerf.scene` is DEV-ONLY** (`main.js`, `if (import.meta.env.DEV)`).
+   Against **production** it does not exist, so `scene?.traverse(...)` silently yields nothing
+   and a probe reads as "the thing never built". Verify prod **visually** (screenshot + the
+   build stamp in the corner). `__cartRave.stats()` does exist in prod (it is `?harness=1`, not
+   DEV-gated) but its `drawCalls`/`triangles` read `renderer.info` after a settle and often
+   come back as `1`. `import("/src/…")` is the same trap — dev server only; prod is bundled.
+
+3. **The game exposes no mutable cart refs, deliberately.** `__ccTest.state()` and
+   `__cartClashCargo()` both return mapped copies. Drive gameplay state through `CONFIG` levers
+   **before carts spawn** (e.g. set `cargo.baselinePoints` from the menu, then enter play), not
+   by poking cart objects.
+
+4. **Assert cargo//life state at COUNTDOWN, not mid-round.** A few seconds into a live round the
+   NPCs have already rammed each other and `stripLifeCargo` has fired, so a "stripped" readout
+   is *true state*, not a bug. Countdown is the only moment every cart sits at its spawn value.
+
+5. **Enter play via the menu's `cartrave:menu` event, not `?room=solo`,** when the warm path
+   matters: a direct room boot never takes the `warm: true` branch (it settles against the
+   4000 ms default budget). Dispatch
+   `new CustomEvent("cartrave:menu", { detail: { action: "solo" } })` after the idle warm.
+
+6. **Some scene objects only get positioned inside their `update()`** — and the menu attract
+   loop does **not** tick `sceneExtras.update`. A rig that samples during attract can catch
+   objects at their construction default (the SKYBOX-1 UFOs sat at world origin, in the KO pit).
+   Sample in a live round too before concluding something is misplaced.
+
+---
+
 ## Suggested workflow
 
 1. Reproduce: `?shot=…&harness=1&freeze=1`

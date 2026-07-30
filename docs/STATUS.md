@@ -135,9 +135,10 @@ Run 7 mission (below) is historical evidence, superseded as the live queue by
 | **C2** CARGO-VIS-1 | full-bay fill + rim overflow look | ✅ **closed** (Wyatt prod playtest PASS 07-30 on `b13bafb`) — real-dims bays, 4-phase fill 5/10/20/30, rim crest, rear coverage, KO-respawn drift hotfix |
 | **WARM-IGPU-1** | first-play warm stall swallows countdown (medium iGPUs) | ✅ **CLOSED** — Wyatt prod playtest PASS 07-30 on `a9dbc7d`. Solo residual tracked separately as WARM-SOLO-1 ([plan](./planning/warm-igpu-1.md)) |
 | **CARGO-HUD-1a** | cargo-readout mock on BOTH hosts, 3-state — Wyatt picks | ✅ closed 07-30 — Wyatt picked **nameplate placement + score-strip chip look** |
-| **CARGO-HUD-1** | opponent cargo readout on the nameplate | ▶ 4-segment chip DEPLOYED 07-30 `38d0dfc` (Version `f8e8da1f`, entry `index-DUlVRrvj.js`, live-verified 4 segs / 2 lit at spawn); **awaiting Wyatt playtest** ([card](./planning/cargo-hud-1.md)) |
-| **SKYBOX-1** | restore never-built sceneExtras skybox (review C-01) | 📋 after WARM P1 — Wyatt eyes close |
-| **SEC-BEACON-1 · SEC-UNLOCK-1 · SEC-ROUTE-1** | beacon rate-limit · devUnlocks URL gate · startsWith routes | 📋 before external testers — with analytics-DO reset |
+| **CARGO-HUD-1** | opponent cargo readout on the nameplate | ✅ **PASS** (Wyatt 07-30) — 4-segment chip live at `38d0dfc` / Version `f8e8da1f` ([card](./planning/cargo-hud-1.md)) |
+| **SKYBOX-1** | restore never-built sceneExtras skybox (review C-01) | ✅ **closed** 07-30 — live at `c074c2a` / Version `8e5bb259`; LOW tier-gated per Wyatt (`skyExtras` knob), UFO-in-pit bug fixed |
+| **SEC-BEACON-1** | rate-limit the open POST beacons (+ IP-cap constant, dedupe release, tests) | ▶ **ACTIVE — needs a plan + Wyatt ack before code.** First of the before-external-testers gate; details in [BACKLOG](./planning/BACKLOG.md) |
+| **SEC-UNLOCK-1 · SEC-ROUTE-1** | devUnlocks URL gate · `startsWith` routes | 📋 after SEC-BEACON-1 — with the analytics-DO reset, all before external testers |
 | **SHEET-1** | in-match contact-sheet tool (`?room=solo` boot) | 📋 blackframes readback pre-check first |
 | **FIGHT-VERIFY-1** | owed fight-night verification | 📋 agent half via SHEET-1; Wyatt half = playtest |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
@@ -159,8 +160,8 @@ Triage docs superseded: [playtest-triage-2026-07-17](./planning/playtest-triage-
 
 ### Next actions
 
-1. **Wyatt playtest — CARGO-HUD-1** (closes the card): does the nameplate chip actually change who you pick to ram? Agent-verifiable parts are green; feel is the open question. Not deployed yet — say ship when you want it on prod.
-2. Locked order after: **SKYBOX-1 → SEC series → SHEET-1 → FIGHT-VERIFY-1.** (CARGO-VIS-1, CARGO-HUD-1a, WARM-IGPU-1 ✅ all closed 07-30.)
+1. **SEC-BEACON-1** (active) — plan → Wyatt ack → apply. Rate-limit `/api/log-error|captures|analytics` (body-size caps only today; ring caps 2000/80/20000 mean a flood evicts real crash rows), move the inline IP cap `5` (`party/index.ts:861`) into `constants.ts`, dedupe the 4× release sites, add tests on the A5b DO harness. Server-side — no client bundle change.
+2. Locked order after: **SEC-UNLOCK-1 → SEC-ROUTE-1 → SHEET-1 → FIGHT-VERIFY-1.** The three SEC cards + `DELETE /api/analytics` are the before-external-testers gate. (07-30 closed: QA-STATUS-1, HYGIENE-1, CARGO-VIS-1, CARGO-RACE-1, CARGO-HUD-1a, WARM-IGPU-1, CARGO-HUD-1, SKYBOX-1.)
 3. **Before public/external playtest:** SEC-BEACON-1/UNLOCK/ROUTE **plus** `DELETE /api/analytics?token=…` (clear DO) — see Gotchas.
 
 ## Open issues (top)

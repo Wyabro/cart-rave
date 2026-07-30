@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-07-30T23:05:42.861Z",
-    "commit": "c074c2a"
+    "at": "2026-07-30T23:17:29.526Z",
+    "commit": "f3f8cad"
   },
-  "source_digest": "f74822bc",
+  "source_digest": "111a9724",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -961,19 +961,25 @@
       {
         "id": "CARGO-HUD-1",
         "what": "opponent cargo readout on the nameplate",
-        "status": "▶ 4-segment chip DEPLOYED 07-30 `38d0dfc` (Version `f8e8da1f`, entry `index-DUlVRrvj.js`, live-verified 4 segs / 2 lit at spawn); awaiting Wyatt playtest ([card](./planning/cargo-hud-1.md))",
-        "state": "active"
+        "status": "✅ PASS (Wyatt 07-30) — 4-segment chip live at `38d0dfc` / Version `f8e8da1f` ([card](./planning/cargo-hud-1.md))",
+        "state": "done"
       },
       {
         "id": "SKYBOX-1",
         "what": "restore never-built sceneExtras skybox (review C-01)",
-        "status": "📋 after WARM P1 — Wyatt eyes close",
-        "state": "waiting"
+        "status": "✅ closed 07-30 — live at `c074c2a` / Version `8e5bb259`; LOW tier-gated per Wyatt (`skyExtras` knob), UFO-in-pit bug fixed",
+        "state": "done"
       },
       {
-        "id": "SEC-BEACON-1 · SEC-UNLOCK-1 · SEC-ROUTE-1",
-        "what": "beacon rate-limit · devUnlocks URL gate · startsWith routes",
-        "status": "📋 before external testers — with analytics-DO reset",
+        "id": "SEC-BEACON-1",
+        "what": "rate-limit the open POST beacons (+ IP-cap constant, dedupe release, tests)",
+        "status": "▶ ACTIVE — needs a plan + Wyatt ack before code. First of the before-external-testers gate; details in [BACKLOG](./planning/BACKLOG.md)",
+        "state": "active"
+      },
+      {
+        "id": "SEC-UNLOCK-1 · SEC-ROUTE-1",
+        "what": "devUnlocks URL gate · `startsWith` routes",
+        "status": "📋 after SEC-BEACON-1 — with the analytics-DO reset, all before external testers",
         "state": "waiting"
       },
       {
@@ -1011,8 +1017,8 @@
       }
     ],
     "next_actions": [
-      "Wyatt playtest — CARGO-HUD-1 (closes the card): does the nameplate chip actually change who you pick to ram? Agent-verifiable parts are green; feel is the open question. Not deployed yet — say ship when you want it on prod.",
-      "Locked order after: SKYBOX-1 → SEC series → SHEET-1 → FIGHT-VERIFY-1. (CARGO-VIS-1, CARGO-HUD-1a, WARM-IGPU-1 ✅ all closed 07-30.)",
+      "SEC-BEACON-1 (active) — plan → Wyatt ack → apply. Rate-limit `/api/log-error|captures|analytics` (body-size caps only today; ring caps 2000/80/20000 mean a flood evicts real crash rows), move the inline IP cap `5` (`party/index.ts:861`) into `constants.ts`, dedupe the 4× release sites, add tests on the A5b DO harness. Server-side — no client bundle change.",
+      "Locked order after: SEC-UNLOCK-1 → SEC-ROUTE-1 → SHEET-1 → FIGHT-VERIFY-1. The three SEC cards + `DELETE /api/analytics` are the before-external-testers gate. (07-30 closed: QA-STATUS-1, HYGIENE-1, CARGO-VIS-1, CARGO-RACE-1, CARGO-HUD-1a, WARM-IGPU-1, CARGO-HUD-1, SKYBOX-1.)",
       "Before public/external playtest: SEC-BEACON-1/UNLOCK/ROUTE plus `DELETE /api/analytics?token=…` (clear DO) — see Gotchas."
     ],
     "open_issues": [

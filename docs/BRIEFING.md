@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (also runs inside `npm run qa`).
-> Generated 2026-07-30 at commit `38d0dfc` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
-> Source digest: `9cbd5887`
+> Generated 2026-07-30 at commit `f3f8cad` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
+> Source digest: `07d78042`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -18,8 +18,8 @@ Playtesting and stabilization — Tier A drained. B1 AI-DIFF-1 shipped (`49bfc2a
 
 ## ACTIVE CARD
 
-CARGO-HUD-1 — opponent cargo readout on the nameplate
-Pass looks like: ▶ 4-segment chip DEPLOYED 07-30 `38d0dfc` (Version `f8e8da1f`, entry `index-DUlVRrvj.js`, live-verified 4 segs / 2 lit at spawn); awaiting Wyatt playtest ([card](./planning/cargo-hud-1.md))
+SEC-BEACON-1 — rate-limit the open POST beacons (+ IP-cap constant, dedupe release, tests)
+Pass looks like: ▶ ACTIVE — needs a plan + Wyatt ack before code. First of the before-external-testers gate; details in [BACKLOG](./planning/BACKLOG.md)
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 
@@ -30,7 +30,6 @@ Plan → Wyatt ack → apply. This heading names the card; it is **not** permiss
 - **A3 MP-FX-1** non-host gameplay VFX parity — ✅ PASS (Wyatt playtest 07-22: opponent charge glow + hop land dust/thud on non-host)
 - **A4 ARENA-COL-1** Cart Rave pit KO detection & kill-zone reliability — ✅ PASS (Wyatt playtest 07-22 — rim entry pose/time → buildKOEvent)
 - **B3 HIT-FEEL-1** hit feedback — weak normals + noisy incoming — ✅ PASS (Wyatt playtest 07-22)
-- **CARGO-HUD-1** opponent cargo readout on the nameplate — ▶ 4-segment chip DEPLOYED 07-30 `38d0dfc` (Version `f8e8da1f`, entry `index-DUlVRrvj.js`, live-verified 4…
 
 ## Do not
 
