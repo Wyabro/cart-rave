@@ -135,7 +135,7 @@ Run 7 mission (below) is historical evidence, superseded as the live queue by
 | **C2** CARGO-VIS-1 | full-bay fill + rim overflow look | ✅ **closed** (Wyatt prod playtest PASS 07-30 on `b13bafb`) — real-dims bays, 4-phase fill 5/10/20/30, rim crest, rear coverage, KO-respawn drift hotfix |
 | **WARM-IGPU-1** | first-play warm stall swallows countdown (medium iGPUs) | ✅ **CLOSED** — Wyatt prod playtest PASS 07-30 on `a9dbc7d`. Solo residual tracked separately as WARM-SOLO-1 ([plan](./planning/warm-igpu-1.md)) |
 | **CARGO-HUD-1a** | cargo-readout mock on BOTH hosts, 3-state — Wyatt picks | ✅ closed 07-30 — Wyatt picked **nameplate placement + score-strip chip look** |
-| **CARGO-HUD-1** | opponent cargo readout on the nameplate | ▶ built 07-30 (acked) — 3 states verified from real spawn state + responsive 1920/1366/390; **awaiting Wyatt playtest** ([card](./planning/cargo-hud-1.md)) |
+| **CARGO-HUD-1** | opponent cargo readout on the nameplate | ▶ DEPLOYED 07-30 `f98f9df` (Version `a066a450`, entry `index-aQjYKjNu.js`, asset-verified + live chip render); **awaiting Wyatt playtest** ([card](./planning/cargo-hud-1.md)) |
 | **SKYBOX-1** | restore never-built sceneExtras skybox (review C-01) | 📋 after WARM P1 — Wyatt eyes close |
 | **SEC-BEACON-1 · SEC-UNLOCK-1 · SEC-ROUTE-1** | beacon rate-limit · devUnlocks URL gate · startsWith routes | 📋 before external testers — with analytics-DO reset |
 | **SHEET-1** | in-match contact-sheet tool (`?room=solo` boot) | 📋 blackframes readback pre-check first |
@@ -301,7 +301,12 @@ and fits at 1920/1366/390, 5 new unit tests, qa 780/780. **Rig lesson worth keep
 first verification pass read MISMATCH mid-round — the NPCs had already rammed each other and
 `stripLifeCargo` had fired, so those plates were reporting TRUE state (spilled groceries were
 visible on the floor of the shot). Countdown is the only moment every cart is guaranteed to
-sit at its spawn value. Not deployed; awaiting Wyatt playtest.
+sit at its spawn value. **DEPLOYED `f98f9df`** — Version `a066a450-cbc7-4389-9c44-b1753432ddc4`,
+entry `index-aQjYKjNu.js`, CSS `index-Duw2Tyix.css`. Asset-verified against fetched bytes AND
+by live render — prod solo boot at countdown returned 4 chips, 3 segments each, computed bg
+`rgb(8,5,15)`, no page errors. (Post-deploy the first HTML fetch still named the OLD entry —
+`max-age=0, must-revalidate` revalidation, resolved in seconds. Re-fetch before alarm.)
+Awaiting Wyatt playtest.
 
 2026-07-30 (WARM-IGPU-1 CLOSED — Wyatt prod playtest PASS on `a9dbc7d`) — Phases 0/0b
 (instrumentation: `perf/warmupSettle` with the compileMs-vs-pollMs split, `warm.compilePoll`
