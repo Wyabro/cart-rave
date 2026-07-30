@@ -159,6 +159,23 @@ export class CartRaveServer extends Server {
     }
   }
 
+  /**
+   * Give this connection's slot back to the per-IP connection cap.
+   * Every path that drops a connection calls this — picker timeout, silent reap,
+   * onClose, ghost exorcism — so the cap cannot leak on whichever path is missed.
+   */
+  #releaseIp(connId: string) {
+    const ip = this.#connToIp.get(connId);
+    if (!ip) return;
+    const count = this.#ipConnectionCounts.get(ip) ?? 1;
+    if (count <= 1) {
+      this.#ipConnectionCounts.delete(ip);
+    } else {
+      this.#ipConnectionCounts.set(ip, count - 1);
+    }
+    this.#connToIp.delete(connId);
+  }
+
   #serverNowMs() {
     return getMonotonicNow();
   }
@@ -498,16 +515,7 @@ export class CartRaveServer extends Server {
       this.#connClientId.delete(id);
       this.#hostScores.delete(id);
       this.#rateLimitWindows.delete(id);
-      const ip = this.#connToIp.get(id);
-      if (ip) {
-        const count = this.#ipConnectionCounts.get(ip) ?? 1;
-        if (count <= 1) {
-          this.#ipConnectionCounts.delete(ip);
-        } else {
-          this.#ipConnectionCounts.set(ip, count - 1);
-        }
-        this.#connToIp.delete(id);
-      }
+      this.#releaseIp(id);
       try {
         conn?.close(4011, "Picker timeout");
       } catch {
@@ -831,16 +839,7 @@ export class CartRaveServer extends Server {
       }
       
       // Cleanup IP tracking on reap
-      const ip = this.#connToIp.get(id);
-      if (ip) {
-        const count = this.#ipConnectionCounts.get(ip) ?? 1;
-        if (count <= 1) {
-          this.#ipConnectionCounts.delete(ip);
-        } else {
-          this.#ipConnectionCounts.set(ip, count - 1);
-        }
-        this.#connToIp.delete(id);
-      }
+      this.#releaseIp(id);
     }
 
     // * Cancel any armed countdown if the departed human(s) broke the all-ready
@@ -963,16 +962,7 @@ export class CartRaveServer extends Server {
 
   onClose(conn: Connection) {
     // Security: Cleanup IP tracking
-    const ip = this.#connToIp.get(conn.id);
-    if (ip) {
-      const count = this.#ipConnectionCounts.get(ip) ?? 1;
-      if (count <= 1) {
-        this.#ipConnectionCounts.delete(ip);
-      } else {
-        this.#ipConnectionCounts.set(ip, count - 1);
-      }
-      this.#connToIp.delete(conn.id);
-    }
+    this.#releaseIp(conn.id);
 
     this.#connections.delete(conn.id);
     this.#removeFromJoinOrder(conn.id);
@@ -1115,16 +1105,7 @@ export class CartRaveServer extends Server {
             this.#hostScores.delete(ghostConnId);
 
             // Cleanup IP tracking on ghost exorcism
-            const ip = this.#connToIp.get(ghostConnId);
-            if (ip) {
-              const count = this.#ipConnectionCounts.get(ip) ?? 1;
-              if (count <= 1) {
-                this.#ipConnectionCounts.delete(ip);
-              } else {
-                this.#ipConnectionCounts.set(ip, count - 1);
-              }
-              this.#connToIp.delete(ghostConnId);
-            }
+            this.#releaseIp(ghostConnId);
 
             try {
               ghostConn?.close(4010, "Replaced by new session");
