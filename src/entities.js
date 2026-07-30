@@ -27,6 +27,7 @@ import {
 import { cleanupShatter } from "./cartShatter.js";
 import { applyCartPattern } from "./cartPatterns.js";
 import * as GroceryPool from "./effects/groceryPool.js";
+import { stopSfx, stopAllSfx } from "./audioManager.js";
 
 // Module-level references
 let allCartsRef = null;
@@ -496,6 +497,9 @@ export function resetCartIdleWatch(cart) {
  * Resets transient combat, boost, and AI state fields shared by doRespawn and
  * rematchResetWorld so the two paths do not drift apart over time.
  *
+ * Stops the charge-up Howler instance *before* nulling chargeUpSfxId — nulling
+ * alone used to orphan a loop:true SFX forever (NH-BOOST / rematch orphans).
+ *
  * @param {ReturnType<typeof createCart> | null | undefined} cart
  */
 export function resetCartTransientState(cart) {
@@ -510,13 +514,16 @@ export function resetCartTransientState(cart) {
   cart.ramBoostActiveUntilMs = 0;
   cart.ramBoostStreakCarry = 0;
   cart.lastRamBoostTimeMs = Number.NEGATIVE_INFINITY;
-  // * Auto-Charge Boost state reset
+  // * Auto-Charge Boost state reset — stop by id first so the Howl cannot outlive the field.
+  if (cart.chargeUpSfxId != null) {
+    stopSfx("chargeUp", cart.chargeUpSfxId);
+    cart.chargeUpSfxId = null;
+  }
   cart.isChargingBoost = false;
   cart.boostChargeStartedAtMs = 0;
   cart.boostCooldownUntilMs = 0;
   cart.boostChargeMultiplier = 1;
   cart.nitroStreakCharged = false;
-  cart.chargeUpSfxId = null;
   // * Hop landing one-shot — clear so mid-hop death cannot thud on the first
   // * floor contact after respawn (timeout alone is not enough if respawn is fast).
   cart.hopAwaitingLand = false;
@@ -640,6 +647,11 @@ export function destroyCarts(options = {}) {
 export function doRespawn(cart, callbacks) {
   if (!cart?.body) return;
 
+  // * Nuclear: any prior path that nulled chargeUpSfxId without stopSfx left a
+  // * loop:true Howl playing with no handle. Only the local cart ever plays chargeUp,
+  // * so killing every instance on respawn is correct.
+  stopAllSfx("chargeUp");
+
   // * Tear down any active shatter + explosion VFX (host fall or non-host replay).
   // * Rebuilds the cart visual mesh into the existing root so camera / labels keep
   // * their references. No-op when the cart was not shattering.
@@ -697,6 +709,10 @@ export function refreshCartSpawnPositions() {
  * (WebRTC + reliable PartyKit host_spawn).
  */
 export function rematchResetWorld() {
+  // * Nuclear before any resetCartTransientState nulls ids (callers can forget
+  // * stopAllChargeSfx — this is the last line of defense against orphan loops).
+  stopAllSfx("chargeUp");
+
   Visuals.disposeAllRamBoostStreaks(ramBoostStreaksRef, sceneRef);
   GameState.clearAllHits();
   // * Drop stale prediction / reconcile seq so the next host snaps are not ignored.
