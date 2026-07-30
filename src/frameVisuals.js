@@ -203,7 +203,7 @@ export function updateVisualsAndEffects(deps, frameCtx) {
   // * A step-down must be applied live (composer passes, pixel ratio, arena knobs) —
   // * the tier flip alone only affects per-frame readers.
   if (!deps.isMenuVisible?.()) {
-    if (tickAutoQuality(dt, now)) {
+    if (tickAutoQuality(dt, now, "game")) {
       deps.onAutoQualityStepDown?.();
     }
   }

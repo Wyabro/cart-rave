@@ -12,6 +12,7 @@
  */
 
 import { getDebugParams } from "./debugParams.js";
+import { recordDiagEvent } from "./diagnostics.js";
 import { getQualityTier, setSessionQualityTier, stepDownQualityTier } from "./qualityMode.js";
 import {
   canStepDownSessionRenderScale,
@@ -38,12 +39,31 @@ let stepsApplied = 0;
 let cooldownUntilMs = 0;
 
 /**
+ * WARM-IGPU-1 Phase 0b: every step-down this session, oldest first. A demotion is
+ * IRREVERSIBLE for the session (there is no step-up path) and until now was reported
+ * only by a DEV-gated console.warn — so in production a player could spend a whole
+ * session on LOW because of a few shader-compile stalls and no signal ever left the
+ * machine. Read by the analytics layer at session_end.
+ * @type {Array<{ from: string, to: string, source: string, p95: number, tMs: number }>}
+ */
+const stepLog = [];
+
+/** @returns {ReadonlyArray<{ from: string, to: string, source: string, p95: number, tMs: number }>} */
+export function getAutoQualityStepLog() {
+  return stepLog;
+}
+
+/**
  * Feed one frame's delta (seconds) from the main loop.
  * @param {number} dtSec
  * @param {number} [nowMs]
+ * @param {string} [source] Which feed produced this sample — "game" (frame delta) or
+ *   "attract" (menu render cost). The two measure DIFFERENT quantities against one
+ *   threshold (see main.js onRenderCost); recording it is how we tell a menu-side
+ *   demotion from a real in-round one without guessing.
  * @returns {boolean} true if this call applied a session step-down (caller should re-apply quality live)
  */
-export function tickAutoQuality(dtSec, nowMs = performance.now()) {
+export function tickAutoQuality(dtSec, nowMs = performance.now(), source = "game") {
   // * An explicit ?preset= is a QA pin (tools/perf-profile.mjs measures fixed tiers;
   // * visual-QA shots must be reproducible) — the watchdog shares the same session
   // * override slot and would silently relabel the cell. The software-GL hard floor
@@ -101,10 +121,33 @@ export function tickAutoQuality(dtSec, nowMs = performance.now()) {
   samples.length = 0;
   windowStartMs = 0;
   cooldownUntilMs = nowMs + COOLDOWN_MS;
+  // * Phase 0b: land the demotion in the diag ring so an F8 capture shows WHEN it fired
+  // * (menu attract vs mid-round) and on what evidence. The sample buffer is NOT cleared
+  // * between windows, so one bad second can poison up to 3 evaluated windows — `p95` plus
+  // * `source` is what separates "this machine is genuinely slow" from "a shader compile
+  // * stall demoted the session".
+  recordDiagEvent("perf", "qualityStepDown", {
+    from: currentTier,
+    to: atFloor ? currentTier : getQualityTier(),
+    step: stepDesc,
+    source,
+    p95: Math.round(p95 * 10) / 10,
+    stepsApplied,
+    renderScale: getSessionRenderScaleMul(),
+  });
+  if (stepLog.length < 16) {
+    stepLog.push({
+      from: currentTier,
+      to: atFloor ? currentTier : getQualityTier(),
+      source,
+      p95: Math.round(p95 * 10) / 10,
+      tMs: Math.round(nowMs),
+    });
+  }
   if (import.meta.env.DEV) {
     // eslint-disable-next-line no-console
     console.warn(
-      `[autoQuality] session step-down ${stepDesc} (p95≈${p95.toFixed(1)}ms over ${BAD_WINDOWS_NEEDED}s)`,
+      `[autoQuality] session step-down ${stepDesc} (p95≈${p95.toFixed(1)}ms over ${BAD_WINDOWS_NEEDED}s, source=${source})`,
     );
   }
   return true;
@@ -117,4 +160,5 @@ export function resetAutoQualityForTests() {
   windowStartMs = 0;
   stepsApplied = 0;
   cooldownUntilMs = 0;
+  stepLog.length = 0;
 }

@@ -692,6 +692,7 @@ function patchSafeCompileAsync(renderer) {
         : COMPILE_ASYNC_DEFAULT_MAX_WAIT_MS;
 
     let compileMs = 0;
+    const settleT0 = performance.now();
     try {
       // * PERF-WARM-1: this synchronous compile() is the whole cost of compileAsync — the
       // * poll below never blocks. On the Intel iGPU it's a ~3.3s single-frame freeze that
@@ -706,50 +707,82 @@ function patchSafeCompileAsync(renderer) {
       console.warn("[CartRave] renderer.compile failed during warm-up:", err);
       return Promise.resolve(scene);
     }
+    let parallelCompileProbe = false;
+    try {
+      parallelCompileProbe = extensions.get("KHR_parallel_shader_compile") !== null;
+    } catch {
+      /* probe failed — leave false */
+    }
+    const materialsAtCompile = materials?.size ?? 0;
     if (compileMs >= 50) {
-      let parallelCompile = false;
-      try {
-        parallelCompile = extensions.get("KHR_parallel_shader_compile") !== null;
-      } catch {
-        /* probe failed — leave false */
-      }
       recordDiagEvent("perf", "warmupCompile", {
         compileMs: Math.round(compileMs),
-        materials: materials?.size ?? 0,
-        parallelCompile,
+        materials: materialsAtCompile,
+        parallelCompile: parallelCompileProbe,
       });
     }
 
     return new Promise((resolve) => {
       const deadline = performance.now() + maxWaitMs;
+      // * WARM-IGPU-1 Phase 0 (H1 test): this promise resolving does NOT mean the programs
+      // * are linked — it means "ready OR the budget expired". `play-shader-end` fires off
+      // * this resolve, so a budget-expired settle is exactly the case where the remaining
+      // * link cost gets deferred into the countdown (cap-206: 6.4s longtask after
+      // * carts-ready). Reporting outcome + how many programs were still unready turns that
+      // * inference into evidence.
+      const settle = (outcome) => {
+        const totalMs = performance.now() - settleT0;
+        const remaining = materials?.size ?? 0;
+        // * Report anything slow enough to matter, and ALWAYS report a budget-expired
+        // * settle regardless of duration — that's the diagnostic signal for this card.
+        if (totalMs >= 50 || outcome === "budget-expired") {
+          recordDiagEvent("perf", "warmupSettle", {
+            outcome,
+            remaining,
+            materials: materialsAtCompile,
+            compileMs: Math.round(compileMs),
+            pollMs: Math.round(totalMs - compileMs),
+            totalMs: Math.round(totalMs),
+            budgetMs: Math.round(maxWaitMs),
+            parallelCompile: parallelCompileProbe,
+          });
+        }
+        resolve(scene);
+      };
 
       function checkMaterialsReady() {
         try {
-          materials.forEach((material) => {
-            const materialProperties = /** @type {{ currentProgram?: { isReady?: () => boolean } | null } | undefined} */ (
-              properties.get(material)
-            );
-            const program = materialProperties?.currentProgram;
-            // * Drop materials with no program — stock three would throw on program.isReady().
-            if (!program || typeof program.isReady !== "function") {
-              materials.delete(material);
-              return;
-            }
-            // * Drop materials whose GL program was deleted mid-poll. This happens when a
-            // * menu-preview warm-up is still polling and play entry's disposeLevel() frees
-            // * the preview arena's programs (guaranteed on slow GPUs, where the parallel-
-            // * compile poll window stays open for seconds). isReady() would then call
-            // * getProgramParameter(deletedProgram, COMPLETION_STATUS_KHR) → GL_INVALID_VALUE
-            // * "glGetProgramiv: Program object expected" console spam. isProgram() reports
-            // * the freed handle as false WITHOUT emitting a GL error of its own.
-            const rawProgram = /** @type {{ program?: WebGLProgram } } */ (program).program;
-            if (rawProgram && typeof gl.isProgram === "function" && !gl.isProgram(rawProgram)) {
-              materials.delete(material);
-              return;
-            }
-            if (program.isReady()) {
-              materials.delete(material);
-            }
+          // * Named span: `program.isReady()` is a GL call into ANGLE. If a driver links
+          // * synchronously there instead of reporting completion, the poll tick IS the
+          // * freeze — and today it lands in longframe.spans as unattributed
+          // * "unknown|window" (cap-206's 6.4s stall carried only warm.compile:96).
+          mark("warm.compilePoll", () => {
+            materials.forEach((material) => {
+              const materialProperties = /** @type {{ currentProgram?: { isReady?: () => boolean } | null } | undefined} */ (
+                properties.get(material)
+              );
+              const program = materialProperties?.currentProgram;
+              // * Drop materials with no program — stock three would throw on program.isReady().
+              if (!program || typeof program.isReady !== "function") {
+                materials.delete(material);
+                return;
+              }
+              // * Drop materials whose GL program was deleted mid-poll. This happens when a
+              // * menu-preview warm-up is still polling and play entry's disposeLevel() frees
+              // * the preview arena's programs (guaranteed on slow GPUs, where the parallel-
+              // * compile poll window stays open for seconds). isReady() would then call
+              // * getProgramParameter(deletedProgram, COMPLETION_STATUS_KHR) → GL_INVALID_VALUE
+              // * "glGetProgramiv: Program object expected" console spam. isProgram() reports
+              // * the freed handle as false WITHOUT emitting a GL error of its own.
+              const rawProgram = /** @type {{ program?: WebGLProgram } } */ (program).program;
+              if (rawProgram && typeof gl.isProgram === "function" && !gl.isProgram(rawProgram)) {
+                materials.delete(material);
+                return;
+              }
+              if (program.isReady()) {
+                materials.delete(material);
+              }
+            });
           });
         } catch (err) {
           // * Never leave boot blocked on a poll-frame exception.
@@ -757,8 +790,12 @@ function patchSafeCompileAsync(renderer) {
           materials.clear();
         }
 
-        if (materials.size === 0 || performance.now() >= deadline) {
-          resolve(scene);
+        if (materials.size === 0) {
+          settle("ready");
+          return;
+        }
+        if (performance.now() >= deadline) {
+          settle("budget-expired");
           return;
         }
         setTimeout(checkMaterialsReady, 10);

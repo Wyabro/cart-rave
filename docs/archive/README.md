@@ -19,6 +19,7 @@ match the date first, then grep inside.
 | Date range | File |
 |---|---|
 | 2026-07-23 → present | **live** in [STATUS.md](../STATUS.md) (short current-session summary only) |
+| 2026-07-30 · CARGO-VIS-1 arc (topic, not date — STATUS keeps the closure summary) | [status-log-2026-07-30-cargo-vis-1.md](./status-log-2026-07-30-cargo-vis-1.md) |
 | 2026-07-22 | [status-log-2026-07-22.md](./status-log-2026-07-22.md) |
 | 2026-07-21 | [status-log-2026-07-21.md](./status-log-2026-07-21.md) |
 | 2026-07-20 → 07-21 | [status-log-2026-07-20-to-21.md](./status-log-2026-07-20-to-21.md) |

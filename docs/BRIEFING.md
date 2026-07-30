@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (also runs inside `npm run qa`).
-> Generated 2026-07-30 at commit `5763560` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
-> Source digest: `48096807`
+> Generated 2026-07-30 at commit `78b142a` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
+> Source digest: `d92d6d06`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -18,18 +18,10 @@ Playtesting and stabilization — Tier A drained. B1 AI-DIFF-1 shipped (`49bfc2a
 
 ## ACTIVE CARD
 
-Wyatt, 30s: GitHub Settings → default branch → `cart-clash` (HYGIENE-1's last item; `gh repo edit` was permission-blocked)
+WARM-IGPU-1 — first-play warm stall swallows countdown (medium iGPUs)
+Pass looks like: ▶ P0+0b instrumentation ✅ landed 07-30; owed: Wyatt cold-cache repro + Optimus check ([plan](./planning/warm-igpu-1.md)); P1 lever needs its own ack
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
-
-Self-directed queue (one at a time, within the declared phase):
-- **WARM-IGPU-1** first-play warm stall swallows countdown (medium iGPUs) — 📋 P0 acked 07-30; P0b (watchdog disproof + tier telemetry) and P1 need own acks
-- **CARGO-HUD-1a** cargo-readout mock on BOTH hosts, 3-state — Wyatt picks — 📋 after WARM P0; before WARM P1
-- **SKYBOX-1** restore never-built sceneExtras skybox (review C-01) — 📋 after WARM P1 — Wyatt eyes close
-- **SEC-BEACON-1 · SEC-UNLOCK-1 · SEC-ROUTE-1** beacon rate-limit · devUnlocks URL gate · startsWith routes — 📋 before external testers — with analytics-DO reset
-- **SHEET-1** in-match contact-sheet tool (`?room=solo` boot) — 📋 blackframes readback pre-check first
-- **FIGHT-VERIFY-1** owed fight-night verification — 📋 agent half via SHEET-1; Wyatt half = playtest
-- **MAIN-1 / BUNDLE-1** main.js seam / code-split — 📋 post-gate
 
 ## Waiting on Wyatt (not agent work)
 

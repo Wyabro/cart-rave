@@ -1,6 +1,16 @@
 # WARM-IGPU-1 — first-play shader warm stall on iGPU laptops (countdown swallowed)
 
-**Status:** ✅ Phase 0 **acked** (Wyatt 07-30) — runs **after CARGO-VIS-1**. Phase 1 lever choice still needs its own ack post-forensics.
+**Status:** Phase 0 + 0b **acked** (Wyatt 07-30). Agent half (instrumentation) ✅ **landed
+07-30**; steps 1 and 3 below are **Wyatt-machine actions and still owed**. Phase 1 lever
+choice needs its own ack once those captures exist.
+
+**What to read the capture for** (once the cold-cache repro runs):
+`warmupSettle.outcome === "budget-expired"` with `remaining > 0` on the warm play-entry
+settle ⇒ **H1 confirmed** (link cost deferred past `play-shader-end` into the countdown) ⇒
+**Lever A**. If it settles `ready` and the stall still lands in the countdown, the cost is at
+first draw, not link ⇒ H3 ⇒ still Lever A, but Lever B would not help. A large `pollMs` with
+`warm.compilePoll` spans inside the frozen window ⇒ ANGLE is linking synchronously in
+`isReady()` ⇒ **Lever B** (budget scaling) is actively harmful; go Lever A.
 **Relation:** New evidence beside COUNTDOWN-WARM-1 (desktop PASS 07-22 stands — this is the
 medium-tier failure of the same warm pipeline). Does not touch the reverted host-countdown
 gate (`c8df8fd`) — the lever stays "pre-warm before countdown", never "delay countdown".
@@ -45,9 +55,15 @@ cheap, so the cost is session-first-play (likely per-build).
    `--disable-gpu-shader-disk-cache` (or clear profile `GPUCache`), first solo play with
    `?diag=1`, F8 during/after countdown. Expect the Laptop-A pattern; confirms H2 and gives
    us a local repro box.
-2. **Diag-only patch:** name the `unknown|window` longtasks — span around the flyover warm
-   pass + record compileAsync outcome (`ready` vs `budget-expired`, programs remaining) in
-   the `warmupCompile` diag event. Small, instrumentation-only; still ack-gated.
+2. **Diag-only patch — ✅ DONE 07-30.** Shipped as `perf/warmupSettle` (outcome
+   `ready | budget-expired`, `remaining`, and the `compileMs` vs **`pollMs`** split),
+   a `warm.compilePoll` span so the readiness poll stops reading as `unknown|window`, and
+   Phase 0b's `perf/qualityStepDown` + analytics fields. Live-boot verified.
+   **First finding, before any repro:** on the dev box a settle logged `compileMs: 22` /
+   `pollMs: 1110`. The old `warmupCompile` event only fires at `compileMs >= 50`, so that
+   settle produced **no event at all** — meaning the 07-25 laptop captures
+   (`warmupCompile: 1040ms`) undercount the true warm cost by whatever their poll time was.
+   Treat the evidence table's play-shader numbers as the reliable ones.
 3. **Optimus check (Laptop A):** that machine has a GTX 1660 Ti, but the capture's ANGLE
    string proves Chrome rendered on the UHD 630 — Windows per-app graphics preference /
    battery can defeat our `powerPreference: "high-performance"` request

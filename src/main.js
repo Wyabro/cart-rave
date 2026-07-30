@@ -1551,7 +1551,9 @@ async function main() {
     // * survivable tier before ever entering a round. (Frame spacing can't be
     // * used here: the attract loop throttles to ~30fps by design.)
     onRenderCost: (renderCostSec, nowMs) => {
-      if (tickAutoQuality(renderCostSec, nowMs)) handleAutoQualityStepDown();
+      // * "attract" tags the feed: this is RENDER COST, not frame delta (the attract loop
+      // * throttles to ~30fps), yet both feed the same 20.5ms bar. WARM-IGPU-1 Phase 0b.
+      if (tickAutoQuality(renderCostSec, nowMs, "attract")) handleAutoQualityStepDown();
     },
   });
 

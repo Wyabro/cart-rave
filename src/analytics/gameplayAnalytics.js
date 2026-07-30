@@ -29,6 +29,9 @@ import { challengeStore } from "../stores/challengeStore.js";
 import { snapshotMatchStats } from "../scoring/matchStats.js";
 import { settingsStore } from "../stores/settingsStore.js";
 import { registerDiagProbe } from "../utils/diagnostics.js";
+import { getAutoQualityStepLog } from "../utils/autoQuality.js";
+import { getQualityTier } from "../utils/qualityMode.js";
+import { probeGpu } from "../utils/gpuCaps.js";
 import { initAnalytics, trackEvent, getAnalyticsDebugState } from "./analytics.js";
 
 /**
@@ -61,9 +64,20 @@ export function installGameplayAnalytics(deps) {
       if (phase === RoundPhase.RUNNING || phase === RoundPhase.COUNTDOWN) {
         trackEvent("player_quit", { reason: "pagehide", phase, arena: arena(), mode: mode() });
       }
+      // * WARM-IGPU-1 Phase 0b: the tier a session ENDED on, plus every auto step-down.
+      // * `tier` at session_start is the stored preference; the watchdog can silently
+      // * demote it (irreversibly — there is no step-up path) and nothing reported that.
+      // * `steps` > 0 with `firstStepSource: "attract"` means players are being demoted
+      // * by menu shader-compile stalls before gameplay is ever measured.
+      const steps = getAutoQualityStepLog();
       trackEvent("session_end", {
         durationMs: Math.round(performance.now()),
         matches: matchesThisSession,
+        tier: safeCall(() => getQualityTier()) ?? null,
+        steps: steps.length,
+        firstStepSource: steps[0]?.source ?? null,
+        firstStepAtMs: steps[0]?.tMs ?? null,
+        firstStepP95: steps[0]?.p95 ?? null,
       });
     },
   });
@@ -72,6 +86,10 @@ export function installGameplayAnalytics(deps) {
   trackEvent("session_start", {
     mode: mode(),
     tier: safeCall(() => settingsStore.getState().qualityTier) ?? null,
+    // * Pairs with session_end's `tier`/`steps`: gpuClass is what CHOSE the starting tier
+    // * (discrete → high, unknown/iGPU → medium), so a demotion pattern can be read per
+    // * hardware class instead of per anecdote. WARM-IGPU-1 Phase 0b.
+    gpuClass: safeCall(() => probeGpu().gpuClass) ?? null,
     dpr: typeof window !== "undefined" ? Math.round((window.devicePixelRatio ?? 1) * 100) / 100 : null,
     touch: typeof navigator !== "undefined" ? (navigator.maxTouchPoints ?? 0) > 0 : null,
     menuReadyMs: readMenuReadyMs(),
