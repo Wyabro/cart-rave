@@ -132,7 +132,7 @@ Run 7 mission (below) is historical evidence, superseded as the live queue by
 | **ARENA-BAL-1** | Sundial + Storerooms self-KO rate | ✅ **closed** (Wyatt 07-22, no code) |
 | **QA-STATUS-1** | STATUS token overage broke `qa` | ✅ closed this commit — 07-21 log archived, queue reordered |
 | **HYGIENE-1** | 4-item sweep: sourcemaps off · boot-error filter · default branch · profiler `--dpr` | ✅ 07-30 — 3 branches deleted; dist has 0 `.map`; **one Wyatt step left: GitHub Settings → default branch → `cart-clash`** (classifier blocked `gh repo edit`) |
-| **C2** CARGO-VIS-1 | full-bay fill + rim overflow look | ▶ session 3 pass 4 (07-30) — 4-phase pacing 5/10/20/30 + rear dead-strip fix (front-nudge 0.08→0.02, hl 0.6→0.7); wall-to-wall fill, crest over the rim, rear-clip check clean; **Wyatt eyes = the close** |
+| **C2** CARGO-VIS-1 | full-bay fill + rim overflow look | ▶ session 3 pass 4 (07-30) — 4-phase pacing 5/10/20/30 + rear dead-strip fix; wall-to-wall fill, crest over the rim, rear-clip clean; **DEPLOYED `7660623`** — Wyatt prod playtest = the close |
 | **WARM-IGPU-1** | first-play warm stall swallows countdown (medium iGPUs) | 📋 [P0 acked 07-30](./planning/warm-igpu-1.md); P0b (watchdog disproof + tier telemetry) and P1 need own acks |
 | **CARGO-HUD-1a** | cargo-readout mock on BOTH hosts, 3-state — Wyatt picks | 📋 after WARM P0; before WARM P1 |
 | **SKYBOX-1** | restore never-built sceneExtras skybox (review C-01) | 📋 after WARM P1 — Wyatt eyes close |
@@ -287,6 +287,12 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
+2026-07-30 (CARGO-VIS-1 sessions 2–3 DEPLOYED) — `npm run ship` at `7660623`; Worker Version
+`9752ef69-d48d-457d-acd3-5f75adc521a1`, entry `index-C06DMhvl.js` — **verified against the
+fetched assets** (`fillPhases` + `CartFrame` in the entry, build sha in `scene-DA9pQ7f6.js`).
+HTML edge-cache may serve one stale paint (known gotcha — reload fixes). Wyatt prod playtest
+= the close.
+
 2026-07-30 (CARGO-VIS-1 session 3 — fill retune pass 1, Wyatt-acked levers) — Wyatt annotated
 the session-2 "full" shot: pile occupied ~⅓ of the true cavity (the 0.48/0.42 insets were
 never-rendered guesses). Three levers: rave cavity insets 0.48/0.42 → **0.68/0.60**
@@ -300,7 +306,7 @@ base/max 10/30. All 4 phases verified live (rig reloads at life 2/3/6/8). **Pass
 rear strip always empty):** getBasketCargoParams front-nudge 0.08→0.02 + hl 0.6→0.7 — the
 old pair left a permanent dead band along the handle wall; rear-view rig shot confirms items
 sit inside the rear shell (no clip-through) and the crest tops the rim in side profile.
-qa 773/773 each pass. Wyatt eyes = the close.
+qa 773/773 each pass.
 
 2026-07-30 (CARGO-VIS-1 session 2 — CartFrame fix; real-dims bays proven live) —
 `getBasketCargoParams` (entities.js) matches `CartFrame` (instance rename of authored
