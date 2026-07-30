@@ -316,16 +316,23 @@ function getBasketCargoParams(mesh) {
   }
 
   // * Rave GLTF: body bounds in cart-mesh local space (handles RaveGltfModel orient + bodyScale).
+  // * Measured ROTATION-INDEPENDENTLY: geometry bbox through the child's transform relative to
+  // * the cart root (root⁻¹ · childWorld). The old world-AABB-then-invert measurement was exact
+  // * at creation (identity pose) but inflated up to ~2× on KO rebuilds, where the mesh still
+  // * holds its death pose (yaw + tumble pitch/roll) — bays drifted into walls then fully
+  // * outside the basket, worse with wilder deaths (Wyatt prod playtest 07-30).
   mesh.updateMatrixWorld(true);
   const box = new THREE.Box3();
   let found = false;
+  const invRoot = new THREE.Matrix4().copy(mesh.matrixWorld).invert();
+  const relToRoot = new THREE.Matrix4();
   mesh.traverse((child) => {
     if (found) return;
     if ((child.name === "CartFrame" || child.name === "tripo_part_0") && /** @type {any} */ (child).isMesh) {
-      const worldBox = new THREE.Box3().setFromObject(child);
-      const inv = new THREE.Matrix4().copy(mesh.matrixWorld).invert();
-      worldBox.applyMatrix4(inv);
-      box.copy(worldBox);
+      const geo = /** @type {THREE.Mesh} */ (child).geometry;
+      if (!geo.boundingBox) geo.computeBoundingBox();
+      relToRoot.multiplyMatrices(invRoot, child.matrixWorld);
+      box.copy(geo.boundingBox).applyMatrix4(relToRoot);
       found = true;
     }
   });
