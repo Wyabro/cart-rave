@@ -8,6 +8,15 @@
  *   node tools/perf-profile.mjs
  *   node tools/perf-profile.mjs --preset medium --level classic
  *   node tools/perf-profile.mjs --url http://127.0.0.1:5173/ --noserver
+ *   node tools/perf-profile.mjs --dpr 2 --level classic --preset high
+ *
+ * --dpr <n> sets deviceScaleFactor (default 1). The high tier's biggest knob is
+ * `pixelRatioCap: 2`, which is INERT at DPR 1 — high-tier cells measured without
+ * --dpr 2 never pay the fragment cost real laptop panels (150–200% scaling) pay.
+ * --gpu passes best-effort hardware-GPU flags to headless Chromium; without it the
+ * run is typically SwiftShader. Check `gpuVendor` in the output JSON for what
+ * actually rendered before trusting absolute numbers (relative rankings within one
+ * run are fine either way).
  *
  * Requires Playwright Chromium. Auto-starts `npm run dev` on :5173 unless --url/--noserver.
  */
@@ -343,6 +352,7 @@ async function main() {
   const settle = Number(str(args.settle) ?? 40);
   const width = Number(str(args.w) ?? 1280);
   const height = Number(str(args.h) ?? 720);
+  const dpr = Number(str(args.dpr) ?? 1);
   const outPath = resolve(str(args.out) ?? `shots/perf-profile-${Date.now()}.json`);
 
   const levels = str(args.level)
@@ -376,15 +386,19 @@ async function main() {
   const browser = await chromium.launch({
     headless: true,
     channel: process.env.PLAYWRIGHT_CHROME_CHANNEL || undefined,
+    // * --gpu: best-effort hardware GPU in headless. Not guaranteed — verify via
+    // * gpuVendor in the output JSON, don't assume.
+    args: args.gpu === true ? ["--enable-gpu", "--ignore-gpu-blocklist", "--use-gl=angle"] : [],
   });
   const page = await browser.newPage({
     viewport: { width, height },
-    deviceScaleFactor: 1,
+    deviceScaleFactor: dpr,
   });
   page.on("pageerror", (err) => console.error("[pageerror]", err.message));
 
   /** @type {object[]} */
   const rows = [];
+  let gpuVendor = "unknown";
   try {
     for (const cell of cells) {
       const url = cellUrl(base, cell);
@@ -402,13 +416,29 @@ async function main() {
           `refl=${m.scene?.reflectorVisible}/${m.scene?.reflectorTotal} spots=${m.scene?.lights?.spot} pts=${m.scene?.lights?.point}`,
       );
     }
+    // * What actually rendered — SwiftShader numbers are only comparable to each
+    // * other, never to a real adapter's.
+    gpuVendor = await page
+      .evaluate(() => {
+        try {
+          const c = document.createElement("canvas");
+          const gl = c.getContext("webgl2") || c.getContext("webgl");
+          if (!gl) return "no-webgl";
+          const ext = gl.getExtension("WEBGL_debug_renderer_info");
+          return ext ? String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)) : "webgl(no-debug-info)";
+        } catch {
+          return "probe-failed";
+        }
+      })
+      .catch(() => "probe-failed");
+    console.log(`[perf] dpr=${dpr} adapter: ${gpuVendor}`);
   } finally {
     await browser.close();
     if (serverProc && !serverProc.killed) serverProc.kill();
   }
 
   mkdirSync(dirname(outPath), { recursive: true });
-  writeFileSync(outPath, JSON.stringify({ when: new Date().toISOString(), width, height, rows }, null, 2));
+  writeFileSync(outPath, JSON.stringify({ when: new Date().toISOString(), width, height, dpr, gpuVendor, rows }, null, 2));
   console.log(`[perf] wrote ${outPath}`);
 
   // * Rank by GPU median (classic high first expected).
