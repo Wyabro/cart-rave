@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-07-30T07:30:22.910Z",
-    "commit": "fb8afd6"
+    "at": "2026-07-30T07:43:42.246Z",
+    "commit": "d9f973b"
   },
-  "source_digest": "2dfcc9df",
+  "source_digest": "facd97fd",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -936,14 +936,14 @@
       {
         "id": "HYGIENE-1",
         "what": "4-item sweep: sourcemaps off · boot-error filter · default branch · profiler `--dpr`",
-        "status": "▶ ACTIVE next — exact list + branch refs in [BACKLOG](./planning/BACKLOG.md); needs its own ack",
-        "state": "active"
+        "status": "✅ 07-30 — 3 branches deleted; dist has 0 `.map`; one Wyatt step left: GitHub Settings → default branch → `cart-clash` (classifier blocked `gh repo edit`)",
+        "state": "done"
       },
       {
         "id": "C2 CARGO-VIS-1",
         "what": "full-bay fill + rim overflow look",
-        "status": "📋 High — impl locked: bay-local rimY → createCargoBay, GRID ±1.0 (reverses under-rim intent)",
-        "state": "locked"
+        "status": "▶ next — needs its own ack; impl locked: bay-local rimY → createCargoBay, GRID ±1.0 (reverses under-rim intent)",
+        "state": "active"
       },
       {
         "id": "WARM-IGPU-1",
@@ -1004,8 +1004,8 @@
       }
     ],
     "next_actions": [
-      "HYGIENE-1 (next, own ack) — 4-item mechanical sweep; exact list + irreversible branch-delete refs in [BACKLOG](./planning/BACKLOG.md).",
-      "Locked order after that (07-30): CARGO-VIS-1 → WARM-IGPU-1 P0+0b → CARGO-HUD-1a → WARM P1 → SKYBOX-1 → SEC series → SHEET-1 → FIGHT-VERIFY-1.",
+      "Wyatt, 30s: GitHub Settings → default branch → `cart-clash` (HYGIENE-1's last item; `gh repo edit` was permission-blocked).",
+      "CARGO-VIS-1 (next, own ack — session 1 = geometry + screenshots). Locked order after (07-30): WARM-IGPU-1 P0+0b → CARGO-HUD-1a → WARM P1 → SKYBOX-1 → SEC series → SHEET-1 → FIGHT-VERIFY-1.",
       "Before public/external playtest: SEC-BEACON-1/UNLOCK/ROUTE plus `DELETE /api/analytics?token=…` (clear DO) — see Gotchas."
     ],
     "open_issues": [

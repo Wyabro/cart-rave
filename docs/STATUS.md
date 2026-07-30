@@ -131,8 +131,8 @@ Run 7 mission (below) is historical evidence, superseded as the live queue by
 | **B3** HIT-FEEL-1 | hit feedback — weak normals + noisy incoming | ✅ **PASS** (Wyatt playtest 07-22) |
 | **ARENA-BAL-1** | Sundial + Storerooms self-KO rate | ✅ **closed** (Wyatt 07-22, no code) |
 | **QA-STATUS-1** | STATUS token overage broke `qa` | ✅ closed this commit — 07-21 log archived, queue reordered |
-| **HYGIENE-1** | 4-item sweep: sourcemaps off · boot-error filter · default branch · profiler `--dpr` | ▶ ACTIVE next — exact list + branch refs in [BACKLOG](./planning/BACKLOG.md); needs its own ack |
-| **C2** CARGO-VIS-1 | full-bay fill + rim overflow look | 📋 High — impl locked: bay-local rimY → createCargoBay, GRID ±1.0 (reverses under-rim intent) |
+| **HYGIENE-1** | 4-item sweep: sourcemaps off · boot-error filter · default branch · profiler `--dpr` | ✅ 07-30 — 3 branches deleted; dist has 0 `.map`; **one Wyatt step left: GitHub Settings → default branch → `cart-clash`** (classifier blocked `gh repo edit`) |
+| **C2** CARGO-VIS-1 | full-bay fill + rim overflow look | ▶ next — needs its own ack; impl locked: bay-local rimY → createCargoBay, GRID ±1.0 (reverses under-rim intent) |
 | **WARM-IGPU-1** | first-play warm stall swallows countdown (medium iGPUs) | 📋 [P0 acked 07-30](./planning/warm-igpu-1.md); P0b (watchdog disproof + tier telemetry) and P1 need own acks |
 | **CARGO-HUD-1a** | cargo-readout mock on BOTH hosts, 3-state — Wyatt picks | 📋 after WARM P0; before WARM P1 |
 | **SKYBOX-1** | restore never-built sceneExtras skybox (review C-01) | 📋 after WARM P1 — Wyatt eyes close |
@@ -158,8 +158,8 @@ Triage docs superseded: [playtest-triage-2026-07-17](./planning/playtest-triage-
 
 ### Next actions
 
-1. **HYGIENE-1** (next, own ack) — 4-item mechanical sweep; exact list + irreversible branch-delete refs in [BACKLOG](./planning/BACKLOG.md).
-2. Locked order after that (07-30): **CARGO-VIS-1 → WARM-IGPU-1 P0+0b → CARGO-HUD-1a → WARM P1 → SKYBOX-1 → SEC series → SHEET-1 → FIGHT-VERIFY-1.**
+1. **Wyatt, 30s:** GitHub Settings → default branch → `cart-clash` (HYGIENE-1's last item; `gh repo edit` was permission-blocked).
+2. **CARGO-VIS-1** (next, own ack — session 1 = geometry + screenshots). Locked order after (07-30): **WARM-IGPU-1 P0+0b → CARGO-HUD-1a → WARM P1 → SKYBOX-1 → SEC series → SHEET-1 → FIGHT-VERIFY-1.**
 3. **Before public/external playtest:** SEC-BEACON-1/UNLOCK/ROUTE **plus** `DELETE /api/analytics?token=…` (clear DO) — see Gotchas.
 
 ## Open issues (top)
