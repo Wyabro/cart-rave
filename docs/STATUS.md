@@ -132,7 +132,7 @@ Run 7 mission (below) is historical evidence, superseded as the live queue by
 | **ARENA-BAL-1** | Sundial + Storerooms self-KO rate | ✅ **closed** (Wyatt 07-22, no code) |
 | **QA-STATUS-1** | STATUS token overage broke `qa` | ✅ closed this commit — 07-21 log archived, queue reordered |
 | **HYGIENE-1** | 4-item sweep: sourcemaps off · boot-error filter · default branch · profiler `--dpr` | ✅ 07-30 — 3 branches deleted; dist has 0 `.map`; **one Wyatt step left: GitHub Settings → default branch → `cart-clash`** (classifier blocked `gh repo edit`) |
-| **C2** CARGO-VIS-1 | full-bay fill + rim overflow look | ▶ session 3 pass 1 (07-30) — insets 0.68/0.60 · cargoScale 0.60 · crest guard 2.2·halfY; pile reaches the walls, crest breaks the rear rim at gameplay distance; **Wyatt eyes**; denser = GRID slots + maxItems lever (needs own flag — changes fill pacing) |
+| **C2** CARGO-VIS-1 | full-bay fill + rim overflow look | ▶ session 3 pass 2 (07-30) — Wyatt-flagged GRID lever: 18→25 slots (13 floor · 8 mid · 4 crest) + `maxItems` 25, on top of pass-1 insets/scale/crest; boss bay reads packed with a rim-breaking heap; **Wyatt eyes = the close** |
 | **WARM-IGPU-1** | first-play warm stall swallows countdown (medium iGPUs) | 📋 [P0 acked 07-30](./planning/warm-igpu-1.md); P0b (watchdog disproof + tier telemetry) and P1 need own acks |
 | **CARGO-HUD-1a** | cargo-readout mock on BOTH hosts, 3-state — Wyatt picks | 📋 after WARM P0; before WARM P1 |
 | **SKYBOX-1** | restore never-built sceneExtras skybox (review C-01) | 📋 after WARM P1 — Wyatt eyes close |
@@ -293,9 +293,10 @@ never-rendered guesses). Three levers: rave cavity insets 0.48/0.42 → **0.68/0
 (entities.js), **cargoScale 0.52 → 0.60**, crest float-guard **1.4 → 2.2·halfY**
 (groceryPool.js). Pass-1 reshoot: pile reaches the right wall + front edge, crest breaks the
 rear rim in profile and at gameplay distance (boss-wide; bay1 orange fully tops the rim); left
-third still reads open in shadow. qa 773/773. Next lever if Wyatt wants denser: more GRID
-slots + `maxItems` — flagged separately, it changes fill pacing not just look. Shots sent —
-Wyatt eyes.
+third still read open in shadow → Wyatt flagged the GRID lever. **Pass 2:** GRID 18 → 25
+slots (13 floor · 8 mid · 4 crest) + `maxItems` 25 (config.js — fill pacing now reveals
+7→25 baseline→boss). Boss bay reads packed: stacked heap, crest breaking the rear rim in
+profile and at gameplay distance. qa 773/773 both passes. Shots sent — Wyatt eyes = the close.
 
 2026-07-30 (CARGO-VIS-1 session 2 — CartFrame fix; real-dims bays proven live) —
 `getBasketCargoParams` (entities.js) now matches `CartFrame` (the instance name — cartRaveGltf

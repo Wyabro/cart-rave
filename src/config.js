@@ -246,7 +246,7 @@ const physics = {
     fullScore: 8, // points — life cargo at which the bay / weight reads "boss" (weight01 1.0)
     baselinePoints: 3, // points — spawn/respawn stocked load (maps to today's handling = 1.0)
     baseItems: 7, // count — groceries visible at visual fullness 0 (stocked floor)
-    maxItems: 18, // count — groceries visible at full cargo (packed basket, all 3 layers; GRID length)
+    maxItems: 25, // count — groceries visible at full cargo (packed basket, all 3 layers; GRID length)
     // * Top-heavy handling — lateral grip at BOSS weight (piecewise: baseline stays 1.0).
     gripFullFactor: 0.58, // unitless — lateral grip scale at weight01 1.0 (readable slide)
     // * Drive curve vs baseline 1.0 (piecewise stripped ↔ baseline ↔ boss).
