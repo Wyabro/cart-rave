@@ -1,6 +1,6 @@
 # WARM-IGPU-1 — first-play shader warm stall on iGPU laptops (countdown swallowed)
 
-**Status:** 📋 queued — plan drafted 07-30, awaiting Wyatt ack. Active card remains CARGO-VIS-1.
+**Status:** ✅ Phase 0 **acked** (Wyatt 07-30) — runs **after CARGO-VIS-1**. Phase 1 lever choice still needs its own ack post-forensics.
 **Relation:** New evidence beside COUNTDOWN-WARM-1 (desktop PASS 07-22 stands — this is the
 medium-tier failure of the same warm pipeline). Does not touch the reverted host-countdown
 gate (`c8df8fd`) — the lever stays "pre-warm before countdown", never "delay countdown".
@@ -48,6 +48,13 @@ cheap, so the cost is session-first-play (likely per-build).
 2. **Diag-only patch:** name the `unknown|window` longtasks — span around the flyover warm
    pass + record compileAsync outcome (`ready` vs `budget-expired`, programs remaining) in
    the `warmupCompile` diag event. Small, instrumentation-only; still ack-gated.
+3. **Optimus check (Laptop A):** that machine has a GTX 1660 Ti, but the capture's ANGLE
+   string proves Chrome rendered on the UHD 630 — Windows per-app graphics preference /
+   battery can defeat our `powerPreference: "high-performance"` request
+   ([scene.js:800](../../src/scene.js)). Re-run with Windows Graphics settings → Chrome →
+   High performance; confirm ANGLE reports NVIDIA and the stall shrinks to desktop scale.
+   Keep the iGPU result as the canonical medium-tier evidence — it's what out-of-the-box
+   dGPU laptops do.
 
 ### Phase 1 — fix (ONE lever, chosen after Phase 0 evidence)
 

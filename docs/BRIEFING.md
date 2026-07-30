@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (also runs inside `npm run qa`).
-> Generated 2026-07-30 at commit `4a3ffa5` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
-> Source digest: `723ac322`
+> Generated 2026-07-30 at commit `eedda0f` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
+> Source digest: `726ab831`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -24,7 +24,7 @@ Plan → Wyatt ack → apply. This heading names the card; it is **not** permiss
 
 Self-directed queue (one at a time, within the declared phase):
 - **C2 CARGO-VIS-1** full-bay fill + rim overflow look — 📋 pre-ship (High) — count ramp exists; layout/scale wrong
-- **WARM-IGPU-1** first-play warm stall on medium-tier iGPUs — flyover warm swallows countdown — 📋 queued (High) — plan drafted 07-30, awaiting ack
+- **WARM-IGPU-1** first-play warm stall on medium-tier iGPUs — flyover warm swallows countdown — 📋 queued (High) — Phase 0 acked 07-30, runs after CARGO-VIS-1
 - **MAIN-1 / BUNDLE-1** main.js seam / code-split — 📋 post-gate
 
 ## Waiting on Wyatt (not agent work)

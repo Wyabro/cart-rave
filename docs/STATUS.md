@@ -127,7 +127,7 @@ Run 7 mission (below) is historical evidence, superseded as the live queue by
 | **B3** HIT-FEEL-1 | hit feedback — weak normals + noisy incoming | ✅ **PASS** (Wyatt playtest 07-22) |
 | **ARENA-BAL-1** | Sundial + Storerooms self-KO rate | ✅ **closed** (Wyatt 07-22, no code) |
 | **C2** CARGO-VIS-1 | full-bay fill + rim overflow look | 📋 pre-ship (High) — count ramp exists; layout/scale wrong |
-| **WARM-IGPU-1** | first-play warm stall on medium-tier iGPUs — flyover warm swallows countdown | 📋 queued (High) — [plan drafted 07-30](./planning/warm-igpu-1.md), awaiting ack |
+| **WARM-IGPU-1** | first-play warm stall on medium-tier iGPUs — flyover warm swallows countdown | 📋 queued (High) — [Phase 0 acked 07-30](./planning/warm-igpu-1.md), runs after CARGO-VIS-1 |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
 | BRAND-1 | Domain cutover | 🧊 frozen |
 
@@ -148,7 +148,7 @@ Triage docs superseded: [playtest-triage-2026-07-17](./planning/playtest-triage-
 ### Next actions
 
 1. **CARGO-VIS-1** (SHIP-1 C2, High) — basket groceries must fill the full bay and overflow the rim when full (count ramp shipped; look still wrong).
-2. **WARM-IGPU-1** (High) — first-play warm stall on medium-tier iGPUs; Phase 0 forensics per [planning/warm-igpu-1.md](./planning/warm-igpu-1.md) once Wyatt acks (ordering vs CARGO-VIS-1 is Wyatt's call).
+2. **WARM-IGPU-1** (High) — Phase 0 forensics per [planning/warm-igpu-1.md](./planning/warm-igpu-1.md) — **acked 07-30, ordered after CARGO-VIS-1**; Phase 1 lever needs its own ack.
 3. **Before public/external playtest:** `DELETE /api/analytics?token=…` (clear DO) so ANLX evidence is strangers-only — see Gotchas.
 
 ## Open issues (top)
