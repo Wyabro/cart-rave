@@ -1,8 +1,10 @@
 # WARM-IGPU-1 — first-play shader warm stall on iGPU laptops (countdown swallowed)
 
-**Status:** Phase 0 + 0b **acked** (Wyatt 07-30). Agent half (instrumentation) ✅ **landed
-07-30**; steps 1 and 3 below are **Wyatt-machine actions and still owed**. Phase 1 lever
-choice needs its own ack once those captures exist.
+**Status:** Phase 0 + 0b **acked** (Wyatt 07-30); instrumentation ✅ landed. **Both iGPU
+laptops are gone (07-30)** — steps 1 and 3 cannot run on the original hardware. Phase 0
+closed on a SwiftShader cold-cache proxy instead (see *Phase 0 proxy result*), which is
+sufficient to choose the lever: **Lever A, awaiting Wyatt's ack.** The `done when` criterion
+below is relaxed accordingly — see *Verification without the hardware*.
 
 **What to read the capture for** (once the cold-cache repro runs):
 `warmupSettle.outcome === "budget-expired"` with `remaining > 0` on the warm play-entry
@@ -72,6 +74,43 @@ cheap, so the cost is session-first-play (likely per-build).
    Keep the iGPU result as the canonical medium-tier evidence — it's what out-of-the-box
    dGPU laptops do.
 
+### Phase 0 proxy result — 07-30 (both iGPU laptops now unavailable)
+
+Wyatt lost access to Laptop A and B, so step 1's cold-cache repro and step 3's Optimus check
+cannot run on the original hardware. Substitute run: **headless SwiftShader, fresh profile
+per run (empty shader disk cache)** — the slowest link path available — entering play through
+the menu's own `cartrave:menu` event so the entry is genuinely `warm: true`. (A direct
+`?room=solo` boot never takes the warm branch; it settles against the 4000 ms default, so
+earlier direct-boot runs could not test this card at all.)
+
+| Measure | Proxy (SwiftShader, cold cache) | Laptop A (cap-206) |
+|---|---|---|
+| warm settle budget | 1500 ms | 1500 ms |
+| warm settle `pollMs` | **1009–1068 ms (67–71% of budget)** | not instrumented then |
+| warm settle `outcome` | `ready`, `remaining: 0` (×4 runs) | unknown |
+| sync `compileMs` at that settle | 43–47 ms | **1040 ms** (~24× heavier) |
+| worst menu-warm long frame | 13,116 ms, named spans total **235 ms** | 6,428 ms, named spans 96 ms |
+
+Two readings, and they agree on the lever:
+
+1. **H1 is plausible but unproven.** Even on this box the warm settle burns ~70% of its
+   1500 ms budget. Laptop A's *sync compile alone* was ~24× heavier than the proxy's; a poll
+   scaling anywhere near that crosses the budget and settles `budget-expired` — which is
+   exactly the deferred-link case. We cannot confirm it without a slow adapter, only bound it.
+2. **H3 is directly supported.** A 13.1 s menu-warm frame carried only 235 ms of *attributed*
+   span time. The cost is overwhelmingly outside JS — ANGLE/driver work at link/first-draw —
+   so it can be **relocated but not removed**.
+
+**Both readings point at Lever A.** Lever B (raise the readiness budget) only helps if H1 is
+the whole story, and finding 2 says it is not; raising the budget would also lengthen the
+mode-entry overlay on exactly the weak machines it is meant to help. **Recommendation: ship
+Lever A without waiting for iGPU hardware.**
+
+Real-world confirmation now arrives on its own: Phase 0b telemetry (`warmupSettle`,
+`qualityStepDown`, `session_end.tier/steps`) ships to analytics, so the first external
+playtester on a weak GPU reports the outcome we could not reproduce — **reset the analytics
+DO before that playtest** so the sample is strangers-only.
+
 ### Phase 1 — fix (ONE lever, chosen after Phase 0 evidence)
 
 - **Lever A (recommended — the sanctioned lever verbatim):** fold the flyover-framing warm
@@ -87,9 +126,21 @@ cheap, so the cost is session-first-play (likely per-build).
 
 ### Done when
 
-- Cold-cache first play on a medium-tier machine: countdown `elapsedMs` ≈ `countdownMs`
-  (3600), no >500 ms longtask inside the countdown window, F8 capture as evidence.
-- `npm run qa` green; desktop COUNTDOWN-WARM-1 feel unchanged (Wyatt spot check).
+Original criterion (**unreachable — hardware gone**): cold-cache first play on a medium-tier
+machine showing countdown `elapsedMs` ≈ 3600 with no >500 ms longtask inside the countdown.
+
+#### Verification without the hardware
+
+- **Structural proof (agent, headless):** on the SwiftShader cold-cache rig, assert the warm
+  settle + flyover warm both complete **before** the countdown arms — i.e. no `warmupSettle`
+  or `warm.*` span timestamps fall between the `lobby→countdown` round event and GO. That is
+  the property Lever A actually changes, and it is machine-independent: it holds or fails
+  identically on a 4090 and a UHD 630.
+- **No-regression (Wyatt, desktop):** COUNTDOWN-WARM-1 feel unchanged, entry time not longer.
+- `npm run qa` green.
+- **Deferred real-world confirmation:** first weak-GPU playtester's `warmupSettle` /
+  `qualityStepDown` telemetry. Card closes on the structural proof; this is the follow-up
+  that either confirms it in the wild or reopens with fresh evidence.
 
 ## Caveat
 

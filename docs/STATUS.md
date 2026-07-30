@@ -133,7 +133,7 @@ Run 7 mission (below) is historical evidence, superseded as the live queue by
 | **QA-STATUS-1** | STATUS token overage broke `qa` | ✅ closed this commit — 07-21 log archived, queue reordered |
 | **HYGIENE-1** | 4-item sweep: sourcemaps off · boot-error filter · default branch · profiler `--dpr` | ✅ 07-30 — 3 branches deleted; dist has 0 `.map`; **one Wyatt step left: GitHub Settings → default branch → `cart-clash`** (classifier blocked `gh repo edit`) |
 | **C2** CARGO-VIS-1 | full-bay fill + rim overflow look | ✅ **closed** (Wyatt prod playtest PASS 07-30 on `b13bafb`) — real-dims bays, 4-phase fill 5/10/20/30, rim crest, rear coverage, KO-respawn drift hotfix |
-| **WARM-IGPU-1** | first-play warm stall swallows countdown (medium iGPUs) | ▶ P0+0b instrumentation ✅ landed 07-30; **owed: Wyatt cold-cache repro + Optimus check** ([plan](./planning/warm-igpu-1.md)); P1 lever needs its own ack |
+| **WARM-IGPU-1** | first-play warm stall swallows countdown (medium iGPUs) | ▶ P0+0b ✅ closed 07-30 (instrumentation + SwiftShader proxy — **iGPU laptops gone**, no hardware repro possible); **P1 = Lever A, awaiting ack** ([plan](./planning/warm-igpu-1.md)) |
 | **CARGO-HUD-1a** | cargo-readout mock on BOTH hosts, 3-state — Wyatt picks | 📋 after WARM P0; before WARM P1 |
 | **SKYBOX-1** | restore never-built sceneExtras skybox (review C-01) | 📋 after WARM P1 — Wyatt eyes close |
 | **SEC-BEACON-1 · SEC-UNLOCK-1 · SEC-ROUTE-1** | beacon rate-limit · devUnlocks URL gate · startsWith routes | 📋 before external testers — with analytics-DO reset |
@@ -158,8 +158,8 @@ Triage docs superseded: [playtest-triage-2026-07-17](./planning/playtest-triage-
 
 ### Next actions
 
-1. **Wyatt — WARM-IGPU-1 Phase 0 captures (the card is blocked on these):** cold-cache repro on the Intel box — Chrome with `--disable-gpu-shader-disk-cache`, first solo play `?diag=1`, F8 during/after the countdown; plus the Optimus check on the 1660 Ti laptop (Windows Graphics → Chrome → High performance). Then `npm run captures:pull`. Instrumentation to read them is already live (`warmupSettle`, `warm.compilePoll`, `qualityStepDown`).
-2. Locked order after (07-30): **WARM P1 (own ack, lever from the captures) → CARGO-HUD-1a → SKYBOX-1 → SEC series → SHEET-1 → FIGHT-VERIFY-1.** (CARGO-VIS-1 ✅ closed 07-30.) If the captures need to wait, CARGO-HUD-1a is the pull-forward — it has no hardware dependency.
+1. **WARM-IGPU-1 Phase 1 — needs Wyatt's ack on Lever A.** Both iGPU laptops are gone, so Phase 0 closed on a SwiftShader cold-cache proxy; the evidence picks **Lever A** (fold the flyover warm into the pre-countdown play-ready gate) and rules out Lever B. Verification switches to a machine-independent structural assertion — details in [warm-igpu-1.md](./planning/warm-igpu-1.md).
+2. Locked order after (07-30): **CARGO-HUD-1a → SKYBOX-1 → SEC series → SHEET-1 → FIGHT-VERIFY-1.** (CARGO-VIS-1 ✅ closed 07-30.)
 3. **Before public/external playtest:** SEC-BEACON-1/UNLOCK/ROUTE **plus** `DELETE /api/analytics?token=…` (clear DO) — see Gotchas.
 
 ## Open issues (top)
@@ -302,8 +302,17 @@ source/p95. Live-boot probe: all three fire. **Already informative on the dev bo
 `warmupCompile` event (fires only at compileMs ≥ 50) recorded *nothing* for that settle, so
 the 07-25 laptop numbers undercount the real warm cost. qa 773/773. **Owed (Wyatt machines):**
 cold-cache repro on the Intel box (`--disable-gpu-shader-disk-cache`, `?diag=1`, F8 in/after
-countdown) + the Optimus check on the 1660 Ti laptop — plan steps 1 and 3 in
-[warm-igpu-1.md](./planning/warm-igpu-1.md).
+countdown) + the Optimus check on the 1660 Ti laptop — **both now impossible: Wyatt lost
+access to the iGPU laptops (07-30).** Phase 0 closed instead on a SwiftShader cold-cache
+proxy entering play through the menu's own `cartrave:menu` event (a direct `?room=solo` boot
+never takes the `warm:true` branch — it settles against the 4000 ms default, so earlier
+direct-boot probes could not test this card). Result: warm settle burns **1009–1068 ms of its
+1500 ms budget** yet still returns `ready` — while Laptop A's *sync compile alone* was ~24×
+heavier, so a real iGPU plausibly crosses it (H1, bounded not proven); and a 13.1 s menu-warm
+long frame carried only **235 ms of attributed span time**, i.e. the cost is driver-side and
+can be relocated but not removed (H3, supported). Both point at **Lever A**; Lever B is ruled
+out. Verification switches to a machine-independent structural assertion (no `warm.*` work
+between `lobby→countdown` and GO) plus deferred real-world telemetry.
 
 2026-07-30 (CARGO-VIS-1 CLOSED — Wyatt prod playtest PASS on `b13bafb`) — Full-bay fill + rim
 overflow shipped across sessions 1–3 plus a KO-drift hotfix. Live: `CONFIG.cargo.fillPhases`

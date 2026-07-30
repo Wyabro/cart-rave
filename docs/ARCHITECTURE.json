@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-07-30T18:08:55.147Z",
-    "commit": "78b142a"
+    "at": "2026-07-30T18:24:54.471Z",
+    "commit": "404e866"
   },
-  "source_digest": "ccd69146",
+  "source_digest": "fac5b846",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -948,7 +948,7 @@
       {
         "id": "WARM-IGPU-1",
         "what": "first-play warm stall swallows countdown (medium iGPUs)",
-        "status": "▶ P0+0b instrumentation ✅ landed 07-30; owed: Wyatt cold-cache repro + Optimus check ([plan](./planning/warm-igpu-1.md)); P1 lever needs its own ack",
+        "status": "▶ P0+0b ✅ closed 07-30 (instrumentation + SwiftShader proxy — iGPU laptops gone, no hardware repro possible); P1 = Lever A, awaiting ack ([plan](./planning/warm-igpu-1.md))",
         "state": "active"
       },
       {
@@ -1004,8 +1004,8 @@
       }
     ],
     "next_actions": [
-      "Wyatt — WARM-IGPU-1 Phase 0 captures (the card is blocked on these): cold-cache repro on the Intel box — Chrome with `--disable-gpu-shader-disk-cache`, first solo play `?diag=1`, F8 during/after the countdown; plus the Optimus check on the 1660 Ti laptop (Windows Graphics → Chrome → High performance). Then `npm run captures:pull`. Instrumentation to read them is already live (`warmupSettle`, `warm.compilePoll`, `qualityStepDown`).",
-      "Locked order after (07-30): WARM P1 (own ack, lever from the captures) → CARGO-HUD-1a → SKYBOX-1 → SEC series → SHEET-1 → FIGHT-VERIFY-1. (CARGO-VIS-1 ✅ closed 07-30.) If the captures need to wait, CARGO-HUD-1a is the pull-forward — it has no hardware dependency.",
+      "WARM-IGPU-1 Phase 1 — needs Wyatt's ack on Lever A. Both iGPU laptops are gone, so Phase 0 closed on a SwiftShader cold-cache proxy; the evidence picks Lever A (fold the flyover warm into the pre-countdown play-ready gate) and rules out Lever B. Verification switches to a machine-independent structural assertion — details in [warm-igpu-1.md](./planning/warm-igpu-1.md).",
+      "Locked order after (07-30): CARGO-HUD-1a → SKYBOX-1 → SEC series → SHEET-1 → FIGHT-VERIFY-1. (CARGO-VIS-1 ✅ closed 07-30.)",
       "Before public/external playtest: SEC-BEACON-1/UNLOCK/ROUTE plus `DELETE /api/analytics?token=…` (clear DO) — see Gotchas."
     ],
     "open_issues": [

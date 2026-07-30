@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (also runs inside `npm run qa`).
-> Generated 2026-07-30 at commit `78b142a` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
-> Source digest: `d92d6d06`
+> Generated 2026-07-30 at commit `404e866` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
+> Source digest: `1ccf9b5c`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -19,7 +19,7 @@ Playtesting and stabilization — Tier A drained. B1 AI-DIFF-1 shipped (`49bfc2a
 ## ACTIVE CARD
 
 WARM-IGPU-1 — first-play warm stall swallows countdown (medium iGPUs)
-Pass looks like: ▶ P0+0b instrumentation ✅ landed 07-30; owed: Wyatt cold-cache repro + Optimus check ([plan](./planning/warm-igpu-1.md)); P1 lever needs its own ack
+Pass looks like: ▶ P0+0b ✅ closed 07-30 (instrumentation + SwiftShader proxy — iGPU laptops gone, no hardware repro possible); P1 = Lever A, awaiting ack ([plan](./planning/warm-igpu-1.md))
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 
