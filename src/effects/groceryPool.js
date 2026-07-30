@@ -623,10 +623,10 @@ function populateCargoBay(group, hw, hl, rimY) {
   // * the overflowing top layer comes last.
   // * D-CARGO-VIS-1 (07-30): the old "keep the pile under the rim" invariant is REVERSED —
   // * a boss/full bay is SUPPOSED to crest the rim (layer 2 solves against rimY below).
-  // * Session-3 pass 2 (Wyatt-flagged GRID lever): 18 → 25 slots (13 floor · 8 mid ·
-  // * 4 crest) so a boss bay reads PACKED across the widened real cavity, not a center
-  // * cluster. CONFIG.cargo.maxItems mirrors GRID.length — keep them synced (fill pacing:
-  // * baseline→boss now reveals 7→25).
+  // * Session-3 pass 3 (Wyatt 07-30 4-phase pacing): 30 slots (15 floor · 10 mid ·
+  // * 5 crest) — the last fillPhases step reveals every slot, so a boss bay reads
+  // * PACKED across the widened real cavity. CONFIG.cargo.maxItems (= fillPhases[3])
+  // * mirrors GRID.length — keep them synced.
   const GRID = [
     // layer 0 — floor (corners, edge midpoints, mid-edge band, centre: the full footprint)
     { u: -1.0, v: -0.9, layer: 0 },
@@ -642,6 +642,8 @@ function populateCargoBay(group, hw, hl, rimY) {
     { u: 0.55, v: -0.95, layer: 0 },
     { u: -0.55, v: 0.95, layer: 0 },
     { u: 0.55, v: 0.95, layer: 0 },
+    { u: -1.0, v: -0.45, layer: 0 },
+    { u: 1.0, v: 0.45, layer: 0 },
     // layer 1 — mid (still spread wide so the heap reads full, not tent-poled)
     { u: -0.85, v: -0.6, layer: 1 },
     { u: 0.85, v: -0.6, layer: 1 },
@@ -651,11 +653,14 @@ function populateCargoBay(group, hw, hl, rimY) {
     { u: 0.0, v: 0.55, layer: 1 },
     { u: -0.45, v: 0.0, layer: 1 },
     { u: 0.45, v: 0.0, layer: 1 },
+    { u: -0.45, v: -0.85, layer: 1 },
+    { u: 0.45, v: 0.85, layer: 1 },
     // layer 2 — overflow crest (central so the spill-over reads from every camera angle)
     { u: -0.35, v: -0.3, layer: 2 },
     { u: 0.4, v: 0.3, layer: 2 },
     { u: 0.0, v: 0.0, layer: 2 },
     { u: 0.2, v: -0.35, layer: 2 },
+    { u: -0.2, v: 0.3, layer: 2 },
   ];
 
   /** @type {THREE.Mesh[]} Fill-order list consumed by {@link setCargoFill}. */

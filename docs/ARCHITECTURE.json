@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-07-30T16:03:17.963Z",
-    "commit": "14afa5a"
+    "at": "2026-07-30T16:35:57.674Z",
+    "commit": "88c143d"
   },
-  "source_digest": "bde0f410",
+  "source_digest": "5e55b4c3",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -942,7 +942,7 @@
       {
         "id": "C2 CARGO-VIS-1",
         "what": "full-bay fill + rim overflow look",
-        "status": "▶ session 3 pass 2 (07-30) — Wyatt-flagged GRID lever: 18→25 slots (13 floor · 8 mid · 4 crest) + `maxItems` 25, on top of pass-1 insets/scale/crest; boss bay reads packed with a rim-breaking heap; Wyatt eyes = the close",
+        "status": "▶ session 3 pass 3 (07-30) — Wyatt 4-phase pacing: `fillPhases` 5/10/20/30, stepped `lifeCargoVisibleCount`, GRID 30 (15 floor · 10 mid · 5 crest); all 4 phases verified live; phase-strip shots sent; Wyatt eyes = the close",
         "state": "active"
       },
       {

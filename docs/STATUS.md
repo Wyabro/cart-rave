@@ -132,7 +132,7 @@ Run 7 mission (below) is historical evidence, superseded as the live queue by
 | **ARENA-BAL-1** | Sundial + Storerooms self-KO rate | ✅ **closed** (Wyatt 07-22, no code) |
 | **QA-STATUS-1** | STATUS token overage broke `qa` | ✅ closed this commit — 07-21 log archived, queue reordered |
 | **HYGIENE-1** | 4-item sweep: sourcemaps off · boot-error filter · default branch · profiler `--dpr` | ✅ 07-30 — 3 branches deleted; dist has 0 `.map`; **one Wyatt step left: GitHub Settings → default branch → `cart-clash`** (classifier blocked `gh repo edit`) |
-| **C2** CARGO-VIS-1 | full-bay fill + rim overflow look | ▶ session 3 pass 2 (07-30) — Wyatt-flagged GRID lever: 18→25 slots (13 floor · 8 mid · 4 crest) + `maxItems` 25, on top of pass-1 insets/scale/crest; boss bay reads packed with a rim-breaking heap; **Wyatt eyes = the close** |
+| **C2** CARGO-VIS-1 | full-bay fill + rim overflow look | ▶ session 3 pass 3 (07-30) — Wyatt 4-phase pacing: `fillPhases` **5/10/20/30**, stepped `lifeCargoVisibleCount`, GRID 30 (15 floor · 10 mid · 5 crest); all 4 phases verified live; phase-strip shots sent; **Wyatt eyes = the close** |
 | **WARM-IGPU-1** | first-play warm stall swallows countdown (medium iGPUs) | 📋 [P0 acked 07-30](./planning/warm-igpu-1.md); P0b (watchdog disproof + tier telemetry) and P1 need own acks |
 | **CARGO-HUD-1a** | cargo-readout mock on BOTH hosts, 3-state — Wyatt picks | 📋 after WARM P0; before WARM P1 |
 | **SKYBOX-1** | restore never-built sceneExtras skybox (review C-01) | 📋 after WARM P1 — Wyatt eyes close |
@@ -293,17 +293,17 @@ never-rendered guesses). Three levers: rave cavity insets 0.48/0.42 → **0.68/0
 (entities.js), **cargoScale 0.52 → 0.60**, crest float-guard **1.4 → 2.2·halfY**
 (groceryPool.js). Pass-1 reshoot: pile reaches the right wall + front edge, crest breaks the
 rear rim in profile and at gameplay distance (boss-wide; bay1 orange fully tops the rim); left
-third still read open in shadow → Wyatt flagged the GRID lever. **Pass 2:** GRID 18 → 25
-slots (13 floor · 8 mid · 4 crest) + `maxItems` 25 (config.js — fill pacing now reveals
-7→25 baseline→boss). Boss bay reads packed: stacked heap, crest breaking the rear rim in
-profile and at gameplay distance. qa 773/773 both passes. Shots sent — Wyatt eyes = the close.
+third still read open → Wyatt flagged the GRID lever. **Pass 2:** GRID 18→25 + `maxItems` 25.
+**Pass 3 (Wyatt: 4 phases, 5>10>20>30):** `CONFIG.cargo.fillPhases` [5,10,20,30] + stepped
+`lifeCargoVisibleCount` (quarter-split over fullScore: life 1–2 / 3–4 / 5–7 / 8; weight01
+stays continuous — only the LOOK steps), GRID → 30 (15 floor · 10 mid · 5 crest), baseItems
+10 / maxItems 30. All 4 phases verified live (fill 5/10/20/30 on every cart, rig reloads at
+life 2/3/6/8); phase-strip shots sent. qa 773/773 each pass. Wyatt eyes = the close.
 
 2026-07-30 (CARGO-VIS-1 session 2 — CartFrame fix; real-dims bays proven live) —
-`getBasketCargoParams` (entities.js) now matches `CartFrame` (the instance name — cartRaveGltf
-renames the authored `tripo_part_0` at prep) so live rave carts hit the measured-bounds path.
-Probe on all 4 bays: origin computed ({0.002, −0.046, −0.217} vs fallback {0, −0.1, 0}),
-itemYTop 0.80 (was 0.61–0.70). qa 773/773. **Superseded by Wyatt's red-line review:** pile
-still ≪ real cavity → session 3 retune above.
+`getBasketCargoParams` (entities.js) matches `CartFrame` (instance rename of authored
+`tripo_part_0`), so live rave carts hit the measured-bounds path (probe ×4: origin computed,
+itemYTop 0.80). qa 773/773. Superseded by Wyatt's red-line review → session 3 above.
 
 2026-07-30 (CARGO-VIS-1 session 1c — hi-res rig + root cause; 1b look-claims superseded) —
 Rig recipe (reusable for SHEET-1): hardware-GPU headless (`--enable-gpu --ignore-gpu-blocklist

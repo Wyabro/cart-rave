@@ -8,7 +8,7 @@
  *   - cargoFullness01  — weight01 from lifeCargoPoints / fullScore (0 stripped → 1 boss);
  *     consumed by grip / drive / ram-incoming / spill-count in simulation.js.
  *   - Bay fill         — GroceryPool.setCargoFillCount via lifeCargoVisibleCount;
- *     bay hidden while stripped (0 → empty, baseline → baseItems, full → maxItems).
+ *     4 discrete phases (CONFIG.cargo.fillPhases 5/10/20/30), hidden while stripped.
  *   - Life cargo API   — grantLifeCargo / stripLifeCargo / clearCargoOverflowForSlot;
  *     host awards on KO/SD/SpillBonus; spill strips; respawn resets via entities.
  *   - Announcer        — "cart_overflow" first boss fill this life; "spill_rush" on strip.
@@ -102,27 +102,27 @@ export function clearCargoOverflowForSlot(slotIndex) {
 }
 
 /**
- * Visible grocery count for life cargo — readable empty → stocked → overflow.
- * stripped (0) → 0; baseline → baseItems; full → maxItems.
+ * Visible grocery count for life cargo — 4 discrete phases (Wyatt 07-30: distinct
+ * "cart got fuller" jumps read better than a per-point creep). Quarter-split over
+ * fullScore; stripped (0) stays hidden. Defaults: life 1–2 → 5, 3–4 → 10, 5–7 → 20,
+ * 8 → 30. Weight/handling (cargoFullness01) stays continuous — only the LOOK steps.
  * @param {number} lifeCargoPoints
  * @returns {number}
  */
 export function lifeCargoVisibleCount(lifeCargoPoints) {
   const cargoCfg = CONFIG.cargo;
   const full = Math.max(1, cargoCfg?.fullScore ?? 8);
-  const baseline = baselineLifeCargoPoints();
-  const base = Math.max(0, cargoCfg?.baseItems ?? 7);
-  const max = Math.max(base, cargoCfg?.maxItems ?? 18);
+  const phases =
+    Array.isArray(cargoCfg?.fillPhases) && cargoCfg.fillPhases.length === 4
+      ? cargoCfg.fillPhases
+      : [5, 10, 20, 30];
   const life = clamp(Number(lifeCargoPoints) || 0, 0, full);
   if (life <= 0) return 0;
-  if (life >= full) return max;
-  if (life <= baseline) {
-    // * Ramp from a few groceries up to the stocked baseline look.
-    const t = life / Math.max(1e-6, baseline);
-    return Math.max(1, Math.round(1 + (base - 1) * t));
-  }
-  const t = (life - baseline) / Math.max(1e-6, full - baseline);
-  return Math.round(base + (max - base) * t);
+  const t = life / full;
+  if (t <= 0.25) return phases[0];
+  if (t <= 0.5) return phases[1];
+  if (t < 1) return phases[2];
+  return phases[3];
 }
 
 /**
