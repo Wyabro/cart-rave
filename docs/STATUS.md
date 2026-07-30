@@ -72,6 +72,8 @@ Full record: [planning/production-passes.md](./planning/production-passes.md) an
 
 Run 7 mission closed; NET-2 / NET-MIG-3 passed live; NET-PRES-1 landed (loss-on-drop residual accepted). Stay in this phase until Wyatt advances the marker.
 
+**Parallel track — "Fight Night" UI redesign: complete, merged (PR #3 → `cart-clash` `56dfa61`), deployed to prod** (bundle `sha:56dfa61`, verified against the fetched asset). Every 2D surface rebuilt on one shell/slab language. **Owed: a real-browser verification pass in production** (live match, two-client friends room, cold boot per arena, touched hover/press surfaces) — signed off by DOM/computed-style only so far. See D-FIGHTNIGHT-1 + [fight-night-ui-handover.md](./planning/fight-night-ui-handover.md).
+
 Playtest console: [playtest/console.html](./playtest/console.html).  
 F8 → auto-upload; pull: `npm run captures:pull` (needs `.env.local` `ERROR_LOG_TOKEN`).
 
@@ -162,6 +164,7 @@ When named: other residual or RC exit criteria in [ROADMAP.md](./planning/ROADMA
 
 One line each; full text in [archive/decision-log-2026-07.md](./archive/decision-log-2026-07.md). Newest first.
 
+- **D-FIGHTNIGHT-1** (07-23): "Fight Night" UI redesign complete — every 2D surface (3a menu, 6a HUD, 7a–7g, both loading screens) on one shell/slab language; decision 2 die-cut sweep closed + one Customize chip recipe. Merged (PR #3 → `cart-clash` `56dfa61`) and deployed to prod for full verification. Signed off by DOM/computed-style only (7a/7c/3a by eye); confetti/defeat-wilt-in-MP parked. Log: [fight-night-ui-handover.md](./planning/fight-night-ui-handover.md).
 - **D-HIT-FEEL-1** (07-22): HIT-FEEL-1 PASS — quieter incoming (vignette remap + `crashVolumeFloor` 0.22 + `hitDirMin` 0.14) and woken normals (`shakeMinIntensity` 0.22 / boost 0.16); `?tune` exposes `ramming.fx.*`. Wyatt playtest confirmed.
 - **D-HIT-FEEL-QUEUE-1** (07-22): Closed B2 CARGO-WT-1 (feel accept) + ARENA-BAL-1 (no code). Active card → HIT-FEEL-1; Round 1 = vignette remap + `CONFIG.ramming.fx.crashVolumeFloor` (volume floor, not gate); Round 2 = shake gate + expose `ramming.fx.*` in gameplayTunePane.
 - **D-ARENA-COL-1** (07-22): Cart Rave pit KO reliability (ARENA-COL-1) PASS — rim entry `fallEntryPos` / `fallEntryTimeMs` feed `buildKOEvent` as `{ classifyPos, creditTimeMs }` so 30m shaft drift and ricochet delay no longer misclassify center_hole or expire hit credit. Wyatt playtest confirmed.
@@ -259,28 +262,23 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-23 (UI — fight-night redesign, 6a HUD reworked) — Branch
-`redesign/fight-night-ui`, **unpushed**. HUD rebuilt to mock 6a in 3 cuts + 2 review rounds
-(`530825f`..`3240e6e`): directive → accent price-tag slab with a new placeholder `blurb` line;
-timer `TO CLOSE` + clock moved off Bungee (proportional digits resized the card every tick);
-rank digits and the cart-colour edge stripe deleted, score prints over a barcode, YOU cyan;
-kill feed → one **TRANSACTION LOG** receipt; nameplates → mini price tags (cart colour demoted to
-the punched hole's ring) + leader crown off a single new `getLeaderSlotIndex()`; boost → labelled
-360px slab with a hazard overcharge zone; combo → **CARNAGE COUPON** with a live countdown.
-**Next: 3a main menu** — the last surface, built pre-reversal and never diffed against its mock.
-
-2026-07-23 (UI — fight-night redesign, all 7 sub-screens done) — Branch
-`redesign/fight-night-ui`, **unpushed**. Path A (restyled centred cards) was **reversed at the
-07-22 review**: sub-screens got the mock's literal full-screen layouts on a shared `.cr-screen`
-shell. **7a–7g all rebuilt** (`f504b9a`..`3451819`): customize (7a), settings (7c), challenges
-(7b), how-to (7d), results podium + receipt (7g), Friends invite chrome + full-screen CHECKOUT
-LINE lobby (7e, netcode seam untouched — one slot→row resolver, one ready send, gate
-`phase === "lobby" && friends`), and pause (7f, the one screen that stays a centred 860px panel;
-three review rounds — flattened skew from the entrance animation, then mock interior detail, then
-a short-window scroll from width-based clamps). Verified by DOM/computed-style introspection only; the **HUD,
-results-in-match and a live friends lobby remain unseen** (Browser pane can't composite or
-complete mode entry on this host). Progress log:
-[planning/fight-night-ui-handover.md](./planning/fight-night-ui-handover.md).
+2026-07-23 (UI — fight-night redesign MERGED + DEPLOYED to production) — PR #3 merged into
+`cart-clash` (merge commit `56dfa61`), then shipped via `npm run ship`. Live prod bundle carries
+`sha:56dfa61` (**verified against the fetched asset**, not the upload log), entry
+`index-ekljSWqj.js`, Worker Version `3f681e27-68e0-4992-ba9c-53d3c9ff08df` at
+https://cart-rave.wyabro.workers.dev — supersedes the AI-DIFF-1 bundle `index-Dxyw7U08.js`. Cache
+note: HTML is edge-cached (`CF-Cache-Status: HIT`, `max-age=0 must-revalidate`) — a stale first
+paint resolves on reload, not a failed deploy. The redesign rebuilds **every 2D surface** onto one
+"Fight Night" language: 3a main menu, 6a HUD, 7a–7g sub-screens/ESC/results, both loading screens,
+a game-wide die-cut→slab sweep (locked decision 2 closed, audited against a live DOM), and one
+unified Customize chip recipe. **Verified by DOM geometry + computed styles only — never by eye
+except 7a/7c/3a.** Merge is deliberately for **full verification IN PRODUCTION** (Wyatt): still
+unseen — a live match (HUD + results on a finished round), a two-client friends room (the CHECKOUT
+LINE lobby has never rendered anywhere), a cold boot into each arena (both loading screens unseen
+in their real moment), and every hover/press surface the sweep + chip cut touched. **PARKED:**
+victory confetti + defeat wilt are missing in multiplayer — investigation, leading hypothesis and
+the one-line two-client test that settles it are in the handover under "Known-but-parked". Full
+progress log: [planning/fight-night-ui-handover.md](./planning/fight-night-ui-handover.md).
 
 2026-07-22 (B1 AI-DIFF-1 SHIPPED) — `49bfc2a` / `index-Dxyw7U08.js` / Version `4e33515b`.
 Easy/Med/Hard NPC decision tiers on prod. Medium = baseline identity; Solo default Easy +
