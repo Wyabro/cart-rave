@@ -627,6 +627,8 @@ function createSpotlightSystem(yRefs, ctx) {
   const spotlightLightPosScratch = new THREE.Vector3();
   const spotlightTargetScratch = new THREE.Vector3();
 
+  // * Floor pool — softer radial stops than the old 0.8/0.45 hard core so the foot
+  // * of each beam melts into the vinyl (same soft-disc lesson as Sundial sun/glint).
   const spotlightPoolTextureCanvas = document.createElement("canvas");
   spotlightPoolTextureCanvas.width = 128;
   spotlightPoolTextureCanvas.height = 128;
@@ -639,14 +641,40 @@ function createSpotlightSystem(yRefs, ctx) {
     64,
     64,
   );
-  spotlightPoolGradient.addColorStop(0, "rgba(255, 255, 255, 0.8)");
-  spotlightPoolGradient.addColorStop(0.45, "rgba(255, 255, 255, 0.28)");
+  spotlightPoolGradient.addColorStop(0, "rgba(255, 255, 255, 0.72)");
+  spotlightPoolGradient.addColorStop(0.28, "rgba(255, 255, 255, 0.32)");
+  spotlightPoolGradient.addColorStop(0.62, "rgba(255, 255, 255, 0.08)");
   spotlightPoolGradient.addColorStop(1, "rgba(255, 255, 255, 0)");
   spotlightPoolTextureCtx.fillStyle = spotlightPoolGradient;
   spotlightPoolTextureCtx.fillRect(0, 0, 128, 128);
   const spotlightPoolTexture = new THREE.CanvasTexture(spotlightPoolTextureCanvas);
   spotlightPoolTexture.needsUpdate = true;
   ctx.disposables.push(spotlightPoolTexture);
+
+  // * Beam alpha (Sundial soft-strip recipe): flat-opacity additive cylinders print their
+  // * geometry rims as hard neon cones under tone-map + bloom. Alpha-grade along the
+  // * beam length (v) so lamp aperture + floor foot dissolve to 0 — same fix as the
+  // * run-2 horizon "cross" on Sundial haze / god-rays. Shared across all 5 spots.
+  // * Cylinder UV: v=0 floor end, v=1 source end. Canvas y is top-down; flip the
+  // * gradient like Sundial buildSoftStripTexture so stop 0 = UV v 0 (floor).
+  const beamTexCanvas = document.createElement("canvas");
+  beamTexCanvas.width = 2;
+  beamTexCanvas.height = 128;
+  const beamTexCtx = beamTexCanvas.getContext("2d");
+  const beamGrad = beamTexCtx.createLinearGradient(0, 128, 0, 0);
+  // * t = UV v: 0 floor → 1 source. Transparent at both ends, solid mid-body.
+  beamGrad.addColorStop(0.0, "rgba(255, 255, 255, 0)");
+  beamGrad.addColorStop(0.12, "rgba(255, 255, 255, 0.18)");
+  beamGrad.addColorStop(0.38, "rgba(255, 255, 255, 0.95)");
+  beamGrad.addColorStop(0.78, "rgba(255, 255, 255, 1)");
+  beamGrad.addColorStop(0.92, "rgba(255, 255, 255, 0.55)");
+  beamGrad.addColorStop(1.0, "rgba(255, 255, 255, 0)");
+  beamTexCtx.fillStyle = beamGrad;
+  beamTexCtx.fillRect(0, 0, 2, 128);
+  const spotlightBeamTexture = new THREE.CanvasTexture(beamTexCanvas);
+  spotlightBeamTexture.needsUpdate = true;
+  spotlightBeamTexture.colorSpace = THREE.NoColorSpace;
+  ctx.disposables.push(spotlightBeamTexture);
 
   function positionSpotlightBeam(beamGroup, source, target) {
     beamGroup.position.copy(spotlightBeamMid.copy(source).add(target).multiplyScalar(0.5));
@@ -658,7 +686,9 @@ function createSpotlightSystem(yRefs, ctx) {
 
   function addSpotlightWithBeam({ color, position, intensity, target }) {
     const baseColor = new THREE.Color(color);
-    const light = new THREE.SpotLight(color, intensity, 60, Math.PI / 8.75, 0.2, 1.1);
+    // * Wider penumbra so the real SpotLight pool matches the soft mesh foot
+    // * (was 0.2 — hard cookie edge against the vinyl).
+    const light = new THREE.SpotLight(color, intensity, 60, Math.PI / 8.75, 0.5, 1.1);
     light.position.copy(position);
     light.target.position.set(target.x, platformTopY, target.z);
     ctx.addToScene(light);
@@ -667,10 +697,12 @@ function createSpotlightSystem(yRefs, ctx) {
     const beamTarget = new THREE.Vector3(target.x, platformTopY, target.z);
     const height = Math.max(0.01, position.y - platformTopY);
     const beamGroup = new THREE.Group();
+    // * Outer layer a bit wider/softer = haze shell; peak opacity close to pre-soft
+    // * values so the wash still reads (map alpha does the edge melt).
     const beamLayers = [
-      { sourceRadius: 0.45, floorRadius: 1.2, opacity: 0.12 },
-      { sourceRadius: 0.65, floorRadius: 1.8, opacity: 0.07 },
-      { sourceRadius: 0.9, floorRadius: 2.6, opacity: 0.035 },
+      { sourceRadius: 0.42, floorRadius: 1.15, opacity: 0.13 },
+      { sourceRadius: 0.72, floorRadius: 2.05, opacity: 0.065 },
+      { sourceRadius: 1.05, floorRadius: 3.15, opacity: 0.028 },
     ];
     /** @type {THREE.MeshBasicMaterial[]} */
     const beamMats = [];
@@ -680,12 +712,13 @@ function createSpotlightSystem(yRefs, ctx) {
         layer.sourceRadius,
         layer.floorRadius,
         height,
-        8,
+        16,
         1,
         true,
       );
       const beamMat = new THREE.MeshBasicMaterial({
         color: baseColor.clone(),
+        map: spotlightBeamTexture,
         transparent: true,
         opacity: layer.opacity,
         blending: THREE.AdditiveBlending,
@@ -694,6 +727,7 @@ function createSpotlightSystem(yRefs, ctx) {
         // * Bypass NeutralToneMapping @ exposure 0.4 so neon beams stay saturated
         // * (same treatment lasers got in the visual polish pass).
         toneMapped: false,
+        fog: false,
       });
       beamMat.userData.baseOpacity = layer.opacity;
       beamGroup.add(new THREE.Mesh(beamGeo, beamMat));
@@ -704,18 +738,18 @@ function createSpotlightSystem(yRefs, ctx) {
     positionSpotlightBeam(beamGroup, position, beamTarget);
     ctx.addToScene(beamGroup);
 
-    const glowGeo = new THREE.CircleGeometry(5.25, 48);
+    const glowGeo = new THREE.CircleGeometry(5.6, 48);
     const glowMat = new THREE.MeshBasicMaterial({
       map: spotlightPoolTexture,
       color: baseColor.clone(),
       transparent: true,
-      opacity: 0.38,
+      opacity: 0.34,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
       side: THREE.DoubleSide,
       toneMapped: false,
     });
-    glowMat.userData.baseOpacity = 0.38;
+    glowMat.userData.baseOpacity = 0.34;
     const glowMesh = new THREE.Mesh(glowGeo, glowMat);
     glowMesh.rotation.x = -Math.PI / 2;
     glowMesh.position.set(beamTarget.x, recordSurfaceGlowY, beamTarget.z);
