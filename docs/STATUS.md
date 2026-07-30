@@ -132,7 +132,7 @@ Run 7 mission (below) is historical evidence, superseded as the live queue by
 | **ARENA-BAL-1** | Sundial + Storerooms self-KO rate | ✅ **closed** (Wyatt 07-22, no code) |
 | **QA-STATUS-1** | STATUS token overage broke `qa` | ✅ closed this commit — 07-21 log archived, queue reordered |
 | **HYGIENE-1** | 4-item sweep: sourcemaps off · boot-error filter · default branch · profiler `--dpr` | ✅ 07-30 — 3 branches deleted; dist has 0 `.map`; **one Wyatt step left: GitHub Settings → default branch → `cart-clash`** (classifier blocked `gh repo edit`) |
-| **C2** CARGO-VIS-1 | full-bay fill + rim overflow look | ▶ evidence delivered (07-30, session 1b) — 3-state screenshots off a live solo round; **awaiting Wyatt eyes** (overflow intensity = the taste question) |
+| **C2** CARGO-VIS-1 | full-bay fill + rim overflow look | ▶ session 1c (07-30) — hi-res GPU rig + live bay probe: rave bays build on **fallback dims** (`tripo_part_0` renamed `CartFrame` → entities.js:321 never matches) so boss-18 sits low, **no rim crest**; 1b crest read contested (SwiftShader 900×600, cold-boot carts); one-line fix needs ack; Wyatt eyes owed |
 | **WARM-IGPU-1** | first-play warm stall swallows countdown (medium iGPUs) | 📋 [P0 acked 07-30](./planning/warm-igpu-1.md); P0b (watchdog disproof + tier telemetry) and P1 need own acks |
 | **CARGO-HUD-1a** | cargo-readout mock on BOTH hosts, 3-state — Wyatt picks | 📋 after WARM P0; before WARM P1 |
 | **SKYBOX-1** | restore never-built sceneExtras skybox (review C-01) | 📋 after WARM P1 — Wyatt eyes close |
@@ -287,6 +287,24 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
+2026-07-30 (CARGO-VIS-1 session 1c — hi-res evidence + root cause; 1b look-claims contested) —
+Rig upgrades: hardware-GPU headless (`--enable-gpu --ignore-gpu-blocklist --use-gl=angle`, the
+perf-profile recipe — kills the SwiftShader LOW blur + software-mode modal) and a warm reload so
+carts are the real rave GLTF (cold boots spawn the procedural fallback, entities.js:162; the
+reload needs `sessionStorage cartRaveEngagedRoom` cleared or main.js:1794 strips `?room=solo`).
+Boss state via live-CONFIG lever in page context (`import("/src/config.js")` →
+`cargo.baselinePoints = fullScore` before the first cargo frame). Shots: boss-18 + baseline-7,
+into-basket/rim-profile/wide, 1600×1000 (`.diag-captures/cargo-vis-1/boss-*`, `baseline-*`).
+**Root cause found (code-provable): every rave-cart bay is built from `getBasketCargoParams`'s
+conservative fallback** ({hw:0.38, hl:0.48, rimY:0.5}; measured `bay.position.y −0.1` on all 4
+live bays proves the branch) — cartRaveGltf.js:2290 renames `tripo_part_0` → `"CartFrame"` at
+instance prep, so the entities.js:321 name match can never hit. Real cavity is wider, real rim
+far higher → boss-18 reads as a low center cluster, **no rim crest**. 1b's "dense heap cresting
+the rim" was read off 900×600 SwiftShader captures of cold-boot carts — superseded by this
+measured pass. Session-2 fix sketch (needs ack): match `CartFrame`/`userData.isCartFrame` in
+getBasketCargoParams, then re-tune GRID/crest against true dims (note: deep-basket float guard
+also caps the crest below the 1.03 procedural rim by design — retune together).
+
 2026-07-30 (CARGO-VIS-1 session 1b — evidence delivered) — With CARGO-RACE-1 self-heal in,
 the rig works: cold `?room=solo` + `freeze=1` + manual camera pose → clean into-basket shots
 off a live round (`.diag-captures/cargo-vis-1/`). Empty = bare bay; stocked-7 = sparse floor
@@ -332,38 +350,9 @@ victory confetti + defeat wilt are missing in multiplayer — investigation, lea
 the one-line two-client test that settles it are in the handover under "Known-but-parked". Full
 progress log: [planning/fight-night-ui-handover.md](./planning/fight-night-ui-handover.md).
 
-2026-07-22 (B1 AI-DIFF-1 SHIPPED) — `49bfc2a` / `index-Dxyw7U08.js` / Version `4e33515b`.
-Easy/Med/Hard NPC decision tiers on prod. Medium = baseline identity; Solo default Easy +
-Arenas picker (`cr-diff-btn`); Quickplay forced Medium; Friends host pick via store +
-`host_round.aiDifficulty` latch (mirrors `levelId`; no `roundValidation` touch).
-Playtest-tuned Easy −15% / Hard +15% vs first pass. Hard `steerGainMax` ≤ 1.85.
-
-2026-07-22 (A7 ANLX-VIEW-1 PASS) — Wyatt smoke: `analytics:pull` + Command Center Analytics
-panel. Reading surface closed. Reminder: clear analytics DO before public playtest
-(`DELETE /api/analytics`). Unpushed until Wyatt ships.
-
-2026-07-22 (COUNTDOWN-ARM-1 SHIPPED + PASS) — Continuous-mode server waits for
-`MSG.clientPlayReady` (post-`ensureSessionCartsReady`) before minting `startsAtMs`, with a
-`PLAY_READY_TIMEOUT_MS=12s` ceiling that arms a fresh full window; Cap-200 client defer stays
-as straggler safety net. Shipped `e08e5f5`; Wyatt two-browser quickplay smoke on it = full
-3-2-1. A6 closed, no active card. Battery 5/6 (spawnlock only — `countdown_3` miss under load
-after gameharness; drive checks green).
-
-2026-07-22 (A6b + Cap-200 — false green, then fixed) — netharness `hostReload` (mid-round
-host tab reload) read 13/13 live but was a **false green**: a flag-only assert. Cap-200
-(2eedc04, reloader, 4090) showed `menuVisible:false` while the DOM menu resurrected —
-boot-splash late `CartRave.show()` after `commitMenuHiddenForGame`; continuous-mode
-`colorPick` arm also truncated the host countdown to 1/GO. Fix shipped `8646dae`
-(`shouldBootRevealMenu` guard, host-MP defer, harness `crRootDisplay`); Wyatt smoke: menu
-PASS, countdown residual → COUNTDOWN-ARM-1 above.
-
-2026-07-22 (process — plan→ack→apply firewall) — Cold-start docs made the A6b skip
-impossible to miss: BRIEFING tag **ACTIVE CARD** (was DO THIS NOW) + explicit
-"not permission to edit"; STATUS Do-not #1; AGENTS HOW WORK step 0; paste-able opener.
-Lesson: buried STANDING bullets lose to a loud "do this now" heading.
-
 > **Older entries are archived — search them when you need history this file no longer carries.**
 > Index with date ranges: [archive/README.md](./archive/README.md).
+> - 2026-07-22 — [archive/status-log-2026-07-22.md](./archive/status-log-2026-07-22.md) (AI-DIFF-1 ship · ANLX-VIEW-1 · COUNTDOWN-ARM-1 · A6b false green + fix · plan→ack firewall)
 > - 2026-07-21 — [archive/status-log-2026-07-21.md](./archive/status-log-2026-07-21.md) (ARCH · PARITY · PERF-WARM root cause + reverted gate · WRAP · COUNTDOWN-ABORT-1)
 > - 2026-07-20 → 07-21 — [archive/status-log-2026-07-20-to-21.md](./archive/status-log-2026-07-20-to-21.md)
 > - 2026-07-19 → 07-20 — [archive/status-log-2026-07-19-to-20.md](./archive/status-log-2026-07-19-to-20.md)
