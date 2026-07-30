@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-07-30T17:06:18.463Z",
-    "commit": "7660623"
+    "at": "2026-07-30T17:24:36.336Z",
+    "commit": "b13bafb"
   },
-  "source_digest": "b4357969",
+  "source_digest": "c555a166",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -942,7 +942,7 @@
       {
         "id": "C2 CARGO-VIS-1",
         "what": "full-bay fill + rim overflow look",
-        "status": "▶ session 3 pass 4 (07-30) — 4-phase pacing 5/10/20/30 + rear dead-strip fix; wall-to-wall fill, crest over the rim, rear-clip clean; DEPLOYED `7660623` — Wyatt prod playtest = the close",
+        "status": "▶ 07-30 — 4-phase pacing 5/10/20/30 + rear dead-strip fix deployed; Wyatt prod look = \"great\" but KO respawns drifted bays → hotfix `b13bafb` DEPLOYED (rotation-independent measure, KO probe stable ×2); Wyatt re-test = the close",
         "state": "active"
       },
       {

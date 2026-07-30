@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (also runs inside `npm run qa`).
-> Generated 2026-07-30 at commit `7660623` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
-> Source digest: `71d784f9`
+> Generated 2026-07-30 at commit `b13bafb` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
+> Source digest: `b911773a`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -19,7 +19,7 @@ Playtesting and stabilization — Tier A drained. B1 AI-DIFF-1 shipped (`49bfc2a
 ## ACTIVE CARD
 
 C2 CARGO-VIS-1 — full-bay fill + rim overflow look
-Pass looks like: ▶ session 3 pass 4 (07-30) — 4-phase pacing 5/10/20/30 + rear dead-strip fix; wall-to-wall fill, crest over the rim, rear-clip clean; DEPLOYED `7660623` — Wyatt prod playtest = the close
+Pass looks like: ▶ 07-30 — 4-phase pacing 5/10/20/30 + rear dead-strip fix deployed; Wyatt prod look = "great" but KO respawns drifted bays → hotfix `b13bafb` DEPLOYED (rotation-independent measure, KO probe stable ×2); Wyatt re-test = the close
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 

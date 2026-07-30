@@ -132,7 +132,7 @@ Run 7 mission (below) is historical evidence, superseded as the live queue by
 | **ARENA-BAL-1** | Sundial + Storerooms self-KO rate | ✅ **closed** (Wyatt 07-22, no code) |
 | **QA-STATUS-1** | STATUS token overage broke `qa` | ✅ closed this commit — 07-21 log archived, queue reordered |
 | **HYGIENE-1** | 4-item sweep: sourcemaps off · boot-error filter · default branch · profiler `--dpr` | ✅ 07-30 — 3 branches deleted; dist has 0 `.map`; **one Wyatt step left: GitHub Settings → default branch → `cart-clash`** (classifier blocked `gh repo edit`) |
-| **C2** CARGO-VIS-1 | full-bay fill + rim overflow look | ▶ session 3 pass 4 (07-30) — 4-phase pacing 5/10/20/30 + rear dead-strip fix; wall-to-wall fill, crest over the rim, rear-clip clean; **DEPLOYED `7660623`** — Wyatt prod playtest = the close |
+| **C2** CARGO-VIS-1 | full-bay fill + rim overflow look | ▶ 07-30 — 4-phase pacing 5/10/20/30 + rear dead-strip fix deployed; Wyatt prod look = "great" but KO respawns drifted bays → **hotfix `b13bafb` DEPLOYED** (rotation-independent measure, KO probe stable ×2); Wyatt re-test = the close |
 | **WARM-IGPU-1** | first-play warm stall swallows countdown (medium iGPUs) | 📋 [P0 acked 07-30](./planning/warm-igpu-1.md); P0b (watchdog disproof + tier telemetry) and P1 need own acks |
 | **CARGO-HUD-1a** | cargo-readout mock on BOTH hosts, 3-state — Wyatt picks | 📋 after WARM P0; before WARM P1 |
 | **SKYBOX-1** | restore never-built sceneExtras skybox (review C-01) | 📋 after WARM P1 — Wyatt eyes close |
@@ -286,6 +286,16 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 - **Before any public / external-tester playtest: reset the analytics DO** so aggregates are not polluted by dev/harness traffic. Token-gated: `DELETE https://cart-rave.wyabro.workers.dev/api/analytics?token=<ERROR_LOG_TOKEN>` (same secret as `analytics:pull`). Then re-pull / dashboard after the playtest window.
 
 ## Last updated
+
+2026-07-30 (CARGO-VIS-1 hotfix — KO-respawn bay drift, DEPLOYED `b13bafb`) — Wyatt prod
+playtest: each death rebuilt the bay further out (clip → fully outside). Cause: the CartFrame
+path measured a WORLD AABB then inverted it — exact at creation, inflated up to ~2× on KO
+rebuilds where the mesh still holds its death pose (dead code until session 2). Now: geometry
+bbox × child-relative-to-root matrix — rotation-independent, creation numbers identical so the
+pass 1–4 tuning holds. Probe: 2 pit-dive KO cycles → bay origin bit-identical (dPos 0.000×3),
+footprint within jitter; post-KO shot clean (respawn = phase-2/10 by design). qa 773/773.
+Shipped: Version `70d6aa91-…`, entry `index-BSZ0AT-Y.js`, sha in `scene-Br9fE8mW.js` —
+**asset-verified**.
 
 2026-07-30 (CARGO-VIS-1 sessions 2–3 — CartFrame fix + 4-pass retune, DEPLOYED `7660623`) —
 **Session 2:** `getBasketCargoParams` matches `CartFrame` (instance rename of authored
