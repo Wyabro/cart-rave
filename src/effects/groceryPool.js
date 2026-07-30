@@ -152,6 +152,15 @@ let pool = [];
  */
 let pendingSpills = [];
 
+/**
+ * * Cargo bays created before init() resolves (createCargoBay returned an empty
+ * * group). buildPool() re-runs the item build for any still-parented bay so a
+ * * cold-boot cart doesn't ride an empty basket until the next KO rebuild
+ * * (CARGO-RACE-1 — mirrors the pendingSpills replay).
+ * @type {Array<{ group: THREE.Group, hw: number | undefined, hl: number | undefined, rimY: number | undefined }>}
+ */
+let pendingBays = [];
+
 /** @type {THREE.BufferGeometry[]} */
 let loadedGeometries = [];
 
@@ -424,6 +433,19 @@ async function buildPool(scene, world) {
 
   ready = true;
 
+  // * CARGO-RACE-1: heal bays that were built empty while the GLBs were still loading —
+  // * before the spill replay so a queued spill's hideCargoBay lands on a populated bay.
+  if (pendingBays.length > 0) {
+    const queuedBays = pendingBays.slice();
+    pendingBays.length = 0;
+    for (const { group, hw, hl, rimY } of queuedBays) {
+      // * Parentless = discarded (removeCargoBaysFromMesh) before models arrived.
+      if (!group.parent) continue;
+      if (group.userData.cargoItems?.length) continue;
+      populateCargoBay(group, hw, hl, rimY);
+    }
+  }
+
   if (pendingSpills.length > 0) {
     const queued = pendingSpills.slice();
     pendingSpills.length = 0;
@@ -549,13 +571,31 @@ export function removeCargoBaysFromMesh(mesh) {
  * @param {number} [rimY] Basket rim height in BAY-LOCAL space (bay origin = basket floor).
  *   When provided, the top overflow layer solves against it so a full bay crests the rim
  *   (CARGO-VIS-1). Omitted → legacy item-size stacking only.
- * @returns {THREE.Group} The cargo bay group (empty if models haven't loaded yet).
+ * @returns {THREE.Group} The cargo bay group. Built empty if models haven't loaded yet —
+ *   the bay is then queued and self-heals in place when init() resolves (CARGO-RACE-1).
  */
 export function createCargoBay(hw, hl, rimY) {
   const group = new THREE.Group();
   group.name = "cargoBay";
-  if (loadedGeometries.length === 0) return group;
+  if (loadedGeometries.length === 0) {
+    // * GLBs still loading (init is fire-and-forget at level swap) — register the empty
+    // * bay; buildPool() populates it in place once models land (CARGO-RACE-1).
+    pendingBays.push({ group, hw, hl, rimY });
+    return group;
+  }
+  populateCargoBay(group, hw, hl, rimY);
+  return group;
+}
 
+/**
+ * * Item build for a cargo bay group — split from {@link createCargoBay} so the
+ * * CARGO-RACE-1 self-heal in buildPool() can re-run it on bays created empty.
+ * @param {THREE.Group} group
+ * @param {number} [hw]
+ * @param {number} [hl]
+ * @param {number} [rimY]
+ */
+function populateCargoBay(group, hw, hl, rimY) {
   // * Shuffle indices so we get a good random mix of the 6 model types, then cycle
   // * across the fixed GRID (more slots than models → each type repeats a couple times).
   const indices = Array.from(
@@ -693,8 +733,6 @@ export function createCargoBay(hw, hl, rimY) {
   // * cargoLoad.js drives per-frame fullness from the synced round scores.
   group.userData.cargoItems = cargoItems;
   setCargoFill(group, 0);
-
-  return group;
 }
 
 /**
@@ -969,6 +1007,7 @@ export function update(_dt, now) {
  */
 function dispose(scene, world) {
   pendingSpills.length = 0;
+  pendingBays.length = 0;
 
   for (const im of instancedMeshes) {
     if (scene) scene.remove(im);

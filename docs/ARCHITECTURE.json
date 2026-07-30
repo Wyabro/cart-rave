@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-07-30T08:07:40.527Z",
-    "commit": "4962b06"
+    "at": "2026-07-30T08:20:31.396Z",
+    "commit": "8e026c1"
   },
-  "source_digest": "88db7708",
+  "source_digest": "cd75eddb",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -942,7 +942,7 @@
       {
         "id": "C2 CARGO-VIS-1",
         "what": "full-bay fill + rim overflow look",
-        "status": "▶ session 1 partial (07-30) — geometry landed + qa green; visual evidence blocked by CARGO-RACE-1 (see log); Wyatt eyes owed",
+        "status": "▶ session 1 partial (07-30) — geometry landed + qa green; CARGO-RACE-1 fixed 07-30 → screenshot rig unblocked; Wyatt eyes owed",
         "state": "active"
       },
       {
@@ -1036,8 +1036,8 @@
       {
         "title": "Engineering",
         "counts": {
-          "Medium": 13,
-          "Done": 3,
+          "Medium": 12,
+          "Done": 4,
           "Low": 5,
           "Partial": 1,
           "High": 7
@@ -1164,9 +1164,9 @@
             "ship1": null
           },
           {
-            "pri": "Medium",
+            "pri": "Done",
             "item": "CARGO-RACE-1 — bay built empty if grocery GLTFs lose the load race",
-            "notes": "`createCargoBay()` snapshots `loadedGeometries` ONCE at cart creation; `GroceryPool.init` is deliberately non-blocking (main.js:2826). A play entry before init resolves → permanently empty bay until the next KO-respawn rebuild. Reproduces 100% on cold headless `?room=solo` (blocked CARGO-VIS-1 evidence); real-world window = cold-cache fast play entry. Fix sketch: bay self-heals on init resolve (re-run item build for live bays), mirroring the pendingSpills replay pattern.",
+            "notes": "✅ 07-30 — bays self-heal on init resolve: `createCargoBay()` queues pre-init bays, `buildPool()` populates still-parented ones (mirrors pendingSpills replay). Cold-solo probe: `[0,0,0,0]` → `[18,18,18,18]` PASS. Unblocked CARGO-VIS-1 evidence.",
             "ship1": null
           },
           {

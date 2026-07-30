@@ -132,7 +132,7 @@ Run 7 mission (below) is historical evidence, superseded as the live queue by
 | **ARENA-BAL-1** | Sundial + Storerooms self-KO rate | ✅ **closed** (Wyatt 07-22, no code) |
 | **QA-STATUS-1** | STATUS token overage broke `qa` | ✅ closed this commit — 07-21 log archived, queue reordered |
 | **HYGIENE-1** | 4-item sweep: sourcemaps off · boot-error filter · default branch · profiler `--dpr` | ✅ 07-30 — 3 branches deleted; dist has 0 `.map`; **one Wyatt step left: GitHub Settings → default branch → `cart-clash`** (classifier blocked `gh repo edit`) |
-| **C2** CARGO-VIS-1 | full-bay fill + rim overflow look | ▶ session 1 partial (07-30) — geometry landed + qa green; visual evidence blocked by CARGO-RACE-1 (see log); Wyatt eyes owed |
+| **C2** CARGO-VIS-1 | full-bay fill + rim overflow look | ▶ session 1 partial (07-30) — geometry landed + qa green; CARGO-RACE-1 fixed 07-30 → screenshot rig unblocked; Wyatt eyes owed |
 | **WARM-IGPU-1** | first-play warm stall swallows countdown (medium iGPUs) | 📋 [P0 acked 07-30](./planning/warm-igpu-1.md); P0b (watchdog disproof + tier telemetry) and P1 need own acks |
 | **CARGO-HUD-1a** | cargo-readout mock on BOTH hosts, 3-state — Wyatt picks | 📋 after WARM P0; before WARM P1 |
 | **SKYBOX-1** | restore never-built sceneExtras skybox (review C-01) | 📋 after WARM P1 — Wyatt eyes close |
@@ -286,6 +286,15 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 - **Before any public / external-tester playtest: reset the analytics DO** so aggregates are not polluted by dev/harness traffic. Token-gated: `DELETE https://cart-rave.wyabro.workers.dev/api/analytics?token=<ERROR_LOG_TOKEN>` (same secret as `analytics:pull`). Then re-pull / dashboard after the playtest window.
 
 ## Last updated
+
+2026-07-30 (CARGO-RACE-1 fixed — cold-boot empty cargo bays now self-heal) — `createCargoBay()`
+queues bays built before `GroceryPool.init` resolves (`pendingBays`, mirrors the pendingSpills
+replay); `buildPool()` re-runs the item build for still-parented, still-empty bays after
+`ready = true` and before the spill replay, so a bay hidden by a queued spill stays hidden.
+One file (`src/effects/groceryPool.js`), no signature/caller changes. qa 773/773. Probe
+(cold headless `?room=solo`, scratch Playwright rig on the harness lib): bays first seen
+`[0,0,0,0]` — the exact pre-fix condition — healed to `[18,18,18,18]` by phase=running, PASS.
+**Unblocks the CARGO-VIS-1 screenshot rig** (session-1 evidence lever).
 
 2026-07-30 (CARGO-VIS-1 session 1 — geometry landed; evidence rig blocked, timeboxed out) —
 Bay-local `rimY` plumbed `getBasketCargoParams` → `createCargoBay` (all 3 cart paths, both
