@@ -5,7 +5,10 @@
 **Branch:** `cart-clash` (confirm with `git status`)
 **Intended path:** `docs/planning/CARGO-HUD-1-handover.md`
 **Priority:** **HIGH.** This is the ceiling on the game's only strategic layer (§1).
-**Status:** **BLOCKED** on one design answer from Wyatt (§2). Do not write code before that.
+**Status:** ~~BLOCKED~~ **RESOLVED 07-30** — §2's design question was answered from the
+CARGO-HUD-1a mocks: **nameplate placement, score-strip chip treatment, 3 discrete states,
+all four carts, always-on.** This file stays as the research input; the plan of record is
+**[cargo-hud-1.md](./cargo-hud-1.md)**. Read that before writing any code.
 
 > **Do NOT conflate this with CARGO-VIS-1.** That card is the *3D basket look* (fill layout,
 > overflow pile at boss) and is Wyatt-led art gated behind CART-MODEL-1 — see
@@ -31,7 +34,7 @@ and every ram is a coin flip against unknown physics.
 
 Right now the 3D bay mesh is the **only** tell in the entire game (§3).
 
-## 2. BLOCKED — answer before implementing
+## 2. ~~BLOCKED~~ — ANSWERED 07-30 (kept for the reasoning; see cargo-hud-1.md for the spec)
 
 Wyatt's rule: player-facing features need end-result framing first. **This card does not have
 it yet.** Get an answer to this before touching code:

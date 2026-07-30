@@ -131,10 +131,11 @@ Run 7 mission (below) is historical evidence, superseded as the live queue by
 | **B3** HIT-FEEL-1 | hit feedback — weak normals + noisy incoming | ✅ **PASS** (Wyatt playtest 07-22) |
 | **ARENA-BAL-1** | Sundial + Storerooms self-KO rate | ✅ **closed** (Wyatt 07-22, no code) |
 | **QA-STATUS-1** | STATUS token overage broke `qa` | ✅ closed this commit — 07-21 log archived, queue reordered |
-| **HYGIENE-1** | 4-item sweep: sourcemaps off · boot-error filter · default branch · profiler `--dpr` | ✅ 07-30 — 3 branches deleted; dist has 0 `.map`; **one Wyatt step left: GitHub Settings → default branch → `cart-clash`** (classifier blocked `gh repo edit`) |
+| **HYGIENE-1** | 4-item sweep: sourcemaps off · boot-error filter · default branch · profiler `--dpr` | ✅ **closed** 07-30 — sourcemaps off · boot-error filter · 3 stale remotes deleted · profiler `--dpr`; Wyatt set GitHub default branch → `cart-clash` (confirmed) |
 | **C2** CARGO-VIS-1 | full-bay fill + rim overflow look | ✅ **closed** (Wyatt prod playtest PASS 07-30 on `b13bafb`) — real-dims bays, 4-phase fill 5/10/20/30, rim crest, rear coverage, KO-respawn drift hotfix |
-| **WARM-IGPU-1** | first-play warm stall swallows countdown (medium iGPUs) | ▶ P1 Lever A ✅ shipped 07-30 (rotation warm now gates play-ready); structural + 18/18 MP checks green; **owed: Wyatt desktop spot check**. Solo residual → WARM-SOLO-1 ([plan](./planning/warm-igpu-1.md)) |
-| **CARGO-HUD-1a** | cargo-readout mock on BOTH hosts, 3-state — Wyatt picks | 📋 after WARM P0; before WARM P1 |
+| **WARM-IGPU-1** | first-play warm stall swallows countdown (medium iGPUs) | ⏳ P1 Lever A shipped + DEPLOYED 07-30 (rotation warm now gates play-ready); structural + 18/18 MP checks green; **awaiting Wyatt prod playtest**. Solo residual → WARM-SOLO-1 ([plan](./planning/warm-igpu-1.md)) |
+| **CARGO-HUD-1a** | cargo-readout mock on BOTH hosts, 3-state — Wyatt picks | ✅ closed 07-30 — Wyatt picked **nameplate placement + score-strip chip look** |
+| **CARGO-HUD-1** | opponent cargo readout on the nameplate | ▶ **card written, awaiting ack** — [cargo-hud-1.md](./planning/cargo-hud-1.md); display-only, no netcode |
 | **SKYBOX-1** | restore never-built sceneExtras skybox (review C-01) | 📋 after WARM P1 — Wyatt eyes close |
 | **SEC-BEACON-1 · SEC-UNLOCK-1 · SEC-ROUTE-1** | beacon rate-limit · devUnlocks URL gate · startsWith routes | 📋 before external testers — with analytics-DO reset |
 | **SHEET-1** | in-match contact-sheet tool (`?room=solo` boot) | 📋 blackframes readback pre-check first |
@@ -159,7 +160,7 @@ Triage docs superseded: [playtest-triage-2026-07-17](./planning/playtest-triage-
 ### Next actions
 
 1. **Wyatt desktop spot check — WARM-IGPU-1 Lever A** (last thing before the card closes): quickplay round-start feel unchanged, entry not longer, COUNTDOWN-WARM-1 still good. Everything agent-verifiable is green.
-2. Locked order after (07-30): **CARGO-HUD-1a → SKYBOX-1 → SEC series → SHEET-1 → FIGHT-VERIFY-1.** (CARGO-VIS-1 ✅ closed 07-30.)
+2. **CARGO-HUD-1 needs an ack** — card at [cargo-hud-1.md](./planning/cargo-hud-1.md) (nameplate chip, display-only). Locked order after: **SKYBOX-1 → SEC series → SHEET-1 → FIGHT-VERIFY-1.** (CARGO-VIS-1 + CARGO-HUD-1a ✅ closed 07-30.)
 3. **Before public/external playtest:** SEC-BEACON-1/UNLOCK/ROUTE **plus** `DELETE /api/analytics?token=…` (clear DO) — see Gotchas.
 
 ## Open issues (top)

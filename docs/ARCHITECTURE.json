@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-07-30T19:18:10.883Z",
-    "commit": "0803b1f"
+    "at": "2026-07-30T19:55:32.148Z",
+    "commit": "9ef57ea"
   },
-  "source_digest": "950addd5",
+  "source_digest": "9c4bcc5b",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -936,7 +936,7 @@
       {
         "id": "HYGIENE-1",
         "what": "4-item sweep: sourcemaps off · boot-error filter · default branch · profiler `--dpr`",
-        "status": "✅ 07-30 — 3 branches deleted; dist has 0 `.map`; one Wyatt step left: GitHub Settings → default branch → `cart-clash` (classifier blocked `gh repo edit`)",
+        "status": "✅ closed 07-30 — sourcemaps off · boot-error filter · 3 stale remotes deleted · profiler `--dpr`; Wyatt set GitHub default branch → `cart-clash` (confirmed)",
         "state": "done"
       },
       {
@@ -948,14 +948,20 @@
       {
         "id": "WARM-IGPU-1",
         "what": "first-play warm stall swallows countdown (medium iGPUs)",
-        "status": "▶ P1 Lever A ✅ shipped 07-30 (rotation warm now gates play-ready); structural + 18/18 MP checks green; owed: Wyatt desktop spot check. Solo residual → WARM-SOLO-1 ([plan](./planning/warm-igpu-1.md))",
-        "state": "active"
+        "status": "⏳ P1 Lever A shipped + DEPLOYED 07-30 (rotation warm now gates play-ready); structural + 18/18 MP checks green; awaiting Wyatt prod playtest. Solo residual → WARM-SOLO-1 ([plan](./planning/warm-igpu-1.md))",
+        "state": "waiting"
       },
       {
         "id": "CARGO-HUD-1a",
         "what": "cargo-readout mock on BOTH hosts, 3-state — Wyatt picks",
-        "status": "📋 after WARM P0; before WARM P1",
-        "state": "waiting"
+        "status": "✅ closed 07-30 — Wyatt picked nameplate placement + score-strip chip look",
+        "state": "done"
+      },
+      {
+        "id": "CARGO-HUD-1",
+        "what": "opponent cargo readout on the nameplate",
+        "status": "▶ card written, awaiting ack — [cargo-hud-1.md](./planning/cargo-hud-1.md); display-only, no netcode",
+        "state": "active"
       },
       {
         "id": "SKYBOX-1",
@@ -1005,7 +1011,7 @@
     ],
     "next_actions": [
       "Wyatt desktop spot check — WARM-IGPU-1 Lever A (last thing before the card closes): quickplay round-start feel unchanged, entry not longer, COUNTDOWN-WARM-1 still good. Everything agent-verifiable is green.",
-      "Locked order after (07-30): CARGO-HUD-1a → SKYBOX-1 → SEC series → SHEET-1 → FIGHT-VERIFY-1. (CARGO-VIS-1 ✅ closed 07-30.)",
+      "CARGO-HUD-1 needs an ack — card at [cargo-hud-1.md](./planning/cargo-hud-1.md) (nameplate chip, display-only). Locked order after: SKYBOX-1 → SEC series → SHEET-1 → FIGHT-VERIFY-1. (CARGO-VIS-1 + CARGO-HUD-1a ✅ closed 07-30.)",
       "Before public/external playtest: SEC-BEACON-1/UNLOCK/ROUTE plus `DELETE /api/analytics?token=…` (clear DO) — see Gotchas."
     ],
     "open_issues": [
@@ -1037,10 +1043,10 @@
         "title": "Engineering",
         "counts": {
           "Medium": 13,
-          "Done": 4,
+          "Done": 5,
           "Low": 5,
           "Partial": 1,
-          "High": 7
+          "High": 6
         },
         "rows": [
           {
@@ -1128,9 +1134,9 @@
             "ship1": "A6"
           },
           {
-            "pri": "High",
+            "pri": "Done",
             "item": "HYGIENE-1 — acked fixed-list sweep (07-30 review fold-in)",
-            "notes": "Exactly 4 items, one commit each, off-list = out of scope: (1) `vite.config.js:98` `sourcemap: false` — `.map` files publicly served today; (2) widen `index.html:1126` boot-error filter — forward when `ev.error` present (module-eval crashes currently reach zero telemetry); (3) GitHub default branch → `cart-clash` (settings change, Wyatt/manual) + delete remotes `redesign/fight-night-ui` (merged PR #3), `vercel/install-vercel-web-analytics-szsph5`, `vercel/vercel-web-analytics-to-projec-npj24h`; KEEP `next-level`, `docs/agent-config-rewrite`; remote deletes never share a commit with code; (4) `tools/perf-profile.mjs` `--dpr` + GPU flags (DPR hardcoded 1 — the High tier's `pixelRatioCap: 2` has never been measured; prereq to ANY tier retuning).",
+            "notes": "✅ closed 07-30 — (1) sourcemap:false · (2) boot-error filter · (3) remotes deleted + **Wyatt set GitHub default branch → `cart-clash`** · (4) profiler `--dpr`/`--gpu`.",
             "ship1": null
           },
           {
@@ -1402,9 +1408,10 @@
       {
         "title": "UI / UX",
         "counts": {
-          "High": 5,
+          "High": 4,
           "Medium": 4,
-          "Low": 1
+          "Low": 1,
+          "Done": 1
         },
         "rows": [
           {
@@ -1450,15 +1457,15 @@
             "ship1": null
           },
           {
-            "pri": "High",
+            "pri": "Done",
             "item": "CARGO-HUD-1a — cargo-readout mock on BOTH hosts",
-            "notes": "Static 3-state styling only (stripped/stocked/boss — locked 07-30), no wiring, no netcode: (a) CSS2D nameplate (`makeNameLabel` main.js:3655, `nametagHtml` hud.js:112); (b) score-strip indicator slot (`syncRowIndicators` hud.js:917, `buildRosterRows`/`updateScores` :966/:985). Screenshots → Wyatt picks the host → CARGO-HUD-1 gets framed.",
+            "notes": "✅ 07-30 — injected mocks (no repo change) of nameplate vs score-strip, 3 states + matching baskets in one frame. **Wyatt picked nameplate placement with the score-strip chip treatment.**",
             "ship1": null
           },
           {
             "pri": "High",
-            "item": "CARGO-HUD-1 — opponent cargo readout (real card)",
-            "notes": "Display-only, plumbing verified: `lifeCargoPoints`/`cargoFullness01` replicated as `lc` on BOTH wire paths (netcode.js:1775 send / :1267 apply; binary.js:117/:248); zero cargo refs in hud.js today. The gap: boss incoming-ram 0.52× vs stripped 1.32× — the harder-to-see half carries the bigger physics swing. **Blocked on the 1a pick.** Full brief: [CARGO-HUD-1-handover.md](./CARGO-HUD-1-handover.md).",
+            "item": "CARGO-HUD-1 — opponent cargo readout (nameplate)",
+            "notes": "**Card written, awaiting ack:** [cargo-hud-1.md](./cargo-hud-1.md). Display-only — `lifeCargoPoints` already on both wire paths (netcode.js:1775 / :1267; binary.js:117/:248), zero cargo refs in hud.js today. 3 states (stripped/stocked/boss) as a slab chip on `.cart-nametag`; rides the existing per-frame diff-gated `updateNameLabels` cache, so one `innerHTML` write per transition. Seam: `cargoTierFor()` in cargoLoad.js. The gap it closes: boss incoming-ram 0.52× vs stripped 1.32× — the harder-to-see half carries the bigger swing.",
             "ship1": null
           },
           {
