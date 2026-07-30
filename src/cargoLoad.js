@@ -111,29 +111,44 @@ export function clearCargoOverflowForSlot(slotIndex) {
  */
 export function lifeCargoVisibleCount(lifeCargoPoints) {
   const cargoCfg = CONFIG.cargo;
-  const full = Math.max(1, cargoCfg?.fullScore ?? 8);
   const phases =
     Array.isArray(cargoCfg?.fillPhases) && cargoCfg.fillPhases.length === 4
       ? cargoCfg.fillPhases
       : [5, 10, 20, 30];
-  const life = clamp(Number(lifeCargoPoints) || 0, 0, full);
-  if (life <= 0) return 0;
-  const t = life / full;
-  if (t <= 0.25) return phases[0];
-  if (t <= 0.5) return phases[1];
-  if (t < 1) return phases[2];
-  return phases[3];
+  const idx = cargoFillLevelFor(lifeCargoPoints);
+  return idx === 0 ? 0 : phases[idx - 1];
 }
 
 /**
- * CARGO-HUD-1 — the three states the nameplate chip reads out.
+ * Fill level 0–4: 0 = stripped, 1–4 = the four `fillPhases` buckets.
  *
- * Deliberately 3 discrete buckets, not the continuous cargoFullness01: the physics is
- * piecewise around baseline (stripped 1.32× incoming ram / baseline 1.0× / boss 0.52×),
- * so a bar would imply a linearity the handling curve does not have. The *look* steps in
- * 4 phases (lifeCargoVisibleCount) while *weight* stays continuous — this is a third,
- * coarser mapping for "how hard is this cart to launch", which is the only question a
- * player asks mid-ram.
+ * THE single source for "which step is this cart on" — `lifeCargoVisibleCount` (the 3D bay)
+ * and the CARGO-HUD-1 nameplate chip both read it, so the chip cannot drift out of sync with
+ * the basket it exists to summarize. That drift was the 07-30 defect: the chip originally had
+ * its own 3-state split, which collapsed life 1–7 (three whole bay phases) into one reading
+ * and made a single kill off stripped jump the readout two bars.
+ *
+ * @param {number} lifeCargoPoints
+ * @returns {0 | 1 | 2 | 3 | 4}
+ */
+export function cargoFillLevelFor(lifeCargoPoints) {
+  const full = Math.max(1, CONFIG.cargo?.fullScore ?? 8);
+  const life = clamp(Number(lifeCargoPoints) || 0, 0, full);
+  if (life <= 0) return 0;
+  const t = life / full;
+  if (t <= 0.25) return 1;
+  if (t <= 0.5) return 2;
+  if (t < 1) return 3;
+  return 4;
+}
+
+/**
+ * CARGO-HUD-1 — the nameplate chip's COLOUR band (its segment count comes from
+ * {@link cargoFillLevelFor}, which follows the bay's phases).
+ *
+ * Three bands because that is where the handling curve's anchors sit — stripped 1.32×
+ * incoming ram / baseline 1.0× / boss 0.52×. Colour answers "is this one a tank?" at a
+ * glance; the segment count carries the finer "how far along" read.
  *
  * @param {number} lifeCargoPoints
  * @returns {"stripped" | "stocked" | "boss"}

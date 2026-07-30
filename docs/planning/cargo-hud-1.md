@@ -47,14 +47,25 @@ launching someone and bouncing off.
 
 ## Design spec
 
-**Three discrete states, not a bar.** The physics is piecewise around baseline; three states
-are more truthful than a continuous fill, and readable at a glance mid-fight.
+**Four segments on the bay's own quarter-split, three colour bands.** Count carries "how far
+along"; colour carries "is this one a tank". Both come from `cargoLoad.js`, and the count
+shares its phase function with the 3D bay so the chip and the basket can never disagree.
 
-| State | Condition | Segments | Colour |
+| Life | Bay | Segments | Colour band |
 |---|---|---|---|
-| `stripped` | `lifeCargoPoints === 0` | 3 dim | `rgba(242,237,228,.30)` |
-| `stocked` | `0 < points < fullScore` | 2 lit, 1 dim | `--color-cyan` |
-| `boss` | `points >= fullScore` (8) | 3 lit + glow | `#ff8a3d` |
+| 0 | hidden | ▭▭▭▭ | `stripped` — `rgba(242,237,228,.30)` |
+| 1–2 | 5 items | ▮▭▭▭ | `stocked` — `--color-cyan` |
+| 3–4 (spawn = 3) | 10 items | ▮▮▭▭ | `stocked` |
+| 5–7 | 20 items | ▮▮▮▭ | `stocked` |
+| 8 | 30 items | ▮▮▮▮ + glow | `boss` — `#ff8a3d` |
+
+> **Corrected 07-30 after Wyatt's review.** The first cut used three segments mapped to the
+> three *physics anchors*, which collapsed life 1–7 — seven of eight points, three whole bay
+> phases — into one identical 2-bar reading, and jumped the readout **two bars on the first
+> kill off stripped**. The chip must step when the *bay* steps, not when the handling curve's
+> anchors sit. `cargoFillLevelFor()` is now the single phase source that `lifeCargoVisibleCount()`
+> also reads. A unit test asserts no single point of life may move the chip more than one
+> segment — do not re-collapse the range.
 
 **Amber is deliberate** — it is the existing rampage-pip colour (`hud.css:1377`), so this
 introduces no new colour to the language. Boss adds a soft outer glow; nothing else does.
@@ -77,9 +88,11 @@ Display-only. **No netcode work, no protocol change, no new sync** — `lifeCarg
 already replicated as `lc` on both wire paths (`netcode.js:1775` send, `:1267-1270` apply;
 `netcode/binary.js:117-118/:248`), so every remote cart's value is already client-side.
 
-1. **`src/cargoLoad.js`** — add a pure `cargoTierFor(lifeCargoPoints)` returning
-   `"stripped" | "stocked" | "boss"`. Lives beside `lifeCargoVisibleCount()` (`:110`), which
-   already owns cargo→presentation mapping. **This is the unit-testable seam.**
+1. **`src/cargoLoad.js`** — two pure functions beside `lifeCargoVisibleCount()`:
+   `cargoFillLevelFor()` → `0–4` (**the shared phase source** — `lifeCargoVisibleCount` now
+   derives its bay count from it, so chip and basket step together by construction) and
+   `cargoTierFor()` → `"stripped" | "stocked" | "boss"` for the colour band. **The
+   unit-testable seam.**
 2. **`src/main.js:112` `nametagHtml(...)`** — take a `cargoTier` argument and emit
    `<span class="cart-nametag-cargo" data-cargo="…"><i></i><i></i><i></i></span>` after the
    name, before the crown. Building it into the returned HTML string is what makes step 3
@@ -97,8 +110,8 @@ Nothing else. No HUD element, no store, no analytics.
 
 ## Do not
 
-- Do not add a continuous 0–1 bar — three states was the decision, and the physics is
-  piecewise.
+- Do not add a continuous 0–1 bar, and do not collapse the segment count back to three —
+  see the corrected spec above; a unit test guards the one-segment-per-step property.
 - Do not put a second copy in the score strip. That was variant B and it lost; C (both) was
   the density check, not a proposal.
 - Do not gate the chip on proximity/approach without a separate ack — always-on is what was

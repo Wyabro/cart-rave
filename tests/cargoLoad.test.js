@@ -21,6 +21,7 @@ let baselineLifeCargoPoints;
 let cargoCurveMul;
 let lifeCargoVisibleCount;
 let cargoTierFor;
+let cargoFillLevelFor;
 let gameStore;
 let announce;
 let setCargoFillCount;
@@ -40,6 +41,7 @@ beforeEach(async () => {
     cargoCurveMul,
     lifeCargoVisibleCount,
     cargoTierFor,
+    cargoFillLevelFor,
   } = await import("../src/cargoLoad.js"));
   ({ gameStore } = await import("../src/stores/gameStore.js"));
   ({ announce } = await import("../src/announcer/announcerManager.js"));
@@ -177,6 +179,42 @@ describe("cargoTierFor (CARGO-HUD-1 nameplate chip)", () => {
     for (const bad of [undefined, null, NaN, -3, "boss", {}]) {
       expect(cargoTierFor(/** @type {any} */ (bad))).toBe("stripped");
     }
+  });
+});
+
+describe("cargoFillLevelFor (CARGO-HUD-1 chip segments)", () => {
+  it("walks 0→4 one step at a time across the whole life range", () => {
+    const full = CONFIG.cargo.fullScore;
+    const seen = [];
+    for (let life = 0; life <= full; life += 1) seen.push(cargoFillLevelFor(life));
+    expect(seen[0]).toBe(0);
+    expect(seen[full]).toBe(4);
+    // * The 07-30 defect in one assertion: no single point of life may move the readout
+    // * more than one segment. The old 3-state chip jumped 0 → 2 on the first kill.
+    for (let i = 1; i < seen.length; i += 1) {
+      expect(seen[i] - seen[i - 1]).toBeLessThanOrEqual(1);
+      expect(seen[i]).toBeGreaterThanOrEqual(seen[i - 1]);
+    }
+  });
+
+  it("spawn baseline sits mid-chip, not near-full", () => {
+    expect(cargoFillLevelFor(CONFIG.cargo.baselinePoints)).toBe(2);
+  });
+
+  it("steps in lockstep with the 3D bay — the chip's whole job", () => {
+    const full = CONFIG.cargo.fullScore;
+    for (let life = 0; life <= full; life += 1) {
+      const level = cargoFillLevelFor(life);
+      const expected = level === 0 ? 0 : CONFIG.cargo.fillPhases[level - 1];
+      expect(lifeCargoVisibleCount(life)).toBe(expected);
+    }
+  });
+
+  it("never throws on junk and clamps above full", () => {
+    for (const bad of [undefined, null, NaN, -3, "boss", {}]) {
+      expect(cargoFillLevelFor(/** @type {any} */ (bad))).toBe(0);
+    }
+    expect(cargoFillLevelFor(CONFIG.cargo.fullScore + 50)).toBe(4);
   });
 });
 

@@ -135,7 +135,7 @@ Run 7 mission (below) is historical evidence, superseded as the live queue by
 | **C2** CARGO-VIS-1 | full-bay fill + rim overflow look | ✅ **closed** (Wyatt prod playtest PASS 07-30 on `b13bafb`) — real-dims bays, 4-phase fill 5/10/20/30, rim crest, rear coverage, KO-respawn drift hotfix |
 | **WARM-IGPU-1** | first-play warm stall swallows countdown (medium iGPUs) | ✅ **CLOSED** — Wyatt prod playtest PASS 07-30 on `a9dbc7d`. Solo residual tracked separately as WARM-SOLO-1 ([plan](./planning/warm-igpu-1.md)) |
 | **CARGO-HUD-1a** | cargo-readout mock on BOTH hosts, 3-state — Wyatt picks | ✅ closed 07-30 — Wyatt picked **nameplate placement + score-strip chip look** |
-| **CARGO-HUD-1** | opponent cargo readout on the nameplate | ▶ DEPLOYED 07-30 `f98f9df` (Version `a066a450`, entry `index-aQjYKjNu.js`, asset-verified + live chip render); **awaiting Wyatt playtest** ([card](./planning/cargo-hud-1.md)) |
+| **CARGO-HUD-1** | opponent cargo readout on the nameplate | ▶ deployed `f98f9df`, then **granularity fix (4 segments on the bay quarter-split) — built, undeployed**; awaiting Wyatt look ([card](./planning/cargo-hud-1.md)) |
 | **SKYBOX-1** | restore never-built sceneExtras skybox (review C-01) | 📋 after WARM P1 — Wyatt eyes close |
 | **SEC-BEACON-1 · SEC-UNLOCK-1 · SEC-ROUTE-1** | beacon rate-limit · devUnlocks URL gate · startsWith routes | 📋 before external testers — with analytics-DO reset |
 | **SHEET-1** | in-match contact-sheet tool (`?room=solo` boot) | 📋 blackframes readback pre-check first |
@@ -306,31 +306,30 @@ entry `index-aQjYKjNu.js`, CSS `index-Duw2Tyix.css`. Asset-verified against fetc
 by live render — prod solo boot at countdown returned 4 chips, 3 segments each, computed bg
 `rgb(8,5,15)`, no page errors. (Post-deploy the first HTML fetch still named the OLD entry —
 `max-age=0, must-revalidate` revalidation, resolved in seconds. Re-fetch before alarm.)
-Awaiting Wyatt playtest.
+**Granularity fix (Wyatt review, same day, undeployed):** the shipped 3-segment chip mapped
+the three *physics anchors*, collapsing life 1–7 — three whole bay phases — into one 2-bar
+reading and jumping two bars on the first kill off stripped. Now **4 segments on the bay's own
+quarter-split**: `cargoFillLevelFor()` is the shared phase source `lifeCargoVisibleCount()`
+also derives from, so chip and basket step together by construction. Spawn reads 2/4; boss is
+4/4 amber. Swept every life 0–8 in the real bundle (monotonic, ≤1 segment per point, bay
+agrees at each step) + DOM lit-count matches; a unit test guards the property. qa 784/784.
 
-2026-07-30 (WARM-IGPU-1 CLOSED — Wyatt prod playtest PASS on `a9dbc7d`) — Phases 0/0b
-(instrumentation: `perf/warmupSettle` with the compileMs-vs-pollMs split, `warm.compilePoll`
-span, `perf/qualityStepDown` + `gpuClass`/tier on the analytics beacon) and Phase 1 (Lever A:
-`isSessionPlayReady` also requires `!arenaRotationInFlight`, plus `Netcode.signalPlayReadyNow()`
-so a settled rotation re-arms instead of waiting out the 12s ceiling — it withholds the **arm**,
-never delays an armed countdown, unlike the reverted `c8df8fd`). Both iGPU laptops became
-unavailable mid-card, so P0 closed on a SwiftShader cold-cache proxy and verification switched
-to a machine-independent structural assertion (no `warm.*` between `lobby→countdown` and GO;
-countdown 3624ms vs 3600 config, cap-206's was 8163ms) + `netharness mpIntegration` 18/18.
-DEPLOYED `a9dbc7d`, Worker Version `127d5f63`, asset-verified against fetched bytes (which also
-confirmed HYGIENE-1's zero `sourceMappingURL` live). **Scope limit:** rotation is quickplay-only,
-so cap-206's **solo** stall is untouched → **WARM-SOLO-1**, telemetry-gated. Full record incl.
-the proxy findings and hypothesis status: [warm-igpu-1.md](./planning/warm-igpu-1.md).
+2026-07-30 (WARM-IGPU-1 CLOSED — Wyatt prod playtest PASS on `a9dbc7d`, Version `127d5f63`) —
+Phases 0/0b shipped warm/watchdog instrumentation (`perf/warmupSettle`, `warm.compilePoll`,
+`perf/qualityStepDown`, `gpuClass`/tier on the analytics beacon); Phase 1 Lever A made an
+in-flight arena rotation withhold `clientPlayReady`, so the countdown can no longer arm into
+that compile. Both iGPU laptops became unavailable mid-card → P0 closed on a SwiftShader
+proxy, verification on a machine-independent structural assertion + `mpIntegration` 18/18.
+**Scope limit:** rotation is quickplay-only, so cap-206's **solo** stall is untouched →
+**WARM-SOLO-1**, telemetry-gated. Full record, proxy findings, hypothesis status:
+[warm-igpu-1.md](./planning/warm-igpu-1.md).
 
-2026-07-30 (CARGO-VIS-1 CLOSED — Wyatt prod playtest PASS on `b13bafb`) — Full-bay fill + rim
-overflow shipped across sessions 1–3 plus a KO-drift hotfix. Live: `CONFIG.cargo.fillPhases`
-4-phase pacing (5>10>20>30) with stepped `lifeCargoVisibleCount`, GRID 30 slots (15/10/5),
-insets 0.68/0.60, cargoScale 0.60, bay-local `rimY` crest (**D-CARGO-VIS-1** — the pile now
-crests the rim; do not "fix" it back under). Two bugs found and fixed en route: CARGO-RACE-1
-(bays built empty when `GroceryPool.init` lost the load race — now self-heal via `pendingBays`)
-and the KO-respawn drift (world-AABB measurement inflated by the death pose → geometry bbox ×
-child-relative matrix). Deployed `b13bafb`, Version `70d6aa91`, entry `index-BSZ0AT-Y.js`,
-asset-verified. Blow-by-blow + the reusable hardware-GPU headless rig recipe (for SHEET-1):
+2026-07-30 (CARGO-VIS-1 CLOSED — Wyatt prod playtest PASS on `b13bafb`, Version `70d6aa91`) —
+Full-bay fill + rim overflow across 3 sessions + a KO-drift hotfix; live values are
+`CONFIG.cargo.fillPhases` 5/10/20/30, GRID 30, insets 0.68/0.60, bay-local `rimY` crest
+(**D-CARGO-VIS-1** — the pile crests the rim; do not "fix" it back under). Two bugs fixed en
+route: CARGO-RACE-1 (empty bays now self-heal) and KO-respawn bay drift. Blow-by-blow + the
+reusable hardware-GPU headless rig recipe (for SHEET-1):
 [archive/status-log-2026-07-30-cargo-vis-1.md](./archive/status-log-2026-07-30-cargo-vis-1.md).
 
 2026-07-23 (UI — fight-night redesign MERGED + DEPLOYED to production) — PR #3 merged into

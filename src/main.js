@@ -108,10 +108,12 @@ function escapeHtml(text) {
  * @param {"intro" | "normal"} mode
  * @param {boolean} isHost
  * @param {boolean} [isLeader]
- * @param {"stripped" | "stocked" | "boss" | null} [cargoTier] CARGO-HUD-1 load chip.
+ * @param {{ tier: "stripped" | "stocked" | "boss", fill: number } | null} [cargoChip]
+ *   CARGO-HUD-1 load chip: `tier` picks the colour band, `fill` (0–4) lights that many of
+ *   the four segments — the same phases the 3D bay steps through.
  * @returns {string}
  */
-function nametagHtml(name, meta, mode, isHost, isLeader = false, cargoTier = null) {
+function nametagHtml(name, meta, mode, isHost, isLeader = false, cargoChip = null) {
   const hostGlyph = isHost
     ? `<span style="opacity:.85;margin-right:5px;">${svgIcon("host", { label: "Host" })}</span>`
     : "";
@@ -120,12 +122,12 @@ function nametagHtml(name, meta, mode, isHost, isLeader = false, cargoTier = nul
   const crown = isLeader
     ? `<span class="cart-nametag-crown">${svgIcon("crown", { label: "Leader" })}</span>`
     : "";
-  // * CARGO-HUD-1: three-state load chip, last on the plate. Built INTO this string on
-  // * purpose — updateNameLabels caches on the produced HTML, so a tier change invalidates
-  // * the cache by itself and costs one innerHTML write per transition (no extra plumbing,
-  // * no per-frame DOM work). Tier is a fixed enum, never user text, so it needs no escape.
-  const cargo = cargoTier
-    ? `<span class="cart-nametag-cargo" data-cargo="${cargoTier}" aria-label="Cargo: ${cargoTier}"><i></i><i></i><i></i></span>`
+  // * CARGO-HUD-1: four-segment load chip, last on the plate. Built INTO this string on
+  // * purpose — updateNameLabels caches on the produced HTML, so a tier/fill change
+  // * invalidates the cache by itself and costs one innerHTML write per transition (no extra
+  // * plumbing, no per-frame DOM work). Both values are derived enums/ints, never user text.
+  const cargo = cargoChip
+    ? `<span class="cart-nametag-cargo" data-cargo="${cargoChip.tier}" data-fill="${cargoChip.fill | 0}" aria-label="Cargo ${cargoChip.fill | 0} of 4"><i></i><i></i><i></i><i></i></span>`
     : "";
   if (!meta) return `${hostGlyph}${escapeHtml(name)}${crown}${cargo}`;
   const icon = `<span style="color:${meta.color};margin-right:6px;">${svgIcon(meta.icon, { label: meta.label })}</span>`;
@@ -142,7 +144,7 @@ import * as CameraMod from "./camera.js";
 import * as Effects from "./effects.js";
 import * as GroceryPool from "./effects/groceryPool.js";
 import { initDirectiveEngine, getDirectiveKoRewardMultiplier, onHostSpill as directiveOnHostSpill, shiftDirectiveTimersBy, clearActiveDirective } from "./directives/directiveEngine.js";
-import { armSpillBoost, cargoTierFor, spillCountForCart, stripLifeCargo } from "./cargoLoad.js";
+import { armSpillBoost, cargoFillLevelFor, cargoTierFor, spillCountForCart, stripLifeCargo } from "./cargoLoad.js";
 import { loadLevel, resolveLevelId, prefetchLevelChunks, LEVEL_STORAGE_KEY, PREFETCHABLE_LEVEL_IDS } from "./levels/index.js";
 import { DEV_UNLOCKS_STORAGE_KEY, LEVEL_UNLOCKS } from "./unlockConfig.js";
 import { updateLevelLod } from "./utils/levelLod.js";
@@ -3703,8 +3705,11 @@ async function main() {
       const isHostSlot = hostGlyphEligible && Boolean(slot.connId && slot.connId === Netcode.getHostId());
       // * CARGO-HUD-1: lifeCargoPoints is already client-side for every cart (host sim
       // * locally, `lc` off the snapshot for remotes) — this is a read, never a sync.
-      const cargoTier = cargoTierFor(cart.lifeCargoPoints);
-      const contentHtml = nametagHtml(name, meta, introMode, isHostSlot, i === leaderSlot, cargoTier);
+      const cargo = {
+        tier: cargoTierFor(cart.lifeCargoPoints),
+        fill: cargoFillLevelFor(cart.lifeCargoPoints),
+      };
+      const contentHtml = nametagHtml(name, meta, introMode, isHostSlot, i === leaderSlot, cargo);
 
       if (nameLabels[i]) {
         if (

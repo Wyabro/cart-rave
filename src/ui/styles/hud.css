@@ -1220,8 +1220,12 @@
 }
 
 /* ── CARGO-HUD-1 — Living Cargo load chip ───────────────────────────────────
-   Three discrete states, read on the cart you are about to ram: stripped (easy
-   to launch, 1.32× incoming), stocked, boss (0.52× incoming — bounces you off).
+   Read on the cart you are about to ram: stripped (easy to launch, 1.32×
+   incoming) → boss (0.52× incoming — bounces you off).
+   FOUR segments on the bay's own quarter-split (cargoFillLevelFor), so the chip
+   steps exactly when the basket steps — one bar per phase, spawn reads half.
+   An earlier 3-segment cut collapsed life 1–7 into one reading and jumped two
+   bars on the first kill; do not re-collapse it.
    Plate recipe is the score-strip rampage pip (.hud-scorePip) so it reads as
    native Fight Night furniture, not a new widget.
    ALL sizing is `em`: .cart-nametag steps 24px → 13px → 11px below, and a px
@@ -1244,12 +1248,16 @@
   /* Empty segment — dim enough to read as "nothing there" against the ink plate. */
   background: rgba(242, 237, 228, 0.3);
 }
-/* Stocked: two lit in the HUD's neutral accent. */
-.cart-nametag-cargo[data-cargo="stocked"] i:nth-child(-n + 2) {
+/* Lit segments = the bay's phase (1–4). Count carries "how far along". */
+.cart-nametag-cargo[data-fill="1"] i:nth-child(-n + 1),
+.cart-nametag-cargo[data-fill="2"] i:nth-child(-n + 2),
+.cart-nametag-cargo[data-fill="3"] i:nth-child(-n + 3),
+.cart-nametag-cargo[data-fill="4"] i {
   background: var(--color-cyan, #35e0e8);
 }
-/* Boss: all three in the rampage-pip amber + a soft glow. Nothing else on the
-   plate glows, so "this one is a tank" is the only thing that pulses out. */
+/* Boss: all four in the rampage-pip amber + a soft glow. Colour carries "this
+   one is a tank" — it must win over the cyan fill rules, so it stays last.
+   Nothing else on the plate glows. */
 .cart-nametag-cargo[data-cargo="boss"] i {
   background: #ff8a3d;
 }
