@@ -84,32 +84,3 @@ export function setPlayReadyTimeoutOverride(ms: number | null): void {
 export function getPlayReadyTimeoutMs(): number {
   return playReadyTimeoutOverrideMs ?? PLAY_READY_TIMEOUT_MS;
 }
-
-// ── Test-only beacon-limit overrides (SEC-BEACON-1) ────────────────────────
-// Used by tests/party-do so a flood case doesn't need 30 requests inside a real
-// 60s window. Production never calls setBeaconLimitOverrides. Pass null to clear.
-let beaconMaxOverride: number | null = null;
-let beaconWindowOverrideMs: number | null = null;
-
-/** Test-only. Shrink the beacon cap / window. Pass null to clear both. */
-export function setBeaconLimitOverrides(
-  opts: { maxPerWindow?: number; windowMs?: number } | null,
-): void {
-  if (opts == null) {
-    beaconMaxOverride = null;
-    beaconWindowOverrideMs = null;
-    return;
-  }
-  if (typeof opts.maxPerWindow === "number") beaconMaxOverride = opts.maxPerWindow;
-  if (typeof opts.windowMs === "number") beaconWindowOverrideMs = opts.windowMs;
-}
-
-/** Effective beacon cap (override ?? BEACON_MAX_PER_WINDOW). */
-export function getBeaconMaxPerWindow(): number {
-  return beaconMaxOverride ?? BEACON_MAX_PER_WINDOW;
-}
-
-/** Effective beacon window (override ?? BEACON_WINDOW_MS). */
-export function getBeaconWindowMs(): number {
-  return beaconWindowOverrideMs ?? BEACON_WINDOW_MS;
-}

@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (also runs inside `npm run qa`).
-> Generated 2026-07-30 at commit `f3f8cad` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
-> Source digest: `07d78042`
+> Generated 2026-07-30 at commit `f8e2b56` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
+> Source digest: `10e6ff52`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -19,7 +19,7 @@ Playtesting and stabilization — Tier A drained. B1 AI-DIFF-1 shipped (`49bfc2a
 ## ACTIVE CARD
 
 SEC-BEACON-1 — rate-limit the open POST beacons (+ IP-cap constant, dedupe release, tests)
-Pass looks like: ▶ ACTIVE — needs a plan + Wyatt ack before code. First of the before-external-testers gate; details in [BACKLOG](./planning/BACKLOG.md)
+Pass looks like: ▶ applied, UNPUSHED (4 commits, acked plan B′). Per-IP 30/60s enforced *inside* each log DO before the INSERT — budget is per-DO, not shared. Worker now forwards `cf-connecting-ip` and propagates the DO 429 (log-error + analytics previously always 204). Owed: push + Wyatt prod playtest (one F8 + one session's analytics must still land)
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 

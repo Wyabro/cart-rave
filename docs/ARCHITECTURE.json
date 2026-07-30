@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-07-30T23:40:49.167Z",
-    "commit": "37a95b5"
+    "at": "2026-07-30T23:46:13.235Z",
+    "commit": "f8e2b56"
   },
-  "source_digest": "b10ab3ed",
+  "source_digest": "25ca55fb",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -975,7 +975,7 @@
       {
         "id": "SEC-BEACON-1",
         "what": "rate-limit the open POST beacons (+ IP-cap constant, dedupe release, tests)",
-        "status": "▶ ACTIVE — needs a plan + Wyatt ack before code. First of the before-external-testers gate; details in [BACKLOG](./planning/BACKLOG.md)",
+        "status": "▶ applied, UNPUSHED (4 commits, acked plan B′). Per-IP 30/60s enforced *inside* each log DO before the INSERT — budget is per-DO, not shared. Worker now forwards `cf-connecting-ip` and propagates the DO 429 (log-error + analytics previously always 204). Owed: push + Wyatt prod playtest (one F8 + one session's analytics must still land)",
         "state": "active"
       },
       {
@@ -1019,7 +1019,7 @@
       }
     ],
     "next_actions": [
-      "SEC-BEACON-1 (active) — plan → Wyatt ack → apply. Rate-limit `/api/log-error|captures|analytics` (body-size caps only today; ring caps 2000/80/20000 mean a flood evicts real crash rows), move the inline IP cap `5` (`party/index.ts:861`) into `constants.ts`, dedupe the 4× release sites, add tests on the A5b DO harness. Server-side — no client bundle change.",
+      "SEC-BEACON-1 — applied + unpushed. `party/beaconLimit.ts` (advance / prune / check), enforced in all three log DOs; `IP_CONNECTION_CAP` named; four release sites deduped to `#releaseIp`. Server-only — no client bundle change. Owed: push, then Wyatt prod playtest. Two gotchas worth keeping: `/api/log-error` + `/api/analytics` discarded the DO response and always returned 204, so a DO-side 429 was invisible until the Worker was changed too; and `GET /api/errors` is unusable from tests (`ERROR_LOG_TOKEN` is a secret, absent in CI) — read back through the DO stub's `/list`.",
       "Locked order after: SEC-UNLOCK-1 → SEC-ROUTE-1 → SHEET-1 → FIGHT-VERIFY-1. The three SEC cards + `DELETE /api/analytics` are the before-external-testers gate. (07-30 closed: QA-STATUS-1, HYGIENE-1, CARGO-VIS-1, CARGO-RACE-1, CARGO-HUD-1a, WARM-IGPU-1, CARGO-HUD-1, SKYBOX-1.)",
       "Before public/external playtest: SEC-BEACON-1/UNLOCK/ROUTE plus `DELETE /api/analytics?token=…` (clear DO) — see Gotchas."
     ],

@@ -12,9 +12,9 @@
 // window (including this one). Reject when count > cap.
 
 import {
+  BEACON_MAX_PER_WINDOW,
   BEACON_MAX_TRACKED_IPS,
-  getBeaconMaxPerWindow,
-  getBeaconWindowMs,
+  BEACON_WINDOW_MS,
 } from './constants';
 
 /** Stand-in when cf-connecting-ip is absent — local dev, harnesses, odd proxies. */
@@ -36,14 +36,14 @@ export type BeaconAdvanceResult = {
  *
  * @param bucket Prior bucket for this IP, or undefined if none.
  * @param now Wall-clock ms.
- * @param maxPerWindow Cap (defaults to the effective BEACON_MAX_PER_WINDOW).
- * @param windowMs Window length (defaults to the effective BEACON_WINDOW_MS).
+ * @param maxPerWindow Cap (defaults to BEACON_MAX_PER_WINDOW).
+ * @param windowMs Window length (defaults to BEACON_WINDOW_MS).
  */
 export function advanceBeaconLimit(
   bucket: BeaconBucket | undefined,
   now: number,
-  maxPerWindow: number = getBeaconMaxPerWindow(),
-  windowMs: number = getBeaconWindowMs(),
+  maxPerWindow: number = BEACON_MAX_PER_WINDOW,
+  windowMs: number = BEACON_WINDOW_MS,
 ): BeaconAdvanceResult {
   const expired = !bucket || now - bucket.windowStart >= windowMs;
   const nextBucket: BeaconBucket = expired
@@ -71,7 +71,7 @@ export function pruneBeaconBuckets(
   map: Map<string, BeaconBucket>,
   now: number,
   maxEntries: number = BEACON_MAX_TRACKED_IPS,
-  windowMs: number = getBeaconWindowMs(),
+  windowMs: number = BEACON_WINDOW_MS,
 ): number {
   let evicted = 0;
   for (const [ip, bucket] of map) {
@@ -105,8 +105,8 @@ export function checkBeaconLimit(
   map: Map<string, BeaconBucket>,
   ip: string,
   now: number,
-  maxPerWindow: number = getBeaconMaxPerWindow(),
-  windowMs: number = getBeaconWindowMs(),
+  maxPerWindow: number = BEACON_MAX_PER_WINDOW,
+  windowMs: number = BEACON_WINDOW_MS,
   maxEntries: number = BEACON_MAX_TRACKED_IPS,
 ): boolean {
   if (!ip || ip === UNKNOWN_IP) return true;
