@@ -77,6 +77,13 @@ Run 7 mission closed; NET-2 / NET-MIG-3 passed live; NET-PRES-1 landed (loss-on-
 Playtest console: [playtest/console.html](./playtest/console.html).  
 F8 → auto-upload; pull: `npm run captures:pull` (needs `.env.local` `ERROR_LOG_TOKEN`).
 
+**07-30 — laptop captures analyzed (cap-205…214, two new medium-tier iGPU laptops, build `56dfa61`):**
+first play of the session stalls 3.8–7.1s in the `warm:true` play-shader path, and on the slower
+laptop the flyover warm pass froze **6.4s inside the countdown** (elapsed 8163ms vs 3600 — 3-2-1
+never rendered). Gameplay after entry is clean on both (<0.3% frames >33ms). Queued as
+**WARM-IGPU-1** — plan drafted, awaiting ack: [planning/warm-igpu-1.md](./planning/warm-igpu-1.md).
+Laptops played solo only — no new MP evidence.
+
 ### Do not
 
 Standing prohibitions — fed into [BRIEFING.md](./BRIEFING.md) and the Command Center firewall.
@@ -120,6 +127,7 @@ Run 7 mission (below) is historical evidence, superseded as the live queue by
 | **B3** HIT-FEEL-1 | hit feedback — weak normals + noisy incoming | ✅ **PASS** (Wyatt playtest 07-22) |
 | **ARENA-BAL-1** | Sundial + Storerooms self-KO rate | ✅ **closed** (Wyatt 07-22, no code) |
 | **C2** CARGO-VIS-1 | full-bay fill + rim overflow look | 📋 pre-ship (High) — count ramp exists; layout/scale wrong |
+| **WARM-IGPU-1** | first-play warm stall on medium-tier iGPUs — flyover warm swallows countdown | 📋 queued (High) — [plan drafted 07-30](./planning/warm-igpu-1.md), awaiting ack |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
 | BRAND-1 | Domain cutover | 🧊 frozen |
 
@@ -140,7 +148,8 @@ Triage docs superseded: [playtest-triage-2026-07-17](./planning/playtest-triage-
 ### Next actions
 
 1. **CARGO-VIS-1** (SHIP-1 C2, High) — basket groceries must fill the full bay and overflow the rim when full (count ramp shipped; look still wrong).
-2. **Before public/external playtest:** `DELETE /api/analytics?token=…` (clear DO) so ANLX evidence is strangers-only — see Gotchas.
+2. **WARM-IGPU-1** (High) — first-play warm stall on medium-tier iGPUs; Phase 0 forensics per [planning/warm-igpu-1.md](./planning/warm-igpu-1.md) once Wyatt acks (ordering vs CARGO-VIS-1 is Wyatt's call).
+3. **Before public/external playtest:** `DELETE /api/analytics?token=…` (clear DO) so ANLX evidence is strangers-only — see Gotchas.
 
 ## Open issues (top)
 
@@ -150,6 +159,7 @@ Closed IDs (NET-1, NET-2, NET-MIG-3, NET-PRES-1, NET-SD-1, HOST-ROLE-1, VFX-1, P
 
 | ID | Issue | Status |
 |----|--------|--------|
+| WARM-IGPU-1 | First-play shader warm stall on medium-tier iGPUs (countdown swallowed) | 📋 Queued — [plan](./planning/warm-igpu-1.md) awaiting ack |
 | MAIN-1 | Carve `main.js` seam (enables BUNDLE-1) | 📋 Post-gate |
 | BUNDLE-1 | Menu/game code-split | 🚫 Blocked on MAIN-1 |
 | BRAND-1 | Domain / Worker cutover | 🧊 Frozen until deliberate cutover ([brand.md](./brand.md)) |

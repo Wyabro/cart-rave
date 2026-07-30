@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-07-30T06:07:56.826Z",
-    "commit": "56dfa61"
+    "at": "2026-07-30T06:32:59.077Z",
+    "commit": "4a3ffa5"
   },
-  "source_digest": "2a1df085",
+  "source_digest": "306eaf99",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -934,6 +934,12 @@
         "state": "waiting"
       },
       {
+        "id": "WARM-IGPU-1",
+        "what": "first-play warm stall on medium-tier iGPUs — flyover warm swallows countdown",
+        "status": "📋 queued (High) — [plan drafted 07-30](./planning/warm-igpu-1.md), awaiting ack",
+        "state": "waiting"
+      },
+      {
         "id": "MAIN-1 / BUNDLE-1",
         "what": "main.js seam / code-split",
         "status": "📋 post-gate",
@@ -957,9 +963,15 @@
     ],
     "next_actions": [
       "CARGO-VIS-1 (SHIP-1 C2, High) — basket groceries must fill the full bay and overflow the rim when full (count ramp shipped; look still wrong).",
+      "WARM-IGPU-1 (High) — first-play warm stall on medium-tier iGPUs; Phase 0 forensics per [planning/warm-igpu-1.md](./planning/warm-igpu-1.md) once Wyatt acks (ordering vs CARGO-VIS-1 is Wyatt's call).",
       "Before public/external playtest: `DELETE /api/analytics?token=…` (clear DO) so ANLX evidence is strangers-only — see Gotchas."
     ],
     "open_issues": [
+      {
+        "id": "WARM-IGPU-1",
+        "issue": "First-play shader warm stall on medium-tier iGPUs (countdown swallowed)",
+        "status": "📋 Queued — [plan](./planning/warm-igpu-1.md) awaiting ack"
+      },
       {
         "id": "MAIN-1",
         "issue": "Carve `main.js` seam (enables BUNDLE-1)",
