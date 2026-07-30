@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-07-30T21:50:20.629Z",
-    "commit": "5a5b861"
+    "at": "2026-07-30T22:17:14.592Z",
+    "commit": "38d0dfc"
   },
-  "source_digest": "d767521e",
+  "source_digest": "bd329c41",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -960,7 +960,7 @@
       {
         "id": "CARGO-HUD-1",
         "what": "opponent cargo readout on the nameplate",
-        "status": "▶ deployed `f98f9df`, then granularity fix (4 segments on the bay quarter-split) — built, undeployed; awaiting Wyatt look ([card](./planning/cargo-hud-1.md))",
+        "status": "▶ 4-segment chip DEPLOYED 07-30 `38d0dfc` (Version `f8e8da1f`, entry `index-DUlVRrvj.js`, live-verified 4 segs / 2 lit at spawn); awaiting Wyatt playtest ([card](./planning/cargo-hud-1.md))",
         "state": "active"
       },
       {

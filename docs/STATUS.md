@@ -135,7 +135,7 @@ Run 7 mission (below) is historical evidence, superseded as the live queue by
 | **C2** CARGO-VIS-1 | full-bay fill + rim overflow look | ✅ **closed** (Wyatt prod playtest PASS 07-30 on `b13bafb`) — real-dims bays, 4-phase fill 5/10/20/30, rim crest, rear coverage, KO-respawn drift hotfix |
 | **WARM-IGPU-1** | first-play warm stall swallows countdown (medium iGPUs) | ✅ **CLOSED** — Wyatt prod playtest PASS 07-30 on `a9dbc7d`. Solo residual tracked separately as WARM-SOLO-1 ([plan](./planning/warm-igpu-1.md)) |
 | **CARGO-HUD-1a** | cargo-readout mock on BOTH hosts, 3-state — Wyatt picks | ✅ closed 07-30 — Wyatt picked **nameplate placement + score-strip chip look** |
-| **CARGO-HUD-1** | opponent cargo readout on the nameplate | ▶ deployed `f98f9df`, then **granularity fix (4 segments on the bay quarter-split) — built, undeployed**; awaiting Wyatt look ([card](./planning/cargo-hud-1.md)) |
+| **CARGO-HUD-1** | opponent cargo readout on the nameplate | ▶ 4-segment chip DEPLOYED 07-30 `38d0dfc` (Version `f8e8da1f`, entry `index-DUlVRrvj.js`, live-verified 4 segs / 2 lit at spawn); **awaiting Wyatt playtest** ([card](./planning/cargo-hud-1.md)) |
 | **SKYBOX-1** | restore never-built sceneExtras skybox (review C-01) | 📋 after WARM P1 — Wyatt eyes close |
 | **SEC-BEACON-1 · SEC-UNLOCK-1 · SEC-ROUTE-1** | beacon rate-limit · devUnlocks URL gate · startsWith routes | 📋 before external testers — with analytics-DO reset |
 | **SHEET-1** | in-match contact-sheet tool (`?room=solo` boot) | 📋 blackframes readback pre-check first |
@@ -288,31 +288,24 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-30 (CARGO-HUD-1 built — Living Cargo readout on the nameplate) — Wyatt picked
-nameplate placement + the score-strip chip look from the 1a mocks. Shipped: `cargoTierFor()`
-in cargoLoad.js (3 buckets — the physics is piecewise, so a bar would imply a linearity the
-handling curve lacks), the chip built INTO `nametagHtml()` so the existing per-frame
-diff-gated `updateNameLabels` cache invalidates itself (one `innerHTML` write per transition,
-a string compare otherwise — no new plumbing), and `em`-sized CSS mirroring `.hud-scorePip`.
-**Display-only — `lifeCargoPoints` was already on both wire paths, so zero netcode.**
-Verified: all 3 tiers rendered from real spawn state at countdown (baselinePoints 8/3/0 →
-boss/stocked/stripped ×4 each), chip scales 17.8px → 10.6px as the plate steps 24px → 13px
-and fits at 1920/1366/390, 5 new unit tests, qa 780/780. **Rig lesson worth keeping:** the
-first verification pass read MISMATCH mid-round — the NPCs had already rammed each other and
-`stripLifeCargo` had fired, so those plates were reporting TRUE state (spilled groceries were
-visible on the floor of the shot). Countdown is the only moment every cart is guaranteed to
-sit at its spawn value. **DEPLOYED `f98f9df`** — Version `a066a450-cbc7-4389-9c44-b1753432ddc4`,
-entry `index-aQjYKjNu.js`, CSS `index-Duw2Tyix.css`. Asset-verified against fetched bytes AND
-by live render — prod solo boot at countdown returned 4 chips, 3 segments each, computed bg
-`rgb(8,5,15)`, no page errors. (Post-deploy the first HTML fetch still named the OLD entry —
-`max-age=0, must-revalidate` revalidation, resolved in seconds. Re-fetch before alarm.)
-**Granularity fix (Wyatt review, same day, undeployed):** the shipped 3-segment chip mapped
-the three *physics anchors*, collapsing life 1–7 — three whole bay phases — into one 2-bar
-reading and jumping two bars on the first kill off stripped. Now **4 segments on the bay's own
-quarter-split**: `cargoFillLevelFor()` is the shared phase source `lifeCargoVisibleCount()`
-also derives from, so chip and basket step together by construction. Spawn reads 2/4; boss is
-4/4 amber. Swept every life 0–8 in the real bundle (monotonic, ≤1 segment per point, bay
-agrees at each step) + DOM lit-count matches; a unit test guards the property. qa 784/784.
+2026-07-30 (CARGO-HUD-1 — Living Cargo readout on the nameplate, DEPLOYED) — Wyatt picked
+nameplate placement + the score-strip chip look from the 1a mocks. Four segments on the bay's
+own quarter-split: `cargoFillLevelFor()` is the single phase source `lifeCargoVisibleCount()`
+also derives from, so chip and basket step together by construction; `cargoTierFor()` drives
+colour only. Chip is built INTO `nametagHtml()`, riding the existing per-frame diff-gated
+`updateNameLabels` cache — one `innerHTML` write per transition, no new plumbing. `em`-sized
+so it scales with the plate. **Display-only — `lifeCargoPoints` was already on both wire
+paths, so zero netcode.** Shipped 3-segment first (`f98f9df`); Wyatt caught that it collapsed
+life 1–7 into one reading and jumped two bars on the first kill — corrected same day.
+**Live: `38d0dfc`**, Version `f8e8da1f`, entry `index-DUlVRrvj.js`, CSS `index-Dy_zk7wE.css`;
+prod boot renders 4 segments / 2 lit at spawn, no page errors. qa 784/784. Spec, the
+correction, and both rig lessons (assert at COUNTDOWN, not mid-round — NPCs have already
+spilled by then): [cargo-hud-1.md](./planning/cargo-hud-1.md).
+
+**Deploy gotcha (seen on both ships today):** HTML is `max-age=0, must-revalidate` and each
+edge PoP revalidates independently — for ~30s a root fetch may name the OLD entry, or
+alternate old/new. Each HTML+asset pair is internally consistent (no broken mixes). Poll the
+root several times over ~30s before judging a deploy failed.
 
 2026-07-30 (WARM-IGPU-1 CLOSED — Wyatt prod playtest PASS on `a9dbc7d`, Version `127d5f63`) —
 Phases 0/0b shipped warm/watchdog instrumentation (`perf/warmupSettle`, `warm.compilePoll`,
