@@ -81,8 +81,12 @@ F8 → auto-upload; pull: `npm run captures:pull` (needs `.env.local` `ERROR_LOG
 first play of the session stalls 3.8–7.1s in the `warm:true` play-shader path, and on the slower
 laptop the flyover warm pass froze **6.4s inside the countdown** (elapsed 8163ms vs 3600 — 3-2-1
 never rendered). Gameplay after entry is clean on both (<0.3% frames >33ms). Queued as
-**WARM-IGPU-1** — plan drafted, awaiting ack: [planning/warm-igpu-1.md](./planning/warm-igpu-1.md).
-Laptops played solo only — no new MP evidence.
+**WARM-IGPU-1** — [Phase 0 acked 07-30](./planning/warm-igpu-1.md). Laptops played solo only — no new MP evidence.
+
+**07-30 — research fold-in (QA-STATUS-1):** four phone-research docs verified against the tree
+(external code review at `56dfa61` · CARGO-HUD-1 handover · responsive-scale spec · agent-loop
+findings) and folded into the locked queue below. New card details live in
+[BACKLOG](./planning/BACKLOG.md), not here.
 
 ### Do not
 
@@ -126,8 +130,15 @@ Run 7 mission (below) is historical evidence, superseded as the live queue by
 | **B2** CARGO-WT-1 | life-scoped grocery weight (boss/glass) | ✅ **closed** (Wyatt feel accept 07-22; look → CARGO-VIS-1) |
 | **B3** HIT-FEEL-1 | hit feedback — weak normals + noisy incoming | ✅ **PASS** (Wyatt playtest 07-22) |
 | **ARENA-BAL-1** | Sundial + Storerooms self-KO rate | ✅ **closed** (Wyatt 07-22, no code) |
-| **C2** CARGO-VIS-1 | full-bay fill + rim overflow look | 📋 pre-ship (High) — count ramp exists; layout/scale wrong |
-| **WARM-IGPU-1** | first-play warm stall on medium-tier iGPUs — flyover warm swallows countdown | 📋 queued (High) — [Phase 0 acked 07-30](./planning/warm-igpu-1.md), runs after CARGO-VIS-1 |
+| **QA-STATUS-1** | STATUS token overage broke `qa` | ✅ closed this commit — 07-21 log archived, queue reordered |
+| **HYGIENE-1** | 4-item sweep: sourcemaps off · boot-error filter · default branch · profiler `--dpr` | ▶ ACTIVE next — exact list + branch refs in [BACKLOG](./planning/BACKLOG.md); needs its own ack |
+| **C2** CARGO-VIS-1 | full-bay fill + rim overflow look | 📋 High — impl locked: bay-local rimY → createCargoBay, GRID ±1.0 (reverses under-rim intent) |
+| **WARM-IGPU-1** | first-play warm stall swallows countdown (medium iGPUs) | 📋 [P0 acked 07-30](./planning/warm-igpu-1.md); P0b (watchdog disproof + tier telemetry) and P1 need own acks |
+| **CARGO-HUD-1a** | cargo-readout mock on BOTH hosts, 3-state — Wyatt picks | 📋 after WARM P0; before WARM P1 |
+| **SKYBOX-1** | restore never-built sceneExtras skybox (review C-01) | 📋 after WARM P1 — Wyatt eyes close |
+| **SEC-BEACON-1 · SEC-UNLOCK-1 · SEC-ROUTE-1** | beacon rate-limit · devUnlocks URL gate · startsWith routes | 📋 before external testers — with analytics-DO reset |
+| **SHEET-1** | in-match contact-sheet tool (`?room=solo` boot) | 📋 blackframes readback pre-check first |
+| **FIGHT-VERIFY-1** | owed fight-night verification | 📋 agent half via SHEET-1; Wyatt half = playtest |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
 | BRAND-1 | Domain cutover | 🧊 frozen |
 
@@ -147,9 +158,9 @@ Triage docs superseded: [playtest-triage-2026-07-17](./planning/playtest-triage-
 
 ### Next actions
 
-1. **CARGO-VIS-1** (SHIP-1 C2, High) — basket groceries must fill the full bay and overflow the rim when full (count ramp shipped; look still wrong).
-2. **WARM-IGPU-1** (High) — Phase 0 forensics per [planning/warm-igpu-1.md](./planning/warm-igpu-1.md) — **acked 07-30, ordered after CARGO-VIS-1**; Phase 1 lever needs its own ack.
-3. **Before public/external playtest:** `DELETE /api/analytics?token=…` (clear DO) so ANLX evidence is strangers-only — see Gotchas.
+1. **HYGIENE-1** (next, own ack) — 4-item mechanical sweep; exact list + irreversible branch-delete refs in [BACKLOG](./planning/BACKLOG.md).
+2. Locked order after that (07-30): **CARGO-VIS-1 → WARM-IGPU-1 P0+0b → CARGO-HUD-1a → WARM P1 → SKYBOX-1 → SEC series → SHEET-1 → FIGHT-VERIFY-1.**
+3. **Before public/external playtest:** SEC-BEACON-1/UNLOCK/ROUTE **plus** `DELETE /api/analytics?token=…` (clear DO) — see Gotchas.
 
 ## Open issues (top)
 
@@ -159,7 +170,7 @@ Closed IDs (NET-1, NET-2, NET-MIG-3, NET-PRES-1, NET-SD-1, HOST-ROLE-1, VFX-1, P
 
 | ID | Issue | Status |
 |----|--------|--------|
-| WARM-IGPU-1 | First-play shader warm stall on medium-tier iGPUs (countdown swallowed) | 📋 Queued — [plan](./planning/warm-igpu-1.md) awaiting ack |
+| WARM-IGPU-1 | First-play shader warm stall on medium-tier iGPUs (countdown swallowed) | 📋 Queued — [Phase 0 acked 07-30](./planning/warm-igpu-1.md) |
 | MAIN-1 | Carve `main.js` seam (enables BUNDLE-1) | 📋 Post-gate |
 | BUNDLE-1 | Menu/game code-split | 🚫 Blocked on MAIN-1 |
 | BRAND-1 | Domain / Worker cutover | 🧊 Frozen until deliberate cutover ([brand.md](./brand.md)) |
@@ -320,65 +331,9 @@ impossible to miss: BRIEFING tag **ACTIVE CARD** (was DO THIS NOW) + explicit
 "not permission to edit"; STATUS Do-not #1; AGENTS HOW WORK step 0; paste-able opener.
 Lesson: buried STANDING bullets lose to a loud "do this now" heading.
 
-2026-07-21 (ARCH — living architecture intelligence layer) — Extends the Command Center with a
-generated codebase map, both machine- and human-facing. New `npm run arch` (in `qa` + dashboard
-chains) builds committed `docs/ARCHITECTURE.json` (agent manifest) + `.diag-captures/architecture.html`
-(interactive map: SVG flow graph with typed edges, per-system telemetry cards, file→system lookup,
-risk/debt + priorities panels). 18-system taxonomy in `tools/lib/archMap.mjs` claims all 163
-src/party/shared files exactly once — a new unclaimed file red-gates `health:check`
-(`ARCH_UNMAPPED_FILE`), so the map stays live. Digest excludes line/churn stats (HTML-only) so the
-committed JSON doesn't churn every commit. `qa` 705 green. See D-ARCH-1.
-
-2026-07-21 (PARITY — unified cold-start across AI tools) — Root cause of "every tool behaves
-differently": each entered through a different, differently-stale door (gitignored dashboard,
-418-line STATUS, 07-20 handoff doc, drifted per-tool files). Fix (D-PARITY-1): committed
-generated `docs/BRIEFING.md` + digest freshness gate in `health:check`; handoff doc retired
-to archive; STATUS log dieted (07-20→21 entries → [archive/status-log-2026-07-20-to-21.md](./archive/status-log-2026-07-20-to-21.md));
-`status-size` budget 8k + dense-window check; pointer files thinned (+`GROK.md`,
-`.cursor/rules/cart-clash.mdc`); AGENTS.md "How work is executed" + paste-able opener.
-
-2026-07-21 (PERF-WARM — root cause CONFIRMED; host-countdown-gate fix TRIED & REVERTED) —
-The round-start freeze that eats the 3-2-1 is now attributed with certainty, and the
-"first live fly-over render" theory from the prior WRAP entry is **wrong** (that probe,
-`render.roundStart`, is 5.6ms — exonerated). New per-call-site render spans (build `936477a`)
-name the owner: **`warm.render.default.play-full`** — a **quickplay arena-rotation warmup**
-(`warmupActiveSceneShaders({forPlay:true})`, full compile budget, no `warm` flag, no loading
-overlay; [main.js ~2901](../src/main.js) `rotateLoadedArenaInPlace` + [levelManager.js:276/285](../src/levelManager.js)).
-Its first `composer.render()` (**128ms warm 4090 → 1921ms cold**, cap-190/196) runs a
-main-thread block that **overlaps the already-running countdown** (cap-196: `lobby→countdown`
-at t=25920, block at t=27126, between `countdown_2` and `countdown_1`; `countdown_3` dropped).
-Trigger: the room's arena differs from the local play-entry pick, so a rotation drains right
-after `carts-ready` — concurrent with the countdown. Non-host case stays hardware-bound (Gen11,
-34–38s, mostly non-JS paging).
-**Fix attempted (`04c714e`) and REVERTED (`c8df8fd`):** gating the host MP countdown on
-`whenArenaRotationSettled()` (mirroring the non-host apply path). It **regressed first-join** —
-brought back the ready-up screen (which is meant to be gone) and/or the round starting with no
-countdown at all. **DO NOT re-try the host-countdown gate.** Net code state now = session start
-(`2a927b9`) **+ diagnostics only** (behavior-identical; verified by diff). Live spans added:
-`render.roundStart`, `warm.render.default{.play-warm|.play-full|.menu}`, `warm.render.flyover{…}`.
-If a future fix is wanted, the lever is **pre-warming the room's arena programs before the
-countdown** (so the rotation render is cheap), NOT delaying countdown start. Deployed `c8df8fd`.
-
-2026-07-21 (WRAP — PERF-WARM play-entry freeze parked, handover written) — Two-turn chase
-concluded. Ruled OUT (with span evidence, build `af0c936`): shader compile (`warm.compile`
-4–23ms, `parallelCompile:true`), VFX anchors (all idempotent, `warm.anchors` <4ms), audio
-kickoff (`warm.audioKickoff` <4ms). The residual host freeze is variable/cache-dependent
-(cap-189: 400ms AFTER `carts-ready`, i.e. the first live round-start render, not the warm
-block) and the non-host's is hardware-bound (7GB Gen11). LOW priority — countdown unaffected.
-Attribution spans left in place (cheap, useful). Full context + next steps + capture recipe:
-**[planning/PERF-WARM-handover.md](planning/PERF-WARM-handover.md)**.
-
-2026-07-21 (VERIFIED — COUNTDOWN-ABORT-1 fixed) — Fresh quickplay countdown F8s on `cbb0c7f`
-(caps 180/181 connecting, 184/185 after-round, both machines): **ZERO `countdownAbort`
-events**, no countdown→lobby thrash (only legitimate next-round starts). Digit cadence clean —
-non-host EVEN (1369/1198/1310ms) despite still hitting a 22s load freeze; host 2→1→GO even
-(1200/1205). Held with both peers mid load-freeze — the exact flap condition. Countdown jank
-CLOSED across 5 sessions. Residual (cosmetic, NOT the abort): a round-start load freeze
-(cap-184 host: 1426ms main-thread at play-shader, ltSum=1403) can compress the first 3→2 gap
-(209ms) — that's PERF-WARM (hardware-bound), tracked separately, no restart.
-
 > **Older entries are archived — search them when you need history this file no longer carries.**
 > Index with date ranges: [archive/README.md](./archive/README.md).
+> - 2026-07-21 — [archive/status-log-2026-07-21.md](./archive/status-log-2026-07-21.md) (ARCH · PARITY · PERF-WARM root cause + reverted gate · WRAP · COUNTDOWN-ABORT-1)
 > - 2026-07-20 → 07-21 — [archive/status-log-2026-07-20-to-21.md](./archive/status-log-2026-07-20-to-21.md)
 > - 2026-07-19 → 07-20 — [archive/status-log-2026-07-19-to-20.md](./archive/status-log-2026-07-19-to-20.md)
 > - 2026-07-16 → 07-18 — [archive/status-log-2026-07-16-to-18.md](./archive/status-log-2026-07-16-to-18.md)

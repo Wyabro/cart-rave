@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-07-30T06:35:55.542Z",
-    "commit": "eedda0f"
+    "at": "2026-07-30T07:30:22.910Z",
+    "commit": "fb8afd6"
   },
-  "source_digest": "65a64b93",
+  "source_digest": "2dfcc9df",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -928,15 +928,57 @@
         "state": "done"
       },
       {
+        "id": "QA-STATUS-1",
+        "what": "STATUS token overage broke `qa`",
+        "status": "✅ closed this commit — 07-21 log archived, queue reordered",
+        "state": "done"
+      },
+      {
+        "id": "HYGIENE-1",
+        "what": "4-item sweep: sourcemaps off · boot-error filter · default branch · profiler `--dpr`",
+        "status": "▶ ACTIVE next — exact list + branch refs in [BACKLOG](./planning/BACKLOG.md); needs its own ack",
+        "state": "active"
+      },
+      {
         "id": "C2 CARGO-VIS-1",
         "what": "full-bay fill + rim overflow look",
-        "status": "📋 pre-ship (High) — count ramp exists; layout/scale wrong",
-        "state": "waiting"
+        "status": "📋 High — impl locked: bay-local rimY → createCargoBay, GRID ±1.0 (reverses under-rim intent)",
+        "state": "locked"
       },
       {
         "id": "WARM-IGPU-1",
-        "what": "first-play warm stall on medium-tier iGPUs — flyover warm swallows countdown",
-        "status": "📋 queued (High) — [Phase 0 acked 07-30](./planning/warm-igpu-1.md), runs after CARGO-VIS-1",
+        "what": "first-play warm stall swallows countdown (medium iGPUs)",
+        "status": "📋 [P0 acked 07-30](./planning/warm-igpu-1.md); P0b (watchdog disproof + tier telemetry) and P1 need own acks",
+        "state": "waiting"
+      },
+      {
+        "id": "CARGO-HUD-1a",
+        "what": "cargo-readout mock on BOTH hosts, 3-state — Wyatt picks",
+        "status": "📋 after WARM P0; before WARM P1",
+        "state": "waiting"
+      },
+      {
+        "id": "SKYBOX-1",
+        "what": "restore never-built sceneExtras skybox (review C-01)",
+        "status": "📋 after WARM P1 — Wyatt eyes close",
+        "state": "waiting"
+      },
+      {
+        "id": "SEC-BEACON-1 · SEC-UNLOCK-1 · SEC-ROUTE-1",
+        "what": "beacon rate-limit · devUnlocks URL gate · startsWith routes",
+        "status": "📋 before external testers — with analytics-DO reset",
+        "state": "waiting"
+      },
+      {
+        "id": "SHEET-1",
+        "what": "in-match contact-sheet tool (`?room=solo` boot)",
+        "status": "📋 blackframes readback pre-check first",
+        "state": "waiting"
+      },
+      {
+        "id": "FIGHT-VERIFY-1",
+        "what": "owed fight-night verification",
+        "status": "📋 agent half via SHEET-1; Wyatt half = playtest",
         "state": "waiting"
       },
       {
@@ -962,15 +1004,15 @@
       }
     ],
     "next_actions": [
-      "CARGO-VIS-1 (SHIP-1 C2, High) — basket groceries must fill the full bay and overflow the rim when full (count ramp shipped; look still wrong).",
-      "WARM-IGPU-1 (High) — Phase 0 forensics per [planning/warm-igpu-1.md](./planning/warm-igpu-1.md) — acked 07-30, ordered after CARGO-VIS-1; Phase 1 lever needs its own ack.",
-      "Before public/external playtest: `DELETE /api/analytics?token=…` (clear DO) so ANLX evidence is strangers-only — see Gotchas."
+      "HYGIENE-1 (next, own ack) — 4-item mechanical sweep; exact list + irreversible branch-delete refs in [BACKLOG](./planning/BACKLOG.md).",
+      "Locked order after that (07-30): CARGO-VIS-1 → WARM-IGPU-1 P0+0b → CARGO-HUD-1a → WARM P1 → SKYBOX-1 → SEC series → SHEET-1 → FIGHT-VERIFY-1.",
+      "Before public/external playtest: SEC-BEACON-1/UNLOCK/ROUTE plus `DELETE /api/analytics?token=…` (clear DO) — see Gotchas."
     ],
     "open_issues": [
       {
         "id": "WARM-IGPU-1",
         "issue": "First-play shader warm stall on medium-tier iGPUs (countdown swallowed)",
-        "status": "📋 Queued — [plan](./planning/warm-igpu-1.md) awaiting ack"
+        "status": "📋 Queued — [Phase 0 acked 07-30](./planning/warm-igpu-1.md)"
       },
       {
         "id": "MAIN-1",
@@ -994,11 +1036,11 @@
       {
         "title": "Engineering",
         "counts": {
-          "Medium": 8,
+          "Medium": 12,
           "Done": 3,
-          "Low": 4,
+          "Low": 5,
           "Partial": 1,
-          "High": 2
+          "High": 7
         },
         "rows": [
           {
@@ -1084,6 +1126,66 @@
             "item": "NET-SIM-1 — socket-lifecycle netharness scenarios `[SHIP-1 A6]`",
             "notes": "**A6a done (unpushed):** party-do silent-reap + ghost 4010. **A6b done (unpushed):** netharness `hostReload`. P2P zombie + reconnect cooldown already unit-covered.",
             "ship1": "A6"
+          },
+          {
+            "pri": "High",
+            "item": "HYGIENE-1 — acked fixed-list sweep (07-30 review fold-in)",
+            "notes": "Exactly 4 items, one commit each, off-list = out of scope: (1) `vite.config.js:98` `sourcemap: false` — `.map` files publicly served today; (2) widen `index.html:1126` boot-error filter — forward when `ev.error` present (module-eval crashes currently reach zero telemetry); (3) GitHub default branch → `cart-clash` (settings change, Wyatt/manual) + delete remotes `redesign/fight-night-ui` (merged PR #3), `vercel/install-vercel-web-analytics-szsph5`, `vercel/vercel-web-analytics-to-projec-npj24h`; KEEP `next-level`, `docs/agent-config-rewrite`; remote deletes never share a commit with code; (4) `tools/perf-profile.mjs` `--dpr` + GPU flags (DPR hardcoded 1 — the High tier's `pixelRatioCap: 2` has never been measured; prereq to ANY tier retuning).",
+            "ship1": null
+          },
+          {
+            "pri": "High",
+            "item": "SKYBOX-1 — restore never-built `sceneExtras` (review C-01)",
+            "notes": "`main.js:2361` stub → `null`; delete shadowing local `disposeSceneExtras` (`:2465` — kills the `:148` import); wire real disposer into level teardown. 991 lines of Classic skybox/planets/spotlights have never rendered. **Runs after WARM-IGPU-1 Phase 1** (else re-run P0 cold-cache captures with skybox on). Wyatt eyes close. Re-observe \"arena visuals persisting\" afterwards — review killed both prior hypotheses.",
+            "ship1": null
+          },
+          {
+            "pri": "High",
+            "item": "SEC-BEACON-1 — harden open POST beacons",
+            "notes": "Before external testers. `/api/log-error`/`captures`/`analytics` have body caps only (100k/350k/64k); ring caps 2000/80/20000 mean a flood evicts real crash rows on our write billing. Add rate limit; extract IP-cap `5` (`party/index.ts:861`) into constants.ts; dedupe 4× release logic (`:498/:831/:963/:1115`) into one `#releaseIp`; tests on the A5b DO harness (zero today).",
+            "ship1": null
+          },
+          {
+            "pri": "High",
+            "item": "SEC-UNLOCK-1 — DEV-gate the `?devUnlocks` URL one-shot",
+            "notes": "Before external testers. `src/stores/unlockStore.js:22-31` runs ungated in prod — a shared `?devUnlocks=all` link permanently unlocks everything. Gate the URL one-shot behind `import.meta.env.DEV`; keep manual localStorage override (documented intent); fix the false \"manual override only\" header claim.",
+            "ship1": null
+          },
+          {
+            "pri": "High",
+            "item": "SEC-ROUTE-1 — Worker routes `includes()` → `startsWith()`",
+            "notes": "Before external testers. `party/index.ts:1555/1579/1614/1728` match on `pathname.includes(...)` — any path containing the substring routes there; `:1777` shows the correct `startsWith` pattern. Add route-match tests.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "SEC-TOKEN-1 — admin tokens out of query params",
+            "notes": "`?token=` on `/api/errors",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "NET-RING-1 — decode-ring reject counters (review C-03)",
+            "notes": "Instrument-first. Rejects (dup/ooo seq etc.) burn ring slots AFTER decode; `netStateBuffer` retains ring-owned cart arrays by reference (`netcode.js:1422→1434`); true margin = 96−rejects, not 32, and only bites when consumption stalls. Count rejects-since-oldest-buffered; the copy-into-pooled-record fix only if counters show real traffic.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "PERF-WATCH-1 — auto-quality step-up path",
+            "notes": "Watchdog demotion is irreversible per session (no step-up anywhere; DEV-only warn; 2 tier steps + 2 renderScale steps; attract render-cost and game frame-delta both judged against one 20.5ms bar). Decide after WARM-IGPU-1 P0b telemetry shows how often it bites.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "PERF-TIER-1 — `high-lite` tier rung",
+            "notes": "`DISCRETE_GPU_RE` puts a 1660 Ti in the same discrete→High bucket as a 4090; High→Medium cuts 4 knobs at once (DPR 2→1.25, reflector off, crowd, lasers). Blocked on HYGIENE-1's `--dpr` profiling — tier table may be tuned against an inverted ranking (512px reflector is DPR-invariant; full-screen cost ×4 at DPR 2).",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "SHEET-1 — in-match contact-sheet tool",
+            "notes": "`tools/sheet.mjs`: boot via `makeClient({room:\"solo\", diag:1, perfPump:1})` (`gameharness.mjs:96` pattern) + `waitForState(phase===\"running\")`; arena via localStorage `cartRaveLevel`; deterministic state via `__ccDiag.control.setScores()`/`rewindRoundClock()`; fresh page per cell; viewport matrix 3440/1920/1512/1366/768/390 + reduced-motion; no `freeze=1` in-match. **Pre-check first:** blackframes readback false-black risk (`settle()` resolves inside rAF, `sampleBlack` runs in the microtask after). Serves FIGHT-VERIFY-1 and UI-SCALE-1 (≥1920 identity cells MAE ~0 via `compare.mjs`).",
+            "ship1": null
           },
           {
             "pri": "Medium",
@@ -1193,7 +1295,7 @@
       {
         "title": "Design / Gameplay",
         "counts": {
-          "Medium": 2,
+          "Medium": 3,
           "Low": 6,
           "Done": 4,
           "High": 1
@@ -1272,6 +1374,12 @@
             "ship1": "B3"
           },
           {
+            "pri": "Medium",
+            "item": "SOLO-DIFF-1 — `DEFAULT_SOLO` easy→medium",
+            "notes": "`src/aiDifficulty.js:14` is `\"easy\"`; quickplay already pins medium. The default hides shipped AI-DIFF-1 work. Trivial flip — Wyatt call.",
+            "ship1": null
+          },
+          {
             "pri": "Low",
             "item": "Controller vibration strength *(pre-ship 07-19)*",
             "notes": "",
@@ -1282,7 +1390,7 @@
       {
         "title": "UI / UX",
         "counts": {
-          "High": 1,
+          "High": 5,
           "Medium": 4,
           "Low": 1
         },
@@ -1322,6 +1430,30 @@
             "item": "ONBOARD-1 — first-run controls card `[SHIP-1 E4]`",
             "notes": "Minimal onboarding; Solo is the tutorial (AI-DIFF-1 sharpens it). Not a tutorial system.",
             "ship1": "E4"
+          },
+          {
+            "pri": "High",
+            "item": "FIGHT-VERIFY-1 — owed fight-night verification",
+            "notes": "8 items at [fight-night-ui-handover.md:252+](./fight-night-ui-handover.md). Agent half via SHEET-1: responsive sweep 1025/1024/768/380, reduced-motion, cold-boot loading screens per arena, die-cut hover/press surfaces. Wyatt half (cannot be agent-closed): real-match HUD/results feel, two-client friends room (CHECKOUT LINE has never rendered).",
+            "ship1": null
+          },
+          {
+            "pri": "High",
+            "item": "CARGO-HUD-1a — cargo-readout mock on BOTH hosts",
+            "notes": "Static 3-state styling only (stripped/stocked/boss — locked 07-30), no wiring, no netcode: (a) CSS2D nameplate (`makeNameLabel` main.js:3655, `nametagHtml` hud.js:112); (b) score-strip indicator slot (`syncRowIndicators` hud.js:917, `buildRosterRows`/`updateScores` :966/:985). Screenshots → Wyatt picks the host → CARGO-HUD-1 gets framed.",
+            "ship1": null
+          },
+          {
+            "pri": "High",
+            "item": "CARGO-HUD-1 — opponent cargo readout (real card)",
+            "notes": "Display-only, plumbing verified: `lifeCargoPoints`/`cargoFullness01` replicated as `lc` on BOTH wire paths (netcode.js:1775 send / :1267 apply; binary.js:117/:248); zero cargo refs in hud.js today. The gap: boss incoming-ram 0.52× vs stripped 1.32× — the harder-to-see half carries the bigger physics swing. **Blocked on the 1a pick.** Full brief: [CARGO-HUD-1-handover.md](./CARGO-HUD-1-handover.md).",
+            "ship1": null
+          },
+          {
+            "pri": "High",
+            "item": "UI-SCALE-1 — responsive root-scale migration",
+            "notes": "Two passes per [responsive-scale-migration.md](./responsive-scale-migration.md): one fluid root (`html { font-size: clamp(0.75rem, min(0.84vw, 1.5svh), 1rem) }`), clamps → `(max÷16)rem`, media queries STAY px (rem in MQs resolves against initial root — silent mis-evaluation). **Pass 1 also does ≤768 reflow structure — Wyatt 07-30: phone = fewer elements, not same-menu-smaller.** Blocked on SHEET-1. Sequential single-owner, no fan-out (one coupled CSS system). Safety invariant: ≥1920 renders pixel-identical pre/post (every clamp already saturates at max there).",
+            "ship1": null
           }
         ]
       },

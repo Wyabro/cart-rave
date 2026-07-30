@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (also runs inside `npm run qa`).
-> Generated 2026-07-30 at commit `eedda0f` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
-> Source digest: `726ab831`
+> Generated 2026-07-30 at commit `fb8afd6` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
+> Source digest: `1dba4c8f`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -18,14 +18,10 @@ Playtesting and stabilization — Tier A drained. B1 AI-DIFF-1 shipped (`49bfc2a
 
 ## ACTIVE CARD
 
-CARGO-VIS-1 (SHIP-1 C2, High) — basket groceries must fill the full bay and overflow the rim when full (count ramp shipped; look still wrong)
+HYGIENE-1 — 4-item sweep: sourcemaps off · boot-error filter · default branch · profiler `--dpr`
+Pass looks like: ▶ ACTIVE next — exact list + branch refs in [BACKLOG](./planning/BACKLOG.md); needs its own ack
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
-
-Self-directed queue (one at a time, within the declared phase):
-- **C2 CARGO-VIS-1** full-bay fill + rim overflow look — 📋 pre-ship (High) — count ramp exists; layout/scale wrong
-- **WARM-IGPU-1** first-play warm stall on medium-tier iGPUs — flyover warm swallows countdown — 📋 queued (High) — Phase 0 acked 07-30, runs after CARGO-VIS-1
-- **MAIN-1 / BUNDLE-1** main.js seam / code-split — 📋 post-gate
 
 ## Waiting on Wyatt (not agent work)
 
