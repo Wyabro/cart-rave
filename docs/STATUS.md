@@ -68,7 +68,7 @@ Full record: [planning/production-passes.md](./planning/production-passes.md) an
 
 ## Current focus
 
-**Playtesting and stabilization.** Tier A drained. **B1 AI-DIFF-1 shipped** (`49bfc2a`). **B2 CARGO-WT-1 closed** (Wyatt feel accept 07-22). **B3 HIT-FEEL-1 PASS** (Wyatt playtest 07-22 — quieter incoming + woken normals; `?tune` ramming.fx). **ARENA-BAL-1 closed** (Wyatt 07-22, no code). **CARGO-VIS-1** queued (full-bay + rim overflow). **Before public/external playtest: reset analytics DO** (see Gotchas).
+**Playtesting and stabilization.** Tier A drained. **B1 AI-DIFF-1 shipped** (`49bfc2a`). **B2 CARGO-WT-1 closed** (Wyatt feel accept 07-22). **B3 HIT-FEEL-1 PASS** (Wyatt playtest 07-22 — quieter incoming + woken normals; `?tune` ramming.fx). **ARENA-BAL-1 closed** (Wyatt 07-22, no code). **CARGO-VIS-1 closed** (Wyatt prod playtest PASS 07-30 on `b13bafb`). **Before public/external playtest: reset analytics DO** (see Gotchas).
 
 Run 7 mission closed; NET-2 / NET-MIG-3 passed live; NET-PRES-1 landed (loss-on-drop residual accepted). Stay in this phase until Wyatt advances the marker.
 
@@ -132,7 +132,7 @@ Run 7 mission (below) is historical evidence, superseded as the live queue by
 | **ARENA-BAL-1** | Sundial + Storerooms self-KO rate | ✅ **closed** (Wyatt 07-22, no code) |
 | **QA-STATUS-1** | STATUS token overage broke `qa` | ✅ closed this commit — 07-21 log archived, queue reordered |
 | **HYGIENE-1** | 4-item sweep: sourcemaps off · boot-error filter · default branch · profiler `--dpr` | ✅ 07-30 — 3 branches deleted; dist has 0 `.map`; **one Wyatt step left: GitHub Settings → default branch → `cart-clash`** (classifier blocked `gh repo edit`) |
-| **C2** CARGO-VIS-1 | full-bay fill + rim overflow look | ▶ 07-30 — 4-phase pacing 5/10/20/30 + rear dead-strip fix deployed; Wyatt prod look = "great" but KO respawns drifted bays → **hotfix `b13bafb` DEPLOYED** (rotation-independent measure, KO probe stable ×2); Wyatt re-test = the close |
+| **C2** CARGO-VIS-1 | full-bay fill + rim overflow look | ✅ **closed** (Wyatt prod playtest PASS 07-30 on `b13bafb`) — real-dims bays, 4-phase fill 5/10/20/30, rim crest, rear coverage, KO-respawn drift hotfix |
 | **WARM-IGPU-1** | first-play warm stall swallows countdown (medium iGPUs) | 📋 [P0 acked 07-30](./planning/warm-igpu-1.md); P0b (watchdog disproof + tier telemetry) and P1 need own acks |
 | **CARGO-HUD-1a** | cargo-readout mock on BOTH hosts, 3-state — Wyatt picks | 📋 after WARM P0; before WARM P1 |
 | **SKYBOX-1** | restore never-built sceneExtras skybox (review C-01) | 📋 after WARM P1 — Wyatt eyes close |
@@ -159,7 +159,7 @@ Triage docs superseded: [playtest-triage-2026-07-17](./planning/playtest-triage-
 ### Next actions
 
 1. **Wyatt, 30s:** GitHub Settings → default branch → `cart-clash` (HYGIENE-1's last item; `gh repo edit` was permission-blocked).
-2. **CARGO-VIS-1** (next, own ack — session 1 = geometry + screenshots). Locked order after (07-30): **WARM-IGPU-1 P0+0b → CARGO-HUD-1a → WARM P1 → SKYBOX-1 → SEC series → SHEET-1 → FIGHT-VERIFY-1.**
+2. **WARM-IGPU-1 P0+0b** (next — P0 already acked, see [planning/warm-igpu-1.md](./planning/warm-igpu-1.md)). Locked order after (07-30): **CARGO-HUD-1a → WARM P1 → SKYBOX-1 → SEC series → SHEET-1 → FIGHT-VERIFY-1.** (CARGO-VIS-1 ✅ closed 07-30.)
 3. **Before public/external playtest:** SEC-BEACON-1/UNLOCK/ROUTE **plus** `DELETE /api/analytics?token=…` (clear DO) — see Gotchas.
 
 ## Open issues (top)
@@ -295,7 +295,7 @@ bbox × child-relative-to-root matrix — rotation-independent, creation numbers
 pass 1–4 tuning holds. Probe: 2 pit-dive KO cycles → bay origin bit-identical (dPos 0.000×3),
 footprint within jitter; post-KO shot clean (respawn = phase-2/10 by design). qa 773/773.
 Shipped: Version `70d6aa91-…`, entry `index-BSZ0AT-Y.js`, sha in `scene-Br9fE8mW.js` —
-**asset-verified**.
+**asset-verified**. **Wyatt prod playtest PASS → CARGO-VIS-1 closed.**
 
 2026-07-30 (CARGO-VIS-1 sessions 2–3 — CartFrame fix + 4-pass retune, DEPLOYED `7660623`) —
 **Session 2:** `getBasketCargoParams` matches `CartFrame` (instance rename of authored

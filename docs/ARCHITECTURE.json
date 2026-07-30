@@ -2,15 +2,15 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-07-30T17:24:36.336Z",
-    "commit": "b13bafb"
+    "at": "2026-07-30T17:54:58.816Z",
+    "commit": "5763560"
   },
-  "source_digest": "c555a166",
+  "source_digest": "1ed2a6ac",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
     "production_url": "https://cart-rave.wyabro.workers.dev/",
-    "mission": "Playtesting and stabilization — Tier A drained. B1 AI-DIFF-1 shipped (`49bfc2a`). B2 CARGO-WT-1 closed (Wyatt feel accept 07-22). B3 HIT-FEEL-1 PASS (Wyatt playtest 07-22 — quieter incoming + woken normals; `?tune` ramming.fx). ARENA-BAL-1 closed (Wyatt 07-22, no code). CARGO-VIS-1 queued (full-bay + rim overflow). Before public/external playtest: reset analytics DO (see Gotchas).",
+    "mission": "Playtesting and stabilization — Tier A drained. B1 AI-DIFF-1 shipped (`49bfc2a`). B2 CARGO-WT-1 closed (Wyatt feel accept 07-22). B3 HIT-FEEL-1 PASS (Wyatt playtest 07-22 — quieter incoming + woken normals; `?tune` ramming.fx). ARENA-BAL-1 closed (Wyatt 07-22, no code). CARGO-VIS-1 closed (Wyatt prod playtest PASS 07-30 on `b13bafb`). Before public/external playtest: reset analytics DO (see Gotchas).",
     "phase": "Playtesting & stabilization — stabilize after Run 7; prove residuals; no auto-advance to RC",
     "phases": [
       {
@@ -942,8 +942,8 @@
       {
         "id": "C2 CARGO-VIS-1",
         "what": "full-bay fill + rim overflow look",
-        "status": "▶ 07-30 — 4-phase pacing 5/10/20/30 + rear dead-strip fix deployed; Wyatt prod look = \"great\" but KO respawns drifted bays → hotfix `b13bafb` DEPLOYED (rotation-independent measure, KO probe stable ×2); Wyatt re-test = the close",
-        "state": "active"
+        "status": "✅ closed (Wyatt prod playtest PASS 07-30 on `b13bafb`) — real-dims bays, 4-phase fill 5/10/20/30, rim crest, rear coverage, KO-respawn drift hotfix",
+        "state": "done"
       },
       {
         "id": "WARM-IGPU-1",
@@ -1005,7 +1005,7 @@
     ],
     "next_actions": [
       "Wyatt, 30s: GitHub Settings → default branch → `cart-clash` (HYGIENE-1's last item; `gh repo edit` was permission-blocked).",
-      "CARGO-VIS-1 (next, own ack — session 1 = geometry + screenshots). Locked order after (07-30): WARM-IGPU-1 P0+0b → CARGO-HUD-1a → WARM P1 → SKYBOX-1 → SEC series → SHEET-1 → FIGHT-VERIFY-1.",
+      "WARM-IGPU-1 P0+0b (next — P0 already acked, see [planning/warm-igpu-1.md](./planning/warm-igpu-1.md)). Locked order after (07-30): CARGO-HUD-1a → WARM P1 → SKYBOX-1 → SEC series → SHEET-1 → FIGHT-VERIFY-1. (CARGO-VIS-1 ✅ closed 07-30.)",
       "Before public/external playtest: SEC-BEACON-1/UNLOCK/ROUTE plus `DELETE /api/analytics?token=…` (clear DO) — see Gotchas."
     ],
     "open_issues": [

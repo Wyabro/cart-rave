@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (also runs inside `npm run qa`).
-> Generated 2026-07-30 at commit `b13bafb` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
-> Source digest: `b911773a`
+> Generated 2026-07-30 at commit `5763560` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
+> Source digest: `48096807`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -14,14 +14,22 @@
 
 ## Mission
 
-Playtesting and stabilization — Tier A drained. B1 AI-DIFF-1 shipped (`49bfc2a`). B2 CARGO-WT-1 closed (Wyatt feel accept 07-22). B3 HIT-FEEL-1 PASS (Wyatt playtest 07-22 — quieter incoming + woken normals; `?tune` ramming.fx). ARENA-BAL-1 closed (Wyatt 07-22, no code). CARGO-VIS-1 queued (full-bay + rim overflow). Before public/external playtest: reset analytics DO (see Gotchas).
+Playtesting and stabilization — Tier A drained. B1 AI-DIFF-1 shipped (`49bfc2a`). B2 CARGO-WT-1 closed (Wyatt feel accept 07-22). B3 HIT-FEEL-1 PASS (Wyatt playtest 07-22 — quieter incoming + woken normals; `?tune` ramming.fx). ARENA-BAL-1 closed (Wyatt 07-22, no code). CARGO-VIS-1 closed (Wyatt prod playtest PASS 07-30 on `b13bafb`). Before public/external playtest: reset analytics DO (see Gotchas).
 
 ## ACTIVE CARD
 
-C2 CARGO-VIS-1 — full-bay fill + rim overflow look
-Pass looks like: ▶ 07-30 — 4-phase pacing 5/10/20/30 + rear dead-strip fix deployed; Wyatt prod look = "great" but KO respawns drifted bays → hotfix `b13bafb` DEPLOYED (rotation-independent measure, KO probe stable ×2); Wyatt re-test = the close
+Wyatt, 30s: GitHub Settings → default branch → `cart-clash` (HYGIENE-1's last item; `gh repo edit` was permission-blocked)
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
+
+Self-directed queue (one at a time, within the declared phase):
+- **WARM-IGPU-1** first-play warm stall swallows countdown (medium iGPUs) — 📋 P0 acked 07-30; P0b (watchdog disproof + tier telemetry) and P1 need own acks
+- **CARGO-HUD-1a** cargo-readout mock on BOTH hosts, 3-state — Wyatt picks — 📋 after WARM P0; before WARM P1
+- **SKYBOX-1** restore never-built sceneExtras skybox (review C-01) — 📋 after WARM P1 — Wyatt eyes close
+- **SEC-BEACON-1 · SEC-UNLOCK-1 · SEC-ROUTE-1** beacon rate-limit · devUnlocks URL gate · startsWith routes — 📋 before external testers — with analytics-DO reset
+- **SHEET-1** in-match contact-sheet tool (`?room=solo` boot) — 📋 blackframes readback pre-check first
+- **FIGHT-VERIFY-1** owed fight-night verification — 📋 agent half via SHEET-1; Wyatt half = playtest
+- **MAIN-1 / BUNDLE-1** main.js seam / code-split — 📋 post-gate
 
 ## Waiting on Wyatt (not agent work)
 
