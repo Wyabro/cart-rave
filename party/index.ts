@@ -32,6 +32,7 @@ type Slot = {
 
 import { MSG } from '../shared/protocol.js';
 import { COUNTDOWN_MS } from '../shared/roundConstants.js';
+import { UNKNOWN_IP } from './beaconLimit';
 import {
   IP_CONNECTION_CAP,
   getPlayReadyTimeoutMs,
@@ -1532,6 +1533,17 @@ function withAssetCacheHeaders(request: Request, response: Response): Response {
   });
 }
 
+/**
+ * Headers for a log-DO store call. Carries the caller IP inward — the DO enforces
+ * the SEC-BEACON-1 per-IP budget and cannot see cf-connecting-ip on its own.
+ */
+function beaconHeaders(request: Request): Record<string, string> {
+  return {
+    "content-type": "application/json",
+    "cf-connecting-ip": request.headers.get("cf-connecting-ip") || UNKNOWN_IP,
+  };
+}
+
 export default {
   async fetch(request: Request, env: Record<string, any>): Promise<Response> {
     const url = new URL(request.url);
@@ -1545,11 +1557,14 @@ export default {
         // * Cap the beacon body so a runaway client can't wedge the DO fetch.
         if (body.length <= 100_000 && env.ERROR_LOG) {
           const stub = env.ERROR_LOG.get(env.ERROR_LOG.idFromName("v1"));
-          await stub.fetch("https://do/store", {
+          const res = await stub.fetch("https://do/store", {
             method: "POST",
-            headers: { "content-type": "application/json" },
+            headers: beaconHeaders(request),
             body,
           });
+          // * SEC-BEACON-1: the DO drops a flooding IP before it can evict real
+          // * reports. Surface that instead of the usual silent 204.
+          if (res.status === 429) return new Response(null, { status: 429 });
         } else if (!env.ERROR_LOG) {
           // * Binding not deployed yet — keep the old visibility so nothing is lost.
           console.log("[cart-rave] client error (no ERROR_LOG binding):", body.slice(0, 2000));
@@ -1645,9 +1660,10 @@ export default {
               clientTs: typeof parsed.clientTs === "number" ? parsed.clientTs : Date.now(),
             });
             const stub = env.CAPTURE_LOG.get(env.CAPTURE_LOG.idFromName("v1"));
+            // * Already forwards res.status, so the DO's 429 propagates as-is.
             const res = await stub.fetch("https://do/store", {
               method: "POST",
-              headers: { "content-type": "application/json" },
+              headers: beaconHeaders(request),
               body: storeBody,
             });
             return new Response(res.body, {
@@ -1717,11 +1733,14 @@ export default {
           const body = await request.text();
           if (body.length <= 64_000 && env.ANALYTICS_LOG) {
             const stub = env.ANALYTICS_LOG.get(env.ANALYTICS_LOG.idFromName("v1"));
-            await stub.fetch("https://do/ingest", {
+            const res = await stub.fetch("https://do/ingest", {
               method: "POST",
-              headers: { "content-type": "application/json" },
+              headers: beaconHeaders(request),
               body,
             });
+            // * SEC-BEACON-1: same as /api/log-error — a 429 must reach the client
+            // * or the cap is invisible and untestable.
+            if (res.status === 429) return new Response(null, { status: 429 });
           }
         } catch {
           // Malformed/empty beacon — never fail the sender.

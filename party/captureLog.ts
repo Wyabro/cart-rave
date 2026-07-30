@@ -7,6 +7,7 @@
 // Singleton instance "v1". Ring-buffered. Internal-only HTTP surface — party/index.ts
 // owns public auth.
 
+import { type BeaconBucket, UNKNOWN_IP, checkBeaconLimit } from "./beaconLimit";
 import { clampStr as clamp, jsonResponse } from "./logUtil";
 
 /** Ring-buffer cap — full bundles are ~5–40 KB; keep the last N. */
@@ -48,6 +49,8 @@ type StorePayload = {
 export class CaptureLog {
   #ctx: DoState;
   #ready = false;
+  /** SEC-BEACON-1: per-IP beacon budget defending this DO's ring. */
+  readonly #beaconIps = new Map<string, BeaconBucket>();
 
   constructor(ctx: DoState, _env: unknown) {
     this.#ctx = ctx;
@@ -149,11 +152,20 @@ export class CaptureLog {
   #clear(): void {
     this.#ensureSchema();
     this.#ctx.storage.sql.exec(`DELETE FROM captures`);
+    // * Resetting the ring resets its guard too — also the lever party-do tests
+    // * use to isolate, since the "v1" singleton outlives any one test.
+    this.#beaconIps.clear();
   }
 
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
     if (request.method === "POST" && url.pathname === "/store") {
+      // * SEC-BEACON-1: cap before the INSERT — this ring is only 80 rows deep, so
+      // * an unchecked flood erases a whole playtest's F8 bundles.
+      const ip = request.headers.get("cf-connecting-ip") || UNKNOWN_IP;
+      if (!checkBeaconLimit(this.#beaconIps, ip, Date.now())) {
+        return jsonResponse({ ok: false, error: "rate_limited" }, 429);
+      }
       try {
         const body = (await request.json()) as StorePayload;
         const id = this.#store(body);

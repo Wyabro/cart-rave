@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-07-30T23:17:29.526Z",
-    "commit": "f3f8cad"
+    "at": "2026-07-30T23:40:49.167Z",
+    "commit": "37a95b5"
   },
-  "source_digest": "111a9724",
+  "source_digest": "b10ab3ed",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -602,6 +602,7 @@
       ],
       "files": [
         "party/analyticsLog.ts",
+        "party/beaconLimit.ts",
         "party/captureLog.ts",
         "party/errorLog.ts",
         "party/logUtil.ts",
@@ -621,7 +622,7 @@
         "src/utils/longTaskProbe.js",
         "src/utils/perfSpans.js"
       ],
-      "file_count": 19,
+      "file_count": 20,
       "edges": [
         {
           "to": "state-stores",
@@ -636,6 +637,7 @@
       ],
       "notes": [
         "Diagnostics globals namespace is __cc* (__ccTest / __ccDiag / __ccLoopDbg). F8 (or auto on error+assert) captures a bug bundle.",
+        "beaconLimit.ts is the SEC-BEACON-1 per-IP cap on the three open POST beacons. Enforced INSIDE each log DO (before the INSERT) because the harm is ring eviction; the budget is per-DO, not shared. index.ts forwards cf-connecting-ip inward and propagates the DO's 429 outward — /api/log-error and /api/analytics otherwise always return 204 and the cap would be invisible.",
         "gameplayDiagnostics subscribes to gameStore/challengeStore/unlockStore — a reader, not a mutator.",
         "perfSpans attributes per-call-site render cost (warm.render.default.play-full named the PERF-WARM owner)."
       ]

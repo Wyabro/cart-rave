@@ -14,6 +14,7 @@
 // minimal structural type for ctx.storage.sql so it needs no `cloudflare:workers`
 // ambient types (this repo types its Worker through partyserver, not workers-types).
 
+import { type BeaconBucket, UNKNOWN_IP, checkBeaconLimit } from "./beaconLimit";
 import { clampStr as clamp, jsonResponse } from "./logUtil";
 
 /** Ring-buffer cap — oldest rows are pruned past this so the DO can't grow unbounded. */
@@ -48,6 +49,8 @@ type ErrorPayload = {
 export class ErrorLog {
   #ctx: DoState;
   #ready = false;
+  /** SEC-BEACON-1: per-IP beacon budget defending this DO's ring. */
+  readonly #beaconIps = new Map<string, BeaconBucket>();
 
   constructor(ctx: DoState, _env: unknown) {
     this.#ctx = ctx;
@@ -103,6 +106,9 @@ export class ErrorLog {
   #clear(): void {
     this.#ensureSchema();
     this.#ctx.storage.sql.exec(`DELETE FROM errors`);
+    // * Resetting the ring resets its guard too — also the lever party-do tests
+    // * use to isolate, since the "v1" singleton outlives any one test.
+    this.#beaconIps.clear();
   }
 
   // Internal-only HTTP surface — reached exclusively from the Worker fetch handler
@@ -110,6 +116,12 @@ export class ErrorLog {
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
     if (request.method === "POST" && url.pathname === "/store") {
+      // * SEC-BEACON-1: cap before the INSERT, or a flood prunes real reports out
+      // * of the ring. index.ts forwards the caller IP; unknown IPs are exempt.
+      const ip = request.headers.get("cf-connecting-ip") || UNKNOWN_IP;
+      if (!checkBeaconLimit(this.#beaconIps, ip, Date.now())) {
+        return new Response(null, { status: 429 });
+      }
       try {
         const body = (await request.json()) as ErrorPayload;
         this.#store(body);

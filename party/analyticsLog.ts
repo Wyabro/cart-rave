@@ -9,6 +9,7 @@
 // are extracted into real columns at ingest so /summary is plain GROUP BY SQL — no JSON
 // parsing at read time. Everything else stays in the props JSON column.
 
+import { type BeaconBucket, UNKNOWN_IP, checkBeaconLimit } from "./beaconLimit";
 import { clampStrOrNull as clampStr, jsonResponse } from "./logUtil";
 
 /** Ring-buffer cap — oldest rows pruned past this so the DO can't grow unbounded. */
@@ -56,6 +57,8 @@ function asIntOrNull(v: unknown): number | null {
 export class AnalyticsLog {
   #ctx: DoState;
   #ready = false;
+  /** SEC-BEACON-1: per-IP beacon budget defending this DO's ring. */
+  readonly #beaconIps = new Map<string, BeaconBucket>();
 
   constructor(ctx: DoState, _env: unknown) {
     this.#ctx = ctx;
@@ -171,6 +174,9 @@ export class AnalyticsLog {
   #clear(): void {
     this.#ensureSchema();
     this.#ctx.storage.sql.exec(`DELETE FROM events`);
+    // * Resetting the ring resets its guard too — also the lever party-do tests
+    // * use to isolate, since the "v1" singleton outlives any one test.
+    this.#beaconIps.clear();
   }
 
   // Internal-only HTTP surface — reached exclusively from the Worker fetch handler
@@ -178,6 +184,11 @@ export class AnalyticsLog {
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
     if (request.method === "POST" && url.pathname === "/ingest") {
+      // * SEC-BEACON-1: cap before the INSERT so a flood can't prune the ring.
+      const ip = request.headers.get("cf-connecting-ip") || UNKNOWN_IP;
+      if (!checkBeaconLimit(this.#beaconIps, ip, Date.now())) {
+        return new Response(null, { status: 429 });
+      }
       try {
         const body = (await request.json()) as AnalyticsBatch;
         this.#ingest(body);
