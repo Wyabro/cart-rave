@@ -95,7 +95,9 @@ export default defineConfig(({ mode }) => ({
   build: {
     outDir: "dist",
     emptyOutDir: true,
-    sourcemap: true,
+    // * No sourcemaps in the shipped bundle: dist/ is served whole by the Worker's ASSETS
+    // * binding, so .map files (7.8 MB, full original source) would be publicly fetchable.
+    sourcemap: false,
     // * Vendor libs (three, animejs, rapier) are deliberately kept as whole chunks below,
     // * so the default 500 kB warning is just noise — raise it above the largest vendor chunk.
     chunkSizeWarningLimit: 700,
