@@ -288,42 +288,19 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-30 (CARGO-HUD-1 — Living Cargo readout on the nameplate, DEPLOYED) — Wyatt picked
-nameplate placement + the score-strip chip look from the 1a mocks. Four segments on the bay's
-own quarter-split: `cargoFillLevelFor()` is the single phase source `lifeCargoVisibleCount()`
-also derives from, so chip and basket step together by construction; `cargoTierFor()` drives
-colour only. Chip is built INTO `nametagHtml()`, riding the existing per-frame diff-gated
-`updateNameLabels` cache — one `innerHTML` write per transition, no new plumbing. `em`-sized
-so it scales with the plate. **Display-only — `lifeCargoPoints` was already on both wire
-paths, so zero netcode.** Shipped 3-segment first (`f98f9df`); Wyatt caught that it collapsed
-life 1–7 into one reading and jumped two bars on the first kill — corrected same day.
-**Live: `38d0dfc`**, Version `f8e8da1f`, entry `index-DUlVRrvj.js`, CSS `index-Dy_zk7wE.css`;
-prod boot renders 4 segments / 2 lit at spawn, no page errors. qa 784/784. Spec, the
-correction, and both rig lessons (assert at COUNTDOWN, not mid-round — NPCs have already
-spilled by then): [cargo-hud-1.md](./planning/cargo-hud-1.md).
-
-**Deploy gotcha (seen on both ships today):** HTML is `max-age=0, must-revalidate` and each
-edge PoP revalidates independently — for ~30s a root fetch may name the OLD entry, or
-alternate old/new. Each HTML+asset pair is internally consistent (no broken mixes). Poll the
-root several times over ~30s before judging a deploy failed.
-
-2026-07-30 (WARM-IGPU-1 CLOSED — Wyatt prod playtest PASS on `a9dbc7d`, Version `127d5f63`) —
-Phases 0/0b shipped warm/watchdog instrumentation (`perf/warmupSettle`, `warm.compilePoll`,
-`perf/qualityStepDown`, `gpuClass`/tier on the analytics beacon); Phase 1 Lever A made an
-in-flight arena rotation withhold `clientPlayReady`, so the countdown can no longer arm into
-that compile. Both iGPU laptops became unavailable mid-card → P0 closed on a SwiftShader
-proxy, verification on a machine-independent structural assertion + `mpIntegration` 18/18.
-**Scope limit:** rotation is quickplay-only, so cap-206's **solo** stall is untouched →
-**WARM-SOLO-1**, telemetry-gated. Full record, proxy findings, hypothesis status:
-[warm-igpu-1.md](./planning/warm-igpu-1.md).
-
-2026-07-30 (CARGO-VIS-1 CLOSED — Wyatt prod playtest PASS on `b13bafb`, Version `70d6aa91`) —
-Full-bay fill + rim overflow across 3 sessions + a KO-drift hotfix; live values are
-`CONFIG.cargo.fillPhases` 5/10/20/30, GRID 30, insets 0.68/0.60, bay-local `rimY` crest
-(**D-CARGO-VIS-1** — the pile crests the rim; do not "fix" it back under). Two bugs fixed en
-route: CARGO-RACE-1 (empty bays now self-heal) and KO-respawn bay drift. Blow-by-blow + the
-reusable hardware-GPU headless rig recipe (for SHEET-1):
-[archive/status-log-2026-07-30-cargo-vis-1.md](./archive/status-log-2026-07-30-cargo-vis-1.md).
+2026-07-30 (seven cards closed; SKYBOX-1 open on Wyatt's eyes) — Full per-card detail:
+[archive/status-log-2026-07-30.md](./archive/status-log-2026-07-30.md). **Closed:** QA-STATUS-1
+(qa gate unblocked) · HYGIENE-1 (prod sourcemaps off, boot-error telemetry widened, default
+branch, profiler `--dpr`) · CARGO-VIS-1 + CARGO-RACE-1 · CARGO-HUD-1a · WARM-IGPU-1 (Lever A:
+an in-flight arena rotation now withholds `clientPlayReady`, so the countdown cannot arm into
+that compile) · CARGO-HUD-1 (4-segment Living Cargo chip on the nameplate, live at `38d0dfc` /
+Version `f8e8da1f`). **Open:** SKYBOX-1 — Classic's 991-line skybox/planets/spotlight rig now
+builds for the first time (a truthy stub had held its gate shut forever), costing +54 draw
+calls at every tier including LOW; **undeployed, needs Wyatt's eyes** on the look, on the
+bodies sitting inside the KO pit, and on whether LOW should be tier-gated. Also open:
+WARM-SOLO-1 (cap-206's solo stall, telemetry-gated). **Deploy gotcha:** each edge PoP
+revalidates HTML independently — for ~30s a root fetch may name the old entry or alternate;
+poll several times before judging a deploy failed.
 
 2026-07-23 (UI — fight-night redesign MERGED + DEPLOYED to production) — PR #3 merged into
 `cart-clash` (merge commit `56dfa61`), then shipped via `npm run ship`. Live prod bundle carries

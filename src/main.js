@@ -2371,13 +2371,13 @@ async function main() {
   let levelHazards;
   let disposeLevel;
   let levelUpdate;
-  let sceneExtras = {
-    scene,
-    sceneRoots: [],
-    disposables: [],
-    update: () => {},
-    disposed: false,
-  };
+  // * SKYBOX-1: MUST start null. This used to be a truthy stub with an empty sceneRoots
+  // * array, which made ensureRaveAttractShell's `!sceneExtras || sceneExtras.disposed`
+  // * guard permanently false — so initSceneExtras never ran and Classic's skybox, planets,
+  // * UFOs and world spotlights (991 lines) never rendered once. Nothing else ever assigned
+  // * null or set disposed, so the gate could not reopen.
+  /** @type {ReturnType<typeof initSceneExtras> | null} */
+  let sceneExtras = null;
   let upgradeRecordReflector = null;
   let setReflectorVisible = null;
   /** @type {((knobs: import("./utils/qualityTiers.js").QualityKnobs) => void) | null} */
@@ -2475,22 +2475,6 @@ async function main() {
     }
   }
 
-  function disposeSceneExtras(extras) {
-    if (!extras || extras.disposed) return;
-    try {
-      if (Array.isArray(extras.sceneRoots) && extras.scene) {
-        for (const root of extras.sceneRoots) extras.scene.remove(root);
-      }
-      if (extras.disposables && Array.isArray(extras.disposables)) {
-        for (const d of extras.disposables) {
-          d?.dispose?.();
-        }
-      }
-    } catch {} finally {
-      extras.disposed = true;
-    }
-  }
-
   /**
    * Classic attract shell: space skybox + stadium bowl + stage. Stadium geometry is
    * built inside initCrowd (not a separate mesh). Lasers/billboard = play juice only.
@@ -2500,12 +2484,21 @@ async function main() {
     const includeJuice = opts.includeJuice === true;
     const wantRaveExtras = levelUsesRaveExtras();
 
-    // * Rebuild sky only when missing — avoid thrashing extras every picker swap.
-    if (!sceneExtras || sceneExtras.disposed) {
-      sceneExtras = /** @type {any} */ (
-        initSceneExtras(scene, pitInnerRadius, { enabled: wantRaveExtras })
-      );
-    } else if (Array.isArray(sceneExtras.sceneRoots)) {
+    // * Build once, then only toggle visibility — rebuilding would thrash the starfield /
+    // * planets / spotlight rig on every picker swap.
+    // * SKYBOX-1: "built" means built WITH content. initSceneExtras returns the same shape
+    // * with an empty sceneRoots when called with enabled:false (every non-Classic level), so
+    // * a plain existence check would latch that empty object forever and Classic would never
+    // * get its sky — the same class of bug as the old truthy stub, one level down. Only the
+    // * populated case counts as built.
+    const extrasBuilt = Boolean(
+      sceneExtras && !sceneExtras.disposed && sceneExtras.sceneRoots?.length,
+    );
+    if (wantRaveExtras && !extrasBuilt) {
+      // * Drops a stale enabled:false shell (no-op when there is nothing to free).
+      disposeSceneExtras(sceneExtras);
+      sceneExtras = initSceneExtras(scene, pitInnerRadius, { enabled: true });
+    } else if (sceneExtras && Array.isArray(sceneExtras.sceneRoots)) {
       for (const root of sceneExtras.sceneRoots) root.visible = wantRaveExtras;
     }
 
