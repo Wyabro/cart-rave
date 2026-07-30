@@ -107,9 +107,11 @@ function escapeHtml(text) {
  * @param {{ icon: string, color: string, label: string } | null} meta
  * @param {"intro" | "normal"} mode
  * @param {boolean} isHost
+ * @param {boolean} [isLeader]
+ * @param {"stripped" | "stocked" | "boss" | null} [cargoTier] CARGO-HUD-1 load chip.
  * @returns {string}
  */
-function nametagHtml(name, meta, mode, isHost, isLeader = false) {
+function nametagHtml(name, meta, mode, isHost, isLeader = false, cargoTier = null) {
   const hostGlyph = isHost
     ? `<span style="opacity:.85;margin-right:5px;">${svgIcon("host", { label: "Host" })}</span>`
     : "";
@@ -118,13 +120,20 @@ function nametagHtml(name, meta, mode, isHost, isLeader = false) {
   const crown = isLeader
     ? `<span class="cart-nametag-crown">${svgIcon("crown", { label: "Leader" })}</span>`
     : "";
-  if (!meta) return `${hostGlyph}${escapeHtml(name)}${crown}`;
+  // * CARGO-HUD-1: three-state load chip, last on the plate. Built INTO this string on
+  // * purpose — updateNameLabels caches on the produced HTML, so a tier change invalidates
+  // * the cache by itself and costs one innerHTML write per transition (no extra plumbing,
+  // * no per-frame DOM work). Tier is a fixed enum, never user text, so it needs no escape.
+  const cargo = cargoTier
+    ? `<span class="cart-nametag-cargo" data-cargo="${cargoTier}" aria-label="Cargo: ${cargoTier}"><i></i><i></i><i></i></span>`
+    : "";
+  if (!meta) return `${hostGlyph}${escapeHtml(name)}${crown}${cargo}`;
   const icon = `<span style="color:${meta.color};margin-right:6px;">${svgIcon(meta.icon, { label: meta.label })}</span>`;
   if (mode === "intro") {
     // * Countdown teach-moment: icon + personality word, collapses to icon-only at GO.
-    return `${icon}<span style="color:${meta.color};">${meta.label}</span>${crown}`;
+    return `${icon}<span style="color:${meta.color};">${meta.label}</span>${crown}${cargo}`;
   }
-  return `${icon}${escapeHtml(name)}${crown}`;
+  return `${icon}${escapeHtml(name)}${crown}${cargo}`;
 }
 import * as AudioManager from "./audioManager.js";
 import * as ArenaAmbience from "./ambience/arenaAmbience.js";
@@ -133,7 +142,7 @@ import * as CameraMod from "./camera.js";
 import * as Effects from "./effects.js";
 import * as GroceryPool from "./effects/groceryPool.js";
 import { initDirectiveEngine, getDirectiveKoRewardMultiplier, onHostSpill as directiveOnHostSpill, shiftDirectiveTimersBy, clearActiveDirective } from "./directives/directiveEngine.js";
-import { armSpillBoost, spillCountForCart, stripLifeCargo } from "./cargoLoad.js";
+import { armSpillBoost, cargoTierFor, spillCountForCart, stripLifeCargo } from "./cargoLoad.js";
 import { loadLevel, resolveLevelId, prefetchLevelChunks, LEVEL_STORAGE_KEY, PREFETCHABLE_LEVEL_IDS } from "./levels/index.js";
 import { DEV_UNLOCKS_STORAGE_KEY, LEVEL_UNLOCKS } from "./unlockConfig.js";
 import { updateLevelLod } from "./utils/levelLod.js";
@@ -3692,7 +3701,10 @@ async function main() {
       const mode = detectGameMode();
       const hostGlyphEligible = mode !== "solo" && mode !== "testdrive";
       const isHostSlot = hostGlyphEligible && Boolean(slot.connId && slot.connId === Netcode.getHostId());
-      const contentHtml = nametagHtml(name, meta, introMode, isHostSlot, i === leaderSlot);
+      // * CARGO-HUD-1: lifeCargoPoints is already client-side for every cart (host sim
+      // * locally, `lc` off the snapshot for remotes) — this is a read, never a sync.
+      const cargoTier = cargoTierFor(cart.lifeCargoPoints);
+      const contentHtml = nametagHtml(name, meta, introMode, isHostSlot, i === leaderSlot, cargoTier);
 
       if (nameLabels[i]) {
         if (

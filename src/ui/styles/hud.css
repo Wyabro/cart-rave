@@ -1219,6 +1219,44 @@
   filter: drop-shadow(1px 1px 0 var(--color-ink-deep, #08050f));
 }
 
+/* ── CARGO-HUD-1 — Living Cargo load chip ───────────────────────────────────
+   Three discrete states, read on the cart you are about to ram: stripped (easy
+   to launch, 1.32× incoming), stocked, boss (0.52× incoming — bounces you off).
+   Plate recipe is the score-strip rampage pip (.hud-scorePip) so it reads as
+   native Fight Night furniture, not a new widget.
+   ALL sizing is `em`: .cart-nametag steps 24px → 13px → 11px below, and a px
+   chip would stay a billboard on a phone. Keep it em when UI-SCALE-1 lands. */
+.cart-nametag-cargo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.09em;
+  margin-left: 0.06em;
+  padding: 0.1em 0.17em;
+  border-radius: 0.17em;
+  border: 1px solid var(--border-white-12, rgba(255, 255, 255, 0.12));
+  background: var(--color-ink-deep, #08050f);
+  box-shadow: var(--slab-shadow-sm, 1px 1px 0 rgba(8, 5, 15, 0.85));
+}
+.cart-nametag-cargo i {
+  width: 0.17em;
+  height: 0.46em;
+  border-radius: 0.04em;
+  /* Empty segment — dim enough to read as "nothing there" against the ink plate. */
+  background: rgba(242, 237, 228, 0.3);
+}
+/* Stocked: two lit in the HUD's neutral accent. */
+.cart-nametag-cargo[data-cargo="stocked"] i:nth-child(-n + 2) {
+  background: var(--color-cyan, #35e0e8);
+}
+/* Boss: all three in the rampage-pip amber + a soft glow. Nothing else on the
+   plate glows, so "this one is a tank" is the only thing that pulses out. */
+.cart-nametag-cargo[data-cargo="boss"] i {
+  background: #ff8a3d;
+}
+.cart-nametag-cargo[data-cargo="boss"] {
+  box-shadow: var(--slab-shadow-sm, 1px 1px 0 rgba(8, 5, 15, 0.85)), 0 0 0.3em rgba(255, 138, 61, 0.65);
+}
+
 /* Touch / mobile — phone landscape is often >768 wide, so width-only never
    shrank tags on the most common mobile play mode. Coarse pointer catches it.
    Aim: readable sticker chips, not desktop billboards and not micro text. */

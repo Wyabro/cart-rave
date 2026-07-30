@@ -133,9 +133,9 @@ Run 7 mission (below) is historical evidence, superseded as the live queue by
 | **QA-STATUS-1** | STATUS token overage broke `qa` | ✅ closed this commit — 07-21 log archived, queue reordered |
 | **HYGIENE-1** | 4-item sweep: sourcemaps off · boot-error filter · default branch · profiler `--dpr` | ✅ **closed** 07-30 — sourcemaps off · boot-error filter · 3 stale remotes deleted · profiler `--dpr`; Wyatt set GitHub default branch → `cart-clash` (confirmed) |
 | **C2** CARGO-VIS-1 | full-bay fill + rim overflow look | ✅ **closed** (Wyatt prod playtest PASS 07-30 on `b13bafb`) — real-dims bays, 4-phase fill 5/10/20/30, rim crest, rear coverage, KO-respawn drift hotfix |
-| **WARM-IGPU-1** | first-play warm stall swallows countdown (medium iGPUs) | ⏳ P1 Lever A shipped + DEPLOYED 07-30 (rotation warm now gates play-ready); structural + 18/18 MP checks green; **awaiting Wyatt prod playtest**. Solo residual → WARM-SOLO-1 ([plan](./planning/warm-igpu-1.md)) |
+| **WARM-IGPU-1** | first-play warm stall swallows countdown (medium iGPUs) | ✅ **CLOSED** — Wyatt prod playtest PASS 07-30 on `a9dbc7d`. Solo residual tracked separately as WARM-SOLO-1 ([plan](./planning/warm-igpu-1.md)) |
 | **CARGO-HUD-1a** | cargo-readout mock on BOTH hosts, 3-state — Wyatt picks | ✅ closed 07-30 — Wyatt picked **nameplate placement + score-strip chip look** |
-| **CARGO-HUD-1** | opponent cargo readout on the nameplate | ▶ **card written, awaiting ack** — [cargo-hud-1.md](./planning/cargo-hud-1.md); display-only, no netcode |
+| **CARGO-HUD-1** | opponent cargo readout on the nameplate | ▶ built 07-30 (acked) — 3 states verified from real spawn state + responsive 1920/1366/390; **awaiting Wyatt playtest** ([card](./planning/cargo-hud-1.md)) |
 | **SKYBOX-1** | restore never-built sceneExtras skybox (review C-01) | 📋 after WARM P1 — Wyatt eyes close |
 | **SEC-BEACON-1 · SEC-UNLOCK-1 · SEC-ROUTE-1** | beacon rate-limit · devUnlocks URL gate · startsWith routes | 📋 before external testers — with analytics-DO reset |
 | **SHEET-1** | in-match contact-sheet tool (`?room=solo` boot) | 📋 blackframes readback pre-check first |
@@ -159,8 +159,8 @@ Triage docs superseded: [playtest-triage-2026-07-17](./planning/playtest-triage-
 
 ### Next actions
 
-1. **Wyatt desktop spot check — WARM-IGPU-1 Lever A** (last thing before the card closes): quickplay round-start feel unchanged, entry not longer, COUNTDOWN-WARM-1 still good. Everything agent-verifiable is green.
-2. **CARGO-HUD-1 needs an ack** — card at [cargo-hud-1.md](./planning/cargo-hud-1.md) (nameplate chip, display-only). Locked order after: **SKYBOX-1 → SEC series → SHEET-1 → FIGHT-VERIFY-1.** (CARGO-VIS-1 + CARGO-HUD-1a ✅ closed 07-30.)
+1. **Wyatt playtest — CARGO-HUD-1** (closes the card): does the nameplate chip actually change who you pick to ram? Agent-verifiable parts are green; feel is the open question. Not deployed yet — say ship when you want it on prod.
+2. Locked order after: **SKYBOX-1 → SEC series → SHEET-1 → FIGHT-VERIFY-1.** (CARGO-VIS-1, CARGO-HUD-1a, WARM-IGPU-1 ✅ all closed 07-30.)
 3. **Before public/external playtest:** SEC-BEACON-1/UNLOCK/ROUTE **plus** `DELETE /api/analytics?token=…` (clear DO) — see Gotchas.
 
 ## Open issues (top)
@@ -288,36 +288,34 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-30 (WARM-IGPU-1 Phases 0/0b/1 — instrumentation + Lever A shipped) — Full detail:
-[warm-igpu-1.md](./planning/warm-igpu-1.md). **P0/0b (diag-only):** `perf/warmupSettle`
-(`ready | budget-expired`, `remaining`, `compileMs` vs **`pollMs`**), a `warm.compilePoll`
-span so the readiness poll stops reading as `unknown|window`, `perf/qualityStepDown`
-(`from/to/source/p95` — `source` separates the attract render-cost feed from the game
-frame-delta feed), `gpuClass` on `session_start`, effective tier + step count on
-`session_end`. **Both iGPU laptops became unavailable**, so P0 closed on a SwiftShader
-cold-cache proxy entering play via the menu's `cartrave:menu` event (a direct `?room=solo`
-boot never takes the `warm:true` branch — it settles against the 4000ms default, so earlier
-direct-boot probes could not test this card at all). Findings: warm settle burns 1009–1068ms
-of its 1500ms budget yet returns `ready` while Laptop A's sync compile alone was ~24× heavier
-(H1 bounded, not proven); a 13.1s menu-warm frame carried only 235ms of attributed span time
-(H3 — driver-side, relocatable not removable). Both → **Lever A**; Lever B ruled out.
-**P1 Lever A shipped:** `isSessionPlayReady` now also requires `!arenaRotationInFlight`, plus
-`Netcode.signalPlayReadyNow()` in the rotation `finally` so a settled rotation re-arms
-immediately instead of waiting out the server's 12s ceiling. The hole: rotation runs a
-full-budget warm with carts seated and no bootstrap pending, so carts-ready alone reported
-READY *during* that compile. This withholds the **arm** — it never delays an armed countdown
-(the reverted `c8df8fd`). Verified: structural PASS (no `warm.*` between `lobby→countdown`
-and GO; countdown 3624ms vs 3600 config — cap-206's was 8163ms), 4 unit tests, `netharness
-mpIntegration` **18/18** incl. rematch→countdown. qa 777/777. **Scope limit:** rotation is
-quickplay-only, so this does NOT fix cap-206 (**solo**, warm already inside the gate) — that
-residual is **WARM-SOLO-1** in BACKLOG, telemetry-gated. **DEPLOYED `a9dbc7d`** — Worker
-Version `127d5f63-ac94-4251-a28d-7f8ab9ab8ae8`, entry `index-Cx6o2I9L.js`, scene
-`scene-DaISp9cv.js`. **Asset-verified against fetched bytes** (not the upload log):
-`signalPlayReadyNow` + `arenaRotationInFlight` + `qualityStepDown` + `gpuClass` in the entry,
-`warmupSettle` + `budget-expired` + `compilePoll` and the `a9dbc7d` sha in the scene chunk,
-**zero `sourceMappingURL`** (HYGIENE-1 S-01 confirmed live in prod). Prod boot smoke: HTTP 200,
-bootstrapped, diag active, no page errors. Owed: Wyatt prod playtest — quickplay round-start
-feel + entry time. (Edge-cached HTML: a stale first paint resolves on reload.)
+2026-07-30 (CARGO-HUD-1 built — Living Cargo readout on the nameplate) — Wyatt picked
+nameplate placement + the score-strip chip look from the 1a mocks. Shipped: `cargoTierFor()`
+in cargoLoad.js (3 buckets — the physics is piecewise, so a bar would imply a linearity the
+handling curve lacks), the chip built INTO `nametagHtml()` so the existing per-frame
+diff-gated `updateNameLabels` cache invalidates itself (one `innerHTML` write per transition,
+a string compare otherwise — no new plumbing), and `em`-sized CSS mirroring `.hud-scorePip`.
+**Display-only — `lifeCargoPoints` was already on both wire paths, so zero netcode.**
+Verified: all 3 tiers rendered from real spawn state at countdown (baselinePoints 8/3/0 →
+boss/stocked/stripped ×4 each), chip scales 17.8px → 10.6px as the plate steps 24px → 13px
+and fits at 1920/1366/390, 5 new unit tests, qa 780/780. **Rig lesson worth keeping:** the
+first verification pass read MISMATCH mid-round — the NPCs had already rammed each other and
+`stripLifeCargo` had fired, so those plates were reporting TRUE state (spilled groceries were
+visible on the floor of the shot). Countdown is the only moment every cart is guaranteed to
+sit at its spawn value. Not deployed; awaiting Wyatt playtest.
+
+2026-07-30 (WARM-IGPU-1 CLOSED — Wyatt prod playtest PASS on `a9dbc7d`) — Phases 0/0b
+(instrumentation: `perf/warmupSettle` with the compileMs-vs-pollMs split, `warm.compilePoll`
+span, `perf/qualityStepDown` + `gpuClass`/tier on the analytics beacon) and Phase 1 (Lever A:
+`isSessionPlayReady` also requires `!arenaRotationInFlight`, plus `Netcode.signalPlayReadyNow()`
+so a settled rotation re-arms instead of waiting out the 12s ceiling — it withholds the **arm**,
+never delays an armed countdown, unlike the reverted `c8df8fd`). Both iGPU laptops became
+unavailable mid-card, so P0 closed on a SwiftShader cold-cache proxy and verification switched
+to a machine-independent structural assertion (no `warm.*` between `lobby→countdown` and GO;
+countdown 3624ms vs 3600 config, cap-206's was 8163ms) + `netharness mpIntegration` 18/18.
+DEPLOYED `a9dbc7d`, Worker Version `127d5f63`, asset-verified against fetched bytes (which also
+confirmed HYGIENE-1's zero `sourceMappingURL` live). **Scope limit:** rotation is quickplay-only,
+so cap-206's **solo** stall is untouched → **WARM-SOLO-1**, telemetry-gated. Full record incl.
+the proxy findings and hypothesis status: [warm-igpu-1.md](./planning/warm-igpu-1.md).
 
 2026-07-30 (CARGO-VIS-1 CLOSED — Wyatt prod playtest PASS on `b13bafb`) — Full-bay fill + rim
 overflow shipped across sessions 1–3 plus a KO-drift hotfix. Live: `CONFIG.cargo.fillPhases`

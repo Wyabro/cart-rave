@@ -126,6 +126,29 @@ export function lifeCargoVisibleCount(lifeCargoPoints) {
 }
 
 /**
+ * CARGO-HUD-1 — the three states the nameplate chip reads out.
+ *
+ * Deliberately 3 discrete buckets, not the continuous cargoFullness01: the physics is
+ * piecewise around baseline (stripped 1.32× incoming ram / baseline 1.0× / boss 0.52×),
+ * so a bar would imply a linearity the handling curve does not have. The *look* steps in
+ * 4 phases (lifeCargoVisibleCount) while *weight* stays continuous — this is a third,
+ * coarser mapping for "how hard is this cart to launch", which is the only question a
+ * player asks mid-ram.
+ *
+ * @param {number} lifeCargoPoints
+ * @returns {"stripped" | "stocked" | "boss"}
+ */
+export function cargoTierFor(lifeCargoPoints) {
+  const full = Math.max(1, CONFIG.cargo?.fullScore ?? 8);
+  // * Non-finite / negative inputs read as stripped rather than throwing — a remote cart
+  // * can be mid-hello with `lc` not yet applied, and a nameplate must still render.
+  const life = clamp(Number(lifeCargoPoints) || 0, 0, full);
+  if (life <= 0) return "stripped";
+  if (life >= full) return "boss";
+  return "stocked";
+}
+
+/**
  * Living Cargo — fuller (boss) carts drop a bigger mess.
  * @param {object | null | undefined} cart
  * @returns {number} Grocery count for this cart's spill.

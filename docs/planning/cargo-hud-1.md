@@ -1,6 +1,15 @@
 # CARGO-HUD-1 — opponent cargo readout (nameplate)
 
-**Status:** 📋 Card written 07-30 — **needs Wyatt's ack before any code.**
+**Status:** ✅ **BUILT 07-30** (acked by Wyatt) — awaiting his playtest to close; not deployed.
+Landed exactly as specced: `cargoTierFor()` in `cargoLoad.js`, chip built into
+`nametagHtml()` (`main.js:112`) and passed from `updateNameLabels` (`:3695`), `em`-sized CSS
+beside `.cart-nametag` in `hud.css`. 5 unit tests; qa 780/780.
+**Verified:** all three tiers rendered from real spawn state at countdown (baselinePoints
+8/3/0 → boss/stocked/stripped on all four plates); chip 17.8px → 10.6px as the plate steps
+24px → 13px, fits at 1920/1366/390.
+**Rig lesson:** assert at COUNTDOWN. Mid-round the NPCs have already rammed each other and
+`stripLifeCargo` has fired, so a "stripped" plate there is true state, not a bug — the first
+verification pass mis-read exactly that (spilled groceries were visible on the floor).
 **Design decided (Wyatt 07-30, from the CARGO-HUD-1a mocks):** nameplate **placement**
 (variant A) with the score-strip **chip treatment** (variant B's look).
 **Research input:** [CARGO-HUD-1-handover.md](./CARGO-HUD-1-handover.md) — its blocking

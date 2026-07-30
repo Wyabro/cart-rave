@@ -20,6 +20,7 @@ let clearCargoOverflowForSlot;
 let baselineLifeCargoPoints;
 let cargoCurveMul;
 let lifeCargoVisibleCount;
+let cargoTierFor;
 let gameStore;
 let announce;
 let setCargoFillCount;
@@ -38,6 +39,7 @@ beforeEach(async () => {
     baselineLifeCargoPoints,
     cargoCurveMul,
     lifeCargoVisibleCount,
+    cargoTierFor,
   } = await import("../src/cargoLoad.js"));
   ({ gameStore } = await import("../src/stores/gameStore.js"));
   ({ announce } = await import("../src/announcer/announcerManager.js"));
@@ -153,6 +155,28 @@ describe("lifeCargoVisibleCount", () => {
     expect(lifeCargoVisibleCount(CONFIG.cargo.fullScore)).toBe(CONFIG.cargo.maxItems);
     expect(lifeCargoVisibleCount(1)).toBeGreaterThan(0);
     expect(lifeCargoVisibleCount(1)).toBeLessThan(CONFIG.cargo.baseItems);
+  });
+});
+
+describe("cargoTierFor (CARGO-HUD-1 nameplate chip)", () => {
+  it("splits the range into exactly three states at the physics boundaries", () => {
+    const full = CONFIG.cargo.fullScore;
+    expect(cargoTierFor(0)).toBe("stripped");
+    expect(cargoTierFor(1)).toBe("stocked");
+    expect(cargoTierFor(CONFIG.cargo.baselinePoints)).toBe("stocked");
+    expect(cargoTierFor(full - 1)).toBe("stocked");
+    expect(cargoTierFor(full)).toBe("boss");
+  });
+
+  it("clamps above full to boss — a cart can never read past the top state", () => {
+    expect(cargoTierFor(CONFIG.cargo.fullScore + 50)).toBe("boss");
+  });
+
+  it("never throws on junk: a remote cart mid-hello has no lc applied yet", () => {
+    // * A nameplate must still render for a cart whose snapshot has not landed.
+    for (const bad of [undefined, null, NaN, -3, "boss", {}]) {
+      expect(cargoTierFor(/** @type {any} */ (bad))).toBe("stripped");
+    }
   });
 });
 

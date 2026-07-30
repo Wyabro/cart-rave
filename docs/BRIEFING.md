@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (also runs inside `npm run qa`).
-> Generated 2026-07-30 at commit `9ef57ea` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
-> Source digest: `1c4012af`
+> Generated 2026-07-30 at commit `5a497d3` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
+> Source digest: `bdbdcfc2`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -19,7 +19,7 @@ Playtesting and stabilization — Tier A drained. B1 AI-DIFF-1 shipped (`49bfc2a
 ## ACTIVE CARD
 
 CARGO-HUD-1 — opponent cargo readout on the nameplate
-Pass looks like: ▶ card written, awaiting ack — [cargo-hud-1.md](./planning/cargo-hud-1.md); display-only, no netcode
+Pass looks like: ▶ built 07-30 (acked) — 3 states verified from real spawn state + responsive 1920/1366/390; awaiting Wyatt playtest ([card](./planning/cargo-hud-1.md))
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 
@@ -30,6 +30,7 @@ Plan → Wyatt ack → apply. This heading names the card; it is **not** permiss
 - **A3 MP-FX-1** non-host gameplay VFX parity — ✅ PASS (Wyatt playtest 07-22: opponent charge glow + hop land dust/thud on non-host)
 - **A4 ARENA-COL-1** Cart Rave pit KO detection & kill-zone reliability — ✅ PASS (Wyatt playtest 07-22 — rim entry pose/time → buildKOEvent)
 - **B3 HIT-FEEL-1** hit feedback — weak normals + noisy incoming — ✅ PASS (Wyatt playtest 07-22)
+- **CARGO-HUD-1** opponent cargo readout on the nameplate — ▶ built 07-30 (acked) — 3 states verified from real spawn state + responsive 1920/1366/390; awaiting Wyatt…
 
 ## Do not
 

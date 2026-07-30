@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-07-30T19:55:32.148Z",
-    "commit": "9ef57ea"
+    "at": "2026-07-30T20:12:22.959Z",
+    "commit": "5a497d3"
   },
-  "source_digest": "9c4bcc5b",
+  "source_digest": "50084360",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -948,8 +948,8 @@
       {
         "id": "WARM-IGPU-1",
         "what": "first-play warm stall swallows countdown (medium iGPUs)",
-        "status": "⏳ P1 Lever A shipped + DEPLOYED 07-30 (rotation warm now gates play-ready); structural + 18/18 MP checks green; awaiting Wyatt prod playtest. Solo residual → WARM-SOLO-1 ([plan](./planning/warm-igpu-1.md))",
-        "state": "waiting"
+        "status": "✅ CLOSED — Wyatt prod playtest PASS 07-30 on `a9dbc7d`. Solo residual tracked separately as WARM-SOLO-1 ([plan](./planning/warm-igpu-1.md))",
+        "state": "done"
       },
       {
         "id": "CARGO-HUD-1a",
@@ -960,7 +960,7 @@
       {
         "id": "CARGO-HUD-1",
         "what": "opponent cargo readout on the nameplate",
-        "status": "▶ card written, awaiting ack — [cargo-hud-1.md](./planning/cargo-hud-1.md); display-only, no netcode",
+        "status": "▶ built 07-30 (acked) — 3 states verified from real spawn state + responsive 1920/1366/390; awaiting Wyatt playtest ([card](./planning/cargo-hud-1.md))",
         "state": "active"
       },
       {
@@ -1010,8 +1010,8 @@
       }
     ],
     "next_actions": [
-      "Wyatt desktop spot check — WARM-IGPU-1 Lever A (last thing before the card closes): quickplay round-start feel unchanged, entry not longer, COUNTDOWN-WARM-1 still good. Everything agent-verifiable is green.",
-      "CARGO-HUD-1 needs an ack — card at [cargo-hud-1.md](./planning/cargo-hud-1.md) (nameplate chip, display-only). Locked order after: SKYBOX-1 → SEC series → SHEET-1 → FIGHT-VERIFY-1. (CARGO-VIS-1 + CARGO-HUD-1a ✅ closed 07-30.)",
+      "Wyatt playtest — CARGO-HUD-1 (closes the card): does the nameplate chip actually change who you pick to ram? Agent-verifiable parts are green; feel is the open question. Not deployed yet — say ship when you want it on prod.",
+      "Locked order after: SKYBOX-1 → SEC series → SHEET-1 → FIGHT-VERIFY-1. (CARGO-VIS-1, CARGO-HUD-1a, WARM-IGPU-1 ✅ all closed 07-30.)",
       "Before public/external playtest: SEC-BEACON-1/UNLOCK/ROUTE plus `DELETE /api/analytics?token=…` (clear DO) — see Gotchas."
     ],
     "open_issues": [

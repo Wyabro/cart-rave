@@ -1,10 +1,11 @@
 # WARM-IGPU-1 — first-play shader warm stall on iGPU laptops (countdown swallowed)
 
-**Status:** Phase 0 + 0b **acked** (Wyatt 07-30); instrumentation ✅ landed. **Both iGPU
-laptops are gone (07-30)** — steps 1 and 3 cannot run on the original hardware. Phase 0
-closed on a SwiftShader cold-cache proxy instead (see *Phase 0 proxy result*), which is
-sufficient to choose the lever: **Lever A, awaiting Wyatt's ack.** The `done when` criterion
-below is relaxed accordingly — see *Verification without the hardware*.
+**Status:** ✅ **CLOSED 07-30 — Wyatt prod playtest PASS on `a9dbc7d`** (Worker Version
+`127d5f63`). Phases 0/0b (instrumentation) and 1 (Lever A) all shipped. Both iGPU laptops
+became unavailable mid-card, so Phase 0 closed on a SwiftShader cold-cache proxy and
+verification switched to a machine-independent structural assertion — both documented below.
+**Still open, deliberately out of this card's scope:** the solo residual → **WARM-SOLO-1**
+in BACKLOG, telemetry-gated.
 
 **What to read the capture for** (once the cold-cache repro runs):
 `warmupSettle.outcome === "budget-expired"` with `remaining > 0` on the warm play-entry
