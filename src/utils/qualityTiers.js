@@ -31,6 +31,9 @@ import { getQualityTier } from "./qualityMode.js";
  * @property {number} crowdCount Classic crowd instance budget (Infinity = full capacity).
  * @property {boolean} crowdAnimate Crowd bounce/searchlight/laser animation math.
  * @property {boolean} extrasLasers Classic laser fans + searchlight/crowd point *lights* (false ⇒ laserBudget "off").
+ * @property {boolean} skyExtras Classic sceneExtras rig — skybox shell, starfields, planets,
+ *   UFOs, world spotlights (SKYBOX-1). +54 draw calls and 5 spotlights when on, so LOW opts
+ *   out; the crowd/stage silhouette still carries the Cart Clash read there.
  * @property {LaserBudget} laserBudget Which laser rings draw (deck rings are the expensive ambient fill).
  * @property {number} dustMul Ambient dust particle-count multiplier.
  * @property {number} streakCap Ram-boost streak particle cap.
@@ -55,6 +58,8 @@ export const QUALITY_KNOBS = {
     crowdCount: 800,
     crowdAnimate: false,
     extrasLasers: false,
+    // * SKYBOX-1: the sky rig costs +54 draws / +5 spotlights, at the tier least able to pay.
+    skyExtras: false,
     laserBudget: "off",
     dustMul: 0.35,
     streakCap: 30,
@@ -74,6 +79,7 @@ export const QUALITY_KNOBS = {
     crowdCount: 2200,
     crowdAnimate: true,
     extrasLasers: true,
+    skyExtras: true,
     // * Drop deck rings (20 additive beams × sheath+core) — stage/arena/sky keep the rave.
     laserBudget: "core",
     dustMul: 0.5,
@@ -92,6 +98,7 @@ export const QUALITY_KNOBS = {
     crowdCount: Infinity,
     crowdAnimate: true,
     extrasLasers: true,
+    skyExtras: true,
     laserBudget: "full",
     dustMul: 1,
     streakCap: 80,

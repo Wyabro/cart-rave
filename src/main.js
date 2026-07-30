@@ -2116,11 +2116,15 @@ async function main() {
     Effects.setRaveExtrasVisible(levelWantsExtras);
     if (levelWantsExtras) Effects.applyRaveExtrasQuality(knobs);
 
-    // * Scene extras (skybox, planets, spotlights): visible at every tier on levels
-    // * that build them; sceneRoots is empty elsewhere, so this loop is a no-op there.
+    // * Scene extras (skybox, starfields, planets, UFOs, world spotlights): built only on
+    // * levels that use them, and SKYBOX-1 tier-gates them off at LOW — the rig is +54 draw
+    // * calls and 5 spotlights, which is the wrong bill for the weakest machines. The
+    // * crowd/stage silhouette still carries the Cart Clash read there.
+    // * sceneRoots is empty on other levels, so this loop is a no-op there.
     if (sceneExtras && Array.isArray(sceneExtras.sceneRoots)) {
+      const showSky = levelWantsExtras && knobs.skyExtras !== false;
       for (const root of sceneExtras.sceneRoots) {
-        root.visible = levelWantsExtras;
+        root.visible = showSky;
       }
     }
 
@@ -2494,12 +2498,16 @@ async function main() {
     const extrasBuilt = Boolean(
       sceneExtras && !sceneExtras.disposed && sceneExtras.sceneRoots?.length,
     );
-    if (wantRaveExtras && !extrasBuilt) {
+    // * SKYBOX-1 tier gate: LOW skips the rig entirely — don't even build it there, so the
+    // * weakest machines never pay the construction cost either (starfields, planet meshes,
+    // * spotlight rig). One source for the decision, reused by the visibility pass below.
+    const wantSky = wantRaveExtras && getQualityKnobs().skyExtras !== false;
+    if (wantSky && !extrasBuilt) {
       // * Drops a stale enabled:false shell (no-op when there is nothing to free).
       disposeSceneExtras(sceneExtras);
       sceneExtras = initSceneExtras(scene, pitInnerRadius, { enabled: true });
     } else if (sceneExtras && Array.isArray(sceneExtras.sceneRoots)) {
-      for (const root of sceneExtras.sceneRoots) root.visible = wantRaveExtras;
+      for (const root of sceneExtras.sceneRoots) root.visible = wantSky;
     }
 
     if (wantRaveExtras && !raveShellInitialized) {
@@ -2515,9 +2523,12 @@ async function main() {
       raveJuiceInitialized = true;
     }
 
+    // * Mirror excludes still register for every root (harmless when hidden); visibility
+    // * follows the same tier gate as above — a bare `= true` here would re-show the rig on
+    // * LOW on the next picker swap and quietly undo the gate.
     if (wantRaveExtras && sceneExtras && Array.isArray(sceneExtras.sceneRoots)) {
       for (const root of sceneExtras.sceneRoots) {
-        root.visible = true;
+        root.visible = wantSky;
         registerMirrorExclude(root);
       }
     }

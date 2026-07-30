@@ -492,20 +492,28 @@ function createUfos(ctx) {
   }
   ctx.disposables.push(sharedBodyGeo, sharedDomeGeo, sharedRingGeo);
 
-  return {
-    update: (timeMs) => {
-      const t = timeMs * 0.001;
-      for (const ufo of ufoEntries) {
-        const angle = t * ufo.orbitSpeed + ufo.phaseOffset;
-        ufo.group.position.set(
-          Math.cos(angle) * ufo.orbitRadius,
-          ufo.orbitHeight + Math.sin(angle * 2) * 10,
-          Math.sin(angle) * ufo.orbitRadius,
-        );
-        ufo.group.rotation.y = angle + Math.PI;
-      }
-    },
+  /** @param {number} timeMs */
+  const update = (timeMs) => {
+    const t = timeMs * 0.001;
+    for (const ufo of ufoEntries) {
+      const angle = t * ufo.orbitSpeed + ufo.phaseOffset;
+      ufo.group.position.set(
+        Math.cos(angle) * ufo.orbitRadius,
+        ufo.orbitHeight + Math.sin(angle * 2) * 10,
+        Math.sin(angle) * ufo.orbitRadius,
+      );
+      ufo.group.rotation.y = angle + Math.PI;
+    }
   };
+
+  // * Seat the orbit at construction. Group position defaults to (0,0,0) — dead centre of
+  // * the arena, inside the KO pit — and only update() moves it. The menu attract loop does
+  // * NOT tick sceneExtras.update (only the game frame loop does), so without this the two
+  // * saucers park in the pit for the whole attract screen: a flat grey 3m dome sitting in
+  // * the hole. Invisible until SKYBOX-1 switched the rig on for the first time.
+  update(0);
+
+  return { update };
 }
 
 /**

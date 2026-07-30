@@ -34,8 +34,27 @@ Clash"). That intent had never actually been paid for by a real player until now
 Scene probe for the art call: skybox shell `neonVoidSky` r=260 at origin, three starfield
 Points clouds r=140/195/265, distant planets at (−70, 28, −55) r≈1.4–3.4 and (105, 62, −90)
 r≈12–21, and **small bodies (r≈1.7 and r≈0.7) sitting at world origin — inside the KO pit**.
-The pit now reads filled rather than as a black void, which is a gameplay-legibility question
-as much as an art one.
+
+### The orb in the pit — a UFO, and a real bug
+
+Those origin bodies were the two **UFOs**. `createUfos()` builds each as a 1.5r hemisphere in
+flat grey `MeshBasicMaterial(0x888888)` + a 0.7r teal dome, group-scaled ×2, and positions them
+**only inside `update(timeMs)`** (orbit radius 100 / 126, height 20 / 31). `sceneExtras.update`
+is called from the game frame loop only — the **menu attract loop never ticks it** — so during
+attract both saucers sat at the group default (0,0,0): dead centre of the arena, a ~3m grey
+dome in the KO pit, motionless (probe: identical at t=0 and t=+6s, then correctly out at 98m
+and 127m once a round started). Fixed by seating the orbit at construction (`update(0)`), which
+holds regardless of which loop ticks. Verified in orbit at exactly 100m/126m during attract.
+
+Invisible for months because the whole rig never rendered — switching it on is what surfaced it.
+
+### Tier gate (Wyatt call)
+
+New declarative `skyExtras` knob in `qualityTiers.js`: **false on LOW, true on MEDIUM/HIGH**.
+LOW does not even *build* the rig, so it skips construction cost too, and measures back at the
+exact 146-draw baseline. Both visibility sites in `ensureRaveAttractShell` follow the same
+gate — the second one used to force `root.visible = true`, which would have silently re-shown
+the rig on LOW at the next picker swap.
 
 ## CARGO-HUD-1 — Living Cargo readout on the nameplate (DEPLOYED)
 

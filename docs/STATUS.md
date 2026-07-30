@@ -294,11 +294,15 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 branch, profiler `--dpr`) · CARGO-VIS-1 + CARGO-RACE-1 · CARGO-HUD-1a · WARM-IGPU-1 (Lever A:
 an in-flight arena rotation now withholds `clientPlayReady`, so the countdown cannot arm into
 that compile) · CARGO-HUD-1 (4-segment Living Cargo chip on the nameplate, live at `38d0dfc` /
-Version `f8e8da1f`). **Open:** SKYBOX-1 — Classic's 991-line skybox/planets/spotlight rig now
-builds for the first time (a truthy stub had held its gate shut forever), costing +54 draw
-calls at every tier including LOW; **undeployed, needs Wyatt's eyes** on the look, on the
-bodies sitting inside the KO pit, and on whether LOW should be tier-gated. Also open:
-WARM-SOLO-1 (cap-206's solo stall, telemetry-gated). **Deploy gotcha:** each edge PoP
+Version `f8e8da1f`). · SKYBOX-1 — Classic's
+991-line skybox/starfield/planet/UFO/spotlight rig builds for the first time (a truthy stub
+had held its gate shut forever). **Tier-gated per Wyatt: new `skyExtras` knob, LOW never
+builds it** (back to the exact 146-draw baseline; HIGH/MEDIUM pay +54). Switching it on
+exposed a UFO bug nobody could have seen before — `createUfos` only positions the saucers
+inside `update()`, which the menu attract loop never ticks, so two flat-grey 3m domes parked
+in the KO pit for the whole attract screen; now seated at construction (verified in orbit at
+100m/126m during attract, where nothing ticks). **Open:** WARM-SOLO-1 (cap-206's solo stall,
+telemetry-gated). **Deploy gotcha:** each edge PoP
 revalidates HTML independently — for ~30s a root fetch may name the old entry or alternate;
 poll several times before judging a deploy failed.
 
