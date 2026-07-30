@@ -132,7 +132,7 @@ Run 7 mission (below) is historical evidence, superseded as the live queue by
 | **ARENA-BAL-1** | Sundial + Storerooms self-KO rate | ✅ **closed** (Wyatt 07-22, no code) |
 | **QA-STATUS-1** | STATUS token overage broke `qa` | ✅ closed this commit — 07-21 log archived, queue reordered |
 | **HYGIENE-1** | 4-item sweep: sourcemaps off · boot-error filter · default branch · profiler `--dpr` | ✅ 07-30 — 3 branches deleted; dist has 0 `.map`; **one Wyatt step left: GitHub Settings → default branch → `cart-clash`** (classifier blocked `gh repo edit`) |
-| **C2** CARGO-VIS-1 | full-bay fill + rim overflow look | ▶ next — needs its own ack; impl locked: bay-local rimY → createCargoBay, GRID ±1.0 (reverses under-rim intent) |
+| **C2** CARGO-VIS-1 | full-bay fill + rim overflow look | ▶ session 1 partial (07-30) — geometry landed + qa green; visual evidence blocked by CARGO-RACE-1 (see log); Wyatt eyes owed |
 | **WARM-IGPU-1** | first-play warm stall swallows countdown (medium iGPUs) | 📋 [P0 acked 07-30](./planning/warm-igpu-1.md); P0b (watchdog disproof + tier telemetry) and P1 need own acks |
 | **CARGO-HUD-1a** | cargo-readout mock on BOTH hosts, 3-state — Wyatt picks | 📋 after WARM P0; before WARM P1 |
 | **SKYBOX-1** | restore never-built sceneExtras skybox (review C-01) | 📋 after WARM P1 — Wyatt eyes close |
@@ -185,6 +185,10 @@ When named: other residual or RC exit criteria in [ROADMAP.md](./planning/ROADMA
 
 One line each; full text in [archive/decision-log-2026-07.md](./archive/decision-log-2026-07.md). Newest first.
 
+- **D-CARGO-VIS-1** (07-30): The CARGO-WT-1-era "pile stays under the rim" invariant is
+  reversed — a boss/full bay is SUPPOSED to crest the rim. Layer-2 grid slots solve against
+  bay-local `rimY` (from `box.max.y`, minus bay parent offset); do not "fix" the pile back
+  under the rim.
 - **D-FIGHTNIGHT-1** (07-23): "Fight Night" UI redesign complete — every 2D surface (3a menu, 6a HUD, 7a–7g, both loading screens) on one shell/slab language; decision 2 die-cut sweep closed + one Customize chip recipe. Merged (PR #3 → `cart-clash` `56dfa61`) and deployed to prod for full verification. Signed off by DOM/computed-style only (7a/7c/3a by eye); confetti/defeat-wilt-in-MP parked. Log: [fight-night-ui-handover.md](./planning/fight-night-ui-handover.md).
 - **D-HIT-FEEL-1** (07-22): HIT-FEEL-1 PASS — quieter incoming (vignette remap + `crashVolumeFloor` 0.22 + `hitDirMin` 0.14) and woken normals (`shakeMinIntensity` 0.22 / boost 0.16); `?tune` exposes `ramming.fx.*`. Wyatt playtest confirmed.
 - **D-HIT-FEEL-QUEUE-1** (07-22): Closed B2 CARGO-WT-1 (feel accept) + ARENA-BAL-1 (no code). Active card → HIT-FEEL-1; Round 1 = vignette remap + `CONFIG.ramming.fx.crashVolumeFloor` (volume floor, not gate); Round 2 = shake gate + expose `ramming.fx.*` in gameplayTunePane.
@@ -282,6 +286,18 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 - **Before any public / external-tester playtest: reset the analytics DO** so aggregates are not polluted by dev/harness traffic. Token-gated: `DELETE https://cart-rave.wyabro.workers.dev/api/analytics?token=<ERROR_LOG_TOKEN>` (same secret as `analytics:pull`). Then re-pull / dashboard after the playtest window.
 
 ## Last updated
+
+2026-07-30 (CARGO-VIS-1 session 1 — geometry landed; evidence rig blocked, timeboxed out) —
+Bay-local `rimY` plumbed `getBasketCargoParams` → `createCargoBay` (all 3 cart paths, both
+call sites), GRID widened to ±1.0, layer-2 crest solves against rimY with a float guard for
+deep baskets; the old under-rim comment REVERSED (D-CARGO-VIS-1). qa 773/773. **Screenshot
+evidence blocked:** `createCargoBay()` builds its item list once, `GroceryPool.init` is
+deliberately non-blocking (main.js:2826) — cold `?room=solo` headless boots lose the race
+every time → empty bays (probe: itemCount 0 on all 4). Same race can hit a real cold-cache
+fast play entry until the next KO rebuild → **CARGO-RACE-1** logged in BACKLOG. Next rig
+lever: gameharness `holdKey` drive-into-pit → KO respawn rebuilds bays with loaded models; or
+Wyatt real-window look. Proven for SHEET-1: `freeze=1` + manual camera pose gives clean
+into-basket framing in a live round.
 
 2026-07-23 (UI — fight-night redesign MERGED + DEPLOYED to production) — PR #3 merged into
 `cart-clash` (merge commit `56dfa61`), then shipped via `npm run ship`. Live prod bundle carries

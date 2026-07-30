@@ -546,9 +546,12 @@ export function removeCargoBaysFromMesh(mesh) {
  *
  * @param {number} [hw] Basket half-width in mesh-local space (defaults to 0.2 for compat).
  * @param {number} [hl] Basket half-length in mesh-local space (defaults to 0.2 for compat).
+ * @param {number} [rimY] Basket rim height in BAY-LOCAL space (bay origin = basket floor).
+ *   When provided, the top overflow layer solves against it so a full bay crests the rim
+ *   (CARGO-VIS-1). Omitted → legacy item-size stacking only.
  * @returns {THREE.Group} The cargo bay group (empty if models haven't loaded yet).
  */
-export function createCargoBay(hw, hl) {
+export function createCargoBay(hw, hl, rimY) {
   const group = new THREE.Group();
   group.name = "cargoBay";
   if (loadedGeometries.length === 0) return group;
@@ -571,33 +574,35 @@ export function createCargoBay(hw, hl) {
   const halfL = hl != null ? Math.max(0.1, hl - wallPad) : 0.22;
 
   // * Fixed grid keeps items off the rear wall better than pure random scatter.
-  // * Fractions are of the *usable* half-extent after item size. Ordered by fill
-  // * priority — Living Cargo reveals items front-to-back as the slot's score climbs,
-  // * so layer-0 floor items come first and the overflowing top layers come last.
-  // * 18 slots (denser floor + mid) so a full basket reads packed, not half-empty;
-  // * only 3 layers, so the extra items fill gaps without raising the pile past the rim.
+  // * Fractions are of the *usable* half-extent after item size — ±1.0 = flush to the
+  // * wall, and the floor/mid layers deliberately reach it so a stocked basket fills the
+  // * WHOLE bay footprint. Ordered by fill priority — Living Cargo reveals items
+  // * front-to-back as the slot's score climbs, so layer-0 floor items come first and
+  // * the overflowing top layer comes last.
+  // * D-CARGO-VIS-1 (07-30): the old "keep the pile under the rim" invariant is REVERSED —
+  // * a boss/full bay is SUPPOSED to crest the rim (layer 2 solves against rimY below).
   const GRID = [
-    // layer 0 — floor (fills the whole footprint: corners, edges, centre)
-    { u: -0.55, v: -0.4, layer: 0 },
-    { u: 0.55, v: -0.4, layer: 0 },
-    { u: -0.55, v: 0.35, layer: 0 },
-    { u: 0.55, v: 0.35, layer: 0 },
-    { u: 0.0, v: -0.05, layer: 0 },
-    { u: 0.0, v: -0.45, layer: 0 },
-    { u: 0.0, v: 0.45, layer: 0 },
-    { u: -0.35, v: 0.1, layer: 0 },
-    { u: 0.35, v: 0.1, layer: 0 },
-    // layer 1 — mid
-    { u: 0.0, v: 0.05, layer: 1 },
-    { u: -0.5, v: -0.1, layer: 1 },
-    { u: 0.5, v: -0.1, layer: 1 },
-    { u: -0.45, v: 0.45, layer: 1 },
-    { u: 0.45, v: 0.45, layer: 1 },
-    { u: 0.0, v: -0.4, layer: 1 },
-    // layer 2 — top (overflow)
-    { u: -0.2, v: -0.35, layer: 2 },
-    { u: 0.25, v: 0.2, layer: 2 },
-    { u: 0.0, v: -0.05, layer: 2 },
+    // layer 0 — floor (corners, edge midpoints, centre: the full footprint)
+    { u: -1.0, v: -0.9, layer: 0 },
+    { u: 1.0, v: -0.9, layer: 0 },
+    { u: -1.0, v: 0.85, layer: 0 },
+    { u: 1.0, v: 0.85, layer: 0 },
+    { u: -1.0, v: 0.0, layer: 0 },
+    { u: 1.0, v: 0.0, layer: 0 },
+    { u: 0.0, v: -1.0, layer: 0 },
+    { u: 0.0, v: 1.0, layer: 0 },
+    { u: 0.0, v: 0.0, layer: 0 },
+    // layer 1 — mid (still spread wide so the heap reads full, not tent-poled)
+    { u: -0.85, v: -0.6, layer: 1 },
+    { u: 0.85, v: -0.6, layer: 1 },
+    { u: -0.85, v: 0.6, layer: 1 },
+    { u: 0.85, v: 0.6, layer: 1 },
+    { u: 0.0, v: -0.55, layer: 1 },
+    { u: 0.0, v: 0.55, layer: 1 },
+    // layer 2 — overflow crest (central so the spill-over reads from every camera angle)
+    { u: -0.35, v: -0.3, layer: 2 },
+    { u: 0.4, v: 0.3, layer: 2 },
+    { u: 0.0, v: 0.0, layer: 2 },
   ];
 
   /** @type {THREE.Mesh[]} Fill-order list consumed by {@link setCargoFill}. */
@@ -634,7 +639,15 @@ export function createCargoBay(hw, hl) {
     const slot = GRID[i];
     const reachX = Math.max(0.015, halfW - horiz);
     const reachZ = Math.max(0.015, halfL - horiz);
-    const layerLift = slot.layer * (halfY * 1.7 + 0.02);
+    // * Layers 0/1 stack physically off item height. Layer 2 is the CARGO-VIS-1 overflow
+    // * crest: pull it up toward the rim (item centre at rimY + 0.6·halfY → most of the
+    // * item pokes above the rim), but never more than ~1.4·halfY above its natural
+    // * stack so deep baskets (procedural cart, rim ≫ pile) don't get floating groceries.
+    const stackLift = slot.layer * (halfY * 1.7 + 0.02);
+    const layerLift =
+      slot.layer === 2 && Number.isFinite(rimY)
+        ? Math.max(stackLift, Math.min(rimY - halfY * 0.35, stackLift + halfY * 1.4))
+        : stackLift;
     mesh.position.set(
       slot.u * reachX + (Math.random() - 0.5) * 0.03,
       halfY * 0.95 + layerLift + Math.random() * 0.015,

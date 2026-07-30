@@ -258,7 +258,7 @@ function rebuildCartVisualsIntoRoot(cart, scene) {
 
   // * Recreate cargoBay visual inside the basket and update cart.cargoBay ref.
   const cargoParams = getBasketCargoParams(cart.mesh);
-  const cargoBay = GroceryPool.createCargoBay(cargoParams.hw, cargoParams.hl);
+  const cargoBay = GroceryPool.createCargoBay(cargoParams.hw, cargoParams.hl, cargoParams.rimY);
   if (cargoBay) {
     cargoBay.name = "cargoBay";
     cargoBay.position.set(
@@ -302,13 +302,14 @@ function applyCartPhysicsOverrides(body, collider, { label, hx, hyPhys, hz, coll
  * * puts groceries through the rear of the basket.
  *
  * @param {THREE.Object3D} mesh
- * @returns {{ floorY: number, hw: number, hl: number, centerX: number, centerZ: number }}
+ * @returns {{ floorY: number, hw: number, hl: number, centerX: number, centerZ: number, rimY: number }}
  */
 function getBasketCargoParams(mesh) {
   if (!mesh?.userData?.isRaveGltf) {
     // * Procedural cart: basket floor at Y = -0.54, halfWidth = 0.675, halfLength = 1.05
     // * (matches CART_DIMS in cart.js). Slightly inset so pile clears the wire walls.
-    return { floorY: -0.54, hw: 0.55, hl: 0.72, centerX: 0, centerZ: -0.05 };
+    // * rimY is BAY-LOCAL (bay group sits at floorY + 0.02): BASKET_RIM_TOP_Y 0.51 − (−0.52).
+    return { floorY: -0.54, hw: 0.55, hl: 0.72, centerX: 0, centerZ: -0.05, rimY: 1.03 };
   }
 
   // * Rave GLTF: body bounds in cart-mesh local space (handles RaveGltfModel orient + bodyScale).
@@ -327,8 +328,9 @@ function getBasketCargoParams(mesh) {
   });
 
   if (!found || box.isEmpty()) {
-    // * Conservative rave-cart cavity fallback (meters, cart-local).
-    return { floorY: -0.12, hw: 0.38, hl: 0.48, centerX: 0, centerZ: 0 };
+    // * Conservative rave-cart cavity fallback (meters, cart-local). rimY is a bay-local
+    // * estimate matching the main path's bodyH * 0.72 proportion for a typical body.
+    return { floorY: -0.12, hw: 0.38, hl: 0.48, centerX: 0, centerZ: 0, rimY: 0.5 };
   }
 
   const outerHw = (box.max.x - box.min.x) * 0.5;
@@ -342,8 +344,13 @@ function getBasketCargoParams(mesh) {
   const hl = Math.max(0.2, outerHl * 0.42);
   // * Basket floor sits above the chassis bottom of the body mesh.
   const floorY = box.min.y + bodyH * 0.28;
+  // * Rim height in BAY-LOCAL space: the bay group is parented at floorY + 0.02, so the
+  // * body-mesh top (box.max.y, cart-local) lands at box.max.y − floorY − 0.02 inside the
+  // * bay. CARGO-VIS-1: the overflow layer solves against this so a full basket crests
+  // * the rim instead of guessing from item sizes.
+  const rimY = box.max.y - floorY - 0.02;
 
-  return { floorY, hw, hl, centerX, centerZ };
+  return { floorY, hw, hl, centerX, centerZ, rimY };
 }
 
 /**
@@ -372,7 +379,7 @@ export function createCart({ scene, world, color, themeId, sunglassesStyle, spaw
   const cargoBaseMass = Number.isFinite(baseMass) && baseMass > 0 ? baseMass : 1;
 
   const cargoParams = getBasketCargoParams(mesh);
-  const cargoBay = GroceryPool.createCargoBay(cargoParams.hw, cargoParams.hl);
+  const cargoBay = GroceryPool.createCargoBay(cargoParams.hw, cargoParams.hl, cargoParams.rimY);
   if (cargoBay) {
     cargoBay.position.set(
       cargoParams.centerX ?? 0,

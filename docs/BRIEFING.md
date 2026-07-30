@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (also runs inside `npm run qa`).
-> Generated 2026-07-30 at commit `d9f973b` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
-> Source digest: `d58f736d`
+> Generated 2026-07-30 at commit `4962b06` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
+> Source digest: `1fadc3d0`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -19,7 +19,7 @@ Playtesting and stabilization — Tier A drained. B1 AI-DIFF-1 shipped (`49bfc2a
 ## ACTIVE CARD
 
 C2 CARGO-VIS-1 — full-bay fill + rim overflow look
-Pass looks like: ▶ next — needs its own ack; impl locked: bay-local rimY → createCargoBay, GRID ±1.0 (reverses under-rim intent)
+Pass looks like: ▶ session 1 partial (07-30) — geometry landed + qa green; visual evidence blocked by CARGO-RACE-1 (see log); Wyatt eyes owed
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 

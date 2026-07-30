@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-07-30T07:43:42.246Z",
-    "commit": "d9f973b"
+    "at": "2026-07-30T08:07:40.527Z",
+    "commit": "4962b06"
   },
-  "source_digest": "facd97fd",
+  "source_digest": "88db7708",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -942,7 +942,7 @@
       {
         "id": "C2 CARGO-VIS-1",
         "what": "full-bay fill + rim overflow look",
-        "status": "▶ next — needs its own ack; impl locked: bay-local rimY → createCargoBay, GRID ±1.0 (reverses under-rim intent)",
+        "status": "▶ session 1 partial (07-30) — geometry landed + qa green; visual evidence blocked by CARGO-RACE-1 (see log); Wyatt eyes owed",
         "state": "active"
       },
       {
@@ -1036,7 +1036,7 @@
       {
         "title": "Engineering",
         "counts": {
-          "Medium": 12,
+          "Medium": 13,
           "Done": 3,
           "Low": 5,
           "Partial": 1,
@@ -1161,6 +1161,12 @@
             "pri": "Low",
             "item": "SEC-TOKEN-1 — admin tokens out of query params",
             "notes": "`?token=` on `/api/errors",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "CARGO-RACE-1 — bay built empty if grocery GLTFs lose the load race",
+            "notes": "`createCargoBay()` snapshots `loadedGeometries` ONCE at cart creation; `GroceryPool.init` is deliberately non-blocking (main.js:2826). A play entry before init resolves → permanently empty bay until the next KO-respawn rebuild. Reproduces 100% on cold headless `?room=solo` (blocked CARGO-VIS-1 evidence); real-world window = cold-cache fast play entry. Fix sketch: bay self-heals on init resolve (re-run item build for live bays), mirroring the pendingSpills replay pattern.",
             "ship1": null
           },
           {
@@ -1811,6 +1817,11 @@
       "Cross-module change? Read docs/reference/control-flow.md first — most edges are not imports."
     ],
     "settled_decisions": [
+      {
+        "id": "D-CARGO-VIS-1",
+        "date": "07-30",
+        "text": "The CARGO-WT-1-era \"pile stays under the rim\" invariant is"
+      },
       {
         "id": "D-FIGHTNIGHT-1",
         "date": "07-23",
