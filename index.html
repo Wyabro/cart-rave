@@ -1136,6 +1136,23 @@
             "Cart Clash couldn't finish loading. Hit Retry, or hard-refresh the page (Ctrl+Shift+R).",
             8000
           );
+          return;
+        }
+        // * Runtime exception during module evaluation (TDZ error, top-level await
+        // * rejection surfacing as ErrorEvent, throw in module init): fires with
+        // * ev.error set and target === window — BEFORE main() has run
+        // * installGlobalErrorReporting(). Without this branch the player sees a hung
+        // * boot splash and no telemetry is sent at all.
+        if (ev.error) {
+          forwardBootError(
+            ev.error.message || String(ev.message || "Boot error"),
+            ev.error.stack || "",
+            { context: "bootModuleEvalError" }
+          );
+          scheduleBootError(
+            "Cart Clash couldn't finish loading. Hit Retry, or hard-refresh the page (Ctrl+Shift+R).",
+            8000
+          );
         }
       }, true);
 
