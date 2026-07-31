@@ -5623,6 +5623,16 @@ async function main() {
     getMode: () => detectGameMode(),
     getLevelId: () => getCurrentLevelId(),
     getLocalSlot: () => Netcode.strictSlotIndexForConn(Netcode.getYouConnId()),
+    // * ANLX-ATTRACT-1: "did I actually play this round?". A mid-round joiner adopts the
+    // * room's running phase from hello/MSG.round while still on the menu with no cart, so
+    // * the phase transition alone booked phantom matches. Read live (allCartsRef is a
+    // * mutable closure ref) and null-guard per the standing cart-access invariant.
+    // * Same shape as getNetDebug's localBodyEnabled above — keep them in step.
+    getLocalCartActive: () => {
+      const slot = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
+      const cart = Array.isArray(allCartsRef) ? allCartsRef[slot] : null;
+      return Boolean(cart?.body && cart.body.isEnabled());
+    },
   });
 
   // * VFX-1: live black-frame flicker monitor on real hardware (?blackmon=1). Opt-in,

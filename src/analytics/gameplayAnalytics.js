@@ -23,6 +23,7 @@
  * __ccDiag.snapshot("analytics") — the observability systems observe each other.
  */
 
+import { ROUND_DURATION_MS } from "../../shared/roundConstants.js";
 import { gameStore, RoundPhase } from "../stores/gameStore.js";
 import { onUnlockGranted } from "../stores/unlockStore.js";
 import { challengeStore } from "../stores/challengeStore.js";
@@ -39,6 +40,9 @@ import { initAnalytics, trackEvent, getAnalyticsDebugState } from "./analytics.j
  * @property {() => string} [getMode]           detectGameMode() ("solo"|"quickplay"|…).
  * @property {() => string | null} [getLevelId] Current arena id.
  * @property {() => number} [getLocalSlot]      Local player's slot index (-1 if unseated).
+ * @property {() => boolean} [getLocalCartActive] True when the local player has a live,
+ *   enabled cart body — i.e. is actually IN this round. Absent ⇒ treated as true, so a
+ *   caller that does not wire it keeps the old behaviour.
  */
 
 /**
@@ -96,6 +100,64 @@ export function installGameplayAnalytics(deps) {
   });
 
   // — Match lifecycle (gameStore): running = match_started, running→podium = match_ended —
+  //
+  // * ANLX-ATTRACT-1: a phase transition is NOT proof you played. A mid-round joiner adopts
+  // * the room's `running` phase from hello/MSG.round (netcode.js:2548/:2843) while still on
+  // * the menu with no cart, which booked phantom matches — 162 of 212 recent match_ended
+  // * rows were <3s all-draw quickplay phantoms. So the gate is participation: a live cart
+  // * body. `from === COUNTDOWN` is NOT usable — shouldHoldNonHostCountdownPhase makes
+  // * lobby→running legitimate for a slow non-host, so it would drop real matches.
+  const hasLocalCart = () =>
+    typeof deps.getLocalCartActive === "function" ? Boolean(deps.getLocalCartActive()) : true;
+
+  // * A joiner qualifies moments AFTER the transition, and this module has no tick of its
+  // * own (it only runs on phase changes), so the latch needs its own wake-up. One timeout
+  // * chain, rescheduled only while still pending and still running, cleared on emit / on
+  // * leaving RUNNING / at the cap. setTimeout not rAF: rAF is frozen in a hidden tab and a
+  // * backgrounded joiner must still be able to qualify.
+  const PARTICIPATION_POLL_MS = 250;
+  let pendingStart = false;
+  let startedEmitted = false;
+  let pendingSinceMs = 0;
+  /** @type {ReturnType<typeof setTimeout> | null} */
+  let pollHandle = null;
+
+  const stopPoll = () => {
+    if (pollHandle != null) {
+      clearTimeout(pollHandle);
+      pollHandle = null;
+    }
+  };
+
+  const emitStarted = (joinedMidRound) => {
+    matchStartedPerfMs = performance.now();
+    sawSuddenDeath = false;
+    startedEmitted = true;
+    pendingStart = false;
+    stopPoll();
+    trackEvent("match_started", { arena: arena(), mode: mode(), joinedMidRound });
+  };
+
+  const pollParticipation = () => {
+    pollHandle = null;
+    if (!pendingStart) return;
+    if (gameStore.getState().roundPhase !== RoundPhase.RUNNING) {
+      pendingStart = false;
+      return;
+    }
+    if (hasLocalCart()) {
+      emitStarted(true);
+      return;
+    }
+    // * Cap on the single-sourced round length — a round cannot outlive it, so neither
+    // * should the poll.
+    if (performance.now() - pendingSinceMs >= ROUND_DURATION_MS) {
+      pendingStart = false;
+      return;
+    }
+    pollHandle = setTimeout(pollParticipation, PARTICIPATION_POLL_MS);
+  };
+
   let prevPhase = gameStore.getState().roundPhase;
   gameStore.subscribe((state) => {
     const phase = state.roundPhase;
@@ -106,11 +168,28 @@ export function installGameplayAnalytics(deps) {
     const from = prevPhase;
     prevPhase = phase;
 
+    if (phase !== RoundPhase.RUNNING) {
+      // * Left RUNNING without ever qualifying — drop the latch so a spectated round
+      // * cannot fire into the next one.
+      pendingStart = false;
+      stopPoll();
+    }
+
     if (phase === RoundPhase.RUNNING) {
-      matchStartedPerfMs = performance.now();
-      sawSuddenDeath = false;
-      trackEvent("match_started", { arena: arena(), mode: mode() });
-    } else if (phase === RoundPhase.PODIUM && from === RoundPhase.RUNNING) {
+      startedEmitted = false;
+      if (hasLocalCart()) {
+        emitStarted(false);
+      } else {
+        pendingStart = true;
+        pendingSinceMs = performance.now();
+        stopPoll();
+        pollHandle = setTimeout(pollParticipation, PARTICIPATION_POLL_MS);
+      }
+    } else if (phase === RoundPhase.PODIUM && from === RoundPhase.RUNNING && startedEmitted) {
+      // * Pair closes here. Deliberately NOT re-testing the cart: bodies get disabled
+      // * mid-round (empty-slot path main.js:716-718, KO/respawn toggles), so a body check
+      // * at podium would drop the match of whoever happened to be down at the end.
+      startedEmitted = false;
       matchesThisSession += 1;
       const sdLatch = sawSuddenDeath;
       // * Deferred one microtask: non-host clients apply MSG.round via SEPARATE setters —
