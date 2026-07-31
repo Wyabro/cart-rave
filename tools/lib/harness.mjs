@@ -244,6 +244,8 @@ export function launchClientBrowser(chromium, opts = {}) {
  * @param {string} [o.label]
  * @param {Record<string, string>} [o.params]   Extra URL query params (e.g. { diag: "1", room: "solo" }).
  * @param {Record<string, string>} [o.storage]  Extra localStorage seed entries.
+ * @param {{ width: number, height: number }} [o.viewport] Frame size (default 900×600).
+ * @param {"reduce" | "no-preference"} [o.reducedMotion] Emulated `prefers-reduced-motion`.
  * @param {() => boolean} [o.readyExpr]          Page fn polled until truthy (default: __ccDiag active).
  * @param {(t: string) => boolean} [o.ignoreConsole] Return true to suppress a console-error line.
  * @param {(...a: unknown[]) => void} [o.log]
@@ -252,7 +254,16 @@ export function launchClientBrowser(chromium, opts = {}) {
 export async function makeClient(browser, o) {
   const label = o.label || "client";
   const log = o.log || makeLogger("harness");
-  const context = await browser.newContext({ viewport: { width: 900, height: 600 } });
+  // * SHEET-1: viewport + reducedMotion are opt-in passthroughs so a contact-sheet cell can
+  // * request its own frame; omitting them keeps every existing rig on the 900×600 default.
+  // * deviceScaleFactor is pinned to 1 — already Playwright's default, stated the way
+  // * shoot.mjs:162 and tabhidden.mjs:470 state it, so a captured PNG's pixel size is the
+  // * viewport and never the host display's scaling.
+  const context = await browser.newContext({
+    viewport: o.viewport || { width: 900, height: 600 },
+    deviceScaleFactor: 1,
+    ...(o.reducedMotion ? { reducedMotion: o.reducedMotion } : {}),
+  });
 
   const seed = {
     cartRaveUsername: o.username || label,
