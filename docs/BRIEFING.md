@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (also runs inside `npm run qa`).
-> Generated 2026-07-31 at commit `0bf24b0` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
-> Source digest: `e3d5d5e2`
+> Generated 2026-07-31 at commit `64eff60` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
+> Source digest: `dafd7bcb`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -18,8 +18,8 @@ Playtesting and stabilization — Tier A drained. B1 AI-DIFF-1 shipped (`49bfc2a
 
 ## ACTIVE CARD
 
-SEC-UNLOCK-1 — DEV-gate `?devUnlocks=all` (scope narrowed at ack — `=off` deliberately kept)
-Pass looks like: ▶ applied, UNPUSHED (2 commits). Pure `resolveDevUnlockParam(search, isDev)` in unlockConfig.js; `=all` DEV-only, `=off` works in every build because prod FTUE sessions require it. Verified on a prod preview build: `?devUnlocks=all` → key absent + `isActive()` false; `?devUnlocks=off` → `"off"`; `enableAll()` still works; a null result does not clobber an existing key; Vite dev still honours `=all`. Owed: push + deploy + prod re-check
+SEC-ROUTE-1 — Worker routes `includes()` → `startsWith()` ×4
+Pass looks like: ▶ ACTIVE — needs a plan + Wyatt ack before code. Last of the before-external-testers gate, with the analytics-DO reset
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 
@@ -30,7 +30,7 @@ Plan → Wyatt ack → apply. This heading names the card; it is **not** permiss
 - **A3 MP-FX-1** non-host gameplay VFX parity — ✅ PASS (Wyatt playtest 07-22: opponent charge glow + hop land dust/thud on non-host)
 - **A4 ARENA-COL-1** Cart Rave pit KO detection & kill-zone reliability — ✅ PASS (Wyatt playtest 07-22 — rim entry pose/time → buildKOEvent)
 - **B3 HIT-FEEL-1** hit feedback — weak normals + noisy incoming — ✅ PASS (Wyatt playtest 07-22)
-- **SEC-BEACON-1** rate-limit the open POST beacons (+ IP-cap constant, dedupe release, tests) — ✅ CLOSED 07-30 — live at `65dea12` / Version `255d6284`. Per-IP 30/60s enforced *inside* each log DO before…
+- **SEC-BEACON-1** rate-limit the open POST beacons — ✅ CLOSED 07-30 — live at `65dea12` / Version `255d6284`. Per-IP 30/60s inside each log DO (budget per-DO, not…
 
 ## Do not
 

@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-07-31T00:40:09.738Z",
-    "commit": "0bf24b0"
+    "at": "2026-07-31T00:47:36.506Z",
+    "commit": "64eff60"
   },
-  "source_digest": "71d01de2",
+  "source_digest": "210db551",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -974,24 +974,21 @@
       },
       {
         "id": "SEC-BEACON-1",
-        "what": "rate-limit the open POST beacons (+ IP-cap constant, dedupe release, tests)",
-        "status": "✅ CLOSED 07-30 — live at `65dea12` / Version `255d6284`. Per-IP 30/60s enforced *inside* each log DO before the INSERT (budget per-DO, not shared). Live flood probe: exactly 30 accepted, 429 at #31. Wyatt playtest PASS (join/leave ×6, host-leave, F8 → `cap-215`/`cap-216` on `65dea12`)",
+        "what": "rate-limit the open POST beacons",
+        "status": "✅ CLOSED 07-30 — live at `65dea12` / Version `255d6284`. Per-IP 30/60s inside each log DO (budget per-DO, not shared). Live flood probe: 30 accepted, 429 at #31. Wyatt playtest PASS",
         "state": "done"
       },
       {
         "id": "SEC-UNLOCK-1",
-        "what": "DEV-gate `?devUnlocks=all` (scope narrowed at ack — `=off` deliberately kept)",
-        "status": "▶ applied, UNPUSHED (2 commits). Pure `resolveDevUnlockParam(search, isDev)` in unlockConfig.js; `=all` DEV-only, `=off` works in every build because prod FTUE sessions require it. Verified on a prod preview build: `?devUnlocks=all` → key absent + `isActive()` false; `?devUnlocks=off` → `\"off\"`; `enableAll()` still works; a null result does not clobber an existing key; Vite dev still honours `=all`. Owed: push + deploy + prod re-check",
-        "state": "active",
-        "touches_systems": [
-          {
-            "id": "scoring-progression",
-            "name": "Scoring & progression",
-            "files": [
-              "src/unlockConfig.js"
-            ]
-          }
-        ]
+        "what": "DEV-gate `?devUnlocks=all` (`=off` deliberately kept)",
+        "status": "✅ CLOSED 07-30 — live at `64eff60` / Version `56439ef4`, asset-verified. Verified on production: `=all` → key absent + `isActive()` false; `=off` → `\"off\"`. Prod-preview also confirmed `enableAll()` survives, a null never clobbers an existing key, dev still honours `=all`",
+        "state": "done"
+      },
+      {
+        "id": "SEC-ROUTE-1",
+        "what": "Worker routes `includes()` → `startsWith()` ×4",
+        "status": "▶ ACTIVE — needs a plan + Wyatt ack before code. Last of the before-external-testers gate, with the analytics-DO reset",
+        "state": "active"
       },
       {
         "id": "SHEET-1",
@@ -1028,7 +1025,7 @@
       }
     ],
     "next_actions": [
-      "SEC-UNLOCK-1 — applied + unpushed. Owed: push, deploy, then re-check `?devUnlocks=all|off` against production (only prod exercises the gated branch). Gotchas worth keeping: `?devUnlocks=off` is a deliberate prod lever — playtest Session 2 needs it on a prod build, so never \"fix\" it by gating it; verifying this card by grepping `dist/` for `devUnlocks` gives a false FAIL because the `=off` path keeps the string; and vitest runs with `DEV === true`, so any DEV check read *inside* a helper makes its prod branch untestable — pass `isDev` in. Three SEC-BEACON-1 gotchas also still apply: the two 204-always beacon routes swallow a DO 429 until the Worker is changed too; `GET /api/errors` is unusable from tests (`ERROR_LOG_TOKEN` is a secret, absent in CI) — read back via the DO stub's `/list`; and ~30 probe rows (`sessionId: sec-beacon-probe`) sit in the analytics DO, cleared by the reset queued below.",
+      "SEC-ROUTE-1 (active) — plan → Wyatt ack → apply. `party/index.ts:1555/1579/1614/1728` route on `pathname.includes(...)`, so any path *containing* the substring lands there; `:1777` shows the correct `startsWith` pattern. Add route-match tests on the party-do harness. Last of the before-external-testers gate alongside the analytics-DO reset. Gotchas worth keeping from SEC-UNLOCK-1: `?devUnlocks=off` is a deliberate prod lever — playtest Session 2 needs it on a prod build, so never \"fix\" it by gating it; verifying this card by grepping `dist/` for `devUnlocks` gives a false FAIL because the `=off` path keeps the string; and vitest runs with `DEV === true`, so any DEV check read *inside* a helper makes its prod branch untestable — pass `isDev` in. Three SEC-BEACON-1 gotchas also still apply: the two 204-always beacon routes swallow a DO 429 until the Worker is changed too; `GET /api/errors` is unusable from tests (`ERROR_LOG_TOKEN` is a secret, absent in CI) — read back via the DO stub's `/list`; and ~30 probe rows (`sessionId: sec-beacon-probe`) sit in the analytics DO, cleared by the reset queued below.",
       "Locked order after: SEC-UNLOCK-1 → SEC-ROUTE-1 → SHEET-1 → FIGHT-VERIFY-1. The three SEC cards + `DELETE /api/analytics` are the before-external-testers gate. (07-30 closed: QA-STATUS-1, HYGIENE-1, CARGO-VIS-1, CARGO-RACE-1, CARGO-HUD-1a, WARM-IGPU-1, CARGO-HUD-1, SKYBOX-1.)",
       "Before public/external playtest: SEC-BEACON-1/UNLOCK/ROUTE plus `DELETE /api/analytics?token=…` (clear DO) — see Gotchas."
     ],
