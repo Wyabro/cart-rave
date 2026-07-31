@@ -167,11 +167,23 @@ harness:"1"}, storage:{ cartRaveLevel }, viewport, reducedMotion })` →
    **Exit-code contract:** `npm run sheet` exits 0 when the DOM pin held (step 2) and both
    PNGs exist for every cell. A bad MAE never produces a non-zero exit.
 
-   It cannot be a hard gate, and this is not a threshold-tuning problem — do not "fix" it
-   back into one. Two drift sources: CSS2D nametags (removed by the `.cart-nametag` hide
-   above) and **the kill feed, which is irreducible** — feed plates are HUD chrome, and NPC
-   KOs land at different wall-clock times each run. The pin fixes scores and the clock, not
-   KO timing.
+   **Measured 07-31, two runs, 1920×1080** — the canvas+nametag hide is worth doing and
+   still does not buy determinism:
+
+   | Pair | meanAbs | pctDiff>2 | compare's verdict |
+   |---|---|---|---|
+   | `*-hud.png` (chrome only) | **0.863** | 1.20 % | largely similar |
+   | full-viewport PNG | 3.974 | 9.67 % | notable difference |
+
+   So hiding canvas + nametags cuts cross-run drift ~4.6×, and the full frame is not
+   cross-run comparable at all. What remains in the chrome shot is **not** the timer (both
+   runs read `1:26`) and not mainly the kill feed — the amp-diff lights up on the
+   **randomised NPC names** in the score strip (`WOBBLESMCGEE/CRASHREGISTER/DRIFTWOOD` vs
+   `CHECKOUTCHAMP/BUMPERCROP/BUGGYBANDIT`) and the **randomly selected directive** (`FLASH
+   SALE` vs `RUSH HOUR`). Both are per-run random, both are always present, and **there is
+   no gameplay RNG seed in this repo** — so no threshold and no extra hiding can make this
+   deterministic. Do not "fix" it back into a hard gate; the montage is for eyeballing, the
+   pin is the gate.
 4. Eyeball one `390×844` cell: a real in-match HUD, not a menu.
 
 The montage must state on its face that it is a **layout baseline, not a golden render**.
