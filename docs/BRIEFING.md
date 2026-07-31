@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (also runs inside `npm run qa`).
-> Generated 2026-07-31 at commit `8da2575` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
-> Source digest: `7c53be16`
+> Generated 2026-07-31 at commit `2e85f0b` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
+> Source digest: `4ad5365e`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -18,12 +18,13 @@ Playtesting and stabilization — Tier A drained. B1 AI-DIFF-1 shipped (`49bfc2a
 
 ## ACTIVE CARD
 
-Analytics-DO reset — the last item of the before-external-testers gate now that all three SEC cards are closed. `DELETE /api/analytics?token=…` clears the DO, including the ~30 `sec-beacon-probe` rows. Gotchas worth keeping: `?devUnlocks=off` is a deliberate prod lever — playtest Session 2 needs it on a prod build, so never "fix" it by gating it; verifying this card by grepping `dist/` for `devUnlocks` gives a false FAIL because the `=off` path keeps the string; and vitest runs with `DEV === true`, so any DEV check read *inside* a helper makes its prod branch untestable — pass `isDev` in. Three SEC-BEACON-1 gotchas also still apply: the two 204-always beacon routes swallow a DO 429 until the Worker is changed too; `GET /api/errors` is unusable from tests (`ERROR_LOG_TOKEN` is a secret, absent in CI) — read back via the DO stub's `/list`; and ~30 probe rows (`sessionId: sec-beacon-probe`) sit in the analytics DO, cleared by the reset queued below
+ANLX-ATTRACT-1 acceptance (~a day after 07-30 deploy, Wyatt-triggered). Run `npm run analytics:pull -- --list`. Pass = the `<3 s` + `result=draw` cluster stops growing. Baseline: newest 1000 events were 162 phantom (`<3 s`, all draw, empty `endReason`, quickplay, never `classicRecord`) vs 48 real (`≥120 s`). Real matches must keep arriving, incl. `joinedMidRound:true` ones. If short draws still appear WITH a live cart, they are real participation under the agreed metric — change acceptance to "unseated/menu-visible phantoms gone" and file a filler-round follow-up. Only then is the card closed
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 
 Self-directed queue (one at a time, within the declared phase):
-- **SHEET-1** in-match contact-sheet tool (`?room=solo` boot) — 📋 blackframes readback pre-check first
+- **ANLX-ATTRACT-1** mid-round joins booked phantom matches — 🚀 DEPLOYED, NOT YET CLOSED — live at `2e85f0b` / Version `4083335f`, entry `index-D0PGvOIB.js`,…
+- **SHEET-1** in-match contact-sheet tool (`?room=solo` boot) — 📋 plan ACK'D (`~/.claude/plans/sheet-1.md`) — blocked on ANLX acceptance + DO reset; blackframes pre-check…
 - **FIGHT-VERIFY-1** owed fight-night verification — 📋 agent half via SHEET-1; Wyatt half = playtest
 - **MAIN-1 / BUNDLE-1** main.js seam / code-split — 📋 post-gate
 

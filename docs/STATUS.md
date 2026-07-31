@@ -77,16 +77,12 @@ Run 7 mission closed; NET-2 / NET-MIG-3 passed live; NET-PRES-1 landed (loss-on-
 Playtest console: [playtest/console.html](./playtest/console.html).  
 F8 → auto-upload; pull: `npm run captures:pull` (needs `.env.local` `ERROR_LOG_TOKEN`).
 
-**07-30 — laptop captures analyzed (cap-205…214, two new medium-tier iGPU laptops, build `56dfa61`):**
-first play of the session stalls 3.8–7.1s in the `warm:true` play-shader path, and on the slower
-laptop the flyover warm pass froze **6.4s inside the countdown** (elapsed 8163ms vs 3600 — 3-2-1
-never rendered). Gameplay after entry is clean on both (<0.3% frames >33ms). Queued as
-**WARM-IGPU-1** — [Phase 0 acked 07-30](./planning/warm-igpu-1.md). Laptops played solo only — no new MP evidence.
+**07-30 — laptop captures (cap-205…214, medium-tier iGPUs):** first play stalled 3.8–7.1s in the
+`warm:true` path; slower laptop froze 6.4s *inside* the countdown. Gameplay after entry clean.
+Closed as WARM-IGPU-1; residual = WARM-SOLO-1 ([detail](./planning/warm-igpu-1.md)).
 
 **07-30 — research fold-in (QA-STATUS-1):** four phone-research docs verified against the tree
-(external code review at `56dfa61` · CARGO-HUD-1 handover · responsive-scale spec · agent-loop
-findings) and folded into the locked queue below. New card details live in
-[BACKLOG](./planning/BACKLOG.md), not here.
+and folded into the queue below; card details live in [BACKLOG](./planning/BACKLOG.md), not here.
 
 ### Do not
 
@@ -131,16 +127,17 @@ Run 7 mission (below) is historical evidence, superseded as the live queue by
 | **B3** HIT-FEEL-1 | hit feedback — weak normals + noisy incoming | ✅ **PASS** (Wyatt playtest 07-22) |
 | **ARENA-BAL-1** | Sundial + Storerooms self-KO rate | ✅ **closed** (Wyatt 07-22, no code) |
 | **QA-STATUS-1** | STATUS token overage broke `qa` | ✅ closed this commit — 07-21 log archived, queue reordered |
-| **HYGIENE-1** | 4-item sweep: sourcemaps off · boot-error filter · default branch · profiler `--dpr` | ✅ **closed** 07-30 — sourcemaps off · boot-error filter · 3 stale remotes deleted · profiler `--dpr`; Wyatt set GitHub default branch → `cart-clash` (confirmed) |
-| **C2** CARGO-VIS-1 | full-bay fill + rim overflow look | ✅ **closed** (Wyatt prod playtest PASS 07-30 on `b13bafb`) — real-dims bays, 4-phase fill 5/10/20/30, rim crest, rear coverage, KO-respawn drift hotfix |
-| **WARM-IGPU-1** | first-play warm stall swallows countdown (medium iGPUs) | ✅ **CLOSED** — Wyatt prod playtest PASS 07-30 on `a9dbc7d`. Solo residual tracked separately as WARM-SOLO-1 ([plan](./planning/warm-igpu-1.md)) |
-| **CARGO-HUD-1a** | cargo-readout mock on BOTH hosts, 3-state — Wyatt picks | ✅ closed 07-30 — Wyatt picked **nameplate placement + score-strip chip look** |
-| **CARGO-HUD-1** | opponent cargo readout on the nameplate | ✅ **PASS** (Wyatt 07-30) — 4-segment chip live at `38d0dfc` / Version `f8e8da1f` ([card](./planning/cargo-hud-1.md)) |
+| **HYGIENE-1** | 4-item sweep | ✅ **closed** 07-30 — sourcemaps off · boot-error filter · 3 stale remotes deleted · profiler `--dpr`; default branch → `cart-clash` |
+| **C2** CARGO-VIS-1 | full-bay fill + rim overflow look | ✅ **closed** (Wyatt prod playtest PASS 07-30 on `b13bafb`) |
+| **WARM-IGPU-1** | first-play warm stall swallows countdown (medium iGPUs) | ✅ **CLOSED** — prod playtest PASS 07-30 on `a9dbc7d`. Solo residual = WARM-SOLO-1 ([plan](./planning/warm-igpu-1.md)) |
+| **CARGO-HUD-1a** | cargo-readout mock, 3-state — Wyatt picks | ✅ closed 07-30 — nameplate placement + score-strip chip look |
+| **CARGO-HUD-1** | opponent cargo readout on the nameplate | ✅ **PASS** (Wyatt 07-30) — live at `38d0dfc` / Version `f8e8da1f` ([card](./planning/cargo-hud-1.md)) |
 | **SKYBOX-1** | restore never-built sceneExtras skybox (review C-01) | ✅ **closed** 07-30 — live at `c074c2a` / Version `8e5bb259`; LOW tier-gated per Wyatt (`skyExtras` knob), UFO-in-pit bug fixed |
 | **SEC-BEACON-1** | rate-limit the open POST beacons | ✅ **CLOSED** 07-30 — live at `65dea12` / Version `255d6284`. Per-IP 30/60s inside each log DO (budget per-DO, not shared). Live flood probe: 30 accepted, 429 at #31. Wyatt playtest PASS |
-| **SEC-UNLOCK-1** | DEV-gate `?devUnlocks=all` (`=off` deliberately kept) | ✅ **CLOSED** 07-30 — live at `64eff60` / Version `56439ef4`, asset-verified. **Verified on production:** `=all` → key absent + `isActive()` false; `=off` → `"off"`. Prod-preview also confirmed `enableAll()` survives, a null never clobbers an existing key, dev still honours `=all` |
-| **SEC-ROUTE-1** | Worker `/api/*` routes `includes()` → exact `===` ×4 | ✅ **CLOSED** 07-30 — live at `8da2575` / Version `268f6ff2`. Tightened to `===` at ack (no sub-paths; DOs already exact). Also fixed a **live 500**: unmatched paths returned null from `fetch()` → now 404. Verified on prod: `/x/api/log-error` 404, `/api/errorsfoo` + `/api/errors/` 404, unknown path 404 (was 500), `/api/log-error` still 204, party upgrade still 101 |
-| **SHEET-1** | in-match contact-sheet tool (`?room=solo` boot) | 📋 blackframes readback pre-check first |
+| **SEC-UNLOCK-1** | DEV-gate `?devUnlocks=all` (`=off` deliberately kept) | ✅ **CLOSED** 07-30 — live at `64eff60` / Version `56439ef4`, prod-verified |
+| **SEC-ROUTE-1** | Worker `/api/*` routes `includes()` → exact `===` ×4 | ✅ **CLOSED** 07-30 — live at `8da2575` / Version `268f6ff2`, prod-verified. Also fixed a live 500: unmatched paths returned null from `fetch()` → now 404 |
+| **ANLX-ATTRACT-1** | mid-round joins booked phantom matches | 🚀 **DEPLOYED, NOT YET CLOSED** — live at `2e85f0b` / Version `4083335f`, entry `index-D0PGvOIB.js`, asset-verified (`getLocalCartActive` ×3, `joinedMidRound` ×1). Emit now gates on a live cart body + latch. **Owed: day-after acceptance** (below) |
+| **SHEET-1** | in-match contact-sheet tool (`?room=solo` boot) | 📋 **plan ACK'D** (`~/.claude/plans/sheet-1.md`) — blocked on ANLX acceptance + DO reset; blackframes pre-check already done (readback is real, not false-black) |
 | **FIGHT-VERIFY-1** | owed fight-night verification | 📋 agent half via SHEET-1; Wyatt half = playtest |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
 | BRAND-1 | Domain cutover | 🧊 frozen |
@@ -161,9 +158,15 @@ Triage docs superseded: [playtest-triage-2026-07-17](./planning/playtest-triage-
 
 ### Next actions
 
-1. **Analytics-DO reset** — the last item of the before-external-testers gate now that all three SEC cards are closed. `DELETE /api/analytics?token=…` clears the DO, including the ~30 `sec-beacon-probe` rows. Gotchas worth keeping: **`?devUnlocks=off` is a deliberate prod lever** — playtest Session 2 needs it on a prod build, so never "fix" it by gating it; verifying this card by grepping `dist/` for `devUnlocks` gives a false FAIL because the `=off` path keeps the string; and vitest runs with `DEV === true`, so any DEV check read *inside* a helper makes its prod branch untestable — pass `isDev` in. Three SEC-BEACON-1 gotchas also still apply: the two 204-always beacon routes swallow a DO 429 until the Worker is changed too; `GET /api/errors` is unusable from tests (`ERROR_LOG_TOKEN` is a secret, absent in CI) — read back via the DO stub's `/list`; and ~30 probe rows (`sessionId: sec-beacon-probe`) sit in the analytics DO, cleared by the reset queued below.
-2. Locked order after: **SEC-UNLOCK-1 → SEC-ROUTE-1 → SHEET-1 → FIGHT-VERIFY-1.** The three SEC cards + `DELETE /api/analytics` are the before-external-testers gate. (07-30 closed: QA-STATUS-1, HYGIENE-1, CARGO-VIS-1, CARGO-RACE-1, CARGO-HUD-1a, WARM-IGPU-1, CARGO-HUD-1, SKYBOX-1.)
-3. **Before public/external playtest:** SEC-BEACON-1/UNLOCK/ROUTE **plus** `DELETE /api/analytics?token=…` (clear DO) — see Gotchas.
+**Sequence is strict — each step gates the next. Do not reorder.**
+
+1. **ANLX-ATTRACT-1 acceptance** (~a day after 07-30 deploy, Wyatt-triggered). Run `npm run analytics:pull -- --list`. **Pass = the `<3 s` + `result=draw` cluster stops growing.** Baseline: newest 1000 events were 162 phantom (`<3 s`, all draw, empty `endReason`, quickplay, never `classicRecord`) vs 48 real (`≥120 s`). Real matches must keep arriving, incl. `joinedMidRound:true` ones. **If short draws still appear WITH a live cart**, they are real participation under the agreed metric — change acceptance to "unseated/menu-visible phantoms gone" and file a filler-round follow-up. Only then is the card closed.
+2. **Analytics-DO reset** — last before-external-testers item. `DELETE /api/analytics?token=…`. **Pointless before step 1**: an unfixed emitter refills it. Also clears ~30 `sec-beacon-probe` rows.
+3. **SHEET-1** (plan ack'd) → **FIGHT-VERIFY-1**. SHEET-1 boots solo rounds, so running it before step 1 muddies that acceptance signal.
+
+**Do-not-relearn (each produced a confident wrong answer once):** `?devUnlocks=off` is a deliberate **prod** lever — Session 2 FTUE needs it on a prod build; never gate it. Grepping `dist/` for `devUnlocks` gives a false FAIL (the `=off` path keeps the string). Vitest runs `DEV === true`, so a DEV check read *inside* a helper makes its prod branch untestable — pass `isDev` in. `/api/log-error` + `/api/analytics` swallow a DO 429 unless the Worker forwards it. `GET /api/errors` is unusable from tests (`ERROR_LOG_TOKEN` is a secret CI lacks) — read via the DO stub's `/list`. `rewindRoundClock(ms)` **sets remaining** time — `1200` ends the round. `from === COUNTDOWN` is NOT a valid "played this round" test: `shouldHoldNonHostCountdownPhase` makes `lobby→running` legitimate for a slow non-host. Worker deploys propagate per-PoP and read as *contradictory* (one route new, another old) — re-poll, don't debug.
+
+**Open, unowned:** the analytics ring's older `loss=9330 / win=9` bulk does not match the recent draw-dominated window — a second, older pollution source plausibly exists. ANLX-ATTRACT-1 fixed only the recent cluster.
 
 ## Open issues (top)
 
