@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-07-31T22:22:07.711Z",
-    "commit": "649af41"
+    "at": "2026-07-31T22:40:26.204Z",
+    "commit": "e5efbfe"
   },
-  "source_digest": "954527eb",
+  "source_digest": "8678e54c",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -896,6 +896,12 @@
         "state": "done"
       },
       {
+        "id": "BOOT-PERF-1",
+        "what": "idle warm gen-cancel",
+        "status": "✅ CODED 07-31 — mid-flight retarget; no sticky wrong arena",
+        "state": "done"
+      },
+      {
         "id": "FIGHT-VERIFY-1",
         "what": "owed fight-night verification",
         "status": "🟡 agent half PARTIAL — sheet proves feed · score strip · timer · directive chip · boost bar at 12 widths (landscape added `cd73e77`; touch pass added `0da5c4c` — `makeClient` now sets `hasTouch`/`isMobile`, 4 touch cells in `--all`, so `#hud.hud-touch` rules are no longer invisible). Still unreachable: loading screens (`makeClient` seeds `cartRaveBootSeen`), hover/press (needs interaction), podium. Wyatt half = playtest",
@@ -956,16 +962,16 @@
       {
         "title": "Engineering",
         "counts": {
-          "Medium": 13,
-          "Done": 19,
+          "Done": 20,
           "Low": 4,
-          "Partial": 1
+          "Partial": 1,
+          "Medium": 12
         },
         "rows": [
           {
-            "pri": "Medium",
+            "pri": "Done",
             "item": "BOOT-PERF-1 — pre-warm the selected arena during menu idle",
-            "notes": "Remaining first-load cost wants idle warm of SELECTED arena shaders. Gate on tab-visible.",
+            "notes": "✅ **CODED 07-31** — idle warm already existed; gap was sticky first-wins. `ensureWorldBootstrapped(selected)` + gen-cancel retarget mid-flight (`cartrave:level-changed` while in-flight); stale flight never latches `worldBootstrapDone`. Tab/suppress unchanged. Tests: `bootstrapIdleWarm.test.js`. Deploy on ship.",
             "ship1": null
           },
           {
@@ -1786,6 +1792,11 @@
       "Cross-module change? Read docs/reference/control-flow.md first — most edges are not imports."
     ],
     "settled_decisions": [
+      {
+        "id": "D-BOOT-PERF-1",
+        "date": "07-31",
+        "text": "Idle warm not sticky-first-wins — mid-flight picker bumps gen;"
+      },
       {
         "id": "D-HOST-CAP-1",
         "date": "07-31",

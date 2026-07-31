@@ -44,6 +44,7 @@ Live-at values are the deployed commit / Cloudflare Version at close.
 | **A1** | COUNTDOWN-SYNC-1 non-host countdown clock-domain sync | ✅ PASS (Wyatt playtest 07-22; empty-quickplay edge case logged to BACKLOG) |
 | **A1** | Intel-as-host capture (original chronic-freeze question) | ✅ PASS (Wyatt confirmed 07-22) |
 | **A1 / HOST-CAP-1** | weak-host warning residual (after HOST-ROLE-1) | ✅ **CODED 07-31** — toast once when local is host and join-time `score < WEAK_HOST_WARN_SCORE` (50); neutral 50 never warns; latch clears on lose-host. Pure tests + netcode wire hooks. Min-spec fact accepted (no ban). Deploy on ship. |
+| **BOOT-PERF-1** | selected-arena idle warm gen-cancel | ✅ **CODED 07-31** — `ensureWorldBootstrapped(selected)` + gen retarget mid-flight; stale flight never latches done. `bootstrapIdleWarm.test.js` ×5. Deploy on ship. |
 | **A2** | INPUT-KB-1 keyboard digital-to-analog ease + menu nav | ✅ confirmed good by Wyatt |
 | **A3** | MP-FX-1 non-host gameplay VFX parity | ✅ PASS (Wyatt playtest 07-22: opponent charge glow + hop land dust/thud on non-host) |
 | **A4** | ARENA-COL-1 Cart Rave pit KO detection & kill-zone reliability | ✅ PASS (Wyatt playtest 07-22 — rim entry pose/time → `buildKOEvent`) |

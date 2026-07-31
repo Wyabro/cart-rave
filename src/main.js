@@ -210,6 +210,7 @@ import {
   isIdleWorldWarmSuppressed,
   isSessionCartsReady,
   isWorldBootstrapped,
+  isWorldBootstrapInFlight,
   resetSessionCartBootstrap,
 } from "./bootstrap.js";
 import { initMenuAttract, setMenuAttractRenderHold, startMenuAttract, stopMenuAttract } from "./ui/menuAttract.js";
@@ -2999,6 +3000,16 @@ async function main() {
 
   window.addEventListener("cartrave:level-changed", () => {
     scheduleMenuLevelPreview();
+    // * BOOT-PERF-1: retarget in-flight idle warm when the picker moves. Pre-start
+    // * (still in the 1.8s delay) does not need this — runWarm reads storage at fire.
+    if (
+      menuVisible
+      && !isWorldBootstrapped()
+      && !isIdleWorldWarmSuppressed()
+      && isWorldBootstrapInFlight()
+    ) {
+      void ensureWorldBootstrapped(resolveLevelId(storageGet(LEVEL_STORAGE_KEY)));
+    }
   });
 
   // * Bridges the server-driven game-start signal into main()'s nested functions.
@@ -5675,8 +5686,10 @@ async function main() {
 }
 
 /**
- * Preheats physics + default arena while the player sits on the main menu.
+ * Preheats physics + **selected** arena while the player sits on the main menu.
  * No-ops if play already started, world is warm, or the tab is backgrounded.
+ * BOOT-PERF-1: always passes the storage selection; mid-flight picker changes
+ * retarget via cartrave:level-changed → ensureWorldBootstrapped (gen-cancel).
  */
 function scheduleIdleWorldWarm() {
   /** @type {number} ms — let menu music / first paint settle before WASM + arena work. */
@@ -5685,17 +5698,23 @@ function scheduleIdleWorldWarm() {
   const runWarm = () => {
     if (!menuVisible) return;
     if (isWorldBootstrapped()) return;
-    // * Solo/Quickplay already claimed the cold-load — don't start a default-arena warm
+    // * Solo/Quickplay already claimed the cold-load — don't start a stale-arena warm
     // * that would race and force a second full rebuild for the selected level.
     if (isIdleWorldWarmSuppressed()) return;
-    void ensureWorldBootstrapped()
-      .then(() => {
-        if (import.meta.env.DEV && menuVisible) {
+    const selectedId = resolveLevelId(storageGet(LEVEL_STORAGE_KEY));
+    void ensureWorldBootstrapped(selectedId)
+      .then(async () => {
+        // * Stale flight resolved without latching done (retargeted) — join the owner.
+        if (!isWorldBootstrapped()) {
+          await ensureWorldBootstrapped(resolveLevelId(storageGet(LEVEL_STORAGE_KEY)));
+        }
+        if (!isWorldBootstrapped() || !menuVisible) return;
+        if (import.meta.env.DEV) {
           // eslint-disable-next-line no-console
-          console.log("[bootstrap] idle world warm done (menu still open)");
+          console.log("[bootstrap] idle world warm done (menu still open)", selectedId);
         }
         // * Level previews only run once the world exists — nudge picker if needed.
-        if (menuVisible) scheduleMenuLevelPreview();
+        scheduleMenuLevelPreview();
         // * Selected arena is now warm; fetch the other arena chunks in the background
         // * so the first menu arena switch never waits on a lazy import round-trip.
         // * Run-6: after the chunks land, also pre-bake the Sundial sunset env PMREM —

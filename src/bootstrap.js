@@ -34,11 +34,18 @@ export function invalidateActivePlayEntry() {
 let worldBootstrapDone = false;
 /** @type {Promise<void> | null} */
 let worldBootstrapPromise = null;
+/**
+ * BOOT-PERF-1: bumped when a mid-flight warm is retargeted to a different arena.
+ * Stale flights must not set {@link worldBootstrapDone} for the wrong level.
+ */
+let worldBootstrapGen = 0;
+/** Level id the current in-flight (or last completed) bootstrap is targeting. */
+let worldBootstrapTarget = /** @type {string | null} */ (null);
 
 /**
  * Set when the player commits to play entry (Solo / Quickplay / Friends).
- * Stops the delayed menu idle-warm from starting a *default* arena cold-load
- * that would then be thrown away and rebuilt for the selected level.
+ * Stops the delayed menu idle-warm from starting a cold-load for a stale
+ * selection that would then be thrown away and rebuilt for the selected level.
  */
 let idleWorldWarmSuppressed = false;
 
@@ -121,49 +128,114 @@ export function isIdleWorldWarmSuppressed() {
 }
 
 /**
- * Ensures Rapier WASM and the core arena are loaded (idempotent).
+ * True while a cold-load is in flight and not yet marked done (BOOT-PERF-1 retarget window).
+ * @returns {boolean}
+ */
+export function isWorldBootstrapInFlight() {
+  return Boolean(worldBootstrapPromise) && !worldBootstrapDone;
+}
+
+/**
+ * Ensures Rapier WASM and the core arena are loaded.
  *
- * @param {string | null | undefined} [levelIdOverride] When the world is still cold,
- *   load this arena as the first build (avoids default-level → selected-level double load
- *   on first Solo). Ignored once a bootstrap is already in flight or complete.
+ * BOOT-PERF-1: not sticky-first-wins. Callers pass the **selected** arena; a mid-flight
+ * retarget bumps a generation so the stale flight does not latch `worldBootstrapDone`
+ * for the wrong level. Concurrent flights are serialized (newer awaits prior settle).
+ *
+ * @param {string | null | undefined} [levelIdOverride] Arena to cold-load when still cold.
+ *   Omitting reads {@link LEVEL_STORAGE_KEY} (menu selection). Once done, no-ops —
+ *   play-entry uses rebuildLevelIfNeeded for a later level mismatch.
  * @returns {Promise<void>}
  */
-export async function ensureWorldBootstrapped(levelIdOverride) {
+export function ensureWorldBootstrapped(levelIdOverride) {
   requireDeps();
-  if (worldBootstrapDone) return;
-  if (!worldBootstrapPromise) {
-    const levelArg =
-      levelIdOverride != null && String(levelIdOverride).trim() !== ""
-        ? resolveLevelId(levelIdOverride)
-        : undefined;
-    // * Boot timeline: world-ready − world-init-start is the cold-load stall window
-    // * (Rapier WASM + arena build) — the NET-2 join-freeze mechanism, now measurable.
-    markBootPhase("world-init-start", { level: levelArg ?? null });
-    worldBootstrapPromise = deps.ensureRapierPhysics()
-      .then(async () => {
-        if (!worldBootstrapDone) {
-          if (import.meta.env.DEV) {
-            // eslint-disable-next-line no-console
-            console.log(
-              "[bootstrap] arena core load start",
-              levelArg ?? "(storage default)",
-            );
-          }
-          await deps.bootstrapWorldCore(levelArg);
-          worldBootstrapDone = true;
-          markBootPhase("world-ready");
-          if (import.meta.env.DEV) {
-            // eslint-disable-next-line no-console
-            console.log("[bootstrap] arena core load done");
-          }
-        }
-      })
-      .catch((err) => {
-        worldBootstrapPromise = null;
-        throw err;
-      });
+  const levelArg =
+    levelIdOverride != null && String(levelIdOverride).trim() !== ""
+      ? resolveLevelId(levelIdOverride)
+      : resolveLevelId(storageGet(LEVEL_STORAGE_KEY));
+
+  // * Not async: callers must share the same Promise identity on same-target join
+  // * (async/await would wrap a new outer promise every call).
+  if (worldBootstrapDone) return Promise.resolve();
+
+  // * Join the in-flight warm when it already targets this arena.
+  if (worldBootstrapPromise && worldBootstrapTarget === levelArg) {
+    return worldBootstrapPromise;
   }
+
+  // * First start or mid-flight retarget: new generation owns done-latch.
+  worldBootstrapGen += 1;
+  const gen = worldBootstrapGen;
+  const prev = worldBootstrapPromise;
+  worldBootstrapTarget = levelArg;
+
+  // * Boot timeline: world-ready − world-init-start is the cold-load stall window
+  // * (Rapier WASM + arena build) — the NET-2 join-freeze mechanism, now measurable.
+  markBootPhase("world-init-start", { level: levelArg, gen });
+
+  worldBootstrapPromise = (async () => {
+    if (prev) {
+      try {
+        await prev;
+      } catch {
+        // * Prior flight failed or was abandoned — continue if we still own gen.
+      }
+    }
+    if (gen !== worldBootstrapGen || worldBootstrapDone) return;
+
+    await deps.ensureRapierPhysics();
+    if (gen !== worldBootstrapGen || worldBootstrapDone) return;
+
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.log("[bootstrap] arena core load start", levelArg, { gen });
+    }
+    await deps.bootstrapWorldCore(levelArg);
+    if (gen !== worldBootstrapGen) {
+      // * Stale: do not latch done for the wrong arena. A newer flight owns the promise.
+      if (import.meta.env.DEV) {
+        // eslint-disable-next-line no-console
+        console.log("[bootstrap] arena core load discarded (retargeted)", levelArg, { gen });
+      }
+      return;
+    }
+
+    worldBootstrapDone = true;
+    markBootPhase("world-ready", { level: levelArg });
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.log("[bootstrap] arena core load done", levelArg);
+    }
+  })().catch((err) => {
+    if (gen === worldBootstrapGen) {
+      worldBootstrapPromise = null;
+      worldBootstrapTarget = null;
+    }
+    throw err;
+  });
+
   return worldBootstrapPromise;
+}
+
+/** @returns {string | null} Target of the current/last bootstrap (test + diag). */
+export function getWorldBootstrapTarget() {
+  return worldBootstrapTarget;
+}
+
+/** @returns {number} Current bootstrap generation (test + diag). */
+export function getWorldBootstrapGen() {
+  return worldBootstrapGen;
+}
+
+/**
+ * Test-only: reset cold-load latch between cases. Not used by game code.
+ */
+export function resetWorldBootstrapForTest() {
+  worldBootstrapDone = false;
+  worldBootstrapPromise = null;
+  worldBootstrapGen = 0;
+  worldBootstrapTarget = null;
+  idleWorldWarmSuppressed = false;
 }
 
 /**

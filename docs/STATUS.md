@@ -125,6 +125,7 @@ evidence in [completed-work.md](./planning/completed-work.md) — only live card
 | **SHEET-1** | in-match contact-sheet tool (`npm run sheet`) | ✅ **BUILT + PROVEN** 07-31 — `5f3c8ab` makeClient viewport/RM passthrough · `a4c8d6b` tools/sheet.mjs + montage · `9489a8b` DEV-only `forceKillFeed`. `--all` = 9 viewports, 54/54. Per cell: solo boot → pin (asserted `ok`) → subject-is-HUD gate → full PNG + canvas/nametag-hidden chrome PNG. Caught HUD-FEED-1 on first use. [card](./planning/sheet-1.md) |
 | **HUD-FEED-1 · MENU-HINT-1 · HUD-CHIPS-1** | three responsive UI defects from Wyatt's phone footage | ✅ **CLOSED** 07-31 — **Wyatt playtest PASS on all three** (phone, mid-round, post-KO, portrait + landscape), on the shipped Version `85087c10`. Seven commits `70c3887`→`ae150e0`; asset-verified (feed ceilings 400 ×2, touch-label rule, hintbar hidden, stale 320s gone). Full diagnoses + measurements in [BACKLOG](./planning/BACKLOG.md); load-bearing causes in Do-not-relearn below. Residual (cosmetic, unowned): touch chip labels sit ~20 px under natural width at 1200 even though the region (696) is inside its cap (912) |
 | **HOST-CAP-1** | weak-host toast residual | ✅ **CODED 07-31** — `score < 50` once/hostship; min-spec fact accepted; deploy on ship |
+| **BOOT-PERF-1** | idle warm gen-cancel | ✅ **CODED 07-31** — mid-flight retarget; no sticky wrong arena |
 | **FIGHT-VERIFY-1** | owed fight-night verification | 🟡 **agent half PARTIAL** — sheet proves feed · score strip · timer · directive chip · boost bar at 12 widths (landscape added `cd73e77`; **touch pass added `0da5c4c` — `makeClient` now sets `hasTouch`/`isMobile`, 4 touch cells in `--all`**, so `#hud.hud-touch` rules are no longer invisible). Still unreachable: loading screens (`makeClient` seeds `cartRaveBootSeen`), hover/press (needs interaction), podium. Wyatt half = playtest |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
 | BRAND-1 | Domain cutover | 🧊 frozen |
@@ -137,8 +138,8 @@ its superseded triage docs moved to [completed-work.md](./planning/completed-wor
 
 1. **No active card — Wyatt names the next residual** (or declares "wait"). High open
    agent candidates: **UI-SCALE-1**, **FIGHT-VERIFY-1** (tooling or playtest), **INPUT-KB-1**
-   (confirm residual — SHIP-1 A2 already Done 07-21). Not open: HOST-CAP-1 (coded; deploy
-   on ship) · CARGO-HUD-1 · SKYBOX-1 · SEC-* · SHEET-1 · ANLX-BULK-1 · SEC-TOKEN-1.
+   (confirm residual — SHIP-1 A2 already Done 07-21). Coded deploy-on-ship: HOST-CAP-1 ·
+   BOOT-PERF-1. Not open: CARGO-HUD-1 · SKYBOX-1 · SEC-* · SHEET-1 · ANLX-BULK-1 · SEC-TOKEN-1.
 2. **FIGHT-VERIFY-1** — residual surfaces sheet still can't reach: loading screens
    (`makeClient` seeds `cartRaveBootSeen`), hover/press, podium — tooling vs your eye.
 3. **High art/you-led:** CART-MODEL-1 · bloom sign-off · RESULTS-1.
@@ -187,8 +188,11 @@ When named: other residual or RC exit criteria in [ROADMAP.md](./planning/ROADMA
 
 One line each; full text in [archive/decision-log-2026-07.md](./archive/decision-log-2026-07.md). Newest first.
 
+- **D-BOOT-PERF-1** (07-31): Idle warm not sticky-first-wins — mid-flight picker bumps gen;
+  stale flight must not latch done; newer serializes after prior. Tab/suppress unchanged.
+
 - **D-HOST-CAP-1** (07-31): Weak-host toast = local host + join-time `score < 50` only
-  (strict `<`; neutral 50 silent); once per hostship; no peer check. Min-spec = accepted fact.
+  (strict `<`; neutral 50 silent); once per hostship. Min-spec = accepted fact.
 
 - **D-ANLX-BULK-1** (07-31): Short scripted match ends (tool/diag on prod) are non-product.
   Product metrics = `matchesByArena` / mode / result with `duration_ms >= MIN_MATCH_DURATION_MS`
