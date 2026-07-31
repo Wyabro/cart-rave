@@ -950,7 +950,11 @@
   #hud .hud-region-events {
     left: auto;
     right: max(var(--hud-pad), env(safe-area-inset-right, 0px));
-    max-width: min(73vw, 280px);
+    /* Ceiling raised 280 → 320 with the vw: at 280 the ceiling bound across the whole
+       384–768 range, so the feed truncated names on a tablet with half the screen empty.
+       At 78vw the vw binds again on a phone (304px at 390w) and the ceiling takes over by
+       ~410w, which is where the extra width stops being needed. */
+    max-width: min(78vw, 320px);
   }
   /* …and the names still ellipsize as the safety net, so a long pair truncates inside the
      plate instead of escaping it. Same rules the landscape/short block already used; they
