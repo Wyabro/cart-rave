@@ -111,8 +111,7 @@ Standing prohibitions — fed into [BRIEFING.md](./BRIEFING.md) and the Command 
 
 ### Active queue (strict — one at a time)
 
-Run 7 mission (below) is historical evidence, superseded as the live queue by
-[planning/SHIP-1.md](./planning/SHIP-1.md) tiers — 07-21 session worked Tier A:
+Live queue = [SHIP-1.md](./planning/SHIP-1.md) tiers; Run 7 is archived evidence.
 
 Tier-A/B/C rows closed 07-21 → 07-31 (A1–A7 · COUNTDOWN-ARM-1 · CARGO-* · SKYBOX-1 ·
 WARM-IGPU-1 · HYGIENE-1 · SEC-BEACON/UNLOCK/ROUTE-1 · ANLX-ATTRACT-1) are archived with their
@@ -122,8 +121,8 @@ evidence in [completed-work.md](./planning/completed-work.md) — only live card
 |---|------|--------|
 | **ANLX-ATTRACT-1** | mid-round joins booked phantom matches | ✅ **CLOSED** 07-31 — live at `2e85f0b` / Version `4083335f`. Live two-client prod probe: 2 clients adopted `phase=running` while unseated → **0 `match_started`**; all 7 emitted starts carried `joinedMidRound` (6 `true`, 1 `false`); 0 `<3 s` draws. Counting metric could not decide it (cluster died 07-22, pre-fix) — [full acceptance](./planning/completed-work.md) |
 | **SHEET-1** | in-match contact-sheet tool (`npm run sheet`) | ✅ **BUILT + PROVEN** 07-31 — `5f3c8ab` makeClient viewport/RM passthrough · `a4c8d6b` tools/sheet.mjs + montage · `9489a8b` DEV-only `forceKillFeed`. `--all` = 9 viewports, 54/54. Per cell: solo boot → pin (asserted `ok`) → subject-is-HUD gate → full PNG + canvas/nametag-hidden chrome PNG. Caught HUD-FEED-1 on first use. [card](./planning/sheet-1.md) |
-| **HUD-FEED-1** | kill-feed row painted outside its plate ≤768 px | ✅ **SHIPPED** 07-31 — live at `50e8944` / Version `34c2e1a9`, asset-verified. `70c3887` containment · `bac31b8` gap 10→6 · `50e8944` cap → `min(78vw,320px)`. At 390: row was 138 px outside the plate → 250 px inside it, names 0 → 116 px. **Owed: Wyatt prod playtest** |
-| **FIGHT-VERIFY-1** | owed fight-night verification | 🟡 **agent half PARTIAL** — sheet proves feed · score strip · timer · directive chip · boost bar at 9 widths. Still unreachable: loading screens (`makeClient` seeds `cartRaveBootSeen`), hover/press (needs interaction), podium. Wyatt half = playtest |
+| **HUD-FEED-1 · MENU-HINT-1 · HUD-CHIPS-1** | three responsive UI defects from Wyatt's phone footage | ✅ **ALL SHIPPED** 07-31 — live on Version `85087c10`, asset-verified (feed ceilings 400 ×2, touch-label rule, hintbar hidden, stale 320s gone). Seven commits `70c3887`→`ae150e0`. **All three owed one Wyatt playtest** (Next actions 1). Full diagnoses + measurements in [BACKLOG](./planning/BACKLOG.md); the load-bearing causes are in Do-not-relearn below. Residual: touch chip labels sit ~20 px under natural width at 1200 even though the region (696) is inside its cap (912) |
+| **FIGHT-VERIFY-1** | owed fight-night verification | 🟡 **agent half PARTIAL** — sheet proves feed · score strip · timer · directive chip · boost bar at 12 widths (landscape added `cd73e77`). Still unreachable: loading screens (`makeClient` seeds `cartRaveBootSeen`), hover/press (needs interaction), podium, **and anything touch-only — `makeClient` never sets `hasTouch`, so every cell runs non-touch**. Wyatt half = playtest |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
 | BRAND-1 | Domain cutover | 🧊 frozen |
 
@@ -133,22 +132,39 @@ its superseded triage docs moved to [completed-work.md](./planning/completed-wor
 
 ### Next actions
 
-1. **Wyatt: playtest HUD-FEED-1 on prod — shipped `50e8944`, unseen by a human.** On a phone,
-   mid-round, after a KO: the feed row sits INSIDE its receipt plate, names read as
-   identifiable stubs (`SHEET…`, not `SH…`), and the wider feed does not crowd the timer or
-   directive banner. Prod has no `forceKillFeed` lever (DEV-only), so this needs a real KO —
+1. **Wyatt: one playtest clears three cards.** Everything below is live on Version `85087c10`
+   but unseen by a human. On a phone, mid-round, after a KO — portrait AND landscape:
+   (a) HUD-FEED-1 — feed row sits INSIDE its receipt plate; names read as identifiable stubs
+   or in full (`SHEETBOT RAMMED 2.0X CARTNAPPER`), not `BA…`/`SHE…`; the wider feed does not
+   crowd the timer or directive banner. (b) HUD-CHIPS-1 — score chips print names in
+   landscape (≥900 px) and stay name-less on a narrow portrait phone. (c) MENU-HINT-1 — menu
+   at a narrow width, scrolled to the bottom: no hint bar at all, nothing overlapping the
+   settings panel. Prod has no `forceKillFeed` lever (DEV-only), so the feed needs a real KO;
    the agent side could only verify the deployed CSS, never the live pixels.
-2. **FIGHT-VERIFY-1** — the remaining fight-night surfaces the sheet cannot reach (loading
-   screens, hover/press, podium). Decide whether those want more tooling or just your eye.
+2. **Close the sweep's blind spots** (the reason three of today's bugs reached production).
+   `npm run sheet --all` gained landscape cells this session but still runs **non-touch**, so
+   every `#hud.hud-touch` rule is invisible to it — that is how HUD-CHIPS-1 survived a
+   nine-cell sweep. Add `hasTouch` to `makeClient` (`tools/lib/harness.mjs`) plus a touch pass
+   in `ALL_VIEWPORTS`. Small, and it pays for itself immediately.
+3. **FIGHT-VERIFY-1** — the surfaces the sheet still cannot reach (loading screens,
+   hover/press, podium). Decide whether those want more tooling or just your eye.
 
 Cleared 07-31, in the required order: ANLX-ATTRACT-1 acceptance (closed on a live
 two-client prod probe, not on counting — [evidence](./planning/completed-work.md)), the
 analytics-DO reset (`DELETE /api/analytics?token=…`, 20,000 rows → 0) once the pre-reset
-aggregates were filed as ANLX-BULK-1, then SHEET-1 built and HUD-FEED-1 found + shipped.
-**The reset ring is collecting again on the live build** — a session of normal play now gives
-a clean read on whether ANLX-BULK-1's `~2 s loss` source is still active.
+aggregates were filed as ANLX-BULK-1, then SHEET-1 built, and HUD-FEED-1 / MENU-HINT-1 /
+HUD-CHIPS-1 found and shipped. **The reset ring is collecting again on the live build** — a
+session of normal play now gives a clean read on whether ANLX-BULK-1's `~2 s loss` source is
+still active.
 
-**Do-not-relearn (each produced a confident wrong answer once):** `?devUnlocks=off` is a deliberate **prod** lever — Session 2 FTUE needs it on a prod build; never gate it. Grepping `dist/` for `devUnlocks` gives a false FAIL (the `=off` path keeps the string). Vitest runs `DEV === true`, so a DEV check read *inside* a helper makes its prod branch untestable — pass `isDev` in. `/api/log-error` + `/api/analytics` swallow a DO 429 unless the Worker forwards it. `GET /api/errors` is unusable from tests (`ERROR_LOG_TOKEN` is a secret CI lacks) — read via the DO stub's `/list`. `rewindRoundClock(ms)` **sets remaining** time — `1200` ends the round. `from === COUNTDOWN` is NOT a valid "played this round" test: `shouldHoldNonHostCountdownPhase` makes `lobby→running` legitimate for a slow non-host. Worker deploys propagate per-PoP and read as *contradictory* (one route new, another old) — re-poll, don't debug. **`analytics:pull --list` caps at the newest 1000 rows** — on a quiet week that window spans ~10 days, so a "recent" cluster can be entirely stale; bucket by day before reading a trend, and prove analytics gates with a live probe (prod `?diag=1` exposes `__ccDiag.snapshot("analytics")`), not with ring counts.
+**07-31 lesson: a verification tool only sees the branches it enters.** The contact sheet ran
+portrait-only and non-touch — blind to the landscape CSS branch and every `hud-touch` rule,
+both of which held real bugs Wyatt found in seconds of phone footage. It also passed two
+green cells showing the wrong thing (a PAUSE overlay; an empty feed reading as "fine") before
+gaining a subject-is-HUD gate. Prefer one real clip over a clean sweep when they disagree,
+and add the matching cell in the same commit as any orientation- or pointer-scoped rule.
+
+**Do-not-relearn (each produced a confident wrong answer once):** `?devUnlocks=off` is a deliberate **prod** lever — Session 2 FTUE needs it on a prod build; never gate it. Grepping `dist/` for `devUnlocks` gives a false FAIL (the `=off` path keeps the string). Vitest runs `DEV === true`, so a DEV check read *inside* a helper makes its prod branch untestable — pass `isDev` in. `/api/log-error` + `/api/analytics` swallow a DO 429 unless the Worker forwards it. `GET /api/errors` is unusable from tests (`ERROR_LOG_TOKEN` is a secret CI lacks) — read via the DO stub's `/list`. `rewindRoundClock(ms)` **sets remaining** time — `1200` ends the round. `from === COUNTDOWN` is NOT a valid "played this round" test: `shouldHoldNonHostCountdownPhase` makes `lobby→running` legitimate for a slow non-host. Worker deploys propagate per-PoP and read as *contradictory* (one route new, another old) — re-poll, don't debug. **`analytics:pull --list` caps at the newest 1000 rows** — on a quiet week that window spans ~10 days, so a "recent" cluster can be entirely stale; bucket by day before reading a trend, and prove analytics gates with a live probe (prod `?diag=1` exposes `__ccDiag.snapshot("analytics")`), not with ring counts. **Grepping deployed CSS for `min-width:` gives a false negative** — the minifier rewrites media queries to range syntax, so `@media (min-width: 900px)` ships as `@media (width>=900px)` (same trap class as the `dist/` `devUnlocks` grep). **A CSS reserve that guesses a wrapping element's height will be wrong at some width** — measure it into a custom property (`--cr-hintbar-h`, `--hud-utility-width`) and let `calc()` consume it; a hidden element then measures 0 and the reserve collapses on its own. **An absolutely-positioned child of a container that is BOTH positioned and `overflow-y:auto` scrolls with the content** — it is not chrome; `position:fixed` is. **A flex row whose children are all `flex-shrink:0` + `nowrap` cannot shrink**, so its children's ellipsis rules never engage until something caps the ROW itself.
 
 **Open, unowned:** ANLX-BULK-1 in [BACKLOG](./planning/BACKLOG.md) — the ring's older `loss=9327 / win=9` bulk (pre-reset aggregates recorded there) never matched the draw-dominated recent window. ANLX-ATTRACT-1 fixed only the recent cluster; the post-reset ring is now the clean read on whether that source is still live.
 

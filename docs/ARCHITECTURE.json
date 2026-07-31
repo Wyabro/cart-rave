@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-07-31T20:07:59.866Z",
-    "commit": "cd73e77"
+    "at": "2026-07-31T20:20:05.542Z",
+    "commit": "ae150e0"
   },
-  "source_digest": "5328e09a",
+  "source_digest": "3d2fbdd6",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -859,15 +859,15 @@
         "state": "done"
       },
       {
-        "id": "HUD-FEED-1",
-        "what": "kill-feed row painted outside its plate ≤768 px",
-        "status": "✅ SHIPPED 07-31 — live at `50e8944` / Version `34c2e1a9`, asset-verified. `70c3887` containment · `bac31b8` gap 10→6 · `50e8944` cap → `min(78vw,320px)`. At 390: row was 138 px outside the plate → 250 px inside it, names 0 → 116 px. Owed: Wyatt prod playtest",
+        "id": "HUD-FEED-1 · MENU-HINT-1 · HUD-CHIPS-1",
+        "what": "three responsive UI defects from Wyatt's phone footage",
+        "status": "✅ ALL SHIPPED 07-31 — live on Version `85087c10`, asset-verified (feed ceilings 400 ×2, touch-label rule, hintbar hidden, stale 320s gone). Seven commits `70c3887`→`ae150e0`. All three owed one Wyatt playtest (Next actions 1). Full diagnoses + measurements in [BACKLOG](./planning/BACKLOG.md); the load-bearing causes are in Do-not-relearn below. Residual: touch chip labels sit ~20 px under natural width at 1200 even though the region (696) is inside its cap (912)",
         "state": "done"
       },
       {
         "id": "FIGHT-VERIFY-1",
         "what": "owed fight-night verification",
-        "status": "🟡 agent half PARTIAL — sheet proves feed · score strip · timer · directive chip · boost bar at 9 widths. Still unreachable: loading screens (`makeClient` seeds `cartRaveBootSeen`), hover/press (needs interaction), podium. Wyatt half = playtest",
+        "status": "🟡 agent half PARTIAL — sheet proves feed · score strip · timer · directive chip · boost bar at 12 widths (landscape added `cd73e77`). Still unreachable: loading screens (`makeClient` seeds `cartRaveBootSeen`), hover/press (needs interaction), podium, and anything touch-only — `makeClient` never sets `hasTouch`, so every cell runs non-touch. Wyatt half = playtest",
         "state": "waiting"
       },
       {
@@ -893,8 +893,9 @@
       }
     ],
     "next_actions": [
-      "Wyatt: playtest HUD-FEED-1 on prod — shipped `50e8944`, unseen by a human. On a phone,",
-      "FIGHT-VERIFY-1 — the remaining fight-night surfaces the sheet cannot reach (loading"
+      "Wyatt: one playtest clears three cards. Everything below is live on Version `85087c10`",
+      "Close the sweep's blind spots (the reason three of today's bugs reached production).",
+      "FIGHT-VERIFY-1 — the surfaces the sheet still cannot reach (loading screens,"
     ],
     "open_issues": [
       {
