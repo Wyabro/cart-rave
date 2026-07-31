@@ -576,9 +576,9 @@
 
 button:focus-visible, a:focus-visible, [role="button"]:focus-visible, input:focus-visible, select:focus-visible,
 button.gamepad-focused, a.gamepad-focused, [role="button"].gamepad-focused, input.gamepad-focused, select.gamepad-focused {
-  outline: 2px solid var(--color-cyan) !important;
-  outline-offset: 2px !important;
-  box-shadow: 0 0 12px rgba(34, 230, 255, 0.6) !important;
+  outline: 2px solid var(--color-cyan);
+  outline-offset: 2px;
+  box-shadow: 0 0 12px rgba(34, 230, 255, 0.6);
   z-index: 100;
   position: relative;
 }
