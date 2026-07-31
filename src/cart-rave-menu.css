@@ -3558,7 +3558,10 @@ html, body {
   position: absolute; left: 0; right: 0; bottom: 0;
   display: flex; align-items: center; gap: clamp(16px, 3vw, 36px);
   padding: 16px clamp(24px, 5vw, 96px);
-  background: rgba(9, 7, 13, 0.9);
+  /* Opaque, not 0.9: the menu column scrolls UNDERNEATH this bar, and at 90% the cart
+     name and stats ghosted straight through it — which reads as a broken overlap rather
+     than as content passing behind a chrome bar. */
+  background: rgb(9, 7, 13);
   border-top: 1px solid rgba(255, 255, 255, 0.07);
   font-family: var(--mono); font-size: 12px; letter-spacing: 0.12em;
   color: var(--color-muted);
@@ -3585,7 +3588,22 @@ html, body {
 @media (max-width: 1024px) {
   .cr-content {
     display: flex; flex-direction: column; align-items: center;
-    gap: 18px; padding: 24px 16px 92px; overflow-y: auto;
+    gap: 18px; overflow-y: auto;
+    /* The bottom reserve clears the absolutely-positioned .cr-hintbar. It was a flat 92px,
+       but the bar WRAPS with width — 52px at 768w, 75px at 576w, 106px at 390w, 137px at
+       380w — so on a small phone the last 14–45px of menu content sat permanently trapped
+       under it. `--cr-hintbar-h` is measured live in cart-rave-menu.js (updateHintBar +
+       a ResizeObserver); 92px stays as the fallback for the first paint and for no-JS. */
+    padding: 24px 16px calc(var(--cr-hintbar-h, 92px) + 16px);
+  }
+  /* …and the bar has to leave the scroll flow to be chrome at all. `.cr-content` is both
+     positioned AND overflow-y:auto here, so an absolutely-positioned child anchors to its
+     padding box and SCROLLS WITH the content: at the bottom of the menu the bar had drifted
+     up into the middle of the panel and sat on top of the cart-name card. Fixed pins it to
+     the viewport, which is what the reserve above assumes. Desktop keeps `absolute` — there
+     `.cr-content` is overflow:hidden, so it never scrolls and the bar is already correct. */
+  .cr-hintbar {
+    position: fixed;
   }
   .cr-hero, .cr-plate, .cr-context {
     position: static; inset: auto; right: auto; left: auto; bottom: auto; top: auto;

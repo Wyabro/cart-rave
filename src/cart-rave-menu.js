@@ -1789,6 +1789,29 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
     muteBtn?.click();
   }
 
+  /**
+   * Publishes the hint bar's measured height as `--cr-hintbar-h` so the scrolling menu
+   * column can reserve exactly that much instead of guessing.
+   *
+   * The bar is `position: absolute; bottom: 0` and WRAPS: measured 52px at 768w, 75px at
+   * 576w, 106px at 390w, 137px at 380w — while `.cr-content` reserved a flat 92px, leaving
+   * the last 14–45px of menu content permanently trapped underneath it on a small phone.
+   * Switching input mode re-flows the row too (gamepad prints 3 items, keyboard 4), which
+   * is why this rides updateHintBar() as well as the observer.
+   *
+   * Same shape as hud.js measureUtilityWidth / --hud-utility-width, including the no-op
+   * write guard: setProperty can re-enter ResizeObserver on some engines.
+   */
+  function measureHintBar() {
+    const bar = $("cr-hintbar");
+    const root = document.getElementById("cr-root");
+    if (!bar || !root) return;
+    const next = `${Math.ceil(bar.getBoundingClientRect().height)}px`;
+    if (root.style.getPropertyValue("--cr-hintbar-h") !== next) {
+      root.style.setProperty("--cr-hintbar-h", next);
+    }
+  }
+
   function updateHintBar() {
     const mode = getInputMode();
     const deviceEl = $("cr-hint-device");
@@ -1800,6 +1823,7 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
       keysEl.innerHTML = mode === "gamepad"
         ? `<span class="cr-hint-item">D-PAD&nbsp; NAVIGATE</span><span class="cr-hint-item">${cap("Ⓐ")}&nbsp; SELECT</span><span class="cr-hint-item">LB / RB&nbsp; ARENA</span>`
         : `<span class="cr-hint-item">${cap("W")}${cap("S")}&nbsp; NAVIGATE</span><span class="cr-hint-item">${cap("↵")}&nbsp; SELECT</span><span class="cr-hint-item">${cap("◂")}${cap("▸")}&nbsp; ARENA</span><span class="cr-hint-item">${cap("M")}&nbsp; MUTE</span>`;
+      measureHintBar();
     }
     if (metaEl) {
       // * The mock's `v0.9.2 · US-EAST · 24 MS` — region and ping have no data
@@ -1846,6 +1870,12 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
     setMenuSelection(0, { silent: true });
     updateHintBar();
     onInputModeChange(() => updateHintBar());
+    // * The bar re-wraps on width change (and on the URL-bar show/hide that moves dvh),
+    // * so the reserve has to track it live — a one-shot measure goes stale on rotate.
+    if (typeof ResizeObserver === "function") {
+      const bar = $("cr-hintbar");
+      if (bar) new ResizeObserver(() => measureHintBar()).observe(bar);
+    }
     document.addEventListener("keydown", onMenuNavKeydown);
   }
 
