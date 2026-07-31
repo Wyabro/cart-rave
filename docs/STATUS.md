@@ -137,7 +137,7 @@ Run 7 mission (below) is historical evidence, superseded as the live queue by
 | **SEC-UNLOCK-1** | DEV-gate `?devUnlocks=all` (`=off` deliberately kept) | ✅ **CLOSED** 07-30 — live at `64eff60` / Version `56439ef4`, prod-verified |
 | **SEC-ROUTE-1** | Worker `/api/*` routes `includes()` → exact `===` ×4 | ✅ **CLOSED** 07-30 — live at `8da2575` / Version `268f6ff2`, prod-verified. Also fixed a live 500: unmatched paths returned null from `fetch()` → now 404 |
 | **ANLX-ATTRACT-1** | mid-round joins booked phantom matches | 🚀 **DEPLOYED, NOT YET CLOSED** — live at `2e85f0b` / Version `4083335f`, entry `index-D0PGvOIB.js`, asset-verified (`getLocalCartActive` ×3, `joinedMidRound` ×1). Emit now gates on a live cart body + latch. **Owed: day-after acceptance** (below) |
-| **SHEET-1** | in-match contact-sheet tool (`?room=solo` boot) | 📋 **plan ACK'D** (`~/.claude/plans/sheet-1.md`) — blocked on ANLX acceptance + DO reset; blackframes pre-check already done (readback is real, not false-black) |
+| **SHEET-1** | in-match contact-sheet tool (`?room=solo` boot) | 📋 **plan ACK'D** — [sheet-1.md](./planning/sheet-1.md); blocked on ANLX acceptance + DO reset; blackframes pre-check done (readback is real, not false-black) |
 | **FIGHT-VERIFY-1** | owed fight-night verification | 📋 agent half via SHEET-1; Wyatt half = playtest |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
 | BRAND-1 | Domain cutover | 🧊 frozen |

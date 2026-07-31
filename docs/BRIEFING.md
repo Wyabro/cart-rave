@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (also runs inside `npm run qa`).
-> Generated 2026-07-31 at commit `2e85f0b` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
-> Source digest: `4ad5365e`
+> Generated 2026-07-31 at commit `34fdad4` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
+> Source digest: `fa3d7477`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -24,7 +24,7 @@ Plan → Wyatt ack → apply. This heading names the card; it is **not** permiss
 
 Self-directed queue (one at a time, within the declared phase):
 - **ANLX-ATTRACT-1** mid-round joins booked phantom matches — 🚀 DEPLOYED, NOT YET CLOSED — live at `2e85f0b` / Version `4083335f`, entry `index-D0PGvOIB.js`,…
-- **SHEET-1** in-match contact-sheet tool (`?room=solo` boot) — 📋 plan ACK'D (`~/.claude/plans/sheet-1.md`) — blocked on ANLX acceptance + DO reset; blackframes pre-check…
+- **SHEET-1** in-match contact-sheet tool (`?room=solo` boot) — 📋 plan ACK'D — sheet-1.md; blocked on ANLX acceptance + DO reset; blackframes pre-check done (readback is…
 - **FIGHT-VERIFY-1** owed fight-night verification — 📋 agent half via SHEET-1; Wyatt half = playtest
 - **MAIN-1 / BUNDLE-1** main.js seam / code-split — 📋 post-gate
 

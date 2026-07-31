@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-07-31T03:37:33.444Z",
-    "commit": "2e85f0b"
+    "at": "2026-07-31T04:28:54.704Z",
+    "commit": "34fdad4"
   },
-  "source_digest": "be9896e5",
+  "source_digest": "7fdd9613",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -999,7 +999,7 @@
       {
         "id": "SHEET-1",
         "what": "in-match contact-sheet tool (`?room=solo` boot)",
-        "status": "📋 plan ACK'D (`~/.claude/plans/sheet-1.md`) — blocked on ANLX acceptance + DO reset; blackframes pre-check already done (readback is real, not false-black)",
+        "status": "📋 plan ACK'D — [sheet-1.md](./planning/sheet-1.md); blocked on ANLX acceptance + DO reset; blackframes pre-check done (readback is real, not false-black)",
         "state": "waiting"
       },
       {
@@ -1241,7 +1241,7 @@
           {
             "pri": "Medium",
             "item": "SHEET-1 — in-match contact-sheet tool",
-            "notes": "`tools/sheet.mjs`: boot via `makeClient({room:\"solo\", diag:1, perfPump:1})` (`gameharness.mjs:96` pattern) + `waitForState(phase===\"running\")`; arena via localStorage `cartRaveLevel`; deterministic state via `__ccDiag.control.setScores()`/`rewindRoundClock()`; fresh page per cell; viewport matrix 3440/1920/1512/1366/768/390 + reduced-motion; no `freeze=1` in-match. **Pre-check first:** blackframes readback false-black risk (`settle()` resolves inside rAF, `sampleBlack` runs in the microtask after). Serves FIGHT-VERIFY-1 and UI-SCALE-1 (≥1920 identity cells MAE ~0 via `compare.mjs`).",
+            "notes": "**Plan ACK'D 07-30 — full detail in [sheet-1.md](./sheet-1.md); do not re-plan.** `tools/sheet.mjs` boots via `makeClient({room:\"solo\", diag:1, perfPump:1, harness:1})` + `waitForState(phase===\"running\")`, fresh page per cell, `{w,h}` viewport tuples (small default + `--all`). **Blocked on ANLX-ATTRACT-1 acceptance then the DO reset** — it boots solo rounds, which would muddy that acceptance signal. **Blackframes pre-check DONE (07-30): false-black DISPROVEN** (0.5517 headless / 0.2042 live; a cleared buffer reads ~1.0) — do not re-run it. Scope narrowed at ack: in-match HUD responsive sweep + reduced-motion stills only; loading screens, hover/press and menu Pass-1 identity are NOT covered.",
             "ship1": null
           },
           {
