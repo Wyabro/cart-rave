@@ -4,6 +4,10 @@
  * ## Dev unlock override
  * @see unlockConfig.js header — `isDevUnlockAll()` below. In `import.meta.env.DEV`,
  * all gates open unless localStorage `cartRaveDevUnlocks` === `"off"`.
+ *
+ * SEC-UNLOCK-1: `?devUnlocks=all` only applies in DEV builds — it used to be a
+ * shareable production link that unlocked everything. `?devUnlocks=off` still works
+ * in every build (prod FTUE playtests need it). See `resolveDevUnlockParam`.
  */
 import { createStore } from "zustand/vanilla";
 import { STORAGE_KEYS, storageGetJson, storageSetJson, storageGet, storageSet } from "../utils/storage.js";
@@ -38,7 +42,18 @@ if (typeof window !== "undefined") {
  * | DEV   | absent / `"all"`                  | unlock all |
  * | DEV   | `"off"`                           | real gates |
  * | PROD  | absent                            | real gates |
- * | PROD  | `"all"`                           | unlock all (manual override only) |
+ * | PROD  | `"all"`                           | unlock all |
+ *
+ * How the key gets set, per build:
+ *
+ * | Route                     | DEV | PROD |
+ * |---------------------------|-----|------|
+ * | `?devUnlocks=off`         | yes | yes  |
+ * | `?devUnlocks=all`         | yes | **no — SEC-UNLOCK-1** |
+ * | localStorage by hand      | yes | yes  |
+ * | `CartClashDevUnlocks.*()` | yes | yes  |
+ *
+ * So a PROD `"all"` is genuinely manual now: no URL can produce it.
  *
  * @returns {boolean}
  */
@@ -79,7 +94,8 @@ if (typeof window !== "undefined") {
           "  CartClashDevUnlocks.enableGates()  // test real locks in dev\n" +
           "  CartClashDevUnlocks.enableAll()    // force unlock\n" +
           "  CartClashDevUnlocks.clear()        // reset override\n" +
-          "  ?devUnlocks=off | ?devUnlocks=all  // URL one-shot → localStorage",
+          "  ?devUnlocks=off                    // URL one-shot, any build\n" +
+          "  ?devUnlocks=all                    // URL one-shot, DEV builds only",
       );
     },
   };

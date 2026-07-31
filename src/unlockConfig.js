@@ -8,13 +8,18 @@
  * are treated as unlocked by default so agents are not blocked by progression gates.
  *
  * - **Default (dev):** everything unlocked
- * - **Test real locks in dev:** set localStorage `cartRaveDevUnlocks` = `"off"`
- *   (or `?devUnlocks=off` once — writes that key) then hard refresh
- * - **Force unlock in any build (incl. production):** `cartRaveDevUnlocks` = `"all"`
- *   (do not ship this to real players; prod builds ignore unless the key is set)
+ * - **Test real locks (any build, incl. production):** set localStorage
+ *   `cartRaveDevUnlocks` = `"off"`, or `?devUnlocks=off` once — that URL lever works
+ *   in production on purpose, because FTUE playtests run against a prod build
+ * - **Force unlock in any build (incl. production):** `cartRaveDevUnlocks` = `"all"`,
+ *   set **manually** — localStorage or `window.CartClashDevUnlocks.enableAll()`
+ * - **`?devUnlocks=all` is DEV-only** (SEC-UNLOCK-1). Ungated it made
+ *   `…/?devUnlocks=all` a shareable link that permanently unlocked everything for
+ *   whoever clicked it. See `resolveDevUnlockParam` below.
  * - **Query / set from console:** `window.CartClashDevUnlocks`
  *
- * Production builds never auto-unlock; only an explicit `"all"` key overrides.
+ * Production builds never auto-unlock; only an explicit `"all"` key overrides, and no
+ * URL can write that key in production.
  *
  * See also: `isDevUnlockAll()` in `src/stores/unlockStore.js`, `.cursorrules`.
  */

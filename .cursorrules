@@ -19,7 +19,7 @@
 - **Vite dev unlocks everything by default** (levels, patterns, sunglasses, custom color) so agents are not blocked by gates.
 - Source: `src/stores/unlockStore.js` → `isDevUnlockAll()` · config docs: `src/unlockConfig.js` header.
 - **Test real gates in dev:** `localStorage.cartRaveDevUnlocks = "off"` or `?devUnlocks=off`, then hard refresh. Console: `CartClashDevUnlocks.enableGates()`.
-- **Force unlock:** `CartClashDevUnlocks.enableAll()` or `?devUnlocks=all`.
+- **Force unlock:** `CartClashDevUnlocks.enableAll()` (any build) or `?devUnlocks=all` (**DEV builds only** — SEC-UNLOCK-1 closed that URL in prod; `?devUnlocks=off` still works everywhere).
 - Production never auto-unlocks; do not rely on gates being open in prod builds.
 - Lifetime progress still accumulates under `cartRaveUnlocks` while dev-unlock is on.
 

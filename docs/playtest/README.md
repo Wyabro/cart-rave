@@ -70,7 +70,9 @@ The old Claude.ai “Playtest Console” artifact is **retired** — do not use 
   **dev-build pre-pass** to *reach* a state fast, then **reproduce and judge the finding on
   the production build** the session requires. `?devUnlocks=off`, `?blackmon=1`,
   `?forcegpu=`, `?bloompipe=` are URL/localStorage levers and work in prod too — only the
-  Tweakpane buttons are dev-gated.
+  Tweakpane buttons are dev-gated. Exception: **`?devUnlocks=all` is DEV-only**
+  (SEC-UNLOCK-1 — it was a shareable unlock-everything link); to force unlock on a prod
+  build use `CartClashDevUnlocks.enableAll()` or set the localStorage key by hand.
 - **Known non-issues — do not file** (verified in [project-state.md §5](../planning/project-state.md)):
   sunglasses-tab 1.35× camera zoom (deliberate, animation backlogged); no ambient
   near-edge glow (product cut — only directional *hit* vignette exists); dev-mode level
@@ -80,7 +82,7 @@ The old Claude.ai “Playtest Console” artifact is **retired** — do not use 
 
 | Lever | What it does |
 |-------|--------------|
-| `?devUnlocks=off` (or `localStorage cartRaveDevUnlocks="off"`) | Real progression locks in dev — **required** for FTUE testing |
+| `?devUnlocks=off` (or `localStorage cartRaveDevUnlocks="off"`) | Real progression locks in **any** build, dev or prod — **required** for FTUE testing (Session 2 runs on a prod build) |
 | Incognito window / clear `cartRave*` localStorage keys | Fresh-player profile |
 | `?preset=low\|medium\|high` | Force a quality tier |
 | `?forcegpu=sw\|igpu\|discrete` (DEV) | Fake GPU class for tier-assignment testing |
