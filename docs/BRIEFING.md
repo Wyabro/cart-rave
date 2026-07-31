@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (also runs inside `npm run qa`).
-> Generated 2026-07-31 at commit `65dea12` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
-> Source digest: `207d345e`
+> Generated 2026-07-31 at commit `0bf24b0` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
+> Source digest: `e3d5d5e2`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -18,8 +18,8 @@ Playtesting and stabilization — Tier A drained. B1 AI-DIFF-1 shipped (`49bfc2a
 
 ## ACTIVE CARD
 
-SEC-UNLOCK-1 — DEV-gate the `?devUnlocks` URL one-shot
-Pass looks like: ▶ ACTIVE — needs a plan + Wyatt ack before code. Then SEC-ROUTE-1 (`includes` → `startsWith` ×4); with the analytics-DO reset, all before external testers
+SEC-UNLOCK-1 — DEV-gate `?devUnlocks=all` (scope narrowed at ack — `=off` deliberately kept)
+Pass looks like: ▶ applied, UNPUSHED (2 commits). Pure `resolveDevUnlockParam(search, isDev)` in unlockConfig.js; `=all` DEV-only, `=off` works in every build because prod FTUE sessions require it. Verified on a prod preview build: `?devUnlocks=all` → key absent + `isActive()` false; `?devUnlocks=off` → `"off"`; `enableAll()` still works; a null result does not clobber an existing key; Vite dev still honours `=all`. Owed: push + deploy + prod re-check
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 

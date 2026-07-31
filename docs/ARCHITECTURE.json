@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-07-31T00:08:25.743Z",
-    "commit": "65dea12"
+    "at": "2026-07-31T00:40:09.738Z",
+    "commit": "0bf24b0"
   },
-  "source_digest": "8f156c7c",
+  "source_digest": "71d01de2",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -980,9 +980,18 @@
       },
       {
         "id": "SEC-UNLOCK-1",
-        "what": "DEV-gate the `?devUnlocks` URL one-shot",
-        "status": "▶ ACTIVE — needs a plan + Wyatt ack before code. Then SEC-ROUTE-1 (`includes` → `startsWith` ×4); with the analytics-DO reset, all before external testers",
-        "state": "active"
+        "what": "DEV-gate `?devUnlocks=all` (scope narrowed at ack — `=off` deliberately kept)",
+        "status": "▶ applied, UNPUSHED (2 commits). Pure `resolveDevUnlockParam(search, isDev)` in unlockConfig.js; `=all` DEV-only, `=off` works in every build because prod FTUE sessions require it. Verified on a prod preview build: `?devUnlocks=all` → key absent + `isActive()` false; `?devUnlocks=off` → `\"off\"`; `enableAll()` still works; a null result does not clobber an existing key; Vite dev still honours `=all`. Owed: push + deploy + prod re-check",
+        "state": "active",
+        "touches_systems": [
+          {
+            "id": "scoring-progression",
+            "name": "Scoring & progression",
+            "files": [
+              "src/unlockConfig.js"
+            ]
+          }
+        ]
       },
       {
         "id": "SHEET-1",
@@ -1019,7 +1028,7 @@
       }
     ],
     "next_actions": [
-      "SEC-UNLOCK-1 (active) — plan → Wyatt ack → apply. Gate the `?devUnlocks` URL one-shot (`src/stores/unlockStore.js:22-31`) behind `import.meta.env.DEV`; keep the manual localStorage override; fix the false \"manual override only\" header. Client-side — needs `npm run build`. Three SEC-BEACON-1 gotchas worth keeping: `/api/log-error` + `/api/analytics` discarded the DO response and always returned 204, so a DO-side 429 is invisible until the Worker is changed too; `GET /api/errors` is unusable from tests (`ERROR_LOG_TOKEN` is a secret, absent in CI) — read back via the DO stub's `/list`; and ~30 probe rows (`sessionId: sec-beacon-probe`) sit in the analytics DO, cleared by the reset already queued below.",
+      "SEC-UNLOCK-1 — applied + unpushed. Owed: push, deploy, then re-check `?devUnlocks=all|off` against production (only prod exercises the gated branch). Gotchas worth keeping: `?devUnlocks=off` is a deliberate prod lever — playtest Session 2 needs it on a prod build, so never \"fix\" it by gating it; verifying this card by grepping `dist/` for `devUnlocks` gives a false FAIL because the `=off` path keeps the string; and vitest runs with `DEV === true`, so any DEV check read *inside* a helper makes its prod branch untestable — pass `isDev` in. Three SEC-BEACON-1 gotchas also still apply: the two 204-always beacon routes swallow a DO 429 until the Worker is changed too; `GET /api/errors` is unusable from tests (`ERROR_LOG_TOKEN` is a secret, absent in CI) — read back via the DO stub's `/list`; and ~30 probe rows (`sessionId: sec-beacon-probe`) sit in the analytics DO, cleared by the reset queued below.",
       "Locked order after: SEC-UNLOCK-1 → SEC-ROUTE-1 → SHEET-1 → FIGHT-VERIFY-1. The three SEC cards + `DELETE /api/analytics` are the before-external-testers gate. (07-30 closed: QA-STATUS-1, HYGIENE-1, CARGO-VIS-1, CARGO-RACE-1, CARGO-HUD-1a, WARM-IGPU-1, CARGO-HUD-1, SKYBOX-1.)",
       "Before public/external playtest: SEC-BEACON-1/UNLOCK/ROUTE plus `DELETE /api/analytics?token=…` (clear DO) — see Gotchas."
     ],
@@ -1162,8 +1171,8 @@
           },
           {
             "pri": "High",
-            "item": "SEC-UNLOCK-1 — DEV-gate the `?devUnlocks` URL one-shot",
-            "notes": "Before external testers. `src/stores/unlockStore.js:22-31` runs ungated in prod — a shared `?devUnlocks=all` link permanently unlocks everything. Gate the URL one-shot behind `import.meta.env.DEV`; keep manual localStorage override (documented intent); fix the false \"manual override only\" header claim.",
+            "item": "SEC-UNLOCK-1 — DEV-gate `?devUnlocks=all`",
+            "notes": "Before external testers. `src/stores/unlockStore.js:22-31` ran ungated in prod — a shared `?devUnlocks=all` link permanently unlocked everything. **Scope narrowed at ack: `=all` only.** `?devUnlocks=off` stays live in every build — it only removes privileges and playtest Session 2 requires it on a prod build (`docs/playtest/README.md:83`). Manual localStorage + `CartClashDevUnlocks` overrides kept by design; the false \"manual override only\" header claim fixed.",
             "ship1": null
           },
           {
