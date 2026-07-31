@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-07-31T08:13:18.347Z",
-    "commit": "50e8944"
+    "at": "2026-07-31T08:16:48.665Z",
+    "commit": "b95b550"
   },
-  "source_digest": "cbf66798",
+  "source_digest": "3bd4aca4",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -854,14 +854,20 @@
       },
       {
         "id": "SHEET-1",
-        "what": "in-match contact-sheet tool (`?room=solo` boot)",
-        "status": "📋 plan ACK'D — [sheet-1.md](./planning/sheet-1.md); unblocked (ANLX closed + DO reset done); blackframes pre-check done (readback is real, not false-black)",
-        "state": "waiting"
+        "what": "in-match contact-sheet tool (`npm run sheet`)",
+        "status": "✅ BUILT + PROVEN 07-31 — `5f3c8ab` makeClient viewport/RM passthrough · `a4c8d6b` tools/sheet.mjs + montage · `9489a8b` DEV-only `forceKillFeed`. `--all` = 9 viewports, 54/54. Per cell: solo boot → pin (asserted `ok`) → subject-is-HUD gate → full PNG + canvas/nametag-hidden chrome PNG. Caught HUD-FEED-1 on first use. [card](./planning/sheet-1.md)",
+        "state": "done"
+      },
+      {
+        "id": "HUD-FEED-1",
+        "what": "kill-feed row painted outside its plate ≤768 px",
+        "status": "✅ SHIPPED 07-31 — live at `50e8944` / Version `34c2e1a9`, asset-verified. `70c3887` containment · `bac31b8` gap 10→6 · `50e8944` cap → `min(78vw,320px)`. At 390: row was 138 px outside the plate → 250 px inside it, names 0 → 116 px. Owed: Wyatt prod playtest",
+        "state": "done"
       },
       {
         "id": "FIGHT-VERIFY-1",
         "what": "owed fight-night verification",
-        "status": "📋 agent half via SHEET-1; Wyatt half = playtest",
+        "status": "🟡 agent half PARTIAL — sheet proves feed · score strip · timer · directive chip · boost bar at 9 widths. Still unreachable: loading screens (`makeClient` seeds `cartRaveBootSeen`), hover/press (needs interaction), podium. Wyatt half = playtest",
         "state": "waiting"
       },
       {
@@ -887,7 +893,8 @@
       }
     ],
     "next_actions": [
-      "SHEET-1 (plan ack'd — [sheet-1.md](./planning/sheet-1.md), do not re-plan) → then FIGHT-VERIFY-1. Both gates ahead of it cleared 07-31."
+      "Wyatt: playtest HUD-FEED-1 on prod — shipped `50e8944`, unseen by a human. On a phone,",
+      "FIGHT-VERIFY-1 — the remaining fight-night surfaces the sheet cannot reach (loading"
     ],
     "open_issues": [
       {
@@ -1741,6 +1748,11 @@
       "Cross-module change? Read docs/reference/control-flow.md first — most edges are not imports."
     ],
     "settled_decisions": [
+      {
+        "id": "D-SHEET-1",
+        "date": "07-31",
+        "text": "A verification tool must prove its subject is present, not merely"
+      },
       {
         "id": "D-CARGO-VIS-1",
         "date": "07-30",

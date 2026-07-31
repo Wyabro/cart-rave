@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (also runs inside `npm run qa`).
-> Generated 2026-07-31 at commit `93d4830` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
-> Source digest: `3e64d229`
+> Generated 2026-07-31 at commit `b95b550` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
+> Source digest: `b681a953`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -18,13 +18,12 @@ Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep a
 
 ## ACTIVE CARD
 
-SHEET-1 (plan ack'd — sheet-1.md, do not re-plan) → then FIGHT-VERIFY-1. Both gates ahead of it cleared 07-31
+Wyatt: playtest HUD-FEED-1 on prod — shipped `50e8944`, unseen by a human. On a phone,
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 
 Self-directed queue (one at a time, within the declared phase):
-- **SHEET-1** in-match contact-sheet tool (`?room=solo` boot) — 📋 plan ACK'D — sheet-1.md; unblocked (ANLX closed + DO reset done); blackframes pre-check done (readback is…
-- **FIGHT-VERIFY-1** owed fight-night verification — 📋 agent half via SHEET-1; Wyatt half = playtest
+- **FIGHT-VERIFY-1** owed fight-night verification — 🟡 agent half PARTIAL — sheet proves feed · score strip · timer · directive chip · boost bar at 9 widths.…
 - **MAIN-1 / BUNDLE-1** main.js seam / code-split — 📋 post-gate
 
 ## Do not

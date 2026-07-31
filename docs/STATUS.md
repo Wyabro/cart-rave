@@ -121,8 +121,9 @@ evidence in [completed-work.md](./planning/completed-work.md) — only live card
 | # | What | Status |
 |---|------|--------|
 | **ANLX-ATTRACT-1** | mid-round joins booked phantom matches | ✅ **CLOSED** 07-31 — live at `2e85f0b` / Version `4083335f`. Live two-client prod probe: 2 clients adopted `phase=running` while unseated → **0 `match_started`**; all 7 emitted starts carried `joinedMidRound` (6 `true`, 1 `false`); 0 `<3 s` draws. Counting metric could not decide it (cluster died 07-22, pre-fix) — [full acceptance](./planning/completed-work.md) |
-| **SHEET-1** | in-match contact-sheet tool (`?room=solo` boot) | 📋 **plan ACK'D** — [sheet-1.md](./planning/sheet-1.md); unblocked (ANLX closed + DO reset done); blackframes pre-check done (readback is real, not false-black) |
-| **FIGHT-VERIFY-1** | owed fight-night verification | 📋 agent half via SHEET-1; Wyatt half = playtest |
+| **SHEET-1** | in-match contact-sheet tool (`npm run sheet`) | ✅ **BUILT + PROVEN** 07-31 — `5f3c8ab` makeClient viewport/RM passthrough · `a4c8d6b` tools/sheet.mjs + montage · `9489a8b` DEV-only `forceKillFeed`. `--all` = 9 viewports, 54/54. Per cell: solo boot → pin (asserted `ok`) → subject-is-HUD gate → full PNG + canvas/nametag-hidden chrome PNG. Caught HUD-FEED-1 on first use. [card](./planning/sheet-1.md) |
+| **HUD-FEED-1** | kill-feed row painted outside its plate ≤768 px | ✅ **SHIPPED** 07-31 — live at `50e8944` / Version `34c2e1a9`, asset-verified. `70c3887` containment · `bac31b8` gap 10→6 · `50e8944` cap → `min(78vw,320px)`. At 390: row was 138 px outside the plate → 250 px inside it, names 0 → 116 px. **Owed: Wyatt prod playtest** |
+| **FIGHT-VERIFY-1** | owed fight-night verification | 🟡 **agent half PARTIAL** — sheet proves feed · score strip · timer · directive chip · boost bar at 9 widths. Still unreachable: loading screens (`makeClient` seeds `cartRaveBootSeen`), hover/press (needs interaction), podium. Wyatt half = playtest |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
 | BRAND-1 | Domain cutover | 🧊 frozen |
 
@@ -142,12 +143,20 @@ Triage docs superseded: [playtest-triage-2026-07-17](./planning/playtest-triage-
 
 ### Next actions
 
-1. **SHEET-1** (plan ack'd — [sheet-1.md](./planning/sheet-1.md), do not re-plan) → then **FIGHT-VERIFY-1**. Both gates ahead of it cleared 07-31.
+1. **Wyatt: playtest HUD-FEED-1 on prod — shipped `50e8944`, unseen by a human.** On a phone,
+   mid-round, after a KO: the feed row sits INSIDE its receipt plate, names read as
+   identifiable stubs (`SHEET…`, not `SH…`), and the wider feed does not crowd the timer or
+   directive banner. Prod has no `forceKillFeed` lever (DEV-only), so this needs a real KO —
+   the agent side could only verify the deployed CSS, never the live pixels.
+2. **FIGHT-VERIFY-1** — the remaining fight-night surfaces the sheet cannot reach (loading
+   screens, hover/press, podium). Decide whether those want more tooling or just your eye.
 
 Cleared 07-31, in the required order: ANLX-ATTRACT-1 acceptance (closed on a live
-two-client prod probe, not on counting — [evidence](./planning/completed-work.md)), then the
+two-client prod probe, not on counting — [evidence](./planning/completed-work.md)), the
 analytics-DO reset (`DELETE /api/analytics?token=…`, 20,000 rows → 0) once the pre-reset
-aggregates were filed as ANLX-BULK-1.
+aggregates were filed as ANLX-BULK-1, then SHEET-1 built and HUD-FEED-1 found + shipped.
+**The reset ring is collecting again on the live build** — a session of normal play now gives
+a clean read on whether ANLX-BULK-1's `~2 s loss` source is still active.
 
 **Do-not-relearn (each produced a confident wrong answer once):** `?devUnlocks=off` is a deliberate **prod** lever — Session 2 FTUE needs it on a prod build; never gate it. Grepping `dist/` for `devUnlocks` gives a false FAIL (the `=off` path keeps the string). Vitest runs `DEV === true`, so a DEV check read *inside* a helper makes its prod branch untestable — pass `isDev` in. `/api/log-error` + `/api/analytics` swallow a DO 429 unless the Worker forwards it. `GET /api/errors` is unusable from tests (`ERROR_LOG_TOKEN` is a secret CI lacks) — read via the DO stub's `/list`. `rewindRoundClock(ms)` **sets remaining** time — `1200` ends the round. `from === COUNTDOWN` is NOT a valid "played this round" test: `shouldHoldNonHostCountdownPhase` makes `lobby→running` legitimate for a slow non-host. Worker deploys propagate per-PoP and read as *contradictory* (one route new, another old) — re-poll, don't debug. **`analytics:pull --list` caps at the newest 1000 rows** — on a quiet week that window spans ~10 days, so a "recent" cluster can be entirely stale; bucket by day before reading a trend, and prove analytics gates with a live probe (prod `?diag=1` exposes `__ccDiag.snapshot("analytics")`), not with ring counts.
 
@@ -175,6 +184,15 @@ When named: other residual or RC exit criteria in [ROADMAP.md](./planning/ROADMA
 ## Decision index
 
 One line each; full text in [archive/decision-log-2026-07.md](./archive/decision-log-2026-07.md). Newest first.
+
+- **D-SHEET-1** (07-31): A verification tool must prove its subject is present, not merely
+  that it ran. `npm run sheet` twice shipped green cells that showed the wrong thing — one
+  captured the PAUSE overlay (the store pin survives pausing, so all checks passed), and
+  every early cell showed an empty kill feed that read as "fine" when it meant UNVERIFIED
+  (`.hud-feed` is `display:none` while empty). Hence the subject-is-HUD gate and the DEV-only
+  `forceKillFeed` lever. Corollary accepted: cross-run image MAE can never gate this tool —
+  opponent names and the directive are randomised per run and there is no gameplay RNG seed,
+  so the DOM pin is the gate and MAE is printed only.
 
 - **D-CARGO-VIS-1** (07-30): The CARGO-WT-1-era "pile stays under the rim" invariant is
   reversed — a boss/full bay is SUPPOSED to crest the rim. Layer-2 grid slots solve against
