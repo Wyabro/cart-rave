@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-07-31T02:23:56.223Z",
-    "commit": "7fa85fc"
+    "at": "2026-07-31T03:19:31.334Z",
+    "commit": "9f52597"
   },
-  "source_digest": "cdce19f8",
+  "source_digest": "b5e2bf8f",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1108,8 +1108,8 @@
           },
           {
             "pri": "High",
-            "item": "ANLX-ATTRACT-1 — attract mode is being counted as real matches",
-            "notes": "**Do this BEFORE the pre-tester `DELETE /api/analytics`, or the reset buys nothing.** Prod DO (07-30) holds 20,000 rows — at ring cap, already evicting — of which `match_started=9721` / `match_ended=9548` come from only **263 sessions / 8 clients**: ~37 matches per session averaging **1,828 ms** when a real round is 150 s, with `resultSplit loss=9330 / win=9`. Mechanism located, not guessed: `gameplayAnalytics.js:100-125` subscribes to `gameStore.roundPhase` and emits `match_started` on **any** →RUNNING and `match_ended` on RUNNING→PODIUM, with no gate for attract mode / harness / `?diag`. The menu attract demo drives the same store, so every attract cycle books a ~1.8 s \"match\". Consequence: every gameplay aggregate (`avgKos`, `matchesByArena`, result split, quit funnel) is currently meaningless, and real tester data would be buried the same way. Cheapest test: sit on the prod menu in attract and watch `/api/analytics` beacons (or the DEV consoleSink batches) — no round played, events still fire. Fix direction: gate the subscription on a real session (attract flag / `isAttract`), not on build type.",
+            "item": "ANLX-ATTRACT-1 — mid-round joins counted as real matches",
+            "notes": "**Do this BEFORE the pre-tester `DELETE /api/analytics`, or the reset buys nothing.** Prod DO (07-30) holds 20,000 rows — at ring cap, already evicting — of which `match_started=9721` / `match_ended=9548` come from only **263 sessions / 8 clients**. Newest 1000 events: 212 `match_ended`, **bimodal** — 162 at `<3 s` (100 % `draw`, empty `endReason`, quickplay only, never `classicRecord`) vs 48 at `≥120 s` (real 150 s rounds, win/loss/solo/all arenas). **ID kept for traceability (`9f52597`); title and mechanism corrected — the original attract-mode claim was DISPROVEN (`src/ui/menuAttract.js` never touches `gameStore`).** Real mechanism, from a two-client probe: `?room=quickplay` auto-rejoins (`main.js:1843`), `MSG.hello`/`MSG.round` adopt the room's `running` phase (`netcode.js:2548`, `:2843`), and `gameplayAnalytics.js:109` fires on **any** →RUNNING. Probe caught the false row with the joiner still on the menu — `from: lobby→running`, `menuVisible: true`, `crRootDisplay: block`, `localSlot: -1`, `localBodyEnabled: null`, `sawCountdown: false` — against a control round showing the exact inverse on all six. Consequence: `avgKos`, `matchesByArena`, result split and quit funnel are all meaningless today. Fix: gate the emit on local participation (live cart body), with a latch so a mid-round joiner still counts once its cart exists. **Caveat — two populations:** the full ring reports `loss=9330 / win=9` but the recent window is draw-dominated, so an older second source plausibly exists; this card owns the recent cluster only.",
             "ship1": null
           },
           {
