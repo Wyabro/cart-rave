@@ -1,6 +1,8 @@
 // devControl.js — one DEV-only mutation API shared by the panel and diagnostics.
 
 import { commandFail, commandOk } from "./commandRegistry.js";
+import { rebuildKOEvent } from "../scoring/koEvent.js";
+import { killFeedReactor } from "../scoring/koReactors.js";
 
 /**
  * @typedef {object} DevControlDeps
@@ -16,6 +18,12 @@ import { commandFail, commandOk } from "./commandRegistry.js";
  * @property {(level: string, n: number) => void} grantKos
  * @property {number} roundDurationMs
  * @property {(reason?: string) => void} [returnToMenu]  Non-host session teardown → menu (07-17 freeze repro).
+ * @property {boolean} [isDev]  True only in a Vite DEV build. Passed IN rather than read from
+ *   `import.meta.env` here, because vitest runs with DEV === true and an internal read would
+ *   make the production branch untestable. Gates `forceKillFeed` alone.
+ * @property {() => object | null | undefined} [getHud]  Live HUD facade (addKillFeedEntry, colorHexToCss).
+ * @property {(slot: object | null | undefined) => number | string} [colorHexForSlot]
+ * @property {() => Array<object> | null | undefined} [getAllCarts]
  */
 
 /**
@@ -33,7 +41,7 @@ export function createDevControl(deps) {
     return null;
   };
 
-  return {
+  const control = {
     /**
      * @param {number} [remainMs]
      */
@@ -140,4 +148,73 @@ export function createDevControl(deps) {
       return commandOk(`Returned to menu (reason: ${reason}).`);
     },
   };
+
+  // * SHEET-1: render one kill-feed row on demand. The contact sheet captures a few seconds
+  // * into a round, before any NPC has scored, and `.hud-feed` keeps its `is-empty` class
+  // * (display:none, hud.css:690) until a row exists — so the redesigned feed plates were
+  // * invisible to the sweep and therefore UNVERIFIED.
+  //
+  // * Deliberately narrow. It reuses the two real functions the non-host path already uses —
+  // * rebuildKOEvent (the wire-message KO builder, netcode.js:17) then killFeedReactor
+  // * (koReactors.js:57) — so the row is the product's own markup, verb, colors and combo
+  // * pip. It does NOT run dispatchKOEvent: that fan-out also drives matchStats, the
+  // * challenge counters and the per-level unlock funnel, and a screenshot tool must not
+  // * write progression. No score or physics mutation either (reactors are pure consumers).
+  //
+  // * DEV-only by `isDev`, unlike every other lever here: devControl attaches in PROD under
+  // * ?diag=1 (main.js:1577), and a lever that injects kill-feed rows on the live site would
+  // * let anyone fake a KO in a screenshot. The others gate on host+running; this one simply
+  // * does not exist outside a Vite DEV build.
+  if (!deps.isDev) return control;
+
+  /**
+   * @param {{ victimSlotIndex?: number, attackerSlotIndex?: number | null, verb?: string,
+   *   comboTier?: number, comboMultiplier?: number }} [opts]
+   */
+  const forceKillFeed = (opts = {}) => {
+    const hud = deps.getHud?.();
+    if (!hud?.addKillFeedEntry) {
+      // * "unknown" per the closed CommandFailureReason union — same shape returnToMenu
+      // * uses for "not wired in this build".
+      return commandFail("unknown", "HUD is not mounted — enter a round first.");
+    }
+    const netSlots = deps.getNetSlots() || [];
+    const victimSlotIndex = Number.isInteger(opts.victimSlotIndex) ? Number(opts.victimSlotIndex) : 1;
+    const attackerSlotIndex =
+      opts.attackerSlotIndex === null
+        ? null
+        : Number.isInteger(opts.attackerSlotIndex)
+          ? Number(opts.attackerSlotIndex)
+          : deps.getLocalSlotIndex(deps.getYouConnId());
+    if (victimSlotIndex < 0 || victimSlotIndex > 3) {
+      return commandFail("bad-args", "victimSlotIndex must be 0-3.");
+    }
+    if (attackerSlotIndex != null && (attackerSlotIndex < 0 || attackerSlotIndex > 3)) {
+      return commandFail("bad-args", "attackerSlotIndex must be 0-3 or null.");
+    }
+    if (attackerSlotIndex === victimSlotIndex) {
+      return commandFail("bad-args", "attacker and victim cannot be the same slot.");
+    }
+
+    const koEvent = rebuildKOEvent(
+      {
+        victimSlotIndex,
+        attackerSlotIndex,
+        verb: opts.verb || (attackerSlotIndex == null ? "FELL OFF" : "RAMMED"),
+        comboTier: opts.comboTier ?? 0,
+        comboMultiplier: opts.comboMultiplier ?? 1.0,
+      },
+      { getNetSlots: () => netSlots, getAllCarts: () => deps.getAllCarts?.() || [] },
+    );
+    killFeedReactor(koEvent, {
+      netSlots,
+      localSlotIndex: deps.getLocalSlotIndex(deps.getYouConnId()),
+      hud,
+      colorHexForSlot: deps.colorHexForSlot || (() => 0xffffff),
+    });
+    const who = attackerSlotIndex == null ? "environment" : `slot ${attackerSlotIndex}`;
+    return commandOk(`Kill-feed row rendered: ${who} → slot ${victimSlotIndex} (${koEvent.verb}).`);
+  };
+
+  return { ...control, forceKillFeed };
 }

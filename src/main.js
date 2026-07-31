@@ -1592,6 +1592,14 @@ async function main() {
         // * Non-host session teardown lever — drives the real menu-return path so the
         // * netharness teardownRejoin scenario can reproduce the 07-17 axis-unwire freeze.
         returnToMenu: (reason) => gameSession.returnToMenu({ reason }),
+        // * SHEET-1 forceKillFeed deps. `isDev` is passed IN, not read inside devControl:
+        // * vitest runs with DEV === true, so an internal read would leave the production
+        // * branch untestable. It gates that one lever off in prod ?diag=1 builds.
+        // * The rest are lazy getters — hud and allCartsRef are assigned later in main().
+        isDev: Boolean(import.meta.env.DEV),
+        getHud: () => hud,
+        getAllCarts: () => allCartsRef,
+        colorHexForSlot: displayColorHexForSlot,
       });
     } catch (error) {
       console.warn("[CartClashDev] Dev control levers failed to initialize:", error);

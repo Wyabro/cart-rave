@@ -151,9 +151,40 @@ harness:"1"}, storage:{ cartRaveLevel }, viewport, reducedMotion })` →
   can read higher than what rendered. `gpuClass` beside it is what surfaces the SwiftShader/LOW
   story Risk #1 is about.
 
+## Kill-feed capture (added 07-31, after the first `--all` sweep)
+
+The first full sweep showed the redesigned feed plates in **zero** cells. Not a bug in the
+tool and not the pause overlay: cells are captured a few seconds into the round, before any
+NPC has scored, and `.hud-feed` keeps its `is-empty` class until a row exists —
+`display:none` (`hud.css:690`), toggled by a MutationObserver on row count (`hud.js:1490`).
+A sheet full of `feed 0` therefore read as "the feed is fine" when it meant "UNVERIFIED",
+which is the worst failure mode for a verification tool.
+
+Organic KOs cannot fix this: rows auto-fade after a few seconds (`hud.js:2591`), so catching
+one is a race, and this repo has no gameplay RNG seed.
+
+So the scope guard below is **relaxed by one deliberate exception**: a new DEV-only
+`__ccDiag.control.forceKillFeed()` lever (`src/dev/devControl.js`, typed in
+`src/globals.d.ts`). It renders one row through the two functions the real non-host path
+uses — `rebuildKOEvent` then `killFeedReactor` (`koReactors.js:57`) — so the plate is the
+product's own markup, verb, colours and combo pip.
+
+- **Not `dispatchKOEvent`.** That fan-out also drives `recordKoForMatchStats`, the challenge
+  counters and the per-level unlock funnel. A screenshot tool must not write progression.
+  Reactors themselves are pure consumers — no score, no physics.
+- **DEV-only, unlike every other lever there.** devControl attaches in PRODUCTION under
+  `?diag=1` (`main.js:1577`), so a kill-feed injector on the live site would let anyone fake
+  a KO in a screenshot. Gated on an `isDev` dep passed IN — vitest runs with `DEV === true`,
+  so an internal `import.meta.env` read would leave the prod branch untestable.
+- Covered by three tests in `tests/devCommands.test.js`: absent when `isDev` is false;
+  renders exactly one row with the right actor/victim and no score or progression writes;
+  refuses a self-KO and a missing HUD.
+
 ## Verification
 
-`npm run qa` (report by number). Tools-only — no `src/` change, no `npm run build`.
+`npm run qa` (report by number) **and `npm run build`** — the `forceKillFeed` lever touches
+`src/`, so this card is no longer tools-only. No production playtest is owed: the lever does
+not exist outside a DEV build.
 
 **Determinism asserted on the DOM, not PNG bytes.** Two runs, then:
 
@@ -199,4 +230,6 @@ The montage must state on its face that it is a **layout baseline, not a golden 
 4. Timebox 60–90 min; stop at 3 failed attempts / 45 min on any stage and write findings.
 
 Out of scope: FIGHT-VERIFY-1's own pass, UI-SCALE-1, loading-screen and hover/press capture,
-menu Pass-1 identity, the `sampleBlack` freshness question, `src/`.
+menu Pass-1 identity, the `sampleBlack` freshness question, and `src/` — with the single
+deliberate exception of the DEV-only `forceKillFeed` lever above, without which the feed
+plates could not be captured at all.

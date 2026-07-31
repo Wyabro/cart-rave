@@ -91,6 +91,20 @@ declare global {
         grantKos?: (level: string, n: number) => CartClashDevResult;
         setScores?: (scores: Record<number, number>) => CartClashDevResult;
         forceSuddenDeath?: () => CartClashDevResult;
+        /**
+         * Renders one kill-feed row via the real rebuildKOEvent → killFeedReactor path
+         * (SHEET-1: the contact sheet captures before any NPC KO, and `.hud-feed` is
+         * display:none while empty). Presentation only — no score, stats, challenge or
+         * unlock mutation. **DEV builds only**, unlike the levers above, which also attach
+         * in production under ?diag=1.
+         */
+        forceKillFeed?: (opts?: {
+          victimSlotIndex?: number;
+          attackerSlotIndex?: number | null;
+          verb?: string;
+          comboTier?: number;
+          comboMultiplier?: number;
+        }) => CartClashDevResult;
       } | null;
     };
     /** Diagnostics active flag (?diag=1) — gates loop-liveness counters + zero-cost event recording. */

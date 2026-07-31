@@ -139,6 +139,68 @@ describe("shared developer control", () => {
       .toEqual(expect.objectContaining({ ok: false, reason: "host-required" }));
     expect(setRoundScores).not.toHaveBeenCalled();
   });
+
+  // * forceKillFeed (SHEET-1) is the one lever gated on isDev rather than host+running,
+  // * because devControl also attaches in PRODUCTION under ?diag=1 (main.js:1577) and a
+  // * kill-feed injector must not exist on the live site. isDev is passed IN precisely so
+  // * this prod branch is reachable from vitest, which always runs with DEV === true.
+  const killFeedDeps = (over = {}) => ({
+    getIsHost: () => true,
+    getRoundState: () => ({ phase: "running" }),
+    getNetSlots: () => [{ kind: "human", name: "YOU" }, { kind: "npc", name: "BOT" }, null, null],
+    getYouConnId: () => "host",
+    getLocalSlotIndex: () => 0,
+    setRoundScores: vi.fn(),
+    setRoundStartedAtMs: vi.fn(),
+    getRoundClockNowMs: () => 0,
+    sendHostRound: vi.fn(),
+    grantKos: vi.fn(),
+    roundDurationMs: 150_000,
+    ...over,
+  });
+
+  it("does not expose forceKillFeed in a production build", () => {
+    const control = createDevControl(killFeedDeps({ isDev: false }));
+    expect(control.forceKillFeed).toBeUndefined();
+  });
+
+  it("renders one kill-feed row through the real reactor, without mutating score", () => {
+    const addKillFeedEntry = vi.fn();
+    const setRoundScores = vi.fn();
+    const grantKos = vi.fn();
+    const control = createDevControl(killFeedDeps({
+      isDev: true,
+      setRoundScores,
+      grantKos,
+      getHud: () => ({ addKillFeedEntry, colorHexToCss: (c) => `#${c}` }),
+      getAllCarts: () => [],
+      colorHexForSlot: () => 0x00ff00,
+    }));
+
+    expect(control.forceKillFeed({ victimSlotIndex: 1, comboTier: 2, comboMultiplier: 2 }))
+      .toEqual(expect.objectContaining({ ok: true }));
+    expect(addKillFeedEntry).toHaveBeenCalledTimes(1);
+    // actor (local slot 0), then the victim's name from netSlots.
+    expect(addKillFeedEntry.mock.calls[0][0]).toBe("YOU");
+    expect(addKillFeedEntry.mock.calls[0][3]).toBe("BOT");
+    // Presentation only — a screenshot tool must never write score or progression.
+    expect(setRoundScores).not.toHaveBeenCalled();
+    expect(grantKos).not.toHaveBeenCalled();
+  });
+
+  it("refuses a kill-feed row with no HUD or a self-KO", () => {
+    const control = createDevControl(killFeedDeps({
+      isDev: true,
+      getHud: () => ({ addKillFeedEntry: vi.fn(), colorHexToCss: (c) => `#${c}` }),
+      getAllCarts: () => [],
+      colorHexForSlot: () => 0,
+    }));
+    expect(control.forceKillFeed({ victimSlotIndex: 0 }))
+      .toEqual(expect.objectContaining({ ok: false, reason: "bad-args" }));
+
+    const noHud = createDevControl(killFeedDeps({ isDev: true, getHud: () => null }));
+    expect(noHud.forceKillFeed()).toEqual(expect.objectContaining({ ok: false, reason: "unknown" }));
+  });
 });
 
 describe("Cart Clash command pack", () => {

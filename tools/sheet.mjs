@@ -87,6 +87,23 @@ const PIN_REMAIN_CEIL_MS = PIN_REMAIN_MS + 500;
 /** Page-side probe reads (Node-side fns, no string eval — the waitForState convention). */
 const readRound = () => /** @type {any} */ (window).__ccDiag.snapshot("round");
 
+/**
+ * Is the thing on screen actually the in-match HUD? Overlays replace the subject without
+ * touching any store the pin reads, so this is a DOM question, not a state question.
+ */
+const readSubject = () => {
+  const esc = document.getElementById("esc-overlay");
+  const softGl = document.getElementById("cr-softgl-notice");
+  const feed = document.querySelector(".hud-feed");
+  return {
+    escVisible: Boolean(esc) && /** @type {HTMLElement} */ (esc).offsetParent !== null,
+    softGlVisible: Boolean(softGl) && /** @type {HTMLElement} */ (softGl).offsetParent !== null,
+    timerText: document.querySelector(".hud-timer-num")?.textContent?.trim() ?? "",
+    feedRows: document.querySelectorAll(".hud-feed-row").length,
+    feedShown: Boolean(feed) && getComputedStyle(/** @type {Element} */ (feed)).display !== "none",
+  };
+};
+
 /** `--flag=value` → `--flag value`, so the documented spelling and the repo convention agree. */
 function normalizeArgv(argv) {
   return argv.flatMap((a) => {
@@ -196,7 +213,59 @@ async function captureCell(browser, baseUrl, { arena, cell, outDir, settleFrames
       await /** @type {any} */ (window).__cartRave?.settle?.(n);
     }, settleFrames);
 
-    // The pin HELD — this is the determinism gate, asserted on state the DOM renders from.
+    // * The subject must actually BE the in-match HUD. The store pin survives anything —
+    // * pausing does not touch it — so without this gate an overlay ships as a green cell.
+    // * That is exactly what happened on the first --all sweep: one cell captured the PAUSE
+    // * overlay ("MATCH HELD") and still passed 4/4, because in solo an open pause overlay
+    // * freezes physics AND frame timing (main.js:5157), leaving the pinned clock looking
+    // * perfect. Recover once via the production RESUME path, then fail loudly if it sticks.
+    let subject = await page.evaluate(readSubject);
+    if (subject.escVisible) {
+      log(`[cell] ${id} — pause overlay was open; resuming and re-settling`);
+      card.pauseRecovered = true;
+      await page.evaluate(() => {
+        const btn = document.querySelector("#esc-overlay .esc-btn--resume");
+        if (btn instanceof HTMLElement) btn.click();
+      });
+      await page.evaluate(async (n) => {
+        await /** @type {any} */ (window).__cartRave?.settle?.(n);
+      }, settleFrames);
+      subject = await page.evaluate(readSubject);
+    }
+    tally.check(
+      `${id} · subject is the in-match HUD`,
+      subject.escVisible === false && subject.softGlVisible === false && subject.timerText !== "",
+      `esc=${subject.escVisible} softGl=${subject.softGlVisible} timer="${subject.timerText}"` +
+        (card.pauseRecovered ? " (recovered from pause)" : ""),
+    );
+    // * Kill feed: force one row. Cells are captured a few seconds into the round, before any
+    // * NPC has scored, and `.hud-feed` keeps `is-empty` (display:none, hud.css:690) until a
+    // * row exists — so without this the redesigned feed plates are absent from every cell and
+    // * read as "fine" when they are simply UNVERIFIED. The lever renders through the real
+    // * rebuildKOEvent -> killFeedReactor path, so the plate is the product's own markup.
+    // * Fired late (rows auto-fade after a few seconds) and never at the local player, whose
+    // * slot the lever rejects as both attacker and victim.
+    const feed = await page.evaluate(() => {
+      const d = /** @type {any} */ (window).__ccDiag;
+      const c = d?.control;
+      if (!c?.forceKillFeed) {
+        return { ok: false, reason: "no-lever", message: "forceKillFeed absent — DEV build required" };
+      }
+      const local = d.snapshot("round")?.localSlotIndex;
+      const victim = [1, 2, 3, 0].find((s) => s !== local);
+      return c.forceKillFeed({ victimSlotIndex: victim, comboTier: 2, comboMultiplier: 2.0 });
+    });
+    await page.evaluate(async () => {
+      await /** @type {any} */ (window).__cartRave?.settle?.(3);
+    });
+    subject = await page.evaluate(readSubject);
+    card.feedRows = subject.feedRows;
+    card.feedShown = subject.feedShown;
+    tally.check(
+      `${id} · kill feed rendered`,
+      feed.ok === true && subject.feedRows > 0 && subject.feedShown === true,
+      `${feed.message} rows=${subject.feedRows} shown=${subject.feedShown}`,
+    );
     const held = await page.evaluate(() => {
       const d = /** @type {any} */ (window).__ccDiag;
       return {
@@ -287,7 +356,9 @@ function montageHtml(cards, meta) {
         <div class="cardbody">
           <b>${esc(c.arena)}</b> <span class="dim">${c.w}×${c.h}${c.rm ? " · RM" : ""}</span><br>
           <span class="chip">${esc(c.qualityTier ?? "?")}</span><span class="chip">${esc(c.gpuClass ?? "?")}</span>
-          ${c.timerText ? `<span class="chip">⏱ ${esc(c.timerText)}</span>` : ""}<br>
+          ${c.timerText ? `<span class="chip">⏱ ${esc(c.timerText)}</span>` : ""}
+          <span class="chip">feed ${Number(c.feedRows ?? 0)}</span>
+          ${c.pauseRecovered ? `<span class="chip warn">resumed from pause</span>` : ""}<br>
           ${c.error ? `<span class="err">${esc(c.error)}</span><br>` : ""}
           <a href="${esc(c.full)}">full</a> · <a href="${esc(c.hud)}">chrome only</a>
         </div>
@@ -323,6 +394,7 @@ function montageHtml(cards, meta) {
   .err { color:var(--bad); }
   .chip { display:inline-block; margin:4px 4px 0 0; padding:1px 7px; border:1px solid var(--edge2);
           border-radius:999px; font-size:11px; color:var(--cyan); }
+  .chip.warn { color:#ffb45c; border-color:#7a5326; }
   a { color:var(--cyan); }
   footer { margin-top:28px; padding-top:16px; border-top:1px solid var(--edge); color:var(--dim); font-size:12px; }
 </style>
@@ -340,6 +412,15 @@ function montageHtml(cards, meta) {
       canvas and the CSS2D nametags, but <b>opponent names and the active directive are
       randomised per run</b> and this repo has no gameplay RNG seed, so cross-run image diffs
       are for eyeballing only and can never be a gate.
+      <br><br>
+      <b>The kill-feed row is forced, not organic.</b> Cells are captured a few seconds into
+      the round, before any NPC has scored, and <code>.hud-feed</code> stays
+      <code>display:none</code> while empty (hud.css:690) — so each cell fires one row through
+      the real <code>rebuildKOEvent</code> → <code>killFeedReactor</code> path (DEV-only lever,
+      presentation only, no score or progression writes). The plate markup, verb, colours and
+      combo pip are the product's own. Every card's <code>feed</code> chip reports the row
+      count actually observed: <code>feed 0</code> means the plates are UNVERIFIED in that
+      cell, not that they are fine.
     </div>
 
     <div class="cards">
