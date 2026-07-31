@@ -1550,7 +1550,16 @@ export default {
 
     // * Client crash reports → persist into the ErrorLog SQLite DO (singleton
     // * instance "v1"). Bounded, queryable; replaces the old console.log-and-drop.
-    if (url.pathname.includes("/api/log-error")) {
+    //
+    // * SEC-ROUTE-1: all four /api/* routes below match EXACTLY, not by prefix or
+    // * substring. They have no sub-paths — every option rides the query string
+    // * (?id=, ?limit=, ?view=, ?token=), which is not part of pathname — so `===`
+    // * is the tightest correct rule and mirrors the log DOs' own internal handlers.
+    // * `includes()` here used to swallow any path CONTAINING the string (e.g.
+    // * /x/api/errors) before the /parties/ check and before ASSETS. Do not loosen
+    // * these back; `startsWith` at the isParty check below is different — that one
+    // * really is a prefix route with sub-paths beneath it.
+    if (url.pathname === "/api/log-error") {
       if (request.method !== "POST") return new Response(null, { status: 405 });
       try {
         const body = await request.text();
@@ -1577,7 +1586,7 @@ export default {
 
     // * Read/clear the crash log. Token-gated: only usable once ERROR_LOG_TOKEN is
     // * set as a Worker secret, so error reports (UA/URL/stack) aren't world-readable.
-    if (url.pathname.includes("/api/errors")) {
+    if (url.pathname === "/api/errors") {
       const token = env.ERROR_LOG_TOKEN;
       const jsonError = (msg: string, status: number) =>
         new Response(JSON.stringify({ error: msg }), {
@@ -1612,7 +1621,7 @@ export default {
 
     // * Playtest capture bundles (F8 / ?diag). POST = unauthenticated size-capped upload
     // * (like /api/log-error). GET list/get + DELETE reuse ERROR_LOG_TOKEN.
-    if (url.pathname.includes("/api/captures")) {
+    if (url.pathname === "/api/captures") {
       if (request.method === "POST") {
         try {
           const body = await request.text();
@@ -1727,7 +1736,7 @@ export default {
     // * POST = the client beacon (unauthenticated by design, like /api/log-error, but body-
     // * capped and bounded in the DO). GET reads (summary/list) + DELETE reuse the same
     // * observability token as /api/errors so aggregates aren't world-readable.
-    if (url.pathname.includes("/api/analytics")) {
+    if (url.pathname === "/api/analytics") {
       if (request.method === "POST") {
         try {
           const body = await request.text();
@@ -1794,6 +1803,11 @@ export default {
       }
     }
 
-    return routePartykitRequest(request, env);
+    // * routePartykitRequest returns null when nothing matches, and returning null
+    // * from fetch() is a runtime TypeError — live prod 500s on any unknown path
+    // * today (verified against /definitely-not-real-xyz, 07-30). SEC-ROUTE-1 makes
+    // * that reachable for near-miss API paths like /api/errorsfoo, which used to be
+    // * swallowed by the old substring match, so the fallback lands with it.
+    return (await routePartykitRequest(request, env)) ?? new Response("not found", { status: 404 });
   },
 };

@@ -44,6 +44,19 @@ export function postBeacon(path, body, ip) {
 }
 
 /**
+ * Send an arbitrary request through the Worker — SEC-ROUTE-1 route-matching tests
+ * need GETs and odd paths that `postBeacon` does not cover. Same reason this lives
+ * here rather than in the .test.js: the `cloudflare:workers` import must stay out of
+ * test files or knip reads it as an unlisted `cloudflare` dependency.
+ *
+ * @param {string} path Path + optional query, e.g. "/api/errorsfoo".
+ * @param {RequestInit} [init]
+ */
+export function requestPath(path, init) {
+  return exports.default.fetch(`http://example.com${path}`, init);
+}
+
+/**
  * Read rows back from a log DO's internal /list.
  * @returns {Promise<{ count: number, rows: Record<string, unknown>[] }>}
  */
