@@ -246,6 +246,11 @@ export function launchClientBrowser(chromium, opts = {}) {
  * @param {Record<string, string>} [o.storage]  Extra localStorage seed entries.
  * @param {{ width: number, height: number }} [o.viewport] Frame size (default 900×600).
  * @param {"reduce" | "no-preference"} [o.reducedMotion] Emulated `prefers-reduced-motion`.
+ * @param {boolean} [o.hasTouch]  Emulate a touchscreen (sets `navigator.maxTouchPoints`).
+ * @param {boolean} [o.isMobile]  Mobile viewport emulation. Needed alongside `hasTouch` to
+ *   reach the game's touch branch: `isTouchLikeDevice()` (src/utils/device.js:22) requires
+ *   BOTH a touch point AND `(pointer: coarse)`, and only mobile emulation makes the pointer
+ *   coarse — `hasTouch` on its own leaves a fine pointer, so `#hud.hud-touch` never applies.
  * @param {() => boolean} [o.readyExpr]          Page fn polled until truthy (default: __ccDiag active).
  * @param {(t: string) => boolean} [o.ignoreConsole] Return true to suppress a console-error line.
  * @param {(...a: unknown[]) => void} [o.log]
@@ -263,6 +268,8 @@ export async function makeClient(browser, o) {
     viewport: o.viewport || { width: 900, height: 600 },
     deviceScaleFactor: 1,
     ...(o.reducedMotion ? { reducedMotion: o.reducedMotion } : {}),
+    ...(o.hasTouch ? { hasTouch: true } : {}),
+    ...(o.isMobile ? { isMobile: true } : {}),
   });
 
   const seed = {

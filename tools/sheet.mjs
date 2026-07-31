@@ -78,6 +78,14 @@ const ALL_VIEWPORTS = [
   { w: 900, h: 390 },
   { w: 812, h: 375 },
   { w: 667, h: 375 },
+  // Touch pass — the `#hud.hud-touch` branch, which NO non-touch cell can reach. Every cell
+  // above runs with a fine pointer, so touch-only rules were invisible to the whole sweep:
+  // that is how `#hud.hud-touch .hud-scoreLabel{display:none}` shipped a HUD whose score
+  // chips named nobody. These four straddle the 900px threshold that rule now keys on.
+  { w: 1200, h: 528, touch: true },
+  { w: 900, h: 390, touch: true },
+  { w: 812, h: 375, touch: true },
+  { w: 390, h: 844, touch: true },
 ];
 
 /**
@@ -107,7 +115,14 @@ const readSubject = () => {
   const esc = document.getElementById("esc-overlay");
   const softGl = document.getElementById("cr-softgl-notice");
   const feed = document.querySelector(".hud-feed");
+  const hud = document.getElementById("hud");
   return {
+    // * Did the touch branch actually engage? A "touch" cell that quietly rendered the
+    // * desktop HUD would re-create the blind spot this pass exists to close.
+    touchBranch: Boolean(hud?.classList.contains("hud-touch")),
+    scoreLabelShown: [...document.querySelectorAll("#hud .hud-scoreLabel")].filter(
+      (el) => getComputedStyle(el).display !== "none",
+    ).length,
     escVisible: Boolean(esc) && /** @type {HTMLElement} */ (esc).offsetParent !== null,
     softGlVisible: Boolean(softGl) && /** @type {HTMLElement} */ (softGl).offsetParent !== null,
     timerText: document.querySelector(".hud-timer-num")?.textContent?.trim() ?? "",
@@ -137,11 +152,11 @@ function parseViewports(spec) {
     });
 }
 
-/** Dedupe by {w,h,rm} so `--reduced-motion` adds twins instead of stacking duplicates. */
+/** Dedupe by {w,h,rm,touch} so `--reduced-motion` adds twins instead of stacking duplicates. */
 function dedupeCells(cells) {
   const seen = new Set();
   return cells.filter((c) => {
-    const key = `${c.w}x${c.h}${c.rm ? "-rm" : ""}`;
+    const key = `${c.w}x${c.h}${c.rm ? "-rm" : ""}${c.touch ? "-touch" : ""}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -149,7 +164,8 @@ function dedupeCells(cells) {
 }
 
 /** Stable, sortable, filesystem-safe cell id. */
-const cellId = (arena, c) => `${arena}-${c.w}x${c.h}${c.rm ? "-rm" : ""}`;
+const cellId = (arena, c) =>
+  `${arena}-${c.w}x${c.h}${c.rm ? "-rm" : ""}${c.touch ? "-touch" : ""}`;
 
 /**
  * Boot one cell, pin it, and capture both PNGs.
@@ -177,10 +193,15 @@ async function captureCell(browser, baseUrl, { arena, cell, outDir, settleFrames
     storage: { cartRaveLevel: arena },
     viewport: { width: cell.w, height: cell.h },
     ...(cell.rm ? { reducedMotion: "reduce" } : {}),
+    // * Both flags, not just hasTouch — the game's touch branch needs a coarse pointer too.
+    ...(cell.touch ? { hasTouch: true, isMobile: true } : {}),
   });
 
   /** @type {Record<string, unknown>} */
-  const card = { id, arena, w: cell.w, h: cell.h, rm: cell.rm, full: `${id}.png`, hud: `${id}-hud.png` };
+  const card = {
+    id, arena, w: cell.w, h: cell.h, rm: cell.rm, touch: Boolean(cell.touch),
+    full: `${id}.png`, hud: `${id}-hud.png`,
+  };
 
   try {
     // * A fresh page per cell, never a post-boot viewport change: resizing after boot does
@@ -250,6 +271,15 @@ async function captureCell(browser, baseUrl, { arena, cell, outDir, settleFrames
       `esc=${subject.escVisible} softGl=${subject.softGlVisible} timer="${subject.timerText}"` +
         (card.pauseRecovered ? " (recovered from pause)" : ""),
     );
+    // * A touch cell must prove it reached the touch branch, and a non-touch cell must prove
+    // * it did NOT — otherwise the two halves of the matrix silently test the same thing.
+    tally.check(
+      `${id} · ${cell.touch ? "touch" : "pointer"} branch as declared`,
+      subject.touchBranch === Boolean(cell.touch),
+      `hud-touch=${subject.touchBranch} expected=${Boolean(cell.touch)} scoreLabelsVisible=${subject.scoreLabelShown}`,
+    );
+    card.touchBranch = subject.touchBranch;
+    card.scoreLabelShown = subject.scoreLabelShown;
     // * Kill feed: force one row. Cells are captured a few seconds into the round, before any
     // * NPC has scored, and `.hud-feed` keeps `is-empty` (display:none, hud.css:690) until a
     // * row exists — so without this the redesigned feed plates are absent from every cell and
@@ -366,10 +396,11 @@ function montageHtml(cards, meta) {
       (c) => `      <div class="card${c.error ? " bad" : ""}">
         <a href="${esc(c.full)}"><img src="${esc(c.full)}" alt="${esc(c.id)}" loading="lazy"></a>
         <div class="cardbody">
-          <b>${esc(c.arena)}</b> <span class="dim">${c.w}×${c.h}${c.rm ? " · RM" : ""}</span><br>
+          <b>${esc(c.arena)}</b> <span class="dim">${c.w}×${c.h}${c.rm ? " · RM" : ""}${c.touch ? " · TOUCH" : ""}</span><br>
           <span class="chip">${esc(c.qualityTier ?? "?")}</span><span class="chip">${esc(c.gpuClass ?? "?")}</span>
           ${c.timerText ? `<span class="chip">⏱ ${esc(c.timerText)}</span>` : ""}
           <span class="chip">feed ${Number(c.feedRows ?? 0)}</span>
+          <span class="chip">names ${Number(c.scoreLabelShown ?? 0)}/4</span>
           ${c.pauseRecovered ? `<span class="chip warn">resumed from pause</span>` : ""}<br>
           ${c.error ? `<span class="err">${esc(c.error)}</span><br>` : ""}
           <a href="${esc(c.full)}">full</a> · <a href="${esc(c.hud)}">chrome only</a>
@@ -458,7 +489,10 @@ async function main() {
 
   let cells;
   if (str(args.viewports)) {
-    cells = parseViewports(/** @type {string} */ (str(args.viewports))).map((v) => ({ ...v, rm: false }));
+    // * `--touch` marks every explicit viewport as a touch cell — the quick way to exercise
+    // * the `#hud.hud-touch` branch without running the whole --all matrix.
+    const touch = args.touch === true;
+    cells = parseViewports(/** @type {string} */ (str(args.viewports))).map((v) => ({ ...v, rm: false, touch }));
   } else if (args.all === true) {
     cells = ALL_VIEWPORTS.map((v) => ({ ...v, rm: false }));
   } else {
