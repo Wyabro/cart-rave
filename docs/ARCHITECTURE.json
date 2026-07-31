@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-07-31T01:25:04.076Z",
-    "commit": "8da2575"
+    "at": "2026-07-31T02:23:56.223Z",
+    "commit": "7fa85fc"
   },
-  "source_digest": "578d80ad",
+  "source_digest": "cdce19f8",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1057,11 +1057,11 @@
       {
         "title": "Engineering",
         "counts": {
-          "Medium": 13,
+          "Medium": 15,
           "Done": 5,
           "Low": 5,
           "Partial": 1,
-          "High": 6
+          "High": 7
         },
         "rows": [
           {
@@ -1105,6 +1105,12 @@
             "item": "ANLX-VIEW-1 — player-analytics view `[SHIP-1 A7]`",
             "notes": "✅ PASS 07-22 — `npm run analytics:pull` + CC Analytics panel. **Before public playtest: `DELETE /api/analytics`.**",
             "ship1": "A7"
+          },
+          {
+            "pri": "High",
+            "item": "ANLX-ATTRACT-1 — attract mode is being counted as real matches",
+            "notes": "**Do this BEFORE the pre-tester `DELETE /api/analytics`, or the reset buys nothing.** Prod DO (07-30) holds 20,000 rows — at ring cap, already evicting — of which `match_started=9721` / `match_ended=9548` come from only **263 sessions / 8 clients**: ~37 matches per session averaging **1,828 ms** when a real round is 150 s, with `resultSplit loss=9330 / win=9`. Mechanism located, not guessed: `gameplayAnalytics.js:100-125` subscribes to `gameStore.roundPhase` and emits `match_started` on **any** →RUNNING and `match_ended` on RUNNING→PODIUM, with no gate for attract mode / harness / `?diag`. The menu attract demo drives the same store, so every attract cycle books a ~1.8 s \"match\". Consequence: every gameplay aggregate (`avgKos`, `matchesByArena`, result split, quit funnel) is currently meaningless, and real tester data would be buried the same way. Cheapest test: sit on the prod menu in attract and watch `/api/analytics` beacons (or the DEV consoleSink batches) — no round played, events still fire. Fix direction: gate the subscription on a real session (attract flag / `isAttract`), not on build type.",
+            "ship1": null
           },
           {
             "pri": "Done",
@@ -1194,6 +1200,18 @@
             "pri": "Medium",
             "item": "WARM-SOLO-1 — solo post-`carts-ready` stall (WARM-IGPU-1 residual)",
             "notes": "Laptop A cap-206 (**solo**) took a 6.4s longtask ~1.9s after `carts-ready`, inside the countdown. WARM-IGPU-1's Lever A does **not** cover it: arena rotation is quickplay-only, and solo's flyover warm already runs inside `ensureSessionCartsReady`. Proxy evidence says the residual is driver-side first-draw cost (a 13.1s menu-warm frame carried only 235ms of attributed span time), so raising budgets will not help. Candidate mechanism worth checking first: scene content added *after* the warm pass (CSS2D nametags, cargo bays — CARGO-RACE-1's self-heal adds 18–30 meshes per cart, announcer/VFX) introduces new materials whose programs link at the first live countdown draw. **Work only on real telemetry** (`warmupSettle` / longframe spans from a weak-GPU playtester), never on speculation — no iGPU hardware available to reproduce.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "HARNESS-NULL-1 — no measurement rig has a null-control arm",
+            "notes": "Process/tooling, not behavior. Every A/B number this repo produces is currently unfalsifiable: no rig can demonstrate it reports ~0 when nothing changed, so warm-up order, run ordering and accumulated state are indistinguishable from a real effect. We have already been burned — run-4's \"GC metronome\" attribution was wrong. The pattern: add a `--null` mode that runs **both** arms with the variable disabled, making the two runs byte-for-byte the same experiment; the measured delta must then be ~0, and anything else means the rig is biased and every number it prints in normal mode is contaminated rather than caused. Candidates in rough order of value: `perf-profile.mjs`, `battery.mjs` timing steps, `gameharness.mjs --scenario soak`. Prerequisite for trusting PROBE-WARM-RT-1's program-count deltas and for any future unattended tuning loop (an overnight loop compounds instrument error across every run). Source: `ryancampbell/kart-royale` `tools/drift-bench.mjs --null`; loop framing from `karpathy/autoresearch` `program.md`.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "PROBE-WARM-RT-1 — VFX program anchors may be holding the wrong program key",
+            "notes": "Instrument-first; **no behavior claim until measured**. `outputColorSpace` and `toneMapping` are both pushed into three's program cache key (`getProgramCacheKeyParameters`) and both switch on `renderer.getRenderTarget() === null` — `outputColorSpace` unconditionally, not just for `toneMapped` materials. `compileAsync` (`main.js:2664`) binds no RT, so the anchors compile the **default-framebuffer** variant; the `composer.render()` prime (`:2679`) builds correct RT-variant keys only for what it actually *draws*, and the anchors are `visible=false` at `y=-500` (`koHitmarkerFx.js:259`, `cartShatter.js:1062` — both comments say \"render skips them\"). If that holds, the anchors' stated job (next KO is a cache hit) is defeated and the first shatter/KO/water/ram spawn links synchronously mid-round. **Measure first:** `renderer.info.programs.length` across the first KO. Fix only if it climbs — bind any non-XR RT around the anchor compile (1×1 scratch is enough; only `=== null` is tested). Making the anchors visible does *not* work: they are off-camera and cull. Pairs with WARM-SOLO-1 — same symptom class, different mechanism (that one is new content added after the warm; this one is the right content under the wrong key). Source: `ryancampbell/kart-royale` `src/core/Prewarm.ts`.",
             "ship1": null
           },
           {
