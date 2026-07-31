@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-07-31T22:40:26.204Z",
-    "commit": "e5efbfe"
+    "at": "2026-07-31T22:53:22.763Z",
+    "commit": "91842b8"
   },
-  "source_digest": "8678e54c",
+  "source_digest": "c1966cc7",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1370,9 +1370,9 @@
       {
         "title": "UI / UX",
         "counts": {
-          "High": 3,
-          "Medium": 4,
-          "Low": 1,
+          "High": 4,
+          "Medium": 5,
+          "Low": 2,
           "Done": 2
         },
         "rows": [
@@ -1432,6 +1432,24 @@
           },
           {
             "pri": "High",
+            "item": "RESULTS-ACT-1 — PLAY AGAIN / MAIN MENU render below the fold in the short-window branch",
+            "notes": "**Found 07-31 by `npm run podium`** (FIGHT-VERIFY-1 Phase A), reproduced on two consecutive runs, both outcomes. `results.css:81` (`@media (max-height:640px) and (min-width:769px) and (pointer:fine)`) stacks the panel and sets `overflow-y:auto`, but nothing keeps the actions row inside the viewport — so the reward decision is entirely off screen and only reachable by scrolling a panel that gives no scroll affordance. Measured: **900×390** `.results-actions` top 610.6 / bottom 685.6 vs viewport 390 (**295px below the fold**, panel scrollHeight 686 vs clientHeight 390); **1025×600** top 727.3 / bottom 805.6 vs viewport 600 (**205px below**, scrollHeight 804 vs clientHeight 600). Both are `pointer:fine` squat windows — a resized desktop browser or a landscape laptop — exactly the case the CSS comment says it was written for (\"a landscape 812x375, a squat laptop window\"). Coarse-pointer phones take the `:538` full-bleed branch instead and are fine (390×844 passes). Evidence: `.diag-captures/podium/classicRecord-{victory,defeat}-{900x390,1025x600}-chrome.png` + the `actions are on screen` check row. Belongs to FIGHT-VERIFY-1's owed pass.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "HUD-BOOST-PODIUM-1 — BOOST slab stays on screen through the whole podium and lands on MAIN MENU",
+            "notes": "**Found 07-31 by `npm run podium`.** The keyboard/gamepad boost meter (`.hud-boost`, \"BOOST … 100\") is still painted over the results overlay at every non-touch viewport. Visible bottom-centre at 1920×1080; at **390×844 it sits directly on top of the MAIN MENU button**. Two independent causes, both needed for a fix: (1) `hud.js:1997-2002` — `update()` early-returns on `suppressHud` (which is `escOpen \\",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "RESULTS-TOAST-1 — unlock toast collides with the results headline in short windows",
+            "notes": "**Observed 07-31 by `npm run podium`.** The `◆ UNLOCKED` challenge toast (`main.js:2281`, `showChallengeToast`, 5000ms) is a HUD element that is not covered by `hud-suppressed` either, and it paints over `#results-overlay`. At 1920×1080 it lands in empty space under the verdict and reads as intentional; at **1025×600 it is painted straight through `THE STORE IS NOW CLOSED` and the `PODIUMBOT WINS — 20 PTS` verdict line**. Non-deterministic (only fires when a round actually grants an unlock), so it is deliberately NOT a check row in `tools/podium.mjs` — it will simply appear in some montage cells and not others. Evidence: `.diag-captures/podium/classicRecord-victory-1025x600-chrome.png`. Same root family as HUD-BOOST-PODIUM-1: the podium suppression list is an allow-list that has fallen behind the HUD.",
+            "ship1": null
+          },
+          {
+            "pri": "High",
             "item": "UI-SCALE-1 — responsive root-scale migration",
             "notes": "Two passes per [responsive-scale-migration.md](./responsive-scale-migration.md): fluid root + rem clamps; media queries stay px. **Pass 1 also does ≤768 reflow — phone = fewer elements.** SHEET-1 unblocked (tool exists). Sequential single-owner. Safety: ≥1920 pixel-identical pre/post.",
             "ship1": null
@@ -1441,7 +1459,7 @@
       {
         "title": "Tech Debt",
         "counts": {
-          "Medium": 5,
+          "Medium": 6,
           "Low": 7
         },
         "rows": [
@@ -1527,6 +1545,13 @@
             "id": "BRAND-1",
             "item": "Brand / domain cutover ceremony",
             "notes": "Frozen — [brand.md](../brand.md).",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "id": "SHEET-ESC-1",
+            "item": "`tools/sheet.mjs`'s pause-overlay gate is dead code",
+            "notes": "**Found 07-31 while building `tools/podium.mjs`.** `sheet.mjs:126` computes `escVisible` as `esc.offsetParent !== null`, but `#esc-overlay` is `position: fixed` (`pauseOverlay.css:12`) and per CSSOM-View `offsetParent` is **null for every fixed-position element**, shown or hidden. Measured live on two runs: `#esc-overlay offsetParent===null → true` with the pause overlay closed. So `escVisible` is permanently `false` — the `subject is the in-match HUD` check's `esc=false` clause is vacuous, and the pause-recovery branch (`sheet.mjs:256-267`, the one the comment credits with catching a cell that captured the PAUSE overlay and still passed 4/4) can never fire again. Fix: use computed style, as `tools/podium.mjs`'s `readSubject` does — `display !== \"none\" && visibility !== \"hidden\" && opacity > 0.01` — and keep the `offsetParent` reading only as printed evidence. Low blast radius, tools-only.",
             "ship1": null
           }
         ]

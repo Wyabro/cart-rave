@@ -56,6 +56,69 @@ export function parseArgs(argv) {
 /** @param {unknown} v @returns {string | undefined} */
 export const str = (v) => (typeof v === "string" ? v : undefined);
 
+/**
+ * `--flag=value` → `--flag value`, so the documented spelling and {@link parseArgs}'s
+ * `--flag value` convention agree. (Extracted from sheet.mjs — every sweep tool wants it.)
+ * @param {string[]} argv
+ * @returns {string[]}
+ */
+export function normalizeArgv(argv) {
+  return argv.flatMap((a) => {
+    const m = /^(--[^=]+)=(.*)$/.exec(a);
+    return m ? [m[1], m[2]] : [a];
+  });
+}
+
+/**
+ * `"1920x1080,390x844"` → `[{w,h}, …]`. Throws on a malformed token rather than silently
+ * dropping it — a typo'd viewport must not quietly shrink the matrix.
+ * @param {string} spec
+ * @returns {{ w: number, h: number }[]}
+ */
+export function parseViewports(spec) {
+  return spec
+    .split(",")
+    .map((t) => t.trim())
+    .filter(Boolean)
+    .map((t) => {
+      const m = /^(\d+)x(\d+)$/i.exec(t);
+      if (!m) throw new Error(`bad --viewports token "${t}" (want WxH, e.g. 1920x1080)`);
+      return { w: Number(m[1]), h: Number(m[2]) };
+    });
+}
+
+/**
+ * Dedupe sweep cells by `{outcome,w,h,rm,touch}` so a `--reduced-motion` pass adds twins
+ * instead of stacking duplicates. `outcome` is absent on HUD-sheet cells and contributes
+ * nothing to the key then, so the key is byte-identical for tools that don't use it.
+ * @template {{ w: number, h: number, rm?: boolean, touch?: boolean, outcome?: string }} T
+ * @param {T[]} cells
+ * @returns {T[]}
+ */
+export function dedupeCells(cells) {
+  const seen = new Set();
+  return cells.filter((c) => {
+    const key = `${c.outcome ? `${c.outcome}-` : ""}${c.w}x${c.h}${c.rm ? "-rm" : ""}${c.touch ? "-touch" : ""}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+/**
+ * Stable, sortable, filesystem-safe cell id: `arena[-outcome]-WxH[-rm][-touch]`.
+ *
+ * `outcome` is OPTIONAL and omitted entirely when absent, so the HUD sheet's ids are
+ * unchanged. It exists because the podium sweep runs the same {arena, viewport} twice —
+ * once for victory, once for defeat — and without it the two runs' PNGs collide on disk.
+ *
+ * @param {string} arena
+ * @param {{ w: number, h: number, rm?: boolean, touch?: boolean, outcome?: string }} c
+ * @returns {string}
+ */
+export const cellId = (arena, c) =>
+  `${arena}${c.outcome ? `-${c.outcome}` : ""}-${c.w}x${c.h}${c.rm ? "-rm" : ""}${c.touch ? "-touch" : ""}`;
+
 /** Prefixed console logger. @param {string} name @returns {(...a: unknown[]) => void} */
 export function makeLogger(name) {
   // eslint-disable-next-line no-console
@@ -244,6 +307,14 @@ export function launchClientBrowser(chromium, opts = {}) {
  * @param {string} [o.label]
  * @param {Record<string, string>} [o.params]   Extra URL query params (e.g. { diag: "1", room: "solo" }).
  * @param {Record<string, string>} [o.storage]  Extra localStorage seed entries.
+ * @param {Array<(() => void) | ((arg: any) => void) | { fn: (arg?: any) => void, arg?: unknown }>} [o.initScripts]
+ *   Page functions installed via `context.addInitScript` — they run in EVERY frame of this
+ *   context before any page script, i.e. before `goto`. That "before" is the whole point:
+ *   an observer that has to latch onto markup served in `index.html` (the boot splash) or
+ *   onto a class the app adds during its own bring-up cannot be armed by
+ *   `page.addInitScript` after `makeClient` returns — by then the page has already booted.
+ *   Objects carry a serializable `arg` (Playwright's second `addInitScript` parameter);
+ *   bare functions get `undefined`. Omit for zero behaviour change.
  * @param {{ width: number, height: number }} [o.viewport] Frame size (default 900×600).
  * @param {"reduce" | "no-preference"} [o.reducedMotion] Emulated `prefers-reduced-motion`.
  * @param {boolean} [o.hasTouch]  Emulate a touchscreen (sets `navigator.maxTouchPoints`).
@@ -285,6 +356,19 @@ export async function makeClient(browser, o) {
       /* privacy mode */
     }
   }, seed);
+
+  // * Caller init scripts land AFTER the storage seed (so an observer can read the seeded
+  // * keys) and BEFORE newPage()/goto (so they are armed for the very first paint). Order
+  // * within the array is preserved — Playwright runs init scripts in registration order.
+  for (const s of o.initScripts || []) {
+    if (typeof s === "function") {
+      // eslint-disable-next-line no-await-in-loop
+      await context.addInitScript(s);
+    } else if (s && typeof s.fn === "function") {
+      // eslint-disable-next-line no-await-in-loop
+      await context.addInitScript(s.fn, s.arg);
+    }
+  }
 
   const page = await context.newPage();
   try {

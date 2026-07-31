@@ -7,7 +7,14 @@ import { describe, it, expect, afterAll } from "vitest";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { resolveExitCode, writeTallySync } from "../tools/lib/harness.mjs";
+import {
+  cellId,
+  dedupeCells,
+  normalizeArgv,
+  parseViewports,
+  resolveExitCode,
+  writeTallySync,
+} from "../tools/lib/harness.mjs";
 
 const pass = (name = "p") => ({ name, pass: true });
 const fail = (name = "f") => ({ name, pass: false });
@@ -29,6 +36,76 @@ describe("resolveExitCode", () => {
   it("inconclusive-only non-passes → 3 (starved environment, not red)", () => {
     expect(resolveExitCode([pass(), incon()])).toBe(3);
     expect(resolveExitCode([incon(), incon()])).toBe(3);
+  });
+});
+
+// * The sweep-cell helpers moved out of tools/sheet.mjs into harness.mjs when tools/podium.mjs
+// * arrived (FIGHT-VERIFY-1 Phase A.0), so both tools build ids and matrices the same way.
+// * `outcome` is the podium's addition — the same {arena, viewport} runs twice (victory and
+// * defeat), and without it in the id and the dedupe key the two runs collide on disk.
+describe("normalizeArgv", () => {
+  it("splits --flag=value into --flag value", () => {
+    expect(normalizeArgv(["--viewports=1920x1080", "--all"])).toEqual(["--viewports", "1920x1080", "--all"]);
+  });
+  it("leaves the already-split spelling alone", () => {
+    expect(normalizeArgv(["--arenas", "zanzibar"])).toEqual(["--arenas", "zanzibar"]);
+  });
+  it("keeps '=' inside the value (urls survive)", () => {
+    expect(normalizeArgv(["--url=http://127.0.0.1:3000/?a=1"])).toEqual(["--url", "http://127.0.0.1:3000/?a=1"]);
+  });
+  it("passes bare tokens through untouched", () => {
+    expect(normalizeArgv(["a=b", "--x"])).toEqual(["a=b", "--x"]);
+  });
+});
+
+describe("parseViewports", () => {
+  it("parses a comma list, tolerating whitespace", () => {
+    expect(parseViewports("1920x1080, 390x844")).toEqual([
+      { w: 1920, h: 1080 },
+      { w: 390, h: 844 },
+    ]);
+  });
+  it("throws on a malformed token rather than silently dropping it", () => {
+    expect(() => parseViewports("1920x1080,390")).toThrow(/bad --viewports token "390"/);
+  });
+  it("ignores empty segments from a trailing comma", () => {
+    expect(parseViewports("800x600,")).toEqual([{ w: 800, h: 600 }]);
+  });
+});
+
+describe("dedupeCells", () => {
+  it("keeps rm/touch twins but drops exact repeats", () => {
+    const out = dedupeCells([
+      { w: 390, h: 844 },
+      { w: 390, h: 844 },
+      { w: 390, h: 844, rm: true },
+      { w: 390, h: 844, touch: true },
+    ]);
+    expect(out).toHaveLength(3);
+  });
+  it("treats outcomes as distinct cells", () => {
+    const out = dedupeCells([
+      { w: 1920, h: 1080, outcome: "victory" },
+      { w: 1920, h: 1080, outcome: "defeat" },
+      { w: 1920, h: 1080, outcome: "victory" },
+    ]);
+    expect(out.map((c) => c.outcome)).toEqual(["victory", "defeat"]);
+  });
+});
+
+describe("cellId", () => {
+  it("omits the outcome segment entirely when absent (HUD-sheet ids unchanged)", () => {
+    expect(cellId("classicRecord", { w: 1920, h: 1080 })).toBe("classicRecord-1920x1080");
+    expect(cellId("classicRecord", { w: 390, h: 844, rm: true, touch: true })).toBe(
+      "classicRecord-390x844-rm-touch",
+    );
+  });
+  it("keeps victory and defeat on separate filenames", () => {
+    const v = cellId("classicRecord", { w: 390, h: 844, outcome: "victory" });
+    const d = cellId("classicRecord", { w: 390, h: 844, outcome: "defeat" });
+    expect(v).toBe("classicRecord-victory-390x844");
+    expect(d).toBe("classicRecord-defeat-390x844");
+    expect(v).not.toBe(d);
   });
 });
 

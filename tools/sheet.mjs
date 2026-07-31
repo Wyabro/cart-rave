@@ -34,17 +34,22 @@ import {
   CAPTURE_DIR,
   CLIENT_PORT,
   CheckTally,
+  cellId,
+  dedupeCells,
   ensurePlaywright,
   killDevStack,
   launchClientBrowser,
   makeClient,
   makeLogger,
   maybeStartDevStack,
+  normalizeArgv,
   parseArgs,
+  parseViewports,
   preflightStack,
   str,
   waitForState,
 } from "./lib/harness.mjs";
+import { esc, montagePage } from "./lib/montage.mjs";
 
 const log = makeLogger("sheet");
 
@@ -130,42 +135,6 @@ const readSubject = () => {
     feedShown: Boolean(feed) && getComputedStyle(/** @type {Element} */ (feed)).display !== "none",
   };
 };
-
-/** `--flag=value` → `--flag value`, so the documented spelling and the repo convention agree. */
-function normalizeArgv(argv) {
-  return argv.flatMap((a) => {
-    const m = /^(--[^=]+)=(.*)$/.exec(a);
-    return m ? [m[1], m[2]] : [a];
-  });
-}
-
-/** "1920x1080,390x844" → [{w,h}, …]. Throws on a malformed token rather than silently dropping it. */
-function parseViewports(spec) {
-  return spec
-    .split(",")
-    .map((t) => t.trim())
-    .filter(Boolean)
-    .map((t) => {
-      const m = /^(\d+)x(\d+)$/i.exec(t);
-      if (!m) throw new Error(`bad --viewports token "${t}" (want WxH, e.g. 1920x1080)`);
-      return { w: Number(m[1]), h: Number(m[2]) };
-    });
-}
-
-/** Dedupe by {w,h,rm,touch} so `--reduced-motion` adds twins instead of stacking duplicates. */
-function dedupeCells(cells) {
-  const seen = new Set();
-  return cells.filter((c) => {
-    const key = `${c.w}x${c.h}${c.rm ? "-rm" : ""}${c.touch ? "-touch" : ""}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-}
-
-/** Stable, sortable, filesystem-safe cell id. */
-const cellId = (arena, c) =>
-  `${arena}-${c.w}x${c.h}${c.rm ? "-rm" : ""}${c.touch ? "-touch" : ""}`;
 
 /**
  * Boot one cell, pin it, and capture both PNGs.
@@ -386,10 +355,11 @@ async function captureCell(browser, baseUrl, { arena, cell, outDir, settleFrames
   return card;
 }
 
-const esc = (s) =>
-  String(s ?? "").replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch]);
-
-/** Montage page — own file, same card shape as the Command Center (dashboard.mjs:255-262). */
+/**
+ * Montage page — same card shape as the Command Center (dashboard.mjs:255-262). The page
+ * shell (dark chrome, grid, chips) lives in lib/montage.mjs; only the CARD rendering is
+ * here, because the chips are what differ between capture tools.
+ */
 function montageHtml(cards, meta) {
   const body = cards
     .map(
@@ -409,46 +379,10 @@ function montageHtml(cards, meta) {
     )
     .join("\n");
 
-  return `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Cart Clash — HUD contact sheet</title>
-<style>
-  :root { --bg:#0a0a0f; --panel:#14141c; --panel2:#191922; --edge:#26263a; --edge2:#3a3a55;
-          --text:#e8e8f0; --dim:#8a8aa0; --neon:#ff2d95; --cyan:#39d7ff; --bad:#ff5470; }
-  * { box-sizing:border-box; }
-  body { margin:0; background:var(--bg); color:var(--text); font:14px/1.5 system-ui,Segoe UI,sans-serif; }
-  .shell { max-width:1440px; margin:0 auto; padding:20px 24px 48px; }
-  h1 { margin:0 0 2px; font-size:20px; letter-spacing:3px; font-weight:800; }
-  h1 .neon { color:var(--neon); text-shadow:0 0 18px rgba(255,45,149,.55); }
-  .stamp { color:var(--dim); font-size:12px; }
-  .banner { margin:16px 0 20px; padding:12px 16px; border:1px solid var(--edge2); border-left:3px solid var(--neon);
-            border-radius:8px; background:var(--panel); font-size:13px; }
-  .banner b { color:var(--neon); }
-  .cards { display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:12px; }
-  .card { background:var(--panel2); border:1px solid var(--edge); border-radius:10px; overflow:hidden; }
-  .card:hover { border-color:var(--edge2); }
-  .card.bad { border-color:var(--bad); }
-  .card img { width:100%; display:block; aspect-ratio:16/9; object-fit:cover; background:#000; }
-  .cardbody { padding:10px 12px; font-size:12px; }
-  .dim { color:var(--dim); }
-  .err { color:var(--bad); }
-  .chip { display:inline-block; margin:4px 4px 0 0; padding:1px 7px; border:1px solid var(--edge2);
-          border-radius:999px; font-size:11px; color:var(--cyan); }
-  .chip.warn { color:#ffb45c; border-color:#7a5326; }
-  a { color:var(--cyan); }
-  footer { margin-top:28px; padding-top:16px; border-top:1px solid var(--edge); color:var(--dim); font-size:12px; }
-</style>
-</head>
-<body>
-  <div class="shell">
-    <h1>CART <span class="neon">CLASH</span> — HUD CONTACT SHEET</h1>
-    <div class="stamp">${esc(meta.when)} · ${cards.length} cells · arenas: ${esc(meta.arenas)} · pin: scores 2/1/0/0, ${PIN_REMAIN_MS / 1000}s left</div>
-
-    <div class="banner">
-      This is a <b>layout baseline, not a golden render.</b> Cells run headless with no GPU
+  return montagePage({
+    title: "HUD contact sheet",
+    stamp: `${esc(meta.when)} · ${cards.length} cells · arenas: ${esc(meta.arenas)} · pin: scores 2/1/0/0, ${PIN_REMAIN_MS / 1000}s left`,
+    banner: `      This is a <b>layout baseline, not a golden render.</b> Cells run headless with no GPU
       flags — SwiftShader, LOW tier — so spotlights, lasers and the skybox are off by design.
       Read each card's tier + GPU chips before calling a difference a visual regression.
       Determinism is asserted on the DOM pin, never on pixels: the chrome-only shot hides the
@@ -463,18 +397,10 @@ function montageHtml(cards, meta) {
       presentation only, no score or progression writes). The plate markup, verb, colours and
       combo pip are the product's own. Every card's <code>feed</code> chip reports the row
       count actually observed: <code>feed 0</code> means the plates are UNVERIFIED in that
-      cell, not that they are fine.
-    </div>
-
-    <div class="cards">
-${body}
-    </div>
-
-    <footer>Generated by <code>npm run sheet</code> (tools/sheet.mjs) — SHEET-1.</footer>
-  </div>
-</body>
-</html>
-`;
+      cell, not that they are fine.`,
+    cardsHtml: body,
+    footer: "Generated by <code>npm run sheet</code> (tools/sheet.mjs) — SHEET-1.",
+  });
 }
 
 async function main() {
