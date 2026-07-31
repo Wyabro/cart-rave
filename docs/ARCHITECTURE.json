@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-07-31T08:16:48.665Z",
-    "commit": "b95b550"
+    "at": "2026-07-31T17:12:16.066Z",
+    "commit": "b8b45a3"
   },
-  "source_digest": "3bd4aca4",
+  "source_digest": "cdbb3f45",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1832,66 +1832,6 @@
         "id": "D-READY-1",
         "date": "07-20",
         "text": "Lobby readiness is an idempotent SET on the wire, not a toggle. `MSG.readyToggle` gains additive `ready: boolean`; client quickplay/solo auto-ready is a lobby-phase reconcile."
-      },
-      {
-        "id": "D-CONTENT-1",
-        "date": "07-17",
-        "text": "Pure-data arena catalog is the client authoring source for labels/themes/music/ambience/unlocks."
-      },
-      {
-        "id": "D-HARDEN-1",
-        "date": "07-13",
-        "text": "Pre-playtest council hardening — SD replay-tiebreak; `sd_win` latch; Rapier `castRay` exclude-object fix; quickplay rematch re-entrancy; `suddenDeathPulse` leak."
-      },
-      {
-        "id": "D-NET-CLK-MIG",
-        "date": "07-12",
-        "text": "NET-CLK-1 dual clocks, NET-CLK-3 round-clock stamps, NET-MIG-1 kill-credit `attr` on promote."
-      },
-      {
-        "id": "D-TERM-1",
-        "date": "07-12",
-        "text": "Terminology pass — style-guide.md canonical."
-      },
-      {
-        "id": "D-STAB-2",
-        "date": "07-11",
-        "text": "Quickplay arena rotation deferred; rematch-seam recipe documented."
-      },
-      {
-        "id": "D-STAB-1",
-        "date": "07-11",
-        "text": "Stabilization pass — wheel roll, boost-bar leak, podium +20%, menu pacing, knip zero-ignore."
-      },
-      {
-        "id": "D-PERF-3",
-        "date": "07-11",
-        "text": "Honest `three`/`animejs` chunks; BUNDLE-1 blocked."
-      },
-      {
-        "id": "D-GP4-1",
-        "date": "07-11",
-        "text": "Pass 4 gameplay/AI surgical fixes; critical-hit basis + rubberband intensity kept."
-      },
-      {
-        "id": "D-VFX-2",
-        "date": "07-11",
-        "text": "Flicker root = half-res float bloom mips; `bloomfix` = byte mips, display-referred bloom."
-      },
-      {
-        "id": "D-VFX-1",
-        "date": "07-11",
-        "text": "Offline blackframes blind to ANGLE quirk; live probes `?blackmon=1`."
-      },
-      {
-        "id": "D-PERF-1",
-        "date": null,
-        "text": "/2 (07-11): Dev level-swap cost is a Vite artifact; arena-chunk prefetch shipped."
-      },
-      {
-        "id": "D-VIS-1",
-        "date": null,
-        "text": "/2/3, D-DOC-1 (07-11): LAAS process-only; WebGL+Playwright harness; AGENTS.md restored."
       }
     ],
     "verified_healthy": [

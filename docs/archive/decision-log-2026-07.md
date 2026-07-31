@@ -49,3 +49,13 @@ messages so the log is complete:
 - **Menu backdrop simplification** — `3754949` replaced the faux DOM backdrop (floor grid /
   spotlights / particles / scanlines) with a palette-tinted layered gradient on
   `.cr-root::before` (`--menu-glow1/2` from arena ambience).
+
+## Rolled from the STATUS decision index — 2026-07-31 archive pass
+
+These four one-liners had no full-text entry here, so they are preserved verbatim rather
+than dropped when STATUS's index was trimmed. Same rule as above: settled, append-only.
+
+- **D-CONTENT-1** (07-17): Pure-data arena catalog is the client authoring source for labels/themes/music/ambience/unlocks.
+- **D-HARDEN-1** (07-13): Pre-playtest council hardening — SD replay-tiebreak; `sd_win` latch; Rapier `castRay` exclude-object fix; quickplay rematch re-entrancy; `suddenDeathPulse` leak.
+- **D-NET-CLK-MIG** (07-12): NET-CLK-1 dual clocks, NET-CLK-3 round-clock stamps, NET-MIG-1 kill-credit `attr` on promote.
+- **D-TERM-1** (07-12): Terminology pass — [style-guide.md](../style-guide.md) canonical.

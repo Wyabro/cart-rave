@@ -13,6 +13,25 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### July 17–20, 2026 – Run 7 playtest mission (closed evidence)
+
+Rolled out of STATUS.md's active queue on 07-31 — it had been sitting there as a historical
+strip long after it stopped being live work. Superseded triage docs:
+[2026-07-17](./playtest-triage-2026-07-17.md) … [run6](./playtest-triage-2026-07-18-run6.md).
+
+| # | What | Status |
+|---|------|--------|
+| **Run 7** | Full playtest mission | ✅ CLOSED |
+| **NET-1** | Two-browser full-round smoke | ✅ PASS (core + residual) |
+| **NET-2** | Quickplay join frozen cart / slow load | ✅ PASS ~3s driveable |
+| **NET-MIG-3** | Freeze / ghost colliders after host migrate | ✅ PASS + live |
+| **NET-PRES-1** | Fall/collision event-id dedupe | ✅ DONE (dup face; loss residual) |
+| **NET-SD-1** | SD untie / sole-leader self-fall softlock | ✅ DONE |
+
+Do not re-open these without new evidence — they are listed in STATUS's standing "Do not".
+
+---
+
 ### July 21–31, 2026 – Tier A drain, Tier B/C feel, security sweep, analytics gating
 
 Archived out of STATUS.md's active queue once closed (STATUS carries only live cards).

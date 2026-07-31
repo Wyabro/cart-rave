@@ -127,19 +127,9 @@ evidence in [completed-work.md](./planning/completed-work.md) — only live card
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
 | BRAND-1 | Domain cutover | 🧊 frozen |
 
-Historical Run 7 evidence (closed):
-
-| # | What | Status |
-|---|------|--------|
-| **Run 7** | Full playtest mission | ✅ CLOSED |
-| **NET-1** | Two-browser full-round smoke | ✅ PASS (core + residual) |
-| **NET-2** | Quickplay join frozen cart / slow load | ✅ PASS ~3s driveable |
-| **NET-MIG-3** | Freeze / ghost colliders after host migrate | ✅ PASS + live |
-| **NET-PRES-1** | Fall/collision event-id dedupe | ✅ DONE (dup face; loss residual) |
-| **NET-SD-1** | SD untie / sole-leader self-fall softlock | ✅ DONE |
-
-Triage docs superseded: [playtest-triage-2026-07-17](./planning/playtest-triage-2026-07-17.md) …
-[run6](./planning/playtest-triage-2026-07-18-run6.md).
+Run 7's closed evidence strip (Run 7 · NET-1 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1) and
+its superseded triage docs moved to [completed-work.md](./planning/completed-work.md) on
+07-31 — all still under the standing "do not re-open without new evidence".
 
 ### Next actions
 
@@ -252,18 +242,10 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 - **D-SHIP-1** (07-20): SHIP-1 created as a living finish line — pre-ship tiers A–E ([planning/SHIP-1.md](./planning/SHIP-1.md)); full backlog ships (no cut-down RC); new findings slot into tiers; no netcode/god-file rewrites pre-ship.
 - **D-TRUTH-1** (07-20): Command Center Truth Reset — STATUS owns declared phase only; evidence never auto-advances phase; collectors own HEAD/gates; battery reports carry provenance + completeness.
 - **D-READY-1** (07-20): Lobby readiness is an idempotent **SET** on the wire, not a toggle. `MSG.readyToggle` gains additive `ready: boolean`; client quickplay/solo auto-ready is a lobby-phase reconcile.
-- **D-CONTENT-1** (07-17): Pure-data arena catalog is the client authoring source for labels/themes/music/ambience/unlocks.
-- **D-HARDEN-1** (07-13): Pre-playtest council hardening — SD replay-tiebreak; `sd_win` latch; Rapier `castRay` exclude-object fix; quickplay rematch re-entrancy; `suddenDeathPulse` leak.
-- **D-NET-CLK-MIG** (07-12): NET-CLK-1 dual clocks, NET-CLK-3 round-clock stamps, NET-MIG-1 kill-credit `attr` on promote.
-- **D-TERM-1** (07-12): Terminology pass — [style-guide.md](./style-guide.md) canonical.
-- **D-STAB-2** (07-11): Quickplay arena rotation deferred; rematch-seam recipe documented.
-- **D-STAB-1** (07-11): Stabilization pass — wheel roll, boost-bar leak, podium +20%, menu pacing, knip zero-ignore.
-- **D-PERF-3** (07-11): Honest `three`/`animejs` chunks; BUNDLE-1 blocked.
-- **D-GP4-1** (07-11): Pass 4 gameplay/AI surgical fixes; critical-hit basis + rubberband intensity kept.
-- **D-VFX-2** (07-11): Flicker root = half-res float bloom mips; `bloomfix` = byte mips, display-referred bloom.
-- **D-VFX-1** (07-11): Offline blackframes blind to ANGLE quirk; live probes `?blackmon=1`.
-- **D-PERF-1/2** (07-11): Dev level-swap cost is a Vite artifact; arena-chunk prefetch shipped.
-- **D-VIS-1/2/3, D-DOC-1** (07-11): LAAS process-only; WebGL+Playwright harness; AGENTS.md restored.
+- **07-11 → 07-17 (D-CONTENT-1 · D-HARDEN-1 · D-NET-CLK-MIG · D-TERM-1 · D-STAB-1/2 ·
+  D-PERF-1/2/3 · D-GP4-1 · D-VFX-1/2 · D-VIS-1/2/3 · D-DOC-1)** — rolled out of this index
+  07-31; full text in [decision-log-2026-07.md](./archive/decision-log-2026-07.md), which
+  gained verbatim entries for the four that had none.
 
 ## Hard rules digest
 
