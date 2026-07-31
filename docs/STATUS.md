@@ -142,11 +142,12 @@ Triage docs superseded: [playtest-triage-2026-07-17](./planning/playtest-triage-
 
 ### Next actions
 
-**Sequence is strict — each step gates the next. Do not reorder.**
+1. **SHEET-1** (plan ack'd — [sheet-1.md](./planning/sheet-1.md), do not re-plan) → then **FIGHT-VERIFY-1**. Both gates ahead of it cleared 07-31.
 
-1. ~~ANLX-ATTRACT-1 acceptance~~ ✅ **done 07-31** — closed on a live two-client prod probe, not on counting ([evidence](./planning/completed-work.md)).
-2. ~~Analytics-DO reset~~ ✅ **done 07-31** — `DELETE /api/analytics?token=…` after the pre-reset aggregates were filed as ANLX-BULK-1.
-3. **SHEET-1** (plan ack'd) → **FIGHT-VERIFY-1**. Now unblocked — this is the active card.
+Cleared 07-31, in the required order: ANLX-ATTRACT-1 acceptance (closed on a live
+two-client prod probe, not on counting — [evidence](./planning/completed-work.md)), then the
+analytics-DO reset (`DELETE /api/analytics?token=…`, 20,000 rows → 0) once the pre-reset
+aggregates were filed as ANLX-BULK-1.
 
 **Do-not-relearn (each produced a confident wrong answer once):** `?devUnlocks=off` is a deliberate **prod** lever — Session 2 FTUE needs it on a prod build; never gate it. Grepping `dist/` for `devUnlocks` gives a false FAIL (the `=off` path keeps the string). Vitest runs `DEV === true`, so a DEV check read *inside* a helper makes its prod branch untestable — pass `isDev` in. `/api/log-error` + `/api/analytics` swallow a DO 429 unless the Worker forwards it. `GET /api/errors` is unusable from tests (`ERROR_LOG_TOKEN` is a secret CI lacks) — read via the DO stub's `/list`. `rewindRoundClock(ms)` **sets remaining** time — `1200` ends the round. `from === COUNTDOWN` is NOT a valid "played this round" test: `shouldHoldNonHostCountdownPhase` makes `lobby→running` legitimate for a slow non-host. Worker deploys propagate per-PoP and read as *contradictory* (one route new, another old) — re-poll, don't debug. **`analytics:pull --list` caps at the newest 1000 rows** — on a quiet week that window spans ~10 days, so a "recent" cluster can be entirely stale; bucket by day before reading a trend, and prove analytics gates with a live probe (prod `?diag=1` exposes `__ccDiag.snapshot("analytics")`), not with ring counts.
 
