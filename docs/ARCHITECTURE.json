@@ -2,15 +2,15 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-07-31T04:28:54.704Z",
-    "commit": "34fdad4"
+    "at": "2026-07-31T05:14:25.506Z",
+    "commit": "d03893a"
   },
-  "source_digest": "7fdd9613",
+  "source_digest": "89d1962d",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
     "production_url": "https://cart-rave.wyabro.workers.dev/",
-    "mission": "Playtesting and stabilization — Tier A drained. B1 AI-DIFF-1 shipped (`49bfc2a`). B2 CARGO-WT-1 closed (Wyatt feel accept 07-22). B3 HIT-FEEL-1 PASS (Wyatt playtest 07-22 — quieter incoming + woken normals; `?tune` ramming.fx). ARENA-BAL-1 closed (Wyatt 07-22, no code). CARGO-VIS-1 closed (Wyatt prod playtest PASS 07-30 on `b13bafb`). Before public/external playtest: reset analytics DO (see Gotchas).",
+    "mission": "Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep and the",
     "phase": "Playtesting & stabilization — stabilize after Run 7; prove residuals; no auto-advance to RC",
     "phases": [
       {
@@ -847,159 +847,15 @@
   "workstreams": {
     "queue": [
       {
-        "id": "A1 host hitch forensics",
-        "what": "`hiddenDuringGap` latch shipped + validated (real 6.55s tab-out caught cleanly)",
-        "status": "✅ instrumentation proven",
-        "state": "done"
-      },
-      {
-        "id": "A1 COUNTDOWN-WARM-1",
-        "what": "fly-over camera shader/composer stall",
-        "status": "✅ PASS (Wyatt playtest 07-22)",
-        "state": "done"
-      },
-      {
-        "id": "A1 COUNTDOWN-SYNC-1",
-        "what": "non-host countdown clock-domain sync",
-        "status": "✅ PASS (Wyatt playtest 07-22; empty quickplay edge case logged to BACKLOG)",
-        "state": "done"
-      },
-      {
-        "id": "A1 Intel-as-host capture",
-        "what": "original chronic-freeze question",
-        "status": "✅ PASS (Wyatt confirmed 07-22)",
-        "state": "done"
-      },
-      {
-        "id": "A2 INPUT-KB-1",
-        "what": "keyboard digital-to-analog ease + menu nav",
-        "status": "✅ confirmed good by Wyatt",
-        "state": "done"
-      },
-      {
-        "id": "A3 MP-FX-1",
-        "what": "non-host gameplay VFX parity",
-        "status": "✅ PASS (Wyatt playtest 07-22: opponent charge glow + hop land dust/thud on non-host)",
-        "state": "done"
-      },
-      {
-        "id": "A4 ARENA-COL-1",
-        "what": "Cart Rave pit KO detection & kill-zone reliability",
-        "status": "✅ PASS (Wyatt playtest 07-22 — rim entry pose/time → buildKOEvent)",
-        "state": "done"
-      },
-      {
-        "id": "A5 SRV-TEST-1",
-        "what": "Direct tests for party decision cores",
-        "status": "✅ done (A5a helpers + A5b DO harness; 739 tests)",
-        "state": "done"
-      },
-      {
-        "id": "A6 NET-SIM-1",
-        "what": "Reconnect / socket-lifecycle sims",
-        "status": "✅ closed (Cap-200 shipped + menu PASS; hostReload 13/13)",
-        "state": "done"
-      },
-      {
-        "id": "COUNTDOWN-ARM-1",
-        "what": "Play-ready-gated continuous `game_start`",
-        "status": "✅ PASS (Wyatt smoke 07-22 on `e08e5f5` — full 3-2-1)",
-        "state": "done"
-      },
-      {
-        "id": "A7 ANLX-VIEW-1",
-        "what": "analytics reading surface (`analytics:pull` + CC panel)",
-        "status": "✅ PASS (Wyatt smoke 07-22)",
-        "state": "done"
-      },
-      {
-        "id": "B2 CARGO-WT-1",
-        "what": "life-scoped grocery weight (boss/glass)",
-        "status": "✅ closed (Wyatt feel accept 07-22; look → CARGO-VIS-1)",
-        "state": "done"
-      },
-      {
-        "id": "B3 HIT-FEEL-1",
-        "what": "hit feedback — weak normals + noisy incoming",
-        "status": "✅ PASS (Wyatt playtest 07-22)",
-        "state": "done"
-      },
-      {
-        "id": "ARENA-BAL-1",
-        "what": "Sundial + Storerooms self-KO rate",
-        "status": "✅ closed (Wyatt 07-22, no code)",
-        "state": "done"
-      },
-      {
-        "id": "QA-STATUS-1",
-        "what": "STATUS token overage broke `qa`",
-        "status": "✅ closed this commit — 07-21 log archived, queue reordered",
-        "state": "done"
-      },
-      {
-        "id": "HYGIENE-1",
-        "what": "4-item sweep",
-        "status": "✅ closed 07-30 — sourcemaps off · boot-error filter · 3 stale remotes deleted · profiler `--dpr`; default branch → `cart-clash`",
-        "state": "done"
-      },
-      {
-        "id": "C2 CARGO-VIS-1",
-        "what": "full-bay fill + rim overflow look",
-        "status": "✅ closed (Wyatt prod playtest PASS 07-30 on `b13bafb`)",
-        "state": "done"
-      },
-      {
-        "id": "WARM-IGPU-1",
-        "what": "first-play warm stall swallows countdown (medium iGPUs)",
-        "status": "✅ CLOSED — prod playtest PASS 07-30 on `a9dbc7d`. Solo residual = WARM-SOLO-1 ([plan](./planning/warm-igpu-1.md))",
-        "state": "done"
-      },
-      {
-        "id": "CARGO-HUD-1a",
-        "what": "cargo-readout mock, 3-state — Wyatt picks",
-        "status": "✅ closed 07-30 — nameplate placement + score-strip chip look",
-        "state": "done"
-      },
-      {
-        "id": "CARGO-HUD-1",
-        "what": "opponent cargo readout on the nameplate",
-        "status": "✅ PASS (Wyatt 07-30) — live at `38d0dfc` / Version `f8e8da1f` ([card](./planning/cargo-hud-1.md))",
-        "state": "done"
-      },
-      {
-        "id": "SKYBOX-1",
-        "what": "restore never-built sceneExtras skybox (review C-01)",
-        "status": "✅ closed 07-30 — live at `c074c2a` / Version `8e5bb259`; LOW tier-gated per Wyatt (`skyExtras` knob), UFO-in-pit bug fixed",
-        "state": "done"
-      },
-      {
-        "id": "SEC-BEACON-1",
-        "what": "rate-limit the open POST beacons",
-        "status": "✅ CLOSED 07-30 — live at `65dea12` / Version `255d6284`. Per-IP 30/60s inside each log DO (budget per-DO, not shared). Live flood probe: 30 accepted, 429 at #31. Wyatt playtest PASS",
-        "state": "done"
-      },
-      {
-        "id": "SEC-UNLOCK-1",
-        "what": "DEV-gate `?devUnlocks=all` (`=off` deliberately kept)",
-        "status": "✅ CLOSED 07-30 — live at `64eff60` / Version `56439ef4`, prod-verified",
-        "state": "done"
-      },
-      {
-        "id": "SEC-ROUTE-1",
-        "what": "Worker `/api/*` routes `includes()` → exact `===` ×4",
-        "status": "✅ CLOSED 07-30 — live at `8da2575` / Version `268f6ff2`, prod-verified. Also fixed a live 500: unmatched paths returned null from `fetch()` → now 404",
-        "state": "done"
-      },
-      {
         "id": "ANLX-ATTRACT-1",
         "what": "mid-round joins booked phantom matches",
-        "status": "🚀 DEPLOYED, NOT YET CLOSED — live at `2e85f0b` / Version `4083335f`, entry `index-D0PGvOIB.js`, asset-verified (`getLocalCartActive` ×3, `joinedMidRound` ×1). Emit now gates on a live cart body + latch. Owed: day-after acceptance (below)",
-        "state": "waiting"
+        "status": "✅ CLOSED 07-31 — live at `2e85f0b` / Version `4083335f`. Live two-client prod probe: 2 clients adopted `phase=running` while unseated → 0 `match_started`; all 7 emitted starts carried `joinedMidRound` (6 `true`, 1 `false`); 0 `<3 s` draws. Counting metric could not decide it (cluster died 07-22, pre-fix) — [full acceptance](./planning/completed-work.md)",
+        "state": "done"
       },
       {
         "id": "SHEET-1",
         "what": "in-match contact-sheet tool (`?room=solo` boot)",
-        "status": "📋 plan ACK'D — [sheet-1.md](./planning/sheet-1.md); blocked on ANLX acceptance + DO reset; blackframes pre-check done (readback is real, not false-black)",
+        "status": "📋 plan ACK'D — [sheet-1.md](./planning/sheet-1.md); unblocked (ANLX closed + DO reset done); blackframes pre-check done (readback is real, not false-black)",
         "state": "waiting"
       },
       {
@@ -1031,9 +887,9 @@
       }
     ],
     "next_actions": [
-      "ANLX-ATTRACT-1 acceptance (~a day after 07-30 deploy, Wyatt-triggered). Run `npm run analytics:pull -- --list`. Pass = the `<3 s` + `result=draw` cluster stops growing. Baseline: newest 1000 events were 162 phantom (`<3 s`, all draw, empty `endReason`, quickplay, never `classicRecord`) vs 48 real (`≥120 s`). Real matches must keep arriving, incl. `joinedMidRound:true` ones. If short draws still appear WITH a live cart, they are real participation under the agreed metric — change acceptance to \"unseated/menu-visible phantoms gone\" and file a filler-round follow-up. Only then is the card closed.",
-      "Analytics-DO reset — last before-external-testers item. `DELETE /api/analytics?token=…`. Pointless before step 1: an unfixed emitter refills it. Also clears ~30 `sec-beacon-probe` rows.",
-      "SHEET-1 (plan ack'd) → FIGHT-VERIFY-1. SHEET-1 boots solo rounds, so running it before step 1 muddies that acceptance signal."
+      "~~ANLX-ATTRACT-1 acceptance~~ ✅ done 07-31 — closed on a live two-client prod probe, not on counting ([evidence](./planning/completed-work.md)).",
+      "~~Analytics-DO reset~~ ✅ done 07-31 — `DELETE /api/analytics?token=…` after the pre-reset aggregates were filed as ANLX-BULK-1.",
+      "SHEET-1 (plan ack'd) → FIGHT-VERIFY-1. Now unblocked — this is the active card."
     ],
     "open_issues": [
       {
@@ -1063,11 +919,11 @@
       {
         "title": "Engineering",
         "counts": {
-          "Medium": 15,
-          "Done": 5,
+          "Medium": 16,
+          "Done": 6,
           "Low": 5,
           "Partial": 1,
-          "High": 7
+          "High": 6
         },
         "rows": [
           {
@@ -1113,9 +969,15 @@
             "ship1": "A7"
           },
           {
-            "pri": "High",
+            "pri": "Done",
             "item": "ANLX-ATTRACT-1 — mid-round joins counted as real matches",
-            "notes": "**Do this BEFORE the pre-tester `DELETE /api/analytics`, or the reset buys nothing.** Prod DO (07-30) holds 20,000 rows — at ring cap, already evicting — of which `match_started=9721` / `match_ended=9548` come from only **263 sessions / 8 clients**. Newest 1000 events: 212 `match_ended`, **bimodal** — 162 at `<3 s` (100 % `draw`, empty `endReason`, quickplay only, never `classicRecord`) vs 48 at `≥120 s` (real 150 s rounds, win/loss/solo/all arenas). **ID kept for traceability (`9f52597`); title and mechanism corrected — the original attract-mode claim was DISPROVEN (`src/ui/menuAttract.js` never touches `gameStore`).** Real mechanism, from a two-client probe: `?room=quickplay` auto-rejoins (`main.js:1843`), `MSG.hello`/`MSG.round` adopt the room's `running` phase (`netcode.js:2548`, `:2843`), and `gameplayAnalytics.js:109` fires on **any** →RUNNING. Probe caught the false row with the joiner still on the menu — `from: lobby→running`, `menuVisible: true`, `crRootDisplay: block`, `localSlot: -1`, `localBodyEnabled: null`, `sawCountdown: false` — against a control round showing the exact inverse on all six. Consequence: `avgKos`, `matchesByArena`, result split and quit funnel are all meaningless today. Fix: gate the emit on local participation (live cart body), with a latch so a mid-round joiner still counts once its cart exists. **Caveat — two populations:** the full ring reports `loss=9330 / win=9` but the recent window is draw-dominated, so an older second source plausibly exists; this card owns the recent cluster only.",
+            "notes": "✅ **CLOSED 07-31** — live at `2e85f0b` / Version `4083335f`; accepted on a live two-client prod probe (2 unseated clients adopted `phase=running` → 0 `match_started`; all 7 emitted starts carried `joinedMidRound`), not on ring counts. [Full acceptance](./completed-work.md). Diagnosis record below. **Do this BEFORE the pre-tester `DELETE /api/analytics`, or the reset buys nothing.** Prod DO (07-30) holds 20,000 rows — at ring cap, already evicting — of which `match_started=9721` / `match_ended=9548` come from only **263 sessions / 8 clients**. Newest 1000 events: 212 `match_ended`, **bimodal** — 162 at `<3 s` (100 % `draw`, empty `endReason`, quickplay only, never `classicRecord`) vs 48 at `≥120 s` (real 150 s rounds, win/loss/solo/all arenas). **ID kept for traceability (`9f52597`); title and mechanism corrected — the original attract-mode claim was DISPROVEN (`src/ui/menuAttract.js` never touches `gameStore`).** Real mechanism, from a two-client probe: `?room=quickplay` auto-rejoins (`main.js:1843`), `MSG.hello`/`MSG.round` adopt the room's `running` phase (`netcode.js:2548`, `:2843`), and `gameplayAnalytics.js:109` fires on **any** →RUNNING. Probe caught the false row with the joiner still on the menu — `from: lobby→running`, `menuVisible: true`, `crRootDisplay: block`, `localSlot: -1`, `localBodyEnabled: null`, `sawCountdown: false` — against a control round showing the exact inverse on all six. Consequence: `avgKos`, `matchesByArena`, result split and quit funnel are all meaningless today. Fix: gate the emit on local participation (live cart body), with a latch so a mid-round joiner still counts once its cart exists. **Caveat — two populations:** the full ring reports `loss=9330 / win=9` but the recent window is draw-dominated, so an older second source plausibly exists; this card owns the recent cluster only → split out as ANLX-BULK-1.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "ANLX-BULK-1 — older ~2 s `loss` bulk, second pollution source",
+            "notes": "Split out of ANLX-ATTRACT-1, which only ever owned the recent draw cluster. **The ring was reset 07-31, so these are the last readable aggregates** (`/api/analytics?view=list` caps at the newest 1000 rows, and ~19,000 of the ring's 20,000 predated 07-20T19:23Z — that bulk was reachable in aggregate only). Pre-reset summary: `match_started=9719` / `match_ended=9545` from **265 sessions but only 8 clients**; `resultSplit` `loss=9327 / draw=209 / win=9`; `matchesByMode` `quickplay=9523 / solo=22`; `matchesByArena` `classicRecord n=6792 avgMs=1829 avgKos=7.07`, `zanzibar n=2636 avgMs=2316 avgKos=3.68`, `backrooms n=117 avgMs=67277`. Signature (`loss`, ~2 s, `classicRecord`, quickplay) is distinct from the phantom draw cluster (`draw`, `<3 s`, zanzibar/backrooms) — reads like a rig or a script booting and ending rounds in bulk rather than a player path; `rewindRoundClock`-style fast-ends produce exactly this shape. **Next step is free:** the post-reset ring is clean, so just re-pull `npm run analytics:pull` after normal play — if ~2 s `loss` rows reappear, the source is still live and the emitting client/session is now isolable (8 clients became 1–2). Do not re-derive from the numbers above; they are a snapshot, not evidence of an active emitter.",
             "ship1": null
           },
           {

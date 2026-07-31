@@ -2,7 +2,7 @@
 
 > Historical log. Past entries may still say "Cart Rave" / `next-level` — that is intentional. Living naming rules: [brand.md](../brand.md).
 
-**Last Updated:** July 20, 2026
+**Last Updated:** July 31, 2026
 
 > **This doc = the past** — the single home for historical/completed items. For what works
 > *today* see [project-state.md](./project-state.md); for forward plans see [ROADMAP.md](./ROADMAP.md).
@@ -10,6 +10,61 @@
 Chronological record of shipped work, newest first.
 
 > **Convention:** As items ship, move their completed writeup here (out of ROADMAP.md / project-state.md).
+
+---
+
+### July 21–31, 2026 – Tier A drain, Tier B/C feel, security sweep, analytics gating
+
+Archived out of STATUS.md's active queue once closed (STATUS carries only live cards).
+Live-at values are the deployed commit / Cloudflare Version at close.
+
+| # | Work | Outcome |
+|---|------|---------|
+| **A1** | host hitch forensics | `hiddenDuringGap` latch shipped + validated (a real 6.55s tab-out caught cleanly) — instrumentation proven |
+| **A1** | COUNTDOWN-WARM-1 fly-over camera shader/composer stall | ✅ PASS (Wyatt playtest 07-22) |
+| **A1** | COUNTDOWN-SYNC-1 non-host countdown clock-domain sync | ✅ PASS (Wyatt playtest 07-22; empty-quickplay edge case logged to BACKLOG) |
+| **A1** | Intel-as-host capture (original chronic-freeze question) | ✅ PASS (Wyatt confirmed 07-22) |
+| **A2** | INPUT-KB-1 keyboard digital-to-analog ease + menu nav | ✅ confirmed good by Wyatt |
+| **A3** | MP-FX-1 non-host gameplay VFX parity | ✅ PASS (Wyatt playtest 07-22: opponent charge glow + hop land dust/thud on non-host) |
+| **A4** | ARENA-COL-1 Cart Rave pit KO detection & kill-zone reliability | ✅ PASS (Wyatt playtest 07-22 — rim entry pose/time → `buildKOEvent`) |
+| **A5** | SRV-TEST-1 direct tests for party decision cores | ✅ done (A5a helpers + A5b DO harness; 739 tests at close) |
+| **A6** | NET-SIM-1 reconnect / socket-lifecycle sims | ✅ closed (Cap-200 shipped + menu PASS; hostReload 13/13) |
+| — | COUNTDOWN-ARM-1 play-ready-gated continuous `game_start` | ✅ PASS (Wyatt smoke 07-22 on `e08e5f5` — full 3-2-1) |
+| **A7** | ANLX-VIEW-1 analytics reading surface (`analytics:pull` + CC panel) | ✅ PASS (Wyatt smoke 07-22) |
+| **B2** | CARGO-WT-1 life-scoped grocery weight (boss/glass) | ✅ closed (Wyatt feel accept 07-22; look → CARGO-VIS-1) |
+| **B3** | HIT-FEEL-1 hit feedback — weak normals + noisy incoming | ✅ PASS (Wyatt playtest 07-22) |
+| — | ARENA-BAL-1 Sundial + Storerooms self-KO rate | ✅ closed (Wyatt 07-22, no code) |
+| — | QA-STATUS-1 STATUS token overage broke `qa` | ✅ closed — 07-21 log archived, queue reordered |
+| — | HYGIENE-1 4-item sweep | ✅ closed 07-30 — sourcemaps off · boot-error filter · 3 stale remotes deleted · profiler `--dpr`; default branch → `cart-clash` |
+| **C2** | CARGO-VIS-1 full-bay fill + rim overflow look | ✅ closed (Wyatt prod playtest PASS 07-30 on `b13bafb`) |
+| — | WARM-IGPU-1 first-play warm stall swallows countdown (medium iGPUs) | ✅ CLOSED — prod playtest PASS 07-30 on `a9dbc7d`. Solo residual = WARM-SOLO-1 ([plan](./warm-igpu-1.md)) |
+| — | CARGO-HUD-1a cargo-readout mock, 3-state | ✅ closed 07-30 — nameplate placement + score-strip chip look |
+| — | CARGO-HUD-1 opponent cargo readout on the nameplate | ✅ PASS (Wyatt 07-30) — live at `38d0dfc` / Version `f8e8da1f` ([card](./cargo-hud-1.md)) |
+| — | SKYBOX-1 restore never-built `sceneExtras` skybox (review C-01) | ✅ closed 07-30 — live at `c074c2a` / Version `8e5bb259`; LOW tier-gated per Wyatt (`skyExtras` knob), UFO-in-pit bug fixed |
+| — | SEC-BEACON-1 rate-limit the open POST beacons | ✅ CLOSED 07-30 — live at `65dea12` / Version `255d6284`. Per-IP 30/60s inside each log DO (budget per-DO, not shared). Live flood probe: 30 accepted, 429 at #31. Wyatt playtest PASS |
+| — | SEC-UNLOCK-1 DEV-gate `?devUnlocks=all` (`=off` deliberately kept) | ✅ CLOSED 07-30 — live at `64eff60` / Version `56439ef4`, prod-verified |
+| — | SEC-ROUTE-1 Worker `/api/*` routes `includes()` → exact `===` ×4 | ✅ CLOSED 07-30 — live at `8da2575` / Version `268f6ff2`, prod-verified. Also fixed a live 500: unmatched paths returned null from `fetch()` → now 404 |
+| — | ANLX-ATTRACT-1 mid-round joins booked phantom matches | ✅ CLOSED 07-31 — live at `2e85f0b` / Version `4083335f`. Acceptance below |
+
+**ANLX-ATTRACT-1 acceptance (07-31).** The agreed counting metric could not decide it: the
+`<3 s` + `result=draw` cluster in the newest 1000 rows is 161 rows dated **07-20 (53) and
+07-21 (108)** and **zero since 07-22** — it stopped growing eight days *before* the fix
+deployed, and no multi-client quickplay traffic ran in between. `/api/analytics?view=list`
+caps at the newest 1000 rows, so a low-traffic week makes that window read as "recent" when
+it is stale. Closed instead on a live two-client probe against production on `2e85f0b`
+(prod `?diag=1` → `__ccDiag.snapshot("analytics"|"round"|"net")`, `sink=beacon`):
+
+| Signal | Result |
+|---|---|
+| Clients that adopted `phase=running` while unseated (`player_quit reason=joinRejected, phase=running`) | 2 → **zero `match_started`** |
+| Transient phantom window (`running` + menu visible + `body=null`) | queue held at 1 (`session_start`); grew **only** when the cart body appeared |
+| `match_started` emitted | 7, **every one carrying `joinedMidRound`** (6 `true`, 1 `false`) |
+| `<3 s` + `draw` `match_ended` produced | 0 |
+
+`joinedMidRound:true` is the discriminator — that prop is reachable only through the
+participation latch (`emitStarted(true)` in `pollParticipation`); the un-gated phase-transition
+path stamps `false`. Both halves hold: phantoms suppressed, real mid-round joins still counted.
+Evidence rows `#34366`–`#34383` in the analytics ring (wiped by the subsequent DO reset).
 
 ---
 
