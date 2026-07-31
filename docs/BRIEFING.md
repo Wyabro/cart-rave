@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (also runs inside `npm run qa`).
-> Generated 2026-07-31 at commit `ae150e0` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
-> Source digest: `f29a12c7`
+> Generated 2026-07-31 at commit `0da5c4c` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
+> Source digest: `3e67fc66`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -18,7 +18,7 @@ Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep a
 
 ## ACTIVE CARD
 
-Wyatt: one playtest clears three cards. Everything below is live on Version `85087c10`
+No active card — Wyatt names the next residual (or declares "wait"). The board is
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 
@@ -28,7 +28,7 @@ Self-directed queue (one at a time, within the declared phase):
 
 ## Waiting on Wyatt (not agent work)
 
-- **HUD-FEED-1 · MENU-HINT-1 · HUD-CHIPS-1** three responsive UI defects from Wyatt's phone footage — ✅ ALL SHIPPED 07-31 — live on Version `85087c10`, asset-verified (feed ceilings 400 ×2, touch-label rule,…
+- **HUD-FEED-1 · MENU-HINT-1 · HUD-CHIPS-1** three responsive UI defects from Wyatt's phone footage — ✅ CLOSED 07-31 — Wyatt playtest PASS on all three (phone, mid-round, post-KO, portrait + landscape), on the…
 
 ## Do not
 

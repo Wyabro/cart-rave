@@ -121,8 +121,8 @@ evidence in [completed-work.md](./planning/completed-work.md) — only live card
 |---|------|--------|
 | **ANLX-ATTRACT-1** | mid-round joins booked phantom matches | ✅ **CLOSED** 07-31 — live at `2e85f0b` / Version `4083335f`. Live two-client prod probe: 2 clients adopted `phase=running` while unseated → **0 `match_started`**; all 7 emitted starts carried `joinedMidRound` (6 `true`, 1 `false`); 0 `<3 s` draws. Counting metric could not decide it (cluster died 07-22, pre-fix) — [full acceptance](./planning/completed-work.md) |
 | **SHEET-1** | in-match contact-sheet tool (`npm run sheet`) | ✅ **BUILT + PROVEN** 07-31 — `5f3c8ab` makeClient viewport/RM passthrough · `a4c8d6b` tools/sheet.mjs + montage · `9489a8b` DEV-only `forceKillFeed`. `--all` = 9 viewports, 54/54. Per cell: solo boot → pin (asserted `ok`) → subject-is-HUD gate → full PNG + canvas/nametag-hidden chrome PNG. Caught HUD-FEED-1 on first use. [card](./planning/sheet-1.md) |
-| **HUD-FEED-1 · MENU-HINT-1 · HUD-CHIPS-1** | three responsive UI defects from Wyatt's phone footage | ✅ **ALL SHIPPED** 07-31 — live on Version `85087c10`, asset-verified (feed ceilings 400 ×2, touch-label rule, hintbar hidden, stale 320s gone). Seven commits `70c3887`→`ae150e0`. **All three owed one Wyatt playtest** (Next actions 1). Full diagnoses + measurements in [BACKLOG](./planning/BACKLOG.md); the load-bearing causes are in Do-not-relearn below. Residual: touch chip labels sit ~20 px under natural width at 1200 even though the region (696) is inside its cap (912) |
-| **FIGHT-VERIFY-1** | owed fight-night verification | 🟡 **agent half PARTIAL** — sheet proves feed · score strip · timer · directive chip · boost bar at 12 widths (landscape added `cd73e77`). Still unreachable: loading screens (`makeClient` seeds `cartRaveBootSeen`), hover/press (needs interaction), podium, **and anything touch-only — `makeClient` never sets `hasTouch`, so every cell runs non-touch**. Wyatt half = playtest |
+| **HUD-FEED-1 · MENU-HINT-1 · HUD-CHIPS-1** | three responsive UI defects from Wyatt's phone footage | ✅ **CLOSED** 07-31 — **Wyatt playtest PASS on all three** (phone, mid-round, post-KO, portrait + landscape), on the shipped Version `85087c10`. Seven commits `70c3887`→`ae150e0`; asset-verified (feed ceilings 400 ×2, touch-label rule, hintbar hidden, stale 320s gone). Full diagnoses + measurements in [BACKLOG](./planning/BACKLOG.md); load-bearing causes in Do-not-relearn below. Residual (cosmetic, unowned): touch chip labels sit ~20 px under natural width at 1200 even though the region (696) is inside its cap (912) |
+| **FIGHT-VERIFY-1** | owed fight-night verification | 🟡 **agent half PARTIAL** — sheet proves feed · score strip · timer · directive chip · boost bar at 12 widths (landscape added `cd73e77`; **touch pass added `0da5c4c` — `makeClient` now sets `hasTouch`/`isMobile`, 4 touch cells in `--all`**, so `#hud.hud-touch` rules are no longer invisible). Still unreachable: loading screens (`makeClient` seeds `cartRaveBootSeen`), hover/press (needs interaction), podium. Wyatt half = playtest |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
 | BRAND-1 | Domain cutover | 🧊 frozen |
 
@@ -132,28 +132,22 @@ its superseded triage docs moved to [completed-work.md](./planning/completed-wor
 
 ### Next actions
 
-1. **Wyatt: one playtest clears three cards.** Everything below is live on Version `85087c10`
-   but unseen by a human. On a phone, mid-round, after a KO — portrait AND landscape:
-   (a) HUD-FEED-1 — feed row sits INSIDE its receipt plate; names read as identifiable stubs
-   or in full (`SHEETBOT RAMMED 2.0X CARTNAPPER`), not `BA…`/`SHE…`; the wider feed does not
-   crowd the timer or directive banner. (b) HUD-CHIPS-1 — score chips print names in
-   landscape (≥900 px) and stay name-less on a narrow portrait phone. (c) MENU-HINT-1 — menu
-   at a narrow width, scrolled to the bottom: no hint bar at all, nothing overlapping the
-   settings panel. Prod has no `forceKillFeed` lever (DEV-only), so the feed needs a real KO;
-   the agent side could only verify the deployed CSS, never the live pixels.
-2. **Close the sweep's blind spots** (the reason three of today's bugs reached production).
-   `npm run sheet --all` gained landscape cells this session but still runs **non-touch**, so
-   every `#hud.hud-touch` rule is invisible to it — that is how HUD-CHIPS-1 survived a
-   nine-cell sweep. Add `hasTouch` to `makeClient` (`tools/lib/harness.mjs`) plus a touch pass
-   in `ALL_VIEWPORTS`. Small, and it pays for itself immediately.
-3. **FIGHT-VERIFY-1** — the surfaces the sheet still cannot reach (loading screens,
-   hover/press, podium). Decide whether those want more tooling or just your eye.
+1. **No active card — Wyatt names the next residual** (or declares "wait"). The board is
+   clear of owed work: HUD-FEED-1 / MENU-HINT-1 / HUD-CHIPS-1 all passed Wyatt's phone
+   playtest on Version `85087c10`, and the sweep's touch blind spot is closed at `0da5c4c`.
+2. **FIGHT-VERIFY-1** — the only live agent card, and only its unreachable surfaces remain:
+   loading screens (`makeClient` seeds `cartRaveBootSeen`), hover/press, podium. Decide
+   whether those want more tooling or just your eye.
+3. **The post-reset analytics ring is the clean read on ANLX-BULK-1.** A session of normal
+   play on the live build now says whether the `~2 s loss` source is still active.
 
 Cleared 07-31, in the required order: ANLX-ATTRACT-1 acceptance (closed on a live
 two-client prod probe, not on counting — [evidence](./planning/completed-work.md)), the
 analytics-DO reset (`DELETE /api/analytics?token=…`, 20,000 rows → 0) once the pre-reset
-aggregates were filed as ANLX-BULK-1, then SHEET-1 built, and HUD-FEED-1 / MENU-HINT-1 /
-HUD-CHIPS-1 found and shipped. **The reset ring is collecting again on the live build** — a
+aggregates were filed as ANLX-BULK-1, then SHEET-1 built, HUD-FEED-1 / MENU-HINT-1 /
+HUD-CHIPS-1 found and shipped **and confirmed by Wyatt's phone playtest (all three PASS,
+portrait + landscape)**, and finally the sweep's touch blind spot closed (`0da5c4c`).
+**The reset ring is collecting again on the live build** — a
 session of normal play now gives a clean read on whether ANLX-BULK-1's `~2 s loss` source is
 still active.
 
@@ -295,6 +289,16 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
+2026-07-31 (responsive UI trio CLOSED on a human playtest; board has no owed work) — Wyatt
+played one round on a phone against Version `85087c10` and passed all three checks: kill-feed
+row inside its receipt plate with full names, score chips named in landscape and name-less in
+portrait, menu hint bar gone at narrow width. That was the last human-owed gate on
+HUD-FEED-1 / MENU-HINT-1 / HUD-CHIPS-1. The sweep blind spot that let those three reach
+production is closed at `0da5c4c` (`makeClient` sets `hasTouch`/`isMobile`; 4 touch cells in
+`npm run sheet --all`). **No active card** — FIGHT-VERIFY-1's remaining surfaces (loading
+screens, hover/press, podium) are the only live agent work, and the phase marker stays on
+Playtesting & stabilization until Wyatt moves it.
+
 2026-07-30 (seven cards closed; SKYBOX-1 open on Wyatt's eyes) — Full per-card detail:
 [archive/status-log-2026-07-30.md](./archive/status-log-2026-07-30.md). **Closed:** QA-STATUS-1
 (qa gate unblocked) · HYGIENE-1 (prod sourcemaps off, boot-error telemetry widened, default
@@ -314,26 +318,9 @@ telemetry-gated). **Deploy gotcha:** each edge PoP
 revalidates HTML independently — for ~30s a root fetch may name the old entry or alternate;
 poll several times before judging a deploy failed.
 
-2026-07-23 (UI — fight-night redesign MERGED + DEPLOYED to production) — PR #3 merged into
-`cart-clash` (merge commit `56dfa61`), then shipped via `npm run ship`. Live prod bundle carries
-`sha:56dfa61` (**verified against the fetched asset**, not the upload log), entry
-`index-ekljSWqj.js`, Worker Version `3f681e27-68e0-4992-ba9c-53d3c9ff08df` at
-https://cart-rave.wyabro.workers.dev — supersedes the AI-DIFF-1 bundle `index-Dxyw7U08.js`. Cache
-note: HTML is edge-cached (`CF-Cache-Status: HIT`, `max-age=0 must-revalidate`) — a stale first
-paint resolves on reload, not a failed deploy. The redesign rebuilds **every 2D surface** onto one
-"Fight Night" language: 3a main menu, 6a HUD, 7a–7g sub-screens/ESC/results, both loading screens,
-a game-wide die-cut→slab sweep (locked decision 2 closed, audited against a live DOM), and one
-unified Customize chip recipe. **Verified by DOM geometry + computed styles only — never by eye
-except 7a/7c/3a.** Merge is deliberately for **full verification IN PRODUCTION** (Wyatt): still
-unseen — a live match (HUD + results on a finished round), a two-client friends room (the CHECKOUT
-LINE lobby has never rendered anywhere), a cold boot into each arena (both loading screens unseen
-in their real moment), and every hover/press surface the sweep + chip cut touched. **PARKED:**
-victory confetti + defeat wilt are missing in multiplayer — investigation, leading hypothesis and
-the one-line two-client test that settles it are in the handover under "Known-but-parked". Full
-progress log: [planning/fight-night-ui-handover.md](./planning/fight-night-ui-handover.md).
-
 > **Older entries are archived — search them when you need history this file no longer carries.**
 > Index with date ranges: [archive/README.md](./archive/README.md).
+> - 2026-07-23 — [archive/status-log-2026-07-23.md](./archive/status-log-2026-07-23.md) (Fight Night UI redesign merged `56dfa61` + deployed; owed prod verification → FIGHT-VERIFY-1; MP confetti/wilt parked)
 > - 2026-07-22 — [archive/status-log-2026-07-22.md](./archive/status-log-2026-07-22.md) (AI-DIFF-1 ship · ANLX-VIEW-1 · COUNTDOWN-ARM-1 · A6b false green + fix · plan→ack firewall)
 > - 2026-07-21 — [archive/status-log-2026-07-21.md](./archive/status-log-2026-07-21.md) (ARCH · PARITY · PERF-WARM root cause + reverted gate · WRAP · COUNTDOWN-ABORT-1)
 > - 2026-07-20 → 07-21 — [archive/status-log-2026-07-20-to-21.md](./archive/status-log-2026-07-20-to-21.md)
