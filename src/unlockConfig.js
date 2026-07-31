@@ -28,6 +28,32 @@ import { PROGRESSION_EVENTS } from "./progression/eventIds.js";
 export const DEV_UNLOCKS_STORAGE_KEY = "cartRaveDevUnlocks";
 
 /**
+ * SEC-UNLOCK-1 — decide what a `?devUnlocks=` URL should write to localStorage.
+ *
+ * The two directions are deliberately asymmetric:
+ * - `off` **removes** privileges, so it is harmless from a stranger's link and stays
+ *   available in every build — production FTUE playtests require it
+ *   (docs/playtest/README.md).
+ * - `all` **grants** privileges. Ungated it made `…/?devUnlocks=all` a shareable link
+ *   that permanently unlocked everything, so it is now DEV-only. The manual localStorage
+ *   key and `window.CartClashDevUnlocks` still work in production by design.
+ *
+ * `isDev` is a parameter rather than an `import.meta.env.DEV` read in here on purpose:
+ * vitest runs with DEV true, so reading it internally would make the production branch
+ * untestable.
+ *
+ * @param {string} search Full `location.search` (leading `?` and other params are fine).
+ * @param {boolean} isDev Pass `import.meta.env.DEV` from the caller.
+ * @returns {"all" | "off" | null} Value to persist, or null to leave storage untouched.
+ */
+export function resolveDevUnlockParam(search, isDev) {
+  const raw = new URLSearchParams(search || "").get("devUnlocks");
+  if (raw === "off") return "off";
+  if (raw === "all") return isDev ? "all" : null;
+  return null;
+}
+
+/**
  * Pattern unlock table. `classic` is always free.
  * @type {Record<string, { free?: boolean, event?: string, goal?: number, hint: string }>}
  */

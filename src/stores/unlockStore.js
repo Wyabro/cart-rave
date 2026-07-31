@@ -16,15 +16,15 @@ import {
   FREE_SUNGLASSES,
   FREE_LEVEL,
   DEV_UNLOCKS_STORAGE_KEY,
+  resolveDevUnlockParam,
 } from "../unlockConfig.js";
 
-// * URL one-shot: ?devUnlocks=all|off writes localStorage then can be bookmarked by agents.
+// * URL one-shot: ?devUnlocks=off works in any build; ?devUnlocks=all is DEV-only
+// * (SEC-UNLOCK-1 — see resolveDevUnlockParam). A null result leaves storage untouched.
 if (typeof window !== "undefined") {
   try {
-    const raw = new URLSearchParams(window.location.search || "").get("devUnlocks");
-    if (raw === "all" || raw === "off") {
-      storageSet(DEV_UNLOCKS_STORAGE_KEY, raw);
-    }
+    const next = resolveDevUnlockParam(window.location.search || "", Boolean(import.meta.env.DEV));
+    if (next) storageSet(DEV_UNLOCKS_STORAGE_KEY, next);
   } catch {
     /* ignore */
   }
