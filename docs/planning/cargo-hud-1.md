@@ -1,9 +1,8 @@
 # CARGO-HUD-1 — opponent cargo readout (nameplate)
 
-**Status:** ✅ **BUILT 07-30** (acked by Wyatt) — awaiting his playtest to close; not deployed.
-Landed exactly as specced: `cargoTierFor()` in `cargoLoad.js`, chip built into
-`nametagHtml()` (`main.js:112`) and passed from `updateNameLabels` (`:3695`), `em`-sized CSS
-beside `.cart-nametag` in `hud.css`. 5 unit tests; qa 780/780.
+**Status:** ✅ **CLOSED** — Wyatt PASS 07-30; live at `38d0dfc` / Version `f8e8da1f`
+([completed-work](./completed-work.md)). Built as specced: `cargoTierFor()` in `cargoLoad.js`,
+chip in `nametagHtml()` / `updateNameLabels`, `em`-sized CSS on `.cart-nametag` in `hud.css`.
 **Verified:** all three tiers rendered from real spawn state at countdown (baselinePoints
 8/3/0 → boss/stocked/stripped on all four plates); chip 17.8px → 10.6px as the plate steps
 24px → 13px, fits at 1920/1366/390.

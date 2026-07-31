@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-07-31T22:02:49.412Z",
-    "commit": "a1562e3"
+    "at": "2026-07-31T22:07:27.772Z",
+    "commit": "0ad8a3e"
   },
-  "source_digest": "cf2e2da3",
+  "source_digest": "84a96fdc",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -859,14 +859,20 @@
       {
         "id": "ANLX-BULK-1",
         "what": "short scripted `loss` bulk in analytics",
-        "status": "✅ CLOSED 07-31 — Phase A: 306 × 4–12 ms timer/kos=24 on Wyatt client `23dd1d07-…` (prod). L1+L2 + `MIN_MATCH_DURATION_MS=3000` (`shared/analyticsConstants.js`); product metrics filtered; byName raw (P-A). Unpushed until ship.",
+        "status": "✅ CLOSED + SHIPPED 07-31 — L1+L2 + `MIN_MATCH_DURATION_MS=3000`; live after `a1562e3` deploy. Product metrics filtered; byName raw (P-A).",
+        "state": "done"
+      },
+      {
+        "id": "SEC-TOKEN-1",
+        "what": "admin token out of query string",
+        "status": "✅ CLOSED + SHIPPED 07-31 — Bearer only (`party/adminAuth.ts`); `0ad8a3e` / Version `60e4718a…`.",
         "state": "done",
         "touches_systems": [
           {
-            "id": "shared-protocol",
-            "name": "Shared protocol",
+            "id": "diagnostics-observability",
+            "name": "Diagnostics & observability",
             "files": [
-              "shared/analyticsConstants.js"
+              "party/adminAuth.ts"
             ]
           }
         ]
@@ -912,9 +918,9 @@
       }
     ],
     "next_actions": [
-      "No active card — Wyatt names the next residual (or declares \"wait\"). HUD UI trio",
-      "FIGHT-VERIFY-1 — the only live agent card, and only its unreachable surfaces remain:",
-      "After ANLX-BULK-1 ships: `npm run analytics:pull` — arena/mode/result should ignore"
+      "No active card — Wyatt names the next residual (or declares \"wait\"). High open",
+      "FIGHT-VERIFY-1 — residual surfaces sheet still can't reach: loading screens",
+      "High art/you-led: CART-MODEL-1 · bloom sign-off · RESULTS-1 · INPUT-KB-1 playtest after code."
     ],
     "open_issues": [
       {
@@ -944,11 +950,11 @@
       {
         "title": "Engineering",
         "counts": {
-          "Medium": 15,
-          "Done": 11,
+          "Medium": 13,
+          "Done": 18,
           "Low": 4,
           "Partial": 1,
-          "High": 6
+          "High": 1
         },
         "rows": [
           {
@@ -1006,9 +1012,9 @@
             "ship1": null
           },
           {
-            "pri": "Medium",
+            "pri": "Done",
             "item": "ANLX-VIEW-1 — player-analytics view `[SHIP-1 A7]`",
-            "notes": "✅ PASS 07-22 — `npm run analytics:pull` + CC Analytics panel. **Before public playtest: `DELETE /api/analytics`.**",
+            "notes": "✅ PASS 07-22 — `npm run analytics:pull` + CC Analytics panel. Admin clear is Bearer (SEC-TOKEN-1), not `?token=`.",
             "ship1": "A7"
           },
           {
@@ -1054,15 +1060,15 @@
             "ship1": "A1"
           },
           {
-            "pri": "High",
+            "pri": "Done",
             "item": "SRV-TEST-1 — direct tests for `party/index.ts` `[SHIP-1 A5]`",
-            "notes": "**Done** (A5a pure helpers + A5b DO harness). Extend scenarios under A6.",
+            "notes": "✅ Done (A5a pure helpers + A5b DO harness). Further scenarios → NET-SIM-1 / A6.",
             "ship1": "A5"
           },
           {
             "pri": "Medium",
             "item": "NET-SIM-1 — socket-lifecycle netharness scenarios `[SHIP-1 A6]`",
-            "notes": "**A6a done (unpushed):** party-do silent-reap + ghost 4010. **A6b done (unpushed):** netharness `hostReload`. P2P zombie + reconnect cooldown already unit-covered.",
+            "notes": "A6a (party-do silent-reap + ghost 4010) + A6b (netharness `hostReload`) landed; extend as needed. P2P zombie + reconnect cooldown already unit-covered. (Drop stale \"unpushed\" wording — verify against tree if reopening.)",
             "ship1": "A6"
           },
           {
@@ -1072,27 +1078,27 @@
             "ship1": null
           },
           {
-            "pri": "High",
+            "pri": "Done",
             "item": "SKYBOX-1 — restore never-built `sceneExtras` (review C-01)",
-            "notes": "`main.js:2361` stub → `null`; delete shadowing local `disposeSceneExtras` (`:2465` — kills the `:148` import); wire real disposer into level teardown. 991 lines of Classic skybox/planets/spotlights have never rendered. **Runs after WARM-IGPU-1 Phase 1** (else re-run P0 cold-cache captures with skybox on). Wyatt eyes close. Re-observe \"arena visuals persisting\" afterwards — review killed both prior hypotheses.",
+            "notes": "✅ closed 07-30 — live at `c074c2a` / Version `8e5bb259`; LOW tier-gated (`skyExtras` knob); UFO-in-pit fixed. [completed-work](./completed-work.md).",
             "ship1": null
           },
           {
-            "pri": "High",
+            "pri": "Done",
             "item": "SEC-BEACON-1 — harden open POST beacons",
-            "notes": "Before external testers. `/api/log-error`/`captures`/`analytics` have body caps only (100k/350k/64k); ring caps 2000/80/20000 mean a flood evicts real crash rows on our write billing. Add rate limit; extract IP-cap `5` (`party/index.ts:861`) into constants.ts; dedupe 4× release logic (`:498/:831/:963/:1115`) into one `#releaseIp`; tests on the A5b DO harness (zero today).",
+            "notes": "✅ CLOSED 07-30 — live at `65dea12` / Version `255d6284`. Per-IP 30/60s inside each log DO. [completed-work](./completed-work.md).",
             "ship1": null
           },
           {
-            "pri": "High",
+            "pri": "Done",
             "item": "SEC-UNLOCK-1 — DEV-gate `?devUnlocks=all`",
-            "notes": "Before external testers. `src/stores/unlockStore.js:22-31` ran ungated in prod — a shared `?devUnlocks=all` link permanently unlocked everything. **Scope narrowed at ack: `=all` only.** `?devUnlocks=off` stays live in every build — it only removes privileges and playtest Session 2 requires it on a prod build (`docs/playtest/README.md:83`). Manual localStorage + `CartClashDevUnlocks` overrides kept by design; the false \"manual override only\" header claim fixed.",
+            "notes": "✅ CLOSED 07-30 — live at `64eff60` / Version `56439ef4`. `=off` stays all builds. [completed-work](./completed-work.md).",
             "ship1": null
           },
           {
-            "pri": "High",
+            "pri": "Done",
             "item": "SEC-ROUTE-1 — Worker routes `includes()` → exact `===`",
-            "notes": "✅ Done 07-30 (`8da2575`). `party/index.ts:1553/1580/1615/1730` matched on `pathname.includes(...)`, so any path *containing* the substring routed there. **Tightened at ack to exact `===`, not `startsWith`** — these routes have no sub-paths (options ride the query string) and the log DOs' internal handlers already use `===`. `startsWith(\"/parties/\")` at `:1790` stays: that one is a real prefix route. Shipped with a 404 fallback — `routePartykitRequest` returns null for unmatched paths and returning null from `fetch()` 500s.",
+            "notes": "✅ Done 07-30 (`8da2575` / Version `268f6ff2`). Exact `===` on /api/*; `/parties/` stays prefix.",
             "ship1": null
           },
           {
@@ -1144,9 +1150,9 @@
             "ship1": null
           },
           {
-            "pri": "Medium",
+            "pri": "Done",
             "item": "SHEET-1 — in-match contact-sheet tool",
-            "notes": "**Plan ACK'D 07-30 — full detail in [sheet-1.md](./sheet-1.md); do not re-plan.** `tools/sheet.mjs` boots via `makeClient({room:\"solo\", diag:1, perfPump:1, harness:1})` + `waitForState(phase===\"running\")`, fresh page per cell, `{w,h}` viewport tuples (small default + `--all`). **Blocked on ANLX-ATTRACT-1 acceptance then the DO reset** — it boots solo rounds, which would muddy that acceptance signal. **Blackframes pre-check DONE (07-30): false-black DISPROVEN** (0.5517 headless / 0.2042 live; a cleared buffer reads ~1.0) — do not re-run it. Scope narrowed at ack: in-match HUD responsive sweep + reduced-motion stills only; loading screens, hover/press and menu Pass-1 identity are NOT covered.",
+            "notes": "✅ **BUILT + PROVEN** 07-31 — `npm run sheet` / `--all`; subject-is-HUD gate; touch pass `0da5c4c`. Residual gaps are FIGHT-VERIFY-1 (loading / hover / podium). [sheet-1.md](./sheet-1.md).",
             "ship1": null
           },
           {
@@ -1178,8 +1184,9 @@
       {
         "title": "Art",
         "counts": {
-          "High": 3,
+          "High": 2,
           "Medium": 2,
+          "Done": 1,
           "Low": 2
         },
         "rows": [
@@ -1208,9 +1215,9 @@
             "ship1": "C3"
           },
           {
-            "pri": "High",
+            "pri": "Done",
             "item": "CARGO-VIS-1 — basket fill + overflow look `[SHIP-1 C2]`",
-            "notes": "Pre-ship: groceries must **fill the full basket** and **overflow the top** at boss/full life-cargo. Count ramp exists (CARGO-WT-1); layout/scale/pile still wrong. Prefer after C1 new basket; can prototype on current bay if needed.",
+            "notes": "✅ closed 07-30 — Wyatt prod playtest PASS on `b13bafb`. [completed-work](./completed-work.md).",
             "ship1": "C2"
           },
           {
@@ -1352,10 +1359,10 @@
       {
         "title": "UI / UX",
         "counts": {
-          "High": 4,
+          "High": 3,
           "Medium": 4,
           "Low": 1,
-          "Done": 1
+          "Done": 2
         },
         "rows": [
           {
@@ -1407,15 +1414,15 @@
             "ship1": null
           },
           {
-            "pri": "High",
+            "pri": "Done",
             "item": "CARGO-HUD-1 — opponent cargo readout (nameplate)",
-            "notes": "**Card written, awaiting ack:** [cargo-hud-1.md](./cargo-hud-1.md). Display-only — `lifeCargoPoints` already on both wire paths (netcode.js:1775 / :1267; binary.js:117/:248), zero cargo refs in hud.js today. 3 states (stripped/stocked/boss) as a slab chip on `.cart-nametag`; rides the existing per-frame diff-gated `updateNameLabels` cache, so one `innerHTML` write per transition. Seam: `cargoTierFor()` in cargoLoad.js. The gap it closes: boss incoming-ram 0.52× vs stripped 1.32× — the harder-to-see half carries the bigger swing.",
+            "notes": "✅ PASS Wyatt 07-30 — live at `38d0dfc` / Version `f8e8da1f`. [cargo-hud-1.md](./cargo-hud-1.md) · [completed-work](./completed-work.md).",
             "ship1": null
           },
           {
             "pri": "High",
             "item": "UI-SCALE-1 — responsive root-scale migration",
-            "notes": "Two passes per [responsive-scale-migration.md](./responsive-scale-migration.md): one fluid root (`html { font-size: clamp(0.75rem, min(0.84vw, 1.5svh), 1rem) }`), clamps → `(max÷16)rem`, media queries STAY px (rem in MQs resolves against initial root — silent mis-evaluation). **Pass 1 also does ≤768 reflow structure — Wyatt 07-30: phone = fewer elements, not same-menu-smaller.** Blocked on SHEET-1. Sequential single-owner, no fan-out (one coupled CSS system). Safety invariant: ≥1920 renders pixel-identical pre/post (every clamp already saturates at max there).",
+            "notes": "Two passes per [responsive-scale-migration.md](./responsive-scale-migration.md): fluid root + rem clamps; media queries stay px. **Pass 1 also does ≤768 reflow — phone = fewer elements.** SHEET-1 unblocked (tool exists). Sequential single-owner. Safety: ≥1920 pixel-identical pre/post.",
             "ship1": null
           }
         ]
