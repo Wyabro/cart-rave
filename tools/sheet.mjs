@@ -55,7 +55,15 @@ const DEFAULT_CELLS = [
   { w: 1920, h: 1080, rm: true },
 ];
 
-/** `--all`: the UI-SCALE-1 union plus the FIGHT-VERIFY-1 pairs (deduped by {w,h,rm}). */
+/**
+ * `--all`: the UI-SCALE-1 union plus the FIGHT-VERIFY-1 pairs (deduped by {w,h,rm}).
+ *
+ * The landscape-phone row is not decoration. The first `--all` sweep was portrait-only, so
+ * it proved the kill feed at nine widths and still missed that landscape phones take a
+ * different CSS branch entirely (`orientation: landscape and max-height: 600px`) with its
+ * own width cap — a defect that only surfaced when Wyatt filmed production at 900×390.
+ * Any HUD rule with an orientation-scoped twin is invisible to a portrait-only matrix.
+ */
 const ALL_VIEWPORTS = [
   { w: 3440, h: 1440 },
   { w: 1920, h: 1080 },
@@ -66,6 +74,10 @@ const ALL_VIEWPORTS = [
   { w: 1025, h: 600 },
   { w: 1024, h: 768 },
   { w: 380, h: 800 },
+  // Landscape phones — the `max-height: 600px` branch.
+  { w: 900, h: 390 },
+  { w: 812, h: 375 },
+  { w: 667, h: 375 },
 ];
 
 /**

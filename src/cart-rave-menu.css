@@ -3596,14 +3596,21 @@ html, body {
        a ResizeObserver); 92px stays as the fallback for the first paint and for no-JS. */
     padding: 24px 16px calc(var(--cr-hintbar-h, 92px) + 16px);
   }
-  /* …and the bar has to leave the scroll flow to be chrome at all. `.cr-content` is both
-     positioned AND overflow-y:auto here, so an absolutely-positioned child anchors to its
-     padding box and SCROLLS WITH the content: at the bottom of the menu the bar had drifted
-     up into the middle of the panel and sat on top of the cart-name card. Fixed pins it to
-     the viewport, which is what the reserve above assumes. Desktop keeps `absolute` — there
-     `.cr-content` is overflow:hidden, so it never scrolls and the bar is already correct. */
+  /* The bar is desktop chrome. On the stacked mobile menu it costs 52–137px of a short
+     screen to print keyboard/gamepad key hints that a touch player cannot act on, and it
+     was the thing overlapping the settings panel in the first place — so it simply does not
+     render here. The reserve above needs no special case: a hidden bar measures 0, so
+     `calc(var(--cr-hintbar-h) + 16px)` collapses to a normal 16px bottom padding on its own.
+
+     `position: fixed` stays for the same rule's sake — if the bar is ever shown at this
+     width again it must be chrome, not a block in the scroll flow. `.cr-content` here is
+     both positioned AND overflow-y:auto, so an absolutely-positioned child anchors to its
+     padding box and SCROLLS WITH the content: that is how it ended up drifting into the
+     middle of the panel, on top of the cart-name card. Desktop keeps `absolute` — there
+     `.cr-content` is overflow:hidden, never scrolls, and the bar is already correct. */
   .cr-hintbar {
     position: fixed;
+    display: none;
   }
   .cr-hero, .cr-plate, .cr-context {
     position: static; inset: auto; right: auto; left: auto; bottom: auto; top: auto;

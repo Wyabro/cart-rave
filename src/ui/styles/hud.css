@@ -953,8 +953,11 @@
     /* Ceiling raised 280 → 320 with the vw: at 280 the ceiling bound across the whole
        384–768 range, so the feed truncated names on a tablet with half the screen empty.
        At 78vw the vw binds again on a phone (304px at 390w) and the ceiling takes over by
-       ~410w, which is where the extra width stops being needed. */
-    max-width: min(78vw, 320px);
+       ~410w. Ceiling 320 → 400 for the same reason as the landscape leg: the row's type is
+       vw-clamped and maxes out around 1200w, so rigid grows while a fixed ceiling does not,
+       and a ~10-char pair (BAGRATTLER / SHELFSHARK) needs ~355px of row. Portrait phones are
+       unaffected — 78vw still binds below ~510w. */
+    max-width: min(78vw, 400px);
   }
   /* …and the names still ellipsize as the safety net, so a long pair truncates inside the
      plate instead of escaping it. Same rules the landscape/short block already used; they
@@ -1076,9 +1079,15 @@
     /* HUD-FEED-1, landscape leg: the ceiling was 240px and it BOUND on every common
        landscape phone (42vw is 378px at 900w, 341px at 812w), leaving ~60px for two names
        against a ~150px rigid row — captured live at 900×390 as "BA… PUNTED 1.5X FRE…",
-       the same illegibility the portrait leg already fixed. 320px matches the portrait
-       ceiling; 42vw still binds on narrow landscape (280px at 667w). */
-    max-width: min(42vw, 320px);
+       the same illegibility the portrait leg already fixed. 42vw still binds on narrow
+       landscape (280px at 667w).
+
+       320 → 400 after Wyatt's 1200×528 capture still read "BAG… BODIED 2.0X SHE…": the row's
+       type is vw-clamped and hits its MAX around 1200w (icon 18, verb 74, pip 43 vs 14/59/37
+       at 900w), so rigid grows 134 → 159 while a fixed ceiling does not — a wider screen got
+       a WORSE name budget. Real cart names run ~10 chars (BAGRATTLER, SHELFSHARK ≈ 98px each
+       at max type), so two of them plus 159 rigid needs ~355px of row ≈ 400px of region. */
+    max-width: min(42vw, 400px);
   }
   #hud .hud-feed-row {
     flex-wrap: nowrap;
