@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-07-31T05:17:42.816Z",
-    "commit": "93d4830"
+    "at": "2026-07-31T05:37:35.065Z",
+    "commit": "d324687"
   },
-  "source_digest": "529bd4eb",
+  "source_digest": "4087c5ee",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -919,7 +919,7 @@
         "counts": {
           "Medium": 16,
           "Done": 6,
-          "Low": 5,
+          "Low": 6,
           "Partial": 1,
           "High": 6
         },
@@ -935,6 +935,12 @@
             "item": "COUNTDOWN-SYNC-1 — countdown beat desync / \"skips\" `[SHIP-1 A1]`",
             "notes": "Fixed (07-21): retroactively fire missed \"1\" beat, staggered 220ms before GO + host-domain clock sync. Confirmed good by Wyatt in playtest (07-22).",
             "ship1": "A1"
+          },
+          {
+            "pri": "Low",
+            "item": "DIAG-DOC-1 — three docs call `__ccDiag.control` DEV-only; `?diag=1` attaches it in prod",
+            "notes": "Comment/JSDoc only, no behavior change — but it has already misled one code review of SHEET-1, which concluded the contact-sheet pin would silently no-op in prod. Truth is `main.js:1577`: `devControl` attaches when `import.meta.env.DEV \\",
+            "ship1": null
           },
           {
             "pri": "Low",
