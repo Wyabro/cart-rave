@@ -1796,9 +1796,19 @@
   padding: clamp(5px, 1.2vw, 8px) clamp(8px, 1.8vw, 12px) clamp(5px, 1.2vw, 8px) clamp(10px, 2vw, 14px);
   gap: clamp(5px, 1.2vw, 8px);
 }
+/* Touch chips drop the player name so four boxes fit across a phone. That was
+   UNCONDITIONAL, though, so a 1200×528 landscape tablet — where all four names measure at
+   natural width with room to spare — also printed a bare icon, number and barcode, and
+   nothing on screen said whose score was whose. Hide it only where the width genuinely
+   cannot carry it; the badge stays hidden either way. */
 #hud.hud-touch .hud-scoreLabel,
 #hud.hud-touch .hud-scoreBadge {
   display: none !important;
+}
+@media (min-width: 900px) {
+  #hud.hud-touch .hud-scoreLabel {
+    display: block !important;
+  }
 }
 #hud.hud-touch .hud-scoreValue {
   font-size: clamp(12px, 2.8vw, 15px);
