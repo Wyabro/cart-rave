@@ -1,4 +1,6 @@
-// devControl.js — one DEV-only mutation API shared by the panel and diagnostics.
+// devControl.js — shared mutation API for the debug panel and __ccDiag.control.
+// Created from main when DEV || ?diag=1 (prod included under ?diag=1). Most levers require
+// host + running phase; forceKillFeed is the exception (DEV-only via deps.isDev).
 
 import { commandFail, commandOk } from "./commandRegistry.js";
 import { rebuildKOEvent } from "../scoring/koEvent.js";

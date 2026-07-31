@@ -5510,10 +5510,9 @@ async function main() {
   // * while a newer one is deployed. Root cause of the 07-21 "fixes never ran" playtest.
   logBuildBanner();
 
-  // * Gameplay diagnostics hub (?diag → window.__ccDiag, read-only). General complement to
-  // * the netcode + visual harnesses: probes for round/score/announcer/ai/camera/boot/unlocks/
-  // * challenges + a bounded event log. Read surface works in prod builds (QA); the scenario
-  // * control levers are DEV-only. Zero cost when the flag is absent. See tools/gameharness.mjs.
+  // * Gameplay diagnostics hub (?diag → window.__ccDiag). Probes + event log + optional
+  // * control (host-gated; wired under ?diag=1 in DEV or prod). Read surface works in prod
+  // * builds; zero cost when the flag is absent. See tools/gameharness.mjs.
   if (diagUrlFlags().enabled) {
     // * Scenario levers — each reuses an existing proven production path; never a new
     // * mutation route. Run-6: also attached in prod builds under ?diag=1 (host-gated;

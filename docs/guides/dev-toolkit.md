@@ -73,7 +73,7 @@ spawnlock → mpIntegration → hostMigration → hostReload → teardownRejoin.
 
 | Surface | Flag | Global | What it's for |
 |---|---|---|---|
-| Gameplay diagnostics hub | `?diag=1` | `window.__ccDiag` | Read-only probes + event ring buffer + capture bundles; DEV-only `control` levers |
+| Gameplay diagnostics hub | `?diag=1` | `window.__ccDiag` | Read-only probes + event ring buffer + capture bundles; host-gated `control` when wired under `?diag=1` (DEV or prod) |
 | Netcode test hook | `?nettest=1` | `window.__ccTest` | 2-client state (`getState`, `getSelfCart`, `hostInputDebug`) |
 | Loop liveness | (either flag) | `window.__ccLoopDbg` | `frames / resumeZeroed / chronicSlow / maxDt / lastDt` |
 | Visual QA harness | `?harness=1` | `window.__cartRave` | `settle`, `stats()`, ablation for shoot/blackframes |

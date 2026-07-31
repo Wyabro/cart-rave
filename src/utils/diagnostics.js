@@ -30,10 +30,12 @@
  * can't burn CPU assembling bundles.
  *
  * Gating:
- *   ?diag=1        — install the read surface (snapshot + events). Works in prod builds too
- *                    (read-only QA), exactly like ?nettest / ?harness. Zero cost otherwise.
- *   __ccDiag.control — DEV-only scenario levers (fast-end a round, grant KOs). Never attached
- *                    in a production build; the read surface never mutates game state.
+ *   ?diag=1        — install the hub (snapshot + events + optional control). Works in prod
+ *                    builds too, exactly like ?nettest / ?harness. Zero cost otherwise.
+ *   __ccDiag.control — host-gated scenario levers (fast-end a round, grant KOs). Non-null
+ *                    when the hub is installed and control was wired (DEV or prod, both under
+ *                    ?diag=1); null if create failed or hub never installed. forceKillFeed is
+ *                    DEV-only. The read surface never mutates game state by itself.
  *
  * Channels (event log): "round" | "score" | "ko" | "announcer" | "unlock" | "challenge"
  *   | "boot" | "error" | "scenario". Add more freely — the buffer is channel-agnostic.
@@ -165,8 +167,9 @@ export function registerDiagProbe(ns, snapshotFn) {
 }
 
 /**
- * @typedef {object} DiagControl DEV-only scenario levers (see gameplayDiagnostics.js). Each
- *   reuses an existing, proven production path — nothing here is a new mutation route.
+ * @typedef {object} DiagControl Host-gated scenario levers (gameplayDiagnostics.js / devControl.js).
+ *   Each reuses an existing, proven production path — nothing here is a new mutation route.
+ *   Present on __ccDiag when ?diag=1 and createDevControl succeeded (DEV or prod).
  * @property {(remainMs?: number) => { ok: boolean, message: string, reason?: string }} [rewindRoundClock] Fast-end a running round by
  *   rewinding the round-start stamp so only `remainMs` remains (the Force-Sudden-Death trick).
  * @property {(level: string, n: number) => { ok: boolean, message: string, reason?: string }} [grantKos] Credit N KOs on a level (unlock funnel).
@@ -287,7 +290,10 @@ export function installDiagnostics(opts = {}) {
       return autoCaptures.slice();
     },
 
-    /** DEV-only scenario levers; null in production builds / read-only sessions. */
+    /**
+     * Host-gated scenario levers. Non-null when hub installed and control was wired
+     * (DEV or prod, both under ?diag=1); null if create failed or hub never installed.
+     */
     control: opts.control || null,
   };
 

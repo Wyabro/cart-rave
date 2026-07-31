@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-07-31T19:41:24.911Z",
-    "commit": "0b5369d"
+    "at": "2026-07-31T20:07:59.866Z",
+    "commit": "cd73e77"
   },
-  "source_digest": "ffde0dc2",
+  "source_digest": "5328e09a",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -925,8 +925,8 @@
         "title": "Engineering",
         "counts": {
           "Medium": 16,
-          "Done": 8,
-          "Low": 6,
+          "Done": 9,
+          "Low": 5,
           "Partial": 1,
           "High": 6
         },
@@ -956,9 +956,9 @@
             "ship1": null
           },
           {
-            "pri": "Low",
-            "item": "DIAG-DOC-1 — three docs call `__ccDiag.control` DEV-only; `?diag=1` attaches it in prod",
-            "notes": "Comment/JSDoc only, no behavior change — but it has already misled one code review of SHEET-1, which concluded the contact-sheet pin would silently no-op in prod. Truth is `main.js:1577`: `devControl` attaches when `import.meta.env.DEV \\",
+            "pri": "Done",
+            "item": "DIAG-DOC-1 — docs claimed `__ccDiag.control` DEV-only / null in prod",
+            "notes": "✅ **CLOSED** — comment/JSDoc + guides only. Truth: control object created `DEV \\",
             "ship1": null
           },
           {

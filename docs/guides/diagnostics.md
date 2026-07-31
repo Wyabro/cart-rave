@@ -70,8 +70,10 @@ are a single boolean read.
   (`src/utils/invariants.js`; today: illegal round-phase transitions, the "wedged round"
   bug class). Poll `__ccDiag.tail` for a cursor.
 - `__ccDiag.probes()` — the registered namespaces.
-- `__ccDiag.control` — **DEV-only** scenario levers, `null` in production and in read-only
-  QA sessions. Each reuses an existing proven production path (never a new mutation route):
+- `__ccDiag.control` — host-gated scenario levers; non-null when the hub is installed
+  (`?diag=1`) and control was wired (DEV or prod); null if create failed or hub never
+  installed. (`forceKillFeed` is DEV-only.) Each reuses an existing proven production path
+  (never a new mutation route):
   `rewindRoundClock(remainMs)` (the Force-Sudden-Death clock trick — fast-ends a running
   round), `grantKos(level, n)` (the unlock funnel), `setScores(scores)` (crown a winner).
 - `__ccDiag.captureBundle({ scenario, reason })` — assemble a self-contained **bug-capture

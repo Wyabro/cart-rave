@@ -72,8 +72,8 @@ declare global {
     /** Netcode-harness loop-liveness counters (only when __ccNetTest or __ccDiagActive). */
     __ccLoopDbg?: { frames: number; resumeZeroed: number; chronicSlow?: number; maxDt: number; lastDt: number; over33?: number; over66?: number };
     /**
-     * Unified diagnostics hub (URL ?diag=1). Read-only probes + event log; DEV-only control
-     * levers. See src/utils/diagnostics.js + src/utils/gameplayDiagnostics.js + tools/gameharness.mjs.
+     * Unified diagnostics hub (URL ?diag=1). Read-only probes + event log; optional host-gated
+     * control when wired under ?diag=1 (DEV or prod). See diagnostics.js + devControl.js.
      */
     __ccDiag?: {
       version: number;
