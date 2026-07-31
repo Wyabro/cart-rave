@@ -114,13 +114,30 @@ describe("ANLX-ATTRACT-1 — participation gate", () => {
   });
 
   it("emits a paired match_ended for a round it did start", async () => {
+    // * durationMs uses performance.now(), which vitest fake timers do not advance — drive it.
+    let now = 10_000;
+    vi.spyOn(performance, "now").mockImplementation(() => now);
     cartActive = true;
     install();
     setPhase(RoundPhase.RUNNING);
+    now += 4_000; // past MIN_MATCH_DURATION_MS
     setPhase(RoundPhase.PODIUM);
     await Promise.resolve();
     expect(names().filter((n) => n === "match_started")).toHaveLength(1);
     expect(names().filter((n) => n === "match_ended")).toHaveLength(1);
+  });
+
+  it("does not emit match_ended when duration is below MIN_MATCH_DURATION_MS (ANLX-BULK-1 L2)", async () => {
+    let now = 10_000;
+    vi.spyOn(performance, "now").mockImplementation(() => now);
+    cartActive = true;
+    install();
+    setPhase(RoundPhase.RUNNING);
+    now += 50; // non-null short — must not emit (null still emits; L1 drops those in summary)
+    setPhase(RoundPhase.PODIUM);
+    await Promise.resolve();
+    expect(names().filter((n) => n === "match_started")).toHaveLength(1);
+    expect(names()).not.toContain("match_ended");
   });
 
   it("drops the latch on leaving RUNNING so a spectated round cannot fire into the next", () => {

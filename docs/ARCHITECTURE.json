@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-07-31T20:38:03.053Z",
-    "commit": "0da5c4c"
+    "at": "2026-07-31T20:44:19.761Z",
+    "commit": "8b59168"
   },
-  "source_digest": "7532f6fa",
+  "source_digest": "ad165fc7",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -650,6 +650,7 @@
         "shared/protocol.js"
       ],
       "files": [
+        "shared/analyticsConstants.js",
         "shared/arenaPool.js",
         "shared/npcNames.js",
         "shared/protocol.js",
@@ -658,7 +659,7 @@
         "shared/wsMessageLimits.js",
         "src/npcNames.js"
       ],
-      "file_count": 7,
+      "file_count": 8,
       "edges": [
         {
           "to": "networking-client",
@@ -673,6 +674,7 @@
       ],
       "notes": [
         "ROUND_DURATION_MS lives in shared/roundConstants.js (150_000); both config.js and roundValidation.ts import it — do not re-introduce a hardcoded duplicate.",
+        "MIN_MATCH_DURATION_MS lives in shared/analyticsConstants.js — product match floor for analyticsLog #summary + gameplayAnalytics match_ended skip (ANLX-BULK-1).",
         "src/npcNames.js is a re-export shim over shared/npcNames.js.",
         "MSG.readyToggle without a `ready` field is a TOGGLE — programmatic ready must send { ready: true } (readiness.js is the idempotent SET, D-READY-1)."
       ]
@@ -853,6 +855,21 @@
         "state": "done"
       },
       {
+        "id": "ANLX-BULK-1",
+        "what": "short scripted `loss` bulk in analytics",
+        "status": "✅ CLOSED 07-31 — Phase A: 306 × 4–12 ms timer/kos=24 on Wyatt client `23dd1d07-…` (prod). L1+L2 + `MIN_MATCH_DURATION_MS=3000` (`shared/analyticsConstants.js`); product metrics filtered; byName raw (P-A). Unpushed until ship.",
+        "state": "done",
+        "touches_systems": [
+          {
+            "id": "shared-protocol",
+            "name": "Shared protocol",
+            "files": [
+              "shared/analyticsConstants.js"
+            ]
+          }
+        ]
+      },
+      {
         "id": "SHEET-1",
         "what": "in-match contact-sheet tool (`npm run sheet`)",
         "status": "✅ BUILT + PROVEN 07-31 — `5f3c8ab` makeClient viewport/RM passthrough · `a4c8d6b` tools/sheet.mjs + montage · `9489a8b` DEV-only `forceKillFeed`. `--all` = 9 viewports, 54/54. Per cell: solo boot → pin (asserted `ok`) → subject-is-HUD gate → full PNG + canvas/nametag-hidden chrome PNG. Caught HUD-FEED-1 on first use. [card](./planning/sheet-1.md)",
@@ -893,9 +910,9 @@
       }
     ],
     "next_actions": [
-      "No active card — Wyatt names the next residual (or declares \"wait\"). The board is",
+      "No active card — Wyatt names the next residual (or declares \"wait\"). HUD UI trio",
       "FIGHT-VERIFY-1 — the only live agent card, and only its unreachable surfaces remain:",
-      "The post-reset analytics ring is the clean read on ANLX-BULK-1. A session of normal"
+      "After ANLX-BULK-1 ships: `npm run analytics:pull` — arena/mode/result should ignore"
     ],
     "open_issues": [
       {
@@ -925,8 +942,8 @@
       {
         "title": "Engineering",
         "counts": {
-          "Medium": 16,
-          "Done": 9,
+          "Medium": 15,
+          "Done": 10,
           "Low": 5,
           "Partial": 1,
           "High": 6
@@ -999,9 +1016,9 @@
             "ship1": null
           },
           {
-            "pri": "Medium",
-            "item": "ANLX-BULK-1 — older ~2 s `loss` bulk, second pollution source",
-            "notes": "Split out of ANLX-ATTRACT-1, which only ever owned the recent draw cluster. **The ring was reset 07-31, so these are the last readable aggregates** (`/api/analytics?view=list` caps at the newest 1000 rows, and ~19,000 of the ring's 20,000 predated 07-20T19:23Z — that bulk was reachable in aggregate only). Pre-reset summary: `match_started=9719` / `match_ended=9545` from **265 sessions but only 8 clients**; `resultSplit` `loss=9327 / draw=209 / win=9`; `matchesByMode` `quickplay=9523 / solo=22`; `matchesByArena` `classicRecord n=6792 avgMs=1829 avgKos=7.07`, `zanzibar n=2636 avgMs=2316 avgKos=3.68`, `backrooms n=117 avgMs=67277`. Signature (`loss`, ~2 s, `classicRecord`, quickplay) is distinct from the phantom draw cluster (`draw`, `<3 s`, zanzibar/backrooms) — reads like a rig or a script booting and ending rounds in bulk rather than a player path; `rewindRoundClock`-style fast-ends produce exactly this shape. **Next step is free:** the post-reset ring is clean, so just re-pull `npm run analytics:pull` after normal play — if ~2 s `loss` rows reappear, the source is still live and the emitting client/session is now isolable (8 clients became 1–2). Do not re-derive from the numbers above; they are a snapshot, not evidence of an active emitter.",
+            "pri": "Done",
+            "item": "ANLX-BULK-1 — short `loss` bulk poisoned product analytics",
+            "notes": "✅ **CLOSED** 07-31 — tool-sourced / intentional-on-your-machine, not a player-path bug. Phase A: post-reset ring had **306** `match_ended` at **4–12 ms**, `loss` · classic · quickplay · `endReason=timer` · `kos=24`, one client `23dd1d07-…` (Wyatt `cartRaveClientId`) / session `8cc39f49-…` / build `2e85f0b`; start/end ~309/308; avgMs≈5842 was outlier-poisoned. Fix **L1+L2** · P-A · `MIN_MATCH_DURATION_MS=3000` in `shared/analyticsConstants.js`: L1 `#summary` filters arena/mode/result (`duration_ms IS NOT NULL AND >= floor`); **byName/window stay raw**; L2 client skips non-null short `match_ended` (null still emits, summary drops it). List unchanged for forensics. Tests: `analyticsGating` + `analyticsSummaryFloor`. Post-ship: dirty byName until ring ages is not L1 failure. Pre-reset ~9327-loss snapshot remains signature-only.",
             "ship1": null
           },
           {
@@ -1755,6 +1772,11 @@
       "Cross-module change? Read docs/reference/control-flow.md first — most edges are not imports."
     ],
     "settled_decisions": [
+      {
+        "id": "D-ANLX-BULK-1",
+        "date": "07-31",
+        "text": "Short scripted match ends (tool/diag on prod) are non-product."
+      },
       {
         "id": "D-SHEET-1",
         "date": "07-31",

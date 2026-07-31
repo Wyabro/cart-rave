@@ -9,6 +9,7 @@
 // are extracted into real columns at ingest so /summary is plain GROUP BY SQL — no JSON
 // parsing at read time. Everything else stays in the props JSON column.
 
+import { MIN_MATCH_DURATION_MS } from "../shared/analyticsConstants.js";
 import { type BeaconBucket, UNKNOWN_IP, checkBeaconLimit } from "./beaconLimit";
 import { clampStrOrNull as clampStr, jsonResponse } from "./logUtil";
 
@@ -132,10 +133,21 @@ export class AnalyticsLog {
     return stored;
   }
 
-  /** Aggregates that answer the design questions without exporting raw rows. */
+  /**
+   * Aggregates that answer the design questions without exporting raw rows.
+   *
+   * ANLX-BULK-1 P-A: byName + window stay RAW (event volume / ring size). Product match
+   * metrics (matchesByArena / matchesByMode / resultSplit) only count match_ended rows
+   * with duration_ms >= MIN_MATCH_DURATION_MS and non-null duration — null and sub-floor
+   * ends stay in the list for forensics but do not poison avgs/splits. Dirty byName after
+   * deploy is expected until the ring ages; it is not an L1 failure.
+   */
   #summary(): Record<string, unknown> {
     this.#ensureSchema();
     const sql = this.#ctx.storage.sql;
+    // * Product match_ended filter (shared/analyticsConstants.js). Bound once so the three
+    // * queries stay in lockstep; byName deliberately does NOT use this.
+    const productEnded = `name = 'match_ended' AND duration_ms IS NOT NULL AND duration_ms >= ${MIN_MATCH_DURATION_MS}`;
     const byName = sql.exec(`SELECT name, COUNT(*) AS n FROM events GROUP BY name ORDER BY n DESC`).toArray();
     const sessions = sql.exec(`SELECT COUNT(DISTINCT session) AS n FROM events`).toArray()[0]?.n ?? 0;
     const clients = sql.exec(`SELECT COUNT(DISTINCT client) AS n FROM events WHERE client IS NOT NULL`).toArray()[0]?.n ?? 0;
@@ -143,15 +155,17 @@ export class AnalyticsLog {
       .exec(
         `SELECT arena, COUNT(*) AS n, ROUND(AVG(duration_ms)) AS avgDurationMs, ROUND(AVG(kos), 2) AS avgKos
            FROM (SELECT arena, duration_ms, CAST(json_extract(props, '$.kos') AS REAL) AS kos
-                   FROM events WHERE name = 'match_ended')
+                   FROM events WHERE ${productEnded})
           GROUP BY arena ORDER BY n DESC`,
       )
       .toArray();
     const matchesByMode = sql
-      .exec(`SELECT mode, COUNT(*) AS n FROM events WHERE name = 'match_ended' GROUP BY mode ORDER BY n DESC`)
+      .exec(
+        `SELECT mode, COUNT(*) AS n FROM events WHERE ${productEnded} GROUP BY mode ORDER BY n DESC`,
+      )
       .toArray();
     const resultSplit = sql
-      .exec(`SELECT result, COUNT(*) AS n FROM events WHERE name = 'match_ended' GROUP BY result`)
+      .exec(`SELECT result, COUNT(*) AS n FROM events WHERE ${productEnded} GROUP BY result`)
       .toArray();
     const quitsByPhase = sql
       .exec(`SELECT phase, reason, COUNT(*) AS n FROM events WHERE name = 'player_quit' GROUP BY phase, reason ORDER BY n DESC`)

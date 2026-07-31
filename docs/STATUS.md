@@ -120,6 +120,7 @@ evidence in [completed-work.md](./planning/completed-work.md) — only live card
 | # | What | Status |
 |---|------|--------|
 | **ANLX-ATTRACT-1** | mid-round joins booked phantom matches | ✅ **CLOSED** 07-31 — live at `2e85f0b` / Version `4083335f`. Live two-client prod probe: 2 clients adopted `phase=running` while unseated → **0 `match_started`**; all 7 emitted starts carried `joinedMidRound` (6 `true`, 1 `false`); 0 `<3 s` draws. Counting metric could not decide it (cluster died 07-22, pre-fix) — [full acceptance](./planning/completed-work.md) |
+| **ANLX-BULK-1** | short scripted `loss` bulk in analytics | ✅ **CLOSED** 07-31 — Phase A: 306 × 4–12 ms timer/kos=24 on Wyatt client `23dd1d07-…` (prod). L1+L2 + `MIN_MATCH_DURATION_MS=3000` (`shared/analyticsConstants.js`); product metrics filtered; byName raw (P-A). Unpushed until ship. |
 | **SHEET-1** | in-match contact-sheet tool (`npm run sheet`) | ✅ **BUILT + PROVEN** 07-31 — `5f3c8ab` makeClient viewport/RM passthrough · `a4c8d6b` tools/sheet.mjs + montage · `9489a8b` DEV-only `forceKillFeed`. `--all` = 9 viewports, 54/54. Per cell: solo boot → pin (asserted `ok`) → subject-is-HUD gate → full PNG + canvas/nametag-hidden chrome PNG. Caught HUD-FEED-1 on first use. [card](./planning/sheet-1.md) |
 | **HUD-FEED-1 · MENU-HINT-1 · HUD-CHIPS-1** | three responsive UI defects from Wyatt's phone footage | ✅ **CLOSED** 07-31 — **Wyatt playtest PASS on all three** (phone, mid-round, post-KO, portrait + landscape), on the shipped Version `85087c10`. Seven commits `70c3887`→`ae150e0`; asset-verified (feed ceilings 400 ×2, touch-label rule, hintbar hidden, stale 320s gone). Full diagnoses + measurements in [BACKLOG](./planning/BACKLOG.md); load-bearing causes in Do-not-relearn below. Residual (cosmetic, unowned): touch chip labels sit ~20 px under natural width at 1200 even though the region (696) is inside its cap (912) |
 | **FIGHT-VERIFY-1** | owed fight-night verification | 🟡 **agent half PARTIAL** — sheet proves feed · score strip · timer · directive chip · boost bar at 12 widths (landscape added `cd73e77`; **touch pass added `0da5c4c` — `makeClient` now sets `hasTouch`/`isMobile`, 4 touch cells in `--all`**, so `#hud.hud-touch` rules are no longer invisible). Still unreachable: loading screens (`makeClient` seeds `cartRaveBootSeen`), hover/press (needs interaction), podium. Wyatt half = playtest |
@@ -132,24 +133,23 @@ its superseded triage docs moved to [completed-work.md](./planning/completed-wor
 
 ### Next actions
 
-1. **No active card — Wyatt names the next residual** (or declares "wait"). The board is
-   clear of owed work: HUD-FEED-1 / MENU-HINT-1 / HUD-CHIPS-1 all passed Wyatt's phone
-   playtest on Version `85087c10`, and the sweep's touch blind spot is closed at `0da5c4c`.
+1. **No active card — Wyatt names the next residual** (or declares "wait"). HUD UI trio
+   playtest-closed; ANLX-BULK-1 closed (L1+L2, needs Worker+client deploy for live clean
+   product metrics). Touch blind spot closed at `0da5c4c`.
 2. **FIGHT-VERIFY-1** — the only live agent card, and only its unreachable surfaces remain:
    loading screens (`makeClient` seeds `cartRaveBootSeen`), hover/press, podium. Decide
    whether those want more tooling or just your eye.
-3. **The post-reset analytics ring is the clean read on ANLX-BULK-1.** A session of normal
-   play on the live build now says whether the `~2 s loss` source is still active.
+3. **After ANLX-BULK-1 ships:** `npm run analytics:pull` — arena/mode/result should ignore
+   sub-3s ends; byName may still look bulk until the ring ages (P-A, not a failure).
 
 Cleared 07-31, in the required order: ANLX-ATTRACT-1 acceptance (closed on a live
 two-client prod probe, not on counting — [evidence](./planning/completed-work.md)), the
 analytics-DO reset (`DELETE /api/analytics?token=…`, 20,000 rows → 0) once the pre-reset
 aggregates were filed as ANLX-BULK-1, then SHEET-1 built, HUD-FEED-1 / MENU-HINT-1 /
 HUD-CHIPS-1 found and shipped **and confirmed by Wyatt's phone playtest (all three PASS,
-portrait + landscape)**, and finally the sweep's touch blind spot closed (`0da5c4c`).
-**The reset ring is collecting again on the live build** — a
-session of normal play now gives a clean read on whether ANLX-BULK-1's `~2 s loss` source is
-still active.
+portrait + landscape)**, the sweep's touch blind spot closed (`0da5c4c`), and **ANLX-BULK-1**
+closed as tool-sourced (Wyatt client) with L1 summary floor + L2 short-end skip
+(`MIN_MATCH_DURATION_MS=3000`).
 
 **07-31 lesson: a verification tool only sees the branches it enters.** The contact sheet ran
 portrait-only and non-touch — blind to the landscape CSS branch and every `hud-touch` rule,
@@ -160,7 +160,7 @@ and add the matching cell in the same commit as any orientation- or pointer-scop
 
 **Do-not-relearn (each produced a confident wrong answer once):** `?devUnlocks=off` is a deliberate **prod** lever — Session 2 FTUE needs it on a prod build; never gate it. Grepping `dist/` for `devUnlocks` gives a false FAIL (the `=off` path keeps the string). Vitest runs `DEV === true`, so a DEV check read *inside* a helper makes its prod branch untestable — pass `isDev` in. `/api/log-error` + `/api/analytics` swallow a DO 429 unless the Worker forwards it. `GET /api/errors` is unusable from tests (`ERROR_LOG_TOKEN` is a secret CI lacks) — read via the DO stub's `/list`. `rewindRoundClock(ms)` **sets remaining** time — `1200` ends the round. `from === COUNTDOWN` is NOT a valid "played this round" test: `shouldHoldNonHostCountdownPhase` makes `lobby→running` legitimate for a slow non-host. Worker deploys propagate per-PoP and read as *contradictory* (one route new, another old) — re-poll, don't debug. **`analytics:pull --list` caps at the newest 1000 rows** — on a quiet week that window spans ~10 days, so a "recent" cluster can be entirely stale; bucket by day before reading a trend, and prove analytics gates with a live probe (prod `?diag=1` exposes `__ccDiag.snapshot("analytics")`), not with ring counts. **Grepping deployed CSS for `min-width:` gives a false negative** — the minifier rewrites media queries to range syntax, so `@media (min-width: 900px)` ships as `@media (width>=900px)` (same trap class as the `dist/` `devUnlocks` grep). **A CSS reserve that guesses a wrapping element's height will be wrong at some width** — measure it into a custom property (`--cr-hintbar-h`, `--hud-utility-width`) and let `calc()` consume it; a hidden element then measures 0 and the reserve collapses on its own. **An absolutely-positioned child of a container that is BOTH positioned and `overflow-y:auto` scrolls with the content** — it is not chrome; `position:fixed` is. **A flex row whose children are all `flex-shrink:0` + `nowrap` cannot shrink**, so its children's ellipsis rules never engage until something caps the ROW itself.
 
-**Open, unowned:** ANLX-BULK-1 in [BACKLOG](./planning/BACKLOG.md) — the ring's older `loss=9327 / win=9` bulk (pre-reset aggregates recorded there) never matched the draw-dominated recent window. ANLX-ATTRACT-1 fixed only the recent cluster; the post-reset ring is now the clean read on whether that source is still live.
+**Open, unowned:** none from the ANLX-BULK-1 line — card closed 07-31 (tool-sourced bulk on Wyatt client; L1+L2 landed, deploy pending for live product metrics).
 
 ## Open issues (top)
 
@@ -184,6 +184,12 @@ When named: other residual or RC exit criteria in [ROADMAP.md](./planning/ROADMA
 ## Decision index
 
 One line each; full text in [archive/decision-log-2026-07.md](./archive/decision-log-2026-07.md). Newest first.
+
+- **D-ANLX-BULK-1** (07-31): Short scripted match ends (tool/diag on prod) are non-product.
+  Product metrics = `matchesByArena` / mode / result with `duration_ms >= MIN_MATCH_DURATION_MS`
+  (3000) and non-null; byName + window stay raw (P-A). Client skips non-null short
+  `match_ended` only — do not also drop null duration in the same change. Shared constant in
+  `shared/analyticsConstants.js`, not `roundConstants.js`.
 
 - **D-SHEET-1** (07-31): A verification tool must prove its subject is present, not merely
   that it ran. `npm run sheet` twice shipped green cells that showed the wrong thing — one

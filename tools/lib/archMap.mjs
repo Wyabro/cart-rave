@@ -418,6 +418,7 @@ export const SYSTEMS = [
     members: ["shared/", "src/npcNames.js"],
     notes: [
       "ROUND_DURATION_MS lives in shared/roundConstants.js (150_000); both config.js and roundValidation.ts import it — do not re-introduce a hardcoded duplicate.",
+      "MIN_MATCH_DURATION_MS lives in shared/analyticsConstants.js — product match floor for analyticsLog #summary + gameplayAnalytics match_ended skip (ANLX-BULK-1).",
       "src/npcNames.js is a re-export shim over shared/npcNames.js.",
       "MSG.readyToggle without a `ready` field is a TOGGLE — programmatic ready must send { ready: true } (readiness.js is the idempotent SET, D-READY-1).",
     ],

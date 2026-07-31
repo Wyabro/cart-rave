@@ -23,6 +23,7 @@
  * __ccDiag.snapshot("analytics") — the observability systems observe each other.
  */
 
+import { MIN_MATCH_DURATION_MS } from "../../shared/analyticsConstants.js";
 import { ROUND_DURATION_MS } from "../../shared/roundConstants.js";
 import { gameStore, RoundPhase } from "../stores/gameStore.js";
 import { onUnlockGranted } from "../stores/unlockStore.js";
@@ -201,10 +202,16 @@ export function installGameplayAnalytics(deps) {
         const stats = snapshotMatchStats();
         const winner = s.roundWinnerSlotIndex;
         const localSlot = deps.getLocalSlot ? deps.getLocalSlot() : -1;
+        const durationMs =
+          matchStartedPerfMs > 0 ? Math.round(performance.now() - matchStartedPerfMs) : null;
+        // * ANLX-BULK-1 L2: skip only when durationMs is a finite value below the shared
+        // * floor (scripted/tool 4–12 ms ends). Do NOT also drop null here — null still
+        // * emits; L1 summary excludes null-duration ends. Out of scope for this PR.
+        if (durationMs != null && durationMs < MIN_MATCH_DURATION_MS) return;
         trackEvent("match_ended", {
           arena: arena(),
           mode: mode(),
-          durationMs: matchStartedPerfMs > 0 ? Math.round(performance.now() - matchStartedPerfMs) : null,
+          durationMs,
           endReason: s.roundEndReason,
           result: winner === "draw" || winner == null ? "draw" : winner === localSlot ? "win" : "loss",
           suddenDeath: sdLatch || s.isSuddenDeath,
