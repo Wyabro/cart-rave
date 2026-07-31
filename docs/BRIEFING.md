@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (also runs inside `npm run qa`).
-> Generated 2026-07-30 at commit `f8e2b56` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
-> Source digest: `10e6ff52`
+> Generated 2026-07-31 at commit `65dea12` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
+> Source digest: `207d345e`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -18,8 +18,8 @@ Playtesting and stabilization — Tier A drained. B1 AI-DIFF-1 shipped (`49bfc2a
 
 ## ACTIVE CARD
 
-SEC-BEACON-1 — rate-limit the open POST beacons (+ IP-cap constant, dedupe release, tests)
-Pass looks like: ▶ applied, UNPUSHED (4 commits, acked plan B′). Per-IP 30/60s enforced *inside* each log DO before the INSERT — budget is per-DO, not shared. Worker now forwards `cf-connecting-ip` and propagates the DO 429 (log-error + analytics previously always 204). Owed: push + Wyatt prod playtest (one F8 + one session's analytics must still land)
+SEC-UNLOCK-1 — DEV-gate the `?devUnlocks` URL one-shot
+Pass looks like: ▶ ACTIVE — needs a plan + Wyatt ack before code. Then SEC-ROUTE-1 (`includes` → `startsWith` ×4); with the analytics-DO reset, all before external testers
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 
@@ -30,6 +30,7 @@ Plan → Wyatt ack → apply. This heading names the card; it is **not** permiss
 - **A3 MP-FX-1** non-host gameplay VFX parity — ✅ PASS (Wyatt playtest 07-22: opponent charge glow + hop land dust/thud on non-host)
 - **A4 ARENA-COL-1** Cart Rave pit KO detection & kill-zone reliability — ✅ PASS (Wyatt playtest 07-22 — rim entry pose/time → buildKOEvent)
 - **B3 HIT-FEEL-1** hit feedback — weak normals + noisy incoming — ✅ PASS (Wyatt playtest 07-22)
+- **SEC-BEACON-1** rate-limit the open POST beacons (+ IP-cap constant, dedupe release, tests) — ✅ CLOSED 07-30 — live at `65dea12` / Version `255d6284`. Per-IP 30/60s enforced *inside* each log DO before…
 
 ## Do not
 

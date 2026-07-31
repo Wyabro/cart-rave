@@ -137,8 +137,8 @@ Run 7 mission (below) is historical evidence, superseded as the live queue by
 | **CARGO-HUD-1a** | cargo-readout mock on BOTH hosts, 3-state — Wyatt picks | ✅ closed 07-30 — Wyatt picked **nameplate placement + score-strip chip look** |
 | **CARGO-HUD-1** | opponent cargo readout on the nameplate | ✅ **PASS** (Wyatt 07-30) — 4-segment chip live at `38d0dfc` / Version `f8e8da1f` ([card](./planning/cargo-hud-1.md)) |
 | **SKYBOX-1** | restore never-built sceneExtras skybox (review C-01) | ✅ **closed** 07-30 — live at `c074c2a` / Version `8e5bb259`; LOW tier-gated per Wyatt (`skyExtras` knob), UFO-in-pit bug fixed |
-| **SEC-BEACON-1** | rate-limit the open POST beacons (+ IP-cap constant, dedupe release, tests) | ▶ **applied, UNPUSHED** (4 commits, acked plan B′). Per-IP 30/60s enforced *inside* each log DO before the INSERT — budget is per-DO, not shared. Worker now forwards `cf-connecting-ip` and propagates the DO 429 (log-error + analytics previously always 204). Owed: push + Wyatt prod playtest (one F8 + one session's analytics must still land) |
-| **SEC-UNLOCK-1 · SEC-ROUTE-1** | devUnlocks URL gate · `startsWith` routes | 📋 after SEC-BEACON-1 — with the analytics-DO reset, all before external testers |
+| **SEC-BEACON-1** | rate-limit the open POST beacons (+ IP-cap constant, dedupe release, tests) | ✅ **CLOSED** 07-30 — live at `65dea12` / Version `255d6284`. Per-IP 30/60s enforced *inside* each log DO before the INSERT (budget per-DO, not shared). Live flood probe: exactly 30 accepted, 429 at #31. Wyatt playtest PASS (join/leave ×6, host-leave, F8 → `cap-215`/`cap-216` on `65dea12`) |
+| **SEC-UNLOCK-1** | DEV-gate the `?devUnlocks` URL one-shot | ▶ **ACTIVE — needs a plan + Wyatt ack before code.** Then SEC-ROUTE-1 (`includes` → `startsWith` ×4); with the analytics-DO reset, all before external testers |
 | **SHEET-1** | in-match contact-sheet tool (`?room=solo` boot) | 📋 blackframes readback pre-check first |
 | **FIGHT-VERIFY-1** | owed fight-night verification | 📋 agent half via SHEET-1; Wyatt half = playtest |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
@@ -160,7 +160,7 @@ Triage docs superseded: [playtest-triage-2026-07-17](./planning/playtest-triage-
 
 ### Next actions
 
-1. **SEC-BEACON-1** — applied + **unpushed**. `party/beaconLimit.ts` (advance / prune / check), enforced in all three log DOs; `IP_CONNECTION_CAP` named; four release sites deduped to `#releaseIp`. Server-only — no client bundle change. Owed: push, then Wyatt prod playtest. Two gotchas worth keeping: `/api/log-error` + `/api/analytics` discarded the DO response and always returned 204, so a DO-side 429 was invisible until the Worker was changed too; and `GET /api/errors` is unusable from tests (`ERROR_LOG_TOKEN` is a secret, absent in CI) — read back through the DO stub's `/list`.
+1. **SEC-UNLOCK-1** (active) — plan → Wyatt ack → apply. Gate the `?devUnlocks` URL one-shot (`src/stores/unlockStore.js:22-31`) behind `import.meta.env.DEV`; keep the manual localStorage override; fix the false "manual override only" header. Client-side — needs `npm run build`. Three SEC-BEACON-1 gotchas worth keeping: `/api/log-error` + `/api/analytics` discarded the DO response and always returned 204, so a DO-side 429 is invisible until the Worker is changed too; `GET /api/errors` is unusable from tests (`ERROR_LOG_TOKEN` is a secret, absent in CI) — read back via the DO stub's `/list`; and ~30 probe rows (`sessionId: sec-beacon-probe`) sit in the analytics DO, cleared by the reset already queued below.
 2. Locked order after: **SEC-UNLOCK-1 → SEC-ROUTE-1 → SHEET-1 → FIGHT-VERIFY-1.** The three SEC cards + `DELETE /api/analytics` are the before-external-testers gate. (07-30 closed: QA-STATUS-1, HYGIENE-1, CARGO-VIS-1, CARGO-RACE-1, CARGO-HUD-1a, WARM-IGPU-1, CARGO-HUD-1, SKYBOX-1.)
 3. **Before public/external playtest:** SEC-BEACON-1/UNLOCK/ROUTE **plus** `DELETE /api/analytics?token=…` (clear DO) — see Gotchas.
 
