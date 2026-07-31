@@ -124,6 +124,7 @@ evidence in [completed-work.md](./planning/completed-work.md) — only live card
 | **SEC-TOKEN-1** | admin token out of query string | ✅ **CLOSED + SHIPPED** 07-31 — Bearer only (`party/adminAuth.ts`); `0ad8a3e` / Version `60e4718a…`. |
 | **SHEET-1** | in-match contact-sheet tool (`npm run sheet`) | ✅ **BUILT + PROVEN** 07-31 — `5f3c8ab` makeClient viewport/RM passthrough · `a4c8d6b` tools/sheet.mjs + montage · `9489a8b` DEV-only `forceKillFeed`. `--all` = 9 viewports, 54/54. Per cell: solo boot → pin (asserted `ok`) → subject-is-HUD gate → full PNG + canvas/nametag-hidden chrome PNG. Caught HUD-FEED-1 on first use. [card](./planning/sheet-1.md) |
 | **HUD-FEED-1 · MENU-HINT-1 · HUD-CHIPS-1** | three responsive UI defects from Wyatt's phone footage | ✅ **CLOSED** 07-31 — **Wyatt playtest PASS on all three** (phone, mid-round, post-KO, portrait + landscape), on the shipped Version `85087c10`. Seven commits `70c3887`→`ae150e0`; asset-verified (feed ceilings 400 ×2, touch-label rule, hintbar hidden, stale 320s gone). Full diagnoses + measurements in [BACKLOG](./planning/BACKLOG.md); load-bearing causes in Do-not-relearn below. Residual (cosmetic, unowned): touch chip labels sit ~20 px under natural width at 1200 even though the region (696) is inside its cap (912) |
+| **HOST-CAP-1** | weak-host toast residual | ✅ **CODED 07-31** — `score < 50` once/hostship; min-spec fact accepted; deploy on ship |
 | **FIGHT-VERIFY-1** | owed fight-night verification | 🟡 **agent half PARTIAL** — sheet proves feed · score strip · timer · directive chip · boost bar at 12 widths (landscape added `cd73e77`; **touch pass added `0da5c4c` — `makeClient` now sets `hasTouch`/`isMobile`, 4 touch cells in `--all`**, so `#hud.hud-touch` rules are no longer invisible). Still unreachable: loading screens (`makeClient` seeds `cartRaveBootSeen`), hover/press (needs interaction), podium. Wyatt half = playtest |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
 | BRAND-1 | Domain cutover | 🧊 frozen |
@@ -135,12 +136,12 @@ its superseded triage docs moved to [completed-work.md](./planning/completed-wor
 ### Next actions
 
 1. **No active card — Wyatt names the next residual** (or declares "wait"). High open
-   agent candidates after doc audit: **HOST-CAP-1**, **INPUT-KB-1**, **UI-SCALE-1**,
-   **FIGHT-VERIFY-1** (tooling or playtest). Not open: CARGO-HUD-1 · SKYBOX-1 · SEC-* trio ·
-   CARGO-VIS-1 · SHEET-1 (built) · ANLX-BULK-1 · SEC-TOKEN-1.
+   agent candidates: **UI-SCALE-1**, **FIGHT-VERIFY-1** (tooling or playtest), **INPUT-KB-1**
+   (confirm residual — SHIP-1 A2 already Done 07-21). Not open: HOST-CAP-1 (coded; deploy
+   on ship) · CARGO-HUD-1 · SKYBOX-1 · SEC-* · SHEET-1 · ANLX-BULK-1 · SEC-TOKEN-1.
 2. **FIGHT-VERIFY-1** — residual surfaces sheet still can't reach: loading screens
    (`makeClient` seeds `cartRaveBootSeen`), hover/press, podium — tooling vs your eye.
-3. **High art/you-led:** CART-MODEL-1 · bloom sign-off · RESULTS-1 · INPUT-KB-1 playtest after code.
+3. **High art/you-led:** CART-MODEL-1 · bloom sign-off · RESULTS-1.
 
 Cleared 07-31, in the required order: ANLX-ATTRACT-1 acceptance (closed on a live
 two-client prod probe, not on counting — [evidence](./planning/completed-work.md)), the
@@ -160,10 +161,8 @@ and add the matching cell in the same commit as any orientation- or pointer-scop
 
 **Do-not-relearn (each produced a confident wrong answer once):** `?devUnlocks=off` is a deliberate **prod** lever — Session 2 FTUE needs it on a prod build; never gate it. Grepping `dist/` for `devUnlocks` gives a false FAIL (the `=off` path keeps the string). Vitest runs `DEV === true`, so a DEV check read *inside* a helper makes its prod branch untestable — pass `isDev` in. `/api/log-error` + `/api/analytics` swallow a DO 429 unless the Worker forwards it. `GET /api/errors` is unusable from tests (`ERROR_LOG_TOKEN` is a secret CI lacks) — read via the DO stub's `/list`. `rewindRoundClock(ms)` **sets remaining** time — `1200` ends the round. `from === COUNTDOWN` is NOT a valid "played this round" test: `shouldHoldNonHostCountdownPhase` makes `lobby→running` legitimate for a slow non-host. Worker deploys propagate per-PoP and read as *contradictory* (one route new, another old) — re-poll, don't debug. **`analytics:pull --list` caps at the newest 1000 rows** — on a quiet week that window spans ~10 days, so a "recent" cluster can be entirely stale; bucket by day before reading a trend, and prove analytics gates with a live probe (prod `?diag=1` exposes `__ccDiag.snapshot("analytics")`), not with ring counts. **Grepping deployed CSS for `min-width:` gives a false negative** — the minifier rewrites media queries to range syntax, so `@media (min-width: 900px)` ships as `@media (width>=900px)` (same trap class as the `dist/` `devUnlocks` grep). **A CSS reserve that guesses a wrapping element's height will be wrong at some width** — measure it into a custom property (`--cr-hintbar-h`, `--hud-utility-width`) and let `calc()` consume it; a hidden element then measures 0 and the reserve collapses on its own. **An absolutely-positioned child of a container that is BOTH positioned and `overflow-y:auto` scrolls with the content** — it is not chrome; `position:fixed` is. **A flex row whose children are all `flex-shrink:0` + `nowrap` cannot shrink**, so its children's ellipsis rules never engage until something caps the ROW itself.
 
-**Open, unowned (High, still live in BACKLOG):** HOST-CAP-1 · INPUT-KB-1 · UI-SCALE-1 ·
-FIGHT-VERIFY-1 · RESULTS-1 · CART-MODEL-1 · bloom sign-off. Closed this audit pass as
-stale-open in BACKLOG: CARGO-HUD-1 · CARGO-VIS-1 · SKYBOX-1 · SEC-BEACON/UNLOCK/ROUTE ·
-SHEET-1 · SRV-TEST-1 · ANLX-VIEW-1.
+**Open High:** INPUT-KB-1 · UI-SCALE-1 · FIGHT-VERIFY-1 · RESULTS-1 · CART-MODEL-1 · bloom.
+HOST-CAP-1 coded 07-31 (deploy on ship).
 
 ## Open issues (top)
 
@@ -187,6 +186,9 @@ When named: other residual or RC exit criteria in [ROADMAP.md](./planning/ROADMA
 ## Decision index
 
 One line each; full text in [archive/decision-log-2026-07.md](./archive/decision-log-2026-07.md). Newest first.
+
+- **D-HOST-CAP-1** (07-31): Weak-host toast = local host + join-time `score < 50` only
+  (strict `<`; neutral 50 silent); once per hostship; no peer check. Min-spec = accepted fact.
 
 - **D-ANLX-BULK-1** (07-31): Short scripted match ends (tool/diag on prod) are non-product.
   Product metrics = `matchesByArena` / mode / result with `duration_ms >= MIN_MATCH_DURATION_MS`

@@ -25,7 +25,10 @@ import { armSpillBoost, stripLifeCargo } from "./cargoLoad.js";
 import { clamp } from "./utils.js";
 import { playSfx } from "./audioManager.js";
 import { recordDiagEvent } from "./utils/diagnostics.js";
-import { computeLocalHostCapabilityScore } from "./utils/hostCapability.js";
+import {
+  computeLocalHostCapabilityScore,
+  shouldShowWeakHostWarning,
+} from "./utils/hostCapability.js";
 import { probeGpu } from "./utils/gpuCaps.js";
 import { getQualityTier } from "./utils/qualityMode.js";
 
@@ -84,6 +87,14 @@ let hostId = null;
 /** @type {"ok" | "reconnecting"} Coarse socket health surfaced to the HUD. */
 let connectionState = "ok";
 let isHost = false;
+/**
+ * HOST-CAP-1: local hostScore from the last MSG.join compute (not peer reports).
+ * Default 50 = neutral/legacy — never triggers weak-host toast (`score < 50` only).
+ * @type {number}
+ */
+let localHostScore = 50;
+/** HOST-CAP-1: weak-host toast already shown this hostship episode (cleared when not host). */
+let weakHostWarnedThisHostship = false;
 
 /**
  * Last room-authoritative arena id from hello / MSG.round / host_round we sent.
@@ -1710,6 +1721,8 @@ export function disconnectPartySession() {
   youConnId = null;
   hostId = null;
   isHost = false;
+  localHostScore = 50;
+  weakHostWarnedThisHostship = false;
   hostSeq = 0;
   inputSeq = 0;
   hostEpoch += 1;
@@ -1968,6 +1981,10 @@ function startKeepaliveLoop() {
 export function setAuthorityMode(nextIsHost) {
   const becomingHost = nextIsHost && !isHost;
   isHost = Boolean(nextIsHost);
+  if (!isHost) {
+    // * Fresh hostship episode can re-warn if we become host again later.
+    weakHostWarnedThisHostship = false;
+  }
 
   if (becomingHost) {
     consumeHopRequest();
@@ -1993,13 +2010,39 @@ export function setAuthorityMode(nextIsHost) {
       if (cart) cart._displayReady = false;
     }
     startHostSendLoop();
+    maybeWarnWeakHost();
     return;
   }
 
   if (isHost) {
     if (!hostSendTimer) startHostSendLoop();
+    // * Remain-host path (hello re-entry): toast at most once per hostship.
+    maybeWarnWeakHost();
   } else {
     stopHostSendLoop();
+  }
+}
+
+/**
+ * HOST-CAP-1: one toast when local is host and join-time score is clearly weak.
+ * Pure gate in hostCapability.js; presentation-only (never throws into net path).
+ */
+function maybeWarnWeakHost() {
+  if (!shouldShowWeakHostWarning({
+    isHost,
+    hostScore: localHostScore,
+    alreadyWarned: weakHostWarnedThisHostship,
+  })) {
+    return;
+  }
+  weakHostWarnedThisHostship = true;
+  try {
+    const toast = typeof window !== "undefined" ? window.CartRave?.showToast : null;
+    if (typeof toast === "function") {
+      toast("You're hosting — a stronger machine makes multiplayer smoother.", 4500);
+    }
+  } catch {
+    // * Presentation-only.
   }
 }
 
@@ -2178,7 +2221,8 @@ function applyHostMigration(msg) {
     announce("new_host", { name: newHostSlot.name });
   }
   // * HOST-ROLE-1 lobby rebalance: plain-language toast so players know why
-  // * the host glyph moved without a disconnect.
+  // * the host glyph moved without a disconnect. Weak-host toast (HOST-CAP-1)
+  // * is separate — setAuthorityMode above, join-time score only, once per hostship.
   if (msg?.reason === "host_quality") {
     try {
       const toast = typeof window !== "undefined" ? window.CartRave?.showToast : null;
@@ -2442,6 +2486,7 @@ export function initNetcode(roomOverride) {
     }
     // * NH-HIT lever 3 / HOST-ROLE-1: report host capability so lobby can rebalance
     // * toward a clearly stronger peer (not a hard ban on weak hosts).
+    // * HOST-CAP-1: same join-time score drives the local weak-host toast latch.
     let hostScore = 50;
     try {
       hostScore = computeLocalHostCapabilityScore({
@@ -2451,6 +2496,8 @@ export function initNetcode(roomOverride) {
     } catch {
       hostScore = 50;
     }
+    localHostScore = hostScore;
+    weakHostWarnedThisHostship = false;
     devLog("[netcode] Sending MSG.join", { name: savedUsername, clientId, hostScore });
     partySocket?.send(JSON.stringify({ type: MSG.join, name: savedUsername, clientId, hostScore }));
     didSendJoin = true;
@@ -3285,6 +3332,8 @@ export const __netcodeTestHooks = {
     isHost = false;
     hostId = null;
     youConnId = null;
+    localHostScore = 50;
+    weakHostWarnedThisHostship = false;
     netSlots = [];
     peerReconnectNotBeforeMs.clear();
     resetClockState(partyClock);
@@ -3300,6 +3349,13 @@ export const __netcodeTestHooks = {
     seenFallPresentationEids.clear();
     seenCollisionPresentationEids.clear();
   },
+  /** HOST-CAP-1 seams: join-time score + weak-host toast latch. */
+  setLocalHostScoreForTest: (score) => {
+    localHostScore = typeof score === "number" && Number.isFinite(score) ? score : 50;
+  },
+  getWeakHostWarnedForTest: () => weakHostWarnedThisHostship,
+  maybeWarnWeakHostForTest: () => maybeWarnWeakHost(),
+  setAuthorityModeForTest: (nextIsHost) => setAuthorityMode(nextIsHost),
   getBufferLength: () => netStateBuffer.length,
   findSnapshotPair: (t) => findSnapshotPair(t),
   pruneConsumedSnapshots: (beforeIndex) => pruneConsumedSnapshots(beforeIndex),

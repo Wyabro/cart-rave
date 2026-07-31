@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-07-31T22:07:27.772Z",
-    "commit": "0ad8a3e"
+    "at": "2026-07-31T22:22:07.711Z",
+    "commit": "649af41"
   },
-  "source_digest": "84a96fdc",
+  "source_digest": "954527eb",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -890,6 +890,12 @@
         "state": "done"
       },
       {
+        "id": "HOST-CAP-1",
+        "what": "weak-host toast residual",
+        "status": "✅ CODED 07-31 — `score < 50` once/hostship; min-spec fact accepted; deploy on ship",
+        "state": "done"
+      },
+      {
         "id": "FIGHT-VERIFY-1",
         "what": "owed fight-night verification",
         "status": "🟡 agent half PARTIAL — sheet proves feed · score strip · timer · directive chip · boost bar at 12 widths (landscape added `cd73e77`; touch pass added `0da5c4c` — `makeClient` now sets `hasTouch`/`isMobile`, 4 touch cells in `--all`, so `#hud.hud-touch` rules are no longer invisible). Still unreachable: loading screens (`makeClient` seeds `cartRaveBootSeen`), hover/press (needs interaction), podium. Wyatt half = playtest",
@@ -920,7 +926,7 @@
     "next_actions": [
       "No active card — Wyatt names the next residual (or declares \"wait\"). High open",
       "FIGHT-VERIFY-1 — residual surfaces sheet still can't reach: loading screens",
-      "High art/you-led: CART-MODEL-1 · bloom sign-off · RESULTS-1 · INPUT-KB-1 playtest after code."
+      "High art/you-led: CART-MODEL-1 · bloom sign-off · RESULTS-1."
     ],
     "open_issues": [
       {
@@ -951,10 +957,9 @@
         "title": "Engineering",
         "counts": {
           "Medium": 13,
-          "Done": 18,
+          "Done": 19,
           "Low": 4,
-          "Partial": 1,
-          "High": 1
+          "Partial": 1
         },
         "rows": [
           {
@@ -1054,9 +1059,9 @@
             "ship1": null
           },
           {
-            "pri": "High",
+            "pri": "Done",
             "item": "HOST-CAP-1 — capability-based host preference `[SHIP-1 A1]`",
-            "notes": "After host-hitch forensics: strongest machine wins host (`party/hostSelection.ts` + hostCapability); weak-host warning; residual = min-spec fact.",
+            "notes": "✅ **CODED 07-31** — HOST-ROLE-1 preferred strongest host in lobby (`80ecbf6` PASS). Residual: weak-host toast once per hostship when local is host **and** join-time `score < WEAK_HOST_WARN_SCORE` (50); neutral 50 never warns. Min-spec fact accepted (no ban). Pure + wire tests. Deploy still needs \"ship it\".",
             "ship1": "A1"
           },
           {
@@ -1529,7 +1534,7 @@
           {
             "col0": "A1",
             "item": "Host hitch forensics → capability-based host preference",
-            "notes": "**Tab-out latch VALIDATED 07-21** — cap-122 caught a real 6.55s backgrounding cleanly (`hiddenDuringGap:true`), confirming all prior \"not backgrounding\" readings. Round-start jank (COUNTDOWN-WARM-1) root-caused and fixed. **The actual complaint turned out to be different**: countdown beats fire but desync/skip under a stall (COUNTDOWN-SYNC-1, also fixed 07-21) — see BACKLOG. Original chronic-host-freeze question (Intel-as-host) still open: 5 sessions in a row picked the 4090 as host; still zero Intel-as-host captures."
+            "notes": "**Mostly closed.** Tab-out latch VALIDATED 07-21; COUNTDOWN-WARM-1 / SYNC-1 PASS 07-22; Intel-as-host PASS 07-22; HOST-ROLE-1 lobby rebalance PASS 07-20 (`80ecbf6`). **HOST-CAP-1 residual 07-31:** weak-host toast when local hosts with join-time `score < 50` (once per hostship); min-spec fact accepted. Coded unpushed until ship."
           },
           {
             "col0": "A2",
@@ -1781,6 +1786,11 @@
       "Cross-module change? Read docs/reference/control-flow.md first — most edges are not imports."
     ],
     "settled_decisions": [
+      {
+        "id": "D-HOST-CAP-1",
+        "date": "07-31",
+        "text": "Weak-host toast = local host + join-time `score < 50` only"
+      },
       {
         "id": "D-ANLX-BULK-1",
         "date": "07-31",

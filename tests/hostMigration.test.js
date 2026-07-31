@@ -266,3 +266,61 @@ describe("applyHostMigration (client authority handoff)", () => {
     expect(Math.abs((performance.timeOrigin + performance.now()) - hit.timestamp - 400)).toBeLessThan(50);
   });
 });
+
+// --- HOST-CAP-1: weak-host toast (join-time score, once per hostship) -----------------
+
+describe("weak-host warning (HOST-CAP-1 wire)", () => {
+  /** @type {string[]} */
+  let toasts;
+
+  beforeEach(() => {
+    toasts = [];
+    globalThis.window = globalThis.window || globalThis;
+    globalThis.window.CartRave = {
+      showToast: (msg) => {
+        toasts.push(msg);
+      },
+    };
+    hooks.resetNetState();
+  });
+
+  afterEach(() => {
+    if (globalThis.window?.CartRave) delete globalThis.window.CartRave;
+  });
+
+  it("toasts once when local is host and score < 50", () => {
+    hooks.setLocalHostScoreForTest(40);
+    hooks.setHostStateForTest({ isHost: true, youConnId: "me" });
+    hooks.maybeWarnWeakHostForTest();
+    hooks.maybeWarnWeakHostForTest();
+    expect(toasts).toHaveLength(1);
+    expect(toasts[0]).toMatch(/multiplayer smoother/i);
+    expect(hooks.getWeakHostWarnedForTest()).toBe(true);
+  });
+
+  it("never toasts for non-host or neutral score 50", () => {
+    hooks.setLocalHostScoreForTest(40);
+    hooks.setHostStateForTest({ isHost: false, youConnId: "me" });
+    hooks.maybeWarnWeakHostForTest();
+    expect(toasts).toHaveLength(0);
+
+    hooks.setLocalHostScoreForTest(50);
+    hooks.setHostStateForTest({ isHost: true, youConnId: "me" });
+    hooks.maybeWarnWeakHostForTest();
+    expect(toasts).toHaveLength(0);
+  });
+
+  it("re-arms after losing host so a later hostship can warn again", () => {
+    hooks.setLocalHostScoreForTest(30);
+    hooks.setHostStateForTest({ isHost: true, youConnId: "me" });
+    hooks.maybeWarnWeakHostForTest();
+    expect(toasts).toHaveLength(1);
+
+    // * Drop hostship (clears latch via setAuthorityMode non-host path).
+    hooks.setAuthorityModeForTest(false);
+    expect(hooks.getWeakHostWarnedForTest()).toBe(false);
+
+    hooks.setAuthorityModeForTest(true);
+    expect(toasts).toHaveLength(2);
+  });
+});

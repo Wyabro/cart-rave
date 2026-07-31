@@ -7,8 +7,11 @@ import {
   computeLocalHostCapabilityScore,
   DEFAULT_HOST_SCORE,
   HOST_SCORE_MIGRATE_MARGIN,
+  isWeakHostScore,
   scoreHostCapability,
   shouldPreferHostScore,
+  shouldShowWeakHostWarning,
+  WEAK_HOST_WARN_SCORE,
 } from "../src/utils/hostCapability.js";
 import {
   pickPreferredHostId,
@@ -49,6 +52,27 @@ describe("scoreHostCapability", () => {
     expect(shouldPreferHostScore(50, 50)).toBe(false);
     expect(shouldPreferHostScore(50, 50 + HOST_SCORE_MIGRATE_MARGIN - 1)).toBe(false);
     expect(shouldPreferHostScore(50, 50 + HOST_SCORE_MIGRATE_MARGIN)).toBe(true);
+  });
+});
+
+describe("weak-host warning (HOST-CAP-1)", () => {
+  it("uses strict < WEAK_HOST_WARN_SCORE (= DEFAULT_HOST_SCORE)", () => {
+    expect(WEAK_HOST_WARN_SCORE).toBe(DEFAULT_HOST_SCORE);
+    expect(isWeakHostScore(DEFAULT_HOST_SCORE)).toBe(false);
+    expect(isWeakHostScore(DEFAULT_HOST_SCORE - 1)).toBe(true);
+    expect(isWeakHostScore(0)).toBe(true);
+    expect(isWeakHostScore(100)).toBe(false);
+    // * Non-numbers / missing — not weak (legacy join never reported a score).
+    expect(isWeakHostScore(null)).toBe(false);
+    expect(isWeakHostScore(undefined)).toBe(false);
+    expect(isWeakHostScore(NaN)).toBe(false);
+  });
+
+  it("shouldShowWeakHostWarning: host + weak + not latched only", () => {
+    expect(shouldShowWeakHostWarning({ isHost: true, hostScore: 40, alreadyWarned: false })).toBe(true);
+    expect(shouldShowWeakHostWarning({ isHost: true, hostScore: 50, alreadyWarned: false })).toBe(false);
+    expect(shouldShowWeakHostWarning({ isHost: false, hostScore: 40, alreadyWarned: false })).toBe(false);
+    expect(shouldShowWeakHostWarning({ isHost: true, hostScore: 40, alreadyWarned: true })).toBe(false);
   });
 });
 

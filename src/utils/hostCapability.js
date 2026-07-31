@@ -21,6 +21,39 @@ export const DEFAULT_HOST_SCORE = 50;
 export const HOST_SCORE_MIGRATE_MARGIN = 20;
 
 /**
+ * Local weak-host warning threshold: toast when `score < WEAK_HOST_WARN_SCORE`.
+ * Same numeric value as {@link DEFAULT_HOST_SCORE} so neutral/legacy (50) never
+ * warns — only clearly below-average machines. Use strict `<`, never `<=`.
+ * (Not `= DEFAULT_HOST_SCORE` export alias — knip flags that as a duplicate export.)
+ */
+export const WEAK_HOST_WARN_SCORE = 50;
+
+/**
+ * Whether a host-capability score is weak enough to warn the local host.
+ * Neutral/default/legacy scores (`DEFAULT_HOST_SCORE`) return false.
+ *
+ * @param {number | null | undefined} score
+ * @returns {boolean}
+ */
+export function isWeakHostScore(score) {
+  if (typeof score !== "number" || !Number.isFinite(score)) return false;
+  return score < WEAK_HOST_WARN_SCORE;
+}
+
+/**
+ * Pure latch for the local weak-host toast (HOST-CAP-1).
+ * Fire when local is host, score is weak, and this lobby/hostship episode has not
+ * already shown the toast. No "stronger peer present" check — rebalance has its own toast.
+ *
+ * @param {{ isHost: boolean, hostScore: number | null | undefined, alreadyWarned: boolean }} args
+ * @returns {boolean}
+ */
+export function shouldShowWeakHostWarning({ isHost, hostScore, alreadyWarned }) {
+  if (!isHost || alreadyWarned) return false;
+  return isWeakHostScore(hostScore);
+}
+
+/**
  * Pure host-capability score for a device snapshot.
  *
  * @param {{
