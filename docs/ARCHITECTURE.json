@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-07-31T07:30:31.515Z",
-    "commit": "8985916"
+    "at": "2026-07-31T08:13:18.347Z",
+    "commit": "50e8944"
   },
-  "source_digest": "16a84f53",
+  "source_digest": "cbf66798",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -918,10 +918,10 @@
         "title": "Engineering",
         "counts": {
           "Medium": 16,
-          "Done": 6,
-          "High": 7,
+          "Done": 7,
           "Low": 6,
-          "Partial": 1
+          "Partial": 1,
+          "High": 6
         },
         "rows": [
           {
@@ -937,9 +937,9 @@
             "ship1": "A1"
           },
           {
-            "pri": "High",
+            "pri": "Done",
             "item": "HUD-FEED-1 — kill-feed row overflows its plate below ~768 px",
-            "notes": "**Found by `npm run sheet --all` 07-31** (the FIGHT-VERIFY agent half; first sweep that could render the feed at all). The `— TRANSACTION LOG —` plate does not grow to contain its row: the actor pip, name and verb paint OUTSIDE the plate's dark background, on transparent canvas. Scales with the gap between row content and plate width — at 768×1024 the star + `SHEETBOT` sit just past the left edge; at 390×844 and 380×800 the pip, name and `RAMMED` are all outside it, roughly half the row unbacked. Correct at 1920×1080 (plate wraps the full row). Repro: `npm run sheet -- --viewports 390x844` then open `.diag-captures/sheet/classicRecord-390x844-hud.png` (chrome-only shot, canvas hidden, so the overflow is unambiguous). Suspect the plate is right-anchored/fixed-width while `.hud-feed-row` lays out from its own content — start at `#hud .hud-feed` / `.hud-feed-inner` / `.hud-feed-rows` (`hud.css:677-713`), noting `.hud-feed-inner` carries `transform: skewX(8deg)`. Fight-night surface, so it belongs to FIGHT-VERIFY-1's owed pass.",
+            "notes": "✅ **SHIPPED 07-31** — live at `50e8944` / Version `34c2e1a9`, verified against the fetched `assets/index-ClpcX_lJ.css` (`min(78vw,320px)` ×1, `.hud-feed-row{…max-width:100%}` ×1, ellipsis ×3, stale `min(48vw`/`min(68vw` both 0). **Owed: Wyatt playtest on prod.** Three commits: `70c3887` containment, `bac31b8` gap 10→6px, `50e8944` cap → `min(78vw,320px)`. Net at 390×844: row went from overflowing the plate by 138px to 250px fully inside it, names 0 → 116px (`SHEET…` / `AISLEDRI…`). Root cause was two-part — the `max-width:768px` cap of `min(48vw,280px)` was narrower than the row's own rigid parts (icon 14 + verb 59 + pip 37 + gaps 40 = 150px vs 133px usable), and the shrink/ellipsis rules already existed but were scoped only to the landscape/short block, never to portrait. Neither fixed it alone: nothing constrained the ROW, so as a flex item under `align-items:flex-end` it sized to max-content and spilled, and while it spilled the children's `flex-shrink` could never engage — hence `max-width:100%` in the base rule. Original report below. **Found by `npm run sheet --all` 07-31** (the FIGHT-VERIFY agent half; first sweep that could render the feed at all). The `— TRANSACTION LOG —` plate does not grow to contain its row: the actor pip, name and verb paint OUTSIDE the plate's dark background, on transparent canvas. Scales with the gap between row content and plate width — at 768×1024 the star + `SHEETBOT` sit just past the left edge; at 390×844 and 380×800 the pip, name and `RAMMED` are all outside it, roughly half the row unbacked. Correct at 1920×1080 (plate wraps the full row). Repro: `npm run sheet -- --viewports 390x844` then open `.diag-captures/sheet/classicRecord-390x844-hud.png` (chrome-only shot, canvas hidden, so the overflow is unambiguous). Suspect the plate is right-anchored/fixed-width while `.hud-feed-row` lays out from its own content — start at `#hud .hud-feed` / `.hud-feed-inner` / `.hud-feed-rows` (`hud.css:677-713`), noting `.hud-feed-inner` carries `transform: skewX(8deg)`. Fight-night surface, so it belongs to FIGHT-VERIFY-1's owed pass.",
             "ship1": null
           },
           {
