@@ -67,7 +67,7 @@ describe("pullAnalytics fetch paths", () => {
     vi.unstubAllGlobals();
   });
 
-  it("returns summary on 200", async () => {
+  it("returns summary on 200 with Bearer auth (no ?token=)", async () => {
     const fetchMock = vi.fn(async () => ({
       ok: true,
       json: async () => ({ sessions: 4, clients: 2, byName: [] }),
@@ -79,7 +79,11 @@ describe("pullAnalytics fetch paths", () => {
     });
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.data).toEqual({ sessions: 4, clients: 2, byName: [] });
-    expect(fetchMock.mock.calls[0][0]).toBe("https://example.test/api/analytics?token=tok");
+    expect(fetchMock.mock.calls[0][0]).toBe("https://example.test/api/analytics");
+    expect(String(fetchMock.mock.calls[0][0])).not.toContain("token=");
+    expect(fetchMock.mock.calls[0][1]).toEqual({
+      headers: { Authorization: "Bearer tok" },
+    });
   });
 
   it("surfaces HTTP failures", async () => {
@@ -95,7 +99,7 @@ describe("pullAnalytics fetch paths", () => {
     expect(result).toEqual({ ok: false, status: 403, body: "forbidden" });
   });
 
-  it("requests list view when list=true", async () => {
+  it("requests list view when list=true (Bearer, no ?token=)", async () => {
     const fetchMock = vi.fn(async () => ({
       ok: true,
       json: async () => ({ count: 0, events: [] }),
@@ -107,8 +111,11 @@ describe("pullAnalytics fetch paths", () => {
       limit: 10,
       fetchImpl: fetchMock,
     });
-    expect(fetchMock.mock.calls[0][0]).toContain("view=list");
-    expect(fetchMock.mock.calls[0][0]).toContain("limit=10");
+    const [reqUrl, init] = fetchMock.mock.calls[0];
+    expect(reqUrl).toContain("view=list");
+    expect(reqUrl).toContain("limit=10");
+    expect(String(reqUrl)).not.toContain("token=");
+    expect(init).toEqual({ headers: { Authorization: "Bearer secret" } });
   });
 });
 

@@ -144,7 +144,7 @@ its superseded triage docs moved to [completed-work.md](./planning/completed-wor
 
 Cleared 07-31, in the required order: ANLX-ATTRACT-1 acceptance (closed on a live
 two-client prod probe, not on counting — [evidence](./planning/completed-work.md)), the
-analytics-DO reset (`DELETE /api/analytics?token=…`, 20,000 rows → 0) once the pre-reset
+analytics-DO reset (`DELETE /api/analytics` + Bearer token, 20,000 rows → 0) once the pre-reset
 aggregates were filed as ANLX-BULK-1, then SHEET-1 built, HUD-FEED-1 / MENU-HINT-1 /
 HUD-CHIPS-1 found and shipped **and confirmed by Wyatt's phone playtest (all three PASS,
 portrait + landscape)**, the sweep's touch blind spot closed (`0da5c4c`), and **ANLX-BULK-1**
@@ -291,7 +291,7 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 - **`MSG.readyToggle` without a `ready` field is a TOGGLE** — programmatic ready must send `{ ready: true }`.
 - `material.envMapIntensity` is a **no-op against `scene.environment`** in this three version — only `scene.environmentIntensity` or a material-owned `envMap` scales IBL.
 - Battery reports without provenance are visible history only — never green readiness evidence. Prefer complete exact-HEAD runs.
-- **Before any public / external-tester playtest: reset the analytics DO** so aggregates are not polluted by dev/harness traffic. Token-gated: `DELETE https://cart-rave.wyabro.workers.dev/api/analytics?token=<ERROR_LOG_TOKEN>` (same secret as `analytics:pull`). Then re-pull / dashboard after the playtest window.
+- **Before any public / external-tester playtest: reset the analytics DO** so aggregates are not polluted by dev/harness traffic. Token-gated (SEC-TOKEN-1): `DELETE` with `Authorization: Bearer <ERROR_LOG_TOKEN>` on `/api/analytics` (same secret as `analytics:pull`; never `?token=`). Then re-pull / dashboard after the playtest window.
 
 ## Last updated
 

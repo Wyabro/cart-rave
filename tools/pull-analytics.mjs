@@ -3,7 +3,8 @@
  * pull-analytics.mjs — fetch prod /api/analytics summary into
  * `.diag-captures/analytics-summary.json` for agents + Command Center.
  *
- * Auth: same ERROR_LOG_TOKEN as /api/errors / captures:pull. Provide via:
+ * Auth (SEC-TOKEN-1): `Authorization: Bearer <ERROR_LOG_TOKEN>` — never `?token=`
+ * (query tokens leak into logs/referrers). Provide the secret via:
  *   - env ERROR_LOG_TOKEN
  *   - or a line `ERROR_LOG_TOKEN=…` in `.env.local` / `.dev.vars` (gitignored)
  *
@@ -153,11 +154,12 @@ function formatQuitRows(rows) {
  */
 export async function pullAnalytics({ url, token, list = false, limit = 100, fetchImpl = fetch }) {
   const base = String(url).replace(/\/$/, "");
-  const authQ = `token=${encodeURIComponent(token)}`;
   const pathAndQuery = list
-    ? `/api/analytics?view=list&limit=${limit}&${authQ}`
-    : `/api/analytics?${authQ}`;
-  const res = await fetchImpl(`${base}${pathAndQuery}`);
+    ? `/api/analytics?view=list&limit=${limit}`
+    : `/api/analytics`;
+  const res = await fetchImpl(`${base}${pathAndQuery}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
   if (!res.ok) {
     const body = typeof res.text === "function" ? await res.text() : "";
     return { ok: false, status: res.status, body };

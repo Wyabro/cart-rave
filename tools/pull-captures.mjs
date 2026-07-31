@@ -3,7 +3,8 @@
  * pull-captures.mjs — download F8 capture bundles from prod /api/captures into
  * `.diag-captures/playtest/` so the agent can read them without email hops.
  *
- * Auth: same ERROR_LOG_TOKEN as /api/errors (Worker secret). Provide via:
+ * Auth (SEC-TOKEN-1): `Authorization: Bearer <ERROR_LOG_TOKEN>` — never `?token=`
+ * (query tokens leak into logs/referrers). Provide the secret via:
  *   - env ERROR_LOG_TOKEN
  *   - or a line `ERROR_LOG_TOKEN=…` in `.env.local` / `.dev.vars` (gitignored)
  *
@@ -76,10 +77,12 @@ Writes full bundles to .diag-captures/playtest/`);
   }
 
   const base = args.url.replace(/\/$/, "");
-  const authQ = `token=${encodeURIComponent(token)}`;
+  const authHeaders = { Authorization: `Bearer ${token}` };
 
   if (args.id) {
-    const res = await fetch(`${base}/api/captures?id=${args.id}&${authQ}`);
+    const res = await fetch(`${base}/api/captures?id=${encodeURIComponent(args.id)}`, {
+      headers: authHeaders,
+    });
     if (!res.ok) {
       console.error(`GET id=${args.id} failed: ${res.status} ${await res.text()}`);
       process.exit(1);
@@ -90,7 +93,9 @@ Writes full bundles to .diag-captures/playtest/`);
     process.exit(0);
   }
 
-  const listRes = await fetch(`${base}/api/captures?limit=${args.limit}&${authQ}`);
+  const listRes = await fetch(`${base}/api/captures?limit=${args.limit}`, {
+    headers: authHeaders,
+  });
   if (!listRes.ok) {
     console.error(`LIST failed: ${listRes.status} ${await listRes.text()}`);
     process.exit(1);

@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-07-31T20:44:19.761Z",
-    "commit": "8b59168"
+    "at": "2026-07-31T22:02:49.412Z",
+    "commit": "a1562e3"
   },
-  "source_digest": "ad165fc7",
+  "source_digest": "cf2e2da3",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -601,6 +601,7 @@
         "src/utils/diagnostics.js"
       ],
       "files": [
+        "party/adminAuth.ts",
         "party/analyticsLog.ts",
         "party/beaconLimit.ts",
         "party/captureLog.ts",
@@ -622,7 +623,7 @@
         "src/utils/longTaskProbe.js",
         "src/utils/perfSpans.js"
       ],
-      "file_count": 20,
+      "file_count": 21,
       "edges": [
         {
           "to": "state-stores",
@@ -637,6 +638,7 @@
       ],
       "notes": [
         "Diagnostics globals namespace is __cc* (__ccTest / __ccDiag / __ccLoopDbg). F8 (or auto on error+assert) captures a bug bundle.",
+        "adminAuth.ts is SEC-TOKEN-1 — Authorization: Bearer only for /api/errors|captures|analytics admin reads; never ?token=. requireAdminToken → Response | null (null = ok).",
         "beaconLimit.ts is the SEC-BEACON-1 per-IP cap on the three open POST beacons. Enforced INSIDE each log DO (before the INSERT) because the harm is ring eviction; the budget is per-DO, not shared. index.ts forwards cf-connecting-ip inward and propagates the DO's 429 outward — /api/log-error and /api/analytics otherwise always return 204 and the cap would be invisible.",
         "gameplayDiagnostics subscribes to gameStore/challengeStore/unlockStore — a reader, not a mutator.",
         "perfSpans attributes per-call-site render cost (warm.render.default.play-full named the PERF-WARM owner)."
@@ -844,7 +846,7 @@
     "`MSG.readyToggle` without a `ready` field is a TOGGLE — programmatic ready must send `{ ready: true }`.",
     "`material.envMapIntensity` is a no-op against `scene.environment` in this three version — only `scene.environmentIntensity` or a material-owned `envMap` scales IBL.",
     "Battery reports without provenance are visible history only — never green readiness evidence. Prefer complete exact-HEAD runs.",
-    "Before any public / external-tester playtest: reset the analytics DO so aggregates are not polluted by dev/harness traffic. Token-gated: `DELETE https://cart-rave.wyabro.workers.dev/api/analytics?token=<ERROR_LOG_TOKEN>` (same secret as `analytics:pull`). Then re-pull / dashboard after the playtest window."
+    "Before any public / external-tester playtest: reset the analytics DO so aggregates are not polluted by dev/harness traffic. Token-gated (SEC-TOKEN-1): `DELETE` with `Authorization: Bearer <ERROR_LOG_TOKEN>` on `/api/analytics` (same secret as `analytics:pull`; never `?token=`). Then re-pull / dashboard after the playtest window."
   ],
   "workstreams": {
     "queue": [
@@ -943,8 +945,8 @@
         "title": "Engineering",
         "counts": {
           "Medium": 15,
-          "Done": 10,
-          "Low": 5,
+          "Done": 11,
+          "Low": 4,
           "Partial": 1,
           "High": 6
         },
@@ -1094,9 +1096,9 @@
             "ship1": null
           },
           {
-            "pri": "Low",
+            "pri": "Done",
             "item": "SEC-TOKEN-1 — admin tokens out of query params",
-            "notes": "`?token=` on `/api/errors",
+            "notes": "✅ **CLOSED** — `Authorization: Bearer` only via `party/adminAuth.ts` (`requireAdminToken` → Response \\",
             "ship1": null
           },
           {

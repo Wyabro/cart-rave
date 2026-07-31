@@ -32,6 +32,7 @@ type Slot = {
 
 import { MSG } from '../shared/protocol.js';
 import { COUNTDOWN_MS } from '../shared/roundConstants.js';
+import { requireAdminToken } from './adminAuth';
 import { UNKNOWN_IP } from './beaconLimit';
 import {
   IP_CONNECTION_CAP,
@@ -1552,9 +1553,9 @@ export default {
     // * instance "v1"). Bounded, queryable; replaces the old console.log-and-drop.
     //
     // * SEC-ROUTE-1: all four /api/* routes below match EXACTLY, not by prefix or
-    // * substring. They have no sub-paths — every option rides the query string
-    // * (?id=, ?limit=, ?view=, ?token=), which is not part of pathname — so `===`
-    // * is the tightest correct rule and mirrors the log DOs' own internal handlers.
+    // * substring. They have no sub-paths — options ride the query string
+    // * (?id=, ?limit=, ?view=) and admin auth is Authorization: Bearer only
+    // * (SEC-TOKEN-1 — never ?token=). Pathname `===` is the tightest correct rule.
     // * `includes()` here used to swallow any path CONTAINING the string (e.g.
     // * /x/api/errors) before the /parties/ check and before ASSETS. Do not loosen
     // * these back; `startsWith` at the isParty check below is different — that one
@@ -1584,25 +1585,16 @@ export default {
       return new Response(null, { status: 204 });
     }
 
-    // * Read/clear the crash log. Token-gated: only usable once ERROR_LOG_TOKEN is
-    // * set as a Worker secret, so error reports (UA/URL/stack) aren't world-readable.
+    // * Read/clear the crash log. Token-gated (SEC-TOKEN-1: Authorization Bearer only,
+    // * never ?token=). Only usable once ERROR_LOG_TOKEN is a Worker secret.
     if (url.pathname === "/api/errors") {
-      const token = env.ERROR_LOG_TOKEN;
+      const denied = requireAdminToken(request, env.ERROR_LOG_TOKEN);
+      if (denied) return denied;
       const jsonError = (msg: string, status: number) =>
         new Response(JSON.stringify({ error: msg }), {
           status,
           headers: { "content-type": "application/json" },
         });
-      if (!token) {
-        return jsonError(
-          "read endpoint disabled — set the ERROR_LOG_TOKEN secret (wrangler secret put ERROR_LOG_TOKEN)",
-          503,
-        );
-      }
-      const provided =
-        url.searchParams.get("token") ||
-        (request.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
-      if (provided !== token) return new Response("forbidden", { status: 403 });
       if (!env.ERROR_LOG) {
         return jsonError("ERROR_LOG binding not deployed", 500);
       }
@@ -1694,22 +1686,13 @@ export default {
           headers: { "content-type": "application/json" },
         });
       }
-      const token = env.ERROR_LOG_TOKEN;
+      const denied = requireAdminToken(request, env.ERROR_LOG_TOKEN);
+      if (denied) return denied;
       const jsonError = (msg: string, status: number) =>
         new Response(JSON.stringify({ error: msg }), {
           status,
           headers: { "content-type": "application/json" },
         });
-      if (!token) {
-        return jsonError(
-          "read endpoint disabled — set the ERROR_LOG_TOKEN secret (wrangler secret put ERROR_LOG_TOKEN)",
-          503,
-        );
-      }
-      const provided =
-        url.searchParams.get("token") ||
-        (request.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
-      if (provided !== token) return new Response("forbidden", { status: 403 });
       if (!env.CAPTURE_LOG) return jsonError("CAPTURE_LOG binding not deployed", 500);
       const stub = env.CAPTURE_LOG.get(env.CAPTURE_LOG.idFromName("v1"));
       if (request.method === "DELETE") {
@@ -1756,22 +1739,13 @@ export default {
         }
         return new Response(null, { status: 204 });
       }
-      const token = env.ERROR_LOG_TOKEN;
+      const denied = requireAdminToken(request, env.ERROR_LOG_TOKEN);
+      if (denied) return denied;
       const jsonError = (msg: string, status: number) =>
         new Response(JSON.stringify({ error: msg }), {
           status,
           headers: { "content-type": "application/json" },
         });
-      if (!token) {
-        return jsonError(
-          "read endpoint disabled — set the ERROR_LOG_TOKEN secret (wrangler secret put ERROR_LOG_TOKEN)",
-          503,
-        );
-      }
-      const provided =
-        url.searchParams.get("token") ||
-        (request.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
-      if (provided !== token) return new Response("forbidden", { status: 403 });
       if (!env.ANALYTICS_LOG) return jsonError("ANALYTICS_LOG binding not deployed", 500);
       const stub = env.ANALYTICS_LOG.get(env.ANALYTICS_LOG.idFromName("v1"));
       if (request.method === "DELETE") {
