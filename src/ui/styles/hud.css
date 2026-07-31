@@ -1073,11 +1073,19 @@
   #hud .hud-region-events {
     left: auto;
     right: max(var(--hud-pad), env(safe-area-inset-right, 0px));
-    max-width: min(42vw, 240px);
+    /* HUD-FEED-1, landscape leg: the ceiling was 240px and it BOUND on every common
+       landscape phone (42vw is 378px at 900w, 341px at 812w), leaving ~60px for two names
+       against a ~150px rigid row — captured live at 900×390 as "BA… PUNTED 1.5X FRE…",
+       the same illegibility the portrait leg already fixed. 320px matches the portrait
+       ceiling; 42vw still binds on narrow landscape (280px at 667w). */
+    max-width: min(42vw, 320px);
   }
   #hud .hud-feed-row {
     flex-wrap: nowrap;
     min-width: 0;
+    /* Same trade as portrait: the four 10px gaps are the cheapest 40px in a row whose
+       icon/verb/pip cannot shrink. */
+    gap: 6px;
   }
   #hud .hud-feed-actor,
   #hud .hud-feed-target {
