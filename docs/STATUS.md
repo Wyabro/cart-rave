@@ -76,19 +76,13 @@ before-external-testers items are done); the ring now starts clean.
 
 Run 7 mission closed; NET-2 / NET-MIG-3 passed live; NET-PRES-1 landed (loss-on-drop residual accepted). Stay in this phase until Wyatt advances the marker.
 
-**Parallel track — "Fight Night" UI redesign: complete, merged (PR #3 → `cart-clash` `56dfa61`), deployed to prod** (bundle `sha:56dfa61`, verified against the fetched asset). Every 2D surface rebuilt on one shell/slab language. **Owed: a real-browser verification pass in production** (live match, two-client friends room, cold boot per arena, touched hover/press surfaces) — signed off by DOM/computed-style only so far. See D-FIGHTNIGHT-1 + [fight-night-ui-handover.md](./planning/fight-night-ui-handover.md).
+**Fight Night UI** merged (`56dfa61`) — agent verification = FIGHT-VERIFY-1; Wyatt half still
+owed for real-match / two-client feel ([handover](./planning/fight-night-ui-handover.md)).
 
-Playtest console: generated — `npm run dashboard` / `npm run playtest:console` →
-[.diag-captures/playtest-console.html](../.diag-captures/playtest-console.html)
-(cards from STATUS “needs Wyatt playtest” + BACKLOG `Owed: Wyatt playtest`).  
-F8 → auto-upload; pull: `npm run captures:pull` (needs `.env.local` `ERROR_LOG_TOKEN`).
+Playtest console: `npm run dashboard` → [.diag-captures/playtest-console.html](../.diag-captures/playtest-console.html)
+(seed: STATUS needs-Wyatt + BACKLOG `Owed: Wyatt playtest`). F8 + `npm run captures:pull`.
 
-**07-30 — laptop captures (cap-205…214, medium-tier iGPUs):** first play stalled 3.8–7.1s in the
-`warm:true` path; slower laptop froze 6.4s *inside* the countdown. Gameplay after entry clean.
-Closed as WARM-IGPU-1; residual = WARM-SOLO-1 ([detail](./planning/warm-igpu-1.md)).
-
-**07-30 — research fold-in (QA-STATUS-1):** four phone-research docs verified against the tree
-and folded into the queue below; card details live in [BACKLOG](./planning/BACKLOG.md), not here.
+**Warm residual:** WARM-IGPU-1 closed; solo stall = WARM-SOLO-1 ([plan](./planning/warm-igpu-1.md)).
 
 ### Do not
 
@@ -115,57 +109,39 @@ Standing prohibitions — fed into [BRIEFING.md](./BRIEFING.md) and the Command 
 
 Live queue = [SHIP-1.md](./planning/SHIP-1.md) tiers; Run 7 is archived evidence.
 
-Tier-A/B/C rows closed 07-21 → 07-31 (A1–A7 · COUNTDOWN-ARM-1 · CARGO-* · SKYBOX-1 ·
-WARM-IGPU-1 · HYGIENE-1 · SEC-BEACON/UNLOCK/ROUTE-1 · ANLX-ATTRACT-1) are archived with their
-evidence in [completed-work.md](./planning/completed-work.md) — only live cards stay here.
+Closed 07-21→07-31 (incl. ANLX-* · SEC-* · SHEET-1 · HUD-FEED/MENU-HINT/HUD-CHIPS · HOST-CAP-1 ·
+BOOT-PERF-1 · Run 7 strip) → [completed-work.md](./planning/completed-work.md). Live only below.
 
 | # | What | Status |
 |---|------|--------|
-| **ANLX-ATTRACT-1** | mid-round joins booked phantom matches | ✅ **CLOSED** 07-31 — live at `2e85f0b` / Version `4083335f`. Live two-client prod probe: 2 clients adopted `phase=running` while unseated → **0 `match_started`**; all 7 emitted starts carried `joinedMidRound` (6 `true`, 1 `false`); 0 `<3 s` draws. Counting metric could not decide it (cluster died 07-22, pre-fix) — [full acceptance](./planning/completed-work.md) |
-| **ANLX-BULK-1** | short scripted `loss` bulk in analytics | ✅ **CLOSED + SHIPPED** 07-31 — L1+L2 + `MIN_MATCH_DURATION_MS=3000`; live after `a1562e3` deploy. Product metrics filtered; byName raw (P-A). |
-| **SEC-TOKEN-1** | admin token out of query string | ✅ **CLOSED + SHIPPED** 07-31 — Bearer only (`party/adminAuth.ts`); `0ad8a3e` / Version `60e4718a…`. |
-| **SHEET-1** | in-match contact-sheet tool (`npm run sheet`) | ✅ **BUILT + PROVEN** 07-31 — `5f3c8ab` makeClient viewport/RM passthrough · `a4c8d6b` tools/sheet.mjs + montage · `9489a8b` DEV-only `forceKillFeed`. `--all` = 9 viewports, 54/54. Per cell: solo boot → pin (asserted `ok`) → subject-is-HUD gate → full PNG + canvas/nametag-hidden chrome PNG. Caught HUD-FEED-1 on first use. [card](./planning/sheet-1.md) |
-| **HUD-FEED-1 · MENU-HINT-1 · HUD-CHIPS-1** | three responsive UI defects from Wyatt's phone footage | ✅ **CLOSED** 07-31 — **Wyatt playtest PASS on all three** (phone, mid-round, post-KO, portrait + landscape), on the shipped Version `85087c10`. Seven commits `70c3887`→`ae150e0`; asset-verified (feed ceilings 400 ×2, touch-label rule, hintbar hidden, stale 320s gone). Full diagnoses + measurements in [BACKLOG](./planning/BACKLOG.md); load-bearing causes in Do-not-relearn below. Residual (cosmetic, unowned): touch chip labels sit ~20 px under natural width at 1200 even though the region (696) is inside its cap (912) |
-| **HOST-CAP-1** | weak-host toast residual | ✅ **CODED 07-31** — `score < 50` once/hostship; min-spec fact accepted; deploy on ship |
-| **BOOT-PERF-1** | idle warm gen-cancel | ✅ **CODED 07-31** — mid-flight retarget; no sticky wrong arena |
-| **FIGHT-VERIFY-1** | owed fight-night verification | 🟡 **agent half PARTIAL** — sheet proves feed · score strip · timer · directive chip · boost bar at 12 widths (landscape added `cd73e77`; **touch pass added `0da5c4c` — `makeClient` now sets `hasTouch`/`isMobile`, 4 touch cells in `--all`**, so `#hud.hud-touch` rules are no longer invisible). Still unreachable: loading screens (`makeClient` seeds `cartRaveBootSeen`), hover/press (needs interaction), podium. Wyatt half = playtest |
+| **FIGHT-VERIFY-1** | owed fight-night verification | 🟡 **agent half PARTIAL** — sheet/states/loadshots/podium cover many surfaces; residual: real-match feel + two-client friends (Wyatt). Loading/hover/podium tooling landed 07-31. |
+| **HOST-CAP-1** | weak-host toast residual | ✅ **SHIPPED** 08-01 — `score < 50` once/hostship; prod Version `76ebdc37` (HEAD `423008f`) |
+| **BOOT-PERF-1** | idle warm gen-cancel | ✅ **SHIPPED** 08-01 — mid-flight retarget; same deploy |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
 | BRAND-1 | Domain cutover | 🧊 frozen |
 
-Run 7's closed evidence strip (Run 7 · NET-1 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1) and
-its superseded triage docs moved to [completed-work.md](./planning/completed-work.md) on
-07-31 — all still under the standing "do not re-open without new evidence".
-
 ### Next actions
 
-1. **No active card — Wyatt names the next residual** (or declares "wait"). High open
-   agent candidates: **UI-SCALE-1**, **FIGHT-VERIFY-1** (tooling or playtest), **INPUT-KB-1**
-   (confirm residual — SHIP-1 A2 already Done 07-21). Coded deploy-on-ship: HOST-CAP-1 ·
-   BOOT-PERF-1. Not open: CARGO-HUD-1 · SKYBOX-1 · SEC-* · SHEET-1 · ANLX-BULK-1 · SEC-TOKEN-1.
-2. **FIGHT-VERIFY-1** — residual surfaces sheet still can't reach: loading screens
-   (`makeClient` seeds `cartRaveBootSeen`), hover/press, podium — tooling vs your eye.
-3. **High art/you-led:** CART-MODEL-1 · bloom sign-off · RESULTS-1.
+1. **No active card — Wyatt names the next residual** (or “wait”). Agent High: **UI-SCALE-1**,
+   **FIGHT-VERIFY-1**. Art/you: **CART-MODEL-1** · bloom · **RESULTS-1**. Pre-ship batch is in
+   [BACKLOG](./planning/BACKLOG.md) (`[pre-ship]`). **INPUT-KB-1 closed** (SHIP-1 A2, 07-21).
+2. After coding that needs eyes: `Owed: Wyatt playtest — ID — check` → `npm run dashboard`.
+3. Battery exact-HEAD green is on disk (`battery-2026-08-01T03-31-21…`); keep CC fresh with
+   `npm run dashboard` after battery runs.
 
-Cleared 07-31, in the required order: ANLX-ATTRACT-1 acceptance (closed on a live
-two-client prod probe, not on counting — [evidence](./planning/completed-work.md)), the
-analytics-DO reset (`DELETE /api/analytics` + Bearer token, 20,000 rows → 0) once the pre-reset
-aggregates were filed as ANLX-BULK-1, then SHEET-1 built, HUD-FEED-1 / MENU-HINT-1 /
-HUD-CHIPS-1 found and shipped **and confirmed by Wyatt's phone playtest (all three PASS,
-portrait + landscape)**, the sweep's touch blind spot closed (`0da5c4c`), and **ANLX-BULK-1**
-closed as tool-sourced (Wyatt client) with L1 summary floor + L2 short-end skip
-(`MIN_MATCH_DURATION_MS=3000`).
+**07-31 lesson (short):** verification tools only see branches they enter — add the matching
+viewport/pointer cell in the same commit as any scoped CSS. Prefer one real clip when it
+disagrees with a green sweep.
 
-**07-31 lesson: a verification tool only sees the branches it enters.** The contact sheet ran
-portrait-only and non-touch — blind to the landscape CSS branch and every `hud-touch` rule,
-both of which held real bugs Wyatt found in seconds of phone footage. It also passed two
-green cells showing the wrong thing (a PAUSE overlay; an empty feed reading as "fine") before
-gaining a subject-is-HUD gate. Prefer one real clip over a clean sweep when they disagree,
-and add the matching cell in the same commit as any orientation- or pointer-scoped rule.
+**Do-not-relearn (short):** `?devUnlocks=off` is a **prod** lever (never DEV-gate). Don’t grep
+`dist/` for `devUnlocks` or minified `min-width:` (range syntax). Pass `isDev` into helpers under
+test. Forward DO 429s from Worker log routes. `rewindRoundClock(ms)` **sets remaining**. Analytics
+list = newest 1000 rows only — bucket by day; prove gates with live `__ccDiag.snapshot("analytics")`.
+Measure wrap height into CSS vars (`--cr-hintbar-h`). Absolute children of `overflow-y:auto`
+scroll with content → use `fixed` for chrome. Flex `nowrap` + all `flex-shrink:0` needs a **row**
+`max-width` before ellipsis works.
 
-**Do-not-relearn (each produced a confident wrong answer once):** `?devUnlocks=off` is a deliberate **prod** lever — Session 2 FTUE needs it on a prod build; never gate it. Grepping `dist/` for `devUnlocks` gives a false FAIL (the `=off` path keeps the string). Vitest runs `DEV === true`, so a DEV check read *inside* a helper makes its prod branch untestable — pass `isDev` in. `/api/log-error` + `/api/analytics` swallow a DO 429 unless the Worker forwards it. `GET /api/errors` is unusable from tests (`ERROR_LOG_TOKEN` is a secret CI lacks) — read via the DO stub's `/list`. `rewindRoundClock(ms)` **sets remaining** time — `1200` ends the round. `from === COUNTDOWN` is NOT a valid "played this round" test: `shouldHoldNonHostCountdownPhase` makes `lobby→running` legitimate for a slow non-host. Worker deploys propagate per-PoP and read as *contradictory* (one route new, another old) — re-poll, don't debug. **`analytics:pull --list` caps at the newest 1000 rows** — on a quiet week that window spans ~10 days, so a "recent" cluster can be entirely stale; bucket by day before reading a trend, and prove analytics gates with a live probe (prod `?diag=1` exposes `__ccDiag.snapshot("analytics")`), not with ring counts. **Grepping deployed CSS for `min-width:` gives a false negative** — the minifier rewrites media queries to range syntax, so `@media (min-width: 900px)` ships as `@media (width>=900px)` (same trap class as the `dist/` `devUnlocks` grep). **A CSS reserve that guesses a wrapping element's height will be wrong at some width** — measure it into a custom property (`--cr-hintbar-h`, `--hud-utility-width`) and let `calc()` consume it; a hidden element then measures 0 and the reserve collapses on its own. **An absolutely-positioned child of a container that is BOTH positioned and `overflow-y:auto` scrolls with the content** — it is not chrome; `position:fixed` is. **A flex row whose children are all `flex-shrink:0` + `nowrap` cannot shrink**, so its children's ellipsis rules never engage until something caps the ROW itself.
-
-**Open High:** INPUT-KB-1 · UI-SCALE-1 · FIGHT-VERIFY-1 · RESULTS-1 · CART-MODEL-1 · bloom.
-HOST-CAP-1 coded 07-31 (deploy on ship).
+**Open High:** UI-SCALE-1 · FIGHT-VERIFY-1 · RESULTS-1 · CART-MODEL-1 · bloom.
 
 ## Open issues (top)
 
@@ -175,7 +151,7 @@ Closed IDs (NET-1, NET-2, NET-MIG-3, NET-PRES-1, NET-SD-1, HOST-ROLE-1, VFX-1, P
 
 | ID | Issue | Status |
 |----|--------|--------|
-| WARM-IGPU-1 | First-play shader warm stall on medium-tier iGPUs (countdown swallowed) | 📋 Queued — [Phase 0 acked 07-30](./planning/warm-igpu-1.md) |
+| WARM-SOLO-1 | Solo post-`carts-ready` stall (WARM-IGPU residual) | 📋 telemetry-gated — [warm-igpu-1.md](./planning/warm-igpu-1.md) |
 | MAIN-1 | Carve `main.js` seam (enables BUNDLE-1) | 📋 Post-gate |
 | BUNDLE-1 | Menu/game code-split | 🚫 Blocked on MAIN-1 |
 | BRAND-1 | Domain / Worker cutover | 🧊 Frozen until deliberate cutover ([brand.md](./brand.md)) |
@@ -306,34 +282,17 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-07-31 (responsive UI trio CLOSED on a human playtest; board has no owed work) — Wyatt
-played one round on a phone against Version `85087c10` and passed all three checks: kill-feed
-row inside its receipt plate with full names, score chips named in landscape and name-less in
-portrait, menu hint bar gone at narrow width. That was the last human-owed gate on
-HUD-FEED-1 / MENU-HINT-1 / HUD-CHIPS-1. The sweep blind spot that let those three reach
-production is closed at `0da5c4c` (`makeClient` sets `hasTouch`/`isMobile`; 4 touch cells in
-`npm run sheet --all`). **No active card** — FIGHT-VERIFY-1's remaining surfaces (loading
-screens, hover/press, podium) are the only live agent work, and the phase marker stays on
-Playtesting & stabilization until Wyatt moves it.
+2026-08-01 — Shipped HEAD `423008f` / Worker Version `76ebdc37` (HOST-CAP-1 · BOOT-PERF-1 +
+stack). Full battery green 6/6 (`battery-2026-08-01T03-31-21-188Z.json`). Playtest console
+auto-seeds from STATUS/BACKLOG. STATUS size trim; INPUT-KB-1 closed out of open High.
 
-2026-07-30 (seven cards closed; SKYBOX-1 open on Wyatt's eyes) — Full per-card detail:
-[archive/status-log-2026-07-30.md](./archive/status-log-2026-07-30.md). **Closed:** QA-STATUS-1
-(qa gate unblocked) · HYGIENE-1 (prod sourcemaps off, boot-error telemetry widened, default
-branch, profiler `--dpr`) · CARGO-VIS-1 + CARGO-RACE-1 · CARGO-HUD-1a · WARM-IGPU-1 (Lever A:
-an in-flight arena rotation now withholds `clientPlayReady`, so the countdown cannot arm into
-that compile) · CARGO-HUD-1 (4-segment Living Cargo chip on the nameplate, live at `38d0dfc` /
-Version `f8e8da1f`). · SKYBOX-1 — Classic's
-991-line skybox/starfield/planet/UFO/spotlight rig builds for the first time (a truthy stub
-had held its gate shut forever). **Tier-gated per Wyatt: new `skyExtras` knob, LOW never
-builds it** (back to the exact 146-draw baseline; HIGH/MEDIUM pay +54). Switching it on
-exposed a UFO bug nobody could have seen before — `createUfos` only positions the saucers
-inside `update()`, which the menu attract loop never ticks, so two flat-grey 3m domes parked
-in the KO pit for the whole attract screen; now seated at construction (verified in orbit at
-100m/126m during attract, where nothing ticks). Live at `c074c2a` / Version `8e5bb259`,
-verified by prod screenshot + build stamp. **Open:** WARM-SOLO-1 (cap-206's solo stall,
-telemetry-gated). **Deploy gotcha:** each edge PoP
-revalidates HTML independently — for ~30s a root fetch may name the old entry or alternate;
-poll several times before judging a deploy failed.
+2026-07-31 — HUD-FEED-1 · MENU-HINT-1 · HUD-CHIPS-1 Wyatt phone PASS (Version `85087c10`);
+touch sheet cells `0da5c4c`. No active card; FIGHT-VERIFY-1 residual = Wyatt real-match half.
+Phase stays Playtesting until Wyatt moves it.
+
+2026-07-30 — Seven cards closed (detail: [archive/status-log-2026-07-30.md](./archive/status-log-2026-07-30.md)):
+QA-STATUS-1 · HYGIENE-1 · CARGO-VIS/RACE/HUD · WARM-IGPU-1 · SKYBOX-1 (`skyExtras` LOW-off).
+Residual WARM-SOLO-1. Deploy PoP tip: re-poll HTML ~30s before calling a deploy failed.
 
 > **Older entries are archived — search them when you need history this file no longer carries.**
 > Index with date ranges: [archive/README.md](./archive/README.md).

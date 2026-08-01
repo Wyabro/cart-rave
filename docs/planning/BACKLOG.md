@@ -22,7 +22,7 @@ HOST-CAP-1, VFX-1, NET-CLK-*, NET-BUF-1, BOOT-PERF-1, COUNTDOWN-SYNC-1, HUD-FEED
 MENU-HINT-1, DIAG-DOC-1, ANLX-VIEW-1, ANLX-ATTRACT-1, ANLX-BULK-1, MP-FX-1, ARENA-COL-1,
 SRV-TEST-1, HYGIENE-1, SKYBOX-1, SEC-BEACON-1, SEC-UNLOCK-1, SEC-ROUTE-1, SEC-TOKEN-1,
 CARGO-RACE-1, CARGO-VIS-1, CARGO-WT-1, CARGO-HUD-1, CARGO-HUD-1a, SHEET-1, AI-DIFF-1,
-HIT-FEEL-1, ARENA-BAL-1, …)
+HIT-FEEL-1, ARENA-BAL-1, INPUT-KB-1, …)
 without new evidence.
 
 **Pre-ship 07-19 rows** tagged *(pre-ship 07-19)* are parked polish — pick up when Wyatt
@@ -99,7 +99,6 @@ post-launch unless Wyatt pulls them forward.
 | Low | Death-cam "follow killer" revisit | Previously reverted. |
 | Low | Animate the customize sunglasses-tab camera zoom | |
 | Low | Subtle monetization path | Idea stage only. |
-| High | INPUT-KB-1 — keyboard parity with controller `[SHIP-1 A2]` | |
 | Medium | SOLO-DIFF-1 — `DEFAULT_SOLO` easy→medium | `src/aiDifficulty.js:14` is `"easy"`; quickplay already pins medium. The default hides shipped AI-DIFF-1 work. Trivial flip — Wyatt call. |
 | Low | Controller vibration strength *(pre-ship 07-19)* | |
 
