@@ -46,7 +46,7 @@
     "netharness": "node tools/netharness.mjs",
     "gameharness": "node tools/gameharness.mjs",
     "battery": "node tools/battery.mjs",
-    "dashboard": "node tools/briefing.mjs && node tools/architecture.mjs && node tools/playtest-console.mjs && node tools/dashboard.mjs",
+    "dashboard": "node tools/refresh.mjs --offline",
     "playtest:console": "node tools/playtest-console.mjs",
     "refresh": "node tools/refresh.mjs",
     "cc": "npm run dashboard && node tools/open-cc.mjs",
