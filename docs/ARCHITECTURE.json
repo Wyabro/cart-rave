@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-01T19:34:59.641Z",
-    "commit": "d790199"
+    "at": "2026-08-01T19:55:23.620Z",
+    "commit": "74cd768"
   },
-  "source_digest": "ba64dd40",
+  "source_digest": "7b0f2195",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -928,7 +928,7 @@
         "title": "Engineering",
         "counts": {
           "High": 2,
-          "Medium": 22,
+          "Medium": 23,
           "Low": 5,
           "Partial": 1
         },
@@ -1051,6 +1051,12 @@
             "pri": "Medium",
             "item": "GIT-INDEX-1 — concurrent agent sessions share one git index, so `git commit` ships work the committing session never staged",
             "notes": "**Filed 08-01 after it fired TWICE in one day, in both directions.** (1) An agent's uncommitted `docs/ARCHITECTURE.json` was swept into another session's `64b49d2` (\"chore(claude): enforce three AGENTS.md rules as Claude Code hooks\"), leaving HEAD briefly carrying a manifest that described `CC-COHERE-1` / `CC-TOKEN-1` / `CC-STRIPE-1` while the committed BACKLOG had none of those rows. (2) The reverse: `.agents/skills/brainstorming/SKILL.md` plus 9 lines of `docs/STATUS.md`, staged-but-uncommitted by the other session, rode along inside `35859cc` (CC-COHERE-1) — then got pushed with it. **Mechanism:** one working tree = one `.git/index`. `git add <paths>` is additive and well-behaved, but **`git commit` with no pathspec commits the ENTIRE index**, including whatever another session staged seconds earlier. Careful staging by one session does not protect it from another session's commit. **Why the existing guard misses it:** `.claude/hooks/guard-git-add.mjs` (`64b49d2`) enforces the AGENTS.md \"never `git add -A`\" rule — but **neither incident involved `git add -A`**. Both used correct, narrow `git add <explicit paths>`. The leak is one step later, at `git commit`, which the guard does not inspect. **The damage so far was only attribution — that is luck, not safety.** The real failure mode is a session committing another session's *half-finished* edit: it ships under the committing session's green `qa` run, having never been gated on its own, and the authoring session then sees a clean tree and believes it already landed. **Levers, cheapest first:** (a) make `git commit -- <paths>` the convention — with a pathspec, git commits those paths from the working tree and ignores the rest of the index; (b) extend `guard-git-add.mjs` (or add a sibling) to intercept pathspec-less `git commit` and refuse/warn when the index contains paths this session did not stage — the hook already has the interception point, it just watches the wrong verb; (c) structural fix — one git worktree per session, which gives each its own index. The repo **already uses** `.claude/worktrees/` for some agent work, so this is an existing pattern to extend rather than a new mechanism. Related in character to **HARNESS-NULL-1**: a process that cannot demonstrate it did what it claims.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "STOP-DIRT-1 — the Stop guard blocks on repo-wide dirt, so another session's in-flight file blocks *this* session's correct claim",
+            "notes": "**Filed 08-01, reproduced live within minutes of the guard shipping in `74cd768`** — and the reproduction was the guard blocking a claim that was true. **Evidence:** after pushing `74cd768`, `git ls-remote` and `git rev-parse HEAD` both read `74cd768dfb1af004af9ce078e276660d195a172d`, and all three new files were present in `git ls-tree origin/cart-clash`; the claim was checked against the remote, not asserted. `guard-stop-drift.mjs` blocked it anyway, on `1 modified tracked file(s)` — `docs/planning/BACKLOG.md`, holding **another session's** uncommitted AUTOQ-GHOST-1 card, which this session never staged and never touched. **Mechanism:** `checkHeadDrift` (`tools/verify-head.mjs`) returns `trackedDirty` from a repo-wide `git status --porcelain --untracked-files=no`, and the hook blocks on `ahead > 0",
             "ship1": null
           },
           {
