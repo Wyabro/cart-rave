@@ -188,11 +188,21 @@ describe("queueRowState", () => {
 });
 
 describe("parseStatusCurrentFocus", () => {
-  it("splits the focus line into headline + detail, stripping markup", () => {
+  it("splits the focus paragraph into headline + detail, stripping markup", () => {
     const md = `# S\n\n## Current focus\n\n**Run 7 — post friend playtest.** Cold handoff (priority P0→P6):\n[planning/handoff-next-window.md](./planning/handoff-next-window.md).\n\n### Active queue\n`;
     const m = parseStatusCurrentFocus(md);
     expect(m.headline).toBe("Run 7 — post friend playtest");
-    expect(m.detail).toBe("Cold handoff (priority P0→P6)");
+    // The wrapped second line is part of the same paragraph — it must not be dropped.
+    expect(m.detail).toBe("Cold handoff (priority P0→P6): planning/handoff-next-window.md.");
+  });
+
+  it("joins a hard-wrapped paragraph instead of truncating at the first physical line", () => {
+    const md = `# S\n\n## Current focus\n\nPlaytesting and stabilization — Tier A drained; Tier B/C, the security sweep and the\nanalytics gating are closed. Residual = playtest cards.\n\n### Active queue\n`;
+    const m = parseStatusCurrentFocus(md);
+    expect(m.headline).toBe(
+      "Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep and the analytics gating are closed",
+    );
+    expect(m.detail).toBe("Residual = playtest cards.");
   });
 
   it("degrades to null without the section or a usable line", () => {

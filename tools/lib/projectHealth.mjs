@@ -203,19 +203,23 @@ export function parseStatusPlaytestQueue(statusMd) {
 }
 
 /**
- * STATUS.md "## Current focus" first line → the mission banner.
+ * STATUS.md "## Current focus" first paragraph → the mission banner.
  * "**Run 7 — post friend playtest.** Cold handoff …" → headline + detail.
+ * STATUS hard-wraps prose at ~90 chars, so the paragraph is the unit — a single
+ * physical line cuts the mission mid-clause.
  * @param {string} statusMd
  * @returns {{ headline: string, detail: string | null } | null}
  */
 export function parseStatusCurrentFocus(statusMd) {
   const section = extractSection(statusMd, "## Current focus");
   if (!section) return null;
-  const line = section
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .find((l) => l !== "" && !l.startsWith("#") && !l.startsWith("|"));
-  if (!line) return null;
+  const lines = section.split(/\r?\n/).map((l) => l.trim());
+  const isProse = (l) => l !== "" && !l.startsWith("#") && !l.startsWith("|");
+  const start = lines.findIndex(isProse);
+  if (start === -1) return null;
+  let end = start;
+  while (end + 1 < lines.length && isProse(lines[end + 1])) end += 1;
+  const line = lines.slice(start, end + 1).join(" ");
   const clean = line
     .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
     .replace(/\*\*/g, "")

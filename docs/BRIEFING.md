@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (also runs inside `npm run qa`).
-> Generated 2026-08-01 at commit `a4009d7` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
-> Source digest: `eba0e066`
+> Generated 2026-08-01 at commit `ca0da1f` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
+> Source digest: `560627b9`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -14,7 +14,7 @@
 
 ## Mission
 
-Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep and the
+Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep and the analytics gating are closed — full evidence in completed-work.md (B1 AI-DIFF-1 shipped `49bfc2a`). ANLX-ATTRACT-1 closed 07-31 and the analytics DO has been reset (both before-external-testers items are done); the ring now starts clean.
 
 ## ACTIVE CARD
 
