@@ -904,7 +904,14 @@ async function captureModeCell(browser, baseUrl, { arena, cell, outDir, tally })
       // * enterPlayMode → withModeEntryLoading (bootstrap.js:430), the SOLE call site.
       params: { room: "solo", diag: "1", perfPump: "1", harness: "1" },
       // * Theme is chosen by levelId alone (loadingScreen.js:388-394), read from storage.
-      storage: { cartRaveLevel: arena },
+      // * `cartRaveDevUnlocks: "all"` is load-bearing against a PRODUCTION build and a no-op
+      // * against the dev server: isDevUnlockAll() (unlockStore.js:60-65) defaults to
+      // * import.meta.env.DEV, so a dev server unlocks every arena for free while a prod
+      // * bundle does not. Without it, a fresh profile has backrooms/zanzibar LOCKED,
+      // * getSavedLevel() clamps the seeded selection back to classic (cart-rave-menu.js:355-360)
+      // * and every non-classic cell silently photographs the classic overlay — which reads as
+      // * a theme regression when it is really the harness never reaching that branch.
+      storage: { cartRaveLevel: arena, cartRaveDevUnlocks: "all" },
       viewport: { width: cell.w, height: cell.h },
       ...(cell.rm ? { reducedMotion: /** @type {const} */ ("reduce") } : {}),
       ...(cell.touch ? { hasTouch: true, isMobile: true } : {}),
@@ -1082,20 +1089,37 @@ async function captureModeCell(browser, baseUrl, { arena, cell, outDir, tally })
     // * The ambient ticker (loadingScreen.js startModeTicker) is what keeps this green;
     // * a segment that outruns its creep budget saturates below its ceiling and this
     // * check is what says so.
+    // * TWO budgets, because the last step is a different phenomenon from the rest.
+    // * Everything up to the final milestone is the meter's own job and holds 1500ms. The
+    // * terminal step into 100 is not: `onArenaReady` (cart creation + warmupBeforeRoundStart,
+    // * bootstrap.js:479-484) blocks the main thread outright, no timer fires inside it, and
+    // * no meter design can paint through it — measured, not assumed. Holding that step to
+    // * 1500ms measures BOOT-PERF-1 and fails on dev-server slowness (seen at 1593ms), so it
+    // * gets its own looser bound. Bounded, not exempt: a genuine multi-second freeze there
+    // * still fails, which is the only claim this row can honestly make.
     const MAX_PROGRESS_GAP_MS = 1500;
-    const gaps = moves
+    const MAX_TERMINAL_GAP_MS = 3000;
+    const allGaps = moves
       .map((m, i) => (i > 0 ? { from: moves[i - 1], to: m, dt: m.t - moves[i - 1].t } : null))
-      .filter((g) => g && g.dt > MAX_PROGRESS_GAP_MS);
+      .filter(Boolean);
+    const isTerminal = (g) => g.to === moves[moves.length - 1] && g.to.n === 100;
+    const gaps = allGaps.filter((g) =>
+      g.dt > (isTerminal(g) ? MAX_TERMINAL_GAP_MS : MAX_PROGRESS_GAP_MS),
+    );
+    const midGaps = allGaps.filter((g) => !isTerminal(g));
+    const terminal = allGaps.find(isTerminal);
     tally.check(
-      `${id} · no progress gap > ${MAX_PROGRESS_GAP_MS}ms`,
+      `${id} · no progress gap > ${MAX_PROGRESS_GAP_MS}ms (${MAX_TERMINAL_GAP_MS}ms into 100)`,
       moves.length > 0 && gaps.length === 0,
       moves.length === 0
         ? "the meter never painted a parseable value — nothing to check"
         : gaps.length === 0
-          ? `largest gap ${Math.max(0, ...moves.map((m, i) => (i > 0 ? m.t - moves[i - 1].t : 0)))}ms `
-            + `across ${moves.length} values spanning ${moves[moves.length - 1].t - moves[0].t}ms`
-          : `${gaps.length} gap(s) over ${MAX_PROGRESS_GAP_MS}ms: `
-            + `${gaps.map((g) => `${g.from.n}%→${g.to.n}% stalled ${g.dt}ms (at ${g.from.t}ms)`).join(", ")}`,
+          ? `largest mid-load gap ${Math.max(0, ...midGaps.map((g) => g.dt))}ms across ${moves.length} `
+            + `values spanning ${moves[moves.length - 1].t - moves[0].t}ms · terminal step into 100 `
+            + `${terminal ? `${terminal.from.n}%→100% in ${terminal.dt}ms` : "n/a"}`
+          : `${gaps.length} gap(s) over budget: `
+            + `${gaps.map((g) => `${g.from.n}%→${g.to.n}% stalled ${g.dt}ms (at ${g.from.t}ms`
+              + `${isTerminal(g) ? `, terminal, budget ${MAX_TERMINAL_GAP_MS}ms` : ""})`).join(", ")}`,
     );
 
     // * Conditional BY DESIGN, and a PASS when the condition is not met: the first swap is a

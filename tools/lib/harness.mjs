@@ -241,15 +241,32 @@ export function killDevStack(child) {
  * proves liveness; only a hang/refusal fails. Throw → the rig exits 2 (setup error, not a
  * scenario failure), pointing at the fix.
  *
+ * A DEPLOYED target is a different topology and must not be probed as if it were the dev
+ * stack: Vite-on-3000 + wrangler-on-8787 is a local-only split, and on a Worker the client
+ * and the party endpoint are the SAME origin. Dialling `<host>:8787` against a public
+ * hostname fails on connect and would abort the run before a single capture — so the split
+ * check is gated to local hosts and a deployed origin gets a same-origin pair instead.
+ *
  * @param {string} baseUrl The client URL the rig will drive (e.g. http://127.0.0.1:3000/).
  * @param {(...a: unknown[]) => void} [log]
  */
 export async function preflightStack(baseUrl, log = makeLogger("harness")) {
   const u = new URL(baseUrl);
-  const targets = [
-    [`${u.protocol}//${u.hostname}:${u.port || CLIENT_PORT}/`, "Vite client"],
-    [`${u.protocol}//${u.hostname}:${WORKER_PORT}/parties/main/preflight`, "Wrangler worker (party endpoint)"],
-  ];
+  const isLocalHost =
+    u.hostname === "localhost"
+    || u.hostname === "127.0.0.1"
+    || /^192\.168\./.test(u.hostname)
+    || /^10\./.test(u.hostname)
+    || /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(u.hostname);
+  const targets = isLocalHost
+    ? [
+        [`${u.protocol}//${u.hostname}:${u.port || CLIENT_PORT}/`, "Vite client"],
+        [`${u.protocol}//${u.hostname}:${WORKER_PORT}/parties/main/preflight`, "Wrangler worker (party endpoint)"],
+      ]
+    : [
+        [u.origin + "/", "deployed origin"],
+        [`${u.origin}/parties/main/preflight`, "deployed party endpoint (same origin)"],
+      ];
   for (const [target, what] of targets) {
     try {
       // eslint-disable-next-line no-await-in-loop
@@ -257,13 +274,19 @@ export async function preflightStack(baseUrl, log = makeLogger("harness")) {
     } catch (e) {
       const why = e instanceof Error && e.name === "TimeoutError" ? "port open but hung >10s" : e?.message;
       throw new Error(
-        `${what} is not answering HTTP at ${target} (${why}). ` +
-          "A listening-but-hung port is usually a wedged workerd: kill every workerd process " +
-          "(PowerShell: Get-Process workerd | Stop-Process -Force) and restart `npm run dev:local`.",
+        `${what} is not answering HTTP at ${target} (${why}). `
+          + (isLocalHost
+            ? "A listening-but-hung port is usually a wedged workerd: kill every workerd process "
+              + "(PowerShell: Get-Process workerd | Stop-Process -Force) and restart `npm run dev:local`."
+            : "The deployed target is unreachable — check the URL and that the Worker is live."),
       );
     }
   }
-  log("stack preflight OK — client + worker both answering");
+  log(
+    isLocalHost
+      ? "stack preflight OK — client + worker both answering"
+      : `stack preflight OK — deployed origin ${u.origin} answering (client + party same-origin)`,
+  );
 }
 
 /** Import playwright or exit(2) with an install hint. */
