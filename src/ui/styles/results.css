@@ -74,33 +74,8 @@
   align-self: end;
 }
 
-/* Short windows with a fine pointer (a landscape 812x375, a squat laptop window)
-   reach neither the coarse nor the <=768 band, and the two-column composition
-   needs more height than they have — podium, receipt and actions overflowed
-   their rows and landed on each other. Stack and scroll instead. */
-@media (max-height: 640px) and (min-width: 769px) and (pointer: fine) {
-  #results-overlay .results-panel {
-    grid-template-rows: auto auto auto auto;
-    overflow-y: auto;
-  }
-
-  #results-overlay .results-body {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto auto auto;
-  }
-
-  #results-overlay .results-final,
-  #results-overlay .results-receipt,
-  #results-overlay .results-actions {
-    grid-column: 1;
-    align-self: stretch;
-    justify-self: stretch;
-  }
-
-  #results-overlay .results-final { grid-row: 1; }
-  #results-overlay .results-receipt { grid-row: 2; }
-  #results-overlay .results-actions { grid-row: 3; }
-}
+/* The short-window band that used to live here is now declared LAST in this file
+   — see the note on it for why source order is load-bearing. */
 
 /* Stack-A lettering with a per-outcome fill (--title-glow, set in JS: winner's
    cart color, yellow for a draw, white for round-complete) — hard extrude,
@@ -680,5 +655,112 @@
 @media (prefers-reduced-motion: reduce) {
   #results-overlay .pb-badge {
     animation: none;
+  }
+}
+
+/* Short windows with a fine pointer (a landscape 812x375, a squat laptop window)
+   reach neither the coarse nor the <=768 band, and the two-column composition
+   needs more height than they have — podium, receipt and actions overflowed
+   their rows and landed on each other. Stack and scroll instead.
+
+   DECLARED LAST ON PURPOSE (RESULTS-ACT-1). Media queries add no specificity and
+   every selector below is `#results-overlay .x` — identical to the base rule it
+   overrides — so from this block's old home near the top of the file the
+   compression rules below would silently LOSE on source order and the band would
+   stay broken with no visible cause. Same reason the coarse/<=768 band is
+   declared late; see the note at the top of the file. Keep this block last. */
+@media (max-height: 640px) and (min-width: 769px) and (pointer: fine) {
+  /* No `grid-template-rows` override here — the base `auto auto auto minmax(0,1fr)`
+     is the point: it gives the body a flexible track to absorb slack. This band
+     used to set every row to `auto`, so nothing was capped and the panel's
+     scrollHeight became a pure content sum — 706px inside a 390px window, which
+     put PLAY AGAIN 295px below the fold with no affordance saying so.
+     `overflow-y` stays: the band has no min-height, so 769x300 is legal and can
+     still exceed the header alone. The valve remains; it just stops being the
+     primary layout. */
+  #results-overlay .results-panel {
+    overflow-y: auto;
+    padding-top: clamp(12px, 3.4vh, 64px);
+  }
+
+  #results-overlay .results-body {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    row-gap: clamp(6px, 1.6vh, 18px);
+  }
+
+  #results-overlay .results-final,
+  #results-overlay .results-receipt,
+  #results-overlay .results-actions {
+    grid-column: 1;
+    align-self: stretch;
+    justify-self: stretch;
+  }
+
+  #results-overlay .results-final { grid-row: 1; }
+
+  /* The same trade the coarse band already makes: the receipt is the only zone
+     that scrolls, so a long round's extra lines can never push the decision off
+     a squat window. `min-height: 0` is NOT optional — `minmax(0, 1fr)` sizes the
+     TRACK, but a grid item's automatic minimum size would still pin this box to
+     its content height and re-overflow the row. */
+  #results-overlay .results-receipt {
+    grid-row: 2;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: clamp(8px, 1.8vh, 26px) clamp(16px, 1.6vw, 30px);
+  }
+
+  /* Belt and braces: the band has no min-height, so no static budget can be
+     PROVEN sufficient. Sticky, never fixed — the defeat-state `filter` and the
+     entrance timeline's residual inline transform each make the panel a
+     containing block for fixed descendants, which would anchor the actions to
+     the panel on a defeat and to the viewport on a victory. Sticky resolves
+     against the scrollport, so both outcomes behave alike.
+     The opaque fill is structural, not decoration: PLAY AGAIN's slab is a
+     skewX(-8deg) ::before with two transparent corners and MAIN MENU is
+     transparent with a 1px border, so receipt text would read straight through
+     both while scrolling under them. --color-ink-deep is the closest opaque
+     match to this overlay's own scrim. The lip is a 0-blur shadow rather than
+     padding so it costs no layout height. No `overflow` here — it would clip the
+     focus ring, which sits outside the box on outline-offset. */
+  #results-overlay .results-actions {
+    grid-row: 3;
+    position: sticky;
+    bottom: 0;
+    background: var(--color-ink-deep);
+    box-shadow: 0 -8px 0 var(--color-ink-deep);
+  }
+
+  /* The header and the podium are sized in vw and px, so they are blind to the
+     one axis that is scarce in this band. Re-express them against vh. */
+  #results-overlay .results-kicker {
+    margin-bottom: clamp(2px, 0.6vh, 10px);
+  }
+
+  /* One declaration carries three — ::before ("VICTORY"/"DEFEAT") is 1.1em with a
+     0.3em margin, so both scale off this font-size. */
+  #results-overlay .results-title {
+    font-size: clamp(18px, 5.2vh, 34px);
+    margin-bottom: 4px;
+  }
+
+  #results-overlay .results-verdict {
+    margin-bottom: clamp(6px, 1.6vh, 16px);
+  }
+
+  /* The coarse band's value, for the reason the base cap already gives:
+     "capped so short viewports keep the block on screen". */
+  #results-overlay .results-podium-block {
+    height: min(var(--podium-h, 80px), 21vh);
+  }
+
+  #results-overlay .results-btn {
+    padding: clamp(6px, 1.5vh, 18px);
+  }
+
+  #results-overlay .results-btn--ghost {
+    padding: clamp(5px, 1.2vh, 14px);
   }
 }
