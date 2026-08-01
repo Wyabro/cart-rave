@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (also runs inside `npm run qa`).
-> Generated 2026-07-31 at commit `0ad8a3e` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
-> Source digest: `2e3a5053`
+> Generated 2026-08-01 at commit `37a232a` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
+> Source digest: `d035c772`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -25,10 +25,6 @@ Plan → Wyatt ack → apply. This heading names the card; it is **not** permiss
 Self-directed queue (one at a time, within the declared phase):
 - **FIGHT-VERIFY-1** owed fight-night verification — 🟡 agent half PARTIAL — sheet proves feed · score strip · timer · directive chip · boost bar at 12 widths…
 - **MAIN-1 / BUNDLE-1** main.js seam / code-split — 📋 post-gate
-
-## Waiting on Wyatt (not agent work)
-
-- **HUD-FEED-1 · MENU-HINT-1 · HUD-CHIPS-1** three responsive UI defects from Wyatt's phone footage — ✅ CLOSED 07-31 — Wyatt playtest PASS on all three (phone, mid-round, post-KO, portrait + landscape), on the…
 
 ## Do not
 
