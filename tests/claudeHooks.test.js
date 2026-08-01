@@ -10,6 +10,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { offends } from "../.claude/hooks/guard-git-add.mjs";
 import { claimsCompletion, evaluateStop } from "../.claude/hooks/guard-stop-drift.mjs";
+import { evaluateProtectedPath } from "../.claude/hooks/guard-protected-paths.mjs";
 
 const scratch = mkdtempSync(join(tmpdir(), "cart-clash-hooktest-"));
 afterAll(() => rmSync(scratch, { recursive: true, force: true }));
@@ -224,5 +225,53 @@ describe("guard-stop-drift: session counter", () => {
     const session = 'a/b\\c:d*e?f"g<h>i|j';
     expect(run("Done.", unpushed(1), { session }).verdict?.decision).toBe("block");
     expect(run("Done.", unpushed(1), { session }).verdict).toBeNull();
+  });
+});
+
+describe("guard-protected-paths: generated + archived files are deny, everything else passes", () => {
+  const root = process.cwd();
+  const evalPath = (file_path, env = {}) =>
+    evaluateProtectedPath({ tool_input: { file_path }, cwd: root }, env);
+
+  it.each([
+    "docs/BRIEFING.md",
+    "docs/briefing.md",
+    "docs\\BRIEFING.md",
+    "docs/ARCHITECTURE.json",
+    "docs/archive/handovers/handoff-2026-07.md",
+    "docs/archive/audits/production-readiness-audit-2026-07.md",
+  ])("denies %j", (p) => expect(evalPath(p)).toBeTruthy());
+
+  it("denies via an absolute path too", () => {
+    expect(evalPath(join(root, "docs", "BRIEFING.md"))).toBeTruthy();
+  });
+
+  it("denies notebook_path the same as file_path", () => {
+    const r = evaluateProtectedPath(
+      { tool_input: { notebook_path: "docs/ARCHITECTURE.json" }, cwd: root },
+      {}
+    );
+    expect(r).toBeTruthy();
+  });
+
+  it.each([
+    "docs/STATUS.md",
+    "docs/planning/BACKLOG.md",
+    "docs/archive/README.md",
+    "src/main.js",
+    "briefing.md",
+  ])("allows %j", (p) => expect(evalPath(p)).toBeNull());
+
+  it("allows paths outside the project tree", () => {
+    expect(evalPath(join(tmpdir(), "docs", "BRIEFING.md"))).toBeNull();
+  });
+
+  it.each(["CART_CLASH_SKIP_HOOKS", "SKIP_PATH_GUARD"])("%s bypasses the guard", (key) => {
+    expect(evalPath("docs/BRIEFING.md", { [key]: "1" })).toBeNull();
+  });
+
+  it("stays silent on malformed input", () => {
+    expect(evaluateProtectedPath({}, {})).toBeNull();
+    expect(evaluateProtectedPath({ tool_input: {} }, {})).toBeNull();
   });
 });
