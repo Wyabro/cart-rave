@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-01T17:24:10.302Z",
-    "commit": "ef600c7"
+    "at": "2026-08-01T17:37:25.767Z",
+    "commit": "daaf9ab"
   },
-  "source_digest": "f5f6d124",
+  "source_digest": "1751a677",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1465,8 +1465,8 @@
       {
         "title": "Tech Debt",
         "counts": {
-          "Medium": 6,
-          "Low": 8
+          "Medium": 8,
+          "Low": 12
         },
         "rows": [
           {
@@ -1565,6 +1565,48 @@
             "id": "RESULTS-GLOW-1",
             "item": "`.results-defeat .results-title { --title-glow }` never applies",
             "notes": "**Note for later (cosmetic, pre-existing).** `main.js` sets that property **inline**, so no stylesheet rule can outrank it. Defeat still reads because the panel filter desaturates everything. Do **not** reach for `!important` unless a real look pass re-owns title styling. Not a ship blocker.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "id": "CC-COHERE-1",
+            "item": "The three Command Center surfaces don't read as one product",
+            "notes": "**Pick this one first — it is the structural parent of the other `CC-*` rows.** Two changes, no redesign. **(1) Delete the `body` override at `archHtml.mjs:406`** (`background:#0a0a0f; color:#e0e0ec; font-family:-apple-system,…`). It sits *after* `BASE_CSS` and beats it: `background:` as shorthand resets `background-image`, so the architecture page is the **only** CC surface with no radial backdrop wash, and `#e0e0ec` is a fourth text value dimmer than `--text` `#f0eff8`. Delete the rule and the page inherits the shared layer. (The `font-family` third is a **no-op on Windows** — `-apple-system`/`BlinkMacSystemFont` don't resolve, so it already falls through to Segoe UI; it should still go, but it is not why the page looks off.) **(2) Hoist the duplicated page chrome into `ccStyle.mjs` as a `CHROME_CSS` export** — `.sticky-bar`, `.sticky-inner`, `.nav-brand`, `.nav-links`, `h1`, `h1 .neon`, `h1 .cc`, `.stamp` are **byte-identical** in `dashboard.mjs:305-318` and `archHtml.mjs:409-434`, and near-copied in `playtestConsoleHtml.mjs`. Three copies of the same furniture is *why* these pages drift — someone edits one. Opt-in like `BASE_CSS`, so `montage.mjs` (tokens-only) is unaffected. Partly subsumes **CC-LABEL-1**: four of its nine label rules live in `BASE_CSS`. **Deliberately NOT in scope: keep the `max-width` split** — console `1040px` vs dashboard/architecture `1440px`. The console is a single reading column of queue cards; the other two are dashboards. That is a typographic decision, not drift. Verify by regenerating all three pages (`npm run dashboard`) and diffing the chrome.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "id": "CC-TOKEN-1",
+            "item": "Command Center generators freestyle hex outside `ROOT_TOKENS`",
+            "notes": "**Found 08-01** by a `hallmark`-skill audit of the generated playtest console (severity: major). ~13 one-off values sit outside the token block: `#fff` at `ccStyle.mjs:85/88`, the rest in `playtestConsoleHtml.mjs` (`#2a1a4a`, `#dcd6ff`, `#123528`, `#3a1520`, `#3a2e12`, `#241a48`, `#1a1830`, `#0a0c14`, `#b8c0e0`, `#2a5a40`, `#5a4a20`, `#4a4020`). Fix = promote each to a named token in `ROOT_TOKENS` and reference by `var()`; token discipline is what stops a third palette appearing. **Carries a residual created by the montage token unfork (08-01):** `states.mjs:1246` `.st.dead { border-color:#7a5326 }` and `:1249` `.st.dead .stlabel { color:#ffb45c }` are the *old* warn pair `montage.mjs` used to share. Now that montage's `.chip.warn` resolves to `var(--warn)` `#ffc24b`, the states sheet shows two different oranges side by side. Sweep them with the rest — deliberately not fixed inside the unfork card. **Also folded in (08-01): a second cyan inside single rules.** Nine `rgba(0,243,255,…)` sites in `archHtml.mjs` (`:421 :427 :454 :467 :493×2 :494 :508 :558`) style chrome — focus rings, active filter pills, edge toggles, node glows — but `--cyan` is `#27e0e6` = `rgb(39,224,230)` and that literal is `#00f3ff`. `:467` is the giveaway (`stroke:var(--cyan); fill:rgba(0,243,255,0.12)` — one rule, two cyans); same at `:421`, where the focus border and its own glow disagree. **Not a finding:** `#00f3ff` at `archHtml.mjs:16` is legitimate — it is a `CART_ACCENTS` entry mirroring `src/config.js` cart hues, and `--accent` is correctly set inline per element (`:158 :298 :338 :367 :376`). Only the *chrome* uses of the literal are wrong.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "id": "CC-STRIPE-1",
+            "item": "3px coloured left-stripe on cards, repeated in three generators",
+            "notes": "**Found 08-01** by the same audit (severity: critical — hallmark's \"side-stripe card\", a thick asymmetric coloured edge). Three surfaces, one pattern: `playtestConsoleHtml.mjs:76` `.card .do` (cyan), `archHtml.mjs:600` (`var(--accent)`), `montage.mjs:49` `.banner` (neon). Fix = hairline border all round, or no border plus a background shift. **Fix all three together or none** — a partial pass is how the surfaces diverge in the first place (see CC-TOKEN-1).",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "id": "CC-LABEL-1",
+            "item": "Nine label rules collapse to one uppercase treatment",
+            "notes": "**Found 08-01** by the same audit (severity: major — the \"eyebrow on every section\" tell, generalized). `.k`, `h2.sec`, `details.ref summary`, `th`, `.card-status`, `.meta label`, `.evidence label`, `.note-label`, `.rules h2` all resolve to uppercase + letterspaced + `var(--dim)`. When every label is a chapter heading the hierarchy it was meant to create flattens. Fix = keep micro-caps for section heads only; field labels sentence-case at normal tracking. Spans all three CC surfaces — the first four live in `ccStyle.mjs` `BASE_CSS`, the rest in `playtestConsoleHtml.mjs`.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "id": "CC-ICON-1",
+            "item": "Emoji stand in for icons in the cross-surface nav",
+            "notes": "**Found 08-01** by the same audit (severity: major). `ccStyle.mjs:102-104` `CC_SURFACES` carries `🛒 🗺 🎮`, rendered by `crossNav()` (`:115`) on all three Command Center pages. Emoji render per-OS and carry no shared stroke voice, so the nav reads differently on every machine. Fix = three inline SVGs from one library, or drop the glyphs entirely — the labels already say Command Center / Architecture / Playtest Console.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "id": "CC-ESC-1",
+            "item": "Two `esc()` implementations with different escaping",
+            "notes": "`montage.mjs:19` escapes `[&<>\"]`; `ccStyle.mjs:92` escapes `[&<>\"']` — the apostrophe is the delta. Consolidating changes the output of every string the capture sheets render, so it needs **its own card and its own test**, not a drive-by during a styling pass. The import path already exists: `montage.mjs` took `ROOT_TOKENS` from `ccStyle.mjs` on 08-01, so only the behaviour difference blocks this.",
             "ship1": null
           }
         ]
