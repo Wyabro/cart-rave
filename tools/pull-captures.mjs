@@ -117,7 +117,7 @@ Writes full bundles to .diag-captures/playtest/`);
   await mkdir(OUT_DIR, { recursive: true });
   let wrote = 0;
   for (const meta of rows) {
-    const res = await fetch(`${base}/api/captures?id=${meta.id}&${authQ}`);
+    const res = await fetch(`${base}/api/captures?id=${meta.id}`, { headers: authHeaders });
     if (!res.ok) {
       console.warn(`skip id=${meta.id}: ${res.status}`);
       continue;
