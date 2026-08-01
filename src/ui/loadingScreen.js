@@ -326,13 +326,20 @@ export function dismissInitialBootSplash() {
     // @ts-ignore
     if (window.bootMsgTimer) { clearInterval(window.bootMsgTimer); window.bootMsgTimer = null; }
 
-    // 2. Force to 100% (the boot meter is a track + fill, not lit segments)
-    const bar = document.getElementById('boot-seg-bar');
-    if (bar) bar.setAttribute('aria-valuenow', '100');
-    const bootFill = document.getElementById('cr-boot-fill');
-    if (bootFill instanceof HTMLElement) bootFill.style.width = '100%';
-    const bootPct = document.getElementById('cr-boot-pct');
-    if (bootPct) bootPct.textContent = '100%';
+    // 2. Force to 100% through the inline floor (BOOT-METER-1). Direct DOM writes used
+    // * to leave bootProgress stale; noteBootMilestone(75/90) then painted backwards.
+    // @ts-ignore — defined by the inline boot script in index.html.
+    const bootFloor = window.__crBootFloor;
+    if (typeof bootFloor === "function") {
+      bootFloor(100);
+    } else {
+      const bar = document.getElementById('boot-seg-bar');
+      if (bar) bar.setAttribute('aria-valuenow', '100');
+      const bootFill = document.getElementById('cr-boot-fill');
+      if (bootFill instanceof HTMLElement) bootFill.style.width = '100%';
+      const bootPct = document.getElementById('cr-boot-pct');
+      if (bootPct) bootPct.textContent = '100%';
+    }
 
     // 3. Wait 200ms so the user sees it hit 100%, then fade out cleanly
     setTimeout(() => {

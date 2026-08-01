@@ -597,8 +597,11 @@
       // Real-milestone floor: module code (loadingScreen noteBootMilestone) raises
       // the bar when actual boot work completes; the fake ticker keeps ambient
       // motion between milestones.
+      // * Floor only goes up. Cap is 100 so dismissInitialBootSplash can latch 100%
+      // * through this same path (BOOT-METER-1) — writing the DOM alone left bootProgress
+      // * stale and a later milestone (75/90) painted backwards over the bar.
       window.__crBootFloor = function(pct) {
-        const target = Math.min(90, pct);
+        const target = Math.min(100, Math.max(0, Number(pct) || 0));
         if (target <= bootProgress) return;
         bootProgress = target;
         paintBootProgress();

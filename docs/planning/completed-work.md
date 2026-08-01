@@ -69,6 +69,8 @@ Live-at values are the deployed commit / Cloudflare Version at close.
 | — | ANLX-BULK-1 short `loss` bulk poisoned product analytics | ✅ CLOSED 07-31 — tool-sourced / intentional-on-machine, not player-path. L1 `#summary` floor `MIN_MATCH_DURATION_MS=3000` + L2 client skip of short non-null `match_ended`. Tests: `analyticsGating` + `analyticsSummaryFloor` |
 | — | ANLX-BIND-1 missing `ANALYTICS_LOG` silent discard on POST | ✅ CLOSED 08-01 — `party/index.ts` POST `/api/analytics` mirrors ERROR_LOG: `else if (!env.ANALYTICS_LOG) console.log(…slice(0,2000))`; 204 kept; GET 500 unchanged. `qa` does not hit the missing-binding branch (party-do always binds). |
 | — | SHEET-ESC-1 sheet pause-overlay gate was dead (`offsetParent` on fixed) | ✅ CLOSED 08-01 — `tools/sheet.mjs` `readSubject` uses computed-style `shownEl` for esc + softGl; `escOffsetParentNull` printed not checked. Default sheet = closed path; open-pause recovery one-off only. |
+| — | MENU-NAME-HOVER-1 dead `.cr-name-display:hover` border | ✅ CLOSED 08-01 — rule deleted; plate zeros border (pencil owns rename). |
+| — | BOOT-METER-1 boot splash 100% then snaps to 75% | ✅ CLOSED 08-01 — `dismissInitialBootSplash` → `__crBootFloor(100)`; floor cap 100 so later 75/90 milestones no-op. |
 | — | PAUSE-ROW-1 pause action row tug on hover | ✅ CLOSED 08-01 — Wyatt PASS. `.esc-action-slot` flex cells; skew+lift on the button only (`8d1ee24`). |
 | — | MENU-CMD-FEEL-1 main-menu command rows had no CSS hover/press | ✅ CLOSED 08-01 — Wyatt PASS. White 5px left rail + hotter yellow (`8d1ee24`). |
 | — | FOCUS-CYAN-1 focus rings mixed yellow dashed / designed cyan | ✅ CLOSED 08-01 — Wyatt PASS. All cyan solid+glow; yellow dashed retired; states guard flipped (`8d1ee24`). |

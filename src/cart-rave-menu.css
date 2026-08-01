@@ -690,7 +690,9 @@ html, body {
   min-width: 0;
 }
 
-.cr-name-display:hover { border-color: rgba(255,255,255,0.2); }
+/* MENU-NAME-HOVER-1: no :hover here. `.cr-plate .cr-name-display` zeros border/padding
+   (retired dashed rename affordance — pencil carries that job). A hover border-color
+   was dead under equal specificity + later plate rule; do not resurrect it. */
 
 .cr-tag { opacity: 0.6; margin-right: 2px; }
 

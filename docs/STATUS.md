@@ -131,8 +131,8 @@ BOOT-PERF-1 · Run 7 strip) → [completed-work.md](./planning/completed-work.md
 2. **FIGHT-VERIFY-1 Wyatt half** — real-match HUD/results feel, friends lobby, non-host podium,
    parked MP confetti/wilt. Seed: playtest console / BACKLOG `Owed: Wyatt playtest`.
 3. Closed 08-01 Wyatt PASS: **PAUSE-ROW-1** · **MENU-CMD-FEEL-1** · **FOCUS-CYAN-1**
-   (`8d1ee24`). Audit add-ons closed same window: **ANLX-BIND-1** · **SHEET-ESC-1**.
-   Still open: **ASSET-CACHE-1** · **HARNESS-FRIENDS-1**. **FRIENDS-REJOIN-1** closed.
+   (`8d1ee24`). Audit/tooling closed: **ANLX-BIND-1** · **SHEET-ESC-1** · **MENU-NAME-HOVER-1**
+   · **BOOT-METER-1**. Still open: **ASSET-CACHE-1** · **HARNESS-FRIENDS-1**.
 
 4. After coding that needs eyes: `Owed: Wyatt playtest — ID — check` → `npm run dashboard`.
 5. Battery exact-HEAD green is on disk (`battery-2026-08-01T03-31-21…`); keep CC fresh with
