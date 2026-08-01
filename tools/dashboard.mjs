@@ -25,7 +25,7 @@ import { collectProjectHealth, compressIssueStatus, issueState, deriveNextAction
 import { expandSystems, movedSystems } from "./lib/archModel.mjs";
 import { SYSTEMS } from "./lib/archMap.mjs";
 import { parseArgs, makeLogger, CAPTURE_DIR } from "./lib/harness.mjs";
-import { ROOT_TOKENS, BASE_CSS, esc, crossNav } from "./lib/ccStyle.mjs";
+import { ROOT_TOKENS, BASE_CSS, CHROME_CSS, esc, crossNav } from "./lib/ccStyle.mjs";
 
 const log = makeLogger("dashboard");
 
@@ -302,20 +302,9 @@ ${BASE_CSS}
   /* Ultrawide Shell & Sticky Navigation */
   .shell { max-width:1440px; margin:0 auto; padding:16px 24px 40px; }
 
-  .sticky-bar { position:sticky; top:0; z-index:100; background:rgba(10,10,15,0.94); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border-bottom:1px solid var(--edge); padding:10px 0; margin-bottom:20px; }
-  .sticky-inner { display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between; max-width:1440px; margin:0 auto; padding:0 8px; }
+${CHROME_CSS}
   
-  .nav-brand { display:flex; align-items:center; gap:8px; font-weight:800; font-size:15px; letter-spacing:2px; text-decoration:none; color:var(--text); }
-  .nav-brand .neon { color:var(--neon); text-shadow:0 0 12px rgba(255,45,149,0.6); }
-  .nav-links { display:flex; gap:16px; font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:1px; }
-  .nav-links a { color:var(--dim); text-decoration:none; transition:color .15s; }
-  .nav-links a:hover { color:var(--cyan); }
-
   header { display:flex; flex-wrap:wrap; gap:10px 18px; align-items:flex-end; justify-content:space-between; margin-bottom:14px; }
-  h1 { margin:0; font-size:20px; letter-spacing:3px; font-weight:800; }
-  h1 .neon { color:var(--neon); text-shadow:0 0 18px rgba(255,45,149,.55); }
-  h1 .cc { color:var(--dim); font-weight:600; letter-spacing:4px; font-size:13px; margin-left:10px; }
-  .stamp { color:var(--dim); font-size:12px; margin-top:4px; }
 
   /* release brain */
   .phases { display:flex; flex-wrap:wrap; align-items:center; gap:6px 4px; margin-bottom:18px;

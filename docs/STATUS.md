@@ -298,6 +298,15 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
+2026-08-01 (brainstorming skill) — `.agents/skills/brainstorming/` — the dialogue half of
+obra/superpowers' version (1,494 words + a 25KB browser-mockup server → 606, server dropped).
+Scoped to fire only on new gameplay systems / player-facing features / ambiguous-"done"
+cards, NOT config or known-line edits, so it cannot turn step 0 into ceremony. Opens with
+"what should the player see / feel / do", one question per message, size-check before detail
+(three cards ≠ one), 2–3 approaches with the recommendation first, lands as a BACKLOG card.
+Upstream's "do NOT invoke frontend-design or any other implementation skill" was removed —
+it would have forbidden `hallmark`. A written design is still not the ack.
+
 2026-08-01 (writing-skills skill) — `.agents/skills/writing-skills/` — the insight third of
 obra/superpowers' version (12,360 words → 746), dropping its subagent test harness (10–15
 agent runs per skill, against the one-card loop) and deferring to first-party `skill-creator`

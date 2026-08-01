@@ -10,7 +10,7 @@
  * interactive edge tracing, file-path copy-to-clipboard, real-time search-as-you-type, category filters, and file lookup.
  */
 
-import { ROOT_TOKENS, BASE_CSS, esc, crossNav } from "./ccStyle.mjs";
+import { ROOT_TOKENS, BASE_CSS, CHROME_CSS, esc, crossNav } from "./ccStyle.mjs";
 
 /** CART_COLORS (src/config.js) as CSS hex — per-system accent hues only. */
 const CART_ACCENTS = ["#ff2d95", "#00f3ff", "#39ff14", "#ffe600", "#ff6600", "#a855f7"];
@@ -402,19 +402,16 @@ export function renderArchHtml(ctx) {
 ${ROOT_TOKENS}
 ${BASE_CSS}
 
-  /* Global Layout & Sticky Navbar */
-  body { background:#0a0a0f; color:#e0e0ec; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
+  /* Global Layout & Sticky Navbar.
+     The body element is deliberately NOT re-declared here (CC-COHERE-1). BASE_CSS owns the
+     backdrop wash, --bg and --text; the override that used to sit on this line set background
+     as a SHORTHAND, which resets background-image, so this was the only Command Center surface
+     rendering without the radial wash — and its #e0e0ec was a fourth text value dimmer than
+     --text. Add page-specific body rules as individual properties, never the shorthand. */
   .shell { max-width:1440px; margin:0 auto; padding:16px 24px 40px; }
 
-  .sticky-bar { position:sticky; top:0; z-index:100; background:rgba(10,10,15,0.94); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border-bottom:1px solid var(--edge); padding:10px 0; margin-bottom:20px; }
-  .sticky-inner { display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between; max-width:1440px; margin:0 auto; padding:0 8px; }
+${CHROME_CSS}
   
-  .nav-brand { display:flex; align-items:center; gap:8px; font-weight:800; font-size:15px; letter-spacing:2px; text-decoration:none; color:var(--text); }
-  .nav-brand .neon { color:var(--neon); text-shadow:0 0 12px rgba(255,45,149,0.6); }
-  .nav-links { display:flex; gap:16px; font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:1px; }
-  .nav-links a { color:var(--dim); text-decoration:none; transition:color .15s; }
-  .nav-links a:hover { color:var(--cyan); }
-
   .controls-row { display:flex; flex-wrap:wrap; gap:10px; align-items:center; width:100%; margin-top:4px; }
   .search-box { position:relative; flex:1 1 240px; max-width:420px; }
   .search-box input { width:100%; box-sizing:border-box; background:rgba(255,255,255,0.05); border:1px solid var(--edge2); border-radius:8px; padding:7px 12px 7px 32px; color:var(--text); font-size:13px; outline:none; transition:border-color .15s, box-shadow .15s; }
@@ -428,10 +425,6 @@ ${BASE_CSS}
 
   /* Header Section */
   header.arch { display:flex; flex-wrap:wrap; gap:12px 18px; align-items:flex-end; justify-content:space-between; margin-bottom:12px; }
-  h1 { margin:0; font-size:20px; letter-spacing:3px; font-weight:800; }
-  h1 .neon { color:var(--neon); text-shadow:0 0 18px rgba(255,45,149,.55); }
-  h1 .cc { color:var(--dim); font-weight:600; letter-spacing:4px; font-size:13px; margin-left:10px; }
-  .stamp { color:var(--dim); font-size:12px; margin-top:4px; }
   header.arch .chips { display:flex; flex-wrap:wrap; gap:6px; justify-content:flex-end; max-width:640px; }
   .oneliner { color:#a3a3c2; font-size:13px; margin:0 0 22px; max-width:820px; line-height:1.5; }
 

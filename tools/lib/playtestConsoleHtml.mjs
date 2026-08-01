@@ -5,23 +5,17 @@
  * STATUS + BACKLOG; verdicts/notes live in browser localStorage (v2 key).
  */
 
-import { ROOT_TOKENS, BASE_CSS, esc, crossNav } from "./ccStyle.mjs";
+import { ROOT_TOKENS, BASE_CSS, CHROME_CSS, esc, crossNav } from "./ccStyle.mjs";
 
 const PAGE_CSS = `
-  .sticky-bar { position:sticky; top:0; z-index:100; background:rgba(10,10,15,.94);
-    backdrop-filter:blur(14px); border-bottom:1px solid var(--edge); padding:10px 0; margin-bottom:4px; }
-  .sticky-inner { display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between;
-    max-width:1040px; margin:0 auto; padding:0 16px; }
-  .nav-brand { display:flex; align-items:center; gap:8px; font-weight:800; font-size:15px;
-    letter-spacing:2px; text-decoration:none; color:var(--text); }
-  .nav-brand .neon { color:var(--neon); text-shadow:0 0 12px rgba(255,45,149,.6); }
-  .wrap { max-width:1040px; margin:0 auto; padding:20px 24px 80px; }
+  /* This console's three DELIBERATE departures from the shared chrome (CC-COHERE-1). The
+     narrow measure is the point: this page is one reading column of queue cards, not a
+     dashboard. Everything else — sticky bar, wordmark, h1 lockup, stamp — now comes from
+     CHROME_CSS, so the copy that used to live here cannot drift again. */
+  :root { --measure:1040px; --chrome-gap:4px; --chrome-pad:16px; }
+  .wrap { max-width:var(--measure); margin:0 auto; padding:20px 24px 80px; }
   header { display:flex; flex-wrap:wrap; gap:12px 20px; align-items:flex-start;
     justify-content:space-between; margin-bottom:18px; border-bottom:1px solid var(--edge); padding-bottom:16px; }
-  h1 { margin:0; font-size:20px; letter-spacing:3px; font-weight:800; }
-  h1 .neon { color:var(--neon); text-shadow:0 0 12px rgba(255,45,149,.6); }
-  h1 .cc { color:var(--dim); margin-left:10px; font-size:12px; letter-spacing:3px; font-weight:700; }
-  .stamp { color:var(--dim); font-size:12px; margin-top:5px; }
   .rules { background:linear-gradient(135deg, rgba(124,92,255,.10), var(--panel) 60%);
     border:1px solid rgba(124,92,255,.35); border-radius:12px; padding:14px 16px; margin-bottom:18px;
     font-size:.9rem; line-height:1.45; }
@@ -116,6 +110,7 @@ export function renderPlaytestConsoleHtml(opts) {
   <style>
 ${ROOT_TOKENS}
 ${BASE_CSS}
+${CHROME_CSS}
 ${PAGE_CSS}
   </style>
 </head>

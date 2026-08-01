@@ -88,6 +88,41 @@ export const BASE_CSS = `  * { box-sizing:border-box; }
   .cc-switch a.active:hover { border-color:var(--neon); color:#fff; }
   .cc-switch .sw-ico { font-size:15px; line-height:1; }`;
 
+/**
+ * Shared page chrome for the three Command Center surfaces: the sticky bar, the wordmark, the
+ * nav links, the h1 lockup and the stamp line.
+ *
+ * Hoisted here (CC-COHERE-1) because dashboard.mjs and archHtml.mjs carried BYTE-IDENTICAL
+ * copies of this block while playtestConsoleHtml.mjs carried a drifted one — a dimmer, tighter
+ * h1 glow, a different `.cc` treatment, a 1px stamp offset. Three copies of the same furniture
+ * is *why* these pages drift: someone edits one of them.
+ *
+ * The three DELIBERATE differences are parameterized rather than duplicated. Defaults are the
+ * dashboard/architecture values; the playtest console overrides them in its own `:root`:
+ *   --measure     content width — 1440px for the two dashboards, 1040px for the console's
+ *                 single reading column of queue cards. That split is a typographic decision,
+ *                 not drift; do not "fix" it into uniformity.
+ *   --chrome-gap  space under the sticky bar
+ *   --chrome-pad  horizontal padding inside the sticky bar
+ *
+ * Opt-in like BASE_CSS — montage.mjs takes ROOT_TOKENS only and is unaffected.
+ */
+export const CHROME_CSS = `  .sticky-bar { position:sticky; top:0; z-index:100; background:rgba(10,10,15,0.94);
+               backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+               border-bottom:1px solid var(--edge); padding:10px 0; margin-bottom:var(--chrome-gap, 20px); }
+  .sticky-inner { display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between;
+                  max-width:var(--measure, 1440px); margin:0 auto; padding:0 var(--chrome-pad, 8px); }
+  .nav-brand { display:flex; align-items:center; gap:8px; font-weight:800; font-size:15px;
+               letter-spacing:2px; text-decoration:none; color:var(--text); }
+  .nav-brand .neon { color:var(--neon); text-shadow:0 0 12px rgba(255,45,149,0.6); }
+  .nav-links { display:flex; gap:16px; font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:1px; }
+  .nav-links a { color:var(--dim); text-decoration:none; transition:color .15s; }
+  .nav-links a:hover { color:var(--cyan); }
+  h1 { margin:0; font-size:20px; letter-spacing:3px; font-weight:800; }
+  h1 .neon { color:var(--neon); text-shadow:0 0 18px rgba(255,45,149,.55); }
+  h1 .cc { color:var(--dim); font-weight:600; letter-spacing:4px; font-size:13px; margin-left:10px; }
+  .stamp { color:var(--dim); font-size:12px; margin-top:4px; }`;
+
 /** The single HTML-escaper both generated pages use. @param {unknown} s */
 export function esc(s) {
   return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
