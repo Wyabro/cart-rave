@@ -280,13 +280,64 @@ async function scenarioSpawnLock(browserHost, browserJoiner, baseUrl) {
     timeout: 40_000,
     label: "host-running",
   });
-  const hostAnn = await host.page.evaluate(() =>
-    window.__ccDiag.events().filter((e) => e.ch === "announcer").map((e) => e.type),
-  );
+  // * COUNTDOWN-ARM-2. This used to assert `countdown_3` specifically, and that is a coin
+  // * flip: hud.js:604-626 SAMPLES the digit off the round clock each frame and announces
+  // * only on change, so a longtask spanning the first digit window (countdownMs/3 ≈ 1200ms)
+  // * means the first sample is already 2 and beat 3 never fires. Announcing it late would
+  // * desync from the visible digit, so dropping a beat whose moment has passed is correct
+  // * product behaviour — the assert was measuring the harness box's frame health, not the
+  // * arm. Measured on a SwiftShader runner: it failed 4/4 at HEAD, 4/4 with LOAD-PROGRESS-1
+  // * reverted, and 3/3 with the entire window reverted to a tree that had passed hours
+  // * earlier. So assert the ORDERING the card actually cared about, which has real margin
+  // * (309–499ms observed), and let the beats themselves be checked for shape, not presence.
+  const arm = await host.page.evaluate(() => {
+    const ev = window.__ccDiag.events();
+    const at = (pred) => ev.find(pred)?.t ?? null;
+    const snap = window.__ccDiag.snapshot();
+    return {
+      beats: ev.filter((e) => e.ch === "announcer").map((e) => e.type),
+      cartsReadyMs: at((e) => e.ch === "boot" && e.type === "carts-ready"),
+      countdownStartMs: at((e) => e.ch === "round" && e.type === "phase" && e.to === "countdown"),
+      longtask: snap?.perf?.longtask ?? null,
+    };
+  });
+
+  // 1. The arm ordering — the actual COUNTDOWN-ARM-1 subject: the PA must be armed
+  //    (carts-ready / playReady) BEFORE the countdown phase begins, not at seat.
+  const armMargin =
+    arm.cartsReadyMs != null && arm.countdownStartMs != null
+      ? arm.countdownStartMs - arm.cartsReadyMs
+      : null;
   check(
-    "host heard countdown_3 before running (playReady arm)",
-    hostAnn.includes("countdown_3"),
-    `announcer=${hostAnn.join(",") || "none"}`,
+    "host announcer armed before the countdown started (playReady arm)",
+    armMargin != null && armMargin > 0,
+    armMargin == null
+      ? `missing evidence — carts-ready=${arm.cartsReadyMs} countdown-start=${arm.countdownStartMs}`
+      : `armed ${armMargin}ms before countdown start `
+        + `(carts-ready ${arm.cartsReadyMs}ms → countdown ${arm.countdownStartMs}ms)`,
+  );
+
+  // 2. The PA itself: whatever beats played must be a contiguous TAIL of 3→2→1→GO and must
+  //    reach GO. A silent or out-of-order announcer still fails; a stalled frame that ate
+  //    the leading digit does not, and says so with the longtask evidence that explains it.
+  //    MIN_PLAYED keeps the tolerance from swallowing the thing worth catching: `go` alone
+  //    would otherwise pass, so a countdown announcer that had stopped emitting digits
+  //    entirely would read as a stall. Two beats = at most 2 dropped ≈ 2400ms of stall,
+  //    well past the one beat (~1200ms) this was ever observed to lose.
+  const SEQ = ["countdown_3", "countdown_2", "countdown_1", "go"];
+  const MIN_PLAYED = 2;
+  const played = arm.beats.filter((b) => SEQ.includes(b));
+  const tailStart = SEQ.length - played.length;
+  const isTail = tailStart >= 0 && played.every((b, i) => b === SEQ[tailStart + i]);
+  const lt = arm.longtask;
+  check(
+    "host PA ran a contiguous countdown into GO",
+    isTail && played.includes("go") && played.length >= MIN_PLAYED,
+    `played=${played.join(",") || "none"} of ${SEQ.join(",")}`
+      + (isTail && played.length < SEQ.length
+        ? ` · ${SEQ.length - played.length} leading beat(s) dropped by a stalled frame — `
+          + `longtasks ${lt ? `${lt.count} totalling ${lt.sumMs}ms, max ${lt.maxMs}ms` : "n/a"}`
+        : ""),
   );
   console.log("[scenario] host is running");
 
