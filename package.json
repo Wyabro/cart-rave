@@ -51,6 +51,7 @@
     "refresh": "node tools/refresh.mjs",
     "cc": "npm run dashboard && node tools/open-cc.mjs",
     "status:size": "node tools/status-size.mjs",
+    "setup": "node tools/setup.mjs",
     "skills:sync": "node tools/skills-sync.mjs",
     "captures:pull": "node tools/pull-captures.mjs",
     "analytics:pull": "node tools/pull-analytics.mjs",

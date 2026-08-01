@@ -1,0 +1,12 @@
+#!/bin/sh
+# pre-commit — keep the committed cold-start docs in sync with every commit.
+# Regenerates docs/BRIEFING.md + docs/ARCHITECTURE.json (both no-op when unchanged)
+# and stages them so they never drift from the source/STATUS in the same commit.
+# Installed via `npm run setup` (git config core.hooksPath tools/git-hooks).
+# Escape hatch: SKIP_DOCS_HOOK=1 git commit ...
+[ -n "$SKIP_DOCS_HOOK" ] && exit 0
+
+node tools/briefing.mjs || { echo "[pre-commit] briefing failed — aborting (SKIP_DOCS_HOOK=1 to bypass)"; exit 1; }
+node tools/architecture.mjs || { echo "[pre-commit] arch failed — aborting (SKIP_DOCS_HOOK=1 to bypass)"; exit 1; }
+git add docs/BRIEFING.md docs/ARCHITECTURE.json
+exit 0

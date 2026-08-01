@@ -1,0 +1,2 @@
+# Shell hook scripts must stay LF — a CRLF #!/bin/sh shebang breaks the hook on checkout.
+tools/git-hooks/* text eol=lf

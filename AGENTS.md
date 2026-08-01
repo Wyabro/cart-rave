@@ -208,10 +208,13 @@ and this document, not mechanical blocking.
   a command string — so `SKIP_GIT_GUARD=1 git add -A` is still blocked. Both hooks fail
   open: any error in them exits 0 rather than wedging a session.
 
-Separately, `.git/hooks/pre-commit` and `post-commit` regenerate `docs/BRIEFING.md` +
-`docs/ARCHITECTURE.json` and refresh the Command Center on every commit. **They are
-local-only and untracked — a fresh clone does not get them**, and must be recreated by
-hand. Bypass both with `SKIP_DOCS_HOOK=1`.
+Separately, the git hooks `tools/git-hooks/pre-commit` and `post-commit` regenerate
+`docs/BRIEFING.md` + `docs/ARCHITECTURE.json` and refresh the Command Center on every
+commit. They are **tracked in the repo** and installed by **`npm run setup`** (sets
+`git config core.hooksPath tools/git-hooks`; also syncs `.claude/skills/` and builds the
+Command Center — the three local pieces a fresh clone is missing, one command, idempotent;
+it replaces any prior local `core.hooksPath` for this repo). Bypass both hooks with
+`SKIP_DOCS_HOOK=1`.
 
 ---
 
