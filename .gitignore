@@ -39,6 +39,13 @@ party-static/
 /sounds/
 index.html.partykit.bak
 
+# Agent-skill symlinks. `npx skills add` installs the real files to
+# .agents/skills/ (committed) and symlinks them here per agent tool. The link
+# target is an ABSOLUTE machine path and core.symlinks=false on Windows, so git
+# would store it as a text file containing C:\Users\... — useless anywhere else.
+# Re-create it by re-running the installer after a fresh clone.
+.claude/skills/
+
 # Python
 __pycache__/
 *.pyc
