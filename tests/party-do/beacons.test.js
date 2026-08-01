@@ -43,6 +43,12 @@ describe("SEC-BEACON-1 open beacon rate limit", () => {
     expect((await postBeacon("/api/log-error", { message: "y" }, "10.9.9.2")).status).toBe(204);
   });
 
+  // TEST-MARGIN-1: explicit timeout, because this case is 201 sequential round trips
+  // through the real Worker entry into a DO — the slowest test in the suite by an order
+  // of magnitude. On the default 5000ms it ran with no headroom in CI (10681ms for this
+  // FILE against 4.66s locally), so unrelated load elsewhere in the run tipped it over
+  // and turned the gate red. The flood size is deliberately NOT reduced to buy that
+  // margin back: 200 is what makes "far past the 80-row ring depth" mean anything.
   it("stops a flood from evicting a real capture out of the 80-row ring", async () => {
     // The whole point of the card: unbounded, ~80 junk POSTs erase a playtest's
     // F8 bundles. Capped, one IP can never reach the ring depth.
@@ -59,7 +65,7 @@ describe("SEC-BEACON-1 open beacon rate limit", () => {
 
     const { rows } = await listFrom("CAPTURE_LOG", "captures", 200);
     expect(rows.some((r) => r.label === "SENTINEL")).toBe(true);
-  });
+  }, 30_000);
 
   it("budgets per route, not shared — capped on log-error, still open on analytics", async () => {
     const ip = "10.9.9.5";

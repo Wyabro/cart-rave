@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-01T07:37:18.112Z",
-    "commit": "b5c29f2"
+    "at": "2026-08-01T07:46:15.408Z",
+    "commit": "4a39161"
   },
-  "source_digest": "99642fa4",
+  "source_digest": "a0422192",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1017,7 +1017,7 @@
           {
             "pri": "Medium",
             "item": "TEST-MARGIN-1 — one qa test runs with no timeout headroom in CI, so any new test anywhere can turn the gate red",
-            "notes": "**Filed 08-01** by LOAD-PROGRESS-1, which tripped it. `tests/party-do/beacons.test.js:46` — *\"stops a flood from evicting a real capture out of the 80-row ring\"* — runs on the **default 5000ms** vitest timeout with almost none to spare: that file took **10681ms** for its 6 tests in the last green CI run (`30688071083`, `b34b2de`) against **4.66s locally**, i.e. CI is ~2× slower and the flood case sits just under the ceiling. **Not a flake** — LOAD-PROGRESS-1's four new cases added 1.28s of real wall clock in the *happy-dom* pool (the mode-entry exit fade), and the *party-do* pool's flood test then timed out on run `30689834838` **twice**, initial and `gh run rerun --failed`, both `Test timed out in 5000ms`. Fixed from the wrong side in `b5c29f2` — those cases now dismiss synchronously (1280ms → 89ms), which **restores the previous balance and adds no margin**; the next test anyone adds, in any pool, can re-trip it. Lever: give that one case an explicit timeout (vitest's own error message says so) or shrink the flood; **do not raise the global `testTimeout`** — that hides real hangs across all 901 tests. Note the workerd pool is the slow one in CI, so it is the natural place for this to surface again. **Does not re-open SEC-BEACON-1** (closed) — the shipped rate limit is fine, only its test's timing margin is at issue.",
+            "notes": "✅ **CLOSED 08-01** — explicit `30_000` timeout on that one case (`tests/party-do/beacons.test.js`), the row's primary lever. **Flood size deliberately unchanged at 200**: it is what makes \"far past the 80-row ring depth\" mean anything, so buying margin by shrinking it would have paid in assertion strength. **Negative control** — with the timeout set to `1` the case fails `Test timed out in 1ms`, so the third argument is provably honored rather than decorative. Per-test measurement that confirms the original diagnosis: the flood case is **2030ms of the file's 4610ms locally**; at CI's measured 2.3× slowdown that is ~4.7s against the old 5000ms default, i.e. **~6% margin** — i.e. it was always one unrelated test away from red. The other five cases in the file sit at 108–1237ms (~44%+ margin at the same ratio) and were left on the default, so a genuine hang in them still fails fast. **Was: filed 08-01** by LOAD-PROGRESS-1, which tripped it. `tests/party-do/beacons.test.js:46` — *\"stops a flood from evicting a real capture out of the 80-row ring\"* — runs on the **default 5000ms** vitest timeout with almost none to spare: that file took **10681ms** for its 6 tests in the last green CI run (`30688071083`, `b34b2de`) against **4.66s locally**, i.e. CI is ~2× slower and the flood case sits just under the ceiling. **Not a flake** — LOAD-PROGRESS-1's four new cases added 1.28s of real wall clock in the *happy-dom* pool (the mode-entry exit fade), and the *party-do* pool's flood test then timed out on run `30689834838` **twice**, initial and `gh run rerun --failed`, both `Test timed out in 5000ms`. Fixed from the wrong side in `b5c29f2` — those cases now dismiss synchronously (1280ms → 89ms), which **restores the previous balance and adds no margin**; the next test anyone adds, in any pool, can re-trip it. Lever: give that one case an explicit timeout (vitest's own error message says so) or shrink the flood; **do not raise the global `testTimeout`** — that hides real hangs across all 901 tests. Note the workerd pool is the slow one in CI, so it is the natural place for this to surface again. **Does not re-open SEC-BEACON-1** (closed) — the shipped rate limit is fine, only its test's timing margin is at issue.",
             "ship1": null
           },
           {
