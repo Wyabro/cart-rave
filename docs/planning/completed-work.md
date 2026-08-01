@@ -830,6 +830,9 @@ All seven verified fixed:
 
 - Crazy Carts mode (solo 8 NPCs)
 - General pre-submission checklist
+- **FRIENDS-REJOIN-1** (08-01) — “auto-rejoin friends room like quickplay” rejected. Wyatt
+  chose keep **JOIN LOBBY** on refresh for private rooms (D-FRIENDS-REJOIN-1 in STATUS). Not
+  a defect; do not re-open without a new product call.
 
 ---
 

@@ -2015,7 +2015,11 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
       if (pressed && pe.pointerType === "mouse") onRelease();
     });
 
-    wireHoverFeedback(/** @type {HTMLElement} */ (btn), { getTarget: getMenuPressTarget });
+    // * MENU-CMD-FEEL-1: command rows select on mouseenter — anime hover-scale is only
+    // * jiggle and fights the yellow selection chrome. Press scale still runs above.
+    if (!(btn instanceof HTMLElement && btn.classList.contains("cr-cmd"))) {
+      wireHoverFeedback(/** @type {HTMLElement} */ (btn), { getTarget: getMenuPressTarget });
+    }
   }
 
   function wireAllMenuPressFeedback() {

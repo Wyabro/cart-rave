@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-01T03:45:15.530Z",
-    "commit": "10a7620"
+    "at": "2026-08-01T04:41:26.954Z",
+    "commit": "85f0483"
   },
-  "source_digest": "46b429bb",
+  "source_digest": "0bcdbbdd",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -891,8 +891,10 @@
       }
     ],
     "next_actions": [
-      "Triage FIGHT-VERIFY-1's 11 findings — the agent half produced them; none are fixed. Two",
-      "No other active card — Wyatt names the next residual (or “wait”). Agent High:",
+      "PAUSE-ROW-1 (pause action row isolation) — 🟡 unpushed: RESUME / RESTART / MAIN MENU",
+      "MENU-CMD-FEEL-1 + FOCUS-CYAN-1 — 🟡 unpushed v3: focus rings all cyan solid+glow",
+      "RESULTS-ACT-1 still the other real FIGHT-VERIFY product defect (below-fold CTAs on",
+      "Audit add-ons filed 08-01 (not active): ASSET-CACHE-1 · HARNESS-FRIENDS-1 ·",
       "After coding that needs eyes: `Owed: Wyatt playtest — ID — check` → `npm run dashboard`.",
       "Battery exact-HEAD green is on disk (`battery-2026-08-01T03-31-21…`); keep CC fresh with"
     ],
@@ -925,8 +927,8 @@
         "title": "Engineering",
         "counts": {
           "High": 2,
-          "Medium": 15,
-          "Low": 4,
+          "Medium": 17,
+          "Low": 5,
           "Partial": 1
         },
         "rows": [
@@ -1001,6 +1003,24 @@
             "item": "NET-SIM-1 — socket-lifecycle netharness scenarios `[SHIP-1 A6]`",
             "notes": "A6a (party-do silent-reap + ghost 4010) + A6b (netharness `hostReload`) landed; extend as needed. P2P zombie + reconnect cooldown already unit-covered.",
             "ship1": "A6"
+          },
+          {
+            "pri": "Medium",
+            "item": "ASSET-CACHE-1 — fixed-name GLB/audio 7d cache can serve stale art after deploys",
+            "notes": "**Filed 08-01** (audit triage). `party/index.ts` `withAssetCacheHeaders`: hashed `/assets/*` = 1y immutable; fixed-name `/models",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "HARNESS-FRIENDS-1 — netharness covers quickplay-shaped joins only; friends ready-up/lobby/rematch is manual",
+            "notes": "**Filed 08-01** (audit triage). Automated MP is quickplay-path / `?room=` join (`docs/guides/netcode-harness.md` coverage gap). Friends private-room ready-up, CHECKOUT LINE lobby, and rematch stay Wyatt/manual. One scenario later: friends room → ready-up → countdown → rematch. Tooling only — does not replace FIGHT-VERIFY-1 Wyatt half. Extends NET-SIM-1 lane.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "ANLX-BIND-1 — POST `/api/analytics` returns 204 when `ANALYTICS_LOG` binding missing",
+            "notes": "**Filed 08-01** (audit triage). `party/index.ts` ingest path: body only forwarded when `env.ANALYTICS_LOG` is set; missing binding still returns 204 (silent discard). GET already 500s with a clear message. Mirror `ERROR_LOG`'s `console.log` fallback (or rate-limited warn) — keep 204 for beacons so clients never fail. Prod DO already deployed; ops hardening only.",
+            "ship1": null
           },
           {
             "pri": "Medium",
@@ -1829,6 +1849,11 @@
         "id": "D-READY-1",
         "date": "07-20",
         "text": "Lobby readiness is an idempotent SET on the wire, not a toggle. `MSG.readyToggle` gains additive `ready: boolean`; client quickplay/solo auto-ready is a lobby-phase reconcile."
+      },
+      {
+        "id": "D-FRIENDS-REJOIN-1",
+        "date": "08-01",
+        "text": "Friends-room refresh keeps explicit JOIN LOBBY (no"
       }
     ],
     "verified_healthy": [

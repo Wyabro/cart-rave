@@ -126,18 +126,18 @@ BOOT-PERF-1 · Run 7 strip) → [completed-work.md](./planning/completed-work.md
 
 ### Next actions
 
-1. **Triage FIGHT-VERIFY-1's 11 findings** — the agent half produced them; none are fixed. Two
-   are real product defects and want cards: **RESULTS-ACT-1** (PLAY AGAIN / MAIN MENU render
-   203–295 px below the fold in `results.css:81`'s squat-window branch — the reward screen's
-   whole job is that decision) and **MENU-CMD-FEEL-1** (the seven `.cr-cmd` rows have **no CSS
-   hover or press feedback**; `cart-rave-menu.css:3411-3416` sets their states byte-identical to
-   rest, and a 3 % anime.js scale is the entire affordance on the game's primary controls). The
-   other nine are Medium/Low or tools-only.
-2. **No other active card — Wyatt names the next residual** (or “wait”). Agent High:
-   **UI-SCALE-1**. Art/you: **CART-MODEL-1** · bloom · **RESULTS-1**. Pre-ship batch is in
-   [BACKLOG](./planning/BACKLOG.md) (`[pre-ship]`). **INPUT-KB-1 closed** (SHIP-1 A2, 07-21).
-3. After coding that needs eyes: `Owed: Wyatt playtest — ID — check` → `npm run dashboard`.
-4. Battery exact-HEAD green is on disk (`battery-2026-08-01T03-31-21…`); keep CC fresh with
+1. **PAUSE-ROW-1** (pause action row isolation) — 🟡 unpushed: RESUME / RESTART / MAIN MENU
+   each sit in an `.esc-action-slot` flex cell; skew+lift stay on the button. Hover one should
+   not tug the row. Lifts kept. Owed: Wyatt eye in-match Esc.
+2. **MENU-CMD-FEEL-1** + **FOCUS-CYAN-1** — 🟡 unpushed v3: focus rings all cyan solid+glow
+   (yellow dashed retired; states guard flipped). Command hover = white 5px left rail + hotter
+   yellow (v2 opacity nudge was invisible). Owed: hard-refresh + Wyatt eye.
+3. **RESULTS-ACT-1** still the other real FIGHT-VERIFY product defect (below-fold CTAs on
+   squat windows). Remaining FIGHT-VERIFY Medium/Low stay backlog-only.
+4. **Audit add-ons filed 08-01 (not active):** **ASSET-CACHE-1** · **HARNESS-FRIENDS-1** ·
+   **ANLX-BIND-1**. **FRIENDS-REJOIN-1** closed (D-FRIENDS-REJOIN-1).
+5. After coding that needs eyes: `Owed: Wyatt playtest — ID — check` → `npm run dashboard`.
+6. Battery exact-HEAD green is on disk (`battery-2026-08-01T03-31-21…`); keep CC fresh with
    `npm run dashboard` after battery runs.
 
 **07-31 lesson (short):** verification tools only see branches they enter — add the matching
@@ -262,6 +262,10 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 - **D-SHIP-1** (07-20): SHIP-1 created as a living finish line — pre-ship tiers A–E ([planning/SHIP-1.md](./planning/SHIP-1.md)); full backlog ships (no cut-down RC); new findings slot into tiers; no netcode/god-file rewrites pre-ship.
 - **D-TRUTH-1** (07-20): Command Center Truth Reset — STATUS owns declared phase only; evidence never auto-advances phase; collectors own HEAD/gates; battery reports carry provenance + completeness.
 - **D-READY-1** (07-20): Lobby readiness is an idempotent **SET** on the wire, not a toggle. `MSG.readyToggle` gains additive `ready: boolean`; client quickplay/solo auto-ready is a lobby-phase reconcile.
+- **D-FRIENDS-REJOIN-1** (08-01): Friends-room refresh keeps explicit **JOIN LOBBY** (no
+  quickplay-style auto-rejoin). Private rooms stay opt-in; only `?room=quickplay` auto-rejoins
+  when a username is saved (`main.js` ~1849–1859). Audit finding closed as accepted UX — do not
+  “fix” parity without a new product call.
 - **07-11 → 07-17 (D-CONTENT-1 · D-HARDEN-1 · D-NET-CLK-MIG · D-TERM-1 · D-STAB-1/2 ·
   D-PERF-1/2/3 · D-GP4-1 · D-VFX-1/2 · D-VIS-1/2/3 · D-DOC-1)** — rolled out of this index
   07-31; full text in [decision-log-2026-07.md](./archive/decision-log-2026-07.md), which

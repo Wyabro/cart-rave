@@ -54,7 +54,11 @@ function syncRestartVisibility() {
   if (!elements.restartBtn) return;
   const mode = _options.detectGameMode ? _options.detectGameMode() : "";
   const solo = mode === "solo" || mode === "testdrive";
-  elements.restartBtn.style.display = solo ? "" : "none";
+  // * Hide the flex slot (not only the button) so an empty cell doesn't hold
+  // * space when RESTART is solo-only.
+  const slot = elements.restartBtn.closest?.(".esc-action-slot");
+  const target = slot || elements.restartBtn;
+  target.style.display = solo ? "" : "none";
 }
 
 /**
@@ -235,6 +239,20 @@ function makeEscActionButton(label, variantClasses) {
   btn.appendChild(inner);
   wireButtonPressFeedback(btn, { scale: 0.96, getTarget: escPressTarget });
   return btn;
+}
+
+/**
+ * Stable flex cell for one action slab. Lift/skew live on the button inside so
+ * hovering one slab cannot tug its row-mates (slot geometry never transforms).
+ * @param {HTMLButtonElement} btn
+ * @param {{ resume?: boolean }} [opts]
+ * @returns {HTMLDivElement}
+ */
+function wrapEscActionSlot(btn, opts = {}) {
+  const slot = document.createElement("div");
+  slot.className = opts.resume ? "esc-action-slot esc-action-slot--resume" : "esc-action-slot";
+  slot.appendChild(btn);
+  return slot;
 }
 
 /**
@@ -713,14 +731,18 @@ export function init(options = {}, hudContext = {}) {
   // * built once at startup before any room exists, so visibility is resolved on
   // * every show() (see syncRestartVisibility) rather than here.
   elements.restartBtn = makeEscActionButton("RESTART ROUND", "cc-btn--secondary");
-  elements.restartBtn.style.display = "none";
 
   // * 7f: leaving the match is the recessive choice — ghost, not danger red.
   elements.quitBtn = makeEscActionButton("MAIN MENU", "cc-btn--ghost");
 
-  actions.appendChild(elements.resumeBtn);
-  actions.appendChild(elements.restartBtn);
-  actions.appendChild(elements.quitBtn);
+  // * Slots own flex share; buttons inside keep skew/lift without moving siblings.
+  const resumeSlot = wrapEscActionSlot(elements.resumeBtn, { resume: true });
+  const restartSlot = wrapEscActionSlot(elements.restartBtn);
+  restartSlot.style.display = "none";
+  const quitSlot = wrapEscActionSlot(elements.quitBtn);
+  actions.appendChild(resumeSlot);
+  actions.appendChild(restartSlot);
+  actions.appendChild(quitSlot);
 
   // ── DISPLAY settings — grouped with AUDIO/ANNOUNCER, out of the actions row ──
   const postFxEnabled = () => (_options.getBloomEnabled ? _options.getBloomEnabled() : true) && (_options.getFxPassEnabled ? _options.getFxPassEnabled() : true);

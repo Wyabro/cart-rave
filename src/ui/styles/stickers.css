@@ -133,8 +133,9 @@
   box-shadow: var(--slab-shadow-pressed);
 }
 .cc-btn:focus-visible {
-  outline: 2px dashed var(--color-yellow);
-  outline-offset: 4px;
+  outline: 2px solid var(--color-cyan);
+  outline-offset: 2px;
+  box-shadow: 0 0 12px rgba(34, 230, 255, 0.6);
 }
 /* Primary — retail workhorse: yellow ink, deep-ink text. The PLAY button. */
 .cc-btn--primary {

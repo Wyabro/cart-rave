@@ -121,14 +121,33 @@
 }
 
 /* Actions — one row along the bottom: RESUME leads, then RESTART / MAIN MENU.
-   Same parallelogram as every other screen's action slabs. */
+   Same parallelogram as every other screen's action slabs.
+   Flex share lives on .esc-action-slot (stable). Skew + lift live on the button
+   inside so one hover does not tug the whole row. */
 #esc-overlay .esc-actions {
   display: flex;
   gap: clamp(8px, 1.5vw, 14px);
   flex-shrink: 0;
 }
-#esc-overlay .esc-actions .esc-btn {
+#esc-overlay .esc-actions .esc-action-slot {
   flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: stretch;
+  /* Hovered slot paints above neighbors so one lift doesn't look like a row tug. */
+  position: relative;
+  z-index: 0;
+}
+#esc-overlay .esc-actions .esc-action-slot:hover,
+#esc-overlay .esc-actions .esc-action-slot:focus-within {
+  z-index: 1;
+}
+#esc-overlay .esc-actions .esc-action-slot--resume {
+  flex: 1.2 1 0;
+}
+#esc-overlay .esc-actions .esc-btn {
+  flex: 1 1 auto;
+  width: 100%;
   min-width: 0;
   transform: skewX(-8deg);
   transition: transform 120ms var(--ease-slap), box-shadow 120ms var(--ease-slap);
@@ -152,7 +171,6 @@
 /* Extra class raises specificity over the base #esc-overlay .esc-btn font-size
    (same 1-1-0 specificity, but that rule is declared later in the file). */
 #esc-overlay .esc-actions .esc-btn--resume {
-  flex: 1.2 1 0;
   font-size: clamp(15px, 3vw, 19px);
   padding-block: clamp(12px, 2.2vw, 16px);
 }
@@ -517,8 +535,8 @@
     flex-direction: column;
   }
   /* flex:1 1 0 down a column with auto height collapses to min-content. */
-  #esc-overlay .esc-actions .esc-btn,
-  #esc-overlay .esc-actions .esc-btn--resume {
+  #esc-overlay .esc-actions .esc-action-slot,
+  #esc-overlay .esc-actions .esc-action-slot--resume {
     flex: 0 0 auto;
   }
 }

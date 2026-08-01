@@ -2394,7 +2394,8 @@ html, body {
    the Fight Night 3a block — the retired absolutely-positioned sticker chip that
    used to sit here was never counter-skewed, so it rode the -8deg row slanted. */
 
-/* Focus visible for overlay buttons */
+/* Focus ring = cyan solid + glow everywhere (matches loadingScreen.css gamepad
+   fallback). Yellow dashed retired per Wyatt 08-01. */
 .cr-btn:focus-visible,
 .cr-level-btn:focus-visible,
 .cr-color-chip:focus-visible,
@@ -2403,9 +2404,14 @@ html, body {
 .cr-reroll:focus-visible,
 .cr-friends-copy:focus-visible,
 .cr-overlay-done:focus-visible,
-.cr-overlay-back:focus-visible {
-  outline: 2px dashed var(--color-yellow);
-  outline-offset: 4px;
+.cr-overlay-back:focus-visible,
+.cr-plate-btn:focus-visible,
+.cr-cmd:focus-visible {
+  outline: 2px solid var(--color-cyan);
+  outline-offset: 2px;
+  box-shadow: 0 0 12px rgba(34, 230, 255, 0.6);
+  z-index: 100;
+  position: relative;
 }
 
 /* === RESPONSIVE === */
@@ -3408,19 +3414,48 @@ html, body {
    die-cut ring AND replacing skewX(-8deg) with a translate — the row went flat
    while its label kept the counter-skew. Hover is selection here, so this fired
    constantly. Two classes so no single-class band rule can outrank it either. */
+/* Keep skew on hover/focus/press; kill sticker lift shadow only on hover/press
+   so focus can still carry the cyan glow ring. */
 .cr-btn.cr-cmd:hover,
 .cr-btn.cr-cmd:focus-visible,
 .cr-btn.cr-cmd:active {
   transform: skewX(-8deg);
+}
+.cr-btn.cr-cmd:hover,
+.cr-btn.cr-cmd:active {
   box-shadow: none;
 }
+/* MENU-CMD-FEEL-1: sticker lift correctly killed above. Hover selects the row
+   (mouseenter → .is-selected), so subtle opacity nudes never read — use a hard
+   white left rail on selected hover + a stronger unselected wash.
+   Label → white already at .cr-cmd:hover .cr-btn-label — do not restate it.
+   Hover only on fine pointers. :active outside so touch still gets a press flash.
+   Focus ring is the shared cyan block above. No anime hover-scale on .cr-cmd (JS). */
 .cr-cmd.is-selected {
   background: linear-gradient(90deg, rgba(255,229,61,0.92), rgba(255,229,61,0.75) 60%, transparent 98%);
   padding: clamp(10px, 1.5vh, 16px) 30px;
 }
 .cr-cmd.is-selected .cr-btn-label { color: var(--color-ink); font-size: clamp(22px, 2.3vw, 30px); }
 .cr-cmd.is-selected .cr-cmd-qual { opacity: 1; }
-.cr-cmd:focus-visible { outline: 2px dashed var(--color-yellow); outline-offset: 2px; }
+@media (hover: hover) and (pointer: fine) {
+  .cr-cmd:hover:not(.is-selected) {
+    background: rgba(255, 255, 255, 0.16);
+  }
+  /* White rail + hotter yellow — subject-node background must change enough to see. */
+  .cr-cmd.is-selected:hover {
+    background:
+      linear-gradient(90deg, #fff 0 5px, transparent 5px),
+      linear-gradient(90deg, #ffe53d 0%, rgba(255, 229, 61, 0.95) 55%, transparent 98%);
+  }
+}
+.cr-cmd:active:not(.is-selected) {
+  background: rgba(255, 255, 255, 0.22);
+}
+.cr-cmd.is-selected:active {
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.7) 0 5px, transparent 5px),
+    linear-gradient(90deg, rgba(230, 190, 20, 0.95) 0%, rgba(255, 229, 61, 0.7) 55%, transparent 98%);
+}
 
 /* ── TOP-RIGHT player plate + BOTTOM-RIGHT context: shared dark-glass panel ── */
 .cr-plate, .cr-context {

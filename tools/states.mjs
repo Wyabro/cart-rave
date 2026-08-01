@@ -172,24 +172,19 @@ const DECLARED_UNREACHABLE = {
 };
 
 /**
- * The Phase 0 regression guard, stated as the DESIGNED expectation.
+ * Focus-ring regression guard (Wyatt 08-01: all cyan, not yellow dashed).
  *
- * `src/cart-rave-menu.css:2398-2409` declares a nine-selector `outline: 2px dashed
- * var(--color-yellow)` ring and `:3423` a tenth for `.cr-cmd`. Until `e5efbfe` none of them
- * rendered: `src/ui/loadingScreen.css:577-584` declared an unscoped
- * `button:focus-visible, a:focus-visible, [role="button"]:focus-visible, …` ring with
- * `!important` on outline/outline-offset/box-shadow, and author `!important` beats every
- * non-important author declaration regardless of specificity or source order. Transforms were
- * untouched (not `!important`), so the slabs still MOVED — which is exactly why a DOM +
- * computed-geometry sign-off passed this for four months.
+ * Canonical recipe matches `loadingScreen.css:577-584` (solid cyan + glow). Menu /
+ * sticker / plate / command rows declare the same so nothing falls through to a
+ * second style. Mirrored here rather than read from the stylesheet: an assertion
+ * that imports its own expected value proves nothing. `--color-cyan` is `#22e6ff`
+ * → `rgb(34, 230, 255)` in sRGB (headless Chromium; P3 oklch tokens do not match).
  *
- * Mirrored here on purpose rather than read from the stylesheet: an assertion that imports its
- * own expected value proves nothing. `--color-yellow` is `#ffe53d` and `--color-cyan`
- * `#22e6ff` (`tokens.css:34-35`); the P3 `oklch` re-declaration at `:246-251` is gated on
- * `@media (color-gamut: p3)`, which headless Chromium does not match, so these are the sRGB
- * strings the harness reads.
+ * History: until `e5efbfe` an unscoped `!important` cyan ring in loadingScreen.css
+ * outranked every designed ring; then yellow dashed was the design; 08-01 retires
+ * yellow for one cyan language game-wide.
  */
-const DESIGNED_YELLOW = "rgb(255, 229, 61)";
+const DESIGNED_CYAN = "rgb(34, 230, 255)";
 const CYAN_RE = /34,\s*230,\s*255/;
 const DESIGNED_FOCUS_RING = [
   ".cr-btn",
@@ -1013,17 +1008,17 @@ async function runScreen(page, cdp, { screen, subjects, outDir, tally, cards, re
       const f = card.focusRing;
       const ok =
         Boolean(f)
-        && f.outlineColor === DESIGNED_YELLOW
-        && f.outlineStyle === "dashed"
-        && !CYAN_RE.test(f.boxShadow ?? "")
-        && !CYAN_RE.test(f.outlineColor ?? "");
+        && f.outlineColor === DESIGNED_CYAN
+        && f.outlineStyle === "solid"
+        && CYAN_RE.test(f.outlineColor ?? "")
+        && CYAN_RE.test(f.boxShadow ?? "");
       tally.check(
-        `${subject.slug} · focus ring is the designed yellow dashed`,
+        `${subject.slug} · focus ring is the designed cyan solid`,
         ok,
         f
-          ? `outlineColor=${f.outlineColor} (want ${DESIGNED_YELLOW}) outlineStyle=${f.outlineStyle} `
+          ? `outlineColor=${f.outlineColor} (want ${DESIGNED_CYAN}) outlineStyle=${f.outlineStyle} `
             + `outlineWidth=${f.outlineWidth} outlineOffset=${f.outlineOffset} boxShadow=${f.boxShadow} · `
-            + "regression guard for e5efbfe (the unscoped !important cyan ring in loadingScreen.css:577)"
+            + "cyan solid + glow (loadingScreen.css:577 recipe; yellow dashed retired 08-01)"
           : "no computed ring was read",
       );
       card.designedRing = ok;
@@ -1214,10 +1209,9 @@ ${rows}
       <code>!important</code> flags from <code>src/ui/loadingScreen.css:577-584</code>, whose
       unscoped cyan ring had been overriding <i>every</i> designed Fight Night focus state since
       the redesign — transforms were unaffected, so the slabs still moved and a DOM/geometry
-      sign-off passed it. The <code>focus ring is the designed yellow dashed</code> rows below
-      assert the <i>designed</i> value (<code>${esc(DESIGNED_YELLOW)}</code>, dashed, no cyan
-      glow), not merely "something changed". <code>tools/focusring.mjs</code> existed only until
-      this landed and has been deleted.
+      sign-off passed it. The <code>focus ring is the designed cyan solid</code> rows below
+      assert the <i>designed</i> value (<code>${esc(DESIGNED_CYAN)}</code>, solid + cyan glow;
+      yellow dashed retired 08-01), not merely "something changed".
       <br><br>
       <b>UNVERIFIED — the multiplayer-only states.</b> These three need a connected party
       session with a second client, which this tool never opens, so they are excluded from the
