@@ -35,7 +35,7 @@ Pass 5 (VFX/audio):
 - [ ] Comeback callout fires and reads
 
 Bloom (settled 07-17 — display-referred is the all-arena default, VFX-1 closed):
-- [ ] Optional taste pass on real HW: each arena still reads "dark + punchy neon, don't brighten"; note any threshold/strength tuning (`?blackmon=1` if flicker is suspected)
+- [ ] Optional taste pass on real HW: each arena reads to its own mood per [art-direction.md](../reference/art-direction.md) (Cart Rave = warehouse party · Storerooms = liminal fluorescent · Sundial = golden hour) — brightness is a per-arena budget, not one global "don't brighten"; note any threshold/strength tuning (`?blackmon=1` if flicker is suspected)
 
 Transition pacing pass (2026-07-13, new this session):
 - [ ] Countdown: GET READY kicker + big hero digit read clearly at a glance, doesn't feel cramped at any window size; GO!/SUDDEN DEATH/MATCH POINT unaffected

@@ -82,7 +82,7 @@ opportunistically when touched — no dedicated refactor pass.
 | # | Item |
 |---|------|
 | E1 | RESULTS-1 results-screen redesign · UI-FRAME-1 · ESC scoring panel |
-| E2 | Bloom sign-offs (Classic/Sundial) · defeat-screen art call · sunglasses materials — keep-it-dark identity holds |
+| E2 | Bloom sign-offs (Classic/Sundial) · defeat-screen art call · sunglasses materials — judged against [art-direction.md](../reference/art-direction.md) (per-arena budgets via ART-EXPO-1 / ART-FILTER-1), not a global keep-it-dark rule |
 | E3 | Announcer re-records · SD music low-pass · SFX slider · Howler upgrade |
 | E4 | First-run controls card (minimal onboarding — Solo is the tutorial, sharpened by B1) |
 

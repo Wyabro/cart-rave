@@ -50,6 +50,7 @@ Core docs split by time — **past / present / future**:
 | Doc | Topic | Purpose |
 |-----|-------|---------|
 | [reference/Game_Architecture.md](./reference/Game_Architecture.md) | Architecture / Networking | Consolidated architecture & design reference (incl. the multiplayer/netcode model) |
+| [reference/art-direction.md](./reference/art-direction.md) | Art / Rendering | **Canonical look doc** — the direction, per-arena budgets, the cart material contract, and five falsifiable rules |
 | [reference/living-store.md](./reference/living-store.md) | Gameplay systems | Living Cargo + PA directives (as-built) |
 | [reference/scoring-event-system.md](./reference/scoring-event-system.md) | Gameplay systems | Scoring & KO event fan-out (as-built) |
 | [reference/announcer.md](./reference/announcer.md) | Audio | "The Store PA" announcer system + voice asset pipeline |

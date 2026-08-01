@@ -193,13 +193,35 @@ Defined in `src/utils/debugParams.js` → `VISUAL_BOOKMARKS`.
 
 ---
 
+## Arena-render checklist (the 3D look)
+
+The look rules for the arena render live in
+**[docs/reference/art-direction.md](../reference/art-direction.md)** — canonical, and the file
+the dangling `[[cart-rave-look-dark]]` link used to point at. Five falsifiable rules, checked
+before signing off any material, lighting, or postFX change:
+
+1. **No pristine hero surface** — every allowlisted hero material carries at least one authored
+   or procedural map. Bare `color + metalness + roughness` is a defect.
+2. **No screen filter outside The Storerooms** — measured on the *resting* arcade uniforms
+   after level load, not on a live frame (event juice spikes from that base).
+3. **Blacks stay black** — per-arena luma floor via `npm run shoot`, drift guarded by
+   `npm run compare`.
+4. **Silhouette rule** — threshold a frame to pure black/white; every cart and kill edge stays
+   identifiable.
+5. **Cart neon clears its background** — measured contrast against the busiest background that
+   arena can put behind a cart.
+
+Rules 1 and 2 fail today by design; see the art-direction doc for status and per-arena budgets.
+
+---
+
 ## UI QA checklist (menus / HUD / overlays)
 
 Correctness rules for menu chrome, HUD, and transition overlays — the DOM/2D
 layer, not the arena render. Distilled from the anti-slop design law
 (https://pols.dev/slop.md), keeping only the objectively-checkable rules and
-dropping the marketing-page taste guidance (our look is intentionally dark +
-neon — see [[cart-rave-look-dark]], and we own our type/stickers). Run this
+dropping the marketing-page taste guidance (the arena look is owned by
+[art-direction.md](../reference/art-direction.md), and we own our type/stickers). Run this
 before signing off any menu or HUD change.
 
 1. **Nothing gated on an animation completing.** Content must be present and

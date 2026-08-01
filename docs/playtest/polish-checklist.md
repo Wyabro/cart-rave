@@ -41,7 +41,7 @@ landscape for each row. Screenshot anything that fails.
 - [ ] Each arena at each tier (low/medium/high — `?preset=`): no missing props that leave visual holes, LOD pop acceptable
 - [ ] Cart cosmetics: every pattern × body color × sunglasses combo spot-check (esp. new visor + NPC patterns on fragmented UVs)
 - [ ] Spill/debris/shatter FX: personality without covering the action; no FX lingering past its moment
-- [ ] Bloom: neon punchy, blacks black, no blown-out whites (identity: dark, don't brighten)
+- [ ] Bloom: neon punchy, blacks black, no blown-out whites (blacks-stay-black is Rule 3 in [art-direction.md](../reference/art-direction.md); brightness itself is a per-arena budget)
 - [ ] No z-fighting, no shadow acne in the standard camera, no visible seams on arena floors
 
 ## Audio polish

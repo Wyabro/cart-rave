@@ -24,6 +24,9 @@ pitfalls, and a `do_not_break` block. Read it before touching an unfamiliar syst
 Center). Regenerate with `npm run arch` after structural changes — `health:check` fails if it drifts.
 Architecture snapshot: [docs/planning/project-state.md](docs/planning/project-state.md).
 Deep reference: [docs/reference/Game_Architecture.md](docs/reference/Game_Architecture.md).
+Art direction: [docs/reference/art-direction.md](docs/reference/art-direction.md) — canonical
+look doc (per-arena budgets, cart material contract, five falsifiable rules). Read before any
+material, lighting, or postFX change.
 
 **Paste-able session opener** — for any tool that does not auto-read repo files (Grok Build,
 fresh web chats), paste this verbatim to start a session:

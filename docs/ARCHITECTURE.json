@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-01T20:59:28.578Z",
-    "commit": "0fae8a1"
+    "at": "2026-08-01T21:54:53.476Z",
+    "commit": "c21aa34"
   },
-  "source_digest": "1e1c9b2e",
+  "source_digest": "782b2908",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -814,7 +814,7 @@
       "networking-server": "Relay + validation + lifecycle only — never simulate physics. Iterate getConnections() with for…of. No migration-model rewrite pre-ship.",
       "physics-simulation": "Host-only. castRay exclude takes the object not .handle. Do not move collision logic server-side. Bot logic edits live here (no bots module).",
       "arenas-levels": "Change level swaps only through the LevelManagerDeps contract; add levels to LEVEL_IMPORTERS (not a barrel import). Arena content is data in arenaCatalog.js.",
-      "rendering-and-postfx": "Preserve composer pass order (OutputPass before Arcade; toneMapping depends on it). Ablate + shoot/blackframes before large postFX changes. Keep it dark — restrained bloom.",
+      "rendering-and-postfx": "Preserve composer pass order (OutputPass before Arcade; toneMapping depends on it). Ablate + shoot/blackframes before large postFX changes. The look is governed by docs/reference/art-direction.md — per-arena exposure/bloom budgets, no global 'keep it dark' number; screen filters are Storerooms-only.",
       "state-stores": "Treat a gameStore field's meaning as a public contract — its 4 subscribers are the blast radius. Do not deepen the gameState/gameStore dual import (STORE-1).",
       "audio-music-announcer": "No loudnorm on loops; respect the per-bus loudness targets. Announcer voice assets are data-driven drop-ins. SD music low-pass is shared-Howler-bus surgery.",
       "ui-hud-menu": "index.html is canonical menu markup — never recreate cart-rave-menu.html. hud.js countdown display is presentational; gameplay unlock is gated on phase, not the banner.",
@@ -824,7 +824,7 @@
       "diagnostics-observability": "Read-only observers of stores/perf — never mutate game state from here. Keep the __cc* namespace.",
       "dev-tools": "Not shipped behavior — safe to iterate, but don't let a harness hook become a runtime dependency of the game.",
       "vfx": "Effects are largely host-local today (MP-FX-1) — replicate deliberately, and pool/dispose (shatter size + boost-bar leaks were real bugs).",
-      "carts-and-customization": "CART_COLORS + the material traverse are the 'Original Rave' invariant. Pattern UI is blocked on cartrave4 re-UV.",
+      "carts-and-customization": "CART_COLORS + the material traverse are the 'Original Rave' invariant (only ART-PALETTE-1 may unfreeze). Pattern UI is blocked on cartrave4 re-UV. New cart surfaces follow the material contract in docs/reference/art-direction.md — no untextured hero material.",
       "game-loop-and-flow": "Rounds start only via MSG.gameStart — no tick-level auto-starts in update(). Directive modifiers must not mutate CONFIG mid-round (DIR-1).",
       "ai-bots": "Solo rubberband is solo-gated — must not leak into multiplayer. Real bot logic is in simulation.js/gameFlow.js."
     }
@@ -1105,9 +1105,9 @@
       {
         "title": "Art",
         "counts": {
-          "High": 3,
-          "Medium": 2,
-          "Low": 2
+          "High": 4,
+          "Medium": 4,
+          "Low": 3
         },
         "rows": [
           {
@@ -1119,20 +1119,44 @@
           {
             "pri": "High",
             "item": "Bloom look sign-off (Classic/Sundial) `[SHIP-1 E2]`",
-            "notes": "Art half of closed VFX-1 — dark arenas + punchy neon must survive display-referred bloom.",
+            "notes": "Art half of closed VFX-1. Success criteria now come from **ART-EXPO-1 / ART-FILTER-1**, not \"dark arenas + punchy neon\" — see [art-direction.md](../reference/art-direction.md).",
             "ship1": "E2"
           },
           {
             "pri": "Medium",
             "item": "Wilting-groceries Defeat screen reads as \"confetti / something good\" `[SHIP-1 E2]`",
-            "notes": "Needs art-direction call before code. Pairs with **PRE-PODIUM-1** (effect must fire first; then look).",
+            "notes": "Needs art-direction call before code — see [art-direction.md](../reference/art-direction.md). Pairs with **PRE-PODIUM-1** (effect must fire first; then look).",
             "ship1": "E2"
           },
           {
             "pri": "High",
             "item": "CART-MODEL-1 — new cart basket/model `[SHIP-1 C1]`",
-            "notes": "Wyatt-led Blender work completing the prototype-era cart design. While in Blender: clean body UVs / 2nd UV channel — unblocks patterns ([cart-pattern-reuv.md](../guides/cart-pattern-reuv.md)); fold **CART-FORK-1** if convenient.",
+            "notes": "Wyatt-led Blender work completing the prototype-era cart design. Author against the **cart material contract** in [art-direction.md](../reference/art-direction.md) (required maps per slot, 2nd UV channel, wear language) — **not blocked by ART-MAT-1**. While in Blender: clean body UVs / 2nd UV channel — unblocks patterns ([cart-pattern-reuv.md](../guides/cart-pattern-reuv.md)); fold **CART-FORK-1** if convenient.",
             "ship1": "C1"
+          },
+          {
+            "pri": "High",
+            "item": "ART-MAT-1 — authored maps on hero surfaces",
+            "notes": "Runtime application of albedo/roughness/normal to **Cart Rave + Sundial + carts** (Storerooms already qualifies — its ~9 procedural builders are the in-repo reference). Satisfies Rule 1 in [art-direction.md](../reference/art-direction.md), which fails today at [cart.js:118](../../src/cart.js:118).",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "ART-FILTER-1 — arcade pass gated to The Storerooms",
+            "notes": "The CRT layer (aberration/scanlines/vignette) is written once in `createComposer` from global config, so every level inherits it. Add a per-level gate mirroring the VHS gate (`main.js` ~2448); preserve the impact-pulse base capture (`main.js` ~1110 / `frameVisuals.js` ~630). Before/after `npm run shoot` on all three arenas. Satisfies Rule 2.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "ART-EXPO-1 — retire the global exposure lock",
+            "notes": "Replace the single `toneMappingExposure: 0.4` with a per-arena budget alongside `arenaExposureMul`. Captures the Rule 3 luma-floor baselines into [art-direction.md](../reference/art-direction.md). Fresh sign-off with before/after shots.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "ART-PALETTE-1 — reconcile 3D and 2D neon",
+            "notes": "3D is frozen on pure `CART_COLORS` (`0xff00ff`); 2D banned those hexes as off-brand and uses `#ff2bd6`. **The only card permitted to unfreeze the AGENTS.md invariant.**",
+            "ship1": null
           },
           {
             "pri": "Medium",
@@ -1674,7 +1698,7 @@
           },
           {
             "col0": "E2",
-            "item": "Bloom sign-offs (Classic/Sundial) · defeat-screen art call · sunglasses materials — keep-it-dark identity holds"
+            "item": "Bloom sign-offs (Classic/Sundial) · defeat-screen art call · sunglasses materials — judged against [art-direction.md](../reference/art-direction.md) (per-arena budgets via ART-EXPO-1 / ART-FILTER-1), not a global keep-it-dark rule"
           },
           {
             "col0": "E3",

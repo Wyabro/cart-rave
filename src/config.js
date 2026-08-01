@@ -491,7 +491,9 @@ export const CONFIG = {
     // * Renderer exposure — lower keeps diffuse surfaces subdued while emissive neon blooms.
     // * Retuned for the corrected pipeline (OutputPass tone-map + sRGB encode): the old
     // * 0.88 was authored when exposure was silently ignored; values now display brighter.
-    // * Kept deliberately low — the game's identity is dark arena + punchy neon.
+    // * HISTORICAL: "kept deliberately low — dark arena + punchy neon" (2026-07-08). That rule
+    // * is SUPERSEDED by docs/reference/art-direction.md: brightness is a per-arena budget, not
+    // * one global number. ART-EXPO-1 owns retiring this lock; do not tune it ad-hoc.
     toneMappingExposure: 0.4,
 
     // * Per-arena multiplier on toneMappingExposure, applied at level load (main.js
@@ -542,6 +544,10 @@ export const CONFIG = {
       smoothWidth: 0.05,
     },
 
+    // * Applied ONCE in createComposer (scene.js) from this global object, so every level
+    // * inherits it — there is no per-level arcade write today. Per art-direction.md the CRT
+    // * layer belongs to The Storerooms only; ART-FILTER-1 adds the level gate (mirror the VHS
+    // * gate below). Keep the impact-pulse base capture intact when you do (main.js ~1110).
     arcade: {
       aberration: 0.003,
       scanlineDensity: 1.8,

@@ -241,8 +241,10 @@
    On P3 panels, re-declare the brand + semantic neons in OKLCH with the
    SAME lightness and hue but higher chroma — the extra saturation the
    sRGB hex simply can't reach. sRGB displays never see this block, so the
-   established look is untouched (identity: dark arenas + punchy neon, never
-   brighter). L held constant → punchier, not lighter. */
+   established look is untouched. L held constant → punchier, not lighter.
+   (The old "dark arenas + punchy neon, never brighter" gloss is superseded by
+   docs/reference/art-direction.md — brightness is a per-arena budget now. The
+   L-constant rule here stands on its own: this block adds chroma, not light.) */
 @supports (color: oklch(0.7 0.3 340)) {
   @media (color-gamut: p3) {
     :root {
