@@ -6,6 +6,7 @@ import "./styles/tokens.css";
 import "./loadingScreen.css";
 import { resolveLevelId, LEVEL_STORAGE_KEY } from "../levels/index.js";
 import { storageGet, storageSet, STORAGE_KEYS } from "../utils/storage.js";
+import { onBootPhase, readBootTimeline } from "../utils/bootTimeline.js";
 
 const MODE_OVERLAY_ID = "cr-mode-load";
 const FADE_MS = 420;
@@ -97,6 +98,74 @@ let modeEntryDepth = 0;
 let modeEntryShownAt = 0;
 /** @type {number | null} */
 let modeMsgIntervalId = null;
+
+/* ── Mode-entry progress: monotonic floor + ambient ticker (LOAD-PROGRESS-1) ── */
+
+/**
+ * Current meter value, fractional. The floor: {@link setProgress} ignores anything
+ * below it, exactly like the boot splash's `window.__crBootFloor`
+ * (`index.html:597-608`, BOOT-METER-1) — *"Floor only goes up."*
+ *
+ * Without it `bootstrap.js:463`'s 88 paints over `levels/index.js:154`'s 90 on the
+ * world-warm-but-arena-stale path and the bar visibly steps backwards.
+ * @type {number}
+ */
+let modeProgressValue = 0;
+/** @type {number | null} */
+let modeTickerId = null;
+/** Unsubscribe for the live boot-phase listener; null when not subscribed. */
+let modeBootPhaseOff = /** @type {(() => void) | null} */ (null);
+
+/**
+ * Every value the mode-entry meter is known to land on — the real reports
+ * (`bootstrap.js` 5/15/88/94/100, `main.js:1719` 96) plus {@link BOOT_PHASE_ANCHORS}.
+ * The ticker creeps toward the next entry above the current value and stops one point
+ * short, so ambient motion can never claim a milestone that has not happened.
+ */
+const MODE_PROGRESS_ANCHORS = [0, 5, 15, 20, 55, 78, 85, 88, 94, 96, 100];
+
+/**
+ * Boot phases that bracket the cold-arena silence, mapped to meter values.
+ *
+ * `bootstrap.js` reports 15 and then nothing until 88 — everything between is one
+ * un-awaited `ensureWorldBootstrapped` flight (Rapier WASM, PMREM bake, level chunk,
+ * the synchronous `initArena`, shader warm). These four marks already fire at the seams
+ * inside that window, so the meter can track real work without any new instrumentation
+ * and without threading a reporter through the bootstrap promise.
+ *
+ * `idle-shader-*` dominates the window and varies 1.7–4.2s by machine (main.js:2878).
+ * @type {Record<string, number>}
+ */
+const BOOT_PHASE_ANCHORS = {
+  "world-init-start": 20,
+  "idle-shader-start": 55,
+  "idle-shader-end": 78,
+  "world-ready": 85,
+};
+
+/** Ambient ticker cadence, matching the boot splash's 200ms (`index.html:588`). */
+const MODE_TICK_MS = 200;
+/** Ticks a full segment is paced to fill (~10s) before it saturates below its ceiling. */
+const MODE_TICKS_PER_SEGMENT = 50;
+/**
+ * Floor on the per-tick step, so a nearly-filled segment still repaints a whole point
+ * every ~400ms instead of decaying into stillness. Tuned, not guessed: at 0.2 the last
+ * band (96 → the 100 cap) changed its ROUNDED text only once a second, which stacked
+ * on top of the shader-warm block and put the tail over the loadshots gap gate.
+ */
+const MODE_MIN_TICK_STEP = 0.5;
+
+/**
+ * The next known anchor strictly above `value` — the ticker's ceiling.
+ * @param {number} value
+ * @returns {number}
+ */
+function nextProgressAnchor(value) {
+  for (const anchor of MODE_PROGRESS_ANCHORS) {
+    if (anchor > value) return anchor;
+  }
+  return 100;
+}
 
 function prefersReducedMotion() {
   return window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
@@ -192,8 +261,13 @@ function ensureModeOverlay() {
   return modeOverlayEl;
 }
 
-function setProgress(pct, label) {
-  const clamped = Math.max(0, Math.min(100, pct));
+/**
+ * Unconditional DOM write. Only {@link setProgress} may call it — everything else must
+ * go through the floor.
+ * @param {number} clamped 0–100, already clamped
+ * @param {string} [label]
+ */
+function paintProgress(clamped, label) {
   const rounded = Math.round(clamped);
   const track = modeOverlayEl?.querySelector(".cr-load__track");
   const fill = modeOverlayEl?.querySelector(".cr-load__fill");
@@ -207,14 +281,80 @@ function setProgress(pct, label) {
 }
 
 /**
+ * Raises the meter to `pct`, never lowers it (see {@link modeProgressValue}).
+ * A below-floor call still gets its label — the status line is not the bar, and
+ * swallowing it would mute `bootstrap.js:463`'s "Warming physics…" on the stale path.
+ * @param {number} pct
+ * @param {string} [label]
+ */
+function setProgress(pct, label) {
+  const clamped = Math.max(0, Math.min(100, pct));
+  if (clamped < modeProgressValue) {
+    if (label && modeSubtitleEl) modeSubtitleEl.textContent = label;
+    return;
+  }
+  modeProgressValue = clamped;
+  paintProgress(clamped, label);
+}
+
+/**
  * Reports real loading progress to the mode-entry overlay.
- * Called by level loading tasks at key milestones:
- * 20% module fetched, 60% geometry built, 90% colliders ready, 100% done.
+ *
+ * The milestones are `bootstrap.js`'s (5 preparing → 15 building → 88 physics →
+ * 94 carts → `main.js:1719` 96 → 100), plus `levels/index.js`'s 20/60/90 on the paths
+ * that forward a reporter. NOTE that `levels/index.js`'s 60 (`:112`) can never render:
+ * `:154`'s 90 follows it with no await in between — `initFn` is fully synchronous — so
+ * the browser never gets a paint between the two writes. The gaps between the values
+ * that DO render are covered by the ambient ticker and the boot-phase anchors, not by
+ * more reports.
  * @param {number} pct 0–100 progress percentage
- * @param {string} label Human-readable milestone label
+ * @param {string} [label] Human-readable milestone label
  */
 function reportProgress(pct, label) {
   setProgress(pct, label);
+}
+
+/**
+ * Ambient creep between real milestones — the mode-entry twin of the boot splash's
+ * fake ticker (`index.html:588-596`). The splash gets away with one hardcoded 90 cap;
+ * this overlay has many more anchors, so each segment gets its own ceiling and the bar
+ * stops one point below it. Only a real report (or dismissal) crosses an anchor.
+ * @returns {void}
+ */
+function startModeTicker() {
+  stopModeTicker();
+  let lastTickAt = performance.now();
+  modeTickerId = window.setInterval(() => {
+    const now = performance.now();
+    // * Advance by WALL CLOCK, not by one step per callback. The heaviest stretch of a
+    // * cold entry (cart creation + `warmupBeforeRoundStart`, between the 96 and 100
+    // * reports) blocks the main thread outright, and a starved interval fires once on
+    // * release having lost every tick it slept through. Stepping by elapsed time makes
+    // * that first callback repaint immediately instead of ~400ms later, which is the
+    // * difference between the tail reading as a pause and reading as a freeze.
+    const ticks = Math.max(1, Math.round((now - lastTickAt) / MODE_TICK_MS));
+    lastTickAt = now;
+    const ceiling = nextProgressAnchor(modeProgressValue);
+    // * One point short: landing ON the ceiling would assert a milestone that has not
+    // * fired — and at the top of the ladder that milestone is 100 ("Ready!"), which
+    // * only bootstrap.js:484 / dismissModeEntryLoading may claim.
+    const cap = ceiling - 1;
+    if (modeProgressValue >= cap) return;
+    const span = ceiling - modeProgressValue;
+    // * Deterministic, unlike the splash's `Math.random() * 8`: this meter is a gate
+    // * subject (`tools/loadshots.mjs` asserts a max gap between painted values), and
+    // * random pacing would make that check flaky for no visible gain.
+    const step = Math.max(span / MODE_TICKS_PER_SEGMENT, MODE_MIN_TICK_STEP) * ticks;
+    setProgress(Math.min(modeProgressValue + step, cap));
+  }, MODE_TICK_MS);
+}
+
+/** @returns {void} */
+function stopModeTicker() {
+  if (modeTickerId != null) {
+    window.clearInterval(modeTickerId);
+    modeTickerId = null;
+  }
 }
 
 /* ── Mode-entry message rotation ── */
@@ -388,7 +528,7 @@ export function dismissAllLoadingOverlays() {
 }
 
 /**
- * @param {{ gameMode?: string | null, levelId?: string | null }} opts
+ * @param {{ gameMode?: string | null, levelId?: string | null, backfillBootMarks?: (() => boolean) | null }} opts
  */
 function showModeEntryLoading(opts = {}) {
   // * Theme is driven by levelId only — gameMode is ignored.
@@ -405,12 +545,40 @@ function showModeEntryLoading(opts = {}) {
   modeEntryShowGen += 1;
   modeOverlayEl.classList.remove("cr-load--hidden", "cr-load--exit");
   modeOverlayEl.setAttribute("aria-busy", "true");
+  // * Drop the floor before the first write, or the previous session's 100 sticks.
+  modeProgressValue = 0;
   setProgress(0, "Starting...");
+
+  // * Subscribe BEFORE backfilling: a mark that lands between the two is then merely a
+  // * duplicate raise, which the floor absorbs, rather than a lost anchor.
+  modeBootPhaseOff?.();
+  modeBootPhaseOff = onBootPhase((name) => {
+    const pct = BOOT_PHASE_ANCHORS[name];
+    // * No label — the flavour-line rotation owns the subtitle.
+    if (pct != null) setProgress(pct);
+  });
+
+  // * History is only valid when a cold-load is genuinely still in flight (this overlay
+  // * joined it late — `?harness=1` starts one at main.js:5667, before the overlay
+  // * exists). `performance` marks live for the whole page, so replaying them on a
+  // * SECOND play entry — or on world-warm-but-arena-stale — would pin the bar at 85
+  // * through a real arena rebuild. That is worse than the bug being fixed.
+  if (opts.backfillBootMarks?.() === true) {
+    let seen = 0;
+    for (const mark of readBootTimeline()) {
+      const pct = BOOT_PHASE_ANCHORS[mark.name];
+      if (pct != null && pct > seen) seen = pct;
+    }
+    if (seen > 0) setProgress(seen);
+  }
 }
 
 /** @returns {Promise<void>} */
 function dismissModeEntryLoading() {
   stopModeMessageRotation();
+  // * Any dismissal ends ambient motion, including the quit-to-menu / failed-join path
+  // * (dismissAllLoadingOverlays) that runs while a mode-entry task is still in flight.
+  stopModeTicker();
 
   if (!modeEntryVisible) return Promise.resolve();
   ensureModeOverlay();
@@ -486,12 +654,15 @@ async function ensureMinModeEntryVisible(shownAt, minMs = MIN_MODE_ENTRY_VISIBLE
 
 /**
  * @param {(reportProgress: (pct: number, label: string, meta?: { warm?: boolean }) => void) => Promise<void> | void} task
- * @param {{ gameMode?: string | null, levelId?: string | null, onShown?: () => void, minVisibleMs?: number | null }} opts
+ * @param {{ gameMode?: string | null, levelId?: string | null, onShown?: () => void, minVisibleMs?: number | null, backfillBootMarks?: (() => boolean) | null }} opts
  *   `minVisibleMs` — override the floor (e.g. warm path). Pass null to decide inside task via report.
+ *   `backfillBootMarks` — predicate: may already-stamped boot marks seed the meter? True
+ *   only while a world bootstrap is genuinely in flight. Passed in rather than imported —
+ *   `bootstrap.js` imports this module, so reading its state here would be a cycle.
  * @returns {Promise<void>}
  */
 export async function withModeEntryLoading(task, opts = {}) {
-  const { gameMode, levelId, onShown } = opts;
+  const { gameMode, levelId, onShown, backfillBootMarks } = opts;
   const isOwner = modeEntryDepth === 0;
   modeEntryDepth += 1;
   /** @type {{ minVisibleMs: number }} */
@@ -503,7 +674,8 @@ export async function withModeEntryLoading(task, opts = {}) {
 
   if (isOwner) {
     modeEntryShownAt = performance.now();
-    showModeEntryLoading({ gameMode, levelId });
+    showModeEntryLoading({ gameMode, levelId, backfillBootMarks });
+    startModeTicker();
     onShown?.();
     await yieldForPaint();
   }
@@ -528,6 +700,12 @@ export async function withModeEntryLoading(task, opts = {}) {
   } finally {
     modeEntryDepth -= 1;
     if (isOwner) {
+      // * Before the awaits, and owner-only: the task may have thrown, and a nested
+      // * call must never tear down the owner's ticker. Leaving either alive leaks a
+      // * timer past the overlay (and past the test that runs it).
+      stopModeTicker();
+      modeBootPhaseOff?.();
+      modeBootPhaseOff = null;
       await ensureMinModeEntryVisible(modeEntryShownAt, loadMeta.minVisibleMs);
       await dismissModeEntryLoading();
     }
@@ -560,6 +738,7 @@ export function initLoadingScreen() {
 export function showQualityApplyLoading() {
   ensureModeOverlay();
   stopModeMessageRotation();
+  stopModeTicker();
   if (!modeOverlayEl) return;
 
   // * Strip level-specific themes so the panel renders neutral.

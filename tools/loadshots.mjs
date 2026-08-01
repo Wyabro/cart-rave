@@ -1052,6 +1052,52 @@ async function captureModeCell(browser, baseUrl, { arena, cell, outDir, tally })
         + `every value the meter took: ${JSON.stringify((hold?.pcts ?? []).map((p) => `${p.t}ms ${p.v}`))}`,
     );
 
+    // * LOAD-PROGRESS-1's two regression gates. The timeline above was already printed;
+    // * these turn it into checks, because "read the numbers" is exactly how a decorative
+    // * meter survived a whole build. Consecutive repeats are collapsed first: assigning
+    // * textContent fires a mutation even when the string is identical, so the raw record
+    // * list would score a re-paint of "54%" as the meter moving.
+    const moves = [];
+    for (const p of hold?.pcts ?? []) {
+      const n = Number.parseInt(String(p.v), 10);
+      if (!Number.isFinite(n)) continue;
+      if (moves.length > 0 && moves[moves.length - 1].n === n) continue;
+      moves.push({ t: p.t, n });
+    }
+
+    const backwards = moves.filter((m, i) => i > 0 && m.n < moves[i - 1].n);
+    tally.check(
+      `${id} · meter never goes backwards`,
+      moves.length > 0 && backwards.length === 0,
+      moves.length === 0
+        ? "the meter never painted a parseable value — nothing to check"
+        : backwards.length === 0
+          ? `${moves.length} distinct values, monotonic: ${moves.map((m) => m.n).join(" → ")}`
+          : `${backwards.length} backwards step(s): `
+            + `${backwards.map((m) => `${moves[moves.indexOf(m) - 1].n}→${m.n} at ${m.t}ms`).join(", ")} · `
+            + `full sequence ${moves.map((m) => m.n).join(" → ")}`,
+    );
+
+    // * The bug itself: 15% held for 11.5s of a cold arena build while real work ran.
+    // * The ambient ticker (loadingScreen.js startModeTicker) is what keeps this green;
+    // * a segment that outruns its creep budget saturates below its ceiling and this
+    // * check is what says so.
+    const MAX_PROGRESS_GAP_MS = 1500;
+    const gaps = moves
+      .map((m, i) => (i > 0 ? { from: moves[i - 1], to: m, dt: m.t - moves[i - 1].t } : null))
+      .filter((g) => g && g.dt > MAX_PROGRESS_GAP_MS);
+    tally.check(
+      `${id} · no progress gap > ${MAX_PROGRESS_GAP_MS}ms`,
+      moves.length > 0 && gaps.length === 0,
+      moves.length === 0
+        ? "the meter never painted a parseable value — nothing to check"
+        : gaps.length === 0
+          ? `largest gap ${Math.max(0, ...moves.map((m, i) => (i > 0 ? m.t - moves[i - 1].t : 0)))}ms `
+            + `across ${moves.length} values spanning ${moves[moves.length - 1].t - moves[0].t}ms`
+          : `${gaps.length} gap(s) over ${MAX_PROGRESS_GAP_MS}ms: `
+            + `${gaps.map((g) => `${g.from.n}%→${g.to.n}% stalled ${g.dt}ms (at ${g.from.t}ms)`).join(", ")}`,
+    );
+
     // * Conditional BY DESIGN, and a PASS when the condition is not met: the first swap is a
     // * 1000ms timer (loadingScreen.js:243), so a load that finished sooner never had one.
     // * Per the exit-code contract a not-applicable case must not emit pass:false.

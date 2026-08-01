@@ -30,6 +30,34 @@ import { recordDiagEvent } from "./diagnostics.js";
 const MARK_PREFIX = "cr:";
 
 /**
+ * Live phase subscribers (LOAD-PROGRESS-1). Separate from {@link readBootTimeline}
+ * on purpose: `performance` marks live for the whole page, so a UI that anchors on
+ * *history* snaps to the last boot's phases. Subscribers only hear what fires while
+ * they are listening.
+ * @type {Set<(name: string) => void>}
+ */
+const phaseListeners = new Set();
+
+/**
+ * Subscribe to boot phases as they are stamped.
+ *
+ * The mode-entry loading meter uses this to raise its floor on real events instead of
+ * interpolating (LOAD-PROGRESS-1) — the 11.5s cold-arena window it sits in has no
+ * progress reports of its own, but it is fully bracketed by marks stamped here.
+ *
+ * @param {(name: string) => void} listener  Called with the bare phase name (no `cr:`).
+ * @returns {() => void} Unsubscribe. Callers MUST call it — a UI listener that outlives
+ *   its overlay would keep floor-raising into a hidden element.
+ */
+export function onBootPhase(listener) {
+  if (typeof listener !== "function") return () => {};
+  phaseListeners.add(listener);
+  return () => {
+    phaseListeners.delete(listener);
+  };
+}
+
+/**
  * Stamp one boot phase: a `cr:<name>` performance mark plus a "boot" diag event.
  * Safe to call unconditionally from production code — the mark is standard Web API
  * (no-throw guarded for exotic embeds) and the diag event is a no-op without ?diag.
@@ -48,6 +76,13 @@ export function markBootPhase(name, data) {
     tMs: typeof performance !== "undefined" && performance.now ? Math.round(performance.now()) : 0,
     ...(data || {}),
   });
+  for (const listener of phaseListeners) {
+    try {
+      listener(name);
+    } catch {
+      /* a subscriber must never break the boot path it is observing */
+    }
+  }
 }
 
 /**

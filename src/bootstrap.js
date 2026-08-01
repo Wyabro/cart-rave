@@ -427,6 +427,12 @@ export async function enterPlayMode(opts = {}) {
   idleWorldWarmSuppressed = true;
   markBootPhase("play-entry", { mode: gameMode, level: levelId ?? null });
 
+  // * LOAD-PROGRESS-1: the meter's 15 → 88 window is one un-awaited world bootstrap
+  // * (line 443 below, or main.js:5667 under ?harness=1), so the overlay anchors on the
+  // * boot marks stamped inside it instead of on reports that do not exist. The
+  // * `backfillBootMarks` predicate answers the one question it cannot: do ALREADY-STAMPED
+  // * marks describe THIS load or a previous one? It is a callback rather than an import
+  // * because loadingScreen.js may not import this module — it is imported BY it.
   activePlayBootstrapPromise = withModeEntryLoading(async (reportProgress) => {
     reportProgress(5, "Preparing…");
 
@@ -485,7 +491,7 @@ export async function enterPlayMode(opts = {}) {
     if (commitMenuHidden && playEntryGeneration === entryGen) {
       d.commitMenuHiddenForGame();
     }
-  }, { gameMode, levelId }).finally(() => {
+  }, { gameMode, levelId, backfillBootMarks: () => isWorldBootstrapInFlight() }).finally(() => {
     activePlayBootstrapPromise = null;
   });
 

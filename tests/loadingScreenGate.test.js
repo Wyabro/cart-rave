@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 // happy-dom: loadingScreen.js builds real DOM overlays and uses matchMedia/rAF.
-import { describe, expect, it, beforeEach, afterEach } from "vitest";
+import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 import {
   withModeEntryLoading,
   whenModeEntryHidden,
@@ -32,6 +32,120 @@ describe("shouldBootRevealMenu", () => {
     document.body.appendChild(root);
     expect(shouldBootRevealMenu(root)).toBe(true);
   });
+});
+
+// * LOAD-PROGRESS-1: the mode-entry meter used to sit at 15% for 11.5s of a cold arena
+// * build, then jump to 88 — and on the world-warm-but-arena-stale path it stepped
+// * BACKWARDS (levels/index.js:154 writes 90, bootstrap.js:463 then writes 88). The fix
+// * ports the boot splash's floor + ambient ticker (index.html:597-608) to this overlay.
+describe("loadingScreen — progress floor + ambient ticker", () => {
+  let originalRaf;
+  let originalSetInterval;
+  let originalClearInterval;
+  /** @type {Set<number>} */
+  let liveIntervals;
+
+  const pctText = () => document.querySelector("#cr-mode-load .cr-load__pct")?.textContent ?? "";
+  const subtitleText = () =>
+    document.querySelector("#cr-mode-load .cr-load__subtitle")?.textContent ?? "";
+
+  beforeEach(() => {
+    originalRaf = globalThis.requestAnimationFrame;
+    globalThis.requestAnimationFrame = (cb) => setTimeout(() => cb(performance.now()), 0);
+
+    // * Track interval IDENTITY, not a spy's call count: "cleared" has to mean the exact
+    // * interval that was created, or a leak that re-registers reads as clean.
+    liveIntervals = new Set();
+    originalSetInterval = window.setInterval;
+    originalClearInterval = window.clearInterval;
+    window.setInterval = (...args) => {
+      const id = originalSetInterval.apply(window, args);
+      liveIntervals.add(id);
+      return id;
+    };
+    window.clearInterval = (id) => {
+      liveIntervals.delete(id);
+      return originalClearInterval.call(window, id);
+    };
+
+    performance.clearMarks?.();
+    initLoadingScreen();
+  });
+
+  afterEach(() => {
+    for (const id of liveIntervals) originalClearInterval.call(window, id);
+    window.setInterval = originalSetInterval;
+    window.clearInterval = originalClearInterval;
+    globalThis.requestAnimationFrame = originalRaf;
+    performance.clearMarks?.();
+  });
+
+  it("keeps the higher value when a lower report follows (90 then 88)", async () => {
+    await withModeEntryLoading(
+      async (report) => {
+        report(90, "Colliders ready…");
+        expect(pctText()).toBe("90%");
+        report(88, "Warming physics…");
+        expect(pctText()).toBe("90%");
+        // * The bar is floored; the status line is not. Swallowing the label too would
+        // * mute the only copy that path emits.
+        expect(subtitleText()).toBe("Warming physics…");
+      },
+      { levelId: "classic", minVisibleMs: 0 },
+    );
+  }, 10000);
+
+  it("clears the ambient ticker when the task throws, not only on success", async () => {
+    const boom = new Error("play bootstrap exploded");
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      await expect(
+        withModeEntryLoading(
+          async () => {
+            // * Guards against a vacuous pass: there must be a live ticker to clear.
+            expect(liveIntervals.size).toBe(1);
+            throw boom;
+          },
+          { levelId: "classic", minVisibleMs: 0 },
+        ),
+      ).rejects.toBe(boom);
+    } finally {
+      errSpy.mockRestore();
+    }
+    expect([...liveIntervals]).toEqual([]);
+  }, 10000);
+
+  it("ignores stale boot marks on a second play entry", async () => {
+    // * `performance` marks live for the whole page, so by the second play entry all
+    // * four anchors are already stamped from the FIRST one. Replaying them would pin
+    // * the meter at 85 through a real arena rebuild — worse than the original bug.
+    for (const m of ["world-init-start", "idle-shader-start", "idle-shader-end", "world-ready"]) {
+      performance.mark(`cr:${m}`);
+    }
+    let atTaskStart = "";
+    await withModeEntryLoading(
+      async () => {
+        atTaskStart = pctText();
+      },
+      { levelId: "classic", minVisibleMs: 0, backfillBootMarks: () => false },
+    );
+    expect(Number.parseInt(atTaskStart, 10)).toBeLessThan(85);
+  }, 10000);
+
+  it("does backfill those marks while a world bootstrap is in flight", async () => {
+    // * Positive control for the test above — without it, a backfill that silently
+    // * stopped working would make "does not jump" pass for the wrong reason.
+    performance.mark("cr:world-init-start");
+    performance.mark("cr:world-ready");
+    let atTaskStart = "";
+    await withModeEntryLoading(
+      async () => {
+        atTaskStart = pctText();
+      },
+      { levelId: "classic", minVisibleMs: 0, backfillBootMarks: () => true },
+    );
+    expect(Number.parseInt(atTaskStart, 10)).toBe(85);
+  }, 10000);
 });
 
 // * whenModeEntryHidden() is the gate the solo countdown holds on so it can't begin
