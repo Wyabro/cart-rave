@@ -11,7 +11,8 @@ Everything below is Claude-Code-specific and additive — it never overrides AGE
 - **Environment is Windows + PowerShell.** Use `Select-String`, not `grep`; forward-slash
   paths are fine in the Bash tool but the primary shell is PowerShell 7+. Prefer the
   dedicated Read/Grep/Glob/Edit tools over shell equivalents.
-- **Gates:** `npm run qa` — the chain is defined in AGENTS.md § Commands, not restated here.
+- **Gates:** `npm run qa` — the chain is defined by `check` in package.json (described in
+  AGENTS.md § Commands), not restated here. All steps read-only; qa never dirties the tree.
   Also `npm run build` when the client bundle changes; CI runs qa **plus** a production
   build. Report results by number (do not hardcode stale test totals).
 - **Remote is authoritative.** Do not claim "done"/"verified" without pulling `cart-clash`

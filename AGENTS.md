@@ -80,11 +80,14 @@ toward Version 2.
 - **Dev (client only):** `npm run dev` (Vite).
 - **Dev (server only):** `npm run dev:party` (`npx wrangler dev`, local Durable Object).
 - **Dev (both, preferred):** `npm run dev:local` (aliases: `dev:cart-clash`, `dev:next-level`).
-- **Gates:** `npm run qa` (alias of `check` = `status:size` + typecheck + test + knip +
-  `briefing` + `health:check`). Also `npm test`, `npm run typecheck`,
-  `npm run build` (Vite → `dist/`). CI runs `npm run qa` + production build on
-  push/PR to `cart-clash` / `main`. Exact-HEAD release gate (complete battery
-  evidence): `npm run release:check` — battery stays out of ordinary PR CI.
+- **Gates:** `npm run qa` (alias of `check` — **the chain is defined once, by `check` in
+  package.json**; currently `status:size` → typecheck → test → knip → `briefing:check` →
+  `arch:check` → `health:check`). Every step is **read-only**: qa never regenerates or
+  dirties the tree — regeneration happens in the pre-commit hook, `npm run dashboard`, or
+  `npm run refresh`. Also `npm test`, `npm run typecheck`, `npm run build` (Vite →
+  `dist/`). CI runs `npm run qa` + production build on push/PR to `cart-clash` / `main`.
+  Exact-HEAD release gate (complete battery evidence): `npm run release:check` — battery
+  stays out of ordinary PR CI.
 - **Remote sync:** `npm run verify:head` — asks the remote directly (`git ls-remote`, zero
   writes) whether this tree is ahead / behind / dirty. Exit 0 in sync · 1 drift · 2 setup
   error; `-- --json` for tooling. Deliberately **not** in `qa` (a network call must never
@@ -102,15 +105,16 @@ toward Version 2.
   battery reports + capture bundles + STATUS/BACKLOG. Read-only, never hand-edited; leads
   with "what should I work on next?". **BRIEFING.md is the committed cold-start door; the
   dashboard adds observed evidence** — the markdown it reads stays canonical.
-  `npm run briefing` alone refreshes BRIEFING.md; `health:check` fails when it lags STATUS.md. Bug
+  `npm run briefing` alone refreshes BRIEFING.md; `briefing:check` / `health:check` fail when it lags STATUS.md. Bug
   capture (F8 / auto on error+assert) + production analytics (`/api/analytics`) live in the
   same layer: [docs/guides/observability.md](docs/guides/observability.md).
 - **Architecture layer:** `npm run arch` — regenerates the committed `docs/ARCHITECTURE.json`
   manifest (write-only-on-change; agents read it) and `.diag-captures/architecture.html` (the
   human map, linked from the dashboard). The system taxonomy is curated in
   `tools/lib/archMap.mjs`; a new file under `src/`/`party/`/`shared/` that no system claims
-  fails `health:check` with `ARCH_UNMAPPED_FILE` until you assign it there. Runs inside
-  `npm run qa`, so the map can't silently rot.
+  fails `health:check` with `ARCH_UNMAPPED_FILE` until you assign it there. Freshness is
+  checked (read-only, `arch:check`) inside `npm run qa`; regeneration happens in the
+  pre-commit hook, so the map can't silently rot.
 
 ---
 

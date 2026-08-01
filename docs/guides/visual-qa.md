@@ -60,7 +60,7 @@ http://localhost:5173/?postmin=1&shot=sundial&harness=1
 ## Everyday gate
 
 ```bash
-npm run qa          # typecheck + vitest + knip (same as CI)
+npm run qa          # full read-only gate chain — defined by `check` in package.json (same as CI)
 npm run qa:visual   # short black-frame battery (needs Playwright + optional dev server)
 ```
 

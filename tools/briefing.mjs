@@ -46,7 +46,7 @@ function main() {
       log("fresh");
       process.exit(0);
     }
-    log("STALE — docs/BRIEFING.md lags docs/STATUS.md. Run `npm run briefing`.");
+    log("STALE — docs/BRIEFING.md lags its sources (docs/STATUS.md or package.json's `check` chain). Run `npm run briefing`.");
     process.exit(1);
   }
 

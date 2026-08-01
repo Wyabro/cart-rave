@@ -8,13 +8,19 @@
  * health.json), rendered deterministically and committed.
  *
  * Freshness contract: the body embeds a digest of the STATUS-derived content.
- * `npm run health:check` recomputes that digest from the live STATUS.md and fails
- * with BRIEFING_STALE on mismatch — so a hand-edit or a skipped regeneration is a
- * red gate, not silent drift. The git header (branch/HEAD/date) is informational
- * and excluded from the digest so ordinary commits don't churn the file.
+ * `npm run briefing:check` (inside `npm run qa`) and `npm run health:check`
+ * (BRIEFING_STALE) recompute that digest from the live STATUS.md and fail on
+ * mismatch — so a hand-edit or a skipped regeneration is a red gate, not silent
+ * drift. The git header (branch/HEAD/date) is informational and excluded from
+ * the digest so ordinary commits don't churn the file. The Gates section lives
+ * INSIDE the digested body on purpose: editing package.json's `check` chain
+ * red-gates until the briefing is regenerated.
  */
 
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 import {
   parseStatusCurrentFocus,
   parseStatusReleasePhases,
@@ -34,6 +40,30 @@ const DIGEST_LINE = /^> Source digest: `([0-9a-f]{8})`/m;
 /** @param {string} s */
 function sha8(s) {
   return createHash("sha1").update(s, "utf8").digest("hex").slice(0, 8);
+}
+
+// Last-resort gate chain if package.json is unreadable — keep it plausible, not precise.
+const GATE_CHAIN_FALLBACK = ["status:size", "typecheck", "test", "knip", "briefing:check", "arch:check", "health:check"];
+
+/**
+ * The ordered `npm run check` step names, derived from package.json — the ONE
+ * hand-written copy of the gate chain. Everything else (this briefing, AGENTS.md,
+ * docs) points here instead of restating it.
+ * @param {string} [pkgJsonPath] override for tests
+ * @returns {string[]}
+ */
+export function readGateChain(pkgJsonPath) {
+  try {
+    const p = pkgJsonPath ?? join(dirname(fileURLToPath(import.meta.url)), "..", "..", "package.json");
+    const pkg = JSON.parse(readFileSync(p, "utf8"));
+    const steps = String(pkg.scripts.check)
+      .split("&&")
+      .map((s) => s.trim().replace(/^npm run\s+/, ""))
+      .filter(Boolean);
+    return steps.length > 0 ? steps : GATE_CHAIN_FALLBACK;
+  } catch {
+    return GATE_CHAIN_FALLBACK;
+  }
 }
 
 /**
@@ -89,6 +119,12 @@ export function renderBriefingBody(statusMd) {
     lines.push(``, `## Open blockers`, ``, ...openIssues.map((i) => `- **${i.id}** ${i.issue}`));
   }
   lines.push(``, `## Do not`, ``, ...(doNots.length ? doNots.map((d) => `- ${d}`) : ["- (none listed — see AGENTS.md)"]));
+  lines.push(
+    ``,
+    `## Gates`,
+    ``,
+    `\`npm run qa\` = ${readGateChain().join(" → ")} (the chain is defined by \`check\` in package.json — that is the only hand-written copy). All steps are read-only; regeneration happens in the pre-commit hook, \`npm run dashboard\`, or \`npm run refresh\`. Report results by number. CI also runs a production build. Never claim "done" without pushing and \`npm run verify:head\`.`,
+  );
   return lines.join("\n");
 }
 
@@ -113,8 +149,8 @@ export function renderBriefingMd(statusMd, git = {}) {
   return [
     `# Cart Clash — Agent Briefing`,
     ``,
-    `> **GENERATED — do not hand-edit.** Regenerate: \`npm run briefing\` (also runs inside \`npm run qa\`).`,
-    `> Generated${git.date ? ` ${git.date}` : ""}${git.head ? ` at commit \`${git.head}\`` : ""}${git.branch ? ` on \`${git.branch}\`` : ""}. If docs/STATUS.md has changed since, \`npm run health:check\` fails until this is regenerated.`,
+    `> **GENERATED — do not hand-edit.** Regenerate: \`npm run briefing\` (the pre-commit hook does this on every commit; \`npm run qa\` only *checks* freshness, read-only).`,
+    `> Generated${git.date ? ` ${git.date}` : ""}${git.head ? ` at commit \`${git.head}\`` : ""}${git.branch ? ` on \`${git.branch}\`` : ""}. If docs/STATUS.md's digested sections have changed since, \`npm run briefing:check\` (inside \`npm run qa\`) fails until this is regenerated.`,
     `> Source digest: \`${sha8(body)}\``,
     ``,
     `**Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → \`npm run dashboard\` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.`,
@@ -122,10 +158,6 @@ export function renderBriefingMd(statusMd, git = {}) {
     `**Before you touch code:** (1) Plan → Wyatt ack → apply — BRIEFING's ACTIVE CARD names the card, not permission to edit. (2) Read [docs/ARCHITECTURE.json](./ARCHITECTURE.json) — owning system, edges, \`do_not_break\`.`,
     ``,
     body,
-    ``,
-    `## Gates`,
-    ``,
-    `\`npm run qa\` = size budget + typecheck + tests + knip + briefing + health check — report results by number. CI also runs a production build. Never claim "done" without pulling \`cart-clash\` and verifying HEAD.`,
     ``,
   ].join("\n");
 }
