@@ -1723,6 +1723,10 @@ export function disconnectPartySession() {
   youConnId = null;
   hostId = null;
   isHost = false;
+  // * Only the connect/reconnect paths ever assign this, so a session torn down while
+  // * reconnecting left getConnectionState() reporting "reconnecting" at the main menu
+  // * with no socket open — the conn pill and the lobby link line both read it (cap-220/221).
+  connectionState = "ok";
   localHostScore = 50;
   weakHostWarnedThisHostship = false;
   hostSeq = 0;

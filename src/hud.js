@@ -1377,6 +1377,11 @@ export function init(options) {
 
   const existing = document.getElementById("hud");
   if (existing) existing.remove();
+  // * The lobby surface mounts on document.body, not inside #hud (see the append
+  // * below), so removing the root never takes it down. Without this sweep every
+  // * re-init leaks a copy, and one that was visible at re-init time stays painted
+  // * with no updater left owning it.
+  for (const stray of document.querySelectorAll(".hud-lobby")) stray.remove();
 
   elements.root = document.createElement("div");
   elements.root.id = "hud";
@@ -2705,6 +2710,10 @@ export function hideGameplayElements() {
     elements.readyBtn.style.display = "none";
     elements.readyBtn.classList.remove("is-ready");
   }
+  // * CHECKOUT LINE is a full-screen surface and menu return skips the game loop,
+  // * so updateLobbyScreen never runs again to hide it — LEAVE ROOM left it painted
+  // * over the title screen until this line existed (cap-220/221, 08-01).
+  if (elements.lobbyScreen) elements.lobbyScreen.hidden = true;
   setHudDisplay(elements.status, "none", "status");
   if (elements.status) {
     elements.status.textContent = "";
