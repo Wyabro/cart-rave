@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-01T07:46:15.408Z",
-    "commit": "4a39161"
+    "at": "2026-08-01T09:02:48.789Z",
+    "commit": "f53b1c4"
   },
-  "source_digest": "a0422192",
+  "source_digest": "b6849894",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -925,7 +925,7 @@
         "title": "Engineering",
         "counts": {
           "High": 2,
-          "Medium": 18,
+          "Medium": 19,
           "Low": 5,
           "Partial": 1
         },
@@ -1018,6 +1018,12 @@
             "pri": "Medium",
             "item": "TEST-MARGIN-1 — one qa test runs with no timeout headroom in CI, so any new test anywhere can turn the gate red",
             "notes": "✅ **CLOSED 08-01** — explicit `30_000` timeout on that one case (`tests/party-do/beacons.test.js`), the row's primary lever. **Flood size deliberately unchanged at 200**: it is what makes \"far past the 80-row ring depth\" mean anything, so buying margin by shrinking it would have paid in assertion strength. **Negative control** — with the timeout set to `1` the case fails `Test timed out in 1ms`, so the third argument is provably honored rather than decorative. Per-test measurement that confirms the original diagnosis: the flood case is **2030ms of the file's 4610ms locally**; at CI's measured 2.3× slowdown that is ~4.7s against the old 5000ms default, i.e. **~6% margin** — i.e. it was always one unrelated test away from red. The other five cases in the file sit at 108–1237ms (~44%+ margin at the same ratio) and were left on the default, so a genuine hang in them still fails fast. **Was: filed 08-01** by LOAD-PROGRESS-1, which tripped it. `tests/party-do/beacons.test.js:46` — *\"stops a flood from evicting a real capture out of the 80-row ring\"* — runs on the **default 5000ms** vitest timeout with almost none to spare: that file took **10681ms** for its 6 tests in the last green CI run (`30688071083`, `b34b2de`) against **4.66s locally**, i.e. CI is ~2× slower and the flood case sits just under the ceiling. **Not a flake** — LOAD-PROGRESS-1's four new cases added 1.28s of real wall clock in the *happy-dom* pool (the mode-entry exit fade), and the *party-do* pool's flood test then timed out on run `30689834838` **twice**, initial and `gh run rerun --failed`, both `Test timed out in 5000ms`. Fixed from the wrong side in `b5c29f2` — those cases now dismiss synchronously (1280ms → 89ms), which **restores the previous balance and adds no margin**; the next test anyone adds, in any pool, can re-trip it. Lever: give that one case an explicit timeout (vitest's own error message says so) or shrink the flood; **do not raise the global `testTimeout`** — that hides real hangs across all 901 tests. Note the workerd pool is the slow one in CI, so it is the natural place for this to surface again. **Does not re-open SEC-BEACON-1** (closed) — the shipped rate limit is fine, only its test's timing margin is at issue.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "COUNTDOWN-ARM-2 — the battery's `host heard countdown_3` check has ~0 margin and fails on a loaded machine",
+            "notes": "**Filed 08-01.** `tools/netharness.mjs:287` (spawnlock, the COUNTDOWN-ARM-1 diag assert) went red in the 08-01 full battery — `announcer=countdown_2,countdown_1,go`, beat 3 missing — after passing at `423008f` (03:31 battery) with all four beats. **It is NOT tonight's code.** Controlled A/B/C on one machine, one session, same conditions: HEAD **4/4 fail** · LOAD-PROGRESS-1's three files reverted **4/4 fail** · **the entire `423008f..HEAD` `src/` + `index.html` window reverted — i.e. the exact tree that was green at 03:31 — 3/3 fail.** A control arm that fails is the whole answer: no code in the window is responsible. **Ring eviction was ruled out, not assumed** — `__ccDiag` holds 39 events against `EVENT_BUFFER_MAX = 512` with the oldest still `boot/diag-installed`, so nothing aged out; the host genuinely never records the event. **Mechanism, measured across 11 samples:** `carts-ready` (the playReady arm) lands only **309–499ms** before the first `round/phase` event, and beat 3 fires at countdown start — so the arm wins by a third of a second or loses, depending on machine load. This box reports `gpuClass:\"software\"` (SwiftShader), `qualityTier:\"low\"` and **103 longtasks / 10.3s total / 1371ms max** in a single run. **Two things to decide:** (1) the gate is environment-sensitive and should assert on something with real margin — same family as **TEST-MARGIN-1**; (2) there may be a genuine product nit behind it, since a slow player's client would likewise miss the spoken \"3\". Note the scenario's actual NET-2 subject stayed green throughout (joiner drove 42.07m / 24.93m off spawn). Probe used: `.diag-captures/ringprobe.mjs` (gitignored) — mirrors netharness `makeClient` and prints beats + arm margin per run.",
             "ship1": null
           },
           {
