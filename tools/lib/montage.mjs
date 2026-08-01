@@ -13,6 +13,8 @@
  * D-SHEET-1 discipline in HTML form.
  */
 
+import { ROOT_TOKENS } from "./ccStyle.mjs";
+
 /** HTML-escape for interpolated card text. */
 export const esc = (s) =>
   String(s ?? "").replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch]);
@@ -38,8 +40,7 @@ export function montagePage({ title, stamp, banner, cardsHtml, footer }) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Cart Clash — ${esc(title)}</title>
 <style>
-  :root { --bg:#0a0a0f; --panel:#14141c; --panel2:#191922; --edge:#26263a; --edge2:#3a3a55;
-          --text:#e8e8f0; --dim:#8a8aa0; --neon:#ff2d95; --cyan:#39d7ff; --bad:#ff5470; }
+${ROOT_TOKENS}
   * { box-sizing:border-box; }
   body { margin:0; background:var(--bg); color:var(--text); font:14px/1.5 system-ui,Segoe UI,sans-serif; }
   .shell { max-width:1440px; margin:0 auto; padding:20px 24px 48px; }
@@ -59,7 +60,7 @@ export function montagePage({ title, stamp, banner, cardsHtml, footer }) {
   .err { color:var(--bad); }
   .chip { display:inline-block; margin:4px 4px 0 0; padding:1px 7px; border:1px solid var(--edge2);
           border-radius:999px; font-size:11px; color:var(--cyan); }
-  .chip.warn { color:#ffb45c; border-color:#7a5326; }
+  .chip.warn { color:var(--warn); border-color:rgba(255,194,75,.4); }
   a { color:var(--cyan); }
   footer { margin-top:28px; padding-top:16px; border-top:1px solid var(--edge); color:var(--dim); font-size:12px; }
 </style>

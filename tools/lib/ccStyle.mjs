@@ -1,10 +1,13 @@
 /**
  * ccStyle.mjs — the Command Center's shared visual layer.
  *
- * The dashboard (tools/dashboard.mjs) and the architecture page (tools/lib/archHtml.mjs) are two
- * generated HTML surfaces that MUST look like one product. Their design tokens and base component
- * classes live here once so the two pages cannot drift apart. Each page adds its own page-specific
- * CSS after these shared blocks.
+ * Four generated HTML surfaces MUST look like one product: the dashboard (tools/dashboard.mjs),
+ * the architecture page (tools/lib/archHtml.mjs), the playtest console
+ * (tools/lib/playtestConsoleHtml.mjs), and the capture contact sheets (tools/lib/montage.mjs).
+ * Their design tokens live here once so the surfaces cannot drift apart. The first three also
+ * take BASE_CSS; montage.mjs imports ROOT_TOKENS **only** — the contact sheets keep their own
+ * denser shell (14px/1.5 body, tighter chips, no backdrop wash). Each page adds its own
+ * page-specific CSS after these shared blocks.
  *
  *   - ROOT_TOKENS — the `:root { … }` custom-property block (colors + surfaces).
  *   - BASE_CSS    — reset + body backdrop + the 2px top-gradient rule + the shared primitives
