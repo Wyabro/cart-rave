@@ -8,7 +8,7 @@ import { describe, it, expect, afterAll } from "vitest";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { offends } from "../.claude/hooks/guard-git-add.mjs";
+import { offends, walkGitSegments, evaluateGitCommand } from "../.claude/hooks/guard-git-add.mjs";
 import { claimsCompletion, evaluateStop } from "../.claude/hooks/guard-stop-drift.mjs";
 import { evaluateProtectedPath } from "../.claude/hooks/guard-protected-paths.mjs";
 import { trackWrite } from "../.claude/hooks/track-session-writes.mjs";
@@ -46,6 +46,12 @@ describe("guard-git-add: whole-worktree staging is denied", () => {
     "git commit --all",
     'git commit --all -m "x"',
   ])("denies %j", (cmd) => expect(offends(cmd)).toBe(true));
+
+  // * Bare -u/--update stages every tracked modification — the long-documented gap,
+  // * closed. With a pathspec it stays legitimate.
+  it.each(["git add -u", "git add --update", "git add -uv"])("denies %j", (cmd) =>
+    expect(offends(cmd)).toBe(true)
+  );
 });
 
 describe("guard-git-add: legitimate git work is untouched", () => {
@@ -225,6 +231,108 @@ describe("guard-stop-drift: block only when a claim meets real drift", () => {
     const session = "ahead-empty-record";
     updateState(scratch, session, () => ({}));
     expect(run("Done.", unpushed(1), { session }).verdict?.decision).toBe("block");
+  });
+});
+
+describe("guard-git-add: segment walker", () => {
+  it("extracts add pathspecs across flags and --", () => {
+    const [seg] = walkGitSegments("git add -v docs/STATUS.md -- -A src/x.js");
+    expect(seg.kind).toBe("add");
+    expect(seg.paths).toEqual(["docs/STATUS.md", "-A", "src/x.js"]);
+  });
+
+  it.each([
+    ['git commit -m "x"', true],
+    ["git commit --amend --no-edit", true],
+    ['git commit --message "x"', true],
+    ['git commit -m "x" -- docs/a.md', false],
+    ['git commit -m "x" docs/a.md', false],
+  ])("%j pathless=%s", (cmd, pathless) => {
+    const [seg] = walkGitSegments(cmd);
+    expect(seg.kind).toBe("commit");
+    expect(seg.isPathless).toBe(pathless);
+  });
+
+  it("walks add and commit in one command line", () => {
+    const segs = walkGitSegments('git add a.js b.js && git commit -m "x" && git push');
+    expect(segs.map((s) => s.kind)).toEqual(["add", "commit"]);
+    expect(segs[0].paths).toEqual(["a.js", "b.js"]);
+    expect(segs[1].isPathless).toBe(true);
+  });
+});
+
+describe("guard-git-add: GIT-INDEX-1 commit-scope check", () => {
+  const root = process.cwd();
+  const evalCmd = (command, { session, staged, env = {} } = {}) =>
+    evaluateGitCommand(
+      { session_id: session ?? `gi-${Math.random()}`, cwd: root, tool_input: { command } },
+      { env, stateDir: scratch, listStaged: () => staged ?? null }
+    );
+
+  it("denies a pathspec-less commit when the index holds a foreign path, naming it", () => {
+    const session = "gi-foreign";
+    updateState(scratch, session, () => ({ staged: ["src/mine.js"] }));
+    const r = evalCmd('git commit -m "x"', { session, staged: ["src/mine.js", "src/theirs.js"] });
+    expect(r).toContain("GIT-INDEX-1");
+    expect(r).toContain("src/theirs.js");
+    expect(r).not.toContain("src/mine.js,");
+  });
+
+  it("allows when everything staged is session-owned (staged, touched, or generated docs)", () => {
+    const session = "gi-owned";
+    updateState(scratch, session, () => ({ staged: ["src/a.js"], touched: ["src/b.js"] }));
+    const r = evalCmd('git commit -m "x"', {
+      session,
+      staged: ["src/a.js", "src/B.js", "docs/BRIEFING.md", "docs/ARCHITECTURE.json"],
+    });
+    expect(r).toBeNull();
+  });
+
+  it("unions same-command `git add X && git commit` pathspecs into ownership", () => {
+    const session = "gi-samecmd";
+    updateState(scratch, session, () => ({ staged: [] }));
+    const r = evalCmd('git add src/new.js && git commit -m "x"', {
+      session,
+      staged: ["src/new.js"],
+    });
+    expect(r).toBeNull();
+  });
+
+  it("allows when the session has no state file (fail open)", () => {
+    expect(evalCmd('git commit -m "x"', { staged: ["src/theirs.js"] })).toBeNull();
+  });
+
+  it("allows when git itself fails to list the index (fail open)", () => {
+    const session = "gi-gitfail";
+    updateState(scratch, session, () => ({ staged: ["src/a.js"] }));
+    expect(evalCmd('git commit -m "x"', { session, staged: null })).toBeNull();
+  });
+
+  it("skips the scope check for pathspec commits", () => {
+    const session = "gi-pathspec";
+    updateState(scratch, session, () => ({ staged: ["src/a.js"] }));
+    expect(
+      evalCmd('git commit -m "x" -- src/a.js', { session, staged: ["src/theirs.js"] })
+    ).toBeNull();
+  });
+
+  it("records allowed add pathspecs into session state", () => {
+    const session = "gi-record";
+    expect(evalCmd("git add docs/STATUS.md src/x.js", { session })).toBeNull();
+    expect(readState(scratch, session).staged).toEqual(["docs/status.md", "src/x.js"]);
+  });
+
+  it("still denies bulk staging through the full evaluator", () => {
+    expect(evalCmd("git add -A")).toContain("whole-worktree");
+    expect(evalCmd("git add -u")).toContain("whole-worktree");
+  });
+
+  it.each(["CART_CLASH_SKIP_HOOKS", "SKIP_GIT_GUARD"])("%s bypasses the evaluator", (key) => {
+    const session = "gi-skip";
+    updateState(scratch, session, () => ({ staged: ["src/a.js"] }));
+    expect(
+      evalCmd('git commit -m "x"', { session, staged: ["src/theirs.js"], env: { [key]: "1" } })
+    ).toBeNull();
   });
 });
 

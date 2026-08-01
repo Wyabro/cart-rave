@@ -15,6 +15,13 @@ import path from 'node:path';
 
 export const DEFAULT_STATE_DIR = join(tmpdir(), 'cart-clash-stopguard');
 
+/**
+ * Generated, pre-commit-managed files (lowercase repo-relative): the pre-commit hook
+ * regenerates and stages these on every commit, so no guard treats their dirt or their
+ * staged presence as another session's work.
+ */
+export const GENERATED_DOCS = new Set(['docs/briefing.md', 'docs/architecture.json']);
+
 const DEFAULTS = { blocks: 0, lastKey: '', touched: [], staged: [] };
 
 /** Windows rejects <>:"/\|?* in filenames, and session ids are not guaranteed safe. */

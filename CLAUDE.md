@@ -17,7 +17,8 @@ Everything below is Claude-Code-specific and additive — it never overrides AGE
   build. Report results by number (do not hardcode stale test totals).
 - **Remote is authoritative.** Do not claim "done"/"verified" without pulling `cart-clash`
   and confirming the change is in HEAD; post-deploy, verify against the fetched asset.
-- **Hooks enforce two of the standing rules** (bulk `git add`/`commit -a`, and "done"
-  claims while the tree is drifted). What they block, the escape-hatch env vars, and the
-  known gaps: [AGENTS.md § Enforcement](./AGENTS.md).
+- **Hooks enforce the standing rules** (bulk staging, cross-session commit leaks,
+  protected generated files, "done" claims on session-owned drift, briefing injection).
+  What each blocks, the escape-hatch env vars, and the known gaps:
+  [AGENTS.md § Enforcement](./AGENTS.md).
 - **Visual QA:** `npm run shoot` / `blackframes` / `compare` — [docs/guides/visual-qa.md](./docs/guides/visual-qa.md).

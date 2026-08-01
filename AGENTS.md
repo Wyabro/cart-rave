@@ -188,29 +188,46 @@ toward Version 2.
 
 ### Enforcement
 
-Two of the rules above are enforced by the harness, not by trust. Both live in
+The rules above are enforced by the harness, not by trust. The hooks live in
 `.claude/hooks/` and are wired from the committed `.claude/settings.json`, so they travel
-with a clone. **Claude Code only** — Cursor / Antigravity / Grok get `npm run verify:head`
-and this document, not mechanical blocking.
+with a clone (hook config is snapshotted at session start — restart the session after
+changing `settings.json`). **Claude Code only** — Cursor / Antigravity / Grok get
+`npm run verify:head` and this document, not mechanical blocking. All hooks fail open (any
+internal error exits 0) and are driven by `tests/claudeHooks.test.js`.
 
-- **`guard-git-add.mjs`** (PreToolUse on Bash/PowerShell) denies whole-worktree staging:
-  `git add -A` / `.` / `./` / `:/` / `:` / `:(top)` / `*` / `--all`, combined short flags
-  like `-Av`, and every `git commit -a` form. Explicit paths, `-p`, `-u <path>`, and
-  `--amend` pass. A `permissions.deny` list in `settings.json` backs it up if the hook is
-  disabled or errors — but that list is **glob-only**, so `-vA`, `:`, `:(top)` and a
-  literal `*` are hook-only. `settings.json` is strict JSON, not JSONC: never put a comment
-  in it, or every hook in the file stops loading.
-- **`guard-stop-drift.mjs`** (Stop) blocks a "done / verified" claim when
-  `verify:head` says the tree is drifted — unpushed commits, behind the upstream, or
-  modified tracked files (untracked is ignored). Restating honestly, e.g. **"applied,
-  unpushed"**, is not a claim and passes. It blocks at most twice per session and never
-  twice for the same unchanged drift state.
-- **Known gap:** bare `git add -u` stages every tracked modification — the same hazard —
-  but is not blocked, because `git add -u <path>` is legitimate and common.
-- **Escape hatches:** `CART_CLASH_SKIP_HOOKS=1` (both), `SKIP_GIT_GUARD=1`,
-  `SKIP_STOP_GUARD=1`. These are read from the Claude Code process env, never parsed out of
-  a command string — so `SKIP_GIT_GUARD=1 git add -A` is still blocked. Both hooks fail
-  open: any error in them exits 0 rather than wedging a session.
+- **`session-briefing.mjs`** (SessionStart) injects the committed `docs/BRIEFING.md` as
+  cold-start context, and warns when STATUS's digested sections have moved past it (same
+  content digest as `briefing:check` — never mtimes).
+- **`guard-git-add.mjs`** (PreToolUse on Bash/PowerShell) enforces two rules. (1) Denies
+  whole-worktree staging: `git add -A` / `.` / `./` / `:/` / `:` / `:(top)` / `*` /
+  `--all`, combined short flags like `-Av`, bare `git add -u` / `--update` (with a
+  pathspec, `-u <path>` stays legal), and every `git commit -a` form. Explicit paths,
+  `-p`, and `--amend` pass. A `permissions.deny` list in `settings.json` backs it up if
+  the hook is disabled or errors — but that list is **glob-only**, so `-vA`, `:`,
+  `:(top)` and a literal `*` are hook-only. `settings.json` is strict JSON, not JSONC:
+  never put a comment in it, or every hook in the file stops loading. (2) **GIT-INDEX-1:**
+  concurrent sessions share one git index, so a pathspec-less `git commit` ships whatever
+  anyone staged. The hook records this session's `git add` pathspecs, and denies a
+  pathspec-less commit whose index holds paths this session never touched or staged
+  (generated docs exempt; no session record or git failure → allow). The denial names the
+  foreign paths and the remedies.
+- **`guard-protected-paths.mjs`** (PreToolUse on Write/Edit/MultiEdit/NotebookEdit)
+  denies edits to generated files (`docs/BRIEFING.md`, `docs/ARCHITECTURE.json`) and the
+  `docs/archive/{handovers,audits}/` history.
+- **`track-session-writes.mjs`** (PostToolUse on the same matchers) records which repo
+  files this session wrote — the ownership record the two guards below consult. Bash-only
+  edits (sed/heredoc/npm scripts) are a known blind spot; their dirt goes untracked, which
+  degrades guards toward silence, never toward false blocks.
+- **`guard-stop-drift.mjs`** (Stop) blocks a "done / verified" claim when `verify:head`
+  says the tree is drifted — unpushed commits, behind the upstream, or **modified tracked
+  files this session touched** (STOP-DIRT-1: another session's in-flight dirt no longer
+  blocks this session's correct claim; generated docs never count; untracked is ignored).
+  Restating honestly, e.g. **"applied, unpushed"**, is not a claim and passes. It blocks
+  at most twice per session and never twice for the same unchanged drift state.
+- **Escape hatches:** `CART_CLASH_SKIP_HOOKS=1` (all hooks), `SKIP_GIT_GUARD=1`,
+  `SKIP_PATH_GUARD=1`, `SKIP_STOP_GUARD=1`. These are read from the Claude Code process
+  env, never parsed out of a command string — so `SKIP_GIT_GUARD=1 git add -A` is still
+  blocked.
 
 Separately, the git hooks `tools/git-hooks/pre-commit` and `post-commit` regenerate
 `docs/BRIEFING.md` + `docs/ARCHITECTURE.json` and refresh the Command Center on every

@@ -39,17 +39,10 @@
 // checkHeadDrift, which is the only way to exercise drift without live git state.
 
 import { checkHeadDrift } from '../../tools/verify-head.mjs';
-import { DEFAULT_STATE_DIR, readState, updateState } from './lib/session-state.mjs';
+import { DEFAULT_STATE_DIR, GENERATED_DOCS, readState, updateState } from './lib/session-state.mjs';
 
 /** Max blocks per session before this guard goes quiet. */
 const MAX_BLOCKS = 2;
-
-/**
- * Generated, pre-commit-managed files: the pre-commit hook regenerates and stages these
- * on every commit, so their dirt is never a claim-blocking fact for ANY session.
- * Lowercase repo-relative.
- */
-const GENERATED = new Set(['docs/briefing.md', 'docs/architecture.json']);
 
 /** Fenced blocks, inline code, and indented code — a pasted `git log` must not fire a claim. */
 function stripCode(s) {
@@ -141,7 +134,7 @@ function relevantDirty(trackedDirty, session) {
   const out = [];
   for (const line of trackedDirty) {
     const { path, parseable } = porcelainPath(line);
-    if (parseable && GENERATED.has(path)) continue;
+    if (parseable && GENERATED_DOCS.has(path)) continue;
     if (!parseable || mine.has(path)) out.push(path);
   }
   return out;
