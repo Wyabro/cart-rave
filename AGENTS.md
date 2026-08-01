@@ -73,7 +73,8 @@ toward Version 2.
   Host transforms, client input, and grocery-spill events bypass the server entirely (see
   Architecture Invariants). Cloudflare Calls mints TURN credentials via the server.
 - **Rendering:** **Three.js** (arenas + Draco cart GLBs under `public/models/`).
-- **Physics:** **Rapier3D** — runs **client-side on the host only**, host-authoritative.
+- **Physics:** **Rapier3D** — runs **client-side**, host-authoritative. The host is the single
+  source of truth; predicting clients step the same world locally. The server never simulates.
 - **Build / dev:** **Vite**.
 - **State:** Zustand stores (`src/stores/`). Audio: Howler.js. Touch: nipplejs. Debug UI: Tweakpane.
 
@@ -123,8 +124,9 @@ toward Version 2.
 
 ## ARCHITECTURE INVARIANTS
 
-- **Host-authoritative.** The first client in a room becomes host and runs **all** Rapier
-  physics (humans + NPCs). The host is the single source of truth.
+- **Host-authoritative.** The first client in a room becomes host and runs all **authoritative**
+  Rapier physics (humans + NPCs). The host is the single source of truth — predicting clients
+  step the same world locally for feel, but never own the outcome.
 - **The server never simulates physics.** `party/index.ts` (a `partyserver` Durable Object)
   does validation (`party/roundValidation.ts`), slot management, ready-up/round lifecycle,
   **WebRTC signaling** (SDP/ICE relay + Cloudflare Calls TURN minting), host selection

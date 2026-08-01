@@ -167,6 +167,7 @@ Priorities below are post-gate unless Wyatt pulls them forward.
 | Low | DUAL-1 | Delete leftover dual-era paths | |
 | Low | TS-1 | TypeScript on hot paths / TS 7 | Stay on TS 6.x for the gate. |
 | Low | TOOL-1 | Tooling residue | |
+| Low | ARCH-DRIFT-1 | `archMap.mjs` curated prose has no staleness gate | **Found 08-01.** `arch:check` digest-gates only the *generated* JSON — nothing validates the hand-written seed in `tools/lib/archMap.mjs` against real code, so it drifted silently (two claims were outright false until the 08-01 pass). Every hardcoded line ref is stale: `main.js` `314→342`, `4748→5172`, `2149→2301`; `simulation.js` `2717→2889`; `party/index.ts` `801→1056`. Also "~5.6k lines"→5773, "~84 inner fns"→81, "~40 impls"→49/50. Proposal: replace line refs with grep-able symbol anchors + a test that fails when an anchor stops resolving. |
 | Low | Vite 500 kB chunk-size hint | Cosmetic. |
 | Low | BRAND-1 | Brand / domain cutover ceremony | Frozen — [brand.md](../brand.md). |
 | Low | RESULTS-GLOW-1 | `.results-defeat .results-title { --title-glow }` never applies | **Note for later (cosmetic, pre-existing).** `main.js` sets that property **inline**, so no stylesheet rule can outrank it. Defeat still reads because the panel filter desaturates everything. Do **not** reach for `!important` unless a real look pass re-owns title styling. Not a ship blocker. |
@@ -180,7 +181,7 @@ Priorities below are post-gate unless Wyatt pulls them forward.
 
 | Topic | Why leave it |
 |-------|----------------|
-| Host-only Rapier on a client | Architecture invariant — [AGENTS.md](../../AGENTS.md). |
+| Host-**authoritative** Rapier (clients may predict) | Architecture invariant — clients step the same world locally for feel; the host is sole authority and the server never simulates. [AGENTS.md](../../AGENTS.md). |
 | Zustand + KO event reactors | Current and coherent. |
 | partyserver + WebRTC P2P split | Control plane vs gameplay plane is correct. |
 | Big `config.js` knob table | Fine if knobs stay centralized; DIR-1 stops mid-round mutation. |

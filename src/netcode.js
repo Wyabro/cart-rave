@@ -314,6 +314,8 @@ let callbacks = {
   // * Local-cart death teardown on the NON-host fall path (run-5: charge loop kept
   // * repeating after death — host-side scheduleRespawn stops it, this path must too).
   stopChargeSfxForCart: (cart) => {},
+  // * MP-FX-1 remote hop-land thud/dust. Bridge supplies `onHopLand`; the adapter renames it.
+  onHopLandRef: (cart, intensity) => {},
   // * Impact squash replay — (rammerCart|null, victimCart, intensity) per collision event.
   onCartImpactSquashRef: (rammerCart, victimCart, intensity) => {},
   playFloorImpactRef: (intensity) => {},

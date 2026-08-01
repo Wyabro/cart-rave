@@ -227,7 +227,7 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Gotchas (append-only)
 
-- EffectComposer path: RenderPass → Bloom → OutputPass → Arcade(VHS) → FXAA. `renderer.toneMapping` is a no-op into composer RTs without OutputPass.
+- EffectComposer path, DEFAULT (`?bloompipe=display`): RenderPass → OutputPass → Bloom → Arcade(VHS) → FXAA. `?bloompipe=hdr` swaps to Bloom → OutputPass; OutputPass is never last in either. `renderer.toneMapping` is a no-op into composer RTs without OutputPass — except on the lowest tier, which bypasses the composer entirely (`composerBypass`) and tone-maps natively.
 - VHS is level-gated via `uVhsAmount` (Storerooms only); `?ablate=vhs` zeros the uniform without killing arcade CRT.
 - Half-res bloom RTs: strength compensated via `bloomHalfResStrengthMul`.
 - Hidden-tab rAF freezes the loop unless `?perfPump` (DEV) is set — shoot tools should pass it.

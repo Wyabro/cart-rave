@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-01T22:09:46.461Z",
-    "commit": "cfaaee7"
+    "at": "2026-08-01T22:20:05.407Z",
+    "commit": "e1e514c"
   },
-  "source_digest": "7731c467",
+  "source_digest": "9be818b2",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -142,7 +142,7 @@
         }
       ],
       "notes": [
-        "Physics runs client-side on the HOST only (invariant). The server never simulates.",
+        "Rapier is host-AUTHORITATIVE, not host-exclusive: the host is sole authority for NPCs and remote inputs, but every predicting client steps the same world locally (gameLoop.js client-prediction branch). The server never simulates — zero Rapier in party/.",
         "Bot AI lives INSIDE simulation.js and gameFlow.js — there is no separate bots module.",
         "One Rapier collision callback: eventQueue.drainCollisionEvents((h1,h2,started)=>…) in simulation.js (~line 2717). world.castRay reads .handle off exclude args — pass Collider/RigidBody objects, never raw handles."
       ]
@@ -252,7 +252,7 @@
     {
       "id": "rendering-and-postfx",
       "name": "Rendering & post-FX",
-      "responsibility": "Three.js scene assembly, the EffectComposer post chain (Bloom → OutputPass → Arcade/VHS → FXAA), contact shadows, the shared Draco loader, and the quality/LOD tier machinery.",
+      "responsibility": "Three.js scene assembly, the EffectComposer post chain (RenderPass → OutputPass → Bloom → Arcade/VHS → FXAA on the default display pipe), contact shadows, the shared Draco loader, and the quality/LOD tier machinery.",
       "entry": [
         "src/scene.js"
       ],
@@ -284,7 +284,7 @@
         }
       ],
       "notes": [
-        "Composer path: RenderPass → Bloom → OutputPass → Arcade(VHS) → FXAA. toneMapping is a no-op into composer RTs without OutputPass.",
+        "Composer path, DEFAULT (?bloompipe=display): RenderPass → OutputPass → Bloom → Arcade(VHS) → FXAA. ?bloompipe=hdr swaps to Bloom → OutputPass; OutputPass is never last in either path. toneMapping is a no-op into composer RTs without OutputPass — except on the lowest tier, which bypasses the composer entirely (composerBypass) and tone-maps natively.",
         "Half-res bloom RTs; strength compensated via bloomHalfResStrengthMul. VFX-1 closed: display-referred byte mips.",
         "material.envMapIntensity is a no-op against scene.environment — use scene.environmentIntensity.",
         "frameVisuals.js is cross-cutting (secondary owner: vfx); it lives here as the per-frame present owner."
@@ -774,7 +774,7 @@
     },
     {
       "path": "src/stores/gameStore.js",
-      "role": "The highest-blast-radius store: 4 subscribers (analytics, announcer, directives, diagnostics) react to every shape change."
+      "role": "The highest-blast-radius store: 4 subscribers (analytics, announcer, directives, diagnostics) react to every shape change, all keyed off roundPhase. The diagnostics one is ?diag-gated, so fewer run in an ordinary session; many more modules poll getState() instead."
     },
     {
       "path": "src/gameState.js",
@@ -810,12 +810,12 @@
     ],
     "systems": {
       "boot-and-orchestration": "Adding a hook that main() should provide means adding it to the callbacks/deps bundle too, or it never escapes the closure. Do not carve main.js ad-hoc — that's MAIN-1.",
-      "networking-client": "Add a netcode hook in TWO places (netcode.js callbacks literal + buildNetcodeGameBridge). Keep the MSG.* client chain mirrored with party/index.ts. Never route hostTransform/clientInput/spill through the WebSocket.",
+      "networking-client": "Add a netcode hook in THREE places (netcode.js callbacks literal → registerGameCallbacks adapter → buildNetcodeGameBridge); the adapter renames, so literal and bridge keys differ. MSG.* lives once in shared/protocol.js — never duplicate it. Never route hostTransform/clientInput/spill through the WebSocket.",
       "networking-server": "Relay + validation + lifecycle only — never simulate physics. Iterate getConnections() with for…of. No migration-model rewrite pre-ship.",
-      "physics-simulation": "Host-only. castRay exclude takes the object not .handle. Do not move collision logic server-side. Bot logic edits live here (no bots module).",
+      "physics-simulation": "Host-authoritative — clients predict with the same world; the host owns NPCs + remote inputs. castRay exclude takes the object not .handle. Do not move collision logic server-side. Bot logic edits live here (no bots module).",
       "arenas-levels": "Change level swaps only through the LevelManagerDeps contract; add levels to LEVEL_IMPORTERS (not a barrel import). Arena content is data in arenaCatalog.js.",
-      "rendering-and-postfx": "Preserve composer pass order (OutputPass before Arcade; toneMapping depends on it). Ablate + shoot/blackframes before large postFX changes. The look is governed by docs/reference/art-direction.md — per-arena exposure/bloom budgets, no global 'keep it dark' number; screen filters are Storerooms-only.",
-      "state-stores": "Treat a gameStore field's meaning as a public contract — its 4 subscribers are the blast radius. Do not deepen the gameState/gameStore dual import (STORE-1).",
+      "rendering-and-postfx": "Preserve composer pass order (OutputPass before Arcade; toneMapping depends on it). Bloom's position varies by ?bloompipe — after OutputPass on the default display pipe, before it under hdr. Ablate + shoot/blackframes before large postFX changes. The look is governed by docs/reference/art-direction.md — per-arena exposure/bloom budgets, no global 'keep it dark' number; screen filters are Storerooms-only.",
+      "state-stores": "Treat a gameStore field's meaning as a public contract — its 4 subscribers (all keyed off roundPhase; the diagnostics one is ?diag-gated) are the blast radius, and more modules poll getState() on top. Do not deepen the gameState/gameStore dual import (STORE-1).",
       "audio-music-announcer": "No loudnorm on loops; respect the per-bus loudness targets. Announcer voice assets are data-driven drop-ins. SD music low-pass is shared-Howler-bus surgery.",
       "ui-hud-menu": "index.html is canonical menu markup — never recreate cart-rave-menu.html. hud.js countdown display is presentational; gameplay unlock is gated on phase, not the banner.",
       "input-camera": "No lerp/slerp camera smoothing. Keyboard axis easing must match the analog stick deflection simulation.js reads.",
@@ -830,7 +830,7 @@
     }
   },
   "pitfalls": [
-    "EffectComposer path: RenderPass → Bloom → OutputPass → Arcade(VHS) → FXAA. `renderer.toneMapping` is a no-op into composer RTs without OutputPass.",
+    "EffectComposer path, DEFAULT (`?bloompipe=display`): RenderPass → OutputPass → Bloom → Arcade(VHS) → FXAA. `?bloompipe=hdr` swaps to Bloom → OutputPass; OutputPass is never last in either. `renderer.toneMapping` is a no-op into composer RTs without OutputPass — except on the lowest tier, which bypasses the composer entirely (`composerBypass`) and tone-maps natively.",
     "VHS is level-gated via `uVhsAmount` (Storerooms only); `?ablate=vhs` zeros the uniform without killing arcade CRT.",
     "Half-res bloom RTs: strength compensated via `bloomHalfResStrengthMul`.",
     "Hidden-tab rAF freezes the loop unless `?perfPump` (DEV) is set — shoot tools should pass it.",
@@ -1468,7 +1468,7 @@
         "title": "Tech Debt",
         "counts": {
           "Medium": 6,
-          "Low": 12
+          "Low": 13
         },
         "rows": [
           {
@@ -1539,6 +1539,13 @@
             "id": "TOOL-1",
             "item": "Tooling residue",
             "notes": "",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "id": "ARCH-DRIFT-1",
+            "item": "`archMap.mjs` curated prose has no staleness gate",
+            "notes": "**Found 08-01.** `arch:check` digest-gates only the *generated* JSON — nothing validates the hand-written seed in `tools/lib/archMap.mjs` against real code, so it drifted silently (two claims were outright false until the 08-01 pass). Every hardcoded line ref is stale: `main.js` `314→342`, `4748→5172`, `2149→2301`; `simulation.js` `2717→2889`; `party/index.ts` `801→1056`. Also \"~5.6k lines\"→5773, \"~84 inner fns\"→81, \"~40 impls\"→49/50. Proposal: replace line refs with grep-able symbol anchors + a test that fails when an anchor stops resolving.",
             "ship1": null
           },
           {
@@ -1725,8 +1732,8 @@
     ],
     "explicitly_not_tech_debt": [
       {
-        "topic": "Host-only Rapier on a client",
-        "why": "Architecture invariant — AGENTS.md."
+        "topic": "Host-authoritative Rapier (clients may predict)",
+        "why": "Architecture invariant — clients step the same world locally for feel; the host is sole authority and the server never simulates. AGENTS.md."
       },
       {
         "topic": "Zustand + KO event reactors",
@@ -1789,7 +1796,7 @@
   },
   "do_not_break": {
     "invariants": [
-      "Host-authoritative. The first client in a room becomes host and runs all Rapier",
+      "Host-authoritative. The first client in a room becomes host and runs all authoritative",
       "The server never simulates physics. `party/index.ts` (a `partyserver` Durable Object)",
       "Real-time telemetry is peer-to-peer, not server-relayed. Host transforms (40Hz,",
       "Color logic uses `CART_COLORS` in `src/config.js`. Do not modify that object or the",
@@ -1819,15 +1826,15 @@
     "fragile_systems": [
       {
         "system": "networking-client",
-        "why": "The `callbacks` seam: adding a hook needs BOTH the stub in netcode.js's callbacks literal AND the real wiring in buildNetcodeGameBridge — miss the second and you get a silent no-op, not an error. The MSG.* client chain must stay mirrored with party/index.ts."
+        "why": "The `callbacks` seam is THREE sites, not two: the default stub in netcode.js's callbacks literal → the registerGameCallbacks adapter → the impl in buildNetcodeGameBridge. The adapter RENAMES (bridge `onHopLand` → literal `onHopLandRef`), so literal and bridge keys do not match — only adapter↔bridge are name-coupled. Miss a site and you get a silent no-op, not an error. MSG.* is NOT hand-mirrored: shared/protocol.js is one module imported by both planes — never duplicate a key that lives there."
       },
       {
         "system": "networking-server",
-        "why": "Host-authoritative + migration invariants: promote-oldest, #lastSeq reset, P2P teardown/re-init. A rewrite reopens closed NET-* bugs (explicitly NOT pre-ship work). getConnections() is an iterator."
+        "why": "Host-authoritative + migration invariants: promote-oldest ON DISCONNECT (lobby quality rebalance can override it via pickPreferredHostId once the score margin is cleared), #lastSeq reset, P2P teardown/re-init. A rewrite reopens closed NET-* bugs (explicitly NOT pre-ship work). getConnections() is an iterator."
       },
       {
         "system": "physics-simulation",
-        "why": "Host-only Rapier is an architecture invariant; castRay exclude wants the object not the .handle (silent exclusion disable); collision logic must not move server-side."
+        "why": "Rapier is host-AUTHORITATIVE — the host is sole authority for NPCs and remote inputs, but every predicting client steps the same world locally (gameLoop.js client-prediction branch); do not assume the host is the sole peer running physics. castRay exclude wants the object not the .handle (silent exclusion disable); collision logic must not move server-side."
       },
       {
         "system": "boot-and-orchestration",
@@ -1839,7 +1846,7 @@
       },
       {
         "system": "state-stores",
-        "why": "A gameStore field's meaning is depended on by 4 subscribers with no syntactic link — changing it silently changes announcer/directive/analytics behavior."
+        "why": "A gameStore field's meaning is depended on by 4 subscribers with no syntactic link, all keyed off roundPhase — changing it silently changes announcer/directive/analytics behavior. The diagnostics subscriber is ?diag-gated, so fewer are live in an ordinary session; many more modules poll getState(), which widens the blast radius of a rename."
       }
     ],
     "past_agent_mistakes": [

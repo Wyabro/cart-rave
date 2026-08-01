@@ -98,7 +98,7 @@ export const SYSTEMS = [
     entry: ["src/simulation.js"],
     members: ["src/simulation.js", "src/entities.js", "src/physics/"],
     notes: [
-      "Physics runs client-side on the HOST only (invariant). The server never simulates.",
+      "Rapier is host-AUTHORITATIVE, not host-exclusive: the host is sole authority for NPCs and remote inputs, but every predicting client steps the same world locally (gameLoop.js client-prediction branch). The server never simulates — zero Rapier in party/.",
       "Bot AI lives INSIDE simulation.js and gameFlow.js — there is no separate bots module.",
       "One Rapier collision callback: eventQueue.drainCollisionEvents((h1,h2,started)=>…) in simulation.js (~line 2717). world.castRay reads .handle off exclude args — pass Collider/RigidBody objects, never raw handles.",
     ],
@@ -176,7 +176,7 @@ export const SYSTEMS = [
     id: "rendering-and-postfx",
     name: "Rendering & post-FX",
     responsibility:
-      "Three.js scene assembly, the EffectComposer post chain (Bloom → OutputPass → Arcade/VHS → FXAA), contact shadows, the shared Draco loader, and the quality/LOD tier machinery.",
+      "Three.js scene assembly, the EffectComposer post chain (RenderPass → OutputPass → Bloom → Arcade/VHS → FXAA on the default display pipe), contact shadows, the shared Draco loader, and the quality/LOD tier machinery.",
     entry: ["src/scene.js"],
     members: [
       "src/scene.js",
@@ -193,7 +193,7 @@ export const SYSTEMS = [
       "src/utils/qualityTiers.js",
     ],
     notes: [
-      "Composer path: RenderPass → Bloom → OutputPass → Arcade(VHS) → FXAA. toneMapping is a no-op into composer RTs without OutputPass.",
+      "Composer path, DEFAULT (?bloompipe=display): RenderPass → OutputPass → Bloom → Arcade(VHS) → FXAA. ?bloompipe=hdr swaps to Bloom → OutputPass; OutputPass is never last in either path. toneMapping is a no-op into composer RTs without OutputPass — except on the lowest tier, which bypasses the composer entirely (composerBypass) and tone-maps natively.",
       "Half-res bloom RTs; strength compensated via bloomHalfResStrengthMul. VFX-1 closed: display-referred byte mips.",
       "material.envMapIntensity is a no-op against scene.environment — use scene.environmentIntensity.",
       "frameVisuals.js is cross-cutting (secondary owner: vfx); it lives here as the per-frame present owner.",
@@ -475,7 +475,7 @@ export const IMPORTANT_FILES = [
   { path: "src/cartRaveGltf.js", role: "userData state-machine hub (raveGltfPartRole/cartVisual/deathState/followState) — grep the userData key, there are no call edges." },
   { path: "src/config.js", role: "CART_COLORS (invariant, do not modify) + the CONFIG knob table incl. CONFIG.round.durationMs (imports ROUND_DURATION_MS)." },
   { path: "src/hud.js", role: "In-game HUD; updateStatus() owns the countdown beat display (COUNTDOWN-SYNC-1). No unit tests — visual-QA gated." },
-  { path: "src/stores/gameStore.js", role: "The highest-blast-radius store: 4 subscribers (analytics, announcer, directives, diagnostics) react to every shape change." },
+  { path: "src/stores/gameStore.js", role: "The highest-blast-radius store: 4 subscribers (analytics, announcer, directives, diagnostics) react to every shape change, all keyed off roundPhase. The diagnostics one is ?diag-gated, so fewer run in an ordinary session; many more modules poll getState() instead." },
   { path: "src/gameState.js", role: "Facade over gameStore — the dual-import surface tracked as STORE-1; do not deepen the duplication." },
   { path: "party/index.ts", role: "partyserver Durable Object CartRaveServer; onMessage flat MSG.* chain (~801). Relay/room state only — never physics. Pure helpers unit-tested (A5a); DO harness in tests/party-do/ (A5b)." },
   { path: "shared/roundConstants.js", role: "ROUND_DURATION_MS single source (150_000) imported by both config.js and roundValidation.ts." },
@@ -488,12 +488,12 @@ export const IMPORTANT_FILES = [
  * @type {Array<{ system: string, why: string }>}
  */
 export const FRAGILE_SYSTEMS = [
-  { system: "networking-client", why: "The `callbacks` seam: adding a hook needs BOTH the stub in netcode.js's callbacks literal AND the real wiring in buildNetcodeGameBridge — miss the second and you get a silent no-op, not an error. The MSG.* client chain must stay mirrored with party/index.ts." },
-  { system: "networking-server", why: "Host-authoritative + migration invariants: promote-oldest, #lastSeq reset, P2P teardown/re-init. A rewrite reopens closed NET-* bugs (explicitly NOT pre-ship work). getConnections() is an iterator." },
-  { system: "physics-simulation", why: "Host-only Rapier is an architecture invariant; castRay exclude wants the object not the .handle (silent exclusion disable); collision logic must not move server-side." },
+  { system: "networking-client", why: "The `callbacks` seam is THREE sites, not two: the default stub in netcode.js's callbacks literal → the registerGameCallbacks adapter → the impl in buildNetcodeGameBridge. The adapter RENAMES (bridge `onHopLand` → literal `onHopLandRef`), so literal and bridge keys do not match — only adapter↔bridge are name-coupled. Miss a site and you get a silent no-op, not an error. MSG.* is NOT hand-mirrored: shared/protocol.js is one module imported by both planes — never duplicate a key that lives there." },
+  { system: "networking-server", why: "Host-authoritative + migration invariants: promote-oldest ON DISCONNECT (lobby quality rebalance can override it via pickPreferredHostId once the score margin is cleared), #lastSeq reset, P2P teardown/re-init. A rewrite reopens closed NET-* bugs (explicitly NOT pre-ship work). getConnections() is an iterator." },
+  { system: "physics-simulation", why: "Rapier is host-AUTHORITATIVE — the host is sole authority for NPCs and remote inputs, but every predicting client steps the same world locally (gameLoop.js client-prediction branch); do not assume the host is the sole peer running physics. castRay exclude wants the object not the .handle (silent exclusion disable); collision logic must not move server-side." },
   { system: "boot-and-orchestration", why: "main.js is a single closure — a moved inner function silently drops out of the callbacks/deps bundle. Carving it is MAIN-1 (deferred); until then expect the closure." },
   { system: "rendering-and-postfx", why: "The composer pass ORDER is load-bearing (toneMapping no-ops without OutputPass; envMapIntensity no-ops against scene.environment). Ablate + shoot/blackframes before postFX rewrites." },
-  { system: "state-stores", why: "A gameStore field's meaning is depended on by 4 subscribers with no syntactic link — changing it silently changes announcer/directive/analytics behavior." },
+  { system: "state-stores", why: "A gameStore field's meaning is depended on by 4 subscribers with no syntactic link, all keyed off roundPhase — changing it silently changes announcer/directive/analytics behavior. The diagnostics subscriber is ?diag-gated, so fewer are live in an ordinary session; many more modules poll getState(), which widens the blast radius of a rename." },
 ];
 
 /**
@@ -540,12 +540,12 @@ export const SAFE_MODIFICATION = {
   ],
   systems: {
     "boot-and-orchestration": "Adding a hook that main() should provide means adding it to the callbacks/deps bundle too, or it never escapes the closure. Do not carve main.js ad-hoc — that's MAIN-1.",
-    "networking-client": "Add a netcode hook in TWO places (netcode.js callbacks literal + buildNetcodeGameBridge). Keep the MSG.* client chain mirrored with party/index.ts. Never route hostTransform/clientInput/spill through the WebSocket.",
+    "networking-client": "Add a netcode hook in THREE places (netcode.js callbacks literal → registerGameCallbacks adapter → buildNetcodeGameBridge); the adapter renames, so literal and bridge keys differ. MSG.* lives once in shared/protocol.js — never duplicate it. Never route hostTransform/clientInput/spill through the WebSocket.",
     "networking-server": "Relay + validation + lifecycle only — never simulate physics. Iterate getConnections() with for…of. No migration-model rewrite pre-ship.",
-    "physics-simulation": "Host-only. castRay exclude takes the object not .handle. Do not move collision logic server-side. Bot logic edits live here (no bots module).",
+    "physics-simulation": "Host-authoritative — clients predict with the same world; the host owns NPCs + remote inputs. castRay exclude takes the object not .handle. Do not move collision logic server-side. Bot logic edits live here (no bots module).",
     "arenas-levels": "Change level swaps only through the LevelManagerDeps contract; add levels to LEVEL_IMPORTERS (not a barrel import). Arena content is data in arenaCatalog.js.",
-    "rendering-and-postfx": "Preserve composer pass order (OutputPass before Arcade; toneMapping depends on it). Ablate + shoot/blackframes before large postFX changes. The look is governed by docs/reference/art-direction.md — per-arena exposure/bloom budgets, no global 'keep it dark' number; screen filters are Storerooms-only.",
-    "state-stores": "Treat a gameStore field's meaning as a public contract — its 4 subscribers are the blast radius. Do not deepen the gameState/gameStore dual import (STORE-1).",
+    "rendering-and-postfx": "Preserve composer pass order (OutputPass before Arcade; toneMapping depends on it). Bloom's position varies by ?bloompipe — after OutputPass on the default display pipe, before it under hdr. Ablate + shoot/blackframes before large postFX changes. The look is governed by docs/reference/art-direction.md — per-arena exposure/bloom budgets, no global 'keep it dark' number; screen filters are Storerooms-only.",
+    "state-stores": "Treat a gameStore field's meaning as a public contract — its 4 subscribers (all keyed off roundPhase; the diagnostics one is ?diag-gated) are the blast radius, and more modules poll getState() on top. Do not deepen the gameState/gameStore dual import (STORE-1).",
     "audio-music-announcer": "No loudnorm on loops; respect the per-bus loudness targets. Announcer voice assets are data-driven drop-ins. SD music low-pass is shared-Howler-bus surgery.",
     "ui-hud-menu": "index.html is canonical menu markup — never recreate cart-rave-menu.html. hud.js countdown display is presentational; gameplay unlock is gated on phase, not the banner.",
     "input-camera": "No lerp/slerp camera smoothing. Keyboard axis easing must match the analog stick deflection simulation.js reads.",
