@@ -9,10 +9,8 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-
-// A STATUS.md edit always lands before the regenerate, so a small grace window keeps
-// a fresh clone — where every file shares one checkout mtime — from warning on nothing.
-const STALE_GRACE_MS = 60_000;
+// Same tracked-relative import pattern as guard-stop-drift.mjs → tools/verify-head.mjs.
+import { briefingSourceDigest, extractBriefingDigest } from '../../tools/lib/briefing.mjs';
 
 const HEADER = [
   'Repo cold-start context, injected automatically from the committed docs/BRIEFING.md',
@@ -28,18 +26,23 @@ function emit(additionalContext) {
   );
 }
 
-/** Warn when STATUS.md has moved on but the briefing has not been regenerated. */
-function stalenessNote(briefingPath, statusPath) {
+/**
+ * Warn when STATUS.md's digested sections have moved on but the briefing has not been
+ * regenerated. Uses the SAME content digest as `briefing --check` / health:check — an
+ * mtime comparison false-positives on any untracked STATUS touch (observed live) and
+ * disagrees with the gate it points at.
+ */
+function stalenessNote(briefing, statusPath) {
   try {
-    const drift = fs.statSync(statusPath).mtimeMs - fs.statSync(briefingPath).mtimeMs;
-    if (drift <= STALE_GRACE_MS) return null;
+    const statusMd = fs.readFileSync(statusPath, 'utf8');
+    if (extractBriefingDigest(briefing) === briefingSourceDigest(statusMd)) return null;
     return (
-      '> WARNING: docs/STATUS.md is newer than this briefing, so the phase / ACTIVE CARD below ' +
-      'may be stale. Run `npm run briefing` to refresh it — `npm run health:check` red-gates ' +
-      'on the same drift.'
+      '> WARNING: docs/STATUS.md has changed since this briefing was generated, so the ' +
+      'phase / ACTIVE CARD below may be stale. Run `npm run briefing` to refresh it — ' +
+      '`npm run briefing:check` (inside `npm run qa`) red-gates on the same drift.'
     );
   } catch {
-    return null; // No STATUS.md to compare against.
+    return null; // No STATUS.md / digest lib to compare against — stay quiet.
   }
 }
 
@@ -54,7 +57,7 @@ try {
   const statusPath = path.join(root, 'docs', 'STATUS.md');
 
   const briefing = fs.readFileSync(briefingPath, 'utf8').trim();
-  const note = stalenessNote(briefingPath, statusPath);
+  const note = stalenessNote(briefing, statusPath);
 
   emit([HEADER, note, briefing].filter(Boolean).join('\n\n'));
 } catch {
