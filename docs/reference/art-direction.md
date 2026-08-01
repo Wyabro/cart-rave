@@ -10,8 +10,10 @@
 
 Every hero surface in this game is a real object that has survived a lot of nights. If you can
 look at a cart, a floor, or a wall and not find wear on it, that surface is not finished. This
-is the one assertion a single screenshot can fail, and it is the rule that most of the game
-currently fails.
+is the one assertion a single screenshot can fail.
+
+The arena floors already pass it. The carts do not, and neither does every prop standing next
+to a well-authored surface — see [§ what is already authored](#what-is-already-authored--read-this-before-assuming-a-surface-is-bare).
 
 ---
 
@@ -78,27 +80,39 @@ Name these when a frame fails, so the failure is specific:
   doc already rejected this for the 2D layer (see
   [`hud-art-direction-2026-07-09.md`](../archive/session-notes/hud-art-direction-2026-07-09.md),
   read-only archive); the 3D layer is held to the same standard.
-- **Pristine untextured PBR** — a material with no maps. The single most common defect today.
+- **Pristine untextured PBR** — a material with no maps. The carts are the standing example.
 - **Cel-shaded toon** — no ramp shading, no inverted-hull outlines, no gradient maps. That is a
   different game.
 - **Literal craft materials** — felt, yarn, cardboard-as-world. Warmth, not arts-and-crafts.
 - **Oppressive horror dark** — darkness that reads as dread rather than as contrast.
 
-### Honest note on continuity
+### What is already authored — read this before assuming a surface is bare
 
-"Preserve the art direction we've already established" holds for the palette, the
-dark-with-neon contrast relationship, `CART_COLORS`, and each arena's theme. It does **not**
-hold as continuity at the material layer, because for two arenas and the carts there is nothing
-to preserve — those surfaces are untextured PBR today. This document is a genuine redefinition
-there, and says so rather than pretending otherwise.
+**Corrected 2026-08-01.** An earlier draft of this file claimed Cart Rave and Sundial Station
+were untextured PBR. That was wrong — it generalized from the carts without checking the arena
+files. The real inventory:
 
-The Storerooms is the exception and the in-repo proof of what "authored" means: it already
-ships roughly nine procedural surface builders — carpet, wallpaper, ceiling, concrete,
-prop-surface (carton/cardboard), and furniture (wood/fabric/metal/plastic) — plus wet-floor,
-tape, and arrow canvases, at
-[`backroomsSupermarket.js:150`](../../src/levels/backroomsSupermarket.js:150)–`596`.
-**The gap is Cart Rave + Sundial Station + the carts, not the whole game.** When authoring new
-surfaces, read the Storerooms builders first.
+| Arena | Authored surfaces today |
+|---|---|
+| **Cart Rave** | Vinyl floor — albedo + normal + roughness, with groove lands/valleys, 36 hairline radial play-wear scratches, dust and fingerprint blotches ([`arena.js:180`](../../src/arena.js:180)). Pit wall — albedo + normal + roughness plated panels ([`arena.js:33`](../../src/arena.js:33)). Booths — metal + grille albedo ([`arena.js:320`](../../src/arena.js:320)). |
+| **The Storerooms** | ~9 builders — carpet, wallpaper, ceiling, concrete, prop-surface (carton/cardboard), furniture (wood/fabric/metal/plastic) — plus wet-floor, tape, and arrow canvases ([`backroomsSupermarket.js:150`](../../src/levels/backroomsSupermarket.js:150)–`596`). |
+| **Sundial Station** | ~12 builders — deck albedo + deck roughness (plate seams, bolt rings, rust streaks, 46 traffic-wear scuff arcs, hazard band), water normal, foam, panel, vent grille, hazard stripe, hologlyphs ([`zanzibarPlatform.js:144`](../../src/levels/zanzibarPlatform.js:144)+). |
+| **The carts** | **None.** Zero maps on any slot ([`cart.js:118`](../../src/cart.js:118)–`152`). |
+
+So "preserve what we've established" holds further than a first read suggests. The arenas
+already speak this material language — the vinyl's play wear and the deck's traffic scuffs are
+the wear vocabulary this document describes, authored before it was written down. **The one
+genuine gap is the carts**, which is also the highest-visibility surface in the game.
+
+For the arenas the question is therefore *not* "add maps." It is coverage and consistency:
+which authored surfaces still read thin next to their neighbors, and which elements are bare
+filler sitting beside well-authored ones. That is a per-element art pass, tracked per level —
+not a texturing sweep.
+
+When authoring anything new, read the existing builders first: the vinyl floor
+([`arena.js:180`](../../src/arena.js:180)) for wear, the Sundial deck
+([`zanzibarPlatform.js:146`](../../src/levels/zanzibarPlatform.js:146)) for use-driven grime,
+and the Storerooms furniture builders for material variety.
 
 ---
 
@@ -183,8 +197,10 @@ Every material on the hero-surface allowlist carries at least one authored or pr
 **Exempt:** emissive neon (`toneMapped: false`), `testArena`, and small dressing props (booth
 ribs, truss, stage clutter). Exempt surfaces must not be given dummy maps to satisfy the rule.
 
-**Status today: FAILS.** [`cart.js:118`](../../src/cart.js:118) — no maps on any cart slot.
-Automatable later as a static check over the allowlist.
+**Status today: every arena surface on the allowlist PASSES. The carts FAIL** — no maps on any
+slot ([`cart.js:118`](../../src/cart.js:118)). The rule is not a texturing backlog for the
+arenas; it is a floor that the arenas already clear and the carts do not. Automatable later as
+a static check over the allowlist.
 
 ### Rule 2 — no screen filter outside The Storerooms
 
@@ -253,7 +269,11 @@ Live copies of the old rule that remain as annotated historical comments:
 
 - **ART-FILTER-1** — gate the arcade pass to The Storerooms at rest.
 - **ART-EXPO-1** — retire the global exposure lock; per-arena budget.
-- **ART-MAT-1** — apply authored maps to Cart Rave, Sundial, and the carts at runtime.
+- **ART-MAT-1** — authored maps on the **carts** (the only Rule 1 failure). Largely absorbed by
+  CART-MODEL-1, which authors against the contract above.
+- **ART-PASS-\<level\>** — per-level art pass: which authored surfaces read thin, which
+  elements are bare filler beside well-authored neighbors, what must not change. Audited one
+  level at a time.
 - **ART-PALETTE-1** — reconcile 3D `CART_COLORS` with the 2D tokens. Only card that may
   unfreeze the invariant.
 - **CART-MODEL-1** — the Blender rebuild, authored against the cart material contract above.
