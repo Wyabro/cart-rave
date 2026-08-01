@@ -118,7 +118,7 @@ BOOT-PERF-1 · Run 7 strip) → [completed-work.md](./planning/completed-work.md
 
 | # | What | Status |
 |---|------|--------|
-| **FIGHT-VERIFY-1** | owed fight-night verification | 🟢 **agent half DONE** 08-01 — 4 phases: `e5efbfe` focus-ring fix · `533afa9` `npm run podium` (7g results, victory+defeat, 8 cells) · `37a232a` `npm run loadshots` (both loading screens, 3 arena themes + 5 boot beats, 128/128 ×2) · `9f5c9b5` `npm run states` (40 hover/press/focus subjects enumerated from the live CSSOM, 264/265 ×2). **1 bug fixed, 11 filed** — see BACKLOG. Residual = **Wyatt half only** (below). |
+| **FIGHT-VERIFY-1** | owed fight-night verification | 🟢 **agent half DONE** 08-01 — podium/loadshots/states + focus-ring. Residual = **Playtest owed** cards (BACKLOG) — console-seeded; not this parent row. |
 | **HOST-CAP-1** | weak-host toast residual | ✅ **SHIPPED** 08-01 — `score < 50` once/hostship; prod Version `76ebdc37` (HEAD `423008f`) |
 | **BOOT-PERF-1** | idle warm gen-cancel | ✅ **SHIPPED** 08-01 — mid-flight retarget; same deploy |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
@@ -126,17 +126,14 @@ BOOT-PERF-1 · Run 7 strip) → [completed-work.md](./planning/completed-work.md
 
 ### Next actions
 
-1. **RESULTS-ACT-1** — code landed `f42515f` (PLAY AGAIN stays on screen in squat windows).
-   Owed: Wyatt eye on a short desktop window. Remaining FIGHT-VERIFY Medium/Low stay backlog-only.
-2. **FIGHT-VERIFY-1 Wyatt half** — real-match HUD/results feel, friends lobby, non-host podium,
-   parked MP confetti/wilt. Seed: playtest console / BACKLOG `Owed: Wyatt playtest`.
-3. Closed 08-01 Wyatt PASS: **PAUSE-ROW-1** · **MENU-CMD-FEEL-1** · **FOCUS-CYAN-1**
-   (`8d1ee24`). Audit/tooling closed: **ANLX-BIND-1** · **SHEET-ESC-1** · **MENU-NAME-HOVER-1**
-   · **BOOT-METER-1**. Still open: **ASSET-CACHE-1** · **HARNESS-FRIENDS-1**.
-
-4. After coding that needs eyes: `Owed: Wyatt playtest — ID — check` → `npm run dashboard`.
-5. Battery exact-HEAD green is on disk (`battery-2026-08-01T03-31-21…`); keep CC fresh with
-   `npm run dashboard` after battery runs.
+1. **Playtest console** — 10 owed cards in BACKLOG `## Playtest owed (08-01 session)`
+   (RESULTS-ACT-1 · FV-HUD/RESULTS/FRIENDS/REMATCH/WILT/BOOT/LOAD/SILVER · HOST-TOAST-1).
+   Open `.diag-captures/playtest-console.html` via `npm run dashboard` / `playtest:console`.
+2. Closed 08-01 Wyatt PASS: **PAUSE-ROW-1** · **MENU-CMD-FEEL-1** · **FOCUS-CYAN-1**
+   (`8d1ee24`). Audit closed: ANLX-BIND-1 · SHEET-ESC-1 · MENU-NAME-HOVER-1 · BOOT-METER-1.
+   Still open tooling: **ASSET-CACHE-1** · **HARNESS-FRIENDS-1**.
+3. After coding that needs eyes: `Owed: Wyatt playtest — ID — check` → `npm run dashboard`.
+4. Battery exact-HEAD green on disk (`battery-2026-08-01T03-31-21…`); refresh CC after battery.
 
 **07-31 lesson (short):** verification tools only see branches they enter — add the matching
 viewport/pointer cell in the same commit as any scoped CSS. Prefer one real clip when it
@@ -301,9 +298,9 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-08-01 (PAUSE-ROW-1 · MENU-CMD-FEEL-1 · FOCUS-CYAN-1 Wyatt PASS) — Closed on eye at
-`8d1ee24` (pause slots / command hover rail / cyan focus). Next coding eye: **RESULTS-ACT-1**
-(`f42515f`). FIGHT-VERIFY agent half still DONE; Wyatt half still owed. HEAD `626632d`.
+2026-08-01 (playtest console seeded) — BACKLOG `## Playtest owed (08-01 session)` carries
+10 `Owed: Wyatt playtest` cards (RESULTS-ACT-1 · FV-* · HOST-TOAST-1). Regen:
+`npm run playtest:console`. FIGHT-VERIFY parent no longer seeds the console.
 
 2026-08-01 earlier (HOST-CAP-1 + BOOT-PERF-1 shipped; FIGHT-VERIFY-1 agent half closed) —
 Shipped HEAD `423008f` / Worker Version `76ebdc37`. Full battery green 6/6

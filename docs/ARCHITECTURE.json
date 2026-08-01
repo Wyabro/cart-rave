@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-01T07:34:37.090Z",
-    "commit": "a4009d7"
+    "at": "2026-08-01T07:37:18.112Z",
+    "commit": "b5c29f2"
   },
-  "source_digest": "34259332",
+  "source_digest": "99642fa4",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -925,7 +925,7 @@
         "title": "Engineering",
         "counts": {
           "High": 2,
-          "Medium": 17,
+          "Medium": 18,
           "Low": 5,
           "Partial": 1
         },
@@ -1012,6 +1012,12 @@
             "pri": "Medium",
             "item": "HARNESS-FRIENDS-1 — netharness covers quickplay-shaped joins only; friends ready-up/lobby/rematch is manual",
             "notes": "**Filed 08-01** (audit triage). Automated MP is quickplay-path / `?room=` join (`docs/guides/netcode-harness.md` coverage gap). Friends private-room ready-up, CHECKOUT LINE lobby, and rematch stay Wyatt/manual. One scenario later: friends room → ready-up → countdown → rematch. Tooling only — does not replace FIGHT-VERIFY-1 Wyatt half. Extends NET-SIM-1 lane.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "TEST-MARGIN-1 — one qa test runs with no timeout headroom in CI, so any new test anywhere can turn the gate red",
+            "notes": "**Filed 08-01** by LOAD-PROGRESS-1, which tripped it. `tests/party-do/beacons.test.js:46` — *\"stops a flood from evicting a real capture out of the 80-row ring\"* — runs on the **default 5000ms** vitest timeout with almost none to spare: that file took **10681ms** for its 6 tests in the last green CI run (`30688071083`, `b34b2de`) against **4.66s locally**, i.e. CI is ~2× slower and the flood case sits just under the ceiling. **Not a flake** — LOAD-PROGRESS-1's four new cases added 1.28s of real wall clock in the *happy-dom* pool (the mode-entry exit fade), and the *party-do* pool's flood test then timed out on run `30689834838` **twice**, initial and `gh run rerun --failed`, both `Test timed out in 5000ms`. Fixed from the wrong side in `b5c29f2` — those cases now dismiss synchronously (1280ms → 89ms), which **restores the previous balance and adds no margin**; the next test anyone adds, in any pool, can re-trip it. Lever: give that one case an explicit timeout (vitest's own error message says so) or shrink the flood; **do not raise the global `testTimeout`** — that hides real hangs across all 901 tests. Note the workerd pool is the slow one in CI, so it is the natural place for this to surface again. **Does not re-open SEC-BEACON-1** (closed) — the shipped rate limit is fine, only its test's timing margin is at issue.",
             "ship1": null
           },
           {
@@ -1379,7 +1385,7 @@
           {
             "pri": "High",
             "item": "FIGHT-VERIFY-1 — owed fight-night verification",
-            "notes": "Agent half DONE 08-01 (podium/loadshots/states + focus-ring). **Wyatt half = Playtest owed session cards** (RESULTS-ACT-1 · FV-HUD-1 · FV-RESULTS-1 · FV-FRIENDS-1 · FV-REMATCH-1 · FV-WILT-1 · FV-BOOT-1 · FV-LOAD-1 · FV-SILVER-1). Do not treat this parent row as a console seed — those cards carry `Owed: Wyatt playtest`. Handover: [fight-night-ui-handover.md:252+](./fight-night-ui-handover.md).",
+            "notes": "Agent half DONE 08-01 (podium/loadshots/states + focus-ring). **Wyatt half = Playtest owed session cards** (RESULTS-ACT-1 · FV-HUD-1 · FV-RESULTS-1 · FV-FRIENDS-1 · FV-REMATCH-1 · FV-WILT-1 · FV-BOOT-1 · FV-LOAD-1 · FV-SILVER-1). This parent row is documentation only — do not mark it waiting on a human; the session cards carry the seed phrase. Handover: [fight-night-ui-handover.md:252+](./fight-night-ui-handover.md).",
             "ship1": null
           },
           {
