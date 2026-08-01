@@ -295,8 +295,30 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 - `material.envMapIntensity` is a **no-op against `scene.environment`** in this three version — only `scene.environmentIntensity` or a material-owned `envMap` scales IBL.
 - Battery reports without provenance are visible history only — never green readiness evidence. Prefer complete exact-HEAD runs.
 - **Before any public / external-tester playtest: reset the analytics DO** so aggregates are not polluted by dev/harness traffic. Token-gated (SEC-TOKEN-1): `DELETE` with `Authorization: Bearer <ERROR_LOG_TOKEN>` on `/api/analytics` (same secret as `analytics:pull`; never `?token=`). Then re-pull / dashboard after the playtest window.
+- **Stop-hook `stop_hook_active` is inverted from the obvious reading:** `true` means "already continuing because of a prior block" → **return success / do not re-block**; `false` is the normal first Stop where the guard should run. Verified against the shipped `claude` binary, not the docs — `WebFetch` summarized a truncated docs page and confidently reported the opposite polarity *and* a wrong block cap (real cap is 8, `CLAUDE_CODE_STOP_HOOK_BLOCK_CAP`). Inverting it disables the guard on every normal turn while still looking wired up. Grep the binary before trusting a doc summary on hook payload semantics.
+- **`.claude/settings.json` is strict JSON, not JSONC** — a `//` comment there can fail parsing and silently drop *every* hook in the file. Caveats belong in the hook headers and AGENTS.md § Enforcement.
+- **Claude Code permission rules are globs, never regex** — `|` alternation inside `Bash(...)` matches nothing. A space before `*` enforces a word boundary (`Bash(ls *)` ≠ `lsof`), rules match each `&&`/`;`/`|` subcommand independently, and a broad deny beats a narrower allow.
 
 ## Last updated
+
+2026-08-01 (enforcement hooks) — Two AGENTS.md rules that no code enforced are now
+mechanical. `guard-git-add.mjs` gained every `git commit -a` form (`-a`, `-am`, `-sam`,
+`--all`), the `:` / `:(top)` pathspecs, and a `--` split so `git add -- -A` (a file named
+`-A`) stops false-positiving; a `permissions.deny` backstop in `.claude/settings.json`
+covers the common forms if the hook is disabled, but it is glob-only so `-vA`, `:`,
+`:(top)` and a literal `*` stay hook-only. New `tools/verify-head.mjs` + `npm run
+verify:head` is the repo's **first** remote check — there was no `git fetch`/`ls-remote`
+anywhere, so `collectGit`'s ahead/behind (and the dashboard's green "in sync" chip) read a
+local ref that had been stale ten hours. It uses `ls-remote` (zero writes, no
+`FETCH_HEAD`, no lock contention with a concurrent session), resolves `@{upstream}` rather
+than hardcoding `origin/cart-clash`, and splits it on the *first* `/` so `origin/feat/foo`
+works. New `guard-stop-drift.mjs` (Stop) blocks a "done/verified" claim only when real
+drift coincides — untracked files ignored via `--untracked-files=no`, offline degrades to
+never-block. An earlier draft had an "honesty" matcher that exited early on the word
+"unpushed"; that was a one-word bypass (`Done. Verified in HEAD. (unpushed)`) and is
+deleted — honest phrasing passes because it contains no *claim*, not because of a keyword.
+Gates: 976 tests / 89 files green, typecheck + knip + health:check clean. `tests/claudeHooks.test.js`
+(67 cases) pins both matchers. Not yet playtested — no gameplay surface touched.
 
 2026-08-01 (brainstorming skill) — `.agents/skills/brainstorming/` — the dialogue half of
 obra/superpowers' version (1,494 words + a 25KB browser-mockup server → 606, server dropped).

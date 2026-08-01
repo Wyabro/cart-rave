@@ -22,6 +22,19 @@ other tool (playtest console, guides). Read-only; never hand-edited — the mark
 parses (STATUS / BACKLOG / handoff) stays canonical. Agents read `health.json` (same
 model). See [observability.md](./observability.md).
 
+```bash
+npm run verify:head      # is this tree actually in sync with its upstream?
+```
+
+The dashboard's "in sync with origin/…" chip reads the **local** `origin/<branch>` ref, so
+it is only as fresh as the last manual fetch — this tree once showed that chip green
+against a ref ten hours stale. `verify:head` asks the remote directly via `git ls-remote`
+(zero writes: no ref updates, no `FETCH_HEAD`, no lock contention with a concurrent agent
+session) and reports unpushed / behind / dirty-tracked. Exit 0 in sync · 1 drift · 2 setup
+error; `-- --json` for tooling. It runs inside `npm run release:check` and backs the Stop
+hook in AGENTS.md § Enforcement — but stays out of `npm run qa`, because a network call
+must never gate CI or offline work.
+
 ## The one command
 
 ```bash
@@ -168,6 +181,13 @@ to :5173). Natural extension: a `--baseline` compare mode to turn it into a regr
    if it could fire every frame, aggregate first (see matchStats → `match_ended`).
 8. **New dashboard section** → a collector in `tools/lib/projectHealth.mjs` (degrade to
    null, parsers pure + unit-tested) + a render block in `tools/dashboard.mjs`.
+9. **New enforcement hook** → `.claude/hooks/*.mjs`, wired from the committed
+   `.claude/settings.json` (strict JSON — a comment there drops every hook). Export the
+   pure matcher behind an `isMain` guard so `tests/claudeHooks.test.js` can drive it; a
+   matcher nobody tests reads as enforced while enforcing nothing. Fail open — any error
+   exits 0, never wedges a session. Name an escape-hatch env var in the file header, read
+   from the process env and never parsed out of the command string. Document what it
+   blocks, its gaps, and the bypass in AGENTS.md § Enforcement.
 
 Principles (the netcode-harness philosophy — keep them): production code paths, structured
 state over DOM, deterministic control via existing proven levers, flag-gated zero-cost

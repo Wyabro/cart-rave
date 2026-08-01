@@ -1,4 +1,34 @@
 {
+  "permissions": {
+    "deny": [
+      "Bash(git add -A)",
+      "Bash(git add -A *)",
+      "Bash(git add -A*)",
+      "Bash(git add --all)",
+      "Bash(git add --all *)",
+      "Bash(git add .)",
+      "Bash(git add ./)",
+      "Bash(git add :/)",
+      "Bash(git commit -a)",
+      "Bash(git commit -a *)",
+      "Bash(git commit -am *)",
+      "Bash(git commit --all)",
+      "Bash(git commit --all *)",
+      "PowerShell(git add -A)",
+      "PowerShell(git add -A *)",
+      "PowerShell(git add -A*)",
+      "PowerShell(git add --all)",
+      "PowerShell(git add --all *)",
+      "PowerShell(git add .)",
+      "PowerShell(git add ./)",
+      "PowerShell(git add :/)",
+      "PowerShell(git commit -a)",
+      "PowerShell(git commit -a *)",
+      "PowerShell(git commit -am *)",
+      "PowerShell(git commit --all)",
+      "PowerShell(git commit --all *)"
+    ]
+  },
   "hooks": {
     "SessionStart": [
       {
@@ -33,6 +63,18 @@
             "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/guard-protected-paths.mjs\"",
             "timeout": 10,
             "statusMessage": "Checking protected paths"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/guard-stop-drift.mjs\"",
+            "timeout": 15,
+            "statusMessage": "Checking HEAD before claiming done"
           }
         ]
       }

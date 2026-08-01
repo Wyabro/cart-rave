@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-01T18:44:00.141Z",
-    "commit": "60e305d"
+    "at": "2026-08-01T19:34:59.641Z",
+    "commit": "d790199"
   },
-  "source_digest": "ebda5b2b",
+  "source_digest": "ba64dd40",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -846,7 +846,10 @@
     "`MSG.readyToggle` without a `ready` field is a TOGGLE — programmatic ready must send `{ ready: true }`.",
     "`material.envMapIntensity` is a no-op against `scene.environment` in this three version — only `scene.environmentIntensity` or a material-owned `envMap` scales IBL.",
     "Battery reports without provenance are visible history only — never green readiness evidence. Prefer complete exact-HEAD runs.",
-    "Before any public / external-tester playtest: reset the analytics DO so aggregates are not polluted by dev/harness traffic. Token-gated (SEC-TOKEN-1): `DELETE` with `Authorization: Bearer <ERROR_LOG_TOKEN>` on `/api/analytics` (same secret as `analytics:pull`; never `?token=`). Then re-pull / dashboard after the playtest window."
+    "Before any public / external-tester playtest: reset the analytics DO so aggregates are not polluted by dev/harness traffic. Token-gated (SEC-TOKEN-1): `DELETE` with `Authorization: Bearer <ERROR_LOG_TOKEN>` on `/api/analytics` (same secret as `analytics:pull`; never `?token=`). Then re-pull / dashboard after the playtest window.",
+    "Stop-hook `stop_hook_active` is inverted from the obvious reading: `true` means \"already continuing because of a prior block\" → return success / do not re-block; `false` is the normal first Stop where the guard should run. Verified against the shipped `claude` binary, not the docs — `WebFetch` summarized a truncated docs page and confidently reported the opposite polarity *and* a wrong block cap (real cap is 8, `CLAUDE_CODE_STOP_HOOK_BLOCK_CAP`). Inverting it disables the guard on every normal turn while still looking wired up. Grep the binary before trusting a doc summary on hook payload semantics.",
+    "`.claude/settings.json` is strict JSON, not JSONC — a `//` comment there can fail parsing and silently drop *every* hook in the file. Caveats belong in the hook headers and AGENTS.md § Enforcement.",
+    "Claude Code permission rules are globs, never regex — `|` alternation inside `Bash(...)` matches nothing. A space before `*` enforces a word boundary (`Bash(ls *)` ≠ `lsof`), rules match each `&&`/`;`/`|` subcommand independently, and a broad deny beats a narrower allow."
   ],
   "workstreams": {
     "queue": [
@@ -925,7 +928,7 @@
         "title": "Engineering",
         "counts": {
           "High": 2,
-          "Medium": 21,
+          "Medium": 22,
           "Low": 5,
           "Partial": 1
         },
@@ -1072,6 +1075,12 @@
             "pri": "Medium",
             "item": "PERF-WATCH-1 — auto-quality step-up path",
             "notes": "Watchdog demotion is irreversible per session (no step-up anywhere; DEV-only warn; 2 tier steps + 2 renderScale steps; attract render-cost and game frame-delta both judged against one 20.5ms bar). Decide after WARM-IGPU-1 P0b telemetry shows how often it bites.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "AUTOQ-GHOST-1 — a capture shows `renderScaleMul` at 0.7 with **no** `qualityStepDown` event and tier still `medium`, so the Phase 0b step-down telemetry cannot be trusted as-is",
+            "notes": "**Filed 08-01**, found re-reading the WARM-IGPU-1 guest captures for a different question. **The contradiction, from one page session** (cap-206 / 207 / 208 share an identical boot timeline — `menu-ready 1158`, `world-ready 3864`, `play-entry 2470640` — so this is one load, not three): cap-206 reports `runtime.renderScaleMul: 1`; cap-207 (19:54:03.688Z) and cap-208 (19:54:15.295Z) report **`renderScaleMul: 0.7` with `qualityTier: \"medium\"`**. **Zero `qualityStepDown` events exist in any of cap-205…214** (grep-verified across all ten bundles), and the ring did not evict — cap-208 holds 113 events starting at `seq 1 boot/diag-installed` against `EVENT_BUFFER_MAX = 512`. **Why that cannot happen under the code as written:** `sessionRenderScaleMul` is module-level state in `qualityTiers.js:124`, stepping `[1, 0.85, 0.7]` (`:123`), mutated by exactly two functions — `stepDownSessionRenderScale()` (`:192`) and `resetSessionRenderScaleForTests()` (`:201`). Its only production caller is `autoQuality.js:111`, which is gated on `atFloor` (`currentTier === \"low\"`, `:80-82`) and which **unconditionally** records `qualityStepDown` on every successful step (`:129-137`). So 0.7 requires **two** steps taken at tier LOW, while the probe reports tier medium and the ring reports no steps at all. **Three candidates — distinguish, do not assume:** (a) the watchdog stepped twice and the diag event did not land, which would make WARM-IGPU-1's Phase 0b instrumentation unreliable exactly where **PERF-WATCH-1** is parked waiting on it; (b) `gameplayDiagnostics.js:329` reads `settingsStore.getState().qualityTier` — the **stored preference** — while `setSessionQualityTier` moved the **effective** tier to low, in which case every capture's reported tier is misleading and warm-igpu-1.md:23's \"both auto-tiered **medium**\" is wrong for at least Laptop A; (c) a path outside `autoQuality` moves the multiplier. **(b) is cheapest to check and has the widest blast radius** — the reported tier is load-bearing for warm-igpu-1.md's evidence table and for PERF-WATCH-1's decision. **Lever:** confirm whether the session override writes the store slot the probe reads; if not, have the `runtime` probe report **both** stored and effective tier. **Not the lever: adding a step-up path** — that is PERF-WATCH-1 and stays untouched. **Does not re-open WARM-IGPU-1** (closed 07-30, Wyatt prod PASS): the warm stall itself is not in question, only whether its Phase 0b telemetry says what we read it as saying. Same family as **HARNESS-NULL-1** / **TEST-COUNT-1** — an instrument reporting something it has not actually established.",
             "ship1": null
           },
           {
