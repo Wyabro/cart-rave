@@ -115,8 +115,19 @@ const readRound = () => /** @type {any} */ (window).__ccDiag.snapshot("round");
 /**
  * Is the thing on screen actually the in-match HUD? Overlays replace the subject without
  * touching any store the pin reads, so this is a DOM question, not a state question.
+ *
+ * Visibility is computed-style, NOT `offsetParent !== null`: `#esc-overlay` and
+ * `#cr-softgl-notice` are `position: fixed` and per CSSOM-View `offsetParent` is null for
+ * every fixed element, so an offsetParent probe can never see them (SHEET-ESC-1). Same
+ * pattern as `tools/podium.mjs` / loadshots / states. `escOffsetParentNull` is reported
+ * alongside purely as evidence.
  */
 const readSubject = () => {
+  const shownEl = (el) => {
+    if (!el || !el.isConnected) return false;
+    const cs = getComputedStyle(el);
+    return cs.display !== "none" && cs.visibility !== "hidden" && Number(cs.opacity) > 0.01;
+  };
   const esc = document.getElementById("esc-overlay");
   const softGl = document.getElementById("cr-softgl-notice");
   const feed = document.querySelector(".hud-feed");
@@ -128,8 +139,10 @@ const readSubject = () => {
     scoreLabelShown: [...document.querySelectorAll("#hud .hud-scoreLabel")].filter(
       (el) => getComputedStyle(el).display !== "none",
     ).length,
-    escVisible: Boolean(esc) && /** @type {HTMLElement} */ (esc).offsetParent !== null,
-    softGlVisible: Boolean(softGl) && /** @type {HTMLElement} */ (softGl).offsetParent !== null,
+    escVisible: shownEl(esc),
+    // * Printed, not checked — proves the old offsetParent probe was always null (fixed).
+    escOffsetParentNull: esc ? esc.offsetParent === null : null,
+    softGlVisible: shownEl(softGl),
     timerText: document.querySelector(".hud-timer-num")?.textContent?.trim() ?? "",
     feedRows: document.querySelectorAll(".hud-feed-row").length,
     feedShown: Boolean(feed) && getComputedStyle(/** @type {Element} */ (feed)).display !== "none",
@@ -222,6 +235,11 @@ async function captureCell(browser, baseUrl, { arena, cell, outDir, settleFrames
     // * freezes physics AND frame timing (main.js:5157), leaving the pinned clock looking
     // * perfect. Recover once via the production RESUME path, then fail loudly if it sticks.
     let subject = await page.evaluate(readSubject);
+    // * Printed, not checked: evidence for the offsetParent note on readSubject. If this
+    // * reads true while the pause overlay is HIDDEN, it is true while it is shown too —
+    // * `position: fixed` makes offsetParent null unconditionally (SHEET-ESC-1).
+    log(`[cell] ${id} — #esc-overlay offsetParent===null → ${subject.escOffsetParentNull}`);
+    card.escOffsetParentNull = subject.escOffsetParentNull;
     if (subject.escVisible) {
       log(`[cell] ${id} — pause overlay was open; resuming and re-settling`);
       card.pauseRecovered = true;
@@ -234,6 +252,8 @@ async function captureCell(browser, baseUrl, { arena, cell, outDir, settleFrames
       }, settleFrames);
       subject = await page.evaluate(readSubject);
     }
+    // * Default matrix: esc should already be closed (computed style), recovery unfired.
+    // * Open-pause → recovery is a one-off probe, not something default `npm run sheet` proves.
     tally.check(
       `${id} · subject is the in-match HUD`,
       subject.escVisible === false && subject.softGlVisible === false && subject.timerText !== "",

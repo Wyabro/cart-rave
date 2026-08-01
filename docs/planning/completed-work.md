@@ -2,7 +2,7 @@
 
 > Historical log. Past entries may still say "Cart Rave" / `next-level` — that is intentional. Living naming rules: [brand.md](../brand.md).
 
-**Last Updated:** July 31, 2026
+**Last Updated:** August 1, 2026
 
 > **This doc = the past** — the single home for historical/completed items. For what works
 > *today* see [project-state.md](./project-state.md); for forward plans see [ROADMAP.md](./ROADMAP.md).
@@ -68,6 +68,10 @@ Live-at values are the deployed commit / Cloudflare Version at close.
 | — | ANLX-ATTRACT-1 mid-round joins booked phantom matches | ✅ CLOSED 07-31 — live at `2e85f0b` / Version `4083335f`. Acceptance below |
 | — | ANLX-BULK-1 short `loss` bulk poisoned product analytics | ✅ CLOSED 07-31 — tool-sourced / intentional-on-machine, not player-path. L1 `#summary` floor `MIN_MATCH_DURATION_MS=3000` + L2 client skip of short non-null `match_ended`. Tests: `analyticsGating` + `analyticsSummaryFloor` |
 | — | ANLX-BIND-1 missing `ANALYTICS_LOG` silent discard on POST | ✅ CLOSED 08-01 — `party/index.ts` POST `/api/analytics` mirrors ERROR_LOG: `else if (!env.ANALYTICS_LOG) console.log(…slice(0,2000))`; 204 kept; GET 500 unchanged. `qa` does not hit the missing-binding branch (party-do always binds). |
+| — | SHEET-ESC-1 sheet pause-overlay gate was dead (`offsetParent` on fixed) | ✅ CLOSED 08-01 — `tools/sheet.mjs` `readSubject` uses computed-style `shownEl` for esc + softGl; `escOffsetParentNull` printed not checked. Default sheet = closed path; open-pause recovery one-off only. |
+| — | PAUSE-ROW-1 pause action row tug on hover | ✅ CLOSED 08-01 — Wyatt PASS. `.esc-action-slot` flex cells; skew+lift on the button only (`8d1ee24`). |
+| — | MENU-CMD-FEEL-1 main-menu command rows had no CSS hover/press | ✅ CLOSED 08-01 — Wyatt PASS. White 5px left rail + hotter yellow (`8d1ee24`). |
+| — | FOCUS-CYAN-1 focus rings mixed yellow dashed / designed cyan | ✅ CLOSED 08-01 — Wyatt PASS. All cyan solid+glow; yellow dashed retired; states guard flipped (`8d1ee24`). |
 | — | SEC-TOKEN-1 admin tokens out of query params | ✅ CLOSED — `Authorization: Bearer` only via `party/adminAuth.ts` (`requireAdminToken`); query `?token=` rejected; pull tools send Bearer |
 | — | CARGO-RACE-1 bay built empty if grocery GLTFs lose the load race | ✅ 07-30 — bays self-heal on init resolve (`createCargoBay` queues pre-init; `buildPool` populates). Cold-solo probe `[0,0,0,0]` → `[18,18,18,18]` PASS |
 | — | SHEET-1 in-match contact-sheet tool | ✅ BUILT + PROVEN 07-31 — `npm run sheet` / `--all`; subject-is-HUD gate; residual gaps → FIGHT-VERIFY-1 ([sheet-1.md](./sheet-1.md)) |

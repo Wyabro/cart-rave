@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (also runs inside `npm run qa`).
-> Generated 2026-08-01 at commit `85f0483` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
-> Source digest: `cc519352`
+> Generated 2026-08-01 at commit `626632d` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
+> Source digest: `07e0d8e9`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -18,7 +18,7 @@ Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep a
 
 ## ACTIVE CARD
 
-PAUSE-ROW-1 (pause action row isolation) — 🟡 unpushed: RESUME / RESTART / MAIN MENU
+RESULTS-ACT-1 — code landed `f42515f` (PLAY AGAIN stays on screen in squat windows)
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 

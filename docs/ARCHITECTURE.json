@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-01T05:02:24.786Z",
-    "commit": "f42515f"
+    "at": "2026-08-01T05:24:14.068Z",
+    "commit": "626632d"
   },
-  "source_digest": "3b5c3023",
+  "source_digest": "f5cf4e73",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -891,10 +891,9 @@
       }
     ],
     "next_actions": [
-      "PAUSE-ROW-1 (pause action row isolation) — 🟡 unpushed: RESUME / RESTART / MAIN MENU",
-      "MENU-CMD-FEEL-1 + FOCUS-CYAN-1 — 🟡 unpushed v3: focus rings all cyan solid+glow",
-      "RESULTS-ACT-1 still the other real FIGHT-VERIFY product defect (below-fold CTAs on",
-      "Audit add-ons: ANLX-BIND-1 closed 08-01 (ERROR_LOG-twin log on missing binding).",
+      "RESULTS-ACT-1 — code landed `f42515f` (PLAY AGAIN stays on screen in squat windows).",
+      "FIGHT-VERIFY-1 Wyatt half — real-match HUD/results feel, friends lobby, non-host podium,",
+      "Closed 08-01 Wyatt PASS: PAUSE-ROW-1 · MENU-CMD-FEEL-1 · FOCUS-CYAN-1",
       "After coding that needs eyes: `Owed: Wyatt playtest — ID — check` → `npm run dashboard`.",
       "Battery exact-HEAD green is on disk (`battery-2026-08-01T03-31-21…`); keep CC fresh with"
     ],
@@ -1317,7 +1316,7 @@
           {
             "pri": "High",
             "item": "RESULTS-ACT-1 — PLAY AGAIN / MAIN MENU render below the fold in the short-window branch",
-            "notes": "**Found 07-31 by `npm run podium`** (FIGHT-VERIFY-1 Phase A), reproduced on two consecutive runs, both outcomes. `results.css:81` (`@media (max-height:640px) and (min-width:769px) and (pointer:fine)`) stacks the panel and sets `overflow-y:auto`, but nothing keeps the actions row inside the viewport — so the reward decision is entirely off screen and only reachable by scrolling a panel that gives no scroll affordance. Measured: **900×390** `.results-actions` top 610.6 / bottom 685.6 vs viewport 390 (**295px below the fold**, panel scrollHeight 686 vs clientHeight 390); **1025×600** top 727.3 / bottom 805.6 vs viewport 600 (**205px below**, scrollHeight 804 vs clientHeight 600). Both are `pointer:fine` squat windows — a resized desktop browser or a landscape laptop — exactly the case the CSS comment says it was written for (\"a landscape 812x375, a squat laptop window\"). Coarse-pointer phones take the `:538` full-bleed branch instead and are fine (390×844 passes). Evidence: `.diag-captures/podium/classicRecord-{victory,defeat}-{900x390,1025x600}-chrome.png` + the `actions are on screen` check row. Belongs to FIGHT-VERIFY-1's owed pass.",
+            "notes": "**Code landed `f42515f` 08-01** — keep PLAY AGAIN on screen in squat windows. **Owed: Wyatt eye.** Found 07-31 by `npm run podium` (FIGHT-VERIFY-1 Phase A). Was: `@media (max-height:640px)` stacked panel with overflow but actions off-screen (900×390 / 1025×600).",
             "ship1": null
           },
           {
@@ -1353,7 +1352,7 @@
           {
             "pri": "Medium",
             "item": "MENU-CMD-FEEL-1 — the main menu's seven command rows have no CSS hover or press feedback at all",
-            "notes": "**Found 07-31 by `npm run states`** (FIGHT-VERIFY-1 Phase B), reproduced on two consecutive runs, and confirmed by eye on the crops. Every CSS interactive-state rule that targets a `.cr-btn.cr-cmd` row — SOLO, ARENA, CUSTOMIZE, the lot — resolves to **zero computed change**. The *only* thing that moves is a JS-written inline `transform` on the inner span: `wireMenuPressFeedback` (`src/cart-rave-menu.js:1997-2019`) runs `animateButtonPress(target, { duration: 70, scale: 0.94 })` on pointerdown and a `wireHoverFeedback` scale of `1.03`. Three separate rules are neutralised, each at **equal specificity, decided by source order**: (1) `.cr-btn:hover` / `:active` (`cart-rave-menu.css:418-424`) are overridden by `.cr-btn.cr-cmd:hover/:focus-visible/:active` (`:3411-3416`), which sets `transform: skewX(-8deg); box-shadow: none` — byte-identical to the rest state at `:3362-3376`. That override is **deliberate and documented** (`:3406-3410`), so it is not the bug; the bug is that nothing replaced the feedback it removed. (2) `.cr-cmd:hover .cr-btn-label { color: var(--color-sticker-white) }` (`:3405`) changes nothing: on the selected row `.cr-cmd.is-selected .cr-btn-label { color: var(--color-ink) }` (`:3427`, later, same specificity) wins, and on an unselected row the label already inherits that colour via `.cr-btn-label { color: inherit }` (`:444-446`). Measured across **all 5 visible rows individually**, not just the first. Net effect: a 3% label scale is the entire affordance on the primary controls of the game — visible in `.diag-captures/states/menu--cr-btn-cr-cmd-{rest,hover,active}.png`, where rest / hover / active are essentially indistinguishable. `:focus-visible` is fine (yellow dashed ring, clearly visible). Contrast `.cr-btn` on the settings screen, which gets a real CSS delta (`transform: translate(-1px,-2px)` + slab shadow) — the CSS works, it is just switched off for `.cr-cmd`.",
+            "notes": "✅ **CLOSED 08-01** — Wyatt PASS. White 5px left rail + hotter yellow hover at `8d1ee24` (paired with FOCUS-CYAN-1). Was: cascade left only a 3% JS label scale; CSS hover/press deltas were neutralized by equal-specificity `.cr-cmd` overrides.",
             "ship1": null
           },
           {
@@ -1477,7 +1476,7 @@
             "pri": "Medium",
             "id": "SHEET-ESC-1",
             "item": "`tools/sheet.mjs`'s pause-overlay gate is dead code",
-            "notes": "**Found 07-31 while building `tools/podium.mjs`.** `sheet.mjs:126` computes `escVisible` as `esc.offsetParent !== null`, but `#esc-overlay` is `position: fixed` (`pauseOverlay.css:12`) and per CSSOM-View `offsetParent` is **null for every fixed-position element**, shown or hidden. Measured live on two runs: `#esc-overlay offsetParent===null → true` with the pause overlay closed. So `escVisible` is permanently `false` — the `subject is the in-match HUD` check's `esc=false` clause is vacuous, and the pause-recovery branch (`sheet.mjs:256-267`, the one the comment credits with catching a cell that captured the PAUSE overlay and still passed 4/4) can never fire again. Fix: use computed style, as `tools/podium.mjs`'s `readSubject` does — `display !== \"none\" && visibility !== \"hidden\" && opacity > 0.01` — and keep the `offsetParent` reading only as printed evidence. Low blast radius, tools-only.",
+            "notes": "✅ **CLOSED 08-01** — `readSubject` uses computed-style `shownEl` for esc + softGl (both `position: fixed`); `escOffsetParentNull` printed not checked. Default `npm run sheet` = closed path only; open-pause recovery is one-off. Mirror of podium/loadshots/states.",
             "ship1": null
           },
           {

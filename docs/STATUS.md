@@ -126,19 +126,16 @@ BOOT-PERF-1 · Run 7 strip) → [completed-work.md](./planning/completed-work.md
 
 ### Next actions
 
-1. **PAUSE-ROW-1** (pause action row isolation) — 🟡 unpushed: RESUME / RESTART / MAIN MENU
-   each sit in an `.esc-action-slot` flex cell; skew+lift stay on the button. Hover one should
-   not tug the row. Lifts kept. Owed: Wyatt eye in-match Esc.
-2. **MENU-CMD-FEEL-1** + **FOCUS-CYAN-1** — 🟡 unpushed v3: focus rings all cyan solid+glow
-   (yellow dashed retired; states guard flipped). Command hover = white 5px left rail + hotter
-   yellow (v2 opacity nudge was invisible). Owed: hard-refresh + Wyatt eye.
-3. **RESULTS-ACT-1** still the other real FIGHT-VERIFY product defect (below-fold CTAs on
-   squat windows). Remaining FIGHT-VERIFY Medium/Low stay backlog-only.
-4. **Audit add-ons:** **ANLX-BIND-1** closed 08-01 (ERROR_LOG-twin log on missing binding).
+1. **RESULTS-ACT-1** — code landed `f42515f` (PLAY AGAIN stays on screen in squat windows).
+   Owed: Wyatt eye on a short desktop window. Remaining FIGHT-VERIFY Medium/Low stay backlog-only.
+2. **FIGHT-VERIFY-1 Wyatt half** — real-match HUD/results feel, friends lobby, non-host podium,
+   parked MP confetti/wilt. Seed: playtest console / BACKLOG `Owed: Wyatt playtest`.
+3. Closed 08-01 Wyatt PASS: **PAUSE-ROW-1** · **MENU-CMD-FEEL-1** · **FOCUS-CYAN-1**
+   (`8d1ee24`). Audit add-ons closed same window: **ANLX-BIND-1** · **SHEET-ESC-1**.
    Still open: **ASSET-CACHE-1** · **HARNESS-FRIENDS-1**. **FRIENDS-REJOIN-1** closed.
 
-5. After coding that needs eyes: `Owed: Wyatt playtest — ID — check` → `npm run dashboard`.
-6. Battery exact-HEAD green is on disk (`battery-2026-08-01T03-31-21…`); keep CC fresh with
+4. After coding that needs eyes: `Owed: Wyatt playtest — ID — check` → `npm run dashboard`.
+5. Battery exact-HEAD green is on disk (`battery-2026-08-01T03-31-21…`); keep CC fresh with
    `npm run dashboard` after battery runs.
 
 **07-31 lesson (short):** verification tools only see branches they enter — add the matching
@@ -304,12 +301,15 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-08-01 (HOST-CAP-1 + BOOT-PERF-1 shipped; FIGHT-VERIFY-1 agent half closed) — Shipped HEAD
-`423008f` / Worker Version `76ebdc37` (HOST-CAP-1 · BOOT-PERF-1 + stack). Full battery green 6/6
+2026-08-01 (PAUSE-ROW-1 · MENU-CMD-FEEL-1 · FOCUS-CYAN-1 Wyatt PASS) — Closed on eye at
+`8d1ee24` (pause slots / command hover rail / cyan focus). Next coding eye: **RESULTS-ACT-1**
+(`f42515f`). FIGHT-VERIFY agent half still DONE; Wyatt half still owed. HEAD `626632d`.
+
+2026-08-01 earlier (HOST-CAP-1 + BOOT-PERF-1 shipped; FIGHT-VERIFY-1 agent half closed) —
+Shipped HEAD `423008f` / Worker Version `76ebdc37`. Full battery green 6/6
 (`battery-2026-08-01T03-31-21-188Z.json`). Playtest console auto-seeds from STATUS/BACKLOG.
-STATUS size trim; INPUT-KB-1 closed out of open High. **FIGHT-VERIFY-1 agent half done** in four
-phases (`e5efbfe` focus-ring fix · `533afa9` podium · `37a232a` loadshots · `9f5c9b5` states) —
-three new on-demand rigs, 1 bug fixed and 11 filed; residual is the Wyatt half only.
+STATUS size trim; INPUT-KB-1 closed. FIGHT-VERIFY agent half: four phases
+(`e5efbfe` · `533afa9` podium · `37a232a` loadshots · `9f5c9b5` states).
 
 2026-07-31 — HUD-FEED-1 · MENU-HINT-1 · HUD-CHIPS-1 Wyatt phone PASS (Version `85087c10`);
 touch sheet cells `0da5c4c`. No active card; FIGHT-VERIFY-1 residual = Wyatt real-match half.
