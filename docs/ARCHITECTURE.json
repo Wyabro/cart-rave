@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-01T18:33:03.870Z",
-    "commit": "e37c9c6"
+    "at": "2026-08-01T18:37:34.903Z",
+    "commit": "35859cc"
   },
-  "source_digest": "a67d68b8",
+  "source_digest": "89846b53",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -925,7 +925,7 @@
         "title": "Engineering",
         "counts": {
           "High": 2,
-          "Medium": 20,
+          "Medium": 21,
           "Low": 5,
           "Partial": 1
         },
@@ -1042,6 +1042,12 @@
             "pri": "Medium",
             "item": "WARM-SOLO-1 — solo post-`carts-ready` stall (WARM-IGPU-1 residual)",
             "notes": "Laptop A cap-206 (**solo**) took a 6.4s longtask ~1.9s after `carts-ready`, inside the countdown. WARM-IGPU-1's Lever A does **not** cover it: arena rotation is quickplay-only, and solo's flyover warm already runs inside `ensureSessionCartsReady`. Proxy evidence says the residual is driver-side first-draw cost (a 13.1s menu-warm frame carried only 235ms of attributed span time), so raising budgets will not help. Candidate mechanism worth checking first: scene content added *after* the warm pass (CSS2D nametags, cargo bays — CARGO-RACE-1's self-heal adds 18–30 meshes per cart, announcer/VFX) introduces new materials whose programs link at the first live countdown draw. **Work only on real telemetry** (`warmupSettle` / longframe spans from a weak-GPU playtester), never on speculation — no iGPU hardware available to reproduce.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "GIT-INDEX-1 — concurrent agent sessions share one git index, so `git commit` ships work the committing session never staged",
+            "notes": "**Filed 08-01 after it fired TWICE in one day, in both directions.** (1) An agent's uncommitted `docs/ARCHITECTURE.json` was swept into another session's `64b49d2` (\"chore(claude): enforce three AGENTS.md rules as Claude Code hooks\"), leaving HEAD briefly carrying a manifest that described `CC-COHERE-1` / `CC-TOKEN-1` / `CC-STRIPE-1` while the committed BACKLOG had none of those rows. (2) The reverse: `.agents/skills/brainstorming/SKILL.md` plus 9 lines of `docs/STATUS.md`, staged-but-uncommitted by the other session, rode along inside `35859cc` (CC-COHERE-1) — then got pushed with it. **Mechanism:** one working tree = one `.git/index`. `git add <paths>` is additive and well-behaved, but **`git commit` with no pathspec commits the ENTIRE index**, including whatever another session staged seconds earlier. Careful staging by one session does not protect it from another session's commit. **Why the existing guard misses it:** `.claude/hooks/guard-git-add.mjs` (`64b49d2`) enforces the AGENTS.md \"never `git add -A`\" rule — but **neither incident involved `git add -A`**. Both used correct, narrow `git add <explicit paths>`. The leak is one step later, at `git commit`, which the guard does not inspect. **The damage so far was only attribution — that is luck, not safety.** The real failure mode is a session committing another session's *half-finished* edit: it ships under the committing session's green `qa` run, having never been gated on its own, and the authoring session then sees a clean tree and believes it already landed. **Levers, cheapest first:** (a) make `git commit -- <paths>` the convention — with a pathspec, git commits those paths from the working tree and ignores the rest of the index; (b) extend `guard-git-add.mjs` (or add a sibling) to intercept pathspec-less `git commit` and refuse/warn when the index contains paths this session did not stage — the hook already has the interception point, it just watches the wrong verb; (c) structural fix — one git worktree per session, which gives each its own index. The repo **already uses** `.claude/worktrees/` for some agent work, so this is an existing pattern to extend rather than a new mechanism. Related in character to **HARNESS-NULL-1**: a process that cannot demonstrate it did what it claims.",
             "ship1": null
           },
           {
