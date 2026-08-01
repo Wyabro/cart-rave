@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-01T05:40:47.636Z",
-    "commit": "5d5ab98"
+    "at": "2026-08-01T06:09:04.734Z",
+    "commit": "824b0a1"
   },
-  "source_digest": "d559c60a",
+  "source_digest": "0018f200",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1322,13 +1322,13 @@
           {
             "pri": "Medium",
             "item": "HUD-BOOST-PODIUM-1 — BOOST slab stays on screen through the whole podium and lands on MAIN MENU",
-            "notes": "**Found 07-31 by `npm run podium`.** The keyboard/gamepad boost meter (`.hud-boost`, \"BOOST … 100\") is still painted over the results overlay at every non-touch viewport. Visible bottom-centre at 1920×1080; at **390×844 it sits directly on top of the MAIN MENU button**. Two independent causes, both needed for a fix: (1) `hud.js:1997-2002` — `update()` early-returns on `suppressHud` (which is `escOpen \\",
+            "notes": "✅ **CLOSED 08-01** — `824b0a1` replaced the eight-name allow-list with `#hud.hud-suppressed > * { display: none !important; }`. `> *` rather than naming today's children, because naming them recreates the same soft type-list that let `.hud-boost` escape. `npm run podium` 80/80 → **88/88 ×2** on a new `no gameplay HUD over the podium` check; **negative control** — with the old CSS restored it fails every cell naming `hud-region-stage · hud-region-pod · hud-hitmarker · hud-edge-danger`, so it detects the bug rather than passing by construction. Pause/resume probed live (in-match 7 rendered children → paused 0 → resumed 7). **Was:** two layers — `hud.js` `update()` early-returns on `suppressHud` (`escOpen \\",
             "ship1": null
           },
           {
             "pri": "Low",
             "item": "RESULTS-TOAST-1 — unlock toast collides with the results headline in short windows",
-            "notes": "**Observed 07-31 by `npm run podium`.** The `◆ UNLOCKED` challenge toast (`main.js:2281`, `showChallengeToast`, 5000ms) is a HUD element that is not covered by `hud-suppressed` either, and it paints over `#results-overlay`. At 1920×1080 it lands in empty space under the verdict and reads as intentional; at **1025×600 it is painted straight through `THE STORE IS NOW CLOSED` and the `PODIUMBOT WINS — 20 PTS` verdict line**. Non-deterministic (only fires when a round actually grants an unlock), so it is deliberately NOT a check row in `tools/podium.mjs` — it will simply appear in some montage cells and not others. Evidence: `.diag-captures/podium/classicRecord-victory-1025x600-chrome.png`. Same root family as HUD-BOOST-PODIUM-1: the podium suppression list is an allow-list that has fallen behind the HUD.",
+            "notes": "✅ **CLOSED 08-01 — structurally, by `824b0a1`.** `.hud-toast` is built into `.hud-region-stage` (`hud.js:1862`), so HUD-BOOST-PODIUM-1's `#hud.hud-suppressed > *` hides it during podium along with every other region. **Closed on that structural basis and not on a capture, deliberately:** the toast only fires when a round actually grants an unlock, so demanding a toast-bearing cell would gate this on a non-deterministic event. For the same reason it is correctly NOT a check row in `tools/podium.mjs`; the `no gameplay HUD over the podium` check covers it implicitly, since a visible toast would make `.hud-region-stage` a leaked child. **Was:** the `◆ UNLOCKED` toast (`main.js:2281`, 5000 ms) painted over `#results-overlay` — straight through `THE STORE IS NOW CLOSED` and the verdict line at 1025×600. Same root family as HUD-BOOST-PODIUM-1: an allow-list that had fallen behind the HUD.",
             "ship1": null
           },
           {
