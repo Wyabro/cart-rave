@@ -21,10 +21,16 @@
  * WHY A SIBLING TOOL AND NOT `sheet --podium`: four of `captureCell`'s eight checks invert
  * the moment the round ends. `snapshot("round").remainingMs` is `null` outside RUNNING
  * (gameplayDiagnostics.js:88-92), `HUD.clearFeed()` runs in `endRound` (main.js:4736), and
- * `#hud`'s children are `display:none !important` under `hud-suppressed`, which
- * `hud.js:1975` sets for `roundPhase === "podium"` — so the sheet's touch-branch and
- * timer-text gates are meaningless here. Branching a one-day-old green file four ways is
- * worse than a sibling that shares plumbing through tools/lib/.
+ * `#hud` gets `.hud-suppressed`, which `hud.js:1975` sets for `roundPhase === "podium"` — so
+ * the sheet's touch-branch and timer-text gates are meaningless here. Branching a one-day-old
+ * green file four ways is worse than a sibling that shares plumbing through tools/lib/.
+ *
+ * This header used to claim `#hud`'s children were already `display:none !important` under
+ * that class. They were not — the rule was an 8-name allow-list that never named `.hud-boost`,
+ * so the BOOST meter sat over the results screen in every capture this tool took and the doc
+ * said it could not. Fixed 08-01 (HUD-BOOST-PODIUM-1: `#hud.hud-suppressed > *`), and the
+ * `no gameplay HUD over the podium` check below now proves it per cell instead of asserting it
+ * in a comment.
  *
  * EXIT CONTRACT (CheckTally, harness.mjs:445-450): 0 when every cell pinned, landed on
  * podium with the intended winner, showed the real results podium, fitted the panel, and
@@ -201,12 +207,33 @@ const readSubject = () => {
   const escEl = document.getElementById("esc-overlay");
   const softGl = document.getElementById("cr-softgl-notice");
   const overlay = document.getElementById("results-overlay");
+
+  // * HUD-BOOST-PODIUM-1: the results overlay is not the only thing on screen. #hud sits at
+  // * z-index 20000 under the overlay's 25000 + 78%-opaque scrim, so leaked gameplay chrome
+  // * reads through it AND still occupies its screen rect — the BOOST meter used to land on
+  // * top of MAIN MENU at 390x844. Probe DIRECT CHILDREN only: getComputedStyle on a
+  // * descendant still returns that descendant's own `display` inside a hidden parent, so a
+  // * deep walk would lean entirely on height>0 and name irrelevant inner nodes. `#hud > *`
+  // * is exactly the set `#hud.hud-suppressed > *` hides, so probe and rule stay coupled.
+  const hud = document.getElementById("hud");
+  const hudLeaks = hud
+    ? [...hud.children]
+        .filter((el) => {
+          const cs = getComputedStyle(el);
+          return cs.display !== "none" && el.getBoundingClientRect().height > 0;
+        })
+        .map((el) => el.className || el.tagName.toLowerCase())
+    : [];
+
   const base = {
     innerWidth: window.innerWidth,
     innerHeight: window.innerHeight,
     escVisible: shownEl(escEl),
     escOffsetParentNull: escEl ? escEl.offsetParent === null : null,
     softGlVisible: shownEl(softGl),
+    hudPresent: Boolean(hud),
+    hudSuppressed: hud ? hud.classList.contains("hud-suppressed") : false,
+    hudLeaks,
   };
   if (!overlay) return { ...base, present: false, shown: false };
 
@@ -498,6 +525,21 @@ async function captureCell(browser, baseUrl, { arena, cell, outDir, settleFrames
       `display=${subject.display} cols=${subject.cols} winner=${subject.winnerCols} you=${subject.youCols} `
         + `badgeSvg=${subject.winnerBadgeSvg} verdict="${subject.verdict}" receipt=${subject.receiptLines} `
         + `esc=${subject.escVisible} softGl=${subject.softGlVisible}`,
+    );
+
+    // * Order matters: assert the HUD is PRESENT and SUPPRESSED before asserting nothing
+    // * leaked. A missing #hud, or one that never got .hud-suppressed, would otherwise pass
+    // * this vacuously with zero leaks — the D-SHEET-1 rule, applied to an absence.
+    card.hudLeaks = subject.hudLeaks;
+    tally.check(
+      `${id} · no gameplay HUD over the podium`,
+      subject.hudPresent === true
+        && subject.hudSuppressed === true
+        && subject.hudLeaks.length === 0,
+      subject.hudPresent
+        ? `#hud suppressed=${subject.hudSuppressed} leaked children=${subject.hudLeaks.length}`
+          + (subject.hudLeaks.length ? ` → ${subject.hudLeaks.join(" · ")}` : "")
+        : "#hud is absent — the probe cannot prove anything",
     );
 
     const wantVictory = cell.outcome === "victory";

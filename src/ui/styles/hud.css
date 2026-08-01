@@ -1204,15 +1204,24 @@
   box-shadow: var(--slab-shadow-pressed);
 }
 
-/* Suppress HUD chrome when Esc overlay is open on touch devices. */
-#hud.hud-suppressed .hud-timer,
-#hud.hud-suppressed .hud-scores,
-#hud.hud-suppressed .hud-status,
-#hud.hud-suppressed .hud-ready-btn,
-#hud.hud-suppressed .hud-audio,
-#hud.hud-suppressed .hud-menu-btn,
-#hud.hud-suppressed .hud-conn,
-#hud.hud-suppressed .hud-feed {
+/* Suppress the gameplay HUD while the pause overlay or the results podium owns the
+   screen. `hud.js` sets .hud-suppressed for `escOpen || roundPhase === "podium"`, on
+   every device — the old comment here claimed "Esc overlay ... on touch devices" and
+   was wrong on both counts, which is plausibly why the list below stopped being kept.
+
+   Structural on purpose — every direct child, never a list of widget classes, so
+   anything added to #hud later is covered by default. This was an 8-name allow-list
+   until 08-01 and had fallen behind to 8 of 16 surfaces: the BOOST meter stayed painted
+   over the results screen for the whole podium and landed on top of the MAIN MENU
+   button at 390x844 (HUD-BOOST-PODIUM-1). Do not turn it back into a list of names —
+   that is the exact failure mode this replaced.
+
+   Hiding the subtree is what actually fixes boost: hud.js writes inline `display:flex`
+   on .hud-boost and update() early-returns while suppressed so nothing rewrites it, but
+   an unrendered parent makes the child's own display irrelevant — there is no cascade
+   fight. The !important is kept for the direct children themselves (nothing may sneak
+   an inline display onto a region wrapper) and for parity with the rule this replaced. */
+#hud.hud-suppressed > * {
   display: none !important;
 }
 
