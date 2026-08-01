@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-01T06:09:04.734Z",
-    "commit": "824b0a1"
+    "at": "2026-08-01T06:36:18.096Z",
+    "commit": "e80d87c"
   },
-  "source_digest": "0018f200",
+  "source_digest": "26848c8f",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1334,7 +1334,7 @@
           {
             "pri": "Medium",
             "item": "LOAD-PROGRESS-1 — the mode-entry meter is decorative for the entire arena build",
-            "notes": "**Found 07-31 by `npm run loadshots`** (FIGHT-VERIFY-1 Phase C), reproduced on three consecutive runs across all three arena themes. The meter's full value timeline for a cold `classicRecord` entry at 1920×1080: `0%` at 25091ms → `15%` at 25126ms → **nothing for 11.5 seconds** → `88%` at 36628ms → `94%`/`96%` in the same millisecond → `100%` at 39446ms. So the bar is frozen at 15% for ~85% of the load and then does the other 85 points in under 3 seconds. `src/levels/index.js` has exactly the three milestones that would fix this — `:96` `onProgress?.(20, \"Fetching level…\")`, `:112` `(60, \"Building arena geometry…\")`, `:154` `(90, \"Physics colliders ready\")` — and **none of them can fire on a cold entry.** The callback is dropped at **`src/main.js:2875-2877`**, where `bootstrapWorldCore` calls `swapLoadedLevel(resolveLevelId(...))` with no second argument, so `opts.onProgress` is `undefined` all the way down. The one line that *does* forward it, `src/levelManager.js:267` (`swapLoadedLevel(selected, { onProgress })`), is structurally unreachable in the cold path: `levelManager.js:248`'s `needsFullSwap` is false because `:208` already set `loadedLevelId = selected` during the cold swap (and `:23` pre-initialises it from stored selection anyway), and `previewNeedsFullRebuild` is only set on the menu-preview branch, which bails out when the world isn't bootstrapped (`:311-317`). The ~11.5s of silence is `bootstrap.js:462`'s `await d.ensureWorldBootstrapped(selected)` joining the in-flight promise from `:443`. Level modules emit nothing either — `classicRecord.js` / `backroomsSupermarket.js` / `zanzibarPlatform.js` / `testArena.js` never reference `onProgress`, so `initFn`'s multi-second geometry+collider build is one opaque block. **Second defect in the same area:** `setProgress` (`src/ui/loadingScreen.js:195-203`) has no monotonic clamp, so on the *warm* preview path — the one where the wiring does work — the meter reads 15 → 20 → 60 → **90 → 88** → 94 → 100, a visible backwards step, because `bootstrap.js:463` reports 88 after `loadLevel` already reported 90. Evidence: the `meter renders progress` check row prints the complete timeline for every cell; frames in `.diag-captures/loadshots/mode-*-b-mid.png`.",
+            "notes": "📋 **PLANNED, ACK'D 08-01 — NOT STARTED.** Full card: **[load-progress-1.md](./load-progress-1.md)** (self-contained; read it, not this row). **Found 07-31 by `npm run loadshots`** (FIGHT-VERIFY-1 Phase C) on three consecutive runs across all three arena themes: a cold `classicRecord` entry at 1920×1080 reads `0%` → `15%` → **nothing for 11.5 seconds** → `88%` → `94%`/`96%` same ms → `100%`. **The card doc OVERTURNS this row's original diagnosis** — the fix is not \"forward the dropped `onProgress`\": `levels/index.js`'s 60% and 90% milestones sit in the same synchronous task (`initFn` has no `await`), so 90 overwrites 60 before the browser can paint and **60 can never render on any path**. The plan instead ports the boot splash's already-shipped `__crBootFloor` pattern (`index.html:597-608`, from BOOT-METER-1) to the mode overlay: monotonic floor + ambient ticker + four real anchors bridged from `markBootPhase` marks that already fire inside the silent window. Also fixes the 90→88 backwards step — which occurs on the **world-warm-but-arena-stale** path, not the warm path as originally filed. Evidence: the `meter renders progress` check row prints the complete timeline for every cell; frames in `.diag-captures/loadshots/mode-*-b-mid.png`.",
             "ship1": null
           },
           {
