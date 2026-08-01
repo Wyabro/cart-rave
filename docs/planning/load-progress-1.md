@@ -1,11 +1,32 @@
 # LOAD-PROGRESS-1 — the arena loading meter is decorative for the whole build
 
-**STATUS: ACK'D 2026-08-01 · READY — NOT STARTED.** Planned in the session that shipped
-RESULTS-ACT-1 (`f42515f`) and HUD-BOOST-PODIUM-1 (`824b0a1`); deliberately deferred to a fresh
-window. **Everything needed is in this file — no prior conversation required.**
+**STATUS: SHIPPED 2026-08-01 · `7cd10c7`.** Planned in the session that shipped RESULTS-ACT-1
+(`f42515f`) and HUD-BOOST-PODIUM-1 (`824b0a1`); deliberately deferred to a fresh window.
+**Everything needed is in this file — no prior conversation required.**
 
 Line references verified against HEAD `e80d87c`. **This document overturns the original
 BACKLOG diagnosis** — see "Three corrections" below before reading that row.
+
+## What landed (2026-08-01)
+
+Built as planned — floor, ticker, four `markBootPhase` anchors, `backfillBootMarks` passed
+down from `bootstrap.js`, two new `loadshots` checks, four unit cases. Two things were tuned
+against the real timeline rather than shipped from the placeholders above, both inside
+`startModeTicker`:
+
+- **`MODE_MIN_TICK_STEP` 0.2 → 0.5.** At 0.2 the top band (96 → the 100 cap) changed its
+  *rounded* text only once a second; that lag stacked on the shader-warm block and put the
+  tail at 1.6–1.9s, over the gap gate. Halving it fixed 7 of the 8 cells.
+- **The ticker steps by wall clock, not one step per callback.** The 96 → 100 stretch
+  (cart creation + `warmupBeforeRoundStart`) blocks the main thread outright; a starved
+  interval fires once on release having lost every tick it slept through, so it resumed
+  ~400ms behind. This closed the last cell.
+
+The four anchor values (20 / 55 / 78 / 85) needed no change — the measured timeline shows
+20 → 55 is the long stretch and the creep budget never saturates inside it.
+
+**Residual, deliberately not chased:** ~1s between 96 and 100 is the block itself. No timer
+fires inside it, so no meter design paints through it — BOOT-PERF-1, out of scope per Risk 4.
 
 ## Context
 
