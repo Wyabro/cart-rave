@@ -23,7 +23,7 @@
     "knip": "knip",
     "prepare:party-do": "node scripts/prepare-party-do.mjs",
     "test:party-do": "npm run prepare:party-do && vitest run --project party-do",
-    "test": "npm run prepare:party-do && vitest run",
+    "test": "npm run prepare:party-do && node tools/test-count.mjs",
     "typecheck": "tsc --noEmit",
     "check": "npm run status:size && npm run typecheck && npm run test && npm run knip && npm run briefing:check && npm run arch:check && npm run health:check",
     "qa": "npm run check",
