@@ -153,7 +153,7 @@ Measure wrap height into CSS vars (`--cr-hintbar-h`). Absolute children of `over
 scroll with content → use `fixed` for chrome. Flex `nowrap` + all `flex-shrink:0` needs a **row**
 `max-width` before ellipsis works.
 
-**Open High:** UI-SCALE-1 · FIGHT-VERIFY-1 · RESULTS-1 · CART-MODEL-1 · bloom.
+**Open High:** ROUND-WEDGE-1 · UI-SCALE-1 · FIGHT-VERIFY-1 · RESULTS-1 · CART-MODEL-1 · bloom.
 
 ## Open issues (top)
 
@@ -163,6 +163,7 @@ Closed IDs (NET-1, NET-2, NET-MIG-3, NET-PRES-1, NET-SD-1, HOST-ROLE-1, VFX-1, P
 
 | ID | Issue | Status |
 |----|--------|--------|
+| ROUND-WEDGE-1 | Host oscillates `podium ⇄ running` ~25×/s at round end — player-visible flickering podium (cap-217) | ❌ High — forensics next; full card in [BACKLOG](./planning/BACKLOG.md) |
 | WARM-SOLO-1 | Solo post-`carts-ready` stall (WARM-IGPU residual) | 📋 telemetry-gated — [warm-igpu-1.md](./planning/warm-igpu-1.md) |
 | MAIN-1 | Carve `main.js` seam (enables BUNDLE-1) | 📋 Post-gate |
 | BUNDLE-1 | Menu/game code-split | 🚫 Blocked on MAIN-1 |
@@ -203,60 +204,8 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
   reversed — a boss/full bay is SUPPOSED to crest the rim. Layer-2 grid slots solve against
   bay-local `rimY` (from `box.max.y`, minus bay parent offset); do not "fix" the pile back
   under the rim.
-- **D-FIGHTNIGHT-1** (07-23): "Fight Night" UI redesign complete — every 2D surface (3a menu, 6a HUD, 7a–7g, both loading screens) on one shell/slab language; decision 2 die-cut sweep closed + one Customize chip recipe. Merged (PR #3 → `cart-clash` `56dfa61`) and deployed to prod for full verification. Signed off by DOM/computed-style only (7a/7c/3a by eye); confetti/defeat-wilt-in-MP parked. Log: [fight-night-ui-handover.md](./planning/fight-night-ui-handover.md).
-- **D-HIT-FEEL-1** (07-22): HIT-FEEL-1 PASS — quieter incoming (vignette remap + `crashVolumeFloor` 0.22 + `hitDirMin` 0.14) and woken normals (`shakeMinIntensity` 0.22 / boost 0.16); `?tune` exposes `ramming.fx.*`. Wyatt playtest confirmed.
-- **D-HIT-FEEL-QUEUE-1** (07-22): Closed B2 CARGO-WT-1 (feel accept) + ARENA-BAL-1 (no code). Active card → HIT-FEEL-1; Round 1 = vignette remap + `CONFIG.ramming.fx.crashVolumeFloor` (volume floor, not gate); Round 2 = shake gate + expose `ramming.fx.*` in gameplayTunePane.
-- **D-ARENA-COL-1** (07-22): Cart Rave pit KO reliability (ARENA-COL-1) PASS — rim entry `fallEntryPos` / `fallEntryTimeMs` feed `buildKOEvent` as `{ classifyPos, creditTimeMs }` so 30m shaft drift and ricochet delay no longer misclassify center_hole or expire hit credit. Wyatt playtest confirmed.
-- **D-MPFX-1** (07-22): Non-host gameplay VFX parity (MP-FX-1) PASS — synced `isChargingBoost` via snapshot flag bit 16 through interp scratch; remote hop-land thud/dust via takeoff-anchored vy heuristic + bridged `onHopLand`. Wyatt 2-browser playtest confirmed opponent charge glow + hop land FX.
-
-- **D-COUNTDOWN-1** (07-22): Countdown sync (COUNTDOWN-SYNC-1), flyover warm-up (COUNTDOWN-WARM-1), and Intel host capture confirmed PASS by Wyatt. Empty quickplay countdown edge case (COUNTDOWN-QUICKPLAY-1) documented and parked in BACKLOG.
-
-- **D-ARCH-1** (07-21): Living architecture layer — `npm run arch` generates committed
-  `docs/ARCHITECTURE.json` (agent manifest: 18-system taxonomy claiming every src/party/shared
-  file exactly once, dependency edges from control-flow.md, fragile systems, pitfalls,
-  `do_not_break`) + `.diag-captures/architecture.html` (human map on the Command Center).
-  Taxonomy curated in `tools/lib/archMap.mjs`; stats (lines/churn) live in HTML only, never
-  the digested JSON. Drift gates in health:check: `ARCH_UNMAPPED_FILE` (new unclaimed file),
-  `ARCH_MISSING_FILE`, `ARCH_DUPLICATE_CLAIM`, `ARCH_STALE`. `Game_Architecture.md` demoted to
-  narrative companion. Runs inside `npm run qa`.
-- **D-PARITY-1** (07-21): Operational parity across AI tools — new generated+committed
-  `docs/BRIEFING.md` (from STATUS.md, `npm run briefing`, digest-gated by `health:check`)
-  replaces the retired `handoff-next-window.md` as the cold-start door every tool can read;
-  do-nots moved into STATUS `### Do not`; per-tool pointers (CLAUDE/GEMINI/GROK/.cursorrules/
-  `.cursor/rules/cart-clash.mdc`) thinned to defer to AGENTS.md; AGENTS.md gains
-  "How work is executed" (one card · ~45-min/3-attempt timebox · escalation ladder) + a
-  paste-able session opener; status-size budget 8k + per-date-window density check.
-- **D-COUNTDOWN-SYNC-1-CLOCK** (07-21): The non-host `game_start` path initially
-  stamped `countdownStartedAtMs` in the Party-clock domain, while HUD `adjustedNow()` uses
-  the host-clock domain. It now anchors the timestamp with
-  `getRoundClockNowMs() - Netcode.getHostClockOffsetMs()`; the Party-based
-  `startsAtLocalMs` remains the already-past-GO gate. COUNTDOWN-SYNC-1 catch-up stays as
-  the stall safety net. Needs Wyatt's multiplayer playtest + countdown-phase F8 capture.
-- **D-COUNTDOWN-WARM-1** (07-21): Round-start/countdown jank root-caused — the fly-over
-  camera hard-cuts to a never-before-rendered wide/high orbit right at countdown start,
-  paying a real shader/composer cost the existing warm-up (from the menu/follow camera only)
-  never covered. Fixed with a second, hidden warm-up pass from that framing
-  (`camera.js getCinematicCountdownWarmupPose` + `main.js warmupActiveSceneShaders`)
-  instead of Wyatt's proposed 2s-camera-delay — same instinct (move the cost off the
-  timing-critical path), more targeted (fixes it at the source, adds no visible round-start
-  delay). Tab-out latch (`hiddenDuringGap`) independently confirmed working on a real 6.55s
-  backgrounding event this round — validates all prior A1 "not backgrounding" readings.
-  Needs Wyatt's playtest + a countdown-phase F8 to confirm the stall is actually gone.
-- **D-COUNTDOWN-SYNC-1** (07-21): The real countdown complaint ("skips", "never in sync")
-  was beat-timing desync, not the frame-stutter COUNTDOWN-WARM-1 fixed — GO fires on an
-  edge-detected phase transition independent of the frame-polled digit display, so a stall
-  spanning the last digit-window skips announcing "1" entirely. Fixed in `hud.js
-  updateStatus()`: retroactively fires the missed beat 220ms before GO, generation/phase-
-  guarded. Presentational only — round-start timing (gameplay unlock) untouched.
-- **D-HOSTHITCH-1** (07-20): A1 forensics on existing captures found the "1–8s host freeze
-  while focused" residual may be partly a measurement artifact — `hidden`/`focused` sample
-  after the stall, not during it. Long Task coverage on the multi-second gaps is 0.3–26%
-  (idle, not busy) vs 94–106% on genuine sub-second stalls. Latched `hiddenDuringGap`/
-  `blurredDuringGap` added to `perf/longframe` events; verdict needs a fresh F8 capture, not
-  yet available. Do not treat "GPU-bound host" as confirmed until that retest.
-- **D-SHIP-1** (07-20): SHIP-1 created as a living finish line — pre-ship tiers A–E ([planning/SHIP-1.md](./planning/SHIP-1.md)); full backlog ships (no cut-down RC); new findings slot into tiers; no netcode/god-file rewrites pre-ship.
-- **D-TRUTH-1** (07-20): Command Center Truth Reset — STATUS owns declared phase only; evidence never auto-advances phase; collectors own HEAD/gates; battery reports carry provenance + completeness.
-- **D-READY-1** (07-20): Lobby readiness is an idempotent **SET** on the wire, not a toggle. `MSG.readyToggle` gains additive `ready: boolean`; client quickplay/solo auto-ready is a lobby-phase reconcile.
+- **07-20 → 07-23 (D-FIGHTNIGHT-1 · D-HIT-FEEL-1 · D-HIT-FEEL-QUEUE-1 · D-ARENA-COL-1 · D-MPFX-1 · D-COUNTDOWN-1 · D-ARCH-1 · D-PARITY-1 · D-COUNTDOWN-SYNC-1-CLOCK · D-COUNTDOWN-WARM-1 · D-COUNTDOWN-SYNC-1 · D-HOSTHITCH-1 · D-SHIP-1 · D-TRUTH-1 · D-READY-1)** — rolled out of this index 08-01; full text
+  preserved verbatim in [decision-log-2026-07.md](./archive/decision-log-2026-07.md).
 - **D-FRIENDS-REJOIN-1** (08-01): Friends-room refresh keeps explicit **JOIN LOBBY** (no
   quickplay-style auto-rejoin). Private rooms stay opt-in; only `?room=quickplay` auto-rejoins
   when a username is saved (`main.js` ~1849–1859). Audit finding closed as accepted UX — do not
@@ -301,6 +250,29 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
+2026-08-01 (tooling stabilization sweep, 13 commits) — the Wyatt-commissioned cohesion pass
+before the 10-item playtest. Gates are now **read-only**: `check` runs `briefing:check` /
+`arch:check` instead of the writers, so BRIEFING_STALE/ARCH_STALE are finally reachable in
+CI and `qa` never dirties the tree (the generator→Stop-guard self-block is gone).
+Regeneration lives only in the pre-commit hook / `dashboard` / `refresh` — and those hooks
+are now **tracked** (`tools/git-hooks/` via `core.hooksPath`) with one-shot `npm run setup`
+(hooks + skills:sync + Command Center) replacing three undocumented bootstrap steps.
+`refresh.mjs` is the single surface list (it had skipped playtest-console). One freshness
+model: session-briefing warns on the content digest, not mtimes (the mtime warning
+false-positived by construction). The gate chain has exactly one hand-written copy
+(package.json `check`; briefing derives its Gates section from it, inside the digest).
+Guards are session-scoped: Stop guard blocks only on dirt THIS session touched
+(STOP-DIRT-1 closed; track-session-writes.mjs records ownership; Bash-only edits = known
+blind spot, degrades to silence); pathspec-less `git commit` hard-denies when the index
+holds foreign staged paths (GIT-INDEX-1 closed; bare `git add -u` gap closed; retreat =
+demote to warn if it over-fires). `npm test` count-gates vitest against on-disk spec
+discovery (TEST-COUNT-1 closed — workerd silent drops are now hard reds; root cause still
+open). guard-protected-paths got its escape hatch + tests. BACKLOG −33% (12 closed rows
+migrated full-text to completed-work.md; RESULTS-ACT-1/TRUST-1 deduped). Decision index
+07-20→07-23 rolled to the archive log verbatim. claudeHooks 116 cases; suite 89 files /
+1026 tests. **Restart Claude sessions to pick up the new PostToolUse tracker.** Playtest
+owed cards untouched — the console still seeds all 10.
+
 2026-08-01 (enforcement hooks) — Two AGENTS.md rules that no code enforced are now
 mechanical. `guard-git-add.mjs` gained every `git commit -a` form (`-a`, `-am`, `-sam`,
 `--all`), the `:` / `:(top)` pathspecs, and a `--` split so `git add -- -A` (a file named
@@ -320,33 +292,11 @@ deleted — honest phrasing passes because it contains no *claim*, not because o
 Gates: 976 tests / 89 files green, typecheck + knip + health:check clean. `tests/claudeHooks.test.js`
 (67 cases) pins both matchers. Not yet playtested — no gameplay surface touched.
 
-2026-08-01 (brainstorming skill) — `.agents/skills/brainstorming/` — the dialogue half of
-obra/superpowers' version (1,494 words + a 25KB browser-mockup server → 606, server dropped).
-Scoped to fire only on new gameplay systems / player-facing features / ambiguous-"done"
-cards, NOT config or known-line edits, so it cannot turn step 0 into ceremony. Opens with
-"what should the player see / feel / do", one question per message, size-check before detail
-(three cards ≠ one), 2–3 approaches with the recommendation first, lands as a BACKLOG card.
-Upstream's "do NOT invoke frontend-design or any other implementation skill" was removed —
-it would have forbidden `hallmark`. A written design is still not the ack.
-
-2026-08-01 (writing-skills skill) — `.agents/skills/writing-skills/` — the insight third of
-obra/superpowers' version (12,360 words → 746), dropping its subagent test harness (10–15
-agent runs per skill, against the one-card loop) and deferring to first-party `skill-creator`
-for evals. Load-bearing rules: a skill `description` states **when to use**, never what it
-does (a workflow summary becomes a shortcut agents take instead of reading the body);
-prohibitions fix discipline failures but backfire on wrong-shaped output — use a positive
-recipe there. Decision table for skill vs AGENTS.md vs tool+gate. The `SKILLS_UNSYNCED` gate
-caught this skill unsynced on its own, one commit after landing.
-
-2026-08-01 (systematic-debugging skill + skills mirror gate) — Vendored
-`.agents/skills/systematic-debugging/` (adapted from obra/superpowers, MIT): 4 phases,
-root-cause tracing, condition-based waiting, defense-in-depth. Rewritten to hand off to the
-AGENTS.md timebox/ladder, and AGENTS.md ladder step (3) now names it (`183a545`). Skills are
-committed to `.agents/skills/` (every non-Claude tool reads it) while Claude Code reads
-`.claude/skills/`, which `.gitignore:47` excludes — so a fresh clone silently has no
-Claude-side skills. `npm run skills:sync` mirrors one way (`.agents` wins) and
-`SKILLS_UNSYNCED` red-gates `health:check`, skipped when `CI` is set because the mirror can
-never exist there (`f4f4f6c`). No behavior change — no playtest owed.
+2026-08-01 (three skills vendored: brainstorming · writing-skills · systematic-debugging) —
+all adapted from obra/superpowers into `.agents/skills/` and heavily trimmed; escalation
+ladder step (3) now names systematic-debugging; `npm run skills:sync` + the `SKILLS_UNSYNCED`
+health gate keep the gitignored `.claude/skills/` mirror honest (CI-skipped). Load-bearing
+rules + scoping decisions: [archive/status-log-2026-08-01-skills.md](./archive/status-log-2026-08-01-skills.md).
 
 2026-08-01 (playtest console seeded) — BACKLOG `## Playtest owed (08-01 session)` carries
 10 `Owed: Wyatt playtest` cards (RESULTS-ACT-1 · FV-* · HOST-TOAST-1). Regen:

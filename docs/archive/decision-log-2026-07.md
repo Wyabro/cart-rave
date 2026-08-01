@@ -59,3 +59,64 @@ than dropped when STATUS's index was trimmed. Same rule as above: settled, appen
 - **D-HARDEN-1** (07-13): Pre-playtest council hardening — SD replay-tiebreak; `sd_win` latch; Rapier `castRay` exclude-object fix; quickplay rematch re-entrancy; `suddenDeathPulse` leak.
 - **D-NET-CLK-MIG** (07-12): NET-CLK-1 dual clocks, NET-CLK-3 round-clock stamps, NET-MIG-1 kill-credit `attr` on promote.
 - **D-TERM-1** (07-12): Terminology pass — [style-guide.md](../style-guide.md) canonical.
+
+## Rolled from the STATUS decision index — 2026-08-01 archive pass
+
+Fifteen 07-20 → 07-23 entries whose full text lived only in STATUS's index — preserved
+verbatim here when the index was trimmed for the 8k STATUS budget. Same rule as above:
+settled, append-only.
+
+- **D-FIGHTNIGHT-1** (07-23): "Fight Night" UI redesign complete — every 2D surface (3a menu, 6a HUD, 7a–7g, both loading screens) on one shell/slab language; decision 2 die-cut sweep closed + one Customize chip recipe. Merged (PR #3 → `cart-clash` `56dfa61`) and deployed to prod for full verification. Signed off by DOM/computed-style only (7a/7c/3a by eye); confetti/defeat-wilt-in-MP parked. Log: [fight-night-ui-handover.md](./planning/fight-night-ui-handover.md).
+- **D-HIT-FEEL-1** (07-22): HIT-FEEL-1 PASS — quieter incoming (vignette remap + `crashVolumeFloor` 0.22 + `hitDirMin` 0.14) and woken normals (`shakeMinIntensity` 0.22 / boost 0.16); `?tune` exposes `ramming.fx.*`. Wyatt playtest confirmed.
+- **D-HIT-FEEL-QUEUE-1** (07-22): Closed B2 CARGO-WT-1 (feel accept) + ARENA-BAL-1 (no code). Active card → HIT-FEEL-1; Round 1 = vignette remap + `CONFIG.ramming.fx.crashVolumeFloor` (volume floor, not gate); Round 2 = shake gate + expose `ramming.fx.*` in gameplayTunePane.
+- **D-ARENA-COL-1** (07-22): Cart Rave pit KO reliability (ARENA-COL-1) PASS — rim entry `fallEntryPos` / `fallEntryTimeMs` feed `buildKOEvent` as `{ classifyPos, creditTimeMs }` so 30m shaft drift and ricochet delay no longer misclassify center_hole or expire hit credit. Wyatt playtest confirmed.
+- **D-MPFX-1** (07-22): Non-host gameplay VFX parity (MP-FX-1) PASS — synced `isChargingBoost` via snapshot flag bit 16 through interp scratch; remote hop-land thud/dust via takeoff-anchored vy heuristic + bridged `onHopLand`. Wyatt 2-browser playtest confirmed opponent charge glow + hop land FX.
+
+- **D-COUNTDOWN-1** (07-22): Countdown sync (COUNTDOWN-SYNC-1), flyover warm-up (COUNTDOWN-WARM-1), and Intel host capture confirmed PASS by Wyatt. Empty quickplay countdown edge case (COUNTDOWN-QUICKPLAY-1) documented and parked in BACKLOG.
+
+- **D-ARCH-1** (07-21): Living architecture layer — `npm run arch` generates committed
+  `docs/ARCHITECTURE.json` (agent manifest: 18-system taxonomy claiming every src/party/shared
+  file exactly once, dependency edges from control-flow.md, fragile systems, pitfalls,
+  `do_not_break`) + `.diag-captures/architecture.html` (human map on the Command Center).
+  Taxonomy curated in `tools/lib/archMap.mjs`; stats (lines/churn) live in HTML only, never
+  the digested JSON. Drift gates in health:check: `ARCH_UNMAPPED_FILE` (new unclaimed file),
+  `ARCH_MISSING_FILE`, `ARCH_DUPLICATE_CLAIM`, `ARCH_STALE`. `Game_Architecture.md` demoted to
+  narrative companion. Runs inside `npm run qa`.
+- **D-PARITY-1** (07-21): Operational parity across AI tools — new generated+committed
+  `docs/BRIEFING.md` (from STATUS.md, `npm run briefing`, digest-gated by `health:check`)
+  replaces the retired `handoff-next-window.md` as the cold-start door every tool can read;
+  do-nots moved into STATUS `### Do not`; per-tool pointers (CLAUDE/GEMINI/GROK/.cursorrules/
+  `.cursor/rules/cart-clash.mdc`) thinned to defer to AGENTS.md; AGENTS.md gains
+  "How work is executed" (one card · ~45-min/3-attempt timebox · escalation ladder) + a
+  paste-able session opener; status-size budget 8k + per-date-window density check.
+- **D-COUNTDOWN-SYNC-1-CLOCK** (07-21): The non-host `game_start` path initially
+  stamped `countdownStartedAtMs` in the Party-clock domain, while HUD `adjustedNow()` uses
+  the host-clock domain. It now anchors the timestamp with
+  `getRoundClockNowMs() - Netcode.getHostClockOffsetMs()`; the Party-based
+  `startsAtLocalMs` remains the already-past-GO gate. COUNTDOWN-SYNC-1 catch-up stays as
+  the stall safety net. Needs Wyatt's multiplayer playtest + countdown-phase F8 capture.
+- **D-COUNTDOWN-WARM-1** (07-21): Round-start/countdown jank root-caused — the fly-over
+  camera hard-cuts to a never-before-rendered wide/high orbit right at countdown start,
+  paying a real shader/composer cost the existing warm-up (from the menu/follow camera only)
+  never covered. Fixed with a second, hidden warm-up pass from that framing
+  (`camera.js getCinematicCountdownWarmupPose` + `main.js warmupActiveSceneShaders`)
+  instead of Wyatt's proposed 2s-camera-delay — same instinct (move the cost off the
+  timing-critical path), more targeted (fixes it at the source, adds no visible round-start
+  delay). Tab-out latch (`hiddenDuringGap`) independently confirmed working on a real 6.55s
+  backgrounding event this round — validates all prior A1 "not backgrounding" readings.
+  Needs Wyatt's playtest + a countdown-phase F8 to confirm the stall is actually gone.
+- **D-COUNTDOWN-SYNC-1** (07-21): The real countdown complaint ("skips", "never in sync")
+  was beat-timing desync, not the frame-stutter COUNTDOWN-WARM-1 fixed — GO fires on an
+  edge-detected phase transition independent of the frame-polled digit display, so a stall
+  spanning the last digit-window skips announcing "1" entirely. Fixed in `hud.js
+  updateStatus()`: retroactively fires the missed beat 220ms before GO, generation/phase-
+  guarded. Presentational only — round-start timing (gameplay unlock) untouched.
+- **D-HOSTHITCH-1** (07-20): A1 forensics on existing captures found the "1–8s host freeze
+  while focused" residual may be partly a measurement artifact — `hidden`/`focused` sample
+  after the stall, not during it. Long Task coverage on the multi-second gaps is 0.3–26%
+  (idle, not busy) vs 94–106% on genuine sub-second stalls. Latched `hiddenDuringGap`/
+  `blurredDuringGap` added to `perf/longframe` events; verdict needs a fresh F8 capture, not
+  yet available. Do not treat "GPU-bound host" as confirmed until that retest.
+- **D-SHIP-1** (07-20): SHIP-1 created as a living finish line — pre-ship tiers A–E ([planning/SHIP-1.md](./planning/SHIP-1.md)); full backlog ships (no cut-down RC); new findings slot into tiers; no netcode/god-file rewrites pre-ship.
+- **D-TRUTH-1** (07-20): Command Center Truth Reset — STATUS owns declared phase only; evidence never auto-advances phase; collectors own HEAD/gates; battery reports carry provenance + completeness.
+- **D-READY-1** (07-20): Lobby readiness is an idempotent **SET** on the wire, not a toggle. `MSG.readyToggle` gains additive `ready: boolean`; client quickplay/solo auto-ready is a lobby-phase reconcile.

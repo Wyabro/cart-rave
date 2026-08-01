@@ -19,6 +19,7 @@ match the date first, then grep inside.
 | Date range | File |
 |---|---|
 | 2026-07-30 → present | **live** in [STATUS.md](../STATUS.md) (short current-session summary only) |
+| 2026-08-01 · skills vendoring (3 entries) | [status-log-2026-08-01-skills.md](./status-log-2026-08-01-skills.md) |
 | 2026-07-30 (full day — 7 cards) | [status-log-2026-07-30.md](./status-log-2026-07-30.md) |
 | 2026-07-30 · CARGO-VIS-1 arc (topic detail, linked from the day log) | [status-log-2026-07-30-cargo-vis-1.md](./status-log-2026-07-30-cargo-vis-1.md) |
 | 2026-07-23 (Fight Night UI merged + deployed) | [status-log-2026-07-23.md](./status-log-2026-07-23.md) |

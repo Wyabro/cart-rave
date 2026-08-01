@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-01T20:55:07.940Z",
-    "commit": "5c3fe16"
+    "at": "2026-08-01T20:59:28.578Z",
+    "commit": "0fae8a1"
   },
-  "source_digest": "715e88f0",
+  "source_digest": "1e1c9b2e",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -900,6 +900,11 @@
       "Battery exact-HEAD green on disk (`battery-2026-08-01T03-31-21…`); refresh CC after battery."
     ],
     "open_issues": [
+      {
+        "id": "ROUND-WEDGE-1",
+        "issue": "Host oscillates `podium ⇄ running` ~25×/s at round end — player-visible flickering podium (cap-217)",
+        "status": "❌ High — forensics next; full card in [BACKLOG](./planning/BACKLOG.md)"
+      },
       {
         "id": "WARM-SOLO-1",
         "issue": "Solo post-`carts-ready` stall (WARM-IGPU residual)",
@@ -1843,81 +1848,6 @@
         "id": "D-CARGO-VIS-1",
         "date": "07-30",
         "text": "The CARGO-WT-1-era \"pile stays under the rim\" invariant is"
-      },
-      {
-        "id": "D-FIGHTNIGHT-1",
-        "date": "07-23",
-        "text": "\"Fight Night\" UI redesign complete — every 2D surface (3a menu, 6a HUD, 7a–7g, both loading screens) on one shell/slab language; decision 2 die-cut sweep closed + one Customize chip recipe. Merged (PR #3 → `cart-clash` `56dfa61`) and deployed to prod for full verification. Signed off by DOM/computed-style only (7a/7c/3a by eye); confetti/defeat-wilt-in-MP parked. Log: fight-night-ui-handover.md."
-      },
-      {
-        "id": "D-HIT-FEEL-1",
-        "date": "07-22",
-        "text": "HIT-FEEL-1 PASS — quieter incoming (vignette remap + `crashVolumeFloor` 0.22 + `hitDirMin` 0.14) and woken normals (`shakeMinIntensity` 0.22 / boost 0.16); `?tune` exposes `ramming.fx.*`. Wyatt playtest confirmed."
-      },
-      {
-        "id": "D-HIT-FEEL-QUEUE-1",
-        "date": "07-22",
-        "text": "Closed B2 CARGO-WT-1 (feel accept) + ARENA-BAL-1 (no code). Active card → HIT-FEEL-1; Round 1 = vignette remap + `CONFIG.ramming.fx.crashVolumeFloor` (volume floor, not gate); Round 2 = shake gate + expose `ramming.fx.*` in gameplayTunePane."
-      },
-      {
-        "id": "D-ARENA-COL-1",
-        "date": "07-22",
-        "text": "Cart Rave pit KO reliability (ARENA-COL-1) PASS — rim entry `fallEntryPos` / `fallEntryTimeMs` feed `buildKOEvent` as `{ classifyPos, creditTimeMs }` so 30m shaft drift and ricochet delay no longer misclassify center_hole or expire hit credit. Wyatt playtest confirmed."
-      },
-      {
-        "id": "D-MPFX-1",
-        "date": "07-22",
-        "text": "Non-host gameplay VFX parity (MP-FX-1) PASS — synced `isChargingBoost` via snapshot flag bit 16 through interp scratch; remote hop-land thud/dust via takeoff-anchored vy heuristic + bridged `onHopLand`. Wyatt 2-browser playtest confirmed opponent charge glow + hop land FX."
-      },
-      {
-        "id": "D-COUNTDOWN-1",
-        "date": "07-22",
-        "text": "Countdown sync (COUNTDOWN-SYNC-1), flyover warm-up (COUNTDOWN-WARM-1), and Intel host capture confirmed PASS by Wyatt. Empty quickplay countdown edge case (COUNTDOWN-QUICKPLAY-1) documented and parked in BACKLOG."
-      },
-      {
-        "id": "D-ARCH-1",
-        "date": "07-21",
-        "text": "Living architecture layer — `npm run arch` generates committed"
-      },
-      {
-        "id": "D-PARITY-1",
-        "date": "07-21",
-        "text": "Operational parity across AI tools — new generated+committed"
-      },
-      {
-        "id": "D-COUNTDOWN-SYNC-1-CLOCK",
-        "date": "07-21",
-        "text": "The non-host `game_start` path initially"
-      },
-      {
-        "id": "D-COUNTDOWN-WARM-1",
-        "date": "07-21",
-        "text": "Round-start/countdown jank root-caused — the fly-over"
-      },
-      {
-        "id": "D-COUNTDOWN-SYNC-1",
-        "date": "07-21",
-        "text": "The real countdown complaint (\"skips\", \"never in sync\")"
-      },
-      {
-        "id": "D-HOSTHITCH-1",
-        "date": "07-20",
-        "text": "A1 forensics on existing captures found the \"1–8s host freeze"
-      },
-      {
-        "id": "D-SHIP-1",
-        "date": "07-20",
-        "text": "SHIP-1 created as a living finish line — pre-ship tiers A–E (planning/SHIP-1.md); full backlog ships (no cut-down RC); new findings slot into tiers; no netcode/god-file rewrites pre-ship."
-      },
-      {
-        "id": "D-TRUTH-1",
-        "date": "07-20",
-        "text": "Command Center Truth Reset — STATUS owns declared phase only; evidence never auto-advances phase; collectors own HEAD/gates; battery reports carry provenance + completeness."
-      },
-      {
-        "id": "D-READY-1",
-        "date": "07-20",
-        "text": "Lobby readiness is an idempotent SET on the wire, not a toggle. `MSG.readyToggle` gains additive `ready: boolean`; client quickplay/solo auto-ready is a lobby-phase reconcile."
       },
       {
         "id": "D-FRIENDS-REJOIN-1",
