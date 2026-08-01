@@ -298,6 +298,15 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
+2026-08-01 (writing-skills skill) — `.agents/skills/writing-skills/` — the insight third of
+obra/superpowers' version (12,360 words → 746), dropping its subagent test harness (10–15
+agent runs per skill, against the one-card loop) and deferring to first-party `skill-creator`
+for evals. Load-bearing rules: a skill `description` states **when to use**, never what it
+does (a workflow summary becomes a shortcut agents take instead of reading the body);
+prohibitions fix discipline failures but backfire on wrong-shaped output — use a positive
+recipe there. Decision table for skill vs AGENTS.md vs tool+gate. The `SKILLS_UNSYNCED` gate
+caught this skill unsynced on its own, one commit after landing.
+
 2026-08-01 (systematic-debugging skill + skills mirror gate) — Vendored
 `.agents/skills/systematic-debugging/` (adapted from obra/superpowers, MIT): 4 phases,
 root-cause tracing, condition-based waiting, defense-in-depth. Rewritten to hand off to the
