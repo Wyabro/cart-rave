@@ -42,6 +42,7 @@ describe("loadingScreen — progress floor + ambient ticker", () => {
   let originalRaf;
   let originalSetInterval;
   let originalClearInterval;
+  let originalMatchMedia;
   /** @type {Set<number>} */
   let liveIntervals;
 
@@ -52,6 +53,19 @@ describe("loadingScreen — progress floor + ambient ticker", () => {
   beforeEach(() => {
     originalRaf = globalThis.requestAnimationFrame;
     globalThis.requestAnimationFrame = (cb) => setTimeout(() => cb(performance.now()), 0);
+
+    // * Take the reduced-motion dismissal path so the overlay closes synchronously. None
+    // * of these cases is about the exit animation, and the 280ms fade is real wall clock
+    // * on a shared CI runner — where a neighbouring pool's flood test has no headroom
+    // * under the default 5s timeout. The fade itself stays covered by the
+    // * whenModeEntryHidden gate below, which still runs it.
+    originalMatchMedia = window.matchMedia;
+    window.matchMedia = (query) => ({
+      matches: /prefers-reduced-motion/.test(String(query)),
+      media: String(query),
+      addEventListener() {},
+      removeEventListener() {},
+    });
 
     // * Track interval IDENTITY, not a spy's call count: "cleared" has to mean the exact
     // * interval that was created, or a leak that re-registers reads as clean.
@@ -76,6 +90,7 @@ describe("loadingScreen — progress floor + ambient ticker", () => {
     for (const id of liveIntervals) originalClearInterval.call(window, id);
     window.setInterval = originalSetInterval;
     window.clearInterval = originalClearInterval;
+    window.matchMedia = originalMatchMedia;
     globalThis.requestAnimationFrame = originalRaf;
     performance.clearMarks?.();
   });

@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-01T07:27:04.606Z",
-    "commit": "7cd10c7"
+    "at": "2026-08-01T07:34:37.090Z",
+    "commit": "a4009d7"
   },
-  "source_digest": "046822fc",
+  "source_digest": "34259332",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -853,7 +853,7 @@
       {
         "id": "FIGHT-VERIFY-1",
         "what": "owed fight-night verification",
-        "status": "🟢 agent half DONE 08-01 — 4 phases: `e5efbfe` focus-ring fix · `533afa9` `npm run podium` (7g results, victory+defeat, 8 cells) · `37a232a` `npm run loadshots` (both loading screens, 3 arena themes + 5 boot beats, 128/128 ×2) · `9f5c9b5` `npm run states` (40 hover/press/focus subjects enumerated from the live CSSOM, 264/265 ×2). 1 bug fixed, 11 filed — see BACKLOG. Residual = Wyatt half only (below).",
+        "status": "🟢 agent half DONE 08-01 — podium/loadshots/states + focus-ring. Residual = Playtest owed cards (BACKLOG) — console-seeded; not this parent row.",
         "state": "waiting"
       },
       {
@@ -891,11 +891,10 @@
       }
     ],
     "next_actions": [
-      "RESULTS-ACT-1 — code landed `f42515f` (PLAY AGAIN stays on screen in squat windows).",
-      "FIGHT-VERIFY-1 Wyatt half — real-match HUD/results feel, friends lobby, non-host podium,",
+      "Playtest console — 10 owed cards in BACKLOG `## Playtest owed (08-01 session)`",
       "Closed 08-01 Wyatt PASS: PAUSE-ROW-1 · MENU-CMD-FEEL-1 · FOCUS-CYAN-1",
       "After coding that needs eyes: `Owed: Wyatt playtest — ID — check` → `npm run dashboard`.",
-      "Battery exact-HEAD green is on disk (`battery-2026-08-01T03-31-21…`); keep CC fresh with"
+      "Battery exact-HEAD green on disk (`battery-2026-08-01T03-31-21…`); refresh CC after battery."
     ],
     "open_issues": [
       {
@@ -1246,6 +1245,76 @@
         ]
       },
       {
+        "title": "Playtest owed (08-01 session)",
+        "counts": {
+          "High": 6,
+          "Medium": 3,
+          "Low": 1
+        },
+        "rows": [
+          {
+            "pri": "High",
+            "item": "RESULTS-ACT-1 — PLAY AGAIN in squat window",
+            "notes": "**Owed: Wyatt playtest — RESULTS-ACT-1 —** Shrink ~900×390 (or max-height &lt;640). Force podium: Solo → `CartClashDev.run(\"scores 7 4 2 9\")` then `run(\"rewind 800\")`. **PLAY AGAIN** visible without scrolling. Code `f42515f`.",
+            "ship1": null
+          },
+          {
+            "pri": "High",
+            "item": "FV-HUD-1 — real-match HUD feel",
+            "notes": "**Owed: Wyatt playtest — FV-HUD-1 —** One Solo (or short) round. Timer, nameplates, kill feed, boost, pause read as Fight Night; nothing clipped/broken.",
+            "ship1": null
+          },
+          {
+            "pri": "High",
+            "item": "FV-RESULTS-1 — results podium feel",
+            "notes": "**Owed: Wyatt playtest — FV-RESULTS-1 —** Same round → podium. Count-up/receipt cadence OK; victory or defeat treatment reads; SPILLS/CHALLENGE lines look real.",
+            "ship1": null
+          },
+          {
+            "pri": "High",
+            "item": "FV-FRIENDS-1 — friends CHECKOUT LINE (2 clients)",
+            "notes": "**Owed: Wyatt playtest — FV-FRIENDS-1 —** FRIENDS → create room → 2nd tab join → ready both → countdown. Lobby renders; roster/ready streams; lobby→countdown clean; COPY works.",
+            "ship1": null
+          },
+          {
+            "pri": "High",
+            "item": "FV-REMATCH-1 — friends rematch + leave",
+            "notes": "**Owed: Wyatt playtest — FV-REMATCH-1 —** Finish or rewind → PLAY AGAIN/rematch → then LEAVE ROOM. Rematch re-enters; leave tears down clean.",
+            "ship1": null
+          },
+          {
+            "pri": "High",
+            "item": "FV-WILT-1 — MP confetti/wilt + winnerSlotIndex",
+            "notes": "**Owed: Wyatt playtest — FV-WILT-1 —** 2-client room; lose on one client at podium. Note: confetti/wilt present? Console `GameState.getRoundState().winnerSlotIndex` = number or `null`? (parked bug — one observation closes the nag).",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "FV-BOOT-1 — cold boot splash",
+            "notes": "**Owed: Wyatt playtest — FV-BOOT-1 —** Hard refresh prod/`?diag=1`. Watch real first paint + exit beat (not remounted markup).",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "FV-LOAD-1 — mode-entry per arena",
+            "notes": "**Owed: Wyatt playtest — FV-LOAD-1 —** Enter Classic / Backrooms / Sundial once each. Per-arena decor + meter feel OK.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "FV-SILVER-1 — silver sunglasses select",
+            "notes": "**Owed: Wyatt playtest — FV-SILVER-1 —** Customize → silver finish selected. Border/glow/pip readable enough?",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "HOST-TOAST-1 — weak-host toast once",
+            "notes": "**Owed: Wyatt playtest — HOST-TOAST-1 —** Optional. Host with join-time score &lt;50: toast once per hostship, not spam. (Code = HOST-CAP-1 shipped.)",
+            "ship1": null
+          }
+        ]
+      },
+      {
         "title": "UI / UX",
         "counts": {
           "High": 7,
@@ -1256,7 +1325,7 @@
           {
             "pri": "High",
             "item": "PRE-PODIUM-1 — confetti / wilt + win-lose callout missing `[pre-ship]`",
-            "notes": "Victory confetti and defeat wilt missing in **MP and solo** pre-podium. Also missing **“{playerName} wins / loses”** (or equivalent) at round end before the podium screen. Fight-night handover already flagged MP confetti (parked 07-23); this card re-opens both modes + the name callout. Art look of wilt still under Wilting-groceries `[SHIP-1 E2]`.",
+            "notes": "Victory confetti and defeat wilt missing in **MP and solo** pre-podium. Also missing **“{playerName} wins / loses”** (or equivalent) at round end before the podium screen. Fight-night handover already flagged MP confetti (parked 07-23); this card re-opens both modes + the name callout. Art look of wilt still under Wilting-groceries `[SHIP-1 E2]`. Observation eye for current MP behavior is **FV-WILT-1** in Playtest owed.",
             "ship1": "E2"
           },
           {
@@ -1310,13 +1379,13 @@
           {
             "pri": "High",
             "item": "FIGHT-VERIFY-1 — owed fight-night verification",
-            "notes": "8 items at [fight-night-ui-handover.md:252+](./fight-night-ui-handover.md). Agent half via SHEET-1: responsive sweep 1025/1024/768/380, reduced-motion, cold-boot loading screens per arena, die-cut hover/press surfaces. Wyatt half (cannot be agent-closed): real-match HUD/results feel, two-client friends room (CHECKOUT LINE has never rendered). Include **PRE-PODIUM-1** in Wyatt half once coded.",
+            "notes": "Agent half DONE 08-01 (podium/loadshots/states + focus-ring). **Wyatt half = Playtest owed session cards** (RESULTS-ACT-1 · FV-HUD-1 · FV-RESULTS-1 · FV-FRIENDS-1 · FV-REMATCH-1 · FV-WILT-1 · FV-BOOT-1 · FV-LOAD-1 · FV-SILVER-1). Do not treat this parent row as a console seed — those cards carry `Owed: Wyatt playtest`. Handover: [fight-night-ui-handover.md:252+](./fight-night-ui-handover.md).",
             "ship1": null
           },
           {
             "pri": "High",
             "item": "RESULTS-ACT-1 — PLAY AGAIN / MAIN MENU render below the fold in the short-window branch",
-            "notes": "**Code landed `f42515f` 08-01** — keep PLAY AGAIN on screen in squat windows. **Owed: Wyatt eye.** Found 07-31 by `npm run podium` (FIGHT-VERIFY-1 Phase A). Was: `@media (max-height:640px)` stacked panel with overflow but actions off-screen (900×390 / 1025×600).",
+            "notes": "Seed lives in **Playtest owed** (same id). Code `f42515f`. Found 07-31 by `npm run podium`. Was: `@media (max-height:640px)` actions off-screen.",
             "ship1": null
           },
           {
