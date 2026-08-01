@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-01T17:37:25.767Z",
-    "commit": "daaf9ab"
+    "at": "2026-08-01T18:22:30.866Z",
+    "commit": "a607cfc"
   },
-  "source_digest": "1751a677",
+  "source_digest": "420e5fdb",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -925,7 +925,7 @@
         "title": "Engineering",
         "counts": {
           "High": 2,
-          "Medium": 19,
+          "Medium": 20,
           "Low": 5,
           "Partial": 1
         },
@@ -1018,6 +1018,12 @@
             "pri": "Medium",
             "item": "TEST-MARGIN-1 — one qa test runs with no timeout headroom in CI, so any new test anywhere can turn the gate red",
             "notes": "✅ **CLOSED 08-01** — explicit `30_000` timeout on that one case (`tests/party-do/beacons.test.js`), the row's primary lever. **Flood size deliberately unchanged at 200**: it is what makes \"far past the 80-row ring depth\" mean anything, so buying margin by shrinking it would have paid in assertion strength. **Negative control** — with the timeout set to `1` the case fails `Test timed out in 1ms`, so the third argument is provably honored rather than decorative. Per-test measurement that confirms the original diagnosis: the flood case is **2030ms of the file's 4610ms locally**; at CI's measured 2.3× slowdown that is ~4.7s against the old 5000ms default, i.e. **~6% margin** — i.e. it was always one unrelated test away from red. The other five cases in the file sit at 108–1237ms (~44%+ margin at the same ratio) and were left on the default, so a genuine hang in them still fails fast. **Was: filed 08-01** by LOAD-PROGRESS-1, which tripped it. `tests/party-do/beacons.test.js:46` — *\"stops a flood from evicting a real capture out of the 80-row ring\"* — runs on the **default 5000ms** vitest timeout with almost none to spare: that file took **10681ms** for its 6 tests in the last green CI run (`30688071083`, `b34b2de`) against **4.66s locally**, i.e. CI is ~2× slower and the flood case sits just under the ceiling. **Not a flake** — LOAD-PROGRESS-1's four new cases added 1.28s of real wall clock in the *happy-dom* pool (the mode-entry exit fade), and the *party-do* pool's flood test then timed out on run `30689834838` **twice**, initial and `gh run rerun --failed`, both `Test timed out in 5000ms`. Fixed from the wrong side in `b5c29f2` — those cases now dismiss synchronously (1280ms → 89ms), which **restores the previous balance and adds no margin**; the next test anyone adds, in any pool, can re-trip it. Lever: give that one case an explicit timeout (vitest's own error message says so) or shrink the flood; **do not raise the global `testTimeout`** — that hides real hangs across all 901 tests. Note the workerd pool is the slow one in CI, so it is the natural place for this to surface again. **Does not re-open SEC-BEACON-1** (closed) — the shipped rate limit is fine, only its test's timing margin is at issue.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "TEST-COUNT-1 — `vitest run` can report an all-green summary while silently dropping whole test files",
+            "notes": "**Filed 08-01**, found while chasing a workerd pool flake. Vitest's summary counts only files that **ran**, so a file dropped before execution reads as a smaller passing suite rather than a failure. Directly observed twice on 08-01: `Test Files 86 passed (86)` / `Tests 895 passed (895)` with `beacons.test.js` dropped, and `Test Files 84 passed (84)` / `Tests 873 passed (873)` with `beacons` + `cartRaveServer` + `routes` dropped. True suite is **87 files / 901 tests**. The arithmetic confirms the mechanism rather than assuming it: 901 − 895 = 6, exactly the 6 cases TEST-MARGIN-1 measured in `beacons.test.js`. **Why it bites this repo specifically:** AGENTS.md § Gates tells every agent to *\"report results by number\"* — so the number is the artifact, and the number lies by omission. Exit code is non-zero and the unhandled error does print, so CI is not fooled; a human or agent reading the summary line is. It fooled me mid-session before I re-read the raw output. **Lever: assert the expected file count.** Vitest has no built-in \"expect N files\" — wrap `vitest run` (or read `--reporter=json`'s `numTotalTestSuites`) and fail when the count is below the discovered spec count. Cheap, deterministic, no dependency on ever reproducing the pool flake. **Deliberately NOT the lever: a workerd retry or startup-timeout knob.** That is a symptom fix for a cause that is not proven — see the forensics below — and the systematic-debugging skill is explicit that symptom fixes count as failure. **Forensics already done (do not re-run these eliminations):** the trigger is `Failed to start cloudflare-pool worker … Caused by: connect ETIMEDOUT 127.0.0.1:<port>` at pool startup, *before* any test code loads. **Ruled out —** (1) the montage/ccStyle change of the same session: neither file is imported by any test; (2) Hyper-V/WSL reserved TCP ranges: exclusions are `1055-1154`, `1282-1381`, `4909-5008`, `9124-9223`, `50000-50059` and the observed ports 8085 / 3436 / 3437 / 5963 fall in none; (3) **CPU contention from concurrent Vitest runs — tested directly and refuted**, two simultaneous full suites on 24 logical / 12 physical cores both returned 87/87; (4) inherent flakiness at default parallelism, 0 failures in 3 sequential runs. **Not reproducible: 0 failures in 5 runs total** against 2-for-2 in the original window. **Still live, untested:** orphaned `workerd` processes — two were alive from 11:06:26 across both failures and there were zero afterwards. `ETIMEDOUT` rather than `ECONNREFUSED` fits a **full accept backlog** (Windows drops SYNs silently when the listen queue is exhausted) rather than \"nothing listening\", which is what a half-dead workerd still holding its socket would produce. Defender real-time protection is on and its exclusion list needs admin to read, so that was neither cleared nor confirmed. **Next capture, so a recurrence is evidence instead of speculation:** dump `Get-Process workerd` and `Get-NetTCPConnection` on pool-start failure. Sibling of **HARNESS-NULL-1** (rigs that cannot demonstrate a null result) and **TEST-MARGIN-1** (a gate with no margin) — same family: the gate reports something it has not actually established.",
             "ship1": null
           },
           {
