@@ -11,6 +11,8 @@ import { join } from "node:path";
 import { offends } from "../.claude/hooks/guard-git-add.mjs";
 import { claimsCompletion, evaluateStop } from "../.claude/hooks/guard-stop-drift.mjs";
 import { evaluateProtectedPath } from "../.claude/hooks/guard-protected-paths.mjs";
+import { trackWrite } from "../.claude/hooks/track-session-writes.mjs";
+import { readState, updateState } from "../.claude/hooks/lib/session-state.mjs";
 
 const scratch = mkdtempSync(join(tmpdir(), "cart-clash-hooktest-"));
 afterAll(() => rmSync(scratch, { recursive: true, force: true }));
@@ -159,13 +161,123 @@ describe("guard-stop-drift: block only when a claim meets real drift", () => {
     expect(run("Done.", offline).verdict).toBeNull();
   });
 
-  it("blocks a claim on modified tracked files alone", () => {
+  // * STOP-DIRT-1: dirt only counts when THIS session touched the file. A dirty file
+  // * another session is mid-edit on must not block this session's correct claim.
+  it("blocks on a dirty file this session touched, naming it", () => {
+    const session = "dirt-mine";
+    updateState(scratch, session, () => ({ touched: ["src/main.js"] }));
+    const dirty = clean({ trackedDirty: [" M src/main.js"], drifted: true });
+    const { verdict } = run("Done.", dirty, { session });
+    expect(verdict?.decision).toBe("block");
+    expect(verdict?.reason).toContain("src/main.js");
+  });
+
+  it("stays silent on a dirty file this session did NOT touch", () => {
+    const session = "dirt-theirs";
+    updateState(scratch, session, () => ({ touched: ["docs/status.md"] }));
+    const dirty = clean({ trackedDirty: [" M docs/planning/BACKLOG.md"], drifted: true });
+    expect(run("Done.", dirty, { session }).verdict).toBeNull();
+  });
+
+  it("stays silent on dirt when the session has no state file at all", () => {
+    const dirty = clean({ trackedDirty: [" M src/main.js"], drifted: true });
+    expect(run("Done.", dirty).verdict).toBeNull();
+  });
+
+  // * The pre-commit hook owns the generated docs — their dirt is never a blocking fact.
+  it("ignores generated docs even when this session touched them", () => {
+    const session = "dirt-generated";
+    updateState(scratch, session, () => ({ touched: ["docs/briefing.md", "docs/architecture.json"] }));
     const dirty = clean({
-      trackedDirty: ["M src/main.js"],
+      trackedDirty: [" M docs/BRIEFING.md", " M docs/ARCHITECTURE.json"],
       drifted: true,
-      reasons: ["1 modified tracked file(s)"],
     });
-    expect(run("Done.", dirty).verdict?.decision).toBe("block");
+    expect(run("Done.", dirty, { session }).verdict).toBeNull();
+  });
+
+  it("takes the post-arrow path on rename porcelain lines", () => {
+    const session = "dirt-rename";
+    updateState(scratch, session, () => ({ touched: ["src/new.js"] }));
+    const dirty = clean({ trackedDirty: ["R  src/old.js -> src/new.js"], drifted: true });
+    expect(run("Done.", dirty, { session }).verdict?.decision).toBe("block");
+  });
+
+  // * git quotes paths with special characters; those are unparseable here and must fail
+  // * CLOSED (count as relevant) rather than silently pass — but only once a session
+  // * record exists.
+  it("blocks conservatively on a quoted porcelain path when a record exists", () => {
+    const session = "dirt-quoted";
+    updateState(scratch, session, () => ({ touched: ["src/other.js"] }));
+    const dirty = clean({ trackedDirty: [' M "src/wei\\303\\237.js"'], drifted: true });
+    expect(run("Done.", dirty, { session }).verdict?.decision).toBe("block");
+  });
+
+  // * `git add` staging counts the same as a Write — a session that only staged a file
+  // * (e.g. after a Bash edit) still owns its dirt.
+  it("counts staged paths from the session record as session-owned", () => {
+    const session = "dirt-staged";
+    updateState(scratch, session, () => ({ staged: ["party/index.ts"] }));
+    const dirty = clean({ trackedDirty: [" M party/index.ts"], drifted: true });
+    expect(run("Done.", dirty, { session }).verdict?.decision).toBe("block");
+  });
+
+  it("still blocks unpushed commits even with an empty session record", () => {
+    const session = "ahead-empty-record";
+    updateState(scratch, session, () => ({}));
+    expect(run("Done.", unpushed(1), { session }).verdict?.decision).toBe("block");
+  });
+});
+
+describe("track-session-writes: session write recording", () => {
+  const root = process.cwd();
+
+  it("records a normalized repo-relative path and dedupes", () => {
+    const session = "tw-basic";
+    const input = { session_id: session, cwd: root, tool_input: { file_path: "src\\Main.js" } };
+    trackWrite(input, { stateDir: scratch, env: {} });
+    trackWrite(input, { stateDir: scratch, env: {} });
+    expect(readState(scratch, session).touched).toEqual(["src/main.js"]);
+  });
+
+  it("records notebook_path too", () => {
+    const session = "tw-notebook";
+    trackWrite(
+      { session_id: session, cwd: root, tool_input: { notebook_path: "docs/x.ipynb" } },
+      { stateDir: scratch, env: {} }
+    );
+    expect(readState(scratch, session).touched).toEqual(["docs/x.ipynb"]);
+  });
+
+  it("ignores paths outside the repo root and malformed input", () => {
+    const session = "tw-outside";
+    trackWrite(
+      { session_id: session, cwd: root, tool_input: { file_path: join(tmpdir(), "x.js") } },
+      { stateDir: scratch, env: {} }
+    );
+    trackWrite({ session_id: session, cwd: root, tool_input: {} }, { stateDir: scratch, env: {} });
+    expect(readState(scratch, session).existed).toBe(false);
+  });
+
+  it("CART_CLASH_SKIP_HOOKS bypasses recording", () => {
+    const session = "tw-skip";
+    trackWrite(
+      { session_id: session, cwd: root, tool_input: { file_path: "src/a.js" } },
+      { stateDir: scratch, env: { CART_CLASH_SKIP_HOOKS: "1" } }
+    );
+    expect(readState(scratch, session).existed).toBe(false);
+  });
+
+  it("coexists with the block counter in one state file", () => {
+    const session = "tw-coexist";
+    trackWrite(
+      { session_id: session, cwd: root, tool_input: { file_path: "src/a.js" } },
+      { stateDir: scratch, env: {} }
+    );
+    updateState(scratch, session, (s) => ({ blocks: s.blocks + 1, lastKey: "k" }));
+    const state = readState(scratch, session);
+    expect(state.touched).toEqual(["src/a.js"]);
+    expect(state.blocks).toBe(1);
+    expect(state.lastKey).toBe("k");
   });
 });
 

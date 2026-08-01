@@ -8,6 +8,13 @@
 // Fires only when a completion CLAIM and REAL DRIFT coincide, so a clean turn is never
 // interrupted, and most turns cost one regex and touch no git at all.
 //
+// SESSION-SCOPED DIRT (STOP-DIRT-1): ahead/behind are per-branch facts and always count;
+// modified-tracked-file dirt only counts when THIS session touched the file (recorded by
+// track-session-writes.mjs / guard-git-add.mjs into the shared session-state file).
+// Generated docs (BRIEFING/ARCHITECTURE) never count — the pre-commit hook owns them.
+// Accepted blind spot: a file edited only via Bash is untracked here and its dirt is
+// ignored (fail-open direction; the ahead check still catches unpushed claims).
+//
 // stop_hook_active POLARITY — verified against the shipped Claude Code binary, not the
 // docs (a doc summary got this backwards twice during planning). Verbatim from the
 // binary: "For Stop/SubagentStop hooks, check stop_hook_active in the input and return
@@ -31,13 +38,18 @@
 // that way — tests/claudeHooks.test.js drives evaluateStop directly with a fake
 // checkHeadDrift, which is the only way to exercise drift without live git state.
 
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
 import { checkHeadDrift } from '../../tools/verify-head.mjs';
+import { DEFAULT_STATE_DIR, readState, updateState } from './lib/session-state.mjs';
 
 /** Max blocks per session before this guard goes quiet. */
 const MAX_BLOCKS = 2;
+
+/**
+ * Generated, pre-commit-managed files: the pre-commit hook regenerates and stages these
+ * on every commit, so their dirt is never a claim-blocking fact for ANY session.
+ * Lowercase repo-relative.
+ */
+const GENERATED = new Set(['docs/briefing.md', 'docs/architecture.json']);
 
 /** Fenced blocks, inline code, and indented code — a pasted `git log` must not fire a claim. */
 function stripCode(s) {
@@ -81,14 +93,6 @@ export function claimsCompletion(text) {
   return false;
 }
 
-/** Windows rejects <>:"/\|?* in filenames, and session ids are not guaranteed safe. */
-function counterPath(dir, sessionId) {
-  const safe = String(sessionId || 'unknown')
-    .replace(/[^A-Za-z0-9_-]/g, '_')
-    .slice(0, 64);
-  return join(dir, `${safe}.json`);
-}
-
 /**
  * Consume one block from this session's budget. Returns false when the guard should stay
  * quiet: budget spent, or this exact drift state was already flagged.
@@ -96,22 +100,51 @@ function counterPath(dir, sessionId) {
  * @returns {boolean}
  */
 function spendBlock(dir, sessionId, key) {
-  const file = counterPath(dir, sessionId);
-  let state = { blocks: 0, lastKey: '' };
-  try {
-    state = { ...state, ...JSON.parse(readFileSync(file, 'utf8')) };
-  } catch {
-    /* first block of the session — defaults stand */
-  }
+  const state = readState(dir, sessionId);
   if (state.lastKey === key) return false;
   if (state.blocks >= MAX_BLOCKS) return false;
-  try {
-    mkdirSync(dirname(file), { recursive: true });
-    writeFileSync(file, JSON.stringify({ blocks: state.blocks + 1, lastKey: key }));
-  } catch {
-    /* tmpdir unwritable — still worth blocking once, just without memory */
-  }
+  updateState(dir, sessionId, (s) => ({ blocks: s.blocks + 1, lastKey: key }));
   return true;
+}
+
+/**
+ * Porcelain line → repo-relative path (lowercase forward-slash), or null for lines this
+ * parser cannot read (git quotes paths with special characters — those return the raw
+ * quoted form so membership tests fail CLOSED, i.e. the file reads as session-relevant).
+ * Rename lines ("R  old -> new") take the post-arrow path.
+ * @param {string} line
+ * @returns {{ path: string, parseable: boolean }}
+ */
+function porcelainPath(line) {
+  let p = String(line).slice(3).trim();
+  const arrow = p.indexOf(' -> ');
+  if (arrow !== -1) p = p.slice(arrow + 4);
+  if (p.startsWith('"')) return { path: p, parseable: false };
+  return { path: p.replace(/\\/g, '/').toLowerCase(), parseable: true };
+}
+
+/**
+ * STOP-DIRT-1: the dirty-tree check is scoped to THIS session. Repo-wide `trackedDirty`
+ * blocked on other sessions' in-flight files within minutes of shipping — a guard that
+ * fires on correct claims teaches SKIP_STOP_GUARD as a reflex. Rules:
+ *   - generated docs (pre-commit-managed) never count, for any session
+ *   - with no session record at all, dirt is ignored entirely (fail open — tracking
+ *     may postdate the edit; ahead/behind still catch unpushed claims)
+ *   - unparseable (quoted) porcelain paths count conservatively when a record exists
+ * @param {string[]} trackedDirty porcelain lines
+ * @param {{ existed: boolean, touched: string[], staged: string[] }} session
+ * @returns {string[]} the session-relevant dirty paths
+ */
+function relevantDirty(trackedDirty, session) {
+  if (!session.existed) return [];
+  const mine = new Set([...session.touched, ...session.staged]);
+  const out = [];
+  for (const line of trackedDirty) {
+    const { path, parseable } = porcelainPath(line);
+    if (parseable && GENERATED.has(path)) continue;
+    if (!parseable || mine.has(path)) out.push(path);
+  }
+  return out;
 }
 
 /**
@@ -132,16 +165,29 @@ export function evaluateStop(input, deps = {}) {
   const drift = (deps.checkHeadDrift ?? checkHeadDrift)(
     input?.cwd || process.env.CLAUDE_PROJECT_DIR || process.cwd()
   );
-  if (!drift?.drifted) return null;
+  if (!drift) return null;
 
-  const key = `${drift.branch}|${drift.ahead}|${drift.behind}|${drift.trackedDirty.join(',')}`;
-  const dir = deps.counterDir ?? join(tmpdir(), 'cart-clash-stopguard');
+  const dir = deps.counterDir ?? DEFAULT_STATE_DIR;
+  const session = readState(dir, input?.session_id);
+  const dirty = relevantDirty(drift.trackedDirty ?? [], session);
+
+  const reasons = [];
+  if (drift.ahead) reasons.push(`${drift.ahead} unpushed commit(s) on ${drift.branch}`);
+  if (drift.behind) reasons.push(`${drift.behind} commit(s) behind ${drift.upstream}`);
+  if (dirty.length) {
+    reasons.push(
+      `${dirty.length} modified tracked file(s) this session touched: ${dirty.slice(0, 5).join(', ')}${dirty.length > 5 ? ', …' : ''}`
+    );
+  }
+  if (reasons.length === 0) return null;
+
+  const key = `${drift.branch}|${drift.ahead}|${drift.behind}|${dirty.join(',')}`;
   if (!spendBlock(dir, input?.session_id, key)) return null;
 
   return {
     decision: 'block',
     reason:
-      `That reads as a completion claim, but this tree is NOT in sync: ${drift.reasons.join('; ')}. ` +
+      `That reads as a completion claim, but this tree is NOT in sync: ${reasons.join('; ')}. ` +
       'AGENTS.md: "Never say \'done\' or \'verified\' without git-pulling `cart-clash` and confirming ' +
       'the change is actually in HEAD", and "call it **unpushed** until it lands on origin/cart-clash". ' +
       'Either push and re-check with `npm run verify:head`, or restate the status honestly — ' +
