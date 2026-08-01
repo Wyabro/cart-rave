@@ -7,7 +7,9 @@
  */
 
 import { readFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { resolve } from "node:path";
+import { planSync } from "./skills-sync.mjs";
 import { collectProjectHealth } from "./lib/projectHealth.mjs";
 import { evaluateProjectHealth } from "./lib/projectHealthValidation.mjs";
 import { SYSTEMS } from "./lib/archMap.mjs";
@@ -38,8 +40,15 @@ async function main() {
   const liveDigest = (await buildArchManifest(cwd, {})).source_digest;
   const archInput = { expansion, archJsonText, liveDigest };
 
+  // * Skills mirror. .claude/skills/ is gitignored, so in CI it can never exist and the gate
+  // * would be permanently red — collect the plan only on a developer machine.
+  const skillsSrc = resolve(cwd, ".agents/skills");
+  const skillsPlan = process.env.CI || !existsSync(skillsSrc)
+    ? undefined
+    : planSync(skillsSrc, resolve(cwd, ".claude/skills"));
+
   const health = await collectProjectHealth({ cwd });
-  const result = evaluateProjectHealth({ statusMd, briefingMd, health, archInput });
+  const result = evaluateProjectHealth({ statusMd, briefingMd, health, archInput, skillsPlan });
   for (const f of result.findings) {
     const tag = f.severity === "error" ? "ERR" : "WARN";
     log(`${tag} ${f.code}: ${f.message}`);

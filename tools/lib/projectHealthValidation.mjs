@@ -284,12 +284,38 @@ export function validateArchitectureFreshness(archJsonText, liveDigest) {
 }
 
 /**
+ * Validate that Claude Code's local skills mirror matches the committed one.
+ *
+ * Skills are committed to `.agents/skills/` (the cross-runtime alias every non-Claude tool
+ * reads) while Claude Code reads `.claude/skills/`, which .gitignore excludes. A fresh clone
+ * therefore has zero Claude-side skills and gives no signal — the skill just never fires.
+ * This is the signal. Same contract as the other opt-in gates: the caller passes the plan
+ * only when it intends the check (health:check does, except in CI where the mirror can never
+ * exist).
+ * @param {{ name: string, status: "created" | "updated" | "unchanged" }[]} plan
+ *   the result of skills-sync.planSync — "created" means absent, "updated" means stale.
+ * @returns {HealthFinding[]}
+ */
+export function validateSkillsMirror(plan) {
+  const drifted = (plan ?? []).filter((s) => s.status !== "unchanged");
+  if (!drifted.length) return [];
+  const detail = drifted.map((s) => `${s.name} (${s.status === "created" ? "missing" : "stale"})`);
+  return [{
+    code: "SKILLS_UNSYNCED",
+    severity: "error",
+    message: `${drifted.length} skill(s) not mirrored into .claude/skills/ — run \`npm run skills:sync\`: ${detail.join(", ")}`,
+    detail: drifted,
+  }];
+}
+
+/**
  * Run all validators. Exit-worthy errors are severity === "error".
  * @param {{
  *   statusMd: string,
  *   briefingMd?: string,
  *   health?: any,
  *   archInput?: { expansion?: any, archJsonText?: string, liveDigest?: string },
+ *   skillsPlan?: { name: string, status: "created" | "updated" | "unchanged" }[],
  * }} input
  */
 export function evaluateProjectHealth(input) {
@@ -300,6 +326,7 @@ export function evaluateProjectHealth(input) {
     ...(input.health ? validateReadinessSemantics(input.health) : []),
     ...(arch?.expansion ? validateArchitectureMap(arch.expansion) : []),
     ...(arch?.liveDigest !== undefined ? validateArchitectureFreshness(arch.archJsonText ?? "", arch.liveDigest) : []),
+    ...(input.skillsPlan !== undefined ? validateSkillsMirror(input.skillsPlan) : []),
   ];
   return {
     ok: findings.every((f) => f.severity !== "error"),
