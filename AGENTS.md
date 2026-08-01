@@ -198,7 +198,8 @@ because a full day was once lost grinding one task; the loop caps that at ~45 mi
   past this point without writing it down is how a day disappears.
 - **Escalation ladder, in order:** (1) the timeboxed attempts → (2) the findings write-up →
   (3) switch approach from knob-turning to root-cause forensics (instrument, capture,
-  attribute — the PERF-WARM lesson: spans named the owner; guessing at levers got reverted) →
+  attribute — the PERF-WARM lesson: spans named the owner; guessing at levers got reverted;
+  the procedure is `.agents/skills/systematic-debugging/SKILL.md`, which every tool can read) →
   (4) hand off per MODEL / TOOL ROUTING below, or ask Wyatt. Handing off with a findings
   write-up is a success, not a failure.
 - **Definition of done:** gates green **by number** + pushed + pulled-and-verified in
