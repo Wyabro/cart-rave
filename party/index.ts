@@ -1733,6 +1733,9 @@ export default {
             // * SEC-BEACON-1: same as /api/log-error — a 429 must reach the client
             // * or the cap is invisible and untestable.
             if (res.status === 429) return new Response(null, { status: 429 });
+          } else if (!env.ANALYTICS_LOG) {
+            // * Binding not deployed yet — keep the old visibility so nothing is lost.
+            console.log("[cart-rave] analytics (no ANALYTICS_LOG binding):", body.slice(0, 2000));
           }
         } catch {
           // Malformed/empty beacon — never fail the sender.

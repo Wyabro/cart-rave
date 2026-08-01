@@ -134,8 +134,9 @@ BOOT-PERF-1 · Run 7 strip) → [completed-work.md](./planning/completed-work.md
    yellow (v2 opacity nudge was invisible). Owed: hard-refresh + Wyatt eye.
 3. **RESULTS-ACT-1** still the other real FIGHT-VERIFY product defect (below-fold CTAs on
    squat windows). Remaining FIGHT-VERIFY Medium/Low stay backlog-only.
-4. **Audit add-ons filed 08-01 (not active):** **ASSET-CACHE-1** · **HARNESS-FRIENDS-1** ·
-   **ANLX-BIND-1**. **FRIENDS-REJOIN-1** closed (D-FRIENDS-REJOIN-1).
+4. **Audit add-ons:** **ANLX-BIND-1** closed 08-01 (ERROR_LOG-twin log on missing binding).
+   Still open: **ASSET-CACHE-1** · **HARNESS-FRIENDS-1**. **FRIENDS-REJOIN-1** closed.
+
 5. After coding that needs eyes: `Owed: Wyatt playtest — ID — check` → `npm run dashboard`.
 6. Battery exact-HEAD green is on disk (`battery-2026-08-01T03-31-21…`); keep CC fresh with
    `npm run dashboard` after battery runs.
