@@ -66,6 +66,14 @@ Live-at values are the deployed commit / Cloudflare Version at close.
 | — | SEC-UNLOCK-1 DEV-gate `?devUnlocks=all` (`=off` deliberately kept) | ✅ CLOSED 07-30 — live at `64eff60` / Version `56439ef4`, prod-verified |
 | — | SEC-ROUTE-1 Worker `/api/*` routes `includes()` → exact `===` ×4 | ✅ CLOSED 07-30 — live at `8da2575` / Version `268f6ff2`, prod-verified. Also fixed a live 500: unmatched paths returned null from `fetch()` → now 404 |
 | — | ANLX-ATTRACT-1 mid-round joins booked phantom matches | ✅ CLOSED 07-31 — live at `2e85f0b` / Version `4083335f`. Acceptance below |
+| — | ANLX-BULK-1 short `loss` bulk poisoned product analytics | ✅ CLOSED 07-31 — tool-sourced / intentional-on-machine, not player-path. L1 `#summary` floor `MIN_MATCH_DURATION_MS=3000` + L2 client skip of short non-null `match_ended`. Tests: `analyticsGating` + `analyticsSummaryFloor` |
+| — | SEC-TOKEN-1 admin tokens out of query params | ✅ CLOSED — `Authorization: Bearer` only via `party/adminAuth.ts` (`requireAdminToken`); query `?token=` rejected; pull tools send Bearer |
+| — | CARGO-RACE-1 bay built empty if grocery GLTFs lose the load race | ✅ 07-30 — bays self-heal on init resolve (`createCargoBay` queues pre-init; `buildPool` populates). Cold-solo probe `[0,0,0,0]` → `[18,18,18,18]` PASS |
+| — | SHEET-1 in-match contact-sheet tool | ✅ BUILT + PROVEN 07-31 — `npm run sheet` / `--all`; subject-is-HUD gate; residual gaps → FIGHT-VERIFY-1 ([sheet-1.md](./sheet-1.md)) |
+| — | HUD-FEED-1 kill-feed row overflows its plate (narrow + landscape) | ✅ SHIPPED 07-31 — four commits ending `0b5369d` / Version `4cca79ca`. Portrait `min(78vw,320px)` + base `max-width:100%`; landscape ceiling 240→320. Wyatt playtest PASS portrait + landscape (BRIEFING 07-31) |
+| — | MENU-HINT-1 menu hint bar scrolls over settings content | ✅ SHIPPED 07-31 — live at `7d2b840` / Version `a438b567`. `position:fixed` ≤1024 + live `--cr-hintbar-h` reserve + opaque bar bg. Wyatt playtest PASS |
+| — | DIAG-DOC-1 docs claimed `__ccDiag.control` DEV-only / null in prod | ✅ CLOSED — comment/JSDoc + guides only. Control object: `DEV \|\| ?diag=1`; hub only when `?diag=1` |
+| **B1** | AI-DIFF-1 NPC difficulty modes | ✅ shipped 07-22 (`49bfc2a`) — Medium baseline; Solo Easy default + menu; Quickplay Medium; Friends host pick |
 
 **ANLX-ATTRACT-1 acceptance (07-31).** The agreed counting metric could not decide it: the
 `<3 s` + `result=draw` cluster in the newest 1000 rows is 161 rows dated **07-20 (53) and

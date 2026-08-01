@@ -8,10 +8,10 @@
  * answer, in order: which release phase → today's mission → what "done" looks like
  * → the one next action → what's blocked/forbidden → where work resumes. Everything
  * else is reference, collapsed. The page is organized by decision frequency, never
- * by data source. Captures are evidence, not todos. Playtest state is read from the
- * console's localStorage IN THE BROWSER at view time — no generate-time copy, the
- * console stays the single source of playtest truth. A view-time staleness guard
- * warns when the page itself is old.
+ * by data source. Captures are evidence, not todos. Playtest *verdicts* are read from
+ * the console's localStorage IN THE BROWSER at view time; the *card list* is generated
+ * with `npm run playtest:console` from STATUS/BACKLOG (`Owed: Wyatt playtest`). A
+ * view-time staleness guard warns when the page itself is old.
  *
  * Humans: this page. Agents: health.json (same model + a `digest` block that is the
  * cold-start summary — see AGENTS.md session rehydration).
@@ -537,7 +537,7 @@ ${phaseStrip ? `<nav class="phases" aria-label="release phases">${phaseStrip}</n
   <div class="flow">
     <div class="fstep"><b>Mission</b><span>${activeRow ? `card <b>${esc(activeRow.id)}</b> above` : "pick the active card"}</span></div>
     <div class="fstep"><b>Launch</b><span>${diagUrl ? `<a href="${esc(diagUrl)}" target="_blank">prod ?diag=1</a> — hard-refresh both machines` : "prod + ?diag=1 on both machines"}</span></div>
-    <div class="fstep"><b>Run cards</b><span><a href="../docs/playtest/console.html">console</a> — one live card, notes in-place</span></div>
+    <div class="fstep"><b>Run cards</b><span><a href="playtest-console.html">console</a> — auto-seeded owed cards, notes in-place</span></div>
     <div class="fstep"><b>Capture</b><span>F8 on BOTH machines (auto-uploads)</span></div>
     <div class="fstep"><b>Pull</b><span class="mono">npm run captures:pull</span></div>
     <div class="fstep"><b>Review</b><span><a href="#captures">captures below</a> + export console md into chat</span></div>
@@ -545,7 +545,7 @@ ${phaseStrip ? `<nav class="phases" aria-label="release phases">${phaseStrip}</n
     <div class="fstep"><b>Retest</b><span>ship on "ship it" → hard-refresh → F8 again</span></div>
   </div>
   <div id="pt-body"><div class="empty">Console progress appears here once cards are run in this browser —
-    <a href="../docs/playtest/console.html">open the console</a>.</div></div>
+    <a href="playtest-console.html">open the console</a>. Cards auto-seed from STATUS/BACKLOG <code>Owed: Wyatt playtest</code>.</div></div>
 </section>
 
 <div class="pulse" id="section-radar">
@@ -609,7 +609,7 @@ ${backlogRows ? `<table><tr><th>discipline</th><th>items</th><th>by priority</th
   <a href="../docs/STATUS.md">STATUS.md</a>
   <a href="../AGENTS.md">AGENTS.md</a>
   <a href="../docs/BRIEFING.md">BRIEFING.md</a>
-  <a href="../docs/playtest/console.html">playtest console</a>
+  <a href="playtest-console.html">playtest console</a>
   <a href="../docs/planning/BACKLOG.md">BACKLOG</a>
   <a href="../docs/planning/ROADMAP.md">ROADMAP</a>
   <a href="../docs/guides/dev-toolkit.md">dev toolkit</a>
@@ -650,10 +650,11 @@ ${backlogRows ? `<table><tr><th>discipline</th><th>items</th><th>by priority</th
     }
   } catch (e) { /* stamp unreadable — leave the static ago text */ }
 
-  // 2) Playtest console state — read-only view of localStorage key
-  //    cartClashPlaytestConsole_v1 (same browser as console.html; console owns it).
+  // 2) Playtest console state — read-only view of localStorage
+  //    cartClashPlaytestConsole_v2 (v1 fallback). Same browser as playtest-console.html.
   try {
-    var raw = localStorage.getItem("cartClashPlaytestConsole_v1");
+    var raw = localStorage.getItem("cartClashPlaytestConsole_v2")
+      || localStorage.getItem("cartClashPlaytestConsole_v1");
     if (!raw) return;
     var data = JSON.parse(raw);
     var st = data.taskState || {};

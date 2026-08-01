@@ -78,7 +78,9 @@ Run 7 mission closed; NET-2 / NET-MIG-3 passed live; NET-PRES-1 landed (loss-on-
 
 **Parallel track — "Fight Night" UI redesign: complete, merged (PR #3 → `cart-clash` `56dfa61`), deployed to prod** (bundle `sha:56dfa61`, verified against the fetched asset). Every 2D surface rebuilt on one shell/slab language. **Owed: a real-browser verification pass in production** (live match, two-client friends room, cold boot per arena, touched hover/press surfaces) — signed off by DOM/computed-style only so far. See D-FIGHTNIGHT-1 + [fight-night-ui-handover.md](./planning/fight-night-ui-handover.md).
 
-Playtest console: [playtest/console.html](./playtest/console.html).  
+Playtest console: generated — `npm run dashboard` / `npm run playtest:console` →
+[.diag-captures/playtest-console.html](../.diag-captures/playtest-console.html)
+(cards from STATUS “needs Wyatt playtest” + BACKLOG `Owed: Wyatt playtest`).  
 F8 → auto-upload; pull: `npm run captures:pull` (needs `.env.local` `ERROR_LOG_TOKEN`).
 
 **07-30 — laptop captures (cap-205…214, medium-tier iGPUs):** first play stalled 3.8–7.1s in the

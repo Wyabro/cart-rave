@@ -10,7 +10,7 @@ controls. **Who runs it?** Wyatt first, then external testers.
 
 | Doc | Use it when |
 |-----|-------------|
-| **[console.html](./console.html)** | **Primary — open in a browser.** Repo-owned playtest console: one active task, Match A/B host-role isolation first, export markdown for the agent. Replaces the old Claude artifact (retired). |
+| **Playtest console** | **Primary — generated.** Run `npm run dashboard` (or `npm run playtest:console`), then open [`.diag-captures/playtest-console.html`](../../.diag-captures/playtest-console.html). Cards auto-seed from STATUS (needs Wyatt playtest) + BACKLOG (`Owed: Wyatt playtest`). One active card; structured FAIL export for agents. [console.html](./console.html) is a redirect stub only. |
 | This file | Planning a session; deciding what to test next |
 | [solo-checklist.md](./solo-checklist.md) | Any solo session (Sessions 0–4) |
 | [multiplayer-smoke.md](./multiplayer-smoke.md) | The NET-1 session (Session 5) — wraps the existing [living-store](../planning/living-store-test-plan.md) + [host-migration](../planning/host-migration-test-plan.md) plans |
@@ -18,19 +18,35 @@ controls. **Who runs it?** Wyatt first, then external testers.
 | [regression-checklist.md](./regression-checklist.md) | Before every deploy (`npm run ship`) from now on |
 | [templates.md](./templates.md) | During ANY session — bug report, balance note, fun-factor sheet |
 
-### Playtest console (current)
+### Playtest console (generated)
 
-Open **[console.html](./console.html)** locally (double-click or “Open with Live Server” — no build step). State lives in browser `localStorage`.
+```text
+npm run dashboard          # briefing + arch + playtest console + CC
+# or
+npm run playtest:console   # console only
+```
+
+Open **`.diag-captures/playtest-console.html`** (or Command Center → Playtest Console).
+
+| Piece | Source |
+|-------|--------|
+| Card list | STATUS rows waiting on Wyatt + BACKLOG `Owed: Wyatt playtest` |
+| Your PASS/FAIL/notes | Browser `localStorage` key `cartClashPlaytestConsole_v2` |
+| Agent handoff | Copy markdown export (FAIL first, with arena/mode/role + F8 label) |
+
+**Agent contract:** when a change needs a human, write  
+`Owed: Wyatt playtest — CARD-ID — one-line check`  
+into STATUS or BACKLOG, then regenerate. On close: `Wyatt playtest PASS` (and clear Owed).
 
 **Process that failed before (do not repeat):** dump 10+ needs-work items → one mega fix batch → ship → mixed host roles → performance feels random.
 
 **Process now:**
 
-1. Run the console cards **in order**. Match **A** (strong machine hosts) then Match **B** (weak machine hosts) before any look/audio cards.
-2. **F8 on both machines** — each upload hits prod `/api/captures` automatically (still downloads a local JSON too). Optional label: `?diag=1&captureLabel=run7-A-intel`.
-3. On the repo machine: `npm run captures:pull` → files land in `.diag-captures/playtest/` (needs `ERROR_LOG_TOKEN` in `.env.local` once). Paste the console export into chat; tell the agent to pull (or pull yourself first).
-4. Agent triages **one** next action. No 10-item dumps.
-5. Only after A/B are decoded: P1 one-at-a-time checks.
+1. Regenerate console → run **one** active card (PREFLIGHT first when present).
+2. **F8** with the card’s label (or `?diag=1&captureLabel=pt-…`). Both machines if multiplayer.
+3. On FAIL: fill arena · mode · role · note → **Copy agent markdown** into chat.
+4. Agent fixes **one** card · ship · retest that id.
+5. `npm run captures:pull` when you want captures on disk (optional; F8 still auto-uploads).
 
 ---
 

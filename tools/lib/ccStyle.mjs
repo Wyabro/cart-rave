@@ -91,14 +91,14 @@ export function esc(s) {
 }
 
 /**
- * The three Command Center surfaces, in fixed order. The generated pages (dashboard,
- * architecture) both sit in `.diag-captures/`, so the defaults are correct for them; the
- * static playtest console (docs/playtest/console.html) links back with its own relative paths.
+ * The three Command Center surfaces, in fixed order. All three generated pages sit in
+ * `.diag-captures/` (dashboard · architecture · playtest-console), so the defaults are
+ * correct for them. docs/playtest/console.html is a redirect stub only.
  */
 export const CC_SURFACES = [
   { id: "command-center", icon: "🛒", label: "Command Center", href: "dashboard.html" },
   { id: "architecture", icon: "🗺", label: "Architecture", href: "architecture.html" },
-  { id: "playtest", icon: "🎮", label: "Playtest Console", href: "../docs/playtest/console.html" },
+  { id: "playtest", icon: "🎮", label: "Playtest Console", href: "playtest-console.html" },
 ];
 
 /**

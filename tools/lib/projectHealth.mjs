@@ -137,6 +137,41 @@ export function queueRowState(status) {
 }
 
 /**
+ * True when a STATUS/queue/notes cell is waiting on a human playtest (not agent work).
+ * Used by BRIEFING "Waiting on Wyatt" and the generated playtest console seed.
+ * Explicit contract: agents write `Owed: Wyatt playtest` (or "needs Wyatt's playtest")
+ * when a change requires a human. Closed PASS/CLOSED rows with no new "owed/needs" are false.
+ * @param {string} status
+ */
+export function blockedOnWyatt(status) {
+  const s = String(status ?? "");
+  if (!s) return false;
+  // Explicit still-open contract wins over any PASS wording in the same cell.
+  if (
+    /owed:\s*wyatt\s+playtest|needs?\s+wyatt(?:'s)?\s+(?:multiplayer\s+)?playtest|playtest\s+requested/i.test(
+      s,
+    )
+  ) {
+    return true;
+  }
+  // Closed on playtest — not waiting (covers "PASS (Wyatt playtest …)" and "Wyatt playtest PASS").
+  if (/\bwyatt\s+playtest\s+PASS\b/i.test(s)) return false;
+  if (/\bPASS\b/i.test(s) && /✅|CLOSED|closed|confirmed by Wyatt/i.test(s)) return false;
+  if (/confirmed by Wyatt/i.test(s) && /playtest/i.test(s)) return false;
+  return /needs?\s+wyatt|wyatt'?s?\s+(playtest|paired|multiplayer)/i.test(s);
+}
+
+/**
+ * Work-card id from free text (`HUD-FEED-1`, `PRE-PODIUM-1`, …). First ALL-CAPS kebab id wins.
+ * @param {string} text
+ * @returns {string | null}
+ */
+export function extractWorkId(text) {
+  const m = String(text ?? "").match(/\b([A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+)\b/);
+  return m ? m[1] : null;
+}
+
+/**
  * STATUS.md playtest/active queue → structured rows. Current format is the
  * "### Active queue" table (| # | What | Status |); the pre-run-7
  * "### Wyatt playtest queue" numbered list is kept as a fallback so an old

@@ -26,6 +26,7 @@ import {
   issueState,
   deriveNextAction,
   compressIssueStatus,
+  blockedOnWyatt,
 } from "./projectHealth.mjs";
 
 const DIGEST_LINE = /^> Source digest: `([0-9a-f]{8})`/m;
@@ -33,11 +34,6 @@ const DIGEST_LINE = /^> Source digest: `([0-9a-f]{8})`/m;
 /** @param {string} s */
 function sha8(s) {
   return createHash("sha1").update(s, "utf8").digest("hex").slice(0, 8);
-}
-
-/** Queue rows that are waiting on a human playtest, not on agent work. @param {string} status */
-function blockedOnWyatt(status) {
-  return /needs?\s+wyatt|wyatt'?s?\s+(playtest|paired|multiplayer)|playtest\s+requested/i.test(String(status ?? ""));
 }
 
 /**
