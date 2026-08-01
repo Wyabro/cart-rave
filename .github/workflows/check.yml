@@ -20,7 +20,7 @@ concurrency:
 
 jobs:
   check:
-    name: typecheck · test · knip · health · build
+    name: size · typecheck · test · knip · docs-fresh · health · build
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
