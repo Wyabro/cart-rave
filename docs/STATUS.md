@@ -298,6 +298,16 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
+2026-08-01 (systematic-debugging skill + skills mirror gate) — Vendored
+`.agents/skills/systematic-debugging/` (adapted from obra/superpowers, MIT): 4 phases,
+root-cause tracing, condition-based waiting, defense-in-depth. Rewritten to hand off to the
+AGENTS.md timebox/ladder, and AGENTS.md ladder step (3) now names it (`183a545`). Skills are
+committed to `.agents/skills/` (every non-Claude tool reads it) while Claude Code reads
+`.claude/skills/`, which `.gitignore:47` excludes — so a fresh clone silently has no
+Claude-side skills. `npm run skills:sync` mirrors one way (`.agents` wins) and
+`SKILLS_UNSYNCED` red-gates `health:check`, skipped when `CI` is set because the mirror can
+never exist there (`f4f4f6c`). No behavior change — no playtest owed.
+
 2026-08-01 (playtest console seeded) — BACKLOG `## Playtest owed (08-01 session)` carries
 10 `Owed: Wyatt playtest` cards (RESULTS-ACT-1 · FV-* · HOST-TOAST-1). Regen:
 `npm run playtest:console`. FIGHT-VERIFY parent no longer seeds the console.
