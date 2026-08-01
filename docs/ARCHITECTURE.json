@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-01T03:35:59.091Z",
-    "commit": "423008f"
+    "at": "2026-08-01T03:45:15.530Z",
+    "commit": "10a7620"
   },
-  "source_digest": "d8c8ea56",
+  "source_digest": "46b429bb",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -853,7 +853,7 @@
       {
         "id": "FIGHT-VERIFY-1",
         "what": "owed fight-night verification",
-        "status": "🟡 agent half PARTIAL — sheet/states/loadshots/podium cover many surfaces; residual: real-match feel + two-client friends (Wyatt). Loading/hover/podium tooling landed 07-31.",
+        "status": "🟢 agent half DONE 08-01 — 4 phases: `e5efbfe` focus-ring fix · `533afa9` `npm run podium` (7g results, victory+defeat, 8 cells) · `37a232a` `npm run loadshots` (both loading screens, 3 arena themes + 5 boot beats, 128/128 ×2) · `9f5c9b5` `npm run states` (40 hover/press/focus subjects enumerated from the live CSSOM, 264/265 ×2). 1 bug fixed, 11 filed — see BACKLOG. Residual = Wyatt half only (below).",
         "state": "waiting"
       },
       {
@@ -891,7 +891,8 @@
       }
     ],
     "next_actions": [
-      "No active card — Wyatt names the next residual (or “wait”). Agent High: UI-SCALE-1,",
+      "Triage FIGHT-VERIFY-1's 11 findings — the agent half produced them; none are fixed. Two",
+      "No other active card — Wyatt names the next residual (or “wait”). Agent High:",
       "After coding that needs eyes: `Owed: Wyatt playtest — ID — check` → `npm run dashboard`.",
       "Battery exact-HEAD green is on disk (`battery-2026-08-01T03-31-21…`); keep CC fresh with"
     ],

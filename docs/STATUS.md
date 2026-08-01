@@ -76,8 +76,12 @@ before-external-testers items are done); the ring now starts clean.
 
 Run 7 mission closed; NET-2 / NET-MIG-3 passed live; NET-PRES-1 landed (loss-on-drop residual accepted). Stay in this phase until Wyatt advances the marker.
 
-**Fight Night UI** merged (`56dfa61`) — agent verification = FIGHT-VERIFY-1; Wyatt half still
-owed for real-match / two-client feel ([handover](./planning/fight-night-ui-handover.md)).
+**Fight Night UI** merged (`56dfa61`). FIGHT-VERIFY-1 **agent half closed 08-01** — three new
+on-demand rigs (`podium` · `loadshots` · `states`) now cover results, both loading screens and
+every interactive state. **Wyatt half still owed**, and no tool can claim it: real-match
+HUD/results *feel*, the two-client friends room (the CHECKOUT LINE lobby has never rendered
+anywhere), the non-host podium branch, and the parked MP confetti/wilt bug
+([handover](./planning/fight-night-ui-handover.md)).
 
 Playtest console: `npm run dashboard` → [.diag-captures/playtest-console.html](../.diag-captures/playtest-console.html)
 (seed: STATUS needs-Wyatt + BACKLOG `Owed: Wyatt playtest`). F8 + `npm run captures:pull`.
@@ -114,7 +118,7 @@ BOOT-PERF-1 · Run 7 strip) → [completed-work.md](./planning/completed-work.md
 
 | # | What | Status |
 |---|------|--------|
-| **FIGHT-VERIFY-1** | owed fight-night verification | 🟡 **agent half PARTIAL** — sheet/states/loadshots/podium cover many surfaces; residual: real-match feel + two-client friends (Wyatt). Loading/hover/podium tooling landed 07-31. |
+| **FIGHT-VERIFY-1** | owed fight-night verification | 🟢 **agent half DONE** 08-01 — 4 phases: `e5efbfe` focus-ring fix · `533afa9` `npm run podium` (7g results, victory+defeat, 8 cells) · `37a232a` `npm run loadshots` (both loading screens, 3 arena themes + 5 boot beats, 128/128 ×2) · `9f5c9b5` `npm run states` (40 hover/press/focus subjects enumerated from the live CSSOM, 264/265 ×2). **1 bug fixed, 11 filed** — see BACKLOG. Residual = **Wyatt half only** (below). |
 | **HOST-CAP-1** | weak-host toast residual | ✅ **SHIPPED** 08-01 — `score < 50` once/hostship; prod Version `76ebdc37` (HEAD `423008f`) |
 | **BOOT-PERF-1** | idle warm gen-cancel | ✅ **SHIPPED** 08-01 — mid-flight retarget; same deploy |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
@@ -122,16 +126,29 @@ BOOT-PERF-1 · Run 7 strip) → [completed-work.md](./planning/completed-work.md
 
 ### Next actions
 
-1. **No active card — Wyatt names the next residual** (or “wait”). Agent High: **UI-SCALE-1**,
-   **FIGHT-VERIFY-1**. Art/you: **CART-MODEL-1** · bloom · **RESULTS-1**. Pre-ship batch is in
+1. **Triage FIGHT-VERIFY-1's 11 findings** — the agent half produced them; none are fixed. Two
+   are real product defects and want cards: **RESULTS-ACT-1** (PLAY AGAIN / MAIN MENU render
+   203–295 px below the fold in `results.css:81`'s squat-window branch — the reward screen's
+   whole job is that decision) and **MENU-CMD-FEEL-1** (the seven `.cr-cmd` rows have **no CSS
+   hover or press feedback**; `cart-rave-menu.css:3411-3416` sets their states byte-identical to
+   rest, and a 3 % anime.js scale is the entire affordance on the game's primary controls). The
+   other nine are Medium/Low or tools-only.
+2. **No other active card — Wyatt names the next residual** (or “wait”). Agent High:
+   **UI-SCALE-1**. Art/you: **CART-MODEL-1** · bloom · **RESULTS-1**. Pre-ship batch is in
    [BACKLOG](./planning/BACKLOG.md) (`[pre-ship]`). **INPUT-KB-1 closed** (SHIP-1 A2, 07-21).
-2. After coding that needs eyes: `Owed: Wyatt playtest — ID — check` → `npm run dashboard`.
-3. Battery exact-HEAD green is on disk (`battery-2026-08-01T03-31-21…`); keep CC fresh with
+3. After coding that needs eyes: `Owed: Wyatt playtest — ID — check` → `npm run dashboard`.
+4. Battery exact-HEAD green is on disk (`battery-2026-08-01T03-31-21…`); keep CC fresh with
    `npm run dashboard` after battery runs.
 
 **07-31 lesson (short):** verification tools only see branches they enter — add the matching
 viewport/pointer cell in the same commit as any scoped CSS. Prefer one real clip when it
 disagrees with a green sweep.
+
+**08-01 lesson:** the focus-ring bug (`e5efbfe`) was found by *reading the cascade while
+planning*, before a line of tooling existed — an unscoped `!important` in `loadingScreen.css`
+had silently outranked every designed focus state game-wide. Two of the three biggest finds
+this pass (that, plus MENU-CMD-FEEL-1) are rules that are *present and dead*, which geometry
+sign-off cannot see. Assert the **delta**, not the declaration.
 
 **Do-not-relearn (short):** `?devUnlocks=off` is a **prod** lever (never DEV-gate). Don’t grep
 `dist/` for `devUnlocks` or minified `min-width:` (range syntax). Pass `isDev` into helpers under
@@ -282,9 +299,12 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-08-01 — Shipped HEAD `423008f` / Worker Version `76ebdc37` (HOST-CAP-1 · BOOT-PERF-1 +
-stack). Full battery green 6/6 (`battery-2026-08-01T03-31-21-188Z.json`). Playtest console
-auto-seeds from STATUS/BACKLOG. STATUS size trim; INPUT-KB-1 closed out of open High.
+2026-08-01 (HOST-CAP-1 + BOOT-PERF-1 shipped; FIGHT-VERIFY-1 agent half closed) — Shipped HEAD
+`423008f` / Worker Version `76ebdc37` (HOST-CAP-1 · BOOT-PERF-1 + stack). Full battery green 6/6
+(`battery-2026-08-01T03-31-21-188Z.json`). Playtest console auto-seeds from STATUS/BACKLOG.
+STATUS size trim; INPUT-KB-1 closed out of open High. **FIGHT-VERIFY-1 agent half done** in four
+phases (`e5efbfe` focus-ring fix · `533afa9` podium · `37a232a` loadshots · `9f5c9b5` states) —
+three new on-demand rigs, 1 bug fixed and 11 filed; residual is the Wyatt half only.
 
 2026-07-31 — HUD-FEED-1 · MENU-HINT-1 · HUD-CHIPS-1 Wyatt phone PASS (Version `85087c10`);
 touch sheet cells `0da5c4c`. No active card; FIGHT-VERIFY-1 residual = Wyatt real-match half.

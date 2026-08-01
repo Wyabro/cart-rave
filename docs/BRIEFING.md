@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (also runs inside `npm run qa`).
-> Generated 2026-08-01 at commit `423008f` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
-> Source digest: `6c461d6b`
+> Generated 2026-08-01 at commit `10a7620` on `cart-clash`. If docs/STATUS.md has changed since, `npm run health:check` fails until this is regenerated.
+> Source digest: `24a4864a`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -18,12 +18,12 @@ Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep a
 
 ## ACTIVE CARD
 
-No active card — Wyatt names the next residual (or “wait”). Agent High: UI-SCALE-1,
+Triage FIGHT-VERIFY-1's 11 findings — the agent half produced them; none are fixed. Two
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 
 Self-directed queue (one at a time, within the declared phase):
-- **FIGHT-VERIFY-1** owed fight-night verification — 🟡 agent half PARTIAL — sheet/states/loadshots/podium cover many surfaces; residual: real-match feel +…
+- **FIGHT-VERIFY-1** owed fight-night verification — 🟢 agent half DONE 08-01 — 4 phases: `e5efbfe` focus-ring fix · `533afa9` `npm run podium` (7g results,…
 - **MAIN-1 / BUNDLE-1** main.js seam / code-split — 📋 post-gate
 
 ## Do not
