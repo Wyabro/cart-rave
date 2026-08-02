@@ -1741,11 +1741,15 @@ function buildSeascape(scene, circumR) {
         shaftMats[i].opacity = (0.04 + i * 0.01) * (0.85 + 0.15 * Math.sin(timeMs * 0.0006 + i));
       }
       if (glintMat) glintMat.opacity = 0.32 + 0.08 * Math.sin(timeMs * 0.0007);
-      if (gateDotsMat) gateDotsMat.opacity = 0.45 + Math.sin(timeMs * 0.0009) * 0.2;
       // * This line OVERWRITES the constructor opacity every 500 ms — raising only the
       // * constructor loses to it, which is why both move together.
       if (foamMat) foamMat.opacity = 0.26 + Math.sin(timeMs * 0.00055) * 0.08;
     }
+
+    // * Per-frame, NOT in the 500 ms block above: this sine's period is 2π/0.0009 ≈ 7 s, so
+    // * stepping it every 500 ms gave 14 samples per cycle — jumps of up to 0.09 opacity at
+    // * the steepest part, which staircases instead of breathing. One sin and one write.
+    if (gateDotsMat) gateDotsMat.opacity = 0.45 + Math.sin(timeMs * 0.0009) * 0.2;
 
     if (waterNormalTex) {
       // * repeat 26 over WATER_SIZE 900 ⇒ one tile = 34.6 m, so an offset rate of 1e-6/ms is
