@@ -1,2 +1,11 @@
 # Shell hook scripts must stay LF — a CRLF #!/bin/sh shebang breaks the hook on checkout.
 tools/git-hooks/* text eol=lf
+
+# Same hazard, different blast radius. The Claude Code hooks are #!/usr/bin/env node
+# scripts that tests/claudeHooks.test.js also IMPORTS, and Vite's shebang stripper only
+# matches `#!…\n` — a `#!…\r\n` first line survives the transform and the whole suite dies
+# with "SyntaxError: Invalid or unexpected token", attributed to the test file rather than
+# to the module that actually carries the CRLF. Cost an hour to find once; pinned so it
+# cannot happen twice. (git's autocrlf keeps the committed blob LF either way, so this
+# only ever bites the Windows working tree — which is the only tree anyone develops in.)
+.claude/hooks/** text eol=lf

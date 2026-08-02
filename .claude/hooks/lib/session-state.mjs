@@ -116,16 +116,34 @@ export function updateState(dir, sessionId, fn) {
 /**
  * Normalize a file path to the repo-relative lowercase forward-slash form used for
  * membership checks against `touched` / `staged`. Returns null for paths outside root.
+ *
+ * The backslash pass on the way IN is load-bearing and platform-independent. `path.sep` is
+ * `\` on Windows and `/` on POSIX, and on POSIX a backslash is a legal filename BYTE — so
+ * `path.resolve` never treats it as a separator there and `split(path.sep)` is a no-op.
+ * Windows-shaped input (which Claude Code genuinely sends: `src\Main.js`) therefore
+ * normalized on the dev box and passed through untouched on Linux CI, which is what put
+ * two of these tests red for a day. Folding separators before resolving makes both
+ * platforms agree.
+ *
+ * Two consequences, both accepted: a legal POSIX filename containing a backslash is
+ * rewritten (`git ls-files` finds none in this repo, and the miss is fail-closed — the path
+ * stops reading as owned, so a pathspec-less commit denies rather than allows); and on
+ * POSIX several previously-tracked oddities (UNC forms, `..\..\etc\passwd`) now resolve
+ * out of the tree and return null, which is strictly stricter.
+ *
  * @param {string} target @param {string} root
+ * @param {typeof path} [p] path flavour — injectable ONLY so tests can assert both
+ *   platforms from one machine; production always takes the default.
  * @returns {string | null}
  */
-export function normalizeRepoPath(target, root) {
+export function normalizeRepoPath(target, root, p = path) {
   if (typeof target !== 'string' || !target) return null;
-  const rel = path
-    .relative(root, path.resolve(root, target))
-    .split(path.sep)
+  const unified = target.replace(/\\/g, '/');
+  const rel = p
+    .relative(root, p.resolve(root, unified))
+    .split(p.sep)
     .join('/')
     .toLowerCase();
-  if (!rel || rel.startsWith('../') || path.isAbsolute(rel)) return null;
+  if (!rel || rel === '..' || rel.startsWith('../') || p.isAbsolute(rel)) return null;
   return rel;
 }

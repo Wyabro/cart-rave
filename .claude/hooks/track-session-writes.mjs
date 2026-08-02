@@ -34,13 +34,22 @@ export function trackWrite(input, deps = {}) {
 
   const target = input?.tool_input?.file_path ?? input?.tool_input?.notebook_path;
   const root = env.CLAUDE_PROJECT_DIR || input?.cwd || process.cwd();
-  const rel = normalizeRepoPath(target, root);
+  // * Fold separators ONCE and use that for both the state key and the file read. These
+  // * two used to disagree: the key went through normalizeRepoPath while the hash resolved
+  // * the RAW target, which on POSIX meant `src\main.js` keyed as `src/main.js` but read
+  // * `<root>/src\main.js` → ENOENT → no `writes` entry. The path would then carry
+  // * GIT-INDEX-1 ownership with no GIT-INDEX-2 fingerprint, so both content checks skipped
+  // * it (guard-git-add.mjs `if (!expected) continue`) — ownership without a fingerprint is
+  // * strictly worse than neither. Do NOT resolve `rel` instead: it is lowercased, which
+  // * misses on a case-sensitive filesystem.
+  const unified = typeof target === 'string' ? target.replace(/\\/g, '/') : target;
+  const rel = normalizeRepoPath(unified, root);
   if (!rel) return;
 
   // GIT-INDEX-2: fingerprint the content NOW, at PostToolUse, when disk holds exactly what
   // this session produced. Hashing later (at `git add`) would fingerprint whatever a
   // concurrent session had since written — i.e. it would bless the very leak this catches.
-  const hash = hashWritten(path.resolve(root, target), deps);
+  const hash = hashWritten(path.resolve(root, unified), deps);
 
   updateState(deps.stateDir ?? DEFAULT_STATE_DIR, input?.session_id, (state) => ({
     touched: state.touched.includes(rel) ? state.touched : [...state.touched, rel],

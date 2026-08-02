@@ -10,7 +10,7 @@
 //
 // Fails open by design: any parse or logic error exits 0.
 
-import path from 'node:path';
+import { normalizeRepoPath } from './lib/session-state.mjs';
 
 // Keys are lowercased repo-relative paths — Windows paths are case-insensitive.
 const EXACT = new Map([
@@ -45,14 +45,18 @@ export function evaluateProtectedPath(input, env = {}) {
   if (typeof target !== 'string' || !target) return null;
 
   const root = env.CLAUDE_PROJECT_DIR || input?.cwd || process.cwd();
-  const rel = path
-    .relative(root, path.resolve(root, target))
-    .split(path.sep)
-    .join('/')
-    .toLowerCase();
-
-  // Outside the project tree — not ours to police.
-  if (rel.startsWith('../')) return null;
+  // * One normalizer for the whole hook tree. This used to be an inline copy of
+  // * normalizeRepoPath's body, and the copy is exactly why the backslash fix had to be
+  // * applied twice: `denies "docs\BRIEFING.md"` runs through HERE, not through the shared
+  // * function, so patching lib/ alone left CI red. A second copy of a normalizer is a
+  // * second place for it to be wrong.
+  // * normalizeRepoPath returns null where this returned a `../…` string, an empty string,
+  // * or an absolute path (different drive). All three ended in "no EXACT/PREFIX match →
+  // * allow" anyway, so collapsing them into one null is behaviour-preserving — but the
+  // * null guard below is NOT optional: without it `EXACT.get(null)` misses and the
+  // * PREFIXES loop calls `null.startsWith(…)` and throws.
+  const rel = normalizeRepoPath(target, root);
+  if (!rel) return null;
 
   const exact = EXACT.get(rel);
   if (exact) return exact;

@@ -7,12 +7,17 @@
 import { describe, it, expect, afterAll } from "vitest";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import path, { join } from "node:path";
 import { offends, walkGitSegments, evaluateGitCommand } from "../.claude/hooks/guard-git-add.mjs";
 import { claimsCompletion, evaluateStop } from "../.claude/hooks/guard-stop-drift.mjs";
 import { evaluateProtectedPath } from "../.claude/hooks/guard-protected-paths.mjs";
 import { trackWrite } from "../.claude/hooks/track-session-writes.mjs";
-import { hashContent, readState, updateState } from "../.claude/hooks/lib/session-state.mjs";
+import {
+  hashContent,
+  normalizeRepoPath,
+  readState,
+  updateState,
+} from "../.claude/hooks/lib/session-state.mjs";
 
 const scratch = mkdtempSync(join(tmpdir(), "cart-clash-hooktest-"));
 afterAll(() => rmSync(scratch, { recursive: true, force: true }));
@@ -485,6 +490,52 @@ describe("guard-git-add: GIT-INDEX-2 content-drift checks", () => {
     updateState(scratch, session, () => ({ writes: [], touched: ["src/netcode.js"] }));
     expect(readState(scratch, session).writes).toEqual({});
     expect(evalCmd("git add src/netcode.js", { session, worktree: THEIRS })).toBeNull();
+  });
+});
+
+// * The reason this file went red on CI for a day: every path case here ran on ONE path
+// * flavour — the host's. `path.sep` is `\` on Windows and `/` on POSIX, and on POSIX a
+// * backslash is a legal filename byte, so Windows-shaped input normalized on the dev box
+// * and passed through untouched on ubuntu-latest. A test that can only be wrong on the
+// * machine you do not have is not a test. normalizeRepoPath takes an injectable flavour
+// * so the same table is asserted for both platforms from either one.
+describe.each([
+  ["win32", path.win32, "C:\\repo"],
+  ["posix", path.posix, "/repo"],
+])("normalizeRepoPath — %s flavour", (_name, flavour, root) => {
+  const norm = (target) => normalizeRepoPath(target, root, flavour);
+
+  it.each([
+    ["src/Main.js", "src/main.js"],
+    ["src\\Main.js", "src/main.js"],
+    ["src\\ui/hud.js", "src/ui/hud.js"],
+    ["docs/BRIEFING.md", "docs/briefing.md"],
+    ["docs\\BRIEFING.md", "docs/briefing.md"],
+    ["docs\\..\\docs\\BRIEFING.md", "docs/briefing.md"],
+  ])("normalizes %j to %j on both platforms", (input, expected) => {
+    expect(norm(input)).toBe(expected);
+  });
+
+  it.each([
+    "../outside/x.js",
+    "..\\outside\\x.js",
+    "../../etc/passwd",
+    "..\\..\\etc\\passwd",
+    "",
+    ".",
+  ])("rejects %j as outside the tree", (input) => {
+    expect(norm(input)).toBeNull();
+  });
+
+  it("rejects a bare .. rather than treating it as an in-tree name", () => {
+    // * `rel.startsWith('../')` alone never caught rel === '..' exactly.
+    expect(norm("..")).toBeNull();
+  });
+
+  it("rejects non-strings", () => {
+    expect(norm(null)).toBeNull();
+    expect(norm(undefined)).toBeNull();
+    expect(norm(42)).toBeNull();
   });
 });
 
