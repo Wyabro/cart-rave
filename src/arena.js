@@ -575,6 +575,30 @@ function buildRecordRingGeometry({
   hole.absarc(0, 0, innerRadius, 0, Math.PI * 2, true);
   shape.holes.push(hole);
 
+  // * ExtrudeGeometry's default WorldUVGenerator emits UVs straight from SHAPE
+  // * COORDINATES — for a 26.4m record that is roughly -26..+26, not 0..1. The vinyl maps
+  // * set no wrapS/wrapT, so they default to ClampToEdge and every one of those UVs
+  // * resolved to the canvas edge pixel: the body rendered as flat #0c0818.
+  // * Adding RepeatWrapping instead would be WORSE — UVs of +/-26 tile the radial groove
+  // * design ~52x across the record, a grid of tiny records.
+  // * This projects x,y into 0..1 across the outer diameter, which is exactly
+  // * RingGeometry's own convention, so the body and the vinyl detail ring stacked on top
+  // * of it finally agree about where the grooves are.
+  // * Side walls (outer rim, inner hole) get the same projection: all four corners of a
+  // * wall quad share x,y and differ only in depth, so each samples the texture at its own
+  // * radius — the rim reads as the edge of the pressing, which is what it is.
+  const uvScale = 1 / (2 * outerRadius);
+  /** @param {number[]} v @param {number} i @returns {THREE.Vector2} */
+  const shapeUV = (v, i) => new THREE.Vector2(v[i * 3] * uvScale + 0.5, v[i * 3 + 1] * uvScale + 0.5);
+  const recordUVGenerator = {
+    generateTopUV: (_geometry, vertices, a, b, c) => [
+      shapeUV(vertices, a), shapeUV(vertices, b), shapeUV(vertices, c),
+    ],
+    generateSideWallUV: (_geometry, vertices, a, b, c, d) => [
+      shapeUV(vertices, a), shapeUV(vertices, b), shapeUV(vertices, c), shapeUV(vertices, d),
+    ],
+  };
+
   const geo = new THREE.ExtrudeGeometry(shape, {
     steps: 1,
     depth: thickness,
@@ -584,6 +608,7 @@ function buildRecordRingGeometry({
     bevelOffset: 0,
     bevelSegments: 3,
     curveSegments,
+    UVGenerator: recordUVGenerator,
   });
 
   // ExtrudeGeometry extrudes along +Z; center it and rotate so thickness becomes Y (floor height).
