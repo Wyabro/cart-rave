@@ -1663,21 +1663,51 @@ function buildSeascape(scene, circumR) {
       bctx.fillStyle = band.c;
       bctx.fillRect(0, band.y, 64, band.h);
     }
+    // * Limb darkening + terminator, multiplied over the bands. Without these the disc is
+    // * uniformly bright to its rim, which is what made it read as a sticker rather than a
+    // * sphere. CircleGeometry maps its disc into the 0-1 UV square, so a gradient centred
+    // * at (32,32) with radius 32 lands exactly on the limb.
+    bctx.globalCompositeOperation = "multiply";
+    const limb = bctx.createRadialGradient(32, 32, 12, 32, 32, 32);
+    limb.addColorStop(0, "#ffffff");
+    limb.addColorStop(0.72, "#cfc4cc");
+    limb.addColorStop(1, "#6b5866");
+    bctx.fillStyle = limb;
+    bctx.fillRect(0, 0, 64, 64);
+    // * Terminator: the sun is 137° around from this planet, so one side is night. Offset
+    // * the shadow centre rather than using a hard edge — a gas giant's terminator is soft.
+    // * Which side was picked by CAPTURE, not derived: the planet is lookAt(0,0,0) so the
+    // * texture-space direction to the sun runs through the same composition that had the
+    // * glint ramp backwards on its first build.
+    const term = bctx.createRadialGradient(50, 30, 6, 42, 32, 46);
+    term.addColorStop(0, "#ffffff");
+    term.addColorStop(0.55, "#b9a8b4");
+    term.addColorStop(1, "#41323c");
+    bctx.fillStyle = term;
+    bctx.fillRect(0, 0, 64, 64);
+    bctx.globalCompositeOperation = "source-over";
     const bandTex = new THREE.CanvasTexture(bandCanvas);
     bandTex.colorSpace = THREE.SRGBColorSpace;
     ownedTextures.push(bandTex);
 
     const planetGeo = new THREE.CircleGeometry(34, 40);
+    // * depthWrite TRUE, unlike every other sky element here. Both this and the ring wrote
+    // * no depth, so the ring's FAR half drew straight through the planet — the giveaway
+    // * that nothing in this group was occluding anything. The band texture is fully
+    // * opaque, so the disc writes clean depth; the ring's near half is closer and still
+    // * draws over. renderOrder pins the planet first so the ring is tested against it.
     const planetMat = new THREE.MeshBasicMaterial({
       map: bandTex,
       transparent: true,
       opacity: 0.5,
       fog: false,
-      depthWrite: false,
+      depthWrite: true,
     });
     ownedGeometries.push(planetGeo);
     ownedMaterials.push(planetMat);
-    planetGroup.add(new THREE.Mesh(planetGeo, planetMat));
+    const planet = new THREE.Mesh(planetGeo, planetMat);
+    planet.renderOrder = -1;
+    planetGroup.add(planet);
 
     const ringGeo = new THREE.RingGeometry(42, 60, 48);
     const ringMat = new THREE.MeshBasicMaterial({
@@ -1694,9 +1724,37 @@ function buildSeascape(scene, circumR) {
     ring.rotation.x = 1.25; // tilt the ring plane out of the disc plane
     planetGroup.add(ring);
 
+    // * The moon had no map at all — a flat uniform circle next to a planet that now has a
+    // * limb. Its own small canvas, same treatment at moon scale: limb darkening plus a
+    // * terminator on the same side as the planet's, since they share a sun.
+    const moonCanvas = document.createElement("canvas");
+    moonCanvas.width = 32;
+    moonCanvas.height = 32;
+    const mctx = moonCanvas.getContext("2d");
+    mctx.fillStyle = "#d8ccd8";
+    mctx.fillRect(0, 0, 32, 32);
+    mctx.globalCompositeOperation = "multiply";
+    const moonLimb = mctx.createRadialGradient(16, 16, 5, 16, 16, 16);
+    moonLimb.addColorStop(0, "#ffffff");
+    moonLimb.addColorStop(0.7, "#cdc2ca");
+    moonLimb.addColorStop(1, "#5f4f5b");
+    mctx.fillStyle = moonLimb;
+    mctx.fillRect(0, 0, 32, 32);
+    const moonTerm = mctx.createRadialGradient(25, 15, 3, 21, 16, 23);
+    moonTerm.addColorStop(0, "#ffffff");
+    moonTerm.addColorStop(0.55, "#b5a5b1");
+    moonTerm.addColorStop(1, "#3d2f39");
+    mctx.fillStyle = moonTerm;
+    mctx.fillRect(0, 0, 32, 32);
+    mctx.globalCompositeOperation = "source-over";
+    const moonTex = new THREE.CanvasTexture(moonCanvas);
+    moonTex.colorSpace = THREE.SRGBColorSpace;
+    ownedTextures.push(moonTex);
+
     const moonGeo = new THREE.CircleGeometry(6.5, 24);
     const moonMat = new THREE.MeshBasicMaterial({
       color: 0xd8ccd8,
+      map: moonTex,
       transparent: true,
       opacity: 0.45,
       fog: false,
