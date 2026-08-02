@@ -126,14 +126,11 @@ BOOT-PERF-1 · Run 7 strip) → [completed-work.md](./planning/completed-work.md
 
 ### Next actions
 
-1. **Playtest console** — 10 owed cards in BACKLOG `## Playtest owed (08-01 session)`
-   (RESULTS-ACT-1 · FV-HUD/RESULTS/FRIENDS/REMATCH/WILT/BOOT/LOAD/SILVER · HOST-TOAST-1).
-   Open `.diag-captures/playtest-console.html` via `npm run dashboard` / `playtest:console`.
-2. Closed 08-01 Wyatt PASS: **PAUSE-ROW-1** · **MENU-CMD-FEEL-1** · **FOCUS-CYAN-1**
-   (`8d1ee24`). Audit closed: ANLX-BIND-1 · SHEET-ESC-1 · MENU-NAME-HOVER-1 · BOOT-METER-1.
+1. **ROUND-WEDGE-1 Phase A** — applied unpushed (`pausedWallMs` MAX-only). Commit/ship on
+   Wyatt ack; deploy needed for live hide-wedge proof. Phase B only on separate ack.
+2. **Playtest console** — 10 owed cards in BACKLOG `## Playtest owed (08-01 session)`.
+3. Closed 08-01 Wyatt PASS: **PAUSE-ROW-1** · **MENU-CMD-FEEL-1** · **FOCUS-CYAN-1**.
    Still open tooling: **ASSET-CACHE-1** · **HARNESS-FRIENDS-1**.
-3. After coding that needs eyes: `Owed: Wyatt playtest — ID — check` → `npm run dashboard`.
-4. Battery exact-HEAD green on disk (`battery-2026-08-01T03-31-21…`); refresh CC after battery.
 
 **07-31 lesson (short):** verification tools only see branches they enter — add the matching
 viewport/pointer cell in the same commit as any scoped CSS. Prefer one real clip when it
@@ -163,7 +160,7 @@ Closed IDs (NET-1, NET-2, NET-MIG-3, NET-PRES-1, NET-SD-1, HOST-ROLE-1, VFX-1, P
 
 | ID | Issue | Status |
 |----|--------|--------|
-| ROUND-WEDGE-1 | Host oscillates `podium ⇄ running` ~25×/s at round end — player-visible flickering podium (cap-217) | ❌ High — forensics next; full card in [BACKLOG](./planning/BACKLOG.md) |
+| ROUND-WEDGE-1 | Host-hide → MAX reject → podium⇄running storm | 🟡 **Phase A applied unpushed** — `pausedWallMs` MAX-only in `roundValidation.ts` (+tests). MIN wall latch frozen. Does **not** claim cap-217 closed; Phase B (client backoff) deferred. |
 | WARM-SOLO-1 | Solo post-`carts-ready` stall (WARM-IGPU residual) | 📋 telemetry-gated — [warm-igpu-1.md](./planning/warm-igpu-1.md) |
 | MAIN-1 | Carve `main.js` seam (enables BUNDLE-1) | 📋 Post-gate |
 | BUNDLE-1 | Menu/game code-split | 🚫 Blocked on MAIN-1 |
@@ -178,6 +175,11 @@ When named: other residual or RC exit criteria in [ROADMAP.md](./planning/ROADMA
 ## Decision index
 
 One line each; full text in [archive/decision-log-2026-07.md](./archive/decision-log-2026-07.md). Newest first.
+
+- **D-ROUND-WEDGE-1-A** (08-01): Host-hide MAX cushion = server `pausedWallMs` (sum of committed
+  host-domain `startedAtMs` increases on running→running). MAX reject only when
+  `now - runningAnchor - pausedWallMs > ROUND_DURATION_MS + 15_000` (non-SD). MIN stays
+  wall-only (`now - runningAnchor`). No shared-anchor bump; Phase B client breaker separate.
 
 - **D-BOOT-PERF-1** (07-31): Idle warm not sticky-first-wins — mid-flight picker bumps gen;
   stale flight must not latch done; newer serializes after prior. Tab/suppress unchanged.

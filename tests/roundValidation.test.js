@@ -240,6 +240,161 @@ describe("validateHostRound — server-domain round anchor (NET-CLK-2)", () => {
   });
 });
 
+describe("validateHostRound — host-hide MAX cushion (ROUND-WEDGE-1)", () => {
+  // * Host tab-hide advances client startedAtMs (main.js visibility compensation) and
+  // * sendHostRound. Server accumulates host-domain deltas into pausedWallMs for the
+  // * podium MAX check only. MIN stays pure wall from runningSinceServerMs.
+  // * MAX reject when: now - runningAnchor - pausedWallMs > ROUND_DURATION_MS + 15_000
+  const serverStart = 1_000_000;
+  const hostStart = 5_000_000;
+  const scores = { 0: 5, 1: 3, 2: 0, 3: 0 };
+  const podium = { phase: "podium", winnerSlotIndex: 0, endReason: "timer" };
+
+  function runningPrev(o = {}) {
+    return mkPrev({
+      phase: "running",
+      startedAtMs: hostStart,
+      runningSinceServerMs: serverStart,
+      pausedWallMs: 0,
+      scores,
+      ...o,
+    });
+  }
+
+  it("accumulates host-domain startedAtMs increases into pausedWallMs on running→running", () => {
+    const hideMs = 60_000;
+    const out = validateHostRound(
+      runningPrev(),
+      { phase: "running", startedAtMs: hostStart + hideMs, scores },
+      serverStart + 30_000,
+    );
+    expect(out).not.toBeNull();
+    expect(out.runningSinceServerMs).toBe(serverStart); // wall latch frozen
+    expect(out.startedAtMs).toBe(hostStart + hideMs);
+    expect(out.pausedWallMs).toBe(hideMs);
+  });
+
+  it("carries pausedWallMs unchanged when startedAtMs does not increase", () => {
+    const prev = runningPrev({ pausedWallMs: 45_000, startedAtMs: hostStart + 45_000 });
+    const out = validateHostRound(
+      prev,
+      { phase: "running", startedAtMs: hostStart + 45_000, isSuddenDeath: true, scores },
+      serverStart + 50_000,
+    );
+    expect(out.pausedWallMs).toBe(45_000);
+    expect(out.runningSinceServerMs).toBe(serverStart);
+  });
+
+  it("does not rewind pausedWallMs when host startedAtMs decreases", () => {
+    const prev = runningPrev({ pausedWallMs: 30_000, startedAtMs: hostStart + 30_000 });
+    const out = validateHostRound(
+      prev,
+      { phase: "running", startedAtMs: hostStart + 10_000, scores },
+      serverStart + 40_000,
+    );
+    expect(out.pausedWallMs).toBe(30_000);
+    expect(out.startedAtMs).toBe(hostStart + 10_000); // host stamp still committed
+  });
+
+  it("accepts timer podium after host-hide once pausedWallMs covers the wall overage", () => {
+    // Wall age = ROUND + 15s + 1 without pause term → MAX reject.
+    // With pausedWallMs = 60s, effective age drops under the gate → accept.
+    const hideMs = 60_000;
+    const now = serverStart + ROUND_DURATION_MS + 15_000 + 1;
+    const without = runningPrev({ pausedWallMs: 0 });
+    expect(validateHostRound(without, podium, now)).toBeNull();
+
+    const withHide = runningPrev({
+      pausedWallMs: hideMs,
+      startedAtMs: hostStart + hideMs,
+    });
+    const out = validateHostRound(withHide, podium, now);
+    expect(out).not.toBeNull();
+    expect(out.phase).toBe("podium");
+  });
+
+  it("still rejects MAX when hide accounting is insufficient", () => {
+    // Wall overage 20s past ROUND+15s; only 5s hide accounted → still over the gate.
+    const now = serverStart + ROUND_DURATION_MS + 15_000 + 20_000;
+    const prev = runningPrev({ pausedWallMs: 5_000 });
+    expect(validateHostRound(prev, podium, now)).toBeNull();
+  });
+
+  it("does not shorten MIN via pausedWallMs (hide must not allow early podium)", () => {
+    // Wall age still under MIN; large pausedWallMs must not help MIN (no pause term).
+    const now = serverStart + MIN_RUNNING_BEFORE_PODIUM_MS - 1;
+    const prev = runningPrev({ pausedWallMs: 120_000 });
+    expect(validateHostRound(prev, podium, now)).toBeNull();
+  });
+
+  it("long early hide still leaves lastStanding blocked by wall MIN", () => {
+    const hideMs = 60_000;
+    // Host advanced startedAtMs; server accumulated pause; wall age still 1s.
+    const mid = validateHostRound(
+      runningPrev(),
+      { phase: "running", startedAtMs: hostStart + hideMs, scores },
+      serverStart + 1_000,
+    );
+    expect(mid.pausedWallMs).toBe(hideMs);
+    expect(mid.runningSinceServerMs).toBe(serverStart);
+    const lastStanding = {
+      phase: "podium",
+      winnerSlotIndex: 0,
+      endReason: "lastStanding",
+      scores,
+    };
+    expect(validateHostRound(mid, lastStanding, serverStart + 1_000)).toBeNull();
+    // After real wall MIN, lastStanding is allowed even with large pausedWallMs.
+    const afterMin = validateHostRound(
+      mid,
+      lastStanding,
+      serverStart + MIN_RUNNING_BEFORE_PODIUM_MS,
+    );
+    expect(afterMin).not.toBeNull();
+    expect(afterMin.phase).toBe("podium");
+  });
+
+  it("clears pausedWallMs on countdown and lobby (same lifecycle as running anchor)", () => {
+    // running→lobby is illegal; podium→lobby then lobby→countdown→running
+    const onPodium = mkPrev({
+      phase: "podium",
+      winnerSlotIndex: 0,
+      runningSinceServerMs: serverStart,
+      pausedWallMs: 99_000,
+    });
+    const lobby = validateHostRound(onPodium, { phase: "lobby" }, serverStart + 1);
+    expect(lobby.pausedWallMs).toBe(0);
+    expect(lobby.runningSinceServerMs).toBe(0);
+
+    const countdown = validateHostRound(lobby, { phase: "countdown" }, serverStart + 2);
+    expect(countdown.pausedWallMs).toBe(0);
+
+    const running = validateHostRound(
+      countdown,
+      { phase: "running", startedAtMs: hostStart },
+      serverStart + 3,
+    );
+    expect(running.pausedWallMs).toBe(0);
+    expect(running.runningSinceServerMs).toBe(serverStart + 3);
+  });
+
+  it("stacks successive host-hide deltas", () => {
+    const first = validateHostRound(
+      runningPrev(),
+      { phase: "running", startedAtMs: hostStart + 20_000, scores },
+      serverStart + 10_000,
+    );
+    expect(first.pausedWallMs).toBe(20_000);
+    const second = validateHostRound(
+      first,
+      { phase: "running", startedAtMs: hostStart + 20_000 + 40_000, scores },
+      serverStart + 50_000,
+    );
+    expect(second.pausedWallMs).toBe(60_000);
+    expect(second.runningSinceServerMs).toBe(serverStart);
+  });
+});
+
 describe("validateHostRound — winner verification", () => {
   const startedAtMs = 1_000_000;
   const now = startedAtMs + 10_000;
