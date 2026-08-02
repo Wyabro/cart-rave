@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-02T08:25:50.448Z",
-    "commit": "dc66d0a"
+    "at": "2026-08-02T08:33:54.632Z",
+    "commit": "e9b58e6"
   },
-  "source_digest": "e396d5a5",
+  "source_digest": "0d842077",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -857,8 +857,14 @@
       {
         "id": "ART-PASS-SUNDIAL-1",
         "what": "Sundial art pass — 6 waves, one lever per commit",
-        "status": "▶ ACTIVE 08-02 — Step 0 done: first HIGH frames of this arena (`sundial-base-{wide,horizon,podium,chase}`, 4090/ANGLE, no COMPATIBILITY banner). Waterline red step +128 / +110 (audit target <30) — the number Wave 1 has to move. [audit](./planning/art-audit-sundial.md) is all `[unverified]`; verify each claim before fixing it.",
+        "status": "▶ ACTIVE 08-02 — resumed after DIAG-TIER-1. Step 0 done; Wave 1 sky-gradient remap owns waterline red step +128/+110. [audit](./planning/art-audit-sundial.md).",
         "state": "active"
+      },
+      {
+        "id": "DIAG-TIER-1",
+        "what": "capture `runtime.qualityTier` reports effective tier",
+        "status": "✅ SHIPPED 08-02 — three fields on real runtime probe; `tests/gameplayDiagnostics.runtime.test.js` ×3. Applied, unpushed.",
+        "state": "done"
       },
       {
         "id": "FIGHT-VERIFY-1",
@@ -902,7 +908,7 @@
     ],
     "next_actions": [
       "ART-PASS-SUNDIAL-1 — Wave 1: sky-gradient remap, then IBL sun azimuth (one lever per commit).",
-      "Playtest console — 10 owed cards in BACKLOG `## Playtest owed (08-01 session)`.",
+      "Playtest console — owed cards in BACKLOG `## Playtest owed (08-01 session)`.",
       "Closed 08-01 Wyatt PASS: PAUSE-ROW-1 · MENU-CMD-FEEL-1 · FOCUS-CYAN-1."
     ],
     "open_issues": [
@@ -939,7 +945,7 @@
         "title": "Engineering",
         "counts": {
           "High": 3,
-          "Medium": 19,
+          "Medium": 18,
           "Low": 4,
           "Partial": 1
         },
@@ -1074,12 +1080,6 @@
             "pri": "Medium",
             "item": "PERF-WATCH-1 — auto-quality step-up path",
             "notes": "Watchdog demotion is irreversible per session (no step-up anywhere; DEV-only warn; 2 tier steps + 2 renderScale steps; attract render-cost and game frame-delta both judged against one 20.5ms bar). Decide after WARM-IGPU-1 P0b telemetry shows how often it bites.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "DIAG-TIER-1 — the capture's `runtime.qualityTier` reports the **stored preference**, not the effective tier, so every capture silently understates auto-quality demotions",
-            "notes": "**Filed 08-01** (as `AUTOQ-GHOST-1`; renamed once the \"ghost\" half resolved — `STOP-DIRT-1` references the old name). **The live defect:** `gameplayDiagnostics.js:329` reads `settingsStore.getState().qualityTier` **directly**, bypassing `getQualityTier()` (`qualityMode.js:39`), which resolves menu-preview LOD → `sessionTierOverride` → store. `setSessionQualityTier` (`qualityMode.js:72`) writes **only** the module-local `sessionTierOverride` and deliberately never touches the store (it must not persist). So a watchdog demotion is **invisible** to the probe, on every capture, always. **Proof it already bit, from one page session** (cap-206/207/208 share an identical boot timeline — `menu-ready 1158`, `world-ready 3864`, `play-entry 2470640`): cap-207/208 report `qualityTier: \"medium\"` **and** `renderScaleMul: 0.7`. Those two are mutually inconsistent — render-scale steps are gated on `atFloor` (`autoQuality.js:80-82`, `currentTier === \"low\"`) and step `[1, 0.85, 0.7]` (`qualityTiers.js:123`), so 0.7 is reachable **only** after the session was already demoted to LOW. The capture says medium; the machine was at low ×0.7. **Consequence — a shipped doc currently reads better than the hardware was:** warm-igpu-1.md:23 records \"both laptops auto-tiered **medium**\", which is the stored value. Laptop A finished at **LOW ×0.7**, so its \"42/13,313 frames >33 ms (0.3%)\" (warm-igpu-1.md:32) is post-double-demotion gameplay, not medium-tier gameplay. Re-read that evidence table with the corrected meaning before leaning on it again. **Lever (small, additive, no behavior change):** have the `runtime` probe report all three — stored `settingsStore` tier, effective `getQualityTier()`, and `getSessionQualityTierOverride()` (`qualityMode.js:81`, already exported and currently unused by the probe). **RESOLVED, do not re-investigate — the missing `qualityStepDown` events are not a bug.** A repo-wide grep finds **zero** across all **216** bundles in `.diag-captures/playtest/`, including ones showing `scaleMul 0.7` (e.g. cap-100), which looks damning until you date it: the event was **added 07-30** in `404e866` (\"feat(diag): WARM-IGPU-1 Phase 0+0b instrumentation\"), and every bundle on disk predates it — the guest captures ran build `56dfa61` (**07-23**), seven days earlier. **Phase 0b telemetry is sound and PERF-WATCH-1's dependency on it is intact.** The first bundles that *could* carry the event are cap-215/216/217 (07-31, builds `65dea12` / `2e85f0b`), not yet pulled — pull those before concluding anything about step-down frequency. **Not the lever: a step-up path** — that is PERF-WATCH-1, untouched. **Does not re-open WARM-IGPU-1** (closed 07-30, Wyatt prod PASS): the warm stall is not in question, only how its captures' tier field reads. Same family as **TEST-COUNT-1** — a number that is accurate about the wrong quantity.",
             "ship1": null
           },
           {

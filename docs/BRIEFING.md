@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-02 at commit `dc66d0a` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `b9987ae0`
+> Generated 2026-08-02 at commit `e9b58e6` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `49cb1149`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -19,7 +19,7 @@ Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep a
 ## ACTIVE CARD
 
 ART-PASS-SUNDIAL-1 — Sundial art pass — 6 waves, one lever per commit
-Pass looks like: ▶ ACTIVE 08-02 — Step 0 done: first HIGH frames of this arena (`sundial-base-{wide,horizon,podium,chase}`, 4090/ANGLE, no COMPATIBILITY banner). Waterline red step +128 / +110 (audit target <30) — the number Wave 1 has to move. [audit](./planning/art-audit-sundial.md) is all `[unverified]`; verify each claim before fixing it.
+Pass looks like: ▶ ACTIVE 08-02 — resumed after DIAG-TIER-1. Step 0 done; Wave 1 sky-gradient remap owns waterline red step +128/+110. [audit](./planning/art-audit-sundial.md).
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 

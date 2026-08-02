@@ -47,6 +47,7 @@ import { isWorldBootstrapped } from "../bootstrap.js";
 import { getRoundClockNowMs, getRoundRemainingMs } from "../roundClock.js";
 import { CONFIG } from "../config.js";
 import { probeGpu } from "./gpuCaps.js";
+import { getQualityTier, getSessionQualityTierOverride } from "./qualityMode.js";
 import { settingsStore } from "../stores/settingsStore.js";
 
 /** Arena roster for level-unlock diffing (classicRecord is unlocked by default). */
@@ -316,9 +317,12 @@ function registerProbes(deps) {
   });
 
   // * Browser/runtime/device context — pulled from the same signals telemetry + quality
-  // * detection already read (errorReporter userAgent, gpuCaps, settingsStore tier, DPR). Its
+  // * detection already read (errorReporter userAgent, gpuCaps, quality mode, DPR). Its
   // * main consumer is __ccDiag.captureBundle(): a captured bug carries the device it happened
   // * on. Each read is guarded so a missing API degrades to null rather than breaking the probe.
+  // * DIAG-TIER-1: qualityTier is the *effective* tier (menu-preview LOD → session override →
+  // * store). Stored preference and session override are reported beside it so a demotion is
+  // * visible instead of looking like the menu setting.
   registerDiagProbe("runtime", () => {
     const nav = typeof navigator !== "undefined" ? navigator : /** @type {any} */ ({});
     const gpu = safeCall(() => probeGpu()) || null;
@@ -326,7 +330,9 @@ function registerProbes(deps) {
       userAgent: typeof nav.userAgent === "string" ? nav.userAgent.slice(0, 256) : null,
       gpuClass: gpu?.gpuClass ?? null,
       gpuRenderer: gpu?.rendererString ?? null,
-      qualityTier: safeCall(() => settingsStore.getState().qualityTier) ?? null,
+      qualityTier: safeCall(() => getQualityTier()) ?? null,
+      qualityTierStored: safeCall(() => settingsStore.getState().qualityTier) ?? null,
+      qualityTierOverride: safeCall(() => getSessionQualityTierOverride()) ?? null,
       // * Run-6: effective sub-native scale (tier renderScale × session watchdog mul) —
       // * next capture from the Intel host shows whether the relief valve engaged.
       renderScaleMul: safeCall(() => getSessionRenderScaleMul()) ?? null,

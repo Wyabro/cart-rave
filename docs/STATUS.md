@@ -162,7 +162,8 @@ BOOT-PERF-1 · Run 7 strip) → [completed-work.md](./planning/completed-work.md
 
 | # | What | Status |
 |---|------|--------|
-| **ART-PASS-SUNDIAL-1** | Sundial art pass — 6 waves, one lever per commit | ▶ **ACTIVE 08-02** — Step 0 done: first HIGH frames of this arena (`sundial-base-{wide,horizon,podium,chase}`, 4090/ANGLE, no COMPATIBILITY banner). **Waterline red step +128 / +110** (audit target <30) — the number Wave 1 has to move. [audit](./planning/art-audit-sundial.md) is all `[unverified]`; verify each claim before fixing it. |
+| **ART-PASS-SUNDIAL-1** | Sundial art pass — 6 waves, one lever per commit | ▶ **ACTIVE 08-02** — resumed after DIAG-TIER-1. Step 0 done; Wave 1 sky-gradient remap owns waterline red step +128/+110. [audit](./planning/art-audit-sundial.md). |
+| **DIAG-TIER-1** | capture `runtime.qualityTier` reports effective tier | ✅ **SHIPPED 08-02** — three fields on real runtime probe; `tests/gameplayDiagnostics.runtime.test.js` ×3. Applied, unpushed. |
 | **FIGHT-VERIFY-1** | owed fight-night verification | 🟢 **agent half DONE** 08-01 — podium/loadshots/states + focus-ring. Residual = **Playtest owed** cards (BACKLOG) — console-seeded; not this parent row. |
 | **HOST-CAP-1** | weak-host toast residual | ✅ **SHIPPED** 08-01 — `score < 50` once/hostship; prod Version `76ebdc37` (HEAD `423008f`) |
 | **BOOT-PERF-1** | idle warm gen-cancel | ✅ **SHIPPED** 08-01 — mid-flight retarget; same deploy |
@@ -172,11 +173,11 @@ BOOT-PERF-1 · Run 7 strip) → [completed-work.md](./planning/completed-work.md
 ### Next actions
 
 1. **ART-PASS-SUNDIAL-1** — Wave 1: sky-gradient remap, then IBL sun azimuth (one lever per commit).
-1b. **ROUND-WEDGE-1 parked 08-02** for the Sundial pass. Its "applied unpushed" line was **stale** —
-   Phase A shipped `d4a7718` (in `origin/cart-clash`). Phase B (client backoff) needs its own ack.
-2. **Playtest console** — 10 owed cards in BACKLOG `## Playtest owed (08-01 session)`.
+1b. **ROUND-WEDGE-1 parked 08-02** for the Sundial pass. Phase A shipped `d4a7718`; Phase B needs its own ack.
+2. **Playtest console** — owed cards in BACKLOG `## Playtest owed (08-01 session)`.
 3. Closed 08-01 Wyatt PASS: **PAUSE-ROW-1** · **MENU-CMD-FEEL-1** · **FOCUS-CYAN-1**.
    Still open tooling: **ASSET-CACHE-1** · **HARNESS-FRIENDS-1**.
+   Closed 08-02: **DIAG-TIER-1**.
 
 **07-31 lesson (short):** verification tools only see branches they enter — add the matching
 viewport/pointer cell in the same commit as any scoped CSS. Prefer one real clip when it
@@ -302,6 +303,10 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 - **Claude Code permission rules are globs, never regex** — `|` alternation inside `Bash(...)` matches nothing. A space before `*` enforces a word boundary (`Bash(ls *)` ≠ `lsof`), rules match each `&&`/`;`/`|` subcommand independently, and a broad deny beats a narrower allow.
 
 ## Last updated
+
+2026-08-02 (DIAG-TIER-1) — Runtime probe reports effective `qualityTier` + `qualityTierStored` +
+`qualityTierOverride`. Real-probe tests ×3. ART-PASS-SUNDIAL-1 re-active after brief park.
+Applied, unpushed.
 
 2026-08-01 (tooling stabilization sweep, 13 commits) — the Wyatt-commissioned cohesion pass
 before the 10-item playtest. Gates are now **read-only**: `check` runs `briefing:check` /
