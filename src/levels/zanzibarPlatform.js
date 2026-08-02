@@ -657,7 +657,7 @@ function buildWaterNormalTexture() {
   const src = ctx.getImageData(0, 0, size, size);
   const out = ctx.createImageData(size, size);
   const hAt = (x, y) => src.data[(((y + size) % size) * size + ((x + size) % size)) * 4];
-  const strength = 2.2;
+  const strength = 5.0;
   for (let y = 0; y < size; y += 1) {
     for (let x = 0; x < size; x += 1) {
       const dx = (hAt(x + 1, y) - hAt(x - 1, y)) / 255;
@@ -679,6 +679,10 @@ function buildWaterNormalTexture() {
   tex.wrapS = THREE.RepeatWrapping;
   tex.wrapT = THREE.RepeatWrapping;
   tex.repeat.set(26, 26);
+  // * Higher than the file's usual 4: a 900 m plane seen from 2–6 m of eye height is the
+  // * most grazing-angle surface in the arena, which is exactly where anisotropy pays.
+  // * three clamps to the device max at upload, so 8 is safe on hardware that offers less.
+  tex.anisotropy = 8;
   return tex;
 }
 
@@ -687,26 +691,43 @@ function buildWaterNormalTexture() {
  * @returns {THREE.CanvasTexture}
  */
 function buildFoamTexture() {
-  const size = 256;
+  // * Sized in WORLD metres, not texels. The ring's outer radius is ~58 m, so the texture
+  // * spans a ~117 m square: at 512² that is 0.23 m per texel. The old 256²/420-blob build
+  // * drew blobs of radius 1.5–6 texels = 0.7–2.7 m ACROSS — metre-wide discs, which read
+  // * as lily pads the moment they were opaque enough to see. Foam has to be authored at
+  // * decimetre scale, so: quarter-size blobs, ~17× as many, lower per-blob alpha, and the
+  // * density carries the read instead of the opacity.
+  const size = 512;
   const canvas = document.createElement("canvas");
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext("2d");
   ctx.clearRect(0, 0, size, size);
   const c = size / 2;
-  for (let i = 0; i < 420; i += 1) {
+  for (let i = 0; i < 7000; i += 1) {
     const a = Math.random() * Math.PI * 2;
     // Band roughly matching the RingGeometry's inner/outer proportion.
     const rFrac = 0.46 + Math.random() * 0.28;
     const r = rFrac * c;
-    const blob = 1.5 + Math.random() * 4.5;
+    const blob = 0.8 + Math.random() * 1.6; // 0.18–0.55 m radius in world space
     const fade = 1 - Math.abs(rFrac - 0.58) / 0.16;
-    ctx.fillStyle = `rgba(255, 236, 220, ${Math.max(0, fade) * (0.05 + Math.random() * 0.10)})`;
+    ctx.fillStyle = `rgba(255, 236, 220, ${Math.max(0, fade) * (0.06 + Math.random() * 0.12)})`;
     ctx.beginPath();
     ctx.arc(c + Math.cos(a) * r, c + Math.sin(a) * r, blob, 0, Math.PI * 2);
     ctx.fill();
   }
-  const tex = new THREE.CanvasTexture(canvas);
+  // * The blobs are hard-edged arcs, which read as gravel up close. One filtered blit turns
+  // * them into spray — far cheaper than 7000 per-blob radial gradients. Drawn through a
+  // * second canvas because self-drawImage under a filter is not reliably defined; a browser
+  // * without ctx.filter support just keeps the crisp dots, which degrades gracefully.
+  const soft = document.createElement("canvas");
+  soft.width = size;
+  soft.height = size;
+  const softCtx = soft.getContext("2d");
+  softCtx.filter = "blur(1.5px)";
+  softCtx.drawImage(canvas, 0, 0);
+
+  const tex = new THREE.CanvasTexture(soft);
   return tex;
 }
 
@@ -1029,11 +1050,14 @@ function buildSeascape(scene, circumR) {
   // * simultaneously killed its diffuse. ior 1.333 is water's real value (F0 ≈ 0.0203).
   const waterMat = createPhysicalMaterial({
     color: 0x14242c,
-    roughness: 0.22,
+    // * Low builds no normal map, so at 0.22 its ocean was a smooth near-mirror with nothing
+    // * to break it up — plastic, not water. Roughness is the one knob that fixes that at
+    // * zero per-pixel cost, which is what a touch tier can afford (D-SUNDIAL-OQ6).
+    roughness: lowQ ? 0.5 : 0.22,
     metalness: 0.02,
     ior: 1.333,
     envMapIntensity: getMaterialEnvMapIntensity() * 0.58,
-    ...(waterNormalTex ? { normalMap: waterNormalTex, normalScale: new THREE.Vector2(0.22, 0.22) } : {}),
+    ...(waterNormalTex ? { normalMap: waterNormalTex, normalScale: new THREE.Vector2(0.75, 0.75) } : {}),
   });
   waterMat.userData.envMapIntensityScale = 0.58;
   // * Own the envMap, the clampFloorEnv pattern from arena.js. Materials that merely inherit
@@ -1637,15 +1661,17 @@ function buildSeascape(scene, circumR) {
   }
 
   // Foam wake at the station waterline — warm cream (not cool blue) so it melts into sunset.
+  // * Built on every tier including Low (D-SUNDIAL-OQ6): one draw call and a 48-segment ring,
+  // * and it is the waterline read that sells the station sitting IN the water, not on it.
   let foamMat = null;
   let foam = null;
-  if (!lowQ) {
+  {
     const foamTex = buildFoamTexture();
     foamMat = new THREE.MeshBasicMaterial({
       map: foamTex,
       color: 0xffd2a8, // warm multiply — avoids icy blue ring under the deck
       transparent: true,
-      opacity: 0.16,
+      opacity: 0.34,
       depthWrite: false,
     });
     const foamGeo = new THREE.RingGeometry(circumR * 0.78, circumR * 1.7, 48);
@@ -1688,12 +1714,17 @@ function buildSeascape(scene, circumR) {
       }
       if (glintMat) glintMat.opacity = 0.32 + 0.08 * Math.sin(timeMs * 0.0007);
       if (gateDotsMat) gateDotsMat.opacity = 0.45 + Math.sin(timeMs * 0.0009) * 0.2;
-      if (foamMat) foamMat.opacity = 0.12 + Math.sin(timeMs * 0.00055) * 0.04;
+      // * This line OVERWRITES the constructor opacity every 500 ms — raising only the
+      // * constructor loses to it, which is why both move together.
+      if (foamMat) foamMat.opacity = 0.26 + Math.sin(timeMs * 0.00055) * 0.08;
     }
 
     if (waterNormalTex) {
-      waterNormalTex.offset.x = (timeMs * 0.0000045) % 1;
-      waterNormalTex.offset.y = (timeMs * 0.0000031) % 1;
+      // * repeat 26 over WATER_SIZE 900 ⇒ one tile = 34.6 m, so an offset rate of 1e-6/ms is
+      // * 0.0346 m/s. These give 0.675 + 0.388 ⇒ 0.78 m/s, up from a near-static 0.19.
+      // * Rates stay non-harmonic so the two axes never re-phase into a visible pulse.
+      waterNormalTex.offset.x = (timeMs * 0.0000195) % 1;
+      waterNormalTex.offset.y = (timeMs * 0.0000112) % 1;
     }
     for (let i = 0; i < rotors.length; i += 1) {
       const rotor = rotors[i];
