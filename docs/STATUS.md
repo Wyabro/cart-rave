@@ -104,7 +104,13 @@ in the audit. **Caveat:** `skipThreshold` was not retuned, so the wall went ~329
 fixed it; one line, verified on the same camera (12 cartons recolour, **zero** geometry change —
 the right signature for a colour-only fix). Arena-wide blue 111 → 208 slots, beige 301 → 204, red
 unchanged at 200 (`pick === 0` is the one bucket JS `%` never mis-signs, which is why the bug hid).
-Both halves of audit item 1 are now shipped **and** looked at.
+Both halves of audit item 1 are now shipped **and** looked at. **Item 3 (floor-decal LOD) fixed
+08-02** — the decals registered as a group left at the origin, so `updateLevelLod` was testing
+camera-to-arena-*centre* and blinking all ~22 fall markings together; now per-mesh, `far` unchanged.
+Live A/B: LOD node count **4 → 25**. Split out as **LOD-UNCANNY-1 · LOD-PITRING-1 · LOD-CLOCK-1**.
+**Carry this forward: `updateLevelLod` does not run in the `shoot-gpu` attract path** (proved — props
+past their `far` still draw at 41 m and 52 m from centre), so LOD changes cannot be verified by
+capture. Use the node-count probe + unit tests, and a real match for the in-frame read.
 
 ### Do not
 

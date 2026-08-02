@@ -168,7 +168,7 @@ centrepiece from a permanently dead panel.
 Leave the (2,2) panel dead — a work light strung under a burnt-out fixture is a better story than a
 working one.
 
-### 3. Give the floor decals a working LOD — `:3382` · small · [unverified, mechanism re-checked]
+### 3. Give the floor decals a working LOD — `:3382` · small · [unverified, mechanism re-checked] · **FIXED 08-02 (floor decals only)**
 
 `registerLevelLodNode(floorDecals.group, { far: 38 })`, and `levelLod.js:58` measures
 `getWorldPosition` of the **group**, which both `buildFloorStoryDecals` and `buildUncannyDetails`
@@ -183,6 +183,31 @@ mechanism directly; this is a correctness defect in a readability system, not a 
 *The pass:* register per-mesh, or per-cluster (one node per void for the tape, one per blotch). At
 minimum raise `floorDecals.far` past the arena diagonal (~56). It is ~22 small unlit transparent
 planes and is not what costs frames.
+
+**Done 08-02 — per-mesh, `far` unchanged at 38** (a wiring fix, not a knob turn). The mechanism
+claim is confirmed by reading: `updateLevelLod` measures `getWorldPosition` of the **registered**
+object (`levelLod.js:57`), and all four groups here are left at the origin while their children
+carry world coords. Per-node registration was already the in-repo precedent — Sundial does it
+(`zanzibarPlatform.js:2748`); Storerooms was the outlier. **Measured A/B on the live app**, not
+asserted: a gitignored probe importing `/src/utils/levelLod.js` from the running dev server reads
+`getLevelLodNodeCount()` **4 → 25** (3 groups + 22 decal meshes, matching the "~22 planes" above).
+Two unit tests in `tests/levelLod.test.js` pin the mechanism from both sides — a container at the
+origin culls even when its children are in range, a per-child node at the same camera pose does not.
+
+**LOD-HARNESS — read this before trying to capture any LOD change.** `updateLevelLod` does **not
+run in the `shoot-gpu` attract path.** Demonstrated, not assumed: hazard tape is still drawn with
+the camera at 41 m from centre (past `far` 38), and from 52 m out the wet blotches *and* the
+pit-ring checkout silhouette (`far` 48) are both still drawn. The call sits in the game render loop
+behind `frameBudgetAllow("level_lod")` (`main.js:5167-5169`). So the before/after PNG workflow that
+settled items 1 and its `pick` sibling **cannot verify this class of fix** — use the node-count
+probe plus unit tests, and leave the in-frame read to a real match. Whether it is the attract path
+or the budget gate was not chased; it does not change the fix.
+
+Split out at Wyatt's call rather than folded in, so this stayed one lever: **LOD-UNCANNY-1** (the
+arrows, same defect, but that group also owns physics bodies), **LOD-PITRING-1** (`pitDressing` at
+`far` 48 is a ring at 45.5 m radius, so its cull radius is arguably inverted — it hides when you get
+*close* to it; `doorways` shares the shape), and **LOD-CLOCK-1** (the call throttles on
+host-adjusted time, so a backward clock correction stalls LOD updates).
 
 ### 4. Author the shelf steel — `:2128` · medium · **verified**
 

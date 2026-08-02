@@ -3390,7 +3390,15 @@ export function initBackroomsSupermarket(scene, world, config, options = {}) {
     registerLevelLodNode(pitDressing.group, { far: 48 });
     registerLevelLodNode(uncanny.group, { far: 42 });
     registerLevelLodNode(doorways.group, { far: 55 });
-    registerLevelLodNode(floorDecals.group, { far: 38 });
+    // * Floor decals register PER MESH, not as the group. updateLevelLod measures
+    // * getWorldPosition of the registered object, and these groups sit at the origin
+    // * while every child carries world coords — so registering the group tested
+    // * camera-to-arena-CENTRE and blinked all ~22 markings (hazard tape, ruts,
+    // * blotches) in and out together, at the exact moment a cart nears a corner void
+    // * and the chase camera passes 38 m from centre. Same far, correct anchor.
+    for (const decal of floorDecals.group.children) {
+      registerLevelLodNode(decal, { far: 38 });
+    }
   }
 
   // ===== Ambient fill lighting (warm; compensates for thick fog while staying dim/liminal) =====

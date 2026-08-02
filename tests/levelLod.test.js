@@ -51,6 +51,26 @@ describe("levelLod", () => {
     expect(obj.visible).toBe(true);
   });
 
+  // * The defect behind the Storerooms floor-decal fix: updateLevelLod measures the
+  // * REGISTERED object's world position, so registering a container whose children
+  // * carry world coords tests camera-to-container-origin. The Storerooms decal groups
+  // * sit at (0,0), so all ~22 floor markings culled on camera-to-arena-CENTRE and
+  // * blinked together. Per-child registration is the fix; this locks both halves.
+  it("culls a container by ITS origin, not by where its children are", () => {
+    const groupAtOrigin = fakeObj(0, 0); // container never repositioned
+    registerLevelLodNode(groupAtOrigin, { far: 38 });
+    // Camera 20m from the child at (30,30) but 62m from the container origin.
+    updateLevelLod(fakeCamera(44, 44), 1000);
+    expect(groupAtOrigin.visible).toBe(false); // child would have been well in range
+  });
+
+  it("keeps a per-child node visible at the same camera pose", () => {
+    const child = fakeObj(30, 30); // world-space decal, registered directly
+    registerLevelLodNode(child, { far: 38 });
+    updateLevelLod(fakeCamera(44, 44), 1000);
+    expect(child.visible).toBe(true); // ~19.8m away — inside far
+  });
+
   it("clearLevelLod empties registry", () => {
     registerLevelLodNode(fakeObj(0, 0), { far: 10 });
     clearLevelLod();
