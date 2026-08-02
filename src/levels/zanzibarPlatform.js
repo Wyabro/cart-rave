@@ -603,9 +603,11 @@ function buildSunsetEnvTexture() {
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, w, h);
 
-  // Hot sun blob on the horizon at the sun azimuth (u = azimuth / 2π; equirect u starts
-  // at +x and wraps westward — exact phase is irrelevant for reflections, warmth is).
-  const sunU = (SUN_AZIMUTH / (Math.PI * 2)) * w;
+  // * Hot sun blob on the horizon at the sun azimuth. Phase is NOT irrelevant — three's
+  // * equirectUv() is `atan(dir.z, dir.x) * RECIPROCAL_PI2 + 0.5`, and dropping that +0.5
+  // * put the blob at u = 0.390 when the sun is at u = 0.890: exactly 180° out, so every
+  // * specular in the arena was lit from behind the camera instead of from the sun.
+  const sunU = (((SUN_AZIMUTH / (Math.PI * 2)) + 0.5) % 1) * w;
   const blob = ctx.createRadialGradient(sunU, h / 2, 0, sunU, h / 2, 14);
   blob.addColorStop(0, "rgba(255, 226, 170, 0.95)");
   blob.addColorStop(0.35, "rgba(255, 150, 70, 0.55)");
