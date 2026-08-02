@@ -2504,23 +2504,35 @@ export function initArena(scene, world, config, options = {}) {
   const shaftWallTopY = -4; // meets the containment lip base
   const shaftWallBottomY = -64; // meets the solid pit-wall backstop cap
   const SHAFT_SEGMENTS = 18;
+  const LIP_SEGMENTS = 16;
+  // * PIT-COL-INSET-1 — why the colliders do NOT sit at pitInnerRadius.
+  // * A tangent-fit hull ring CIRCUMSCRIBES the circle it approximates: each flat face
+  // * touches at its midpoint, but the corners bulge to r / cos(halfAngle). At the old
+  // * radius that put shaft corners 0.68m and lip corners 0.87m OUTSIDE the visual
+  // * cylinder, so a cart arriving near a corner sank that far into the wall before
+  // * anything stopped it — and, being periodic around the ring, it clipped in some
+  // * places and not others. Scaling by the COARSER ring's cos (the 16-segment lip)
+  // * lands its worst corner exactly on 44.300 and the shaft's at 44.119: nothing
+  // * reaches past the visual wall anywhere. One shared radius, so the lip base and
+  // * shaft top still meet exactly — see the V-gutter note on the lip below.
+  const pitColliderRadius = pitInnerRadius * Math.cos(Math.PI / LIP_SEGMENTS);
   const shaftBody = world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
   {
     const shaftHalfAngle = Math.PI / SHAFT_SEGMENTS;
     const wallThickness = 1.5;
-    const zInner = pitInnerRadius * Math.tan(shaftHalfAngle);
-    const zOuter = (pitInnerRadius + wallThickness) * Math.tan(shaftHalfAngle);
+    const zInner = pitColliderRadius * Math.tan(shaftHalfAngle);
+    const zOuter = (pitColliderRadius + wallThickness) * Math.tan(shaftHalfAngle);
     const wallVertices = new Float32Array([
-      // Inner face — flush with the visual shaft wall.
-      pitInnerRadius, shaftWallTopY, -zInner,
-      pitInnerRadius, shaftWallTopY, zInner,
-      pitInnerRadius, shaftWallBottomY, -zInner,
-      pitInnerRadius, shaftWallBottomY, zInner,
+      // Inner face — just inside the visual shaft wall (see pitColliderRadius).
+      pitColliderRadius, shaftWallTopY, -zInner,
+      pitColliderRadius, shaftWallTopY, zInner,
+      pitColliderRadius, shaftWallBottomY, -zInner,
+      pitColliderRadius, shaftWallBottomY, zInner,
       // Outer face — radial extrusion away from the shaft.
-      pitInnerRadius + wallThickness, shaftWallTopY, -zOuter,
-      pitInnerRadius + wallThickness, shaftWallTopY, zOuter,
-      pitInnerRadius + wallThickness, shaftWallBottomY, -zOuter,
-      pitInnerRadius + wallThickness, shaftWallBottomY, zOuter,
+      pitColliderRadius + wallThickness, shaftWallTopY, -zOuter,
+      pitColliderRadius + wallThickness, shaftWallTopY, zOuter,
+      pitColliderRadius + wallThickness, shaftWallBottomY, -zOuter,
+      pitColliderRadius + wallThickness, shaftWallBottomY, zOuter,
     ]);
     for (let i = 0; i < SHAFT_SEGMENTS; i++) {
       const angle = (i / SHAFT_SEGMENTS) * Math.PI * 2;
@@ -2539,15 +2551,14 @@ export function initArena(scene, world, config, options = {}) {
   // * (~27 m/s) from sailing carts out over the stands. Same tangent-fit hull
   // * recipe, on the same fixed body as the shaft walls.
   // * It OVERHANGS the shaft mouth (top edge leans inward, skate-bowl over-vert):
-  // * where it meets the shaft wall top at (44.3, -4) both contact normals point
+  // * where it meets the shaft wall top at (pitColliderRadius, -4) both normals point
   // * inward, so there is no resting equilibrium in the crease — an outward-leaning
   // * wall forms a V-gutter carts can sit in and grind (the "drive on the upper pit
   // * edge" bug). Base meets the wall top exactly; any gap leaves a wedge slot.
   {
-    const LIP_SEGMENTS = 16;
-    const lipBaseR = pitInnerRadius; // 44.3 — meets the shaft wall top exactly
+    const lipBaseR = pitColliderRadius; // 43.45 — meets the shaft wall top exactly
     const lipBaseY = -4;
-    const lipTopR = pitInnerRadius - 1.5; // leans inward over the shaft
+    const lipTopR = pitColliderRadius - 1.5; // leans inward over the shaft
     const lipTopY = 9;
     const lipThickness = 1.5; // radial extrusion outward (thick enough for CCD)
     const lipHalfAngle = Math.PI / LIP_SEGMENTS;
@@ -2581,6 +2592,8 @@ export function initArena(scene, world, config, options = {}) {
   // * Shatter debris ricochets off the inside of the shaft wall (analytic,
   // * client-local) so explosion parts rain down the shaft instead of flying
   // * out through the visual wall.
+  // * Deliberately pitInnerRadius, NOT pitColliderRadius: this bounce is a look, not a
+  // * physics contact, and the surface it should kiss is the mesh the player can see.
   setShatterEnvironment({ wallR: pitInnerRadius, topY: shaftWallTopY });
 
   const sceneRoots = [
