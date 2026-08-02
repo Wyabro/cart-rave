@@ -179,6 +179,32 @@ not soften or clutter the outline.
 
 ---
 
+## Contact shadows — level props vs carts
+
+**Decided 08-02 (D-SUNDIAL-SHADOW-1).** Directional static contact shadows are a **level-prop
+affordance only.**
+
+- **Level props** may use `createStaticContactShadowCluster`
+  ([`contactShadows.js:362`](../../src/contactShadows.js:362)) with two placements per prop: a
+  tight round foot patch, plus a longer, fainter, elongated streak offset along `-sunDir` and
+  yawed to match. Sundial grounds its eight bollards and its podium base ring this way.
+- **Carts do not.** Every cart on every arena keeps the same flat, centered circle — no ellipse,
+  no height shrink, no per-arena light bias. That is the Run-6 ruling and it is still in force;
+  an earlier Zanzibar sun offset on carts read as "detached" in playtest.
+
+Two mechanical notes before adding placements:
+
+1. **`yaw` is applied as `rotation.z`, never `rotation.y`.** The blob is built with
+   `rotation.x = -PI/2`, and under three's default XYZ Euler order a `rotation.y` on top of that
+   tilts the quad *out* of the floor — measured normal `(sin yaw, cos yaw, 0)`, i.e. edge-on and
+   invisible at ±90°.
+2. **Placements off the play surface are dropped silently, not clamped.** Check the foot against
+   the arena's own octagon first. Sundial's beacon masts (31.98 m, base at y = −0.25, mounted on
+   the fascia) and its spawn booths (36.45 m, over open water on 7 m legs) cannot be grounded at
+   all, and its bollard streak offsets are sized so all eight clear the 31.9 m ceiling.
+
+---
+
 ## Falsifiable rules
 
 Rules 1 and 2 are checkable against source today and **both fail today** — that is deliberate.

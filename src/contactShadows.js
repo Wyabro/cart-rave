@@ -13,7 +13,18 @@ import { clamp } from "./utils.js";
 /** @type {THREE.CanvasTexture | null} */
 let sharedBlobTexture = null;
 
-/** @type {{ squareHoles: Array<{ x: number, z: number }>, half: number, arenaHalf?: number } | null} */
+/**
+ * Level surface description used to reject shadow placements over voids. Two shapes:
+ * walled arenas with square holes (Storerooms), and open octagons (Sundial). The octagon
+ * variant was always passed but never typed — the `isOctagon` branch below read it through
+ * a `Record<string, any>` cast.
+ *
+ * @typedef {{ squareHoles: Array<{ x: number, z: number }>, half: number, arenaHalf?: number, isOctagon?: false }} SquareHoleHazards
+ * @typedef {{ isOctagon: true, arenaHalf?: number, squareHoles?: undefined, half?: undefined }} OctagonHazards
+ * @typedef {SquareHoleHazards | OctagonHazards} ContactShadowHazards
+ */
+
+/** @type {ContactShadowHazards | null} */
 let shadowHazards = null;
 
 const _euler = new THREE.Euler();
@@ -29,7 +40,7 @@ function shadowCfg() {
 /**
  * Mirrors level `aiHazards` from main (null = Classic Record ring floor).
  *
- * @param {typeof shadowHazards} hazards
+ * @param {ContactShadowHazards | null} hazards
  */
 export function setContactShadowHazards(hazards) {
   shadowHazards = hazards;
@@ -85,22 +96,27 @@ export function octagonEdgeDistance(x, z) {
 /**
  * @param {number} x
  * @param {number} z
+ * @param {ContactShadowHazards | null} [hazardsOverride] Surface description to test against
+ *   instead of the module's. A **level builder** must pass its own: `main.js` only calls
+ *   `setContactShadowHazards` *after* the level has finished building, so anything a level
+ *   grounds during construction would otherwise be tested against the previous arena's
+ *   shape — or, on a cold load, against the circular fallback below.
  * @returns {boolean}
  */
-function isOnSolidPlaySurface(x, z) {
-  if (shadowHazards?.squareHoles) {
-    const arenaHalf = shadowHazards.arenaHalf ?? 34;
+function isOnSolidPlaySurface(x, z, hazardsOverride) {
+  const hz = hazardsOverride ?? shadowHazards;
+  if (hz?.squareHoles) {
+    const arenaHalf = hz.arenaHalf ?? 34;
     if (Math.abs(x) > arenaHalf || Math.abs(z) > arenaHalf) return false;
-    const holeHalf = shadowHazards.half;
-    for (const h of shadowHazards.squareHoles) {
+    const holeHalf = hz.half;
+    for (const h of hz.squareHoles) {
       if (Math.max(Math.abs(x - h.x), Math.abs(z - h.z)) <= holeHalf) return false;
     }
     return true;
   }
 
-  const haz = /** @type {Record<string, any>} */ (shadowHazards);
-  if (haz?.isOctagon) {
-    const apothem = haz.arenaHalf ?? CONFIG.record.radius;
+  if (hz?.isOctagon) {
+    const apothem = hz.arenaHalf ?? CONFIG.record.radius;
     return octagonEdgeDistance(x, z) <= apothem + 0.2;
   }
 
@@ -356,10 +372,23 @@ export function updateCartContactShadow(shadowMesh, pose) {
  * Builds a group of static blob shadows for immobile level props (e.g. furniture pile).
  * Placements over voids are skipped automatically.
  *
- * @param {Array<{ x: number, z: number, radius?: number, radiusX?: number, radiusZ?: number, opacity?: number }>} placements
+ * `yaw` spins the quad **within** the floor plane (radians, 0 = radiusX along world +X).
+ * It is applied as `rotation.z`, not `rotation.y`: the blob is created with
+ * `rotation.x = -PI/2`, and under three's default XYZ Euler order a `rotation.y` on top of
+ * that tilts the quad *out* of the floor — measured, the surface normal goes
+ * `(sin yaw, cos yaw, 0)`, so it is edge-on and invisible at yaw = +/-90 deg. `rotation.z`
+ * composes after the X rotation and spins the quad about its own normal, which is what an
+ * oriented ground decal wants.
+ *
+ * @param {Array<{ x: number, z: number, radius?: number, radiusX?: number, radiusZ?: number, yaw?: number, opacity?: number }>} placements
+ * @param {{ hazards?: ContactShadowHazards | null }} [options] `hazards` describes the surface to
+ *   test placements against, overriding the module's.
+ *   test placements against. **Pass it from a level builder** — `setContactShadowHazards`
+ *   does not run until after the level is built, so without it a cold load tests against
+ *   the circular fallback and silently drops everything outside `CONFIG.record.radius`.
  * @returns {{ group: THREE.Group, ownedGeometries: THREE.BufferGeometry[], ownedMaterials: THREE.Material[] }}
  */
-export function createStaticContactShadowCluster(placements) {
+export function createStaticContactShadowCluster(placements, options = {}) {
   const group = new THREE.Group();
   group.name = "StaticContactShadows";
   const ownedGeometries = [];
@@ -373,13 +402,14 @@ export function createStaticContactShadowCluster(placements) {
   const floorY = shadowCfg().floorY + shadowCfg().floorEpsilon;
 
   for (const p of placements) {
-    if (!isOnSolidPlaySurface(p.x, p.z)) continue;
+    if (!isOnSolidPlaySurface(p.x, p.z, options.hazards)) continue;
 
     const mesh = createBlobMesh({
       opacity: p.opacity ?? staticOpacity,
       renderOrder: -3,
     });
     mesh.position.set(p.x, floorY, p.z);
+    if (p.yaw) mesh.rotation.z = p.yaw;
     const base = p.radius ?? 1;
     const rx = p.radiusX ?? base;
     const rz = p.radiusZ ?? base;

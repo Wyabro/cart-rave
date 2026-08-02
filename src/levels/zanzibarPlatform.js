@@ -27,6 +27,7 @@
 
 import * as THREE from "three";
 import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import { createStaticContactShadowCluster } from "../contactShadows.js";
 import { setWaterDeathEnvironment } from "../effects/waterDeathFx.js";
 import { RAPIER } from "../physics/rapierInstance.js";
 import { createPhysicalMaterial, getMaterialEnvMapIntensity } from "../scene.js";
@@ -2641,6 +2642,78 @@ function buildDeck(scene, world, config, circumR) {
     cap.position.set(x, BOLLARD_HEIGHT + 0.06, z);
     group.add(cap);
     neonStripMeshes.push(cap);
+  }
+
+  // * Prop grounding — static contact blobs so the bollards and the podium sit ON the plate
+  // * instead of hovering on it. Two placements per bollard: a tight round foot patch, plus
+  // * a longer fainter streak offset along -sunDir. The podium gets a tangential band on
+  // * each of its eight base edges, opacity biased toward the anti-sun side; its long cast
+  // * shadow is already a separate quad above, so this ring is contact darkening only.
+  // *
+  // * LEVEL PROPS ONLY. Carts keep the same flat centered circle on every arena — no
+  // * ellipse, no height shrink, no per-arena light bias (Run-6 ruling, contactShadows.js
+  // * cart config). Directional static shadows are a scenery affordance, not a cart one.
+  // *
+  // * The masts and the booth legs are NOT in here and cannot be: the masts stand at
+  // * apothem + 0.28 = 31.98 m with their base at y = -0.25, i.e. mounted on the fascia
+  // * below the deck plane, and the booths sit at 36.45 m over open water on 7 m legs.
+  // * Neither foot is on the play surface, so neither can take a deck contact shadow.
+  // *
+  // * Streak length is stylised, not solved: at the sun key's 9.93 deg elevation a 1.6 m
+  // * bollard throws 9.1 m, and at the sun disc's 1.87 deg it throws 49 m. Both would run
+  // * off the deck. This grounds the prop; it does not simulate the cast. See OQ8.
+  {
+    const shadowAz = SUN_AZIMUTH + Math.PI;
+    const sdx = Math.cos(shadowAz);
+    const sdz = Math.sin(shadowAz);
+    // * yaw is applied as rotation.z inside the cluster, and rotation.z = -shadowAz maps
+    // * the quad's local +X exactly onto (cos shadowAz, 0, sin shadowAz) with the normal
+    // * still (0,1,0) — verified numerically, not derived. Sign errors in this exact shape
+    // * shipped backwards twice earlier in this pass.
+    const streakYaw = -shadowAz;
+    /** @type {Array<{x: number, z: number, radiusX?: number, radiusZ?: number, yaw?: number, opacity?: number}>} */
+    const placements = [];
+    for (const p of bollardPositions) {
+      placements.push({
+        x: p.x, z: p.z,
+        radiusX: BOLLARD_RADIUS * 1.55, radiusZ: BOLLARD_RADIUS * 1.55,
+        opacity: 0.5,
+      });
+      // * Offset 0.9 m, not the 1.45 m that reads better in isolation: at 1.45 the streak
+      // * centers for the bollards at 292.5 deg and 337.5 deg score 32.19 against the
+      // * 31.9 m play-surface ceiling and get dropped, and the 22.5 deg one clears by 3 cm.
+      // * 0.9 m puts all eight on the deck with at least 25 cm of margin.
+      placements.push({
+        x: p.x + sdx * 0.9, z: p.z + sdz * 0.9,
+        radiusX: 1.9, radiusZ: 0.68,
+        yaw: streakYaw,
+        opacity: 0.19,
+      });
+    }
+    const podiumApothem = PODIUM_BASE_R * COS_HALF;
+    for (let i = 0; i < OCT_SIDES; i += 1) {
+      const a = i * (Math.PI / 4);
+      placements.push({
+        x: Math.cos(a) * (podiumApothem + 0.62),
+        z: Math.sin(a) * (podiumApothem + 0.62),
+        // * Half-edge of the base octagon plus overlap, so the eight bands meet at corners.
+        radiusX: PODIUM_BASE_R * Math.sin(HALF_ANGLE) + 0.35,
+        radiusZ: 1.05,
+        yaw: -(a + Math.PI / 2),
+        opacity: 0.2 + 0.24 * Math.max(0, Math.cos(a - shadowAz)),
+      });
+    }
+    // * Pass the octagon explicitly. main.js does not call setContactShadowHazards until
+    // * after this builder returns, so a cluster built here would otherwise be tested
+    // * against the circular fallback (r > config.record.radius) and drop every placement
+    // * outboard of the apothem — measured: 8 of 24 survived, exactly the podium ring,
+    // * with all sixteen bollard placements silently gone.
+    const propShadows = createStaticContactShadowCluster(placements, {
+      hazards: { isOctagon: true, arenaHalf: config.record.radius },
+    });
+    group.add(propShadows.group);
+    ownedGeometries.push(...propShadows.ownedGeometries);
+    ownedMaterials.push(...propShadows.ownedMaterials);
   }
 
   scene.add(group);
