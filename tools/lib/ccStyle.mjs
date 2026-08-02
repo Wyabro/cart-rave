@@ -112,7 +112,8 @@ export const BASE_CSS = `  * { box-sizing:border-box; }
                         background:linear-gradient(180deg, rgba(255,45,149,.22), rgba(124,92,255,.14));
                         box-shadow:0 0 0 1px rgba(255,45,149,.35), 0 0 14px rgba(255,45,149,.25); }
   .cc-switch a.active:hover { border-color:var(--neon); color:#fff; }
-  .cc-switch .sw-ico { font-size:15px; line-height:1; }`;
+  .cc-switch .sw-ico { display:inline-flex; line-height:0; }
+  .cc-switch .sw-ico svg { width:16px; height:16px; display:block; }`;
 
 /**
  * Shared page chrome for the three Command Center surfaces: the sticky bar, the wordmark, the
@@ -155,14 +156,46 @@ export function esc(s) {
 }
 
 /**
+ * One stroke voice for the nav icons: 16-unit box, 1.6 stroke, round caps and joins,
+ * `currentColor` so each icon inherits the link's hover/active state for free.
+ *
+ * These replace 🛒 🗺 🎮 (CC-ICON-1). Emoji are rendered by the OS, so the nav had a
+ * different weight, colour and metric on every machine that opened the page — and the
+ * architecture favicon was already using the emoji-presentation 🗺️ while the nav used the
+ * text-presentation 🗺, i.e. two glyphs for one surface.
+ * @param {string} d
+ */
+const icon = (d) =>
+  `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" ` +
+  `stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+
+/**
  * The three Command Center surfaces, in fixed order. All three generated pages sit in
  * `.diag-captures/` (dashboard · architecture · playtest-console), so the defaults are
  * correct for them. docs/playtest/console.html is a redirect stub only.
  */
 export const CC_SURFACES = [
-  { id: "command-center", icon: "🛒", label: "Command Center", href: "dashboard.html" },
-  { id: "architecture", icon: "🗺", label: "Architecture", href: "architecture.html" },
-  { id: "playtest", icon: "🎮", label: "Playtest Console", href: "playtest-console.html" },
+  {
+    id: "command-center",
+    // cart: handle, basket, two wheels
+    icon: icon(`<path d="M1 1.6h2l1.9 8.1h7.5l1.4-5.4H4.2"/><circle cx="6.2" cy="13.2" r="1.1"/><circle cx="12" cy="13.2" r="1.1"/>`),
+    label: "Command Center",
+    href: "dashboard.html",
+  },
+  {
+    id: "architecture",
+    // folded map: three panels, two creases
+    icon: icon(`<path d="M1 4l4.5-2 5 2 4.5-2v10l-4.5 2-5-2-4.5 2z"/><path d="M5.5 2v10M10.5 4v10"/>`),
+    label: "Architecture",
+    href: "architecture.html",
+  },
+  {
+    id: "playtest",
+    // gamepad: rounded body, d-pad, two filled buttons (outlines vanish below ~1px)
+    icon: icon(`<rect x="1" y="4" width="14" height="8.6" rx="3.6"/><path d="M4.4 6.5v3.6M2.6 8.3h3.6"/><circle cx="10.9" cy="7.4" r="1" fill="currentColor" stroke="none"/><circle cx="12.7" cy="9.4" r="1" fill="currentColor" stroke="none"/>`),
+    label: "Playtest Console",
+    href: "playtest-console.html",
+  },
 ];
 
 /**

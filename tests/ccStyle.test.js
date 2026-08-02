@@ -203,4 +203,19 @@ describe("Command Center cross-surface nav", () => {
     expect(html).toMatch(/<a class="active" aria-current="page">/);
     expect((html.match(/<a /g) ?? []).length).toBe(CC_SURFACES.length);
   });
+
+  it("uses inline SVG icons in one stroke voice, not emoji", () => {
+    // * CC-ICON-1: emoji are rendered by the OS, so the nav read differently on every
+    // * machine. currentColor is what makes the icons inherit hover/active for free.
+    const html = crossNav("architecture");
+    expect(html).not.toMatch(/\p{Extended_Pictographic}/u);
+    expect((html.match(/<svg /g) ?? []).length).toBe(CC_SURFACES.length);
+    for (const s of CC_SURFACES) {
+      expect(s.icon, s.id).toMatch(/stroke="currentColor"/);
+      expect(s.icon, s.id).toMatch(/viewBox="0 0 16 16"/);
+      expect(s.icon, s.id).toMatch(/stroke-width="1\.6"/);
+      // Decorative: the adjacent text label already names the surface.
+      expect(s.icon, s.id).toMatch(/aria-hidden="true"/);
+    }
+  });
 });
