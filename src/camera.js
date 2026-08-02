@@ -223,7 +223,10 @@ const DEFAULT_CINEMATIC_CONFIG = {
   radius: 28,
   height: 14,
   startAngle: 0,
-  angularSpeed: 0.6,
+  // * CAM-OPEN-1: -15% from 0.6. The opening orbit is the only look at the arena a
+  // * player gets before the fight starts; at 0.6 rad/s it read as a swing-past.
+  // * Podium has its own config (DEFAULT_PODIUM_CONFIG) and is untouched.
+  angularSpeed: 0.51,
   lookTargetY: 1.5,
 };
 

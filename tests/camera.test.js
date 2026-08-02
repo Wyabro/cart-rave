@@ -4,6 +4,7 @@
 // hard-cuts to it live (see main.js warmupActiveSceneShaders — the previously-never-rendered
 // wide/high orbit was stalling the countdown itself, round-start jank confirmed by playtest).
 
+import { readFileSync } from "node:fs";
 import { describe, it, expect } from "vitest";
 import { getCinematicCountdownWarmupPose } from "../src/camera.js";
 
@@ -36,5 +37,69 @@ describe("getCinematicCountdownWarmupPose", () => {
     const b = getCinematicCountdownWarmupPose();
     expect(a.position).not.toBe(b.position);
     expect(a.position.equals(b.position)).toBe(true);
+  });
+});
+
+// * CAM-OPEN-1: the solo opening hold. The pre-roll runs BEFORE syncRoundPhase
+// * ("countdown"), which is a window nothing used to occupy — so both the cancel path and
+// * the quit funnel need to invalidate it, and neither did. The camera work is a live
+// * setTimeout inside a game_start handler, so these are source asserts; all four fail
+// * against the pre-fix files.
+describe("CAM-OPEN-1 solo fly-over pre-roll", () => {
+  const cameraSrc = readFileSync(new URL("../src/camera.js", import.meta.url), "utf8");
+  const mainSrc = readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
+
+  /**
+   * Slice between two anchors, failing loudly if either moved — a missed indexOf
+   * returns -1 and slice() would silently hand back a passage wide enough to match
+   * anything.
+   */
+  function between(src, startAnchor, endAnchor) {
+    const start = src.indexOf(startAnchor);
+    const end = src.indexOf(endAnchor, start + 1);
+    expect(start, `anchor not found: ${startAnchor}`).toBeGreaterThan(-1);
+    expect(end, `anchor not found: ${endAnchor}`).toBeGreaterThan(start);
+    return src.slice(start, end);
+  }
+
+  it("slows the opening orbit 15% without touching the podium orbit", () => {
+    const cinematic = between(
+      cameraSrc,
+      "const DEFAULT_CINEMATIC_CONFIG",
+      "* Allocates cinematic fly-over scratch state",
+    );
+    expect(cinematic).toMatch(/angularSpeed:\s*0\.51\b/);
+    const podium = cameraSrc.slice(cameraSrc.indexOf("const DEFAULT_PODIUM_CONFIG"));
+    expect(podium).not.toMatch(/angularSpeed:\s*0\.51\b/);
+  });
+
+  it("holds the arena before the countdown without lengthening the countdown", () => {
+    expect(mainSrc).toMatch(/const SOLO_FLYOVER_PREROLL_MS = 2000;/);
+    expect(mainSrc).toMatch(/\}, SOLO_FLYOVER_PREROLL_MS\);/);
+    // * COUNTDOWN_MS is shared with the server's game_start arming timer — a pre-roll
+    // * implemented by growing it would desync every MP client's digits.
+    const shared = readFileSync(
+      new URL("../shared/roundConstants.js", import.meta.url),
+      "utf8",
+    );
+    expect(shared).toMatch(/COUNTDOWN_MS\s*=\s*3600\b/);
+  });
+
+  it("cancel invalidates the solo defer and ends the cinematic unconditionally", () => {
+    const cancel = between(
+      mainSrc,
+      "onCountdownCancelledRef = () => {",
+      'syncRoundPhase("lobby");',
+    );
+    expect(cancel).toMatch(/soloCountdownDeferGen \+= 1;/);
+    // * Outside the phase branch: during the pre-roll the camera is already cinematic
+    // * while the phase is still pre-countdown.
+    expect(cancel).toMatch(/CameraMod\.endCinematicCountdown\(camera\);/);
+  });
+
+  it("the quit funnel invalidates the solo defer too", () => {
+    const reset = between(mainSrc, "resetRoundState: () => {", "hideEscOverlay:");
+    expect(reset).toMatch(/soloCountdownDeferGen \+= 1;/);
+    expect(reset).toMatch(/CameraMod\.endCinematicCountdown\(camera\);/);
   });
 });

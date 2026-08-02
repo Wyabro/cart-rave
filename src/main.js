@@ -510,6 +510,12 @@ let onGameStartHandler = null;
  * stale waiter re-kick a newer game's countdown clock. (Council review follow-up.)
  */
 let soloCountdownDeferGen = 0;
+/**
+ * CAM-OPEN-1 — how long the solo opening fly-over holds the arena before the 3-2-1.
+ * Not part of the countdown: `CONFIG.round.countdownMs` / `COUNTDOWN_MS` is shared with
+ * the server's game_start arming timer and must not absorb this.
+ */
+const SOLO_FLYOVER_PREROLL_MS = 2000;
 /** @type {(() => void) | null} */
 let onHostMigratedHandler = null;
 /** @type {(() => void) | null} */
@@ -3072,7 +3078,27 @@ async function main() {
           // * never start a countdown behind the menu.
           if (menuVisible) return;
           if (GameState.getRoundState().phase === "running") return;
-          startCountdown(getRoundClockNowMs() + CONFIG.round.countdownMs);
+          // * CAM-OPEN-1: hold the arena on screen for SOLO_FLYOVER_PREROLL_MS before the
+          // * 3-2-1, so the opening orbit is a look at the place rather than a swing-past
+          // * behind digits. Carts go to spawn first — a solo RESTART re-enters here with
+          // * them scattered, and the fly-over should show the round's tableau.
+          // * startCountdown teleports again 2s later; nothing moves in between (no input,
+          // * no AI before countdown), so the second pass is a no-op, not a pop.
+          // * SOLO ONLY. MP countdowns are anchored to an absolute server timestamp, and
+          // * delaying one client's is the reverted host-countdown gate (c8df8fd).
+          if (Array.isArray(allCartsRef)) {
+            for (let i = 0; i < allCartsRef.length; i += 1) teleportCartToSpawn(i);
+          }
+          beginRoundFlyover();
+          setTimeout(() => {
+            // * Same three guards: the pre-roll widens the window in which a quit, a
+            // * restart or a bootstrap bounce can land. onCountdownCancelledRef and
+            // * resetRoundState both bump soloCountdownDeferGen, so either kills this.
+            if (deferGen !== soloCountdownDeferGen) return;
+            if (menuVisible) return;
+            if (GameState.getRoundState().phase === "running") return;
+            startCountdown(getRoundClockNowMs() + CONFIG.round.countdownMs);
+          }, SOLO_FLYOVER_PREROLL_MS);
         });
       } else {
         // * Cap-200 / Cap-59 sibling: continuous-mode arms game_start at seat while
@@ -4005,6 +4031,11 @@ async function main() {
       GameState.resetRoundToLobby();
       clearPodiumPresentation();
       CameraMod.endCinematicCountdown(camera);
+      // * CAM-OPEN-1: this is the quit funnel (returnToMenu → teardownGameSession →
+      // * here). It already ended the cinematic; what it never did was invalidate a
+      // * pending solo defer, which now owns a 2s pre-roll timeout that would otherwise
+      // * start a countdown after the player is back on the menu.
+      soloCountdownDeferGen += 1;
     },
     hideEscOverlay: () => HUD.hideEscOverlay(),
     resetSessionPickState: () => {
@@ -4622,12 +4653,19 @@ async function main() {
     nonHostCountdownApplyPending = false;
     // * Cap-200: same for deferred host-MP countdown apply.
     hostMpCountdownDeferGen += 1;
+    // * CAM-OPEN-1: and for the solo defer. Its pre-roll window sits BEFORE
+    // * syncRoundPhase("countdown"), so a cancel landing mid-fly-over finds no countdown
+    // * phase to clean up and previously left the pending timeout free to start one.
+    soloCountdownDeferGen += 1;
     clearRoundCountdownTimeout();
+    // * Unconditional, for the same reason: during the pre-roll the camera is already in
+    // * cinematic mode while the phase is still pre-countdown, so gating this on
+    // * phase === "countdown" would leave the orbit latched after a cancel.
+    CameraMod.endCinematicCountdown(camera);
     if (GameState.getRoundState().phase === "countdown") {
       syncRoundPhase("lobby");
       GameState.setRoundCountdownStartedAtMs(0);
       GameState.setRoundStartedAtMs(0);
-      CameraMod.endCinematicCountdown(camera);
       if (Netcode.getIsHost()) Netcode.sendHostRound();
     }
   };
