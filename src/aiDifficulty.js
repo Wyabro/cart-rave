@@ -11,7 +11,7 @@
 /** @type {ReadonlyArray<AiDifficulty>} */
 const DIFFICULTIES = Object.freeze(["easy", "medium", "hard"]);
 
-export const DEFAULT_SOLO = /** @type {AiDifficulty} */ ("easy");
+export const DEFAULT_SOLO = /** @type {AiDifficulty} */ ("medium");
 export const QUICKPLAY_FIXED = /** @type {AiDifficulty} */ ("medium");
 
 /** Hard-tier steerGainMax ceiling — stops Chaotic Hard from sitting at 2.2. */

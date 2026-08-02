@@ -481,7 +481,7 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
   }
 
   function initDiffSelect() {
-    // * Ensure store+localStorage have a normalized value (default Easy).
+    // * Ensure store+localStorage have a normalized value (default DEFAULT_SOLO).
     settingsStore.getState().setAiDifficulty(
       normalizeDifficulty(settingsStore.getState().aiDifficulty, DEFAULT_SOLO),
     );

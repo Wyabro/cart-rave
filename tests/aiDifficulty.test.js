@@ -38,10 +38,10 @@ const CHAOTIC = {
 };
 
 describe("aiDifficulty", () => {
-  it("normalizes ids and defaults Solo to easy", () => {
+  it("normalizes ids and defaults Solo to medium", () => {
     expect(normalizeDifficulty("HARD")).toBe("hard");
     expect(normalizeDifficulty("nope")).toBe(DEFAULT_SOLO);
-    expect(DEFAULT_SOLO).toBe("easy");
+    expect(DEFAULT_SOLO).toBe("medium");
   });
 
   it("Medium is identity on personality fields", () => {
@@ -81,7 +81,7 @@ describe("aiDifficulty", () => {
     expect(resolveRoomDifficulty("quickplay", "easy")).toBe(QUICKPLAY_FIXED);
     expect(resolveRoomDifficulty("quickplay", "hard")).toBe("medium");
     expect(resolveRoomDifficulty("solo", "hard")).toBe("hard");
-    expect(resolveRoomDifficulty("friends", null)).toBe("easy");
+    expect(resolveRoomDifficulty("friends", null)).toBe(DEFAULT_SOLO);
   });
 
   it("setActiveAiDifficulty drives the brain latch", () => {
