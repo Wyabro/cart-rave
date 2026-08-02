@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-01T22:20:05.407Z",
-    "commit": "e1e514c"
+    "at": "2026-08-02T03:24:49.106Z",
+    "commit": "db60f19"
   },
-  "source_digest": "9be818b2",
+  "source_digest": "ca2f8ed1",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1105,9 +1105,9 @@
       {
         "title": "Art",
         "counts": {
-          "High": 5,
-          "Medium": 4,
-          "Low": 3
+          "High": 6,
+          "Medium": 5,
+          "Low": 4
         },
         "rows": [
           {
@@ -1143,7 +1143,25 @@
           {
             "pri": "High",
             "item": "ART-PASS-1 — per-level art pass audit `[pre-ship]`",
-            "notes": "One level at a time: which authored surfaces read thin, which elements are bare filler beside well-authored neighbours, what is identity and must not change. **Not a texturing sweep** — the arenas already have maps. Cart Rave first (hero arena).",
+            "notes": "One level at a time: which authored surfaces read thin, which elements are bare filler beside well-authored neighbours, what is identity and must not change. **Not a texturing sweep** — the arenas already have maps. All three arenas audited 08-01 (6 element groups each, adversarially verified). **ART-PASS-CLASSIC-1** is the Cart Rave execution card.",
+            "ship1": null
+          },
+          {
+            "pri": "High",
+            "item": "ART-PASS-CLASSIC-1 — Cart Rave art pass (5 levers) `[pre-ship]`",
+            "notes": "Hand-verified against code, one commit + one GPU capture per lever, in order: **L1** pit-wall texel anisotropy (`repeat.set(16,200)` → square the tile, `arena.js:162`); **L2** the CART RAVE label has never rendered — wordmark, hole cut and 3 of 7 grooves all fall inside the `RingGeometry(3.7, 7.0)` inner edge at canvas r=135.3px (`arena.js:1640/1747`); **L3** turntable platters are bare chrome with no records (`arena.js:812`) — **ruled hero, not dressing**, so the art-direction Rule 1 allowlist gains turntable platters in L3's own commit; **L4** cladding shares one `repeat.set(24,3)` across three deck radii (`effects.js:1441/1454`) — clone per deck like the seat loop at `effects.js:990`; **L5** record-body `ExtrudeGeometry` UVs are in metres + maps default to ClampToEdge (`arena.js:439/298`) — custom UVGenerator, rim band only. New geo/mats must join the disposal lists (`arena.js:1361`).",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "PIT-DEPTH-1 — the pit shaft's unused 570 m",
+            "notes": "`pitWallDepth = 600` (`arena.js:1935`) but the fall kill fires at `y = -30` (`arena.js:1402`) and the vertex-colour gradient spans `GRADIENT_DEPTH_M = 32`. ~190 of 200 vertical texture tiles are never seen. Pure hygiene, zero visible delta. Wants its own card because `config.fall.yThreshold` is reassigned around it. Split out of ART-PASS-CLASSIC-1 so it cannot ride along mid-sequence.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "SKYBOX-DIR-1 — does a space skybox serve an underground-warehouse-party mood?",
+            "notes": "**Direction question, not a defect.** The 08-01 audit measured the visible sky as a ~0–5° sliver and found the arena's worst-authored props (3580 stars, gas giant, 2 UFOs) are the ones sitting in it — turned on for the first time by SKYBOX-1 (07-30, +54 draw calls). Either commit to it and author it properly, or cut it and spend the budget on the room. Wyatt's call; do not resolve inside an art-pass lever. Split out of ART-PASS-CLASSIC-1.",
             "ship1": null
           },
           {
