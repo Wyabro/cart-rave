@@ -520,21 +520,31 @@ function buildSkyTexture() {
   canvas.height = 256;
   const ctx = canvas.getContext("2d");
   // * Moodier golden-hour: deeper indigo zenith, longer dusk magenta, softer ember melt.
+  // * The dome puts the HORIZON at t = 0.5, so the whole ramp has to finish by then —
+  // * authored across the full canvas it ran the ember below the waterline where the
+  // * ocean hides it, leaving an indigo night sky over a lit sea.
+  // * Stops are NOT a uniform rescale: the three warm ones are packed into the last
+  // * ~0.065 so the ember is a band hugging the water (+10.8° / +5.4° / +1.8°) instead
+  // * of a wash. The chase camera tops out near +27°, so the upper half of the play
+  // * frame keeps its plum and indigo — bright horizon, dark sky, which is the point.
   const grad = ctx.createLinearGradient(0, 0, 0, 256);
   grad.addColorStop(0.0, "#060318"); // zenith — near-black indigo
-  grad.addColorStop(0.28, "#1a0a32");
-  grad.addColorStop(0.48, "#4a1538");
-  grad.addColorStop(0.62, "#8a2848");
-  grad.addColorStop(0.74, "#c94a32");
-  grad.addColorStop(0.86, "#e86830"); // long ember band
+  grad.addColorStop(0.3, "#1a0a32");
+  grad.addColorStop(0.395, "#4a1538");
+  grad.addColorStop(0.44, "#8a2848");
+  grad.addColorStop(0.47, "#c94a32");
+  grad.addColorStop(0.49, "#e86830"); // ember band, tight to the waterline
   // * Must track CONFIG.postFx.fog.zanzibar.color — the ocean fogs to that hex at
-  // * distance, so a mismatched sky bottom shows as a seam at the waterline.
-  grad.addColorStop(1.0, "#ff5a22"); // horizon melt color matching fog
+  // * distance, so this is the colour the sky has to be AT the waterline (t = 0.5),
+  // * not merely at the bottom of the canvas, or the two meet in a hard step.
+  grad.addColorStop(0.505, "#ff5a22"); // horizon melt colour matching fog
+  grad.addColorStop(1.0, "#ff5a22"); // held below the waterline — occluded by the ocean
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, 256, 256);
 
-  // Stratified haze bands — thicker, more atmospheric than the first pass.
-  for (const [y, alpha] of [[160, 0.12], [176, 0.16], [192, 0.12], [206, 0.08]]) {
+  // Stratified haze bands — thicker, more atmospheric than the first pass. Kept above
+  // the waterline (y < 128) now that the ramp ends there; spacing scaled with the stops.
+  for (const [y, alpha] of [[104, 0.12], [112, 0.16], [120, 0.12], [127, 0.08]]) {
     const band = ctx.createLinearGradient(0, y - 5, 0, y + 5);
     band.addColorStop(0, "rgba(30,8,28,0)");
     band.addColorStop(0.5, `rgba(50,14,36,${alpha})`);
