@@ -15,7 +15,34 @@
 // Fails open by design: any parse or logic error exits 0, so a bug in this file can
 // never wedge a session.
 //
+// GIT-INDEX-2 (content, not paths): GIT-INDEX-1 above compares staged PATHS against what
+// this session owns, so a file this session legitimately wrote and staged passes even when
+// a concurrent session appended to it in between — an owned path can carry a foreign hunk.
+// Two content checks close that, both keyed off the write-time hashes in session state:
+//   Check A — at `git add`, hash the WORKTREE for each added path this session wrote. For a
+//     path being added the worktree is the content about to be staged, so this is also the
+//     only check that can see `git add X && git commit` in ONE command (see the same-command
+//     residual below: the index is still pre-add at PreToolUse time).
+//   Check B — at a pathspec-less commit, hash the STAGED BLOB. Backstop for content staged
+//     without an observed `git add`. Deliberately reads the index, not the worktree, so
+//     "staged clean, worktree since dirtied, no re-add" is ALLOWED — that commit ships the
+//     clean bytes.
+// NOTE: Check A means an explicit-path `git add` can now be denied. That is new — this guard
+// previously only ever denied bulk staging — and it is the contract working, not a bug.
+//
 // Residual risks — known and accepted, do not assume coverage:
+//   - A file this session wrote via Bash (sed, heredoc, an npm script) and then staged reads
+//     as drifted, because only Write/Edit/MultiEdit/NotebookEdit record a hash. Same answer
+//     as every other residual here: SKIP_GIT_GUARD=1.
+//   - `edit → add → edit again → commit` without re-adding: the staged blob is the earlier
+//     write, so Check B denies. Re-`git add` clears it.
+//   - `git add -p`: the recorded hash covers the whole worktree file while the staged blob is
+//     partial, so that path always denies. Agents on this repo do not use -p.
+//   - Files over the tracker's ~4 MB hash cap get no `writes` entry, so both content checks
+//     skip them and only GIT-INDEX-1 path ownership applies.
+//   - Disk and index reads use normalizeRepoPath's lowercased form. On a case-sensitive
+//     filesystem a case mismatch misses the file, the read returns null, and the check falls
+//     open. Not a factor on this repo's Windows tree.
 //   - stripQuoted pairs quotes naively. Nested or unbalanced quoting (a heredoc, a
 //     JS string array, a multi-line python literal) desyncs it, so a literal
 //     `git add -A` inside such text can false-positive. Unfixable without a real
@@ -36,9 +63,12 @@
 //     in the settings file, where it would break parsing and drop every hook.
 
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import {
   DEFAULT_STATE_DIR,
   GENERATED_DOCS,
+  hashContent,
   normalizeRepoPath,
   readState,
   updateState,
@@ -201,12 +231,73 @@ function foreignDenial(foreign) {
 }
 
 /**
- * The full guard: bulk-staging denial, session staging recorder, and the GIT-INDEX-1
- * commit-scope check. Returns a denial reason or null; records allowed `git add`
- * pathspecs into session state as a side effect. Exported for tests — drive it with
- * injected deps ({ env, stateDir, listStaged }).
+ * Paths whose content no longer hashes to what this session recorded writing.
+ *
+ * Only paths carrying a `writes` entry are considered — a file this session never wrote is
+ * GIT-INDEX-1's business, not this check's. A read returning null (missing, unreadable,
+ * git failure) is skipped rather than reported: fail open, always.
+ *
+ * @param {string[]} paths repo-relative, normalized
+ * @param {Record<string, string>} writes session write-time hashes
+ * @param {(rel: string) => Buffer | string | null} read
+ * @returns {string[]}
+ */
+function driftedAgainstWrites(paths, writes, read) {
+  const out = [];
+  for (const rel of new Set(paths)) {
+    if (GENERATED_DOCS.has(rel)) continue;
+    const expected = writes?.[rel];
+    if (!expected) continue;
+    let actual = null;
+    try {
+      actual = read(rel);
+    } catch {
+      actual = null;
+    }
+    if (actual == null) continue;
+    if (hashContent(actual) !== expected) out.push(rel);
+  }
+  return out;
+}
+
+/**
+ * GIT-INDEX-2 denial. The two checks need different remedies: Check A fires at `git add`
+ * when the WORKTREE drifted and nothing useful is in the index yet, so pointing that case at
+ * `--cached` would send the agent somewhere empty.
+ * @param {string[]} paths @param {'add' | 'commit'} kind
+ */
+function driftedDenial(paths, kind) {
+  const named = `${paths.slice(0, 8).join(', ')}${paths.length > 8 ? ', …' : ''}`;
+  const head = 'Blocked by .claude/hooks/guard-git-add.mjs (GIT-INDEX-2). ';
+  if (kind === 'add') {
+    return (
+      `${head}The worktree content of a file THIS session wrote no longer matches what this ` +
+      'session wrote — a concurrent session (or a Bash/script edit) changed it underneath ' +
+      `you, and this \`git add\` would stage those bytes as yours. Drifted: ${named}. ` +
+      'Remedies, in order: (1) inspect the worktree — `git diff -- <file>`; ' +
+      '(2) reconcile to your own write, or re-Edit the file to deliberately claim the ' +
+      'foreign bytes, then re-add; ' +
+      '(3) SKIP_GIT_GUARD=1 when the drift is your own Bash/script edit.'
+    );
+  }
+  return (
+    `${head}Staged content for a file THIS session wrote does not match what this session ` +
+    'wrote, so this pathspec-less commit would ship bytes it did not author. Drifted: ' +
+    `${named}. Remedies, in order: (1) inspect with \`git diff --cached -- <file>\`; ` +
+    '(2) `git restore --staged <file>` — that unstages the WHOLE path, it does not select ' +
+    'hunks — then reconcile the worktree and re-add, or `git restore -p --staged` for ' +
+    'hunk-level; ' +
+    '(3) `git commit -m "…" -- <your paths>`, or SKIP_GIT_GUARD=1 when the drift is yours.'
+  );
+}
+
+/**
+ * The full guard: bulk-staging denial, the GIT-INDEX-1 commit-scope check, the GIT-INDEX-2
+ * content checks, and the session staging recorder. Returns a denial reason or null; records
+ * allowed `git add` pathspecs into session state as a side effect. Exported for tests — drive
+ * it with injected deps ({ env, stateDir, listStaged, readWorktree, readStaged }).
  * @param {any} input PreToolUse payload
- * @param {{ env?: Record<string, string | undefined>, stateDir?: string, listStaged?: (root: string) => string[] | null }} [deps]
+ * @param {{ env?: Record<string, string | undefined>, stateDir?: string, listStaged?: (root: string) => string[] | null, readWorktree?: (root: string, rel: string) => Buffer | string | null, readStaged?: (root: string, rel: string) => Buffer | string | null }} [deps]
  * @returns {string | null}
  */
 export function evaluateGitCommand(input, deps = {}) {
@@ -229,22 +320,42 @@ export function evaluateGitCommand(input, deps = {}) {
     .map((p) => normalizeRepoPath(p, root))
     .filter(Boolean);
 
+  // ORDER IS LOAD-BEARING: bulk deny (above) → Check A → GIT-INDEX-1 → Check B → record.
+  // The recorder must stay last. If a denied add still landed in `staged`, that path would
+  // count as session-owned on the next call and quietly weaken GIT-INDEX-1's own reasoning —
+  // the guard would have taught itself to trust exactly what it just rejected.
+  const session = readState(stateDir, input?.session_id);
+
+  // GIT-INDEX-2 Check A — worktree, at `git add`. The worktree is what this add is about to
+  // stage, which is also why this is the only check that sees a same-command
+  // `git add X && git commit` (the index is still pre-add here).
+  if (session.existed && addPaths.length > 0) {
+    const read = deps.readWorktree ?? readWorktreeContent;
+    const drifted = driftedAgainstWrites(addPaths, session.writes, (rel) => read(root, rel));
+    if (drifted.length > 0) return driftedDenial(drifted, 'add');
+  }
+
   // GIT-INDEX-1: a pathspec-less commit ships the ENTIRE index. Compare what is staged
   // against what this session owns (touched via Write/Edit, staged via git add — including
   // adds earlier in this same command line, which have not executed yet at PreToolUse
   // time). No session record → allow (tracking may postdate the staging; fail open).
   const pathless = segments.some((s) => s.kind === 'commit' && s.isPathless);
-  if (pathless) {
-    const session = readState(stateDir, input?.session_id);
-    if (session.existed) {
-      const staged = (deps.listStaged ?? listStagedInIndex)(root);
-      if (Array.isArray(staged)) {
-        const owned = new Set([...session.staged, ...session.touched, ...addPaths]);
-        const foreign = staged
-          .map((p) => p.replace(/\\/g, '/').toLowerCase())
-          .filter((p) => p && !GENERATED_DOCS.has(p) && !owned.has(p));
-        if (foreign.length > 0) return foreignDenial(foreign);
-      }
+  if (pathless && session.existed) {
+    const staged = (deps.listStaged ?? listStagedInIndex)(root);
+    if (Array.isArray(staged)) {
+      const normalized = staged.map((p) => p.replace(/\\/g, '/').toLowerCase()).filter(Boolean);
+      const owned = new Set([...session.staged, ...session.touched, ...addPaths]);
+      const foreign = normalized.filter((p) => !GENERATED_DOCS.has(p) && !owned.has(p));
+      if (foreign.length > 0) return foreignDenial(foreign);
+
+      // GIT-INDEX-2 Check B — staged blob. Backstop for content staged without an observed
+      // `git add`. Reads the index on purpose: worktree drift after a clean add is fine,
+      // because the commit ships the clean staged bytes.
+      const readBlob = deps.readStaged ?? readStagedBlob;
+      const drifted = driftedAgainstWrites(normalized, session.writes, (rel) =>
+        readBlob(root, rel)
+      );
+      if (drifted.length > 0) return driftedDenial(drifted, 'commit');
     }
   }
 
@@ -254,6 +365,31 @@ export function evaluateGitCommand(input, deps = {}) {
     }));
   }
   return null;
+}
+
+/** Worktree bytes for a repo-relative path. null on any failure — fail open. */
+function readWorktreeContent(root, rel) {
+  try {
+    return readFileSync(path.resolve(root, rel));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Staged blob for a repo-relative path. `:0:` names stage 0 explicitly, so this stays
+ * unambiguous if the index ever carries unmerged stages. null on any failure — fail open.
+ */
+function readStagedBlob(root, rel) {
+  try {
+    return execFileSync('git', ['show', `:0:${rel}`], {
+      cwd: root,
+      timeout: 5000,
+      maxBuffer: 16 * 1024 * 1024,
+    });
+  } catch {
+    return null;
+  }
 }
 
 /** `git diff --cached --name-only` — the paths currently staged. null on any failure. */

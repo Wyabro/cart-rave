@@ -203,7 +203,7 @@ internal error exits 0) and are driven by `tests/claudeHooks.test.js`.
 - **`session-briefing.mjs`** (SessionStart) injects the committed `docs/BRIEFING.md` as
   cold-start context, and warns when STATUS's digested sections have moved past it (same
   content digest as `briefing:check` — never mtimes).
-- **`guard-git-add.mjs`** (PreToolUse on Bash/PowerShell) enforces two rules. (1) Denies
+- **`guard-git-add.mjs`** (PreToolUse on Bash/PowerShell) enforces three rules. (1) Denies
   whole-worktree staging: `git add -A` / `.` / `./` / `:/` / `:` / `:(top)` / `*` /
   `--all`, combined short flags like `-Av`, bare `git add -u` / `--update` (with a
   pathspec, `-u <path>` stays legal), and every `git commit -a` form. Explicit paths,
@@ -215,7 +215,18 @@ internal error exits 0) and are driven by `tests/claudeHooks.test.js`.
   anyone staged. The hook records this session's `git add` pathspecs, and denies a
   pathspec-less commit whose index holds paths this session never touched or staged
   (generated docs exempt; no session record or git failure → allow). The denial names the
-  foreign paths and the remedies.
+  foreign paths and the remedies. (3) **GIT-INDEX-2:** GIT-INDEX-1 compares *paths*, so a
+  file you legitimately wrote and staged still passes when a concurrent session appended to
+  it in between — an owned path carrying a foreign hunk. `track-session-writes.mjs` therefore
+  records a content hash of every file this session writes, and two checks compare against
+  it: **Check A** hashes the **worktree** at `git add` (the only check that can see
+  `git add X && git commit` in one command — at PreToolUse the index is still pre-add), and
+  **Check B** hashes the **staged blob** at a pathspec-less commit. Hashes normalize CRLF,
+  because `core.autocrlf` makes worktree and index bytes differ by line ending. **Check A
+  means an explicit-path `git add` can now be denied — that is the contract working, not a
+  hook bug.** Bash-written files record no hash, so they read as drifted if staged; that and
+  `git add -p` are the known false-positive shapes, and `SKIP_GIT_GUARD=1` is the answer.
+  Every read failure falls open.
 - **`guard-protected-paths.mjs`** (PreToolUse on Write/Edit/MultiEdit/NotebookEdit)
   denies edits to generated files (`docs/BRIEFING.md`, `docs/ARCHITECTURE.json`) and the
   `docs/archive/{handovers,audits}/` history.

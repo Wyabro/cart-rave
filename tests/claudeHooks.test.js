@@ -12,7 +12,7 @@ import { offends, walkGitSegments, evaluateGitCommand } from "../.claude/hooks/g
 import { claimsCompletion, evaluateStop } from "../.claude/hooks/guard-stop-drift.mjs";
 import { evaluateProtectedPath } from "../.claude/hooks/guard-protected-paths.mjs";
 import { trackWrite } from "../.claude/hooks/track-session-writes.mjs";
-import { readState, updateState } from "../.claude/hooks/lib/session-state.mjs";
+import { hashContent, readState, updateState } from "../.claude/hooks/lib/session-state.mjs";
 
 const scratch = mkdtempSync(join(tmpdir(), "cart-clash-hooktest-"));
 afterAll(() => rmSync(scratch, { recursive: true, force: true }));
@@ -336,6 +336,158 @@ describe("guard-git-add: GIT-INDEX-1 commit-scope check", () => {
   });
 });
 
+describe("guard-git-add: GIT-INDEX-2 content-drift checks", () => {
+  const root = process.cwd();
+  const MINE = "i am what this session wrote\n";
+  const THEIRS = "i am what this session wrote\nplus a concurrent session's hunk\n";
+
+  /** A session that wrote `rel` with MINE's content. */
+  const seed = (session, rel = "src/netcode.js", extra = {}) =>
+    updateState(scratch, session, () => ({ writes: { [rel]: hashContent(MINE) }, ...extra }));
+
+  // `undefined` for worktree/blob means "reads back exactly what the session wrote".
+  const evalCmd = (command, { session, staged, worktree, blob, env = {} } = {}) =>
+    evaluateGitCommand(
+      { session_id: session ?? `g2-${Math.random()}`, cwd: root, tool_input: { command } },
+      {
+        env,
+        stateDir: scratch,
+        listStaged: () => staged ?? null,
+        readWorktree: () => (worktree === undefined ? MINE : worktree),
+        readStaged: () => (blob === undefined ? MINE : blob),
+      }
+    );
+
+  it("Check A denies `git add` when the worktree drifted from the recorded write", () => {
+    const session = "g2-add-drift";
+    seed(session);
+    const r = evalCmd("git add src/netcode.js", { session, worktree: THEIRS });
+    expect(r).toContain("GIT-INDEX-2");
+    expect(r).toContain("src/netcode.js");
+    // add-flavoured remedy: the index is empty here, so --cached would misdirect
+    expect(r).toContain("git diff -- <file>");
+    expect(r).not.toContain("--cached");
+  });
+
+  it("Check A denies the same-command `git add X && git commit` one-liner", () => {
+    const session = "g2-onecmd";
+    seed(session);
+    // staged: [] because at PreToolUse the add has not run yet — precisely why Check B
+    // cannot see this case and Check A must.
+    const r = evalCmd('git add src/netcode.js && git commit -m "x"', {
+      session,
+      worktree: THEIRS,
+      staged: [],
+    });
+    expect(r).toContain("GIT-INDEX-2");
+    expect(r).toContain("src/netcode.js");
+  });
+
+  it("does not record a denied add as session-owned", () => {
+    const session = "g2-norecord";
+    seed(session);
+    expect(evalCmd("git add src/netcode.js", { session, worktree: THEIRS })).toContain(
+      "GIT-INDEX-2"
+    );
+    expect(readState(scratch, session).staged).toEqual([]);
+  });
+
+  it("Check B denies a pathspec-less commit when the staged blob drifted", () => {
+    const session = "g2-blob-drift";
+    seed(session, "src/netcode.js", { touched: ["src/netcode.js"] });
+    const r = evalCmd('git commit -m "x"', {
+      session,
+      staged: ["src/netcode.js"],
+      blob: THEIRS,
+    });
+    expect(r).toContain("GIT-INDEX-2");
+    expect(r).toContain("git diff --cached");
+  });
+
+  it("Check B ALLOWS a clean index whose worktree has since drifted", () => {
+    const session = "g2-clean-index";
+    seed(session, "src/netcode.js", { touched: ["src/netcode.js"] });
+    // The commit ships the staged bytes, which are this session's. Denying here would mean
+    // Check B is reading the worktree instead of the index.
+    expect(
+      evalCmd('git commit -m "x"', {
+        session,
+        staged: ["src/netcode.js"],
+        blob: MINE,
+        worktree: THEIRS,
+      })
+    ).toBeNull();
+  });
+
+  it("allows when the hashes match, on both checks", () => {
+    const session = "g2-match";
+    seed(session, "src/netcode.js", { touched: ["src/netcode.js"] });
+    expect(evalCmd("git add src/netcode.js", { session })).toBeNull();
+    expect(evalCmd('git commit -m "x"', { session, staged: ["src/netcode.js"] })).toBeNull();
+  });
+
+  it("ignores a drifted path this session never wrote (GIT-INDEX-1's domain)", () => {
+    const session = "g2-unwritten";
+    updateState(scratch, session, () => ({ touched: ["src/other.js"], writes: {} }));
+    expect(evalCmd("git add src/other.js", { session, worktree: THEIRS })).toBeNull();
+  });
+
+  it("ignores drifted generated docs", () => {
+    const session = "g2-generated";
+    updateState(scratch, session, () => ({
+      writes: { "docs/architecture.json": hashContent(MINE) },
+      touched: ["docs/architecture.json"],
+    }));
+    expect(
+      evalCmd("git add docs/ARCHITECTURE.json", { session, worktree: THEIRS })
+    ).toBeNull();
+  });
+
+  it("allows when the worktree read fails (fail open)", () => {
+    const session = "g2-failopen-worktree";
+    seed(session);
+    expect(evalCmd("git add src/netcode.js", { session, worktree: null })).toBeNull();
+  });
+
+  it("allows when the staged-blob read fails (fail open)", () => {
+    const session = "g2-failopen-blob";
+    seed(session, "src/netcode.js", { touched: ["src/netcode.js"] });
+    expect(
+      evalCmd('git commit -m "x"', { session, staged: ["src/netcode.js"], blob: null })
+    ).toBeNull();
+  });
+
+  it("allows when the session record predates `writes` (back-compat)", () => {
+    const session = "g2-backcompat";
+    updateState(scratch, session, () => ({
+      staged: ["src/netcode.js"],
+      touched: ["src/netcode.js"],
+    }));
+    expect(
+      evalCmd('git commit -m "x"', { session, staged: ["src/netcode.js"], blob: THEIRS })
+    ).toBeNull();
+  });
+
+  // The live replay cannot cover this: the hook reads its own process env and deliberately
+  // never parses the command string, so a `VAR=1 git add …` prefix does NOT bypass it.
+  it.each(["CART_CLASH_SKIP_HOOKS", "SKIP_GIT_GUARD"])("%s bypasses both content checks", (key) => {
+    const session = `g2-skip-${key}`;
+    seed(session, "src/netcode.js", { touched: ["src/netcode.js"] });
+    const env = { [key]: "1" };
+    expect(evalCmd("git add src/netcode.js", { session, worktree: THEIRS, env })).toBeNull();
+    expect(
+      evalCmd('git commit -m "x"', { session, staged: ["src/netcode.js"], blob: THEIRS, env })
+    ).toBeNull();
+  });
+
+  it("degrades a corrupt `writes: []` to {} rather than throwing", () => {
+    const session = "g2-corrupt";
+    updateState(scratch, session, () => ({ writes: [], touched: ["src/netcode.js"] }));
+    expect(readState(scratch, session).writes).toEqual({});
+    expect(evalCmd("git add src/netcode.js", { session, worktree: THEIRS })).toBeNull();
+  });
+});
+
 describe("track-session-writes: session write recording", () => {
   const root = process.cwd();
 
@@ -373,6 +525,41 @@ describe("track-session-writes: session write recording", () => {
       { stateDir: scratch, env: { CART_CLASH_SKIP_HOOKS: "1" } }
     );
     expect(readState(scratch, session).existed).toBe(false);
+  });
+
+  it("records a content hash beside the path, and CRLF hashes equal to LF", () => {
+    const lf = "tw-hash-lf";
+    trackWrite(
+      { session_id: lf, cwd: root, tool_input: { file_path: "src/a.js" } },
+      { stateDir: scratch, env: {}, readFile: () => "line one\nline two\n" }
+    );
+    const crlf = "tw-hash-crlf";
+    trackWrite(
+      { session_id: crlf, cwd: root, tool_input: { file_path: "src/a.js" } },
+      { stateDir: scratch, env: {}, readFile: () => "line one\r\nline two\r\n" }
+    );
+    const recorded = readState(scratch, lf).writes["src/a.js"];
+    expect(recorded).toBe(hashContent("line one\nline two\n"));
+    // core.autocrlf makes worktree and index bytes differ by line ending — they must not
+    // read as drift.
+    expect(readState(scratch, crlf).writes["src/a.js"]).toBe(recorded);
+  });
+
+  it("records the path but no hash when the file cannot be read", () => {
+    const session = "tw-nohash";
+    trackWrite(
+      { session_id: session, cwd: root, tool_input: { file_path: "src/a.js" } },
+      {
+        stateDir: scratch,
+        env: {},
+        readFile: () => {
+          throw new Error("vanished");
+        },
+      }
+    );
+    const state = readState(scratch, session);
+    expect(state.touched).toEqual(["src/a.js"]);
+    expect(state.writes).toEqual({});
   });
 
   it("coexists with the block counter in one state file", () => {
