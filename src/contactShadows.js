@@ -59,6 +59,30 @@ export function yawFromQuaternion(quat) {
 }
 
 /**
+ * Support distance of (x, z) on an octagon whose **flats are normal to the k·45°
+ * directions** — the orientation every octagon arena in this game actually builds
+ * (`zanzibarPlatform.getZanzibarFloorColliderSpec` lays the deck out as four cuboids at
+ * `yaw = k·π/4`, and `octPath` / `buildOctHullVertices` put the vertices at 22.5° + k·45°).
+ * A point is on the deck when this is ≤ the deck apothem.
+ *
+ * Deliberately identical to `simulation.js`'s `octagonEdgeDistance()`: the AI bounds and
+ * the contact-shadow surface test have to describe the same octagon, and until 08-02 they
+ * did not — this one used the cos22.5/sin22.5 support pair, which describes the octagon
+ * rotated 22.5° from the deck. On Sundial (apothem 31.7) that accepted 2.61 m of open water
+ * off each flat mid and rejected 2.61 m of real deck at each corner, including all eight
+ * bollards at 33.28 m.
+ *
+ * @param {number} x
+ * @param {number} z
+ * @returns {number}
+ */
+export function octagonEdgeDistance(x, z) {
+  const ax = Math.abs(x);
+  const az = Math.abs(z);
+  return Math.max(ax, az, (ax + az) * Math.SQRT1_2);
+}
+
+/**
  * @param {number} x
  * @param {number} z
  * @returns {boolean}
@@ -77,13 +101,7 @@ function isOnSolidPlaySurface(x, z) {
   const haz = /** @type {Record<string, any>} */ (shadowHazards);
   if (haz?.isOctagon) {
     const apothem = haz.arenaHalf ?? CONFIG.record.radius;
-    const cos22 = 0.9238795;
-    const sin22 = 0.3826834;
-    const absX = Math.abs(x);
-    const absZ = Math.abs(z);
-    const proj1 = absX * cos22 + absZ * sin22;
-    const proj2 = absX * sin22 + absZ * cos22;
-    return Math.max(proj1, proj2) <= apothem + 0.2;
+    return octagonEdgeDistance(x, z) <= apothem + 0.2;
   }
 
   const r = Math.hypot(x, z);
