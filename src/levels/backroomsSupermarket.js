@@ -2044,7 +2044,14 @@ function buildWalls(scene, world, wallpaperTex) {
         const boxY = boardY + boardThickness / 2 + boxH / 2;
         for (let a = -WALL_SPAN / 2 + 7; a <= WALL_SPAN / 2 - 7; a += SHELF_BOX_SPACING) {
           // Leave gaps so shelves read as half-empty / abandoned.
-          if (((lvl * 7 + Math.round(a) * 13 + side * 41) % 10) < skipThreshold) continue;
+          // * TRUE modulo, not `%`. `a` starts negative (-WALL_SPAN/2 + 7), so for the
+          // * whole first half of every wall the expression went negative — and JS `%`
+          // * keeps the dividend's sign, so `negative < skipThreshold` was ALWAYS true.
+          // * Those slots were unstockable at any threshold: ~40% of every wall came out
+          // * empty in a pinwheel (the sign flips with both `a` and `side`), which reads
+          // * as a bug, not as abandonment. skipThreshold is only meaningful over 0..9.
+          const slotHash = (((lvl * 7 + Math.round(a) * 13 + side * 41) % 10) + 10) % 10;
+          if (slotHash < skipThreshold) continue;
           const [sx, sz] = wDim(1.1, fullBay ? 0.95 : 0.7);
           const [px, py, pz] = toWorld(a, boxY, shelfCenterOut + 0.15);
           const pick = (lvl + Math.round(a)) % 3;
