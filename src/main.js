@@ -145,7 +145,8 @@ import * as Effects from "./effects.js";
 import * as GroceryPool from "./effects/groceryPool.js";
 import { initDirectiveEngine, getDirectiveKoRewardMultiplier, onHostSpill as directiveOnHostSpill, shiftDirectiveTimersBy, clearActiveDirective } from "./directives/directiveEngine.js";
 import { armSpillBoost, cargoFillLevelFor, cargoTierFor, spillCountForCart, stripLifeCargo } from "./cargoLoad.js";
-import { loadLevel, resolveLevelId, prefetchLevelChunks, LEVEL_STORAGE_KEY, PREFETCHABLE_LEVEL_IDS } from "./levels/index.js";
+import { loadLevel, resolveLevelId, prefetchLevelChunks, LEVEL_STORAGE_KEY } from "./levels/index.js";
+import { nextQuickplayArenaId } from "../shared/arenaPool.js";
 import { DEV_UNLOCKS_STORAGE_KEY, LEVEL_UNLOCKS } from "./unlockConfig.js";
 import { updateLevelLod } from "./utils/levelLod.js";
 import { beginFrameBudget, frameBudgetAllow } from "./utils/frameBudget.js";
@@ -2933,11 +2934,9 @@ async function main() {
     await rotateLoadedArenaInPlace(next);
   }
 
-  /** Random next arena for Quickplay rotation — always different from the loaded one. */
+  /** Next catalog arena for Quickplay rematch rotation (wraps; QP-ORDER-1). */
   function pickNextQuickplayArenaId() {
-    const current = getCurrentLevelId();
-    const pool = PREFETCHABLE_LEVEL_IDS.filter((id) => id !== current);
-    return pool[Math.floor(Math.random() * pool.length)] || current;
+    return nextQuickplayArenaId(getCurrentLevelId());
   }
 
   /**
@@ -4924,7 +4923,7 @@ async function main() {
   function onHostPlayAgainClick() {
     if (!Netcode.getIsHost()) return;
     // * Re-entrancy guard (quickplay): a double-fire (button + auto-continue race, or
-    // * a fast double-click) would adopt+broadcast a SECOND random arena while its
+    // * a fast double-click) would adopt+broadcast a SECOND next arena while its
     // * rotateLoadedArenaInPlace no-ops on the in-flight flag — host on arena A,
     // * everyone else on arena B. Checked BEFORE the world-reset side effects below:
     // * the suppressed call must not re-run rematchResetWorld mid-collider-rebuild
@@ -4962,10 +4961,11 @@ async function main() {
       startCountdown(getRoundClockNowMs() + CONFIG.round.countdownMs);
       return;
     }
-    // * Quickplay arena rotation (D-STAB-2 seam): pick a fresh random arena at the
-    // * rematch boundary. Latch it BEFORE sendHostRound below so the round broadcast
-    // * carries the new levelId (server latches + rebroadcasts; non-host clients rotate
-    // * via onLevelIdChanged). Friends lobbies keep the host's deliberate arena choice.
+    // * Quickplay arena rotation (D-STAB-2 seam / QP-ORDER-1): advance to the next
+    // * catalog arena at the rematch boundary. Latch it BEFORE sendHostRound below so
+    // * the round broadcast carries the new levelId (server latches + rebroadcasts;
+    // * non-host clients rotate via onLevelIdChanged). Friends lobbies keep the host's
+    // * deliberate arena choice.
     if (isQuickplayRematch) {
       const nextArenaId = pickNextQuickplayArenaId();
       Netcode.adoptRoomLevelAsHost(nextArenaId);

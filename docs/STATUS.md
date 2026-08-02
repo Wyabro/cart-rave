@@ -164,8 +164,8 @@ BOOT-PERF-1 · Run 7 strip) → [completed-work.md](./planning/completed-work.md
 |---|------|--------|
 | **LOD-CLOCK-1** | level LOD throttle uses host-adjusted time | ✅ **SHIPPED 08-02** — `updateLevelLod(camera, now)`; stall unit test + main.js source assert. Applied, unpushed. |
 | **ASSET-CACHE-1** | fixed-name assets 7d cache stale after deploy | ✅ **SHIPPED 08-02** — `shared/assetCache.js`; fixed-name → 1h + 5m SWR; hashed `/assets/*` unchanged. Applied, unpushed. |
-| **QP-ORDER-1** | quickplay rotates sequential, not random | ▶ **ACTIVE 08-02** — next in A→B→C insert (Sundial still parked). |
-| **ART-PASS-SUNDIAL-1** | Sundial art pass — 6 waves, one lever per commit | 🅿️ **PARKED 08-02** — for LOD-CLOCK-1 · ASSET-CACHE-1 · QP-ORDER-1 sequence; restore after C. Step 0 done; Wave 1 sky-gradient remap owns waterline red step +128/+110. [audit](./planning/art-audit-sundial.md). |
+| **QP-ORDER-1** | quickplay rotates sequential, not random | ✅ **SHIPPED 08-02** — `nextQuickplayArenaId`; fresh QP starts at pool[0]; rematch advances catalog order. Live 2-browser smoke remains Wyatt-owed (BACKLOG Low). Applied, unpushed. |
+| **ART-PASS-SUNDIAL-1** | Sundial art pass — 6 waves, one lever per commit | ▶ **ACTIVE 08-02** — **Wave 1 CLOSED.** Sky ramp now finishes at the waterline (`2c5b3fc`): red step **+128/+126/+110 → −21/−12/−2** (target <30), water pixels unmoved, sky-only. IBL sun blob was **exactly 180° out**, fixed **correctness-only** (`16157b0`) — re-judge after Wave 2 gives water `ior`+owned `envMap`. Next = **Wave 2 (ocean)**. [audit](./planning/art-audit-sundial.md). |
 | **DIAG-TIER-1** | capture `runtime.qualityTier` reports effective tier | ✅ **SHIPPED 08-02** — three fields on real runtime probe; `tests/gameplayDiagnostics.runtime.test.js` ×3. Applied, unpushed. |
 | **FIGHT-VERIFY-1** | owed fight-night verification | 🟢 **agent half DONE** 08-01 — podium/loadshots/states + focus-ring. Residual = **Playtest owed** cards (BACKLOG) — console-seeded; not this parent row. |
 | **HOST-CAP-1** | weak-host toast residual | ✅ **SHIPPED** 08-01 — `score < 50` once/hostship; prod Version `76ebdc37` (HEAD `423008f`) |
@@ -175,13 +175,14 @@ BOOT-PERF-1 · Run 7 strip) → [completed-work.md](./planning/completed-work.md
 
 ### Next actions
 
-1. **QP-ORDER-1** (active) → then restore **ART-PASS-SUNDIAL-1**.
-1b. Closed 08-02: **LOD-CLOCK-1** · **ASSET-CACHE-1**. **ART-PASS-SUNDIAL-1 parked** — Wave 1 when restored.
+1. **ART-PASS-SUNDIAL-1** — **Wave 2 (ocean)**: shading model + owned `envMap` → detail pack →
+   glint falloff. **D-SUNDIAL-OQ6 binds** — every lever needs its Low path in the same commit.
+1b. Closed 08-02 insert: **LOD-CLOCK-1** · **ASSET-CACHE-1** · **QP-ORDER-1**. Live QP rotation smoke still Wyatt-owed.
 1c. **ROUND-WEDGE-1 parked 08-02** for the Sundial pass. Phase A shipped `d4a7718`; Phase B needs its own ack.
 2. **Playtest console** — owed cards in BACKLOG `## Playtest owed (08-01 session)`.
 3. Closed 08-01 Wyatt PASS: **PAUSE-ROW-1** · **MENU-CMD-FEEL-1** · **FOCUS-CYAN-1**.
    Still open tooling: **HARNESS-FRIENDS-1**.
-   Closed 08-02: **DIAG-TIER-1** · **LOD-CLOCK-1** · **ASSET-CACHE-1**.
+   Closed 08-02: **DIAG-TIER-1** · **LOD-CLOCK-1** · **ASSET-CACHE-1** · **QP-ORDER-1**.
 
 **07-31 lesson (short):** verification tools only see branches they enter — add the matching
 viewport/pointer cell in the same commit as any scoped CSS. Prefer one real clip when it
@@ -192,6 +193,12 @@ planning*, before a line of tooling existed — an unscoped `!important` in `loa
 had silently outranked every designed focus state game-wide. Two of the three biggest finds
 this pass (that, plus MENU-CMD-FEEL-1) are rules that are *present and dead*, which geometry
 sign-off cannot see. Assert the **delta**, not the declaration.
+
+**08-02 lesson (capture noise floor):** Sundial's hologram and water animate between shots, so
+`compare` alone cannot tell a real change from frame noise. Shoot the **same code twice** first
+to get the floor (0.55% of pixels past 2 levels), then judge the fix against it (8.25% — 15×).
+`meanAbs` and `maxAbs` both lie here; `maxAbs` hit 98 on the *noise* pair. Area past threshold is
+the number that separates signal from animation.
 
 **Do-not-relearn (short):** `?devUnlocks=off` is a **prod** lever (never DEV-gate). Don’t grep
 `dist/` for `devUnlocks` or minified `min-width:` (range syntax). Pass `isDev` into helpers under
@@ -308,9 +315,13 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
+2026-08-02 (QP-ORDER-1) — Quickplay advances catalog order via `nextQuickplayArenaId`; fresh
+public rooms start at `QUICKPLAY_ARENA_IDS[0]` (Classic). Live 2-browser smoke remains
+Wyatt-owed. ART-PASS-SUNDIAL-1 restored ACTIVE. Applied, unpushed.
+
 2026-08-02 (ASSET-CACHE-1) — `assetCacheControlForPath` in `shared/assetCache.js`; fixed-name
 models/sounds/fonts → `max-age=3600, stale-while-revalidate=300`; hashed `/assets/*` stay
-1y immutable. QP-ORDER-1 next. Applied, unpushed.
+1y immutable. Applied, unpushed.
 
 2026-08-02 (LOD-CLOCK-1) — `updateLevelLod(camera, now)` so host-clock corrections cannot stall
 LOD throttle. Stall unit test + main.js source assert. Applied, unpushed.

@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-02T08:47:06.426Z",
-    "commit": "0779d6f"
+    "at": "2026-08-02T08:49:55.159Z",
+    "commit": "dcd5ec5"
   },
-  "source_digest": "e3f7ffa7",
+  "source_digest": "6e740a3c",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -888,14 +888,14 @@
       {
         "id": "QP-ORDER-1",
         "what": "quickplay rotates sequential, not random",
-        "status": "▶ ACTIVE 08-02 — next in A→B→C insert (Sundial still parked).",
-        "state": "active"
+        "status": "✅ SHIPPED 08-02 — `nextQuickplayArenaId`; fresh QP starts at pool[0]; rematch advances catalog order. Live 2-browser smoke remains Wyatt-owed (BACKLOG Low). Applied, unpushed.",
+        "state": "done"
       },
       {
         "id": "ART-PASS-SUNDIAL-1",
         "what": "Sundial art pass — 6 waves, one lever per commit",
-        "status": "🅿️ PARKED 08-02 — for LOD-CLOCK-1 · ASSET-CACHE-1 · QP-ORDER-1 sequence; restore after C. Step 0 done; Wave 1 sky-gradient remap owns waterline red step +128/+110. [audit](./planning/art-audit-sundial.md).",
-        "state": "locked"
+        "status": "▶ ACTIVE 08-02 — Wave 1 CLOSED. Sky ramp now finishes at the waterline (`2c5b3fc`): red step +128/+126/+110 → −21/−12/−2 (target <30), water pixels unmoved, sky-only. IBL sun blob was exactly 180° out, fixed correctness-only (`16157b0`) — re-judge after Wave 2 gives water `ior`+owned `envMap`. Next = Wave 2 (ocean). [audit](./planning/art-audit-sundial.md).",
+        "state": "active"
       },
       {
         "id": "DIAG-TIER-1",
@@ -944,7 +944,7 @@
       }
     ],
     "next_actions": [
-      "QP-ORDER-1 (active) → then restore ART-PASS-SUNDIAL-1.",
+      "ART-PASS-SUNDIAL-1 — Wave 2 (ocean): shading model + owned `envMap` → detail pack →",
       "Playtest console — owed cards in BACKLOG `## Playtest owed (08-01 session)`.",
       "Closed 08-01 Wyatt PASS: PAUSE-ROW-1 · MENU-CMD-FEEL-1 · FOCUS-CYAN-1."
     ],
@@ -981,7 +981,7 @@
       {
         "title": "Engineering",
         "counts": {
-          "High": 3,
+          "High": 2,
           "Medium": 17,
           "Low": 4,
           "Partial": 1
@@ -997,12 +997,6 @@
             "pri": "High",
             "item": "PIT-COL-INSET-1 — pit wall colliders clip carts `[pre-ship]`",
             "notes": "Move pit wall colliders slightly toward arena center so carts no longer clip the pit walls. Physics/collider only — do not re-open ARENA-COL-1 scoring path without new evidence.",
-            "ship1": null
-          },
-          {
-            "pri": "High",
-            "item": "QP-ORDER-1 — quickplay rotates sequential, not random `[pre-ship]`",
-            "notes": "Arena sequence must advance in unlock/order list, not pick randomly. Reconfirm multi-client after change (see “Quickplay rotation live 2-browser check”).",
             "ship1": null
           },
           {

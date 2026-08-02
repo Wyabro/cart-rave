@@ -13,6 +13,10 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 2, 2026 — QP-ORDER-1: Quickplay advances catalog order
+
+- *(Engineering · High)* **QP-ORDER-1** — Quickplay rematch picked a random other arena; fresh public rooms also RNG'd the opener — ✅ **CLOSED 08-02** (applied, unpushed). `nextQuickplayArenaId(current, arenaIds?)` in `shared/arenaPool.js`: found → next with wrap; unknown → first; singleton → sole; empty → current. `main.js` rematch uses it; `party/index.ts` fresh `quickplay` room starts at `QUICKPLAY_ARENA_IDS[0]`. Tests: `tests/arenaPool.test.js` (order + source asserts). **Out of scope / still owed:** live two-browser rotation smoke (BACKLOG Low). Risk accepted: every new public QP room opens on Classic.
+
 ### August 2, 2026 — ASSET-CACHE-1: fixed-name assets refresh within ~1h
 
 - *(Engineering · Medium)* **ASSET-CACHE-1** — fixed-name GLB/audio used a 7d max-age + 1d SWR, so browsers could serve stale art for up to ~8d after a deploy — ✅ **CLOSED 08-02** (applied, unpushed). Extracted `assetCacheControlForPath` into `shared/assetCache.js`; `party/index.ts` delegates. Policies: hashed `/assets/*` → 1y immutable; `/models|/sounds|/draco|/fonts` + recognized fixed extensions → `max-age=3600, stale-while-revalidate=300`; unmatched → null (no header override). No storage-key or infra renaming. Tests: `tests/assetCache.test.js`.

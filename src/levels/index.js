@@ -22,11 +22,11 @@ export const LEVEL_IMPORTERS = {
 
 /**
  * Arena chunks the menu can switch between — testArena is dev-only, excluded.
- * Also the Quickplay arena-rotation pool (main.js pickNextQuickplayArenaId) and
+ * Also the Quickplay arena-rotation pool (nextQuickplayArenaId / QP-ORDER-1) and
  * the server's initial-arena pool (party/index.ts). Sourced from shared/ so the
  * Worker and client can't drift out of sync.
  */
-export const PREFETCHABLE_LEVEL_IDS = QUICKPLAY_ARENA_IDS;
+const PREFETCHABLE_LEVEL_IDS = QUICKPLAY_ARENA_IDS;
 
 let levelChunksPrefetched = false;
 
