@@ -409,6 +409,146 @@ function buildDeckRoughnessTexture(circumR) {
 }
 
 /**
+ * Converts a canvas height field (luminance = height, brighter = proud) into an OpenGL-style
+ * tangent-space normal map.
+ *
+ * Sign convention, derived and then confirmed in a capture: `THREE.Texture.flipY` defaults to
+ * **true**, so canvas row 0 samples at `v = 1` and increasing canvas y means *decreasing* v.
+ * The tangent-space normal of a height field is `normalize(-dh/du, -dh/dv, 1)`, and
+ * `dh/dv = -dh/dy_canvas`, so the green channel takes the **canvas** y-gradient unnegated
+ * while red takes the x-gradient negated. Getting this backwards inverts every bump into a
+ * dent, which is the same class of error that shipped backwards twice earlier in this pass.
+ *
+ * Sampling wraps, so a tileable source yields a tileable normal map.
+ *
+ * @param {HTMLCanvasElement} srcCanvas Square source canvas.
+ * @param {number} [strength] Gradient gain — higher = steeper relief.
+ * @returns {THREE.CanvasTexture}
+ */
+function buildNormalMapFromCanvas(srcCanvas, strength = 1) {
+  const size = srcCanvas.width;
+  const srcData = srcCanvas.getContext("2d").getImageData(0, 0, size, size).data;
+
+  const out = document.createElement("canvas");
+  out.width = size;
+  out.height = size;
+  const outCtx = out.getContext("2d");
+  const img = outCtx.createImageData(size, size);
+
+  /** Wrapped luminance lookup, 0..1. */
+  const h = (x, y) => {
+    const xi = ((x % size) + size) % size;
+    const yi = ((y % size) + size) % size;
+    const i = (yi * size + xi) * 4;
+    return (srcData[i] * 0.299 + srcData[i + 1] * 0.587 + srcData[i + 2] * 0.114) / 255;
+  };
+
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      const dx = (h(x + 1, y) - h(x - 1, y)) * strength;
+      const dy = (h(x, y + 1) - h(x, y - 1)) * strength;
+      let nx = -dx;
+      let ny = dy;
+      let nz = 1;
+      const len = Math.hypot(nx, ny, nz);
+      nx /= len;
+      ny /= len;
+      nz /= len;
+      const i = (y * size + x) * 4;
+      img.data[i] = Math.round((nx * 0.5 + 0.5) * 255);
+      img.data[i + 1] = Math.round((ny * 0.5 + 0.5) * 255);
+      img.data[i + 2] = Math.round((nz * 0.5 + 0.5) * 255);
+      img.data[i + 3] = 255;
+    }
+  }
+  outCtx.putImageData(img, 0, 0);
+
+  const tex = new THREE.CanvasTexture(out);
+  // * Normal maps are vector data, never color — sRGB decode would bend every normal.
+  tex.colorSpace = THREE.NoColorSpace;
+  tex.anisotropy = 4;
+  return tex;
+}
+
+/**
+ * Structural relief for the deck plate: plate seams and radial spokes as grooves, bolt heads
+ * as bumps, the service conduits as raised strips. Deliberately mirrors the *structure* drawn
+ * by `buildDeckTexture` and none of its grime — grime is albedo, not geometry, and pushing
+ * stains into a normal map is how a deck starts reading as crumpled foil.
+ *
+ * @param {number} circumR Deck circumradius in meters.
+ * @returns {THREE.CanvasTexture}
+ */
+function buildDeckNormalTexture(circumR) {
+  const size = isLowQualityMode() ? 512 : 1024;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  const c = size / 2;
+  const pxPerM = c / circumR;
+  const apothem = circumR * COS_HALF;
+
+  // Neutral height — mid grey is "flat plate".
+  ctx.fillStyle = "#808080";
+  ctx.fillRect(0, 0, size, size);
+
+  const octPath = (radiusM) => {
+    ctx.beginPath();
+    for (let i = 0; i < OCT_SIDES; i += 1) {
+      const a = VERTEX_OFFSET + i * (Math.PI / 4);
+      ctx.lineTo(c + Math.cos(a) * radiusM * pxPerM, c + Math.sin(a) * radiusM * pxPerM);
+    }
+    ctx.closePath();
+  };
+
+  // Plate seams + radial spokes — recessed.
+  const seamRings = [8.5, 14.5, 20.5, 26.5].filter((rM) => rM < apothem - 2.5);
+  ctx.strokeStyle = "#4a4a4a";
+  ctx.lineWidth = Math.max(2, size * 0.004);
+  for (const rM of seamRings) {
+    octPath(rM);
+    ctx.stroke();
+  }
+  for (let i = 0; i < OCT_SIDES; i += 1) {
+    const a = VERTEX_OFFSET + i * (Math.PI / 4);
+    ctx.beginPath();
+    ctx.moveTo(c + Math.cos(a) * PODIUM_BASE_R * pxPerM, c + Math.sin(a) * PODIUM_BASE_R * pxPerM);
+    ctx.lineTo(c + Math.cos(a) * circumR * pxPerM, c + Math.sin(a) * circumR * pxPerM);
+    ctx.stroke();
+  }
+
+  // Bolt heads — proud, on the same rings buildDeckTexture dots.
+  const boltRings = seamRings.filter((rM) => rM > 10 && rM < apothem - 4);
+  ctx.fillStyle = "#c8c8c8";
+  for (const boltR of boltRings) {
+    for (let i = 0; i < 48; i += 1) {
+      const a = (i / 48) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.arc(c + Math.cos(a) * boltR * pxPerM, c + Math.sin(a) * boltR * pxPerM, size * 0.0038, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // Service conduits along the eight flat-mid lanes — raised strips.
+  const conduitInner = PODIUM_BASE_R + 2.0;
+  const conduitOuter = apothem - 4.2;
+  ctx.strokeStyle = "#a6a6a6";
+  ctx.lineWidth = 0.34 * pxPerM;
+  ctx.lineCap = "round";
+  for (let i = 0; i < OCT_SIDES; i += 1) {
+    const a = i * (Math.PI / 4);
+    ctx.beginPath();
+    ctx.moveTo(c + Math.cos(a) * conduitInner * pxPerM, c + Math.sin(a) * conduitInner * pxPerM);
+    ctx.lineTo(c + Math.cos(a) * conduitOuter * pxPerM, c + Math.sin(a) * conduitOuter * pxPerM);
+    ctx.stroke();
+  }
+  ctx.lineCap = "butt";
+
+  return buildNormalMapFromCanvas(canvas, 2.4);
+}
+
+/**
  * Tileable dark steel panel texture (beveled plate grid, rivets, value noise) shared by
  * booth slabs, pillars, and pylons — replaces the flat plastic-looking colors.
  * @returns {THREE.CanvasTexture}
@@ -2053,12 +2193,19 @@ function buildDeck(scene, world, config, circumR) {
   // --- Visual: deck slab ---
   const deckTex = buildDeckTexture(circumR);
   const deckRoughTex = buildDeckRoughnessTexture(circumR);
-  ownedTextures.push(deckTex, deckRoughTex);
+  // * Structural relief for the plate. Shares the deck's planar cap UVs, so it registers
+  // * with the albedo's seams and bolts without any extra UV work.
+  const deckNormalTex = buildDeckNormalTexture(circumR);
+  ownedTextures.push(deckTex, deckRoughTex, deckNormalTex);
   const deckTopMat = createPhysicalMaterial({
     map: deckTex,
     color: 0xffffff,
     roughness: 1.0, // roughnessMap carries the value (base ≈ 0.58 + variation)
     roughnessMap: deckRoughTex,
+    normalMap: deckNormalTex,
+    // * Restrained: the deck is a machined plate, not a rock face. This is enough to catch
+    // * the low sun on a bolt head and lose it in a seam, and no more.
+    normalScale: new THREE.Vector2(0.55, 0.55),
     metalness: 0.62,
     envMapIntensity: getMaterialEnvMapIntensity() * 0.45,
   });
@@ -2091,8 +2238,36 @@ function buildDeck(scene, world, config, circumR) {
     circumR + 0.09, circumR + 0.09, 0.34, OCT_SIDES, 1, true, VERTEX_OFFSET,
   );
   ownedGeometries.push(fasciaGeo);
+  // * The fascia was bare 0x2e333d across 8 faces of 26.33 m — the longest continuous line in
+  // * the arena and the one directly under the lit rim strips, with nothing on it. panelTex is
+  // * already built two statements up; it only needed UVs that are not a lie.
+  // *
+  // * CylinderGeometry maps u across the WHOLE perimeter and v across the height, so a single
+  // * tile was stretched over 210.6 m x 0.34 m — an aspect ratio of 620:1. Deriving both
+  // * repeats from one meters-per-tile constant keeps the texels square instead.
+  const FASCIA_TILE_M = 1.15; // meters of real steel per panelTex tile
+  const fasciaHeightM = 0.34;
+  const fasciaPerimeterM = OCT_SIDES * 2 * (circumR + 0.09) * Math.sin(HALF_ANGLE);
+  const fasciaTex = panelTex.clone();
+  fasciaTex.wrapS = THREE.RepeatWrapping;
+  fasciaTex.wrapT = THREE.RepeatWrapping;
+  fasciaTex.repeat.set(fasciaPerimeterM / FASCIA_TILE_M, fasciaHeightM / FASCIA_TILE_M);
+  fasciaTex.needsUpdate = true;
+  const fasciaNormalTex = buildNormalMapFromCanvas(panelTex.image, 1.5);
+  fasciaNormalTex.wrapS = THREE.RepeatWrapping;
+  fasciaNormalTex.wrapT = THREE.RepeatWrapping;
+  fasciaNormalTex.repeat.copy(fasciaTex.repeat);
+  ownedTextures.push(fasciaTex, fasciaNormalTex);
   const fasciaMat = createPhysicalMaterial({
-    color: 0x2e333d,
+    map: fasciaTex,
+    normalMap: fasciaNormalTex,
+    normalScale: new THREE.Vector2(0.8, 0.8),
+    // * WHITE, not the old 0x2e333d. `map` MULTIPLIES `color`, and panelTex's own base is
+    // * #272b33 — already dark steel of almost exactly the value this fascia had. Keeping
+    // * both cost 70% of the band's luminance (measured 8.8 -> 2.6 on the sun-side rim),
+    // * which is the "make the raking light read" -> "take light away" failure the handover
+    // * forbids. The texture now carries the value and the color stops double-darkening it.
+    color: 0xffffff,
     roughness: 0.38,
     metalness: 0.85,
     envMapIntensity: getMaterialEnvMapIntensity() * 0.6,
