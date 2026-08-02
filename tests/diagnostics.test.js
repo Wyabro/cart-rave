@@ -2,7 +2,7 @@
 // diagnostics.test.js — the __ccDiag core: zero-cost when inactive, probe registry, and the
 // bounded event ring buffer. Deterministic (no browser, no rAF) — the module is a pure hub.
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
   installDiagnostics,
   registerDiagProbe,
@@ -12,8 +12,18 @@ import {
   __resetDiagnosticsForTest,
 } from "../src/utils/diagnostics.js";
 
+// * Auto-capture now POSTs to /api/captures (ROUND-WEDGE-1). happy-dom ships a real fetch,
+// * so without this every auto-capture test would open a live socket to the dev-server port
+// * and fail noisily when nothing is listening. Stub globally; the upload describe below
+// * replaces this with a recording version.
+const realFetch = globalThis.fetch;
 beforeEach(() => {
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({ ok: true, id: 1 }) });
   __resetDiagnosticsForTest();
+});
+
+afterEach(() => {
+  globalThis.fetch = realFetch;
 });
 
 describe("diagnostics — inactive (no ?diag)", () => {
@@ -174,6 +184,94 @@ describe("diagnostics — active (?diag)", () => {
       recordDiagEvent("error", "fatal", { message: "boom" });
       await settle();
       expect(window.__ccDiag).toBeUndefined();
+    });
+  });
+
+  // * ROUND-WEDGE-1: cap-217 only exists because a human pressed F8. Bundles assembled
+  // * automatically were stranded in memory and lost with the tab, so the one session that
+  // * reproduced the podium⇄running storm produced the least usable evidence.
+  describe("auto-capture upload", () => {
+    /** The upload runs behind a dynamic import + two .then hops — drain several turns. */
+    const flush = async () => {
+      for (let i = 0; i < 8; i += 1) await new Promise((r) => setTimeout(r, 0));
+    };
+    /** @type {Array<{url: string, envelope: any}>} */
+    let posts = [];
+
+    beforeEach(async () => {
+      globalThis.fetch = async (url, init) => {
+        posts.push({ url: String(url), envelope: JSON.parse(String(init?.body ?? "{}")) });
+        return { ok: true, json: async () => ({ ok: true, id: 217 }) };
+      };
+      // * Uploads are deliberately fire-and-forget, so a chain started by an earlier test
+      // * can still be mid-flight when this one begins and would land in our recording.
+      // * Drain first, THEN clear — order matters.
+      await flush();
+      posts = [];
+    });
+
+    /**
+     * Uploads are fire-and-forget by design, so a chain from another test can land in this
+     * one's recording at any moment. Asserting on `posts.length` is therefore racy under
+     * load (it flaked in the full suite while passing in isolation). Give every test its
+     * own event `type` and select only its own upload — deterministic regardless of timing.
+     * @param {string} type
+     */
+    const postsFor = (type) =>
+      posts.filter((p) => {
+        try {
+          return JSON.parse(p.envelope.body)?.reason === `assert/${type}`;
+        } catch {
+          return false;
+        }
+      });
+
+    it("posts an auto-captured bundle to the same endpoint F8 uses", async () => {
+      registerDiagProbe("round", () => ({ phase: "podium" }));
+      recordDiagEvent("assert", "upload-probe", { from: "podium", to: "running" });
+      await flush();
+      const mine = postsFor("upload-probe");
+      expect(mine).toHaveLength(1);
+      expect(mine[0].url).toContain("/api/captures");
+      // * The bundle travels as a JSON string in `body` — same envelope shape as F8.
+      const sent = JSON.parse(mine[0].envelope.body);
+      expect(sent.scenario).toBe("auto");
+      expect(sent.snapshot.round).toEqual({ phase: "podium" });
+    });
+
+    it("labels the upload so a pulled capture shows nobody pressed a key for it", async () => {
+      recordDiagEvent("assert", "label-probe", { from: "podium", to: "running" });
+      await flush();
+      expect(postsFor("label-probe")[0]?.envelope.label).toMatch(/^auto-assert-/);
+    });
+
+    it("uploads nothing on ordinary channels — only error/assert auto-capture", async () => {
+      recordDiagEvent("round", "quiet-probe", { from: "running", to: "podium" });
+      recordDiagEvent("ko", "quiet-probe", { slot: 2 });
+      await flush();
+      const noisy = posts.filter((p) => String(p.envelope.body).includes("quiet-probe"));
+      expect(noisy).toHaveLength(0);
+    });
+
+    it("does not upload when the hub was never installed (the ?diag=1 gate)", async () => {
+      // * The gate is structural, not a flag: no install -> no apiRef -> no auto-capture,
+      // * so ordinary players never upload. If a future change installs the hub
+      // * unconditionally, this test is what fails.
+      __resetDiagnosticsForTest();
+      recordDiagEvent("assert", "uninstalled-probe", { from: "podium", to: "running" });
+      await flush();
+      expect(postsFor("uninstalled-probe")).toHaveLength(0);
+    });
+
+    it("survives an upload failure without losing the in-memory capture", async () => {
+      globalThis.fetch = async () => {
+        throw new Error("offline");
+      };
+      recordDiagEvent("error", "fatal", { message: "boom" });
+      await flush();
+      // * Evidence collection must never break the app it observes, and the local copy
+      // * remains the fallback when the network is gone.
+      expect(window.__ccDiag.captures()).toHaveLength(1);
     });
   });
 });

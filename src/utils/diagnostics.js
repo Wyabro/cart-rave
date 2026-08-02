@@ -146,10 +146,60 @@ function scheduleAutoCapture(channel, type) {
       if (autoCaptures.length > AUTO_CAPTURE_MAX_KEPT) autoCaptures.shift();
       // eslint-disable-next-line no-console
       console.warn(`[diag] auto-captured bundle (${channel}/${type}) — __ccDiag.captures()`);
+      uploadAutoCapture(bundle, channel, type);
     } catch {
       /* never throw from evidence collection */
     }
   }, 0);
+}
+
+/**
+ * Ship an auto-captured bundle to the same `/api/captures` endpoint F8 posts to, so the
+ * next occurrence is pullable with `npm run captures:pull` instead of dying in memory.
+ *
+ * Why this exists (ROUND-WEDGE-1): cap-217 caught the podium⇄running storm in production,
+ * but the only reason we have ANY of it is that Wyatt happened to press F8. Up to
+ * AUTO_CAPTURE_MAX_PER_SESSION bundles holding the pre-storm state had already been
+ * assembled and were sitting in `__ccDiag.captures()` — never uploaded, then lost with the
+ * tab. An intermittent bug that only reproduces on someone else's machine cannot be
+ * investigated through a hotkey nobody remembers to press.
+ *
+ * Gating is STRUCTURAL, not a flag checked here: auto-capture requires `apiRef`, which only
+ * exists after installDiagnostics(), which main.js calls only under `?diag=1`. Keep it that
+ * way — installing the hub unconditionally would turn ordinary players into uploaders.
+ * `tests/diagnostics.test.js` pins that relationship.
+ *
+ * Fire-and-forget on every axis: no await, failures only warn, and the whole thing is
+ * skipped where fetch does not exist (unit tests, SSR). Evidence collection must never
+ * break the app it is observing.
+ *
+ * @param {Record<string, unknown>} bundle
+ * @param {string} channel
+ * @param {string} type
+ */
+function uploadAutoCapture(bundle, channel, type) {
+  if (typeof fetch !== "function") return;
+  import("./captureUpload.js")
+    .then(({ uploadCaptureBundle, deriveDefaultLabel }) =>
+      uploadCaptureBundle(bundle, {
+        // * Prefix so a pulled capture says at a glance that nobody pressed a key for it,
+        // * and carries which channel tripped it — `auto-assert-podium-host-high`.
+        label: `auto-${channel}-${deriveDefaultLabel(bundle)}`,
+      }),
+    )
+    .then((up) => {
+      if (up?.ok) {
+        // eslint-disable-next-line no-console
+        console.info(
+          `[diag] auto-capture (${channel}/${type}) uploaded → id=${up.id} (pull: npm run captures:pull)`,
+        );
+      } else {
+        console.warn(`[diag] auto-capture upload failed: ${up?.error ?? "unknown"}`);
+      }
+    })
+    .catch(() => {
+      /* never throw from evidence collection */
+    });
 }
 
 /**
