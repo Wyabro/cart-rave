@@ -1371,11 +1371,17 @@ function buildSeascape(scene, circumR) {
     const lightPositions = [];
     const baseAz = SUN_AZIMUTH + 0.55;
     for (let i = 0; i < 7; i += 1) {
-      const az = baseAz + (Math.random() - 0.5) * 0.10;
-      const d = 296 + Math.random() * 10;
+      // * These sat at 296-306 m with only ±0.05 rad of jitter — the same azimuth and
+      // * distance as the island itself, whose SMALLEST cone has a 50 m radius. Every dot
+      // * landed within ±15 m of that silhouette's axis at knee height, i.e. depth-buried
+      // * inside it on every RNG draw. The near ridge's largest cone is 76 m, so the
+      // * island's near shore is at 300 − 76 = 224 m: put the town there, where the cone
+      // * surface has fallen to ~0 m and the dots read against its lower slope instead.
+      const az = baseAz + (Math.random() - 0.5) * 0.44; // ±0.22 rad ⇒ ±50 m across its face
+      const d = 224 + Math.random() * 12;
       lightPositions.push(
         Math.cos(az) * d,
-        WATER_Y + 1.5 + Math.random() * 5,
+        WATER_Y + 1.0 + Math.random() * 9, // staggered — a hillside town, not one row
         Math.sin(az) * d,
       );
     }
