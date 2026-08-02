@@ -328,6 +328,14 @@ const physics = {
     platformThickness: 0.6, // meters
     rampLength: 0, // meters — ramp removed; gap jump only (kept: still read as a 0 offset)
     gapDistance: 1.5, // meters — booth platform to dancefloor gap
+    // * Per-level gap overrides — applied (and restored) by loadLevel(), same mechanism
+    // * as record.radiusByLevel. This one knob moves the booths AND the spawn ring
+    // * together, because every booth builder and computeSpawnRingRadius read
+    // * booth.gapDistance live at build time — so they cannot drift apart and strand a
+    // * cart spawning off its deck. Storerooms and Sundial sit +0.75m further out
+    // * (SPAWN-BACKROOMS-1 / SPAWN-SUNDIAL-1: spawns were close enough to the edge that
+    // * an opening scramble could put a cart over it). Classic keeps the base 1.5.
+    gapDistanceByLevel: { backrooms: 2.25, zanzibar: 2.25 },
     railHeight: 1.8, // meters
     railThickness: 0.12, // meters
     gearEnabled: true,

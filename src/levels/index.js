@@ -98,14 +98,25 @@ export async function loadLevel(levelId, scene, world, config, options = {}) {
   const importer = LEVEL_IMPORTERS[resolved] ?? LEVEL_IMPORTERS[DEFAULT_LEVEL_ID];
   const initFn = await importer();
 
-  // * Per-level arena radius override (config.record.radiusByLevel). Applied before the
-  // * level builds — levels read record.radius live — and restored on dispose so the next
-  // * level always starts from the base value. Spawn ring is the one cached derived value.
+  // * Per-level overrides (config.record.radiusByLevel, config.booth.gapDistanceByLevel).
+  // * Applied before the level builds — levels read both live — and restored on dispose so
+  // * the next level always starts from the base values. Spawn ring is the one cached
+  // * derived value, and it must be recomputed when EITHER input moves: Storerooms
+  // * overrides only the gap, so keying the recompute off the radius alone would leave
+  // * carts spawning on the old ring while the booths moved out from under them.
   const overrideRadius = config.record.radiusByLevel?.[resolved];
+  const overrideGap = config.booth.gapDistanceByLevel?.[resolved];
   const prevRadius = config.record.radius;
+  const prevGap = config.booth.gapDistance;
   const prevSpawnRing = config.cart.spawnRingRadius;
-  if (overrideRadius != null) {
-    config.record.radius = overrideRadius;
+  const restoreOverrides = () => {
+    config.record.radius = prevRadius;
+    config.booth.gapDistance = prevGap;
+    config.cart.spawnRingRadius = prevSpawnRing;
+  };
+  if (overrideRadius != null || overrideGap != null) {
+    if (overrideRadius != null) config.record.radius = overrideRadius;
+    if (overrideGap != null) config.booth.gapDistance = overrideGap;
     config.cart.spawnRingRadius = computeSpawnRingRadius(config);
   }
 
@@ -121,10 +132,7 @@ export async function loadLevel(levelId, scene, world, config, options = {}) {
   try {
     result = initFn(scene, world, config, options);
   } catch (err) {
-    if (overrideRadius != null) {
-      config.record.radius = prevRadius;
-      config.cart.spawnRingRadius = prevSpawnRing;
-    }
+    restoreOverrides();
     throw err;
   } finally {
     if (menuPreview) setMenuPreviewVisualLod(false);
@@ -144,10 +152,7 @@ export async function loadLevel(levelId, scene, world, config, options = {}) {
       clearLevelLod();
       clearKoHitmarkers();
       levelDispose();
-      if (overrideRadius != null) {
-        config.record.radius = prevRadius;
-        config.cart.spawnRingRadius = prevSpawnRing;
-      }
+      restoreOverrides();
     };
   }
 
