@@ -317,14 +317,27 @@ How Wyatt routes work across agents:
   (`GROK.md` at the root is the thin pointer; if the tool can't auto-read files, use the
   paste-able session opener at the top of this document).
 
-**Shared skills across runtimes.** Machine-level skills live once at `~/.agent-skills/<name>`
-and are junctioned into each runtime's `skills/` dir (`.claude` · `.cursor` · `.grok` ·
-`.codex` · `.gemini` · `.copilot` · `.config/opencode` — they all use the same convention), so
-one `git pull` updates every tool. Repo-scoped skills still live in `.agents/skills/` and mirror
-via `npm run skills:sync`; do not vendor large third-party skills there. Currently shared this
-way: **img2threejs** — procedural Three.js props from a reference image, for *new* objects only.
-When to reach for it and the two costs that make it a deliberate spend:
-[art-direction.md](docs/reference/art-direction.md) § Tooling.
+**Skills reach every runtime, not just Claude.** All seven use the same convention — a
+`skills/` dir under the config root (`.claude` · `.cursor` · `.grok` · `.codex` · `.gemini` ·
+`.copilot` · `.config/opencode`). Two lanes:
+
+- **Repo-scoped** — committed to `.agents/skills/`; **`npm run skills:sync` fans them out to
+  every installed runtime** (a runtime counts as installed when its `skills/` dir exists; it is
+  never created for you). This is why the escalation ladder can promise that
+  `systematic-debugging` is readable by every tool — before 2026-08-02 that was false, reaching
+  Claude Code and nothing else. `health:check` still gates on the **repo mirror only**: a
+  missing skill in `~/.grok/skills` must never fail `npm run qa`.
+- **Machine-level third-party** — cloned once to `~/.agent-skills/<name>` and junctioned into
+  each runtime, so one `git pull` updates all of them. **Do not vendor large third-party skills
+  into `.agents/skills/`** (`hallmark` was 106 files; img2threejs is 146). Shared this way today:
+  **img2threejs** (procedural Three.js props from a reference image — *new* objects only; the
+  when/when-not and its two costs are in
+  [art-direction.md](docs/reference/art-direction.md) § Tooling), plus `i-have-adhd` and
+  `frontend-design`.
+
+Pruning is asymmetric on purpose: `skills:sync` deletes orphans from the repo mirror it owns,
+and **never** from a user-level dir, which is shared with other installers (`~/.cursor/skills`
+holds skills this repo never placed).
 
 Any prompt written **for** an agent goes in its own fenced code block. Confirm options with
 Wyatt before writing long prompts. For new gameplay systems, player-facing features, or

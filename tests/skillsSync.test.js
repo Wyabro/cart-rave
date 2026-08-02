@@ -10,7 +10,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it, expect, afterAll } from "vitest";
-import { hashDir, planSync } from "../tools/skills-sync.mjs";
+import { hashDir, planSync, planPrune, planAll, RUNTIME_TARGETS } from "../tools/skills-sync.mjs";
 import { validateSkillsMirror, evaluateProjectHealth } from "../tools/lib/projectHealthValidation.mjs";
 
 const tmpRoots = [];
@@ -66,6 +66,45 @@ describe("planSync", () => {
   it("ignores loose files at the skills root — only directories are skills", () => {
     const src = scratchSkills({ "alpha/SKILL.md": "a\n", "README.md": "not a skill\n" });
     expect(planSync(src, scratchSkills({})).map((s) => s.name)).toEqual(["alpha"]);
+  });
+});
+
+describe("planPrune", () => {
+  it("names skills the destination still carries after they left the source", () => {
+    const src = scratchSkills({ "alpha/SKILL.md": "a\n" });
+    const dest = scratchSkills({ "alpha/SKILL.md": "a\n", "hallmark/SKILL.md": "deleted\n" });
+    expect(planPrune(src, dest)).toEqual(["hallmark"]);
+  });
+
+  it("is empty when the mirror is clean, and when the destination does not exist", () => {
+    const src = scratchSkills({ "alpha/SKILL.md": "a\n" });
+    expect(planPrune(src, scratchSkills({ "alpha/SKILL.md": "a\n" }))).toEqual([]);
+    expect(planPrune(src, join(tmpdir(), "skillsync-does-not-exist"))).toEqual([]);
+  });
+});
+
+describe("prune safety — the rule that protects other installers' skills", () => {
+  it("marks exactly one target as owned, and it is the repo mirror", () => {
+    const owned = RUNTIME_TARGETS.filter((t) => t.owned);
+    expect(owned).toHaveLength(1);
+    expect(owned[0].id).toBe("claude");
+  });
+
+  it("never reports orphans for a shared user-level destination", () => {
+    // ~/.cursor/skills holds skills this repo never placed; deleting them would be data loss.
+    const src = scratchSkills({ "alpha/SKILL.md": "a\n" });
+    for (const t of planAll(src)) {
+      if (!t.owned) expect(t.orphans).toEqual([]);
+    }
+  });
+
+  it("skips a runtime whose skills dir does not exist, and never invents one", () => {
+    const src = scratchSkills({ "alpha/SKILL.md": "a\n" });
+    for (const t of planAll(src)) {
+      if (!t.present) expect(t.skills).toEqual([]);
+      // owned target is always considered present — this tool creates it
+      if (t.owned) expect(t.present).toBe(true);
+    }
   });
 });
 

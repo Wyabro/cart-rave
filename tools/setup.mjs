@@ -10,8 +10,11 @@
  *                    local core.hooksPath for THIS repo (other clones are unaffected
  *                    until they run setup). Old copies under .git/hooks/ become inert —
  *                    git ignores that directory once hooksPath is set.
- *   2. skills      — `.claude/skills/` is gitignored (Windows symlink trap); mirrors
- *                    from `.agents/skills/` via tools/skills-sync.mjs.
+ *   2. skills      — no runtime reads `.agents/skills/` directly, and `.claude/skills/` is
+ *                    gitignored (Windows symlink trap). tools/skills-sync.mjs fans the
+ *                    committed skills out to every agent runtime installed on the machine
+ *                    (Claude · Cursor · Grok · Codex · Gemini · Copilot · OpenCode), so a
+ *                    fresh clone gives every tool the same skills, not just Claude Code.
  *   3. Command Center — builds the gitignored .diag-captures/ surfaces via
  *                    tools/refresh.mjs --offline.
  *
@@ -34,7 +37,7 @@ step("git hooks (core.hooksPath → tools/git-hooks)", "git", [
   "core.hooksPath",
   "tools/git-hooks",
 ]);
-step("skills sync (.agents/skills → .claude/skills)", process.execPath, [
+step("skills sync (.agents/skills → every installed runtime)", process.execPath, [
   "tools/skills-sync.mjs",
 ]);
 step("Command Center surfaces (refresh --offline)", process.execPath, [
