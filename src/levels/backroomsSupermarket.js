@@ -3558,9 +3558,8 @@ export function initBackroomsSupermarket(scene, world, config, options = {}) {
   // * Runtime distance LOD — atmosphere props only (no physics rebuild).
   if (!menuPreview) {
     registerLevelLodNode(pitDressing.group, { far: 48 });
-    registerLevelLodNode(uncanny.group, { far: 42 });
     registerLevelLodNode(doorways.group, { far: 55 });
-    // * Floor decals register PER MESH, not as the group. updateLevelLod measures
+    // * Floor markings register PER MESH, not as the group. updateLevelLod measures
     // * getWorldPosition of the registered object, and these groups sit at the origin
     // * while every child carries world coords — so registering the group tested
     // * camera-to-arena-CENTRE and blinked all ~22 markings (hazard tape, ruts,
@@ -3568,6 +3567,13 @@ export function initBackroomsSupermarket(scene, world, config, options = {}) {
     // * and the chase camera passes 38 m from centre. Same far, correct anchor.
     for (const decal of floorDecals.group.children) {
       registerLevelLodNode(decal, { far: 38 });
+    }
+    // * The painted arrows are the same defect and the same readability argument —
+    // * they are positive fall markings sitting on a ~34 m radius around a group left
+    // * at the origin. buildUncannyDetails owns no physics bodies (the EXIT sign that
+    // * did was deleted in run-5), so every child here is a plain mesh.
+    for (const arrow of uncanny.group.children) {
+      registerLevelLodNode(arrow, { far: 42 });
     }
   }
 

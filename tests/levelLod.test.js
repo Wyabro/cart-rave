@@ -72,6 +72,29 @@ describe("levelLod", () => {
     expect(child.visible).toBe(true); // ~19.8m away — inside far
   });
 
+  // * LOD-UNCANNY-1: the Storerooms painted arrows had the same container defect at
+  // * far 42. Real numbers from the level: arrowSpots[0] is (33.5, 6), i.e. 34.0m from
+  // * the arena centre its group never left. A camera at (60, 6) stands 26.5m from that
+  // * arrow — comfortably inside 42 — but 60.3m from the origin.
+  it("registering the arrow container would cull an arrow the camera is 26m from", () => {
+    const groupAtOrigin = fakeObj(0, 0);
+    const arrow = fakeObj(33.5, 6);
+    registerLevelLodNode(groupAtOrigin, { far: 42 });
+    registerLevelLodNode(arrow, { far: 42 });
+    updateLevelLod(fakeCamera(60, 6), 1000);
+    expect(groupAtOrigin.visible).toBe(false);
+    expect(arrow.visible).toBe(true);
+  });
+
+  it("backroomsSupermarket registers the uncanny arrows per child, not as the group", () => {
+    const src = readFileSync(
+      new URL("../src/levels/backroomsSupermarket.js", import.meta.url),
+      "utf8",
+    );
+    expect(src).not.toMatch(/registerLevelLodNode\(\s*uncanny\.group\s*,/);
+    expect(src).toMatch(/for\s*\(const\s+\w+\s+of\s+uncanny\.group\.children\)/);
+  });
+
   it("clearLevelLod empties registry", () => {
     registerLevelLodNode(fakeObj(0, 0), { far: 10 });
     clearLevelLod();
