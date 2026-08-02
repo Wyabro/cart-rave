@@ -138,8 +138,10 @@ edit: it is the same negative-modulo family, so every negative remainder falls t
 the surviving low-`a` cartons are colour-skewed. **This is #1 because it halves the visible area of
 finding #4 for free** — half that untextured racking is currently naked board.
 
-*Shipped and looked at.* `ef5b35e` landed the true-modulo fix — but **not** the `pick` half of it;
-that is now **SHELF-PICK-1** in the backlog. `ef5b35e` shipped on code verification alone with the
+*Shipped and looked at — both halves.* `ef5b35e` landed the true-modulo fix on the *stocking*
+hash but not on `pick`; that half followed as **SHELF-PICK-1**, closed 08-02 and verified on the
+same camera — 12 cartons recolour, zero geometry change, and blue goes from 111 to 208 slots
+arena-wide ([completed-work](./completed-work.md)). `ef5b35e` shipped on code verification alone with the
 visual proof explicitly owed, because the `?shot=storerooms` bookmark does not frame the shelf
 walls. **Settled 08-02:** a before/after aimed square at the side-0 wall
 (`node tools/shoot-gpu.mjs --shot storerooms --cam "-12,5.3,44,-12,5.3,55"`, hardware raster

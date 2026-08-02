@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-02T04:43:01.045Z",
-    "commit": "a83b067"
+    "at": "2026-08-02T04:50:42.902Z",
+    "commit": "f355bac"
   },
-  "source_digest": "3291f3ab",
+  "source_digest": "684ee2fc",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1106,7 +1106,7 @@
         "counts": {
           "High": 6,
           "Medium": 5,
-          "Low": 7
+          "Low": 6
         },
         "rows": [
           {
@@ -1161,12 +1161,6 @@
             "pri": "Low",
             "item": "FX-TEXDISPOSE-1 — cloned textures are never disposed in effects.js",
             "notes": "`disposeObject3D` (`effects.js:26`) traverses and disposes materials and non-shared geometries, but `material.dispose()` does **not** dispose the material's maps. The seat loop clones `seatTex` per deck (`effects.js:993`) and those clones leak one texture each per arena build. Small (256² canvases) but unbounded across level swaps. Found while scoping CLAD-REPEAT-1, which would have widened the same gap.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "SHELF-PICK-1 — the other half of the Storerooms shelf negative-modulo bug was never fixed",
-            "notes": "**Filed 08-02** while capturing the proof for `ef5b35e`. That commit fixed the *stocking* hash at [backroomsSupermarket.js:2053](../../src/levels/backroomsSupermarket.js:2053) but not the *colour* pick one line below (`:2057`), even though audit item 1 said to fix both in the same edit. `const pick = (lvl + Math.round(a)) % 3;` — same trap: JS `%` keeps the dividend's sign, so wherever `lvl + Math.round(a) < 0` the result is `0 / -1 / -2`, and the ternary at `:2058` only spends `1` on blue. **Enumerated, not inferred:** across the captured window (side 0, `a` ∈ [−22, −2], 5 levels, 42 stocked slots) the colours come out **15 red / 26 beige / 1 blue** — the single blue is `lvl 3 @ a = −2.3`, the only slot in frame whose sum clears zero. So blue cartons are absent from essentially the whole negative-`a` half of every wall (all but a narrow band at `",
             "ship1": null
           },
           {

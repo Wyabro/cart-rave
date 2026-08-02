@@ -99,9 +99,12 @@ frame the shelf walls; a before/after aimed square at the side-0 wall
 shows **0 of 60 in-frame slots stocked before, 42 after** — five levels of bare board becoming a
 stocked wall, with the amplified ×4 diff black except for the new cartons. Real look win, recorded
 in the audit. **Caveat:** `skipThreshold` was not retuned, so the wall went ~329 → ~612 boxes —
-*filled in is not final density*, and the audit's retune stays open. New card from that work:
-**SHELF-PICK-1** (BACKLOG) — the `pick` colour hash at `:2057` has the same negative-modulo bug and
-was not fixed; blue cartons are missing from the negative-`a` half of every wall.
+*filled in is not final density*, and the audit's retune stays open. **SHELF-PICK-1 closed 08-02**
+— the `pick` colour hash at `:2057` carried the same negative-modulo bug and `ef5b35e` had not
+fixed it; one line, verified on the same camera (12 cartons recolour, **zero** geometry change —
+the right signature for a colour-only fix). Arena-wide blue 111 → 208 slots, beige 301 → 204, red
+unchanged at 200 (`pick === 0` is the one bucket JS `%` never mis-signs, which is why the bug hid).
+Both halves of audit item 1 are now shipped **and** looked at.
 
 ### Do not
 

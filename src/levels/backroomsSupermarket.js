@@ -2054,7 +2054,11 @@ function buildWalls(scene, world, wallpaperTex) {
           if (slotHash < skipThreshold) continue;
           const [sx, sz] = wDim(1.1, fullBay ? 0.95 : 0.7);
           const [px, py, pz] = toWorld(a, boxY, shelfCenterOut + 0.15);
-          const pick = (lvl + Math.round(a)) % 3;
+          // * Same trap as slotHash above, on the colour hash: `%` kept the dividend's sign,
+          // * so wherever `lvl + Math.round(a)` went negative the result was 0/-1/-2 and only
+          // * 0 matched red — every negative remainder fell through to beige, so blue cartons
+          // * were absent from all but a narrow band of every wall (SHELF-PICK-1).
+          const pick = (((lvl + Math.round(a)) % 3) + 3) % 3;
           const list = pick === 0
             ? shelfBoxRedParts
             : pick === 1 ? shelfBoxBlueParts : shelfBoxBeigeParts;
