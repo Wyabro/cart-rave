@@ -7,10 +7,13 @@ import { clearLevelLod } from "../utils/levelLod.js";
 import { clearKoHitmarkers } from "../effects/koHitmarkerFx.js";
 import { QUICKPLAY_ARENA_IDS } from "../../shared/arenaPool.js";
 import { ARENA_BY_ID } from "./arenaCatalog.js";
+import { FREE_LEVEL } from "../unlockConfig.js";
 
 /** Re-exported for existing importers — the key itself lives in utils/storage.js. */
 export const LEVEL_STORAGE_KEY = STORAGE_KEYS.level;
-const DEFAULT_LEVEL_ID = "classicRecord";
+// * resolveLevelId's fallback. Must resolve to an arena every player has unlocked, so it
+// * tracks the free level rather than naming an arena (UNLOCK-ORDER-1).
+const DEFAULT_LEVEL_ID = FREE_LEVEL;
 
 /** Lazy dynamic importers — each level ships as its own Vite chunk. */
 export const LEVEL_IMPORTERS = {

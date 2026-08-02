@@ -105,4 +105,9 @@ export const LEVEL_UNLOCKS = Object.fromEntries(
 
 export const FREE_PATTERN = DEFAULT_CART_PATTERN;
 export const FREE_SUNGLASSES = DEFAULT_SUNGLASSES_STYLE;
-export const FREE_LEVEL = "classicRecord";
+/**
+ * The arena every player has from a cold install — the fallback clampLevelIdToUnlocks
+ * drops to when a saved selection is locked. Must stay in step with whichever catalog
+ * entry carries `unlock.free` (UNLOCK-ORDER-1 moved that from Cart Rave to Sundial).
+ */
+export const FREE_LEVEL = "zanzibar";

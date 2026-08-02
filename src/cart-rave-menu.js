@@ -62,7 +62,7 @@ import {
   onUnlockGranted,
   unlockStore,
 } from "./stores/unlockStore.js";
-import { LEVEL_UNLOCKS } from "./unlockConfig.js";
+import { FREE_LEVEL, LEVEL_UNLOCKS } from "./unlockConfig.js";
 import { challengeStore, CHALLENGE_POOL, CHALLENGE_ROTATION_MS } from "./stores/challengeStore.js";
 import { NPC_NAME_POOL } from "./npcNames.js";
 import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
@@ -217,7 +217,8 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
   const COLOR_ARIA_LABELS = ['Pink', 'Blue', 'Green', 'Yellow', 'Neon orange'];
 
   const LEVEL_STORAGE_KEY = STORAGE_KEYS.level;
-  const DEFAULT_LEVEL = 'classicRecord';
+  // * The arena a player with no saved selection lands on — must be one everybody owns.
+  const DEFAULT_LEVEL = FREE_LEVEL;
   const LEVEL_OPTIONS = Object.fromEntries(
     ARENA_CATALOG
       .filter((arena) => arena.quickplay)

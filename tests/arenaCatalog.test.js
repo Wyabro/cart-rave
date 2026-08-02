@@ -6,7 +6,8 @@ import { describe, expect, it } from "vitest";
 import { QUICKPLAY_ARENA_IDS } from "../shared/arenaPool.js";
 import { ARENA_CATALOG } from "../src/levels/arenaCatalog.js";
 import { LEVEL_IMPORTERS, resolveLevelId } from "../src/levels/index.js";
-import { LEVEL_UNLOCKS } from "../src/unlockConfig.js";
+import { FREE_LEVEL, LEVEL_UNLOCKS } from "../src/unlockConfig.js";
+import { normalizeState } from "../src/stores/unlockStore.js";
 import { LEVEL_MUSIC } from "../src/music/levelMusic.js";
 import { ARENA_AMBIENCE } from "../src/ambience/arenaAmbience.js";
 
@@ -44,12 +45,60 @@ describe("ARENA_CATALOG", () => {
 });
 
 describe("resolveLevelId", () => {
-  it("accepts catalog ids and preserves the default fallback for unknown values", () => {
+  it("accepts catalog ids and falls back to the arena every player owns", () => {
     for (const arena of ARENA_CATALOG) {
       expect(resolveLevelId(arena.id)).toBe(arena.id);
     }
-    expect(resolveLevelId("typo-arena")).toBe("classicRecord");
-    expect(resolveLevelId(null)).toBe("classicRecord");
-    expect(resolveLevelId(undefined)).toBe("classicRecord");
+    // * The fallback must be an UNLOCKED arena, not a named one — UNLOCK-ORDER-1 moved
+    // * `free` off Cart Rave, so hardcoding it here would drop a fresh player into a
+    // * locked arena on any path that loses the saved selection.
+    expect(resolveLevelId("typo-arena")).toBe(FREE_LEVEL);
+    expect(resolveLevelId(null)).toBe(FREE_LEVEL);
+    expect(resolveLevelId(undefined)).toBe(FREE_LEVEL);
+  });
+});
+
+// * UNLOCK-ORDER-1 progression chain + its save migration. The chain is Sundial (free)
+// * -> Storerooms (10 KOs on Sundial) -> Cart Rave (15 KOs on Storerooms), while
+// * ARENA_CATALOG's array order stays the quickplay rotation (asserted above).
+describe("unlock progression order", () => {
+  it("starts at Sundial Station and ends at Cart Rave", () => {
+    expect(FREE_LEVEL).toBe("zanzibar");
+    expect(LEVEL_UNLOCKS.zanzibar.free).toBe(true);
+    expect(LEVEL_UNLOCKS.backrooms.killsOnLevel).toBe("zanzibar");
+    expect(LEVEL_UNLOCKS.classicRecord.killsOnLevel).toBe("backrooms");
+    expect(LEVEL_UNLOCKS.classicRecord.free).toBeUndefined();
+  });
+
+  it("every gate names an arena that is earlier in the chain", () => {
+    // * Guards against a future edit producing a cycle or a gate on a locked arena.
+    const order = ["zanzibar", "backrooms", "classicRecord"];
+    for (const [i, id] of order.entries()) {
+      const gate = LEVEL_UNLOCKS[id].killsOnLevel;
+      if (!gate) continue;
+      expect(order.indexOf(gate), `${id} gated on ${gate}`).toBeLessThan(i);
+    }
+  });
+
+  it("hint copy names the arena the gate actually reads", () => {
+    expect(LEVEL_UNLOCKS.backrooms.hint).toContain("Sundial Station");
+    expect(LEVEL_UNLOCKS.classicRecord.hint).toContain("The Storerooms");
+  });
+
+  it("a fresh save gets Sundial only — never Cart Rave", () => {
+    for (const raw of [null, undefined, {}, { levels: {} }, { levels: { backrooms: true } }]) {
+      const state = normalizeState(raw);
+      expect(state.levels.zanzibar).toBe(true);
+      expect(state.levels.classicRecord).toBeUndefined();
+    }
+  });
+
+  it("a save written before the flip keeps Cart Rave", () => {
+    // * Grandfathered by the merge, not by a force-write: every pre-flip save carries
+    // * classicRecord: true because it was the free level when it was written.
+    const state = normalizeState({ levels: { classicRecord: true }, killsByLevel: { classicRecord: 7 } });
+    expect(state.levels.classicRecord).toBe(true);
+    expect(state.levels.zanzibar).toBe(true);
+    expect(state.killsByLevel.classicRecord).toBe(7);
   });
 });

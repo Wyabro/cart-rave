@@ -18,6 +18,7 @@ import { rebuildKOEvent } from "./scoring/koEvent.js";
 import { dispatchKOEvent } from "./scoring/koReactors.js";
 import { ChallengeTracker } from "./stores/challengeStore.js";
 import { UnlockTracker } from "./stores/unlockStore.js";
+import { FREE_LEVEL } from "./unlockConfig.js";
 import { getCurrentLevelId } from "./levelManager.js";
 import { announce } from "./announcer/announcerManager.js";
 import { applyRemoteDirective, clearDirectiveOnHostMigration, getDirectiveWireState } from "./directives/directiveEngine.js";
@@ -3100,7 +3101,7 @@ export function sendHostRound() {
   const currentLevelId =
     authoritativeRoomLevelId
     || settingsStore.getState().selectedLevelId
-    || "classicRecord";
+    || FREE_LEVEL;
   authoritativeRoomLevelId = currentLevelId;
   const currentAiDifficulty =
     authoritativeRoomAiDifficulty

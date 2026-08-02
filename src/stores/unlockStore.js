@@ -124,15 +124,19 @@ function emptyState() {
     patterns: { [FREE_PATTERN]: true },
     sunglasses: { [FREE_SUNGLASSES]: true },
     customColor: false,
-    levels: { classicRecord: true, testArena: true },
+    levels: { [FREE_LEVEL]: true, testArena: true },
   };
 }
 
 /**
+ * Merge a persisted blob onto a fresh state, forcing the always-owned entitlements.
+ *
+ * Exported for tests only (the save-migration semantics below are worth two assertions
+ * and are otherwise reachable only through module-level storage).
  * @param {unknown} raw
  * @returns {UnlockState}
  */
-function normalizeState(raw) {
+export function normalizeState(raw) {
   const base = emptyState();
   if (!raw || typeof raw !== "object") return base;
   const o = /** @type {Record<string, unknown>} */ (raw);
@@ -160,7 +164,13 @@ function normalizeState(raw) {
   }
   base.patterns[FREE_PATTERN] = true;
   base.sunglasses[FREE_SUNGLASSES] = true;
-  base.levels.classicRecord = true;
+  // * Force ONLY the current free level. UNLOCK-ORDER-1 made Cart Rave the last arena
+  // * earned, so forcing it here would hand it to anyone whose save has ever been
+  // * written — including a brand-new player who takes one KO on Sundial and reloads.
+  // * Saves from before the flip are grandfathered by the spread above, which carries
+  // * their existing `classicRecord: true` through untouched: nobody loses an arena
+  // * they had, and nobody gains one they did not.
+  base.levels[FREE_LEVEL] = true;
   base.levels.testArena = true;
   return base;
 }

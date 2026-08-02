@@ -26,6 +26,12 @@
 /**
  * * Keep simulation, hazards, importers, and presentation tuning out of this catalog.
  * * Those systems have runtime dependencies and remain in their existing modules.
+ * *
+ * * ARRAY ORDER IS NOT PROGRESSION ORDER. This order is the quickplay rotation and must
+ * * keep matching shared/arenaPool.js QUICKPLAY_ARENA_IDS (QP-ORDER-1, asserted in
+ * * tests/arenaCatalog.test.js). Progression lives entirely in each arena's `unlock`
+ * * block, which UNLOCK-ORDER-1 reversed in place: Sundial Station is the free arena
+ * * and Cart Rave is now the last one earned.
  * @type {readonly Readonly<ArenaDefinition>[]}
  */
 export const ARENA_CATALOG = Object.freeze([
@@ -40,8 +46,9 @@ export const ARENA_CATALOG = Object.freeze([
       hype: "classic_crowd_hype",
     }),
     unlock: Object.freeze({
-      free: true,
-      hint: "Always available",
+      killsOnLevel: "backrooms",
+      goal: 15,
+      hint: "15 KOs on The Storerooms",
     }),
   }),
   Object.freeze({
@@ -52,9 +59,9 @@ export const ARENA_CATALOG = Object.freeze([
     music: Object.freeze(["storerooms.opus"]),
     ambience: Object.freeze({ bed: "backrooms_bed" }),
     unlock: Object.freeze({
-      killsOnLevel: "classicRecord",
+      killsOnLevel: "zanzibar",
       goal: 10,
-      hint: "10 KOs on Cart Rave",
+      hint: "10 KOs on Sundial Station",
     }),
   }),
   Object.freeze({
@@ -65,9 +72,8 @@ export const ARENA_CATALOG = Object.freeze([
     music: Object.freeze(["song3.opus", "song4.opus"]),
     ambience: Object.freeze({ bed: "zanzibar_bed" }),
     unlock: Object.freeze({
-      killsOnLevel: "backrooms",
-      goal: 15,
-      hint: "15 KOs on The Storerooms",
+      free: true,
+      hint: "Always available",
     }),
   }),
   Object.freeze({
