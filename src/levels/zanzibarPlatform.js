@@ -1652,9 +1652,22 @@ function buildSeascape(scene, circumR) {
 
     shipGlowGeo = new THREE.BufferGeometry();
     shipGlowGeo.setAttribute("position", new THREE.Float32BufferAttribute(new Float32Array(9), 3));
+    // * A mapless PointsMaterial draws a hard square — these engine glows were flat 3×3 px
+    // * additive plates. That is precisely the shape buildSoftDiscTexture exists to avoid
+    // * (see its docstring: a flat-opacity additive shape hands bloom a saturated plate, the
+    // * run-2 cross flare). White stops so the material's 0x7ad9ff multiplies through, same
+    // * as the sun and halo layers. Size goes 3 → 6 in the SAME change on purpose: a
+    // * gradient needs pixels to resolve in, and at 3 px a soft disc is still a square.
+    const shipGlowTex = buildSoftDiscTexture([
+      [0.0, "#ffffff"],
+      [0.35, "rgba(255,255,255,0.45)"],
+      [1.0, "rgba(255,255,255,0)"],
+    ]);
+    ownedTextures.push(shipGlowTex);
     const shipGlowMat = new THREE.PointsMaterial({
       color: 0x7ad9ff,
-      size: 3.0,
+      map: shipGlowTex,
+      size: 6.0,
       sizeAttenuation: false,
       transparent: true,
       opacity: 0.75,
