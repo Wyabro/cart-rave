@@ -126,6 +126,23 @@ describe("Command Center design tokens", () => {
   });
 });
 
+describe("Command Center card treatment", () => {
+  it("no card wears a thick asymmetric coloured edge", () => {
+    // * CC-STRIPE-1. The side-stripe card had spread to four surfaces at three widths
+    // * (3px, 4px, 5px) plus a 5px absolutely-positioned <div> in archHtml. A hairline
+    // * all round says the same thing without the decorative asymmetry. A 1px
+    // * border-left is a divider, not a stripe, so the floor is 2px.
+    const offenders = [];
+    for (const [file, src] of Object.entries(PAGE_CSS)) {
+      for (const m of src.matchAll(/border-(left|right|top|bottom):\s*([2-9]|\d\d)px/g)) {
+        offenders.push(`${file}: border-${m[1]}:${m[2]}px`);
+      }
+      if (/scard-stripe/.test(src)) offenders.push(`${file}: scard-stripe element`);
+    }
+    expect(offenders).toEqual([]);
+  });
+});
+
 describe("Command Center cross-surface nav", () => {
   it("renders one entry per surface, with the active one unlinked", () => {
     const html = crossNav("playtest");

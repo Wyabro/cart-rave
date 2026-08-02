@@ -296,7 +296,6 @@ export function renderArchHtml(ctx) {
       const searchBlob = `${s.name} ${s.id} ${s.responsibility} ${(s.entry ?? []).join(" ")} ${(s.files ?? []).join(" ")}`.toLowerCase();
 
       return `<article class="scard${isFragile ? " fragile" : ""}${isHot ? " hot-sys" : ""}" id="card-${esc(s.id)}" data-sys="${esc(s.id)}" data-domain="${esc(domainKey)}" data-search="${esc(searchBlob)}" style="--accent:${acc}">
-      <div class="scard-stripe"></div>
       <header class="scard-head">
         <span class="scard-dot"></span>
         <h3>${esc(s.name)}</h3>
@@ -506,9 +505,7 @@ ${CHROME_CSS}
   .scard:hover { border-color:var(--edge2); box-shadow:0 6px 22px rgba(0,0,0,0.35); }
   .scard.highlighted { border-color:var(--accent); box-shadow:0 0 0 1px var(--accent), 0 0 26px -4px var(--accent); }
   
-  .scard-stripe { position:absolute; left:0; top:0; bottom:0; width:5px; background:var(--accent); opacity:.85; }
-  .scard.fragile { border-color:rgba(255,194,75,.45); }
-  .scard.fragile .scard-stripe { background:repeating-linear-gradient(135deg, var(--warn) 0 6px, rgba(255,194,75,.35) 6px 12px); opacity:1; }
+  .scard.fragile { border-color:rgba(255,194,75,.45); background:linear-gradient(180deg, rgba(255,194,75,.05), var(--panel) 70%); }
   .scard-head { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
   .scard-dot { width:10px; height:10px; border-radius:50%; background:var(--accent); box-shadow:0 0 10px var(--accent); flex:none; }
   .scard-head h3 { margin:0; font-size:17px; font-weight:750; letter-spacing:.3px; }
@@ -575,7 +572,7 @@ ${CHROME_CSS}
   /* Now Panel */
   .nowcols { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
   @media (max-width:840px) { .nowcols { grid-template-columns:1fr; } }
-  .now-arch { border-left:4px solid var(--cyan); }
+  .now-arch { border-color:var(--cyan); }
   .prio-list { list-style:none; margin:8px 0 0; padding:0; }
   .prio-list li { margin:8px 0; font-size:12.5px; line-height:1.4; }
   .tier-id { display:inline-block; font-family:ui-monospace,Consolas,monospace; font-size:10px; font-weight:700; color:var(--neon); background:rgba(255,45,149,.15); border:1px solid rgba(255,45,149,.35); border-radius:5px; padding:1px 6px; margin-right:6px; }
@@ -589,8 +586,8 @@ ${CHROME_CSS}
   .flink { color:var(--cyan); text-decoration:none; } .flink:hover { text-decoration:underline; }
   .touch-row { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-top:6px; }
   .touch-lbl { font-size:10px; text-transform:uppercase; letter-spacing:1px; color:var(--dim); }
-  button.chip.touches { cursor:pointer; font-size:11px; padding:2px 9px; border-color:var(--edge2);
-                        border-left:3px solid var(--accent); color:var(--text2); }
+  button.chip.touches { cursor:pointer; font-size:11px; padding:2px 9px;
+                        border-color:var(--accent); color:var(--text2); }
   button.chip.touches:hover { text-decoration:none; border-color:var(--accent); background:rgba(255,255,255,0.06); }
 
   footer { margin-top:40px; padding-top:20px; border-top:1px solid var(--edge); color:var(--dim); font-size:12px; display:flex; flex-wrap:wrap; justify-content:space-between; gap:12px; }

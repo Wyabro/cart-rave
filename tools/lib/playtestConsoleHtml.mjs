@@ -67,7 +67,7 @@ const PAGE_CSS = `
   .card.skip .card-status { color:var(--warn); border-color:var(--edge-warn); }
   .card h3 { margin:0; font-size:1.05rem; line-height:1.3; }
   .card .do { margin:10px 0 0; font-size:.92rem; line-height:1.45; background:var(--panel2);
-    border-radius:8px; padding:10px 12px; border-left:3px solid var(--cyan); }
+    border-radius:8px; padding:10px 12px; border:1px solid rgba(39,224,230,.35); }
   .card .expect { margin:8px 0 0; font-size:.88rem; color:var(--dim); line-height:1.4; }
   .card .expect strong { color:var(--text); font-weight:600; }
   .card .f8 { margin:8px 0 0; font-size:.82rem; font-family:ui-monospace,Consolas,monospace;

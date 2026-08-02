@@ -338,7 +338,7 @@ ${CHROME_CSS}
   .dw-done { color:var(--dim); } .dw-done .dw-box { border-color:rgba(61,220,132,.5); background:rgba(61,220,132,.1); }
 
   /* now action */
-  .now { border:1px solid rgba(39,224,230,.35); border-left:5px solid var(--cyan); border-radius:14px;
+  .now { border:1px solid var(--cyan); border-radius:14px;
          background:var(--panel); padding:18px 22px; margin-bottom:16px;
          box-shadow:0 0 28px rgba(39,224,230,.07), inset 0 1px 0 rgba(255,255,255,.03); }
   .now .k { color:var(--cyan); }

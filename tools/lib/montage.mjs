@@ -47,7 +47,7 @@ ${ROOT_TOKENS}
   h1 { margin:0 0 2px; font-size:20px; letter-spacing:3px; font-weight:800; }
   h1 .neon { color:var(--neon); text-shadow:0 0 18px rgba(255,45,149,.55); }
   .stamp { color:var(--dim); font-size:12px; }
-  .banner { margin:16px 0 20px; padding:12px 16px; border:1px solid var(--edge2); border-left:3px solid var(--neon);
+  .banner { margin:16px 0 20px; padding:12px 16px; border:1px solid rgba(255,45,149,.45);
             border-radius:8px; background:var(--panel); font-size:13px; }
   .banner b { color:var(--neon); }
   .cards { display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:12px; }
