@@ -1631,10 +1631,13 @@ function buildSeascape(scene, circumR) {
 
   // Spaceships — three distant craft on slow orbits around the station, each trailing a
   // cool engine glow (skipped in Low Quality; matrices rebuilt per frame, no allocations).
+  // * Built on every tier including Low (D-SUNDIAL-OQ6). Three box instances plus a
+  // * three-point glow cloud — the first OQ6 item with ongoing rather than one-off cost,
+  // * and small enough to be worth it: the ships are what make this horizon feel inhabited.
   let ships = null;
   let shipGlowGeo = null;
   const shipStates = [];
-  if (!lowQ) {
+  {
     const shipGeo = new THREE.BoxGeometry(7, 0.7, 2.4);
     const shipMat = new THREE.MeshBasicMaterial({ color: 0x1c0f16 });
     ownedGeometries.push(shipGeo);
@@ -1776,29 +1779,34 @@ function buildSeascape(scene, circumR) {
       rotor.rotation.z = rotor.userData.phase + timeMs * rotor.userData.spin;
     }
 
+    // * Ships run PER FRAME, outside the decor step, on every tier. Low sets DECOR_STEP_MS
+    // * to 2000, and at these orbit speeds a 2 s step moves the nearest craft ~10 m across
+    // * a 255 m radius — a visible teleport rather than a glide. Three instance matrices
+    // * and three point positions is the whole per-frame cost, which is what Low can afford.
+    if (ships && shipGlowGeo && ships.visible !== false) {
+      const glowPos = shipGlowGeo.attributes.position;
+      for (let i = 0; i < shipStates.length; i += 1) {
+        const s = shipStates[i];
+        const a = s.phase + timeMs * s.speed;
+        const x = Math.cos(a) * s.radius;
+        const z = Math.sin(a) * s.radius;
+        const y = s.height + Math.sin(timeMs * 0.0002 + s.phase) * 3;
+        _dummy.position.set(x, y, z);
+        _dummy.rotation.set(0, -a - Math.sign(s.speed) * (Math.PI / 2), Math.sign(s.speed) * 0.12);
+        _dummy.scale.set(1, 1, 1);
+        _dummy.updateMatrix();
+        ships.setMatrixAt(i, _dummy.matrix);
+        const tx = -Math.sin(a) * Math.sign(s.speed);
+        const tz = Math.cos(a) * Math.sign(s.speed);
+        glowPos.setXYZ(i, x - tx * 4.2, y, z - tz * 4.2);
+      }
+      ships.instanceMatrix.needsUpdate = true;
+      glowPos.needsUpdate = true;
+    }
+
     const runDecor = DECOR_STEP_MS === 0 || timeMs - _lastDecorStepMs >= DECOR_STEP_MS;
     if (runDecor) {
       _lastDecorStepMs = timeMs;
-      if (ships && shipGlowGeo && ships.visible !== false) {
-        const glowPos = shipGlowGeo.attributes.position;
-        for (let i = 0; i < shipStates.length; i += 1) {
-          const s = shipStates[i];
-          const a = s.phase + timeMs * s.speed;
-          const x = Math.cos(a) * s.radius;
-          const z = Math.sin(a) * s.radius;
-          const y = s.height + Math.sin(timeMs * 0.0002 + s.phase) * 3;
-          _dummy.position.set(x, y, z);
-          _dummy.rotation.set(0, -a - Math.sign(s.speed) * (Math.PI / 2), Math.sign(s.speed) * 0.12);
-          _dummy.scale.set(1, 1, 1);
-          _dummy.updateMatrix();
-          ships.setMatrixAt(i, _dummy.matrix);
-          const tx = -Math.sin(a) * Math.sign(s.speed);
-          const tz = Math.cos(a) * Math.sign(s.speed);
-          glowPos.setXYZ(i, x - tx * 4.2, y, z - tz * 4.2);
-        }
-        ships.instanceMatrix.needsUpdate = true;
-        glowPos.needsUpdate = true;
-      }
       if (gulls && gulls.visible !== false) {
         for (let i = 0; i < gullStates.length; i += 1) {
           const g = gullStates[i];
