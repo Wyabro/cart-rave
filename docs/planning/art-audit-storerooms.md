@@ -242,7 +242,7 @@ the run reads as bolted bays. Keep the 43 m fade-to-void posts and the heights �
 identity. The same map rides along on `railMat` (`:2937`), which is separately the lowest-roughness
 / highest-metalness pair in all 3609 lines and reads as the shiniest thing in a dead room.
 
-### 5. Fix the suction telegraph — `:3193`, `:3225` · small · [unverified]
+### 5. Fix the suction telegraph — `:3193`, `:3225` · small · [unverified] → **verified 08-02** · **FIXED 08-02**
 
 Two coupled defects on a kill mechanic. (a) The glow is dimmest exactly where the pull is
 strongest: `band *= smoothstep(uInner, uInner + 0.9, cheb)` drives the ring to zero over cheb
@@ -259,6 +259,32 @@ from 0.9 to ~0.25 m and clamp its floor so the lip holds ~45–55% of peak; then
 (constant alpha) so total screen brightness is unchanged or lower. **Do not touch the palette** —
 the olive→sodium-amber ramp at `:3212-3217` was deliberately recoloured out of magenta in run-5
 because "no rave neon," and that decision is exemplary.
+
+**Both halves confirmed against the tree, then done 08-02.** `inner = HOLE_HALF + 0.05 = 4.30`,
+`outer = HOLE_HALF + HOLE_SUCTION_BAND = 6.85`, and `SUCTION_PEAK_ACCEL = 33` m/s² falling linearly
+to the band edge (`src/simulation.js:776,808`) — so the erased 4.30→5.20 metre really is where the
+pull runs 63–100% of peak.
+
+- **Geometry.** The `ShapeGeometry` (8 vertices, one flat plane) is replaced by a tessellated square
+  annulus — 64 steps around × 10 rows across, ~1.3k triangles — whose every vertex takes its Y from
+  `getFloorSurfaceY` + 0.03. Baked **once in hole-local space and still shared by all four meshes**
+  (the chamfer is hole-relative and the voids are symmetric), and the meshes now sit at `y = 0`
+  because the float and the ramp are in the vertices.
+- **Lip floor, as a number in the shader:** `band *= mix(0.50, 1.0, smoothstep(uInner, uInner +
+  0.25, cheb));`. Narrowing alone would not have worked — `smoothstep` is still 0 at `uInner`.
+- **Paid for with the crest exponents and the output alpha, deliberately NOT with `pow(band, ·)`:**
+  at the lip `band` is now the 0.50 floor, and `0.50^x` falls away far faster than mid-band ~1.0, so
+  raising the band exponent would preferentially darken the exact metre this item exists to light.
+  `spiral` 2.4 → 3.35, `counter` 0.35 → 0.23, alpha 0.40 → 0.36.
+- **Brightness, measured rather than asserted.** Mean frame luma **73.95 → 74.12 (+0.22%)** against a
+  **0.02% noise floor** (two captures of the same state). So it is *not* strictly "unchanged or
+  lower" — it is measurably up by about one sixth of a luma unit on a 74-unit frame. Reaching strict
+  parity costs roughly a third of the ring's total output, which guts the mid-band that already
+  worked; the call was to accept +0.22% rather than pay that. **Palette untouched.**
+- **Captures:** from above the void, the amber goes from faint corner blobs with a dark lip to a
+  continuous band hugging the edge, and the ×4 diff is black except for that band. At player height
+  the glow now lies *on* the chamfer ramp instead of floating over it. **Owed: Wyatt playtest —
+  item 5 — does the lip band read as "you are committed" without becoming a game marker.**
 
 ### 6. Author the spawn deck — `:2934`, `:2948` · medium · **verified**
 

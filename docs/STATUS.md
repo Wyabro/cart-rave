@@ -115,9 +115,15 @@ capture. Use the node-count probe + unit tests, and a real match for the in-fram
 for cell (2,2) with 5 mm clearance, so the flicker rendered to nobody; dropped to `CEILING_Y - 0.75`
 with a U-channel housing and stems. Captured from under the pile: dark slab → visible work light.
 Side-effect check on the pile itself came back black-but-for-dust, so no intensity retune.
-**Remaining: items 4 and 5** — 5 next (suction telegraph, kill-mechanic readability, needs a
-playtest), 4 last and **gated on a capture first**, since item 1's fill-in covered much of the bare
-steel that motivated it.
+**Item 5 (suction telegraph) fixed 08-02** — the ring's inner fade zeroed the glow across exactly
+the 0.9 m where suction is 63–100% of peak, and the flat annulus floated ~0.5 m over the sloping
+chamfer (hidden only *because* the alpha was zero there, so the two had to move together). Now a
+tessellated annulus taking Y from `getFloorSurfaceY`, plus `mix(0.50, 1.0, …)` so the lip holds half
+strength. Brightness measured, not assumed: frame mean **+0.22%** against a **0.02%** noise floor —
+not strict parity, and strict parity would have cost ~a third of the ring's output. **Owed: Wyatt
+playtest — item 5 — does the lip band read as "committed" without becoming a game marker.**
+**Remaining: item 4 only** — and it is **gated on a capture first**, since item 1's fill-in covered
+much of the bare steel that motivated it (the L4 lesson, applied before spending the effort).
 
 ### Do not
 

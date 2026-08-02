@@ -3180,22 +3180,47 @@ function buildSuctionHazardRings() {
   const outer = HOLE_HALF + HOLE_SUCTION_BAND;
   const inner = HOLE_HALF + 0.05; // hug the lip, a hair out so it never pokes into the open void
 
-  const shape = new THREE.Shape();
-  shape.moveTo(-outer, -outer);
-  shape.lineTo(outer, -outer);
-  shape.lineTo(outer, outer);
-  shape.lineTo(-outer, outer);
-  shape.closePath();
-  const holePath = new THREE.Path();
-  holePath.moveTo(-inner, -inner);
-  holePath.lineTo(inner, -inner);
-  holePath.lineTo(inner, inner);
-  holePath.lineTo(-inner, inner);
-  holePath.closePath();
-  shape.holes.push(holePath);
-
-  const geo = new THREE.ShapeGeometry(shape);
-  geo.rotateX(-Math.PI / 2); // XY shape → flat on the XZ floor plane
+  // * Tessellated square annulus that FOLLOWS THE FLOOR. The old ShapeGeometry was 8 vertices
+  // * on one flat plane at a constant y, while the carpet ramps down across HOLE_CHAMFER_W to
+  // * the lip — so the ring floated ~0.5 m over the surface it is painted on at its inner edge.
+  // * That was invisible only because the inner fade zeroed the alpha exactly there; fixing the
+  // * fade without this would have exposed the float. Baked ONCE in hole-local space and shared
+  // * by all four meshes: the chamfer profile is hole-relative and the voids are symmetric.
+  const SIDE_SEGMENTS = 16;
+  const RING_STEPS = SIDE_SEGMENTS * 4;
+  const BAND_ROWS = 10;
+  const [refHole] = HOLE_CENTERS;
+  const positions = [];
+  for (let row = 0; row <= BAND_ROWS; row += 1) {
+    const r = inner + (outer - inner) * (row / BAND_ROWS);
+    for (let k = 0; k < RING_STEPS; k += 1) {
+      const t = (k / RING_STEPS) * 4;
+      const side = Math.floor(t);
+      const f = t - side;
+      let x;
+      let z;
+      if (side === 0) { x = r; z = -r + 2 * r * f; }
+      else if (side === 1) { z = r; x = r - 2 * r * f; }
+      else if (side === 2) { x = -r; z = r - 2 * r * f; }
+      else { z = -r; x = -r + 2 * r * f; }
+      const surfaceY = getFloorSurfaceY(refHole.x + x, refHole.z + z);
+      positions.push(x, (surfaceY === null ? FLOOR_TOP_Y : surfaceY) + 0.03, z);
+    }
+  }
+  const indices = [];
+  for (let row = 0; row < BAND_ROWS; row += 1) {
+    for (let k = 0; k < RING_STEPS; k += 1) {
+      const kNext = (k + 1) % RING_STEPS;
+      const a = row * RING_STEPS + k;
+      const b = row * RING_STEPS + kNext;
+      const c = (row + 1) * RING_STEPS + k;
+      const d = (row + 1) * RING_STEPS + kNext;
+      indices.push(a, c, b, b, c, d);
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geo.setIndex(indices);
 
   // * Animated suction vortex (playtest 2026-07-16: the flat red fill read as a debug
   // * square and stood out too much). Spiral streaks flow INWARD toward the void so the
@@ -3233,7 +3258,10 @@ function buildSuctionHazardRings() {
         // * Fade back OUT toward the void lip too (run-6: the full-strength inner edge
         // * drew a hard amber square against the black hole interior) — peak sits
         // * mid-band, zero at both boundaries.
-        band *= smoothstep(uInner, uInner + 0.9, cheb);
+        // * ...but do NOT fade to zero: the 0.9 m it used to erase is where suction runs
+        // * 63-100% of SUCTION_PEAK_ACCEL, so the last metre before a cart is committed was
+        // * the one metre with no marking on it. Floor the fade at half strength instead.
+        band *= mix(0.50, 1.0, smoothstep(uInner, uInner + 0.25, cheb));
         if (band <= 0.003) discard;
         band = pow(band, 1.35);
 
@@ -3242,10 +3270,14 @@ function buildSuctionHazardRings() {
 
         // * Primary spiral: crests migrate toward the void as uTime advances (arg
         // * constant => r shrinking). Secondary counter-spiral adds turbulence depth.
+        // * Crest exponents pay for the lip floor above: narrowing the fade adds glow the ring
+        // * did not carry, and the telegraph must not get BRIGHTER overall — only redistributed
+        // * inward. Tightened here rather than via pow(band, ·), which would preferentially
+        // * darken the lip (0.50^x falls away far faster than mid-band ~1.0) and undo the fix.
         float spiral = 0.5 + 0.5 * sin(theta * 5.0 + r * 2.8 + uTime * 2.1);
-        spiral = pow(spiral, 2.4);
+        spiral = pow(spiral, 3.35);
         float counter = 0.5 + 0.5 * sin(-theta * 3.0 + r * 4.6 + uTime * 1.25);
-        counter = counter * counter * 0.35;
+        counter = counter * counter * 0.23;
 
         // * Slow breathe so the standing hazard reads as alive, not strobing.
         float breathe = 0.82 + 0.18 * sin(uTime * 0.66);
@@ -3258,14 +3290,18 @@ function buildSuctionHazardRings() {
         // * amber crest, and the whole effect pulled ~20% softer — the motion still
         // * carries the danger signal.
         vec3 col = mix(vec3(0.14, 0.12, 0.03), vec3(1.0, 0.62, 0.18), spiral);
-        gl_FragColor = vec4(col * glow * 0.85, glow * 0.4);
+        // * Alpha 0.40 -> 0.36 is the second half of that payment (measured: frame mean luma
+        // * +0.22% against a 0.02% capture-to-capture noise floor; strict parity would cost
+        // * ~a third of the ring's output and gut the mid-band that already worked).
+        gl_FragColor = vec4(col * glow * 0.85, glow * 0.36);
       }
     `,
   });
 
   for (const h of HOLE_CENTERS) {
     const ring = new THREE.Mesh(geo, mat);
-    ring.position.set(h.x, FLOOR_TOP_Y + 0.03, h.z);
+    // * y = 0: the +0.03 float and the chamfer ramp are baked into the vertices now.
+    ring.position.set(h.x, 0, h.z);
     ring.renderOrder = 2; // over the baked carpet decals
     group.add(ring);
   }
