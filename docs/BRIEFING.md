@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-02 at commit `dcd5ec5` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `90fdfaad`
+> Generated 2026-08-02 at commit `03b12f0` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `1e543faa`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -19,9 +19,13 @@ Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep a
 ## ACTIVE CARD
 
 ART-PASS-SUNDIAL-1 — Sundial art pass — 6 waves, one lever per commit
-Pass looks like: ▶ ACTIVE 08-02 — Wave 1 CLOSED. Sky ramp now finishes at the waterline (`2c5b3fc`): red step +128/+126/+110 → −21/−12/−2 (target <30), water pixels unmoved, sky-only. IBL sun blob was exactly 180° out, fixed correctness-only (`16157b0`) — re-judge after Wave 2 gives water `ior`+owned `envMap`. Next = Wave 2 (ocean). [audit](./planning/art-audit-sundial.md).
+Pass looks like: ▶ ACTIVE 08-02 — Waves 1–2 closed, Wave 3 part-done (7 commits; hashes + numbers under Current focus). Next = alien city → wind farm → islands+haze → gas giant, then Waves 4–6. Owed: Wyatt playtest — gate beacons, ship glows, ships on a phone. [audit](./planning/art-audit-sundial.md) is all `[unverified]`; verify each claim before fixing it.
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
+
+## Waiting on Wyatt (not agent work)
+
+- **ART-PASS-SUNDIAL-1** Sundial art pass — 6 waves, one lever per commit — ▶ ACTIVE 08-02 — Waves 1–2 closed, Wave 3 part-done (7 commits; hashes + numbers under Current focus). Next =…
 
 ## Do not
 

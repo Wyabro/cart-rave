@@ -92,45 +92,27 @@ Playtest console: `npm run dashboard` → [.diag-captures/playtest-console.html]
 L5 `5fc1c1e` correctness-only; L4 dropped → CLAD-REPEAT-1). All three arenas audited
 ([cart-rave](./planning/art-audit-cart-rave.md) · [storerooms](./planning/art-audit-storerooms.md) ·
 [sundial](./planning/art-audit-sundial.md)) — confidence differs per doc, respect the
-`[unverified]` markers; Sundial is leads, not findings. **Storerooms item 1 (`ef5b35e`) — visual
-debt settled 08-02.** It shipped on code verification alone because `?shot=storerooms` does not
-frame the shelf walls; a before/after aimed square at the side-0 wall
-(`node tools/shoot-gpu.mjs --shot storerooms --cam "-12,5.3,44,-12,5.3,55"`, ANGLE/D3D11 RTX 4090)
-shows **0 of 60 in-frame slots stocked before, 42 after** — five levels of bare board becoming a
-stocked wall, with the amplified ×4 diff black except for the new cartons. Real look win, recorded
-in the audit. **Caveat:** `skipThreshold` was not retuned, so the wall went ~329 → ~612 boxes —
-*filled in is not final density*, and the audit's retune stays open. **SHELF-PICK-1 closed 08-02**
-— the `pick` colour hash at `:2057` carried the same negative-modulo bug and `ef5b35e` had not
-fixed it; one line, verified on the same camera (12 cartons recolour, **zero** geometry change —
-the right signature for a colour-only fix). Arena-wide blue 111 → 208 slots, beige 301 → 204, red
-unchanged at 200 (`pick === 0` is the one bucket JS `%` never mis-signs, which is why the bug hid).
-Both halves of audit item 1 are now shipped **and** looked at. **Item 3 (floor-decal LOD) fixed
-08-02** — the decals registered as a group left at the origin, so `updateLevelLod` was testing
-camera-to-arena-*centre* and blinking all ~22 fall markings together; now per-mesh, `far` unchanged.
-Live A/B: LOD node count **4 → 25**. Split out as **LOD-UNCANNY-1 · LOD-PITRING-1 · LOD-CLOCK-1**.
-**Carry this forward: `updateLevelLod` does not run in the `shoot-gpu` attract path** (proved — props
-past their `far` still draw at 41 m and 52 m from centre), so LOD changes cannot be verified by
-capture. Use the node-count probe + unit tests, and a real match for the in-frame read.
-**Item 2 (pile spotlight) fixed 08-02** — the emissive fixture sat *inside* the dead ceiling panel
-for cell (2,2) with 5 mm clearance, so the flicker rendered to nobody; dropped to `CEILING_Y - 0.75`
-with a U-channel housing and stems. Captured from under the pile: dark slab → visible work light.
-Side-effect check on the pile itself came back black-but-for-dust, so no intensity retune.
-**Item 5 (suction telegraph) fixed 08-02** — the ring's inner fade zeroed the glow across exactly
-the 0.9 m where suction is 63–100% of peak, and the flat annulus floated ~0.5 m over the sloping
-chamfer (hidden only *because* the alpha was zero there, so the two had to move together). Now a
-tessellated annulus taking Y from `getFloorSurfaceY`, plus `mix(0.50, 1.0, …)` so the lip holds half
-strength. Brightness measured, not assumed: frame mean **+0.22%** against a **0.02%** noise floor —
-not strict parity, and strict parity would have cost ~a third of the ring's output. **Owed: Wyatt
-playtest — item 5 — does the lip band read as "committed" without becoming a game marker.**
-**Item 4 (shelf steel) done 08-02** — gated on a capture first per the L4 lesson, and it **passed
-the gate**: head-on the new cartons do hide the racking, but from a reachable chase position along
-the run the steel is ~40% of frame with 74 flat untextured uprights. Authored a **new**
-`buildShelfSteelTexture()` (the shared furniture `metal` builder feeds the pile and was left alone)
-plus **world-scaled UVs** via a new optional `uvMeters` on `pushFadeBox` — without those the map was
-meaningless, since a unit-box clone keeps 0..1 UVs on a 0.16 m upright and a 114 m board alike.
-Brightness measured both ways because §8 forbids darkening this arena: **−4.94%** in the steel-heavy
-frame, **−0.03%** (noise floor) from the arena bookmark. Split out: **SHELF-RAIL-1** (booth rails +
-per-bay board segmentation). **All five Storerooms pass items are now closed.**
+`[unverified]` markers; Sundial is leads, not findings.
+
+**ART-PASS-STOREROOMS-1 complete 08-02** — all five audit items shipped *and* looked at
+(`ef5b35e`+`d741d8d` stocking + carton colour · `f292393` pile work light · `6ece86c` floor-decal
+LOD · `07e56ae` suction telegraph · `f8d296c` shelf steel). Per-item evidence lives in the
+[audit](./planning/art-audit-storerooms.md), not here. Still open from it: the `skipThreshold`
+retune (*filled in ≠ final density*) and **SHELF-RAIL-1**. **Owed: Wyatt playtest — does the
+suction lip band read as "committed" or as a game marker, and does the racking read as used steel
+or just a darker wall.**
+
+**ART-PASS-SUNDIAL-1 in flight** — Wave 1 closed (`2c5b3fc` sky ramp finishes at the waterline,
+red step +128/+126/+110 → −21/−12/−2 · `16157b0` IBL sun blob was 180° out, correctness-only).
+Wave 2 closed (`a07fa7e` dielectric water + owned `envMap` · `7b1a8a2` detail pack ·
+`da225dd` glint falloff). Wave 3 part-done (`4566349` settlement lights **0 → 46 px** ·
+`285ac61` gate pulse · `102ed31` ship-glow soft disc · `03b12f0` ships on Low). Remaining:
+alien city · wind farm · islands+haze · gas giant, then Waves 4–6.
+**SHOOT-ANIM-1** (BACKLOG, High) came out of this pass and **supersedes the old LOD-only note**:
+`levelUpdate` never runs in the `shoot-gpu` attract path, so **every** animated property is frozen
+at its constructor value in **every** capture, in every arena — not just LOD.
+**Owed: Wyatt playtest — do the gate beacons breathe rather than step, do the ship glows read as
+glows, and do the ships glide on a phone.**
 
 ### Do not
 
@@ -165,7 +147,7 @@ BOOT-PERF-1 · Run 7 strip) → [completed-work.md](./planning/completed-work.md
 | **LOD-CLOCK-1** | level LOD throttle uses host-adjusted time | ✅ **SHIPPED 08-02** — `updateLevelLod(camera, now)`; stall unit test + main.js source assert. Applied, unpushed. |
 | **ASSET-CACHE-1** | fixed-name assets 7d cache stale after deploy | ✅ **SHIPPED 08-02** — `shared/assetCache.js`; fixed-name → 1h + 5m SWR; hashed `/assets/*` unchanged. Applied, unpushed. |
 | **QP-ORDER-1** | quickplay rotates sequential, not random | ✅ **SHIPPED 08-02** — fresh QP picks random pool entry; rematch advances catalog order via `nextQuickplayArenaId`. Live 2-browser smoke remains Wyatt-owed (BACKLOG Low). Applied, unpushed. |
-| **ART-PASS-SUNDIAL-1** | Sundial art pass — 6 waves, one lever per commit | ▶ **ACTIVE 08-02** — **Wave 1 CLOSED.** Sky ramp now finishes at the waterline (`2c5b3fc`): red step **+128/+126/+110 → −21/−12/−2** (target <30), water pixels unmoved, sky-only. IBL sun blob was **exactly 180° out**, fixed **correctness-only** (`16157b0`) — re-judge after Wave 2 gives water `ior`+owned `envMap`. Next = **Wave 2 (ocean)**. [audit](./planning/art-audit-sundial.md). |
+| **ART-PASS-SUNDIAL-1** | Sundial art pass — 6 waves, one lever per commit | ▶ **ACTIVE 08-02** — **Waves 1–2 closed, Wave 3 part-done** (7 commits; hashes + numbers under Current focus). Next = alien city → wind farm → islands+haze → gas giant, then Waves 4–6. **Owed: Wyatt playtest** — gate beacons, ship glows, ships on a phone. [audit](./planning/art-audit-sundial.md) is all `[unverified]`; verify each claim before fixing it. |
 | **DIAG-TIER-1** | capture `runtime.qualityTier` reports effective tier | ✅ **SHIPPED 08-02** — three fields on real runtime probe; `tests/gameplayDiagnostics.runtime.test.js` ×3. Applied, unpushed. |
 | **BACKLOG-BATCH-08-02** | twelve backlog cards, one commit each | ✅ **SHIPPED 08-02** — `af12632`..`b8e327b`, qa green before each (1089 → **1116** tests, 95 → **98** files). SOLO-DIFF · LOD-UNCANNY · FX-TEXDISPOSE · PIT-DEPTH · PIT-COL-INSET · SPAWN-BACKROOMS · CAM-OPEN · UNLOCK-ORDER · CC-TOKEN/STRIPE/LABEL/ICON. Ran alongside the live Sundial session, `zanzibarPlatform.js` frozen, pathspec-only commits — zero crossed files. **6 playtest-owed** in BACKLOG. Applied, unpushed. [detail](./planning/completed-work.md). |
 | **FIGHT-VERIFY-1** | owed fight-night verification | 🟢 **agent half DONE** 08-01 — podium/loadshots/states + focus-ring. Residual = **Playtest owed** cards (BACKLOG) — console-seeded; not this parent row. |
@@ -176,8 +158,9 @@ BOOT-PERF-1 · Run 7 strip) → [completed-work.md](./planning/completed-work.md
 
 ### Next actions
 
-1. **ART-PASS-SUNDIAL-1** — **Wave 2 (ocean)**: shading model + owned `envMap` → detail pack →
-   glint falloff. **D-SUNDIAL-OQ6 binds** — every lever needs its Low path in the same commit.
+1. **ART-PASS-SUNDIAL-1** — **Wave 3 continues**: alien city (per-window flicker + seeded layout)
+   → wind farm (Wyatt: fix, don't replace) → islands + haze ladder → gas giant.
+   **D-SUNDIAL-OQ6 binds** — every lever needs its Low path in the same commit.
 1b. Closed 08-02 insert: **LOD-CLOCK-1** · **ASSET-CACHE-1** · **QP-ORDER-1**. Live QP rotation smoke still Wyatt-owed.
 1c. **ROUND-WEDGE-1 parked 08-02** for the Sundial pass. Phase A shipped `d4a7718`; Phase B needs its own ack.
 1d. **Backlog batch closed 08-02** — six of the twelve changed behaviour and are **Wyatt-owed**:

@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-02T18:28:08.728Z",
-    "commit": "b8e327b"
+    "at": "2026-08-02T19:16:03.915Z",
+    "commit": "03b12f0"
   },
-  "source_digest": "24346025",
+  "source_digest": "4ed01aab",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -894,7 +894,7 @@
       {
         "id": "ART-PASS-SUNDIAL-1",
         "what": "Sundial art pass — 6 waves, one lever per commit",
-        "status": "▶ ACTIVE 08-02 — Wave 1 CLOSED. Sky ramp now finishes at the waterline (`2c5b3fc`): red step +128/+126/+110 → −21/−12/−2 (target <30), water pixels unmoved, sky-only. IBL sun blob was exactly 180° out, fixed correctness-only (`16157b0`) — re-judge after Wave 2 gives water `ior`+owned `envMap`. Next = Wave 2 (ocean). [audit](./planning/art-audit-sundial.md).",
+        "status": "▶ ACTIVE 08-02 — Waves 1–2 closed, Wave 3 part-done (7 commits; hashes + numbers under Current focus). Next = alien city → wind farm → islands+haze → gas giant, then Waves 4–6. Owed: Wyatt playtest — gate beacons, ship glows, ships on a phone. [audit](./planning/art-audit-sundial.md) is all `[unverified]`; verify each claim before fixing it.",
         "state": "active"
       },
       {
@@ -959,7 +959,7 @@
       }
     ],
     "next_actions": [
-      "ART-PASS-SUNDIAL-1 — Wave 2 (ocean): shading model + owned `envMap` → detail pack →",
+      "ART-PASS-SUNDIAL-1 — Wave 3 continues: alien city (per-window flicker + seeded layout)",
       "Playtest console — owed cards in BACKLOG `## Playtest owed` (08-01 and 08-02 sections).",
       "Closed 08-01 Wyatt PASS: PAUSE-ROW-1 · MENU-CMD-FEEL-1 · FOCUS-CYAN-1."
     ],
