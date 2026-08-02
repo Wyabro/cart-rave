@@ -167,6 +167,7 @@ BOOT-PERF-1 · Run 7 strip) → [completed-work.md](./planning/completed-work.md
 | **QP-ORDER-1** | quickplay rotates sequential, not random | ✅ **SHIPPED 08-02** — fresh QP picks random pool entry; rematch advances catalog order via `nextQuickplayArenaId`. Live 2-browser smoke remains Wyatt-owed (BACKLOG Low). Applied, unpushed. |
 | **ART-PASS-SUNDIAL-1** | Sundial art pass — 6 waves, one lever per commit | ▶ **ACTIVE 08-02** — **Wave 1 CLOSED.** Sky ramp now finishes at the waterline (`2c5b3fc`): red step **+128/+126/+110 → −21/−12/−2** (target <30), water pixels unmoved, sky-only. IBL sun blob was **exactly 180° out**, fixed **correctness-only** (`16157b0`) — re-judge after Wave 2 gives water `ior`+owned `envMap`. Next = **Wave 2 (ocean)**. [audit](./planning/art-audit-sundial.md). |
 | **DIAG-TIER-1** | capture `runtime.qualityTier` reports effective tier | ✅ **SHIPPED 08-02** — three fields on real runtime probe; `tests/gameplayDiagnostics.runtime.test.js` ×3. Applied, unpushed. |
+| **BACKLOG-BATCH-08-02** | twelve backlog cards, one commit each | ✅ **SHIPPED 08-02** — `af12632`..`b8e327b`, qa green before each (1089 → **1116** tests, 95 → **98** files). SOLO-DIFF · LOD-UNCANNY · FX-TEXDISPOSE · PIT-DEPTH · PIT-COL-INSET · SPAWN-BACKROOMS · CAM-OPEN · UNLOCK-ORDER · CC-TOKEN/STRIPE/LABEL/ICON. Ran alongside the live Sundial session, `zanzibarPlatform.js` frozen, pathspec-only commits — zero crossed files. **6 playtest-owed** in BACKLOG. Applied, unpushed. [detail](./planning/completed-work.md). |
 | **FIGHT-VERIFY-1** | owed fight-night verification | 🟢 **agent half DONE** 08-01 — podium/loadshots/states + focus-ring. Residual = **Playtest owed** cards (BACKLOG) — console-seeded; not this parent row. |
 | **HOST-CAP-1** | weak-host toast residual | ✅ **SHIPPED** 08-01 — `score < 50` once/hostship; prod Version `76ebdc37` (HEAD `423008f`) |
 | **BOOT-PERF-1** | idle warm gen-cancel | ✅ **SHIPPED** 08-01 — mid-flight retarget; same deploy |
@@ -179,10 +180,14 @@ BOOT-PERF-1 · Run 7 strip) → [completed-work.md](./planning/completed-work.md
    glint falloff. **D-SUNDIAL-OQ6 binds** — every lever needs its Low path in the same commit.
 1b. Closed 08-02 insert: **LOD-CLOCK-1** · **ASSET-CACHE-1** · **QP-ORDER-1**. Live QP rotation smoke still Wyatt-owed.
 1c. **ROUND-WEDGE-1 parked 08-02** for the Sundial pass. Phase A shipped `d4a7718`; Phase B needs its own ack.
-2. **Playtest console** — owed cards in BACKLOG `## Playtest owed (08-01 session)`.
+1d. **Backlog batch closed 08-02** — six of the twelve changed behaviour and are **Wyatt-owed**:
+   BACKLOG `## Playtest owed (08-02 backlog batch)`. **UNLOCK-PT-1 needs gates ON**
+   (`?devUnlocks=off` + hard refresh) or Vite hides the whole change. **SPAWN-SUNDIAL-1 stays
+   open** — spawn inset shipped, platform-leg colliders did not (file was frozen).
+2. **Playtest console** — owed cards in BACKLOG `## Playtest owed` (08-01 **and** 08-02 sections).
 3. Closed 08-01 Wyatt PASS: **PAUSE-ROW-1** · **MENU-CMD-FEEL-1** · **FOCUS-CYAN-1**.
    Still open tooling: **HARNESS-FRIENDS-1**.
-   Closed 08-02: **DIAG-TIER-1** · **LOD-CLOCK-1** · **ASSET-CACHE-1** · **QP-ORDER-1**.
+   Closed 08-02: **DIAG-TIER-1** · **LOD-CLOCK-1** · **ASSET-CACHE-1** · **QP-ORDER-1** · batch.
 
 **07-31 lesson (short):** verification tools only see branches they enter — add the matching
 viewport/pointer cell in the same commit as any scoped CSS. Prefer one real clip when it
@@ -314,6 +319,13 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 - **Claude Code permission rules are globs, never regex** — `|` alternation inside `Bash(...)` matches nothing. A space before `*` enforces a word boundary (`Bash(ls *)` ≠ `lsof`), rules match each `&&`/`;`/`|` subcommand independently, and a broad deny beats a narrower allow.
 
 ## Last updated
+
+2026-08-02 (twelve-card backlog batch) — `af12632`..`b8e327b`; 1089 → 1116 tests, 95 → 98 files.
+Four cards where the code disagreed with the card ([full text](./planning/completed-work.md)):
+PIT-DEPTH-1 cannot go under 61m (negative collider half-height); PIT-COL-INSET-1's clipping was
+tangent-fit hulls **circumscribing** the shaft, so the inset is `cos(π/16)`; FX-TEXDISPOSE-1 was
+disposing the **shared** cart materials; UNLOCK-ORDER-1's grandfather had to be omission, not a
+force-write. New gate `tests/ccStyle.test.js`. Applied, unpushed.
 
 2026-08-02 (QP-ORDER-1) — Fresh public rooms pick a random pool entry; rematch advances
 catalog order via `nextQuickplayArenaId` (wrap). Live 2-browser smoke remains Wyatt-owed.
