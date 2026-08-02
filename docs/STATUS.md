@@ -88,6 +88,21 @@ Playtest console: `npm run dashboard` → [.diag-captures/playtest-console.html]
 
 **Warm residual:** WARM-IGPU-1 closed; solo stall = WARM-SOLO-1 ([plan](./planning/warm-igpu-1.md)).
 
+**Art pass.** ART-PASS-CLASSIC-1 **complete** (L1 `316c74f` · L2 `beebe81` · L3 `d59fd92` ·
+L5 `5fc1c1e` correctness-only; L4 dropped → CLAD-REPEAT-1). All three arenas audited
+([cart-rave](./planning/art-audit-cart-rave.md) · [storerooms](./planning/art-audit-storerooms.md) ·
+[sundial](./planning/art-audit-sundial.md)) — confidence differs per doc, respect the
+`[unverified]` markers; Sundial is leads, not findings. **Storerooms item 1 (`ef5b35e`) — visual
+debt settled 08-02.** It shipped on code verification alone because `?shot=storerooms` does not
+frame the shelf walls; a before/after aimed square at the side-0 wall
+(`node tools/shoot-gpu.mjs --shot storerooms --cam "-12,5.3,44,-12,5.3,55"`, ANGLE/D3D11 RTX 4090)
+shows **0 of 60 in-frame slots stocked before, 42 after** — five levels of bare board becoming a
+stocked wall, with the amplified ×4 diff black except for the new cartons. Real look win, recorded
+in the audit. **Caveat:** `skipThreshold` was not retuned, so the wall went ~329 → ~612 boxes —
+*filled in is not final density*, and the audit's retune stays open. New card from that work:
+**SHELF-PICK-1** (BACKLOG) — the `pick` colour hash at `:2057` has the same negative-modulo bug and
+was not fixed; blue cartons are missing from the negative-`a` half of every wall.
+
 ### Do not
 
 Standing prohibitions — fed into [BRIEFING.md](./BRIEFING.md) and the Command Center firewall.

@@ -119,7 +119,7 @@ fogged; a map there would be invisible. The vertex fade *is* the material.
 Ranked by visual impact per unit of effort. Verified items carry more weight than unverified ones
 at equal impact.
 
-### 1. Fix the shelf-stocking negative-modulo bug — `:2047` · small · **verified**
+### 1. Fix the shelf-stocking negative-modulo bug — `:2047` · small · **verified** · SHIPPED `ef5b35e` · **visually verified 08-02**
 
 `if (((lvl * 7 + Math.round(a) * 13 + side * 41) % 10) < skipThreshold) continue;` — JS `%`
 preserves the dividend's sign, and `a` runs −55 → +55. The verifier executed the exact expression
@@ -137,6 +137,19 @@ emptiness clusters at bay granularity and reads as human picking. Fix `pick` at 
 edit: it is the same negative-modulo family, so every negative remainder falls through to beige and
 the surviving low-`a` cartons are colour-skewed. **This is #1 because it halves the visible area of
 finding #4 for free** — half that untextured racking is currently naked board.
+
+*Shipped and looked at.* `ef5b35e` landed the true-modulo fix — but **not** the `pick` half of it;
+that is now **SHELF-PICK-1** in the backlog. `ef5b35e` shipped on code verification alone with the
+visual proof explicitly owed, because the `?shot=storerooms` bookmark does not frame the shelf
+walls. **Settled 08-02:** a before/after aimed square at the side-0 wall
+(`node tools/shoot-gpu.mjs --shot storerooms --cam "-12,5.3,44,-12,5.3,55"`, hardware raster
+confirmed — ANGLE/D3D11 on an RTX 4090) shows **60 slots in frame, 0 stocked before, 42 after**.
+The BEFORE frame is five levels of completely bare board across ~17 m of wall; the amplified ×4
+diff panel is black except for ~30 clean carton silhouettes. This is a real look win, not a
+correctness-only fix, and the "halves the visible area of finding #4" argument above stands with a
+picture behind it. Note the density caveat: `skipThreshold` was **not** retuned, so the wall now
+carries ~612 boxes where it carried ~329 — "filled in" is not "final density", and the 4–5 / 6–7
+retune plus the bay-granularity hash idea both stay open.
 
 ### 2. Un-bury the furniture-pile fixture — `:1839-1848` · small · **verified**
 

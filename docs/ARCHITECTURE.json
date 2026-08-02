@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-02T03:57:32.800Z",
-    "commit": "d59fd92"
+    "at": "2026-08-02T04:43:01.045Z",
+    "commit": "a83b067"
   },
-  "source_digest": "b3f971a2",
+  "source_digest": "3291f3ab",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1106,7 +1106,7 @@
         "counts": {
           "High": 6,
           "Medium": 5,
-          "Low": 6
+          "Low": 7
         },
         "rows": [
           {
@@ -1148,7 +1148,7 @@
           {
             "pri": "High",
             "item": "ART-PASS-CLASSIC-1 — Cart Rave art pass `[pre-ship]`",
-            "notes": "One commit + one real-GPU capture per lever. **L1 ✅ `316c74f`** pit-wall texel anisotropy — `repeat.set(16,200)` → `(32,69)` squares the tile, killing a measured 5.8× (rivets rendered as ~5.8:1 ovals). **L2 ✅ `beebe81`** the CART RAVE label had never rendered — wordmark, divider, hole cut and grooves 1–3 of 7 all sat inside the `RingGeometry(3.7, 7.0)` inner edge at canvas r=135.3px; re-authored as curved arc text, geometry constants now shared by canvas and mesh. **L3 ✅ `d59fd92`** records on the turntables + platter wear map; platters **ruled hero, not dressing** (allowlist updated in the same commit). **L4 ❌ DROPPED** → see CLAD-REPEAT-1. **L5 📋 remaining** — record-body `ExtrudeGeometry` UVs are in metres and the vinyl maps default to ClampToEdge (`arena.js:439`/`298`); real but rim-band only, since two `RingGeometry` meshes with correct 0..1 UVs cover the body's top face at every tier. Custom UVGenerator normalising to 0..1.",
+            "notes": "One commit + one real-GPU capture per lever. **L1 ✅ `316c74f`** pit-wall texel anisotropy — `repeat.set(16,200)` → `(32,69)` squares the tile, killing a measured 5.8× (rivets rendered as ~5.8:1 ovals). **L2 ✅ `beebe81`** the CART RAVE label had never rendered — wordmark, divider, hole cut and grooves 1–3 of 7 all sat inside the `RingGeometry(3.7, 7.0)` inner edge at canvas r=135.3px; re-authored as curved arc text, geometry constants now shared by canvas and mesh. **L3 ✅ `d59fd92`** records on the turntables + platter wear map; platters **ruled hero, not dressing** (allowlist updated in the same commit). **L4 ❌ DROPPED** → see CLAD-REPEAT-1. **L5 ✅ `5fc1c1e`** (row corrected 08-02 — it read \"remaining\" after the commit landed) — record-body `ExtrudeGeometry` UVs were in metres and the vinyl maps default to ClampToEdge (`arena.js:439`/`298`); fixed with a custom UVGenerator normalising to 0..1, but shipped as **correctness only, no visual delta**: it is rim-band only, since two `RingGeometry` meshes with correct 0..1 UVs cover the body's top face at every tier. **Card COMPLETE.**",
             "ship1": null
           },
           {
@@ -1161,6 +1161,12 @@
             "pri": "Low",
             "item": "FX-TEXDISPOSE-1 — cloned textures are never disposed in effects.js",
             "notes": "`disposeObject3D` (`effects.js:26`) traverses and disposes materials and non-shared geometries, but `material.dispose()` does **not** dispose the material's maps. The seat loop clones `seatTex` per deck (`effects.js:993`) and those clones leak one texture each per arena build. Small (256² canvases) but unbounded across level swaps. Found while scoping CLAD-REPEAT-1, which would have widened the same gap.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "SHELF-PICK-1 — the other half of the Storerooms shelf negative-modulo bug was never fixed",
+            "notes": "**Filed 08-02** while capturing the proof for `ef5b35e`. That commit fixed the *stocking* hash at [backroomsSupermarket.js:2053](../../src/levels/backroomsSupermarket.js:2053) but not the *colour* pick one line below (`:2057`), even though audit item 1 said to fix both in the same edit. `const pick = (lvl + Math.round(a)) % 3;` — same trap: JS `%` keeps the dividend's sign, so wherever `lvl + Math.round(a) < 0` the result is `0 / -1 / -2`, and the ternary at `:2058` only spends `1` on blue. **Enumerated, not inferred:** across the captured window (side 0, `a` ∈ [−22, −2], 5 levels, 42 stocked slots) the colours come out **15 red / 26 beige / 1 blue** — the single blue is `lvl 3 @ a = −2.3`, the only slot in frame whose sum clears zero. So blue cartons are absent from essentially the whole negative-`a` half of every wall (all but a narrow band at `",
             "ship1": null
           },
           {
