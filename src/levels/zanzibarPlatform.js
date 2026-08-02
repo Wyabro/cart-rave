@@ -1317,12 +1317,17 @@ function buildSeascape(scene, circumR) {
   // * the ocean fades into — at 300-365m that's a 60-75% fog mix, which does the
   // * atmospheric-perspective blending for us. Base colors are therefore much darker
   // * than the final on-screen tones; the fog lift lands them just under the horizon.
-  const islandNearMat = new THREE.MeshBasicMaterial({ color: 0x140a10 }); // closest ridge — near-black plum
-  const islandMidMat = new THREE.MeshBasicMaterial({ color: 0x231018 }); // mid-distance ridge / near haze
-  const islandFarMat = new THREE.MeshBasicMaterial({ color: 0x321823 }); // far ridge — dusty mauve
-  const islandFarHazeMat = new THREE.MeshBasicMaterial({ color: 0x40202c }); // farthest haze — near-merges with the horizon glow
-  ownedMaterials.push(islandNearMat, islandMidMat, islandFarMat, islandFarHazeMat);
-  const coneGeo = new THREE.ConeGeometry(1, 1, 7);
+  // * The four-tone haze ladder was MEASURED and cut to one. At 300-400 m this fog
+  // * (FogExp2, density 0.00355, colour #ff5a22) runs 68-87%, which puts a floor of ~215
+  // * red under every one of these meshes: authored #140a10 renders [215,75,29] and PURE
+  // * BLACK at the same distance renders [215,74,27]. The authored colour was worth 0-1
+  // * levels per layer. Atmospheric perspective here is the fog's job, not the palette's —
+  // * so one material, and the ridges are differentiated by SILHOUETTE instead (below).
+  const islandMat = new THREE.MeshBasicMaterial({ color: 0x140a10 });
+  ownedMaterials.push(islandMat);
+  // * 7 radial segments read as a faceted pyramid this close to camera-facing; 18 rounds
+  // * the outline without costing anything meaningful at three ridges.
+  const coneGeo = new THREE.ConeGeometry(1, 1, 18);
   const boxGeo = new THREE.BoxGeometry(1, 1, 1);
   ownedGeometries.push(coneGeo, boxGeo);
 
@@ -1334,16 +1339,22 @@ function buildSeascape(scene, circumR) {
    * @param {number} [yLift] Extra Y so a hazier, farther ridge's base sits above the
    *   waterline, as if its foot were lost in the haze.
    */
+  const ridgeRng = makeCityRng(0x151a9d01);
   const addRidge = (azimuth, dist, parts, mat, yLift = 0) => {
     const island = new THREE.Group();
     island.position.set(Math.cos(azimuth) * dist, WATER_Y + yLift, Math.sin(azimuth) * dist);
     let offset = 0;
     for (const [w, h, kind] of parts) {
       const m = new THREE.Mesh(kind === 0 ? coneGeo : boxGeo, mat);
-      m.scale.set(w, h, w);
+      // * Every part used to take the ridge's own rotation and a scale of (w, h, w), so all
+      // * the facet seams lined up down the chain and every cone was a perfect circle in
+      // * plan. Per-part yaw plus a slightly non-uniform XZ breaks both. Seeded, so this is
+      // * the same skyline on every load — the alien city's Math.random() bug, not repeated.
+      m.scale.set(w * (0.86 + ridgeRng() * 0.28), h, w * (0.86 + ridgeRng() * 0.28));
+      m.rotation.y = ridgeRng() * Math.PI * 2;
       m.position.set(offset, h / 2, offset * 0.4);
       island.add(m);
-      offset += w * 0.7;
+      offset += w * 0.7; // chain spacing stays on the authored width, not the jittered one
     }
     island.lookAt(0, WATER_Y + yLift, 0);
     group.add(island);
@@ -1363,23 +1374,27 @@ function buildSeascape(scene, circumR) {
     }
   };
 
-  // Closest cluster — darkest tier, largest silhouette.
+  // * All three clusters take the SAME material now — the tier tones were measured to be
+  // * worth 0-1 levels each under this fog (see the note above the material). Depth comes
+  // * from distance, silhouette and the haze layer's yLift, which is where it was always
+  // * actually coming from.
+  // Closest cluster — largest silhouette.
   addIsland(
     SUN_AZIMUTH + 0.55, 300,
-    [[76, 37, 0], [50, 24, 0], [64, 29, 0]], islandNearMat,
-    [[40, 20, 0], [30, 15, 0]], islandMidMat,
+    [[76, 37, 0], [50, 24, 0], [64, 29, 0]], islandMat,
+    [[40, 20, 0], [30, 15, 0]], islandMat,
   );
-  // Mid cluster — jagged rock spires, tier fading toward the far cluster's tone.
+  // Mid cluster — jagged rock spires, the group that reads most as a silhouette.
   addIsland(
     SUN_AZIMUTH - 0.5, 335,
-    [[11, 60, 1], [8, 88, 1], [13, 48, 1], [9, 68, 1]], islandMidMat,
-    [[6, 40, 1], [5, 55, 1]], islandFarMat,
+    [[11, 60, 1], [8, 88, 1], [13, 48, 1], [9, 68, 1]], islandMat,
+    [[6, 40, 1], [5, 55, 1]], islandMat,
   );
-  // Farthest cluster — smallest, hazy silhouette that nearly merges with the horizon glow.
+  // Farthest cluster — smallest silhouette, nearly merged with the horizon glow.
   addIsland(
     SUN_AZIMUTH + 1.6, 365,
-    [[28, 19, 0], [16, 32, 0]], islandFarMat,
-    [[18, 12, 0]], islandFarHazeMat,
+    [[28, 19, 0], [16, 32, 0]], islandMat,
+    [[18, 12, 0]], islandMat,
   );
 
   // Settlement lights on the closest island — a handful of warm pixel dots that read as a
