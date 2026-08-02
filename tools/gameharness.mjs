@@ -40,6 +40,9 @@ import {
   CLIENT_PORT,
   killDevStack,
 } from "./lib/harness.mjs";
+// * arenaCatalog.js is pure authoring data with zero imports, so a Node tool can read the
+// * progression gates straight from the source of truth the game uses (HARNESS-UNLOCK-1).
+import { ARENA_BY_ID } from "../src/levels/arenaCatalog.js";
 
 const log = makeLogger("gameharness");
 
@@ -215,8 +218,22 @@ async function scenarioRoundflow(browser, baseUrl, tally) {
 }
 
 /**
- * Scenario: the KO→unlock funnel. With real locks enforced, granting enough KOs on Cart Rave
- * (classicRecord) unlocks The Storerooms — the S2 progression check, automated.
+ * The Storerooms unlock gate as the game defines it: `killsOnLevel` names the arena the KOs
+ * must be scored on, `goal` is how many. Read, never restated — see the scenario below.
+ */
+const GATE = ARENA_BY_ID.backrooms?.unlock ?? {};
+
+/**
+ * Scenario: the KO→unlock funnel. With real locks enforced, granting enough KOs on whichever
+ * arena gates The Storerooms unlocks it — the S2 progression check, automated.
+ *
+ * HARNESS-UNLOCK-1: the gating arena and the goal are READ FROM THE CATALOG, never named here.
+ * They used to be hardcoded as `grantKos("classicRecord", 10)`, and UNLOCK-ORDER-1 (`11df427`)
+ * reversed the chain — Storerooms now gates on Sundial — so this scenario went on crediting an
+ * arena that gates nothing and reported the funnel broken when the game was correct. The unit
+ * tests were updated with that commit and stayed green; only this browser rig, which runs in
+ * `npm run battery` rather than `npm run qa`, was left behind. Deriving the gate means the next
+ * reorder cannot desync it.
  */
 async function scenarioUnlockFunnel(browser, baseUrl, tally) {
   log("[scenario] unlockFunnel — KO credit crosses a real unlock gate");
@@ -242,6 +259,14 @@ async function scenarioUnlockFunnel(browser, baseUrl, tally) {
     await context.close();
     return;
   }
+  // * If Storerooms ever becomes free (or the gate is reshaped), there is no KO funnel to
+  // * exercise — skip loudly rather than granting KOs on `undefined` and reporting a failure
+  // * that says nothing about the game.
+  if (!GATE.killsOnLevel || !GATE.goal) {
+    log("[scenario] Storerooms carries no KO gate in the catalog — skipping unlock-funnel");
+    await context.close();
+    return;
+  }
 
   const before = await page.evaluate(
     () => /** @type {any} */ (window).__ccDiag.snapshot("unlocks").levels.backrooms.unlocked,
@@ -249,13 +274,20 @@ async function scenarioUnlockFunnel(browser, baseUrl, tally) {
   tally.check("Storerooms starts locked (real locks on)", before === false, `unlocked=${before}`);
 
   const cursor = await page.evaluate(() => /** @type {any} */ (window).__ccDiag.tail);
-  await page.evaluate(() => /** @type {any} */ (window).__ccDiag.control.grantKos("classicRecord", 10));
+  await page.evaluate(
+    ([levelId, kos]) => /** @type {any} */ (window).__ccDiag.control.grantKos(levelId, kos),
+    [GATE.killsOnLevel, GATE.goal],
+  );
   await sleep(200);
 
   const after = await page.evaluate(
     () => /** @type {any} */ (window).__ccDiag.snapshot("unlocks").levels.backrooms.unlocked,
   );
-  tally.check("granting 10 KOs unlocks Storerooms", after === true, `unlocked=${after}`);
+  tally.check(
+    `granting ${GATE.goal} KOs on ${GATE.killsOnLevel} unlocks Storerooms`,
+    after === true,
+    `unlocked=${after}`,
+  );
 
   const unlockEvents = await page.evaluate(
     (c) =>
