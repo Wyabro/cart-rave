@@ -13,6 +13,79 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 2, 2026 — HOOK-CASE-1 + the cross-platform path fix under it
+
+Two commits to the Claude Code enforcement hooks, both CI-verified green. Filed as chips during
+the twelve-card batch, then picked up on Wyatt's explicit ack.
+
+- *(Tooling · High)* **Cross-platform path normalization** — CI had been red for **13
+  consecutive runs** (~04:13Z onward), always the same 2 of 1116 tests — ✅ **CLOSED 08-02**,
+  `f11e014`, CI **green**. `normalizeRepoPath` did `.split(path.sep)`, and `path.sep` is `\` on
+  Windows / `/` on POSIX — where a backslash is a legal filename *byte*, so `path.resolve` never
+  treats it as a separator and the split is a no-op. Windows-shaped input (which Claude Code
+  genuinely sends: `src\Main.js`) normalized on the dev box and passed through untouched on
+  ubuntu-latest. The tests were right; the production code encoded the host's path flavour.
+  **Fixing that alone would not have gone green** — `guard-protected-paths.mjs` never called the
+  shared normalizer; lines 48-52 were a verbatim inline COPY, and the second failing test runs
+  through the copy. Deleted the duplicate. The `if (!rel) return null;` guard is not optional:
+  the shared version returns null where the copy returned a `../…` string, and without it the
+  PREFIXES loop calls `null.startsWith` and throws. Third change, closing a hole the fix itself
+  would have opened: `track-session-writes` keyed state on the normalized path but hashed the
+  **raw** one, so post-fix a path would carry GIT-INDEX-1 ownership with no GIT-INDEX-2
+  fingerprint — ownership without a fingerprint is worse than neither. **Fuzzed before shipping:
+  300,000 random path-shaped inputs per platform, ZERO deny→allow flips**; on win32 a provable
+  no-op (40,000 inputs, 0 differences). Every POSIX change is strictly stricter (877
+  allow→deny), closing real evasions that worked on Linux: `docs\..\docs\BRIEFING.md`,
+  `..\cart-rave\docs\BRIEFING.md`, `DOCS\BRIEFING.MD`. **Anti-regression:**
+  `normalizeRepoPath` takes an optional path flavour and the suite now runs its whole table under
+  **both** `path.win32` and `path.posix` — a test that can only be wrong on the machine you do
+  not have is not a test. Also `.gitattributes`: `.claude/hooks/** text eol=lf`, after editing
+  two files gave their `#!/usr/bin/env node` line a CRLF terminator — Vite's shebang stripper
+  only matches `#!…\n`, so a `#!…\r\n` first line survives the transform and kills the ENTIRE
+  suite with a `SyntaxError` blamed on the *test file*, not on the module carrying the CRLF.
+  autocrlf keeps the committed blob LF so it never reached CI; it cost an hour locally. The file
+  already pinned `tools/git-hooks/*` for the identical reason.
+
+- *(Tooling · High)* **HOOK-CASE-1** — the hooks folded every repo path to lowercase — ✅
+  **CLOSED 08-02**, `f8a41b5`, CI **green**, 1148/1148 across 98 files. **Two defects, and the
+  second was worse than the card claimed.** (1) *Ownership collision:* on a case-sensitive
+  filesystem `src/Foo.js` and `src/foo.js` are different files collapsing to one key, so session
+  A touching `src/foo.js` made session B's staged `src/Foo.js` read as owned — the exact
+  cross-session leak GIT-INDEX-1 exists to stop, fail-**open**. The same fold made
+  guard-stop-drift count another session's differently-cased file as this session's dirt, i.e.
+  the STOP-DIRT-1 false block it was written to cure. (2) *Dead content check, live on Windows:*
+  git's index lookup is case-**sensitive** even with `core.ignorecase=true` — verified here,
+  `git show HEAD:docs/STATUS.md` succeeds while `docs/status.md` is fatal — so `readStagedBlob`
+  had **never matched** for the 37% of tracked files containing a capital letter, docs/STATUS.md
+  included, and GIT-INDEX-2 Check B was silently dead for all of them. Check A survived only
+  because NTFS folds for `readFileSync`. The residual note claiming *"not a factor on this repo's
+  Windows tree"* was false and is corrected in place. **Fix:** membership NEVER folds; only
+  authored-lowercase constant tables fold, via a new `foldKey()` — three de-folds and five folds,
+  **all in one commit**, because with only some moved a pathspec-less commit denies the session's
+  own work across 37% of the tree. **Rejected** the card's platform predicate and a runtime FS
+  probe: both answer "is this filesystem case-insensitive", but Windows case sensitivity is
+  *per-directory*, so a root probe guessing "insensitive" folds and leaves the hole open in a
+  flagged subdirectory — misdetecting in the fail-open direction. Never-fold is fail-closed
+  everywhere and keeps `normalizeRepoPath` pure, which is what lets the suite drive both path
+  flavours from one machine. **The false-positive cost was measured, not guessed:** across 109
+  sessions of this repo's transcripts, **6,088 supplied paths produced zero case mismatches**,
+  and zero intra-session disagreements in the 72 sessions that did both a tracked write and a
+  `git add` — agents take paths from Read/Glob/Grep output and `git status`, not from memory.
+  **The blocker the card missed:** `GENERATED_DOCS` is authored lowercase while the real files
+  are `docs/BRIEFING.md` / `docs/ARCHITECTURE.json`, which `.git/hooks/pre-commit` stages on
+  every commit — an unfolded lookup there would have denied **every** pathspec-less commit in the
+  repo, deterministically. Verified live against the real hook before committing. State dir
+  bumped to `cart-clash-stopguard-v2`, because a v1 file written by folding code and read by this
+  one is over-blocking on ownership *and* under-checking on content simultaneously. **Tests
+  160 → 164**, two of which matter: the case "allows when everything staged is session-owned" was
+  **asserting the hole** (a staged `src/B.js` owned by a session that only touched `src/b.js`)
+  and is now inverted with a comment saying a fold here *is* the defect; and a new Check B case
+  drives a **real git repo with a real uppercase path and no injected readers** — every existing
+  GIT-INDEX-2 test injects `readWorktree`/`readStaged` and routes around the real reads, which is
+  precisely why this shipped green. **Expect** the documented residuals (`edit → add → edit →
+  commit`, `git add -p`, Bash-written files) to start firing on uppercase paths where they
+  previously could not — that is the contract finally working, not a regression.
+
 ### August 2, 2026 — twelve-card backlog batch (one lever, one commit, one qa run each)
 
 Wyatt asked for a batch. The standing one-card rule still held, so this ran as a sequential
