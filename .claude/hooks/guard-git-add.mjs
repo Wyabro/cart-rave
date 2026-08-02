@@ -40,9 +40,15 @@
 //     partial, so that path always denies. Agents on this repo do not use -p.
 //   - Files over the tracker's ~4 MB hash cap get no `writes` entry, so both content checks
 //     skip them and only GIT-INDEX-1 path ownership applies.
-//   - Disk and index reads use normalizeRepoPath's lowercased form. On a case-sensitive
-//     filesystem a case mismatch misses the file, the read returns null, and the check falls
-//     open. Not a factor on this repo's Windows tree.
+//   - Disk and index reads now use normalizeRepoPath's CASE-PRESERVED form (HOOK-CASE-1).
+//     The previous note here claimed the lowercased form was "not a factor on this repo's
+//     Windows tree" — that was false for the index read, and measurably so: `git show :0:`
+//     resolves case-sensitively even with core.ignorecase=true (`git show HEAD:docs/status.md`
+//     is fatal on this box while `docs/STATUS.md` succeeds), so Check B matched nothing at all
+//     for the 37% of tracked files containing an uppercase letter — docs/STATUS.md included.
+//     Check A survived only because NTFS folds for readFileSync. Both are live now, which
+//     means the documented residuals below (edit→add→edit, `git add -p`, Bash-written files)
+//     start firing on paths where they previously could not.
 //   - stripQuoted pairs quotes naively. Nested or unbalanced quoting (a heredoc, a
 //     JS string array, a multi-line python literal) desyncs it, so a literal
 //     `git add -A` inside such text can false-positive. Unfixable without a real
@@ -68,6 +74,7 @@ import path from 'node:path';
 import {
   DEFAULT_STATE_DIR,
   GENERATED_DOCS,
+  foldKey,
   hashContent,
   normalizeRepoPath,
   readState,
@@ -245,7 +252,7 @@ function foreignDenial(foreign) {
 function driftedAgainstWrites(paths, writes, read) {
   const out = [];
   for (const rel of new Set(paths)) {
-    if (GENERATED_DOCS.has(rel)) continue;
+    if (GENERATED_DOCS.has(foldKey(rel))) continue;
     const expected = writes?.[rel];
     if (!expected) continue;
     let actual = null;
@@ -343,9 +350,14 @@ export function evaluateGitCommand(input, deps = {}) {
   if (pathless && session.existed) {
     const staged = (deps.listStaged ?? listStagedInIndex)(root);
     if (Array.isArray(staged)) {
-      const normalized = staged.map((p) => p.replace(/\\/g, '/').toLowerCase()).filter(Boolean);
+      // * Case-PRESERVED (HOOK-CASE-1): git reports the index's real case here, and that is
+      // * both the ownership key and — via Check B below — the path handed to `git show :0:`,
+      // * whose lookup is case-sensitive even under core.ignorecase. Folding made every
+      // * uppercase path miss on both counts. GENERATED_DOCS is the one authored-lowercase
+      // * table in this line, so it gets an explicit foldKey and nothing else does.
+      const normalized = staged.map((p) => p.replace(/\\/g, '/')).filter(Boolean);
       const owned = new Set([...session.staged, ...session.touched, ...addPaths]);
-      const foreign = normalized.filter((p) => !GENERATED_DOCS.has(p) && !owned.has(p));
+      const foreign = normalized.filter((p) => !GENERATED_DOCS.has(foldKey(p)) && !owned.has(p));
       if (foreign.length > 0) return foreignDenial(foreign);
 
       // GIT-INDEX-2 Check B — staged blob. Backstop for content staged without an observed

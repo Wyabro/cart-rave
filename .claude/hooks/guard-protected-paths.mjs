@@ -10,7 +10,7 @@
 //
 // Fails open by design: any parse or logic error exits 0.
 
-import { normalizeRepoPath } from './lib/session-state.mjs';
+import { foldKey, normalizeRepoPath } from './lib/session-state.mjs';
 
 // Keys are lowercased repo-relative paths — Windows paths are case-insensitive.
 const EXACT = new Map([
@@ -58,11 +58,20 @@ export function evaluateProtectedPath(input, env = {}) {
   const rel = normalizeRepoPath(target, root);
   if (!rel) return null;
 
-  const exact = EXACT.get(rel);
+  // * ALWAYS folded (HOOK-CASE-1). normalizeRepoPath is case-preserving now, but EXACT and
+  // * PREFIXES are authored lowercase while the real files are docs/BRIEFING.md and
+  // * docs/ARCHITECTURE.json — an unfolded lookup here stops protecting the generated docs
+  // * on every OS, silently. This hook reads nothing off disk and stores no session state,
+  // * so the folded form is the only form it needs. (PREFIXES would survive unfolded today
+  // * purely because docs/archive/handovers/ and docs/archive/audits/ happen to be
+  // * all-lowercase directories — luck, not design.)
+  const key = foldKey(rel);
+
+  const exact = EXACT.get(key);
   if (exact) return exact;
 
   for (const [prefix, reason] of PREFIXES) {
-    if (rel.startsWith(prefix)) return reason;
+    if (key.startsWith(prefix)) return reason;
   }
   return null;
 }

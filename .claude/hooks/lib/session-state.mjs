@@ -19,14 +19,41 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import path from 'node:path';
 
-export const DEFAULT_STATE_DIR = join(tmpdir(), 'cart-clash-stopguard');
+// * `-v2` because HOOK-CASE-1 changed the CASE CONVENTION of every key inside these files.
+// * A v1 file written by the folding code and read by this one would be simultaneously
+// * over-blocking on ownership (folded `touched` misses the real-case staged path → the
+// * session's own work reads as foreign) and under-checking on content (folded `writes` key
+// * misses → both GIT-INDEX-2 checks skip the path). That combination is the worst one: a
+// * spurious deny that pushes the agent toward SKIP_GIT_GUARD=1, with the check that would
+// * have caught a real leak already silent. Renaming the directory makes v1 files simply not
+// * found, so `existed:false` fails every guard open — the shipped, tested behaviour for a
+// * session with no record.
+export const DEFAULT_STATE_DIR = join(tmpdir(), 'cart-clash-stopguard-v2');
 
 /**
  * Generated, pre-commit-managed files (lowercase repo-relative): the pre-commit hook
  * regenerates and stages these on every commit, so no guard treats their dirt or their
  * staged presence as another session's work.
+ *
+ * Authored lowercase, but the real files are `docs/BRIEFING.md` / `docs/ARCHITECTURE.json`
+ * and git reports that case — so every membership test against this set must go through
+ * {@link foldKey}. Miss it and the pre-commit hook's own two staged files read as foreign on
+ * every pathspec-less commit.
  */
 export const GENERATED_DOCS = new Set(['docs/briefing.md', 'docs/architecture.json']);
+
+/**
+ * Fold a repo-relative path for lookup in an authored-lowercase CONSTANT table
+ * (`GENERATED_DOCS` here, `EXACT`/`PREFIXES` in guard-protected-paths).
+ *
+ * This is the only folding left in the hook tree, and the distinction is the whole of
+ * HOOK-CASE-1: constant tables are authored data and must match on every OS, while session
+ * data — `touched`, `staged`, `writes` — must NOT fold, because on a case-sensitive
+ * filesystem `src/Foo.js` and `src/foo.js` are different files and collapsing them lets one
+ * session claim another's staged work.
+ * @param {string} rel
+ */
+export const foldKey = (rel) => String(rel).toLowerCase();
 
 const DEFAULTS = { blocks: 0, lastKey: '', touched: [], staged: [], writes: {} };
 
@@ -131,6 +158,14 @@ export function updateState(dir, sessionId, fn) {
  * POSIX several previously-tracked oddities (UNC forms, `..\..\etc\passwd`) now resolve
  * out of the tree and return null, which is strictly stricter.
  *
+ * The return is CASE-PRESERVED (HOOK-CASE-1). It used to be lowercased, which made
+ * `src/Foo.js` and `src/foo.js` one ownership key — two different files on a case-sensitive
+ * filesystem, so one session could claim another's staged work — and simultaneously broke
+ * every consumer that hands this string to git: `git show :0:<path>` is case-SENSITIVE even
+ * when `core.ignorecase=true`, so GIT-INDEX-2's staged-blob check silently matched nothing
+ * for the 37% of this tree that contains an uppercase letter. Anything looking up an
+ * authored-lowercase constant table must now fold explicitly via {@link foldKey}.
+ *
  * @param {string} target @param {string} root
  * @param {typeof path} [p] path flavour — injectable ONLY so tests can assert both
  *   platforms from one machine; production always takes the default.
@@ -139,11 +174,7 @@ export function updateState(dir, sessionId, fn) {
 export function normalizeRepoPath(target, root, p = path) {
   if (typeof target !== 'string' || !target) return null;
   const unified = target.replace(/\\/g, '/');
-  const rel = p
-    .relative(root, p.resolve(root, unified))
-    .split(p.sep)
-    .join('/')
-    .toLowerCase();
+  const rel = p.relative(root, p.resolve(root, unified)).split(p.sep).join('/');
   if (!rel || rel === '..' || rel.startsWith('../') || p.isAbsolute(rel)) return null;
   return rel;
 }

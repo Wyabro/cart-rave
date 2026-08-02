@@ -5,7 +5,8 @@
 // * See .claude/hooks/guard-git-add.mjs, .claude/hooks/guard-stop-drift.mjs,
 // * tools/verify-head.mjs, and AGENTS.md § Enforcement.
 import { describe, it, expect, afterAll } from "vitest";
-import { mkdtempSync, rmSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path, { join } from "node:path";
 import { offends, walkGitSegments, evaluateGitCommand } from "../.claude/hooks/guard-git-add.mjs";
@@ -288,9 +289,25 @@ describe("guard-git-add: GIT-INDEX-1 commit-scope check", () => {
     updateState(scratch, session, () => ({ staged: ["src/a.js"], touched: ["src/b.js"] }));
     const r = evalCmd('git commit -m "x"', {
       session,
-      staged: ["src/a.js", "src/B.js", "docs/BRIEFING.md", "docs/ARCHITECTURE.json"],
+      // * Real case for the generated docs on purpose: git reports the index's own case, and
+      // * GENERATED_DOCS is authored lowercase, so this row is what pins the foldKey() at the
+      // * membership site. Drop that fold and EVERY pathspec-less commit in this repo denies,
+      // * because the pre-commit hook stages exactly these two files.
+      staged: ["src/a.js", "docs/BRIEFING.md", "docs/ARCHITECTURE.json"],
     });
     expect(r).toBeNull();
+  });
+
+  // * HOOK-CASE-1. This case used to live in the test above, asserting that a staged
+  // * `src/B.js` was owned by a session that had only touched `src/b.js` — i.e. it asserted
+  // * the defect. On a case-sensitive filesystem those are two different files, so that is
+  // * one session claiming another's staged work, which is the exact leak GIT-INDEX-1 exists
+  // * to stop. If this goes red, the fix is NOT to restore .toLowerCase() in guard-git-add.
+  it("treats a case-variant staged path as foreign, not as session-owned", () => {
+    const session = "gi-case";
+    updateState(scratch, session, () => ({ staged: [], touched: ["src/b.js"] }));
+    const r = evalCmd('git commit -m "x"', { session, staged: ["src/b.js", "src/B.js"] });
+    expect(r).toContain("src/B.js");
   });
 
   it("unions same-command `git add X && git commit` pathspecs into ownership", () => {
@@ -324,7 +341,8 @@ describe("guard-git-add: GIT-INDEX-1 commit-scope check", () => {
   it("records allowed add pathspecs into session state", () => {
     const session = "gi-record";
     expect(evalCmd("git add docs/STATUS.md src/x.js", { session })).toBeNull();
-    expect(readState(scratch, session).staged).toEqual(["docs/status.md", "src/x.js"]);
+    // * Case preserved — this key has to survive a round trip to `git show :0:<path>`.
+    expect(readState(scratch, session).staged).toEqual(["docs/STATUS.md", "src/x.js"]);
   });
 
   it("still denies bulk staging through the full evaluator", () => {
@@ -491,6 +509,46 @@ describe("guard-git-add: GIT-INDEX-2 content-drift checks", () => {
     expect(readState(scratch, session).writes).toEqual({});
     expect(evalCmd("git add src/netcode.js", { session, worktree: THEIRS })).toBeNull();
   });
+
+  // * HOOK-CASE-1: the coverage gap that let the case bug ship green. EVERY case above
+  // * injects readWorktree/readStaged, so none of them exercises the real readers — and the
+  // * real staged reader is `git show :0:<path>`, whose index lookup is case-SENSITIVE even
+  // * when core.ignorecase is true. Under the old lowercasing normalizer that call matched
+  // * nothing for any path with a capital letter, driftedAgainstWrites skipped on null, and
+  // * Check B was silently dead for 37% of this tree. This drives a REAL git repo with a real
+  // * uppercase path and no injection at all.
+  it("Check B reads a real staged blob at an uppercase path (no injected readers)", () => {
+    const repo = mkdtempSync(join(tmpdir(), "cart-clash-realgit-"));
+    const run = (...args) => execFileSync("git", args, { cwd: repo, stdio: "pipe" });
+    try {
+      run("init", "-q");
+      run("config", "user.email", "t@t");
+      run("config", "user.name", "t");
+      mkdirSync(join(repo, "Src"), { recursive: true });
+      writeFileSync(join(repo, "Src", "Netcode.js"), "MINE\n");
+      run("add", "Src/Netcode.js");
+
+      // Sanity: the case-preserved path resolves in the index and the folded one does not.
+      expect(execFileSync("git", ["show", ":0:Src/Netcode.js"], { cwd: repo }).toString()).toBe("MINE\n");
+      expect(() => execFileSync("git", ["show", ":0:src/netcode.js"], { cwd: repo, stdio: "pipe" })).toThrow();
+
+      const session = "g2-realgit";
+      // Session recorded a DIFFERENT hash than what is staged → Check B must fire.
+      updateState(scratch, session, () => ({
+        touched: ["Src/Netcode.js"],
+        writes: { "Src/Netcode.js": hashContent("SOMETHING ELSE\n") },
+      }));
+
+      const verdict = evaluateGitCommand(
+        { session_id: session, cwd: repo, tool_input: { command: 'git commit -m "x"' } },
+        { env: {}, stateDir: scratch, listStaged: () => ["Src/Netcode.js"] },
+      );
+      expect(verdict).toContain("GIT-INDEX-2");
+      expect(verdict).toContain("Src/Netcode.js");
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+    }
+  });
 });
 
 // * The reason this file went red on CI for a day: every path case here ran on ONE path
@@ -505,15 +563,23 @@ describe.each([
 ])("normalizeRepoPath — %s flavour", (_name, flavour, root) => {
   const norm = (target) => normalizeRepoPath(target, root, flavour);
 
+  // * Separators fold, case does NOT (HOOK-CASE-1). The returned string is handed to
+  // * readFileSync and to `git show :0:<path>`, and git's index lookup is case-sensitive even
+  // * under core.ignorecase — so lowercasing here silently broke the staged-blob check for
+  // * every path containing a capital letter.
   it.each([
-    ["src/Main.js", "src/main.js"],
-    ["src\\Main.js", "src/main.js"],
+    ["src/Main.js", "src/Main.js"],
+    ["src\\Main.js", "src/Main.js"],
     ["src\\ui/hud.js", "src/ui/hud.js"],
-    ["docs/BRIEFING.md", "docs/briefing.md"],
-    ["docs\\BRIEFING.md", "docs/briefing.md"],
-    ["docs\\..\\docs\\BRIEFING.md", "docs/briefing.md"],
+    ["docs/BRIEFING.md", "docs/BRIEFING.md"],
+    ["docs\\BRIEFING.md", "docs/BRIEFING.md"],
+    ["docs\\..\\docs\\BRIEFING.md", "docs/BRIEFING.md"],
   ])("normalizes %j to %j on both platforms", (input, expected) => {
     expect(norm(input)).toBe(expected);
+  });
+
+  it("keeps case-variant paths distinct — they are different files on a case-sensitive FS", () => {
+    expect(norm("src/Foo.js")).not.toBe(norm("src/foo.js"));
   });
 
   it.each([
@@ -547,7 +613,9 @@ describe("track-session-writes: session write recording", () => {
     const input = { session_id: session, cwd: root, tool_input: { file_path: "src\\Main.js" } };
     trackWrite(input, { stateDir: scratch, env: {} });
     trackWrite(input, { stateDir: scratch, env: {} });
-    expect(readState(scratch, session).touched).toEqual(["src/main.js"]);
+    // * Separator normalized, case preserved: this key is what guard-git-add later reproduces
+    // * to look up `writes`, and what it hands to git.
+    expect(readState(scratch, session).touched).toEqual(["src/Main.js"]);
   });
 
   it("records notebook_path too", () => {

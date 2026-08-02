@@ -39,7 +39,13 @@
 // checkHeadDrift, which is the only way to exercise drift without live git state.
 
 import { checkHeadDrift } from '../../tools/verify-head.mjs';
-import { DEFAULT_STATE_DIR, GENERATED_DOCS, readState, updateState } from './lib/session-state.mjs';
+import {
+  DEFAULT_STATE_DIR,
+  GENERATED_DOCS,
+  foldKey,
+  readState,
+  updateState,
+} from './lib/session-state.mjs';
 
 /** Max blocks per session before this guard goes quiet. */
 const MAX_BLOCKS = 2;
@@ -113,7 +119,10 @@ function porcelainPath(line) {
   const arrow = p.indexOf(' -> ');
   if (arrow !== -1) p = p.slice(arrow + 4);
   if (p.startsWith('"')) return { path: p, parseable: false };
-  return { path: p.replace(/\\/g, '/').toLowerCase(), parseable: true };
+  // * Case-PRESERVED (HOOK-CASE-1) so it matches the ownership keys, which are no longer
+  // * folded — and so the reason string at the end of this file names a path that actually
+  // * exists on a case-sensitive checkout instead of a lowercased approximation of it.
+  return { path: p.replace(/\\/g, '/'), parseable: true };
 }
 
 /**
@@ -134,7 +143,7 @@ function relevantDirty(trackedDirty, session) {
   const out = [];
   for (const line of trackedDirty) {
     const { path, parseable } = porcelainPath(line);
-    if (parseable && GENERATED_DOCS.has(path)) continue;
+    if (parseable && GENERATED_DOCS.has(foldKey(path))) continue;
     if (!parseable || mine.has(path)) out.push(path);
   }
   return out;
