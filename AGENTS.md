@@ -204,12 +204,13 @@ internal error exits 0) and are driven by `tests/claudeHooks.test.js`.
   cold-start context, and warns when STATUS's digested sections have moved past it (same
   content digest as `briefing:check` — never mtimes).
 - **`guard-git-add.mjs`** (PreToolUse on Bash/PowerShell) enforces three rules. (1) Denies
-  whole-worktree staging: `git add -A` / `.` / `./` / `:/` / `:` / `:(top)` / `*` /
-  `--all`, combined short flags like `-Av`, bare `git add -u` / `--update` (with a
+  whole-worktree staging: `git add -A` / `.` / `./` / `.\` / `.\\` / `:/` / `:` / `:(top)` /
+  `*` / `--all`, an absolute pathspec naming the repo root, combined short flags like `-Av`,
+  bare `git add -u` / `--update` (with a
   pathspec, `-u <path>` stays legal), and every `git commit -a` form. Explicit paths,
   `-p`, and `--amend` pass. A `permissions.deny` list in `settings.json` backs it up if
   the hook is disabled or errors — but that list is **glob-only**, so `-vA`, `:`,
-  `:(top)` and a literal `*` are hook-only. `settings.json` is strict JSON, not JSONC:
+  `:(top)`, a literal `*` and the backslash/absolute-root forms are hook-only. `settings.json` is strict JSON, not JSONC:
   never put a comment in it, or every hook in the file stops loading. (2) **GIT-INDEX-1:**
   concurrent sessions share one git index, so a pathspec-less `git commit` ships whatever
   anyone staged. The hook records this session's `git add` pathspecs, and denies a

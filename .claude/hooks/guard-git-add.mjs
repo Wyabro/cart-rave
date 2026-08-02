@@ -63,8 +63,9 @@
 //     Running git from a subdirectory can mis-normalize; agents on this repo run git
 //     from the root, and every miss here fails toward a deny with named remedies.
 //   - The permissions.deny backstop in .claude/settings.json is glob-only and cannot
-//     express `-vA`, `:`, `:(top)`, or a literal `*` (in rule syntax `*` IS the
-//     wildcard). Those forms are hook-only. settings.json is strict JSON, not JSONC,
+//     express `-vA`, `:`, `:(top)`, a literal `*` (in rule syntax `*` IS the wildcard),
+//     or the HOOK-WHOLETREE-1 forms (`.\`, `.\\`, an absolute pathspec naming the repo
+//     root). Those forms are hook-only. settings.json is strict JSON, not JSONC,
 //     so that caveat lives here and in AGENTS.md § Enforcement — never as a comment
 //     in the settings file, where it would break parsing and drop every hook.
 
@@ -81,8 +82,59 @@ import {
   updateState,
 } from './lib/session-state.mjs';
 
-/** Whole-tree pathspecs — staging any of these sweeps the entire worktree. */
+/**
+ * Whole-tree pathspecs — staging any of these sweeps the entire worktree. Exact strings,
+ * tested against {@link canonicalPathspec}'s output rather than the raw token. (`'./'` is
+ * redundant post-canonicalization — it folds to `'.'` — but both are forms an agent actually
+ * types, so the table stays readable.)
+ */
 const WHOLE_TREE = new Set(['.', './', ':/', ':', '*', ':(top)']);
+
+/**
+ * Canonical form for the WHOLE_TREE membership test: separators unified, trailing slashes
+ * dropped. HOOK-WHOLETREE-1 — `git add .\` is the PowerShell-idiomatic whole-tree stage and
+ * git accepts it (verified in a throwaway repo: it stages every file), so an exact-string
+ * table was holed on the platform this repo is developed on — the mirror image of the POSIX
+ * hole f11e014 closed. `.\\` folds here too, via `.//` → `.`.
+ *
+ * Used for the membership TEST only: extractAddPaths still returns the raw token, which
+ * normalizeRepoPath handles.
+ */
+function canonicalPathspec(arg) {
+  const unified = arg.replace(/\\/g, '/');
+  return unified.length > 1 ? unified.replace(/\/+$/, '') : unified;
+}
+
+/**
+ * True when one `git add` token stages the whole worktree: a literal whole-tree pathspec, or
+ * any path that resolves to the repo ROOT — `git add C:\Users\wyatt\cart-rave`,
+ * `git add /repo`, `git add src/..`. No literal can express those; the string is
+ * machine-specific.
+ *
+ * That second rule resolves by hand instead of calling normalizeRepoPath, which cannot answer
+ * it: normalizeRepoPath maps the repo root to `null`, the SAME value it returns for a path
+ * OUTSIDE the tree (tests pin `normalizeRepoPath('.')` as null), so through it "everything"
+ * and "nothing" are the same answer.
+ *
+ * `root` is optional and the rule is inert without it, so a command-only caller — every
+ * `offends(cmd)` row in the tests — keeps the pure literal behaviour, while
+ * evaluateGitCommand, the only production caller, always threads the real root.
+ *
+ * @param {string} arg
+ * @param {{ root?: string, p?: typeof path }} [opts] path flavour injectable ONLY so tests
+ *   can assert both platforms from one machine; production always takes the default.
+ */
+function isWholeTree(arg, opts = {}) {
+  if (WHOLE_TREE.has(canonicalPathspec(arg))) return true;
+  const { root, p = path } = opts;
+  if (!root) return false;
+  try {
+    const rel = p.relative(root, p.resolve(root, arg.replace(/\\/g, '/')));
+    return rel === '' || rel === '.';
+  } catch {
+    return false; // fail open, like everything else in this file
+  }
+}
 
 /**
  * Skip global options and their values (`git -C some/path add …`), then capture the
@@ -106,37 +158,44 @@ function splitDoubleDash(args) {
   return i === -1 ? [args, []] : [args.slice(0, i), args.slice(i + 1)];
 }
 
-/** Pathspecs of a `git add` argument list: non-flag tokens plus everything after `--`. */
-function extractAddPaths(args) {
+/**
+ * Pathspecs of a `git add` argument list: non-flag tokens plus everything after `--`.
+ * @param {string[]} args @param {{ root?: string, p?: typeof path }} [opts] see isWholeTree
+ */
+function extractAddPaths(args, opts) {
   const [flags, paths] = splitDoubleDash(args);
   const out = [];
   for (const arg of flags) {
-    if (!arg.startsWith('-') && !WHOLE_TREE.has(arg)) out.push(arg);
+    if (!arg.startsWith('-') && !isWholeTree(arg, opts)) out.push(arg);
   }
   for (const p of paths) {
-    if (!WHOLE_TREE.has(p)) out.push(p);
+    if (!isWholeTree(p, opts)) out.push(p);
   }
   return out;
 }
 
-/** True when a `git add` argument list stages the whole worktree. */
-function addStagesEverything(args) {
+/**
+ * True when a `git add` argument list stages the whole worktree.
+ * @param {string[]} args @param {{ root?: string, p?: typeof path }} [opts] see isWholeTree
+ */
+function addStagesEverything(args, opts) {
   const [flags, paths] = splitDoubleDash(args);
   let update = false;
   for (const arg of flags) {
     if (arg === '--all' || arg === '--no-ignore-removal') return true;
-    if (WHOLE_TREE.has(arg)) return true;
+    if (isWholeTree(arg, opts)) return true;
     // Combined short flags: -A, -Av, -vA. Case-sensitive — `-a` is not `-A`.
     if (/^-[A-Za-z]*A[A-Za-z]*$/.test(arg)) return true;
     if (arg === '--update' || /^-[A-Za-z]*u[A-Za-z]*$/.test(arg)) update = true;
   }
   // Everything after `--` is a path, so `-A` there names a FILE and is allowed —
   // but `.` still stages the tree.
-  for (const p of paths) if (WHOLE_TREE.has(p)) return true;
+  for (const p of paths) if (isWholeTree(p, opts)) return true;
   // Bare `-u`/`--update` with no pathspec stages every tracked modification — the same
   // concurrent-agent hazard as -A (this closed the long-documented `-u` gap).
-  // `git add -u <path>` stays legitimate.
-  if (update && extractAddPaths(args).length === 0) return true;
+  // `git add -u <path>` stays legitimate. `opts` threads through here too, so this call
+  // and the `paths` this segment reports agree on what counts as a pathspec.
+  if (update && extractAddPaths(args, opts).length === 0) return true;
   return false;
 }
 
@@ -187,16 +246,18 @@ function commitIsPathless(args) {
  * Sibling of {@link offends} — that one stays a boolean for the bulk-staging contract;
  * this one feeds the commit-scope check. Exported for tests — keep it pure.
  * @param {string} command
+ * @param {{ root?: string, p?: typeof path }} [opts] repo root (and path flavour) for the
+ *   absolute-root whole-tree rule — see {@link isWholeTree}. Omit and that rule is inert.
  * @returns {Array<{ kind: 'add' | 'commit', offense: boolean, paths: string[], isPathless: boolean }>}
  */
-export function walkGitSegments(command) {
+export function walkGitSegments(command, opts) {
   const out = [];
   for (const segment of stripQuoted(command).split(/&&|\|\||[;\n|]/)) {
     const m = SEGMENT.exec(segment.trim());
     if (!m) continue;
     const args = m[2].split(/\s+/).filter(Boolean);
     if (m[1] === 'add') {
-      out.push({ kind: 'add', offense: addStagesEverything(args), paths: extractAddPaths(args), isPathless: false });
+      out.push({ kind: 'add', offense: addStagesEverything(args, opts), paths: extractAddPaths(args, opts), isPathless: false });
     } else {
       out.push({ kind: 'commit', offense: commitStagesEverything(args), paths: [], isPathless: commitIsPathless(args) });
     }
@@ -208,10 +269,11 @@ export function walkGitSegments(command) {
  * Scan every shell segment of a command line for an offending `git add` / `git commit`.
  * Exported for tests/claudeHooks.test.js — keep it pure.
  * @param {string} command
+ * @param {{ root?: string, p?: typeof path }} [opts] see {@link walkGitSegments}
  * @returns {boolean}
  */
-export function offends(command) {
-  return walkGitSegments(command).some((s) => s.offense);
+export function offends(command, opts) {
+  return walkGitSegments(command, opts).some((s) => s.offense);
 }
 
 const DENIAL =
@@ -315,11 +377,15 @@ export function evaluateGitCommand(input, deps = {}) {
   const command = input?.tool_input?.command;
   if (typeof command !== 'string' || !command) return null;
 
-  const segments = walkGitSegments(command);
+  // ORDER IS LOAD-BEARING: `root` must be resolved BEFORE the walk. The whole-tree matcher
+  // needs it to recognize an absolute pathspec naming the repo root (HOOK-WHOLETREE-1), and
+  // the offense check below short-circuits — resolve root after it, as this did, and that
+  // rule can never fire in production no matter how green its unit tests are.
+  const root = env.CLAUDE_PROJECT_DIR || input?.cwd || process.cwd();
+  const segments = walkGitSegments(command, { root });
   if (segments.length === 0) return null;
   if (segments.some((s) => s.offense)) return DENIAL;
 
-  const root = env.CLAUDE_PROJECT_DIR || input?.cwd || process.cwd();
   const stateDir = deps.stateDir ?? DEFAULT_STATE_DIR;
   const addPaths = segments
     .filter((s) => s.kind === 'add')

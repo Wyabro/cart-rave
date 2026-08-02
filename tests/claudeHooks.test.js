@@ -40,6 +40,14 @@ describe("guard-git-add: whole-worktree staging is denied", () => {
     "npm test && git add -A",
     "git status; git add .",
     "git add -- .",
+    // * HOOK-WHOLETREE-1: `.\` is how you stage the tree in PowerShell, which is this
+    // * repo's own shell, and git accepts it — verified staging every file in a throwaway
+    // * repo. An exact-string table was holed on the dev platform, the mirror image of the
+    // * POSIX hole f11e014 closed. These need no root: they canonicalize to `.`.
+    "git add .\\",
+    "git add .\\\\",
+    "git add -- .\\",
+    "git add -u .\\",
   ])("denies %j", (cmd) => expect(offends(cmd)).toBe(true));
 
   // * `git commit -a` stages every tracked file without an explicit path — the same hazard
@@ -64,6 +72,9 @@ describe("guard-git-add: legitimate git work is untouched", () => {
   it.each([
     "git add docs/STATUS.md",
     "git add docs/STATUS.md AGENTS.md",
+    // * The over-match guard for HOOK-WHOLETREE-1: canonicalizing separators must not turn
+    // * an ordinary Windows-shaped path into a whole-tree pathspec.
+    "git add docs\\STATUS.md",
     "git add -p",
     "git add -u src/",
     "git add --patch",
@@ -86,6 +97,45 @@ describe("guard-git-add: legitimate git work is untouched", () => {
   // * stripQuoted exists for exactly this: the rule text quotes the command it forbids.
   it("allows the forbidden string inside a commit message", () => {
     expect(offends('git commit -m "never git add -A again"')).toBe(false);
+  });
+});
+
+// * HOOK-WHOLETREE-1, second case: an absolute pathspec naming the repo root stages the whole
+// * tree exactly like `git add .`, and no literal in WHOLE_TREE can express it — the string is
+// * machine-specific. It is also the only rule here that needs a root, so it is driven for
+// * BOTH path flavours from one machine; that is the lesson f11e014 paid for.
+describe.each([
+  ["win32", path.win32, "C:\\repo"],
+  ["posix", path.posix, "/repo"],
+])("guard-git-add: absolute whole-tree pathspecs — %s flavour", (_name, p, root) => {
+  const off = (cmd) => offends(cmd, { root, p });
+
+  it.each([
+    `git add ${root}`,
+    `git add ${root}${p.sep}`,
+    `git add ${root}${p.sep}src${p.sep}..`,
+    // * Dotted relatives resolve to the root too — free with this rule, no new mechanism.
+    "git add ././",
+    "git add ./.",
+    "git add src/..",
+  ])("denies %j", (cmd) => expect(off(cmd)).toBe(true));
+
+  it.each([
+    `git add ${p.join(root, "src", "main.js")}`,
+    "git add src/main.js",
+    "git add src/../src/main.js",
+  ])("allows %j", (cmd) => expect(off(cmd)).toBe(false));
+
+  // * Outside the tree is NOT whole-tree — and normalizeRepoPath maps it to the same null it
+  // * maps the root to, which is exactly why this rule resolves by hand instead of calling it.
+  it("allows an absolute pathspec outside the tree", () => {
+    expect(off(`git add ${p.resolve(root, "..", "elsewhere")}`)).toBe(false);
+  });
+
+  // * Inert without a root, so every command-only `offends(cmd)` row above keeps its
+  // * pre-HOOK-WHOLETREE-1 meaning and this fix cannot widen them by accident.
+  it("stays inert when no root is threaded", () => {
+    expect(offends(`git add ${root}`)).toBe(false);
   });
 });
 
@@ -348,6 +398,15 @@ describe("guard-git-add: GIT-INDEX-1 commit-scope check", () => {
   it("still denies bulk staging through the full evaluator", () => {
     expect(evalCmd("git add -A")).toContain("whole-worktree");
     expect(evalCmd("git add -u")).toContain("whole-worktree");
+  });
+
+  // * HOOK-WHOLETREE-1 through the PRODUCTION path. evaluateGitCommand is the only caller
+  // * that threads the repo root into the matcher, so the absolute-root rule can only be
+  // * proven live here — and it proves the ordering too: resolve `root` after the offense
+  // * short-circuit (where it used to sit) and this goes red while the unit rows stay green.
+  it("denies whole-tree pathspecs the literal table cannot express", () => {
+    expect(evalCmd(`git add ${root}`)).toContain("whole-worktree");
+    expect(evalCmd("git add .\\")).toContain("whole-worktree");
   });
 
   it.each(["CART_CLASH_SKIP_HOOKS", "SKIP_GIT_GUARD"])("%s bypasses the evaluator", (key) => {
