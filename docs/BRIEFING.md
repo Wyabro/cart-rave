@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-01 at commit `0fae8a1` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `268deb8b`
+> Generated 2026-08-02 at commit `d59fd92` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `e187431a`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -18,17 +18,13 @@ Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep a
 
 ## ACTIVE CARD
 
-Playtest console — 10 owed cards in BACKLOG `## Playtest owed (08-01 session)`
+ROUND-WEDGE-1 Phase A — applied unpushed (`pausedWallMs` MAX-only). Commit/ship on
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 
 Self-directed queue (one at a time, within the declared phase):
 - **FIGHT-VERIFY-1** owed fight-night verification — 🟢 agent half DONE 08-01 — podium/loadshots/states + focus-ring. Residual = Playtest owed cards (BACKLOG) —…
 - **MAIN-1 / BUNDLE-1** main.js seam / code-split — 📋 post-gate
-
-## Open blockers
-
-- **ROUND-WEDGE-1** Host oscillates `podium ⇄ running` ~25×/s at round end — player-visible flickering podium (cap-217)
 
 ## Do not
 

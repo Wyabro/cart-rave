@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-02T03:24:49.106Z",
-    "commit": "db60f19"
+    "at": "2026-08-02T03:57:32.800Z",
+    "commit": "d59fd92"
   },
-  "source_digest": "ca2f8ed1",
+  "source_digest": "b3f971a2",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -894,16 +894,15 @@
       }
     ],
     "next_actions": [
-      "Playtest console — 10 owed cards in BACKLOG `## Playtest owed (08-01 session)`",
-      "Closed 08-01 Wyatt PASS: PAUSE-ROW-1 · MENU-CMD-FEEL-1 · FOCUS-CYAN-1",
-      "After coding that needs eyes: `Owed: Wyatt playtest — ID — check` → `npm run dashboard`.",
-      "Battery exact-HEAD green on disk (`battery-2026-08-01T03-31-21…`); refresh CC after battery."
+      "ROUND-WEDGE-1 Phase A — applied unpushed (`pausedWallMs` MAX-only). Commit/ship on",
+      "Playtest console — 10 owed cards in BACKLOG `## Playtest owed (08-01 session)`.",
+      "Closed 08-01 Wyatt PASS: PAUSE-ROW-1 · MENU-CMD-FEEL-1 · FOCUS-CYAN-1."
     ],
     "open_issues": [
       {
         "id": "ROUND-WEDGE-1",
-        "issue": "Host oscillates `podium ⇄ running` ~25×/s at round end — player-visible flickering podium (cap-217)",
-        "status": "❌ High — forensics next; full card in [BACKLOG](./planning/BACKLOG.md)"
+        "issue": "Host-hide → MAX reject → podium⇄running storm",
+        "status": "🟡 **Phase A applied unpushed** — `pausedWallMs` MAX-only in `roundValidation.ts` (+tests). MIN wall latch frozen. Does **not** claim cap-217 closed; Phase B (client backoff) deferred."
       },
       {
         "id": "WARM-SOLO-1",
@@ -1107,7 +1106,7 @@
         "counts": {
           "High": 6,
           "Medium": 5,
-          "Low": 4
+          "Low": 6
         },
         "rows": [
           {
@@ -1148,8 +1147,20 @@
           },
           {
             "pri": "High",
-            "item": "ART-PASS-CLASSIC-1 — Cart Rave art pass (5 levers) `[pre-ship]`",
-            "notes": "Hand-verified against code, one commit + one GPU capture per lever, in order: **L1** pit-wall texel anisotropy (`repeat.set(16,200)` → square the tile, `arena.js:162`); **L2** the CART RAVE label has never rendered — wordmark, hole cut and 3 of 7 grooves all fall inside the `RingGeometry(3.7, 7.0)` inner edge at canvas r=135.3px (`arena.js:1640/1747`); **L3** turntable platters are bare chrome with no records (`arena.js:812`) — **ruled hero, not dressing**, so the art-direction Rule 1 allowlist gains turntable platters in L3's own commit; **L4** cladding shares one `repeat.set(24,3)` across three deck radii (`effects.js:1441/1454`) — clone per deck like the seat loop at `effects.js:990`; **L5** record-body `ExtrudeGeometry` UVs are in metres + maps default to ClampToEdge (`arena.js:439/298`) — custom UVGenerator, rim band only. New geo/mats must join the disposal lists (`arena.js:1361`).",
+            "item": "ART-PASS-CLASSIC-1 — Cart Rave art pass `[pre-ship]`",
+            "notes": "One commit + one real-GPU capture per lever. **L1 ✅ `316c74f`** pit-wall texel anisotropy — `repeat.set(16,200)` → `(32,69)` squares the tile, killing a measured 5.8× (rivets rendered as ~5.8:1 ovals). **L2 ✅ `beebe81`** the CART RAVE label had never rendered — wordmark, divider, hole cut and grooves 1–3 of 7 all sat inside the `RingGeometry(3.7, 7.0)` inner edge at canvas r=135.3px; re-authored as curved arc text, geometry constants now shared by canvas and mesh. **L3 ✅ `d59fd92`** records on the turntables + platter wear map; platters **ruled hero, not dressing** (allowlist updated in the same commit). **L4 ❌ DROPPED** → see CLAD-REPEAT-1. **L5 📋 remaining** — record-body `ExtrudeGeometry` UVs are in metres and the vinyl maps default to ClampToEdge (`arena.js:439`/`298`); real but rim-band only, since two `RingGeometry` meshes with correct 0..1 UVs cover the body's top face at every tier. Custom UVGenerator normalising to 0..1.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "CLAD-REPEAT-1 — stand cladding shares one repeat across three deck radii",
+            "notes": "**Was ART-PASS-CLASSIC-1 L4; dropped 08-01 and demoted, because the surface is barely visible.** The defect is real and measured: one `panelTex.repeat.set(24, 3)` (`effects.js:1441`) feeds one shared `cladMat` across three decks (`effects.js:1454`) whose r1 = 73/100/124 m and wallH = 12.2/10.6/9.8 m, so the authored 2:1 cart-silhouette motif renders **2.09×0.22 m on deck 0 and 3.55×0.18 m on deck 2** — 4.7× and 9.9× distorted, and inconsistent between rings. **Why it was dropped:** cladding sits at `deck.r1 + 0.55`, directly behind seating spanning r0→r1, so from every in-arena viewpoint tried the crowd and seats occlude it; a before/after GPU capture showed *zero* delta on the cladding itself (the 31% pixel diff was animated-crowd noise). A surface you cannot see does not earn a mid-table slot. Fix if ever picked up: per-deck material+texture clone like the seat loop (`effects.js:990`), `U = round(circumference / wallH)`, `V = 1` — the largest square tile each wall fits.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "FX-TEXDISPOSE-1 — cloned textures are never disposed in effects.js",
+            "notes": "`disposeObject3D` (`effects.js:26`) traverses and disposes materials and non-shared geometries, but `material.dispose()` does **not** dispose the material's maps. The seat loop clones `seatTex` per deck (`effects.js:993`) and those clones leak one texture each per arena build. Small (256² canvases) but unbounded across level swaps. Found while scoping CLAD-REPEAT-1, which would have widened the same gap.",
             "ship1": null
           },
           {
@@ -1885,6 +1896,11 @@
       "Cross-module change? Read docs/reference/control-flow.md first — most edges are not imports."
     ],
     "settled_decisions": [
+      {
+        "id": "D-ROUND-WEDGE-1-A",
+        "date": "08-01",
+        "text": "Host-hide MAX cushion = server `pausedWallMs` (sum of committed"
+      },
       {
         "id": "D-BOOT-PERF-1",
         "date": "07-31",
