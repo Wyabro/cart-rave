@@ -347,7 +347,7 @@ ${CHROME_CSS}
   .now-after { margin-top:10px; padding-top:10px; border-top:1px solid var(--edge); font-size:13px; color:var(--dim); }
   .now-after ol { margin:4px 0 0; padding-left:20px; } .now-after li { margin:3px 0; }
   .now-moved { margin-top:12px; padding-top:10px; border-top:1px solid var(--edge); display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
-  .now-moved .nm-k { font-size:10px; text-transform:uppercase; letter-spacing:1.5px; color:var(--dim); margin-right:2px; }
+  .now-moved .nm-k { font-size:10px; letter-spacing:.2px; color:var(--dim); margin-right:2px; }
   .now-moved .nm-chip { cursor:pointer; } .now-moved .nm-chip i { font-style:normal; color:var(--dim); }
   .now-moved .nm-chip:hover { border-color:var(--cyan); text-decoration:none; }
   .now-moved .nm-more { font-size:11px; color:var(--dim); margin-left:2px; } .now-moved .nm-more:hover { color:var(--cyan); }

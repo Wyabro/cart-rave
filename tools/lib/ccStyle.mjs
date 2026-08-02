@@ -64,7 +64,14 @@ export const BASE_CSS = `  * { box-sizing:border-box; }
   .chip.warn { color:var(--warn); border-color:rgba(255,194,75,.4); }
   .chip.neutral a { color:inherit; }
 
-  .k { font-size:11.5px; letter-spacing:2.5px; font-weight:700; color:var(--dim); text-transform:uppercase; }
+  /* Micro-caps are reserved for TRUE section heads: h2.sec, details.ref summary, the
+     console's .rules h2, and the nav. Everything that merely labels a field or a panel
+     — .k, th, the console's three <label> rules — is sentence case at normal tracking.
+     When every label is a chapter heading the hierarchy it was built for flattens
+     (CC-LABEL-1). The strings themselves are already written in sentence case; the
+     uppercase was presentational, so removing it needs no content edits.
+     .card-status keeps its caps: it is a state badge, not a label. */
+  .k { font-size:11.5px; letter-spacing:.2px; font-weight:600; color:var(--dim); }
 
   .panel { background:var(--panel); border:1px solid var(--edge); border-radius:12px; padding:16px 20px;
            box-shadow:inset 0 1px 0 rgba(255,255,255,.03); }
@@ -82,7 +89,7 @@ export const BASE_CSS = `  * { box-sizing:border-box; }
   details.ref .inner { padding:6px 18px 18px; }
   table { border-collapse:collapse; width:100%; background:var(--panel2); border-radius:8px; overflow:hidden; }
   th, td { text-align:left; padding:9px 14px; border-bottom:1px solid var(--edge); vertical-align:top; font-size:13px; }
-  th { color:var(--dim); font-weight:600; font-size:11.5px; text-transform:uppercase; letter-spacing:1px; }
+  th { color:var(--dim); font-weight:600; font-size:11.5px; letter-spacing:.2px; }
   tr:last-child td { border-bottom:none; }
   .pill { display:inline-block; padding:2px 11px; border-radius:99px; font-weight:700; font-size:12px; }
   .pill.pass { background:rgba(61,220,132,.15); color:var(--good); }

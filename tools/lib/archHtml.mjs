@@ -435,7 +435,7 @@ ${CHROME_CSS}
   .rstage { position:relative; flex:1 1 120px; min-width:120px; background:linear-gradient(180deg, rgba(124,92,255,.09), var(--panel)); border:1px solid var(--edge); border-radius:12px; padding:10px 12px; box-shadow:0 2px 8px rgba(0,0,0,0.2); }
   .rstage b { display:block; font-size:12px; letter-spacing:.6px; color:var(--text); }
   .rstage span { display:block; color:var(--dim); font-size:11px; line-height:1.35; margin:3px 0 6px; }
-  .rstage em { font-style:normal; font-size:10px; letter-spacing:.5px; text-transform:uppercase; color:var(--cyan); font-weight:700; }
+  .rstage em { font-style:normal; font-size:10px; letter-spacing:.2px; color:var(--cyan); font-weight:700; }
 
   /* Full-Width Flow Map Container (Spans 100% of Shell) */
   .map-container { position:relative; border:1px solid var(--edge); border-radius:16px; background:var(--panel); padding:14px; box-shadow:0 4px 20px rgba(0,0,0,0.3); width:100%; box-sizing:border-box; }
@@ -477,7 +477,7 @@ ${CHROME_CSS}
   .map-inspector-head .title { color:var(--text); }
   .map-inspector-body { font-size:11.5px; color:var(--text2); line-height:1.4; }
   .map-inspector-section { margin:8px 0; }
-  .map-inspector-label { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:1px; margin-bottom:3px; }
+  .map-inspector-label { font-size:10px; font-weight:700; letter-spacing:.2px; margin-bottom:3px; }
   .map-inspector-label.in { color:var(--cyan); }
   .map-inspector-label.out { color:var(--neon); }
   .map-inspector-list { list-style:none; padding:0; margin:0; font-size:11px; max-height:120px; overflow-y:auto; }
@@ -516,7 +516,7 @@ ${CHROME_CSS}
 
   /* Telemetry Progress Bars */
   .tel { display:grid; grid-template-columns:auto 1fr auto; gap:6px 10px; align-items:center; background:rgba(0,0,0,0.25); padding:8px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.03); max-width:640px; }
-  .tel-k { font-size:10px; letter-spacing:1.5px; text-transform:uppercase; color:var(--dim); font-weight:700; }
+  .tel-k { font-size:10px; letter-spacing:.2px; color:var(--dim); font-weight:600; }
   .tel-v { font-size:11.5px; color:var(--text); white-space:nowrap; font-weight:600; }
   .tel-bar { display:block; height:7px; border-radius:999px; background:rgba(255,255,255,0.06); border:1px solid var(--edge); overflow:hidden; }
   .tel-bar i { display:block; height:100%; border-radius:999px; }

@@ -23,7 +23,7 @@ const PAGE_CSS = `
   .rules ol { margin:0; padding-left:1.2rem; }
   .rules li { margin:4px 0; }
   .meta { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px; margin-bottom:14px; }
-  .meta label { display:block; font-size:.72rem; color:var(--dim); text-transform:uppercase; letter-spacing:.06em; margin-bottom:4px; }
+  .meta label { display:block; font-size:.72rem; color:var(--dim); letter-spacing:.01em; margin-bottom:4px; }
   .meta input, .meta select, textarea, button {
     font:inherit; color:var(--text); background:var(--panel); border:1px solid var(--edge);
     border-radius:8px; padding:8px 10px; width:100%; }
@@ -74,11 +74,11 @@ const PAGE_CSS = `
     color:var(--text2); background:var(--ink); border-radius:8px; padding:8px 10px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
   .card .f8 code { color:var(--cyan); }
   .card .evidence { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:8px; margin-top:10px; }
-  .card .evidence label { font-size:.68rem; color:var(--dim); text-transform:uppercase; letter-spacing:.05em; display:block; margin-bottom:3px; }
+  .card .evidence label { font-size:.68rem; color:var(--dim); letter-spacing:.01em; display:block; margin-bottom:3px; }
   .card .actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; align-items:center; }
   .card textarea { margin-top:8px; min-height:72px; resize:vertical; font-size:.9rem; width:100%; }
   .card .note-label { display:block; margin-top:10px; font-size:.72rem; color:var(--dim);
-    text-transform:uppercase; letter-spacing:.06em; }
+    letter-spacing:.01em; }
   .export-box { background:var(--panel); border:1px solid var(--edge); border-radius:12px;
     padding:14px 16px; margin-top:24px; }
   .export-box h2 { margin:0 0 8px; font-size:.95rem; }

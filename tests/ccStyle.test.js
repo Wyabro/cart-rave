@@ -143,6 +143,59 @@ describe("Command Center card treatment", () => {
   });
 });
 
+describe("Command Center label hierarchy", () => {
+  it("micro-caps are reserved for section heads, the nav and state badges", () => {
+    // * CC-LABEL-1: nine rules all resolved to uppercase + letterspaced + var(--dim),
+    // * so nothing outranked anything. This allowlist IS the convention — adding a
+    // * selector to it should be a deliberate call, not a side effect of a styling pass.
+    const ALLOWED = [
+      "h2.sec", // true section head
+      "details.ref summary", // disclosure title
+      ".rules h2", // console's one section head
+      ".nav-links", // chrome nav
+      ".card-status", // state badge, not a label
+      ".stlabel", // capture-sheet state chip
+      ".q-badge", // dashboard state badge
+      ".tier-id", // monospace id token
+      ".mission-head", // display type
+      ".touch-lbl", // arch map legend
+      "h2", // montage/states section heads
+      "h4", // panel sub-heads (.eg-col, .digrid)
+      ".kick", // arch section head (rule-line divider)
+      ".map-toolbar-title", // flow-map panel head
+      ".fstep b", // flow-step title
+      ".pri", // priority badge
+      ".ph", // phase badge
+    ];
+    const offenders = [];
+    for (const [file, src] of Object.entries({ shared: SHARED_CSS, ...PAGE_CSS })) {
+      for (const m of src.matchAll(/([^{}\n]+)\{([^{}]*text-transform:\s*uppercase[^{}]*)\}/g)) {
+        const selector = m[1].trim().split("\n").pop().trim();
+        if (ALLOWED.some((a) => selector.includes(a))) continue;
+        offenders.push(`${file}: ${selector}`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it("the five field labels are sentence case", () => {
+    for (const rule of [
+      /\.k \{[^}]*\}/,
+      /\bth \{[^}]*\}/,
+    ]) {
+      const m = SHARED_CSS.match(rule);
+      expect(m, `rule not found: ${rule}`).toBeTruthy();
+      expect(m[0]).not.toMatch(/text-transform:\s*uppercase/);
+    }
+    const console_ = PAGE_CSS["playtestConsoleHtml.mjs"];
+    for (const sel of [".meta label", ".card .evidence label", ".card .note-label"]) {
+      const m = console_.match(new RegExp(`${sel.replace(/[.\s]/g, (c) => (c === "." ? "\\." : "\\s+"))}\\s*\\{[^}]*\\}`));
+      expect(m, `rule not found: ${sel}`).toBeTruthy();
+      expect(m[0], sel).not.toMatch(/text-transform:\s*uppercase/);
+    }
+  });
+});
+
 describe("Command Center cross-surface nav", () => {
   it("renders one entry per surface, with the active one unlinked", () => {
     const html = crossNav("playtest");
