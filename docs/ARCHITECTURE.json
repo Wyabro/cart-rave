@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-02T08:33:54.632Z",
-    "commit": "e9b58e6"
+    "at": "2026-08-02T08:45:03.936Z",
+    "commit": "2c5b3fc"
   },
-  "source_digest": "0d842077",
+  "source_digest": "c801ba7a",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -855,10 +855,31 @@
   "workstreams": {
     "queue": [
       {
+        "id": "LOD-CLOCK-1",
+        "what": "level LOD throttle uses host-adjusted time",
+        "status": "✅ SHIPPED 08-02 — `updateLevelLod(camera, now)`; stall unit test + main.js source assert. Applied, unpushed.",
+        "state": "done",
+        "touches_systems": [
+          {
+            "id": "boot-and-orchestration",
+            "name": "Boot & orchestration",
+            "files": [
+              "src/main.js"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "ASSET-CACHE-1",
+        "what": "fixed-name assets 7d cache stale after deploy",
+        "status": "▶ ACTIVE 08-02 — next in A→B→C insert (Sundial still parked).",
+        "state": "active"
+      },
+      {
         "id": "ART-PASS-SUNDIAL-1",
         "what": "Sundial art pass — 6 waves, one lever per commit",
-        "status": "▶ ACTIVE 08-02 — resumed after DIAG-TIER-1. Step 0 done; Wave 1 sky-gradient remap owns waterline red step +128/+110. [audit](./planning/art-audit-sundial.md).",
-        "state": "active"
+        "status": "🅿️ PARKED 08-02 — for LOD-CLOCK-1 · ASSET-CACHE-1 · QP-ORDER-1 sequence; restore after C. Step 0 done; Wave 1 sky-gradient remap owns waterline red step +128/+110. [audit](./planning/art-audit-sundial.md).",
+        "state": "locked"
       },
       {
         "id": "DIAG-TIER-1",
@@ -907,7 +928,7 @@
       }
     ],
     "next_actions": [
-      "ART-PASS-SUNDIAL-1 — Wave 1: sky-gradient remap, then IBL sun azimuth (one lever per commit).",
+      "ASSET-CACHE-1 (active) → then QP-ORDER-1 → restore ART-PASS-SUNDIAL-1.",
       "Playtest console — owed cards in BACKLOG `## Playtest owed (08-01 session)`.",
       "Closed 08-01 Wyatt PASS: PAUSE-ROW-1 · MENU-CMD-FEEL-1 · FOCUS-CYAN-1."
     ],
@@ -1113,7 +1134,7 @@
         "counts": {
           "High": 6,
           "Medium": 6,
-          "Low": 9
+          "Low": 8
         },
         "rows": [
           {
@@ -1180,12 +1201,6 @@
             "pri": "Low",
             "item": "LOD-PITRING-1 — the pit-ring dressing's cull radius is arguably inverted",
             "notes": "**Filed 08-02**, split out of audit item 3. `registerLevelLodNode(pitDressing.group, { far: 48 })` — but `buildPitRingDressing` lays its silhouettes on a band at `OUT = 45.5` m radius ([backroomsSupermarket.js:2205](../../src/levels/backroomsSupermarket.js:2205)) around a group at the origin. So the ring is visible while the camera is near arena centre (far from the dressing) and **hides once the camera passes 48 m from centre — i.e. exactly when it gets close to part of the ring.** Distance-to-centre is the wrong metric for a ring centred on that point; the pit dressing either wants per-cluster nodes (one per side) or no LOD at all, since it is a handful of merged silhouettes. `doorways` (far 55, on the walls at 56) has the same shape and should be judged in the same pass. Lower priority than LOD-UNCANNY-1 because this is background dressing beyond the kill edge, not a fall marking.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "LOD-CLOCK-1 — level LOD updates are throttled on host-adjusted time, so a clock correction can stall them",
-            "notes": "**Filed 08-02** while reading item 3. [main.js:5168](../../src/main.js:5168) passes `syncedNow` — `now - getHostClockOffsetMs()` — into `updateLevelLod`, whose throttle is `if (nowMs - _lastUpdateMs < INTERVAL_MS) return` ([levelLod.js:49](../../src/utils/levelLod.js:49)). A **backward** offset correction parks `_lastUpdateMs` in the future and LOD stops recomputing until wall clock catches up; a large forward jump forces an extra pass. Cosmetic-only in impact (props stay in whatever visibility state they held) and it needs a mid-match offset swing to bite, but the timestamp has no reason to be clock-synced at all — this is a pure local throttle. Lever: pass the raw `now`. Sits next to the same call's `frameBudgetAllow(\"level_lod\", now)` gate, which already uses raw `now` — so the two arguments on one line disagree about which clock they mean.",
             "ship1": null
           },
           {

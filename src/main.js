@@ -5238,8 +5238,10 @@ async function main() {
 
     /** @type {any} */ (sceneExtras)?.update?.(syncedNow, camera);
     levelUpdate?.(syncedNow);
+    // * LOD throttle is local wall time — syncedNow can jump backward on a host-clock
+    // * correction and park _lastUpdateMs in the future (LOD-CLOCK-1).
     if (frameBudgetAllow("level_lod", now)) {
-      updateLevelLod(camera, syncedNow);
+      updateLevelLod(camera, now);
     }
 
     // * Rave dressing animation: skip entirely when the level hides it (Storerooms/

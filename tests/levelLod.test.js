@@ -1,5 +1,6 @@
 // levelLod.test.js — distance culling registry
 
+import { readFileSync } from "node:fs";
 import { describe, expect, it, beforeEach } from "vitest";
 import {
   clearLevelLod,
@@ -75,5 +76,30 @@ describe("levelLod", () => {
     registerLevelLodNode(fakeObj(0, 0), { far: 10 });
     clearLevelLod();
     expect(getLevelLodNodeCount()).toBe(0);
+  });
+
+  // * LOD-CLOCK-1: after a backward host-offset correction, syncedNow lags wall time.
+  // * Feeding that lagging clock early-returns until it catches _lastUpdateMs; a
+  // * monotonic local nowMs past INTERVAL still refreshes (main.js must pass raw now).
+  it("does not stall when a simulated synced clock jumps backward while local now advances", () => {
+    const obj = fakeObj(5, 0);
+    registerLevelLodNode(obj, { far: 40 });
+    updateLevelLod(fakeCamera(0, 0), 10_000);
+    expect(obj.visible).toBe(true);
+
+    obj.visible = false;
+    updateLevelLod(fakeCamera(0, 0), 5_000); // lagging synced — early-returns, no poison
+    expect(obj.visible).toBe(false);
+    updateLevelLod(fakeCamera(0, 0), 5_500); // still lagging
+    expect(obj.visible).toBe(false);
+
+    updateLevelLod(fakeCamera(0, 0), 10_300); // local now past INTERVAL after last accept
+    expect(obj.visible).toBe(true);
+  });
+
+  it("main.js passes raw now into updateLevelLod (not syncedNow)", () => {
+    const src = readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
+    expect(src).toMatch(/updateLevelLod\(\s*camera\s*,\s*now\s*\)/);
+    expect(src).not.toMatch(/updateLevelLod\(\s*camera\s*,\s*syncedNow\s*\)/);
   });
 });

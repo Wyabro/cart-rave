@@ -162,7 +162,9 @@ BOOT-PERF-1 · Run 7 strip) → [completed-work.md](./planning/completed-work.md
 
 | # | What | Status |
 |---|------|--------|
-| **ART-PASS-SUNDIAL-1** | Sundial art pass — 6 waves, one lever per commit | ▶ **ACTIVE 08-02** — resumed after DIAG-TIER-1. Step 0 done; Wave 1 sky-gradient remap owns waterline red step +128/+110. [audit](./planning/art-audit-sundial.md). |
+| **LOD-CLOCK-1** | level LOD throttle uses host-adjusted time | ✅ **SHIPPED 08-02** — `updateLevelLod(camera, now)`; stall unit test + main.js source assert. Applied, unpushed. |
+| **ASSET-CACHE-1** | fixed-name assets 7d cache stale after deploy | ▶ **ACTIVE 08-02** — next in A→B→C insert (Sundial still parked). |
+| **ART-PASS-SUNDIAL-1** | Sundial art pass — 6 waves, one lever per commit | 🅿️ **PARKED 08-02** — for LOD-CLOCK-1 · ASSET-CACHE-1 · QP-ORDER-1 sequence; restore after C. Step 0 done; Wave 1 sky-gradient remap owns waterline red step +128/+110. [audit](./planning/art-audit-sundial.md). |
 | **DIAG-TIER-1** | capture `runtime.qualityTier` reports effective tier | ✅ **SHIPPED 08-02** — three fields on real runtime probe; `tests/gameplayDiagnostics.runtime.test.js` ×3. Applied, unpushed. |
 | **FIGHT-VERIFY-1** | owed fight-night verification | 🟢 **agent half DONE** 08-01 — podium/loadshots/states + focus-ring. Residual = **Playtest owed** cards (BACKLOG) — console-seeded; not this parent row. |
 | **HOST-CAP-1** | weak-host toast residual | ✅ **SHIPPED** 08-01 — `score < 50` once/hostship; prod Version `76ebdc37` (HEAD `423008f`) |
@@ -172,12 +174,13 @@ BOOT-PERF-1 · Run 7 strip) → [completed-work.md](./planning/completed-work.md
 
 ### Next actions
 
-1. **ART-PASS-SUNDIAL-1** — Wave 1: sky-gradient remap, then IBL sun azimuth (one lever per commit).
-1b. **ROUND-WEDGE-1 parked 08-02** for the Sundial pass. Phase A shipped `d4a7718`; Phase B needs its own ack.
+1. **ASSET-CACHE-1** (active) → then **QP-ORDER-1** → restore **ART-PASS-SUNDIAL-1**.
+1b. Closed 08-02: **LOD-CLOCK-1**. **ART-PASS-SUNDIAL-1 parked** — Wave 1 when restored.
+1c. **ROUND-WEDGE-1 parked 08-02** for the Sundial pass. Phase A shipped `d4a7718`; Phase B needs its own ack.
 2. **Playtest console** — owed cards in BACKLOG `## Playtest owed (08-01 session)`.
 3. Closed 08-01 Wyatt PASS: **PAUSE-ROW-1** · **MENU-CMD-FEEL-1** · **FOCUS-CYAN-1**.
-   Still open tooling: **ASSET-CACHE-1** · **HARNESS-FRIENDS-1**.
-   Closed 08-02: **DIAG-TIER-1**.
+   Still open tooling: **HARNESS-FRIENDS-1** (ASSET-CACHE-1 is the active insert card).
+   Closed 08-02: **DIAG-TIER-1** · **LOD-CLOCK-1**.
 
 **07-31 lesson (short):** verification tools only see branches they enter — add the matching
 viewport/pointer cell in the same commit as any scoped CSS. Prefer one real clip when it
@@ -304,51 +307,17 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
+2026-08-02 (LOD-CLOCK-1) — `updateLevelLod(camera, now)` so host-clock corrections cannot stall
+LOD throttle. Stall unit test + main.js source assert. ART-PASS-SUNDIAL-1 parked for A→B→C;
+ASSET-CACHE-1 next. Applied, unpushed.
+
 2026-08-02 (DIAG-TIER-1) — Runtime probe reports effective `qualityTier` + `qualityTierStored` +
 `qualityTierOverride`. Real-probe tests ×3. ART-PASS-SUNDIAL-1 re-active after brief park.
 Applied, unpushed.
 
-2026-08-01 (tooling stabilization sweep, 13 commits) — the Wyatt-commissioned cohesion pass
-before the 10-item playtest. Gates are now **read-only**: `check` runs `briefing:check` /
-`arch:check` instead of the writers, so BRIEFING_STALE/ARCH_STALE are finally reachable in
-CI and `qa` never dirties the tree (the generator→Stop-guard self-block is gone).
-Regeneration lives only in the pre-commit hook / `dashboard` / `refresh` — and those hooks
-are now **tracked** (`tools/git-hooks/` via `core.hooksPath`) with one-shot `npm run setup`
-(hooks + skills:sync + Command Center) replacing three undocumented bootstrap steps.
-`refresh.mjs` is the single surface list (it had skipped playtest-console). One freshness
-model: session-briefing warns on the content digest, not mtimes (the mtime warning
-false-positived by construction). The gate chain has exactly one hand-written copy
-(package.json `check`; briefing derives its Gates section from it, inside the digest).
-Guards are session-scoped: Stop guard blocks only on dirt THIS session touched
-(STOP-DIRT-1 closed; track-session-writes.mjs records ownership; Bash-only edits = known
-blind spot, degrades to silence); pathspec-less `git commit` hard-denies when the index
-holds foreign staged paths (GIT-INDEX-1 closed; bare `git add -u` gap closed; retreat =
-demote to warn if it over-fires). `npm test` count-gates vitest against on-disk spec
-discovery (TEST-COUNT-1 closed — workerd silent drops are now hard reds; root cause still
-open). guard-protected-paths got its escape hatch + tests. BACKLOG −33% (12 closed rows
-migrated full-text to completed-work.md; RESULTS-ACT-1/TRUST-1 deduped). Decision index
-07-20→07-23 rolled to the archive log verbatim. claudeHooks 116 cases; suite 89 files /
-1026 tests. **Restart Claude sessions to pick up the new PostToolUse tracker.** Playtest
-owed cards untouched — the console still seeds all 10.
-
-2026-08-01 (enforcement hooks) — Two AGENTS.md rules that no code enforced are now
-mechanical. `guard-git-add.mjs` gained every `git commit -a` form (`-a`, `-am`, `-sam`,
-`--all`), the `:` / `:(top)` pathspecs, and a `--` split so `git add -- -A` (a file named
-`-A`) stops false-positiving; a `permissions.deny` backstop in `.claude/settings.json`
-covers the common forms if the hook is disabled, but it is glob-only so `-vA`, `:`,
-`:(top)` and a literal `*` stay hook-only. New `tools/verify-head.mjs` + `npm run
-verify:head` is the repo's **first** remote check — there was no `git fetch`/`ls-remote`
-anywhere, so `collectGit`'s ahead/behind (and the dashboard's green "in sync" chip) read a
-local ref that had been stale ten hours. It uses `ls-remote` (zero writes, no
-`FETCH_HEAD`, no lock contention with a concurrent session), resolves `@{upstream}` rather
-than hardcoding `origin/cart-clash`, and splits it on the *first* `/` so `origin/feat/foo`
-works. New `guard-stop-drift.mjs` (Stop) blocks a "done/verified" claim only when real
-drift coincides — untracked files ignored via `--untracked-files=no`, offline degrades to
-never-block. An earlier draft had an "honesty" matcher that exited early on the word
-"unpushed"; that was a one-word bypass (`Done. Verified in HEAD. (unpushed)`) and is
-deleted — honest phrasing passes because it contains no *claim*, not because of a keyword.
-Gates: 976 tests / 89 files green, typecheck + knip + health:check clean. `tests/claudeHooks.test.js`
-(67 cases) pins both matchers. Not yet playtested — no gameplay surface touched.
+2026-08-01 (tooling stabilization + enforcement hooks) — gates read-only; tracked
+`tools/git-hooks/`; session-scoped Stop/GIT-INDEX guards; `verify:head`. Full text:
+[archive/status-log-2026-08-01-tooling.md](./archive/status-log-2026-08-01-tooling.md).
 
 2026-08-01 (three skills vendored: brainstorming · writing-skills · systematic-debugging) —
 all adapted from obra/superpowers into `.agents/skills/` and heavily trimmed; escalation
@@ -366,16 +335,10 @@ Shipped HEAD `423008f` / Worker Version `76ebdc37`. Full battery green 6/6
 STATUS size trim; INPUT-KB-1 closed. FIGHT-VERIFY agent half: four phases
 (`e5efbfe` · `533afa9` podium · `37a232a` loadshots · `9f5c9b5` states).
 
-2026-07-31 — HUD-FEED-1 · MENU-HINT-1 · HUD-CHIPS-1 Wyatt phone PASS (Version `85087c10`);
-touch sheet cells `0da5c4c`. No active card; FIGHT-VERIFY-1 residual = Wyatt real-match half.
-Phase stays Playtesting until Wyatt moves it.
-
-2026-07-30 — Seven cards closed (detail: [archive/status-log-2026-07-30.md](./archive/status-log-2026-07-30.md)):
-QA-STATUS-1 · HYGIENE-1 · CARGO-VIS/RACE/HUD · WARM-IGPU-1 · SKYBOX-1 (`skyExtras` LOW-off).
-Residual WARM-SOLO-1. Deploy PoP tip: re-poll HTML ~30s before calling a deploy failed.
-
 > **Older entries are archived — search them when you need history this file no longer carries.**
 > Index with date ranges: [archive/README.md](./archive/README.md).
+> - 2026-08-01 tooling — [archive/status-log-2026-08-01-tooling.md](./archive/status-log-2026-08-01-tooling.md) (gates read-only · git-hooks · Stop/GIT-INDEX guards)
+> - 2026-07-30 → 07-31 — [archive/status-log-2026-07-30-to-31.md](./archive/status-log-2026-07-30-to-31.md) (HUD phone PASS · seven-card 07-30 closeout; full 07-30 day log linked inside)
 > - 2026-07-23 — [archive/status-log-2026-07-23.md](./archive/status-log-2026-07-23.md) (Fight Night UI redesign merged `56dfa61` + deployed; owed prod verification → FIGHT-VERIFY-1; MP confetti/wilt parked)
 > - 2026-07-22 — [archive/status-log-2026-07-22.md](./archive/status-log-2026-07-22.md) (AI-DIFF-1 ship · ANLX-VIEW-1 · COUNTDOWN-ARM-1 · A6b false green + fix · plan→ack firewall)
 > - 2026-07-21 — [archive/status-log-2026-07-21.md](./archive/status-log-2026-07-21.md) (ARCH · PARITY · PERF-WARM root cause + reverted gate · WRAP · COUNTDOWN-ABORT-1)

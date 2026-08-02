@@ -13,6 +13,10 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 2, 2026 — LOD-CLOCK-1: LOD throttle uses local wall time
+
+- *(Art / Perf · Low)* **LOD-CLOCK-1** — level LOD updates were throttled on host-adjusted `syncedNow`, so a backward clock correction could stall visibility recomputes — ✅ **CLOSED 08-02** (applied, unpushed). Lever: `updateLevelLod(camera, now)` in `main.js`; `frameBudgetAllow("level_lod", now)` unchanged; sceneExtras / levelUpdate / Effects stay on `syncedNow`. Tests: stall simulation + main.js source assert in `tests/levelLod.test.js`. Cosmetic-only; needs a mid-match offset swing to bite in prod.
+
 ### August 2, 2026 — DIAG-TIER-1: capture runtime qualityTier tells the truth
 
 - *(Engineering · Medium)* **DIAG-TIER-1** — `runtime.qualityTier` reported the **stored** preference, so auto-quality demotions were invisible in every capture — ✅ **CLOSED 08-02** (applied, unpushed). `gameplayDiagnostics.js` runtime probe now reports three fields: `qualityTier` = `getQualityTier()` (effective), `qualityTierStored` = settingsStore, `qualityTierOverride` = `getSessionQualityTierOverride()`. No consumer or schema bump. Tests: `tests/gameplayDiagnostics.runtime.test.js` ×3 against the **real** `installGameplayDiagnostics` probe (demotion · both-off equality · menu-preview LOD). Does not re-open WARM-IGPU-1; re-read warm-igpu evidence with the corrected meaning of old `qualityTier`. PERF-WATCH-1 untouched.
