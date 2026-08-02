@@ -1024,14 +1024,25 @@ function buildSeascape(scene, circumR) {
   }
   // * Deep ink ocean with a warm bias — pure teal under the platform read as a cold blue
   // * ring against sunset fog; slight amber in the base color keeps near-water coherent.
+  // * Water is a DIELECTRIC. metalness 0.82 gave it F0 (0.0129, 0.0217, 0.0279) — below the
+  // * 0.04 dielectric floor in every channel, so it reflected less than glass while metalness
+  // * simultaneously killed its diffuse. ior 1.333 is water's real value (F0 ≈ 0.0203).
   const waterMat = createPhysicalMaterial({
     color: 0x14242c,
     roughness: 0.22,
-    metalness: 0.82,
+    metalness: 0.02,
+    ior: 1.333,
     envMapIntensity: getMaterialEnvMapIntensity() * 0.58,
     ...(waterNormalTex ? { normalMap: waterNormalTex, normalScale: new THREE.Vector2(0.22, 0.22) } : {}),
   });
   waterMat.userData.envMapIntensityScale = 0.58;
+  // * Own the envMap, the clampFloorEnv pattern from arena.js. Materials that merely inherit
+  // * scene.environment ignore envMapIntensity (three r152+, see scene.js), so the 0.58 above
+  // * was inert design intent. Assigning it here makes that scale a live knob.
+  // * This is a ONE-SHOT: refreshSceneEnvironmentMaterials reapplies intensity but never
+  // * assigns envMap, so a miss here fails silently forever. Safe because the caller sets
+  // * scene.environment (:2705) before it calls buildSeascape (:2708).
+  if (scene.environment) waterMat.envMap = scene.environment;
   const water = new THREE.Mesh(waterGeo, waterMat);
   water.rotation.x = -Math.PI / 2;
   water.position.y = WATER_Y;
