@@ -468,6 +468,22 @@ function buildGrilleTexture() {
  * @param {Array<[number, string]>} stops createRadialGradient color stops.
  * @returns {THREE.CanvasTexture}
  */
+/**
+ * Mulberry32-style seeded RNG for the alien city's window layout, so the skyline is the
+ * same city on every load instead of rerolling. Same shape as backroomsSupermarket.js's
+ * `makeRng`; kept local per that file's precedent — see the BACKLOG note about promoting
+ * the three copies to a shared util.
+ * @param {number} seed
+ * @returns {() => number}
+ */
+function makeCityRng(seed) {
+  let s = seed >>> 0;
+  return () => {
+    s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+    return s / 4294967296;
+  };
+}
+
 function buildSoftDiscTexture(stops) {
   const size = 256;
   const canvas = document.createElement("canvas");
@@ -1507,6 +1523,11 @@ function buildSeascape(scene, circumR) {
     ];
     const city = new THREE.InstancedMesh(cityGeo, cityMat, towerSpecs.length);
     const windowPositions = [];
+    const windowColors = [];
+    // * Seeded, not Math.random(): the skyline's lit pattern used to reroll on every level
+    // * load, so the same city was a different city each time you arrived. Same mulberry32
+    // * shape backroomsSupermarket.js:103 uses, with its own constant.
+    const cityRng = makeCityRng(0x5c17a11d);
     for (let i = 0; i < towerSpecs.length; i += 1) {
       const t = towerSpecs[i];
       const bx = cx + lateralX * t.off;
@@ -1521,13 +1542,23 @@ function buildSeascape(scene, circumR) {
       if (t.h > 30) {
         const floors = Math.floor(t.h / 11);
         for (let f = 1; f <= floors; f += 1) {
-          if (Math.random() < 0.35) continue; // dark floors keep it organic
-          const across = (Math.random() - 0.5) * t.w * 0.55;
-          windowPositions.push(
-            bx + lateralX * across - Math.cos(cityAz) * (t.d / 2 + 0.5),
-            baseY + f * 11 - 4,
-            bz + lateralZ * across - Math.sin(cityAz) * (t.d / 2 + 0.5),
-          );
+          if (cityRng() < 0.35) continue; // dark floors keep it organic
+          // * 3-5 windows per lit floor, not one. A single dot per floor reads as a column
+          // * of pin-pricks; a short row reads as a storey with the lights on.
+          const perFloor = 3 + Math.floor(cityRng() * 3);
+          for (let wI = 0; wI < perFloor; wI += 1) {
+            const across = (cityRng() - 0.5) * t.w * 0.8;
+            windowPositions.push(
+              bx + lateralX * across - Math.cos(cityAz) * (t.d / 2 + 0.5),
+              baseY + f * 11 - 4,
+              bz + lateralZ * across - Math.sin(cityAz) * (t.d / 2 + 0.5),
+            );
+            // * Static per-window brightness, written once — no per-frame cost and, unlike
+            // * flicker, it survives a capture. Uniformly lit windows read as stamped; a
+            // * spread reads as inhabited. Multiplies winMat.color, so the hue is unchanged.
+            const b = 0.45 + cityRng() * 0.55;
+            windowColors.push(b, b, b);
+          }
         }
       }
     }
@@ -1536,8 +1567,10 @@ function buildSeascape(scene, circumR) {
 
     const winGeo = new THREE.BufferGeometry();
     winGeo.setAttribute("position", new THREE.Float32BufferAttribute(windowPositions, 3));
+    winGeo.setAttribute("color", new THREE.Float32BufferAttribute(windowColors, 3));
     const winMat = new THREE.PointsMaterial({
       color: 0x9fe8ff,
+      vertexColors: true, // per-window brightness, baked once (see the loop above)
       size: 1.7,
       sizeAttenuation: false,
       transparent: true,
