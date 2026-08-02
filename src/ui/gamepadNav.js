@@ -16,7 +16,6 @@ const OVERLAY_SCOPE_SELECTORS = [
   "#cr-challenges-screen",
   "#cr-settings-screen",
   "#cr-customize-screen",
-  "#cr-friends-screen",
 ];
 
 let lastScope = /** @type {HTMLElement|Document|null} */ (null);

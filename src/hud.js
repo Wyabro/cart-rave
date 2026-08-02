@@ -147,6 +147,7 @@ const elements = {
   lobbyCopy: null,
   lobbyStatus: null,
   lobbyLink: null,
+  lobbyLinkField: null,
   lobbyReadyBtn: null,
   lobbyReadyLabel: null,
   menuBtn: null,
@@ -229,6 +230,15 @@ let _leaderSlotIndex = -1;
 let _feedRowObserver = null;
 /** Revert timeout for the lobby COPY button's "COPIED!" confirmation. */
 let _lobbyCopyTimeoutId = null;
+/**
+ * performance.now() when the local player became the ONLY human in a friends lobby,
+ * or null while that is not the case. Drives the mistyped-code banner (FRIENDS-JOIN-1).
+ * Null rather than 0 as the sentinel: performance.now() legitimately reads 0 at page
+ * origin, so a numeric zero would mean both "started now" and "not counting".
+ */
+let _lobbyAloneSinceMs = null;
+/** How long alone-after-seated counts as "that code was probably wrong". */
+const LOBBY_STRANDED_MS = 4500;
 /** Quantized (0.5%) round-timer fill last written — skip redundant per-frame style writes. */
 let _hudTimerFillHalfPct = -1;
 /** Non-zero while the host-stall toast for the current stall has been shown (run-6). */
@@ -1322,12 +1332,32 @@ function updateLobbyScreen(roundPhase, netSlots, youConnId, menuVisible) {
     if (elements.lobbyLink.textContent !== next) elements.lobbyLink.textContent = next;
     elements.lobbyLink.classList.toggle("is-warn", reconnecting);
   }
+  // * FRIENDS-JOIN-1: no room registry exists, so a mistyped code is indistinguishable
+  // * from being first to arrive — the only honest signal is "you typed a code AND
+  // * nobody ever turned up". Timed from SEATED rather than from the submit press: a
+  // * wall-clock timer started at submit races connect + hello and fires during load.
+  const localSeated = Boolean(youConnId) && rows.some((r) => r && r.connId === youConnId);
+  if (humans > 1 || !localSeated) {
+    _lobbyAloneSinceMs = null;
+  } else if (_lobbyAloneSinceMs === null) {
+    _lobbyAloneSinceMs = performance.now();
+  }
+  const stranded =
+    _lobbyAloneSinceMs !== null
+    && Boolean(_options.joinedViaTypedCode?.())
+    && performance.now() - _lobbyAloneSinceMs >= LOBBY_STRANDED_MS;
+
   if (elements.lobbyStatus) {
     const allReady = humans > 0 && readyHumans === humans;
-    elements.lobbyStatus.textContent = allReady
-      ? "ALL CHECKED OUT — STARTING…"
-      : "WAITING FOR CHECKOUT…";
-    elements.lobbyStatus.classList.toggle("is-go", allReady);
+    // * Written here, inside the branch that reassigns textContent every update — a
+    // * one-shot set anywhere else would show for one frame and be clobbered.
+    elements.lobbyStatus.textContent = stranded
+      ? "NOBODY HERE — CHECK THE CODE"
+      : allReady
+        ? "ALL CHECKED OUT — STARTING…"
+        : "WAITING FOR CHECKOUT…";
+    elements.lobbyStatus.classList.toggle("is-go", allReady && !stranded);
+    elements.lobbyStatus.classList.toggle("is-warn", stranded);
   }
   // * Mirror the corner button's already-computed label/state — no second
   // * derivation of who is ready.
@@ -1373,6 +1403,7 @@ export function init(options) {
     clearTimeout(_lobbyCopyTimeoutId);
     _lobbyCopyTimeoutId = null;
   }
+  _lobbyAloneSinceMs = null;
   resetStage();
 
   const existing = document.getElementById("hud");
@@ -1624,19 +1655,52 @@ export function init(options) {
   elements.lobbyCopy.type = "button";
   elements.lobbyCopy.className = "hud-lobby-copy";
   elements.lobbyCopy.textContent = "COPY";
+  // * Revealed only when a copy actually fails, so the player still has a link they
+  // * can select by hand. The old handler swallowed the rejection and reported
+  // * "COPIED!" regardless — on a denied permission or a non-secure context that is a
+  // * lie, and the player pastes nothing into Discord wondering why (FRIENDS-JOIN-1).
+  elements.lobbyLinkField = document.createElement("input");
+  elements.lobbyLinkField.className = "hud-lobby-linkfield";
+  elements.lobbyLinkField.readOnly = true;
+  elements.lobbyLinkField.hidden = true;
+  elements.lobbyLinkField.setAttribute("aria-label", "Invite link");
+
   elements.lobbyCopy.addEventListener("click", () => {
     // * Same invite link the menu screen hands out: clean origin + ?room=.
     const code = String(resolvedPartyRoomFromUrl() || "");
     if (!code) return;
     const link = new URL(window.location.origin + window.location.pathname);
     link.searchParams.set("room", code);
-    navigator.clipboard?.writeText(link.toString()).catch(() => {});
-    elements.lobbyCopy.textContent = "COPIED!";
-    if (_lobbyCopyTimeoutId) clearTimeout(_lobbyCopyTimeoutId);
-    _lobbyCopyTimeoutId = setTimeout(() => {
-      _lobbyCopyTimeoutId = null;
-      if (elements.lobbyCopy) elements.lobbyCopy.textContent = "COPY";
-    }, 1500);
+    const href = link.toString();
+
+    const settle = (label, failed) => {
+      if (elements.lobbyCopy) {
+        elements.lobbyCopy.textContent = label;
+        elements.lobbyCopy.classList.toggle("is-failed", failed);
+      }
+      if (elements.lobbyLinkField) {
+        elements.lobbyLinkField.value = href;
+        elements.lobbyLinkField.hidden = !failed;
+        // * Pre-selected so the fallback is one Ctrl+C, not a drag.
+        if (failed) elements.lobbyLinkField.select();
+      }
+      if (_lobbyCopyTimeoutId) clearTimeout(_lobbyCopyTimeoutId);
+      _lobbyCopyTimeoutId = setTimeout(() => {
+        _lobbyCopyTimeoutId = null;
+        if (elements.lobbyCopy) {
+          elements.lobbyCopy.textContent = "COPY";
+          elements.lobbyCopy.classList.remove("is-failed");
+        }
+      }, failed ? 4000 : 1500);
+    };
+
+    // * No clipboard API at all is a failure too, not a silent success.
+    const write = navigator.clipboard?.writeText(href);
+    if (!write) {
+      settle("COPY FAILED", true);
+      return;
+    }
+    write.then(() => settle("COPIED!", false)).catch(() => settle("COPY FAILED", true));
   });
 
   lobbyCodeRow.appendChild(elements.lobbyCode);
@@ -1648,6 +1712,7 @@ export function init(options) {
 
   lobbyCodeCard.appendChild(lobbyCodeLbl);
   lobbyCodeCard.appendChild(lobbyCodeRow);
+  lobbyCodeCard.appendChild(elements.lobbyLinkField);
   lobbyCodeCard.appendChild(lobbyShare);
 
   // Right column: the roster itself.

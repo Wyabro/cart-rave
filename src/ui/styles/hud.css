@@ -2091,6 +2091,29 @@
   color: var(--color-ink);
 }
 
+/* Copy genuinely failed (denied permission / non-secure context). Alert voice so it
+   cannot be mistaken for the COPIED! confirmation it used to lie with. */
+.hud-lobby-copy.is-failed {
+  border-color: var(--color-magenta);
+  color: var(--color-magenta);
+}
+
+/* The hand-select fallback: hidden until a copy fails, then pre-selected. */
+.hud-lobby-linkfield {
+  width: 100%;
+  margin-top: clamp(6px, 0.8vh, 10px);
+  padding: clamp(5px, 0.7vh, 8px) 8px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--color-magenta);
+  border-radius: 4px;
+  color: var(--color-sticker-white);
+  font-family: var(--mono);
+  font-size: clamp(9px, 0.9vw, 11px);
+  letter-spacing: 0.02em;
+}
+
+.hud-lobby-linkfield[hidden] { display: none; }
+
 .hud-lobby-share {
   margin: 0;
   padding-top: clamp(10px, 1.2vh, 16px);
@@ -2253,6 +2276,10 @@
 }
 
 .hud-lobby-status.is-go { color: var(--color-portal); }
+
+/* "NOBODY HERE — CHECK THE CODE": the one lobby state that is the player's problem
+   to fix, so it gets the alert voice rather than the waiting voice. */
+.hud-lobby-status.is-warn { color: var(--color-magenta); }
 
 .hud-lobby-actions {
   display: flex;

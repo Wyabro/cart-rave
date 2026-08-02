@@ -247,6 +247,7 @@ import {
 } from "./gameFlow.js";
 import { getRoundClockNowMs, getRoundRemainingMs } from "./roundClock.js";
 import { ROUND_DURATION_MS } from "../shared/roundConstants.js";
+import { generateRoomCode, normalizeRoomCode } from "../shared/roomCodes.js";
 import { createGameContext } from "./gameContext.js";
 import {
   buildNetcodeGameBridge,
@@ -528,6 +529,14 @@ let menuColorPickListenerWired = false;
 let customizationChangeListenerWired = false;
 let menuActionListenerWired = false;
 let menuNameSyncWired = false;
+let menuJoinWired = false;
+/**
+ * FRIENDS-JOIN-1: true when this client reached the room by TYPING a code, which is the
+ * only case where "alone in the lobby" might mean "you mistyped it". A host who created a
+ * room and is waiting for friends looks identical (alone, isHost, phase lobby) and must
+ * never be told to check the code. Cleared on menu return.
+ */
+let joinedViaTypedCode = false;
 let quickplayAutoRejoinAttempted = false;
 /** @type {boolean} */
 let menuVisible = true;
@@ -1754,6 +1763,9 @@ async function main() {
   function initMenu() {
     noteBootMilestone(90);
     menuVisible = true;
+    // * Back at the title screen, nobody arrived by typed code any more — a stale flag
+    // * would show "check the code" to the next room's host (FRIENDS-JOIN-1).
+    joinedViaTypedCode = false;
     removePodiumSkipListeners();
     setGamepadNavActive(true);
     startMenuAttract();
@@ -1921,85 +1933,83 @@ async function main() {
           onArenaReady: makeMultiplayerArenaReadyHook("Quickplay"),
         }).catch((err) => onMenuBootstrapError("Quickplay", err));
       } else if (action === "friends") {
-        const roomId = `party${Math.random().toString(36).substring(2, 8)}`;
+        // * FRIENDS-JOIN-1: creating a room now JOINS it. The old flow parked the
+        // * creator on an invite screen that opened no socket, so an invited player who
+        // * pressed JOIN LOBBY connected alone and became host of a room its creator had
+        // * never entered — same code on both screens, same room in both URLs, no shared
+        // * room (cap-224/225, 08-01). CHECKOUT LINE already shows the code, the COPY
+        // * button and the roster, so the middle screen had no job left.
+        const roomId = generateRoomCode();
         const url = new URL(window.location.href);
         url.searchParams.set("room", roomId);
         history.pushState({}, "", url);
-        const cleanLink = new URL(window.location.origin + window.location.pathname);
-        cleanLink.searchParams.set("room", roomId);
-        const roomLink = cleanLink.toString();
-        navigator.clipboard.writeText(roomLink).catch(() => {});
-
-        // Show friends screen
-        const friendsScreen = document.getElementById("cr-friends-screen");
-        const friendsLink = document.getElementById("cr-friends-link");
-        const friendsCopy = document.getElementById("cr-friends-copy");
-        const friendsEnter = document.getElementById("cr-friends-enter");
-        const friendsBack = document.getElementById("cr-friends-back");
-        const menuRoot = document.getElementById("cr-root");
-
-        if (friendsLink) friendsLink.value = roomLink;
-        // * The code is what people read out loud; the link is what they paste.
-        const friendsCode = document.getElementById("cr-friends-code");
-        if (friendsCode) friendsCode.textContent = roomId.toUpperCase();
-        window.CartRave?.stopAnimations?.();
-        if (menuRoot) menuRoot.style.display = "none";
-        if (friendsScreen) {
-          friendsScreen.style.display = "flex";
-          friendsScreen.setAttribute("aria-hidden", "false");
-        }
-        // * Autofocus the primary action (ENTER GAME), matching how the other
-        // * overlay screens focus their primary button on open.
-        if (friendsEnter) setTimeout(() => friendsEnter.focus(), 0);
-
-        // * Bring Friends into the shared overlay contract: Escape closes it and
-        // * focus returns to the FRIENDS button that opened it. (This screen lives
-        // * in main.js, outside the menu's closeActiveOverlay set, so it needs its
-        // * own dedicated handler.) The keydown listener is removed on every exit
-        // * so repeated open/close never stacks listeners.
-        const onFriendsKeydown = (e) => {
-          if (e.key !== "Escape") return;
-          e.preventDefault();
-          e.stopPropagation();
-          closeFriendsScreen();
-        };
-        const closeFriendsScreen = () => {
-          document.removeEventListener("keydown", onFriendsKeydown);
-          if (friendsScreen) {
-            friendsScreen.style.display = "none";
-            friendsScreen.setAttribute("aria-hidden", "true");
-          }
-          window.CartRave?.show?.();
-          refreshMenuStats();
-          const cleanUrl = new URL(window.location.href);
-          cleanUrl.searchParams.delete("room");
-          history.pushState({}, "", cleanUrl);
-          document.getElementById("cr-friends")?.focus();
-        };
-        document.addEventListener("keydown", onFriendsKeydown);
-
-        if (friendsCopy) {
-          friendsCopy.onclick = () => {
-            navigator.clipboard.writeText(roomLink).catch(() => {});
-            friendsCopy.textContent = "COPIED!";
-            setTimeout(() => { friendsCopy.textContent = "COPY"; }, 1500);
-          };
-        }
-        if (friendsEnter) {
-          friendsEnter.onclick = () => {
-            document.removeEventListener("keydown", onFriendsKeydown);
-            friendsScreen.style.display = "none";
-            friendsScreen.setAttribute("aria-hidden", "true");
-            void enterPlayMode({
-              gameMode: "friends",
-              commitMenuHidden: false,
-              onArenaReady: makeMultiplayerArenaReadyHook("Friends"),
-            }).catch((err) => onMenuBootstrapError("Friends", err));
-          };
-        }
-        if (friendsBack) friendsBack.onclick = closeFriendsScreen;
+        void enterPlayMode({
+          gameMode: "friends",
+          commitMenuHidden: false,
+          onArenaReady: makeMultiplayerArenaReadyHook("Friends"),
+        }).catch((err) => onMenuBootstrapError("Friends", err));
       }
     });
+    }
+
+    // ── Join a private room by typed code (FRIENDS-JOIN-1) ──
+    // * The link path already works; this is the path for someone who only HEARD the
+    // * code — the Discord-voice case that had no affordance at all before.
+    if (!menuJoinWired) {
+      menuJoinWired = true;
+      const joinInput = /** @type {HTMLInputElement | null} */ (document.getElementById("cr-join-code"));
+      const joinGo = document.getElementById("cr-join-go");
+      const joinError = document.getElementById("cr-join-error");
+
+      const clearJoinError = () => {
+        if (joinError) joinError.hidden = true;
+      };
+      const showJoinError = () => {
+        // * A silent no-op on a bad code reads as a broken button.
+        if (joinError) joinError.hidden = false;
+        joinInput?.focus();
+        joinInput?.select();
+      };
+
+      const submitJoinCode = () => {
+        clearJoinError();
+        // * 1. One validation funnel: uppercases, and refuses names reserved for a mode.
+        const code = normalizeRoomCode(joinInput?.value ?? "");
+        if (!code) {
+          showJoinError();
+          return;
+        }
+        // * 2. The URL must carry the room — detectGameMode() derives the mode from it,
+        // * and a bare URL resolves to "quickplay", so CHECKOUT LINE would never open.
+        // * Write the VALIDATOR's string, never the raw field: `kale7` and `KALE7` are
+        // * different Durable Objects, which splits the room exactly like a typo.
+        const url = new URL(window.location.href);
+        url.searchParams.set("room", code);
+        history.pushState({}, "", url);
+        // * 3. The joinroom handler reads pendingInviteRoomFromUrl and never the URL, so
+        // * without this it is a silent no-op. Re-run the capture helper rather than
+        // * assigning by hand, so validation has one path; if it disagrees with the
+        // * validator, fail visibly instead of dispatching a join that cannot work.
+        if (!captureInviteRoomForDeferredMenu()) {
+          showJoinError();
+          return;
+        }
+        joinedViaTypedCode = true;
+        if (joinInput) joinInput.value = "";
+        // * 4. Same action the invite link's JOIN LOBBY button fires — one enter path.
+        window.dispatchEvent(new CustomEvent("cartrave:menu", { detail: { action: "joinroom" } }));
+      };
+
+      joinGo?.addEventListener("click", submitJoinCode);
+      joinInput?.addEventListener("input", clearJoinError);
+      joinInput?.addEventListener("keydown", (e) => {
+        if (e.key !== "Enter") return;
+        // * stopPropagation as well as preventDefault: the menu's own Enter handler
+        // * would otherwise activate whatever command is currently selected.
+        e.preventDefault();
+        e.stopPropagation();
+        submitJoinCode();
+      });
     }
 
     refreshMenuStats();
@@ -2249,6 +2259,9 @@ async function main() {
     // * CHECKOUT LINE "LEAVE ROOM" rides the same teardown as the pause menu's
     // * MAIN MENU — socket close + ?room= clear live there (no second path).
     onLeaveRoom: () => gameSession.returnToMenu({ reason: "lobby-leave" }),
+    // * FRIENDS-JOIN-1: only a player who TYPED a code can be told to check it. The
+    // * room's creator waiting alone is the same observable state and must not see it.
+    joinedViaTypedCode: () => joinedViaTypedCode,
     // * Pause-menu RESTART (solo/test-drive only): reuse the host solo re-entry
     // * path — reset the world and re-run the countdown, no menu round-trip.
     onRestart: () => onHostPlayAgainClick(),

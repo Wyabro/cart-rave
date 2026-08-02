@@ -1743,7 +1743,7 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
   }
 
   function isMenuOverlayOpen() {
-    return ["cr-customize-screen", "cr-howto-screen", "cr-challenges-screen", "cr-settings-screen", "cr-friends-screen"]
+    return ["cr-customize-screen", "cr-howto-screen", "cr-challenges-screen", "cr-settings-screen"]
       .some((id) => {
         const el = $(id);
         return el && el.style.display !== "none" && getComputedStyle(el).display !== "none";
@@ -1839,7 +1839,14 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
 
   function onMenuNavKeydown(e) {
     if (!menuVisible() || isMenuOverlayOpen()) return;
-    if (document.activeElement === nameInput) return;
+    // * Any focused text field owns its own keystrokes. W/S move the command selection
+    // * and M toggles mute, so without this a room code like OATS3 or MILK2 would walk
+    // * the menu and mute the game while being typed (FRIENDS-JOIN-1). Generalised from
+    // * the single nameInput check so the next field added does not have to remember.
+    const focused = document.activeElement;
+    if (focused === nameInput) return;
+    if (focused instanceof HTMLInputElement || focused instanceof HTMLTextAreaElement) return;
+    if (focused instanceof HTMLElement && focused.isContentEditable) return;
     switch (e.key) {
       case "w": case "W": case "ArrowUp":
         e.preventDefault(); setMenuSelection(cmdIndex - 1); break;
@@ -2024,7 +2031,7 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
 
   function wireAllMenuPressFeedback() {
     document.querySelectorAll(
-      ".cr-btn, .cr-level-btn:not(.cr-level-btn--disabled), .cr-diff-btn, .cr-color-chip, .cr-reroll, .cr-plate-btn, .cr-mute-btn, .cr-friends-copy, .cr-friends-enter, .cr-friends-back, .cr-customize-done, .cr-customize-back, .cr-overlay-done, .cr-overlay-back",
+      ".cr-btn, .cr-level-btn:not(.cr-level-btn--disabled), .cr-diff-btn, .cr-color-chip, .cr-reroll, .cr-plate-btn, .cr-mute-btn, .cr-join-input, .cr-join-go, .cr-customize-done, .cr-customize-back, .cr-overlay-done, .cr-overlay-back",
     ).forEach((btn) => {
       wireMenuPressFeedback(btn);
     });
