@@ -13,6 +13,10 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 2, 2026 — ASSET-CACHE-1: fixed-name assets refresh within ~1h
+
+- *(Engineering · Medium)* **ASSET-CACHE-1** — fixed-name GLB/audio used a 7d max-age + 1d SWR, so browsers could serve stale art for up to ~8d after a deploy — ✅ **CLOSED 08-02** (applied, unpushed). Extracted `assetCacheControlForPath` into `shared/assetCache.js`; `party/index.ts` delegates. Policies: hashed `/assets/*` → 1y immutable; `/models|/sounds|/draco|/fonts` + recognized fixed extensions → `max-age=3600, stale-while-revalidate=300`; unmatched → null (no header override). No storage-key or infra renaming. Tests: `tests/assetCache.test.js`.
+
 ### August 2, 2026 — LOD-CLOCK-1: LOD throttle uses local wall time
 
 - *(Art / Perf · Low)* **LOD-CLOCK-1** — level LOD updates were throttled on host-adjusted `syncedNow`, so a backward clock correction could stall visibility recomputes — ✅ **CLOSED 08-02** (applied, unpushed). Lever: `updateLevelLod(camera, now)` in `main.js`; `frameBudgetAllow("level_lod", now)` unchanged; sceneExtras / levelUpdate / Effects stay on `syncedNow`. Tests: stall simulation + main.js source assert in `tests/levelLod.test.js`. Cosmetic-only; needs a mid-match offset swing to bite in prod.

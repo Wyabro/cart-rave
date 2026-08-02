@@ -60,6 +60,7 @@ import {
 } from './slotReconcile';
 import { NPC_NAME_POOL } from '../shared/npcNames.js';
 import { QUICKPLAY_ARENA_IDS } from '../shared/arenaPool.js';
+import { assetCacheControlForPath } from '../shared/assetCache.js';
 import {
   classifyWsMessagePostParse,
   classifyWsMessagePreParse,
@@ -1504,25 +1505,14 @@ export class CartRaveServer extends Server {
 
 /**
  * Cache headers for static assets served via the ASSETS binding.
- * Vite content-hashed bundles under /assets/ are immutable; models/sounds/draco
- * use a 7d max-age + SWR (filenames are not content-hashed).
+ * Policy lives in shared/assetCache.js (ASSET-CACHE-1) — hashed /assets/* stay
+ * immutable; fixed-name models/sounds/fonts use 1h + 5m SWR.
  */
 function withAssetCacheHeaders(request: Request, response: Response): Response {
   if (response.status !== 200 && response.status !== 206) return response;
 
   const path = new URL(request.url).pathname;
-  let cacheControl: string | null = null;
-
-  // * Hashed Vite output: assets/index-Ab12CdEf.js, assets/three-Xy9Z.js, etc.
-  if (/^\/assets\/[^/]+\.[a-fA-F0-9_-]{6,}\.(js|css|mjs|map|wasm)$/i.test(path)) {
-    cacheControl = "public, max-age=31536000, immutable";
-  } else if (
-    /^\/(models|sounds|draco|fonts)\//i.test(path) ||
-    /\.(glb|wasm|ogg|mp3|png|ico|webmanifest|woff2?)$/i.test(path)
-  ) {
-    cacheControl = "public, max-age=604800, stale-while-revalidate=86400";
-  }
-
+  const cacheControl = assetCacheControlForPath(path);
   if (!cacheControl) return response;
 
   const headers = new Headers(response.headers);

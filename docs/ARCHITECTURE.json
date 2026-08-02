@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-02T08:45:03.936Z",
-    "commit": "2c5b3fc"
+    "at": "2026-08-02T08:47:06.426Z",
+    "commit": "0779d6f"
   },
-  "source_digest": "c801ba7a",
+  "source_digest": "e3f7ffa7",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -654,6 +654,7 @@
       "files": [
         "shared/analyticsConstants.js",
         "shared/arenaPool.js",
+        "shared/assetCache.js",
         "shared/npcNames.js",
         "shared/protocol.js",
         "shared/readiness.js",
@@ -662,7 +663,7 @@
         "shared/wsMessageLimits.js",
         "src/npcNames.js"
       ],
-      "file_count": 9,
+      "file_count": 10,
       "edges": [
         {
           "to": "networking-client",
@@ -872,6 +873,21 @@
       {
         "id": "ASSET-CACHE-1",
         "what": "fixed-name assets 7d cache stale after deploy",
+        "status": "✅ SHIPPED 08-02 — `shared/assetCache.js`; fixed-name → 1h + 5m SWR; hashed `/assets/*` unchanged. Applied, unpushed.",
+        "state": "done",
+        "touches_systems": [
+          {
+            "id": "shared-protocol",
+            "name": "Shared protocol",
+            "files": [
+              "shared/assetCache.js"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "QP-ORDER-1",
+        "what": "quickplay rotates sequential, not random",
         "status": "▶ ACTIVE 08-02 — next in A→B→C insert (Sundial still parked).",
         "state": "active"
       },
@@ -928,7 +944,7 @@
       }
     ],
     "next_actions": [
-      "ASSET-CACHE-1 (active) → then QP-ORDER-1 → restore ART-PASS-SUNDIAL-1.",
+      "QP-ORDER-1 (active) → then restore ART-PASS-SUNDIAL-1.",
       "Playtest console — owed cards in BACKLOG `## Playtest owed (08-01 session)`.",
       "Closed 08-01 Wyatt PASS: PAUSE-ROW-1 · MENU-CMD-FEEL-1 · FOCUS-CYAN-1."
     ],
@@ -966,7 +982,7 @@
         "title": "Engineering",
         "counts": {
           "High": 3,
-          "Medium": 18,
+          "Medium": 17,
           "Low": 4,
           "Partial": 1
         },
@@ -1048,12 +1064,6 @@
             "item": "NET-SIM-1 — socket-lifecycle netharness scenarios `[SHIP-1 A6]`",
             "notes": "A6a (party-do silent-reap + ghost 4010) + A6b (netharness `hostReload`) landed; extend as needed. P2P zombie + reconnect cooldown already unit-covered.",
             "ship1": "A6"
-          },
-          {
-            "pri": "Medium",
-            "item": "ASSET-CACHE-1 — fixed-name GLB/audio 7d cache can serve stale art after deploys",
-            "notes": "**Filed 08-01** (audit triage). `party/index.ts` `withAssetCacheHeaders`: hashed `/assets/*` = 1y immutable; fixed-name `/models",
-            "ship1": null
           },
           {
             "pri": "Medium",

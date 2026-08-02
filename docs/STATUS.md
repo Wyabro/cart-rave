@@ -163,7 +163,8 @@ BOOT-PERF-1 · Run 7 strip) → [completed-work.md](./planning/completed-work.md
 | # | What | Status |
 |---|------|--------|
 | **LOD-CLOCK-1** | level LOD throttle uses host-adjusted time | ✅ **SHIPPED 08-02** — `updateLevelLod(camera, now)`; stall unit test + main.js source assert. Applied, unpushed. |
-| **ASSET-CACHE-1** | fixed-name assets 7d cache stale after deploy | ▶ **ACTIVE 08-02** — next in A→B→C insert (Sundial still parked). |
+| **ASSET-CACHE-1** | fixed-name assets 7d cache stale after deploy | ✅ **SHIPPED 08-02** — `shared/assetCache.js`; fixed-name → 1h + 5m SWR; hashed `/assets/*` unchanged. Applied, unpushed. |
+| **QP-ORDER-1** | quickplay rotates sequential, not random | ▶ **ACTIVE 08-02** — next in A→B→C insert (Sundial still parked). |
 | **ART-PASS-SUNDIAL-1** | Sundial art pass — 6 waves, one lever per commit | 🅿️ **PARKED 08-02** — for LOD-CLOCK-1 · ASSET-CACHE-1 · QP-ORDER-1 sequence; restore after C. Step 0 done; Wave 1 sky-gradient remap owns waterline red step +128/+110. [audit](./planning/art-audit-sundial.md). |
 | **DIAG-TIER-1** | capture `runtime.qualityTier` reports effective tier | ✅ **SHIPPED 08-02** — three fields on real runtime probe; `tests/gameplayDiagnostics.runtime.test.js` ×3. Applied, unpushed. |
 | **FIGHT-VERIFY-1** | owed fight-night verification | 🟢 **agent half DONE** 08-01 — podium/loadshots/states + focus-ring. Residual = **Playtest owed** cards (BACKLOG) — console-seeded; not this parent row. |
@@ -174,13 +175,13 @@ BOOT-PERF-1 · Run 7 strip) → [completed-work.md](./planning/completed-work.md
 
 ### Next actions
 
-1. **ASSET-CACHE-1** (active) → then **QP-ORDER-1** → restore **ART-PASS-SUNDIAL-1**.
-1b. Closed 08-02: **LOD-CLOCK-1**. **ART-PASS-SUNDIAL-1 parked** — Wave 1 when restored.
+1. **QP-ORDER-1** (active) → then restore **ART-PASS-SUNDIAL-1**.
+1b. Closed 08-02: **LOD-CLOCK-1** · **ASSET-CACHE-1**. **ART-PASS-SUNDIAL-1 parked** — Wave 1 when restored.
 1c. **ROUND-WEDGE-1 parked 08-02** for the Sundial pass. Phase A shipped `d4a7718`; Phase B needs its own ack.
 2. **Playtest console** — owed cards in BACKLOG `## Playtest owed (08-01 session)`.
 3. Closed 08-01 Wyatt PASS: **PAUSE-ROW-1** · **MENU-CMD-FEEL-1** · **FOCUS-CYAN-1**.
-   Still open tooling: **HARNESS-FRIENDS-1** (ASSET-CACHE-1 is the active insert card).
-   Closed 08-02: **DIAG-TIER-1** · **LOD-CLOCK-1**.
+   Still open tooling: **HARNESS-FRIENDS-1**.
+   Closed 08-02: **DIAG-TIER-1** · **LOD-CLOCK-1** · **ASSET-CACHE-1**.
 
 **07-31 lesson (short):** verification tools only see branches they enter — add the matching
 viewport/pointer cell in the same commit as any scoped CSS. Prefer one real clip when it
@@ -307,9 +308,12 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
+2026-08-02 (ASSET-CACHE-1) — `assetCacheControlForPath` in `shared/assetCache.js`; fixed-name
+models/sounds/fonts → `max-age=3600, stale-while-revalidate=300`; hashed `/assets/*` stay
+1y immutable. QP-ORDER-1 next. Applied, unpushed.
+
 2026-08-02 (LOD-CLOCK-1) — `updateLevelLod(camera, now)` so host-clock corrections cannot stall
-LOD throttle. Stall unit test + main.js source assert. ART-PASS-SUNDIAL-1 parked for A→B→C;
-ASSET-CACHE-1 next. Applied, unpushed.
+LOD throttle. Stall unit test + main.js source assert. Applied, unpushed.
 
 2026-08-02 (DIAG-TIER-1) — Runtime probe reports effective `qualityTier` + `qualityTierStored` +
 `qualityTierOverride`. Real-probe tests ×3. ART-PASS-SUNDIAL-1 re-active after brief park.
