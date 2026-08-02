@@ -70,6 +70,9 @@ let active = false;
 let seq = 0;
 /** @type {DiagEvent[]} */
 const events = [];
+/** Live per-channel occupancy of `events`, so eviction can find the loudest channel in O(#channels). */
+/** @type {Map<string, number>} */
+const channelCounts = new Map();
 /** @type {Map<string, () => unknown>} */
 const probes = new Map();
 
@@ -117,9 +120,55 @@ export function recordDiagEvent(channel, type, data) {
   /** @type {DiagEvent} */
   const evt = { seq, t: nowMs(), ch: channel, type, ...(data || {}) };
   events.push(evt);
-  if (events.length > EVENT_BUFFER_MAX) events.shift();
+  bumpChannelCount(channel, 1);
+  if (events.length > EVENT_BUFFER_MAX) evictOneEvent();
   if (AUTO_CAPTURE_CHANNELS.has(channel)) scheduleAutoCapture(channel, type);
   return seq;
+}
+
+/**
+ * Keep `channelCounts` in step with `events`. Deleting at zero keeps the map's size equal to
+ * the number of channels actually present, which is what makes the eviction scan cheap.
+ * @param {string} ch
+ * @param {number} delta
+ */
+function bumpChannelCount(ch, delta) {
+  const n = (channelCounts.get(ch) || 0) + delta;
+  if (n > 0) channelCounts.set(ch, n);
+  else channelCounts.delete(ch);
+}
+
+/**
+ * Make room for one event — NOT plain FIFO.
+ *
+ * Why (ROUND-WEDGE-1): cap-217's 512-slot ring arrived holding exactly two event types,
+ * because 171 identical asserts fired at ~40ms and a FIFO ring let them evict everything
+ * else. The single most interesting session this project has recorded therefore carried no
+ * boot timeline, no perf spans and no warmupSettle — the storm destroyed the context that
+ * would have explained it.
+ *
+ * So: drop the oldest event from whichever channel currently occupies the MOST slots,
+ * rather than the oldest event overall. A flooding channel is by definition the largest, so
+ * it eats its own evictions and can never push a quiet channel below parity with it. When
+ * one channel is all there is, the largest channel IS the storm and this degrades to FIFO,
+ * which is correct — there is nothing else left to protect.
+ *
+ * Deliberately not a tunable per-channel floor constant: channels are added freely (the
+ * buffer is channel-agnostic by design), so any fixed table would silently stop covering
+ * new ones. Parity needs no configuration and cannot go stale.
+ */
+function evictOneEvent() {
+  let worstCh = null;
+  let worstN = 0;
+  for (const [ch, n] of channelCounts) {
+    if (n > worstN) {
+      worstN = n;
+      worstCh = ch;
+    }
+  }
+  const idx = worstCh == null ? 0 : events.findIndex((e) => e.ch === worstCh);
+  const [dropped] = events.splice(idx < 0 ? 0 : idx, 1);
+  if (dropped) bumpChannelCount(dropped.ch, -1);
 }
 
 /**
@@ -379,6 +428,7 @@ export function __resetDiagnosticsForTest() {
   active = false;
   seq = 0;
   events.length = 0;
+  channelCounts.clear();
   probes.clear();
   apiRef = null;
   autoCaptures.length = 0;

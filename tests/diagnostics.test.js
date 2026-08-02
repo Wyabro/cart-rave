@@ -78,6 +78,53 @@ describe("diagnostics — active (?diag)", () => {
     expect(events[events.length - 1].i).toBe(599);
   });
 
+  // * ROUND-WEDGE-1 / cap-217: 171 identical asserts at ~40ms filled a FIFO ring and evicted
+  // * every other channel, so the one session that reproduced the storm carried no boot
+  // * timeline, no perf spans and no warmupSettle. A storm must not destroy its own context.
+  describe("per-channel floor under a storm", () => {
+    // * Flooding the `assert` channel also SCHEDULES an auto-capture (setTimeout 0). Left
+    // * pending, it fires during the next test — after beforeEach has reinstalled the hub —
+    // * and pollutes that test's captures(). Drain inside our own test instead.
+    const settleCaptures = () => new Promise((r) => setTimeout(r, 0));
+
+    it("keeps quiet channels alive while one channel floods the ring", async () => {
+      recordDiagEvent("boot", "start", { marker: "boot" });
+      recordDiagEvent("round", "phase", { marker: "round" });
+      recordDiagEvent("perf", "longframe", { marker: "perf" });
+
+      // * Far more than the 512-slot ring, all on one channel — the cap-217 shape.
+      for (let i = 0; i < 900; i += 1) recordDiagEvent("assert", "phase-transition", { i });
+
+      const evs = window.__ccDiag.events();
+      expect(evs).toHaveLength(512);
+      // * Under plain FIFO all three of these would be long gone.
+      expect(evs.filter((e) => e.ch === "boot")).toHaveLength(1);
+      expect(evs.filter((e) => e.ch === "round")).toHaveLength(1);
+      expect(evs.filter((e) => e.ch === "perf")).toHaveLength(1);
+      // * ...and the storm still owns essentially the whole ring, so recent asserts survive.
+      expect(evs.filter((e) => e.ch === "assert").length).toBeGreaterThan(500);
+      expect(evs[evs.length - 1].i).toBe(899);
+      await settleCaptures();
+    });
+
+    it("evicts the loudest channel, not whichever event happens to be oldest", async () => {
+      // * 400 quiet events FIRST, so under FIFO they are exactly the ones that would die.
+      for (let i = 0; i < 400; i += 1) recordDiagEvent("round", "phase", { i });
+      for (let i = 0; i < 400; i += 1) recordDiagEvent("assert", "phase-transition", { i });
+
+      const evs = window.__ccDiag.events();
+      expect(evs).toHaveLength(512);
+      const round = evs.filter((e) => e.ch === "round").length;
+      const assert = evs.filter((e) => e.ch === "assert").length;
+      // * Parity, not annihilation: 800 events into 512 slots costs both channels roughly
+      // * equally once the loud one is the largest.
+      expect(round).toBeGreaterThan(200);
+      expect(assert).toBeGreaterThan(200);
+      expect(round + assert).toBe(512);
+      await settleCaptures();
+    });
+  });
+
   it("snapshot() runs all probes; snapshot(ns) runs one", () => {
     registerDiagProbe("round", () => ({ phase: "running" }));
     registerDiagProbe("score", () => ({ scores: { 0: 3 } }));
