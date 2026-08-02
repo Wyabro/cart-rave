@@ -1232,8 +1232,10 @@ function buildSeascape(scene, circumR) {
 
   // * Soft sun-path bloom on the water (replaces hard rectangular glint strips that read
   // * as a flat "wave patch"). Single radial-fade disc, no scrolling streak noise.
+  // * Built on every tier including Low (D-SUNDIAL-OQ6) — one additive quad, and it is one
+  // * of the two golden-hour signatures Low was stripping.
   let glintMat = null;
-  if (!lowQ) {
+  {
     const glintCanvas = document.createElement("canvas");
     glintCanvas.width = glintCanvas.height = 256;
     {
@@ -1245,6 +1247,26 @@ function buildSeascape(scene, circumR) {
       g.addColorStop(1, "rgba(255, 100, 30, 0)");
       gctx.fillStyle = g;
       gctx.fillRect(0, 0, 256, 256);
+
+      // * Distance attenuation has to live in ALPHA, because fog cannot supply it here.
+      // * three runs <fog_fragment> after <tonemapping_fragment> and fog only mixes .rgb —
+      // * so toneMapped:false is downstream of the problem and flipping it changes nothing.
+      // * Worse: the fog colour IS the ember hex (0xff5a22), so at the far end fog replaced
+      // * ~70% of this quad's colour with the brightest thing in the palette, and
+      // * AdditiveBlending then added it at full alpha, straight into bloom above 1.0.
+      // * This ramp bakes FogExp2 transmittance exp(-(d*density)^2) across the plane's
+      // * 90 m → 310 m span along the sun axis: 0.90 near, 0.60 mid, 0.30 far.
+      // * Canvas y=0 is the NEAR end — measured, not assumed: the plane's v axis reaches
+      // * world through rotation.x = -PI/2 AND rotation.z, and the first build had the ramp
+      // * backwards (it dimmed the near end 18% and left the far end alone).
+      const fade = gctx.createLinearGradient(0, 0, 0, 256);
+      fade.addColorStop(0, "rgba(0,0,0,0.90)");
+      fade.addColorStop(0.5, "rgba(0,0,0,0.60)");
+      fade.addColorStop(1, "rgba(0,0,0,0.30)");
+      gctx.globalCompositeOperation = "destination-in";
+      gctx.fillStyle = fade;
+      gctx.fillRect(0, 0, 256, 256);
+      gctx.globalCompositeOperation = "source-over";
     }
     const glintTex = new THREE.CanvasTexture(glintCanvas);
     glintTex.colorSpace = THREE.SRGBColorSpace;
