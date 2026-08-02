@@ -271,6 +271,33 @@ Live copies of the old rule that remain as annotated historical comments:
 [`config.js:494`](../../src/config.js:494),
 [`tokens.css:244`](../../src/ui/styles/tokens.css:244), and the two playtest checklists.
 
+## Tooling — procedural props from a reference image
+
+**img2threejs** (v1.4.3, Apache-2.0) rebuilds the object in a reference image as a procedural
+Three.js factory function — primitives, extrudes, generated canvas textures, no external art.
+Installed **user-level and deliberately not vendored** into `.agents/skills/`; it is 146 files,
+and a committed copy would recreate the `hallmark` bloat deleted 08-02:
+
+```bash
+git clone --depth 1 https://github.com/img2threejs/img2threejs.git "$HOME/.claude/skills/img2threejs"
+```
+
+**Reach for it** when a card needs a genuinely *new* hard-surface prop authored from a reference
+image — a new arena's prop set, or a single new object such as Sundial Wave 5's gnomon blade.
+
+**Do not reach for it** when the card refines geometry that already exists. Its own `SKILL.md`
+scopes it to new generation only; `refine-code` corrects within one reconstruction pass and does
+not edit an existing builder. **Every ART-PASS lever so far has been the second kind** — the
+hazard-band inset, the fascia normal map, the contact-shadow clusters, the bollard jitter.
+
+**Two costs, both real.** It emits **TypeScript**, and `src/` is JSDoc'd JS under `tsc --noEmit`,
+so each object needs converting — and a new `src/` file must be claimed in
+`tools/lib/archMap.mjs` or `health:check` red-gates `ARCH_UNMAPPED_FILE`. It also runs
+**80k–180k tokens per object**: a deliberate spend, never a casual reach.
+
+**It produces no UVs**, so it does not serve **CART-MODEL-1**, which needs a GLB carrying a
+second UV channel for the patterns work.
+
 ## Open cards
 
 - **ART-FILTER-1** — gate the arcade pass to The Storerooms at rest.
