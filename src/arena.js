@@ -1639,6 +1639,12 @@ export function initArena(scene, world, config, options = {}) {
   }
 
   // --- Record center label (branded vinyl label; material.color cycles tint) ---
+  // * Single source of truth for the label ring. Both the canvas layout (labelInnerPx)
+  // * and the RingGeometry below read these, so the drawn art and the mesh can never
+  // * disagree about where the visible band starts. LABEL_RING_INNER_M is paired with the
+  // * spindle ring's default outerRadius — changing it needs that checked too.
+  const LABEL_RING_INNER_M = 3.7;
+  const LABEL_RING_OUTER_M = 7.0;
   const recordLabelCanvas = document.createElement("canvas");
   recordLabelCanvas.width = 512;
   recordLabelCanvas.height = 512;
@@ -1648,28 +1654,42 @@ export function initArena(scene, world, config, options = {}) {
   const labelCx = 256;
   const labelCy = 256;
   const labelR = 256;
-  const holeR = labelR * 0.27;
 
-  // * Soft radial body (white → transparent edge) so the tinted mesh reads as a
-  // * paper label, not a hard disc cutout.
+  // * The label mesh is an ANNULUS, not a disc — the middle of this record is the kill
+  // * pit, so there is no centre to put a wordmark in. RingGeometry normalises UVs by the
+  // * OUTER radius, so the ring's inner edge lands at canvas radius
+  // * (inner / (2 * outer)) * width. Anything drawn inside that is NEVER RENDERED: the
+  // * previous disc-style layout put the CART RAVE wordmark (max ~92px), its divider, the
+  // * spindle-hole cut and grooves 1-3 of 7 in there, so the arena's namesake shipped as a
+  // * blank tinted gradient. Derived from the same constants the geometry uses below —
+  // * do not hardcode, or the two drift apart again.
+  const labelInnerPx =
+    (LABEL_RING_INNER_M / (2 * LABEL_RING_OUTER_M)) * recordLabelCanvas.width;
+
+  // * Paper label body, faded at BOTH edges so the annulus reads as a printed ring
+  // * rather than a hard washer. Stops are fractions of [labelInnerPx, labelR].
   const labelBodyGrad = recordLabelCtx.createRadialGradient(
-    labelCx, labelCy, holeR * 0.9,
+    labelCx, labelCy, labelInnerPx,
     labelCx, labelCy, labelR,
   );
-  labelBodyGrad.addColorStop(0, "rgba(255,255,255,0.95)");
+  labelBodyGrad.addColorStop(0, "rgba(255,255,255,0)");
+  labelBodyGrad.addColorStop(0.07, "rgba(255,255,255,0.93)");
   labelBodyGrad.addColorStop(0.72, "rgba(255,255,255,0.88)");
-  labelBodyGrad.addColorStop(0.92, "rgba(255,255,255,0.45)");
+  labelBodyGrad.addColorStop(0.93, "rgba(255,255,255,0.45)");
   labelBodyGrad.addColorStop(1, "rgba(255,255,255,0)");
   recordLabelCtx.fillStyle = labelBodyGrad;
   recordLabelCtx.beginPath();
   recordLabelCtx.arc(labelCx, labelCy, labelR, 0, Math.PI * 2);
   recordLabelCtx.fill();
 
-  // * Fine runout grooves — concentric hairlines between hole and outer edge.
+  // * Fine runout grooves — concentric hairlines in the INNER third of the visible band,
+  // * where a real label's run-in grooves sit relative to its printing.
   recordLabelCtx.strokeStyle = "rgba(0,0,0,0.18)";
   recordLabelCtx.lineWidth = 1.2;
-  for (let g = 0; g < 7; g += 1) {
-    const gr = holeR + 18 + g * ((labelR - holeR - 28) / 7);
+  const grooveInnerR = labelInnerPx + 8;
+  const grooveOuterR = labelInnerPx + 38;
+  for (let g = 0; g < 5; g += 1) {
+    const gr = grooveInnerR + (g * (grooveOuterR - grooveInnerR)) / 4;
     recordLabelCtx.beginPath();
     recordLabelCtx.arc(labelCx, labelCy, gr, 0, Math.PI * 2);
     recordLabelCtx.stroke();
@@ -1702,59 +1722,64 @@ export function initArena(scene, world, config, options = {}) {
     recordLabelCtx.fill();
   };
 
-  // * Three smaller stars around the hole — less "blob", more badge.
-  recordLabelCtx.fillStyle = "rgba(0,0,0,0.35)";
-  const starOrbit = labelR * 0.52;
-  const starOuter = labelR * 0.11;
-  const starInner = starOuter * 0.42;
-  for (let i = 0; i < 3; i += 1) {
-    const a = (i * Math.PI * 2) / 3 - Math.PI / 2;
-    const sx = labelCx + Math.cos(a) * starOrbit;
-    const sy = labelCy + Math.sin(a) * starOrbit;
-    drawStar(sx, sy, starOuter, starInner, a);
-  }
+  /**
+   * Draws text along a circular arc, one glyph at a time, centred on `centerAngle`.
+   * A straight wordmark cannot work here — the printable area is an annulus, so the
+   * brand has to follow the band the way real record labels do.
+   *
+   * @param {string} text
+   * @param {number} radius Canvas px from label centre.
+   * @param {number} centerAngle Radians; -PI/2 is canvas-up.
+   * @param {number} tracking Extra px between glyph advances.
+   */
+  const drawArcText = (text, radius, centerAngle, tracking) => {
+    const advances = Array.from(text, (ch) => recordLabelCtx.measureText(ch).width + tracking);
+    const totalAngle = advances.reduce((sum, w) => sum + w, 0) / radius;
+    let a = centerAngle - totalAngle / 2;
+    for (let i = 0; i < text.length; i += 1) {
+      const glyphAngle = advances[i] / radius;
+      const mid = a + glyphAngle / 2;
+      recordLabelCtx.save();
+      recordLabelCtx.translate(labelCx + Math.cos(mid) * radius, labelCy + Math.sin(mid) * radius);
+      // * +PI/2 stands each glyph up on the tangent, feet toward the centre.
+      recordLabelCtx.rotate(mid + Math.PI / 2);
+      recordLabelCtx.strokeText(text[i], 0, 0);
+      recordLabelCtx.fillText(text[i], 0, 0);
+      recordLabelCtx.restore();
+      a += glyphAngle;
+    }
+  };
 
-  // * Brand wordmark — white fill with dark stroke so color-cycle tint still hits.
+  // * Brand wordmark, curved along the band and printed TWICE at opposite ends. The
+  // * record's visual spins, so two repetitions keep the name readable through most of
+  // * the rotation instead of only when one side faces the camera.
+  const labelTextR = 196;
   recordLabelCtx.save();
-  recordLabelCtx.translate(labelCx, labelCy);
   recordLabelCtx.textAlign = "center";
   recordLabelCtx.textBaseline = "middle";
-  recordLabelCtx.font = "bold 54px system-ui, Segoe UI, sans-serif";
-  recordLabelCtx.lineWidth = 6;
+  recordLabelCtx.font = "bold 34px system-ui, Segoe UI, sans-serif";
+  recordLabelCtx.lineWidth = 5;
   recordLabelCtx.strokeStyle = "rgba(0,0,0,0.45)";
   recordLabelCtx.fillStyle = "rgba(255,255,255,0.95)";
-  recordLabelCtx.strokeText("CART", 0, -28);
-  recordLabelCtx.fillText("CART", 0, -28);
-  recordLabelCtx.font = "bold 50px system-ui, Segoe UI, sans-serif";
-  recordLabelCtx.strokeText("RAVE", 0, 32);
-  recordLabelCtx.fillText("RAVE", 0, 32);
-  // * Thin divider between the two words.
-  recordLabelCtx.strokeStyle = "rgba(0,0,0,0.3)";
-  recordLabelCtx.lineWidth = 2;
-  recordLabelCtx.beginPath();
-  recordLabelCtx.moveTo(-70, 2);
-  recordLabelCtx.lineTo(70, 2);
-  recordLabelCtx.stroke();
+  drawArcText("CART RAVE", labelTextR, -Math.PI / 2, 3);
+  drawArcText("CART RAVE", labelTextR, Math.PI / 2, 3);
   recordLabelCtx.restore();
 
-  // Transparent center hole (spindle clear).
-  recordLabelCtx.globalCompositeOperation = "destination-out";
-  recordLabelCtx.beginPath();
-  recordLabelCtx.arc(labelCx, labelCy, holeR, 0, Math.PI * 2);
-  recordLabelCtx.fill();
-  recordLabelCtx.globalCompositeOperation = "source-over";
-
-  // * Soft hole lip highlight drawn after the cut so it frames the spindle.
-  recordLabelCtx.strokeStyle = "rgba(255,255,255,0.7)";
-  recordLabelCtx.lineWidth = 4;
-  recordLabelCtx.beginPath();
-  recordLabelCtx.arc(labelCx, labelCy, holeR + 3, 0, Math.PI * 2);
-  recordLabelCtx.stroke();
+  // * Two stars as separators in the wordmark ring, filling the gaps the text leaves.
+  recordLabelCtx.fillStyle = "rgba(0,0,0,0.35)";
+  const starOuter = labelR * 0.05;
+  const starInner = starOuter * 0.42;
+  for (let i = 0; i < 2; i += 1) {
+    const a = i * Math.PI;
+    const sx = labelCx + Math.cos(a) * labelTextR;
+    const sy = labelCy + Math.sin(a) * labelTextR;
+    drawStar(sx, sy, starOuter, starInner, a);
+  }
 
   const recordLabelTex = new THREE.CanvasTexture(recordLabelCanvas);
   recordLabelTex.needsUpdate = true;
   recordLabelTex.colorSpace = THREE.SRGBColorSpace;
-  const recordLabelGeo = new THREE.RingGeometry(3.7, 7.0, 96);
+  const recordLabelGeo = new THREE.RingGeometry(LABEL_RING_INNER_M, LABEL_RING_OUTER_M, 96);
   const recordLabelMat = new THREE.MeshBasicMaterial({
     map: recordLabelTex,
     transparent: true,
