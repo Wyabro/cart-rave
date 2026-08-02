@@ -158,10 +158,20 @@ function buildPitSurfaceTextures() {
   const roughnessMap = new THREE.CanvasTexture(roughCanvas);
   roughnessMap.wrapS = roughnessMap.wrapT = THREE.RepeatWrapping;
 
-  // * ~3m panel height, 16 panels around the shaft circumference.
-  map.repeat.set(16, 200);
-  normalMap.repeat.set(16, 200);
-  roughnessMap.repeat.set(16, 200);
+  // * Repeat must keep the TILE square, not the panel: the canvas is 512x512, so equal
+  // * world width/height per tile is what gives undistorted texels. The old (16, 200)
+  // * mapped a square canvas onto a 17.4m x 3.0m tile — 5.8x anisotropy, which rendered
+  // * every round rivet as a ~5.8:1 oval.
+  // *   circumference = 2*PI * pitInnerRadius(44.30m) = 278.4m; shaft depth = 600m.
+  // *   U=32 -> tile 8.700m wide;  V=69 -> tile 8.696m tall  (square to 0.05%).
+  // * Both integers, so the wrap seam stays clean. At this scale the authored cell
+  // * (85.3x64px, 12px bevels, 1.6px rivets) lands at a 1.45m plate with 5.4cm rivets
+  // * and a 20cm seam — believable shaft plating. Texel density doubles to 59 px/m,
+  // * which matters because only the top ~30m of the shaft is ever visible (see
+  // * PIT-DEPTH-1). Changing pitInnerRadius or pitWallDepth invalidates these numbers.
+  map.repeat.set(32, 69);
+  normalMap.repeat.set(32, 69);
+  roughnessMap.repeat.set(32, 69);
 
   return { map, normalMap, roughnessMap };
 }
