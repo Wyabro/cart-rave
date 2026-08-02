@@ -122,6 +122,9 @@ One line each, newest first; full text in
 - **D-SUNDIAL-OQ6** (08-02): **Low is a shipping look.** Sundial water is authored to survive
   Low. Audit item 36 moves up out of Wave 6, and every lever ships its Low path in the same
   commit.
+- **D-SUNDIAL-OQ5** (08-02, `93c3deb`): Sundial gets its **own** bloom threshold **0.68** via the
+  existing `resolveDisplayBloomConfig` plumbing — frame bloom 55.6% → 18.7%, parity with Classic
+  (15.8%), sun disc keeps its glow. Threshold is the **only** knob moved; Classic untouched.
 - **D-ROUND-WEDGE-1-A** (08-01): Host-hide MAX cushion = server `pausedWallMs`. MAX reject only
   when `now - runningAnchor - pausedWallMs > ROUND_DURATION_MS + 15_000` (non-SD). MIN stays
   wall-only. Phase B client breaker is separate.
