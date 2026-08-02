@@ -1242,11 +1242,11 @@ ${rows}
   .cards { grid-template-columns:repeat(auto-fill, minmax(430px, 1fr)); }
   .card { display:flex; flex-direction:column; }
   .states { display:grid; grid-template-columns:repeat(4, 1fr); gap:6px; padding:0 10px 10px; }
-  .st { background:#0d0d14; border:1px solid var(--edge); border-radius:6px; padding:4px; }
-  .st.dead { border-color:#7a5326; }
+  .st { background:var(--ink); border:1px solid var(--edge); border-radius:6px; padding:4px; }
+  .st.dead { border-color:rgba(255,194,75,.45); }
   .st img { width:100%; height:auto; aspect-ratio:auto; object-fit:contain; background:#000; border-radius:3px; }
   .stlabel { font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--dim); margin-bottom:3px; }
-  .st.dead .stlabel { color:#ffb45c; }
+  .st.dead .stlabel { color:var(--warn); }
   .stdim { font-size:10px; color:var(--dim); margin-top:3px; }
   .nostate { font-size:10px; color:var(--dim); padding:12px 2px; text-align:center; }
   .banner ul { margin:6px 0 0; padding-left:20px; }

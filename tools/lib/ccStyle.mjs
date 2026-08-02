@@ -15,10 +15,29 @@
  *   - esc()       — the single HTML-escaper both renderers use for every interpolated string.
  */
 
-/** The design tokens with boosted contrast for high readability. */
+/**
+ * The design tokens with boosted contrast for high readability.
+ *
+ * Every colour on a Command Center surface comes from here. Two carve-outs, both
+ * deliberate: pure `#fff` / `#000` stay literal (they are contrast absolutes, and a token
+ * for white prevents no drift), and `CART_ACCENTS` in archHtml.mjs mirrors the cart hues
+ * in src/config.js — those must track the GAME palette, not this one.
+ *
+ * Alpha tints stay hand-expanded (`rgba(39,224,230,.15)` for a `--cyan` wash) because
+ * that is this file's existing convention for `--good` / `--bad` / `--warn`. The triplet
+ * must match its token: a wash that disagrees with the border it sits behind is exactly
+ * the drift CC-TOKEN-1 was filed for.
+ */
 export const ROOT_TOKENS = `  :root { --bg:#0a0a11; --panel:#13131c; --panel2:#191926; --edge:#252538; --edge2:#383854;
-          --text:#f0eff8; --dim:#a4a4c4; --neon:#ff2d95; --cyan:#27e0e6; --violet:#7c5cff;
-          --good:#3ddc84; --bad:#ff5d5d; --warn:#ffc24b; }`;
+          --text:#f0eff8; --text2:#c9c7da; --text-hi:#dcd6ff; --dim:#a4a4c4;
+          --neon:#ff2d95; --cyan:#27e0e6; --violet:#7c5cff;
+          --good:#3ddc84; --bad:#ff5d5d; --warn:#ffc24b;
+          --hot:#ff6600; --ink:#0a0c14;
+          --fill-violet:#2a1a4a; --panel-violet:#1a1830;
+          --fill-good:#123528; --edge-good:#2a5a40; --fill-bad:#3a1520;
+          --fill-warn:#3a2e12; --edge-warn:#5a4a20;
+          --neon-text:#ff8fc4; --violet-text:#b6a4ff; --warn-text:#ffe6b3; --hot-text:#ffb27a;
+          --neon-deep:#d41f78; --violet-deep:#5a3fd6; --cyan-deep:#1aa9ae; }`;
 
 /** Shared base + primitive component classes with optimized font sizes and line spacing. */
 export const BASE_CSS = `  * { box-sizing:border-box; }
@@ -107,7 +126,7 @@ export const BASE_CSS = `  * { box-sizing:border-box; }
  *
  * Opt-in like BASE_CSS — montage.mjs takes ROOT_TOKENS only and is unaffected.
  */
-export const CHROME_CSS = `  .sticky-bar { position:sticky; top:0; z-index:100; background:rgba(10,10,15,0.94);
+export const CHROME_CSS = `  .sticky-bar { position:sticky; top:0; z-index:100; background:rgba(10,10,17,0.94);
                backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
                border-bottom:1px solid var(--edge); padding:10px 0; margin-bottom:var(--chrome-gap, 20px); }
   .sticky-inner { display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between;

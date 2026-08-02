@@ -363,7 +363,7 @@ ${CHROME_CSS}
   .twocol { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:18px; }
   @media (max-width:840px) { .twocol { grid-template-columns:1fr; } }
   .firewall { border-color:rgba(255,194,75,.35); } .firewall .k { color:var(--warn); }
-  .firewall li { color:#e8d8b0; } .firewall li::marker { color:var(--warn); }
+  .firewall li { color:var(--warn-text); } .firewall li::marker { color:var(--warn); }
   .nottoday .k { color:var(--dim); }
   .nottoday li i { color:var(--dim); font-style:normal; font-size:12px; }
   .nt-note { margin-top:10px; padding-top:8px; border-top:1px solid var(--edge); color:var(--dim); font-size:12px; }
@@ -374,14 +374,14 @@ ${CHROME_CSS}
   .q-done b { color:var(--good); font-weight:600; }
   .q-active { background:linear-gradient(180deg, rgba(124,92,255,.15), var(--panel)); border:1px solid var(--violet);
               border-radius:12px; padding:16px 20px; margin:8px 0; box-shadow:0 0 26px rgba(124,92,255,.15); }
-  .q-badge { font-size:10px; letter-spacing:2px; font-weight:800; color:#dcd6ff; background:rgba(124,92,255,.25);
+  .q-badge { font-size:10px; letter-spacing:2px; font-weight:800; color:var(--text-hi); background:rgba(124,92,255,.25);
              border:1px solid var(--violet); border-radius:999px; padding:2px 10px; margin-right:10px; vertical-align:2px;
              animation:phpulse 2.6s ease-in-out infinite; }
   .q-id { font-family:ui-monospace,Consolas,monospace; color:var(--violet); font-weight:700; }
   .q-what { font-size:18px; font-weight:650; margin-top:6px; }
   .q-status { color:var(--dim); font-size:13px; margin-top:2px; }
   ol.q-wait { margin:8px 0 0; padding-left:22px; }
-  ol.q-wait li { margin:5px 0; color:#c9c7da; } ol.q-wait li::marker { color:var(--dim); }
+  ol.q-wait li { margin:5px 0; color:var(--text2); } ol.q-wait li::marker { color:var(--dim); }
   ol.q-wait i { color:var(--dim); font-style:normal; font-size:12px; }
 
   /* playtest control room */
@@ -393,7 +393,7 @@ ${CHROME_CSS}
            padding:8px 12px 8px 30px; min-width:120px; flex:1 1 120px; transition:border-color .15s; }
   .fstep:hover { border-color:var(--cyan); }
   .fstep::before { counter-increment:step; content:counter(step); position:absolute; left:9px; top:9px;
-                   width:15px; height:15px; border-radius:50%; background:rgba(124,92,255,.25); color:#dcd6ff;
+                   width:15px; height:15px; border-radius:50%; background:rgba(124,92,255,.25); color:var(--text-hi);
                    font-size:10px; font-weight:800; line-height:15px; text-align:center; }
   .fstep b { display:block; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--text); }
   .fstep span { display:block; color:var(--dim); font-size:11.5px; line-height:1.35; margin-top:2px; }
