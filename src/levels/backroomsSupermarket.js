@@ -1822,7 +1822,13 @@ function buildFurniturePileSpotlight(scene) {
   const pileTargetX = 0;
   const pileTargetZ = 0;
   const pileTargetY = 4.8;
-  const fixtureY = CEILING_Y - 0.28;
+  // * Hangs BELOW the tile plane. At CEILING_Y - 0.28 the emissive strip sat at y 14.22,
+  // * strictly inside the dead ceiling panel for cell (2,2) — that panel is a 4.5 x 0.1 x 1.85
+  // * box centred on the same y, and getFixtureState(2,2) resolves "dead" (h = 0), so the
+  // * per-frame emissiveIntensity write below rendered to nobody while warm light pulsed onto
+  // * the pile out of a burnt-out panel. Dropped clear of the grid; the panel stays dead,
+  // * because a work light strung under a dead fixture is the better story.
+  const fixtureY = CEILING_Y - 0.75;
   const baseIntensity = 30;
 
   const spot = new THREE.SpotLight(
@@ -1846,6 +1852,32 @@ function buildFurniturePileSpotlight(scene) {
   });
   const fixture = new THREE.Mesh(fixtureGeo, fixtureMat);
   fixture.position.set(pileTargetX, fixtureY, pileTargetZ);
+
+  // * Housing + drop-stems, parented to the strip so the existing scene-removal entry for
+  // * `fixture` tears them down too. U-CHANNEL: two sides and a top, no floor — the strip has
+  // * to stay visible from below, which is the whole point of dropping it. Tone borrowed from
+  // * the ceiling frame (0x3a382f); that material is scoped inside buildCeiling, so this is a
+  // * new instance, tracked in ownedMaterials below.
+  const housingMat = new THREE.MeshStandardMaterial({
+    color: 0x3a382f, roughness: 0.82, metalness: 0.12,
+  });
+  const housingTopGeo = new THREE.BoxGeometry(1.45, 0.04, 0.65);
+  const housingSideGeo = new THREE.BoxGeometry(1.45, 0.16, 0.04);
+  const stemGeo = new THREE.BoxGeometry(0.03, 0.31, 0.03);
+
+  const housingTop = new THREE.Mesh(housingTopGeo, housingMat);
+  housingTop.position.set(0, 0.09, 0);
+  fixture.add(housingTop);
+  for (const sz of [0.305, -0.305]) {
+    const side = new THREE.Mesh(housingSideGeo, housingMat);
+    side.position.set(0, 0.035, sz);
+    fixture.add(side);
+  }
+  for (const sx of [0.5, -0.5]) {
+    const stem = new THREE.Mesh(stemGeo, housingMat);
+    stem.position.set(sx, 0.265, 0);
+    fixture.add(stem);
+  }
 
   scene.add(spot.target);
   scene.add(spot);
@@ -1900,8 +1932,8 @@ function buildFurniturePileSpotlight(scene) {
   return {
     spot,
     fixture,
-    ownedGeometries: [fixtureGeo],
-    ownedMaterials: [fixtureMat],
+    ownedGeometries: [fixtureGeo, housingTopGeo, housingSideGeo, stemGeo],
+    ownedMaterials: [fixtureMat, housingMat],
     update,
   };
 }

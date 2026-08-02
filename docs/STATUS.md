@@ -111,6 +111,13 @@ Live A/B: LOD node count **4 → 25**. Split out as **LOD-UNCANNY-1 · LOD-PITRI
 **Carry this forward: `updateLevelLod` does not run in the `shoot-gpu` attract path** (proved — props
 past their `far` still draw at 41 m and 52 m from centre), so LOD changes cannot be verified by
 capture. Use the node-count probe + unit tests, and a real match for the in-frame read.
+**Item 2 (pile spotlight) fixed 08-02** — the emissive fixture sat *inside* the dead ceiling panel
+for cell (2,2) with 5 mm clearance, so the flicker rendered to nobody; dropped to `CEILING_Y - 0.75`
+with a U-channel housing and stems. Captured from under the pile: dark slab → visible work light.
+Side-effect check on the pile itself came back black-but-for-dust, so no intensity retune.
+**Remaining: items 4 and 5** — 5 next (suction telegraph, kill-mechanic readability, needs a
+playtest), 4 last and **gated on a capture first**, since item 1's fill-in covered much of the bare
+steel that motivated it.
 
 ### Do not
 

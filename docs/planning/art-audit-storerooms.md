@@ -153,7 +153,7 @@ picture behind it. Note the density caveat: `skipThreshold` was **not** retuned,
 carries ~612 boxes where it carried ~329 — "filled in" is not "final density", and the 4–5 / 6–7
 retune plus the bay-granularity hash idea both stay open.
 
-### 2. Un-bury the furniture-pile fixture — `:1839-1848` · small · **verified**
+### 2. Un-bury the furniture-pile fixture — `:1839-1848` · small · **verified** · **FIXED 08-02**
 
 Confirmed by arithmetic, not inference. The fixture is `BoxGeometry(1.35, 0.09, 0.55)` at
 `(0, 14.22, 0)`; `fixtureWorldXZ(2,2)` returns exactly `(0,0)` and `getFixtureState(2,2)` resolves
@@ -167,6 +167,20 @@ centrepiece from a permanently dead panel.
 `0x3a382f`) so the emissive reads as a tube inside a fixture, and two 3 cm drop-stems to the grid.
 Leave the (2,2) panel dead — a work light strung under a burnt-out fixture is a better story than a
 working one.
+
+**Done 08-02, as written, with two corrections.** (a) The housing is a **U-channel** — two sides
+and a top, no floor — because a closed box re-hides the emissive the item exists to unbury. (b)
+`frameMat` is scoped inside `buildCeiling`, so only its **tone** `0x3a382f` was borrowed; the new
+material and the three new geometries are tracked in the function's `ownedMaterials` /
+`ownedGeometries`, and the housing is parented to the strip so the existing scene-removal entry
+tears it down. Panel (2,2) stays dead. **Capture, camera under the pile looking up**
+(`--cam "0,3,9,0,13,0"`, ANGLE/D3D11 RTX 4090): before is a flat dark slab with the emissive
+invisible inside it; after is a lit work light hanging below the dead panel, blooming the way the
+tubes do. **Side-effect check, because the source moved 0.47 m closer to the pile at decay 2.4 —
+the theoretical gain is ~13%:** a second before/after on the `?shot=storerooms` bookmark, which
+frames the pile, comes back with an amplified diff panel that is **black apart from animated dust**.
+The arena's centrepiece did not brighten measurably, which is consistent with §5's finding that
+~96% of the light here is flat hemisphere + ambient + IBL. No intensity retune needed.
 
 ### 3. Give the floor decals a working LOD — `:3382` · small · [unverified, mechanism re-checked] · **FIXED 08-02 (floor decals only)**
 
