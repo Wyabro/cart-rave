@@ -132,8 +132,8 @@ When closed, rewrite Notes to `Wyatt playtest PASS — …` (and drop the `Owed:
 
 ## Playtest owed (08-02 backlog batch)
 
-Human-eye cards for the twelve-card batch shipped 08-02. Six changed behaviour;
-each row is one check. Code is applied and **unpushed** — run these locally.
+Human-eye cards for work shipped 08-02 — the twelve-card batch (six changed behaviour) plus
+the Storerooms art pass. Each row is one check. All code is pushed and live on `cart-clash`.
 
 | Pri | Item | Notes |
 |-----|------|-------|
@@ -143,6 +143,7 @@ each row is one check. Code is applied and **unpushed** — run these locally.
 | High | CAM-PT-1 — solo opening | **Owed: Wyatt playtest — CAM-PT-1 —** Solo. Expect ~2s of arena orbit, slower than before, **then** 3-2-1. Then the cancel paths: quit to menu **during** the 2s hold and confirm the menu is clean (no orbit latched, no countdown starting behind it); same for solo → quit → restart. MP countdown must be untouched. **Do not** read a quieter opening as WARM-SOLO-1 evidence — cap-206's stall sat ~1.9s after carts-ready, inside exactly this window. |
 | Medium | SOLO-PT-1 — solo now defaults to medium | **Owed: Wyatt playtest — SOLO-PT-1 —** Fresh solo round with no saved difficulty. Should feel like a fight, not a warm-up. If it overshoots, the fix is the default, not the tuning. |
 | Low | CC-PT-1 — Command Center look | **Owed: Wyatt playtest — CC-PT-1 —** `npm run cc`. All three surfaces: no colour reads wrong or invisible, no card wears a coloured side-stripe, labels are sentence case with micro-caps only on section heads, nav icons render identically to the screenshot. Also `npm run sheet`/`states` once — montage shares the tokens. |
+| High | STORE-PT-1 — Storerooms art pass, human eye | **Owed: Wyatt playtest — STORE-PT-1 —** The Storerooms. Two questions: does the **suction lip band** read as "committed" — a real edge you fall past — or as a game marker painted on the floor? And does the **racking read as used steel**, or just as a darker wall? Closes the human half of ART-PASS-STOREROOMS-1 (`ef5b35e`+`d741d8d` stocking/carton colour · `f292393` pile work light · `6ece86c` floor-decal LOD · `07e56ae` suction telegraph · `f8d296c` shelf steel). Per-item evidence: [audit](./art-audit-storerooms.md). Still open from that card: the `skipThreshold` retune (*filled in ≠ final density*) and **SHELF-RAIL-1**. |
 
 ## UI / UX
 
@@ -170,6 +171,8 @@ Priorities below are post-gate unless Wyatt pulls them forward.
 
 | Pri | ID | Item | Notes |
 |-----|----|------|-------|
+| Medium | BRIEF-DIGEST-1 | Briefing freshness digest ignores the template | **Filed 08-02**, found while rewriting the briefing header and deliberately *not* fixed inline (game-card OS freeze). `briefing.mjs:42` computes `fresh` from `briefingSourceDigest(statusMd)`, and that digest is `sha8(body)` where `body = renderBriefingBody(statusMd)` — **the header rendered in `renderBriefingMd` is outside it**. So editing the header template leaves `docs/BRIEFING.md` unrewritten *and* `briefing:check` reporting "fresh"; the change only lands the next time STATUS.md happens to change. Since BRIEFING is injected into every session by the SessionStart hook, a template edit can silently never reach any agent. Fix: fold a template fingerprint into the digest (hash the rendered header with the git line stripped, or a bumped `TEMPLATE_VERSION` constant). Tests: `briefing.test.js`. |
+| Medium | SKILLSYNC-PRUNE-1 | `skills-sync` never removes orphaned skills from the mirror | **Filed 08-02**, found while deleting `hallmark`. `planSync()` ([skills-sync.mjs:73](../../tools/skills-sync.mjs:73)) iterates the **source** dir only, so a skill deleted from `.agents/skills/` is never removed from `.claude/skills/` — and `--check` cannot see it either, so `health:check` stays green while a stale local mirror keeps loading a skill that no longer exists in the repo. The `hallmark` removal needed a manual `Remove-Item`. Fix: diff DEST against SRC and delete orphans (guarding the CI case where DEST is absent entirely). |
 | Medium | SHIP-1 | V2 shipping checklist + final QA doc | **Created 07-20** — [SHIP-1.md](./SHIP-1.md), living doc; row stays as pointer until ship. |
 | Medium | MAIN-1 | Carve `main.js` composition seam | Prerequisite for BUNDLE-1. |
 | Medium | STORE-1 | Collapse `gameState` facade dual import | |

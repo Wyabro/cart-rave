@@ -15,11 +15,13 @@ generated from STATUS.md, **committed to git so every tool sees it without runni
 phase, the one active item, waiting-on-Wyatt vs agent work, do-nots, gates. Then this file,
 then [docs/STATUS.md](docs/STATUS.md) for full context and gotchas. If you can run npm,
 **`npm run dashboard`** adds the observed-evidence Command Center (git HEAD, gate/battery
-results, captures) — see Commands below. The full numbered protocol lives **once** in
-STATUS.md's rehydration block; link it, never restate it.
+results, captures) — see Commands below. **This paragraph is the rehydration protocol** — it
+lives here, once. Do not restate it in STATUS.md or anywhere else.
 **Codebase map:** [docs/ARCHITECTURE.json](docs/ARCHITECTURE.json) — generated + committed
 machine-readable manifest: every file's owning system, dependency edges, fragile systems,
-pitfalls, and a `do_not_break` block. Read it before touching an unfamiliar system;
+pitfalls, and a `do_not_break` block. **Look files up in it; never read it whole — it is
+~30,000 tokens.** For the file you are about to touch:
+`Select-String -Path docs/ARCHITECTURE.json -Pattern <filename> -Context 4,12`.
 `npm run dashboard` also renders the human-facing architecture map (link on the Command
 Center). Regenerate with `npm run arch` after structural changes — `health:check` fails if it drifts.
 Architecture snapshot: [docs/planning/project-state.md](docs/planning/project-state.md).
@@ -34,9 +36,12 @@ fresh web chats), paste this verbatim to start a session:
 ```text
 You are working on Cart Clash (repo cart-rave, branch cart-clash). Read docs/BRIEFING.md,
 then AGENTS.md, then the top of docs/STATUS.md, and follow them. Plan → Wyatt ack → apply
-before any edit (ACTIVE CARD names the card, not permission to code). One card / one lever
-at a time. Gates: npm run qa — report results by number. Ship only on Wyatt's explicit
-"ship it"; never git add -A. Never claim "done" without pulling cart-clash and verifying HEAD.
+before any edit (ACTIVE CARD names the card, not permission to code). Ack is per WAVE: one
+plan covering every lever in the wave plus its playtest checklist, one ack, then execute —
+one commit per lever, stopping if a lever fails its asserts. One card at a time. Do not touch
+tools/ or .claude/hooks/ during a game card. Gates: npm run qa — report results by number.
+Ship only on Wyatt's explicit "ship it"; never git add -A. Never claim "done" without pulling
+cart-clash and verifying HEAD.
 ```
 
 **History lives in [docs/archive/](docs/archive/README.md), not in STATUS.md.** STATUS.md
@@ -185,9 +190,11 @@ toward Version 2.
 - **PowerShell environment:** `Select-String`, not `grep`; single-line commit messages
   (`-m "…"`). `room.getConnections()` returns an **iterator** — use spread or `for…of`,
   never `.map().join()`.
-- **Diff before apply.** Same as HOW WORK step 0: plan → Wyatt ack → apply. No exception
-  for "the card was obvious" or "BRIEFING said ACTIVE CARD."
-- **Update `docs/STATUS.md`** after meaningful steps (focus / next / gotchas / decisions).
+- **Diff before apply.** Same as HOW WORK step 0: plan → Wyatt ack → apply, acked **per wave**.
+  No exception for "the card was obvious" or "BRIEFING said ACTIVE CARD."
+- **Update `docs/STATUS.md` at wave boundaries, not per lever** (focus / next / gotchas /
+  decisions). One STATUS edit per wave, not one per commit — a docs-only commit between every
+  lever is how 137 of 374 commits in a fortnight came to touch nothing but `docs/`.
 - **Visual bugs:** use ablation + shoot/blackframes before large postFX rewrites
   ([docs/guides/visual-qa.md](docs/guides/visual-qa.md)).
 
@@ -262,13 +269,26 @@ it replaces any prior local `core.hooksPath` for this repo). Bypass both hooks w
 The same loop in every tool — Cursor, Antigravity, Grok, Claude, terminal. This exists
 because a full day was once lost grinding one task; the loop caps that at ~45 minutes.
 
-- **0. Plan → ack → apply.** Before any multi-file or behavior-changing edit: write a short
-  plan (goal · files · asserts · risks), wait for Wyatt's **explicit ack**, then apply.
-  BRIEFING's **ACTIVE CARD** names the card — it is **not** permission to code. Reading the
-  card and starting to edit is a process bug.
-- **One card / one lever at a time.** Exactly one active item, one change, one retest.
-  New ideas go to [BACKLOG.md](docs/planning/BACKLOG.md) — recording an idea ≠ changing
-  priorities.
+- **0. Plan → ack → apply, and the unit of ack is a WAVE.** Before any multi-file or
+  behavior-changing work: write one plan covering **every lever in the wave** (goal · files ·
+  asserts · risks), ending with the **playtest checklist** — what Wyatt should look at when it
+  lands, written *before* the work rather than reconstructed after. Wyatt acks the wave once;
+  then execute the levers straight through. BRIEFING's **ACTIVE CARD** names the card — it is
+  **not** permission to code. Reading the card and starting to edit is a process bug.
+  - **Ack granularity ≠ commit granularity.** Still **one lever per commit**, gates green
+    before each. Only the approval round-trip batches, because ~36 of them across a six-wave
+    pass is the difference between an afternoon and two days.
+  - **Mid-wave abort.** If a lever fails its asserts, or Wyatt stops the wave, the wave stops
+    there. The remaining levers need a fresh ack or an explicit "continue" — a wave ack is not
+    a blank cheque.
+- **One card at a time.** Exactly one active item. New ideas go to
+  [BACKLOG.md](docs/planning/BACKLOG.md) — recording an idea ≠ changing priorities.
+- **Freeze the operating system during a game card.** While a game card is active, no commits
+  to `tools/`, `.claude/hooks/`, `.agents/`, or Command Center styling. A hook that misfires
+  mid-card gets its escape hatch (`SKIP_GIT_GUARD=1` / `SKIP_PATH_GUARD=1` /
+  `SKIP_STOP_GUARD=1`) and a BACKLOG entry — **not** a fix in this session. Tooling is repaired
+  in its own dedicated block. This rule exists because on 08-02, 16 of 25 commits in one
+  three-hour window were the machine maintaining itself while an art pass waited.
 - **Timebox: ~45 minutes or 3 failed attempts on one approach — whichever hits first, STOP.**
   Before attempt #4, write a 5-line findings entry to STATUS.md: what was tried, what is now
   ruled out, current best hypothesis, evidence for it, and the next cheapest test. Grinding

@@ -155,7 +155,7 @@ export function renderBriefingMd(statusMd, git = {}) {
     ``,
     `**Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → \`npm run dashboard\` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.`,
     ``,
-    `**Before you touch code:** (1) Plan → Wyatt ack → apply — BRIEFING's ACTIVE CARD names the card, not permission to edit. (2) Read [docs/ARCHITECTURE.json](./ARCHITECTURE.json) — owning system, edges, \`do_not_break\`.`,
+    `**Before you touch code:** (1) Plan → Wyatt ack → apply, acked **per wave** — one plan covering every lever plus its playtest checklist, one ack, then one commit per lever. BRIEFING's ACTIVE CARD names the card, not permission to edit. (2) **Look up** the files you are touching in [docs/ARCHITECTURE.json](./ARCHITECTURE.json) — \`Select-String -Path docs/ARCHITECTURE.json -Pattern <filename> -Context 4,12\`. Never read it whole; it is ~30,000 tokens. (3) During a game card, do not commit to \`tools/\` · \`.claude/hooks/\` · \`.agents/\` — file it to BACKLOG instead.`,
     ``,
     body,
     ``,

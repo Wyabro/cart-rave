@@ -2,15 +2,15 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-02T20:01:15.979Z",
-    "commit": "543c16a"
+    "at": "2026-08-02T22:17:21.289Z",
+    "commit": "89dcf92"
   },
-  "source_digest": "4ed01aab",
+  "source_digest": "d1f20dc7",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
     "production_url": "https://cart-rave.wyabro.workers.dev/",
-    "mission": "Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep and the analytics gating are closed — full evidence in completed-work.md (B1 AI-DIFF-1 shipped `49bfc2a`). ANLX-ATTRACT-1 closed 07-31 and the analytics DO has been reset (both before-external-testers items are done); the ring now starts clean.",
+    "mission": "Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep and the analytics gating are closed. Run 7 closed; NET-2 / NET-MIG-3 passed live; NET-PRES-1 landed (loss-on-drop residual accepted). The analytics DO has been reset, so the ring starts clean for external testers. Stay in this phase until Wyatt advances the marker.",
     "phase": "Playtesting & stabilization — stabilize after Run 7; prove residuals; no auto-advance to RC",
     "phases": [
       {
@@ -833,108 +833,26 @@
   },
   "pitfalls": [
     "EffectComposer path, DEFAULT (`?bloompipe=display`): RenderPass → OutputPass → Bloom → Arcade(VHS) → FXAA. `?bloompipe=hdr` swaps to Bloom → OutputPass; OutputPass is never last in either. `renderer.toneMapping` is a no-op into composer RTs without OutputPass — except on the lowest tier, which bypasses the composer entirely (`composerBypass`) and tone-maps natively.",
-    "VHS is level-gated via `uVhsAmount` (Storerooms only); `?ablate=vhs` zeros the uniform without killing arcade CRT.",
     "Half-res bloom RTs: strength compensated via `bloomHalfResStrengthMul`.",
     "Hidden-tab rAF freezes the loop unless `?perfPump` (DEV) is set — shoot tools should pass it.",
-    "Joining quickplay mid-round runs a cold world bootstrap that blocks the main thread; resume-guard (`dt>0.25s → accumulator=0`) can starve input sampling → cart frozen at spawn until clear. This is NET-2 class — harness documents it (guides/netcode-harness.md).",
-    "Netcode 2-client rig: two clients MUST be separate `chromium.launch()` processes; add per-page focus + `?perfPump`. Prefer persistent `npm run dev:local` via `--url`.",
-    "`localStorage` keys remain `cartRave*` until brand migration.",
-    "Rapier WASM: standard build default; SIMD opt-in only (borrow error).",
-    "Concurrent agent sessions may `git add -A` — commit surgically when working alongside one.",
+    "`shoot-gpu` freezes every per-frame level animation (SHOOT-ANIM-1). Animated properties sit at constructor values in every capture, in every arena. Never report \"the capture shows no change\" for an animated knob.",
     "Diagnostics globals namespace is `__cc*` (`__ccTest` / `__ccDiag` / `__ccLoopDbg`).",
-    "`window.__cartRavePerf.scene` is DEV-ONLY (`main.js:1543`) — in prod it does not exist, so scene-graph probes silently return empty and read as \"not built\". `import(\"/src/…\")` likewise only resolves against the dev server. Verify prod visually (screenshot + build stamp), not by scene introspection; `__cartRave.stats()` drawCalls often reads 1 after a settle.",
+    "`window.__cartRavePerf.scene` is DEV-ONLY (`main.js:1543`) — in prod it does not exist, so scene-graph probes silently return empty and read as \"not built\". `import(\"/src/…\")` likewise only resolves against the dev server, and returns a duplicate module instance with its own state. Verify prod visually (screenshot + build stamp), not by scene introspection.",
     "A round that ends with no scores is a legitimate draw → neither `victory` nor `defeat`.",
     "Rapier `world.castRay(...)` reads `.handle` off the exclude args — pass Collider/RigidBody objects, never raw handles.",
     "`MSG.readyToggle` without a `ready` field is a TOGGLE — programmatic ready must send `{ ready: true }`.",
     "`material.envMapIntensity` is a no-op against `scene.environment` in this three version — only `scene.environmentIntensity` or a material-owned `envMap` scales IBL.",
+    "Minification breaks naive greps of deployed assets — `0.505` becomes `.505`, hex seeds become decimal. Check the local `dist/` chunk with the same pattern before concluding anything about prod.",
     "Battery reports without provenance are visible history only — never green readiness evidence. Prefer complete exact-HEAD runs.",
-    "Before any public / external-tester playtest: reset the analytics DO so aggregates are not polluted by dev/harness traffic. Token-gated (SEC-TOKEN-1): `DELETE` with `Authorization: Bearer <ERROR_LOG_TOKEN>` on `/api/analytics` (same secret as `analytics:pull`; never `?token=`). Then re-pull / dashboard after the playtest window.",
-    "Stop-hook `stop_hook_active` is inverted from the obvious reading: `true` means \"already continuing because of a prior block\" → return success / do not re-block; `false` is the normal first Stop where the guard should run. Verified against the shipped `claude` binary, not the docs — `WebFetch` summarized a truncated docs page and confidently reported the opposite polarity *and* a wrong block cap (real cap is 8, `CLAUDE_CODE_STOP_HOOK_BLOCK_CAP`). Inverting it disables the guard on every normal turn while still looking wired up. Grep the binary before trusting a doc summary on hook payload semantics.",
-    "`.claude/settings.json` is strict JSON, not JSONC — a `//` comment there can fail parsing and silently drop *every* hook in the file. Caveats belong in the hook headers and AGENTS.md § Enforcement.",
-    "Claude Code permission rules are globs, never regex — `|` alternation inside `Bash(...)` matches nothing. A space before `*` enforces a word boundary (`Bash(ls *)` ≠ `lsof`), rules match each `&&`/`;`/`|` subcommand independently, and a broad deny beats a narrower allow."
+    "Before any public / external-tester playtest: reset the analytics DO so aggregates are not polluted by dev/harness traffic. Token-gated (SEC-TOKEN-1): `DELETE` with `Authorization: Bearer <ERROR_LOG_TOKEN>` on `/api/analytics` (never `?token=`)."
   ],
   "workstreams": {
     "queue": [
       {
-        "id": "LOD-CLOCK-1",
-        "what": "level LOD throttle uses host-adjusted time",
-        "status": "✅ SHIPPED 08-02 — `updateLevelLod(camera, now)`; stall unit test + main.js source assert. Applied, unpushed.",
-        "state": "done",
-        "touches_systems": [
-          {
-            "id": "boot-and-orchestration",
-            "name": "Boot & orchestration",
-            "files": [
-              "src/main.js"
-            ]
-          }
-        ]
-      },
-      {
-        "id": "ASSET-CACHE-1",
-        "what": "fixed-name assets 7d cache stale after deploy",
-        "status": "✅ SHIPPED 08-02 — `shared/assetCache.js`; fixed-name → 1h + 5m SWR; hashed `/assets/*` unchanged. Applied, unpushed.",
-        "state": "done",
-        "touches_systems": [
-          {
-            "id": "shared-protocol",
-            "name": "Shared protocol",
-            "files": [
-              "shared/assetCache.js"
-            ]
-          }
-        ]
-      },
-      {
-        "id": "QP-ORDER-1",
-        "what": "quickplay rotates sequential, not random",
-        "status": "✅ SHIPPED 08-02 — fresh QP picks random pool entry; rematch advances catalog order via `nextQuickplayArenaId`. Live 2-browser smoke remains Wyatt-owed (BACKLOG Low). Applied, unpushed.",
-        "state": "done"
-      },
-      {
         "id": "ART-PASS-SUNDIAL-1",
-        "what": "Sundial art pass — 6 waves, one lever per commit",
-        "status": "▶ ACTIVE 08-02 — Waves 1–2 closed, Wave 3 part-done (7 commits; hashes + numbers under Current focus). Next = alien city → wind farm → islands+haze → gas giant, then Waves 4–6. Owed: Wyatt playtest — gate beacons, ship glows, ships on a phone. [audit](./planning/art-audit-sundial.md) is all `[unverified]`; verify each claim before fixing it.",
+        "what": "Sundial art pass — Waves 4–6 remain",
+        "status": "▶ ACTIVE — Waves 1–3 shipped + deployed. Spec = [handover](./planning/art-pass-sundial-handover.md). One commit per lever, ack per wave. Owed: Wyatt playtest — gate beacons, ship glows, ships on a phone, turbines.",
         "state": "active"
-      },
-      {
-        "id": "DIAG-TIER-1",
-        "what": "capture `runtime.qualityTier` reports effective tier",
-        "status": "✅ SHIPPED 08-02 — three fields on real runtime probe; `tests/gameplayDiagnostics.runtime.test.js` ×3. Applied, unpushed.",
-        "state": "done"
-      },
-      {
-        "id": "BACKLOG-BATCH-08-02",
-        "what": "twelve backlog cards, one commit each",
-        "status": "✅ SHIPPED 08-02 — `af12632`..`b8e327b`, qa green before each (1089 → 1116 tests, 95 → 98 files). SOLO-DIFF · LOD-UNCANNY · FX-TEXDISPOSE · PIT-DEPTH · PIT-COL-INSET · SPAWN-BACKROOMS · CAM-OPEN · UNLOCK-ORDER · CC-TOKEN/STRIPE/LABEL/ICON. Ran alongside the live Sundial session, `zanzibarPlatform.js` frozen, pathspec-only commits — zero crossed files. 6 playtest-owed in BACKLOG. Applied, unpushed. [detail](./planning/completed-work.md).",
-        "state": "done",
-        "touches_systems": [
-          {
-            "id": "arenas-levels",
-            "name": "Arenas & levels",
-            "files": [
-              "src/levels/zanzibarPlatform.js"
-            ]
-          }
-        ]
-      },
-      {
-        "id": "FIGHT-VERIFY-1",
-        "what": "owed fight-night verification",
-        "status": "🟢 agent half DONE 08-01 — podium/loadshots/states + focus-ring. Residual = Playtest owed cards (BACKLOG) — console-seeded; not this parent row.",
-        "state": "waiting"
-      },
-      {
-        "id": "HOST-CAP-1",
-        "what": "weak-host toast residual",
-        "status": "✅ SHIPPED 08-01 — `score < 50` once/hostship; prod Version `76ebdc37` (HEAD `423008f`)",
-        "state": "done"
-      },
-      {
-        "id": "BOOT-PERF-1",
-        "what": "idle warm gen-cancel",
-        "status": "✅ SHIPPED 08-01 — mid-flight retarget; same deploy",
-        "state": "done"
       },
       {
         "id": "MAIN-1 / BUNDLE-1",
@@ -954,14 +872,15 @@
       {
         "id": "BRAND-1",
         "what": "Domain cutover",
-        "status": "🧊 frozen",
+        "status": "🧊 frozen ([brand.md](./brand.md))",
         "state": "locked"
       }
     ],
     "next_actions": [
-      "ART-PASS-SUNDIAL-1 — Wave 3 continues: alien city (per-window flicker + seeded layout)",
-      "Playtest console — owed cards in BACKLOG `## Playtest owed` (08-01 and 08-02 sections).",
-      "Closed 08-01 Wyatt PASS: PAUSE-ROW-1 · MENU-CMD-FEEL-1 · FOCUS-CYAN-1."
+      "ART-PASS-SUNDIAL-1 Wave 4 — the deck. Items 12–19 in the handover: hazard band inset +",
+      "Playtest owed — BACKLOG `## Playtest owed` (08-01 and 08-02 sections), now including",
+      "Wyatt's open calls: OQ8 (sun key elevation 9.93° vs sun disc 1.87° — reconcile up, down,",
+      "Parked, needs its own ack: ROUND-WEDGE-1 Phase B (Phase A shipped `d4a7718`);"
     ],
     "open_issues": [
       {
@@ -975,19 +894,24 @@
         "status": "📋 telemetry-gated — [warm-igpu-1.md](./planning/warm-igpu-1.md)"
       },
       {
+        "id": "SHOOT-ANIM-1",
+        "issue": "`shoot-gpu` freezes all per-frame level animation, every arena",
+        "status": "📋 **High** — `levelUpdate` never runs in the attract path, so every animated property sits at its constructor value in every capture. Invalidates capture-based claims about anything that moves."
+      },
+      {
         "id": "MAIN-1",
         "issue": "Carve `main.js` seam (enables BUNDLE-1)",
-        "status": "📋 Post-gate"
+        "status": "📋 post-gate"
       },
       {
         "id": "BUNDLE-1",
         "issue": "Menu/game code-split",
-        "status": "🚫 Blocked on MAIN-1"
+        "status": "🚫 blocked on MAIN-1"
       },
       {
         "id": "BRAND-1",
         "issue": "Domain / Worker cutover",
-        "status": "🧊 Frozen until deliberate cutover ([brand.md](./brand.md))"
+        "status": "🧊 frozen until deliberate cutover ([brand.md](./brand.md))"
       }
     ]
   },
@@ -1419,7 +1343,7 @@
       {
         "title": "Playtest owed (08-02 backlog batch)",
         "counts": {
-          "High": 4,
+          "High": 5,
           "Medium": 1,
           "Low": 1
         },
@@ -1458,6 +1382,12 @@
             "pri": "Low",
             "item": "CC-PT-1 — Command Center look",
             "notes": "**Owed: Wyatt playtest — CC-PT-1 —** `npm run cc`. All three surfaces: no colour reads wrong or invisible, no card wears a coloured side-stripe, labels are sentence case with micro-caps only on section heads, nav icons render identically to the screenshot. Also `npm run sheet`/`states` once — montage shares the tokens.",
+            "ship1": null
+          },
+          {
+            "pri": "High",
+            "item": "STORE-PT-1 — Storerooms art pass, human eye",
+            "notes": "**Owed: Wyatt playtest — STORE-PT-1 —** The Storerooms. Two questions: does the **suction lip band** read as \"committed\" — a real edge you fall past — or as a game marker painted on the floor? And does the **racking read as used steel**, or just as a darker wall? Closes the human half of ART-PASS-STOREROOMS-1 (`ef5b35e`+`d741d8d` stocking/carton colour · `f292393` pile work light · `6ece86c` floor-decal LOD · `07e56ae` suction telegraph · `f8d296c` shelf steel). Per-item evidence: [audit](./art-audit-storerooms.md). Still open from that card: the `skipThreshold` retune (*filled in ≠ final density*) and **SHELF-RAIL-1**.",
             "ship1": null
           }
         ]
@@ -1559,10 +1489,24 @@
       {
         "title": "Tech Debt",
         "counts": {
-          "Medium": 5,
+          "Medium": 7,
           "Low": 10
         },
         "rows": [
+          {
+            "pri": "Medium",
+            "id": "BRIEF-DIGEST-1",
+            "item": "Briefing freshness digest ignores the template",
+            "notes": "**Filed 08-02**, found while rewriting the briefing header and deliberately *not* fixed inline (game-card OS freeze). `briefing.mjs:42` computes `fresh` from `briefingSourceDigest(statusMd)`, and that digest is `sha8(body)` where `body = renderBriefingBody(statusMd)` — **the header rendered in `renderBriefingMd` is outside it**. So editing the header template leaves `docs/BRIEFING.md` unrewritten *and* `briefing:check` reporting \"fresh\"; the change only lands the next time STATUS.md happens to change. Since BRIEFING is injected into every session by the SessionStart hook, a template edit can silently never reach any agent. Fix: fold a template fingerprint into the digest (hash the rendered header with the git line stripped, or a bumped `TEMPLATE_VERSION` constant). Tests: `briefing.test.js`.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "id": "SKILLSYNC-PRUNE-1",
+            "item": "`skills-sync` never removes orphaned skills from the mirror",
+            "notes": "**Filed 08-02**, found while deleting `hallmark`. `planSync()` ([skills-sync.mjs:73](../../tools/skills-sync.mjs:73)) iterates the **source** dir only, so a skill deleted from `.agents/skills/` is never removed from `.claude/skills/` — and `--check` cannot see it either, so `health:check` stays green while a stale local mirror keeps loading a skill that no longer exists in the repo. The `hallmark` removal needed a manual `Remove-Item`. Fix: diff DEST against SRC and delete orphans (guarding the CI case where DEST is absent entirely).",
+            "ship1": null
+          },
           {
             "pri": "Medium",
             "id": "SHIP-1",
@@ -1844,8 +1788,9 @@
       "npm run dashboard — observed evidence (git HEAD, gates, captures) when you can run npm."
     ],
     "execution_loop": [
-      "0. Plan → ack → apply. Before any multi-file or behavior-changing edit: write a short",
-      "One card / one lever at a time. Exactly one active item, one change, one retest.",
+      "0. Plan → ack → apply, and the unit of ack is a WAVE. Before any multi-file or",
+      "One card at a time. Exactly one active item. New ideas go to",
+      "Freeze the operating system during a game card. While a game card is active, no commits",
       "Timebox: ~45 minutes or 3 failed attempts on one approach — whichever hits first, STOP.",
       "Escalation ladder, in order: (1) the timeboxed attempts → (2) the findings write-up →",
       "Definition of done: gates green by number + pushed + pulled-and-verified in"
@@ -1880,12 +1825,14 @@
       "Do not port open-world WebGPU engines into this game. Visual QA *process* tools are fine;"
     ],
     "do_nots": [
-      "Plan → Wyatt ack → apply. BRIEFING's active-card heading names the card — it is not a green light to edit. No multi-file or behavior-changing work without an explicit ack, even when the card looks obvious.",
+      "Plan → Wyatt ack → apply, acked per wave. One plan covering every lever in the wave plus its playtest checklist, one ack, then one commit per lever. BRIEFING's active-card heading names the card — it is not a green light to edit.",
+      "During a game card, do not commit to `tools/` · `.claude/hooks/` · `.agents/` · Command Center styling. Escape hatch + BACKLOG entry, never an inline fix.",
       "Ship only on Wyatt's explicit \"ship it\" — and never `git add -A` (concurrent agent sessions).",
-      "One card / one lever at a time; new ideas go to BACKLOG, not into scope.",
+      "One card at a time; new ideas go to BACKLOG, not into scope.",
       "Do not advance the ▶ phase marker — Wyatt only; agents report eligibility.",
-      "Do not re-open closed evidence (Run 7 · NET-1 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 · HUD-MENU-1 · CAM-1 · RC-1 A/B/C · P6 · parked NH-HIT / NH-SMOOTH) without new evidence.",
-      "Do not re-try the reverted host-countdown gate (`c8df8fd`) — the lever is pre-warming the room's arena programs before the countdown, not delaying the countdown."
+      "Do not re-open closed evidence (Run 7 · NET-1 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 · HUD-MENU-1 · CAM-1 · RC-1 A/B/C · P6 · parked NH-HIT / NH-SMOOTH), nor anything under Verified healthy / non-issues in project-state.md §5, without new evidence.",
+      "Do not re-try the reverted host-countdown gate (`c8df8fd`) — the lever is pre-warming the room's arena programs before the countdown, not delaying the countdown.",
+      "No silent pure-black WebGL frames as an accepted \"look\". Solo polish before deep multiplayer features; prefer quality-preserving perf fixes and measure before/after."
     ],
     "fragile_systems": [
       {
@@ -1934,42 +1881,27 @@
       {
         "id": "D-SUNDIAL-OQ6",
         "date": "08-02",
-        "text": "Low is a shipping look. Sundial Wave 2 water is authored to"
+        "text": "Low is a shipping look. Sundial water is authored to survive"
       },
       {
         "id": "D-ROUND-WEDGE-1-A",
         "date": "08-01",
-        "text": "Host-hide MAX cushion = server `pausedWallMs` (sum of committed"
+        "text": "Host-hide MAX cushion = server `pausedWallMs`. MAX reject only"
       },
       {
         "id": "D-BOOT-PERF-1",
         "date": "07-31",
-        "text": "Idle warm not sticky-first-wins — mid-flight picker bumps gen;"
+        "text": "Idle warm is not sticky-first-wins — a mid-flight picker bumps gen;"
       },
       {
         "id": "D-HOST-CAP-1",
         "date": "07-31",
-        "text": "Weak-host toast = local host + join-time `score < 50` only"
+        "text": "Weak-host toast = local host + join-time `score < 50` only (strict"
       },
       {
         "id": "D-ANLX-BULK-1",
         "date": "07-31",
-        "text": "Short scripted match ends (tool/diag on prod) are non-product."
-      },
-      {
-        "id": "D-SHEET-1",
-        "date": "07-31",
-        "text": "A verification tool must prove its subject is present, not merely"
-      },
-      {
-        "id": "D-CARGO-VIS-1",
-        "date": "07-30",
-        "text": "The CARGO-WT-1-era \"pile stays under the rim\" invariant is"
-      },
-      {
-        "id": "D-FRIENDS-REJOIN-1",
-        "date": "08-01",
-        "text": "Friends-room refresh keeps explicit JOIN LOBBY (no"
+        "text": "Short scripted match ends are non-product. Product metrics require"
       }
     ],
     "verified_healthy": [

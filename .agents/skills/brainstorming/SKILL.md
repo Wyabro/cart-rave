@@ -9,8 +9,7 @@ version: 1.0.0
 The dialogue half of [obra/superpowers](https://github.com/obra/superpowers)' brainstorming
 (MIT, Jesse Vincent), scoped down to fit AGENTS.md § HOW WORK IS EXECUTED step 0. Upstream
 runs a design doc + spec-approval cycle on every change including config edits; here the
-weight matches the card. Nothing in this skill restricts which skill you use afterward —
-`hallmark` and `frontend-design` stay available for the build.
+weight matches the card. Nothing in this skill restricts which skill you use afterward.
 
 ## When this fires
 

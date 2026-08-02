@@ -9,6 +9,11 @@
  * which is append-only by design. On 2026-07-19 it had reached ~21.6k tokens — a third
  * of a session's entire system-prompt floor, in one file.
  *
+ * Known blind spot: this reporter only sees **dated entries**. Growth in the undated sections
+ * (Gotchas, Decision index, Current focus narrative) is invisible to it, which is how the file
+ * reached 7,589 tokens in 2026-08 while still passing an 8,000 budget. If the token count is
+ * high and there is "nothing safe to archive", the undated sections are the place to look.
+ *
  * This is a REPORTER, not a gate, and deliberately does not archive anything itself.
  * Choosing the cut needs judgment about which date window is still active work: the
  * newest entries are usually in-flight (unpushed stacks, pending retests) and must stay
@@ -28,8 +33,16 @@ const log = makeLogger("status-size");
 /** Rough tokens-from-chars. Good to ~±10% on English prose, which is all this needs. */
 const CHARS_PER_TOKEN = 4;
 
-/** Over this, STATUS.md is costing more than it earns on a cold read. */
-export const BUDGET_TOKENS = 8_000;
+/**
+ * Over this, STATUS.md is costing more than it earns on a cold read.
+ *
+ * Lowered 8_000 → 4_200 on 2026-08-02. The old budget could not bite: the file sat at 7,589
+ * and *passed* while roughly 60% of it was duplication, history, or append-only knowledge this
+ * reporter cannot see (it only counts dated entries). The rework cut it to 3,504; 4,200 is
+ * ~20% headroom — a handful of wave entries before it asks for a trim, rather than a ceiling
+ * the file can double under.
+ */
+export const BUDGET_TOKENS = 4_200;
 
 /**
  * A single date window with more entries than this is a log regrowing inside the

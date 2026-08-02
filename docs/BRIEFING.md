@@ -1,12 +1,12 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-02 at commit `03b12f0` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `1e543faa`
+> Generated 2026-08-02 at commit `89dcf92` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `a0d945c8`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
-**Before you touch code:** (1) Plan → Wyatt ack → apply — BRIEFING's ACTIVE CARD names the card, not permission to edit. (2) Read [docs/ARCHITECTURE.json](./ARCHITECTURE.json) — owning system, edges, `do_not_break`.
+**Before you touch code:** (1) Plan → Wyatt ack → apply, acked **per wave** — one plan covering every lever plus its playtest checklist, one ack, then one commit per lever. BRIEFING's ACTIVE CARD names the card, not permission to edit. (2) **Look up** the files you are touching in [docs/ARCHITECTURE.json](./ARCHITECTURE.json) — `Select-String -Path docs/ARCHITECTURE.json -Pattern <filename> -Context 4,12`. Never read it whole; it is ~30,000 tokens. (3) During a game card, do not commit to `tools/` · `.claude/hooks/` · `.agents/` — file it to BACKLOG instead.
 
 ## Phase (declared — Wyatt moves the marker)
 
@@ -14,27 +14,29 @@
 
 ## Mission
 
-Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep and the analytics gating are closed — full evidence in completed-work.md (B1 AI-DIFF-1 shipped `49bfc2a`). ANLX-ATTRACT-1 closed 07-31 and the analytics DO has been reset (both before-external-testers items are done); the ring now starts clean.
+Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep and the analytics gating are closed. Run 7 closed; NET-2 / NET-MIG-3 passed live; NET-PRES-1 landed (loss-on-drop residual accepted). The analytics DO has been reset, so the ring starts clean for external testers. Stay in this phase until Wyatt advances the marker.
 
 ## ACTIVE CARD
 
-ART-PASS-SUNDIAL-1 — Sundial art pass — 6 waves, one lever per commit
-Pass looks like: ▶ ACTIVE 08-02 — Waves 1–2 closed, Wave 3 part-done (7 commits; hashes + numbers under Current focus). Next = alien city → wind farm → islands+haze → gas giant, then Waves 4–6. Owed: Wyatt playtest — gate beacons, ship glows, ships on a phone. [audit](./planning/art-audit-sundial.md) is all `[unverified]`; verify each claim before fixing it.
+ART-PASS-SUNDIAL-1 — Sundial art pass — Waves 4–6 remain
+Pass looks like: ▶ ACTIVE — Waves 1–3 shipped + deployed. Spec = [handover](./planning/art-pass-sundial-handover.md). One commit per lever, ack per wave. Owed: Wyatt playtest — gate beacons, ship glows, ships on a phone, turbines.
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 
 ## Waiting on Wyatt (not agent work)
 
-- **ART-PASS-SUNDIAL-1** Sundial art pass — 6 waves, one lever per commit — ▶ ACTIVE 08-02 — Waves 1–2 closed, Wave 3 part-done (7 commits; hashes + numbers under Current focus). Next =…
+- **ART-PASS-SUNDIAL-1** Sundial art pass — Waves 4–6 remain — ▶ ACTIVE — Waves 1–3 shipped + deployed. Spec = handover. One commit per lever, ack per wave. Owed: Wyatt…
 
 ## Do not
 
-- Plan → Wyatt ack → apply. BRIEFING's active-card heading names the card — it is not a green light to edit. No multi-file or behavior-changing work without an explicit ack, even when the card looks obvious.
+- Plan → Wyatt ack → apply, acked per wave. One plan covering every lever in the wave plus its playtest checklist, one ack, then one commit per lever. BRIEFING's active-card heading names the card — it is not a green light to edit.
+- During a game card, do not commit to `tools/` · `.claude/hooks/` · `.agents/` · Command Center styling. Escape hatch + BACKLOG entry, never an inline fix.
 - Ship only on Wyatt's explicit "ship it" — and never `git add -A` (concurrent agent sessions).
-- One card / one lever at a time; new ideas go to BACKLOG, not into scope.
+- One card at a time; new ideas go to BACKLOG, not into scope.
 - Do not advance the ▶ phase marker — Wyatt only; agents report eligibility.
-- Do not re-open closed evidence (Run 7 · NET-1 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 · HUD-MENU-1 · CAM-1 · RC-1 A/B/C · P6 · parked NH-HIT / NH-SMOOTH) without new evidence.
+- Do not re-open closed evidence (Run 7 · NET-1 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 · HUD-MENU-1 · CAM-1 · RC-1 A/B/C · P6 · parked NH-HIT / NH-SMOOTH), nor anything under Verified healthy / non-issues in project-state.md §5, without new evidence.
 - Do not re-try the reverted host-countdown gate (`c8df8fd`) — the lever is pre-warming the room's arena programs before the countdown, not delaying the countdown.
+- No silent pure-black WebGL frames as an accepted "look". Solo polish before deep multiplayer features; prefer quality-preserving perf fixes and measure before/after.
 
 ## Gates
 
