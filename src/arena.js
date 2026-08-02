@@ -446,6 +446,120 @@ function buildBoothGrilleTexture() {
   return tex;
 }
 
+/**
+ * * Deck record — the 12" on each turntable. CylinderGeometry caps take a disc UV in
+ * * [0,1], so a radial design maps straight onto the top face without any UV work.
+ * * Small canvas on purpose: eight of these sit at 0.36m radius and are never the
+ * * subject of a shot, they are the detail that makes a DJ booth read as in-use.
+ * @returns {THREE.CanvasTexture}
+ */
+function buildDeckRecordTexture() {
+  const size = 256;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  const c = size / 2;
+
+  // * Cap UVs put the disc edge at r = size/2, so draw to that radius, not the corner.
+  ctx.fillStyle = "#07060c";
+  ctx.fillRect(0, 0, size, size);
+
+  // * Grooves — dense concentric hairlines from the label edge out to the rim.
+  for (let i = 0; i < 54; i += 1) {
+    const t = (i + 0.5) / 54;
+    const r = c * (0.34 + t * 0.63);
+    ctx.strokeStyle = i % 2 === 0
+      ? `rgba(96, 78, 128, ${0.05 + (i % 5) * 0.006})`
+      : "rgba(2, 1, 6, 0.16)";
+    ctx.lineWidth = i % 2 === 0 ? 1.1 : 0.8;
+    ctx.beginPath();
+    ctx.arc(c, c, r, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  // * Sheen band — a record catches one highlight arc, never an even shine.
+  const sheen = ctx.createLinearGradient(0, 0, size, size);
+  sheen.addColorStop(0, "rgba(150, 120, 210, 0)");
+  sheen.addColorStop(0.42, "rgba(150, 120, 210, 0.09)");
+  sheen.addColorStop(0.6, "rgba(150, 120, 210, 0)");
+  ctx.fillStyle = sheen;
+  ctx.beginPath();
+  ctx.arc(c, c, c * 0.97, 0, Math.PI * 2);
+  ctx.fill();
+
+  // * Paper label + run-out ring. Warm off-white so the booth neon tints it.
+  ctx.fillStyle = "#d8cfc2";
+  ctx.beginPath();
+  ctx.arc(c, c, c * 0.32, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(0,0,0,0.25)";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(c, c, c * 0.28, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // * Spindle hole.
+  ctx.fillStyle = "#0a0810";
+  ctx.beginPath();
+  ctx.arc(c, c, c * 0.035, 0, Math.PI * 2);
+  ctx.fill();
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  tex.needsUpdate = true;
+  return tex;
+}
+
+/**
+ * * Platter wear — grayscale roughness break-up so the chrome stops reading as a
+ * * perfect mirror. Handled prints and dust, not damage.
+ * @returns {THREE.CanvasTexture}
+ */
+function buildPlatterWearTexture() {
+  const size = 128;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  const c = size / 2;
+
+  // * Mid-dark base = fairly smooth; every mark below only ever ADDS roughness.
+  ctx.fillStyle = "#2e2e2e";
+  ctx.fillRect(0, 0, size, size);
+
+  // * Concentric machining rings on the platter face.
+  for (let i = 0; i < 22; i += 1) {
+    ctx.strokeStyle = `rgba(140,140,140,${0.05 + (i % 3) * 0.02})`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(c, c, c * (0.12 + (i / 22) * 0.85), 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  // * Smudges — soft blobs where hands land.
+  for (let i = 0; i < 14; i += 1) {
+    const ang = (i * 2.399) % (Math.PI * 2);
+    const rad = c * (0.2 + ((i * 37) % 60) / 100);
+    const x = c + Math.cos(ang) * rad;
+    const y = c + Math.sin(ang) * rad;
+    const r = 6 + ((i * 13) % 14);
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, "rgba(190,190,190,0.5)");
+    g.addColorStop(1, "rgba(190,190,190,0)");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.anisotropy = 4;
+  tex.needsUpdate = true;
+  return tex;
+}
+
 function buildRecordRingGeometry({
   outerRadius,
   innerRadius,
@@ -772,6 +886,8 @@ function buildBooths(scene, world, config, boothNeonMeshes, boothColliderHandles
   // * Shared booth surface maps — plate metal + speaker grille.
   const boothMetalTex = buildBoothMetalTexture();
   const boothGrilleTex = buildBoothGrilleTexture();
+  const deckRecordTex = buildDeckRecordTexture();
+  const platterWearTex = buildPlatterWearTexture();
 
   // * Booth truss — plated steel (map) so towers read as hardware, not grey bars.
   const trussLegMat = createPhysicalMaterial({
@@ -820,9 +936,25 @@ function buildBooths(scene, world, config, boothNeonMeshes, boothColliderHandles
   });
   const wooferGeo = new THREE.CylinderGeometry(0.2, 0.2, 0.04, 12);
   const platterGeo = new THREE.CylinderGeometry(0.42, 0.42, 0.02, 24);
-  // * DJ platter — Physical chrome: metalness 0.9, roughness 0.12
+  // * DJ platter — chrome, but not a showroom mirror: the wear map carries machining
+  // * rings and handling smudges so it reads as equipment that gets touched. Roughness
+  // * raised 0.12 -> 0.3 as the map's floor; the map only ever adds from there.
   const platterMat = createPhysicalMaterial({
-    color: 0x222222, roughness: 0.12, metalness: 0.9,
+    color: 0x222222,
+    roughness: 0.3,
+    metalness: 0.9,
+    roughnessMap: platterWearTex,
+  });
+  // * The 12" on the platter. Slightly under the platter radius (0.36 vs 0.42) so the
+  // * chrome rim still reads, and thin enough that it sits under the spindle dot.
+  const deckRecordGeo = new THREE.CylinderGeometry(0.36, 0.36, 0.006, 32);
+  const deckRecordMat = createPhysicalMaterial({
+    map: deckRecordTex,
+    color: 0xffffff,
+    roughness: 0.44,
+    metalness: 0.2,
+    clearcoat: 0.45,
+    clearcoatRoughness: 0.22,
   });
   const knobGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.06, 8);
   const knobMat = new THREE.MeshStandardMaterial({
@@ -1268,6 +1400,13 @@ function buildBooths(scene, world, config, boothNeonMeshes, boothColliderHandles
         const platter = new THREE.Mesh(platterGeo, platterMat);
         platter.position.set(dx, 0.6, 0);
         gearGroup.add(platter);
+        // * A turntable with no record on it reads as unfinished theme in a
+        // * vinyl-record arena. Sits on the platter face (0.61) under the spindle dot.
+        const deckRecord = new THREE.Mesh(deckRecordGeo, deckRecordMat);
+        deckRecord.position.set(dx, 0.613, 0);
+        // * Vary the run-out so the four booths do not look stamped from one press.
+        deckRecord.rotation.y = i * 0.9 + (dx > 0 ? 0.45 : 0);
+        gearGroup.add(deckRecord);
         const dot = new THREE.Mesh(dotGeo, dotMats[i]);
         dot.position.set(dx, 0.62, 0);
         gearGroup.add(dot);
@@ -1371,10 +1510,12 @@ function buildBooths(scene, world, config, boothNeonMeshes, boothColliderHandles
     sharedGeometries: [
       UNIT_BOX, UNIT_CYL, trussLightGeo, platGeo, sidePanelGeo, diamondGeo, dotGeo,
       mixerGeo, mixerPanelGeo, deckGeo, spkGeo, coneGeo, wooferGeo, platterGeo, knobGeo,
+      deckRecordGeo,
     ],
     sharedMaterials: [
       trussLegMat, trussCrossMat, mixerMat, deckMat, spkMat, coneMat, platterMat, knobMat,
-      fogPuffTex, boothMetalTex, boothGrilleTex,
+      deckRecordMat,
+      fogPuffTex, boothMetalTex, boothGrilleTex, deckRecordTex, platterWearTex,
       ...fogPuffMats, ...neonMats, ...trussLightMats, ...platMats, ...sidePanelMats,
       ...diamondMats, ...panelMats, ...dotMats,
     ],

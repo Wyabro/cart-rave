@@ -191,8 +191,14 @@ Every material on the hero-surface allowlist carries at least one authored or pr
 **Allowlist** (not "every `createPhysicalMaterial` call site"):
 
 - Carts — chrome, basket/frame, tires, face trim
-- Cart Rave — vinyl record floor, pit wall, booth deck
+- Cart Rave — vinyl record floor, pit wall, booth deck, **turntable platters**
 - Sundial Station — deck plate, center podium
+
+**Ruling 2026-08-01 (Wyatt), turntable platters are hero, not dressing.** By size they look
+like booth clutter and the exemption below would cover them. It does not apply: in a
+vinyl-record arena a blank turntable next to an authored vinyl floor reads as unfinished
+theme, not as optional detail. Identity decides the allowlist here, not scale. The general
+principle: a prop that carries the arena's theme is a hero surface however small it is.
 
 **Exempt:** emissive neon (`toneMapped: false`), `testArena`, and small dressing props (booth
 ribs, truss, stage clutter). Exempt surfaces must not be given dummy maps to satisfy the rule.
