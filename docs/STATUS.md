@@ -122,8 +122,15 @@ tessellated annulus taking Y from `getFloorSurfaceY`, plus `mix(0.50, 1.0, …)`
 strength. Brightness measured, not assumed: frame mean **+0.22%** against a **0.02%** noise floor —
 not strict parity, and strict parity would have cost ~a third of the ring's output. **Owed: Wyatt
 playtest — item 5 — does the lip band read as "committed" without becoming a game marker.**
-**Remaining: item 4 only** — and it is **gated on a capture first**, since item 1's fill-in covered
-much of the bare steel that motivated it (the L4 lesson, applied before spending the effort).
+**Item 4 (shelf steel) done 08-02** — gated on a capture first per the L4 lesson, and it **passed
+the gate**: head-on the new cartons do hide the racking, but from a reachable chase position along
+the run the steel is ~40% of frame with 74 flat untextured uprights. Authored a **new**
+`buildShelfSteelTexture()` (the shared furniture `metal` builder feeds the pile and was left alone)
+plus **world-scaled UVs** via a new optional `uvMeters` on `pushFadeBox` — without those the map was
+meaningless, since a unit-box clone keeps 0..1 UVs on a 0.16 m upright and a 114 m board alike.
+Brightness measured both ways because §8 forbids darkening this arena: **−4.94%** in the steel-heavy
+frame, **−0.03%** (noise floor) from the arena bookmark. Split out: **SHELF-RAIL-1** (booth rails +
+per-bay board segmentation). **All five Storerooms pass items are now closed.**
 
 ### Do not
 

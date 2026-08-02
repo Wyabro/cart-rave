@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-02T05:58:16.315Z",
-    "commit": "d741d8d"
+    "at": "2026-08-02T07:29:46.269Z",
+    "commit": "07e56ae"
   },
-  "source_digest": "ca2bd78a",
+  "source_digest": "c2b1c544",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1107,7 +1107,7 @@
         "counts": {
           "High": 6,
           "Medium": 6,
-          "Low": 8
+          "Low": 9
         },
         "rows": [
           {
@@ -1180,6 +1180,12 @@
             "pri": "Low",
             "item": "LOD-CLOCK-1 — level LOD updates are throttled on host-adjusted time, so a clock correction can stall them",
             "notes": "**Filed 08-02** while reading item 3. [main.js:5168](../../src/main.js:5168) passes `syncedNow` — `now - getHostClockOffsetMs()` — into `updateLevelLod`, whose throttle is `if (nowMs - _lastUpdateMs < INTERVAL_MS) return` ([levelLod.js:49](../../src/utils/levelLod.js:49)). A **backward** offset correction parks `_lastUpdateMs` in the future and LOD stops recomputing until wall clock catches up; a large forward jump forces an extra pass. Cosmetic-only in impact (props stay in whatever visibility state they held) and it needs a mid-match offset swing to bite, but the timestamp has no reason to be clock-synced at all — this is a pure local throttle. Lever: pass the raw `now`. Sits next to the same call's `frameBudgetAllow(\"level_lod\", now)` gate, which already uses raw `now` — so the two arguments on one line disagree about which clock they mean.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "SHELF-RAIL-1 — the booth rails are the shiniest thing in a dead room",
+            "notes": "**Filed 08-02**, split out of audit item 4 rather than folded in as a silent ride-along. `railMat` ([backroomsSupermarket.js:2948](../../src/levels/backroomsSupermarket.js:2948)) is the **booth** rails, a different surface from the shelf steel, and separately the lowest-roughness / highest-metalness pair in the file — so under the RoomEnvironment PMREM it reads as polished chrome in a room where nothing else is polished. Item 4's new `buildShelfSteelTexture()` is a natural donor, but the rails also want their own roughness call, and doing both in one commit would have made the item-4 capture ambiguous. Also parked here: **per-bay board segmentation** (break each 114 m shelf board into bays with a 4 cm gap so the run reads as bolted sections) — a geometry/merge change, not a material one, and the audit lists it under the same item.",
             "ship1": null
           },
           {
@@ -1345,7 +1351,8 @@
       {
         "title": "Playtest owed (08-01 session)",
         "counts": {
-          "High": 6,
+          "High": 4,
+          "?": 2,
           "Medium": 3,
           "Low": 1
         },
@@ -1369,15 +1376,15 @@
             "ship1": null
           },
           {
-            "pri": "High",
+            "pri": "✅",
             "item": "FV-FRIENDS-1 — friends CHECKOUT LINE (2 clients)",
-            "notes": "**Owed: Wyatt playtest — FV-FRIENDS-1 —** FRIENDS → create room → 2nd tab join → ready both → countdown. Lobby renders; roster/ready streams; lobby→countdown clean; COPY works.",
+            "notes": "**Wyatt playtest PASS — 08-02**, two machines on prod (deploy `f77ec652`), the first working 2-client friends match this project has observed. Both join paths verified: typed code **and** pasted link put two humans on both rosters, ready streams, countdown starts; LEAVE ROOM returns to a clean menu. **The 08-01 FAIL was two defects, both now closed.** (1) The lobby overlay persisted over the main menu — `hideGameplayElements` never hid the body-mounted `.hud-lobby` (fixed `c27fa8d`). (2) \"Players don't show up\" was never a netcode defect: cap-218/219 were `partywmtdlw` vs `partywtmdlw`, one transposition apart, and cap-224/225 caught the real cause — creating a room did not *join* it, so the invited player connected alone and became host of a room its creator had never entered. Closed by **FRIENDS-JOIN-1** (`bf9bc75`). Host election was never implicated.",
             "ship1": null
           },
           {
-            "pri": "High",
+            "pri": "✅",
             "item": "FV-REMATCH-1 — friends rematch + leave",
-            "notes": "**Owed: Wyatt playtest — FV-REMATCH-1 —** Finish or rewind → PLAY AGAIN/rematch → then LEAVE ROOM. Rematch re-enters; leave tears down clean.",
+            "notes": "**Wyatt playtest PASS — 08-02**, two machines on prod. PLAY AGAIN re-enters with the roster intact; LEAVE ROOM from a later podium tears down clean while the other client keeps playing. Was never independently broken — it was unreachable until FV-FRIENDS-1 let two clients share a room. **Note for future runs:** friends podiums **auto-continue after 10s** (`main.js:4789`, quickplay 5s), so a passive sit tests auto-continue, not the rematch button — press PLAY AGAIN inside the window to exercise this card.",
             "ship1": null
           },
           {
@@ -1415,17 +1422,11 @@
       {
         "title": "UI / UX",
         "counts": {
-          "High": 7,
+          "High": 6,
           "Medium": 5,
           "Low": 3
         },
         "rows": [
-          {
-            "pri": "High",
-            "item": "FRIENDS-JOIN-1 — friends join flow: one screen, speakable code, JOIN input",
-            "notes": "**Filed 08-01** — design settled with Wyatt after the 08-01 playtest marked **FV-FRIENDS-1** FAIL (\"the flow from entering a lobby to the lobby screen isn't very intuitive yet and might need to be rethought\"). Target context Wyatt named: **two friends on Discord voice**, so both the pasted link and the read-aloud code have to work. **Three defects this closes.** (1) *The code is unspeakable* — `main.js:1924` builds `party` + 6 random base36 chars and `hud.js:1309` prints it uppercased, so ROOM CODE reads `PARTYK3X9QZ`: 11 chars, mixed letters/digits, `0/O` + `1/I` collisions. (2) *There is no way to type a code* — the only join affordance is the JOIN LOBBY button (`main.js:1863`) and it only exists if you arrived with `?room=` already set; no input field exists anywhere, so a player who only *heard* the code is stuck. (3) *Two waiting rooms back to back* — FRIENDS opens `#cr-friends-screen` (code + COPY + link) and ENTER GAME then opens CHECKOUT LINE (code + COPY + roster). Same job twice, and the first screen cannot show whether anyone joined. **Design (Wyatt-confirmed 08-01).** FRIENDS creates the room and enters CHECKOUT LINE directly — no intermediate screen; the host watches friends arrive on the roster that already exists (`hud.js:1606-1738`: code card, COPY, 4 slots with HOST/YOU pips, IN LINE x/4, READY UP, LEAVE ROOM). Room code becomes **`KALE7`** — curated 4-letter grocery word + one digit 2-9, speakable (\"kale seven\"), on-brand, no ambiguous glyphs; ~250 words gives 2,000 codes. Main menu gains a **JOIN input** beside FRIENDS (type the code, enter) — the read-aloud path that does not exist today. Link path unchanged. Bot difficulty, which lived on the deleted screen (`index.html:995-1003`), **stays where it is — decided 08-02, do not re-open.** Deleting the friends screen loses nothing: the value lives in `settingsStore.aiDifficulty` (persisted via `STORAGE_KEYS.aiDifficulty`), netcode reads it from the store and never from the DOM (`netcode.js:3071` `adoptRoomAiDifficultyAsHost`, `:3105` `sendHostRound`), a second `.cr-diff-row` already exists in the main menu at `index.html:713`, and `cart-rave-menu.js:452` deliberately syncs every row to that one store value so they cannot disagree. The friends-screen row was always a mirror, so no lobby card is built. **Generator hard rule:** the room string *is* the mode (`main.js:370` — `solo` prefix, `testdrive` prefix, `quickplay` exact), so any generated or entered code matching those would silently boot the joiner into the wrong mode. Filter at generation, reject at entry. **No server change.** Bot difficulty already rides `MSG.hostRound`, host-only-enforced at `party/index.ts:1445`, with `#currentAiDifficulty` already room-wide state; room naming, host election, and host authority are untouched. Files: new `shared/roomCodes.js` (list + generator + validation); `src/main.js` (friends action → `enterPlayMode` directly, delete the ~75-line screen wiring at 1923-2001, wire JOIN); `index.html` (delete `#cr-friends-screen`, add JOIN input); `src/hud.js` (host-only difficulty card, honest COPY); `src/cart-rave-menu.css`. **Failure modes.** *Typo'd code silently makes you a host* — enter `KALE8` for room `KALE7` and you become host of a new empty room with no error, because no room registry exists to tell \"wrong code\" from \"first to arrive\"; mitigation is a CHECKOUT LINE state (\"NOBODY HERE — CHECK THE CODE\") when you joined by code and are still alone after a few seconds. Build it — without it this flow is quietly worse than the link. *COPY lies on failure* — `main.js:1931`, `main.js:1983`, `hud.js:1628` all do `.catch(() =&gt; {})` and say \"COPIED!\" regardless; detect failure, say so, reveal a selectable link field. **Known ceiling, do not build yet:** collisions are undetectable without a room registry (~2% chance of two hosts sharing a code at 10 concurrent rooms). Acceptable at playtest scale; revisit only if real traffic arrives. **Verification:** unit tests for the generator (alphabet, mode-prefix exclusions, ambiguous glyphs) and that FRIENDS no longer opens the deleted screen; everything else is a **Wyatt playtest owed at ship time** — whether the flow reads right and whether the code survives being read over Discord. Automated MP coverage does not reach here (see **HARNESS-FRIENDS-1**). **Sequencing:** lands **behind** the two FV-FRIENDS-1 bug fixes — the leave-room overlay leak (root-caused 08-01: `hideGameplayElements` at `hud.js:2701` never hides the body-mounted `.hud-lobby`) and the unexplained two-clients-two-rooms defect (cap-218/219, both `isHost:true`). A nicer join flow on top of a broken room join is still broken. Cheaper alternative if the wordlist is unwanted: 4 random letters from a 23-letter alphabet, 280k codes, no charm.",
-            "ship1": null
-          },
           {
             "pri": "High",
             "item": "PRE-PODIUM-1 — confetti / wilt + win-lose callout missing `[pre-ship]`",

@@ -223,7 +223,7 @@ arrows, same defect, but that group also owns physics bodies), **LOD-PITRING-1**
 *close* to it; `doorways` shares the shape), and **LOD-CLOCK-1** (the call throttles on
 host-adjusted time, so a backward clock correction stalls LOD updates).
 
-### 4. Author the shelf steel — `:2128` · medium · **verified**
+### 4. Author the shelf steel — `:2128` · medium · **verified** · **DONE 08-02 (map + world UVs)**
 
 `{ color: 0xffffff, roughness: 0.78, metalness: 0.4, vertexColors: true }` — every slot checked, no
 map of any kind. It is the dominant fixture on all four walls, the **largest** untextured surface in
@@ -241,6 +241,34 @@ scale. Fine grain will not survive. Break each 114 m board into per-bay segments
 the run reads as bolted bays. Keep the 43 m fade-to-void posts and the heights — that verticality is
 identity. The same map rides along on `railMat` (`:2937`), which is separately the lowest-roughness
 / highest-metalness pair in all 3609 lines and reads as the shiniest thing in a dead room.
+
+**Gated on a capture before any texture work, and it passed.** Item 1's fill-in (329 → 612 cartons)
+was expected to have covered this surface — the audit's own reason for ranking item 1 first — so the
+first step was two frames, not a canvas. Head-on the cartons do hide most of the racking; but from a
+position the **chase camera actually reaches** (`--cam "-38,4,36,20,4,50"` — a cart near the corner
+looking along the run) the steel is roughly **40% of frame**, and the 74 uprights read as flat pale
+untextured columns. Not the L4 case. Authored.
+
+**Done 08-02, with the two corrections that were argued out first.** (a) A **new**
+`buildShelfSteelTexture()` — the shared `buildFurnitureTexture("metal")` was *not* retinted, because
+its output (`metalTex` → `metalMat`) is consumed only by the **furniture pile**, so reusing it for
+the walls would have silently re-skinned the arena's centrepiece. (b) **World-scaled UVs**, without
+which the map was pointless: `pushFadeBox` clones a unit box, so every face keeps 0..1 UVs however
+big the box is, and one shared map would have landed at wildly different physical sizes on a 0.16 m
+upright and a 114 m board. `pushFadeBox` takes an optional `uvMeters`, passed only by the three
+shelf-metal call sites, and the tile is 1 m square. Content is low-frequency per the audit — punched
+slot ladder, rust bands, chalk streaking, galvanised base — plus the same canvas as a light
+`bumpMap`, the trick the carpet already uses.
+
+**Brightness, measured both ways, because §8 forbids darkening this arena:** in the steel-heavy
+grazing frame the mean luma drops **−4.94%** (that frame is ~40% racking, and the racking is
+*supposed* to stop being pristine white). From the standard arena bookmark it is **−0.03%** — at the
+0.02% noise floor, because the walls are ~93% fogged from centre. So the surface reads used up
+close and the arena's brightness budget is untouched. The §8 stack concern does not fire.
+
+**Not in this commit, deliberately:** per-bay board segmentation with 4 cm gaps (a geometry/merge
+change, not a material one), and `railMat` — those are the **booth** rails, a different surface, now
+**SHELF-RAIL-1**.
 
 ### 5. Fix the suction telegraph — `:3193`, `:3225` · small · [unverified] → **verified 08-02** · **FIXED 08-02**
 
