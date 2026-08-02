@@ -317,6 +317,15 @@ How Wyatt routes work across agents:
   (`GROK.md` at the root is the thin pointer; if the tool can't auto-read files, use the
   paste-able session opener at the top of this document).
 
+**Shared skills across runtimes.** Machine-level skills live once at `~/.agent-skills/<name>`
+and are junctioned into each runtime's `skills/` dir (`.claude` · `.cursor` · `.grok` ·
+`.codex` · `.gemini` · `.copilot` · `.config/opencode` — they all use the same convention), so
+one `git pull` updates every tool. Repo-scoped skills still live in `.agents/skills/` and mirror
+via `npm run skills:sync`; do not vendor large third-party skills there. Currently shared this
+way: **img2threejs** — procedural Three.js props from a reference image, for *new* objects only.
+When to reach for it and the two costs that make it a deliberate spend:
+[art-direction.md](docs/reference/art-direction.md) § Tooling.
+
 Any prompt written **for** an agent goes in its own fenced code block. Confirm options with
 Wyatt before writing long prompts. For new gameplay systems, player-facing features, or
 ambiguous "done" tasks, ask **"what should the player see / feel / do when this works?"**

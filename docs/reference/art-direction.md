@@ -275,12 +275,28 @@ Live copies of the old rule that remain as annotated historical comments:
 
 **img2threejs** (v1.4.3, Apache-2.0) rebuilds the object in a reference image as a procedural
 Three.js factory function — primitives, extrudes, generated canvas textures, no external art.
-Installed **user-level and deliberately not vendored** into `.agents/skills/`; it is 146 files,
-and a committed copy would recreate the `hallmark` bloat deleted 08-02:
+**Deliberately not vendored** into `.agents/skills/` — it is 146 files, and a committed copy
+would recreate the `hallmark` bloat deleted 08-02. Instead: **one payload, every runtime.**
+Canonical clone at `~/.agent-skills/img2threejs` (neutral, so no single tool owns it),
+junctioned into each runtime's `skills/` dir. All seven use the same convention. One
+`git pull` in the canonical dir updates all of them; a copy-per-runtime would cost 7× the
+disk and 7 separate updates — which is what the Cloudflare skills currently do (2.0 MB and
+320 files duplicated in both `.claude` and `.cursor`).
 
 ```bash
-git clone --depth 1 https://github.com/img2threejs/img2threejs.git "$HOME/.claude/skills/img2threejs"
+git clone --depth 1 https://github.com/img2threejs/img2threejs.git "$HOME/.agent-skills/img2threejs"
+# then, per runtime (PowerShell, no admin needed):
+#   New-Item -ItemType Junction -Path "$env:USERPROFILE\.claude\skills\img2threejs" `
+#            -Target "$env:USERPROFILE\.agent-skills\img2threejs"
+# repeat for: .cursor .grok .codex .gemini .copilot .config\opencode
 ```
+
+**Who can actually run it.** It is a *program*, not a document — it needs a local shell,
+Python 3.10+, and file writes. Linked and working today: **Claude Code · Cursor · Grok CLI**.
+Junctions are pre-placed for **Codex · Gemini/Antigravity · Copilot · OpenCode**, whose config
+dirs exist but whose CLIs are not yet on PATH. **Grok *web chat* and DeepSeek cannot run it at
+all** regardless of where the markdown sits — no local filesystem. For those, the output is
+something another tool generates and they then edit.
 
 **Reach for it** when a card needs a genuinely *new* hard-surface prop authored from a reference
 image — a new arena's prop set, or a single new object such as Sundial Wave 5's gnomon blade.
