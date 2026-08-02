@@ -79,8 +79,9 @@ const BLOOM_DISPLAY_STOREROOMS = {
 
 /**
  * Display-referred knobs for neon arenas when unified (?bloompipe=display, default).
- * Wyatt-approved live tune 2026-07-13. Classic and Test Drive fall here; Sundial split
- * off 08-02 once its sky stopped being dark — see BLOOM_DISPLAY_SUNDIAL.
+ * Wyatt-approved live tune 2026-07-13. Classic falls here; Sundial split off 08-02 once its
+ * sky stopped being dark (see BLOOM_DISPLAY_SUNDIAL), and Test Drive has never fallen here —
+ * it has had BLOOM_DISPLAY_TESTDRIVE since the display pipeline became the default.
  */
 const BLOOM_DISPLAY_NEON = {
   strength: 0.25,

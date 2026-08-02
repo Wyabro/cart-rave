@@ -127,8 +127,10 @@ ART-FILTER-1 own moving them and will record the resulting baselines here.
 | Exposure (global) | [`config.js:495`](../../src/config.js:495) | `0.4` — **lock retired**, per-arena budget replaces it |
 | Exposure (per arena) | [`config.js:501`](../../src/config.js:501) | `zanzibar: 1.32`; unlisted arenas `1.0` |
 | Bloom (`?bloompipe=hdr` only) | [`config.js:522`](../../src/config.js:522) | `0.34 / 0.34 / 0.76 / 0.14` |
-| Bloom — Cart Rave + Sundial | `BLOOM_DISPLAY_NEON`, [`scene.js:84`](../../src/scene.js:84) | `0.25 / 0.67 / 0.5 / 0.025` |
+| Bloom — Cart Rave | `BLOOM_DISPLAY_NEON`, [`scene.js:85`](../../src/scene.js:85) | `0.25 / 0.67 / 0.5 / 0.025` |
+| Bloom — Sundial | `BLOOM_DISPLAY_SUNDIAL`, [`scene.js:108`](../../src/scene.js:108) | `0.25 / 0.67 / **0.68** / 0.025` — D-SUNDIAL-OQ5, split off NEON `93c3deb`; threshold is the only knob moved |
 | Bloom — Storerooms | `BLOOM_DISPLAY_STOREROOMS`, [`scene.js:73`](../../src/scene.js:73) | `0.62 / 0.4 / 0.62 / 0.1` |
+| Bloom — Test Drive | `BLOOM_DISPLAY_TESTDRIVE`, [`scene.js:120`](../../src/scene.js:120) | `0.2 / 0.5 / 0.7 / 0.05` |
 | Arcade (CRT) | [`config.js:545`](../../src/config.js:545) | aberration `0.003`, scanlines `1.8`, vignette `0.5` — **global today, should be Storerooms-only** |
 | VHS | [`config.js:554`](../../src/config.js:554) | amount `0.3` — correctly level-gated already |
 | Fog — Cart Rave | [`config.js:565`](../../src/config.js:565) | `0x040112` @ `0.0065` |
@@ -136,7 +138,7 @@ ART-FILTER-1 own moving them and will record the resulting baselines here.
 | Fog — Sundial | [`config.js:571`](../../src/config.js:571) | `0xff5a22` @ `0.00355` |
 
 Bloom profile selection: `resolveDisplayBloomConfig()`,
-[`scene.js:107`](../../src/scene.js:107).
+[`scene.js:131`](../../src/scene.js:131) — four branches, one per row above.
 
 ---
 
