@@ -162,16 +162,17 @@ function buildPitSurfaceTextures() {
   // * world width/height per tile is what gives undistorted texels. The old (16, 200)
   // * mapped a square canvas onto a 17.4m x 3.0m tile — 5.8x anisotropy, which rendered
   // * every round rivet as a ~5.8:1 oval.
-  // *   circumference = 2*PI * pitInnerRadius(44.30m) = 278.4m; shaft depth = 600m.
-  // *   U=32 -> tile 8.700m wide;  V=69 -> tile 8.696m tall  (square to 0.05%).
+  // *   circumference = 2*PI * pitInnerRadius(44.30m) = 278.4m; shaft depth = 69.6m.
+  // *   U=32 -> tile 8.700m wide;  V=8 -> tile 8.700m tall  (square).
   // * Both integers, so the wrap seam stays clean. At this scale the authored cell
   // * (85.3x64px, 12px bevels, 1.6px rivets) lands at a 1.45m plate with 5.4cm rivets
   // * and a 20cm seam — believable shaft plating. Texel density doubles to 59 px/m,
-  // * which matters because only the top ~30m of the shaft is ever visible (see
-  // * PIT-DEPTH-1). Changing pitInnerRadius or pitWallDepth invalidates these numbers.
-  map.repeat.set(32, 69);
-  normalMap.repeat.set(32, 69);
-  roughnessMap.repeat.set(32, 69);
+  // * which matters because only the top ~30m of the shaft is ever visible.
+  // * Changing pitInnerRadius or pitWallDepth invalidates these numbers — V is
+  // * pitWallDepth / 8.700, and PIT-DEPTH-1 picked 69.6m precisely to keep it whole.
+  map.repeat.set(32, 8);
+  normalMap.repeat.set(32, 8);
+  roughnessMap.repeat.set(32, 8);
 
   return { map, normalMap, roughnessMap };
 }
@@ -2133,7 +2134,13 @@ export function initArena(scene, world, config, options = {}) {
 
   const pitInnerRadius = (config.record.radius + 2) * 1.30 * 1.20;
 
-  const pitWallDepth = 600;
+  // * 69.6m, not 600m. The fall kill fires at y=-30, the vertex gradient dies 32m below
+  // * the rim, and the deepest thing anyone can touch is the backstop cap at y=-64 — so
+  // * the old shaft spent ~530m below the last observable surface. The floor on this
+  // * number is the backstop at pitWallPhysicsTopY (-64): its half-height is derived
+  // * from this depth and goes NEGATIVE below 61m. 69.6 clears that and keeps the
+  // * plating tile square at an integer V=8 (see buildPitSurfaceTextures).
+  const pitWallDepth = 69.6;
   const pitWallTopY = -3;
   const pitWallCenterY = pitWallTopY - pitWallDepth / 2;
   // * Higher radial density so panel UVs + structural ribs land cleanly.
