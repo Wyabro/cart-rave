@@ -164,7 +164,7 @@ BOOT-PERF-1 · Run 7 strip) → [completed-work.md](./planning/completed-work.md
 |---|------|--------|
 | **LOD-CLOCK-1** | level LOD throttle uses host-adjusted time | ✅ **SHIPPED 08-02** — `updateLevelLod(camera, now)`; stall unit test + main.js source assert. Applied, unpushed. |
 | **ASSET-CACHE-1** | fixed-name assets 7d cache stale after deploy | ✅ **SHIPPED 08-02** — `shared/assetCache.js`; fixed-name → 1h + 5m SWR; hashed `/assets/*` unchanged. Applied, unpushed. |
-| **QP-ORDER-1** | quickplay rotates sequential, not random | ✅ **SHIPPED 08-02** — `nextQuickplayArenaId`; fresh QP starts at pool[0]; rematch advances catalog order. Live 2-browser smoke remains Wyatt-owed (BACKLOG Low). Applied, unpushed. |
+| **QP-ORDER-1** | quickplay rotates sequential, not random | ✅ **SHIPPED 08-02** — fresh QP picks random pool entry; rematch advances catalog order via `nextQuickplayArenaId`. Live 2-browser smoke remains Wyatt-owed (BACKLOG Low). Applied, unpushed. |
 | **ART-PASS-SUNDIAL-1** | Sundial art pass — 6 waves, one lever per commit | ▶ **ACTIVE 08-02** — **Wave 1 CLOSED.** Sky ramp now finishes at the waterline (`2c5b3fc`): red step **+128/+126/+110 → −21/−12/−2** (target <30), water pixels unmoved, sky-only. IBL sun blob was **exactly 180° out**, fixed **correctness-only** (`16157b0`) — re-judge after Wave 2 gives water `ior`+owned `envMap`. Next = **Wave 2 (ocean)**. [audit](./planning/art-audit-sundial.md). |
 | **DIAG-TIER-1** | capture `runtime.qualityTier` reports effective tier | ✅ **SHIPPED 08-02** — three fields on real runtime probe; `tests/gameplayDiagnostics.runtime.test.js` ×3. Applied, unpushed. |
 | **FIGHT-VERIFY-1** | owed fight-night verification | 🟢 **agent half DONE** 08-01 — podium/loadshots/states + focus-ring. Residual = **Playtest owed** cards (BACKLOG) — console-seeded; not this parent row. |
@@ -315,9 +315,9 @@ One line each; full text in [archive/decision-log-2026-07.md](./archive/decision
 
 ## Last updated
 
-2026-08-02 (QP-ORDER-1) — Quickplay advances catalog order via `nextQuickplayArenaId`; fresh
-public rooms start at `QUICKPLAY_ARENA_IDS[0]` (Classic). Live 2-browser smoke remains
-Wyatt-owed. ART-PASS-SUNDIAL-1 restored ACTIVE. Applied, unpushed.
+2026-08-02 (QP-ORDER-1) — Fresh public rooms pick a random pool entry; rematch advances
+catalog order via `nextQuickplayArenaId` (wrap). Live 2-browser smoke remains Wyatt-owed.
+ART-PASS-SUNDIAL-1 restored ACTIVE. Applied, unpushed.
 
 2026-08-02 (ASSET-CACHE-1) — `assetCacheControlForPath` in `shared/assetCache.js`; fixed-name
 models/sounds/fonts → `max-age=3600, stale-while-revalidate=300`; hashed `/assets/*` stay

@@ -1,8 +1,8 @@
 // arenaPool.js — quickplay arena rotation pool, shared by client + Worker.
 //
-// Fresh public Quickplay rooms start at QUICKPLAY_ARENA_IDS[0]. Client rematch
-// advances via nextQuickplayArenaId (catalog order, wrap). src/levels/index.js
-// re-exports the pool as PREFETCHABLE_LEVEL_IDS.
+// Fresh public Quickplay rooms pick a random pool entry; client rematch advances
+// via nextQuickplayArenaId (catalog order, wrap). src/levels/index.js uses the
+// same pool for prefetch.
 
 /** @type {readonly string[]} */
 export const QUICKPLAY_ARENA_IDS = ["classicRecord", "backrooms", "zanzibar"];

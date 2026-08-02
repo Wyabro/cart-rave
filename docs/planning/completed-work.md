@@ -15,7 +15,7 @@ Chronological record of shipped work, newest first.
 
 ### August 2, 2026 — QP-ORDER-1: Quickplay advances catalog order
 
-- *(Engineering · High)* **QP-ORDER-1** — Quickplay rematch picked a random other arena; fresh public rooms also RNG'd the opener — ✅ **CLOSED 08-02** (applied, unpushed). `nextQuickplayArenaId(current, arenaIds?)` in `shared/arenaPool.js`: found → next with wrap; unknown → first; singleton → sole; empty → current. `main.js` rematch uses it; `party/index.ts` fresh `quickplay` room starts at `QUICKPLAY_ARENA_IDS[0]`. Tests: `tests/arenaPool.test.js` (order + source asserts). **Out of scope / still owed:** live two-browser rotation smoke (BACKLOG Low). Risk accepted: every new public QP room opens on Classic.
+- *(Engineering · High)* **QP-ORDER-1** — Quickplay rematch picked a random other arena — ✅ **CLOSED 08-02** (applied, unpushed). Fresh public rooms still pick a **random** pool entry; rematch then advances catalog order via `nextQuickplayArenaId` (wrap). Helper: found → next; unknown → first; singleton → sole; empty → current. `main.js` rematch uses it; `party/index.ts` RNG at room init. Tests: `tests/arenaPool.test.js`. **Out of scope / still owed:** live two-browser rotation smoke (BACKLOG Low).
 
 ### August 2, 2026 — ASSET-CACHE-1: fixed-name assets refresh within ~1h
 

@@ -34,10 +34,11 @@ describe("nextQuickplayArenaId", () => {
     }
   });
 
-  it("party/index.ts starts fresh Quickplay at QUICKPLAY_ARENA_IDS[0]", () => {
+  it("party/index.ts starts fresh Quickplay with a random pool entry", () => {
     const src = readFileSync(new URL("../party/index.ts", import.meta.url), "utf8");
-    expect(src).toMatch(/QUICKPLAY_ARENA_IDS\[0\]/);
-    expect(src).not.toMatch(/Math\.random\(\)\s*\*\s*QUICKPLAY_ARENA_IDS/);
+    expect(src).toMatch(/Math\.random\(\)\s*\*\s*QUICKPLAY_ARENA_IDS\.length/);
+    // * Rematch order stays sequential — do not force every new room onto pool[0].
+    expect(src).not.toMatch(/this\.#currentLevelId\s*=\s*QUICKPLAY_ARENA_IDS\[0\]/);
   });
 
   it("main.js rematch path uses nextQuickplayArenaId", () => {

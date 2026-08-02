@@ -192,13 +192,14 @@ export class CartRaveServer extends Server {
   #ensureInitialized() {
     if (this.#slots) return;
 
-    // * Quickplay: start at the first catalog entry so the first hello carries the
-    // * room's real level (QP-ORDER-1). Rematches advance via nextQuickplayArenaId
-    // * on the host. Otherwise a hardcoded default would clobber every joiner's
-    // * local pick via adoptAuthoritativeRoomLevel. Friends rooms keep the default —
-    // * the host's local pick reaches everyone via the first host_round broadcast.
+    // * Quickplay: pick a random arena at room creation so the first hello carries
+    // * the room's real level (QP-ORDER-1). Rematches then advance catalog order via
+    // * nextQuickplayArenaId on the host. Otherwise a hardcoded default would clobber
+    // * every joiner's local pick via adoptAuthoritativeRoomLevel. Friends rooms keep
+    // * the default — the host's local pick reaches everyone via the first host_round.
     if (this.name === "quickplay" && QUICKPLAY_ARENA_IDS.length > 0) {
-      this.#currentLevelId = QUICKPLAY_ARENA_IDS[0] ?? this.#currentLevelId;
+      const idx = Math.floor(Math.random() * QUICKPLAY_ARENA_IDS.length);
+      this.#currentLevelId = QUICKPLAY_ARENA_IDS[idx] ?? this.#currentLevelId;
       this.#currentAiDifficulty = "medium";
     }
 
