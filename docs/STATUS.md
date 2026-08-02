@@ -162,6 +162,7 @@ BOOT-PERF-1 · Run 7 strip) → [completed-work.md](./planning/completed-work.md
 
 | # | What | Status |
 |---|------|--------|
+| **ART-PASS-SUNDIAL-1** | Sundial art pass — 6 waves, one lever per commit | ▶ **ACTIVE 08-02** — Step 0 done: first HIGH frames of this arena (`sundial-base-{wide,horizon,podium,chase}`, 4090/ANGLE, no COMPATIBILITY banner). **Waterline red step +128 / +110** (audit target <30) — the number Wave 1 has to move. [audit](./planning/art-audit-sundial.md) is all `[unverified]`; verify each claim before fixing it. |
 | **FIGHT-VERIFY-1** | owed fight-night verification | 🟢 **agent half DONE** 08-01 — podium/loadshots/states + focus-ring. Residual = **Playtest owed** cards (BACKLOG) — console-seeded; not this parent row. |
 | **HOST-CAP-1** | weak-host toast residual | ✅ **SHIPPED** 08-01 — `score < 50` once/hostship; prod Version `76ebdc37` (HEAD `423008f`) |
 | **BOOT-PERF-1** | idle warm gen-cancel | ✅ **SHIPPED** 08-01 — mid-flight retarget; same deploy |
@@ -170,8 +171,9 @@ BOOT-PERF-1 · Run 7 strip) → [completed-work.md](./planning/completed-work.md
 
 ### Next actions
 
-1. **ROUND-WEDGE-1 Phase A** — applied unpushed (`pausedWallMs` MAX-only). Commit/ship on
-   Wyatt ack; deploy needed for live hide-wedge proof. Phase B only on separate ack.
+1. **ART-PASS-SUNDIAL-1** — Wave 1: sky-gradient remap, then IBL sun azimuth (one lever per commit).
+1b. **ROUND-WEDGE-1 parked 08-02** for the Sundial pass. Its "applied unpushed" line was **stale** —
+   Phase A shipped `d4a7718` (in `origin/cart-clash`). Phase B (client backoff) needs its own ack.
 2. **Playtest console** — 10 owed cards in BACKLOG `## Playtest owed (08-01 session)`.
 3. Closed 08-01 Wyatt PASS: **PAUSE-ROW-1** · **MENU-CMD-FEEL-1** · **FOCUS-CYAN-1**.
    Still open tooling: **ASSET-CACHE-1** · **HARNESS-FRIENDS-1**.
@@ -204,7 +206,7 @@ Closed IDs (NET-1, NET-2, NET-MIG-3, NET-PRES-1, NET-SD-1, HOST-ROLE-1, VFX-1, P
 
 | ID | Issue | Status |
 |----|--------|--------|
-| ROUND-WEDGE-1 | Host-hide → MAX reject → podium⇄running storm | 🟡 **Phase A applied unpushed** — `pausedWallMs` MAX-only in `roundValidation.ts` (+tests). MIN wall latch frozen. Does **not** claim cap-217 closed; Phase B (client backoff) deferred. |
+| ROUND-WEDGE-1 | Host-hide → MAX reject → podium⇄running storm | 🚫 **parked 08-02** (Sundial pass) — Phase A **shipped** `d4a7718`, `pausedWallMs` MAX-only in `roundValidation.ts` (+tests); MIN wall latch frozen. Does **not** claim cap-217 closed; Phase B deferred. |
 | WARM-SOLO-1 | Solo post-`carts-ready` stall (WARM-IGPU residual) | 📋 telemetry-gated — [warm-igpu-1.md](./planning/warm-igpu-1.md) |
 | MAIN-1 | Carve `main.js` seam (enables BUNDLE-1) | 📋 Post-gate |
 | BUNDLE-1 | Menu/game code-split | 🚫 Blocked on MAIN-1 |
@@ -219,6 +221,11 @@ When named: other residual or RC exit criteria in [ROADMAP.md](./planning/ROADMA
 ## Decision index
 
 One line each; full text in [archive/decision-log-2026-07.md](./archive/decision-log-2026-07.md). Newest first.
+
+- **D-SUNDIAL-OQ6** (08-02): **Low is a shipping look.** Sundial Wave 2 water is authored to
+  survive Low (touch default; today Low drops the hologram, all four ocean detail systems and
+  both golden-hour signatures — see the HIGH/LOW A/B in `.diag-captures/sundial-LOW-*.png`).
+  Audit item 36 moves up out of Wave 6.
 
 - **D-ROUND-WEDGE-1-A** (08-01): Host-hide MAX cushion = server `pausedWallMs` (sum of committed
   host-domain `startedAtMs` increases on running→running). MAX reject only when

@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-02T07:29:46.269Z",
-    "commit": "07e56ae"
+    "at": "2026-08-02T08:25:50.448Z",
+    "commit": "dc66d0a"
   },
-  "source_digest": "c2b1c544",
+  "source_digest": "e396d5a5",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -855,6 +855,12 @@
   "workstreams": {
     "queue": [
       {
+        "id": "ART-PASS-SUNDIAL-1",
+        "what": "Sundial art pass — 6 waves, one lever per commit",
+        "status": "▶ ACTIVE 08-02 — Step 0 done: first HIGH frames of this arena (`sundial-base-{wide,horizon,podium,chase}`, 4090/ANGLE, no COMPATIBILITY banner). Waterline red step +128 / +110 (audit target <30) — the number Wave 1 has to move. [audit](./planning/art-audit-sundial.md) is all `[unverified]`; verify each claim before fixing it.",
+        "state": "active"
+      },
+      {
         "id": "FIGHT-VERIFY-1",
         "what": "owed fight-night verification",
         "status": "🟢 agent half DONE 08-01 — podium/loadshots/states + focus-ring. Residual = Playtest owed cards (BACKLOG) — console-seeded; not this parent row.",
@@ -895,7 +901,7 @@
       }
     ],
     "next_actions": [
-      "ROUND-WEDGE-1 Phase A — applied unpushed (`pausedWallMs` MAX-only). Commit/ship on",
+      "ART-PASS-SUNDIAL-1 — Wave 1: sky-gradient remap, then IBL sun azimuth (one lever per commit).",
       "Playtest console — 10 owed cards in BACKLOG `## Playtest owed (08-01 session)`.",
       "Closed 08-01 Wyatt PASS: PAUSE-ROW-1 · MENU-CMD-FEEL-1 · FOCUS-CYAN-1."
     ],
@@ -903,7 +909,7 @@
       {
         "id": "ROUND-WEDGE-1",
         "issue": "Host-hide → MAX reject → podium⇄running storm",
-        "status": "🟡 **Phase A applied unpushed** — `pausedWallMs` MAX-only in `roundValidation.ts` (+tests). MIN wall latch frozen. Does **not** claim cap-217 closed; Phase B (client backoff) deferred."
+        "status": "🚫 **parked 08-02** (Sundial pass) — Phase A **shipped** `d4a7718`, `pausedWallMs` MAX-only in `roundValidation.ts` (+tests); MIN wall latch frozen. Does **not** claim cap-217 closed; Phase B deferred."
       },
       {
         "id": "WARM-SOLO-1",
@@ -1916,6 +1922,11 @@
       "Cross-module change? Read docs/reference/control-flow.md first — most edges are not imports."
     ],
     "settled_decisions": [
+      {
+        "id": "D-SUNDIAL-OQ6",
+        "date": "08-02",
+        "text": "Low is a shipping look. Sundial Wave 2 water is authored to"
+      },
       {
         "id": "D-ROUND-WEDGE-1-A",
         "date": "08-01",
