@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-02T19:50:32.978Z",
-    "commit": "74cec52"
+    "at": "2026-08-02T20:01:15.979Z",
+    "commit": "543c16a"
   },
-  "source_digest": "cb89c39d",
+  "source_digest": "4ed01aab",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -997,7 +997,7 @@
         "title": "Engineering",
         "counts": {
           "High": 2,
-          "Medium": 16,
+          "Medium": 15,
           "Low": 4,
           "Partial": 1
         },
@@ -1084,12 +1084,6 @@
             "pri": "Medium",
             "item": "STOP-DIRT-1 — the Stop guard blocks on repo-wide dirt, so another session's in-flight file blocks *this* session's correct claim",
             "notes": "**Filed 08-01, reproduced live within minutes of the guard shipping in `74cd768`** — and the reproduction was the guard blocking a claim that was true. **Evidence:** after pushing `74cd768`, `git ls-remote` and `git rev-parse HEAD` both read `74cd768dfb1af004af9ce078e276660d195a172d`, and all three new files were present in `git ls-tree origin/cart-clash`; the claim was checked against the remote, not asserted. `guard-stop-drift.mjs` blocked it anyway, on `1 modified tracked file(s)` — `docs/planning/BACKLOG.md`, holding **another session's** uncommitted AUTOQ-GHOST-1 card, which this session never staged and never touched. **Mechanism:** `checkHeadDrift` (`tools/verify-head.mjs`) returns `trackedDirty` from a repo-wide `git status --porcelain --untracked-files=no`, and the hook blocks on `ahead > 0",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "HOOK-WHOLETREE-2 — `stripQuoted` blanks a **quoted** whole-tree pathspec before the matcher can see it",
-            "notes": "**Filed 08-02**, found probing alongside HOOK-WHOLETREE-1 (which closed the bare `.\\` / `.\\\\` / absolute-root forms). Verified against the shipped guard: `offends('git add \".\"')` and `offends(\"git add '.'\")` are both **false**. **Mechanism:** `stripQuoted` (`.claude/hooks/guard-git-add.mjs`) rewrites every quoted span to an empty quote pair so a commit message quoting the forbidden command is not a false positive — but it runs *before* pathspec extraction, so `git add \".\"` reaches the matcher as the token `\"\"`, which is in no table. Same defect class as HOOK-WHOLETREE-1, **different mechanism** — that one was an incomplete literal set, this one is a token destroyed upstream of the set — which is why it was deliberately cut from that card rather than folded in. Also covers the quoted absolute form, `git add \"C:\\Users\\wyatt\\cart-rave\"`. **Levers:** (a) canonicalize quoted pathspec tokens to their bare form before `stripQuoted` blanks them; (b) stop blanking a quoted token that canonicalizes to `.` / `./` / the repo root, blanking only spans that follow a message-consuming flag (`-m`, `--message`, `-F`). Either way the two existing false-positive guards must stay green: `git add -- -A` and `git commit -m \"never git add -A again\"`.",
             "ship1": null
           },
           {

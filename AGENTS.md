@@ -205,7 +205,8 @@ internal error exits 0) and are driven by `tests/claudeHooks.test.js`.
   content digest as `briefing:check` — never mtimes).
 - **`guard-git-add.mjs`** (PreToolUse on Bash/PowerShell) enforces three rules. (1) Denies
   whole-worktree staging: `git add -A` / `.` / `./` / `.\` / `.\\` / `:/` / `:` / `:(top)` /
-  `*` / `--all`, an absolute pathspec naming the repo root, combined short flags like `-Av`,
+  `*` / `--all`, an absolute pathspec naming the repo root **quoted or bare** (`"."` counts),
+  combined short flags like `-Av`,
   bare `git add -u` / `--update` (with a
   pathspec, `-u <path>` stays legal), and every `git commit -a` form. Explicit paths,
   `-p`, and `--amend` pass. A `permissions.deny` list in `settings.json` backs it up if

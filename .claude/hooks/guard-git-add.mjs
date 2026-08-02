@@ -49,10 +49,19 @@
 //     Check A survived only because NTFS folds for readFileSync. Both are live now, which
 //     means the documented residuals below (edit→add→edit, `git add -p`, Bash-written files)
 //     start firing on paths where they previously could not.
-//   - stripQuoted pairs quotes naively. Nested or unbalanced quoting (a heredoc, a
-//     JS string array, a multi-line python literal) desyncs it, so a literal
-//     `git add -A` inside such text can false-positive. Unfixable without a real
-//     shell parser; the escape hatch above is the answer.
+//   - maskQuoted (HOOK-WHOLETREE-2, was stripQuoted) models quoting and nothing else.
+//     UNBALANCED quoting — a heredoc, an apostrophe in prose, a multi-line literal —
+//     desyncs any pairing scheme, so it deliberately falls back to the raw text and a
+//     literal `git add -A` inside such text still false-positives. That direction is
+//     chosen: a mask that swallowed a real bulk stage would be a silent hole. Committing
+//     the HOOK-WHOLETREE-1 fix hit exactly this — a heredoc quoting the forbidden forms
+//     as EXAMPLES — and the answer is `git commit -F <file>` (or SKIP_GIT_GUARD=1), not
+//     a cleverer regex.
+//   - Quoted pathspecs are now REAL to this guard: `git add "docs/STATUS.md"` used to be
+//     recorded as the literal path `""` (so the file it staged read as unowned, and the
+//     next pathspec-less commit denied it as foreign — a silent fail-closed positive).
+//     It now records the true path, which also means GIT-INDEX-2's content checks start
+//     firing on quoted paths where they previously could not see anything at all.
 //   - A .sh/.ps1 that itself runs `git add -A` is invisible — the hook only sees the
 //     outer command. The permissions.deny backstop does not cover this either.
 //   - The commit-scope check reads the index BEFORE the Bash command executes, so
@@ -142,14 +151,93 @@ function isWholeTree(arg, opts = {}) {
  * non-flag token like `log` can never be skipped to reach a later literal `add`
  * (which would false-positive on `git log --grep add --all`). The `\b` keeps `add`
  * a whole token, so `git addendum` never matches.
+ *
+ * The `d` flag is load-bearing: `indices[2]` is how the argument list is located in the RAW
+ * command after the scan has run on the MASKED one (see {@link maskQuoted}).
  */
-const SEGMENT = /(?:^|\s)git\s+(?:-\S+\s+(?:\S+\s+)?)*?(add|commit)\b\s*(.*)$/;
+const SEGMENT = /(?:^|\s)git\s+(?:-\S+\s+(?:\S+\s+)?)*?(add|commit)\b\s*(.*)$/d;
 
-/** Strip quoted spans so a commit message that mentions "git add -A" isn't a false positive. */
-function stripQuoted(s) {
-  return s
-    .replace(/"(?:[^"\\]|\\.)*"/g, '""')
-    .replace(/'(?:[^'\\]|\\.)*'/g, "''");
+/** Filler for a masked quote interior. A word character, so it can never close a `\b`. */
+const MASK = '_';
+
+/**
+ * Mask the INTERIOR of quoted spans, preserving length and therefore every character offset.
+ *
+ * HOOK-WHOLETREE-2. The predecessor, `stripQuoted`, collapsed `"…"` to `""` — which did
+ * neutralize a commit message that quotes the forbidden command, but it destroyed the token,
+ * and the matcher runs on what is left. Two consequences, in BOTH directions:
+ *   - `git add "."` reached the matcher as the token `""`, in no whole-tree table → allowed.
+ *     Same for `git add '.'` and for a quoted absolute root. That is the card.
+ *   - `git add "docs/STATUS.md"` was recorded into session state as the literal path `""`,
+ *     so the file it actually staged read as UNOWNED and the next pathspec-less commit
+ *     denied as foreign. A silent, fail-closed false positive nobody had traced.
+ * Masking instead of deleting keeps the structural protection (the split and the `git add`
+ * scan see `_____`, never the message text) while the pathspec survives in the raw string
+ * at the same offsets, where {@link tokenize} reads it.
+ *
+ * Deliberately NOT a shell parser: quoting is the only thing modelled.
+ */
+function maskQuoted(s) {
+  const out = s.split('');
+  let quote = null;
+  for (let i = 0; i < out.length; i++) {
+    const c = out[i];
+    if (quote === null) {
+      if (c === '"' || c === "'") quote = c;
+      continue;
+    }
+    if (c === quote) {
+      quote = null;
+      continue;
+    }
+    // Inside "…" a backslash escapes the next character, including a quote — without this,
+    // `git commit -m "say \"git add -A\""` closes early and the tail scans as a real command.
+    if (c === '\\' && quote === '"' && i + 1 < out.length) {
+      out[i] = MASK;
+      out[++i] = MASK;
+      continue;
+    }
+    out[i] = MASK;
+  }
+  // Unbalanced quotes — a heredoc, an apostrophe in prose — desync any pairing scheme, the
+  // old regex pair included. Fall back to the RAW text so the literal scan still sees
+  // everything: that keeps the failure in the false-POSITIVE direction, which is where it
+  // already was and where it must stay. A mask that swallowed a real `git add -A` would be a
+  // silent hole, which is strictly worse than a denial with a named escape hatch.
+  return quote === null ? out.join('') : s;
+}
+
+/** `[start, end)` ranges of each shell segment, as offsets into the masked string. */
+function segmentRanges(masked) {
+  const ranges = [];
+  const re = /&&|\|\||[;\n|]/g;
+  let last = 0;
+  for (let m; (m = re.exec(masked)); ) {
+    ranges.push([last, m.index]);
+    last = m.index + m[0].length;
+  }
+  ranges.push([last, masked.length]);
+  return ranges;
+}
+
+/** Drop balanced quote pairs from one token: `"."` → `.`, `"C:\repo"` → `C:\repo`. */
+function unquote(tok) {
+  return tok.replace(/"(?:[^"\\]|\\.)*"|'[^']*'/g, (s) => s.slice(1, -1));
+}
+
+/**
+ * Tokenize an argument list by the MASKED text — so a quoted value keeps its spaces and stays
+ * ONE token — while taking each token's characters from the RAW text at the same offsets.
+ * Lengths match exactly; that is what maskQuoted preserves length for.
+ */
+function tokenize(maskedArgs, rawArgs) {
+  const out = [];
+  const re = /\S+/g;
+  for (let m; (m = re.exec(maskedArgs)); ) {
+    const tok = unquote(rawArgs.slice(m.index, m.index + m[0].length));
+    if (tok) out.push(tok);
+  }
+  return out;
 }
 
 /** Split an argument list on the first `--` separator into [flags, paths]. */
@@ -252,10 +340,14 @@ function commitIsPathless(args) {
  */
 export function walkGitSegments(command, opts) {
   const out = [];
-  for (const segment of stripQuoted(command).split(/&&|\|\||[;\n|]/)) {
-    const m = SEGMENT.exec(segment.trim());
+  const masked = maskQuoted(command);
+  for (const [start, end] of segmentRanges(masked)) {
+    const segment = masked.slice(start, end);
+    const m = SEGMENT.exec(segment);
     if (!m) continue;
-    const args = m[2].split(/\s+/).filter(Boolean);
+    // Scan on the masked segment, read the arguments from the raw one at the same offsets.
+    const [as, ae] = m.indices[2];
+    const args = tokenize(segment.slice(as, ae), command.slice(start + as, start + ae));
     if (m[1] === 'add') {
       out.push({ kind: 'add', offense: addStagesEverything(args, opts), paths: extractAddPaths(args, opts), isPathless: false });
     } else {

@@ -48,6 +48,14 @@ describe("guard-git-add: whole-worktree staging is denied", () => {
     "git add .\\\\",
     "git add -- .\\",
     "git add -u .\\",
+    // * HOOK-WHOLETREE-2: quoting a whole-tree pathspec used to delete it. stripQuoted
+    // * collapsed `"."` to `""` BEFORE the matcher ran, so the token it judged was a pair of
+    // * quotes, in no table. maskQuoted preserves offsets so the real token survives.
+    'git add "."',
+    "git add '.'",
+    'git add "./"',
+    'git add ".\\\\"',
+    'git add -- "."',
   ])("denies %j", (cmd) => expect(offends(cmd)).toBe(true));
 
   // * `git commit -a` stages every tracked file without an explicit path — the same hazard
@@ -75,6 +83,16 @@ describe("guard-git-add: legitimate git work is untouched", () => {
     // * The over-match guard for HOOK-WHOLETREE-1: canonicalizing separators must not turn
     // * an ordinary Windows-shaped path into a whole-tree pathspec.
     "git add docs\\STATUS.md",
+    // * HOOK-WHOLETREE-2 over-match guards: an ordinary quoted path is still ordinary, and a
+    // * quoted value must not be scanned as if it were command text.
+    'git add "docs/STATUS.md"',
+    "git add 'docs/STATUS.md'",
+    'git add "my file.js"',
+    // * The `;` is inside the message, so it must not split a new segment into existence.
+    'git commit -m "x; git add -A"',
+    // * Escaped quotes inside a message must not close it early — drop that handling and the
+    // * tail of this line scans as a real command.
+    'git commit -m "say \\"git add -A\\""',
     "git add -p",
     "git add -u src/",
     "git add --patch",
@@ -94,9 +112,43 @@ describe("guard-git-add: legitimate git work is untouched", () => {
     expect(offends("git add -- -A")).toBe(false);
   });
 
-  // * stripQuoted exists for exactly this: the rule text quotes the command it forbids.
+  // * maskQuoted exists for exactly this: the rule text quotes the command it forbids.
   it("allows the forbidden string inside a commit message", () => {
     expect(offends('git commit -m "never git add -A again"')).toBe(false);
+  });
+});
+
+// * HOOK-WHOLETREE-2. The quoting model is the whole card: the old stripQuoted DELETED a
+// * quoted token before the matcher judged it, which lost a real pathspec in both directions
+// * at once — a whole-tree stage read as harmless, and a legitimate path read as unowned.
+describe("guard-git-add: quoting is masked, not deleted", () => {
+  it("recovers the real pathspec from a quoted token", () => {
+    // * Pre-fix this was ['""'] — the literal two-quote string, recorded into session state
+    // * as the path this session staged, so the file it actually staged read as foreign on
+    // * the next pathspec-less commit. A fail-CLOSED false positive nobody had traced.
+    expect(walkGitSegments('git add "docs/STATUS.md"')[0].paths).toEqual(["docs/STATUS.md"]);
+    expect(walkGitSegments("git add 'src/a.js' src/b.js")[0].paths).toEqual([
+      "src/a.js",
+      "src/b.js",
+    ]);
+  });
+
+  it("keeps a quoted value with spaces as ONE token", () => {
+    expect(walkGitSegments('git add "my file.js"')[0].paths).toEqual(["my file.js"]);
+  });
+
+  it("still treats a quoted message as a message, not as a pathspec", () => {
+    const [seg] = walkGitSegments('git commit -m "docs/a.md"');
+    expect(seg.isPathless).toBe(true);
+  });
+
+  // * The safety direction of the fallback. Unbalanced quotes desync any pairing scheme, so
+  // * maskQuoted returns the RAW text and the literal scan still sees everything. A mask that
+  // * swallowed a real bulk stage would be a silent hole — strictly worse than a denial that
+  // * names an escape hatch.
+  it("does not let an unbalanced quote hide a real bulk stage", () => {
+    expect(offends("echo 'it is fine ; git add -A")).toBe(true);
+    expect(offends('echo "unclosed && git add -A')).toBe(true);
   });
 });
 
@@ -118,6 +170,9 @@ describe.each([
     "git add ././",
     "git add ./.",
     "git add src/..",
+    // * HOOK-WHOLETREE-2 crossed with this rule: quoting the absolute form hid it twice over.
+    `git add "${root}"`,
+    `git add '${root}'`,
   ])("denies %j", (cmd) => expect(off(cmd)).toBe(true));
 
   it.each([
@@ -366,6 +421,20 @@ describe("guard-git-add: GIT-INDEX-1 commit-scope check", () => {
     const r = evalCmd('git add src/new.js && git commit -m "x"', {
       session,
       staged: ["src/new.js"],
+    });
+    expect(r).toBeNull();
+  });
+
+  // * HOOK-WHOLETREE-2's fail-CLOSED half, end to end. Pre-fix the quoted add recorded the
+  // * path `""`, so the file it genuinely staged was not in `owned` and this denied its own
+  // * work as foreign — a guard blocking correct work, which is the shape that teaches
+  // * SKIP_GIT_GUARD=1 as reflex and quietly retires the guard.
+  it("owns a QUOTED add pathspec, so a quoted stage does not read as foreign", () => {
+    const session = "gi-quoted";
+    updateState(scratch, session, () => ({ staged: [] }));
+    const r = evalCmd('git add "docs/STATUS.md" && git commit -m "x"', {
+      session,
+      staged: ["docs/STATUS.md"],
     });
     expect(r).toBeNull();
   });
