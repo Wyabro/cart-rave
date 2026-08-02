@@ -81,6 +81,26 @@ npm run shoot -- --shot sundial --ablate bloom --out shots/sundial-no-bloom.png
 npm run shoot -- --url http://127.0.0.1:5173/ --noserver --shot storerooms
 ```
 
+### Look-critical capture (real GPU)
+
+```bash
+node tools/shoot-gpu.mjs --out shots/x.png --shot classic-edge --cam "34,4,0,46,-16,0"
+```
+
+Use this instead of `npm run shoot` whenever the *look* is the thing being judged.
+`shoot.mjs` passes no GPU flags (trap #1 below); this copies `perf-profile.mjs --gpu`'s
+launch args and **records the actual `UNMASKED_RENDERER`** in a sidecar `.json` next to
+the image. If that says SwiftShader/llvmpipe, the capture is not proof — it warns.
+
+`--cam "x,y,z,lx,ly,lz"` is usually required: the named `?shot=` bookmarks frame the
+arena overview, not whatever surface you changed.
+
+> **Read the amplified diff panel, not the percentage.** `npm run compare`'s middle panel
+> shows *where* pixels changed. On Classic the crowd is animated, so two captures taken in
+> separate browser sessions differ by 15–30% with your change contributing nothing. Three
+> separate 08-01 findings (ART-PASS-CLASSIC-1 L1's first capture, L4, L5) had all of their
+> "evidence" sitting in crowd animation. A number alone has never once been sufficient here.
+
 ### Compare two PNGs
 
 ```bash
