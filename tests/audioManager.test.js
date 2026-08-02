@@ -8,7 +8,7 @@
 // * The mock Howl reproduces exactly that contract: play() on an "unloaded"
 // * instance is a silent no-op until load() is called explicitly.
 
-import { describe, it, expect, beforeAll, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from "vitest";
 
 vi.mock("howler", () => {
   class MockHowl {
@@ -23,6 +23,8 @@ vi.mock("howler", () => {
       this._once = {};
       /** When true, load() stays "loading" until emitLoad() (async warm tests). */
       this.deferLoad = false;
+      /** Every value passed to volume() as a SETTER (MENU-MUSIC-VOL-1). */
+      this.volumeCalls = [];
       MockHowl.instances.push(this);
     }
     state() { return this._state; }
@@ -66,7 +68,10 @@ vi.mock("howler", () => {
     stop() { this.isPlaying = false; return this; }
     pause() { this.isPlaying = false; return this; }
     playing() { return this.isPlaying; }
-    volume() { return this; }
+    volume(...args) {
+      if (args.length) this.volumeCalls.push(args[0]);
+      return this;
+    }
     fade(...args) { this.fadeCalls.push(args); return this; }
     unload() { return this; }
     emitEnd() { this.opts.onend?.call(this); }
@@ -113,7 +118,9 @@ import {
   prefetchAmbienceAsync,
   materializeGamePlaylistIfPending,
   hasMaterializedGamePlaylist,
+  setSfxPerVolume,
 } from "../src/audioManager.js";
+import { audioStore, AUDIO_VOLUME_MAX } from "../src/stores/audioStore.js";
 
 /** Minimal AudioContext stub — only what initAudioManager touches. */
 function makeAudioContextStub() {
@@ -424,5 +431,82 @@ describe("play-entry audio warm (music / ambience / countdown keys)", () => {
     prefetchSfxByPrefix("announcer_warm_d_");
     expect(howl.loadCalls).toBe(1);
     expect(howl.state()).toBe("loaded");
+  });
+});
+
+// * MENU-MUSIC-VOL-1 — the store's volume domain is 0..AUDIO_VOLUME_MAX (1.15) but Howler
+// * only accepts 0..1, and it fails ASYMMETRICALLY: the volume() setter silently ignores
+// * anything >1 (falls through to its getter branch, never throws), while the Howl
+// * constructor does not validate at all. A >1 value therefore reaches `_volume`, and the
+// * `node.volume = _volume` write every Sound performs on play — including at each loop
+// * restart — throws IndexSizeError, stranding a fresh <audio> element at its DEFAULT 1.0.
+// * That is full scale: menu music far LOUDER than the player set, unfixable afterwards
+// * because the corrective setter refuses the poisoned value forever.
+describe("volume clamp at the Howler boundary (MENU-MUSIC-VOL-1)", () => {
+  const initial = audioStore.getState();
+  const restore = { music: initial.musicVolume, sfx: initial.sfxVolume };
+
+  afterEach(() => {
+    audioStore.getState().setMusicVolume(restore.music);
+    audioStore.getState().setSfxVolume(restore.sfx);
+    setSfxPerVolume("cartCrash", 1);
+  });
+
+  it("the premise still holds: the store domain reaches above Howler's ceiling", () => {
+    // * If this ever fails the clamp is merely redundant, not wrong — but the comments
+    // * above it would be lying, so make that loud rather than silent.
+    expect(AUDIO_VOLUME_MAX).toBeGreaterThan(1);
+    audioStore.getState().setMusicVolume(AUDIO_VOLUME_MAX);
+    expect(audioStore.getState().musicVolume).toBeGreaterThan(1);
+  });
+
+  it("never CONSTRUCTS a music Howl above 1, even at max slider", () => {
+    audioStore.getState().setMusicVolume(AUDIO_VOLUME_MAX);
+    MockHowl.instances.length = 0;
+    loadMenuMusic("menu.opus");
+    const menu = MockHowl.instances.find((h) => (h.opts.src || []).includes("menu.opus"));
+    expect(menu).toBeDefined();
+    expect(menu.opts.volume).toBeLessThanOrEqual(1);
+    expect(menu.opts.volume).toBe(1);
+  });
+
+  it("never WRITES a music volume above 1, even at max slider", () => {
+    loadMenuMusic("menu.opus");
+    const menu = MockHowl.instances.find((h) => (h.opts.src || []).includes("menu.opus"));
+    menu.volumeCalls.length = 0;
+    audioStore.getState().setMusicVolume(AUDIO_VOLUME_MAX);
+    playMenuMusic();
+    expect(menu.volumeCalls.length).toBeGreaterThan(0);
+    for (const v of menu.volumeCalls) expect(v).toBeLessThanOrEqual(1);
+  });
+
+  it("passes legal values through untouched — the clamp is not a rescale", () => {
+    // * Guards against "fixing" this by dividing by AUDIO_VOLUME_MAX, which decayed
+    // * saved volume ~1/1.15 per page load the last time it was tried.
+    loadMenuMusic("menu.opus");
+    const menu = MockHowl.instances.find((h) => (h.opts.src || []).includes("menu.opus"));
+    menu.volumeCalls.length = 0;
+    audioStore.getState().setMusicVolume(0.5);
+    expect(menu.volumeCalls).toContain(0.5);
+  });
+
+  it("never constructs an SFX Howl above 1, even at max slider", () => {
+    audioStore.getState().setSfxVolume(AUDIO_VOLUME_MAX);
+    registerSfx("clamp_probe", ["clamp-probe.opus"], { preload: false });
+    const sfx = MockHowl.instances.find((h) =>
+      (h.opts.src || []).includes("clamp-probe.opus"),
+    );
+    expect(sfx.opts.volume).toBeLessThanOrEqual(1);
+  });
+
+  it("clamps the sfxVol x perVol PRODUCT, not just the slider", () => {
+    // * setSfxPerVolume accepts up to 5, so a legal slider value alone is not enough.
+    registerSfx("cartCrash", ["crash.opus"], { preload: false });
+    const sfx = MockHowl.instances.find((h) => (h.opts.src || []).includes("crash.opus"));
+    sfx.volumeCalls.length = 0;
+    audioStore.getState().setSfxVolume(0.9);
+    setSfxPerVolume("cartCrash", 4);
+    expect(sfx.volumeCalls.length).toBeGreaterThan(0);
+    for (const v of sfx.volumeCalls) expect(v).toBeLessThanOrEqual(1);
   });
 });

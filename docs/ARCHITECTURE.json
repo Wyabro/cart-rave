@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-02T22:38:59.355Z",
-    "commit": "dcf82c3"
+    "at": "2026-08-02T23:26:55.893Z",
+    "commit": "0145fec"
   },
-  "source_digest": "307e15d9",
+  "source_digest": "0448f86f",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1489,9 +1489,10 @@
       {
         "title": "Tech Debt",
         "counts": {
-          "Medium": 6,
+          "Medium": 7,
           "?": 1,
-          "Low": 10
+          "High": 1,
+          "Low": 11
         },
         "rows": [
           {
@@ -1506,6 +1507,20 @@
             "id": "SKILLSYNC-PRUNE-1",
             "item": "`skills-sync` never removed orphaned skills from the mirror",
             "notes": "**CLOSED 08-02** — fixed while rewriting the file for multi-runtime fan-out, where the bug got 7× worse. New pure `planPrune(src, dest)` diffs destination against source; `planAll()` reports orphans **only for owned destinations**. Pruning is deliberately asymmetric: the repo mirror is created and owned here so orphans are deleted, but user-level dirs are shared with other installers (`~/.cursor/skills` holds 13 skills this repo never placed) and are add/update only, forever. Covered by 5 new tests including the \"never reports orphans for a shared destination\" invariant.",
+            "ship1": null
+          },
+          {
+            "pri": "High",
+            "id": "SHADOW-TILT-1",
+            "item": "Cart blob shadows tilt out of the floor as the cart turns",
+            "notes": "**Filed 08-02**, found during ART-PASS-SUNDIAL-1 item 13 and deliberately *not* fixed inline — `contactShadows.js:328-330` is fenced by the Sundial handover, and this is every arena, not an art lever. `createBlobMesh` sets `rotation.x = -PI/2`; `updateCartContactShadow` then sets `rotation.y = pose.yaw`. Under three's default **XYZ** Euler order those compose to a surface normal of `(sin yaw, cos yaw, 0)` — verified numerically: at yaw 45° the normal is `(0.707, 0.707, 0)` and at yaw 90° it is `(1, 0, 0)`, i.e. the quad is exactly edge-on and invisible. Footprint is a true circle (`footprintRadiusX = footprintRadiusZ = 1.0`), so the visible area scales roughly with `\\",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "id": "SHADOW-ORDER-1",
+            "item": "Storerooms static shadows may be tested against the wrong arena",
+            "notes": "**Filed 08-02**, same root cause as the build-order bug fixed for Sundial in `17fc46c`. `main.js:2458` calls `setContactShadowHazards` **after** the level builder returns, so any `createStaticContactShadowCluster` call made during construction is tested against the *previous* arena's hazards, or the circular fallback (`r > CONFIG.record.radius`) on a cold load. Sundial now passes its own `hazards` override; `backroomsSupermarket.js:1884` (furniture pile) and `:3229` (booth shadows) still do not. The pile sits near the origin and almost certainly survives either way, but the booth placements are outboard and were never verified. Check by probing the live scene for `StaticContactShadows` child counts on a cold load vs an arena switch — the Sundial case read 8 of 24 and looked exactly like \"the feature is subtle\".",
             "ship1": null
           },
           {
@@ -1604,6 +1619,13 @@
             "id": "RESULTS-GLOW-1",
             "item": "`.results-defeat .results-title { --title-glow }` never applies",
             "notes": "**Note for later (cosmetic, pre-existing).** `main.js` sets that property **inline**, so no stylesheet rule can outrank it. Defeat still reads because the panel filter desaturates everything. Do **not** reach for `!important` unless a real look pass re-owns title styling. Not a ship blocker.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "id": "AUDIO-MASTER-1",
+            "item": "`_masterVol` is write-only dead state",
+            "notes": "**Filed 08-02** during MENU-MUSIC-VOL-1. `audioManager.js:14` initialises `_masterVol = 0.575` and `restoreVolumeState` (`:233`) clamps and re-assigns it — but **nothing ever reads it**, so the \"master\" volume the boot path carefully restores from localStorage has no effect on any bus. Music and SFX each carry their own category volume (`_musicVol` / `_sfxVol`) and `applyAllVolumes` deliberately pins `Howler.volume(1)`, so there is no master stage left for it to feed. Either wire it up as a real third stage (product decision — it would rescale every existing user's audio) or delete it and drop `master` from the restore payload. **Do not** \"fix\" it by multiplying it into the Howler writes without a look at MENU-MUSIC-VOL-1's clamp: the store domain is 0..1.15 and Howler's ceiling is 1.0, so an extra 0.575 factor would silently re-scale the whole mix. Not a ship blocker; zero current behaviour.",
             "ship1": null
           },
           {

@@ -11,15 +11,38 @@ import { audioStore } from "./stores/audioStore.js";
 
 // Sync initial values from audioStore
 const _initialAudio = audioStore.getState();
+
+/**
+ * * Store volumes live in 0..AUDIO_VOLUME_MAX (1.15); Howler only accepts 0..1. Clamp at
+ * * this boundary — NOT by dividing by AUDIO_VOLUME_MAX, which decayed saved volume by
+ * * ~1/1.15 on every page load the last time that was tried (see main.js § volume restore).
+ * *
+ * * Why a >1 value is dangerous rather than merely ignored: Howler's volume() setter gates
+ * * on `vol >= 0 && vol <= 1` and otherwise falls through to its GETTER branch — it returns
+ * * a number, writes nothing, and never throws, so every try/catch around a volume() call
+ * * in this file is blind to it. Meanwhile the Howl CONSTRUCTOR does not validate at all,
+ * * so a >1 value lands in `_volume` intact; each Sound inherits it and writes
+ * * `node.volume = _volume * Howler.volume()` on play — including at every loop restart.
+ * * That write throws IndexSizeError, leaving a freshly created <audio> element at its
+ * * DEFAULT volume of 1.0 — full scale, far louder than the player asked for, and
+ * * unfixable afterwards because the setter refuses the poisoned value forever.
+ * * That is MENU-MUSIC-VOL-1.
+ * @param {number} v Store-domain volume.
+ * @returns {number} A volume Howler will actually apply.
+ */
+function howlerVol(v) {
+  return Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 0;
+}
+
 let _masterVol = 0.575;
-let _sfxVol = _initialAudio.sfxVolume;
-let _musicVol = _initialAudio.musicVolume;
+let _sfxVol = howlerVol(_initialAudio.sfxVolume);
+let _musicVol = howlerVol(_initialAudio.musicVolume);
 let _isMuted = _initialAudio.isMuted;
 
 // Subscribe to store updates for reactive volume adjustments
 audioStore.subscribe((state) => {
-  _musicVol = state.musicVolume;
-  _sfxVol = state.sfxVolume;
+  _musicVol = howlerVol(state.musicVolume);
+  _sfxVol = howlerVol(state.sfxVolume);
   _isMuted = state.isMuted;
   applyAllVolumes();
 });
@@ -76,7 +99,9 @@ const _sfxPerVolumes = { ..._DEFAULT_SFX_VOLUMES };
 function applySfxVolumes() {
   for (const [key, sound] of Object.entries(sfxRegistry)) {
     const perVol = _sfxPerVolumes[key] ?? _DEFAULT_SFX_VOLUMES[key] ?? 1;
-    sound.volume(_isMuted ? 0 : _sfxVol * perVol);
+    // * Clamp the PRODUCT, not just _sfxVol — a dev Tweakpane perVol above 1 can push a
+    // * legal slider value back over the line on its own.
+    sound.volume(_isMuted ? 0 : howlerVol(_sfxVol * perVol));
   }
 }
 
@@ -655,7 +680,10 @@ export function registerSfx(key, src, options = {}) {
   const perVol = _sfxPerVolumes[key] ?? _DEFAULT_SFX_VOLUMES[key] ?? 1;
   sfxRegistry[key] = new Howl({
     src: Array.isArray(src) ? src : [src],
-    volume: _isMuted ? 0 : _sfxVol * perVol,
+    // * Constructor, not the setter: Howler validates neither, but only the setter can be
+    // * silently refused later — a poisoned >1 here survives into every Sound this Howl
+    // * creates. Clamp on the way in.
+    volume: _isMuted ? 0 : howlerVol(_sfxVol * perVol),
     pool: options.pool ?? 4,
     sprite: options.sprite,
     loop: Boolean(options.loop),
