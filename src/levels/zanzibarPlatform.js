@@ -275,17 +275,52 @@ function buildDeckTexture(circumR) {
   }
 
   // Hazard-yellow edge band (readability: the rim IS the kill zone).
+  // * octPath() takes a CIRCUMRADIUS — the inset has to be divided back out by COS_HALF to
+  // * be measured from the flats. `octPath(apothem - 1.7)` put the band's flats at 27.716 m
+  // * instead of 30.0 m, leaving 3.98 m of bare steel outboard of the line that is supposed
+  // * to warn you about the edge (the lit rim strips sit at apothem - 0.45).
+  const BAND_INSET_M = 1.7;
+  const BAND_WIDTH_M = 1.5;
+  const bandCircumR = (apothem - BAND_INSET_M) / COS_HALF;
   ctx.strokeStyle = "#d9a614";
-  ctx.lineWidth = 1.5 * pxPerM;
-  octPath(apothem - 1.7);
+  ctx.lineWidth = BAND_WIDTH_M * pxPerM;
+  octPath(bandCircumR);
   ctx.stroke();
   // Black chevron dashes over the band.
   ctx.strokeStyle = "rgba(10,10,12,0.85)";
-  ctx.lineWidth = 1.5 * pxPerM;
+  ctx.lineWidth = BAND_WIDTH_M * pxPerM;
   ctx.setLineDash([1.1 * pxPerM, 1.9 * pxPerM]);
-  octPath(apothem - 1.7);
+  octPath(bandCircumR);
   ctx.stroke();
   ctx.setLineDash([]);
+
+  // Tyre rub — the band is the one painted surface every cart gets shoved across, and it
+  // was the only pristine one left on the deck (Rule 1). Erode it along its own path with
+  // randomized base-steel dashes: a wide faded pass, then a narrow break-through pass.
+  // * Mechanical wear only. Salt bloom, sun-bleach and spray staining belong to the deck
+  // * density pass, not here.
+  const rubDashes = (count, onLo, onHi, offLo, offHi) => {
+    const d = [];
+    for (let i = 0; i < count; i += 1) {
+      d.push((onLo + Math.random() * (onHi - onLo)) * pxPerM);
+      d.push((offLo + Math.random() * (offHi - offLo)) * pxPerM);
+    }
+    return d;
+  };
+  ctx.strokeStyle = "rgba(38, 42, 49, 0.42)";
+  ctx.lineWidth = BAND_WIDTH_M * pxPerM;
+  ctx.setLineDash(rubDashes(24, 0.5, 2.2, 1.8, 5.5));
+  ctx.lineDashOffset = Math.random() * 30 * pxPerM;
+  octPath(bandCircumR);
+  ctx.stroke();
+  ctx.strokeStyle = "rgba(34, 38, 45, 0.72)";
+  ctx.lineWidth = BAND_WIDTH_M * 0.45 * pxPerM;
+  ctx.setLineDash(rubDashes(20, 0.2, 1.0, 3.0, 9.0));
+  ctx.lineDashOffset = Math.random() * 30 * pxPerM;
+  octPath(bandCircumR);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.lineDashOffset = 0;
 
   // Podium apron markings: thin amber ring + tick marks (helipad read).
   ctx.strokeStyle = "rgba(255,178,44,0.5)";
