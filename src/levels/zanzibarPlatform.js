@@ -26,6 +26,7 @@
 //   wins over the cart's 0.3 (Rapier's default Average produced a phantom ~0.175 bounce).
 
 import * as THREE from "three";
+import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { setWaterDeathEnvironment } from "../effects/waterDeathFx.js";
 import { RAPIER } from "../physics/rapierInstance.js";
 import { createPhysicalMaterial, getMaterialEnvMapIntensity } from "../scene.js";
@@ -1423,15 +1424,38 @@ function buildSeascape(scene, circumR) {
   const turbineMat = new THREE.MeshBasicMaterial({ color: 0x2a141d });
   ownedMaterials.push(turbineMat);
   const towerGeo = new THREE.CylinderGeometry(0.6, 1.3, 26, 6);
-  const rotorGeo = new THREE.BoxGeometry(0.9, 24, 0.3);
-  ownedGeometries.push(towerGeo, rotorGeo);
+  // * The rotor was ONE BoxGeometry(0.9, 24, 0.3) spinning about its centre — a rectangular
+  // * paddle, which is why it read as a radar dish rather than a turbine. Now three blades
+  // * and a hub merged into a single geometry, so three rotor meshes still cost three draw
+  // * calls. Swept radius stays ~12 m: the horizon silhouette keeps its scale, not its shape.
+  const bladeGeo = new THREE.BoxGeometry(0.7, 11.5, 0.22);
+  bladeGeo.translate(0, 6.15, 0); // root at the hub, tip outward
+  const hubGeo = new THREE.CylinderGeometry(0.9, 0.9, 1.2, 8);
+  hubGeo.rotateX(Math.PI / 2); // axis along local Z, the spin axis
+  /** @type {THREE.BufferGeometry[]} */
+  const rotorParts = [hubGeo];
+  for (let b = 0; b < 3; b += 1) {
+    const blade = bladeGeo.clone();
+    blade.rotateZ((b * Math.PI * 2) / 3);
+    rotorParts.push(blade);
+  }
+  const rotorGeo = BufferGeometryUtils.mergeGeometries(rotorParts, false);
+  for (const g of rotorParts) g.dispose();
+  bladeGeo.dispose();
+  const nacelleGeo = new THREE.BoxGeometry(1.6, 1.5, 4.2);
+  ownedGeometries.push(towerGeo, rotorGeo, nacelleGeo);
   const rotors = [];
+  // * 0.00042 rad/ms is 4.0 RPM — a slow sweep. Utility turbines run 10-20; these are
+  // * 12.0 / 10.5 / 13.5 RPM, kept non-harmonic so the three never lock into step.
   const turbineSpecs = [
-    { az: SUN_AZIMUTH - 1.05, dist: 290, spin: 0.00042 },
-    { az: SUN_AZIMUTH + 1.15, dist: 325, spin: 0.00034 },
-    { az: SUN_AZIMUTH + 2.55, dist: 350, spin: 0.00048 },
+    { az: SUN_AZIMUTH - 1.05, dist: 290, spin: 0.00126 },
+    { az: SUN_AZIMUTH + 1.15, dist: 325, spin: 0.00110 },
+    { az: SUN_AZIMUTH + 2.55, dist: 350, spin: 0.00141 },
   ];
   const towers = new THREE.InstancedMesh(towerGeo, turbineMat, turbineSpecs.length);
+  // * The nacelle is fixed to the tower head, so it must NOT spin with the blades — its own
+  // * instanced mesh rather than part of the rotor geometry. One extra draw call, total 5.
+  const nacelles = new THREE.InstancedMesh(nacelleGeo, turbineMat, turbineSpecs.length);
   for (let i = 0; i < turbineSpecs.length; i += 1) {
     const t = turbineSpecs[i];
     const x = Math.cos(t.az) * Math.min(t.dist, ISLAND_MAX_DIST);
@@ -1442,16 +1466,26 @@ function buildSeascape(scene, circumR) {
     _dummy.updateMatrix();
     towers.setMatrixAt(i, _dummy.matrix);
 
+    // Nacelle sits at hub height, long axis pointing back down the arena bearing.
+    _dummy.position.set(x, WATER_Y + 26, z);
+    _dummy.lookAt(0, WATER_Y + 26, 0);
+    _dummy.scale.set(1, 1, 1);
+    _dummy.updateMatrix();
+    nacelles.setMatrixAt(i, _dummy.matrix);
+
     const rotor = new THREE.Mesh(rotorGeo, turbineMat);
     rotor.position.set(x, WATER_Y + 26, z);
     rotor.lookAt(0, WATER_Y + 26, 0);
+    rotor.translateZ(2.3); // clear of the nacelle, on the arena-facing side
     rotor.userData.spin = t.spin;
     rotor.userData.phase = i * 1.7;
     group.add(rotor);
     rotors.push(rotor);
   }
   towers.instanceMatrix.needsUpdate = true;
+  nacelles.instanceMatrix.needsUpdate = true;
   group.add(towers);
+  group.add(nacelles);
 
   // Orbital gate — a colossal half-submerged ring on the horizon, plane facing the
   // arena, with a sparse arc of slowly-pulsing guidance lights. Fogged like the islands
