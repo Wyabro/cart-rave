@@ -78,13 +78,37 @@ const BLOOM_DISPLAY_STOREROOMS = {
 };
 
 /**
- * Display-referred knobs for neon arenas (Classic / Sundial) when unified
- * (?bloompipe=display, default). Wyatt-approved live tune 2026-07-13.
+ * Display-referred knobs for neon arenas when unified (?bloompipe=display, default).
+ * Wyatt-approved live tune 2026-07-13. Classic and Test Drive fall here; Sundial split
+ * off 08-02 once its sky stopped being dark — see BLOOM_DISPLAY_SUNDIAL.
  */
 const BLOOM_DISPLAY_NEON = {
   strength: 0.25,
   radius: 0.67,
   threshold: 0.5,
+  smoothWidth: 0.025,
+};
+
+/**
+ * Sundial only (OQ5, decided 08-02 after Waves 1-3 of ART-PASS-SUNDIAL-1).
+ *
+ * This arena shared BLOOM_DISPLAY_NEON with Classic, a profile tuned on 2026-07-13 against
+ * a near-black Sundial sky. Wave 1 (`2c5b3fc`) put ember above the waterline, and at
+ * threshold 0.5 that ember cleared the cutoff as a FIELD: measured bloom contribution
+ * (bloom-on minus bloom-off) on the horizon camera was mean +11.10 luminance over 55.6% of
+ * frame, against Classic's +3.01 over 18.2% and Storerooms' +0.05 over 0.2%. More than half
+ * the frame was blooming, and almost none of it was an emitter.
+ *
+ * Threshold laddered at 0.50 / 0.60 / 0.68 / 0.76 / 0.84. 0.68 puts the whole-frame load at
+ * +3.84 over 18.4% — parity with Classic — while the sun band still carries +28.44 at peak
+ * 192, so the sun keeps its glow and only the sky stops blooming. 0.76 drops the sun band to
+ * +11.16, which loses the hero. Threshold is the ONLY knob moved: strength, radius and knee
+ * are deliberately untouched, since one number carries the evidence.
+ */
+const BLOOM_DISPLAY_SUNDIAL = {
+  strength: 0.25,
+  radius: 0.67,
+  threshold: 0.68,
   smoothWidth: 0.025,
 };
 
@@ -107,6 +131,7 @@ const BLOOM_DISPLAY_TESTDRIVE = {
 function resolveDisplayBloomConfig(levelId) {
   if (levelId === "backrooms") return BLOOM_DISPLAY_STOREROOMS;
   if (levelId === "testArena") return BLOOM_DISPLAY_TESTDRIVE;
+  if (levelId === "zanzibar") return BLOOM_DISPLAY_SUNDIAL;
   return BLOOM_DISPLAY_NEON;
 }
 
