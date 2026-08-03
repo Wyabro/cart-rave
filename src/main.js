@@ -1421,6 +1421,12 @@ async function main() {
         (koEvent.isKill ? 1.05 : 0.6) * fbFlashMul,
       );
     }
+    // * Scoreboard rampage pips ride this reactor because it fires for every fall on
+    // * every client: refresh the attacker's streak, clear the fallen victim's.
+    if (koEvent.attackerSlotIndex != null && (koEvent.comboTier ?? 0) > 0) {
+      hud?.noteComboPip?.(koEvent.attackerSlotIndex, koEvent.comboTier, koEvent.comboMultiplier ?? 1);
+    }
+    hud?.noteComboPip?.(koEvent.victimSlotIndex, 0);
     // * Crowd cheer on kills — Classic Record only (the one arena with a visible crowd;
     // * a cheering audience in the Storerooms would break the liminal theme).
     if (koEvent.isKill && getCurrentLevelId() === "classicRecord") {

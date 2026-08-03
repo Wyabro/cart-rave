@@ -932,12 +932,46 @@ function compareScoreboardDisplayOrder(a, b, youConnId) {
 }
 
 /**
- * Applies crown + rampage pip state to one rendered score row (runs per frame).
- *
- * The cross-client `_comboPipBySlot` table that used to back opponents' pips was
- * removed with them (FV-HUD-1) rather than left write-only; the local streak comes
- * from gameStore, which never needed it.
+ * Per-slot rampage pip state (last-known combo streak from KO events, 5s decay).
+ * @type {Array<{ tier: number, multiplier: number, expiryMs: number }>}
  */
+let _comboPipBySlot = [
+  { tier: 0, multiplier: 1, expiryMs: 0 },
+  { tier: 0, multiplier: 1, expiryMs: 0 },
+  { tier: 0, multiplier: 1, expiryMs: 0 },
+  { tier: 0, multiplier: 1, expiryMs: 0 },
+];
+
+/**
+ * Records a player's combo streak for the scoreboard rampage pip. Fed from KO events
+ * (which reach every client), so opponents' streaks are available cross-client without
+ * new wire fields. Pass tier 0 to clear (e.g. the streak owner just fell).
+ *
+ * Opponents' pips are currently NOT rendered — see SHOW_OPPONENT_COMBO_PIPS. The table
+ * is kept fed anyway so that stays a one-flag decision instead of a rebuild.
+ *
+ * @param {number} slotIndex
+ * @param {number} tier
+ * @param {number} [multiplier]
+ */
+export function noteComboPip(slotIndex, tier, multiplier = 1) {
+  const pip = _comboPipBySlot[slotIndex];
+  if (!pip) return;
+  pip.tier = tier;
+  pip.multiplier = multiplier;
+  pip.expiryMs = tier > 0 ? performance.now() + 5000 : 0;
+}
+
+/**
+ * Whether other players' combo streaks show as ×N chips on their scoreboard rows.
+ * Off: a rival's multiplier is not something you can act on mid-round, and four rows
+ * each growing a chip widened the centred strip toward the timer. Their KOs still
+ * read in the kill feed. Flip to true to bring the chips back — `noteComboPip` keeps
+ * the state current either way.
+ */
+const SHOW_OPPONENT_COMBO_PIPS = false;
+
+/** Applies crown + rampage pip state to one rendered score row (runs per frame). */
 function syncRowIndicators(entry, isLeader) {
   if (entry.crown) {
     const display = isLeader ? "inline-block" : "none";
@@ -947,15 +981,19 @@ function syncRowIndicators(entry, isLeader) {
   const slotIndex = entry.slotIndex ?? -1;
   let tier = 0;
   let multiplier = 1;
-  // * YOUR streak only (FV-HUD-1). Opponents' pips were the other half of the strip's
-  // * width problem — four rows could each grow a chip at once, shoving the centred
-  // * scoreboard into the timer — and Wyatt's read is that another player's multiplier
-  // * is not information you can act on mid-round. The KO feed still carries their KOs.
-  if (slotIndex >= 0 && slotIndex === _lastLocalIdx) {
-    const state = gameStore.getState();
-    if ((state.localComboTier || 0) > 0 && performance.now() < (state.localComboExpiryMs || 0)) {
-      tier = state.localComboTier;
-      multiplier = state.localComboMultiplier || 1;
+  if (slotIndex >= 0) {
+    if (slotIndex === _lastLocalIdx) {
+      const state = gameStore.getState();
+      if ((state.localComboTier || 0) > 0 && performance.now() < (state.localComboExpiryMs || 0)) {
+        tier = state.localComboTier;
+        multiplier = state.localComboMultiplier || 1;
+      }
+    } else if (SHOW_OPPONENT_COMBO_PIPS) {
+      const pip = _comboPipBySlot[slotIndex];
+      if (pip && pip.tier > 0 && performance.now() < pip.expiryMs) {
+        tier = pip.tier;
+        multiplier = pip.multiplier;
+      }
     }
   }
   const display = tier > 0 ? "inline-block" : "none";
@@ -1178,6 +1216,11 @@ function updateScores(roundState, netSlots, youConnId) {
         if (entry.crown) entry.crown.style.display = "none";
         if (entry.pip) entry.pip.style.display = "none";
         entry.slotIndex = -1;
+      }
+      const pip = _comboPipBySlot[i];
+      if (pip) {
+        pip.tier = 0;
+        pip.expiryMs = 0;
       }
     }
   }
@@ -1578,9 +1621,8 @@ export function init(options) {
     crown.innerHTML = svgIcon("crown");
     crown.style.display = "none";
 
-    // * Rampage pip — YOUR active combo streak (×1.5/×2/×3) on your own row only.
-    // * Built on every row because rows are re-sorted by score each frame; which one
-    // * shows it is decided in syncRowIndicators, not here.
+    // * Rampage pip — an active combo streak (×1.5/×2/×3). Currently your own row
+    // * only; which rows show it is decided in syncRowIndicators, not here.
     const pip = document.createElement("span");
     pip.className = "hud-scorePip";
     pip.style.display = "none";
@@ -2020,6 +2062,7 @@ export function init(options) {
     setEdgeDanger,
     pulseHitDirection,
     tickHitDirection,
+    noteComboPip,
     noteChipKO,
     escOverlay: elements.escOverlay,
     syncAudioControls,
