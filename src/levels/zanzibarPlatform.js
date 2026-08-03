@@ -3760,8 +3760,6 @@ function buildZanzibarBooths(
  *   boothColliderHandles: number[],
  *   boothNeonMeshes: THREE.Mesh[],
  *   spindleLight: THREE.PointLight,
- *   spindleLightColorPink: THREE.Color,
- *   spindleLightColorCyan: THREE.Color,
  *   pitInnerRadius: number,
  *   recordLabelMat: null,
  *   aiHazards: object,
@@ -3832,12 +3830,19 @@ export function initZanzibarPlatform(scene, world, config) {
   );
 
   // * Center light matches the arena's warm amber scheme (2026-07-09 feedback: the old
-  // * pink/cyan center clashed with the caution-yellow perimeter). The two returned
-  // * colors still feed main.js's spindle color cycle — now a subtle amber↔gold breath.
+  // * pink/cyan center clashed with the caution-yellow perimeter).
   // * Slightly softer for mood — gnomon glow, not a rave spindle.
+  // *
+  // * This used to claim "the two returned colors still feed main.js's spindle color cycle".
+  // * They did not: main.js destructured them into locals and never read them again, so this
+  // * lamp was a hard constant while every fixture around it breathed. The cycle now runs
+  // * HERE, in this level's own update, over these two endpoints — see the breath below.
   const spindleLight = new THREE.PointLight(0xffb400, 28, 50, 2);
-  const spindleLightColorPink = new THREE.Color(0xffc14e);
-  const spindleLightColorCyan = new THREE.Color(0xff9226);
+  const SPINDLE_BASE_INTENSITY = 28;
+  // * The two ends of the ~9 s amber↔gold cycle. Deliberately close together: this is a
+  // * warm lamp shifting temperature, not a hue rotation. Never pink, never cyan.
+  const spindleWarmA = new THREE.Color(0xffc14e);
+  const spindleWarmB = new THREE.Color(0xff9226);
   // * Dropped 7 → 4.3 (Wave 5 item 23). At 7 it sat ABOVE the hologram's 4.25 m hover, so
   // * the air beneath the projection was the one place with no light in it — half of why the
   // * holo read as detached, and a projector beam with nothing lit under it still reads
@@ -3877,6 +3882,18 @@ export function initZanzibarPlatform(scene, world, config) {
     // * Key intensity breathes with the seascape sun pulse (same slow period).
     sunLight.intensity = 1.85 + 0.2 * Math.sin(timeMs * 0.00055);
     coolFill.position.copy(seascape.sunDir).multiplyScalar(-50).setY(18);
+    // * The centre light breathes with the station. It sat at a hard constant because its
+    // * colour contract was owned by main.js and main.js never used it; the cycle lives here
+    // * now, where the light does.
+    // * Intensity rides the SAME 0.0007 sine as the deck's dusk breath below (search
+    // * baseEmissiveIntensity) so the crown, rails and this lamp swell together instead of
+    // * beating against each other. Colour runs a slower ~9 s temperature shift on its own
+    // * period, so the two never lock into a single visible pulse.
+    const spindleBreath = 0.88 + 0.12 * Math.sin(timeMs * 0.0007);
+    spindleLight.intensity = SPINDLE_BASE_INTENSITY * spindleBreath;
+    spindleLight.color
+      .copy(spindleWarmA)
+      .lerp(spindleWarmB, 0.5 + 0.5 * Math.sin(timeMs * (Math.PI * 2 / 9000)));
     deck.update(timeMs);
   }
 
@@ -3944,8 +3961,6 @@ export function initZanzibarPlatform(scene, world, config) {
     boothColliderHandles,
     boothNeonMeshes,
     spindleLight,
-    spindleLightColorPink,
-    spindleLightColorCyan,
     pitInnerRadius: PIT_INNER_RADIUS,
     recordLabelMat: null,
     aiHazards: {

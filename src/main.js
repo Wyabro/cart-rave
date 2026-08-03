@@ -2421,8 +2421,6 @@ async function main() {
   let boothColliderHandles = [];
   let boothNeonMeshes = [];
   let spindleLight = null;
-  let spindleLightColorPink;
-  let spindleLightColorCyan;
   let pitInnerRadius = CONFIG.record.innerRadius;
   let recordLabelMat = null;
   let levelHazards;
@@ -2906,8 +2904,6 @@ async function main() {
       boothColliderHandles,
       boothNeonMeshes,
       spindleLight,
-      spindleLightColorPink,
-      spindleLightColorCyan,
       pitInnerRadius,
       recordLabelMat,
       aiHazards: levelHazards,

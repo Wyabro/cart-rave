@@ -3638,9 +3638,14 @@ export function initBackroomsSupermarket(scene, world, config, options = {}) {
   applyQualityTier(getQualityKnobs());
 
   // ===== Contract stand-ins =====
-  // * spindleLight is required by main.js (it lerps its color each frame). Keep it as a
-  // * dim warm ambient pulse by giving both cycle endpoints near-identical muted tones,
-  // * so the "pink<->cyan" cycle is imperceptible and never reads as rave lighting.
+  // * spindleLight is a stand-in so this level satisfies the shared level-result shape.
+  // * It is a dim warm ambient presence and nothing animates it.
+  // *
+  // * The line here used to say main.js "lerps its color each frame". It never did — main.js
+  // * destructured the two colours into locals and never read them, which is why the pair
+  // * below is inert. They are kept only for API shape with Classic, whose own spindle cycle
+  // * is real; do not build a cycle here on their account, and do not assume any caller is
+  // * reading them.
   const spindleLight = new THREE.PointLight(0x3a3526, 6, 40, 2);
   const spindleLightColorPink = new THREE.Color(0x3a3526);
   const spindleLightColorCyan = new THREE.Color(0x2f2c20);
