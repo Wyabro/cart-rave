@@ -82,11 +82,14 @@ let lastPlayEntryWarm = false;
  * @property {() => { getGeneration: () => number, isReceived: () => boolean, getFirstPromise: () => Promise<void> }} getHelloGate
  * @property {() => Array<object> | null | undefined} getAllCartsRef
  * @property {(expectedGen: number) => Array<object> | null} bootstrapSessionCarts
- * @property {(opts?: { warm?: boolean }) => Promise<void>} [warmupBeforeRoundStart] Compiles the live
+ * @property {(opts?: { warm?: boolean, juiceFresh?: boolean }) => Promise<void>} [warmupBeforeRoundStart] Compiles the live
  *   scene's shader programs (carts + arena + VFX warmup anchors) after carts exist. Solo's
  *   game-start fires when ensureSessionCartsReady resolves, so awaiting this inside
  *   the cart bootstrap keeps the first countdown from starting into a compile freeze.
  *   `warm: true` uses a short compileAsync budget (arena already compiled).
+ *   `juiceFresh: true` forces the full budget even when warm (rave juice first-built this entry).
+ * @property {() => boolean} [consumeRaveJuiceJustBuilt] True once if lasers/billboard were
+ *   first-built since last consume (menu attract is includeJuice:false).
  */
 
 /**
@@ -326,12 +329,17 @@ export async function ensureSessionCartsReady() {
       // * Warm-compile everything now in scene (carts, arena, VFX anchors) BEFORE this
       // * promise resolves — netcode's solo path fires game start off this resolution,
       // * so the countdown must not begin while shader compiles would freeze the frame.
-      // * Warm play-entry passes warm:true → short compileAsync budget (see scene.js).
+      // * Warm play-entry passes warm:true → short compileAsync budget (see scene.js)
+      // * UNLESS juice first-built this entry (FV-LOAD-1b) — full budget then.
       if (created && typeof d.warmupBeforeRoundStart === "function") {
-        const warm = lastPlayEntryWarm;
-        markBootPhase("play-shader-start", { warm });
-        await d.warmupBeforeRoundStart({ warm });
-        markBootPhase("play-shader-end", { warm });
+        const juiceFresh =
+          typeof d.consumeRaveJuiceJustBuilt === "function"
+            ? d.consumeRaveJuiceJustBuilt()
+            : false;
+        const warm = lastPlayEntryWarm && !juiceFresh;
+        markBootPhase("play-shader-start", { warm, juiceFresh });
+        await d.warmupBeforeRoundStart({ warm: lastPlayEntryWarm, juiceFresh });
+        markBootPhase("play-shader-end", { warm, juiceFresh });
       }
       // * Boot timeline: carts seated + shaders warmed — the round can truly start.
       if (created) markBootPhase("carts-ready");

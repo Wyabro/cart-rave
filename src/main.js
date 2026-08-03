@@ -158,7 +158,7 @@ import { DEV_UNLOCKS_STORAGE_KEY, LEVEL_UNLOCKS } from "./unlockConfig.js";
 import { updateLevelLod } from "./utils/levelLod.js";
 import { beginFrameBudget, frameBudgetAllow } from "./utils/frameBudget.js";
 import { registerMirrorExclude, clearMirrorExcludes } from "./utils/cheapMirror.js";
-import { markBootPhase } from "./utils/bootTimeline.js";
+import { markBootPhase, onBootPhase } from "./utils/bootTimeline.js";
 
 // * testArena constants inlined (avoid static import of heavy level module at boot).
 const TEST_ARENA_SKY = 0x586274;
@@ -797,9 +797,37 @@ function enableModeMenuButtons() {
 
 async function main() {
   installGlobalErrorReporting();
+  // * FV-BOOT-1: HTML parse → module eval gap (bootStartTime is set inline in index.html).
+  const moduleEvalMs = Math.round(performance.now());
+  const htmlBootMs =
+    typeof window.bootStartTime === "number"
+      ? Math.round(moduleEvalMs - window.bootStartTime)
+      : null;
+  markBootPhase("module-eval", {
+    tMs: moduleEvalMs,
+    htmlToModuleMs: htmlBootMs,
+  });
+  // * fonts.css is render-blocking in <head> — surface its ResourceTiming if present.
+  try {
+    const fontEntries = performance.getEntriesByName(
+      `${window.location.origin}/fonts/fonts.css`,
+      "resource",
+    );
+    const fe = fontEntries[fontEntries.length - 1];
+    if (fe && "responseEnd" in fe) {
+      markBootPhase("fonts-css", {
+        durationMs: Math.round(/** @type {PerformanceResourceTiming} */ (fe).duration),
+        responseEndMs: Math.round(/** @type {PerformanceResourceTiming} */ (fe).responseEnd),
+        transferSize: /** @type {PerformanceResourceTiming} */ (fe).transferSize ?? 0,
+      });
+    }
+  } catch {
+    /* ResourceTiming unavailable — boot continues */
+  }
   initLoadingScreen();
   // * Bundle fetched + parsed — the dominant real unknown in boot time.
   noteBootMilestone(45);
+  markBootPhase("milestone-45");
   // * Dismiss boot splash before scene init — initMenu() may return early on ?room= URLs.
   // * Rapier WASM is loaded lazily via dynamic import in ensureRapierPhysics, keeping
   // * the boot critical path clean.
@@ -808,12 +836,47 @@ async function main() {
   loadPlayerCustomization();
   wireCustomizationStorageSync();
 
-  // * Begin cartrave4-draco.glb fetch immediately so rave carts are ready before first spawn.
-  void prefetchRaveGltf()
-    .then(() => noteBootMilestone(75))
-    .catch((err) => {
-      console.warn("[cartRaveGltf] Early prefetch failed:", err);
+  // * FV-BOOT-1: defer GLB prefetch until the boot splash has dismissed so the cold-boot
+  // * critical path is not competing with a multi-MB Draco fetch. Carts still warm via
+  // * play-entry cartPrefetch; menu idle has plenty of time after splash for the GLB.
+  const startGlbPrefetch = () => {
+    const glbPrefetchT0 = performance.now();
+    markBootPhase("glb-prefetch-start");
+    void prefetchRaveGltf()
+      .then(() => {
+        noteBootMilestone(75);
+        markBootPhase("glb-prefetch-end", {
+          durationMs: Math.round(performance.now() - glbPrefetchT0),
+        });
+        markBootPhase("milestone-75");
+      })
+      .catch((err) => {
+        console.warn("[cartRaveGltf] Early prefetch failed:", err);
+        markBootPhase("glb-prefetch-end", {
+          durationMs: Math.round(performance.now() - glbPrefetchT0),
+          failed: true,
+        });
+      });
+  };
+  {
+    let glbArmed = false;
+    const armGlb = () => {
+      if (glbArmed) return;
+      glbArmed = true;
+      startGlbPrefetch();
+    };
+    const unsub = onBootPhase((name) => {
+      if (name === "boot-splash-dismissed") {
+        unsub();
+        armGlb();
+      }
     });
+    // * Safety: if dismiss marks never fire (tests / exotic embeds), start after a beat.
+    setTimeout(() => {
+      unsub();
+      armGlb();
+    }, 8000);
+  }
 
   let labelRenderer = null;
   let input = null;
@@ -2381,8 +2444,15 @@ async function main() {
     getPreviewNeedsFullRebuild,
     rebuildLevelIfNeeded: (levelId, onProgress) => rebuildLevelIfNeeded(levelId, onProgress),
     finalizeArenaForPlay: finalizeArenaForPlayEntry,
+    consumeRaveJuiceJustBuilt,
     warmupBeforeRoundStart: (opts) =>
-      warmupActiveSceneShaders({ forPlay: true, warm: opts?.warm === true }),
+      warmupActiveSceneShaders({
+        forPlay: true,
+        // * Juice-first-build overrides blanket warm: short budget assumed programs
+        // * already live (false the first time lasers/billboard exist).
+        warm: opts?.warm === true && opts?.juiceFresh !== true,
+        juiceFresh: opts?.juiceFresh === true,
+      }),
     ensureRapierPhysics: () => ensureRapierPhysics(),
     bootstrapWorldCore: (levelIdOverride) => bootstrapWorldCore(levelIdOverride),
     getHelloGate: () => /** @type {any} */ (helloGate),
@@ -2448,6 +2518,17 @@ async function main() {
   let raveShellInitialized = false;
   /** Lasers + billboard (play juice — skip on menu attract to keep swaps light). */
   let raveJuiceInitialized = false;
+  /** Latched true when juice first-builds this entry; consumed by warm compile budget. */
+  let raveJuiceJustBuilt = false;
+
+  /**
+   * @returns {boolean} True once if rave juice was built since last consume.
+   */
+  function consumeRaveJuiceJustBuilt() {
+    const v = raveJuiceJustBuilt;
+    raveJuiceJustBuilt = false;
+    return v;
+  }
   let sceneEnvironmentDispose = null;
 
   function levelUsesRaveExtras(levelId) {
@@ -2615,6 +2696,10 @@ async function main() {
       Effects.initBillboard(scene, pitInnerRadius);
       Effects.initLasers(scene, pitInnerRadius, CART_COLORS);
       raveJuiceInitialized = true;
+      // * FV-LOAD-1b: menu attract builds includeJuice:false, so the first play entry
+      // * first-builds billboard/lasers/crowd programs. Warm path must NOT use the
+      // * truncated 1.5s compile budget for that first build (assumed "already compiled").
+      raveJuiceJustBuilt = true;
     }
 
     // * Mirror excludes still register for every root (harmless when hidden); visibility
@@ -2681,16 +2766,21 @@ async function main() {
 
   /**
    * Warm-compiles programs for the live scene.
-   * @param {{ forPlay?: boolean, warm?: boolean, maxWaitMs?: number }} [opts]
+   * @param {{ forPlay?: boolean, warm?: boolean, juiceFresh?: boolean, maxWaitMs?: number }} [opts]
    *   forPlay true (default): ensure VFX anchors exist, then compileAsync — used at
    *   play entry / round start so KO/splash never sync-recompiles mid-round.
    *   forPlay false: menu attract path — compile current arena only; skip re-installing
    *   anchors every picker swap (they are not needed until combat).
    *   warm true: short compileAsync budget — arena already compiled during idle warm /
    *   menu attract; only carts + VFX anchors are new (avoids ~8s mode-entry hang).
+   *   juiceFresh true: rave juice first-built this entry — never use the short budget
+   *   even if warm (menu attract is includeJuice:false).
    */
   async function warmupActiveSceneShaders(opts = {}) {
     const forPlay = opts.forPlay !== false;
+    const juiceFresh = opts.juiceFresh === true;
+    // * Short budget only when warm AND juice was already live (not first-built here).
+    const useWarmBudget = opts.warm === true && !juiceFresh;
     // * PERF-WARM disambiguation: the round-start freeze is a forPlay warmup's render pair
     // * (warm.render.default + warm.render.flyover) running DURING the countdown, after
     // * carts-ready — which the play-entry warm:true warmup cannot be (it completes before
@@ -2698,7 +2788,14 @@ async function main() {
     // * play-entry passes warm:true (".play-warm"); quickplay arena rotation (main.js ~2901)
     // * passes no warm (".play-full", full compile budget, no loading overlay). Tag the
     // * render spans so ONE F8 tells us which call site owns the freeze. Menu path (".menu").
-    const warmTag = forPlay ? (opts.warm ? ".play-warm" : ".play-full") : ".menu";
+    // * juice-fresh warm path tags ".play-juice" so F8 separates "warm but new juice".
+    const warmTag = forPlay
+      ? juiceFresh
+        ? ".play-juice"
+        : useWarmBudget
+          ? ".play-warm"
+          : ".play-full"
+      : ".menu";
     try {
       if (forPlay || !vfxProgramAnchorsInstalled) {
         // * PERF-WARM: attribute the ~1.4s play-entry freeze — this VFX-anchor install re-runs
@@ -2742,10 +2839,11 @@ async function main() {
       // * Menu path: still compileAsync so the first attract frame after a swap does not
       // * hitch. compileAsync uses KHR_parallel_shader_compile when available.
       // * Optional maxWaitMs / warm cap the readiness poll (scene.js patchSafeCompileAsync).
+      // * FV-LOAD-1b: juiceFresh forces full default budget (4000ms) even on warm play-entry.
       const maxWaitMs =
         typeof opts.maxWaitMs === "number"
           ? opts.maxWaitMs
-          : opts.warm
+          : useWarmBudget
             ? COMPILE_ASYNC_WARM_PLAY_MAX_WAIT_MS
             : undefined;
       // * 4th-arg opts is our patchSafeCompileAsync extension (not in three's types).
@@ -3153,6 +3251,9 @@ async function main() {
             for (let i = 0; i < allCartsRef.length; i += 1) teleportCartToSpawn(i);
           }
           beginRoundFlyover();
+          // * CAM-READY-1: pulse GET READY through the 2s hold so it is not dead air.
+          // * Countdown digits use stamp key count-n — handoff without double-stamp mess.
+          HUD.showReadyHold();
           setTimeout(() => {
             // * Same three guards: the pre-roll widens the window in which a quit, a
             // * restart or a bootstrap bounce can land. onCountdownCancelledRef and
@@ -3160,6 +3261,8 @@ async function main() {
             if (deferGen !== soloCountdownDeferGen) return;
             if (menuVisible) return;
             if (GameState.getRoundState().phase === "running") return;
+            // * Drop pulse class before digits; startCountdown path rebuilds the banner.
+            HUD.clearReadyHold();
             startCountdown(getRoundClockNowMs() + CONFIG.round.countdownMs);
           }, SOLO_FLYOVER_PREROLL_MS);
         });
@@ -4114,6 +4217,8 @@ async function main() {
       // * pending solo defer, which now owns a 2s pre-roll timeout that would otherwise
       // * start a countdown after the player is back on the menu.
       soloCountdownDeferGen += 1;
+      // * CAM-READY-1: no stuck GET READY after quit mid-hold.
+      HUD.clearReadyHold();
     },
     hideEscOverlay: () => HUD.hideEscOverlay(),
     resetSessionPickState: () => {
@@ -4736,6 +4841,8 @@ async function main() {
     // * syncRoundPhase("countdown"), so a cancel landing mid-fly-over finds no countdown
     // * phase to clean up and previously left the pending timeout free to start one.
     soloCountdownDeferGen += 1;
+    // * CAM-READY-1: quit mid-hold must not leave a stuck GET READY banner.
+    HUD.clearReadyHold();
     clearRoundCountdownTimeout();
     // * Unconditional, for the same reason: during the pre-roll the camera is already in
     // * cinematic mode while the phase is still pre-countdown, so gating this on
