@@ -218,6 +218,20 @@ function pickRandom(arr) {
 function buildClassicDecor() {
   const wrap = document.createElement("div");
   wrap.className = "cr-load__visual cr-load__visual--rave";
+
+  // Seating tiers: concentric arcs banked up the bowl. Dark benches first;
+  // the HTML crowd spans supply the sparse people blobs on top.
+  let tiers = "";
+  for (let t = 0; t < 7; t += 1) {
+    const y0 = 48 + t * 28;
+    const y1 = y0 + 22;
+    const bulge = 18 + t * 14;
+    tiers +=
+      `<path d="M ${-80 - bulge} ${y1} Q 800 ${y0 - 36 - t * 4} ${1680 + bulge} ${y1} ` +
+      `L ${1680 + bulge} ${y1 + 10} Q 800 ${y0 - 20 - t * 4} ${-80 - bulge} ${y1 + 10} Z" ` +
+      `fill="${t % 2 === 0 ? "#140a22" : "#1a0e2c"}" opacity="0.92"/>`;
+  }
+
   wrap.innerHTML =
     '<svg class="cr-load__svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">' +
     "<defs>" +
@@ -225,7 +239,7 @@ function buildClassicDecor() {
     '<stop offset="0" stop-color="#1a0530"/><stop offset="0.55" stop-color="#0a0116"/><stop offset="1" stop-color="#030006"/>' +
     "</radialGradient>" +
     '<linearGradient id="crRaveStand" x1="0" y1="0" x2="0" y2="1">' +
-    '<stop offset="0" stop-color="#22123a"/><stop offset="1" stop-color="#0c0518"/>' +
+    '<stop offset="0" stop-color="#1c0e30"/><stop offset="1" stop-color="#0a0514"/>' +
     "</linearGradient>" +
     '<radialGradient id="crRaveLabel" cx="0.5" cy="0.42" r="0.62">' +
     '<stop offset="0" stop-color="#cfcad6"/><stop offset="0.7" stop-color="#b3aec0"/><stop offset="1" stop-color="#8d8799"/>' +
@@ -239,20 +253,25 @@ function buildClassicDecor() {
     '<path id="crRaveArcBot" d="M 988 706 A 188 65 0 0 1 612 706" fill="none"/>' +
     "</defs>" +
     '<rect width="1600" height="900" fill="url(#crRaveRoom)"/>' +
-    // ── crowd bowl wrapping the back ──
-    '<path d="M -160 300 Q 800 -30 1760 300 L 1760 60 Q 800 -230 -160 60 Z" fill="url(#crRaveStand)"/>' +
-    '<path d="M -160 300 Q 800 -30 1760 300" fill="none" stroke="#2a1440" stroke-width="6"/>' +
-    '<g stroke="#241038" stroke-width="3" opacity="0.8">' +
-    '<path d="M 120 96 L 96 268"/><path d="M 420 34 L 408 232"/><path d="M 800 12 L 800 212"/>' +
-    '<path d="M 1180 34 L 1192 232"/><path d="M 1480 96 L 1504 268"/>' +
+    // ── amphitheatre bowl: mass + tiered benches + aisle cuts ──
+    '<path d="M -200 310 Q 800 -40 1800 310 L 1800 20 Q 800 -250 -200 20 Z" fill="url(#crRaveStand)"/>' +
+    `<g>${tiers}</g>` +
+    // radial aisles (dark gaps between seating sections)
+    '<g stroke="#0a0514" stroke-width="14" opacity="0.55" fill="none">' +
+    '<path d="M 180 90 L 120 300"/><path d="M 480 28 L 430 280"/>' +
+    '<path d="M 800 8 L 800 270"/><path d="M 1120 28 L 1170 280"/>' +
+    '<path d="M 1420 90 L 1480 300"/>' +
     "</g>" +
-    // house-light washes across the stands
-    '<g opacity="0.3">' +
-    '<path d="M 40 70 L 150 70 L 250 290 L 120 290 Z" fill="#ff6a2b" opacity="0.22"/>' +
-    '<path d="M 1400 70 L 1520 70 L 1540 290 L 1400 290 Z" fill="#22e6ff" opacity="0.2"/>' +
-    '<path d="M 640 8 L 760 8 L 742 234 L 636 234 Z" fill="#ff2bd6" opacity="0.18"/>' +
+    // rim rail of the bowl
+    '<path d="M -160 300 Q 800 -20 1760 300" fill="none" stroke="#2e1848" stroke-width="8"/>' +
+    '<path d="M -160 300 Q 800 -20 1760 300" fill="none" stroke="#4a2870" stroke-width="2" opacity="0.5"/>' +
+    // soft house washes (not solid panels)
+    '<g opacity="0.22">' +
+    '<ellipse cx="220" cy="160" rx="160" ry="90" fill="#ff6a2b"/>' +
+    '<ellipse cx="800" cy="90" rx="140" ry="70" fill="#ff2bd6"/>' +
+    '<ellipse cx="1380" cy="160" rx="160" ry="90" fill="#22e6ff"/>' +
     "</g>" +
-    // DJ booth at the back
+    // DJ booth at the back of the bowl
     "<g>" +
     '<rect x="712" y="70" width="176" height="66" rx="4" fill="#12081e"/>' +
     '<rect x="726" y="84" width="148" height="10" rx="3" fill="#ff2bd6" opacity="0.9"/>' +
@@ -306,24 +325,30 @@ function buildClassicDecor() {
 }
 
 /**
- * The Storerooms — the room as the flyover sees it: the pale tiled floor, the two
- * black floor pits you get shoved into, the junk pile in the middle, and shelving
- * against the dark back wall. Drawn from `.diag-captures/bl-storerooms-on.png`;
- * an earlier pass drew an endless shelving corridor, which this arena is not.
- * Stays LIMINAL — flat light, no neon, no glow (art-direction.md:65-80).
+ * The Storerooms — the room as the flyover sees it: pale carpet floor, four
+ * square corner voids (HOLE_CENTER ±20 m), wall rack bays, and the central junk
+ * pile. Drawn from `.diag-captures/bl-storerooms-on.png` + level constants in
+ * `backroomsSupermarket.js`. Stays LIMINAL — flat light, no neon, no glow
+ * (art-direction.md:65-80).
  * @returns {HTMLDivElement}
  */
 function buildBackroomsDecor() {
   const wrap = document.createElement("div");
   wrap.className = "cr-load__visual cr-load__furniture";
 
-  // The floor runs from a far edge at y=318 to the frame bottom, its half-width
-  // growing toward the viewer. Deriving the grid keeps it in honest perspective
-  // instead of hand-placed lines that drift.
+  // Floor: far edge y=318, near y=900. Half-width grows toward the viewer.
+  // World → UV: ARENA_HALF=38, holes at |x|=|z|=20 size 8.5 → u=x/38, v=(z+38)/76.
   const FAR_Y = 318;
   const NEAR_Y = 900;
   const FAR_HW = 430;
   const NEAR_HW = 1680;
+
+  /** @param {number} u -1..1 left-right @param {number} v 0 far .. 1 near */
+  const floorPt = (u, v) => {
+    const y = FAR_Y + (NEAR_Y - FAR_Y) * v;
+    const hw = FAR_HW + (NEAR_HW - FAR_HW) * v;
+    return [800 + u * hw, y];
+  };
 
   let grid = "";
   for (let i = -8; i <= 8; i += 1) {
@@ -337,13 +362,70 @@ function buildBackroomsDecor() {
   }
 
   /**
-   * One floor pit, near edge wider than far, with a lit lip on the near side.
-   * @param {number} cx @param {number} yTop @param {number} yBot
-   * @param {number} wTop @param {number} wBot @returns {string}
+   * Square void in floor UV (axis-aligned in world → trapezoid in perspective).
+   * Soft carpet lip on the near edge only — matches the real chamfer read.
+   * @param {number} cu @param {number} cv @param {number} hu @param {number} hv
    */
-  const pit = (cx, yTop, yBot, wTop, wBot) =>
-    `<polygon points="${cx - wTop},${yTop} ${cx + wTop},${yTop} ${cx + wBot},${yBot} ${cx - wBot},${yBot}" fill="#04040a"/>` +
-    `<polygon points="${cx - wBot},${yBot} ${cx + wBot},${yBot} ${cx + wBot - 8},${yBot + 8} ${cx - wBot + 8},${yBot + 8}" fill="#cabe87" opacity="0.32"/>`;
+  const squarePit = (cu, cv, hu, hv) => {
+    const tl = floorPt(cu - hu, cv - hv);
+    const tr = floorPt(cu + hu, cv - hv);
+    const br = floorPt(cu + hu, cv + hv);
+    const bl = floorPt(cu - hu, cv + hv);
+    const lip = 0.018;
+    const ntl = floorPt(cu - hu, cv + hv);
+    const ntr = floorPt(cu + hu, cv + hv);
+    const nbl = floorPt(cu - hu, cv + hv + lip);
+    const nbr = floorPt(cu + hu, cv + hv + lip);
+    return (
+      `<polygon points="${tl[0].toFixed(0)},${tl[1].toFixed(0)} ${tr[0].toFixed(0)},${tr[1].toFixed(0)} ` +
+      `${br[0].toFixed(0)},${br[1].toFixed(0)} ${bl[0].toFixed(0)},${bl[1].toFixed(0)}" fill="#04040a"/>` +
+      `<polygon points="${ntl[0].toFixed(0)},${ntl[1].toFixed(0)} ${ntr[0].toFixed(0)},${ntr[1].toFixed(0)} ` +
+      `${nbr[0].toFixed(0)},${nbr[1].toFixed(0)} ${nbl[0].toFixed(0)},${nbl[1].toFixed(0)}" fill="#cabe87" opacity="0.28"/>`
+    );
+  };
+
+  // Four corner holes: world (±20, ±20). Far pair use full poster-scale; near
+  // pair are smaller in UV so perspective doesn't blow them past ~½ the visual
+  // area of the old mid-floor pits (and leave room for the junk pile + title).
+  const FAR_HU = 0.085;
+  const FAR_HV = 0.058;
+  const NEAR_HU = 0.042;
+  const NEAR_HV = 0.032;
+  const pits =
+    squarePit(-0.52, 0.26, FAR_HU, FAR_HV) +
+    squarePit(0.52, 0.26, FAR_HU, FAR_HV) +
+    squarePit(-0.52, 0.68, NEAR_HU, NEAR_HV) +
+    squarePit(0.52, 0.68, NEAR_HU, NEAR_HV);
+
+  /**
+   * One wall rack bay: uprights + shelves + a couple of cartons. Coordinates
+   * are screen-space so perspective is hand-set per bay.
+   * @param {number} x @param {number} y @param {number} w @param {number} h
+   * @param {number} skew lean toward centre (px at top)
+   */
+  const rackBay = (x, y, w, h, skew) => {
+    const x2 = x + w;
+    const topL = x + skew;
+    const topR = x2 - skew;
+    let s =
+      `<polygon points="${topL},${y} ${topR},${y} ${x2},${y + h} ${x},${y + h}" fill="#1a1a14" stroke="#2c2c22" stroke-width="1.5"/>` +
+      `<line x1="${topL}" y1="${y}" x2="${x}" y2="${y + h}" stroke="#3a3a2e" stroke-width="3"/>` +
+      `<line x1="${topR}" y1="${y}" x2="${x2}" y2="${y + h}" stroke="#3a3a2e" stroke-width="3"/>`;
+    for (let i = 1; i <= 3; i += 1) {
+      const t = i / 4;
+      const ly = y + h * t;
+      const lx = topL + (x - topL) * t;
+      const rx = topR + (x2 - topR) * t;
+      s += `<line x1="${lx.toFixed(0)}" y1="${ly.toFixed(0)}" x2="${rx.toFixed(0)}" y2="${ly.toFixed(0)}" stroke="#4a4a3a" stroke-width="2"/>`;
+      // carton on every other shelf
+      if (i % 2 === 1) {
+        const bw = (rx - lx) * 0.28;
+        const bx = lx + (rx - lx) * 0.15;
+        s += `<rect x="${bx.toFixed(0)}" y="${(ly - 14).toFixed(0)}" width="${bw.toFixed(0)}" height="12" fill="#7a6238"/>`;
+      }
+    }
+    return s;
+  };
 
   wrap.innerHTML =
     '<svg class="cr-load__svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">' +
@@ -361,21 +443,38 @@ function buildBackroomsDecor() {
     '<rect width="1600" height="900" fill="#0a0a0b"/>' +
     '<rect x="0" y="0" width="1600" height="318" fill="url(#crStoreWall)"/>' +
     '<rect x="0" y="302" width="1600" height="18" fill="#2a2818" opacity="0.7"/>' +
+    // side wall rack bays (receding into the dark)
+    `<g opacity="0.85">${rackBay(40, 140, 110, 170, 18)}${rackBay(1450, 140, 110, 170, 18)}</g>` +
+    // far wall racks left / right of centre
+    `<g opacity="0.9">${rackBay(280, 175, 130, 130, 8)}${rackBay(1190, 175, 130, 130, 8)}</g>` +
+    // freestanding shelf unit dead-centre on the far edge (matches the real prop)
+    "<g>" +
+    '<rect x="724" y="228" width="152" height="78" fill="#14140e" stroke="#2a2a20" stroke-width="1.5"/>' +
+    '<rect x="732" y="242" width="136" height="5" fill="#3a3826"/>' +
+    '<rect x="732" y="264" width="136" height="5" fill="#3a3826"/>' +
+    '<rect x="732" y="286" width="136" height="5" fill="#3a3826"/>' +
+    '<rect x="744" y="216" width="36" height="14" fill="#8a6a3a"/>' +
+    '<rect x="820" y="216" width="36" height="14" fill="#8a6a3a"/>' +
+    "</g>" +
     `<polygon points="${800 - FAR_HW},${FAR_Y} ${800 + FAR_HW},${FAR_Y} ${800 + NEAR_HW},${NEAR_Y} ${800 - NEAR_HW},${NEAR_Y}" fill="url(#crStoreFloor)"/>` +
     `<g stroke="#6b6849" stroke-width="1.5" opacity="0.45">${grid}</g>` +
-    `<g>${pit(452, 372, 452, 138, 196)}${pit(1148, 372, 452, 138, 196)}</g>` +
-    // shelving against the back wall
-    "<g>" +
-    '<rect x="716" y="252" width="168" height="66" fill="#14140e"/>' +
-    '<rect x="724" y="262" width="152" height="6" fill="#3a3826"/>' +
-    '<rect x="724" y="286" width="152" height="6" fill="#3a3826"/>' +
-    '<rect x="736" y="240" width="40" height="14" fill="#8a6a3a"/>' +
-    '<rect x="824" y="240" width="40" height="14" fill="#8a6a3a"/>' +
+    // four corner voids under the grid so the lips read as carpet
+    `<g>${pits}</g>` +
+    // SVG bulk under the HTML pile — grey cabinets / desks so the heap reads dense
+    // without adding counted .furn-box nodes
+    '<g opacity="0.92">' +
+    '<rect x="720" y="560" width="70" height="55" fill="#2a2a24" stroke="#141410" stroke-width="2" transform="rotate(-6 755 587)"/>' +
+    '<rect x="800" y="548" width="62" height="70" fill="#32322a" stroke="#141410" stroke-width="2" transform="rotate(4 831 583)"/>' +
+    '<rect x="760" y="520" width="78" height="42" fill="#3a3a30" stroke="#141410" stroke-width="2" transform="rotate(-2 799 541)"/>' +
+    '<rect x="845" y="575" width="48" height="40" fill="#252520" stroke="#141410" stroke-width="2" transform="rotate(11 869 595)"/>' +
+    '<rect x="700" y="590" width="55" height="38" fill="#2e2e26" stroke="#141410" stroke-width="2" transform="rotate(-12 727 609)"/>' +
+    // small wood desktop top peeking out
+    '<rect x="775" y="505" width="58" height="10" fill="#7a5a32" transform="rotate(8 804 510)"/>' +
     "</g>" +
     '<rect width="1600" height="900" fill="url(#crStoreFall)"/>' +
     "</svg>" +
-    // The centre junk heap — the counted decor nodes, reused as the thing the
-    // arena actually keeps in the middle of the room.
+    // Centre junk heap — counted decor: 3 crates + 1 chair (chair stays a chair,
+    // tipped into the heap; only .furn-box nodes are crates).
     '<div class="cr-load__furniture-inner" aria-hidden="true">' +
     '<div class="furn-box b1"></div>' +
     '<div class="furn-box b2"></div>' +
@@ -392,10 +491,9 @@ function buildBackroomsDecor() {
 
 /**
  * Sundial Station — the platform as the flyover sees it: the ringed planet low in
- * an alien sunset, the far city and the horizon arch, the sea, and the dark deck
- * with the golden sundial ring at its centre. Drawn from
- * `.diag-captures/sundial-planet-fixed.png` and `bl-sundial-wide-*.png`; an
- * earlier pass drew a beach at golden hour, which missed the sci-fi entirely.
+ * an alien sunset, the far city and the horizon arch, the sea, and the dark
+ * octagonal deck with the golden hologram + sundial ring at its centre. Drawn
+ * from `.diag-captures/sundial-planet-fixed.png` and `bl-sundial-wide-*.png`.
  * @returns {HTMLDivElement}
  */
 function buildZanzibarDecor() {
@@ -412,6 +510,39 @@ function buildZanzibarDecor() {
     const o = i % 2 === 0 ? 0.45 : 0.75;
     stars += `<circle cx="${x}" cy="${y}" r="${r}" opacity="${o}"/>`;
   }
+
+  /**
+   * Distant wind turbine: tower + nacelle + three blades at 120°.
+   * @param {number} cx hub x @param {number} cy hub y
+   * @param {number} towerH @param {number} bladeLen @param {number} rotDeg
+   */
+  const turbine = (cx, cy, towerH, bladeLen, rotDeg) => {
+    const baseY = cy + towerH;
+    let blades = "";
+    for (let b = 0; b < 3; b += 1) {
+      const a = ((rotDeg + b * 120) * Math.PI) / 180;
+      const tipX = cx + Math.sin(a) * bladeLen;
+      const tipY = cy - Math.cos(a) * bladeLen;
+      // slim diamond blade (not a stick)
+      const px = Math.cos(a) * (bladeLen * 0.08);
+      const py = Math.sin(a) * (bladeLen * 0.08);
+      const midX = cx + Math.sin(a) * bladeLen * 0.45;
+      const midY = cy - Math.cos(a) * bladeLen * 0.45;
+      blades +=
+        `<polygon points="${(cx - px).toFixed(1)},${(cy - py).toFixed(1)} ` +
+        `${(midX + px * 1.6).toFixed(1)},${(midY + py * 1.6).toFixed(1)} ` +
+        `${tipX.toFixed(1)},${tipY.toFixed(1)} ` +
+        `${(midX - px * 1.6).toFixed(1)},${(midY - py * 1.6).toFixed(1)}" fill="#2a1018"/>`;
+    }
+    return (
+      `<g opacity="0.75">` +
+      `<line x1="${cx}" y1="${baseY}" x2="${cx}" y2="${cy}" stroke="#2a1018" stroke-width="4"/>` +
+      `<rect x="${cx - 7}" y="${cy - 5}" width="18" height="10" rx="2" fill="#2a1018"/>` +
+      blades +
+      `<circle cx="${cx}" cy="${cy}" r="4" fill="#1a0a12"/>` +
+      `</g>`
+    );
+  };
 
   wrap.innerHTML =
     '<svg class="cr-load__svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">' +
@@ -431,7 +562,7 @@ function buildZanzibarDecor() {
     // the faint ring arc hanging over the whole sky
     '<path d="M -200 300 Q 800 -120 1800 246" fill="none" stroke="#c9a8ff" stroke-width="5" opacity="0.16"/>' +
     '<path d="M -200 336 Q 800 -84 1800 282" fill="none" stroke="#c9a8ff" stroke-width="2" opacity="0.1"/>' +
-    // far city on the left horizon
+    // far city / island silhouettes on the left horizon
     '<g fill="#3a1220">' +
     '<rect x="18" y="404" width="34" height="238"/><rect x="60" y="470" width="26" height="172"/>' +
     '<rect x="96" y="512" width="40" height="130"/><rect x="146" y="556" width="22" height="86"/>' +
@@ -443,27 +574,28 @@ function buildZanzibarDecor() {
     // the arch out on the right
     '<circle cx="1318" cy="700" r="176" fill="none" stroke="#ff6a2b" stroke-width="11" opacity="0.75"/>' +
     '<circle cx="1318" cy="700" r="176" fill="none" stroke="#ffd0a0" stroke-width="3" opacity="0.4"/>' +
-    // turbine on the far right
-    '<g stroke="#3a1220" stroke-width="5" opacity="0.7" fill="none">' +
-    '<path d="M 1512 642 L 1512 520"/><path d="M 1512 520 L 1470 470"/>' +
-    '<path d="M 1512 520 L 1560 486"/><path d="M 1512 520 L 1524 462"/>' +
-    "</g>" +
+    // offshore wind farm — three distant turbines with proper 3-blade rotors
+    turbine(1480, 500, 140, 52, 18) +
+    turbine(1565, 540, 95, 36, 55) +
+    turbine(1410, 555, 70, 28, 100) +
     // sea + horizon
     '<rect x="0" y="642" width="1600" height="258" fill="url(#crSunSea)"/>' +
     '<rect x="0" y="638" width="1600" height="4" fill="#ffd9a0" opacity="0.6"/>' +
-    // The tower on the deck. Offset from centre on purpose: dead centre put it
-    // behind the lockup, where all that showed was two stray legs below the
-    // letters, reading as a glitch rather than a structure.
+    // Observation tower offset from centre (lockup sits on the middle of the frame)
     "<g>" +
     '<rect x="1108" y="548" width="116" height="12" fill="#2a1420"/>' +
     '<rect x="1120" y="560" width="10" height="82" fill="#2a1420"/><rect x="1202" y="560" width="10" height="82" fill="#2a1420"/>' +
     '<rect x="1114" y="512" width="104" height="40" fill="#1c0d18"/>' +
     '<rect x="1122" y="524" width="88" height="6" fill="#ff7a3a" opacity="0.85"/>' +
     "</g>" +
+    // Floor dial + hologram are HTML siblings of .sea-deck (not SVG — the
+    // deck is opaque and clip-path would eat pseudos). .sea-holo is uncounted;
+    // gate only requires one .sea-deck. Tower stays offset right for the lockup.
     "</svg>" +
     '<div class="sea-sun" aria-hidden="true"></div>' +
     '<div class="sea-water" aria-hidden="true"><span></span><span></span><span></span></div>' +
-    '<div class="sea-deck" aria-hidden="true"></div>';
+    '<div class="sea-deck" aria-hidden="true"></div>' +
+    '<div class="sea-holo" aria-hidden="true"></div>';
   return wrap;
 }
 
