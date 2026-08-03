@@ -710,15 +710,26 @@
         <div class="cr-context-arena" id="cr-context-arena">
           <button class="cr-arena-page" id="cr-arena-prev" type="button" aria-label="Previous arena">◂</button>
           <div class="cr-arena-display">
-            <div class="cr-arena-name" id="cr-arena-name">CART RAVE</div>
-            <div class="cr-arena-sub" id="cr-arena-sub">NEON VINYL ARENA · 1/3</div>
+            <!-- * Pre-JS paint only: updateArenaPager() overwrites both as soon as a level is
+                 * selected. Kept in sync with the FIRST radiogroup entry below so the initial
+                 * frame is not a different arena than the one about to be selected. -->
+            <div class="cr-arena-name" id="cr-arena-name">SUNDIAL STATION</div>
+            <div class="cr-arena-sub" id="cr-arena-sub">OFFSHORE SUNSET SHOWDOWN · 1/3</div>
           </div>
           <button class="cr-arena-page" id="cr-arena-next" type="button" aria-label="Next arena">▸</button>
           <!-- hidden radiogroup: arena data source + existing selectLevel wiring -->
+          <!-- * ORDER IS PROGRESSION ORDER, and it is load-bearing (UNLOCK-ORDER-1 follow-up).
+               * updateArenaPager prints `idx + 1 / btns.length` straight off this list and
+               * cycleArena steps through it, so DOM order IS the "1/3" a player reads and the
+               * order ◂ ▸ walks. It must match the unlock chain in src/unlockConfig.js:
+               * zanzibar (free) → backrooms (10 KOs on Sundial) → classicRecord (15 KOs on
+               * Storerooms). Do NOT re-sort this to match ARENA_CATALOG: that array is the
+               * QUICKPLAY ROTATION and is asserted against shared/arenaPool.js by QP-ORDER-1.
+               * The two orders are different on purpose. tests/arenaMenuOrder.test.js pins this. -->
           <div class="cr-level-row" id="cr-level-row" role="radiogroup" aria-label="Choose your arena" hidden>
-            <button type="button" class="cr-level-btn active" data-level="classicRecord" data-colorkey="secondary" aria-pressed="true"><span class="cr-level-btn-inner"><span class="cr-level-btn-label">CART RAVE</span><span class="cr-level-btn-sub">Neon vinyl arena</span></span></button>
+            <button type="button" class="cr-level-btn active" data-level="zanzibar" data-colorkey="p2" aria-pressed="true"><span class="cr-level-btn-inner"><span class="cr-level-btn-label">SUNDIAL STATION</span><span class="cr-level-btn-sub">Offshore sunset showdown</span></span></button>
             <button type="button" class="cr-level-btn" data-level="backrooms" data-colorkey="primary" aria-pressed="false"><span class="cr-level-btn-inner"><span class="cr-level-btn-label">THE STOREROOMS</span><span class="cr-level-btn-sub">Liminal battleground</span></span></button>
-            <button type="button" class="cr-level-btn" data-level="zanzibar" data-colorkey="p2" aria-pressed="false"><span class="cr-level-btn-inner"><span class="cr-level-btn-label">SUNDIAL STATION</span><span class="cr-level-btn-sub">Offshore sunset showdown</span></span></button>
+            <button type="button" class="cr-level-btn" data-level="classicRecord" data-colorkey="secondary" aria-pressed="false"><span class="cr-level-btn-inner"><span class="cr-level-btn-label">CART RAVE</span><span class="cr-level-btn-sub">Neon vinyl arena</span></span></button>
           </div>
         </div>
 
