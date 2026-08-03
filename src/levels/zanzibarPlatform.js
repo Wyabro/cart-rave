@@ -68,6 +68,7 @@ const HOLO_HOVER_Y = 3.75;
 const PODIUM_CREST_TUCK = 0.02;
 const PODIUM_CAP_THICKNESS = 0.12; // meters — thin flat cuboid caps on the podium crown
 
+const BOLT_PITCH_M = 2.4; // meters between deck bolts along a seam — fixed pitch, not count
 const BOLLARD_RADIUS = 0.55; // meters
 const BOLLARD_HEIGHT = 1.6; // meters
 const BOLLARD_RING_SCALE = 0.97; // fraction of circumradius — fully on deck
@@ -140,6 +141,34 @@ const USE_SUNSET_ENV = true;
 
 // * Shared scratch for instanced-matrix building (construction + per-frame gull updates).
 const _dummy = new THREE.Object3D();
+
+/**
+ * Walks the perimeter of the deck octagon of a given circumradius, calling back at a fixed
+ * arc pitch in METERS. Used for bolt rows, which were previously laid on a circle of the
+ * same radius while the seam they follow is an octagon — so every bolt drifted outboard of
+ * its seam except the eight that happened to land on a vertex.
+ *
+ * @param {number} circumRadiusM Octagon circumradius in meters.
+ * @param {number} pitchM Spacing along the edge, meters. Rounded per edge so the row starts
+ *   and ends inset from each vertex by half a gap instead of doubling up at the corners.
+ * @param {(x: number, z: number, edgeIndex: number) => void} visit Called in meters.
+ */
+function walkOctPerimeter(circumRadiusM, pitchM, visit) {
+  const edgeLen = 2 * circumRadiusM * Math.sin(HALF_ANGLE);
+  const perEdge = Math.max(1, Math.round(edgeLen / pitchM));
+  for (let e = 0; e < OCT_SIDES; e += 1) {
+    const a0 = VERTEX_OFFSET + e * (Math.PI / 4);
+    const a1 = VERTEX_OFFSET + (e + 1) * (Math.PI / 4);
+    const x0 = Math.cos(a0) * circumRadiusM;
+    const z0 = Math.sin(a0) * circumRadiusM;
+    const x1 = Math.cos(a1) * circumRadiusM;
+    const z1 = Math.sin(a1) * circumRadiusM;
+    for (let k = 0; k < perEdge; k += 1) {
+      const t = (k + 0.5) / perEdge;
+      visit(x0 + (x1 - x0) * t, z0 + (z1 - z0) * t, e);
+    }
+  }
+}
 
 // ===== Canvas texture builders =====
 
@@ -217,26 +246,32 @@ function buildDeckTexture(circumR) {
 
   // Bolt dots + rust streaks along the two mid seam rings.
   const boltRings = seamRings.filter((rM) => rM > 10 && rM < apothem - 4);
+  // * Bolts walk the seam's own octagon polyline at a fixed metre pitch. They used to be 48
+  // * points on a CIRCLE of the seam radius while the seam itself is traced by octPath, so
+  // * every bolt but the eight on vertices sat outboard of the seam it was supposed to
+  // * fasten — by up to boltR * (1 - cos 22.5°) = 0.76 m of clear steel on the 20.5 m ring.
+  // * Fixed pitch also makes bolt density consistent between rings instead of thinning
+  // * outward, which is what a fixed COUNT per ring does.
   for (const boltR of boltRings) {
-    for (let i = 0; i < 48; i += 1) {
-      const a = (i / 48) * Math.PI * 2;
-      const bx = c + Math.cos(a) * boltR * pxPerM;
-      const by = c + Math.sin(a) * boltR * pxPerM;
+    walkOctPerimeter(boltR, BOLT_PITCH_M, (bxM, bzM) => {
+      const bx = c + bxM * pxPerM;
+      const by = c + bzM * pxPerM;
       ctx.fillStyle = "rgba(0,0,0,0.5)";
       ctx.beginPath();
       ctx.arc(bx, by, size * 0.0035, 0, Math.PI * 2);
       ctx.fill();
       // Occasional rust bleed running radially outward from a bolt.
       if (Math.random() < 0.3) {
+        const outward = Math.atan2(bzM, bxM);
         const len = (0.35 + Math.random() * 0.6) * pxPerM;
         ctx.strokeStyle = "rgba(112, 58, 30, 0.22)";
         ctx.lineWidth = size * 0.0026;
         ctx.beginPath();
         ctx.moveTo(bx, by);
-        ctx.lineTo(bx + Math.cos(a) * len, by + Math.sin(a) * len);
+        ctx.lineTo(bx + Math.cos(outward) * len, by + Math.sin(outward) * len);
         ctx.stroke();
       }
-    }
+    });
   }
 
   // Energy-conduit traces: cyan service lines along the eight flat-mid lanes, drawn as a
@@ -529,14 +564,15 @@ function buildDeckNormalTexture(circumR) {
 
   // Bolt heads — proud, on the same rings buildDeckTexture dots.
   const boltRings = seamRings.filter((rM) => rM > 10 && rM < apothem - 4);
+  // * Same polyline walk as the albedo, at the same pitch — the two maps have to agree or
+  // * the relief lands next to the painted bolt instead of on it.
   ctx.fillStyle = "#c8c8c8";
   for (const boltR of boltRings) {
-    for (let i = 0; i < 48; i += 1) {
-      const a = (i / 48) * Math.PI * 2;
+    walkOctPerimeter(boltR, BOLT_PITCH_M, (bxM, bzM) => {
       ctx.beginPath();
-      ctx.arc(c + Math.cos(a) * boltR * pxPerM, c + Math.sin(a) * boltR * pxPerM, size * 0.0038, 0, Math.PI * 2);
+      ctx.arc(c + bxM * pxPerM, c + bzM * pxPerM, size * 0.0038, 0, Math.PI * 2);
       ctx.fill();
-    }
+    });
   }
 
   // Service conduits along the eight flat-mid lanes — raised strips.
@@ -2585,13 +2621,31 @@ function buildDeck(scene, world, config, circumR) {
     group.add(underGlow);
     neonStripMeshes.push(underGlow);
   }
-  const crownGeo = new THREE.TorusGeometry(PODIUM_TOP_R - 0.18, 0.09, 8, 32);
-  ownedGeometries.push(crownGeo);
-  const crown = new THREE.Mesh(crownGeo, neonYellowMat);
-  crown.rotation.x = Math.PI / 2;
-  crown.position.y = PODIUM_HEIGHT + 0.05;
-  group.add(crown);
-  neonStripMeshes.push(crown);
+  // * Crown ring: eight straight segments, not a 32-segment torus. The podium crown is an
+  // * octagon (podiumCaps = octRects(PODIUM_TOP_R * COS_HALF)), so a round ring on it
+  // * overhung the crown's flats by PODIUM_TOP_R * 0.18 * (1 - cos 22.5°) everywhere except
+  // * the vertices. This is the sanctioned direction for the fix — round things become
+  // * octagonal, never the reverse — and it is emissive, so unlike the painted half of this
+  // * item it will actually read.
+  {
+    const crownCircumR = PODIUM_TOP_R - 0.18;
+    const crownApothem = crownCircumR * COS_HALF;
+    const crownEdge = 2 * crownCircumR * Math.sin(HALF_ANGLE);
+    const crownSegGeo = new THREE.BoxGeometry(crownEdge, 0.18, 0.18);
+    ownedGeometries.push(crownSegGeo);
+    const crown = new THREE.InstancedMesh(crownSegGeo, neonYellowMat, OCT_SIDES);
+    for (let i = 0; i < OCT_SIDES; i += 1) {
+      const mid = i * (Math.PI / 4);
+      _dummy.position.set(Math.cos(mid) * crownApothem, PODIUM_HEIGHT + 0.05, Math.sin(mid) * crownApothem);
+      _dummy.rotation.set(0, -mid + Math.PI / 2, 0);
+      _dummy.scale.set(1, 1, 1);
+      _dummy.updateMatrix();
+      crown.setMatrixAt(i, _dummy.matrix);
+    }
+    crown.instanceMatrix.needsUpdate = true;
+    group.add(crown);
+    neonStripMeshes.push(crown);
+  }
 
   // Podium base guide lights — small emissive blocks at the frustum's base vertices,
   // matching the arena's warm scheme.
