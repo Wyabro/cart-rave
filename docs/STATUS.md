@@ -189,23 +189,7 @@ playtest. Gates: see commit message.
 index blob ≠ HEAD (before dashboard). BRIEF-DIGEST-1: template fingerprint in digest + embed.
 STOP-DIRT-1 BACKLOG row retired (code already session-scoped). All three rows closed.
 
-2026-08-02 (DIAG-FLAKE-2 closed) — Full forensic record in
-[completed-work.md](./planning/completed-work.md) (08-02 entry). Sundial's owed playtest is
-**SUNDIAL-PT-1** in BACKLOG; residual **DIAG-UPLOAD-GEN-1**.
-
-2026-08-02 (process reset — the point of it) — Measured why velocity fell: in one three-hour
-window, 16 of 25 commits were the machine maintaining itself while the art pass waited, and 137
-of 374 commits in a fortnight touched only `docs/`. Three rule changes in AGENTS.md: the
-operating system is **frozen during a game card**, the ack unit moved from **lever to wave**
-(with a mandatory playtest checklist and a mid-wave abort), and `ARCHITECTURE.json` (~30k
-tokens) became a **lookup, not a read** — fixed in `tools/lib/briefing.mjs` too, since the
-generated BRIEFING was the copy that actually reached every session. STATUS.md rebuilt: 293
-lines → this; `hallmark` deleted (106 of 112 tracked `.agents/` files were a web-marketing
-design system).
-
-2026-08-02 (Sundial Waves 1–3 + twelve-card backlog batch) — Waves 1–3 shipped and deployed
-(ten levers + OQ5, frame bloom 55.6% → 18.7%); backlog batch `af12632`..`b8e327b`. Per-card
-detail + four code-disagreed-with-card notes in [completed-work.md](./planning/completed-work.md).
-
-> **Older entries are archived** (incl. 08-01 tooling/skills): [archive/README.md](./archive/README.md).
+> **Older entries are archived** — 08-02 in
+> [status-log-2026-08-02.md](./archive/status-log-2026-08-02.md), earlier windows indexed in
+> [archive/README.md](./archive/README.md).
 > History, not current truth — `git log` and the code are authoritative.
