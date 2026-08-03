@@ -1,10 +1,17 @@
 #!/bin/sh
-# post-commit — refresh the LOCAL Command Center HTML after each commit.
-# briefing + arch are already fresh from pre-commit, so this only rebuilds the
-# gitignored .diag-captures/ surfaces: playtest-console + dashboard (the other
-# two steps of tools/refresh.mjs would be redundant re-runs here).
+# post-commit — HOOK-INDEX cleanup first, then local Command Center HTML.
+# briefing + arch are already fresh from pre-commit; this rebuilds the
+# gitignored .diag-captures/ surfaces: playtest-console + dashboard.
 # Installed via `npm run setup`. Non-fatal by design (it's a reporter).
+# Escape hatch: SKIP_DOCS_HOOK=1 git commit ...
 [ -n "$SKIP_DOCS_HOOK" ] && exit 0
+
+# HOOK-INDEX-1: pathspec commits leave pre-regen blobs on the *real* index while
+# HEAD already holds the regenerated content. Clear when index blob ≠ HEAD blob.
+# Runs before HTML refresh so dashboard failure cannot skip cleanup. Fail-open.
+node tools/git-hooks/clear-stale-generated-index.mjs 2>/dev/null \
+  || echo "[post-commit] HOOK-INDEX cleanup failed (non-fatal)"
+
 node tools/playtest-console.mjs >/dev/null 2>&1 || echo "[post-commit] playtest-console refresh failed (non-fatal)"
 node tools/dashboard.mjs >/dev/null 2>&1 || echo "[post-commit] dashboard refresh failed (non-fatal)"
 exit 0

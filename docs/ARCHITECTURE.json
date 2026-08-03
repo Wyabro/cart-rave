@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-03T06:08:33.690Z",
-    "commit": "c93ebc3"
+    "at": "2026-08-03T06:25:01.851Z",
+    "commit": "c865be4"
   },
-  "source_digest": "3081c8f4",
+  "source_digest": "ddf73dd6",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -921,8 +921,8 @@
         "title": "Engineering",
         "counts": {
           "High": 1,
-          "?": 2,
-          "Medium": 17,
+          "?": 3,
+          "Medium": 16,
           "Low": 6,
           "Partial": 1
         },
@@ -1030,9 +1030,9 @@
             "ship1": null
           },
           {
-            "pri": "Medium",
-            "item": "HOOK-INDEX-1 — a pathspec commit plus the regenerating pre-commit hook leaves a **stale staged reversion** of `docs/ARCHITECTURE.json` in the shared index",
-            "notes": "**Filed 08-02, reproduced twice in one session** (after `18ed9ab` and again after `059577a`), both times caught only because the tree was inspected afterwards. **Mechanism:** `git commit -- <paths>` is the GIT-INDEX-1 lever (a) convention — it builds the commit from the working tree for those paths and ignores the index. But the pre-commit hook regenerates `docs/ARCHITECTURE.json` and `git add`s it into the **real** index while the commit itself is assembled from a temporary one. The regenerated file *does* land in the commit, and what is left staged afterwards is the **pre-regeneration content** — i.e. an index entry that, if committed, silently reverts the manifest to an older digest. Observed exactly: staged `commit: 0145fec` / `source_digest: 0448f86f` against HEAD's `8063b3e` / `d8aded68`. **Why it matters:** the working tree is shared by concurrent sessions, so the next pathspec-less `git commit` from any session ships that reversion under its own name, `arch:check` goes stale for reasons unrelated to that session's work, and the manifest silently stops describing the tree. Nothing warns — `git status` shows a routine `MM`. Same family as **GIT-INDEX-1** and **STOP-DIRT-1** (one tree, one index, many sessions), but the leak comes from a *hook-staged* file rather than a hand-staged one, so GIT-INDEX-1's lever (b) — inspecting what the session staged — would not catch it. **Levers, cheapest first:** (a) have the hook `git reset HEAD -- <regenerated paths>` after staging when a pathspec commit is in progress, or simply not `git add` when `GIT_PREFIX`/pathspec indicates one; (b) have the hook fail loudly instead of silently regenerating, making the human commit the manifest explicitly; (c) one worktree per session, which dissolves this along with both sibling cards. **Workaround until fixed:** after any pathspec commit that touches source or BACKLOG, run `git reset HEAD -- docs/ARCHITECTURE.json` and confirm `git diff --cached --name-only` is empty.",
+            "pri": "✅",
+            "item": "HOOK-INDEX-1 — pathspec commit left stale staged generated docs",
+            "notes": "**CLOSED 08-03** — post-commit runs clear-stale-generated-index.mjs first (before dashboard): if index blob ≠ HEAD blob for docs/BRIEFING.md / docs/ARCHITECTURE.json, git restore --staged. Fail-open; not coupled to HTML refresh. Tests: \tests/hookIndexPostCommit.test.js.",
             "ship1": null
           },
           {
