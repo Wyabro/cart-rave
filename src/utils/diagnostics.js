@@ -90,6 +90,24 @@ let autoCaptureCount = 0;
  */
 let hubGeneration = 0;
 let lastAutoCaptureAtMs = -Infinity;
+/**
+ * Deferred bundle assemblies not yet fired, and uploads still in flight (DIAG-FLAKE-2).
+ *
+ * Auto-capture is fire-and-forget on every axis, which is right for production — evidence
+ * collection must never block the app. But it left nothing able to ask "is that work done
+ * yet?", so the tests drained it by counting macrotask turns. Measured, that guess is wrong:
+ * the first `import("./captureUpload.js")` in a vite-node worker is a real module load costing
+ * 4ms warm and 21-81ms under full-suite load, while eight `setTimeout(0)` turns are ~8-16ms.
+ *
+ * A Set of timer ids rather than one id, because `installDiagnostics` can be re-entered while
+ * a capture is still queued: one slot would lose the older id, and the survivor would clear
+ * the newer one's — the DIAG-FLAKE-1 shape rebuilt one layer down.
+ */
+const pendingCaptureTimers = new Set();
+/** @type {Set<Promise<unknown>>} */
+const inflightUploads = new Set();
+/** Drain poll interval. 10ms per condition-based-waiting.md, which warns off 1ms. */
+const DRAIN_POLL_MS = 10;
 
 /** Cheap monotonic timestamp; falls back to 0 outside a browser (tests). */
 function nowMs() {
@@ -197,7 +215,11 @@ function scheduleAutoCapture(channel, type) {
   lastAutoCaptureAtMs = now;
   autoCaptureCount += 1;
   const scheduledForGeneration = hubGeneration;
-  setTimeout(() => {
+  const timerId = setTimeout(() => {
+    // * Deregister FIRST — before the generation check and before anything that can throw, or
+    // * a fired timer stays in the pending set and __drainAutoCapturesForTest waits out its
+    // * whole timeout on a path that actually succeeded.
+    pendingCaptureTimers.delete(timerId);
     // * The hub this capture was scheduled for is gone (torn down, or torn down and
     // * reinstalled). Dropping it is correct: the bundle would describe a session that no
     // * longer exists, and it would be filed against whoever installed next.
@@ -213,6 +235,7 @@ function scheduleAutoCapture(channel, type) {
       /* never throw from evidence collection */
     }
   }, 0);
+  pendingCaptureTimers.add(timerId);
 }
 
 /**
@@ -241,7 +264,10 @@ function scheduleAutoCapture(channel, type) {
  */
 function uploadAutoCapture(bundle, channel, type) {
   if (typeof fetch !== "function") return;
-  import("./captureUpload.js")
+  // * Build the whole chain and register it BEFORE awaiting anything (DIAG-FLAKE-2). Populate
+  // * the set after the first yield and a drain can observe an empty set while the upload is
+  // * still running — the exact hole the drain exists to close.
+  const chain = import("./captureUpload.js")
     .then(({ uploadCaptureBundle, deriveDefaultLabel }) =>
       uploadCaptureBundle(bundle, {
         // * Prefix so a pulled capture says at a glance that nobody pressed a key for it,
@@ -262,6 +288,52 @@ function uploadAutoCapture(bundle, channel, type) {
     .catch(() => {
       /* never throw from evidence collection */
     });
+  inflightUploads.add(chain);
+  chain.finally(() => inflightUploads.delete(chain));
+}
+
+/**
+ * Test-only: resolve once no auto-capture is pending and no upload is in flight.
+ *
+ * Not wired anywhere in the app; exported so unit tests can wait for the *condition* instead
+ * of guessing at a turn count. `tests/diagnostics.test.js` used to drain with a fixed number
+ * of `setTimeout(0)` turns, which flaked under full-suite load because the dynamic import it
+ * was really waiting on is 5-20x slower than the budget it was given (DIAG-FLAKE-2).
+ *
+ * Bounded on purpose: an unbounded idle-wait would turn one hung `fetch` into a stuck suite,
+ * which is worse than the flake it replaces. The 2s cap sits well inside vitest's 5s default
+ * so the failure names itself instead of arriving as a bare timeout.
+ *
+ * @param {number} [timeoutMs]
+ * @returns {Promise<void>}
+ */
+export async function __drainAutoCapturesForTest(timeoutMs = 2000) {
+  // * Date.now(), not nowMs(): nowMs() degrades to a constant 0 where `performance` is
+  // * missing, which would make the deadline unreachable and hang forever.
+  const deadline = Date.now() + timeoutMs;
+  while (pendingCaptureTimers.size > 0 || inflightUploads.size > 0) {
+    if (Date.now() > deadline) {
+      const stuck = `timers=${pendingCaptureTimers.size}, uploads=${inflightUploads.size}`;
+      // * Give up ON the work, not merely on waiting for it. Leaving a genuinely stuck chain
+      // * registered makes every later drain time out too, turning one failure into a cascade
+      // * — measured: one hung upload took a 25-test file from 0 to 8 failures and 0.5s to
+      // * 115s. Only the tracking is dropped; a chain that does eventually finish still
+      // * deregisters itself, and Set.delete of an absent entry is a no-op.
+      pendingCaptureTimers.clear();
+      inflightUploads.clear();
+      throw new Error(`__drainAutoCapturesForTest: still busy after ${timeoutMs}ms (${stuck})`);
+    }
+    // * Await the real promises when there are any, so the common case costs one upload
+    // * rather than a poll interval. Only poll while a bare timer is outstanding.
+    //
+    // * Both branches race the remaining budget. Awaiting a slow chain outright would sail
+    // * straight past `deadline` — the loop only re-checks between awaits — and the timeout
+    // * would be a lie: a 400ms upload against a 50ms budget resolved instead of throwing.
+    const remaining = Math.max(0, deadline - Date.now());
+    const wake = new Promise((r) => setTimeout(r, Math.min(DRAIN_POLL_MS, remaining)));
+    if (inflightUploads.size > 0) await Promise.race([...inflightUploads, wake]);
+    else await wake;
+  }
 }
 
 /**
@@ -442,6 +514,19 @@ export function __resetDiagnosticsForTest() {
   active = false;
   // * Invalidates any auto-capture already scheduled against the outgoing hub (DIAG-FLAKE-1).
   hubGeneration += 1;
+  // * Second layer under that guard (DIAG-FLAKE-2): cancel the timers rather than only
+  // * neutering them at fire time, so a teardown means teardown.
+  //
+  // * Honest about its coverage: this layer has NO independently observable behaviour. Every
+  // * path converges because the generation guard already drops a fired straggler, so no test
+  // * can null-arm it on its own — it is hygiene, not a proven guarantee. Kept because it is
+  // * three lines and makes the stray timer impossible rather than merely harmless.
+  //
+  // * Deliberately does NOT clear `inflightUploads`: those are live promises that deregister
+  // * themselves, and dropping the handle mid-flight is the very leak the drain exists to
+  // * close.
+  for (const id of pendingCaptureTimers) clearTimeout(id);
+  pendingCaptureTimers.clear();
   seq = 0;
   events.length = 0;
   channelCounts.clear();

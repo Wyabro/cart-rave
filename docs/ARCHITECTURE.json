@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-03T03:46:29.884Z",
-    "commit": "7bbc383"
+    "at": "2026-08-03T03:48:56.537Z",
+    "commit": "4fceb02"
   },
-  "source_digest": "83ba206b",
+  "source_digest": "53737912",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -849,16 +849,10 @@
   "workstreams": {
     "queue": [
       {
-        "id": "DIAG-FLAKE-2",
-        "what": "`tests/diagnostics.test.js` intermittently red under full `qa`, green in isolation",
-        "status": "▶ ACTIVE — second flake in the auto-capture family (`be350b4` closed the stale-timer half). Suspect: fire-and-forget uploads have no completion signal, so the tests drain by counting macrotask turns — a guess that only misses under load. Fix: track pending timer + in-flight uploads, export a real drain, condition-based waiting.",
-        "state": "active"
-      },
-      {
         "id": "ART-PASS-SUNDIAL-1",
         "what": "Sundial art pass — Wave 6 remains",
-        "status": "⏸ PARKED for DIAG-FLAKE-2; resumes at Wave 6. Waves 1–5 shipped and deployed (Version `0d3d812f`). Spec = [handover](./planning/art-pass-sundial-handover.md); one commit per lever, ack per wave. Paint does not read on this deck (plate median 2.6 vs emissive 153) — see item 18's re-scope. Owed playtest = SUNDIAL-PT-1.",
-        "state": "locked"
+        "status": "▶ ACTIVE — Waves 1–5 shipped and deployed (Version `0d3d812f`). Spec = [handover](./planning/art-pass-sundial-handover.md); one commit per lever, ack per wave. Paint does not read on this deck (plate median 2.6 vs emissive 153) — see item 18's re-scope. Owed playtest = SUNDIAL-PT-1.",
+        "state": "active"
       },
       {
         "id": "MAIN-1 / BUNDLE-1",
@@ -883,8 +877,7 @@
       }
     ],
     "next_actions": [
-      "DIAG-FLAKE-2 — reproduce first, then fix. Loop `npm test` until red (unit forks +",
-      "ART-PASS-SUNDIAL-1 — PARKED, Wave 5 CLOSED. Wave 6 (items 26–36) needs its own plan +",
+      "ART-PASS-SUNDIAL-1 — Wave 5 CLOSED, Wave 6 next (items 26–36), needs its own plan +",
       "Playtest owed — BACKLOG `## Playtest owed` (08-01 and 08-02), now including",
       "Wyatt's open calls: none on Sundial — OQ3 resolved in `9a59271`, OQ5 in `93c3deb`,",
       "Parked, needs its own ack: ROUND-WEDGE-1 Phase B (Phase A shipped `d4a7718`);"
@@ -930,7 +923,7 @@
           "High": 1,
           "?": 1,
           "Medium": 17,
-          "Low": 6,
+          "Low": 5,
           "Partial": 1
         },
         "rows": [
@@ -1016,12 +1009,6 @@
             "pri": "Medium",
             "item": "GIT-INDEX-1 — concurrent agent sessions share one git index, so `git commit` ships work the committing session never staged",
             "notes": "**Filed 08-01 after it fired TWICE in one day, in both directions.** (1) An agent's uncommitted `docs/ARCHITECTURE.json` was swept into another session's `64b49d2` (\"chore(claude): enforce three AGENTS.md rules as Claude Code hooks\"), leaving HEAD briefly carrying a manifest that described `CC-COHERE-1` / `CC-TOKEN-1` / `CC-STRIPE-1` while the committed BACKLOG had none of those rows. (2) The reverse: `.agents/skills/brainstorming/SKILL.md` plus 9 lines of `docs/STATUS.md`, staged-but-uncommitted by the other session, rode along inside `35859cc` (CC-COHERE-1) — then got pushed with it. **Mechanism:** one working tree = one `.git/index`. `git add <paths>` is additive and well-behaved, but **`git commit` with no pathspec commits the ENTIRE index**, including whatever another session staged seconds earlier. Careful staging by one session does not protect it from another session's commit. **Why the existing guard misses it:** `.claude/hooks/guard-git-add.mjs` (`64b49d2`) enforces the AGENTS.md \"never `git add -A`\" rule — but **neither incident involved `git add -A`**. Both used correct, narrow `git add <explicit paths>`. The leak is one step later, at `git commit`, which the guard does not inspect. **The damage so far was only attribution — that is luck, not safety.** The real failure mode is a session committing another session's *half-finished* edit: it ships under the committing session's green `qa` run, having never been gated on its own, and the authoring session then sees a clean tree and believes it already landed. **Levers, cheapest first:** (a) make `git commit -- <paths>` the convention — with a pathspec, git commits those paths from the working tree and ignores the rest of the index; (b) extend `guard-git-add.mjs` (or add a sibling) to intercept pathspec-less `git commit` and refuse/warn when the index contains paths this session did not stage — the hook already has the interception point, it just watches the wrong verb; (c) structural fix — one git worktree per session, which gives each its own index. The repo **already uses** `.claude/worktrees/` for some agent work, so this is an existing pattern to extend rather than a new mechanism. Related in character to **HARNESS-NULL-1**: a process that cannot demonstrate it did what it claims.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "DIAG-FLAKE-2 — the auto-capture upload has no completion signal, so the tests drained it by counting macrotask turns",
-            "notes": "**Filed 08-02** — second flake in the family DIAG-FLAKE-1 (`be350b4`) opened, and the residual that card's own row predicted: *\"The upload path has the same shape one layer out: fire-and-forget chains resolve across test boundaries.\"* **Symptom:** exactly one test red inside a full `npm run qa` (`1 failed",
             "ship1": null
           },
           {

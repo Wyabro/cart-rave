@@ -30,12 +30,10 @@ analytics gating are closed. Run 7 closed; NET-2 / NET-MIG-3 passed live; NET-PR
 (loss-on-drop residual accepted). The analytics DO has been reset, so the ring starts clean for
 external testers. Stay in this phase until Wyatt advances the marker.
 
-**DIAG-FLAKE-2 is the active card. ART-PASS-SUNDIAL-1 is parked at the Wave 5/6 seam** — Waves
-1–5 shipped and deployed (Version `0d3d812f`); Wave 6 (items 26–36) needs its own plan + ack,
-and Sundial retakes the slot the moment this closes. The switch follows `be350b4`: a flake that
-red-gates whatever card is in flight earns the slot rather than being fixed in its shadow.
-**Iron Law** — reproduce and name the failing test before any fix, and **do not** lengthen the
-drains.
+**ART-PASS-SUNDIAL-1 is the active card again. Waves 1–5 are shipped and deployed** (Version
+`0d3d812f`); **Wave 6 (items 26–36) is next and needs its own plan + ack.** DIAG-FLAKE-2 closed
+08-02 — the diagnostics flake that red-gated Wave 5 is fixed at the root and verified over 30
+consecutive full runs, 0 red. Residual: **DIAG-UPLOAD-GEN-1** in BACKLOG.
 
 Sundial spec = [handover](./planning/art-pass-sundial-handover.md); read its **"Traps that cost
 time"** before any capture, and judge phase changes against a ~1.2% construction-noise floor,
@@ -79,27 +77,22 @@ Live rows only. Shipped and closed cards live in
 
 | # | What | Status |
 |---|------|--------|
-| **DIAG-FLAKE-2** | `tests/diagnostics.test.js` intermittently red under full `qa`, green in isolation | ▶ **ACTIVE** — second flake in the auto-capture family (`be350b4` closed the stale-timer half). Suspect: fire-and-forget uploads have **no completion signal**, so the tests drain by counting macrotask turns — a guess that only misses under load. Fix: track pending timer + in-flight uploads, export a real drain, condition-based waiting. |
-| ART-PASS-SUNDIAL-1 | Sundial art pass — Wave 6 remains | ⏸ **PARKED** for DIAG-FLAKE-2; resumes at **Wave 6**. Waves 1–5 shipped and deployed (Version `0d3d812f`). Spec = [handover](./planning/art-pass-sundial-handover.md); one commit per lever, ack per wave. **Paint does not read on this deck** (plate median 2.6 vs emissive 153) — see item 18's re-scope. Owed playtest = **SUNDIAL-PT-1**. |
+| **ART-PASS-SUNDIAL-1** | Sundial art pass — Wave 6 remains | ▶ **ACTIVE** — Waves 1–5 shipped and deployed (Version `0d3d812f`). Spec = [handover](./planning/art-pass-sundial-handover.md); one commit per lever, ack per wave. **Paint does not read on this deck** (plate median 2.6 vs emissive 153) — see item 18's re-scope. Owed playtest = **SUNDIAL-PT-1**. |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 
 ### Next actions
 
-1. **DIAG-FLAKE-2 — reproduce first, then fix.** Loop `npm test` until red (unit forks +
-   workerd party-do is the load differentiator); the failing test lands in
-   `.diag-captures/vitest-report.json`. If the dice miss in ~8 runs, force it. Bar for
-   "fixed": null-armed + three consecutive full runs at exit 0, then Sundial retakes the slot.
-2. **ART-PASS-SUNDIAL-1 — PARKED, Wave 5 CLOSED.** Wave 6 (items 26–36) needs its own plan +
+1. **ART-PASS-SUNDIAL-1 — Wave 5 CLOSED, Wave 6 next** (items 26–36), needs its own plan +
    ack. **D-SUNDIAL-OQ6 binds** — every lever ships its Low path in the same commit. Wave 5's
    lesson: **derived geometry numbers were wrong three times**, so measure the scene rather
    than trusting the arithmetic in the comment.
-3. **Playtest owed** — BACKLOG `## Playtest owed` (08-01 and 08-02), now including
+2. **Playtest owed** — BACKLOG `## Playtest owed` (08-01 and 08-02), now including
    **SUNDIAL-PT-1** and **STORE-PT-1**. **UNLOCK-PT-1 needs gates ON** (`?devUnlocks=off` +
    hard refresh) or Vite hides the whole change.
-4. **Wyatt's open calls:** none on Sundial — OQ3 resolved in `9a59271`, OQ5 in `93c3deb`,
+3. **Wyatt's open calls:** none on Sundial — OQ3 resolved in `9a59271`, OQ5 in `93c3deb`,
    OQ6 and OQ8 recorded below.
-5. **Parked, needs its own ack:** ROUND-WEDGE-1 Phase B (Phase A shipped `d4a7718`);
+4. **Parked, needs its own ack:** ROUND-WEDGE-1 Phase B (Phase A shipped `d4a7718`);
    **SPAWN-SUNDIAL-1** — spawn inset shipped, platform-leg colliders did not (file was frozen).
 
 **Open High:** ROUND-WEDGE-1 · UI-SCALE-1 · FIGHT-VERIFY-1 (Wyatt half) · RESULTS-1 ·
@@ -171,12 +164,19 @@ The hot set — what a current session is likely to hit. Deep-domain and narrow 
 
 ## Last updated
 
-2026-08-02 (card switch — DIAG-FLAKE-2 takes the slot) — `tests/diagnostics.test.js` went red
-inside a full `npm run qa` during Sundial Wave 5 (1 failed / 1246 passed), then passed 24/24 in
-isolation and on a repeat full run. Second flake in the auto-capture family: `be350b4` closed
-the stale-timer half; the residual — fire-and-forget uploads crossing test boundaries — was
-already written down in that card's BACKLOG row and at `tests/diagnostics.test.js:273`.
-Sundial's owed playtest moved to BACKLOG as **SUNDIAL-PT-1**.
+2026-08-02 (DIAG-FLAKE-2 closed — the drain was a guess, 5–20× too short) — Took the card slot
+off Sundial, fixed, gave it back. **Reproduced first** (~1-in-10 full runs): `posts an
+auto-captured bundle to the same endpoint F8 uses`, `expected [] to have a length of 1 but got
++0`. **Attributed by measurement against a green control arm**, not by adjacency:
+`import("./captureUpload.js")` took **21ms vs 4ms** on the failing event, while `flush()` was
+eight `setTimeout(0)` turns ≈ 8–16ms; chain-minus-import was 1–2ms every sample, ruling out the
+fetch tail. Fix = a real completion signal (`__drainAutoCapturesForTest`), not a longer drain.
+**Two defects in my own fix were caught by its own new test** — a stuck chain cascaded 0→8
+failures, and `Promise.race` overshot the deadline, making the timeout a lie. **Trap worth
+remembering:** adding `clearTimeout` to the test reset would have made DIAG-FLAKE-1's regression
+test pass with `be350b4`'s guard deleted; it now re-installs without a reset instead. Verified
+30 consecutive full runs, 0 red. Sundial's owed playtest lives in BACKLOG as **SUNDIAL-PT-1**;
+residual as **DIAG-UPLOAD-GEN-1**.
 
 2026-08-02 (process reset — the point of it) — Measured why velocity fell: in one three-hour
 window, 16 of 25 commits were the machine maintaining itself while the art pass waited, and 137

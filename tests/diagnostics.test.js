@@ -10,6 +10,7 @@ import {
   isDiagActive,
   diagUrlFlags,
   __resetDiagnosticsForTest,
+  __drainAutoCapturesForTest,
 } from "../src/utils/diagnostics.js";
 
 // * Auto-capture now POSTs to /api/captures (ROUND-WEDGE-1). happy-dom ships a real fetch,
@@ -22,7 +23,12 @@ beforeEach(() => {
   __resetDiagnosticsForTest();
 });
 
-afterEach(() => {
+// * Drain BEFORE restoring fetch, not after (DIAG-FLAKE-2). A chain still in flight here would
+// * otherwise call the real happy-dom fetch, open a socket to a dev server that is not
+// * listening, and stall the drain until its timeout. Draining while the stub is still
+// * installed means no auto-capture work ever crosses a test boundary.
+afterEach(async () => {
+  await __drainAutoCapturesForTest();
   globalThis.fetch = realFetch;
 });
 
@@ -85,7 +91,7 @@ describe("diagnostics — active (?diag)", () => {
     // * Flooding the `assert` channel also SCHEDULES an auto-capture (setTimeout 0). Left
     // * pending, it fires during the next test — after beforeEach has reinstalled the hub —
     // * and pollutes that test's captures(). Drain inside our own test instead.
-    const settleCaptures = () => new Promise((r) => setTimeout(r, 0));
+    const settleCaptures = () => __drainAutoCapturesForTest();
 
     it("keeps quiet channels alive while one channel floods the ring", async () => {
       recordDiagEvent("boot", "start", { marker: "boot" });
@@ -195,7 +201,7 @@ describe("diagnostics — active (?diag)", () => {
   });
 
   describe("auto-capture (error/assert events)", () => {
-    const settle = () => new Promise((r) => setTimeout(r, 0));
+    const settle = () => __drainAutoCapturesForTest();
 
     it("assembles one bundle a tick after an error event lands", async () => {
       registerDiagProbe("round", () => ({ phase: "running" }));
@@ -226,17 +232,38 @@ describe("diagnostics — active (?diag)", () => {
       expect(window.__ccDiag.captures()[0].events.filter((e) => e.ch === "error")).toHaveLength(10);
     });
 
-    it("drops a capture scheduled against a hub that was torn down (DIAG-FLAKE-1)", async () => {
-      // * The deferred callback reads apiRef at FIRE time, so before this guard a capture
-      // * scheduled by one hub landed in the NEXT hub's captures() after a teardown +
-      // * reinstall — which is how tests/diagnostics.test.js went intermittently red inside
-      // * a full qa run while passing in isolation. Same hole in production for any harness
-      // * re-entry that reinstalls the hub.
-      recordDiagEvent("error", "pre-teardown", { message: "boom" });
-      __resetDiagnosticsForTest();
+    it("drops a capture scheduled against a hub that was reinstalled (DIAG-FLAKE-1)", async () => {
+      // * The deferred callback reads apiRef at FIRE time, so before the hubGeneration guard a
+      // * capture scheduled by one hub landed in the NEXT hub's captures() after a re-install
+      // * — which is how this file went intermittently red inside a full qa run while passing
+      // * in isolation.
+      //
+      // * Deliberately re-installs WITHOUT __resetDiagnosticsForTest in between (DIAG-FLAKE-2).
+      // * Reset now clearTimeout()s pending timers as a second layer, so routing this test
+      // * through it would mean the timer never fires, the generation guard never runs, and
+      // * this test would pass with that guard deleted — null-arming be350b4's own coverage.
+      // * Re-install alone bumps the generation and leaves the timer queued, which is both the
+      // * real production path (prod never calls the test-only reset) and the one that
+      // * actually exercises the guard.
+      recordDiagEvent("error", "pre-reinstall", { message: "boom" });
       installDiagnostics({ flags: { enabled: true } });
-      await settle();
+      await __drainAutoCapturesForTest();
       expect(window.__ccDiag.captures()).toHaveLength(0);
+    });
+
+    it("bounds the drain rather than hanging on a stuck upload (DIAG-FLAKE-2)", async () => {
+      // * The drain replaces a guessed turn count with a real wait, and an unbounded real wait
+      // * would turn one hung fetch into a stuck suite — worse than the flake it replaces. So
+      // * it gives up and names what it was still waiting on.
+      // * 400ms against a 50ms budget — deterministically slower, and it still finishes on its
+      // * own so nothing is left dangling past the test.
+      globalThis.fetch = () =>
+        new Promise((r) => setTimeout(() => r({ ok: true, json: async () => ({ ok: true }) }), 400));
+      recordDiagEvent("error", "stuck", { message: "boom" });
+      await expect(__drainAutoCapturesForTest(50)).rejects.toThrow(/still busy after 50ms/);
+      // * And the give-up must be total: a stuck chain that stayed registered would time out
+      // * every later drain too. This second call proves the cascade is cut.
+      await expect(__drainAutoCapturesForTest(50)).resolves.toBeUndefined();
     });
 
     it("never captures when the hub is inactive", async () => {
@@ -251,22 +278,27 @@ describe("diagnostics — active (?diag)", () => {
   // * automatically were stranded in memory and lost with the tab, so the one session that
   // * reproduced the podium⇄running storm produced the least usable evidence.
   describe("auto-capture upload", () => {
-    /** The upload runs behind a dynamic import + two .then hops — drain several turns. */
-    const flush = async () => {
-      for (let i = 0; i < 8; i += 1) await new Promise((r) => setTimeout(r, 0));
-    };
+    /**
+     * Wait for the upload to actually finish, rather than for a guess about how long it takes.
+     *
+     * This used to be eight `setTimeout(0)` turns, and that is the whole of DIAG-FLAKE-2: the
+     * chain hangs off `import("./captureUpload.js")`, whose cost is a vite-node module load —
+     * measured at 4ms warm but 21-81ms under full-suite load, against ~8-16ms for eight turns.
+     * So the first upload assertion in this describe went red roughly 1 run in 10, and only
+     * ever under load. Everything after the import is a microtask, which is why the tail never
+     * mattered: chain-minus-import was 1-2ms in every sample.
+     */
+    const flush = () => __drainAutoCapturesForTest();
     /** @type {Array<{url: string, envelope: any}>} */
     let posts = [];
 
-    beforeEach(async () => {
+    beforeEach(() => {
       globalThis.fetch = async (url, init) => {
         posts.push({ url: String(url), envelope: JSON.parse(String(init?.body ?? "{}")) });
         return { ok: true, json: async () => ({ ok: true, id: 217 }) };
       };
-      // * Uploads are deliberately fire-and-forget, so a chain started by an earlier test
-      // * can still be mid-flight when this one begins and would land in our recording.
-      // * Drain first, THEN clear — order matters.
-      await flush();
+      // * No pre-drain needed any more: the top-level afterEach drains while the previous
+      // * test's stub is still installed, so nothing can be mid-flight by the time we get here.
       posts = [];
     });
 

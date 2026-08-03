@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-03 at commit `e54c0cd` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `0ff92e39`
+> Generated 2026-08-03 at commit `4fceb02` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `f14f556d`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -18,8 +18,8 @@ Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep a
 
 ## ACTIVE CARD
 
-DIAG-FLAKE-2 — `tests/diagnostics.test.js` intermittently red under full `qa`, green in isolation
-Pass looks like: ▶ ACTIVE — second flake in the auto-capture family (`be350b4` closed the stale-timer half). Suspect: fire-and-forget uploads have no completion signal, so the tests drain by counting macrotask turns — a guess that only misses under load. Fix: track pending timer + in-flight uploads, export a real drain, condition-based waiting.
+ART-PASS-SUNDIAL-1 — Sundial art pass — Wave 6 remains
+Pass looks like: ▶ ACTIVE — Waves 1–5 shipped and deployed (Version `0d3d812f`). Spec = [handover](./planning/art-pass-sundial-handover.md); one commit per lever, ack per wave. Paint does not read on this deck (plate median 2.6 vs emissive 153) — see item 18's re-scope. Owed playtest = SUNDIAL-PT-1.
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 
