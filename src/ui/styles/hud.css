@@ -121,6 +121,21 @@
   text-shadow: 0.07em 0.07em 0 var(--color-ink-deep);
   margin-bottom: -0.15em;
 }
+
+/* CAM-READY-1: pulse the kicker alone during the solo 2s flyover hold. */
+#hud .hud-status .hud-status-kicker--pulse {
+  animation: hud-ready-pulse 0.9s ease-in-out infinite;
+}
+@keyframes hud-ready-pulse {
+  0%, 100% { opacity: 0.55; filter: brightness(1); }
+  50% { opacity: 1; filter: brightness(1.15); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #hud .hud-status .hud-status-kicker--pulse {
+    animation: none;
+    opacity: 1;
+  }
+}
 #hud .hud-status .hud-status-num {
   display: block;
   text-align: center;

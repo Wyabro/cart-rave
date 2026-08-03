@@ -521,6 +521,38 @@ function stampBannerOnce(key) {
 }
 
 /**
+ * CAM-READY-1: stamp GET READY (kicker only) during the solo 2s flyover hold so
+ * the pre-roll is not dead air. Hands off to countdown digits via a different
+ * banner key (`count-n`) — no double-stamp mess.
+ * @returns {void}
+ */
+export function showReadyHold() {
+  if (!elements.status) return;
+  setHudDisplay(elements.status, "block", "status");
+  elements.status.style.color = "var(--color-magenta)";
+  elements.status.textContent = "";
+  const kicker = document.createElement("span");
+  kicker.className = "hud-status-kicker hud-status-kicker--pulse";
+  kicker.textContent = "GET READY";
+  elements.status.append(kicker);
+  stampBannerOnce("ready-hold");
+}
+
+/**
+ * Clear the ready-hold banner if still showing (quit mid-hold / cancel / restart).
+ * No-op when countdown digits or another banner already replaced it.
+ * @returns {void}
+ */
+export function clearReadyHold() {
+  if (_lastBannerKey !== "ready-hold") return;
+  if (elements.status) {
+    elements.status.textContent = "";
+    setHudDisplay(elements.status, "none", "status");
+  }
+  _lastBannerKey = null;
+}
+
+/**
  * Fires the round-start GO! beat: 500ms banner flash + "go" VO + main's FOV
  * punch/whoosh. Normally driven by the countdown→running phase flip below, but a
  * non-host that applies game_start after the server start time has already passed
