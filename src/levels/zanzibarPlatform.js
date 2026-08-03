@@ -27,6 +27,11 @@
 
 import * as THREE from "three";
 import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js";
+// * SAMPLE ONLY. This module reads intensityMul and koT and never writes back, and it
+// * deliberately never reads `accentColor` — that is the cycling hue driving arena.js's
+// * spindle and effects.js's crowd glow, and Sundial's whole palette is a fixed amber dusk.
+// * arena.js:2753 copies accentColor onto its spindle; that is the line NOT to copy here.
+import { sampleArenaReactive } from "../arenaReactiveLights.js";
 import { CONFIG } from "../config.js";
 import { createStaticContactShadowCluster } from "../contactShadows.js";
 import { setWaterDeathEnvironment } from "../effects/waterDeathFx.js";
@@ -97,9 +102,24 @@ const GNOMON_FLATTEN = 0.1; // × across the sun line
 const BEAM_BASE_R = 0.75; // meters — aperture radius on the crown
 const BEAM_TOP_R = 2.7; // meters — stops just inside the dial plate's 2.9 m
 const BEAM_TOP_Y = 4.1; // meters — the dial plate's resting height (holoGroup 4.25 − 0.15)
+// * Both of these are the AUTHORED opacity and both are also stashed in the material's
+// * userData at build time, because update() overwrites opacity every frame. This file has
+// * already paid for that mistake once: the god-ray shafts shipped at ~47% of their authored
+// * value for months because a constructor was raised and the animator kept writing the old
+// * number. One value, one home, read back through userData.
+const BEAM_OPACITY = 0.13;
+const HOLO_SCAN_OPACITY = 0.34;
 // * Baseline lateral slip of the whole projection. Item 24 scales this with koT; on its own
 // * it is the idle instability that stops the holo reading as a solid object bolted to the air.
 const HOLO_JITTER_BASE = 0.012; // meters
+// * KO shudder. koT drives instability AMPLITUDE only — never a second brightness term, since
+// * intensityMul already carries the flash.
+// * Note koT, NOT koStrength, is what scales this: koStrength only feeds intensityMul, while
+// * koT ramps to ~1 over the flash regardless. So the per-axis slip coefficient goes 1.2 cm →
+// * 1.2 × 13 ≈ 15.6 cm at the peak. Measured peak displacement during a real 320 ms flash was
+// * 11.5 cm, since the two sine products rarely peak together. A clear shudder, still a
+// * projection rather than an explosion.
+const HOLO_KO_JITTER_MUL = 12;
 
 const BOLT_PITCH_M = 2.4; // meters between deck bolts along a seam — fixed pitch, not count
 const PODIUM_PANEL_TILE_M = 1.5; // meters of real steel per panelTex tile on the podium crown
@@ -3073,7 +3093,8 @@ function buildDeck(scene, world, config, circumR) {
     // * projector: it should ride the bob, not stay welded to the deck.
     const scanGeo = new THREE.CircleGeometry(2.5, 32);
     ownedGeometries.push(scanGeo);
-    holoScanMat = holoAdd(0xfff0c8, 0.28);
+    holoScanMat = holoAdd(0xfff0c8, HOLO_SCAN_OPACITY);
+    holoScanMat.userData.baseOpacity = HOLO_SCAN_OPACITY;
     holoScan = new THREE.Mesh(scanGeo, holoScanMat);
     holoScan.rotation.x = -Math.PI / 2;
     holoScan.userData.holoPart = "holoScan";
@@ -3099,13 +3120,14 @@ function buildDeck(scene, world, config, circumR) {
       color: 0xffb968,
       map: beamTex,
       transparent: true,
-      opacity: 0.13,
+      opacity: BEAM_OPACITY,
       side: THREE.DoubleSide,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
       toneMapped: false,
       fog: false,
     });
+    holoBeamMat.userData.baseOpacity = BEAM_OPACITY;
     ownedMaterials.push(holoBeamMat);
     const beamH = BEAM_TOP_Y - GNOMON_BASE_Y;
     const beamGeo = new THREE.CylinderGeometry(BEAM_TOP_R, BEAM_BASE_R, beamH, 32, 1, true);
@@ -3331,13 +3353,25 @@ function buildDeck(scene, world, config, circumR) {
   function update(timeMs) {
     if (holoGroup) {
       const t = timeMs * 0.001;
+      // * KO reactivity, sampled every frame. This block has no throttle and none should be
+      // * invented for it — SUN_STEP_MS throttles the seascape, not this. Two channels are
+      // * taken and a third is refused:
+      // *   intensityMul → brightness. It is ALREADY 1 + koStrength·koT·1.35, so it is
+      // *     MULTIPLIED into the existing sine breathe. Adding a separate f(koT) brightness
+      // *     term on top would apply the same flash twice.
+      // *   koT → instability amplitude ONLY (slip, scan strength). Never brightness.
+      // *   accentColor → NOT READ. See the note on the import.
+      const reactive = sampleArenaReactive(timeMs);
+      const koMul = reactive.intensityMul;
+      const koT = reactive.koT;
       holoGroup.position.y = PODIUM_HEIGHT + HOLO_HOVER_Y + Math.sin(t * 1.15) * 0.16;
       // * Instability. A projection that never slips reads as a solid object hung in the
       // * air. Products of two mismatched sines give an unpredictable few-millimetre slip
-      // * with no period a player can lock onto. Item 24 scales this with koT; this is the
-      // * idle floor, and it is what the KO flare will have to be louder than.
-      holoGroup.position.x = Math.sin(t * 37.0) * Math.sin(t * 11.3) * HOLO_JITTER_BASE;
-      holoGroup.position.z = Math.sin(t * 29.0) * Math.sin(t * 7.7) * HOLO_JITTER_BASE;
+      // * with no period a player can lock onto — and a KO shoves that amplitude up, so the
+      // * hologram shudders on the hit rather than merely getting brighter.
+      const slip = HOLO_JITTER_BASE * (1 + koT * HOLO_KO_JITTER_MUL);
+      holoGroup.position.x = Math.sin(t * 37.0) * Math.sin(t * 11.3) * slip;
+      holoGroup.position.z = Math.sin(t * 29.0) * Math.sin(t * 7.7) * slip;
       // Counter-rotating layers sell depth and "live instrument" energy.
       if (holoRing) holoRing.rotation.z = t * 0.55;
       if (holoRingOuter) holoRingOuter.rotation.z = -t * 0.38;
@@ -3354,7 +3388,11 @@ function buildDeck(scene, world, config, circumR) {
         // * bug, not as a refresh.
         const scanT = (t / 3.1) % 1;
         holoScan.position.y = -0.95 + scanT * 2.1;
-        if (holoScanMat) holoScanMat.opacity = 0.34 * (1 - Math.abs(scanT - 0.5) * 2);
+        if (holoScanMat) {
+          const scanBase = holoScanMat.userData.baseOpacity ?? HOLO_SCAN_OPACITY;
+          // * koT thickens the scan the same way it widens the slip — amplitude, not glow.
+          holoScanMat.opacity = scanBase * (1 - Math.abs(scanT - 0.5) * 2) * (1 + koT * 1.6);
+        }
       }
       if (holoCore) {
         holoCore.rotation.y = t * 0.9;
@@ -3362,10 +3400,18 @@ function buildDeck(scene, world, config, circumR) {
         holoCore.scale.setScalar(0.92 + 0.1 * Math.sin(t * 2.4));
       }
       // Opacity breathe — hot core, readable bands, soft rings.
-      if (holoBandMat) holoBandMat.opacity = 0.68 + 0.14 * Math.sin(t * 1.7);
-      if (holoBandInnerMat) holoBandInnerMat.opacity = 0.4 + 0.12 * Math.sin(t * 2.1 + 1.0);
-      if (holoCoreMat) holoCoreMat.opacity = 0.75 + 0.18 * Math.sin(t * 2.6);
-      if (holoDialMat) holoDialMat.opacity = 0.62 + 0.12 * Math.sin(t * 1.1);
+      // * Each is the existing sine baseline × koMul. The sine is what animates outside a KO
+      // * and stays the author of the look; koMul only lifts the whole curve during one.
+      if (holoBandMat) holoBandMat.opacity = (0.68 + 0.14 * Math.sin(t * 1.7)) * koMul;
+      if (holoBandInnerMat) holoBandInnerMat.opacity = (0.4 + 0.12 * Math.sin(t * 2.1 + 1.0)) * koMul;
+      if (holoCoreMat) holoCoreMat.opacity = (0.75 + 0.18 * Math.sin(t * 2.6)) * koMul;
+      if (holoDialMat) holoDialMat.opacity = (0.62 + 0.12 * Math.sin(t * 1.1)) * koMul;
+      if (holoBeamMat) {
+        // * The projector flares with its projection, or the beam visibly detaches from the
+        // * hologram at exactly the moment a player is looking at it.
+        const beamBase = holoBeamMat.userData.baseOpacity ?? BEAM_OPACITY;
+        holoBeamMat.opacity = beamBase * koMul;
+      }
       // Scroll glyph UV for living data stream.
       // * No `needsUpdate` here, deliberately. `offset` reaches the shader through the
       // * texture's own matrix (matrixAutoUpdate) as the `uvTransform` uniform — the
