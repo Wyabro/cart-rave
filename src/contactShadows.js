@@ -362,7 +362,16 @@ export function updateCartContactShadow(shadowMesh, pose) {
   // * Run-6 ruling: no directional bias — the blob sits dead-center under the cart on
   // * every arena (the Zanzibar sun offset read as "detached" in playtests).
   shadowMesh.position.set(pose.x, floorY, pose.z);
-  shadowMesh.rotation.y = pose.yaw;
+  // * rotation.z, NOT rotation.y (SHADOW-TILT-1, fixed 08-02). createBlobMesh builds the quad
+  // * with rotation.x = -PI/2, and under three's default XYZ Euler order a rotation.y on top
+  // * of that does not spin the blob in the floor plane — it TILTS it out of the floor. The
+  // * composed surface normal is (sin yaw, cos yaw, 0), so the blob thinned as a cart turned
+  // * and went exactly edge-on, invisible, at yaw +/-90 deg. rotation.z composes after the X
+  // * rotation and spins the quad about its own normal, which leaves the normal at (0,1,0).
+  // * The footprint is a true circle (footprintRadiusX === footprintRadiusZ), so the visible
+  // * effect of this line is only that the blob stops tilting — it adds no directional bias,
+  // * no ellipse and no height shrink, and does not reopen the Run-6 ruling above.
+  shadowMesh.rotation.z = pose.yaw;
   shadowMesh.scale.set(rx, rz, 1);
   // @ts-expect-error THREE duck-typing suppress
   shadowMesh.material.opacity = cart.opacity * fade * solidFrac;
