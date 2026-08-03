@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-03T01:01:49.389Z",
-    "commit": "8dea5bb"
+    "at": "2026-08-03T01:05:11.709Z",
+    "commit": "9477ea5"
   },
-  "source_digest": "86ab2ebc",
+  "source_digest": "555e0e93",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -921,8 +921,8 @@
         "title": "Engineering",
         "counts": {
           "High": 2,
-          "Medium": 7,
-          "Low": 3,
+          "Medium": 16,
+          "Low": 4,
           "Partial": 1
         },
         "rows": [
@@ -1002,6 +1002,66 @@
             "pri": "Medium",
             "item": "GIT-INDEX-1 — concurrent agent sessions share one git index, so `git commit` ships work the committing session never staged",
             "notes": "**Filed 08-01 after it fired TWICE in one day, in both directions.** (1) An agent's uncommitted `docs/ARCHITECTURE.json` was swept into another session's `64b49d2` (\"chore(claude): enforce three AGENTS.md rules as Claude Code hooks\"), leaving HEAD briefly carrying a manifest that described `CC-COHERE-1` / `CC-TOKEN-1` / `CC-STRIPE-1` while the committed BACKLOG had none of those rows. (2) The reverse: `.agents/skills/brainstorming/SKILL.md` plus 9 lines of `docs/STATUS.md`, staged-but-uncommitted by the other session, rode along inside `35859cc` (CC-COHERE-1) — then got pushed with it. **Mechanism:** one working tree = one `.git/index`. `git add <paths>` is additive and well-behaved, but **`git commit` with no pathspec commits the ENTIRE index**, including whatever another session staged seconds earlier. Careful staging by one session does not protect it from another session's commit. **Why the existing guard misses it:** `.claude/hooks/guard-git-add.mjs` (`64b49d2`) enforces the AGENTS.md \"never `git add -A`\" rule — but **neither incident involved `git add -A`**. Both used correct, narrow `git add <explicit paths>`. The leak is one step later, at `git commit`, which the guard does not inspect. **The damage so far was only attribution — that is luck, not safety.** The real failure mode is a session committing another session's *half-finished* edit: it ships under the committing session's green `qa` run, having never been gated on its own, and the authoring session then sees a clean tree and believes it already landed. **Levers, cheapest first:** (a) make `git commit -- <paths>` the convention — with a pathspec, git commits those paths from the working tree and ignores the rest of the index; (b) extend `guard-git-add.mjs` (or add a sibling) to intercept pathspec-less `git commit` and refuse/warn when the index contains paths this session did not stage — the hook already has the interception point, it just watches the wrong verb; (c) structural fix — one git worktree per session, which gives each its own index. The repo **already uses** `.claude/worktrees/` for some agent work, so this is an existing pattern to extend rather than a new mechanism. Related in character to **HARNESS-NULL-1**: a process that cannot demonstrate it did what it claims.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "HOOK-INDEX-1 — a pathspec commit plus the regenerating pre-commit hook leaves a **stale staged reversion** of `docs/ARCHITECTURE.json` in the shared index",
+            "notes": "**Filed 08-02, reproduced twice in one session** (after `18ed9ab` and again after `059577a`), both times caught only because the tree was inspected afterwards. **Mechanism:** `git commit -- <paths>` is the GIT-INDEX-1 lever (a) convention — it builds the commit from the working tree for those paths and ignores the index. But the pre-commit hook regenerates `docs/ARCHITECTURE.json` and `git add`s it into the **real** index while the commit itself is assembled from a temporary one. The regenerated file *does* land in the commit, and what is left staged afterwards is the **pre-regeneration content** — i.e. an index entry that, if committed, silently reverts the manifest to an older digest. Observed exactly: staged `commit: 0145fec` / `source_digest: 0448f86f` against HEAD's `8063b3e` / `d8aded68`. **Why it matters:** the working tree is shared by concurrent sessions, so the next pathspec-less `git commit` from any session ships that reversion under its own name, `arch:check` goes stale for reasons unrelated to that session's work, and the manifest silently stops describing the tree. Nothing warns — `git status` shows a routine `MM`. Same family as **GIT-INDEX-1** and **STOP-DIRT-1** (one tree, one index, many sessions), but the leak comes from a *hook-staged* file rather than a hand-staged one, so GIT-INDEX-1's lever (b) — inspecting what the session staged — would not catch it. **Levers, cheapest first:** (a) have the hook `git reset HEAD -- <regenerated paths>` after staging when a pathspec commit is in progress, or simply not `git add` when `GIT_PREFIX`/pathspec indicates one; (b) have the hook fail loudly instead of silently regenerating, making the human commit the manifest explicitly; (c) one worktree per session, which dissolves this along with both sibling cards. **Workaround until fixed:** after any pathspec commit that touches source or BACKLOG, run `git reset HEAD -- docs/ARCHITECTURE.json` and confirm `git diff --cached --name-only` is empty.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "STOP-DIRT-1 — the Stop guard blocks on repo-wide dirt, so another session's in-flight file blocks *this* session's correct claim",
+            "notes": "**Filed 08-01, reproduced live within minutes of the guard shipping in `74cd768`** — and the reproduction was the guard blocking a claim that was true. **Evidence:** after pushing `74cd768`, `git ls-remote` and `git rev-parse HEAD` both read `74cd768dfb1af004af9ce078e276660d195a172d`, and all three new files were present in `git ls-tree origin/cart-clash`; the claim was checked against the remote, not asserted. `guard-stop-drift.mjs` blocked it anyway, on `1 modified tracked file(s)` — `docs/planning/BACKLOG.md`, holding **another session's** uncommitted AUTOQ-GHOST-1 card, which this session never staged and never touched. **Mechanism:** `checkHeadDrift` (`tools/verify-head.mjs`) returns `trackedDirty` from a repo-wide `git status --porcelain --untracked-files=no`, and the hook blocks on `ahead > 0",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "HARNESS-NULL-1 — no measurement rig has a null-control arm",
+            "notes": "Process/tooling, not behavior. Every A/B number this repo produces is currently unfalsifiable: no rig can demonstrate it reports ~0 when nothing changed, so warm-up order, run ordering and accumulated state are indistinguishable from a real effect. We have already been burned — run-4's \"GC metronome\" attribution was wrong. The pattern: add a `--null` mode that runs **both** arms with the variable disabled, making the two runs byte-for-byte the same experiment; the measured delta must then be ~0, and anything else means the rig is biased and every number it prints in normal mode is contaminated rather than caused. Candidates in rough order of value: `perf-profile.mjs`, `battery.mjs` timing steps, `gameharness.mjs --scenario soak`. Prerequisite for trusting PROBE-WARM-RT-1's program-count deltas and for any future unattended tuning loop (an overnight loop compounds instrument error across every run). Source: `ryancampbell/kart-royale` `tools/drift-bench.mjs --null`; loop framing from `karpathy/autoresearch` `program.md`.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "PROBE-WARM-RT-1 — VFX program anchors may be holding the wrong program key",
+            "notes": "Instrument-first; **no behavior claim until measured**. `outputColorSpace` and `toneMapping` are both pushed into three's program cache key (`getProgramCacheKeyParameters`) and both switch on `renderer.getRenderTarget() === null` — `outputColorSpace` unconditionally, not just for `toneMapped` materials. `compileAsync` (`main.js:2664`) binds no RT, so the anchors compile the **default-framebuffer** variant; the `composer.render()` prime (`:2679`) builds correct RT-variant keys only for what it actually *draws*, and the anchors are `visible=false` at `y=-500` (`koHitmarkerFx.js:259`, `cartShatter.js:1062` — both comments say \"render skips them\"). If that holds, the anchors' stated job (next KO is a cache hit) is defeated and the first shatter/KO/water/ram spawn links synchronously mid-round. **Measure first:** `renderer.info.programs.length` across the first KO. Fix only if it climbs — bind any non-XR RT around the anchor compile (1×1 scratch is enough; only `=== null` is tested). Making the anchors visible does *not* work: they are off-camera and cull. Pairs with WARM-SOLO-1 — same symptom class, different mechanism (that one is new content added after the warm; this one is the right content under the wrong key). Source: `ryancampbell/kart-royale` `src/core/Prewarm.ts`.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "NET-RING-1 — decode-ring reject counters (review C-03)",
+            "notes": "Instrument-first. Rejects (dup/ooo seq etc.) burn ring slots AFTER decode; `netStateBuffer` retains ring-owned cart arrays by reference (`netcode.js:1422→1434`); true margin = 96−rejects, not 32, and only bites when consumption stalls. Count rejects-since-oldest-buffered; the copy-into-pooled-record fix only if counters show real traffic.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "PERF-WATCH-1 — auto-quality step-up path",
+            "notes": "Watchdog demotion is irreversible per session (no step-up anywhere; DEV-only warn; 2 tier steps + 2 renderScale steps; attract render-cost and game frame-delta both judged against one 20.5ms bar). Decide after WARM-IGPU-1 P0b telemetry shows how often it bites.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "PERF-TIER-1 — `high-lite` tier rung",
+            "notes": "`DISCRETE_GPU_RE` puts a 1660 Ti in the same discrete→High bucket as a 4090; High→Medium cuts 4 knobs at once (DPR 2→1.25, reflector off, crowd, lasers). Blocked on HYGIENE-1's `--dpr` profiling — tier table may be tuned against an inverted ranking (512px reflector is DPR-invariant; full-screen cost ×4 at DPR 2).",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "`structuredClone` → flat serializer in `party/index.ts`",
+            "notes": "Only after profiling shows it matters.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "Persistent leaderboard / player stats `[SHIP-1 D2]`",
+            "notes": "Needs TRUST-1.",
+            "ship1": "D2"
+          },
+          {
+            "pri": "Low",
+            "item": "Quickplay rotation live 2-browser check",
+            "notes": "Reconfirm after **QP-ORDER-1** (sequential rotation). Live multi-client smoke only.",
             "ship1": null
           }
         ]

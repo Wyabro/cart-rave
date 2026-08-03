@@ -81,6 +81,14 @@ let apiRef = null;
 /** @type {Array<Record<string, unknown>>} */
 const autoCaptures = [];
 let autoCaptureCount = 0;
+/**
+ * Bumped on every install and teardown (DIAG-FLAKE-1). Auto-capture assembles a tick late, and
+ * the deferred callback reads `apiRef` at FIRE time — so a capture scheduled against one hub
+ * could land against the next one, after a teardown+reinstall. Harmless-looking, but it writes
+ * a bundle into a session that never asked for it (and made the test suite intermittently red).
+ * The scheduler captures this value and no-ops if it moved.
+ */
+let hubGeneration = 0;
 let lastAutoCaptureAtMs = -Infinity;
 
 /** Cheap monotonic timestamp; falls back to 0 outside a browser (tests). */
@@ -188,7 +196,12 @@ function scheduleAutoCapture(channel, type) {
   if (now - lastAutoCaptureAtMs < AUTO_CAPTURE_DEBOUNCE_MS) return;
   lastAutoCaptureAtMs = now;
   autoCaptureCount += 1;
+  const scheduledForGeneration = hubGeneration;
   setTimeout(() => {
+    // * The hub this capture was scheduled for is gone (torn down, or torn down and
+    // * reinstalled). Dropping it is correct: the bundle would describe a session that no
+    // * longer exists, and it would be filed against whoever installed next.
+    if (scheduledForGeneration !== hubGeneration) return;
     try {
       const bundle = apiRef.captureBundle({ scenario: "auto", reason: `${channel}/${type}` });
       autoCaptures.push(bundle);
@@ -284,6 +297,7 @@ export function registerDiagProbe(ns, snapshotFn) {
  */
 export function installDiagnostics(opts = {}) {
   active = true;
+  hubGeneration += 1;
   if (typeof window !== "undefined") {
     /** @type {any} */ (window).__ccDiagActive = true;
   }
@@ -426,6 +440,8 @@ export function diagUrlFlags(search) {
  */
 export function __resetDiagnosticsForTest() {
   active = false;
+  // * Invalidates any auto-capture already scheduled against the outgoing hub (DIAG-FLAKE-1).
+  hubGeneration += 1;
   seq = 0;
   events.length = 0;
   channelCounts.clear();

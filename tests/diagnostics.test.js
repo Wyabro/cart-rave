@@ -226,6 +226,19 @@ describe("diagnostics — active (?diag)", () => {
       expect(window.__ccDiag.captures()[0].events.filter((e) => e.ch === "error")).toHaveLength(10);
     });
 
+    it("drops a capture scheduled against a hub that was torn down (DIAG-FLAKE-1)", async () => {
+      // * The deferred callback reads apiRef at FIRE time, so before this guard a capture
+      // * scheduled by one hub landed in the NEXT hub's captures() after a teardown +
+      // * reinstall — which is how tests/diagnostics.test.js went intermittently red inside
+      // * a full qa run while passing in isolation. Same hole in production for any harness
+      // * re-entry that reinstalls the hub.
+      recordDiagEvent("error", "pre-teardown", { message: "boom" });
+      __resetDiagnosticsForTest();
+      installDiagnostics({ flags: { enabled: true } });
+      await settle();
+      expect(window.__ccDiag.captures()).toHaveLength(0);
+    });
+
     it("never captures when the hub is inactive", async () => {
       __resetDiagnosticsForTest();
       recordDiagEvent("error", "fatal", { message: "boom" });
