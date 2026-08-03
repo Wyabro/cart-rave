@@ -588,6 +588,16 @@ export const CONFIG = {
         density: 0.00355,
       },
     },
+
+    // * Per-arena sun azimuth, radians. Lives here rather than in the level module because
+    // * main.js needs it for the ambient-dust sun lobe and must not import a lazily-chunked
+    // * level to get it (that would defeat prefetchLevelChunks). The level reads this back,
+    // * so there is exactly one copy of the number — same single-source pattern as
+    // * record.radiusByLevel and booth.gapDistanceByLevel.
+    // * Arenas absent from this map have no directional sun and get uniform dust.
+    sunAzimuthByLevel: {
+      zanzibar: Math.PI * 0.78, // between two booth lanes, never behind a booth
+    },
   },
 
   // * Blob contact shadows — see contactShadows.js (no renderer.shadowMap; cheap quads).

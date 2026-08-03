@@ -2488,6 +2488,10 @@ async function main() {
       Effects.setAmbientDustStyle(
         resolved === "backrooms" ? "backrooms" : resolved === "zanzibar" ? "sunset" : "rainbow",
         CART_COLORS,
+        // * Arenas with a directional sun get a dust lobe aimed at it; the rest pass
+        // * undefined and keep the uniform ring. Read from CONFIG rather than the level so
+        // * this stays out of the lazily-chunked level modules.
+        CONFIG.postFx.sunAzimuthByLevel?.[resolved],
       );
       if (resolved === "backrooms") {
         setSceneFog(scene, renderer, {

@@ -27,6 +27,7 @@
 
 import * as THREE from "three";
 import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import { CONFIG } from "../config.js";
 import { createStaticContactShadowCluster } from "../contactShadows.js";
 import { setWaterDeathEnvironment } from "../effects/waterDeathFx.js";
 import { RAPIER } from "../physics/rapierInstance.js";
@@ -119,7 +120,11 @@ const WATER_SIZE = 900; // meters — fog swallows the far edge
 
 const SKY_RADIUS = 480; // meters
 const SUN_DISTANCE = 430; // meters
-const SUN_AZIMUTH = Math.PI * 0.78; // radians — between two booth lanes, never behind a booth
+// * Single-sourced in CONFIG, not here. main.js needs this same number at :2488 to give the
+// * ambient dust its sun lobe, and it must not import this lazily-chunked level to get it —
+// * that would pull the arena into main's eager graph and defeat prefetchLevelChunks. Reading
+// * it back keeps every call site below unchanged while there is only one copy of the value.
+const SUN_AZIMUTH = CONFIG.postFx.sunAzimuthByLevel.zanzibar; // radians
 const SUN_HEIGHT = 14; // meters — low over the water
 // * Horizontal distance the KEY light is placed at. With SUN_HEIGHT that fixes the key's
 // * elevation at atan(14/80) = 9.93°, which is the angle every raking effect must agree

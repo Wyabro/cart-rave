@@ -93,6 +93,10 @@ function disposeObject3D(root) {
 
 /** @typedef {Record<string, { hex: number }>} CartColorMap */
 
+// * Ambient dust weight straight downsun, relative to 1 straight at the sun. Not 0 — dust on
+// * the far side still exists, it is just unlit, and zeroing it leaves a visible bald arc.
+const SUN_LOBE_FLOOR = 0.35;
+
 const TRASH_POOL_SIZE = 52;
 const TRASH_NEON_COLORS = [0xff00ff, 0x00ffff, 0xffff00, 0xff3300];
 
@@ -414,9 +418,12 @@ function getAmbientDustConfig(style) {
  * @param {THREE.Scene} scene
  * @param {AmbientDustStyle} style
  * @param {CartColorMap} cartColors Palette source for rainbow dust.
+ * @param {number} [sunAzimuth] Radians. When given, dust gathers and brightens toward this
+ *   bearing instead of spreading evenly — see SUN_LOBE_FLOOR. Omit for arenas with no
+ *   directional sun; they keep the uniform ring exactly as before.
  * @returns {THREE.Points}
  */
-function initAmbientParticles(scene, style, cartColors) {
+function initAmbientParticles(scene, style, cartColors, sunAzimuth) {
   const cfg = getAmbientDustConfig(style);
   ambientParticleRadius = cfg.radius;
   ambientParticleHeight = cfg.height;
@@ -431,8 +438,28 @@ function initAmbientParticles(scene, style, cartColors) {
   const driftSpan = cfg.driftSpeedMax - cfg.driftSpeedMin;
   const vertSpan = cfg.verticalDriftMax - cfg.verticalDriftMin;
 
+  // * Sun lobe. Weight is 1 straight toward the sun and SUN_LOBE_FLOOR straight away from
+  // * it, squared so the falloff is a lobe rather than a soft bias. Applied twice: once by
+  // * REJECTION SAMPLING the spawn bearing, so motes gather on the sun side without changing
+  // * ambientParticleCount or adding a draw call, and once as a per-mote brightness scale so
+  // * the ones that do sit downsun read as unlit rather than absent.
+  const lobeWeight = (angle) => {
+    if (sunAzimuth == null) return 1;
+    const facing = Math.max(0, Math.cos(angle - sunAzimuth));
+    return SUN_LOBE_FLOOR + (1 - SUN_LOBE_FLOOR) * facing * facing;
+  };
+  // * Bounded: at the floor weight the expected draws per accepted sample is 1/floor, so the
+  // * worst case is a handful of extra Math.random() calls at build time, never a hang.
+  const sampleLobeAngle = () => {
+    for (let tries = 0; tries < 16; tries += 1) {
+      const angle = Math.random() * Math.PI * 2;
+      if (Math.random() <= lobeWeight(angle)) return angle;
+    }
+    return Math.random() * Math.PI * 2;
+  };
+
   for (let i = 0; i < ambientParticleCount; i++) {
-    const angle = Math.random() * Math.PI * 2;
+    const angle = sampleLobeAngle();
     const radius = Math.sqrt(Math.random()) * cfg.radius;
     const p = i * 3;
     const d = i * 4;
@@ -444,9 +471,10 @@ function initAmbientParticles(scene, style, cartColors) {
     ambientParticleColor.setHex(
       ambientParticlePalette[Math.floor(Math.random() * ambientParticlePalette.length)],
     );
-    ambientParticleColors[p] = ambientParticleColor.r;
-    ambientParticleColors[p + 1] = ambientParticleColor.g;
-    ambientParticleColors[p + 2] = ambientParticleColor.b;
+    const lit = lobeWeight(angle);
+    ambientParticleColors[p] = ambientParticleColor.r * lit;
+    ambientParticleColors[p + 1] = ambientParticleColor.g * lit;
+    ambientParticleColors[p + 2] = ambientParticleColor.b * lit;
 
     const driftAngle = Math.random() * Math.PI * 2;
     const driftSpeed = cfg.driftSpeedMin + Math.random() * driftSpan;
@@ -504,13 +532,15 @@ function initAmbientParticles(scene, style, cartColors) {
  * Swaps ambient dust to a level-specific preset (rainbow rave vs Backrooms white/yellow).
  * @param {AmbientDustStyle} style
  * @param {CartColorMap} cartColors
+ * @param {number} [sunAzimuth] Radians — dust gathers and brightens toward this bearing.
+ *   Omit for arenas with no directional sun; they keep the uniform ring unchanged.
  * @returns {THREE.Points | null}
  */
-export function setAmbientDustStyle(style, cartColors) {
+export function setAmbientDustStyle(style, cartColors, sunAzimuth) {
   currentEffectStyle = style;
   disposeAmbientParticles();
   if (!sceneRef || !cartColors) return null;
-  return initAmbientParticles(sceneRef, style, cartColors);
+  return initAmbientParticles(sceneRef, style, cartColors, sunAzimuth);
 }
 
 /**
