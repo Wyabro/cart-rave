@@ -20,11 +20,16 @@ const MIN_MODE_ENTRY_WARM_MS = 200;
  * Kickers are the store voice the rest of the redesign speaks in ("WEEKLY
  * RESTOCK", "STORE POLICY · ALL SALES FINAL", "THE STORE IS NOW CLOSED") — a
  * loading screen is the store getting an aisle ready for you.
- * @type {Record<"classic" | "backrooms" | "zanzibar", { title: string, kicker: string, subtitle: string, progress: string, messages: string[] }>}
+ * @type {Record<"classic" | "backrooms" | "zanzibar", { title: string, titleLines: string[], meta: string, kicker: string, subtitle: string, progress: string, messages: string[] }>}
  */
 const THEME_COPY = {
   classic: {
     title: "CART RAVE",
+    // * LOAD-POSTER-1: the poster lockup breaks at an authored point, never by
+    // * wrapping — the break must not move between viewports. `title` stays the
+    // * flat string because loadshots asserts textContent equality against it.
+    titleLines: ["CART", "RAVE"],
+    meta: "AISLE 01",
     kicker: "RESTOCKING THE DANCE FLOOR",
     subtitle: "Spinning up the vinyl arena...",
     progress: "Loading crowd & lights...",
@@ -43,6 +48,8 @@ const THEME_COPY = {
   },
   backrooms: {
     title: "THE STOREROOMS",
+    titleLines: ["THE", "STOREROOMS"],
+    meta: "AISLE 02",
     kicker: "AISLE INVENTORY IN PROGRESS",
     subtitle: "The fluorescent hum grows louder...",
     progress: "Mapping the liminal aisles...",
@@ -61,6 +68,8 @@ const THEME_COPY = {
   },
   zanzibar: {
     title: "SUNDIAL STATION",
+    titleLines: ["SUNDIAL", "STATION"],
+    meta: "AISLE 03",
     kicker: "OPENING THE SUNDECK",
     subtitle: "The tide carries the bassline in...",
     progress: "Aligning the gnomon...",
@@ -82,6 +91,7 @@ const THEME_COPY = {
 let modeOverlayEl = null;
 let modeTitleEl = null;
 let modeKickerEl = null;
+let modeMetaEl = null;
 let modeSubtitleEl = null;
 let modeVisualSlot = null;
 let modeEntryVisible = false;
@@ -176,13 +186,68 @@ function pickRandom(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-/* ── Mode-entry theme visual builders ── */
+/* ── Mode-entry theme visual builders ─────────────────────────────────────────
+   LOAD-POSTER-1: each theme is one full-stage scene — an inline SVG backdrop
+   (`slice`, so it covers like a background image at any aspect) with the decor
+   nodes layered over it as foreground.
 
+   The decor node NAMES AND COUNTS are a gate, not a style choice:
+   tools/loadshots.mjs:147-151 asserts exactly 1 `.cr-load__vinyl` / 3
+   `.cr-load__laser` / 5 `.cr-load__crowd span` for classic, 3 `.furn-box` +
+   1 `.furn-chair` for backrooms, 1 `.sea-sun` / 3 `.sea-water span` /
+   1 `.sea-deck` for zanzibar — and zero of every other theme's selectors. Two of
+   those require literal `span` elements, which is why the counted layers stay
+   HTML over the SVG instead of becoming SVG groups. Re-use these nodes as scene
+   elements; do not add, drop or rename one without owning the gate change (and
+   `tools/` is off-limits during a game card). */
+
+/**
+ * Cart Rave — looking across a dark warehouse floor: truss, speaker stacks, a
+ * mirror-ball, laser fans, and a crowd whose heads break the title's baseline.
+ * @returns {HTMLDivElement}
+ */
 function buildClassicDecor() {
   const wrap = document.createElement("div");
   wrap.className = "cr-load__visual cr-load__visual--rave";
-  // * Fight Night language: dark disc + neon ring + glow-only (no white die-cut ring).
   wrap.innerHTML =
+    '<svg class="cr-load__svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">' +
+    "<defs>" +
+    '<linearGradient id="crRaveWall" x1="0" y1="0" x2="0" y2="1">' +
+    '<stop offset="0" stop-color="#0a0014"/><stop offset="0.58" stop-color="#1b0432"/><stop offset="1" stop-color="#06000d"/>' +
+    "</linearGradient>" +
+    '<radialGradient id="crRaveHaze" cx="0.5" cy="0.44" r="0.55">' +
+    '<stop offset="0" stop-color="#ff2bd6" stop-opacity="0.34"/><stop offset="0.5" stop-color="#7a0e6a" stop-opacity="0.14"/><stop offset="1" stop-color="#000000" stop-opacity="0"/>' +
+    "</radialGradient>" +
+    '<linearGradient id="crRaveFloor" x1="0" y1="0" x2="0" y2="1">' +
+    '<stop offset="0" stop-color="#2b0a3e"/><stop offset="1" stop-color="#04000a"/>' +
+    "</linearGradient>" +
+    '<linearGradient id="crRaveSmear" x1="0" y1="0" x2="1" y2="0">' +
+    '<stop offset="0" stop-color="#22e6ff" stop-opacity="0"/><stop offset="0.28" stop-color="#22e6ff" stop-opacity="0.4"/>' +
+    '<stop offset="0.6" stop-color="#ff2bd6" stop-opacity="0.45"/><stop offset="1" stop-color="#ff2bd6" stop-opacity="0"/>' +
+    "</linearGradient>" +
+    "</defs>" +
+    '<rect width="1600" height="900" fill="url(#crRaveWall)"/>' +
+    '<ellipse cx="800" cy="396" rx="740" ry="340" fill="url(#crRaveHaze)"/>' +
+    // truss + hangers
+    '<g fill="#0d0618">' +
+    '<rect x="60" y="150" width="1480" height="10"/><rect x="60" y="112" width="1480" height="8"/>' +
+    '<rect x="250" y="112" width="6" height="48"/><rect x="560" y="112" width="6" height="48"/>' +
+    '<rect x="1034" y="112" width="6" height="48"/><rect x="1344" y="112" width="6" height="48"/>' +
+    "</g>" +
+    '<g fill="#1e1030"><rect x="60" y="160" width="1480" height="4"/></g>' +
+    // speaker stacks
+    '<g fill="#0b0616">' +
+    '<rect x="70" y="330" width="176" height="330" rx="6"/><rect x="1354" y="330" width="176" height="330" rx="6"/>' +
+    "</g>" +
+    '<g fill="#170c26">' +
+    '<circle cx="158" cy="404" r="46"/><circle cx="158" cy="520" r="34"/><circle cx="158" cy="612" r="24"/>' +
+    '<circle cx="1442" cy="404" r="46"/><circle cx="1442" cy="520" r="34"/><circle cx="1442" cy="612" r="24"/>' +
+    "</g>" +
+    // floor + reflected smear
+    '<rect x="0" y="662" width="1600" height="238" fill="url(#crRaveFloor)"/>' +
+    '<rect x="0" y="658" width="1600" height="3" fill="#ff2bd6" opacity="0.55"/>' +
+    '<rect x="180" y="704" width="1240" height="150" fill="url(#crRaveSmear)" opacity="0.3"/>' +
+    "</svg>" +
     '<div class="cr-load__lasers" aria-hidden="true">' +
     '<div class="cr-load__laser"></div><div class="cr-load__laser"></div><div class="cr-load__laser"></div>' +
     "</div>" +
@@ -193,21 +258,70 @@ function buildClassicDecor() {
   return wrap;
 }
 
+/**
+ * The Storerooms — one-point perspective down an endless aisle. Stays LIMINAL:
+ * flat fluorescent wash, no neon, no glow (art-direction.md:65-80 — this arena
+ * must not be pushed toward a rave). The lone chair mid-aisle is the focal joke;
+ * the boxes are foreground and break the title.
+ * @returns {HTMLDivElement}
+ */
 function buildBackroomsDecor() {
   const wrap = document.createElement("div");
   wrap.className = "cr-load__visual cr-load__furniture";
-  // * Scale lives on non-skewed .cr-load__furniture-inner (skew trap: handover §99).
   wrap.innerHTML =
+    '<svg class="cr-load__svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">' +
+    "<defs>" +
+    '<linearGradient id="crAisleFloor" x1="0" y1="0" x2="0" y2="1">' +
+    '<stop offset="0" stop-color="#6c6f3d"/><stop offset="1" stop-color="#3d3f22"/>' +
+    "</linearGradient>" +
+    '<linearGradient id="crAisleWallL" x1="0" y1="0" x2="1" y2="0">' +
+    '<stop offset="0" stop-color="#5d5f34"/><stop offset="1" stop-color="#9aa05c"/>' +
+    "</linearGradient>" +
+    '<linearGradient id="crAisleWallR" x1="0" y1="0" x2="1" y2="0">' +
+    '<stop offset="0" stop-color="#9aa05c"/><stop offset="1" stop-color="#5d5f34"/>' +
+    "</linearGradient>" +
+    "</defs>" +
+    '<rect width="1600" height="900" fill="#4c4e2b"/>' +
+    // ceiling, floor, side walls converging on 800,470
+    '<polygon points="0,0 1600,0 902,392 698,392" fill="#5a5c31"/>' +
+    '<polygon points="0,900 1600,900 902,548 698,548" fill="url(#crAisleFloor)"/>' +
+    '<polygon points="0,0 698,392 698,548 0,900" fill="url(#crAisleWallL)"/>' +
+    '<polygon points="1600,0 902,392 902,548 1600,900" fill="url(#crAisleWallR)"/>' +
+    '<rect x="698" y="392" width="204" height="156" fill="#8b915180"/>' +
+    // shelf runs receding on both sides
+    '<g fill="#3c3e21" opacity="0.75">' +
+    '<polygon points="0,232 698,420 698,436 0,286"/><polygon points="0,470 698,470 698,486 0,548"/>' +
+    '<polygon points="0,714 698,520 698,536 0,790"/>' +
+    '<polygon points="1600,232 902,420 902,436 1600,286"/><polygon points="1600,470 902,470 902,486 1600,548"/>' +
+    '<polygon points="1600,714 902,520 902,536 1600,790"/>' +
+    "</g>" +
+    // shelf uprights, thinning with distance
+    '<g fill="#33351c" opacity="0.6">' +
+    '<rect x="120" y="180" width="14" height="640"/><rect x="360" y="286" width="11" height="440"/>' +
+    '<rect x="552" y="356" width="8" height="270"/>' +
+    '<rect x="1466" y="180" width="14" height="640"/><rect x="1229" y="286" width="11" height="440"/>' +
+    '<rect x="1040" y="356" width="8" height="270"/>' +
+    "</g>" +
+    // ceiling fluorescents — one is class="cr-load__fluoro" and flickers
+    '<g fill="#e8ecc0">' +
+    '<rect x="716" y="96" width="168" height="20" rx="6" opacity="0.92"/>' +
+    '<rect x="742" y="212" width="116" height="15" rx="5" opacity="0.85"/>' +
+    '<rect x="770" y="306" width="60" height="10" rx="4" opacity="0.7"/>' +
+    "</g>" +
+    '<rect class="cr-load__fluoro" x="756" y="360" width="88" height="9" rx="4" fill="#f2f6cc" opacity="0.8"/>' +
+    // the yellow line on the floor, receding
+    '<polygon points="742,900 858,900 812,548 788,548" fill="#c9b23f" opacity="0.5"/>' +
+    "</svg>" +
     '<div class="cr-load__furniture-inner" aria-hidden="true">' +
     '<div class="furn-box b1"></div>' +
     '<div class="furn-box b2"></div>' +
     '<div class="furn-box b3"></div>' +
-    '<div class="furn-chair">' +
-    '  <div class="chair-back"></div>' +
-    '  <div class="chair-seat"></div>' +
-    '  <div class="chair-leg left"></div>' +
-    '  <div class="chair-leg right"></div>' +
     "</div>" +
+    '<div class="furn-chair" aria-hidden="true">' +
+    '<div class="chair-back"></div>' +
+    '<div class="chair-seat"></div>' +
+    '<div class="chair-leg left"></div>' +
+    '<div class="chair-leg right"></div>' +
     "</div>";
   return wrap;
 }
@@ -215,11 +329,41 @@ function buildBackroomsDecor() {
 function buildZanzibarDecor() {
   const wrap = document.createElement("div");
   wrap.className = "cr-load__visual cr-load__seaside";
+  // * GOLDEN HOUR, not dark (art-direction.md:65-80). The sun sits behind the
+  // * title so the letterforms read as silhouette; the deck carries the gnomon on
+  // * ::after — the old standalone .sea-gnomon node is gone, two spindles fight.
   wrap.innerHTML =
+    '<svg class="cr-load__svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">' +
+    "<defs>" +
+    '<linearGradient id="crSunSky" x1="0" y1="0" x2="0" y2="1">' +
+    '<stop offset="0" stop-color="#f8c778"/><stop offset="0.42" stop-color="#ffb15e"/>' +
+    '<stop offset="0.78" stop-color="#ff8340"/><stop offset="1" stop-color="#ff5e3a"/>' +
+    "</linearGradient>" +
+    '<linearGradient id="crSunSea" x1="0" y1="0" x2="0" y2="1">' +
+    '<stop offset="0" stop-color="#ff7a45"/><stop offset="0.22" stop-color="#c2563f"/>' +
+    '<stop offset="0.6" stop-color="#2c5566"/><stop offset="1" stop-color="#123243"/>' +
+    "</linearGradient>" +
+    "</defs>" +
+    '<rect width="1600" height="900" fill="url(#crSunSky)"/>' +
+    // haze bands across the sky
+    '<g fill="#ffe0a8" opacity="0.28">' +
+    '<rect x="120" y="196" width="560" height="12" rx="6"/><rect x="980" y="150" width="420" height="10" rx="5"/>' +
+    '<rect x="700" y="268" width="720" height="9" rx="4"/><rect x="160" y="330" width="380" height="8" rx="4"/>' +
+    "</g>" +
+    // sea + horizon
+    '<rect x="0" y="596" width="1600" height="304" fill="url(#crSunSea)"/>' +
+    '<rect x="0" y="592" width="1600" height="5" fill="#ffd9a0" opacity="0.85"/>' +
+    // sun column on the water
+    '<polygon points="756,596 844,596 940,900 660,900" fill="#ffcf8a" opacity="0.35"/>' +
+    // far bollards along the water line
+    '<g fill="#43281f" opacity="0.55">' +
+    '<rect x="196" y="560" width="14" height="36" rx="4"/><rect x="352" y="566" width="12" height="30" rx="4"/>' +
+    '<rect x="1240" y="566" width="12" height="30" rx="4"/><rect x="1396" y="560" width="14" height="36" rx="4"/>' +
+    "</g>" +
+    "</svg>" +
     '<div class="sea-sun" aria-hidden="true"></div>' +
     '<div class="sea-water" aria-hidden="true"><span></span><span></span><span></span></div>' +
-    '<div class="sea-deck" aria-hidden="true"></div>' +
-    '<div class="sea-gnomon" aria-hidden="true"></div>';
+    '<div class="sea-deck" aria-hidden="true"></div>';
   return wrap;
 }
 
@@ -231,18 +375,29 @@ function ensureModeOverlay() {
   modeOverlayEl.className = "cr-load cr-load--hidden";
   modeOverlayEl.setAttribute("aria-live", "polite");
   modeOverlayEl.setAttribute("aria-busy", "false");
-  // * Shell geometry, mirroring `.cr-screen`: header top-left (Road Rage title
-  // * over a Goldman kicker), centre stage for the arena decor, full-bleed strip
-  // * along the bottom carrying the progress slab and the rotating line.
+  // * Shell geometry, mirroring `.cr-screen`: header row (Goldman kicker + aisle
+  // * meta over a hairline rule), centre stage carrying the arena scene WITH the
+  // * poster title layered over it, full-bleed strip along the bottom.
+  // *
+  // * LOAD-POSTER-1: the title is a PERMANENT child of the stage, sibling to
+  // * `.cr-load__scene`. Only the scene is swapped per arena — `applyTheme` and the
+  // * quality overlay both `replaceChildren()` the slot, so a title parked directly
+  // * under `.cr-load__stage` (as the slot used to be) would be deleted every show.
   modeOverlayEl.innerHTML =
     '<div class="cr-load__bg"></div>' +
     '<div class="cr-load__vignette"></div>' +
     '<div class="cr-load__shell">' +
     '<div class="cr-load__hd">' +
+    '<div class="cr-load__hd-row">' +
     '<div class="cr-load__kicker"></div>' +
+    '<div class="cr-load__meta"></div>' +
+    "</div>" +
+    '<div class="cr-load__rule"></div>' +
+    "</div>" +
+    '<div class="cr-load__stage">' +
+    '<div class="cr-load__scene"></div>' +
     '<div class="cr-load__title"></div>' +
     "</div>" +
-    '<div class="cr-load__stage"></div>' +
     '<div class="cr-load__strip">' +
     '<div class="cr-load__meter">' +
     '<div class="cr-load__meter-inner">' +
@@ -259,9 +414,11 @@ function ensureModeOverlay() {
 
   modeTitleEl = modeOverlayEl.querySelector(".cr-load__title");
   modeKickerEl = modeOverlayEl.querySelector(".cr-load__kicker");
+  modeMetaEl = modeOverlayEl.querySelector(".cr-load__meta");
   modeSubtitleEl = modeOverlayEl.querySelector(".cr-load__subtitle");
-  // * The stage IS the decor slot — applyTheme() swaps its children per arena.
-  modeVisualSlot = modeOverlayEl.querySelector(".cr-load__stage");
+  // * The SCENE is the decor slot, not the stage — the stage also holds the
+  // * permanent title, which a stage-level replaceChildren() would eat.
+  modeVisualSlot = modeOverlayEl.querySelector(".cr-load__scene");
 
   document.body.appendChild(modeOverlayEl);
   return modeOverlayEl;
@@ -397,6 +554,34 @@ function stopModeMessageRotation() {
 }
 
 /**
+ * Writes the poster title as a stacked span lockup.
+ *
+ * The ONLY path allowed to set `.cr-load__title` — a bare `textContent =` write
+ * flattens the lockup back to one line, which is exactly how the arena path and
+ * the quality overlay used to do it.
+ *
+ * Lines are joined by a real space text node so the element's `textContent` still
+ * reads "SUNDIAL STATION": loadshots asserts it equals `THEME_COPY[theme].title`
+ * character for character (tools/loadshots.mjs:1028-1040).
+ * @param {string[]} lines
+ * @returns {void}
+ */
+function setTitleLines(lines) {
+  if (!modeTitleEl) return;
+  const parts = Array.isArray(lines) && lines.length ? lines : [""];
+  /** @type {Node[]} */
+  const nodes = [];
+  parts.forEach((line, i) => {
+    if (i > 0) nodes.push(document.createTextNode(" "));
+    const span = document.createElement("span");
+    span.className = "cr-load__title-line";
+    span.textContent = line;
+    nodes.push(span);
+  });
+  modeTitleEl.replaceChildren(...nodes);
+}
+
+/**
  * @param {"classic" | "backrooms" | "zanzibar"} theme
  */
 function applyTheme(theme) {
@@ -405,8 +590,9 @@ function applyTheme(theme) {
   modeOverlayEl.classList.add(`cr-load--${theme}`);
 
   const copy = THEME_COPY[theme] || THEME_COPY.classic;
-  if (modeTitleEl) modeTitleEl.textContent = copy.title;
+  setTitleLines(copy.titleLines || [copy.title]);
   if (modeKickerEl) modeKickerEl.textContent = copy.kicker;
+  if (modeMetaEl) modeMetaEl.textContent = copy.meta || "";
 
   if (modeVisualSlot) {
     modeVisualSlot.replaceChildren();
@@ -778,8 +964,11 @@ export function showQualityApplyLoading() {
     modeVisualSlot.replaceChildren();
   }
 
-  if (modeTitleEl) modeTitleEl.textContent = "QUALITY";
+  // * Through the same helper as the arena path — a raw textContent write here
+  // * would leave the quality overlay as the one screen without the lockup.
+  setTitleLines(["QUALITY"]);
   if (modeKickerEl) modeKickerEl.textContent = "ADJUSTING THE HOUSE LIGHTS";
+  if (modeMetaEl) modeMetaEl.textContent = "";
   if (modeSubtitleEl) modeSubtitleEl.textContent = "Applying quality settings…";
   setProgress(100, "Applying…");
   modeEntryShownAt = performance.now();
