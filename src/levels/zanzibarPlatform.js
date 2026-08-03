@@ -69,6 +69,12 @@ const PODIUM_CREST_TUCK = 0.02;
 const PODIUM_CAP_THICKNESS = 0.12; // meters — thin flat cuboid caps on the podium crown
 
 const BOLT_PITCH_M = 2.4; // meters between deck bolts along a seam — fixed pitch, not count
+const PODIUM_PANEL_TILE_M = 1.5; // meters of real steel per panelTex tile on the podium crown
+// * Inset of the polished cap plate inside the crown octagon's apothem. The plate used to be
+// * CircleGeometry(PODIUM_TOP_R - 0.45, 32) = a 6.15 m circle on an octagon whose apothem is
+// * PODIUM_TOP_R * COS_HALF = 6.0976 m, so it overhung the crown by 5.24 cm at every flat mid
+// * and floated over nothing.
+const CAP_PLATE_INSET_M = 0.07; // meters
 const BOLLARD_RADIUS = 0.55; // meters
 const BOLLARD_HEIGHT = 1.6; // meters
 const BOLLARD_RING_SCALE = 0.97; // fraction of circumradius — fully on deck
@@ -2348,11 +2354,17 @@ function buildDeck(scene, world, config, circumR) {
   fasciaTex.wrapT = THREE.RepeatWrapping;
   fasciaTex.repeat.set(fasciaPerimeterM / FASCIA_TILE_M, fasciaHeightM / FASCIA_TILE_M);
   fasciaTex.needsUpdate = true;
-  const fasciaNormalTex = buildNormalMapFromCanvas(panelTex.image, 1.5);
+  // * Built once from panelTex and cloned per use — the Sobel pass is the expensive part and
+  // * clones share the image, so the podium crown gets machined relief for free.
+  const panelNormalTex = buildNormalMapFromCanvas(panelTex.image, 1.5);
+  panelNormalTex.wrapS = THREE.RepeatWrapping;
+  panelNormalTex.wrapT = THREE.RepeatWrapping;
+  const fasciaNormalTex = panelNormalTex.clone();
   fasciaNormalTex.wrapS = THREE.RepeatWrapping;
   fasciaNormalTex.wrapT = THREE.RepeatWrapping;
   fasciaNormalTex.repeat.copy(fasciaTex.repeat);
-  ownedTextures.push(fasciaTex, fasciaNormalTex);
+  fasciaNormalTex.needsUpdate = true;
+  ownedTextures.push(fasciaTex, panelNormalTex, fasciaNormalTex);
   const fasciaMat = createPhysicalMaterial({
     map: fasciaTex,
     normalMap: fasciaNormalTex,
@@ -2486,8 +2498,29 @@ function buildDeck(scene, world, config, circumR) {
     envMapIntensity: getMaterialEnvMapIntensity() * 0.55,
   });
   podiumSideMat.userData.envMapIntensityScale = 0.55;
+  // * OQ3: this was a bare color + roughness + metalness call on a surface the art-direction
+  // * allowlist names as hero ("Sundial Station — deck plate, center podium"), i.e. a Rule 1
+  // * defect while the doc claimed every allowlisted surface passed. panelTex is the same
+  // * engineered steel the booths and pylons use, world-scaled so the crown is not wearing a
+  // * stretched tile. Colour goes WHITE because map multiplies color and panelTex's own base
+  // * (#272b33) is already almost exactly the 0x2c313a this used — keeping both would have
+  // * darkened the crown, the same trap the fascia hit in item 14.
+  const podiumTopTex = panelTex.clone();
+  podiumTopTex.wrapS = THREE.RepeatWrapping;
+  podiumTopTex.wrapT = THREE.RepeatWrapping;
+  podiumTopTex.repeat.set((PODIUM_TOP_R * 2) / PODIUM_PANEL_TILE_M, (PODIUM_TOP_R * 2) / PODIUM_PANEL_TILE_M);
+  podiumTopTex.needsUpdate = true;
+  const podiumTopNormalTex = panelNormalTex.clone();
+  podiumTopNormalTex.wrapS = THREE.RepeatWrapping;
+  podiumTopNormalTex.wrapT = THREE.RepeatWrapping;
+  podiumTopNormalTex.repeat.copy(podiumTopTex.repeat);
+  podiumTopNormalTex.needsUpdate = true;
+  ownedTextures.push(podiumTopTex, podiumTopNormalTex);
   const podiumTopMat = createPhysicalMaterial({
-    color: 0x2c313a,
+    map: podiumTopTex,
+    normalMap: podiumTopNormalTex,
+    normalScale: new THREE.Vector2(0.6, 0.6),
+    color: 0xffffff,
     roughness: 0.5,
     metalness: 0.7,
     envMapIntensity: getMaterialEnvMapIntensity() * 0.5,
@@ -2503,9 +2536,24 @@ function buildDeck(scene, world, config, circumR) {
   group.add(podium);
 
   // Polished cap plate on the podium crown — a contrasting glossier disc.
-  const capPlateGeo = new THREE.CircleGeometry(PODIUM_TOP_R - 0.45, 32);
+  // * Octagon, inset inside the crown's own apothem — a CircleGeometry with OCT_SIDES
+  // * segments IS a regular octagon, and VERTEX_OFFSET aligns its vertices with the crown's.
+  const capPlateCircumR = (PODIUM_TOP_R * COS_HALF - CAP_PLATE_INSET_M) / COS_HALF;
+  const capPlateGeo = new THREE.CircleGeometry(capPlateCircumR, OCT_SIDES, VERTEX_OFFSET);
   ownedGeometries.push(capPlateGeo);
+  // * Second Rule 1 defect on this allowlisted surface — bare color + roughness + metalness.
+  // * A polished plate gets RELIEF, not an albedo grid: the panel normal at a tight repeat
+  // * reads as machined steel, where painting a panel grid onto a 0.22-roughness disc would
+  // * just look like a decal on a mirror.
+  const capPlateNormalTex = panelNormalTex.clone();
+  capPlateNormalTex.wrapS = THREE.RepeatWrapping;
+  capPlateNormalTex.wrapT = THREE.RepeatWrapping;
+  capPlateNormalTex.repeat.set(6, 6);
+  capPlateNormalTex.needsUpdate = true;
+  ownedTextures.push(capPlateNormalTex);
   const capPlateMat = createPhysicalMaterial({
+    normalMap: capPlateNormalTex,
+    normalScale: new THREE.Vector2(0.35, 0.35),
     color: 0x1d2027,
     roughness: 0.22,
     metalness: 0.9,

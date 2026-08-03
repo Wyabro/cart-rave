@@ -236,6 +236,22 @@ slot ([`cart.js:118`](../../src/cart.js:118)). The rule is not a texturing backl
 arenas; it is a floor that the arenas already clear and the carts do not. Automatable later as
 a static check over the allowlist.
 
+**OQ3, resolved 2026-08-02.** That status line was **false when written**, and by more than the
+audit caught. "Sundial Station — center podium" is three materials, and two of them were bare
+`color + roughness + metalness` calls: `podiumTopMat` (the crown face) and `capPlateMat` (the
+polished plate on it). Only `podiumSideMat` carried a map (`grilleTex`). The line is true again
+because the **code** was fixed, not because the rule was weakened — the crown face now carries
+world-scaled `panelTex` plus its normal, and the cap plate carries the panel normal at a tight
+repeat (relief, not an albedo grid: painting a panel pattern onto a 0.22-roughness disc would
+read as a decal on a mirror). Neither is a dummy map.
+
+Two cautions this left behind. **A map multiplies `color`** — `panelTex`'s base is `#272b33`,
+so a surface already coloured near that must go white or it darkens; the Sundial fascia lost
+70% of its luminance to exactly this before it was caught. And **this rule is not a look
+promise on a dark arena**: Sundial's deck plate measures median luminance 2.6, so a map can
+satisfy Rule 1 and still be invisible. Rule 1 is a material-correctness floor. Whether a
+surface *reads* is a separate question, answered by measurement.
+
 ### Rule 2 — no screen filter outside The Storerooms
 
 This rule has two halves, because the measurement point does not exist in the code yet.
