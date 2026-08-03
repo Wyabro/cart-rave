@@ -3238,11 +3238,16 @@ function buildDeck(scene, world, config, circumR) {
       // * one is a clone) every update tick, ~30 MB/s at 60fps, to move two floats.
       // * Measured: 44 re-uploads per 90 rAF frames before this was removed. Do not add
       // * it back — the scroll still runs without it.
+      // * Rates stay non-harmonic (8:11) so the two bands never re-phase into a visible
+      // * pulse — same reasoning as waterNormalTex above. Halving both keeps that ratio:
+      // * one wrap every 25.0 s and 18.2 s, re-aligning every 200 s. That is longer than
+      // * a 150 s round, so a player never sees the bands agree. At the old 0.08/0.11
+      // * they re-aligned every 100 s, once per round.
       if (holoBandMat?.map) {
-        holoBandMat.map.offset.x = (t * 0.08) % 1;
+        holoBandMat.map.offset.x = (t * 0.04) % 1;
       }
       if (holoBandInnerMat?.map) {
-        holoBandInnerMat.map.offset.x = (-t * 0.11) % 1;
+        holoBandInnerMat.map.offset.x = (-t * 0.055) % 1;
       }
     }
     // Sharp aviation-style blink: short hot pulse, long dim tail.
