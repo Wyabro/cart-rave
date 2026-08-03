@@ -30,18 +30,11 @@ analytics gating are closed. Run 7 closed; NET-2 / NET-MIG-3 passed live; NET-PR
 (loss-on-drop residual accepted). The analytics DO has been reset, so the ring starts clean for
 external testers. Stay in this phase until Wyatt advances the marker.
 
-**ART-PASS-SUNDIAL-1 — ALL SIX WAVES SHIPPED.** Waves 1–5 deployed (`0d3d812f`); **Wave 6 pushed,
-NOT deployed** (`1add44a`..`c93ebc3`). Needs only Wyatt's playtest (**SUNDIAL-PT-1**) + deploy.
-**Six of eleven Wave 6 audit items were misdiagnosed** — measuring first changed the outcome each
-time, twice avoiding a regression sold as a fix.
-
-Sundial spec = [handover](./planning/art-pass-sundial-handover.md); read its **"Traps that cost
-time"** before any capture, and judge phase changes against a ~1.2% construction-noise floor,
-not zero. The [audit](./planning/art-audit-sundial.md) is `[unverified]` — verify before fixing.
-
-Closed cards keep their narrative in their own docs, not here: Fight Night
+**Closed cards keep their narrative in their own docs, not here** — Sundial
+([handover](./planning/art-pass-sundial-handover.md); read its "Traps that cost time" before any
+capture, and judge phase changes against a ~1.2% construction-noise floor, not zero), Fight Night
 ([handover](./planning/fight-night-ui-handover.md)), Cart Rave and Storerooms
-([audits](./planning/art-audit-storerooms.md)). Their owed human checks are BACKLOG rows under
+([audits](./planning/art-audit-storerooms.md)). Owed human checks are BACKLOG rows under
 `## Playtest owed`. Playtest console: `npm run dashboard` →
 [.diag-captures/playtest-console.html](../.diag-captures/playtest-console.html). F8 +
 `npm run captures:pull`.
@@ -50,11 +43,7 @@ Closed cards keep their narrative in their own docs, not here: Fight Night
 
 Standing prohibitions — fed into [BRIEFING.md](./BRIEFING.md) and the Command Center firewall.
 
-- **Plan → Wyatt ack → apply, acked per wave.** One plan covering every lever in the wave plus its playtest checklist, one ack, then one commit per lever. BRIEFING's active-card heading names the card — it is **not** a green light to edit.
-- **During a game card, do not commit to `tools/` · `.claude/hooks/` · `.agents/` · Command Center styling.** Escape hatch + BACKLOG entry, never an inline fix.
-- Ship only on Wyatt's explicit "ship it" — and never `git add -A` (concurrent agent sessions).
-- One card at a time; new ideas go to [BACKLOG](./planning/BACKLOG.md), not into scope.
-- Do not advance the ▶ phase marker — Wyatt only; agents report eligibility.
+- **[AGENTS.md](../AGENTS.md) applies in full and is not summarised here** — plan → ack → apply per wave · one card at a time · `tools/` · `.claude/hooks/` · `.agents/` frozen during a game card · ship only on "ship it" · never `git add -A` · the ▶ phase marker is Wyatt's. Read it before editing; this list carries only the project-specific prohibitions below.
 - Do not re-open closed evidence (Run 7 · NET-1 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 · HUD-MENU-1 · CAM-1 · RC-1 A/B/C · P6 · parked NH-HIT / NH-SMOOTH), nor anything under **Verified healthy / non-issues** in [project-state.md §5](./planning/project-state.md), without new evidence.
 - Do not re-try the reverted host-countdown gate (`c8df8fd`) — the lever is pre-warming the room's arena programs before the countdown, not delaying the countdown.
 - No silent pure-black WebGL frames as an accepted "look". Solo polish before deep multiplayer features; prefer quality-preserving perf fixes and measure before/after.

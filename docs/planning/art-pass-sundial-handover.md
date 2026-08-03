@@ -39,6 +39,12 @@
 
 ## Traps that cost time — read before capturing anything
 
+0. **The audit that scoped this card was wrong about more than half of Wave 6.** Six of eleven
+   Wave 6 audit items were **misdiagnosed** — measuring first changed the outcome every time, and
+   twice it stopped a regression that was about to ship as a fix. [art-audit-sundial.md](./art-audit-sundial.md)
+   is still marked `[unverified]`: **verify each item against the tree before fixing it.** Moved
+   here from STATUS.md on 08-03 (STATUS-TRIM-1) — it is a standing warning about this card's own
+   source document, not session status.
 1. **~~`shoot-gpu` freezes ALL per-frame level animation.~~ CLOSED — SHOOT-ANIM-1, `6b27283`.**
    The attract loop now ticks `levelUpdate` + `sceneExtras.update` before its render, so
    animated properties are capturable. Gate opacity now changes on every rendered frame
