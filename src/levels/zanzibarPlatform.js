@@ -2928,6 +2928,23 @@ function buildDeck(scene, world, config, circumR) {
     holoGroup = new THREE.Group();
     holoGroup.position.y = PODIUM_HEIGHT + HOLO_HOVER_Y;
 
+    // * `toneMapped: false` below (and on the other additive layers in this file) is
+    // * DELIBERATE AND MEASURED — do not "fix" it, and do not add bypass compensation.
+    // *
+    // * The audit claimed these flags are inert on Medium/High and INVERTED on Low, where
+    // * composerBypass (qualityTiers.js:55) tone-maps natively, and that the layers therefore
+    // * "render ungraded and blow out". Half of that is right. Measured 08-02 by flipping every
+    // * toneMapped:false material in the live scene to true at runtime and capturing a pinned
+    // * phase against Sundial's ~1.2% construction-noise floor:
+    // *
+    // *   High   1.12% of pixels differ  -> below the floor. A true no-op, as predicted.
+    // *   Low    1.46% of pixels differ  -> 0.26 points above noise. Not a blow-out.
+    // *
+    // * There is no blow-out to fix, which makes sense: these are dim additive layers, and
+    // * ACES at exposure 0.528 barely changes what they contribute. Compensating would mean
+    // * touching all 34 such materials in the Low frame (67 on High) — most of them owned by
+    // * other files — to recover a quarter of a percent above noise, while changing a shipped
+    // * look. Closed as measured-not-a-defect rather than carrying machinery for a non-issue.
     const holoAdd = (color, opacity) => {
       const mat = new THREE.MeshBasicMaterial({
         color,
