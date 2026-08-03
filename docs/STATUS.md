@@ -66,25 +66,25 @@ Live rows only. Shipped and closed cards live in
 
 | # | What | Status |
 |---|------|--------|
-| LOAD-POSTER-1 | Loading screens redesigned as Fight Night posters (all three arenas) | ⏸ **waiting on Wyatt** — code complete PUSHED (`106fc50`); cqmin-sized stage + two-line title lockup + inline SVG per arena. Remaining: **deploy + Wyatt eye** — human-blocked, not agent work. |
-| PLAYTEST-BATCH-0803-1 | Playtest batch 08-03 (FV-LOAD freezes + load art, quality grace, unlock toast, store decks, GET READY pulse, boot measure) | ✅ code complete, **PUSHED** (`35cf3a9`..`4f2fdde`). Remaining: deploy + 5 Wyatt retests. |
-| ART-PASS-SUNDIAL-1 | Sundial art pass — all 6 waves shipped | ✅ code complete — Wave 6 pushed, **not deployed**. Remaining: playtest (**SUNDIAL-PT-1**) + deploy. Spec = [handover](./planning/art-pass-sundial-handover.md). |
+| LOAD-POSTER-1 | Loading screens redesigned as Fight Night posters (all three arenas) | ⏸ **DEPLOYED 08-03, waiting on Wyatt's eye.** cqmin-sized stage + two-line title lockup + inline SVG per arena. Human-blocked, not agent work. |
+| PLAYTEST-BATCH-0803-1 | Playtest batch 08-03 (FV-LOAD freezes + load art, quality grace, unlock toast, store decks, GET READY pulse, boot measure) | ⏸ **DEPLOYED 08-03.** Remaining: 5 Wyatt retests (FV-LOAD-1 · UNLOCK-TOAST-1 · STORE-DECK-1 · CAM-READY-1 · FV-BOOT-1). |
+| ART-PASS-SUNDIAL-1 | Sundial art pass — all 6 waves shipped | ⏸ **DEPLOYED 08-03** (Wave 6 included). Remaining: playtest (**SUNDIAL-PT-1**). Spec = [handover](./planning/art-pass-sundial-handover.md). |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 
 ### Next actions
 
-1. **Deploy is the only thing left before retests.** Both PLAYTEST-BATCH-0803-1
-   (`35cf3a9`..`4f2fdde`) and LOAD-POSTER-1 (`106fc50`) are pushed; nothing is deployed.
-   Gate results are observed evidence — `npm run dashboard`, not restated here. Retest queue
-   after deploy: FV-LOAD-1, UNLOCK-TOAST-1, STORE-DECK-1, CAM-READY-1, FV-BOOT-1,
-   **LOAD-POSTER-1**. Deploy only on explicit "ship it".
+1. **Everything pushed is now DEPLOYED — the queue is Wyatt's eyes, not agent work.**
+   Shipped 08-03 from `2c18057` (Worker version `e44ccb23`), verified by fetching the
+   production chunk. Retest queue, all unblocked: FV-LOAD-1, UNLOCK-TOAST-1, STORE-DECK-1,
+   CAM-READY-1, FV-BOOT-1, **LOAD-POSTER-1**, **SUNDIAL-PT-1**, **cap-217**. Analytics is live
+   and the DO was reset for clean external-tester data — Wyatt's own retests land in it.
 2. **W0.1 attribution (cap-229 @ c418bd9):** Cart Rave freeze = juice path
    (`warm.render.default.play-full` ~971 ms + play-shader ~1 s); demotions overlap entry.
    Mid-round 6.5 s compile → **PROBE-WARM-RT-1** note filed (not batch scope).
 3. **Playtest owed** — BACKLOG rows for retests + remaining eyes. **UNLOCK-PT-1** needs
    `?devUnlocks=off` + hard refresh.
-4. **ART-PASS-SUNDIAL-1** code complete, deploy pending — not this batch.
+4. **ART-PASS-SUNDIAL-1** deployed 08-03; only **SUNDIAL-PT-1** remains.
 5. **ROUND-WEDGE-1 Phase B** shipped; **cap-217** open until Wyatt playtest.
 
 **Open High:** ROUND-WEDGE-1 (Phase B code; playtest) · UI-SCALE-1 · FIGHT-VERIFY-1 (Wyatt half) ·

@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-03T22:59:34.058Z",
-    "commit": "95e2284"
+    "at": "2026-08-03T23:06:31.187Z",
+    "commit": "2c18057"
   },
-  "source_digest": "877bec6b",
+  "source_digest": "96fadfaa",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -847,20 +847,20 @@
       {
         "id": "LOAD-POSTER-1",
         "what": "Loading screens redesigned as Fight Night posters (all three arenas)",
-        "status": "⏸ waiting on Wyatt — code complete PUSHED (`106fc50`); cqmin-sized stage + two-line title lockup + inline SVG per arena. Remaining: deploy + Wyatt eye — human-blocked, not agent work.",
+        "status": "⏸ DEPLOYED 08-03, waiting on Wyatt's eye. cqmin-sized stage + two-line title lockup + inline SVG per arena. Human-blocked, not agent work.",
         "state": "waiting"
       },
       {
         "id": "PLAYTEST-BATCH-0803-1",
         "what": "Playtest batch 08-03 (FV-LOAD freezes + load art, quality grace, unlock toast, store decks, GET READY pulse, boot measure)",
-        "status": "✅ code complete, PUSHED (`35cf3a9`..`4f2fdde`). Remaining: deploy + 5 Wyatt retests.",
-        "state": "done"
+        "status": "⏸ DEPLOYED 08-03. Remaining: 5 Wyatt retests (FV-LOAD-1 · UNLOCK-TOAST-1 · STORE-DECK-1 · CAM-READY-1 · FV-BOOT-1).",
+        "state": "waiting"
       },
       {
         "id": "ART-PASS-SUNDIAL-1",
         "what": "Sundial art pass — all 6 waves shipped",
-        "status": "✅ code complete — Wave 6 pushed, not deployed. Remaining: playtest (SUNDIAL-PT-1) + deploy. Spec = [handover](./planning/art-pass-sundial-handover.md).",
-        "state": "done"
+        "status": "⏸ DEPLOYED 08-03 (Wave 6 included). Remaining: playtest (SUNDIAL-PT-1). Spec = [handover](./planning/art-pass-sundial-handover.md).",
+        "state": "waiting"
       },
       {
         "id": "MAIN-1 / BUNDLE-1",
@@ -885,10 +885,10 @@
       }
     ],
     "next_actions": [
-      "Deploy is the only thing left before retests. Both PLAYTEST-BATCH-0803-1",
+      "Everything pushed is now DEPLOYED — the queue is Wyatt's eyes, not agent work.",
       "W0.1 attribution (cap-229 @ c418bd9): Cart Rave freeze = juice path",
       "Playtest owed — BACKLOG rows for retests + remaining eyes. UNLOCK-PT-1 needs",
-      "ART-PASS-SUNDIAL-1 code complete, deploy pending — not this batch.",
+      "ART-PASS-SUNDIAL-1 deployed 08-03; only SUNDIAL-PT-1 remains.",
       "ROUND-WEDGE-1 Phase B shipped; cap-217 open until Wyatt playtest."
     ],
     "open_issues": [
