@@ -3066,6 +3066,131 @@ function buildCeiling(scene, world, ceilingTex) {
  *   ownedTextures: THREE.Texture[],
  * }}
  */
+/**
+ * STORE-DECK-1 — worn mezzanine plate for spawn booth slabs (art-audit item 6).
+ * Same canvas-as-map+bump idiom as the carpet floor. Stripe + bay letter are
+ * separate meshes (BoxGeometry UVs would stamp the stripe on every face).
+ * @returns {THREE.CanvasTexture}
+ */
+function buildBoothDeckTexture() {
+  const size = 256;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  const rng = makeRng(0xdec7b007);
+
+  // Cool industrial plate base (drab — carts neon-pop against it).
+  ctx.fillStyle = "#6e6a60";
+  ctx.fillRect(0, 0, size, size);
+
+  // Plate panel seams (2×2 plates).
+  const half = size / 2;
+  ctx.strokeStyle = "rgba(30,28,22,0.45)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(half, 0);
+  ctx.lineTo(half, size);
+  ctx.moveTo(0, half);
+  ctx.lineTo(size, half);
+  ctx.stroke();
+  ctx.strokeStyle = "rgba(220,210,180,0.06)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(half + 2, 0);
+  ctx.lineTo(half + 2, size);
+  ctx.moveTo(0, half + 2);
+  ctx.lineTo(size, half + 2);
+  ctx.stroke();
+
+  // Caster scuffs through the middle + dirt at rail bases.
+  for (let i = 0; i < 90; i += 1) {
+    const x = rng() * size;
+    const y = size * 0.28 + rng() * size * 0.44;
+    const len = 8 + rng() * 36;
+    ctx.strokeStyle = `rgba(20,18,14,${0.04 + rng() * 0.08})`;
+    ctx.lineWidth = 1 + rng() * 2;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + len * (rng() > 0.5 ? 1 : -1), y + (rng() - 0.5) * 6);
+    ctx.stroke();
+  }
+  for (let i = 0; i < 40; i += 1) {
+    const x = rng() * size;
+    const y = rng() < 0.5 ? rng() * 28 : size - 28 + rng() * 28;
+    ctx.fillStyle = `rgba(40,36,28,${0.05 + rng() * 0.1})`;
+    ctx.beginPath();
+    ctx.arc(x, y, 3 + rng() * 10, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Soft plate sheen variation.
+  const grad = ctx.createLinearGradient(0, 0, size, size);
+  grad.addColorStop(0, "rgba(255,250,230,0.04)");
+  grad.addColorStop(0.5, "rgba(0,0,0,0)");
+  grad.addColorStop(1, "rgba(20,18,12,0.08)");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, size, size);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.anisotropy = 4;
+  tex.needsUpdate = true;
+  return tex;
+}
+
+/**
+ * Faded yellow/black hazard stripe for the arena-facing lip (0.35-alpha wash).
+ * @returns {THREE.CanvasTexture}
+ */
+function buildBoothStripeTexture() {
+  const w = 128;
+  const h = 32;
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  const stripeW = 14;
+  for (let x = 0; x < w; x += stripeW) {
+    const yellow = Math.floor(x / stripeW) % 2 === 0;
+    ctx.fillStyle = yellow ? "rgba(196, 168, 64, 0.35)" : "rgba(18, 16, 12, 0.35)";
+    ctx.fillRect(x, 0, stripeW, h);
+  }
+  // Scuff the stripe so it lands drab, not marker-bright.
+  for (let i = 0; i < 24; i += 1) {
+    ctx.fillStyle = "rgba(40,36,28,0.12)";
+    ctx.fillRect(Math.random() * w, Math.random() * h, 4 + Math.random() * 10, 2);
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.ClampToEdgeWrapping;
+  tex.needsUpdate = true;
+  return tex;
+}
+
+/**
+ * Stencilled bay letter (A–D) for a spawn deck.
+ * @param {string} letter
+ * @returns {THREE.CanvasTexture}
+ */
+function buildBoothBayLetterTexture(letter) {
+  const size = 128;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, size, size);
+  ctx.fillStyle = "rgba(18, 16, 12, 0.28)";
+  ctx.font = "bold 88px sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(String(letter).slice(0, 1).toUpperCase(), size / 2, size / 2 + 4);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.needsUpdate = true;
+  return tex;
+}
+
 function buildBackroomsBooths(scene, world, config, boothColliderHandles) {
   const B = config.booth;
   const arenaR = config.record.radius;
@@ -3076,8 +3201,24 @@ function buildBackroomsBooths(scene, world, config, boothColliderHandles) {
   const bodies = [];
 
   const cardboardTex = buildPropSurfaceTexture("cardboard");
+  const deckTex = buildBoothDeckTexture();
+  const stripeTex = buildBoothStripeTexture();
+  // * STORE-DECK-1: plate map + bump on the slab (audit target); divider left plain.
   const slabMat = new THREE.MeshStandardMaterial({
-    color: 0x7c766a, roughness: 0.9, metalness: 0.05,
+    map: deckTex,
+    bumpMap: deckTex,
+    bumpScale: 0.02,
+    color: 0xffffff,
+    roughness: 0.9,
+    metalness: 0.08,
+  });
+  const stripeMat = new THREE.MeshStandardMaterial({
+    map: stripeTex,
+    color: 0xffffff,
+    roughness: 0.92,
+    metalness: 0.02,
+    transparent: true,
+    depthWrite: false,
   });
   const railMat = createPhysicalMaterial({
     color: 0x6c6a62, roughness: 0.45, metalness: 0.7,
@@ -3086,6 +3227,7 @@ function buildBackroomsBooths(scene, world, config, boothColliderHandles) {
     map: cardboardTex, color: 0xffffff, roughness: 0.92, metalness: 0.0,
   });
   // Short cubicle divider panels (per-booth height variation).
+  // * Divider left unmapped: plate map is oriented for the slab top, not panels.
   const dividerMat = new THREE.MeshStandardMaterial({
     color: 0x8a8474, roughness: 0.9, metalness: 0.02,
   });
@@ -3097,16 +3239,22 @@ function buildBackroomsBooths(scene, world, config, boothColliderHandles) {
   const railGeo = new THREE.CylinderGeometry(B.railThickness / 2, B.railThickness / 2, 1, 8);
   const cardboardGeo = new THREE.BoxGeometry(1.1, 1.1, 1.1);
   const dividerGeo = new THREE.BoxGeometry(0.08, 1, B.platformDepth * 0.55);
+  // * Arena-facing lip stripe (local −Z) + bay letter decal on top.
+  const stripeGeo = new THREE.BoxGeometry(B.platformWidth * 0.92, 0.03, 0.22);
+  const letterGeo = new THREE.PlaneGeometry(0.9, 0.9);
 
-  const ownedMaterials = [slabMat, railMat, boxMat, dividerMat];
-  const ownedTextures = [cardboardTex];
+  const ownedMaterials = [slabMat, stripeMat, railMat, boxMat, dividerMat];
+  const ownedTextures = [cardboardTex, deckTex, stripeTex];
 
   const pw = B.platformWidth / 2;
   const pd = B.platformDepth / 2;
 
   // * Booths never move — bake parts into merged static meshes (one per material).
-  /** @type {Record<"slab" | "rail" | "box" | "divider", THREE.BufferGeometry[]>} */
-  const parts = { slab: [], rail: [], box: [], divider: [] };
+  /** @type {Record<"slab" | "stripe" | "rail" | "box" | "divider", THREE.BufferGeometry[]>} */
+  const parts = { slab: [], stripe: [], rail: [], box: [], divider: [] };
+  const BAY_LETTERS = ["A", "B", "C", "D"];
+  /** @type {THREE.BufferGeometry[]} */
+  const ownedGeometries = [];
   const boothMatrix = new THREE.Matrix4();
   const localMatrix = new THREE.Matrix4();
   const scratchPos = new THREE.Vector3();
@@ -3165,6 +3313,9 @@ function buildBackroomsBooths(scene, world, config, boothColliderHandles) {
 
     const deckTopY = topY + B.platformThickness / 2;
 
+    // * STORE-DECK-1: safety stripe on arena-facing lip (local −Z).
+    pushPart("stripe", stripeGeo, 0, deckTopY + 0.02, -pd + 0.12);
+
     // Low back rail (local +Z = away from arena).
     pushPart("rail", lowRailGeo, 0, deckTopY + 0.275, pd - 0.08);
 
@@ -3199,6 +3350,32 @@ function buildBackroomsBooths(scene, world, config, boothColliderHandles) {
       pushPart("box", cardboardGeo, bx, deckTopY + 0.55 * scale, bz, 0, byaw, 0, scale, scale, scale);
     }
 
+    // * Bay letter decal — flat on the deck top (not merged; per-letter texture).
+    // * MeshStandardMaterial (same family as slab/stripe) so warm path does not
+    // * introduce a new Basic-program variant at play entry.
+    const letterTex = buildBoothBayLetterTexture(BAY_LETTERS[i] || "X");
+    ownedTextures.push(letterTex);
+    const letterMat = new THREE.MeshStandardMaterial({
+      map: letterTex,
+      color: 0xffffff,
+      roughness: 1,
+      metalness: 0,
+      transparent: true,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    });
+    ownedMaterials.push(letterMat);
+    const letterGeom = letterGeo.clone();
+    ownedGeometries.push(letterGeom);
+    const letterMesh = new THREE.Mesh(letterGeom, letterMat);
+    letterMesh.rotation.x = -Math.PI / 2;
+    letterMesh.position.set(0, deckTopY + 0.03, -0.35);
+    // * Place in booth local space then bake world via booth matrix.
+    letterMesh.updateMatrix();
+    letterMesh.applyMatrix4(boothMatrix);
+    letterMesh.matrixAutoUpdate = true;
+    group.add(letterMesh);
+
     shadowPlacements.push({
       x: cx,
       z: cz,
@@ -3208,7 +3385,6 @@ function buildBackroomsBooths(scene, world, config, boothColliderHandles) {
     });
   }
 
-  const ownedGeometries = [];
   const mergeAdd = (bucket, mat) => {
     if (bucket.length === 0) return;
     const merged = BufferGeometryUtils.mergeGeometries(bucket, false);
@@ -3217,6 +3393,7 @@ function buildBackroomsBooths(scene, world, config, boothColliderHandles) {
     group.add(new THREE.Mesh(merged, mat));
   };
   mergeAdd(parts.slab, slabMat);
+  mergeAdd(parts.stripe, stripeMat);
   mergeAdd(parts.rail, railMat);
   mergeAdd(parts.box, boxMat);
   mergeAdd(parts.divider, dividerMat);
@@ -3225,6 +3402,8 @@ function buildBackroomsBooths(scene, world, config, boothColliderHandles) {
   railGeo.dispose();
   cardboardGeo.dispose();
   dividerGeo.dispose();
+  stripeGeo.dispose();
+  letterGeo.dispose();
 
   const boothShadows = createStaticContactShadowCluster(shadowPlacements);
   group.add(boothShadows.group);
