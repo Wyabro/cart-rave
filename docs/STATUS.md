@@ -30,10 +30,11 @@ analytics gating are closed. Run 7 closed; NET-2 / NET-MIG-3 passed live; NET-PR
 (loss-on-drop residual accepted). The analytics DO has been reset, so the ring starts clean for
 external testers. Stay in this phase until Wyatt advances the marker.
 
-**ART-PASS-SUNDIAL-1 is the active card again. Waves 1–5 are shipped and deployed** (Version
-`0d3d812f`); **Wave 6 (items 26–36) is next and needs its own plan + ack.** DIAG-FLAKE-2 closed
-08-02 — the diagnostics flake that red-gated Wave 5 is fixed at the root and verified over 30
-consecutive full runs, 0 red. Residual: **DIAG-UPLOAD-GEN-1** in BACKLOG.
+**ART-PASS-SUNDIAL-1 — ALL SIX WAVES SHIPPED.** Waves 1–5 deployed (`0d3d812f`); **Wave 6 pushed,
+NOT deployed** (`1add44a`..`c93ebc3`). Needs only Wyatt's playtest (**SUNDIAL-PT-1**) + deploy.
+**Six of eleven Wave 6 audit items were misdiagnosed** — measuring first changed the outcome each
+time, twice avoiding a regression sold as a fix. DIAG-FLAKE-2 closed 08-02; residual
+**DIAG-UPLOAD-GEN-1** in BACKLOG.
 
 Sundial spec = [handover](./planning/art-pass-sundial-handover.md); read its **"Traps that cost
 time"** before any capture, and judge phase changes against a ~1.2% construction-noise floor,
@@ -77,16 +78,17 @@ Live rows only. Shipped and closed cards live in
 
 | # | What | Status |
 |---|------|--------|
-| **ART-PASS-SUNDIAL-1** | Sundial art pass — Wave 6 remains | ▶ **ACTIVE** — Waves 1–5 shipped and deployed (Version `0d3d812f`). Spec = [handover](./planning/art-pass-sundial-handover.md); one commit per lever, ack per wave. **Paint does not read on this deck** (plate median 2.6 vs emissive 153) — see item 18's re-scope. Owed playtest = **SUNDIAL-PT-1**. |
+| **ART-PASS-SUNDIAL-1** | Sundial art pass — all 6 waves shipped | ▶ **ACTIVE, code complete** — Wave 6 pushed, **not deployed**. Remaining: playtest (**SUNDIAL-PT-1**) + deploy. **Neither paint nor relief reads on this deck** (plate median 2.6; item 34 probe moved 0%). **The ramp is the exception** — median 12.2, responds 12× more, so item 33 re-authored it. Spec = [handover](./planning/art-pass-sundial-handover.md). |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 
 ### Next actions
 
-1. **ART-PASS-SUNDIAL-1 — Wave 5 CLOSED, Wave 6 next** (items 26–36), needs its own plan +
-   ack. **D-SUNDIAL-OQ6 binds** — every lever ships its Low path in the same commit. Wave 5's
-   lesson: **derived geometry numbers were wrong three times**, so measure the scene rather
-   than trusting the arithmetic in the comment.
+1. **ART-PASS-SUNDIAL-1 — WAVE 6 CLOSED, code complete.** Next: Wyatt playtest, then deploy.
+   **D-SUNDIAL-OQ6 still binds.** Standing lesson: **measure first, and isolate the channel you
+   are testing** — a whole-frame delta twice looked like a win when it was a dark tint (item 34)
+   or a contaminated baseline (item 29). Filed: **SUNDIAL-LOW-WATER-1**, **SPINDLE-COLOR-DEAD-1**,
+   **SUNDIAL-DECK-DETAIL-1** (closed).
 2. **Playtest owed** — BACKLOG `## Playtest owed` (08-01 and 08-02), now including
    **SUNDIAL-PT-1** and **STORE-PT-1**. **UNLOCK-PT-1 needs gates ON** (`?devUnlocks=off` +
    hard refresh) or Vite hides the whole change.

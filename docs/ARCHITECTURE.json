@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-03T04:08:02.947Z",
-    "commit": "33f0d15"
+    "at": "2026-08-03T06:08:33.690Z",
+    "commit": "c93ebc3"
   },
-  "source_digest": "cf9e47ca",
+  "source_digest": "3081c8f4",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -850,8 +850,8 @@
     "queue": [
       {
         "id": "ART-PASS-SUNDIAL-1",
-        "what": "Sundial art pass — Wave 6 remains",
-        "status": "▶ ACTIVE — Waves 1–5 shipped and deployed (Version `0d3d812f`). Spec = [handover](./planning/art-pass-sundial-handover.md); one commit per lever, ack per wave. Paint does not read on this deck (plate median 2.6 vs emissive 153) — see item 18's re-scope. Owed playtest = SUNDIAL-PT-1.",
+        "what": "Sundial art pass — all 6 waves shipped",
+        "status": "▶ ACTIVE, code complete — Wave 6 pushed, not deployed. Remaining: playtest (SUNDIAL-PT-1) + deploy. Neither paint nor relief reads on this deck (plate median 2.6; item 34 probe moved 0%). The ramp is the exception — median 12.2, responds 12× more, so item 33 re-authored it. Spec = [handover](./planning/art-pass-sundial-handover.md).",
         "state": "active"
       },
       {
@@ -877,7 +877,7 @@
       }
     ],
     "next_actions": [
-      "ART-PASS-SUNDIAL-1 — Wave 5 CLOSED, Wave 6 next (items 26–36), needs its own plan +",
+      "ART-PASS-SUNDIAL-1 — WAVE 6 CLOSED, code complete. Next: Wyatt playtest, then deploy.",
       "Playtest owed — BACKLOG `## Playtest owed` (08-01 and 08-02), now including",
       "Wyatt's open calls: none on Sundial — OQ3 resolved in `9a59271`, OQ5 in `93c3deb`,",
       "Parked, needs its own ack: ROUND-WEDGE-1 Phase B (Phase A shipped `d4a7718`);"
@@ -923,7 +923,7 @@
           "High": 1,
           "?": 2,
           "Medium": 17,
-          "Low": 5,
+          "Low": 6,
           "Partial": 1
         },
         "rows": [
@@ -955,6 +955,12 @@
             "pri": "Medium",
             "item": "SPAWN-SUNDIAL-1 — Sundial platform-leg colliders `[pre-ship]`",
             "notes": "**Half closed 08-02.** The spawn inset shipped in `e64f1a3` via `booth.gapDistanceByLevel` — Sundial's booths and spawn ring both moved +0.75m outward with no level-file edit. **Still owed:** colliders on the platform legs. `buildZanzibarBooths` ([zanzibarPlatform.js:2508](../../src/levels/zanzibarPlatform.js:2508)) builds four 11m legs plus cross-braces per booth as **visual meshes only** — the deck cuboid at `:2579` is the sole `createCollider` in the builder, so carts ghost straight through the supports. Deferred because `zanzibarPlatform.js` was owned by the parallel ART-PASS-SUNDIAL-1 session; pick up once that card closes.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "SPINDLE-COLOR-DEAD-1 — Classic still declares and returns a colour pair nobody reads",
+            "notes": "**Filed 08-03**, found while closing Sundial audit item 28 and deliberately left out of that commit (Wyatt's instruction: do not expand into Classic). Sundial's spindle \"colour contract\" turned out to be dead — `main.js` destructured `spindleLightColorPink`/`Cyan` into locals and never read them — so `60486c9` moved the cycle into Sundial's own `update()` and deleted the locals, Sundial's returns and its typedef. **Classic was not touched and still declares the pair at [arena.js:1672](../../src/arena.js:1672) and returns it at [:2786](../../src/arena.js:2786),** while its live reactive path uses `reactive.accentColor` ([:2753](../../src/arena.js:2753)) instead. So the pair looks dead there too. `backroomsSupermarket` keeps its own pair on purpose, labelled inert, for API shape. **Check before deleting** whether anything reads Classic's pair through the shared level-result shape (`levels/index.js` types them optional, so the type system will not tell you). Cosmetic only — no player-visible effect either way.",
             "ship1": null
           },
           {
@@ -1088,11 +1094,24 @@
       {
         "title": "Art",
         "counts": {
-          "Low": 7,
+          "?": 1,
+          "Low": 8,
           "High": 5,
           "Medium": 5
         },
         "rows": [
+          {
+            "pri": "✅",
+            "item": "SUNDIAL-DECK-DETAIL-1 — deck surface density (Sundial audit item 34)",
+            "notes": "**CLOSED 08-03 BY MEASUREMENT, not by building it.** The audit's largest single item — tiling detail layer, salt-crust bloom, spray staining, sun bleach, rubber skid arcs, braking chevrons, re-authored plate seams, re-blitted decals. A relief-only probe was built and then removed in `586330b`: a tiling steel-grain normal at 1 m repeat on a transparent overlay (the [arena.js:1719](../../src/arena.js:1719) vinyl-detail-ring pattern), `normalScale` deliberately over-strong at 1.4 so a null result could only mean \"no\". **Toggling ONLY `normalScale` (0.0 vs 1.4, tint identical in both, same camera, pinned phase): deck median 2.43 → 2.43 (0%), p75 5.06 → 5.06 (0%), whole frame 0.86% — BELOW Sundial's ~1.2% construction-noise floor.** Relief contributes nothing here. **The reason also explains Wave 4's paint result rather than sitting beside it:** a normal map modulates SHADING, and this plate is lit to a median of 2.4/255 — modulating almost no light still gives almost no light, which is why paint measured 16.4 against emissive's 153. **A trap worth knowing:** the overlay moved 8.31% of the frame against the previous commit, which reads like a win; it was the overlay's own dark albedo tinting the plate 8% DARKER. Judge this class of change by isolating the channel, never by whole-frame delta. **Do not re-open** without new evidence about the deck's *lighting* — what moves this surface is light (item 16's god rays took the median up 82%) and emissive, not surface authoring. Contrast SUNDIAL-RAMP-1 below, where the same probe said yes.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "SUNDIAL-LOW-WATER-1 — Low still skips the ocean normal map",
+            "notes": "**Filed 08-03**, the one residual after Sundial audit item 36 was otherwise closed. `waterNormalTex` is still built inside `if (!lowQ)` ([zanzibarPlatform.js:1427](../../src/levels/zanzibarPlatform.js:1427)), so Low's ocean has no ripple normal — the audit asked to keep it (\"a 256 px canvas built once; one extra texture fetch, not a pass\"). Everything else item 36 named is now on Low and was verified in source 08-03: foam ring (built on every tier with an explicit D-SUNDIAL-OQ6 comment), sun-path glint (ungated), 2 of 3 god-ray shafts (`rakeCount = lowQ ? 2 : 3`), a Low-specific ocean roughness of 0.5, and the reduced hologram — core + one glyph band + one ring — shipped in Wave 5 `0428f17`. Filed rather than built because Wave 6's close-out lever was scoped as verification only. Cheap; check the cost on the Intel UHD box, which is the min-spec smoothness floor.",
+            "ship1": null
+          },
           {
             "pri": "Low",
             "item": "CART-FORK-SWIVEL-1 — the un-painted fork piece still does not steer with its caster",

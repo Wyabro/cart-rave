@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-03 at commit `4fceb02` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `f14f556d`
+> Generated 2026-08-03 at commit `c93ebc3` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `95d73373`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -18,8 +18,8 @@ Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep a
 
 ## ACTIVE CARD
 
-ART-PASS-SUNDIAL-1 — Sundial art pass — Wave 6 remains
-Pass looks like: ▶ ACTIVE — Waves 1–5 shipped and deployed (Version `0d3d812f`). Spec = [handover](./planning/art-pass-sundial-handover.md); one commit per lever, ack per wave. Paint does not read on this deck (plate median 2.6 vs emissive 153) — see item 18's re-scope. Owed playtest = SUNDIAL-PT-1.
+ART-PASS-SUNDIAL-1 — Sundial art pass — all 6 waves shipped
+Pass looks like: ▶ ACTIVE, code complete — Wave 6 pushed, not deployed. Remaining: playtest (SUNDIAL-PT-1) + deploy. Neither paint nor relief reads on this deck (plate median 2.6; item 34 probe moved 0%). The ramp is the exception — median 12.2, responds 12× more, so item 33 re-authored it. Spec = [handover](./planning/art-pass-sundial-handover.md).
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 
