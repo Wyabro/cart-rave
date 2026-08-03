@@ -431,7 +431,7 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
     if (!option || !option.enabled) return;
     if (!isLevelUnlocked(levelId)) {
       const status = getLevelUnlockStatus(levelId);
-      showUnlockToast(`Locked — ${status.hint} (${status.progress}/${status.goal})`);
+      showUnlockToast(`Locked — ${status.hint} (${status.progress}/${status.goal})`, 3200, "arena");
       // * Cursor deliberately NOT cleared: a refused selection leaves the pager showing the
       // * locked arena the player is looking at, which is the whole point of browsing.
       return;
@@ -532,8 +532,14 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
     });
   }
 
-  /** Lightweight toast for lock feedback + unlock grants. */
-  function showUnlockToast(message, durationMs = 3200) {
+  /**
+   * Lightweight toast for lock feedback + unlock grants.
+   * @param {string} message
+   * @param {number} [durationMs]
+   * @param {"default" | "arena"} [variant] "arena" lifts above the main-menu bottom hint bar.
+   *   Set/cleared on every call so Customize locked-color toasts never inherit a stuck class.
+   */
+  function showUnlockToast(message, durationMs = 3200, variant = "default") {
     let el = document.getElementById('cr-unlock-toast');
     if (!el) {
       el = document.createElement('div');
@@ -543,6 +549,7 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
       document.body.appendChild(el);
     }
     el.textContent = message;
+    el.classList.toggle('cr-unlock-toast--arena', variant === 'arena');
     el.classList.add('cr-unlock-toast--show');
     const prev = /** @type {HTMLElement & { _hideTimer?: number }} */ (el);
     window.clearTimeout(prev._hideTimer);
