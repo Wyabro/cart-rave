@@ -80,7 +80,7 @@ Live rows only. Shipped and closed cards live in
 
 | # | What | Status |
 |---|------|--------|
-| **ART-PASS-SUNDIAL-1** | Sundial art pass — Wave 6 remains | ▶ **ACTIVE** — Waves 1–5 shipped; Waves 1–4 **deployed** (Version `7f79ef1d`), Wave 5 **unpushed at time of writing**. Spec = [handover](./planning/art-pass-sundial-handover.md). One commit per lever, ack per wave. **Paint does not read on this deck** (plate median 2.6 vs emissive 153) — read item 18's re-scope before proposing painted detail. **Owed: Wyatt playtest** — Wave 5: is the holo *projected* now, is the gnomon legible or clutter (it has **no collider**, carts pass through), does the KO flare read, is Low's reduced holo worth its frames **on the Intel box**. Carried: cart shadows on turn, dust sun lobe, raking shafts breathing, the dial, gate beacons, ship glows, ships on a phone, turbines. |
+| **ART-PASS-SUNDIAL-1** | Sundial art pass — Wave 6 remains | ▶ **ACTIVE** — Waves 1–5 **shipped and deployed** (Version `0d3d812f`), including the gnomon collider. Spec = [handover](./planning/art-pass-sundial-handover.md). One commit per lever, ack per wave. **Paint does not read on this deck** (plate median 2.6 vs emissive 153) — read item 18's re-scope before proposing painted detail. **Owed: Wyatt playtest** — Wave 5: is the holo *projected* now, is the gnomon legible or clutter (it has **no collider**, carts pass through), does the KO flare read, is Low's reduced holo worth its frames **on the Intel box**. Carried: cart shadows on turn, dust sun lobe, raking shafts breathing, the dial, gate beacons, ship glows, ships on a phone, turbines. |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 

@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-03T02:53:10.615Z",
-    "commit": "0428f17"
+    "at": "2026-08-03T03:03:31.295Z",
+    "commit": "5ec432d"
   },
-  "source_digest": "2b72a374",
+  "source_digest": "2c7ab941",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -851,7 +851,7 @@
       {
         "id": "ART-PASS-SUNDIAL-1",
         "what": "Sundial art pass — Wave 6 remains",
-        "status": "▶ ACTIVE — Waves 1–5 shipped; Waves 1–4 deployed (Version `7f79ef1d`), Wave 5 unpushed at time of writing. Spec = [handover](./planning/art-pass-sundial-handover.md). One commit per lever, ack per wave. Paint does not read on this deck (plate median 2.6 vs emissive 153) — read item 18's re-scope before proposing painted detail. Owed: Wyatt playtest — Wave 5: is the holo *projected* now, is the gnomon legible or clutter (it has no collider, carts pass through), does the KO flare read, is Low's reduced holo worth its frames on the Intel box. Carried: cart shadows on turn, dust sun lobe, raking shafts breathing, the dial, gate beacons, ship glows, ships on a phone, turbines.",
+        "status": "▶ ACTIVE — Waves 1–5 shipped and deployed (Version `0d3d812f`), including the gnomon collider. Spec = [handover](./planning/art-pass-sundial-handover.md). One commit per lever, ack per wave. Paint does not read on this deck (plate median 2.6 vs emissive 153) — read item 18's re-scope before proposing painted detail. Owed: Wyatt playtest — Wave 5: is the holo *projected* now, is the gnomon legible or clutter (it has no collider, carts pass through), does the KO flare read, is Low's reduced holo worth its frames on the Intel box. Carried: cart shadows on turn, dust sun lobe, raking shafts breathing, the dial, gate beacons, ship glows, ships on a phone, turbines.",
         "state": "active"
       },
       {
