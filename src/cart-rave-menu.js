@@ -33,6 +33,10 @@ import { setAllAudioMuted, setMusicGainValue, setSfxSliderVolume } from "./ui/au
 import { playUiClick } from "./sfxSynth.js";
 import { AUDIO_VOLUME_MAX } from "./stores/audioStore.js";
 import { getRoundState } from "./gameState.js";
+// * MENU-LOCK-HINT-1: browsing a locked arena must retarget the 3D preview without
+// * selecting it. Imported directly rather than routed through main.js — levelManager is
+// * already a shared module (gameFlow/netcode/main) and imports nothing from the menu.
+import { setMenuBrowseLevel, scheduleMenuLevelPreview } from "./levelManager.js";
 import { setInputMode, updateControlsPanelUI, getInputMode, onInputModeChange } from "./input.js";
 import { readBuildInfo } from "./utils/buildInfo.js";
 import {
@@ -245,6 +249,31 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
     sunglassesStyle: DEFAULT_SUNGLASSES_STYLE,
   };
 
+  /**
+   * * Browse cursor — the arena the pager is DISPLAYING, which is not always the arena the
+   * * player has SELECTED. Null means "follow the selection" (the normal case).
+   * *
+   * * MENU-LOCK-HINT-1: pageArena used to skip locked arenas, so a new player with only the
+   * * free arena unlocked pressed ▸ and nothing happened — two live-looking arrows that did
+   * * nothing, and a "1/3" advertising two arenas they could not see, name, or learn how to
+   * * earn. Browsing now steps onto locked arenas, which means the pager needs a cursor that
+   * * `selectLevel` deliberately refuses to commit.
+   * *
+   * * The cursor NEVER writes state.level, storage, or settingsStore — browsing is not
+   * * choosing. `.active` stays on the committed selection, so anything still reading the
+   * * hidden radiogroup (STATES-DEAD-1 calls it the arena data source) is never lied to.
+   * *
+   * * Declared beside `state` rather than next to pageArena on purpose: selectLevel reads it
+   * * and runs during init, so a `let` further down the body would be in its TDZ.
+   * @type {string | null}
+   */
+  let browseLevelId = null;
+
+  /** The arena the pager should display: the browse cursor, else the committed selection. */
+  function pagerLevelId() {
+    return browseLevelId ?? state.level;
+  }
+
   if (!storageGet(STORAGE_KEYS.username)) {
     state.name = rollPlayerName();
     storageSet(STORAGE_KEYS.username, state.name);
@@ -403,9 +432,20 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
     if (!isLevelUnlocked(levelId)) {
       const status = getLevelUnlockStatus(levelId);
       showUnlockToast(`Locked — ${status.hint} (${status.progress}/${status.goal})`);
+      // * Cursor deliberately NOT cleared: a refused selection leaves the pager showing the
+      // * locked arena the player is looking at, which is the whole point of browsing.
       return;
     }
-    if (levelId === state.level) return;
+    // * A real selection ends browsing — including the same-level case below, which is how
+    // * you get back from a locked arena to the one you already had selected. Clearing the
+    // * preview cursor hands the preview back to storage.
+    browseLevelId = null;
+    setMenuBrowseLevel(null);
+    if (levelId === state.level) {
+      updateArenaPager();
+      scheduleMenuLevelPreview();
+      return;
+    }
     persistLevel(levelId);
     updateLevelButtons();
     updateArenaPager();
@@ -1673,6 +1713,20 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
         return;
       }
       if (btn.dataset.action === 'toggle-postfx' || btn.dataset.action === 'toggle-lowquality') return;
+      // * MENU-LOCK-HINT-1: refuse SOLO while the pager is parked on a locked arena.
+      // * This gate has to exist — clampLevelIdToUnlocks does NOT refuse, it silently falls
+      // * back to FREE_LEVEL, and play entry never reads the pager at all: it resolves from
+      // * storage (main.js enterPlayMode). So without this, browsing to a locked arena and
+      // * pressing SOLO would start the LAST UNLOCKED arena while looking like it worked.
+      // * Placed before the cartrave:menu dispatch so the mouse path and the keyboard path
+      // * both hit it — activateMenuSelection only .click()s this same button.
+      // * Solo only: quickplay and friends take the room's arena, not the local pick, so
+      // * blocking those on a browse cursor would refuse a game the player can actually play.
+      if (btn.dataset.action === 'solo' && !isLevelUnlocked(pagerLevelId())) {
+        const status = getLevelUnlockStatus(pagerLevelId());
+        showUnlockToast(`Locked — ${status.hint} (${status.progress}/${status.goal})`);
+        return;
+      }
       window.dispatchEvent(new CustomEvent('cartrave:menu', {
         detail: { action: btn.dataset.action }
       }));
@@ -1760,30 +1814,58 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
     if (!levelRow) return;
     const btns = Array.from(levelRow.querySelectorAll(".cr-level-btn"));
     if (!btns.length) return;
-    let idx = btns.findIndex((b) => b.classList.contains("active"));
+    const current = pagerLevelId();
+    let idx = btns.findIndex((b) => b.dataset.level === current);
     if (idx < 0) idx = 0;
     const n = btns.length;
-    for (let step = 1; step <= n; step += 1) {
-      const cand = btns[(((idx + dir * step) % n) + n) % n];
-      if (!cand.classList.contains("cr-level-btn--locked")) {
-        selectLevel(cand.dataset.level);
-        return;
-      }
+    // * Step exactly one arena — no skipping. A locked arena is a destination now, not a
+    // * hole in the list.
+    const next = btns[(((idx + dir) % n) + n) % n];
+    const nextId = next.dataset.level || "";
+    if (isLevelUnlocked(nextId)) {
+      // * Unlocked: commit as before. selectLevel clears the cursor for us.
+      selectLevel(nextId);
+      return;
     }
+    browseLevelId = nextId;
+    updateArenaPager();
+    // * Point the 3D preview at the browsed arena too, or the pager names Storerooms while
+    // * the world behind it is still Sundial — a desync that reads as a bug and defeats the
+    // * point of browsing (seeing what you are working toward).
+    // * Called here, NOT via cartrave:level-changed: that event only fires from a successful
+    // * selectLevel, which a locked browse never reaches.
+    setMenuBrowseLevel(nextId);
+    scheduleMenuLevelPreview();
   }
 
   function updateArenaPager() {
     if (!levelRow) return;
     const btns = Array.from(levelRow.querySelectorAll(".cr-level-btn"));
     if (!btns.length) return;
-    const active = btns.find((b) => b.classList.contains("active")) || btns[0];
+    const shownId = pagerLevelId();
+    const shown = btns.find((b) => b.dataset.level === shownId)
+      || btns.find((b) => b.classList.contains("active"))
+      || btns[0];
     const nameEl = $("cr-arena-name");
     const subEl = $("cr-arena-sub");
-    const label = active.querySelector(".cr-level-btn-label")?.textContent?.trim() || "";
-    const sub = (active.querySelector(".cr-level-btn-sub")?.textContent?.trim() || "").toUpperCase();
-    const idx = btns.indexOf(active);
+    const label = shown.querySelector(".cr-level-btn-label")?.textContent?.trim() || "";
+    const sub = (shown.querySelector(".cr-level-btn-sub")?.textContent?.trim() || "").toUpperCase();
+    const idx = btns.indexOf(shown);
+    const position = `${idx + 1}/${btns.length}`;
     if (nameEl) nameEl.textContent = label;
-    if (subEl) subEl.textContent = sub ? `${sub} · ${idx + 1}/${btns.length}` : `${idx + 1}/${btns.length}`;
+    if (!subEl) return;
+    const levelId = shown.dataset.level || "";
+    if (!isLevelUnlocked(levelId)) {
+      // * Locked: swap the flavour text for the unlock requirement, but keep `· N/M` pinned
+      // * at the end so the chrome does not jump between locked and unlocked arenas. Text
+      // * comes from getLevelUnlockStatus/unlockConfig — never a literal, because
+      // * UNLOCK-ORDER-1 already proved hardcoded arena names go stale.
+      const status = getLevelUnlockStatus(levelId);
+      const hint = String(status.hint || "").toUpperCase();
+      subEl.textContent = `🔒 ${hint} (${status.progress}/${status.goal}) · ${position}`;
+      return;
+    }
+    subEl.textContent = sub ? `${sub} · ${position}` : position;
   }
 
   function toggleMenuMute() {

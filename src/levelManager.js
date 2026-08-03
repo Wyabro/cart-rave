@@ -100,6 +100,44 @@ function resolveTargetLevelId(levelId) {
 }
 
 /**
+ * Arena the menu pager is BROWSING (MENU-LOCK-HINT-1). Null = not browsing.
+ *
+ * * Browsing a locked arena never touches storage or settingsStore — it must not, or SOLO
+ * * would start an arena the player has not unlocked — so the preview has no other way to
+ * * learn where the pager is pointing.
+ * @type {string | null}
+ */
+let menuBrowseLevelId = null;
+
+/**
+ * Point the menu preview at an arena without selecting it. Pass null when a real selection
+ * commits, so the preview falls back to storage.
+ * @param {string | null | undefined} levelId
+ * @returns {void}
+ */
+export function setMenuBrowseLevel(levelId) {
+  menuBrowseLevelId = levelId ?? null;
+}
+
+/**
+ * Preview target: the browse cursor if the menu is browsing, else the committed selection.
+ *
+ * * Deliberately a SEPARATE resolver rather than folding the cursor into resolveTargetLevelId:
+ * * that one also serves swapLoadedLevel and rebuildLevelIfNeeded, and a browse cursor leaking
+ * * into play entry is precisely the bug the SOLO gate exists to prevent.
+ * *
+ * * Also deliberately re-read (not captured): previewMenuLevelIfNeeded consumes its target
+ * * INSIDE the swap loop, and a second schedule early-returns while one is in flight. A frozen
+ * * value would strand a stale load — Storerooms finishing after the cursor moved back to
+ * * Sundial, with the corrective schedule short-circuited.
+ * @returns {"classicRecord" | "backrooms" | "zanzibar" | "testArena"}
+ */
+function resolvePreviewTargetLevelId() {
+  if (menuBrowseLevelId != null) return resolveLevelId(menuBrowseLevelId);
+  return resolveTargetLevelId(null);
+}
+
+/**
  * Resolved id of the arena currently loaded in the scene.
  * @returns {string}
  */
@@ -319,7 +357,7 @@ async function previewMenuLevelIfNeeded(levelId) {
     levelRebuildInFlight = true;
     try {
       while (canSafelyRebuildLevel()) {
-        const selected = selectedOverride ?? resolveTargetLevelId(null);
+        const selected = selectedOverride ?? resolvePreviewTargetLevelId();
         if (selected === loadedLevelId) break;
 
         if (import.meta.env.DEV) {
@@ -360,7 +398,7 @@ export function scheduleMenuLevelPreview() {
   if (menuLevelDebounceId != null) clearTimeout(menuLevelDebounceId);
   menuLevelDebounceId = setTimeout(() => {
     menuLevelDebounceId = null;
-    const levelId = resolveTargetLevelId(null);
+    const levelId = resolvePreviewTargetLevelId();
     if (levelId === loadedLevelId) return;
     const runPreview = () => { void previewMenuLevelIfNeeded(); };
     // * Run geometry swap on idle so picker taps never block the menu UI thread.
