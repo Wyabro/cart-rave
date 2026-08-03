@@ -303,9 +303,15 @@ detail rescues the frame. `baseline: TBD`.
 Measured contrast between cart emissive and the busiest background it can sit over, per arena.
 The Storerooms is the precedent — the steel-blue grazing rim light exists specifically because
 warm environment plus warm carts collapsed. Live values are `0x8aa0c8` @ `0.28`
-([`backroomsSupermarket.js:3394`](../../src/levels/backroomsSupermarket.js:3394)); cite live
+([`backroomsSupermarket.js:3589`](../../src/levels/backroomsSupermarket.js:3589)); cite live
 code here, not the archives, which record the shipped-M5 numbers `0x7a8fc0` @ `0.2` from before
-the value drifted. `baseline: TBD`.
+the value drifted. **Sundial now carries the same lever** — `0x3a6088` @ `0.3` with an authored
+target 1.2 m up and off-centre
+([`zanzibarPlatform.js`](../../src/levels/zanzibarPlatform.js), search `coolFill`), raised from
+`0.22` aimed at the arena's exact centre. `baseline: TBD` — and it stays TBD deliberately: per
+the note above, Rules 3–5 baselines belong to ART-EXPO-1 / ART-FILTER-1, and capturing one
+immediately after changing the very light it measures would baseline a look that is still
+moving.
 
 ---
 

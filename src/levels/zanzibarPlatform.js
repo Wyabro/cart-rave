@@ -3815,10 +3815,23 @@ export function initZanzibarPlatform(scene, world, config) {
   scene.add(ambient);
 
   // * Soft fill from the anti-sun side (cool teal) so carts get a moody rim without
-  // * lifting overall brightness — pure atmosphere.
-  const coolFill = new THREE.DirectionalLight(0x3a6088, 0.22);
+  // * lifting overall brightness — pure atmosphere. This is Rule 5's separation light, and
+  // * Sundial needs it for the same reason the Storerooms does: warm environment plus warm
+  // * carts collapse. The precedent is backroomsSupermarket.js:3589, 0x8aa0c8 @ 0.28.
+  // *
+  // * 0.22 -> 0.30, and an AUTHORED TARGET. It was never "target-less" — three aims a
+  // * DirectionalLight at (0,0,0) by default, which here is the arena's exact centre, i.e.
+  // * the one aim that grazes nothing. Pointing it 1.2 m up and off-centre, the same shape
+  // * the precedent uses, holds a grazing angle across the deck instead of a flat-on wash.
+  // * Both halves ADD light. Nothing here removes any.
+  const coolFill = new THREE.DirectionalLight(0x3a6088, 0.3);
   coolFill.position.copy(seascape.sunDir).multiplyScalar(-50).setY(18);
+  // * The target has to be IN THE SCENE or its matrixWorld never updates and the light keeps
+  // * aiming at the origin — three does not add it for you. Same two lines as the precedent,
+  // * and it is in sceneRoots below so a level swap disposes it.
+  coolFill.target.position.set(circumR * 0.18, 1.2, -circumR * 0.12);
   scene.add(coolFill);
+  scene.add(coolFill.target);
 
   const boothNeonMeshes = [...deck.neonStripMeshes];
   const boothColliderHandles = [];
@@ -3899,7 +3912,7 @@ export function initZanzibarPlatform(scene, world, config) {
 
   const sceneRoots = [
     seascape.group, deck.group, booths.group,
-    sunLight, hemiLight, ambient, coolFill, spindleLight,
+    sunLight, hemiLight, ambient, coolFill, coolFill.target, spindleLight,
   ];
   const ownedGeometries = [
     ...seascape.ownedGeometries, ...deck.ownedGeometries, ...booths.ownedGeometries,
