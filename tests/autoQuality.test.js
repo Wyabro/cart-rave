@@ -1,5 +1,12 @@
 import { describe, expect, it, beforeEach } from "vitest";
-import { tickAutoQuality, resetAutoQualityForTests } from "../src/utils/autoQuality.js";
+import {
+  tickAutoQuality,
+  resetAutoQualityForTests,
+  noteModeEntryShown,
+  noteModeEntryHidden,
+  isAutoQualityEntrySuppressed,
+  ENTRY_QUALITY_GRACE_MS,
+} from "../src/utils/autoQuality.js";
 import {
   getSessionQualityTierOverride,
   setSessionQualityTier,
@@ -77,6 +84,51 @@ describe("tickAutoQuality", () => {
     }
     expect(count).toBe(2);
     expect(getSessionRenderScaleMul()).toBe(0.7);
+  });
+
+  it("FV-LOAD-1b: suppresses demotion during mode-entry + post-entry grace", () => {
+    const t0 = 10_000;
+    noteModeEntryShown();
+    expect(isAutoQualityEntrySuppressed(t0)).toBe(true);
+    let stepped = false;
+    for (let i = 0; i < 400; i += 1) {
+      if (tickAutoQuality(0.04, t0 + i * 40)) stepped = true;
+    }
+    expect(stepped).toBe(false);
+    expect(getSessionQualityTierOverride()).toBe(null);
+
+    noteModeEntryHidden(t0 + 20_000);
+    const graceStart = t0 + 20_000;
+    // * Still suppressed inside the 2s grace even with terrible frames.
+    stepped = false;
+    for (let i = 0; i < 50; i += 1) {
+      const now = graceStart + i * 20;
+      if (now >= graceStart + ENTRY_QUALITY_GRACE_MS) break;
+      if (tickAutoQuality(0.05, now)) stepped = true;
+    }
+    expect(stepped).toBe(false);
+    expect(isAutoQualityEntrySuppressed(graceStart + ENTRY_QUALITY_GRACE_MS - 1)).toBe(true);
+  });
+
+  it("FV-LOAD-1b: sustained bad frames after grace still demote", () => {
+    const t0 = 50_000;
+    noteModeEntryShown();
+    noteModeEntryHidden(t0);
+    // * Poison the ring during grace — must not demote, and must clear at grace end.
+    for (let i = 0; i < 100; i += 1) {
+      tickAutoQuality(0.05, t0 + i * 16);
+    }
+    expect(getSessionQualityTierOverride()).toBe(null);
+
+    let now = t0 + ENTRY_QUALITY_GRACE_MS + 1;
+    let stepped = false;
+    for (let i = 0; i < 400; i += 1) {
+      if (tickAutoQuality(0.04, now)) stepped = true;
+      now += 40;
+      if (stepped) break;
+    }
+    expect(stepped).toBe(true);
+    expect(getSessionQualityTierOverride()).toBe("medium");
   });
 });
 

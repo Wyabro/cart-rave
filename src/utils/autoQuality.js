@@ -30,6 +30,12 @@ const WINDOW_MS = 1000;
 const MAX_STEPS = 2;
 /** ms of settle time after a step before sampling resumes */
 const COOLDOWN_MS = 4000;
+/**
+ * FV-LOAD-1b: after mode-entry overlay lifts, keep sampling off this long so the
+ * freeze shoulder (20.5–250 ms frames) cannot demote the session. Cap-229 demoted
+ * high→medium ~2s after Cart Rave carts-ready during countdown.
+ */
+export const ENTRY_QUALITY_GRACE_MS = 2000;
 
 /** @type {number[]} */
 const samples = [];
@@ -37,6 +43,12 @@ let badWindows = 0;
 let windowStartMs = 0;
 let stepsApplied = 0;
 let cooldownUntilMs = 0;
+/** While true (mode-entry overlay up), tick is a no-op. */
+let entryOverlayActive = false;
+/** performance.now() until which tick stays suppressed after overlay hide; 0 = none. */
+let entryGraceUntilMs = 0;
+/** Clear the sample ring once when grace expires (not every tick). */
+let clearSamplesWhenGraceEnds = false;
 
 /**
  * WARM-IGPU-1 Phase 0b: every step-down this session, oldest first. A demotion is
@@ -63,12 +75,63 @@ export function getAutoQualityStepLog() {
  *   demotion from a real in-round one without guessing.
  * @returns {boolean} true if this call applied a session step-down (caller should re-apply quality live)
  */
+/**
+ * Mode-entry overlay just appeared — suppress demotion for the whole load window.
+ * Also clears the sample ring so menu-attract cost cannot poison the first in-round
+ * windows (same ring is never cleared between evals — autoQuality.js:126-128).
+ * @returns {void}
+ */
+export function noteModeEntryShown() {
+  entryOverlayActive = true;
+  entryGraceUntilMs = 0;
+  clearSamplesWhenGraceEnds = false;
+  samples.length = 0;
+  badWindows = 0;
+  windowStartMs = 0;
+}
+
+/**
+ * Mode-entry overlay fully dismissed — start the post-entry grace clock.
+ * @param {number} [nowMs]
+ * @returns {void}
+ */
+export function noteModeEntryHidden(nowMs = performance.now()) {
+  entryOverlayActive = false;
+  entryGraceUntilMs = nowMs + ENTRY_QUALITY_GRACE_MS;
+  clearSamplesWhenGraceEnds = true;
+}
+
+/**
+ * Test helper: is the governor currently suppressed by overlay or post-entry grace?
+ * @param {number} [nowMs]
+ * @returns {boolean}
+ */
+export function isAutoQualityEntrySuppressed(nowMs = performance.now()) {
+  if (entryOverlayActive) return true;
+  if (entryGraceUntilMs > 0 && nowMs < entryGraceUntilMs) return true;
+  return false;
+}
+
+function clearSampleRing() {
+  samples.length = 0;
+  badWindows = 0;
+  windowStartMs = 0;
+}
+
 export function tickAutoQuality(dtSec, nowMs = performance.now(), source = "game") {
   // * An explicit ?preset= is a QA pin (tools/perf-profile.mjs measures fixed tiers;
   // * visual-QA shots must be reproducible) — the watchdog shares the same session
   // * override slot and would silently relabel the cell. The software-GL hard floor
   // * still wins over a preset because createRenderer applies it after the preset.
   if (getDebugParams().preset != null) return false;
+  if (entryOverlayActive) return false;
+  if (entryGraceUntilMs > 0 && nowMs < entryGraceUntilMs) return false;
+  // * Grace just ended — drop the freeze-shoulder samples before any window eval.
+  if (clearSamplesWhenGraceEnds) {
+    clearSampleRing();
+    clearSamplesWhenGraceEnds = false;
+    entryGraceUntilMs = 0;
+  }
   if (nowMs < cooldownUntilMs) return false;
 
   const currentTier = getQualityTier();
@@ -161,4 +224,7 @@ export function resetAutoQualityForTests() {
   stepsApplied = 0;
   cooldownUntilMs = 0;
   stepLog.length = 0;
+  entryOverlayActive = false;
+  entryGraceUntilMs = 0;
+  clearSamplesWhenGraceEnds = false;
 }
