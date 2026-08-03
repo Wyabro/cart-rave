@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-03T09:22:29.030Z",
-    "commit": "106fc50"
+    "at": "2026-08-03T20:33:16.178Z",
+    "commit": "3d8e618"
   },
-  "source_digest": "1d3daf76",
+  "source_digest": "29a7c4e4",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -934,7 +934,7 @@
       {
         "title": "Engineering",
         "counts": {
-          "High": 1,
+          "High": 3,
           "?": 4,
           "Medium": 15,
           "Low": 6,
@@ -975,6 +975,18 @@
             "pri": "Low",
             "item": "SPINDLE-COLOR-DEAD-1 — Classic still declares and returns a colour pair nobody reads",
             "notes": "**Filed 08-03**, found while closing Sundial audit item 28 and deliberately left out of that commit (Wyatt's instruction: do not expand into Classic). Sundial's spindle \"colour contract\" turned out to be dead — `main.js` destructured `spindleLightColorPink`/`Cyan` into locals and never read them — so `60486c9` moved the cycle into Sundial's own `update()` and deleted the locals, Sundial's returns and its typedef. **Classic was not touched and still declares the pair at [arena.js:1672](../../src/arena.js:1672) and returns it at [:2786](../../src/arena.js:2786),** while its live reactive path uses `reactive.accentColor` ([:2753](../../src/arena.js:2753)) instead. So the pair looks dead there too. `backroomsSupermarket` keeps its own pair on purpose, labelled inert, for API shape. **Check before deleting** whether anything reads Classic's pair through the shared level-result shape (`levels/index.js` types them optional, so the type system will not tell you). Cosmetic only — no player-visible effect either way.",
+            "ship1": null
+          },
+          {
+            "pri": "High",
+            "item": "PERF-PASS-1 — low-end performance is worse across the board",
+            "notes": "**Filed 08-03 from Wyatt's playtest note**, alongside ATTRACT-JANK-1 below. Report is a felt regression on weak hardware, not a number, so this card is **measure-first and nothing else until there is a delta**: the standing rule from run-4's \"GC metronome\" error (**HARNESS-NULL-1**) is that adjacency is not attribution. **Known floor to measure against:** run 5 put the Intel UHD iGPU at LOW at **54% of frames over 33 ms** — that is the pre-existing smoothness floor, so \"bad on the Intel box\" is only evidence if it is *worse than that*. **Method:** bisect recent batches on the Intel box, **prod not dev** — dev-only probes (`__cartRavePerf.scene`, `import(\"/src/…\")`) lie in prod, and dev-server timing is not the shipped bundle. Candidate surface added since the last known-good measurement is large (Sundial god rays + hologram, the three LOAD-POSTER-1 loading scenes, octagon/holo work, FX layers), which is exactly why a bisect beats guessing. **Do not** start tuning tier knobs before a measurement — `PERF-TIER-1` and `PERF-WATCH-1` are the levers *after* attribution, not instead of it. Related: WARM-SOLO-1 (weak-GPU first-draw stalls), PROBE-WARM-RT-1.",
+            "ship1": null
+          },
+          {
+            "pri": "High",
+            "item": "ATTRACT-JANK-1 — attract-mode animation reads as jank on weak machines",
+            "notes": "**Filed 08-03 from Wyatt's playtest note**, split from PERF-PASS-1 because it has a specific and recent suspect worth checking before any general sweep. **The attract loop only started animating on 08-02.** SHOOT-ANIM-1 (`6b27283`) found `menuAttract.js` was rendering without ever updating — the live main-menu arena was frozen for every player — and added the `onAnimationTick` dep; SHOOT-ANIM-2 (`33f0d15`) then put rave dressing (stage spots, crowd bulbs) on that same loop. So the menu went from static to fully animated in one day, immediately before this report. **That makes it the first thing to measure, not the confirmed cause** — same discipline as PERF-PASS-1. **Two specifics that matter if it is the loop:** (1) the attract path deliberately runs with **no frame budget** (`frameBudgetAllow` fails closed without `beginFrameBudget` and would latch a bucket off permanently), so its per-frame cost is unbounded by design and weak machines rely entirely on the auto-quality watchdog stepping the tier down; (2) attract render cost and in-game frame delta are judged against **one shared 20.5 ms bar** (see PERF-WATCH-1), and demotion is irreversible per session — so a heavy menu can demote the tier before the player ever enters a round. Check whether the watchdog is firing at the menu on the Intel box.",
             "ship1": null
           },
           {
