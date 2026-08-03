@@ -8,6 +8,7 @@ import {
   cardsFromBacklog,
   buildPlaytestQueue,
   classifyRig,
+  parseOwedCheck,
   f8LabelFor,
 } from "../tools/lib/playtestQueue.mjs";
 
@@ -76,6 +77,52 @@ describe("classifyRig", () => {
   it("resolves a contradictory double tag toward mp", () => {
     // Authoring error; false-solo costs a sitting without the second machine.
     expect(classifyRig("FOO-1 [solo] [2pc]").rig).toBe("mp");
+  });
+});
+
+describe("parseOwedCheck", () => {
+  const sundial =
+    "**Owed: Wyatt playtest — SUNDIAL-PT-1 — Sundial Station looks and plays right.**" +
+    "<br>1. Open Sundial on prod (hard-refresh). Walk the deck a bit." +
+    "<br>2. Check the hologram reads like a **projection**, not a floating prop." +
+    "<br>3. Drive into the gnomon/spindle — you should **hit** it (collider), not ghost through.";
+
+  it("keeps every step — the old 200-char cut dropped instructions", () => {
+    const { goal, steps } = parseOwedCheck(sundial, "SUNDIAL-PT-1");
+    expect(goal).toBe("Sundial Station looks and plays right.");
+    expect(steps).toHaveLength(3);
+    expect(steps[2]).toContain("ghost through");
+  });
+
+  it("drops the Owed / id ceremony and inline markup", () => {
+    const { goal, steps } = parseOwedCheck(sundial, "SUNDIAL-PT-1");
+    expect(goal).not.toMatch(/owed|wyatt|SUNDIAL-PT-1/i);
+    expect(`${goal}${steps.join("")}`).not.toMatch(/\*\*|<br>/);
+  });
+
+  it("splits trailing context off the headline sentence", () => {
+    const { goal, context } = parseOwedCheck(
+      "Owed: Wyatt playtest — FV-LOAD-1 — mode-entry loading per arena. Retest after Waves 1-3.<br>1. Enter Cart Rave twice.",
+      "FV-LOAD-1",
+    );
+    expect(goal).toBe("mode-entry loading per arena.");
+    expect(context).toBe("Retest after Waves 1-3.");
+  });
+
+  it("keeps closing prose after the list as a tail", () => {
+    const { steps, tail } = parseOwedCheck(
+      "Owed: Wyatt playtest — W-1 — no flicker.<br>1. Play a round.<br>**cap-217 stays open until you say PASS.**",
+      "W-1",
+    );
+    expect(steps).toEqual(["Play a round."]);
+    expect(tail).toBe("cap-217 stays open until you say PASS.");
+  });
+
+  it("survives a cell with no steps at all", () => {
+    const { goal, steps, tail } = parseOwedCheck("Owed: Wyatt playtest — just look at it.", "X-1");
+    expect(goal).toBe("just look at it.");
+    expect(steps).toEqual([]);
+    expect(tail).toBe("");
   });
 });
 
@@ -149,6 +196,33 @@ describe("cardsFromStatus / cardsFromBacklog", () => {
     expect(ids).toEqual(["PREFLIGHT", "ZED-1", "ALPHA-MP-1", "EXPORT"]);
     expect(cards.find((c) => c.id === "ALPHA-MP-1")?.rig).toBe("mp");
     expect(cards.find((c) => c.id === "ZED-1")?.rig).toBe("solo");
+  });
+
+  it("takes the human checklist from BACKLOG when STATUS owns the card", () => {
+    // ROUND-WEDGE-1's shape: STATUS describes it in netcode internals, the
+    // executable steps only exist in BACKLOG. The card must show the steps.
+    const statusMd = `# Status
+
+## Open issues (top)
+
+| ID | Issue | Status |
+|----|--------|--------|
+| WEDGE-1 | podium storm | 🟡 Owed: Wyatt playtest — Phase B code shipped — src/utils/podiumEndLatch.js wire in endRound |
+`;
+    const backlogMd = `# Backlog
+
+## Playtest owed
+
+| Pri | Item | Notes |
+|-----|------|-------|
+| High | WEDGE-1 — no podium flicker storm | Owed: Wyatt playtest — results screen stays put.<br>1. Hard-refresh prod as host.<br>2. Play a timed round to 0:00. |
+`;
+    const { cards } = buildPlaytestQueue({ statusMd, backlogMd });
+    const wedge = cards.find((c) => c.id === "WEDGE-1");
+    expect(wedge?.source).toBe("status-issue");
+    expect(wedge?.do).toBe("results screen stays put.");
+    expect(wedge?.steps).toEqual(["Hard-refresh prod as host.", "Play a timed round to 0:00."]);
+    expect(wedge?.do).not.toMatch(/podiumEndLatch|endRound/);
   });
 
   it("keeps a BACKLOG rig tag when the STATUS row wins the id merge", () => {

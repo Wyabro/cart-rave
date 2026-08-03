@@ -16,12 +16,11 @@ import {
   parseStatusOpenIssues,
   parseBacklogSections,
   issueState,
-  compressIssueStatus,
 } from "./projectHealth.mjs";
 
 /** @typedef {"solo" | "mp"} PlaytestRig */
 /** @typedef {"tag" | "hint" | "default"} RigVia */
-/** @typedef {{ id: string, phase: string, title: string, do: string, expect: string, f8: string, source: string, priority: string, rig: PlaytestRig, rigVia: RigVia, requiresNote?: boolean, notePrompt?: string }} PlaytestCard */
+/** @typedef {{ id: string, phase: string, title: string, do: string, context: string, steps: string[], tail: string, expect: string, f8: string, source: string, priority: string, rig: PlaytestRig, rigVia: RigVia, requiresNote?: boolean, notePrompt?: string }} PlaytestCard */
 
 const OWED_BACKLOG_RE =
   /owed:\s*wyatt\s+playtest|needs?\s+wyatt(?:'s)?\s+(?:multiplayer\s+)?playtest|playtest\s+requested/i;
@@ -98,6 +97,93 @@ export function backlogRowOwesPlaytest(itemCell, notes) {
 }
 
 /**
+ * Turn an authored owed-playtest cell into something a human reads and executes.
+ *
+ * The cells are written as: an "Owed: Wyatt playtest — ID — one-line check"
+ * headline, then `<br>`-separated numbered steps, then optional closing prose.
+ * Previously the whole thing was pasted into one string and cut at 200 chars,
+ * which dropped real instructions — SUNDIAL-PT-1 lost steps 3-6, FV-WILT-1 lost
+ * the console line. Nothing here truncates.
+ *
+ * @param {string} notes
+ * @param {string} [id]
+ * @returns {{ goal: string, context: string, steps: string[], tail: string }}
+ */
+export function parseOwedCheck(notes, id = "") {
+  const segments = String(notes ?? "")
+    .replace(/\r/g, "")
+    .split(/<br\s*\/?>/i)
+    .map((s) => stripInlineMarkup(s))
+    .filter(Boolean);
+
+  /** @type {string[]} */
+  const steps = [];
+  /** @type {string[]} */
+  const tailParts = [];
+  let head = "";
+
+  for (const [i, seg] of segments.entries()) {
+    const numbered = seg.match(/^(\d+)[.)]\s*(.+)$/s);
+    if (numbered) {
+      steps.push(numbered[2].trim());
+    } else if (i === 0) {
+      head = seg;
+    } else if (steps.length > 0) {
+      // Closing prose after the list — ROUND-WEDGE-1's "cap-217 stays open until
+      // you say PASS" lives here and is worth keeping.
+      tailParts.push(seg);
+    }
+  }
+
+  // Drop the "Owed: Wyatt playtest — ID —" ceremony; the card header already
+  // shows the id, and repeating it three times before the first instruction is
+  // most of why these read as machine output.
+  head = head
+    .replace(/^owed:?\s*(?:retest\s+)?(?:wyatt(?:'s)?\s+)?playtest\s*[—–:-]*\s*/i, "")
+    .replace(/^owed:?\s*/i, "")
+    .trim();
+  if (id) head = head.replace(new RegExp(`^${escapeForRegExp(id)}\\s*[—–:-]\\s*`), "").trim();
+
+  // First sentence is the goal; anything else in that segment is context.
+  const split = head.match(/^(.{12,}?[.!?])\s+(.*)$/s);
+  const goal = (split ? split[1] : head).trim();
+  const context = (split ? split[2] : "").trim();
+
+  return { goal, context, steps, tail: tailParts.join(" ").trim() };
+}
+
+/** @param {string} s */
+function stripInlineMarkup(s) {
+  return String(s ?? "")
+    // Markdown links keep their label — a raw "(./art-pass-sundial-handover.md)"
+    // in the middle of a step is exactly the noise these cards are full of.
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+    .replace(/\*\*/g, "")
+    .replace(/\*(\S[^*]*?)\*/g, "$1")
+    .replace(/`/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** @param {string} s */
+function escapeForRegExp(s) {
+  return String(s ?? "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Prefer whichever of two rows for the same id actually carries a human
+ * checklist. STATUS owns ROUND-WEDGE-1 but describes it in netcode internals;
+ * the executable steps live in its BACKLOG row.
+ * @param {{ goal: string, context: string, steps: string[], tail: string }} a
+ * @param {{ goal: string, context: string, steps: string[], tail: string }} b
+ */
+export function mergeCheck(a, b) {
+  if (b.steps.length && !a.steps.length) return b;
+  if (a.steps.length && !b.steps.length) return a;
+  return b.goal ? b : a;
+}
+
+/**
  * Strip priority / done prefix and em-dash title from a backlog Item cell.
  * @param {string} itemCell
  */
@@ -159,15 +245,19 @@ export function cardsFromStatus(statusMd) {
     for (const one of unique) {
       if (seen.has(one)) continue;
       seen.add(one);
-      const statusShort = compressIssueStatus(q.status || q.what, 160);
       // Classify on the source cells, never on the generated `do` below.
       const { rig, via } = classifyRig(`${q.what || ""}\n${q.status || ""}`);
+      const check = parseOwedCheck(q.status || "", one);
+      if (!check.goal) check.goal = q.what || one;
       out.push({
         id: one,
         phase: "STATUS",
         title: unique.length > 1 ? `${one} (from ${q.what || q.id})` : q.what || one,
-        do: `On production (hard-refresh both machines if multiplayer), exercise **${one}**. STATUS says: ${statusShort}`,
-        expect: `Either PASS with a one-line confirmation, or FAIL with arena · mode · role · what you saw. One card only.`,
+        do: check.goal,
+        context: check.context,
+        steps: check.steps,
+        tail: check.tail,
+        expect: `Say PASS in one line, or FAIL with which arena, which mode, and whether you were host.`,
         f8: f8LabelFor(one),
         source: "status",
         priority: q.state === "active" ? "active" : "waiting",
@@ -187,12 +277,17 @@ export function cardsFromStatus(statusMd) {
     if (!id || seen.has(id)) continue;
     seen.add(id);
     const { rig, via } = classifyRig(`${issue.issue || ""}\n${st}`);
+    const check = parseOwedCheck(st, id);
+    if (!check.goal) check.goal = issue.issue || id;
     out.push({
       id,
       phase: "STATUS",
       title: issue.issue || id,
-      do: `Reproduce **${id}** on production. Open issue: ${compressIssueStatus(issue.issue, 120)}. Status: ${compressIssueStatus(st, 120)}`,
-      expect: "PASS only if the player-facing defect is gone on prod after hard-refresh.",
+      do: check.goal,
+      context: check.context,
+      steps: check.steps,
+      tail: check.tail,
+      expect: "PASS only if the thing you were told to look for is gone on prod after a hard refresh.",
       f8: f8LabelFor(id),
       source: "status-issue",
       priority: "open",
@@ -232,16 +327,20 @@ export function cardsFromBacklog(backlogMd) {
       seen.add(id);
 
       const title = fromItem.title || itemCell || id;
-      const noteBit = compressIssueStatus(notes, 200);
       // Raw cells, so a `[solo]` / `[2pc]` tag in Item survives parseBacklogItem's
       // trailing-tag strip and the step list is visible to the keyword hint.
       const { rig, via } = classifyRig(`${r.item || r.work || ""}\n${r.notes || r.outcome || ""}`);
+      const check = parseOwedCheck(String(r.notes || r.outcome || ""), id);
+      if (!check.goal) check.goal = title;
       out.push({
         id,
         phase: section.title || "BACKLOG",
         title,
-        do: `Playtest **${id}** — ${title}. Backlog (${section.title}): ${noteBit}`,
-        expect: "Confirm the shipped behavior on production. FAIL needs arena · mode · role · clip/F8.",
+        do: check.goal,
+        context: check.context,
+        steps: check.steps,
+        tail: check.tail,
+        expect: "If it fails, say which arena, which mode, and whether you were host.",
         f8: f8LabelFor(id),
         source: "backlog",
         priority: pri || "?",
@@ -273,7 +372,29 @@ export function buildPlaytestQueue(opts) {
   for (const c of backlogCards) byId.set(c.id, c);
   for (const c of statusCards) {
     const prior = byId.get(c.id);
-    byId.set(c.id, prior ? { ...c, ...mergeRig(prior, c) } : c);
+    if (!prior) {
+      byId.set(c.id, c);
+      continue;
+    }
+    // Cards carry the goal as `do`; mergeCheck works on the parsed shape.
+    const asCheck = (card) => ({
+      goal: card.do || "",
+      context: card.context || "",
+      steps: card.steps || [],
+      tail: card.tail || "",
+    });
+    const priorCheck = asCheck(prior);
+    const check = mergeCheck(priorCheck, asCheck(c));
+    byId.set(c.id, {
+      ...c,
+      ...mergeRig(prior, c),
+      do: check.goal,
+      context: check.context,
+      steps: check.steps,
+      tail: check.tail,
+      // The human checklist and the expectations wording travel together.
+      expect: check === priorCheck ? prior.expect : c.expect,
+    });
   }
 
   // Solo-checkable first, two-machine last, alphabetical inside each group — so a
@@ -290,8 +411,15 @@ export function buildPlaytestQueue(opts) {
       id: "PREFLIGHT",
       phase: "SYS",
       title: "Open prod with diagnostics",
-      do: "Hard-refresh https://cart-rave.wyabro.workers.dev/?diag=1 (both machines if multiplayer) until the served bundle is current. Confirm menu with zero red console errors.",
-      expect: "Menu loads. ?diag=1 active. No boot errors. Ready to run the owed cards below.",
+      do: "Get production open, on the current build, with diagnostics on.",
+      context: "",
+      steps: [
+        "Open https://cart-rave.wyabro.workers.dev/?diag=1",
+        "Hard-refresh (Ctrl+Shift+R) until you are sure you are on the current build.",
+        "Check the console — no red errors on the menu.",
+      ],
+      tail: "The cards below are sorted so everything you can do at one desk comes first.",
+      expect: "Menu loads, no boot errors, and you are ready to work down the list.",
       f8: f8LabelFor("preflight"),
       source: "system",
       priority: "sys",
@@ -304,8 +432,15 @@ export function buildPlaytestQueue(opts) {
       id: "EXPORT",
       phase: "SYS",
       title: "Export this session to the agent",
-      do: "Copy the markdown export (or download JSON). Paste into chat. Tell the agent: one finding at a time — do not batch fixes.",
-      expect: "Agent replies with a single next action or card to retest.",
+      do: "Hand the results back so the fixes can start.",
+      context: "",
+      steps: [
+        "Hit Copy report (or download the JSON).",
+        "Paste it into chat.",
+        "Say: one finding at a time — do not batch fixes.",
+      ],
+      tail: "",
+      expect: "The agent comes back with a single next action, or one card to retest.",
       f8: f8LabelFor("export"),
       source: "system",
       priority: "sys",

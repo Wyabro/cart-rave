@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-03T23:16:51.779Z",
-    "commit": "18cdaed"
+    "at": "2026-08-03T23:32:46.021Z",
+    "commit": "1e26505"
   },
-  "source_digest": "5b0341b3",
+  "source_digest": "91211a50",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -981,7 +981,7 @@
           {
             "pri": "High",
             "item": "PERF-PASS-1 — low-end performance is worse across the board",
-            "notes": "**Filed 08-03 from Wyatt's playtest note**, alongside ATTRACT-JANK-1 below. Report is a felt regression on weak hardware, not a number, so this card is **measure-first and nothing else until there is a delta**: the standing rule from run-4's \"GC metronome\" error (**HARNESS-NULL-1**) is that adjacency is not attribution. **Known floor to measure against:** run 5 put the Intel UHD iGPU at LOW at **54% of frames over 33 ms** — that is the pre-existing smoothness floor, so \"bad on the Intel box\" is only evidence if it is *worse than that*. **Method:** bisect recent batches on the Intel box, **prod not dev** — dev-only probes (`__cartRavePerf.scene`, `import(\"/src/…\")`) lie in prod, and dev-server timing is not the shipped bundle. Candidate surface added since the last known-good measurement is large (Sundial god rays + hologram, the three LOAD-POSTER-1 loading scenes, octagon/holo work, FX layers), which is exactly why a bisect beats guessing. **Do not** start tuning tier knobs before a measurement — `PERF-TIER-1` and `PERF-WATCH-1` are the levers *after* attribution, not instead of it. Related: WARM-SOLO-1 (weak-GPU first-draw stalls), PROBE-WARM-RT-1.",
+            "notes": "**Owed: Wyatt playtest — PERF-PASS-1 — find out where the weak box actually got worse.**<br>1. On the **Intel box**, open **production** (not the dev server) and hard-refresh. Dev timing is not the shipped bundle.<br>2. Play a round in each arena at whatever quality it picks for itself. Note *where* it feels worse than you remember — main menu, entering a mode, or mid-round.<br>3. Compare against the known floor, not against smooth: that box at Low already drops more than half its frames. \"Worse than that\" is the bar.<br>4. Hit **F8** at the worst moment so there is a capture to attribute it with.<br>5. Say which arena and which moment felt worst. **Do not change any quality settings** — attribution first, tuning after.<br>**Filed 08-03 from Wyatt's playtest note**, alongside ATTRACT-JANK-1 below. Report is a felt regression on weak hardware, not a number, so this card is **measure-first and nothing else until there is a delta**: the standing rule from run-4's \"GC metronome\" error (**HARNESS-NULL-1**) is that adjacency is not attribution. **Known floor to measure against:** run 5 put the Intel UHD iGPU at LOW at **54% of frames over 33 ms** — that is the pre-existing smoothness floor, so \"bad on the Intel box\" is only evidence if it is *worse than that*. **Method:** bisect recent batches on the Intel box, **prod not dev** — dev-only probes (`__cartRavePerf.scene`, `import(\"/src/…\")`) lie in prod, and dev-server timing is not the shipped bundle. Candidate surface added since the last known-good measurement is large (Sundial god rays + hologram, the three LOAD-POSTER-1 loading scenes, octagon/holo work, FX layers), which is exactly why a bisect beats guessing. **Do not** start tuning tier knobs before a measurement — `PERF-TIER-1` and `PERF-WATCH-1` are the levers *after* attribution, not instead of it. Related: WARM-SOLO-1 (weak-GPU first-draw stalls), PROBE-WARM-RT-1.",
             "ship1": null
           },
           {

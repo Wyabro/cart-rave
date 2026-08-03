@@ -43,6 +43,11 @@ const PAGE_CSS = `
   .card h3 { margin:0; font-size:1.1rem; line-height:1.3; }
   .card .do { margin:10px 0 0; font-size:.95rem; line-height:1.45; background:var(--panel2);
     border-radius:8px; padding:10px 12px; border:1px solid rgba(39,224,230,.35); }
+  .card .do-goal { margin:0; font-weight:600; color:var(--text-hi); }
+  .card .do-context { margin:6px 0 0; font-size:.88rem; color:var(--dim); }
+  .card .do-steps { margin:8px 0 0; padding-left:1.35em; display:flex; flex-direction:column; gap:6px; }
+  .card .do-steps li { line-height:1.45; }
+  .card .do-tail { margin:8px 0 0; font-size:.88rem; color:var(--dim); }
   .card .expect { margin:8px 0 0; font-size:.88rem; color:var(--dim); line-height:1.4; }
   .card .expect strong { color:var(--text); font-weight:600; }
   .card .note-label { display:block; margin-top:12px; font-size:.72rem; color:var(--dim); letter-spacing:.01em; }
@@ -278,6 +283,12 @@ ${PAGE_CSS}
       lines.push("### " + t.id + " — " + t.title);
       lines.push("- **Status:** " + String(st.status || "pending").toUpperCase());
       lines.push("- **Check:** " + (t.do || ""));
+      if (t.context) lines.push("- **Context:** " + t.context);
+      if (t.steps && t.steps.length) {
+        lines.push("- **Steps:**");
+        t.steps.forEach((s, i) => lines.push("  " + (i + 1) + ". " + s));
+      }
+      if (t.tail) lines.push("- **Also:** " + t.tail);
       lines.push("- **F8:** \`" + f8For(t) + "\`");
       if (st.note) lines.push("- **Note:** " + st.note);
       if (st.status === "fail") {
@@ -370,6 +381,20 @@ ${PAGE_CSS}
     const upNextId = activeId ? nextPendingAfter(activeId) : firstPendingId();
     let html = "";
 
+    // * The goal is one sentence; the steps are a real list. Nothing is truncated —
+    // * cutting the string at 200 chars used to drop whole instructions.
+    function renderCheck(t) {
+      let out = '<p class="do-goal">' + escHtml(t.do || "") + "</p>";
+      if (t.context) out += '<p class="do-context">' + escHtml(t.context) + "</p>";
+      if (t.steps && t.steps.length) {
+        out += '<ol class="do-steps">';
+        for (const step of t.steps) out += "<li>" + escHtml(step) + "</li>";
+        out += "</ol>";
+      }
+      if (t.tail) out += '<p class="do-tail">' + escHtml(t.tail) + "</p>";
+      return out;
+    }
+
     // * Resolved first (reopen), then NOW, then one up-next teaser — hide the rest of the queue.
     function renderCard(t, kind) {
       const st = taskState[t.id] || { status: "pending", note: "" };
@@ -390,7 +415,7 @@ ${PAGE_CSS}
         rigBadge + '<span class="card-status">' + statusLabel + "</span></div>";
       out += "<h3>" + escHtml(t.title) + "</h3>";
       if (isNow) {
-        out += '<div class="do">' + escHtml(t.do) + "</div>";
+        out += '<div class="do">' + renderCheck(t) + "</div>";
         out += '<div class="expect"><strong>Pass looks like:</strong> ' + escHtml(t.expect) + "</div>";
         out += '<label class="note-label">' + escHtml(t.notePrompt || "Note (required on FAIL)") + "</label>";
         out += '<textarea data-field="note" data-id="' + escHtml(t.id) + '" placeholder="What you saw…">' +
