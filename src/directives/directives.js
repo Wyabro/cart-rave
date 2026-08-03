@@ -38,7 +38,7 @@ export const DIRECTIVES = Object.freeze({
   flash_sale: Object.freeze({
     id: "flash_sale",
     title: "FLASH SALE",
-    blurb: "EVERYTHING MUST GO · RAMS HIT HARDER",
+    blurb: "RAMS HIT HARDER",
     announceEvent: "directive_flash_sale",
     weight: 1,
     overrides: Object.freeze([
@@ -48,7 +48,7 @@ export const DIRECTIVES = Object.freeze({
   double_bag: Object.freeze({
     id: "double_bag",
     title: "DOUBLE BAG",
-    blurb: "TWO FOR ONE · EVERY BODY COUNTS TWICE",
+    blurb: "KOS COUNT TWICE",
     announceEvent: "directive_double_bag",
     weight: 1,
     koRewardMul: 2,
@@ -56,7 +56,7 @@ export const DIRECTIVES = Object.freeze({
   express_lane: Object.freeze({
     id: "express_lane",
     title: "EXPRESS LANE",
-    blurb: "10 ITEMS OR LESS · NO EXCEPTIONS",
+    blurb: "BOOST COMES BACK",
     announceEvent: "directive_express_lane",
     weight: 1,
     overrides: Object.freeze([
@@ -68,7 +68,7 @@ export const DIRECTIVES = Object.freeze({
   spill_bonus: Object.freeze({
     id: "spill_bonus",
     title: "SPILL BONUS",
-    blurb: "CLEAN UP ON EVERY AISLE · SPILLS PAY",
+    blurb: "SPILLS PAY",
     announceEvent: "directive_spill_bonus",
     weight: 1,
     spillBonusPoints: 1,
@@ -79,7 +79,7 @@ export const DIRECTIVES = Object.freeze({
   rush_hour: Object.freeze({
     id: "rush_hour",
     title: "RUSH HOUR",
-    blurb: "PEAK TRADING HOURS · EVERYONE MOVES",
+    blurb: "EVERYONE SPEEDS UP",
     announceEvent: "directive_rush_hour",
     weight: 1,
     overrides: Object.freeze([
