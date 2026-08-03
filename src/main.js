@@ -13,7 +13,14 @@ import {
 } from "./utils/debugParams.js";
 import { installVisualHarness, tickVisualHarnessFrame } from "./utils/visualHarness.js";
 import { installNetTestHarness } from "./utils/netTestHarness.js";
-import { installDiagnostics, diagUrlFlags } from "./utils/diagnostics.js";
+import { installDiagnostics, diagUrlFlags, recordDiagEvent } from "./utils/diagnostics.js";
+import {
+  shouldAllowPodiumEnd,
+  notePodiumEndSend,
+  onPodiumEndRejected,
+  clearPodiumEndLatch,
+  consumeHardStopDiag,
+} from "./utils/podiumEndLatch.js";
 import { logBuildBanner, refreshBuildFreshness } from "./utils/buildFreshness.js";
 import { mark } from "./utils/perfSpans.js";
 import { installGameplayDiagnostics } from "./utils/gameplayDiagnostics.js";
@@ -4042,6 +4049,7 @@ async function main() {
       // * Mid-round exits can reach lobby without passing endRound/onEnterPodium; stop
       // * charge loops before rematchResetWorld nulls chargeUpSfxId (orphaning the sound).
       stopAllChargeSfx();
+      clearPodiumEndLatch();
       Netcode.resetClientPredictionState();
       Entities.rematchResetWorld();
       GameState.setRoundEndReason(null);
@@ -4074,6 +4082,19 @@ async function main() {
       cancelLastCartStandingFinish?.();
       autoContinuePodiumKey = null;
       clearAutoContinuePodiumTimeout?.();
+      // * ROUND-WEDGE-1 Phase B: host-only arm. Joiners must not own latch state;
+      // * netcode fires this callback without an isHost gate.
+      if (Netcode.getIsHost()) {
+        const startedAtMs = GameState.getRoundState().startedAtMs;
+        const nowMs = getRoundClockNowMs();
+        const result = onPodiumEndRejected(startedAtMs, nowMs);
+        if (result.action === "hard-stop" && consumeHardStopDiag(startedAtMs)) {
+          recordDiagEvent("round", "podium-end-latched", {
+            startedAtMs,
+            sends: result.sends ?? null,
+          });
+        }
+      }
     },
     teleportCartToSpawn,
     getPendingMidRoundJoinRespawnConnId: () => pendingMidRoundJoinRespawnConnId,
@@ -4085,6 +4106,7 @@ async function main() {
     initMenu,
     resetRoundState: () => {
       GameState.resetRoundToLobby();
+      clearPodiumEndLatch();
       clearPodiumPresentation();
       CameraMod.endCinematicCountdown(camera);
       // * CAM-OPEN-1: this is the quit funnel (returnToMenu → teardownGameSession →
@@ -4641,6 +4663,7 @@ async function main() {
     isNewPersonalBest = false;
     cancelLastCartStandingFinish();
     GameState.setRoundEndReason(null);
+    clearPodiumEndLatch();
     clearRoundCountdownTimeout();
     // * Fresh match-stat spine for the receipt this round.
     resetMatchStats();
@@ -4720,6 +4743,7 @@ async function main() {
     CameraMod.endCinematicCountdown(camera);
     if (GameState.getRoundState().phase === "countdown") {
       syncRoundPhase("lobby");
+      clearPodiumEndLatch();
       GameState.setRoundCountdownStartedAtMs(0);
       GameState.setRoundStartedAtMs(0);
       if (Netcode.getIsHost()) Netcode.sendHostRound();
@@ -4819,6 +4843,11 @@ async function main() {
 
   function endRound(lastStandingWinnerSlot = null) {
     if (GameState.getRoundState().phase !== "running") return;
+    // * ROUND-WEDGE-1 Phase B: after a server podium reject, gameFlow would re-enter
+    // * here every frame. Latch is send-counted + time-gated retry (see podiumEndLatch).
+    const endStartedAtMs = GameState.getRoundState().startedAtMs;
+    const endNowMs = getRoundClockNowMs();
+    if (!shouldAllowPodiumEnd(endStartedAtMs, endNowMs)) return;
     cancelLastCartStandingFinish();
     clearRoundCountdownTimeout();
     pendingMidRoundJoinRespawnConnId = null;
@@ -4853,6 +4882,8 @@ async function main() {
     HUD.clearFeed();
     syncRoundPhase("podium");
     beginPodiumPresentation();
+    // * Count on send only — reject path must not also +1 (podiumEndLatch tests pin this).
+    notePodiumEndSend(endStartedAtMs);
     Netcode.sendHostRound();
   }
 
@@ -5051,6 +5082,7 @@ async function main() {
       // * no score reset, and the stale round would keep ticking. Clearing to lobby
       // * lets startCountdown run its full reset (scores/winner/startedAt + 3-2-1).
       syncRoundPhase("lobby");
+      clearPodiumEndLatch();
       GameState.setRoundStartedAtMs(0);
       startCountdown(getRoundClockNowMs() + CONFIG.round.countdownMs);
       return;
@@ -5067,6 +5099,7 @@ async function main() {
       void rotateLoadedArenaInPlace(nextArenaId);
     }
     syncRoundPhase("lobby");
+    clearPodiumEndLatch();
     GameState.setRoundScores({ 0: 0, 1: 0, 2: 0, 3: 0 });
     GameState.setRoundWinnerSlotIndex(null);
     GameState.setRoundStartedAtMs(0);

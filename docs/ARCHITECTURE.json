@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-03T06:27:19.008Z",
-    "commit": "25d5cda"
+    "at": "2026-08-03T07:25:51.394Z",
+    "commit": "ac2267b"
   },
-  "source_digest": "b4852934",
+  "source_digest": "d43605b0",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -96,9 +96,10 @@
         "src/gameFlow.js",
         "src/gameLoop.js",
         "src/roundClock.js",
-        "src/utils/frameBudget.js"
+        "src/utils/frameBudget.js",
+        "src/utils/podiumEndLatch.js"
       ],
-      "file_count": 7,
+      "file_count": 8,
       "edges": [
         {
           "to": "physics-simulation",
@@ -880,14 +881,14 @@
       "ART-PASS-SUNDIAL-1 — WAVE 6 CLOSED, code complete. Next: Wyatt playtest, then deploy.",
       "Playtest owed — BACKLOG `## Playtest owed` (08-01 and 08-02), now including",
       "Wyatt's open calls: none on Sundial — OQ3 resolved in `9a59271`, OQ5 in `93c3deb`,",
-      "Parked, needs its own ack: ROUND-WEDGE-1 Phase B (Phase A shipped `d4a7718`);",
-      "TOOL-HYGIENE-1 CLOSED 08-03 — HOOK-INDEX-1 (post-commit: index blob ≠ HEAD →"
+      "ROUND-WEDGE-1 Phase B code shipped (local HEAD, unpushed) — client breaker",
+      "TOOL-HYGIENE-1 CLOSED 08-03 — HOOK-INDEX-1 / BRIEF-DIGEST-1 / STOP-DIRT-1."
     ],
     "open_issues": [
       {
         "id": "ROUND-WEDGE-1",
         "issue": "Host-hide → MAX reject → podium⇄running storm",
-        "status": "🟡 **UNPARKED 08-02** (Wyatt, parallel lane) — evidence pass done. **Both writers named:** `netcode.js:2915` (`MSG.round` applier, not host-gated; the podium→running rollback is *deliberate* per `:2835`) vs the host's own round-end at `gameFlow.js:149`, which re-fires `endRound()` the next frame after each rollback. **`invariants.js:24` and that rollback contradict each other** — do not silence the assert. Shipped: auto-capture upload `cc09985`, per-channel ring floor `8063b3e`. Phase A was `d4a7718`. **Phase B (the undamped re-entry) still needs its own ack.** Does not claim cap-217 closed."
+        "status": "🟡 **Phase B code shipped 08-03** — `src/utils/podiumEndLatch.js` + wire in `main.js` `endRound` / host-only `onPodiumRejected` / clear on lobby·countdown. Contract: send-side attempt count only; reject schedules `retryAtMs` (+150 ms) for one more send then hard-stop; one `round/podium-end-latched` diag on hard-stop. Phase A `d4a7718` (`pausedWallMs`). Instrumentation earlier: `cc09985` · `8063b3e`. **Do not silence** `invariants.js` `podium→running` (first rollback assert expected). **cap-217 not closed** — needs Wyatt playtest checklist."
       },
       {
         "id": "WARM-SOLO-1",

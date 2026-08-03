@@ -80,6 +80,7 @@ export const SYSTEMS = [
       "src/roundClock.js",
       "src/directives/",
       "src/utils/frameBudget.js",
+      "src/utils/podiumEndLatch.js",
     ],
     notes: [
       "runGameLoop receives a deps bundle (GameLoopState / PhysicsStepDeps typedefs) rather than importing main.js — the call graph is main.js → runGameLoop → deps.* → back into main.js.",

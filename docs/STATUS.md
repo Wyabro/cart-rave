@@ -94,14 +94,14 @@ Live rows only. Shipped and closed cards live in
    hard refresh) or Vite hides the whole change.
 3. **Wyatt's open calls:** none on Sundial — OQ3 resolved in `9a59271`, OQ5 in `93c3deb`,
    OQ6 and OQ8 recorded below.
-4. **Parked, needs its own ack:** ROUND-WEDGE-1 Phase B (Phase A shipped `d4a7718`);
-   **SPAWN-SUNDIAL-1** — spawn inset shipped, platform-leg colliders did not (file was frozen).
-5. **TOOL-HYGIENE-1 CLOSED 08-03** — HOOK-INDEX-1 (post-commit: index blob ≠ HEAD →
-   `restore --staged` on generated docs, before dashboard), BRIEF-DIGEST-1 (template fingerprint
-   in digest + embed), STOP-DIRT-1 BACKLOG row retired (code was already fixed).
+4. **ROUND-WEDGE-1 Phase B code shipped** (local HEAD, unpushed) — client breaker
+   (`podiumEndLatch`: send-count + 150 ms retry, host-only arm). Phase A was `d4a7718`.
+   **cap-217 still open** until Wyatt playtest checklist. **SPAWN-SUNDIAL-1** — spawn inset
+   shipped; platform-leg colliders still owed.
+5. **TOOL-HYGIENE-1 CLOSED 08-03** — HOOK-INDEX-1 / BRIEF-DIGEST-1 / STOP-DIRT-1.
 
-**Open High:** ROUND-WEDGE-1 · UI-SCALE-1 · FIGHT-VERIFY-1 (Wyatt half) · RESULTS-1 ·
-CART-MODEL-1 · bloom.
+**Open High:** ROUND-WEDGE-1 (Phase B code; playtest) · UI-SCALE-1 · FIGHT-VERIFY-1 (Wyatt half) ·
+RESULTS-1 · CART-MODEL-1 · bloom.
 
 ## Open issues (top)
 
@@ -110,7 +110,7 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 
 | ID | Issue | Status |
 |----|--------|--------|
-| ROUND-WEDGE-1 | Host-hide → MAX reject → podium⇄running storm | 🟡 **UNPARKED 08-02** (Wyatt, parallel lane) — evidence pass done. **Both writers named:** `netcode.js:2915` (`MSG.round` applier, not host-gated; the podium→running rollback is *deliberate* per `:2835`) vs the host's own round-end at `gameFlow.js:149`, which re-fires `endRound()` the next frame after each rollback. **`invariants.js:24` and that rollback contradict each other** — do not silence the assert. Shipped: auto-capture upload `cc09985`, per-channel ring floor `8063b3e`. Phase A was `d4a7718`. **Phase B (the undamped re-entry) still needs its own ack.** Does not claim cap-217 closed. |
+| ROUND-WEDGE-1 | Host-hide → MAX reject → podium⇄running storm | 🟡 **Phase B code shipped 08-03** — `src/utils/podiumEndLatch.js` + wire in `main.js` `endRound` / host-only `onPodiumRejected` / clear on lobby·countdown. Contract: send-side attempt count only; reject schedules `retryAtMs` (+150 ms) for one more send then hard-stop; one `round/podium-end-latched` diag on hard-stop. Phase A `d4a7718` (`pausedWallMs`). Instrumentation earlier: `cc09985` · `8063b3e`. **Do not silence** `invariants.js` `podium→running` (first rollback assert expected). **cap-217 not closed** — needs Wyatt playtest checklist. |
 | WARM-SOLO-1 | Solo post-`carts-ready` stall (WARM-IGPU residual) | 📋 telemetry-gated — [warm-igpu-1.md](./planning/warm-igpu-1.md) |
 | SHOOT-ANIM-2 | Rave **dressing** still frozen in captures (crowd · lasers · billboard · `fxPass.uTime`) | 📋 Medium — split out of the now-closed SHOOT-ANIM-1. Level animation captures fine; this block sits behind `frameBudgetAllow`/`crowdAnimate` gates and needs one shared helper called from both loops. Hits **Classic** hardest, where dressing is most of the visible motion. |
 | MAIN-1 | Carve `main.js` seam (enables BUNDLE-1) | 📋 post-gate |
@@ -168,6 +168,11 @@ The hot set — what a current session is likely to hit. Deep-domain and narrow 
 - **Before any public / external-tester playtest: reset the analytics DO** so aggregates are not polluted by dev/harness traffic. Token-gated (SEC-TOKEN-1): `DELETE` with `Authorization: Bearer <ERROR_LOG_TOKEN>` on `/api/analytics` (never `?token=`).
 
 ## Last updated
+
+2026-08-03 (ROUND-WEDGE-1 Phase B code) — Client breaker for undamped podium⇄running re-entry:
+`podiumEndLatch` (MAX_END_SENDS=2, PODIUM_END_RETRY_MS=150), host-only reject arm, clear on
+lobby/countdown/rematch. Unit: `tests/podiumEndLatch.test.js` (8). **cap-217 still open** until
+playtest. Gates: see commit message.
 
 2026-08-03 (TOOL-HYGIENE-1) — HOOK-INDEX-1: post-commit clears staged generated docs when
 index blob ≠ HEAD (before dashboard). BRIEF-DIGEST-1: template fingerprint in digest + embed.
