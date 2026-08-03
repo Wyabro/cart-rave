@@ -131,10 +131,36 @@ Sundial reference points: `--t 0` vs `--t 250` = 2.61%; `--t 1745` vs `--t 5236`
 `sin` swing, +1 → −1) = 15.01%. Pick a Δt near half the property's period — a small Δt on a
 slow pulse can sit under the floor, which is a framing artifact, not a null result.
 
-Two residuals: **Backrooms is not reproducible even with `--t`** — `furnitureSpotlight.update`
-is a stateful integrator driven by `Math.random()`, and a constant pinned `t` gives it `dt = 0`.
-And the **rave dressing is still frozen** in captures (crowd, lasers, billboard, stage LED,
-`fxPass.uTime`, record spin) — that block is out of SHOOT-ANIM-1's scope and is filed separately.
+**Backrooms is not reproducible even with `--t`** — `furnitureSpotlight.update` is a stateful
+integrator driven by `Math.random()`, and a constant pinned `t` gives it `dt = 0`.
+
+#### Classic Record specifics
+
+The rave dressing — crowd, stage lights, LED screen — animates in captures as of SHOOT-ANIM-2.
+Four things to know before you trust a Classic capture:
+
+- **Use `--t 500` or higher, never `--t 0`.** `lastLedUpdate` and `bbLastRedraw`
+  (`effects.js:279`/`:318`) both init to `0` and gate on `nowMs - latch`, so at `t = 0` neither
+  threshold is crossed and the LED screen and billboard keep their construction content. At any
+  non-zero pinned `t` they redraw once and then hold, which is correct for that phase.
+- **A pinned crowd is only partially posed.** `updateCrowd` rewrites one round-robin batch of
+  instanced crowd carts per call (`effects.js:2021`), so under a constant `t` the same batch is
+  chosen every time and the rest hold their rest pose. Searchlights, bulb pulse, glow ring and
+  stadium pulse materials *are* fully correct under pinning. For crowd-cart motion specifically,
+  free-run reads truer than pinned.
+- **Lasers and the billboard are absent from every capture, not frozen.** The menu path builds
+  the shell with `includeJuice: false` (`main.js:2615`) and captures boot through that path.
+  Do not report "the lasers didn't change" — they are not there.
+- **The record spin and the whole VHS layer are still static.** The spin is delta-accumulated
+  and slow-mo-coupled, so it stays game-loop-only. The VHS layer is dead everywhere, in
+  gameplay too — see FX-TIME-1.
+
+**Worked example — why the amplified panel beats the number.** SHOOT-ANIM-2's acceptance pair
+was `--t 500` vs `--t 6783` (6283 ms = exact antiphase for both `sin` terms): **36.24%** against
+a **14.51%** same-phase floor. Only ~2.5×, which on its own is not convincing at that floor. The
+panels settled it — the null showed *crowd speckle alone on a black floor*, while the signal
+added searchlight shafts, stage-light columns and deck rim rings. Structured features that
+appear only in the signal are the result; speckle in both is construction randomness.
 
 ### Compare two PNGs
 

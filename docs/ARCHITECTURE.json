@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-03T03:48:56.537Z",
-    "commit": "4fceb02"
+    "at": "2026-08-03T04:08:02.947Z",
+    "commit": "33f0d15"
   },
-  "source_digest": "53737912",
+  "source_digest": "cf9e47ca",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -921,7 +921,7 @@
         "title": "Engineering",
         "counts": {
           "High": 1,
-          "?": 1,
+          "?": 2,
           "Medium": 17,
           "Low": 5,
           "Partial": 1
@@ -940,9 +940,15 @@
             "ship1": null
           },
           {
-            "pri": "Medium",
+            "pri": "✅",
             "item": "SHOOT-ANIM-2 — rave dressing is still frozen in captures",
-            "notes": "**Filed 08-02**, split out of SHOOT-ANIM-1 rather than folded in, because that card's scope was levels and this block needs a shared helper. Still frozen at constructor values in every capture and on the live menu: `Effects.updateStageLights` / `updateCrowd` / `updateStageLed` / `updateLasers` / `updateBillboard` ([main.js:5299-5304](../../src/main.js:5299)), the `fxPass.uTime` uniform ([:5265](../../src/main.js:5265)) and the visual-only record spin ([:5275](../../src/main.js:5275)). **Matters most for Classic Record**, where crowd/lasers/billboard are most of the visible motion — so a Classic capture still cannot evidence any dressing animation. Not a copy-paste of SHOOT-ANIM-1's fix: these calls sit behind `frameBudgetAllow(...)`, `getQualityKnobs().crowdAnimate` and `raveShellInitialized` gates that assume a real `frameCtx`, so doing it properly means extracting one cosmetic-animation helper called from **both** the game loop and the attract loop — one definition, two callers, no drift. Note Classic's ~15.9% construction-noise floor (SHOOT-ANIM-1) will still swamp small deltas there regardless.",
+            "notes": "**CLOSED 08-02** — fixed in `33f0d15`. Body extracted to `tickRaveDressing()` + a shared `raveDressingWanted()` gate, called from the game loop **and** the attract loop; the gates that legitimately differ (frame budget, clock source) stay at the two call sites, so there is one definition and no drift. **Deliberately no frame budget on the attract path:** `frameBudgetAllow` **fails closed** without a preceding `beginFrameBudget` (stale `frameStartMs` → negative remaining), and its `allowCache` is only cleared by `beginFrameBudget`, so the first `false` would **latch that bucket permanently**; calling `beginFrameBudget` from attract instead would put two loops on one set of module globals, and the budget exists to protect host physics, none of which runs at the menu. Weak machines are covered here by the attract cost feed → auto-quality, which steps the tier down and flips `crowdAnimate` off. **Two of the five items this card named were filed on a wrong premise, corrected rather than quietly dropped.** (1) **Lasers and billboard were absent, not frozen** — `finalizeArenaShellForMenu` builds the shell with `includeJuice: false` ([main.js:2615](../../src/main.js:2615)) and the DEV log says \"sky + stadium, no lasers\" outright, and captures boot through that same menu path, so they were never in a capture to freeze. Left absent by ack; the `raveJuiceInitialized` sub-gate is kept so they animate on their own if the juice is ever built there. (2) **`fxPass.uTime` was never a capture bug — it is a live one**, split out as **FX-TIME-1**. Scope is **Classic Record only** (`levelUsesRaveExtras` is `id === \"classicRecord\"`). The **record spin** stays game-loop-only on purpose: it is `rotation.y += … * dt`, a delta accumulator coupled to `applySlowMoToDt`, so it cannot pin under `?t=` and would fight slow-mo if converted. **Verified** (dev server, RTX 4090): stage spots + crowd bulbs **0 → 11/23** frame-to-frame changes free-running, and **11/23 on the ordinary no-harness menu path**; **null control at `?preset=low` reports 0/23 on all ten objects while still finding them**, so the probe is provably not blind — a second null-control arm for **HARNESS-NULL-1**. Pinned `--t 500` vs `--t 6783` (6283 ms = exact antiphase for `sin(nowSec×0.5)` **and** 3 half-periods of `sin(nowSec×1.5)`) reads **36.24%** against a **14.51%** same-phase floor, and the amplified diff is decisive where the number alone would not be: searchlight shafts, stage columns and deck rings appear **only** in the signal, while the null carries crowd speckle alone — i.e. unseeded construction randomness, consistent with the ~15.9% Classic floor measured in SHOOT-ANIM-1. **Owed: Wyatt manual check** — sit at the Classic menu, then enter a real round and confirm the crowd still animates *in play* (proves the attract path left no `allowCache` / `frameStartMs` residue the game loop inherits; a headless capture cannot reach a live round).",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "FX-TIME-1 — the whole VHS/arcade layer has been frozen at `uTime = 0` in live gameplay",
+            "notes": "**Filed 08-02**, found while scoping SHOOT-ANIM-2 and split out because it is **not** a capture bug — it affects every player, every frame, and always has. **`fxTimer.update()` is never called anywhere in `src/`.** The only two references to `fxTimer` are its construction ([main.js:1670](../../src/main.js:1670)) and the read ([main.js:5280](../../src/main.js:5280)); `THREE.Timer._elapsed` only advances inside `Timer.update()`, so `getElapsed()` returns `0` on every frame and `fxPass.uniforms.uTime` is pinned at zero. **What is currently dead** ([scene.js:511-596](../../src/scene.js:511)): VHS line noise (`:511`), the tracking-bar phase (`:514`), the tape-tear clock, position and width (`:523-526`), the tear jitter (`:531`), the chromatic-aberration wobble (`:536`), film grain (`:552`), scanline noise (`:560-561`), and the sudden-death pulse + rays (`:594-596`). Grain and scanlines currently render as a **fixed dither pattern** rather than moving noise, and tape tears never fire at all. **Fix is one line** (`fxTimer.update(now)` in the frame loop) **but the consequence is a real look change**, switching on animated grain, moving tracking bars, tears and the SD pulse for the first time — so it needs a look sign-off and pairs naturally with the open **Bloom look sign-off** row, not with a harness card. Judge it on Storerooms (where the VHS treatment reads strongest) and on the SD pulse. Ordinary captures cannot evidence it either way until it is driven — and note a driven `uTime` would then be **wall-clock**, so it would need folding into the `?t=` pinning story before any pinned Classic/Storerooms A/B stays reproducible.",
             "ship1": null
           },
           {
