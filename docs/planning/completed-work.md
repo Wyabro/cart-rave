@@ -41,7 +41,10 @@ Chronological record of shipped work, newest first.
   ([status-log-2026-08-02.md](../archive/status-log-2026-08-02.md)), moved five deep-domain
   gotchas to [reference/gotchas.md](../reference/gotchas.md), and replaced five `### Do not`
   bullets that restated AGENTS.md verbatim with one pointer (Wyatt's call; a pointer rather than
-  silence because BRIEFING is read *before* AGENTS.md). **4,197 → 3,215 tokens, 985 headroom.**
+  silence because BRIEFING is read *before* AGENTS.md). **4,197 → ~3,415 tokens, ~785 headroom**
+  (3,215 was the low-water mark mid-card; this card's own STATUS entry and the deploy record then
+  added ~200 back — a reminder that the trim number to quote is the one *after* the card closes,
+  not the one you measured before writing it down).
   **Two near-misses worth recording, both caught by checking before deleting:** (1) STATUS's
   Decision index claimed "full text in `decision-log-2026-07.md`", but that log ends **07-23** and
   all seven live entries were 07-31 → 08-02 — **STATUS was their only copy**, so compressing the
