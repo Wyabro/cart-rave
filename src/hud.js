@@ -700,7 +700,11 @@ function updateStatus(roundState) {
       // * with an identical value each frame so it never restarts (clear at top).
       elements.status.style.animation = "matchPointPulse 0.9s ease-in-out 0.22s infinite";
     }
-  } else {
+  } else if (_lastBannerKey !== "ready-hold") {
+    // * CAM-PT-MP-1 / CAM-READY-1: the fly-over hold shows GET READY while the phase is
+    // * still pre-countdown, which lands in this else — wiping the banner one tick after
+    // * showReadyHold() set it. The hold owns the status element until clearReadyHold()
+    // * or the first countdown digit (banner key `count-n`) takes it back.
     setHudDisplay(elements.status, "none", "status");
     elements.status.textContent = "";
     elements.status.style.animation = "";

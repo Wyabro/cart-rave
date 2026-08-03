@@ -533,6 +533,13 @@ let onCountdownCancelledRef = null;
  * can invalidate the waiter (Cap-59 hold — local phase never left lobby).
  */
 let nonHostCountdownApplyPending = false;
+/**
+ * CAM-PT-MP-1: host-MP fly-over hold is armed (game_start received, pre-roll
+ * timeout live, phase still lobby). Mirror of nonHostCountdownApplyPending so a
+ * server countdownCancel landing during the hold — when there is no countdown
+ * phase to clean up — still routes into onCountdownCancelled.
+ */
+let hostMpHoldPending = false;
 /** Set to true the moment a color-dot is clicked, preventing slots-message re-renders from re-opening the picker before server confirmation arrives. */
 let _localColorPicked = false;
 /** @type {HTMLElement | null} */
@@ -3245,8 +3252,10 @@ async function main() {
           // * them scattered, and the fly-over should show the round's tableau.
           // * startCountdown teleports again 2s later; nothing moves in between (no input,
           // * no AI before countdown), so the second pass is a no-op, not a pop.
-          // * SOLO ONLY. MP countdowns are anchored to an absolute server timestamp, and
-          // * delaying one client's is the reverted host-countdown gate (c8df8fd).
+          // * SOLO ONLY — MP has its own pre-roll (CAM-PT-MP-1) driven by the server's
+          // * absolute anchor (startsAtMs = FLYOVER_PREROLL_MS + COUNTDOWN_MS), shared by
+          // * every client. Delaying one client's countdown locally would still be the
+          // * reverted host-countdown gate (c8df8fd); shifting the shared anchor is not.
           if (Array.isArray(allCartsRef)) {
             for (let i = 0; i < allCartsRef.length; i += 1) teleportCartToSpawn(i);
           }
@@ -3285,12 +3294,44 @@ async function main() {
           if (menuVisible) return; // quit during wait
           const phase = GameState.getRoundState().phase;
           if (phase === "running" || phase === "countdown") return;
-          if (getRoundClockNowMs() >= starts) {
+          const now = getRoundClockNowMs();
+          if (now >= starts) {
             // * Cap-200: past-start — startRunningAt(starts) anchors host clock at absolute
             // * starts (peer of non-host syncRoundPhase("running")+setRoundStartedAtMs).
             // * Do not call startCountdown(starts) here.
             startRunningAt(starts);
             HUD.triggerGoBeat({ resetGate: true });
+          } else if (starts - now > CONFIG.round.countdownMs) {
+            // * CAM-PT-MP-1: the server anchored starts at FLYOVER_PREROLL_MS + COUNTDOWN_MS,
+            // * so everything before T−countdownMs is opening-orbit time. Hold the arena here
+            // * exactly like solo, then hand off to the digits at T−countdownMs. The anchor is
+            // * absolute and identical on every client, so this shifts nobody's GO relative to
+            // * their peers — it is NOT the reverted per-client host gate (c8df8fd). A client
+            // * whose load gates settle late simply lands in the `else` with a shorter (or no)
+            // * hold; the countdown still starts at the same wall-clock instant.
+            // * Carts to spawn first so the fly-over frames the round's tableau (solo parity);
+            // * startCountdown teleports again at fire time — a no-op, nothing moves before
+            // * the countdown (no input, no AI).
+            if (Array.isArray(allCartsRef)) {
+              for (let i = 0; i < allCartsRef.length; i += 1) teleportCartToSpawn(i);
+            }
+            beginRoundFlyover();
+            HUD.showReadyHold();
+            // * Phase stays lobby through the hold, so a server countdownCancel has no
+            // * countdown to clean up — netcode routes on this flag instead.
+            hostMpHoldPending = true;
+            setTimeout(() => {
+              // * Same guards as the outer gate: the pre-roll widens the window a quit,
+              // * cancel or bootstrap bounce can land in. onCountdownCancelledRef and
+              // * resetRoundState both bump hostMpCountdownDeferGen, so either kills this.
+              if (deferGen !== hostMpCountdownDeferGen) return;
+              hostMpHoldPending = false;
+              if (menuVisible) return;
+              const holdPhase = GameState.getRoundState().phase;
+              if (holdPhase === "running" || holdPhase === "countdown") return;
+              HUD.clearReadyHold();
+              startCountdown(starts);
+            }, starts - CONFIG.round.countdownMs - now);
           } else {
             startCountdown(starts);
           }
@@ -3323,16 +3364,31 @@ async function main() {
           nonHostCountdownApplyPending = false;
           return;
         }
-        // * Cancel while we waited left phase lobby and bumped applyGen — if gen still
-        // * matches we're the live arm.
-        nonHostCountdownApplyPending = false;
-        resetMatchStats();
-        setMatchStatsLocalSlot(Netcode.strictSlotIndexForConn(Netcode.getYouConnId()));
-        // * Stores the countdown anchor in the host clock domain used by HUD adjustedNow().
-        GameState.setRoundCountdownStartedAtMs(getRoundClockNowMs() - Netcode.getHostClockOffsetMs());
-        GameState.setRoundScores({ 0: 0, 1: 0, 2: 0, 3: 0 });
-        GameState.setRoundWinnerSlotIndex(null);
-        if (getRoundClockNowMs() >= startsAtLocalMs) {
+        // * CAM-PT-MP-1: stamps happen at CALL time, so the pre-roll path below stamps the
+        // * countdown anchor at T−countdownMs rather than at hold-arm — HUD digit pacing
+        // * (hud.js countdownMs/3) reads the same window the host and server agreed on.
+        const stampRoundEntry = () => {
+          resetMatchStats();
+          setMatchStatsLocalSlot(Netcode.strictSlotIndexForConn(Netcode.getYouConnId()));
+          // * Stores the countdown anchor in the host clock domain used by HUD adjustedNow().
+          GameState.setRoundCountdownStartedAtMs(getRoundClockNowMs() - Netcode.getHostClockOffsetMs());
+          GameState.setRoundScores({ 0: 0, 1: 0, 2: 0, 3: 0 });
+          GameState.setRoundWinnerSlotIndex(null);
+        };
+        const enterCountdownPhase = () => {
+          // * host_round may already have stamped countdown clocks while we held phase;
+          // * still enter countdown now that the scene can take it.
+          if (GameState.getRoundState().phase !== "countdown") {
+            syncRoundPhase("countdown");
+          }
+          GameState.setRoundStartedAtMs(0);
+        };
+        const now = getRoundClockNowMs();
+        if (now >= startsAtLocalMs) {
+          // * Cancel while we waited left phase lobby and bumped applyGen — if gen still
+          // * matches we're the live arm.
+          nonHostCountdownApplyPending = false;
+          stampRoundEntry();
           syncRoundPhase("running");
           GameState.setRoundStartedAtMs(startsAtLocalMs);
           CameraMod.endCinematicCountdown(camera);
@@ -3340,13 +3396,28 @@ async function main() {
           // * defer): the HUD's countdown→running flip never happens, so without this
           // * the player gains control with no GO! flash, VO, or FOV punch.
           HUD.triggerGoBeat({ resetGate: true });
+        } else if (startsAtLocalMs - now > CONFIG.round.countdownMs) {
+          // * CAM-PT-MP-1: opening-orbit pre-roll (server anchored starts at
+          // * FLYOVER_PREROLL_MS + COUNTDOWN_MS). Show the arena + GET READY here, hand
+          // * off to the digits at T−countdownMs — the same absolute instant on every
+          // * client, so this is not a per-client countdown delay (c8df8fd).
+          // * nonHostCountdownApplyPending STAYS true across the hold: it is what routes a
+          // * mid-hold room abort (host_round lobby→lobby, or countdownCancel) into
+          // * onCountdownCancelled while our local phase is still lobby.
+          beginRoundFlyover();
+          HUD.showReadyHold();
+          setTimeout(() => {
+            if (applyGen !== nonHostCountdownApplyGen) return;
+            nonHostCountdownApplyPending = false;
+            HUD.clearReadyHold();
+            if (GameState.getRoundState().phase === "running") return;
+            stampRoundEntry();
+            enterCountdownPhase();
+          }, startsAtLocalMs - CONFIG.round.countdownMs - now);
         } else {
-          // * host_round may already have stamped countdown clocks while we held phase;
-          // * still enter countdown + flyover now that the scene can take it.
-          if (GameState.getRoundState().phase !== "countdown") {
-            syncRoundPhase("countdown");
-          }
-          GameState.setRoundStartedAtMs(0);
+          nonHostCountdownApplyPending = false;
+          stampRoundEntry();
+          enterCountdownPhase();
           beginRoundFlyover();
         }
       })();
@@ -4095,6 +4166,8 @@ async function main() {
     // * finally re-signals immediately so we never actually wait on it.
     isSessionPlayReady: () => isSessionCartsReady() && !arenaRotationInFlight,
     hasPendingNonHostCountdownApply: () => nonHostCountdownApplyPending,
+    // * CAM-PT-MP-1: host-side peer of the above — true only during the opening-orbit hold.
+    hasPendingHostMpHold: () => hostMpHoldPending,
     getMenuVisible: () => menuVisible,
     invokeHideMenu: () => {
       void enterPlayMode({
@@ -4217,6 +4290,12 @@ async function main() {
       // * pending solo defer, which now owns a 2s pre-roll timeout that would otherwise
       // * start a countdown after the player is back on the menu.
       soloCountdownDeferGen += 1;
+      // * CAM-PT-MP-1: the MP pre-roll holds are pre-phase timeouts too — quit mid-hold
+      // * must not start a countdown behind the menu. Cancel alone does not cover quit.
+      hostMpCountdownDeferGen += 1;
+      hostMpHoldPending = false;
+      nonHostCountdownApplyGen += 1;
+      nonHostCountdownApplyPending = false;
       // * CAM-READY-1: no stuck GET READY after quit mid-hold.
       HUD.clearReadyHold();
     },
@@ -4837,6 +4916,9 @@ async function main() {
     nonHostCountdownApplyPending = false;
     // * Cap-200: same for deferred host-MP countdown apply.
     hostMpCountdownDeferGen += 1;
+    // * CAM-PT-MP-1: and the host-MP fly-over hold (phase never left lobby, so the
+    // * countdown cleanup at the bottom of this handler would not have killed it).
+    hostMpHoldPending = false;
     // * CAM-OPEN-1: and for the solo defer. Its pre-roll window sits BEFORE
     // * syncRoundPhase("countdown"), so a cancel landing mid-fly-over finds no countdown
     // * phase to clean up and previously left the pending timeout free to start one.

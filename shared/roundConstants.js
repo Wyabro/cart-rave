@@ -17,6 +17,16 @@ export const ROUND_DURATION_MS = 150_000;
 export const COUNTDOWN_MS = 3600;
 
 /**
+ * ms — CAM-PT-MP-1 opening-orbit pre-roll. The server pushes game_start's
+ * startsAtMs out by this on top of COUNTDOWN_MS; every client shows the
+ * fly-over + GET READY during the window, then the normal 3-2-1 begins at
+ * exactly COUNTDOWN_MS remaining. One uniform absolute anchor shared by all
+ * clients — NOT a per-client readiness gate (the reverted c8df8fd). Solo keeps
+ * its own SOLO_FLYOVER_PREROLL_MS (same value, offline timing domain).
+ */
+export const FLYOVER_PREROLL_MS = 2000;
+
+/**
  * ms — continuous-mode ceiling waiting for clientPlayReady before arming
  * game_start anyway (fresh full COUNTDOWN_MS window). Invisible when all
  * humans warm in 1–3s; only bounds hung clients.

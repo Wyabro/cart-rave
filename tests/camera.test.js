@@ -103,3 +103,110 @@ describe("CAM-OPEN-1 solo fly-over pre-roll", () => {
     expect(reset).toMatch(/CameraMod\.endCinematicCountdown\(camera\);/);
   });
 });
+
+// * CAM-PT-MP-1: the same opening hold in multiplayer, driven by the server's absolute
+// * game_start anchor instead of a local timer — every client holds to the same
+// * wall-clock instant, so no client's countdown is delayed relative to its peers (that
+// * would be the reverted c8df8fd). Source asserts for the same reason as CAM-OPEN-1:
+// * the hold is a live setTimeout inside the game_start handler.
+describe("CAM-PT-MP-1 multiplayer fly-over pre-roll", () => {
+  const mainSrc = readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
+  const netcodeSrc = readFileSync(new URL("../src/netcode.js", import.meta.url), "utf8");
+  const hudSrc = readFileSync(new URL("../src/hud.js", import.meta.url), "utf8");
+  const partySrc = readFileSync(new URL("../party/index.ts", import.meta.url), "utf8");
+  const sharedSrc = readFileSync(
+    new URL("../shared/roundConstants.js", import.meta.url),
+    "utf8",
+  );
+
+  function between(src, startAnchor, endAnchor) {
+    const start = src.indexOf(startAnchor);
+    const end = src.indexOf(endAnchor, start + 1);
+    expect(start, `anchor not found: ${startAnchor}`).toBeGreaterThan(-1);
+    expect(end, `anchor not found: ${endAnchor}`).toBeGreaterThan(start);
+    return src.slice(start, end);
+  }
+
+  const hostBranch = () => between(
+    mainSrc,
+    "hostMpCountdownDeferGen += 1;",
+    "nonHostCountdownApplyGen += 1;",
+  );
+  const nonHostBranch = () => between(
+    mainSrc,
+    "nonHostCountdownApplyGen += 1;",
+    "let lastResultsOverlayKey = null;",
+  );
+
+  it("adds the pre-roll as its own constant instead of growing the countdown", () => {
+    expect(sharedSrc).toMatch(/FLYOVER_PREROLL_MS\s*=\s*2000\b/);
+    // * COUNTDOWN_MS is shared with the client's digit cadence — absorbing the pre-roll
+    // * into it would stretch 3-2-1 to ~5.6s instead of adding a hold before it.
+    expect(sharedSrc).toMatch(/COUNTDOWN_MS\s*=\s*3600\b/);
+  });
+
+  it("the server pushes the shared anchor and widens the arm window by the same amount", () => {
+    expect(partySrc).toMatch(
+      /startsAtMs = this\.#serverNowMs\(\) \+ FLYOVER_PREROLL_MS \+ COUNTDOWN_MS;/,
+    );
+    // * The arm window gates aborts (#abortArmedCountdown) and the host-quality
+    // * rebalance guard — leaving it at COUNTDOWN_MS would disarm mid-pre-roll.
+    expect(partySrc).toMatch(/\}, FLYOVER_PREROLL_MS \+ COUNTDOWN_MS\);/);
+    expect(partySrc).toMatch(/import \{ COUNTDOWN_MS, FLYOVER_PREROLL_MS \}/);
+  });
+
+  it("the host holds the arena when the anchor is further out than one countdown", () => {
+    const host = hostBranch();
+    expect(host).toMatch(/starts - now > CONFIG\.round\.countdownMs/);
+    expect(host).toMatch(/beginRoundFlyover\(\);/);
+    expect(host).toMatch(/HUD\.showReadyHold\(\);/);
+    expect(host).toMatch(/hostMpHoldPending = true;/);
+    // * Hands off at T−countdownMs, and still starts the countdown against the absolute
+    // * server anchor — not a fresh local now + countdownMs.
+    expect(host).toMatch(/startCountdown\(starts\);/);
+    expect(host).toMatch(/starts - CONFIG\.round\.countdownMs - now/);
+  });
+
+  it("the non-host holds too, keeping its pending flag up until the hold fires", () => {
+    const nonHost = nonHostBranch();
+    expect(nonHost).toMatch(/startsAtLocalMs - now > CONFIG\.round\.countdownMs/);
+    expect(nonHost).toMatch(/HUD\.showReadyHold\(\);/);
+    expect(nonHost).toMatch(/startsAtLocalMs - CONFIG\.round\.countdownMs - now/);
+    // * The pre-roll branch must NOT clear the flag at arm time — netcode reads it to
+    // * route a mid-hold abort while local phase is still lobby.
+    const holdBranch = between(
+      nonHost,
+      "startsAtLocalMs - now > CONFIG.round.countdownMs",
+      "startsAtLocalMs - CONFIG.round.countdownMs - now",
+    );
+    const beforeTimeout = holdBranch.slice(0, holdBranch.indexOf("setTimeout("));
+    expect(beforeTimeout).not.toMatch(/nonHostCountdownApplyPending = false;/);
+    expect(holdBranch).toMatch(/nonHostCountdownApplyPending = false;/);
+  });
+
+  it("a cancel during the hold is not a no-op just because phase is still lobby", () => {
+    const cancel = between(netcodeSrc, "if (type === MSG.countdownCancel) {", "maybeAutoReadyLobby();");
+    expect(cancel).toMatch(/hasPendingNonHostCountdownApply\?\.\(\)/);
+    expect(cancel).toMatch(/hasPendingHostMpHold\?\.\(\)/);
+    // * Only flip phase when there was a countdown phase to flip.
+    expect(cancel).toMatch(/if \(cancelPrevPhase === "countdown"\) GameState\.setRoundPhase\("lobby"\);/);
+    expect(netcodeSrc).toMatch(/hasPendingHostMpHold: \(\) => false,/);
+  });
+
+  it("both cleanup funnels invalidate the MP holds", () => {
+    const cancelRef = between(mainSrc, "onCountdownCancelledRef = () => {", 'syncRoundPhase("lobby");');
+    expect(cancelRef).toMatch(/hostMpHoldPending = false;/);
+    expect(cancelRef).toMatch(/nonHostCountdownApplyPending = false;/);
+    const reset = between(mainSrc, "resetRoundState: () => {", "hideEscOverlay:");
+    expect(reset).toMatch(/hostMpCountdownDeferGen \+= 1;/);
+    expect(reset).toMatch(/hostMpHoldPending = false;/);
+    expect(reset).toMatch(/nonHostCountdownApplyGen \+= 1;/);
+    expect(reset).toMatch(/nonHostCountdownApplyPending = false;/);
+  });
+
+  it("the HUD status tick leaves the GET READY banner alone", () => {
+    // * updateStatus's fallback branch runs every frame while phase is pre-countdown,
+    // * which wiped the hold banner one tick after showReadyHold() set it.
+    expect(hudSrc).toMatch(/\} else if \(_lastBannerKey !== "ready-hold"\) \{/);
+  });
+});

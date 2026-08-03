@@ -167,6 +167,14 @@ export function buildNetcodeGameBridge(getContext, session) {
       }
       return false;
     },
+    // * CAM-PT-MP-1: host-side pre-roll hold, same fail-closed forwarding.
+    hasPendingHostMpHold: () => {
+      const ctx = getContext();
+      if (ctx && typeof ctx.hasPendingHostMpHold === "function") {
+        return ctx.hasPendingHostMpHold();
+      }
+      return false;
+    },
   };
 }
 

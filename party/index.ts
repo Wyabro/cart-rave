@@ -31,7 +31,7 @@ type Slot = {
 };
 
 import { MSG } from '../shared/protocol.js';
-import { COUNTDOWN_MS } from '../shared/roundConstants.js';
+import { COUNTDOWN_MS, FLYOVER_PREROLL_MS } from '../shared/roundConstants.js';
 import { requireAdminToken } from './adminAuth';
 import { UNKNOWN_IP } from './beaconLimit';
 import {
@@ -663,8 +663,9 @@ export class CartRaveServer extends Server {
   }
 
   // * Checks whether every human slot has toggled ready (and, in continuous mode,
-  // * acknowledged play-ready / warm). If so, arms a 3-second timer and broadcasts
-  // * MSG.gameStart with a startsAtMs timestamp.
+  // * acknowledged play-ready / warm). If so, arms a pre-roll + countdown timer and
+  // * broadcasts MSG.gameStart with a startsAtMs timestamp (CAM-PT-MP-1: the anchor
+  // * includes FLYOVER_PREROLL_MS so every client shows the opening orbit first).
   // * The timer handle acts as the one-shot guard — re-entrant calls are no-ops
   // * until the timer fires and clears the handle. Rematch grace also blocks so
   // * host-migrate / ready-toggle cannot defeat the 2s post-playAgain breathe window.
@@ -709,7 +710,7 @@ export class CartRaveServer extends Server {
       return;
     }
     this.#clearPlayReadyWait();
-    const startsAtMs = this.#serverNowMs() + COUNTDOWN_MS;
+    const startsAtMs = this.#serverNowMs() + FLYOVER_PREROLL_MS + COUNTDOWN_MS;
     this.#countdownArmed = true;
     this.#broadcastJson({
       v: PROTOCOL_VERSION,
@@ -720,7 +721,7 @@ export class CartRaveServer extends Server {
     this.#countdownTimerHandle = setTimeout(() => {
       this.#countdownTimerHandle = null;
       this.#countdownArmed = false;
-    }, COUNTDOWN_MS);
+    }, FLYOVER_PREROLL_MS + COUNTDOWN_MS);
   }
 
   #clearPlayReadyWait() {

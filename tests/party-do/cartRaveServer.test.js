@@ -13,7 +13,7 @@ import {
   setReapOverrides,
 } from "../../party/constants.ts";
 import { MSG } from "../../shared/protocol.js";
-import { COUNTDOWN_MS } from "../../shared/roundConstants.js";
+import { COUNTDOWN_MS, FLYOVER_PREROLL_MS } from "../../shared/roundConstants.js";
 import { connectAndSeat, openPartyClient } from "./wsClient.js";
 
 function uniqueRoom(label) {
@@ -262,12 +262,43 @@ describe("CartRaveServer DO harness", () => {
     const start = await client.awaitType(MSG.gameStart, 3000);
     expect(start.startsAtMs).toEqual(expect.any(Number));
     expect(start.serverNowMs).toEqual(expect.any(Number));
-    expect(start.startsAtMs - start.serverNowMs).toBeGreaterThanOrEqual(COUNTDOWN_MS - 500);
+    // * CAM-PT-MP-1: the anchor carries the opening fly-over pre-roll on top of the
+    // * countdown, so every client can hold the arena before the digits start.
+    expect(start.startsAtMs - start.serverNowMs).toBeGreaterThanOrEqual(
+      COUNTDOWN_MS + FLYOVER_PREROLL_MS - 500,
+    );
 
     // * Idempotent re-send must not double-arm / error.
     client.sendJson({ type: MSG.clientPlayReady });
     await sleep(50);
     expect(client.messages.filter((m) => m.type === MSG.gameStart)).toHaveLength(1);
+
+    client.close();
+  });
+
+  it("still cancels an armed countdown when a player unreadies during the pre-roll", async () => {
+    // * CAM-PT-MP-1: the arm window has to span FLYOVER_PREROLL_MS + COUNTDOWN_MS. Left at
+    // * COUNTDOWN_MS it would disarm mid-digits, and a late unready would find nothing to
+    // * abort. Friends/private room only — continuous mode has no manual unready.
+    const room = uniqueRoom("preroll-abort");
+    const { client } = await connectAndSeat(room, {
+      name: "RDY1",
+      color: "blue",
+      clientId: "cid-preroll-abort",
+      ip: "10.0.4.1",
+    });
+
+    client.sendJson({ type: MSG.readyToggle, isReady: true });
+    const start = await client.awaitType(MSG.gameStart, 3000);
+    expect(start.startsAtMs - start.serverNowMs).toBeGreaterThanOrEqual(
+      COUNTDOWN_MS + FLYOVER_PREROLL_MS - 500,
+    );
+
+    // * Unready inside the pre-roll window. The abort is grace-delayed
+    // * (COUNTDOWN_ABORT_GRACE_MS = 1500), not instant.
+    client.sendJson({ type: MSG.readyToggle, isReady: false });
+    const cancel = await client.awaitType(MSG.countdownCancel, 4000);
+    expect(cancel.type).toBe(MSG.countdownCancel);
 
     client.close();
   });

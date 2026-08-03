@@ -374,6 +374,8 @@ let callbacks = {
   isSessionPlayReady: () => true,
   /** @returns {boolean} Non-host game_start waiter is mid carts-ready gate. */
   hasPendingNonHostCountdownApply: () => false,
+  /** @returns {boolean} CAM-PT-MP-1: host is inside the opening fly-over pre-roll. */
+  hasPendingHostMpHold: () => false,
 };
 
 function registerCallbacks(cb) {
@@ -491,6 +493,11 @@ export function registerGameCallbacks(deps) {
     hasPendingNonHostCountdownApply: () => (
       typeof deps.hasPendingNonHostCountdownApply === "function"
         ? deps.hasPendingNonHostCountdownApply()
+        : false
+    ),
+    hasPendingHostMpHold: () => (
+      typeof deps.hasPendingHostMpHold === "function"
+        ? deps.hasPendingHostMpHold()
         : false
     ),
   });
@@ -2929,10 +2936,19 @@ export function initNetcode(roomOverride) {
     }
 
     if (type === MSG.countdownCancel) {
-      if (GameState.getRoundState().phase === "countdown") {
-        recordCountdownAbort("countdown_cancel_msg", { prevPhase: "countdown" });
+      const cancelPrevPhase = GameState.getRoundState().phase;
+      // * CAM-PT-MP-1: during the opening fly-over pre-roll the local phase is still
+      // * lobby (digits have not started), so a phase === "countdown" test alone made
+      // * the cancel a no-op and the pending hold timeout went on to start a countdown
+      // * after the room had already aborted. Route on the pre-roll flags too.
+      if (
+        cancelPrevPhase === "countdown"
+        || callbacks.hasPendingNonHostCountdownApply?.()
+        || callbacks.hasPendingHostMpHold?.()
+      ) {
+        recordCountdownAbort("countdown_cancel_msg", { prevPhase: cancelPrevPhase });
         callbacks.onCountdownCancelled?.();
-        GameState.setRoundPhase("lobby");
+        if (cancelPrevPhase === "countdown") GameState.setRoundPhase("lobby");
         GameState.setRoundCountdownStartedAtMs(0);
         GameState.setRoundStartedAtMs(0);
       }
