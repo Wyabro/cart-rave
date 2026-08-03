@@ -66,7 +66,6 @@ Live rows only. Shipped and closed cards live in
 
 | # | What | Status |
 |---|------|--------|
-| **AGENTS-PRIN-1** | AGENTS.md: engineering principles + small-change fast lane | ✅ code complete (from `ff0cbd2`). Principles + fast lane (**ack kept**); hook internals → [hook-enforcement.md](./guides/hook-enforcement.md). **AGENTS.md 362 → 329 lines.** Residual **HOOK-COMMENT-1** in BACKLOG. |
 | LOAD-POSTER-1 | Loading screens redesigned as Fight Night posters (all three arenas) | ⏸ **waiting on Wyatt** — code complete PUSHED (`106fc50`); cqmin-sized stage + two-line title lockup + inline SVG per arena. Remaining: **deploy + Wyatt eye** — human-blocked, not agent work. |
 | PLAYTEST-BATCH-0803-1 | Playtest batch 08-03 (FV-LOAD freezes + load art, quality grace, unlock toast, store decks, GET READY pulse, boot measure) | ✅ code complete, **PUSHED** (`35cf3a9`..`4f2fdde`). Remaining: deploy + 5 Wyatt retests. |
 | ART-PASS-SUNDIAL-1 | Sundial art pass — all 6 waves shipped | ✅ code complete — Wave 6 pushed, **not deployed**. Remaining: playtest (**SUNDIAL-PT-1**) + deploy. Spec = [handover](./planning/art-pass-sundial-handover.md). |
@@ -134,6 +133,19 @@ The hot set — what a current session is likely to hit. Deep-domain and narrow 
 - **Before any public / external-tester playtest: reset the analytics DO** so aggregates are not polluted by dev/harness traffic. Token-gated (SEC-TOKEN-1): `DELETE` with `Authorization: Bearer <ERROR_LOG_TOKEN>` on `/api/analytics` (never `?token=`).
 
 ## Last updated
+
+2026-08-03 (STATUS-TRIM-1) — STATUS.md was at 4,197 of a 4,200 budget, so every card paid a
+shaving tax before it could write anything down. **The reporter's "blind spot" is in its advice,
+not its measurement** — `status-size.mjs` counts the whole file; it just can only ever suggest
+cutting *dated* blocks, which is why it said "nothing safe to archive" while 82% of the weight sat
+in undated sections. Measured first, then cut where the weight was: 08-02 dated window archived,
+five deep-domain gotchas moved to [reference/gotchas.md](./reference/gotchas.md), Decision index
+compressed to true one-liners, duplicated Sundial narrative dropped, and five `### Do not` bullets
+that restated AGENTS.md replaced by one pointer. **4,197 → 3,215 tokens.** **Two near-misses:** the
+Decision index's "full text in the 07 log" was false — that log ends 07-23 and STATUS was the only
+copy of all seven live entries; and the "six of eleven Wave 6 items were misdiagnosed" warning
+existed nowhere else. Both archived before cutting. **A pointer claiming content is archived is not
+evidence that it is.**
 
 2026-08-03 (AGENTS-PRIN-1) — AGENTS.md governed behaviour *around* the code and said nothing
 about the code; that gap is why fixes accrete flags, shims and "temporary" paths. Six falsifiable

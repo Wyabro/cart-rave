@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-03T22:58:02.633Z",
-    "commit": "da6247b"
+    "at": "2026-08-03T22:59:34.058Z",
+    "commit": "95e2284"
   },
-  "source_digest": "9dd12867",
+  "source_digest": "877bec6b",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -844,12 +844,6 @@
   ],
   "workstreams": {
     "queue": [
-      {
-        "id": "AGENTS-PRIN-1",
-        "what": "AGENTS.md: engineering principles + small-change fast lane",
-        "status": "✅ code complete (from `ff0cbd2`). Principles + fast lane (ack kept); hook internals → [hook-enforcement.md](./guides/hook-enforcement.md). AGENTS.md 362 → 329 lines. Residual HOOK-COMMENT-1 in BACKLOG.",
-        "state": "done"
-      },
       {
         "id": "LOAD-POSTER-1",
         "what": "Loading screens redesigned as Fight Night posters (all three arenas)",

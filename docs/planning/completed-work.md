@@ -13,6 +13,45 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 3, 2026 — AGENTS-PRIN-1 + STATUS-TRIM-1 (the rules file, and the file that reads it)
+
+- *(Process)* **AGENTS-PRIN-1** — `ff0cbd2`..`5e15d94`. AGENTS.md was all process, facts and
+  routing: it governed behaviour *around* the code and said nothing about the code, which is why
+  fixes accreted flags, shims and "temporary" paths that every later change had to navigate. Added
+  `## ENGINEERING PRINCIPLES` (six falsifiable rules; principle 1 carries three carve-outs —
+  `cartRave*` localStorage keys, Worker/DO names, mid-round `MSG.*` — without which it contradicts
+  the naming freeze), plus a mechanically-qualified **fast lane** that drops the wave document,
+  playtest checklist and per-lever STATUS edit while **keeping the ack** (08-03: plan-ack is not
+  waivable); DoD amended to match. Paid for by moving ~62 lines of hook internals to
+  [guides/hook-enforcement.md](../guides/hook-enforcement.md), so **AGENTS.md went 362 → 329 lines
+  while gaining 53 lines of new rules**. Three stale `§ Enforcement` pointers repointed; a fourth
+  in `.claude/hooks/` was filed as **HOOK-COMMENT-1** rather than fixed under the freeze rule.
+  **Two limits, measured not assumed:** `archRender` consumes only four AGENTS sections, so the
+  principles reach neither ARCHITECTURE.json nor BRIEFING (lever 1 left `arch:check` *fresh*;
+  lever 2 turned it stale — that is the proof); and `parseListItems` is line-based, so every
+  `execution_loop` bullet is truncated to its first source line. The fast lane's first line was
+  rewritten to survive that and is the only complete entry in that list.
+- *(Process)* **STATUS-TRIM-1** — `575b6bd`..`95e2284`. STATUS.md sat at 4,197 tokens against a
+  4,200 budget; the previous card hit the gate five times and spent a third of its run shaving
+  prose. **Corrected a claim I had made the same day:** `status-size.mjs:64` measures
+  `text.length / 4` — the *whole file*, not just dated entries. The blind spot is in its **advice**
+  (it can only suggest cutting dated blocks), which is why it kept reporting "nothing safe to
+  archive" while 82% of the file sat in undated sections. Measured the real distribution, then cut
+  where the weight was: archived the 08-02 dated window
+  ([status-log-2026-08-02.md](../archive/status-log-2026-08-02.md)), moved five deep-domain
+  gotchas to [reference/gotchas.md](../reference/gotchas.md), and replaced five `### Do not`
+  bullets that restated AGENTS.md verbatim with one pointer (Wyatt's call; a pointer rather than
+  silence because BRIEFING is read *before* AGENTS.md). **4,197 → 3,215 tokens, 985 headroom.**
+  **Two near-misses worth recording, both caught by checking before deleting:** (1) STATUS's
+  Decision index claimed "full text in `decision-log-2026-07.md`", but that log ends **07-23** and
+  all seven live entries were 07-31 → 08-02 — **STATUS was their only copy**, so compressing the
+  index as planned would have destroyed them; archived to
+  [decision-log-2026-08.md](../archive/decision-log-2026-08.md) first. (2) "Six of eleven Wave 6
+  audit items were misdiagnosed" plus the `[unverified]` warning on
+  [art-audit-sundial.md](./art-audit-sundial.md) existed nowhere else; moved into the Sundial
+  handover's traps list as item 0. **The lesson generalises:** a pointer saying content is archived
+  is not evidence that it is — grep the target before cutting the source.
+
 ### August 3, 2026 — TOOL-HYGIENE-1 (HOOK-INDEX · BRIEF-DIGEST · STOP-DIRT row)
 
 - *(Tooling)* **STOP-DIRT-1 closed; BACKLOG row retired.** Code was already session-scoped
