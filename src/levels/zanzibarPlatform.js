@@ -92,6 +92,15 @@ const GNOMON_TIP_Y = 6.75; // meters
 const GNOMON_BASE_R = 0.6; // meters — CIRCUMRADIUS of the base section, before flattening
 const GNOMON_FLATTEN = 0.1; // × across the sun line
 
+// * Projector beam — the cone of light that makes the hologram read as PROJECTED from the
+// * podium instead of parked above it. Aperture on the crown, spreading up to meet the dial.
+const BEAM_BASE_R = 0.75; // meters — aperture radius on the crown
+const BEAM_TOP_R = 2.7; // meters — stops just inside the dial plate's 2.9 m
+const BEAM_TOP_Y = 4.1; // meters — the dial plate's resting height (holoGroup 4.25 − 0.15)
+// * Baseline lateral slip of the whole projection. Item 24 scales this with koT; on its own
+// * it is the idle instability that stops the holo reading as a solid object bolted to the air.
+const HOLO_JITTER_BASE = 0.012; // meters
+
 const BOLT_PITCH_M = 2.4; // meters between deck bolts along a seam — fixed pitch, not count
 const PODIUM_PANEL_TILE_M = 1.5; // meters of real steel per panelTex tile on the podium crown
 // * Inset of the polished cap plate inside the crown octagon's apothem. The plate used to be
@@ -2867,6 +2876,14 @@ function buildDeck(scene, world, config, circumR) {
   let holoCoreMat = null;
   /** @type {THREE.MeshBasicMaterial | null} */
   let holoDialMat = null;
+  // * Projector + instability are High-only and stay null on Low (see the Low path below),
+  // * so every read of these in update() must be null-guarded — same as the refs above.
+  /** @type {THREE.Mesh | null} */
+  let holoScan = null;
+  /** @type {THREE.MeshBasicMaterial | null} */
+  let holoScanMat = null;
+  /** @type {THREE.MeshBasicMaterial | null} */
+  let holoBeamMat = null;
   if (!lowQ) {
     holoGroup = new THREE.Group();
     holoGroup.position.y = PODIUM_HEIGHT + HOLO_HOVER_Y;
@@ -3051,7 +3068,52 @@ function buildDeck(scene, world, config, circumR) {
       holoGroup.add(tick);
     }
 
+    // * SCAN PLANE — the projection's refresh sweeping through itself. Parented INTO
+    // * holoGroup, unlike the beam, because it belongs to the image rather than to the
+    // * projector: it should ride the bob, not stay welded to the deck.
+    const scanGeo = new THREE.CircleGeometry(2.5, 32);
+    ownedGeometries.push(scanGeo);
+    holoScanMat = holoAdd(0xfff0c8, 0.28);
+    holoScan = new THREE.Mesh(scanGeo, holoScanMat);
+    holoScan.rotation.x = -Math.PI / 2;
+    holoScan.userData.holoPart = "holoScan";
+    holoGroup.add(holoScan);
+
     group.add(holoGroup);
+
+    // * PROJECTOR BEAM — the hologram used to float with nothing connecting it to the
+    // * podium, which is most of why it read as hovering rather than projected. This is the
+    // * cone doing the projecting. It sits on the LEVEL GROUP, not holoGroup: its aperture
+    // * has to stay welded to the crown while the projection bobs inside it, and parenting
+    // * it into the group would lift the aperture off the podium every frame.
+    // * Alpha-graded along its length for the reason buildSoftStripTexture documents — a
+    // * flat-opacity additive surface renders its geometry edge as a visible line under
+    // * ACES (the run-2 "cross"). Hot at the aperture, melted out by the time it widens.
+    const beamTex = buildSoftStripTexture([
+      [0.0, "rgba(255,255,255,1)"],
+      [0.45, "rgba(255,255,255,0.62)"],
+      [1.0, "rgba(255,255,255,0)"],
+    ]);
+    ownedTextures.push(beamTex);
+    holoBeamMat = new THREE.MeshBasicMaterial({
+      color: 0xffb968,
+      map: beamTex,
+      transparent: true,
+      opacity: 0.13,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      toneMapped: false,
+      fog: false,
+    });
+    ownedMaterials.push(holoBeamMat);
+    const beamH = BEAM_TOP_Y - GNOMON_BASE_Y;
+    const beamGeo = new THREE.CylinderGeometry(BEAM_TOP_R, BEAM_BASE_R, beamH, 32, 1, true);
+    ownedGeometries.push(beamGeo);
+    const holoBeam = new THREE.Mesh(beamGeo, holoBeamMat);
+    holoBeam.position.y = GNOMON_BASE_Y + beamH / 2;
+    holoBeam.userData.holoPart = "holoBeam";
+    group.add(holoBeam);
   }
 
   // Beacon masts — slim aviation-light masts on the fascia at the four flat midpoints
@@ -3270,6 +3332,12 @@ function buildDeck(scene, world, config, circumR) {
     if (holoGroup) {
       const t = timeMs * 0.001;
       holoGroup.position.y = PODIUM_HEIGHT + HOLO_HOVER_Y + Math.sin(t * 1.15) * 0.16;
+      // * Instability. A projection that never slips reads as a solid object hung in the
+      // * air. Products of two mismatched sines give an unpredictable few-millimetre slip
+      // * with no period a player can lock onto. Item 24 scales this with koT; this is the
+      // * idle floor, and it is what the KO flare will have to be louder than.
+      holoGroup.position.x = Math.sin(t * 37.0) * Math.sin(t * 11.3) * HOLO_JITTER_BASE;
+      holoGroup.position.z = Math.sin(t * 29.0) * Math.sin(t * 7.7) * HOLO_JITTER_BASE;
       // Counter-rotating layers sell depth and "live instrument" energy.
       if (holoRing) holoRing.rotation.z = t * 0.55;
       if (holoRingOuter) holoRingOuter.rotation.z = -t * 0.38;
@@ -3280,6 +3348,14 @@ function buildDeck(scene, world, config, circumR) {
       if (holoBand) holoBand.rotation.y = -t * 0.32;
       if (holoBandInner) holoBandInner.rotation.y = t * 0.48;
       if (holoDial) holoDial.rotation.z = t * 0.12;
+      if (holoScan) {
+        // * One sweep bottom→top every 3.1 s. Opacity tapers to zero at both ends so the
+        // * wrap is invisible — a scan plane that pops back down to the floor reads as a
+        // * bug, not as a refresh.
+        const scanT = (t / 3.1) % 1;
+        holoScan.position.y = -0.95 + scanT * 2.1;
+        if (holoScanMat) holoScanMat.opacity = 0.34 * (1 - Math.abs(scanT - 0.5) * 2);
+      }
       if (holoCore) {
         holoCore.rotation.y = t * 0.9;
         holoCore.rotation.x = t * 0.55;
@@ -3602,7 +3678,12 @@ export function initZanzibarPlatform(scene, world, config) {
   const spindleLight = new THREE.PointLight(0xffb400, 28, 50, 2);
   const spindleLightColorPink = new THREE.Color(0xffc14e);
   const spindleLightColorCyan = new THREE.Color(0xff9226);
-  spindleLight.position.set(0, 7, 0);
+  // * Dropped 7 → 4.3 (Wave 5 item 23). At 7 it sat ABOVE the hologram's 4.25 m hover, so
+  // * the air beneath the projection was the one place with no light in it — half of why the
+  // * holo read as detached, and a projector beam with nothing lit under it still reads
+  // * detached. At 4.3 the crown is 3.8 m below the lamp instead of 6.5 m, so with decay 2
+  // * it takes (6.5/3.8)² ≈ 2.9× the light.
+  spindleLight.position.set(0, 4.3, 0);
   scene.add(spindleLight);
 
   const recordMesh = new THREE.Group();
