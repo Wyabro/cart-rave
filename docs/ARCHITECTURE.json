@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-03T22:31:16.738Z",
-    "commit": "afa4066"
+    "at": "2026-08-03T22:36:59.560Z",
+    "commit": "d3c2431"
   },
-  "source_digest": "11ccaa68",
+  "source_digest": "e408c92a",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -851,9 +851,9 @@
     "queue": [
       {
         "id": "AGENTS-PRIN-1",
-        "what": "AGENTS.md: `## ENGINEERING PRINCIPLES` + small-change fast lane; hook internals → a guide",
-        "status": "▶ ACTIVE (docs card). The canonical file says nothing about how to shape a diff — hence the flags, shims and \"temporary\" paths every later change must navigate. Six falsifiable principles + a fast lane with mechanical qualification (ack kept).",
-        "state": "active"
+        "what": "AGENTS.md: engineering principles + small-change fast lane",
+        "status": "✅ code complete (from `ff0cbd2`). Principles + fast lane (ack kept); hook internals → [hook-enforcement.md](./guides/hook-enforcement.md). AGENTS.md 362 → 329 lines. Residual HOOK-COMMENT-1 in BACKLOG.",
+        "state": "done"
       },
       {
         "id": "LOAD-POSTER-1",
@@ -943,7 +943,7 @@
           "High": 3,
           "?": 4,
           "Medium": 15,
-          "Low": 6,
+          "Low": 7,
           "Partial": 1
         },
         "rows": [
@@ -975,6 +975,12 @@
             "pri": "Medium",
             "item": "SPAWN-SUNDIAL-1 — Sundial platform-leg colliders `[pre-ship]`",
             "notes": "**Half closed 08-02.** The spawn inset shipped in `e64f1a3` via `booth.gapDistanceByLevel` — Sundial's booths and spawn ring both moved +0.75m outward with no level-file edit. **Still owed:** colliders on the platform legs. `buildZanzibarBooths` ([zanzibarPlatform.js:2508](../../src/levels/zanzibarPlatform.js:2508)) builds four 11m legs plus cross-braces per booth as **visual meshes only** — the deck cuboid at `:2579` is the sole `createCollider` in the builder, so carts ghost straight through the supports. Deferred because `zanzibarPlatform.js` was owned by the parallel ART-PASS-SUNDIAL-1 session; pick up once that card closes.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "HOOK-COMMENT-1 — `guard-git-add.mjs` header points at a caveat that moved",
+            "notes": "**Filed 08-03 by AGENTS-PRIN-1.** [guard-git-add.mjs:78](../../.claude/hooks/guard-git-add.mjs:78) says the strict-JSON-not-JSONC caveat \"lives here and in AGENTS.md § Enforcement\". That section now carries only the summary + escape hatches; the caveat moved to [guides/hook-enforcement.md](../guides/hook-enforcement.md). **Not fixed inline — `.claude/hooks/` is frozen during a game card**, and this is a stale comment, not a behaviour bug (the hook is unaffected). One-line edit whenever a tooling block opens.",
             "ship1": null
           },
           {

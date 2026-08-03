@@ -77,7 +77,7 @@ Live rows only. Shipped and closed cards live in
 
 | # | What | Status |
 |---|------|--------|
-| **AGENTS-PRIN-1** | AGENTS.md: `## ENGINEERING PRINCIPLES` + small-change fast lane; hook internals → a guide | ▶ **ACTIVE** (docs card). The canonical file says nothing about **how to shape a diff** — hence the flags, shims and "temporary" paths every later change must navigate. Six falsifiable principles + a fast lane with mechanical qualification (**ack kept**). |
+| **AGENTS-PRIN-1** | AGENTS.md: engineering principles + small-change fast lane | ✅ code complete (from `ff0cbd2`). Principles + fast lane (**ack kept**); hook internals → [hook-enforcement.md](./guides/hook-enforcement.md). **AGENTS.md 362 → 329 lines.** Residual **HOOK-COMMENT-1** in BACKLOG. |
 | LOAD-POSTER-1 | Loading screens redesigned as Fight Night posters (all three arenas) | ⏸ **waiting on Wyatt** — code complete PUSHED (`106fc50`); cqmin-sized stage + two-line title lockup + inline SVG per arena. Remaining: **deploy + Wyatt eye** — human-blocked, not agent work. |
 | PLAYTEST-BATCH-0803-1 | Playtest batch 08-03 (FV-LOAD freezes + load art, quality grace, unlock toast, store decks, GET READY pulse, boot measure) | ✅ code complete, **PUSHED** (`35cf3a9`..`4f2fdde`). Remaining: deploy + 5 Wyatt retests. |
 | ART-PASS-SUNDIAL-1 | Sundial art pass — all 6 waves shipped | ✅ code complete — Wave 6 pushed, **not deployed**. Remaining: playtest (**SUNDIAL-PT-1**) + deploy. Spec = [handover](./planning/art-pass-sundial-handover.md). |
@@ -167,6 +167,18 @@ The hot set — what a current session is likely to hit. Deep-domain and narrow 
 - **Before any public / external-tester playtest: reset the analytics DO** so aggregates are not polluted by dev/harness traffic. Token-gated (SEC-TOKEN-1): `DELETE` with `Authorization: Bearer <ERROR_LOG_TOKEN>` on `/api/analytics` (never `?token=`).
 
 ## Last updated
+
+2026-08-03 (AGENTS-PRIN-1) — AGENTS.md governed behaviour *around* the code and said nothing
+about the code; that gap is why fixes accrete flags, shims and "temporary" paths. Six falsifiable
+rules now live in `## ENGINEERING PRINCIPLES` (principle 1 needs its three carve-outs or it fights
+the naming freeze). A mechanically-qualified **fast lane** drops the wave doc, playtest checklist
+and per-lever STATUS edit — **ack deliberately kept**; DoD amended to match. Its auto-DQ list
+means most gameplay fixes still pay full tax: **the principles are the lever, not the gear
+change.** Paid for by moving ~62 lines of hook internals to
+[guides/hook-enforcement.md](./guides/hook-enforcement.md). **Two limits:** `archRender` reads
+only four AGENTS sections, so the principles reach neither ARCHITECTURE.json nor BRIEFING; and
+`parseListItems` is line-based, so every `execution_loop` bullet is truncated to its first source
+line (the fast lane's was written to survive that).
 
 2026-08-03 (ROUND-WEDGE-1 Phase B code) — Client breaker for undamped podium⇄running re-entry:
 `podiumEndLatch` (MAX_END_SENDS=2, PODIUM_END_RETRY_MS=150), host-only reject arm, clear on
