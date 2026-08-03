@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-03T22:54:56.073Z",
-    "commit": "575b6bd"
+    "at": "2026-08-03T22:56:41.061Z",
+    "commit": "dba1cc1"
   },
-  "source_digest": "4fe4ac14",
+  "source_digest": "50bee728",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -2009,37 +2009,37 @@
       {
         "id": "D-SUNDIAL-OQ8",
         "date": "08-02",
-        "text": "Stylise — keep the 9.93° sun key and the 1.87° sun disc. The key"
+        "text": "Stylise — keep the 9.93° sun key *and* the 1.87° disc; judge sun-facing vs anti-sun vertical surfaces, never whole-deck frame mean."
       },
       {
         "id": "D-SUNDIAL-OQ6",
         "date": "08-02",
-        "text": "Low is a shipping look. Sundial water is authored to survive"
+        "text": "Low is a shipping look — every lever ships its Low path in the same commit."
       },
       {
         "id": "D-SUNDIAL-OQ5",
         "date": "08-02, `93c3deb`",
-        "text": "Sundial gets its own bloom threshold 0.68 via the"
+        "text": "Sundial gets its own bloom threshold 0.68; that knob only, Classic untouched."
       },
       {
         "id": "D-ROUND-WEDGE-1-A",
         "date": "08-01",
-        "text": "Host-hide MAX cushion = server `pausedWallMs`. MAX reject only"
+        "text": "Host-hide MAX cushion = server `pausedWallMs` (non-SD); MIN stays wall-only."
       },
       {
         "id": "D-BOOT-PERF-1",
         "date": "07-31",
-        "text": "Idle warm is not sticky-first-wins — a mid-flight picker bumps gen;"
+        "text": "Idle warm is not sticky-first-wins — a mid-flight picker bumps gen."
       },
       {
         "id": "D-HOST-CAP-1",
         "date": "07-31",
-        "text": "Weak-host toast = local host + join-time `score < 50` only (strict"
+        "text": "Weak-host toast = local host + join-time `score < 50`, once per hostship."
       },
       {
         "id": "D-ANLX-BULK-1",
         "date": "07-31",
-        "text": "Short scripted match ends are non-product. Product metrics require"
+        "text": "Product metrics require `duration_ms >= MIN_MATCH_DURATION_MS` (3000), non-null."
       }
     ],
     "verified_healthy": [

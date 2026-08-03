@@ -37,7 +37,8 @@ match the date first, then grep inside.
 
 | Scope | File |
 |---|---|
-| July 2026 full-text decision entries | [decision-log-2026-07.md](./decision-log-2026-07.md) |
+| 2026-07-31 → 08-02 full-text decision entries | [decision-log-2026-08.md](./decision-log-2026-08.md) |
+| 2026-07-11 → 07-23 full-text decision entries | [decision-log-2026-07.md](./decision-log-2026-07.md) |
 
 The one-line **Decision index** in [STATUS.md](../STATUS.md) stays live and points here for
 full text.

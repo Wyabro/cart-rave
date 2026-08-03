@@ -118,34 +118,17 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 
 ## Decision index
 
-One line each, newest first; full text in
-[archive/decision-log-2026-07.md](./archive/decision-log-2026-07.md).
+**One line each, newest first.** Full text: 07-31 → 08-02 in
+[decision-log-2026-08.md](./archive/decision-log-2026-08.md), 07-11 → 07-23 in
+[decision-log-2026-07.md](./archive/decision-log-2026-07.md).
 
-- **D-SUNDIAL-OQ8** (08-02): **Stylise — keep the 9.93° sun key and the 1.87° sun disc.** The key
-  is what sculpts the deck; dropping it to meet the disc keeps only **18.9%** of that sculpting
-  while the hemi, already **2.32:1** over the key, goes to **12.26:1**. Whole-deck frame mean is
-  the **wrong instrument** here (hemi-dominated, post-exposure — it stays flat while shaping dies).
-  If ever revisited, measure sun-facing vs anti-sun-facing **vertical** surfaces.
-- **D-SUNDIAL-OQ6** (08-02): **Low is a shipping look.** Sundial water is authored to survive
-  Low. Audit item 36 moves up out of Wave 6, and every lever ships its Low path in the same
-  commit.
-- **D-SUNDIAL-OQ5** (08-02, `93c3deb`): Sundial gets its **own** bloom threshold **0.68** via the
-  existing `resolveDisplayBloomConfig` plumbing — frame bloom 55.6% → 18.7%, parity with Classic
-  (15.8%), sun disc keeps its glow. Threshold is the **only** knob moved; Classic untouched.
-- **D-ROUND-WEDGE-1-A** (08-01): Host-hide MAX cushion = server `pausedWallMs`. MAX reject only
-  when `now - runningAnchor - pausedWallMs > ROUND_DURATION_MS + 15_000` (non-SD). MIN stays
-  wall-only. Phase B client breaker is separate.
-- **D-BOOT-PERF-1** (07-31): Idle warm is not sticky-first-wins — a mid-flight picker bumps gen;
-  a stale flight must not latch done; newer serializes after prior.
-- **D-HOST-CAP-1** (07-31): Weak-host toast = local host + join-time `score < 50` only (strict
-  `<`; neutral 50 silent); once per hostship. Min-spec = accepted fact.
-- **D-ANLX-BULK-1** (07-31): Short scripted match ends are non-product. Product metrics require
-  `duration_ms >= MIN_MATCH_DURATION_MS` (3000) and non-null; shared constant lives in
-  `shared/analyticsConstants.js`.
-
-Older entries (07-11 → 08-01, incl. D-FIGHTNIGHT-1 · D-HIT-FEEL-1 · D-ARCH-1 · D-PARITY-1 ·
-D-COUNTDOWN-\* · D-SHIP-1 · D-TRUTH-1 · D-CARGO-VIS-1 · D-SHEET-1 · D-FRIENDS-REJOIN-1) are
-preserved verbatim in the decision log.
+- **D-SUNDIAL-OQ8** (08-02): Stylise — keep the 9.93° sun key *and* the 1.87° disc; judge sun-facing vs anti-sun **vertical** surfaces, never whole-deck frame mean.
+- **D-SUNDIAL-OQ6** (08-02): Low is a shipping look — every lever ships its Low path in the same commit.
+- **D-SUNDIAL-OQ5** (08-02, `93c3deb`): Sundial gets its own bloom threshold 0.68; that knob only, Classic untouched.
+- **D-ROUND-WEDGE-1-A** (08-01): Host-hide MAX cushion = server `pausedWallMs` (non-SD); MIN stays wall-only.
+- **D-BOOT-PERF-1** (07-31): Idle warm is not sticky-first-wins — a mid-flight picker bumps gen.
+- **D-HOST-CAP-1** (07-31): Weak-host toast = local host + join-time `score < 50`, once per hostship.
+- **D-ANLX-BULK-1** (07-31): Product metrics require `duration_ms >= MIN_MATCH_DURATION_MS` (3000), non-null.
 
 ## Gotchas (append-only)
 
