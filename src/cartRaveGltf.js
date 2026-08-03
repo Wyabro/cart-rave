@@ -437,7 +437,14 @@ const RAVE_GLTF_PART_ROLES_V4 = Object.freeze({
   tripo_part_20: "fork",
   tripo_part_21: "fork",
   tripo_part_22: "fork",
-  tripo_part_23: "trim",
+  // * CART-FORK-1: was "trim", which means "neon wire segment on the basket" — a trim part
+  // * WITH an albedo map takes the body bloom treatment at cloneRaveGltfMaterial (see the
+  // * `role === "trim" && srcMat.map` branch), so this rendered basket-pink and glowing down
+  // * among the white casters. It is the mirror twin of tripo_part_22 (same x -0.148,
+  // * mirrored z +0.236 vs -0.235, 29 vs 26 verts), which was already "fork".
+  // * Still in no fork group, so it does not swivel with its caster the way part_22 does —
+  // * that is CART-FORK-SWIVEL-1, deliberately not folded in here.
+  tripo_part_23: "fork",
 });
 
 /**
