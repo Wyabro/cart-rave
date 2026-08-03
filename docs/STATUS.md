@@ -30,17 +30,25 @@ analytics gating are closed. Run 7 closed; NET-2 / NET-MIG-3 passed live; NET-PR
 (loss-on-drop residual accepted). The analytics DO has been reset, so the ring starts clean for
 external testers. Stay in this phase until Wyatt advances the marker.
 
-**ART-PASS-SUNDIAL-1 is the active card. Waves 1, 2 and 3 are shipped, pushed and deployed** —
-ten levers plus OQ5, production Version `22837ee6`. Remaining: **Waves 4, 5 and 6**, specified
-in full in [art-pass-sundial-handover.md](./planning/art-pass-sundial-handover.md), which is now
-the spec — the original plan lived outside this repo. Read its **"Traps that cost time"** before
-any capture. Trap 1 is now **closed**: SHOOT-ANIM-1 (`6b27283`) makes animated properties
-capturable, so things that pulse, drift, spin or orbit no longer ship on code-reading plus
-arithmetic — pin a phase with `--t <ms>` and compare two of them. Judge Sundial phase changes
-against a ~1.2% construction-noise floor, not zero.
-The [audit](./planning/art-audit-sundial.md) is `[unverified]` throughout — verify each claim
-before fixing it. **Owed: Wyatt playtest** — gate beacons breathe rather than step, ship glows
-read as glows, ships glide on a phone, turbines read as machinery; full list in the handover.
+**DIAG-FLAKE-2 is the active card. ART-PASS-SUNDIAL-1 is parked at the Wave 5/6 seam** — Waves
+1–5 shipped and deployed (Version `0d3d812f`), Wave 6 (items 26–36) remains and needs its own
+plan + ack. Sundial resumes the slot the moment this card closes; nothing about its state
+changed.
+
+The switch follows the `be350b4` precedent: `tests/diagnostics.test.js` intermittently red-gates
+whatever card is in flight, so it earns the slot rather than being fixed in Sundial's shadow.
+One test fails inside a full `npm run qa` while the file passes 24/24 in isolation — the second
+flake in the auto-capture family, one layer out from the stale-timer hole DIAG-FLAKE-1 closed.
+**Iron Law applies:** reproduce and name the failing test before any fix, and **do not** fix it
+by lengthening the drains — that hides the production hole and slows the suite for no coverage.
+
+Sundial's spec stays [art-pass-sundial-handover.md](./planning/art-pass-sundial-handover.md);
+read its **"Traps that cost time"** before any capture. Trap 1 is **closed**: SHOOT-ANIM-1
+(`6b27283`) makes animated properties capturable, so things that pulse, drift, spin or orbit no
+longer ship on code-reading plus arithmetic — pin a phase with `--t <ms>` and compare two of
+them. Judge Sundial phase changes against a ~1.2% construction-noise floor, not zero. The
+[audit](./planning/art-audit-sundial.md) is `[unverified]` throughout — verify each claim before
+fixing it.
 
 Closed cards keep their narrative in their own docs, not here: Fight Night
 ([handover](./planning/fight-night-ui-handover.md)), Cart Rave and Storerooms
@@ -80,13 +88,22 @@ Live rows only. Shipped and closed cards live in
 
 | # | What | Status |
 |---|------|--------|
-| **ART-PASS-SUNDIAL-1** | Sundial art pass — Wave 6 remains | ▶ **ACTIVE** — Waves 1–5 **shipped and deployed** (Version `0d3d812f`), including the gnomon collider. Spec = [handover](./planning/art-pass-sundial-handover.md). One commit per lever, ack per wave. **Paint does not read on this deck** (plate median 2.6 vs emissive 153) — read item 18's re-scope before proposing painted detail. **Owed: Wyatt playtest** — Wave 5: is the holo *projected* now, is the gnomon legible or clutter (it has **no collider**, carts pass through), does the KO flare read, is Low's reduced holo worth its frames **on the Intel box**. Carried: cart shadows on turn, dust sun lobe, raking shafts breathing, the dial, gate beacons, ship glows, ships on a phone, turbines. |
+| **DIAG-FLAKE-2** | `tests/diagnostics.test.js` intermittently red under full `qa`, green in isolation | ▶ **ACTIVE** — second flake in the auto-capture family (DIAG-FLAKE-1 / `be350b4` closed the stale-timer half). Suspect: the fire-and-forget upload chain has **no completion signal**, so the tests drain it by counting macrotask turns (`settle()` 1×, `flush()` 8× `setTimeout(0)`) — a guess about how long an unbounded dynamic import takes, which only misses under full-suite load. **Reproduce before fixing**; **do not** lengthen the drains. Fix shape: track the pending timer + in-flight uploads, export a real drain, switch the tests to condition-based waiting. |
+| ART-PASS-SUNDIAL-1 | Sundial art pass — Wave 6 remains | ⏸ **PARKED** for DIAG-FLAKE-2; resumes at **Wave 6**. Waves 1–5 **shipped and deployed** (Version `0d3d812f`), including the gnomon collider. Spec = [handover](./planning/art-pass-sundial-handover.md). One commit per lever, ack per wave. **Paint does not read on this deck** (plate median 2.6 vs emissive 153) — read item 18's re-scope before proposing painted detail. **Owed: Wyatt playtest** — Wave 5: is the holo *projected* now, is the gnomon legible or clutter (it has **no collider**, carts pass through), does the KO flare read, is Low's reduced holo worth its frames **on the Intel box**. Carried: cart shadows on turn, dust sun lobe, raking shafts breathing, the dial, gate beacons, ship glows, ships on a phone, turbines. |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 
 ### Next actions
 
-1. **ART-PASS-SUNDIAL-1 — Wave 5 CLOSED** (items 20–25: killed the per-frame glyph re-upload ·
+1. **DIAG-FLAKE-2 — reproduce first, then fix.** Loop `npm test` (unit forks **+** workerd
+   party-do — that combination is the load differentiator `be350b4` already identified) until
+   it goes red, and read the failing test out of `.diag-captures/vitest-report.json`. If the
+   dice do not land in ~8 runs, force it deterministically (delay the dynamic import in
+   `uploadAutoCapture`, or shrink `flush()` to one turn) and write the prediction down before
+   checking it. **Do not lengthen the drains** — that hides the production hole and slows the
+   suite for no coverage. Bar for "fixed": null-armed, plus three consecutive full runs at
+   exit 0. Then restore Sundial to the slot at Wave 6.
+2. **ART-PASS-SUNDIAL-1 — PARKED. Wave 5 CLOSED** (items 20–25: killed the per-frame glyph re-upload ·
    halved the drift · standing gnomon + fin demoted to noon line · projector beam, instability
    and spindle light 7→4.3 · KO reactivity · Low's reduced holo). **Wave 6 (items 26–36,
    correctness + cleanup) is next and needs its own plan + ack.**
@@ -96,12 +113,12 @@ Live rows only. Shipped and closed cards live in
    handover before proposing any painted detail. Wave 5's own lesson: **derived geometry numbers
    were wrong three times** (holo top, blade base, jitter scale) and the probe caught each —
    measure the scene, do not trust the arithmetic in the comment.
-2. **Playtest owed** — BACKLOG `## Playtest owed` (08-01 and 08-02 sections), now including
+3. **Playtest owed** — BACKLOG `## Playtest owed` (08-01 and 08-02 sections), now including
    **STORE-PT-1** (Storerooms suction lip / racking steel). **UNLOCK-PT-1 needs gates ON**
    (`?devUnlocks=off` + hard refresh) or Vite hides the whole change.
-3. **Wyatt's open calls:** none on Sundial — OQ3 resolved in `9a59271`, OQ5 in `93c3deb`,
+4. **Wyatt's open calls:** none on Sundial — OQ3 resolved in `9a59271`, OQ5 in `93c3deb`,
    OQ6 and OQ8 recorded below.
-4. **Parked, needs its own ack:** ROUND-WEDGE-1 Phase B (Phase A shipped `d4a7718`);
+5. **Parked, needs its own ack:** ROUND-WEDGE-1 Phase B (Phase A shipped `d4a7718`);
    **SPAWN-SUNDIAL-1** — spawn inset shipped, platform-leg colliders did not (file was frozen).
 
 **Open High:** ROUND-WEDGE-1 · UI-SCALE-1 · FIGHT-VERIFY-1 (Wyatt half) · RESULTS-1 ·
@@ -172,6 +189,15 @@ The hot set — what a current session is likely to hit. Deep-domain and narrow 
 - **Before any public / external-tester playtest: reset the analytics DO** so aggregates are not polluted by dev/harness traffic. Token-gated (SEC-TOKEN-1): `DELETE` with `Authorization: Bearer <ERROR_LOG_TOKEN>` on `/api/analytics` (never `?token=`).
 
 ## Last updated
+
+2026-08-02 (card switch — DIAG-FLAKE-2 takes the slot) — `tests/diagnostics.test.js` went red
+inside a full `npm run qa` during Sundial Wave 5 (1 failed / 1246 passed), then passed 24/24 in
+isolation and passed a repeat full run. Second flake in the auto-capture family; DIAG-FLAKE-1
+(`be350b4`) closed the stale-timer half, and the residual one layer out — fire-and-forget upload
+chains crossing test boundaries — was already written down in that card's BACKLOG row and in the
+`postsFor` comment at `tests/diagnostics.test.js:273`. Parked ART-PASS-SUNDIAL-1 at the Wave 5/6
+seam rather than fixing this in its shadow, per the one-card rule. Reproduce first; the drains
+do **not** get lengthened.
 
 2026-08-02 (process reset — the point of it) — Measured why velocity fell: in one three-hour
 window, 16 of 25 commits were the machine maintaining itself while the art pass waited, and 137

@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-03T03:03:31.295Z",
-    "commit": "5ec432d"
+    "at": "2026-08-03T03:11:11.601Z",
+    "commit": "20ac2e5"
   },
-  "source_digest": "2c7ab941",
+  "source_digest": "d32719d3",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -849,10 +849,16 @@
   "workstreams": {
     "queue": [
       {
+        "id": "DIAG-FLAKE-2",
+        "what": "`tests/diagnostics.test.js` intermittently red under full `qa`, green in isolation",
+        "status": "▶ ACTIVE — second flake in the auto-capture family (DIAG-FLAKE-1 / `be350b4` closed the stale-timer half). Suspect: the fire-and-forget upload chain has no completion signal, so the tests drain it by counting macrotask turns (`settle()` 1×, `flush()` 8× `setTimeout(0)`) — a guess about how long an unbounded dynamic import takes, which only misses under full-suite load. Reproduce before fixing; do not lengthen the drains. Fix shape: track the pending timer + in-flight uploads, export a real drain, switch the tests to condition-based waiting.",
+        "state": "active"
+      },
+      {
         "id": "ART-PASS-SUNDIAL-1",
         "what": "Sundial art pass — Wave 6 remains",
-        "status": "▶ ACTIVE — Waves 1–5 shipped and deployed (Version `0d3d812f`), including the gnomon collider. Spec = [handover](./planning/art-pass-sundial-handover.md). One commit per lever, ack per wave. Paint does not read on this deck (plate median 2.6 vs emissive 153) — read item 18's re-scope before proposing painted detail. Owed: Wyatt playtest — Wave 5: is the holo *projected* now, is the gnomon legible or clutter (it has no collider, carts pass through), does the KO flare read, is Low's reduced holo worth its frames on the Intel box. Carried: cart shadows on turn, dust sun lobe, raking shafts breathing, the dial, gate beacons, ship glows, ships on a phone, turbines.",
-        "state": "active"
+        "status": "⏸ PARKED for DIAG-FLAKE-2; resumes at Wave 6. Waves 1–5 shipped and deployed (Version `0d3d812f`), including the gnomon collider. Spec = [handover](./planning/art-pass-sundial-handover.md). One commit per lever, ack per wave. Paint does not read on this deck (plate median 2.6 vs emissive 153) — read item 18's re-scope before proposing painted detail. Owed: Wyatt playtest — Wave 5: is the holo *projected* now, is the gnomon legible or clutter (it has no collider, carts pass through), does the KO flare read, is Low's reduced holo worth its frames on the Intel box. Carried: cart shadows on turn, dust sun lobe, raking shafts breathing, the dial, gate beacons, ship glows, ships on a phone, turbines.",
+        "state": "locked"
       },
       {
         "id": "MAIN-1 / BUNDLE-1",
@@ -877,7 +883,8 @@
       }
     ],
     "next_actions": [
-      "ART-PASS-SUNDIAL-1 — Wave 5 CLOSED (items 20–25: killed the per-frame glyph re-upload ·",
+      "DIAG-FLAKE-2 — reproduce first, then fix. Loop `npm test` (unit forks + workerd",
+      "ART-PASS-SUNDIAL-1 — PARKED. Wave 5 CLOSED (items 20–25: killed the per-frame glyph re-upload ·",
       "Playtest owed — BACKLOG `## Playtest owed` (08-01 and 08-02 sections), now including",
       "Wyatt's open calls: none on Sundial — OQ3 resolved in `9a59271`, OQ5 in `93c3deb`,",
       "Parked, needs its own ack: ROUND-WEDGE-1 Phase B (Phase A shipped `d4a7718`);"
