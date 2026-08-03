@@ -95,7 +95,11 @@ const GNOMON_TIP_Y = 6.75; // meters
 // *   tip   0.085 m × 0.0085 m                            (0.06 · √2, then × FLATTEN)
 // *   height 6.238 m                                      (GNOMON_TIP_Y − GNOMON_BASE_Y)
 const GNOMON_BASE_R = 0.6; // meters — CIRCUMRADIUS of the base section, before flattening
+const GNOMON_TIP_R = 0.06; // meters — CIRCUMRADIUS at the tip; the taper runs base → this
 const GNOMON_FLATTEN = 0.1; // × across the sun line
+// * Height above the blade's base at which its collider's cross-section is matched — i.e.
+// * roughly where a cart standing on the crown actually meets it. See the collider itself.
+const GNOMON_COLLIDER_MATCH_Y = 0.8; // meters
 
 // * Projector beam — the cone of light that makes the hologram read as PROJECTED from the
 // * podium instead of parked above it. Aperture on the crown, spreading up to meet the dial.
@@ -2652,7 +2656,7 @@ function buildDeck(scene, world, config, circumR) {
   // * pass through it.
   const gnomonH = GNOMON_TIP_Y - GNOMON_BASE_Y;
   const gnomonGeo = new THREE.CylinderGeometry(
-    0.06, GNOMON_BASE_R, gnomonH, 4, 1, false, Math.PI / 4,
+    GNOMON_TIP_R, GNOMON_BASE_R, gnomonH, 4, 1, false, Math.PI / 4,
   );
   ownedGeometries.push(gnomonGeo);
   const gnomonBlade = new THREE.Mesh(gnomonGeo, neonYellowMat);
@@ -3377,6 +3381,47 @@ function buildDeck(scene, world, config, circumR) {
     world.createCollider(
       RAPIER.ColliderDesc.cylinder(BOLLARD_HEIGHT / 2, BOLLARD_RADIUS)
         .setTranslation(p.x, BOLLARD_HEIGHT / 2, p.z)
+        .setFriction(0.3)
+        .setRestitution(0.55),
+      body,
+    );
+  }
+
+  // * Gnomon blade collider (Wyatt's call, 08-02 — it shipped without one and carts drove
+  // * straight through the arena's identity piece).
+  // * UNCONDITIONAL, never behind `lowQ`. The blade is on both tiers, and more importantly
+  // * physics must be identical across quality tiers or the host and a predicting client
+  // * step different worlds.
+  // * ONE ROTATED CUBOID, per this file's header rule — primitives only, and the ramp is the
+  // * single documented hull exception. A convex hull of the true taper would put an 8.5 mm
+  // * feature at the tip, which is numerical trouble in exchange for fidelity on a part of the
+  // * blade nothing ever touches.
+  // * The section is matched to the blade at GNOMON_COLLIDER_MATCH_Y above its base, where a
+  // * cart on the crown actually meets it. Resulting box: 0.075 m across × 0.751 m along ×
+  // * 6.238 m tall, centred at y 3.631. A box cannot taper, so it deviates from the visual by
+  // * (computed, not estimated):
+  // *     h = 0.0 m   4.9 cm NARROWER per side   ← cart clips the flare, the forgiving way round
+  // *     h = 0.8 m   exact
+  // *     h = 1.5 m   4.3 cm wider
+  // *     h = 2.5 m  10.4 cm wider
+  // *     h = 6.2 m  33.3 cm wider   ← the tip, which nothing reaches
+  // * The error grows with height precisely where it stops mattering. If a launched cart is
+  // * ever seen stopping short in mid-air near the top of the blade, THIS is why, and the fix
+  // * is a second stacked cuboid, not a hull.
+  // * Thinness is safe here: cart bodies enable CCD (entities.js:95), so an 8.5 cm wall does
+  // * not get tunnelled at ramming speed. Bollard friction/restitution — it is a post you hit.
+  {
+    const bladeH = GNOMON_TIP_Y - GNOMON_BASE_Y;
+    const rAtMatch =
+      GNOMON_BASE_R + (GNOMON_TIP_R - GNOMON_BASE_R) * (GNOMON_COLLIDER_MATCH_Y / bladeH);
+    // R·cos45° is half the square section's side (the circumradius trap from item 22).
+    const halfAlong = rAtMatch * Math.SQRT1_2;
+    const halfAcross = halfAlong * GNOMON_FLATTEN;
+    const bladeYaw = Math.PI / 2 - SUN_AZIMUTH;
+    world.createCollider(
+      RAPIER.ColliderDesc.cuboid(halfAcross, bladeH / 2, halfAlong)
+        .setTranslation(0, GNOMON_BASE_Y + bladeH / 2, 0)
+        .setRotation({ x: 0, y: Math.sin(bladeYaw / 2), z: 0, w: Math.cos(bladeYaw / 2) })
         .setFriction(0.3)
         .setRestitution(0.55),
       body,
