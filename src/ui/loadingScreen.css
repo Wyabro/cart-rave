@@ -225,42 +225,25 @@
 
 /* LOAD-POSTER-1: the art IS the stage. The retired FV-LOAD-1a clamps (88→300px)
    and the --cr-load-art-scale token are deleted, not overridden — they are the
-   thing that left a 300px object in a 1440p frame. */
+   thing that left a 300px object in a 1440p frame.
+
+   Each theme's scene is traced from a real GPU capture of that arena, framed to
+   the countdown flyover (camera.js: radius 28, height 14). If an arena art pass
+   changes what the level looks like, these drift — re-shoot the reference and
+   compare before touching numbers here. */
 .cr-load__visual {
   position: absolute;
   inset: 0;
 }
 
-/* Mirror ball hung high behind the title. Hairline rim, not the retired white
-   die-cut ring (locked decision 2 keeps that contour only on baked emblems). */
+/* The pit at the record's spindle. It is an SVG ellipse inside the scene (see
+   buildClassicDecor) so it stays welded to the label hole when the artwork
+   slices at a non-16:9 aspect — hence no box-shadow/border-radius here. The old
+   mirror-ball treatment is gone with the nightclub it belonged to. */
 .cr-load__vinyl {
-  position: absolute;
-  left: 50%;
-  top: 6%;
-  width: clamp(64px, 26cqmin, 300px);
-  height: clamp(64px, 26cqmin, 300px);
-  margin-left: calc(clamp(64px, 26cqmin, 300px) / -2);
-  z-index: 1;
-  border-radius: 50%;
-  background:
-    radial-gradient(circle at center, #111 0%, #111 18%, transparent 19%),
-    repeating-radial-gradient(circle at center, #1a1a1a 0 2px, #0d0d0d 2px 4px);
-  /* Fight Night: glow-only rim + slab extrude (no white die-cut ring). */
-  box-shadow:
-    0 0 0 1px var(--border-white-12),
-    var(--slab-extrude-sm, 4px 4px 0 #0a0610),
-    0 0 28px rgba(255, 43, 214, 0.35),
-    0 0 56px rgba(0, 229, 255, 0.12);
-  animation: cr-load-spin 3.2s linear infinite;
-}
-
-.cr-load__vinyl::after {
-  content: "";
-  position: absolute;
-  inset: 38%;
-  border-radius: 50%;
-  background: radial-gradient(circle, var(--cr-load-magenta) 0%, #ff6be8 40%, #220018 100%);
-  box-shadow: 0 0 24px rgba(255, 43, 214, 0.55);
+  animation: cr-load-pit-pulse 3.2s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
 }
 
 /* ── Bottom strip — the hint-bar recipe (full-bleed, negating the shell pad). ── */
@@ -374,100 +357,51 @@
 
 /* Beam fans thrown from the truss across the whole stage. Rotation lives in the
    base rule's transform; the sweep animates opacity only (compositor-cheap —
-   this runs while the main thread compiles shaders). */
-.cr-load--classic .cr-load__lasers {
+/* Beams are SVG polygons inside the scene (see buildClassicDecor) — only the
+   sweep is CSS, and it animates opacity alone so it stays compositor-cheap while
+   the main thread is compiling shaders. */
+.cr-load--classic .cr-load__laser {
+  animation: cr-load-laser 2.8s ease-in-out infinite;
+}
+.cr-load--classic .cr-load__laser:nth-of-type(2) { animation-delay: 0.6s; }
+.cr-load--classic .cr-load__laser:nth-of-type(3) { animation-delay: 1.1s; }
+
+/* Crowd sections banked around the bowl. These stay HTML because the gate counts
+   `.cr-load__crowd span` and SVG has no span; they sit on the bowl, which runs
+   edge to edge, so the small drift when the artwork slices costs nothing. */
+.cr-load--classic .cr-load__crowd {
   position: absolute;
   inset: 0;
   z-index: 1;
   pointer-events: none;
-  overflow: hidden;
-}
-
-.cr-load--classic .cr-load__laser {
-  position: absolute;
-  left: 50%;
-  top: 14%;
-  width: 190%;
-  height: clamp(10px, 2.6cqmin, 34px);
-  transform-origin: center;
-  background: linear-gradient(90deg, transparent, rgba(255, 43, 214, 0.55) 45%, transparent);
-  opacity: 0.32;
-  animation: cr-load-laser 2.8s ease-in-out infinite;
-}
-
-.cr-load--classic .cr-load__laser:nth-child(1) { transform: translate(-50%, -50%) rotate(15deg); }
-.cr-load--classic .cr-load__laser:nth-child(2) {
-  transform: translate(-50%, -50%) rotate(-19deg);
-  animation-delay: 0.6s;
-  background: linear-gradient(90deg, transparent, rgba(34, 230, 255, 0.5) 55%, transparent);
-}
-.cr-load--classic .cr-load__laser:nth-child(3) {
-  transform: translate(-50%, -50%) rotate(41deg);
-  animation-delay: 1.1s;
-  height: clamp(6px, 1.6cqmin, 20px);
-}
-
-/* Crowd sits ON the floor line and in FRONT of the title (z 3 > title z 2) —
-   that single overlap is what makes this read as a poster and not text on
-   wallpaper. */
-.cr-load--classic .cr-load__crowd {
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 3;
-  display: flex;
-  align-items: flex-end;
-  gap: clamp(10px, 5cqmin, 68px);
-  opacity: 0.95;
 }
 
 .cr-load--classic .cr-load__crowd span {
-  position: relative;
+  position: absolute;
   display: block;
-  width: clamp(16px, 9cqmin, 118px);
-  height: clamp(26px, 28cqmin, 366px);
-  background: linear-gradient(180deg, #0b0413 0%, #010004 65%);
-  border-radius: 46% 46% 0 0;
-  transform-origin: bottom center;
+  border-radius: 7% 7% 2% 2%;
+  /* Stand faces rake away from the floor — the same perspective the bowl arc in
+     the scene svg is drawn with. */
+  clip-path: polygon(7% 0, 93% 0, 100% 100%, 0 100%);
+  transform-origin: center bottom;
+  /* Confetti crowd: offset dot grids in arena colours. No glow — the stands are
+     lit BY the rig, they do not emit. */
+  background-image:
+    radial-gradient(circle at 20% 30%, #ff2bd6 0 22%, transparent 26%),
+    radial-gradient(circle at 62% 68%, #22e6ff 0 20%, transparent 24%),
+    radial-gradient(circle at 84% 22%, #ffe53d 0 18%, transparent 22%),
+    radial-gradient(circle at 40% 84%, #2bff7a 0 18%, transparent 22%);
+  background-size: 1.1cqmin 1.1cqmin, 1.5cqmin 1.5cqmin, 1.9cqmin 1.9cqmin, 2.3cqmin 2.3cqmin;
+  opacity: 0.34;
   animation: cr-load-crowd 1.6s ease-in-out infinite;
 }
 
-/* head */
-.cr-load--classic .cr-load__crowd span::before {
-  content: "";
-  position: absolute;
-  left: 50%;
-  bottom: 88%;
-  width: 62%;
-  aspect-ratio: 1;
-  transform: translateX(-50%);
-  border-radius: 50%;
-  background: #08030f;
-}
+.cr-load--classic .cr-load__crowd span:nth-child(1) { left: -2%; top: 10%; width: 23%; height: 18%; rotate: -10deg; }
+.cr-load--classic .cr-load__crowd span:nth-child(2) { left: 19%; top: 5%;  width: 23%; height: 16%; rotate: -4deg;  animation-delay: 0.2s; }
+.cr-load--classic .cr-load__crowd span:nth-child(3) { left: 40%; top: 3.5%; width: 22%; height: 14%;                animation-delay: 0.35s; }
+.cr-load--classic .cr-load__crowd span:nth-child(4) { left: 60%; top: 5%;  width: 23%; height: 16%; rotate: 4deg;   animation-delay: 0.15s; }
+.cr-load--classic .cr-load__crowd span:nth-child(5) { left: 80%; top: 10%; width: 23%; height: 18%; rotate: 10deg;  animation-delay: 0.45s; }
 
-/* rim light picked up from the stage behind them */
-.cr-load--classic .cr-load__crowd span::after {
-  content: "";
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 2px;
-  border-radius: 2px;
-  background: linear-gradient(180deg, rgba(255, 43, 214, 0.55), transparent 70%);
-}
-
-.cr-load--classic .cr-load__crowd span:nth-child(2) {
-  animation-delay: 0.2s;
-  height: clamp(34px, 38cqmin, 496px);
-}
-.cr-load--classic .cr-load__crowd span:nth-child(2)::after { background: linear-gradient(180deg, rgba(34, 230, 255, 0.5), transparent 70%); }
-.cr-load--classic .cr-load__crowd span:nth-child(3) { animation-delay: 0.35s; height: clamp(22px, 22cqmin, 288px); }
-.cr-load--classic .cr-load__crowd span:nth-child(4) {
-  animation-delay: 0.15s;
-  height: clamp(30px, 34cqmin, 444px);
-}
-.cr-load--classic .cr-load__crowd span:nth-child(4)::after { background: linear-gradient(180deg, rgba(34, 230, 255, 0.4), transparent 70%); }
-.cr-load--classic .cr-load__crowd span:nth-child(5) { animation-delay: 0.45s; height: clamp(24px, 24cqmin, 314px); }
 
 .cr-load--backrooms .cr-load__bg {
   background: radial-gradient(ellipse at center 30%, #2a2a18 0%, #141408 55%, #0a0a06 100%);
@@ -495,57 +429,73 @@
 }
 
 /* ── Sundial Station (level id "zanzibar") ────────────────────────────────────
-   GOLDEN HOUR. art-direction.md:65-80 rules this arena "not dark" — so the theme
-   backdrop and the shared vignette both get overridden here, or they drag a
-   sunlit scene back into the purple dark the other two arenas own. */
+   An alien sunset, not a beach: deep purple overhead falling to a hot horizon.
+   The scene svg carries the sky, so the theme backdrop only has to agree with it
+   and the shared vignette has to stop dragging it toward the purple dark the
+   other two arenas own. */
 .cr-load--zanzibar .cr-load__bg {
-  background:
-    radial-gradient(ellipse at center 62%, rgba(255, 214, 150, 0.45) 0%, transparent 60%),
-    linear-gradient(180deg, #f6c179 0%, #ff9e52 46%, #ef6a3c 74%, #7c3352 100%);
+  background: linear-gradient(180deg, #150a26 0%, #3d1030 34%, #8f2a25 62%, #25101f 100%);
 }
 
 .cr-load--zanzibar .cr-load__vignette {
-  background: radial-gradient(ellipse at center, transparent 52%, rgba(120, 44, 26, 0.4) 100%);
+  background: radial-gradient(ellipse at center, transparent 55%, rgba(20, 6, 18, 0.5) 100%);
 }
 
-/* Against a bright sky the lettering is the silhouette, not the light source. */
+/* Bright horizon behind the lockup, so the letters are the silhouette. */
 .cr-load--zanzibar .cr-load__title {
-  color: #24101c;
+  color: #1e0a18;
   paint-order: stroke fill;
-  -webkit-text-stroke: 0.05em #14070f;
-  /* Hard warm extrude, not a soft double — a blurred light shadow on a bright
-     sky reads as a printing mistake. */
-  text-shadow: 0.045em 0.05em 0 rgba(255, 214, 156, 0.9);
+  -webkit-text-stroke: 0.05em #0f050d;
+  text-shadow: 0.045em 0.05em 0 rgba(255, 196, 132, 0.85);
 }
 
 .cr-load--zanzibar .cr-load__subtitle {
-  color: rgba(255, 226, 190, 0.75);
+  color: rgba(255, 214, 176, 0.75);
 }
 
 .cr-load--zanzibar .cr-load__vinyl {
   display: none;
 }
 
-/* Oversized low sun, sitting directly behind the title. */
+/* The ringed planet hanging low in the sky — `.sea-sun` is the counted node, and
+   this arena's sun analogue is the planet. Its ring is the ::before. */
 .cr-load__seaside .sea-sun {
   position: absolute;
   left: 50%;
-  top: 12%;
-  width: clamp(120px, 52cqmin, 640px);
-  height: clamp(120px, 52cqmin, 640px);
-  margin-left: calc(clamp(120px, 52cqmin, 640px) / -2);
+  top: 16%;
+  width: clamp(96px, 30cqmin, 396px);
+  height: clamp(96px, 30cqmin, 396px);
+  margin-left: calc(clamp(96px, 30cqmin, 396px) / -2);
   z-index: 1;
   border-radius: 50%;
-  background: radial-gradient(circle, #fff0cc 0%, #ffd48a 42%, var(--cr-load-sunset) 74%, var(--cr-load-sunset-deep) 100%);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0 18%, transparent 18% 30%, rgba(0, 0, 0, 0.12) 30% 42%, transparent 42%),
+    radial-gradient(circle at 38% 32%, #b9a9d6 0%, #8e7cae 46%, #4e3f6b 100%);
+  opacity: 0.92;
   animation: cr-load-sun-bob 5s ease-in-out infinite;
 }
 
+.cr-load__seaside .sea-sun::before {
+  content: "";
+  position: absolute;
+  left: -34%;
+  right: -34%;
+  top: 41%;
+  height: 18%;
+  border-radius: 50%;
+  border: max(2px, 0.5cqmin) solid rgba(226, 214, 248, 0.65);
+  rotate: -7deg;
+}
+
+/* Glints on the water. */
+/* The water band lives BETWEEN the horizon and the deck — at bottom:0 the glints
+   sat on top of the deck and read as floating rulers. */
 .cr-load__seaside .sea-water {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 0;
-  height: 34%;
+  bottom: 17%;
+  height: 12%;
   z-index: 1;
   pointer-events: none;
 }
@@ -553,62 +503,53 @@
 .cr-load__seaside .sea-water span {
   position: absolute;
   left: 50%;
-  height: clamp(3px, 0.8cqmin, 10px);
+  height: clamp(3px, 0.7cqmin, 9px);
   border-radius: 999px;
-  background: rgba(255, 226, 176, 0.8);
+  background: rgba(255, 206, 150, 0.6);
   transform: translateX(-50%);
   animation: cr-load-glint 2.6s ease-in-out infinite;
 }
 
-.cr-load__seaside .sea-water span:nth-child(1) { top: 22%; width: 36%; }
-.cr-load__seaside .sea-water span:nth-child(2) { top: 48%; width: 54%; animation-delay: 0.6s; }
-.cr-load__seaside .sea-water span:nth-child(3) { top: 76%; width: 26%; animation-delay: 1.3s; }
+.cr-load__seaside .sea-water span:nth-child(1) { top: 14%; width: 26%; margin-left: -14%; }
+.cr-load__seaside .sea-water span:nth-child(2) { top: 46%; width: 38%; animation-delay: 0.6s; }
+.cr-load__seaside .sea-water span:nth-child(3) { top: 76%; width: 20%; margin-left: 12%; animation-delay: 1.3s; }
 
-/* Foreground deck edge (z 3, in front of the title) carrying its rail on
-   ::before and the gnomon on ::after — the standalone .sea-gnomon node is gone,
-   two spindles competed for the same spot. */
+/* The deck, foreground, with its lit rail — and the sundial mechanism ring at
+   centre on ::after, which is what this station is named for. */
 .cr-load__seaside .sea-deck {
   position: absolute;
-  left: -4%;
-  right: -4%;
+  left: -6%;
+  right: -6%;
   bottom: 0;
-  height: 15%;
+  height: 17%;
   z-index: 3;
   background:
-    repeating-linear-gradient(90deg, rgba(255, 200, 150, 0.05) 0 2px, transparent 2px 3.2cqmin),
-    linear-gradient(180deg, #43242e 0%, #1c0d16 100%);
-  clip-path: polygon(7% 0, 93% 0, 100% 100%, 0 100%);
+    repeating-linear-gradient(90deg, rgba(255, 200, 150, 0.045) 0 2px, transparent 2px 3.4cqmin),
+    linear-gradient(180deg, #2a1420 0%, #120810 100%);
+  clip-path: polygon(9% 0, 91% 0, 100% 100%, 0 100%);
 }
 
-/* rail */
 .cr-load__seaside .sea-deck::before {
   content: "";
   position: absolute;
-  left: 8%;
-  right: 8%;
+  left: 10%;
+  right: 10%;
   top: 0;
-  height: max(3px, 0.7cqmin);
-  background: #ffc98a;
+  height: max(3px, 0.6cqmin);
+  background: #ffc06a;
 }
 
-/* Gnomon — the blade that gives the station its name, thrown up across the sun
-   as a hard silhouette. It lives on the SCENE wrapper, not on `.sea-deck`: the
-   deck carries a clip-path, and a clip-path clips its own pseudo-elements, which
-   swallowed the blade entirely. */
-.cr-load__seaside::after {
+.cr-load__seaside .sea-deck::after {
   content: "";
   position: absolute;
-  /* Off-centre on purpose: dead centre put the blade straight through the
-     lockup. It now rises beside the title, casting toward it. */
-  left: 27%;
-  bottom: 12%;
-  width: clamp(22px, 9cqmin, 120px);
-  height: clamp(110px, 42cqmin, 550px);
-  transform: translateX(-50%) rotate(-11deg);
-  transform-origin: bottom center;
-  z-index: 3;
-  background: linear-gradient(180deg, #24101c 0%, #180a12 100%);
-  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+  left: 50%;
+  top: 34%;
+  width: clamp(70px, 22cqmin, 290px);
+  height: clamp(20px, 6.4cqmin, 84px);
+  transform: translateX(-50%);
+  border-radius: 50%;
+  border: max(3px, 0.7cqmin) solid #ffc267;
+  opacity: 0.95;
 }
 
 @keyframes cr-load-spin {
@@ -627,8 +568,14 @@
 }
 
 @keyframes cr-load-crowd {
-  0%, 100% { transform: scaleY(0.85); opacity: 0.5; }
-  50% { transform: scaleY(1.15); opacity: 1; }
+  0%, 100% { transform: translateY(0); opacity: 0.42; }
+  50% { transform: translateY(-0.5cqmin); opacity: 0.62; }
+}
+
+/* The pit breathes rather than spins — a rotating ellipse in perspective wobbles. */
+@keyframes cr-load-pit-pulse {
+  0%, 100% { opacity: 0.85; }
+  50% { opacity: 1; }
 }
 
 /* Centring moved to margin-left (the sun is now cqmin-sized), so the bob must
@@ -673,17 +620,17 @@
    index.html, which must paint before this bundle arrives). */
 
 /* ── Storerooms scene furniture ───────────────────────────────────────────────
-   Depth is the whole read: the box stack is FOREGROUND (z 3, in front of the
-   title), the lone chair sits far down the aisle (z 1, behind it). Every child is
-   a percentage of its own cqmin-sized box — the old fixed-px pile plus a scale
-   factor is gone, which is what capped this art at ~200px on a 1440p screen. */
+   The junk heap sits in the middle of the room, on the floor, exactly where the
+   arena keeps it — not as a foreground prop. Every child is a percentage of its
+   own cqmin-sized box, so the pile grows with the frame. */
 
 .cr-load__furniture-inner {
   position: absolute;
-  left: 3%;
-  bottom: 0;
-  width: clamp(96px, 34cqmin, 460px);
-  height: clamp(107px, 38cqmin, 512px);
+  left: 50%;
+  bottom: 11%;
+  width: clamp(84px, 25cqmin, 330px);
+  height: clamp(94px, 28cqmin, 370px);
+  margin-left: calc(clamp(84px, 25cqmin, 330px) / -2);
   z-index: 3;
   rotate: -2deg;
   transform-origin: bottom center;
@@ -691,50 +638,48 @@
 
 .furn-box {
   position: absolute;
-  border: max(2px, 0.35cqmin) solid #1a1a12;
+  border: max(2px, 0.3cqmin) solid #16160f;
   /* Liminal: hard ink extrude only. No glow — this arena never gets one. */
-  box-shadow:
-    max(2px, 0.4cqmin) max(2px, 0.4cqmin) 0 var(--color-ink-deep, #0a0610),
-    inset max(2px, 0.4cqmin) max(2px, 0.4cqmin) 0 rgba(255, 255, 255, 0.06);
+  box-shadow: max(2px, 0.35cqmin) max(2px, 0.35cqmin) 0 rgba(6, 6, 4, 0.75);
   border-radius: 2px;
 }
 /* Base crate */
 .furn-box.b1 {
-  width: 66.7%;
-  height: 40%;
+  width: 72%;
+  height: 38%;
   bottom: 0;
-  left: 16.7%;
-  background: linear-gradient(135deg, #4a4a3c 0%, #2a2a20 100%);
+  left: 14%;
+  background: linear-gradient(135deg, #55554a 0%, #2d2d26 100%);
 }
 /* Mid carton */
 .furn-box.b2 {
-  width: 55.6%;
-  height: 35%;
-  bottom: 35%;
-  left: 22.2%;
-  rotate: 8deg;
-  background: linear-gradient(135deg, #b89968 0%, #8a6a3a 100%);
+  width: 58%;
+  height: 33%;
+  bottom: 33%;
+  left: 21%;
+  rotate: 7deg;
+  background: linear-gradient(135deg, #a8874f 0%, #74572c 100%);
 }
 /* Top carton */
 .furn-box.b3 {
-  width: 44.4%;
-  height: 28%;
-  bottom: 62%;
-  left: 27.8%;
-  rotate: -6deg;
-  background: linear-gradient(135deg, #c4a47a 0%, #9a7a4a 100%);
+  width: 45%;
+  height: 27%;
+  bottom: 60%;
+  left: 30%;
+  rotate: -7deg;
+  background: linear-gradient(135deg, #b8955f 0%, #7f6031 100%);
 }
 
-/* The one chair, alone, mid-aisle. Small on purpose: it reads as distance. */
+/* The chair tipped into the heap, as it sits in the arena. */
 .furn-chair {
   position: absolute;
   left: 50%;
-  bottom: 27%;
-  width: clamp(30px, 8.5cqmin, 112px);
-  height: clamp(38px, 11cqmin, 144px);
-  margin-left: calc(clamp(30px, 8.5cqmin, 112px) / -2);
-  z-index: 1;
-  rotate: -4deg;
+  bottom: 11%;
+  width: clamp(26px, 8cqmin, 106px);
+  height: clamp(34px, 10.5cqmin, 138px);
+  margin-left: calc(clamp(26px, 8cqmin, 106px) * -1.35);
+  z-index: 3;
+  rotate: -13deg;
 }
 .chair-back {
   position: absolute;
@@ -742,8 +687,8 @@
   left: 20%;
   width: 60%;
   height: 55.6%;
-  background: #2a2a20;
-  border: max(1px, 0.2cqmin) solid #14140e;
+  background: #2e2e24;
+  border: max(1px, 0.18cqmin) solid #131310;
   border-radius: 3px;
 }
 .chair-seat {
@@ -752,8 +697,8 @@
   left: 5.7%;
   width: 88.6%;
   height: 13.3%;
-  background: #3a3a2c;
-  border: max(1px, 0.2cqmin) solid #14140e;
+  background: #3d3d30;
+  border: max(1px, 0.18cqmin) solid #131310;
   border-radius: 2px;
 }
 .chair-leg {

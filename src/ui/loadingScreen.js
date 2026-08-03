@@ -196,14 +196,23 @@ function pickRandom(arr) {
    `.cr-load__laser` / 5 `.cr-load__crowd span` for classic, 3 `.furn-box` +
    1 `.furn-chair` for backrooms, 1 `.sea-sun` / 3 `.sea-water span` /
    1 `.sea-deck` for zanzibar — and zero of every other theme's selectors. Two of
-   those require literal `span` elements, which is why the counted layers stay
-   HTML over the SVG instead of becoming SVG groups. Re-use these nodes as scene
-   elements; do not add, drop or rename one without owning the gate change (and
-   `tools/` is off-limits during a game card). */
+   those require literal `span` elements (`.cr-load__crowd span`, `.sea-water
+   span`), so those two layers must stay HTML; the rest are free to live inside
+   the SVG, and `.cr-load__vinyl` / `.cr-load__laser` do, because an HTML overlay
+   positioned in % slides off the artwork as soon as `slice` crops at a non-16:9
+   aspect. Re-use these nodes as scene elements; do not add, drop or rename one
+   without owning the gate change (and `tools/` is off-limits during a game card).
+
+   Each scene is traced from a real GPU capture rather than imagined — the
+   reference for each is named in its builder's doc comment. */
 
 /**
- * Cart Rave — looking across a dark warehouse floor: truss, speaker stacks, a
- * mirror-ball, laser fans, and a crowd whose heads break the title's baseline.
+ * Cart Rave — the arena as the flyover sees it (radius 28 / height 14, ~25° of
+ * elevation): the giant vinyl-record floor with its concentric neon rings, the
+ * label with CART RAVE arced into it, the lit pit at the spindle, and the crowd
+ * bowl wrapping the back. Drawn from `.diag-captures/bl-classic-on.png` rather
+ * than invented — an earlier pass drew a generic nightclub, and the whole point
+ * of this arena is that you drive on a record.
  * @returns {HTMLDivElement}
  */
 function buildClassicDecor() {
@@ -212,46 +221,84 @@ function buildClassicDecor() {
   wrap.innerHTML =
     '<svg class="cr-load__svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">' +
     "<defs>" +
-    '<linearGradient id="crRaveWall" x1="0" y1="0" x2="0" y2="1">' +
-    '<stop offset="0" stop-color="#0a0014"/><stop offset="0.58" stop-color="#1b0432"/><stop offset="1" stop-color="#06000d"/>' +
-    "</linearGradient>" +
-    '<radialGradient id="crRaveHaze" cx="0.5" cy="0.44" r="0.55">' +
-    '<stop offset="0" stop-color="#ff2bd6" stop-opacity="0.34"/><stop offset="0.5" stop-color="#7a0e6a" stop-opacity="0.14"/><stop offset="1" stop-color="#000000" stop-opacity="0"/>' +
+    '<radialGradient id="crRaveRoom" cx="0.5" cy="0.3" r="0.85">' +
+    '<stop offset="0" stop-color="#1a0530"/><stop offset="0.55" stop-color="#0a0116"/><stop offset="1" stop-color="#030006"/>' +
     "</radialGradient>" +
-    '<linearGradient id="crRaveFloor" x1="0" y1="0" x2="0" y2="1">' +
-    '<stop offset="0" stop-color="#2b0a3e"/><stop offset="1" stop-color="#04000a"/>' +
+    '<linearGradient id="crRaveStand" x1="0" y1="0" x2="0" y2="1">' +
+    '<stop offset="0" stop-color="#22123a"/><stop offset="1" stop-color="#0c0518"/>' +
     "</linearGradient>" +
-    '<linearGradient id="crRaveSmear" x1="0" y1="0" x2="1" y2="0">' +
-    '<stop offset="0" stop-color="#22e6ff" stop-opacity="0"/><stop offset="0.28" stop-color="#22e6ff" stop-opacity="0.4"/>' +
-    '<stop offset="0.6" stop-color="#ff2bd6" stop-opacity="0.45"/><stop offset="1" stop-color="#ff2bd6" stop-opacity="0"/>' +
-    "</linearGradient>" +
+    '<radialGradient id="crRaveLabel" cx="0.5" cy="0.42" r="0.62">' +
+    '<stop offset="0" stop-color="#cfcad6"/><stop offset="0.7" stop-color="#b3aec0"/><stop offset="1" stop-color="#8d8799"/>' +
+    "</radialGradient>" +
+    '<radialGradient id="crRavePitGlow" cx="0.5" cy="0.5" r="0.5">' +
+    '<stop offset="0" stop-color="#ffffff" stop-opacity="0.9"/><stop offset="0.45" stop-color="#ff6be8" stop-opacity="0.5"/><stop offset="1" stop-color="#ff2bd6" stop-opacity="0"/>' +
+    "</radialGradient>" +
+    // The arcs the label lettering rides — top half upright, bottom half inverted,
+    // exactly as it reads on the real record.
+    '<path id="crRaveArcTop" d="M 612 700 A 188 65 0 0 1 988 700" fill="none"/>' +
+    '<path id="crRaveArcBot" d="M 988 706 A 188 65 0 0 1 612 706" fill="none"/>' +
     "</defs>" +
-    '<rect width="1600" height="900" fill="url(#crRaveWall)"/>' +
-    '<ellipse cx="800" cy="396" rx="740" ry="340" fill="url(#crRaveHaze)"/>' +
-    // truss + hangers
-    '<g fill="#0d0618">' +
-    '<rect x="60" y="150" width="1480" height="10"/><rect x="60" y="112" width="1480" height="8"/>' +
-    '<rect x="250" y="112" width="6" height="48"/><rect x="560" y="112" width="6" height="48"/>' +
-    '<rect x="1034" y="112" width="6" height="48"/><rect x="1344" y="112" width="6" height="48"/>' +
+    '<rect width="1600" height="900" fill="url(#crRaveRoom)"/>' +
+    // ── crowd bowl wrapping the back ──
+    '<path d="M -160 300 Q 800 -30 1760 300 L 1760 60 Q 800 -230 -160 60 Z" fill="url(#crRaveStand)"/>' +
+    '<path d="M -160 300 Q 800 -30 1760 300" fill="none" stroke="#2a1440" stroke-width="6"/>' +
+    '<g stroke="#241038" stroke-width="3" opacity="0.8">' +
+    '<path d="M 120 96 L 96 268"/><path d="M 420 34 L 408 232"/><path d="M 800 12 L 800 212"/>' +
+    '<path d="M 1180 34 L 1192 232"/><path d="M 1480 96 L 1504 268"/>' +
     "</g>" +
-    '<g fill="#1e1030"><rect x="60" y="160" width="1480" height="4"/></g>' +
-    // speaker stacks
-    '<g fill="#0b0616">' +
-    '<rect x="70" y="330" width="176" height="330" rx="6"/><rect x="1354" y="330" width="176" height="330" rx="6"/>' +
+    // house-light washes across the stands
+    '<g opacity="0.3">' +
+    '<path d="M 40 70 L 150 70 L 250 290 L 120 290 Z" fill="#ff6a2b" opacity="0.22"/>' +
+    '<path d="M 1400 70 L 1520 70 L 1540 290 L 1400 290 Z" fill="#22e6ff" opacity="0.2"/>' +
+    '<path d="M 640 8 L 760 8 L 742 234 L 636 234 Z" fill="#ff2bd6" opacity="0.18"/>' +
     "</g>" +
-    '<g fill="#170c26">' +
-    '<circle cx="158" cy="404" r="46"/><circle cx="158" cy="520" r="34"/><circle cx="158" cy="612" r="24"/>' +
-    '<circle cx="1442" cy="404" r="46"/><circle cx="1442" cy="520" r="34"/><circle cx="1442" cy="612" r="24"/>' +
+    // DJ booth at the back
+    "<g>" +
+    '<rect x="712" y="70" width="176" height="66" rx="4" fill="#12081e"/>' +
+    '<rect x="726" y="84" width="148" height="10" rx="3" fill="#ff2bd6" opacity="0.9"/>' +
+    '<rect x="748" y="104" width="104" height="6" rx="3" fill="#22e6ff" opacity="0.7"/>' +
+    '<rect x="756" y="136" width="88" height="36" fill="#0b0512"/>' +
     "</g>" +
-    // floor + reflected smear
-    '<rect x="0" y="662" width="1600" height="238" fill="url(#crRaveFloor)"/>' +
-    '<rect x="0" y="658" width="1600" height="3" fill="#ff2bd6" opacity="0.55"/>' +
-    '<rect x="180" y="704" width="1240" height="150" fill="url(#crRaveSmear)" opacity="0.3"/>' +
+    // ── the record floor ──
+    '<ellipse cx="800" cy="700" rx="1250" ry="432" fill="#0b0716"/>' +
+    '<g fill="none" stroke="#1b1230" stroke-width="2" opacity="0.9">' +
+    '<ellipse cx="800" cy="700" rx="1175" ry="406"/><ellipse cx="800" cy="700" rx="1100" ry="380"/>' +
+    '<ellipse cx="800" cy="700" rx="1025" ry="354"/><ellipse cx="800" cy="700" rx="950" ry="328"/>' +
+    '<ellipse cx="800" cy="700" rx="875" ry="302"/><ellipse cx="800" cy="700" rx="800" ry="276"/>' +
+    '<ellipse cx="800" cy="700" rx="725" ry="251"/><ellipse cx="800" cy="700" rx="650" ry="225"/>' +
+    '<ellipse cx="800" cy="700" rx="575" ry="199"/><ellipse cx="800" cy="700" rx="500" ry="173"/>' +
+    '<ellipse cx="800" cy="700" rx="425" ry="147"/><ellipse cx="800" cy="700" rx="350" ry="121"/>' +
+    "</g>" +
+    // the neon ring pairs that band the arena
+    '<ellipse cx="800" cy="700" rx="1138" ry="393" fill="none" stroke="#ff2bd6" stroke-width="5" opacity="0.7"/>' +
+    '<ellipse cx="800" cy="700" rx="1063" ry="367" fill="none" stroke="#22e6ff" stroke-width="3" opacity="0.45"/>' +
+    '<ellipse cx="800" cy="700" rx="700" ry="242" fill="none" stroke="#ff2bd6" stroke-width="4" opacity="0.55"/>' +
+    '<ellipse cx="800" cy="700" rx="625" ry="216" fill="none" stroke="#22e6ff" stroke-width="3" opacity="0.4"/>' +
+    // ── the label ──
+    '<ellipse cx="800" cy="700" rx="262" ry="91" fill="url(#crRaveLabel)"/>' +
+    '<g fill="none" stroke="#a49eaf" stroke-width="1" opacity="0.5">' +
+    '<ellipse cx="800" cy="700" rx="240" ry="83"/><ellipse cx="800" cy="700" rx="218" ry="75"/>' +
+    '<ellipse cx="800" cy="700" rx="196" ry="68"/>' +
+    "</g>" +
+    '<g fill="#7e7889" font-family="Road Rage, Goldman, sans-serif" font-size="32" letter-spacing="4">' +
+    '<text><textPath href="#crRaveArcTop" startOffset="50%" text-anchor="middle">CART RAVE</textPath></text>' +
+    '<text><textPath href="#crRaveArcBot" startOffset="50%" text-anchor="middle">CART RAVE</textPath></text>' +
+    "</g>" +
+    '<g fill="#6f6a7a"><path d="M 664 700 l 9 -12 l 9 12 l -9 12 Z"/><path d="M 918 700 l 9 -12 l 9 12 l -9 12 Z"/></g>' +
+    // Beams from the rig. INSIDE the svg on purpose: an HTML overlay positioned in
+    // % drifts off the artwork the moment `slice` crops at a non-16:9 aspect, and
+    // these have to stay pinned to the rig they come from.
+    '<g opacity="0.4">' +
+    '<polygon class="cr-load__laser" points="790,126 810,126 1010,646 906,646" fill="#ff2bd6" opacity="0.16"/>' +
+    '<polygon class="cr-load__laser" points="790,126 810,126 694,646 590,646" fill="#22e6ff" opacity="0.13"/>' +
+    '<polygon class="cr-load__laser" points="794,126 806,126 858,652 742,652" fill="#ff6be8" opacity="0.1"/>' +
+    "</g>" +
+    // The pit at the spindle — same reason it lives in the svg: it has to sit
+    // exactly in the label's hole at every aspect ratio.
+    '<ellipse cx="800" cy="700" rx="200" ry="72" fill="url(#crRavePitGlow)"/>' +
+    '<ellipse class="cr-load__vinyl" cx="800" cy="700" rx="104" ry="36" fill="#08000e" stroke="#fff0fb" stroke-width="8"/>' +
+    '<ellipse cx="800" cy="700" rx="92" ry="29" fill="none" stroke="#ff2bd6" stroke-width="4" opacity="0.9"/>' +
     "</svg>" +
-    '<div class="cr-load__lasers" aria-hidden="true">' +
-    '<div class="cr-load__laser"></div><div class="cr-load__laser"></div><div class="cr-load__laser"></div>' +
-    "</div>" +
-    '<div class="cr-load__vinyl" aria-hidden="true"></div>' +
     '<div class="cr-load__crowd" aria-hidden="true">' +
     "<span></span><span></span><span></span><span></span><span></span>" +
     "</div>";
@@ -259,59 +306,76 @@ function buildClassicDecor() {
 }
 
 /**
- * The Storerooms — one-point perspective down an endless aisle. Stays LIMINAL:
- * flat fluorescent wash, no neon, no glow (art-direction.md:65-80 — this arena
- * must not be pushed toward a rave). The lone chair mid-aisle is the focal joke;
- * the boxes are foreground and break the title.
+ * The Storerooms — the room as the flyover sees it: the pale tiled floor, the two
+ * black floor pits you get shoved into, the junk pile in the middle, and shelving
+ * against the dark back wall. Drawn from `.diag-captures/bl-storerooms-on.png`;
+ * an earlier pass drew an endless shelving corridor, which this arena is not.
+ * Stays LIMINAL — flat light, no neon, no glow (art-direction.md:65-80).
  * @returns {HTMLDivElement}
  */
 function buildBackroomsDecor() {
   const wrap = document.createElement("div");
   wrap.className = "cr-load__visual cr-load__furniture";
+
+  // The floor runs from a far edge at y=318 to the frame bottom, its half-width
+  // growing toward the viewer. Deriving the grid keeps it in honest perspective
+  // instead of hand-placed lines that drift.
+  const FAR_Y = 318;
+  const NEAR_Y = 900;
+  const FAR_HW = 430;
+  const NEAR_HW = 1680;
+
+  let grid = "";
+  for (let i = -8; i <= 8; i += 1) {
+    const f = i / 8;
+    grid += `<line x1="${(800 + f * NEAR_HW).toFixed(0)}" y1="${NEAR_Y}" x2="${(800 + f * FAR_HW).toFixed(0)}" y2="${FAR_Y}"/>`;
+  }
+  for (let r = 1; r <= 8; r += 1) {
+    const y = FAR_Y + (NEAR_Y - FAR_Y) * Math.pow(r / 8, 1.7);
+    const hw = FAR_HW + ((NEAR_HW - FAR_HW) * (y - FAR_Y)) / (NEAR_Y - FAR_Y);
+    grid += `<line x1="${(800 - hw).toFixed(0)}" y1="${y.toFixed(0)}" x2="${(800 + hw).toFixed(0)}" y2="${y.toFixed(0)}"/>`;
+  }
+
+  /**
+   * One floor pit, near edge wider than far, with a lit lip on the near side.
+   * @param {number} cx @param {number} yTop @param {number} yBot
+   * @param {number} wTop @param {number} wBot @returns {string}
+   */
+  const pit = (cx, yTop, yBot, wTop, wBot) =>
+    `<polygon points="${cx - wTop},${yTop} ${cx + wTop},${yTop} ${cx + wBot},${yBot} ${cx - wBot},${yBot}" fill="#04040a"/>` +
+    `<polygon points="${cx - wBot},${yBot} ${cx + wBot},${yBot} ${cx + wBot - 8},${yBot + 8} ${cx - wBot + 8},${yBot + 8}" fill="#cabe87" opacity="0.32"/>`;
+
   wrap.innerHTML =
     '<svg class="cr-load__svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">' +
     "<defs>" +
-    '<linearGradient id="crAisleFloor" x1="0" y1="0" x2="0" y2="1">' +
-    '<stop offset="0" stop-color="#6c6f3d"/><stop offset="1" stop-color="#3d3f22"/>' +
+    '<linearGradient id="crStoreFloor" x1="0" y1="0" x2="0" y2="1">' +
+    '<stop offset="0" stop-color="#6d6b4c"/><stop offset="0.35" stop-color="#8c8964"/><stop offset="1" stop-color="#a39f77"/>' +
     "</linearGradient>" +
-    '<linearGradient id="crAisleWallL" x1="0" y1="0" x2="1" y2="0">' +
-    '<stop offset="0" stop-color="#5d5f34"/><stop offset="1" stop-color="#9aa05c"/>' +
+    '<linearGradient id="crStoreWall" x1="0" y1="0" x2="0" y2="1">' +
+    '<stop offset="0" stop-color="#08080a"/><stop offset="1" stop-color="#1d1c14"/>' +
     "</linearGradient>" +
-    '<linearGradient id="crAisleWallR" x1="0" y1="0" x2="1" y2="0">' +
-    '<stop offset="0" stop-color="#9aa05c"/><stop offset="1" stop-color="#5d5f34"/>' +
-    "</linearGradient>" +
+    '<radialGradient id="crStoreFall" cx="0.5" cy="0.62" r="0.72">' +
+    '<stop offset="0.5" stop-color="#000000" stop-opacity="0"/><stop offset="1" stop-color="#000000" stop-opacity="0.55"/>' +
+    "</radialGradient>" +
     "</defs>" +
-    '<rect width="1600" height="900" fill="#4c4e2b"/>' +
-    // ceiling, floor, side walls converging on 800,470
-    '<polygon points="0,0 1600,0 902,392 698,392" fill="#5a5c31"/>' +
-    '<polygon points="0,900 1600,900 902,548 698,548" fill="url(#crAisleFloor)"/>' +
-    '<polygon points="0,0 698,392 698,548 0,900" fill="url(#crAisleWallL)"/>' +
-    '<polygon points="1600,0 902,392 902,548 1600,900" fill="url(#crAisleWallR)"/>' +
-    '<rect x="698" y="392" width="204" height="156" fill="#8b915180"/>' +
-    // shelf runs receding on both sides
-    '<g fill="#3c3e21" opacity="0.75">' +
-    '<polygon points="0,232 698,420 698,436 0,286"/><polygon points="0,470 698,470 698,486 0,548"/>' +
-    '<polygon points="0,714 698,520 698,536 0,790"/>' +
-    '<polygon points="1600,232 902,420 902,436 1600,286"/><polygon points="1600,470 902,470 902,486 1600,548"/>' +
-    '<polygon points="1600,714 902,520 902,536 1600,790"/>' +
+    '<rect width="1600" height="900" fill="#0a0a0b"/>' +
+    '<rect x="0" y="0" width="1600" height="318" fill="url(#crStoreWall)"/>' +
+    '<rect x="0" y="302" width="1600" height="18" fill="#2a2818" opacity="0.7"/>' +
+    `<polygon points="${800 - FAR_HW},${FAR_Y} ${800 + FAR_HW},${FAR_Y} ${800 + NEAR_HW},${NEAR_Y} ${800 - NEAR_HW},${NEAR_Y}" fill="url(#crStoreFloor)"/>` +
+    `<g stroke="#6b6849" stroke-width="1.5" opacity="0.45">${grid}</g>` +
+    `<g>${pit(452, 372, 452, 138, 196)}${pit(1148, 372, 452, 138, 196)}</g>` +
+    // shelving against the back wall
+    "<g>" +
+    '<rect x="716" y="252" width="168" height="66" fill="#14140e"/>' +
+    '<rect x="724" y="262" width="152" height="6" fill="#3a3826"/>' +
+    '<rect x="724" y="286" width="152" height="6" fill="#3a3826"/>' +
+    '<rect x="736" y="240" width="40" height="14" fill="#8a6a3a"/>' +
+    '<rect x="824" y="240" width="40" height="14" fill="#8a6a3a"/>' +
     "</g>" +
-    // shelf uprights, thinning with distance
-    '<g fill="#33351c" opacity="0.6">' +
-    '<rect x="120" y="180" width="14" height="640"/><rect x="360" y="286" width="11" height="440"/>' +
-    '<rect x="552" y="356" width="8" height="270"/>' +
-    '<rect x="1466" y="180" width="14" height="640"/><rect x="1229" y="286" width="11" height="440"/>' +
-    '<rect x="1040" y="356" width="8" height="270"/>' +
-    "</g>" +
-    // ceiling fluorescents — one is class="cr-load__fluoro" and flickers
-    '<g fill="#e8ecc0">' +
-    '<rect x="716" y="96" width="168" height="20" rx="6" opacity="0.92"/>' +
-    '<rect x="742" y="212" width="116" height="15" rx="5" opacity="0.85"/>' +
-    '<rect x="770" y="306" width="60" height="10" rx="4" opacity="0.7"/>' +
-    "</g>" +
-    '<rect class="cr-load__fluoro" x="756" y="360" width="88" height="9" rx="4" fill="#f2f6cc" opacity="0.8"/>' +
-    // the yellow line on the floor, receding
-    '<polygon points="742,900 858,900 812,548 788,548" fill="#c9b23f" opacity="0.5"/>' +
+    '<rect width="1600" height="900" fill="url(#crStoreFall)"/>' +
     "</svg>" +
+    // The centre junk heap — the counted decor nodes, reused as the thing the
+    // arena actually keeps in the middle of the room.
     '<div class="cr-load__furniture-inner" aria-hidden="true">' +
     '<div class="furn-box b1"></div>' +
     '<div class="furn-box b2"></div>' +
@@ -326,39 +390,75 @@ function buildBackroomsDecor() {
   return wrap;
 }
 
+/**
+ * Sundial Station — the platform as the flyover sees it: the ringed planet low in
+ * an alien sunset, the far city and the horizon arch, the sea, and the dark deck
+ * with the golden sundial ring at its centre. Drawn from
+ * `.diag-captures/sundial-planet-fixed.png` and `bl-sundial-wide-*.png`; an
+ * earlier pass drew a beach at golden hour, which missed the sci-fi entirely.
+ * @returns {HTMLDivElement}
+ */
 function buildZanzibarDecor() {
   const wrap = document.createElement("div");
   wrap.className = "cr-load__visual cr-load__seaside";
-  // * GOLDEN HOUR, not dark (art-direction.md:65-80). The sun sits behind the
-  // * title so the letterforms read as silhouette; the deck carries the gnomon on
-  // * ::after — the old standalone .sea-gnomon node is gone, two spindles fight.
+
+  // Star field, derived rather than hand-placed so the spacing stays even and the
+  // markup stays short. Fixed arithmetic — no RNG, so captures are reproducible.
+  let stars = "";
+  for (let i = 0; i < 26; i += 1) {
+    const x = ((i * 617) % 1580) + 10;
+    const y = ((i * 233) % 420) + 30;
+    const r = i % 3 === 0 ? 2.4 : 1.5;
+    const o = i % 2 === 0 ? 0.45 : 0.75;
+    stars += `<circle cx="${x}" cy="${y}" r="${r}" opacity="${o}"/>`;
+  }
+
   wrap.innerHTML =
     '<svg class="cr-load__svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">' +
     "<defs>" +
     '<linearGradient id="crSunSky" x1="0" y1="0" x2="0" y2="1">' +
-    '<stop offset="0" stop-color="#f8c778"/><stop offset="0.42" stop-color="#ffb15e"/>' +
-    '<stop offset="0.78" stop-color="#ff8340"/><stop offset="1" stop-color="#ff5e3a"/>' +
+    '<stop offset="0" stop-color="#150a26"/><stop offset="0.3" stop-color="#3d1030"/>' +
+    '<stop offset="0.58" stop-color="#8f2a25"/><stop offset="0.82" stop-color="#d8481c"/>' +
+    '<stop offset="1" stop-color="#ff8534"/>' +
     "</linearGradient>" +
     '<linearGradient id="crSunSea" x1="0" y1="0" x2="0" y2="1">' +
-    '<stop offset="0" stop-color="#ff7a45"/><stop offset="0.22" stop-color="#c2563f"/>' +
-    '<stop offset="0.6" stop-color="#2c5566"/><stop offset="1" stop-color="#123243"/>' +
+    '<stop offset="0" stop-color="#f4702f"/><stop offset="0.22" stop-color="#a83a1e"/>' +
+    '<stop offset="0.62" stop-color="#5a1e2c"/><stop offset="1" stop-color="#25101f"/>' +
     "</linearGradient>" +
     "</defs>" +
     '<rect width="1600" height="900" fill="url(#crSunSky)"/>' +
-    // haze bands across the sky
-    '<g fill="#ffe0a8" opacity="0.28">' +
-    '<rect x="120" y="196" width="560" height="12" rx="6"/><rect x="980" y="150" width="420" height="10" rx="5"/>' +
-    '<rect x="700" y="268" width="720" height="9" rx="4"/><rect x="160" y="330" width="380" height="8" rx="4"/>' +
+    `<g fill="#ffe7c4">${stars}</g>` +
+    // the faint ring arc hanging over the whole sky
+    '<path d="M -200 300 Q 800 -120 1800 246" fill="none" stroke="#c9a8ff" stroke-width="5" opacity="0.16"/>' +
+    '<path d="M -200 336 Q 800 -84 1800 282" fill="none" stroke="#c9a8ff" stroke-width="2" opacity="0.1"/>' +
+    // far city on the left horizon
+    '<g fill="#3a1220">' +
+    '<rect x="18" y="404" width="34" height="238"/><rect x="60" y="470" width="26" height="172"/>' +
+    '<rect x="96" y="512" width="40" height="130"/><rect x="146" y="556" width="22" height="86"/>' +
+    "</g>" +
+    '<g fill="#ff9a4a" opacity="0.55">' +
+    '<rect x="18" y="404" width="4" height="238"/><rect x="60" y="470" width="3" height="172"/>' +
+    '<rect x="96" y="512" width="3" height="130"/>' +
+    "</g>" +
+    // the arch out on the right
+    '<circle cx="1318" cy="700" r="176" fill="none" stroke="#ff6a2b" stroke-width="11" opacity="0.75"/>' +
+    '<circle cx="1318" cy="700" r="176" fill="none" stroke="#ffd0a0" stroke-width="3" opacity="0.4"/>' +
+    // turbine on the far right
+    '<g stroke="#3a1220" stroke-width="5" opacity="0.7" fill="none">' +
+    '<path d="M 1512 642 L 1512 520"/><path d="M 1512 520 L 1470 470"/>' +
+    '<path d="M 1512 520 L 1560 486"/><path d="M 1512 520 L 1524 462"/>' +
     "</g>" +
     // sea + horizon
-    '<rect x="0" y="596" width="1600" height="304" fill="url(#crSunSea)"/>' +
-    '<rect x="0" y="592" width="1600" height="5" fill="#ffd9a0" opacity="0.85"/>' +
-    // sun column on the water
-    '<polygon points="756,596 844,596 940,900 660,900" fill="#ffcf8a" opacity="0.35"/>' +
-    // far bollards along the water line
-    '<g fill="#43281f" opacity="0.55">' +
-    '<rect x="196" y="560" width="14" height="36" rx="4"/><rect x="352" y="566" width="12" height="30" rx="4"/>' +
-    '<rect x="1240" y="566" width="12" height="30" rx="4"/><rect x="1396" y="560" width="14" height="36" rx="4"/>' +
+    '<rect x="0" y="642" width="1600" height="258" fill="url(#crSunSea)"/>' +
+    '<rect x="0" y="638" width="1600" height="4" fill="#ffd9a0" opacity="0.6"/>' +
+    // The tower on the deck. Offset from centre on purpose: dead centre put it
+    // behind the lockup, where all that showed was two stray legs below the
+    // letters, reading as a glitch rather than a structure.
+    "<g>" +
+    '<rect x="1108" y="548" width="116" height="12" fill="#2a1420"/>' +
+    '<rect x="1120" y="560" width="10" height="82" fill="#2a1420"/><rect x="1202" y="560" width="10" height="82" fill="#2a1420"/>' +
+    '<rect x="1114" y="512" width="104" height="40" fill="#1c0d18"/>' +
+    '<rect x="1122" y="524" width="88" height="6" fill="#ff7a3a" opacity="0.85"/>' +
     "</g>" +
     "</svg>" +
     '<div class="sea-sun" aria-hidden="true"></div>' +
