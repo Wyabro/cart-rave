@@ -324,10 +324,13 @@ function buildDeckTexture(circumR) {
   ctx.lineDashOffset = 0;
 
   // Podium apron markings: thin amber ring + tick marks (helipad read).
+  // * octPath, not ctx.arc — a circle drawn on an octagonal deck, and the emissive dial ring
+  // * built over it in buildDeck() is eight straight segments at this exact circumradius.
+  // * The paint is only an underlay now: measured at luminance 3.3 against a 2.6 bare plate,
+  // * it does not read on its own. The dial geometry is what a player actually sees.
   ctx.strokeStyle = "rgba(255,178,44,0.5)";
   ctx.lineWidth = Math.max(2, 0.22 * pxPerM);
-  ctx.beginPath();
-  ctx.arc(c, c, (PODIUM_BASE_R + 1.1) * pxPerM, 0, Math.PI * 2);
+  octPath(PODIUM_BASE_R + 1.1);
   ctx.stroke();
   for (let i = 0; i < 8; i += 1) {
     const a = VERTEX_OFFSET + i * (Math.PI / 4);
@@ -2550,6 +2553,75 @@ function buildDeck(scene, world, config, circumR) {
     }
     guides.instanceMatrix.needsUpdate = true;
     group.add(guides);
+  }
+
+  // * Dial face — the podium apron rebuilt as EMISSIVE geometry rather than paint.
+  // *
+  // * Measured on this deck: the neon rim strips read at median luminance 153, the painted
+  // * hazard band at 16, and the painted apron ring at 3.3 against a bare-plate median of
+  // * 2.6 — i.e. the apron was indistinguishable from unpainted steel. Paint does not read
+  // * on Sundial; only emissive does. So the dial is built from the same neonYellowMat as
+  // * the rim strips, which also means it inherits their dusk breath for free (the breath
+  // * drives the shared material's emissiveIntensity, not per-mesh state).
+  // *
+  // * This is additive — it puts light on the plate rather than taking any away — and it is
+  // * the sanctioned direction for a circle-on-octagon fix: the ring was ctx.arc, and it is
+  // * now eight straight segments. That absorbs item 15's "octPath apron" sub-item.
+  // *
+  // * The arena is Sundial Station and the podium is its gnomon; the apron is where a dial
+  // * face belongs. 24 graduations, every third major, plus one heavier datum bar at
+  // * SUN_AZIMUTH for the gnomon shadow to read against.
+  {
+    const DIAL_CIRCUM_R = PODIUM_BASE_R + 1.1; // where the painted ring was
+    const dialApothem = DIAL_CIRCUM_R * COS_HALF;
+    const dialEdge = 2 * DIAL_CIRCUM_R * Math.sin(HALF_ANGLE);
+    const DIAL_Y = 0.025;
+
+    const dialSegGeo = new THREE.BoxGeometry(dialEdge - 0.5, 0.04, 0.13);
+    ownedGeometries.push(dialSegGeo);
+    const dialRing = new THREE.InstancedMesh(dialSegGeo, neonYellowMat, OCT_SIDES);
+    for (let i = 0; i < OCT_SIDES; i += 1) {
+      const mid = i * (Math.PI / 4);
+      _dummy.position.set(Math.cos(mid) * dialApothem, DIAL_Y, Math.sin(mid) * dialApothem);
+      // * Same tangential convention as the rim strips at the deck edge.
+      _dummy.rotation.set(0, -mid + Math.PI / 2, 0);
+      _dummy.scale.set(1, 1, 1);
+      _dummy.updateMatrix();
+      dialRing.setMatrixAt(i, _dummy.matrix);
+    }
+    dialRing.instanceMatrix.needsUpdate = true;
+    group.add(dialRing);
+
+    // Graduations: unit-length bars along local +X, scaled per instance.
+    const GRAD_COUNT = 24;
+    const gradGeo = new THREE.BoxGeometry(1, 0.04, 0.1);
+    ownedGeometries.push(gradGeo);
+    const grads = new THREE.InstancedMesh(gradGeo, neonYellowMat, GRAD_COUNT + 1);
+    /**
+     * Boundary radius of the dial octagon in a given direction. The ring is an octagon, so
+     * a graduation has to start at the edge *in its own direction* — anchoring them all at
+     * a fixed radius would leave every mark that is not on a flat mid floating off the ring.
+     */
+    const octEdgeRadius = (a) => dialApothem / Math.cos(((a + HALF_ANGLE) % (Math.PI / 4)) - HALF_ANGLE);
+    const placeGrad = (idx, a, len, widthScale) => {
+      const r0 = octEdgeRadius(a);
+      const rMid = r0 + len / 2;
+      _dummy.position.set(Math.cos(a) * rMid, DIAL_Y, Math.sin(a) * rMid);
+      // * rotation.y = -a maps the bar's local +X onto (cos a, 0, sin a) — radially outward.
+      _dummy.rotation.set(0, -a, 0);
+      _dummy.scale.set(len, 1, widthScale);
+      _dummy.updateMatrix();
+      grads.setMatrixAt(idx, _dummy.matrix);
+    };
+    for (let i = 0; i < GRAD_COUNT; i += 1) {
+      const a = (i / GRAD_COUNT) * Math.PI * 2;
+      const major = i % 3 === 0;
+      placeGrad(i, a, major ? 1.1 : 0.55, major ? 1.35 : 1);
+    }
+    // Datum bar — longer and heavier, pointing at the sun.
+    placeGrad(GRAD_COUNT, SUN_AZIMUTH, 1.85, 2.1);
+    grads.instanceMatrix.needsUpdate = true;
+    group.add(grads);
   }
 
   // Podium hologram — layered station core: dial plate, dual glyph bands, counter-spin

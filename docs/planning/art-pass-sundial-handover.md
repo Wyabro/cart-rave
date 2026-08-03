@@ -124,9 +124,51 @@ One lever per commit unless marked as a pack.
     transverse tread plate. **OQ3 resolves here** — `art-direction.md` allowlists "Sundial —
     center podium" and records it as passing, but the crown plate has zero maps. The doc is
     false either way today; correct its status line **in the same commit**.
-18. **Deck density** — the largest single job in the document. A tiling detail layer mirroring
-    `arena.js:1423-1451`, biased grime (salt bloom at seams, spray climbing from the rim,
-    sun-bleach off `SUN_AZIMUTH`), skid arcs, legible decals. Give it its own sub-sequence.
+18. **Deck density** — **RE-SCOPED 08-02, measured. Do not build the original card.**
+
+    The original said: a tiling detail layer mirroring `arena.js:1423-1451`, biased grime
+    (salt bloom at seams, spray climbing from the rim, sun-bleach off `SUN_AZIMUTH`), skid
+    arcs, legible decals. Two things are wrong with it.
+
+    First, the reference is wrong — `arena.js:1423-1451` is booth turntable gear. The real
+    tiling-detail precedent is `arena.js:150-182` (tiled map/normal/roughness at
+    `repeat.set(32, 8)`) feeding `arena.js:1710-1741`, the translucent vinyl detail mesh laid
+    over the floor with `renderOrder = 1` and `visible = !isLowQualityMode()`.
+
+    Second, and fatally: **paint does not read on this deck.** Median luminance, wide camera:
+
+    | surface | median | note |
+    |---|---|---|
+    | neon rim strip (emissive) | **153.2** | the only thing that reads |
+    | painted hazard band | 16.4 | 6× the plate, still dim |
+    | painted podium apron ring | 3.3 | indistinguishable from bare steel |
+    | bare deck plate | 2.6 | 96.9% of the deck sits at 0–15 |
+
+    For scale, Classic Record's floor median is 10.6 and Storerooms' is 71.3 — Sundial is a
+    genuine outlier, and it already carries the *highest* per-arena exposure (1.32 vs 1.0).
+    Every material lever was measured live and none of them fixes it: sun key 9.93°→20° gives
+    +8%, metalness 0.62→0.15 gives +27%, deck albedo ×8 gives +177% (median 7.2, still below
+    Classic). Exposure, fog density and the hemi are off-limits by the Do-not list.
+
+    So grime, skid arcs and decals would all land in a band where 97% of the deck already
+    sits. They cannot read. This was demonstrated three independent ways — item 13's contact
+    shadows, item 14's albedo/normal maps, and direct material manipulation.
+
+    **The re-scope (Wyatt, 08-02): stop painting density, add emissive geometry instead.**
+    Additive, so it satisfies the "never take light away" rule; visible by construction,
+    because it uses the one material family measured to read.
+
+    - **18a — dial face. SHIPPED.** The apron ring rebuilt from `ctx.arc` paint into eight
+      straight emissive segments on `neonYellowMat`, plus 24 graduations (every third major)
+      and a heavier datum bar at `SUN_AZIMUTH` for the gnomon shadow to read against. Bright
+      pixels (≥128) in the podium view 5.1% → 5.9%. Absorbs item 15's "octPath apron".
+    - **18b+ — remaining density must also be emissive or additive.** Do not reopen grime.
+
+    **This same finding governs items 15, 17 and 19.** They are surface-paint levers on the
+    same black plate. Their geometry halves (octagonal bolt rings, the crown plate inset, the
+    bollard segment count and flange) are still worth doing as silhouette and correctness
+    work — but expect no visible value from anything painted, and say so rather than shipping
+    it as a look change.
 19. **Bollards** — per-instance yaw + scale jitter, 16–20 radial segments, base flange.
 
 ## Wave 5 — the hologram
