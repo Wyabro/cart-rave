@@ -78,7 +78,7 @@ Live rows only. Shipped and closed cards live in
 
 | # | What | Status |
 |---|------|--------|
-| **ART-PASS-SUNDIAL-1** | Sundial art pass — Waves 4–6 remain | ▶ **ACTIVE** — Waves 1–3 shipped + deployed. Spec = [handover](./planning/art-pass-sundial-handover.md). One commit per lever, ack per wave. **Owed: Wyatt playtest** — gate beacons, ship glows, ships on a phone, turbines. |
+| **ART-PASS-SUNDIAL-1** | Sundial art pass — Waves 5–6 remain | ▶ **ACTIVE** — Waves 1–4 shipped + a 16b/OQ8/SHADOW-TILT-1 slice; Wave 4 **not yet deployed**. Spec = [handover](./planning/art-pass-sundial-handover.md). One commit per lever, ack per wave. **Paint does not read on this deck** (plate median 2.6 vs emissive 153) — read item 18's re-scope before proposing painted detail. **Owed: Wyatt playtest** — cart shadows on turn, dust sun lobe, raking shafts breathing, the dial, gate beacons, ship glows, ships on a phone, turbines. |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 

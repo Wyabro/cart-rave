@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-02 at commit `89dcf92` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `a0d945c8`
+> Generated 2026-08-03 at commit `ae18075` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `e3bb4a2c`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -18,14 +18,14 @@ Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep a
 
 ## ACTIVE CARD
 
-ART-PASS-SUNDIAL-1 — Sundial art pass — Waves 4–6 remain
-Pass looks like: ▶ ACTIVE — Waves 1–3 shipped + deployed. Spec = [handover](./planning/art-pass-sundial-handover.md). One commit per lever, ack per wave. Owed: Wyatt playtest — gate beacons, ship glows, ships on a phone, turbines.
+ART-PASS-SUNDIAL-1 — Sundial art pass — Waves 5–6 remain
+Pass looks like: ▶ ACTIVE — Waves 1–4 shipped + a 16b/OQ8/SHADOW-TILT-1 slice; Wave 4 not yet deployed. Spec = [handover](./planning/art-pass-sundial-handover.md). One commit per lever, ack per wave. Paint does not read on this deck (plate median 2.6 vs emissive 153) — read item 18's re-scope before proposing painted detail. Owed: Wyatt playtest — cart shadows on turn, dust sun lobe, raking shafts breathing, the dial, gate beacons, ship glows, ships on a phone, turbines.
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 
 ## Waiting on Wyatt (not agent work)
 
-- **ART-PASS-SUNDIAL-1** Sundial art pass — Waves 4–6 remain — ▶ ACTIVE — Waves 1–3 shipped + deployed. Spec = handover. One commit per lever, ack per wave. Owed: Wyatt…
+- **ART-PASS-SUNDIAL-1** Sundial art pass — Waves 5–6 remain — ▶ ACTIVE — Waves 1–4 shipped + a 16b/OQ8/SHADOW-TILT-1 slice; Wave 4 not yet deployed. Spec = handover. One…
 
 ## Do not
 
