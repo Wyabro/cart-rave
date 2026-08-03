@@ -31,8 +31,8 @@ Open **`.diag-captures/playtest-console.html`** (or Command Center → Playtest 
 | Piece | Source |
 |-------|--------|
 | Card list | STATUS rows waiting on Wyatt + BACKLOG `Owed: Wyatt playtest` |
-| Your PASS/FAIL/notes | Browser `localStorage` key `cartClashPlaytestConsole_v2` |
-| Agent handoff | Copy markdown export (FAIL first, with arena/mode/role + F8 label) |
+| Your PASS/FAIL/notes | Browser `localStorage` key `cartClashPlaytestConsole_v3` |
+| Agent handoff | Report auto-copies on PASS / FAIL / SKIP (or tap **Copy report**) |
 
 **Agent contract:** when a change needs a human, write  
 `Owed: Wyatt playtest — CARD-ID — one-line check`  
@@ -42,11 +42,10 @@ into STATUS or BACKLOG, then regenerate. On close: `Wyatt playtest PASS` (and cl
 
 **Process now:**
 
-1. Regenerate console → run **one** active card (PREFLIGHT first when present).
-2. **F8** with the card’s label (or `?diag=1&captureLabel=pt-…`). Both machines if multiplayer.
-3. On FAIL: fill arena · mode · role · note → **Copy agent markdown** into chat.
-4. Agent fixes **one** card · ship · retest that id.
-5. `npm run captures:pull` when you want captures on disk (optional; F8 still auto-uploads).
+1. Regenerate console → do the **NOW** card (check + pass-looks-like).
+2. PASS / FAIL / SKIP — report copies to clipboard; FAIL needs a one-line note.
+3. Paste into chat. Agent fixes **one** FAIL · ship · retest that id.
+4. F8 only when something looks wrong (optional; label is in the export).
 
 ---
 

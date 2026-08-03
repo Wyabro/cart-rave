@@ -187,12 +187,11 @@ describe("Command Center label hierarchy", () => {
       expect(m, `rule not found: ${rule}`).toBeTruthy();
       expect(m[0]).not.toMatch(/text-transform:\s*uppercase/);
     }
+    // * Playtest console keeps a single field label (.note-label); meta/evidence chrome was removed.
     const console_ = PAGE_CSS["playtestConsoleHtml.mjs"];
-    for (const sel of [".meta label", ".card .evidence label", ".card .note-label"]) {
-      const m = console_.match(new RegExp(`${sel.replace(/[.\s]/g, (c) => (c === "." ? "\\." : "\\s+"))}\\s*\\{[^}]*\\}`));
-      expect(m, `rule not found: ${sel}`).toBeTruthy();
-      expect(m[0], sel).not.toMatch(/text-transform:\s*uppercase/);
-    }
+    const m = console_.match(/\.card\s+\.note-label\s*\{[^}]*\}/);
+    expect(m, "rule not found: .card .note-label").toBeTruthy();
+    expect(m[0]).not.toMatch(/text-transform:\s*uppercase/);
   });
 });
 

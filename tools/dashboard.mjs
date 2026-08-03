@@ -526,10 +526,9 @@ ${phaseStrip ? `<nav class="phases" aria-label="release phases">${phaseStrip}</n
   <div class="flow">
     <div class="fstep"><b>Mission</b><span>${activeRow ? `card <b>${esc(activeRow.id)}</b> above` : "pick the active card"}</span></div>
     <div class="fstep"><b>Launch</b><span>${diagUrl ? `<a href="${esc(diagUrl)}" target="_blank">prod ?diag=1</a> — hard-refresh both machines` : "prod + ?diag=1 on both machines"}</span></div>
-    <div class="fstep"><b>Run cards</b><span><a href="playtest-console.html">console</a> — auto-seeded owed cards, notes in-place</span></div>
-    <div class="fstep"><b>Capture</b><span>F8 on BOTH machines (auto-uploads)</span></div>
-    <div class="fstep"><b>Pull</b><span class="mono">npm run captures:pull</span></div>
-    <div class="fstep"><b>Review</b><span><a href="#captures">captures below</a> + export console md into chat</span></div>
+    <div class="fstep"><b>Run cards</b><span><a href="playtest-console.html">console</a> — check → mark → report auto-copies</span></div>
+    <div class="fstep"><b>Paste</b><span>report into chat (auto-copied on PASS/FAIL/SKIP)</span></div>
+    <div class="fstep"><b>Capture</b><span>F8 when something looks wrong (optional)</span></div>
     <div class="fstep"><b>Fix</b><span>ONE lever · <span class="mono">npm run qa</span></span></div>
     <div class="fstep"><b>Retest</b><span>ship on "ship it" → hard-refresh → F8 again</span></div>
   </div>
@@ -640,9 +639,10 @@ ${backlogRows ? `<table><tr><th>discipline</th><th>items</th><th>by priority</th
   } catch (e) { /* stamp unreadable — leave the static ago text */ }
 
   // 2) Playtest console state — read-only view of localStorage
-  //    cartClashPlaytestConsole_v2 (v1 fallback). Same browser as playtest-console.html.
+  //    cartClashPlaytestConsole_v3 (v2/v1 fallback). Same browser as playtest-console.html.
   try {
-    var raw = localStorage.getItem("cartClashPlaytestConsole_v2")
+    var raw = localStorage.getItem("cartClashPlaytestConsole_v3")
+      || localStorage.getItem("cartClashPlaytestConsole_v2")
       || localStorage.getItem("cartClashPlaytestConsole_v1");
     if (!raw) return;
     var data = JSON.parse(raw);
@@ -658,9 +658,8 @@ ${backlogRows ? `<table><tr><th>discipline</th><th>items</th><th>by priority</th
       if (s === "skip") skip++;
     });
     var pct = Math.round((done / ids.length) * 100);
-    var run = (data.meta && data.meta.runNum) || "?";
     var runEl = document.getElementById("pt-run");
-    if (runEl) runEl.textContent = run;
+    if (runEl) runEl.textContent = done + "/" + ids.length;
     var body = document.getElementById("pt-body");
     if (body) {
       body.innerHTML =
