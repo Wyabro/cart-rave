@@ -46,7 +46,7 @@ game cards (AGENTS.md § HOW WORK IS EXECUTED), they are reference, not daily re
   semantics.
 - **`.claude/settings.json` is strict JSON, not JSONC** — a `//` comment there can fail parsing
   and silently drop *every* hook in the file. Caveats belong in the hook headers and
-  AGENTS.md § Enforcement.
+  [guides/hook-enforcement.md](../guides/hook-enforcement.md).
 - **Claude Code permission rules are globs, never regex** — `|` alternation inside `Bash(...)`
   matches nothing. A space before `*` enforces a word boundary (`Bash(ls *)` ≠ `lsof`), rules
   match each `&&`/`;`/`|` subcommand independently, and a broad deny beats a narrower allow.

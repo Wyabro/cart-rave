@@ -66,6 +66,7 @@ Core docs split by time — **past / present / future**:
 | [guides/visual-qa.md](./guides/visual-qa.md) | Dev workflow | Screenshot harness, ablation flags, black-frame battery; `npm run qa` / `qa:visual` |
 | [guides/netcode-harness.md](./guides/netcode-harness.md) | Dev workflow | 2-client netcode E2E rig (`tools/netharness.mjs` + `?nettest` hook) for P2P prediction/reconciliation bugs |
 | [guides/deploy-urls.md](./guides/deploy-urls.md) | Dev workflow | Production URLs and deploy verification |
+| [guides/hook-enforcement.md](./guides/hook-enforcement.md) | Dev workflow | What each Claude Code hook blocks, its escape hatch, and its known false positives |
 | [guides/cart-pattern-reuv.md](./guides/cart-pattern-reuv.md) | Art pipeline | Cart body second UV for pattern masks (Blender + compress) |
 
 ### `archive/` — frozen historical

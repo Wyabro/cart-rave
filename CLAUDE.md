@@ -19,6 +19,7 @@ Everything below is Claude-Code-specific and additive — it never overrides AGE
   and confirming the change is in HEAD; post-deploy, verify against the fetched asset.
 - **Hooks enforce the standing rules** (bulk staging, cross-session commit leaks,
   protected generated files, "done" claims on session-owned drift, briefing injection).
-  What each blocks, the escape-hatch env vars, and the known gaps:
-  [AGENTS.md § Enforcement](./AGENTS.md).
+  Summary + the escape-hatch env vars: [AGENTS.md § Enforcement](./AGENTS.md). What each
+  blocks and its known false positives:
+  [docs/guides/hook-enforcement.md](./docs/guides/hook-enforcement.md).
 - **Visual QA:** `npm run shoot` / `blackframes` / `compare` — [docs/guides/visual-qa.md](./docs/guides/visual-qa.md).

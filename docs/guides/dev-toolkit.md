@@ -187,7 +187,7 @@ to :5173). Natural extension: a `--baseline` compare mode to turn it into a regr
    matcher nobody tests reads as enforced while enforcing nothing. Fail open — any error
    exits 0, never wedges a session. Name an escape-hatch env var in the file header, read
    from the process env and never parsed out of the command string. Document what it
-   blocks, its gaps, and the bypass in AGENTS.md § Enforcement.
+   blocks, its gaps, and the bypass in [hook-enforcement.md](./hook-enforcement.md).
 
 Principles (the netcode-harness philosophy — keep them): production code paths, structured
 state over DOM, deterministic control via existing proven levers, flag-gated zero-cost
