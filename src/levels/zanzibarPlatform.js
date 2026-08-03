@@ -69,6 +69,29 @@ const HOLO_HOVER_Y = 3.75;
 const PODIUM_CREST_TUCK = 0.02;
 const PODIUM_CAP_THICKNESS = 0.12; // meters — thin flat cuboid caps on the podium crown
 
+// * Standing gnomon blade — the piece that makes "this arena is a sundial" legible. The dial
+// * face and the SUN_AZIMUTH datum bar are what it reads against; before this there was only
+// * the flat noon line lying on the dial, which is a marking, not a gnomon.
+const GNOMON_BASE_Y = PODIUM_HEIGHT + 0.012; // meters — stands ON the cap plate, not in it
+// * Clears the hologram's tallest part, which is NOT the glyph band — it is the tilted orbital
+// * ring, moving with both its own ±0.08 wobble and holoGroup's ±0.16 bob. Deriving that on
+// * paper got it wrong by 0.37 m, so this number is MEASURED: sampling holoGroup's world AABB
+// * across 60 frames puts the top of the projection at 6.04 m. The tip stands 0.71 m clear, so
+// * the gnomon reads as emerging from the hologram rather than being swallowed by the ring.
+const GNOMON_TIP_Y = 6.75; // meters
+// * A gnomon is a TRIANGLE seen from the side, and the first pass got that wrong: a 0.31 m base
+// * over 6.24 m of height read as an antenna, not a style. What sells it is a long base ALONG
+// * the sun line tapering to a point while staying knife-thin ACROSS. Depth grew 2.7×; the
+// * across-blade thickness is essentially unchanged (0.087 → 0.085 m).
+// * BEWARE: CylinderGeometry's radius is the CIRCUMRADIUS of the section, so with the
+// * thetaStart π/4 below the square's full side is R·√2 — NOT R, and not 2R. Getting that
+// * wrong is what made the first pass a third of its intended depth. Resulting blade:
+// *   base  0.849 m along the sun line × 0.085 m across   (0.6 · √2, then × FLATTEN)
+// *   tip   0.085 m × 0.0085 m                            (0.06 · √2, then × FLATTEN)
+// *   height 6.238 m                                      (GNOMON_TIP_Y − GNOMON_BASE_Y)
+const GNOMON_BASE_R = 0.6; // meters — CIRCUMRADIUS of the base section, before flattening
+const GNOMON_FLATTEN = 0.1; // × across the sun line
+
 const BOLT_PITCH_M = 2.4; // meters between deck bolts along a seam — fixed pitch, not count
 const PODIUM_PANEL_TILE_M = 1.5; // meters of real steel per panelTex tile on the podium crown
 // * Inset of the polished cap plate inside the crown octagon's apothem. The plate used to be
@@ -2583,6 +2606,37 @@ function buildDeck(scene, world, config, circumR) {
   neonYellowMat.userData.baseEmissiveIntensity = 0.92;
   ownedMaterials.push(neonYellowMat);
 
+  // * The standing gnomon. It lives OUTSIDE holoGroup, on the level group, and all three
+  // * consequences are deliberate — do not "fix" any of them:
+  // *   1. IT DOES NOT BOB. holoGroup sines ±0.16 m every frame in update(); the blade never
+  // *      moves. That IS the read: a solid gnomon with a projection floating around it.
+  // *      Parenting it into the group to make the motion "consistent" destroys the effect.
+  // *   2. IT BREATHES WITH THE STATION, not with the holo. neonYellowMat's emissiveIntensity
+  // *      is driven by the dusk breath in update(), so the blade pulses with the crown, dial
+  // *      and rim strips rather than reading as a third additive holo material.
+  // *   3. LOW GETS IT FREE. The entire hologram is inside `if (!lowQ)`, but this is the
+  // *      arena's identity piece and one emissive mesh — Low's reduced budget belongs to the
+  // *      holo, not to hiding this.
+  // * Shape is a 4-sided taper flattened across the sun line, NOT a flat plane: a plane
+  // * vanishes edge-on, and this stands mid-deck where a driving camera circles it constantly.
+  // * It carries no collider — additive geometry only, the podium hull is untouched — so carts
+  // * pass through it.
+  const gnomonH = GNOMON_TIP_Y - GNOMON_BASE_Y;
+  const gnomonGeo = new THREE.CylinderGeometry(
+    0.06, GNOMON_BASE_R, gnomonH, 4, 1, false, Math.PI / 4,
+  );
+  ownedGeometries.push(gnomonGeo);
+  const gnomonBlade = new THREE.Mesh(gnomonGeo, neonYellowMat);
+  gnomonBlade.position.y = GNOMON_BASE_Y + gnomonH / 2;
+  // * thetaStart π/4 gives an axis-aligned square section, so scale.x thins the blade ACROSS
+  // * while local +Z keeps full depth ALONG it. rotation.y then swings local +Z onto the sun
+  // * bearing: (0,0,1) → (sinθ, 0, cosθ), and we want (cos a, 0, sin a) ⇒ θ = π/2 − a. Same
+  // * expression the noon line uses, for the same reason.
+  gnomonBlade.scale.x = GNOMON_FLATTEN;
+  gnomonBlade.rotation.y = Math.PI / 2 - SUN_AZIMUTH;
+  gnomonBlade.userData.holoPart = "gnomonBlade";
+  group.add(gnomonBlade);
+
   // * Raised service conduits along flat mid-lanes — micro-structure so steel isn't a pancake.
   if (!lowQ) {
     const conduitGeo = new THREE.BoxGeometry(0.38, 0.1, apothem - PODIUM_BASE_R - 5.5);
@@ -2866,19 +2920,25 @@ function buildDeck(scene, world, config, circumR) {
     holoDial.position.y = -0.15;
     holoGroup.add(holoDial);
 
-    // Gnomon fin on the dial (triangle edge pointing sun-ward for identity).
-    const finGeo = new THREE.PlaneGeometry(0.12, 2.4);
-    ownedGeometries.push(finGeo);
-    const finMat = holoAdd(0xffd090, 0.7);
-    const fin = new THREE.Mesh(finGeo, finMat);
-    fin.rotation.x = -Math.PI / 2;
-    fin.position.set(
+    // * NOON LINE — the dial's datum, not a gnomon. This used to be called the gnomon fin,
+    // * back when it was the only sundial cue on the podium. It is a flat strip lying ON the
+    // * dial plate, aimed along SUN_AZIMUTH: a marking a real gnomon's shadow reads against.
+    // * The gnomon itself is the standing blade on the level group (see GNOMON_TIP_Y). Two
+    // * gnomons with no stated relationship is the failure this comment exists to prevent —
+    // * one casts, one is cast upon. Keep it flat and keep it radial.
+    const noonLineGeo = new THREE.PlaneGeometry(0.12, 2.4);
+    ownedGeometries.push(noonLineGeo);
+    const noonLineMat = holoAdd(0xffd090, 0.7);
+    const noonLine = new THREE.Mesh(noonLineGeo, noonLineMat);
+    noonLine.rotation.x = -Math.PI / 2;
+    noonLine.position.set(
       Math.cos(SUN_AZIMUTH) * 1.1,
       -0.12,
       Math.sin(SUN_AZIMUTH) * 1.1,
     );
-    fin.rotation.z = -SUN_AZIMUTH + Math.PI / 2;
-    holoGroup.add(fin);
+    noonLine.rotation.z = -SUN_AZIMUTH + Math.PI / 2;
+    noonLine.userData.holoPart = "noonLine";
+    holoGroup.add(noonLine);
 
     // --- Dual glyph bands ---
     const glyphTex = buildHologlyphTexture();
