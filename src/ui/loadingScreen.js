@@ -6,7 +6,8 @@ import "./styles/tokens.css";
 import "./loadingScreen.css";
 import { resolveLevelId, LEVEL_STORAGE_KEY } from "../levels/index.js";
 import { storageGet, storageSet, STORAGE_KEYS } from "../utils/storage.js";
-import { onBootPhase, readBootTimeline } from "../utils/bootTimeline.js";
+import { markBootPhase, onBootPhase, readBootTimeline } from "../utils/bootTimeline.js";
+import { noteModeEntryHidden, noteModeEntryShown } from "../utils/autoQuality.js";
 
 const MODE_OVERLAY_ID = "cr-mode-load";
 const FADE_MS = 420;
@@ -179,7 +180,8 @@ function pickRandom(arr) {
 
 function buildClassicDecor() {
   const wrap = document.createElement("div");
-  wrap.className = "cr-load__visual";
+  wrap.className = "cr-load__visual cr-load__visual--rave";
+  // * Fight Night language: dark disc + neon ring + glow-only (no white die-cut ring).
   wrap.innerHTML =
     '<div class="cr-load__lasers" aria-hidden="true">' +
     '<div class="cr-load__laser"></div><div class="cr-load__laser"></div><div class="cr-load__laser"></div>' +
@@ -194,7 +196,9 @@ function buildClassicDecor() {
 function buildBackroomsDecor() {
   const wrap = document.createElement("div");
   wrap.className = "cr-load__visual cr-load__furniture";
-  wrap.innerHTML = 
+  // * Scale lives on non-skewed .cr-load__furniture-inner (skew trap: handover §99).
+  wrap.innerHTML =
+    '<div class="cr-load__furniture-inner" aria-hidden="true">' +
     '<div class="furn-box b1"></div>' +
     '<div class="furn-box b2"></div>' +
     '<div class="furn-box b3"></div>' +
@@ -203,7 +207,8 @@ function buildBackroomsDecor() {
     '  <div class="chair-seat"></div>' +
     '  <div class="chair-leg left"></div>' +
     '  <div class="chair-leg right"></div>' +
-    '</div>';
+    "</div>" +
+    "</div>";
   return wrap;
 }
 
@@ -213,7 +218,8 @@ function buildZanzibarDecor() {
   wrap.innerHTML =
     '<div class="sea-sun" aria-hidden="true"></div>' +
     '<div class="sea-water" aria-hidden="true"><span></span><span></span><span></span></div>' +
-    '<div class="sea-deck" aria-hidden="true"></div>';
+    '<div class="sea-deck" aria-hidden="true"></div>' +
+    '<div class="sea-gnomon" aria-hidden="true"></div>';
   return wrap;
 }
 
@@ -458,6 +464,13 @@ export function dismissInitialBootSplash() {
   const MIN_BOOT_MS = import.meta.env.DEV ? 0 : returning ? 1300 : 1600;
   const elapsed = performance.now() - (window.bootStartTime || 0);
   const delay = Math.max(0, MIN_BOOT_MS - elapsed);
+  // * FV-BOOT-1 measure: floor wait is not the gate — module eval until this dismiss is.
+  markBootPhase("boot-dismiss-armed", {
+    minBootMs: MIN_BOOT_MS,
+    elapsedMs: Math.round(elapsed),
+    delayMs: Math.round(delay),
+    returning,
+  });
 
   setTimeout(() => {
     // 1. Stop the inline fake progress & msg timers
@@ -495,6 +508,9 @@ export function dismissInitialBootSplash() {
         if (shouldBootRevealMenu()) window.CartRave?.show?.();
         if (splash) splash.remove();
         storageSet(STORAGE_KEYS.bootSeen, "1");
+        markBootPhase("boot-splash-dismissed", {
+          tMs: Math.round(performance.now()),
+        });
         // * Best-effort music start as the menu appears — succeeds where the
         // * browser's autoplay policy allows (e.g. returning users with media
         // * engagement); otherwise the first-gesture unlock in main.js covers it.
@@ -545,6 +561,9 @@ function showModeEntryLoading(opts = {}) {
   modeEntryShowGen += 1;
   modeOverlayEl.classList.remove("cr-load--hidden", "cr-load--exit");
   modeOverlayEl.setAttribute("aria-busy", "true");
+  // * FV-LOAD-1b: suppress auto-quality for the whole overlay window so entry freezes
+  // * cannot demote the session (cap-229 high→medium during Cart Rave countdown).
+  noteModeEntryShown();
   // * Drop the floor before the first write, or the previous session's 100 sticks.
   modeProgressValue = 0;
   setProgress(0, "Starting...");
@@ -598,6 +617,8 @@ function dismissModeEntryLoading() {
       modeOverlayEl.setAttribute("aria-busy", "false");
       modeOverlayEl.classList.add("cr-load--hidden");
       modeOverlayEl.classList.remove("cr-load--exit");
+      // * Start the 2s post-entry grace; sample ring clears when it ends.
+      noteModeEntryHidden();
       resolve();
       // * Release anyone gating on the overlay being gone (e.g. the solo countdown,
       // * which must not begin ticking behind the loading screen).

@@ -154,11 +154,14 @@
   text-overflow: ellipsis;
 }
 
+/* FV-LOAD-1a: vmin-driven stage art — raised cap for 1440p+; ~88px on phone. */
 .cr-load__visual {
   position: relative;
-  width: clamp(88px, 22vw, 128px);
-  height: clamp(88px, 22vw, 128px);
+  width: clamp(88px, 24vmin, 300px);
+  height: clamp(88px, 24vmin, 300px);
   margin: clamp(4px, 1vh, 8px) 0;
+  /* Scale token for fixed-px piles (Backrooms) so they track the visual box. */
+  --cr-load-art-scale: 1;
 }
 
 /* Hairline rim, not the retired white die-cut ring (locked decision 2 keeps that
@@ -170,7 +173,12 @@
   background:
     radial-gradient(circle at center, #111 0%, #111 18%, transparent 19%),
     repeating-radial-gradient(circle at center, #1a1a1a 0 2px, #0d0d0d 2px 4px);
-  box-shadow: 0 0 0 1px var(--border-white-12), var(--slab-extrude-sm);
+  /* Fight Night: glow-only rim + slab extrude (no white die-cut ring). */
+  box-shadow:
+    0 0 0 1px var(--border-white-12),
+    var(--slab-extrude-sm, 4px 4px 0 #0a0610),
+    0 0 28px rgba(255, 43, 214, 0.35),
+    0 0 56px rgba(0, 229, 255, 0.12);
   animation: cr-load-spin 3.2s linear infinite;
 }
 
@@ -180,6 +188,7 @@
   inset: 38%;
   border-radius: 50%;
   background: radial-gradient(circle, var(--cr-load-magenta) 0%, #ff6be8 40%, #220018 100%);
+  box-shadow: 0 0 24px rgba(255, 43, 214, 0.55);
 }
 
 /* ── Bottom strip — the hint-bar recipe (full-bleed, negating the shell pad). ── */
@@ -347,8 +356,9 @@
 }
 
 .cr-load--backrooms .cr-load__visual {
-  width: clamp(96px, 24vw, 140px);
-  height: clamp(72px, 18vw, 96px);
+  width: clamp(96px, 26vmin, 320px);
+  height: clamp(80px, 22vmin, 260px);
+  --cr-load-art-scale: min(2.2, 24vmin / 90px);
 }
 
 .cr-load--backrooms .cr-load__vinyl {
@@ -377,8 +387,8 @@
 
 .cr-load__seaside {
   position: relative;
-  width: clamp(110px, 26vw, 160px);
-  height: clamp(72px, 18vw, 96px);
+  width: clamp(110px, 28vmin, 340px);
+  height: clamp(80px, 20vmin, 240px);
   overflow: hidden;
 }
 
@@ -386,8 +396,8 @@
   position: absolute;
   left: 50%;
   top: 30%;
-  width: clamp(26px, 7vw, 40px);
-  height: clamp(26px, 7vw, 40px);
+  width: clamp(28px, 10vmin, 72px);
+  height: clamp(28px, 10vmin, 72px);
   transform: translateX(-50%);
   border-radius: 50%;
   background: radial-gradient(circle, #ffe0a8 0%, var(--cr-load-sunset) 55%, var(--cr-load-sunset-deep) 100%);
@@ -423,12 +433,28 @@
   left: 50%;
   bottom: 26%;
   width: 58%;
-  height: 9px;
+  height: clamp(8px, 2.2vmin, 14px);
   transform: translateX(-50%);
   background: linear-gradient(180deg, #2c313a 0%, #14161c 100%);
   clip-path: polygon(8% 0, 92% 0, 100% 100%, 0 100%);
   border-top: 2px solid var(--cr-load-magenta);
   box-shadow: 0 0 10px rgba(255, 43, 214, 0.45);
+}
+
+/* Sundial gnomon — thin neon spindle over the deck (Fight Night silhouette). */
+.cr-load__seaside .sea-gnomon {
+  position: absolute;
+  left: 50%;
+  bottom: 32%;
+  width: clamp(3px, 0.7vmin, 6px);
+  height: clamp(28px, 10vmin, 72px);
+  transform: translateX(-50%) skewX(-8deg);
+  transform-origin: bottom center;
+  background: linear-gradient(180deg, #ffd9a0 0%, var(--cr-load-sunset, #ff9a4a) 55%, #3a1548 100%);
+  box-shadow:
+    0 0 12px rgba(255, 154, 74, 0.7),
+    0 0 28px rgba(255, 43, 214, 0.25);
+  border-radius: 1px;
 }
 
 @keyframes cr-load-spin {
@@ -490,19 +516,35 @@
    boost-meter slab now (`.cr-load__meter` here, `.cr-boot-meter` inline in
    index.html, which must paint before this bundle arrives). */
 
-/* ── Backrooms furniture pile visual ── */
+/* ── Backrooms furniture pile visual ──
+   Fixed-px children live inside a NON-skewed scale wrapper so --cr-load-art-scale
+   can grow the pile on large viewports without the skew trap (fight-night handover). */
 
 .cr-load__furniture {
   position: relative;
-  width: 90px;
-  height: 100px; /* Increased height so the top box doesn't clip */
-  margin: 10px 0;
-  transform: rotate(-2deg);
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
 }
+
+.cr-load__furniture-inner {
+  position: relative;
+  width: 90px;
+  height: 100px;
+  transform: scale(var(--cr-load-art-scale, 1)) rotate(-2deg);
+  transform-origin: bottom center;
+}
+
 .furn-box {
   position: absolute;
   border: 2px solid #1a1a1a;
-  box-shadow: 2px 2px 6px rgba(0,0,0,0.6), inset 2px 2px 4px rgba(255,255,255,0.1);
+  box-shadow:
+    2px 2px 0 var(--color-ink-deep, #0a0610),
+    0 0 18px rgba(200, 216, 106, 0.12),
+    inset 2px 2px 4px rgba(255, 255, 255, 0.08);
   border-radius: 2px;
 }
 /* Base Box - centered (60px wide, left 15px) */
