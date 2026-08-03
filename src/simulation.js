@@ -16,6 +16,7 @@ import {
   SOLO_RUBBERBAND_NEUTRAL,
 } from "./utils/soloRubberband.js";
 import { clamp } from "./utils.js";
+import { recordDiagEvent } from "./utils/diagnostics.js";
 import {
   applyPersonalityMods,
   getActiveAiDifficulty,
@@ -3008,6 +3009,132 @@ function processCollisionEvents(world, eventQueue, allCarts, callbacks, isHost, 
   }
 }
 
+// ── PIT-PT-1 measurement probe ──────────────────────────────────────────────
+// * TEMPORARY. Evidence-gathering for the Cart Rave pit residuals (burial that worsens
+// * with depth; wall partly drivable on a wheels-first landing). Records nothing but
+// * pose — it never reads or writes gameplay state — and compiles to a property read
+// * when `?diag` is absent. Remove once the follow-up fix card closes.
+// *
+// * Deliberately logs RAW pose and does the geometry offline: the collider radii come
+// * from a tangent-fit derivation in arena.js that this file must not duplicate, and
+// * keeping the numbers raw means the analysis can be redone without a re-flight.
+
+/** Radial distance (m) past which a cart counts as "at the pit", paired with the Y gate. */
+const PIT_PROBE_OPEN_RADIUS = 42;
+/** * Y gate for opening an episode. Radius alone would fire on dancefloor-edge traffic. */
+const PIT_PROBE_OPEN_Y = -2;
+
+/**
+ * Open fall episodes keyed by cart. WeakMap so a destroyed cart cannot leak an episode.
+ * @type {WeakMap<object, { rMax: number, yAtRMax: number, thetaAtRMax: number,
+ *   yawAtRMax: number, vRadial: number, vy: number, grip: number, minY: number,
+ *   startMs: number }>}
+ */
+let _pitEpisodes = new WeakMap();
+
+/** Test seam — drops any in-flight episodes between cases. */
+export function __resetPitProbeForTest() {
+  _pitEpisodes = new WeakMap();
+}
+
+/**
+ * Ground authority as `applyArcadeControls` computes it (1 = full grip, airControlFactor
+ * = full air). Recomputed here from POST-step pose: burial is a post-contact question and
+ * the control-time scratch is the previous frame's state.
+ *
+ * @param {number} posY
+ * @param {number} vy
+ * @returns {number}
+ */
+function pitProbeGrip(posY, vy) {
+  const groundBlend = posY > CONFIG.fall.yThreshold
+    ? THREE.MathUtils.smoothstep(Math.abs(vy), 1.5, 2.5)
+    : 1;
+  return THREE.MathUtils.lerp(1, CONFIG.driving.airControlFactor, groundBlend);
+}
+
+/** @param {number} v @returns {number} */
+function round3(v) {
+  return Math.round(v * 1000) / 1000;
+}
+
+/**
+ * Samples every cart's radial excursion into the pit, once per fixed step AFTER
+ * `world.step`. One `pit`/`fall` event is emitted per episode, at the KO — not per
+ * contact, and not after the KO: tracking through the shatter + respawn delay would let
+ * post-KO ricochets dominate `rMax` and measure the wrong thing.
+ *
+ * @param {object[]} allCarts
+ * @param {number} nowMs
+ */
+function samplePitProbe(allCarts, nowMs) {
+  if (typeof window === "undefined" || !window.__ccDiagActive) return;
+  for (const cart of allCarts || []) {
+    if (!cart?.body) continue;
+    const ep = _pitEpisodes.get(cart);
+    const pos = cart.body.translation();
+    const lv = cart.body.linvel();
+    // * The KO closes the episode: respawnAtMs is set at the fall, and yThreshold is
+    // * where the fall is scored. Nothing in normal play goes deeper.
+    const koed = cart.respawnAtMs != null || pos.y < CONFIG.fall.yThreshold;
+
+    if (!ep) {
+      if (koed) continue;
+      const r = Math.hypot(pos.x, pos.z);
+      if (r <= PIT_PROBE_OPEN_RADIUS || pos.y >= PIT_PROBE_OPEN_Y) continue;
+      // * Seed from the opening pose rather than -Infinity: a cart that crosses the gate
+      // * and KOs on the very next step is still one real fall, and an unseeded episode
+      // * would have had no sample to report and been dropped silently.
+      _pitEpisodes.set(cart, {
+        rMax: r,
+        yAtRMax: pos.y,
+        thetaAtRMax: Math.atan2(pos.z, pos.x),
+        yawAtRMax: yawFromQuaternion(cart.body.rotation()),
+        vRadial: r > 1e-6 ? (lv.x * pos.x + lv.z * pos.z) / r : 0,
+        vy: lv.y,
+        grip: pitProbeGrip(pos.y, lv.y),
+        minY: pos.y,
+        startMs: nowMs,
+      });
+      continue;
+    }
+
+    if (koed) {
+      _pitEpisodes.delete(cart);
+      if (!Number.isFinite(ep.rMax)) continue;
+      recordDiagEvent("pit", "fall", {
+        rMax: round3(ep.rMax),
+        yAtRMax: round3(ep.yAtRMax),
+        thetaAtRMax: round3(ep.thetaAtRMax),
+        yawAtRMax: round3(ep.yawAtRMax),
+        vRadial: round3(ep.vRadial),
+        vy: round3(ep.vy),
+        grip: round3(ep.grip),
+        minY: round3(ep.minY),
+        durMs: Math.round(nowMs - ep.startMs),
+        // * Config half-extent basis — burial vs the drawn wall depends on heading, so
+        // * the offline pass needs both of these against yawAtRMax, not one half-width.
+        hx: CONFIG.cart?.size?.x ?? 0,
+        hz: CONFIG.cart?.size?.z ?? 0,
+      });
+      continue;
+    }
+
+    if (pos.y < ep.minY) ep.minY = pos.y;
+    const r = Math.hypot(pos.x, pos.z);
+    if (r > ep.rMax) {
+      ep.rMax = r;
+      ep.yAtRMax = pos.y;
+      ep.thetaAtRMax = Math.atan2(pos.z, pos.x);
+      ep.yawAtRMax = yawFromQuaternion(cart.body.rotation());
+      // * Outward-positive radial speed at the deepest point.
+      ep.vRadial = r > 1e-6 ? (lv.x * pos.x + lv.z * pos.z) / r : 0;
+      ep.vy = lv.y;
+      ep.grip = pitProbeGrip(pos.y, lv.y);
+    }
+  }
+}
+
 /**
  * Runs one fixed-timestep physics update: controls, pending rams, world step, and collisions.
  *
@@ -3161,5 +3288,8 @@ export function runFixedPhysicsStep({
     Object.assign(_collisionCallbacks, callbacks);
     _collisionCallbacks.localCart = localCart;
     processCollisionEvents(world, eventQueue, allCarts, _collisionCallbacks, isHost, now);
+    // * PIT-PT-1 probe (temporary, ?diag only) — post-step pose, so it sees where the
+    // * solver actually left the cart rather than where control application read it.
+    samplePitProbe(allCarts, now);
   }
 }
