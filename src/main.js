@@ -1576,11 +1576,21 @@ async function main() {
     getLevelId: getCurrentLevelId,
     // * SHOOT-ANIM-1: the attract loop renders but ran no updates, so level animation
     // * was frozen at its constructor value behind the menu and in every capture. This
-    // * is the game loop's cosmetic block (:5281-5282) driven from the only loop that
-    // * is actually running here.
+    // * is the game loop's cosmetic block (the rave gate + the two calls above it)
+    // * driven from the only loop that is actually running here.
     onAnimationTick: (timeMs) => {
       /** @type {any} */ (sceneExtras)?.update?.(timeMs, camera);
       levelUpdate?.(timeMs);
+      // * SHOOT-ANIM-2: same story one block down — Classic's crowd, stage lights and
+      // * LED screen sat frozen too. Deliberately NO frameBudgetAllow here: it fails
+      // * CLOSED without a preceding beginFrameBudget (stale frameStartMs → negative
+      // * remaining) and its allowCache is only cleared by beginFrameBudget, so the
+      // * first false would latch this bucket permanently. Calling beginFrameBudget
+      // * instead would have two loops writing one set of module globals, and the
+      // * budget exists to protect host physics — none of which runs at the menu.
+      // * Weak machines are covered here by the attract cost feed → auto-quality,
+      // * which steps the tier down and flips crowdAnimate off.
+      if (raveDressingWanted()) tickRaveDressing(timeMs);
       // * LOD stays on local wall time even when ?t= pins animation — levelLod's
       // * _lastUpdateMs latch is module-global with a 250ms interval, so a small
       // * pinned t would park it in the future and suppress LOD entirely. Same
@@ -2438,6 +2448,38 @@ async function main() {
   function levelUsesRaveExtras(levelId) {
     const id = levelId ?? getCurrentLevelId();
     return id === "classicRecord";
+  }
+
+  /**
+   * Shared gate for the rave dressing — everything the game loop and the attract loop
+   * agree on. The gates that legitimately DIFFER (frame budget, clock source) stay at
+   * the two call sites; only what must not drift lives here.
+   * @returns {boolean}
+   */
+  function raveDressingWanted() {
+    return raveShellInitialized && levelUsesRaveExtras() && getQualityKnobs().crowdAnimate;
+  }
+
+  /**
+   * The rave dressing animation body — one definition, two callers (game loop + menu
+   * attract loop), so they cannot drift apart. All three take their pose from timeMs;
+   * updateStageLed's redraw is latch-gated and updateCrowd's KO decay reads wall time,
+   * neither of which bites at the menu (SHOOT-ANIM-2).
+   *
+   * Lasers/billboard stay behind raveJuiceInitialized: the menu path builds the shell
+   * WITHOUT juice (finalizeArenaShellForMenu), so at the menu and in every capture they
+   * are absent, not frozen. The sub-gate means they light up on their own if the juice
+   * is ever built there.
+   * @param {number} timeMs
+   */
+  function tickRaveDressing(timeMs) {
+    Effects.updateStageLights(timeMs);
+    Effects.updateCrowd(timeMs);
+    Effects.updateStageLed(timeMs);
+    if (raveJuiceInitialized) {
+      Effects.updateLasers(timeMs);
+      Effects.updateBillboard(timeMs);
+    }
   }
 
   /**
@@ -5304,19 +5346,8 @@ async function main() {
     // * test arena kept extras allocated but this math used to run anyway) and on
     // * tiers with crowdAnimate off (Low renders the stands frozen). Yield under
     // * frame pressure so host physics keeps the full budget.
-    if (
-      raveShellInitialized
-      && levelUsesRaveExtras()
-      && getQualityKnobs().crowdAnimate
-      && frameBudgetAllow("rave_anim", now)
-    ) {
-      Effects.updateStageLights(syncedNow);
-      Effects.updateCrowd(syncedNow);
-      Effects.updateStageLed(syncedNow);
-      if (raveJuiceInitialized) {
-        Effects.updateLasers(syncedNow);
-        Effects.updateBillboard(syncedNow);
-      }
+    if (raveDressingWanted() && frameBudgetAllow("rave_anim", now)) {
+      tickRaveDressing(syncedNow);
     }
 
     // * Spindle/rims driven by arenaReactiveLights inside Classic Record levelUpdate.
