@@ -38,7 +38,6 @@ import { setWaterDeathEnvironment } from "../effects/waterDeathFx.js";
 import { RAPIER } from "../physics/rapierInstance.js";
 import { createPhysicalMaterial, getMaterialEnvMapIntensity } from "../scene.js";
 import { isLowQualityMode } from "../utils.js";
-import { registerLevelLodNode } from "../utils/levelLod.js";
 
 // ===== Layout constants =====
 
@@ -1333,8 +1332,7 @@ export function getZanzibarFloorColliderSpec(circumR) {
  * @returns {{ group: THREE.Group, sunDir: THREE.Vector3,
  *   update: (timeMs: number) => void, waterMat: THREE.Material | null,
  *   ownedGeometries: THREE.BufferGeometry[],
- *   ownedMaterials: THREE.Material[], ownedTextures: THREE.Texture[],
- *   lodProps: (THREE.Object3D | null)[] }}
+ *   ownedMaterials: THREE.Material[], ownedTextures: THREE.Texture[] }}
  */
 function buildSeascape(scene, circumR) {
   const lowQ = isLowQualityMode();
@@ -2324,7 +2322,6 @@ function buildSeascape(scene, circumR) {
     ownedGeometries,
     ownedMaterials,
     ownedTextures,
-    lodProps: [ships, gulls, foam].filter(Boolean),
   };
 }
 
@@ -3832,11 +3829,27 @@ export function initZanzibarPlatform(scene, world, config) {
   const recordMesh = new THREE.Group();
   const pitWallColliderHandle = -1;
 
-  if (Array.isArray(seascape.lodProps)) {
-    for (const prop of seascape.lodProps) {
-      registerLevelLodNode(prop, { far: 95 });
-    }
-  }
+  // * NO LOD REGISTRATION ON THIS ARENA, deliberately. Sundial used to register ships, gulls
+  // * and foam at `far: 95`, and the gate was inert for all three — the audit was right that it
+  // * did nothing, and wrong about the fix. `updateLevelLod` measures the REGISTERED object's
+  // * own world position (levelLod.js:58) and toggles only that object's `.visible`. All three
+  // * of these are single meshes sitting at the group origin, so every one reported the arena
+  // * centre, and in a 34.3 m arena the camera is never 95 m from centre.
+  // *
+  // * The Storerooms fix (`6ece86c`, a group at origin with real-positioned children → register
+  // * per child) DOES NOT TRANSFER: there are no children to register, only instances.
+  // *   ships — 3 instances orbiting at 255 / 293 / 331 m. Horizon dressing that should always
+  // *     be visible; culling them at any threshold measurable from here would be a bug, not a
+  // *     saving.
+  // *   gulls — 5 instances of a 2-triangle plane in ONE draw call. `.visible` on an anchor
+  // *     cannot hide an InstancedMesh's individual instances, and hiding some of 10 triangles
+  // *     saves nothing. The per-frame matrix math is the only real cost and it is ALREADY
+  // *     gated by `if (gulls && gulls.visible !== false)` in the seascape update — that hook
+  // *     stays, so gating the whole flock later needs no new machinery.
+  // *   foam — a ring spanning circumR·0.78 → 1.7 that the camera is permanently inside.
+  // *
+  // * Do not re-add this loop. A gate that cannot fire is worse than no gate: it reads as
+  // * handled. Pinned by tests/levelLod.test.js.
 
   function update(timeMs) {
     seascape.update(timeMs);

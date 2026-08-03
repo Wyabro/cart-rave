@@ -95,6 +95,47 @@ describe("levelLod", () => {
     expect(src).toMatch(/for\s*\(const\s+\w+\s+of\s+uncanny\.group\.children\)/);
   });
 
+  // * Sundial (zanzibarPlatform) registered ships, gulls and foam at far:95 and the gate was
+  // * inert for all three. These three tests lock WHY, so nobody "fixes" it by copying the
+  // * Storerooms per-child pattern — which cannot apply, because these are InstancedMeshes
+  // * with no children to register.
+  it("far:95 from the arena origin can never fire in a 34.3m arena", () => {
+    const meshAtOrigin = fakeObj(0, 0); // ships/gulls/foam all sat here
+    registerLevelLodNode(meshAtOrigin, { far: 95 });
+    // Camera at the far rim of a 34.3m-circumradius arena, and then well beyond it.
+    updateLevelLod(fakeCamera(34.3, 0), 1000);
+    expect(meshAtOrigin.visible).toBe(true);
+    updateLevelLod(fakeCamera(60, 60), 2000); // 84.9m — still inside 95
+    expect(meshAtOrigin.visible).toBe(true);
+  });
+
+  it("measuring the ships' real orbit against far:95 would cull them — the opposite of intent", () => {
+    // Ship instances orbit at 255 / 293 / 331m; the mesh they live in sits at the origin.
+    const shipInstance = fakeObj(255, 0);
+    registerLevelLodNode(shipInstance, { far: 95 });
+    updateLevelLod(fakeCamera(0, 0), 1000);
+    expect(shipInstance.visible).toBe(false); // horizon dressing would vanish
+  });
+
+  it("toggling visible on a container cannot hide an InstancedMesh's individual instances", () => {
+    // The reason per-gull anchors were rejected: updateLevelLod only writes obj.visible, and
+    // an anchor is not the instance. Instances are addressed by matrix, not by visibility.
+    const instanced = { ...fakeObj(0, 0), isInstancedMesh: true, count: 5 };
+    registerLevelLodNode(instanced, { far: 10 });
+    updateLevelLod(fakeCamera(50, 0), 1000);
+    expect(instanced.visible).toBe(false); // whole mesh only
+    expect(instanced.count).toBe(5); // no per-instance effect exists to reach for
+  });
+
+  it("zanzibarPlatform registers no LOD nodes at all", () => {
+    const src = readFileSync(
+      new URL("../src/levels/zanzibarPlatform.js", import.meta.url),
+      "utf8",
+    );
+    expect(src).not.toMatch(/registerLevelLodNode\(/);
+    expect(src).not.toMatch(/lodProps/);
+  });
+
   it("clearLevelLod empties registry", () => {
     registerLevelLodNode(fakeObj(0, 0), { far: 10 });
     clearLevelLod();
