@@ -96,6 +96,9 @@ Live rows only. Shipped and closed cards live in
    OQ6 and OQ8 recorded below.
 4. **Parked, needs its own ack:** ROUND-WEDGE-1 Phase B (Phase A shipped `d4a7718`);
    **SPAWN-SUNDIAL-1** — spawn inset shipped, platform-leg colliders did not (file was frozen).
+5. **TOOL-HYGIENE-1 CLOSED 08-03** — HOOK-INDEX-1 (post-commit: index blob ≠ HEAD →
+   `restore --staged` on generated docs, before dashboard), BRIEF-DIGEST-1 (template fingerprint
+   in digest + embed), STOP-DIRT-1 BACKLOG row retired (code was already fixed).
 
 **Open High:** ROUND-WEDGE-1 · UI-SCALE-1 · FIGHT-VERIFY-1 (Wyatt half) · RESULTS-1 ·
 CART-MODEL-1 · bloom.
@@ -166,6 +169,10 @@ The hot set — what a current session is likely to hit. Deep-domain and narrow 
 
 ## Last updated
 
+2026-08-03 (TOOL-HYGIENE-1) — HOOK-INDEX-1: post-commit clears staged generated docs when
+index blob ≠ HEAD (before dashboard). BRIEF-DIGEST-1: template fingerprint in digest + embed.
+STOP-DIRT-1 BACKLOG row retired (code already session-scoped). All three rows closed.
+
 2026-08-02 (DIAG-FLAKE-2 closed — the drain was a guess, 5–20× too short) — Took the card slot
 off Sundial, fixed, gave it back. **Reproduced first** (~1-in-10 full runs): `posts an
 auto-captured bundle to the same endpoint F8 uses`, `expected [] to have a length of 1 but got
@@ -191,23 +198,8 @@ lines → this; `hallmark` deleted (106 of 112 tracked `.agents/` files were a w
 design system).
 
 2026-08-02 (Sundial Waves 1–3 + twelve-card backlog batch) — Waves 1–3 shipped and deployed
-(ten levers + OQ5, frame bloom 55.6% → 18.7%); backlog batch `af12632`..`b8e327b`, qa green
-before each; new gate `tests/ccStyle.test.js`. Per-card detail in
-[completed-work.md](./planning/completed-work.md). Four cards where the code disagreed with the
-card: PIT-DEPTH-1 cannot go under 61m; PIT-COL-INSET-1's inset is `cos(π/16)`; FX-TEXDISPOSE-1
-was disposing the **shared** cart materials; UNLOCK-ORDER-1's grandfather had to be omission,
-not a force-write.
+(ten levers + OQ5, frame bloom 55.6% → 18.7%); backlog batch `af12632`..`b8e327b`. Per-card
+detail + four code-disagreed-with-card notes in [completed-work.md](./planning/completed-work.md).
 
-2026-08-01 (tooling stabilization, enforcement hooks, skills, playtest console) — Gates made
-read-only; tracked `tools/git-hooks/`; session-scoped Stop/GIT-INDEX guards; `verify:head`.
-Three skills vendored to `.agents/skills/` (brainstorming · writing-skills ·
-systematic-debugging). HOST-CAP-1 + BOOT-PERF-1 shipped (HEAD `423008f`, Worker `76ebdc37`,
-battery 6/6). FIGHT-VERIFY-1 agent half closed — podium/loadshots/states rigs + focus-ring fix
-(`e5efbfe`, an unscoped `!important` in `loadingScreen.css` had outranked every designed focus
-state game-wide). Full text:
-[archive/status-log-2026-08-01-tooling.md](./archive/status-log-2026-08-01-tooling.md) ·
-[archive/status-log-2026-08-01-skills.md](./archive/status-log-2026-08-01-skills.md).
-
-> **Older entries are archived.** Index with date ranges:
-> [archive/README.md](./archive/README.md). They are history, not current truth — `git log` and
-> the code are authoritative.
+> **Older entries are archived** (incl. 08-01 tooling/skills): [archive/README.md](./archive/README.md).
+> History, not current truth — `git log` and the code are authoritative.

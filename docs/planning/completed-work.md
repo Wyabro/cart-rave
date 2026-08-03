@@ -13,6 +13,12 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 3, 2026 — TOOL-HYGIENE-1 (HOOK-INDEX · BRIEF-DIGEST · STOP-DIRT row)
+
+- *(Tooling)* **STOP-DIRT-1 closed; BACKLOG row retired.** Code was already session-scoped
+  (`guard-stop-drift.mjs` + `relevantDirty`); the open Medium BACKLOG row was stale and invited
+  re-litigation. Retired 08-03 with HOOK-INDEX-1 / BRIEF-DIGEST-1 in the same tooling wave.
+
 ### August 2, 2026 — HOOK-CASE-1 + the cross-platform path fix under it
 
 Two commits to the Claude Code enforcement hooks, both CI-verified green. Filed as chips during

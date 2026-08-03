@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-03T06:26:08.303Z",
-    "commit": "a902531"
+    "at": "2026-08-03T06:27:19.008Z",
+    "commit": "25d5cda"
   },
-  "source_digest": "36018173",
+  "source_digest": "b4852934",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -880,7 +880,8 @@
       "ART-PASS-SUNDIAL-1 — WAVE 6 CLOSED, code complete. Next: Wyatt playtest, then deploy.",
       "Playtest owed — BACKLOG `## Playtest owed` (08-01 and 08-02), now including",
       "Wyatt's open calls: none on Sundial — OQ3 resolved in `9a59271`, OQ5 in `93c3deb`,",
-      "Parked, needs its own ack: ROUND-WEDGE-1 Phase B (Phase A shipped `d4a7718`);"
+      "Parked, needs its own ack: ROUND-WEDGE-1 Phase B (Phase A shipped `d4a7718`);",
+      "TOOL-HYGIENE-1 CLOSED 08-03 — HOOK-INDEX-1 (post-commit: index blob ≠ HEAD →"
     ],
     "open_issues": [
       {
@@ -921,8 +922,8 @@
         "title": "Engineering",
         "counts": {
           "High": 1,
-          "?": 3,
-          "Medium": 16,
+          "?": 4,
+          "Medium": 15,
           "Low": 6,
           "Partial": 1
         },
@@ -1036,9 +1037,9 @@
             "ship1": null
           },
           {
-            "pri": "Medium",
-            "item": "STOP-DIRT-1 — the Stop guard blocks on repo-wide dirt, so another session's in-flight file blocks *this* session's correct claim",
-            "notes": "**Filed 08-01, reproduced live within minutes of the guard shipping in `74cd768`** — and the reproduction was the guard blocking a claim that was true. **Evidence:** after pushing `74cd768`, `git ls-remote` and `git rev-parse HEAD` both read `74cd768dfb1af004af9ce078e276660d195a172d`, and all three new files were present in `git ls-tree origin/cart-clash`; the claim was checked against the remote, not asserted. `guard-stop-drift.mjs` blocked it anyway, on `1 modified tracked file(s)` — `docs/planning/BACKLOG.md`, holding **another session's** uncommitted AUTOQ-GHOST-1 card, which this session never staged and never touched. **Mechanism:** `checkHeadDrift` (`tools/verify-head.mjs`) returns `trackedDirty` from a repo-wide `git status --porcelain --untracked-files=no`, and the hook blocks on `ahead > 0",
+            "pri": "✅",
+            "item": "STOP-DIRT-1 — Stop guard blocked on other session dirt",
+            "notes": "**CLOSED** (code 08-01; BACKLOG row retired 08-03) — guard-stop-drift.mjs scopes dirt to session-owned paths via elevantDirty + \track-session-writes. Open Medium row was stale thrash bait. See completed-work.",
             "ship1": null
           },
           {
