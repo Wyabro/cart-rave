@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-03T20:33:16.178Z",
-    "commit": "3d8e618"
+    "at": "2026-08-03T21:05:22.051Z",
+    "commit": "cb6b3d5"
   },
-  "source_digest": "29a7c4e4",
+  "source_digest": "9a5b7121",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1343,9 +1343,9 @@
         "title": "Playtest owed",
         "counts": {
           "High": 11,
-          "?": 2,
+          "?": 3,
           "Medium": 7,
-          "Low": 3
+          "Low": 2
         },
         "rows": [
           {
@@ -1475,9 +1475,9 @@
             "ship1": null
           },
           {
-            "pri": "Low",
+            "pri": "✅",
             "item": "HOST-TOAST-1 — weak-host toast",
-            "notes": "**Owed: Wyatt playtest — HOST-TOAST-1 — toast once, not spam.** Optional.<br>1. Only if you can host with a weak join-time score (&lt;50).<br>2. **Pass if:** toast shows **once** per hostship, not every frame / join.",
+            "notes": "**CLOSED 08-03 — covered by tests; the trigger is unreachable on Wyatt's hardware, so there was never a playtest to owe.** The old card asked him to \"host with a weak join-time score (&lt;50)\" without saying how, which is why it read as unintelligible: **neither of his machines can produce that score.** `scoreHostCapability` ([hostCapability.js:67](../../src/utils/hostCapability.js:67)) is `GPU base + tier + cores + RAM` — the 4090 is `discrete 75 + high 20 + 12 + 8` → clamped **100**; the Intel UHD laptop is an iGPU, so `unknown 40 + low 0 + cores 4–8 + RAM 6–8` → **~50–56**, and the gate is a strict `< 50` ([:40](../../src/utils/hostCapability.js:40)). It would take ≤3 cores **and** ≤4 GB on top of an iGPU to dip under. **The \"not spam\" claim is already proven** by three unit tests at [hostMigration.test.js:291](../../tests/hostMigration.test.js:291): fires once not twice, never for a non-host, never at exactly 50 (the strict-`<` boundary), and re-arms after losing host so a later hostship warns again. That is the whole behavioural surface of `maybeWarnWeakHost` ([netcode.js:2044](../../src/netcode.js:2044)) — a pure gate plus a latch, no timing or rendering to eyeball. **If it is ever worth seeing live:** turn off Chrome's hardware acceleration (Settings → System → relaunch) — the probe then matches `SOFTWARE_GL_RE` ([gpuCaps.js:27](../../src/utils/gpuCaps.js:27)), scoring 8 instead of 40 for a total near 28, and hosting fires the toast. The whole game runs on SwiftShader while that is set, so it is a UI look only, never a perf read. **Note for anyone testing on prod:** the join-time score is logged through `devLog`, which compiles to a no-op in production builds ([devLog.js:8](../../src/utils/devLog.js:8)) — read your own score on the dev server, not prod. **Left open deliberately, as taste not coverage:** whether the message is worth showing at all, and whether \"a stronger machine makes multiplayer smoother\" is the right wording to put in front of a player who cannot act on it mid-match. Reopen on that question with new copy, not on the once-per-hostship behaviour.",
             "ship1": null
           },
           {
