@@ -126,6 +126,10 @@ const HOLO_KO_JITTER_MUL = 12;
 
 const BOLT_PITCH_M = 2.4; // meters between deck bolts along a seam — fixed pitch, not count
 const PODIUM_PANEL_TILE_M = 1.5; // meters of real steel per panelTex tile on the podium crown
+// * Arena-wide default for the same steel, so a pylon, a pillar and a booth slab all wear the
+// * panel grid at one physical size. Matches PODIUM_PANEL_TILE_M on purpose — the crown just
+// * got there first and keeps its own name.
+const PANEL_TILE_M = 1.5; // meters of real steel per panelTex tile
 // * Inset of the polished cap plate inside the crown octagon's apothem. The plate used to be
 // * CircleGeometry(PODIUM_TOP_R - 0.45, 32) = a 6.15 m circle on an octagon whose apothem is
 // * PODIUM_TOP_R * COS_HALF = 6.0976 m, so it overhung the crown by 5.24 cm at every flat mid
@@ -708,7 +712,11 @@ function buildPanelTexture() {
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.wrapS = THREE.RepeatWrapping;
   tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(2, 2);
+  // * SHIPPED UN-REPEATED, deliberately. This used to carry a global repeat(2,2) that every
+  // * consumer inherited regardless of how big its faces were, so a 1.5 m pylon face and an
+  // * 11.4 m conduit wore the same two tiles — 4.5:1 and 30:1 stretch, rivets pulled into
+  // * ovals and the panel grid smeared into long streaks. Each call site now sets its own
+  // * repeat from real metres (see panelSurface in buildDeck). Do not restore a global one.
   tex.anisotropy = 4;
   return tex;
 }
@@ -2338,7 +2346,8 @@ function buildSeascape(scene, circumR) {
  * @returns {{ group: THREE.Group, body: import("@dimforge/rapier3d").RigidBody,
  *   floorColliderHandles: number[], deckTex: THREE.CanvasTexture,
  *   neonStripMeshes: THREE.Mesh[],
- *   neonYellowMat: THREE.Material, panelTex: THREE.CanvasTexture, blinkMat: THREE.Material,
+ *   neonYellowMat: THREE.Material, panelTex: THREE.CanvasTexture,
+ *   panelNormalTex: THREE.Texture, blinkMat: THREE.Material,
  *   update: (timeMs: number) => void,
  *   ownedGeometries: THREE.BufferGeometry[],
  *   ownedMaterials: THREE.Material[], ownedTextures: THREE.Texture[] }}
@@ -2447,6 +2456,35 @@ function buildDeck(scene, world, config, circumR) {
   fasciaNormalTex.repeat.copy(fasciaTex.repeat);
   fasciaNormalTex.needsUpdate = true;
   ownedTextures.push(fasciaTex, panelNormalTex, fasciaNormalTex);
+
+  /**
+   * * World-scaled panel steel for one surface: a map + matching normal, both repeating at
+   * * PANEL_TILE_M metres per tile over the face dimensions given.
+   * *
+   * * A BoxGeometry gives every face UV 0..1, so ONE repeat cannot world-scale faces of
+   * * different aspect. Each caller therefore passes its DOMINANT VISIBLE face and accepts
+   * * the rest — named per call site below. Rewriting UVs per face is the Storerooms
+   * * `uvMeters` approach (backroomsSupermarket.js:1476) and is more than these props need,
+   * * since the pylons and pillars have square cross-sections where all four sides agree.
+   *
+   * @param {number} uMeters Face width in metres.
+   * @param {number} vMeters Face height/depth in metres.
+   * @returns {{ map: THREE.Texture, normalMap: THREE.Texture }}
+   */
+  const panelSurface = (uMeters, vMeters) => {
+    const map = panelTex.clone();
+    const normalMap = panelNormalTex.clone();
+    map.wrapS = THREE.RepeatWrapping;
+    map.wrapT = THREE.RepeatWrapping;
+    map.repeat.set(uMeters / PANEL_TILE_M, vMeters / PANEL_TILE_M);
+    normalMap.wrapS = THREE.RepeatWrapping;
+    normalMap.wrapT = THREE.RepeatWrapping;
+    normalMap.repeat.copy(map.repeat);
+    map.needsUpdate = true;
+    normalMap.needsUpdate = true;
+    ownedTextures.push(map, normalMap);
+    return { map, normalMap };
+  };
   const fasciaMat = createPhysicalMaterial({
     map: fasciaTex,
     normalMap: fasciaNormalTex,
@@ -2521,8 +2559,13 @@ function buildDeck(scene, world, config, circumR) {
     const pylonH = 6.8;
     const pylonGeo = new THREE.BoxGeometry(1.5, pylonH, 1.5);
     ownedGeometries.push(pylonGeo);
+    // * Square cross-section (1.5 x 1.5 x 6.8), so all FOUR side faces are 1.5 x 6.8 and one
+    // * repeat world-scales every one of them exactly. This was the audit's 4.5:1 stretch.
+    // * The 1.5 x 1.5 caps take the same V and are wrong, which costs nothing: the top is
+    // * under the deck and the bottom is below the waterline.
     const pylonMat = createPhysicalMaterial({
-      map: panelTex,
+      ...panelSurface(1.5, pylonH),
+      normalScale: new THREE.Vector2(0.5, 0.5),
       color: 0x9aa0ab,
       roughness: 0.68,
       metalness: 0.6,
@@ -2548,8 +2591,10 @@ function buildDeck(scene, world, config, circumR) {
   // Support pillars (center cluster, under the podium load path).
   const pillarGeo = new THREE.BoxGeometry(5.2, 7.5, 5.2);
   ownedGeometries.push(pillarGeo);
+  // * Also square in cross-section (5.2 x 5.2 x 7.5), so all four sides world-scale together.
   const pillarMat = createPhysicalMaterial({
-    map: panelTex,
+    ...panelSurface(5.2, 7.5),
+    normalScale: new THREE.Vector2(0.5, 0.5),
     color: 0x8f959f,
     roughness: 0.7,
     metalness: 0.5,
@@ -2682,10 +2727,19 @@ function buildDeck(scene, world, config, circumR) {
 
   // * Raised service conduits along flat mid-lanes — micro-structure so steel isn't a pancake.
   if (!lowQ) {
-    const conduitGeo = new THREE.BoxGeometry(0.38, 0.1, apothem - PODIUM_BASE_R - 5.5);
+    const conduitLength = apothem - PODIUM_BASE_R - 5.5;
+    const conduitGeo = new THREE.BoxGeometry(0.38, 0.1, conduitLength);
     ownedGeometries.push(conduitGeo);
+    // * The worst stretch in the arena: 0.38 m wide over an 11.4 m run wearing two tiles, so
+    // * the panel grid became long smears. (The audit called it 16.7 m / 44:1; the run is
+    // * actually apothem - PODIUM_BASE_R - 5.5 = 11.4 m, so 30:1. Same defect, smaller number.)
+    // * Scaled for the TOP face, which is the only one anybody sees — these sit 10 cm proud of
+    // * the deck at y 0.05, so the 0.1 m sides are effectively invisible and take a wrong V.
+    // * 0.38 m across PANEL_TILE_M means a quarter tile of width, which is correct, not coarse:
+    // * a narrow conduit SHOULD show a slice of the same steel the deck wears.
     const conduitMat = createPhysicalMaterial({
-      map: panelTex,
+      ...panelSurface(0.38, conduitLength),
+      normalScale: new THREE.Vector2(0.5, 0.5),
       color: 0x6a707c,
       roughness: 0.45,
       metalness: 0.75,
@@ -3559,7 +3613,8 @@ function buildDeck(scene, world, config, circumR) {
 
   return {
     group, body, floorColliderHandles, deckTex, neonStripMeshes,
-    neonYellowMat, panelTex, blinkMat, update, ownedGeometries, ownedMaterials, ownedTextures,
+    neonYellowMat, panelTex, panelNormalTex, blinkMat, update,
+    ownedGeometries, ownedMaterials, ownedTextures,
   };
 }
 
@@ -3578,7 +3633,8 @@ function buildDeck(scene, world, config, circumR) {
  * @param {number[]} boothColliderHandles
  * @param {THREE.Mesh[]} boothNeonMeshes
  * @param {THREE.Material} railNeonMat Caution-yellow rail material (shared with the deck).
- * @param {THREE.Texture} panelTex
+ * @param {THREE.Texture} panelTex Un-repeated panel steel — this function sets its own repeat.
+ * @param {THREE.Texture} panelNormalTex Matching normal for panelTex, likewise un-repeated.
  * @param {THREE.Material} blinkTipMat Shared blinking beacon material (deck masts).
  * @returns {{ group: THREE.Group, bodies: import("@dimforge/rapier3d").RigidBody[],
  *   ownedGeometries: THREE.BufferGeometry[], ownedMaterials: THREE.Material[],
@@ -3586,7 +3642,7 @@ function buildDeck(scene, world, config, circumR) {
  */
 function buildZanzibarBooths(
   scene, world, config, boothColliderHandles, boothNeonMeshes, railNeonMat,
-  panelTex, blinkTipMat,
+  panelTex, panelNormalTex, blinkTipMat,
 ) {
   const B = config.booth;
   const arenaR = config.record.radius;
@@ -3596,8 +3652,21 @@ function buildZanzibarBooths(
   const group = new THREE.Group();
   const bodies = [];
 
+  // * Slab steel world-scaled to the platform's TOP face, which is the one carts spawn on and
+  // * the only one a player ever looks at squarely. panelTex arrives un-repeated (see
+  // * buildPanelTexture), so this repeat is the whole story for this surface.
+  const slabTex = panelTex.clone();
+  const slabNormalTex = panelNormalTex.clone();
+  for (const t of [slabTex, slabNormalTex]) {
+    t.wrapS = THREE.RepeatWrapping;
+    t.wrapT = THREE.RepeatWrapping;
+    t.repeat.set(B.platformWidth / PANEL_TILE_M, B.platformDepth / PANEL_TILE_M);
+    t.needsUpdate = true;
+  }
   const slabMat = createPhysicalMaterial({
-    map: panelTex,
+    map: slabTex,
+    normalMap: slabNormalTex,
+    normalScale: new THREE.Vector2(0.5, 0.5),
     color: 0xa7adb8,
     roughness: 0.55,
     metalness: 0.65,
@@ -3839,7 +3908,7 @@ export function initZanzibarPlatform(scene, world, config) {
   // rails share the deck's caution-yellow perimeter material.
   const booths = buildZanzibarBooths(
     scene, world, config, boothColliderHandles, boothNeonMeshes,
-    deck.neonYellowMat, deck.panelTex, deck.blinkMat,
+    deck.neonYellowMat, deck.panelTex, deck.panelNormalTex, deck.blinkMat,
   );
 
   // * Center light matches the arena's warm amber scheme (2026-07-09 feedback: the old
