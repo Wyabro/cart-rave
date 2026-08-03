@@ -2904,7 +2904,15 @@ function buildDeck(scene, world, config, circumR) {
   let holoScanMat = null;
   /** @type {THREE.MeshBasicMaterial | null} */
   let holoBeamMat = null;
-  if (!lowQ) {
+  // * BOTH TIERS build a hologram now (item 25). Low gets a REDUCED one — core, one glyph
+  // * band, one ring, at lower segment counts — because a bare podium under a standing gnomon
+  // * reads as a broken arena rather than a cheap one, and the blade already landed on Low for
+  // * free in item 22. Everything with real cost stays behind `if (!lowQ)` below: the dial and
+  // * its 48-segment circle plus its own canvas texture, the noon line, the second glyph band
+  // * and its cloned 512x128 texture, two of the three rings, the octagon wire, eight spokes,
+  // * sixteen ticks, the scan plane and the projector beam. Instability is High-only too — see
+  // * the guard in update().
+  {
     holoGroup = new THREE.Group();
     holoGroup.position.y = PODIUM_HEIGHT + HOLO_HOVER_Y;
 
@@ -2922,13 +2930,62 @@ function buildDeck(scene, world, config, circumR) {
       return mat;
     };
 
-    // --- Crystal core ---
+    // --- Crystal core --- (both tiers; an 8-triangle octahedron has nothing to reduce)
     const coreGeo = new THREE.OctahedronGeometry(0.55, 0);
     ownedGeometries.push(coreGeo);
     holoCoreMat = holoAdd(0xffe6b0, 0.85);
     holoCore = new THREE.Mesh(coreGeo, holoCoreMat);
     holoCore.position.y = 0.15;
     holoGroup.add(holoCore);
+
+    // --- Primary glyph band --- (both tiers, halved segments on Low)
+    const glyphTex = buildHologlyphTexture();
+    ownedTextures.push(glyphTex);
+    holoBandMat = new THREE.MeshBasicMaterial({
+      map: glyphTex,
+      transparent: true,
+      opacity: 0.78,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      toneMapped: false,
+    });
+    ownedMaterials.push(holoBandMat);
+    const holoBandGeo = new THREE.CylinderGeometry(2.25, 2.25, 1.05, lowQ ? 20 : 40, 1, true);
+    ownedGeometries.push(holoBandGeo);
+    holoBand = new THREE.Mesh(holoBandGeo, holoBandMat);
+    holoBand.position.y = 0.55;
+    holoBand.userData.holoPart = "holoBand";
+    holoGroup.add(holoBand);
+
+    // --- Primary ring --- (both tiers, reduced segments on Low)
+    const ringMatA = holoAdd(0xffc25e, 0.7);
+    const holoRingGeo = new THREE.TorusGeometry(
+      2.7, 0.055, lowQ ? 6 : 8, lowQ ? 24 : 48,
+    );
+    ownedGeometries.push(holoRingGeo);
+    holoRing = new THREE.Mesh(holoRingGeo, ringMatA);
+    holoRing.rotation.x = Math.PI / 2;
+    holoRing.position.y = 0.55;
+    holoRing.userData.holoPart = "holoRing";
+    holoGroup.add(holoRing);
+  }
+
+  if (!lowQ && holoGroup && holoBandMat) {
+    const holoAdd = (color, opacity) => {
+      const mat = new THREE.MeshBasicMaterial({
+        color,
+        transparent: true,
+        opacity,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+        toneMapped: false,
+      });
+      ownedMaterials.push(mat);
+      return mat;
+    };
+
     // Inner spark.
     const sparkGeo = new THREE.SphereGeometry(0.18, 10, 8);
     ownedGeometries.push(sparkGeo);
@@ -2977,27 +3034,11 @@ function buildDeck(scene, world, config, circumR) {
     noonLine.userData.holoPart = "noonLine";
     holoGroup.add(noonLine);
 
-    // --- Dual glyph bands ---
-    const glyphTex = buildHologlyphTexture();
-    ownedTextures.push(glyphTex);
-    holoBandMat = new THREE.MeshBasicMaterial({
-      map: glyphTex,
-      transparent: true,
-      opacity: 0.78,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-      side: THREE.DoubleSide,
-      toneMapped: false,
-    });
-    ownedMaterials.push(holoBandMat);
-    const holoBandGeo = new THREE.CylinderGeometry(2.25, 2.25, 1.05, 40, 1, true);
-    ownedGeometries.push(holoBandGeo);
-    holoBand = new THREE.Mesh(holoBandGeo, holoBandMat);
-    holoBand.position.y = 0.55;
-    holoGroup.add(holoBand);
-
+    // --- Second glyph band (High only) ---
     // * Clone so outer/inner bands can scroll UVs in opposite directions independently.
-    const glyphTexInner = glyphTex.clone();
+    // * Cloned off the primary band's own map rather than rebuilding the canvas, since the
+    // * primary is built on both tiers above.
+    const glyphTexInner = holoBandMat.map.clone();
     glyphTexInner.needsUpdate = true;
     ownedTextures.push(glyphTexInner);
     holoBandInnerMat = new THREE.MeshBasicMaterial({
@@ -3016,17 +3057,9 @@ function buildDeck(scene, world, config, circumR) {
     holoBandInner.position.y = -0.55;
     holoGroup.add(holoBandInner);
 
-    // --- Counter-rotating rings (3) ---
-    const ringMatA = holoAdd(0xffc25e, 0.7);
+    // --- Counter-rotating rings 2 and 3 (High only; ring 1 is built on both tiers above) ---
     const ringMatB = holoAdd(0xff9a40, 0.55);
     const ringMatC = holoAdd(0xffe0a0, 0.45);
-
-    const holoRingGeo = new THREE.TorusGeometry(2.7, 0.055, 8, 48);
-    ownedGeometries.push(holoRingGeo);
-    holoRing = new THREE.Mesh(holoRingGeo, ringMatA);
-    holoRing.rotation.x = Math.PI / 2;
-    holoRing.position.y = 0.55;
-    holoGroup.add(holoRing);
 
     const outerRingGeo = new THREE.TorusGeometry(3.25, 0.04, 8, 48);
     ownedGeometries.push(outerRingGeo);
@@ -3100,8 +3133,6 @@ function buildDeck(scene, world, config, circumR) {
     holoScan.userData.holoPart = "holoScan";
     holoGroup.add(holoScan);
 
-    group.add(holoGroup);
-
     // * PROJECTOR BEAM — the hologram used to float with nothing connecting it to the
     // * podium, which is most of why it read as hovering rather than projected. This is the
     // * cone doing the projecting. It sits on the LEVEL GROUP, not holoGroup: its aperture
@@ -3137,6 +3168,9 @@ function buildDeck(scene, world, config, circumR) {
     holoBeam.userData.holoPart = "holoBeam";
     group.add(holoBeam);
   }
+
+  // * Attached on BOTH tiers — Low's reduced set still needs to reach the scene.
+  if (holoGroup) group.add(holoGroup);
 
   // Beacon masts — slim aviation-light masts on the fascia at the four flat midpoints
   // between booth lanes; shared blinking emissive material (also used by booth antennas).
@@ -3369,9 +3403,15 @@ function buildDeck(scene, world, config, circumR) {
       // * air. Products of two mismatched sines give an unpredictable few-millimetre slip
       // * with no period a player can lock onto — and a KO shoves that amplitude up, so the
       // * hologram shudders on the hit rather than merely getting brighter.
-      const slip = HOLO_JITTER_BASE * (1 + koT * HOLO_KO_JITTER_MUL);
-      holoGroup.position.x = Math.sin(t * 37.0) * Math.sin(t * 11.3) * slip;
-      holoGroup.position.z = Math.sin(t * 29.0) * Math.sin(t * 7.7) * slip;
+      // * High only, matching the build: Low's reduced hologram has no projector and no
+      // * instability, so it also does not get the slip. Two extra sin() pairs per frame is
+      // * not what costs Low its frames, but a reduced tier that quietly runs the full
+      // * animation set is how a "reduced" path stops being one.
+      if (!lowQ) {
+        const slip = HOLO_JITTER_BASE * (1 + koT * HOLO_KO_JITTER_MUL);
+        holoGroup.position.x = Math.sin(t * 37.0) * Math.sin(t * 11.3) * slip;
+        holoGroup.position.z = Math.sin(t * 29.0) * Math.sin(t * 7.7) * slip;
+      }
       // Counter-rotating layers sell depth and "live instrument" energy.
       if (holoRing) holoRing.rotation.z = t * 0.55;
       if (holoRingOuter) holoRingOuter.rotation.z = -t * 0.38;
