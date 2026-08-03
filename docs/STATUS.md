@@ -107,7 +107,7 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 
 | ID | Issue | Status |
 |----|--------|--------|
-| ROUND-WEDGE-1 | Host-hide → MAX reject → podium⇄running storm | 🚫 **parked 08-02** (Sundial pass) — Phase A **shipped** `d4a7718`, `pausedWallMs` MAX-only in `roundValidation.ts` (+tests); MIN wall latch frozen. Does **not** claim cap-217 closed; Phase B deferred. |
+| ROUND-WEDGE-1 | Host-hide → MAX reject → podium⇄running storm | 🟡 **UNPARKED 08-02** (Wyatt, parallel lane) — evidence pass done. **Both writers named:** `netcode.js:2915` (`MSG.round` applier, not host-gated; the podium→running rollback is *deliberate* per `:2835`) vs the host's own round-end at `gameFlow.js:149`, which re-fires `endRound()` the next frame after each rollback. **`invariants.js:24` and that rollback contradict each other** — do not silence the assert. Shipped: auto-capture upload `cc09985`, per-channel ring floor `8063b3e`. Phase A was `d4a7718`. **Phase B (the undamped re-entry) still needs its own ack.** Does not claim cap-217 closed. |
 | WARM-SOLO-1 | Solo post-`carts-ready` stall (WARM-IGPU residual) | 📋 telemetry-gated — [warm-igpu-1.md](./planning/warm-igpu-1.md) |
 | SHOOT-ANIM-1 | `shoot-gpu` freezes all per-frame level animation, every arena | 📋 **High** — `levelUpdate` never runs in the attract path, so every animated property sits at its constructor value in every capture. Invalidates capture-based claims about anything that moves. |
 | MAIN-1 | Carve `main.js` seam (enables BUNDLE-1) | 📋 post-gate |
