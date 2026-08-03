@@ -93,6 +93,15 @@ function createCartBody(world, spawn, spawnYaw) {
   const body = world.createRigidBody(
     RAPIER.RigidBodyDesc.dynamic()
       .setCcdEnabled(true)
+      // * PIT-PT-1: carts sank up to 1.185m into the Cart Rave pit staves (measured,
+      // * cap-234) — most of a 1.5m wall. It is not a tunnelling problem: CCD is on
+      // * above, and penetration showed NO correlation with impact speed (-0.09 vs
+      // * vertical, 0.05 vs radial), which is what under-solved contacts look like
+      // * rather than fast ones. Rapier ran on stock defaults everywhere.
+      // * Per-BODY rather than world-wide (integrationParameters.numSolverIterations)
+      // * so the extra solver work lands on four carts, not every collider in the
+      // * arena — the low-end perf floor is already a live complaint (PERF-PASS-1).
+      .setAdditionalSolverIterations(CONFIG.cart.rigidBody.additionalSolverIterations ?? 4)
       .setTranslation(spawn.x, spawn.y, spawn.z)
       .setLinearDamping(CONFIG.cart.linearDamping)
       .setAngularDamping(CONFIG.cart.angularDamping),

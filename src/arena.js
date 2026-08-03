@@ -2519,7 +2519,12 @@ export function initArena(scene, world, config, options = {}) {
   const shaftBody = world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
   {
     const shaftHalfAngle = Math.PI / SHAFT_SEGMENTS;
-    const wallThickness = 1.5;
+    // * PIT-PT-1: was 1.5, and cap-234 measured a cart 1.185m into it — 79% of the wall,
+    // * leaving 0.31m before a cart would have passed clean through. Thickness is pure
+    // * collider volume (same 18 hulls, no extra bodies, no runtime cost), so there is no
+    // * reason to run it that close to the edge. Radial extrusion is OUTWARD, away from
+    // * the shaft, so the inner face the cart actually hits does not move.
+    const wallThickness = 4;
     const zInner = pitColliderRadius * Math.tan(shaftHalfAngle);
     const zOuter = (pitColliderRadius + wallThickness) * Math.tan(shaftHalfAngle);
     const wallVertices = new Float32Array([

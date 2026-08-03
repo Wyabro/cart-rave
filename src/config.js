@@ -98,6 +98,11 @@ const physics = {
       canSleep: false, // bool — keep carts awake for responsive physics
       // pitch, yaw, roll, wake — Rapier setEnabledRotations args (not applied; V1 tipping)
       enabledRotations: [true, true, true, true],
+      // * PIT-PT-1: extra contact-solver passes on the CART bodies only (Rapier's
+      // * per-body knob), on top of the world default of 4. Carts were sinking most of
+      // * the way through the pit wall and the depth did not track impact speed.
+      // * Per-body keeps the cost off every other collider in the arena.
+      additionalSolverIterations: 4,
     },
 
     ramBoost: {
