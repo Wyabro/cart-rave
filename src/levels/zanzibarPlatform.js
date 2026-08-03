@@ -114,6 +114,12 @@ const SKY_RADIUS = 480; // meters
 const SUN_DISTANCE = 430; // meters
 const SUN_AZIMUTH = Math.PI * 0.78; // radians — between two booth lanes, never behind a booth
 const SUN_HEIGHT = 14; // meters — low over the water
+// * Horizontal distance the KEY light is placed at. With SUN_HEIGHT that fixes the key's
+// * elevation at atan(14/80) = 9.93°, which is the angle every raking effect must agree
+// * with. Single-sourced so the light and the god-ray tilt cannot drift apart. NOTE: the sun
+// * DISC sits at 1.87° (SUN_DISTANCE 430) — that 8° disagreement is OQ8, still Wyatt's call;
+// * this constant records the key's angle, it does not resolve the mismatch.
+const SUN_KEY_DISTANCE = 80; // meters
 const SUN_DRIFT_AMPLITUDE_RAD = 0.015; // radians (~0.9°) — barely-perceptible sunset wobble
 const SUN_DRIFT_SPEED = 0.00006; // rad/ms — full drift cycle ≈ 105 s
 
@@ -1359,7 +1365,7 @@ function buildSeascape(scene, circumR) {
 
   // * Soft god-ray shafts from the sun toward the deck — pure mood, no gameplay cost.
   let shaftMats = /** @type {THREE.MeshBasicMaterial[]} */ ([]);
-  if (!lowQ) {
+  {
     // * Radial falloff stretched over the tall plane — the untextured flat-opacity
     // * planes rendered their long edges as a visible vertical line through the sun
     // * (run-2 "cross" report, vertical arm). Peak opacity up vs the flat values
@@ -1370,30 +1376,75 @@ function buildSeascape(scene, circumR) {
       [1.0, "rgba(255,255,255,0)"],
     ]);
     ownedTextures.push(shaftTex);
-    const shaftGeo = new THREE.PlaneGeometry(18, 220, 1, 1);
-    ownedGeometries.push(shaftGeo);
-    for (let i = 0; i < 3; i += 1) {
+
+    /**
+     * * Every shaft carries its own base opacity in userData, because the 500 ms sun-step
+     * * block OVERWRITES material.opacity each tick. `dabdb6b` raised these constructors
+     * * from 0.045 + i*0.012 to 0.085 + i*0.02, but never touched the animator, which kept
+     * * writing the pre-rebalance 0.04 + i*0.01 — so the shafts have shipped at roughly 47%
+     * * of their authored value ever since, and raising the constructor again would lose to
+     * * the same line. Same lesson the foam pairing already carries two hundred lines down.
+     */
+    const addShaft = (geo, baseOpacity, yaw, tiltX, pos) => {
       const shaftMat = new THREE.MeshBasicMaterial({
         color: 0xff8a40,
         map: shaftTex,
         transparent: true,
-        opacity: 0.085 + i * 0.02,
+        opacity: baseOpacity,
         depthWrite: false,
         blending: THREE.AdditiveBlending,
         side: THREE.DoubleSide,
         fog: false,
       });
+      shaftMat.userData.baseOpacity = baseOpacity;
       ownedMaterials.push(shaftMat);
       shaftMats.push(shaftMat);
-      const shaft = new THREE.Mesh(shaftGeo, shaftMat);
-      // Fan slightly around the sun path.
-      const yaw = -SUN_AZIMUTH + Math.PI / 2 + (i - 1) * 0.12;
+      const shaft = new THREE.Mesh(geo, shaftMat);
       shaft.rotation.order = "YXZ";
       shaft.rotation.y = yaw;
-      shaft.rotation.x = -0.22;
-      shaft.position.copy(sunDir.clone().multiplyScalar(160));
-      shaft.position.y = WATER_Y + 28 + i * 4;
+      shaft.rotation.x = tiltX;
+      shaft.position.copy(pos);
       group.add(shaft);
+      return shaft;
+    };
+
+    // Distant sky shafts over the water — the existing mood layer, High/Medium only.
+    if (!lowQ) {
+      const shaftGeo = new THREE.PlaneGeometry(18, 220, 1, 1);
+      ownedGeometries.push(shaftGeo);
+      for (let i = 0; i < 3; i += 1) {
+        const pos = sunDir.clone().multiplyScalar(160);
+        pos.y = WATER_Y + 28 + i * 4;
+        // Fan slightly around the sun path.
+        addShaft(shaftGeo, 0.085 + i * 0.02, -SUN_AZIMUTH + Math.PI / 2 + (i - 1) * 0.12, -0.22, pos);
+      }
+    }
+
+    // * Deck-raking shafts. The three above sit at sunDir*160 and y 22-30 — 160 m out over
+    // * open water and 22 m up, so nothing they do lands on the plate. These cross the arena
+    // * instead, tilted to the sun key's own 9.93 deg rather than the sky layer's 12.6, so
+    // * the beam angle agrees with the light that casts the shadows.
+    // *
+    // * Built on EVERY tier (D-SUNDIAL-OQ6). Three additive quads sharing one texture is not
+    // * what makes Low slow, and raking light is most of what sells this arena.
+    {
+      const rakeGeo = new THREE.PlaneGeometry(15, 120, 1, 1);
+      ownedGeometries.push(rakeGeo);
+      const sunElevation = Math.atan2(SUN_HEIGHT, SUN_KEY_DISTANCE);
+      const rakeCount = lowQ ? 2 : 3;
+      for (let i = 0; i < rakeCount; i += 1) {
+        const lateral = (i - (rakeCount - 1) / 2) * 0.19;
+        const pos = sunDir.clone().multiplyScalar(12);
+        pos.y = 4.2 + i * 1.7;
+        // * tiltX is PI/2 - elevation, NOT -elevation. rakeGeo is 15 wide x 120 LONG, so its
+        // * long axis is local +Y; at -elevation that axis stays near-vertical and the shaft
+        // * renders as a light pillar (measured: the first build read as two vertical columns
+        // * in the sky, not as anything touching the plate). Under the YXZ order used here,
+        // * rotation.x = PI/2 - elevation lays local +Y down onto the sun direction, and the
+        // * existing -SUN_AZIMUTH + PI/2 yaw is already exactly the azimuth term that pairs
+        // * with it, so the beam runs along the light and grazes the deck.
+        addShaft(rakeGeo, 0.05 + i * 0.014, -SUN_AZIMUTH + Math.PI / 2 + lateral, Math.PI / 2 - sunElevation, pos);
+      }
     }
   }
 
@@ -2073,7 +2124,12 @@ function buildSeascape(scene, circumR) {
       haloMat.opacity = 0.28 + 0.08 * Math.sin(timeMs * 0.0007);
       outerHaloMat.opacity = 0.1 + 0.04 * Math.sin(timeMs * 0.00045 + 1.0);
       for (let i = 0; i < shaftMats.length; i += 1) {
-        shaftMats[i].opacity = (0.04 + i * 0.01) * (0.85 + 0.15 * Math.sin(timeMs * 0.0006 + i));
+        // * Read the per-material base, do NOT re-derive from i. This line used to write
+        // * 0.04 + i*0.01 while the constructors said 0.085 + i*0.02, and this line wins —
+        // * so the shafts shipped at ~47% of their authored value from dabdb6b onward. It
+        // * would also have mis-scaled the deck-raking shafts, which share this array.
+        const base = shaftMats[i].userData.baseOpacity ?? 0.04;
+        shaftMats[i].opacity = base * (0.85 + 0.15 * Math.sin(timeMs * 0.0006 + i));
       }
       if (glintMat) glintMat.opacity = 0.32 + 0.08 * Math.sin(timeMs * 0.0007);
       // * This line OVERWRITES the constructor opacity every 500 ms — raising only the
@@ -3310,7 +3366,7 @@ export function initZanzibarPlatform(scene, world, config) {
   // the lighting stays coherent with the drifting sunset visual each frame.
   // * Moodier golden hour: warmer key, cooler ground hemi, lower fill — longer "shadows".
   const sunLight = new THREE.DirectionalLight(0xff9440, 1.95);
-  sunLight.position.copy(seascape.sunDir).multiplyScalar(80).setY(14);
+  sunLight.position.copy(seascape.sunDir).multiplyScalar(SUN_KEY_DISTANCE).setY(SUN_HEIGHT);
   scene.add(sunLight);
   const hemiLight = new THREE.HemisphereLight(0xff8a50, 0x061018, 0.78);
   scene.add(hemiLight);
@@ -3353,7 +3409,7 @@ export function initZanzibarPlatform(scene, world, config) {
 
   function update(timeMs) {
     seascape.update(timeMs);
-    sunLight.position.copy(seascape.sunDir).multiplyScalar(80).setY(14);
+    sunLight.position.copy(seascape.sunDir).multiplyScalar(SUN_KEY_DISTANCE).setY(SUN_HEIGHT);
     // * Key intensity breathes with the seascape sun pulse (same slow period).
     sunLight.intensity = 1.85 + 0.2 * Math.sin(timeMs * 0.00055);
     coolFill.position.copy(seascape.sunDir).multiplyScalar(-50).setY(18);
