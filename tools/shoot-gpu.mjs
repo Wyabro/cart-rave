@@ -7,7 +7,14 @@
  * actual UNMASKED_RENDERER next to the image, so a before/after can be trusted.
  *
  * Usage: node shoot-gpu.mjs --out <path.png> [--shot classic-edge] [--url http://127.0.0.1:3210]
- *                           [--cam x,y,z,lx,ly,lz] [--w 1600] [--h 900] [--settle 90]
+ *                           [--cam x,y,z,lx,ly,lz] [--w 1600] [--h 900] [--settle 90] [--t 0]
+ *
+ * --t <ms> pins level animation to one timestamp (SHOOT-ANIM-1), making the shot a
+ * reproducible phase instead of whenever it happened to land. Omit it and animation
+ * free-runs. Prove a pulse by capturing two phases and comparing:
+ *   node shoot-gpu.mjs --shot sundial --t 0   --out a.png
+ *   node shoot-gpu.mjs --shot sundial --t 250 --out b.png
+ *   npm run compare -- --a a.png --b b.png
  */
 import { chromium } from "playwright";
 import { writeFileSync } from "node:fs";
@@ -25,9 +32,12 @@ const cam = arg("cam", null);
 const width = Number(arg("w", 1600));
 const height = Number(arg("h", 900));
 const settleFrames = Number(arg("settle", 90));
+const animT = arg("t", null);
 
 const params = new URLSearchParams({ shot, harness: "1", freeze: "1", hud: "0" });
 if (cam) params.set("cam", cam);
+// * Explicit null check, not truthiness — --t 0 is a legitimate phase.
+if (animT !== null) params.set("t", String(animT));
 const url = `${base}/?${params.toString()}`;
 
 const browser = await chromium.launch({

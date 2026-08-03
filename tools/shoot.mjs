@@ -5,6 +5,7 @@
  *   npm run shoot -- --shot classic --out shots/classic.png
  *   npm run shoot -- --level backrooms --cam "0,8,16,0,0.5,0" --out shots/store.png
  *   npm run shoot -- --shot sundial --ablate bloom --out shots/sundial-no-bloom.png
+ *   npm run shoot -- --shot sundial --t 250 --out shots/sundial-t250.png
  *
  * Requires: dev server (auto-started if --url omitted), Playwright Chromium.
  *   npx playwright install chromium
@@ -54,6 +55,10 @@ function buildUrl(base, args) {
   if (preset) u.searchParams.set("preset", preset);
   const ablate = str(args.ablate);
   if (ablate) u.searchParams.set("ablate", ablate);
+  // * --t <ms> pins level animation to one timestamp (SHOOT-ANIM-1) so the shot is a
+  // * reproducible phase. undefined check, not truthiness — --t 0 is a real phase.
+  const animT = str(args.t);
+  if (animT !== undefined) u.searchParams.set("t", animT);
   if (args.postmin === true || args.postmin === "1") u.searchParams.set("postmin", "1");
   return u.toString();
 }
