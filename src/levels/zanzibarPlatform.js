@@ -2420,6 +2420,31 @@ function buildDeck(scene, world, config, circumR) {
   deckMesh.position.y = -DECK_THICKNESS / 2;
   group.add(deckMesh);
 
+  // * ITEM 34 IS CLOSED BY MEASUREMENT. DO NOT ADD SURFACE DETAIL TO THIS DECK.
+  // *
+  // * The audit's largest single item wanted a tiling detail layer, salt bloom, spray
+  // * staining, skid arcs, re-authored seams and re-blitted decals here. A relief-only
+  // * version was built and measured on 08-02, then removed: a tiling steel-grain normal at
+  // * 1 m repeat on a transparent overlay, the arena.js:1719 vinyl-detail-ring pattern, with
+  // * normalScale deliberately over-strong at 1.4 so a null result could only mean "no".
+  // *
+  // * Toggling ONLY normalScale (0.0 vs 1.4, tint identical in both, same camera, pinned
+  // * phase) moved the deck region by:
+  // *     median 2.43 -> 2.43   (0%)
+  // *     p75    5.06 -> 5.06   (0%)
+  // *     whole frame 0.86% of pixels — BELOW Sundial's ~1.2% construction-noise floor
+  // *
+  // * Relief does not read here, and the reason also explains Wave 4's paint result: a normal
+  // * map modulates SHADING, and this plate is lit to a median of 2.4/255. Modulating almost
+  // * no light still gives almost no light. Paint measured 16.4 against emissive's 153 for the
+  // * same reason.
+  // * (The overlay did change the frame by 8.3% — but that was its own dark albedo tinting the
+  // * plate 8% DARKER, which fails this pass's additive-only rule. Easy to mistake for a win.)
+  // *
+  // * What DOES read on this deck is light and emissive — the god rays (item 16) moved the
+  // * median 82%, where the best material lever ever measured here reached 7.2 by making the
+  // * plate eight times more reflective. Spend effort there, not on the surface.
+
   // Shared engineered-panel texture (booth slabs, pillars, pylons, podium bottom trim).
   const panelTex = buildPanelTexture();
   ownedTextures.push(panelTex);
