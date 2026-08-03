@@ -3231,13 +3231,18 @@ function buildDeck(scene, world, config, circumR) {
       if (holoCoreMat) holoCoreMat.opacity = 0.75 + 0.18 * Math.sin(t * 2.6);
       if (holoDialMat) holoDialMat.opacity = 0.62 + 0.12 * Math.sin(t * 1.1);
       // Scroll glyph UV for living data stream.
+      // * No `needsUpdate` here, deliberately. `offset` reaches the shader through the
+      // * texture's own matrix (matrixAutoUpdate) as the `uvTransform` uniform — the
+      // * image never changes, only where it is sampled. `needsUpdate = true` re-uploads
+      // * all 512x128 RGBA pixels of BOTH bands (they are separate textures, the inner
+      // * one is a clone) every update tick, ~30 MB/s at 60fps, to move two floats.
+      // * Measured: 44 re-uploads per 90 rAF frames before this was removed. Do not add
+      // * it back — the scroll still runs without it.
       if (holoBandMat?.map) {
         holoBandMat.map.offset.x = (t * 0.08) % 1;
-        holoBandMat.map.needsUpdate = true;
       }
       if (holoBandInnerMat?.map) {
         holoBandInnerMat.map.offset.x = (-t * 0.11) % 1;
-        holoBandInnerMat.map.needsUpdate = true;
       }
     }
     // Sharp aviation-style blink: short hot pulse, long dim tail.
