@@ -722,40 +722,109 @@ function buildPanelTexture() {
 }
 
 /**
- * Vent-grille strip for the podium side wall: dark slats with a faint amber energy line
- * glowing behind them — the podium reads as a powered machine, not a concrete step.
- * * Amber, not cyan — the gradient below is rgba(255,178,44,…). Do not "fix" it back.
- * * "Gnomon" here used to mean the podium itself; the gnomon is now the standing blade
- * * on the level group (see GNOMON_TIP_Y), so this says podium to keep the two apart.
- * @returns {THREE.CanvasTexture}
+ * Surface set for the podium's drivable ramp: transverse anti-slip tread over the face, with
+ * dark vent slats and a faint amber energy line confined to the lowest 20% where the frustum
+ * meets the deck — so the podium still reads as a powered machine at its base without
+ * pretending the part carts drive on is a wall.
+ * * Amber, not cyan — the gradient is rgba(255,178,44,…). Do not "fix" it back.
+ * * "Gnomon" used to mean the podium itself; the gnomon is now the standing blade on the
+ * * level group (see GNOMON_TIP_Y), so this says podium to keep the two apart.
+ * @returns {{ map: THREE.CanvasTexture, normalMap: THREE.CanvasTexture,
+ *   roughnessMap: THREE.CanvasTexture }}
  */
-function buildGrilleTexture() {
+function buildRampTexture() {
+  const S = 256;
   const canvas = document.createElement("canvas");
-  canvas.width = 256;
-  canvas.height = 64;
+  canvas.width = S;
+  canvas.height = S;
   const ctx = canvas.getContext("2d");
-  ctx.fillStyle = "#23262d";
-  ctx.fillRect(0, 0, 256, 64);
-  // Glow line low on the wall.
-  const grad = ctx.createLinearGradient(0, 40, 0, 58);
+
+  // * SQUARE, and it has to stay square: buildNormalMapFromCanvas reads srcCanvas.width as
+  // * the size for BOTH axes, so the old 256x64 grille could never have produced a normal.
+  // * Canvas y runs top-down and UV v bottom-up (CanvasTexture flipY), so canvas TOP is the
+  // * crown and canvas BOTTOM is where the frustum meets the deck.
+  ctx.fillStyle = "#2a2e36";
+  ctx.fillRect(0, 0, S, S);
+
+  const SKIRT_TOP = Math.round(S * 0.8); // lowest 20% = the machine band
+
+  // * TRANSVERSE ANTI-SLIP TREAD over the drivable face. Bars run around the perimeter,
+  // * i.e. across the direction of travel, which is what tread is for — carts climb this
+  // * radially. Height variation between bars keeps it from reading as a printed stripe.
+  for (let y = 6; y < SKIRT_TOP - 4; y += 13) {
+    const v = 62 + ((y / 13) % 3) * 7;
+    ctx.fillStyle = `rgb(${v},${v + 3},${v + 9})`;
+    ctx.fillRect(0, y, S, 7);
+    // Chamfer on the leading edge so the normal pass gets a real slope, not a step.
+    ctx.fillStyle = "rgba(150,158,172,0.20)";
+    ctx.fillRect(0, y, S, 2);
+    ctx.fillStyle = "rgba(6,7,10,0.35)";
+    ctx.fillRect(0, y + 7, S, 2);
+  }
+
+  // * VENT SLATS + GLOW LINE, confined to the lowest 20% where the frustum meets the deck.
+  // * They used to run the full height of a surface players drive on, which is why this read
+  // * as a wall: vent slats belong on machinery, not on a ramp.
+  ctx.fillStyle = "#1b1e24";
+  ctx.fillRect(0, SKIRT_TOP, S, S - SKIRT_TOP);
+  ctx.fillStyle = "rgba(8,9,12,0.75)";
+  for (let x = 4; x < S; x += 12) {
+    ctx.fillRect(x, SKIRT_TOP + 6, 5, S - SKIRT_TOP - 12);
+  }
+  const grad = ctx.createLinearGradient(0, SKIRT_TOP + 8, 0, S - 2);
   grad.addColorStop(0, "rgba(255,178,44,0)");
   grad.addColorStop(0.55, "rgba(255,178,44,0.32)");
   grad.addColorStop(1, "rgba(255,178,44,0)");
   ctx.fillStyle = grad;
-  ctx.fillRect(0, 40, 256, 18);
-  // Vertical slats.
-  ctx.fillStyle = "rgba(8,9,12,0.75)";
-  for (let x = 4; x < 256; x += 12) {
-    ctx.fillRect(x, 6, 5, 52);
+  ctx.fillRect(0, SKIRT_TOP + 8, S, S - SKIRT_TOP - 10);
+
+  // * NO top rail highlight. The old texture painted a 2 px "rail" highlight along the crest
+  // * of a ramp that has no rail on it — a lit edge with nothing casting it.
+
+  const map = new THREE.CanvasTexture(canvas);
+  map.colorSpace = THREE.SRGBColorSpace;
+
+  // * Relief is the half that actually reads here. Measured 08-02: the ramp sits at a median
+  // * of 12.2/255 against the flat deck's 2.4, because a 9.8 deg face catches the low sun the
+  // * deck cannot — and toggling a normal on it moved 10.4% of the frame where the same test
+  // * on the deck moved 0.86%, below the noise floor. Hence a normal map here and none on the
+  // * deck (see the item 34 note by deckMesh).
+  const normalMap = buildNormalMapFromCanvas(canvas, 1.8);
+
+  // * Tyres burnish the tread tops; the gaps between bars stay rough.
+  const rCanvas = document.createElement("canvas");
+  rCanvas.width = S;
+  rCanvas.height = S;
+  const rctx = rCanvas.getContext("2d");
+  // * Values are chosen so the AREA-WEIGHTED MEAN lands near the flat 0.45 this material used
+  // * before, not above it. A first pass averaged ~0.65 and cost the ramp 24% of its
+  // * luminance and 30% of its p95 — the low sun's specular is most of what lights this face,
+  // * and roughening it globally is exactly the "make the raking light read -> take light
+  // * away" failure the pass forbids. Variation is the point; a duller surface is not.
+  // * Bars cover 7 px of every 13, so they carry ~54% of the drivable face and the plate
+  // * value dominates the rest. Weighted mean here is ~0.35, i.e. GLOSSIER than the flat 0.45
+  // * this surface had, which is what keeps the highlights.
+  rctx.fillStyle = "#707070"; // 0.44 — plate between the bars
+  rctx.fillRect(0, 0, S, S);
+  for (let y = 6; y < SKIRT_TOP - 4; y += 13) {
+    rctx.fillStyle = "#474747"; // 0.28 — bar tops, burnished by tyres
+    rctx.fillRect(0, y, S, 7);
   }
-  // Top rail highlight.
-  ctx.fillStyle = "rgba(170,180,195,0.16)";
-  ctx.fillRect(0, 2, 256, 2);
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.wrapS = THREE.RepeatWrapping;
-  tex.repeat.set(10, 1);
-  return tex;
+  rctx.fillStyle = "#8f8f8f"; // 0.56 — the vent band never gets driven on
+  rctx.fillRect(0, SKIRT_TOP, S, S - SKIRT_TOP);
+  const roughnessMap = new THREE.CanvasTexture(rCanvas);
+
+  for (const t of [map, normalMap, roughnessMap]) {
+    t.wrapS = THREE.RepeatWrapping;
+    t.wrapT = THREE.RepeatWrapping;
+    // * 16, not the old 10. The frustum is an OCTAGON, so a repeat that is not a multiple of
+    // * 8 phase-shifts the pattern at every facet seam and no two faces match — the old 10
+    // * gave 1.25 tiles per facet. 16 is two tiles per facet, landing each seam on a tile
+    // * boundary, and at ~3.1 m x 2.9 m per tile the texels stay square.
+    t.repeat.set(16, 1);
+    t.needsUpdate = true;
+  }
+  return { map, normalMap, roughnessMap };
 }
 
 /**
@@ -2632,13 +2701,21 @@ function buildDeck(scene, world, config, circumR) {
     group.add(pillar);
   }
 
-  // Center podium — the station's gnomon. Grille side walls, brushed top, polished cap.
-  const grilleTex = buildGrilleTexture();
-  ownedTextures.push(grilleTex);
+  // Center podium — anti-slip tread ramp, brushed top, polished cap.
+  // * The frustum is a 9.8 deg DRIVABLE RAMP and it used to wear a wall texture: full-height
+  // * vent slats and a rail highlight, which is machinery cladding, not something you drive
+  // * up. Re-authored as transverse tread with the vent band confined to the base, and given
+  // * the normal + roughness it never had — on a surface carts are on constantly, and the one
+  // * surface here measured to actually respond to relief.
+  const rampTex = buildRampTexture();
+  ownedTextures.push(rampTex.map, rampTex.normalMap, rampTex.roughnessMap);
   const podiumSideMat = createPhysicalMaterial({
-    map: grilleTex,
+    map: rampTex.map,
+    normalMap: rampTex.normalMap,
+    normalScale: new THREE.Vector2(0.8, 0.8),
+    roughnessMap: rampTex.roughnessMap,
     color: 0xffffff,
-    roughness: 0.45,
+    roughness: 1.0, // roughnessMap carries the value, same contract the deck top uses
     metalness: 0.8,
   });
   // * OQ3: this was a bare color + roughness + metalness call on a surface the art-direction
