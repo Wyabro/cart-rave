@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-03 at commit `ae18075` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `e3bb4a2c`
+> Generated 2026-08-03 at commit `0428f17` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `5fb946ed`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -18,14 +18,14 @@ Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep a
 
 ## ACTIVE CARD
 
-ART-PASS-SUNDIAL-1 — Sundial art pass — Waves 5–6 remain
-Pass looks like: ▶ ACTIVE — Waves 1–4 shipped + a 16b/OQ8/SHADOW-TILT-1 slice; Wave 4 not yet deployed. Spec = [handover](./planning/art-pass-sundial-handover.md). One commit per lever, ack per wave. Paint does not read on this deck (plate median 2.6 vs emissive 153) — read item 18's re-scope before proposing painted detail. Owed: Wyatt playtest — cart shadows on turn, dust sun lobe, raking shafts breathing, the dial, gate beacons, ship glows, ships on a phone, turbines.
+ART-PASS-SUNDIAL-1 — Sundial art pass — Wave 6 remains
+Pass looks like: ▶ ACTIVE — Waves 1–5 shipped; Waves 1–4 deployed (Version `7f79ef1d`), Wave 5 unpushed at time of writing. Spec = [handover](./planning/art-pass-sundial-handover.md). One commit per lever, ack per wave. Paint does not read on this deck (plate median 2.6 vs emissive 153) — read item 18's re-scope before proposing painted detail. Owed: Wyatt playtest — Wave 5: is the holo *projected* now, is the gnomon legible or clutter (it has no collider, carts pass through), does the KO flare read, is Low's reduced holo worth its frames on the Intel box. Carried: cart shadows on turn, dust sun lobe, raking shafts breathing, the dial, gate beacons, ship glows, ships on a phone, turbines.
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 
 ## Waiting on Wyatt (not agent work)
 
-- **ART-PASS-SUNDIAL-1** Sundial art pass — Waves 5–6 remain — ▶ ACTIVE — Waves 1–4 shipped + a 16b/OQ8/SHADOW-TILT-1 slice; Wave 4 not yet deployed. Spec = handover. One…
+- **ART-PASS-SUNDIAL-1** Sundial art pass — Wave 6 remains — ▶ ACTIVE — Waves 1–5 shipped; Waves 1–4 deployed (Version `7f79ef1d`), Wave 5 unpushed at time of writing.…
 
 ## Do not
 

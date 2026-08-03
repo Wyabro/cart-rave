@@ -80,18 +80,22 @@ Live rows only. Shipped and closed cards live in
 
 | # | What | Status |
 |---|------|--------|
-| **ART-PASS-SUNDIAL-1** | Sundial art pass — Waves 5–6 remain | ▶ **ACTIVE** — Waves 1–4 shipped + a 16b/OQ8/SHADOW-TILT-1 slice; Wave 4 **not yet deployed**. Spec = [handover](./planning/art-pass-sundial-handover.md). One commit per lever, ack per wave. **Paint does not read on this deck** (plate median 2.6 vs emissive 153) — read item 18's re-scope before proposing painted detail. **Owed: Wyatt playtest** — cart shadows on turn, dust sun lobe, raking shafts breathing, the dial, gate beacons, ship glows, ships on a phone, turbines. |
+| **ART-PASS-SUNDIAL-1** | Sundial art pass — Wave 6 remains | ▶ **ACTIVE** — Waves 1–5 shipped; Waves 1–4 **deployed** (Version `7f79ef1d`), Wave 5 **unpushed at time of writing**. Spec = [handover](./planning/art-pass-sundial-handover.md). One commit per lever, ack per wave. **Paint does not read on this deck** (plate median 2.6 vs emissive 153) — read item 18's re-scope before proposing painted detail. **Owed: Wyatt playtest** — Wave 5: is the holo *projected* now, is the gnomon legible or clutter (it has **no collider**, carts pass through), does the KO flare read, is Low's reduced holo worth its frames **on the Intel box**. Carried: cart shadows on turn, dust sun lobe, raking shafts breathing, the dial, gate beacons, ship glows, ships on a phone, turbines. |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 
 ### Next actions
 
-1. **ART-PASS-SUNDIAL-1 — Wave 4 CLOSED** (items 12–19, plus a follow-on slice: 16b dust lobe ·
-   OQ8 · SHADOW-TILT-1). **Wave 5 (hologram, items 20–25) is next and needs its own plan + ack.**
+1. **ART-PASS-SUNDIAL-1 — Wave 5 CLOSED** (items 20–25: killed the per-frame glyph re-upload ·
+   halved the drift · standing gnomon + fin demoted to noon line · projector beam, instability
+   and spindle light 7→4.3 · KO reactivity · Low's reduced holo). **Wave 6 (items 26–36,
+   correctness + cleanup) is next and needs its own plan + ack.**
    **D-SUNDIAL-OQ6 binds** — every lever ships its Low path in the same commit. Wave 4's measured
-   headline, which governs Waves 5–6: **paint does not read on this deck** (plate median luminance
-   2.6; painted band 16.4; emissive rim strip 153) — see item 18's re-scope in the handover before
-   proposing any painted detail.
+   headline, which still governs Wave 6: **paint does not read on this deck** (plate median
+   luminance 2.6; painted band 16.4; emissive rim strip 153) — see item 18's re-scope in the
+   handover before proposing any painted detail. Wave 5's own lesson: **derived geometry numbers
+   were wrong three times** (holo top, blade base, jitter scale) and the probe caught each —
+   measure the scene, do not trust the arithmetic in the comment.
 2. **Playtest owed** — BACKLOG `## Playtest owed` (08-01 and 08-02 sections), now including
    **STORE-PT-1** (Storerooms suction lip / racking steel). **UNLOCK-PT-1 needs gates ON**
    (`?devUnlocks=off` + hard refresh) or Vite hides the whole change.
@@ -112,7 +116,7 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 |----|--------|--------|
 | ROUND-WEDGE-1 | Host-hide → MAX reject → podium⇄running storm | 🟡 **UNPARKED 08-02** (Wyatt, parallel lane) — evidence pass done. **Both writers named:** `netcode.js:2915` (`MSG.round` applier, not host-gated; the podium→running rollback is *deliberate* per `:2835`) vs the host's own round-end at `gameFlow.js:149`, which re-fires `endRound()` the next frame after each rollback. **`invariants.js:24` and that rollback contradict each other** — do not silence the assert. Shipped: auto-capture upload `cc09985`, per-channel ring floor `8063b3e`. Phase A was `d4a7718`. **Phase B (the undamped re-entry) still needs its own ack.** Does not claim cap-217 closed. |
 | WARM-SOLO-1 | Solo post-`carts-ready` stall (WARM-IGPU residual) | 📋 telemetry-gated — [warm-igpu-1.md](./planning/warm-igpu-1.md) |
-| SHOOT-ANIM-1 | `shoot-gpu` freezes all per-frame level animation, every arena | 📋 **High** — `levelUpdate` never runs in the attract path, so every animated property sits at its constructor value in every capture. Invalidates capture-based claims about anything that moves. |
+| SHOOT-ANIM-2 | Rave **dressing** still frozen in captures (crowd · lasers · billboard · `fxPass.uTime`) | 📋 Medium — split out of the now-closed SHOOT-ANIM-1. Level animation captures fine; this block sits behind `frameBudgetAllow`/`crowdAnimate` gates and needs one shared helper called from both loops. Hits **Classic** hardest, where dressing is most of the visible motion. |
 | MAIN-1 | Carve `main.js` seam (enables BUNDLE-1) | 📋 post-gate |
 | BUNDLE-1 | Menu/game code-split | 🚫 blocked on MAIN-1 |
 | BRAND-1 | Domain / Worker cutover | 🧊 frozen until deliberate cutover ([brand.md](./brand.md)) |
@@ -156,9 +160,9 @@ The hot set — what a current session is likely to hit. Deep-domain and narrow 
 - EffectComposer path, DEFAULT (`?bloompipe=display`): RenderPass → OutputPass → Bloom → Arcade(VHS) → FXAA. `?bloompipe=hdr` swaps to Bloom → OutputPass; OutputPass is never last in either. `renderer.toneMapping` is a no-op into composer RTs without OutputPass — except on the lowest tier, which bypasses the composer entirely (`composerBypass`) and tone-maps natively.
 - Half-res bloom RTs: strength compensated via `bloomHalfResStrengthMul`.
 - Hidden-tab rAF freezes the loop unless `?perfPump` (DEV) is set — shoot tools should pass it.
-- **`shoot-gpu` freezes every per-frame level animation** (SHOOT-ANIM-1). Animated properties sit at constructor values in **every** capture, in every arena. Never report "the capture shows no change" for an animated knob.
+- **Level animation IS capturable** — SHOOT-ANIM-1 closed (`6b27283`); free-running it lands on a random phase, so pin one with `--t <ms>` and compare two. Judge against the arena's null floor, not zero: **Sundial ~1.2%, Classic ~15.9%** (construction randomness, not animation). Rave **dressing** is still frozen — SHOOT-ANIM-2.
 - Diagnostics globals namespace is `__cc*` (`__ccTest` / `__ccDiag` / `__ccLoopDbg`).
-- **`window.__cartRavePerf.scene` is DEV-ONLY** (`main.js:1543`) — in prod it does not exist, so scene-graph probes silently return empty and read as "not built". `import("/src/…")` likewise only resolves against the dev server, and returns a **duplicate module instance** with its own state. **Verify prod visually** (screenshot + build stamp), not by scene introspection.
+- **`window.__cartRavePerf.scene` is DEV-ONLY** (`main.js:1543`) — in prod it does not exist, so scene-graph probes silently return empty and read as "not built". `import("/src/…")` likewise only resolves against the dev server. It does **not** always give a duplicate module instance, though: under Vite dev, importing the **same resolved URL** the app imported returns the **same** instance with shared state — verified 08-02 by firing `triggerArenaKoFlash` from a probe-side import and watching the app's own materials react. A duplicate is what you get from a *different* specifier for the same file. **Verify prod visually** (screenshot + build stamp), not by scene introspection.
 - A round that ends with **no scores is a legitimate draw** → neither `victory` nor `defeat`.
 - Rapier `world.castRay(...)` reads `.handle` off the exclude args — pass Collider/RigidBody objects, never raw handles.
 - **`MSG.readyToggle` without a `ready` field is a TOGGLE** — programmatic ready must send `{ ready: true }`.
