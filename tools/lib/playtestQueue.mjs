@@ -19,10 +19,69 @@ import {
   compressIssueStatus,
 } from "./projectHealth.mjs";
 
-/** @typedef {{ id: string, phase: string, title: string, do: string, expect: string, f8: string, source: string, priority: string, requiresNote?: boolean, notePrompt?: string }} PlaytestCard */
+/** @typedef {"solo" | "mp"} PlaytestRig */
+/** @typedef {"tag" | "hint" | "default"} RigVia */
+/** @typedef {{ id: string, phase: string, title: string, do: string, expect: string, f8: string, source: string, priority: string, rig: PlaytestRig, rigVia: RigVia, requiresNote?: boolean, notePrompt?: string }} PlaytestCard */
 
 const OWED_BACKLOG_RE =
   /owed:\s*wyatt\s+playtest|needs?\s+wyatt(?:'s)?\s+(?:multiplayer\s+)?playtest|playtest\s+requested/i;
+
+/**
+ * Rig classification — which cards need the second machine.
+ *
+ * Order of authority: explicit `[2pc]` / `[solo]` tag → keyword hint → solo.
+ *
+ * Only ever run against **source** text (a BACKLOG Item + Notes cell, a STATUS
+ * What + Status cell) — never against a card's generated `do`, which says
+ * "hard-refresh both machines if multiplayer" on every STATUS row and would
+ * classify the entire queue as two-machine.
+ *
+ * Bare "MP" is deliberately NOT a hint: CAM-READY-1's notes end "MP countdown
+ * unchanged" and FV-WILT-1's owed line reads "winnerSlotIndex on MP", so the
+ * token appears on solo and two-machine rows alike. FV-WILT-1 carries `[2pc]`.
+ */
+const RIG_TAG_SOLO_RE = /\[\s*(?:solo|1\s*-?\s*pc)\s*\]/i;
+const RIG_TAG_MP_RE = /\[\s*(?:2\s*-?\s*pc|two\s*-?\s*pc)\s*\]/i;
+const RIG_MP_HINT_RE =
+  /\btwo\s+clients?\b|\bboth\s+machines\b|\bsecond\s+client\b|\bnon-host\b|\bmultiplayer\b|\bfriends\s+room\b|\bhost\s+migration\b/i;
+
+/**
+ * @param {string} sourceText
+ * @returns {{ rig: PlaytestRig, via: RigVia }}
+ */
+export function classifyRig(sourceText) {
+  const s = String(sourceText ?? "");
+  const solo = RIG_TAG_SOLO_RE.test(s);
+  const mp = RIG_TAG_MP_RE.test(s);
+  // Both tags on one row is an authoring error; resolve toward mp, because a
+  // false-solo card costs a sitting without the second machine while a false-mp
+  // card only sorts late.
+  if (mp) return { rig: "mp", via: "tag" };
+  if (solo) return { rig: "solo", via: "tag" };
+  if (RIG_MP_HINT_RE.test(s)) return { rig: "mp", via: "hint" };
+  return { rig: "solo", via: "default" };
+}
+
+/** @type {Record<RigVia, number>} */
+const RIG_VIA_RANK = { tag: 3, hint: 2, default: 1 };
+
+/**
+ * Combine the rig verdicts of two rows describing the same work id (STATUS and
+ * BACKLOG both carry ROUND-WEDGE-1). The stronger signal wins; on a tie, mp does.
+ * @param {PlaytestCard} a
+ * @param {PlaytestCard} b
+ * @returns {{ rig: PlaytestRig, rigVia: RigVia }}
+ */
+export function mergeRig(a, b) {
+  const ra = RIG_VIA_RANK[a.rigVia] || 1;
+  const rb = RIG_VIA_RANK[b.rigVia] || 1;
+  if (ra !== rb) {
+    const win = ra > rb ? a : b;
+    return { rig: win.rig, rigVia: win.rigVia };
+  }
+  if (a.rig === b.rig) return { rig: a.rig, rigVia: a.rigVia };
+  return { rig: "mp", rigVia: a.rigVia };
+}
 
 /**
  * @param {string} itemCell
@@ -101,6 +160,8 @@ export function cardsFromStatus(statusMd) {
       if (seen.has(one)) continue;
       seen.add(one);
       const statusShort = compressIssueStatus(q.status || q.what, 160);
+      // Classify on the source cells, never on the generated `do` below.
+      const { rig, via } = classifyRig(`${q.what || ""}\n${q.status || ""}`);
       out.push({
         id: one,
         phase: "STATUS",
@@ -110,6 +171,8 @@ export function cardsFromStatus(statusMd) {
         f8: f8LabelFor(one),
         source: "status",
         priority: q.state === "active" ? "active" : "waiting",
+        rig,
+        rigVia: via,
         requiresNote: true,
         notePrompt: "What did you try? What should have happened? What happened?",
       });
@@ -123,6 +186,7 @@ export function cardsFromStatus(statusMd) {
     const id = extractWorkId(issue.id) || extractWorkId(issue.issue);
     if (!id || seen.has(id)) continue;
     seen.add(id);
+    const { rig, via } = classifyRig(`${issue.issue || ""}\n${st}`);
     out.push({
       id,
       phase: "STATUS",
@@ -132,6 +196,8 @@ export function cardsFromStatus(statusMd) {
       f8: f8LabelFor(id),
       source: "status-issue",
       priority: "open",
+      rig,
+      rigVia: via,
       requiresNote: true,
       notePrompt: "Repro steps + what you saw.",
     });
@@ -167,6 +233,9 @@ export function cardsFromBacklog(backlogMd) {
 
       const title = fromItem.title || itemCell || id;
       const noteBit = compressIssueStatus(notes, 200);
+      // Raw cells, so a `[solo]` / `[2pc]` tag in Item survives parseBacklogItem's
+      // trailing-tag strip and the step list is visible to the keyword hint.
+      const { rig, via } = classifyRig(`${r.item || r.work || ""}\n${r.notes || r.outcome || ""}`);
       out.push({
         id,
         phase: section.title || "BACKLOG",
@@ -176,6 +245,8 @@ export function cardsFromBacklog(backlogMd) {
         f8: f8LabelFor(id),
         source: "backlog",
         priority: pri || "?",
+        rig,
+        rigVia: via,
         requiresNote: true,
         notePrompt: "Pass/fail detail for the agent (one finding).",
       });
@@ -195,11 +266,22 @@ export function buildPlaytestQueue(opts) {
 
   /** @type {Map<string, PlaytestCard>} */
   const byId = new Map();
-  // Status wins over backlog for the same id (fresher declaration).
+  // Status wins over backlog for the same id (fresher declaration) — except for
+  // rig, which merges across both rows. ROUND-WEDGE-1 is the case: STATUS owns the
+  // card, but its `[solo]` tag lives in the cheap place (BACKLOG), so a status-wins
+  // overwrite would otherwise throw the tag away.
   for (const c of backlogCards) byId.set(c.id, c);
-  for (const c of statusCards) byId.set(c.id, c);
+  for (const c of statusCards) {
+    const prior = byId.get(c.id);
+    byId.set(c.id, prior ? { ...c, ...mergeRig(prior, c) } : c);
+  }
 
-  const owed = [...byId.values()].sort((a, b) => a.id.localeCompare(b.id));
+  // Solo-checkable first, two-machine last, alphabetical inside each group — so a
+  // sitting at one desk runs top-down and stops when the badge flips to 2 PC.
+  const RIG_ORDER = { solo: 0, mp: 1 };
+  const owed = [...byId.values()].sort(
+    (a, b) => (RIG_ORDER[a.rig] ?? 0) - (RIG_ORDER[b.rig] ?? 0) || a.id.localeCompare(b.id),
+  );
 
   /** @type {PlaytestCard[]} */
   const cards = [];
@@ -213,6 +295,8 @@ export function buildPlaytestQueue(opts) {
       f8: f8LabelFor("preflight"),
       source: "system",
       priority: "sys",
+      rig: "solo",
+      rigVia: "tag",
       requiresNote: false,
     });
     cards.push(...owed);
@@ -225,6 +309,8 @@ export function buildPlaytestQueue(opts) {
       f8: f8LabelFor("export"),
       source: "system",
       priority: "sys",
+      rig: "solo",
+      rigVia: "tag",
       requiresNote: true,
       notePrompt: "Overall vs last session: better / same / worse? Worst moment?",
     });

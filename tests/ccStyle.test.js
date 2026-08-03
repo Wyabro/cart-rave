@@ -154,6 +154,7 @@ describe("Command Center label hierarchy", () => {
       ".rules h2", // console's one section head
       ".nav-links", // chrome nav
       ".card-status", // state badge, not a label
+      ".card-rig", // "2 PC" rig badge — state, same rank as .card-status
       ".stlabel", // capture-sheet state chip
       ".q-badge", // dashboard state badge
       ".tier-id", // monospace id token

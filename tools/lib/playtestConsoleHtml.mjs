@@ -35,6 +35,11 @@ const PAGE_CSS = `
   .card.done .card-status { color:var(--good); border-color:var(--edge-good); }
   .card.fail .card-status { color:var(--bad); border-color:rgba(255,93,93,.5); }
   .card.skip .card-status { color:var(--warn); border-color:var(--edge-warn); }
+  /* Only two-machine cards are badged — solo is the sorted-first default, so a badge
+     on every card would be noise. This one marks where a one-desk sitting stops. */
+  .card-rig { font-size:.72rem; text-transform:uppercase; letter-spacing:.06em;
+    padding:2px 8px; border-radius:999px; border:1px solid var(--edge-warn);
+    color:var(--warn); white-space:nowrap; }
   .card h3 { margin:0; font-size:1.1rem; line-height:1.3; }
   .card .do { margin:10px 0 0; font-size:.95rem; line-height:1.45; background:var(--panel2);
     border-radius:8px; padding:10px 12px; border:1px solid rgba(39,224,230,.35); }
@@ -380,8 +385,9 @@ ${PAGE_CSS}
       let out = "";
       if (isUpNext) out += '<div class="upnext-label">Up next</div>';
       out += '<div class="' + cls.join(" ") + '" data-id="' + escHtml(t.id) + '">';
+      const rigBadge = t.rig === "mp" ? '<span class="card-rig">2 PC</span>' : "";
       out += '<div class="card-head"><span class="card-id">' + escHtml(t.id) + "</span>" +
-        '<span class="card-status">' + statusLabel + "</span></div>";
+        rigBadge + '<span class="card-status">' + statusLabel + "</span></div>";
       out += "<h3>" + escHtml(t.title) + "</h3>";
       if (isNow) {
         out += '<div class="do">' + escHtml(t.do) + "</div>";
