@@ -240,7 +240,7 @@ function walkOctPerimeter(circumRadiusM, pitchM, visit) {
 // ===== Canvas texture builders =====
 
 /**
- * Steel deck top: plate seams, bolt rings, wear scuffs, rust streaks, cyan energy-conduit
+ * Steel deck top: plate seams, bolt rings, wear scuffs, rust streaks, amber energy-conduit
  * traces, hazard-yellow perimeter band traced as a true octagon (aligned to the collider
  * flats), and helipad-style podium markings.
  *
@@ -341,8 +341,10 @@ function buildDeckTexture(circumR) {
     });
   }
 
-  // Energy-conduit traces: cyan service lines along the eight flat-mid lanes, drawn as a
+  // Energy-conduit traces: amber service lines along the eight flat-mid lanes, drawn as a
   // soft glow pass under a crisp core line, ending on square junction pads.
+  // * Amber, not cyan — rgba(255,178,44) below. This comment said "cyan" for months over
+  // * amber code; do not "correct" the code back to a hue the amber unification removed.
   const conduitInner = PODIUM_BASE_R + 2.0;
   const conduitOuter = apothem - 4.2;
   for (let i = 0; i < OCT_SIDES; i += 1) {
@@ -713,8 +715,11 @@ function buildPanelTexture() {
 }
 
 /**
- * Vent-grille strip for the podium side wall: dark slats with a faint cyan energy line
- * glowing behind them — the gnomon reads as a powered machine, not a concrete step.
+ * Vent-grille strip for the podium side wall: dark slats with a faint amber energy line
+ * glowing behind them — the podium reads as a powered machine, not a concrete step.
+ * * Amber, not cyan — the gradient below is rgba(255,178,44,…). Do not "fix" it back.
+ * * "Gnomon" here used to mean the podium itself; the gnomon is now the standing blade
+ * * on the level group (see GNOMON_TIP_Y), so this says podium to keep the two apart.
  * @returns {THREE.CanvasTexture}
  */
 function buildGrilleTexture() {
@@ -2652,8 +2657,10 @@ function buildDeck(scene, world, config, circumR) {
   // *      holo, not to hiding this.
   // * Shape is a 4-sided taper flattened across the sun line, NOT a flat plane: a plane
   // * vanishes edge-on, and this stands mid-deck where a driving camera circles it constantly.
-  // * It carries no collider — additive geometry only, the podium hull is untouched — so carts
-  // * pass through it.
+  // * IT IS SOLID. A rotated cuboid collider is created in the physics section below — search
+  // * GNOMON_COLLIDER_MATCH_Y. This comment said "carries no collider … so carts pass through
+  // * it" for one commit, which was true only between item 22 and the collider that followed
+  // * it; the podium hull itself is still untouched, which is the part that stayed true.
   const gnomonH = GNOMON_TIP_Y - GNOMON_BASE_Y;
   const gnomonGeo = new THREE.CylinderGeometry(
     GNOMON_TIP_R, GNOMON_BASE_R, gnomonH, 4, 1, false, Math.PI / 4,
@@ -3540,7 +3547,12 @@ function buildDeck(scene, world, config, circumR) {
 
 /**
  * Spawn booths — engineered launch bays: paneled slabs, canopy roofs with antenna masts,
- * holographic banners, and pink/cyan rail neon alternating per booth.
+ * and caution-yellow rail neon shared with the deck.
+ * * This doc used to promise "holographic banners, and pink/cyan rail neon alternating per
+ * * booth". There is no banner geometry anywhere in this function and never was, and the
+ * * rails take the single shared `railNeonMat` — see its own @param below, which has been
+ * * contradicting this line. The amber unification removed pink and cyan from this arena
+ * * deliberately: fix the doc, do NOT build what it described.
  *
  * @param {THREE.Scene} scene
  * @param {import("@dimforge/rapier3d").World} world
