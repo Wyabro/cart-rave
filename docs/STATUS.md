@@ -33,8 +33,7 @@ external testers. Stay in this phase until Wyatt advances the marker.
 **ART-PASS-SUNDIAL-1 — ALL SIX WAVES SHIPPED.** Waves 1–5 deployed (`0d3d812f`); **Wave 6 pushed,
 NOT deployed** (`1add44a`..`c93ebc3`). Needs only Wyatt's playtest (**SUNDIAL-PT-1**) + deploy.
 **Six of eleven Wave 6 audit items were misdiagnosed** — measuring first changed the outcome each
-time, twice avoiding a regression sold as a fix. DIAG-FLAKE-2 closed 08-02; residual
-**DIAG-UPLOAD-GEN-1** in BACKLOG.
+time, twice avoiding a regression sold as a fix.
 
 Sundial spec = [handover](./planning/art-pass-sundial-handover.md); read its **"Traps that cost
 time"** before any capture, and judge phase changes against a ~1.2% construction-noise floor,
@@ -78,8 +77,9 @@ Live rows only. Shipped and closed cards live in
 
 | # | What | Status |
 |---|------|--------|
-| **LOAD-POSTER-1** | Loading screens redesigned as Fight Night posters (all three arenas) | ▶ **ACTIVE, code complete PUSHED** (`106fc50`). Stage is the poster: cqmin-sized scene + two-line title lockup + inline SVG per arena. QA 105/1269, build ok, loadshots 121/121 at 2560×1440 / 1920×1080 / 390×844. Remaining: **deploy + Wyatt eye (LOAD-POSTER-1)**. |
-| PLAYTEST-BATCH-0803-1 | Playtest batch 08-03 (FV-LOAD freezes + load art, quality grace, unlock toast, store decks, GET READY pulse, boot measure) | ✅ code complete, **PUSHED** (`35cf3a9`..`4f2fdde`) — the earlier "unpushed" label was a stale remote-tracking ref; `git ls-remote` confirms origin has it. QA 105/1269 green, build ok. Remaining: deploy + 5 Wyatt retests. |
+| **AGENTS-PRIN-1** | AGENTS.md: `## ENGINEERING PRINCIPLES` + small-change fast lane; hook internals → a guide | ▶ **ACTIVE** (docs card). The canonical file says nothing about **how to shape a diff** — hence the flags, shims and "temporary" paths every later change must navigate. Six falsifiable principles + a fast lane with mechanical qualification (**ack kept**). |
+| LOAD-POSTER-1 | Loading screens redesigned as Fight Night posters (all three arenas) | ⏸ **waiting on Wyatt** — code complete PUSHED (`106fc50`); cqmin-sized stage + two-line title lockup + inline SVG per arena. Remaining: **deploy + Wyatt eye** — human-blocked, not agent work. |
+| PLAYTEST-BATCH-0803-1 | Playtest batch 08-03 (FV-LOAD freezes + load art, quality grace, unlock toast, store decks, GET READY pulse, boot measure) | ✅ code complete, **PUSHED** (`35cf3a9`..`4f2fdde`). Remaining: deploy + 5 Wyatt retests. |
 | ART-PASS-SUNDIAL-1 | Sundial art pass — all 6 waves shipped | ✅ code complete — Wave 6 pushed, **not deployed**. Remaining: playtest (**SUNDIAL-PT-1**) + deploy. Spec = [handover](./planning/art-pass-sundial-handover.md). |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
@@ -88,9 +88,9 @@ Live rows only. Shipped and closed cards live in
 
 1. **Deploy is the only thing left before retests.** Both PLAYTEST-BATCH-0803-1
    (`35cf3a9`..`4f2fdde`) and LOAD-POSTER-1 (`106fc50`) are pushed; nothing is deployed.
-   Gates on HEAD: `npm run qa` **105 files / 1269 tests** + knip/briefing/arch/health ok,
-   `npm run build` ok. Retest queue after deploy: FV-LOAD-1, UNLOCK-TOAST-1, STORE-DECK-1,
-   CAM-READY-1, FV-BOOT-1, **LOAD-POSTER-1**. Deploy only on explicit "ship it".
+   Gate results are observed evidence — `npm run dashboard`, not restated here. Retest queue
+   after deploy: FV-LOAD-1, UNLOCK-TOAST-1, STORE-DECK-1, CAM-READY-1, FV-BOOT-1,
+   **LOAD-POSTER-1**. Deploy only on explicit "ship it".
 2. **W0.1 attribution (cap-229 @ c418bd9):** Cart Rave freeze = juice path
    (`warm.render.default.play-full` ~971 ms + play-shader ~1 s); demotions overlap entry.
    Mid-round 6.5 s compile → **PROBE-WARM-RT-1** note filed (not batch scope).
@@ -177,19 +177,9 @@ playtest. Gates: see commit message.
 index blob ≠ HEAD (before dashboard). BRIEF-DIGEST-1: template fingerprint in digest + embed.
 STOP-DIRT-1 BACKLOG row retired (code already session-scoped). All three rows closed.
 
-2026-08-02 (DIAG-FLAKE-2 closed — the drain was a guess, 5–20× too short) — Took the card slot
-off Sundial, fixed, gave it back. **Reproduced first** (~1-in-10 full runs): `posts an
-auto-captured bundle to the same endpoint F8 uses`, `expected [] to have a length of 1 but got
-+0`. **Attributed by measurement against a green control arm**, not by adjacency:
-`import("./captureUpload.js")` took **21ms vs 4ms** on the failing event, while `flush()` was
-eight `setTimeout(0)` turns ≈ 8–16ms; chain-minus-import was 1–2ms every sample, ruling out the
-fetch tail. Fix = a real completion signal (`__drainAutoCapturesForTest`), not a longer drain.
-**Two defects in my own fix were caught by its own new test** — a stuck chain cascaded 0→8
-failures, and `Promise.race` overshot the deadline, making the timeout a lie. **Trap worth
-remembering:** adding `clearTimeout` to the test reset would have made DIAG-FLAKE-1's regression
-test pass with `be350b4`'s guard deleted; it now re-installs without a reset instead. Verified
-30 consecutive full runs, 0 red. Sundial's owed playtest lives in BACKLOG as **SUNDIAL-PT-1**;
-residual as **DIAG-UPLOAD-GEN-1**.
+2026-08-02 (DIAG-FLAKE-2 closed) — Full forensic record in
+[completed-work.md](./planning/completed-work.md) (08-02 entry). Sundial's owed playtest is
+**SUNDIAL-PT-1** in BACKLOG; residual **DIAG-UPLOAD-GEN-1**.
 
 2026-08-02 (process reset — the point of it) — Measured why velocity fell: in one three-hour
 window, 16 of 25 commits were the machine maintaining itself while the art pass waited, and 137

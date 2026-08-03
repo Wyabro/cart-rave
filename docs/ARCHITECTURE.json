@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-03T21:05:22.051Z",
-    "commit": "cb6b3d5"
+    "at": "2026-08-03T22:28:20.000Z",
+    "commit": "d3eb6a7"
   },
-  "source_digest": "9a5b7121",
+  "source_digest": "4f875773",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -850,15 +850,21 @@
   "workstreams": {
     "queue": [
       {
+        "id": "AGENTS-PRIN-1",
+        "what": "AGENTS.md: `## ENGINEERING PRINCIPLES` + small-change fast lane; hook internals → a guide",
+        "status": "▶ ACTIVE (docs card). The canonical file says nothing about how to shape a diff — hence the flags, shims and \"temporary\" paths every later change must navigate. Six falsifiable principles + a fast lane with mechanical qualification (ack kept).",
+        "state": "active"
+      },
+      {
         "id": "LOAD-POSTER-1",
         "what": "Loading screens redesigned as Fight Night posters (all three arenas)",
-        "status": "▶ ACTIVE, code complete PUSHED (`106fc50`). Stage is the poster: cqmin-sized scene + two-line title lockup + inline SVG per arena. QA 105/1269, build ok, loadshots 121/121 at 2560×1440 / 1920×1080 / 390×844. Remaining: deploy + Wyatt eye (LOAD-POSTER-1).",
-        "state": "active"
+        "status": "⏸ waiting on Wyatt — code complete PUSHED (`106fc50`); cqmin-sized stage + two-line title lockup + inline SVG per arena. Remaining: deploy + Wyatt eye — human-blocked, not agent work.",
+        "state": "waiting"
       },
       {
         "id": "PLAYTEST-BATCH-0803-1",
         "what": "Playtest batch 08-03 (FV-LOAD freezes + load art, quality grace, unlock toast, store decks, GET READY pulse, boot measure)",
-        "status": "✅ code complete, PUSHED (`35cf3a9`..`4f2fdde`) — the earlier \"unpushed\" label was a stale remote-tracking ref; `git ls-remote` confirms origin has it. QA 105/1269 green, build ok. Remaining: deploy + 5 Wyatt retests.",
+        "status": "✅ code complete, PUSHED (`35cf3a9`..`4f2fdde`). Remaining: deploy + 5 Wyatt retests.",
         "state": "done"
       },
       {

@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-03 at commit `106fc50` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `97d13764`
+> Generated 2026-08-03 at commit `d3eb6a7` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `849609ab`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -18,8 +18,8 @@ Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep a
 
 ## ACTIVE CARD
 
-LOAD-POSTER-1 — Loading screens redesigned as Fight Night posters (all three arenas)
-Pass looks like: ▶ ACTIVE, code complete PUSHED (`106fc50`). Stage is the poster: cqmin-sized scene + two-line title lockup + inline SVG per arena. QA 105/1269, build ok, loadshots 121/121 at 2560×1440 / 1920×1080 / 390×844. Remaining: deploy + Wyatt eye (LOAD-POSTER-1).
+AGENTS-PRIN-1 — AGENTS.md: `## ENGINEERING PRINCIPLES` + small-change fast lane; hook internals → a guide
+Pass looks like: ▶ ACTIVE (docs card). The canonical file says nothing about how to shape a diff — hence the flags, shims and "temporary" paths every later change must navigate. Six falsifiable principles + a fast lane with mechanical qualification (ack kept).
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 
