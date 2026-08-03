@@ -320,6 +320,19 @@ because a full day was once lost grinding one task; the loop caps that at ~45 mi
   - **Mid-wave abort.** If a lever fails its asserts, or Wyatt stops the wave, the wave stops
     there. The remaining levers need a fresh ack or an explicit "continue" — a wave ack is not
     a blank cheque.
+- **The fast lane: one file, nothing player-visible → skip the wave doc, keep the ack.**
+  The wave loop above is correct for a six-lever pass and crushing for a one-line fix; without a
+  smaller gear, a small fix costs what a big one costs. **Qualification is mechanical, not a
+  judgement call** — all of these must hold: **one file** · fixes only the stated symptom ·
+  **no new file** · no new
+  dependency · **no new `CONFIG` key or URL flag** · touches nothing in ARCHITECTURE INVARIANTS.
+  Any one of these disqualifies it outright: `main.js` · `party/` · `src/netcode*` · Rapier /
+  physics · **any player-visible behaviour change**. What the fast lane still costs: a **one-line
+  intent to Wyatt** ("fix X in Y, assert Z") → his go → apply → `npm run qa` green by number →
+  one commit → push → `verify:head`. **The ack is not what gets skipped** — the wave *document*,
+  the playtest checklist, and the per-lever STATUS edit are. **If a fast-lane change grows past
+  its qualification mid-flight, stop and write the wave plan** — finishing it in the fast lane is
+  the exact moment an hour becomes a day.
 - **One card at a time.** Exactly one active item. New ideas go to
   [BACKLOG.md](docs/planning/BACKLOG.md) — recording an idea ≠ changing priorities.
 - **Freeze the operating system during a game card.** While a game card is active, no commits
@@ -339,8 +352,9 @@ because a full day was once lost grinding one task; the loop caps that at ~45 mi
   (4) hand off per MODEL / TOOL ROUTING below, or ask Wyatt. Handing off with a findings
   write-up is a success, not a failure.
 - **Definition of done:** gates green **by number** + pushed + pulled-and-verified in
-  `origin/cart-clash` HEAD + `npm run briefing` fresh + STATUS.md updated. Behavior changes
-  additionally need Wyatt's playtest on production before they count.
+  `origin/cart-clash` HEAD + `npm run briefing` fresh + STATUS.md updated — except that
+  **fast-lane commits may defer the STATUS.md update to the next wave boundary**. Behavior
+  changes additionally need Wyatt's playtest on production before they count.
 
 ---
 
