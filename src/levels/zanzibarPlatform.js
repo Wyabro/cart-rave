@@ -3030,21 +3030,51 @@ function buildDeck(scene, world, config, circumR) {
   ownedTextures.push(stripeTex);
   const bollardMat = new THREE.MeshStandardMaterial({ map: stripeTex, roughness: 0.6, metalness: 0.3 });
   ownedMaterials.push(bollardMat);
-  const bollardGeo = new THREE.CylinderGeometry(BOLLARD_RADIUS, BOLLARD_RADIUS, BOLLARD_HEIGHT, 10);
-  const capGeo = new THREE.CylinderGeometry(BOLLARD_RADIUS * 0.7, BOLLARD_RADIUS * 0.7, 0.12, 10);
-  ownedGeometries.push(bollardGeo, capGeo);
+  // * 18 radial segments, not 10. At BOLLARD_RADIUS 0.55 a 10-gon has 34 cm facets that read
+  // * as a faceted prism from the chase camera; 18 halves the facet to 19 cm and the
+  // * silhouette goes round. These are the closest props to a player at the rim.
+  const BOLLARD_SEGMENTS = 18;
+  const bollardGeo = new THREE.CylinderGeometry(BOLLARD_RADIUS, BOLLARD_RADIUS, BOLLARD_HEIGHT, BOLLARD_SEGMENTS);
+  const capGeo = new THREE.CylinderGeometry(BOLLARD_RADIUS * 0.7, BOLLARD_RADIUS * 0.7, 0.12, BOLLARD_SEGMENTS);
+  // * Base flange — a bolted foot, so the post meets the deck instead of intersecting it.
+  const flangeGeo = new THREE.CylinderGeometry(BOLLARD_RADIUS * 1.32, BOLLARD_RADIUS * 1.5, 0.11, BOLLARD_SEGMENTS);
+  ownedGeometries.push(bollardGeo, capGeo, flangeGeo);
   const bollardRing = circumR * BOLLARD_RING_SCALE;
   const bollardPositions = [];
+  // * Seeded, so the eight posts are the same eight posts on every load. mulberry32-style
+  // * generator shared with the alien city's window layout — generic despite the name.
+  const bollardRng = makeCityRng(0x50d1a1);
   for (let i = 0; i < OCT_SIDES; i += 1) {
     const a = VERTEX_OFFSET + i * (Math.PI / 4);
     const x = Math.cos(a) * bollardRing;
     const z = Math.sin(a) * bollardRing;
     bollardPositions.push({ x, z });
+
+    // * Per-instance jitter so eight posts do not read as one post stamped eight times.
+    // * Yaw is free — the collider is a cylinder, so spinning the stripe wrap costs nothing.
+    // * Scale is deliberately tiny: the colliders below still use the unjittered
+    // * BOLLARD_RADIUS / BOLLARD_HEIGHT, so a visual-only offset has to stay under a couple
+    // * of centimetres or the post you see stops being the post you hit.
+    const yawJitter = bollardRng() * Math.PI * 2;
+    const radialScale = 0.97 + bollardRng() * 0.06; // +/-3% => +/-1.65 cm
+    const heightScale = 0.95 + bollardRng() * 0.10; // +/-5% => +/-8 cm at the cap
+
     const bollard = new THREE.Mesh(bollardGeo, bollardMat);
-    bollard.position.set(x, BOLLARD_HEIGHT / 2, z);
+    bollard.position.set(x, (BOLLARD_HEIGHT * heightScale) / 2, z);
+    bollard.rotation.y = yawJitter;
+    bollard.scale.set(radialScale, heightScale, radialScale);
     group.add(bollard);
+
+    const flange = new THREE.Mesh(flangeGeo, bollardMat);
+    flange.position.set(x, 0.055, z);
+    flange.rotation.y = yawJitter;
+    flange.scale.set(radialScale, 1, radialScale);
+    group.add(flange);
+
     const cap = new THREE.Mesh(capGeo, neonYellowMat);
-    cap.position.set(x, BOLLARD_HEIGHT + 0.06, z);
+    cap.position.set(x, BOLLARD_HEIGHT * heightScale + 0.06, z);
+    cap.rotation.y = yawJitter;
+    cap.scale.set(radialScale, 1, radialScale);
     group.add(cap);
     neonStripMeshes.push(cap);
   }
