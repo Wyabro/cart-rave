@@ -13,6 +13,9 @@
  *   ?shot=classic|classic-edge|storerooms|sundial|sundial-edge
  *   ?harness=1                            — install visual harness hooks + warm world ASAP
  *   ?hud=0                                — hide main menu chrome (clean arena shots)
+ *   ?t=<ms>                               — pin per-frame level animation to an exact
+ *                                           timestamp so captures are reproducible
+ *                                           (SHOOT-ANIM-1). Absent = free-run on real time.
  *   ?perfPump                             — existing (utils/perfPump.js)
  *   ?blackmon=1                           — live black-frame flicker monitor (VFX-1, real HW)
  *   ?floor=og|v2                              — Classic vinyl floor (default og = jam matte
@@ -50,6 +53,7 @@
  * @property {string | null} shot
  * @property {boolean} harness
  * @property {boolean} hideHud
+ * @property {number | null} animTimeMs Pinned level-animation timestamp (see ?t=)
  * @property {boolean} blackmon
  * @property {{ threshold?: number, strength?: number, radius?: number, smoothWidth?: number } | null} bloomTune
  * @property {"og" | "v2"} floor Classic High vinyl profile (see ?floor=)
@@ -152,6 +156,12 @@ function parseDebugParams(search) {
   const hudRaw = params.get("hud");
   const hideHud = hudRaw === "0" || hudRaw === "false" || hudRaw === "off";
 
+  // * ?t=<ms> pins level animation to one timestamp (SHOOT-ANIM-1) so a capture is a
+  // * reproducible phase rather than whenever the shot happened to land. Number.isFinite
+  // * (not truthiness) — ?t=0 is a legitimate phase and must survive as 0, not null.
+  const animTimeRaw = Number(params.get("t"));
+  const animTimeMs = params.has("t") && Number.isFinite(animTimeRaw) ? animTimeRaw : null;
+
   let shot = params.get("shot");
   if (shot) shot = shot.trim().toLowerCase();
   const bookmark = shot && VISUAL_BOOKMARKS[shot] ? VISUAL_BOOKMARKS[shot] : null;
@@ -221,6 +231,7 @@ function parseDebugParams(search) {
     shot: bookmark ? shot : null,
     harness: harness || Boolean(params.get("ablate")) || Boolean(cam) || postmin || hideHud,
     hideHud,
+    animTimeMs,
     blackmon,
     bloomTune,
     floor,
@@ -244,6 +255,16 @@ export function getDebugParams() {
 export function isDebugCameraLocked() {
   const p = getDebugParams();
   return Boolean(p.cam) || p.freeze;
+}
+
+/**
+ * Pinned level-animation timestamp (?t=<ms>), or null to free-run on real time.
+ * Callers do `getDebugAnimTimeMs() ?? now` — 0 must stay 0, so this returns null,
+ * never undefined, for "absent".
+ * @returns {number | null}
+ */
+export function getDebugAnimTimeMs() {
+  return getDebugParams().animTimeMs;
 }
 
 /**

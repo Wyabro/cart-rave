@@ -1574,14 +1574,28 @@ async function main() {
     getMenuVisible: () => menuVisible,
     getArenaRadius: () => CONFIG.record.radius,
     getLevelId: getCurrentLevelId,
-    // * Weak machines land at the MENU first — feed measured attract render cost
+    // * SHOOT-ANIM-1: the attract loop renders but ran no updates, so level animation
+    // * was frozen at its constructor value behind the menu and in every capture. This
+    // * is the game loop's cosmetic block (:5281-5282) driven from the only loop that
+    // * is actually running here.
+    onAnimationTick: (timeMs) => {
+      /** @type {any} */ (sceneExtras)?.update?.(timeMs, camera);
+      levelUpdate?.(timeMs);
+      // * LOD stays on local wall time even when ?t= pins animation — levelLod's
+      // * _lastUpdateMs latch is module-global with a 250ms interval, so a small
+      // * pinned t would park it in the future and suppress LOD entirely. Same
+      // * local-clock reasoning as LOD-CLOCK-1 at the game-loop call site.
+      updateLevelLod(camera, performance.now());
+    },
+    // * Weak machines land at the MENU first — feed measured attract frame cost
     // * to the same session watchdog the game loop uses so they step down to a
     // * survivable tier before ever entering a round. (Frame spacing can't be
     // * used here: the attract loop throttles to ~30fps by design.)
-    onRenderCost: (renderCostSec, nowMs) => {
-      // * "attract" tags the feed: this is RENDER COST, not frame delta (the attract loop
-      // * throttles to ~30fps), yet both feed the same 20.5ms bar. WARM-IGPU-1 Phase 0b.
-      if (tickAutoQuality(renderCostSec, nowMs, "attract")) handleAutoQualityStepDown();
+    onRenderCost: (frameCostSec, nowMs) => {
+      // * "attract" tags the feed: this is FRAME COST — animation tick plus render, not
+      // * frame delta (the attract loop throttles to ~30fps) — yet both feed the same
+      // * 20.5ms bar. WARM-IGPU-1 Phase 0b.
+      if (tickAutoQuality(frameCostSec, nowMs, "attract")) handleAutoQualityStepDown();
     },
   });
 

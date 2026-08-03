@@ -3,9 +3,16 @@
  *
  * While the menu is up, the game loop is fully skipped (`shouldSkipTiming`),
  * so the idle-warmed arena behind the menu never draws. This module runs its
- * OWN throttled rAF loop that only renders — no physics, no game flow — using
- * the same warm render path as the frame loop (composer vs direct latch, see
- * frameVisuals.js) so it never triggers a shader-path recompile.
+ * OWN throttled rAF loop — no physics, no game flow — using the same warm
+ * render path as the frame loop (composer vs direct latch, see frameVisuals.js)
+ * so it never triggers a shader-path recompile.
+ *
+ * It also drives per-frame LEVEL animation via `onAnimationTick`. It used to
+ * render WITHOUT updating, so every animated property — water scroll, turbines,
+ * beacon pulses, ship glows — sat frozen at its constructor value behind the
+ * menu and in every `shoot-gpu` capture, which silently invalidated any
+ * capture-based claim about motion (SHOOT-ANIM-1). The tick runs before the
+ * render, in the same frame, exactly as the game loop orders it.
  *
  * The main camera is borrowed for a slow orbit: gameplay re-seats the camera
  * every play frame and play entry is covered by the loading overlay, so no
@@ -22,7 +29,11 @@
  */
 
 import { isComposerBypassActive } from "../scene.js";
-import { applyDebugCameraPose, isDebugCameraLocked } from "../utils/debugParams.js";
+import {
+  applyDebugCameraPose,
+  getDebugAnimTimeMs,
+  isDebugCameraLocked,
+} from "../utils/debugParams.js";
 import { tickVisualHarnessFrame } from "../utils/visualHarness.js";
 
 /**
@@ -35,12 +46,16 @@ import { tickVisualHarnessFrame } from "../utils/visualHarness.js";
  * @property {() => boolean} getMenuVisible
  * @property {() => number} getArenaRadius
  * @property {() => string} [getLevelId] Loaded arena id — per-arena camera clamps.
- * @property {(renderCostSec: number, nowMs: number) => void} [onRenderCost]
- *   Measured cost of this attract render (seconds). Main feeds it to the
- *   auto-quality watchdog so weak machines step down at the MENU — before play —
- *   instead of only after sustained bad in-game frames. Frame *spacing* is
- *   useless here (the loop throttles to ~30fps by design); only the measured
- *   render duration reflects GPU/CPU load.
+ * @property {(timeMs: number) => void} [onAnimationTick]
+ *   Per-frame level animation (levelUpdate / sceneExtras). Called before the
+ *   render, same frame. Receives the pinned ?t= timestamp when set, else the
+ *   rAF time. See SHOOT-ANIM-1 in the module header.
+ * @property {(frameCostSec: number, nowMs: number) => void} [onRenderCost]
+ *   Measured cost of this attract frame — animation tick AND render (seconds).
+ *   Main feeds it to the auto-quality watchdog so weak machines step down at the
+ *   MENU — before play — instead of only after sustained bad in-game frames.
+ *   Frame *spacing* is useless here (the loop throttles to ~30fps by design);
+ *   only the measured frame duration reflects GPU/CPU load.
  */
 
 /** @type {MenuAttractDeps | null} */
@@ -188,14 +203,24 @@ function step(now) {
     d.camera.lookAt(0, arenaRadius * shot.lookHeightMul, 0);
   }
 
+  // * SHOOT-ANIM-1: this is the ONLY loop running while the menu is up (the game loop
+  // * bails in shouldSkipTiming), so per-frame level animation has to be driven from
+  // * here or it stays frozen at its constructor value — on the live menu and in every
+  // * capture. ?t= pins a phase so shots are reproducible.
+  // * Ordering is load-bearing, twice over: the tick must sit BELOW the throttle gate
+  // * above (advance only on frames that actually render, or update decouples from
+  // * render at 60Hz) and BEFORE the render (after it, the drawn frame is one update
+  // * stale). Timed together with the render because levelUpdate is real per-frame CPU
+  // * — ships, water, rotors, beacons — and the watchdog must judge update+render.
+  const frameStartMs = performance.now();
+  d.onAnimationTick?.(getDebugAnimTimeMs() ?? now);
   // Same latched path as frameVisuals.js — never flip render paths here.
-  const renderStartMs = performance.now();
   if (isComposerBypassActive()) {
     d.renderer.render(d.scene, d.camera);
   } else {
     d.composer.render();
   }
-  d.onRenderCost?.((performance.now() - renderStartMs) / 1000, renderStartMs);
+  d.onRenderCost?.((performance.now() - frameStartMs) / 1000, frameStartMs);
   tickVisualHarnessFrame();
   setRevealed(true);
 }

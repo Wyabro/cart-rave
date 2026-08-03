@@ -65,6 +65,7 @@ export function installVisualHarness(dependencies) {
         shot: params.shot,
         harness: params.harness,
         hideHud: params.hideHud,
+        animTimeMs: params.animTimeMs,
       };
     },
     stats() {

@@ -507,10 +507,13 @@ function createUfos(ctx) {
   };
 
   // * Seat the orbit at construction. Group position defaults to (0,0,0) — dead centre of
-  // * the arena, inside the KO pit — and only update() moves it. The menu attract loop does
-  // * NOT tick sceneExtras.update (only the game frame loop does), so without this the two
-  // * saucers park in the pit for the whole attract screen: a flat grey 3m dome sitting in
-  // * the hole. Invisible until SKYBOX-1 switched the rig on for the first time.
+  // * the arena, inside the KO pit — and only update() moves it, so without this seed the
+  // * two saucers park in the pit until the first tick lands: a flat grey 3m dome sitting
+  // * in the hole. Invisible until SKYBOX-1 switched the rig on for the first time.
+  // * This used to cover the WHOLE attract screen, because the menu attract loop rendered
+  // * without ever ticking sceneExtras.update — fixed in SHOOT-ANIM-1, which added
+  // * onAnimationTick. The seed still earns its place: it covers the frames between
+  // * construction and that first tick.
   update(0);
 
   return { update };
