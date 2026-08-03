@@ -7,14 +7,14 @@
  * from docs/STATUS.md declarations (never observed evidence — that stays in
  * health.json), rendered deterministically and committed.
  *
- * Freshness contract: the body embeds a digest of the STATUS-derived content.
- * `npm run briefing:check` (inside `npm run qa`) and `npm run health:check`
- * (BRIEFING_STALE) recompute that digest from the live STATUS.md and fail on
- * mismatch — so a hand-edit or a skipped regeneration is a red gate, not silent
- * drift. The git header (branch/HEAD/date) is informational and excluded from
- * the digest so ordinary commits don't churn the file. The Gates section lives
- * INSIDE the digested body on purpose: editing package.json's `check` chain
+ * Freshness contract: the embedded source digest covers STATUS-derived body **and**
+ * the static template (title, boilerplate, read-order, before-you-touch). BRIEF-DIGEST-1:
+ * a template-only edit must red-gate until regeneration. Git date/head/branch stay
+ * outside the digest so ordinary commits do not churn the file. The Gates section
+ * lives INSIDE the digested body on purpose: editing package.json's `check` chain
  * red-gates until the briefing is regenerated.
+ *
+ * Contract: extractBriefingDigest(renderBriefingMd(status)) === briefingSourceDigest(status).
  */
 
 import { createHash } from "node:crypto";
@@ -40,6 +40,38 @@ const DIGEST_LINE = /^> Source digest: `([0-9a-f]{8})`/m;
 /** @param {string} s */
 function sha8(s) {
   return createHash("sha1").update(s, "utf8").digest("hex").slice(0, 8);
+}
+
+// ── Static template (shared by render + digest fingerprint — do not duplicate) ──
+
+export const BRIEFING_TITLE = `# Cart Clash — Agent Briefing`;
+
+export const BRIEFING_GENERATED_BOILERPLATE =
+  `> **GENERATED — do not hand-edit.** Regenerate: \`npm run briefing\` (the pre-commit hook does this on every commit; \`npm run qa\` only *checks* freshness, read-only).`;
+
+/** Fixed suffix of the Generated line (git date/head/branch are injected before this). */
+export const BRIEFING_GENERATED_SUFFIX =
+  `. If docs/STATUS.md's digested sections have changed since, \`npm run briefing:check\` (inside \`npm run qa\`) fails until this is regenerated.`;
+
+export const BRIEFING_READ_ORDER =
+  `**Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → \`npm run dashboard\` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.`;
+
+export const BRIEFING_BEFORE_TOUCH =
+  `**Before you touch code:** (1) Plan → Wyatt ack → apply, acked **per wave** — one plan covering every lever plus its playtest checklist, one ack, then one commit per lever. BRIEFING's ACTIVE CARD names the card, not permission to edit. (2) **Look up** the files you are touching in [docs/ARCHITECTURE.json](./ARCHITECTURE.json) — \`Select-String -Path docs/ARCHITECTURE.json -Pattern <filename> -Context 4,12\`. Never read it whole; it is ~30,000 tokens. (3) During a game card, do not commit to \`tools/\` · \`.claude/hooks/\` · \`.agents/\` — file it to BACKLOG instead.`;
+
+/**
+ * Digest input for static header/template lines (no git metadata, no Source digest line).
+ * Shared constants only — editing any constant changes the fingerprint.
+ * @returns {string}
+ */
+export function briefingTemplateFingerprint() {
+  return [
+    BRIEFING_TITLE,
+    BRIEFING_GENERATED_BOILERPLATE,
+    BRIEFING_GENERATED_SUFFIX,
+    BRIEFING_READ_ORDER,
+    BRIEFING_BEFORE_TOUCH,
+  ].join("\n");
 }
 
 // Last-resort gate chain if package.json is unreadable — keep it plausible, not precise.
@@ -128,9 +160,13 @@ export function renderBriefingBody(statusMd) {
   return lines.join("\n");
 }
 
-/** Digest of the STATUS-derived briefing content. @param {string} statusMd */
+/**
+ * Digest of template fingerprint + STATUS-derived body.
+ * Must match the value embedded as `Source digest` in {@link renderBriefingMd}.
+ * @param {string} statusMd
+ */
 export function briefingSourceDigest(statusMd) {
-  return sha8(renderBriefingBody(statusMd));
+  return sha8(briefingTemplateFingerprint() + "\n" + renderBriefingBody(statusMd));
 }
 
 /** Pull the embedded digest out of a BRIEFING.md. @param {string} briefingMd @returns {string | null} */
@@ -145,17 +181,18 @@ export function extractBriefingDigest(briefingMd) {
  * @returns {string}
  */
 export function renderBriefingMd(statusMd, git = {}) {
+  const digest = briefingSourceDigest(statusMd);
   const body = renderBriefingBody(statusMd);
   return [
-    `# Cart Clash — Agent Briefing`,
+    BRIEFING_TITLE,
     ``,
-    `> **GENERATED — do not hand-edit.** Regenerate: \`npm run briefing\` (the pre-commit hook does this on every commit; \`npm run qa\` only *checks* freshness, read-only).`,
-    `> Generated${git.date ? ` ${git.date}` : ""}${git.head ? ` at commit \`${git.head}\`` : ""}${git.branch ? ` on \`${git.branch}\`` : ""}. If docs/STATUS.md's digested sections have changed since, \`npm run briefing:check\` (inside \`npm run qa\`) fails until this is regenerated.`,
-    `> Source digest: \`${sha8(body)}\``,
+    BRIEFING_GENERATED_BOILERPLATE,
+    `> Generated${git.date ? ` ${git.date}` : ""}${git.head ? ` at commit \`${git.head}\`` : ""}${git.branch ? ` on \`${git.branch}\`` : ""}${BRIEFING_GENERATED_SUFFIX}`,
+    `> Source digest: \`${digest}\``,
     ``,
-    `**Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → \`npm run dashboard\` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.`,
+    BRIEFING_READ_ORDER,
     ``,
-    `**Before you touch code:** (1) Plan → Wyatt ack → apply, acked **per wave** — one plan covering every lever plus its playtest checklist, one ack, then one commit per lever. BRIEFING's ACTIVE CARD names the card, not permission to edit. (2) **Look up** the files you are touching in [docs/ARCHITECTURE.json](./ARCHITECTURE.json) — \`Select-String -Path docs/ARCHITECTURE.json -Pattern <filename> -Context 4,12\`. Never read it whole; it is ~30,000 tokens. (3) During a game card, do not commit to \`tools/\` · \`.claude/hooks/\` · \`.agents/\` — file it to BACKLOG instead.`,
+    BRIEFING_BEFORE_TOUCH,
     ``,
     body,
     ``,

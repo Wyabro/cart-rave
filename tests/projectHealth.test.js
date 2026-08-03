@@ -488,6 +488,39 @@ describe("briefing render + freshness contract", () => {
     expect(briefingSourceDigest(STATUS.replace("Stabilize.", "Ship RC."))).not.toBe(briefingSourceDigest(STATUS));
   });
 
+  it("BRIEF-DIGEST-1: embedded digest === briefingSourceDigest (not sha8(body) alone)", async () => {
+    const {
+      renderBriefingMd,
+      renderBriefingBody,
+      briefingSourceDigest,
+      extractBriefingDigest,
+      briefingTemplateFingerprint,
+    } = await import("../tools/lib/briefing.mjs");
+    const { createHash } = await import("node:crypto");
+    const sha8 = (s) => createHash("sha1").update(s, "utf8").digest("hex").slice(0, 8);
+    const md = renderBriefingMd(STATUS, { head: "abc1234" });
+    const embedded = extractBriefingDigest(md);
+    expect(embedded).toBe(briefingSourceDigest(STATUS));
+    // Body-only hash must NOT match once the template is in the digest.
+    expect(embedded).not.toBe(sha8(renderBriefingBody(STATUS)));
+    expect(briefingTemplateFingerprint().length).toBeGreaterThan(40);
+  });
+
+  it("BRIEF-DIGEST-1: digest is sha8(fingerprint + body); mutating fingerprint composition changes it", async () => {
+    const {
+      renderBriefingBody,
+      briefingSourceDigest,
+      briefingTemplateFingerprint,
+    } = await import("../tools/lib/briefing.mjs");
+    const { createHash } = await import("node:crypto");
+    const sha8 = (s) => createHash("sha1").update(s, "utf8").digest("hex").slice(0, 8);
+    const body = renderBriefingBody(STATUS);
+    const fp = briefingTemplateFingerprint();
+    expect(briefingSourceDigest(STATUS)).toBe(sha8(fp + "\n" + body));
+    // A different fingerprint with the same body yields a different digest (template gate).
+    expect(sha8(fp + "\nMUTATED\n" + body)).not.toBe(briefingSourceDigest(STATUS));
+  });
+
   it("evaluateProjectHealth errors on a missing or stale briefing, passes on a fresh one", async () => {
     const { evaluateProjectHealth } = await import("../tools/lib/projectHealthValidation.mjs");
     const { renderBriefingMd } = await import("../tools/lib/briefing.mjs");
