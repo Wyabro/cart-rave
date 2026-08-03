@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-03 at commit `026d608` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `907b5256`
+> Generated 2026-08-03 at commit `7e9e224` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `a7d0d99f`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -19,7 +19,7 @@ Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep a
 ## ACTIVE CARD
 
 PLAYTEST-BATCH-0803-1 — Playtest batch 08-03 (FV-LOAD freezes + load art, quality grace, unlock toast, store decks, GET READY pulse, boot measure)
-Pass looks like: ▶ ACTIVE — plan acked; Wave 0 measure done on cap-229 @ `c418bd9`. ART-PASS-SUNDIAL-1 stays code-complete, deploy pending (not reopened).
+Pass looks like: ▶ ACTIVE, code complete unpushed — Waves 0–7 landed locally (`35cf3a9`..`7e9e224`). QA 105/1269 green. Needs push + Wyatt retest cards.
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 

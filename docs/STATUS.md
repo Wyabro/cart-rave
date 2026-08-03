@@ -78,23 +78,23 @@ Live rows only. Shipped and closed cards live in
 
 | # | What | Status |
 |---|------|--------|
-| **PLAYTEST-BATCH-0803-1** | Playtest batch 08-03 (FV-LOAD freezes + load art, quality grace, unlock toast, store decks, GET READY pulse, boot measure) | ▶ **ACTIVE** — plan acked; Wave 0 measure done on cap-229 @ `c418bd9`. ART-PASS-SUNDIAL-1 stays code-complete, deploy pending (not reopened). |
+| **PLAYTEST-BATCH-0803-1** | Playtest batch 08-03 (FV-LOAD freezes + load art, quality grace, unlock toast, store decks, GET READY pulse, boot measure) | ▶ **ACTIVE, code complete unpushed** — Waves 0–7 landed locally (`35cf3a9`..`7e9e224`). QA 105/1269 green. Needs push + Wyatt retest cards. |
 | ART-PASS-SUNDIAL-1 | Sundial art pass — all 6 waves shipped | ✅ code complete — Wave 6 pushed, **not deployed**. Remaining: playtest (**SUNDIAL-PT-1**) + deploy. Spec = [handover](./planning/art-pass-sundial-handover.md). |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 
 ### Next actions
 
-1. **PLAYTEST-BATCH-0803-1 — ACTIVE.** Order: W0.1✓ → W0.2 → Wave 1–7. One commit per lever;
-   `npm run qa` + `npm run build` per wave. Ship only on explicit "ship it".
-2. **W0.1 attribution (cap-229 @ c418bd9, Cart Rave entry):** freeze in play-entry juice path —
-   `warm.render.default.play-full` ~971 ms + play-shader ~1.0 s (materials 399→497); demotions
-   overlap entry (`qualityStepDown` high→medium at +2 s source=game, then medium→low, then
-   scale 0.85). Mid-round 6.5 s compile (materials 505) is **PROBE-WARM-RT-1** evidence, not
-   batch scope. SPAWN-PT-1 closed by Wyatt (centring ok; inset in `e64f1a3`).
-3. **Playtest owed** — BACKLOG `## Playtest owed` + retest cards after each shipped wave.
-   **UNLOCK-PT-1 needs gates ON** (`?devUnlocks=off` + hard refresh).
-4. **ART-PASS-SUNDIAL-1** remains code complete, deploy pending — not this batch.
+1. **PLAYTEST-BATCH-0803-1 — code complete, unpushed.** Commits `35cf3a9`..`7e9e224`. Gates:
+   `npm run qa` **105 files / 1269 tests** + knip/briefing/arch/health ok; `npm run build` ok.
+   Next: push on Wyatt call, then retest queue (FV-LOAD-1, UNLOCK-TOAST-1, STORE-DECK-1,
+   CAM-READY-1, FV-BOOT-1). Ship/deploy only on explicit "ship it".
+2. **W0.1 attribution (cap-229 @ c418bd9):** Cart Rave freeze = juice path
+   (`warm.render.default.play-full` ~971 ms + play-shader ~1 s); demotions overlap entry.
+   Mid-round 6.5 s compile → **PROBE-WARM-RT-1** note filed (not batch scope).
+3. **Playtest owed** — BACKLOG rows for retests + remaining eyes. **UNLOCK-PT-1** needs
+   `?devUnlocks=off` + hard refresh.
+4. **ART-PASS-SUNDIAL-1** code complete, deploy pending — not this batch.
 5. **ROUND-WEDGE-1 Phase B** shipped; **cap-217** open until Wyatt playtest.
 
 **Open High:** ROUND-WEDGE-1 (Phase B code; playtest) · UI-SCALE-1 · FIGHT-VERIFY-1 (Wyatt half) ·
