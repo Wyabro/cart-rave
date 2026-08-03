@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-03T00:00:53.633Z",
-    "commit": "8063b3e"
+    "at": "2026-08-03T00:01:54.570Z",
+    "commit": "059577a"
   },
-  "source_digest": "d8aded68",
+  "source_digest": "648b45b7",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -921,7 +921,7 @@
         "title": "Engineering",
         "counts": {
           "High": 2,
-          "Medium": 15,
+          "Medium": 16,
           "Low": 4,
           "Partial": 1
         },
@@ -1002,6 +1002,12 @@
             "pri": "Medium",
             "item": "GIT-INDEX-1 — concurrent agent sessions share one git index, so `git commit` ships work the committing session never staged",
             "notes": "**Filed 08-01 after it fired TWICE in one day, in both directions.** (1) An agent's uncommitted `docs/ARCHITECTURE.json` was swept into another session's `64b49d2` (\"chore(claude): enforce three AGENTS.md rules as Claude Code hooks\"), leaving HEAD briefly carrying a manifest that described `CC-COHERE-1` / `CC-TOKEN-1` / `CC-STRIPE-1` while the committed BACKLOG had none of those rows. (2) The reverse: `.agents/skills/brainstorming/SKILL.md` plus 9 lines of `docs/STATUS.md`, staged-but-uncommitted by the other session, rode along inside `35859cc` (CC-COHERE-1) — then got pushed with it. **Mechanism:** one working tree = one `.git/index`. `git add <paths>` is additive and well-behaved, but **`git commit` with no pathspec commits the ENTIRE index**, including whatever another session staged seconds earlier. Careful staging by one session does not protect it from another session's commit. **Why the existing guard misses it:** `.claude/hooks/guard-git-add.mjs` (`64b49d2`) enforces the AGENTS.md \"never `git add -A`\" rule — but **neither incident involved `git add -A`**. Both used correct, narrow `git add <explicit paths>`. The leak is one step later, at `git commit`, which the guard does not inspect. **The damage so far was only attribution — that is luck, not safety.** The real failure mode is a session committing another session's *half-finished* edit: it ships under the committing session's green `qa` run, having never been gated on its own, and the authoring session then sees a clean tree and believes it already landed. **Levers, cheapest first:** (a) make `git commit -- <paths>` the convention — with a pathspec, git commits those paths from the working tree and ignores the rest of the index; (b) extend `guard-git-add.mjs` (or add a sibling) to intercept pathspec-less `git commit` and refuse/warn when the index contains paths this session did not stage — the hook already has the interception point, it just watches the wrong verb; (c) structural fix — one git worktree per session, which gives each its own index. The repo **already uses** `.claude/worktrees/` for some agent work, so this is an existing pattern to extend rather than a new mechanism. Related in character to **HARNESS-NULL-1**: a process that cannot demonstrate it did what it claims.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "HOOK-INDEX-1 — a pathspec commit plus the regenerating pre-commit hook leaves a **stale staged reversion** of `docs/ARCHITECTURE.json` in the shared index",
+            "notes": "**Filed 08-02, reproduced twice in one session** (after `18ed9ab` and again after `059577a`), both times caught only because the tree was inspected afterwards. **Mechanism:** `git commit -- <paths>` is the GIT-INDEX-1 lever (a) convention — it builds the commit from the working tree for those paths and ignores the index. But the pre-commit hook regenerates `docs/ARCHITECTURE.json` and `git add`s it into the **real** index while the commit itself is assembled from a temporary one. The regenerated file *does* land in the commit, and what is left staged afterwards is the **pre-regeneration content** — i.e. an index entry that, if committed, silently reverts the manifest to an older digest. Observed exactly: staged `commit: 0145fec` / `source_digest: 0448f86f` against HEAD's `8063b3e` / `d8aded68`. **Why it matters:** the working tree is shared by concurrent sessions, so the next pathspec-less `git commit` from any session ships that reversion under its own name, `arch:check` goes stale for reasons unrelated to that session's work, and the manifest silently stops describing the tree. Nothing warns — `git status` shows a routine `MM`. Same family as **GIT-INDEX-1** and **STOP-DIRT-1** (one tree, one index, many sessions), but the leak comes from a *hook-staged* file rather than a hand-staged one, so GIT-INDEX-1's lever (b) — inspecting what the session staged — would not catch it. **Levers, cheapest first:** (a) have the hook `git reset HEAD -- <regenerated paths>` after staging when a pathspec commit is in progress, or simply not `git add` when `GIT_PREFIX`/pathspec indicates one; (b) have the hook fail loudly instead of silently regenerating, making the human commit the manifest explicitly; (c) one worktree per session, which dissolves this along with both sibling cards. **Workaround until fixed:** after any pathspec commit that touches source or BACKLOG, run `git reset HEAD -- docs/ARCHITECTURE.json` and confirm `git diff --cached --name-only` is empty.",
             "ship1": null
           },
           {
