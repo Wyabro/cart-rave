@@ -34,8 +34,10 @@ external testers. Stay in this phase until Wyatt advances the marker.
 ten levers plus OQ5, production Version `22837ee6`. Remaining: **Waves 4, 5 and 6**, specified
 in full in [art-pass-sundial-handover.md](./planning/art-pass-sundial-handover.md), which is now
 the spec — the original plan lived outside this repo. Read its **"Traps that cost time"** before
-any capture: `shoot-gpu` freezes all per-frame level animation (SHOOT-ANIM-1), so anything that
-pulses, drifts, spins or orbits ships on code-reading plus arithmetic and goes to the owed list.
+any capture. Trap 1 is now **closed**: SHOOT-ANIM-1 (`6b27283`) makes animated properties
+capturable, so things that pulse, drift, spin or orbit no longer ship on code-reading plus
+arithmetic — pin a phase with `--t <ms>` and compare two of them. Judge Sundial phase changes
+against a ~1.2% construction-noise floor, not zero.
 The [audit](./planning/art-audit-sundial.md) is `[unverified]` throughout — verify each claim
 before fixing it. **Owed: Wyatt playtest** — gate beacons breathe rather than step, ship glows
 read as glows, ships glide on a phone, turbines read as machinery; full list in the handover.

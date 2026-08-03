@@ -96,10 +96,45 @@ the image. If that says SwiftShader/llvmpipe, the capture is not proof — it wa
 arena overview, not whatever surface you changed.
 
 > **Read the amplified diff panel, not the percentage.** `npm run compare`'s middle panel
-> shows *where* pixels changed. On Classic the crowd is animated, so two captures taken in
-> separate browser sessions differ by 15–30% with your change contributing nothing. Three
-> separate 08-01 findings (ART-PASS-CLASSIC-1 L1's first capture, L4, L5) had all of their
-> "evidence" sitting in crowd animation. A number alone has never once been sufficient here.
+> shows *where* pixels changed. Two captures taken in separate browser sessions differ
+> substantially with your change contributing nothing — on Classic by 15–30%. Three separate
+> 08-01 findings (ART-PASS-CLASSIC-1 L1's first capture, L4, L5) had all of their "evidence"
+> sitting in that variance. A number alone has never once been sufficient here.
+>
+> That variance was long attributed to *crowd animation*. It is not — SHOOT-ANIM-1 proved the
+> crowd was frozen in every capture, and the rave dressing is still frozen today. The real
+> cause is that arena **construction is unseeded**: `Math.random()` runs at build time for
+> procedural textures and decor scatter (56 call sites in `zanzibarPlatform.js` alone), so
+> every page load paints a different arena. Measured with animation *pinned* (`--t 500`), where
+> animation cannot contribute: Classic still differs by 15.89%. Same mechanism, different name.
+
+### Capturing animated properties (`--t`)
+
+Level animation is driven by the attract loop (SHOOT-ANIM-1). Without `--t` it free-runs, so a
+capture lands on whatever phase it caught. `--t <ms>` pins it to one timestamp:
+
+```bash
+node tools/shoot-gpu.mjs --shot sundial --t 0   --out shots/a.png
+node tools/shoot-gpu.mjs --shot sundial --t 250 --out shots/b.png
+npm run compare -- --a shots/a.png --b shots/b.png
+```
+
+**Judge the delta against the arena's construction-noise floor, not against zero.** Measured,
+same pinned phase, two browser sessions:
+
+| Arena | Null floor (`pctDiff>2`) | Notes |
+|---|---|---|
+| Sundial | **~1.2%** | 1.22% and 1.21% on two independent pairs |
+| Classic | **~15.9%** | floor swamps the signal — `--t` does not make Classic reproducible |
+
+Sundial reference points: `--t 0` vs `--t 250` = 2.61%; `--t 1745` vs `--t 5236` (the full
+`sin` swing, +1 → −1) = 15.01%. Pick a Δt near half the property's period — a small Δt on a
+slow pulse can sit under the floor, which is a framing artifact, not a null result.
+
+Two residuals: **Backrooms is not reproducible even with `--t`** — `furnitureSpotlight.update`
+is a stateful integrator driven by `Math.random()`, and a constant pinned `t` gives it `dt = 0`.
+And the **rave dressing is still frozen** in captures (crowd, lasers, billboard, stage LED,
+`fxPass.uTime`, record spin) — that block is out of SHOOT-ANIM-1's scope and is filed separately.
 
 ### Compare two PNGs
 

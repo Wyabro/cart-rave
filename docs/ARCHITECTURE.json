@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-03T01:05:11.709Z",
-    "commit": "9477ea5"
+    "at": "2026-08-03T01:46:09.967Z",
+    "commit": "79a9caf"
   },
-  "source_digest": "555e0e93",
+  "source_digest": "549e6ee7",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -920,8 +920,9 @@
       {
         "title": "Engineering",
         "counts": {
-          "High": 2,
-          "Medium": 16,
+          "High": 1,
+          "?": 1,
+          "Medium": 17,
           "Low": 4,
           "Partial": 1
         },
@@ -933,9 +934,15 @@
             "ship1": null
           },
           {
-            "pri": "High",
+            "pri": "✅",
             "item": "SHOOT-ANIM-1 — `shoot-gpu` captures freeze **all** per-frame level animation",
-            "notes": "**Found 08-02** while trying to verify the Sundial gate pulse. `levelUpdate?.(syncedNow)` is `main.js:5278` and `updateLevelLod` is `main.js:5281` — **the same per-frame block, three lines apart** — and that block does not run in the attract path the capture harness uses. So the known \"`updateLevelLod` doesn't run in `shoot-gpu`\" finding (`6ece86c`) was **never LOD-specific**: every animated property is frozen at its constructor value in every capture, in every arena. **Measured on Sundial:** gate-beacon opacity held `0.55` with 0/23 frame-to-frame changes over 24 consecutive frames, foam opacity held `0.34`, `waterNormalTex.offset.x` held `0` across 100 frames. **Why it's High:** this silently invalidates any capture-based claim about a pulse, drift, scroll, spin or orbit — the capture looks fine, so nothing flags the gap, and `a07fa7e`/`7b1a8a2`-era claims had to be corrected after the fact. **Options:** (a) have the harness call `levelUpdate` directly on each `settle()` frame, which would make every animated knob capturable; (b) expose the level's `update` on `__cartRave` so probes can drive it; (c) leave it and document loudly in [visual-qa.md](../guides/visual-qa.md) that animated properties need a real match. (a) is the real fix — the harness already owns the frame loop via `__cartRave.settle`. **Do not** conclude a capture \"shows no change\" for an animated knob until this is closed.",
+            "notes": "**CLOSED 08-02** — fixed in `6b27283`, `--t` flag in `79a9caf`. **The root cause was one layer up from this card's own diagnosis, and was never capture-specific.** Not LOD, and not `settle()`: [menuAttract.js](../../src/ui/menuAttract.js) runs its own rAF loop that **rendered without ever updating**, while the game loop that owns `levelUpdate` bails in `shouldSkipTiming` whenever `menuVisible` is true — which the harness deliberately keeps true. The attract loop is therefore the *only* loop running during a capture. **The same was true for real players: the live main-menu arena was frozen for everyone** — water static, turbines stopped, beacons dead — so this was a player-facing bug, not only a QA one. **Fixed via the attract loop's new `onAnimationTick` dep, NOT via `settle()` — this card's own option (a), now superseded:** `settle()` only awaits rAF and never renders, so driving animation there lands a frame stale. The tick sits *below* the throttle gate and *before* the render, pairing update→render in one frame exactly as the game loop orders them; `updateLevelLod` keeps local wall time, since a small pinned `t` would park its module-global 250 ms latch in the future. Attract cost now times update+render together, so the auto-quality watchdog can actually see the added CPU. **Verified:** gate-beacon opacity went 0/23 → 11/23 frame-to-frame changes free-running (the attract loop throttles to ~30 fps, so ~every other rAF tick renders); `?t=1000` holds it at exactly `0.6066653819`, matching `0.45 + sin(1000×0.0009)×0.2` analytically; the live menu was confirmed animating on the ordinary no-harness path; zero console errors across 8 captures on real hardware (RTX 4090, not SwiftShader). **Bonus finding — a documented attribution was wrong.** [visual-qa.md](../guides/visual-qa.md) blamed Classic's 15–30% capture-to-capture variance on *crowd animation*, but the crowd was frozen in every capture (that is this very card) and is frozen still. Measured with animation **pinned**, so animation cannot contribute: Classic's null floor is **15.89%**, Sundial's is **~1.2%** (1.22% and 1.21% on two independent pairs). The real cause is **unseeded construction randomness** — `Math.random()` at build time, 56 call sites in `zanzibarPlatform.js` alone, including procedural texture painting, so every page load paints a different arena. Three 08-01 findings had their \"evidence\" sitting in that variance under the wrong name. Guide corrected; null floors and the two-phase `--t` recipe documented there. Doubles as the null-control arm **HARNESS-NULL-1** asks for, on this one rig. **Deferred → SHOOT-ANIM-2.**",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "SHOOT-ANIM-2 — rave dressing is still frozen in captures",
+            "notes": "**Filed 08-02**, split out of SHOOT-ANIM-1 rather than folded in, because that card's scope was levels and this block needs a shared helper. Still frozen at constructor values in every capture and on the live menu: `Effects.updateStageLights` / `updateCrowd` / `updateStageLed` / `updateLasers` / `updateBillboard` ([main.js:5299-5304](../../src/main.js:5299)), the `fxPass.uTime` uniform ([:5265](../../src/main.js:5265)) and the visual-only record spin ([:5275](../../src/main.js:5275)). **Matters most for Classic Record**, where crowd/lasers/billboard are most of the visible motion — so a Classic capture still cannot evidence any dressing animation. Not a copy-paste of SHOOT-ANIM-1's fix: these calls sit behind `frameBudgetAllow(...)`, `getQualityKnobs().crowdAnimate` and `raveShellInitialized` gates that assume a real `frameCtx`, so doing it properly means extracting one cosmetic-animation helper called from **both** the game loop and the attract loop — one definition, two callers, no drift. Note Classic's ~15.9% construction-noise floor (SHOOT-ANIM-1) will still swamp small deltas there regardless.",
             "ship1": null
           },
           {

@@ -39,15 +39,22 @@
 
 ## Traps that cost time — read before capturing anything
 
-1. **`shoot-gpu` freezes ALL per-frame level animation.** `levelUpdate?.(syncedNow)` is
-   `main.js:5278`; `updateLevelLod` is `main.js:5281` — same block, and it does not run in the
-   attract path the harness uses. Every animated property in every arena sits at its
-   constructor value in every capture. Measured on Sundial: gate opacity held `0.55` with 0/23
-   frame-to-frame changes over 24 frames; `waterNormalTex.offset.x` held `0` over 100 frames;
-   the ships and their glows sit stacked at the world origin. **Filed as SHOOT-ANIM-1 (BACKLOG,
-   High).** Anything that pulses, drifts, scrolls, spins or orbits ships on code-reading plus
-   arithmetic, and goes on the owed-playtest list. Do not report "the capture shows no change"
-   for an animated knob until that card is closed.
+1. **~~`shoot-gpu` freezes ALL per-frame level animation.~~ CLOSED — SHOOT-ANIM-1, `6b27283`.**
+   The attract loop now ticks `levelUpdate` + `sceneExtras.update` before its render, so
+   animated properties are capturable. Gate opacity now changes on every rendered frame
+   (11/23 sampled rAF ticks — the attract loop throttles to ~30fps, so roughly every other
+   tick renders) where it used to hold `0.55` for 0/23. **Use `--t <ms>`** to pin a phase:
+   `--t 1000` puts gate opacity at exactly `0.6066653819`, matching `0.45 + sin(1000×0.0009)×0.2`
+   analytically. Prove a pulse by capturing two phases and comparing them. Animated knobs no
+   longer need to ship on code-reading plus arithmetic.
+
+   **But two captures of the same pinned phase still differ**, because arena *construction* is
+   unseeded (`Math.random()` ×56 in `zanzibarPlatform.js` alone, including procedural texture
+   painting). Measured null floors, same phase, two browser sessions: **Sundial ~1.2%**
+   (1.22% and 1.21% on two independent pairs), **Classic ~15.9%**. Judge a Sundial phase
+   change against ~1.2%, not zero — `--t 0` vs `--t 250` reads 2.61%, and the full swing
+   (`--t 1745` vs `--t 5236`, sin +1 → −1) reads 15.01%. On Classic the construction floor
+   swamps everything; `--t` does not make Classic captures reproducible.
 2. **`lookAt` + a baked gradient is guilty until measured.** Two levers had a sign error in the
    same class: the glint's fog ramp (`da225dd`) and the gas giant's terminator (`543c16a`).
    Both were built, captured, measured backwards, and flipped. Derive the screen-space
