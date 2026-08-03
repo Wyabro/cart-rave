@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-03T07:50:29.121Z",
-    "commit": "7e9e224"
+    "at": "2026-08-03T09:22:29.030Z",
+    "commit": "106fc50"
   },
-  "source_digest": "921b7e43",
+  "source_digest": "1d3daf76",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -850,10 +850,16 @@
   "workstreams": {
     "queue": [
       {
+        "id": "LOAD-POSTER-1",
+        "what": "Loading screens redesigned as Fight Night posters (all three arenas)",
+        "status": "▶ ACTIVE, code complete PUSHED (`106fc50`). Stage is the poster: cqmin-sized scene + two-line title lockup + inline SVG per arena. QA 105/1269, build ok, loadshots 121/121 at 2560×1440 / 1920×1080 / 390×844. Remaining: deploy + Wyatt eye (LOAD-POSTER-1).",
+        "state": "active"
+      },
+      {
         "id": "PLAYTEST-BATCH-0803-1",
         "what": "Playtest batch 08-03 (FV-LOAD freezes + load art, quality grace, unlock toast, store decks, GET READY pulse, boot measure)",
-        "status": "▶ ACTIVE, code complete unpushed — Waves 0–7 landed locally (`35cf3a9`..`7e9e224`). QA 105/1269 green. Needs push + Wyatt retest cards.",
-        "state": "active"
+        "status": "✅ code complete, PUSHED (`35cf3a9`..`4f2fdde`) — the earlier \"unpushed\" label was a stale remote-tracking ref; `git ls-remote` confirms origin has it. QA 105/1269 green, build ok. Remaining: deploy + 5 Wyatt retests.",
+        "state": "done"
       },
       {
         "id": "ART-PASS-SUNDIAL-1",
@@ -884,7 +890,7 @@
       }
     ],
     "next_actions": [
-      "PLAYTEST-BATCH-0803-1 — code complete, unpushed. Commits `35cf3a9`..`7e9e224`. Gates:",
+      "Deploy is the only thing left before retests. Both PLAYTEST-BATCH-0803-1",
       "W0.1 attribution (cap-229 @ c418bd9): Cart Rave freeze = juice path",
       "Playtest owed — BACKLOG rows for retests + remaining eyes. UNLOCK-PT-1 needs",
       "ART-PASS-SUNDIAL-1 code complete, deploy pending — not this batch.",
@@ -1324,7 +1330,7 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "High": 10,
+          "High": 11,
           "?": 2,
           "Medium": 7,
           "Low": 3
@@ -1424,6 +1430,12 @@
             "pri": "Medium",
             "item": "STORE-DECK-1 — Storerooms spawn-platform textures",
             "notes": "**Owed: Wyatt playtest — STORE-DECK-1 — decks read as worn plate.** (Not STORE-PT-1 suction/racking.) Art-audit item 6.<br>1. Load The Storerooms. Look at spawn booth decks. **Pass if:** worn plate + safety stripe + bay letter; not flat grey slabs.<br>2. Enter play — no new entry hitch (shader span unchanged vs pre-card).",
+            "ship1": null
+          },
+          {
+            "pri": "High",
+            "item": "LOAD-POSTER-1 — loading screens as Fight Night posters",
+            "notes": "**Owed: Wyatt playtest — LOAD-POSTER-1 — the art carries the frame.** Follow-up after FV-LOAD-1a's sizing pass still read too small. Desktop res, all three arenas.<br>1. Enter **Cart Rave** — club floor: mirror ball, beam fans, crowd along the floor line. Title is a two-line poster lockup, not a corner label.<br>2. Enter **The Storerooms** — liminal aisle, one chair mid-aisle, boxes foreground. **Fail if it reads rave-y** (neon/glow); this arena stays liminal.<br>3. Enter **Sundial Station** — golden hour, **not dark**. Big sun behind the title, gnomon blade off to the left.<br>4. **Pass if:** no dead field at your native resolution and each screen reads as the same design family as the boot splash.<br>5. Watch the entry itself — the scene animates while shaders compile, so any new stutter at mode-entry is a fail (report with an F8).",
             "ship1": null
           },
           {

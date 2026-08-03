@@ -78,17 +78,19 @@ Live rows only. Shipped and closed cards live in
 
 | # | What | Status |
 |---|------|--------|
-| **PLAYTEST-BATCH-0803-1** | Playtest batch 08-03 (FV-LOAD freezes + load art, quality grace, unlock toast, store decks, GET READY pulse, boot measure) | ▶ **ACTIVE, code complete unpushed** — Waves 0–7 landed locally (`35cf3a9`..`7e9e224`). QA 105/1269 green. Needs push + Wyatt retest cards. |
+| **LOAD-POSTER-1** | Loading screens redesigned as Fight Night posters (all three arenas) | ▶ **ACTIVE, code complete PUSHED** (`106fc50`). Stage is the poster: cqmin-sized scene + two-line title lockup + inline SVG per arena. QA 105/1269, build ok, loadshots 121/121 at 2560×1440 / 1920×1080 / 390×844. Remaining: **deploy + Wyatt eye (LOAD-POSTER-1)**. |
+| PLAYTEST-BATCH-0803-1 | Playtest batch 08-03 (FV-LOAD freezes + load art, quality grace, unlock toast, store decks, GET READY pulse, boot measure) | ✅ code complete, **PUSHED** (`35cf3a9`..`4f2fdde`) — the earlier "unpushed" label was a stale remote-tracking ref; `git ls-remote` confirms origin has it. QA 105/1269 green, build ok. Remaining: deploy + 5 Wyatt retests. |
 | ART-PASS-SUNDIAL-1 | Sundial art pass — all 6 waves shipped | ✅ code complete — Wave 6 pushed, **not deployed**. Remaining: playtest (**SUNDIAL-PT-1**) + deploy. Spec = [handover](./planning/art-pass-sundial-handover.md). |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 
 ### Next actions
 
-1. **PLAYTEST-BATCH-0803-1 — code complete, unpushed.** Commits `35cf3a9`..`7e9e224`. Gates:
-   `npm run qa` **105 files / 1269 tests** + knip/briefing/arch/health ok; `npm run build` ok.
-   Next: push on Wyatt call, then retest queue (FV-LOAD-1, UNLOCK-TOAST-1, STORE-DECK-1,
-   CAM-READY-1, FV-BOOT-1). Ship/deploy only on explicit "ship it".
+1. **Deploy is the only thing left before retests.** Both PLAYTEST-BATCH-0803-1
+   (`35cf3a9`..`4f2fdde`) and LOAD-POSTER-1 (`106fc50`) are pushed; nothing is deployed.
+   Gates on HEAD: `npm run qa` **105 files / 1269 tests** + knip/briefing/arch/health ok,
+   `npm run build` ok. Retest queue after deploy: FV-LOAD-1, UNLOCK-TOAST-1, STORE-DECK-1,
+   CAM-READY-1, FV-BOOT-1, **LOAD-POSTER-1**. Deploy only on explicit "ship it".
 2. **W0.1 attribution (cap-229 @ c418bd9):** Cart Rave freeze = juice path
    (`warm.render.default.play-full` ~971 ms + play-shader ~1 s); demotions overlap entry.
    Mid-round 6.5 s compile → **PROBE-WARM-RT-1** note filed (not batch scope).
