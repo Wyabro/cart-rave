@@ -11,6 +11,13 @@ gotcha here starts biting again, move it back rather than duplicating it.
 
 - **VHS is level-gated** via `uVhsAmount` (Storerooms only); `?ablate=vhs` zeros the uniform
   without killing the arcade CRT.
+- **EffectComposer order, DEFAULT (`?bloompipe=display`):** RenderPass → OutputPass → Bloom →
+  Arcade(VHS) → FXAA. `?bloompipe=hdr` swaps to Bloom → OutputPass; OutputPass is never last in
+  either. `renderer.toneMapping` is a **no-op into composer RTs without OutputPass** — except on
+  the lowest tier, which bypasses the composer entirely (`composerBypass`) and tone-maps natively.
+- **Half-res bloom RTs:** strength compensated via `bloomHalfResStrengthMul`.
+- **`material.envMapIntensity` is a no-op against `scene.environment`** in this three version —
+  only `scene.environmentIntensity` or a material-owned `envMap` scales IBL.
 
 ## Netcode
 
@@ -28,6 +35,14 @@ gotcha here starts biting again, move it back rather than duplicating it.
 ## Naming
 
 - **`localStorage` keys remain `cartRave*`** until the brand migration ([brand.md](../brand.md)).
+
+## Evidence / deployed assets
+
+- **Minification breaks naive greps of deployed assets** — `0.505` becomes `.505`, hex seeds
+  become decimal. Check the local `dist/` chunk with the same pattern before concluding anything
+  about prod.
+- **Battery reports without provenance are visible history only** — never green readiness
+  evidence. Prefer complete exact-HEAD runs (`npm run release:check`).
 
 ## Claude Code harness
 

@@ -152,8 +152,6 @@ preserved verbatim in the decision log.
 The hot set — what a current session is likely to hit. Deep-domain and narrow entries move to
 [reference/gotchas.md](./reference/gotchas.md); grep there when a subsystem surprises you.
 
-- EffectComposer path, DEFAULT (`?bloompipe=display`): RenderPass → OutputPass → Bloom → Arcade(VHS) → FXAA. `?bloompipe=hdr` swaps to Bloom → OutputPass; OutputPass is never last in either. `renderer.toneMapping` is a no-op into composer RTs without OutputPass — except on the lowest tier, which bypasses the composer entirely (`composerBypass`) and tone-maps natively.
-- Half-res bloom RTs: strength compensated via `bloomHalfResStrengthMul`.
 - Hidden-tab rAF freezes the loop unless `?perfPump` (DEV) is set — shoot tools should pass it.
 - **Level animation IS capturable** — SHOOT-ANIM-1 closed (`6b27283`); free-running it lands on a random phase, so pin one with `--t <ms>` and compare two. Judge against the arena's null floor, not zero: **Sundial ~1.2%, Classic ~15.9%** (construction randomness, not animation). Rave **dressing** is still frozen — SHOOT-ANIM-2.
 - Diagnostics globals namespace is `__cc*` (`__ccTest` / `__ccDiag` / `__ccLoopDbg`).
@@ -161,9 +159,6 @@ The hot set — what a current session is likely to hit. Deep-domain and narrow 
 - A round that ends with **no scores is a legitimate draw** → neither `victory` nor `defeat`.
 - Rapier `world.castRay(...)` reads `.handle` off the exclude args — pass Collider/RigidBody objects, never raw handles.
 - **`MSG.readyToggle` without a `ready` field is a TOGGLE** — programmatic ready must send `{ ready: true }`.
-- `material.envMapIntensity` is a **no-op against `scene.environment`** in this three version — only `scene.environmentIntensity` or a material-owned `envMap` scales IBL.
-- **Minification breaks naive greps of deployed assets** — `0.505` becomes `.505`, hex seeds become decimal. Check the local `dist/` chunk with the same pattern before concluding anything about prod.
-- Battery reports without provenance are visible history only — never green readiness evidence. Prefer complete exact-HEAD runs.
 - **Before any public / external-tester playtest: reset the analytics DO** so aggregates are not polluted by dev/harness traffic. Token-gated (SEC-TOKEN-1): `DELETE` with `Authorization: Bearer <ERROR_LOG_TOKEN>` on `/api/analytics` (never `?token=`).
 
 ## Last updated
