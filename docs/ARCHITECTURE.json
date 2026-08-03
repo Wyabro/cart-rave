@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-03T00:18:54.210Z",
-    "commit": "d85b36e"
+    "at": "2026-08-03T00:56:14.449Z",
+    "commit": "b36be5c"
   },
-  "source_digest": "664d0e30",
+  "source_digest": "fe4b184b",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -877,9 +877,9 @@
       }
     ],
     "next_actions": [
-      "ART-PASS-SUNDIAL-1 Wave 4 — the deck. Items 12–19 in the handover: hazard band inset +",
+      "ART-PASS-SUNDIAL-1 — Wave 4 CLOSED (items 12–19, plus a follow-on slice: 16b dust lobe ·",
       "Playtest owed — BACKLOG `## Playtest owed` (08-01 and 08-02 sections), now including",
-      "Wyatt's open calls: OQ8 (sun key elevation 9.93° vs sun disc 1.87° — reconcile up, down,",
+      "Wyatt's open calls: none on Sundial — OQ3 resolved in `9a59271`, OQ5 in `93c3deb`,",
       "Parked, needs its own ack: ROUND-WEDGE-1 Phase B (Phase A shipped `d4a7718`);"
     ],
     "open_issues": [
@@ -1496,8 +1496,7 @@
         "title": "Tech Debt",
         "counts": {
           "Medium": 7,
-          "?": 1,
-          "High": 1,
+          "?": 2,
           "Low": 11
         },
         "rows": [
@@ -1516,10 +1515,10 @@
             "ship1": null
           },
           {
-            "pri": "High",
+            "pri": "✅",
             "id": "SHADOW-TILT-1",
             "item": "Cart blob shadows tilt out of the floor as the cart turns",
-            "notes": "**Filed 08-02**, found during ART-PASS-SUNDIAL-1 item 13 and deliberately *not* fixed inline — `contactShadows.js:328-330` is fenced by the Sundial handover, and this is every arena, not an art lever. `createBlobMesh` sets `rotation.x = -PI/2`; `updateCartContactShadow` then sets `rotation.y = pose.yaw`. Under three's default **XYZ** Euler order those compose to a surface normal of `(sin yaw, cos yaw, 0)` — verified numerically: at yaw 45° the normal is `(0.707, 0.707, 0)` and at yaw 90° it is `(1, 0, 0)`, i.e. the quad is exactly edge-on and invisible. Footprint is a true circle (`footprintRadiusX = footprintRadiusZ = 1.0`), so the visible area scales roughly with `\\",
+            "notes": "**CLOSED 08-02** — fixed in `b36be5c`: `rotation.y` → `rotation.z` in `updateCartContactShadow`, plus `tests/contactShadowOrientation.test.js` (5 cases, node env) asserting the normal stays `(0,1,0)` and projected area stays 1.0 across yaw 0/30/45/60/90/180/−90, and pinning the old behaviour as a regression guard. **Owed: Wyatt playtest — SHADOW-TILT-1 — do cart shadows stay put and stay the same size as you turn?** Original filing: found during ART-PASS-SUNDIAL-1 item 13 and deliberately *not* fixed inline — `contactShadows.js:328-330` is fenced by the Sundial handover, and this is every arena, not an art lever. `createBlobMesh` sets `rotation.x = -PI/2`; `updateCartContactShadow` then sets `rotation.y = pose.yaw`. Under three's default **XYZ** Euler order those compose to a surface normal of `(sin yaw, cos yaw, 0)` — verified numerically: at yaw 45° the normal is `(0.707, 0.707, 0)` and at yaw 90° it is `(1, 0, 0)`, i.e. the quad is exactly edge-on and invisible. Footprint is a true circle (`footprintRadiusX = footprintRadiusZ = 1.0`), so the visible area scales roughly with `\\",
             "ship1": null
           },
           {
@@ -1909,6 +1908,11 @@
       "Cross-module change? Read docs/reference/control-flow.md first — most edges are not imports."
     ],
     "settled_decisions": [
+      {
+        "id": "D-SUNDIAL-OQ8",
+        "date": "08-02",
+        "text": "Stylise — keep the 9.93° sun key and the 1.87° sun disc. The key"
+      },
       {
         "id": "D-SUNDIAL-OQ6",
         "date": "08-02",

@@ -202,11 +202,38 @@ hologram is not match-reactive today.
   **That one cannot be proven by capture** (SHOOT-ANIM-1): use a `getLevelLodNodeCount()` A/B,
   a unit test, and a real match.
 
-## Still open — Wyatt's calls
+## Resolved — Wyatt's calls
 
-- **OQ3** — resolves at Wave 4 item 17, above.
-- **OQ8** — sun key elevation 9.93° vs sun disc 1.87°. Reconcile up, reconcile down, or accept
-  as stylisation. The audit's §7 drops the "lower the key" option because it darkens the arena.
+- **OQ3** — resolved 08-02 in `9a59271`. It was worse than the audit said: "center podium" is
+  three materials and **two** were bare `color + roughness + metalness` (`podiumTopMat` and
+  `capPlateMat`), not just the crown plate. Fixed in the code, so `art-direction.md`'s "every
+  allowlisted surface passes" line is true again rather than weakened.
+- **OQ8 — STYLISE.** Keep the 9.93° key and the 1.87° disc; the 8° gap is deliberate. **Do not
+  "fix" it.**
+
+  The key is what sculpts the deck, and dropping it to meet the disc guts that:
+
+  | | key at 9.93° | key at 1.87° |
+  |---|---|---|
+  | hemi : key on a horizontal deck | 2.32 : 1 | **12.26 : 1** |
+  | key's directional contribution | 100% | **18.9%** |
+
+  That is audit §7's objection, and it stands. Wave 4's rule is additive-only; this would take
+  shaping away.
+
+  **The instrument matters more than the answer here.** A runtime sweep of *whole-deck frame mean*
+  said the key elevation barely mattered — and it was right about brightness and useless about
+  raking, because the hemi dominates that mean and the measurement is post-exposure. A ~1.5% frame
+  figure was quoted from it during planning; **it is not in the tree and must not be cited.** If
+  this is ever reopened, measure **sun-facing vs anti-sun-facing vertical surfaces** — bollard
+  flanks, podium frustum sides — never whole-deck mean.
+
+  Both "up" paths, recorded so neither is lost: raise the disc to y≈75 m (`SUN_HEIGHT` up at the
+  current `SUN_DISTANCE` 430), **or** pull `SUN_DISTANCE` 430 → ~80 keeping `SUN_HEIGHT = 14`.
+  They carry different composition costs; neither was evaluated.
+
+  `SUN_KEY_DISTANCE` (added in item 16) single-sources the key's angle, so the light and the
+  god-ray tilt now move together if this is ever revisited.
 
 ## Owed to Wyatt's playtest — no capture can settle these
 

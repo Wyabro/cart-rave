@@ -72,6 +72,20 @@ brightness. Each arena expresses it differently, and an arena is not broken for 
 - **Sundial Station (`zanzibar`)** — golden-hour mood arena, warm and open. It is *not dark*,
   and its `arenaExposureMul` of `1.32` is correct behavior rather than a violation of anything.
 
+  **The sun key and the sun disc do not agree, by intent (D-SUNDIAL-OQ8, 08-02).** The key light
+  sits at **9.93°** elevation while the visible disc sits at **1.87°** on the waterline. That 8°
+  gap is deliberate stylisation, not a bug: the disc has to sit on the horizon for the sunset to
+  read, and the key has to stay high enough to sculpt the deck — at 1.87° it would retain only
+  18.9% of its directional contribution while the hemi went from 2.32:1 over it to 12.26:1.
+  **Do not reconcile them.** `SUN_KEY_DISTANCE` in `zanzibarPlatform.js` single-sources the key's
+  angle so the light and every raking effect move together if this is ever reopened.
+
+  **Sundial's plate is measured, and paint does not read on it**: bare deck median luminance
+  **2.6**, painted hazard band **16.4**, emissive rim strip **153** (Classic's floor median is
+  10.6, Storerooms' 71.3). Rule 1 below is a material-correctness floor — satisfying it does not
+  make a surface visible here. Additive/emissive detail reads; painted detail does not. Check
+  before proposing painted density.
+
 ### Anti-references
 
 Name these when a frame fails, so the failure is specific:

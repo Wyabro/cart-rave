@@ -84,16 +84,17 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. **ART-PASS-SUNDIAL-1 Wave 4 — the deck.** Items 12–19 in the handover: hazard band inset +
-   wear, prop grounding, fascia/deck normal map, circle-on-octagon, sun-shadow decal + god rays,
-   ambient dust sun lobe, podium crown plate (OQ3 resolves here), deck density, bollards.
-   Plan the whole wave, get one ack, then one commit per lever. **D-SUNDIAL-OQ6 binds** — every
-   lever needs its Low path in the same commit.
+1. **ART-PASS-SUNDIAL-1 — Wave 4 CLOSED** (items 12–19, plus a follow-on slice: 16b dust lobe ·
+   OQ8 · SHADOW-TILT-1). **Wave 5 (hologram, items 20–25) is next and needs its own plan + ack.**
+   **D-SUNDIAL-OQ6 binds** — every lever ships its Low path in the same commit. Wave 4's measured
+   headline, which governs Waves 5–6: **paint does not read on this deck** (plate median luminance
+   2.6; painted band 16.4; emissive rim strip 153) — see item 18's re-scope in the handover before
+   proposing any painted detail.
 2. **Playtest owed** — BACKLOG `## Playtest owed` (08-01 and 08-02 sections), now including
    **STORE-PT-1** (Storerooms suction lip / racking steel). **UNLOCK-PT-1 needs gates ON**
    (`?devUnlocks=off` + hard refresh) or Vite hides the whole change.
-3. **Wyatt's open calls:** OQ8 (sun key elevation 9.93° vs sun disc 1.87° — reconcile up, down,
-   or accept as stylisation). OQ3 resolves inside Wave 4 item 17.
+3. **Wyatt's open calls:** none on Sundial — OQ3 resolved in `9a59271`, OQ5 in `93c3deb`,
+   OQ6 and OQ8 recorded below.
 4. **Parked, needs its own ack:** ROUND-WEDGE-1 Phase B (Phase A shipped `d4a7718`);
    **SPAWN-SUNDIAL-1** — spawn inset shipped, platform-leg colliders did not (file was frozen).
 
@@ -119,6 +120,11 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 One line each, newest first; full text in
 [archive/decision-log-2026-07.md](./archive/decision-log-2026-07.md).
 
+- **D-SUNDIAL-OQ8** (08-02): **Stylise — keep the 9.93° sun key and the 1.87° sun disc.** The key
+  is what sculpts the deck; dropping it to meet the disc keeps only **18.9%** of that sculpting
+  while the hemi, already **2.32:1** over the key, goes to **12.26:1**. Whole-deck frame mean is
+  the **wrong instrument** here (hemi-dominated, post-exposure — it stays flat while shaping dies).
+  If ever revisited, measure sun-facing vs anti-sun-facing **vertical** surfaces.
 - **D-SUNDIAL-OQ6** (08-02): **Low is a shipping look.** Sundial water is authored to survive
   Low. Audit item 36 moves up out of Wave 6, and every lever ships its Low path in the same
   commit.
