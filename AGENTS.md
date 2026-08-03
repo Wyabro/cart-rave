@@ -169,6 +169,45 @@ toward Version 2.
 
 ---
 
+## ENGINEERING PRINCIPLES
+
+The invariants above say what not to break. These say **what a good diff looks like here** —
+they are about the shape of the code, not the process around it. Each one is meant to be
+falsifiable against a diff: if you cannot point at the line that violates it, it does not apply.
+
+- **Delete the old path; do not keep it alive.** No compatibility layers, fallbacks, dual code
+  paths, or migration shims for code this repo owns. The thing you replaced leaves in the **same
+  commit** as its replacement. There is exactly one deployed bundle — there is no old client to
+  stay compatible with. **Three carve-outs, where compat is real:** `cartRave*` **localStorage
+  keys** (persisted on players' machines), **Worker / DO names** (naming freeze,
+  [docs/brand.md](docs/brand.md)), and **`MSG.*` wire shapes mid-round** (a host and its clients
+  can straddle a deploy). Everywhere else, delete it.
+- **Simplest implementation that fully meets the current requirement.** No speculative
+  abstraction, no indirection with a single caller, no knob "for later". **A `CONFIG` key or a
+  `?flag` is a permanent second code path** — every future change has to reason about both sides
+  of it. Add one only when a human turns it at runtime, and name that human in the plan.
+- **Grow in layers; never trade a working product for unfinished complexity.** Smallest version
+  that works end to end first, then add on top of something that already works. If the session
+  ends with the game less playable than it started, that was not a step forward.
+- **Keep concerns separated — prefer the module that already owns the concern.** Extract a new
+  file only when there is a clear system home for it, not by default. **Never default to
+  `main.js`** — it is a single 4,500-line closure holding ~84 unexported inner functions
+  ([docs/reference/control-flow.md](docs/reference/control-flow.md)). A new file no system claims
+  red-gates `health:check` with `ARCH_UNMAPPED_FILE`, and the mapping lives in
+  `tools/lib/archMap.mjs`, which is **frozen during a game card** — so do not invent a home
+  mid-card; file the `archMap` entry to BACKLOG.
+- **Use what is already installed before writing your own.** Three.js, Rapier, zustand, Howler,
+  partyserver / partysocket, nipplejs, Tweakpane. **Check the library's docs and types before
+  concluding it cannot do the thing** — that assumption is how hand-rolled reimplementations get
+  in. A new package needs a reason stated in the plan. (Standing exception: no open-world WebGPU
+  engines — see off-limits.)
+- **No stopgaps.** "Temporary", "for now", and "we'll replace this later" do not belong in
+  committed code. If the right fix is out of scope, **do not ship the wrong one** — file it to
+  [BACKLOG.md](docs/planning/BACKLOG.md) and leave the code alone. A diagnostic probe is the one
+  exception, and the commit that removes it is planned in the same wave.
+
+---
+
 ## STANDING BEHAVIORAL RULES
 
 - **Verify before you speak.** Grep the tree, read the file, run the gate. If you have not
