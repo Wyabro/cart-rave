@@ -2371,16 +2371,35 @@ function buildDeck(scene, world, config, circumR) {
     // * the low sun on a bolt head and lose it in a seam, and no more.
     normalScale: new THREE.Vector2(0.55, 0.55),
     metalness: 0.62,
-    envMapIntensity: getMaterialEnvMapIntensity() * 0.45,
   });
-  deckTopMat.userData.envMapIntensityScale = 0.45;
+  // * NO per-material envMapIntensity scale here, and none on any opaque surface in this
+  // * file. Nine of them used to exist (deckTop 0.45, deckSide 0.35, fascia 0.6, struct 0.4,
+  // * pylon 0.35, podiumSide 0.55, podiumTop 0.5, capPlate 0.8, conduit 0.4) plus two more
+  // * pinned at 1, and every one was inert: three ignores envMapIntensity on a material that
+  // * inherits scene.environment without owning an envMap, so all of them actually rendered
+  // * at scene.environmentIntensity = 0.6.
+  // *
+  // * THE AUDIT OFFERED "ADOPT clampFloorEnv OR DELETE" AS EQUAL OPTIONS. THEY ARE NOT.
+  // * Adopting means giving each surface an owned envMap so its authored scale goes live —
+  // * and the authored values are getMaterialEnvMapIntensity() (0.4 × 0.6 = 0.24) × scale,
+  // * i.e. 0.084 to 0.192. That is 3.1× to 7.1× LESS reflective than what ships today, on an
+  // * arena whose deck plate already measures a median of 2.6/255. This pass is additive-only
+  // * and the standing rule is not to fix anything by darkening the arena, so adopting would
+  // * break both. Deleted instead: every surface keeps the 0.6 it already renders at, and the
+  // * file stops advertising a per-surface reflectivity structure it never had.
+  // *
+  // * THE WATER IS THE EXCEPTION AND STAYS. It owns its envMap (see :1370), so its 0.58 is a
+  // * live, intentional clamp from Wave 2. Do not "finish the job" by deleting it too.
+  // *
+  // * If a surface ever genuinely needs its own reflectivity, the pattern is arena.js's
+  // * clampFloorEnv at :1652 — assign the envMap AND set userData.envMapIntensityScale, since
+  // * refreshSceneEnvironmentMaterials (scene.js:247) reapplies base × scale on every quality
+  // * change and the clamp has to survive that.
   const deckSideMat = createPhysicalMaterial({
     color: 0x1a1d24,
     roughness: 0.5,
     metalness: 0.7,
-    envMapIntensity: getMaterialEnvMapIntensity() * 0.35,
   });
-  deckSideMat.userData.envMapIntensityScale = 0.35;
   const deckBottomMat = new THREE.MeshStandardMaterial({ color: 0x0b0d12, roughness: 0.95, metalness: 0.2 });
   ownedMaterials.push(deckTopMat, deckSideMat, deckBottomMat);
 
@@ -2440,10 +2459,8 @@ function buildDeck(scene, world, config, circumR) {
     color: 0xffffff,
     roughness: 0.38,
     metalness: 0.85,
-    envMapIntensity: getMaterialEnvMapIntensity() * 0.6,
     side: THREE.DoubleSide,
   });
-  fasciaMat.userData.envMapIntensityScale = 0.6;
   ownedMaterials.push(fasciaMat);
   const fascia = new THREE.Mesh(fasciaGeo, fasciaMat);
   fascia.position.y = -0.13;
@@ -2464,9 +2481,7 @@ function buildDeck(scene, world, config, circumR) {
     color: 0x30353f,
     roughness: 0.55,
     metalness: 0.75,
-    envMapIntensity: getMaterialEnvMapIntensity() * 0.4,
   });
-  structMat.userData.envMapIntensityScale = 0.4;
   ownedMaterials.push(structMat);
   {
     const strutLen = 2.6;
@@ -2511,9 +2526,7 @@ function buildDeck(scene, world, config, circumR) {
       color: 0x9aa0ab,
       roughness: 0.68,
       metalness: 0.6,
-      envMapIntensity: getMaterialEnvMapIntensity() * 0.35,
     });
-    pylonMat.userData.envMapIntensityScale = 0.35;
     ownedMaterials.push(pylonMat);
     const pylons = new THREE.InstancedMesh(pylonGeo, pylonMat, OCT_SIDES);
     for (let i = 0; i < OCT_SIDES; i += 1) {
@@ -2541,7 +2554,6 @@ function buildDeck(scene, world, config, circumR) {
     roughness: 0.7,
     metalness: 0.5,
   });
-  pillarMat.userData.envMapIntensityScale = 1;
   ownedMaterials.push(pillarMat);
   for (let i = 0; i < 4; i += 1) {
     const a = VERTEX_OFFSET + i * (Math.PI / 2);
@@ -2558,9 +2570,7 @@ function buildDeck(scene, world, config, circumR) {
     color: 0xffffff,
     roughness: 0.45,
     metalness: 0.8,
-    envMapIntensity: getMaterialEnvMapIntensity() * 0.55,
   });
-  podiumSideMat.userData.envMapIntensityScale = 0.55;
   // * OQ3: this was a bare color + roughness + metalness call on a surface the art-direction
   // * allowlist names as hero ("Sundial Station — deck plate, center podium"), i.e. a Rule 1
   // * defect while the doc claimed every allowlisted surface passed. panelTex is the same
@@ -2586,9 +2596,7 @@ function buildDeck(scene, world, config, circumR) {
     color: 0xffffff,
     roughness: 0.5,
     metalness: 0.7,
-    envMapIntensity: getMaterialEnvMapIntensity() * 0.5,
   });
-  podiumTopMat.userData.envMapIntensityScale = 0.5;
   ownedMaterials.push(podiumSideMat, podiumTopMat);
   const podiumGeo = new THREE.CylinderGeometry(
     PODIUM_TOP_R, PODIUM_BASE_R, PODIUM_HEIGHT, OCT_SIDES, 1, false, VERTEX_OFFSET,
@@ -2620,9 +2628,7 @@ function buildDeck(scene, world, config, circumR) {
     color: 0x1d2027,
     roughness: 0.22,
     metalness: 0.9,
-    envMapIntensity: getMaterialEnvMapIntensity() * 0.8,
   });
-  capPlateMat.userData.envMapIntensityScale = 0.8;
   ownedMaterials.push(capPlateMat);
   const capPlate = new THREE.Mesh(capPlateGeo, capPlateMat);
   capPlate.rotation.x = -Math.PI / 2;
@@ -2683,9 +2689,7 @@ function buildDeck(scene, world, config, circumR) {
       color: 0x6a707c,
       roughness: 0.45,
       metalness: 0.75,
-      envMapIntensity: getMaterialEnvMapIntensity() * 0.4,
     });
-    conduitMat.userData.envMapIntensityScale = 0.4;
     ownedMaterials.push(conduitMat);
     const conduits = new THREE.InstancedMesh(conduitGeo, conduitMat, OCT_SIDES);
     for (let i = 0; i < OCT_SIDES; i += 1) {
@@ -3581,7 +3585,6 @@ function buildZanzibarBooths(
     roughness: 0.55,
     metalness: 0.65,
   });
-  slabMat.userData.envMapIntensityScale = 1;
   const legMat = new THREE.MeshStandardMaterial({ color: 0x14161c, roughness: 0.75, metalness: 0.4 });
   const trimMat = new THREE.MeshStandardMaterial({ color: 0xd9a614, roughness: 0.6, metalness: 0.25 });
 
