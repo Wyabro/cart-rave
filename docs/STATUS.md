@@ -67,7 +67,7 @@ Live rows only. Shipped and closed cards live in
 | # | What | Status |
 |---|------|--------|
 | STORE-DECK-1 | Storerooms spawn-deck bay letter | ⏸ **DEPLOYED 08-03** (`6eff2df`, Worker version `01f8a745`) — verified by fetching the production chunk: no `BAY_LETTERS`, no letter font, plate + stripe intact. Waiting on Wyatt's retest. |
-| FV-RESULTS-1 / STORE-PT-1 | Run 8 FAIL residue — CHALLENGE copy · shelves want painted wood | ▶ **CODE LANDED 08-04** (`858b836` FV-RESULTS-1 · `3fa1cac` STORE-PT-1) — **unpushed until push.** Owed: Wyatt playtest both. PERF still parked. |
+| FV-RESULTS-1 / STORE-PT-1 | Run 8 FAIL residue — CHALLENGE copy · shelves want painted wood | ▶ **DEPLOYED 08-04** (`858b836` · `3fa1cac`, Worker `752dd701`). Prod chunk verified: `CHALLENGE UNLOCKED` in index; backrooms cream `#d8cfb8`, no steel `#b3b5ad`. **Owed: Wyatt playtest both.** PERF still parked. |
 | PERF-PASS-1 | 60 fps at Low on the Intel box — **Cart Rave only** (Wyatt scoped it 08-03) | ⏸ **PARKED 08-04** (Wyatt: park PERF + FV/STORE wave). Wave 1 DEPLOYED + MEASURED (`aeb83aa` / cap-239): in-round 20.934 ms → 47.8 fps, not CPU-bound → Wave 3 still visual/geometry, needs its own plan + ack when unparked. |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
@@ -86,8 +86,8 @@ Live rows only. Shipped and closed cards live in
    `no-exact-head-complete-green-battery`** — that is the RC-phase gate and no exact-HEAD battery
    has been run at this commit; the deploy went out via `npm run ship` as every stabilization
    deploy has. Run the battery before any RC claim.
-4. **ACTIVE: FV-RESULTS-1 + STORE-PT-1 code landed** (`858b836` · `3fa1cac`). Playtest on
-   prod after ship closes both. PERF-PASS-1 parked — Wave 3 resumes only when unparked.
+4. **ACTIVE: FV-RESULTS-1 + STORE-PT-1 DEPLOYED** (Worker `752dd701`). Hard-refresh prod and
+   playtest closes both. PERF-PASS-1 parked — Wave 3 resumes only when unparked.
 5. **Still owed to Wyatt:** playtest FV-RESULTS-1 + STORE-PT-1; FV-WILT-1 (2pc); STORE-DECK-1
    retest; PERF-PASS-1 Wave 3 when unparked.
 
@@ -102,7 +102,7 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 | ID | Issue | Status |
 |----|--------|--------|
 | PERF-PASS-1 | 60 fps at Low on the Intel box — **Cart Rave only** | ⏸ **PARKED 08-04.** Wave 1 instrument PASS (cap-239): meanMs 20.934 → 47.8 fps, not CPU-bound → Wave 3 = visual/geometry cuts (crowd layer ~200k tris is the big knob). Resume with plan+ack when unparked. Plan: `.claude/plans/what-no-we-plan-fancy-shore.md`. |
-| FV-RESULTS-1 / STORE-PT-1 | CHALLENGE receipt copy · shelves painted wood | ▶ **CODE LANDED** — playtest closes the card. |
+| FV-RESULTS-1 / STORE-PT-1 | CHALLENGE receipt copy · shelves painted wood | ▶ **DEPLOYED** Worker `752dd701` — playtest closes. |
 | WARM-SOLO-1 | Solo post-`carts-ready` stall (WARM-IGPU residual) | 📋 telemetry-gated — [warm-igpu-1.md](./planning/warm-igpu-1.md) |
 | MAIN-1 | Carve `main.js` seam (enables BUNDLE-1) | 📋 post-gate |
 | BUNDLE-1 | Menu/game code-split | 🚫 blocked on MAIN-1 |
