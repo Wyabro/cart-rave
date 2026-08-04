@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-04 at commit `296a7b9` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `0d91014c`
+> Generated 2026-08-04 at commit `d715293` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `e39aac14`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -19,7 +19,7 @@ Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep a
 ## ACTIVE CARD
 
 PERF-PASS-1 — 60 fps at Low on the Intel box — Cart Rave only (Wyatt scoped it 08-03)
-Pass looks like: ▶ ACTIVE. Wave 1 DEPLOYED 08-03 (`aeb83aa`, Worker `7aa288d7`) — prod chunk fetched and checked. Waves 2–4 are gated on one capture: PERF-INSTR-1.
+Pass looks like: ▶ ACTIVE. Wave 1 DEPLOYED + MEASURED 08-03 (`aeb83aa`, Worker `7aa288d7`; cap-239). In-round: 20.934 ms → 47.8 fps. Gap to target is 4.2 ms (20%), not the ~2× first estimated. Not CPU-bound (cpu 49.9% of frame, gate 85%) → Wave 3 is a visual/geometry card. `simMeanMs` 0.985 vs `visMeanMs` 9.454 — physics is free; draw submission is the CPU cost, so cutting geometry should pay in both halves. Wave 3 needs its own plan + ack.
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 

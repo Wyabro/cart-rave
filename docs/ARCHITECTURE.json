@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-04T02:21:14.746Z",
-    "commit": "296a7b9"
+    "at": "2026-08-04T02:26:08.483Z",
+    "commit": "d715293"
   },
-  "source_digest": "77169818",
+  "source_digest": "2f43e366",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -853,7 +853,7 @@
       {
         "id": "PERF-PASS-1",
         "what": "60 fps at Low on the Intel box — Cart Rave only (Wyatt scoped it 08-03)",
-        "status": "▶ ACTIVE. Wave 1 DEPLOYED 08-03 (`aeb83aa`, Worker `7aa288d7`) — prod chunk fetched and checked. Waves 2–4 are gated on one capture: PERF-INSTR-1.",
+        "status": "▶ ACTIVE. Wave 1 DEPLOYED + MEASURED 08-03 (`aeb83aa`, Worker `7aa288d7`; cap-239). In-round: 20.934 ms → 47.8 fps. Gap to target is 4.2 ms (20%), not the ~2× first estimated. Not CPU-bound (cpu 49.9% of frame, gate 85%) → Wave 3 is a visual/geometry card. `simMeanMs` 0.985 vs `visMeanMs` 9.454 — physics is free; draw submission is the CPU cost, so cutting geometry should pay in both halves. Wave 3 needs its own plan + ack.",
         "state": "active"
       },
       {
@@ -888,7 +888,7 @@
       "Run 8 (08-03) is in: 15 PASS · 4 FAIL · 1 skip. All 15 passing rows were deleted",
       "A PASS must close its row in the same session it is reported. Before Run 8 nothing wrote",
       "STORE-DECK-1 shipped and DEPLOYED 08-03 (`6eff2df`, Worker `01f8a745`) — bay letter cut,",
-      "PERF-PASS-1 Wave 1 is the active card — scoped by Wyatt to Cart Rave alone, pass bar =",
+      "PERF-PASS-1 is measured. Next is Wave 3 (cost menu), which needs its own plan + ack.",
       "Still owed to Wyatt: FV-WILT-1 (skipped — the only card needing the second machine)."
     ],
     "open_issues": [
@@ -1338,8 +1338,8 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "High": 4,
-          "?": 3,
+          "High": 3,
+          "?": 4,
           "Medium": 1,
           "Low": 1
         },
@@ -1351,9 +1351,9 @@
             "ship1": null
           },
           {
-            "pri": "High",
+            "pri": "✅",
             "item": "PERF-INSTR-1 — the 60fps instrument works on the Intel box (PERF-PASS-1 Wave 1)",
-            "notes": "**Owed: Wyatt playtest — PERF-INSTR-1 — one capture that tells us what to fix next.** `[solo]`<br>1. On the **Intel machine**, open `https://cart-rave.wyabro.workers.dev/?diag=1&preset=low` and hard-refresh. (`preset=low` also switches the auto-quality watchdog off, so the tier holds still for the whole measurement.)<br>2. Pick **Cart Rave** and start a solo round with 3 bots. Enter from the menu, not a direct room link.<br>3. Play normally for **60–90 seconds**, then hit **F8**. You do **not** need to finish the round.<br>4. That is the whole check. Tell me it's done and I'll pull it.<br>**What it answers:** whether the frame is waiting on the GPU or on the CPU — which decides whether the next step is cutting visuals or optimising code. Right now nothing in the game can measure the 60fps bar at all, so this one capture is the gate on everything else in PERF-PASS-1.",
+            "notes": "**CLOSED 08-03 — Wyatt PASS, cap-239 (`aeb83aa`, `buildFreshness.stale=false`).** The instrument works on the target machine and `loopRound` did exactly its job: he F8'd mid-round, `rounds[]` is empty, and the live read carried the whole measurement. **Result — Cart Rave, in-round, menu and countdown excluded: `meanMs` 20.934 → 47.77 fps**, 49.8% of frames over 16.7 ms, 24.3% over 33 ms, 3 NPCs, 1910×915 @ DPR 1. **The gap to target is 4.2 ms (20%), not the ~halving that was estimated from the Run-8 segments.** That estimate assumed menu/transition frames were *cheaper* than gameplay and that in-round would therefore be worse than 38.2 fps; the opposite is true — the arena-build and shader-compile frames in the transition were the expensive ones, and gameplay is faster than the blended average. **Branch answer: NOT CPU-bound** — `cpuMeanMs` 10.438 of `meanMs` 20.934 = **49.9%**, against the ≥85% gate, so Wave 3 stays a visual/geometry card. **The actionable shape is inside the CPU half:** `simMeanMs` **0.985** vs `visMeanMs` **9.454** — physics and gameflow are effectively free, and the visual update (which includes draw submission) is 9.5 of the 10.4 CPU ms. So cutting geometry should pay **twice**: less submission in `visMs` *and* less GPU execution in `unaccountedMeanMs` (10.496). **Caveat — the window straddled a demotion** (`straddledDemotion: true`, `rsm` 0.85 → 0.7, two `qualityStepDown` at t=26.4 s / t=32.4 s) because the URL was `?diag=1&room=…` with no `preset=low`, so the watchdog stayed armed (`qualityTierOverride: null`). The guard caught it; the number is directional, not a baseline. **No re-run owed — the clean `?preset=low` baseline is cell 1 of the Wave 3 sweep.**",
             "ship1": null
           },
           {

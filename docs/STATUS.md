@@ -67,7 +67,7 @@ Live rows only. Shipped and closed cards live in
 | # | What | Status |
 |---|------|--------|
 | STORE-DECK-1 | Storerooms spawn-deck bay letter | ⏸ **DEPLOYED 08-03** (`6eff2df`, Worker version `01f8a745`) — verified by fetching the production chunk: no `BAY_LETTERS`, no letter font, plate + stripe intact. Waiting on Wyatt's retest. |
-| PERF-PASS-1 | 60 fps at Low on the Intel box — **Cart Rave only** (Wyatt scoped it 08-03) | ▶ **ACTIVE. Wave 1 DEPLOYED 08-03** (`aeb83aa`, Worker `7aa288d7`) — prod chunk fetched and checked. Waves 2–4 are gated on one capture: **PERF-INSTR-1**. |
+| PERF-PASS-1 | 60 fps at Low on the Intel box — **Cart Rave only** (Wyatt scoped it 08-03) | ▶ **ACTIVE. Wave 1 DEPLOYED + MEASURED 08-03** (`aeb83aa`, Worker `7aa288d7`; cap-239). **In-round: 20.934 ms → 47.8 fps. Gap to target is 4.2 ms (20%), not the ~2× first estimated.** **Not CPU-bound** (cpu 49.9% of frame, gate 85%) → **Wave 3 is a visual/geometry card**. `simMeanMs` 0.985 vs `visMeanMs` 9.454 — physics is free; draw submission is the CPU cost, so cutting geometry should pay in both halves. **Wave 3 needs its own plan + ack.** |
 | FV-RESULTS-1 / STORE-PT-1 | Run 8 FAIL residue — CHALLENGE copy · shelves want painted wood | 📋 queued behind STORE-DECK-1. |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
@@ -86,12 +86,14 @@ Live rows only. Shipped and closed cards live in
    `no-exact-head-complete-green-battery`** — that is the RC-phase gate and no exact-HEAD battery
    has been run at this commit; the deploy went out via `npm run ship` as every stabilization
    deploy has. Run the battery before any RC claim.
-4. **PERF-PASS-1 Wave 1 is the active card** — scoped by Wyatt to **Cart Rave alone**, pass bar =
-   **average** 60 (mean ≤ 16.7 ms), and **no visual cut ships without his sign-off on that
-   specific cut**. Wave 1 added the only instrument that can see the bar. **Next action is his:
-   PERF-INSTR-1**, one 60–90 s solo round on the Intel box at `?diag=1&preset=low` then F8.
-   **Never measure fps under `?perfPump`** — it replaces rAF with a 16.6 ms gate and reads a fake
-   60 (confirmed live on the 4090: `meanMs` 16.8 where the real number is far lower).
+4. **PERF-PASS-1 is measured. Next is Wave 3 (cost menu), which needs its own plan + ack.**
+   Cart Rave in-round on the Intel box is **20.934 ms / 47.8 fps** (cap-239) — **4.2 ms short**,
+   not the ~halving estimated from the Run-8 segments. Scoped to **Cart Rave alone**, pass bar =
+   **average** 60, and **no visual cut ships without Wyatt's sign-off on that specific cut**.
+   **Two rules the measurement proved:** never measure fps under `?perfPump` (it swaps rAF for a
+   16.6 ms gate — a 4090 reads a fake 59.5), and always pass **`?preset=low`**, or the watchdog
+   demotes mid-window and the number blends two renderers (`straddledDemotion` caught exactly
+   that on cap-239).
 5. **Still owed to Wyatt:** FV-WILT-1 (skipped — the only card needing the second machine).
 
 **Open High:** PERF-PASS-1 · STORE-PT-1 (shelves → painted wood) · FV-RESULTS-1 (CHALLENGE copy) ·
