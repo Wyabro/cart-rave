@@ -60,6 +60,17 @@ const HOLE_CENTERS = [
   { x: -HOLE_CENTER, z: -HOLE_CENTER },
 ];
 
+// * Surface description for props this level grounds during construction. main.js only calls
+// * setContactShadowHazards *after* loadLevel returns, so builders that omit it are tested
+// * against the previous arena (warm swap) or the circular CONFIG.record.radius fallback
+// * (cold load) — which silently drops the booth blobs at r ~= 31.15 m. Mirrors the aiHazards
+// * square-floor shape returned below; keep the two in sync.
+const CONTACT_SHADOW_HAZARDS = {
+  squareHoles: HOLE_CENTERS.map((h) => ({ x: h.x, z: h.z })),
+  half: HOLE_HALF,
+  arenaHalf: ARENA_HALF,
+};
+
 // * Chamfered hazard lips — sloped convex-hull prisms (buildChamferColliders) slope carts
 // * inward (holes) or outward (perimeter); the visual mesh renders the same surface.
 const CHAMFER_DEPTH = 0.55; // meters — vertical drop across each lip band
@@ -1862,10 +1873,13 @@ function buildCenterFurniturePile(scene, world) {
   mergeAdd(parts.metal, metalMat);
   mergeAdd(parts.dark, darkMat);
 
-  const pileShadows = createStaticContactShadowCluster([
-    { x: 0, z: 0.1, radiusX: 2.975, radiusZ: 2.635 },
-    { x: -0.68, z: -0.425, radiusX: 2.21, radiusZ: 1.955, opacity: 0.36 },
-  ]);
+  const pileShadows = createStaticContactShadowCluster(
+    [
+      { x: 0, z: 0.1, radiusX: 2.975, radiusZ: 2.635 },
+      { x: -0.68, z: -0.425, radiusX: 2.21, radiusZ: 1.955, opacity: 0.36 },
+    ],
+    { hazards: CONTACT_SHADOW_HAZARDS },
+  );
   pileVisualGroup.add(pileShadows.group);
 
   scene.add(group);
@@ -3337,7 +3351,9 @@ function buildBackroomsBooths(scene, world, config, boothColliderHandles) {
   dividerGeo.dispose();
   stripeGeo.dispose();
 
-  const boothShadows = createStaticContactShadowCluster(shadowPlacements);
+  const boothShadows = createStaticContactShadowCluster(shadowPlacements, {
+    hazards: CONTACT_SHADOW_HAZARDS,
+  });
   group.add(boothShadows.group);
 
   scene.add(group);

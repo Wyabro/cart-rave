@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-04T05:56:34.619Z",
-    "commit": "c3e4589"
+    "at": "2026-08-04T05:58:47.803Z",
+    "commit": "e87c795"
   },
-  "source_digest": "1a2c7fab",
+  "source_digest": "2a14a08b",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1510,7 +1510,7 @@
         "title": "Tech Debt",
         "counts": {
           "?": 3,
-          "Medium": 6,
+          "Medium": 7,
           "Low": 11
         },
         "rows": [
@@ -1603,6 +1603,13 @@
             "id": "TS-1",
             "item": "TypeScript on hot paths / TS 7",
             "notes": "Stay on TS 6.x for the gate.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "id": "PT-CONSOLE-READY-1",
+            "item": "Export reminder: owed cards need non-empty steps",
+            "notes": "**Filed 08-04 under tools freeze (HOST-TAB-1 active).** Standing rule already in AGENTS.md + playtest README. Export copy still only asks agents to close PASSes — it never reminds them to verify remaining owed cards have steps. **Placement:** unconditional preamble near `playtestConsoleHtml.mjs` ~281 (\"Agents: triage one FAIL…\"), **not** inside `if (closable.length)` / CLOSE THESE FIRST (that block is silent when the export has zero PASSes). Draft line: remind agents that remaining FAIL/owed cards must show non-empty steps after regen; fix BACKLOG Notes if empty. Own tools commit when HOST-TAB-1 clears.",
             "ship1": null
           },
           {
