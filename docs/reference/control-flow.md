@@ -52,14 +52,14 @@ The bundle itself is built by [`buildNetcodeGameBridge`](../../src/gameSession.j
 `src/gameSession.js` — that function is the real seam, and it is the right place to look when you
 need to know which `main.js` implementation backs a given `callbacks.*` name.
 
-**`sessionBridgeCtx` has exactly two write sites in `main()`** (teardown reads keys from both).
-MAIN-1 Lever B collapses them into one factory; until then do not edit only one site:
+**`sessionBridgeCtx` is written once** via
+[`buildSessionBridgeContext`](../../src/gameSession.js) in
+[`sessionBridgeCtx.current = buildSessionBridgeContext({`](../../src/main.js) — that factory
+merges the former two write sites (netcode/gameplay bridge + teardown patch). Teardown keys
+arrive as deps; they are not owned by `gameSession.js`. Runtime input/trigger rebinding lives in
+[`wireNetcodeRuntimeRefs`](../../src/gameSession.js) (called from main via a thin local packer).
 
-- Initial bridge surface: [`sessionBridgeCtx.current = {`](../../src/main.js) (includes
-  `destroySessionCarts`, netcode/gameplay keys — fed to `buildNetcodeGameBridge` /
-  `createGameSessionController`)
-- Teardown patch surface: [`Object.assign(sessionBridgeCtx.current, {`](../../src/main.js)
-  (countdown / podium / slow-mo clears used by session teardown)
+Until MAIN-1 finishes extracting domains, do not invent a third write path around the factory.
 
 **Consequence:** `callbacks.updateCartMaterialsFromSlots()` in netcode is really
 [`function updateCartMaterialsFromSlots`](../../src/main.js) in `src/main.js`. The names usually

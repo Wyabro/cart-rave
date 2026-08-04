@@ -91,6 +91,91 @@ function stripRoomFromUrl() {
 }
 
 /**
+ * Merges the netcode/gameplay bridge surface and the teardown patch into one
+ * `sessionBridgeCtx.current` object. Call once after deps are bound.
+ *
+ * Teardown-patch keys (clearRoundCountdownTimeout, clearAutoContinuePodiumTimeout,
+ * clearPodiumRoundTimeout, resetSlowMo, resetSimTiming, hideResultsOverlay,
+ * resetLeaderHum, resetResultsOverlayKey, resetPodiumSessionState) arrive as deps —
+ * this factory does not own round-lifecycle state (Lever D rebinds later).
+ *
+ * @param {Record<string, unknown>} deps Bound handlers from main() (both former write sites).
+ * @returns {Record<string, unknown>}
+ */
+export function buildSessionBridgeContext(deps) {
+  const {
+    clearRoundCountdownTimeout,
+    clearAutoContinuePodiumTimeout,
+    clearPodiumRoundTimeout,
+    resetSlowMo,
+    resetSimTiming,
+    hideResultsOverlay,
+    resetLeaderHum,
+    resetResultsOverlayKey,
+    resetPodiumSessionState,
+    ...bridge
+  } = deps;
+
+  return {
+    ...bridge,
+    clearRoundCountdownTimeout,
+    clearAutoContinuePodiumTimeout,
+    clearPodiumRoundTimeout,
+    resetSlowMo,
+    resetSimTiming,
+    hideResultsOverlay,
+    resetLeaderHum,
+    resetResultsOverlayKey,
+    resetPodiumSessionState,
+  };
+}
+
+/**
+ * (Re)binds netcode runtime refs (input axis, ram/hop/shatter triggers). Must run on
+ * every session cart bootstrap, not just boot: returnToMenu's clearNetcodeRuntimeRefs
+ * nulls getAxisRef, and a null axis ref makes sampleLocalInputForTick a permanent no-op.
+ *
+ * @param {object} deps
+ * @param {{ getAxis: () => { forward: number, turn: number }, isNitroHeld: () => boolean } | null | undefined} deps.input
+ * @param {(refs: object) => void} deps.setRefs
+ * @param {() => unknown} deps.getAllCartsRef
+ * @param {{ current: unknown }} deps.resetSimTimingRef
+ * @param {(cart: unknown, nowMs: number, opts?: object) => void} deps.triggerRamBoost
+ * @param {(cart: unknown, nowMs: number) => void} deps.triggerHop
+ * @param {Function} deps.triggerCartShatter
+ * @param {Function} deps.doRespawn
+ * @param {((axis: () => { forward: number, turn: number }) => void)=} deps.assignLocalAxisRef
+ * @param {((fn: (cart: unknown, nowMs: number, opts?: object) => void) => void)=} deps.assignLocalRamBoostRef
+ */
+export function wireNetcodeRuntimeRefs(deps) {
+  const {
+    input,
+    setRefs,
+    getAllCartsRef,
+    resetSimTimingRef,
+    triggerRamBoost,
+    triggerHop,
+    triggerCartShatter,
+    doRespawn,
+    assignLocalAxisRef,
+    assignLocalRamBoostRef,
+  } = deps;
+  if (!input) return;
+  assignLocalAxisRef?.(input.getAxis);
+  assignLocalRamBoostRef?.(triggerRamBoost);
+  setRefs({
+    getAllCartsRef,
+    getAxisRef: input.getAxis,
+    isNitroHeldRef: input.isNitroHeld,
+    triggerRamBoostRef: triggerRamBoost,
+    triggerHopRef: triggerHop,
+    triggerCartShatterRef: triggerCartShatter,
+    resetSimTimingRef,
+    doRespawnRef: doRespawn,
+  });
+}
+
+/**
  * Builds the callback bundle consumed by {@link import("./netcode.js").registerGameCallbacks}.
  *
  * @param {() => object | null} getContext Live main/session context (null before main() wires handlers).

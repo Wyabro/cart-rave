@@ -259,9 +259,11 @@ import { generateRoomCode, normalizeRoomCode } from "../shared/roomCodes.js";
 import { createGameContext } from "./gameContext.js";
 import {
   buildNetcodeGameBridge,
+  buildSessionBridgeContext,
   createGameSessionController,
   createHelloGate,
   createSessionBridgeRefs,
+  wireNetcodeRuntimeRefs,
 } from "./gameSession.js";
 import {
   clamp,
@@ -4109,7 +4111,7 @@ async function main() {
     // * Full ref re-wire (not just getAllCartsRef): a prior returnToMenu cleared the
     // * input-axis/trigger refs, and re-entering a session must restore them or the
     // * non-host predicts with null input forever (07-17 spawn-platform freeze).
-    wireNetcodeRuntimeRefs();
+    rewireSessionNetcodeRefs();
     Netcode.setRefs({ getAllCartsRef: () => allCartsRef });
     // * Slot colors are authoritative: server-provided in multiplayer (accepted verbatim),
     // * and declashed once at init for solo/testdrive. No re-derivation here.
@@ -4142,6 +4144,22 @@ async function main() {
     sessionRefs.clearSessionCallbackRefs();
   }
 
+  /** Packs main()-local refs for {@link wireNetcodeRuntimeRefs} (gameSession). */
+  function rewireSessionNetcodeRefs() {
+    wireNetcodeRuntimeRefs({
+      input,
+      setRefs: (refs) => Netcode.setRefs(refs),
+      getAllCartsRef: () => allCartsRef,
+      resetSimTimingRef: sessionRefs.resetSimTimingRef,
+      triggerRamBoost,
+      triggerHop,
+      triggerCartShatter,
+      doRespawn: Entities.doRespawn,
+      assignLocalAxisRef: (axis) => { getAxisRef = axis; },
+      assignLocalRamBoostRef: (fn) => { triggerRamBoostRef = fn; },
+    });
+  }
+
   if (!customizationChangeListenerWired) {
     customizationChangeListenerWired = true;
     window.addEventListener("cartrave:customization-changed", () => {
@@ -4154,7 +4172,7 @@ async function main() {
     });
   }
 
-  sessionBridgeCtx.current = {
+  sessionBridgeCtx.current = buildSessionBridgeContext({
     palette: PALETTE,
     initialNpcNames,
     detectGameMode,
@@ -4334,7 +4352,28 @@ async function main() {
         resetSimTimingRef: sessionRefs.resetSimTimingRef,
       });
     },
-  };
+    // * Teardown patch (former Object.assign site) — deps only; round-lifecycle state
+    // * stays in main until Lever D. Function decls below are hoisted within main().
+    clearRoundCountdownTimeout,
+    clearAutoContinuePodiumTimeout,
+    clearPodiumRoundTimeout: () => {
+      if (roundPodiumTimeoutId != null) {
+        clearTimeout(roundPodiumTimeoutId);
+        roundPodiumTimeoutId = null;
+      }
+    },
+    resetSlowMo: () => { gameCtx.slowMo.active = false; },
+    resetSimTiming: () => sessionRefs.resetSimTimingRef.current?.(),
+    hideResultsOverlay: () => updateResultsOverlay(),
+    resetLeaderHum: () => leaderHum?.setLeader?.(null),
+    resetResultsOverlayKey: () => { lastResultsOverlayKey = null; },
+    resetPodiumSessionState: () => {
+      autoContinuePodiumKey = null;
+      clientPodiumAutoContinueDeadlineMs = 0;
+      lastResultsOverlayKey = null;
+      clearPodiumPresentation();
+    },
+  });
 
   void flushPendingSessionBootstrap();
 
@@ -4343,30 +4382,7 @@ async function main() {
     console.warn("[session] cart bootstrap failed", err);
   });
 
-  /**
-   * (Re)binds the netcode runtime refs (input axis, ram/hop/shatter triggers). Must run on
-   * every session cart bootstrap, not just boot: returnToMenu's clearNetcodeRuntimeRefs nulls
-   * getAxisRef, and a null axis ref makes sampleLocalInputForTick a permanent no-op — the
-   * 07-17 "non-host can't leave spawn" freeze (solo → menu → join quickplay left every
-   * later MP session with pendingInputs 0 / ackSeq 0). Host was immune (host sim reads
-   * input directly), which is why solo/host and URL-join harness runs never caught it.
-   */
-  function wireNetcodeRuntimeRefs() {
-    if (!input) return;
-    getAxisRef = input.getAxis;
-    triggerRamBoostRef = triggerRamBoost;
-    Netcode.setRefs({
-      getAllCartsRef: () => allCartsRef,
-      getAxisRef: input.getAxis,
-      isNitroHeldRef: input.isNitroHeld,
-      triggerRamBoostRef: triggerRamBoost,
-      triggerHopRef: triggerHop,
-      triggerCartShatterRef: triggerCartShatter,
-      resetSimTimingRef: sessionRefs.resetSimTimingRef,
-      doRespawnRef: Entities.doRespawn,
-    });
-  }
-  wireNetcodeRuntimeRefs();
+  rewireSessionNetcodeRefs();
   // * hello can arrive before input/cart refs exist; non-host input is sampled inline by the
   // * physics loop (sampleLocalInputForTick), which no-ops safely until getAxisRef is wired.
   Netcode.setAuthorityMode(Netcode.getIsHost());
@@ -4985,28 +5001,6 @@ async function main() {
     clearHostAwayTimer();
     refreshHiddenHostLifecycle();
   };
-
-  Object.assign(sessionBridgeCtx.current, {
-    clearRoundCountdownTimeout,
-    clearAutoContinuePodiumTimeout,
-    clearPodiumRoundTimeout: () => {
-      if (roundPodiumTimeoutId != null) {
-        clearTimeout(roundPodiumTimeoutId);
-        roundPodiumTimeoutId = null;
-      }
-    },
-    resetSlowMo: () => { gameCtx.slowMo.active = false; },
-    resetSimTiming: () => sessionRefs.resetSimTimingRef.current?.(),
-    hideResultsOverlay: () => updateResultsOverlay(),
-    resetLeaderHum: () => leaderHum?.setLeader?.(null),
-    resetResultsOverlayKey: () => { lastResultsOverlayKey = null; },
-    resetPodiumSessionState: () => {
-      autoContinuePodiumKey = null;
-      clientPodiumAutoContinueDeadlineMs = 0;
-      lastResultsOverlayKey = null;
-      clearPodiumPresentation();
-    },
-  });
 
   function cancelLastCartStandingFinish() {
     if (roundPodiumTimeoutId != null) {

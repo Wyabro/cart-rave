@@ -1,6 +1,6 @@
 # MAIN-1 — Full wave plan (for Wyatt review)
 
-**Status:** acked 08-04 (Wyatt) · **Lever A complete** (docs) · next: Lever B · v5 inventory locked.  
+**Status:** acked 08-04 (Wyatt) · **Lever B complete** (unpushed until this commit) · next: Lever C · v5 inventory locked.  
 Prep baseline locked at `f1ec6d1` (qa 109 files / 1,350 tests · battery 6/6 · shoot `shots/2026-08-04-main1-prep/`).
 
 **Card:** [BACKLOG.md](./BACKLOG.md) · MAIN-1 (Medium · Tech debt)  
@@ -208,11 +208,11 @@ Call the factory **once** after all referenced handlers exist (or pass already-b
 
 **Asserts:**
 
-- [ ] `buildNetcodeGameBridge` still resolves every key (existing tests cover netcode registration)
-- [ ] `createGameSessionController` teardown still reaches `clearRoundCountdownTimeout`, `destroySessionCarts`, and the patched teardown keys listed above
-- [ ] `Select-String sessionBridgeCtx src/main.js` shows **no assignment sites** left (`=` / `Object.assign`) — legit reads at declaration / `createGameSessionController` / `registerGameCallbacks` / hello flush may remain
-- [ ] `npm run qa` green
-- [ ] `npm run battery -- --only spawnlock,teardownRejoin`
+- [x] `buildNetcodeGameBridge` still resolves every key (existing tests cover netcode registration)
+- [x] `createGameSessionController` teardown still reaches `clearRoundCountdownTimeout`, `destroySessionCarts`, and the patched teardown keys listed above
+- [x] `Select-String sessionBridgeCtx src/main.js` shows **no assignment sites** left (`=` / `Object.assign`) — only `= buildSessionBridgeContext({`
+- [x] `npm run qa` green — **109** files / **1,350** tests
+- [x] `npm run battery -- --only spawnlock,teardownRejoin` — **2/2 PASS** (6/6 + 8/8)
 
 **Risk:** extracting only the first site silently drops teardown keys **or** site-1 keys teardown also reads (`destroySessionCarts`); `teardownRejoin` is the regression gate.
 
