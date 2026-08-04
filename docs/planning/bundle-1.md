@@ -43,8 +43,9 @@
 |-------|------|--------|
 | **A** | Byte budget tool + committed baseline + chunk manifest (**no `src/` changes**) | **done** — see §4 |
 | **B** | `bootGameSystems` extract into `src/orchestration/gameBoot.js`, **still statically imported** — mechanical move, **zero byte change** | **done** — see §7 |
-| **C** | Flip to `await import()`, wire the **five** triggers, wrap all **nine** `enterPlayMode` sites | not started |
-| **D** | Cut the `menuPlayEntry` + `levelOrchestration` eager edges ⟵ **ABORT GATE** | not started |
+| **C** | Flip to `await import()`, wire the **five** triggers, wrap all **nine** `enterPlayMode` sites | ⏸ next |
+| **D** | Cut the `menuPlayEntry` + `levelOrchestration` eager edges | not started |
+| — | ⟵ **ABORT GATE evaluated here, after C+D together** (see §5) | |
 | **E** | Move netcode's 7 game-side static imports onto the `registerGameCallbacks` bridge | not started |
 | **F** | Re-baseline (ratchet), docs, ship | not started |
 
@@ -62,7 +63,12 @@ and `initLevelManager` runs at `:1322`, before the menu. It is still deferrable,
 arena work it drives is already time-deferred to the 1800 ms idle warm** (`bootstrap.js:531`).
 Already-late-in-time ⇒ safe-to-be-late-in-bytes.
 
-### Why the abort gate is on D, not C
+> **Superseded 08-04 by the warm measurement in §5** — the reasoning below was derived from the *cold*
+> profile (87/13 bytes-vs-construction). The locked target is the **warm** repeat visit, where the split
+> is ~48/52, so **the gate now spans C+D together**. The paragraph is kept because its second half —
+> why the gate must not sit on C *alone* — still holds.
+
+### Why the abort gate is not on C alone
 
 `createLevelOrchestration` (`main.js:824`) stays eager through C, and it is the static edge dragging
 Simulation / Effects / cartShatter / waterDeathFx into the eager graph. So **C defers construction
@@ -254,10 +260,37 @@ part is CPU-bound — it should be roughly cache-independent. If that holds on a
 moving the abort gate from C to D was built on the cold profile, where bytes dominate 87/13. Warm is
 roughly the inverse.
 
-**This is inference, not measurement — `module-eval` on a warm load is owed before Lever B ships.**
-If warm `module-eval` really is ~360 ms, the gate should move back onto C (or span C+D), and the 15%
-target (162 ms) is reachable from construction deferral alone. If it is much larger than 360 ms, the
-existing D placement stands. **Do not start Lever C or D until this one number is in.**
+### ✅ RESOLVED 08-04 — measured, and the gate now spans C+D
+
+Four warm Intel loads (caps 261–264, prod `8d96b0b`):
+
+| cap | `module-eval` | `menu-ready` | `main()` body |
+|-----|--------------:|-------------:|--------------:|
+| 264 | 474 | 967 | 493 |
+| 263 | 471 | 977 | 506 |
+| 262 | 447 | 1000 | 553 |
+| 261 | 970 | 1467 | 497 |
+| **median** | **~472** | **~988** | **~500** |
+
+**The inference was directionally right but numerically wrong** — predicted ~360/~723 (33/67), actual is
+~472/~500, i.e. **roughly 50/50**. So neither half dominates on a warm load:
+
+| profile | bytes (pre-`main()`) | construction (`main()` body) |
+|---|---:|---:|
+| cold (n=1) | 87% | 13% |
+| **warm (n=4, the locked target)** | **48%** | **52%** |
+
+**Decision: the 15% gate (≤921 ms) is evaluated after C **and** D together, not after D alone.**
+Rationale — Lever D cutting ~300 kB of 1,554 kB is ~19% of the payload, so at best ~90 ms off a 472 ms
+parse, which **cannot** clear the 162 ms bar by itself. Lever C moves `bootGameSystems`' construction off
+the pre-menu path entirely and is aimed at the larger ~500 ms half. C is now expected to be the bigger
+contributor, which is the reverse of what the cold data implied.
+
+This does **not** restore the original "gate on C" placement either — that was rejected for a still-valid
+reason (C alone leaves the heavy graph eagerly parsed). **Both levers land, then measure once.**
+
+Record `module-eval` alongside `menuReadyMs` at every future measurement: it is immune to the
+metric-gaming failure in §3 abort gate 5, since code motion inside `main()` cannot move it.
 
 ### Provisional n=1 reading — recovered from the MAIN-1 retest captures (08-04)
 
