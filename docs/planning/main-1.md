@@ -1,6 +1,6 @@
 # MAIN-1 — Full wave plan (for Wyatt review)
 
-**Status:** acked 08-04 (Wyatt) · **Lever D complete** · next: Lever E · v5 inventory locked.  
+**Status:** acked 08-04 (Wyatt) · **Lever E complete** · next: Lever F · v5 inventory locked.  
 Prep baseline locked at `f1ec6d1` (qa 109 files / 1,350 tests · battery 6/6 · shoot `shots/2026-08-04-main1-prep/`).
 
 **Card:** [BACKLOG.md](./BACKLOG.md) · MAIN-1 (Medium · Tech debt)  
@@ -267,9 +267,9 @@ Call the factory **once** after all referenced handlers exist (or pass already-b
 
 **Asserts:**
 
-- [ ] `npm run qa` green
-- [ ] Battery: `npm run battery -- --only spawnlock,gameharness` — **or** skip full battery if B+C already green (keep at least `spawnlock` if touching mid-round join)
-- [ ] Mid-round join still drives (`spawnlock` displacement checks) when battery runs
+- [x] `npm run qa` green — **109** files / **1,350** tests
+- [x] Battery: `npm run battery -- --only spawnlock` — **6/6 PASS** (mid-round joiner drives)
+- [x] Mid-round join still drives (`spawnlock` displacement checks)
 
 **Risk:** charge SFX orphan on teardown — `stopAllChargeSfx` must stay on session teardown path (also covered by §8 audio row)
 
