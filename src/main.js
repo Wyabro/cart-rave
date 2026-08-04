@@ -99,6 +99,7 @@ import {
   initLoadingScreen,
   noteBootMilestone,
   showQualityApplyLoading,
+  waitForPaintedFrames,
   whenModeEntryHidden,
   yieldForPaint,
 } from "./ui/loadingScreen.js";
@@ -1057,8 +1058,17 @@ async function main() {
     } catch (err) {
       console.error("[CartRave] quality rebuild failed:", err);
     } finally {
-      qualityRebuildInProgress = false;
+      // * FIX-QUALFEEL: rebuildForQualityChange() resolves *before* the expensive
+      // * post-swap frames (shader link, first draw of the new render path) are
+      // * painted, so dismissing here left the freeze happening on a bare screen —
+      // * it read as unannounced. Hold the overlay across 2 confirmed painted
+      // * frames first. Runs on the throw path too, so the overlay can never stick.
+      try {
+        await waitForPaintedFrames(2);
+      } catch { /* a stalled rAF must never strand the overlay */ }
       dismissAllLoadingOverlays();
+      // * Cleared last: a second toggle must not interleave while the overlay is up.
+      qualityRebuildInProgress = false;
     }
   };
 

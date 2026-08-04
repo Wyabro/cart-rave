@@ -1065,15 +1065,37 @@ function dismissModeEntryLoading() {
 }
 
 /**
+ * Yields until `frames` frames have actually been painted.
+ *
+ * One rAF callback runs *before* the frame it belongs to is painted, so a paint is
+ * only confirmed once the *next* rAF fires — hence `frames + 1` chained callbacks.
+ * Used both to get an overlay on screen before blocking work (frames = 1) and to
+ * hold it across the first expensive post-swap frames (shader link + first draw).
+ * @param {number} [frames=1] Painted frames to wait for (clamped to >= 1).
+ * @returns {Promise<void>}
+ */
+export function waitForPaintedFrames(frames = 1) {
+  const target = Math.max(1, Math.floor(frames));
+  return new Promise((resolve) => {
+    let remaining = target + 1;
+    const tick = () => {
+      remaining -= 1;
+      if (remaining <= 0) {
+        resolve();
+        return;
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
+}
+
+/**
  * Yields until the browser has painted (avoids microtask-before-paint jank).
  * @returns {Promise<void>}
  */
 export function yieldForPaint() {
-  return new Promise((resolve) => {
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => resolve());
-    });
-  });
+  return waitForPaintedFrames(1);
 }
 
 /**
