@@ -11,19 +11,11 @@ import {
   getDebugParams,
   isDebugCameraLocked,
 } from "./utils/debugParams.js";
-import { installVisualHarness, tickVisualHarnessFrame } from "./utils/visualHarness.js";
+import { installVisualHarness } from "./utils/visualHarness.js";
 import { installNetTestHarness } from "./utils/netTestHarness.js";
-import { installDiagnostics, diagUrlFlags, recordDiagEvent } from "./utils/diagnostics.js";
-import {
-  shouldAllowPodiumEnd,
-  notePodiumEndSend,
-  onPodiumEndRejected,
-  clearPodiumEndLatch,
-  consumeHardStopDiag,
-} from "./utils/podiumEndLatch.js";
+import { installDiagnostics, diagUrlFlags } from "./utils/diagnostics.js";
 import { logBuildBanner, refreshBuildFreshness } from "./utils/buildFreshness.js";
-import { menuReturnHref, uploadCaptureBundle } from "./utils/captureUpload.js";
-import { mark } from "./utils/perfSpans.js";
+import { uploadCaptureBundle } from "./utils/captureUpload.js";
 import { installGameplayDiagnostics } from "./utils/gameplayDiagnostics.js";
 import { installLongTaskProbe } from "./utils/longTaskProbe.js";
 import { installGameplayAnalytics } from "./analytics/gameplayAnalytics.js";
@@ -47,52 +39,23 @@ import {
 } from "./scene.js";
 import { tickAutoQuality } from "./utils/autoQuality.js";
 import { CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer.js";
-import { RAPIER } from "./physics/rapierInstance.js";
-import * as Visuals from "./visuals.js";
 import { prefetchRaveGltf } from "./cartRaveGltf.js";
-import * as Simulation from "./simulation.js";
-import * as Entities from "./entities.js";
-import { triggerCartShatter } from "./cartShatter.js";
-import * as HUD from "./hud.js";
-import { STAGE_PRIORITY } from "./ui/centerStage.js";
 import * as Input from "./input.js";
 import * as Netcode from "./netcode.js";
 import * as GameState from "./gameState.js";
-import { ChallengeTracker, challengeStore, CHALLENGE_POOL } from "./stores/challengeStore.js";
-import { onUnlockGranted, unlockStore } from "./stores/unlockStore.js";
-import { PROGRESSION_EVENTS } from "./progression/eventIds.js";
-import {
-  getMatchStats,
-  resetMatchStats,
-  setMatchStatsLocalSlot,
-  snapshotMatchStats,
-} from "./scoring/matchStats.js";
+import { unlockStore } from "./stores/unlockStore.js";
 
 import * as AudioManager from "./audioManager.js";
-import * as ArenaAmbience from "./ambience/arenaAmbience.js";
 import * as CameraMod from "./camera.js";
-import * as Effects from "./effects.js";
-import { initDirectiveEngine, shiftDirectiveTimersBy } from "./directives/directiveEngine.js";
+// * BUNDLE-1 Lever D Edge 1: the menu half reaches HUD / directives / announcer / ambience
+// * through this no-op-by-default table (gameBoot registers the real implementations)
+// * instead of importing them — those static edges are what kept the in-round graph eager.
+import { gameTeardownHooks } from "./orchestration/gameTeardownHooks.js";
 import { resolveLevelId, prefetchLevelChunks, LEVEL_STORAGE_KEY } from "./levels/index.js";
 import { DEV_UNLOCKS_STORAGE_KEY } from "./unlockConfig.js";
 import { updateLevelLod } from "./utils/levelLod.js";
-import { beginFrameBudget, frameBudgetAllow } from "./utils/frameBudget.js";
 import { markBootPhase, onBootPhase } from "./utils/bootTimeline.js";
 
-import {
-  sampleArenaReactive,
-  resetArenaReactiveLights,
-} from "./arenaReactiveLights.js";
-import { initAudioSystem } from "./audioSetup.js";
-import * as SfxSynth from "./sfxSynth.js";
-import { initAnnouncer, announce, setAnnouncerPresenter, registerAnnouncerVoicePack } from "./announcer/announcerManager.js";
-import { ANNOUNCER_EVENTS } from "./announcer/announcerEvents.js";
-import { expandAnnouncerVoiceKeys } from "./announcer/announcerVoiceKeys.js";
-import { initAnnouncerStings } from "./announcer/announcerStings.js";
-import { initAnnouncerDirector, announcerDirectorOnFall, announcerDirectorNearMissScan } from "./announcer/announcerDirector.js";
-import { initAnnouncerDisplay } from "./ui/announcerDisplay.js";
-import { initResultsOverlay, animateResultsPodiumShow, animateResultsDismiss, cancelResultsAnimations, spawnResultsConfetti, spawnResultsDefeatWilt } from "./ui/resultsOverlay.js";
-import { showRotatePromptIfNeeded } from "./ui/rotatePrompt.js";
 import {
   dismissAllLoadingOverlays,
   dismissInitialBootSplash,
@@ -100,100 +63,50 @@ import {
   noteBootMilestone,
   showQualityApplyLoading,
   waitForPaintedFrames,
-  whenModeEntryHidden,
   yieldForPaint,
 } from "./ui/loadingScreen.js";
 import {
-  cancelMenuPreviewTimers,
-  finalizeArenaForPlayEntry,
   getCurrentLevelId,
-  getLevelRebuildPromise,
-  getMenuLevelPreviewPromise,
-  getMenuPreviewNeedsFinalize,
-  getPreviewNeedsFullRebuild,
-  initLevelManager,
-  isLevelSwapping,
-  rebuildLevelIfNeeded,
   scheduleMenuLevelPreview,
 } from "./levelManager.js";
 import {
-  enterPlayMode,
-  ensureSessionCartsReady,
   ensureWorldBootstrapped,
-  getLastSuccessfulHelloGen,
-  initBootstrap,
   isIdleWorldWarmSuppressed,
-  isSessionCartsReady,
   isWorldBootstrapped,
   isWorldBootstrapInFlight,
-  resetSessionCartBootstrap,
   scheduleIdleWorldWarm,
 } from "./bootstrap.js";
 import { initMenuAttract, startMenuAttract } from "./ui/menuAttract.js";
-import { animateCartBoostPulse, crossfadeElement } from "./animations.js";
 import {
   getIsMuted,
   getMusicVolume,
   getSfxVolume,
   initAudioControls,
   setAllAudioMuted,
-  setMusicGainValue,
-  setSfxSliderVolume,
   syncAllAudioUi,
   wireMenuAudioControlsOnce,
 } from "./ui/audioControls.js";
 import { registerGraphicsToggleHandlers } from "./ui/graphicsToggles.js";
 import { createCameraFraming } from "./ui/cameraFraming.js";
 import { createMenuStats } from "./ui/menuStats.js";
-import {
-  applySlowMoToDt,
-  clearNpcCartCache,
-  createGameLoopState,
-  resetGameLoopTiming,
-  runGameLoop,
-  runPhysicsStep,
-  updateVisualsAndEffects,
-  armRoundStartRenderProbe,
-} from "./gameLoop.js";
-import { updateGameFlow } from "./gameFlow.js";
-import {
-  cleanupSuddenDeathState,
-  ensureSuddenDeathOnHostPromote,
-} from "./gameFlow.js";
 import { getRoundClockNowMs, getRoundRemainingMs } from "./roundClock.js";
-import { ROUND_DURATION_MS } from "../shared/roundConstants.js";
-import { createGameContext } from "./gameContext.js";
 import {
   bootstrapNetcodeEntryFromUrl,
-  buildSessionBridgeContext,
   createGameSessionController,
   createHelloBootstrapFlush,
   createHelloGate,
   createSessionBridgeRefs,
-  wireNetcodeRuntimeRefs,
 } from "./gameSession.js";
-import { createLevelOrchestration } from "./orchestration/levelOrchestration.js";
 import {
-  createRoundLifecycle,
-  resolveCinematicCountdownOverrides,
-} from "./orchestration/roundLifecycle.js";
-import {
-  buildCartMaterialCache,
-  createCartOrchestration,
   displayColorHexForSlot,
   shuffledClientNpcNames,
 } from "./orchestration/cartOrchestration.js";
-import { createLoopDeps } from "./orchestration/loopDeps.js";
 import {
   captureInviteRoomForDeferredMenu,
   createMenuPlayEntry,
   enableModeMenuButtons,
 } from "./orchestration/menuPlayEntry.js";
-import {
-  clamp,
-  isTouchDevice,
-} from "./utils.js";
-import { getQualityTier, setQualityTier, setSessionQualityTier } from "./utils/qualityMode.js";
+import { setQualityTier, setSessionQualityTier } from "./utils/qualityMode.js";
 
 // * URL level / quality boot side effects (must run before renderer creation in main()).
 applyDebugBootSideEffects();
@@ -201,12 +114,10 @@ applyDebugBootSideEffects();
   const _dbgPreset = getDebugParams().preset;
   if (_dbgPreset) setSessionQualityTier(_dbgPreset);
 }
-import { getQualityKnobs } from "./utils/qualityTiers.js";
 import { installGlobalErrorReporting } from "./utils/errorReporter.js";
 import { storageGet } from "./utils/storage.js";
-import { CONFIG, MSG, CART_COLORS, PALETTE } from "./config.js";
-import { setUiMode as setGamepadUiMode } from "./input.js";
-import { startGamepadUiNav, setGamepadNavActive } from "./ui/gamepadNav.js";
+import { CONFIG } from "./config.js";
+import { startGamepadUiNav } from "./ui/gamepadNav.js";
 
 // eslint-disable-next-line no-console
 console.log("%cHI :D", "font-size:32px;color:#ff2bd6;font-weight:bold;text-shadow:0 0 10px #ff2bd6");
@@ -225,7 +136,6 @@ const gameSession = createGameSessionController(() => sessionBridgeCtx.current);
 
 const initialNpcNames = shuffledClientNpcNames(4);
 
-import { AUDIO_VOLUME_MAX, AUDIO_VOLUME_DEFAULT } from "./stores/audioStore.js";
 import { settingsStore } from "./stores/settingsStore.js";
 
 /**
@@ -243,10 +153,17 @@ import { settingsStore } from "./stores/settingsStore.js";
  * a local at install time, or the probe latches whatever null it saw at boot.
  */
 const gameRefs = {
-  /** @type {ReturnType<typeof HUD.init> | null} */
+  /** @type {ReturnType<typeof import("./hud.js").init> | null} */
   hud: null,
-  /** @type {ReturnType<typeof createCartOrchestration> | null} */
+  /** @type {ReturnType<typeof import("./orchestration/cartOrchestration.js").createCartOrchestration> | null} */
   cart: null,
+  /**
+   * BUNDLE-1 Lever D Edge 2 — `createLevelOrchestration` moved behind the boundary, so the
+   * handle is published here by gameBoot instead of being a `main()` local. Null until the
+   * latch resolves: EVERY menu-side read must be `refs.level?.…`.
+   * @type {ReturnType<typeof import("./orchestration/levelOrchestration.js").createLevelOrchestration> | null}
+   */
+  level: null,
   /** @type {any[] | null} */
   allCartsRef: null,
   /** @type {boolean} */
@@ -259,8 +176,9 @@ const gameRefs = {
   leaderHum: null,
   /** @type {((position: { x: number; y: number; z: number }, intensity: number, type?: string, opts?: object) => void) | null} */
   spawnTrashBurstRef: null,
+  // * Lever D: assigned by gameBoot (cartShatter.js is behind the boundary now).
   /** @type {((cart: object, scene: object, neonHex: number) => void) | null} */
-  triggerCartShatterRef: triggerCartShatter,
+  triggerCartShatterRef: null,
   /** @type {string | null} */
   pendingMidRoundJoinRespawnConnId: null,
   /**
@@ -516,8 +434,6 @@ async function main() {
   // * MAIN-1 Lever G: menu / play entry + level music + audio unlock + touch visibility.
   // * Music is per-arena (src/music/levelMusic.js); playlist warm lives in menuPlayEntry.
   // * Late getters: level drain, podium skip, refreshMenuStats — rebound below.
-  /** @type {ReturnType<typeof createLevelOrchestration> | null} */
-  let level = null;
   /** @type {() => void} */
   let refreshMenuStats = () => {};
 
@@ -534,7 +450,9 @@ async function main() {
     getLabelRenderer: () => labelRenderer,
     removePodiumSkipListeners: () => gameRefs.removePodiumSkipListeners(),
     refreshMenuStats: () => refreshMenuStats(),
-    drainPendingArenaRotation: () => { void level?.drainPendingArenaRotation?.(); },
+    // * Lever D: levelOrchestration is behind the boundary — read it off refs, and keep the
+    // * optional chaining (a menu return before the latch resolves has nothing to drain).
+    drainPendingArenaRotation: () => { void gameRefs.level?.drainPendingArenaRotation?.(); },
     setJoinedViaTypedCode: (v) => { gameRefs.joinedViaTypedCode = v; },
     getPendingColorChipEl: () => gameRefs.pendingColorChipEl,
     setPendingColorChipEl: (v) => { gameRefs.pendingColorChipEl = v; },
@@ -567,10 +485,12 @@ async function main() {
         gameSession.returnToMenu({ reason: "results" });
         return;
       }
-      if (HUD.isEscOverlayVisible()) {
-        HUD.hideEscOverlay();
+      // * Lever D: no world ⇒ no pause overlay, and the default predicate says so, so an
+      // * Escape press at the title screen is a no-op exactly as it was before.
+      if (gameTeardownHooks.isEscOverlayVisible()) {
+        gameTeardownHooks.hideEscOverlay();
       } else {
-        HUD.showEscOverlay();
+        gameTeardownHooks.showEscOverlay();
       }
     },
     () => {
@@ -687,8 +607,11 @@ async function main() {
 
   const scene = createScene();
 
-  const { ramBoostStreaks } = Effects.initEffects(scene, { ramBoost: CONFIG.cart.ramBoost, cartColors: CART_COLORS });
-  gameRefs.spawnTrashBurstRef = Effects.spawnTrashBurst;
+  // * BUNDLE-1 Lever D: Effects.initEffects / spawnTrashBurstRef moved into gameBoot with
+  // * the rest of the in-round graph — `src/effects.js` was one of the four static edges
+  // * still dragging the heavy modules into the eager set. Nothing on the menu path (menu
+  // * attract renders the idle-warmed arena, which is itself built behind the latch) reads
+  // * an FX pool before the boot runs.
 
   // * IBL PMREM bake deferred until after the menu is shown (see bootstrapWorldCore).
 
@@ -702,20 +625,15 @@ async function main() {
   camera.position.set(0, 6, 10);
   camera.lookAt(0, 0, 0);
 
-  gameRefs.triggerCartShatterRef = triggerCartShatter;
-
+  // * Lever D: gameRefs.triggerCartShatterRef is assigned inside gameBoot (cartShatter.js).
 
   // * Living Cargo spill helpers (armSpillBoost / spillCountForCart) live in
   // * cargoLoad.js — wired into gameFlow/sim deps via loopDeps.attachPhaseDeps.
 
-  const gameCtx = createGameContext().registerModules({
-    Netcode,
-    GameState,
-    Simulation,
-    Entities,
-    Input,
-    HUD,
-  });
+  // * BUNDLE-1 Lever D: `createGameContext().registerModules({… Simulation, Entities, HUD})`
+  // * moved into gameBoot. Registering those three module namespaces here was the last
+  // * static edge holding `src/simulation.js`, `src/entities.js` and `src/hud.js` in the
+  // * eager set; nothing reads gameCtx before the boot builds it.
   const BASE_FOV = CONFIG.camera.fov;
 
   scene.add(audioListener);
@@ -727,44 +645,13 @@ async function main() {
   // * URL ablation / postmin — after user toggles so disabled flags still win for QA.
   applyPostFxAblation({ bloomPass, arcadePass, fxaaPass, outputPass });
 
-  // * MAIN-1 Lever C: LevelManagerDeps + level-load helpers live in levelOrchestration.
-  level = createLevelOrchestration({
-    scene,
-    camera,
-    renderer,
-    composer,
-    bloomPass,
-    arcadePass,
-    fxaaPass,
-    outputPass,
-    canvas,
-    getBloomEnabled: () => gameRefs.bloomEnabled,
-    getFxPassEnabled: () => gameRefs.fxPassEnabled,
-    getMenuVisible: () => gameRefs.menuVisible,
-    getAllCartsRef: () => gameRefs.allCartsRef,
-    getHud: () => gameRefs.hud,
-    resolveCinematicCountdownOverrides,
-    prepareLevelMusic,
-    startLevelMusic,
-    stopAllChargeSfx: () => gameRefs.cart?.stopAllChargeSfx(),
-  });
-  const {
-    rebuildForQualityChange,
-    ensureRapierPhysics,
-    consumeRaveJuiceJustBuilt,
-    raveDressingWanted,
-    tickRaveDressing,
-    finalizeArenaShellForMenu,
-    finalizeArenaForPlay,
-    warmupActiveSceneShaders,
-    maskMenuPreviewSwap,
-    commitLevelLoad,
-    bootstrapWorldCore,
-    whenArenaRotationSettled,
-    drainPendingArenaRotation,
-    pickNextQuickplayArenaId,
-    rotateLoadedArenaInPlace,
-  } = level;
+  // * BUNDLE-1 Lever D Edge 2: `createLevelOrchestration` moved into gameBoot. It is the
+  // * single biggest eager edge the card had left — it statically pulls Simulation /
+  // * Effects / Entities / CameraMod / ArenaAmbience / cartShatter / koHitmarkerFx /
+  // * waterDeathFx / sceneExtras / contactShadows. It is safe to be LATE IN BYTES only
+  // * because the arena work it drives is already LATE IN TIME: every path that needs it
+  // * (idle warm at 1800 ms, play entry, the harness branch) runs behind the same latch.
+  // * The handle lands on `gameRefs.level`; menu-side reads must all be `?.`-guarded.
 
   if (getDebugParams().cam) applyDebugCameraPose(camera);
 
@@ -789,9 +676,13 @@ async function main() {
     // * was frozen at its constructor value behind the menu and in every capture. This
     // * is the game loop's cosmetic block (the rave gate + the two calls above it)
     // * driven from the only loop that is actually running here.
+    // ! Lever D null-safety: this loop starts at initMenu() — i.e. BEFORE the latch — so
+    // ! every level.* read here is now `gameRefs.level?.…`. Pre-latch there is no arena to
+    // ! animate (the attract loop is rendering an empty scene), so the no-op is correct.
     onAnimationTick: (timeMs) => {
-      /** @type {any} */ (level.sceneExtras)?.update?.(timeMs, camera);
-      level.levelUpdate?.(timeMs);
+      const lvl = gameRefs.level;
+      /** @type {any} */ (lvl?.sceneExtras)?.update?.(timeMs, camera);
+      lvl?.levelUpdate?.(timeMs);
       // * SHOOT-ANIM-2: same story one block down — Classic's crowd, stage lights and
       // * LED screen sat frozen too. Deliberately NO frameBudgetAllow here: it fails
       // * CLOSED without a preceding beginFrameBudget (stale frameStartMs → negative
@@ -801,7 +692,7 @@ async function main() {
       // * budget exists to protect host physics — none of which runs at the menu.
       // * Weak machines are covered here by the attract cost feed → auto-quality,
       // * which steps the tier down and flips crowdAnimate off.
-      if (raveDressingWanted()) tickRaveDressing(timeMs);
+      if (lvl?.raveDressingWanted?.()) lvl.tickRaveDressing(timeMs);
       // * LOD stays on local wall time even when ?t= pins animation — levelLod's
       // * _lastUpdateMs latch is module-global with a 250ms interval, so a small
       // * pinned t would park it in the future and suppress LOD entirely. Same
@@ -942,7 +833,7 @@ async function main() {
     if (qualityRebuildInProgress) return;
     qualityRebuildInProgress = true;
     // * Close Esc overlay first so it doesn't persist across the rebuild.
-    HUD.hideEscOverlay();
+    gameTeardownHooks.hideEscOverlay();
     if (persist) setQualityTier(tier);
     // * setQualityTier clears the session override so user choices beat the auto-quality
     // * watchdog — but the SwiftShader hard floor rides that same override. Re-clamp:
@@ -954,7 +845,13 @@ async function main() {
     showQualityApplyLoading();
     await yieldForPaint();
     try {
-      await rebuildForQualityChange();
+      // ! Lever D: rebuildForQualityChange lives on the deferred levelOrchestration handle,
+      // ! and the GFX menu can be used before the latch resolves. Force the boot rather than
+      // ! silently skipping — a menu quality change must still re-apply the composer tier,
+      // ! renderer pixel ratio and FBO sizes, which is what the player sees behind the menu.
+      // ! We are already under the quality-apply overlay here, so the await is covered.
+      await ensureGameSystems();
+      await gameRefs.level?.rebuildForQualityChange();
     } catch (err) {
       console.error("[CartRave] quality rebuild failed:", err);
     } finally {
@@ -975,7 +872,10 @@ async function main() {
   // * Auto-quality watchdog fired (session tier already stepped down) — apply live,
   // * without the loading overlay: mid-round the swap is quick knob flips.
   const handleAutoQualityStepDown = () => {
-    rebuildForQualityChange().catch((err) => {
+    // * Lever D: the watchdog only fires off measured attract/game frames, which means an
+    // * arena is already on screen and the latch has therefore resolved — but stay `?.`-safe
+    // * rather than assume it, and never force a boot from a per-frame cost feed.
+    gameRefs.level?.rebuildForQualityChange().catch((err) => {
       console.error("[CartRave] auto-quality rebuild failed:", err);
     });
   };
@@ -1003,11 +903,8 @@ async function main() {
     outputPass,
     audioListener,
     soundUrl,
-    ramBoostStreaks,
     labelRenderer,
     input,
-    level,
-    gameCtx,
     BASE_FOV,
     fpsState,
     podiumAutoContinue,
@@ -1018,6 +915,10 @@ async function main() {
     flushPendingSessionBootstrap,
     markFirstHelloReceived,
     initialNpcNames,
+    // * Lever D: levelOrchestration is constructed inside gameBoot now and needs these two
+    // * from the (eager) menuPlayEntry factory.
+    prepareLevelMusic,
+    startLevelMusic,
     updateTouchControlsVisibility,
     initMenu,
     commitMenuHiddenForGame,
@@ -1159,7 +1060,8 @@ async function main() {
         const slot = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
         const localCart = Array.isArray(gameRefs.allCartsRef) ? gameRefs.allCartsRef[slot] : null;
         return {
-          arenaRotationInFlight: level.arenaRotationInFlight,
+          // * Lever D: null until the latch resolves — a diag probe must never throw.
+          arenaRotationInFlight: gameRefs.level?.arenaRotationInFlight ?? null,
           menuVisible: gameRefs.menuVisible,
           // * Cap-200: DOM truth next to the flag — late CartRave.show() after hide left
           // * menuVisible false while #cr-root was visible (harness false green).

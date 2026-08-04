@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-04T22:16:26.130Z",
-    "commit": "0fc9f65"
+    "at": "2026-08-04T22:37:19.137Z",
+    "commit": "363520b"
   },
-  "source_digest": "34f7c7e2",
+  "source_digest": "5d76a968",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -58,13 +58,14 @@
         "src/main.js",
         "src/orchestration/cartOrchestration.js",
         "src/orchestration/gameBoot.js",
+        "src/orchestration/gameTeardownHooks.js",
         "src/orchestration/levelOrchestration.js",
         "src/orchestration/loopDeps.js",
         "src/orchestration/menuPlayEntry.js",
         "src/orchestration/roundLifecycle.js",
         "src/utils.js"
       ],
-      "file_count": 11,
+      "file_count": 12,
       "edges": [
         {
           "to": "networking-client",

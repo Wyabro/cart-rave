@@ -15,7 +15,11 @@ import * as GameState from "../gameState.js";
 import * as HUD from "../hud.js";
 import * as Input from "../input.js";
 import * as Netcode from "../netcode.js";
+import * as Simulation from "../simulation.js";
 import * as SfxSynth from "../sfxSynth.js";
+import { createGameContext } from "../gameContext.js";
+import { createLevelOrchestration } from "./levelOrchestration.js";
+import { registerGameTeardownHooks } from "./gameTeardownHooks.js";
 import { initAudioSystem } from "../audioSetup.js";
 import { initAnnouncerStings } from "../announcer/announcerStings.js";
 import {
@@ -23,6 +27,7 @@ import {
   initAnnouncer,
   registerAnnouncerVoicePack,
   setAnnouncerPresenter,
+  stopAnnouncer,
 } from "../announcer/announcerManager.js";
 import { ANNOUNCER_EVENTS } from "../announcer/announcerEvents.js";
 import { expandAnnouncerVoiceKeys } from "../announcer/announcerVoiceKeys.js";
@@ -32,7 +37,11 @@ import {
   initAnnouncerDirector,
 } from "../announcer/announcerDirector.js";
 import { initAnnouncerDisplay } from "../ui/announcerDisplay.js";
-import { initDirectiveEngine, shiftDirectiveTimersBy } from "../directives/directiveEngine.js";
+import {
+  clearActiveDirective,
+  initDirectiveEngine,
+  shiftDirectiveTimersBy,
+} from "../directives/directiveEngine.js";
 import { settingsStore } from "../stores/settingsStore.js";
 import { AUDIO_VOLUME_DEFAULT, AUDIO_VOLUME_MAX } from "../stores/audioStore.js";
 import { CHALLENGE_POOL, challengeStore } from "../stores/challengeStore.js";
@@ -83,7 +92,7 @@ import {
   displayColorHexForSlot,
 } from "./cartOrchestration.js";
 import { createLoopDeps } from "./loopDeps.js";
-import { createRoundLifecycle } from "./roundLifecycle.js";
+import { createRoundLifecycle, resolveCinematicCountdownOverrides } from "./roundLifecycle.js";
 import {
   applySlowMoToDt,
   createGameLoopState,
@@ -139,11 +148,8 @@ export function bootGameSystems(ctx) {
     outputPass,
     audioListener,
     soundUrl,
-    ramBoostStreaks,
     labelRenderer,
     input,
-    level,
-    gameCtx,
     BASE_FOV,
     fpsState,
     podiumAutoContinue,
@@ -154,6 +160,8 @@ export function bootGameSystems(ctx) {
     flushPendingSessionBootstrap,
     markFirstHelloReceived,
     initialNpcNames,
+    prepareLevelMusic,
+    startLevelMusic,
     updateTouchControlsVisibility,
     initMenu,
     commitMenuHiddenForGame,
@@ -161,9 +169,76 @@ export function bootGameSystems(ctx) {
     handleAutoQualityStepDown,
   } = ctx;
 
-  // * levelOrchestration stays eager in main() (it owns the MENU preview path too, and
-  // * only joins this module at Lever D) — the game half reaches its helpers through the
-  // * handle main() hands over. `rebuildForQualityChange` is menu-side and stays there.
+  // === BUNDLE-1 LEVER D — THE FOUR EAGER EDGES THAT MOVED IN ===
+  // * All four used to run in main() ahead of initMenu(). Each one was a static import edge
+  // * that kept a heavy module in the INITIAL download set no matter how much construction
+  // * Lever C deferred: effects.js, cartShatter.js, simulation.js + entities.js + hud.js
+  // * (via registerModules), and levelOrchestration.js (which alone pulls Simulation /
+  // * Effects / Entities / CameraMod / ArenaAmbience / cartShatter / koHitmarkerFx /
+  // * waterDeathFx / sceneExtras / contactShadows).
+  // ! ORDER IS LOAD-BEARING: initEffects builds the FX pools that levelOrchestration's arena
+  // ! build and quality-tier apply read, so it must stay first.
+  const { ramBoostStreaks } = Effects.initEffects(scene, {
+    ramBoost: CONFIG.cart.ramBoost,
+    cartColors: CART_COLORS,
+  });
+  refs.spawnTrashBurstRef = Effects.spawnTrashBurst;
+  refs.triggerCartShatterRef = triggerCartShatter;
+
+  const gameCtx = createGameContext().registerModules({
+    Netcode,
+    GameState,
+    Simulation,
+    Entities,
+    Input,
+    HUD,
+  });
+
+  // * MAIN-1 Lever C: LevelManagerDeps + level-load helpers live in levelOrchestration.
+  // * Published on `refs` because the menu half (menu attract's animation tick, the
+  // * quality handlers, the arena-rotation drain, the net diag probe) still reads it —
+  // * every one of those reads is `refs.level?.…`, since they can run before this boot.
+  const level = createLevelOrchestration({
+    scene,
+    camera,
+    renderer,
+    composer,
+    bloomPass,
+    arcadePass,
+    fxaaPass,
+    outputPass,
+    canvas,
+    getBloomEnabled: () => refs.bloomEnabled,
+    getFxPassEnabled: () => refs.fxPassEnabled,
+    getMenuVisible: () => refs.menuVisible,
+    getAllCartsRef: () => refs.allCartsRef,
+    getHud: () => refs.hud,
+    resolveCinematicCountdownOverrides,
+    prepareLevelMusic,
+    startLevelMusic,
+    stopAllChargeSfx: () => refs.cart?.stopAllChargeSfx(),
+  });
+  refs.level = level;
+
+  // * BUNDLE-1 Lever D Edge 1 — hand the menu half real implementations for the ten hooks
+  // * it has been calling as no-ops. Registered HERE, at the top of the boot, so nothing
+  // * constructed below can run a teardown against a half-registered table.
+  // ! Both ends of every hook are enumerated in the Lever D commit body. A hook registered
+  // ! but never called (or vice versa) fails SILENTLY — gameplay HUD / announcer audio /
+  // ! directives / ambience left running over the title screen. No gate catches it.
+  registerGameTeardownHooks({
+    hideGameplayElements: () => HUD.hideGameplayElements(),
+    hideAudioWidget: () => HUD.hideAudioWidget(),
+    showAudioWidget: () => HUD.showAudioWidget(),
+    isEscOverlayVisible: () => HUD.isEscOverlayVisible(),
+    showEscOverlay: () => HUD.showEscOverlay(),
+    hideEscOverlay: () => HUD.hideEscOverlay(),
+    clearActiveDirective: () => clearActiveDirective(),
+    stopAnnouncer: () => stopAnnouncer(),
+    startArenaAmbience: (levelId) => ArenaAmbience.startArenaAmbience(levelId),
+    stopArenaAmbience: () => ArenaAmbience.stopArenaAmbience(),
+  });
+
   const {
     ensureRapierPhysics,
     consumeRaveJuiceJustBuilt,

@@ -2,16 +2,17 @@
 // Mechanical extract from main(); bootstrap hooks + initMenu / commitMenuHiddenForGame unchanged.
 
 import * as AudioManager from "../audioManager.js";
-import * as ArenaAmbience from "../ambience/arenaAmbience.js";
 import * as GameState from "../gameState.js";
-import * as HUD from "../hud.js";
 import * as Input from "../input.js";
 import * as Netcode from "../netcode.js";
 import { resolveLevelMusic } from "../music/levelMusic.js";
 import { getCurrentLevelId, scheduleMenuLevelPreview } from "../levelManager.js";
 import { enterPlayMode, ensureSessionCartsReady } from "../bootstrap.js";
-import { clearActiveDirective } from "../directives/directiveEngine.js";
-import { stopAnnouncer } from "../announcer/announcerManager.js";
+// * BUNDLE-1 Lever D Edge 1: HUD / directiveEngine / announcerManager / arenaAmbience are
+// * reached through the hook table instead of imported. Every one of those static edges kept
+// * the in-round graph eager; the hooks default to no-ops and gameBoot registers the real
+// * implementations. NEVER destructure a hook into a local — read through the object.
+import { gameTeardownHooks } from "./gameTeardownHooks.js";
 import { showRotatePromptIfNeeded } from "../ui/rotatePrompt.js";
 import {
   dismissAllLoadingOverlays,
@@ -184,7 +185,7 @@ export function createMenuPlayEntry(deps) {
       isTouchDevice() &&
       !getMenuVisible() &&
       roundPhase !== "podium" &&
-      !HUD.isEscOverlayVisible();
+      !gameTeardownHooks.isEscOverlayVisible();
     if (show === lastTouchControlsVisible) return;
     lastTouchControlsVisible = show;
     Input.setTouchControlsVisible(show);
@@ -285,7 +286,7 @@ export function createMenuPlayEntry(deps) {
       try {
         AudioManager.stopMenuMusic();
         startLevelMusic(getCurrentLevelId());
-        ArenaAmbience.startArenaAmbience(getCurrentLevelId());
+        gameTeardownHooks.startArenaAmbience(getCurrentLevelId());
       } catch {
         /* non-fatal — game_start path still starts audio in commitMenuHiddenForGame */
       }
@@ -308,19 +309,19 @@ export function createMenuPlayEntry(deps) {
     const labelRenderer = getLabelRenderer();
     if (labelRenderer) labelRenderer.domElement.style.display = "none";
     const hudAudio = document.querySelector(".hud-audio");
-    if (hudAudio) HUD.hideAudioWidget();
+    if (hudAudio) gameTeardownHooks.hideAudioWidget();
     // * Single canonical gameplay-HUD hide (timer/scores/status/feed/splash/
     // * directive/toast/hitmarker/floats/… — full audit in hideGameplayElements).
     // * Menu skips the game loop so frameVisuals + HUD.update never self-clear.
-    HUD.hideGameplayElements();
-    clearActiveDirective();
+    gameTeardownHooks.hideGameplayElements();
+    gameTeardownHooks.clearActiveDirective();
     // * Lobby-phase store watch usually stopAnnouncer on LOBBY; belt-and-suspenders
     // * so a mid-callout return does not leave the PA plate over the title.
-    stopAnnouncer();
+    gameTeardownHooks.stopAnnouncer();
     // Stop game music before menu music starts.
     try { AudioManager.stopGameMusic(); } catch (e) {}
     preparedLevelMusicId = null;
-    try { ArenaAmbience.stopArenaAmbience(); } catch (e) {}
+    try { gameTeardownHooks.stopArenaAmbience(); } catch (e) {}
     try { AudioManager.playMenuMusic(); } catch (e) {}
     const wrap = document.getElementById("cr-root");
     if (wrap) {
@@ -593,9 +594,9 @@ export function createMenuPlayEntry(deps) {
     if (labelRenderer) {
       labelRenderer.domElement.style.display = isTestDrive ? "none" : "block";
     }
-    HUD.showAudioWidget();
+    gameTeardownHooks.showAudioWidget();
     if (isTestDrive) {
-      HUD.hideGameplayElements();
+      gameTeardownHooks.hideGameplayElements();
     }
     updateTouchControlsVisibility();
     AudioManager.stopMenuMusic();
@@ -604,7 +605,7 @@ export function createMenuPlayEntry(deps) {
     }
     // * Arena atmosphere rides along in every mode (test drive included — it is the
     // * world's sound, not the match's). Unknown arenas (testArena) stay silent.
-    ArenaAmbience.startArenaAmbience(getCurrentLevelId());
+    gameTeardownHooks.startArenaAmbience(getCurrentLevelId());
     // * Mark solo/testdrive rooms as "engaged" so a mid-round refresh recovers to
     // * the menu instead of auto-restarting the room from the stale ?room= URL.
     // * (Quickplay refresh deliberately auto-rejoins — see initMenu.)
