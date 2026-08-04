@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-04T09:37:14.832Z",
-    "commit": "5b4c32d"
+    "at": "2026-08-04T17:00:52.465Z",
+    "commit": "c9f6f44"
   },
-  "source_digest": "26802e15",
+  "source_digest": "393ab4a0",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -852,7 +852,7 @@
       {
         "id": "MAIN-1",
         "what": "Carve `main.js` composition seam (enables BUNDLE-1)",
-        "status": "▶ ACTIVE (code done) — levers A–H committed locally; `main.js` 2402 lines (soft ≤1500 missed — remaining is composition wiring). Battery 6/6 + shoot/compare green. Awaiting Wyatt “ship it” → deploy → §8 playtest + playtest:console. Plan: [main-1.md](./planning/main-1.md).",
+        "status": "▶ DEPLOYED `c9f6f44` · Worker `738b9f44` — zero-regression §8 playtest owed. Soft line target missed (2402). Plan: [main-1.md](./planning/main-1.md). BUNDLE-1 wait until close.",
         "state": "active",
         "touches_systems": [
           {
@@ -873,7 +873,7 @@
       {
         "id": "BUNDLE-1",
         "what": "Menu/game code-split",
-        "status": "📋 unblocked after MAIN-1 closes (code seam landed; wait for ship+§8 before starting)",
+        "status": "📋 unblocked after MAIN-1 §8 PASS closes the card",
         "state": "waiting"
       },
       {
@@ -884,9 +884,8 @@
       }
     ],
     "next_actions": [
-      "MAIN-1 code complete (unpushed until ship) — say “ship it” to push + deploy, then §8 playtest (incl. audio, host-tab, arena picker, quality toggle) via regenerated playtest console.",
-      "Owed spot-checks from this wave (can fold into §8): menu arena picker fade · Low↔High quality · HOST-TAB-1 brief/10s hide · menu attract · level music.",
-      "Still owed separately: 9-cell PERF sweep (~25 min on Wyatt’s box). Run 8 FAIL triage was parked for MAIN-1 — resume after card closes."
+      "Play MAIN-1 on production — hard-refresh https://cart-rave.wyabro.workers.dev · open `.diag-captures/playtest-console.html` · run the 9 numbered steps · paste PASS/FAIL export.",
+      "Still owed separately: 9-cell PERF sweep (~25 min). Resume Run 8 FAIL triage after MAIN-1 closes."
     ],
     "open_issues": [
       {
@@ -902,7 +901,7 @@
       {
         "id": "MAIN-1",
         "issue": "Carve `main.js` composition seam (enables BUNDLE-1)",
-        "status": "▶ **code done** — A–H local; ship+§8 owed. [main-1.md](./planning/main-1.md)"
+        "status": "▶ **DEPLOYED** `c9f6f44` · Worker `738b9f44` — §8 playtest owed (console seeded). Plan: [main-1.md](./planning/main-1.md)."
       },
       {
         "id": "BUNDLE-1",
@@ -1360,10 +1359,17 @@
       {
         "title": "Playtest owed",
         "counts": {
+          "High": 1,
           "?": 4,
           "Low": 1
         },
         "rows": [
+          {
+            "pri": "High",
+            "item": "MAIN-1 — composition seam on production",
+            "notes": "**Owed: Wyatt playtest — MAIN-1 — zero regressions after main.js extract.** DEPLOYED `c9f6f44` · Worker `738b9f44` · prod chunk `index-Bg187ZKs.js` (SHA matches local ship). Hard-refresh https://cart-rave.wyabro.workers.dev first.<br>1. Solo quickplay: menu → play → countdown → round → podium → PLAY AGAIN → fresh round.<br>2. Friends lobby: host ready → non-host joins → both drive → round completes.<br>3. Mid-round join: joiner drives within ~3s of spawn (NET-2 bar).<br>4. Host tab hide: brief hide world still moves; ~10s hide → migrate toast; return reclaim if ahead by 20.<br>5. Arena rotation: quickplay rematch lands on a different arena; visuals match selection.<br>6. Three arenas: Classic · Storerooms · Sundial each load from menu picker without black frame (also spot-check picker fade / attract still animates).<br>7. ESC solo pause: pause freezes clock; resume continues; rematch from pause works.<br>8. Audio: level music starts on play entry; charge SFX stops on KO and on menu/teardown.<br>9. Quality: Esc → Low↔High rebuilds arena (no physics teardown / black freeze).",
+            "ship1": null
+          },
           {
             "pri": "✅",
             "item": "PERF-INSTR-1 — the 60fps instrument works on the Intel box (PERF-PASS-1 Wave 1)",
@@ -1551,7 +1557,7 @@
             "pri": "Medium",
             "id": "MAIN-1",
             "item": "Carve `main.js` composition seam",
-            "notes": "**Code complete 08-04** (A–H local) — `main.js` 2402 lines; battery 6/6 + shoot/compare green. **Ship + §8 playtest owed** before close. Plan: [main-1.md](./main-1.md). Shadow-hazard hoist out (SHADOW-HAZARD-SEAM-1).",
+            "notes": "**DEPLOYED 08-04** `c9f6f44` · Worker `738b9f44`. §8 playtest owed (Playtest owed row). Plan: [main-1.md](./main-1.md).",
             "ship1": null
           },
           {

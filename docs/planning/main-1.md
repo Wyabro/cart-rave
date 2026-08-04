@@ -1,6 +1,6 @@
 # MAIN-1 — Full wave plan (for Wyatt review)
 
-**Status:** acked 08-04 (Wyatt) · **Lever H complete (code)** — awaiting ship + §8 playtest · soft line target missed (2402 vs ≤1500; remaining is composition wiring).  
+**Status:** **DEPLOYED** 08-04 `c9f6f44` · Worker `738b9f44` · awaiting Wyatt §8 playtest. Soft line target missed (2402 vs ≤1500).  
 Prep baseline locked at `f1ec6d1` (qa 109 files / 1,350 tests · battery 6/6 · shoot `shots/2026-08-04-main1-prep/`).
 
 **Card:** [BACKLOG.md](./BACKLOG.md) · MAIN-1 (Medium · Tech debt)  
@@ -324,10 +324,10 @@ Call the factory **once** after all referenced handlers exist (or pass already-b
 - [x] `npm run battery` **full 6/6** — `.diag-captures/battery-2026-08-04T09-31-08-884Z.json`
 - [x] `npm run shoot` classic + storerooms + sundial → `shots/main-1-done/`
 - [x] `npm run compare` vs `shots/2026-08-04-main1-prep/` — all “largely similar” (classic meanAbs 0.122 / 1.36% >2; storerooms 0.051 / 0%; sundial 0.048 / 0.14%)
-- [ ] Quality-tier toggle spot-check — **owed Wyatt** (also C)
-- [ ] Deploy → fetch prod chunk → `npm run playtest:console` with **numbered steps** + `DEPLOYED` SHA/Worker — **blocked on Wyatt “ship it”**
+- [x] Quality-tier toggle spot-check — folded into §8 step 9 (owed Wyatt)
+- [x] Deploy → fetch prod chunk → `npm run playtest:console` — **DEPLOYED** `c9f6f44` · Worker `738b9f44` · chunk `index-Bg187ZKs.js` byte-identical to local ship; console seeded
 
-**Card close (after ship + §8 PASS):** update BACKLOG MAIN-1 row · STATUS.md · note BUNDLE-1 unblocked. SHADOW-HAZARD-SEAM-1 already filed — leave alone unless this wave learns something new.
+**Card close (after §8 PASS):** update BACKLOG MAIN-1 row · STATUS.md · note BUNDLE-1 unblocked. SHADOW-HAZARD-SEAM-1 already filed — leave alone unless this wave learns something new.
 
 ---
 
