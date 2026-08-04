@@ -52,6 +52,15 @@ The bundle itself is built by [`buildNetcodeGameBridge`](../../src/gameSession.j
 `src/gameSession.js` — that function is the real seam, and it is the right place to look when you
 need to know which `main.js` implementation backs a given `callbacks.*` name.
 
+**`sessionBridgeCtx` has exactly two write sites in `main()`** (teardown reads keys from both).
+MAIN-1 Lever B collapses them into one factory; until then do not edit only one site:
+
+- Initial bridge surface: [`sessionBridgeCtx.current = {`](../../src/main.js) (includes
+  `destroySessionCarts`, netcode/gameplay keys — fed to `buildNetcodeGameBridge` /
+  `createGameSessionController`)
+- Teardown patch surface: [`Object.assign(sessionBridgeCtx.current, {`](../../src/main.js)
+  (countdown / podium / slow-mo clears used by session teardown)
+
 **Consequence:** `callbacks.updateCartMaterialsFromSlots()` in netcode is really
 [`function updateCartMaterialsFromSlots`](../../src/main.js) in `src/main.js`. The names usually
 match, but the edge is invisible — and when a name *doesn't* match, only `buildNetcodeGameBridge`
@@ -78,15 +87,17 @@ registered globally. `deps.` appears **~399 times across `src/`**.
 **Consequence:** the call graph for a frame is `main.js → runGameLoop → deps.* → back into main.js`.
 It is a loop through an object, not a chain of imports.
 
-### 3. `main.js` is one ~5,300-line closure
+### 3. `main.js` is one ~5,800-line closure
 
 **Structurally important and easy to get wrong.** `src/main.js` has only ~29 top-level function
 declarations. [`async function main()`](../../src/main.js) spans roughly the whole file and contains
-**~84 inner functions** — `startLevelMusic`, `onLocalKillConfirm`, `triggerSpillNetcode`,
-`bootstrapNetcodeFromMenu`, `rebuildForQualityChange`, `finalizeArenaShellForMenu`, and so on.
+**88 inner functions** (MAIN-1 Lever A inventory, 08-04) — `startLevelMusic`,
+`onLocalKillConfirm`, `triggerSpillNetcode`, `bootstrapNetcodeFromMenu`,
+`rebuildForQualityChange`, `finalizeArenaShellForMenu`, and so on. Extraction map:
+[main-1.md](../planning/main-1.md) §6 / appendix.
 
 These are **never exported and never imported**. They escape the closure *only* by being stuffed
-into the `callbacks` / `deps` bundles above. So:
+into the `callbacks` / `deps` / `sessionBridgeCtx` bundles above. So:
 
 - Searching for `import { startLevelMusic }` returns nothing. It is not dead code.
 - A static call-graph tool renders `main.js` as one enormous node with almost no outbound edges —

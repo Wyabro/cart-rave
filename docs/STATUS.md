@@ -66,31 +66,16 @@ Live rows only. Shipped and closed cards live in
 
 | # | What | Status |
 |---|------|--------|
-| — | **No ACTIVE card — Wyatt names the next one.** HOST-TAB-1 closed 08-04 on a 3/0 export (with FX-TIME-1 · SHADOW-ORDER-1; ARCH-DRIFT-1 shipped alongside). PERF-PASS-1 is the parked candidate. | ⬜ awaiting Wyatt |
+| MAIN-1 | Carve `main.js` composition seam (enables BUNDLE-1) | ▶ **ACTIVE** — acked 08-04; Lever A docs map locked (88 symbols); next Lever B session-bridge factory. Plan: [main-1.md](./planning/main-1.md). Run 8 FAIL triage parked for this wave (~3–4 sessions). |
 | PERF-PASS-1 | 60 fps at Low on the Intel box — **Cart Rave only** (Wyatt scoped it 08-03) | ⏸ **PARKED BY WYATT 08-04 for HOST-TAB-1.** Wave 4 remains deployed (`b754e12`, Worker `9b8b1fbe`); honest measured range −1.66 to −2.54 ms and includes +0.55. Card remains open at ~46 fps; every future cell needs an A-B-A bracket on a cooled box. Menu + evidence: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md). |
-| MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
+| BUNDLE-1 | Menu/game code-split | 🚫 blocked on MAIN-1 |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 
 ### Next actions
 
-1. **Run 8 (08-03) is in: 15 PASS · 4 FAIL · 1 skip.** All 15 passing rows were **deleted**
-   from BACKLOG the same session — see [completed-work.md](./planning/completed-work.md).
-   Closed by Wyatt's eye: **cap-217 / ROUND-WEDGE-1**, LOAD-POSTER-1, SUNDIAL-PT-1 (and with it
-   ART-PASS-SUNDIAL-1), SHADOW-TILT-1, and 4 of the 5 PLAYTEST-BATCH-0803 retests.
-2. **A PASS must close its row in the same session it is reported.** Before Run 8 nothing wrote
-   verdicts back, so passed cards reseeded the console on every regeneration and were re-run by
-   hand. The export now emits a `CLOSE THESE FIRST` block; do that block before any FAIL.
-3. **STORE-DECK-1 shipped and DEPLOYED 08-03** (`6eff2df`, Worker `01f8a745`) — bay letter cut,
-   plate and stripe untouched; prod chunk fetched and checked. **`release:check` reports
-   `no-exact-head-complete-green-battery`** — that is the RC-phase gate and no exact-HEAD battery
-   has been run at this commit; the deploy went out via `npm run ship` as every stabilization
-   deploy has. Run the battery before any RC claim.
-4. **HOST-TAB-1 is closed** — 08-04 export was 3 PASS / 0 FAIL, the first clean sweep this phase.
-   Step 5 (second mid-round migrate) was the standing FAIL and now passes on two machines.
-   **PT-CONSOLE-READY-1 is unblocked by this** — it was explicitly parked "until HOST-TAB-1
-   clears", being a `tools/` commit under the game-card freeze.
-5. **Still owed to Wyatt:** the 9-cell PERF sweep (his box, ~25 min — he cannot be replaced here).
-   Nothing else is waiting on his eyes.
+1. **MAIN-1 in flight** — Lever A committed (inventory + control-flow anchors). Next: Lever B (`buildSessionBridgeContext` in `gameSession.js`). One subagent per lever; full battery required on F and H only.
+2. **Run 8 FAIL triage** consciously parked for this wave — do not auto-pick FAIL cards while MAIN-1 is active.
+3. **Still owed to Wyatt (separate):** the 9-cell PERF sweep (his box, ~25 min). HOST-TAB-1 closed 08-04 (3/0). PT-CONSOLE-READY-1 unblocked for a later tools block.
 
 **Open High:** PERF-PASS-1 · UI-SCALE-1 · RESULTS-1 · CART-MODEL-1 · bloom.
 
@@ -103,7 +88,7 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 |----|--------|--------|
 | PERF-PASS-1 | 60 fps at Low on the Intel box — **Cart Rave only** | ⏸ **PARKED 08-04.** Baseline 23.788 ms / 42.0 fps; menu: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md). |
 | WARM-SOLO-1 | Solo post-`carts-ready` stall (WARM-IGPU residual) | 📋 telemetry-gated — [warm-igpu-1.md](./planning/warm-igpu-1.md) |
-| MAIN-1 | Carve `main.js` seam (enables BUNDLE-1) | 📋 post-gate |
+| MAIN-1 | Carve `main.js` composition seam (enables BUNDLE-1) | ▶ **ACTIVE** — Lever A map locked; [main-1.md](./planning/main-1.md) |
 | BUNDLE-1 | Menu/game code-split | 🚫 blocked on MAIN-1 |
 | BRAND-1 | Domain / Worker cutover | 🧊 frozen until deliberate cutover ([brand.md](./brand.md)) |
 

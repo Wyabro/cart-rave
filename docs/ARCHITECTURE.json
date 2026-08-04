@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-04T06:31:59.576Z",
-    "commit": "222a4a8"
+    "at": "2026-08-04T07:26:27.561Z",
+    "commit": "f1ec6d1"
   },
-  "source_digest": "e4f41f1b",
+  "source_digest": "e5d3ceec",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -845,22 +845,10 @@
   "workstreams": {
     "queue": [
       {
-        "id": "—",
-        "what": "No ACTIVE card — Wyatt names the next one. HOST-TAB-1 closed 08-04 on a 3/0 export (with FX-TIME-1 · SHADOW-ORDER-1; ARCH-DRIFT-1 shipped alongside). PERF-PASS-1 is the parked candidate.",
-        "status": "⬜ awaiting Wyatt",
-        "state": "locked"
-      },
-      {
-        "id": "PERF-PASS-1",
-        "what": "60 fps at Low on the Intel box — Cart Rave only (Wyatt scoped it 08-03)",
-        "status": "⏸ PARKED BY WYATT 08-04 for HOST-TAB-1. Wave 4 remains deployed (`b754e12`, Worker `9b8b1fbe`); honest measured range −1.66 to −2.54 ms and includes +0.55. Card remains open at ~46 fps; every future cell needs an A-B-A bracket on a cooled box. Menu + evidence: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md).",
-        "state": "locked"
-      },
-      {
-        "id": "MAIN-1 / BUNDLE-1",
-        "what": "main.js seam / code-split",
-        "status": "📋 post-gate",
-        "state": "waiting",
+        "id": "MAIN-1",
+        "what": "Carve `main.js` composition seam (enables BUNDLE-1)",
+        "status": "▶ ACTIVE — acked 08-04; Lever A docs map locked (88 symbols); next Lever B session-bridge factory. Plan: [main-1.md](./planning/main-1.md). Run 8 FAIL triage parked for this wave (~3–4 sessions).",
+        "state": "active",
         "touches_systems": [
           {
             "id": "boot-and-orchestration",
@@ -872,6 +860,18 @@
         ]
       },
       {
+        "id": "PERF-PASS-1",
+        "what": "60 fps at Low on the Intel box — Cart Rave only (Wyatt scoped it 08-03)",
+        "status": "⏸ PARKED BY WYATT 08-04 for HOST-TAB-1. Wave 4 remains deployed (`b754e12`, Worker `9b8b1fbe`); honest measured range −1.66 to −2.54 ms and includes +0.55. Card remains open at ~46 fps; every future cell needs an A-B-A bracket on a cooled box. Menu + evidence: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md).",
+        "state": "locked"
+      },
+      {
+        "id": "BUNDLE-1",
+        "what": "Menu/game code-split",
+        "status": "🚫 blocked on MAIN-1",
+        "state": "locked"
+      },
+      {
         "id": "BRAND-1",
         "what": "Domain cutover",
         "status": "🧊 frozen ([brand.md](./brand.md))",
@@ -879,11 +879,9 @@
       }
     ],
     "next_actions": [
-      "Run 8 (08-03) is in: 15 PASS · 4 FAIL · 1 skip. All 15 passing rows were deleted",
-      "A PASS must close its row in the same session it is reported. Before Run 8 nothing wrote",
-      "STORE-DECK-1 shipped and DEPLOYED 08-03 (`6eff2df`, Worker `01f8a745`) — bay letter cut,",
-      "HOST-TAB-1 is closed — 08-04 export was 3 PASS / 0 FAIL, the first clean sweep this phase.",
-      "Still owed to Wyatt: the 9-cell PERF sweep (his box, ~25 min — he cannot be replaced here)."
+      "MAIN-1 in flight — Lever A committed (inventory + control-flow anchors). Next: Lever B (`buildSessionBridgeContext` in `gameSession.js`). One subagent per lever; full battery required on F and H only.",
+      "Run 8 FAIL triage consciously parked for this wave — do not auto-pick FAIL cards while MAIN-1 is active.",
+      "Still owed to Wyatt (separate): the 9-cell PERF sweep (his box, ~25 min). HOST-TAB-1 closed 08-04 (3/0). PT-CONSOLE-READY-1 unblocked for a later tools block."
     ],
     "open_issues": [
       {
@@ -898,8 +896,8 @@
       },
       {
         "id": "MAIN-1",
-        "issue": "Carve `main.js` seam (enables BUNDLE-1)",
-        "status": "📋 post-gate"
+        "issue": "Carve `main.js` composition seam (enables BUNDLE-1)",
+        "status": "▶ **ACTIVE** — Lever A map locked; [main-1.md](./planning/main-1.md)"
       },
       {
         "id": "BUNDLE-1",
@@ -1498,7 +1496,7 @@
         "title": "Tech Debt",
         "counts": {
           "?": 4,
-          "Medium": 6,
+          "Medium": 7,
           "Low": 11
         },
         "rows": [
@@ -1527,7 +1525,14 @@
             "pri": "✅",
             "id": "SHADOW-ORDER-1",
             "item": "Storerooms static shadows may be tested against the wrong arena",
-            "notes": "**CLOSED 08-04 — Wyatt playtest PASS** on prod (`91b39aa`): 4 booth blobs on cold load, still 4 after a warm swap from Classic. Fix shipped `6560552`. The suspicion in this filing was right and the booths were worse than \"unverified\" — they sit at **31.15 m** (26.4 + 2.25 gap + 2.5 half-depth) against a 26.4 m circular fallback, so **all four were being dropped on every cold load**, not merely mis-tested. Both clusters now pass a module-local `CONTACT_SHADOW_HAZARDS` mirroring the level's own `aiHazards` (incl. `half`, which the square path reads), matching the Zanzibar template. **The seam itself is still there:** `setContactShadowHazards` still runs after the builder, so any future level that grounds props during construction hits the same trap — hoisting it in `commitLevelLoad` is deliberately deferred to **MAIN-1**, whose carve splits that exact seam. Original filing: **Filed 08-02**, same root cause as the build-order bug fixed for Sundial in `17fc46c`. `main.js:2458` calls `setContactShadowHazards` **after** the level builder returns, so any `createStaticContactShadowCluster` call made during construction is tested against the *previous* arena's hazards, or the circular fallback (`r > CONFIG.record.radius`) on a cold load. Sundial now passes its own `hazards` override; `backroomsSupermarket.js:1884` (furniture pile) and `:3229` (booth shadows) still do not. The pile sits near the origin and almost certainly survives either way, but the booth placements are outboard and were never verified. Check by probing the live scene for `StaticContactShadows` child counts on a cold load vs an arena switch — the Sundial case read 8 of 24 and looked exactly like \"the feature is subtle\".",
+            "notes": "**CLOSED 08-04 — Wyatt playtest PASS** on prod (`91b39aa`): 4 booth blobs on cold load, still 4 after a warm swap from Classic. Fix shipped `6560552`. Both clusters now pass module-local `CONTACT_SHADOW_HAZARDS` (Zanzibar template). **Seam residual** (post-builder `setContactShadowHazards`) is **not** MAIN-1 — tracked as **SHADOW-HAZARD-SEAM-1**. Original filing 08-02; Sundial fixed earlier in `17fc46c`.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "id": "SHADOW-HAZARD-SEAM-1",
+            "item": "Pre-build contact-shadow hazard API",
+            "notes": "**Filed 08-04** when MAIN-1 cut the infeasible C2 hoist. Player bug closed by SHADOW-ORDER-1 (`6560552` — explicit hazards at cluster create). Seam remains: `setContactShadowHazards` still runs after `loadLevel` (`applyLoadedLevelSideEffects`); `levelHazards` is **output** of the builder, so “hoist before builder returns” is circular. Closing generically needs static/pre-build hazard data (or keep the per-cluster explicit-passing pattern). **Not** a MAIN-1 lever — level-module design. Trigger: next arena that grounds outboard props during construction without an explicit hazards override.",
             "ship1": null
           },
           {
@@ -1541,7 +1546,7 @@
             "pri": "Medium",
             "id": "MAIN-1",
             "item": "Carve `main.js` composition seam",
-            "notes": "Prerequisite for BUNDLE-1.",
+            "notes": "Prerequisite for BUNDLE-1. Plan: [main-1.md](./main-1.md). Shadow-hazard hoist is **out** (see SHADOW-HAZARD-SEAM-1).",
             "ship1": null
           },
           {
