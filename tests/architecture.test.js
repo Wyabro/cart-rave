@@ -2,11 +2,11 @@
 // manifest digest, and the ARCH_* drift gates. The resolver's total-coverage guarantee is the
 // liveness mechanism (an unmapped file is a hard gate), so these pin its exact behavior.
 
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it, expect, afterAll } from "vitest";
-import { SYSTEMS, EDGE_VIA } from "../tools/lib/archMap.mjs";
+import { SYSTEMS, EDGE_VIA, IMPORTANT_FILES } from "../tools/lib/archMap.mjs";
 import { expandSystems, collectLineCounts, collectChurn, buildArchModel } from "../tools/lib/archModel.mjs";
 import {
   buildArchManifest,
@@ -278,6 +278,79 @@ describe("ARCH_* drift gates", () => {
     const statusMd = "## Current focus\n\nx\n\n### Release phases\n\n- ▶ Playtesting & stabilization\n\n### Do not\n\n- x\n";
     const r = evaluateProjectHealth({ statusMd });
     expect(r.findings.every((f) => !f.code.startsWith("ARCH_"))).toBe(true);
+  });
+});
+
+// * ARCH-DRIFT-1. control-flow.md and archMap.mjs used to cite code by line number, and every
+// * one of them had drifted (main.js:314 → a comment, main.js:4748 → an unrelated guard). Line
+// * refs cannot be kept honest by review, so they are banned outright: a code citation is a
+// * symbol string that must literally exist in the file it points at. These two tests are what
+// * make that stick — a rename fails the suite instead of quietly rotting the doc.
+describe("control-flow.md symbol anchors resolve", () => {
+  const repoRoot = new URL("../", import.meta.url);
+  const docUrl = new URL("docs/reference/control-flow.md", repoRoot);
+  const docText = readFileSync(docUrl, "utf8");
+
+  /** Markdown links into src/ · party/ · shared/ whose text is a backticked symbol. */
+  function symbolAnchors() {
+    const out = [];
+    for (const m of docText.matchAll(/\[([^\]\n]+)\]\(([^)\s]+)\)/g)) {
+      const [, rawText, href] = m;
+      const target = href.replace(/^(?:\.\.\/)+/, "");
+      if (!/^(src|party|shared)\//.test(target)) continue;
+      const text = rawText.replace(/`/g, "").trim();
+      // * Link text that is just the path is a file reference, not a symbol anchor.
+      if (text.includes("/") || /\.(js|ts|mjs)$/.test(text)) continue;
+      out.push({ symbol: text, target });
+    }
+    return out;
+  }
+
+  it("every anchored symbol exists in the file it points at", () => {
+    const anchors = symbolAnchors();
+    // * Guard against the regex silently matching nothing and the test passing vacuously.
+    expect(anchors.length).toBeGreaterThan(15);
+
+    const broken = [];
+    for (const { symbol, target } of anchors) {
+      let body;
+      try {
+        body = readFileSync(new URL(target, repoRoot), "utf8");
+      } catch {
+        broken.push(`${target} — file does not exist (anchor \`${symbol}\`)`);
+        continue;
+      }
+      if (!body.includes(symbol)) broken.push(`${target} — no match for \`${symbol}\``);
+    }
+    expect(broken).toEqual([]);
+  });
+
+  it("cites code by symbol only — no line numbers to drift", () => {
+    const offenders = [];
+    docText.split("\n").forEach((line, i) => {
+      if (/[\w./-]+\.(?:js|ts|mjs):\d+/.test(line) || /~?\blines?\s+\d/i.test(line)) {
+        offenders.push(`${i + 1}: ${line.trim()}`);
+      }
+    });
+    expect(offenders).toEqual([]);
+  });
+});
+
+describe("archMap.mjs prose cites code by symbol, not line number", () => {
+  it("no system note, edge detail, or file role carries a line reference", () => {
+    const offenders = [];
+    const check = (where, text) => {
+      if (typeof text !== "string") return;
+      if (/[\w./-]+\.(?:js|ts|mjs)\s*[:~]?\s*\d{2,}/.test(text) || /~?\blines?\s+\d/i.test(text)) {
+        offenders.push(`${where}: ${text.slice(0, 90)}`);
+      }
+    };
+    for (const s of SYSTEMS) {
+      (s.notes ?? []).forEach((n, i) => check(`${s.id}.notes[${i}]`, n));
+      (s.edges ?? []).forEach((e, i) => check(`${s.id}.edges[${i}].detail`, e.detail));
+    }
+    for (const f of IMPORTANT_FILES) check(`file ${f.path}`, f.role);
+    expect(offenders).toEqual([]);
   });
 });
 

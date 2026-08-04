@@ -57,14 +57,14 @@ export const SYSTEMS = [
     entry: ["src/main.js"],
     members: ["src/main.js", "src/bootstrap.js", "src/gameSession.js", "src/config.js", "src/utils.js"],
     notes: [
-      "src/main.js is a ~5.6k-line root; `async function main()` is one closure (~lines 714–5219) holding ~84 unexported inner functions that escape ONLY via the callbacks/deps bundles.",
+      "src/main.js is a ~6k-line root; `async function main()` is one closure spanning nearly the whole file, holding ~84 unexported inner functions that escape ONLY via the callbacks/deps bundles.",
       "buildNetcodeGameBridge (gameSession.js) is the authoring site for the netcode callbacks seam — the real place to learn which main.js impl backs a callbacks.* name.",
       "config.js owns CART_COLORS + the CONFIG knob table (an invariant surface — do not modify CART_COLORS or the material traverse logic).",
     ],
     edges: [
-      { to: "networking-client", via: "callbacks-object", detail: "main.js:314 Netcode.registerGameCallbacks(buildNetcodeGameBridge(…)) merges ~40 real impls over netcode.js's default stub `callbacks` object." },
-      { to: "game-loop-and-flow", via: "deps-object", detail: "main.js:4748 runGameLoop(loopState, callbacks) — every frame decision inside is deps.isHost()/deps.getRoundState()/deps.runFixedPhysicsStep()." },
-      { to: "arenas-levels", via: "deps-object", detail: "main.js:2149 initLevelManager(dependencies) — the ~20-property LevelManagerDeps typedef is the contract." },
+      { to: "networking-client", via: "callbacks-object", detail: "main.js `Netcode.registerGameCallbacks(buildNetcodeGameBridge(…))` merges ~40 real impls over netcode.js's default stub `callbacks` object." },
+      { to: "game-loop-and-flow", via: "deps-object", detail: "main.js calls `runGameLoop(loopState, callbacks)` — every frame decision inside is deps.isHost()/deps.getRoundState()/deps.runFixedPhysicsStep()." },
+      { to: "arenas-levels", via: "deps-object", detail: "main.js calls `initLevelManager(dependencies)` — the ~20-property LevelManagerDeps typedef is the contract." },
     ],
   },
   {
@@ -88,7 +88,7 @@ export const SYSTEMS = [
     ],
     edges: [
       { to: "physics-simulation", via: "deps-object", detail: "deps.runFixedPhysicsStep({…}) / deps.getSimulationCallbacks(true) drive the host sim each fixed step." },
-      { to: "state-stores", via: "zustand-subscription", detail: "directives/directiveEngine.js:88 subscribes to gameStore for mid-round directive scheduling." },
+      { to: "state-stores", via: "zustand-subscription", detail: "directives/directiveEngine.js `gameStore.subscribe` drives mid-round directive scheduling." },
     ],
   },
   {
@@ -101,7 +101,7 @@ export const SYSTEMS = [
     notes: [
       "Rapier is host-AUTHORITATIVE, not host-exclusive: the host is sole authority for NPCs and remote inputs, but every predicting client steps the same world locally (gameLoop.js client-prediction branch). The server never simulates — zero Rapier in party/.",
       "Bot AI lives INSIDE simulation.js and gameFlow.js — there is no separate bots module.",
-      "One Rapier collision callback: eventQueue.drainCollisionEvents((h1,h2,started)=>…) in simulation.js (~line 2717). world.castRay reads .handle off exclude args — pass Collider/RigidBody objects, never raw handles.",
+      "One Rapier collision callback: eventQueue.drainCollisionEvents((h1,h2,started)=>…) in simulation.js. world.castRay reads .handle off exclude args — pass Collider/RigidBody objects, never raw handles.",
     ],
     edges: [
       { to: "scoring-progression", via: "import", detail: "collision/fall detection raises KO events consumed by src/scoring/ reactors (koEvent/koReactors)." },
@@ -137,8 +137,8 @@ export const SYSTEMS = [
       "src/utils/hostCapability.js",
     ],
     notes: [
-      "netcode.js declares a module-scope `let callbacks = {…}` (~line 230) of ~40 no-op stubs, replaced once at startup via registerGameCallbacks. Every game hook is invisible to grep.",
-      "The client MSG.* dispatch mirror chain lives in netcode.js (~lines 2070–2434); pair each branch with its party/index.ts twin.",
+      "netcode.js declares a module-scope `let callbacks = {…}` of ~40 no-op stubs, replaced once at startup via registerGameCallbacks. Every game hook is invisible to grep.",
+      "The client MSG.* dispatch mirror chain lives in netcode.js as a flat run of `if (type === MSG.x)` branches; pair each with its party/index.ts twin.",
       "Real-time telemetry (hostTransform 40Hz, clientInput, spill) is P2P (netcode/p2p.js) — never route it back through the WebSocket.",
     ],
     edges: [
@@ -164,7 +164,7 @@ export const SYSTEMS = [
       "party/slotReconcile.ts",
     ],
     notes: [
-      "The server NEVER simulates physics (invariant). CartRaveServer.onMessage (index.ts ~line 801, ~450 lines) is a flat if(type===MSG.x) chain with bodies inlined.",
+      "The server NEVER simulates physics (invariant). CartRaveServer.onMessage (index.ts, ~500-line method) is a flat if(type===MSG.x) chain with bodies inlined.",
       "room.getConnections() returns an iterator — spread or for…of, never .map().join().",
       "Pure helpers (hostSelection, roundValidation, rateLimit, connectionReaper, hostRearm, slotReconcile) + party/constants.ts thresholds are unit-tested; A5b DO harness lives in tests/party-do/ (Workers Vitest pool).",
     ],
@@ -218,7 +218,7 @@ export const SYSTEMS = [
       "src/levels/",
     ],
     notes: [
-      "Levels load through LEVEL_IMPORTERS in src/levels/index.js (~line 16) — a dynamic id→import() table, NOT a barrel. The four level modules are reachable only through it.",
+      "Levels load through LEVEL_IMPORTERS in src/levels/index.js — a dynamic id→import() table, NOT a barrel. The four level modules are reachable only through it.",
       "initLevelManager consumes the ~20-property LevelManagerDeps typedef — read it before touching level swaps.",
       "arenaCatalog.js is the pure-data authoring source for labels/themes/music/ambience/unlocks (D-CONTENT-1).",
     ],
@@ -288,12 +288,12 @@ export const SYSTEMS = [
       "src/announcer/",
     ],
     notes: [
-      "Howler lifecycle: onload/onplay/onend in audioManager.js (~lines 300–355). audioStore has exactly one subscriber (audioManager.js:20).",
-      "announcerDirector subscribes to gameStore (announcerDirector.js:341) — a gameStore shape change silently changes announcer behavior.",
+      "Howler lifecycle: onload/onplay/onend in audioManager.js. audioStore has exactly one subscriber (`audioStore.subscribe` in audioManager.js).",
+      "announcerDirector subscribes to gameStore (`gameStore.subscribe` in announcerDirector.js) — a gameStore shape change silently changes announcer behavior.",
       "No loudnorm on loops; SFX bus target ~-16 LUFS, music ~-13.5.",
     ],
     edges: [
-      { to: "state-stores", via: "zustand-subscription", detail: "audioManager.js:20 subscribes to audioStore; announcerDirector.js:341 subscribes to gameStore." },
+      { to: "state-stores", via: "zustand-subscription", detail: "audioManager.js subscribes to audioStore; announcerDirector.js subscribes to gameStore." },
       { to: "scoring-progression", via: "import", detail: "KO/scoring events drive announcer stings + directive callouts." },
     ],
   },
@@ -319,7 +319,7 @@ export const SYSTEMS = [
     ],
     edges: [
       { to: "boot-and-orchestration", via: "dom-event", detail: "cartrave:menu / cartrave:round-started custom events cross between the menu DOM and main.js (~13 sites)." },
-      { to: "state-stores", via: "zustand-subscription", detail: "cart-rave-menu.js subscribes to challengeStore:1896 + unlockStore:1798 for lobby UI." },
+      { to: "state-stores", via: "zustand-subscription", detail: "cart-rave-menu.js subscribes to challengeStore + unlockStore for lobby UI." },
     ],
   },
   {
@@ -347,7 +347,7 @@ export const SYSTEMS = [
     entry: ["src/stores/gameStore.js"],
     members: ["src/stores/", "src/gameState.js", "src/utils/storage.js"],
     notes: [
-      "gameStore blast radius: analytics/gameplayAnalytics:82, announcer/announcerDirector:341, directives/directiveEngine:88, utils/gameplayDiagnostics:284 — changing a gameStore field's meaning changes all four.",
+      "gameStore blast radius (grep `gameStore.subscribe`): analytics/gameplayAnalytics, announcer/announcerDirector, directives/directiveEngine, utils/gameplayDiagnostics — changing a gameStore field's meaning changes all four.",
       "gameState.js is a facade over gameStore; the dual-import surface is tracked as STORE-1.",
       "settingsStore / cartTuningStore are read via getState() only — no subscribers.",
     ],
@@ -465,14 +465,14 @@ export const SYSTEMS = [
  * @type {Array<{ path: string, role: string }>}
  */
 export const IMPORTANT_FILES = [
-  { path: "src/main.js", role: "Entry point + render loop + system wiring; one 4.5k-line main() closure holding ~84 unexported inner functions (they escape via callbacks/deps bundles, not exports)." },
+  { path: "src/main.js", role: "Entry point + render loop + system wiring; one ~5.3k-line main() closure holding ~84 unexported inner functions (they escape via callbacks/deps bundles, not exports)." },
   { path: "src/gameSession.js", role: "buildNetcodeGameBridge — authors the netcode callbacks bundle; the map from callbacks.* name → real main.js impl." },
-  { path: "src/netcode.js", role: "Client netcode: the module-scope `callbacks` stub object (~line 230), the MSG.* mirror dispatch (~2070–2434), prediction + host maintain." },
+  { path: "src/netcode.js", role: "Client netcode: the module-scope `callbacks` stub object, the MSG.* mirror dispatch, prediction + host maintain." },
   { path: "src/netcode/p2p.js", role: "WebRTC peers/DataChannels, ICE grace, TURN wait — the gameplay plane. hostTransform/clientInput/spill only." },
   { path: "src/netcode/binary.js", role: "Host snapshot encode/decode, bounds-checked. 40Hz binary transforms + JSON kill-feed tail." },
-  { path: "src/simulation.js", role: "Host Rapier physics + the single drainCollisionEvents callback (~2717); bot decision logic lives here too." },
+  { path: "src/simulation.js", role: "Host Rapier physics + the single drainCollisionEvents callback; bot decision logic lives here too." },
   { path: "src/levelManager.js", role: "Level preview + hot-swap; driven by the LevelManagerDeps typedef contract — read the typedef before touching swaps." },
-  { path: "src/levels/index.js", role: "LEVEL_IMPORTERS dynamic id→import() table (~line 16), a loader NOT a barrel — the only way the four level modules are reached." },
+  { path: "src/levels/index.js", role: "LEVEL_IMPORTERS dynamic id→import() table, a loader NOT a barrel — the only way the four level modules are reached." },
   { path: "src/cartRaveGltf.js", role: "userData state-machine hub (raveGltfPartRole/cartVisual/deathState/followState) — grep the userData key, there are no call edges." },
   { path: "src/config.js", role: "CART_COLORS (invariant, do not modify) + the CONFIG knob table incl. CONFIG.round.durationMs (imports ROUND_DURATION_MS)." },
   { path: "src/hud.js", role: "In-game HUD; updateStatus() owns the countdown beat display (COUNTDOWN-SYNC-1). No unit tests — visual-QA gated." },

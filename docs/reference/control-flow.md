@@ -8,13 +8,18 @@ make `grep` and static call-graph tools give the wrong answer about this codebas
 moves a function between modules. If you are about to conclude "nothing calls this function,"
 check it against § Invisible edges first — you are probably wrong.
 
-**Anchors are symbol names first, line numbers second.** Line numbers drift; search the symbol.
+**Anchors are symbols, never line numbers.** Every code location below is a link whose text is a
+literal string in the target file — e.g. [`registerGameCallbacks`](../../src/netcode.js). Search
+the symbol; there is nothing to keep in sync. `tests/architecture.test.js` resolves every one of
+these anchors and fails if a symbol stops existing, so a rename breaks the build instead of
+silently rotting the doc. **Do not reintroduce path-plus-line-number refs** — the same test
+rejects any citation carrying a line number.
 
 ---
 
 ## The one-paragraph version
 
-Cart Clash is ~136 `.js` files with **679 `export function` and 5 classes** — it is a free-function
+Cart Clash is ~142 `.js` files with **~754 `export function` and 5 classes** — it is a free-function
 codebase, not an OO one. Modules are stateful singletons consumed via `import * as X`
 (`src/main.js` alone has 14 namespace imports). But the highest-traffic edges are **not imports**.
 Four subsystems reach each other through *injected callback objects*, a *string-keyed wire
@@ -29,25 +34,28 @@ only follows imports will see the utility leaves and miss the entire orchestrati
 
 **Do not grep for callers of netcode's game hooks. There are none in the normal sense.**
 
-`src/netcode.js` declares a module-scope mutable `let callbacks = { … }` (~line 230) holding
+`src/netcode.js` declares a module-scope mutable [`let callbacks = {`](../../src/netcode.js) holding
 **~40 no-op default stubs** — `updateCartMaterialsFromSlots`, `teleportCartToSpawn`,
 `onLocalKillConfirm`, `onAnnouncerFall`, `colorHexForSlot`, and so on. Every internal use inside
 netcode is `callbacks.foo(…)`. The stubs are replaced exactly once at startup:
 
 ```
-src/main.js:314  Netcode.registerGameCallbacks(buildNetcodeGameBridge(…, gameSession))
-  → src/netcode.js  registerGameCallbacks(deps)   (~line 328)
+src/main.js       Netcode.registerGameCallbacks(buildNetcodeGameBridge(…, gameSession))
+  → src/netcode.js  registerGameCallbacks(deps)
     → registerCallbacks({ … })  — merges over the defaults
 ```
 
-The bundle itself is built by **`buildNetcodeGameBridge`** in
-[src/gameSession.js](../../src/gameSession.js) — that function is the real seam, and it is the
-right place to look when you need to know which `main.js` implementation backs a given
-`callbacks.*` name.
+Anchors: [`Netcode.registerGameCallbacks`](../../src/main.js) →
+[`export function registerGameCallbacks`](../../src/netcode.js).
+
+The bundle itself is built by [`buildNetcodeGameBridge`](../../src/gameSession.js) in
+`src/gameSession.js` — that function is the real seam, and it is the right place to look when you
+need to know which `main.js` implementation backs a given `callbacks.*` name.
 
 **Consequence:** `callbacks.updateCartMaterialsFromSlots()` in netcode is really
-`updateCartMaterialsFromSlots` in `src/main.js` (~line 646). The names usually match, but the
-edge is invisible — and when a name *doesn't* match, only `buildNetcodeGameBridge` will tell you.
+[`function updateCartMaterialsFromSlots`](../../src/main.js) in `src/main.js`. The names usually
+match, but the edge is invisible — and when a name *doesn't* match, only `buildNetcodeGameBridge`
+will tell you.
 
 **When adding a hook:** add the stub to the `callbacks` literal in `netcode.js` *and* wire the real
 implementation in `buildNetcodeGameBridge`. Miss the second step and you get a silent no-op, not
@@ -58,24 +66,24 @@ an error. This is the single most common way to "land" a change that does nothin
 Same pattern, different shape — the dependency bundle is passed **as an argument**, not
 registered globally. `deps.` appears **~399 times across `src/`**.
 
-- **`runGameLoop(loopState, callbacks)`** — [src/gameLoop.js](../../src/gameLoop.js) `runGameLoop`,
-  called at `src/main.js:4748`. Every physics/frame decision inside is `deps.isHost()`,
-  `deps.getRoundState()`, `deps.runFixedPhysicsStep({…})`, `deps.getSimulationCallbacks(true)`.
-- **`initLevelManager(dependencies)`** — [src/levelManager.js](../../src/levelManager.js), called at
-  `src/main.js:2149`. Its contract exists **only as a JSDoc `@typedef LevelManagerDeps`** — a
-  ~20-property interface (`getMenuVisible`, `performLevelLoad`, `finalizeArenaForPlay`,
-  `maskMenuPreviewSwap`, `warmupAfterLevelSwap`, …). That typedef is the contract; read it before
-  touching level swaps.
+- **[`export function runGameLoop`](../../src/gameLoop.js)`(loopState, callbacks)`** — called from
+  `main.js`. Every physics/frame decision inside is `deps.isHost()`, `deps.getRoundState()`,
+  `deps.runFixedPhysicsStep({…})`, `deps.getSimulationCallbacks(true)`.
+- **[`export function initLevelManager`](../../src/levelManager.js)`(dependencies)`** — also called
+  from `main.js`. Its contract exists **only as a JSDoc**
+  [`LevelManagerDeps`](../../src/levelManager.js) typedef — a ~20-property interface
+  (`getMenuVisible`, `performLevelLoad`, `finalizeArenaForPlay`, `maskMenuPreviewSwap`,
+  `warmupAfterLevelSwap`, …). That typedef is the contract; read it before touching level swaps.
 
 **Consequence:** the call graph for a frame is `main.js → runGameLoop → deps.* → back into main.js`.
 It is a loop through an object, not a chain of imports.
 
-### 3. `main.js` is one 4,500-line closure
+### 3. `main.js` is one ~5,300-line closure
 
 **Structurally important and easy to get wrong.** `src/main.js` has only ~29 top-level function
-declarations. `async function main()` spans **lines 714–5219** and contains **~84 inner functions**
-— `startLevelMusic`, `onLocalKillConfirm`, `triggerSpillNetcode`, `bootstrapNetcodeFromMenu`,
-`rebuildForQualityChange`, `finalizeArenaShellForMenu`, and so on.
+declarations. [`async function main()`](../../src/main.js) spans roughly the whole file and contains
+**~84 inner functions** — `startLevelMusic`, `onLocalKillConfirm`, `triggerSpillNetcode`,
+`bootstrapNetcodeFromMenu`, `rebuildForQualityChange`, `finalizeArenaShellForMenu`, and so on.
 
 These are **never exported and never imported**. They escape the closure *only* by being stuffed
 into the `callbacks` / `deps` bundles above. So:
@@ -94,11 +102,12 @@ call. Constants are single-sourced in [shared/protocol.js](../../shared/protocol
 Both sides dispatch with a flat `if (type === MSG.x)` chain, **with bodies inlined** rather than
 delegating to named handlers:
 
-- **Server:** `CartRaveServer.onMessage` in [party/index.ts](../../party/index.ts) — starts ~line
-  801, runs ~450 lines, twelve branches (`keepalive`, `join`, `colorPick`, `cartLook`,
-  `readyToggle`, `playAgain`, `requestTurnCredentials`, `sdpOffer`, `sdpAnswer`, `iceCandidate`,
-  `hostRound`, `hostSpawn`).
-- **Client:** the mirror chain in [src/netcode.js](../../src/netcode.js) (~lines 2070–2434).
+- **Server:** `CartRaveServer.`[`async onMessage`](../../party/index.ts) in `party/index.ts` — a
+  ~500-line method, twelve branches (`keepalive`, `join`, `colorPick`, `cartLook`, `readyToggle`,
+  `playAgain`, `requestTurnCredentials`, `sdpOffer`, `sdpAnswer`, `iceCandidate`, `hostRound`,
+  `hostSpawn`).
+- **Client:** the mirror chain in [src/netcode.js](../../src/netcode.js) — a long run of
+  [`if (type === MSG.`](../../src/netcode.js) branches, `keepalive` first through `spillBonus` last.
 
 **To trace a message end-to-end:** grep the `MSG.` key — e.g. `MSG.hostRound` — and read the two
 branches it lands in. That is the whole edge. Nothing else connects the planes.
@@ -125,15 +134,18 @@ setter. Both the onMessage throttle gate and `#reapSilentConnections` → `listS
 
 Six stores in `src/stores/` (`gameStore`, `audioStore`, `settingsStore`, `challengeStore`,
 `unlockStore`, `cartTuningStore`), ~109 `getState`/`setState`/`subscribe` sites. A `setState`
-anywhere fires subscribers elsewhere with **zero syntactic link**. The complete subscriber set:
+anywhere fires subscribers elsewhere with **zero syntactic link**. The complete subscriber set —
+each cell links the subscribing file and anchors on its actual `subscribe` call:
 
 | Store | Subscribers |
 |---|---|
-| `gameStore` | [analytics/gameplayAnalytics.js:82](../../src/analytics/gameplayAnalytics.js), [announcer/announcerDirector.js:341](../../src/announcer/announcerDirector.js), [directives/directiveEngine.js:88](../../src/directives/directiveEngine.js), [utils/gameplayDiagnostics.js:284](../../src/utils/gameplayDiagnostics.js) |
-| `challengeStore` | [analytics/gameplayAnalytics.js:129](../../src/analytics/gameplayAnalytics.js), [cart-rave-menu.js:1896](../../src/cart-rave-menu.js), [main.js:2133](../../src/main.js), [utils/gameplayDiagnostics.js:324](../../src/utils/gameplayDiagnostics.js) |
-| `audioStore` | [audioManager.js:20](../../src/audioManager.js) |
-| `unlockStore` | [cart-rave-menu.js:1798](../../src/cart-rave-menu.js), [utils/gameplayDiagnostics.js:312](../../src/utils/gameplayDiagnostics.js) |
+| `gameStore` | [`gameStore.subscribe`](../../src/analytics/gameplayAnalytics.js) · [`gameStore.subscribe`](../../src/announcer/announcerDirector.js) · [`gameStore.subscribe`](../../src/directives/directiveEngine.js) · [`gameStore.subscribe`](../../src/utils/gameplayDiagnostics.js) |
+| `challengeStore` | [`challengeStore.subscribe`](../../src/analytics/gameplayAnalytics.js) · [`challengeStore.subscribe`](../../src/cart-rave-menu.js) · [`challengeStore.subscribe`](../../src/main.js) · [`challengeStore.subscribe`](../../src/utils/gameplayDiagnostics.js) |
+| `audioStore` | [`audioStore.subscribe`](../../src/audioManager.js) |
+| `unlockStore` | [`unlockStore.subscribe`](../../src/cart-rave-menu.js) · [`unlockStore.subscribe`](../../src/utils/gameplayDiagnostics.js) |
 | `settingsStore`, `cartTuningStore` | read via `getState()`; no subscribers |
+
+(The four `gameStore` cells are four different files — hover the link to see which.)
 
 **Consequence:** changing what a `gameStore` field means silently changes announcer behavior,
 directive scheduling, and analytics. Those four are the blast radius of every `gameStore` shape
@@ -143,25 +155,29 @@ change. `gameStore` / `gameState` dual-import surface is tracked as **STORE-1** 
 
 ## Other things that don't grep
 
-- **Levels load through a table, not imports.** `LEVEL_IMPORTERS` in
-  [src/levels/index.js](../../src/levels/index.js) (~line 16) maps level id → dynamic
+- **Levels load through a table, not imports.** [`export const LEVEL_IMPORTERS`](../../src/levels/index.js)
+  in `src/levels/index.js` maps level id → dynamic
   `() => import("./backroomsSupermarket.js").then(m => m.initBackroomsSupermarket)`. All four
   ~3,000-line level modules are reachable **only** through this table. `src/levels/index.js` is a
   loader, not a barrel.
 - **Three.js behavior is data-driven.** ~313 `userData` references and ~40 `.traverse()` calls.
-  Keys like `userData.raveGltfPartRole`, `userData.cartVisual`, `userData.deathState`,
-  `userData.cameraMode`, `userData.followState` are state machines keyed off scene-graph
-  annotations — concentrated in [src/cartRaveGltf.js](../../src/cartRaveGltf.js). No call edges
-  exist to find; grep the `userData` key instead.
+  Keys like [`raveGltfPartRole`](../../src/cartRaveGltf.js), `userData.cartVisual`,
+  `userData.deathState`, `userData.cameraMode`, `userData.followState` are state machines keyed off
+  scene-graph annotations — concentrated in [src/cartRaveGltf.js](../../src/cartRaveGltf.js). No
+  call edges exist to find; grep the `userData` key instead.
 - **DOM custom events** — a small seam, 4 names only: `cartrave:menu`, `cartrave:level-changed`,
-  `cartrave:customization-changed`, `cartrave:round-started` (~13 sites, e.g.
-  `src/cart-rave-menu.js:1545`, `src/main.js:2757`). There is no custom emitter class.
-- **Rapier collisions** — one callback: `eventQueue.drainCollisionEvents((h1, h2, started) => …)`
-  in [src/simulation.js](../../src/simulation.js) (~line 2717).
-- **Howler lifecycle** — `onload` / `onplay` / `onend` in
-  [src/audioManager.js](../../src/audioManager.js) (~lines 300–355).
+  `cartrave:customization-changed`, `cartrave:round-started` (~13 sites; dispatched from
+  [`cartrave:level-changed`](../../src/cart-rave-menu.js) in the menu, consumed at
+  [`cartrave:round-started`](../../src/main.js) and friends in `main.js`). There is no custom
+  emitter class.
+- **Rapier collisions** — one callback:
+  [`drainCollisionEvents`](../../src/simulation.js)`((h1, h2, started) => …)` in
+  `src/simulation.js`.
+- **Howler lifecycle** — [`onload:`](../../src/audioManager.js) / [`onplay:`](../../src/audioManager.js)
+  / [`onend:`](../../src/audioManager.js) in `src/audioManager.js`.
 - **No tsconfig path aliases.** All imports are relative. Vite aliases exist only under
-  `mode === "production"` and for test-time Rapier stubbing (`vite.config.js:66-75`).
+  `mode === "production"` (aliasing `@dimforge/rapier3d-simd` → `@dimforge/rapier3d`) and for
+  test-time Rapier stubbing — both in `vite.config.js`.
 - **Types are JSDoc, not TypeScript.** `allowJs: true, checkJs: true, strict: false, noEmit: true`.
   Only `party/*.ts` is real TypeScript. Tools expecting TS annotations will find nothing in `src/`.
 
@@ -178,8 +194,8 @@ change. `gameStore` / `gameState` dual-import surface is tracked as **STORE-1** 
    `LevelManagerDeps` in `levelManager.js`), then the call site in `main.js`.
 4. **Crosses client/server?** Grep the `MSG.` key, read both `if (type === MSG.x)` branches.
 5. **Reacts to state?** Check the store table above.
-6. **Still nothing?** It's probably an inner function of `main()` (lines 714–5219) — search within
-   that range before concluding it's dead.
+6. **Still nothing?** It's probably an inner function of `main()` — search within that closure
+   before concluding it's dead.
 
 **Naming works in your favor.** Functions are long and domain-prefixed —
 `updateWaterDeathFx`, `updateRaveGltfCasterRollPivot`, `updateRemoteCartNetTargets`,
