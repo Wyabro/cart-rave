@@ -230,6 +230,41 @@ The Intel iGPU box is the one that matters — it is the machine this card is *f
 
 Judge on **production**, not dev — dev-only probes lie in prod.
 
+### Provisional n=1 reading — recovered from the MAIN-1 retest captures (08-04)
+
+`menuReadyMs` is stamped once per page load and rides in **every** capture from that load, so the
+Intel UHD retest bundles already carry a boot timeline. cap-256 and cap-260 (`8d96b0b`, Intel UHD,
+`low`) are the **same page load** and report identical values — this is **n=1, not a median**, and the
+HTTP-cache state of that load is unknown. It does not replace the 5-sample capture above.
+
+| Mark | tMs | Share of menu-ready |
+|------|----:|--------------------:|
+| `module-eval` | 5,015 | **87%** |
+| `menu-ready` | 5,738 | 100% |
+| `milestone-75` | 6,774 | |
+| `world-ready` | 10,662 | |
+| `carts-ready` | 17,561 | |
+
+**This is the most important number the card has, and it sharpens the whole plan.** `module-eval` is
+marked on the **first line of `main()`** (`src/main.js:330`), which runs only after the entire import
+graph has been fetched, parsed and evaluated. So on the target machine, **~5.0 s of the 5.7 s to an
+interactive menu is spent before `main()` executes a single statement** — that is fetch + parse + eval
+of the 1,554,863-byte initial set. Only ~723 ms is `main()`'s body.
+
+Consequences:
+
+1. **It confirms the abort gate belongs on D, not C.** Lever C defers *construction*, which lives in the
+   723 ms tail — at best a fraction of a fraction. Lever D defers *bytes*, which attacks the 5,015 ms.
+   Had the gate stayed on C, the card would almost certainly have aborted on a number it was never
+   positioned to move.
+2. **The 15% bar (~861 ms) looks reachable but not free.** It requires a real byte cut: roughly
+   300 kB of 1,554 kB is ~19% of the payload, and only if `module-eval` scales with payload rather than
+   being dominated by a fixed cost (connection setup, three.js parse). **Lever D must measure this, not
+   assume it** — if `module-eval` barely moves after D's cut, the three.js floor (§3 abort gate 1) is the
+   real ceiling and the card should re-scope to budget-only rather than push into E.
+3. **`module-eval` is the honest supporting metric to record alongside `menuReadyMs`** — it cannot be
+   moved by code motion within `main()`, so it is immune to the metric-gaming failure in abort gate 5.
+
 ---
 
 ## 6. Notes carried out of Lever A (not fixed here)
