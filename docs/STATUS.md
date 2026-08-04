@@ -66,7 +66,7 @@ Live rows only. Shipped and closed cards live in
 
 | # | What | Status |
 |---|------|--------|
-| HOST-TAB-1 | Hidden-tab host pump + AFK promote + strongest-host return | ▶ **ACTIVE — lever E local (`p2p` session-gen + host ignores inbound offer).** First AFK + solo PASS; second-migrate freeze fix unpushed. **Owed: Wyatt playtest — HOST-TAB-1** after ship. Checklist: [host-tab-1.md §10](./planning/host-tab-1.md#10-verification-matrix) (incl. step 4 second migrate). |
+| HOST-TAB-1 | Hidden-tab host pump + AFK promote + strongest-host return | ▶ **ACTIVE — DEPLOYED 08-04** (`c3e4589`, Worker `507a8c36`). Lever E live. **Owed: Wyatt playtest — HOST-TAB-1** — retest §10, esp. second migrate same match. |
 | PERF-PASS-1 | 60 fps at Low on the Intel box — **Cart Rave only** (Wyatt scoped it 08-03) | ⏸ **PARKED BY WYATT 08-04 for HOST-TAB-1.** Wave 4 remains deployed (`b754e12`, Worker `9b8b1fbe`); honest measured range −1.66 to −2.54 ms and includes +0.55. Card remains open at ~46 fps; every future cell needs an A-B-A bracket on a cooled box. Menu + evidence: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md). |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
@@ -98,7 +98,7 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 
 | ID | Issue | Status |
 |----|--------|--------|
-| HOST-TAB-1 | Hidden-tab host authority | ▶ **Lever E implemented locally** — host ignores inbound `sdpOffer`; `isHost` + session-gen after awaits. **Owed: Wyatt playtest — HOST-TAB-1** (retest §10 step 4). |
+| HOST-TAB-1 | Hidden-tab host authority | ▶ **DEPLOYED** Worker `507a8c36` — **Owed: Wyatt playtest — HOST-TAB-1** (retest second migrate). |
 | PERF-PASS-1 | 60 fps at Low on the Intel box — **Cart Rave only** | ⏸ **PARKED 08-04.** Baseline 23.788 ms / 42.0 fps; menu: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md). |
 | WARM-SOLO-1 | Solo post-`carts-ready` stall (WARM-IGPU residual) | 📋 telemetry-gated — [warm-igpu-1.md](./planning/warm-igpu-1.md) |
 | MAIN-1 | Carve `main.js` seam (enables BUNDLE-1) | 📋 post-gate |

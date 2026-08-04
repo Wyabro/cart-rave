@@ -36,7 +36,10 @@ Open **`.diag-captures/playtest-console.html`** (or Command Center → Playtest 
 
 **Agent contract:** when a change needs a human, write  
 `Owed: Wyatt playtest — CARD-ID — one-line check`  
-into STATUS or BACKLOG, then regenerate. On close: `Wyatt playtest PASS` (and clear Owed).
+into STATUS or BACKLOG, then regenerate.
+**Ready means:** after regen, each owed card shows numbered steps in the console UI —
+not merely that an `Owed:` string exists in BACKLOG/STATUS.
+On close: `Wyatt playtest PASS` (and clear Owed).
 
 **Process that failed before (do not repeat):** dump 10+ needs-work items → one mega fix batch → ship → mixed host roles → performance feels random.
 

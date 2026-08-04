@@ -241,6 +241,15 @@ falsifiable against a diff: if you cannot point at the line that violates it, it
   flag that does not exist fails **silently** (`debugParams` ignores unknown `?ablate=` tokens by
   design) and `buildFreshness` will not warn, because the bundle genuinely is live — it just
   predates the feature. On 08-04 this void'd a capture and a round of his play.
+- **Playtest console must be ready before Wyatt's turn.** Same failure shape as the URL rule
+  above. Writing `Owed: Wyatt playtest` is not enough. Before you tell him to play (after ship,
+  after closing PASSes, or when handing a FAIL retest): run `npm run playtest:console`, then
+  confirm each owed card seeded from STATUS/BACKLOG (system rows excepted) has a one-line goal,
+  **non-empty numbered `steps`**, and deploy context that matches reality (`DEPLOYED` +
+  SHA/Worker — never "unpushed" / "after ship" once it is live). A card that only links to a
+  plan doc is **not** ready — put the checklist in the BACKLOG Playtest-owed Notes as
+  `<br>1.` / `<br>2.` steps ([docs/playtest/README.md](docs/playtest/README.md)). Do not hand
+  him the console path until that check passes.
 - **His time and the context window are both budgets, and neither is yours to spend quietly.**
   Concretely: **move files with shell commands, never re-emit a document you already have**
   (relocating a 350-line plan by retyping it was this session's single largest spend); **never
@@ -336,7 +345,8 @@ because a full day was once lost grinding one task; the loop caps that at ~45 mi
 - **Definition of done:** gates green **by number** + pushed + pulled-and-verified in
   `origin/cart-clash` HEAD + `npm run briefing` fresh + STATUS.md updated — except that
   **fast-lane commits may defer the STATUS.md update to the next wave boundary**. Behavior
-  changes additionally need Wyatt's playtest on production before they count.
+  changes additionally need Wyatt's playtest on production before they count, and it is not
+  his turn until the regenerated console shows non-empty steps and accurate deploy context.
 
 ---
 
