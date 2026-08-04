@@ -743,14 +743,20 @@ export function runGameLoop(loopState, callbacks) {
       const overGap = dt > RESUME_GAP_S;
       overGapStreak = overGap ? overGapStreak + 1 : 0;
       const isResume = overGap && overGapStreak === 1;
+      // * PERF-PASS-1: hoisted so the callback timing below can reach the same counter object
+      // * and the same gate. Stays null in ordinary play, which is what keeps that path free.
+      let d = null;
       if (typeof window !== "undefined" && (window.__ccNetTest || window.__ccDiagActive)) {
         // * Read+reset every gated frame (not just longframe ones) so the latch reflects
         // * "hidden/blurred during THIS gap" — reading it only inside the dt>0.1 branch
         // * below would let a hide/blur from an unrelated earlier frame leak onto a later,
         // * unrelated long frame.
         const { hiddenDuringGap, blurredDuringGap } = readAndResetGapFocusLatch();
-        const d = (window.__ccLoopDbg =
-          window.__ccLoopDbg || { frames: 0, resumeZeroed: 0, chronicSlow: 0, maxDt: 0, lastDt: 0, over33: 0, over66: 0 });
+        d = window.__ccLoopDbg =
+          window.__ccLoopDbg || {
+            frames: 0, resumeZeroed: 0, chronicSlow: 0, maxDt: 0, lastDt: 0, over33: 0, over66: 0,
+            timed: 0, sumMs: 0, over16: 0, simMs: 0, visMs: 0,
+          };
         d.frames += 1;
         d.lastDt = dt;
         if (dt > d.maxDt) d.maxDt = dt;
@@ -762,6 +768,18 @@ export function runGameLoop(loopState, callbacks) {
         if (dt > 0.033 && !isResume) {
           d.over33 = (d.over33 || 0) + 1;
           if (dt > 0.066) d.over66 = (d.over66 || 0) + 1;
+        }
+        // * PERF-PASS-1: the 60fps bar. `over33`/`over66` cannot see 16.7ms, so nothing in the
+        // * repo could answer "did this build hold 60 on that machine". `sumMs / timed` IS the
+        // * mean exactly and `1000 * timed / sumMs` is avg fps — no histogram needed for a
+        // * mean-based bar. Accumulated HERE, beside over33, because this block runs before the
+        // * clamp below: at the callback site `dt` is already min(dt, 0.05) and zeroed on resume,
+        // * which would cap every frame at 50ms and record resumes as 0 and corrupt the mean.
+        // * `timed` is the shared denominator for sumMs/simMs/visMs — see the callback site.
+        if (!isResume) {
+          d.timed += 1;
+          d.sumMs += dt * 1000;
+          if (dt > 0.0167) d.over16 += 1;
         }
         // * Hitch forensics: individual long frames land in the diag event ring with
         // * timestamps, so an F8 bundle shows WHEN the hitches hit relative to KOs,
@@ -820,8 +838,25 @@ export function runGameLoop(loopState, callbacks) {
       loopState.simFrameIndex += 1;
 
       const frameCtx = { now, dt, loopState };
-      onFrame(frameCtx);
-      onVisualUpdate?.(frameCtx);
+      // * PERF-PASS-1: main-thread split. `simMs` = gameflow + physics, `visMs` = mesh sync,
+      // * effects, HUD and render submit. Read as cpuMean = (simMs + visMs) / timed against
+      // * mean = sumMs / timed; the remainder is present-wait plus any main-thread work outside
+      // * these two calls — it is NOT a GPU timer, which is why nothing here is named gpu*.
+      // * Gated on `d` (null unless ?diag / ?nettest) so ordinary play pays no performance.now(),
+      // * and on the same `!isResume` as `timed` — a resume frame still runs both callbacks, so
+      // * timing it while excluding it from the denominator would inflate the CPU mean.
+      if (d && !isResume) {
+        const simStart = performance.now();
+        onFrame(frameCtx);
+        const visStart = performance.now();
+        onVisualUpdate?.(frameCtx);
+        const visEnd = performance.now();
+        d.simMs += visStart - simStart;
+        d.visMs += visEnd - visStart;
+      } else {
+        onFrame(frameCtx);
+        onVisualUpdate?.(frameCtx);
+      }
 
       // * Full frame succeeded — clear the unrecoverable-error tripwire.
       stepErrorStreak = 0;

@@ -67,7 +67,7 @@ Live rows only. Shipped and closed cards live in
 | # | What | Status |
 |---|------|--------|
 | STORE-DECK-1 | Storerooms spawn-deck bay letter | ⏸ **DEPLOYED 08-03** (`6eff2df`, Worker version `01f8a745`) — verified by fetching the production chunk: no `BAY_LETTERS`, no letter font, plate + stripe intact. Waiting on Wyatt's retest. |
-| PERF-PASS-1 | 60 fps at Low on the Intel box, all three arenas | 📋 **Scoped card after Run 8** — now a target, not a regression hunt. Attribute from Wyatt's three F8 captures before any knob. |
+| PERF-PASS-1 | 60 fps at Low on the Intel box — **Cart Rave only** (Wyatt scoped it 08-03) | ▶ **ACTIVE. Wave 1 (instrument) code-complete.** Waves 2–4 are gated on one capture: **PERF-INSTR-1**. |
 | FV-RESULTS-1 / STORE-PT-1 | Run 8 FAIL residue — CHALLENGE copy · shelves want painted wood | 📋 queued behind STORE-DECK-1. |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
@@ -86,9 +86,12 @@ Live rows only. Shipped and closed cards live in
    `no-exact-head-complete-green-battery`** — that is the RC-phase gate and no exact-HEAD battery
    has been run at this commit; the deploy went out via `npm run ship` as every stabilization
    deploy has. Run the battery before any RC claim.
-4. **PERF-PASS-1 is now a target, not a hunt** — 60 fps at Low on the Intel box in all three
-   arenas. It has never held 60 (run 5: 54% of frames over 33 ms), so do **not** bisect for a
-   regression. Three F8 captures from Wyatt: `npm run captures:pull`, attribute, then knobs.
+4. **PERF-PASS-1 Wave 1 is the active card** — scoped by Wyatt to **Cart Rave alone**, pass bar =
+   **average** 60 (mean ≤ 16.7 ms), and **no visual cut ships without his sign-off on that
+   specific cut**. Wave 1 added the only instrument that can see the bar. **Next action is his:
+   PERF-INSTR-1**, one 60–90 s solo round on the Intel box at `?diag=1&preset=low` then F8.
+   **Never measure fps under `?perfPump`** — it replaces rAF with a 16.6 ms gate and reads a fake
+   60 (confirmed live on the 4090: `meanMs` 16.8 where the real number is far lower).
 5. **Still owed to Wyatt:** FV-WILT-1 (skipped — the only card needing the second machine).
 
 **Open High:** PERF-PASS-1 · STORE-PT-1 (shelves → painted wood) · FV-RESULTS-1 (CHALLENGE copy) ·
@@ -101,7 +104,7 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 
 | ID | Issue | Status |
 |----|--------|--------|
-| PERF-PASS-1 | 60 fps at Low on the Intel box, all three arenas | 🎯 **Target set by Wyatt 08-03. Attributed 08-03** from cap-236/237/238 (`2c18057`, Intel UHD, Low, solo). One page load → counters are **cumulative, diff them**. Segments: Storerooms **48.9 fps** (10.2% over 33 ms), Cart Rave **38.2 fps** (27.8%). **Cart Rave ≈2× the cost of the others.** It is **steady-state frame cost, not stalls** (`over66` +2/+4; warm compile 141 ms/116 materials) and it is **better than the run-5 floor of 54%**, so there is **no regression to bisect**. Next: per-arena isolation + instrument the 16.7 ms bar (`over33`/`over66` cannot see 60 fps). Knobs only after that. |
+| PERF-PASS-1 | 60 fps at Low on the Intel box — **Cart Rave only** | 🎯 **Target, not a regression hunt.** Attributed from cap-236/237/238 (`2c18057`, Intel UHD, Low, solo): Storerooms **48.9 fps**, Cart Rave **38.2 fps**, steady-state cost not stalls, and **better** than the run-5 floor of 54% — so **do not bisect**. **renderScale is already spent** — the watchdog demoted twice to effective **0.525** (~0.48 MP) and still missed 60, so the frame is likely not fill-bound. **Wave 1 shipped the instrument** (`meanMs`/`fps`/`over16` + CPU split per RUNNING window). **Everything else waits on PERF-INSTR-1**, whose `cpuMeanMs` vs `unaccountedMeanMs` decides visual-cut card vs CPU card. Cart Rave carries **548k triangles** vs 241k/215k — ~200k of them one crowd layer (416 × ~480-tri cart silhouettes) behind the existing `crowdCount` knob. Plan: `.claude/plans/what-no-we-plan-fancy-shore.md`. |
 | WARM-SOLO-1 | Solo post-`carts-ready` stall (WARM-IGPU residual) | 📋 telemetry-gated — [warm-igpu-1.md](./planning/warm-igpu-1.md) |
 | MAIN-1 | Carve `main.js` seam (enables BUNDLE-1) | 📋 post-gate |
 | BUNDLE-1 | Menu/game code-split | 🚫 blocked on MAIN-1 |

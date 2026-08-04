@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-04T02:14:34.289Z",
-    "commit": "d7797a8"
+    "at": "2026-08-04T02:15:40.300Z",
+    "commit": "fdef320"
   },
-  "source_digest": "bf9d2106",
+  "source_digest": "1a676fd9",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -852,9 +852,9 @@
       },
       {
         "id": "PERF-PASS-1",
-        "what": "60 fps at Low on the Intel box, all three arenas",
-        "status": "📋 Scoped card after Run 8 — now a target, not a regression hunt. Attribute from Wyatt's three F8 captures before any knob.",
-        "state": "waiting"
+        "what": "60 fps at Low on the Intel box — Cart Rave only (Wyatt scoped it 08-03)",
+        "status": "▶ ACTIVE. Wave 1 (instrument) code-complete. Waves 2–4 are gated on one capture: PERF-INSTR-1.",
+        "state": "active"
       },
       {
         "id": "FV-RESULTS-1 / STORE-PT-1",
@@ -888,14 +888,14 @@
       "Run 8 (08-03) is in: 15 PASS · 4 FAIL · 1 skip. All 15 passing rows were deleted",
       "A PASS must close its row in the same session it is reported. Before Run 8 nothing wrote",
       "STORE-DECK-1 shipped and DEPLOYED 08-03 (`6eff2df`, Worker `01f8a745`) — bay letter cut,",
-      "PERF-PASS-1 is now a target, not a hunt — 60 fps at Low on the Intel box in all three",
+      "PERF-PASS-1 Wave 1 is the active card — scoped by Wyatt to Cart Rave alone, pass bar =",
       "Still owed to Wyatt: FV-WILT-1 (skipped — the only card needing the second machine)."
     ],
     "open_issues": [
       {
         "id": "PERF-PASS-1",
-        "issue": "60 fps at Low on the Intel box, all three arenas",
-        "status": "🎯 **Target set by Wyatt 08-03. Attributed 08-03** from cap-236/237/238 (`2c18057`, Intel UHD, Low, solo). One page load → counters are **cumulative, diff them**. Segments: Storerooms **48.9 fps** (10.2% over 33 ms), Cart Rave **38.2 fps** (27.8%). **Cart Rave ≈2× the cost of the others.** It is **steady-state frame cost, not stalls** (`over66` +2/+4; warm compile 141 ms/116 materials) and it is **better than the run-5 floor of 54%**, so there is **no regression to bisect**. Next: per-arena isolation + instrument the 16.7 ms bar (`over33`/`over66` cannot see 60 fps). Knobs only after that."
+        "issue": "60 fps at Low on the Intel box — **Cart Rave only**",
+        "status": "🎯 **Target, not a regression hunt.** Attributed from cap-236/237/238 (`2c18057`, Intel UHD, Low, solo): Storerooms **48.9 fps**, Cart Rave **38.2 fps**, steady-state cost not stalls, and **better** than the run-5 floor of 54% — so **do not bisect**. **renderScale is already spent** — the watchdog demoted twice to effective **0.525** (~0.48 MP) and still missed 60, so the frame is likely not fill-bound. **Wave 1 shipped the instrument** (`meanMs`/`fps`/`over16` + CPU split per RUNNING window). **Everything else waits on PERF-INSTR-1**, whose `cpuMeanMs` vs `unaccountedMeanMs` decides visual-cut card vs CPU card. Cart Rave carries **548k triangles** vs 241k/215k — ~200k of them one crowd layer (416 × ~480-tri cart silhouettes) behind the existing `crowdCount` knob. Plan: `.claude/plans/what-no-we-plan-fancy-shore.md`."
       },
       {
         "id": "WARM-SOLO-1",
@@ -1338,7 +1338,7 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "High": 3,
+          "High": 4,
           "?": 3,
           "Medium": 1,
           "Low": 1
@@ -1348,6 +1348,12 @@
             "pri": "High",
             "item": "STORE-PT-1 — Storerooms art",
             "notes": "**Owed: Wyatt playtest — STORE-PT-1 — suction edge + shelves feel real.**<br>1. Load The Storerooms on prod.<br>2. Drive to the suction/void lips. **Pass if:** the edge feels like a real drop you commit past — not a flat game-marker painted on the floor.<br>3. Look at the racking/shelves. **Pass if:** they read as used steel, not just a darker wall slab.<br>Still open later (not this check): density retune, **SHELF-RAIL-1**. Audit: [art-audit-storerooms.md](./art-audit-storerooms.md).<br>**FAIL 08-03 (Wyatt) — half of it passed.** His words: *\"the shelves look a bit too detailed or something like i want them to look like painted wood not metal. void is good.\"* So **the suction/void edge PASSES and is done** — do not touch it. The open half is a **material direction change, not a density retune**: the racking currently reads as used steel (that was the audit's own target, item 4's `buildShelfSteelTexture`), and the call is now **painted wood**. Treat the extra surface detail as a symptom of the wrong material, not as a separate over-detailing bug. Pairs with **SHELF-RAIL-1**, whose chrome rails will look worse next to painted wood, not better.",
+            "ship1": null
+          },
+          {
+            "pri": "High",
+            "item": "PERF-INSTR-1 — the 60fps instrument works on the Intel box (PERF-PASS-1 Wave 1)",
+            "notes": "**Owed: Wyatt playtest — PERF-INSTR-1 — one capture that tells us what to fix next.** `[solo]`<br>1. On the **Intel machine**, open `https://cart-rave.wyabro.workers.dev/?diag=1&preset=low` and hard-refresh. (`preset=low` also switches the auto-quality watchdog off, so the tier holds still for the whole measurement.)<br>2. Pick **Cart Rave** and start a solo round with 3 bots. Enter from the menu, not a direct room link.<br>3. Play normally for **60–90 seconds**, then hit **F8**. You do **not** need to finish the round.<br>4. That is the whole check. Tell me it's done and I'll pull it.<br>**What it answers:** whether the frame is waiting on the GPU or on the CPU — which decides whether the next step is cutting visuals or optimising code. Right now nothing in the game can measure the 60fps bar at all, so this one capture is the gate on everything else in PERF-PASS-1.",
             "ship1": null
           },
           {

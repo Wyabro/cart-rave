@@ -70,7 +70,7 @@ const UNLOCKABLE_LEVELS = ["backrooms", "zanzibar"];
  */
 export function installGameplayDiagnostics(deps) {
   registerProbes(deps);
-  wireStoreEvents();
+  wireStoreEvents(deps);
   // * Boot marker: one event so a driver can anchor "the menu was ready" in the log.
   const menuReady = readMenuReadyMs();
   recordDiagEvent("boot", "diag-installed", { menuReadyMs: menuReady });
@@ -310,6 +310,12 @@ function registerProbes(deps) {
     const w = /** @type {any} */ (window);
     return {
       loop: w.__ccLoopDbg ?? null,
+      // * PERF-PASS-1: `loop` is cumulative for the page load and never resets, so a raw read
+      // * cannot answer "what did THIS round do". These two difference it against the RUNNING
+      // * window. `loopRound` is recomputed live on every probe read, so an F8 mid-round is a
+      // * complete measurement — no need to play out to the podium.
+      loopRound: safeCall(() => summarizePerfWindow(perfWindowOpen)) ?? null,
+      rounds: perfRoundWindows,
       visual: w.__cartRave?.stats ? safeCall(() => w.__cartRave.stats()) : null,
       // * Run-7 P0: Long Task observer counters (empty until installLongTaskProbe).
       longtask: safeCall(() => getLongTaskStats()) ?? null,
@@ -348,12 +354,141 @@ function registerProbes(deps) {
   });
 }
 
+// ————— PERF-PASS-1: per-round frame-time windows —————
+// * The 60fps question is "was the mean frame time under 16.7ms during THIS round, in THIS
+// * arena, on THIS machine". `window.__ccLoopDbg` is cumulative for the page load and has no
+// * reset path (deliberately — a reset would race every other reader), so the window is taken
+// * by differencing two snapshots of it around the RUNNING phase. That also excludes menu,
+// * countdown and podium time structurally, which is what made the Run-8 segment averages
+// * optimistic by 9–15s of cheap menu frames.
+
+const ROUND_WINDOW_MAX = 8;
+/** @type {Array<Record<string, unknown>>} */
+let perfRoundWindows = [];
+/** @type {{ start: Record<string, number>, startedAtMs: number, levelId: unknown, mode: unknown, isHost: boolean, tier0: unknown, rsm0: unknown } | null} */
+let perfWindowOpen = null;
+
+/** @param {number} n @param {number} [places] */
+function roundTo(n, places = 3) {
+  if (!Number.isFinite(n)) return null;
+  const f = 10 ** places;
+  return Math.round(n * f) / f;
+}
+
+/**
+ * Read the cumulative loop counters. Returns null when the loop debug object does not exist
+ * (no `?diag` / `?nettest`), which is the same condition that makes a window meaningless.
+ * @returns {Record<string, number> | null}
+ */
+function loopCountersSnapshot() {
+  const d = /** @type {any} */ (typeof window !== "undefined" ? window.__ccLoopDbg : null);
+  if (!d) return null;
+  return {
+    frames: d.frames || 0,
+    timed: d.timed || 0,
+    sumMs: d.sumMs || 0,
+    over16: d.over16 || 0,
+    over33: d.over33 || 0,
+    over66: d.over66 || 0,
+    simMs: d.simMs || 0,
+    visMs: d.visMs || 0,
+  };
+}
+
+/**
+ * Difference an open window against the counters as they stand right now.
+ * @param {typeof perfWindowOpen} open
+ * @returns {Record<string, unknown> | null}
+ */
+function summarizePerfWindow(open) {
+  if (!open) return null;
+  const end = loopCountersSnapshot();
+  if (!end) return null;
+  const s = open.start;
+  const timed = end.timed - s.timed;
+  // * Fewer than a handful of timed frames is a phase blip, not a round.
+  if (timed < 5) return null;
+  const sumMs = end.sumMs - s.sumMs;
+  const simMs = end.simMs - s.simMs;
+  const visMs = end.visMs - s.visMs;
+  const meanMs = sumMs / timed;
+  const cpuMeanMs = (simMs + visMs) / timed;
+  const tier1 = safeCall(() => getQualityTier()) ?? null;
+  const rsm1 = safeCall(() => getSessionRenderScaleMul()) ?? null;
+  return {
+    levelId: open.levelId,
+    mode: open.mode,
+    isHost: open.isHost,
+    durMs: Math.round((typeof performance !== "undefined" ? performance.now() : 0) - open.startedAtMs),
+    frames: end.frames - s.frames,
+    timed,
+    meanMs: roundTo(meanMs),
+    fps: roundTo(1000 / meanMs, 2),
+    cpuMeanMs: roundTo(cpuMeanMs),
+    simMeanMs: roundTo(simMs / timed),
+    visMeanMs: roundTo(visMs / timed),
+    // * NOT a GPU timer — a subtraction. Holds present/vsync wait, browser compositing, and any
+    // * main-thread work outside onFrame/onVisualUpdate. Naming it gpu* would launder a residual
+    // * into a measurement, which is exactly run-4's "GC metronome" error.
+    unaccountedMeanMs: roundTo(meanMs - cpuMeanMs),
+    over16: end.over16 - s.over16,
+    over33: end.over33 - s.over33,
+    over66: end.over66 - s.over66,
+    tier0: open.tier0,
+    tier1,
+    rsm0: open.rsm0,
+    rsm1,
+    // * A window that straddles an auto-quality demotion measured two different renderers.
+    // * `?preset=` disables the watchdog, so this should never be true under the measurement
+    // * protocol — it is here to catch a protocol slip, not to be relied on.
+    straddledDemotion: open.tier0 !== tier1 || open.rsm0 !== rsm1,
+    pass: meanMs <= 16.7,
+  };
+}
+
+/** @param {GameplayDiagDeps} deps */
+function openPerfRoundWindow(deps) {
+  const start = loopCountersSnapshot();
+  if (!start) {
+    perfWindowOpen = null;
+    return;
+  }
+  perfWindowOpen = {
+    start,
+    startedAtMs: typeof performance !== "undefined" ? performance.now() : 0,
+    levelId: deps.getLevelId ? safeCall(() => deps.getLevelId()) : null,
+    mode: deps.getMode ? safeCall(() => deps.getMode()) : null,
+    isHost: Boolean(safeCall(() => getIsHost())),
+    tier0: safeCall(() => getQualityTier()) ?? null,
+    rsm0: safeCall(() => getSessionRenderScaleMul()) ?? null,
+  };
+}
+
+function closePerfRoundWindow() {
+  const record = summarizePerfWindow(perfWindowOpen);
+  perfWindowOpen = null;
+  if (!record) return;
+  perfRoundWindows.push(record);
+  while (perfRoundWindows.length > ROUND_WINDOW_MAX) perfRoundWindows.shift();
+  // * Emitted for timeline anchoring against KOs and qualityStepDown — but the summaries live
+  // * in the probe, never only here. The ring evicts from the loudest channel, and on a bad
+  // * machine `perf/longframe` IS the storm, so a perf event is the first thing dropped.
+  recordDiagEvent("perf", "round", record);
+}
+
+/** Test-only reset so a suite can drive windows without leaking state between cases. */
+export function __resetPerfRoundWindowsForTest() {
+  perfRoundWindows = [];
+  perfWindowOpen = null;
+}
+
 /**
  * Subscribe to the stores and emit events on the transitions they already broadcast.
  * Zustand vanilla subscriptions fire synchronously inside setState, so no transition is
  * missed even while the rAF loop is frozen.
+ * @param {GameplayDiagDeps} deps
  */
-function wireStoreEvents() {
+function wireStoreEvents(deps) {
   // — Round phase + scores + Sudden Death (gameStore) —
   let prevPhase = gameStore.getState().roundPhase;
   let prevScores = { ...gameStore.getState().roundScores };
@@ -367,6 +502,10 @@ function wireStoreEvents() {
       if (!isLegalPhaseTransition(prevPhase, state.roundPhase)) {
         recordDiagEvent("assert", "phase-transition", { from: prevPhase, to: state.roundPhase });
       }
+      // * PERF-PASS-1: the frame-time window is exactly the RUNNING span. Opened/closed here
+      // * rather than on a timer so countdown and podium frames can never enter the mean.
+      if (state.roundPhase === RoundPhase.RUNNING) openPerfRoundWindow(deps);
+      else if (prevPhase === RoundPhase.RUNNING) closePerfRoundWindow();
       prevPhase = state.roundPhase;
     }
     if (state.isSuddenDeath && !prevSuddenDeath) {
