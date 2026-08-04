@@ -53,20 +53,12 @@ import {
   createRenderer,
   createScene,
   createComposer,
-  setupSceneEnvironment,
-  refreshSceneEnvironmentMaterials,
-  setSceneFog,
-  applyComposerQualityTier,
-  setBloomPipeline,
-  isComposerBypassActive,
-  setComposerBypassActive,
   isSoftwareRendererActive,
   getSoftwareRendererName,
-  COMPILE_ASYNC_WARM_PLAY_MAX_WAIT_MS,
 } from "./scene.js";
 import { tickAutoQuality } from "./utils/autoQuality.js";
 import { CSS2DObject, CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer.js";
-import { RAPIER, initRapier, getRapierBuild } from "./physics/rapierInstance.js";
+import { RAPIER } from "./physics/rapierInstance.js";
 import { updateCartVisuals } from "./cart.js";
 import * as Visuals from "./visuals.js";
 import { prefetchRaveGltf } from "./cartRaveGltf.js";
@@ -80,7 +72,7 @@ import {
 } from "./aiDifficulty.js";
 import * as Entities from "./entities.js";
 import { createCart } from "./entities.js";
-import { installShatterProgramWarmup, triggerCartShatter } from "./cartShatter.js";
+import { triggerCartShatter } from "./cartShatter.js";
 import * as HUD from "./hud.js";
 import { STAGE_PRIORITY } from "./ui/centerStage.js";
 import * as Input from "./input.js";
@@ -152,19 +144,12 @@ import * as Effects from "./effects.js";
 import * as GroceryPool from "./effects/groceryPool.js";
 import { initDirectiveEngine, getDirectiveKoRewardMultiplier, onHostSpill as directiveOnHostSpill, shiftDirectiveTimersBy, clearActiveDirective } from "./directives/directiveEngine.js";
 import { armSpillBoost, cargoFillLevelFor, cargoTierFor, spillCountForCart, stripLifeCargo } from "./cargoLoad.js";
-import { loadLevel, resolveLevelId, prefetchLevelChunks, LEVEL_STORAGE_KEY } from "./levels/index.js";
-import { nextQuickplayArenaId } from "../shared/arenaPool.js";
-import { DEV_UNLOCKS_STORAGE_KEY, LEVEL_UNLOCKS } from "./unlockConfig.js";
+import { resolveLevelId, prefetchLevelChunks, LEVEL_STORAGE_KEY } from "./levels/index.js";
+import { DEV_UNLOCKS_STORAGE_KEY } from "./unlockConfig.js";
 import { updateLevelLod } from "./utils/levelLod.js";
 import { beginFrameBudget, frameBudgetAllow } from "./utils/frameBudget.js";
-import { registerMirrorExclude, clearMirrorExcludes } from "./utils/cheapMirror.js";
 import { markBootPhase, onBootPhase } from "./utils/bootTimeline.js";
 
-// * testArena constants inlined (avoid static import of heavy level module at boot).
-const TEST_ARENA_SKY = 0x586274;
-const TEST_ARENA_FOG_DENSITY = 0.0032;
-import { setContactShadowHazards } from "./contactShadows.js";
-import { initSceneExtras, disposeSceneExtras } from "./sceneExtras.js";
 import {
   sampleArenaReactive,
   triggerArenaKoFlash,
@@ -181,8 +166,7 @@ import { initAnnouncerStings } from "./announcer/announcerStings.js";
 import { initAnnouncerDirector, announcerDirectorOnFall, announcerDirectorNearMissScan } from "./announcer/announcerDirector.js";
 import { initAnnouncerDisplay } from "./ui/announcerDisplay.js";
 import { initResultsOverlay, animateResultsPodiumShow, animateResultsDismiss, cancelResultsAnimations, spawnResultsConfetti, spawnResultsDefeatWilt } from "./ui/resultsOverlay.js";
-import { installKoHitmarkerProgramWarmup, spawnKoWorldHitmarker } from "./effects/koHitmarkerFx.js";
-import { installWaterFxProgramWarmup } from "./effects/waterDeathFx.js";
+import { spawnKoWorldHitmarker } from "./effects/koHitmarkerFx.js";
 import { showRotatePromptIfNeeded } from "./ui/rotatePrompt.js";
 import {
   dismissAllLoadingOverlays,
@@ -206,8 +190,6 @@ import {
   isLevelSwapping,
   rebuildLevelIfNeeded,
   scheduleMenuLevelPreview,
-  setLevelSwapping,
-  swapLoadedLevel,
 } from "./levelManager.js";
 import {
   enterPlayMode,
@@ -221,7 +203,7 @@ import {
   isWorldBootstrapInFlight,
   resetSessionCartBootstrap,
 } from "./bootstrap.js";
-import { initMenuAttract, setMenuAttractRenderHold, startMenuAttract, stopMenuAttract } from "./ui/menuAttract.js";
+import { initMenuAttract, startMenuAttract, stopMenuAttract } from "./ui/menuAttract.js";
 import { animateCartBoostPulse, animateCartImpactSquash, crossfadeElement } from "./animations.js";
 import {
   getIsMuted,
@@ -265,6 +247,7 @@ import {
   createSessionBridgeRefs,
   wireNetcodeRuntimeRefs,
 } from "./gameSession.js";
+import { createLevelOrchestration } from "./orchestration/levelOrchestration.js";
 import {
   clamp,
   isTouchDevice,
@@ -1640,6 +1623,46 @@ async function main() {
   if (!fxPassEnabled && fxPass) fxPass.enabled = false;
   // * URL ablation / postmin — after user toggles so disabled flags still win for QA.
   applyPostFxAblation({ bloomPass, arcadePass, fxaaPass, outputPass });
+
+  // * MAIN-1 Lever C: LevelManagerDeps + level-load helpers live in levelOrchestration.
+  const level = createLevelOrchestration({
+    scene,
+    camera,
+    renderer,
+    composer,
+    bloomPass,
+    arcadePass,
+    fxaaPass,
+    outputPass,
+    canvas,
+    getBloomEnabled: () => bloomEnabled,
+    getFxPassEnabled: () => fxPassEnabled,
+    getMenuVisible: () => menuVisible,
+    getAllCartsRef: () => allCartsRef,
+    getHud: () => hud,
+    resolveCinematicCountdownOverrides: () => resolveCinematicCountdownOverrides(),
+    prepareLevelMusic: (levelId) => prepareLevelMusic(levelId),
+    startLevelMusic: (levelId) => startLevelMusic(levelId),
+    stopAllChargeSfx: () => stopAllChargeSfx(),
+  });
+  const {
+    rebuildForQualityChange,
+    ensureRapierPhysics,
+    consumeRaveJuiceJustBuilt,
+    raveDressingWanted,
+    tickRaveDressing,
+    finalizeArenaShellForMenu,
+    finalizeArenaForPlay,
+    warmupActiveSceneShaders,
+    maskMenuPreviewSwap,
+    commitLevelLoad,
+    bootstrapWorldCore,
+    whenArenaRotationSettled,
+    drainPendingArenaRotation,
+    pickNextQuickplayArenaId,
+    rotateLoadedArenaInPlace,
+  } = level;
+
   if (getDebugParams().cam) applyDebugCameraPose(camera);
 
   if (import.meta.env.DEV) {
@@ -1664,8 +1687,8 @@ async function main() {
     // * is the game loop's cosmetic block (the rave gate + the two calls above it)
     // * driven from the only loop that is actually running here.
     onAnimationTick: (timeMs) => {
-      /** @type {any} */ (sceneExtras)?.update?.(timeMs, camera);
-      levelUpdate?.(timeMs);
+      /** @type {any} */ (level.sceneExtras)?.update?.(timeMs, camera);
+      level.levelUpdate?.(timeMs);
       // * SHOOT-ANIM-2: same story one block down — Classic's crowd, stage lights and
       // * LED screen sat frozen too. Deliberately NO frameBudgetAllow here: it fails
       // * CLOSED without a preceding beginFrameBudget (stale frameStartMs → negative
@@ -2163,15 +2186,8 @@ async function main() {
     }
   }
 
-  // * Room-authoritative levelId that arrived while rotateLoadedArenaInPlace could not
-  // * yet run (menu still visible, world not bootstrapped, or carts not created — the
-  // * "joiner-lands-mid-play-entry" race). Drained from bootstrapSessionCarts once the
-  // * world+carts are ready so the joiner reconciles to the room arena instead of
-  // * silently staying on their local menu pick.
-  // * Declared BEFORE commitMenuHiddenForGame: that function drains it and can run
-  // * during boot for ?room= URLs, before main() reaches this point (TDZ otherwise).
-  /** @type {string | null} */
-  let pendingArenaRotationLevelId = null;
+  // * Room-authoritative levelId latch lives on level.pendingArenaRotationLevelId
+  // * (levelOrchestration) — drained from commitMenuHiddenForGame / bootstrapSessionCarts.
 
   function commitMenuHiddenForGame() {
     window.CartRave?.stopAnimations?.();
@@ -2214,79 +2230,6 @@ async function main() {
 
   const { refreshMenuStats } = createMenuStats({ getPersonalStats });
 
-
-  /**
-   * Toggles visual quality settings in-place without touching the Rapier physics world.
-   * Reflector, post-processing, rave extras, and renderer pixel ratio are all toggled
-   * synchronously — no WASM world teardown / rebuild required.
-   * @returns {Promise<void>}
-   */
-  async function rebuildForQualityChange() {
-    const knobs = getQualityKnobs();
-
-    // * Physics substep cap + streak budget for the new tier (mirrors config.js boot logic).
-    CONFIG.physics.maxSubsteps = knobs.maxSubsteps;
-    CONFIG.physics.cart.ramBoost.streakMaxActive = knobs.streakCap;
-
-    // * Post-processing: apply tier passes + renderer pixel ratio + FBO size
-    // * (the user's separate Post-FX toggle still gates bloom/arcade).
-    applyComposerQualityTier(bloomPass, arcadePass, fxaaPass, renderer, getQualityTier(), composer, {
-      bloomEnabled,
-      fxPassEnabled,
-    });
-    // * URL ablation wins over tier/user Post-FX re-enables (visual QA).
-    applyPostFxAblation({ bloomPass, arcadePass, fxaaPass, outputPass });
-
-    // * Arena visuals: reflective floor is a full second scene render — high tier only.
-    if (typeof setReflectorVisible === "function") {
-      setReflectorVisible(knobs.reflector);
-      // * Tier raised to high mid-session: make sure the RT upgrade (256²→1024²) runs.
-      if (knobs.reflector) scheduleReflectorUpgrade();
-    }
-
-    // * Rave dressing on levels that support it (Classic Record): every tier keeps the
-    // * crowd/stage/skybox silhouette so Low still reads as Cart Clash; the tier knobs
-    // * decide crowd budget, lasers, and dynamic lights.
-    const levelWantsExtras = levelUsesRaveExtras();
-    Effects.setRaveExtrasVisible(levelWantsExtras);
-    if (levelWantsExtras) Effects.applyRaveExtrasQuality(knobs);
-
-    // * Scene extras (skybox, starfields, planets, UFOs, world spotlights): built only on
-    // * levels that use them, and SKYBOX-1 tier-gates them off at LOW — the rig is +54 draw
-    // * calls and 5 spotlights, which is the wrong bill for the weakest machines. The
-    // * crowd/stage silhouette still carries the Cart Clash read there.
-    // * sceneRoots is empty on other levels, so this loop is a no-op there.
-    if (sceneExtras && Array.isArray(sceneExtras.sceneRoots)) {
-      const showSky = levelWantsExtras && knobs.skyExtras !== false;
-      for (const root of sceneExtras.sceneRoots) {
-        root.visible = showSky;
-      }
-    }
-
-    // * Level-specific tier knobs (e.g. Storerooms ceiling SpotLight budget).
-    if (typeof levelApplyQualityTier === "function") {
-      levelApplyQualityTier(knobs);
-    }
-
-    // * Render-path flip (composer ↔ direct-to-canvas) changes the program cache key
-    // * (tone mapping moves in/out of shaders) — every scene program recompiles on the
-    // * first frame of the new path. Warm the target path here, behind the loading
-    // * overlay, before latching the flag the frame loop reads. compileAsync uses
-    // * KHR_parallel_shader_compile so even this warm-up avoids one giant stall.
-    if (knobs.composerBypass !== isComposerBypassActive()) {
-      try {
-        if (knobs.composerBypass) {
-          await renderer.compileAsync(scene, camera);
-          renderer.render(scene, camera);
-        } else {
-          composer.render();
-        }
-      } catch (err) {
-        console.warn("[CartRave] render-path warm-up failed:", err);
-      }
-      setComposerBypassActive(knobs.composerBypass);
-    }
-  }
 
   let qualityRebuildInProgress = false;
   const handleQualityTierChange = async (tier, { persist = true } = {}) => {
@@ -2431,7 +2374,7 @@ async function main() {
     getMenuVisible: () => menuVisible,
     getAllCartsRef: () => allCartsRef,
     isWorldBootstrapped,
-    getWorld: () => world,
+    getWorld: () => level.world,
     ensureWorldBootstrapped,
     performLevelLoad: (selected, opts) => commitLevelLoad(selected, opts),
     onPreviewSwapComplete: (levelId) => {
@@ -2483,109 +2426,6 @@ async function main() {
   syncAllAudioUi();
   initMenu();
 
-  // --- Arena, physics — Rapier WASM + level mesh deferred until play or idle preload ---
-  scene.add(new THREE.AmbientLight(0x221133, 0.15));
-
-  /** @type {import("@dimforge/rapier3d").World | null} */
-  let world = null;
-  /** @type {import("@dimforge/rapier3d").EventQueue | null} */
-  let eventQueue = null;
-
-  /**
-   * Creates the Rapier physics world on first need.
-   * WASM is loaded lazily via initRapier() dynamic import — defers
-   * the ~1.5 MB WASM fetch/compile off the boot critical path.
-   * @returns {Promise<void>}
-   */
-  async function ensureRapierPhysics() {
-    if (!world) {
-      await initRapier();
-      // * Dev breadcrumb for A/B: simd vs standard (see getRapierBuild).
-      if (import.meta.env?.DEV) {
-        console.info(`[rapier] loaded build: ${getRapierBuild()}`);
-      }
-      world = new RAPIER.World({ x: 0, y: CONFIG.gravity, z: 0 });
-      eventQueue = new RAPIER.EventQueue(true);
-    }
-  }
-
-  let recordMesh = null;
-  let recordCollider;
-  let ringHandles;
-  let recordColliderHandles = [];
-  let pitWallColliderHandle;
-  let boothColliderHandles = [];
-  let boothNeonMeshes = [];
-  let spindleLight = null;
-  let pitInnerRadius = CONFIG.record.innerRadius;
-  let recordLabelMat = null;
-  let levelHazards;
-  let disposeLevel;
-  let levelUpdate;
-  // * SKYBOX-1: MUST start null. This used to be a truthy stub with an empty sceneRoots
-  // * array, which made ensureRaveAttractShell's `!sceneExtras || sceneExtras.disposed`
-  // * guard permanently false — so initSceneExtras never ran and Classic's skybox, planets,
-  // * UFOs and world spotlights (991 lines) never rendered once. Nothing else ever assigned
-  // * null or set disposed, so the gate could not reopen.
-  /** @type {ReturnType<typeof initSceneExtras> | null} */
-  let sceneExtras = null;
-  let upgradeRecordReflector = null;
-  let setReflectorVisible = null;
-  /** @type {((knobs: import("./utils/qualityTiers.js").QualityKnobs) => void) | null} */
-  let levelApplyQualityTier = null;
-  /** Stadium bowl + stage + crowd instances (Classic attract needs this). */
-  let raveShellInitialized = false;
-  /** Lasers + billboard (play juice — skip on menu attract to keep swaps light). */
-  let raveJuiceInitialized = false;
-  /** Latched true when juice first-builds this entry; consumed by warm compile budget. */
-  let raveJuiceJustBuilt = false;
-
-  /**
-   * @returns {boolean} True once if rave juice was built since last consume.
-   */
-  function consumeRaveJuiceJustBuilt() {
-    const v = raveJuiceJustBuilt;
-    raveJuiceJustBuilt = false;
-    return v;
-  }
-  let sceneEnvironmentDispose = null;
-
-  function levelUsesRaveExtras(levelId) {
-    const id = levelId ?? getCurrentLevelId();
-    return id === "classicRecord";
-  }
-
-  /**
-   * Shared gate for the rave dressing — everything the game loop and the attract loop
-   * agree on. The gates that legitimately DIFFER (frame budget, clock source) stay at
-   * the two call sites; only what must not drift lives here.
-   * @returns {boolean}
-   */
-  function raveDressingWanted() {
-    return raveShellInitialized && levelUsesRaveExtras() && getQualityKnobs().crowdAnimate;
-  }
-
-  /**
-   * The rave dressing animation body — one definition, two callers (game loop + menu
-   * attract loop), so they cannot drift apart. All three take their pose from timeMs;
-   * updateStageLed's redraw is latch-gated and updateCrowd's KO decay reads wall time,
-   * neither of which bites at the menu (SHOOT-ANIM-2).
-   *
-   * Lasers/billboard stay behind raveJuiceInitialized: the menu path builds the shell
-   * WITHOUT juice (finalizeArenaShellForMenu), so at the menu and in every capture they
-   * are absent, not frozen. The sub-gate means they light up on their own if the juice
-   * is ever built there.
-   * @param {number} timeMs
-   */
-  function tickRaveDressing(timeMs) {
-    Effects.updateStageLights(timeMs);
-    Effects.updateCrowd(timeMs);
-    Effects.updateStageLed(timeMs);
-    if (raveJuiceInitialized) {
-      Effects.updateLasers(timeMs);
-      Effects.updateBillboard(timeMs);
-    }
-  }
 
   /**
    * Per-arena fly-over sizing. The default 28 m orbit was authored for the 26.4 m Classic
@@ -2613,588 +2453,11 @@ async function main() {
     CameraMod.beginCinematicCountdown(camera, resolveCinematicCountdownOverrides());
   }
 
-  function applyLoadedLevelSideEffects(levelId) {
-    const resolved = levelId ?? getCurrentLevelId();
-    Simulation.setLevelHazards(levelHazards ?? null);
-    setContactShadowHazards(levelHazards ?? null);
-    // * Per-arena exposure ride on the global grade (scene.js applyRendererColorGrading
-    // * stays the base). Same tone-map curve everywhere — only the exposure scalar moves,
-    // * so no program-cache rebuild on arena swap.
-    renderer.toneMappingExposure =
-      (CONFIG.postFx.toneMappingExposure ?? 1.0) *
-      (CONFIG.postFx.arenaExposureMul?.[resolved] ?? 1);
-    // * VHS/security-cam layer rides the arcade pass; only The Storerooms turns it on.
-    if (fxPass?.uniforms?.uVhsAmount) {
-      const vhsCfg = CONFIG.postFx.vhs;
-      fxPass.uniforms.uVhsAmount.value = resolved === "backrooms" ? vhsCfg.amount : 0;
-      fxPass.uniforms.uVhsNoise.value = vhsCfg.noise;
-      fxPass.uniforms.uVhsTrackPeriod.value = vhsCfg.trackPeriodSec;
-    }
-    // * Bloom pipeline: default ?bloompipe=display keeps UnsignedByte + post-tonemap
-    // * bloom on every level (no float↔byte mip rebuild when swapping into Storerooms).
-    // * ?bloompipe=hdr restores the old split (Classic/Sundial HDR, Storerooms display).
-    const bloomPipeMode =
-      getDebugParams().bloomPipe === "display" || resolved === "backrooms" ? "display" : "hdr";
-    setBloomPipeline({ composer, bloomPass, outputPass }, bloomPipeMode, { levelId: resolved });
-    // * ?ablate=vhs / postmin must still win after level VHS turn-on.
-    applyPostFxAblation({ bloomPass, arcadePass: fxPass, fxaaPass, outputPass });
-    // * Test Drive bloom rides resolveDisplayBloomConfig (BLOOM_DISPLAY_TESTDRIVE)
-    // * through the setBloomPipeline call above — the old HDR-space save/restore
-    // * override is gone (it read as no bloom under the display pipeline on entry,
-    // * and its restore stomped the next arena's knobs with HDR values on exit).
-    if (resolved === "testArena") {
-      Effects.clearAmbientDust();
-      setSceneFog(scene, renderer, { color: TEST_ARENA_SKY, density: TEST_ARENA_FOG_DENSITY });
-    } else {
-      Effects.setAmbientDustStyle(
-        resolved === "backrooms" ? "backrooms" : resolved === "zanzibar" ? "sunset" : "rainbow",
-        CART_COLORS,
-        // * Arenas with a directional sun get a dust lobe aimed at it; the rest pass
-        // * undefined and keep the uniform ring. Read from CONFIG rather than the level so
-        // * this stays out of the lazily-chunked level modules.
-        CONFIG.postFx.sunAzimuthByLevel?.[resolved],
-      );
-      if (resolved === "backrooms") {
-        setSceneFog(scene, renderer, {
-          color: CONFIG.postFx.fog.backrooms.color,
-          density: CONFIG.postFx.fog.backrooms.density,
-        });
-      } else if (resolved === "zanzibar") {
-        setSceneFog(scene, renderer, {
-          color: CONFIG.postFx.fog.zanzibar.color,
-          density: CONFIG.postFx.fog.zanzibar.density,
-        });
-      } else {
-        setSceneFog(scene, renderer, {
-          color: CONFIG.postFx.fog.color,
-          density: CONFIG.postFx.fog.density,
-        });
-      }
-    }
-  }
-
-  /**
-   * Classic attract shell: space skybox + stadium bowl + stage. Stadium geometry is
-   * built inside initCrowd (not a separate mesh). Lasers/billboard = play juice only.
-   * @param {{ includeJuice?: boolean }} [opts]
-   */
-  function ensureRaveAttractShell(opts = {}) {
-    const includeJuice = opts.includeJuice === true;
-    const wantRaveExtras = levelUsesRaveExtras();
-
-    // * Build once, then only toggle visibility — rebuilding would thrash the starfield /
-    // * planets / spotlight rig on every picker swap.
-    // * SKYBOX-1: "built" means built WITH content. initSceneExtras returns the same shape
-    // * with an empty sceneRoots when called with enabled:false (every non-Classic level), so
-    // * a plain existence check would latch that empty object forever and Classic would never
-    // * get its sky — the same class of bug as the old truthy stub, one level down. Only the
-    // * populated case counts as built.
-    const extrasBuilt = Boolean(
-      sceneExtras && !sceneExtras.disposed && sceneExtras.sceneRoots?.length,
-    );
-    // * SKYBOX-1 tier gate: LOW skips the rig entirely — don't even build it there, so the
-    // * weakest machines never pay the construction cost either (starfields, planet meshes,
-    // * spotlight rig). One source for the decision, reused by the visibility pass below.
-    const wantSky = wantRaveExtras && getQualityKnobs().skyExtras !== false;
-    if (wantSky && !extrasBuilt) {
-      // * Drops a stale enabled:false shell (no-op when there is nothing to free).
-      disposeSceneExtras(sceneExtras);
-      sceneExtras = initSceneExtras(scene, pitInnerRadius, { enabled: true });
-    } else if (sceneExtras && Array.isArray(sceneExtras.sceneRoots)) {
-      for (const root of sceneExtras.sceneRoots) root.visible = wantSky;
-    }
-
-    if (wantRaveExtras && !raveShellInitialized) {
-      clearMirrorExcludes();
-      Effects.initCrowd(scene, CART_COLORS, pitInnerRadius);
-      Effects.initStage(scene, pitInnerRadius, CART_COLORS);
-      raveShellInitialized = true;
-    }
-
-    if (wantRaveExtras && includeJuice && !raveJuiceInitialized) {
-      Effects.initBillboard(scene, pitInnerRadius);
-      Effects.initLasers(scene, pitInnerRadius, CART_COLORS);
-      raveJuiceInitialized = true;
-      // * FV-LOAD-1b: menu attract builds includeJuice:false, so the first play entry
-      // * first-builds billboard/lasers/crowd programs. Warm path must NOT use the
-      // * truncated 1.5s compile budget for that first build (assumed "already compiled").
-      raveJuiceJustBuilt = true;
-    }
-
-    // * Mirror excludes still register for every root (harmless when hidden); visibility
-    // * follows the same tier gate as above — a bare `= true` here would re-show the rig on
-    // * LOW on the next picker swap and quietly undo the gate.
-    if (wantRaveExtras && sceneExtras && Array.isArray(sceneExtras.sceneRoots)) {
-      for (const root of sceneExtras.sceneRoots) {
-        root.visible = wantSky;
-        registerMirrorExclude(root);
-      }
-    }
-
-    Effects.setRaveExtrasVisible(wantRaveExtras);
-    if (wantRaveExtras) Effects.applyRaveExtrasQuality(getQualityKnobs());
-  }
-
-  function initDeferredRaveVisuals() {
-    ensureRaveAttractShell({ includeJuice: true });
-  }
-
-  function scheduleReflectorUpgrade() {
-    if (!upgradeRecordReflector) return;
-    // * Only the high tier renders the reflector — skip the 1024² RT upgrade elsewhere.
-    if (!getQualityKnobs().reflector) return;
-    // * Touch devices that opted into high tier keep the 256² play-entry RT —
-    // * the mirror re-renders the whole scene per frame and the res jump is
-    // * invisible on phone-sized screens.
-    if (isTouchDevice()) return;
-    const run = () => {
-      try { upgradeRecordReflector(); } catch (e) {}
-    };
-    if (typeof requestIdleCallback === "function") {
-      requestIdleCallback(run, { timeout: 8000 });
-    } else {
-      setTimeout(run, 2000);
-    }
-  }
-
-  /**
-   * Menu Classic attract: sky + stadium + stage. Idempotent after first build —
-   * later picker swaps only toggle visibility (no second multi-second forest build).
-   */
-  function finalizeArenaShellForMenu() {
-    refreshSceneEnvironmentMaterials(scene);
-    ensureRaveAttractShell({ includeJuice: false });
-    if (import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
-      console.log("[bootstrap] menu attract shell (sky + stadium, no lasers)");
-    }
-  }
-
-  function finalizeArenaForPlay() {
-    refreshSceneEnvironmentMaterials(scene);
-    initDeferredRaveVisuals();
-    scheduleReflectorUpgrade();
-    if (import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
-      console.log("[bootstrap] arena finalize (extras + materials)");
-    }
-  }
-
-  /** True after VFX program anchors are parked in the scene (once per session). */
-  let vfxProgramAnchorsInstalled = false;
-
-  /**
-   * Warm-compiles programs for the live scene.
-   * @param {{ forPlay?: boolean, warm?: boolean, juiceFresh?: boolean, maxWaitMs?: number }} [opts]
-   *   forPlay true (default): ensure VFX anchors exist, then compileAsync — used at
-   *   play entry / round start so KO/splash never sync-recompiles mid-round.
-   *   forPlay false: menu attract path — compile current arena only; skip re-installing
-   *   anchors every picker swap (they are not needed until combat).
-   *   warm true: short compileAsync budget — arena already compiled during idle warm /
-   *   menu attract; only carts + VFX anchors are new (avoids ~8s mode-entry hang).
-   *   juiceFresh true: rave juice first-built this entry — never use the short budget
-   *   even if warm (menu attract is includeJuice:false).
-   */
-  async function warmupActiveSceneShaders(opts = {}) {
-    const forPlay = opts.forPlay !== false;
-    const juiceFresh = opts.juiceFresh === true;
-    // * Short budget only when warm AND juice was already live (not first-built here).
-    const useWarmBudget = opts.warm === true && !juiceFresh;
-    // * PERF-WARM disambiguation: the round-start freeze is a forPlay warmup's render pair
-    // * (warm.render.default + warm.render.flyover) running DURING the countdown, after
-    // * carts-ready — which the play-entry warm:true warmup cannot be (it completes before
-    // * carts-ready). The two forPlay:true call sites differ only by the warm flag:
-    // * play-entry passes warm:true (".play-warm"); quickplay arena rotation (main.js ~2901)
-    // * passes no warm (".play-full", full compile budget, no loading overlay). Tag the
-    // * render spans so ONE F8 tells us which call site owns the freeze. Menu path (".menu").
-    // * juice-fresh warm path tags ".play-juice" so F8 separates "warm but new juice".
-    const warmTag = forPlay
-      ? juiceFresh
-        ? ".play-juice"
-        : useWarmBudget
-          ? ".play-warm"
-          : ".play-full"
-      : ".menu";
-    try {
-      if (forPlay || !vfxProgramAnchorsInstalled) {
-        // * PERF-WARM: attribute the ~1.4s play-entry freeze — this VFX-anchor install re-runs
-        // * every play-entry (forPlay). Names it in longframe.spans if it's the cost.
-        mark("warm.anchors", () => {
-          installShatterProgramWarmup(scene);
-          installKoHitmarkerProgramWarmup(scene);
-          installWaterFxProgramWarmup(scene);
-          Effects.installRamStreakProgramWarmup(scene);
-        });
-        vfxProgramAnchorsInstalled = true;
-      }
-      // * Audio pack warm (forPlay): fetch/decode under the loading overlay in parallel
-      // * with compileAsync so first play is not a main-thread hitch.
-      // * - Announcer (cap-23): mid-round 600–2000ms freezes on first callouts when warm
-      // *   was fire-and-forget.
-      // * - Ambience + game music + countdown (cap-54): MP commitMenuHidden starts beds
-      // *   and playlist on the same tick as startCountdown — ~1.3s host LT swallowed
-      // *   countdown_3. maxWaitMs caps a hung network.
-      /** @type {Promise<unknown>[]} */
-      const audioWarmPromises = [];
-      if (forPlay) {
-        const levelId = getCurrentLevelId();
-        // * PERF-WARM: audio kickoff is synchronous up to the network/decode await — if
-        // * prepareLevelMusic or a prefetch does sync decode/Howler work, it lands here.
-        mark("warm.audioKickoff", () => {
-          prepareLevelMusic(levelId);
-          audioWarmPromises.push(
-            AudioManager.prefetchSfxByPrefixAsync("announcer_", { maxWaitMs: 8000 }),
-            AudioManager.prefetchGameMusicAsync({ maxWaitMs: 6000 }),
-            AudioManager.prefetchAmbienceAsync(ArenaAmbience.ambienceKeysForArena(levelId), {
-              maxWaitMs: 6000,
-            }),
-            AudioManager.prefetchSfxKeysAsync(
-              ["countdown_3", "countdown_2", "countdown_1", "countdown_go"],
-              { maxWaitMs: 4000 },
-            ),
-          );
-        });
-      }
-      // * Menu path: still compileAsync so the first attract frame after a swap does not
-      // * hitch. compileAsync uses KHR_parallel_shader_compile when available.
-      // * Optional maxWaitMs / warm cap the readiness poll (scene.js patchSafeCompileAsync).
-      // * FV-LOAD-1b: juiceFresh forces full default budget (4000ms) even on warm play-entry.
-      const maxWaitMs =
-        typeof opts.maxWaitMs === "number"
-          ? opts.maxWaitMs
-          : useWarmBudget
-            ? COMPILE_ASYNC_WARM_PLAY_MAX_WAIT_MS
-            : undefined;
-      // * 4th-arg opts is our patchSafeCompileAsync extension (not in three's types).
-      const compileSceneAsync = () =>
-        maxWaitMs != null
-          ? /** @type {(s: typeof scene, c: typeof camera, t?: unknown, o?: { maxWaitMs?: number }) => Promise<typeof scene>} */ (
-              renderer.compileAsync
-            )(scene, camera, null, { maxWaitMs })
-          : renderer.compileAsync(scene, camera);
-      await compileSceneAsync();
-      if (audioWarmPromises.length) {
-        try {
-          await Promise.all(audioWarmPromises);
-        } catch (err) {
-          console.warn("[CartRave] play-entry audio warm failed:", err);
-        }
-      }
-      // * compileAsync covers SCENE programs only. The composer passes (bloom
-      // * bright/blur, arcade, FXAA, output) and their render targets initialize on
-      // * the first composer.render(). Play-entry used to be the only prime site;
-      // * menu attract then paid multi-s longtasks on the first post-world-ready
-      // * frame (Run-7 caps 45–51: LT start ≈ world-ready + 5ms). Always prime here.
-      // * PERF-WARM-1: first composer.render can finalize freshly-linked programs on the
-      // * driver — named so a round-start freeze attributes to compile vs first-render.
-      mark(`warm.render.default${warmTag}`, () => {
-        if (isComposerBypassActive()) renderer.render(scene, camera);
-        else composer.render();
-      });
-
-      // * The countdown fly-over (beginRoundFlyover) hard-cuts to a wide, high orbit the
-      // * default-camera warm-up above never renders from — first use of that framing (new
-      // * shader variants / draw calls only it exercises, e.g. previously off-screen arena
-      // * geometry) was stalling the countdown itself, not just an ordinary slow frame.
-      // * Prime it here too, hidden behind the loading overlay, then restore the camera
-      // * exactly as it was — this must never leak into the visible frame.
-      if (forPlay) {
-        const pose = CameraMod.getCinematicCountdownWarmupPose(resolveCinematicCountdownOverrides());
-        const savedPos = camera.position.clone();
-        const savedQuat = camera.quaternion.clone();
-        const seatWarmupPose = () => {
-          camera.position.copy(pose.position);
-          camera.lookAt(pose.lookAt);
-          camera.updateMatrixWorld(true);
-        };
-        try {
-          seatWarmupPose();
-          // * await yields to the event loop — the main rAF loop's follow-camera update
-          // * could run in between and overwrite camera.position/quaternion before the
-          // * render call below, so re-seat the pose right after each await rather than
-          // * trusting it survived the wait.
-          await compileSceneAsync();
-          seatWarmupPose();
-          mark(`warm.render.flyover${warmTag}`, () => {
-            if (isComposerBypassActive()) renderer.render(scene, camera);
-            else composer.render();
-          });
-        } finally {
-          camera.position.copy(savedPos);
-          camera.quaternion.copy(savedQuat);
-          camera.updateMatrixWorld(true);
-        }
-      }
-    } catch (err) {
-      // * Warm-up is an optimization — never let it block play entry.
-      console.warn("[CartRave] scene shader warm-up failed:", err);
-    }
-  }
-
-  /**
-   * Simple opacity tween for the game canvas, driven by rAF with a hard setTimeout
-   * fallback — WAAPI/compositor animations never finish in hidden tabs, and a hung
-   * fade here would wedge menuLevelPreviewPromise (and with it, play entry) forever.
-   * Instant when reduced motion is preferred.
-   * @param {number} to 0..1
-   * @param {number} ms
-   */
-  function fadeGameCanvasTo(to, ms) {
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) {
-      canvas.style.opacity = String(to);
-      return Promise.resolve();
-    }
-    const from = parseFloat(canvas.style.opacity || "1");
-    const start = performance.now();
-    return new Promise((resolve) => {
-      let done = false;
-      const finish = () => {
-        if (done) return;
-        done = true;
-        canvas.style.opacity = String(to);
-        resolve();
-      };
-      const step = (now) => {
-        if (done) return;
-        const t = Math.min(1, (now - start) / ms);
-        const eased = 1 - (1 - t) * (1 - t);
-        canvas.style.opacity = String(from + (to - from) * eased);
-        if (t < 1) requestAnimationFrame(step);
-        else finish();
-      };
-      requestAnimationFrame(step);
-      // * Hidden-tab safety: rAF may stall; never leave the fade promise pending.
-      window.setTimeout(finish, ms + 600);
-    });
-  }
-
-  /**
-   * Menu arena-swap mask: hold attract rendering (last frame stays on canvas),
-   * optionally fade the canvas down to the menu gradient, run the swap + shader
-   * warm-up, render one fresh frame while transparent, then fade back in.
-   * Keeps the picker responsive — the swap never runs under a visible render.
-   * @param {() => Promise<void>} runSwap
-   * @param {{ fade?: boolean }} [opts]
-   */
-  async function maskMenuPreviewSwap(runSwap, opts = {}) {
-    const fade = opts.fade !== false;
-    setMenuAttractRenderHold(true);
-    try {
-      // * Slightly longer fades than 180/260 — geometry + compile run under the
-      // * opaque gradient so the work reads as a transition, not a frozen UI.
-      if (fade) await fadeGameCanvasTo(0, 220);
-      await runSwap();
-      if (fade) {
-        // * Release with the canvas still transparent — the attract loop draws the
-        // * new arena (programs already warm), then the fade-in reveals it.
-        setMenuAttractRenderHold(false);
-        await yieldForPaint();
-        await fadeGameCanvasTo(1, 300);
-      }
-    } finally {
-      setMenuAttractRenderHold(false);
-      if (fade) canvas.style.opacity = "1";
-    }
-  }
-
-  /**
-   * Loads level meshes/colliders into the live scene (called by levelManager).
-   * @param {string} selected Resolved level id.
-   * @param {{ menuPreview: boolean, reflectorTextureSize: number, onProgress?: (pct: number, label: string) => void }} opts
-   */
-  async function commitLevelLoad(selected, opts) {
-    // * ?perf=1 (DEV): per-phase swap breakdown. loadLevel is the mesh/collider build;
-    // * rebuildForQualityChange re-applies the active tier after the legacy low/high split.
-    const perfOn = import.meta.env.DEV && typeof location !== "undefined"
-      && /(?:^|[?&])perf=1(?:&|$)/.test(location.search || "");
-    const pnow = () => (typeof performance !== "undefined" ? performance.now() : 0);
-    /** @type {Record<string, number>} */
-    const perfPhase = {};
-    let pMark = pnow();
-    const lap = (name) => { if (perfOn) { const t = pnow(); perfPhase[name] = +(t - pMark).toFixed(1); pMark = t; } };
-
-    if (typeof disposeLevel === "function") disposeLevel();
-    lap("dispose");
-    // * Let the menu UI / attract hold paint once after dispose so the main thread
-    // * is not one continuous multi-hundred-ms block through loadLevel.
-    await yieldForPaint();
-    // * Grocery pool stays warm across level swaps — init() clears active spills only
-    // * after the first load (no re-fetch of ~2.9 MB grocery GLBs per arena change).
-    ({
-      recordMesh,
-      recordCollider,
-      recordColliderHandles: ringHandles,
-      pitWallColliderHandle,
-      boothColliderHandles,
-      boothNeonMeshes,
-      spindleLight,
-      pitInnerRadius,
-      recordLabelMat,
-      aiHazards: levelHazards,
-      update: levelUpdate,
-      dispose: disposeLevel,
-      upgradeRecordReflector,
-      setReflectorVisible,
-      applyQualityTier: levelApplyQualityTier = null,
-    } = await loadLevel(selected, scene, world, CONFIG, {
-      menuPreview: opts.menuPreview === true,
-      reflectorTextureSize: opts.reflectorTextureSize,
-      onProgress: opts.onProgress,
-    }));
-    lap("loadLevel");
-
-    // * Normalize: arena.js returns recordColliderHandles (compound ring); other levels return a single recordCollider.
-    if (ringHandles) {
-      recordColliderHandles = ringHandles;
-    } else if (recordCollider) {
-      recordColliderHandles = [recordCollider.handle];
-    }
-    // * Groceries are cosmetic and unneeded until the first hit — don't block the level
-    // * swap on their ~3 MB of GLBs. init() is idempotent and pool consumers no-op
-    // * until it resolves.
-    const groceryReady = GroceryPool.init(scene, world);
-    if (import.meta.env.DEV) groceryReady.catch((err) => console.warn("[GroceryPool] init failed:", err));
-    applyLoadedLevelSideEffects(selected);
-    lap("sideEffects");
-    // * Levels build for the legacy low/high split internally; re-apply the active
-    // * tier so medium lands correctly (reflector off, budgets right) on first load.
-    await rebuildForQualityChange();
-    lap("qualityRebuild");
-    if (perfOn) {
-      const total = +Object.values(perfPhase).reduce((a, b) => a + b, 0).toFixed(1);
-      // eslint-disable-next-line no-console
-      console.log(`[perf] commitLevelLoad ${selected} menuPreview=${opts.menuPreview === true} total=${total}ms`, perfPhase);
-    }
-  }
-
-  async function bootstrapWorldCore(levelIdOverride) {
-    if (!sceneEnvironmentDispose) {
-      sceneEnvironmentDispose = setupSceneEnvironment(renderer, scene);
-      await yieldForPaint();
-    }
-    await swapLoadedLevel(
-      resolveLevelId(levelIdOverride ?? storageGet(LEVEL_STORAGE_KEY)),
-    );
-    // * Run-7 P0 (menu multi-s): world-ready un-gates menu attract. Caps 45–51 show
-    // * 1.7–4.2s longtasks starting ~5ms after world-ready — first attract
-    // * composer.render compiling arena + postFX programs. Warm *before* the
-    // * bootstrap promise resolves so isWorldBootstrapped stays false and attract
-    // * keeps the gradient. Marks: idle-shader-start/end (world-ready − start = cost).
-    markBootPhase("idle-shader-start");
-    await warmupActiveSceneShaders({ forPlay: false });
-    markBootPhase("idle-shader-end");
-    await yieldForPaint();
-  }
-
-  // --- Quickplay arena rotation (D-STAB-2 seam recipe) ---
-  let arenaRotationInFlight = false;
+  // --- Quickplay arena rotation gens (round lifecycle; rotation impl is in levelOrchestration) ---
   /** Invalidation token for deferred non-host countdown application (see onGameStartHandler). */
   let nonHostCountdownApplyGen = 0;
   /** Cap-200: invalidation token for deferred host-MP countdown (continuous-mode seat arm). */
   let hostMpCountdownDeferGen = 0;
-
-  /**
-   * Resolves once no arena rotation is pending or in flight (bounded poll — during the
-   * swap's long synchronous chunks timers can't fire anyway, so the poll wakes right
-   * after the blocking work ends). Used to keep the non-host countdown from starting
-   * under a level swap that will freeze its frame-driven digits.
-   */
-  async function whenArenaRotationSettled(maxWaitMs = 10000) {
-    const deadlineMs = performance.now() + maxWaitMs;
-    while (
-      (arenaRotationInFlight || pendingArenaRotationLevelId != null) &&
-      performance.now() < deadlineMs
-    ) {
-      await new Promise((resolve) => setTimeout(resolve, 120));
-    }
-  }
-
-  async function drainPendingArenaRotation() {
-    if (pendingArenaRotationLevelId == null) return;
-    if (menuVisible || !isWorldBootstrapped() || !world) return;
-    if (!Array.isArray(allCartsRef) || allCartsRef.length === 0) return;
-    if (arenaRotationInFlight) return;
-    const next = resolveLevelId(pendingArenaRotationLevelId);
-    pendingArenaRotationLevelId = null;
-    if (next === getCurrentLevelId()) return;
-    await rotateLoadedArenaInPlace(next);
-  }
-
-  /** Next catalog arena for Quickplay rematch rotation (wraps; QP-ORDER-1). */
-  function pickNextQuickplayArenaId() {
-    return nextQuickplayArenaId(getCurrentLevelId());
-  }
-
-  /**
-   * Mid-session arena swap for Quickplay rotation, masked by a slow canvas crossfade
-   * with a "NEXT ARENA" toast. Physics is gated (setLevelSwapping) while colliders
-   * rebuild, then cart spawn points are refreshed for the new ring radius. The host
-   * re-seats every cart via rematchResetWorld (which broadcasts the new poses);
-   * non-host clients take poses from that broadcast.
-   *
-   * Pre-session (menu / bootstrap in flight) this is a no-op — the play-entry
-   * rebuild path owns the load there.
-   *
-   * @param {string} nextLevelIdRaw
-   */
-  async function rotateLoadedArenaInPlace(nextLevelIdRaw) {
-    const nextLevelId = resolveLevelId(nextLevelIdRaw);
-    if (arenaRotationInFlight) return;
-    if (menuVisible || !isWorldBootstrapped() || !world) return;
-    if (!Array.isArray(allCartsRef) || allCartsRef.length === 0) return;
-    if (nextLevelId === getCurrentLevelId()) return;
-    arenaRotationInFlight = true;
-    setLevelSwapping(true);
-    // * Old arena's beds fade out under the canvas crossfade; the new arena's start
-    // * in the finally below (getCurrentLevelId() — correct even if the swap failed).
-    ArenaAmbience.stopArenaAmbience();
-    try {
-      const label = (LEVEL_UNLOCKS[nextLevelId]?.label || nextLevelId).toUpperCase();
-      hud?.showChallengeToast?.(label, "◆ NEXT ARENA", { durationMs: 4500, priority: STAGE_PRIORITY.CRITICAL });
-      /** @type {Promise<void>} */
-      let swapPromise = Promise.resolve();
-      const runSwap = () => {
-        swapPromise = swapLoadedLevel(nextLevelId, { menuPreview: false });
-      };
-      // * Slower than the play-entry crossfade on purpose — the reveal is the transition.
-      await crossfadeElement(canvas, runSwap, { fadeOutMs: 380, fadeInMs: 520 });
-      await swapPromise;
-      // * Compile the rotated arena's programs before the host re-seats carts —
-      // * otherwise the first post-rotation frame stalls on shader compiles mid-MP.
-      await warmupActiveSceneShaders({ forPlay: true });
-      Entities.refreshCartSpawnPositions();
-      // * Stop charge loops BEFORE rematchResetWorld nulls chargeUpSfxId (orphans Howler).
-      stopAllChargeSfx();
-      if (Netcode.getIsHost()) {
-        Entities.rematchResetWorld();
-      } else {
-        // * NET-1 S1: host_spawn often lands mid-swap (host is the fast machine). Bodies
-        // * are rebuilt during swapLoadedLevel so that apply is wiped. Seat on the new
-        // * ring first (broadcast no-ops for non-host), then re-apply last host poses.
-        Entities.rematchResetWorld();
-        Netcode.reapplyCachedCartsSnapshot();
-      }
-    } catch (err) {
-      console.error("[arena-rotation] in-place swap failed:", err);
-    } finally {
-      setLevelSwapping(false);
-      arenaRotationInFlight = false;
-      // * WARM-IGPU-1 Lever A: the rotation warm above held clientPlayReady (see
-      // * isSessionPlayReady). Re-signal now that the compile is done so the server arms
-      // * game_start immediately — otherwise a quiet lobby waits out the 12s ceiling.
-      Netcode.signalPlayReadyNow();
-      // * menuVisible guard: a disconnect mid-swap returns to the menu (which stops
-      // * ambience + music) — don't restart a bed/track under the menu music.
-      if (!menuVisible) {
-        ArenaAmbience.startArenaAmbience(getCurrentLevelId());
-        // * Music is per-arena — swap to the rotated arena's playlist. stopGameMusic
-        // * first so the new playlist starts from its own track 0 (startLevelMusic →
-        // * setGamePlaylist → playGameMusic, which no-ops if not stopped).
-        AudioManager.stopGameMusic();
-        startLevelMusic(getCurrentLevelId());
-      }
-    }
-  }
 
   window.addEventListener("cartrave:level-changed", () => {
     scheduleMenuLevelPreview();
@@ -4086,7 +3349,7 @@ async function main() {
 
     const { allCarts: carts, nextPendingMidRoundJoinRespawnConnId } = Entities.initCarts({
       scene,
-      world,
+      world: level.world,
       ramBoostStreaks,
       netSlots: Netcode.getNetSlots(),
       youConnId: Netcode.getYouConnId(),
@@ -4191,7 +3454,7 @@ async function main() {
     // * arms; it never delays a countdown already armed (that was the reverted `c8df8fd`).
     // * Server-side PLAY_READY_TIMEOUT_MS (12s) remains the backstop, and the rotation's
     // * finally re-signals immediately so we never actually wait on it.
-    isSessionPlayReady: () => isSessionCartsReady() && !arenaRotationInFlight,
+    isSessionPlayReady: () => isSessionCartsReady() && !level.arenaRotationInFlight,
     hasPendingNonHostCountdownApply: () => nonHostCountdownApplyPending,
     // * CAM-PT-MP-1: host-side peer of the above — true only during the opening-orbit hold.
     hasPendingHostMpHold: () => hostMpHoldPending,
@@ -4272,7 +3535,7 @@ async function main() {
     // * that latch a joiner would strand on their own local menu pick while the room
     // * plays a different arena.
     onLevelIdChanged: (levelId) => {
-      pendingArenaRotationLevelId = levelId;
+      level.pendingArenaRotationLevelId = levelId;
       void drainPendingArenaRotation();
     },
     onPodiumRejected: () => {
@@ -4534,14 +3797,14 @@ async function main() {
   // * post-landing rebound. Do NOT exclude kinematic bodies: the Classic Record floor is
   // * kinematicVelocityBased.
   function isCartGrounded(cart) {
-    if (!world || !RAPIER || !cart?.body) return true; // no physics yet — don't eat input
+    if (!level.world || !RAPIER || !cart?.body) return true; // no physics yet — don't eat input
     const p = cart.body.translation();
     if (!_hopGroundRay) _hopGroundRay = new RAPIER.Ray({ x: 0, y: 0, z: 0 }, { x: 0, y: -1, z: 0 });
     _hopGroundRay.origin.x = p.x;
     _hopGroundRay.origin.y = p.y;
     _hopGroundRay.origin.z = p.z;
     const maxToi = CONFIG.cart.size.y / 2 + 0.55; // resting clearance + slope/seam tolerance
-    const hit = world.castRay(
+    const hit = level.world.castRay(
       _hopGroundRay,
       maxToi,
       true,
@@ -5299,7 +4562,7 @@ async function main() {
     // * everyone else on arena B. Checked BEFORE the world-reset side effects below:
     // * the suppressed call must not re-run rematchResetWorld mid-collider-rebuild
     // * (it would broadcast spawn poses computed against the outgoing arena's ring).
-    if (detectGameMode() === "quickplay" && arenaRotationInFlight) return;
+    if (detectGameMode() === "quickplay" && level.arenaRotationInFlight) return;
     cancelLastCartStandingFinish();
     autoContinuePodiumKey = currentPodiumAutoContinueKey();
     clearAutoContinuePodiumTimeout();
@@ -5465,8 +4728,8 @@ async function main() {
     onCartRespawn: (slotIndex) => {
       GroceryPool.releaseByCartId(String(slotIndex));
     },
-    getWorld: () => world,
-    getBoothColliderHandles: () => boothColliderHandles,
+    getWorld: () => level.world,
+    getBoothColliderHandles: () => level.boothColliderHandles,
   };
 
   const hostSimCallbacks = {
@@ -5499,9 +4762,9 @@ async function main() {
       triggerSpillNetcode(cart.slotIndex, pos, quat, vel, cargoBay, spillCount);
     },
     get partySocket() { return Netcode.getPartySocket(); },
-    get recordColliderHandles() { return recordColliderHandles; },
-    get pitWallColliderHandle() { return pitWallColliderHandle; },
-    get boothColliderHandles() { return boothColliderHandles; },
+    get recordColliderHandles() { return level.recordColliderHandles; },
+    get pitWallColliderHandle() { return level.pitWallColliderHandle; },
+    get boothColliderHandles() { return level.boothColliderHandles; },
     playFloorImpact: (i = 0.5) => AudioManager.playSfx("floor", undefined, { volume: 0.45 + Math.min(Math.max(i, 0), 1) * 0.55 }),
     playEdgeImpact: (i = 0.5) => AudioManager.playSfx("floor", undefined, { volume: 0.45 + Math.min(Math.max(i, 0), 1) * 0.55 }),
     resolveCartForConn: (connId) => {
@@ -5524,8 +4787,8 @@ async function main() {
 
   const physicsDeps = {
     ...sharedLoopGetters,
-    get world() { return world; },
-    get eventQueue() { return eventQueue; },
+    get world() { return level.world; },
+    get eventQueue() { return level.eventQueue; },
     getAllCartsRef: () => allCartsRef,
     getLocalCart: localCartForConnId,
     shouldUseClientPrediction: () => Netcode.shouldUseClientPrediction(),
@@ -5606,15 +4869,15 @@ async function main() {
     }
 
     // Visual-only record rotation.
-    if (recordMesh) {
-      recordMesh.rotation.y += CONFIG.record.rotationSpeedRadPerSec * dt;
+    if (level.recordMesh) {
+      level.recordMesh.rotation.y += CONFIG.record.rotationSpeedRadPerSec * dt;
     }
 
     const offset = Netcode.getHostClockOffsetMs();
     const syncedNow = (offset && !Number.isNaN(offset)) ? (now - offset) : now;
 
-    /** @type {any} */ (sceneExtras)?.update?.(syncedNow, camera);
-    levelUpdate?.(syncedNow);
+    /** @type {any} */ (level.sceneExtras)?.update?.(syncedNow, camera);
+    level.levelUpdate?.(syncedNow);
     // * LOD throttle is local wall time — syncedNow can jump backward on a host-clock
     // * correction and park _lastUpdateMs in the future (LOD-CLOCK-1).
     if (frameBudgetAllow("level_lod", now)) {
@@ -5633,27 +4896,27 @@ async function main() {
 
     // Record label color cycle (5 colors, ~2s each, ~10s full loop).
     // * Sole leader leans the vinyl label toward their color (crown-jewel read).
-    if (recordLabelMat) {
+    if (level.recordLabelMat) {
       const segMs = 2000;
       const idx = Math.floor(now / segMs) % recordLabelCycleColors.length;
       const nextIdx = (idx + 1) % recordLabelCycleColors.length;
       const f = (now % segMs) / segMs;
-      recordLabelMat.color
+      level.recordLabelMat.color
         .copy(recordLabelCycleColors[idx])
         .lerp(recordLabelCycleColors[nextIdx], f);
       const reactive = sampleArenaReactive(syncedNow);
       if (reactive.hasLeader || reactive.koT > 0) {
-        recordLabelMat.color.lerp(reactive.accentColor, reactive.hasLeader ? 0.55 : 0.35 * reactive.koT);
+        level.recordLabelMat.color.lerp(reactive.accentColor, reactive.hasLeader ? 0.55 : 0.35 * reactive.koT);
       }
     }
 
     // * Booth neon pulse — intensity only. Hue stays on the per-booth materials so
     // * pink/green/cyan/orange spawn corners stay readable as four distinct booths.
-    if (boothNeonMeshes && boothNeonMeshes.length > 0 && frameBudgetAllow("booth_pulse", now)) {
+    if (level.boothNeonMeshes && level.boothNeonMeshes.length > 0 && frameBudgetAllow("booth_pulse", now)) {
       boothNeonMatsSeen.clear();
       const pulseHz = CONFIG.booth.neonCycleSpeed;
       const nowSec = syncedNow * 0.001;
-      for (const mesh of boothNeonMeshes) {
+      for (const mesh of level.boothNeonMeshes) {
         const mat = mesh.material;
         if (!mat || boothNeonMatsSeen.has(mat)) continue;
         boothNeonMatsSeen.add(mat);
@@ -5733,7 +4996,7 @@ async function main() {
       if (spectatorTarget) {
         const playerPos = spectatorTarget.body.translation();
         const playerRot = spectatorTarget.body.rotation();
-        CameraMod.updateCamera(camera, spectatorTarget, dt, playerPos, playerRot, world);
+        CameraMod.updateCamera(camera, spectatorTarget, dt, playerPos, playerRot, level.world);
       }
     } else if (localCart?.body) {
       if (CameraMod.getCameraMode(camera) === CameraMod.CameraMode.DEATH) {
@@ -5786,7 +5049,7 @@ async function main() {
           dt,
           playerPos,
           playerRot,
-          world,
+          level.world,
         );
       }
     }
@@ -5927,7 +5190,7 @@ async function main() {
         const slot = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
         const localCart = Array.isArray(allCartsRef) ? allCartsRef[slot] : null;
         return {
-          arenaRotationInFlight,
+          arenaRotationInFlight: level.arenaRotationInFlight,
           menuVisible,
           // * Cap-200: DOM truth next to the flag — late CartRave.show() after hide left
           // * menuVisible false while #cr-root was visible (harness false green).

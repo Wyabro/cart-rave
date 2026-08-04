@@ -41,8 +41,11 @@ describe("nextQuickplayArenaId", () => {
     expect(src).not.toMatch(/this\.#currentLevelId\s*=\s*QUICKPLAY_ARENA_IDS\[0\]/);
   });
 
-  it("main.js rematch path uses nextQuickplayArenaId", () => {
-    const src = readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
+  it("levelOrchestration rematch path uses nextQuickplayArenaId", () => {
+    const src = readFileSync(
+      new URL("../src/orchestration/levelOrchestration.js", import.meta.url),
+      "utf8",
+    );
     expect(src).toMatch(/nextQuickplayArenaId\(\s*getCurrentLevelId\(\)\s*\)/);
     expect(src).not.toMatch(/Math\.random\(\)\s*\*\s*pool\.length/);
   });

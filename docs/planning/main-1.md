@@ -1,6 +1,6 @@
 # MAIN-1 — Full wave plan (for Wyatt review)
 
-**Status:** acked 08-04 (Wyatt) · **Lever B complete** (unpushed until this commit) · next: Lever C · v5 inventory locked.  
+**Status:** acked 08-04 (Wyatt) · **Lever C complete** · next: Lever D · v5 inventory locked.  
 Prep baseline locked at `f1ec6d1` (qa 109 files / 1,350 tests · battery 6/6 · shoot `shots/2026-08-04-main1-prep/`).
 
 **Card:** [BACKLOG.md](./BACKLOG.md) · MAIN-1 (Medium · Tech debt)  
@@ -220,7 +220,7 @@ Call the factory **once** after all referenced handlers exist (or pass already-b
 
 ### Lever C — Level orchestration (mechanical only)
 
-**Goal:** move all `LevelManagerDeps` implementations and level-load helpers out of `main()` — **same call order as today**. Leave `setContactShadowHazards` where it is (inside [`applyLoadedLevelSideEffects`](../../src/main.js)).
+**Goal:** move all `LevelManagerDeps` implementations and level-load helpers out of `main()` — **same call order as today**. Leave `setContactShadowHazards` where it is (inside [`applyLoadedLevelSideEffects`](../../src/orchestration/levelOrchestration.js)).
 
 **Files:** new `src/orchestration/levelOrchestration.js` · `src/main.js` · `src/levelManager.js` (imports only if needed) · `tools/lib/archMap.mjs` (claim new file same commit)
 
@@ -232,10 +232,10 @@ Call the factory **once** after all referenced handlers exist (or pass already-b
 
 **Asserts:**
 
-- [ ] `npm run qa` green
-- [ ] `npm run battery -- --only gameharness,hostReload` (full `gameharness` rig — all scenarios; `--only` has no per-scenario filter — **or** `node tools/gameharness.mjs --scenario arenas` plus `npm run battery -- --only hostReload`)
-- [ ] Menu arena picker swap does not freeze (attract path still calls shared animation hooks)
-- [ ] Quality-tier toggle still rebuilds arena (spot-check Low↔High or settings quality change)
+- [x] `npm run qa` green — **109** files / **1,350** tests
+- [x] `npm run battery -- --only gameharness,hostReload` — **2/2** (gameharness 41/41 · hostReload 13/13)
+- [ ] Menu arena picker swap does not freeze (attract path still calls shared animation hooks) — **owed Wyatt spot-check**
+- [ ] Quality-tier toggle still rebuilds arena (spot-check Low↔High or settings quality change) — **owed Wyatt spot-check**
 
 **Risk:** arena rotation / quickplay rematch ordering (NET-1 class) — **`hostReload` is in this lever’s battery**, not deferred to F. A fail here is a **move/drop** bug.
 
