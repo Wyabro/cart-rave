@@ -556,18 +556,17 @@ function buildFurnitureTexture(kind) {
 }
 
 /**
- * Rack steel for the shelf bays — the largest untextured surface in the arena until this
- * existed (audit item 4). Authored at LOW spatial frequency on purpose: the walls stand at
- * 56 m while the play floor ends at 38, so this is never closer than ~18 m to a cart and fog
- * has already eaten a quarter of it at that range. Rust bands, a punched slot ladder and
- * chalk streaking survive as value contrast; fine grain would not. Tiles at 1 m square, which
- * only means anything because the shelf boxes carry world-scaled UVs (pushFadeBox's uvMeters
- * argument). Deliberately SEPARATE from buildFurnitureTexture("metal") — that one is the
- * furniture pile's material and must not be retinted to serve the walls.
+ * Painted wood for the shelf bays (STORE-PT-1). Replaces the old rack-steel map —
+ * Wyatt's call: boards should read as painted warehouse wood, not detailed metal.
+ * Authored at LOW spatial frequency: walls sit at 56 m, play floor ends at 38, so this
+ * is never closer than ~18 m and fog has already eaten a quarter of it. Soft grain under
+ * cream paint + light scuffs only; no punched slots, no rust bands. Tiles at 1 m square
+ * via pushFadeBox's uvMeters. Separate from buildFurnitureTexture("wood") — that one is
+ * raw brown prop-pile grain and must not be reused as-is for these boards.
  *
  * @returns {THREE.CanvasTexture}
  */
-function buildShelfSteelTexture() {
+function buildShelfPaintedWoodTexture() {
   const size = 256;
   const rng = makeRng(0x5e1f5733);
   const canvas = document.createElement("canvas");
@@ -575,55 +574,37 @@ function buildShelfSteelTexture() {
   canvas.height = size;
   const ctx = canvas.getContext("2d");
 
-  // Base galvanised grey — darker than the bare white it replaces, so the racking stops
-  // reading as pristine painted metal before a single feature is drawn.
-  ctx.fillStyle = "#b3b5ad";
+  // Pale warehouse cream paint (not galvanised grey, not furniture brown).
+  ctx.fillStyle = "#d8cfb8";
   ctx.fillRect(0, 0, size, size);
 
-  // Vertical brush grain (full-height strokes, so it tiles horizontally by construction).
-  for (let x = 0; x < size; x += 1) {
-    const a = 0.02 + rng() * 0.05;
-    ctx.fillStyle = rng() < 0.5 ? `rgba(255,255,248,${a})` : `rgba(28,30,26,${a})`;
-    ctx.fillRect(x, 0, 1, size);
-  }
-
-  // Punched slot ladder — two columns of rack slots. The pitch divides the tile evenly so the
-  // ladder stays continuous across repeats instead of jumping at every seam.
-  for (const cx of [size * 0.28, size * 0.72]) {
-    for (let y = 4; y < size; y += 32) {
-      ctx.fillStyle = "rgba(24,26,22,0.55)";
-      ctx.fillRect(cx - 4, y, 8, 15);
-      ctx.fillStyle = "rgba(240,240,232,0.18)";
-      ctx.fillRect(cx - 4, y + 15, 8, 2);
-    }
-  }
-
-  // Rust / grime bands: full width so they tile, ragged edges so they do not read as print.
-  for (let b = 0; b < 3; b += 1) {
-    const by = rng() * size;
-    const bh = 8 + rng() * 16;
-    ctx.fillStyle = `rgba(96,62,34,${0.10 + rng() * 0.12})`;
-    ctx.fillRect(0, by, size, bh);
-    for (let x = 0; x < size; x += 4) {
-      const jag = (rng() - 0.5) * 7;
-      ctx.fillRect(x, by + bh + jag, 4, 3);
-      ctx.fillRect(x, by - 3 + jag, 4, 3);
-    }
-  }
-
-  // Chalk streaking + grime speckle, kept clear of the tile edges so no stroke is cut in half.
-  for (let i = 0; i < 14; i += 1) {
-    const sx = 12 + rng() * (size - 24);
-    const sy = 12 + rng() * (size - 40);
-    ctx.strokeStyle = `rgba(236,236,226,${0.05 + rng() * 0.09})`;
+  // Soft horizontal grain under the paint — low contrast so it does not read as busy metal.
+  for (let i = 0; i < 36; i += 1) {
+    const y = rng() * size;
+    const a = 0.03 + rng() * 0.06;
+    ctx.strokeStyle = rng() < 0.5
+      ? `rgba(90,72,48,${a})`
+      : `rgba(255,250,238,${a})`;
     ctx.lineWidth = 1 + rng() * 2;
     ctx.beginPath();
-    ctx.moveTo(sx, sy);
-    ctx.lineTo(sx + (rng() - 0.5) * 10, sy + 14 + rng() * 22);
+    ctx.moveTo(0, y);
+    for (let x = 0; x <= size; x += 16) {
+      ctx.lineTo(x, y + Math.sin(x * 0.035 + i) * (2 + rng() * 3));
+    }
     ctx.stroke();
   }
-  for (let i = 0; i < 260; i += 1) {
-    ctx.fillStyle = `rgba(30,32,28,${0.05 + rng() * 0.16})`;
+
+  // Light scuffs / edge wear — value only, no rust or chalk metal language.
+  for (let i = 0; i < 18; i += 1) {
+    const sx = 8 + rng() * (size - 16);
+    const sy = 8 + rng() * (size - 16);
+    const sw = 12 + rng() * 40;
+    const sh = 2 + rng() * 5;
+    ctx.fillStyle = `rgba(70,58,40,${0.04 + rng() * 0.07})`;
+    ctx.fillRect(sx, sy, sw, sh);
+  }
+  for (let i = 0; i < 80; i += 1) {
+    ctx.fillStyle = `rgba(50,42,30,${0.03 + rng() * 0.08})`;
     ctx.fillRect(rng() * size, rng() * size, 1 + rng() * 2, 1 + rng() * 2);
   }
 
@@ -2055,7 +2036,7 @@ function buildWalls(scene, world, wallpaperTex) {
   const baseboardParts = [];
   const voidLipParts = [];
   const pillarParts = [];
-  const shelfMetalParts = [];
+  const shelfWoodParts = [];
   const shelfBoxRedParts = [];
   const shelfBoxBlueParts = [];
   const shelfBoxBeigeParts = [];
@@ -2085,11 +2066,12 @@ function buildWalls(scene, world, wallpaperTex) {
   const cartonTex = buildPropSurfaceTexture("carton");
   cartonTex.repeat.set(1, 1);
   ownedTextures.push(cartonTex);
-  const shelfSteelTex = buildShelfSteelTexture();
-  ownedTextures.push(shelfSteelTex);
+  const shelfWoodTex = buildShelfPaintedWoodTexture();
+  ownedTextures.push(shelfWoodTex);
 
   const pillarBaseRgb = /** @type {[number, number, number]} */ ([0.56, 0.54, 0.48]);
-  const shelfMetalBaseRgb = /** @type {[number, number, number]} */ ([0.42, 0.4, 0.35]);
+  // Pale painted-board vertex-color base — old steel fade [0.42,0.4,0.35] muddies cream paint.
+  const shelfWoodBaseRgb = /** @type {[number, number, number]} */ ([0.82, 0.78, 0.68]);
 
   // All four walls get shelf language; sides 0/2 are full bays, 1/3 are sparse/broken.
   const FULL_SHELF_SIDES = new Set([0, 2]);
@@ -2099,8 +2081,8 @@ function buildWalls(scene, world, wallpaperTex) {
   const SHELF_LEVELS_FULL = 5;
   const SHELF_LEVELS_SPARSE = 3;
   const SHELF_DEPTH = 2.0;
-  // * One steel tile per metre of real surface, so the slot ladder and rust bands land at the
-  // * same physical size on a 0.16 m upright as on a 114 m board.
+  // * One paint-wood tile per metre of real surface, so grain scale matches on a 0.16 m
+  // * upright and on a 114 m board.
   const SHELF_UV_METERS = 1.0;
   const boardThickness = 0.12;
   const boxH = 0.9;
@@ -2162,7 +2144,7 @@ function buildWalls(scene, world, wallpaperTex) {
       for (let a = -WALL_SPAN / 2 + 6; a <= WALL_SPAN / 2 - 6; a += uprightStep) {
         const [sx, sz] = wDim(0.16, shelfDepth);
         const [px, py, pz] = toWorld(a, wallCenterY, shelfCenterOut);
-        pushFadeBox(shelfMetalParts, sx, wallFullHeight, sz, px, py, pz, unitBox, shelfMetalBaseRgb, SHELF_UV_METERS);
+        pushFadeBox(shelfWoodParts, sx, wallFullHeight, sz, px, py, pz, unitBox, shelfWoodBaseRgb, SHELF_UV_METERS);
       }
 
       // Horizontal boards + faded product boxes per level.
@@ -2170,7 +2152,7 @@ function buildWalls(scene, world, wallpaperTex) {
         const boardY = 1.0 + lvl * levelGap;
         const [bsx, bsz] = wDim(WALL_SPAN - 10, shelfDepth);
         const [bpx, bpy, bpz] = toWorld(0, boardY, shelfCenterOut);
-        pushFadeBox(shelfMetalParts, bsx, boardThickness, bsz, bpx, bpy, bpz, unitBox, shelfMetalBaseRgb, SHELF_UV_METERS);
+        pushFadeBox(shelfWoodParts, bsx, boardThickness, bsz, bpx, bpy, bpz, unitBox, shelfWoodBaseRgb, SHELF_UV_METERS);
 
         const boxY = boardY + boardThickness / 2 + boxH / 2;
         for (let a = -WALL_SPAN / 2 + 7; a <= WALL_SPAN / 2 - 7; a += SHELF_BOX_SPACING) {
@@ -2198,12 +2180,12 @@ function buildWalls(scene, world, wallpaperTex) {
       }
 
       // Sparse walls: one slumped endcap as a human anomaly (must use pushFadeBox so
-      // shelfMetalParts keep matching vertex-color attributes for merge).
+      // shelfWoodParts keep matching vertex-color attributes for merge).
       if (sparseBay) {
         const tipA = side === 1 ? -18 : 14;
         const [tsx, tsz] = wDim(0.95, shelfDepth * 0.9);
         const [tpx, , tpz] = toWorld(tipA, 1.1, shelfCenterOut + 0.4);
-        pushFadeBox(shelfMetalParts, tsx, 0.14, tsz, tpx, 1.1, tpz, unitBox, shelfMetalBaseRgb, SHELF_UV_METERS);
+        pushFadeBox(shelfWoodParts, tsx, 0.14, tsz, tpx, 1.1, tpz, unitBox, shelfWoodBaseRgb, SHELF_UV_METERS);
         pushBox(shelfBoxBeigeParts, 0.9, 0.7, 0.7, tpx, 0.55, tpz + (alongIsX ? 0.3 : 0), unitBox);
       }
     }
@@ -2267,11 +2249,11 @@ function buildWalls(scene, world, wallpaperTex) {
     metalness: 0.0,
     vertexColors: true,
   });
-  const shelfMetalMat = new THREE.MeshStandardMaterial({
-    map: shelfSteelTex,
-    bumpMap: shelfSteelTex,
-    bumpScale: 0.012,
-    color: 0xffffff, roughness: 0.78, metalness: 0.4, vertexColors: true,
+  const shelfWoodMat = new THREE.MeshStandardMaterial({
+    map: shelfWoodTex,
+    bumpMap: shelfWoodTex,
+    bumpScale: 0.006,
+    color: 0xffffff, roughness: 0.92, metalness: 0.02, vertexColors: true,
   });
   const shelfRedMat = new THREE.MeshStandardMaterial({
     map: cartonTex, color: 0xb56a5c, roughness: 0.88, metalness: 0.05,
@@ -2285,7 +2267,7 @@ function buildWalls(scene, world, wallpaperTex) {
 
   const ownedMaterials = [
     drywallMat, drywallMatDead, baseboardMat, voidLipMat, pillarMat,
-    shelfMetalMat, shelfRedMat, shelfBlueMat, shelfBeigeMat,
+    shelfWoodMat, shelfRedMat, shelfBlueMat, shelfBeigeMat,
   ];
 
   const mergeAdd = (parts, mat) => {
@@ -2299,7 +2281,7 @@ function buildWalls(scene, world, wallpaperTex) {
   mergeAdd(baseboardParts, baseboardMat);
   mergeAdd(voidLipParts, voidLipMat);
   mergeAdd(pillarParts, pillarMat);
-  mergeAdd(shelfMetalParts, shelfMetalMat);
+  mergeAdd(shelfWoodParts, shelfWoodMat);
   mergeAdd(shelfBoxRedParts, shelfRedMat);
   mergeAdd(shelfBoxBlueParts, shelfBlueMat);
   mergeAdd(shelfBoxBeigeParts, shelfBeigeMat);
