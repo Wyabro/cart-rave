@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-04T03:44:11.682Z",
-    "commit": "7a91535"
+    "at": "2026-08-04T04:04:41.142Z",
+    "commit": "87182fc"
   },
-  "source_digest": "152cd1f8",
+  "source_digest": "b77048e2",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -859,7 +859,7 @@
       {
         "id": "PERF-PASS-1",
         "what": "60 fps at Low on the Intel box — Cart Rave only (Wyatt scoped it 08-03)",
-        "status": "▶ ACTIVE — Wave 3 SWEPT 08-04 (cap-240…248, `7a91535`, Worker `c052bcc5`; drift 0.041 ms, no straddle). Clean Low baseline 23.788 ms / 42.0 fps — gap is 7.1 ms, not 4.2 (cap-239 was mid-demotion). Only 2 of 7 cuts clear 1.5 ms: `pitlights` −2.88, `stadium` −2.66. Geometry model falsified — cutting 39.9% of triangles bought −0.12 ms (ablation confirmed live, not a no-op); cost is per-fragment shading, not vertices. Both winners together = 18.25 ms, still short. Waiting on Wyatt's pick; Wave 4 needs its own ack. Menu + evidence: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md).",
+        "status": "▶ ACTIVE — Wave 3 SWEPT 08-04 (cap-240…248, `7a91535`, Worker `c052bcc5`; drift 0.041 ms, no straddle). Clean Low baseline 23.788 ms / 42.0 fps — gap is 7.1 ms, not 4.2 (cap-239 was mid-demotion). Only 2 of 7 cuts clear 1.5 ms: `pitlights` −2.88, `stadium` −2.66. Geometry model falsified — cutting 39.9% of triangles bought −0.12 ms (ablation confirmed live, not a no-op); cost is per-fragment shading, not vertices. Both winners together = 18.25 ms, still short. Wyatt picked pit lights but kept the spindle → that variant is unmeasured; `pitfill` token shipped (`87182fc`, Worker `88e5b8fc`) to price it. Two pricing attempts void (cap-249 typo+undeployed; cap-250/251 drift). ⚠ The box drifts +5.1 ms / 37 min, accelerating — bigger than every cut on the menu. Every future cell needs an A-B-A bracket on a cooled box. Wave 4 not started; ships only on a bracketed number. Menu + evidence: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md).",
         "state": "active"
       },
       {

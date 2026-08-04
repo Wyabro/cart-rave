@@ -143,6 +143,51 @@ fragment load that `pitlights` also acts on). 60 fps at Low needs a lever beyond
 `billboard` has no still (never built on the `includeJuice:false` shoot path) and `stagerig` sits
 outside both camera poses; neither is a candidate, so neither still is owed.
 
+### ⚠ SESSION DRIFT — the Intel box loses ~5 ms over ~37 min. Bracket every future cell.
+
+Wyatt picked `pitlights` **but kept the spindle**, so the shipped cut is the two pit lights only —
+an unmeasured variant. The `pitfill` token (`87182fc`, Worker `88e5b8fc`) was added to price it.
+**Two attempts, neither usable:**
+
+- **cap-249 — void.** URL said `ablate=pitfall` (typo), *and* the token was not deployed yet.
+  An unknown token hides nothing and boots the same harness path, so it is a baseline cell.
+  `buildFreshness` did not warn and could not: the bundle was live, it just predated the token.
+- **cap-250/251 — void.** Cells were clean (build `87182fc`, no straddle, `rsm 1/1`) but the
+  machine was degrading faster than the effect.
+
+Every unablated cell of the day, by wall clock:
+
+| T+min | cell | mean ms |
+|---|---|---|
+| 0 | `none` (cap-240) | 23.768 |
+| 12 | `none` (cap-248) | 23.809 |
+| 30 | `pitfall` = unablated (cap-249) | 25.778 |
+| 35 | **`pitfill` (cap-250)** | **26.329** |
+| 37 | `none` (cap-251) | 28.870 |
+
+**Baseline drift: +5.102 ms (+21.5%) over 37 minutes, accelerating** (+2.0 ms to T+30, then
++3.1 ms in 7 min). `pitfill` ran *before* its baseline, inside the ramp, so its delta reads
+**−2.54 ms** against the T+37 `none`, **−1.66 ms** against the trend interpolated to T+35, and
+**+0.55 ms** against the T+30 unablated cell. A range of +0.55 to −2.54 is not a measurement.
+**Nothing was shipped on it.**
+
+**Consequences — both bind future work on this card:**
+
+1. **A single baseline is not enough on this machine.** Every future timing cell needs an
+   **A-B-A bracket** (`none` → cut → `none`) on a cooled box, with the prior tab closed between
+   cells so WebGL contexts do not stack. The morning sweep stayed valid *only* because its
+   bracket closed at 0.041 ms — that was a property of that session, not of the machine.
+2. **The floor moves faster than the levers.** ~5 ms lost over half an hour swamps the entire
+   cost menu (best single cut: 2.88 ms). Before more budget goes into 2–3 ms cuts, the drift
+   itself is the more valuable target. **Not attributed** — thermal throttling, background load,
+   and accumulated browser/GPU state across cells are all live candidates and none is ruled out.
+   Do not assume thermal; that is the run-4 "GC metronome" error (**HARNESS-NULL-1**) waiting to
+   happen again.
+
+**Wave 4 status: NOT started.** `arenaFillLights` is planned and acked (spindle kept) but has no
+trustworthy number, and the `@property` convention on this card requires one. It ships only after
+a bracketed re-run.
+
 ---
 
 ## The code change — one commit, then measurement only
