@@ -13,6 +13,43 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 3, 2026 — Playtest Run 8 (15 PASS, closed the same session)
+
+Wyatt's first run against the rewritten playtest console (solo-first ordering, human-language
+checklists). **17 pass / 4 fail / 1 skip on the tally; 15 real cards**, since PREFLIGHT and
+EXPORT were still scoreable at the time and inflated it.
+
+- *(Closed by Wyatt's eye)* **cap-217 / ROUND-WEDGE-1** — a full timed round to 0:00 gave one
+  clean podium with no 25×/s flicker, and the Phase A host-hide check (tab hidden ~30–60 s
+  mid-round) still ended cleanly rather than running forever. This is the card that had been
+  open since 08-01 on n=1 production evidence. Step 5's non-host check was not run and was
+  never the evidence bar. **The `podium→running` assert is still expected on a first
+  rollback** — `invariants.js:24` and `netcode.js:2835` disagree by design.
+- *(Art)* **SUNDIAL-PT-1** → closes **ART-PASS-SUNDIAL-1** (all 6 waves). **LOAD-POSTER-1** —
+  the poster loading screens read at desktop res. **PIT-PT-1**, **SHADOW-TILT-1** (fully closed,
+  code `b36be5c` 08-02 + this eye).
+- *(Fight Night)* **RESULTS-ACT-1**, **FV-HUD-1**, **FV-BOOT-1**, **FV-LOAD-1**,
+  **FV-SILVER-1** — 5 of FIGHT-VERIFY-1's 7 owed cards. Remaining: FV-RESULTS-1 (fail),
+  FV-WILT-1 (skipped, needs a second machine).
+- *(Batch 0803)* **CAM-READY-1**, **UNLOCK-TOAST-1**, **FV-LOAD-1**, **FV-BOOT-1** — 4 of 5.
+- *(Also)* **UNLOCK-PT-1**, **SOLO-PT-1**, **CC-PT-1**.
+
+**The process lesson, which cost real time before it was caught:** a PASS had no write-back
+path. Verdicts lived in the browser's localStorage while the BACKLOG rows still said
+`Owed: Wyatt playtest`, so every regeneration reseeded cards that were already done and Wyatt
+re-ran them by hand across sessions. One of his own notes on this run reads *"PASS REMOVE THIS
+CARD FROM THE PLAYTEST CONSOLE!"*. Fixed on both ends: these 15 rows were deleted the same
+session, and the console's export now leads with a `CLOSE THESE FIRST (agent action)` block
+naming every passed id, to be actioned **before** any FAIL triage.
+
+**Four FAILs carried forward, all with his words attached:** STORE-DECK-1 (drop the bay
+letter — otherwise a pass), FV-RESULTS-1 (CHALLENGE → CHALLENGE UNLOCKED, or cut it),
+STORE-PT-1 (shelves should read painted wood, not steel; **the void edge passed**), and
+PERF-PASS-1, which stopped being a regression hunt and became a target: **60 fps at Low on the
+Intel box in all three arenas**, with three F8 captures to attribute from.
+
+---
+
 ### August 3, 2026 — AGENTS-PRIN-1 + STATUS-TRIM-1 (the rules file, and the file that reads it)
 
 - *(Process)* **AGENTS-PRIN-1** — `ff0cbd2`..`5e15d94`. AGENTS.md was all process, facts and

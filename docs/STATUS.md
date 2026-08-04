@@ -66,29 +66,30 @@ Live rows only. Shipped and closed cards live in
 
 | # | What | Status |
 |---|------|--------|
-| LOAD-POSTER-1 | Loading screens redesigned as Fight Night posters (all three arenas) | ⏸ **DEPLOYED 08-03, waiting on Wyatt's eye.** cqmin-sized stage + two-line title lockup + inline SVG per arena. Human-blocked, not agent work. |
-| PLAYTEST-BATCH-0803-1 | Playtest batch 08-03 (FV-LOAD freezes + load art, quality grace, unlock toast, store decks, GET READY pulse, boot measure) | ⏸ **DEPLOYED 08-03.** Remaining: 5 Wyatt retests (FV-LOAD-1 · UNLOCK-TOAST-1 · STORE-DECK-1 · CAM-READY-1 · FV-BOOT-1). |
-| ART-PASS-SUNDIAL-1 | Sundial art pass — all 6 waves shipped | ⏸ **DEPLOYED 08-03** (Wave 6 included). Remaining: playtest (**SUNDIAL-PT-1**). Spec = [handover](./planning/art-pass-sundial-handover.md). |
+| STORE-DECK-1 | Storerooms spawn-deck bay letter | ▶ **ACTIVE — Run 8 FAIL, one-line scope.** Wyatt: *"i dont like the bay letter. remove that and it becomes a pass."* Plate + safety stripe stay. |
+| PERF-PASS-1 | 60 fps at Low on the Intel box, all three arenas | 📋 **Scoped card after Run 8** — now a target, not a regression hunt. Attribute from Wyatt's three F8 captures before any knob. |
+| FV-RESULTS-1 / STORE-PT-1 | Run 8 FAIL residue — CHALLENGE copy · shelves want painted wood | 📋 queued behind STORE-DECK-1. |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 
 ### Next actions
 
-1. **Everything pushed is now DEPLOYED — the queue is Wyatt's eyes, not agent work.**
-   Shipped 08-03 from `2c18057` (Worker version `e44ccb23`), verified by fetching the
-   production chunk. Retest queue, all unblocked: FV-LOAD-1, UNLOCK-TOAST-1, STORE-DECK-1,
-   CAM-READY-1, FV-BOOT-1, **LOAD-POSTER-1**, **SUNDIAL-PT-1**, **cap-217**. Analytics is live
-   and the DO was reset for clean external-tester data — Wyatt's own retests land in it.
-2. **W0.1 attribution (cap-229 @ c418bd9):** Cart Rave freeze = juice path
-   (`warm.render.default.play-full` ~971 ms + play-shader ~1 s); demotions overlap entry.
-   Mid-round 6.5 s compile → **PROBE-WARM-RT-1** note filed (not batch scope).
-3. **Playtest owed** — BACKLOG rows for retests + remaining eyes. **UNLOCK-PT-1** needs
-   `?devUnlocks=off` + hard refresh.
-4. **ART-PASS-SUNDIAL-1** deployed 08-03; only **SUNDIAL-PT-1** remains.
-5. **ROUND-WEDGE-1 Phase B** shipped; **cap-217** open until Wyatt playtest.
+1. **Run 8 (08-03) is in: 15 PASS · 4 FAIL · 1 skip.** All 15 passing rows were **deleted**
+   from BACKLOG the same session — see [completed-work.md](./planning/completed-work.md).
+   Closed by Wyatt's eye: **cap-217 / ROUND-WEDGE-1**, LOAD-POSTER-1, SUNDIAL-PT-1 (and with it
+   ART-PASS-SUNDIAL-1), SHADOW-TILT-1, and 4 of the 5 PLAYTEST-BATCH-0803 retests.
+2. **A PASS must close its row in the same session it is reported.** Before Run 8 nothing wrote
+   verdicts back, so passed cards reseeded the console on every regeneration and were re-run by
+   hand. The export now emits a `CLOSE THESE FIRST` block; do that block before any FAIL.
+3. **Active card: STORE-DECK-1** — remove the bay letter from the Storerooms spawn decks. Plate
+   and safety stripe stay. One commit.
+4. **PERF-PASS-1 is now a target, not a hunt** — 60 fps at Low on the Intel box in all three
+   arenas. It has never held 60 (run 5: 54% of frames over 33 ms), so do **not** bisect for a
+   regression. Three F8 captures from Wyatt: `npm run captures:pull`, attribute, then knobs.
+5. **Still owed to Wyatt:** FV-WILT-1 (skipped — the only card needing the second machine).
 
-**Open High:** ROUND-WEDGE-1 (Phase B code; playtest) · UI-SCALE-1 · FIGHT-VERIFY-1 (Wyatt half) ·
-RESULTS-1 · CART-MODEL-1 · bloom.
+**Open High:** PERF-PASS-1 · STORE-PT-1 (shelves → painted wood) · FV-RESULTS-1 (CHALLENGE copy) ·
+UI-SCALE-1 · RESULTS-1 · CART-MODEL-1 · bloom.
 
 ## Open issues (top)
 
@@ -97,9 +98,8 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 
 | ID | Issue | Status |
 |----|--------|--------|
-| ROUND-WEDGE-1 | Host-hide → MAX reject → podium⇄running storm | 🟡 **Phase B code shipped 08-03** — `src/utils/podiumEndLatch.js` + wire in `main.js` `endRound` / host-only `onPodiumRejected` / clear on lobby·countdown. Contract: send-side attempt count only; reject schedules `retryAtMs` (+150 ms) for one more send then hard-stop; one `round/podium-end-latched` diag on hard-stop. Phase A `d4a7718` (`pausedWallMs`). Instrumentation earlier: `cc09985` · `8063b3e`. **Do not silence** `invariants.js` `podium→running` (first rollback assert expected). **cap-217 not closed** — needs Wyatt playtest checklist. |
+| PERF-PASS-1 | 60 fps at Low on the Intel box, all three arenas | 🎯 **Target set by Wyatt 08-03**, not a regression hunt — that box has never held 60 (run 5: 54% of frames over 33 ms). Three F8 captures exist: `npm run captures:pull`, attribute, **then** knobs. PERF-TIER-1 / PERF-WATCH-1 are levers after attribution. |
 | WARM-SOLO-1 | Solo post-`carts-ready` stall (WARM-IGPU residual) | 📋 telemetry-gated — [warm-igpu-1.md](./planning/warm-igpu-1.md) |
-| SHOOT-ANIM-2 | Rave **dressing** still frozen in captures (crowd · lasers · billboard · `fxPass.uTime`) | 📋 Medium — split out of the now-closed SHOOT-ANIM-1. Level animation captures fine; this block sits behind `frameBudgetAllow`/`crowdAnimate` gates and needs one shared helper called from both loops. Hits **Classic** hardest, where dressing is most of the visible motion. |
 | MAIN-1 | Carve `main.js` seam (enables BUNDLE-1) | 📋 post-gate |
 | BUNDLE-1 | Menu/game code-split | 🚫 blocked on MAIN-1 |
 | BRAND-1 | Domain / Worker cutover | 🧊 frozen until deliberate cutover ([brand.md](./brand.md)) |

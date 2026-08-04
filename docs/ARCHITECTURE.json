@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-03T23:32:46.021Z",
-    "commit": "1e26505"
+    "at": "2026-08-04T00:02:36.213Z",
+    "commit": "69cf2c7"
   },
-  "source_digest": "91211a50",
+  "source_digest": "fbea8503",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -845,21 +845,21 @@
   "workstreams": {
     "queue": [
       {
-        "id": "LOAD-POSTER-1",
-        "what": "Loading screens redesigned as Fight Night posters (all three arenas)",
-        "status": "⏸ DEPLOYED 08-03, waiting on Wyatt's eye. cqmin-sized stage + two-line title lockup + inline SVG per arena. Human-blocked, not agent work.",
+        "id": "STORE-DECK-1",
+        "what": "Storerooms spawn-deck bay letter",
+        "status": "▶ ACTIVE — Run 8 FAIL, one-line scope. Wyatt: *\"i dont like the bay letter. remove that and it becomes a pass.\"* Plate + safety stripe stay.",
+        "state": "active"
+      },
+      {
+        "id": "PERF-PASS-1",
+        "what": "60 fps at Low on the Intel box, all three arenas",
+        "status": "📋 Scoped card after Run 8 — now a target, not a regression hunt. Attribute from Wyatt's three F8 captures before any knob.",
         "state": "waiting"
       },
       {
-        "id": "PLAYTEST-BATCH-0803-1",
-        "what": "Playtest batch 08-03 (FV-LOAD freezes + load art, quality grace, unlock toast, store decks, GET READY pulse, boot measure)",
-        "status": "⏸ DEPLOYED 08-03. Remaining: 5 Wyatt retests (FV-LOAD-1 · UNLOCK-TOAST-1 · STORE-DECK-1 · CAM-READY-1 · FV-BOOT-1).",
-        "state": "waiting"
-      },
-      {
-        "id": "ART-PASS-SUNDIAL-1",
-        "what": "Sundial art pass — all 6 waves shipped",
-        "status": "⏸ DEPLOYED 08-03 (Wave 6 included). Remaining: playtest (SUNDIAL-PT-1). Spec = [handover](./planning/art-pass-sundial-handover.md).",
+        "id": "FV-RESULTS-1 / STORE-PT-1",
+        "what": "Run 8 FAIL residue — CHALLENGE copy · shelves want painted wood",
+        "status": "📋 queued behind STORE-DECK-1.",
         "state": "waiting"
       },
       {
@@ -885,27 +885,22 @@
       }
     ],
     "next_actions": [
-      "Everything pushed is now DEPLOYED — the queue is Wyatt's eyes, not agent work.",
-      "W0.1 attribution (cap-229 @ c418bd9): Cart Rave freeze = juice path",
-      "Playtest owed — BACKLOG rows for retests + remaining eyes. UNLOCK-PT-1 needs",
-      "ART-PASS-SUNDIAL-1 deployed 08-03; only SUNDIAL-PT-1 remains.",
-      "ROUND-WEDGE-1 Phase B shipped; cap-217 open until Wyatt playtest."
+      "Run 8 (08-03) is in: 15 PASS · 4 FAIL · 1 skip. All 15 passing rows were deleted",
+      "A PASS must close its row in the same session it is reported. Before Run 8 nothing wrote",
+      "Active card: STORE-DECK-1 — remove the bay letter from the Storerooms spawn decks. Plate",
+      "PERF-PASS-1 is now a target, not a hunt — 60 fps at Low on the Intel box in all three",
+      "Still owed to Wyatt: FV-WILT-1 (skipped — the only card needing the second machine)."
     ],
     "open_issues": [
       {
-        "id": "ROUND-WEDGE-1",
-        "issue": "Host-hide → MAX reject → podium⇄running storm",
-        "status": "🟡 **Phase B code shipped 08-03** — `src/utils/podiumEndLatch.js` + wire in `main.js` `endRound` / host-only `onPodiumRejected` / clear on lobby·countdown. Contract: send-side attempt count only; reject schedules `retryAtMs` (+150 ms) for one more send then hard-stop; one `round/podium-end-latched` diag on hard-stop. Phase A `d4a7718` (`pausedWallMs`). Instrumentation earlier: `cc09985` · `8063b3e`. **Do not silence** `invariants.js` `podium→running` (first rollback assert expected). **cap-217 not closed** — needs Wyatt playtest checklist."
+        "id": "PERF-PASS-1",
+        "issue": "60 fps at Low on the Intel box, all three arenas",
+        "status": "🎯 **Target set by Wyatt 08-03**, not a regression hunt — that box has never held 60 (run 5: 54% of frames over 33 ms). Three F8 captures exist: `npm run captures:pull`, attribute, **then** knobs. PERF-TIER-1 / PERF-WATCH-1 are levers after attribution."
       },
       {
         "id": "WARM-SOLO-1",
         "issue": "Solo post-`carts-ready` stall (WARM-IGPU residual)",
         "status": "📋 telemetry-gated — [warm-igpu-1.md](./planning/warm-igpu-1.md)"
-      },
-      {
-        "id": "SHOOT-ANIM-2",
-        "issue": "Rave **dressing** still frozen in captures (crowd · lasers · billboard · `fxPass.uTime`)",
-        "status": "📋 Medium — split out of the now-closed SHOOT-ANIM-1. Level animation captures fine; this block sits behind `frameBudgetAllow`/`crowdAnimate` gates and needs one shared helper called from both loops. Hits **Classic** hardest, where dressing is most of the visible motion."
       },
       {
         "id": "MAIN-1",
@@ -929,17 +924,17 @@
       {
         "title": "Engineering",
         "counts": {
-          "High": 3,
-          "?": 4,
+          "?": 5,
           "Medium": 15,
           "Low": 7,
+          "High": 2,
           "Partial": 1
         },
         "rows": [
           {
-            "pri": "High",
+            "pri": "✅",
             "item": "ROUND-WEDGE-1 — host oscillates `podium ⇄ running` ~25×/s at round end (the wedged-round class, caught live)",
-            "notes": "**Filed 08-01 from cap-217** — the invariant watchdog fired in production, on Wyatt's own machine, and the capture is the evidence. **Elevate to Critical the moment it reproduces**; it is High only because frequency is unknown from n=1. **What the capture holds:** build `2e85f0b` (built 07-31T03:32:59Z), captured **07-31T05:09:05Z**, `is_host=1`, quickplay, `classicRecord`, RTX 4090, tier high, `?diag=1&room=quickplay`. The 512-event ring is **saturated at `EVENT_BUFFER_MAX`** (seq 769..1280) and holds **only two event types**: **171 `assert/phase-transition`, every one `podium → running`**, plus 341 `round/phase` (171 `running→podium` + 170 `podium→running`). It flips on a **~40 ms period** across `t 1283005→1288629` = **5624 ms minimum**; because seq starts at 769, roughly 768 earlier events were already evicted, so that window is the **tail of the storm, not its extent**. Final snapshot: `phase: podium`, `endReason: \"timer\"`, `winnerSlotIndex: 2`, `remainingMs: null`. **The assert is correct by design, not an over-strict table:** `invariants.js:24` names `podium→running` explicitly as the \"wedged round\" bug class, and `LEGAL_PHASE_TRANSITIONS.podium = [\"countdown\", \"lobby\"]` (`:33`). Two writers are fighting over `gameStore.roundPhase` at round end. **Player-visible**, which is why this outranks the pre-ship polish rows: a results screen re-entering RUNNING 25 times a second is a flickering podium, not a silent log entry. **Not the machine:** cap-215/216 (build `65dea12`, **same 4090, same quickplay, 7 `boot/play-entry` in one session**) carry **zero** asserts — this is not a standing condition of that box. **DO NOT blame ANLX-ATTRACT-1.** `2e85f0b` is the only `src/` commit in `65dea12..2e85f0b` and is therefore the obvious suspect, but it only **subscribes** to `gameStore` and emits analytics — it never writes `roundPhase`, so it cannot produce this. Attributing on adjacency is exactly run-4's \"GC metronome\" error that **HARNESS-NULL-1** exists to remember. It follows that the regression is either **older than `65dea12` and load/timing-dependent**, or in a path those two clean captures never exercised. **Next evidence, cheapest first:** (a) ✅ **RESOLVED 08-02 — both writers identified by reading the paths, not by adjacency.** Of the three candidates, **quickplay arena rotation is eliminated** and the other two are *both* implicated, fighting each other. **→ RUNNING is [netcode.js:2915](../../src/netcode.js:2915)**, the `MSG.round` applier, which is **not** host-gated; `netcode.js:2835` shows the rollback is *deliberate* — \"Server rejected an optimistic host_round … Host may already be on podium while the room is still running — roll back\" — with its own `onPodiumRejected` callback. **→ PODIUM is the host's own round-end in [gameFlow.js:149](../../src/gameFlow.js:149)**, gated only on `isHost && phase === \"running\"`, so the instant a rollback restores `running` the timer-expiry check re-fires `endRound()` on the very next frame, undamped. **The loop:** server MAX-rejects the host's round-end → keeps broadcasting `running` → applier rolls the host back → host immediately re-ends → rejected again, at broadcast rate. That predicts every measured property of cap-217 (host-only, `endReason: \"timer\"`, ~40 ms period) and explains why cap-215/216 were clean on the same 4090 — the rollback path only opens once the server starts rejecting, so it is not a standing condition of that box. Consistent with the card's own deduction that the cause predates `65dea12`. **Headline consequence: [invariants.js:24](../../src/utils/invariants.js:24) names `podium→running` as *the* wedged-round bug class while `netcode.js:2835` implements it on purpose — the table and the design contradict each other**, so all 171 asserts fired on intended behaviour at that site. Do **not** resolve this by adding `running` to `LEGAL_PHASE_TRANSITIONS.podium`: the oscillation is real and player-visible, and silencing the assert would hide it. The undamped re-entry is **Phase B**, which keeps its own ack. The four unguarded-looking `startRunningAt` sites were checked and cleared: `main.js:4616/4636/4645/4903` are all guarded by `phase === \"countdown\"`, and `:3041`/`:3126` are `testdrive`-only (cap-217 was quickplay); (b) the ring proves the oscillation but not its origin — the `assert` channel is in `AUTO_CAPTURE_CHANNELS` (`diagnostics.js:51`), so **up to 5 auto-capture bundles existed in memory that session** (`__ccDiag.captures()`, `AUTO_CAPTURE_MAX_PER_SESSION`) holding the pre-storm state and were never uploaded — ✅ **SHIPPED 08-02 `cc09985`**: auto-captures now POST to the same `/api/captures` endpoint F8 uses, so the next occurrence arrives via `npm run captures:pull` instead of dying with the tab. Gating stayed **structural** (auto-capture needs `apiRef` → `installDiagnostics()` → `main.js:5580` under `?diag=1`), pinned by a test so a future unconditional install cannot silently turn players into uploaders; volume bounds are unchanged (5/page-load, 5s debounce, error+assert only); (c) ⏸ **not attempted — deliberately, and not because it was forgotten.** It is listed as \"if cheap\" and it is not: the loop only opens once the *server* MAX-rejects, so a repro needs the host-hide condition plus a rejecting server, not merely a podium in quickplay. Now that (a) names both writers, a **unit** test against the two call paths is the cheaper next probe. **Instrumentation hazard, same card:** an assert storm **saturates the 512-event ring and evicts every other channel** — cap-217 carries no boot timeline, no perf, no `warmupSettle`, so the single most interesting session produced the least informative capture. ✅ **SHIPPED 08-02 `8063b3e`**: eviction now drops the oldest event from whichever channel occupies the **most** slots, so a flooding channel eats its own evictions and can never push a quiet channel below parity; degrades to FIFO when the storm is the only channel. Chose parity over a per-channel floor constant because the buffer is channel-agnostic and a fixed table would silently stop covering new channels. Dedupe was considered and **not** taken (Wyatt's call — floor is enough). **Does not re-open COUNTDOWN-QUICKPLAY-1** (a different phase edge — countdown entry, not podium exit) or the reverted host-countdown gate (`c8df8fd`).",
+            "notes": "**CLOSED 08-03 — Wyatt playtest PASS, and that PASS is what closes `cap-217`.** Phase B (`podiumEndLatch`) held: a full timed round to 0:00 gave one clean podium with no flicker, and the Phase A host-hide check (tab hidden ~30–60 s mid-round) still ended cleanly on podium rather than running forever. Step 5's non-host observation was not run (single machine) and was never the evidence bar. **Do not re-open on the assert alone** — `invariants.js:24` still names `podium→running` while `netcode.js:2835` performs it deliberately, so a first rollback assert remains expected and is not a regression. Original filing below. **Filed 08-01 from cap-217** — the invariant watchdog fired in production, on Wyatt's own machine, and the capture is the evidence. **Elevate to Critical the moment it reproduces**; it is High only because frequency is unknown from n=1. **What the capture holds:** build `2e85f0b` (built 07-31T03:32:59Z), captured **07-31T05:09:05Z**, `is_host=1`, quickplay, `classicRecord`, RTX 4090, tier high, `?diag=1&room=quickplay`. The 512-event ring is **saturated at `EVENT_BUFFER_MAX`** (seq 769..1280) and holds **only two event types**: **171 `assert/phase-transition`, every one `podium → running`**, plus 341 `round/phase` (171 `running→podium` + 170 `podium→running`). It flips on a **~40 ms period** across `t 1283005→1288629` = **5624 ms minimum**; because seq starts at 769, roughly 768 earlier events were already evicted, so that window is the **tail of the storm, not its extent**. Final snapshot: `phase: podium`, `endReason: \"timer\"`, `winnerSlotIndex: 2`, `remainingMs: null`. **The assert is correct by design, not an over-strict table:** `invariants.js:24` names `podium→running` explicitly as the \"wedged round\" bug class, and `LEGAL_PHASE_TRANSITIONS.podium = [\"countdown\", \"lobby\"]` (`:33`). Two writers are fighting over `gameStore.roundPhase` at round end. **Player-visible**, which is why this outranks the pre-ship polish rows: a results screen re-entering RUNNING 25 times a second is a flickering podium, not a silent log entry. **Not the machine:** cap-215/216 (build `65dea12`, **same 4090, same quickplay, 7 `boot/play-entry` in one session**) carry **zero** asserts — this is not a standing condition of that box. **DO NOT blame ANLX-ATTRACT-1.** `2e85f0b` is the only `src/` commit in `65dea12..2e85f0b` and is therefore the obvious suspect, but it only **subscribes** to `gameStore` and emits analytics — it never writes `roundPhase`, so it cannot produce this. Attributing on adjacency is exactly run-4's \"GC metronome\" error that **HARNESS-NULL-1** exists to remember. It follows that the regression is either **older than `65dea12` and load/timing-dependent**, or in a path those two clean captures never exercised. **Next evidence, cheapest first:** (a) ✅ **RESOLVED 08-02 — both writers identified by reading the paths, not by adjacency.** Of the three candidates, **quickplay arena rotation is eliminated** and the other two are *both* implicated, fighting each other. **→ RUNNING is [netcode.js:2915](../../src/netcode.js:2915)**, the `MSG.round` applier, which is **not** host-gated; `netcode.js:2835` shows the rollback is *deliberate* — \"Server rejected an optimistic host_round … Host may already be on podium while the room is still running — roll back\" — with its own `onPodiumRejected` callback. **→ PODIUM is the host's own round-end in [gameFlow.js:149](../../src/gameFlow.js:149)**, gated only on `isHost && phase === \"running\"`, so the instant a rollback restores `running` the timer-expiry check re-fires `endRound()` on the very next frame, undamped. **The loop:** server MAX-rejects the host's round-end → keeps broadcasting `running` → applier rolls the host back → host immediately re-ends → rejected again, at broadcast rate. That predicts every measured property of cap-217 (host-only, `endReason: \"timer\"`, ~40 ms period) and explains why cap-215/216 were clean on the same 4090 — the rollback path only opens once the server starts rejecting, so it is not a standing condition of that box. Consistent with the card's own deduction that the cause predates `65dea12`. **Headline consequence: [invariants.js:24](../../src/utils/invariants.js:24) names `podium→running` as *the* wedged-round bug class while `netcode.js:2835` implements it on purpose — the table and the design contradict each other**, so all 171 asserts fired on intended behaviour at that site. Do **not** resolve this by adding `running` to `LEGAL_PHASE_TRANSITIONS.podium`: the oscillation is real and player-visible, and silencing the assert would hide it. The undamped re-entry is **Phase B**, which keeps its own ack. The four unguarded-looking `startRunningAt` sites were checked and cleared: `main.js:4616/4636/4645/4903` are all guarded by `phase === \"countdown\"`, and `:3041`/`:3126` are `testdrive`-only (cap-217 was quickplay); (b) the ring proves the oscillation but not its origin — the `assert` channel is in `AUTO_CAPTURE_CHANNELS` (`diagnostics.js:51`), so **up to 5 auto-capture bundles existed in memory that session** (`__ccDiag.captures()`, `AUTO_CAPTURE_MAX_PER_SESSION`) holding the pre-storm state and were never uploaded — ✅ **SHIPPED 08-02 `cc09985`**: auto-captures now POST to the same `/api/captures` endpoint F8 uses, so the next occurrence arrives via `npm run captures:pull` instead of dying with the tab. Gating stayed **structural** (auto-capture needs `apiRef` → `installDiagnostics()` → `main.js:5580` under `?diag=1`), pinned by a test so a future unconditional install cannot silently turn players into uploaders; volume bounds are unchanged (5/page-load, 5s debounce, error+assert only); (c) ⏸ **not attempted — deliberately, and not because it was forgotten.** It is listed as \"if cheap\" and it is not: the loop only opens once the *server* MAX-rejects, so a repro needs the host-hide condition plus a rejecting server, not merely a podium in quickplay. Now that (a) names both writers, a **unit** test against the two call paths is the cheaper next probe. **Instrumentation hazard, same card:** an assert storm **saturates the 512-event ring and evicts every other channel** — cap-217 carries no boot timeline, no perf, no `warmupSettle`, so the single most interesting session produced the least informative capture. ✅ **SHIPPED 08-02 `8063b3e`**: eviction now drops the oldest event from whichever channel occupies the **most** slots, so a flooding channel eats its own evictions and can never push a quiet channel below parity; degrades to FIFO when the storm is the only channel. Chose parity over a per-channel floor constant because the buffer is channel-agnostic and a fixed table would silently stop covering new channels. Dedupe was considered and **not** taken (Wyatt's call — floor is enough). **Does not re-open COUNTDOWN-QUICKPLAY-1** (a different phase edge — countdown entry, not podium exit) or the reverted host-countdown gate (`c8df8fd`).",
             "ship1": null
           },
           {
@@ -951,7 +946,7 @@
           {
             "pri": "✅",
             "item": "SHOOT-ANIM-2 — rave dressing is still frozen in captures",
-            "notes": "**CLOSED 08-02** — fixed in `33f0d15`. Body extracted to `tickRaveDressing()` + a shared `raveDressingWanted()` gate, called from the game loop **and** the attract loop; the gates that legitimately differ (frame budget, clock source) stay at the two call sites, so there is one definition and no drift. **Deliberately no frame budget on the attract path:** `frameBudgetAllow` **fails closed** without a preceding `beginFrameBudget` (stale `frameStartMs` → negative remaining), and its `allowCache` is only cleared by `beginFrameBudget`, so the first `false` would **latch that bucket permanently**; calling `beginFrameBudget` from attract instead would put two loops on one set of module globals, and the budget exists to protect host physics, none of which runs at the menu. Weak machines are covered here by the attract cost feed → auto-quality, which steps the tier down and flips `crowdAnimate` off. **Two of the five items this card named were filed on a wrong premise, corrected rather than quietly dropped.** (1) **Lasers and billboard were absent, not frozen** — `finalizeArenaShellForMenu` builds the shell with `includeJuice: false` ([main.js:2615](../../src/main.js:2615)) and the DEV log says \"sky + stadium, no lasers\" outright, and captures boot through that same menu path, so they were never in a capture to freeze. Left absent by ack; the `raveJuiceInitialized` sub-gate is kept so they animate on their own if the juice is ever built there. (2) **`fxPass.uTime` was never a capture bug — it is a live one**, split out as **FX-TIME-1**. Scope is **Classic Record only** (`levelUsesRaveExtras` is `id === \"classicRecord\"`). The **record spin** stays game-loop-only on purpose: it is `rotation.y += … * dt`, a delta accumulator coupled to `applySlowMoToDt`, so it cannot pin under `?t=` and would fight slow-mo if converted. **Verified** (dev server, RTX 4090): stage spots + crowd bulbs **0 → 11/23** frame-to-frame changes free-running, and **11/23 on the ordinary no-harness menu path**; **null control at `?preset=low` reports 0/23 on all ten objects while still finding them**, so the probe is provably not blind — a second null-control arm for **HARNESS-NULL-1**. Pinned `--t 500` vs `--t 6783` (6283 ms = exact antiphase for `sin(nowSec×0.5)` **and** 3 half-periods of `sin(nowSec×1.5)`) reads **36.24%** against a **14.51%** same-phase floor, and the amplified diff is decisive where the number alone would not be: searchlight shafts, stage columns and deck rings appear **only** in the signal, while the null carries crowd speckle alone — i.e. unseeded construction randomness, consistent with the ~15.9% Classic floor measured in SHOOT-ANIM-1. **Owed: Wyatt manual check** — sit at the Classic menu, then enter a real round and confirm the crowd still animates *in play* (proves the attract path left no `allowCache` / `frameStartMs` residue the game loop inherits; a headless capture cannot reach a live round).",
+            "notes": "**CLOSED 08-02** — fixed in `33f0d15`. Body extracted to `tickRaveDressing()` + a shared `raveDressingWanted()` gate, called from the game loop **and** the attract loop; the gates that legitimately differ (frame budget, clock source) stay at the two call sites, so there is one definition and no drift. **Deliberately no frame budget on the attract path:** `frameBudgetAllow` **fails closed** without a preceding `beginFrameBudget` (stale `frameStartMs` → negative remaining), and its `allowCache` is only cleared by `beginFrameBudget`, so the first `false` would **latch that bucket permanently**; calling `beginFrameBudget` from attract instead would put two loops on one set of module globals, and the budget exists to protect host physics, none of which runs at the menu. Weak machines are covered here by the attract cost feed → auto-quality, which steps the tier down and flips `crowdAnimate` off. **Two of the five items this card named were filed on a wrong premise, corrected rather than quietly dropped.** (1) **Lasers and billboard were absent, not frozen** — `finalizeArenaShellForMenu` builds the shell with `includeJuice: false` ([main.js:2615](../../src/main.js:2615)) and the DEV log says \"sky + stadium, no lasers\" outright, and captures boot through that same menu path, so they were never in a capture to freeze. Left absent by ack; the `raveJuiceInitialized` sub-gate is kept so they animate on their own if the juice is ever built there. (2) **`fxPass.uTime` was never a capture bug — it is a live one**, split out as **FX-TIME-1**. Scope is **Classic Record only** (`levelUsesRaveExtras` is `id === \"classicRecord\"`). The **record spin** stays game-loop-only on purpose: it is `rotation.y += … * dt`, a delta accumulator coupled to `applySlowMoToDt`, so it cannot pin under `?t=` and would fight slow-mo if converted. **Verified** (dev server, RTX 4090): stage spots + crowd bulbs **0 → 11/23** frame-to-frame changes free-running, and **11/23 on the ordinary no-harness menu path**; **null control at `?preset=low` reports 0/23 on all ten objects while still finding them**, so the probe is provably not blind — a second null-control arm for **HARNESS-NULL-1**. Pinned `--t 500` vs `--t 6783` (6283 ms = exact antiphase for `sin(nowSec×0.5)` **and** 3 half-periods of `sin(nowSec×1.5)`) reads **36.24%** against a **14.51%** same-phase floor, and the amplified diff is decisive where the number alone would not be: searchlight shafts, stage columns and deck rings appear **only** in the signal, while the null carries crowd speckle alone — i.e. unseeded construction randomness, consistent with the ~15.9% Classic floor measured in SHOOT-ANIM-1. **Owed: Wyatt playtest — SHOOT-ANIM-2 — the crowd still animates once you are actually playing.**<br>1. Sit on the **Classic (Cart Rave)** menu for a few seconds — stage spots and crowd should be moving.<br>2. Enter a real round. **Pass if:** the crowd is still animating in play, not frozen.<br>3. If it froze only after visiting the menu first, say so — that is the thing this checks for.<br>*(Why: the menu's attract loop and the game loop share frame-budget state; a headless capture cannot reach a live round, so only a human can close this. Phrase was \"Owed: Wyatt manual check\" until 08-03, which the console's seed pattern never matched — so this card was invisible for a day.)*",
             "ship1": null
           },
           {
@@ -981,7 +976,7 @@
           {
             "pri": "High",
             "item": "PERF-PASS-1 — low-end performance is worse across the board",
-            "notes": "**Owed: Wyatt playtest — PERF-PASS-1 — find out where the weak box actually got worse.**<br>1. On the **Intel box**, open **production** (not the dev server) and hard-refresh. Dev timing is not the shipped bundle.<br>2. Play a round in each arena at whatever quality it picks for itself. Note *where* it feels worse than you remember — main menu, entering a mode, or mid-round.<br>3. Compare against the known floor, not against smooth: that box at Low already drops more than half its frames. \"Worse than that\" is the bar.<br>4. Hit **F8** at the worst moment so there is a capture to attribute it with.<br>5. Say which arena and which moment felt worst. **Do not change any quality settings** — attribution first, tuning after.<br>**Filed 08-03 from Wyatt's playtest note**, alongside ATTRACT-JANK-1 below. Report is a felt regression on weak hardware, not a number, so this card is **measure-first and nothing else until there is a delta**: the standing rule from run-4's \"GC metronome\" error (**HARNESS-NULL-1**) is that adjacency is not attribution. **Known floor to measure against:** run 5 put the Intel UHD iGPU at LOW at **54% of frames over 33 ms** — that is the pre-existing smoothness floor, so \"bad on the Intel box\" is only evidence if it is *worse than that*. **Method:** bisect recent batches on the Intel box, **prod not dev** — dev-only probes (`__cartRavePerf.scene`, `import(\"/src/…\")`) lie in prod, and dev-server timing is not the shipped bundle. Candidate surface added since the last known-good measurement is large (Sundial god rays + hologram, the three LOAD-POSTER-1 loading scenes, octagon/holo work, FX layers), which is exactly why a bisect beats guessing. **Do not** start tuning tier knobs before a measurement — `PERF-TIER-1` and `PERF-WATCH-1` are the levers *after* attribution, not instead of it. Related: WARM-SOLO-1 (weak-GPU first-draw stalls), PROBE-WARM-RT-1.",
+            "notes": "**MEASURED 08-03 (Wyatt) — and the card now has a target, which it did not before.** His words: *\"all three have less than passable fps on the intel machine. i want the goal to be 60 FPS on low on the intel machine. i took an f8 cap on all three levels.\"* **That is a spec, not a bug report** — the card stops being \"is it worse?\" and becomes \"hit 60 fps at Low on the Intel UHD box in Cart Rave, Storerooms and Sundial\". Note it reframes the known floor rather than clearing it: run 5 measured that box at Low at 54% of frames over 33 ms, i.e. it has **never** held 60, so this is a perf program against an absolute bar, not a regression hunt — do not spend the budget bisecting for a culprit that may not exist. Three F8 captures exist; pull with `npm run captures:pull` and attribute before touching a single knob. **PERF-TIER-1 / PERF-WATCH-1 are levers after attribution.** Scoped separately — see the Run 8 follow-up card.<br>**Owed: Wyatt playtest — PERF-PASS-1 — find out where the weak box actually got worse.**<br>1. On the **Intel box**, open **production** (not the dev server) and hard-refresh. Dev timing is not the shipped bundle.<br>2. Play a round in each arena at whatever quality it picks for itself. Note *where* it feels worse than you remember — main menu, entering a mode, or mid-round.<br>3. Compare against the known floor, not against smooth: that box at Low already drops more than half its frames. \"Worse than that\" is the bar.<br>4. Hit **F8** at the worst moment so there is a capture to attribute it with.<br>5. Say which arena and which moment felt worst. **Do not change any quality settings** — attribution first, tuning after.<br>**Filed 08-03 from Wyatt's playtest note**, alongside ATTRACT-JANK-1 below. Report is a felt regression on weak hardware, not a number, so this card is **measure-first and nothing else until there is a delta**: the standing rule from run-4's \"GC metronome\" error (**HARNESS-NULL-1**) is that adjacency is not attribution. **Known floor to measure against:** run 5 put the Intel UHD iGPU at LOW at **54% of frames over 33 ms** — that is the pre-existing smoothness floor, so \"bad on the Intel box\" is only evidence if it is *worse than that*. **Method:** bisect recent batches on the Intel box, **prod not dev** — dev-only probes (`__cartRavePerf.scene`, `import(\"/src/…\")`) lie in prod, and dev-server timing is not the shipped bundle. Candidate surface added since the last known-good measurement is large (Sundial god rays + hologram, the three LOAD-POSTER-1 loading scenes, octagon/holo work, FX layers), which is exactly why a bisect beats guessing. **Do not** start tuning tier knobs before a measurement — `PERF-TIER-1` and `PERF-WATCH-1` are the levers *after* attribution, not instead of it. Related: WARM-SOLO-1 (weak-GPU first-draw stalls), PROBE-WARM-RT-1.",
             "ship1": null
           },
           {
@@ -1343,64 +1338,28 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "High": 11,
+          "High": 3,
           "?": 3,
-          "Medium": 7,
-          "Low": 2
+          "Medium": 1,
+          "Low": 1
         },
         "rows": [
           {
             "pri": "High",
-            "item": "ROUND-WEDGE-1 — no podium flicker storm `[solo]`",
-            "notes": "**Owed: Wyatt playtest — ROUND-WEDGE-1 — results screen stays put; no 25×/s flicker.**<br>1. Hard-refresh prod as **host** (quickplay is fine). Optional: `?diag=1`.<br>2. Play a normal timed round all the way to 0:00. **Pass if:** one clean results/podium screen, no flashing back into the match.<br>3. Host-hide check (Phase A): mid-round, hide the tab ~30–60s, come back, finish the timer. **Pass if:** round still ends cleanly on podium (not stuck running forever).<br>4. If you ever *do* see a reject/rollback: at most a brief flash, then stable — not a rapid flicker. Rematch after that still ends fine next round.<br>5. **Bonus, not the evidence bar** — wants a second client when convenient: non-host on a clean end gets a normal podium, no softlock.<br>**cap-217 stays open until you say PASS**, and steps 1–4 are enough to say it.",
-            "ship1": null
-          },
-          {
-            "pri": "High",
-            "item": "SUNDIAL-PT-1 — Sundial art (all waves)",
-            "notes": "**Owed: Wyatt playtest — SUNDIAL-PT-1 — Sundial Station looks and plays right.**<br>1. Open Sundial on prod (hard-refresh). Walk the deck a bit.<br>2. Check the hologram reads like a **projection**, not a floating prop stuck in mid-air.<br>3. Drive into the gnomon/spindle — you should **hit** it (collider), not ghost through.<br>4. Get a KO if you can — flare should pop without wrecking the whole palette.<br>5. If you have the weak Intel box: try Low quality and decide if the reduced holo is still worth it.<br>6. Quick sweep while you play: cart shadows stay flat when you turn; dust/sun lobe; light shafts feel alive; dial, gate beacons, ship glows, turbines still there. Phone is a bonus pass.<br>Handover detail: [art-pass-sundial-handover.md](./art-pass-sundial-handover.md).",
-            "ship1": null
-          },
-          {
-            "pri": "High",
             "item": "STORE-PT-1 — Storerooms art",
-            "notes": "**Owed: Wyatt playtest — STORE-PT-1 — suction edge + shelves feel real.**<br>1. Load The Storerooms on prod.<br>2. Drive to the suction/void lips. **Pass if:** the edge feels like a real drop you commit past — not a flat game-marker painted on the floor.<br>3. Look at the racking/shelves. **Pass if:** they read as used steel, not just a darker wall slab.<br>Still open later (not this check): density retune, **SHELF-RAIL-1**. Audit: [art-audit-storerooms.md](./art-audit-storerooms.md).",
-            "ship1": null
-          },
-          {
-            "pri": "High",
-            "item": "RESULTS-ACT-1 — PLAY AGAIN in a short window",
-            "notes": "**Owed: Wyatt playtest — RESULTS-ACT-1 — PLAY AGAIN visible without scrolling.**<br>1. Open prod Solo.<br>2. Open the browser console and run: `CartClashDev.run(\"scores 7 4 2 9\")` then `CartClashDev.run(\"rewind 800\")` (forces podium in ~2s).<br>3. Shrink the window to roughly **900×390** (or max-height under 640).<br>4. **Pass if:** you can see and click **PLAY AGAIN** without scrolling the results panel.",
-            "ship1": null
-          },
-          {
-            "pri": "High",
-            "item": "FV-HUD-1 — in-match HUD feel",
-            "notes": "**Owed: Wyatt playtest — FV-HUD-1 — Fight Night HUD in a real match.**<br>1. Start a Solo (or short) round on prod.<br>2. Play a minute: watch timer, nameplates, kill feed, boost bar, and open pause once.<br>3. **Pass if:** it all feels Fight Night and nothing is clipped, missing, or broken.",
+            "notes": "**FAIL 08-03 (Wyatt) — half of it passed.** His words: *\"the shelves look a bit too detailed or something like i want them to look like painted wood not metal. void is good.\"* So **the suction/void edge PASSES and is done** — do not touch it. The open half is a **material direction change, not a density retune**: the racking currently reads as used steel (that was the audit's own target, item 4's `buildShelfSteelTexture`), and the call is now **painted wood**. Treat the extra surface detail as a symptom of the wrong material, not as a separate over-detailing bug. Pairs with **SHELF-RAIL-1**, whose chrome rails will look worse next to painted wood, not better.<br>**Owed: Wyatt playtest — STORE-PT-1 — suction edge + shelves feel real.**<br>1. Load The Storerooms on prod.<br>2. Drive to the suction/void lips. **Pass if:** the edge feels like a real drop you commit past — not a flat game-marker painted on the floor.<br>3. Look at the racking/shelves. **Pass if:** they read as used steel, not just a darker wall slab.<br>Still open later (not this check): density retune, **SHELF-RAIL-1**. Audit: [art-audit-storerooms.md](./art-audit-storerooms.md).",
             "ship1": null
           },
           {
             "pri": "High",
             "item": "FV-RESULTS-1 — results podium feel",
-            "notes": "**Owed: Wyatt playtest — FV-RESULTS-1 — results screen feels finished.**<br>1. Finish the same round (or force podium like RESULTS-ACT-1).<br>2. Watch the count-up / receipt cadence.<br>3. **Pass if:** victory or defeat treatment is clear, and SPILLS / CHALLENGE lines look intentional (not placeholder junk).",
+            "notes": "**FAIL 08-03 (Wyatt), one specific defect — the rest of the screen passed.** His words: *\"change challenge to challenge unlocked or remove it from the receipt screen.\"* So the count-up and receipt cadence are fine and the victory/defeat treatment is clear; the bare **CHALLENGE** line on the receipt reads as placeholder junk because it does not say what happened. Fix is copy, not layout: either \"CHALLENGE UNLOCKED\" (only when one actually unlocked — check what the line renders when none did) or drop the line. **Do not restyle the receipt** while closing this. Re-check with the same steps.<br>**Owed: Wyatt playtest — FV-RESULTS-1 — results screen feels finished.**<br>1. Finish the same round (or force podium like RESULTS-ACT-1).<br>2. Watch the count-up / receipt cadence.<br>3. **Pass if:** victory or defeat treatment is clear, and SPILLS / CHALLENGE lines look intentional (not placeholder junk).",
             "ship1": null
           },
           {
             "pri": "High",
             "item": "FV-WILT-1 — confetti / wilt + winner slot `[2pc]`",
             "notes": "**Owed: Wyatt playtest — FV-WILT-1 — win/lose FX + winnerSlotIndex on MP.**<br>1. Two clients, same friends or quickplay room on prod.<br>2. Play until podium; one machine should be the loser.<br>3. Note: any confetti on win / wilt (or similar) on loss? Yes / no is enough.<br>4. On the losing client console: `GameState.getRoundState().winnerSlotIndex` — is it a **number** or **null**?<br>One honest observation closes this card (parked observation, not a polish pass).",
-            "ship1": null
-          },
-          {
-            "pri": "High",
-            "item": "UNLOCK-PT-1 — progression gates",
-            "notes": "**Owed: Wyatt playtest — UNLOCK-PT-1 — locked arenas make sense.**<br>1. Open prod with gates ON: add `?devUnlocks=off` then **hard refresh** (Vite unlocks everything by default without this).<br>2. Fresh / cleared save path: **Sundial Station** should be playable; Storerooms + Cart Rave locked with hints that name the right arena.<br>3. If you already have progress: you keep what you had — no wipe surprise.<br>4. **Pass if:** locked vs unlocked matches that story.",
-            "ship1": null
-          },
-          {
-            "pri": "High",
-            "item": "PIT-PT-1 — Cart Rave pit rim",
-            "notes": "**Owed: Wyatt playtest — PIT-PT-1 — rim stops the basket, not swallows it.**<br>1. Open **Cart Rave** on prod.<br>2. Ram the pit rim **hard in several places** around the ring (one lucky spot is not enough).<br>3. **Pass if:** the basket stops **at** the wall, not buried in it; falls still feel normal.<br>4. Glance down the shaft on a fall — depth should still read (shorter than the old absurd tunnel).",
             "ship1": null
           },
           {
@@ -1416,45 +1375,9 @@
             "ship1": null
           },
           {
-            "pri": "High",
-            "item": "SHADOW-TILT-1 — cart ground shadows",
-            "notes": "**Owed: Wyatt playtest — SHADOW-TILT-1 — blob shadow stays flat when you turn.**<br>1. Any arena on prod. Drive and spin the cart in place / through yaw turns.<br>2. **Pass if:** the ground blob stays on the floor and roughly the same size (does not tip up edge-on and vanish when you face world X).",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "FV-BOOT-1 — cold boot splash",
-            "notes": "**Owed: Wyatt playtest — FV-BOOT-1 — first paint splash is real.** + retest after batch lever (W0.2 measure → Wave 7).<br>1. Hard-refresh prod (`?diag=1` optional), cache cleared cold boot.<br>2. Watch the **first** paint and how the splash exits — not a later remount.<br>3. **Pass if:** boot splash feels intentional and exits cleanly near the floor; F8 shows boot segment marks.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "FV-LOAD-1 — mode-entry loading per arena",
-            "notes": "**Owed: Wyatt playtest — FV-LOAD-1 — mode-entry loading per arena.** Retest after PLAYTEST-BATCH-0803 Waves 1–3. Split: **1b** entry freeze + wrongful quality step-down; **1a** loading-screen sizing + Fight Night restyle.<br>1. From the menu, enter **Cart Rave** twice: no multi-second freeze; no `qualityStepDown` during entry; tier survives.<br>2. Enter **Classic / Storerooms / Sundial** once each — loading decor fills the stage at 1440p+ and reads Fight Night; phone unchanged.<br>3. F8: `play-shader-start/end` span ~0 after warm juice path.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "UNLOCK-TOAST-1 — locked-arena toast clears bottom bar",
-            "notes": "**Owed: Wyatt playtest — UNLOCK-TOAST-1 — main-menu arena toast only.** (Not UNLOCK-PT-1 progression order.)<br>1. Main menu, gates on: click a locked arena. **Pass if:** toast sits above the bottom hint bar.<br>2. Open Customize, trigger a locked-color toast. **Pass if:** that toast sits in the original lower spot (no stuck lifted class).",
-            "ship1": null
-          },
-          {
             "pri": "Medium",
             "item": "STORE-DECK-1 — Storerooms spawn-platform textures",
             "notes": "**Owed: Wyatt playtest — STORE-DECK-1 — decks read as worn plate.** (Not STORE-PT-1 suction/racking.) Art-audit item 6.<br>1. Load The Storerooms. Look at spawn booth decks. **Pass if:** worn plate + safety stripe + bay letter; not flat grey slabs.<br>2. Enter play — no new entry hitch (shader span unchanged vs pre-card).",
-            "ship1": null
-          },
-          {
-            "pri": "High",
-            "item": "LOAD-POSTER-1 — loading screens as Fight Night posters",
-            "notes": "**Owed: Wyatt playtest — LOAD-POSTER-1 — the art carries the frame.** Follow-up after FV-LOAD-1a's sizing pass still read too small. Desktop res, all three arenas.<br>1. Enter **Cart Rave** — club floor: mirror ball, beam fans, crowd along the floor line. Title is a two-line poster lockup, not a corner label.<br>2. Enter **The Storerooms** — liminal aisle, one chair mid-aisle, boxes foreground. **Fail if it reads rave-y** (neon/glow); this arena stays liminal.<br>3. Enter **Sundial Station** — golden hour, **not dark**. Big sun behind the title, gnomon blade off to the left.<br>4. **Pass if:** no dead field at your native resolution and each screen reads as the same design family as the boot splash.<br>5. Watch the entry itself — the scene animates while shaders compile, so any new stutter at mode-entry is a fail (report with an F8).",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "CAM-READY-1 — GET READY pulse during solo hold",
-            "notes": "**Owed: Wyatt playtest — CAM-READY-1 — 2s hold is not dead air.** Follow-up to closed CAM-PT-1.<br>1. Solo on prod. During the ~2s pre-3-2-1 orbit, **GET READY** should pulse.<br>2. Hands off cleanly into 3-2-1 digits (no double stamp mess).<br>3. Quit mid-hold — no stuck HUD. MP countdown unchanged.",
             "ship1": null
           },
           {
@@ -1464,27 +1387,9 @@
             "ship1": null
           },
           {
-            "pri": "Medium",
-            "item": "FV-SILVER-1 — silver sunglasses",
-            "notes": "**Owed: Wyatt playtest — FV-SILVER-1 — silver finish is readable.**<br>1. Customize → pick the **silver** sunglasses finish.<br>2. **Pass if:** border / glow / pip are readable enough to tell selected vs not.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "SOLO-PT-1 — solo defaults to medium",
-            "notes": "**Owed: Wyatt playtest — SOLO-PT-1 — first solo feels like a fight.**<br>1. Fresh solo with no remembered difficulty (or clear that setting if you know how).<br>2. Play a bit. **Pass if:** bots feel like medium (a real fight), not a free warm-up. If it’s too hard, say so — fix is the default, not a whole retune.",
-            "ship1": null
-          },
-          {
             "pri": "✅",
             "item": "HOST-TOAST-1 — weak-host toast",
             "notes": "**CLOSED 08-03 — covered by tests; the trigger is unreachable on Wyatt's hardware, so there was never a playtest to owe.** The old card asked him to \"host with a weak join-time score (&lt;50)\" without saying how, which is why it read as unintelligible: **neither of his machines can produce that score.** `scoreHostCapability` ([hostCapability.js:67](../../src/utils/hostCapability.js:67)) is `GPU base + tier + cores + RAM` — the 4090 is `discrete 75 + high 20 + 12 + 8` → clamped **100**; the Intel UHD laptop is an iGPU, so `unknown 40 + low 0 + cores 4–8 + RAM 6–8` → **~50–56**, and the gate is a strict `< 50` ([:40](../../src/utils/hostCapability.js:40)). It would take ≤3 cores **and** ≤4 GB on top of an iGPU to dip under. **The \"not spam\" claim is already proven** by three unit tests at [hostMigration.test.js:291](../../tests/hostMigration.test.js:291): fires once not twice, never for a non-host, never at exactly 50 (the strict-`<` boundary), and re-arms after losing host so a later hostship warns again. That is the whole behavioural surface of `maybeWarnWeakHost` ([netcode.js:2044](../../src/netcode.js:2044)) — a pure gate plus a latch, no timing or rendering to eyeball. **If it is ever worth seeing live:** turn off Chrome's hardware acceleration (Settings → System → relaunch) — the probe then matches `SOFTWARE_GL_RE` ([gpuCaps.js:27](../../src/utils/gpuCaps.js:27)), scoring 8 instead of 40 for a total near 28, and hosting fires the toast. The whole game runs on SwiftShader while that is set, so it is a UI look only, never a perf read. **Note for anyone testing on prod:** the join-time score is logged through `devLog`, which compiles to a no-op in production builds ([devLog.js:8](../../src/utils/devLog.js:8)) — read your own score on the dev server, not prod. **Left open deliberately, as taste not coverage:** whether the message is worth showing at all, and whether \"a stronger machine makes multiplayer smoother\" is the right wording to put in front of a player who cannot act on it mid-match. Reopen on that question with new copy, not on the once-per-hostship behaviour.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "CC-PT-1 — Command Center look",
-            "notes": "**Owed: Wyatt playtest — CC-PT-1 — Command Center tokens look right.**<br>1. Run `npm run cc` (or open the dashboard HTML it builds).<br>2. Skim the main surfaces: no wrong/invisible colours, no coloured side-stripes on cards, labels sentence case (micro-caps only on section heads), nav icons match the intended look.<br>3. Optional: `npm run sheet` or `states` once — montage should share the same tokens.",
             "ship1": null
           }
         ]
@@ -1554,7 +1459,7 @@
           {
             "pri": "High",
             "item": "FIGHT-VERIFY-1 — owed fight-night verification",
-            "notes": "Agent half DONE 08-01. **Wyatt half = still-open playtest cards** (RESULTS-ACT-1 · FV-HUD-1 · FV-RESULTS-1 · FV-WILT-1 · FV-BOOT-1 · FV-LOAD-1 · FV-SILVER-1). Friends/rematch already PASS. Parent is docs only — seed lives on those rows. Handover: [fight-night-ui-handover.md:252+](./fight-night-ui-handover.md).",
+            "notes": "Agent half DONE 08-01. **Wyatt half is now 5 of 7 PASS (08-03)** — RESULTS-ACT-1 · FV-HUD-1 · FV-BOOT-1 · FV-LOAD-1 · FV-SILVER-1 all passed; **remaining = FV-RESULTS-1** (FAIL — CHALLENGE copy) **and FV-WILT-1** (skipped, needs the second machine). Friends/rematch already PASS. Parent is docs only — seed lives on those rows. Handover: [fight-night-ui-handover.md:252+](./fight-night-ui-handover.md).",
             "ship1": null
           },
           {
@@ -1609,7 +1514,7 @@
             "pri": "✅",
             "id": "SHADOW-TILT-1",
             "item": "Cart blob shadows tilt out of the floor as the cart turns",
-            "notes": "**Code CLOSED 08-02** (`b36be5c` + orientation tests). **Human check still open** — see **Playtest owed → SHADOW-TILT-1**.",
+            "notes": "**FULLY CLOSED 08-03** — code `b36be5c` + orientation tests 08-02; **Wyatt playtest PASS 08-03** (blob stays flat through yaw turns).",
             "ship1": null
           },
           {

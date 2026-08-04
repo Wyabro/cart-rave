@@ -229,16 +229,23 @@ ${PAGE_CSS}
     }));
   }
 
+  // * PREFLIGHT and EXPORT are setup and handoff, not work. Scoring them inflated the
+  // * tally (17 pass really meant 15 cards) and invited "why is this a card?".
+  function isScoreable(t) {
+    return t && t.source !== "system";
+  }
+
   function counts() {
     let pass = 0, fail = 0, skip = 0, pending = 0;
     for (const t of TASKS) {
+      if (!isScoreable(t)) continue;
       const s = taskState[t.id]?.status || "pending";
       if (s === "pass") pass++;
       else if (s === "fail") fail++;
       else if (s === "skip") skip++;
       else pending++;
     }
-    return { pass, fail, skip, pending, total: TASKS.length, done: pass + fail + skip };
+    return { pass, fail, skip, pending, total: TASKS.filter(isScoreable).length, done: pass + fail + skip };
   }
 
   function f8For(task) {
@@ -278,6 +285,30 @@ ${PAGE_CSS}
     const passes = TASKS.filter((t) => taskState[t.id]?.status === "pass");
     const skips = TASKS.filter((t) => taskState[t.id]?.status === "skip");
 
+    // * A PASS used to have no write-back path: the verdict lived in this browser's
+    // * localStorage while the source row still said "Owed: Wyatt playtest", so every
+    // * regeneration reseeded cards that were already done and they got re-run by hand.
+    // * The export has to ask for the close explicitly, before any FAIL work starts.
+    const closable = passes.filter((t) => t.source !== "system");
+    if (closable.length) {
+      lines.push("## CLOSE THESE FIRST (agent action, before any FAIL)");
+      lines.push("");
+      lines.push(
+        "These " + closable.length + " cards PASSED. Close them **in this session**, or they " +
+        "reseed the console and get played again:",
+      );
+      lines.push("");
+      for (const t of closable) lines.push("- \`" + t.id + "\` — " + t.title);
+      lines.push("");
+      lines.push("1. Delete each row from \`docs/planning/BACKLOG.md\` (\`## Playtest owed\`), or");
+      lines.push("   rewrite its Notes to \`Wyatt playtest PASS <date> — …\` if the row carries");
+      lines.push("   engineering detail worth keeping.");
+      lines.push("2. Record them in \`docs/planning/completed-work.md\`.");
+      lines.push("3. Update any STATUS row the pass closes.");
+      lines.push("4. Regenerate: \`npm run playtest:console\`. The listed ids must be gone.");
+      lines.push("");
+    }
+
     function emitCard(t) {
       const st = taskState[t.id] || {};
       lines.push("### " + t.id + " — " + t.title);
@@ -302,10 +333,11 @@ ${PAGE_CSS}
       lines.push("");
       fails.forEach(emitCard);
     }
-    if (passes.length) {
+    if (closable.length) {
+      // Only real cards — PREFLIGHT/EXPORT reprinting their own steps is noise.
       lines.push("## PASS");
       lines.push("");
-      passes.forEach(emitCard);
+      closable.forEach(emitCard);
     }
     if (skips.length) {
       lines.push("## SKIP");
@@ -420,11 +452,16 @@ ${PAGE_CSS}
         out += '<label class="note-label">' + escHtml(t.notePrompt || "Note (required on FAIL)") + "</label>";
         out += '<textarea data-field="note" data-id="' + escHtml(t.id) + '" placeholder="What you saw…">' +
           escHtml(st.note) + "</textarea>";
-        out += '<div class="actions">' +
-          '<button type="button" class="good btn-status" data-id="' + escHtml(t.id) + '" data-status="pass">PASS</button>' +
-          '<button type="button" class="bad btn-status" data-id="' + escHtml(t.id) + '" data-status="fail">FAIL</button>' +
-          '<button type="button" class="warn btn-status" data-id="' + escHtml(t.id) + '" data-status="skip">SKIP</button>' +
-          "</div>";
+        out += '<div class="actions">';
+        if (isScoreable(t)) {
+          out += '<button type="button" class="good btn-status" data-id="' + escHtml(t.id) + '" data-status="pass">PASS</button>' +
+            '<button type="button" class="bad btn-status" data-id="' + escHtml(t.id) + '" data-status="fail">FAIL</button>' +
+            '<button type="button" class="warn btn-status" data-id="' + escHtml(t.id) + '" data-status="skip">SKIP</button>';
+        } else {
+          // Setup / handoff: advance without recording a verdict.
+          out += '<button type="button" class="ghost btn-status" data-id="' + escHtml(t.id) + '" data-status="pass">Done — next</button>';
+        }
+        out += "</div>";
       } else if (st.status !== "pending") {
         if (st.note) out += '<div class="expect">' + escHtml(st.note) + "</div>";
         out += '<div class="actions">' +

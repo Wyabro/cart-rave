@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-03 at commit `2c18057` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `d6af757b`
+> Generated 2026-08-04 at commit `69cf2c7` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `561864b7`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -18,15 +18,10 @@ Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep a
 
 ## ACTIVE CARD
 
-Everything pushed is now DEPLOYED — the queue is Wyatt's eyes, not agent work
+STORE-DECK-1 — Storerooms spawn-deck bay letter
+Pass looks like: ▶ ACTIVE — Run 8 FAIL, one-line scope. Wyatt: *"i dont like the bay letter. remove that and it becomes a pass."* Plate + safety stripe stay.
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
-
-Self-directed queue (one at a time, within the declared phase):
-- **LOAD-POSTER-1** Loading screens redesigned as Fight Night posters (all three arenas) — ⏸ DEPLOYED 08-03, waiting on Wyatt's eye. cqmin-sized stage + two-line title lockup + inline SVG per arena.…
-- **PLAYTEST-BATCH-0803-1** Playtest batch 08-03 (FV-LOAD freezes + load art, quality grace, unlock toast, store decks, GET READY pulse, boot measure) — ⏸ DEPLOYED 08-03. Remaining: 5 Wyatt retests (FV-LOAD-1 · UNLOCK-TOAST-1 · STORE-DECK-1 · CAM-READY-1 ·…
-- **ART-PASS-SUNDIAL-1** Sundial art pass — all 6 waves shipped — ⏸ DEPLOYED 08-03 (Wave 6 included). Remaining: playtest (SUNDIAL-PT-1). Spec = handover.
-- **MAIN-1 / BUNDLE-1** main.js seam / code-split — 📋 post-gate
 
 ## Do not
 
