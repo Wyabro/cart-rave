@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-04 at commit `69cf2c7` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `561864b7`
+> Generated 2026-08-04 at commit `8d16c09` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `0ecba3c7`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -18,10 +18,15 @@ Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep a
 
 ## ACTIVE CARD
 
-STORE-DECK-1 — Storerooms spawn-deck bay letter
-Pass looks like: ▶ ACTIVE — Run 8 FAIL, one-line scope. Wyatt: *"i dont like the bay letter. remove that and it becomes a pass."* Plate + safety stripe stay.
+Run 8 (08-03) is in: 15 PASS · 4 FAIL · 1 skip. All 15 passing rows were deleted
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
+
+Self-directed queue (one at a time, within the declared phase):
+- **STORE-DECK-1** Storerooms spawn-deck bay letter — ⏸ DEPLOYED 08-03 (`6eff2df`, Worker version `01f8a745`) — verified by fetching the production chunk: no…
+- **PERF-PASS-1** 60 fps at Low on the Intel box, all three arenas — 📋 Scoped card after Run 8 — now a target, not a regression hunt. Attribute from Wyatt's three F8 captures…
+- **FV-RESULTS-1 / STORE-PT-1** Run 8 FAIL residue — CHALLENGE copy · shelves want painted wood — 📋 queued behind STORE-DECK-1.
+- **MAIN-1 / BUNDLE-1** main.js seam / code-split — 📋 post-gate
 
 ## Do not
 

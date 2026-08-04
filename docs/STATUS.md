@@ -66,7 +66,7 @@ Live rows only. Shipped and closed cards live in
 
 | # | What | Status |
 |---|------|--------|
-| STORE-DECK-1 | Storerooms spawn-deck bay letter | ▶ **ACTIVE — Run 8 FAIL, one-line scope.** Wyatt: *"i dont like the bay letter. remove that and it becomes a pass."* Plate + safety stripe stay. |
+| STORE-DECK-1 | Storerooms spawn-deck bay letter | ⏸ **DEPLOYED 08-03** (`6eff2df`, Worker version `01f8a745`) — verified by fetching the production chunk: no `BAY_LETTERS`, no letter font, plate + stripe intact. Waiting on Wyatt's retest. |
 | PERF-PASS-1 | 60 fps at Low on the Intel box, all three arenas | 📋 **Scoped card after Run 8** — now a target, not a regression hunt. Attribute from Wyatt's three F8 captures before any knob. |
 | FV-RESULTS-1 / STORE-PT-1 | Run 8 FAIL residue — CHALLENGE copy · shelves want painted wood | 📋 queued behind STORE-DECK-1. |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
@@ -81,8 +81,11 @@ Live rows only. Shipped and closed cards live in
 2. **A PASS must close its row in the same session it is reported.** Before Run 8 nothing wrote
    verdicts back, so passed cards reseeded the console on every regeneration and were re-run by
    hand. The export now emits a `CLOSE THESE FIRST` block; do that block before any FAIL.
-3. **Active card: STORE-DECK-1** — remove the bay letter from the Storerooms spawn decks. Plate
-   and safety stripe stay. One commit.
+3. **STORE-DECK-1 shipped and DEPLOYED 08-03** (`6eff2df`, Worker `01f8a745`) — bay letter cut,
+   plate and stripe untouched; prod chunk fetched and checked. **`release:check` reports
+   `no-exact-head-complete-green-battery`** — that is the RC-phase gate and no exact-HEAD battery
+   has been run at this commit; the deploy went out via `npm run ship` as every stabilization
+   deploy has. Run the battery before any RC claim.
 4. **PERF-PASS-1 is now a target, not a hunt** — 60 fps at Low on the Intel box in all three
    arenas. It has never held 60 (run 5: 54% of frames over 33 ms), so do **not** bisect for a
    regression. Three F8 captures from Wyatt: `npm run captures:pull`, attribute, then knobs.
