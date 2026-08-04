@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-04T02:26:08.483Z",
-    "commit": "d715293"
+    "at": "2026-08-04T02:35:50.970Z",
+    "commit": "6404fbd"
   },
-  "source_digest": "2f43e366",
+  "source_digest": "525e3a89",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -851,16 +851,16 @@
         "state": "waiting"
       },
       {
-        "id": "PERF-PASS-1",
-        "what": "60 fps at Low on the Intel box — Cart Rave only (Wyatt scoped it 08-03)",
-        "status": "▶ ACTIVE. Wave 1 DEPLOYED + MEASURED 08-03 (`aeb83aa`, Worker `7aa288d7`; cap-239). In-round: 20.934 ms → 47.8 fps. Gap to target is 4.2 ms (20%), not the ~2× first estimated. Not CPU-bound (cpu 49.9% of frame, gate 85%) → Wave 3 is a visual/geometry card. `simMeanMs` 0.985 vs `visMeanMs` 9.454 — physics is free; draw submission is the CPU cost, so cutting geometry should pay in both halves. Wave 3 needs its own plan + ack.",
+        "id": "FV-RESULTS-1 / STORE-PT-1",
+        "what": "Run 8 FAIL residue — CHALLENGE copy · shelves want painted wood",
+        "status": "▶ ACTIVE (acked 08-04). PERF-PASS-1 parked. Wave: (1) receipt `CHALLENGE UNLOCKED` + omit empty line from DOM+stagger; (2) Storerooms shelf cluster → painted wood (full rename + pale base RGB). Void edge already PASS — do not touch. Rails stay chrome → SHELF-RAIL-1 later.",
         "state": "active"
       },
       {
-        "id": "FV-RESULTS-1 / STORE-PT-1",
-        "what": "Run 8 FAIL residue — CHALLENGE copy · shelves want painted wood",
-        "status": "📋 queued behind STORE-DECK-1.",
-        "state": "waiting"
+        "id": "PERF-PASS-1",
+        "what": "60 fps at Low on the Intel box — Cart Rave only (Wyatt scoped it 08-03)",
+        "status": "⏸ PARKED 08-04 (Wyatt: park PERF + FV/STORE wave). Wave 1 DEPLOYED + MEASURED (`aeb83aa` / cap-239): in-round 20.934 ms → 47.8 fps, not CPU-bound → Wave 3 still visual/geometry, needs its own plan + ack when unparked.",
+        "state": "locked"
       },
       {
         "id": "MAIN-1 / BUNDLE-1",
@@ -888,14 +888,19 @@
       "Run 8 (08-03) is in: 15 PASS · 4 FAIL · 1 skip. All 15 passing rows were deleted",
       "A PASS must close its row in the same session it is reported. Before Run 8 nothing wrote",
       "STORE-DECK-1 shipped and DEPLOYED 08-03 (`6eff2df`, Worker `01f8a745`) — bay letter cut,",
-      "PERF-PASS-1 is measured. Next is Wave 3 (cost menu), which needs its own plan + ack.",
-      "Still owed to Wyatt: FV-WILT-1 (skipped — the only card needing the second machine)."
+      "ACTIVE: FV-RESULTS-1 + STORE-PT-1 (acked 08-04). PERF-PASS-1 parked mid-program —",
+      "Still owed to Wyatt: FV-WILT-1 (skipped — the only card needing the second machine);"
     ],
     "open_issues": [
       {
         "id": "PERF-PASS-1",
         "issue": "60 fps at Low on the Intel box — **Cart Rave only**",
-        "status": "🎯 **Target, not a regression hunt.** Attributed from cap-236/237/238 (`2c18057`, Intel UHD, Low, solo): Storerooms **48.9 fps**, Cart Rave **38.2 fps**, steady-state cost not stalls, and **better** than the run-5 floor of 54% — so **do not bisect**. **renderScale is already spent** — the watchdog demoted twice to effective **0.525** (~0.48 MP) and still missed 60, so the frame is likely not fill-bound. **Wave 1 shipped the instrument** (`meanMs`/`fps`/`over16` + CPU split per RUNNING window). **Everything else waits on PERF-INSTR-1**, whose `cpuMeanMs` vs `unaccountedMeanMs` decides visual-cut card vs CPU card. Cart Rave carries **548k triangles** vs 241k/215k — ~200k of them one crowd layer (416 × ~480-tri cart silhouettes) behind the existing `crowdCount` knob. Plan: `.claude/plans/what-no-we-plan-fancy-shore.md`."
+        "status": "⏸ **PARKED 08-04.** Wave 1 instrument PASS (cap-239): meanMs 20.934 → 47.8 fps, not CPU-bound → Wave 3 = visual/geometry cuts (crowd layer ~200k tris is the big knob). Resume with plan+ack when unparked. Plan: `.claude/plans/what-no-we-plan-fancy-shore.md`."
+      },
+      {
+        "id": "FV-RESULTS-1 / STORE-PT-1",
+        "issue": "CHALLENGE receipt copy · shelves painted wood",
+        "status": "▶ **ACTIVE** — applying acked wave."
       },
       {
         "id": "WARM-SOLO-1",

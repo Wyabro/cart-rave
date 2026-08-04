@@ -3837,30 +3837,29 @@ async function main() {
 
         // * Challenges finished DURING this round — diffed against the snapshot
         // * taken at countdown, so an objective completed last week never prints.
+        // * Empty case: omit the line entirely (no DOM, no stagger slot) — bare
+        // * "CHALLENGE" + "—" read as placeholder junk (FV-RESULTS-1).
         const chNow = challengeStore.getState();
         const completedThisMatch = [...(chNow.dailyChallenges || []), ...(chNow.weeklyChallenges || [])]
           .filter((c) => c?.isComplete && !challengesCompleteAtRoundStart.has(c.id))
           .map((c) => CHALLENGE_POOL.find((meta) => meta.id === c.id)?.title)
           .filter(Boolean);
-        const challengeLine = document.createElement("div");
-        challengeLine.className = "results-receipt-line results-receipt-challenge";
-        const chLbl = document.createElement("span");
-        chLbl.className = "results-receipt-lbl";
-        chLbl.textContent = "CHALLENGE";
-        const chVal = document.createElement("span");
-        chVal.className = "results-receipt-val";
         if (completedThisMatch.length > 0) {
-          challengeLine.classList.add("is-complete");
+          const challengeLine = document.createElement("div");
+          challengeLine.className = "results-receipt-line results-receipt-challenge is-complete";
+          const chLbl = document.createElement("span");
+          chLbl.className = "results-receipt-lbl";
+          chLbl.textContent = "CHALLENGE UNLOCKED";
+          const chVal = document.createElement("span");
+          chVal.className = "results-receipt-val";
           chVal.textContent = completedThisMatch.length > 1
             ? `✓ ${completedThisMatch.length} REDEEMED`
             : `✓ ${completedThisMatch[0]}`;
-        } else {
-          chVal.textContent = "—";
+          challengeLine.appendChild(chLbl);
+          challengeLine.appendChild(chVal);
+          receipt.appendChild(challengeLine);
+          receiptLines.push(challengeLine);
         }
-        challengeLine.appendChild(chLbl);
-        challengeLine.appendChild(chVal);
-        receipt.appendChild(challengeLine);
-        receiptLines.push(challengeLine);
 
         const total = document.createElement("div");
         total.className = "results-receipt-line results-receipt-total";
