@@ -44,9 +44,9 @@
 | **A** | Byte budget tool + committed baseline + chunk manifest (**no `src/` changes**) | **done** — see §4 |
 | **B** | `bootGameSystems` extract into `src/orchestration/gameBoot.js`, **still statically imported** — mechanical move, **zero byte change** | **done** — see §7 |
 | **C** | Flip to `await import()`, wire the **five** triggers, wrap all **nine** `enterPlayMode` sites | **done** — see §8 |
-| **D** | Cut the `menuPlayEntry` + `levelOrchestration` eager edges | not started |
-| — | ⟵ **ABORT GATE evaluated here, after C+D together** (see §5) | |
-| **E** | Move netcode's 7 game-side static imports onto the `registerGameCallbacks` bridge | not started |
+| **D** | Cut the `menuPlayEntry` + `levelOrchestration` eager edges | **done** — see §9 |
+| — | ⟵ **ABORT GATE evaluated here, after C+D together** (see §5) | ⏸ **owed Wyatt — needs a deploy** |
+| **E** | Move netcode's 7 game-side static imports onto the bridge **+ `main.js`'s `cartOrchestration` edge** (scope corrected by D — see §9) | not started |
 | **F** | Re-baseline (ratchet), docs, ship | not started |
 
 Lever A is the card's insurance: if every later lever aborts, the durable guard still ships.
@@ -495,6 +495,54 @@ needs an entry-chunk alias so a rename cannot masquerade as a regression.
   B's §7 order deviation. Battery does not judge audio ordering — **a human must confirm**
   menu music starts on entry, announcer/stings behave, and there is no doubled or missing
   audio on first play.
+
+---
+
+## 9. Lever D — edge cuts (done 08-04, `399b2ad`)
+
+New `src/orchestration/gameTeardownHooks.js` (dependency-free hook table, 10 hooks, all defaulting to
+no-ops, registered by `gameBoot`). `menuPlayEntry` dropped 4 static imports; `main.js` 1,360 → 1,262
+lines and had **95 provably-dead imports pruned** (occurrence scan + `tsc --noEmit`, knip clean).
+`createLevelOrchestration` moved behind the boundary.
+
+**Scope taken beyond the two edges, and it was necessary:** `main.js` imported `hud.js` for the same
+reason `menuPlayEntry` did, so Edge 1 alone would have cut nothing — its four HUD calls route through
+the same table. Two sibling edges (`Effects.initEffects` + `spawnTrashBurstRef`;
+`createGameContext().registerModules({Simulation, Entities, HUD})` + `triggerCartShatterRef`) moved into
+`gameBoot` in the same style. No new design invented.
+
+**`level.*` null-safety audit** — four unguarded menu-reachable reads found and fixed to `gameRefs.level?.`:
+menuAttract's `onAnimationTick` (sceneExtras / levelUpdate / raveDressing), `handleQualityTierChange`,
+`handleAutoQualityStepDown`, and the `getNetDebug` diag probe. The quality-change path additionally
+`await ensureGameSystems()` under the overlay that is already up — silently skipping would have broken
+menu quality changes. `cartrave:level-changed` stayed eager and thin.
+
+### Result: −79,872 B, and the rest is blocked on E
+
+Initial set **1,554,863 → 1,474,991 B (−79,872, −5.1%)**. Entry-family arithmetic (the `gamepadNav`
+false positive persists): 91,157 + 489,765 = 580,922 vs baseline `index` 660,794 = **−79,872**, all 13
+other baseline chunks Δ0.
+
+| module | chunk | in initial set? |
+|---|---|---|
+| `orchestration/levelOrchestration.js` | `gameBoot` | **OUT** ✅ |
+| `effects.js` · `simulation.js` · `hud.js` · `netcode.js` · `cartOrchestration.js` | `gamepadNav` | still IN ❌ |
+| `cartShatter.js` · `effects/waterDeathFx.js` | own chunks | still IN ❌ |
+
+Gates: qa **112 files / 1,380 tests** · build green · **battery 6/6** · `shoot` default + `--level
+backrooms` both `worldReady=true` (zanzibar skipped per SHOOT-LEVEL-1).
+
+### ⚠ Lever E's scope is bigger than planned — verified
+
+The four game-only chunks **cannot** leave the preload set until E lands, and **cutting `netcode.js`
+alone will not do it.** `hud.js` is reached by **two** eager paths from `main.js`:
+
+1. `main.js` → `netcode.js` → (its 7 static game imports)
+2. `main.js` → `orchestration/cartOrchestration.js` → `hud.js` — kept for `displayColorHexForSlot` /
+   `shuffledClientNpcNames`
+
+**E must cut both**, or the bytes stay. `roundLifecycle.js` and `loopDeps.js` also import `hud.js`, but
+both are already behind the boundary via `gameBoot`.
 
 ---
 
