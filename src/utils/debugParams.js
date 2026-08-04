@@ -7,8 +7,10 @@
  *   ?ablate=bloom,arcade,fxaa,vhs,output  — disable named post passes
  *   ?ablate=crowd,crowdcarts,stadium,     — hide Classic scene blocks (PERF-PASS-1 cost
  *           stagerig,billboard,bulbs,       menu). `all` covers post + scene; `none` is a
- *           pitlights                       no-op that still boots the harness path, so it
+ *           pitlights,pitfill               no-op that still boots the harness path, so it
  *                                           is the comparable baseline for a timing sweep.
+ *                                           pitlights = spindle + both pit lights;
+ *                                           pitfill = the two pit lights only.
  *   ?postmin=1                            — bare color path (no bloom/arcade/fxaa)
  *   ?freeze=1                             — pin camera / stop attract orbit
  *   ?cam=x,y,z[,lx,ly,lz]                 — lock camera pose (look-at origin if look omitted)

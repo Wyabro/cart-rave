@@ -2781,11 +2781,17 @@ export function initArena(scene, world, config, options = {}) {
     }
   }
 
-  // * PERF-PASS-1 measurement probe — inert without ?ablate=pitlights. These three lights
-  // * are function-local (only spindleLight is returned), so the call has to live here.
+  // * PERF-PASS-1 measurement probe — inert without ?ablate=. These lights are
+  // * function-local (only spindleLight is returned), so the call has to live here.
   // * An invisible light is dropped from the render list, which is the point: it shortens
   // * the standard-material light loop in every fragment shader.
-  applySceneAblation({ pitlights: [spindleLight, pitUplight, pitRimFill] });
+  // * `pitlights` = all three (swept 08-04: −2.88 ms). `pitfill` = the two pit lights only,
+  // * i.e. the cut Wyatt actually picked — spindle stays lit, so its own delta needs its
+  // * own cell rather than inheriting the three-light number.
+  applySceneAblation({
+    pitlights: [spindleLight, pitUplight, pitRimFill],
+    pitfill: [pitUplight, pitRimFill],
+  });
 
   return {
     recordMesh,

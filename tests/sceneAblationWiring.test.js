@@ -56,15 +56,33 @@ describe("scene ablation — effects.js call site", () => {
 });
 
 describe("scene ablation — arena.js pit lights", () => {
-  it("hides all three pit/spindle lights, from inside initArena", () => {
+  /** The `applySceneAblation({...})` call inside initArena, whole. */
+  function arenaAblationCall() {
     const initAt = arenaSrc.indexOf("export function initArena(");
-    const callAt = arenaSrc.indexOf("applySceneAblation({ pitlights:", initAt);
+    const callAt = arenaSrc.indexOf("applySceneAblation({", initAt);
     expect(initAt).toBeGreaterThan(-1);
     expect(callAt).toBeGreaterThan(initAt);
-    const call = arenaSrc.slice(callAt, arenaSrc.indexOf("\n", callAt));
+    const end = arenaSrc.indexOf("});", callAt);
+    expect(end).toBeGreaterThan(callAt);
+    return arenaSrc.slice(callAt, end);
+  }
+
+  it("`pitlights` hides all three pit/spindle lights, from inside initArena", () => {
+    const pitlights = arenaAblationCall().split("pitfill:")[0];
     for (const light of ["spindleLight", "pitUplight", "pitRimFill"]) {
-      expect(call).toContain(light);
+      expect(pitlights).toContain(light);
     }
+  });
+
+  it("`pitfill` is the two pit lights ONLY — the spindle must stay lit", () => {
+    // * This token exists to price the cut Wyatt actually picked. If the spindle leaks
+    // * into it, the cell re-measures `pitlights` under a second name and the shipped
+    // * lever inherits a number that was never its own.
+    const pitfill = arenaAblationCall().split("pitfill:")[1];
+    expect(pitfill).toBeDefined();
+    expect(pitfill).toContain("pitUplight");
+    expect(pitfill).toContain("pitRimFill");
+    expect(pitfill).not.toContain("spindleLight");
   });
 
   it("reuses the existing debugParams import rather than adding a module edge", () => {
