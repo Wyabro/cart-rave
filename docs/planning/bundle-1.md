@@ -546,6 +546,52 @@ both are already behind the boundary via `gameBoot`.
 
 ---
 
+## 10. ⛔ ABORT GATE FAILED after C+D — measured 08-04, prod `f531e02`
+
+Intel UHD, warm, lobby-phase F8 captures. **The card has not made the menu faster on its locked target.**
+
+| metric | pre (`8d96b0b`) | post (`f531e02`, n=7) | change |
+|---|---:|---:|---:|
+| `module-eval` (parse) | ~472 | **563** | **+91 WORSE** |
+| `main()` body (construction) | ~501 | 476 | −25 |
+| `menu-ready` | 988 (caps) / 1083 (console) | **1067** | **flat to worse** |
+
+Post samples (caps 265–271): 907 · 1019 · 1022 · 1067 · 1084 · 1097 · 1728 → median **1067**.
+Pre samples: caps 967 · 977 · 1000 · 1467; console 944 · 973 · 1083 · 1089 · 1671.
+Dropping the high outlier from both sets does not rescue it (1044 post vs 1028 pre).
+
+**A single early capture (cap-265, 907 ms) read as a pass and was reported as one before the rest
+arrived. It was the best of seven.** Cause: the measurement instruction said "F8 on the last load" to
+save keystrokes, which yields n=1. **Always F8 every load — the gate needs a median, and the
+run-to-run spread here (907–1728) is larger than the effect being measured.**
+
+### Why parse regressed
+
+Rolldown split the entry chunk into `index` + `gamepadNav`, so the browser fetches **two** preloaded
+chunks where it fetched one, with `gameBoot` behind them. That request overhead plus lost cross-chunk
+minification context appears to exceed Lever C's construction saving. Construction moved only 25 ms,
+not the 103 ms the single sample implied.
+
+### Decision 08-04: Wyatt acked running Lever E anyway
+
+The gate's own rule (§3 abort gate 2) is "stop before E." The concern was raised with the data and
+**Wyatt chose to proceed** — E is the only remaining lever that touches the parse half, since it is what
+frees `effects` / `simulation` / `hud` / `cartShatter` / `waterDeathFx` (~500 kB) from the preload set.
+
+**E's hypothesis, stated so it can be falsified:** removing ~500 kB from the initial download set should
+cut `module-eval`. **If post-E `module-eval` does not drop clearly below the pre-card ~472 ms — not just
+below the regressed 563 — the hypothesis is dead and the card closes as a partial.** Measure with F8 on
+**every** load, n≥5.
+
+### Banked regardless of E
+
+- **Lever A** — a bundle-size gate the repo did not have. Independent of any perf outcome.
+- **Lever B** — `main.js` 2,582 → 1,262 lines; MAIN-1's missed ≤1500 target, met. Perf-neutral.
+- **Lever D's −79,872 B is real for COLD loads.** Warm was the locked target and warm has the bytes
+  already local — a first-time visitor still downloads 80 kB less.
+
+---
+
 ## 6. Notes carried out of Lever A (not fixed here)
 
 - `docs/bundle-budget.json` records `generatedAt`, so a `size:update` always dirties the file even at zero byte delta. Intentional (provenance), but do not read a diff on that line as a size change.
