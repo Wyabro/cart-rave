@@ -8,7 +8,7 @@
 // host actually drops mid-match) and spans server + client + P2P + snapshot buffer.
 // happy-dom: netcode.js touches window at module scope via its transitive imports.
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { pickNextHostId } from "../party/hostSelection.ts";
 import * as P2P from "../src/netcode/p2p.js";
 import {
@@ -18,6 +18,7 @@ import {
   getHostMigrationFreezeUntilMs,
   isHostMigrationAwaitingFirstSnap,
   getPendingInputs,
+  sendHostPresent,
 } from "../src/netcode.js";
 import * as GameState from "../src/gameState.js";
 import { encodeHostStateSnapshot } from "../src/netcode/binary.js";
@@ -68,6 +69,41 @@ describe("pickNextHostId (server promote-oldest)", () => {
 });
 
 // --- Client: authority handoff ---------------------------------------------------------
+
+describe("host presence retry", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    hooks.resetNetState();
+    GameState.setRoundPhase("running");
+    Object.defineProperty(document, "hidden", { configurable: true, value: false });
+  });
+
+  afterEach(() => {
+    hooks.resetNetState();
+    GameState.resetRoundToLobby();
+    vi.useRealTimers();
+  });
+
+  it("retries once after cooldown when the returning human remains visible", () => {
+    const sent = [];
+    hooks.setPartySocketForTest({
+      readyState: WebSocket.OPEN,
+      send: (payload) => sent.push(JSON.parse(payload)),
+    });
+    hooks.setHostStateForTest({
+      youConnId: "me",
+      netSlots: [{ kind: "human", connId: "me", name: "ME" }],
+    });
+
+    sendHostPresent();
+    expect(sent.map(({ type }) => type)).toEqual(["host_present"]);
+
+    vi.advanceTimersByTime(4_999);
+    expect(sent).toHaveLength(1);
+    vi.advanceTimersByTime(1);
+    expect(sent.map(({ type }) => type)).toEqual(["host_present", "host_present"]);
+  });
+});
 
 class MockRTCDataChannel {
   constructor(label) {

@@ -5,6 +5,8 @@
  * Keep in sync when adding new message types — update here only.
  */
 
+export const HOST_MIGRATION_COOLDOWN_MS = 5_000;
+
 export const MSG = {
   // Client -> server (WebSocket control plane)
   join: "join",

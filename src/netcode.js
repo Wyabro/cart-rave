@@ -32,6 +32,7 @@ import {
 } from "./utils/hostCapability.js";
 import { probeGpu } from "./utils/gpuCaps.js";
 import { getQualityTier } from "./utils/qualityMode.js";
+import { HOST_MIGRATION_COOLDOWN_MS } from "../shared/protocol.js";
 
 import { getRoundClockNowMs } from "./roundClock.js";
 import { devLog } from "./utils/devLog.js";
@@ -164,6 +165,8 @@ export function setNetTestActive(on) { netTestOn = Boolean(on); }
 
 let hostSendTimer = null;
 let keepaliveTimer = null;
+/** @type {ReturnType<typeof setTimeout> | null} */
+let hostPresentRetryTimer = null;
 
 /** @type {Map<string, number>} connId → earliest monotonic ms we may re-offer WebRTC. */
 let peerReconnectNotBeforeMs = new Map();
@@ -1709,6 +1712,12 @@ function stopKeepaliveLoop() {
   keepaliveTimer = null;
 }
 
+function clearHostPresentRetry() {
+  if (hostPresentRetryTimer == null) return;
+  clearTimeout(hostPresentRetryTimer);
+  hostPresentRetryTimer = null;
+}
+
 /**
  * Closes the PartyKit socket and clears authoritative networking state.
  * Safe to call when returning to the menu in-tab or before a new room join.
@@ -1717,6 +1726,7 @@ export function disconnectPartySession() {
   _suppressRetry = true;
   stopHostSendLoop();
   stopKeepaliveLoop();
+  clearHostPresentRetry();
   clearHostCollisionBatch();
   // * Tear down WebRTC peers/DataChannels so menu return does not leak old
   // * onmessage/ICE handlers or keep background peer objects alive.
@@ -1771,6 +1781,7 @@ export function disconnectPartySession() {
  */
 function resetNetcodeReconnectState() {
   stopHostSendLoop();
+  clearHostPresentRetry();
   clearHostCollisionBatch();
   netStateBuffer = [];
   hostEpoch += 1;
@@ -2163,6 +2174,7 @@ function requestTurnCredentialsAndOpenPeers() {
 function applyHostMigration(msg) {
   hostId = typeof msg.hostId === "string" ? msg.hostId : null;
   const nextIsHost = Boolean(hostId && youConnId && hostId === youConnId);
+  clearHostPresentRetry();
 
   P2P.closeAllConnections();
   peerReconnectNotBeforeMs.clear();
@@ -2284,14 +2296,28 @@ export function sendHostAway() {
   partySocket.send(JSON.stringify({ type: MSG.hostAway }));
 }
 
-/** Reports a live human returning to the foreground during a multiplayer round. */
-export function sendHostPresent() {
+/**
+ * Reports a live human returning to the foreground and retries once after the shared
+ * migration cooldown so an early return cannot be discarded permanently.
+ *
+ * @param {{ retry?: boolean }} [options]
+ */
+export function sendHostPresent({ retry = true } = {}) {
   if (!partySocket || partySocket.readyState !== WebSocket.OPEN || !youConnId) return;
   const isLiveHuman = Array.isArray(netSlots) && netSlots.some(
     (slot) => slot?.kind === "human" && slot.connId === youConnId,
   );
   if (!isLiveHuman) return;
   partySocket.send(JSON.stringify({ type: MSG.hostPresent }));
+  if (!retry) return;
+
+  clearHostPresentRetry();
+  hostPresentRetryTimer = setTimeout(() => {
+    hostPresentRetryTimer = null;
+    const phase = GameState.getRoundState().phase;
+    if (document.hidden || (phase !== "countdown" && phase !== "running")) return;
+    sendHostPresent({ retry: false });
+  }, HOST_MIGRATION_COOLDOWN_MS);
 }
 
 /** Pushes an updated cosmetic hex to the server (Customize menu mid-session). */
@@ -3373,6 +3399,8 @@ function applyAttributionSnapshot(attr) {
 export const __netcodeTestHooks = {
   bufferState: (serverNowMs, seq, carts) => bufferAuthoritativeState(serverNowMs, seq, carts, hostEpoch),
   resetNetState: () => {
+    clearHostPresentRetry();
+    partySocket = null;
     netStateBuffer = [];
     lastCartsCache = null;
     lastCartsCacheIsSpawn = false;
@@ -3397,6 +3425,7 @@ export const __netcodeTestHooks = {
     seenFallPresentationEids.clear();
     seenCollisionPresentationEids.clear();
   },
+  setPartySocketForTest: (socket) => { partySocket = socket; },
   /** HOST-CAP-1 seams: join-time score + weak-host toast latch. */
   setLocalHostScoreForTest: (score) => {
     localHostScore = typeof score === "number" && Number.isFinite(score) ? score : 50;

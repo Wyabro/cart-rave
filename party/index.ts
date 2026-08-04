@@ -30,7 +30,7 @@ type Slot = {
   isPlayReady: boolean;
 };
 
-import { MSG } from '../shared/protocol.js';
+import { HOST_MIGRATION_COOLDOWN_MS, MSG } from '../shared/protocol.js';
 import { COUNTDOWN_MS, FLYOVER_PREROLL_MS } from '../shared/roundConstants.js';
 import { requireAdminToken } from './adminAuth';
 import { UNKNOWN_IP } from './beaconLimit';
@@ -79,7 +79,6 @@ export { CaptureLog } from './captureLog';
 
 const PROTOCOL_VERSION = 2;
 const PALETTE = ["pink", "blue", "green", "yellow", "neonOrange"] as const;
-const MID_ROUND_HOST_MIGRATION_COOLDOWN_MS = 5000;
 
 // * Host collision/fall events travel in the WebRTC binary snapshot's collisions[]/falls[]
 // * JSON tail (host-authored, client-replayed) — there is no server relay for them, so the
@@ -335,7 +334,7 @@ export class CartRaveServer extends Server {
     if (connId !== this.#hostId) return;
     if (this.#round.phase !== "running" && this.#round.phase !== "countdown") return;
     this.#awayHostIds.add(connId);
-    if (now - this.#lastMidRoundHostMigrationAtMs < MID_ROUND_HOST_MIGRATION_COOLDOWN_MS) {
+    if (now - this.#lastMidRoundHostMigrationAtMs < HOST_MIGRATION_COOLDOWN_MS) {
       return;
     }
 
@@ -365,7 +364,7 @@ export class CartRaveServer extends Server {
     );
     if (!senderIsLiveHuman) return;
     this.#awayHostIds.delete(connId);
-    if (now - this.#lastMidRoundHostMigrationAtMs < MID_ROUND_HOST_MIGRATION_COOLDOWN_MS) {
+    if (now - this.#lastMidRoundHostMigrationAtMs < HOST_MIGRATION_COOLDOWN_MS) {
       return;
     }
 
