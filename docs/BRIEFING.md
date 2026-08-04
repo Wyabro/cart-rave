@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-04 at commit `6404fbd` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `89687345`
+> Generated 2026-08-04 at commit `3fa1cac` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `895d0d57`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -19,9 +19,13 @@ Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep a
 ## ACTIVE CARD
 
 FV-RESULTS-1 / STORE-PT-1 — Run 8 FAIL residue — CHALLENGE copy · shelves want painted wood
-Pass looks like: ▶ ACTIVE (acked 08-04). PERF-PASS-1 parked. Wave: (1) receipt `CHALLENGE UNLOCKED` + omit empty line from DOM+stagger; (2) Storerooms shelf cluster → painted wood (full rename + pale base RGB). Void edge already PASS — do not touch. Rails stay chrome → SHELF-RAIL-1 later.
+Pass looks like: ▶ CODE LANDED 08-04 (`858b836` FV-RESULTS-1 · `3fa1cac` STORE-PT-1) — unpushed until push. Owed: Wyatt playtest both. PERF still parked.
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
+
+## Waiting on Wyatt (not agent work)
+
+- **FV-RESULTS-1 / STORE-PT-1** Run 8 FAIL residue — CHALLENGE copy · shelves want painted wood — ▶ CODE LANDED 08-04 (`858b836` FV-RESULTS-1 · `3fa1cac` STORE-PT-1) — unpushed until push. Owed: Wyatt…
 
 ## Do not
 

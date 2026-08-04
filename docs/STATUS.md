@@ -67,8 +67,8 @@ Live rows only. Shipped and closed cards live in
 | # | What | Status |
 |---|------|--------|
 | STORE-DECK-1 | Storerooms spawn-deck bay letter | ⏸ **DEPLOYED 08-03** (`6eff2df`, Worker version `01f8a745`) — verified by fetching the production chunk: no `BAY_LETTERS`, no letter font, plate + stripe intact. Waiting on Wyatt's retest. |
-| PERF-PASS-1 | 60 fps at Low on the Intel box — **Cart Rave only** (Wyatt scoped it 08-03) | ▶ **ACTIVE. Wave 1 DEPLOYED + MEASURED 08-03** (`aeb83aa`, Worker `7aa288d7`; cap-239). **In-round: 20.934 ms → 47.8 fps. Gap to target is 4.2 ms (20%), not the ~2× first estimated.** **Not CPU-bound** (cpu 49.9% of frame, gate 85%) → **Wave 3 is a visual/geometry card**. `simMeanMs` 0.985 vs `visMeanMs` 9.454 — physics is free; draw submission is the CPU cost, so cutting geometry should pay in both halves. **Wave 3 needs its own plan + ack.** |
-| FV-RESULTS-1 / STORE-PT-1 | Run 8 FAIL residue — CHALLENGE copy · shelves want painted wood | 📋 queued behind STORE-DECK-1. |
+| FV-RESULTS-1 / STORE-PT-1 | Run 8 FAIL residue — CHALLENGE copy · shelves want painted wood | ▶ **CODE LANDED 08-04** (`858b836` FV-RESULTS-1 · `3fa1cac` STORE-PT-1) — **unpushed until push.** Owed: Wyatt playtest both. PERF still parked. |
+| PERF-PASS-1 | 60 fps at Low on the Intel box — **Cart Rave only** (Wyatt scoped it 08-03) | ⏸ **PARKED 08-04** (Wyatt: park PERF + FV/STORE wave). Wave 1 DEPLOYED + MEASURED (`aeb83aa` / cap-239): in-round 20.934 ms → 47.8 fps, not CPU-bound → Wave 3 still visual/geometry, needs its own plan + ack when unparked. |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 
@@ -86,18 +86,13 @@ Live rows only. Shipped and closed cards live in
    `no-exact-head-complete-green-battery`** — that is the RC-phase gate and no exact-HEAD battery
    has been run at this commit; the deploy went out via `npm run ship` as every stabilization
    deploy has. Run the battery before any RC claim.
-4. **PERF-PASS-1 is measured. Next is Wave 3 (cost menu), which needs its own plan + ack.**
-   Cart Rave in-round on the Intel box is **20.934 ms / 47.8 fps** (cap-239) — **4.2 ms short**,
-   not the ~halving estimated from the Run-8 segments. Scoped to **Cart Rave alone**, pass bar =
-   **average** 60, and **no visual cut ships without Wyatt's sign-off on that specific cut**.
-   **Two rules the measurement proved:** never measure fps under `?perfPump` (it swaps rAF for a
-   16.6 ms gate — a 4090 reads a fake 59.5), and always pass **`?preset=low`**, or the watchdog
-   demotes mid-window and the number blends two renderers (`straddledDemotion` caught exactly
-   that on cap-239).
-5. **Still owed to Wyatt:** FV-WILT-1 (skipped — the only card needing the second machine).
+4. **ACTIVE: FV-RESULTS-1 + STORE-PT-1 code landed** (`858b836` · `3fa1cac`). Playtest on
+   prod after ship closes both. PERF-PASS-1 parked — Wave 3 resumes only when unparked.
+5. **Still owed to Wyatt:** playtest FV-RESULTS-1 + STORE-PT-1; FV-WILT-1 (2pc); STORE-DECK-1
+   retest; PERF-PASS-1 Wave 3 when unparked.
 
-**Open High:** PERF-PASS-1 · STORE-PT-1 (shelves → painted wood) · FV-RESULTS-1 (CHALLENGE copy) ·
-UI-SCALE-1 · RESULTS-1 · CART-MODEL-1 · bloom.
+**Open High:** FV-RESULTS-1 · STORE-PT-1 · PERF-PASS-1 (parked) · UI-SCALE-1 · RESULTS-1 ·
+CART-MODEL-1 · bloom.
 
 ## Open issues (top)
 
@@ -106,7 +101,8 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 
 | ID | Issue | Status |
 |----|--------|--------|
-| PERF-PASS-1 | 60 fps at Low on the Intel box — **Cart Rave only** | 🎯 **Target, not a regression hunt.** Attributed from cap-236/237/238 (`2c18057`, Intel UHD, Low, solo): Storerooms **48.9 fps**, Cart Rave **38.2 fps**, steady-state cost not stalls, and **better** than the run-5 floor of 54% — so **do not bisect**. **renderScale is already spent** — the watchdog demoted twice to effective **0.525** (~0.48 MP) and still missed 60, so the frame is likely not fill-bound. **Wave 1 shipped the instrument** (`meanMs`/`fps`/`over16` + CPU split per RUNNING window). **Everything else waits on PERF-INSTR-1**, whose `cpuMeanMs` vs `unaccountedMeanMs` decides visual-cut card vs CPU card. Cart Rave carries **548k triangles** vs 241k/215k — ~200k of them one crowd layer (416 × ~480-tri cart silhouettes) behind the existing `crowdCount` knob. Plan: `.claude/plans/what-no-we-plan-fancy-shore.md`. |
+| PERF-PASS-1 | 60 fps at Low on the Intel box — **Cart Rave only** | ⏸ **PARKED 08-04.** Wave 1 instrument PASS (cap-239): meanMs 20.934 → 47.8 fps, not CPU-bound → Wave 3 = visual/geometry cuts (crowd layer ~200k tris is the big knob). Resume with plan+ack when unparked. Plan: `.claude/plans/what-no-we-plan-fancy-shore.md`. |
+| FV-RESULTS-1 / STORE-PT-1 | CHALLENGE receipt copy · shelves painted wood | ▶ **CODE LANDED** — playtest closes the card. |
 | WARM-SOLO-1 | Solo post-`carts-ready` stall (WARM-IGPU residual) | 📋 telemetry-gated — [warm-igpu-1.md](./planning/warm-igpu-1.md) |
 | MAIN-1 | Carve `main.js` seam (enables BUNDLE-1) | 📋 post-gate |
 | BUNDLE-1 | Menu/game code-split | 🚫 blocked on MAIN-1 |

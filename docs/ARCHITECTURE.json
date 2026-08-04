@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-04T02:35:50.970Z",
-    "commit": "6404fbd"
+    "at": "2026-08-04T02:36:56.141Z",
+    "commit": "3fa1cac"
   },
-  "source_digest": "525e3a89",
+  "source_digest": "dd647022",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -853,7 +853,7 @@
       {
         "id": "FV-RESULTS-1 / STORE-PT-1",
         "what": "Run 8 FAIL residue — CHALLENGE copy · shelves want painted wood",
-        "status": "▶ ACTIVE (acked 08-04). PERF-PASS-1 parked. Wave: (1) receipt `CHALLENGE UNLOCKED` + omit empty line from DOM+stagger; (2) Storerooms shelf cluster → painted wood (full rename + pale base RGB). Void edge already PASS — do not touch. Rails stay chrome → SHELF-RAIL-1 later.",
+        "status": "▶ CODE LANDED 08-04 (`858b836` FV-RESULTS-1 · `3fa1cac` STORE-PT-1) — unpushed until push. Owed: Wyatt playtest both. PERF still parked.",
         "state": "active"
       },
       {
@@ -888,8 +888,8 @@
       "Run 8 (08-03) is in: 15 PASS · 4 FAIL · 1 skip. All 15 passing rows were deleted",
       "A PASS must close its row in the same session it is reported. Before Run 8 nothing wrote",
       "STORE-DECK-1 shipped and DEPLOYED 08-03 (`6eff2df`, Worker `01f8a745`) — bay letter cut,",
-      "ACTIVE: FV-RESULTS-1 + STORE-PT-1 (acked 08-04). PERF-PASS-1 parked mid-program —",
-      "Still owed to Wyatt: FV-WILT-1 (skipped — the only card needing the second machine);"
+      "ACTIVE: FV-RESULTS-1 + STORE-PT-1 code landed (`858b836` · `3fa1cac`). Playtest on",
+      "Still owed to Wyatt: playtest FV-RESULTS-1 + STORE-PT-1; FV-WILT-1 (2pc); STORE-DECK-1"
     ],
     "open_issues": [
       {
@@ -900,7 +900,7 @@
       {
         "id": "FV-RESULTS-1 / STORE-PT-1",
         "issue": "CHALLENGE receipt copy · shelves painted wood",
-        "status": "▶ **ACTIVE** — applying acked wave."
+        "status": "▶ **CODE LANDED** — playtest closes the card."
       },
       {
         "id": "WARM-SOLO-1",
@@ -1352,7 +1352,7 @@
           {
             "pri": "High",
             "item": "STORE-PT-1 — Storerooms art",
-            "notes": "**Owed: Wyatt playtest — STORE-PT-1 — suction edge + shelves feel real.**<br>1. Load The Storerooms on prod.<br>2. Drive to the suction/void lips. **Pass if:** the edge feels like a real drop you commit past — not a flat game-marker painted on the floor.<br>3. Look at the racking/shelves. **Pass if:** they read as used steel, not just a darker wall slab.<br>Still open later (not this check): density retune, **SHELF-RAIL-1**. Audit: [art-audit-storerooms.md](./art-audit-storerooms.md).<br>**FAIL 08-03 (Wyatt) — half of it passed.** His words: *\"the shelves look a bit too detailed or something like i want them to look like painted wood not metal. void is good.\"* So **the suction/void edge PASSES and is done** — do not touch it. The open half is a **material direction change, not a density retune**: the racking currently reads as used steel (that was the audit's own target, item 4's `buildShelfSteelTexture`), and the call is now **painted wood**. Treat the extra surface detail as a symptom of the wrong material, not as a separate over-detailing bug. Pairs with **SHELF-RAIL-1**, whose chrome rails will look worse next to painted wood, not better.",
+            "notes": "**CODE `3fa1cac` — Owed: Wyatt playtest — STORE-PT-1 — shelves read painted wood.** (Void already PASS 08-03 — do not re-judge.)<br>1. Load The Storerooms on prod.<br>2. Look at wall racking / shelf boards (not spawn decks).<br>3. **Pass if:** pale painted wood, not steel/chrome/busy metal detail.<br>4. Void lips still good; chrome booth rails left alone → **SHELF-RAIL-1** if they clash.",
             "ship1": null
           },
           {
@@ -1364,7 +1364,7 @@
           {
             "pri": "High",
             "item": "FV-RESULTS-1 — results podium feel",
-            "notes": "**Owed: Wyatt playtest — FV-RESULTS-1 — results screen feels finished.**<br>1. Finish the same round (or force podium like RESULTS-ACT-1).<br>2. Watch the count-up / receipt cadence.<br>3. **Pass if:** victory or defeat treatment is clear, and SPILLS / CHALLENGE lines look intentional (not placeholder junk).<br>**FAIL 08-03 (Wyatt), one specific defect — the rest of the screen passed.** His words: *\"change challenge to challenge unlocked or remove it from the receipt screen.\"* So the count-up and receipt cadence are fine and the victory/defeat treatment is clear; the bare **CHALLENGE** line on the receipt reads as placeholder junk because it does not say what happened. Fix is copy, not layout: either \"CHALLENGE UNLOCKED\" (only when one actually unlocked — check what the line renders when none did) or drop the line. **Do not restyle the receipt** while closing this. Re-check with the same steps.",
+            "notes": "**CODE `858b836` — Owed: Wyatt playtest — FV-RESULTS-1 — no bare CHALLENGE junk.**<br>1. Finish a round with **no** challenge completed this round.<br>2. Receipt: BODIES/SPILLS/etc. still print; **no** challenge row; TOTAL present; stagger one tick shorter is fine.<br>3. If you complete a challenge mid-round: label reads **CHALLENGE UNLOCKED** + title/count (not bare CHALLENGE).<br>4. **Pass if:** no bare CHALLENGE line; layout/count-up unchanged. Toast may still say CHALLENGE COMPLETE — leave it.",
             "ship1": null
           },
           {
