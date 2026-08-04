@@ -273,20 +273,14 @@ real browser and a real match, which is exactly the work the pane cannot do.
    Watch a cold boot, then enter each of the three arenas.
 
 **Known-but-parked:**
-- **Victory confetti + defeat wilt are missing in multiplayer** (Wyatt, 2026-07-23). Parked for a
-  later polish pass — investigated, not fixed. Both effects hang off ONE gate in
-  `updateResultsOverlay` (main.js ~3316): the wilt needs `isLocalLoser`, which requires
-  `typeof winnerSlotIndex === "number"`, and the confetti branch type-checks the same field. A
-  `null` winner kills **both at once**, which is why that is the leading hypothesis. Ruled out: the
-  winner *is* replicated on the `running → podium` transition (netcode.js ~2798) and again
-  unconditionally in the same handler (~2846), and `host_round` does carry `winnerSlotIndex`. NOT
-  ruled out: the paths that reach podium without `prevPhase === "running"` — a `MSG.hello` arriving
-  with `phase: "podium"` (late join / reconnect), and `shouldHoldNonHostCountdownPhase`, which
-  already proves clients run a different phase timeline. In both, `?? null` at ~2846 writes null
-  when the field is absent. **The decisive test is one line in a real two-client room:** on the
-  losing client at podium, read `GameState.getRoundState().winnerSlotIndex`. A number → it is not
-  netcode, look at z-order (the confetti canvas mounts as the overlay's FIRST child so the panel
-  paints above it, and the rebuilt 7g panel is now full-screen). `null` → it is the phase handling.
+- **Victory confetti + defeat wilt in multiplayer** — **code path exists** (solo/local winner cam +
+  results panel confetti; local-loser wilt via `spawnResultsDefeatWilt`; verdict `"Name wins — N pts"`).
+  The 07-23 "missing in MP" parking note is **stale as a "not built" claim** (docs audit 08-04;
+  **PRE-PODIUM-1** closed as filing-stale). **Still owed is the two-client eye:** **FV-WILT-1** —
+  on the losing client at podium, note confetti/wilt yes/no and
+  `GameState.getRoundState().winnerSlotIndex` number vs null. Leading hypothesis if both FX dead
+  on non-host: `winnerSlotIndex` null kills both branches (`isLocalLoser` needs a number). Wilt
+  *look* (reads as confetti?) stays under Wilting-groceries `[SHIP-1 E2]`.
 - `.results-defeat .results-title { --title-glow }` **never applies** — main.js sets that custom property inline and no stylesheet rule can outrank it. Cosmetic only (the panel filter desaturates anyway). Pre-existing.
 - `?room=` JOIN rehome — FRIENDS row → "JOIN LOBBY" → `enterPlayMode`; still on main.js's old ad-hoc path.
 - Part-1 polish (item 7 above).
@@ -331,9 +325,8 @@ geometry and computed styles alone. Treat "verified" in this doc as "measured", 
 the loading screens are the worst case: the boot splash is torn out of the DOM before a probe can
 reach it, and the mode-entry overlay has never had applyTheme run against it at all.
 
-Known and PARKED, do not start on it unless I say so: victory confetti and the defeat wilt are
-missing in multiplayer. The investigation (leading hypothesis, what was ruled out, and the
-one-line two-client test that settles it) is written up under "Known-but-parked".
+Known and parked for a **two-client eye only** (not "missing code"): confetti/wilt MP
+behavior is **FV-WILT-1** — write-up under "Known-but-parked" (updated 08-04).
 
 Ask me what to work on — do not pick a card yourself. The owed list is in the handover's
 "Remaining work": a live match for the HUD and results on a finished round, a two-client friends

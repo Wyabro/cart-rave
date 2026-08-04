@@ -13,6 +13,28 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 4, 2026 — Docs audit pass 2 (live docs, not archive)
+
+Broader audit after pass 1: **BACKLOG + STATUS + fight-night handover + SHIP-1/ROADMAP/
+project-state/guides** (archives skipped). Cleanups applied:
+
+- **PRE-PODIUM-1** closed — filing said FX missing; code has confetti/wilt/verdict; residue
+  **FV-WILT-1** + Wilting-groceries look.
+- **FIGHT-VERIFY-1** parent closed — seeds live on FV-RESULTS / FV-WILT only.
+- **ART-MAT-1** demoted Low — absorbed by CART-MODEL-1.
+- **Host-reload live confirm** demoted Low — automated half done (A6).
+- **SHOOT-ANIM-2** Owed seed stripped (was reseeding console under `✅`).
+- **PERF-PASS-1** BACKLOG lead aligned with STATUS (Cart Rave only; Wave 1 `aeb83aa` shipped;
+  gate = PERF-INSTR-1).
+- **fight-night-ui-handover.md** "missing in multiplayer" parking note corrected.
+- Pass-1 closed six already-shipped cards (MENU-MUSIC · MENU-LOCK · GIT-INDEX · ART-PASS-1 ·
+  ART-PASS-CLASSIC · NET-SIM).
+
+**Still true open work (not false-open):** FX-TIME-1 · SPAWN-SUNDIAL legs · DIAG-UPLOAD-GEN-1 ·
+playtest FAIL residue · PERF-PASS/INSTR · UI-SCALE · etc.
+
+---
+
 ### August 4, 2026 — Docs hygiene: six cards already shipped, still listed open
 
 Scan after MENU-MUSIC-VOL-1 looked "already done": code/commits in HEAD, BACKLOG rows never
