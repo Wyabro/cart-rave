@@ -13,6 +13,45 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 4, 2026 — Playtest export: 3 PASS / 0 FAIL (HOST-TAB-1 finally closed)
+
+A clean sweep — the first export this phase with no FAIL to triage. All three closed the same
+session they were reported. Deployed together at `91b39aa` (Worker `d47d4dd3`); prod bundle was
+fetched and confirmed carrying the SHA before the playtest.
+
+- *(Networking · High, `[2pc]`)* **HOST-TAB-1** — ✅ Wyatt PASS 08-04, all 7 steps of §10.
+  Hidden-tab host pump + AFK promote + strongest-host return. **Step 5 — the second mid-round
+  migrate — was the standing FAIL and now passes:** a demoted in-flight initiate could still send
+  `sdpOffer`, so the incoming host built a zombie peer connection and skipped making its own offer,
+  freezing the non-host. Lever E (`c3e4589`) has the host ignore inbound offers and aborts
+  initiate/answerer on an `isHost` + session-generation check after every await; healing stays in
+  maintain. Solo (step 7) and the weak-cannot-steal guard (step 6) also pass. Plan and verification
+  matrix: [host-tab-1.md §10](./host-tab-1.md#10-verification-matrix).
+- *(FX · Medium)* **FX-TIME-1** — ✅ Wyatt PASS 08-04. Fix `e87c795`. `fxTimer` was constructed and
+  read but `.update()` was never called anywhere in `src/`, so `uTime` sat at 0 and the entire VHS
+  layer rendered as a still frame — grain and scanlines as fixed dither, tape tears never firing,
+  no SD pulse. One line in `onFrame`, placed ahead of the `isLevelSwapping()` early return so FX
+  time cannot stall across a swap and jump on resume. Filed 08-02 out of SHOOT-ANIM-2, which had
+  mistaken it for a capture-harness bug; it was live and affected every player, every frame.
+  **Residual:** a driven `uTime` is wall-clock, so pinned `?t=` A/B captures still need it folded
+  in — not closed by this PASS.
+- *(Arenas · Medium)* **SHADOW-ORDER-1** — ✅ Wyatt PASS 08-04. Fix `6560552`. Storerooms booth
+  contact shadows sit at **31.15 m** but were being surface-tested against the 26.4 m circular
+  fallback, because `setContactShadowHazards` runs *after* `loadLevel()` builds the geometry — so
+  **all four blobs were silently dropped on every cold load**, and on a warm swap they were tested
+  against whatever arena you came from. The level now passes its own square-floor hazards (incl.
+  `half`, which the square path reads) to both clusters, matching the Zanzibar template.
+  **The seam survives the fix:** any future level grounding props during construction hits the same
+  trap. Hoisting hazard publication into `commitLevelLoad` is the structural fix and is parked on
+  **MAIN-1**, whose carve splits that exact seam.
+
+Shipped alongside them, no playtest owed: **ARCH-DRIFT-1** — every line-number citation in
+`control-flow.md` had drifted, and the card's own replacement numbers were stale again by the time
+they were checked. Line refs are now banned outright in favour of symbol anchors, enforced by two
+tests in `tests/architecture.test.js` that resolve all 26 anchors and reject any path-plus-line
+citation in the doc or in `archMap.mjs` prose. A rename now fails the suite instead of rotting the
+doc quietly.
+
 ### August 4, 2026 — Playtest PASSes closed (HOST-TAB-1 FAIL remains)
 
 Four cards from the playtest export closed the same session they PASSed (so they cannot reseed

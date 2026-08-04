@@ -66,10 +66,7 @@ Live rows only. Shipped and closed cards live in
 
 | # | What | Status |
 |---|------|--------|
-| HOST-TAB-1 | Hidden-tab host pump + AFK promote + strongest-host return | ▶ **ACTIVE — DEPLOYED 08-04** (lever E shipped `c3e4589`; still live in current deploy `91b39aa`, Worker `d47d4dd3`). **Owed: Wyatt playtest — HOST-TAB-1** — retest §10, esp. second migrate same match. |
-| FX-TIME-1 | fxTimer never driven — VHS layer frozen | ✅ **DEPLOYED 08-04** (`e87c795` in `91b39aa`, Worker `d47d4dd3`). `fxTimer.update(now)` runs in `onFrame` before the level-swap early return. **Owed: Wyatt playtest — FX-TIME-1** — confirm the VHS layer animates.<br>1. Load Storerooms; grain and tracking band should drift, not sit still.<br>2. If you reach Sudden Death, check the SD pulse breathes.<br>A real look change, not a restore — grain, tears, wobble and glow pulse animate for the first time, so don't blame later visual A/B diffs on it. `?t=` pinning is a separate follow-up. |
-| SHADOW-ORDER-1 | Storerooms booth contact shadows silently dropped | ✅ **DEPLOYED 08-04** (`6560552` in `91b39aa`, Worker `d47d4dd3`). Booths at 31.15 m were built against the 26.4 m circular fallback, so all four blobs were skipped; the level now passes its own square-floor hazards to both clusters. **Owed: Wyatt playtest — SHADOW-ORDER-1** — confirm the booth blobs are back.<br>1. Cold-load Storerooms; count booth shadows — expect 4.<br>2. Warm-swap Classic Record → Storerooms; still 4 (this path used to inherit the previous arena's shape).<br>3. Furniture pile shadow should look unchanged. |
-| ARCH-DRIFT-1 | control-flow.md line refs stale → symbol anchors | ✅ **SHIPPED 08-04** (`91b39aa`). Docs + test only — no playtest owed. 26 citations are now symbol anchors; two tests resolve them and reject any line-number citation in the doc or `archMap.mjs`. |
+| — | **No ACTIVE card — Wyatt names the next one.** HOST-TAB-1 closed 08-04 on a 3/0 export (with FX-TIME-1 · SHADOW-ORDER-1; ARCH-DRIFT-1 shipped alongside). PERF-PASS-1 is the parked candidate. | ⬜ awaiting Wyatt |
 | PERF-PASS-1 | 60 fps at Low on the Intel box — **Cart Rave only** (Wyatt scoped it 08-03) | ⏸ **PARKED BY WYATT 08-04 for HOST-TAB-1.** Wave 4 remains deployed (`b754e12`, Worker `9b8b1fbe`); honest measured range −1.66 to −2.54 ms and includes +0.55. Card remains open at ~46 fps; every future cell needs an A-B-A bracket on a cooled box. Menu + evidence: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md). |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
@@ -88,12 +85,14 @@ Live rows only. Shipped and closed cards live in
    `no-exact-head-complete-green-battery`** — that is the RC-phase gate and no exact-HEAD battery
    has been run at this commit; the deploy went out via `npm run ship` as every stabilization
    deploy has. Run the battery before any RC claim.
-4. **ACTIVE: HOST-TAB-1 lever E** — implemented locally; ship then retest §10 (esp. second migrate).
-5. **Still owed to Wyatt:** the 9-cell PERF sweep (his box, ~25 min — he cannot be replaced here);
-   HOST-TAB-1 retest §10; plus the two eyeball checks from the 08-04 small-card wave
-   (FX-TIME-1 VHS motion, SHADOW-ORDER-1 booth blobs) — all three now live at `91b39aa`.
+4. **HOST-TAB-1 is closed** — 08-04 export was 3 PASS / 0 FAIL, the first clean sweep this phase.
+   Step 5 (second mid-round migrate) was the standing FAIL and now passes on two machines.
+   **PT-CONSOLE-READY-1 is unblocked by this** — it was explicitly parked "until HOST-TAB-1
+   clears", being a `tools/` commit under the game-card freeze.
+5. **Still owed to Wyatt:** the 9-cell PERF sweep (his box, ~25 min — he cannot be replaced here).
+   Nothing else is waiting on his eyes.
 
-**Open High:** PERF-PASS-1 · HOST-TAB-1 · UI-SCALE-1 · RESULTS-1 · CART-MODEL-1 · bloom.
+**Open High:** PERF-PASS-1 · UI-SCALE-1 · RESULTS-1 · CART-MODEL-1 · bloom.
 
 ## Open issues (top)
 
@@ -102,7 +101,6 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 
 | ID | Issue | Status |
 |----|--------|--------|
-| HOST-TAB-1 | Hidden-tab host authority | ▶ **DEPLOYED** Worker `507a8c36` — **Owed: Wyatt playtest — HOST-TAB-1** (retest second migrate). |
 | PERF-PASS-1 | 60 fps at Low on the Intel box — **Cart Rave only** | ⏸ **PARKED 08-04.** Baseline 23.788 ms / 42.0 fps; menu: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md). |
 | WARM-SOLO-1 | Solo post-`carts-ready` stall (WARM-IGPU residual) | 📋 telemetry-gated — [warm-igpu-1.md](./planning/warm-igpu-1.md) |
 | MAIN-1 | Carve `main.js` seam (enables BUNDLE-1) | 📋 post-gate |
@@ -148,7 +146,8 @@ passing the level's own square-floor hazards (Zanzibar template). Hoisting hazar
 `commitLevelLoad` is the structural fix and is deliberately deferred — it touches the seam MAIN-1
 will split. control-flow.md line refs had all drifted (the card's own replacements were stale
 again), so they are banned in favour of symbol anchors, enforced by two new tests. 109 files /
-1,350 tests, qa green. HOST-TAB-1 was parked for the wave, now ACTIVE.
+1,350 tests, qa green. Wyatt then PASSed all three plus HOST-TAB-1 — a 3/0 export, no FAIL — so
+HOST-TAB-1 closed too and the ACTIVE slot is open for him to name.
 
 2026-08-04 (HOST-TAB-1 lever E) — Second-migrate freeze: demoted in-flight initiate could still
 send `sdpOffer`; new host built a zombie PC and skipped its own offer. Fix: host ignores inbound

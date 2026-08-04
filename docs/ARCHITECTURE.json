@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-04T06:11:42.438Z",
-    "commit": "91b39aa"
+    "at": "2026-08-04T06:31:59.576Z",
+    "commit": "222a4a8"
   },
-  "source_digest": "cd99ffc2",
+  "source_digest": "e4f41f1b",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -845,28 +845,10 @@
   "workstreams": {
     "queue": [
       {
-        "id": "HOST-TAB-1",
-        "what": "Hidden-tab host pump + AFK promote + strongest-host return",
-        "status": "▶ ACTIVE — DEPLOYED 08-04 (lever E shipped `c3e4589`; still live in current deploy `91b39aa`, Worker `d47d4dd3`). Owed: Wyatt playtest — HOST-TAB-1 — retest §10, esp. second migrate same match.",
-        "state": "active"
-      },
-      {
-        "id": "FX-TIME-1",
-        "what": "fxTimer never driven — VHS layer frozen",
-        "status": "✅ DEPLOYED 08-04 (`e87c795` in `91b39aa`, Worker `d47d4dd3`). `fxTimer.update(now)` runs in `onFrame` before the level-swap early return. Owed: Wyatt playtest — FX-TIME-1 — confirm the VHS layer animates.<br>1. Load Storerooms; grain and tracking band should drift, not sit still.<br>2. If you reach Sudden Death, check the SD pulse breathes.<br>A real look change, not a restore — grain, tears, wobble and glow pulse animate for the first time, so don't blame later visual A/B diffs on it. `?t=` pinning is a separate follow-up.",
-        "state": "done"
-      },
-      {
-        "id": "SHADOW-ORDER-1",
-        "what": "Storerooms booth contact shadows silently dropped",
-        "status": "✅ DEPLOYED 08-04 (`6560552` in `91b39aa`, Worker `d47d4dd3`). Booths at 31.15 m were built against the 26.4 m circular fallback, so all four blobs were skipped; the level now passes its own square-floor hazards to both clusters. Owed: Wyatt playtest — SHADOW-ORDER-1 — confirm the booth blobs are back.<br>1. Cold-load Storerooms; count booth shadows — expect 4.<br>2. Warm-swap Classic Record → Storerooms; still 4 (this path used to inherit the previous arena's shape).<br>3. Furniture pile shadow should look unchanged.",
-        "state": "done"
-      },
-      {
-        "id": "ARCH-DRIFT-1",
-        "what": "control-flow.md line refs stale → symbol anchors",
-        "status": "✅ SHIPPED 08-04 (`91b39aa`). Docs + test only — no playtest owed. 26 citations are now symbol anchors; two tests resolve them and reject any line-number citation in the doc or `archMap.mjs`.",
-        "state": "done"
+        "id": "—",
+        "what": "No ACTIVE card — Wyatt names the next one. HOST-TAB-1 closed 08-04 on a 3/0 export (with FX-TIME-1 · SHADOW-ORDER-1; ARCH-DRIFT-1 shipped alongside). PERF-PASS-1 is the parked candidate.",
+        "status": "⬜ awaiting Wyatt",
+        "state": "locked"
       },
       {
         "id": "PERF-PASS-1",
@@ -900,15 +882,10 @@
       "Run 8 (08-03) is in: 15 PASS · 4 FAIL · 1 skip. All 15 passing rows were deleted",
       "A PASS must close its row in the same session it is reported. Before Run 8 nothing wrote",
       "STORE-DECK-1 shipped and DEPLOYED 08-03 (`6eff2df`, Worker `01f8a745`) — bay letter cut,",
-      "ACTIVE: HOST-TAB-1 lever E — implemented locally; ship then retest §10 (esp. second migrate).",
-      "Still owed to Wyatt: the 9-cell PERF sweep (his box, ~25 min — he cannot be replaced here);"
+      "HOST-TAB-1 is closed — 08-04 export was 3 PASS / 0 FAIL, the first clean sweep this phase.",
+      "Still owed to Wyatt: the 9-cell PERF sweep (his box, ~25 min — he cannot be replaced here)."
     ],
     "open_issues": [
-      {
-        "id": "HOST-TAB-1",
-        "issue": "Hidden-tab host authority",
-        "status": "▶ **DEPLOYED** Worker `507a8c36` — **Owed: Wyatt playtest — HOST-TAB-1** (retest second migrate)."
-      },
       {
         "id": "PERF-PASS-1",
         "issue": "60 fps at Low on the Intel box — **Cart Rave only**",
@@ -941,8 +918,8 @@
       {
         "title": "Engineering",
         "counts": {
-          "?": 7,
-          "Medium": 13,
+          "?": 8,
+          "Medium": 12,
           "High": 3,
           "Low": 8,
           "Partial": 1
@@ -967,9 +944,9 @@
             "ship1": null
           },
           {
-            "pri": "Medium",
+            "pri": "✅",
             "item": "FX-TIME-1 — the whole VHS/arcade layer has been frozen at `uTime = 0` in live gameplay",
-            "notes": "**Filed 08-02**, found while scoping SHOOT-ANIM-2 and split out because it is **not** a capture bug — it affects every player, every frame, and always has. **`fxTimer.update()` is never called anywhere in `src/`.** The only two references to `fxTimer` are its construction ([main.js:1670](../../src/main.js:1670)) and the read ([main.js:5280](../../src/main.js:5280)); `THREE.Timer._elapsed` only advances inside `Timer.update()`, so `getElapsed()` returns `0` on every frame and `fxPass.uniforms.uTime` is pinned at zero. **What is currently dead** ([scene.js:511-596](../../src/scene.js:511)): VHS line noise (`:511`), the tracking-bar phase (`:514`), the tape-tear clock, position and width (`:523-526`), the tear jitter (`:531`), the chromatic-aberration wobble (`:536`), film grain (`:552`), scanline noise (`:560-561`), and the sudden-death pulse + rays (`:594-596`). Grain and scanlines currently render as a **fixed dither pattern** rather than moving noise, and tape tears never fire at all. **Fix is one line** (`fxTimer.update(now)` in the frame loop) **but the consequence is a real look change**, switching on animated grain, moving tracking bars, tears and the SD pulse for the first time — so it needs a look sign-off and pairs naturally with the open **Bloom look sign-off** row, not with a harness card. Judge it on Storerooms (where the VHS treatment reads strongest) and on the SD pulse. Ordinary captures cannot evidence it either way until it is driven — and note a driven `uTime` would then be **wall-clock**, so it would need folding into the `?t=` pinning story before any pinned Classic/Storerooms A/B stays reproducible.",
+            "notes": "**CLOSED 08-04 — Wyatt playtest PASS** on prod (`91b39aa`). Fix shipped `e87c795`: `fxTimer.update(now)` in `onFrame`, placed **before** the `isLevelSwapping()` early return so FX time cannot stall across a swap and jump on resume. The look sign-off this row asked for is the PASS. The `?t=` pinning residual below is **not** closed by it — a driven `uTime` is wall-clock, so pinned A/B captures still need it folded in; that stays open as its own concern. Original filing: **Filed 08-02**, found while scoping SHOOT-ANIM-2 and split out because it is **not** a capture bug — it affects every player, every frame, and always has. **`fxTimer.update()` is never called anywhere in `src/`.** The only two references to `fxTimer` are its construction ([main.js:1670](../../src/main.js:1670)) and the read ([main.js:5280](../../src/main.js:5280)); `THREE.Timer._elapsed` only advances inside `Timer.update()`, so `getElapsed()` returns `0` on every frame and `fxPass.uniforms.uTime` is pinned at zero. **What is currently dead** ([scene.js:511-596](../../src/scene.js:511)): VHS line noise (`:511`), the tracking-bar phase (`:514`), the tape-tear clock, position and width (`:523-526`), the tear jitter (`:531`), the chromatic-aberration wobble (`:536`), film grain (`:552`), scanline noise (`:560-561`), and the sudden-death pulse + rays (`:594-596`). Grain and scanlines currently render as a **fixed dither pattern** rather than moving noise, and tape tears never fire at all. **Fix is one line** (`fxTimer.update(now)` in the frame loop) **but the consequence is a real look change**, switching on animated grain, moving tracking bars, tears and the SD pulse for the first time — so it needs a look sign-off and pairs naturally with the open **Bloom look sign-off** row, not with a harness card. Judge it on Storerooms (where the VHS treatment reads strongest) and on the SD pulse. Ordinary captures cannot evidence it either way until it is driven — and note a driven `uTime` would then be **wall-clock**, so it would need folding into the `?t=` pinning story before any pinned Classic/Storerooms A/B stays reproducible.",
             "ship1": null
           },
           {
@@ -1310,15 +1287,15 @@
       {
         "title": "Design / Gameplay",
         "counts": {
-          "High": 1,
+          "?": 1,
           "Medium": 3,
           "Low": 6
         },
         "rows": [
           {
-            "pri": "High",
+            "pri": "✅",
             "item": "HOST-TAB-1 — hidden-tab host pump + AFK promote + mid-round strongest rehost",
-            "notes": "**DEPLOYED 08-04** (`c3e4589`, Worker `507a8c36`) — lever E live; playtest owed. Plan: [host-tab-1.md §16](./host-tab-1.md). FAIL was second mid-round migrate freezing the non-host. Related: HOST-CAP-1, HOST-ROLE-1, closed NET-MIG-3.",
+            "notes": "**CLOSED 08-04 — Wyatt playtest PASS**, all 7 steps of §10 including step 4 (second mid-round migrate, the prior FAIL) and step 7 (solo). Levers A–E deployed; lever E `c3e4589`, live in `91b39aa`. The FAIL that reopened this card — a demoted in-flight initiate still sending `sdpOffer`, leaving the new host with a zombie PC and no offer of its own — is fixed and confirmed by eye on two machines. Plan: [host-tab-1.md §16](./host-tab-1.md). Related: HOST-CAP-1, HOST-ROLE-1, closed NET-MIG-3.",
             "ship1": null
           },
           {
@@ -1380,17 +1357,10 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "High": 1,
           "?": 4,
           "Low": 1
         },
         "rows": [
-          {
-            "pri": "High",
-            "item": "HOST-TAB-1 — hidden-tab host authority `[2pc]`",
-            "notes": "**Owed: Wyatt playtest — HOST-TAB-1 — second mid-round migrate must not freeze the non-host.** Deployed `c3e4589` / Worker `507a8c36` (lever E).<br>1. Two clients, friends room, any arena — you are host on machine A.<br>2. Short hide: alt-tab ~3s on A; on B watch the match. **Pass if:** carts still move; no host-glyph change; no toast storm.<br>3. Long hide: alt-tab ~12s on A. **Pass if:** host glyph moves to B; you stay seated on A; one toast; match continues (brief hitch OK).<br>4. Strong return: focus A again after step 3. **Pass if:** when your score lead is ≥20 and cooldown has passed, host returns to A mid-round with one toast.<br>5. **Second migrate same match:** hide again past AFK (or return then hide). **Pass if:** peer recovers — no freeze, no stuck disconnect on host HUD.<br>6. Weak cannot steal: with a weak peer, strong host returns — weak peer focusing does not take host back.<br>7. Solo: hide 15s in solo. **Pass if:** no migration; timer not double-shifted; game recoverable on focus.<br>Optional if step 5 fails: `?diag=1`, F8 `pt-host-tab-1`, `npm run captures:pull`.",
-            "ship1": null
-          },
           {
             "pri": "✅",
             "item": "PERF-INSTR-1 — the 60fps instrument works on the Intel box (PERF-PASS-1 Wave 1)",
@@ -1527,8 +1497,8 @@
       {
         "title": "Tech Debt",
         "counts": {
-          "?": 3,
-          "Medium": 7,
+          "?": 4,
+          "Medium": 6,
           "Low": 11
         },
         "rows": [
@@ -1554,10 +1524,10 @@
             "ship1": null
           },
           {
-            "pri": "Medium",
+            "pri": "✅",
             "id": "SHADOW-ORDER-1",
             "item": "Storerooms static shadows may be tested against the wrong arena",
-            "notes": "**Filed 08-02**, same root cause as the build-order bug fixed for Sundial in `17fc46c`. `main.js:2458` calls `setContactShadowHazards` **after** the level builder returns, so any `createStaticContactShadowCluster` call made during construction is tested against the *previous* arena's hazards, or the circular fallback (`r > CONFIG.record.radius`) on a cold load. Sundial now passes its own `hazards` override; `backroomsSupermarket.js:1884` (furniture pile) and `:3229` (booth shadows) still do not. The pile sits near the origin and almost certainly survives either way, but the booth placements are outboard and were never verified. Check by probing the live scene for `StaticContactShadows` child counts on a cold load vs an arena switch — the Sundial case read 8 of 24 and looked exactly like \"the feature is subtle\".",
+            "notes": "**CLOSED 08-04 — Wyatt playtest PASS** on prod (`91b39aa`): 4 booth blobs on cold load, still 4 after a warm swap from Classic. Fix shipped `6560552`. The suspicion in this filing was right and the booths were worse than \"unverified\" — they sit at **31.15 m** (26.4 + 2.25 gap + 2.5 half-depth) against a 26.4 m circular fallback, so **all four were being dropped on every cold load**, not merely mis-tested. Both clusters now pass a module-local `CONTACT_SHADOW_HAZARDS` mirroring the level's own `aiHazards` (incl. `half`, which the square path reads), matching the Zanzibar template. **The seam itself is still there:** `setContactShadowHazards` still runs after the builder, so any future level that grounds props during construction hits the same trap — hoisting it in `commitLevelLoad` is deliberately deferred to **MAIN-1**, whose carve splits that exact seam. Original filing: **Filed 08-02**, same root cause as the build-order bug fixed for Sundial in `17fc46c`. `main.js:2458` calls `setContactShadowHazards` **after** the level builder returns, so any `createStaticContactShadowCluster` call made during construction is tested against the *previous* arena's hazards, or the circular fallback (`r > CONFIG.record.radius`) on a cold load. Sundial now passes its own `hazards` override; `backroomsSupermarket.js:1884` (furniture pile) and `:3229` (booth shadows) still do not. The pile sits near the origin and almost certainly survives either way, but the booth placements are outboard and were never verified. Check by probing the live scene for `StaticContactShadows` child counts on a cold load vs an arena switch — the Sundial case read 8 of 24 and looked exactly like \"the feature is subtle\".",
             "ship1": null
           },
           {
