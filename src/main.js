@@ -2427,7 +2427,11 @@ async function main() {
     ensureWorldBootstrapped,
     performLevelLoad: (selected, opts) => commitLevelLoad(selected, opts),
     onPreviewSwapComplete: (levelId) => {
-      Effects.setRaveExtrasVisible(levelId !== "backrooms" && levelId !== "testArena");
+      const wantsExtras = levelId !== "backrooms" && levelId !== "testArena";
+      Effects.setRaveExtrasVisible(wantsExtras);
+      // * Pair the re-show with the tier pass, same as the two other call sites — a bare
+      // * setRaveExtrasVisible(true) re-shows everything the tier (and ?ablate=) had cut.
+      if (wantsExtras) Effects.applyRaveExtrasQuality(getQualityKnobs());
     },
     finalizeArenaForPlay,
     finalizeArenaShellForMenu,

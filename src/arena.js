@@ -10,7 +10,7 @@ import { isLowQualityMode } from "./utils.js";
 import { sampleArenaReactive } from "./arenaReactiveLights.js";
 import { mergeStaticMeshesByMaterial } from "./utils/mergeStaticMeshes.js";
 import { installCheapMirrorPass } from "./utils/cheapMirror.js";
-import { getDebugParams } from "./utils/debugParams.js";
+import { getDebugParams, applySceneAblation } from "./utils/debugParams.js";
 
 // * Play-time Reflector RT. Was 1024² (Pass 2 isolation: Reflector ≈ 60% of Classic High
 // * GPU). 512² is a 4× bandwidth cut; cart/booth silhouettes still read on the vinyl at
@@ -2780,6 +2780,12 @@ export function initArena(scene, world, config, options = {}) {
       pitRimFill.intensity = 14 + 6 * Math.sin(timeMs * 0.0014 + 1.0);
     }
   }
+
+  // * PERF-PASS-1 measurement probe — inert without ?ablate=pitlights. These three lights
+  // * are function-local (only spindleLight is returned), so the call has to live here.
+  // * An invisible light is dropped from the render list, which is the point: it shortens
+  // * the standard-material light loop in every fragment shader.
+  applySceneAblation({ pitlights: [spindleLight, pitUplight, pitRimFill] });
 
   return {
     recordMesh,

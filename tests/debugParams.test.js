@@ -156,6 +156,103 @@ describe("debugParams — ablation and implied harness", () => {
   });
 });
 
+describe("debugParams — applySceneAblation (PERF-PASS-1 cost-menu probe)", () => {
+  /** Fresh duck-typed stand-ins for the scene blocks each token owns. */
+  const targets = () => ({
+    crowdcarts: { visible: true },
+    crowd: [{ visible: true }, { visible: true }],
+    stadium: { visible: true },
+    pitlights: [{ visible: true }, { visible: true }, { visible: true }],
+  });
+
+  const hidden = (t) => [
+    t.crowdcarts.visible,
+    ...t.crowd.map((n) => n.visible),
+    t.stadium.visible,
+    ...t.pitlights.map((n) => n.visible),
+  ];
+
+  it("hides only the named token's target", async () => {
+    const { applySceneAblation } = await load("?ablate=crowdcarts");
+    const t = targets();
+    const { ablated } = applySceneAblation(t);
+    expect(ablated).toEqual(["crowdcarts"]);
+    expect(t.crowdcarts.visible).toBe(false);
+    expect(t.crowd.every((n) => n.visible)).toBe(true);
+    expect(t.stadium.visible).toBe(true);
+    expect(t.pitlights.every((n) => n.visible)).toBe(true);
+  });
+
+  it("hides every element of an array target", async () => {
+    const { applySceneAblation } = await load("?ablate=pitlights");
+    const t = targets();
+    expect(applySceneAblation(t).ablated).toEqual(["pitlights"]);
+    expect(t.pitlights.map((n) => n.visible)).toEqual([false, false, false]);
+  });
+
+  it("?ablate=all hides every target", async () => {
+    const { applySceneAblation } = await load("?ablate=all");
+    const t = targets();
+    const { ablated } = applySceneAblation(t);
+    expect(ablated.sort()).toEqual(["crowd", "crowdcarts", "pitlights", "stadium"]);
+    expect(hidden(t).some(Boolean)).toBe(false);
+  });
+
+  it("?ablate=none and unknown tokens hide nothing", async () => {
+    for (const search of ["?ablate=none", "?ablate=nosuchblock"]) {
+      const { applySceneAblation } = await load(search);
+      const t = targets();
+      expect(applySceneAblation(t).ablated).toEqual([]);
+      expect(hidden(t).every(Boolean)).toBe(true);
+    }
+  });
+
+  it("?ablate=none still implies harness — the baseline must boot like every other cell", async () => {
+    // * A baseline URL without ?ablate= takes a different boot path (harness warms the
+    // * world ASAP), so its frame times are not comparable to the ablated cells.
+    const { getDebugParams } = await load("?ablate=none");
+    expect(getDebugParams().harness).toBe(true);
+  });
+
+  it("skips null/missing targets without reporting them as ablated", async () => {
+    const { applySceneAblation } = await load("?ablate=all");
+    const { ablated } = applySceneAblation({
+      stagerig: null,
+      billboard: undefined,
+      bulbs: [],
+      stadium: { visible: true },
+    });
+    expect(ablated).toEqual(["stadium"]);
+  });
+
+  it("post-FX tokens do not hide scene blocks, and vice versa", async () => {
+    const { applySceneAblation, applyPostFxAblation } = await load("?ablate=bloom");
+    const t = targets();
+    expect(applySceneAblation(t).ablated).toEqual([]);
+    expect(hidden(t).every(Boolean)).toBe(true);
+
+    const scene = await load("?ablate=crowdcarts");
+    const bloomPass = { enabled: true };
+    expect(scene.applyPostFxAblation({ bloomPass }).ablated).toEqual([]);
+    expect(bloomPass.enabled).toBe(true);
+    expect(applyPostFxAblation).toBeTypeOf("function");
+  });
+
+  it("a re-show followed by ablation stays hidden — the order the call sites rely on", async () => {
+    const { applySceneAblation } = await load("?ablate=crowdcarts");
+    const t = targets();
+    // * setRaveExtrasVisible(true) → applyRaveExtrasQuality(...) → ablation last.
+    t.crowdcarts.visible = true;
+    applySceneAblation(t);
+    expect(t.crowdcarts.visible).toBe(false);
+  });
+
+  it("returns an empty result for a null target map", async () => {
+    const { applySceneAblation } = await load("?ablate=all");
+    expect(applySceneAblation(null).ablated).toEqual([]);
+  });
+});
+
 describe("debugParams — boot side effects", () => {
   it("persists the URL level under the frozen cartRaveLevel key", async () => {
     const { applyDebugBootSideEffects } = await load("?level=sundial");

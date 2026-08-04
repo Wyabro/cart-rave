@@ -14,6 +14,7 @@ import { createPhysicalMaterial } from "./scene.js";
 import { sampleArenaReactive } from "./arenaReactiveLights.js";
 import { mergeStaticMeshesByMaterial } from "./utils/mergeStaticMeshes.js";
 import { registerMirrorExclude } from "./utils/cheapMirror.js";
+import { applySceneAblation } from "./utils/debugParams.js";
 
 let crowdInstanceCount = 5000;
 const CROWD_SEARCHLIGHT_SPEEDS = [0.2, 0.35, 0.5, 0.25];
@@ -1922,6 +1923,19 @@ export function applyRaveExtrasQuality(knobs) {
     }
     e.mesh.visible = true;
   }
+
+  // * PERF-PASS-1 measurement probe — LAST, so it wins over everything the tier just
+  // * re-showed. Inert without ?ablate=. `crowd` covers all three crowd layers;
+  // * `crowdcarts` is layer 0 only (the ~200k-tri cart silhouettes).
+  applySceneAblation({
+    crowdcarts: crowdLayers[0]?.mesh ?? null,
+    crowd: crowdLayers.map((layer) => layer.mesh),
+    // * crowdGlow is a child of stadiumGroup — hiding the bowl takes the glow ring too.
+    stadium: stadiumGroup,
+    stagerig: stageGroup,
+    billboard: billboardGroup,
+    bulbs: crowdPointLightEntries.map((e) => e.bulb),
+  });
 }
 
 const _crowdReactiveColor = new THREE.Color();

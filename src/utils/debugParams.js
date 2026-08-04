@@ -5,6 +5,10 @@
  *
  * Flags:
  *   ?ablate=bloom,arcade,fxaa,vhs,output  — disable named post passes
+ *   ?ablate=crowd,crowdcarts,stadium,     — hide Classic scene blocks (PERF-PASS-1 cost
+ *           stagerig,billboard,bulbs,       menu). `all` covers post + scene; `none` is a
+ *           pitlights                       no-op that still boots the harness path, so it
+ *                                           is the comparable baseline for a timing sweep.
  *   ?postmin=1                            — bare color path (no bloom/arcade/fxaa)
  *   ?freeze=1                             — pin camera / stop attract orbit
  *   ?cam=x,y,z[,lx,ly,lz]                 — lock camera pose (look-at origin if look omitted)
@@ -328,6 +332,43 @@ export function applyPostFxAblation(passes) {
   if (passes.arcadePass?.uniforms?.uVhsAmount && (has("vhs") || has("all") || p.postmin)) {
     passes.arcadePass.uniforms.uVhsAmount.value = 0;
     ablated.push("vhs");
+  }
+
+  return { ablated: [...new Set(ablated)] };
+}
+
+/**
+ * Hides scene blocks matching `?ablate=` scene tokens — the measurement probe for
+ * PERF-PASS-1's cost menu. Duck-typed on `.visible`, so it never imports three.
+ *
+ * Call it *after* the tier knobs have been applied, not before: a tier pass that re-shows
+ * a block would silently un-ablate the cut, and a cell that un-ablates measures ~0 ms and
+ * reads as "this cut is worthless".
+ *
+ * A missing/null target is skipped and is NOT reported in `ablated` — a token only lands
+ * there when it actually hid something.
+ *
+ * @param {Record<string, { visible: boolean } | ({ visible: boolean } | null | undefined)[] | null | undefined>} targets
+ *   Token → the object (or array of objects) that token hides.
+ * @returns {{ ablated: string[] }}
+ */
+export function applySceneAblation(targets) {
+  const p = getDebugParams();
+  /** @type {string[]} */
+  const ablated = [];
+  if (!targets) return { ablated };
+  const all = p.ablate.has("all");
+
+  for (const [token, target] of Object.entries(targets)) {
+    if (!target) continue;
+    if (!all && !p.ablate.has(token)) continue;
+    let hidAny = false;
+    for (const node of Array.isArray(target) ? target : [target]) {
+      if (!node || typeof node !== "object" || typeof node.visible !== "boolean") continue;
+      node.visible = false;
+      hidAny = true;
+    }
+    if (hidAny) ablated.push(token);
   }
 
   return { ablated: [...new Set(ablated)] };
