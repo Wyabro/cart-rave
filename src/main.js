@@ -184,6 +184,7 @@ import {
   shuffledClientNpcNames,
 } from "./orchestration/cartOrchestration.js";
 import { createLoopDeps } from "./orchestration/loopDeps.js";
+import { bootGameSystems } from "./orchestration/gameBoot.js";
 import {
   captureInviteRoomForDeferredMenu,
   createMenuPlayEntry,
@@ -225,106 +226,69 @@ const gameSession = createGameSessionController(() => sessionBridgeCtx.current);
 
 const initialNpcNames = shuffledClientNpcNames(4);
 
-let isNewPersonalBest = false;
-
-/** @type {((msg: object) => void) | null} */
-let onGameStartHandler = null;
-/**
- * Monotonic generation for the deferred solo countdown. Each solo game-start bumps it and
- * captures the value; a pending whenModeEntryHidden defer only fires if its captured gen is
- * still current — so a (rare) double game-start or a quit→restart-solo race can't let a
- * stale waiter re-kick a newer game's countdown clock. (Council review follow-up.)
- */
-let soloCountdownDeferGen = 0;
-/**
- * CAM-OPEN-1 — how long the solo opening fly-over holds the arena before the 3-2-1.
- * Not part of the countdown: `CONFIG.round.countdownMs` / `COUNTDOWN_MS` is shared with
- * the server's game_start arming timer and must not absorb this.
- */
-const SOLO_FLYOVER_PREROLL_MS = 2000;
-/** @type {(() => void) | null} */
-let onHostMigratedHandler = null;
-/** @type {(() => void) | null} */
-let onCountdownCancelledRef = null;
-/**
- * Non-host game_start is waiting on arena swap + carts-ready before applying
- * countdown. Used so a room abort (host_round lobby) while we still show lobby
- * can invalidate the waiter (Cap-59 hold — local phase never left lobby).
- */
-let nonHostCountdownApplyPending = false;
-/**
- * CAM-PT-MP-1: host-MP fly-over hold is armed (game_start received, pre-roll
- * timeout live, phase still lobby). Mirror of nonHostCountdownApplyPending so a
- * server countdownCancel landing during the hold — when there is no countdown
- * phase to clean up — still routes into onCountdownCancelled.
- */
-let hostMpHoldPending = false;
-/** Set to true the moment a color-dot is clicked, preventing slots-message re-renders from re-opening the picker before server confirmation arrives. */
-let _localColorPicked = false;
-/** @type {HTMLElement | null} */
-let pendingColorChipEl = null;
-/** @type {string | null} */
-let pendingColorKey = null;
-let customizationChangeListenerWired = false;
-/**
- * FRIENDS-JOIN-1: true when this client reached the room by TYPING a code, which is the
- * only case where "alone in the lobby" might mean "you mistyped it". A host who created a
- * room and is waiting for friends looks identical (alone, isHost, phase lobby) and must
- * never be told to check the code. Cleared on menu return (createMenuPlayEntry).
- */
-let joinedViaTypedCode = false;
-/** @type {boolean} */
-let menuVisible = true;
 import { AUDIO_VOLUME_MAX, AUDIO_VOLUME_DEFAULT } from "./stores/audioStore.js";
 import { settingsStore } from "./stores/settingsStore.js";
 
-let bloomEnabled = settingsStore.getState().bloomEnabled;
-let fxPassEnabled = settingsStore.getState().fxPassEnabled;
-/** @type {any} */
-let fxPass = null;
-/** @type {null | { setLeader: (slotIndex: number|null) => void; updatePositionFromCart: (cart: any) => void; resyncVolume: () => void }} */
-let leaderHum = null;
-
 /**
- * In-memory match results for the session (resets on full page reload). Not rendered until the results overlay is wired.
- * @type {{ endedAtMs: number, winnerSlotIndex: number | "draw", scores: Record<number, number>, mode?: "solo" | "quickplay" | "testdrive" | "friends" }[]}
+ * BUNDLE-1 Lever B — the single mutable handle the two halves of boot share.
+ *
+ * These were ~16 module-scope `let`s written by the game half (now
+ * `orchestration/gameBoot.js`) and read by the menu half (this file: audio controls, the
+ * input handlers, levelOrchestration, menuAttract, devControl, the graphics toggles, and
+ * every diagnostics / harness / analytics probe installed after `initMenu()`).
+ *
+ * A reassigned `let` cannot cross a module boundary — the importer keeps binding to the
+ * old value once these modules land in different chunks (Lever C). Property mutation on
+ * one shared object does cross, so every write goes through `gameRefs.*` on both sides.
+ * ⚠ When adding a probe getter here, read `gameRefs.x` — never capture `gameRefs.x` into
+ * a local at install time, or the probe latches whatever null it saw at boot.
  */
-let matchHistory = [];
+const gameRefs = {
+  /** @type {ReturnType<typeof HUD.init> | null} */
+  hud: null,
+  /** @type {ReturnType<typeof createCartOrchestration> | null} */
+  cart: null,
+  /** @type {any[] | null} */
+  allCartsRef: null,
+  /** @type {boolean} */
+  menuVisible: true,
+  bloomEnabled: settingsStore.getState().bloomEnabled,
+  fxPassEnabled: settingsStore.getState().fxPassEnabled,
+  /** @type {any} */
+  fxPass: null,
+  /** @type {null | { setLeader: (slotIndex: number|null) => void; updatePositionFromCart: (cart: any) => void; resyncVolume: () => void }} */
+  leaderHum: null,
+  /** @type {((position: { x: number; y: number; z: number }, intensity: number, type?: string, opts?: object) => void) | null} */
+  spawnTrashBurstRef: null,
+  /** @type {((cart: object, scene: object, neonHex: number) => void) | null} */
+  triggerCartShatterRef: triggerCartShatter,
+  /** @type {string | null} */
+  pendingMidRoundJoinRespawnConnId: null,
+  /**
+   * FRIENDS-JOIN-1: true when this client reached the room by TYPING a code, which is the
+   * only case where "alone in the lobby" might mean "you mistyped it". A host who created a
+   * room and is waiting for friends looks identical (alone, isHost, phase lobby) and must
+   * never be told to check the code. Cleared on menu return (createMenuPlayEntry).
+   */
+  joinedViaTypedCode: false,
+  /** Set to true the moment a color-dot is clicked, preventing slots-message re-renders from re-opening the picker before server confirmation arrives. */
+  _localColorPicked: false,
+  /** @type {HTMLElement | null} */
+  pendingColorChipEl: null,
+  /** @type {string | null} */
+  pendingColorKey: null,
+  /** @type {() => void} Rebound by roundLifecycle inside gameBoot. */
+  removePodiumSkipListeners: () => {},
+};
 
 /** Renderer handle for the module-level idle warm (set once in main()). */
 let idleWarmRenderer = null;
-/** Sudden Death tension bed edge-latch — see the onFrame watcher. */
-let sdTensionLatched = false;
-let nameLabelUpdatePending = null;
-
-// These are assigned once main() constructs the scene / HUD / physics world.
-/** @type {ReturnType<typeof HUD.init> | null} */
-let hud = null;
 let fpsCanvas2d = null;
 let fpsCtx2d = null;
-/** @type {any[] | null} */
-let allCartsRef = null;
-/** @type {(() => { forward: number; turn: number }) | null} */
-let getAxisRef = null;
-/** @type {(cart: any, nowMs: number) => void | null} */
-let triggerRamBoostRef = null;
-/** @type {((position: { x: number; y: number; z: number }, intensity: number, type?: string, opts?: object) => void) | null} */
-let spawnTrashBurstRef = null;
-/** @type {((intensity: number, isBoosting?: boolean) => void) | null} */
-let triggerLocalRamShakeRef = null;
-/** @type {((intensity: number, isBoosting?: boolean) => void) | null} */
-let triggerLocalHitTakenRef = null;
-/** @type {((cart: object, scene: object, neonHex: number) => void) | null} */
-let triggerCartShatterRef = triggerCartShatter;
-/** @type {string | null} */
-let pendingMidRoundJoinRespawnConnId = null;
 
 // === GAME LOOP ===
 
 async function main() {
-  /** @type {ReturnType<typeof runGameLoop> | null} */
-  let gameLoopDriver = null;
-
   installGlobalErrorReporting();
   // * FV-BOOT-1: HTML parse → module eval gap (bootStartTime is set inline in index.html).
   const moduleEvalMs = Math.round(performance.now());
@@ -423,9 +387,9 @@ async function main() {
   // * Audio UI pushes volume/mute changes into main()-owned objects; hud/leaderHum
   // * are assigned later in main(), so getters resolve lazily (null until then).
   initAudioControls({
-    getHud: () => hud,
+    getHud: () => gameRefs.hud,
     getAudioListener: () => audioListener,
-    getLeaderHum: () => leaderHum,
+    getLeaderHum: () => gameRefs.leaderHum,
   });
 
   // * Start music loading immediately via Howler — before scene/composer init blocks the main thread.
@@ -456,7 +420,7 @@ async function main() {
   // * Menu music is eager (preload + play request) so it can start as soon as the menu is up.
   // * Game playlist is URL-only until enter-play — avoids ~10 MB competing with menu.opus.
   AudioManager.loadMenuMusic(soundUrl("menu.opus"));
-  if (menuVisible) AudioManager.playMenuMusic();
+  if (gameRefs.menuVisible) AudioManager.playMenuMusic();
   // * Menu HTML loads before main; first gesture calls this to start menu music
   // * once Howler is wired (see cart-rave-menu.js pointerdown bridge). Also
   // * invoked best-effort at boot-splash dismiss — the resume() only succeeds
@@ -467,7 +431,7 @@ async function main() {
       // * shell's first-pointerdown hook can fire AFTER Solo/Quickplay already
       // * started level music — without this guard they called playMenuMusic()
       // * and the menu track bled into (or stole) the arena playlist.
-      if (!menuVisible) return;
+      if (!gameRefs.menuVisible) return;
       if (AudioManager.isGameMusicPlaying()) return;
       const ctx = audioListener.context;
       if (ctx.state === "suspended") ctx.resume().catch(() => {});
@@ -483,24 +447,22 @@ async function main() {
   /** @type {ReturnType<typeof createLevelOrchestration> | null} */
   let level = null;
   /** @type {() => void} */
-  let removePodiumSkipListeners = () => {};
-  /** @type {() => void} */
   let refreshMenuStats = () => {};
 
   const menu = createMenuPlayEntry({
     audioListener,
     soundUrl,
-    getMenuVisible: () => menuVisible,
-    setMenuVisible: (v) => { menuVisible = v; },
+    getMenuVisible: () => gameRefs.menuVisible,
+    setMenuVisible: (v) => { gameRefs.menuVisible = v; },
     getLabelRenderer: () => labelRenderer,
-    removePodiumSkipListeners: () => removePodiumSkipListeners(),
+    removePodiumSkipListeners: () => gameRefs.removePodiumSkipListeners(),
     refreshMenuStats: () => refreshMenuStats(),
     drainPendingArenaRotation: () => { void level?.drainPendingArenaRotation?.(); },
-    setJoinedViaTypedCode: (v) => { joinedViaTypedCode = v; },
-    getPendingColorChipEl: () => pendingColorChipEl,
-    setPendingColorChipEl: (v) => { pendingColorChipEl = v; },
-    setPendingColorKey: (v) => { pendingColorKey = v; },
-    setLocalColorPicked: (v) => { _localColorPicked = v; },
+    setJoinedViaTypedCode: (v) => { gameRefs.joinedViaTypedCode = v; },
+    getPendingColorChipEl: () => gameRefs.pendingColorChipEl,
+    setPendingColorChipEl: (v) => { gameRefs.pendingColorChipEl = v; },
+    setPendingColorKey: (v) => { gameRefs.pendingColorKey = v; },
+    setLocalColorPicked: (v) => { gameRefs._localColorPicked = v; },
   });
   const {
     prepareLevelMusic,
@@ -538,31 +500,31 @@ async function main() {
       setAllAudioMuted(!getIsMuted());
     },
     () => {
-      if (menuVisible) return;
+      if (gameRefs.menuVisible) return;
       if (GameState.getRoundState().phase !== "running") return;
-      attemptLocalHop();
+      gameRefs.cart?.attemptLocalHop();
     },
     () => {
-      if (menuVisible) return;
+      if (gameRefs.menuVisible) return;
       if (GameState.getRoundState().phase !== "running") return;
-      const cart = localCartForConnId();
+      const cart = gameRefs.cart?.localCartForConnId();
       if (!cart) return;
-      triggerRamBoost(cart, performance.now());
+      gameRefs.cart.triggerRamBoost(cart, performance.now());
     }
   );
 
   Input.setupTouchControls({
     onHop: () => {
-      if (menuVisible) return;
+      if (gameRefs.menuVisible) return;
       if (GameState.getRoundState().phase !== "running") return;
-      attemptLocalHop();
+      gameRefs.cart?.attemptLocalHop();
     },
     onBoost: () => {
-      if (menuVisible) return;
+      if (gameRefs.menuVisible) return;
       if (GameState.getRoundState().phase !== "running") return;
-      const cart = localCartForConnId();
+      const cart = gameRefs.cart?.localCartForConnId();
       if (!cart) return;
-      triggerRamBoost(cart, performance.now());
+      gameRefs.cart.triggerRamBoost(cart, performance.now());
     },
   });
 
@@ -649,7 +611,7 @@ async function main() {
   const scene = createScene();
 
   const { ramBoostStreaks } = Effects.initEffects(scene, { ramBoost: CONFIG.cart.ramBoost, cartColors: CART_COLORS });
-  spawnTrashBurstRef = Effects.spawnTrashBurst;
+  gameRefs.spawnTrashBurstRef = Effects.spawnTrashBurst;
 
   // * IBL PMREM bake deferred until after the menu is shown (see bootstrapWorldCore).
 
@@ -663,7 +625,7 @@ async function main() {
   camera.position.set(0, 6, 10);
   camera.lookAt(0, 0, 0);
 
-  triggerCartShatterRef = triggerCartShatter;
+  gameRefs.triggerCartShatterRef = triggerCartShatter;
 
 
   // * Living Cargo spill helpers (armSpillBoost / spillCountForCart) live in
@@ -679,144 +641,12 @@ async function main() {
   });
   const BASE_FOV = CONFIG.camera.fov;
 
-  // * Camera-follow scratch for the reconcile-smoothed pose (non-host prediction) — the
-  // * follow camera reads body pose + _reconcileVisOffset so it never sees reconcile snaps.
-  const _camReconPosScratch = { x: 0, y: 0, z: 0 };
-  const _camReconRotScratch = new THREE.Quaternion();
-  const _camReconYawScratch = new THREE.Quaternion();
-  const _camReconYAxis = new THREE.Vector3(0, 1, 0);
-
-  const audioSystem = initAudioSystem(audioListener, {
-    getSfxVolume,
-    getIsMuted,
-  });
-  if (!leaderHum) leaderHum = audioSystem.leaderHum;
-  // * Procedural stings (kill confirm, victory/defeat, sudden death, timer ticks,
-  // * challenge complete) share the leader-chime WebAudio path and volume gates.
-  SfxSynth.initSfxSynth(audioListener, { getSfxVolume, getIsMuted });
-
-  // * "The Store PA" announcer — voice/sting playback core, then the presentation-only
-  // * game-state observer that decides what to announce and when.
-  initAnnouncerStings(audioListener, { getSfxVolume, getIsMuted });
-  initAnnouncer({
-    getSfxVolume,
-    getIsMuted,
-    playSfx: (key) => AudioManager.playSfx(key),
-    stopSfx: (key, id) => AudioManager.stopSfx(key, id),
-    fadeOutSfx: (key, id, ms) => AudioManager.fadeOutSfx(key, id, ms),
-    getSfxDurationMs: (key) => AudioManager.getSfxDurationMs(key),
-    isVoiceEnabled: () => settingsStore.getState().announcerVoiceEnabled !== false,
-    isCalloutsEnabled: () => settingsStore.getState().announcerCalloutsEnabled !== false,
-    // * Mix: music dips under big PA moments so stings/voice cut through cleanly.
-    onAnnouncementPlays: (def, voiceMs) => {
-      // * Voiced events duck for the REAL clip length. Sting fallbacks keep the
-      // * sting-era estimates; focus (directive) sting ducks stay capped so music
-      // * doesn't sag through the whole 4s on-screen hold over a short sting.
-      const duckMs = voiceMs ?? (def.focus ? Math.min(def.durationMs, 1400) : def.durationMs);
-      if (def.cls === "critical") {
-        AudioManager.duckMusic(0.3, duckMs + 500);
-      } else if (def.cls === "high" || def.cls === "sequence") {
-        AudioManager.duckMusic(0.55, duckMs + 200);
-      }
-    },
-  });
-  initAnnouncerDirector({
-    announce,
-    getNetSlots: () => Netcode.getNetSlots(),
-    getLocalSlotIndex: () => Netcode.strictSlotIndexForConn(Netcode.getYouConnId()),
-    getRemainingRoundMs: () => {
-      const rs = GameState.getRoundState();
-      if (rs.phase !== "running" || rs.isSuddenDeath || !rs.startedAtMs) return null;
-      const durationMs = CONFIG.round?.durationMs ?? ROUND_DURATION_MS;
-      // * startedAtMs is host-stamped after countdown — use host clock offset (NET-CLK-1).
-      const adjusted = getRoundClockNowMs() - Netcode.getHostClockOffsetMs();
-      return durationMs - (adjusted - rs.startedAtMs);
-    },
-  });
-  // * Visual callout banner + aria-live region for announcer subtitles.
-  setAnnouncerPresenter(initAnnouncerDisplay());
-
-  // * The Living Store — the Store PA as game-master. Host schedules short directive
-  // * windows (Flash Sale, Double Bag, Express Lane, Spill Bonus), broadcasts them
-  // * one-shot over the DataChannel, and every peer applies/restores the same CONFIG
-  // * overrides locally. Ticked per frame from frameVisuals.
-  initDirectiveEngine({
-    getIsHost: () => Netcode.getIsHost(),
-    sendP2PEvent: (payload) => Netcode.sendP2PEvent(payload),
-    announce,
-    addScore: GameState.addScore,
-    getAllCarts: () => allCartsRef,
-    getLastHitBy: () => GameState.getLastHitBy(),
-    // * Host-local presentation; non-hosts get the same path via MSG.spillBonus.
-    onSpillBonusAward: (award) => cart.presentSpillBonusAward(award),
-  });
-
-
-  // * Register all SFX via Howler (pooled, spatial-ready). Opus is the single
-  // * shipped format — universal browser support, no Safari fallback needed.
-  AudioManager.registerSfx("cartCrash", [soundUrl("cart-crash.opus")], { pool: 4 });
-  AudioManager.registerSfx("death", [soundUrl("Death.opus")], { pool: 3 });
-  AudioManager.registerSfx("boost", [soundUrl("Boost.opus")], { pool: 3 });
-  AudioManager.registerSfx("hop", [soundUrl("Hop.opus")], { pool: 3 });
-  AudioManager.registerSfx("floor", [soundUrl("Floor.opus")], { pool: 3 });
-  AudioManager.registerSfx("chargeUp", [soundUrl("Charge_up.opus")], { pool: 2, loop: true });
-  AudioManager.registerSfx("countdown_3", [soundUrl("countdown_3.opus")], { pool: 1 });
-  AudioManager.registerSfx("countdown_2", [soundUrl("countdown_2.opus")], { pool: 1 });
-  AudioManager.registerSfx("countdown_1", [soundUrl("countdown_1.opus")], { pool: 1 });
-  AudioManager.registerSfx("countdown_go", [soundUrl("countdown_go.opus")], { pool: 1 });
-  // * Run-6: recorded hit-impact kill confirm (Wyatt-supplied). Rides the Howler bus —
-  // * the synth sting applied the SFX slider twice (listener gain × recipe vol) and
-  // * vanished at low sliders; file SFX apply it once.
-  AudioManager.registerSfx("killConfirm", [soundUrl("kill-confirm.opus")], { pool: 2 });
-  // * Optional drop-in: a recorded Sundial splash replaces the synth splash when
-  // * public/sounds/water-splash.opus exists. Registered only after a served-file
-  // * check — Howler has no clean "missing asset" fallback, and dev's SPA fallback
-  // * answers 200 text/html for missing paths (hence the content-type guard).
-  void fetch(soundUrl("water-splash.opus"), { method: "HEAD" })
-    .then((r) => {
-      if (r.ok && (r.headers.get("content-type") ?? "").includes("audio")) {
-        AudioManager.registerSfx("waterSplash", [soundUrl("water-splash.opus")], { pool: 3 });
-      }
-    })
-    .catch(() => {});
-  // * Arena ambience beds (crowd/hum/ocean/SD tension) — registered lazily
-  // * (preload:false): the loops only fetch at play entry, never during boot.
-  ArenaAmbience.initArenaAmbience(soundUrl);
-
-  // * "The Store PA" recorded voice pack (en) — Tier 1. Each key maps to
-  // * public/sounds/announcer/en/<key>.opus; the announcer manager picks a random
-  // * registered variant per event and falls back to stings for unrecorded events.
-  // * Recording/drop-in pipeline: docs/reference/announcer-recording-script.md.
-  const announcerVoiceKeysEn = expandAnnouncerVoiceKeys(ANNOUNCER_EVENTS);
-  for (const key of announcerVoiceKeysEn) {
-    AudioManager.registerSfx(`announcer_${key}`, [soundUrl(`announcer/en/${key}.opus`)], {
-      pool: 1,
-      // * 61 voice takes — skip boot fetch/decode (~1.7 MB network + large PCM) until
-      // * idle warm or first play (see prefetchSfxByPrefix + playSfx load-on-demand).
-      preload: false,
-    });
-  }
-  registerAnnouncerVoicePack({ locale: "en", availableKeys: announcerVoiceKeysEn });
-
   scene.add(audioListener);
 
   const { composer, bloomPass, arcadePass, fxaaPass, outputPass } = createComposer(renderer, scene, camera);
-  fxPass = arcadePass;
-  // * MAIN-1 Lever E: cart/juice API — assigned before roundLifecycle (arrows close over this).
-  /** @type {ReturnType<typeof createCartOrchestration> | null} */
-  let cart = null;
-  /** @type {() => any} Late-bound from createCartOrchestration (input/HUD wire before cart factory). */
-  let localCartForConnId = () => null;
-  /** @type {(slotIndex: number) => void} */
-  let teleportCartToSpawn = (_slotIndex) => {};
-  /** @type {(slots: unknown) => void} */
-  let updateCartMaterialsFromSlots = (_slots) => {};
-  /** @type {(slots: unknown) => void} */
-  let updateHudColorsFromSlots = (_slots) => {};
-  /** @type {(ctx: { renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera }) => void} */
-  let setSlotsWarmupCtx = (_ctx) => {};
-  if (!bloomEnabled && bloomPass) bloomPass.enabled = false;
-  if (!fxPassEnabled && fxPass) fxPass.enabled = false;
+  gameRefs.fxPass = arcadePass;
+  if (!gameRefs.bloomEnabled && bloomPass) bloomPass.enabled = false;
+  if (!gameRefs.fxPassEnabled && gameRefs.fxPass) gameRefs.fxPass.enabled = false;
   // * URL ablation / postmin — after user toggles so disabled flags still win for QA.
   applyPostFxAblation({ bloomPass, arcadePass, fxaaPass, outputPass });
 
@@ -831,15 +661,15 @@ async function main() {
     fxaaPass,
     outputPass,
     canvas,
-    getBloomEnabled: () => bloomEnabled,
-    getFxPassEnabled: () => fxPassEnabled,
-    getMenuVisible: () => menuVisible,
-    getAllCartsRef: () => allCartsRef,
-    getHud: () => hud,
+    getBloomEnabled: () => gameRefs.bloomEnabled,
+    getFxPassEnabled: () => gameRefs.fxPassEnabled,
+    getMenuVisible: () => gameRefs.menuVisible,
+    getAllCartsRef: () => gameRefs.allCartsRef,
+    getHud: () => gameRefs.hud,
     resolveCinematicCountdownOverrides,
     prepareLevelMusic,
     startLevelMusic,
-    stopAllChargeSfx: () => cart.stopAllChargeSfx(),
+    stopAllChargeSfx: () => gameRefs.cart?.stopAllChargeSfx(),
   });
   const {
     rebuildForQualityChange,
@@ -875,7 +705,7 @@ async function main() {
     renderer,
     composer,
     isWorldBootstrapped,
-    getMenuVisible: () => menuVisible,
+    getMenuVisible: () => gameRefs.menuVisible,
     getArenaRadius: () => CONFIG.record.radius,
     getLevelId: getCurrentLevelId,
     // * SHOOT-ANIM-1: the attract loop renders but ran no updates, so level animation
@@ -942,8 +772,8 @@ async function main() {
         // * branch untestable. It gates that one lever off in prod ?diag=1 builds.
         // * The rest are lazy getters — hud and allCartsRef are assigned later in main().
         isDev: Boolean(import.meta.env.DEV),
-        getHud: () => hud,
-        getAllCarts: () => allCartsRef,
+        getHud: () => gameRefs.hud,
+        getAllCarts: () => gameRefs.allCartsRef,
         colorHexForSlot: displayColorHexForSlot,
       });
     } catch (error) {
@@ -981,7 +811,6 @@ async function main() {
     }
   }
 
-  const fxTimer = new THREE.Timer();
 
   labelRenderer = new CSS2DRenderer();
   labelRenderer.setSize(window.innerWidth, window.innerHeight);
@@ -993,17 +822,11 @@ async function main() {
   // * (19990) and the HUD (20000) — countdown/SUDDEN DEATH banners, chips, and
   // * feed plates must never draw behind a nametag.
   labelRenderer.domElement.style.zIndex = "19985";
-  labelRenderer.domElement.style.display = menuVisible ? "none" : "block";
+  labelRenderer.domElement.style.display = gameRefs.menuVisible ? "none" : "block";
   document.body.appendChild(labelRenderer.domElement);
 
   CameraMod.initCameraFollow(camera, CONFIG.camera);
 
-  const cartLinvelScratch = new THREE.Vector3();
-  const cartAngvelScratch = new THREE.Vector3();
-  const netTargetPosScratch = new THREE.Vector3();
-  // * Booth neon mats keep authored per-booth hues; pulse reuses this Set so each
-  // * shared material is intensity-updated once per frame (not once per tube mesh).
-  const boothNeonMatsSeen = new Set();
   const fpsState = {
     frames: 0,
     last: performance.now(),
@@ -1080,295 +903,48 @@ async function main() {
     });
   };
 
-  hud = HUD.init({
-    getIsMuted,
-    setIsMuted: (val) => { setAllAudioMuted(val); },
-    getMusicGain: getMusicVolume,
-    setMusicGain: setMusicGainValue,
-    getSfxVolume,
-    setSfxVolume: setSfxSliderVolume,
-    getAudioVolumeMax: () => AUDIO_VOLUME_MAX,
-    getAudioVolumeDefault: () => AUDIO_VOLUME_DEFAULT,
-    getBloomEnabled: () => bloomEnabled,
-    setBloomEnabled: (val) => {
-      bloomEnabled = val;
-      settingsStore.getState().setBloomEnabled(val);
-    },
-    getFxPassEnabled: () => fxPassEnabled,
-    setFxPassEnabled: (val) => {
-      fxPassEnabled = val;
-      settingsStore.getState().setFxPassEnabled(val);
-    },
-    getBloomPass: () => bloomPass,
-    getFxPass: () => fxPass,
-    getLabelRenderer: () => labelRenderer,
-    getMenuVisible: () => menuVisible,
-    getPartySocket: () => Netcode.getPartySocket(),
-    getReadyToggleMsgType: () => MSG.readyToggle,
-    detectGameMode: () => Netcode.detectGameMode(),
-    getCART_COLORS: () => CART_COLORS,
-    getDefaultRoundMs: () => CONFIG.round.durationMs,
-    getHostStallMs: () => Netcode.getHostStallMs(),
-    getCountdownMs: () => CONFIG.round.countdownMs,
-    // * GO! moment — camera punch-in + whoosh as the countdown orbit hands back to follow.
-    onGoMoment: () => {
-      armFovPunch(10, 220);
-      SfxSynth.playGoWhoosh();
-    },
-    getLevelId: () => getCurrentLevelId(),
-    getIsTouchDevice: isTouchDevice,
-    // * Late-bind: createCartOrchestration assigns localCartForConnId after HUD.init, so
-    // * pass a wrapper (the idiom the input handlers already use) not the stub's value.
-    getLocalCart: () => localCartForConnId(),
-    getBoostChargeCfg: () => CONFIG.cart.ramBoost.boostCharge,
-    onEscOverlayChange: (open) => {
-      if (open) {
-        Input.setTouchControlsVisible(false);
-      } else {
-        updateTouchControlsVisibility();
-      }
-      // * Solo/testdrive: real pause (freeze sim + round clock). Online modes leave
-      // * authority running — host can't pause everyone from one client's ESC.
-      handleSoloPauseOverlay(open);
-    },
-    onQuitToMenu: () => gameSession.returnToMenu({ reason: "esc" }),
-    // * CHECKOUT LINE "LEAVE ROOM" rides the same teardown as the pause menu's
-    // * MAIN MENU — socket close + ?room= clear live there (no second path).
-    onLeaveRoom: () => gameSession.returnToMenu({ reason: "lobby-leave" }),
-    // * FRIENDS-JOIN-1: only a player who TYPED a code can be told to check it. The
-    // * room's creator waiting alone is the same observable state and must not see it.
-    joinedViaTypedCode: () => joinedViaTypedCode,
-    // * Pause-menu RESTART (solo/test-drive only): reuse the host solo re-entry
-    // * path — reset the world and re-run the countdown, no menu round-trip.
-    onRestart: () => onHostPlayAgainClick(),
-    onQualityTierChange: (tier) => handleQualityTierChange(tier),
-    getQualityTier,
-  });
-  const resultsUi = initResultsOverlay({
-    onMainMenuClick: () => {
-      podiumAutoContinue.clear();
-      gameSession.returnToMenu({ reason: "results" });
-    },
-  });
 
-  // * MAIN-1 Lever E: cart spawn/teardown, labels, boost/hop/ram, NPC, juice/FX.
-  function rewireSessionNetcodeRefs() {
-    wireNetcodeRuntimeRefs({
-      input,
-      setRefs: (refs) => Netcode.setRefs(refs),
-      getAllCartsRef: () => allCartsRef,
-      resetSimTimingRef: sessionRefs.resetSimTimingRef,
-      triggerRamBoost: (...args) => cart.triggerRamBoost(...args),
-      triggerHop: (...args) => cart.triggerHop(...args),
-      triggerCartShatter,
-      doRespawn: Entities.doRespawn,
-      assignLocalAxisRef: (axis) => { getAxisRef = axis; },
-      assignLocalRamBoostRef: (fn) => { triggerRamBoostRef = fn; },
-    });
-  }
-
-  cart = createCartOrchestration({
+  // * BUNDLE-1 Lever B: the whole game half of boot — audio/announcer/directives, HUD,
+  // * results overlay, cart + round + loop orchestration, level manager, play-entry
+  // * bootstrap, the netcode game-start handlers, the session bridge and the sim loop.
+  // * Still a plain static call; Lever C is what turns this into `await import()`.
+  // ! Must stay AHEAD of initMenu(): initMenu can synchronously take the `?room=`
+  // ! auto-enter branch into enterPlayMode(), which throws unless initBootstrap() (inside
+  // ! bootGameSystems) has already run. It also calls HUD.hideGameplayElements() and
+  // ! refs.removePodiumSkipListeners(), both wired in here.
+  bootGameSystems({
+    refs: gameRefs,
+    canvas,
     scene,
     camera,
-    getFxPass: () => fxPass,
-    getHud: () => hud,
+    renderer,
+    composer,
+    bloomPass,
+    arcadePass,
+    fxaaPass,
+    outputPass,
+    audioListener,
+    soundUrl,
     ramBoostStreaks,
-    getWorld: () => level.world,
-    getAllCartsRef: () => allCartsRef,
-    setAllCartsRef: (v) => { allCartsRef = v; },
-    getPendingMidRoundJoinRespawnConnId: () => pendingMidRoundJoinRespawnConnId,
-    setPendingMidRoundJoinRespawnConnId: (v) => { pendingMidRoundJoinRespawnConnId = v; },
-    helloGate,
+    labelRenderer,
+    input,
+    level,
+    gameCtx,
+    BASE_FOV,
+    fpsState,
+    podiumAutoContinue,
+    sessionBridgeCtx,
     sessionRefs,
-    gameCtx,
-    rewireSessionNetcodeRefs,
-    drainPendingArenaRotation: () => drainPendingArenaRotation(),
-    getSpawnTrashBurstRef: () => spawnTrashBurstRef,
-  });
-  const {
-    armFovPunch,
-    triggerLocalRamShake,
-    triggerLocalHitTaken,
-    squashCartsOnImpact,
-    onLocalKillConfirm,
-    onArenaKoFlash,
-    triggerSpillNetcode,
-    presentSpillBonusAward,
-    stopChargeSfxForCart,
-    stopAllChargeSfx,
-    scheduleRespawn,
-    scheduleStuckRespawn,
-    updateNameLabels,
-    positionNameLabels,
-    bootstrapSessionCarts,
-    destroySessionCarts,
-    getAiAxis,
-    triggerRamBoost,
-    onBoostRelease,
-    onBoostCancel,
-    attemptLocalHop,
-    triggerHop,
-    onHopLand,
-    maybeTriggerNpcOpportunisticRamBoost,
-    maybeTriggerNpcOpportunisticHop,
-    localCartForConnId: localCartForConnIdBound,
-    teleportCartToSpawn: teleportCartToSpawnBound,
-    updateCartMaterialsFromSlots: updateCartMaterialsFromSlotsBound,
-    updateHudColorsFromSlots: updateHudColorsFromSlotsBound,
-    setSlotsWarmupCtx: setSlotsWarmupCtxBound,
-  } = cart;
-  localCartForConnId = localCartForConnIdBound;
-  teleportCartToSpawn = teleportCartToSpawnBound;
-  updateCartMaterialsFromSlots = updateCartMaterialsFromSlotsBound;
-  updateHudColorsFromSlots = updateHudColorsFromSlotsBound;
-  setSlotsWarmupCtx = setSlotsWarmupCtxBound;
-  setSlotsWarmupCtx({ renderer, scene, camera });
-  triggerLocalRamShakeRef = triggerLocalRamShake;
-  triggerLocalHitTakenRef = triggerLocalHitTaken;
-
-  // * MAIN-1 Lever F: host-tab pump + loop phase deps (attachPhaseDeps later).
-  const loop = createLoopDeps({
-    getGameLoopDriver: () => gameLoopDriver,
-  });
-
-  // * MAIN-1 Lever D: countdown → running → podium → rematch lives in roundLifecycle.
-  const round = createRoundLifecycle({
-    camera,
-    gameCtx,
-    teleportCartToSpawn,
-    getAllCartsRef: () => allCartsRef,
-    getHud: () => hud,
-    getResultsUi: () => resultsUi,
-    getMatchHistory: () => matchHistory,
-    getIsNewPersonalBest: () => isNewPersonalBest,
-    setIsNewPersonalBest: (v) => { isNewPersonalBest = v; },
-    localCartForConnId,
-    refreshHiddenHostLifecycle: () => loop.refreshHiddenHostLifecycle(),
-    updateTouchControlsVisibility: () => updateTouchControlsVisibility(),
-    stopAllChargeSfx,
-    stopChargeSfxForCart,
-    getArenaRotationInFlight: () => level.arenaRotationInFlight,
-    pickNextQuickplayArenaId: () => pickNextQuickplayArenaId(),
-    rotateLoadedArenaInPlace: (id) => rotateLoadedArenaInPlace(id),
-    setPendingMidRoundJoinRespawnConnId: (v) => { pendingMidRoundJoinRespawnConnId = v; },
-  });
-  const {
-    beginRoundFlyover,
-    recordPodiumStats,
-    getWinnerWorldPos,
-    beginPodiumPresentation,
-    clearPodiumPresentation,
-    updateResultsOverlay,
-    startRunningAt,
-    clearRoundCountdownTimeout,
-    startCountdown,
-    resumeCountdownAsNewHost,
-    ensureSuddenDeathStateAsNewHost,
-    cancelLastCartStandingFinish,
-    abortLastCartStandingFlourish,
-    scheduleLastCartStandingFinish,
-    endRound,
-    clearAutoContinuePodiumTimeout,
-    handleSoloPauseOverlay,
-    onHostPlayAgainClick,
-    clearPodiumRoundTimeout,
-    resetResultsOverlayKey,
-    resetPodiumSessionState,
-    getSoloPauseStartedAtMs,
-    setAutoContinuePodiumKey,
-    removePodiumSkipListeners: removePodiumSkipFromRound,
-    wirePodiumAutoContinueClear,
-  } = round;
-  removePodiumSkipListeners = removePodiumSkipFromRound;
-  wirePodiumAutoContinueClear(podiumAutoContinue);
-
-
-  // * Challenge-complete feedback — toast + sparkle the moment a challenge crosses
-  // * its goal. Detects rising isComplete edges across daily + weekly lists.
-  const collectCompletedChallengeIds = (state) => {
-    const ids = new Set();
-    for (const ch of [...(state.dailyChallenges || []), ...(state.weeklyChallenges || [])]) {
-      if (ch?.isComplete) ids.add(ch.id);
-    }
-    return ids;
-  };
-  // * Mid-match unlock acknowledgment — the menu already toasts unlocks, but grants
-  // * fire during play (via the KO challenge reactor) where the menu toast is
-  // * invisible. Route them through the in-game HUD toast too.
-  onUnlockGranted((msg) => {
-    // * Unlocks are rare and precious: hold the stage 5s and outrank announcer
-    // * callouts (priority 4 > 3) so the KO line that lands on the same frame queues
-    // * behind the unlock instead of preempting it off-screen unread.
-    if (!menuVisible) hud?.showChallengeToast?.(msg, "◆ UNLOCKED", { durationMs: 5000, priority: STAGE_PRIORITY.CRITICAL });
-  });
-
-  let prevCompletedChallengeIds = collectCompletedChallengeIds(challengeStore.getState());
-  challengeStore.subscribe((state) => {
-    const completed = collectCompletedChallengeIds(state);
-    for (const id of completed) {
-      if (!prevCompletedChallengeIds.has(id)) {
-        const meta = CHALLENGE_POOL.find((c) => c.id === id);
-        const title = meta?.title ?? "CHALLENGE";
-        hud?.showChallengeToast?.(title);
-        SfxSynth.playChallengeComplete();
-        // * The Store PA shouts it out too (callout + future voice line; no sting —
-        // * the sparkle above is the completion audio).
-        announce("challenge_complete", { title });
-      }
-    }
-    prevCompletedChallengeIds = completed;
-  });
-
-  initLevelManager({
-    getMenuVisible: () => menuVisible,
-    getAllCartsRef: () => allCartsRef,
-    isWorldBootstrapped,
-    getWorld: () => level.world,
-    ensureWorldBootstrapped,
-    performLevelLoad: (selected, opts) => commitLevelLoad(selected, opts),
-    onPreviewSwapComplete: (levelId) => {
-      const wantsExtras = levelId !== "backrooms" && levelId !== "testArena";
-      Effects.setRaveExtrasVisible(wantsExtras);
-      // * Pair the re-show with the tier pass, same as the two other call sites — a bare
-      // * setRaveExtrasVisible(true) re-shows everything the tier (and ?ablate=) had cut.
-      if (wantsExtras) Effects.applyRaveExtrasQuality(getQualityKnobs());
-    },
-    finalizeArenaForPlay,
-    finalizeArenaShellForMenu,
-    crossfadeElement,
-    getCanvas: () => canvas,
-    maskMenuPreviewSwap,
-    warmupAfterLevelSwap: (opts) => warmupActiveSceneShaders(opts),
-  });
-
-  initBootstrap({
-    detectGameMode: () => Netcode.detectGameMode(),
-    getMenuVisible: () => menuVisible,
+    helloGate,
+    gameSession,
+    flushPendingSessionBootstrap,
+    markFirstHelloReceived,
+    initialNpcNames,
+    updateTouchControlsVisibility,
+    initMenu,
     commitMenuHiddenForGame,
-    stopMenuMusicForPlay: () => AudioManager.stopMenuMusic(),
-    getLoadedLevelId: getCurrentLevelId,
-    getSelectedLevelId: () => resolveLevelId(storageGet(LEVEL_STORAGE_KEY)),
-    cancelMenuPreviewTimers,
-    getMenuLevelPreviewPromise,
-    getLevelRebuildPromise,
-    getMenuPreviewNeedsFinalize,
-    getPreviewNeedsFullRebuild,
-    rebuildLevelIfNeeded: (levelId, onProgress) => rebuildLevelIfNeeded(levelId, onProgress),
-    finalizeArenaForPlay: finalizeArenaForPlayEntry,
-    consumeRaveJuiceJustBuilt,
-    warmupBeforeRoundStart: (opts) =>
-      warmupActiveSceneShaders({
-        forPlay: true,
-        // * Juice-first-build overrides blanket warm: short budget assumed programs
-        // * already live (false the first time lasers/billboard exist).
-        warm: opts?.warm === true && opts?.juiceFresh !== true,
-        juiceFresh: opts?.juiceFresh === true,
-      }),
-    ensureRapierPhysics: () => ensureRapierPhysics(),
-    bootstrapWorldCore: (levelIdOverride) => bootstrapWorldCore(levelIdOverride),
-    getHelloGate: () => /** @type {any} */ (helloGate),
-    getAllCartsRef: () => allCartsRef,
-    bootstrapSessionCarts,
+    handleQualityTierChange,
+    handleAutoQualityStepDown,
   });
 
   wireMenuAudioControlsOnce();
@@ -1376,18 +952,12 @@ async function main() {
   initMenu();
 
 
-  // --- Quickplay arena rotation gens (round lifecycle; rotation impl is in levelOrchestration) ---
-  /** Invalidation token for deferred non-host countdown application (see onGameStartHandler). */
-  let nonHostCountdownApplyGen = 0;
-  /** Cap-200: invalidation token for deferred host-MP countdown (continuous-mode seat arm). */
-  let hostMpCountdownDeferGen = 0;
-
   window.addEventListener("cartrave:level-changed", () => {
     scheduleMenuLevelPreview();
     // * BOOT-PERF-1: retarget in-flight idle warm when the picker moves. Pre-start
     // * (still in the 1.8s delay) does not need this — runWarm reads storage at fire.
     if (
-      menuVisible
+      gameRefs.menuVisible
       && !isWorldBootstrapped()
       && !isIdleWorldWarmSuppressed()
       && isWorldBootstrapInFlight()
@@ -1396,910 +966,17 @@ async function main() {
     }
   });
 
-  // * Bridges the server-driven game-start signal into main()'s nested functions.
-  // * Round start/countdown handlers live here; initNetcode invokes them via callbacks.
-  onGameStartHandler = (msg) => {
-    window.dispatchEvent(new CustomEvent("cartrave:round-started"));
-    if (menuVisible) enterPlayMode({ skipBootstrap: true });
-    showRotatePromptIfNeeded();
-    if (Netcode.detectGameMode() === "testdrive") {
-      if (Netcode.getIsHost()) {
-        startRunningAt(getRoundClockNowMs());
-      } else {
-        GameState.syncRoundPhase("running");
-        GameState.setRoundStartedAtMs(getRoundClockNowMs());
-        GameState.setRoundScores({ 0: 0, 1: 0, 2: 0, 3: 0 });
-        GameState.setRoundWinnerSlotIndex(null);
-        CameraMod.endCinematicCountdown(camera);
-      }
-      return;
-    }
-    const serverStartsAtMs = Number(msg?.startsAtMs);
-    const partyServerNowMs = Number(msg?.serverNowMs);
-    // * startsAtMs is Party/Worker time (NET-CLK-1). Prefer same-message delta so the
-    // * countdown does not wait for 3 EWMA samples; fall back to Party offset EWMA.
-    // * Host P2P offset is for snapshot interp / host-stamped startedAtMs only.
-    let startsAtLocalMs;
-    if (Number.isFinite(serverStartsAtMs) && Number.isFinite(partyServerNowMs)) {
-      startsAtLocalMs = getRoundClockNowMs() + (serverStartsAtMs - partyServerNowMs);
-    } else if (Number.isFinite(serverStartsAtMs)) {
-      startsAtLocalMs = serverStartsAtMs + Netcode.getPartyClockOffsetMs();
-    } else {
-      startsAtLocalMs = getRoundClockNowMs() + CONFIG.round.countdownMs;
-    }
-    if (Netcode.getIsHost()) {
-      if (Netcode.detectGameMode() === "solo") {
-        // * Solo is offline and host-timed: the game-start fires the moment carts are
-        // * ready, which is still *inside* the mode-entry loading overlay (720ms floor +
-        // * fade left to run). Starting the countdown here ticks ~1s of the 3s clock and
-        // * the fly-over reveal behind the loading screen. Hold until the overlay is gone
-        // * so loading truly ends before the round starts. MP stays server-timed (below).
-        soloCountdownDeferGen += 1;
-        const deferGen = soloCountdownDeferGen;
-        void whenModeEntryHidden().then(() => {
-          // * Superseded by a newer solo entry (double game-start, or quit→restart before
-          // * this waiter flushed) — the newer defer owns the countdown.
-          if (deferGen !== soloCountdownDeferGen) return;
-          // * A failed bootstrap can bounce to the menu while this defer is pending —
-          // * never start a countdown behind the menu.
-          if (menuVisible) return;
-          if (GameState.getRoundState().phase === "running") return;
-          // * CAM-OPEN-1: hold the arena on screen for SOLO_FLYOVER_PREROLL_MS before the
-          // * 3-2-1, so the opening orbit is a look at the place rather than a swing-past
-          // * behind digits. Carts go to spawn first — a solo RESTART re-enters here with
-          // * them scattered, and the fly-over should show the round's tableau.
-          // * startCountdown teleports again 2s later; nothing moves in between (no input,
-          // * no AI before countdown), so the second pass is a no-op, not a pop.
-          // * SOLO ONLY — MP has its own pre-roll (CAM-PT-MP-1) driven by the server's
-          // * absolute anchor (startsAtMs = FLYOVER_PREROLL_MS + COUNTDOWN_MS), shared by
-          // * every client. Delaying one client's countdown locally would still be the
-          // * reverted host-countdown gate (c8df8fd); shifting the shared anchor is not.
-          if (Array.isArray(allCartsRef)) {
-            for (let i = 0; i < allCartsRef.length; i += 1) teleportCartToSpawn(i);
-          }
-          beginRoundFlyover();
-          // * CAM-READY-1: pulse GET READY through the 2s hold so it is not dead air.
-          // * Countdown digits use stamp key count-n — handoff without double-stamp mess.
-          HUD.showReadyHold();
-          setTimeout(() => {
-            // * Same three guards: the pre-roll widens the window in which a quit, a
-            // * restart or a bootstrap bounce can land. onCountdownCancelledRef and
-            // * resetRoundState both bump soloCountdownDeferGen, so either kills this.
-            if (deferGen !== soloCountdownDeferGen) return;
-            if (menuVisible) return;
-            if (GameState.getRoundState().phase === "running") return;
-            // * Drop pulse class before digits; startCountdown path rebuilds the banner.
-            HUD.clearReadyHold();
-            startCountdown(getRoundClockNowMs() + CONFIG.round.countdownMs);
-          }, SOLO_FLYOVER_PREROLL_MS);
-        });
-      } else {
-        // * Cap-200 / Cap-59 sibling: continuous-mode arms game_start at seat while
-        // * play-entry load is still up. Keep absolute startsAtLocalMs; defer apply
-        // * until overlay + carts/shader warm so 3-2-1 is visible (or GO if past).
-        hostMpCountdownDeferGen += 1;
-        const deferGen = hostMpCountdownDeferGen;
-        const starts = startsAtLocalMs;
-        void (async () => {
-          try {
-            await whenModeEntryHidden();
-            if (deferGen !== hostMpCountdownDeferGen) return;
-            await ensureSessionCartsReady();
-          } catch (err) {
-            console.warn("[CartClash] host MP countdown gate failed:", err);
-          }
-          if (deferGen !== hostMpCountdownDeferGen) return;
-          if (menuVisible) return; // quit during wait
-          const phase = GameState.getRoundState().phase;
-          if (phase === "running" || phase === "countdown") return;
-          const now = getRoundClockNowMs();
-          if (now >= starts) {
-            // * Cap-200: past-start — startRunningAt(starts) anchors host clock at absolute
-            // * starts (peer of non-host GameState.syncRoundPhase("running")+setRoundStartedAtMs).
-            // * Do not call startCountdown(starts) here.
-            startRunningAt(starts);
-            HUD.triggerGoBeat({ resetGate: true });
-          } else if (starts - now > CONFIG.round.countdownMs) {
-            // * CAM-PT-MP-1: the server anchored starts at FLYOVER_PREROLL_MS + COUNTDOWN_MS,
-            // * so everything before T−countdownMs is opening-orbit time. Hold the arena here
-            // * exactly like solo, then hand off to the digits at T−countdownMs. The anchor is
-            // * absolute and identical on every client, so this shifts nobody's GO relative to
-            // * their peers — it is NOT the reverted per-client host gate (c8df8fd). A client
-            // * whose load gates settle late simply lands in the `else` with a shorter (or no)
-            // * hold; the countdown still starts at the same wall-clock instant.
-            // * Carts to spawn first so the fly-over frames the round's tableau (solo parity);
-            // * startCountdown teleports again at fire time — a no-op, nothing moves before
-            // * the countdown (no input, no AI).
-            if (Array.isArray(allCartsRef)) {
-              for (let i = 0; i < allCartsRef.length; i += 1) teleportCartToSpawn(i);
-            }
-            beginRoundFlyover();
-            HUD.showReadyHold();
-            // * Phase stays lobby through the hold, so a server countdownCancel has no
-            // * countdown to clean up — netcode routes on this flag instead.
-            hostMpHoldPending = true;
-            setTimeout(() => {
-              // * Same guards as the outer gate: the pre-roll widens the window a quit,
-              // * cancel or bootstrap bounce can land in. onCountdownCancelledRef and
-              // * resetRoundState both bump hostMpCountdownDeferGen, so either kills this.
-              if (deferGen !== hostMpCountdownDeferGen) return;
-              hostMpHoldPending = false;
-              if (menuVisible) return;
-              const holdPhase = GameState.getRoundState().phase;
-              if (holdPhase === "running" || holdPhase === "countdown") return;
-              HUD.clearReadyHold();
-              startCountdown(starts);
-            }, starts - CONFIG.round.countdownMs - now);
-          } else {
-            startCountdown(starts);
-          }
-        })();
-      }
-    } else if (GameState.getRoundState().phase !== "running") {
-      // * Menu re-entry at a rematch can land game_start while the room's arena rotation
-      // * is still pending/in flight locally (the drain no-ops behind the menu, then runs
-      // * at play-entry). Applying the countdown immediately froze it mid-digits behind
-      // * the swap's synchronous work and burst-replayed 1/GO seconds late (07-17 run 2
-      // * "countdown was notably wonky"). Defer until the swap settles.
-      // *
-      // * Cap-59: also wait for ensureSessionCartsReady (carts + play-shader warm).
-      // * Joiner game_start during play-entry applied countdown mid-compile → ~60s
-      // * longframe on Intel/Firefox and ate the 3-2-1. If the server start time has
-      // * already passed, drop straight into running — host_round(running) reconciles.
-      nonHostCountdownApplyGen += 1;
-      const applyGen = nonHostCountdownApplyGen;
-      nonHostCountdownApplyPending = true;
-      void (async () => {
-        try {
-          await whenArenaRotationSettled();
-          if (applyGen !== nonHostCountdownApplyGen) return;
-          await ensureSessionCartsReady();
-        } catch (err) {
-          console.warn("[CartRave] non-host countdown gate failed:", err);
-        }
-        if (applyGen !== nonHostCountdownApplyGen) return;
-        if (GameState.getRoundState().phase === "running") {
-          nonHostCountdownApplyPending = false;
-          return;
-        }
-        // * CAM-PT-MP-1: stamps happen at CALL time, so the pre-roll path below stamps the
-        // * countdown anchor at T−countdownMs rather than at hold-arm — HUD digit pacing
-        // * (hud.js countdownMs/3) reads the same window the host and server agreed on.
-        const stampRoundEntry = () => {
-          resetMatchStats();
-          setMatchStatsLocalSlot(Netcode.strictSlotIndexForConn(Netcode.getYouConnId()));
-          // * Stores the countdown anchor in the host clock domain used by HUD adjustedNow().
-          GameState.setRoundCountdownStartedAtMs(getRoundClockNowMs() - Netcode.getHostClockOffsetMs());
-          GameState.setRoundScores({ 0: 0, 1: 0, 2: 0, 3: 0 });
-          GameState.setRoundWinnerSlotIndex(null);
-        };
-        const enterCountdownPhase = () => {
-          // * host_round may already have stamped countdown clocks while we held phase;
-          // * still enter countdown now that the scene can take it.
-          if (GameState.getRoundState().phase !== "countdown") {
-            GameState.syncRoundPhase("countdown");
-          }
-          GameState.setRoundStartedAtMs(0);
-        };
-        const now = getRoundClockNowMs();
-        if (now >= startsAtLocalMs) {
-          // * Cancel while we waited left phase lobby and bumped applyGen — if gen still
-          // * matches we're the live arm.
-          nonHostCountdownApplyPending = false;
-          stampRoundEntry();
-          GameState.syncRoundPhase("running");
-          GameState.setRoundStartedAtMs(startsAtLocalMs);
-          CameraMod.endCinematicCountdown(camera);
-          // * Server start time already passed (high-latency apply / arena-rotation
-          // * defer): the HUD's countdown→running flip never happens, so without this
-          // * the player gains control with no GO! flash, VO, or FOV punch.
-          HUD.triggerGoBeat({ resetGate: true });
-        } else if (startsAtLocalMs - now > CONFIG.round.countdownMs) {
-          // * CAM-PT-MP-1: opening-orbit pre-roll (server anchored starts at
-          // * FLYOVER_PREROLL_MS + COUNTDOWN_MS). Show the arena + GET READY here, hand
-          // * off to the digits at T−countdownMs — the same absolute instant on every
-          // * client, so this is not a per-client countdown delay (c8df8fd).
-          // * nonHostCountdownApplyPending STAYS true across the hold: it is what routes a
-          // * mid-hold room abort (host_round lobby→lobby, or countdownCancel) into
-          // * onCountdownCancelled while our local phase is still lobby.
-          beginRoundFlyover();
-          HUD.showReadyHold();
-          setTimeout(() => {
-            if (applyGen !== nonHostCountdownApplyGen) return;
-            nonHostCountdownApplyPending = false;
-            HUD.clearReadyHold();
-            if (GameState.getRoundState().phase === "running") return;
-            stampRoundEntry();
-            enterCountdownPhase();
-          }, startsAtLocalMs - CONFIG.round.countdownMs - now);
-        } else {
-          nonHostCountdownApplyPending = false;
-          stampRoundEntry();
-          enterCountdownPhase();
-          beginRoundFlyover();
-        }
-      })();
-    }
-  };
-
-  // --- Carts, labels, gameplay helpers ---
-  sessionRefs.respawnLocalMidRoundJoinRef.current = () => {
-    const localConnId = Netcode.getYouConnId();
-    if (!localConnId || pendingMidRoundJoinRespawnConnId !== localConnId) return;
-    if (GameState.getRoundState().phase !== "running") return;
-    // * Mid-round joins take over NPC in place. DO NOT call doRespawn().
-    pendingMidRoundJoinRespawnConnId = null;
-  };
-
-
-
-  if (!customizationChangeListenerWired) {
-    customizationChangeListenerWired = true;
-    window.addEventListener("cartrave:customization-changed", () => {
-      const slots = Netcode.getNetSlots();
-      Netcode.syncLocalSlotLookHex();
-      Netcode.syncCartLookToServer();
-      updateCartMaterialsFromSlots(slots);
-      updateHudColorsFromSlots(slots);
-      sessionRefs.updateNameLabelsRef.current?.();
-    });
-  }
-
-  sessionBridgeCtx.current = buildSessionBridgeContext({
-    palette: PALETTE,
-    initialNpcNames,
-    detectGameMode: () => Netcode.detectGameMode(),
-    markFirstHelloReceived,
-    getOnGameStartHandler: () => onGameStartHandler,
-    getOnHostMigratedHandler: () => onHostMigratedHandler,
-    onCountdownCancelled: () => { onCountdownCancelledRef?.(); },
-    endCinematicCountdown: () => { CameraMod.endCinematicCountdown(camera); },
-    // * Cap-59: netcode holds host_round countdown phase until carts/shaders ready.
-    // * WARM-IGPU-1 Lever A: an in-flight arena rotation ALSO means "not play ready". Its
-    // * warm pass (`warm.render.default.play-full`, rotateLoadedArenaInPlace below) runs a
-    // * full-budget compile with no loading overlay; carts already exist and no cart
-    // * bootstrap is pending, so isSessionCartsReady() alone reported ready and the server
-    // * could arm game_start while that compile was still running — the 07-21 forensics'
-    // * countdown overlap. Withholding clientPlayReady moves the cost BEFORE the countdown
-    // * arms; it never delays a countdown already armed (that was the reverted `c8df8fd`).
-    // * Server-side PLAY_READY_TIMEOUT_MS (12s) remains the backstop, and the rotation's
-    // * finally re-signals immediately so we never actually wait on it.
-    isSessionPlayReady: () => isSessionCartsReady() && !level.arenaRotationInFlight,
-    hasPendingNonHostCountdownApply: () => nonHostCountdownApplyPending,
-    // * CAM-PT-MP-1: host-side peer of the above — true only during the opening-orbit hold.
-    hasPendingHostMpHold: () => hostMpHoldPending,
-    getMenuVisible: () => menuVisible,
-    invokeHideMenu: () => {
-      void enterPlayMode({
-        commitMenuHidden: true,
-        skipBootstrap: isWorldBootstrapped(),
-      });
-    },
-    updateCartMaterialsFromSlots,
-    updateHudColorsFromSlots,
-    updateNameLabelsRef: sessionRefs.updateNameLabelsRef,
-    getNameLabelUpdatePending: () => nameLabelUpdatePending,
-    setNameLabelUpdatePending: (val) => { nameLabelUpdatePending = val; },
-    respawnLocalMidRoundJoinRef: sessionRefs.respawnLocalMidRoundJoinRef,
-    getPlayCollisionRef: () => (intensity, opts) => AudioManager.playCartCrash(intensity, opts),
-    getSfx: () => ({ playFloorImpact: (i = 0.5) => AudioManager.playSfx("floor", undefined, { volume: 0.45 + Math.min(Math.max(i, 0), 1) * 0.55 }), playEdgeImpact: (i = 0.5) => AudioManager.playSfx("floor", undefined, { volume: 0.45 + Math.min(Math.max(i, 0), 1) * 0.55 }) }),
-    getSpawnTrashBurstRef: () => spawnTrashBurstRef,
-    getTriggerLocalRamShake: () => triggerLocalRamShakeRef,
-    getTriggerLocalHitTaken: () => triggerLocalHitTakenRef,
-    onRemoteBoostStart: (cart) => {
-      AudioManager.playSfx("boost", undefined, { volume: 0.45 });
-      if (cart?.mesh) animateCartBoostPulse(cart.mesh);
-      // * Humans use charge-release (gold energy); NPCs use instant (simple cart trail).
-      const kind = Netcode.getNetSlots()?.[cart?.slotIndex]?.kind;
-      if (cart) {
-        const charged = kind !== "npc";
-        cart.nitroStreakCharged = charged;
-        // * Remotes don't carry chargeMul — full charged look for human peers.
-        cart.boostChargeMultiplier = charged ? 1 : 0;
-      }
-    },
-    onCartImpactSquash: squashCartsOnImpact,
-    // * MP-FX-1: netcode applyCartState remote hop-land → same onHopLand as host sim.
-    onHopLand,
-    // * Non-host own-death teardown (netcode processHostFallEvent) — same helper the
-    // * host-side scheduleRespawn uses, so the chargeUp loop can't outlive the cart.
-    stopChargeSfxForCart: (c) => cart.stopChargeSfxForCart(c),
-    getTriggerCartShatterRef: () => triggerCartShatterRef,
-    getScene: () => scene,
-    getSceneRef: () => scene,
-    getHud: () => hud,
-    onLocalKillConfirm,
-    onArenaKoFlash,
-    onAnnouncerFall: announcerDirectorOnFall,
-    onSpillBonusPresentation: presentSpillBonusAward,
-    colorHexForSlot: displayColorHexForSlot,
-    getPendingColorKey: () => pendingColorKey,
-    getPendingColorChipEl: () => pendingColorChipEl,
-    setPendingColorKey: (val) => { pendingColorKey = val; },
-    setPendingColorChipEl: (val) => { pendingColorChipEl = val; },
-    getLocalColorPicked: () => _localColorPicked,
-    setLocalColorPicked: (val) => { _localColorPicked = val; },
-    recordPodiumStats,
-    onReturnToLobby: () => {
-      clearPodiumPresentation();
-      // * Mid-round exits can reach lobby without passing endRound/onEnterPodium; stop
-      // * charge loops before rematchResetWorld nulls chargeUpSfxId (orphaning the sound).
-      stopAllChargeSfx();
-      clearPodiumEndLatch();
-      Netcode.resetClientPredictionState();
-      Entities.rematchResetWorld();
-      GameState.setRoundEndReason(null);
-      cleanupSuddenDeathState(allCartsRef || []);
-    },
-    onEnterPodium: () => {
-      // * Non-host clients end the round via this phase watcher, not endRound() —
-      // * stop a held charge loop here too or it plays through the podium.
-      stopAllChargeSfx();
-      HUD.clearFeed();
-      beginPodiumPresentation();
-    },
-    // * Room level changed mid-session (Quickplay rotation) or landed on hello during
-    // * a joiner's play-entry. If rotateLoadedArenaInPlace can't run yet (menu still
-    // * visible, world not bootstrapped, or carts not built) we latch the target and
-    // * drainPendingArenaRotation retries once bootstrapSessionCarts finishes — without
-    // * that latch a joiner would strand on their own local menu pick while the room
-    // * plays a different arena.
-    onLevelIdChanged: (levelId) => {
-      level.pendingArenaRotationLevelId = levelId;
-      void drainPendingArenaRotation();
-    },
-    onPodiumRejected: () => {
-      // * Server nack'd host_round (or reasserted running). Undo optimistic podium UI.
-      clearPodiumPresentation();
-      resetResultsOverlayKey();
-      if (resultsUi?.overlay) {
-        animateResultsDismiss(resultsUi.overlay, resultsUi.panel);
-      }
-      cancelLastCartStandingFinish?.();
-      setAutoContinuePodiumKey(null);
-      clearAutoContinuePodiumTimeout?.();
-      // * ROUND-WEDGE-1 Phase B: host-only arm. Joiners must not own latch state;
-      // * netcode fires this callback without an isHost gate.
-      if (Netcode.getIsHost()) {
-        const startedAtMs = GameState.getRoundState().startedAtMs;
-        const nowMs = getRoundClockNowMs();
-        const result = onPodiumEndRejected(startedAtMs, nowMs);
-        if (result.action === "hard-stop" && consumeHardStopDiag(startedAtMs)) {
-          recordDiagEvent("round", "podium-end-latched", {
-            startedAtMs,
-            sends: result.sends ?? null,
-          });
-        }
-      }
-    },
-    teleportCartToSpawn,
-    getPendingMidRoundJoinRespawnConnId: () => pendingMidRoundJoinRespawnConnId,
-    setPendingMidRoundJoinRespawnConnId: (val) => { pendingMidRoundJoinRespawnConnId = val; },
-    ensureSessionReady: () => ensureSessionCartsReady(),
-    destroySessionCarts,
-    disconnectNetcode: () => Netcode.disconnectPartySession(),
-    dismissLoadingOverlays: () => dismissAllLoadingOverlays(),
-    initMenu,
-    resetRoundState: () => {
-      GameState.resetRoundToLobby();
-      clearPodiumEndLatch();
-      clearPodiumPresentation();
-      CameraMod.endCinematicCountdown(camera);
-      // * CAM-OPEN-1: this is the quit funnel (returnToMenu → teardownGameSession →
-      // * here). It already ended the cinematic; what it never did was invalidate a
-      // * pending solo defer, which now owns a 2s pre-roll timeout that would otherwise
-      // * start a countdown after the player is back on the menu.
-      soloCountdownDeferGen += 1;
-      // * CAM-PT-MP-1: the MP pre-roll holds are pre-phase timeouts too — quit mid-hold
-      // * must not start a countdown behind the menu. Cancel alone does not cover quit.
-      hostMpCountdownDeferGen += 1;
-      hostMpHoldPending = false;
-      nonHostCountdownApplyGen += 1;
-      nonHostCountdownApplyPending = false;
-      // * CAM-READY-1: no stuck GET READY after quit mid-hold.
-      HUD.clearReadyHold();
-    },
-    hideEscOverlay: () => HUD.hideEscOverlay(),
-    resetSessionPickState: () => {
-      _localColorPicked = false;
-      pendingColorKey = null;
-      pendingColorChipEl?.classList.remove("color-pending");
-      pendingColorChipEl = null;
-      pendingMidRoundJoinRespawnConnId = null;
-    },
-    resetSessionHelloGate: () => helloGate.reset(),
-    resetNameLabelBridge: () => sessionRefs.clearSessionCallbackRefs(),
-    cancelNameLabelUpdatePending: () => {
-      if (nameLabelUpdatePending != null) {
-        cancelAnimationFrame(nameLabelUpdatePending);
-        nameLabelUpdatePending = null;
-      }
-    },
-    clearNetcodeRuntimeRefs: () => {
-      getAxisRef = null;
-      Netcode.setRefs({
-        getAllCartsRef: () => allCartsRef,
-        getAxisRef: null,
-        triggerRamBoostRef: null,
-        triggerHopRef: null,
-        resetSimTimingRef: sessionRefs.resetSimTimingRef,
-      });
-    },
-    // * Teardown patch — bound methods from createRoundLifecycle (Lever D).
-    clearRoundCountdownTimeout,
-    clearAutoContinuePodiumTimeout,
-    clearPodiumRoundTimeout,
-    resetSlowMo: () => { gameCtx.slowMo.active = false; },
-    resetSimTiming: () => sessionRefs.resetSimTimingRef.current?.(),
-    hideResultsOverlay: () => updateResultsOverlay(),
-    resetLeaderHum: () => leaderHum?.setLeader?.(null),
-    resetResultsOverlayKey,
-    resetPodiumSessionState,
-  });
-
-  void flushPendingSessionBootstrap();
-
-  // * Non-blocking — game loop must start even before first hello (menu landing).
-  void ensureSessionCartsReady().catch((err) => {
-    console.warn("[session] cart bootstrap failed", err);
-  });
-
-  rewireSessionNetcodeRefs();
-  // * hello can arrive before input/cart refs exist; non-host input is sampled inline by the
-  // * physics loop (sampleLocalInputForTick), which no-ops safely until getAxisRef is wired.
-  Netcode.setAuthorityMode(Netcode.getIsHost());
-
-
-  // --- Round flow (countdown, podium, AI) ---
-  // * Mute gate only — synth recipes carry the slider themselves (see audioControls).
-  if (audioListener && typeof audioListener.setMasterVolume === "function") {
-    audioListener.setMasterVolume(getIsMuted() ? 0 : 1);
-  }
-
-  canvas.addEventListener("pointerdown", () => {
-    canvas.focus();
-  });
-
-  onCountdownCancelledRef = () => {
-    // * Invalidate any rotation/carts-ready deferred non-host countdown apply — a
-    // * cancel between game_start and the gate settling must not resurrect a dead countdown.
-    nonHostCountdownApplyGen += 1;
-    nonHostCountdownApplyPending = false;
-    // * Cap-200: same for deferred host-MP countdown apply.
-    hostMpCountdownDeferGen += 1;
-    // * CAM-PT-MP-1: and the host-MP fly-over hold (phase never left lobby, so the
-    // * countdown cleanup at the bottom of this handler would not have killed it).
-    hostMpHoldPending = false;
-    // * CAM-OPEN-1: and for the solo defer. Its pre-roll window sits BEFORE
-    // * GameState.syncRoundPhase("countdown"), so a cancel landing mid-fly-over finds no countdown
-    // * phase to clean up and previously left the pending timeout free to start one.
-    soloCountdownDeferGen += 1;
-    // * CAM-READY-1: quit mid-hold must not leave a stuck GET READY banner.
-    HUD.clearReadyHold();
-    clearRoundCountdownTimeout();
-    // * Unconditional, for the same reason: during the pre-roll the camera is already in
-    // * cinematic mode while the phase is still pre-countdown, so gating this on
-    // * phase === "countdown" would leave the orbit latched after a cancel.
-    CameraMod.endCinematicCountdown(camera);
-    if (GameState.getRoundState().phase === "countdown") {
-      GameState.syncRoundPhase("lobby");
-      clearPodiumEndLatch();
-      GameState.setRoundCountdownStartedAtMs(0);
-      GameState.setRoundStartedAtMs(0);
-      if (Netcode.getIsHost()) Netcode.sendHostRound();
-    }
-  };
-  onHostMigratedHandler = () => {
-    resumeCountdownAsNewHost();
-    ensureSuddenDeathStateAsNewHost();
-    loop.clearHostAwayTimer();
-    loop.refreshHiddenHostLifecycle();
-  };
-
-  // * Wire Sudden Death win callback — addScore fires this on first score during SD.
-  GameState.setSuddenDeathWinCallback((scoringSlot) => {
-    endRound(scoringSlot);
-  });
-
-  let hostHiddenAtMs = null;
-  let hostPumpTickCountAtHide = 0;
-
-  document.addEventListener("visibilitychange", () => {
-    if (document.hidden) {
-      const st = GameState.getRoundState();
-      loop.refreshHiddenHostLifecycle();
-      hostPumpTickCountAtHide = gameLoopDriver?.getPumpTickCount() ?? 0;
-      if (
-        hostHiddenAtMs == null
-        && getSoloPauseStartedAtMs() == null // Esc pause already owns the compensation
-        && Netcode.getIsHost()
-        && (st.phase === "running" || st.phase === "countdown")
-      ) {
-        hostHiddenAtMs = getRoundClockNowMs();
-      }
-      return;
-    }
-    loop.clearHostAwayTimer();
-    const visiblePhase = GameState.getRoundState().phase;
-    const visibleMode = Netcode.detectGameMode();
-    if (
-      (visibleMode === "quickplay" || visibleMode === "friends")
-      && (visiblePhase === "countdown" || visiblePhase === "running")
-    ) {
-      Netcode.sendHostPresent();
-    }
-    if (hostHiddenAtMs == null) return;
-    const delta = getRoundClockNowMs() - hostHiddenAtMs;
-    const pumpRan = (gameLoopDriver?.getPumpTickCount() ?? 0) > hostPumpTickCountAtHide;
-    hostHiddenAtMs = null;
-    if (pumpRan) return;
-    if (!(delta > 0) || !Netcode.getIsHost()) return;
-    const state = GameState.getRoundState();
-    if (state.phase === "running" && state.startedAtMs > 0) {
-      GameState.setRoundStartedAtMs(state.startedAtMs + delta);
-      shiftDirectiveTimersBy(delta);
-      Netcode.sendHostRound();
-    }
-    if (state.phase === "countdown" && state.countdownStartedAtMs > 0) {
-      GameState.setRoundCountdownStartedAtMs(state.countdownStartedAtMs + delta);
-      resumeCountdownAsNewHost();
-    }
-  });
-
-
-  resultsUi.playAgain.addEventListener("click", onHostPlayAgainClick);
-
-
-  // --- Simulation loop (fixed timestep) ---
-  const loopState = createGameLoopState();
-  gameCtx.setLoopState(loopState);
-  gameCtx.registerRuntime({
-    getAllCarts: () => cart.getAllCarts(),
-    getAllCartsRef: () => allCartsRef,
-    CONFIG,
-  });
-
-  let recordVersusPlayerFrame30Logged = false;
-  const recordLabelCycleColors = [
-    new THREE.Color(CART_COLORS.pink.hex),
-    new THREE.Color(CART_COLORS.blue.hex),
-    new THREE.Color(CART_COLORS.green.hex),
-    new THREE.Color(CART_COLORS.yellow.hex),
-    new THREE.Color(CART_COLORS.neonOrange.hex),
-  ];
-  sessionRefs.resetSimTimingRef.current = () => resetGameLoopTiming(gameCtx.loopState);
-
-  const sharedLoopGetters = gameCtx.createSharedGetters();
-
-  loop.attachPhaseDeps({
-    gameCtx,
-    sharedLoopGetters,
-    netTargetPosScratch,
-    cartLinvelScratch,
-    cartAngvelScratch,
-    onAutoQualityStepDown: handleAutoQualityStepDown,
-    buildCartMaterialCache,
-    colorHexForSlot: displayColorHexForSlot,
-    isMuted: getIsMuted,
-    getSfxVolume,
-    isMenuVisible: () => menuVisible,
-    getHud: () => hud,
-    leaderHum,
-    getMatchHistoryLength: () => (matchHistory ? matchHistory.length : 0),
-    updateResultsOverlay,
-    positionNameLabels,
-    composer,
-    scene,
-    camera,
-    labelRenderer,
-    canvas,
-    BASE_FOV,
-    cart,
-    getArcadePass: () => fxPass,
-    fpsState,
-    updateTouchControlsVisibility,
-    getLocalCart: localCartForConnId,
-    scheduleRespawn,
-    scheduleStuckRespawn,
-    onCartOutOfPlay: stopChargeSfxForCart,
-    maybeTriggerNpcOpportunisticRamBoost,
-    maybeTriggerNpcOpportunisticHop,
-    endRound,
-    scheduleLastCartStandingFinish,
-    abortLastCartStandingFlourish,
-    onLocalKillConfirm,
-    onArenaKoFlash,
-    getAllCartsRef: () => allCartsRef,
-    getWorld: () => level.world,
-    getEventQueue: () => level.eventQueue,
-    getBoothColliderHandles: () => level.boothColliderHandles,
-    getRecordColliderHandles: () => level.recordColliderHandles,
-    getPitWallColliderHandle: () => level.pitWallColliderHandle,
-    getAiAxis,
-    getSpawnTrashBurstRef: () => spawnTrashBurstRef,
-    triggerLocalRamShake,
-    triggerLocalHitTaken,
-    squashCartsOnImpact,
-    triggerRamBoost,
-    onBoostRelease,
-    onBoostCancel,
-    onHopLand,
-    triggerSpillNetcode,
-    stopChargeSfxForCart,
-  });
-
-  gameLoopDriver = runGameLoop(gameCtx.loopState, {
-    shouldPumpWhileHidden: loop.shouldPumpHiddenHost,
-    shouldSkipTiming: () => {
-      if (menuVisible) return true;
-      // * Solo/testdrive ESC freezes physics + frame timing (real pause).
-      if (HUD.isEscOverlayVisible()) {
-        const mode = Netcode.detectGameMode();
-        if (mode === "solo" || mode === "testdrive") return true;
-      }
-      return false;
-    },
-    onFrame(frameCtx) {
-    gameCtx.setFrameCtx(frameCtx);
-    // * Sudden Death tension bed — edge-latched here because this runs on EVERY client
-    // * (host flips isSuddenDeath locally; remotes learn it via host_round). Rising edge
-    // * also spikes the Classic crowd; falling edge (round end / SD win) fades it out.
-    {
-      const rs = GameState.getRoundState();
-      const sdNow = rs.phase === "running" && rs.isSuddenDeath === true;
-      if (sdNow !== sdTensionLatched) {
-        sdTensionLatched = sdNow;
-        ArenaAmbience.setSuddenDeathTension(sdNow);
-        if (sdNow) ArenaAmbience.bumpCrowdExcitement(0.9);
-      }
-    }
-    const isUiActive = menuVisible || HUD.isEscOverlayVisible() || GameState.getRoundState().phase === "podium";
-    setGamepadUiMode(isUiActive);
-    setGamepadNavActive(isUiActive);
-    const { now, loopState } = frameCtx;
-    const dt = applySlowMoToDt(gameCtx.getSlowMoDeps(), frameCtx.dt);
-
-    // * Must advance before the level-swap early return, or FX time stalls and jumps on swap.
-    fxTimer.update(now);
-
-    // * Soft frame budget for optional cosmetics (physics/render always run).
-    beginFrameBudget(now, frameCtx.dt);
-
-    if (isLevelSwapping()) {
-      frameCtx.dt = dt;
-      return;
-    }
-
-    if (fxPass && fxPass.uniforms && fxPass.uniforms.uTime) {
-      fxPass.uniforms.uTime.value = fxTimer.getElapsed();
-    }
-
-    if (loopState.simFrameIndex === 30 && !recordVersusPlayerFrame30Logged) {
-      recordVersusPlayerFrame30Logged = true;
-    }
-
-    // Visual-only record rotation.
-    if (level.recordMesh) {
-      level.recordMesh.rotation.y += CONFIG.record.rotationSpeedRadPerSec * dt;
-    }
-
-    const offset = Netcode.getHostClockOffsetMs();
-    const syncedNow = (offset && !Number.isNaN(offset)) ? (now - offset) : now;
-
-    /** @type {any} */ (level.sceneExtras)?.update?.(syncedNow, camera);
-    level.levelUpdate?.(syncedNow);
-    // * LOD throttle is local wall time — syncedNow can jump backward on a host-clock
-    // * correction and park _lastUpdateMs in the future (LOD-CLOCK-1).
-    if (frameBudgetAllow("level_lod", now)) {
-      updateLevelLod(camera, now);
-    }
-
-    // * Rave dressing animation: skip entirely when the level hides it (Storerooms/
-    // * test arena kept extras allocated but this math used to run anyway) and on
-    // * tiers with crowdAnimate off (Low renders the stands frozen). Yield under
-    // * frame pressure so host physics keeps the full budget.
-    if (raveDressingWanted() && frameBudgetAllow("rave_anim", now)) {
-      tickRaveDressing(syncedNow);
-    }
-
-    // * Spindle/rims driven by arenaReactiveLights inside Classic Record levelUpdate.
-
-    // Record label color cycle (5 colors, ~2s each, ~10s full loop).
-    // * Sole leader leans the vinyl label toward their color (crown-jewel read).
-    if (level.recordLabelMat) {
-      const segMs = 2000;
-      const idx = Math.floor(now / segMs) % recordLabelCycleColors.length;
-      const nextIdx = (idx + 1) % recordLabelCycleColors.length;
-      const f = (now % segMs) / segMs;
-      level.recordLabelMat.color
-        .copy(recordLabelCycleColors[idx])
-        .lerp(recordLabelCycleColors[nextIdx], f);
-      const reactive = sampleArenaReactive(syncedNow);
-      if (reactive.hasLeader || reactive.koT > 0) {
-        level.recordLabelMat.color.lerp(reactive.accentColor, reactive.hasLeader ? 0.55 : 0.35 * reactive.koT);
-      }
-    }
-
-    // * Booth neon pulse — intensity only. Hue stays on the per-booth materials so
-    // * pink/green/cyan/orange spawn corners stay readable as four distinct booths.
-    if (level.boothNeonMeshes && level.boothNeonMeshes.length > 0 && frameBudgetAllow("booth_pulse", now)) {
-      boothNeonMatsSeen.clear();
-      const pulseHz = CONFIG.booth.neonCycleSpeed;
-      const nowSec = syncedNow * 0.001;
-      for (const mesh of level.boothNeonMeshes) {
-        const mat = mesh.material;
-        if (!mat || boothNeonMatsSeen.has(mat)) continue;
-        boothNeonMatsSeen.add(mat);
-        const base = typeof mat.userData?.baseEmissiveIntensity === "number"
-          ? mat.userData.baseEmissiveIntensity
-          : (typeof mat.emissiveIntensity === "number" ? mat.emissiveIntensity : 1.5);
-        const phase = typeof mat.userData?.neonPulsePhase === "number"
-          ? mat.userData.neonPulsePhase
-          : 0;
-        // * ~0.72× → 1.28× of base — readable breathe without washing the floor.
-        const wave = Math.sin(nowSec * Math.PI * 2 * pulseHz + phase);
-        if (typeof mat.emissiveIntensity === "number") {
-          mat.emissiveIntensity = base * (1 + 0.28 * wave);
-        }
-      }
-    }
-
-    updateGameFlow(gameCtx.deps.gameFlow, {
-      ...gameCtx.makePhaseContext(dt),
-      roundNowMs: getRoundClockNowMs(),
-    });
-
-    const physicsStep = runPhysicsStep(gameCtx.loopState, gameCtx.deps.physics, { now, dt });
-    frameCtx.physicsAlpha = physicsStep.alpha;
-
-    const localCart = localCartForConnId();
-
-    // * True near-miss detection — a boosting opponent whooshing past without contact
-    // * earns the local player a close_call. Cheap: three distance checks per frame.
-    if (frameBudgetAllow("near_miss", now)) {
-      announcerDirectorNearMissScan(
-        allCartsRef || [],
-        Netcode.strictSlotIndexForConn(Netcode.getYouConnId()),
-        performance.now(),
-      );
-    }
-
-    // * Visual QA: ?cam= / ?freeze= pin the camera (skip chase / cinematic / death).
-    if (isDebugCameraLocked()) {
-      applyDebugCameraPose(camera);
-      tickVisualHarnessFrame();
-      frameCtx.dt = dt;
-      return;
-    }
-
-    // * Cinematic modes always win over death/follow. Countdown used to be nested
-    // * under `localCart?.body`, so pregame fly-overs silently failed when the local
-    // * cart was missing or still mid-shatter. Podium is the same exclusivity rule.
-    const camMode = CameraMod.getCameraMode(camera);
-    if (camMode === CameraMod.CameraMode.CINEMATIC_PODIUM) {
-      CameraMod.setCinematicPodiumTarget(camera, getWinnerWorldPos());
-      CameraMod.updateCinematicPodium(camera, dt);
-    } else if (camMode === CameraMod.CameraMode.CINEMATIC_COUNTDOWN) {
-      CameraMod.updateCinematicCountdown(camera, dt);
-    } else if (localCart?.isShattering) {
-      if (CameraMod.getCameraMode(camera) !== CameraMod.CameraMode.DEATH) {
-        const deathPos = localCart._shatterDeathPos;
-        if (deathPos) {
-          CameraMod.beginDeathCamera(camera, deathPos);
-        }
-      }
-      CameraMod.updateDeathCamera(camera, dt);
-    } else if (localCart?.isSuddenDeathSpectator) {
-      // * Spectator camera: local cart was knocked out during Sudden Death.
-      // * Follow a tied cart (prefer human if available) so the player can watch the 1v1.
-      if (CameraMod.getCameraMode(camera) === CameraMod.CameraMode.DEATH) {
-        CameraMod.endDeathCamera(camera);
-      }
-      const allCartsArr = allCartsRef || [];
-      let spectatorTarget = null;
-      for (const c of allCartsArr) {
-        if (c?.body && !c.isSuddenDeathSpectator && !c.isShattering) {
-          spectatorTarget = c;
-          break;
-        }
-      }
-      if (spectatorTarget) {
-        const playerPos = spectatorTarget.body.translation();
-        const playerRot = spectatorTarget.body.rotation();
-        CameraMod.updateCamera(camera, spectatorTarget, dt, playerPos, playerRot, level.world);
-      }
-    } else if (localCart?.body) {
-      if (CameraMod.getCameraMode(camera) === CameraMod.CameraMode.DEATH) {
-        CameraMod.endDeathCamera(camera);
-      }
-      // * KO hit-stop: hold the follow camera exactly where it is for the stop window
-      // * (frameVisuals holds the cart poses; a moving camera would betray the freeze).
-      const inHitStop = performance.now() < cart.getHitStop().until
-        && GameState.getRoundState().phase === "running";
-      if (!inHitStop) {
-        let playerPos = localCart.body.translation();
-        let playerRot = localCart.body.rotation();
-        // * NH-SMOOTH v3: non-host only — follow the display pose (low-passed mesh) so the
-        // * camera does not re-broadcast 40Hz body hard-snaps. frameVisuals only *updates*
-        // * `_displayPos` for non-host local; if we still read it after host promote (or
-        // * any stale flag), the camera freezes while the body drives on (cart moves,
-        // * view stuck). Host always tracks the live body (+ optional reconcile offset).
-        const useDisplayPose = !Netcode.getIsHost()
-          && localCart._displayReady
-          && localCart._displayPos
-          && localCart._displayQuat;
-        if (useDisplayPose) {
-          _camReconPosScratch.x = localCart._displayPos.x;
-          _camReconPosScratch.y = localCart._displayPos.y - (CONFIG.cart?.visualOffset ?? 0);
-          _camReconPosScratch.z = localCart._displayPos.z;
-          playerPos = _camReconPosScratch;
-          playerRot = localCart._displayQuat;
-        } else {
-          // * Host promote / respawn: drop stale non-host display so a later demote reseeds.
-          if (Netcode.getIsHost() && localCart._displayReady) {
-            localCart._displayReady = false;
-          }
-          const ro = localCart._reconcileVisOffset;
-          if (ro && (ro.x !== 0 || ro.y !== 0 || ro.z !== 0)) {
-            _camReconPosScratch.x = playerPos.x + ro.x;
-            _camReconPosScratch.y = playerPos.y + ro.y;
-            _camReconPosScratch.z = playerPos.z + ro.z;
-            playerPos = _camReconPosScratch;
-          }
-          if (ro && ro.yaw !== 0) {
-            _camReconYawScratch.setFromAxisAngle(_camReconYAxis, ro.yaw);
-            _camReconRotScratch.set(playerRot.x, playerRot.y, playerRot.z, playerRot.w)
-              .premultiply(_camReconYawScratch);
-            playerRot = _camReconRotScratch;
-          }
-        }
-        CameraMod.updateCamera(
-          camera,
-          localCart,
-          dt,
-          playerPos,
-          playerRot,
-          level.world,
-        );
-      }
-    }
-
-    frameCtx.dt = dt;
-    },
-    onVisualUpdate(frameCtx) {
-      // * Skip visual update during level swap / quality rebuild — carts are
-      // * being torn down and rebuilt; touching null bodies would crash.
-      if (isLevelSwapping()) return;
-      gameCtx.setFrameCtx(frameCtx);
-      updateVisualsAndEffects(gameCtx.deps.visual, gameCtx.frameCtx);
-    },
-    onFatalError(err) {
-      // * The game loop hit an unrecoverable physics/wasm fault and stopped stepping the
-      // * sim. Bail to the menu so the tab isn't stuck on a dead world; returnToMenu tears
-      // * the session down and page-reloads as a last resort if re-init also fails.
-      console.error("[main] Fatal sim error — returning to menu", err);
-      try {
-        gameSession.returnToMenu({ reason: "simError" });
-      } catch (recoveryErr) {
-        console.error("[main] returnToMenu after fatal sim error failed; reloading", recoveryErr);
-        if (typeof window !== "undefined") {
-          // * Carry ?diag (never `room`) so F8 stays armed after the recovery reload.
-          window.location.href = menuReturnHref(window.location.href);
-        }
-      }
-    },
-  });
 
   // * Register bridge functions for cart-rave-menu.js to toggle GFX/quality live.
   registerGraphicsToggleHandlers({
     togglePostFx: (next) => {
-      bloomEnabled = next;
-      fxPassEnabled = next;
+      gameRefs.bloomEnabled = next;
+      gameRefs.fxPassEnabled = next;
       settingsStore.getState().setBloomEnabled(next);
       settingsStore.getState().setFxPassEnabled(next);
       if (bloomPass) bloomPass.enabled = next;
       if (arcadePass) arcadePass.enabled = next;
-      if (fxPass) fxPass.enabled = next;
+      if (gameRefs.fxPass) gameRefs.fxPass.enabled = next;
       // * Keep URL ablation in force after menu Post-FX toggle.
       applyPostFxAblation({ bloomPass, arcadePass, fxaaPass, outputPass });
     },
@@ -2350,12 +1027,12 @@ async function main() {
       getHostId: () => Netcode.getHostId(),
       getIsHost: () => Netcode.getIsHost(),
       getLocalSlotIndex: () => Netcode.strictSlotIndexForConn(Netcode.getYouConnId()),
-      getCarts: () => allCartsRef,
+      getCarts: () => gameRefs.allCartsRef,
       getNetSlots: () => Netcode.getNetSlots(),
       getLatestSnap: () => Netcode.getLatestSnap(),
       getAxis: () => Input.getAxis(),
       getPendingInputCount: () => Netcode.getPendingInputs().length,
-      getPendingMidJoinConnId: () => pendingMidRoundJoinRespawnConnId,
+      getPendingMidJoinConnId: () => gameRefs.pendingMidRoundJoinRespawnConnId,
       getInputCounters: () => Netcode.__netcodeTestHooks.getInputCounters(),
       getShouldPredict: () => Netcode.shouldUseClientPrediction(),
       getMode: () => Netcode.detectGameMode(),
@@ -2388,7 +1065,7 @@ async function main() {
     // * main-thread task (or empty lt[] + focus flags) on the next friend F8.
     installLongTaskProbe();
     installGameplayDiagnostics({
-      getCarts: () => allCartsRef,
+      getCarts: () => gameRefs.allCartsRef,
       getNetSlots: () => Netcode.getNetSlots(),
       getCamera: () => camera,
       getMode: () => Netcode.detectGameMode(),
@@ -2399,10 +1076,10 @@ async function main() {
       // * sampled at all, and whether an arena swap gate is still up.
       getNetDebug: () => {
         const slot = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
-        const localCart = Array.isArray(allCartsRef) ? allCartsRef[slot] : null;
+        const localCart = Array.isArray(gameRefs.allCartsRef) ? gameRefs.allCartsRef[slot] : null;
         return {
           arenaRotationInFlight: level.arenaRotationInFlight,
-          menuVisible,
+          menuVisible: gameRefs.menuVisible,
           // * Cap-200: DOM truth next to the flag — late CartRave.show() after hide left
           // * menuVisible false while #cr-root was visible (harness false green).
           crRootDisplay: (() => {
@@ -2524,7 +1201,7 @@ async function main() {
     // * Same shape as getNetDebug's localBodyEnabled above — keep them in step.
     getLocalCartActive: () => {
       const slot = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
-      const cart = Array.isArray(allCartsRef) ? allCartsRef[slot] : null;
+      const cart = Array.isArray(gameRefs.allCartsRef) ? gameRefs.allCartsRef[slot] : null;
       return Boolean(cart?.body && cart.body.isEnabled());
     },
   });
@@ -2558,7 +1235,7 @@ async function main() {
     });
   } else {
     scheduleIdleWorldWarm({
-      getMenuVisible: () => menuVisible,
+      getMenuVisible: () => gameRefs.menuVisible,
       getIdleWarmRenderer: () => idleWarmRenderer,
       scheduleMenuLevelPreview,
       prefetchLevelChunks,

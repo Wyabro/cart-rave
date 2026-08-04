@@ -13,7 +13,8 @@ import { describe, expect, it } from "vitest";
 const read = (rel) => readFileSync(new URL(rel, import.meta.url), "utf8");
 const effectsSrc = read("../src/effects.js");
 const arenaSrc = read("../src/arena.js");
-const mainSrc = read("../src/main.js");
+// * BUNDLE-1 Lever B: initLevelManager's deps moved into orchestration/gameBoot.js.
+const mainSrc = read("../src/orchestration/gameBoot.js");
 
 /** Body of `export function applyRaveExtrasQuality(...)` up to the next top-level decl. */
 function applyRaveExtrasQualityBody() {

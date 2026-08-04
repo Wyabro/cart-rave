@@ -161,8 +161,9 @@ describe("levelLod", () => {
     expect(obj.visible).toBe(true);
   });
 
-  it("main.js passes raw now into updateLevelLod (not syncedNow)", () => {
-    const src = readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
+  it("the sim loop passes raw now into updateLevelLod (not syncedNow)", () => {
+    // * BUNDLE-1 Lever B: the sim loop lives in orchestration/gameBoot.js now.
+    const src = readFileSync(new URL("../src/orchestration/gameBoot.js", import.meta.url), "utf8");
     expect(src).toMatch(/updateLevelLod\(\s*camera\s*,\s*now\s*\)/);
     expect(src).not.toMatch(/updateLevelLod\(\s*camera\s*,\s*syncedNow\s*\)/);
   });

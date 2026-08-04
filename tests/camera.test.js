@@ -47,7 +47,8 @@ describe("getCinematicCountdownWarmupPose", () => {
 // * against the pre-fix files.
 describe("CAM-OPEN-1 solo fly-over pre-roll", () => {
   const cameraSrc = readFileSync(new URL("../src/camera.js", import.meta.url), "utf8");
-  const mainSrc = readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
+  // * BUNDLE-1 Lever B moved the game_start handlers out of main() into gameBoot.js.
+  const mainSrc = readFileSync(new URL("../src/orchestration/gameBoot.js", import.meta.url), "utf8");
 
   /**
    * Slice between two anchors, failing loudly if either moved — a missed indexOf
@@ -110,7 +111,8 @@ describe("CAM-OPEN-1 solo fly-over pre-roll", () => {
 // * would be the reverted c8df8fd). Source asserts for the same reason as CAM-OPEN-1:
 // * the hold is a live setTimeout inside the game_start handler.
 describe("CAM-PT-MP-1 multiplayer fly-over pre-roll", () => {
-  const mainSrc = readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
+  // * BUNDLE-1 Lever B moved the game_start handlers out of main() into gameBoot.js.
+  const mainSrc = readFileSync(new URL("../src/orchestration/gameBoot.js", import.meta.url), "utf8");
   const netcodeSrc = readFileSync(new URL("../src/netcode.js", import.meta.url), "utf8");
   const hudSrc = readFileSync(new URL("../src/hud.js", import.meta.url), "utf8");
   const partySrc = readFileSync(new URL("../party/index.ts", import.meta.url), "utf8");

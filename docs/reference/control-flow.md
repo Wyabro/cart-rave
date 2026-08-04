@@ -56,7 +56,7 @@ need to know which orchestration implementation backs a given `callbacks.*` name
 
 **`sessionBridgeCtx` is written once** via
 [`buildSessionBridgeContext`](../../src/gameSession.js) in
-[`sessionBridgeCtx.current = buildSessionBridgeContext({`](../../src/main.js) — that factory
+[`sessionBridgeCtx.current = buildSessionBridgeContext({`](../../src/orchestration/gameBoot.js) — that factory
 merges the former two write sites (netcode/gameplay bridge + teardown patch). Teardown keys
 arrive as deps; they are not owned by `gameSession.js`. Runtime input/trigger rebinding lives in
 [`wireNetcodeRuntimeRefs`](../../src/gameSession.js) (called from main via a thin local packer).
@@ -149,7 +149,7 @@ each cell links the subscribing file and anchors on its actual `subscribe` call:
 | Store | Subscribers |
 |---|---|
 | `gameStore` | [`gameStore.subscribe`](../../src/analytics/gameplayAnalytics.js) · [`gameStore.subscribe`](../../src/announcer/announcerDirector.js) · [`gameStore.subscribe`](../../src/directives/directiveEngine.js) · [`gameStore.subscribe`](../../src/utils/gameplayDiagnostics.js) |
-| `challengeStore` | [`challengeStore.subscribe`](../../src/analytics/gameplayAnalytics.js) · [`challengeStore.subscribe`](../../src/cart-rave-menu.js) · [`challengeStore.subscribe`](../../src/main.js) · [`challengeStore.subscribe`](../../src/utils/gameplayDiagnostics.js) |
+| `challengeStore` | [`challengeStore.subscribe`](../../src/analytics/gameplayAnalytics.js) · [`challengeStore.subscribe`](../../src/cart-rave-menu.js) · [`challengeStore.subscribe`](../../src/orchestration/gameBoot.js) · [`challengeStore.subscribe`](../../src/utils/gameplayDiagnostics.js) |
 | `audioStore` | [`audioStore.subscribe`](../../src/audioManager.js) |
 | `unlockStore` | [`unlockStore.subscribe`](../../src/cart-rave-menu.js) · [`unlockStore.subscribe`](../../src/utils/gameplayDiagnostics.js) |
 | `settingsStore`, `cartTuningStore` | read via `getState()`; no subscribers |
@@ -177,7 +177,7 @@ change. `gameStore` / `gameState` dual-import surface is tracked as **STORE-1** 
 - **DOM custom events** — a small seam, 4 names only: `cartrave:menu`, `cartrave:level-changed`,
   `cartrave:customization-changed`, `cartrave:round-started` (~13 sites; dispatched from
   [`cartrave:level-changed`](../../src/cart-rave-menu.js) in the menu, consumed at
-  [`cartrave:round-started`](../../src/main.js) and friends in `main.js`). There is no custom
+  [`cartrave:round-started`](../../src/orchestration/gameBoot.js) and friends in `main.js`). There is no custom
   emitter class.
 - **Rapier collisions** — one callback:
   [`drainCollisionEvents`](../../src/simulation.js)`((h1, h2, started) => …)` in
