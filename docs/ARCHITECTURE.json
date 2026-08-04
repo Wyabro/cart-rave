@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-04T19:06:29.295Z",
-    "commit": "544befd"
+    "at": "2026-08-04T19:16:01.597Z",
+    "commit": "f36590f"
   },
-  "source_digest": "0d993877",
+  "source_digest": "44fed25e",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -930,37 +930,12 @@
       {
         "title": "Engineering",
         "counts": {
-          "?": 8,
           "Medium": 14,
           "High": 3,
           "Low": 9,
           "Partial": 1
         },
         "rows": [
-          {
-            "pri": "✅",
-            "item": "ROUND-WEDGE-1 — host oscillates `podium ⇄ running` ~25×/s at round end (the wedged-round class, caught live)",
-            "notes": "**CLOSED 08-03 — Wyatt playtest PASS, and that PASS is what closes `cap-217`.** Phase B (`podiumEndLatch`) held: a full timed round to 0:00 gave one clean podium with no flicker, and the Phase A host-hide check (tab hidden ~30–60 s mid-round) still ended cleanly on podium rather than running forever. Step 5's non-host observation was not run (single machine) and was never the evidence bar. **Do not re-open on the assert alone** — `invariants.js:24` still names `podium→running` while `netcode.js:2835` performs it deliberately, so a first rollback assert remains expected and is not a regression. Original filing below. **Filed 08-01 from cap-217** — the invariant watchdog fired in production, on Wyatt's own machine, and the capture is the evidence. **Elevate to Critical the moment it reproduces**; it is High only because frequency is unknown from n=1. **What the capture holds:** build `2e85f0b` (built 07-31T03:32:59Z), captured **07-31T05:09:05Z**, `is_host=1`, quickplay, `classicRecord`, RTX 4090, tier high, `?diag=1&room=quickplay`. The 512-event ring is **saturated at `EVENT_BUFFER_MAX`** (seq 769..1280) and holds **only two event types**: **171 `assert/phase-transition`, every one `podium → running`**, plus 341 `round/phase` (171 `running→podium` + 170 `podium→running`). It flips on a **~40 ms period** across `t 1283005→1288629` = **5624 ms minimum**; because seq starts at 769, roughly 768 earlier events were already evicted, so that window is the **tail of the storm, not its extent**. Final snapshot: `phase: podium`, `endReason: \"timer\"`, `winnerSlotIndex: 2`, `remainingMs: null`. **The assert is correct by design, not an over-strict table:** `invariants.js:24` names `podium→running` explicitly as the \"wedged round\" bug class, and `LEGAL_PHASE_TRANSITIONS.podium = [\"countdown\", \"lobby\"]` (`:33`). Two writers are fighting over `gameStore.roundPhase` at round end. **Player-visible**, which is why this outranks the pre-ship polish rows: a results screen re-entering RUNNING 25 times a second is a flickering podium, not a silent log entry. **Not the machine:** cap-215/216 (build `65dea12`, **same 4090, same quickplay, 7 `boot/play-entry` in one session**) carry **zero** asserts — this is not a standing condition of that box. **DO NOT blame ANLX-ATTRACT-1.** `2e85f0b` is the only `src/` commit in `65dea12..2e85f0b` and is therefore the obvious suspect, but it only **subscribes** to `gameStore` and emits analytics — it never writes `roundPhase`, so it cannot produce this. Attributing on adjacency is exactly run-4's \"GC metronome\" error that **HARNESS-NULL-1** exists to remember. It follows that the regression is either **older than `65dea12` and load/timing-dependent**, or in a path those two clean captures never exercised. **Next evidence, cheapest first:** (a) ✅ **RESOLVED 08-02 — both writers identified by reading the paths, not by adjacency.** Of the three candidates, **quickplay arena rotation is eliminated** and the other two are *both* implicated, fighting each other. **→ RUNNING is [netcode.js:2915](../../src/netcode.js:2915)**, the `MSG.round` applier, which is **not** host-gated; `netcode.js:2835` shows the rollback is *deliberate* — \"Server rejected an optimistic host_round … Host may already be on podium while the room is still running — roll back\" — with its own `onPodiumRejected` callback. **→ PODIUM is the host's own round-end in [gameFlow.js:149](../../src/gameFlow.js:149)**, gated only on `isHost && phase === \"running\"`, so the instant a rollback restores `running` the timer-expiry check re-fires `endRound()` on the very next frame, undamped. **The loop:** server MAX-rejects the host's round-end → keeps broadcasting `running` → applier rolls the host back → host immediately re-ends → rejected again, at broadcast rate. That predicts every measured property of cap-217 (host-only, `endReason: \"timer\"`, ~40 ms period) and explains why cap-215/216 were clean on the same 4090 — the rollback path only opens once the server starts rejecting, so it is not a standing condition of that box. Consistent with the card's own deduction that the cause predates `65dea12`. **Headline consequence: [invariants.js:24](../../src/utils/invariants.js:24) names `podium→running` as *the* wedged-round bug class while `netcode.js:2835` implements it on purpose — the table and the design contradict each other**, so all 171 asserts fired on intended behaviour at that site. Do **not** resolve this by adding `running` to `LEGAL_PHASE_TRANSITIONS.podium`: the oscillation is real and player-visible, and silencing the assert would hide it. The undamped re-entry is **Phase B**, which keeps its own ack. The four unguarded-looking `startRunningAt` sites were checked and cleared: `main.js:4616/4636/4645/4903` are all guarded by `phase === \"countdown\"`, and `:3041`/`:3126` are `testdrive`-only (cap-217 was quickplay); (b) the ring proves the oscillation but not its origin — the `assert` channel is in `AUTO_CAPTURE_CHANNELS` (`diagnostics.js:51`), so **up to 5 auto-capture bundles existed in memory that session** (`__ccDiag.captures()`, `AUTO_CAPTURE_MAX_PER_SESSION`) holding the pre-storm state and were never uploaded — ✅ **SHIPPED 08-02 `cc09985`**: auto-captures now POST to the same `/api/captures` endpoint F8 uses, so the next occurrence arrives via `npm run captures:pull` instead of dying with the tab. Gating stayed **structural** (auto-capture needs `apiRef` → `installDiagnostics()` → `main.js:5580` under `?diag=1`), pinned by a test so a future unconditional install cannot silently turn players into uploaders; volume bounds are unchanged (5/page-load, 5s debounce, error+assert only); (c) ⏸ **not attempted — deliberately, and not because it was forgotten.** It is listed as \"if cheap\" and it is not: the loop only opens once the *server* MAX-rejects, so a repro needs the host-hide condition plus a rejecting server, not merely a podium in quickplay. Now that (a) names both writers, a **unit** test against the two call paths is the cheaper next probe. **Instrumentation hazard, same card:** an assert storm **saturates the 512-event ring and evicts every other channel** — cap-217 carries no boot timeline, no perf, no `warmupSettle`, so the single most interesting session produced the least informative capture. ✅ **SHIPPED 08-02 `8063b3e`**: eviction now drops the oldest event from whichever channel occupies the **most** slots, so a flooding channel eats its own evictions and can never push a quiet channel below parity; degrades to FIFO when the storm is the only channel. Chose parity over a per-channel floor constant because the buffer is channel-agnostic and a fixed table would silently stop covering new channels. Dedupe was considered and **not** taken (Wyatt's call — floor is enough). **Does not re-open COUNTDOWN-QUICKPLAY-1** (a different phase edge — countdown entry, not podium exit) or the reverted host-countdown gate (`c8df8fd`).",
-            "ship1": null
-          },
-          {
-            "pri": "✅",
-            "item": "SHOOT-ANIM-1 — `shoot-gpu` captures freeze **all** per-frame level animation",
-            "notes": "**CLOSED 08-02** — fixed in `6b27283`, `--t` flag in `79a9caf`. **The root cause was one layer up from this card's own diagnosis, and was never capture-specific.** Not LOD, and not `settle()`: [menuAttract.js](../../src/ui/menuAttract.js) runs its own rAF loop that **rendered without ever updating**, while the game loop that owns `levelUpdate` bails in `shouldSkipTiming` whenever `menuVisible` is true — which the harness deliberately keeps true. The attract loop is therefore the *only* loop running during a capture. **The same was true for real players: the live main-menu arena was frozen for everyone** — water static, turbines stopped, beacons dead — so this was a player-facing bug, not only a QA one. **Fixed via the attract loop's new `onAnimationTick` dep, NOT via `settle()` — this card's own option (a), now superseded:** `settle()` only awaits rAF and never renders, so driving animation there lands a frame stale. The tick sits *below* the throttle gate and *before* the render, pairing update→render in one frame exactly as the game loop orders them; `updateLevelLod` keeps local wall time, since a small pinned `t` would park its module-global 250 ms latch in the future. Attract cost now times update+render together, so the auto-quality watchdog can actually see the added CPU. **Verified:** gate-beacon opacity went 0/23 → 11/23 frame-to-frame changes free-running (the attract loop throttles to ~30 fps, so ~every other rAF tick renders); `?t=1000` holds it at exactly `0.6066653819`, matching `0.45 + sin(1000×0.0009)×0.2` analytically; the live menu was confirmed animating on the ordinary no-harness path; zero console errors across 8 captures on real hardware (RTX 4090, not SwiftShader). **Bonus finding — a documented attribution was wrong.** [visual-qa.md](../guides/visual-qa.md) blamed Classic's 15–30% capture-to-capture variance on *crowd animation*, but the crowd was frozen in every capture (that is this very card) and is frozen still. Measured with animation **pinned**, so animation cannot contribute: Classic's null floor is **15.89%**, Sundial's is **~1.2%** (1.22% and 1.21% on two independent pairs). The real cause is **unseeded construction randomness** — `Math.random()` at build time, 56 call sites in `zanzibarPlatform.js` alone, including procedural texture painting, so every page load paints a different arena. Three 08-01 findings had their \"evidence\" sitting in that variance under the wrong name. Guide corrected; null floors and the two-phase `--t` recipe documented there. Doubles as the null-control arm **HARNESS-NULL-1** asks for, on this one rig. **Deferred → SHOOT-ANIM-2.**",
-            "ship1": null
-          },
-          {
-            "pri": "✅",
-            "item": "SHOOT-ANIM-2 — rave dressing is still frozen in captures",
-            "notes": "**CLOSED 08-02** (code `33f0d15`). **Playtest seed stripped 08-04** — was reseeding the console under a closed badge. Original verification was agent-side (frame deltas); residual in-round crowd feel is not an open owed card. **CLOSED 08-02** — fixed in `33f0d15`. Body extracted to `tickRaveDressing()` + a shared `raveDressingWanted()` gate, called from the game loop **and** the attract loop; the gates that legitimately differ (frame budget, clock source) stay at the two call sites, so there is one definition and no drift. **Deliberately no frame budget on the attract path:** `frameBudgetAllow` **fails closed** without a preceding `beginFrameBudget` (stale `frameStartMs` → negative remaining), and its `allowCache` is only cleared by `beginFrameBudget`, so the first `false` would **latch that bucket permanently**; calling `beginFrameBudget` from attract instead would put two loops on one set of module globals, and the budget exists to protect host physics, none of which runs at the menu. Weak machines are covered here by the attract cost feed → auto-quality, which steps the tier down and flips `crowdAnimate` off. **Two of the five items this card named were filed on a wrong premise, corrected rather than quietly dropped.** (1) **Lasers and billboard were absent, not frozen** — `finalizeArenaShellForMenu` builds the shell with `includeJuice: false` ([main.js:2615](../../src/main.js:2615)) and the DEV log says \"sky + stadium, no lasers\" outright, and captures boot through that same menu path, so they were never in a capture to freeze. Left absent by ack; the `raveJuiceInitialized` sub-gate is kept so they animate on their own if the juice is ever built there. (2) **`fxPass.uTime` was never a capture bug — it is a live one**, split out as **FX-TIME-1**. Scope is **Classic Record only** (`levelUsesRaveExtras` is `id === \"classicRecord\"`). The **record spin** stays game-loop-only on purpose: it is `rotation.y += … * dt`, a delta accumulator coupled to `applySlowMoToDt`, so it cannot pin under `?t=` and would fight slow-mo if converted. **Verified** (dev server, RTX 4090): stage spots + crowd bulbs **0 → 11/23** frame-to-frame changes free-running, and **11/23 on the ordinary no-harness menu path**; **null control at `?preset=low` reports 0/23 on all ten objects while still finding them**, so the probe is provably not blind — a second null-control arm for **HARNESS-NULL-1**. Pinned `--t 500` vs `--t 6783` (6283 ms = exact antiphase for `sin(nowSec×0.5)` **and** 3 half-periods of `sin(nowSec×1.5)`) reads **36.24%** against a **14.51%** same-phase floor, and the amplified diff is decisive where the number alone would not be: searchlight shafts, stage columns and deck rings appear **only** in the signal, while the null carries crowd speckle alone — i.e. unseeded construction randomness, consistent with the ~15.9% Classic floor measured in SHOOT-ANIM-1.",
-            "ship1": null
-          },
-          {
-            "pri": "✅",
-            "item": "FX-TIME-1 — the whole VHS/arcade layer has been frozen at `uTime = 0` in live gameplay",
-            "notes": "**CLOSED 08-04 — Wyatt playtest PASS** on prod (`91b39aa`). Fix shipped `e87c795`: `fxTimer.update(now)` in `onFrame`, placed **before** the `isLevelSwapping()` early return so FX time cannot stall across a swap and jump on resume. The look sign-off this row asked for is the PASS. The `?t=` pinning residual below is **not** closed by it — a driven `uTime` is wall-clock, so pinned A/B captures still need it folded in; that stays open as its own concern. Original filing: **Filed 08-02**, found while scoping SHOOT-ANIM-2 and split out because it is **not** a capture bug — it affects every player, every frame, and always has. **`fxTimer.update()` is never called anywhere in `src/`.** The only two references to `fxTimer` are its construction ([main.js:1670](../../src/main.js:1670)) and the read ([main.js:5280](../../src/main.js:5280)); `THREE.Timer._elapsed` only advances inside `Timer.update()`, so `getElapsed()` returns `0` on every frame and `fxPass.uniforms.uTime` is pinned at zero. **What is currently dead** ([scene.js:511-596](../../src/scene.js:511)): VHS line noise (`:511`), the tracking-bar phase (`:514`), the tape-tear clock, position and width (`:523-526`), the tear jitter (`:531`), the chromatic-aberration wobble (`:536`), film grain (`:552`), scanline noise (`:560-561`), and the sudden-death pulse + rays (`:594-596`). Grain and scanlines currently render as a **fixed dither pattern** rather than moving noise, and tape tears never fire at all. **Fix is one line** (`fxTimer.update(now)` in the frame loop) **but the consequence is a real look change**, switching on animated grain, moving tracking bars, tears and the SD pulse for the first time — so it needs a look sign-off and pairs naturally with the open **Bloom look sign-off** row, not with a harness card. Judge it on Storerooms (where the VHS treatment reads strongest) and on the SD pulse. Ordinary captures cannot evidence it either way until it is driven — and note a driven `uTime` would then be **wall-clock**, so it would need folding into the `?t=` pinning story before any pinned Classic/Storerooms A/B stays reproducible.",
-            "ship1": null
-          },
           {
             "pri": "Medium",
             "item": "SPAWN-SUNDIAL-1 — Sundial platform-leg colliders `[pre-ship]`",
@@ -1058,12 +1033,6 @@
             "ship1": null
           },
           {
-            "pri": "✅",
-            "item": "NET-SIM-1 — socket-lifecycle netharness scenarios `[SHIP-1 A6]`",
-            "notes": "**CLOSED 08-04 (docs hygiene)** — shipped earlier as SHIP-1 A6 (`2eedc04` hostReload + Cap-200); completed-work already recorded it. Friends lobby/rematch gap lives on **HARNESS-FRIENDS-1**, not this card.",
-            "ship1": "A6"
-          },
-          {
             "pri": "Medium",
             "item": "HARNESS-FRIENDS-1 — netharness covers quickplay-shaped joins only; friends ready-up/lobby/rematch is manual",
             "notes": "**Filed 08-01** (audit triage). Automated MP is quickplay-path / `?room=` join (`docs/guides/netcode-harness.md` coverage gap). Friends private-room ready-up, CHECKOUT LINE lobby, and rematch stay Wyatt/manual. One scenario later: friends room → ready-up → countdown → rematch. Tooling only — does not replace **FV-WILT-1** / friends manual checks. Extends NET-SIM-1 lane.",
@@ -1076,27 +1045,9 @@
             "ship1": null
           },
           {
-            "pri": "✅",
-            "item": "GIT-INDEX-1 — concurrent agent sessions share one git index",
-            "notes": "**CLOSED 08-04 (docs hygiene)** — code landed 08-01: `5c3fe16` (pathspec-less commit guard) + `db60f19` (GIT-INDEX-2 content-aware hunk guard). Documented in [hook-enforcement.md](../guides/hook-enforcement.md). Residual structural option (one worktree per session) never required to close the leak.",
-            "ship1": null
-          },
-          {
             "pri": "Low",
             "item": "DIAG-UPLOAD-GEN-1 — the auto-capture upload continuation is not generation-guarded, so a torn-down hub can still file a bundle",
             "notes": "**Filed 08-02**, split out of DIAG-FLAKE-2 rather than folded in, because it is a **production behaviour change** and that card was test determinism. **Mechanism:** `scheduleAutoCapture`'s timer callback checks `hubGeneration` before assembling, but `uploadAutoCapture` never re-checks it anywhere in its continuation. A hub torn down or re-installed *while the upload is in flight* still POSTs to `/api/captures`, so a bundle lands labelled against a session that no longer exists. Same family as DIAG-FLAKE-1, one layer further out: that card fixed the deferred *assembly*, this is the deferred *send*. **Why Low:** the window is the length of one upload and the bundle content is still truthful — only its session attribution is stale, so it cannot corrupt a live session, only add a confusing row to a pull. **Fix:** capture `hubGeneration` in `uploadAutoCapture` and drop the post if it moved — the same three-line shape `be350b4` used. `tests/diagnostics.test.js` already has the drain (`__drainAutoCapturesForTest`) needed to test it deterministically: schedule, let the chain start, re-install, assert nothing posts. **Do not** fix it by cancelling in-flight uploads on teardown — fire-and-forget on every axis is deliberate (evidence collection must never block the app), and an abort path is a bigger change than the bug.",
-            "ship1": null
-          },
-          {
-            "pri": "✅",
-            "item": "HOOK-INDEX-1 — pathspec commit left stale staged generated docs",
-            "notes": "**CLOSED 08-03** — post-commit runs clear-stale-generated-index.mjs first (before dashboard): if index blob ≠ HEAD blob for docs/BRIEFING.md / docs/ARCHITECTURE.json, git restore --staged. Fail-open; not coupled to HTML refresh. Tests: \tests/hookIndexPostCommit.test.js.",
-            "ship1": null
-          },
-          {
-            "pri": "✅",
-            "item": "STOP-DIRT-1 — Stop guard blocked on other session dirt",
-            "notes": "**CLOSED** (code 08-01; BACKLOG row retired 08-03) — guard-stop-drift.mjs scopes dirt to session-owned paths via elevantDirty + \track-session-writes. Open Medium row was stale thrash bait. See completed-work.",
             "ship1": null
           },
           {
@@ -1152,18 +1103,11 @@
       {
         "title": "Art",
         "counts": {
-          "?": 3,
           "Low": 9,
           "High": 2,
           "Medium": 5
         },
         "rows": [
-          {
-            "pri": "✅",
-            "item": "SUNDIAL-DECK-DETAIL-1 — deck surface density (Sundial audit item 34)",
-            "notes": "**CLOSED 08-03 BY MEASUREMENT, not by building it.** The audit's largest single item — tiling detail layer, salt-crust bloom, spray staining, sun bleach, rubber skid arcs, braking chevrons, re-authored plate seams, re-blitted decals. A relief-only probe was built and then removed in `586330b`: a tiling steel-grain normal at 1 m repeat on a transparent overlay (the [arena.js:1719](../../src/arena.js:1719) vinyl-detail-ring pattern), `normalScale` deliberately over-strong at 1.4 so a null result could only mean \"no\". **Toggling ONLY `normalScale` (0.0 vs 1.4, tint identical in both, same camera, pinned phase): deck median 2.43 → 2.43 (0%), p75 5.06 → 5.06 (0%), whole frame 0.86% — BELOW Sundial's ~1.2% construction-noise floor.** Relief contributes nothing here. **The reason also explains Wave 4's paint result rather than sitting beside it:** a normal map modulates SHADING, and this plate is lit to a median of 2.4/255 — modulating almost no light still gives almost no light, which is why paint measured 16.4 against emissive's 153. **A trap worth knowing:** the overlay moved 8.31% of the frame against the previous commit, which reads like a win; it was the overlay's own dark albedo tinting the plate 8% DARKER. Judge this class of change by isolating the channel, never by whole-frame delta. **Do not re-open** without new evidence about the deck's *lighting* — what moves this surface is light (item 16's god rays took the median up 82%) and emissive, not surface authoring. Contrast SUNDIAL-RAMP-1 below, where the same probe said yes.",
-            "ship1": null
-          },
           {
             "pri": "Low",
             "item": "SUNDIAL-LOW-WATER-1 — Low still skips the ocean normal map",
@@ -1198,18 +1142,6 @@
             "pri": "Low",
             "item": "ART-MAT-1 — authored maps on the carts",
             "notes": "**Absorbed by CART-MODEL-1** (docs audit 08-04). Arenas already author maps; carts are the only Rule 1 miss and are owned by the Blender cart card + material contract in [art-direction.md](../reference/art-direction.md). Do not run as a separate High track.",
-            "ship1": null
-          },
-          {
-            "pri": "✅",
-            "item": "ART-PASS-1 — per-level art pass audit `[pre-ship]`",
-            "notes": "**CLOSED 08-04 (docs hygiene)** — all three arenas audited 08-01 (adversarially verified). Execution: Classic = **ART-PASS-CLASSIC-1** (complete); Sundial = ART-PASS-SUNDIAL-1 (closed Run 8); Storerooms shelves PASS (**STORE-PT-1** 08-04); residual **SHELF-RAIL-1** only.",
-            "ship1": null
-          },
-          {
-            "pri": "✅",
-            "item": "ART-PASS-CLASSIC-1 — Cart Rave art pass `[pre-ship]`",
-            "notes": "**CLOSED 08-04 (docs hygiene)** — L1–L5 shipped (`316c74f` · `beebe81` · `d59fd92` · L4→**CLAD-REPEAT-1** · `5fc1c1e`); notes already said Card COMPLETE. Dropped L4 and SKYBOX-DIR-1 stay their own rows.",
             "ship1": null
           },
           {
@@ -1277,17 +1209,10 @@
       {
         "title": "Audio",
         "counts": {
-          "?": 1,
           "Medium": 3,
           "Low": 1
         },
         "rows": [
-          {
-            "pri": "✅",
-            "item": "MENU-MUSIC-VOL-1 — menu music louder than set volume after loop restart `[pre-ship]`",
-            "notes": "**CLOSED 08-04 (docs hygiene)** — fixed `18ed9ab` (08-02): clamp store vols to Howler 0..1 via `howlerVol()`; 6 tests in `audioManager.test.js`. Root cause was Howler IndexSizeError on loop restart at store >1. Residual: top ~13% slider dead zone (product call); **AUDIO-MASTER-1** still open Low.",
-            "ship1": null
-          },
           {
             "pri": "Medium",
             "item": "HIT-SFX-VAR-1 — more cart hit SFX variety `[pre-ship]`",
@@ -1317,17 +1242,10 @@
       {
         "title": "Design / Gameplay",
         "counts": {
-          "?": 1,
           "Medium": 3,
           "Low": 6
         },
         "rows": [
-          {
-            "pri": "✅",
-            "item": "HOST-TAB-1 — hidden-tab host pump + AFK promote + mid-round strongest rehost",
-            "notes": "**CLOSED 08-04 — Wyatt playtest PASS**, all 7 steps of §10 including step 4 (second mid-round migrate, the prior FAIL) and step 7 (solo). Levers A–E deployed; lever E `c3e4589`, live in `91b39aa`. The FAIL that reopened this card — a demoted in-flight initiate still sending `sdpOffer`, leaving the new host with a zombie PC and no offer of its own — is fixed and confirmed by eye on two machines. Plan: [host-tab-1.md §16](./host-tab-1.md). Related: HOST-CAP-1, HOST-ROLE-1, closed NET-MIG-3.",
-            "ship1": null
-          },
           {
             "pri": "Medium",
             "item": "NPC-BOOST-1 — NPCs feel like they boost \"better\" than players",
@@ -1387,44 +1305,13 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "?": 5,
           "Low": 1
         },
         "rows": [
           {
-            "pri": "✅",
-            "item": "MAIN-1 — composition seam + residual-fix retest",
-            "notes": "**Wyatt playtest PASS 08-04 — CLOSED, both passes.** §8 seam check 9/9 on `c9f6f44`; residual-fix retest 7/7 on `8d96b0b` (Version `a92934f3`, chunk `index-BuD_HIUu.js`, SHA verified). All four fixes hold in production; the F8 path is confirmed working end-to-end (7 captures arrived, cap-254–260). BUNDLE-1 unblocked. Full writeup: [completed-work.md](./completed-work.md). Two things the retest surfaced, both filed as their own rows: the quickplay auto-promote observation (→ FIX-MIG) and the Cart Rave emissive read (→ FIX-EMISSIVE).",
-            "ship1": null
-          },
-          {
-            "pri": "✅",
-            "item": "PERF-INSTR-1 — the 60fps instrument works on the Intel box (PERF-PASS-1 Wave 1)",
-            "notes": "**CLOSED 08-03 — Wyatt PASS, cap-239 (`aeb83aa`, `buildFreshness.stale=false`).** The instrument works on the target machine and `loopRound` did exactly its job: he F8'd mid-round, `rounds[]` is empty, and the live read carried the whole measurement. **Result — Cart Rave, in-round, menu and countdown excluded: `meanMs` 20.934 → 47.77 fps**, 49.8% of frames over 16.7 ms, 24.3% over 33 ms, 3 NPCs, 1910×915 @ DPR 1. **The gap to target is 4.2 ms (20%), not the ~halving that was estimated from the Run-8 segments.** That estimate assumed menu/transition frames were *cheaper* than gameplay and that in-round would therefore be worse than 38.2 fps; the opposite is true — the arena-build and shader-compile frames in the transition were the expensive ones, and gameplay is faster than the blended average. **Branch answer: NOT CPU-bound** — `cpuMeanMs` 10.438 of `meanMs` 20.934 = **49.9%**, against the ≥85% gate, so Wave 3 stays a visual/geometry card. **The actionable shape is inside the CPU half:** `simMeanMs` **0.985** vs `visMeanMs` **9.454** — physics and gameflow are effectively free, and the visual update (which includes draw submission) is 9.5 of the 10.4 CPU ms. So cutting geometry should pay **twice**: less submission in `visMs` *and* less GPU execution in `unaccountedMeanMs` (10.496). **Caveat — the window straddled a demotion** (`straddledDemotion: true`, `rsm` 0.85 → 0.7, two `qualityStepDown` at t=26.4 s / t=32.4 s) because the URL was `?diag=1&room=…` with no `preset=low`, so the watchdog stayed armed (`qualityTierOverride: null`). The guard caught it; the number is directional, not a baseline. **No re-run owed — the clean `?preset=low` baseline is cell 1 of the Wave 3 sweep.**",
-            "ship1": null
-          },
-          {
-            "pri": "✅",
-            "item": "SPAWN-PT-1 — spawn decks",
-            "notes": "**CLOSED 08-03 — Wyatt accepted centring.** Inset shipped in `e64f1a3` (decks + spawn ring moved together 0.75 m); centring was already correct. Nothing fixed in PLAYTEST-BATCH-0803. Residual platform-leg colliders stay on **SPAWN-SUNDIAL-1** (own card).",
-            "ship1": null
-          },
-          {
-            "pri": "✅",
-            "item": "CAM-PT-1 — solo opening camera",
-            "notes": "**CLOSED 08-03 — Wyatt PASS** (orbit feel + quit/cancel clean). Residual dead 2s hold window → **CAM-READY-1** (GET READY pulse during pre-roll). Do not reopen CAM-PT-1.",
-            "ship1": null
-          },
-          {
             "pri": "Low",
             "item": "AQ-RING-CLEAR-1 — autoQuality clear sample ring on every window eval",
             "notes": "**Reserve only** if Wave 2 entry grace still demotes on retest. Comment in autoQuality.js already notes the ring can poison up to 3 windows. Own commit if needed; not in main batch path.",
-            "ship1": null
-          },
-          {
-            "pri": "✅",
-            "item": "HOST-TOAST-1 — weak-host toast",
-            "notes": "**CLOSED 08-03 — covered by tests; the trigger is unreachable on Wyatt's hardware, so there was never a playtest to owe.** The old card asked him to \"host with a weak join-time score (&lt;50)\" without saying how, which is why it read as unintelligible: **neither of his machines can produce that score.** `scoreHostCapability` ([hostCapability.js:67](../../src/utils/hostCapability.js:67)) is `GPU base + tier + cores + RAM` — the 4090 is `discrete 75 + high 20 + 12 + 8` → clamped **100**; the Intel UHD laptop is an iGPU, so `unknown 40 + low 0 + cores 4–8 + RAM 6–8` → **~50–56**, and the gate is a strict `< 50` ([:40](../../src/utils/hostCapability.js:40)). It would take ≤3 cores **and** ≤4 GB on top of an iGPU to dip under. **The \"not spam\" claim is already proven** by three unit tests at [hostMigration.test.js:291](../../tests/hostMigration.test.js:291): fires once not twice, never for a non-host, never at exactly 50 (the strict-`<` boundary), and re-arms after losing host so a later hostship warns again. That is the whole behavioural surface of `maybeWarnWeakHost` ([netcode.js:2044](../../src/netcode.js:2044)) — a pure gate plus a latch, no timing or rendering to eyeball. **If it is ever worth seeing live:** turn off Chrome's hardware acceleration (Settings → System → relaunch) — the probe then matches `SOFTWARE_GL_RE` ([gpuCaps.js:27](../../src/utils/gpuCaps.js:27)), scoring 8 instead of 40 for a total near 28, and hosting fires the toast. The whole game runs on SwiftShader while that is set, so it is a UI look only, never a perf read. **Note for anyone testing on prod:** the join-time score is logged through `devLog`, which compiles to a no-op in production builds ([devLog.js:8](../../src/utils/devLog.js:8)) — read your own score on the dev server, not prod. **Left open deliberately, as taste not coverage:** whether the message is worth showing at all, and whether \"a stronger machine makes multiplayer smoother\" is the right wording to put in front of a player who cannot act on it mid-match. Reopen on that question with new copy, not on the once-per-hostship behaviour.",
             "ship1": null
           }
         ]
@@ -1432,18 +1319,11 @@
       {
         "title": "UI / UX",
         "counts": {
-          "?": 3,
           "Medium": 6,
           "High": 3,
           "Low": 3
         },
         "rows": [
-          {
-            "pri": "✅",
-            "item": "PRE-PODIUM-1 — confetti / wilt + win-lose callout missing `[pre-ship]`",
-            "notes": "**CLOSED 08-04 (docs audit)** — filing text was stale. Code already ships winner confetti (winner-cam + results panel), local-loser wilt (`spawnResultsDefeatWilt`), and verdict `\"Name wins — N pts\"` (`main.js` podium path; wilt `2eff72f`). MP eye closed (**FV-WILT-1** PASS 08-04); wilt *look* = Wilting-groceries `[SHIP-1 E2]`.",
-            "ship1": "E2"
-          },
           {
             "pri": "Medium",
             "item": "MENU-CART-1 — main-menu 3D cart under player name",
@@ -1454,12 +1334,6 @@
             "pri": "High",
             "item": "ONBOARD-SLIDES-1 — how-to-play as click-through visual slides `[pre-ship]`",
             "notes": "Replace wall-of-text “how to play” with a **slideshow**: card-by-card slides the player can click through, each with GIF / short animation / picture so rules land fast. Supersedes wall-of-text path of **ONBOARD-1**; keep Solo-as-tutorial stance. Needs asset list (slide topics + art) before full polish.",
-            "ship1": null
-          },
-          {
-            "pri": "✅",
-            "item": "MENU-LOCK-HINT-1 — locked-level menu explains why `[pre-ship]`",
-            "notes": "**CLOSED 08-04 (docs hygiene)** — shipped `8dea5bb` (08-02): browse locked arenas, unlock copy, SOLO gate, preview follows cursor. Covered under Run 8 **UNLOCK-PT-1** PASS.",
             "ship1": null
           },
           {
@@ -1499,12 +1373,6 @@
             "ship1": "E4"
           },
           {
-            "pri": "✅",
-            "item": "FIGHT-VERIFY-1 — owed fight-night verification",
-            "notes": "**CLOSED 08-04 (docs audit)** — parent only. Agent half DONE; Wyatt 5/7 PASS on Run 8. Residue closed 08-04: **FV-RESULTS-1** + **FV-WILT-1** Wyatt PASS. Friends/rematch PASS. Handover history: [fight-night-ui-handover.md](./fight-night-ui-handover.md).",
-            "ship1": null
-          },
-          {
             "pri": "Medium",
             "item": "LOAD-SCALE-1 — the mode-entry loading screen is ~99% empty space above ~1000px wide",
             "notes": "**Found 07-31 by `npm run loadshots`** (FIGHT-VERIFY-1 Phase C) — the first time any of the three arena themes had been rendered by this toolkit. The centre-stage decor is hard-capped and never grows: `loadingScreen.css:157-162` `.cr-load__visual { width: clamp(88px, 22vw, 128px); height: clamp(88px, 22vw, 128px) }`, with backrooms at `clamp(96px, 24vw, 140px)` × `clamp(72px, 18vw, 96px)` (`:349-352`) and zanzibar's `.cr-load__seaside` at `clamp(110px, 26vw, 160px)` × `clamp(72px, 18vw, 96px)` (`:378-383`). At 390×844 that is 88px in a 390px frame — proportionate, and the design reads exactly as intended. At 1920×1080 the same motif is at most 128×128px inside a centre row of roughly 1920×820, i.e. **under 1% of the stage**, leaving the vinyl / boxes+chair / sun+deck floating as a postage stamp in an otherwise empty gradient with the title marooned in the top-left corner. Nothing is clipped or overflowing — the `overlay fits the viewport` check is green on all 8 cells — which is precisely why a DOM-geometry sign-off could never have caught it. Belongs in the UI-SCALE-1 pass rather than as a standalone fix. Evidence: `.diag-captures/loadshots/mode-{classicRecord,backrooms,zanzibar}-1920x1080-b-mid.png` versus `mode-classicRecord-390x844-b-mid.png`.",
@@ -1533,39 +1401,10 @@
       {
         "title": "Tech Debt",
         "counts": {
-          "?": 4,
-          "Medium": 7,
+          "Medium": 6,
           "Low": 11
         },
         "rows": [
-          {
-            "pri": "✅",
-            "id": "BRIEF-DIGEST-1",
-            "item": "Briefing freshness digest ignores the template",
-            "notes": "**CLOSED 08-03** — \briefingSourceDigest = sha8(templateFingerprint + body); enderBriefingMd embeds \briefingSourceDigest(statusMd) (not sha8(body)). Shared constants for title/boilerplate/read-order/before-touch. Tests in \tests/projectHealth.test.js (not a new briefing.test.js).",
-            "ship1": null
-          },
-          {
-            "pri": "✅",
-            "id": "SKILLSYNC-PRUNE-1",
-            "item": "`skills-sync` never removed orphaned skills from the mirror",
-            "notes": "**CLOSED 08-02** — fixed while rewriting the file for multi-runtime fan-out, where the bug got 7× worse. New pure `planPrune(src, dest)` diffs destination against source; `planAll()` reports orphans **only for owned destinations**. Pruning is deliberately asymmetric: the repo mirror is created and owned here so orphans are deleted, but user-level dirs are shared with other installers (`~/.cursor/skills` holds 13 skills this repo never placed) and are add/update only, forever. Covered by 5 new tests including the \"never reports orphans for a shared destination\" invariant.",
-            "ship1": null
-          },
-          {
-            "pri": "✅",
-            "id": "SHADOW-TILT-1",
-            "item": "Cart blob shadows tilt out of the floor as the cart turns",
-            "notes": "**FULLY CLOSED 08-03** — code `b36be5c` + orientation tests 08-02; **Wyatt playtest PASS 08-03** (blob stays flat through yaw turns).",
-            "ship1": null
-          },
-          {
-            "pri": "✅",
-            "id": "SHADOW-ORDER-1",
-            "item": "Storerooms static shadows may be tested against the wrong arena",
-            "notes": "**CLOSED 08-04 — Wyatt playtest PASS** on prod (`91b39aa`): 4 booth blobs on cold load, still 4 after a warm swap from Classic. Fix shipped `6560552`. Both clusters now pass module-local `CONTACT_SHADOW_HAZARDS` (Zanzibar template). **Seam residual** (post-builder `setContactShadowHazards`) is **not** MAIN-1 — tracked as **SHADOW-HAZARD-SEAM-1**. Original filing 08-02; Sundial fixed earlier in `17fc46c`.",
-            "ship1": null
-          },
           {
             "pri": "Medium",
             "id": "SHADOW-HAZARD-SEAM-1",
@@ -1578,13 +1417,6 @@
             "id": "SHIP-1",
             "item": "V2 shipping checklist + final QA doc",
             "notes": "**Created 07-20** — [SHIP-1.md](./SHIP-1.md), living doc; row stays as pointer until ship.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "id": "MAIN-1",
-            "item": "Carve `main.js` composition seam",
-            "notes": "**DEPLOYED 08-04** `c9f6f44` · Worker `738b9f44`. §8 playtest owed (Playtest owed row). Plan: [main-1.md](./main-1.md).",
             "ship1": null
           },
           {
@@ -1612,7 +1444,7 @@
             "pri": "Low",
             "id": "BUNDLE-1",
             "item": "Menu/game code-split",
-            "notes": "**Unblocked** once MAIN-1 closes after ship+§8 (seam landed).",
+            "notes": "**UNBLOCKED 08-04** — MAIN-1 closed (both passes). Next-card candidate.",
             "ship1": null
           },
           {

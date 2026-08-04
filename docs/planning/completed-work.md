@@ -13,6 +13,44 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 4, 2026 — BACKLOG ✅ retire (25 checked rows + stale MAIN-1 pointer)
+
+Docs hygiene only — **no game code**. Every `✅` table row still living in
+[BACKLOG.md](./BACKLOG.md) was deleted from that file and frozen in the do-not-re-add list.
+Most were already written up in sections below; this entry is the receipt so the open backlog
+stops looking like a graveyard.
+
+**Already recorded elsewhere (pointer only — do not re-file):**
+ROUND-WEDGE-1 · SHOOT-ANIM-2 · FX-TIME-1 · NET-SIM-1 · GIT-INDEX-1 · HOOK-INDEX-1 ·
+STOP-DIRT-1 · ART-PASS-1 · ART-PASS-CLASSIC-1 · MENU-MUSIC-VOL-1 · HOST-TAB-1 · MAIN-1 ·
+PRE-PODIUM-1 · MENU-LOCK-HINT-1 · FIGHT-VERIFY-1 · BRIEF-DIGEST-1 · SHADOW-TILT-1 ·
+SHADOW-ORDER-1 · PERF-INSTR-1 (measurement detail lives under PERF-PASS-1 / Wave 1).
+
+**Writeups that were only on the BACKLOG ✅ row (condensed here):**
+
+- *(Harness · Medium)* **SHOOT-ANIM-1** — ✅ CLOSED 08-02 (`6b27283`, `--t` in `79a9caf`).
+  Menu attract rendered without updating while the game loop bailed on `menuVisible`; live
+  main-menu arenas were frozen for everyone, not just captures. Fixed via attract
+  `onAnimationTick`. Bonus: Classic's capture variance was unseeded construction noise, not
+  crowd animation.
+- *(Art · Low)* **SUNDIAL-DECK-DETAIL-1** — ✅ CLOSED 08-03 **by measurement**. Relief-only
+  normal probe (`586330b`, then removed): deck median unchanged at 2.43; whole-frame delta
+  below Sundial's ~1.2% noise floor. Do not re-open without new *lighting* evidence.
+- *(Playtest · Low)* **SPAWN-PT-1** — ✅ CLOSED 08-03. Wyatt accepted centring; inset was
+  `e64f1a3`. Residual leg colliders stay on **SPAWN-SUNDIAL-1**.
+- *(Playtest · Medium)* **CAM-PT-1** — ✅ CLOSED 08-03. Wyatt PASS (orbit + quit/cancel).
+  Residual pre-roll hold → **CAM-READY-1** (also closed Run 8).
+- *(Playtest · Medium)* **HOST-TOAST-1** — ✅ CLOSED 08-03. Behaviour covered by unit tests;
+  Wyatt's machines cannot score `<50` on `scoreHostCapability`, so there was never a live
+  playtest to owe. Reopen only on copy/taste, not once-per-hostship behaviour.
+- *(Tooling · Medium)* **SKILLSYNC-PRUNE-1** — ✅ CLOSED 08-02. `planPrune` deletes orphans
+  from the **owned** repo mirror only; shared user-level skill dirs stay add/update forever.
+
+Also removed the open Tech Debt **MAIN-1** pointer (still said "DEPLOYED / playtest owed"
+after both passes closed). **BUNDLE-1** note in BACKLOG flipped to UNBLOCKED.
+
+---
+
 ### August 4, 2026 — MAIN-1 CLOSED: composition seam + the residual wave behind it
 
 **MAIN-1 is done.** The §8 seam playtest came back 9/9 on `c9f6f44`, and the retest of the four
