@@ -1106,7 +1106,9 @@ async function main() {
     },
     getLevelId: () => getCurrentLevelId(),
     getIsTouchDevice: isTouchDevice,
-    getLocalCart: localCartForConnId,
+    // * Late-bind: createCartOrchestration assigns localCartForConnId after HUD.init, so
+    // * pass a wrapper (the idiom the input handlers already use) not the stub's value.
+    getLocalCart: () => localCartForConnId(),
     getBoostChargeCfg: () => CONFIG.cart.ramBoost.boostCharge,
     onEscOverlayChange: (open) => {
       if (open) {
