@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-04T00:02:36.213Z",
-    "commit": "69cf2c7"
+    "at": "2026-08-04T00:13:51.575Z",
+    "commit": "d4c9fb5"
   },
-  "source_digest": "fbea8503",
+  "source_digest": "3382c9d3",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1377,7 +1377,7 @@
           {
             "pri": "Medium",
             "item": "STORE-DECK-1 — Storerooms spawn-platform textures",
-            "notes": "**Owed: Wyatt playtest — STORE-DECK-1 — decks read as worn plate.** (Not STORE-PT-1 suction/racking.) Art-audit item 6.<br>1. Load The Storerooms. Look at spawn booth decks. **Pass if:** worn plate + safety stripe + bay letter; not flat grey slabs.<br>2. Enter play — no new entry hitch (shader span unchanged vs pre-card).",
+            "notes": "**Owed: Wyatt playtest — STORE-DECK-1 — decks read as worn plate, with no letter on them.** (Not STORE-PT-1 suction/racking.) Art-audit item 6; **bay letter cut 08-03 on Wyatt's FAIL** (*\"i dont like the bay letter. remove that and it becomes a pass\"*).<br>1. Load The Storerooms. Look at the spawn booth decks. **Pass if:** worn plate + safety stripe, and **no stencilled A/B/C/D**; not flat grey slabs.<br>2. Enter play — no new entry hitch (shader span unchanged vs pre-card).",
             "ship1": null
           },
           {

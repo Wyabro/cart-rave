@@ -3068,8 +3068,8 @@ function buildCeiling(scene, world, ceilingTex) {
  */
 /**
  * STORE-DECK-1 — worn mezzanine plate for spawn booth slabs (art-audit item 6).
- * Same canvas-as-map+bump idiom as the carpet floor. Stripe + bay letter are
- * separate meshes (BoxGeometry UVs would stamp the stripe on every face).
+ * Same canvas-as-map+bump idiom as the carpet floor. The stripe is its own mesh
+ * (BoxGeometry UVs would stamp it on every face).
  * @returns {THREE.CanvasTexture}
  */
 function buildBoothDeckTexture() {
@@ -3169,28 +3169,6 @@ function buildBoothStripeTexture() {
   return tex;
 }
 
-/**
- * Stencilled bay letter (A–D) for a spawn deck.
- * @param {string} letter
- * @returns {THREE.CanvasTexture}
- */
-function buildBoothBayLetterTexture(letter) {
-  const size = 128;
-  const canvas = document.createElement("canvas");
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext("2d");
-  ctx.clearRect(0, 0, size, size);
-  ctx.fillStyle = "rgba(18, 16, 12, 0.28)";
-  ctx.font = "bold 88px sans-serif";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(String(letter).slice(0, 1).toUpperCase(), size / 2, size / 2 + 4);
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.needsUpdate = true;
-  return tex;
-}
-
 function buildBackroomsBooths(scene, world, config, boothColliderHandles) {
   const B = config.booth;
   const arenaR = config.record.radius;
@@ -3239,9 +3217,9 @@ function buildBackroomsBooths(scene, world, config, boothColliderHandles) {
   const railGeo = new THREE.CylinderGeometry(B.railThickness / 2, B.railThickness / 2, 1, 8);
   const cardboardGeo = new THREE.BoxGeometry(1.1, 1.1, 1.1);
   const dividerGeo = new THREE.BoxGeometry(0.08, 1, B.platformDepth * 0.55);
-  // * Arena-facing lip stripe (local −Z) + bay letter decal on top.
+  // * Arena-facing lip stripe (local −Z). The stencilled A–D bay letter that used to
+  // * sit on the deck top was cut 08-03 on Wyatt's playtest call (STORE-DECK-1).
   const stripeGeo = new THREE.BoxGeometry(B.platformWidth * 0.92, 0.03, 0.22);
-  const letterGeo = new THREE.PlaneGeometry(0.9, 0.9);
 
   const ownedMaterials = [slabMat, stripeMat, railMat, boxMat, dividerMat];
   const ownedTextures = [cardboardTex, deckTex, stripeTex];
@@ -3252,7 +3230,6 @@ function buildBackroomsBooths(scene, world, config, boothColliderHandles) {
   // * Booths never move — bake parts into merged static meshes (one per material).
   /** @type {Record<"slab" | "stripe" | "rail" | "box" | "divider", THREE.BufferGeometry[]>} */
   const parts = { slab: [], stripe: [], rail: [], box: [], divider: [] };
-  const BAY_LETTERS = ["A", "B", "C", "D"];
   /** @type {THREE.BufferGeometry[]} */
   const ownedGeometries = [];
   const boothMatrix = new THREE.Matrix4();
@@ -3350,32 +3327,6 @@ function buildBackroomsBooths(scene, world, config, boothColliderHandles) {
       pushPart("box", cardboardGeo, bx, deckTopY + 0.55 * scale, bz, 0, byaw, 0, scale, scale, scale);
     }
 
-    // * Bay letter decal — flat on the deck top (not merged; per-letter texture).
-    // * MeshStandardMaterial (same family as slab/stripe) so warm path does not
-    // * introduce a new Basic-program variant at play entry.
-    const letterTex = buildBoothBayLetterTexture(BAY_LETTERS[i] || "X");
-    ownedTextures.push(letterTex);
-    const letterMat = new THREE.MeshStandardMaterial({
-      map: letterTex,
-      color: 0xffffff,
-      roughness: 1,
-      metalness: 0,
-      transparent: true,
-      depthWrite: false,
-      side: THREE.DoubleSide,
-    });
-    ownedMaterials.push(letterMat);
-    const letterGeom = letterGeo.clone();
-    ownedGeometries.push(letterGeom);
-    const letterMesh = new THREE.Mesh(letterGeom, letterMat);
-    letterMesh.rotation.x = -Math.PI / 2;
-    letterMesh.position.set(0, deckTopY + 0.03, -0.35);
-    // * Place in booth local space then bake world via booth matrix.
-    letterMesh.updateMatrix();
-    letterMesh.applyMatrix4(boothMatrix);
-    letterMesh.matrixAutoUpdate = true;
-    group.add(letterMesh);
-
     shadowPlacements.push({
       x: cx,
       z: cz,
@@ -3403,7 +3354,6 @@ function buildBackroomsBooths(scene, world, config, boothColliderHandles) {
   cardboardGeo.dispose();
   dividerGeo.dispose();
   stripeGeo.dispose();
-  letterGeo.dispose();
 
   const boothShadows = createStaticContactShadowCluster(shadowPlacements);
   group.add(boothShadows.group);
