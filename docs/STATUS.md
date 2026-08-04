@@ -66,9 +66,7 @@ Live rows only. Shipped and closed cards live in
 
 | # | What | Status |
 |---|------|--------|
-| STORE-DECK-1 | Storerooms spawn-deck bay letter | ⏸ **DEPLOYED 08-03** (`6eff2df`, Worker version `01f8a745`) — verified by fetching the production chunk: no `BAY_LETTERS`, no letter font, plate + stripe intact. Waiting on Wyatt's retest. |
-| FV-RESULTS-1 / STORE-PT-1 | Run 8 FAIL residue — CHALLENGE copy · shelves want painted wood | ⏸ **DEPLOYED 08-04** (`858b836` · `3fa1cac`, Worker `752dd701`). Prod chunk verified: `CHALLENGE UNLOCKED` in index; backrooms cream `#d8cfb8`, no steel `#b3b5ad`. **Owed: Wyatt playtest both** — code side is closed. |
-| HOST-TAB-1 | Hidden-tab host pump + AFK promote + strongest-host return | ▶ **ACTIVE — IMPLEMENTED LOCALLY 08-04; production playtest owed.** Levers: `b566999` · `76de974` · `6edfa5c` · `25d8439`; review fixes: `ae9cfd2`. Automated gate: 109 files / 1,341 tests. Full checklist: [host-tab-1.md §10](./planning/host-tab-1.md#10-verification-matrix). |
+| HOST-TAB-1 | Hidden-tab host pump + AFK promote + strongest-host return | ▶ **ACTIVE — lever E local (`p2p` session-gen + host ignores inbound offer).** First AFK + solo PASS; second-migrate freeze fix unpushed. **Owed: Wyatt playtest — HOST-TAB-1** after ship. Checklist: [host-tab-1.md §10](./planning/host-tab-1.md#10-verification-matrix) (incl. step 4 second migrate). |
 | PERF-PASS-1 | 60 fps at Low on the Intel box — **Cart Rave only** (Wyatt scoped it 08-03) | ⏸ **PARKED BY WYATT 08-04 for HOST-TAB-1.** Wave 4 remains deployed (`b754e12`, Worker `9b8b1fbe`); honest measured range −1.66 to −2.54 ms and includes +0.55. Card remains open at ~46 fps; every future cell needs an A-B-A bracket on a cooled box. Menu + evidence: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md). |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
@@ -87,13 +85,11 @@ Live rows only. Shipped and closed cards live in
    `no-exact-head-complete-green-battery`** — that is the RC-phase gate and no exact-HEAD battery
    has been run at this commit; the deploy went out via `npm run ship` as every stabilization
    deploy has. Run the battery before any RC claim.
-4. **ACTIVE: HOST-TAB-1 production playtest.** PERF-PASS-1 is parked by Wyatt. Run the seven
-   checks in [host-tab-1.md §10](./planning/host-tab-1.md#10-verification-matrix) after deploy.
+4. **ACTIVE: HOST-TAB-1 lever E** — implemented locally; ship then retest §10 (esp. second migrate).
 5. **Still owed to Wyatt:** the 9-cell PERF sweep (his box, ~25 min — he cannot be replaced here);
-   playtest FV-RESULTS-1 + STORE-PT-1; FV-WILT-1 (2pc); STORE-DECK-1 retest.
+   HOST-TAB-1 retest after ship.
 
-**Open High:** PERF-PASS-1 · FV-RESULTS-1 · STORE-PT-1 · UI-SCALE-1 · RESULTS-1 ·
-CART-MODEL-1 · bloom.
+**Open High:** PERF-PASS-1 · HOST-TAB-1 · UI-SCALE-1 · RESULTS-1 · CART-MODEL-1 · bloom.
 
 ## Open issues (top)
 
@@ -102,9 +98,8 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 
 | ID | Issue | Status |
 |----|--------|--------|
-| HOST-TAB-1 | Hidden-tab host authority | ▶ **LOCAL CODE LANDED — deploy + production playtest owed.** Short hide pump, 10s AFK demotion, 5s migration cooldown, and margin-20 strongest return are covered by unit + DO integration tests. |
+| HOST-TAB-1 | Hidden-tab host authority | ▶ **Lever E implemented locally** — host ignores inbound `sdpOffer`; `isHost` + session-gen after awaits. **Owed: Wyatt playtest — HOST-TAB-1** (retest §10 step 4). |
 | PERF-PASS-1 | 60 fps at Low on the Intel box — **Cart Rave only** | ⏸ **PARKED 08-04.** Baseline 23.788 ms / 42.0 fps; menu: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md). |
-| FV-RESULTS-1 / STORE-PT-1 | CHALLENGE receipt copy · shelves painted wood | ▶ **DEPLOYED** Worker `752dd701` — playtest closes. |
 | WARM-SOLO-1 | Solo post-`carts-ready` stall (WARM-IGPU residual) | 📋 telemetry-gated — [warm-igpu-1.md](./planning/warm-igpu-1.md) |
 | MAIN-1 | Carve `main.js` seam (enables BUNDLE-1) | 📋 post-gate |
 | BUNDLE-1 | Menu/game code-split | 🚫 blocked on MAIN-1 |
@@ -140,14 +135,19 @@ The hot set — what a current session is likely to hit. Deep-domain and narrow 
 
 ## Last updated
 
+2026-08-04 (HOST-TAB-1 lever E) — Second-migrate freeze: demoted in-flight initiate could still
+send `sdpOffer`; new host built a zombie PC and skipped its own offer. Fix: host ignores inbound
+offers; `isHost` + session-gen abort after awaits in initiate/answerer; heal stays in maintain.
+Automated: 109 files / 1,347 tests. Unpushed — ship then retest §10 step 4.
+
+2026-08-04 (playtest export close) — Closed four PASSes same session: FV-RESULTS-1 · STORE-DECK-1 ·
+STORE-PT-1 · FV-WILT-1. HOST-TAB-1 FAIL residual → lever E above.
+
 2026-08-04 (HOST-TAB-1 local wave) — Wyatt parked PERF-PASS-1 and acked levers A–D.
 Prod host frames now use a loop-owned scoped MessageChannel with one driver; clock compensation applies
 only when that pump never ticks. At 10s hidden, a multiplayer host asks the DO to migrate to the
 best other live human; foreground humans trigger a margin-20 preferred-host check. Both mid-round
-paths share a 5s room cooldown and the existing `host_migrated` handoff; away humans stay
-ineligible until their own foreground signal. Automated evidence: 109 test files / 1,341 tests,
-typecheck, knip, briefing, architecture, health, and production
-build green. Unpushed; deploy and the seven-step production checklist remain owed.
+paths share a 5s room cooldown and the existing `host_migrated` handoff.
 
 2026-08-03 (STATUS-TRIM-1) — STATUS.md was at 4,197 of a 4,200 budget, so every card paid a
 shaving tax before it could write anything down. **The reporter's "blind spot" is in its advice,

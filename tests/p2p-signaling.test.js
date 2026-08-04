@@ -510,3 +510,102 @@ describe("host P2P maintain / mid-match reconnect", () => {
     expect(createdPCs).toHaveLength(0);
   });
 });
+
+describe("HOST-TAB-1e: demoted / stale-offer guards (session generation)", () => {
+  const hostSlots = (peers) => [
+    { kind: "human", connId: "H" },
+    ...peers.map((connId) => ({ kind: "human", connId })),
+    { kind: "npc", connId: null },
+  ];
+
+  it("demoted mid-await initiate emits no offer and leaves no PC", async () => {
+    const sent = [];
+    P2P.initP2P({ host: true, sendSignal: (m) => sent.push(m), onInput: () => {}, onState: () => {} });
+    P2P.beginIceServersWait(5000);
+    const pending = P2P.initiateP2PConnection("clientA");
+    await flush();
+    expect(createdPCs).toHaveLength(0);
+
+    P2P.closeAllConnections();
+    P2P.initP2P({ host: false, sendSignal: (m) => sent.push(m), onInput: () => {}, onState: () => {} });
+    await pending;
+
+    expect(sent.filter((m) => m.type === MSG.sdpOffer)).toHaveLength(0);
+    expect(P2P.hasPeerConnection("clientA")).toBe(false);
+  });
+
+  it("demoted after createOffer sends no offer", async () => {
+    let resolveOffer;
+    const originalCreateOffer = MockRTCPeerConnection.prototype.createOffer;
+    MockRTCPeerConnection.prototype.createOffer = function createOfferHang() {
+      return new Promise((resolve) => {
+        resolveOffer = () => resolve({ type: "offer", sdp: "MOCK_OFFER" });
+      });
+    };
+    try {
+      const sent = [];
+      P2P.initP2P({ host: true, sendSignal: (m) => sent.push(m), onInput: () => {}, onState: () => {} });
+      const pending = P2P.initiateP2PConnection("clientA");
+      await flush();
+      expect(createdPCs).toHaveLength(1);
+
+      P2P.closeAllConnections();
+      P2P.initP2P({ host: false, sendSignal: (m) => sent.push(m), onInput: () => {}, onState: () => {} });
+      resolveOffer();
+      await pending;
+
+      expect(sent.filter((m) => m.type === MSG.sdpOffer)).toHaveLength(0);
+      expect(P2P.hasPeerConnection("clientA")).toBe(false);
+    } finally {
+      MockRTCPeerConnection.prototype.createOffer = originalCreateOffer;
+    }
+  });
+
+  it("host ignores inbound sdpOffer and creates no PC", async () => {
+    const sent = [];
+    P2P.initP2P({ host: true, sendSignal: (m) => sent.push(m), onInput: () => {}, onState: () => {} });
+    await P2P.handleSignalingMessage({
+      type: MSG.sdpOffer,
+      fromConnId: "stalePeer",
+      sdp: { type: "offer", sdp: "STALE" },
+    });
+    expect(createdPCs).toHaveLength(0);
+    expect(P2P.hasPeerConnection("stalePeer")).toBe(false);
+    expect(sent.filter((m) => m.type === MSG.sdpAnswer)).toHaveLength(0);
+  });
+
+  it("closeAll invalidates in-flight answerer ICE wait", async () => {
+    const sent = [];
+    P2P.initP2P({ host: false, sendSignal: (m) => sent.push(m), onInput: () => {}, onState: () => {} });
+    P2P.beginIceServersWait(5000);
+    const pending = P2P.handleSignalingMessage({
+      type: MSG.sdpOffer,
+      fromConnId: "hostA",
+      sdp: { type: "offer", sdp: "O" },
+    });
+    await flush();
+
+    P2P.closeAllConnections();
+    P2P.initP2P({ host: false, sendSignal: (m) => sent.push(m), onInput: () => {}, onState: () => {} });
+    await pending;
+
+    expect(sent.filter((m) => m.type === MSG.sdpAnswer)).toHaveLength(0);
+    expect(P2P.hasPeerConnection("hostA")).toBe(false);
+  });
+
+  it("ensureHostPeerConnections during negotiation sends zero offers and closes nothing", async () => {
+    const sent = [];
+    P2P.initP2P({ host: true, sendSignal: (m) => sent.push(m), onInput: () => {}, onState: () => {} });
+    hooks.setHostStateForTest({ isHost: true, youConnId: "H", netSlots: hostSlots(["C1"]) });
+    await P2P.initiateP2PConnection("C1");
+    const pc = createdPCs[0];
+    sent.length = 0;
+
+    hooks.ensureHostPeerConnections();
+    await flush();
+
+    expect(sent.filter((m) => m.type === MSG.sdpOffer)).toHaveLength(0);
+    expect(P2P.hasPeerConnection("C1")).toBe(true);
+    expect(pc.closed).toBe(false);
+  });
+});

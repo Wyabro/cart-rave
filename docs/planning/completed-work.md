@@ -13,6 +13,23 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 4, 2026 — Playtest PASSes closed (HOST-TAB-1 FAIL remains)
+
+Four cards from the playtest export closed the same session they PASSed (so they cannot reseed
+the console). HOST-TAB-1 stays open on FAIL — second mid-round migrate freezes the non-host.
+
+- *(UI · High)* **FV-RESULTS-1** — ✅ Wyatt PASS 08-04. Deployed `858b836`. No bare CHALLENGE
+  receipt row; CHALLENGE UNLOCKED label when earned. Toast may still say CHALLENGE COMPLETE.
+- *(Art · Medium)* **STORE-DECK-1** — ✅ Wyatt PASS 08-04. Deployed `6eff2df`. Worn plate +
+  safety stripe; bay letter already cut. No new entry hitch.
+- *(Art · High)* **STORE-PT-1** — ✅ Wyatt PASS 08-04. Deployed `3fa1cac`. Wall shelves read
+  pale painted wood. Void lips left alone; chrome booth rails → **SHELF-RAIL-1** if they clash.
+- *(UI · High, `[2pc]`)* **FV-WILT-1** — ✅ Wyatt PASS 08-04. MP win/lose FX + winnerSlotIndex
+  observation closed (parked observation, not a polish pass). Wilt *look* stays on
+  Wilting-groceries `[SHIP-1 E2]`.
+
+---
+
 ### August 4, 2026 — Docs audit pass 2 (live docs, not archive)
 
 Broader audit after pass 1: **BACKLOG + STATUS + fight-night handover + SHIP-1/ROADMAP/

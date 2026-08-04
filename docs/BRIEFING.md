@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-04 at commit `ae9cfd2` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `90b45ac6`
+> Generated 2026-08-04 at commit `fcc3ea6` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `70834791`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -19,13 +19,13 @@ Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep a
 ## ACTIVE CARD
 
 HOST-TAB-1 — Hidden-tab host pump + AFK promote + strongest-host return
-Pass looks like: ▶ ACTIVE — IMPLEMENTED LOCALLY 08-04; production playtest owed. Levers: `b566999` · `76de974` · `6edfa5c` · `25d8439`; review fixes: `ae9cfd2`. Automated gate: 109 files / 1,341 tests. Full checklist: [host-tab-1.md §10](./planning/host-tab-1.md#10-verification-matrix).
+Pass looks like: ▶ ACTIVE — lever E local (`p2p` session-gen + host ignores inbound offer). First AFK + solo PASS; second-migrate freeze fix unpushed. Owed: Wyatt playtest — HOST-TAB-1 after ship. Checklist: [host-tab-1.md §10](./planning/host-tab-1.md#10-verification-matrix) (incl. step 4 second migrate).
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 
 ## Waiting on Wyatt (not agent work)
 
-- **FV-RESULTS-1 / STORE-PT-1** Run 8 FAIL residue — CHALLENGE copy · shelves want painted wood — ⏸ DEPLOYED 08-04 (`858b836` · `3fa1cac`, Worker `752dd701`). Prod chunk verified: `CHALLENGE UNLOCKED` in…
+- **HOST-TAB-1** Hidden-tab host pump + AFK promote + strongest-host return — ▶ ACTIVE — lever E local (`p2p` session-gen + host ignores inbound offer). First AFK + solo PASS;…
 
 ## Do not
 

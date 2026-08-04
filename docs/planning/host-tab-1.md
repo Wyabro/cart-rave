@@ -415,12 +415,14 @@ the `archMap` line to BACKLOG and land mapping in a tools/docs block, or get Wya
    **Pass:** host glyph moves; other human is host; AFK still seated; one toast; match continues (may hitch ~1–3s like NET-MIG).  
 3. **Strong return** — After (2), original strong host focuses again.  
    **Pass:** if score margin ≥20 and cooldown clear, host returns mid-round; one toast; playable after migration freeze.  
-4. **Weak cannot steal** — Weak peer returns while strong hosts.  
+4. **Second migrate same match** — After (2) or (3), hide again past AFK (or return then hide).  
+   **Pass:** peer recovers; no freeze; no stuck “disconnected” peer on host HUD. Optional: `?diag=1`, F8 `pt-host-tab-1`, `npm run captures:pull` — confirm new host emits `sdpOffer` and any drop is not a silent WS death.  
+5. **Weak cannot steal** — Weak peer returns while strong hosts.  
    **Pass:** host stays on strong.  
-5. **Solo** — Solo hide 15s.  
+6. **Solo** — Solo hide 15s.  
    **Pass:** no migration; timer not double-shifted; game recoverable on focus.  
-6. **Tools** — `npm run shoot` (or battery cell) still completes with DEV `perfPump`.  
-7. **tabhidden** — still asserts freeze recovery (no pump).
+7. **Tools** — `npm run shoot` (or battery cell) still completes with DEV `perfPump`.  
+8. **tabhidden** — still asserts freeze recovery (no pump).
 
 Behavior changes need this human playtest on production after deploy (AGENTS).
 
@@ -462,6 +464,7 @@ HOST-TAB-1a: docs — prod host pump vs DEV ?perfPump; tabhidden exempt
 HOST-TAB-1b: host frame pump while tab hidden (gated; dual-driver safe)
 HOST-TAB-1c: AFK hostAway @10s promotes preferred excluding self
 HOST-TAB-1d: mid-round hostPresent rebalance to strongest (margin 20)
+HOST-TAB-1e: ignore stale inbound offers; session-gen after P2P awaits
 ```
 
 ---
@@ -489,3 +492,92 @@ away/present entrypoints. Execute after PERF clears main/loop.
 ```
 
 Until that ack (and PERF sequencing), **no code**.
+
+---
+
+## 16. Lever E — second-migrate P2P freeze (FAIL 08-04)
+
+**Status:** implemented locally — awaiting push / ship / §10 retest. Supersedes the chat plan
+that claimed `initiateP2PConnection` never re-checks `has()` (it does, at `p2p.js:358`).
+
+### Symptom (Wyatt)
+
+First short hide + first AFK promote + solo PASS. Second mid-round migrate in the
+same match freezes the non-host; host HUD shows the peer as disconnected; non-host
+stays broken.
+
+### Root cause (code-verified)
+
+Host is always the offerer ([Game_Architecture.md](../reference/Game_Architecture.md)
+§ P2P). Two missing guards let a **demoted** client plant a zombie on the **new** host:
+
+1. **Demoted initiate still offers.** `initiateP2PConnection` checks `isHost` before
+   `await waitForIceServers()` and never again (`p2p.js:352–373`). After migrate,
+   `closeAllConnections` settles the ICE wait; the in-flight call resumes, skips the
+   `has()` early-return (map was cleared), builds a PC, and sends `sdpOffer` even though
+   `initP2P({ host: false })` already ran (or will have, before the microtask — either
+   way there is no post-await `isHost` / generation gate before `signalingSend`).
+2. **New host accepts that offer as answerer.** `handleSignalingMessageInner` creates a
+   PC for inbound `sdpOffer` with **no `isHost` guard** (`p2p.js:386–396`). The later
+   branch `sdpOffer && !isHost` correctly skips answering, but the zombie PC stays in
+   the map. `ensureHostPeerConnections` → `initiateP2PConnection` hits `has()` and
+   early-returns — **no host offer ever goes out.**
+
+The zombie is planted by an **inbound stale offer on the new host**, not by the new
+host’s own initiate re-inserting after `has()`.
+
+**Open question (not blocking the lever):** `maintainHostPeerConnections` should
+force-close + re-offer stuck `negotiating` peers after `p2pConnectingTimeoutMs`
+(~10s). A pure WebRTC zombie ought to self-heal unless something else also drops the
+PartyKit socket (Wyatt’s “disconnected” is WS/slot-level language). Capture on retest
+with `?diag=1` if it still fails after this lever — do **not** expand scope pre-ack.
+
+### What not to do
+
+- **Do not** put replace-on-not-ok inside `initiateP2PConnection`.
+  `ensureHostPeerConnections` runs on every `MSG.slots`; non-ok includes `negotiating`
+  and `disconnected`, which `maintainHostPeerConnections` deliberately exempts (ICE
+  grace + 10s stuck window + per-peer cooldown). Unconditional replace thrash-regresses
+  tests at `p2p-signaling.test.js` (~449 grace, ~476 stuck-negotiation). Heal policy
+  stays in the maintain loop only.
+
+### Lever E changes (one commit)
+
+**File:** `src/netcode/p2p.js` (+ `tests/p2p-signaling.test.js`)
+
+1. **Host ignores inbound offers.** At the top of the offer-handling path (before PC
+   create): if `msg.type === MSG.sdpOffer && isHost` → return. Illegitimate by design.
+2. **Re-check `isHost` after every await** in `initiateP2PConnection` (after ICE wait;
+   after `createOffer` / `setLocalDescription` before `signalingSend`).
+3. **Session generation.** Counter bumped only in `closeAllConnections` (not in
+   per-peer `cleanupPeer` / `forceClosePeer`). Capture gen before awaits; abort if
+   changed — covers demoted-mid-offer and answerer mid-wait after tear-down.
+4. **Answerer path:** same generation check after `waitForIceServers` before creating
+   a PC; still only answers when `!isHost`.
+
+### Asserts
+
+| Test | Expect |
+|------|--------|
+| Demoted mid-await initiate | After `closeAll` + `initP2P({host:false})`, stale initiate emits **zero** offers and leaves **no** PC |
+| Host receives `sdpOffer` | Creates **no** PC, sends **no** answer |
+| `ensureHostPeerConnections` during in-flight negotiation | **Zero** new offers, closes nothing (existing ~449 / ~476 must still pass) |
+| Generation bump | `closeAll` invalidates in-flight initiate and answerer wait |
+| `npm run qa` | Green by number |
+
+### Wave close-out (not optional)
+
+- Push + `npm run verify:head`
+- STATUS / BACKLOG update at wave end (one docs touch)
+- `npm run briefing` / playtest console regen
+- §10 step 4 above is the retest line (not chat-only)
+
+### Ack line (Lever E)
+
+```
+Ack HOST-TAB-1 lever E — host ignores inbound sdpOffer; isHost + session-gen
+guards after awaits in initiate/answerer; no replace-on-not-ok in initiate;
+heal stays in maintain. Retest §10 incl. second migrate same match.
+```
+
+Until that ack: **no code**.

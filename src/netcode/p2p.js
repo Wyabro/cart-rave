@@ -43,6 +43,13 @@ let iceServersReady = Promise.resolve();
 let iceServersReadyResolve = null;
 /** True once setTurnServers ran or the wait timed out for this wait cycle. */
 let iceServersReadySettled = true;
+/**
+ * Bumped only in {@link closeAllConnections}. In-flight initiate / answerer awaits
+ * capture the value and abort when it changes so a demoted host cannot finish an offer
+ * after tear-down (HOST-TAB-1 second-migrate freeze).
+ * @type {number}
+ */
+let sessionGeneration = 0;
 
 /**
  * Initialize P2P settings.
@@ -58,6 +65,16 @@ export function initP2P({ localId, host, sendSignal, onInput, onState }) {
   signalingSend = sendSignal;
   onInputCallback = onInput;
   onStateCallback = onState;
+}
+
+/** @param {number} gen */
+function hostSessionStillValid(gen) {
+  return isHost && gen === sessionGeneration;
+}
+
+/** @param {number} gen */
+function answererSessionStillValid(gen) {
+  return !isHost && gen === sessionGeneration;
 }
 
 /**
@@ -353,7 +370,10 @@ export async function initiateP2PConnection(connId) {
   if (!isHost) return;
   if (peerConnections.has(connId)) return;
 
+  const gen = sessionGeneration;
   await waitForIceServers();
+  // * Demotion / closeAll may have landed while we waited — do not offer as a non-host.
+  if (!hostSessionStillValid(gen)) return;
   // * Another concurrent initiate may have won the race while we waited.
   if (peerConnections.has(connId)) return;
 
@@ -362,7 +382,15 @@ export async function initiateP2PConnection(connId) {
   setupDataChannel(dc, connId);
 
   const offer = await pc.createOffer();
+  if (!hostSessionStillValid(gen)) {
+    cleanupPeer(connId);
+    return;
+  }
   await pc.setLocalDescription(offer);
+  if (!hostSessionStillValid(gen)) {
+    cleanupPeer(connId);
+    return;
+  }
 
   if (signalingSend) {
     signalingSend({
@@ -381,12 +409,17 @@ async function handleSignalingMessageInner(msg) {
   const fromConnId = msg.fromConnId;
   if (!fromConnId) return;
 
+  // * Host is always the offerer — inbound offers are illegitimate (stale demoted host).
+  if (msg.type === MSG.sdpOffer && isHost) return;
+
   let pc = peerConnections.get(fromConnId);
 
   if (!pc) {
     if (msg.type === MSG.sdpOffer) {
       // * Answerer also needs TURN before PC construction (symmetric NAT on both ends).
+      const gen = sessionGeneration;
       await waitForIceServers();
+      if (!answererSessionStillValid(gen)) return;
       pc = peerConnections.get(fromConnId);
       if (!pc) {
         pc = createPeerConnection(fromConnId);
@@ -404,10 +437,15 @@ async function handleSignalingMessageInner(msg) {
   }
 
   if (msg.type === MSG.sdpOffer && !isHost) {
+    const gen = sessionGeneration;
     await pc.setRemoteDescription(msg.sdp);
+    if (!answererSessionStillValid(gen)) return;
     await flushPendingIceCandidates(pc, fromConnId);
+    if (!answererSessionStillValid(gen)) return;
     const answer = await pc.createAnswer();
+    if (!answererSessionStillValid(gen)) return;
     await pc.setLocalDescription(answer);
+    if (!answererSessionStillValid(gen)) return;
     if (signalingSend) {
       signalingSend({
         type: MSG.sdpAnswer,
@@ -582,6 +620,8 @@ export function sendToAll(data) {
  * Closes all peer connections and data channels.
  */
 export function closeAllConnections() {
+  // * Invalidate in-flight initiate / answerer awaits before settling ICE wait.
+  sessionGeneration += 1;
   for (const timer of iceDisconnectGraceTimers.values()) {
     clearTimeout(timer);
   }

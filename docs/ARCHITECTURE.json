@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-04T05:01:08.338Z",
-    "commit": "ae9cfd2"
+    "at": "2026-08-04T05:45:32.674Z",
+    "commit": "fcc3ea6"
   },
-  "source_digest": "97e0c457",
+  "source_digest": "1f96876a",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -845,21 +845,9 @@
   "workstreams": {
     "queue": [
       {
-        "id": "STORE-DECK-1",
-        "what": "Storerooms spawn-deck bay letter",
-        "status": "⏸ DEPLOYED 08-03 (`6eff2df`, Worker version `01f8a745`) — verified by fetching the production chunk: no `BAY_LETTERS`, no letter font, plate + stripe intact. Waiting on Wyatt's retest.",
-        "state": "waiting"
-      },
-      {
-        "id": "FV-RESULTS-1 / STORE-PT-1",
-        "what": "Run 8 FAIL residue — CHALLENGE copy · shelves want painted wood",
-        "status": "⏸ DEPLOYED 08-04 (`858b836` · `3fa1cac`, Worker `752dd701`). Prod chunk verified: `CHALLENGE UNLOCKED` in index; backrooms cream `#d8cfb8`, no steel `#b3b5ad`. Owed: Wyatt playtest both — code side is closed.",
-        "state": "waiting"
-      },
-      {
         "id": "HOST-TAB-1",
         "what": "Hidden-tab host pump + AFK promote + strongest-host return",
-        "status": "▶ ACTIVE — IMPLEMENTED LOCALLY 08-04; production playtest owed. Levers: `b566999` · `76de974` · `6edfa5c` · `25d8439`; review fixes: `ae9cfd2`. Automated gate: 109 files / 1,341 tests. Full checklist: [host-tab-1.md §10](./planning/host-tab-1.md#10-verification-matrix).",
+        "status": "▶ ACTIVE — lever E local (`p2p` session-gen + host ignores inbound offer). First AFK + solo PASS; second-migrate freeze fix unpushed. Owed: Wyatt playtest — HOST-TAB-1 after ship. Checklist: [host-tab-1.md §10](./planning/host-tab-1.md#10-verification-matrix) (incl. step 4 second migrate).",
         "state": "active"
       },
       {
@@ -894,24 +882,19 @@
       "Run 8 (08-03) is in: 15 PASS · 4 FAIL · 1 skip. All 15 passing rows were deleted",
       "A PASS must close its row in the same session it is reported. Before Run 8 nothing wrote",
       "STORE-DECK-1 shipped and DEPLOYED 08-03 (`6eff2df`, Worker `01f8a745`) — bay letter cut,",
-      "ACTIVE: HOST-TAB-1 production playtest. PERF-PASS-1 is parked by Wyatt. Run the seven",
+      "ACTIVE: HOST-TAB-1 lever E — implemented locally; ship then retest §10 (esp. second migrate).",
       "Still owed to Wyatt: the 9-cell PERF sweep (his box, ~25 min — he cannot be replaced here);"
     ],
     "open_issues": [
       {
         "id": "HOST-TAB-1",
         "issue": "Hidden-tab host authority",
-        "status": "▶ **LOCAL CODE LANDED — deploy + production playtest owed.** Short hide pump, 10s AFK demotion, 5s migration cooldown, and margin-20 strongest return are covered by unit + DO integration tests."
+        "status": "▶ **Lever E implemented locally** — host ignores inbound `sdpOffer`; `isHost` + session-gen after awaits. **Owed: Wyatt playtest — HOST-TAB-1** (retest §10 step 4)."
       },
       {
         "id": "PERF-PASS-1",
         "issue": "60 fps at Low on the Intel box — **Cart Rave only**",
         "status": "⏸ **PARKED 08-04.** Baseline 23.788 ms / 42.0 fps; menu: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md)."
-      },
-      {
-        "id": "FV-RESULTS-1 / STORE-PT-1",
-        "issue": "CHALLENGE receipt copy · shelves painted wood",
-        "status": "▶ **DEPLOYED** Worker `752dd701` — playtest closes."
       },
       {
         "id": "WARM-SOLO-1",
@@ -1177,7 +1160,7 @@
           {
             "pri": "Medium",
             "item": "Wilting-groceries Defeat screen reads as \"confetti / something good\" `[SHIP-1 E2]`",
-            "notes": "Needs art-direction call before code — see [art-direction.md](../reference/art-direction.md). Effects already fire (see closed **PRE-PODIUM-1**); this row is **look only**. MP observation = **FV-WILT-1**.",
+            "notes": "Needs art-direction call before code — see [art-direction.md](../reference/art-direction.md). Effects already fire (see closed **PRE-PODIUM-1**); this row is **look only**. MP observation closed (**FV-WILT-1** Wyatt PASS 08-04).",
             "ship1": "E2"
           },
           {
@@ -1195,7 +1178,7 @@
           {
             "pri": "✅",
             "item": "ART-PASS-1 — per-level art pass audit `[pre-ship]`",
-            "notes": "**CLOSED 08-04 (docs hygiene)** — all three arenas audited 08-01 (adversarially verified). Execution: Classic = **ART-PASS-CLASSIC-1** (complete); Sundial = ART-PASS-SUNDIAL-1 (closed Run 8); Storerooms residuals = **STORE-PT-1** / **SHELF-RAIL-1**, not this audit card.",
+            "notes": "**CLOSED 08-04 (docs hygiene)** — all three arenas audited 08-01 (adversarially verified). Execution: Classic = **ART-PASS-CLASSIC-1** (complete); Sundial = ART-PASS-SUNDIAL-1 (closed Run 8); Storerooms shelves PASS (**STORE-PT-1** 08-04); residual **SHELF-RAIL-1** only.",
             "ship1": null
           },
           {
@@ -1317,7 +1300,7 @@
           {
             "pri": "High",
             "item": "HOST-TAB-1 — hidden-tab host pump + AFK promote + mid-round strongest rehost",
-            "notes": "**IMPLEMENTED LOCALLY 08-04; production playtest owed.** Plan: [host-tab-1.md](./host-tab-1.md). Levers: `b566999` docs/tool split · `76de974` hidden-host frame pump · `6edfa5c` 10s AFK demotion excluding the current host · `25d8439` mid-round strongest-host return at margin 20. A shared 5s server cooldown prevents away/return thrash. Solo pumps while hidden and never migrates; its clock shifts **only if the pump did not run** — never both. `npm run tabhidden` deliberately remains no-pump. **Playtest:** short hide keeps the peer world moving; 12s hide migrates once while the old host stays seated; strongest return reclaims after cooldown; weak return cannot steal; solo timer stays continuous. Related: HOST-CAP-1, HOST-ROLE-1, closed NET-MIG-3.",
+            "notes": "**Lever E local 08-04 — ship then retest.** Plan: [host-tab-1.md §16](./host-tab-1.md). FAIL was second mid-round migrate freezing the non-host; fix is host ignores inbound `sdpOffer` + `isHost`/session-gen after awaits (`p2p.js`). A–D already in tree; E unpushed. Related: HOST-CAP-1, HOST-ROLE-1, closed NET-MIG-3.",
             "ship1": null
           },
           {
@@ -1379,34 +1362,21 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "High": 3,
+          "High": 1,
           "?": 4,
-          "Medium": 1,
           "Low": 1
         },
         "rows": [
           {
             "pri": "High",
-            "item": "STORE-PT-1 — Storerooms art",
-            "notes": "**CODE `3fa1cac` — Owed: Wyatt playtest — STORE-PT-1 — shelves read painted wood.** (Void already PASS 08-03 — do not re-judge.)<br>1. Load The Storerooms on prod.<br>2. Look at wall racking / shelf boards (not spawn decks).<br>3. **Pass if:** pale painted wood, not steel/chrome/busy metal detail.<br>4. Void lips still good; chrome booth rails left alone → **SHELF-RAIL-1** if they clash.",
+            "item": "HOST-TAB-1 — hidden-tab host authority `[2pc]`",
+            "notes": "**Owed: Wyatt playtest — HOST-TAB-1 — second mid-round migrate must not freeze the non-host.** Lever E local (host ignores inbound offer + session-gen). Retest after ship. Full steps: [host-tab-1.md §10](./host-tab-1.md#10-verification-matrix) — emphasize step 4 (second migrate same match). Optional `?diag=1` + F8 `pt-host-tab-1` if it still fails.",
             "ship1": null
           },
           {
             "pri": "✅",
             "item": "PERF-INSTR-1 — the 60fps instrument works on the Intel box (PERF-PASS-1 Wave 1)",
             "notes": "**CLOSED 08-03 — Wyatt PASS, cap-239 (`aeb83aa`, `buildFreshness.stale=false`).** The instrument works on the target machine and `loopRound` did exactly its job: he F8'd mid-round, `rounds[]` is empty, and the live read carried the whole measurement. **Result — Cart Rave, in-round, menu and countdown excluded: `meanMs` 20.934 → 47.77 fps**, 49.8% of frames over 16.7 ms, 24.3% over 33 ms, 3 NPCs, 1910×915 @ DPR 1. **The gap to target is 4.2 ms (20%), not the ~halving that was estimated from the Run-8 segments.** That estimate assumed menu/transition frames were *cheaper* than gameplay and that in-round would therefore be worse than 38.2 fps; the opposite is true — the arena-build and shader-compile frames in the transition were the expensive ones, and gameplay is faster than the blended average. **Branch answer: NOT CPU-bound** — `cpuMeanMs` 10.438 of `meanMs` 20.934 = **49.9%**, against the ≥85% gate, so Wave 3 stays a visual/geometry card. **The actionable shape is inside the CPU half:** `simMeanMs` **0.985** vs `visMeanMs` **9.454** — physics and gameflow are effectively free, and the visual update (which includes draw submission) is 9.5 of the 10.4 CPU ms. So cutting geometry should pay **twice**: less submission in `visMs` *and* less GPU execution in `unaccountedMeanMs` (10.496). **Caveat — the window straddled a demotion** (`straddledDemotion: true`, `rsm` 0.85 → 0.7, two `qualityStepDown` at t=26.4 s / t=32.4 s) because the URL was `?diag=1&room=…` with no `preset=low`, so the watchdog stayed armed (`qualityTierOverride: null`). The guard caught it; the number is directional, not a baseline. **No re-run owed — the clean `?preset=low` baseline is cell 1 of the Wave 3 sweep.**",
-            "ship1": null
-          },
-          {
-            "pri": "High",
-            "item": "FV-RESULTS-1 — results podium feel",
-            "notes": "**CODE `858b836` — Owed: Wyatt playtest — FV-RESULTS-1 — no bare CHALLENGE junk.**<br>1. Finish a round with **no** challenge completed this round.<br>2. Receipt: BODIES/SPILLS/etc. still print; **no** challenge row; TOTAL present; stagger one tick shorter is fine.<br>3. If you complete a challenge mid-round: label reads **CHALLENGE UNLOCKED** + title/count (not bare CHALLENGE).<br>4. **Pass if:** no bare CHALLENGE line; layout/count-up unchanged. Toast may still say CHALLENGE COMPLETE — leave it.",
-            "ship1": null
-          },
-          {
-            "pri": "High",
-            "item": "FV-WILT-1 — confetti / wilt + winner slot `[2pc]`",
-            "notes": "**Owed: Wyatt playtest — FV-WILT-1 — win/lose FX + winnerSlotIndex on MP.**<br>1. Two clients, same friends or quickplay room on prod.<br>2. Play until podium; one machine should be the loser.<br>3. Note: any confetti on win / wilt (or similar) on loss? Yes / no is enough.<br>4. On the losing client console: `GameState.getRoundState().winnerSlotIndex` — is it a **number** or **null**?<br>One honest observation closes this card (parked observation, not a polish pass).",
             "ship1": null
           },
           {
@@ -1419,12 +1389,6 @@
             "pri": "✅",
             "item": "CAM-PT-1 — solo opening camera",
             "notes": "**CLOSED 08-03 — Wyatt PASS** (orbit feel + quit/cancel clean). Residual dead 2s hold window → **CAM-READY-1** (GET READY pulse during pre-roll). Do not reopen CAM-PT-1.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "STORE-DECK-1 — Storerooms spawn-platform textures",
-            "notes": "**Owed: Wyatt playtest — STORE-DECK-1 — decks read as worn plate, with no letter on them.** (Not STORE-PT-1 suction/racking.) Art-audit item 6; **bay letter cut 08-03 on Wyatt's FAIL** (*\"i dont like the bay letter. remove that and it becomes a pass\"*).<br>1. Load The Storerooms. Look at the spawn booth decks. **Pass if:** worn plate + safety stripe, and **no stencilled A/B/C/D**; not flat grey slabs.<br>2. Enter play — no new entry hitch (shader span unchanged vs pre-card).",
             "ship1": null
           },
           {
@@ -1453,7 +1417,7 @@
           {
             "pri": "✅",
             "item": "PRE-PODIUM-1 — confetti / wilt + win-lose callout missing `[pre-ship]`",
-            "notes": "**CLOSED 08-04 (docs audit)** — filing text was stale. Code already ships winner confetti (winner-cam + results panel), local-loser wilt (`spawnResultsDefeatWilt`), and verdict `\"Name wins — N pts\"` (`main.js` podium path; wilt `2eff72f`). **Not closed:** MP eye = **FV-WILT-1**; wilt *look* = Wilting-groceries `[SHIP-1 E2]`.",
+            "notes": "**CLOSED 08-04 (docs audit)** — filing text was stale. Code already ships winner confetti (winner-cam + results panel), local-loser wilt (`spawnResultsDefeatWilt`), and verdict `\"Name wins — N pts\"` (`main.js` podium path; wilt `2eff72f`). MP eye closed (**FV-WILT-1** PASS 08-04); wilt *look* = Wilting-groceries `[SHIP-1 E2]`.",
             "ship1": "E2"
           },
           {
@@ -1513,7 +1477,7 @@
           {
             "pri": "✅",
             "item": "FIGHT-VERIFY-1 — owed fight-night verification",
-            "notes": "**CLOSED 08-04 (docs audit)** — parent only. Agent half DONE; Wyatt 5/7 PASS on Run 8. **Live residue rows:** **FV-RESULTS-1** (CHALLENGE copy FAIL) · **FV-WILT-1** (2pc skip). Friends/rematch PASS. Handover history: [fight-night-ui-handover.md](./fight-night-ui-handover.md).",
+            "notes": "**CLOSED 08-04 (docs audit)** — parent only. Agent half DONE; Wyatt 5/7 PASS on Run 8. Residue closed 08-04: **FV-RESULTS-1** + **FV-WILT-1** Wyatt PASS. Friends/rematch PASS. Handover history: [fight-night-ui-handover.md](./fight-night-ui-handover.md).",
             "ship1": null
           },
           {
