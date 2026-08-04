@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-04 at commit `adbe6ca` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `bb439ff0`
+> Generated 2026-08-04 at commit `7a91535` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `8edf60ce`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -19,7 +19,7 @@ Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep a
 ## ACTIVE CARD
 
 PERF-PASS-1 — 60 fps at Low on the Intel box — Cart Rave only (Wyatt scoped it 08-03)
-Pass looks like: ▶ ACTIVE — UNPARKED 08-04, Wave 3 acked. Wave 1 DEPLOYED + MEASURED (`aeb83aa` / cap-239): in-round 20.934 ms → 47.8 fps, not CPU-bound → Wave 3 = `?ablate` scene plumbing + a 9-cell sweep on the Intel box → a cost menu; no visual cut ships in Wave 3. Plan (both waves, verified line refs): [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md).
+Pass looks like: ▶ ACTIVE — Wave 3 SWEPT 08-04 (cap-240…248, `7a91535`, Worker `c052bcc5`; drift 0.041 ms, no straddle). Clean Low baseline 23.788 ms / 42.0 fps — gap is 7.1 ms, not 4.2 (cap-239 was mid-demotion). Only 2 of 7 cuts clear 1.5 ms: `pitlights` −2.88, `stadium` −2.66. Geometry model falsified — cutting 39.9% of triangles bought −0.12 ms (ablation confirmed live, not a no-op); cost is per-fragment shading, not vertices. Both winners together = 18.25 ms, still short. Waiting on Wyatt's pick; Wave 4 needs its own ack. Menu + evidence: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md).
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 

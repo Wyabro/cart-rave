@@ -88,6 +88,63 @@ before/after still pair. Wyatt picks; Wave 4 ships only what he picks.
 
 ---
 
+## ✅ WAVE 3 RESULT — swept 08-04 (cap-240…248, build `7a91535`, Worker `c052bcc5`)
+
+**Sweep is valid.** Nine cells, Intel UHD, `?preset=low`, Cart Rave, solo host + 3 NPCs, 61–69 s
+each. Every cell: `straddledDemotion: false`, `buildFreshness.stale: false`, `rsm 1/1`. **A-B-A
+drift = 0.041 ms** (`none` 23.768 → 23.809) against the ±1.5 ms void threshold.
+
+**Baseline = 23.788 ms → 42.0 fps.** Deltas vs the mean of both `none` cells:
+
+| token | mean ms | Δms | fps | over 16.7 ms | verdict |
+|---|---|---|---|---|---|
+| `pitlights` | 20.909 | **−2.88** | 47.8 | 25.0% | **candidate** — 0 triangles cut |
+| `stadium` | 21.130 | **−2.66** | 47.3 | 26.5% | **candidate** — −43 of 147 draws; also cuts `crowdGlow` |
+| `stagerig` | 22.688 | −1.10 | 44.1 | 34.5% | noise (<1.5) — subtree is only 1,748 tris |
+| `billboard` | 22.695 | −1.09 | 44.1 | 35.6% | noise (<1.5) |
+| `crowdcarts` | 23.664 | −0.12 | 42.3 | 41.2% | **null result** — cut 219,648 tris (39.9%) |
+| `crowd` | 24.119 | +0.33 | 41.5 | 43.5% | **null result** — cut 246,816 tris (44.8%) |
+| `bulbs` | 24.642 | +0.85 | 40.6 | 46.2% | noise/falsifier |
+
+### The geometry model in this document is FALSIFIED. Do not re-derive it.
+
+The ranking above was built on "Cart Rave is 548k triangles, the crowd cart layer is 36% of them,
+cutting geometry pays twice." **It does not.** Removing 39.9% of the arena's triangles moved the
+frame by **−0.12 ms**; removing 44.8% made it **0.33 ms slower**. Both cuts were confirmed applied
+— the 416-instance layer reads `visible: false` in a live round on the dev build, so this is not
+the silent un-ablate the §4 hazard warned about. It was checked precisely because the null result
+is what that failure looks like.
+
+**What actually pays is per-fragment shading, not vertices.** The two winners are the only two
+cells that cut fragment work: `pitlights` removes 3 PointLights from the standard-material light
+loop across every shaded pixel (and cuts **zero** geometry), and `stadium` removes 29% of all draw
+calls plus the bowl's large screen-covering surfaces and the additive `crowdGlow` ring (overdraw).
+Triangle count is not the currency on this box; shaded pixels and light-loop length are.
+
+**Practical noise floor is ≈ ±1 ms per cell**, not the 0.041 ms the A-B-A pair suggests: two cells
+that should have been ~0 landed at +0.85 (`bulbs`) and +0.33 (`crowd`), wrong-signed. The plan's
+1.5 ms threshold is therefore correctly placed, and only the two candidates clear it.
+
+### Two corrections to this card's own numbers
+
+1. **The gap to 60 is 7.1 ms (30%), not 4.2 ms (20%).** cap-239 read 20.934 ms while straddling a
+   renderScale demotion (`rsm` 0.85→0.7). Every cell of this sweep held `rsm 1/1`, so the honest
+   clean-Low baseline is **23.788 ms / 42.0 fps**.
+2. **"renderScale is already spent" rests on that same demoted capture.** Within this sweep it is
+   untestable (rsm was pinned at 1 in all nine cells), but the box read ~2.9 ms faster at the lower
+   effective scale. That is suggestive, not proven — the two readings differ in session and boot
+   path too. **Flagged for Wyatt, not acted on.** It stays his call.
+
+**Even both candidates together do not reach the bar:** 23.788 − 2.88 − 2.66 = **18.25 ms
+(54.8 fps)** if they were additive, and they are not guaranteed to be (`stadium` changes the
+fragment load that `pitlights` also acts on). 60 fps at Low needs a lever beyond this menu.
+
+**Stills:** `shots/cost-menu/` — 7 tokens × `classic` and `classic-edge`, `--t 0` pinned.
+`billboard` has no still (never built on the `includeJuice:false` shoot path) and `stagerig` sits
+outside both camera poses; neither is a candidate, so neither still is owed.
+
+---
+
 ## The code change — one commit, then measurement only
 
 ### 1. `applySceneAblation` in `src/utils/debugParams.js`

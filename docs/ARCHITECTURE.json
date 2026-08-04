@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-04T02:56:31.201Z",
-    "commit": "a78740d"
+    "at": "2026-08-04T03:44:11.682Z",
+    "commit": "7a91535"
   },
-  "source_digest": "2d6e89a5",
+  "source_digest": "152cd1f8",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -859,7 +859,7 @@
       {
         "id": "PERF-PASS-1",
         "what": "60 fps at Low on the Intel box — Cart Rave only (Wyatt scoped it 08-03)",
-        "status": "▶ ACTIVE — UNPARKED 08-04, Wave 3 acked. Wave 1 DEPLOYED + MEASURED (`aeb83aa` / cap-239): in-round 20.934 ms → 47.8 fps, not CPU-bound → Wave 3 = `?ablate` scene plumbing + a 9-cell sweep on the Intel box → a cost menu; no visual cut ships in Wave 3. Plan (both waves, verified line refs): [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md).",
+        "status": "▶ ACTIVE — Wave 3 SWEPT 08-04 (cap-240…248, `7a91535`, Worker `c052bcc5`; drift 0.041 ms, no straddle). Clean Low baseline 23.788 ms / 42.0 fps — gap is 7.1 ms, not 4.2 (cap-239 was mid-demotion). Only 2 of 7 cuts clear 1.5 ms: `pitlights` −2.88, `stadium` −2.66. Geometry model falsified — cutting 39.9% of triangles bought −0.12 ms (ablation confirmed live, not a no-op); cost is per-fragment shading, not vertices. Both winners together = 18.25 ms, still short. Waiting on Wyatt's pick; Wave 4 needs its own ack. Menu + evidence: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md).",
         "state": "active"
       },
       {
@@ -895,7 +895,7 @@
       {
         "id": "PERF-PASS-1",
         "issue": "60 fps at Low on the Intel box — **Cart Rave only**",
-        "status": "▶ **ACTIVE 08-04.** Wave 1 instrument PASS (cap-239): meanMs 20.934 → 47.8 fps, not CPU-bound → Wave 3 = visual/geometry cost menu (crowd cart layer ~200k tris is the big knob). Plan: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md)."
+        "status": "▶ **ACTIVE 08-04 — cost menu delivered, awaiting Wyatt's pick.** Baseline 23.788 ms / 42.0 fps; only `pitlights` (−2.88) and `stadium` (−2.66) clear noise. The crowd-layer knob the card was built around measures **−0.12 ms**. Menu: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md)."
       },
       {
         "id": "FV-RESULTS-1 / STORE-PT-1",

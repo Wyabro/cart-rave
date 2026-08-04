@@ -68,7 +68,7 @@ Live rows only. Shipped and closed cards live in
 |---|------|--------|
 | STORE-DECK-1 | Storerooms spawn-deck bay letter | ⏸ **DEPLOYED 08-03** (`6eff2df`, Worker version `01f8a745`) — verified by fetching the production chunk: no `BAY_LETTERS`, no letter font, plate + stripe intact. Waiting on Wyatt's retest. |
 | FV-RESULTS-1 / STORE-PT-1 | Run 8 FAIL residue — CHALLENGE copy · shelves want painted wood | ⏸ **DEPLOYED 08-04** (`858b836` · `3fa1cac`, Worker `752dd701`). Prod chunk verified: `CHALLENGE UNLOCKED` in index; backrooms cream `#d8cfb8`, no steel `#b3b5ad`. **Owed: Wyatt playtest both** — code side is closed. |
-| PERF-PASS-1 | 60 fps at Low on the Intel box — **Cart Rave only** (Wyatt scoped it 08-03) | ▶ **ACTIVE — UNPARKED 08-04, Wave 3 acked.** Wave 1 DEPLOYED + MEASURED (`aeb83aa` / cap-239): in-round 20.934 ms → 47.8 fps, not CPU-bound → Wave 3 = `?ablate` scene plumbing + a 9-cell sweep on the Intel box → **a cost menu; no visual cut ships in Wave 3**. Plan (both waves, verified line refs): [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md). |
+| PERF-PASS-1 | 60 fps at Low on the Intel box — **Cart Rave only** (Wyatt scoped it 08-03) | ▶ **ACTIVE — Wave 3 SWEPT 08-04** (cap-240…248, `7a91535`, Worker `c052bcc5`; drift 0.041 ms, no straddle). **Clean Low baseline 23.788 ms / 42.0 fps — gap is 7.1 ms, not 4.2** (cap-239 was mid-demotion). **Only 2 of 7 cuts clear 1.5 ms: `pitlights` −2.88, `stadium` −2.66.** **Geometry model falsified** — cutting 39.9% of triangles bought −0.12 ms (ablation confirmed live, not a no-op); cost is per-fragment shading, not vertices. Both winners together = 18.25 ms, still short. **Waiting on Wyatt's pick; Wave 4 needs its own ack.** Menu + evidence: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md). |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 
@@ -101,7 +101,7 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 
 | ID | Issue | Status |
 |----|--------|--------|
-| PERF-PASS-1 | 60 fps at Low on the Intel box — **Cart Rave only** | ▶ **ACTIVE 08-04.** Wave 1 instrument PASS (cap-239): meanMs 20.934 → 47.8 fps, not CPU-bound → Wave 3 = visual/geometry cost menu (crowd cart layer ~200k tris is the big knob). Plan: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md). |
+| PERF-PASS-1 | 60 fps at Low on the Intel box — **Cart Rave only** | ▶ **ACTIVE 08-04 — cost menu delivered, awaiting Wyatt's pick.** Baseline 23.788 ms / 42.0 fps; only `pitlights` (−2.88) and `stadium` (−2.66) clear noise. The crowd-layer knob the card was built around measures **−0.12 ms**. Menu: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md). |
 | FV-RESULTS-1 / STORE-PT-1 | CHALLENGE receipt copy · shelves painted wood | ▶ **DEPLOYED** Worker `752dd701` — playtest closes. |
 | WARM-SOLO-1 | Solo post-`carts-ready` stall (WARM-IGPU residual) | 📋 telemetry-gated — [warm-igpu-1.md](./planning/warm-igpu-1.md) |
 | MAIN-1 | Carve `main.js` seam (enables BUNDLE-1) | 📋 post-gate |
