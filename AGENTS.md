@@ -236,6 +236,17 @@ falsifiable against a diff: if you cannot point at the line that violates it, it
   lever is how 137 of 374 commits in a fortnight came to touch nothing but `docs/`.
 - **Visual bugs:** use ablation + shoot/blackframes before large postFX rewrites
   ([docs/guides/visual-qa.md](docs/guides/visual-qa.md)).
+- **Never hand Wyatt a URL before the thing it exercises is in the deployed bundle.** Deploy →
+  fetch the production chunk → `Select-String` for the new symbol → *then* give him the link. A
+  flag that does not exist fails **silently** (`debugParams` ignores unknown `?ablate=` tokens by
+  design) and `buildFreshness` will not warn, because the bundle genuinely is live — it just
+  predates the feature. On 08-04 this void'd a capture and a round of his play.
+- **His time and the context window are both budgets, and neither is yours to spend quietly.**
+  Concretely: **move files with shell commands, never re-emit a document you already have**
+  (relocating a 350-line plan by retyping it was this session's single largest spend); **never
+  `grep -C` `BACKLOG.md`/`STATUS.md`** — their rows are essay-length single lines, so "a little
+  context" is thousands of tokens (use line-ranged reads); **one docs commit and one `npm run qa`
+  per wave**, not per finding — each docs commit drags a briefing + arch regeneration behind it.
 
 ### Enforcement
 
@@ -291,6 +302,21 @@ because a full day was once lost grinding one task; the loop caps that at ~45 mi
   the exact moment an hour becomes a day.
 - **One card at a time.** Exactly one active item. New ideas go to
   [BACKLOG.md](docs/planning/BACKLOG.md) — recording an idea ≠ changing priorities.
+- **Reachability gate — a target number is not a card.** Before a card whose done-condition is a
+  *measurement* rather than something Wyatt can look at (fps bars, memory ceilings, load budgets),
+  answer two questions in the plan: **"is this reachable on the target hardware, and what evidence
+  would tell us it is not?"** and **"what is this worth in Wyatt's time?"** — a stated cell/minute
+  budget he acks with the wave. Without both, the card has no state at which it is allowed to
+  stop, and it will consume sessions indefinitely. **PERF-PASS-1 (08-04) is the worked example:**
+  two hours and ~25 minutes of his play produced one shipped lever worth *somewhere* between
+  +0.55 and −2.54 ms, against a 60 fps bar the box may not be physically capable of. The falsified
+  premise was worth finding; the cost of finding it was not agreed in advance. **A card that
+  cannot close does not belong in the active slot next to a game that needs finishing.**
+- **Falsify cheapest-first.** When a plan rests on one premise ("the crowd is 36% of triangles, so
+  cutting it pays"), the first measurement's job is to **kill that premise**, not to price every
+  option. Run the 2–3 cells that would prove it wrong; only sweep the full menu once it survives.
+  On 08-04 nine cells were run where three would have produced the same falsification, and the
+  other six were spent pricing candidates the premise had already invalidated.
 - **Freeze the operating system during a game card.** While a game card is active, no commits
   to `tools/`, `.claude/hooks/`, `.agents/`, or Command Center styling. A hook that misfires
   mid-card gets its escape hatch (`SKIP_GIT_GUARD=1` / `SKIP_PATH_GUARD=1` /

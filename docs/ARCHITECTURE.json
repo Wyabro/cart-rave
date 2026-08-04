@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-04T04:14:30.406Z",
-    "commit": "b754e12"
+    "at": "2026-08-04T04:24:44.970Z",
+    "commit": "bb419fc"
   },
-  "source_digest": "039bfe5e",
+  "source_digest": "e0ffdb20",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1306,7 +1306,7 @@
           {
             "pri": "High",
             "item": "HOST-TAB-1 — hidden-tab host pump + AFK promote + mid-round strongest rehost",
-            "notes": "**Filed 08-04 from Wyatt design.** Browser freezes rAF when the tab is hidden; today only DEV `?perfPump` ([perfPump.js](../../src/utils/perfPump.js)) keeps the loop alive for tools, and prod only **shifts the round clock** on host return ([main.js](../../src/main.js) hostHiddenAtMs) — non-hosts still see a frozen world. **Product (acked mid-round):** (1) **Tools hygiene** — every harness that needs a live sim always passes `?perfPump`; `npm run tabhidden` stays **no-pump** on purpose (it asserts freeze recovery). (2) **Short hide (0–~10s)** — while `isHost && multiplayer && phase running",
+            "notes": "**Full plan for review:** [host-tab-1.md](./host-tab-1.md). **Filed 08-04 from Wyatt design.** Browser freezes rAF when the tab is hidden; today only DEV `?perfPump` ([perfPump.js](../../src/utils/perfPump.js)) keeps the loop alive for tools, and prod only **shifts the round clock** on host return ([main.js](../../src/main.js) hostHiddenAtMs) — non-hosts still see a frozen world. **Product (acked mid-round):** (1) **Tools hygiene** — every harness that needs a live sim always passes `?perfPump`; `npm run tabhidden` stays **no-pump** on purpose (it asserts freeze recovery). (2) **Short hide (0–~10s)** — while `isHost && multiplayer && phase running",
             "ship1": null
           },
           {
@@ -1858,6 +1858,8 @@
       "0. Plan → ack → apply, and the unit of ack is a WAVE. Before any multi-file or",
       "The fast lane: one file, nothing player-visible → skip the wave doc, keep the ack.",
       "One card at a time. Exactly one active item. New ideas go to",
+      "Reachability gate — a target number is not a card. Before a card whose done-condition is a",
+      "Falsify cheapest-first. When a plan rests on one premise (\"the crowd is 36% of triangles, so",
       "Freeze the operating system during a game card. While a game card is active, no commits",
       "Timebox: ~45 minutes or 3 failed attempts on one approach — whichever hits first, STOP.",
       "Escalation ladder, in order: (1) the timeboxed attempts → (2) the findings write-up →",
