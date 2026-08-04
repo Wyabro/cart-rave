@@ -33,8 +33,11 @@ export async function uploadCaptureBundle(bundle, opts = {}) {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(envelope),
-      // * Keep the upload alive across soft navigations (menu return mid-send).
-      keepalive: true,
+      // ! NO `keepalive` — Chrome enforces a hard ~64 KiB inflight body cap on keepalive
+      // ! requests and rejects the fetch outright above it. Across 251 pulled bundles the
+      // ! largest envelope that ever landed was 65,179 bytes: the distribution was clipped
+      // ! exactly at the ceiling, i.e. every bigger capture was silently lost. Captures are
+      // ! never fired during page unload, so there is nothing to keep alive.
     });
     let data = null;
     try {
@@ -48,6 +51,36 @@ export async function uploadCaptureBundle(bundle, opts = {}) {
     return { ok: true, id: Number(data.id) || undefined };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "network" };
+  }
+}
+
+/**
+ * URL params that MUST survive a return-to-menu navigation. Those paths rebuild the
+ * location down to a bare pathname, which drops `?diag` — and without `?diag` the F8
+ * listener is never installed again, so captures are silently dead for the rest of the
+ * session. `room` is deliberately NOT carried: those paths clear it on purpose and
+ * reattaching it causes rejoin ghosts.
+ */
+const MENU_RETURN_CARRY_PARAMS = ["diag", "captureLabel"];
+
+/**
+ * Build the href a "back to menu" navigation should use: the bare pathname plus only the
+ * diag-carrying params. Never carries `room`.
+ * @param {string} href Current location href.
+ * @returns {string}
+ */
+export function menuReturnHref(href) {
+  try {
+    const url = new URL(href);
+    const kept = new URLSearchParams();
+    for (const key of MENU_RETURN_CARRY_PARAMS) {
+      const value = url.searchParams.get(key);
+      if (value !== null) kept.set(key, value);
+    }
+    const query = kept.toString();
+    return query ? `${url.pathname}?${query}` : url.pathname;
+  } catch {
+    return typeof href === "string" ? href : "/";
   }
 }
 

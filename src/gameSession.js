@@ -5,6 +5,7 @@ import * as Netcode from "./netcode.js";
 import { SESSION_KEYS, sessionRemove } from "./utils/storage.js";
 import { trackEvent } from "./analytics/analytics.js";
 import { invalidateActivePlayEntry } from "./bootstrap.js";
+import { menuReturnHref } from "./utils/captureUpload.js";
 
 /**
  * Mutable callback refs shared between main(), netcode, and the game loop.
@@ -385,7 +386,8 @@ export function createGameSessionController(getContext) {
       // ! Last-resort fallback if in-tab return fails — same behavior as legacy quit paths.
       console.warn("[gameSession] returnToMenu initMenu failed, reloading", opts.reason, err);
       if (typeof window !== "undefined") {
-        window.location.href = new URL(window.location.href).pathname;
+        // * Carry ?diag (never `room`) so F8 stays armed after a fallback reload.
+        window.location.href = menuReturnHref(window.location.href);
       }
     }
   }

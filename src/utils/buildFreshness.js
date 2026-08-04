@@ -49,19 +49,39 @@ function loadedBundleHash() {
 }
 
 /**
+ * Hard ceiling on the freshness round-trip. F8 awaits this before it assembles anything,
+ * so a hung fetch used to mean the capture produced NOTHING — no console line, no
+ * download, no upload. A stale-cache warning is worth ~2s; it is never worth the capture.
+ */
+const FRESHNESS_TIMEOUT_MS = 2000;
+
+/**
  * Filename hash of the bundle the server would serve RIGHT NOW. Bypasses every cache
  * layer (no-store + cache-bust query) so a Service-Worker / disk-cache copy can't lie.
+ * Aborts after FRESHNESS_TIMEOUT_MS; a timeout degrades to null (= "can't compare").
  * @returns {Promise<string | null>}
  */
 async function fetchLiveBundleHash() {
+  /** @type {AbortController | null} */
+  let controller = null;
+  /** @type {ReturnType<typeof setTimeout> | undefined} */
+  let timer;
   try {
-    const res = await fetch(`/?_freshness=${Date.now()}`, { cache: "no-store", credentials: "same-origin" });
+    controller = typeof AbortController === "function" ? new AbortController() : null;
+    if (controller) timer = setTimeout(() => controller?.abort(), FRESHNESS_TIMEOUT_MS);
+    const res = await fetch(`/?_freshness=${Date.now()}`, {
+      cache: "no-store",
+      credentials: "same-origin",
+      ...(controller ? { signal: controller.signal } : {}),
+    });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const html = await res.text();
     const m = BUNDLE_RE.exec(html);
     return m ? m[1] : null;
   } catch {
     return null;
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
   }
 }
 

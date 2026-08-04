@@ -22,6 +22,7 @@ import {
   consumeHardStopDiag,
 } from "./utils/podiumEndLatch.js";
 import { logBuildBanner, refreshBuildFreshness } from "./utils/buildFreshness.js";
+import { menuReturnHref, uploadCaptureBundle } from "./utils/captureUpload.js";
 import { mark } from "./utils/perfSpans.js";
 import { installGameplayDiagnostics } from "./utils/gameplayDiagnostics.js";
 import { installLongTaskProbe } from "./utils/longTaskProbe.js";
@@ -2272,7 +2273,8 @@ async function main() {
       } catch (recoveryErr) {
         console.error("[main] returnToMenu after fatal sim error failed; reloading", recoveryErr);
         if (typeof window !== "undefined") {
-          window.location.href = new URL(window.location.href).pathname;
+          // * Carry ?diag (never `room`) so F8 stays armed after the recovery reload.
+          window.location.href = menuReturnHref(window.location.href);
         }
       }
     },
@@ -2418,12 +2420,27 @@ async function main() {
     // * Read-only on the game — captureBundle() never mutates state. Safe in prod under ?diag.
     // * The harness path captures on its own; automatic error/assert captures live under
     // * __ccDiag.captures() (auto path does not upload — only the intentional F8).
+    /** @param {string} msg @param {number} [ms] */
+    const captureToast = (msg, ms = 6000) => {
+      try {
+        /** @type {any} */ (window).CartRave?.showToast?.(msg, ms);
+      } catch {
+        /* toast surface not up yet — console lines above still carry the outcome */
+      }
+    };
     const manualCapture = async (trigger) => {
       try {
         // * Re-verify loaded-vs-deployed RIGHT NOW so this F8 carries current truth, not the
         // * boot-time snapshot. If stale, shout before capturing — a bug "reproduced" on an old
         // * cached bundle is not a bug in the deployed build (07-21 root cause).
-        const fresh = await refreshBuildFreshness();
+        // ! Never let the freshness check decide whether a capture happens: it is advisory.
+        // ! It self-aborts after 2s, and a throw here is swallowed so the bundle still runs.
+        let fresh = /** @type {import("./utils/buildFreshness.js").Freshness} */ ({ checked: false });
+        try {
+          fresh = await refreshBuildFreshness();
+        } catch (freshErr) {
+          console.warn("[diag] build freshness check failed (capturing anyway):", freshErr);
+        }
         if (fresh.ok && fresh.stale) {
           console.warn(
             `%c[diag] ⚠ STALE BUNDLE — capturing anyway%c  tab=index-${fresh.loaded}.js  deployed=index-${fresh.live}.js.\n` +
@@ -2452,18 +2469,24 @@ async function main() {
 
         // * Optional override: ?captureLabel=run7-A-nonhost-weak (console + playtest cards).
         const labelParam = new URLSearchParams(location.search).get("captureLabel");
-        const { uploadCaptureBundle } = await import("./utils/captureUpload.js");
+        // * uploadCaptureBundle never throws: it returns { ok:false, error } for network
+        // * rejections, Worker non-ok (`http_<status>`), and JSON parse failures alike — so
+        // * ONE toast branch covers all three. Console-only was the bug: a failed upload was
+        // * indistinguishable from a good one at the keyboard.
         const up = await uploadCaptureBundle(bundle, {
           label: labelParam || undefined,
         });
         if (up.ok) {
           // eslint-disable-next-line no-console
           console.info(`[diag] capture uploaded → /api/captures id=${up.id} (pull: npm run captures:pull)`);
+          captureToast(`Capture #${up.id ?? "?"} uploaded ✓ (also saved locally)`);
         } else {
           console.warn("[diag] capture upload failed:", up.error);
+          captureToast(`Capture upload FAILED: ${up.error ?? "unknown"} — the .json download still saved`, 9000);
         }
       } catch (err) {
         console.warn("[diag] capture bundle failed:", err);
+        captureToast(`Capture FAILED: ${err instanceof Error ? err.message : String(err)}`, 9000);
       }
     };
     window.addEventListener("keydown", (e) => {

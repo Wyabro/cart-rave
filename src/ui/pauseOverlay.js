@@ -15,6 +15,7 @@ import { getQualityTier } from "../utils/qualityMode.js";
 import { clamp, clampInt } from "../utils.js";
 import { settingsStore } from "../stores/settingsStore.js";
 import { svgIcon } from "./icons.js";
+import { menuReturnHref } from "../utils/captureUpload.js";
 
 
 /** Cancels in-flight Esc overlay entrance animations when reopening or closing. */
@@ -825,9 +826,9 @@ export function init(options = {}, hudContext = {}) {
       _options.onQuitToMenu();
       return;
     }
-    const url = new URL(window.location.href);
-    url.searchParams.delete("room");
-    window.location.href = url.pathname;
+    // * Bare pathname would drop ?diag and permanently disarm F8 for this session; carry
+    // * the diag params only (never `room` — dropping it here is the whole point).
+    window.location.href = menuReturnHref(window.location.href);
   });
 
   const isMuted = _options.getIsMuted ? _options.getIsMuted() : false;
