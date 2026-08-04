@@ -59,7 +59,6 @@ import {
 import { tickAutoQuality } from "./utils/autoQuality.js";
 import { CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer.js";
 import { RAPIER } from "./physics/rapierInstance.js";
-import { updateCartVisuals } from "./cart.js";
 import * as Visuals from "./visuals.js";
 import { prefetchRaveGltf } from "./cartRaveGltf.js";
 import * as Simulation from "./simulation.js";
@@ -132,9 +131,7 @@ import * as ArenaAmbience from "./ambience/arenaAmbience.js";
 import { resolveLevelMusic } from "./music/levelMusic.js";
 import * as CameraMod from "./camera.js";
 import * as Effects from "./effects.js";
-import * as GroceryPool from "./effects/groceryPool.js";
-import { initDirectiveEngine, getDirectiveKoRewardMultiplier, onHostSpill as directiveOnHostSpill, shiftDirectiveTimersBy, clearActiveDirective } from "./directives/directiveEngine.js";
-import { armSpillBoost, spillCountForCart, stripLifeCargo } from "./cargoLoad.js";
+import { initDirectiveEngine, shiftDirectiveTimersBy, clearActiveDirective } from "./directives/directiveEngine.js";
 import { resolveLevelId, prefetchLevelChunks, LEVEL_STORAGE_KEY } from "./levels/index.js";
 import { DEV_UNLOCKS_STORAGE_KEY } from "./unlockConfig.js";
 import { updateLevelLod } from "./utils/levelLod.js";
@@ -239,6 +236,7 @@ import {
   resolveCinematicCountdownOverrides,
 } from "./orchestration/roundLifecycle.js";
 import { createCartOrchestration } from "./orchestration/cartOrchestration.js";
+import { createLoopDeps } from "./orchestration/loopDeps.js";
 import {
   clamp,
   isTouchDevice,
@@ -499,7 +497,6 @@ let soloCountdownDeferGen = 0;
  * the server's game_start arming timer and must not absorb this.
  */
 const SOLO_FLYOVER_PREROLL_MS = 2000;
-const HOST_AWAY_AFTER_MS = 10_000;
 /** @type {(() => void) | null} */
 let onHostMigratedHandler = null;
 /** @type {(() => void) | null} */
@@ -696,8 +693,6 @@ function enableModeMenuButtons() {
 async function main() {
   /** @type {ReturnType<typeof runGameLoop> | null} */
   let gameLoopDriver = null;
-  /** @type {ReturnType<typeof setTimeout> | null} */
-  let hostAwayTimerId = null;
 
   installGlobalErrorReporting();
   // * FV-BOOT-1: HTML parse → module eval gap (bootStartTime is set inline in index.html).
@@ -1073,8 +1068,7 @@ async function main() {
 
 
   // * Living Cargo spill helpers (armSpillBoost / spillCountForCart) live in
-  // * cargoLoad.js — one source shared by the host sim, gameFlow fall, and netcode
-  // * MSG.spill paths.
+  // * cargoLoad.js — wired into gameFlow/sim deps via loopDeps.attachPhaseDeps.
 
   const gameCtx = createGameContext().registerModules({
     Netcode,
@@ -1998,6 +1992,12 @@ async function main() {
   triggerLocalRamShakeRef = triggerLocalRamShake;
   triggerLocalHitTakenRef = triggerLocalHitTaken;
 
+  // * MAIN-1 Lever F: host-tab pump + loop phase deps (attachPhaseDeps later).
+  const loop = createLoopDeps({
+    detectGameMode,
+    getGameLoopDriver: () => gameLoopDriver,
+  });
+
   // * MAIN-1 Lever D: countdown → running → podium → rematch lives in roundLifecycle.
   const round = createRoundLifecycle({
     camera,
@@ -2015,7 +2015,7 @@ async function main() {
     getPersonalStats,
     recordPodiumStats,
     localCartForConnId,
-    refreshHiddenHostLifecycle: () => refreshHiddenHostLifecycle(),
+    refreshHiddenHostLifecycle: () => loop.refreshHiddenHostLifecycle(),
     updateTouchControlsVisibility: () => updateTouchControlsVisibility(),
     stopAllChargeSfx,
     stopChargeSfxForCart,
@@ -2662,8 +2662,8 @@ async function main() {
   onHostMigratedHandler = () => {
     resumeCountdownAsNewHost();
     ensureSuddenDeathStateAsNewHost();
-    clearHostAwayTimer();
-    refreshHiddenHostLifecycle();
+    loop.clearHostAwayTimer();
+    loop.refreshHiddenHostLifecycle();
   };
 
   // * Wire Sudden Death win callback — addScore fires this on first score during SD.
@@ -2674,47 +2674,10 @@ async function main() {
   let hostHiddenAtMs = null;
   let hostPumpTickCountAtHide = 0;
 
-  function shouldPumpHiddenHost() {
-    const phase = GameState.getRoundState().phase;
-    return (
-      Netcode.getIsHost()
-      && detectGameMode() !== "testdrive"
-      && (phase === "countdown" || phase === "running")
-    );
-  }
-
-  function clearHostAwayTimer() {
-    if (hostAwayTimerId == null) return;
-    clearTimeout(hostAwayTimerId);
-    hostAwayTimerId = null;
-  }
-
-  function armHostAwayTimerIfNeeded() {
-    const mode = detectGameMode();
-    if (
-      !document.hidden
-      || (mode !== "quickplay" && mode !== "friends")
-      || !shouldPumpHiddenHost()
-    ) {
-      clearHostAwayTimer();
-      return;
-    }
-    if (hostAwayTimerId != null) return;
-    hostAwayTimerId = setTimeout(() => {
-      hostAwayTimerId = null;
-      if (document.hidden && shouldPumpHiddenHost()) Netcode.sendHostAway();
-    }, HOST_AWAY_AFTER_MS);
-  }
-
-  function refreshHiddenHostLifecycle() {
-    gameLoopDriver?.refresh();
-    armHostAwayTimerIfNeeded();
-  }
-
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) {
       const st = GameState.getRoundState();
-      refreshHiddenHostLifecycle();
+      loop.refreshHiddenHostLifecycle();
       hostPumpTickCountAtHide = gameLoopDriver?.getPumpTickCount() ?? 0;
       if (
         hostHiddenAtMs == null
@@ -2726,7 +2689,7 @@ async function main() {
       }
       return;
     }
-    clearHostAwayTimer();
+    loop.clearHostAwayTimer();
     const visiblePhase = GameState.getRoundState().phase;
     const visibleMode = detectGameMode();
     if (
@@ -2778,23 +2741,20 @@ async function main() {
 
   const sharedLoopGetters = gameCtx.createSharedGetters();
 
-  const visualDeps = {
-    ...sharedLoopGetters,
+  loop.attachPhaseDeps({
+    gameCtx,
+    sharedLoopGetters,
     netTargetPosScratch,
     cartLinvelScratch,
     cartAngvelScratch,
     onAutoQualityStepDown: handleAutoQualityStepDown,
-    updateCartVisuals,
     buildCartMaterialCache,
     colorHexForSlot: displayColorHexForSlot,
     isMuted: getIsMuted,
     getSfxVolume,
     isMenuVisible: () => menuVisible,
-    getAxis: Input.getAxis,
-    get hud() { return hud; },
+    getHud: () => hud,
     leaderHum,
-    HUD,
-    getYouConnId: () => Netcode.getYouConnId(),
     getMatchHistoryLength: () => (matchHistory ? matchHistory.length : 0),
     updateResultsOverlay,
     positionNameLabels,
@@ -2804,159 +2764,42 @@ async function main() {
     labelRenderer,
     canvas,
     BASE_FOV,
-    getShakeUntil: () => cart.getShakeUntil(),
-    getShakeIntensity: () => cart.getShakeIntensity(),
-    getFovPunchUntil: () => cart.getFovPunchUntil(),
-    getFovPunchDeg: () => cart.getFovPunchDeg(),
-    getKillFlash: () => cart.getKillFlash(),
-    getImpactPulse: () => cart.getImpactPulse(),
-    getHitStop: () => cart.getHitStop(),
+    cart,
     getArcadePass: () => fxPass,
     fpsState,
     updateTouchControlsVisibility,
-  };
-
-  const gameFlowDeps = {
-    ...sharedLoopGetters,
-    detectGameMode,
-    getLastHitBy: () => GameState.getLastHitBy(),
-    // * Per-arena kill-zone classifier for buildKOEvent (Storerooms corner voids → 2×).
-    classifyKillZone: Simulation.classifyLevelKillZone,
-    // * Living Store directive KO-reward boost (Double Bag). Dep-injected so koEvent.js
-    // * stays a leaf module; the falls[] wire carries the boosted reward to clients.
-    getDirectiveKoRewardMultiplier,
     getLocalCart: localCartForConnId,
     scheduleRespawn,
     scheduleStuckRespawn,
-    doRespawn: Entities.doRespawn,
     onCartOutOfPlay: stopChargeSfxForCart,
     maybeTriggerNpcOpportunisticRamBoost,
     maybeTriggerNpcOpportunisticHop,
     endRound,
     scheduleLastCartStandingFinish,
     abortLastCartStandingFlourish,
-    addScore: GameState.addScore,
-    isScoreTied: GameState.isScoreTied,
-    setSuddenDeath: GameState.setSuddenDeath,
-    setLocalCombo: GameState.setLocalCombo,
-    colorHexForSlot: displayColorHexForSlot,
-    get hud() { return hud; },
-    sendHostRound: () => Netcode.sendHostRound(),
-    getPartySocket: () => Netcode.getPartySocket(),
-    queueHostFallEvent: Netcode.queueHostFallEvent,
     onLocalKillConfirm,
     onArenaKoFlash,
-    onAnnouncerFall: announcerDirectorOnFall,
-    getYouConnId: () => Netcode.getYouConnId(),
-    getScene: () => scene,
-    triggerCartShatter,
-    onSpill: (slotIndex, pos, quat, vel, cargoBay) => {
-      const cart = allCartsRef?.[slotIndex];
-      const spillCount = spillCountForCart(cart);
-      GroceryPool.triggerSpill(String(slotIndex), pos, quat, vel, spillCount, cargoBay || cart?.cargoBay || null);
-      // * Always clear every cargoBay under the cart mesh (ref can be stale after rebuild).
-      GroceryPool.hideCargoBay(cart || cargoBay);
-      stripLifeCargo(cart);
-      armSpillBoost(cart);
-      // * Living Store "Spill Bonus" — host awards the recent rammer while active.
-      directiveOnHostSpill(slotIndex);
-      triggerSpillNetcode(slotIndex, pos, quat, vel, cargoBay, spillCount);
-    },
-    onCartRespawn: (slotIndex) => {
-      GroceryPool.releaseByCartId(String(slotIndex));
-    },
+    getAllCartsRef: () => allCartsRef,
     getWorld: () => level.world,
+    getEventQueue: () => level.eventQueue,
     getBoothColliderHandles: () => level.boothColliderHandles,
-  };
-
-  const hostSimCallbacks = {
-    getAxis: Input.getAxis,
+    getRecordColliderHandles: () => level.recordColliderHandles,
+    getPitWallColliderHandle: () => level.pitWallColliderHandle,
     getAiAxis,
-    playCollision: (intensity, opts) => AudioManager.playCartCrash(intensity, opts),
-    spawnTrashBurst: spawnTrashBurstRef,
-    onLocalRamImpact: triggerLocalRamShake,
-    onLocalHitTaken: triggerLocalHitTaken,
-    onCartImpactSquash: squashCartsOnImpact,
-    // * NH-HIT: prediction rams on non-host stamp collision FX dedupe (see simulation.js).
-    noteOptimisticCollisionFx: (a, b, r) => Netcode.noteOptimisticCollisionFx(a, b, r),
-    // * Sim re-arms charge while boostHeld after reconcile cancel (NH-BOOST).
+    getSpawnTrashBurstRef: () => spawnTrashBurstRef,
+    triggerLocalRamShake,
+    triggerLocalHitTaken,
+    squashCartsOnImpact,
     triggerRamBoost,
     onBoostRelease,
     onBoostCancel,
     onHopLand,
-    onSpill: (cart) => {
-      const pos = cart.body.translation();
-      const quat = cart.body.rotation();
-      const vel = cart.body.linvel();
-      const cargoBay = cart.cargoBay;
-      const spillCount = spillCountForCart(cart);
-      GroceryPool.triggerSpill(String(cart.slotIndex), pos, quat, vel, spillCount, cargoBay);
-      GroceryPool.hideCargoBay(cart);
-      stripLifeCargo(cart);
-      armSpillBoost(cart);
-      // * Living Store "Spill Bonus" — host awards the recent rammer while active.
-      directiveOnHostSpill(cart.slotIndex);
-      triggerSpillNetcode(cart.slotIndex, pos, quat, vel, cargoBay, spillCount);
-    },
-    get partySocket() { return Netcode.getPartySocket(); },
-    get recordColliderHandles() { return level.recordColliderHandles; },
-    get pitWallColliderHandle() { return level.pitWallColliderHandle; },
-    get boothColliderHandles() { return level.boothColliderHandles; },
-    playFloorImpact: (i = 0.5) => AudioManager.playSfx("floor", undefined, { volume: 0.45 + Math.min(Math.max(i, 0), 1) * 0.55 }),
-    playEdgeImpact: (i = 0.5) => AudioManager.playSfx("floor", undefined, { volume: 0.45 + Math.min(Math.max(i, 0), 1) * 0.55 }),
-    resolveCartForConn: (connId) => {
-      const idx = Netcode.strictSlotIndexForConn(connId);
-      return idx >= 0 ? allCartsRef[idx] : null;
-    },
-  };
-
-  const clientSimCallbacks = {
-    ...hostSimCallbacks,
-    getAiAxis: null,
-    onSpill: (cart) => {
-      const localSlot = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
-      // * Non-host client only predicts tip-over spills for own local cart;
-      // * remote cart & NPC spills are driven authoritatively by host MSG.spill broadcast.
-      if (cart?.slotIndex !== localSlot) return;
-      hostSimCallbacks.onSpill(cart);
-    },
-  };
-
-  const physicsDeps = {
-    ...sharedLoopGetters,
-    get world() { return level.world; },
-    get eventQueue() { return level.eventQueue; },
-    getAllCartsRef: () => allCartsRef,
-    getLocalCart: localCartForConnId,
-    shouldUseClientPrediction: () => Netcode.shouldUseClientPrediction(),
-    ...gameCtx.getSlowMoDeps(),
-    getSkipNextPhysicsStep: () => Netcode.getSkipNextPhysicsStep(),
-    setSkipNextPhysicsStep: (skip) => Netcode.setSkipNextPhysicsStep(skip),
-    getRemoteInputsByConnId: () => Netcode.getRemoteInputsByConnId(),
-    getHostMigrationFreezeUntilMs: () => Netcode.getHostMigrationFreezeUntilMs(),
-    updateRemoteCartNetTargets: (idx) => Netcode.updateRemoteCartNetTargets(idx),
-    syncRemoteCartBodiesForPrediction: (idx) => Netcode.syncRemoteCartBodiesForPrediction(idx),
-    sampleAuthoritativeCartState: (idx) => Netcode.sampleAuthoritativeCartState(idx),
-    runFixedPhysicsStep: Simulation.runFixedPhysicsStep,
-    getSimulationCallbacks: (isHost) => (isHost ? hostSimCallbacks : clientSimCallbacks),
-    getPendingInputs: () => Netcode.getPendingInputs(),
-    prunePendingInputs: (ackSeq) => Netcode.prunePendingInputs(ackSeq),
-    getLatestSnap: () => Netcode.getLatestSnap(),
-    applySnapshotToCartBody: (cart, snap) => Netcode.applySnapshotToCartBody(cart, snap),
-    doRespawn: Entities.doRespawn,
-    // * Reconcile replay ends charge without boost fanfare (SFX stop only).
-    stopChargeSfxForCart: (c) => cart.stopChargeSfxForCart(c),
-    netcode: Netcode,
-  };
-
-  gameCtx.attachDeps({
-    visual: visualDeps,
-    gameFlow: gameFlowDeps,
-    physics: physicsDeps,
+    triggerSpillNetcode,
+    stopChargeSfxForCart,
   });
 
   gameLoopDriver = runGameLoop(gameCtx.loopState, {
-    shouldPumpWhileHidden: shouldPumpHiddenHost,
+    shouldPumpWhileHidden: loop.shouldPumpHiddenHost,
     shouldSkipTiming: () => {
       if (menuVisible) return true;
       // * Solo/testdrive ESC freezes physics + frame timing (real pause).

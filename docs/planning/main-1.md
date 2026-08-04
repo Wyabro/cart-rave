@@ -1,6 +1,6 @@
 # MAIN-1 — Full wave plan (for Wyatt review)
 
-**Status:** acked 08-04 (Wyatt) · **Lever E complete** · next: Lever F · v5 inventory locked.  
+**Status:** acked 08-04 (Wyatt) · **Lever F complete** · next: Lever G · v5 inventory locked.  
 Prep baseline locked at `f1ec6d1` (qa 109 files / 1,350 tests · battery 6/6 · shoot `shots/2026-08-04-main1-prep/`).
 
 **Card:** [BACKLOG.md](./BACKLOG.md) · MAIN-1 (Medium · Tech debt)  
@@ -285,11 +285,11 @@ Call the factory **once** after all referenced handlers exist (or pass already-b
 
 **Asserts:**
 
-- [ ] `npm run qa` green
-- [ ] `npm run battery` **full 6/6** (required)
-- [ ] Hidden-host pump still works (HOST-TAB-1 regression — manual spot-check if battery lacks a step)
+- [x] `npm run qa` green — **109** files / **1,350** tests
+- [x] `npm run battery` **full 6/6** — **93/93** (`.diag-captures/battery-2026-08-04T08-45-12-723Z.json`)
+- [ ] Hidden-host pump still works (HOST-TAB-1) — **owed Wyatt spot-check** (battery has no step)
 
-**Risk:** `deps.*` typo = silent skip inside `runGameLoop` — diff the keys against pre-lever snapshot
+**Risk:** `deps.*` typo = silent skip inside `runGameLoop` — deps key snapshot matched (visual 35 · gameFlow 34 · hostSim 20 · clientSim 3 · physics 23)
 
 ---
 
