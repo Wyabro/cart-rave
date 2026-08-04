@@ -5592,6 +5592,9 @@ async function main() {
     const { now, loopState } = frameCtx;
     const dt = applySlowMoToDt(gameCtx.getSlowMoDeps(), frameCtx.dt);
 
+    // * Must advance before the level-swap early return, or FX time stalls and jumps on swap.
+    fxTimer.update(now);
+
     // * Soft frame budget for optional cosmetics (physics/render always run).
     beginFrameBudget(now, frameCtx.dt);
 

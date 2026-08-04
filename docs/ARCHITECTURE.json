@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-04T05:45:32.674Z",
-    "commit": "fcc3ea6"
+    "at": "2026-08-04T05:56:34.619Z",
+    "commit": "c3e4589"
   },
-  "source_digest": "1f96876a",
+  "source_digest": "1a2c7fab",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -847,7 +847,7 @@
       {
         "id": "HOST-TAB-1",
         "what": "Hidden-tab host pump + AFK promote + strongest-host return",
-        "status": "▶ ACTIVE — lever E local (`p2p` session-gen + host ignores inbound offer). First AFK + solo PASS; second-migrate freeze fix unpushed. Owed: Wyatt playtest — HOST-TAB-1 after ship. Checklist: [host-tab-1.md §10](./planning/host-tab-1.md#10-verification-matrix) (incl. step 4 second migrate).",
+        "status": "▶ ACTIVE — DEPLOYED 08-04 (`c3e4589`, Worker `507a8c36`). Lever E live. Owed: Wyatt playtest — HOST-TAB-1 — retest §10, esp. second migrate same match.",
         "state": "active"
       },
       {
@@ -889,7 +889,7 @@
       {
         "id": "HOST-TAB-1",
         "issue": "Hidden-tab host authority",
-        "status": "▶ **Lever E implemented locally** — host ignores inbound `sdpOffer`; `isHost` + session-gen after awaits. **Owed: Wyatt playtest — HOST-TAB-1** (retest §10 step 4)."
+        "status": "▶ **DEPLOYED** Worker `507a8c36` — **Owed: Wyatt playtest — HOST-TAB-1** (retest second migrate)."
       },
       {
         "id": "PERF-PASS-1",
@@ -1300,7 +1300,7 @@
           {
             "pri": "High",
             "item": "HOST-TAB-1 — hidden-tab host pump + AFK promote + mid-round strongest rehost",
-            "notes": "**Lever E local 08-04 — ship then retest.** Plan: [host-tab-1.md §16](./host-tab-1.md). FAIL was second mid-round migrate freezing the non-host; fix is host ignores inbound `sdpOffer` + `isHost`/session-gen after awaits (`p2p.js`). A–D already in tree; E unpushed. Related: HOST-CAP-1, HOST-ROLE-1, closed NET-MIG-3.",
+            "notes": "**DEPLOYED 08-04** (`c3e4589`, Worker `507a8c36`) — lever E live; playtest owed. Plan: [host-tab-1.md §16](./host-tab-1.md). FAIL was second mid-round migrate freezing the non-host. Related: HOST-CAP-1, HOST-ROLE-1, closed NET-MIG-3.",
             "ship1": null
           },
           {
@@ -1370,7 +1370,7 @@
           {
             "pri": "High",
             "item": "HOST-TAB-1 — hidden-tab host authority `[2pc]`",
-            "notes": "**Owed: Wyatt playtest — HOST-TAB-1 — second mid-round migrate must not freeze the non-host.** Lever E local (host ignores inbound offer + session-gen). Retest after ship. Full steps: [host-tab-1.md §10](./host-tab-1.md#10-verification-matrix) — emphasize step 4 (second migrate same match). Optional `?diag=1` + F8 `pt-host-tab-1` if it still fails.",
+            "notes": "**Owed: Wyatt playtest — HOST-TAB-1 — second mid-round migrate must not freeze the non-host.** Deployed `c3e4589` / Worker `507a8c36` (lever E).<br>1. Two clients, friends room, any arena — you are host on machine A.<br>2. Short hide: alt-tab ~3s on A; on B watch the match. **Pass if:** carts still move; no host-glyph change; no toast storm.<br>3. Long hide: alt-tab ~12s on A. **Pass if:** host glyph moves to B; you stay seated on A; one toast; match continues (brief hitch OK).<br>4. Strong return: focus A again after step 3. **Pass if:** when your score lead is ≥20 and cooldown has passed, host returns to A mid-round with one toast.<br>5. **Second migrate same match:** hide again past AFK (or return then hide). **Pass if:** peer recovers — no freeze, no stuck disconnect on host HUD.<br>6. Weak cannot steal: with a weak peer, strong host returns — weak peer focusing does not take host back.<br>7. Solo: hide 15s in solo. **Pass if:** no migration; timer not double-shifted; game recoverable on focus.<br>Optional if step 5 fails: `?diag=1`, F8 `pt-host-tab-1`, `npm run captures:pull`.",
             "ship1": null
           },
           {
