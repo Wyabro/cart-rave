@@ -15,6 +15,7 @@ import {
 } from "../src/utils/hostCapability.js";
 import {
   pickPreferredHostId,
+  pickPreferredHostIdExcluding,
   shouldMigrateToPreferredHost,
 } from "../party/hostSelection.ts";
 
@@ -117,6 +118,24 @@ describe("pickPreferredHostId + shouldMigrateToPreferredHost (server)", () => {
     const slots = [human("ghost"), npc(), human("alive")];
     const scores = new Map([["alive", 70]]);
     expect(pickPreferredHostId(joinOrder, live, slots, scores)).toBe("alive");
+  });
+
+  it("excludes the current AFK host even when it has the strongest score", () => {
+    const joinOrder = ["afk", "next", "weak"];
+    const live = new Set(joinOrder);
+    const slots = joinOrder.map(human);
+    const scores = new Map([
+      ["afk", 100],
+      ["next", 80],
+      ["weak", 40],
+    ]);
+
+    expect(
+      pickPreferredHostIdExcluding(joinOrder, live, slots, scores, "afk"),
+    ).toBe("next");
+    expect(
+      pickPreferredHostIdExcluding(["afk"], new Set(["afk"]), [human("afk")], scores, "afk"),
+    ).toBeNull();
   });
 
   it("migrates only when preferred beats current by margin", () => {

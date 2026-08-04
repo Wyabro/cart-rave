@@ -16,6 +16,8 @@ export const MSG = {
   playAgain: "play_again",
   /** Client → server: carts + play-shader warm done (COUNTDOWN-ARM-1). */
   clientPlayReady: "client_play_ready",
+  /** Current host → server: hidden continuously long enough to hand off authority. */
+  hostAway: "host_away",
 
   // Host <-> client (WebRTC DataChannel gameplay plane)
   // hostTransform: 40Hz binary host snapshot (transforms + collision/fall tails).

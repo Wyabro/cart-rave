@@ -523,6 +523,7 @@ let soloCountdownDeferGen = 0;
  * the server's game_start arming timer and must not absorb this.
  */
 const SOLO_FLYOVER_PREROLL_MS = 2000;
+const HOST_AWAY_AFTER_MS = 10_000;
 /** @type {(() => void) | null} */
 let onHostMigratedHandler = null;
 /** @type {(() => void) | null} */
@@ -803,6 +804,11 @@ function enableModeMenuButtons() {
 // === GAME LOOP ===
 
 async function main() {
+  /** @type {ReturnType<typeof runGameLoop> | null} */
+  let gameLoopDriver = null;
+  /** @type {ReturnType<typeof setTimeout> | null} */
+  let hostAwayTimerId = null;
+
   installGlobalErrorReporting();
   // * FV-BOOT-1: HTML parse → module eval gap (bootStartTime is set inline in index.html).
   const moduleEvalMs = Math.round(performance.now());
@@ -4975,6 +4981,7 @@ async function main() {
     resumeCountdownAsNewHost();
     ensureSuddenDeathStateAsNewHost();
     gameLoopDriver?.refresh();
+    armHostAwayTimerIfNeeded();
   };
 
   Object.assign(sessionBridgeCtx.current, {
@@ -5186,8 +5193,6 @@ async function main() {
     }
   }
 
-  /** @type {ReturnType<typeof runGameLoop> | null} */
-  let gameLoopDriver = null;
   let hostHiddenAtMs = null;
   let hostPumpTickCountAtHide = 0;
 
@@ -5200,10 +5205,28 @@ async function main() {
     );
   }
 
+  function clearHostAwayTimer() {
+    if (hostAwayTimerId == null) return;
+    clearTimeout(hostAwayTimerId);
+    hostAwayTimerId = null;
+  }
+
+  function armHostAwayTimerIfNeeded() {
+    clearHostAwayTimer();
+    const mode = detectGameMode();
+    if (!document.hidden || (mode !== "quickplay" && mode !== "friends")) return;
+    if (!shouldPumpHiddenHost()) return;
+    hostAwayTimerId = setTimeout(() => {
+      hostAwayTimerId = null;
+      if (document.hidden && shouldPumpHiddenHost()) Netcode.sendHostAway();
+    }, HOST_AWAY_AFTER_MS);
+  }
+
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) {
       const st = GameState.getRoundState();
       gameLoopDriver?.refresh();
+      armHostAwayTimerIfNeeded();
       hostPumpTickCountAtHide = gameLoopDriver?.getPumpTickCount() ?? 0;
       if (
         hostHiddenAtMs == null
@@ -5215,6 +5238,7 @@ async function main() {
       }
       return;
     }
+    clearHostAwayTimer();
     if (hostHiddenAtMs == null) return;
     const delta = getRoundClockNowMs() - hostHiddenAtMs;
     const pumpRan = (gameLoopDriver?.getPumpTickCount() ?? 0) > hostPumpTickCountAtHide;

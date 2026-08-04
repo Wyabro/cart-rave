@@ -54,9 +54,24 @@ export function pickPreferredHostId(
   slots: readonly MinimalSlot[] | null,
   scores: ReadonlyMap<string, number>,
 ): string | null {
+  return pickPreferredHostIdExcluding(joinOrder, liveConnIds, slots, scores, null);
+}
+
+/**
+ * Highest host-capability score among live humans except one excluded connection.
+ * AFK demotion uses this so a strong-but-hidden current host cannot pick itself.
+ */
+export function pickPreferredHostIdExcluding(
+  joinOrder: readonly string[],
+  liveConnIds: ReadonlySet<string>,
+  slots: readonly MinimalSlot[] | null,
+  scores: ReadonlyMap<string, number>,
+  excludeId: string | null,
+): string | null {
   let bestId: string | null = null;
   let bestScore = -1;
   for (const id of joinOrder) {
+    if (id === excludeId) continue;
     if (!liveConnIds.has(id)) continue;
     if (!slots?.some((s) => s.connId === id && s.kind === "human")) continue;
     const score = scores.has(id) ? (scores.get(id) as number) : DEFAULT_HOST_SCORE;

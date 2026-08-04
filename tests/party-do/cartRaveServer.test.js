@@ -118,6 +118,67 @@ describe("CartRaveServer DO harness", () => {
     joiner.client.close();
   });
 
+  it("migrates an away live host mid-round, but ignores peers and cooldown thrash", async () => {
+    const room = uniqueRoom("host-away");
+    const host = await connectAndSeat(room, {
+      name: "HOST",
+      color: "pink",
+      clientId: "cid-away-host",
+      ip: "10.0.0.13",
+      hostScore: 100,
+    });
+    const joiner = await connectAndSeat(room, {
+      name: "JOIN",
+      color: "green",
+      clientId: "cid-away-join",
+      ip: "10.0.0.14",
+      hostScore: 80,
+    });
+
+    host.client.sendJson({
+      type: MSG.hostRound,
+      round: {
+        phase: "countdown",
+        countdownStartedAtMs: 1000,
+        startedAtMs: 0,
+        winnerSlotIndex: null,
+        scores: { 0: 0, 1: 0, 2: 0, 3: 0 },
+      },
+    });
+    await joiner.client.awaitMessage((m) => m.type === MSG.round && m.round?.phase === "countdown");
+    host.client.sendJson({
+      type: MSG.hostRound,
+      round: {
+        phase: "running",
+        countdownStartedAtMs: 1000,
+        startedAtMs: 2000,
+        winnerSlotIndex: null,
+        scores: { 0: 0, 1: 0, 2: 0, 3: 0 },
+      },
+    });
+    await joiner.client.awaitMessage((m) => m.type === MSG.round && m.round?.phase === "running");
+
+    joiner.client.sendJson({ type: MSG.hostAway });
+    await sleep(50);
+    expect(joiner.client.messages.filter((m) => m.reason === "host_afk")).toHaveLength(0);
+
+    const migratePromise = joiner.client.awaitMessage(
+      (m) => m.type === MSG.hostMigrated && m.reason === "host_afk",
+    );
+    host.client.sendJson({ type: MSG.hostAway });
+    const migrated = await migratePromise;
+    expect(migrated.hostId).toBe(joiner.youConnId);
+
+    joiner.client.sendJson({ type: MSG.hostAway });
+    await sleep(50);
+    expect(
+      joiner.client.messages.filter((m) => m.type === MSG.hostMigrated && m.reason === "host_afk"),
+    ).toHaveLength(1);
+
+    host.client.close();
+    joiner.client.close();
+  });
+
   it("reap overrides default to production constants when cleared", () => {
     setReapOverrides({ timeoutMs: 1, throttleMs: 1 });
     setReapOverrides(null);

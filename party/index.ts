@@ -45,6 +45,7 @@ import { validateHostRound, type RoundState } from './roundValidation';
 import {
   pickNextHostId,
   pickPreferredHostId,
+  pickPreferredHostIdExcluding,
   shouldMigrateToPreferredHost,
 } from './hostSelection';
 import { advanceRateLimit } from './rateLimit';
@@ -78,6 +79,7 @@ export { CaptureLog } from './captureLog';
 
 const PROTOCOL_VERSION = 2;
 const PALETTE = ["pink", "blue", "green", "yellow", "neonOrange"] as const;
+const MID_ROUND_HOST_MIGRATION_COOLDOWN_MS = 5000;
 
 // * Host collision/fall events travel in the WebRTC binary snapshot's collisions[]/falls[]
 // * JSON tail (host-authored, client-replayed) — there is no server relay for them, so the
@@ -90,6 +92,7 @@ export class CartRaveServer extends Server {
   readonly #connClientId = new Map<string, string>();
   /** NH-HIT lever 3: client-reported host capability 0–100 (join hostScore). */
   readonly #hostScores = new Map<string, number>();
+  #lastMidRoundHostMigrationAtMs = Number.NEGATIVE_INFINITY;
 
   #hostId: string | null = null;
   #currentLevelId: string = "classicRecord";
@@ -324,6 +327,40 @@ export class CartRaveServer extends Server {
       serverNowMs: this.#serverNowMs(),
       hostId: this.#hostId,
       reason: "host_quality",
+    });
+  }
+
+  #handleHostAway(connId: string, now: number) {
+    if (connId !== this.#hostId) return;
+    if (this.#round.phase !== "running" && this.#round.phase !== "countdown") return;
+    if (now - this.#lastMidRoundHostMigrationAtMs < MID_ROUND_HOST_MIGRATION_COOLDOWN_MS) {
+      return;
+    }
+
+    const live = new Set(this.#connections.keys());
+    const liveHumanCount = this.#slots?.filter(
+      (slot) => slot.kind === "human" && slot.connId && live.has(slot.connId),
+    ).length ?? 0;
+    if (liveHumanCount < 2) return;
+
+    const nextHostId = pickPreferredHostIdExcluding(
+      this.#joinOrder,
+      live,
+      this.#slots,
+      this.#hostScores,
+      this.#hostId,
+    );
+    if (!nextHostId) return;
+
+    this.#hostId = nextHostId;
+    this.#lastSeq = -1;
+    this.#lastMidRoundHostMigrationAtMs = now;
+    this.#broadcastJson({
+      v: PROTOCOL_VERSION,
+      type: MSG.hostMigrated,
+      serverNowMs: now,
+      hostId: this.#hostId,
+      reason: "host_afk",
     });
   }
 
@@ -1165,6 +1202,11 @@ export class CartRaveServer extends Server {
         if (ghostHumanExorcised) {
           this.#checkAllReady();
         }
+        return;
+      }
+
+      if (type === MSG.hostAway) {
+        this.#handleHostAway(connection.id, now);
         return;
       }
 

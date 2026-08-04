@@ -2234,14 +2234,19 @@ function applyHostMigration(msg) {
   if (newHostSlot?.name) {
     announce("new_host", { name: newHostSlot.name });
   }
-  // * HOST-ROLE-1 lobby rebalance: plain-language toast so players know why
-  // * the host glyph moved without a disconnect. Weak-host toast (HOST-CAP-1)
-  // * is separate — setAuthorityMode above, join-time score only, once per hostship.
-  if (msg?.reason === "host_quality") {
+  // * Reasoned migrations explain why the host glyph moved without a disconnect.
+  // * Weak-host toast (HOST-CAP-1) stays separate: join-time score, once per hostship.
+  if (msg?.reason === "host_quality" || msg?.reason === "host_afk") {
     try {
       const toast = typeof window !== "undefined" ? window.CartRave?.showToast : null;
       if (typeof toast === "function") {
-        if (nextIsHost) {
+        if (msg.reason === "host_afk" && nextIsHost) {
+          toast("You're hosting — previous host stepped away.", 4500);
+        } else if (msg.reason === "host_afk" && newHostSlot?.name) {
+          toast(`Host stepped away — ${newHostSlot.name} is hosting.`, 4500);
+        } else if (msg.reason === "host_afk") {
+          toast("Host stepped away — a new player is hosting.", 4500);
+        } else if (nextIsHost) {
           toast("You're hosting — stronger machine for smoother multiplayer.", 4500);
         } else if (newHostSlot?.name) {
           toast(`Host moved to ${newHostSlot.name} for smoother multiplayer.`, 4500);
@@ -2267,6 +2272,12 @@ export function sendColorPick(color) {
   if (!partySocket || partySocket.readyState !== WebSocket.OPEN) return;
   const lookHex = loadPlayerCustomization().hex;
   partySocket.send(JSON.stringify({ type: MSG.colorPick, color, lookHex }));
+}
+
+/** Reports that the current multiplayer host stayed hidden past the AFK threshold. */
+export function sendHostAway() {
+  if (!partySocket || partySocket.readyState !== WebSocket.OPEN || !isHost) return;
+  partySocket.send(JSON.stringify({ type: MSG.hostAway }));
 }
 
 /** Pushes an updated cosmetic hex to the server (Customize menu mid-session). */

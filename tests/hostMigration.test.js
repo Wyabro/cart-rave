@@ -236,6 +236,29 @@ describe("applyHostMigration (client authority handoff)", () => {
     expect(getIsHost()).toBe(false);
   });
 
+  it("explains an AFK migration once with the promoted host name", () => {
+    const toasts = [];
+    globalThis.window.CartRave = {
+      showToast: (message) => toasts.push(message),
+    };
+    try {
+      hooks.setHostStateForTest({
+        youConnId: "me",
+        netSlots: [
+          { kind: "human", connId: "me", name: "ME" },
+          { kind: "human", connId: "newHost", name: "NOVA" },
+        ],
+      });
+      hooks.setHostIdForTest("oldHost");
+
+      hooks.applyHostMigration({ hostId: "newHost", reason: "host_afk" });
+
+      expect(toasts).toEqual(["Host stepped away — NOVA is hosting."]);
+    } finally {
+      delete globalThis.window.CartRave;
+    }
+  });
+
   it("restores open kill credit from the last attribution cache on promote (NET-MIG-1)", () => {
     hooks.setHostStateForTest({
       youConnId: "me",
