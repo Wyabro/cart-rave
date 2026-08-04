@@ -220,15 +220,44 @@ The Intel iGPU box is the one that matters — it is the machine this card is *f
 4. **Repeat 5 times**, hard-refreshing between each. Record the **median**, not a single sample, plus the spread.
 5. Press **F8** on the last one so the numbers land in a capture bundle, then `npm run captures:pull`.
 
+**Target locked 08-04 (Wyatt): the WARM repeat visit**, not the cold first load. Honest but the smaller
+ceiling — on a warm load the payload is already local, so deferring bytes saves **parse+eval only, not
+download**. The bar is therefore tight, and the card may legitimately fail its own abort gate. That was
+chosen with the tradeoff on the table.
+
 | Measure | Value | Notes |
 |---------|-------|-------|
-| `menuReadyMs` (Intel iGPU, prod) — **median of 5** | _(to fill)_ | the bar |
-| `menuReadyMs` (Intel iGPU) — spread (min–max) | _(to fill)_ | |
-| `milestone-90` (Intel iGPU, median) | _(to fill)_ | anti-gaming guard |
-| `menuReadyMs` (4090, prod, median of 5) | _(to fill)_ | context only |
-| Date / build SHA | _(to fill)_ | |
+| `menuReadyMs` (Intel UHD, prod, warm) — **median of 5** | **1,083 ms** | ⟵ the bar |
+| samples | 944 · 973 · 1083 · 1089 · 1671 | 1671 is load variance, retained |
+| **15% gate target** | **≤ 921 ms** (−162 ms) | |
+| `module-eval` (Intel UHD, warm) | _(owed — see below)_ | decides C-vs-D gate placement |
+| Date / build | 08-04 · prod `8d96b0b` | |
 
 Judge on **production**, not dev — dev-only probes lie in prod.
+
+> A reading taken "too early" returns `null`, not a small number — `menuReadyMs` is stamped when the mark
+> fires, so how long the human waited before reading it cannot bias the sample.
+
+### ⚠ The warm target may invert which lever pays
+
+From the cold n=1: `module-eval` 5,015 → `menu-ready` 5,738, so **`main()`'s body is ~723 ms** and that
+part is CPU-bound — it should be roughly cache-independent. If that holds on a warm load:
+
+| | cold (n=1) | warm (inferred, **unverified**) |
+|---|---:|---:|
+| pre-`main()` fetch+parse+eval (`module-eval`) | 5,015 (87%) | **≈ 360 (33%)** |
+| `main()` body → menu-ready | 723 (13%) | ≈ 723 (67%) |
+| total | 5,738 | 1,083 |
+
+**If that inference is right, the payoff lever flips on a warm cache.** Lever D (defer bytes) attacks a
+~360 ms slice; **Lever C (defer construction) attacks the ~723 ms majority.** The whole argument for
+moving the abort gate from C to D was built on the cold profile, where bytes dominate 87/13. Warm is
+roughly the inverse.
+
+**This is inference, not measurement — `module-eval` on a warm load is owed before Lever B ships.**
+If warm `module-eval` really is ~360 ms, the gate should move back onto C (or span C+D), and the 15%
+target (162 ms) is reachable from construction deferral alone. If it is much larger than 360 ms, the
+existing D placement stands. **Do not start Lever C or D until this one number is in.**
 
 ### Provisional n=1 reading — recovered from the MAIN-1 retest captures (08-04)
 
