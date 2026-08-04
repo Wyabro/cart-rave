@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-04T18:33:24.260Z",
-    "commit": "15be6ee"
+    "at": "2026-08-04T18:50:58.467Z",
+    "commit": "8d96b0b"
   },
-  "source_digest": "2dd12624",
+  "source_digest": "09bec4c2",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1415,8 +1415,8 @@
         "rows": [
           {
             "pri": "High",
-            "item": "MAIN-1 — composition seam on production",
-            "notes": "**Owed: Wyatt playtest — MAIN-1 — zero regressions after main.js extract.** DEPLOYED `c9f6f44` · Worker `738b9f44` · prod chunk `index-Bg187ZKs.js` (SHA matches local ship). Hard-refresh https://cart-rave.wyabro.workers.dev first.<br>1. Solo quickplay: menu → play → countdown → round → podium → PLAY AGAIN → fresh round.<br>2. Friends lobby: host ready → non-host joins → both drive → round completes.<br>3. Mid-round join: joiner drives within ~3s of spawn (NET-2 bar).<br>4. Host tab hide: brief hide world still moves; ~10s hide → migrate toast; return reclaim if ahead by 20.<br>5. Arena rotation: quickplay rematch lands on a different arena; visuals match selection.<br>6. Three arenas: Classic · Storerooms · Sundial each load from menu picker without black frame (also spot-check picker fade / attract still animates).<br>7. ESC solo pause: pause freezes clock; resume continues; rematch from pause works.<br>8. Audio: level music starts on play entry; charge SFX stops on KO and on menu/teardown.<br>9. Quality: Esc → Low↔High rebuilds arena (no physics teardown / black freeze).",
+            "item": "MAIN-1 — residual-fix retest on production",
+            "notes": "**Owed: Wyatt playtest — MAIN-1 — the four residual fixes hold, and §8 stays all-pass.** §8 came back 9/9 on `c9f6f44`; this retest closes the card. DEPLOYED `8d96b0b` · Version `a92934f3` · prod chunk `index-BuD_HIUu.js` (SHA byte-identical to local ship, verified). Hard-refresh https://cart-rave.wyabro.workers.dev first. Steps 1-4 are the fixes; 5-6 re-check what they touched; 7 is the evidence pull the next card needs.<br>1. Boost bar (FIX-BOOST, the one real regression): solo quickplay, desktop — the BOOST slab is visible while driving and fills/drains as you charge. It is hidden on touch by design, so judge this on the desktop box.<br>2. Directives (FIX-DIRPAUSE): solo, wait for a directive to fire, open ESC mid-window, resume — it must NOT re-fire, and its countdown must continue rather than restart. Pause twice in one window to be sure.<br>3. F8 captures (FIX-F8CAP): load with `?diag=1`, press F8 — you should now get a **toast** telling you the upload succeeded or failed (before, everything was silent). Then quit to menu and press F8 again: `?diag` must survive the return, so F8 still works. Previously it died there for the rest of the session.<br>4. Quality overlay (FIX-QUALFEEL): Esc → Low↔High — the loading overlay must stay up through the whole freeze instead of vanishing before it. Still takes seconds; this only fixes the framing, not the duration. Try a Low↔Medium toggle too (that path gets no shader warm at all).<br>5. Regression sweep on the touched paths: solo round to podium → PLAY AGAIN → fresh round; ESC pause freezes the clock and resume continues; level music starts on play entry and charge SFX stops on KO.<br>6. Emissive look (no fix shipped — FIX-EMISSIVE aborted): on Cart Rave, judge how blown out the non-patterned carts actually read, and whether a leader-glow cart looks worse. This is the target for the replan, so a sentence of your read is the deliverable.<br>7. Hitches: F8 whenever one bites (Sundial and Cart Rave both reported). The old ring has **zero** `pt-main-1` bundles because uploads were silently size-capped until this ship, so forensics has nothing to work from — these captures are the evidence. Then run `npm run captures:pull`.",
             "ship1": null
           },
           {
