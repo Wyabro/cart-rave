@@ -184,9 +184,33 @@ Every unablated cell of the day, by wall clock:
    Do not assume thermal; that is the run-4 "GC metronome" error (**HARNESS-NULL-1**) waiting to
    happen again.
 
-**Wave 4 status: NOT started.** `arenaFillLights` is planned and acked (spindle kept) but has no
-trustworthy number, and the `@property` convention on this card requires one. It ships only after
-a bracketed re-run.
+### Wave 4 — SHIPPED 08-04 on Wyatt's explicit call, WITHOUT a bracketed number
+
+`arenaFillLights` (`b754e12`, Worker `9b8b1fbe`). Low `false`, Medium/High `true`. Drops
+`pitUplight` + `pitRimFill`; **`spindleLight` deliberately untouched** — Wyatt kept the record's
+pink/cyan accent. Classic gained its first `applyQualityTier`, following the Storerooms pattern;
+`classicRecord.js` returns `initArena`'s object verbatim, so `main.js`'s `levelApplyQualityTier`
+hook reaches it. The ablation call moved **inside** that function, last, so a live tier change
+cannot un-ablate a `?ablate=` session.
+
+**The number is a range, not a value: −1.66 to −2.54 ms, and the range includes +0.55.** Shipped
+anyway because Wyatt said to, with the caveat stated. **Do not quote a single figure for this
+lever anywhere.** If a bracketed cell is ever run, correct the `@property` in `qualityTiers.js`
+and this section together.
+
+Verified before deploy (dev, real browser, scene state — the definitive check for a
+visibility lever): Low → spindle `true`, `pitUplight` `false`, `pitRimFill` `false`; High → all
+three `true`. Post-deploy, the production `scene-*.js` chunk reads `arenaFillLights:!1` /
+`!0` / `!0` across the three tiers. **No shoot comparison was made:** neither Classic capture pose
+sees down the shaft, so a still pair would have been a null diff dressed up as evidence.
+
+**Owed: Wyatt's playtest** — (1) prod, Cart Rave, Low: look into the shaft after a KO — darker,
+**still not pure black** (standing rule); (2) spindle reads deliberately lit, not orphaned;
+(3) High unchanged; (4) F8 mid-round at Low.
+
+**The card is NOT closed.** Best case this lever leaves the box at ~46 fps against a 60 bar, on a
+baseline that itself drifts +5 ms/37 min. What remains: a bracketed re-measure, and the drift
+investigation, which is worth more than any remaining cut on the menu.
 
 ---
 
