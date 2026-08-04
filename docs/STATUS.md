@@ -98,7 +98,7 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 
 | ID | Issue | Status |
 |----|--------|--------|
-| PERF-PASS-1 | 60 fps at Low on the Intel box, all three arenas | 🎯 **Target set by Wyatt 08-03**, not a regression hunt — that box has never held 60 (run 5: 54% of frames over 33 ms). Three F8 captures exist: `npm run captures:pull`, attribute, **then** knobs. PERF-TIER-1 / PERF-WATCH-1 are levers after attribution. |
+| PERF-PASS-1 | 60 fps at Low on the Intel box, all three arenas | 🎯 **Target set by Wyatt 08-03. Attributed 08-03** from cap-236/237/238 (`2c18057`, Intel UHD, Low, solo). One page load → counters are **cumulative, diff them**. Segments: Storerooms **48.9 fps** (10.2% over 33 ms), Cart Rave **38.2 fps** (27.8%). **Cart Rave ≈2× the cost of the others.** It is **steady-state frame cost, not stalls** (`over66` +2/+4; warm compile 141 ms/116 materials) and it is **better than the run-5 floor of 54%**, so there is **no regression to bisect**. Next: per-arena isolation + instrument the 16.7 ms bar (`over33`/`over66` cannot see 60 fps). Knobs only after that. |
 | WARM-SOLO-1 | Solo post-`carts-ready` stall (WARM-IGPU residual) | 📋 telemetry-gated — [warm-igpu-1.md](./planning/warm-igpu-1.md) |
 | MAIN-1 | Carve `main.js` seam (enables BUNDLE-1) | 📋 post-gate |
 | BUNDLE-1 | Menu/game code-split | 🚫 blocked on MAIN-1 |
