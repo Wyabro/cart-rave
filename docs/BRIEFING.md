@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-04 at commit `b2dc7eb` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `2b34792a`
+> Generated 2026-08-04 at commit `adbe6ca` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `bb439ff0`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -18,14 +18,14 @@ Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep a
 
 ## ACTIVE CARD
 
-FV-RESULTS-1 / STORE-PT-1 — Run 8 FAIL residue — CHALLENGE copy · shelves want painted wood
-Pass looks like: ▶ DEPLOYED 08-04 (`858b836` · `3fa1cac`, Worker `752dd701`). Prod chunk verified: `CHALLENGE UNLOCKED` in index; backrooms cream `#d8cfb8`, no steel `#b3b5ad`. Owed: Wyatt playtest both. PERF still parked.
+PERF-PASS-1 — 60 fps at Low on the Intel box — Cart Rave only (Wyatt scoped it 08-03)
+Pass looks like: ▶ ACTIVE — UNPARKED 08-04, Wave 3 acked. Wave 1 DEPLOYED + MEASURED (`aeb83aa` / cap-239): in-round 20.934 ms → 47.8 fps, not CPU-bound → Wave 3 = `?ablate` scene plumbing + a 9-cell sweep on the Intel box → a cost menu; no visual cut ships in Wave 3. Plan (both waves, verified line refs): [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md).
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 
 ## Waiting on Wyatt (not agent work)
 
-- **FV-RESULTS-1 / STORE-PT-1** Run 8 FAIL residue — CHALLENGE copy · shelves want painted wood — ▶ DEPLOYED 08-04 (`858b836` · `3fa1cac`, Worker `752dd701`). Prod chunk verified: `CHALLENGE UNLOCKED` in…
+- **FV-RESULTS-1 / STORE-PT-1** Run 8 FAIL residue — CHALLENGE copy · shelves want painted wood — ⏸ DEPLOYED 08-04 (`858b836` · `3fa1cac`, Worker `752dd701`). Prod chunk verified: `CHALLENGE UNLOCKED` in…
 
 ## Do not
 

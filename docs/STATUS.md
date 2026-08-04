@@ -67,8 +67,8 @@ Live rows only. Shipped and closed cards live in
 | # | What | Status |
 |---|------|--------|
 | STORE-DECK-1 | Storerooms spawn-deck bay letter | ⏸ **DEPLOYED 08-03** (`6eff2df`, Worker version `01f8a745`) — verified by fetching the production chunk: no `BAY_LETTERS`, no letter font, plate + stripe intact. Waiting on Wyatt's retest. |
-| FV-RESULTS-1 / STORE-PT-1 | Run 8 FAIL residue — CHALLENGE copy · shelves want painted wood | ▶ **DEPLOYED 08-04** (`858b836` · `3fa1cac`, Worker `752dd701`). Prod chunk verified: `CHALLENGE UNLOCKED` in index; backrooms cream `#d8cfb8`, no steel `#b3b5ad`. **Owed: Wyatt playtest both.** PERF still parked. |
-| PERF-PASS-1 | 60 fps at Low on the Intel box — **Cart Rave only** (Wyatt scoped it 08-03) | ⏸ **PARKED 08-04** (Wyatt: park PERF + FV/STORE wave). Wave 1 DEPLOYED + MEASURED (`aeb83aa` / cap-239): in-round 20.934 ms → 47.8 fps, not CPU-bound → Wave 3 still visual/geometry, needs its own plan + ack when unparked. |
+| FV-RESULTS-1 / STORE-PT-1 | Run 8 FAIL residue — CHALLENGE copy · shelves want painted wood | ⏸ **DEPLOYED 08-04** (`858b836` · `3fa1cac`, Worker `752dd701`). Prod chunk verified: `CHALLENGE UNLOCKED` in index; backrooms cream `#d8cfb8`, no steel `#b3b5ad`. **Owed: Wyatt playtest both** — code side is closed. |
+| PERF-PASS-1 | 60 fps at Low on the Intel box — **Cart Rave only** (Wyatt scoped it 08-03) | ▶ **ACTIVE — UNPARKED 08-04, Wave 3 acked.** Wave 1 DEPLOYED + MEASURED (`aeb83aa` / cap-239): in-round 20.934 ms → 47.8 fps, not CPU-bound → Wave 3 = `?ablate` scene plumbing + a 9-cell sweep on the Intel box → **a cost menu; no visual cut ships in Wave 3**. Plan (both waves, verified line refs): [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md). |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 
@@ -86,12 +86,12 @@ Live rows only. Shipped and closed cards live in
    `no-exact-head-complete-green-battery`** — that is the RC-phase gate and no exact-HEAD battery
    has been run at this commit; the deploy went out via `npm run ship` as every stabilization
    deploy has. Run the battery before any RC claim.
-4. **ACTIVE: FV-RESULTS-1 + STORE-PT-1 DEPLOYED** (Worker `752dd701`). Hard-refresh prod and
-   playtest closes both. PERF-PASS-1 parked — Wave 3 resumes only when unparked.
-5. **Still owed to Wyatt:** playtest FV-RESULTS-1 + STORE-PT-1; FV-WILT-1 (2pc); STORE-DECK-1
-   retest; PERF-PASS-1 Wave 3 when unparked.
+4. **ACTIVE: PERF-PASS-1 Wave 3** (unparked 08-04, acked). FV-RESULTS-1 + STORE-PT-1 are DEPLOYED
+   (Worker `752dd701`) and now sit in the playtest-owed queue, not the active slot.
+5. **Still owed to Wyatt:** the 9-cell PERF sweep (his box, ~25 min — he cannot be replaced here);
+   playtest FV-RESULTS-1 + STORE-PT-1; FV-WILT-1 (2pc); STORE-DECK-1 retest.
 
-**Open High:** FV-RESULTS-1 · STORE-PT-1 · PERF-PASS-1 (parked) · UI-SCALE-1 · RESULTS-1 ·
+**Open High:** PERF-PASS-1 · FV-RESULTS-1 · STORE-PT-1 · UI-SCALE-1 · RESULTS-1 ·
 CART-MODEL-1 · bloom.
 
 ## Open issues (top)
@@ -101,7 +101,7 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 
 | ID | Issue | Status |
 |----|--------|--------|
-| PERF-PASS-1 | 60 fps at Low on the Intel box — **Cart Rave only** | ⏸ **PARKED 08-04.** Wave 1 instrument PASS (cap-239): meanMs 20.934 → 47.8 fps, not CPU-bound → Wave 3 = visual/geometry cuts (crowd layer ~200k tris is the big knob). Resume with plan+ack when unparked. Plan: `.claude/plans/what-no-we-plan-fancy-shore.md`. |
+| PERF-PASS-1 | 60 fps at Low on the Intel box — **Cart Rave only** | ▶ **ACTIVE 08-04.** Wave 1 instrument PASS (cap-239): meanMs 20.934 → 47.8 fps, not CPU-bound → Wave 3 = visual/geometry cost menu (crowd cart layer ~200k tris is the big knob). Plan: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md). |
 | FV-RESULTS-1 / STORE-PT-1 | CHALLENGE receipt copy · shelves painted wood | ▶ **DEPLOYED** Worker `752dd701` — playtest closes. |
 | WARM-SOLO-1 | Solo post-`carts-ready` stall (WARM-IGPU residual) | 📋 telemetry-gated — [warm-igpu-1.md](./planning/warm-igpu-1.md) |
 | MAIN-1 | Carve `main.js` seam (enables BUNDLE-1) | 📋 post-gate |
