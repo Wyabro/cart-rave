@@ -17,6 +17,12 @@ describe("QUALITY_KNOBS potato scaling", () => {
     expect(k.maxSubsteps).toBe(2);
   });
 
+  it("PERF-PASS-1: low drops the pit fill lights, medium/high keep them", () => {
+    expect(QUALITY_KNOBS.low.arenaFillLights).toBe(false);
+    expect(QUALITY_KNOBS.medium.arenaFillLights).toBe(true);
+    expect(QUALITY_KNOBS.high.arenaFillLights).toBe(true);
+  });
+
   it("medium is the iGPU tier: lean fill, core lasers, no reflector", () => {
     const k = QUALITY_KNOBS.medium;
     expect(k.reflector).toBe(false);

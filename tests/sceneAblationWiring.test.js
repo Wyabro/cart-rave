@@ -92,6 +92,50 @@ describe("scene ablation — arena.js pit lights", () => {
   });
 });
 
+describe("Classic applyQualityTier — PERF-PASS-1 arenaFillLights", () => {
+  /** Body of `function applyQualityTier(knobs)` inside initArena. */
+  function classicTierBody() {
+    const start = arenaSrc.indexOf("function applyQualityTier(knobs) {");
+    expect(start).toBeGreaterThan(-1);
+    const end = arenaSrc.indexOf("\n  applyQualityTier(getQualityKnobs());", start);
+    expect(end).toBeGreaterThan(start);
+    return arenaSrc.slice(start, end);
+  }
+
+  it("gates the two pit lights on the knob", () => {
+    const body = classicTierBody();
+    expect(body).toMatch(/knobs\.arenaFillLights/);
+    expect(body).toMatch(/pitUplight\.visible\s*=/);
+    expect(body).toMatch(/pitRimFill\.visible\s*=/);
+  });
+
+  it("never touches the spindle accent — Wyatt kept it", () => {
+    // * The shipped cut is two lights, not the three that were swept. If the spindle's
+    // * visibility is ever written here, the lever silently becomes the unmeasured
+    // * three-light cut and the record loses its pink/cyan identity at Low.
+    expect(classicTierBody()).not.toMatch(/spindleLight\.visible\s*=/);
+  });
+
+  it("re-asserts ablation after the tier writes, not before", () => {
+    const body = classicTierBody();
+    const ablateAt = body.indexOf("applySceneAblation(");
+    const writes = [...body.matchAll(/\.visible\s*=/g)].map((m) => m.index);
+    expect(writes.length).toBeGreaterThan(0);
+    expect(ablateAt).toBeGreaterThan(Math.max(...writes));
+  });
+
+  it("is exposed on the level result so main.js's tier hook can reach it", () => {
+    // * main.js destructures applyQualityTier off the level result; Classic returns
+    // * initArena's object verbatim via classicRecord.js. Line-ending agnostic on purpose —
+    // * this file is checked out CRLF on Windows.
+    const returnAt = arenaSrc.lastIndexOf("return {");
+    expect(returnAt).toBeGreaterThan(-1);
+    expect(arenaSrc.slice(returnAt, returnAt + 200)).toMatch(/applyQualityTier,/);
+    // * ...and declared on the returned shape, or callers get an untyped hole.
+    expect(arenaSrc).toMatch(/\*\s+applyQualityTier: \(knobs:/);
+  });
+});
+
 describe("scene ablation — main.js re-show pairing", () => {
   it("onPreviewSwapComplete pairs setRaveExtrasVisible with the tier re-apply", () => {
     // * A bare setRaveExtrasVisible(true) re-shows everything the tier — and ?ablate= —

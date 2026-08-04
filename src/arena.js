@@ -11,6 +11,7 @@ import { sampleArenaReactive } from "./arenaReactiveLights.js";
 import { mergeStaticMeshesByMaterial } from "./utils/mergeStaticMeshes.js";
 import { installCheapMirrorPass } from "./utils/cheapMirror.js";
 import { getDebugParams, applySceneAblation } from "./utils/debugParams.js";
+import { getQualityKnobs } from "./utils/qualityTiers.js";
 
 // * Play-time Reflector RT. Was 1024² (Pass 2 isolation: Reflector ≈ 60% of Classic High
 // * GPU). 512² is a 4× bandwidth cut; cart/booth silhouettes still read on the vinyl at
@@ -1565,6 +1566,7 @@ function buildBooths(scene, world, config, boothNeonMeshes, boothColliderHandles
  *   spindleLightColorPink: THREE.Color,
  *   spindleLightColorCyan: THREE.Color,
  *   pitInnerRadius: number,
+ *   applyQualityTier: (knobs: import("./utils/qualityTiers.js").QualityKnobs) => void,
  *   dispose: () => void,
  * }}
  */
@@ -2781,19 +2783,37 @@ export function initArena(scene, world, config, options = {}) {
     }
   }
 
-  // * PERF-PASS-1 measurement probe — inert without ?ablate=. These lights are
-  // * function-local (only spindleLight is returned), so the call has to live here.
-  // * An invisible light is dropped from the render list, which is the point: it shortens
-  // * the standard-material light loop in every fragment shader.
-  // * `pitlights` = all three (swept 08-04: −2.88 ms). `pitfill` = the two pit lights only,
-  // * i.e. the cut Wyatt actually picked — spindle stays lit, so its own delta needs its
-  // * own cell rather than inheriting the three-light number.
-  applySceneAblation({
-    pitlights: [spindleLight, pitUplight, pitRimFill],
-    pitfill: [pitUplight, pitRimFill],
-  });
+  /**
+   * PERF-PASS-1: drops the two pit fill lights at LOW. An invisible light leaves the render
+   * list entirely, which is the point — it shortens the standard-material light loop in every
+   * fragment shader, and that (not triangle count) is what the 08-04 sweep found to pay.
+   *
+   * `spindleLight` is deliberately untouched: Wyatt kept the record's pink/cyan accent as a
+   * look-identity element. The `update` closure below writes these lights' *intensity* every
+   * frame but never their visibility, so there is no fight.
+   *
+   * Safe to call repeatedly — main.js calls it after every level load and on every live tier
+   * change (the `levelApplyQualityTier` hook).
+   * @param {import("./utils/qualityTiers.js").QualityKnobs} knobs
+   */
+  function applyQualityTier(knobs) {
+    const on = knobs.arenaFillLights;
+    pitUplight.visible = on;
+    pitRimFill.visible = on;
+
+    // * Ablation LAST — same rule as effects.js. Without this, a live tier change re-shows
+    // * the lights and silently un-ablates a ?ablate= session, which reads as "this cut is
+    // * worthless" rather than "the probe was overwritten".
+    // * `pitlights` = all three (swept 08-04: −2.88 ms); `pitfill` = the shipped two-light cut.
+    applySceneAblation({
+      pitlights: [spindleLight, pitUplight, pitRimFill],
+      pitfill: [pitUplight, pitRimFill],
+    });
+  }
+  applyQualityTier(getQualityKnobs());
 
   return {
+    applyQualityTier,
     recordMesh,
     recordColliderHandles,
     pitWallColliderHandle,

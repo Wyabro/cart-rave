@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-04T04:04:41.142Z",
-    "commit": "87182fc"
+    "at": "2026-08-04T04:12:48.913Z",
+    "commit": "7c34cc7"
   },
-  "source_digest": "b77048e2",
+  "source_digest": "889b0300",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1298,10 +1298,17 @@
       {
         "title": "Design / Gameplay",
         "counts": {
+          "High": 1,
           "Medium": 3,
           "Low": 6
         },
         "rows": [
+          {
+            "pri": "High",
+            "item": "HOST-TAB-1 — hidden-tab host pump + AFK promote + mid-round strongest rehost",
+            "notes": "**Filed 08-04 from Wyatt design.** Browser freezes rAF when the tab is hidden; today only DEV `?perfPump` ([perfPump.js](../../src/utils/perfPump.js)) keeps the loop alive for tools, and prod only **shifts the round clock** on host return ([main.js](../../src/main.js) hostHiddenAtMs) — non-hosts still see a frozen world. **Product (acked mid-round):** (1) **Tools hygiene** — every harness that needs a live sim always passes `?perfPump`; `npm run tabhidden` stays **no-pump** on purpose (it asserts freeze recovery). (2) **Short hide (0–~10s)** — while `isHost && multiplayer && phase running",
+            "ship1": null
+          },
           {
             "pri": "Medium",
             "item": "NPC-BOOST-1 — NPCs feel like they boost \"better\" than players",

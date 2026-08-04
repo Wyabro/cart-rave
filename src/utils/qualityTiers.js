@@ -34,6 +34,13 @@ import { getQualityTier } from "./qualityMode.js";
  * @property {boolean} skyExtras Classic sceneExtras rig — skybox shell, starfields, planets,
  *   UFOs, world spotlights (SKYBOX-1). +54 draw calls and 5 spotlights when on, so LOW opts
  *   out; the crowd/stage silhouette still carries the Cart Clash read there.
+ * @property {boolean} arenaFillLights Classic pit fill lights — the void uplight + pit rim fill
+ *   (PERF-PASS-1). The record's spindle accent is deliberately NOT included: Wyatt kept it as a
+ *   look-identity element. Measured on the Intel UHD box at Low: all three lights together were
+ *   −2.88 ms (23.788 → 20.909, cap-243, bracketed A-B-A drift 0.041 ms). **This two-light variant
+ *   is unbracketed** — its own cell landed between −1.66 and −2.54 ms depending on which baseline
+ *   it is read against, because the box drifted +5.1 ms over that session. Shipped on Wyatt's
+ *   explicit call with the range known. See docs/planning/perf-pass-1-handover.md.
  * @property {LaserBudget} laserBudget Which laser rings draw (deck rings are the expensive ambient fill).
  * @property {number} dustMul Ambient dust particle-count multiplier.
  * @property {number} streakCap Ram-boost streak particle cap.
@@ -58,6 +65,9 @@ export const QUALITY_KNOBS = {
     crowdCount: 800,
     crowdAnimate: false,
     extrasLasers: false,
+    // * PERF-PASS-1: the two pit fill lights leave the standard-material light loop at LOW.
+    // * The spindle accent stays lit — it is the record's identity, and Wyatt kept it.
+    arenaFillLights: false,
     // * SKYBOX-1: the sky rig costs +54 draws / +5 spotlights, at the tier least able to pay.
     skyExtras: false,
     laserBudget: "off",
@@ -79,6 +89,7 @@ export const QUALITY_KNOBS = {
     crowdCount: 2200,
     crowdAnimate: true,
     extrasLasers: true,
+    arenaFillLights: true,
     skyExtras: true,
     // * Drop deck rings (20 additive beams × sheath+core) — stage/arena/sky keep the rave.
     laserBudget: "core",
@@ -98,6 +109,7 @@ export const QUALITY_KNOBS = {
     crowdCount: Infinity,
     crowdAnimate: true,
     extrasLasers: true,
+    arenaFillLights: true,
     skyExtras: true,
     laserBudget: "full",
     dustMul: 1,
