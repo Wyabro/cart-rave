@@ -267,6 +267,8 @@ describe("gameLoop hidden-host frame driver", () => {
   let nextRafId;
   let originalRaf;
   let originalCancelRaf;
+  let originalMessageChannel;
+  let pumpMessages;
   let hidden;
 
   beforeEach(() => {
@@ -275,6 +277,8 @@ describe("gameLoop hidden-host frame driver", () => {
     nextRafId = 1;
     originalRaf = globalThis.requestAnimationFrame;
     originalCancelRaf = globalThis.cancelAnimationFrame;
+    originalMessageChannel = globalThis.MessageChannel;
+    pumpMessages = [];
     globalThis.requestAnimationFrame = (cb) => {
       const id = nextRafId;
       nextRafId += 1;
@@ -283,6 +287,17 @@ describe("gameLoop hidden-host frame driver", () => {
     };
     globalThis.cancelAnimationFrame = (id) => {
       scheduled.delete(id);
+    };
+    globalThis.MessageChannel = class {
+      constructor() {
+        this.port1 = { onmessage: null, close: vi.fn() };
+        this.port2 = {
+          postMessage: () => {
+            pumpMessages.push(() => this.port1.onmessage?.());
+          },
+          close: vi.fn(),
+        };
+      }
     };
     hidden = false;
     Object.defineProperty(document, "hidden", {
@@ -295,6 +310,7 @@ describe("gameLoop hidden-host frame driver", () => {
     vi.useRealTimers();
     globalThis.requestAnimationFrame = originalRaf;
     globalThis.cancelAnimationFrame = originalCancelRaf;
+    globalThis.MessageChannel = originalMessageChannel;
   });
 
   it("cancels rAF before pumping and restores exactly one rAF on visibility", () => {
@@ -312,6 +328,7 @@ describe("gameLoop hidden-host frame driver", () => {
     expect(driver.isPumping()).toBe(true);
 
     vi.advanceTimersByTime(17);
+    pumpMessages.shift()();
     expect(onFrame).toHaveBeenCalledTimes(1);
     expect(driver.getPumpTickCount()).toBe(1);
     expect(scheduled.size).toBe(0);
@@ -333,10 +350,12 @@ describe("gameLoop hidden-host frame driver", () => {
     hidden = true;
     driver.refresh();
     vi.advanceTimersByTime(17);
+    pumpMessages.shift()();
     expect(driver.isPumping()).toBe(true);
 
     isHost = false;
     vi.advanceTimersByTime(17);
+    pumpMessages.shift()();
     expect(driver.isPumping()).toBe(false);
     expect(scheduled.size).toBe(1);
   });
@@ -353,5 +372,23 @@ describe("gameLoop hidden-host frame driver", () => {
     expect(driver.isPumping()).toBe(false);
     expect(driver.getPumpTickCount()).toBe(0);
     expect(scheduled.size).toBe(1);
+  });
+
+  it("starts pumping when a live phase begins while the tab is already hidden", () => {
+    let livePhase = false;
+    const driver = runGameLoop(createGameLoopState(), {
+      shouldPumpWhileHidden: () => livePhase,
+      shouldSkipTiming: () => false,
+      onFrame: vi.fn(),
+    });
+
+    hidden = true;
+    driver.refresh();
+    expect(driver.isPumping()).toBe(false);
+
+    livePhase = true;
+    driver.refresh();
+    expect(driver.isPumping()).toBe(true);
+    expect(scheduled.size).toBe(0);
   });
 });

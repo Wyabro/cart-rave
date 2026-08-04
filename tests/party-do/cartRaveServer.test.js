@@ -175,9 +175,21 @@ describe("CartRaveServer DO harness", () => {
       joiner.client.messages.filter((m) => m.type === MSG.hostMigrated && m.reason === "host_afk"),
     ).toHaveLength(1);
 
+    await sleep(5100);
+    joiner.client.sendJson({ type: MSG.hostPresent });
+    await sleep(50);
+    expect(joiner.client.messages.filter((m) => m.reason === "host_return")).toHaveLength(0);
+
+    const returnPromise = host.client.awaitMessage(
+      (m) => m.type === MSG.hostMigrated && m.reason === "host_return",
+    );
+    host.client.sendJson({ type: MSG.hostPresent });
+    const returned = await returnPromise;
+    expect(returned.hostId).toBe(host.youConnId);
+
     host.client.close();
     joiner.client.close();
-  });
+  }, 10_000);
 
   it("rebalances to a clearly stronger returning human during a live round", async () => {
     const room = uniqueRoom("host-present");

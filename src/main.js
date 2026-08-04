@@ -4832,6 +4832,7 @@ async function main() {
     cancelLastCartStandingFinish();
     GameState.setRoundEndReason(null);
     syncRoundPhase("running");
+    refreshHiddenHostLifecycle();
     gameCtx.slowMo.active = false;
     GameState.setRoundStartedAtMs(startedAtMs);
     GameState.setRoundScores({ 0: 0, 1: 0, 2: 0, 3: 0 });
@@ -4870,6 +4871,7 @@ async function main() {
     }
     setMatchStatsLocalSlot(Netcode.strictSlotIndexForConn(Netcode.getYouConnId()));
     syncRoundPhase("countdown");
+    refreshHiddenHostLifecycle();
     gameCtx.slowMo.active = false;
     GameState.setRoundCountdownStartedAtMs(startsAtLocalMs - CONFIG.round.countdownMs);
     GameState.setRoundScores({ 0: 0, 1: 0, 2: 0, 3: 0 });
@@ -4980,8 +4982,8 @@ async function main() {
   onHostMigratedHandler = () => {
     resumeCountdownAsNewHost();
     ensureSuddenDeathStateAsNewHost();
-    gameLoopDriver?.refresh();
-    armHostAwayTimerIfNeeded();
+    clearHostAwayTimer();
+    refreshHiddenHostLifecycle();
   };
 
   Object.assign(sessionBridgeCtx.current, {
@@ -5212,21 +5214,31 @@ async function main() {
   }
 
   function armHostAwayTimerIfNeeded() {
-    clearHostAwayTimer();
     const mode = detectGameMode();
-    if (!document.hidden || (mode !== "quickplay" && mode !== "friends")) return;
-    if (!shouldPumpHiddenHost()) return;
+    if (
+      !document.hidden
+      || (mode !== "quickplay" && mode !== "friends")
+      || !shouldPumpHiddenHost()
+    ) {
+      clearHostAwayTimer();
+      return;
+    }
+    if (hostAwayTimerId != null) return;
     hostAwayTimerId = setTimeout(() => {
       hostAwayTimerId = null;
       if (document.hidden && shouldPumpHiddenHost()) Netcode.sendHostAway();
     }, HOST_AWAY_AFTER_MS);
   }
 
+  function refreshHiddenHostLifecycle() {
+    gameLoopDriver?.refresh();
+    armHostAwayTimerIfNeeded();
+  }
+
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) {
       const st = GameState.getRoundState();
-      gameLoopDriver?.refresh();
-      armHostAwayTimerIfNeeded();
+      refreshHiddenHostLifecycle();
       hostPumpTickCountAtHide = gameLoopDriver?.getPumpTickCount() ?? 0;
       if (
         hostHiddenAtMs == null

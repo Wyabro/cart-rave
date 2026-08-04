@@ -92,6 +92,7 @@ export class CartRaveServer extends Server {
   readonly #connClientId = new Map<string, string>();
   /** NH-HIT lever 3: client-reported host capability 0–100 (join hostScore). */
   readonly #hostScores = new Map<string, number>();
+  readonly #awayHostIds = new Set<string>();
   #lastMidRoundHostMigrationAtMs = Number.NEGATIVE_INFINITY;
 
   #hostId: string | null = null;
@@ -333,6 +334,7 @@ export class CartRaveServer extends Server {
   #handleHostAway(connId: string, now: number) {
     if (connId !== this.#hostId) return;
     if (this.#round.phase !== "running" && this.#round.phase !== "countdown") return;
+    this.#awayHostIds.add(connId);
     if (now - this.#lastMidRoundHostMigrationAtMs < MID_ROUND_HOST_MIGRATION_COOLDOWN_MS) {
       return;
     }
@@ -357,19 +359,22 @@ export class CartRaveServer extends Server {
 
   #handleHostPresent(connId: string, now: number) {
     if (this.#round.phase !== "running" && this.#round.phase !== "countdown") return;
-    if (now - this.#lastMidRoundHostMigrationAtMs < MID_ROUND_HOST_MIGRATION_COOLDOWN_MS) {
-      return;
-    }
-
     const live = new Set(this.#connections.keys());
     const senderIsLiveHuman = this.#slots?.some(
       (slot) => slot.kind === "human" && slot.connId === connId && live.has(connId),
     );
     if (!senderIsLiveHuman) return;
+    this.#awayHostIds.delete(connId);
+    if (now - this.#lastMidRoundHostMigrationAtMs < MID_ROUND_HOST_MIGRATION_COOLDOWN_MS) {
+      return;
+    }
 
+    const eligibleLive = new Set(
+      [...live].filter((id) => !this.#awayHostIds.has(id)),
+    );
     const preferred = pickPreferredHostId(
       this.#joinOrder,
-      live,
+      eligibleLive,
       this.#slots,
       this.#hostScores,
     );
@@ -581,6 +586,7 @@ export class CartRaveServer extends Server {
       this.#lastSeenAtMs.delete(id);
       this.#connClientId.delete(id);
       this.#hostScores.delete(id);
+      this.#awayHostIds.delete(id);
       this.#rateLimitWindows.delete(id);
       this.#releaseIp(id);
       try {
@@ -897,6 +903,7 @@ export class CartRaveServer extends Server {
       this.#lastSeenAtMs.delete(id);
       this.#connClientId.delete(id);
       this.#hostScores.delete(id);
+      this.#awayHostIds.delete(id);
       this.#rateLimitWindows.delete(id);
       if (this.#pendingPickers.has(id)) {
         this.#pendingPickers.delete(id);
@@ -1037,6 +1044,7 @@ export class CartRaveServer extends Server {
     this.#lastSeenAtMs.delete(conn.id);
     this.#connClientId.delete(conn.id);
     this.#hostScores.delete(conn.id);
+    this.#awayHostIds.delete(conn.id);
     this.#rateLimitWindows.delete(conn.id);
     if (this.#pendingPickers.has(conn.id)) {
       this.#pendingPickers.delete(conn.id);
@@ -1171,6 +1179,7 @@ export class CartRaveServer extends Server {
             this.#lastSeenAtMs.delete(ghostConnId);
             this.#connClientId.delete(ghostConnId);
             this.#hostScores.delete(ghostConnId);
+            this.#awayHostIds.delete(ghostConnId);
 
             // Cleanup IP tracking on ghost exorcism
             this.#releaseIp(ghostConnId);

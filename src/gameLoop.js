@@ -701,7 +701,7 @@ const HOST_PUMP_FRAME_MS = 1000 / 60;
 /**
  * @typedef {object} GameLoopDriver
  * @property {() => void} refresh Re-evaluates hidden-host authority immediately.
- * @property {() => boolean} isPumping Reports whether the secondary timer owns the next tick.
+ * @property {() => boolean} isPumping Reports whether the scoped MessageChannel owns ticks.
  * @property {() => number} getPumpTickCount Monotonic count used to distinguish a live pump
  *   from a timer that never fired while hidden.
  */
@@ -736,12 +736,44 @@ export function runGameLoop(loopState, callbacks) {
   let overGapStreak = 0;
   /** @type {number | null} */
   let animationFrameId = null;
-  /** @type {ReturnType<typeof setTimeout> | null} */
-  let pumpTimerId = null;
+  /** @type {MessageChannel | null} */
+  let pumpChannel = null;
+  let lastPumpFrameAtMs = 0;
   let pumpTickCount = 0;
 
   function wantsHostPump() {
     return document.hidden && Boolean(shouldPumpWhileHidden?.());
+  }
+
+  function stopHostPump() {
+    if (!pumpChannel) return;
+    pumpChannel.port1.onmessage = null;
+    pumpChannel.port1.close();
+    pumpChannel.port2.close();
+    pumpChannel = null;
+  }
+
+  function startHostPump() {
+    if (pumpChannel) return;
+    const channel = new MessageChannel();
+    pumpChannel = channel;
+    lastPumpFrameAtMs = performance.now();
+    channel.port1.onmessage = () => {
+      if (pumpChannel !== channel) return;
+      if (!wantsHostPump()) {
+        stopHostPump();
+        scheduleNextFrame();
+        return;
+      }
+      const now = performance.now();
+      if (now - lastPumpFrameAtMs >= HOST_PUMP_FRAME_MS) {
+        lastPumpFrameAtMs = now;
+        pumpTickCount += 1;
+        step(now);
+      }
+      if (pumpChannel === channel) channel.port2.postMessage(null);
+    };
+    channel.port2.postMessage(null);
   }
 
   function scheduleNextFrame() {
@@ -750,20 +782,11 @@ export function runGameLoop(loopState, callbacks) {
         cancelAnimationFrame(animationFrameId);
         animationFrameId = null;
       }
-      if (pumpTimerId == null) {
-        pumpTimerId = setTimeout(() => {
-          pumpTimerId = null;
-          pumpTickCount += 1;
-          step(performance.now());
-        }, HOST_PUMP_FRAME_MS);
-      }
+      startHostPump();
       return;
     }
 
-    if (pumpTimerId != null) {
-      clearTimeout(pumpTimerId);
-      pumpTimerId = null;
-    }
+    stopHostPump();
     if (animationFrameId == null) {
       animationFrameId = requestAnimationFrame((now) => {
         animationFrameId = null;
@@ -963,7 +986,7 @@ export function runGameLoop(loopState, callbacks) {
   scheduleNextFrame();
   return {
     refresh: scheduleNextFrame,
-    isPumping: () => pumpTimerId != null,
+    isPumping: () => pumpChannel != null,
     getPumpTickCount: () => pumpTickCount,
   };
 }
