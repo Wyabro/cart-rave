@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-04T01:02:53.221Z",
-    "commit": "ce0fdee"
+    "at": "2026-08-04T02:14:34.289Z",
+    "commit": "d7797a8"
   },
-  "source_digest": "71999c4c",
+  "source_digest": "bf9d2106",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -924,8 +924,8 @@
       {
         "title": "Engineering",
         "counts": {
-          "?": 5,
-          "Medium": 15,
+          "?": 7,
+          "Medium": 13,
           "Low": 7,
           "High": 2,
           "Partial": 1
@@ -1022,9 +1022,9 @@
             "ship1": null
           },
           {
-            "pri": "Medium",
+            "pri": "✅",
             "item": "NET-SIM-1 — socket-lifecycle netharness scenarios `[SHIP-1 A6]`",
-            "notes": "A6a (party-do silent-reap + ghost 4010) + A6b (netharness `hostReload`) landed; extend as needed. P2P zombie + reconnect cooldown already unit-covered.",
+            "notes": "**CLOSED 08-04 (docs hygiene)** — shipped earlier as SHIP-1 A6 (`2eedc04` hostReload + Cap-200); completed-work already recorded it. Friends lobby/rematch gap lives on **HARNESS-FRIENDS-1**, not this card.",
             "ship1": "A6"
           },
           {
@@ -1040,9 +1040,9 @@
             "ship1": null
           },
           {
-            "pri": "Medium",
-            "item": "GIT-INDEX-1 — concurrent agent sessions share one git index, so `git commit` ships work the committing session never staged",
-            "notes": "**Filed 08-01 after it fired TWICE in one day, in both directions.** (1) An agent's uncommitted `docs/ARCHITECTURE.json` was swept into another session's `64b49d2` (\"chore(claude): enforce three AGENTS.md rules as Claude Code hooks\"), leaving HEAD briefly carrying a manifest that described `CC-COHERE-1` / `CC-TOKEN-1` / `CC-STRIPE-1` while the committed BACKLOG had none of those rows. (2) The reverse: `.agents/skills/brainstorming/SKILL.md` plus 9 lines of `docs/STATUS.md`, staged-but-uncommitted by the other session, rode along inside `35859cc` (CC-COHERE-1) — then got pushed with it. **Mechanism:** one working tree = one `.git/index`. `git add <paths>` is additive and well-behaved, but **`git commit` with no pathspec commits the ENTIRE index**, including whatever another session staged seconds earlier. Careful staging by one session does not protect it from another session's commit. **Why the existing guard misses it:** `.claude/hooks/guard-git-add.mjs` (`64b49d2`) enforces the AGENTS.md \"never `git add -A`\" rule — but **neither incident involved `git add -A`**. Both used correct, narrow `git add <explicit paths>`. The leak is one step later, at `git commit`, which the guard does not inspect. **The damage so far was only attribution — that is luck, not safety.** The real failure mode is a session committing another session's *half-finished* edit: it ships under the committing session's green `qa` run, having never been gated on its own, and the authoring session then sees a clean tree and believes it already landed. **Levers, cheapest first:** (a) make `git commit -- <paths>` the convention — with a pathspec, git commits those paths from the working tree and ignores the rest of the index; (b) extend `guard-git-add.mjs` (or add a sibling) to intercept pathspec-less `git commit` and refuse/warn when the index contains paths this session did not stage — the hook already has the interception point, it just watches the wrong verb; (c) structural fix — one git worktree per session, which gives each its own index. The repo **already uses** `.claude/worktrees/` for some agent work, so this is an existing pattern to extend rather than a new mechanism. Related in character to **HARNESS-NULL-1**: a process that cannot demonstrate it did what it claims.",
+            "pri": "✅",
+            "item": "GIT-INDEX-1 — concurrent agent sessions share one git index",
+            "notes": "**CLOSED 08-04 (docs hygiene)** — code landed 08-01: `5c3fe16` (pathspec-less commit guard) + `db60f19` (GIT-INDEX-2 content-aware hunk guard). Documented in [hook-enforcement.md](../guides/hook-enforcement.md). Residual structural option (one worktree per session) never required to close the leak.",
             "ship1": null
           },
           {
@@ -1116,9 +1116,9 @@
       {
         "title": "Art",
         "counts": {
-          "?": 1,
+          "?": 3,
           "Low": 8,
-          "High": 5,
+          "High": 3,
           "Medium": 5
         },
         "rows": [
@@ -1165,15 +1165,15 @@
             "ship1": null
           },
           {
-            "pri": "High",
+            "pri": "✅",
             "item": "ART-PASS-1 — per-level art pass audit `[pre-ship]`",
-            "notes": "One level at a time: which authored surfaces read thin, which elements are bare filler beside well-authored neighbours, what is identity and must not change. **Not a texturing sweep** — the arenas already have maps. All three arenas audited 08-01 (6 element groups each, adversarially verified). **ART-PASS-CLASSIC-1** is the Cart Rave execution card.",
+            "notes": "**CLOSED 08-04 (docs hygiene)** — all three arenas audited 08-01 (adversarially verified). Execution: Classic = **ART-PASS-CLASSIC-1** (complete); Sundial = ART-PASS-SUNDIAL-1 (closed Run 8); Storerooms residuals = **STORE-PT-1** / **SHELF-RAIL-1**, not this audit card.",
             "ship1": null
           },
           {
-            "pri": "High",
+            "pri": "✅",
             "item": "ART-PASS-CLASSIC-1 — Cart Rave art pass `[pre-ship]`",
-            "notes": "One commit + one real-GPU capture per lever. **L1 ✅ `316c74f`** pit-wall texel anisotropy — `repeat.set(16,200)` → `(32,69)` squares the tile, killing a measured 5.8× (rivets rendered as ~5.8:1 ovals). **L2 ✅ `beebe81`** the CART RAVE label had never rendered — wordmark, divider, hole cut and grooves 1–3 of 7 all sat inside the `RingGeometry(3.7, 7.0)` inner edge at canvas r=135.3px; re-authored as curved arc text, geometry constants now shared by canvas and mesh. **L3 ✅ `d59fd92`** records on the turntables + platter wear map; platters **ruled hero, not dressing** (allowlist updated in the same commit). **L4 ❌ DROPPED** → see CLAD-REPEAT-1. **L5 ✅ `5fc1c1e`** (row corrected 08-02 — it read \"remaining\" after the commit landed) — record-body `ExtrudeGeometry` UVs were in metres and the vinyl maps default to ClampToEdge (`arena.js:439`/`298`); fixed with a custom UVGenerator normalising to 0..1, but shipped as **correctness only, no visual delta**: it is rim-band only, since two `RingGeometry` meshes with correct 0..1 UVs cover the body's top face at every tier. **Card COMPLETE.**",
+            "notes": "**CLOSED 08-04 (docs hygiene)** — L1–L5 shipped (`316c74f` · `beebe81` · `d59fd92` · L4→**CLAD-REPEAT-1** · `5fc1c1e`); notes already said Card COMPLETE. Dropped L4 and SKYBOX-DIR-1 stay their own rows.",
             "ship1": null
           },
           {
@@ -1241,15 +1241,15 @@
       {
         "title": "Audio",
         "counts": {
-          "High": 1,
+          "?": 1,
           "Medium": 3,
           "Low": 1
         },
         "rows": [
           {
-            "pri": "High",
+            "pri": "✅",
             "item": "MENU-MUSIC-VOL-1 — menu music louder than set volume after loop restart `[pre-ship]`",
-            "notes": "After the menu song restarts/loops, gain sometimes exceeds the player's set music volume. Suspect Howler loop / re-play path ignoring or re-applying volume wrong.",
+            "notes": "**CLOSED 08-04 (docs hygiene)** — fixed `18ed9ab` (08-02): clamp store vols to Howler 0..1 via `howlerVol()`; 6 tests in `audioManager.test.js`. Root cause was Howler IndexSizeError on loop restart at store >1. Residual: top ~13% slider dead zone (product call); **AUDIO-MASTER-1** still open Low.",
             "ship1": null
           },
           {
@@ -1397,7 +1397,8 @@
       {
         "title": "UI / UX",
         "counts": {
-          "High": 6,
+          "High": 5,
+          "?": 1,
           "Medium": 5,
           "Low": 3
         },
@@ -1415,9 +1416,9 @@
             "ship1": null
           },
           {
-            "pri": "High",
+            "pri": "✅",
             "item": "MENU-LOCK-HINT-1 — locked-level menu explains why `[pre-ship]`",
-            "notes": "New main menu has no affordance when a level is locked (why locked / how to unlock). Add tooltip, disabled-state copy, or tap-to-explain — must match Fight Night chrome.",
+            "notes": "**CLOSED 08-04 (docs hygiene)** — shipped `8dea5bb` (08-02): browse locked arenas, unlock copy, SOLO gate, preview follows cursor. Covered under Run 8 **UNLOCK-PT-1** PASS.",
             "ship1": null
           },
           {

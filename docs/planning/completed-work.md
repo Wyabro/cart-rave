@@ -2,7 +2,7 @@
 
 > Historical log. Past entries may still say "Cart Rave" / `next-level` — that is intentional. Living naming rules: [brand.md](../brand.md).
 
-**Last Updated:** August 1, 2026
+**Last Updated:** August 4, 2026
 
 > **This doc = the past** — the single home for historical/completed items. For what works
 > *today* see [project-state.md](./project-state.md); for forward plans see [ROADMAP.md](./ROADMAP.md).
@@ -10,6 +10,36 @@
 Chronological record of shipped work, newest first.
 
 > **Convention:** As items ship, move their completed writeup here (out of ROADMAP.md / project-state.md).
+
+---
+
+### August 4, 2026 — Docs hygiene: six cards already shipped, still listed open
+
+Scan after MENU-MUSIC-VOL-1 looked "already done": code/commits in HEAD, BACKLOG rows never
+flipped. **No game code this pass** — badge + completed-work only. Closed IDs added so they
+cannot re-file without new evidence.
+
+- *(Audio · High, `[pre-ship]`)* **MENU-MUSIC-VOL-1** — ✅ code `18ed9ab` (08-02). Store domain
+  0..1.15 vs Howler 0..1: constructor accepted `>1`, `volume()` setter silently no-op'd, loop
+  restart threw `IndexSizeError` and left a fresh `<audio>` at default 1.0. Fix: `howlerVol()`
+  clamp at music/SFX assignment sites; 6 tests. Residual: top ~13% slider dead zone (product);
+  **AUDIO-MASTER-1** still open Low.
+- *(UI · High, `[pre-ship]`)* **MENU-LOCK-HINT-1** — ✅ code `8dea5bb` (08-02). Browse locked
+  arenas (cursor ≠ selection), unlock copy, SOLO gate before play entry, preview follows
+  browse target. Run 8 **UNLOCK-PT-1** PASS covers the progression surface.
+- *(Hooks · Medium)* **GIT-INDEX-1** (+ **GIT-INDEX-2**) — ✅ `5c3fe16` + `db60f19` (08-01).
+  Pathspec-less commit cannot ship another session's staged paths; content-aware hunk guard
+  blocks owned-path smuggling. See [hook-enforcement.md](../guides/hook-enforcement.md).
+  Worktree-per-session left unbuilt (not required to close the leak).
+- *(Art · High, `[pre-ship]`)* **ART-PASS-CLASSIC-1** — ✅ L1–L5 shipped (`316c74f` · `beebe81`
+  · `d59fd92` · L4 dropped → **CLAD-REPEAT-1** · `5fc1c1e`). Notes already said Card COMPLETE;
+  pri stayed High until this pass.
+- *(Art · High, `[pre-ship]`)* **ART-PASS-1** — ✅ audit parent only: all three arenas audited
+  08-01. Execution tracked on Classic/Sundial/Storerooms cards; Storerooms residue is
+  **STORE-PT-1** / **SHELF-RAIL-1**.
+- *(Net · Medium, `[SHIP-1 A6]`)* **NET-SIM-1** — ✅ already closed in SHIP-1 / completed-work
+  (`2eedc04` hostReload + Cap-200). BACKLOG still said "extend as needed"; friends gap is
+  **HARNESS-FRIENDS-1**.
 
 ---
 
