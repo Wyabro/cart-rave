@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-04T02:52:40.668Z",
-    "commit": "adbe6ca"
+    "at": "2026-08-04T02:56:31.201Z",
+    "commit": "a78740d"
   },
-  "source_digest": "82a7dee1",
+  "source_digest": "2d6e89a5",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -930,9 +930,9 @@
         "title": "Engineering",
         "counts": {
           "?": 7,
-          "Medium": 12,
+          "Medium": 13,
+          "High": 3,
           "Low": 8,
-          "High": 2,
           "Partial": 1
         },
         "rows": [
@@ -964,6 +964,18 @@
             "pri": "Medium",
             "item": "SPAWN-SUNDIAL-1 — Sundial platform-leg colliders `[pre-ship]`",
             "notes": "**Half closed 08-02.** The spawn inset shipped in `e64f1a3` via `booth.gapDistanceByLevel` — Sundial's booths and spawn ring both moved +0.75m outward with no level-file edit. **Still owed:** colliders on the platform legs. `buildZanzibarBooths` ([zanzibarPlatform.js:2508](../../src/levels/zanzibarPlatform.js:2508)) builds four 11m legs plus cross-braces per booth as **visual meshes only** — the deck cuboid at `:2579` is the sole `createCollider` in the builder, so carts ghost straight through the supports. ART-PASS-SUNDIAL-1 is closed (Run 8) — leg colliders are unblocked; still open work.",
+            "ship1": null
+          },
+          {
+            "pri": "High",
+            "item": "STORE-PLAT-WALL-1 — Storerooms void/platform walls are visual-only",
+            "notes": "**Filed 08-04 from Wyatt playtest.** Walls attached to the spawn platforms (rails, dividers, and any wall faces that read as solid next to the surrounding void) have **no Rapier colliders** — only the deck cuboid is created in `buildBackroomsBooths` ([backroomsSupermarket.js:3264](../../src/levels/backroomsSupermarket.js:3264)); rails/dividers are mesh-merge only. Carts ghost through geometry that looks solid, which is a fall/KO fairness bug near the pit. **Same shape as SPAWN-SUNDIAL-1** (visual supports without physics). **Pass:** drive into platform-side walls/rails on prod Storerooms — cart stops, does not phase through into void or through booth furniture. Do not over-collider decorative crates. Sibling of closed PIT-COL-INSET-1 / SPAWN-BACKROOMS-1 (those were floor/lip, not platform walls).",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "RECORD-MED-1 — Cart Rave record floor looks wrong on Medium (vs Low and High)",
+            "notes": "**Filed 08-04 from Wyatt.** Medium quality's vinyl/record surface reads weird next to Low and High on the same machine. **Likely mechanism (not yet measured):** `QUALITY_KNOBS.medium.reflector = false` ([qualityTiers.js:77](../../src/utils/qualityTiers.js:77)) so `setReflectorVisible(false)` shows the solid floor ([arena.js:1795](../../src/arena.js:1795)), but the record **body** is still built on the High material path because construction only branches on `isLowQualityMode()` ([arena.js:1601](../../src/arena.js:1601)) — Medium is not Low, so it gets High clearcoat/metalness/normal stack *plus* the Medium solid floor and postFX/bloom that Low disables. Low = opaque Low body + solid floor + no composer; High = translucent body + Reflector + vinyl detail. Medium is a hybrid nobody signed off. **Do not fold into PERF-PASS-1** — that card is Cart Rave cost, not look parity. **Cheapest repro:** `?preset=low` / medium / high on classicRecord, same camera, shoot three stills. **Pass:** Medium reads as a deliberate step between Low and High (or matches Low's solid-floor look cleanly), not a broken middle.",
             "ship1": null
           },
           {
@@ -1286,10 +1298,16 @@
       {
         "title": "Design / Gameplay",
         "counts": {
-          "Medium": 2,
+          "Medium": 3,
           "Low": 6
         },
         "rows": [
+          {
+            "pri": "Medium",
+            "item": "NPC-BOOST-1 — NPCs feel like they boost \"better\" than players",
+            "notes": "**Filed 08-04 from external playtester perception.** Not yet measured — do not retune knobs on vibes. **Known asymmetry by design:** humans use charge-release nitro (`boostCharge` 1.5s to full, then burst) while NPCs fire **instant** boost (`triggerRamBoost` `{ instant: true }`, [main.js:4388](../../src/main.js:4388) / [config.js:164](../../src/config.js:164)) so bots never freeze charging in traffic. Shared caps: same `durationSec` / `boostedMaxSpeed` / cooldown family; NPCs also get aim-cone + range gates and solo rubberband nitro mul. Hard difficulty tightens aim (`boostAlignmentAngleDegDelta: -12`). **Why a tester can still feel \"bots better\":** zero charge tax, opportunistic auto-fire when aimed, gold/charged trail language only on human full-charge release (so NPC boosts look \"cleaner\"/more frequent). **Method before code:** Solo Medium/Hard, note human charge delay vs bot instant windows; if still unfair after knowing the design, options are (a) short NPC wind-up, (b) slightly lower NPC boostedMaxSpeed/accel, (c) looser player charge (`boostChargeTimeMs`), (d) leave it and teach charge in ONBOARD-SLIDES-1. Related: closed HIT-FEEL-1 / AI-DIFF-1.",
+            "ship1": null
+          },
           {
             "pri": "Medium",
             "item": "Taste-tuning follow-ups from Pass 4",
@@ -1409,8 +1427,8 @@
         "title": "UI / UX",
         "counts": {
           "?": 3,
+          "Medium": 6,
           "High": 3,
-          "Medium": 5,
           "Low": 3
         },
         "rows": [
@@ -1419,6 +1437,12 @@
             "item": "PRE-PODIUM-1 — confetti / wilt + win-lose callout missing `[pre-ship]`",
             "notes": "**CLOSED 08-04 (docs audit)** — filing text was stale. Code already ships winner confetti (winner-cam + results panel), local-loser wilt (`spawnResultsDefeatWilt`), and verdict `\"Name wins — N pts\"` (`main.js` podium path; wilt `2eff72f`). **Not closed:** MP eye = **FV-WILT-1**; wilt *look* = Wilting-groceries `[SHIP-1 E2]`.",
             "ship1": "E2"
+          },
+          {
+            "pri": "Medium",
+            "item": "MENU-CART-1 — main-menu 3D cart under player name",
+            "notes": "**Filed 08-04 from Wyatt.** Reuse the customize `CartPreview` ([cartPreview.js](../../src/ui/cartPreview.js) — already mounted only while customize is open via [cart-rave-menu.js:900](../../src/cart-rave-menu.js:900)) on the **main menu under the name plate** so players admire color/pattern/sunglasses without opening Customize. **Not** a second GLB loader path — same `CartPreview` instance or a shared factory; sync look from localStorage/store the same way `syncCartPreviewLook` does. **Constraints:** must not fight menu attract perf (ATTRACT-JANK-1 / PERF-PASS-1) — pause/hide when customize open; consider Low tier still-frame or lower DPR; one WebGL context only if the stack already shares the game canvas (prefer CSS overlay viewport into existing pattern, do not spawn a second full rAF renderer if avoidable). **Pass:** main menu shows your cart under your name; changing color/pattern in Customize updates it when you return; no extra hitch on weak machines. Pairs with SHIP-1 C / customize pride; not blocked on CART-MODEL-1.",
+            "ship1": null
           },
           {
             "pri": "High",
