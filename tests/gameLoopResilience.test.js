@@ -260,3 +260,98 @@ describe("gameLoop resilience — resume guard (tab-focus stutter)", () => {
     expect(frames[2].dt).toBe(0);
   });
 });
+
+describe("gameLoop hidden-host frame driver", () => {
+  /** @type {Map<number, (now: number) => void>} */
+  let scheduled;
+  let nextRafId;
+  let originalRaf;
+  let originalCancelRaf;
+  let hidden;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    scheduled = new Map();
+    nextRafId = 1;
+    originalRaf = globalThis.requestAnimationFrame;
+    originalCancelRaf = globalThis.cancelAnimationFrame;
+    globalThis.requestAnimationFrame = (cb) => {
+      const id = nextRafId;
+      nextRafId += 1;
+      scheduled.set(id, cb);
+      return id;
+    };
+    globalThis.cancelAnimationFrame = (id) => {
+      scheduled.delete(id);
+    };
+    hidden = false;
+    Object.defineProperty(document, "hidden", {
+      configurable: true,
+      get: () => hidden,
+    });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    globalThis.requestAnimationFrame = originalRaf;
+    globalThis.cancelAnimationFrame = originalCancelRaf;
+  });
+
+  it("cancels rAF before pumping and restores exactly one rAF on visibility", () => {
+    const onFrame = vi.fn();
+    const driver = runGameLoop(createGameLoopState(), {
+      shouldPumpWhileHidden: () => true,
+      shouldSkipTiming: () => false,
+      onFrame,
+    });
+
+    expect(scheduled.size).toBe(1);
+    hidden = true;
+    driver.refresh();
+    expect(scheduled.size).toBe(0);
+    expect(driver.isPumping()).toBe(true);
+
+    vi.advanceTimersByTime(17);
+    expect(onFrame).toHaveBeenCalledTimes(1);
+    expect(driver.getPumpTickCount()).toBe(1);
+    expect(scheduled.size).toBe(0);
+
+    hidden = false;
+    driver.refresh();
+    expect(driver.isPumping()).toBe(false);
+    expect(scheduled.size).toBe(1);
+  });
+
+  it("stops pumping after hidden authority is lost", () => {
+    let isHost = true;
+    const driver = runGameLoop(createGameLoopState(), {
+      shouldPumpWhileHidden: () => isHost,
+      shouldSkipTiming: () => false,
+      onFrame: vi.fn(),
+    });
+
+    hidden = true;
+    driver.refresh();
+    vi.advanceTimersByTime(17);
+    expect(driver.isPumping()).toBe(true);
+
+    isHost = false;
+    vi.advanceTimersByTime(17);
+    expect(driver.isPumping()).toBe(false);
+    expect(scheduled.size).toBe(1);
+  });
+
+  it("does not pump while the hidden predicate is false", () => {
+    const driver = runGameLoop(createGameLoopState(), {
+      shouldPumpWhileHidden: () => false,
+      shouldSkipTiming: () => false,
+      onFrame: vi.fn(),
+    });
+
+    hidden = true;
+    driver.refresh();
+    expect(driver.isPumping()).toBe(false);
+    expect(driver.getPumpTickCount()).toBe(0);
+    expect(scheduled.size).toBe(1);
+  });
+});

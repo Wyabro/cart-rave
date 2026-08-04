@@ -644,6 +644,8 @@ export function resetGameLoopTiming(loopState) {
  *   *unrecoverable* wasm/physics fault (see {@link isUnrecoverableSimError}) or throws
  *   continuously past {@link MAX_STEP_ERROR_STREAK}. The sim has stopped stepping; the
  *   handler should bail to a safe state (e.g. return to menu). The outer rAF stays alive.
+ * @property {() => boolean} [shouldPumpWhileHidden] True only while a hidden authoritative
+ *   host must keep the live simulation advancing.
  */
 
 /**
@@ -694,6 +696,15 @@ const MAX_STEP_ERROR_STREAK = 60;
  * treatment; consecutive ones step the sim with the normal clamped dt.
  */
 const RESUME_GAP_S = 0.25;
+const HOST_PUMP_FRAME_MS = 1000 / 60;
+
+/**
+ * @typedef {object} GameLoopDriver
+ * @property {() => void} refresh Re-evaluates hidden-host authority immediately.
+ * @property {() => boolean} isPumping Reports whether the secondary timer owns the next tick.
+ * @property {() => number} getPumpTickCount Monotonic count used to distinguish a live pump
+ *   from a timer that never fired while hidden.
+ */
 
 /**
  * Starts the requestAnimationFrame loop and manages outer timing / accumulator bookkeeping.
@@ -704,9 +715,17 @@ const RESUME_GAP_S = 0.25;
  *
  * @param {GameLoopState} loopState Mutable timing state from {@link createGameLoopState}.
  * @param {GameLoopCallbacks} callbacks
+ * @returns {GameLoopDriver}
  */
 export function runGameLoop(loopState, callbacks) {
-  const { onFrame, onVisualUpdate, shouldSkipTiming, onStepError, onFatalError } = callbacks;
+  const {
+    onFrame,
+    onVisualUpdate,
+    shouldSkipTiming,
+    onStepError,
+    onFatalError,
+    shouldPumpWhileHidden,
+  } = callbacks;
 
   // * Unrecoverable-error tripwire. Reset on any menu/overlay frame and after any fully
   // * successful frame, so a fresh session starts with a clean slate.
@@ -715,11 +734,49 @@ export function runGameLoop(loopState, callbacks) {
   // * Consecutive over-RESUME_GAP frames. 0→1 is a genuine resume (drop debt); ≥2 means
   // * the device is chronically slow and the sim must keep stepping (see RESUME_GAP_S).
   let overGapStreak = 0;
+  /** @type {number | null} */
+  let animationFrameId = null;
+  /** @type {ReturnType<typeof setTimeout> | null} */
+  let pumpTimerId = null;
+  let pumpTickCount = 0;
+
+  function wantsHostPump() {
+    return document.hidden && Boolean(shouldPumpWhileHidden?.());
+  }
+
+  function scheduleNextFrame() {
+    if (wantsHostPump()) {
+      if (animationFrameId != null) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+      }
+      if (pumpTimerId == null) {
+        pumpTimerId = setTimeout(() => {
+          pumpTimerId = null;
+          pumpTickCount += 1;
+          step(performance.now());
+        }, HOST_PUMP_FRAME_MS);
+      }
+      return;
+    }
+
+    if (pumpTimerId != null) {
+      clearTimeout(pumpTimerId);
+      pumpTimerId = null;
+    }
+    if (animationFrameId == null) {
+      animationFrameId = requestAnimationFrame((now) => {
+        animationFrameId = null;
+        step(now);
+      });
+    }
+  }
 
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) {
       resetGameLoopTiming(loopState);
     }
+    scheduleNextFrame();
   });
 
   function step(now) {
@@ -730,7 +787,7 @@ export function runGameLoop(loopState, callbacks) {
       fatalHandled = false;
       // * The next game frame's large dt (time spent in the menu) is a fresh resume.
       overGapStreak = 0;
-      requestAnimationFrame(step);
+      scheduleNextFrame();
       return;
     }
 
@@ -862,7 +919,7 @@ export function runGameLoop(loopState, callbacks) {
       stepErrorStreak = 0;
       fatalHandled = false;
 
-      requestAnimationFrame(step);
+      scheduleNextFrame();
     } catch (err) {
       stepErrorStreak += 1;
       const unrecoverable = isUnrecoverableSimError(err) || stepErrorStreak >= MAX_STEP_ERROR_STREAK;
@@ -887,7 +944,7 @@ export function runGameLoop(loopState, callbacks) {
             console.error("[gameLoop] onFatalError handler threw:", recoveryErr);
           }
         }
-        requestAnimationFrame(step);
+        scheduleNextFrame();
         return;
       }
 
@@ -899,9 +956,14 @@ export function runGameLoop(loopState, callbacks) {
       });
       onStepError?.(err);
       // * Transient fault — recovering next frame beats a frozen tab.
-      requestAnimationFrame(step);
+      scheduleNextFrame();
     }
   }
 
-  requestAnimationFrame(step);
+  scheduleNextFrame();
+  return {
+    refresh: scheduleNextFrame,
+    isPumping: () => pumpTimerId != null,
+    getPumpTickCount: () => pumpTickCount,
+  };
 }

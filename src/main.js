@@ -4974,6 +4974,7 @@ async function main() {
   onHostMigratedHandler = () => {
     resumeCountdownAsNewHost();
     ensureSuddenDeathStateAsNewHost();
+    gameLoopDriver?.refresh();
   };
 
   Object.assign(sessionBridgeCtx.current, {
@@ -5185,21 +5186,30 @@ async function main() {
     }
   }
 
-  // * Run-6: host tab hidden freezes the sim (rAF stops) while the wall-clock round
-  // * timer keeps counting — non-hosts watch a frozen world with a live countdown, and
-  // * on return the host instantly fires timer-end/Sudden-Death for the whole hidden
-  // * gap. Shift the running anchor by the gap so the round resumes where it froze;
-  // * sendHostRound resyncs every client's HUD anchor (their local hold — see
-  // * getHostStallMs — hands off to the shifted anchor). Solo benefits identically.
+  /** @type {ReturnType<typeof runGameLoop> | null} */
+  let gameLoopDriver = null;
   let hostHiddenAtMs = null;
+  let hostPumpTickCountAtHide = 0;
+
+  function shouldPumpHiddenHost() {
+    const phase = GameState.getRoundState().phase;
+    return (
+      Netcode.getIsHost()
+      && detectGameMode() !== "testdrive"
+      && (phase === "countdown" || phase === "running")
+    );
+  }
+
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) {
       const st = GameState.getRoundState();
+      gameLoopDriver?.refresh();
+      hostPumpTickCountAtHide = gameLoopDriver?.getPumpTickCount() ?? 0;
       if (
         hostHiddenAtMs == null
         && soloPauseStartedAtMs == null // Esc pause already owns the compensation
         && Netcode.getIsHost()
-        && st.phase === "running"
+        && (st.phase === "running" || st.phase === "countdown")
       ) {
         hostHiddenAtMs = getRoundClockNowMs();
       }
@@ -5207,13 +5217,19 @@ async function main() {
     }
     if (hostHiddenAtMs == null) return;
     const delta = getRoundClockNowMs() - hostHiddenAtMs;
+    const pumpRan = (gameLoopDriver?.getPumpTickCount() ?? 0) > hostPumpTickCountAtHide;
     hostHiddenAtMs = null;
+    if (pumpRan) return;
     if (!(delta > 0) || !Netcode.getIsHost()) return;
     const state = GameState.getRoundState();
     if (state.phase === "running" && state.startedAtMs > 0) {
       GameState.setRoundStartedAtMs(state.startedAtMs + delta);
       shiftDirectiveTimersBy(delta);
       Netcode.sendHostRound();
+    }
+    if (state.phase === "countdown" && state.countdownStartedAtMs > 0) {
+      GameState.setRoundCountdownStartedAtMs(state.countdownStartedAtMs + delta);
+      resumeCountdownAsNewHost();
     }
   });
 
@@ -5501,7 +5517,8 @@ async function main() {
     physics: physicsDeps,
   });
 
-  runGameLoop(gameCtx.loopState, {
+  gameLoopDriver = runGameLoop(gameCtx.loopState, {
+    shouldPumpWhileHidden: shouldPumpHiddenHost,
     shouldSkipTiming: () => {
       if (menuVisible) return true;
       // * Solo/testdrive ESC freezes physics + frame timing (real pause).
