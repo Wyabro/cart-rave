@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-04T17:00:52.465Z",
-    "commit": "c9f6f44"
+    "at": "2026-08-04T18:33:24.260Z",
+    "commit": "15be6ee"
   },
-  "source_digest": "393ab4a0",
+  "source_digest": "2dd12624",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -841,6 +841,8 @@
     "Hidden-tab rAF freezes the loop unless `?perfPump` (DEV) is set — shoot tools should pass it.",
     "Level animation IS capturable — SHOOT-ANIM-1 closed (`6b27283`); free-running it lands on a random phase, so pin one with `--t <ms>` and compare two. Judge against the arena's null floor, not zero: Sundial ~1.2%, Classic ~15.9% (construction randomness, not animation). Rave dressing is still frozen — SHOOT-ANIM-2.",
     "Diagnostics globals namespace is `__cc*` (`__ccTest` / `__ccDiag` / `__ccLoopDbg`).",
+    "F8 uploads were silently size-capped until `e7e64e4` (`keepalive: true` → Chrome's ~64 KiB body limit, rejection swallowed into a `console.warn`). Measured 08-04 over the 251-capture ring: max body 54,786 chars ≈ 65,179 wire bytes, 357 under 65,536 — clipped exactly at the ceiling. `?diag` was also dropped by quit-to-menu, killing F8 for the rest of the session. Any ring pulled before that commit under-represents the heaviest KO/announcer-dense frames — the ones a hitch hunt wants — and it holds zero `pt-main-1` bundles, so the MAIN-1 hitch reports have no server-side evidence yet.",
+    "The in-app Browser pane does not composite while hidden, so rAF never fires there: loaders sit at 4% forever and live HUD checks stall. Not a game bug — verify rendered behavior on prod or in tests.",
     "`window.__cartRavePerf.scene` is DEV-ONLY (`main.js:1543`) — in prod it does not exist, so scene-graph probes silently return empty and read as \"not built\". `import(\"/src/…\")` likewise only resolves against the dev server. It does not always give a duplicate module instance, though: under Vite dev, importing the same resolved URL the app imported returns the same instance with shared state — verified 08-02 by firing `triggerArenaKoFlash` from a probe-side import and watching the app's own materials react. A duplicate is what you get from a *different* specifier for the same file. Verify prod visually (screenshot + build stamp), not by scene introspection.",
     "A round that ends with no scores is a legitimate draw → neither `victory` nor `defeat`.",
     "Rapier `world.castRay(...)` reads `.handle` off the exclude args — pass Collider/RigidBody objects, never raw handles.",
@@ -852,7 +854,7 @@
       {
         "id": "MAIN-1",
         "what": "Carve `main.js` composition seam (enables BUNDLE-1)",
-        "status": "▶ DEPLOYED `c9f6f44` · Worker `738b9f44` — zero-regression §8 playtest owed. Soft line target missed (2402). Plan: [main-1.md](./planning/main-1.md). BUNDLE-1 wait until close.",
+        "status": "▶ §8 all-pass (9/9) — one true regression found and fixed (FIX-BOOST `39939e0`). Open until the post-ship boost-meter retest. Plan: [main-1.md](./planning/main-1.md). BUNDLE-1 unblocks at close.",
         "state": "active",
         "touches_systems": [
           {
@@ -863,6 +865,18 @@
             ]
           }
         ]
+      },
+      {
+        "id": "FIX-EMISSIVE",
+        "what": "Non-patterned carts read blown out on Classic",
+        "status": "⛔ ABORTED 08-04 — approved design invalidated, needs re-ack. See Open issues.",
+        "state": "waiting"
+      },
+      {
+        "id": "FIX-MIG",
+        "what": "Quickplay host-migration visibility + continuous-policy tests",
+        "status": "📋 next wave, scoped — see Open issues.",
+        "state": "waiting"
       },
       {
         "id": "PERF-PASS-1",
@@ -884,8 +898,10 @@
       }
     ],
     "next_actions": [
-      "Play MAIN-1 on production — hard-refresh https://cart-rave.wyabro.workers.dev · open `.diag-captures/playtest-console.html` · run the 9 numbered steps · paste PASS/FAIL export.",
-      "Still owed separately: 9-cell PERF sweep (~25 min). Resume Run 8 FAIL triage after MAIN-1 closes."
+      "Ship the MAIN-1 residual wave (4 commits, unpushed: `39939e0` `e7dd92e` `e7e64e4` `15be6ee`) on Wyatt's \"ship it\" → `npm run verify:head` → hard-refresh prod → retest: boost meter visible in solo, ESC mid-directive does not re-fire, F8 shows a toast, quality toggle keeps its overlay through the hitch.",
+      "One fresh F8 pass after that ship — the current 251-capture ring has zero `pt-main-1` bundles, so hitch forensics has no evidence to work from (see Gotchas).",
+      "Re-ack FIX-EMISSIVE with a design that survives the per-frame re-tint, and FIX-MIG as scoped.",
+      "Still owed separately: 9-cell PERF sweep (~25 min). Resume Run 8 FAIL triage."
     ],
     "open_issues": [
       {
@@ -901,12 +917,27 @@
       {
         "id": "MAIN-1",
         "issue": "Carve `main.js` composition seam (enables BUNDLE-1)",
-        "status": "▶ **DEPLOYED** `c9f6f44` · Worker `738b9f44` — §8 playtest owed (console seeded). Plan: [main-1.md](./planning/main-1.md)."
+        "status": "▶ §8 all-pass; one regression found and fixed (FIX-BOOST `39939e0`, unpushed). **Open until the post-ship boost-meter retest.** Plan: [main-1.md](./planning/main-1.md)."
+      },
+      {
+        "id": "FIX-EMISSIVE",
+        "issue": "Non-patterned carts blown out on Classic",
+        "status": "⛔ **ABORTED 08-04 — acked lever invalidated, needs re-ack.** Full reasoning + the two design options: [BACKLOG § Engineering](./planning/BACKLOG.md)."
+      },
+      {
+        "id": "FIX-MIG",
+        "issue": "Quickplay host migration",
+        "status": "📋 **next wave, scoped** (reason tags + continuous-policy tests only). [BACKLOG § Engineering](./planning/BACKLOG.md)."
+      },
+      {
+        "id": "CARGO-LATCH-1",
+        "issue": "`cargoLoad.js` repeats the FIX-DIRPAUSE latch bug",
+        "status": "📋 same class as `e7dd92e`, out of scope by instruction. [BACKLOG § Engineering](./planning/BACKLOG.md)."
       },
       {
         "id": "BUNDLE-1",
         "issue": "Menu/game code-split",
-        "status": "🚫 blocked on MAIN-1"
+        "status": "📋 unblocked once MAIN-1's retest lands"
       },
       {
         "id": "BRAND-1",
@@ -921,9 +952,9 @@
         "title": "Engineering",
         "counts": {
           "?": 8,
-          "Medium": 12,
+          "Medium": 14,
           "High": 3,
-          "Low": 8,
+          "Low": 9,
           "Partial": 1
         },
         "rows": [
@@ -991,6 +1022,24 @@
             "pri": "High",
             "item": "ATTRACT-JANK-1 — attract-mode animation reads as jank on weak machines",
             "notes": "**Filed 08-03 from his Run 8 report**, split from PERF-PASS-1 because it has a specific and recent suspect worth checking before any general sweep. **The attract loop only started animating on 08-02.** SHOOT-ANIM-1 (`6b27283`) found `menuAttract.js` was rendering without ever updating — the live main-menu arena was frozen for every player — and added the `onAnimationTick` dep; SHOOT-ANIM-2 (`33f0d15`) then put rave dressing (stage spots, crowd bulbs) on that same loop. So the menu went from static to fully animated in one day, immediately before this report. **That makes it the first thing to measure, not the confirmed cause** — same discipline as PERF-PASS-1. **Two specifics that matter if it is the loop:** (1) the attract path deliberately runs with **no frame budget** (`frameBudgetAllow` fails closed without `beginFrameBudget` and would latch a bucket off permanently), so its per-frame cost is unbounded by design and weak machines rely entirely on the auto-quality watchdog stepping the tier down; (2) attract render cost and in-game frame delta are judged against **one shared 20.5 ms bar** (see PERF-WATCH-1), and demotion is irreversible per session — so a heavy menu can demote the tier before the player ever enters a round. Check whether the watchdog is firing at the menu on the Intel box.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "FIX-EMISSIVE — non-patterned carts read blown out on Classic",
+            "notes": "**ABORTED 08-04 mid-wave — the acked lever was invalidated by the code, not by taste. Needs re-ack before any retry.** Report: \"emissive-ness on non patterned carts looks a bit blown out on cart rave\". **Correct map** (an earlier reading was wrong — do not trust stale notes): `cartPatterns.js:400` is `removeLegacyPatternMeshes`, *not* an emissive branch; a `classic` cart only gets `uPatternStrength = 0` (`cartPatterns.js:389-391`), and a pattern is the only thing that currently reduces emissive area. The full-area glow lives on the GLTF trim/accent mats — `getRaveGltfTrimEmissiveIntensity` / `applyRaveGltfTrimEmissive` ([cartRaveGltf.js:2407](../../src/cartRaveGltf.js:2407)) via `applyRaveGltfColorToCache` ← `applyThemeColorToCache` ([cartThemes.js:316](../../src/cartThemes.js:316)). Pattern population is **not** \"everyone but the local player is classic\": remote humans are `classic` (patterns are not networked yet) but **NPCs draw from a pool where classic is weighted 2/7** ([customization.js:442](../../src/customization.js:442)). **Why the acked design fails:** `intensityMul` is a **per-call argument, not per-cart state**, and the leader-glow block in [frameVisuals.js:395](../../src/frameVisuals.js:395) is **unguarded — it runs every frame, menu included** — with its idle branch (`:485`) calling `applyThemeColorToCache(cache, themeId, slotHex)` with no fourth arg, i.e. `intensityMul = 1`. `applyThemeChargeGlow` ([cartThemes.js:401](../../src/cartThemes.js:401)) also hard-passes `1`. That loop and `updateCartMaterialsFromSlots` ([cartOrchestration.js:249](../../src/orchestration/cartOrchestration.js:249)) mutate the **same** `cart._materialCache`, so a trim threaded from `cartOrchestration` is overwritten the moment `_themeGlowKey` changes — essentially immediately. **A retry must move the trim onto the cache** (e.g. `cache.emissiveTrimMul`, applied inside `applyRaveGltfColorToCache` **and** `applyRaveGltfLeaderGlow`, which hardcodes `getRaveGltfTrimEmissiveIntensity(neonHex, 1)` at [cartRaveGltf.js:2834](../../src/cartRaveGltf.js:2834) — miss it and a classic cart pops back to full brightness the instant it takes the lead). **The evidence gate is also unmet, and that is the second blocker:** `?shot=classic` is the menu attract path and contains **zero player carts**, so none of the four required subjects can appear in it; `shoot.mjs`/`shoot-gpu.mjs` accept no `room=solo`; `tools/sheet.mjs` is the only in-match rig and self-documents as SwiftShader/LOW, \"a layout baseline, **not a golden render**\"; and Classic's **15.9% construction-noise floor** swamps a 0.85 trim in `npm run compare` anyway. `shoot-gpu` itself works here on the real 4090 — the gap is subject matter, not GPU. **So the next card must choose one:** (a) cache-based trim + a new in-match GPU capture rig (new tooling — needs its own ack), or (b) cache-based trim gated on a **unit seam** only (assert the trim reaches `applyRaveGltfTrimEmissive` for classic, `1` for patterned, and survives leader glow) — clean, real evidence, no pixels. **Out of scope either way:** Classic's bloom profile (`BLOOM_DISPLAY_NEON`, [scene.js:87](../../src/scene.js:87), untuned since 07-13) is the *next* lever with its own evidence, not a substitute; and the hue-boost logic in `utils.js` is **not** the problem — an earlier claim that red/magenta are \"uncapped\" at `:65` was wrong (`:65` tames *bright* hues where `hueBoost < 0.85`; the high end is already capped by `CART_EMISSIVE_HUE_BOOST_MAX` at `:59`).",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "FIX-MIG — quickplay host migration is invisible, and untested under continuous policy",
+            "notes": "**Filed 08-04**, deferred out of the MAIN-1 residual wave and **re-scoped after its original rationale was falsified.** Report: \"host migration not working normally. but it did transfer on tab hide. host did migrate on new round start after level changed.\" **The claim that score rebalance is unreachable in quickplay is WRONG** — `#maybeRebalanceHostForQuality` is lobby-gated, but continuous rooms *do* hit lobby on rematch (auto podium → `onHostPlayAgainClick`, then server `MSG.playAgain` → lobby → rebalance at `party/index.ts:1432`), so it already runs every rematch. Do not build a new rebalance boundary without a capture proving that path fails. **Verified defects, and the whole of the scope:** (1) migration triggers 1–4 (host `onClose`, silent reap, ghost exorcism, snapshot repair) broadcast `host_migrated` with **no `reason` field**, so the toast block at [netcode.js:2260](../../src/netcode.js:2260) — which handles only `host_quality` / `host_afk` / `host_return` — is skipped entirely; a working disconnect migration therefore looks like nothing happened. It is not fully silent: the PA `announce(\"new_host\")` still fires (`:2255`). (2) **Zero** migration tests run under continuous/quickplay policy — `tests/party-do/cartRaveServer.test.js` uses friends-shaped `a6a-*` rooms (`uniqueRoom()`, `:19-21`) for all five migration tests, while `uniqueContinuousRoom()` (`:24-26`) is only used by the countdown-arming tests. **Explicitly NOT in scope without product ack:** switching the disconnect successor from join-order `pickNextHostId` ([party/hostSelection.ts:29](../../party/hostSelection.ts:29)) to the score-based picker. Oldest-joiner is stability-first; score-picking on a hard disconnect can promote a high-score *late* joiner mid-sim. AFK/return already score-picks, so \"make it consistent\" is not an argument — this is a product call.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "CARGO-LATCH-1 — `cargoLoad.js` carries the same round-anchor latch as FIX-DIRPAUSE",
+            "notes": "**Filed 08-04** while fixing FIX-DIRPAUSE (`e7dd92e`), and deliberately left untouched there (out of scope by instruction). Same bug class: a latch that compares against the stored round-start anchor and treats **any** change as a new round, so a pause-compensation shift (which mutates `roundStartedAtMs` and then calls a shift helper) can be read as a round boundary and re-fire the overflow announce. The directive-engine fix was to shift the latch's anchor by the same delta inside `shiftDirectiveTimersBy`; check whether the same shape applies here, and whether cargo's latch is even reachable from the solo-pause and host-tab-return paths before spending a card on it.",
             "ship1": null
           },
           {
