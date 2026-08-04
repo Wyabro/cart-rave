@@ -42,9 +42,108 @@
 | Lever | Goal | Status |
 |-------|------|--------|
 | **A** | Byte budget tool + committed baseline + chunk manifest (**no `src/` changes**) | **done** — see §4 |
-| **B+** | The actual menu/game split — not yet scoped or acked. Each lever must land a measurable initial-set reduction and keep `size:check` green (re-baselining downward with `npm run size:update`) | not started |
+| **B** | `bootGameSystems` extract into `src/orchestration/gameBoot.js`, **still statically imported** — mechanical move, **zero byte change** | ⏸ next |
+| **C** | Flip to `await import()`, wire the **five** triggers, wrap all **nine** `enterPlayMode` sites | not started |
+| **D** | Cut the `menuPlayEntry` + `levelOrchestration` eager edges ⟵ **ABORT GATE** | not started |
+| **E** | Move netcode's 7 game-side static imports onto the `registerGameCallbacks` bridge | not started |
+| **F** | Re-baseline (ratchet), docs, ship | not started |
 
 Lever A is the card's insurance: if every later lever aborts, the durable guard still ships.
+
+**The core problem is not "move 900 lines."** `main()` (`src/main.js:324-2578`) is one ~2250-line closure
+that builds every game system **before** `initMenu()` at `:1376`. The card cuts **four import edges**;
+the code motion is a consequence. Edge 1 = `main.js` top level (B/C). Edge 2 = `main.js` →
+`levelOrchestration` via `createLevelOrchestration` at `:824` (D). Edge 3 = `menuPlayEntry` →
+HUD/directives/announcer/ambience (D). Edge 4 = `netcode.js`'s 7 game imports (E).
+
+**Load-bearing insight:** `levelOrchestration` is **not** game-only — it owns the *menu* preview path
+(`finalizeArenaShellForMenu` `:369`, `maskMenuPreviewSwap` `:553`), consumed by `levelManager.js:223/376`,
+and `initLevelManager` runs at `:1322`, before the menu. It is still deferrable, but **only because the
+arena work it drives is already time-deferred to the 1800 ms idle warm** (`bootstrap.js:531`).
+Already-late-in-time ⇒ safe-to-be-late-in-bytes.
+
+### Why the abort gate is on D, not C
+
+`createLevelOrchestration` (`main.js:824`) stays eager through C, and it is the static edge dragging
+Simulation / Effects / cartShatter / waterDeathFx into the eager graph. So **C defers construction
+inside `main()`, not parse+eval of the heavy graph** — bytes barely move until D. Putting the 15% gate
+on C would fail for the wrong reason and kill the wave right before the lever that pays.
+
+- **C's bar:** structural green + no PLAY regression. **A near-zero byte delta at C is a PASS.**
+- **D's bar:** 15% `menuReadyMs` drop vs the Lever A median **and** the four game-only chunks gone
+  from the preload set.
+
+### Abort gates — decided up front
+
+1. **Three.js floor.** `three` 689 kB + `cartRaveGltf` + `cart-rave-menu` + `customization` + `scene.js`
+   are all menu-required; the initial set cannot go below ~850 kB–1.0 MB raw. A successful card may only
+   move ~150–300 kB of 1,554,863. **The pass bar is `menuReadyMs`, not "half the download."**
+2. **<15% `menuReadyMs` drop at D** → stop before E, re-scope to budget-only.
+3. **Lever E judged too risky** → netcode keeps 7 modules eager, byte win roughly halves. Acceptable
+   partial outcome; **decide it, don't discover it.** A–D still ship.
+4. **PLAY gets slower** on any path (pre-prefetch press, harness, hidden tab) → cannot ship.
+5. **Metric gaming.** `cr:menu-ready` is `main.js:2317`, ~940 lines *after* `initMenu()` — it counts both
+   halves of `main()`, so pure code motion moves the number without moving perceived paint.
+   **Guard: `cr:milestone-90` and first-attract-frame must move too.**
+
+### Seam design (for whoever runs B–D)
+
+**New module `src/orchestration/gameBoot.js`** exporting `bootGameSystems(ctx)`, idempotent via a
+module-local latched promise so all triggers share one load. `main.js` keeps a thin `ensureGameSystems()`.
+`archMap.mjs:58` claims the five `src/orchestration/*.js` files by **exact path**, and `archModel.mjs:71`
+already supports trailing-slash prefixes — so the claim is a **one-line swap to `"src/orchestration/"`**,
+which also stops future orchestration files tripping `ARCH_UNMAPPED_FILE`.
+
+**Stays eager:** boot marks, `initLoadingScreen`, canvas/audio, `createMenuPlayEntry` (`:490`), renderer
+(`:572`), scene (`:649`), camera (`:656`), composer (`:803`), camera framing (`:1016`), `initMenuAttract`
+(`:872`), graphics toggles, diagnostics/harness installers, `enableModeMenuButtons`, the `cr:menu-ready`
+mark, `initMenu()`.
+
+**Moves behind the boundary:** audio/sfx/announcer/directives init (`:689-800`), `HUD.init` (`:1083`),
+`initResultsOverlay` (`:1147`), `createCartOrchestration` (`:1154`), `createLoopDeps` (`:1230`),
+`createRoundLifecycle` (`:1235`), `initLevelManager` (`:1322`), `initBootstrap` (`:1344`), and
+`:1379-2260`. **`createLevelOrchestration` (`:824`) joins them at D, not B/C.**
+
+**The `refs` object.** ~20 module-scope `let`s in `main.js` (`hud`, `allCartsRef`, `getAxisRef`,
+`triggerRamBoostRef`, `matchHistory`, `pendingMidRoundJoinRespawnConnId`, …) are written by the game half
+and read by the menu half. Replace with **one mutable `gameRefs` object** at module scope, passed as
+`ctx.refs`; property mutation crosses a chunk boundary safely. **Highest-value review point in the card:**
+the diagnostics/harness installers that stay in `main.js` (`:2321+`) close over those `let`s today
+(`getCarts: () => allCartsRef`). Every one must become `() => refs.allCartsRef` — a miss is a
+permanently-null probe in the very F8 capture bundles this card is measured with, and nothing tests it.
+
+**Keep the `cartrave:level-changed` listener EAGER** (`main.js:1387`). `canSafelyRebuildLevel()` returns
+false when `!deps` (`levelManager.js:203-204`), so a pre-init call is a safe no-op — but safe is not
+handled: moving the listener would turn arena-picker clicks during the prefetch window into **lost**
+events, not deferred ones. Thin eager listener → `scheduleMenuLevelPreview()` only.
+
+**Five triggers, one latch:** (1) idle prefetch in `scheduleIdleWorldWarm`'s `runWarm`
+(`bootstrap.js:534`) via an **injected opt — `bootstrap.js` must never import `gameBoot.js`**, it is eager
+and that would undo the split; also fire a bare prefetch at the *top* of the 1800 ms timer so the fetch
+overlaps the delay. (2) play press via one `startPlay()` wrapper, awaiting inside the existing mode-entry
+overlay, failing to `onMenuBootstrapError` (`menuPlayEntry.js:184`). (3) `?room=` auto-enter, same wrapper.
+(4) **the harness branch `main.js:2543`** (`if (dbg.harness || dbg.hideHud)`) which bypasses idle warm —
+non-optional, every `shoot`/`blackframes` capture takes it. (5) **first netcode hello / friends connect**
+— see the lobby-bridge hazard.
+
+**`enterPlayMode` has NINE call sites** — `menuPlayEntry.js` `:327 :338 :352 :393 :407 :416 :432` and
+`main.js` `:1403` (onGameStart) · `:1673` (invokeHideMenu). `bootstrap.js:106` throws
+`"initBootstrap() must run before enterPlayMode()"`, so a missed site is a **hard crash**, not a soft degrade.
+
+**Lobby-bridge hazard — NET-1 class, resolve in B/C, not E.** `bootstrapNetcodeEntryFromUrl` runs at
+module scope (`main.js:2571`) and `registerGameCallbacks` is wired at `gameSession.js:118` reading
+`() => sessionBridgeCtx.current` — but **`sessionBridgeCtx.current` is assigned at `main.js:1648`, inside
+the move range.** Between menu paint and the first `ensureGameSystems()` the bridge live-reads `null`:
+slot colour/material bridges no-op, `onGameStartHandler` and host-migration handlers are absent. A friends
+or `?room=` lobby in the first ~1.8 s — **or indefinitely with a hidden tab or suppressed idle warm** —
+would run on a dead bridge. **Decide and record here before B ships:** either (a) a thin eager
+`sessionBridgeCtx` partial covering the keys a menu-only lobby needs, or (b) trigger 5.
+
+**Lever E callback lifetime: mutate the shared context, do NOT re-register.** `buildNetcodeGameBridge`
+(`gameSession.js:226`) already returns live-reading lambdas with null-safe fallbacks, registered once.
+`gameBoot` merges handlers into `sessionBridgeCtx.current` and the existing lambdas pick them up live.
+The E inventory must mark which of the 7 imports' call sites can fire **before** the latch resolves; a
+soft no-op default is acceptable **only** where the code already tolerates "world not ready."
 
 ---
 
@@ -106,13 +205,27 @@ Captured 08-04 on `cart-clash` at the Lever A build. gzip = zlib default level, 
 
 ## 5. `menuReadyMs` baseline — **owed Wyatt**
 
-The byte budget is a proxy for the thing players feel. Before any split lands, record what "menu ready" costs today so a later lever can claim a real win instead of a smaller number.
+The byte budget is a proxy for the thing players feel. Before any split lands, record what "menu ready" costs today so a later lever can claim a real win instead of a smaller number. **This is the number Lever D's 15% abort gate is measured against — the card cannot be judged without it.**
+
+**Why it must be a human on a real machine:** the in-app browser pane does not composite frames while hidden, so rAF never fires there and an agent cannot collect this. It needs a real cold load on the weak box.
+
+### How to capture it
+
+The Intel iGPU box is the one that matters — it is the machine this card is *for*. The 4090 row is context, not the bar.
+
+1. Open `https://cart-rave.wyabro.workers.dev/?diag=1` and **hard-refresh** (Ctrl+Shift+R). Cold load per sample: a warm HTTP cache measures a different thing.
+2. When the menu buttons become clickable, open the console and run:
+   `__ccDiag.snapshot("boot")`
+3. Record **`menuReadyMs`**, plus **`milestone-90`** and the `world-ready` entry from `timeline` — those two are the metric-gaming guard (see §3 abort gate 5: `cr:menu-ready` sits ~940 lines after `initMenu()`, so pure code motion can move it without moving perceived paint).
+4. **Repeat 5 times**, hard-refreshing between each. Record the **median**, not a single sample, plus the spread.
+5. Press **F8** on the last one so the numbers land in a capture bundle, then `npm run captures:pull`.
 
 | Measure | Value | Notes |
 |---------|-------|-------|
-| `menuReadyMs` (4090, prod) | _(to fill)_ | |
-| `menuReadyMs` (Intel iGPU, prod) | _(to fill)_ | |
-| Method used | _(to fill)_ | |
+| `menuReadyMs` (Intel iGPU, prod) — **median of 5** | _(to fill)_ | the bar |
+| `menuReadyMs` (Intel iGPU) — spread (min–max) | _(to fill)_ | |
+| `milestone-90` (Intel iGPU, median) | _(to fill)_ | anti-gaming guard |
+| `menuReadyMs` (4090, prod, median of 5) | _(to fill)_ | context only |
 | Date / build SHA | _(to fill)_ | |
 
 Judge on **production**, not dev — dev-only probes lie in prod.
