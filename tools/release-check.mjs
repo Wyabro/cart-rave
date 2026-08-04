@@ -65,6 +65,13 @@ async function main() {
   const buildCode = await run("npm", ["run", "build"]);
   if (buildCode !== 0) reasons.push("build-failed");
 
+  // * Byte budget on the initial download set, against the build we just made.
+  // * --require-dist is load-bearing: without it a missing/stale dist is a silent exit 0,
+  // * which would let the release gate go green having measured nothing.
+  log("running npm run size:check -- --require-dist …");
+  const sizeCode = await run("npm", ["run", "size:check", "--", "--require-dist"]);
+  if (sizeCode !== 0) reasons.push("bundle-budget-failed");
+
   if (reasons.length) {
     log("NOT RELEASE READY:");
     for (const r of reasons) log(`  - ${r}`);

@@ -1,0 +1,69 @@
+{
+  "_doc": "Committed byte budget for the INITIAL DOWNLOAD SET (entry module + all modulepreloads) of dist/index.html. Keys are hash-stripped chunk names. gzip is a stable proxy only — Cloudflare serves brotli, so it is NOT wire bytes. Regenerate with `npm run size:update`. Tool + gate rules: tools/bundle-budget.mjs.",
+  "generatedAt": "2026-08-04T20:26:43.403Z",
+  "toleranceFraction": 0.02,
+  "toleranceFloorBytes": 20000,
+  "initialSet": {
+    "count": 14,
+    "raw": 1554863,
+    "gzip": 461260
+  },
+  "chunks": {
+    "three": {
+      "raw": 689139,
+      "gzip": 174623
+    },
+    "index": {
+      "raw": 660794,
+      "gzip": 215105
+    },
+    "animejs": {
+      "raw": 48376,
+      "gzip": 18005
+    },
+    "waterDeathFx": {
+      "raw": 38995,
+      "gzip": 13002
+    },
+    "scene": {
+      "raw": 36861,
+      "gzip": 14095
+    },
+    "howler": {
+      "raw": 35952,
+      "gzip": 9541
+    },
+    "cartShatter": {
+      "raw": 27114,
+      "gzip": 8507
+    },
+    "diagnostics": {
+      "raw": 5852,
+      "gzip": 2839
+    },
+    "koReactors": {
+      "raw": 5581,
+      "gzip": 2218
+    },
+    "contactShadows": {
+      "raw": 3177,
+      "gzip": 1549
+    },
+    "utils": {
+      "raw": 1189,
+      "gzip": 601
+    },
+    "captureUpload": {
+      "raw": 1074,
+      "gzip": 622
+    },
+    "levelLod": {
+      "raw": 532,
+      "gzip": 359
+    },
+    "rolldown-runtime": {
+      "raw": 227,
+      "gzip": 194
+    }
+  }
+}

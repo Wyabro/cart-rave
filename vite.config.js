@@ -1,4 +1,4 @@
-import { readdirSync, unlinkSync, readFileSync } from "node:fs";
+import { readdirSync, unlinkSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { execSync } from "node:child_process";
 import { defineConfig } from "vite";
@@ -53,8 +53,56 @@ function stripOrphanDracoBuildAssets() {
   };
 }
 
+/**
+ * Write dist/.chunk-manifest.json — a module → chunk map straight from rolldown's own
+ * bundle metadata. Code-split work (BUNDLE-1) otherwise gets verified by eyeballing the
+ * build log; this makes "did src/hud.js actually leave the entry chunk?" a mechanical assert.
+ *
+ * Emitted through fs, NOT `this.emitFile`, on purpose: an emitted asset would join the
+ * bundle and could perturb output hashing. Nothing here mutates `bundle`.
+ * dist/ is gitignored, so the manifest never lands in git.
+ */
+function writeChunkManifest() {
+  /** @type {{chunks: Record<string, string[]>, moduleToChunk: Record<string, string>} | null} */
+  let manifest = null;
+  return {
+    name: "write-chunk-manifest",
+    enforce: "post",
+    /** @param {any} _options @param {Record<string, any>} bundle */
+    generateBundle(_options, bundle) {
+      /** @type {Record<string, string[]>} */
+      const chunks = {};
+      /** @type {Record<string, string>} */
+      const moduleToChunk = {};
+      for (const [fileName, out] of Object.entries(bundle)) {
+        const moduleIds = out?.moduleIds;
+        if (!Array.isArray(moduleIds)) continue;
+        const rel = moduleIds
+          .map((id) => String(id).replace(/\\/g, "/"))
+          .map((id) => (id.startsWith(root) ? id.slice(root.length + 1) : id));
+        chunks[fileName] = rel;
+        for (const id of rel) moduleToChunk[id] = fileName;
+      }
+      manifest = { chunks, moduleToChunk };
+    },
+    closeBundle() {
+      if (!manifest) return;
+      try {
+        writeFileSync(
+          join(process.cwd(), "dist", ".chunk-manifest.json"),
+          `${JSON.stringify(manifest, null, 2)}\n`,
+        );
+      } catch {
+        /* dist/ missing — dev-only build */
+      }
+    },
+  };
+}
+
+const root = process.cwd().replace(/\\/g, "/");
+
 export default defineConfig(({ mode }) => ({
-  plugins: [wasm(), stripOrphanDracoBuildAssets()],
+  plugins: [wasm(), stripOrphanDracoBuildAssets(), writeChunkManifest()],
 
   define: {
     __CC_BUILD__: JSON.stringify(buildStamp()),
