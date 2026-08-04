@@ -68,7 +68,8 @@ Live rows only. Shipped and closed cards live in
 |---|------|--------|
 | STORE-DECK-1 | Storerooms spawn-deck bay letter | ⏸ **DEPLOYED 08-03** (`6eff2df`, Worker version `01f8a745`) — verified by fetching the production chunk: no `BAY_LETTERS`, no letter font, plate + stripe intact. Waiting on Wyatt's retest. |
 | FV-RESULTS-1 / STORE-PT-1 | Run 8 FAIL residue — CHALLENGE copy · shelves want painted wood | ⏸ **DEPLOYED 08-04** (`858b836` · `3fa1cac`, Worker `752dd701`). Prod chunk verified: `CHALLENGE UNLOCKED` in index; backrooms cream `#d8cfb8`, no steel `#b3b5ad`. **Owed: Wyatt playtest both** — code side is closed. |
-| PERF-PASS-1 | 60 fps at Low on the Intel box — **Cart Rave only** (Wyatt scoped it 08-03) | ▶ **ACTIVE — Wave 3 SWEPT 08-04** (cap-240…248, `7a91535`, Worker `c052bcc5`; drift 0.041 ms, no straddle). **Clean Low baseline 23.788 ms / 42.0 fps — gap is 7.1 ms, not 4.2** (cap-239 was mid-demotion). **Only 2 of 7 cuts clear 1.5 ms: `pitlights` −2.88, `stadium` −2.66.** **Geometry model falsified** — cutting 39.9% of triangles bought −0.12 ms (ablation confirmed live, not a no-op); cost is per-fragment shading, not vertices. Both winners together = 18.25 ms, still short. **Wave 4 DEPLOYED 08-04** (`b754e12`, Worker `9b8b1fbe`): `arenaFillLights` drops the two pit fill lights at Low; **spindle kept** (Wyatt's call). Prod chunk verified `!1/!0/!0` across tiers. **Shipped on Wyatt's explicit instruction with an unbracketed number — the honest range is −1.66 to −2.54 ms and includes +0.55; never quote a single figure.** **⚠ The box drifts +5.1 ms / 37 min, accelerating — bigger than every cut on the menu**; every future cell needs an **A-B-A bracket on a cooled box**. **Owed: Wyatt playtest** (shaft darker but not pure black). **Card NOT closed** — ~46 fps vs a 60 bar. Menu + evidence: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md). |
+| HOST-TAB-1 | Hidden-tab host pump + AFK promote + strongest-host return | ▶ **ACTIVE — IMPLEMENTED LOCALLY 08-04; production playtest owed.** Four commits: `b566999` · `76de974` · `6edfa5c` · `25d8439`. Automated gate: 109 files / 1,340 tests. Full checklist: [host-tab-1.md §10](./planning/host-tab-1.md#10-verification-matrix). |
+| PERF-PASS-1 | 60 fps at Low on the Intel box — **Cart Rave only** (Wyatt scoped it 08-03) | ⏸ **PARKED BY WYATT 08-04 for HOST-TAB-1.** Wave 4 remains deployed (`b754e12`, Worker `9b8b1fbe`); honest measured range −1.66 to −2.54 ms and includes +0.55. Card remains open at ~46 fps; every future cell needs an A-B-A bracket on a cooled box. Menu + evidence: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md). |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 
@@ -86,8 +87,8 @@ Live rows only. Shipped and closed cards live in
    `no-exact-head-complete-green-battery`** — that is the RC-phase gate and no exact-HEAD battery
    has been run at this commit; the deploy went out via `npm run ship` as every stabilization
    deploy has. Run the battery before any RC claim.
-4. **ACTIVE: PERF-PASS-1 Wave 3** (unparked 08-04, acked). FV-RESULTS-1 + STORE-PT-1 are DEPLOYED
-   (Worker `752dd701`) and now sit in the playtest-owed queue, not the active slot.
+4. **ACTIVE: HOST-TAB-1 production playtest.** PERF-PASS-1 is parked by Wyatt. Run the seven
+   checks in [host-tab-1.md §10](./planning/host-tab-1.md#10-verification-matrix) after deploy.
 5. **Still owed to Wyatt:** the 9-cell PERF sweep (his box, ~25 min — he cannot be replaced here);
    playtest FV-RESULTS-1 + STORE-PT-1; FV-WILT-1 (2pc); STORE-DECK-1 retest.
 
@@ -101,7 +102,8 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 
 | ID | Issue | Status |
 |----|--------|--------|
-| PERF-PASS-1 | 60 fps at Low on the Intel box — **Cart Rave only** | ▶ **ACTIVE 08-04 — cost menu delivered, awaiting Wyatt's pick.** Baseline 23.788 ms / 42.0 fps; only `pitlights` (−2.88) and `stadium` (−2.66) clear noise. The crowd-layer knob the card was built around measures **−0.12 ms**. Menu: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md). |
+| HOST-TAB-1 | Hidden-tab host authority | ▶ **LOCAL CODE LANDED — deploy + production playtest owed.** Short hide pump, 10s AFK demotion, 5s migration cooldown, and margin-20 strongest return are covered by unit + DO integration tests. |
+| PERF-PASS-1 | 60 fps at Low on the Intel box — **Cart Rave only** | ⏸ **PARKED 08-04.** Baseline 23.788 ms / 42.0 fps; menu: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md). |
 | FV-RESULTS-1 / STORE-PT-1 | CHALLENGE receipt copy · shelves painted wood | ▶ **DEPLOYED** Worker `752dd701` — playtest closes. |
 | WARM-SOLO-1 | Solo post-`carts-ready` stall (WARM-IGPU residual) | 📋 telemetry-gated — [warm-igpu-1.md](./planning/warm-igpu-1.md) |
 | MAIN-1 | Carve `main.js` seam (enables BUNDLE-1) | 📋 post-gate |
@@ -137,6 +139,14 @@ The hot set — what a current session is likely to hit. Deep-domain and narrow 
 - **Before any public / external-tester playtest: reset the analytics DO** so aggregates are not polluted by dev/harness traffic. Token-gated (SEC-TOKEN-1): `DELETE` with `Authorization: Bearer <ERROR_LOG_TOKEN>` on `/api/analytics` (never `?token=`).
 
 ## Last updated
+
+2026-08-04 (HOST-TAB-1 local wave) — Wyatt parked PERF-PASS-1 and acked levers A–D.
+Prod host frames now use a loop-owned hidden timer with one driver; clock compensation applies
+only when that pump never ticks. At 10s hidden, a multiplayer host asks the DO to migrate to the
+best other live human; foreground humans trigger a margin-20 preferred-host check. Both mid-round
+paths share a 5s room cooldown and the existing `host_migrated` handoff. Automated evidence:
+109 test files / 1,340 tests, typecheck, knip, briefing, architecture, health, and production
+build green. Unpushed; deploy and the seven-step production checklist remain owed.
 
 2026-08-03 (STATUS-TRIM-1) — STATUS.md was at 4,197 of a 4,200 budget, so every card paid a
 shaving tax before it could write anything down. **The reporter's "blind spot" is in its advice,

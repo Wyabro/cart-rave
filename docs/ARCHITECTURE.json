@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-04T04:24:44.970Z",
-    "commit": "bb419fc"
+    "at": "2026-08-04T04:53:42.525Z",
+    "commit": "25d8439"
   },
-  "source_digest": "e0ffdb20",
+  "source_digest": "8e071379",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -857,10 +857,16 @@
         "state": "waiting"
       },
       {
+        "id": "HOST-TAB-1",
+        "what": "Hidden-tab host pump + AFK promote + strongest-host return",
+        "status": "▶ ACTIVE — IMPLEMENTED LOCALLY 08-04; production playtest owed. Four commits: `b566999` · `76de974` · `6edfa5c` · `25d8439`. Automated gate: 109 files / 1,340 tests. Full checklist: [host-tab-1.md §10](./planning/host-tab-1.md#10-verification-matrix).",
+        "state": "active"
+      },
+      {
         "id": "PERF-PASS-1",
         "what": "60 fps at Low on the Intel box — Cart Rave only (Wyatt scoped it 08-03)",
-        "status": "▶ ACTIVE — Wave 3 SWEPT 08-04 (cap-240…248, `7a91535`, Worker `c052bcc5`; drift 0.041 ms, no straddle). Clean Low baseline 23.788 ms / 42.0 fps — gap is 7.1 ms, not 4.2 (cap-239 was mid-demotion). Only 2 of 7 cuts clear 1.5 ms: `pitlights` −2.88, `stadium` −2.66. Geometry model falsified — cutting 39.9% of triangles bought −0.12 ms (ablation confirmed live, not a no-op); cost is per-fragment shading, not vertices. Both winners together = 18.25 ms, still short. Wave 4 DEPLOYED 08-04 (`b754e12`, Worker `9b8b1fbe`): `arenaFillLights` drops the two pit fill lights at Low; spindle kept (Wyatt's call). Prod chunk verified `!1/!0/!0` across tiers. Shipped on Wyatt's explicit instruction with an unbracketed number — the honest range is −1.66 to −2.54 ms and includes +0.55; never quote a single figure. ⚠ The box drifts +5.1 ms / 37 min, accelerating — bigger than every cut on the menu; every future cell needs an A-B-A bracket on a cooled box. Owed: Wyatt playtest (shaft darker but not pure black). Card NOT closed — ~46 fps vs a 60 bar. Menu + evidence: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md).",
-        "state": "active"
+        "status": "⏸ PARKED BY WYATT 08-04 for HOST-TAB-1. Wave 4 remains deployed (`b754e12`, Worker `9b8b1fbe`); honest measured range −1.66 to −2.54 ms and includes +0.55. Card remains open at ~46 fps; every future cell needs an A-B-A bracket on a cooled box. Menu + evidence: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md).",
+        "state": "locked"
       },
       {
         "id": "MAIN-1 / BUNDLE-1",
@@ -888,14 +894,19 @@
       "Run 8 (08-03) is in: 15 PASS · 4 FAIL · 1 skip. All 15 passing rows were deleted",
       "A PASS must close its row in the same session it is reported. Before Run 8 nothing wrote",
       "STORE-DECK-1 shipped and DEPLOYED 08-03 (`6eff2df`, Worker `01f8a745`) — bay letter cut,",
-      "ACTIVE: PERF-PASS-1 Wave 3 (unparked 08-04, acked). FV-RESULTS-1 + STORE-PT-1 are DEPLOYED",
+      "ACTIVE: HOST-TAB-1 production playtest. PERF-PASS-1 is parked by Wyatt. Run the seven",
       "Still owed to Wyatt: the 9-cell PERF sweep (his box, ~25 min — he cannot be replaced here);"
     ],
     "open_issues": [
       {
+        "id": "HOST-TAB-1",
+        "issue": "Hidden-tab host authority",
+        "status": "▶ **LOCAL CODE LANDED — deploy + production playtest owed.** Short hide pump, 10s AFK demotion, 5s migration cooldown, and margin-20 strongest return are covered by unit + DO integration tests."
+      },
+      {
         "id": "PERF-PASS-1",
         "issue": "60 fps at Low on the Intel box — **Cart Rave only**",
-        "status": "▶ **ACTIVE 08-04 — cost menu delivered, awaiting Wyatt's pick.** Baseline 23.788 ms / 42.0 fps; only `pitlights` (−2.88) and `stadium` (−2.66) clear noise. The crowd-layer knob the card was built around measures **−0.12 ms**. Menu: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md)."
+        "status": "⏸ **PARKED 08-04.** Baseline 23.788 ms / 42.0 fps; menu: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md)."
       },
       {
         "id": "FV-RESULTS-1 / STORE-PT-1",
@@ -1306,7 +1317,7 @@
           {
             "pri": "High",
             "item": "HOST-TAB-1 — hidden-tab host pump + AFK promote + mid-round strongest rehost",
-            "notes": "**Full plan for review:** [host-tab-1.md](./host-tab-1.md). **Filed 08-04 from Wyatt design.** Browser freezes rAF when the tab is hidden; today only DEV `?perfPump` ([perfPump.js](../../src/utils/perfPump.js)) keeps the loop alive for tools, and prod only **shifts the round clock** on host return ([main.js](../../src/main.js) hostHiddenAtMs) — non-hosts still see a frozen world. **Product (acked mid-round):** (1) **Tools hygiene** — every harness that needs a live sim always passes `?perfPump`; `npm run tabhidden` stays **no-pump** on purpose (it asserts freeze recovery). (2) **Short hide (0–~10s)** — while `isHost && multiplayer && phase running",
+            "notes": "**IMPLEMENTED LOCALLY 08-04; production playtest owed.** Plan: [host-tab-1.md](./host-tab-1.md). Levers: `b566999` docs/tool split · `76de974` hidden-host frame pump · `6edfa5c` 10s AFK demotion excluding the current host · `25d8439` mid-round strongest-host return at margin 20. A shared 5s server cooldown prevents away/return thrash. Solo pumps while hidden and never migrates; its clock shifts **only if the pump did not run** — never both. `npm run tabhidden` deliberately remains no-pump. **Playtest:** short hide keeps the peer world moving; 12s hide migrates once while the old host stays seated; strongest return reclaims after cooldown; weak return cannot steal; solo timer stays continuous. Related: HOST-CAP-1, HOST-ROLE-1, closed NET-MIG-3.",
             "ship1": null
           },
           {

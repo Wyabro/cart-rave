@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-04 at commit `b754e12` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `17d39b41`
+> Generated 2026-08-04 at commit `25d8439` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `a9896e2a`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -18,15 +18,14 @@ Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep a
 
 ## ACTIVE CARD
 
-PERF-PASS-1 — 60 fps at Low on the Intel box — Cart Rave only (Wyatt scoped it 08-03)
-Pass looks like: ▶ ACTIVE — Wave 3 SWEPT 08-04 (cap-240…248, `7a91535`, Worker `c052bcc5`; drift 0.041 ms, no straddle). Clean Low baseline 23.788 ms / 42.0 fps — gap is 7.1 ms, not 4.2 (cap-239 was mid-demotion). Only 2 of 7 cuts clear 1.5 ms: `pitlights` −2.88, `stadium` −2.66. Geometry model falsified — cutting 39.9% of triangles bought −0.12 ms (ablation confirmed live, not a no-op); cost is per-fragment shading, not vertices. Both winners together = 18.25 ms, still short. Wave 4 DEPLOYED 08-04 (`b754e12`, Worker `9b8b1fbe`): `arenaFillLights` drops the two pit fill lights at Low; spindle kept (Wyatt's call). Prod chunk verified `!1/!0/!0` across tiers. Shipped on Wyatt's explicit instruction with an unbracketed number — the honest range is −1.66 to −2.54 ms and includes +0.55; never quote a single figure. ⚠ The box drifts +5.1 ms / 37 min, accelerating — bigger than every cut on the menu; every future cell needs an A-B-A bracket on a cooled box. Owed: Wyatt playtest (shaft darker but not pure black). Card NOT closed — ~46 fps vs a 60 bar. Menu + evidence: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md).
+HOST-TAB-1 — Hidden-tab host pump + AFK promote + strongest-host return
+Pass looks like: ▶ ACTIVE — IMPLEMENTED LOCALLY 08-04; production playtest owed. Four commits: `b566999` · `76de974` · `6edfa5c` · `25d8439`. Automated gate: 109 files / 1,340 tests. Full checklist: [host-tab-1.md §10](./planning/host-tab-1.md#10-verification-matrix).
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 
 ## Waiting on Wyatt (not agent work)
 
 - **FV-RESULTS-1 / STORE-PT-1** Run 8 FAIL residue — CHALLENGE copy · shelves want painted wood — ⏸ DEPLOYED 08-04 (`858b836` · `3fa1cac`, Worker `752dd701`). Prod chunk verified: `CHALLENGE UNLOCKED` in…
-- **PERF-PASS-1** 60 fps at Low on the Intel box — Cart Rave only (Wyatt scoped it 08-03) — ▶ ACTIVE — Wave 3 SWEPT 08-04 (cap-240…248, `7a91535`, Worker `c052bcc5`; drift 0.041 ms, no straddle). Clean…
 
 ## Do not
 
