@@ -42,7 +42,7 @@
 | Lever | Goal | Status |
 |-------|------|--------|
 | **A** | Byte budget tool + committed baseline + chunk manifest (**no `src/` changes**) | **done** — see §4 |
-| **B** | `bootGameSystems` extract into `src/orchestration/gameBoot.js`, **still statically imported** — mechanical move, **zero byte change** | ⏸ next |
+| **B** | `bootGameSystems` extract into `src/orchestration/gameBoot.js`, **still statically imported** — mechanical move, **zero byte change** | **done** — see §7 |
 | **C** | Flip to `await import()`, wire the **five** triggers, wrap all **nine** `enterPlayMode` sites | not started |
 | **D** | Cut the `menuPlayEntry` + `levelOrchestration` eager edges ⟵ **ABORT GATE** | not started |
 | **E** | Move netcode's 7 game-side static imports onto the `registerGameCallbacks` bridge | not started |
@@ -296,8 +296,68 @@ Consequences:
 
 ---
 
+## 7. Lever B — `gameBoot` extract, static (done 08-04, `a0f1155`)
+
+`src/main.js` **2,582 → 1,259 lines**; new `src/orchestration/gameBoot.js` (1,576) exporting
+`bootGameSystems(ctx)`. Still statically imported — the `import()` boundary is Lever C. Also:
+`archMap.mjs` five exact `src/orchestration/*.js` claims → one `"src/orchestration/"` prefix
+(the granted `tools/` carve-out), `docs/ARCHITECTURE.json` regenerated, 3 test files retargeted
+(source-grep anchors), 3 `control-flow.md` anchors.
+
+**Side effect worth noting:** MAIN-1's soft target of ≤1500 lines for `main.js` — missed there at 2,402 —
+is now **met at 1,259** as a by-product of this seam.
+
+### Asserts
+
+- [x] `npm run qa` green — **112 files / 1,380 tests**, identical to Lever A
+- [x] `npm run build` green
+- [x] `npm run battery` — **full 6/6** (gameharness · spawnlock · mpIntegration · hostMigration · hostReload · teardownRejoin)
+- [x] Manifest: **256 modules (was 255, +1 = `gameBoot.js`)**; `simulation`/`hud`/`effects`/`gameBoot`/`levelOrchestration`/`bootstrap`/`netcode`/`levelManager` all still in `index`
+- [x] `bootGameSystems` call sits ahead of `initMenu()`; the `cartrave:level-changed` listener stayed **eager**
+- [⚠] `size:check` **+3,294 B**, over the hand-written ±2 kB assert — **the assert was wrong, not the lever**, see below
+
+### The ±2 kB assert was mis-specified — corrected falsifier for C/D
+
+The plan asserted "initial set within ±2 kB **proves** a pure move." That premise is false: converting
+~20 module-scope `let`s into `gameRefs.*` **object properties** is itself a real byte cost, because a
+minifier mangles locals to single characters but **cannot mangle property names** (unsafe by default).
+133 `refs.*` reads plus a 33-key `ctx` literal accounts for the +3,294 B arithmetically.
+
+The tool's own per-chunk report is the better falsifier, and it is unambiguous:
+
+- initial set still **14 files** — nothing entered or left
+- **every non-index chunk Δraw = 0** — all 13 of them
+- the entire +3,294 B sits inside `index`
+
+A module-graph change moves chunk membership or other chunk sizes. Neither happened. **Use
+"membership unchanged + non-index chunks at Δ0" as the pure-move proof from here on, not a byte total.**
+`size:check` itself passed (well inside the +31,097 allowance). Levers C/D should reclaim the 3.2 kB as
+the seam's locals collapse back behind the boundary.
+
+### ⚠ One order deviation — needs Wyatt's ear, not a test
+
+A single call site cannot preserve the original order exactly: the moved code straddled
+`wireMenuAudioControlsOnce` / `syncAllAudioUi` / `initMenu`. `bootGameSystems` now sits immediately
+**before** that trio (the minimum crossing), so **the audio/announcer/directive init block now runs after
+composer / levelOrchestration / menuAttract / devControl construction** — all of which reach audio
+through lazy getters, and battery is 6/6 green.
+
+It **cannot** move after `initMenu()`: `initMenu` synchronously takes the `?room=` branch into
+`enterPlayMode()`, which throws without `initBootstrap()`, and it also calls `HUD.hideGameplayElements()`
+and `refs.removePodiumSkipListeners()`.
+
+**Battery does not judge audio ordering — a human does.** Added to the wave checklist: menu music starts
+on entry, announcer/stings behave, no doubled or missing audio on first play.
+
+---
+
 ## 6. Notes carried out of Lever A (not fixed here)
 
 - `docs/bundle-budget.json` records `generatedAt`, so a `size:update` always dirties the file even at zero byte delta. Intentional (provenance), but do not read a diff on that line as a size change.
 - The stale check compares `dist/index.html` mtime to the newest `src/**` mtime only. Edits to `index.html`, `public/`, or `vite.config.js` do not mark the build stale.
 - Two `captureUpload-*.js` chunks exist in `dist/`; only the 1,074 B one is preloaded. `analyzeInitialSet` falls back to the full filename if two initial-set chunks ever collide on a stripped key rather than silently merging them.
+
+Carried out of **Lever B**:
+
+- `src/main.js` still carries ~18 genuinely unused imports (`RAPIER`, `Visuals`, `clamp`, `ChallengeTracker`, `PROGRESSION_EVENTS`, `getMatchStats`, `snapshotMatchStats`, `shouldAllowPodiumEnd`, `notePodiumEndSend`, `animateResultsPodiumShow`, `cancelResultsAnimations`, `spawnResultsConfetti`, `spawnResultsDefeatWilt`, `resetArenaReactiveLights`, `ensureSuddenDeathOnHostPromote`, `clearNpcCartCache`, `armRoundStartRenderProbe`, `resetSessionCartBootstrap`, `getLastSuccessfulHelloGen`). Pre-existing and knip-clean today. Left untouched **deliberately** in B to keep the module graph identical for the pure-move proof — **prune them in Lever F** for free bytes.
+- The repo has no eslint config for ESLint 10 (`npx eslint` fails outright), so `tsc --noEmit` is the only static undefined-name check in the chain. It passed. Worth a tooling card someday — not this one.
