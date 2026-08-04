@@ -55,7 +55,7 @@ export const SYSTEMS = [
     responsibility:
       "The wiring spine: main.js boots the game, builds the callbacks/deps bundles that connect every other system, and owns the render loop entry. gameSession authors the netcode bridge.",
     entry: ["src/main.js"],
-    members: ["src/main.js", "src/bootstrap.js", "src/gameSession.js", "src/orchestration/levelOrchestration.js", "src/config.js", "src/utils.js"],
+    members: ["src/main.js", "src/bootstrap.js", "src/gameSession.js", "src/orchestration/levelOrchestration.js", "src/orchestration/roundLifecycle.js", "src/config.js", "src/utils.js"],
     notes: [
       "src/main.js is a ~6k-line root; `async function main()` is one closure spanning nearly the whole file, holding ~84 unexported inner functions that escape ONLY via the callbacks/deps bundles.",
       "buildNetcodeGameBridge (gameSession.js) is the authoring site for the netcode callbacks seam — the real place to learn which main.js impl backs a callbacks.* name.",

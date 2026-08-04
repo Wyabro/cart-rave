@@ -135,7 +135,9 @@ describe("CAM-PT-MP-1 multiplayer fly-over pre-roll", () => {
   const nonHostBranch = () => between(
     mainSrc,
     "nonHostCountdownApplyGen += 1;",
-    "let lastResultsOverlayKey = null;",
+    // * MAIN-1 Lever D moved lastResultsOverlayKey into roundLifecycle; the game_start
+    // * handler still ends immediately before the carts/labels section.
+    "// --- Carts, labels, gameplay helpers ---",
   );
 
   it("adds the pre-roll as its own constant instead of growing the countdown", () => {

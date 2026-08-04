@@ -97,7 +97,7 @@ function stripRoomFromUrl() {
  * Teardown-patch keys (clearRoundCountdownTimeout, clearAutoContinuePodiumTimeout,
  * clearPodiumRoundTimeout, resetSlowMo, resetSimTiming, hideResultsOverlay,
  * resetLeaderHum, resetResultsOverlayKey, resetPodiumSessionState) arrive as deps —
- * this factory does not own round-lifecycle state (Lever D rebinds later).
+ * this factory does not own round-lifecycle state (Lever D returns bound methods).
  *
  * @param {Record<string, unknown>} deps Bound handlers from main() (both former write sites).
  * @returns {Record<string, unknown>}

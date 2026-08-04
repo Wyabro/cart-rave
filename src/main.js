@@ -249,6 +249,10 @@ import {
 } from "./gameSession.js";
 import { createLevelOrchestration } from "./orchestration/levelOrchestration.js";
 import {
+  createRoundLifecycle,
+  resolveCinematicCountdownOverrides,
+} from "./orchestration/roundLifecycle.js";
+import {
   clamp,
   isTouchDevice,
 } from "./utils.js";
@@ -567,96 +571,12 @@ let leaderHum = null;
  */
 let matchHistory = [];
 
-/**
- * Challenge ids already complete when this round started. The receipt diffs
- * against it to report a challenge finished DURING the match, rather than one
- * that was already done days ago.
- * @type {Set<string>}
- */
-let challengesCompleteAtRoundStart = new Set();
-
-/** @type {ReturnType<typeof setTimeout> | null} */
-let roundPodiumTimeoutId = null;
-const LAST_CART_STANDING_FLOURISH_MS = 3000;
-/** @type {ReturnType<typeof setTimeout> | null} */
-let autoContinuePodiumTimeoutId = null;
-/** performance.now() deadline of the pending podium auto-continue (drives the button label). */
-let autoContinuePodiumDeadlineMs = 0;
-/** @type {string | null} */
-let autoContinuePodiumKey = null;
-/**
- * Non-host local estimate of the host auto-continue deadline (same 5s/10s delays).
- * Label-only — host may rematch earlier. Cleared when leaving podium.
- */
-let clientPodiumAutoContinueDeadlineMs = 0;
-/** Solo/testdrive ESC pause: round-clock freeze start (getRoundClockNowMs). */
 /** Renderer handle for the module-level idle warm (set once in main()). */
 let idleWarmRenderer = null;
-let soloPauseStartedAtMs = null;
-/** @type {number | null} Remaining countdown ms when ESC paused mid-countdown. */
-let soloPauseCountdownRemainingMs = null;
-/** Key for the active podium camera presentation (`startedAtMs:winner`). */
-let podiumCameraKey = null;
 /** Round key (startedAtMs) whose first-blood KO has already been escalated. */
 let firstBloodRoundKey = null;
 /** Sudden Death tension bed edge-latch — see the onFrame watcher. */
 let sdTensionLatched = false;
-/** performance.now() when the current podium camera presentation started. */
-let podiumPhaseEnteredAtMs = 0;
-/** True once the player pressed anything during the winner cam — results reveal immediately. */
-let podiumWinnerCamSkipped = false;
-/** Rising-edge tracker for the gamepad any-button podium skip poll (starts held). */
-let podiumGamepadButtonHeld = true;
-let podiumSkipListenersOn = false;
-/** Inputs inside this window are round-end spillover (mashed boost/steer), not a skip request. */
-const PODIUM_SKIP_GRACE_MS = 450;
-
-function requestPodiumWinnerCamSkip() {
-  const camElapsed = podiumPhaseEnteredAtMs > 0 ? performance.now() - podiumPhaseEnteredAtMs : 0;
-  if (camElapsed < PODIUM_SKIP_GRACE_MS) return;
-  podiumWinnerCamSkipped = true;
-  removePodiumSkipListeners();
-}
-
-/** @param {KeyboardEvent | PointerEvent} e */
-function podiumSkipInputHandler(e) {
-  if (e.type === "keydown") {
-    const ke = /** @type {KeyboardEvent} */ (e);
-    if (ke.repeat) return; // keys still held from gameplay don't skip
-    if (ke.key === "Escape") return; // Escape keeps its exit-to-menu semantics
-  }
-  requestPodiumWinnerCamSkip();
-}
-
-function installPodiumSkipListeners() {
-  if (podiumSkipListenersOn) return;
-  podiumSkipListenersOn = true;
-  window.addEventListener("keydown", podiumSkipInputHandler, true);
-  window.addEventListener("pointerdown", podiumSkipInputHandler, true);
-}
-
-function removePodiumSkipListeners() {
-  if (!podiumSkipListenersOn) return;
-  podiumSkipListenersOn = false;
-  window.removeEventListener("keydown", podiumSkipInputHandler, true);
-  window.removeEventListener("pointerdown", podiumSkipInputHandler, true);
-}
-
-/** Polls gamepads for a fresh any-button press during the winner cam (rising edge only). */
-function pollPodiumGamepadSkip() {
-  let pressed = false;
-  const pads = navigator.getGamepads?.() ?? [];
-  for (const pad of pads) {
-    if (!pad?.connected) continue;
-    for (const b of pad.buttons) {
-      if (b?.pressed) { pressed = true; break; }
-    }
-    if (pressed) break;
-  }
-  if (pressed && !podiumGamepadButtonHeld) requestPodiumWinnerCamSkip();
-  podiumGamepadButtonHeld = pressed;
-}
-
 let nameLabelUpdatePending = null;
 
 // These are assigned once main() constructs the scene / HUD / physics world.
@@ -1640,7 +1560,7 @@ async function main() {
     getMenuVisible: () => menuVisible,
     getAllCartsRef: () => allCartsRef,
     getHud: () => hud,
-    resolveCinematicCountdownOverrides: () => resolveCinematicCountdownOverrides(),
+    resolveCinematicCountdownOverrides,
     prepareLevelMusic: (levelId) => prepareLevelMusic(levelId),
     startLevelMusic: (levelId) => startLevelMusic(levelId),
     stopAllChargeSfx: () => stopAllChargeSfx(),
@@ -2334,6 +2254,61 @@ async function main() {
     },
   });
 
+  // * MAIN-1 Lever D: countdown → running → podium → rematch lives in roundLifecycle.
+  const round = createRoundLifecycle({
+    camera,
+    gameCtx,
+    syncRoundPhase,
+    detectGameMode,
+    teleportCartToSpawn,
+    getAllCartsRef: () => allCartsRef,
+    getHud: () => hud,
+    getResultsUi: () => resultsUi,
+    getMatchHistory: () => matchHistory,
+    getIsNewPersonalBest: () => isNewPersonalBest,
+    setIsNewPersonalBest: (v) => { isNewPersonalBest = v; },
+    displayCssColorForSlot,
+    getPersonalStats,
+    recordPodiumStats,
+    localCartForConnId,
+    refreshHiddenHostLifecycle: () => refreshHiddenHostLifecycle(),
+    updateTouchControlsVisibility: () => updateTouchControlsVisibility(),
+    stopAllChargeSfx: () => stopAllChargeSfx(),
+    stopChargeSfxForCart: (cart) => stopChargeSfxForCart(cart),
+    getArenaRotationInFlight: () => level.arenaRotationInFlight,
+    pickNextQuickplayArenaId: () => pickNextQuickplayArenaId(),
+    rotateLoadedArenaInPlace: (id) => rotateLoadedArenaInPlace(id),
+    setPendingMidRoundJoinRespawnConnId: (v) => { pendingMidRoundJoinRespawnConnId = v; },
+  });
+  const {
+    beginRoundFlyover,
+    getWinnerWorldPos,
+    beginPodiumPresentation,
+    clearPodiumPresentation,
+    updateResultsOverlay,
+    startRunningAt,
+    clearRoundCountdownTimeout,
+    startCountdown,
+    resumeCountdownAsNewHost,
+    ensureSuddenDeathStateAsNewHost,
+    cancelLastCartStandingFinish,
+    abortLastCartStandingFlourish,
+    scheduleLastCartStandingFinish,
+    endRound,
+    clearAutoContinuePodiumTimeout,
+    handleSoloPauseOverlay,
+    onHostPlayAgainClick,
+    clearPodiumRoundTimeout,
+    resetResultsOverlayKey,
+    resetPodiumSessionState,
+    getSoloPauseStartedAtMs,
+    setAutoContinuePodiumKey,
+    removePodiumSkipListeners,
+    wirePodiumAutoContinueClear,
+  } = round;
+  wirePodiumAutoContinueClear(podiumAutoContinue);
+
+
   // * Challenge-complete feedback — toast + sparkle the moment a challenge crosses
   // * its goal. Detects rising isComplete edges across daily + weekly lists.
   const collectCompletedChallengeIds = (state) => {
@@ -2426,32 +2401,6 @@ async function main() {
   syncAllAudioUi();
   initMenu();
 
-
-  /**
-   * Per-arena fly-over sizing. The default 28 m orbit was authored for the 26.4 m Classic
-   * deck; Sundial Station's enlarged octagon (deck circumradius ≈ radius / cos 22.5°) needs
-   * a wider, slightly higher orbit or the camera would sweep inside the deck edge. Shared by
-   * {@link beginRoundFlyover} and the shader/composer warm-up pass so both agree on the
-   * exact framing the countdown camera will actually use.
-   * @returns {{ radius: number, height: number } | undefined}
-   */
-  function resolveCinematicCountdownOverrides() {
-    if (getCurrentLevelId() === "zanzibar") {
-      const circumR = CONFIG.record.radius / Math.cos(Math.PI / 8);
-      return { radius: circumR + 4, height: 16 };
-    }
-    return undefined;
-  }
-
-  /** Pre-round camera fly-over, sized to the active arena (see {@link resolveCinematicCountdownOverrides}). */
-  function beginRoundFlyover() {
-    // * PERF-WARM (§4): the round-start freeze lands AFTER carts-ready, on the first live
-    // * render at this fly-over pose — outside every warm.* span. Arm the render probe so
-    // * the next few frames' composer.render() is timed as `render.roundStart`; an F8
-    // * longframe on those frames then names the render as the freeze owner.
-    armRoundStartRenderProbe(8);
-    CameraMod.beginCinematicCountdown(camera, resolveCinematicCountdownOverrides());
-  }
 
   // --- Quickplay arena rotation gens (round lifecycle; rotation impl is in levelOrchestration) ---
   /** Invalidation token for deferred non-host countdown application (see onGameStartHandler). */
@@ -2698,490 +2647,6 @@ async function main() {
       })();
     }
   };
-
-  let lastResultsOverlayKey = null;
-  /** Round startedAtMs of the last podium celebration — one sting/confetti per match. */
-  let lastPodiumCelebratedRound = null;
-  /** True after confetti has fired for the current podium presentation. */
-  let podiumConfettiFiredKey = null;
-  /** Round key of the last podium challenge credit — records must not re-fire on overlay re-render. */
-  let podiumChallengesRecordedKey = null;
-  /**
-   * Whether the round that just ended was in Sudden Death at endRound time. Captured
-   * before endRound clears roundState.isSuddenDeath, so the podium's once-per-round
-   * challenge block can still credit `sd_win` (the live flag is already false by then).
-   */
-  let lastRoundEndedInSuddenDeath = false;
-
-  /**
-   * World position of the winning cart (arena center fallback for draws / missing bodies).
-   * @returns {{ x: number, y: number, z: number }}
-   */
-  function getWinnerWorldPos() {
-    const winnerIdx = GameState.getRoundState().winnerSlotIndex;
-    if (winnerIdx === "draw" || !Number.isFinite(winnerIdx)) return { x: 0, y: 0, z: 0 };
-    const winnerCart = allCartsRef?.[winnerIdx];
-    if (winnerCart?.body) {
-      const t = winnerCart.body.translation();
-      return { x: t.x, y: t.y, z: t.z };
-    }
-    if (winnerCart?.mesh) {
-      const p = winnerCart.mesh.position;
-      return { x: p.x, y: p.y, z: p.z };
-    }
-    return { x: 0, y: 0, z: 0 };
-  }
-
-  /**
-   * Starts the post-game winner camera once per match and fires victory/defeat VO.
-   * Idempotent for a given `startedAtMs:winner` key.
-   */
-  function beginPodiumPresentation() {
-    const rs = GameState.getRoundState();
-    const key = `${rs.startedAtMs}:${rs.winnerSlotIndex}`;
-    if (podiumCameraKey === key) {
-      // * Mode may have been cleared — re-arm without resetting the 5s timer.
-      if (CameraMod.getCameraMode(camera) !== CameraMod.CameraMode.CINEMATIC_PODIUM) {
-        CameraMod.beginCinematicPodium(camera, getWinnerWorldPos());
-      } else {
-        CameraMod.setCinematicPodiumTarget(camera, getWinnerWorldPos());
-      }
-      return;
-    }
-    podiumCameraKey = key;
-    podiumPhaseEnteredAtMs = performance.now();
-    podiumConfettiFiredKey = null;
-    // * Any-input skip: fresh presses (not held-from-gameplay inputs) jump straight
-    // * to the results panel; the celebration VO/confetti already fired and play out.
-    podiumWinnerCamSkipped = false;
-    podiumGamepadButtonHeld = true;
-    installPodiumSkipListeners();
-    CameraMod.beginCinematicPodium(camera, getWinnerWorldPos());
-
-    // * Voice + a first confetti burst play over the pure winner cam, so the orbit frames
-    // * a celebrated cart; a second burst fires when the results panel lands.
-    if (lastPodiumCelebratedRound !== rs.startedAtMs) {
-      lastPodiumCelebratedRound = rs.startedAtMs;
-      const celebrationWinner = rs.winnerSlotIndex;
-      if (celebrationWinner !== "draw" && typeof celebrationWinner === "number") {
-        const mySlotIdx = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
-        const isLocalWinner = mySlotIdx >= 0 && celebrationWinner === mySlotIdx;
-        // * Participated but didn't win — defeat is its own quieter beat: no winner-confetti,
-        // * no crowd roar. Spectators (mySlotIdx < 0) still see the full celebration.
-        const isLocalLoser = mySlotIdx >= 0 && !isLocalWinner;
-        if (isLocalWinner) {
-          announce("victory");
-        } else if (isLocalLoser) {
-          announce("defeat");
-        }
-        if (!isLocalLoser) {
-          if (hud?.root) {
-            const winnerCss = displayCssColorForSlot(Netcode.getNetSlots()[celebrationWinner]);
-            spawnResultsConfetti(hud.root, [winnerCss, "#ff2bd6", "#22e6ff", "#ffe53d", "#ffffff"]);
-          }
-          // * Victory roar on the match's single peak beat — every arena. (The frequent
-          // * KO-time cheer stays Classic-only in onLocalKillConfirm/onArenaKoFlash.)
-          SfxSynth.playCrowdCheer(1);
-          ArenaAmbience.bumpCrowdExcitement(1);
-        }
-      } else {
-        // * Draw: no victory/defeat VO fires, so nothing interrupts an in-flight
-        // * callout ("10 SECONDS" / "SCOREBOARD" can hold ~2s over the podium cam).
-        // * Hard-silence so the podium opens clean; lobby entry would do this later
-        // * anyway (announcerDirector phase watcher).
-        stopAnnouncer();
-      }
-    }
-  }
-
-  function clearPodiumPresentation() {
-    podiumCameraKey = null;
-    podiumPhaseEnteredAtMs = 0;
-    podiumConfettiFiredKey = null;
-    podiumWinnerCamSkipped = false;
-    removePodiumSkipListeners();
-    if (CameraMod.getCameraMode(camera) === CameraMod.CameraMode.CINEMATIC_PODIUM) {
-      CameraMod.endCinematicCountdown(camera);
-    }
-  }
-
-  function updateResultsOverlay() {
-    if (!resultsUi) return;
-    const { overlay, panel, title, verdict, finalScores, receipt, playAgain, mainMenuBtn } = resultsUi;
-    const roundState = GameState.getRoundState();
-    if (roundState.phase === "podium") {
-      // * Ensure host + all clients share the same winner-cam presentation path.
-      beginPodiumPresentation();
-
-      // * Hold the opaque results UI until the pure winner camera shot finishes —
-      // * or the player skips it with any fresh input (keyboard/mouse/touch via
-      // * listeners, gamepad via the per-frame rising-edge poll below).
-      const camElapsed = podiumPhaseEnteredAtMs > 0
-        ? performance.now() - podiumPhaseEnteredAtMs
-        : 0;
-      if (camElapsed < CameraMod.PODIUM_WINNER_CAM_MS && !podiumWinnerCamSkipped) {
-        pollPodiumGamepadSkip();
-      }
-      if (camElapsed < CameraMod.PODIUM_WINNER_CAM_MS && !podiumWinnerCamSkipped) {
-        if (overlay.style.display !== "none") {
-          cancelResultsAnimations(overlay);
-          overlay.style.display = "none";
-          overlay.style.pointerEvents = "none";
-        }
-        return;
-      }
-      removePodiumSkipListeners();
-
-      overlay.style.display = "flex";
-      overlay.style.pointerEvents = "auto";
-      const isHost = Netcode.getIsHost();
-      const scores = GameState.getRoundScores() || {};
-      const stats = getPersonalStats();
-      if (
-        lastResultsOverlayKey?.winner === roundState.winnerSlotIndex
-        && lastResultsOverlayKey?.s0 === (scores[0] ?? 0)
-        && lastResultsOverlayKey?.s1 === (scores[1] ?? 0)
-        && lastResultsOverlayKey?.s2 === (scores[2] ?? 0)
-        && lastResultsOverlayKey?.s3 === (scores[3] ?? 0)
-        && lastResultsOverlayKey?.hist === matchHistory.length
-        && lastResultsOverlayKey?.host === isHost
-        && lastResultsOverlayKey?.matches === stats.matches
-        && lastResultsOverlayKey?.wins === stats.wins
-        && lastResultsOverlayKey?.totalPoints === stats.totalPoints
-        && lastResultsOverlayKey?.solo === (stats.soloGames ?? 0)
-        && lastResultsOverlayKey?.endReason === roundState.endReason
-      ) {
-        maybeScheduleAutoContinuePodium();
-        updatePlayAgainCountdownLabel(playAgain);
-        return;
-      }
-      lastResultsOverlayKey = {
-        winner: roundState.winnerSlotIndex,
-        s0: scores[0] ?? 0,
-        s1: scores[1] ?? 0,
-        s2: scores[2] ?? 0,
-        s3: scores[3] ?? 0,
-        hist: matchHistory.length,
-        host: isHost,
-        matches: stats.matches,
-        wins: stats.wins,
-        totalPoints: stats.totalPoints,
-        solo: stats.soloGames ?? 0,
-        endReason: roundState.endReason ?? null,
-      };
-
-      const mySlotIdx = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
-      const isLocalWinner = mySlotIdx >= 0 && roundState.winnerSlotIndex === mySlotIdx;
-      // * Once per podium — the overlay re-renders whenever a key field changes (late stat
-      // * write, host flip), and challenge credit must not double-count on a re-render.
-      const challengeRoundKey = `${roundState.startedAtMs}:${roundState.winnerSlotIndex}`;
-      if (isLocalWinner && podiumChallengesRecordedKey !== challengeRoundKey) {
-        podiumChallengesRecordedKey = challengeRoundKey;
-        if (roundState.endReason === "lastStanding") {
-          ChallengeTracker.record(PROGRESSION_EVENTS.LAST_STANDING);
-        }
-        if (lastRoundEndedInSuddenDeath) {
-          ChallengeTracker.record(PROGRESSION_EVENTS.SUDDEN_DEATH_WIN);
-        }
-        const localCart = localCartForConnId();
-        // * "Win without spilling": hasSpilled is per-life (reset on respawn), so a fall
-        // * mid-round must also disqualify — localDeaths accumulates for the whole round.
-        if (localCart && !localCart.hasSpilled && getMatchStats().localDeaths === 0) {
-          ChallengeTracker.record(PROGRESSION_EVENTS.UNTOUCHABLE);
-        }
-      }
-
-      // * Local-outcome treatment: a defeat gets a desaturated, un-celebrated panel; a win
-      // * keeps the bright party. Classes drive results.css; spectators (mySlotIdx < 0) get
-      // * neither and see the normal winner celebration.
-      const isLocalLoser = mySlotIdx >= 0
-        && typeof roundState.winnerSlotIndex === "number"
-        && roundState.winnerSlotIndex !== mySlotIdx;
-      overlay.classList.toggle("results-defeat", isLocalLoser);
-      overlay.classList.toggle("results-victory", isLocalWinner);
-
-      // * Once per podium presentation, when the results panel actually appears: the
-      // * winner gets neon confetti; the local loser gets the "opposite of confetti" —
-      // * a field of spoiled groceries that sag and deflate (ART-3). A draw gets neither.
-      const confettiKey = `${roundState.startedAtMs}:${roundState.winnerSlotIndex}`;
-      if (podiumConfettiFiredKey !== confettiKey) {
-        podiumConfettiFiredKey = confettiKey;
-        const celebrationWinner = roundState.winnerSlotIndex;
-        if (isLocalLoser) {
-          spawnResultsDefeatWilt(overlay);
-        } else if (celebrationWinner !== "draw" && typeof celebrationWinner === "number") {
-          const winnerCss = displayCssColorForSlot(Netcode.getNetSlots()[celebrationWinner]);
-          spawnResultsConfetti(overlay, [winnerCss, "#ff2bd6", "#22e6ff", "#ffe53d", "#ffffff"]);
-        }
-      }
-
-      playAgain.disabled = !isHost;
-      if (isHost) {
-        playAgain.textContent = "PLAY AGAIN";
-      } else {
-        // * Arm a local auto-continue estimate so non-hosts see a countdown, not a
-        // * dead "WAITING FOR HOST…" with no sense of when the next round starts.
-        const mode = detectGameMode();
-        if (
-          (mode === "quickplay" || mode === "friends")
-          && !clientPodiumAutoContinueDeadlineMs
-        ) {
-          const delayMs = mode === "friends" ? 10000 : 5000;
-          clientPodiumAutoContinueDeadlineMs = performance.now() + delayMs;
-        }
-        playAgain.innerHTML = `<span style="opacity:.8;margin-right:6px;">${svgIcon("host", { label: "Host" })}</span>WAITING FOR HOST…`;
-      }
-
-      const slotDisplayName = (slotIndex) => Netcode.getNetSlots()[slotIndex]?.name || `P${slotIndex + 1}`;
-
-      // * 7g: the headline is the PA callout ("THE STORE IS NOW CLOSED", set once
-      // * in initResultsOverlay); the per-round verdict lives on its own line and
-      // * the winner's color still drives --title-glow on the headline.
-      const winnerIdx = roundState.winnerSlotIndex;
-      if (winnerIdx === "draw") {
-        verdict.textContent = "DRAW";
-        title.style.setProperty("--title-glow", "#ffe53d");
-      } else {
-        const idx = Number.isFinite(winnerIdx) ? winnerIdx : null;
-        if (idx != null) {
-          const score = scores[idx] != null ? scores[idx] : 0;
-          let maxScore = 0;
-          let tiedAtTop = 0;
-          for (let ti = 0; ti < 4; ti += 1) {
-            const ts = Number(scores[ti] ?? 0);
-            if (ts > maxScore) maxScore = ts;
-          }
-          for (let ti = 0; ti < 4; ti += 1) {
-            if (Number(scores[ti] ?? 0) === maxScore) tiedAtTop += 1;
-          }
-          const tieSuffix = tiedAtTop > 1 ? " (TIEBREAK)" : "";
-          if (roundState.endReason === "lastStanding") {
-            verdict.textContent = `${slotDisplayName(idx)} wins — LAST CART STANDING`;
-          } else {
-            verdict.textContent = `${slotDisplayName(idx)} wins — ${score} pts${tieSuffix}`;
-          }
-          title.style.setProperty("--title-glow", displayCssColorForSlot(Netcode.getNetSlots()[idx]));
-        } else {
-          verdict.textContent = "ROUND COMPLETE";
-          title.style.setProperty("--title-glow", "#ffffff");
-        }
-      }
-
-      finalScores.replaceChildren();
-      /** @type {Array<{ row: HTMLElement, valEl: HTMLElement, score: number, isWinner: boolean, badge: HTMLElement | null, format?: (n: number) => string }>} */
-      const scoreRows = [];
-      // * Winner pinned first explicitly — under lastStanding/Sudden Death they can
-      // * hold a lower score than a fallen rival, so score-desc alone isn't enough.
-      const rankedSlots = [0, 1, 2, 3].sort((a, b) => {
-        const aWin = winnerIdx !== "draw" && winnerIdx === a;
-        const bWin = winnerIdx !== "draw" && winnerIdx === b;
-        if (aWin !== bWin) return aWin ? -1 : 1;
-        const byScore = Number(scores[b] ?? 0) - Number(scores[a] ?? 0);
-        return byScore !== 0 ? byScore : a - b;
-      });
-      // * 7g podium — one column per slot, block height by finish (design ratios
-      // * 250/170/120/80 scaled to the panel). Winner reads magenta + crown, the
-      // * local player cyan, everyone else a hairline.
-      const PODIUM_HEIGHTS = [250, 170, 120, 80];
-      const RANK_LABELS = ["1st", "2nd", "3rd", "4th"];
-      const myPodiumSlotIdx = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
-      rankedSlots.forEach((i, rank) => {
-        const s = scores[i] != null ? scores[i] : 0;
-        const netSlot = Netcode.getNetSlots()[i];
-        const col = document.createElement("div");
-        col.className = "results-podium-col";
-        const isWinner = winnerIdx !== "draw" && winnerIdx === i;
-        if (isWinner) col.classList.add("is-winner");
-        if (i === myPodiumSlotIdx) col.classList.add("is-you");
-        col.style.setProperty("--slot-glow", displayCssColorForSlot(netSlot));
-        col.style.setProperty("--podium-h", `${PODIUM_HEIGHTS[rank] ?? 48}px`);
-
-        const cap = document.createElement("div");
-        cap.className = "results-podium-cap";
-
-        // * Same resolver as the HUD roster: NPCs get their personality emblem,
-        // * humans the cart-color shopper glyph.
-        const emblemInfo = emblemForSlot(netSlot);
-        if (emblemInfo) {
-          const emblemEl = document.createElement("span");
-          emblemEl.className = "results-podium-emblem";
-          emblemEl.innerHTML = svgIcon(emblemInfo.icon, { label: emblemInfo.label });
-          emblemEl.style.color = emblemInfo.color;
-          cap.appendChild(emblemEl);
-        }
-
-        const nameEl = document.createElement("span");
-        nameEl.className = "results-score-name results-podium-name";
-        nameEl.textContent = slotDisplayName(i);
-
-        // * 7g: the cyan YOU pill next to your own name — the podium's cyan block
-        // * border alone doesn't say which cart was yours.
-        if (i === myPodiumSlotIdx) {
-          const youPill = document.createElement("span");
-          youPill.className = "results-you-pill";
-          youPill.textContent = "YOU";
-          nameEl.appendChild(youPill);
-        }
-
-        if (i === myPodiumSlotIdx && isNewPersonalBest) {
-          const pbBadge = document.createElement("span");
-          pbBadge.className = "pb-badge";
-          pbBadge.textContent = "NEW PB!";
-          nameEl.appendChild(pbBadge);
-        }
-
-        let winnerBadge = null;
-        if (isWinner) {
-          winnerBadge = document.createElement("span");
-          winnerBadge.className = "results-winner-badge";
-          // * Purpose-built sticker crown (icons.js), not the OS emoji — matches
-          // * the HUD leader pip and colors to gold via .results-winner-badge CSS.
-          winnerBadge.innerHTML = svgIcon("crown", { label: "Winner", size: "1.15em" });
-          cap.prepend(winnerBadge);
-        }
-        cap.appendChild(nameEl);
-
-        const block = document.createElement("div");
-        block.className = "results-podium-block";
-
-        const rankEl = document.createElement("span");
-        rankEl.className = "results-podium-rank";
-        rankEl.textContent = String(rank + 1);
-
-        const valEl = document.createElement("span");
-        valEl.className = "results-score-val";
-        const rankLabel = RANK_LABELS[rank] ?? `${rank + 1}th`;
-        const formatScore = (n) => `${rankLabel} · ${Math.round(n)} PTS`;
-        valEl.textContent = formatScore(s);
-
-        block.appendChild(rankEl);
-        block.appendChild(valEl);
-        col.appendChild(cap);
-        col.appendChild(block);
-        finalScores.appendChild(col);
-        scoreRows.push({ row: col, valEl, score: s, isWinner, badge: winnerBadge, format: formatScore });
-      });
-
-      // ── Match receipt (7g) — this round's till slip, existing stats only ──
-      /** @type {HTMLElement[]} */
-      const receiptLines = [];
-      if (receipt) {
-        receipt.replaceChildren();
-        const snap = snapshotMatchStats();
-        const comboLabel = snap.maxComboTier >= 3
-          ? "CARNAGE"
-          : snap.maxComboTier >= 2
-            ? "RAMPAGE"
-            : snap.maxComboTier >= 1
-              ? "STREAK"
-              : "—";
-        const myScore = myPodiumSlotIdx >= 0 ? Number(scores[myPodiumSlotIdx] ?? 0) : 0;
-
-        const hd = document.createElement("div");
-        hd.className = "results-receipt-hd";
-        hd.textContent = "— MATCH RECEIPT —";
-        receipt.appendChild(hd);
-        receiptLines.push(hd);
-
-        // * EXPRESS LANE HELD is deliberately absent — nothing tracks it (see plan
-        // * 7g); leaderDowns rides along only when the player actually earned one.
-        /** @type {Array<[string, string]>} */
-        const lines = [
-          ["BODIES", String(snap.localKos)],
-          ["SPILLS CAUSED", String(snap.localSpills)],
-          ["BEST COMBO", comboLabel],
-          ["TIMES BODIED", String(snap.localDeaths)],
-        ];
-        if (snap.leaderDowns > 0) lines.push(["LEADER DOWNS", String(snap.leaderDowns)]);
-        if (snap.criticalKos > 0) lines.push(["CRITICALS", String(snap.criticalKos)]);
-
-        for (const [label, value] of lines) {
-          const line = document.createElement("div");
-          line.className = "results-receipt-line";
-          const lbl = document.createElement("span");
-          lbl.className = "results-receipt-lbl";
-          lbl.textContent = label;
-          const val = document.createElement("span");
-          val.className = "results-receipt-val";
-          val.textContent = value;
-          line.appendChild(lbl);
-          line.appendChild(val);
-          receipt.appendChild(line);
-          receiptLines.push(line);
-        }
-
-        // * Challenges finished DURING this round — diffed against the snapshot
-        // * taken at countdown, so an objective completed last week never prints.
-        // * Empty case: omit the line entirely (no DOM, no stagger slot) — bare
-        // * "CHALLENGE" + "—" read as placeholder junk (FV-RESULTS-1).
-        const chNow = challengeStore.getState();
-        const completedThisMatch = [...(chNow.dailyChallenges || []), ...(chNow.weeklyChallenges || [])]
-          .filter((c) => c?.isComplete && !challengesCompleteAtRoundStart.has(c.id))
-          .map((c) => CHALLENGE_POOL.find((meta) => meta.id === c.id)?.title)
-          .filter(Boolean);
-        if (completedThisMatch.length > 0) {
-          const challengeLine = document.createElement("div");
-          challengeLine.className = "results-receipt-line results-receipt-challenge is-complete";
-          const chLbl = document.createElement("span");
-          chLbl.className = "results-receipt-lbl";
-          chLbl.textContent = "CHALLENGE UNLOCKED";
-          const chVal = document.createElement("span");
-          chVal.className = "results-receipt-val";
-          chVal.textContent = completedThisMatch.length > 1
-            ? `✓ ${completedThisMatch.length} REDEEMED`
-            : `✓ ${completedThisMatch[0]}`;
-          challengeLine.appendChild(chLbl);
-          challengeLine.appendChild(chVal);
-          receipt.appendChild(challengeLine);
-          receiptLines.push(challengeLine);
-        }
-
-        const total = document.createElement("div");
-        total.className = "results-receipt-line results-receipt-total";
-        const totalLbl = document.createElement("span");
-        totalLbl.className = "results-receipt-lbl";
-        totalLbl.textContent = "TOTAL";
-        const totalVal = document.createElement("span");
-        totalVal.className = "results-receipt-val";
-        totalVal.textContent = `${myScore} PTS`;
-        total.appendChild(totalLbl);
-        total.appendChild(totalVal);
-        receipt.appendChild(total);
-        receiptLines.push(total);
-
-        const barcode = document.createElement("div");
-        barcode.className = "results-receipt-barcode";
-        barcode.setAttribute("aria-hidden", "true");
-        receipt.appendChild(barcode);
-
-        const foot = document.createElement("div");
-        foot.className = "results-receipt-foot";
-        foot.textContent = "THANK YOU FOR SHOPPING";
-        receipt.appendChild(foot);
-        receiptLines.push(foot);
-      }
-
-      animateResultsPodiumShow({
-        overlay,
-        panel,
-        title,
-        verdict,
-        scoreRows,
-        receiptLines,
-        playAgain,
-        mainMenuBtn,
-      });
-
-      maybeScheduleAutoContinuePodium();
-    } else {
-      clearAutoContinuePodiumTimeout();
-      autoContinuePodiumKey = null;
-      lastResultsOverlayKey = null;
-      clearPodiumPresentation();
-      cancelResultsAnimations(overlay);
-      animateResultsDismiss(overlay, panel);
-    }
-  }
 
   // --- Carts, labels, gameplay helpers ---
   /**
@@ -3541,12 +3006,12 @@ async function main() {
     onPodiumRejected: () => {
       // * Server nack'd host_round (or reasserted running). Undo optimistic podium UI.
       clearPodiumPresentation();
-      lastResultsOverlayKey = null;
+      resetResultsOverlayKey();
       if (resultsUi?.overlay) {
         animateResultsDismiss(resultsUi.overlay, resultsUi.panel);
       }
       cancelLastCartStandingFinish?.();
-      autoContinuePodiumKey = null;
+      setAutoContinuePodiumKey(null);
       clearAutoContinuePodiumTimeout?.();
       // * ROUND-WEDGE-1 Phase B: host-only arm. Joiners must not own latch state;
       // * netcode fires this callback without an isHost gate.
@@ -3615,27 +3080,16 @@ async function main() {
         resetSimTimingRef: sessionRefs.resetSimTimingRef,
       });
     },
-    // * Teardown patch (former Object.assign site) — deps only; round-lifecycle state
-    // * stays in main until Lever D. Function decls below are hoisted within main().
+    // * Teardown patch — bound methods from createRoundLifecycle (Lever D).
     clearRoundCountdownTimeout,
     clearAutoContinuePodiumTimeout,
-    clearPodiumRoundTimeout: () => {
-      if (roundPodiumTimeoutId != null) {
-        clearTimeout(roundPodiumTimeoutId);
-        roundPodiumTimeoutId = null;
-      }
-    },
+    clearPodiumRoundTimeout,
     resetSlowMo: () => { gameCtx.slowMo.active = false; },
     resetSimTiming: () => sessionRefs.resetSimTimingRef.current?.(),
     hideResultsOverlay: () => updateResultsOverlay(),
     resetLeaderHum: () => leaderHum?.setLeader?.(null),
-    resetResultsOverlayKey: () => { lastResultsOverlayKey = null; },
-    resetPodiumSessionState: () => {
-      autoContinuePodiumKey = null;
-      clientPodiumAutoContinueDeadlineMs = 0;
-      lastResultsOverlayKey = null;
-      clearPodiumPresentation();
-    },
+    resetResultsOverlayKey,
+    resetPodiumSessionState,
   });
 
   void flushPendingSessionBootstrap();
@@ -4106,99 +3560,6 @@ async function main() {
     canvas.focus();
   });
 
-  function startRunningAt(startedAtMs) {
-    isNewPersonalBest = false;
-    cancelLastCartStandingFinish();
-    GameState.setRoundEndReason(null);
-    syncRoundPhase("running");
-    refreshHiddenHostLifecycle();
-    gameCtx.slowMo.active = false;
-    GameState.setRoundStartedAtMs(startedAtMs);
-    GameState.setRoundScores({ 0: 0, 1: 0, 2: 0, 3: 0 });
-    GameState.setRoundWinnerSlotIndex(null);
-    Netcode.sendHostRound();
-    updateTouchControlsVisibility();
-    CameraMod.endCinematicCountdown(camera);
-  }
-
-  let roundCountdownTimeoutId = null;
-
-  function clearRoundCountdownTimeout() {
-    if (roundCountdownTimeoutId != null) {
-      clearTimeout(roundCountdownTimeoutId);
-      roundCountdownTimeoutId = null;
-    }
-  }
-
-  function startCountdown(startsAtLocalMs = getRoundClockNowMs() + CONFIG.round.countdownMs) {
-    if (!Netcode.getIsHost()) return;
-    if (GameState.getRoundState().phase === "running") return;
-    isNewPersonalBest = false;
-    cancelLastCartStandingFinish();
-    GameState.setRoundEndReason(null);
-    clearPodiumEndLatch();
-    clearRoundCountdownTimeout();
-    // * Fresh match-stat spine for the receipt this round.
-    resetMatchStats();
-    {
-      const chState = challengeStore.getState();
-      challengesCompleteAtRoundStart = new Set(
-        [...(chState.dailyChallenges || []), ...(chState.weeklyChallenges || [])]
-          .filter((c) => c?.isComplete)
-          .map((c) => c.id)
-      );
-    }
-    setMatchStatsLocalSlot(Netcode.strictSlotIndexForConn(Netcode.getYouConnId()));
-    syncRoundPhase("countdown");
-    refreshHiddenHostLifecycle();
-    gameCtx.slowMo.active = false;
-    GameState.setRoundCountdownStartedAtMs(startsAtLocalMs - CONFIG.round.countdownMs);
-    GameState.setRoundScores({ 0: 0, 1: 0, 2: 0, 3: 0 });
-    GameState.setRoundWinnerSlotIndex(null);
-    GameState.setRoundStartedAtMs(0);
-
-    if (Array.isArray(allCartsRef)) {
-      for (let i = 0; i < allCartsRef.length; i += 1) {
-        teleportCartToSpawn(i);
-      }
-    }
-
-    Netcode.sendHostRound();
-    roundCountdownTimeoutId = setTimeout(() => {
-      roundCountdownTimeoutId = null;
-      if (GameState.getRoundState().phase === "countdown") startRunningAt(startsAtLocalMs);
-    }, Math.max(0, startsAtLocalMs - getRoundClockNowMs()));
-    beginRoundFlyover();
-  }
-
-  /**
-   * * Fallback when promoted to host mid-countdown (e.g. prior host disconnected).
-   * * Completes the in-flight countdown window; server reset + game_start is preferred
-   * * when deployed but this keeps older servers and message-order races un-stuck.
-   */
-  function resumeCountdownAsNewHost() {
-    if (!Netcode.getIsHost()) return;
-    const roundState = GameState.getRoundState();
-    if (roundState.phase !== "countdown") return;
-
-    clearRoundCountdownTimeout();
-    const startsAtLocalMs = (roundState.countdownStartedAtMs || getRoundClockNowMs()) + CONFIG.round.countdownMs;
-    const delayMs = Math.max(0, startsAtLocalMs - getRoundClockNowMs());
-
-    if (delayMs === 0) {
-      if (GameState.getRoundState().phase === "countdown") startRunningAt(getRoundClockNowMs());
-      return;
-    }
-
-    // * Re-arm pregame fly-over if host migration interrupted the prior client's cam.
-    beginRoundFlyover();
-    Netcode.sendHostRound();
-    roundCountdownTimeoutId = setTimeout(() => {
-      roundCountdownTimeoutId = null;
-      if (GameState.getRoundState().phase === "countdown") startRunningAt(startsAtLocalMs);
-    }, delayMs);
-  }
-
   onCountdownCancelledRef = () => {
     // * Invalidate any rotation/carts-ready deferred non-host countdown apply — a
     // * cancel between game_start and the gate settling must not resurrect a dead countdown.
@@ -4228,36 +3589,6 @@ async function main() {
       if (Netcode.getIsHost()) Netcode.sendHostRound();
     }
   };
-  /**
-   * Host promote mid-round: recover Sudden Death without waiting for a lost
-   * host_round (route 2 — infer from clock + human top-score tie). Also
-   * re-derives spectator flags when already in SD. See ensureSuddenDeathOnHostPromote.
-   */
-  function ensureSuddenDeathStateAsNewHost() {
-    if (!Netcode.getIsHost()) return;
-    const roundState = GameState.getRoundState();
-    ensureSuddenDeathOnHostPromote({
-      phase: roundState.phase,
-      isSuddenDeath: roundState.isSuddenDeath,
-      startedAtMs: roundState.startedAtMs,
-      nowMs: getRoundClockNowMs(),
-      durationMs: CONFIG.round?.durationMs ?? ROUND_DURATION_MS,
-      scores: GameState.getRoundScores() || {},
-      netSlots: Netcode.getNetSlots(),
-      allCarts: allCartsRef,
-      fallYThreshold: CONFIG.fall.yThreshold,
-      nowPerfMs: performance.now(),
-      setSuddenDeath: GameState.setSuddenDeath,
-      sendHostRound: () => Netcode.sendHostRound(),
-      onCartOutOfPlay: stopChargeSfxForCart,
-      // * Match the in-round SD entry path (updateGameFlow deps): release the torn-down
-      // * cart's spilled groceries too, or the promoted host keeps them on the floor.
-      doRespawn: (c) => Entities.doRespawn(c, {
-        onCartRespawn: (slotIndex) => GroceryPool.releaseByCartId(String(slotIndex)),
-      }),
-    });
-  }
-
   onHostMigratedHandler = () => {
     resumeCountdownAsNewHost();
     ensureSuddenDeathStateAsNewHost();
@@ -4265,192 +3596,10 @@ async function main() {
     refreshHiddenHostLifecycle();
   };
 
-  function cancelLastCartStandingFinish() {
-    if (roundPodiumTimeoutId != null) {
-      clearTimeout(roundPodiumTimeoutId);
-      roundPodiumTimeoutId = null;
-    }
-    gameCtx.slowMo.active = false;
-  }
-
-  function abortLastCartStandingFlourish() {
-    const hadFlourish = GameState.getRoundState().endReason === "lastStanding";
-    cancelLastCartStandingFinish();
-    if (hadFlourish && Netcode.getIsHost()) {
-      GameState.setRoundEndReason(null);
-      Netcode.sendHostRound();
-    }
-  }
-
-  function scheduleLastCartStandingFinish(soleSurvivorSlot) {
-    if (!Netcode.getIsHost()) return;
-    if (roundPodiumTimeoutId != null) return;
-    if (!gameCtx.slowMo.active) {
-      gameCtx.slowMo.active = true;
-      gameCtx.slowMo.startMs = performance.now();
-    }
-    if (GameState.getRoundState().endReason !== "lastStanding") {
-      GameState.setRoundEndReason("lastStanding");
-      Netcode.sendHostRound();
-    }
-    roundPodiumTimeoutId = setTimeout(() => {
-      roundPodiumTimeoutId = null;
-      if (GameState.getRoundState().phase !== "running") return;
-      endRound(soleSurvivorSlot);
-    }, LAST_CART_STANDING_FLOURISH_MS);
-  }
-
-  function endRound(lastStandingWinnerSlot = null) {
-    if (GameState.getRoundState().phase !== "running") return;
-    // * ROUND-WEDGE-1 Phase B: after a server podium reject, gameFlow would re-enter
-    // * here every frame. Latch is send-counted + time-gated retry (see podiumEndLatch).
-    const endStartedAtMs = GameState.getRoundState().startedAtMs;
-    const endNowMs = getRoundClockNowMs();
-    if (!shouldAllowPodiumEnd(endStartedAtMs, endNowMs)) return;
-    cancelLastCartStandingFinish();
-    clearRoundCountdownTimeout();
-    pendingMidRoundJoinRespawnConnId = null;
-    resetArenaReactiveLights();
-    // * A charge held across the round-end boundary must stop looping here, before
-    // * anything downstream (cleanupSuddenDeathState/rematch resets) nulls the SFX id.
-    stopAllChargeSfx();
-    const suddenDeathActive = GameState.getRoundState().isSuddenDeath;
-    // * Latch SD-at-end for the podium challenge block — endRound clears the live flag
-    // * below (SD branch), so `sd_win` would otherwise never be creditable.
-    lastRoundEndedInSuddenDeath = suddenDeathActive;
-    if (suddenDeathActive) {
-      // * Sudden Death winner — first to score wins instantly. A null slot here is the
-      // * run-6 stalemate timeout: nobody forced a KO, resolve by the standard
-      // * most-recent-scoring-hit tiebreak instead of hanging forever.
-      GameState.setRoundEndReason("timer");
-      const sdWinner = lastStandingWinnerSlot != null && Number.isFinite(lastStandingWinnerSlot)
-        ? lastStandingWinnerSlot
-        : GameState.pickTimerWinner(GameState.getRoundScores());
-      GameState.setRoundWinnerSlotIndex(sdWinner);
-      GameState.setSuddenDeath(false);
-      cleanupSuddenDeathState(allCartsRef || []);
-    } else if (lastStandingWinnerSlot != null && Number.isFinite(lastStandingWinnerSlot)) {
-      GameState.setRoundEndReason("lastStanding");
-      GameState.setRoundWinnerSlotIndex(lastStandingWinnerSlot);
-    } else {
-      GameState.setRoundEndReason("timer");
-      const scores = GameState.getRoundScores();
-      GameState.setRoundWinnerSlotIndex(GameState.pickTimerWinner(scores));
-    }
-    recordPodiumStats(/** @type {any} */ (GameState.getRoundState().winnerSlotIndex), GameState.getRoundScores());
-    HUD.clearFeed();
-    syncRoundPhase("podium");
-    beginPodiumPresentation();
-    // * Count on send only — reject path must not also +1 (podiumEndLatch tests pin this).
-    notePodiumEndSend(endStartedAtMs);
-    Netcode.sendHostRound();
-  }
-
   // * Wire Sudden Death win callback — addScore fires this on first score during SD.
   GameState.setSuddenDeathWinCallback((scoringSlot) => {
     endRound(scoringSlot);
   });
-
-  function clearAutoContinuePodiumTimeout() {
-    if (autoContinuePodiumTimeoutId != null) {
-      clearTimeout(autoContinuePodiumTimeoutId);
-      autoContinuePodiumTimeoutId = null;
-    }
-    clientPodiumAutoContinueDeadlineMs = 0;
-  }
-  podiumAutoContinue.clear = clearAutoContinuePodiumTimeout;
-
-  function currentPodiumAutoContinueKey() {
-    return `${GameState.getRoundState().startedAtMs}:${GameState.getRoundState().winnerSlotIndex}:${matchHistory.length}`;
-  }
-
-  function maybeScheduleAutoContinuePodium() {
-    if (!Netcode.getIsHost() || GameState.getRoundState().phase !== "podium") return;
-    const mode = detectGameMode();
-    // * Friends parties get the auto-advance too (longer window — the host can still
-    // * bail to the menu or change arenas before it fires). Kills post-match limbo.
-    if (mode !== "quickplay" && mode !== "friends") return;
-    const delayMs = mode === "friends" ? 10000 : 5000;
-
-    const key = currentPodiumAutoContinueKey();
-    if (autoContinuePodiumTimeoutId != null || autoContinuePodiumKey === key) return;
-
-    autoContinuePodiumKey = key;
-    autoContinuePodiumDeadlineMs = performance.now() + delayMs;
-    autoContinuePodiumTimeoutId = setTimeout(() => {
-      autoContinuePodiumTimeoutId = null;
-      if (!Netcode.getIsHost() || GameState.getRoundState().phase !== "podium") return;
-      const modeNow = detectGameMode();
-      if (modeNow !== "quickplay" && modeNow !== "friends") return;
-      onHostPlayAgainClick();
-    }, delayMs);
-  }
-
-  /**
-   * Ticks rematch labels while auto-continue is armed:
-   * host → "PLAY AGAIN (n)"; non-host → "STARTING IN (n)…" (local estimate).
-   */
-  function updatePlayAgainCountdownLabel(playAgain) {
-    if (!playAgain) return;
-    if (Netcode.getIsHost()) {
-      if (autoContinuePodiumTimeoutId == null || !autoContinuePodiumDeadlineMs) return;
-      const secs = Math.max(0, Math.ceil((autoContinuePodiumDeadlineMs - performance.now()) / 1000));
-      const next = `PLAY AGAIN (${secs})`;
-      if (playAgain.textContent !== next) playAgain.textContent = next;
-      return;
-    }
-    if (!clientPodiumAutoContinueDeadlineMs) return;
-    const secs = Math.max(0, Math.ceil((clientPodiumAutoContinueDeadlineMs - performance.now()) / 1000));
-    const next = `STARTING IN (${secs})…`;
-    if (playAgain.textContent !== next) playAgain.textContent = next;
-  }
-
-  /**
-   * Solo/testdrive ESC: freeze round clock + countdown timeout so pause is real.
-   * @param {boolean} open
-   */
-  function handleSoloPauseOverlay(open) {
-    const mode = detectGameMode();
-    if (mode !== "solo" && mode !== "testdrive") return;
-    if (open) {
-      if (soloPauseStartedAtMs != null) return;
-      soloPauseStartedAtMs = getRoundClockNowMs();
-      if (roundCountdownTimeoutId != null) {
-        const state = GameState.getRoundState();
-        const startsAt = (state.countdownStartedAtMs || 0) + CONFIG.round.countdownMs;
-        soloPauseCountdownRemainingMs = Math.max(0, startsAt - getRoundClockNowMs());
-        clearRoundCountdownTimeout();
-      }
-      return;
-    }
-    if (soloPauseStartedAtMs != null) {
-      const delta = getRoundClockNowMs() - soloPauseStartedAtMs;
-      soloPauseStartedAtMs = null;
-      if (delta > 0) {
-        const state = GameState.getRoundState();
-        if (state.phase === "running" && state.startedAtMs > 0) {
-          GameState.setRoundStartedAtMs(state.startedAtMs + delta);
-        }
-        if (state.phase === "countdown" && state.countdownStartedAtMs > 0) {
-          GameState.setRoundCountdownStartedAtMs(state.countdownStartedAtMs + delta);
-        }
-        // * Run-6: the PA directive window rides performance.now(), not the round
-        // * clock — shift it too or the chip drains/expires behind the Esc menu.
-        shiftDirectiveTimersBy(delta);
-      }
-    }
-    if (soloPauseCountdownRemainingMs != null) {
-      const remaining = soloPauseCountdownRemainingMs;
-      soloPauseCountdownRemainingMs = null;
-      if (GameState.getRoundState().phase === "countdown" && Netcode.getIsHost()) {
-        const startsAtLocalMs = getRoundClockNowMs() + remaining;
-        roundCountdownTimeoutId = setTimeout(() => {
-          roundCountdownTimeoutId = null;
-          if (GameState.getRoundState().phase === "countdown") startRunningAt(startsAtLocalMs);
-        }, remaining);
-      }
-    }
-  }
 
   let hostHiddenAtMs = null;
   let hostPumpTickCountAtHide = 0;
@@ -4499,7 +3648,7 @@ async function main() {
       hostPumpTickCountAtHide = gameLoopDriver?.getPumpTickCount() ?? 0;
       if (
         hostHiddenAtMs == null
-        && soloPauseStartedAtMs == null // Esc pause already owns the compensation
+        && getSoloPauseStartedAtMs() == null // Esc pause already owns the compensation
         && Netcode.getIsHost()
         && (st.phase === "running" || st.phase === "countdown")
       ) {
@@ -4552,69 +3701,6 @@ async function main() {
       };
     }
     return carts;
-  }
-
-  function onHostPlayAgainClick() {
-    if (!Netcode.getIsHost()) return;
-    // * Re-entrancy guard (quickplay): a double-fire (button + auto-continue race, or
-    // * a fast double-click) would adopt+broadcast a SECOND next arena while its
-    // * rotateLoadedArenaInPlace no-ops on the in-flight flag — host on arena A,
-    // * everyone else on arena B. Checked BEFORE the world-reset side effects below:
-    // * the suppressed call must not re-run rematchResetWorld mid-collider-rebuild
-    // * (it would broadcast spawn poses computed against the outgoing arena's ring).
-    if (detectGameMode() === "quickplay" && level.arenaRotationInFlight) return;
-    cancelLastCartStandingFinish();
-    autoContinuePodiumKey = currentPodiumAutoContinueKey();
-    clearAutoContinuePodiumTimeout();
-    clearRoundCountdownTimeout();
-    gameCtx.slowMo.active = false;
-    lastResultsOverlayKey = null;
-    clearPodiumPresentation();
-    GameState.setRoundEndReason(null);
-    Netcode.resetClientPredictionState();
-    stopAllChargeSfx();
-    // * NET-1 S1 (caps 98–102): quickplay rematch used to rematchResetWorld() HERE
-    // * (old arena ring) then rotate async and rematchResetWorld again. Non-hosts got a
-    // * wrong host_spawn, a multi-second snap gap during the swap, and sometimes sat
-    // * on void coords at GO. Skip the pre-rotation broadcast; rotateLoadedArenaInPlace
-    // * re-seats + broadcasts after refreshCartSpawnPositions on the NEW ring.
-    const isQuickplayRematch = detectGameMode() === "quickplay";
-    if (!isQuickplayRematch) {
-      Entities.rematchResetWorld();
-    }
-    if (detectGameMode() === "solo" || detectGameMode() === "testdrive") {
-      // * RESTART is reachable mid-round from the pause menu, where the round is
-      // * still phase==="running" (solo pause only freezes the clock, never changes
-      // * phase). startCountdown() bails out on phase==="running" to block
-      // * double-starts — so without dropping the abandoned round to lobby first,
-      // * rematchResetWorld() above would snap the carts to spawn but no countdown,
-      // * no score reset, and the stale round would keep ticking. Clearing to lobby
-      // * lets startCountdown run its full reset (scores/winner/startedAt + 3-2-1).
-      syncRoundPhase("lobby");
-      clearPodiumEndLatch();
-      GameState.setRoundStartedAtMs(0);
-      startCountdown(getRoundClockNowMs() + CONFIG.round.countdownMs);
-      return;
-    }
-    // * Quickplay arena rotation (D-STAB-2 seam / QP-ORDER-1): advance to the next
-    // * catalog arena at the rematch boundary. Latch it BEFORE sendHostRound below so
-    // * the round broadcast carries the new levelId (server latches + rebroadcasts;
-    // * non-host clients rotate via onLevelIdChanged). Friends lobbies keep the host's
-    // * deliberate arena choice.
-    if (isQuickplayRematch) {
-      const nextArenaId = pickNextQuickplayArenaId();
-      Netcode.adoptRoomLevelAsHost(nextArenaId);
-      Netcode.adoptRoomAiDifficultyAsHost("quickplay");
-      void rotateLoadedArenaInPlace(nextArenaId);
-    }
-    syncRoundPhase("lobby");
-    clearPodiumEndLatch();
-    GameState.setRoundScores({ 0: 0, 1: 0, 2: 0, 3: 0 });
-    GameState.setRoundWinnerSlotIndex(null);
-    GameState.setRoundStartedAtMs(0);
-    GameState.setRoundCountdownStartedAtMs(0);
-    Netcode.sendHostRound();
-    Netcode.sendPlayAgain();
   }
 
   resultsUi.playAgain.addEventListener("click", onHostPlayAgainClick);
