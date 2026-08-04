@@ -63,7 +63,9 @@ the fix in the message instead of a bogus scenario failure.
   `--disable-features=…IntensiveWakeUpThrottling` as insurance.
 - **`?perfPump=1`** on both clients — the dev-only rAF shim
   ([`src/utils/perfPump.js`](../../src/utils/perfPump.js)) so a backgrounded page's sim loop
-  keeps stepping. See the hidden-tab gotcha in [visual-qa.md](./visual-qa.md).
+  keeps stepping. This remains a diagnostic requirement after HOST-TAB-1: the production
+  hidden-host pump is host/phase-gated, while this rig needs both clients live regardless
+  of authority. See the hidden-tab gotcha in [visual-qa.md](./visual-qa.md).
 - **Input is real dispatched `keydown`/`keyup` on `window`** (WASD/Shift/Space) — the exact
   production input path (`getAxis` → prediction → P2P send → host apply), no source change to
   drive it.

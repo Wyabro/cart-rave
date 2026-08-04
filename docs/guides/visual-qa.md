@@ -30,7 +30,7 @@ npx playwright install chromium
 | `?shot=classic\|classic-edge\|storerooms\|sundial\|sundial-edge` | Named bookmark (level + cam) |
 | `?harness=1` | Install `window.__cartRave` + warm world ASAP |
 | `?hud=0` | Hide main menu chrome (clean arena shots) |
-| `?perfPump` | DEV: keep rAF ticking in hidden tabs |
+| `?perfPump` | DEV tools only: keep rAF ticking in hidden tabs |
 | `?blackmon=1` | VFX-1: live black-frame monitor (L/R slab split); `__blackMon.summary()` |
 | `?bloompipe=display\|hdr` | Bloom pipeline (display=default, the VFX-1 fix; hdr=legacy split) |
 | `?nettest=1` | Install `window.__ccTest` (netcode 2-client rig — [netcode-harness.md](./netcode-harness.md)) |
@@ -67,6 +67,10 @@ npm run qa:visual   # short black-frame battery (needs Playwright + optional dev
 CI: `.github/workflows/check.yml` runs `npm run qa` on push/PR to `cart-clash` / `main`.
 Visual shoot tools are **not** in CI yet (WebGL/headless flakiness) — run locally when
 changing postFX or arenas.
+
+The production hidden-host frame pump is owned by **HOST-TAB-1** and is gated to the
+authoritative host during a live round. Diagnostic tools still pass DEV `?perfPump=1`
+explicitly because they need a live loop regardless of host role or game phase.
 
 ---
 
@@ -190,6 +194,8 @@ npm run tabhidden -- --hold 2000 --report shots/tabhidden.json
 Automates **UI checklist rule #1** (invisible-content trap). Marks the tab hidden
 and **freezes rAF** (no `perfPump`), then returns to the foreground (resuming and
 flushing deferred frames, faithful to Chrome) and asserts nothing is stranded.
+This deliberate exception must not opt into either DEV `?perfPump` or the HOST-TAB-1
+production host pump: the rig's purpose is freeze recovery.
 Two scenes:
 
 - **menu** — replays the menu entrance so its cascade stalls mid-flight, then
