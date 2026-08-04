@@ -33,7 +33,6 @@ import {
   resolveCartNeonHex,
   resolveCartPatternForSlot,
   resolveCartThemeForSlot,
-  resolveServerColorPick,
   wireCustomizationStorageSync,
 } from "./customization.js";
 import { applyCartPattern } from "./cartPatterns.js";
@@ -128,10 +127,9 @@ function nametagHtml(name, meta, mode, isHost, isLeader = false, cargoChip = nul
 }
 import * as AudioManager from "./audioManager.js";
 import * as ArenaAmbience from "./ambience/arenaAmbience.js";
-import { resolveLevelMusic } from "./music/levelMusic.js";
 import * as CameraMod from "./camera.js";
 import * as Effects from "./effects.js";
-import { initDirectiveEngine, shiftDirectiveTimersBy, clearActiveDirective } from "./directives/directiveEngine.js";
+import { initDirectiveEngine, shiftDirectiveTimersBy } from "./directives/directiveEngine.js";
 import { resolveLevelId, prefetchLevelChunks, LEVEL_STORAGE_KEY } from "./levels/index.js";
 import { DEV_UNLOCKS_STORAGE_KEY } from "./unlockConfig.js";
 import { updateLevelLod } from "./utils/levelLod.js";
@@ -144,7 +142,7 @@ import {
 } from "./arenaReactiveLights.js";
 import { initAudioSystem } from "./audioSetup.js";
 import * as SfxSynth from "./sfxSynth.js";
-import { initAnnouncer, announce, setAnnouncerPresenter, registerAnnouncerVoicePack, stopAnnouncer } from "./announcer/announcerManager.js";
+import { initAnnouncer, announce, setAnnouncerPresenter, registerAnnouncerVoicePack } from "./announcer/announcerManager.js";
 import { ANNOUNCER_EVENTS } from "./announcer/announcerEvents.js";
 import { expandAnnouncerVoiceKeys } from "./announcer/announcerVoiceKeys.js";
 import { initAnnouncerStings } from "./announcer/announcerStings.js";
@@ -157,7 +155,6 @@ import {
   dismissInitialBootSplash,
   initLoadingScreen,
   noteBootMilestone,
-  revealGameCanvas,
   showQualityApplyLoading,
   whenModeEntryHidden,
   yieldForPaint,
@@ -187,7 +184,7 @@ import {
   isWorldBootstrapInFlight,
   resetSessionCartBootstrap,
 } from "./bootstrap.js";
-import { initMenuAttract, startMenuAttract, stopMenuAttract } from "./ui/menuAttract.js";
+import { initMenuAttract, startMenuAttract } from "./ui/menuAttract.js";
 import { animateCartBoostPulse, crossfadeElement } from "./animations.js";
 import {
   getIsMuted,
@@ -220,7 +217,6 @@ import {
 } from "./gameFlow.js";
 import { getRoundClockNowMs, getRoundRemainingMs } from "./roundClock.js";
 import { ROUND_DURATION_MS } from "../shared/roundConstants.js";
-import { generateRoomCode, normalizeRoomCode } from "../shared/roomCodes.js";
 import { createGameContext } from "./gameContext.js";
 import {
   buildNetcodeGameBridge,
@@ -237,6 +233,7 @@ import {
 } from "./orchestration/roundLifecycle.js";
 import { createCartOrchestration } from "./orchestration/cartOrchestration.js";
 import { createLoopDeps } from "./orchestration/loopDeps.js";
+import { createMenuPlayEntry } from "./orchestration/menuPlayEntry.js";
 import {
   clamp,
   isTouchDevice,
@@ -520,25 +517,16 @@ let _localColorPicked = false;
 let pendingColorChipEl = null;
 /** @type {string | null} */
 let pendingColorKey = null;
-let menuColorPickListenerWired = false;
 let customizationChangeListenerWired = false;
-let menuActionListenerWired = false;
-let menuNameSyncWired = false;
-let menuJoinWired = false;
 /**
  * FRIENDS-JOIN-1: true when this client reached the room by TYPING a code, which is the
  * only case where "alone in the lobby" might mean "you mistyped it". A host who created a
  * room and is waiting for friends looks identical (alone, isHost, phase lobby) and must
- * never be told to check the code. Cleared on menu return.
+ * never be told to check the code. Cleared on menu return (createMenuPlayEntry).
  */
 let joinedViaTypedCode = false;
-let quickplayAutoRejoinAttempted = false;
 /** @type {boolean} */
 let menuVisible = true;
-/** True once the menu has been presented — later initMenu calls (returning from gameplay) skip the entrance cascade. */
-let menuPresentedOnce = false;
-/** @type {boolean | null} */
-let lastTouchControlsVisible = null;
 import { AUDIO_VOLUME_MAX, AUDIO_VOLUME_DEFAULT } from "./stores/audioStore.js";
 import { settingsStore } from "./stores/settingsStore.js";
 
@@ -846,56 +834,43 @@ async function main() {
     }
   };
 
-  // * Music is per-arena now (src/music/levelMusic.js): each arena's own track list
-  // * is set as the playlist at play entry / arena swap. Multi-song levels shuffle +
-  // * advance; single-song levels loop. setGamePlaylist is URL-only until materialize;
-  // * play-entry warm materializes + decodes track 0 so countdown does not pay first play.
-  /** @type {string | null} Level id whose playlist is already shuffled + materialized. */
-  let preparedLevelMusicId = null;
+  // * MAIN-1 Lever G: menu / play entry + level music + audio unlock + touch visibility.
+  // * Music is per-arena (src/music/levelMusic.js); playlist warm lives in menuPlayEntry.
+  // * Late getters: level drain, podium skip, refreshMenuStats — rebound below.
+  /** @type {ReturnType<typeof createLevelOrchestration> | null} */
+  let level = null;
+  /** @type {() => void} */
+  let removePodiumSkipListeners = () => {};
+  /** @type {() => void} */
+  let refreshMenuStats = () => {};
 
-  /**
-   * Shuffle + register (+ materialize) the arena playlist without starting playback.
-   * Idempotent per level so play-entry warm and commitMenuHidden share one track order.
-   * @param {string | null | undefined} levelId
-   */
-  function prepareLevelMusic(levelId) {
-    if (!levelId) return;
-    if (preparedLevelMusicId === levelId && AudioManager.hasMaterializedGamePlaylist()) {
-      return;
-    }
-    const files = resolveLevelMusic(levelId);
-    // * Shuffle a multi-song level so the same track doesn't always open. Single-song
-    // * levels are unaffected. RNG lives here (main), not the resolvable/testable module.
-    for (let i = files.length - 1; i > 0; i -= 1) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [files[i], files[j]] = [files[j], files[i]];
-    }
-    AudioManager.setGamePlaylist(files.map((f) => [soundUrl(f)]));
-    AudioManager.materializeGamePlaylistIfPending();
-    preparedLevelMusicId = levelId;
-  }
-
-  /** @param {string | null | undefined} levelId */
-  function startLevelMusic(levelId) {
-    prepareLevelMusic(levelId);
-    AudioManager.playGameMusic();
-  }
-
-  // * Autoplay policy: unlock AudioContext on the first user gesture anywhere on the page.
-  // * Registered early (before initMenu) with capture so it fires before other handlers.
-  let didUnlockAudio = false;
-  function unlockAudio() {
-    if (didUnlockAudio) return;
-    didUnlockAudio = true;
-    const ctx = audioListener.context;
-    if (ctx.state === "suspended") {
-      void ctx.resume();
-    }
-    if (menuVisible) AudioManager.playMenuMusic();
-    if (!menuVisible) AudioManager.playGameMusic();
-  }
-  window.addEventListener("pointerdown", unlockAudio, { capture: true, once: true });
-  window.addEventListener("keydown", unlockAudio, { capture: true, once: true });
+  const menu = createMenuPlayEntry({
+    audioListener,
+    soundUrl,
+    getMenuVisible: () => menuVisible,
+    setMenuVisible: (v) => { menuVisible = v; },
+    getLabelRenderer: () => labelRenderer,
+    removePodiumSkipListeners: () => removePodiumSkipListeners(),
+    refreshMenuStats: () => refreshMenuStats(),
+    drainPendingArenaRotation: () => { void level?.drainPendingArenaRotation?.(); },
+    detectGameMode,
+    captureInviteRoomForDeferredMenu,
+    getPendingInviteRoomFromUrl: () => pendingInviteRoomFromUrl,
+    setPendingInviteRoomFromUrl: (v) => { pendingInviteRoomFromUrl = v; },
+    setJoinedViaTypedCode: (v) => { joinedViaTypedCode = v; },
+    getPendingColorChipEl: () => pendingColorChipEl,
+    setPendingColorChipEl: (v) => { pendingColorChipEl = v; },
+    setPendingColorKey: (v) => { pendingColorKey = v; },
+    setLocalColorPicked: (v) => { _localColorPicked = v; },
+    enableModeMenuButtons,
+  });
+  const {
+    prepareLevelMusic,
+    startLevelMusic,
+    updateTouchControlsVisibility,
+    initMenu,
+    commitMenuHiddenForGame,
+  } = menu;
 
   // Make canvas able to receive keyboard focus.
   canvas.tabIndex = 0;
@@ -954,18 +929,6 @@ async function main() {
   });
 
   startGamepadUiNav();
-
-  function updateTouchControlsVisibility() {
-    const roundPhase = GameState.getRoundState().phase;
-    const show =
-      isTouchDevice() &&
-      !menuVisible &&
-      roundPhase !== "podium" &&
-      !HUD.isEscOverlayVisible();
-    if (show === lastTouchControlsVisible) return;
-    lastTouchControlsVisible = show;
-    Input.setTouchControlsVisible(show);
-  }
 
   // --- Renderer & scene ---
   const renderer = createRenderer(canvas);
@@ -1212,7 +1175,7 @@ async function main() {
   applyPostFxAblation({ bloomPass, arcadePass, fxaaPass, outputPass });
 
   // * MAIN-1 Lever C: LevelManagerDeps + level-load helpers live in levelOrchestration.
-  const level = createLevelOrchestration({
+  level = createLevelOrchestration({
     scene,
     camera,
     renderer,
@@ -1228,8 +1191,8 @@ async function main() {
     getAllCartsRef: () => allCartsRef,
     getHud: () => hud,
     resolveCinematicCountdownOverrides,
-    prepareLevelMusic: (levelId) => prepareLevelMusic(levelId),
-    startLevelMusic: (levelId) => startLevelMusic(levelId),
+    prepareLevelMusic,
+    startLevelMusic,
     stopAllChargeSfx: () => cart.stopAllChargeSfx(),
   });
   const {
@@ -1423,399 +1386,9 @@ async function main() {
   /** Wired after clearAutoContinuePodiumTimeout is defined in main(). */
   const podiumAutoContinue = { clear: () => {} };
 
-  function onMenuBootstrapError(mode, err) {
-    console.error(`[menu] ${mode} bootstrap failed:`, err);
-    dismissAllLoadingOverlays();
-    // * The player is dropped back at the menu — say why instead of failing silently.
-    window.CartRave?.showToast?.("Couldn't start the game — check your connection and try again.", 6000);
-  }
+  // * Menu bootstrap / initMenu / commitMenuHiddenForGame live in createMenuPlayEntry (Lever G).
 
-  /** @returns {boolean} true when initNetcode was invoked without throwing. */
-  function bootstrapNetcodeFromMenu(mode, roomOverride) {
-    try {
-      Netcode.initNetcode(roomOverride);
-      return true;
-    } catch (err) {
-      onMenuBootstrapError(mode, err);
-      return false;
-    }
-  }
-
-  /**
-   * Solo/test-drive arena-ready hook for enterPlayMode: kicks netcode under the
-   * loading overlay and holds the overlay until carts exist and shader warm-up is
-   * done (ensureSessionCartsReady resolves post-warmup; the solo game start fires
-   * off that same promise — so the countdown can't begin before loading completes).
-   * @param {string} modeLabel
-   * @returns {(report: (pct: number, label: string) => void) => Promise<void>}
-   */
-  function makeSoloArenaReadyHook(modeLabel) {
-    return async (report) => {
-      report?.(96, "Rolling out carts…");
-      if (!bootstrapNetcodeFromMenu(modeLabel)) return;
-      await ensureSessionCartsReady();
-    };
-  }
-
-  /**
-   * Multiplayer (quickplay/friends) arena-ready hook — same cold-load gate as solo:
-   * keep mode-entry overlay until netcode hello + carts + shader warm finish (NET-2).
-   * @param {string} modeLabel
-   * @param {string} [roomOverride]
-   * @returns {(report: (pct: number, label: string) => void) => Promise<void>}
-   */
-  function makeMultiplayerArenaReadyHook(modeLabel, roomOverride) {
-    return async (report) => {
-      report?.(94, "Connecting…");
-      if (!bootstrapNetcodeFromMenu(modeLabel, roomOverride)) return;
-      report?.(97, "Rolling out carts…");
-      await ensureSessionCartsReady();
-      Netcode.reapplyCachedCartsSnapshot?.();
-      // * Cap-56: game_start used to stack menu-hide + first music/ambience play +
-      // * startCountdown teleports into one ~400ms host LT. Play-entry already
-      // * decoded those packs (audio warm); roll playback under the loading overlay
-      // * so the start tick mostly reveals the canvas. Safe if game_start never
-      // * comes — initMenu stops game music on return.
-      try {
-        AudioManager.stopMenuMusic();
-        startLevelMusic(getCurrentLevelId());
-        ArenaAmbience.startArenaAmbience(getCurrentLevelId());
-      } catch {
-        /* non-fatal — game_start path still starts audio in commitMenuHiddenForGame */
-      }
-    };
-  }
-
-  function initMenu() {
-    noteBootMilestone(90);
-    menuVisible = true;
-    // * Back at the title screen, nobody arrived by typed code any more — a stale flag
-    // * would show "check the code" to the next room's host (FRIENDS-JOIN-1).
-    joinedViaTypedCode = false;
-    removePodiumSkipListeners();
-    setGamepadNavActive(true);
-    startMenuAttract();
-    syncAllAudioUi();
-    // * Always dismiss boot splash first — solo/quickplay paths return early below.
-    void dismissInitialBootSplash();
-    updateTouchControlsVisibility();
-    if (labelRenderer) labelRenderer.domElement.style.display = "none";
-    const hudAudio = document.querySelector(".hud-audio");
-    if (hudAudio) HUD.hideAudioWidget();
-    // * Single canonical gameplay-HUD hide (timer/scores/status/feed/splash/
-    // * directive/toast/hitmarker/floats/… — full audit in hideGameplayElements).
-    // * Menu skips the game loop so frameVisuals + HUD.update never self-clear.
-    HUD.hideGameplayElements();
-    clearActiveDirective();
-    // * Lobby-phase store watch usually stopAnnouncer on LOBBY; belt-and-suspenders
-    // * so a mid-callout return does not leave the PA plate over the title.
-    stopAnnouncer();
-    // Stop game music before menu music starts.
-    try { AudioManager.stopGameMusic(); } catch (e) {}
-    preparedLevelMusicId = null;
-    try { ArenaAmbience.stopArenaAmbience(); } catch (e) {}
-    try { AudioManager.playMenuMusic(); } catch (e) {}
-    const wrap = document.getElementById("cr-root");
-    if (wrap) {
-      // * First presentation gets the full entrance cascade; same-session returns
-      // * from gameplay reveal instantly — replaying the ~1s stagger read as lag.
-      if (menuPresentedOnce) window.CartRave?.revealShell?.();
-      else window.CartRave?.show?.();
-      menuPresentedOnce = true;
-    }
-
-    // Cosmetic: mark color chip as pending until server confirms slots.
-    if (!menuColorPickListenerWired) {
-      menuColorPickListenerWired = true;
-      const customizeColorRow = document.getElementById("cr-customize-color-row");
-      if (customizeColorRow) {
-        customizeColorRow.addEventListener("click", (e) => {
-          const chip = e.target && e.target.closest ? e.target.closest(".cr-color-chip") : null;
-          if (!chip) return;
-          pendingColorChipEl?.classList.remove("color-pending");
-          pendingColorChipEl = chip;
-          pendingColorChipEl.classList.add("color-pending");
-          _localColorPicked = true;
-          const colorToSend = resolveServerColorPick();
-          pendingColorKey = colorToSend && PALETTE.includes(colorToSend) ? colorToSend : null;
-          if (pendingColorKey && Netcode.getPartySocket() && Netcode.getPartySocket().readyState === WebSocket.OPEN) {
-            Netcode.sendColorPick(pendingColorKey);
-          }
-        });
-      }
-    }
-
-    let room = Netcode.resolvedPartyRoomFromUrl();
-
-    // * Mid-round refresh recovery: a solo/testdrive ?room= this tab already
-    // * entered gameplay in is a stale leftover, not a deep link. Strip it and
-    // * present a clean menu (harness/deep-link boots have no sessionStorage
-    // * marker, so their auto-enter below still works).
-    if (
-      room
-      && /^(solo|testdrive)/i.test(room)
-      && sessionGet(SESSION_KEYS.engagedRoom) === room
-    ) {
-      sessionRemove(SESSION_KEYS.engagedRoom);
-      const cleanUrl = new URL(window.location.href);
-      cleanUrl.searchParams.delete("room");
-      history.replaceState({}, "", `${cleanUrl.pathname}${cleanUrl.search}`);
-      room = null;
-    }
-
-    if (room && room.toLowerCase().startsWith("testdrive")) {
-      void enterPlayMode({
-        gameMode: "testdrive",
-        levelId: "testArena",
-        onArenaReady: makeSoloArenaReadyHook("Test Drive"),
-      })
-        .then(() => showRotatePromptIfNeeded())
-        .catch((err) => onMenuBootstrapError("Test Drive", err));
-      return;
-    }
-
-    if (room && room.toLowerCase().startsWith("solo")) {
-      void enterPlayMode({
-        gameMode: "solo",
-        onArenaReady: makeSoloArenaReadyHook("Solo"),
-      })
-        .then(() => showRotatePromptIfNeeded())
-        .catch((err) => onMenuBootstrapError("Solo", err));
-      return;
-    }
-
-    // * Returning visitor refreshing ?room=quickplay — auto-rejoin once per page load.
-    const savedUsername = (storageGet(STORAGE_KEYS.username) || "").trim();
-    const roomParam = new URLSearchParams(window.location.search || "").get("room");
-    if (roomParam === "quickplay" && savedUsername && !quickplayAutoRejoinAttempted) {
-      quickplayAutoRejoinAttempted = true;
-      void enterPlayMode({
-        gameMode: "quickplay",
-        commitMenuHidden: false,
-        onArenaReady: makeMultiplayerArenaReadyHook("Quickplay"),
-      }).catch((err) => onMenuBootstrapError("Quickplay", err));
-      return;
-    }
-
-    document.getElementById("cr-btn-join-invite")?.remove();
-    if (pendingInviteRoomFromUrl) {
-      const btnRow = document.querySelector(".cr-buttons");
-      if (btnRow) {
-        const btn = document.createElement("button");
-        btn.id = "cr-btn-join-invite";
-        btn.type = "button";
-        btn.className = "cr-btn";
-        btn.dataset.action = "joinroom";
-        btn.dataset.colorkey = "secondary";
-        btn.innerHTML =
-          '<span class="cr-btn-inner"><span class="cr-btn-label">JOIN LOBBY</span></span>';
-        btnRow.insertBefore(btn, btnRow.firstChild);
-        btn.addEventListener("click", () => {
-          window.dispatchEvent(new CustomEvent("cartrave:menu", { detail: { action: "joinroom" } }));
-        });
-        window.CartRave?.wireMenuButton?.(btn, { delay: 0, duration: 340, y: 18 });
-      }
-    }
-
-    // Wire new menu button events (once — initMenu may run again after failed joins).
-    if (!menuActionListenerWired) {
-      menuActionListenerWired = true;
-      window.addEventListener("cartrave:menu", (e) => {
-      const action = e.detail.action;
-      if (action === "solo" || action === "quickplay" || action === "friends" || action === "testdrive") {
-        if (!window.__cartRaveBootstrapped) return;
-      }
-      if (action === "joinroom") {
-        const room = pendingInviteRoomFromUrl;
-        if (!room) return;
-        pendingInviteRoomFromUrl = null;
-        document.getElementById("cr-btn-join-invite")?.remove();
-        void enterPlayMode({
-          gameMode: "friends",
-          commitMenuHidden: false,
-          onArenaReady: makeMultiplayerArenaReadyHook("Friends", room),
-        }).catch((err) => onMenuBootstrapError("Friends", err));
-        return;
-      }
-      pendingInviteRoomFromUrl = null;
-      document.getElementById("cr-btn-join-invite")?.remove();
-      if (action === "solo") {
-        const roomId = `solo${Math.random().toString(36).substring(2, 8)}`;
-        const url = new URL(window.location.href);
-        url.searchParams.set("room", roomId);
-        history.pushState({}, "", url);
-        void enterPlayMode({
-          gameMode: "solo",
-          onArenaReady: makeSoloArenaReadyHook("Solo"),
-        })
-          .catch((err) => onMenuBootstrapError("Solo", err));
-      } else if (action === "quickplay") {
-        const url = new URL(window.location.href);
-        url.searchParams.set("room", "quickplay");
-        history.pushState({}, "", url);
-        void enterPlayMode({
-          gameMode: "quickplay",
-          commitMenuHidden: false,
-          onArenaReady: makeMultiplayerArenaReadyHook("Quickplay"),
-        }).catch((err) => onMenuBootstrapError("Quickplay", err));
-      } else if (action === "friends") {
-        // * FRIENDS-JOIN-1: creating a room now JOINS it. The old flow parked the
-        // * creator on an invite screen that opened no socket, so an invited player who
-        // * pressed JOIN LOBBY connected alone and became host of a room its creator had
-        // * never entered — same code on both screens, same room in both URLs, no shared
-        // * room (cap-224/225, 08-01). CHECKOUT LINE already shows the code, the COPY
-        // * button and the roster, so the middle screen had no job left.
-        const roomId = generateRoomCode();
-        const url = new URL(window.location.href);
-        url.searchParams.set("room", roomId);
-        history.pushState({}, "", url);
-        void enterPlayMode({
-          gameMode: "friends",
-          commitMenuHidden: false,
-          onArenaReady: makeMultiplayerArenaReadyHook("Friends"),
-        }).catch((err) => onMenuBootstrapError("Friends", err));
-      }
-    });
-    }
-
-    // ── Join a private room by typed code (FRIENDS-JOIN-1) ──
-    // * The link path already works; this is the path for someone who only HEARD the
-    // * code — the Discord-voice case that had no affordance at all before.
-    if (!menuJoinWired) {
-      menuJoinWired = true;
-      const joinInput = /** @type {HTMLInputElement | null} */ (document.getElementById("cr-join-code"));
-      const joinGo = document.getElementById("cr-join-go");
-      const joinError = document.getElementById("cr-join-error");
-
-      const clearJoinError = () => {
-        if (joinError) joinError.hidden = true;
-      };
-      const showJoinError = () => {
-        // * A silent no-op on a bad code reads as a broken button.
-        if (joinError) joinError.hidden = false;
-        joinInput?.focus();
-        joinInput?.select();
-      };
-
-      const submitJoinCode = () => {
-        clearJoinError();
-        // * 1. One validation funnel: uppercases, and refuses names reserved for a mode.
-        const code = normalizeRoomCode(joinInput?.value ?? "");
-        if (!code) {
-          showJoinError();
-          return;
-        }
-        // * 2. The URL must carry the room — detectGameMode() derives the mode from it,
-        // * and a bare URL resolves to "quickplay", so CHECKOUT LINE would never open.
-        // * Write the VALIDATOR's string, never the raw field: `kale7` and `KALE7` are
-        // * different Durable Objects, which splits the room exactly like a typo.
-        const url = new URL(window.location.href);
-        url.searchParams.set("room", code);
-        history.pushState({}, "", url);
-        // * 3. The joinroom handler reads pendingInviteRoomFromUrl and never the URL, so
-        // * without this it is a silent no-op. Re-run the capture helper rather than
-        // * assigning by hand, so validation has one path; if it disagrees with the
-        // * validator, fail visibly instead of dispatching a join that cannot work.
-        if (!captureInviteRoomForDeferredMenu()) {
-          showJoinError();
-          return;
-        }
-        joinedViaTypedCode = true;
-        if (joinInput) joinInput.value = "";
-        // * 4. Same action the invite link's JOIN LOBBY button fires — one enter path.
-        window.dispatchEvent(new CustomEvent("cartrave:menu", { detail: { action: "joinroom" } }));
-      };
-
-      joinGo?.addEventListener("click", submitJoinCode);
-      joinInput?.addEventListener("input", clearJoinError);
-      joinInput?.addEventListener("keydown", (e) => {
-        if (e.key !== "Enter") return;
-        // * stopPropagation as well as preventDefault: the menu's own Enter handler
-        // * would otherwise activate whatever command is currently selected.
-        e.preventDefault();
-        e.stopPropagation();
-        submitJoinCode();
-      });
-    }
-
-    refreshMenuStats();
-
-    if (getCurrentLevelId() === "testArena") {
-      scheduleMenuLevelPreview();
-    }
-
-    // Sync new menu name to localStorage for join message (once per page load).
-    if (!menuNameSyncWired) {
-      menuNameSyncWired = true;
-      const crNameText = document.getElementById("cr-name-text");
-      if (crNameText) {
-        const saved = storageGet(STORAGE_KEYS.username);
-        if (saved) crNameText.textContent = saved;
-
-        const nameObs = new MutationObserver(() => {
-          const name = crNameText.textContent.trim();
-          if (name) storageSet(STORAGE_KEYS.username, name);
-        });
-        nameObs.observe(crNameText, { childList: true, characterData: true, subtree: true });
-      }
-
-      const crNameInput = document.getElementById("cr-name-input");
-      if (crNameInput) {
-        crNameInput.addEventListener("blur", () => {
-          const name = crNameInput.value.trim();
-          if (name) storageSet(STORAGE_KEYS.username, name);
-        });
-      }
-    }
-
-    if (window.__cartRaveBootstrapped) {
-      enableModeMenuButtons();
-    }
-  }
-
-  // * Room-authoritative levelId latch lives on level.pendingArenaRotationLevelId
-  // * (levelOrchestration) — drained from commitMenuHiddenForGame / bootstrapSessionCarts.
-
-  function commitMenuHiddenForGame() {
-    window.CartRave?.stopAnimations?.();
-    window.CartRave?.hide?.();
-    menuVisible = false;
-    stopMenuAttract();
-    setGamepadNavActive(false);
-    revealGameCanvas();
-    const isTestDrive = detectGameMode() === "testdrive";
-    if (labelRenderer) {
-      labelRenderer.domElement.style.display = isTestDrive ? "none" : "block";
-    }
-    HUD.showAudioWidget();
-    if (isTestDrive) {
-      HUD.hideGameplayElements();
-    }
-    updateTouchControlsVisibility();
-    AudioManager.stopMenuMusic();
-    if (!isTestDrive) {
-      startLevelMusic(getCurrentLevelId());
-    }
-    // * Arena atmosphere rides along in every mode (test drive included — it is the
-    // * world's sound, not the match's). Unknown arenas (testArena) stay silent.
-    ArenaAmbience.startArenaAmbience(getCurrentLevelId());
-    // * Mark solo/testdrive rooms as "engaged" so a mid-round refresh recovers to
-    // * the menu instead of auto-restarting the room from the stale ?room= URL.
-    // * (Quickplay refresh deliberately auto-rejoins — see initMenu.)
-    const engagedRoom = Netcode.resolvedPartyRoomFromUrl();
-    if (engagedRoom && /^(solo|testdrive)/i.test(engagedRoom)) {
-      sessionSet(SESSION_KEYS.engagedRoom, engagedRoom);
-    }
-    // * A room levelId that arrived during play-entry parks in
-    // * pendingArenaRotationLevelId, but the drain no-ops while menuVisible — and
-    // * every pre-hide retry (bootstrapSessionCarts) runs before finishHelloEnter
-    // * gets here. Without this kick the joiner stays on their local menu arena
-    // * until the next round broadcast (07-17 playtest: quickplay joiner loaded
-    // * the wrong level on first join).
-    void drainPendingArenaRotation();
-  }
-
-  const { refreshMenuStats } = createMenuStats({ getPersonalStats });
+  ({ refreshMenuStats } = createMenuStats({ getPersonalStats }));
 
 
   let qualityRebuildInProgress = false;
@@ -2047,9 +1620,10 @@ async function main() {
     resetPodiumSessionState,
     getSoloPauseStartedAtMs,
     setAutoContinuePodiumKey,
-    removePodiumSkipListeners,
+    removePodiumSkipListeners: removePodiumSkipFromRound,
     wirePodiumAutoContinueClear,
   } = round;
+  removePodiumSkipListeners = removePodiumSkipFromRound;
   wirePodiumAutoContinueClear(podiumAutoContinue);
 
 

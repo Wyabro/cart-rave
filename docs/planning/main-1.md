@@ -1,6 +1,6 @@
 # MAIN-1 — Full wave plan (for Wyatt review)
 
-**Status:** acked 08-04 (Wyatt) · **Lever F complete** · next: Lever G · v5 inventory locked.  
+**Status:** acked 08-04 (Wyatt) · **Lever G complete** · next: Lever H · v5 inventory locked.  
 Prep baseline locked at `f1ec6d1` (qa 109 files / 1,350 tests · battery 6/6 · shoot `shots/2026-08-04-main1-prep/`).
 
 **Card:** [BACKLOG.md](./BACKLOG.md) · MAIN-1 (Medium · Tech debt)  
@@ -301,11 +301,11 @@ Call the factory **once** after all referenced handlers exist (or pass already-b
 
 **Asserts:**
 
-- [ ] `npm run qa` green
-- [ ] `npm run battery -- --only gameharness` (covers unlockFunnel + roundflow among other scenarios)
-- [ ] Quickplay / friends / invite / solo / testdrive entry paths still reach `carts-ready`
-- [ ] Menu attract animates (SHOOT-ANIM-1/2 regression)
-- [ ] Level music starts on play entry (spot-check; also §8 row 8)
+- [x] `npm run qa` green — **109** files / **1,350** tests
+- [x] `npm run battery -- --only gameharness` — **41/41 PASS**
+- [x] Quickplay / friends / invite / solo / testdrive entry paths still reach `carts-ready` (code-path + harness timelines)
+- [ ] Menu attract animates (SHOOT-ANIM-1/2) — **owed Wyatt spot-check**
+- [ ] Level music starts on play entry — **owed Wyatt spot-check** (§8 row 8)
 
 **Risk:** highest coupling lever — do not start until B–F are green
 
