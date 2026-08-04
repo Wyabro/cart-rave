@@ -66,7 +66,10 @@ Live rows only. Shipped and closed cards live in
 
 | # | What | Status |
 |---|------|--------|
-| HOST-TAB-1 | Hidden-tab host pump + AFK promote + strongest-host return | ▶ **ACTIVE — DEPLOYED 08-04** (`c3e4589`, Worker `507a8c36`). Lever E live. **Owed: Wyatt playtest — HOST-TAB-1** — retest §10, esp. second migrate same match. |
+| HOST-TAB-1 | Hidden-tab host pump + AFK promote + strongest-host return | ▶ **ACTIVE — DEPLOYED 08-04** (lever E shipped `c3e4589`; still live in current deploy `91b39aa`, Worker `d47d4dd3`). **Owed: Wyatt playtest — HOST-TAB-1** — retest §10, esp. second migrate same match. |
+| FX-TIME-1 | fxTimer never driven — VHS layer frozen | ✅ **DEPLOYED 08-04** (`e87c795` in `91b39aa`, Worker `d47d4dd3`). `fxTimer.update(now)` runs in `onFrame` before the level-swap early return. **Owed: Wyatt playtest — FX-TIME-1** — confirm the VHS layer animates.<br>1. Load Storerooms; grain and tracking band should drift, not sit still.<br>2. If you reach Sudden Death, check the SD pulse breathes.<br>A real look change, not a restore — grain, tears, wobble and glow pulse animate for the first time, so don't blame later visual A/B diffs on it. `?t=` pinning is a separate follow-up. |
+| SHADOW-ORDER-1 | Storerooms booth contact shadows silently dropped | ✅ **DEPLOYED 08-04** (`6560552` in `91b39aa`, Worker `d47d4dd3`). Booths at 31.15 m were built against the 26.4 m circular fallback, so all four blobs were skipped; the level now passes its own square-floor hazards to both clusters. **Owed: Wyatt playtest — SHADOW-ORDER-1** — confirm the booth blobs are back.<br>1. Cold-load Storerooms; count booth shadows — expect 4.<br>2. Warm-swap Classic Record → Storerooms; still 4 (this path used to inherit the previous arena's shape).<br>3. Furniture pile shadow should look unchanged. |
+| ARCH-DRIFT-1 | control-flow.md line refs stale → symbol anchors | ✅ **SHIPPED 08-04** (`91b39aa`). Docs + test only — no playtest owed. 26 citations are now symbol anchors; two tests resolve them and reject any line-number citation in the doc or `archMap.mjs`. |
 | PERF-PASS-1 | 60 fps at Low on the Intel box — **Cart Rave only** (Wyatt scoped it 08-03) | ⏸ **PARKED BY WYATT 08-04 for HOST-TAB-1.** Wave 4 remains deployed (`b754e12`, Worker `9b8b1fbe`); honest measured range −1.66 to −2.54 ms and includes +0.55. Card remains open at ~46 fps; every future cell needs an A-B-A bracket on a cooled box. Menu + evidence: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md). |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
@@ -87,7 +90,8 @@ Live rows only. Shipped and closed cards live in
    deploy has. Run the battery before any RC claim.
 4. **ACTIVE: HOST-TAB-1 lever E** — implemented locally; ship then retest §10 (esp. second migrate).
 5. **Still owed to Wyatt:** the 9-cell PERF sweep (his box, ~25 min — he cannot be replaced here);
-   HOST-TAB-1 retest after ship.
+   HOST-TAB-1 retest §10; plus the two eyeball checks from the 08-04 small-card wave
+   (FX-TIME-1 VHS motion, SHADOW-ORDER-1 booth blobs) — all three now live at `91b39aa`.
 
 **Open High:** PERF-PASS-1 · HOST-TAB-1 · UI-SCALE-1 · RESULTS-1 · CART-MODEL-1 · bloom.
 
@@ -134,6 +138,17 @@ The hot set — what a current session is likely to hit. Deep-domain and narrow 
 - **Before any public / external-tester playtest: reset the analytics DO** so aggregates are not polluted by dev/harness traffic. Token-gated (SEC-TOKEN-1): `DELETE` with `Authorization: Bearer <ERROR_LOG_TOKEN>` on `/api/analytics` (never `?token=`).
 
 ## Last updated
+
+2026-08-04 (FX-TIME-1 · SHADOW-ORDER-1 · ARCH-DRIFT-1 wave) — Three small cards, one commit each,
+DEPLOYED together at `91b39aa` (Worker `d47d4dd3`; prod bundle fetched, SHA confirmed).
+`fxTimer` was never updated, pinning `uTime` at 0 — the VHS layer rendered static.
+`setContactShadowHazards` runs *after* `loadLevel()` builds geometry, so Storerooms' booths
+(31.15 m) tested against the 26.4 m circular fallback and all four blobs were dropped; fixed by
+passing the level's own square-floor hazards (Zanzibar template). Hoisting hazard publication in
+`commitLevelLoad` is the structural fix and is deliberately deferred — it touches the seam MAIN-1
+will split. control-flow.md line refs had all drifted (the card's own replacements were stale
+again), so they are banned in favour of symbol anchors, enforced by two new tests. 109 files /
+1,350 tests, qa green. HOST-TAB-1 was parked for the wave, now ACTIVE.
 
 2026-08-04 (HOST-TAB-1 lever E) — Second-migrate freeze: demoted in-flight initiate could still
 send `sdpOffer`; new host built a zombie PC and skipped its own offer. Fix: host ignores inbound

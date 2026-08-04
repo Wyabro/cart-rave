@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-04T06:04:41.818Z",
-    "commit": "480c8a2"
+    "at": "2026-08-04T06:11:42.438Z",
+    "commit": "91b39aa"
   },
-  "source_digest": "6bd23e5f",
+  "source_digest": "cd99ffc2",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -847,8 +847,26 @@
       {
         "id": "HOST-TAB-1",
         "what": "Hidden-tab host pump + AFK promote + strongest-host return",
-        "status": "▶ ACTIVE — DEPLOYED 08-04 (`c3e4589`, Worker `507a8c36`). Lever E live. Owed: Wyatt playtest — HOST-TAB-1 — retest §10, esp. second migrate same match.",
+        "status": "▶ ACTIVE — DEPLOYED 08-04 (lever E shipped `c3e4589`; still live in current deploy `91b39aa`, Worker `d47d4dd3`). Owed: Wyatt playtest — HOST-TAB-1 — retest §10, esp. second migrate same match.",
         "state": "active"
+      },
+      {
+        "id": "FX-TIME-1",
+        "what": "fxTimer never driven — VHS layer frozen",
+        "status": "✅ DEPLOYED 08-04 (`e87c795` in `91b39aa`, Worker `d47d4dd3`). `fxTimer.update(now)` runs in `onFrame` before the level-swap early return. Owed: Wyatt playtest — FX-TIME-1 — confirm the VHS layer animates.<br>1. Load Storerooms; grain and tracking band should drift, not sit still.<br>2. If you reach Sudden Death, check the SD pulse breathes.<br>A real look change, not a restore — grain, tears, wobble and glow pulse animate for the first time, so don't blame later visual A/B diffs on it. `?t=` pinning is a separate follow-up.",
+        "state": "done"
+      },
+      {
+        "id": "SHADOW-ORDER-1",
+        "what": "Storerooms booth contact shadows silently dropped",
+        "status": "✅ DEPLOYED 08-04 (`6560552` in `91b39aa`, Worker `d47d4dd3`). Booths at 31.15 m were built against the 26.4 m circular fallback, so all four blobs were skipped; the level now passes its own square-floor hazards to both clusters. Owed: Wyatt playtest — SHADOW-ORDER-1 — confirm the booth blobs are back.<br>1. Cold-load Storerooms; count booth shadows — expect 4.<br>2. Warm-swap Classic Record → Storerooms; still 4 (this path used to inherit the previous arena's shape).<br>3. Furniture pile shadow should look unchanged.",
+        "state": "done"
+      },
+      {
+        "id": "ARCH-DRIFT-1",
+        "what": "control-flow.md line refs stale → symbol anchors",
+        "status": "✅ SHIPPED 08-04 (`91b39aa`). Docs + test only — no playtest owed. 26 citations are now symbol anchors; two tests resolve them and reject any line-number citation in the doc or `archMap.mjs`.",
+        "state": "done"
       },
       {
         "id": "PERF-PASS-1",

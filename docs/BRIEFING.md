@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-04 at commit `c3e4589` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `a5b9a8f1`
+> Generated 2026-08-04 at commit `91b39aa` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `38765ecb`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -19,13 +19,15 @@ Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep a
 ## ACTIVE CARD
 
 HOST-TAB-1 — Hidden-tab host pump + AFK promote + strongest-host return
-Pass looks like: ▶ ACTIVE — DEPLOYED 08-04 (`c3e4589`, Worker `507a8c36`). Lever E live. Owed: Wyatt playtest — HOST-TAB-1 — retest §10, esp. second migrate same match.
+Pass looks like: ▶ ACTIVE — DEPLOYED 08-04 (lever E shipped `c3e4589`; still live in current deploy `91b39aa`, Worker `d47d4dd3`). Owed: Wyatt playtest — HOST-TAB-1 — retest §10, esp. second migrate same match.
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 
 ## Waiting on Wyatt (not agent work)
 
-- **HOST-TAB-1** Hidden-tab host pump + AFK promote + strongest-host return — ▶ ACTIVE — DEPLOYED 08-04 (`c3e4589`, Worker `507a8c36`). Lever E live. Owed: Wyatt playtest — HOST-TAB-1 —…
+- **HOST-TAB-1** Hidden-tab host pump + AFK promote + strongest-host return — ▶ ACTIVE — DEPLOYED 08-04 (lever E shipped `c3e4589`; still live in current deploy `91b39aa`, Worker…
+- **FX-TIME-1** fxTimer never driven — VHS layer frozen — ✅ DEPLOYED 08-04 (`e87c795` in `91b39aa`, Worker `d47d4dd3`). `fxTimer.update(now)` runs in `onFrame` before…
+- **SHADOW-ORDER-1** Storerooms booth contact shadows silently dropped — ✅ DEPLOYED 08-04 (`6560552` in `91b39aa`, Worker `d47d4dd3`). Booths at 31.15 m were built against the 26.4 m…
 
 ## Do not
 
