@@ -40,17 +40,19 @@ only follows imports will see the utility leaves and miss the entire orchestrati
 netcode is `callbacks.foo(…)`. The stubs are replaced exactly once at startup:
 
 ```
-src/main.js       Netcode.registerGameCallbacks(buildNetcodeGameBridge(…, gameSession))
+src/main.js       bootstrapNetcodeEntryFromUrl(…)
+  → src/gameSession.js  Netcode.registerGameCallbacks(buildNetcodeGameBridge(…))
   → src/netcode.js  registerGameCallbacks(deps)
     → registerCallbacks({ … })  — merges over the defaults
 ```
 
-Anchors: [`Netcode.registerGameCallbacks`](../../src/main.js) →
+Anchors: [`bootstrapNetcodeEntryFromUrl`](../../src/main.js) →
+[`export function bootstrapNetcodeEntryFromUrl`](../../src/gameSession.js) →
 [`export function registerGameCallbacks`](../../src/netcode.js).
 
 The bundle itself is built by [`buildNetcodeGameBridge`](../../src/gameSession.js) in
 `src/gameSession.js` — that function is the real seam, and it is the right place to look when you
-need to know which `main.js` implementation backs a given `callbacks.*` name.
+need to know which orchestration implementation backs a given `callbacks.*` name.
 
 **`sessionBridgeCtx` is written once** via
 [`buildSessionBridgeContext`](../../src/gameSession.js) in
@@ -62,9 +64,9 @@ arrive as deps; they are not owned by `gameSession.js`. Runtime input/trigger re
 Until MAIN-1 finishes extracting domains, do not invent a third write path around the factory.
 
 **Consequence:** `callbacks.updateCartMaterialsFromSlots()` in netcode is really
-[`function updateCartMaterialsFromSlots`](../../src/main.js) in `src/main.js`. The names usually
-match, but the edge is invisible — and when a name *doesn't* match, only `buildNetcodeGameBridge`
-will tell you.
+[`function updateCartMaterialsFromSlots`](../../src/orchestration/cartOrchestration.js) in
+`cartOrchestration.js` (wired through the session bridge). The names usually match, but the edge
+is invisible — and when a name *doesn't* match, only `buildNetcodeGameBridge` will tell you.
 
 **When adding a hook:** add the stub to the `callbacks` literal in `netcode.js` *and* wire the real
 implementation in `buildNetcodeGameBridge`. Miss the second step and you get a silent no-op, not
@@ -87,23 +89,19 @@ registered globally. `deps.` appears **~399 times across `src/`**.
 **Consequence:** the call graph for a frame is `main.js → runGameLoop → deps.* → back into main.js`.
 It is a loop through an object, not a chain of imports.
 
-### 3. `main.js` is one ~5,800-line closure
+### 3. `main.js` is the composition root (MAIN-1)
 
-**Structurally important and easy to get wrong.** `src/main.js` has only ~29 top-level function
-declarations. [`async function main()`](../../src/main.js) spans roughly the whole file and contains
-**88 inner functions** (MAIN-1 Lever A inventory, 08-04) — `startLevelMusic`,
-`onLocalKillConfirm`, `triggerSpillNetcode`, `bootstrapNetcodeFromMenu`,
-`rebuildForQualityChange`, `finalizeArenaShellForMenu`, and so on. Extraction map:
-[main-1.md](../planning/main-1.md) §6 / appendix.
+**Structurally important and easy to get wrong.** After MAIN-1, domain bodies live under
+`src/orchestration/*` and escape via the `callbacks` / `deps` / `sessionBridgeCtx` seams.
+[`async function main()`](../../src/main.js) is wiring: context creation, factory calls, bridge
+keys. Extraction map: [main-1.md](../planning/main-1.md) §6 / appendix.
 
-These are **never exported and never imported**. They escape the closure *only* by being stuffed
-into the `callbacks` / `deps` / `sessionBridgeCtx` bundles above. So:
+Inner helpers that remain in `main()` are late-bound wiring (quality handlers, harness capture,
+GLB prefetch arming) — not domain logic. Searching for `import { startLevelMusic }` still returns
+nothing; it ships from [`createMenuPlayEntry`](../../src/orchestration/menuPlayEntry.js).
 
-- Searching for `import { startLevelMusic }` returns nothing. It is not dead code.
-- A static call-graph tool renders `main.js` as one enormous node with almost no outbound edges —
-  exactly backwards from reality.
-- Carving this seam is tracked as **MAIN-1** in
-  [BACKLOG.md § Tech Debt](../planning/BACKLOG.md#tech-debt). Until then, expect the closure.
+- A static call-graph tool that only follows imports will still miss the callback/deps spine.
+- Carving this seam was **MAIN-1** in [BACKLOG.md § Tech Debt](../planning/BACKLOG.md#tech-debt).
 
 ### 4. Client ↔ server: string-keyed `MSG.*` dispatch
 

@@ -44,6 +44,11 @@ import {
 import { emblemForSlot } from "../npcNames.js";
 import { svgIcon } from "../ui/icons.js";
 import { resetArenaReactiveLights } from "../arenaReactiveLights.js";
+import {
+  displayCssColorForSlot,
+} from "./cartOrchestration.js";
+import { getPersonalStats, savePersonalStats } from "../ui/menuStats.js";
+import { STORAGE_KEYS, storageGet, storageSet } from "../utils/storage.js";
 
 const LAST_CART_STANDING_FLOURISH_MS = 3000;
 const PODIUM_SKIP_GRACE_MS = 450;
@@ -69,8 +74,6 @@ export function createRoundLifecycle(deps) {
   const {
     camera,
     gameCtx,
-    syncRoundPhase,
-    detectGameMode,
     teleportCartToSpawn,
     getAllCartsRef,
     getHud,
@@ -78,9 +81,6 @@ export function createRoundLifecycle(deps) {
     getMatchHistory,
     getIsNewPersonalBest,
     setIsNewPersonalBest,
-    displayCssColorForSlot,
-    getPersonalStats,
-    recordPodiumStats,
     localCartForConnId,
     refreshHiddenHostLifecycle,
     updateTouchControlsVisibility,
@@ -90,6 +90,79 @@ export function createRoundLifecycle(deps) {
     pickNextQuickplayArenaId,
     rotateLoadedArenaInPlace,
   } = deps;
+
+  const syncRoundPhase = GameState.syncRoundPhase;
+  const detectGameMode = Netcode.detectGameMode;
+
+  /** @type {string | null} Dedupe key so host endRound + redelivered MSG.round never double-count. */
+  let lastPodiumStatsRoundKey = null;
+
+  /**
+   * Records end-of-round match history and local personal stats at podium entry.
+   * @param {number | "draw" | null} winnerSlotIndex
+   * @param {Record<number, number> | null | undefined} scoresSrc
+   */
+  function recordPodiumStats(winnerSlotIndex, scoresSrc) {
+    const startedAtMs = Number(GameState.getRoundState()?.startedAtMs) || 0;
+    const winKey =
+      winnerSlotIndex === "draw"
+        ? "draw"
+        : typeof winnerSlotIndex === "number" && Number.isFinite(winnerSlotIndex)
+          ? String(winnerSlotIndex)
+          : "0";
+    if (startedAtMs > 0) {
+      const key = `${startedAtMs}:${winKey}`;
+      if (lastPodiumStatsRoundKey === key) return;
+      lastPodiumStatsRoundKey = key;
+    }
+
+    /** @type {Record<number, number>} */
+    const scores = {};
+    for (let i = 0; i < 4; i += 1) {
+      const raw = scoresSrc?.[i] ?? /** @type {any} */ (scoresSrc)?.[String(i)];
+      scores[i] = Number(raw ?? 0);
+    }
+
+    const matchHistory = getMatchHistory();
+    matchHistory.push({
+      endedAtMs: Date.now(),
+      winnerSlotIndex: winnerSlotIndex === "draw" ? "draw" : (typeof winnerSlotIndex === "number" && Number.isFinite(winnerSlotIndex) ? winnerSlotIndex : 0),
+      scores,
+      mode: /** @type {any} */ (detectGameMode()),
+    });
+    while (matchHistory.length > 10) matchHistory.shift();
+
+    if (winnerSlotIndex !== "draw" && detectGameMode() === "solo") {
+      let humanCount = 0;
+      for (let i = 0; i < 4; i += 1) {
+        const s = Netcode.getNetSlots()[i];
+        if (s && s.kind === "human" && s.connId != null) humanCount += 1;
+      }
+      if (humanCount === 1) {
+        const stats = getPersonalStats();
+        stats.soloGames += 1;
+        savePersonalStats(stats);
+      }
+    }
+
+    if (winnerSlotIndex !== "draw") {
+      const mySlotIdx = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
+      if (mySlotIdx >= 0) {
+        const stats = getPersonalStats();
+        const myScore = Number(scores[mySlotIdx] ?? 0);
+        stats.matches += 1;
+        stats.totalPoints += myScore;
+        if (winnerSlotIndex === mySlotIdx) stats.wins += 1;
+        savePersonalStats(stats);
+
+        const storedBest = Number(storageGet(STORAGE_KEYS.bestScore, "0")) || 0;
+        if (myScore > storedBest) {
+          setIsNewPersonalBest(true);
+          storageSet(STORAGE_KEYS.bestScore, String(myScore));
+        }
+      }
+    }
+  }
 
   /** @type {ReturnType<typeof setTimeout> | null} */
   let roundCountdownTimeoutId = null;
@@ -1065,6 +1138,7 @@ function onHostPlayAgainClick() {
     updatePlayAgainCountdownLabel,
     handleSoloPauseOverlay,
     onHostPlayAgainClick,
+    recordPodiumStats,
     // Teardown / bridge helpers (rebind Lever B deps)
     clearPodiumRoundTimeout,
     resetResultsOverlayKey,

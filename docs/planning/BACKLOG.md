@@ -194,11 +194,11 @@ Priorities below are post-gate unless Wyatt pulls them forward.
 | ✅ | SHADOW-ORDER-1 | Storerooms static shadows may be tested against the wrong arena | **CLOSED 08-04 — Wyatt playtest PASS** on prod (`91b39aa`): 4 booth blobs on cold load, still 4 after a warm swap from Classic. Fix shipped `6560552`. Both clusters now pass module-local `CONTACT_SHADOW_HAZARDS` (Zanzibar template). **Seam residual** (post-builder `setContactShadowHazards`) is **not** MAIN-1 — tracked as **SHADOW-HAZARD-SEAM-1**. Original filing 08-02; Sundial fixed earlier in `17fc46c`. |
 | Medium | SHADOW-HAZARD-SEAM-1 | Pre-build contact-shadow hazard API | **Filed 08-04** when MAIN-1 cut the infeasible C2 hoist. Player bug closed by SHADOW-ORDER-1 (`6560552` — explicit hazards at cluster create). Seam remains: `setContactShadowHazards` still runs after `loadLevel` (`applyLoadedLevelSideEffects`); `levelHazards` is **output** of the builder, so “hoist before builder returns” is circular. Closing generically needs static/pre-build hazard data (or keep the per-cluster explicit-passing pattern). **Not** a MAIN-1 lever — level-module design. Trigger: next arena that grounds outboard props during construction without an explicit hazards override. |
 | Medium | SHIP-1 | V2 shipping checklist + final QA doc | **Created 07-20** — [SHIP-1.md](./SHIP-1.md), living doc; row stays as pointer until ship. |
-| Medium | MAIN-1 | Carve `main.js` composition seam | Prerequisite for BUNDLE-1. Plan: [main-1.md](./main-1.md). Shadow-hazard hoist is **out** (see SHADOW-HAZARD-SEAM-1). |
+| Medium | MAIN-1 | Carve `main.js` composition seam | **Code complete 08-04** (A–H local) — `main.js` 2402 lines; battery 6/6 + shoot/compare green. **Ship + §8 playtest owed** before close. Plan: [main-1.md](./main-1.md). Shadow-hazard hoist out (SHADOW-HAZARD-SEAM-1). |
 | Medium | STORE-1 | Collapse `gameState` facade dual import | |
 | Medium | DIR-1 | Directive modifiers without mutating `CONFIG` | |
 | Medium | TRUST-1 | Worker validates host-asserted outcomes | Prerequisite for trusted leaderboard. Builds on SRV-TEST-1 helpers. `[SHIP-1 D1]` *(was also an Engineering row — deduped 08-01)* |
-| Low | BUNDLE-1 | Menu/game code-split | Blocked on MAIN-1 (D-PERF-3). |
+| Low | BUNDLE-1 | Menu/game code-split | **Unblocked** once MAIN-1 closes after ship+§8 (seam landed). |
 | Low | GLTF-1 | Drop legacy cart GLTF layout path | |
 | Low | DUAL-1 | Delete leftover dual-era paths | |
 | Low | TS-1 | TypeScript on hot paths / TS 7 | Stay on TS 6.x for the gate. |

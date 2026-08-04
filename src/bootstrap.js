@@ -505,3 +505,81 @@ export async function enterPlayMode(opts = {}) {
 
   return activePlayBootstrapPromise;
 }
+
+/**
+ * Preheats physics + **selected** arena while the player sits on the main menu.
+ * No-ops if play already started, world is warm, or the tab is backgrounded.
+ *
+ * @param {{
+ *   getMenuVisible: () => boolean,
+ *   getIdleWarmRenderer: () => import("three").WebGLRenderer | null,
+ *   scheduleMenuLevelPreview: () => void,
+ *   prefetchLevelChunks: () => Promise<unknown>,
+ *   prefetchAnnouncerSfx: () => void,
+ * }} opts
+ */
+export function scheduleIdleWorldWarm(opts) {
+  const {
+    getMenuVisible,
+    getIdleWarmRenderer,
+    scheduleMenuLevelPreview,
+    prefetchLevelChunks,
+    prefetchAnnouncerSfx,
+  } = opts;
+
+  /** @type {number} ms — let menu music / first paint settle before WASM + arena work. */
+  const IDLE_WARM_DELAY_MS = 1800;
+
+  const runWarm = () => {
+    if (!getMenuVisible()) return;
+    if (isWorldBootstrapped()) return;
+    if (isIdleWorldWarmSuppressed()) return;
+    const selectedId = resolveLevelId(storageGet(LEVEL_STORAGE_KEY));
+    void ensureWorldBootstrapped(selectedId)
+      .then(async () => {
+        if (!isWorldBootstrapped()) {
+          await ensureWorldBootstrapped(resolveLevelId(storageGet(LEVEL_STORAGE_KEY)));
+        }
+        if (!isWorldBootstrapped() || !getMenuVisible()) return;
+        if (import.meta.env.DEV) {
+          // eslint-disable-next-line no-console
+          console.log("[bootstrap] idle world warm done (menu still open)", selectedId);
+        }
+        scheduleMenuLevelPreview();
+        void prefetchLevelChunks().then(async () => {
+          if (!getMenuVisible() || !getIdleWarmRenderer()) return;
+          try {
+            const { warmSunsetEnv } = await import("./levels/zanzibarPlatform.js");
+            warmSunsetEnv(getIdleWarmRenderer());
+          } catch { /* warm-only — play entry bakes it lazily as before */ }
+        });
+        prefetchAnnouncerSfx();
+      })
+      .catch((err) => {
+        console.warn("[bootstrap] idle world warm failed:", err);
+      });
+  };
+
+  const kick = () => {
+    if (document.hidden) {
+      document.addEventListener(
+        "visibilitychange",
+        () => {
+          if (!document.hidden) scheduleIdleWorldWarm(opts);
+        },
+        { once: true },
+      );
+      return;
+    }
+    const start = () => {
+      if (typeof requestIdleCallback === "function") {
+        requestIdleCallback(runWarm, { timeout: 4000 });
+      } else {
+        setTimeout(runWarm, 0);
+      }
+    };
+    setTimeout(start, IDLE_WARM_DELAY_MS);
+  };
+
+  kick();
+}

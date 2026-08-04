@@ -1,6 +1,7 @@
 // gameSession.js — connect → play → teardown → in-tab menu return
 
 import * as GameState from "./gameState.js";
+import * as Netcode from "./netcode.js";
 import { SESSION_KEYS, sessionRemove } from "./utils/storage.js";
 import { trackEvent } from "./analytics/analytics.js";
 import { invalidateActivePlayEntry } from "./bootstrap.js";
@@ -75,6 +76,46 @@ export function createHelloGate() {
       pendingBootstrap = false;
     },
   };
+}
+
+/**
+ * Hello → cart-bootstrap flush helpers used by the session bridge.
+ * @param {ReturnType<typeof createHelloGate>} helloGate
+ * @param {() => { ensureSessionReady?: () => Promise<void> } | null} getBridge
+ */
+export function createHelloBootstrapFlush(helloGate, getBridge) {
+  async function flushPendingSessionBootstrap() {
+    if (!helloGate.hasPendingBootstrap() && !helloGate.isReceived()) return;
+    if (!helloGate.isReceived()) return;
+    const ensureReady = getBridge()?.ensureSessionReady;
+    if (!ensureReady) return;
+    try {
+      await ensureReady();
+    } catch (err) {
+      console.warn("[session] cart bootstrap flush failed", err);
+    } finally {
+      helloGate.clearPendingBootstrap();
+    }
+  }
+
+  function markFirstHelloReceived(slots) {
+    helloGate.markReceived(slots ?? Netcode.getNetSlots());
+    void flushPendingSessionBootstrap();
+  }
+
+  return { flushPendingSessionBootstrap, markFirstHelloReceived };
+}
+
+/**
+ * Registers netcode game callbacks and optionally defers connect for invite ?room=.
+ * @param {{ current: object | null }} sessionBridgeCtx
+ * @param {{ returnToMenu: (opts?: object) => void }} gameSession
+ * @param {() => boolean} captureInviteRoomForDeferredMenu
+ */
+export function bootstrapNetcodeEntryFromUrl(sessionBridgeCtx, gameSession, captureInviteRoomForDeferredMenu) {
+  if (typeof window === "undefined") return;
+  Netcode.registerGameCallbacks(buildNetcodeGameBridge(() => sessionBridgeCtx.current, gameSession));
+  if (captureInviteRoomForDeferredMenu()) return;
 }
 
 /**

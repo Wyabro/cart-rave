@@ -21,9 +21,21 @@ import { animateCartBoostPulse, animateCartImpactSquash } from "../animations.js
 import { flashBoostActivate } from "../touchControls.js";
 import { spawnKoWorldHitmarker } from "../effects/koHitmarkerFx.js";
 import { triggerArenaKoFlash } from "../arenaReactiveLights.js";
-import { getNpcPersonality, PERSONALITY_META } from "../npcNames.js";
+import { getNpcPersonality, PERSONALITY_META, NPC_NAME_POOL } from "../npcNames.js";
 import { cargoFillLevelFor, cargoTierFor } from "../cargoLoad.js";
-import { resolveCartThemeForSlot } from "../customization.js";
+import {
+  resolveCartNeonCss,
+  resolveCartNeonHex,
+  resolveCartPatternForSlot,
+  resolveCartThemeForSlot,
+} from "../customization.js";
+import { applyCartPattern } from "../cartPatterns.js";
+import { getCartTheme } from "../cartThemeConfig.js";
+import {
+  applyThemeColorToCache,
+  buildCartThemeMaterialCache,
+} from "../cartThemes.js";
+import { svgIcon } from "../ui/icons.js";
 import {
   getActiveAiDifficulty,
   getBoostAlignmentAngleDeg,
@@ -39,6 +51,72 @@ import {
 import { clamp } from "../utils.js";
 import { createCart } from "../entities.js";
 
+/** Escapes player-provided text for the innerHTML-based nametag markup. */
+function escapeHtml(text) {
+  return String(text).replace(/[&<>"']/g, (ch) => (
+    { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]
+  ));
+}
+
+/**
+ * Builds nametag inner markup: personality icon for NPCs, host antenna, leader crown,
+ * cargo chip. Personality meta comes from PERSONALITY_META (npcNames.js).
+ *
+ * @param {string} name
+ * @param {{ icon: string, color: string, label: string } | null} meta
+ * @param {"intro" | "normal"} mode
+ * @param {boolean} isHost
+ * @param {boolean} [isLeader]
+ * @param {{ tier: "stripped" | "stocked" | "boss", fill: number } | null} [cargoChip]
+ * @returns {string}
+ */
+function nametagHtml(name, meta, mode, isHost, isLeader = false, cargoChip = null) {
+  const hostGlyph = isHost
+    ? `<span style="opacity:.85;margin-right:5px;">${svgIcon("host", { label: "Host" })}</span>`
+    : "";
+  const crown = isLeader
+    ? `<span class="cart-nametag-crown">${svgIcon("crown", { label: "Leader" })}</span>`
+    : "";
+  const cargo = cargoChip
+    ? `<span class="cart-nametag-cargo" data-cargo="${cargoChip.tier}" data-fill="${cargoChip.fill | 0}" aria-label="Cargo ${cargoChip.fill | 0} of 4"><i></i><i></i><i></i><i></i></span>`
+    : "";
+  if (!meta) return `${hostGlyph}${escapeHtml(name)}${crown}${cargo}`;
+  const icon = `<span style="color:${meta.color};margin-right:6px;">${svgIcon(meta.icon, { label: meta.label })}</span>`;
+  if (mode === "intro") {
+    return `${icon}<span style="color:${meta.color};">${meta.label}</span>${crown}${cargo}`;
+  }
+  return `${icon}${escapeHtml(name)}${crown}${cargo}`;
+}
+
+/** Caches per-cart materials so recoloring doesn't traverse the mesh every update. */
+export function buildCartMaterialCache(cartMesh) {
+  return buildCartThemeMaterialCache(cartMesh);
+}
+
+/** Neon frame color for rendering — local human uses Customize; others use server slot color. */
+export function displayColorHexForSlot(slot) {
+  return resolveCartNeonHex(slot, { youConnId: Netcode.getYouConnId() });
+}
+
+/** CSS hex for HUD, name labels, and results — same rules as displayColorHexForSlot. */
+export function displayCssColorForSlot(slot) {
+  return resolveCartNeonCss(slot, { youConnId: Netcode.getYouConnId() });
+}
+
+function testDriveSpawnForSlot(_slotIndex, config) {
+  const y = config.cart.size.y / 2 + (config.cart.collider?.localYOffset ?? 0.13) + 0.05;
+  return { x: 0, y, z: 0 };
+}
+
+export function shuffledClientNpcNames(count) {
+  const names = [...NPC_NAME_POOL];
+  for (let i = names.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [names[i], names[j]] = [names[j], names[i]];
+  }
+  return names.slice(0, count);
+}
+
 /**
  * Cart spawn/teardown, name labels, boost/hop/ram, NPC opportunistic helpers, juice/FX.
  * Owns juice mutable state + nameLabels + allCarts; syncs allCartsRef via deps.
@@ -50,11 +128,6 @@ export function createCartOrchestration(deps) {
     camera,
     getFxPass,
     getHud,
-    localCartForConnId,
-    displayColorHexForSlot,
-    displayCssColorForSlot,
-    detectGameMode,
-    nametagHtml,
     ramBoostStreaks,
     getWorld,
     getAllCartsRef,
@@ -65,10 +138,8 @@ export function createCartOrchestration(deps) {
     sessionRefs,
     gameCtx,
     rewireSessionNetcodeRefs,
-    updateCartMaterialsFromSlots,
     drainPendingArenaRotation,
     getSpawnTrashBurstRef,
-    testDriveSpawnForSlot,
   } = deps;
 
   let shakeUntil = 0;
@@ -107,6 +178,91 @@ export function createCartOrchestration(deps) {
   const nameLabels = [];
   let allCarts = [];
 
+  /** @type {{ renderer: import("three").WebGLRenderer, scene: import("three").Scene, camera: import("three").Camera } | null} */
+  let slotsWarmupCtx = null;
+  let slotsWarmupPending = false;
+
+  function setSlotsWarmupCtx(ctx) {
+    slotsWarmupCtx = ctx;
+  }
+
+  function scheduleSlotsMaterialWarmup() {
+    if (!slotsWarmupCtx || slotsWarmupPending) return;
+    slotsWarmupPending = true;
+    setTimeout(() => {
+      slotsWarmupPending = false;
+      const ctx = slotsWarmupCtx;
+      if (!ctx) return;
+      ctx.renderer.compileAsync(ctx.scene, ctx.camera).catch(() => {});
+    }, 0);
+  }
+
+  function localCartForConnId() {
+    const carts = getAllCartsRef() || allCarts || [];
+    const idx = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
+    if (idx < 0) return null;
+    return carts[idx] || null;
+  }
+
+  function teleportCartToSpawn(slotIndex) {
+    const carts = getAllCartsRef() || allCarts;
+    if (!carts || typeof slotIndex !== "number") return;
+    const cart = carts[slotIndex];
+    if (!cart?.body || !cart.spawn) return;
+    cart.body.setTranslation({ x: cart.spawn.x, y: cart.spawn.y + 1.0, z: cart.spawn.z }, true);
+    cart.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
+    cart.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+    if (typeof cart.spawnYaw === "number") {
+      const halfYaw = cart.spawnYaw / 2;
+      cart.body.setRotation({ x: 0, y: Math.sin(halfYaw), z: 0, w: Math.cos(halfYaw) }, true);
+    }
+    cart.body.wakeUp();
+  }
+
+  function updateCartMaterialsFromSlots(slots) {
+    const carts = getAllCartsRef() || allCarts;
+    if (!carts || !Array.isArray(slots)) return;
+
+    const youConnId = Netcode.getYouConnId();
+
+    for (let slotIndex = 0; slotIndex < slots.length; slotIndex += 1) {
+      const slot = slots[slotIndex];
+      const cart = carts[slotIndex];
+      if (!slot || !cart?.mesh) continue;
+
+      if (slot.kind === "empty") {
+        cart.mesh.visible = false;
+        if (cart.body) cart.body.setEnabled(false);
+        continue;
+      }
+
+      if (slot.kind === "human" || slot.kind === "npc") {
+        cart.mesh.visible = true;
+        if (cart.body) cart.body.setEnabled(true);
+      }
+
+      const finalHex = displayColorHexForSlot(slot);
+      const themeId = cart.cartThemeId
+        ?? resolveCartThemeForSlot(slot, { youConnId });
+      const cache = cart._materialCache || (cart._materialCache = buildCartMaterialCache(cart.mesh));
+
+      applyThemeColorToCache(cache, themeId, finalHex);
+
+      const theme = getCartTheme(themeId);
+      if (theme.patternPolicy !== "disable") {
+        const patternId = resolveCartPatternForSlot(slot, { youConnId });
+        applyCartPattern(cart.mesh, patternId, finalHex);
+        cart.cartPatternId = patternId;
+      }
+
+      cart.cartColor = finalHex;
+    }
+    scheduleSlotsMaterialWarmup();
+  }
+
+  function updateHudColorsFromSlots(slots) {
+    HUD.refreshScoreBoxGlows(slots, Netcode.getYouConnId());
+  }
 
 function triggerImpactPulse(strength) {
   const pass = getFxPass();
@@ -473,7 +629,7 @@ function updateNameLabels() {
     const meta = personality ? (PERSONALITY_META[personality.name] || null) : null;
     const introMode = meta && GameState.getRoundState().phase === "countdown" ? "intro" : "normal";
     // * Host glyph only means something online — solo/testdrive is always "host".
-    const mode = detectGameMode();
+    const mode = Netcode.detectGameMode();
     const hostGlyphEligible = mode !== "solo" && mode !== "testdrive";
     const isHostSlot = hostGlyphEligible && Boolean(slot.connId && slot.connId === Netcode.getHostId());
     // * CARGO-HUD-1: lifeCargoPoints is already client-side for every cart (host sim
@@ -558,7 +714,7 @@ function bootstrapSessionCarts(expectedGen) {
     colorHexForSlot: displayColorHexForSlot,
     themeForSlot: (slot) => resolveCartThemeForSlot(slot, { youConnId: Netcode.getYouConnId() }),
     pendingMidRoundJoinRespawnConnId: getPendingMidRoundJoinRespawnConnId(),
-    ...(detectGameMode() === "testdrive"
+    ...(Netcode.detectGameMode() === "testdrive"
       ? {
         spawnForSlot: () => testDriveSpawnForSlot(0, CONFIG),
         spawnYawForSlot: () => 0,
@@ -610,9 +766,9 @@ function destroySessionCarts() {
 
 function getAiAxis(now, cart) {
   // * Solo rubberband is host-local AI only — never arm it for multiplayer rooms.
-  Simulation.setSoloRubberbandActive(detectGameMode() === "solo");
+  Simulation.setSoloRubberbandActive(Netcode.detectGameMode() === "solo");
   // * Latch room difficulty once for the host brain (Quickplay → medium; Solo/Friends → store).
-  Netcode.ensureHostAiDifficultyLatched(detectGameMode());
+  Netcode.ensureHostAiDifficultyLatched(Netcode.detectGameMode());
   return Simulation.getAiAxis(now, cart, allCarts, Netcode.getNetSlots());
 }
 
@@ -883,7 +1039,7 @@ function maybeTriggerNpcOpportunisticRamBoost(nowMs, npc) {
   if (!nearestIsHuman) {
     const commitChance = npc.aiPersonality?.npcRamCommitChance ?? 0.25;
     if (Math.random() >= commitChance) return;
-  } else if (detectGameMode() === "solo") {
+  } else if (Netcode.detectGameMode() === "solo") {
     const solo = Simulation.getSoloRubberbandFactors(netSlots);
     aimSlackDeg = solo.aimSlackDeg;
     // * nitroMul is absolute vs human (base was 1.0). Trail ~0.55; lead stays 1.0.
@@ -1044,26 +1200,6 @@ function maybeTriggerNpcOpportunisticHop(nowMs, npc) {
   triggerHop(npc, nowMs);
 }
 
-function currentCartSnapshot() {
-  const carts = [];
-  const round3 = (v) => Math.round(v * 1000) / 1000;
-  for (let i = 0; i < allCarts.length; i += 1) {
-    const c = allCarts[i];
-    if (!c?.body) continue;
-    const t = c.body.translation();
-    const r = c.body.rotation();
-    const lv = c.body.linvel();
-    const av = c.body.angvel();
-    carts[i] = {
-      p: [round3(t.x), round3(t.y), round3(t.z)],
-      q: [round3(r.x), round3(r.y), round3(r.z), round3(r.w)],
-      lv: [round3(lv.x), round3(lv.y), round3(lv.z)],
-      av: [round3(av.x), round3(av.y), round3(av.z)],
-    };
-  }
-  return carts;
-}
-
   return {
     triggerImpactPulse,
     armFovPunch,
@@ -1095,7 +1231,11 @@ function currentCartSnapshot() {
     onHopLand,
     maybeTriggerNpcOpportunisticRamBoost,
     maybeTriggerNpcOpportunisticHop,
-    currentCartSnapshot,
+    localCartForConnId,
+    teleportCartToSpawn,
+    updateCartMaterialsFromSlots,
+    updateHudColorsFromSlots,
+    setSlotsWarmupCtx,
     // Juice state accessors (visualDeps / game loop)
     getShakeUntil: () => shakeUntil,
     getShakeIntensity: () => shakeIntensity,

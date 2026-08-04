@@ -27,11 +27,11 @@ const HOST_AWAY_AFTER_MS = 10_000;
  * all cart/round/level closures exist.
  *
  * @param {object} deps
- * @param {() => string} deps.detectGameMode
  * @param {() => { refresh?: () => void, getPumpTickCount?: () => number } | null} deps.getGameLoopDriver
  */
 export function createLoopDeps(deps) {
-  const { detectGameMode, getGameLoopDriver } = deps;
+  const { getGameLoopDriver } = deps;
+  const detectGameMode = () => Netcode.detectGameMode();
 
   /** @type {ReturnType<typeof setTimeout> | null} */
   let hostAwayTimerId = null;

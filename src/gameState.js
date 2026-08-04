@@ -25,6 +25,17 @@ export function setRoundPhase(phase) {
 }
 
 /**
+ * Round-phase transitions that always clear leftover Rampage combo on a fresh
+ * countdown/running boundary (solo RESTART can land inside the previous round's
+ * 5s combo window and flash the badge over 3-2-1).
+ * @param {string} phase
+ */
+export function syncRoundPhase(phase) {
+  if (phase === "countdown" || phase === "running") setLocalCombo(0, 0);
+  setRoundPhase(phase);
+}
+
+/**
  * @param {number} slotIndex
  * @param {number} points
  * @param {boolean} [suppressSuddenDeathWin=false] When true, awards score without ending Sudden Death.

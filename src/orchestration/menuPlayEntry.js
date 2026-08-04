@@ -36,6 +36,43 @@ import {
 } from "../utils/storage.js";
 import { isTouchDevice } from "../utils.js";
 
+const MODE_MENU_BUTTON_IDS = ["cr-solo", "cr-quickplay", "cr-friends"];
+
+/** @type {string | null} Valid ?room= on first paint for friend-invite deferred menu. */
+let pendingInviteRoomFromUrl = null;
+
+function getPendingInviteRoomFromUrl() {
+  return pendingInviteRoomFromUrl;
+}
+
+/** @param {string | null} v */
+function setPendingInviteRoomFromUrl(v) {
+  pendingInviteRoomFromUrl = v;
+}
+
+/** Valid ?room= on first paint: show menu before PartyKit connect (friend links). */
+export function captureInviteRoomForDeferredMenu() {
+  pendingInviteRoomFromUrl = null;
+  if (typeof window === "undefined") return false;
+  const params = new URLSearchParams(window.location.search || "");
+  const raw = (params.get("room") || "").trim();
+  const isValid = /^[A-Za-z0-9]{2,16}$/.test(raw);
+  if (!isValid) return false;
+  if (raw === "quickplay" || raw.toLowerCase().startsWith("solo") || raw.toLowerCase().startsWith("testdrive")) return false;
+  pendingInviteRoomFromUrl = raw;
+  return true;
+}
+
+export function enableModeMenuButtons() {
+  for (const id of MODE_MENU_BUTTON_IDS) {
+    const btn = document.getElementById(id);
+    if (!btn) continue;
+    btn.classList.remove("cr-btn--boot-pending");
+    btn.disabled = false;
+    btn.removeAttribute("aria-disabled");
+  }
+}
+
 /**
  * Menu / play-entry seam: level music, audio unlock, touch HUD visibility,
  * bootstrap arena-ready hooks, initMenu, commitMenuHiddenForGame.
@@ -54,16 +91,11 @@ import { isTouchDevice } from "../utils.js";
  * @param {() => void} deps.removePodiumSkipListeners
  * @param {() => void} deps.refreshMenuStats
  * @param {() => void | Promise<void>} deps.drainPendingArenaRotation
- * @param {() => "quickplay" | "solo" | "testdrive" | "friends"} deps.detectGameMode
- * @param {() => boolean} deps.captureInviteRoomForDeferredMenu
- * @param {() => string | null} deps.getPendingInviteRoomFromUrl
- * @param {(v: string | null) => void} deps.setPendingInviteRoomFromUrl
  * @param {(v: boolean) => void} deps.setJoinedViaTypedCode
  * @param {() => HTMLElement | null} deps.getPendingColorChipEl
  * @param {(v: HTMLElement | null) => void} deps.setPendingColorChipEl
  * @param {(v: string | null) => void} deps.setPendingColorKey
  * @param {(v: boolean) => void} deps.setLocalColorPicked
- * @param {() => void} deps.enableModeMenuButtons
  */
 export function createMenuPlayEntry(deps) {
   const {
@@ -75,16 +107,11 @@ export function createMenuPlayEntry(deps) {
     removePodiumSkipListeners,
     refreshMenuStats,
     drainPendingArenaRotation,
-    detectGameMode,
-    captureInviteRoomForDeferredMenu,
-    getPendingInviteRoomFromUrl,
-    setPendingInviteRoomFromUrl,
     setJoinedViaTypedCode,
     getPendingColorChipEl,
     setPendingColorChipEl,
     setPendingColorKey,
     setLocalColorPicked,
-    enableModeMenuButtons,
   } = deps;
 
   /** @type {string | null} Level id whose playlist is already shuffled + materialized. */
@@ -438,7 +465,7 @@ export function createMenuPlayEntry(deps) {
           showJoinError();
           return;
         }
-        // * 2. The URL must carry the room — detectGameMode() derives the mode from it,
+        // * 2. The URL must carry the room — Netcode.detectGameMode() derives the mode from it,
         // * and a bare URL resolves to "quickplay", so CHECKOUT LINE would never open.
         // * Write the VALIDATOR's string, never the raw field: `kale7` and `KALE7` are
         // * different Durable Objects, which splits the room exactly like a typo.
@@ -513,7 +540,7 @@ export function createMenuPlayEntry(deps) {
     stopMenuAttract();
     setGamepadNavActive(false);
     revealGameCanvas();
-    const isTestDrive = detectGameMode() === "testdrive";
+    const isTestDrive = Netcode.detectGameMode() === "testdrive";
     const labelRenderer = getLabelRenderer();
     if (labelRenderer) {
       labelRenderer.domElement.style.display = isTestDrive ? "none" : "block";

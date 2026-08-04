@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-04 at commit `f1ec6d1` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `0e4f52e2`
+> Generated 2026-08-04 at commit `5b4c32d` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `24c214bf`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -19,7 +19,7 @@ Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep a
 ## ACTIVE CARD
 
 MAIN-1 — Carve `main.js` composition seam (enables BUNDLE-1)
-Pass looks like: ▶ ACTIVE — acked 08-04; Lever A docs map locked (88 symbols); next Lever B session-bridge factory. Plan: [main-1.md](./planning/main-1.md). Run 8 FAIL triage parked for this wave (~3–4 sessions).
+Pass looks like: ▶ ACTIVE (code done) — levers A–H committed locally; `main.js` 2402 lines (soft ≤1500 missed — remaining is composition wiring). Battery 6/6 + shoot/compare green. Awaiting Wyatt “ship it” → deploy → §8 playtest + playtest:console. Plan: [main-1.md](./planning/main-1.md).
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 

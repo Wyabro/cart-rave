@@ -895,6 +895,15 @@ export function resolvedPartyRoomFromUrl() {
   return /^[A-Za-z0-9]{2,16}$/.test(raw) ? raw : "quickplay";
 }
 
+/** @returns {"quickplay" | "solo" | "testdrive" | "friends"} */
+export function detectGameMode() {
+  const room = resolvedPartyRoomFromUrl();
+  if (room.toLowerCase().startsWith("testdrive")) return "testdrive";
+  if (room.startsWith("solo")) return "solo";
+  if (room === "quickplay") return "quickplay";
+  return "friends";
+}
+
 // === HOST / CLIENT AUTHORITY ===
 
 /**

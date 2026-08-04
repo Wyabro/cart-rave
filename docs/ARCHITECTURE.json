@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-04T08:51:19.190Z",
-    "commit": "51110db"
+    "at": "2026-08-04T09:37:14.832Z",
+    "commit": "5b4c32d"
   },
-  "source_digest": "b8a44b1d",
+  "source_digest": "26802e15",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -852,7 +852,7 @@
       {
         "id": "MAIN-1",
         "what": "Carve `main.js` composition seam (enables BUNDLE-1)",
-        "status": "▶ ACTIVE — acked 08-04; Lever A docs map locked (88 symbols); next Lever B session-bridge factory. Plan: [main-1.md](./planning/main-1.md). Run 8 FAIL triage parked for this wave (~3–4 sessions).",
+        "status": "▶ ACTIVE (code done) — levers A–H committed locally; `main.js` 2402 lines (soft ≤1500 missed — remaining is composition wiring). Battery 6/6 + shoot/compare green. Awaiting Wyatt “ship it” → deploy → §8 playtest + playtest:console. Plan: [main-1.md](./planning/main-1.md).",
         "state": "active",
         "touches_systems": [
           {
@@ -873,8 +873,8 @@
       {
         "id": "BUNDLE-1",
         "what": "Menu/game code-split",
-        "status": "🚫 blocked on MAIN-1",
-        "state": "locked"
+        "status": "📋 unblocked after MAIN-1 closes (code seam landed; wait for ship+§8 before starting)",
+        "state": "waiting"
       },
       {
         "id": "BRAND-1",
@@ -884,9 +884,9 @@
       }
     ],
     "next_actions": [
-      "MAIN-1 in flight — Lever A committed (inventory + control-flow anchors). Next: Lever B (`buildSessionBridgeContext` in `gameSession.js`). One subagent per lever; full battery required on F and H only.",
-      "Run 8 FAIL triage consciously parked for this wave — do not auto-pick FAIL cards while MAIN-1 is active.",
-      "Still owed to Wyatt (separate): the 9-cell PERF sweep (his box, ~25 min). HOST-TAB-1 closed 08-04 (3/0). PT-CONSOLE-READY-1 unblocked for a later tools block."
+      "MAIN-1 code complete (unpushed until ship) — say “ship it” to push + deploy, then §8 playtest (incl. audio, host-tab, arena picker, quality toggle) via regenerated playtest console.",
+      "Owed spot-checks from this wave (can fold into §8): menu arena picker fade · Low↔High quality · HOST-TAB-1 brief/10s hide · menu attract · level music.",
+      "Still owed separately: 9-cell PERF sweep (~25 min on Wyatt’s box). Run 8 FAIL triage was parked for MAIN-1 — resume after card closes."
     ],
     "open_issues": [
       {
@@ -902,7 +902,7 @@
       {
         "id": "MAIN-1",
         "issue": "Carve `main.js` composition seam (enables BUNDLE-1)",
-        "status": "▶ **ACTIVE** — Lever A map locked; [main-1.md](./planning/main-1.md)"
+        "status": "▶ **code done** — A–H local; ship+§8 owed. [main-1.md](./planning/main-1.md)"
       },
       {
         "id": "BUNDLE-1",
@@ -1551,7 +1551,7 @@
             "pri": "Medium",
             "id": "MAIN-1",
             "item": "Carve `main.js` composition seam",
-            "notes": "Prerequisite for BUNDLE-1. Plan: [main-1.md](./main-1.md). Shadow-hazard hoist is **out** (see SHADOW-HAZARD-SEAM-1).",
+            "notes": "**Code complete 08-04** (A–H local) — `main.js` 2402 lines; battery 6/6 + shoot/compare green. **Ship + §8 playtest owed** before close. Plan: [main-1.md](./main-1.md). Shadow-hazard hoist out (SHADOW-HAZARD-SEAM-1).",
             "ship1": null
           },
           {
@@ -1579,7 +1579,7 @@
             "pri": "Low",
             "id": "BUNDLE-1",
             "item": "Menu/game code-split",
-            "notes": "Blocked on MAIN-1 (D-PERF-3).",
+            "notes": "**Unblocked** once MAIN-1 closes after ship+§8 (seam landed).",
             "ship1": null
           },
           {

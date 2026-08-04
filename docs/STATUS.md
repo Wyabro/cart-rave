@@ -66,16 +66,16 @@ Live rows only. Shipped and closed cards live in
 
 | # | What | Status |
 |---|------|--------|
-| MAIN-1 | Carve `main.js` composition seam (enables BUNDLE-1) | ▶ **ACTIVE** — acked 08-04; Lever A docs map locked (88 symbols); next Lever B session-bridge factory. Plan: [main-1.md](./planning/main-1.md). Run 8 FAIL triage parked for this wave (~3–4 sessions). |
+| MAIN-1 | Carve `main.js` composition seam (enables BUNDLE-1) | ▶ **ACTIVE (code done)** — levers A–H committed locally; `main.js` **2402** lines (soft ≤1500 missed — remaining is composition wiring). Battery 6/6 + shoot/compare green. **Awaiting Wyatt “ship it”** → deploy → §8 playtest + playtest:console. Plan: [main-1.md](./planning/main-1.md). |
 | PERF-PASS-1 | 60 fps at Low on the Intel box — **Cart Rave only** (Wyatt scoped it 08-03) | ⏸ **PARKED BY WYATT 08-04 for HOST-TAB-1.** Wave 4 remains deployed (`b754e12`, Worker `9b8b1fbe`); honest measured range −1.66 to −2.54 ms and includes +0.55. Card remains open at ~46 fps; every future cell needs an A-B-A bracket on a cooled box. Menu + evidence: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md). |
-| BUNDLE-1 | Menu/game code-split | 🚫 blocked on MAIN-1 |
+| BUNDLE-1 | Menu/game code-split | 📋 **unblocked** after MAIN-1 closes (code seam landed; wait for ship+§8 before starting) |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 
 ### Next actions
 
-1. **MAIN-1 in flight** — Lever A committed (inventory + control-flow anchors). Next: Lever B (`buildSessionBridgeContext` in `gameSession.js`). One subagent per lever; full battery required on F and H only.
-2. **Run 8 FAIL triage** consciously parked for this wave — do not auto-pick FAIL cards while MAIN-1 is active.
-3. **Still owed to Wyatt (separate):** the 9-cell PERF sweep (his box, ~25 min). HOST-TAB-1 closed 08-04 (3/0). PT-CONSOLE-READY-1 unblocked for a later tools block.
+1. **MAIN-1 code complete (unpushed until ship)** — say **“ship it”** to push + deploy, then §8 playtest (incl. audio, host-tab, arena picker, quality toggle) via regenerated playtest console.
+2. **Owed spot-checks from this wave (can fold into §8):** menu arena picker fade · Low↔High quality · HOST-TAB-1 brief/10s hide · menu attract · level music.
+3. **Still owed separately:** 9-cell PERF sweep (~25 min on Wyatt’s box). Run 8 FAIL triage was parked for MAIN-1 — resume after card closes.
 
 **Open High:** PERF-PASS-1 · UI-SCALE-1 · RESULTS-1 · CART-MODEL-1 · bloom.
 
@@ -88,7 +88,7 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 |----|--------|--------|
 | PERF-PASS-1 | 60 fps at Low on the Intel box — **Cart Rave only** | ⏸ **PARKED 08-04.** Baseline 23.788 ms / 42.0 fps; menu: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md). |
 | WARM-SOLO-1 | Solo post-`carts-ready` stall (WARM-IGPU residual) | 📋 telemetry-gated — [warm-igpu-1.md](./planning/warm-igpu-1.md) |
-| MAIN-1 | Carve `main.js` composition seam (enables BUNDLE-1) | ▶ **ACTIVE** — Lever A map locked; [main-1.md](./planning/main-1.md) |
+| MAIN-1 | Carve `main.js` composition seam (enables BUNDLE-1) | ▶ **code done** — A–H local; ship+§8 owed. [main-1.md](./planning/main-1.md) |
 | BUNDLE-1 | Menu/game code-split | 🚫 blocked on MAIN-1 |
 | BRAND-1 | Domain / Worker cutover | 🧊 frozen until deliberate cutover ([brand.md](./brand.md)) |
 
