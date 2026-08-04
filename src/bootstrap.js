@@ -516,7 +516,14 @@ export async function enterPlayMode(opts = {}) {
  *   scheduleMenuLevelPreview: () => void,
  *   prefetchLevelChunks: () => Promise<unknown>,
  *   prefetchAnnouncerSfx: () => void,
+ *   prefetchGameSystems?: () => unknown,
+ *   ensureGameSystems?: () => Promise<void>,
  * }} opts
+ * `prefetchGameSystems` / `ensureGameSystems` — BUNDLE-1 Lever C trigger 1. The prefetch
+ * is a bare chunk fetch fired at the top of the idle delay so the network round-trip
+ * overlaps the 1800 ms wait; `ensureGameSystems` runs the actual boot when the warm fires.
+ * ! Both are INJECTED, never imported. `bootstrap.js` is in the eager graph, so a static
+ * ! import of `orchestration/gameBoot.js` from here would silently undo the whole split.
  */
 export function scheduleIdleWorldWarm(opts) {
   const {
@@ -525,15 +532,14 @@ export function scheduleIdleWorldWarm(opts) {
     scheduleMenuLevelPreview,
     prefetchLevelChunks,
     prefetchAnnouncerSfx,
+    prefetchGameSystems = () => {},
+    ensureGameSystems = async () => {},
   } = opts;
 
   /** @type {number} ms — let menu music / first paint settle before WASM + arena work. */
   const IDLE_WARM_DELAY_MS = 1800;
 
-  const runWarm = () => {
-    if (!getMenuVisible()) return;
-    if (isWorldBootstrapped()) return;
-    if (isIdleWorldWarmSuppressed()) return;
+  const warmWorld = () => {
     const selectedId = resolveLevelId(storageGet(LEVEL_STORAGE_KEY));
     void ensureWorldBootstrapped(selectedId)
       .then(async () => {
@@ -560,6 +566,26 @@ export function scheduleIdleWorldWarm(opts) {
       });
   };
 
+  const runWarm = () => {
+    if (!getMenuVisible()) return;
+    if (isWorldBootstrapped()) return;
+    if (isIdleWorldWarmSuppressed()) return;
+    // * BUNDLE-1 Lever C trigger 1: the game half of boot (initBootstrap included) is
+    // * behind a dynamic import now, so ensureWorldBootstrapped() below would throw
+    // * "initBootstrap() must run before enterPlayMode()" without this. Guards are
+    // * re-checked after the await — a play press can land inside the boot window.
+    void ensureGameSystems()
+      .then(() => {
+        if (!getMenuVisible()) return;
+        if (isWorldBootstrapped()) return;
+        if (isIdleWorldWarmSuppressed()) return;
+        warmWorld();
+      })
+      .catch((err) => {
+        console.warn("[bootstrap] idle game-systems warm failed:", err);
+      });
+  };
+
   const kick = () => {
     if (document.hidden) {
       document.addEventListener(
@@ -578,6 +604,14 @@ export function scheduleIdleWorldWarm(opts) {
         setTimeout(runWarm, 0);
       }
     };
+    // * Bare chunk fetch at the TOP of the delay so the network round-trip overlaps the
+    // * 1800 ms wait instead of following it. No construction happens here — the boot
+    // * itself still waits for runWarm, keeping the menu's first seconds CPU-quiet.
+    try {
+      prefetchGameSystems();
+    } catch (err) {
+      console.warn("[bootstrap] game-systems prefetch failed:", err);
+    }
     setTimeout(start, IDLE_WARM_DELAY_MS);
   };
 

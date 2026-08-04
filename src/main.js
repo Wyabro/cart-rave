@@ -184,7 +184,6 @@ import {
   shuffledClientNpcNames,
 } from "./orchestration/cartOrchestration.js";
 import { createLoopDeps } from "./orchestration/loopDeps.js";
-import { bootGameSystems } from "./orchestration/gameBoot.js";
 import {
   captureInviteRoomForDeferredMenu,
   createMenuPlayEntry,
@@ -280,6 +279,79 @@ const gameRefs = {
   /** @type {() => void} Rebound by roundLifecycle inside gameBoot. */
   removePodiumSkipListeners: () => {},
 };
+
+// === BUNDLE-1 LEVER C — THE gameBoot LATCH ===
+
+/**
+ * BUNDLE-1 Lever C — `orchestration/gameBoot.js` is behind a dynamic `import()`, so the
+ * whole in-round half of boot (audio/announcer/directives, HUD, results overlay, cart +
+ * round + loop orchestration, level manager, play-entry bootstrap, netcode game handlers,
+ * the session bridge and the sim loop) neither parses nor constructs on the pre-menu path.
+ *
+ * ONE latch, five triggers: idle prefetch (bootstrap.js `scheduleIdleWorldWarm`), play
+ * press, `?room=` auto-enter (both via `startPlay` in menuPlayEntry.js), the `?harness=`
+ * branch at the end of main(), and first netcode hello (gameSession.js bridge).
+ *
+ * ⚠ Nothing eager may `import` gameBoot.js — statically or otherwise. `bootstrap.js`,
+ * `menuPlayEntry.js` and `gameSession.js` all receive these functions as injected deps
+ * for exactly that reason; a static edge from any of them undoes the split silently.
+ */
+/** @type {Promise<typeof import("./orchestration/gameBoot.js")> | null} */
+let gameBootModulePromise = null;
+/** @type {Promise<void> | null} */
+let gameSystemsPromise = null;
+let gameSystemsReady = false;
+/** @type {Record<string, any> | null} Boot context assembled in main(), consumed by the latch. */
+let gameBootCtx = null;
+
+/**
+ * Trigger 1a — bare chunk fetch, no construction. Fired at the TOP of the idle-warm
+ * delay so the network round-trip overlaps the 1800 ms wait instead of following it.
+ * @returns {Promise<typeof import("./orchestration/gameBoot.js")>}
+ */
+function prefetchGameSystems() {
+  if (!gameBootModulePromise) {
+    gameBootModulePromise = import("./orchestration/gameBoot.js");
+    // * A failed fetch must not latch — a later play press has to be able to retry.
+    gameBootModulePromise.catch(() => {
+      gameBootModulePromise = null;
+    });
+  }
+  return gameBootModulePromise;
+}
+
+/** @returns {boolean} True once bootGameSystems() has completed (sync, for overlay policy). */
+function isGameSystemsReady() {
+  return gameSystemsReady;
+}
+
+/**
+ * Loads the gameBoot chunk and runs `bootGameSystems(ctx)` exactly once. Idempotent:
+ * every trigger shares this one promise, so concurrent callers get one load and one boot.
+ * @returns {Promise<void>}
+ */
+function ensureGameSystems() {
+  if (gameSystemsPromise) return gameSystemsPromise;
+  gameSystemsPromise = (async () => {
+    /** @type {typeof import("./orchestration/gameBoot.js")} */
+    let mod;
+    try {
+      mod = await prefetchGameSystems();
+    } catch (err) {
+      // * Chunk fetch failed (offline / bad deploy). Clear the latch so the next PLAY
+      // * press retries rather than inheriting a permanently rejected promise.
+      gameSystemsPromise = null;
+      throw err;
+    }
+    if (!gameBootCtx) {
+      throw new Error("[main] ensureGameSystems() ran before main() built the boot context");
+    }
+    // ! Deliberately NOT reset on throw: a half-run boot must never be re-entered.
+    mod.bootGameSystems(gameBootCtx);
+    gameSystemsReady = true;
+  })();
+  return gameSystemsPromise;
+}
 
 /** Renderer handle for the module-level idle warm (set once in main()). */
 let idleWarmRenderer = null;
@@ -452,6 +524,11 @@ async function main() {
   const menu = createMenuPlayEntry({
     audioListener,
     soundUrl,
+    // * BUNDLE-1 Lever C triggers 2 + 3 — every enterPlayMode() in menuPlayEntry goes
+    // * through startPlay(), which awaits this latch first. Injected (never imported
+    // * there) so menuPlayEntry keeps no static edge to gameBoot.js.
+    ensureGameSystems,
+    isGameSystemsReady,
     getMenuVisible: () => gameRefs.menuVisible,
     setMenuVisible: (v) => { gameRefs.menuVisible = v; },
     getLabelRenderer: () => labelRenderer,
@@ -904,15 +981,16 @@ async function main() {
   };
 
 
-  // * BUNDLE-1 Lever B: the whole game half of boot — audio/announcer/directives, HUD,
-  // * results overlay, cart + round + loop orchestration, level manager, play-entry
-  // * bootstrap, the netcode game-start handlers, the session bridge and the sim loop.
-  // * Still a plain static call; Lever C is what turns this into `await import()`.
+  // * BUNDLE-1 Lever C: the game half of boot is no longer CALLED here — only its context
+  // * is assembled. `ensureGameSystems()` dynamically imports orchestration/gameBoot.js and
+  // * runs bootGameSystems(ctx) on the first of the five triggers (idle warm, play press,
+  // * ?room= auto-enter, ?harness=, first netcode hello).
   // ! Must stay AHEAD of initMenu(): initMenu can synchronously take the `?room=`
-  // ! auto-enter branch into enterPlayMode(), which throws unless initBootstrap() (inside
-  // ! bootGameSystems) has already run. It also calls HUD.hideGameplayElements() and
-  // ! refs.removePodiumSkipListeners(), both wired in here.
-  bootGameSystems({
+  // ! auto-enter branch, and menuPlayEntry's startPlay() wrapper awaits this latch — which
+  // ! throws if the context is not assembled yet.
+  // ! initMenu()'s HUD.hideGameplayElements() / removePodiumSkipListeners() now land BEFORE
+  // ! the HUD exists; gameBoot re-applies the menu HUD state at the end of its boot.
+  gameBootCtx = {
     refs: gameRefs,
     canvas,
     scene,
@@ -945,7 +1023,7 @@ async function main() {
     commitMenuHiddenForGame,
     handleQualityTierChange,
     handleAutoQualityStepDown,
-  });
+  };
 
   wireMenuAudioControlsOnce();
   syncAllAudioUi();
@@ -1007,7 +1085,10 @@ async function main() {
       getCamera: () => camera,
       getCanvas: () => canvas,
       getPasses: () => ({ bloomPass, arcadePass, fxaaPass, outputPass }),
-      ensureWorld: () => ensureWorldBootstrapped(),
+      // * BUNDLE-1 Lever C: ?freeze / ?cam / ?ablate installs the harness but does NOT
+      // * take the harness idle branch below, so this hook can be the first thing that
+      // * needs initBootstrap() — which now lives behind the latch.
+      ensureWorld: () => ensureGameSystems().then(() => ensureWorldBootstrapped()),
       onSettleFrame: () => {
         if (isDebugCameraLocked()) applyDebugCameraPose(camera);
       },
@@ -1217,7 +1298,11 @@ async function main() {
   // * Delay so menu music + cart Draco keep first dibs on bandwidth; skip when tab hidden.
   // * Harness path warms immediately so shoot tools do not wait on the idle delay.
   if (dbg.harness || dbg.hideHud) {
-    void ensureWorldBootstrapped().then(() => {
+    // * BUNDLE-1 Lever C trigger 4 — the harness branch bypasses idle warm entirely and
+    // * EVERY shoot / blackframes / loadshots capture takes it. ensureWorldBootstrapped()
+    // * throws without initBootstrap(), which now lives behind the latch, so this await is
+    // * non-optional: without it all visual QA breaks.
+    void ensureGameSystems().then(() => ensureWorldBootstrapped()).then(() => {
       if (getDebugParams().cam) applyDebugCameraPose(camera);
       if (getDebugParams().hideHud) {
         const root = document.getElementById("cr-root");
@@ -1237,6 +1322,11 @@ async function main() {
     scheduleIdleWorldWarm({
       getMenuVisible: () => gameRefs.menuVisible,
       getIdleWarmRenderer: () => idleWarmRenderer,
+      // * BUNDLE-1 Lever C trigger 1 — the chunk is fetched at the top of the 1800 ms
+      // * delay and booted when the warm actually fires. Injected, never imported by
+      // * bootstrap.js: that module is eager and a static edge would undo the split.
+      prefetchGameSystems,
+      ensureGameSystems,
       scheduleMenuLevelPreview,
       prefetchLevelChunks,
       prefetchAnnouncerSfx: () => AudioManager.prefetchSfxByPrefix("announcer_"),
@@ -1245,7 +1335,18 @@ async function main() {
 }
 
 
-bootstrapNetcodeEntryFromUrl(sessionBridgeCtx, gameSession, captureInviteRoomForDeferredMenu);
+// * BUNDLE-1 Lever C trigger 5 — the lobby-bridge guard. `registerGameCallbacks` is wired
+// * here at module scope reading `() => sessionBridgeCtx.current`, but `.current` is
+// * assigned inside gameBoot. Today no socket can exist before the latch (the only
+// * initNetcode() call is inside enterPlayMode's onArenaReady, already behind startPlay),
+// * so this is a fail-safe: the first hello forces the boot rather than reading a dead
+// * bridge. See docs/planning/bundle-1.md §8 for the full key inventory.
+bootstrapNetcodeEntryFromUrl(
+  sessionBridgeCtx,
+  gameSession,
+  captureInviteRoomForDeferredMenu,
+  ensureGameSystems,
+);
 
 main().catch((err) => {
   console.error("[CartRave] bootstrap failed:", err);

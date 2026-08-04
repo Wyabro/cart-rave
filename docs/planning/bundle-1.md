@@ -43,7 +43,7 @@
 |-------|------|--------|
 | **A** | Byte budget tool + committed baseline + chunk manifest (**no `src/` changes**) | **done** — see §4 |
 | **B** | `bootGameSystems` extract into `src/orchestration/gameBoot.js`, **still statically imported** — mechanical move, **zero byte change** | **done** — see §7 |
-| **C** | Flip to `await import()`, wire the **five** triggers, wrap all **nine** `enterPlayMode` sites | ⏸ next |
+| **C** | Flip to `await import()`, wire the **five** triggers, wrap all **nine** `enterPlayMode` sites | **done** — see §8 |
 | **D** | Cut the `menuPlayEntry` + `levelOrchestration` eager edges | not started |
 | — | ⟵ **ABORT GATE evaluated here, after C+D together** (see §5) | |
 | **E** | Move netcode's 7 game-side static imports onto the `registerGameCallbacks` bridge | not started |
@@ -381,6 +381,120 @@ and `refs.removePodiumSkipListeners()`.
 
 **Battery does not judge audio ordering — a human does.** Added to the wave checklist: menu music starts
 on entry, announcer/stings behave, no doubled or missing audio on first play.
+
+---
+
+## 8. Lever C — `gameBoot` behind `await import()` (done 08-04)
+
+`main.js` drops the static `import { bootGameSystems }` for a module-local latch:
+`prefetchGameSystems()` (bare chunk fetch), `ensureGameSystems()` (import + boot, one
+shared promise), `isGameSystemsReady()` (sync probe). The former `bootGameSystems({…})`
+call site now only **assembles** `gameBootCtx` — same 33 keys, same place in `main()`,
+ahead of `initMenu()`.
+
+### The nine `enterPlayMode` call sites
+
+Seven live in `menuPlayEntry.js` and all now route through one `startPlay(modeLabel, opts)`
+wrapper (by symbol, not line):
+
+1. `initMenu` → `?room=testdrive…` auto-enter
+2. `initMenu` → `?room=solo…` auto-enter
+3. `initMenu` → `?room=quickplay` returning-visitor auto-rejoin
+4. `cartrave:menu` handler → `action === "joinroom"` (invite link / typed code)
+5. `cartrave:menu` handler → `action === "solo"`
+6. `cartrave:menu` handler → `action === "quickplay"`
+7. `cartrave:menu` handler → `action === "friends"` (room create + join)
+
+The remaining two were listed in §3 as `main.js:1403 / :1673`; **Lever B already moved them
+into `gameBoot.js`**, so they are inside the deferred chunk and need no wrapper:
+
+8. `gameBoot.js` — the `onGameStartHandler` menu-hide (`enterPlayMode({ skipBootstrap: true })`)
+9. `gameBoot.js` — `invokeHideMenu` on the session bridge
+
+**Overlay policy.** `startPlay` is a straight pass-through when `isGameSystemsReady()` — the
+normal case once the idle prefetch has run, byte-for-byte the old behavior. On a cold press
+it awaits the boot **inside** `withModeEntryLoading`, which is depth-counted, so
+`enterPlayMode`'s own overlay nests instead of showing a second one. Failures still reach
+each site's `onMenuBootstrapError`. `index.html`'s boot-error handlers deliberately are not
+relied on: they early-return on `window.__cartRaveBootstrapped`, set before menu-ready.
+
+### The five triggers
+
+| # | Where | Shape |
+|---|-------|-------|
+| 1 | `bootstrap.js` `scheduleIdleWorldWarm` | `prefetchGameSystems()` at the **top** of the 1800 ms timer (fetch overlaps the delay); `ensureGameSystems()` inside `runWarm`, guards re-checked after the await |
+| 2 | play press | `startPlay` |
+| 3 | `?room=` auto-enter | `startPlay` |
+| 4 | `main.js` `if (dbg.harness \|\| dbg.hideHud)` | `ensureGameSystems().then(ensureWorldBootstrapped)` — plus `installVisualHarness`'s `ensureWorld` hook, which `?freeze`/`?cam`/`?ablate` reach **without** taking the harness branch |
+| 5 | first netcode hello | `buildNetcodeGameBridge`'s `markFirstHelloReceived` |
+
+⚠ `bootstrap.js`, `menuPlayEntry.js` and `gameSession.js` all take these as **injected
+deps**. None may ever `import` `gameBoot.js` — they are eager, and a static edge there
+silently undoes the split.
+
+### Lobby-bridge hazard — decision: **(b) trigger 5**, and the hazard is already unreachable
+
+Inventory of which bridge keys can fire before the latch resolves: **none.** Every key in
+`buildNetcodeGameBridge` is driven by a live PartyKit socket, and the **only**
+`Netcode.initNetcode()` call site in the app is `bootstrapNetcodeFromMenu`, which runs
+inside `enterPlayMode`'s `onArenaReady` hooks — i.e. already behind `startPlay`'s await.
+`bootstrapNetcodeEntryFromUrl` at module scope only *registers* callbacks and captures
+`?room=` for the deferred menu; it opens no connection.
+
+So option (a) — a thin eager `sessionBridgeCtx` partial — would be **dead code guarding an
+unreachable window**, and a partial bridge is worse than none: it makes a future
+pre-latch connect *look* alive while slot colour, `onGameStartHandler` and host-migration
+handlers silently no-op. Option (b) fails loud-and-correct instead: the first hello forces
+the boot. It is wired as a fail-safe (`void ensureGameSystems()`, fire-and-forget so the
+netcode message pump is never blocked), not as the load-bearing path.
+
+### One behavior fix this lever required
+
+`initMenu()` now runs **before** the HUD exists, so its `HUD.hideGameplayElements()` /
+`hideAudioWidget()` landed on an un-inited HUD (null-safe no-ops) and `HUD.init` then built
+a fresh `#hud` with nothing left to hide it — a gameplay HUD painting over the title screen
+the moment the idle warm resolved. `gameBoot` now re-applies the menu HUD state
+(`hideGameplayElements` + `hideAudioWidget` + `updateTouchControlsVisibility`) at the end of
+its boot when `refs.menuVisible`.
+
+### Asserts
+
+- [x] `npm run qa` green — **112 files / 1,380 tests**, identical to Levers A and B
+- [x] `npm run build` green
+- [x] Manifest: **22 chunks / 256 modules** (unchanged). A new **`gameBoot` chunk exists
+  and is OUTSIDE the initial set** (21,820 B raw). Modules that left `index`:
+  `src/orchestration/gameBoot.js` and `src/announcer/announcerVoiceKeys.js` — exactly the
+  seam and nothing else
+- [x] Initial set **1,544,336 B (−10,527 B)** vs the Lever A baseline. Modest, as predicted:
+  the heavy graph is still eagerly reachable via `levelOrchestration` + `menuPlayEntry`
+  until Lever D
+- [⚠] `size:check` **exits 1** on `chunk ENTERED the initial set: gamepadNav` — see below
+
+### ⚠ `size:check` red — an entry-chunk *rename*, not a re-eagered module
+
+Rolldown split the old monolithic `index` entry into `index` (23 modules, 118,290 B) plus a
+new preloaded shared chunk it named after its first `node_modules`-path group, **`gamepadNav`
+(92 modules, 531,977 B)**. 118,290 + 531,977 = 650,267 vs the baseline `index`'s 660,794 —
+the same code, 10,527 B lighter, under two names. Every one of the other 13 baseline chunks
+is at **Δraw = 0**, and none of the known-deferred chunks (`rapier`, `zanzibarPlatform`,
+`backroomsSupermarket`, `classicRecord`, `testArena`, `devControl`, the second
+`captureUpload`) has entered.
+
+The membership rule fired correctly on its own terms — it cannot distinguish "a deferred
+module got re-eagered" from "the entry chunk was renamed and split". **Deliberately NOT
+re-baselined here:** Lever F owns the ratchet, and Levers D/E are still measured against the
+Lever A number. Whoever runs F must re-baseline and should consider whether `strippedKey`
+needs an entry-chunk alias so a rename cannot masquerade as a regression.
+
+### Not fixed here
+
+- `initMenu`'s `scheduleMenuLevelPreview()` for `testArena` now runs before `initLevelManager`,
+  so it is a no-op rather than a deferred preview. Covered in practice: the idle warm calls
+  `scheduleMenuLevelPreview()` again after the world bootstraps. Worth a look at D.
+- The audio/announcer init block now runs **after** `initMenu()`, a bigger version of Lever
+  B's §7 order deviation. Battery does not judge audio ordering — **a human must confirm**
+  menu music starts on entry, announcer/stings behave, and there is no doubled or missing
+  audio on first play.
 
 ---
 

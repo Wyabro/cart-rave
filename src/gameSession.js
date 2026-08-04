@@ -112,10 +112,19 @@ export function createHelloBootstrapFlush(helloGate, getBridge) {
  * @param {{ current: object | null }} sessionBridgeCtx
  * @param {{ returnToMenu: (opts?: object) => void }} gameSession
  * @param {() => boolean} captureInviteRoomForDeferredMenu
+ * @param {(() => Promise<void>) | null} [ensureGameSystems] BUNDLE-1 Lever C trigger 5 —
+ *   forces the deferred gameBoot load on the first server hello. Injected, never imported.
  */
-export function bootstrapNetcodeEntryFromUrl(sessionBridgeCtx, gameSession, captureInviteRoomForDeferredMenu) {
+export function bootstrapNetcodeEntryFromUrl(
+  sessionBridgeCtx,
+  gameSession,
+  captureInviteRoomForDeferredMenu,
+  ensureGameSystems = null,
+) {
   if (typeof window === "undefined") return;
-  Netcode.registerGameCallbacks(buildNetcodeGameBridge(() => sessionBridgeCtx.current, gameSession));
+  Netcode.registerGameCallbacks(
+    buildNetcodeGameBridge(() => sessionBridgeCtx.current, gameSession, ensureGameSystems),
+  );
   if (captureInviteRoomForDeferredMenu()) return;
 }
 
@@ -222,13 +231,27 @@ export function wireNetcodeRuntimeRefs(deps) {
  *
  * @param {() => object | null} getContext Live main/session context (null before main() wires handlers).
  * @param {{ returnToMenu: (opts?: object) => void }} session
+ * @param {(() => Promise<void>) | null} [onFirstHello] BUNDLE-1 Lever C trigger 5. Every
+ *   lambda below live-reads `getContext()`, and `sessionBridgeCtx.current` is assigned
+ *   inside the deferred `gameBoot` chunk — so a lobby reached before the latch resolves
+ *   would run on a dead bridge (null slot-colour/material bridges, absent
+ *   `onGameStartHandler` / host-migration handlers). Today that is unreachable: the only
+ *   `Netcode.initNetcode()` call site is `bootstrapNetcodeFromMenu`, which runs inside
+ *   `enterPlayMode`'s `onArenaReady` — already behind `startPlay`'s await. This hook is
+ *   the fail-safe that keeps it unreachable if a future path opens a socket earlier.
  */
-export function buildNetcodeGameBridge(getContext, session) {
+export function buildNetcodeGameBridge(getContext, session, onFirstHello = null) {
   return {
     detectGameMode: () => getContext()?.detectGameMode?.() ?? "quickplay",
     getPalette: () => getContext()?.palette ?? [],
     getInitialNpcNames: () => getContext()?.initialNpcNames ?? [],
-    markFirstHelloReceived: () => getContext()?.markFirstHelloReceived?.(),
+    markFirstHelloReceived: () => {
+      // * Fire-and-forget: the hello itself is handled by the live context (which is
+      // * already non-null on every reachable path), and the boot must not block the
+      // * netcode message pump. A rejected load is reported by the play-entry path.
+      if (onFirstHello) void Promise.resolve(onFirstHello()).catch(() => {});
+      getContext()?.markFirstHelloReceived?.();
+    },
     getOnGameStartHandler: () => getContext()?.getOnGameStartHandler?.() ?? null,
     getOnHostMigratedHandler: () => getContext()?.getOnHostMigratedHandler?.() ?? null,
     onCountdownCancelled: () => getContext()?.onCountdownCancelled?.(),

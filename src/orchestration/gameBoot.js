@@ -1312,6 +1312,18 @@ export function bootGameSystems(ctx) {
     stopChargeSfxForCart,
   });
 
+  // * BUNDLE-1 Lever C: initMenu() now runs BEFORE this boot (that is the whole point of
+  // * the dynamic import), so its HUD.hideGameplayElements() / hideAudioWidget() calls
+  // * landed on an un-inited HUD and its updateTouchControlsVisibility() on a null cart.
+  // * HUD.init above builds a fresh #hud from scratch — re-apply the menu state here or a
+  // * freshly-built gameplay HUD paints over the title screen the moment the latch
+  // * resolves (idle warm at ~1.8 s, with the player still on the menu).
+  if (refs.menuVisible) {
+    HUD.hideGameplayElements();
+    HUD.hideAudioWidget();
+    updateTouchControlsVisibility();
+  }
+
   gameLoopDriver = runGameLoop(gameCtx.loopState, {
     shouldPumpWhileHidden: loop.shouldPumpHiddenHost,
     shouldSkipTiming: () => {

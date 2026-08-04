@@ -18,6 +18,7 @@ import {
   dismissInitialBootSplash,
   noteBootMilestone,
   revealGameCanvas,
+  withModeEntryLoading,
 } from "../ui/loadingScreen.js";
 import { startMenuAttract, stopMenuAttract } from "../ui/menuAttract.js";
 import { setGamepadNavActive } from "../ui/gamepadNav.js";
@@ -96,11 +97,19 @@ export function enableModeMenuButtons() {
  * @param {(v: HTMLElement | null) => void} deps.setPendingColorChipEl
  * @param {(v: string | null) => void} deps.setPendingColorKey
  * @param {(v: boolean) => void} deps.setLocalColorPicked
+ * @param {() => Promise<void>} [deps.ensureGameSystems] BUNDLE-1 Lever C latch — loads
+ *   orchestration/gameBoot.js and runs bootGameSystems() once. Injected, never imported:
+ *   a static edge from this (eager) module to gameBoot.js would undo the code split.
+ * @param {() => boolean} [deps.isGameSystemsReady] Sync "latch already resolved?" probe.
  */
 export function createMenuPlayEntry(deps) {
   const {
     audioListener,
     soundUrl,
+    // * Defaults keep the factory constructible in tests / any caller that predates
+    // * Lever C: an already-booted world behaves exactly as it did before.
+    ensureGameSystems = async () => {},
+    isGameSystemsReady = () => true,
     getMenuVisible,
     setMenuVisible,
     getLabelRenderer,
@@ -186,6 +195,45 @@ export function createMenuPlayEntry(deps) {
     dismissAllLoadingOverlays();
     // * The player is dropped back at the menu — say why instead of failing silently.
     window.CartRave?.showToast?.("Couldn't start the game — check your connection and try again.", 6000);
+  }
+
+  /**
+   * BUNDLE-1 Lever C — the ONE play-entry wrapper. Every `enterPlayMode()` in this module
+   * goes through it (7 sites: testdrive / solo / quickplay auto-rejoin `?room=` branches in
+   * initMenu, and joinroom / solo / quickplay / friends in the `cartrave:menu` handler).
+   *
+   * `bootstrap.js` throws `initBootstrap() must run before enterPlayMode()` and
+   * `initBootstrap` now lives inside gameBoot — so a missed site is a hard crash.
+   *
+   * Overlay policy: in the normal case the idle prefetch already resolved the latch and
+   * this is a straight pass-through — byte-for-byte the old behavior. On a cold press
+   * (inside the first ~1.8 s, a hidden tab, or a suppressed idle warm) the boot is awaited
+   * INSIDE a mode-entry overlay; `withModeEntryLoading` is depth-counted, so the
+   * enterPlayMode() call below nests into the same overlay rather than showing a second
+   * one. `backfillBootMarks` is deliberately omitted: a cold press has no world marks to
+   * seed the meter with. Failures route to onMenuBootstrapError, which dismisses overlays
+   * and toasts — index.html's boot-error handlers cannot cover this, they all early-return
+   * on `window.__cartRaveBootstrapped` (set before menu-ready).
+   *
+   * @param {string} modeLabel Player-facing label for the failure toast.
+   * @param {Parameters<typeof enterPlayMode>[0]} opts
+   * @returns {Promise<void>}
+   */
+  function startPlay(modeLabel, opts) {
+    if (isGameSystemsReady()) return enterPlayMode(opts);
+    return withModeEntryLoading(
+      async (report) => {
+        report(2, "Warming up…");
+        await ensureGameSystems();
+        await enterPlayMode(opts);
+      },
+      { gameMode: opts?.gameMode ?? null, levelId: opts?.levelId ?? null },
+    ).catch((err) => {
+      // ! Re-thrown so each call site's own .catch(onMenuBootstrapError) still runs
+      // ! exactly once; this branch only names the mode for the console line.
+      console.warn(`[menu] ${modeLabel} deferred game-systems boot failed`, err);
+      throw err;
+    });
   }
 
   /** @returns {boolean} true when initNetcode was invoked without throwing. */
@@ -324,7 +372,7 @@ export function createMenuPlayEntry(deps) {
     }
 
     if (room && room.toLowerCase().startsWith("testdrive")) {
-      void enterPlayMode({
+      void startPlay("Test Drive", {
         gameMode: "testdrive",
         levelId: "testArena",
         onArenaReady: makeSoloArenaReadyHook("Test Drive"),
@@ -335,7 +383,7 @@ export function createMenuPlayEntry(deps) {
     }
 
     if (room && room.toLowerCase().startsWith("solo")) {
-      void enterPlayMode({
+      void startPlay("Solo", {
         gameMode: "solo",
         onArenaReady: makeSoloArenaReadyHook("Solo"),
       })
@@ -349,7 +397,7 @@ export function createMenuPlayEntry(deps) {
     const roomParam = new URLSearchParams(window.location.search || "").get("room");
     if (roomParam === "quickplay" && savedUsername && !quickplayAutoRejoinAttempted) {
       quickplayAutoRejoinAttempted = true;
-      void enterPlayMode({
+      void startPlay("Quickplay", {
         gameMode: "quickplay",
         commitMenuHidden: false,
         onArenaReady: makeMultiplayerArenaReadyHook("Quickplay"),
@@ -390,7 +438,7 @@ export function createMenuPlayEntry(deps) {
         if (!inviteRoom) return;
         setPendingInviteRoomFromUrl(null);
         document.getElementById("cr-btn-join-invite")?.remove();
-        void enterPlayMode({
+        void startPlay("Friends", {
           gameMode: "friends",
           commitMenuHidden: false,
           onArenaReady: makeMultiplayerArenaReadyHook("Friends", inviteRoom),
@@ -404,7 +452,7 @@ export function createMenuPlayEntry(deps) {
         const url = new URL(window.location.href);
         url.searchParams.set("room", roomId);
         history.pushState({}, "", url);
-        void enterPlayMode({
+        void startPlay("Solo", {
           gameMode: "solo",
           onArenaReady: makeSoloArenaReadyHook("Solo"),
         })
@@ -413,7 +461,7 @@ export function createMenuPlayEntry(deps) {
         const url = new URL(window.location.href);
         url.searchParams.set("room", "quickplay");
         history.pushState({}, "", url);
-        void enterPlayMode({
+        void startPlay("Quickplay", {
           gameMode: "quickplay",
           commitMenuHidden: false,
           onArenaReady: makeMultiplayerArenaReadyHook("Quickplay"),
@@ -429,7 +477,7 @@ export function createMenuPlayEntry(deps) {
         const url = new URL(window.location.href);
         url.searchParams.set("room", roomId);
         history.pushState({}, "", url);
-        void enterPlayMode({
+        void startPlay("Friends", {
           gameMode: "friends",
           commitMenuHidden: false,
           onArenaReady: makeMultiplayerArenaReadyHook("Friends"),
