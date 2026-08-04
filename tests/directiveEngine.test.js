@@ -14,6 +14,7 @@ import {
   getActiveDirective,
   getDirectiveKoRewardMultiplier,
   onHostSpill,
+  shiftDirectiveTimersBy,
 } from "../src/directives/directiveEngine.js";
 
 const { getRoundClockNowMs } = roundClock;
@@ -156,6 +157,93 @@ describe("slot scheduling", () => {
         expect(getActiveDirective()).not.toBeNull();
       }
       expect(calls.sent).toHaveLength(3);
+    } finally {
+      clockSpy.mockRestore();
+    }
+  });
+});
+
+describe("pause compensation (FIX-DIRPAUSE)", () => {
+  /**
+   * Drives one continuous round on a frozen round clock, the same way the
+   * "fires all three slots" test does. Returns the handles a pause test needs.
+   */
+  function startRoundWithSlot0Fired() {
+    const base = 1_000_000;
+    const clock = { now: base };
+    const clockSpy = vi.spyOn(roundClock, "getRoundClockNowMs").mockImplementation(() => clock.now);
+    gameStore.setState({
+      roundPhase: "running",
+      roundStartedAtMs: base,
+      isSuddenDeath: false,
+    });
+    const perf = 500_000;
+    updateDirectiveEngine(perf); // new round → build schedule
+    clock.now = base + 21_000; // 1s past slot 0 (20s)
+    updateDirectiveEngine(perf); // fire slot 0
+    expect(getActiveDirective()).not.toBeNull();
+    expect(calls.sent).toHaveLength(1);
+    return { base, clock, clockSpy, perf };
+  }
+
+  it("a paused-then-resumed round does not re-fire the in-flight directive", () => {
+    const { base, clock, clockSpy, perf } = startRoundWithSlot0Fired();
+    try {
+      const firstId = getActiveDirective().id;
+      const untilBefore = getActiveDirective().untilMs;
+      const announcesBefore = calls.announce.length;
+
+      // * Esc pause for 5s, then resume: production shifts roundStartedAtMs and the
+      // * directive timers by the same delta in one synchronous block.
+      const delta = 5_000;
+      clock.now = base + 26_000;
+      gameStore.setState({ roundStartedAtMs: base + delta });
+      shiftDirectiveTimersBy(delta);
+
+      updateDirectiveEngine(perf + delta);
+
+      // (1) same directive still in flight, nothing re-fired, no new callout.
+      const active = getActiveDirective();
+      expect(active).not.toBeNull();
+      expect(active.id).toBe(firstId);
+      expect(calls.sent).toHaveLength(1);
+      expect(calls.announce).toHaveLength(announcesBefore);
+      // (3) the window is continuous — shifted by delta, not restarted.
+      expect(active.untilMs).toBe(untilBefore + delta);
+
+      // (2) scheduleIdx survived: once this window expires, the engine is waiting on
+      // * slot 1 (55s), so the same round-elapsed 21s must not produce another fire.
+      updateDirectiveEngine(perf + delta + 18_001);
+      expect(getActiveDirective()).toBeNull();
+      updateDirectiveEngine(perf + delta + 18_002);
+      expect(getActiveDirective()).toBeNull();
+      expect(calls.sent).toHaveLength(1);
+
+      // * And slot 1 still fires normally afterwards.
+      clock.now = base + delta + 56_000;
+      updateDirectiveEngine(perf + delta + 60_000);
+      expect(getActiveDirective()).not.toBeNull();
+      expect(calls.sent).toHaveLength(2);
+    } finally {
+      clockSpy.mockRestore();
+    }
+  });
+
+  it("still resets the schedule when a real new round starts (no shift call)", () => {
+    const { clock, clockSpy, perf } = startRoundWithSlot0Fired();
+    try {
+      // * A genuine new round: roundStartedAtMs moves with no compensating shift.
+      const newBase = 2_000_000;
+      clock.now = newBase;
+      gameStore.setState({ roundStartedAtMs: newBase });
+      updateDirectiveEngine(perf + 1_000);
+      // * Leftover window dropped and the slot list rebuilt from index 0.
+      expect(getActiveDirective()).toBeNull();
+
+      clock.now = newBase + 21_000;
+      updateDirectiveEngine(perf + 2_000);
+      expect(getActiveDirective()).not.toBeNull();
+      expect(calls.sent).toHaveLength(2);
     } finally {
       clockSpy.mockRestore();
     }

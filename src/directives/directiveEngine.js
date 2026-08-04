@@ -382,10 +382,20 @@ export function getDirectiveWireState() {
  * compensation (run-6). The window anchors live in the performance.now() domain,
  * which keeps advancing while the paused loop stops sampling; without this shift
  * the directive silently drains (or expires) behind the pause menu.
+ *
+ * Every caller shifts `roundStartedAtMs` by the same delta in the same synchronous
+ * block (solo Esc-pause, host tab-return). The round anchor below must move with it:
+ * otherwise {@link updateDirectiveEngine} reads the compensated round start as a NEW
+ * ROUND on the next frame — killing the in-flight directive, rewinding scheduleIdx to
+ * 0 and re-firing the still-in-window slot (with a fresh callout) on every pause.
+ * Left at 0 when no round has been latched yet, so the first tick still builds.
  * @param {number} deltaMs
  */
 export function shiftDirectiveTimersBy(deltaMs) {
   if (!Number.isFinite(deltaMs) || deltaMs <= 0) return;
+  if (_lastRoundStartedAtMs > 0) {
+    _lastRoundStartedAtMs += deltaMs;
+  }
   if (active) {
     active.startedAtMs += deltaMs;
     active.untilMs += deltaMs;
