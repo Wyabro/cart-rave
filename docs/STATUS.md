@@ -68,7 +68,7 @@ Live rows only. Shipped and closed cards live in
 |---|------|--------|
 | STORE-DECK-1 | Storerooms spawn-deck bay letter | ⏸ **DEPLOYED 08-03** (`6eff2df`, Worker version `01f8a745`) — verified by fetching the production chunk: no `BAY_LETTERS`, no letter font, plate + stripe intact. Waiting on Wyatt's retest. |
 | FV-RESULTS-1 / STORE-PT-1 | Run 8 FAIL residue — CHALLENGE copy · shelves want painted wood | ⏸ **DEPLOYED 08-04** (`858b836` · `3fa1cac`, Worker `752dd701`). Prod chunk verified: `CHALLENGE UNLOCKED` in index; backrooms cream `#d8cfb8`, no steel `#b3b5ad`. **Owed: Wyatt playtest both** — code side is closed. |
-| HOST-TAB-1 | Hidden-tab host pump + AFK promote + strongest-host return | ▶ **ACTIVE — IMPLEMENTED LOCALLY 08-04; production playtest owed.** Four commits: `b566999` · `76de974` · `6edfa5c` · `25d8439`. Automated gate: 109 files / 1,340 tests. Full checklist: [host-tab-1.md §10](./planning/host-tab-1.md#10-verification-matrix). |
+| HOST-TAB-1 | Hidden-tab host pump + AFK promote + strongest-host return | ▶ **ACTIVE — IMPLEMENTED LOCALLY 08-04; production playtest owed.** Levers: `b566999` · `76de974` · `6edfa5c` · `25d8439`; review fixes: `ae9cfd2`. Automated gate: 109 files / 1,341 tests. Full checklist: [host-tab-1.md §10](./planning/host-tab-1.md#10-verification-matrix). |
 | PERF-PASS-1 | 60 fps at Low on the Intel box — **Cart Rave only** (Wyatt scoped it 08-03) | ⏸ **PARKED BY WYATT 08-04 for HOST-TAB-1.** Wave 4 remains deployed (`b754e12`, Worker `9b8b1fbe`); honest measured range −1.66 to −2.54 ms and includes +0.55. Card remains open at ~46 fps; every future cell needs an A-B-A bracket on a cooled box. Menu + evidence: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md). |
 | MAIN-1 / BUNDLE-1 | main.js seam / code-split | 📋 post-gate |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
@@ -141,11 +141,12 @@ The hot set — what a current session is likely to hit. Deep-domain and narrow 
 ## Last updated
 
 2026-08-04 (HOST-TAB-1 local wave) — Wyatt parked PERF-PASS-1 and acked levers A–D.
-Prod host frames now use a loop-owned hidden timer with one driver; clock compensation applies
+Prod host frames now use a loop-owned scoped MessageChannel with one driver; clock compensation applies
 only when that pump never ticks. At 10s hidden, a multiplayer host asks the DO to migrate to the
 best other live human; foreground humans trigger a margin-20 preferred-host check. Both mid-round
-paths share a 5s room cooldown and the existing `host_migrated` handoff. Automated evidence:
-109 test files / 1,340 tests, typecheck, knip, briefing, architecture, health, and production
+paths share a 5s room cooldown and the existing `host_migrated` handoff; away humans stay
+ineligible until their own foreground signal. Automated evidence: 109 test files / 1,341 tests,
+typecheck, knip, briefing, architecture, health, and production
 build green. Unpushed; deploy and the seven-step production checklist remain owed.
 
 2026-08-03 (STATUS-TRIM-1) — STATUS.md was at 4,197 of a 4,200 budget, so every card paid a

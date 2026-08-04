@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-04T04:53:42.525Z",
-    "commit": "25d8439"
+    "at": "2026-08-04T05:01:08.338Z",
+    "commit": "ae9cfd2"
   },
-  "source_digest": "8e071379",
+  "source_digest": "97e0c457",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -859,7 +859,7 @@
       {
         "id": "HOST-TAB-1",
         "what": "Hidden-tab host pump + AFK promote + strongest-host return",
-        "status": "▶ ACTIVE — IMPLEMENTED LOCALLY 08-04; production playtest owed. Four commits: `b566999` · `76de974` · `6edfa5c` · `25d8439`. Automated gate: 109 files / 1,340 tests. Full checklist: [host-tab-1.md §10](./planning/host-tab-1.md#10-verification-matrix).",
+        "status": "▶ ACTIVE — IMPLEMENTED LOCALLY 08-04; production playtest owed. Levers: `b566999` · `76de974` · `6edfa5c` · `25d8439`; review fixes: `ae9cfd2`. Automated gate: 109 files / 1,341 tests. Full checklist: [host-tab-1.md §10](./planning/host-tab-1.md#10-verification-matrix).",
         "state": "active"
       },
       {
