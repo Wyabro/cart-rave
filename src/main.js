@@ -5239,6 +5239,14 @@ async function main() {
       return;
     }
     clearHostAwayTimer();
+    const visiblePhase = GameState.getRoundState().phase;
+    const visibleMode = detectGameMode();
+    if (
+      (visibleMode === "quickplay" || visibleMode === "friends")
+      && (visiblePhase === "countdown" || visiblePhase === "running")
+    ) {
+      Netcode.sendHostPresent();
+    }
     if (hostHiddenAtMs == null) return;
     const delta = getRoundClockNowMs() - hostHiddenAtMs;
     const pumpRan = (gameLoopDriver?.getPumpTickCount() ?? 0) > hostPumpTickCountAtHide;

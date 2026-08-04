@@ -148,6 +148,20 @@ describe("pickPreferredHostId + shouldMigrateToPreferredHost (server)", () => {
     expect(shouldMigrateToPreferredHost("intel", "intel", scores)).toBe(false);
   });
 
+  it("accepts an exact +20 return margin and rejects +19", () => {
+    const exact = new Map([
+      ["current", 60],
+      ["returning", 80],
+    ]);
+    const short = new Map([
+      ["current", 60],
+      ["returning", 79],
+    ]);
+
+    expect(shouldMigrateToPreferredHost("current", "returning", exact)).toBe(true);
+    expect(shouldMigrateToPreferredHost("current", "returning", short)).toBe(false);
+  });
+
   it("does not thrash near-ties (two similar machines)", () => {
     const scores = new Map([
       ["a", 70],

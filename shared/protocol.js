@@ -18,6 +18,8 @@ export const MSG = {
   clientPlayReady: "client_play_ready",
   /** Current host → server: hidden continuously long enough to hand off authority. */
   hostAway: "host_away",
+  /** Any foreground human → server: re-evaluate the preferred mid-round host. */
+  hostPresent: "host_present",
 
   // Host <-> client (WebRTC DataChannel gameplay plane)
   // hostTransform: 40Hz binary host snapshot (transforms + collision/fall tails).

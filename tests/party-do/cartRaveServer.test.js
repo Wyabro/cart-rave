@@ -179,6 +179,67 @@ describe("CartRaveServer DO harness", () => {
     joiner.client.close();
   });
 
+  it("rebalances to a clearly stronger returning human during a live round", async () => {
+    const room = uniqueRoom("host-present");
+    const host = await connectAndSeat(room, {
+      name: "HOST",
+      color: "pink",
+      clientId: "cid-present-host",
+      ip: "10.0.0.15",
+      hostScore: 100,
+    });
+    const joiner = await connectAndSeat(room, {
+      name: "JOIN",
+      color: "green",
+      clientId: "cid-present-join",
+      ip: "10.0.0.16",
+      hostScore: 80,
+    });
+
+    host.client.sendJson({
+      type: MSG.hostRound,
+      round: {
+        phase: "countdown",
+        countdownStartedAtMs: 1000,
+        startedAtMs: 0,
+        winnerSlotIndex: null,
+        scores: { 0: 0, 1: 0, 2: 0, 3: 0 },
+      },
+    });
+    await joiner.client.awaitMessage((m) => m.type === MSG.round && m.round?.phase === "countdown");
+    host.client.sendJson({
+      type: MSG.hostRound,
+      round: {
+        phase: "running",
+        countdownStartedAtMs: 1000,
+        startedAtMs: 2000,
+        winnerSlotIndex: null,
+        scores: { 0: 0, 1: 0, 2: 0, 3: 0 },
+      },
+    });
+    await joiner.client.awaitMessage((m) => m.type === MSG.round && m.round?.phase === "running");
+
+    joiner.client.sendJson({ type: MSG.hostPresent });
+    await sleep(50);
+    expect(joiner.client.messages.filter((m) => m.reason === "host_return")).toHaveLength(0);
+
+    host.client.sendJson({
+      type: MSG.join,
+      name: "HOST",
+      clientId: "cid-present-host",
+      hostScore: 40,
+    });
+    const migratePromise = joiner.client.awaitMessage(
+      (m) => m.type === MSG.hostMigrated && m.reason === "host_return",
+    );
+    joiner.client.sendJson({ type: MSG.hostPresent });
+    const migrated = await migratePromise;
+    expect(migrated.hostId).toBe(joiner.youConnId);
+
+    host.client.close();
+    joiner.client.close();
+  });
+
   it("reap overrides default to production constants when cleared", () => {
     setReapOverrides({ timeoutMs: 1, throttleMs: 1 });
     setReapOverrides(null);

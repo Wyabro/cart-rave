@@ -259,6 +259,29 @@ describe("applyHostMigration (client authority handoff)", () => {
     }
   });
 
+  it("uses smoother-multiplayer copy when the strongest host returns", () => {
+    const toasts = [];
+    globalThis.window.CartRave = {
+      showToast: (message) => toasts.push(message),
+    };
+    try {
+      hooks.setHostStateForTest({
+        youConnId: "me",
+        netSlots: [
+          { kind: "human", connId: "me", name: "ME" },
+          { kind: "human", connId: "returning", name: "NOVA" },
+        ],
+      });
+      hooks.setHostIdForTest("me");
+
+      hooks.applyHostMigration({ hostId: "returning", reason: "host_return" });
+
+      expect(toasts).toEqual(["Host moved to NOVA for smoother multiplayer."]);
+    } finally {
+      delete globalThis.window.CartRave;
+    }
+  });
+
   it("restores open kill credit from the last attribution cache on promote (NET-MIG-1)", () => {
     hooks.setHostStateForTest({
       youConnId: "me",

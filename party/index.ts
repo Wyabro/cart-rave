@@ -352,6 +352,33 @@ export class CartRaveServer extends Server {
     );
     if (!nextHostId) return;
 
+    this.#migrateMidRoundHost(nextHostId, "host_afk", now);
+  }
+
+  #handleHostPresent(connId: string, now: number) {
+    if (this.#round.phase !== "running" && this.#round.phase !== "countdown") return;
+    if (now - this.#lastMidRoundHostMigrationAtMs < MID_ROUND_HOST_MIGRATION_COOLDOWN_MS) {
+      return;
+    }
+
+    const live = new Set(this.#connections.keys());
+    const senderIsLiveHuman = this.#slots?.some(
+      (slot) => slot.kind === "human" && slot.connId === connId && live.has(connId),
+    );
+    if (!senderIsLiveHuman) return;
+
+    const preferred = pickPreferredHostId(
+      this.#joinOrder,
+      live,
+      this.#slots,
+      this.#hostScores,
+    );
+    if (!preferred) return;
+    if (!shouldMigrateToPreferredHost(this.#hostId, preferred, this.#hostScores)) return;
+    this.#migrateMidRoundHost(preferred, "host_return", now);
+  }
+
+  #migrateMidRoundHost(nextHostId: string, reason: "host_afk" | "host_return", now: number) {
     this.#hostId = nextHostId;
     this.#lastSeq = -1;
     this.#lastMidRoundHostMigrationAtMs = now;
@@ -360,7 +387,7 @@ export class CartRaveServer extends Server {
       type: MSG.hostMigrated,
       serverNowMs: now,
       hostId: this.#hostId,
-      reason: "host_afk",
+      reason,
     });
   }
 
@@ -1207,6 +1234,11 @@ export class CartRaveServer extends Server {
 
       if (type === MSG.hostAway) {
         this.#handleHostAway(connection.id, now);
+        return;
+      }
+
+      if (type === MSG.hostPresent) {
+        this.#handleHostPresent(connection.id, now);
         return;
       }
 

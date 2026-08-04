@@ -2236,7 +2236,11 @@ function applyHostMigration(msg) {
   }
   // * Reasoned migrations explain why the host glyph moved without a disconnect.
   // * Weak-host toast (HOST-CAP-1) stays separate: join-time score, once per hostship.
-  if (msg?.reason === "host_quality" || msg?.reason === "host_afk") {
+  if (
+    msg?.reason === "host_quality"
+    || msg?.reason === "host_afk"
+    || msg?.reason === "host_return"
+  ) {
     try {
       const toast = typeof window !== "undefined" ? window.CartRave?.showToast : null;
       if (typeof toast === "function") {
@@ -2278,6 +2282,16 @@ export function sendColorPick(color) {
 export function sendHostAway() {
   if (!partySocket || partySocket.readyState !== WebSocket.OPEN || !isHost) return;
   partySocket.send(JSON.stringify({ type: MSG.hostAway }));
+}
+
+/** Reports a live human returning to the foreground during a multiplayer round. */
+export function sendHostPresent() {
+  if (!partySocket || partySocket.readyState !== WebSocket.OPEN || !youConnId) return;
+  const isLiveHuman = Array.isArray(netSlots) && netSlots.some(
+    (slot) => slot?.kind === "human" && slot.connId === youConnId,
+  );
+  if (!isLiveHuman) return;
+  partySocket.send(JSON.stringify({ type: MSG.hostPresent }));
 }
 
 /** Pushes an updated cosmetic hex to the server (Customize menu mid-session). */
