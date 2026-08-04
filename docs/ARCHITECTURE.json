@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-04T21:08:27.257Z",
-    "commit": "2f4fc6a"
+    "at": "2026-08-04T22:16:26.130Z",
+    "commit": "0fc9f65"
   },
-  "source_digest": "1b7e3506",
+  "source_digest": "34f7c7e2",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -932,7 +932,7 @@
         "title": "Engineering",
         "counts": {
           "Medium": 14,
-          "High": 3,
+          "High": 4,
           "Low": 9,
           "Partial": 1
         },
@@ -947,6 +947,12 @@
             "pri": "High",
             "item": "STORE-PLAT-WALL-1 — Storerooms void/platform walls are visual-only",
             "notes": "**Filed 08-04 from Wyatt playtest.** Walls attached to the spawn platforms (rails, dividers, and any wall faces that read as solid next to the surrounding void) have **no Rapier colliders** — only the deck cuboid is created in `buildBackroomsBooths` ([backroomsSupermarket.js:3264](../../src/levels/backroomsSupermarket.js:3264)); rails/dividers are mesh-merge only. Carts ghost through geometry that looks solid, which is a fall/KO fairness bug near the pit. **Same shape as SPAWN-SUNDIAL-1** (visual supports without physics). **Pass:** drive into platform-side walls/rails on prod Storerooms — cart stops, does not phase through into void or through booth furniture. Do not over-collider decorative crates. Sibling of closed PIT-COL-INSET-1 / SPAWN-BACKROOMS-1 (those were floor/lip, not platform walls).",
+            "ship1": null
+          },
+          {
+            "pri": "High",
+            "item": "SHOOT-LEVEL-1 — `npm run shoot --level zanzibar` renders **Classic**, not Sundial",
+            "notes": "**Filed 08-04 from BUNDLE-1 Lever C.** `npm run shoot --level zanzibar` produces geometry identical to the default (classic) shot — same draw calls, same tri count — while `--level backrooms` is clearly distinct (98 draws / 241,425 tris). So the harness silently falls back to Classic for that level, almost certainly via the unlock gate resolving to `FREE_LEVEL`. **Why this matters beyond one command: every `shoot`/`compare` run that claimed Sundial coverage has been comparing Classic against Classic** — including MAIN-1's Lever H sign-off (`shots/main-1-done/`, \"sundial meanAbs 0.048\") and every visual-QA gate since. A whole arena has effectively been unverified while reporting green. **Not caused by BUNDLE-1** — the level path is untouched by that card and backrooms works. **Pass:** `--level zanzibar` renders Sundial geometry distinct from Classic; then re-shoot the MAIN-1 baseline so future compares have a real reference. Check the unlock/`FREE_LEVEL` fallback in the harness URL build first.",
             "ship1": null
           },
           {
