@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-04T18:50:58.467Z",
-    "commit": "8d96b0b"
+    "at": "2026-08-04T19:06:29.295Z",
+    "commit": "544befd"
   },
-  "source_digest": "09bec4c2",
+  "source_digest": "0d993877",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -852,21 +852,6 @@
   "workstreams": {
     "queue": [
       {
-        "id": "MAIN-1",
-        "what": "Carve `main.js` composition seam (enables BUNDLE-1)",
-        "status": "▶ §8 all-pass (9/9) — one true regression found and fixed (FIX-BOOST `39939e0`). Open until the post-ship boost-meter retest. Plan: [main-1.md](./planning/main-1.md). BUNDLE-1 unblocks at close.",
-        "state": "active",
-        "touches_systems": [
-          {
-            "id": "boot-and-orchestration",
-            "name": "Boot & orchestration",
-            "files": [
-              "src/main.js"
-            ]
-          }
-        ]
-      },
-      {
         "id": "FIX-EMISSIVE",
         "what": "Non-patterned carts read blown out on Classic",
         "status": "⛔ ABORTED 08-04 — approved design invalidated, needs re-ack. See Open issues.",
@@ -887,7 +872,7 @@
       {
         "id": "BUNDLE-1",
         "what": "Menu/game code-split",
-        "status": "📋 unblocked after MAIN-1 §8 PASS closes the card",
+        "status": "📋 UNBLOCKED 08-04 — MAIN-1 closed (both passes). Next card candidate.",
         "state": "waiting"
       },
       {
@@ -898,9 +883,8 @@
       }
     ],
     "next_actions": [
-      "Ship the MAIN-1 residual wave (4 commits, unpushed: `39939e0` `e7dd92e` `e7e64e4` `15be6ee`) on Wyatt's \"ship it\" → `npm run verify:head` → hard-refresh prod → retest: boost meter visible in solo, ESC mid-directive does not re-fire, F8 shows a toast, quality toggle keeps its overlay through the hitch.",
-      "One fresh F8 pass after that ship — the current 251-capture ring has zero `pt-main-1` bundles, so hitch forensics has no evidence to work from (see Gotchas).",
-      "Re-ack FIX-EMISSIVE with a design that survives the per-frame re-tint, and FIX-MIG as scoped.",
+      "Pick the next card — MAIN-1 closed 08-04, so BUNDLE-1 is unblocked. Competing: re-ack FIX-EMISSIVE (needs a design that survives the per-frame re-tint) or FIX-MIG as scoped. Wyatt's call.",
+      "Hitch forensics now has evidence — cap-254–260 (build `8d96b0b`) are the first captures from a working upload path, including a Cart Rave F8 taken on a hitch. Read them before any perf knob.",
       "Still owed separately: 9-cell PERF sweep (~25 min). Resume Run 8 FAIL triage."
     ],
     "open_issues": [
@@ -915,19 +899,14 @@
         "status": "📋 telemetry-gated — [warm-igpu-1.md](./planning/warm-igpu-1.md)"
       },
       {
-        "id": "MAIN-1",
-        "issue": "Carve `main.js` composition seam (enables BUNDLE-1)",
-        "status": "▶ §8 all-pass; one regression found and fixed (FIX-BOOST `39939e0`, unpushed). **Open until the post-ship boost-meter retest.** Plan: [main-1.md](./planning/main-1.md)."
-      },
-      {
         "id": "FIX-EMISSIVE",
         "issue": "Non-patterned carts blown out on Classic",
-        "status": "⛔ **ABORTED 08-04 — acked lever invalidated, needs re-ack.** Full reasoning + the two design options: [BACKLOG § Engineering](./planning/BACKLOG.md)."
+        "status": "⛔ **ABORTED 08-04 — acked lever invalidated, needs re-ack.** Wyatt has an F8 read from the retest. [BACKLOG § Engineering](./planning/BACKLOG.md)."
       },
       {
         "id": "FIX-MIG",
         "issue": "Quickplay host migration",
-        "status": "📋 **next wave, scoped** (reason tags + continuous-policy tests only). [BACKLOG § Engineering](./planning/BACKLOG.md)."
+        "status": "📋 **next wave, scoped** (reason tags + continuous-policy tests). 08-04 auto-promote observation folded in. [BACKLOG § Engineering](./planning/BACKLOG.md)."
       },
       {
         "id": "CARGO-LATCH-1",
@@ -937,7 +916,7 @@
       {
         "id": "BUNDLE-1",
         "issue": "Menu/game code-split",
-        "status": "📋 unblocked once MAIN-1's retest lands"
+        "status": "📋 **unblocked 08-04** — MAIN-1 closed."
       },
       {
         "id": "BRAND-1",
@@ -1033,7 +1012,7 @@
           {
             "pri": "Medium",
             "item": "FIX-MIG — quickplay host migration is invisible, and untested under continuous policy",
-            "notes": "**Filed 08-04**, deferred out of the MAIN-1 residual wave and **re-scoped after its original rationale was falsified.** Report: \"host migration not working normally. but it did transfer on tab hide. host did migrate on new round start after level changed.\" **The claim that score rebalance is unreachable in quickplay is WRONG** — `#maybeRebalanceHostForQuality` is lobby-gated, but continuous rooms *do* hit lobby on rematch (auto podium → `onHostPlayAgainClick`, then server `MSG.playAgain` → lobby → rebalance at `party/index.ts:1432`), so it already runs every rematch. Do not build a new rebalance boundary without a capture proving that path fails. **Verified defects, and the whole of the scope:** (1) migration triggers 1–4 (host `onClose`, silent reap, ghost exorcism, snapshot repair) broadcast `host_migrated` with **no `reason` field**, so the toast block at [netcode.js:2260](../../src/netcode.js:2260) — which handles only `host_quality` / `host_afk` / `host_return` — is skipped entirely; a working disconnect migration therefore looks like nothing happened. It is not fully silent: the PA `announce(\"new_host\")` still fires (`:2255`). (2) **Zero** migration tests run under continuous/quickplay policy — `tests/party-do/cartRaveServer.test.js` uses friends-shaped `a6a-*` rooms (`uniqueRoom()`, `:19-21`) for all five migration tests, while `uniqueContinuousRoom()` (`:24-26`) is only used by the countdown-arming tests. **Explicitly NOT in scope without product ack:** switching the disconnect successor from join-order `pickNextHostId` ([party/hostSelection.ts:29](../../party/hostSelection.ts:29)) to the score-based picker. Oldest-joiner is stability-first; score-picking on a hard disconnect can promote a high-score *late* joiner mid-sim. AFK/return already score-picks, so \"make it consistent\" is not an argument — this is a product call.",
+            "notes": "**Filed 08-04**, deferred out of the MAIN-1 residual wave and **re-scoped after its original rationale was falsified.** Report: \"host migration not working normally. but it did transfer on tab hide. host did migrate on new round start after level changed.\" **The claim that score rebalance is unreachable in quickplay is WRONG** — `#maybeRebalanceHostForQuality` is lobby-gated, but continuous rooms *do* hit lobby on rematch (auto podium → `onHostPlayAgainClick`, then server `MSG.playAgain` → lobby → rebalance at `party/index.ts:1432`), so it already runs every rematch. Do not build a new rebalance boundary without a capture proving that path fails. **Verified defects, and the whole of the scope:** (1) migration triggers 1–4 (host `onClose`, silent reap, ghost exorcism, snapshot repair) broadcast `host_migrated` with **no `reason` field**, so the toast block at [netcode.js:2260](../../src/netcode.js:2260) — which handles only `host_quality` / `host_afk` / `host_return` — is skipped entirely; a working disconnect migration therefore looks like nothing happened. It is not fully silent: the PA `announce(\"new_host\")` still fires (`:2255`). (2) **Zero** migration tests run under continuous/quickplay policy — `tests/party-do/cartRaveServer.test.js` uses friends-shaped `a6a-*` rooms (`uniqueRoom()`, `:19-21`) for all five migration tests, while `uniqueContinuousRoom()` (`:24-26`) is only used by the countdown-arming tests. **Explicitly NOT in scope without product ack:** switching the disconnect successor from join-order `pickNextHostId` ([party/hostSelection.ts:29](../../party/hostSelection.ts:29)) to the score-based picker. Oldest-joiner is stability-first; score-picking on a hard disconnect can promote a high-score *late* joiner mid-sim. AFK/return already score-picks, so \"make it consistent\" is not an argument — this is a product call. **New observation 08-04 (MAIN-1 retest):** *\"the auto promote to stronger host didn't happen when i started quickplay this time.\"* Worth checking before assuming it is a bug — it may be working as designed. Joining an in-progress quickplay room lands the joiner while phase is `running`/`countdown`, and `#maybeRebalanceHostForQuality` returns immediately unless phase is `lobby` and `#countdownArmed` is false ([party/index.ts:309-311](../../party/index.ts:309)), so a stronger joiner is expected **not** to take host until the next rematch boundary. It is only a defect if it also failed to promote at the following `playAgain`. **Cheapest next evidence:** F8 on both machines right after the rematch that should have promoted, and read `hostScore` / the `host_migrated` reason out of the bundles — do not tune the picker before that.",
             "ship1": null
           },
           {
@@ -1408,15 +1387,14 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "High": 1,
-          "?": 4,
+          "?": 5,
           "Low": 1
         },
         "rows": [
           {
-            "pri": "High",
-            "item": "MAIN-1 — residual-fix retest on production",
-            "notes": "**Owed: Wyatt playtest — MAIN-1 — the four residual fixes hold, and §8 stays all-pass.** §8 came back 9/9 on `c9f6f44`; this retest closes the card. DEPLOYED `8d96b0b` · Version `a92934f3` · prod chunk `index-BuD_HIUu.js` (SHA byte-identical to local ship, verified). Hard-refresh https://cart-rave.wyabro.workers.dev first. Steps 1-4 are the fixes; 5-6 re-check what they touched; 7 is the evidence pull the next card needs.<br>1. Boost bar (FIX-BOOST, the one real regression): solo quickplay, desktop — the BOOST slab is visible while driving and fills/drains as you charge. It is hidden on touch by design, so judge this on the desktop box.<br>2. Directives (FIX-DIRPAUSE): solo, wait for a directive to fire, open ESC mid-window, resume — it must NOT re-fire, and its countdown must continue rather than restart. Pause twice in one window to be sure.<br>3. F8 captures (FIX-F8CAP): load with `?diag=1`, press F8 — you should now get a **toast** telling you the upload succeeded or failed (before, everything was silent). Then quit to menu and press F8 again: `?diag` must survive the return, so F8 still works. Previously it died there for the rest of the session.<br>4. Quality overlay (FIX-QUALFEEL): Esc → Low↔High — the loading overlay must stay up through the whole freeze instead of vanishing before it. Still takes seconds; this only fixes the framing, not the duration. Try a Low↔Medium toggle too (that path gets no shader warm at all).<br>5. Regression sweep on the touched paths: solo round to podium → PLAY AGAIN → fresh round; ESC pause freezes the clock and resume continues; level music starts on play entry and charge SFX stops on KO.<br>6. Emissive look (no fix shipped — FIX-EMISSIVE aborted): on Cart Rave, judge how blown out the non-patterned carts actually read, and whether a leader-glow cart looks worse. This is the target for the replan, so a sentence of your read is the deliverable.<br>7. Hitches: F8 whenever one bites (Sundial and Cart Rave both reported). The old ring has **zero** `pt-main-1` bundles because uploads were silently size-capped until this ship, so forensics has nothing to work from — these captures are the evidence. Then run `npm run captures:pull`.",
+            "pri": "✅",
+            "item": "MAIN-1 — composition seam + residual-fix retest",
+            "notes": "**Wyatt playtest PASS 08-04 — CLOSED, both passes.** §8 seam check 9/9 on `c9f6f44`; residual-fix retest 7/7 on `8d96b0b` (Version `a92934f3`, chunk `index-BuD_HIUu.js`, SHA verified). All four fixes hold in production; the F8 path is confirmed working end-to-end (7 captures arrived, cap-254–260). BUNDLE-1 unblocked. Full writeup: [completed-work.md](./completed-work.md). Two things the retest surfaced, both filed as their own rows: the quickplay auto-promote observation (→ FIX-MIG) and the Cart Rave emissive read (→ FIX-EMISSIVE).",
             "ship1": null
           },
           {

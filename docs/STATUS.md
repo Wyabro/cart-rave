@@ -66,19 +66,17 @@ Live rows only. Shipped and closed cards live in
 
 | # | What | Status |
 |---|------|--------|
-| MAIN-1 | Carve `main.js` composition seam (enables BUNDLE-1) | ▶ **§8 all-pass** (9/9) — one true regression found and fixed (FIX-BOOST `39939e0`). Open until the post-ship boost-meter retest. Plan: [main-1.md](./planning/main-1.md). BUNDLE-1 unblocks at close. |
 | FIX-EMISSIVE | Non-patterned carts read blown out on Classic | ⛔ **ABORTED 08-04 — approved design invalidated, needs re-ack.** See Open issues. |
 | FIX-MIG | Quickplay host-migration visibility + continuous-policy tests | 📋 next wave, scoped — see Open issues. |
 | PERF-PASS-1 | 60 fps at Low on the Intel box — **Cart Rave only** (Wyatt scoped it 08-03) | ⏸ **PARKED BY WYATT 08-04 for HOST-TAB-1.** Wave 4 remains deployed (`b754e12`, Worker `9b8b1fbe`); honest measured range −1.66 to −2.54 ms and includes +0.55. Card remains open at ~46 fps; every future cell needs an A-B-A bracket on a cooled box. Menu + evidence: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md). |
-| BUNDLE-1 | Menu/game code-split | 📋 **unblocked** after MAIN-1 §8 PASS closes the card |
+| BUNDLE-1 | Menu/game code-split | 📋 **UNBLOCKED 08-04** — MAIN-1 closed (both passes). Next card candidate. |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 
 ### Next actions
 
-1. **Ship the MAIN-1 residual wave** (4 commits, unpushed: `39939e0` `e7dd92e` `e7e64e4` `15be6ee`) on Wyatt's "ship it" → `npm run verify:head` → hard-refresh prod → retest: boost meter visible in solo, ESC mid-directive does not re-fire, F8 shows a toast, quality toggle keeps its overlay through the hitch.
-2. **One fresh F8 pass after that ship** — the current 251-capture ring has **zero** `pt-main-1` bundles, so hitch forensics has no evidence to work from (see Gotchas).
-3. **Re-ack FIX-EMISSIVE** with a design that survives the per-frame re-tint, and FIX-MIG as scoped.
-4. **Still owed separately:** 9-cell PERF sweep (~25 min). Resume Run 8 FAIL triage.
+1. **Pick the next card** — MAIN-1 closed 08-04, so BUNDLE-1 is unblocked. Competing: re-ack FIX-EMISSIVE (needs a design that survives the per-frame re-tint) or FIX-MIG as scoped. Wyatt's call.
+2. **Hitch forensics now has evidence** — cap-254–260 (build `8d96b0b`) are the first captures from a working upload path, including a Cart Rave F8 taken on a hitch. Read them before any perf knob.
+3. **Still owed separately:** 9-cell PERF sweep (~25 min). Resume Run 8 FAIL triage.
 
 **Open High:** PERF-PASS-1 · UI-SCALE-1 · RESULTS-1 · CART-MODEL-1 · bloom.
 
@@ -91,11 +89,10 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 |----|--------|--------|
 | PERF-PASS-1 | 60 fps at Low on the Intel box — **Cart Rave only** | ⏸ **PARKED 08-04.** Baseline 23.788 ms / 42.0 fps; menu: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md). |
 | WARM-SOLO-1 | Solo post-`carts-ready` stall (WARM-IGPU residual) | 📋 telemetry-gated — [warm-igpu-1.md](./planning/warm-igpu-1.md) |
-| MAIN-1 | Carve `main.js` composition seam (enables BUNDLE-1) | ▶ §8 all-pass; one regression found and fixed (FIX-BOOST `39939e0`, unpushed). **Open until the post-ship boost-meter retest.** Plan: [main-1.md](./planning/main-1.md). |
-| FIX-EMISSIVE | Non-patterned carts blown out on Classic | ⛔ **ABORTED 08-04 — acked lever invalidated, needs re-ack.** Full reasoning + the two design options: [BACKLOG § Engineering](./planning/BACKLOG.md). |
-| FIX-MIG | Quickplay host migration | 📋 **next wave, scoped** (reason tags + continuous-policy tests only). [BACKLOG § Engineering](./planning/BACKLOG.md). |
+| FIX-EMISSIVE | Non-patterned carts blown out on Classic | ⛔ **ABORTED 08-04 — acked lever invalidated, needs re-ack.** Wyatt has an F8 read from the retest. [BACKLOG § Engineering](./planning/BACKLOG.md). |
+| FIX-MIG | Quickplay host migration | 📋 **next wave, scoped** (reason tags + continuous-policy tests). 08-04 auto-promote observation folded in. [BACKLOG § Engineering](./planning/BACKLOG.md). |
 | CARGO-LATCH-1 | `cargoLoad.js` repeats the FIX-DIRPAUSE latch bug | 📋 same class as `e7dd92e`, out of scope by instruction. [BACKLOG § Engineering](./planning/BACKLOG.md). |
-| BUNDLE-1 | Menu/game code-split | 📋 unblocked once MAIN-1's retest lands |
+| BUNDLE-1 | Menu/game code-split | 📋 **unblocked 08-04** — MAIN-1 closed. |
 | BRAND-1 | Domain / Worker cutover | 🧊 frozen until deliberate cutover ([brand.md](./brand.md)) |
 
 ## Decision index
@@ -130,11 +127,12 @@ The hot set — what a current session is likely to hit. Deep-domain and narrow 
 
 ## Last updated
 
-2026-08-04 (MAIN-1 §8 residual wave) — §8 all-pass, seven residual quirks. Four fixed, one commit
-each, **unpushed**: FIX-BOOST `39939e0` (only true MAIN-1 regression — Lever H froze the
-`getLocalCart` stub at `HUD.init`), FIX-DIRPAUSE `e7dd92e` (falsification-checked), FIX-F8CAP
-`e7e64e4`, FIX-QUALFEEL `15be6ee`. FIX-EMISSIVE aborted, FIX-MIG deferred — both re-scoped in
-BACKLOG. Gates: 111 files / 1363 tests green, build clean.
+2026-08-04 (MAIN-1 CLOSED) — §8 seam check 9/9, residual-fix retest 7/7, both Wyatt PASS.
+DEPLOYED `8d96b0b` · Version `a92934f3` · chunk `index-BuD_HIUu.js` (SHA verified). Four fixes:
+FIX-BOOST `39939e0` (the only true regression — Lever H froze the `getLocalCart` stub at
+`HUD.init`), FIX-DIRPAUSE `e7dd92e` (falsification-checked), FIX-F8CAP `e7e64e4` (upload path
+confirmed live — 7 captures arrived, cap-254–260), FIX-QUALFEEL `15be6ee`. FIX-EMISSIVE aborted
+and FIX-MIG deferred, both re-scoped in BACKLOG. BUNDLE-1 unblocked.
 
 2026-08-04 (FX-TIME-1 · SHADOW-ORDER-1 · ARCH-DRIFT-1 wave) — Three small cards, one commit each,
 DEPLOYED together at `91b39aa` (Worker `d47d4dd3`; prod bundle fetched, SHA confirmed).

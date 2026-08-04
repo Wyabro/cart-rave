@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-04 at commit `15be6ee` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `b0706185`
+> Generated 2026-08-04 at commit `544befd` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `a6ca505e`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -18,10 +18,14 @@ Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep a
 
 ## ACTIVE CARD
 
-MAIN-1 — Carve `main.js` composition seam (enables BUNDLE-1)
-Pass looks like: ▶ §8 all-pass (9/9) — one true regression found and fixed (FIX-BOOST `39939e0`). Open until the post-ship boost-meter retest. Plan: [main-1.md](./planning/main-1.md). BUNDLE-1 unblocks at close.
+Pick the next card — MAIN-1 closed 08-04, so BUNDLE-1 is unblocked. Competing: re-ack FIX-EMISSIVE (needs a design that survives the per-frame re-tint) or FIX-MIG as scoped. Wyatt's call
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
+
+Self-directed queue (one at a time, within the declared phase):
+- **FIX-EMISSIVE** Non-patterned carts read blown out on Classic — ⛔ ABORTED 08-04 — approved design invalidated, needs re-ack. See Open issues.
+- **FIX-MIG** Quickplay host-migration visibility + continuous-policy tests — 📋 next wave, scoped — see Open issues.
+- **BUNDLE-1** Menu/game code-split — 📋 UNBLOCKED 08-04 — MAIN-1 closed (both passes). Next card candidate.
 
 ## Do not
 

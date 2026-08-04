@@ -13,6 +13,54 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 4, 2026 — MAIN-1 CLOSED: composition seam + the residual wave behind it
+
+**MAIN-1 is done.** The §8 seam playtest came back 9/9 on `c9f6f44`, and the retest of the four
+residual fixes came back 7/7 on `8d96b0b` (Version `a92934f3`, chunk `index-BuD_HIUu.js`, SHA
+byte-identical to the local ship). BUNDLE-1 is unblocked.
+
+- *(Tech debt · Medium)* **MAIN-1** — ✅ Wyatt PASS 08-04 (both passes). Levers A–H carved
+  `main.js` into orchestration modules; the soft line target was missed (2402 vs ≤1500 — the
+  remainder is composition wiring, not logic). Plan: [main-1.md](./main-1.md).
+- *(Regression · High)* **FIX-BOOST** (`39939e0`) — the **only true regression** the extract
+  produced, and worth remembering as a class. Lever H turned `localCartForConnId` from a hoisted
+  function into a late-bound `let` stub that `createCartOrchestration` assigns *after* `HUD.init`
+  runs. The input handlers survived because they call it inside arrows; `HUD.init` passed the
+  reference itself, froze the stub, and the boost meter's show-gate saw `null` for the whole
+  session. **The lesson is the seam, not the symbol:** when an extraction introduces late binding,
+  every by-value consumer registered before the assignment silently keeps the stub. Fix is a
+  wrapper (`() => localCartForConnId()`); regression test pins both directions
+  ([hudBoostLateBind.test.js](../../tests/hudBoostLateBind.test.js)).
+- *(Gameplay · Medium)* **FIX-DIRPAUSE** (`e7dd92e`) — **pre-existing, not from the extract**
+  (the mechanism dates to run-6's `shiftDirectiveTimersBy`; every timing path in the MAIN-1 diffs
+  was verified byte-identical or a pure move). Solo ESC pause and host tab-return both compensate
+  by mutating `roundStartedAtMs` and then shifting the directive timers — but the engine treats
+  *any* change to that anchor as a new round, so it killed the in-flight directive, rewound
+  `scheduleIdx`, cleared the repeat guard, and the still-in-window slot re-fired with a fresh
+  countdown and announcer callout on every pause. Fix shifts `_lastRoundStartedAtMs` by the same
+  delta. **Falsification-checked:** with the shift disabled the new test fails because a second
+  directive has replaced the in-flight one.
+- *(Diagnostics · High)* **FIX-F8CAP** (`e7e64e4`) — the instrument everything else depends on was
+  quietly broken three ways: the upload used `keepalive: true`, whose ~64 KiB body cap Chrome
+  enforces by rejecting into a swallowed `console.warn`; quit-to-menu rebuilt the URL to a bare
+  pathname and dropped `?diag`, disarming F8 for the rest of the session; and `manualCapture`
+  awaited an un-timed freshness fetch before doing anything. **The size cap was measurable in the
+  evidence itself** — across 251 pulled bundles the max body was 54,786 chars ≈ 65,179 wire bytes,
+  **357 under 65,536**, a distribution clipped exactly at the ceiling. Now: no `keepalive`, `diag`
+  (+`captureLabel`) carried across menu returns via `menuReturnHref` (never `room=`, which would
+  cause rejoin ghosts), a 2 s abort on the freshness probe, and a toast on every outcome including
+  Worker non-ok and parse errors. **Verified live:** all 7 retest F8s arrived (cap-254–260).
+- *(UX · Medium)* **FIX-QUALFEEL** (`15be6ee`) — the quality-toggle overlay already existed; it was
+  dismissed in `finally` the instant `rebuildForQualityChange()` resolved, i.e. *before* the
+  expensive post-swap frames painted, so the freeze landed after the loader had gone. Now held
+  `waitForPaintedFrames(2)`. **This fixes the framing, not the duration** — see the residual note
+  on the successor card.
+- *(Process)* **FIX-EMISSIVE aborted, and the abort is the finding.** The acked lever cannot work:
+  `intensityMul` is a per-call argument, and the unguarded leader-glow loop re-tints every cart
+  with `1` every frame over the same material cache. Full reasoning and the two retry options are
+  the BACKLOG row. **FIX-MIG deferred** after its original rationale was falsified (score rebalance
+  *does* run every quickplay rematch).
+
 ### August 4, 2026 — Playtest export: 3 PASS / 0 FAIL (HOST-TAB-1 finally closed)
 
 A clean sweep — the first export this phase with no FAIL to triage. All three closed the same
