@@ -13,6 +13,37 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 5, 2026 — SUNDIAL-OBSTACLE-SLIDE-1 PASS: the sweep's last site, and the one the grep missed
+
+**Wyatt PASS on prod `7faa6d73`** — *"blade slides now, deck feels the same"*. Fifth card of the
+combine-rule run and the one that actually closes it.
+
+- *(Physics · Low)* **SUNDIAL-OBSTACLE-SLIDE-1** — ✅ PASS 08-05 (`fd97ab8`). Sundial's 8 corner
+  bollards and the gnomon blade were written `0.3` and, averaged with the cart's 1.1, acted like
+  **0.7**. `FrictionCombineRule.Min` on both, **no number changes**. Floors untouched and
+  deliberately so — deck/podium cuboids and the ramp hull (`DECK_FRICTION`) plus the spawn booth
+  slabs (`B.friction`), all with canaries in `tests/zanzibarObstacleFriction.test.js`.
+- **The blade was the card; the bollards came along for consistency.** A bollard is a brief point
+  impact where restitution dominates the feel, but the gnomon blade is a 6.2 m flat vertical face
+  a cart genuinely grinds along — made solid by `5ec432d` and gripping ever since. Wyatt judged
+  exactly those two axes: the blade now slides, and the deck is unchanged.
+- **How this one was found is the lesson.** It was not reported by a player and not caught by a
+  test. It surfaced because closing the previous card meant re-running the search that had produced
+  *"Sundial is clean"* — and that search only matched friction ≤0.2, so a value written `0.3` was
+  invisible to it. **A negative result from a grep is only as good as its pattern**; when a sweep
+  reports a file clean, the pattern is the thing to check, not the file.
+- **Watch the anchor when a source-assertion test slices a file.** The canary's first draft
+  anchored on `for (const p of bollardPositions)`, which appears **twice** — the visual instancing
+  loop at `:3479` comes first — so the slice silently swallowed the whole deck section. It failed
+  for an unrelated reason and got caught; a slightly luckier draft would have passed while
+  asserting nothing. Anchors in these tests must be verified unique.
+- **Correction carried out of this card:** the run's docs claim Rapier defaults restitution to
+  `Max`. It does not — `ColliderDesc` sets **both** combine rules to `Average`
+  (`@dimforge/rapier3d/geometry/collider.js:861-862`). Filed as **RAPIER-DEFAULT-MAX-1** (Low,
+  prose-only). Classic's lip and staves deflect at 0.40/0.45, not 0.50/0.60 — but that card passed
+  playtest *at the real values*, so the feel is signed off and the numbers must not be "corrected"
+  upward. The claim is what is wrong, including in this file's WALL-SLIDE-CLASSIC-1 entry below.
+
 ### August 5, 2026 — WALL-SLIDE-CLASSIC-1 PASS: the same fix on Cart Rave's pit rim
 
 **Wyatt PASS on prod `a028cb8a`** — *"feels good"*. Fourth and last card of the day's
