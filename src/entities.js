@@ -7,6 +7,7 @@ import {
   disposeRaveGltfInstance,
   isRaveGltfSourceReady,
   prepareRaveGltfCart,
+  setEmissiveTrimMul,
 } from "./cartRaveGltf.js";
 import { CONFIG } from "./config.js";
 import { resolveCartThemeForSlot, resolveCartSunglassesStyleForSlot } from "./customization.js";
@@ -261,6 +262,11 @@ function rebuildCartVisualsIntoRoot(cart, scene) {
   if (cart.cartPatternId && cart.cartPatternId !== "classic") {
     applyCartPattern(cart.mesh, cart.cartPatternId, cart.cartColor);
   }
+  // * FIX-EMISSIVE — unconditional, unlike the pattern re-apply above: the fresh build was born
+  // * "classic" (prepareRaveGltfCart takes no patternId here), so a patterned cart must be
+  // * restored to 1 as well as a classic one held at the trim. No recolor needed — the caller
+  // * repaints from slots right after a respawn.
+  setEmissiveTrimMul(materialCache, cart.cartPatternId, cart.mesh);
 
   // * Drop any pre-shatter cargo bays first — leaving them caused double piles and
   // * spill hide only clearing the stale ref while groceries stayed visible.

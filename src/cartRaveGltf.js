@@ -484,6 +484,55 @@ const RAVE_GLTF_EMISSIVE_MUL = RAVE_GLTF_FRAME_PRESET.emissiveMul ?? 1.15;
 /** Wireframe trim uses an emissive map (partial coverage); kept at 1.0 to match procedural bloom balance. */
 const RAVE_GLTF_TRIM_MASK_BOOST = 1.0;
 
+/**
+ * FIX-EMISSIVE — trim emissive multiplier for a cart with NO pattern.
+ *
+ * * A pattern is the only thing that currently reduces emissive AREA, so a `classic` cart shows
+ * * full-area trim glow and reads blown out beside a patterned one (Wyatt, 08-04). This trims the
+ * * intensity instead. Not a niche case: remote humans are always classic (patterns are not
+ * * networked yet) and the NPC pool draws classic 2/7.
+ *
+ * * Eye-tuned starting value, NOT a measured gate — Classic's ~15.9% construction-noise floor
+ * * swamps a trim this size in `npm run compare`, which is why this card ships on a unit seam
+ * * plus a human look-check rather than on pixels.
+ */
+const CLASSIC_TRIM_EMISSIVE_MUL = 0.85;
+
+/**
+ * FIX-EMISSIVE — record the trim on the CACHE (and stickily on the root), never as a call argument.
+ *
+ * * THIS IS THE WHOLE POINT OF THE CARD, and the reason its first attempt (08-04) was aborted.
+ * * `intensityMul` is a per-call argument: the unguarded every-frame leader-glow loop in
+ * * frameVisuals.js calls `applyThemeColorToCache(cache, themeId, hex)` with three arguments, so
+ * * the mul defaults to 1 and any threaded trim is erased within a frame. Cache-owned survives.
+ *
+ * * The userData stamp is what survives a CACHE REBUILD. Both frameVisuals and cartOrchestration
+ * * do `cart._materialCache || (cart._materialCache = buildCartMaterialCache(cart.mesh))`, so a
+ * * miss rebuilds the cache — without the stamp a classic cart would pop back to full brightness.
+ *
+ * * CALL THIS WHEREVER A PATTERN IS DECIDED, not just where a cart is built. Match spawn calls
+ * * `prepareRaveGltfCart(mesh, color)` with no pattern, so every match cart is born "classic" and
+ * * the real pattern arrives later via updateCartMaterialsFromSlots. Setting this at birth only
+ * * would trim every cart in the game and never restore patterned ones to 1.
+ *
+ * @param {CartThemeMaterialCache | null | undefined} cache
+ * @param {string | null | undefined} patternId
+ * @param {THREE.Object3D | null | undefined} [root] Cart root, stamped so a cache rebuild recovers.
+ * @returns {number} The applied multiplier.
+ */
+export function setEmissiveTrimMul(cache, patternId, root) {
+  const mul = !patternId || patternId === "classic" ? CLASSIC_TRIM_EMISSIVE_MUL : 1;
+  if (cache) /** @type {any} */ (cache).emissiveTrimMul = mul;
+  if (root) (root.userData ||= {}).cartEmissiveTrimMul = mul;
+  return mul;
+}
+
+/** @param {CartThemeMaterialCache | null | undefined} cache */
+function trimMulOf(cache) {
+  const v = /** @type {any} */ (cache)?.emissiveTrimMul;
+  return typeof v === "number" ? v : 1;
+}
+
 // * Body emissive wire mask — soft luminance ramp isolating the bright neon wire strokes from
 // * the darker body so wire glow (emissiveIntensity) tunes independently of surface albedo.
 // * Brightness = per-pixel max(r,g,b) (captures saturated neon of any hue, not just high-luma).
@@ -2797,6 +2846,10 @@ export function buildRaveGltfMaterialCache(root) {
     frameBodyMats,
     accentMats,
     frameGlowMats,
+    // * FIX-EMISSIVE — rehydrate the trim stamped by setEmissiveTrimMul. Every rebuild path
+    // * (frameVisuals + cartOrchestration cache misses, KO respawn) funnels through here, so
+    // * this one line is what stops a classic cart popping back to full brightness.
+    emissiveTrimMul: /** @type {any} */ (root?.userData)?.cartEmissiveTrimMul ?? 1,
   };
 }
 
@@ -2814,8 +2867,11 @@ export function applyRaveGltfColorToCache(
     mat.needsUpdate = true;
   }
 
+  // * FIX-EMISSIVE — the cache-owned trim folds in here, so callers keep passing whatever
+  // * intensityMul they already passed (usually 1) and still get a trimmed classic cart.
+  const trimmedMul = intensityMul * trimMulOf(cache);
   for (const mat of cache.accentMats || []) {
-    applyRaveGltfTrimEmissive(mat, neonHex, intensityMul);
+    applyRaveGltfTrimEmissive(mat, neonHex, trimmedMul);
     mat.needsUpdate = true;
   }
 }
@@ -2831,7 +2887,12 @@ export function applyRaveGltfLeaderGlow(
   if (!cache?.frameMats?.length) return;
 
   const whiteMix = glowPulse ** 3;
-  const baseIntensity = getRaveGltfTrimEmissiveIntensity(neonHex, 1);
+  // * FIX-EMISSIVE — this hardcoded 1 is the line that killed the card's first attempt: a classic
+  // * cart popped back to full brightness the instant it took the lead. Reads the cache instead.
+  // * KNOWN LIMIT, accepted: the blend below is `base*(1-whiteMix) + glowIntensity*whiteMix`, and
+  // * glowIntensity is an absolute per-frame value that is NOT trim-scaled — so classic stays
+  // * dimmer at idle and while the pulse rises, but converges with patterned at the peak flash.
+  const baseIntensity = getRaveGltfTrimEmissiveIntensity(neonHex, trimMulOf(cache));
   const r = ((neonHex >> 16) & 255) / 255;
   const g = ((neonHex >> 8) & 255) / 255;
   const b = (neonHex & 255) / 255;
@@ -3376,6 +3437,11 @@ export function prepareRaveGltfCart(
   if (model) applyRaveGltfBodyScale(model);
   bindRaveGltfCartParts(root);
   const cache = buildRaveGltfMaterialCache(root);
+  // * FIX-EMISSIVE — set BEFORE the recolor so the first paint is already trimmed.
+  // * NOTE this is not the only place it must be set: match spawn calls this with no patternId
+  // * (entities.js), so every match cart is born "classic" here and the real pattern lands later
+  // * in updateCartMaterialsFromSlots, which sets it again.
+  setEmissiveTrimMul(cache, patternId, root);
   applyRaveGltfColorToCache(cache, neonHex, 1, bodyTintStrength);
   applyCartPattern(root, patternId, neonHex);
   return cache;

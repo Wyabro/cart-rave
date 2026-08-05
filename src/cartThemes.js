@@ -12,7 +12,12 @@ import * as THREE from "three";
 import { createPhysicalMaterial, getMaterialEnvMapIntensity } from "./scene.js";
 import { getCartTheme, normalizeThemeId } from "./cartThemeConfig.js";
 import { cartEmissiveIntensityForHex, emissiveRefHexForNeonHex } from "./utils.js";
-import { applyRaveGltfColorToCache, applyRaveGltfLeaderGlow, buildRaveGltfMaterialCache } from "./cartRaveGltf.js";
+import {
+  applyRaveGltfColorToCache,
+  applyRaveGltfLeaderGlow,
+  buildRaveGltfMaterialCache,
+  setEmissiveTrimMul,
+} from "./cartRaveGltf.js";
 import { applyCartPattern } from "./cartPatterns.js";
 
 /** @typedef {import("./cartThemeConfig.js").CartThemeId} CartThemeId */
@@ -28,6 +33,9 @@ const CHROME_ENV_SCALE = 1.35;
  * @property {THREE.MeshStandardMaterial[]} frameBodyMats - basket/chassis frame
  * @property {THREE.MeshStandardMaterial[]} accentMats - hubs, pads, emissive trim
  * @property {THREE.MeshStandardMaterial[]} frameGlowMats - materials with emissive (leader/boost loop)
+ * @property {number} [emissiveTrimMul] - FIX-EMISSIVE trim for a cart with no pattern (default 1).
+ *   Lives on the CACHE, not on a call argument, because the every-frame leader-glow loop rewrites
+ *   these materials with an implicit `intensityMul = 1`. Written by `setEmissiveTrimMul`.
  */
 
 /**
@@ -267,6 +275,9 @@ function applyPatternPolicy(root, theme) {
   if (theme.patternPolicy !== "disable") return;
   // * Pattern lives in the CartFrame body material now — disable it by clearing to "classic".
   applyCartPattern(root, "classic");
+  // * FIX-EMISSIVE, defensive only: no shipped theme sets "disable", so this branch is currently
+  // * unreachable. Stamped anyway so a future theme cannot go classic without the trim.
+  setEmissiveTrimMul(null, "classic", root);
 }
 
 /**

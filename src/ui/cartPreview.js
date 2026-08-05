@@ -8,6 +8,7 @@
 import * as THREE from "three";
 import { buildCart } from "../cart.js";
 import { applyCartPattern } from "../cartPatterns.js";
+import { setEmissiveTrimMul } from "../cartRaveGltf.js";
 import { DEFAULT_CART_PATTERN, normalizePatternId } from "../cartPatternConfig.js";
 import {
   DEFAULT_CART_THEME,
@@ -586,6 +587,10 @@ export class CartPreview {
     }
 
     if (this._materialCache) {
+      // * FIX-EMISSIVE — before the recolor, and unconditionally: the Customize screen switches
+      // * pattern without rebuilding the cart, so a birth-set multiplier would go stale in both
+      // * directions (classic→patterned and back).
+      setEmissiveTrimMul(this._materialCache, this._patternId, this.cartGroup);
       applyThemeColorToCache(this._materialCache, this._themeId, this._neonHex);
     }
     if (this.cartGroup) {

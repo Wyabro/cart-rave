@@ -34,6 +34,7 @@ import {
 // * no re-export here, so there is exactly one definition site.
 import { displayColorHexForSlot, displayCssColorForSlot } from "./cartIdentity.js";
 import { applyCartPattern } from "../cartPatterns.js";
+import { setEmissiveTrimMul } from "../cartRaveGltf.js";
 import { getCartTheme } from "../cartThemeConfig.js";
 import {
   applyThemeColorToCache,
@@ -230,6 +231,7 @@ export function createCartOrchestration(deps) {
       const themeId = cart.cartThemeId
         ?? resolveCartThemeForSlot(slot, { youConnId });
       const cache = cart._materialCache || (cart._materialCache = buildCartMaterialCache(cart.mesh));
+      const trimBefore = /** @type {any} */ (cache).emissiveTrimMul ?? 1;
 
       applyThemeColorToCache(cache, themeId, finalHex);
 
@@ -238,6 +240,14 @@ export function createCartOrchestration(deps) {
         const patternId = resolveCartPatternForSlot(slot, { youConnId });
         applyCartPattern(cart.mesh, patternId, finalHex);
         cart.cartPatternId = patternId;
+        // * FIX-EMISSIVE — THE live match path. Carts are built by prepareRaveGltfCart with no
+        // * patternId, so they are all born "classic"; this is where the real pattern is known.
+        // * Without this line every match cart stays trimmed and patterned carts never return
+        // * to 1 — the fix inverted, while the menu preview still looks correct.
+        // * Re-applies the colour because the trim only takes effect on the next recolor.
+        if (setEmissiveTrimMul(cache, patternId, cart.mesh) !== trimBefore) {
+          applyThemeColorToCache(cache, themeId, finalHex);
+        }
       }
 
       cart.cartColor = finalHex;
