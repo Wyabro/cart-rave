@@ -13,6 +13,42 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 5, 2026 — FIX-EMISSIVE PASS 2/2: the trim survives on the cache, second time around
+
+**Wyatt PASS on prod `a7dfd8f7`** — FIX-EMISSIVE-1 *"they dont read blown out"*, FIX-EMISSIVE-2
+classic leader stays dimmer. Closes a card that was **aborted once**.
+
+- *(Art/Engineering · Medium)* **FIX-EMISSIVE** — ✅ PASS 08-05 (`8dce55f`). A pattern was the only
+  thing reducing emissive AREA, so `classic` carts showed full-area trim glow — and classic is not
+  rare: remote humans are always classic (patterns are not networked) and the NPC pool draws it
+  2/7. Trim now lives on the material cache as `emissiveTrimMul`, read by both writers.
+- **Why the first attempt (08-04) was aborted, and the general lesson.** It threaded the trim
+  through `intensityMul` — **a per-call argument**. The unguarded every-frame leader-glow loop
+  calls `applyThemeColorToCache(cache, themeId, hex)` with three arguments, so the mul defaulted to
+  `1` and the trim was erased within a frame. *If a value must persist per-object, it belongs on
+  the object's state, not on the call that happens to set it first.*
+- **Wyatt's plan review caught a must-fix that would have shipped the fix inverted.** My plan set
+  the trim at cache birth. But match spawn is `prepareRaveGltfCart(mesh, color)` — two arguments,
+  `patternId` defaults to `"classic"` — so **every match cart is born classic** and the real
+  pattern only lands later in `updateCartMaterialsFromSlots`. Birth-only would have trimmed the
+  whole grid and never restored patterned carts, **while the menu preview still looked correct**.
+  The helper is now called at all four sites that decide a pattern, and stamped on `mesh.userData`
+  so cache rebuilds rehydrate. *A constructor is not where state is decided if callers can skip
+  the argument.*
+- **The test that would have lied.** A suite written against `prepareRaveGltfCart(root, hex,
+  patternId)` passes while every cart in a real match is wrong. The suite therefore asserts the
+  **slots path**, and one deliberate source assertion pins the two live wirings. **Falsified, not
+  assumed:** reverting the leader-glow line to its old hardcoded `1` fails test 3 and only test 3.
+- **Known limit, shipped knowingly:** the leader blend is
+  `base*(1-whiteMix) + glowIntensity*whiteMix` and `glowIntensity` is absolute, so classic and
+  patterned converge at the peak white flash. The playtest row said so up front, so it came back
+  as a PASS rather than a surprise FAIL.
+- **The look note that came back with the pass is a different card.** Wyatt: the carts now read
+  *pastel*, and patterned ones *too dark*. That is chroma, not intensity — filed as
+  **CART-COLOR-DEPTH-1** with the mechanism for both halves, deliberately **not** as a residual
+  here. Recording it separately is the same discipline that produced HUD-TOAST-Z-1 in the first
+  place: a real finding must not ride inside another card's verdict.
+
 ### August 5, 2026 — HUD-TOAST-Z-1 PASS 6/6: the toast stops losing to a stacking context
 
 **Wyatt PASS on prod `100842ad`, 6 cards, no FAIL** — TOAST-BOOST-1 · TOAST-NARROW-1 ·

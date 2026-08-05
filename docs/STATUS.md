@@ -66,7 +66,7 @@ Live rows only. Shipped and closed cards live in
 
 | # | What | Status |
 |---|------|--------|
-| **FIX-EMISSIVE** | Non-patterned carts read blown out on Classic | 🚧 **ACTIVE — DEPLOYED, Version `a7dfd8f7`, awaiting FIX-EMISSIVE-1 / -2.** (Shipped from `7f20e8e`, which also carries another session's MENU-LOGO work — Wyatt acked the combined deploy.) Retry after the 08-04 abort on acked **option (b)**: trim moved onto `cache.emissiveTrimMul`, written at all four pattern-deciding sites + stamped on `mesh.userData` so rebuilds rehydrate. **Wyatt's review caught a must-fix** — birth-only would have inverted it in-match. Falsified (reverting the leader-glow line fails test 3 alone). Known limit: the peak flash converges by design. |
+| *(closed)* | FIX-EMISSIVE — non-patterned carts read blown out | ✅ **PASS 2/2 08-05** on `a7dfd8f7`, after one abort. Trim moved onto `cache.emissiveTrimMul` — durable lesson: **a value that must persist per-object belongs on the object's state, not on the call that sets it first.** New finding filed separately as **CART-COLOR-DEPTH-1** (pastel / too-dark = chroma, not intensity). [completed-work.md](./planning/completed-work.md). |
 | *(closed)* | Physics run 08-05 — **5 cards, all PASS** | ✅ **Durable finding: a friction value in this codebase is not a felt value** — Rapier averages it with the cart's 1.1. Verticals take `FrictionCombineRule.Min`; **floors deliberately keep Average** (canaries in three test files). Full run + evidence: [completed-work.md](./planning/completed-work.md). |
 | FIX-MIG | Quickplay host-migration visibility + continuous-policy tests | 📋 next wave, scoped — see Open issues. |
 | PERF-PASS-1 | 60 fps at Low on the Intel box — **Cart Rave only** (Wyatt scoped it 08-03) | ⏸ **PARKED BY WYATT 08-04 for HOST-TAB-1.** Wave 4 remains deployed (`b754e12`, Worker `9b8b1fbe`); honest measured range −1.66 to −2.54 ms and includes +0.55. Card remains open at ~46 fps; every future cell needs an A-B-A bracket on a cooled box. Menu + evidence: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md). |
@@ -75,7 +75,7 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. **FIX-EMISSIVE is mid-flight — ship it, then Wyatt plays FIX-EMISSIVE-1 / -2.** qa green 7/7; **battery 6/6 complete suite at this HEAD** (08-05), so `ready` is no longer head-mismatched. No new card until it passes or fails. Then-candidates: **FIX-MIG**, **BOOTH-RAIL-COL-1**, **RAPIER-DEFAULT-MAX-1**. Closed 08-05: HARNESS-GEO-1, BUNDLE-1/BUNDLE-E-PT-1, HUD-TOAST-Z-1, and the five-card physics run (all PASS).
+1. **Pick the next card — nothing owed, nothing mid-flight.** FIX-EMISSIVE closed PASS 2/2; battery **6/6 complete suite** at HEAD (08-05). Candidates: **CART-COLOR-DEPTH-1** (new, from Wyatt's pass — but its "done" is not defined yet; agree what *deeper* looks like before any code), **FIX-MIG**, **BOOTH-RAIL-COL-1**, **RAPIER-DEFAULT-MAX-1**. Closed 08-05: HARNESS-GEO-1, BUNDLE-1/BUNDLE-E-PT-1, HUD-TOAST-Z-1, FIX-EMISSIVE, and the five-card physics run (all PASS).
 2. **Hitch forensics now has evidence** — cap-254–260 (build `8d96b0b`) are the first captures from a working upload path, including a Cart Rave F8 taken on a hitch. Read them before any perf knob.
 3. **Still owed separately:** 9-cell PERF sweep (~25 min). Resume Run 8 FAIL triage.
 
