@@ -1945,23 +1945,21 @@
 }
 #hud.hud-touch .hud-scoreBox.isLocal .hud-scoreValue { font-size: clamp(15px, 3.6vw, 18px); }
 
-/* Kill feed — top-right under utility, right-aligned (desktop side).
-   Was min(46vw, 260px) → ~179px at 390w, narrower than a KO row's rigid parts
-   (HUD-FEED-1 already fixed the non-touch band to 78vw/400). Touch kept the
-   old squeeze; widen so names can ellipsize inside the plate, not vanish. */
+/* Kill feed — top-right under utility. Truncation stays; type matches mobile
+   nametags (~12px) so the log doesn't out-shout the plates (Wyatt 08-05). */
 #hud.hud-touch .hud-region-events {
   top: var(--hud-feed-top);
   left: auto;
   right: max(var(--hud-pad), env(safe-area-inset-right, 0px));
-  max-width: min(72vw, 340px);
+  max-width: min(56vw, 260px);
   z-index: 8;
 }
 /* Flat receipt on touch — skew rakes into nearby world nametags. */
 #hud.hud-touch .hud-feed {
   align-items: flex-end;
   text-align: right;
-  gap: clamp(8px, 1.4vw, 12px);
-  padding: 8px 12px 10px;
+  gap: 6px;
+  padding: 6px 9px 7px;
   transform: none;
   border-radius: 8px;
 }
@@ -1970,14 +1968,15 @@
 }
 #hud.hud-touch .hud-feed-row {
   justify-content: flex-end;
-  gap: 6px;
+  gap: 4px;
+  font-size: 12px;
 }
 #hud.hud-touch .hud-feed-row:nth-child(n + 3) {
   display: none;
 }
 #hud.hud-touch .hud-feed-actor,
 #hud.hud-touch .hud-feed-target {
-  font-size: clamp(13px, 3.2vw, 15px);
+  font-size: 12px;
   flex-shrink: 1;
   min-width: 0;
   overflow: hidden;
@@ -1985,11 +1984,20 @@
   white-space: nowrap;
 }
 #hud.hud-touch .hud-feed-verb {
-  font-size: clamp(13px, 3.4vw, 16px);
+  font-size: 12px;
 }
+#hud.hud-touch .hud-feed-icon {
+  font-size: 12px;
+}
+#hud.hud-touch .hud-feed-pip {
+  font-size: 10px;
+  padding: 0 4px;
+}
+/* Header stays legible; feed body is the thing that was oversized. */
 #hud.hud-touch .hud-feed-hd {
   font-size: clamp(8px, 2vw, 9px);
   letter-spacing: 0.2em;
+  margin-bottom: 4px;
 }
 
 /* Center Stage — same queue, ~60% scale so banners never dwarf the arena. */
