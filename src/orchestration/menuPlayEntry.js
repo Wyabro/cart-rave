@@ -25,7 +25,12 @@ import { startMenuAttract, stopMenuAttract } from "../ui/menuAttract.js";
 import { setGamepadNavActive } from "../ui/gamepadNav.js";
 import { syncAllAudioUi } from "../ui/audioControls.js";
 import { resolveServerColorPick } from "../customization.js";
-import { generateRoomCode, normalizeRoomCode } from "../../shared/roomCodes.js";
+import {
+  generateRoomCode,
+  isQuickplayRoom,
+  isReservedRoomName,
+  normalizeRoomCode,
+} from "../../shared/roomCodes.js";
 import { PALETTE } from "../config.js";
 import {
   STORAGE_KEYS,
@@ -60,7 +65,11 @@ export function captureInviteRoomForDeferredMenu() {
   const raw = (params.get("room") || "").trim();
   const isValid = /^[A-Za-z0-9]{2,16}$/.test(raw);
   if (!isValid) return false;
-  if (raw === "quickplay" || raw.toLowerCase().startsWith("solo") || raw.toLowerCase().startsWith("testdrive")) return false;
+  // * Reserved names are not friend invites. QUICKPLAY-SHARD-1 replaced a hand-rolled check
+  // * (exact `quickplay` + two prefixes) with the shared helper, which prefix-matches the whole
+  // * reserved family case-insensitively — so `?room=quickplay3` is no longer mistaken for an
+  // * invite and offered as a JOIN LOBBY button into a public shard.
+  if (isReservedRoomName(raw)) return false;
   pendingInviteRoomFromUrl = raw;
   return true;
 }
@@ -394,9 +403,13 @@ export function createMenuPlayEntry(deps) {
     }
 
     // * Returning visitor refreshing ?room=quickplay — auto-rejoin once per page load.
+    // * QUICKPLAY-SHARD-1: any public shard auto-rejoins, so refreshing after an overflow hop
+    // * returns you to the shard you were actually on. Still read the RAW param, never
+    // * `resolvedPartyRoomFromUrl()`: that one defaults a missing ?room= to "quickplay", which
+    // * would auto-enter a match straight off the bare title URL.
     const savedUsername = (storageGet(STORAGE_KEYS.username) || "").trim();
     const roomParam = new URLSearchParams(window.location.search || "").get("room");
-    if (roomParam === "quickplay" && savedUsername && !quickplayAutoRejoinAttempted) {
+    if (isQuickplayRoom(roomParam) && savedUsername && !quickplayAutoRejoinAttempted) {
       quickplayAutoRejoinAttempted = true;
       void startPlay("Quickplay", {
         gameMode: "quickplay",

@@ -26,6 +26,7 @@ import {
 import { probeGpu } from "./utils/gpuCaps.js";
 import { getQualityTier } from "./utils/qualityMode.js";
 import { HOST_MIGRATION_COOLDOWN_MS } from "../shared/protocol.js";
+import { MAX_QUICKPLAY_SHARDS, isQuickplayRoom } from "../shared/roomCodes.js";
 
 import { getRoundClockNowMs } from "./roundClock.js";
 import { devLog } from "./utils/devLog.js";
@@ -989,6 +990,59 @@ function partyHostFromWindowLocation() {
   return isLocal ? `${hostname}:8787` : WORKER_PUBLIC_HOST;
 }
 
+/** Shards walked this page-load, for `quickplay_shard_assigned`. Reset when a hop chain starts. */
+let quickplayHopCount = 0;
+
+/**
+ * QUICKPLAY-SHARD-1 — the overflow hop. A full public shard tells us where to go next; we
+ * re-dial there rather than dead-ending the player at the menu.
+ *
+ * Two races have to be beaten, and BOTH are live on a reject:
+ *  1. the caller's `onJoinRejected()` would return to the menu with a toast — so this returns
+ *     true and the caller skips it;
+ *  2. the socket then closes 4004, and because `hello` HAS already arrived by then (the server
+ *     accepts the socket and only refuses at `join`), the close handler falls to its
+ *     `scheduleNetcodeRetry()` branch and would re-dial THE SAME FULL ROOM underneath us.
+ * `disconnectPartySession()` closes the door on (2): it sets the module's retry-suppression flag,
+ * which both the close and error handlers check before doing anything, and it self-documents as
+ * safe "before a new room join". `initNetcode` clears the flag again on the way in.
+ *
+ * The URL rewrite is load-bearing, not cosmetic: `detectGameMode()` reads the URL and nothing
+ * else, and `initNetcode`'s override only moves the socket. Skip the rewrite and the player is
+ * on shard 3 while every mode decision, refresh, and auto-rejoin still believes it is shard 1.
+ *
+ * @param {unknown} retryRoom Server-supplied next shard, or null/absent for "no hop".
+ * @returns {boolean} True when a hop was started and the caller must not fall through.
+ */
+function tryHopToOverflowShard(retryRoom) {
+  if (typeof window === "undefined") return false;
+  // * Trust but verify: only ever hop to a well-formed public shard. A malformed or hostile
+  // * value must degrade to the normal "room full" path, never redirect the player somewhere odd.
+  if (!isQuickplayRoom(retryRoom) || !/^[A-Za-z0-9]{2,16}$/.test(retryRoom)) return false;
+  // * Only hop out of a quickplay room. A friends room should never be told to go public.
+  if (!isQuickplayRoom(resolvedPartyRoomFromUrl())) return false;
+  if (quickplayHopCount >= MAX_QUICKPLAY_SHARDS) return false;
+
+  quickplayHopCount += 1;
+  devLog("[netcode] Quickplay shard full — hopping", { retryRoom, hops: quickplayHopCount });
+  try {
+    disconnectPartySession();
+    const url = new URL(window.location.href);
+    url.searchParams.set("room", retryRoom);
+    window.history.replaceState({}, "", url);
+    initNetcode(retryRoom);
+  } catch (err) {
+    devLog("[netcode] Shard hop failed", err);
+    return false;
+  }
+  return true;
+}
+
+/** Shards walked before the current seat, for analytics. Read once the seat succeeds. */
+export function getQuickplayHopCount() {
+  return quickplayHopCount;
+}
+
 export function resolvedPartyRoomFromUrl() {
   if (typeof window === "undefined") return "quickplay";
   const params = new URLSearchParams(window.location.search || "");
@@ -1001,7 +1055,14 @@ export function detectGameMode() {
   const room = resolvedPartyRoomFromUrl();
   if (room.toLowerCase().startsWith("testdrive")) return "testdrive";
   if (room.startsWith("solo")) return "solo";
-  if (room === "quickplay") return "quickplay";
+  // * QUICKPLAY-SHARD-1: every public shard is quickplay, not just shard 1. This one line is
+  // * load-bearing for ten downstream behaviours — an exact match here would classify a shard as
+  // * `friends`, which stops client auto-ready (while the server also stops auto-seating ready,
+  // * so the lobby deadlocks), kills arena rotation, shows the private CHECKOUT LINE lobby and
+  // * its invite link in public matchmaking, drops AI difficulty to the player's Solo setting,
+  // * doubles the podium wait, breaks refresh auto-rejoin — and disarms SEC-DIAG-1's gate, which
+  // * keys on this returning "quickplay" and would hand `setScores` back to any ?diag=1 host.
+  if (isQuickplayRoom(room)) return "quickplay";
   return "friends";
 }
 
@@ -2727,6 +2788,10 @@ export function initNetcode(roomOverride) {
     }
 
     if (type === MSG.joinRejected) {
+      // * QUICKPLAY-SHARD-1. A full PUBLIC shard names the next one in `retryRoom`, and we hop
+      // * instead of bouncing to the menu. Absent/null — friends rooms, harness rooms, an old
+      // * server, or a chain that hit the cap — falls through to the original behaviour.
+      if (tryHopToOverflowShard(msg?.retryRoom)) return;
       try { callbacks.onJoinRejected(); } catch {}
       return;
     }
