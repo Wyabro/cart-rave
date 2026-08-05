@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-05T07:37:54.185Z",
-    "commit": "4a51a44"
+    "at": "2026-08-05T07:43:02.838Z",
+    "commit": "fe5f4f8"
   },
-  "source_digest": "2c794de6",
+  "source_digest": "5d31b2f3",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -985,7 +985,7 @@
           {
             "pri": "Low",
             "item": "RAPIER-DEFAULT-MAX-1 — the combine-rule sweep's docs claim Rapier defaults restitution to `Max`; it defaults to `Average`",
-            "notes": "**Filed 08-05 while applying SUNDIAL-OBSTACLE-SLIDE-1, and it corrects the card that shipped immediately before it.** `ColliderDesc` sets **both** `frictionCombineRule` **and** `restitutionCombineRule` to `Average` — read it directly at [collider.js:861-862](../../node_modules/@dimforge/rapier3d/geometry/collider.js), not inferred. Four places assert otherwise, all from WALL-SLIDE-CLASSIC-1 (`00ef1cb`): the comment at [arena.js:2548](../../src/arena.js:2548) (\"Rapier's default is Max\"), the last test in [classicPitWalls.test.js](../../tests/classicPitWalls.test.js) and its rationale, that commit's own message, and its entry in [completed-work.md](./completed-work.md). **Consequence:** Classic's containment lip and shaft staves deflect at **0.40 / 0.45**, not the 0.50 / 0.60 the comments claim (cart restitution 0.3, [config.js:87](../../src/config.js:87)). **This is a claim error, not a behaviour bug — do not \"fix\" the numbers.** WALL-SLIDE-CLASSIC-1 passed Wyatt's playtest *at the real effective values*, so the felt deflection is already signed off; raising it to the documented figures would change a passed card's feel on the strength of a comment. **Scope if picked up: edit the three claims to say Average, keep every collider value byte-identical.** Worth doing because the false premise is load-bearing prose — it is the stated reason the Classic walls take no restitution rule, and the next editor reading it will reason from a wrong model of what Rapier does. If a higher deflection is ever actually wanted there, that is a separate tuning card with its own playtest.",
+            "notes": "**Filed 08-05 while applying SUNDIAL-OBSTACLE-SLIDE-1, and it corrects the card that shipped immediately before it.** `ColliderDesc` sets **both** `frictionCombineRule` **and** `restitutionCombineRule` to `Average` — read it directly at [collider.js:861-862](../../node_modules/@dimforge/rapier3d/geometry/collider.js), not inferred. Four places assert otherwise, all from WALL-SLIDE-CLASSIC-1 (`00ef1cb`): the comment at [arena.js:2548](../../src/arena.js:2548) (\"Rapier's default is Max\"), the last test in [classicPitWalls.test.js](../../tests/classicPitWalls.test.js) and its rationale, that commit's own message, and its entry in [completed-work.md](./completed-work.md). **Consequence:** Classic's containment lip and shaft staves deflect at **0.40 / 0.45**, not the 0.50 / 0.60 the comments claim (cart restitution 0.3, [config.js:87](../../src/config.js:87)). **This is a claim error, not a behaviour bug — do not \"fix\" the numbers.** WALL-SLIDE-CLASSIC-1 was signed off on prod `a028cb8a` *at the real effective values*, so the felt deflection is already accepted; raising it to the documented figures would change a passed card's feel on the strength of a comment. **Scope if picked up: edit the three claims to say Average, keep every collider value byte-identical.** Worth doing because the false premise is load-bearing prose — it is the stated reason the Classic walls take no restitution rule, and the next editor reading it will reason from a wrong model of what Rapier does. If a higher deflection is ever actually wanted there, that is a separate tuning card with its own playtest.",
             "ship1": null
           },
           {
@@ -1339,9 +1339,47 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Low": 1
+          "High": 3,
+          "Medium": 2,
+          "Low": 2
         },
         "rows": [
+          {
+            "pri": "High",
+            "item": "TOAST-BOOST-1 — in-game toast vs the boost meter, the core case (HUD-TOAST-Z-1)",
+            "notes": "**Owed: Wyatt playtest — TOAST-BOOST-1 — solo round with the boost slab up, press F8: the toast is fully readable AND the boost meter stays legible.** Both halves must hold — the toast covering the meter is a FAIL, not a trade. Desktop judge; the slab is hidden on touch by design. Deployed `100842ad`.",
+            "ship1": null
+          },
+          {
+            "pri": "High",
+            "item": "TOAST-LOBBY-1 — toast over the friends lobby (HUD-TOAST-Z-1)",
+            "notes": "**Owed: Wyatt playtest — TOAST-LOBBY-1 — two clients in a private room, lobby on screen, force a toast (F8 works): it is readable AND the bottom ESC/PAUSE hint strip stays readable too.** `.hud-lobby` is a full-screen 24000 surface, so this is the case the offset alone could never fix, and the hint strip is the surface the toast could newly land on. Deployed `100842ad`.",
+            "ship1": null
+          },
+          {
+            "pri": "High",
+            "item": "TOAST-QUICK-1 — toast over the quickplay lobby (HUD-TOAST-Z-1)",
+            "notes": "**Owed: Wyatt playtest — TOAST-QUICK-1 — quickplay lobby, force a toast: it clears the READY slab.** Not the same path as TOAST-LOBBY-1 — quickplay never shows `.hud-lobby`, so the ready button stays live in the pod. This is the real \"lift off a populated pod\" case. Deployed `100842ad`.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "TOAST-PAUSE-1 — toast while paused (HUD-TOAST-Z-1)",
+            "notes": "**Owed: Wyatt playtest — TOAST-PAUSE-1 — press ESC mid-round, then F8: the toast is readable over the pause overlay.** This is the 26500-above-26000 call you acked. It cannot swallow a click (`pointer-events: none`); judge readability only. Deployed `100842ad`.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "TOAST-NARROW-1 — toast in a narrow desktop window (HUD-TOAST-Z-1)",
+            "notes": "**Owed: Wyatt playtest — TOAST-NARROW-1 — drag the window under 768px wide (mouse, not touch), solo round, F8: the toast still clears the pod.** The pod jumps to 96–132px from the bottom here, so a flat constant would have failed. This is the case that proves the measurement does real work. Deployed `100842ad`.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "TOAST-PHONE-1 — toast vs the touch controls (HUD-TOAST-Z-1)",
+            "notes": "**Owed: Wyatt playtest — TOAST-PHONE-1 — on a phone, force a toast in a round: it does not sit on the joystick or the boost/hop buttons.** Behaviour change: the toast used to hide *under* the touch controls and now paints above them, so this is the least-covered part of the fix. Cosmetic worst case — it can never block a tap. Deployed `100842ad`.",
+            "ship1": null
+          },
           {
             "pri": "Low",
             "item": "AQ-RING-CLEAR-1 — autoQuality clear sample ring on every window eval",
