@@ -510,7 +510,11 @@ function setupDataChannel(dc, connId) {
     // Flush buffered input immediately to prevent input drop during migration
     if (pendingInputPayload && pendingInputTarget === connId) {
       try {
-        dc.send(JSON.stringify(pendingInputPayload));
+        if (pendingInputPayload instanceof ArrayBuffer) {
+          dc.send(pendingInputPayload);
+        } else {
+          dc.send(JSON.stringify(pendingInputPayload));
+        }
       } catch (e) {
         console.error('[p2p] Failed to flush pending input', e);
       }
