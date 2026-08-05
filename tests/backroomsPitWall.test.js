@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { getBackroomsPitWallSpec } from "../src/levels/backroomsSupermarket.js";
+import {
+  getBackroomsPitWallSpec,
+  getBackroomsPitDressingSpec,
+} from "../src/levels/backroomsSupermarket.js";
+import { CONFIG } from "../src/config.js";
 
 // STORE-PLAT-WALL-1 — the arena cliff face had no collider.
 //
@@ -99,5 +103,48 @@ describe("STORE-PLAT-WALL-1 — Storerooms pit cliff colliders", () => {
     for (const w of walls) {
       expect(w.hy * 2).toBeCloseTo(topY - pitFloorY, 12);
     }
+  });
+});
+
+// STORE-PIT-WEDGE-1 — the pit band must stay wider than a cart can bridge.
+//
+// Giving the cliff a collider turned the pit band into a corridor with a solid wall on BOTH
+// sides: the cliff inside, the perimeter wall's physics slab outside, gondola rows between.
+// The gondolas were a 9 m row at 45.5, which left 2.0 m of inner gap — a cart fits into that
+// sideways (1.47 m) but cannot turn in it (2.83 m diagonal), so it wedged and stayed wedged.
+//
+// The bar is derived from CONFIG.cart.size + the round-cuboid skin rather than hardcoded, so
+// growing the cart fails this test instead of silently re-creating the trap. Both gaps are
+// checked: pushing the band outward to fix the inner gap trades it for an identical outer one
+// against the room wall, which is exactly the mistake this assertion exists to catch.
+
+const CART_SKIN = 0.08; // roundCuboid border radius, entities.js
+const cartW = CONFIG.cart.size.x + CART_SKIN * 2;
+const cartL = CONFIG.cart.size.z + CART_SKIN * 2;
+const CART_DIAGONAL = Math.hypot(cartW, cartL);
+const CLEARANCE_BAR = CART_DIAGONAL * 1.25; // margin over "just barely turns"
+
+describe("STORE-PIT-WEDGE-1 — pit band clearance", () => {
+  const d = getBackroomsPitDressingSpec();
+
+  it("agrees with the cliff spec about where the cliff's outer face is", () => {
+    const w = walls.find((x) => x.hx < x.hz); // an X-capped wall
+    expect(d.cliffOuterFace).toBeCloseTo(Math.abs(w.px) + w.hx, 12);
+  });
+
+  it("leaves a cart room to turn between the cliff and the dressing", () => {
+    const innerGap = d.innerFace - d.cliffOuterFace;
+    expect(innerGap).toBeGreaterThan(CLEARANCE_BAR);
+  });
+
+  it("leaves a cart room to turn between the dressing and the room wall", () => {
+    const outerGap = d.wallInnerFace - d.outerFace;
+    expect(outerGap).toBeGreaterThan(CLEARANCE_BAR);
+  });
+
+  it("keeps the band roughly centred, so neither side is the weak one", () => {
+    const innerGap = d.innerFace - d.cliffOuterFace;
+    const outerGap = d.wallInnerFace - d.outerFace;
+    expect(Math.abs(innerGap - outerGap)).toBeLessThan(1.0);
   });
 });

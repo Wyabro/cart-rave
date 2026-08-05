@@ -87,6 +87,9 @@ const WALL_HEIGHT = 17; // meters — wall top (above dropped ceiling)
 const WALL_BOTTOM_Y = PIT_FLOOR_Y; // meters — wallpaper extends to void floor
 const CEILING_Y = 14.5; // meters — dropped-ceiling height
 const WALL_DECOR_INSET = 0.1; // meters — shelves/pillars sit inside the inner wall face
+// * Half-depth of the perimeter wall's physics slab. Shared with getBackroomsPitDressingSpec()
+// * so the pit band knows where its outer boundary actually is (STORE-PIT-WEDGE-1).
+const WALL_PHYSICS_HALF_DEPTH = 0.75; // meters
 
 // * Pit: black void filling the gap between the floor edge and the far walls. Carts
 // * rammed off the floor edge fall into it and respawn.
@@ -2287,7 +2290,7 @@ function buildWalls(scene, world, wallpaperTex) {
     // fall into the surrounding pit before they reach it). Must span the full visual
     // height (pit floor → wall top) — the old WALL_HEIGHT/2 center only covered y∈[0,17].
     {
-      const wallHalfDepth = 0.75;
+      const wallHalfDepth = WALL_PHYSICS_HALF_DEPTH;
       const [hx, hz] = wDim(WALL_SPAN / 2, wallHalfDepth);
       const [px, py, pz] = toWorld(0, wallCenterY, -(wallHalfDepth + WALL_DECOR_INSET));
       const body = world.createRigidBody(
@@ -2387,6 +2390,47 @@ function buildWalls(scene, world, wallpaperTex) {
 
 // ===== Pit-ring dressing (the store continues, abandoned) =====
 
+// * STORE-PIT-WEDGE-1 — the pit band is a corridor with a solid wall on BOTH sides: the arena
+// * cliff at 39.0 (inner) and the perimeter wall's physics slab at 54.4 (outer). The gondola
+// * rows stand between them, so BOTH gaps have to stay wider than a cart can bridge or a cart
+// * that lands in the band gets pinned and cannot rotate out.
+// *
+// * The bug that produced these numbers: the gondolas were a 9 m row at 45.5, which left only
+// * 2.0 m of inner gap once STORE-PLAT-WALL-1 gave the cliff a collider. A cart is 1.47 x 2.42
+// * with its skin — it fits into 2.0 m sideways but its 2.83 m diagonal will not turn there.
+// *
+// * Shortening the row and recentring gives 4.2 m on EACH side. Note the symmetry is the point:
+// * simply pushing the band outward (the first instinct) trades the inner wedge for an identical
+// * outer one against the room wall. getBackroomsPitDressingSpec() exports the result and
+// * tests/backroomsPitWall.test.js pins both clearances against the real cart size.
+const PIT_DRESSING_OUT = 46.7; // meters — band center: clears the floor edge (38) and the walls
+const PIT_DRESSING_GONDOLA_LEN = 7; // meters — gondola row length, radial
+
+/**
+ * Radial extents of the pit-ring dressing band, with the two boundaries it has to stay clear of.
+ * Exported pure for the clearance regression test — Rapier is stubbed in unit tests, so the
+ * geometry is asserted from the numbers rather than from a built world. Companion to
+ * getBackroomsPitWallSpec(); the whole point is that the two builders' numbers are checked
+ * against each other instead of drifting independently, which is how the wedge appeared.
+ *
+ * @returns {{
+ *   out: number, gondolaLen: number,
+ *   innerFace: number, outerFace: number,
+ *   cliffOuterFace: number, wallInnerFace: number,
+ * }}
+ */
+export function getBackroomsPitDressingSpec() {
+  const halfLen = PIT_DRESSING_GONDOLA_LEN / 2;
+  return {
+    out: PIT_DRESSING_OUT,
+    gondolaLen: PIT_DRESSING_GONDOLA_LEN,
+    innerFace: PIT_DRESSING_OUT - halfLen,
+    outerFace: PIT_DRESSING_OUT + halfLen,
+    cliffOuterFace: ARENA_HALF + PIT_CLIFF_SKIRT_THICKNESS,
+    wallInnerFace: WALL_HALF - (WALL_PHYSICS_HALF_DEPTH + WALL_DECOR_INSET) - WALL_PHYSICS_HALF_DEPTH,
+  };
+}
+
 /**
  * Fills the fog-readable band of the surrounding pit (just past the floor edge) with a
  * sparse set of abandoned-storage silhouettes: one shelf-gondola row per side receding
@@ -2411,7 +2455,7 @@ function buildPitRingDressing(scene, world) {
   /** @type {THREE.BufferGeometry[]} */
   const parts = [];
 
-  const OUT = 45.5; // meters — band center: pushed back from the floor edge (38), inside the walls (56)
+  const OUT = PIT_DRESSING_OUT; // meters — band center; see the STORE-PIT-WEDGE-1 note above
   const BOTTOM = -16; // meters — silhouettes fade to near-black by here, melting into the pit
   // True silhouettes — dark enough that they read as shapes in the fog, not lit walls.
   const gondolaRgb = /** @type {[number, number, number]} */ ([0.17, 0.165, 0.15]);
@@ -2421,12 +2465,19 @@ function buildPitRingDressing(scene, world) {
 
   // Colliders for every silhouette — a launched cart hits them instead of ghosting
   // through. One fixed body; cuboids reach down to the pit so nothing can slip under.
+  // * STORE-PIT-WEDGE-1: friction matches the void-shaft walls and the arena cliff (0.05) —
+  // * one rule, nothing out in the pit grips. These tops sit ABOVE the arena floor (gondolas
+  // * +2.0, pallets +2.4) and run solid to the pit floor, while the fall KO only fires below
+  // * y −18, so a gripping top is a ledge that holds a live cart 20 m above the kill line. Every
+  // * top is under 1.25 m in its short axis — narrower than the 1.47 m cart — so with the grip
+  // * gone a cart slides off instead of balancing. They stay solid: the clang on the way past
+  // * is deliberate, and removing it would just re-create the ghost-through complaint.
   const body = world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(0, 0, 0));
   const addCollider = (hx, topY, hz, px, pz) => {
     world.createCollider(
       RAPIER.ColliderDesc.cuboid(hx, (topY - PIT_FLOOR_Y) / 2, hz)
         .setTranslation(px, (topY + PIT_FLOOR_Y) / 2, pz)
-        .setFriction(0.4)
+        .setFriction(0.05)
         .setRestitution(0.3),
       body,
     );
@@ -2439,7 +2490,7 @@ function buildPitRingDressing(scene, world) {
 
     // One shelf-gondola row per side, long axis radial (receding into the fog).
     {
-      const [sx, sz] = dim(1.15, 9);
+      const [sx, sz] = dim(1.15, PIT_DRESSING_GONDOLA_LEN);
       const topY = 2.0;
       const [px, , pz] = toWorld(-4, 0, o);
       pushFadeBox(parts, sx, topY - BOTTOM, sz, px, (topY + BOTTOM) / 2, pz, unitBox, gondolaRgb);
