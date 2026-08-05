@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-05T00:49:31.461Z",
-    "commit": "a870a68"
+    "at": "2026-08-05T01:35:45.276Z",
+    "commit": "5b26106"
   },
-  "source_digest": "6e65edab",
+  "source_digest": "1102b015",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -875,8 +875,17 @@
       {
         "id": "BUNDLE-1",
         "what": "Menu/game code-split",
-        "status": "📋 UNBLOCKED 08-04 — MAIN-1 closed (both passes). Next card candidate.",
-        "state": "waiting"
+        "status": "⚠️ CLOSED PARTIAL 08-05 — perf goal NOT met, awaiting deploy. Warm `menu-ready` 988 → 958 ms (−3% vs a −15% gate); `module-eval` 472 → 502. Banked: a `size:check` byte gate, `main.js` 2,582 → 1,262 lines, −351,503 B (−22.6%) off the initial set — cold visits only. [bundle-1.md §0](./planning/bundle-1.md)",
+        "state": "waiting",
+        "touches_systems": [
+          {
+            "id": "boot-and-orchestration",
+            "name": "Boot & orchestration",
+            "files": [
+              "src/main.js"
+            ]
+          }
+        ]
       },
       {
         "id": "BRAND-1",
@@ -886,7 +895,7 @@
       }
     ],
     "next_actions": [
-      "Pick the next card — MAIN-1 closed 08-04, so BUNDLE-1 is unblocked. Competing: re-ack FIX-EMISSIVE (needs a design that survives the per-frame re-tint) or FIX-MIG as scoped. Wyatt's call.",
+      "Pick the next card — BUNDLE-1 closed partial 08-05 (needs a deploy). Competing: re-ack FIX-EMISSIVE (needs a design that survives the per-frame re-tint) or FIX-MIG as scoped. Wyatt's call.",
       "Hitch forensics now has evidence — cap-254–260 (build `8d96b0b`) are the first captures from a working upload path, including a Cart Rave F8 taken on a hitch. Read them before any perf knob.",
       "Still owed separately: 9-cell PERF sweep (~25 min). Resume Run 8 FAIL triage."
     ],
@@ -915,11 +924,6 @@
         "id": "CARGO-LATCH-1",
         "issue": "`cargoLoad.js` repeats the FIX-DIRPAUSE latch bug",
         "status": "📋 same class as `e7dd92e`, out of scope by instruction. [BACKLOG § Engineering](./planning/BACKLOG.md)."
-      },
-      {
-        "id": "BUNDLE-1",
-        "issue": "Menu/game code-split",
-        "status": "📋 **unblocked 08-04** — MAIN-1 closed."
       },
       {
         "id": "BRAND-1",
@@ -1459,7 +1463,7 @@
             "pri": "Low",
             "id": "BUNDLE-1",
             "item": "Menu/game code-split",
-            "notes": "**UNBLOCKED 08-04** — MAIN-1 closed (both passes). Next-card candidate.",
+            "notes": "⚠️ **CLOSED PARTIAL 08-05 — the perf goal was not met.** Six levers landed (A–F, [bundle-1.md §0](./bundle-1.md)). Warm Intel prod `menu-ready` **988 → 958 ms (−3%)** against a **−15% / ≤921 ms** gate; `module-eval` **472 → 502**, i.e. still worse than pre-card, so Lever E's stated hypothesis (\"−351 kB cuts parse below 472\") is **falsified**, not \"inconclusive\". Mechanism: the locked target was a **warm** repeat visit, where the payload is already local — deferring bytes saves parse only, and the extra chunk boundaries cost requests plus lost cross-chunk optimization, roughly cancelling it. Cold was deliberately not measured (the bytes are kept regardless). **Banked and real:** a `size:check` byte + membership gate the repo did not have (Lever F re-keyed membership on **modules** — rolldown re-splits the entry chunk under new names every build and red-gated the card twice); `main.js` 2,582 → 1,262 lines, which also meets MAIN-1's missed ≤1500; **−351,503 B (−22.6%)** off the initial download set, baseline re-ratcheted to 1,203,360 B — worth nothing warm, worth 351 kB to a **cold** first-time visitor. **Lesson for the next perf card: measure the target profile's parse-vs-construction split BEFORE choosing levers** — this plan's lever order came from a cold profile (87/13) and the locked target was warm (48/52). Not deployed at close.",
             "ship1": null
           },
           {
@@ -1806,6 +1810,11 @@
       "Cross-module change? Read docs/reference/control-flow.md first — most edges are not imports."
     ],
     "settled_decisions": [
+      {
+        "id": "D-BUNDLE-1-CLOSE",
+        "date": "08-05",
+        "text": "BUNDLE-1 PARTIAL — bytes moved, warm menu-ready did not. Warm cache ⇒ byte cuts are near-worthless; measure parse-vs-construction first. Supersedes D-PERF-3."
+      },
       {
         "id": "D-SUNDIAL-OQ8",
         "date": "08-02",

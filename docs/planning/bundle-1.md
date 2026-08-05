@@ -1,11 +1,82 @@
 # BUNDLE-1 — Menu/game code-split (wave plan)
 
-**Status:** **Lever A landed** 08-04 — byte budget + baseline committed. Levers B+ not started.
+**Status:** **CLOSED PARTIAL** 08-05 — all six levers landed; the perf goal was **not met**.
+See §0 Outcome. Sections below are the running record, kept in the order they were written.
 **Card:** [BACKLOG.md](./BACKLOG.md) · BUNDLE-1 (Low · Tech debt) — unblocked 08-04 by MAIN-1.
 **Branch:** `cart-clash`
 **Ack unit:** one lever at a time. **Commit unit:** one lever per commit.
 **Execution:** one subagent per lever (same shape as [MAIN-1 §4](./main-1.md)) — orchestrator holds the plan/STATUS spine.
 **Mid-wave abort:** a failed lever blocks the card. Stop and report; do not improvise a different design.
+
+---
+
+## 0. Outcome — CLOSED PARTIAL, the perf goal was not met
+
+**The card did not make the menu faster on its locked target.** It shipped a size gate, a much
+smaller `main.js`, and a 22.6% smaller initial download — but the number it was judged on barely
+moved. Every measurement below is the Intel UHD box, **warm** cache, production, taken like-for-like
+from F8 capture bundles.
+
+| metric | pre-card `8d96b0b` | after C+D `f531e02` | **after E `7daaec9`** |
+|---|---:|---:|---:|
+| `module-eval` (fetch+parse+eval, pre-`main()`) | **472** | 563 | **502** |
+| `main()` body (construction) | 501 | 476 | **460** |
+| `menu-ready` (the bar) | **988** | 1067 | **958** |
+
+- **Gate:** a 15% `menuReadyMs` drop, i.e. ≤ 921 ms. **Actual: 988 → 958 = −30 ms, 3%. FAILED.**
+- **Lever E's falsifiable hypothesis** (§10) was "removing ~351 kB cuts `module-eval` clearly below
+  the pre-card 472 ms." **Actual `module-eval`: 502 — still 30 ms *worse* than pre-card. The
+  hypothesis is dead.** It was stated that way on purpose so this could not be argued afterwards.
+- Sample sets, all retained: pre `967 · 977 · 1000 · 1467` (console: `944 · 973 · 1083 · 1089 ·
+  1671`) · C+D `907 · 1019 · 1022 · 1067 · 1084 · 1097 · 1728` · E `889 · 917 · 956 · 960 · 1140 ·
+  1748`. The run-to-run spread is wider than the effect being measured, which is itself a finding.
+- **Cold was deliberately not measured.** Warm was the locked target and the bytes are being kept
+  regardless, so a cold number would not have changed any decision.
+
+### Why it did not work — the mechanism
+
+**On a warm cache the bytes are already local.** Deferring them saves parse+eval only, never
+download — and parse of the deferred code is not free-to-skip in the way the plan assumed, because
+splitting it out costs extra chunk boundaries: more preloaded requests, and minification/inlining
+that no longer sees across the split. Those costs landed in the same ~50 ms band as the savings.
+That is why `module-eval` went *up* at C+D (one chunk became two) and only came back to roughly
+par at E despite 351 kB leaving the set.
+
+### What was delivered anyway — all of it real, none of it perf
+
+- **A bundle-size gate the repo did not have** (Lever A, plus Lever F's module-level membership
+  rule). `npm run size:check` gates the initial download set on bytes **and** on membership;
+  `release:check` runs it with `--require-dist`. Independent of any perf outcome.
+- **`src/main.js` 2,582 → ~1,262 lines**, which also meets MAIN-1's missed ≤1500-line target.
+- **−351,503 B (−22.6%) off the initial download set**, 1,554,863 → 1,203,360 B. Worth nothing on
+  a warm repeat visit; worth 351 kB to a **cold first-time visitor**, who was not the target.
+- No behavior regressions: qa, build, battery, `shoot` and `release:check` all green at close.
+
+### What a future attempt should do differently
+
+1. **Measure the target profile's parse-vs-construction split BEFORE choosing levers.** §5 only
+   discovered the warm split (~48/52) *after* the plan was built on the cold one (87/13), and the
+   plan's whole lever ordering came from the cold profile. That single number should have been the
+   card's first action, not its fifth.
+2. **A warm-cache target makes byte reduction nearly worthless.** If the goal is warm menu-ready,
+   attack construction and main-thread work — not payload. If the goal is the cold first visit,
+   this card's −351 kB is already banked and a cold measurement is the honest next step.
+3. **Budget for chunk-boundary overhead.** A split is not byte-neutral at runtime: more preloaded
+   chunks cost requests and cross-chunk optimization. Assume a split pays only when the deferred
+   code is large *and* genuinely never touched on the measured path.
+4. **F8 on every load, n≥5, median.** A single early sample (cap-265, 907 ms) was reported as a
+   pass and was the best of seven. The spread here is 900–1750 ms.
+5. **`module-eval` is the honest supporting metric** — code motion inside `main()` cannot move it,
+   so it is immune to the metric-gaming failure in §3 abort gate 5. Record it every time.
+
+### Lever F (close-out, 08-05)
+
+- `size:check` membership now keys on **modules**, not chunk names — the entry-chunk false positive
+  that red-gated Levers C and E is fixed. See §13.
+- Baseline re-locked at **1,203,360 B**; `deferredModules` (102) is the new membership gate.
+- `src/main.js` needed **no import prune** — the ~18 dead imports in §6 were already removed by
+  Lever D's 95-import sweep. Verified, not assumed (§13).
+- Deliberate-regression drill run: the guard bites and names the module (§13).
 
 ---
 
@@ -799,6 +870,86 @@ disabled, and no static import was re-added.
 call site is `callbacks.clearNpcCartCache()` at `netcode.js:2930`, inside the **slots-sync handler**. The
 conclusion holds (the socket only opens after `bootGameSystems` populates the bridge) but the stated
 derivation does not — and it would matter if boot ordering ever changed.
+
+---
+
+## 13. Lever F — re-baseline, tool fix, close (done 08-05)
+
+### The `strippedKey` false positive was a tool defect — fixed by keying on modules
+
+`size:check` red-gated twice on a benign rolldown re-split of the **entry** chunk: once as
+`gamepadNav` (§8), once as `errorReporter` + `sfxSynth` + `animations` + `koEvent` (§11). Rolldown
+names each shared entry piece after whichever module sorts first inside it, so the name-keyed
+membership rule read every re-split as "a deferred module got re-eagered."
+
+**Membership now reads `dist/.chunk-manifest.json` and keys on modules, not names:**
+
+- The baseline records **`deferredModules`** — every module in the build that is *not* in the
+  initial set (102 today). Any of them reappearing in the initial set is fatal, and is named
+  module-by-module together with the chunk it came back through. A rename cannot fake this, and —
+  the case a chunk-level rule cannot see at all — it cannot **hide** it either: if a re-eagered
+  module is absorbed into an existing entry-family chunk, no new chunk name appears anywhere.
+- **`entryFamily`** folds the entry chunk plus the shared chunks split out of it into one total.
+  A previously-unseen preloaded chunk joins the family **only** when the manifest proves it carries
+  no baseline-deferred module; one that does carry one is excluded and still fails by name.
+- **Both sides must have module data.** An old `dist/` with no chunk manifest, or an old baseline
+  with no `deferredModules`, falls back to the chunk-name rule — conservatively, so the guard can
+  never go quiet. (Verified: against the pre-F baseline the tool still exits 1 on the four names.)
+- Known limit, accepted and documented in the tool: a brand-new preloaded chunk of brand-new
+  modules is folded into the family and is caught only by the byte ceiling (+max(2%, 20 kB)).
+
+`tests/bundleBudget.test.js` gains four cases — benign rename passes, a deferred module hidden
+inside the renamed family fails, a deferred chunk re-entering under its own name fails, and the
+no-manifest fallback still gates. qa **113 files / 1,390 tests** (was 113 / 1,386).
+
+### Deliberate-regression drill — the guard bites
+
+`import * as Effects from "./effects.js"` re-added to `main.js`, built, `size:check`, reverted:
+
+```
+  chunk ENTERED the initial set: cheapMirror — a deferred module got re-eagered.
+  chunk ENTERED the initial set: arenaReactiveLights — a deferred module got re-eagered.
+  module RE-EAGERED into the initial set: src/utils/soloRubberband.js (now in chunk errorReporter)
+  module RE-EAGERED into the initial set: src/simulation.js (now in chunk errorReporter)
+  module RE-EAGERED into the initial set: src/effects.js (now in chunk errorReporter)
+  module RE-EAGERED into the initial set: src/utils/mergeStaticMeshes.js (now in chunk cheapMirror)
+  module RE-EAGERED into the initial set: src/utils/cheapMirror.js (now in chunk cheapMirror)
+  module RE-EAGERED into the initial set: src/arenaReactiveLights.js (now in chunk arenaReactiveLights)
+FAIL: initial set 1,284,464 B exceeds ceiling 1,227,427 B.
+FAIL: 2 chunk(s) entered the initial download set.
+FAIL: 6 previously-deferred module(s) are in the initial download set again.
+```
+
+Exit 1. **Note `src/effects.js` came back inside `errorReporter` — an existing entry-family chunk,
+under no new name.** The old chunk-name rule would have missed it entirely and caught only the two
+incidental new chunks; the module rule names the actual culprit. The entry-family fix did not blunt
+the real signal.
+
+### Re-baseline (ratchet)
+
+`npm run size:update` on a clean build: **1,554,863 → 1,203,360 B (−351,503, −22.6%)**, 14 preloaded
+files. Four Lever A chunks have LEFT the set (`waterDeathFx`, `cartShatter`, `koReactors`,
+`contactShadows`). Said explicitly in the commit body, as the tool's failure message requires.
+
+### The ~18 dead imports were already gone
+
+§6/§11 both said `main.js` still carried them. It does not — **Lever D's 95-import sweep already
+took them.** Verified rather than assumed: an occurrence scan over comment- and string-stripped
+source reports **0 of 86 bound names unused**, and a name-by-name grep of all 20 listed symbols
+finds only `clamp` and `enterPlayMode`, both in prose comments. No prune commit was needed, so the
+committed baseline already matches the final build. (The same scan over `cartOrchestration.js`
+flags `svgIcon` and `createCart`, both **false positives** — used inside a template literal and in
+JSDoc `@param` types respectively. Worth knowing before trusting that scan shape again.)
+
+### Noticed, not fixed
+
+- `entryFamily.keys` is seeded from the *previous* baseline's classification, so today it reads
+  `["index"]` even though the family is really `index + errorReporter + sfxSynth + animations +
+  koEvent` — those four were already known chunk names by the time module data existed. This is
+  cosmetic: it only affects the family-total line in the report. The gate itself rests on
+  `deferredModules`. A structural family test would need rolldown's `isDynamicEntry` in the
+  manifest, i.e. a `vite.config.js` change, which was out of this card's carve-out.
+- HARNESS-GEO-1 and SHOOT-LEVEL-1 remain open and untouched, per their own cards.
 
 ---
 
