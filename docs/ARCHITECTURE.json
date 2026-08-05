@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-05T07:58:20.589Z",
-    "commit": "4b6e789"
+    "at": "2026-08-05T08:40:11.832Z",
+    "commit": "982bdfe"
   },
-  "source_digest": "4db74910",
+  "source_digest": "bba9fb79",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -855,6 +855,12 @@
   "workstreams": {
     "queue": [
       {
+        "id": "FIX-EMISSIVE",
+        "what": "Non-patterned carts read blown out on Classic",
+        "status": "🚧 ACTIVE — applied, unpushed, awaiting playtest (FIX-EMISSIVE-1 / -2). Retry after the 08-04 abort; Wyatt acked option (b) — cache-owned trim, unit seam, no new capture rig. Trim moved onto `cache.emissiveTrimMul` via `setEmissiveTrimMul`, written at all four sites that decide a pattern and stamped on `mesh.userData` so cache rebuilds rehydrate. Wyatt's plan review caught a must-fix: birth-only would have inverted the fix in-match. Falsified: reverting the leader-glow line fails test 3 alone. Known limit: the peak white flash converges by design.",
+        "state": "waiting"
+      },
+      {
         "id": "*(closed)*",
         "what": "HUD-TOAST-Z-1 — in-game toasts rendered under the boost slab",
         "status": "✅ PASS 6/6 08-05 on `100842ad`, no FAIL. z-index 12000 → 26500 + a measured bottom offset; `#hud`'s root is a stacking context, so its children beat any lower z-index. Not diag-only — it was swallowing shipped host-migration text. Band table now beside `#hud`; canary in `tests/toastLayering.test.js`. Detail: [completed-work.md](./planning/completed-work.md).",
@@ -907,7 +913,7 @@
       }
     ],
     "next_actions": [
-      "Pick the next card — nothing owed, nothing mid-flight. HUD-TOAST-Z-1 closed PASS 6/6. Candidates: FIX-EMISSIVE re-ack (Wyatt picks retry (a) or (b)), FIX-MIG, BOOTH-RAIL-COL-1, RAPIER-DEFAULT-MAX-1. Closed 08-05: HARNESS-GEO-1, BUNDLE-1/BUNDLE-E-PT-1, and the five-card physics run (all PASS).",
+      "FIX-EMISSIVE is mid-flight — ship it, then Wyatt plays FIX-EMISSIVE-1 / -2. qa green 7/7; battery 6/6 complete suite at this HEAD (08-05), so `ready` is no longer head-mismatched. No new card until it passes or fails. Then-candidates: FIX-EMISSIVE re-ack (Wyatt picks retry (a) or (b)), FIX-MIG, BOOTH-RAIL-COL-1, RAPIER-DEFAULT-MAX-1. Closed 08-05: HARNESS-GEO-1, BUNDLE-1/BUNDLE-E-PT-1, and the five-card physics run (all PASS).",
       "Hitch forensics now has evidence — cap-254–260 (build `8d96b0b`) are the first captures from a working upload path, including a Cart Rave F8 taken on a hitch. Read them before any perf knob.",
       "Still owed separately: 9-cell PERF sweep (~25 min). Resume Run 8 FAIL triage."
     ],
@@ -1006,7 +1012,7 @@
           {
             "pri": "Medium",
             "item": "FIX-EMISSIVE — non-patterned carts read blown out on Classic",
-            "notes": "**ABORTED 08-04 mid-wave — the acked lever was invalidated by the code, not by taste. Needs re-ack before any retry.** Report: \"emissive-ness on non patterned carts looks a bit blown out on cart rave\". **Correct map** (an earlier reading was wrong — do not trust stale notes): `cartPatterns.js:400` is `removeLegacyPatternMeshes`, *not* an emissive branch; a `classic` cart only gets `uPatternStrength = 0` (`cartPatterns.js:389-391`), and a pattern is the only thing that currently reduces emissive area. The full-area glow lives on the GLTF trim/accent mats — `getRaveGltfTrimEmissiveIntensity` / `applyRaveGltfTrimEmissive` ([cartRaveGltf.js:2407](../../src/cartRaveGltf.js:2407)) via `applyRaveGltfColorToCache` ← `applyThemeColorToCache` ([cartThemes.js:316](../../src/cartThemes.js:316)). Pattern population is **not** \"everyone but the local player is classic\": remote humans are `classic` (patterns are not networked yet) but **NPCs draw from a pool where classic is weighted 2/7** ([customization.js:442](../../src/customization.js:442)). **Why the acked design fails:** `intensityMul` is a **per-call argument, not per-cart state**, and the leader-glow block in [frameVisuals.js:395](../../src/frameVisuals.js:395) is **unguarded — it runs every frame, menu included** — with its idle branch (`:485`) calling `applyThemeColorToCache(cache, themeId, slotHex)` with no fourth arg, i.e. `intensityMul = 1`. `applyThemeChargeGlow` ([cartThemes.js:401](../../src/cartThemes.js:401)) also hard-passes `1`. That loop and `updateCartMaterialsFromSlots` ([cartOrchestration.js:249](../../src/orchestration/cartOrchestration.js:249)) mutate the **same** `cart._materialCache`, so a trim threaded from `cartOrchestration` is overwritten the moment `_themeGlowKey` changes — essentially immediately. **A retry must move the trim onto the cache** (e.g. `cache.emissiveTrimMul`, applied inside `applyRaveGltfColorToCache` **and** `applyRaveGltfLeaderGlow`, which hardcodes `getRaveGltfTrimEmissiveIntensity(neonHex, 1)` at [cartRaveGltf.js:2834](../../src/cartRaveGltf.js:2834) — miss it and a classic cart pops back to full brightness the instant it takes the lead). **The evidence gate is also unmet, and that is the second blocker:** `?shot=classic` is the menu attract path and contains **zero player carts**, so none of the four required subjects can appear in it; `shoot.mjs`/`shoot-gpu.mjs` accept no `room=solo`; `tools/sheet.mjs` is the only in-match rig and self-documents as SwiftShader/LOW, \"a layout baseline, **not a golden render**\"; and Classic's **15.9% construction-noise floor** swamps a 0.85 trim in `npm run compare` anyway. `shoot-gpu` itself works here on the real 4090 — the gap is subject matter, not GPU. **So the next card must choose one:** (a) cache-based trim + a new in-match GPU capture rig (new tooling — needs its own ack), or (b) cache-based trim gated on a **unit seam** only (assert the trim reaches `applyRaveGltfTrimEmissive` for classic, `1` for patterned, and survives leader glow) — clean, real evidence, no pixels. **Out of scope either way:** Classic's bloom profile (`BLOOM_DISPLAY_NEON`, [scene.js:87](../../src/scene.js:87), untuned since 07-13) is the *next* lever with its own evidence, not a substitute; and the hue-boost logic in `utils.js` is **not** the problem — an earlier claim that red/magenta are \"uncapped\" at `:65` was wrong (`:65` tames *bright* hues where `hueBoost < 0.85`; the high end is already capped by `CART_EMISSIVE_HUE_BOOST_MAX` at `:59`). **Retest read 08-04 (Wyatt, MAIN-1 step 6 — the sentence the card was waiting on):** on the shipped build non-patterned carts *\"still look kind of blown out compared to patterned carts. not the biggest deal but it could be better for sure.\"* So the symptom is **confirmed on prod and low-urgency** — it does not change the two blockers above, and the only thing still missing for a re-ack is Wyatt picking (a) or (b).",
+            "notes": "🚧 **RETRY APPLIED 08-05 — option (b) acked, awaiting playtest (FIX-EMISSIVE-1 / -2).** The trim now lives on the material **cache** (`emissiveTrimMul`), written by `setEmissiveTrimMul` wherever a pattern is decided — not threaded as a call argument, which is what the aborted attempt did. **Wyatt's review caught the flaw in my first plan:** setting it at cache birth is wrong, because match spawn calls `prepareRaveGltfCart(mesh, color)` with no pattern, so every match cart is born classic and the real pattern only arrives in `updateCartMaterialsFromSlots` — birth-only would have trimmed the whole grid and never restored patterned carts. Now written at four sites (build · slots · KO respawn · preview) and stamped on `mesh.userData` so a cache rebuild rehydrates. Original filing follows. **ABORTED 08-04 mid-wave — the acked lever was invalidated by the code, not by taste. Needs re-ack before any retry.** Report: \"emissive-ness on non patterned carts looks a bit blown out on cart rave\". **Correct map** (an earlier reading was wrong — do not trust stale notes): `cartPatterns.js:400` is `removeLegacyPatternMeshes`, *not* an emissive branch; a `classic` cart only gets `uPatternStrength = 0` (`cartPatterns.js:389-391`), and a pattern is the only thing that currently reduces emissive area. The full-area glow lives on the GLTF trim/accent mats — `getRaveGltfTrimEmissiveIntensity` / `applyRaveGltfTrimEmissive` ([cartRaveGltf.js:2407](../../src/cartRaveGltf.js:2407)) via `applyRaveGltfColorToCache` ← `applyThemeColorToCache` ([cartThemes.js:316](../../src/cartThemes.js:316)). Pattern population is **not** \"everyone but the local player is classic\": remote humans are `classic` (patterns are not networked yet) but **NPCs draw from a pool where classic is weighted 2/7** ([customization.js:442](../../src/customization.js:442)). **Why the acked design fails:** `intensityMul` is a **per-call argument, not per-cart state**, and the leader-glow block in [frameVisuals.js:395](../../src/frameVisuals.js:395) is **unguarded — it runs every frame, menu included** — with its idle branch (`:485`) calling `applyThemeColorToCache(cache, themeId, slotHex)` with no fourth arg, i.e. `intensityMul = 1`. `applyThemeChargeGlow` ([cartThemes.js:401](../../src/cartThemes.js:401)) also hard-passes `1`. That loop and `updateCartMaterialsFromSlots` ([cartOrchestration.js:249](../../src/orchestration/cartOrchestration.js:249)) mutate the **same** `cart._materialCache`, so a trim threaded from `cartOrchestration` is overwritten the moment `_themeGlowKey` changes — essentially immediately. **A retry must move the trim onto the cache** (e.g. `cache.emissiveTrimMul`, applied inside `applyRaveGltfColorToCache` **and** `applyRaveGltfLeaderGlow`, which hardcodes `getRaveGltfTrimEmissiveIntensity(neonHex, 1)` at [cartRaveGltf.js:2834](../../src/cartRaveGltf.js:2834) — miss it and a classic cart pops back to full brightness the instant it takes the lead). **The evidence gate is also unmet, and that is the second blocker:** `?shot=classic` is the menu attract path and contains **zero player carts**, so none of the four required subjects can appear in it; `shoot.mjs`/`shoot-gpu.mjs` accept no `room=solo`; `tools/sheet.mjs` is the only in-match rig and self-documents as SwiftShader/LOW, \"a layout baseline, **not a golden render**\"; and Classic's **15.9% construction-noise floor** swamps a 0.85 trim in `npm run compare` anyway. `shoot-gpu` itself works here on the real 4090 — the gap is subject matter, not GPU. **So the next card must choose one:** (a) cache-based trim + a new in-match GPU capture rig (new tooling — needs its own ack), or (b) cache-based trim gated on a **unit seam** only (assert the trim reaches `applyRaveGltfTrimEmissive` for classic, `1` for patterned, and survives leader glow) — clean, real evidence, no pixels. **Out of scope either way:** Classic's bloom profile (`BLOOM_DISPLAY_NEON`, [scene.js:87](../../src/scene.js:87), untuned since 07-13) is the *next* lever with its own evidence, not a substitute; and the hue-boost logic in `utils.js` is **not** the problem — an earlier claim that red/magenta are \"uncapped\" at `:65` was wrong (`:65` tames *bright* hues where `hueBoost < 0.85`; the high end is already capped by `CART_EMISSIVE_HUE_BOOST_MAX` at `:59`). **Retest read 08-04 (Wyatt, MAIN-1 step 6 — the sentence the card was waiting on):** on the shipped build non-patterned carts *\"still look kind of blown out compared to patterned carts. not the biggest deal but it could be better for sure.\"* So the symptom is **confirmed on prod and low-urgency** — it does not change the two blockers above, and the only thing still missing for a re-ack is Wyatt picking (a) or (b).",
             "ship1": null
           },
           {
@@ -1330,9 +1336,22 @@
       {
         "title": "Playtest owed",
         "counts": {
+          "Medium": 2,
           "Low": 1
         },
         "rows": [
+          {
+            "pri": "Medium",
+            "item": "FIX-EMISSIVE-1 — non-patterned carts vs patterned, the core look (FIX-EMISSIVE)",
+            "notes": "**Owed: Wyatt playtest — FIX-EMISSIVE-1 — Cart Rave, solo, with a mix of patterned and non-patterned carts on screen: the non-patterned ones no longer read blown out next to the patterned ones.** Your 08-04 words were *\"still look kind of blown out compared to patterned carts\"*. Trim starts at **0.85** — if the direction is right but the amount is wrong, say so and it is a one-constant change, not a FAIL. NPCs draw classic 2/7 and every remote human is classic, so a 4-cart round should show both kinds. Desktop judge.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "FIX-EMISSIVE-2 — a classic cart taking the lead (FIX-EMISSIVE)",
+            "notes": "**Owed: Wyatt playtest — FIX-EMISSIVE-2 — take the lead with a non-patterned cart: it stays dimmer than a patterned leader at idle and while the glow rises.** Separate card from FIX-EMISSIVE-1 because they can disagree — this is the exact seam that aborted the card on 08-04, where a classic cart snapped back to full brightness the instant it led. **The peak white flash converging with patterned is EXPECTED, not a FAIL** — the pulse blend uses an absolute glow value that is not trim-scaled; scaling that too is a separate call. Desktop judge.",
+            "ship1": null
+          },
           {
             "pri": "Low",
             "item": "AQ-RING-CLEAR-1 — autoQuality clear sample ring on every window eval",

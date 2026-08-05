@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-05 at commit `4b6e789` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `4e4cc8f6`
+> Generated 2026-08-05 at commit `982bdfe` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `0ee52aed`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -18,11 +18,12 @@ Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep a
 
 ## ACTIVE CARD
 
-Pick the next card — nothing owed, nothing mid-flight. HUD-TOAST-Z-1 closed PASS 6/6. Candidates: FIX-EMISSIVE re-ack (Wyatt picks retry (a) or (b)), FIX-MIG, BOOTH-RAIL-COL-1, RAPIER-DEFAULT-MAX-1. Closed 08-05: HARNESS-GEO-1, BUNDLE-1/BUNDLE-E-PT-1, and the five-card physics run (all PASS)
+FIX-EMISSIVE is mid-flight — ship it, then Wyatt plays FIX-EMISSIVE-1 / -2. qa green 7/7; battery 6/6 complete suite at this HEAD (08-05), so `ready` is no longer head-mismatched. No new card until it passes or fails. Then-candidates: FIX-EMISSIVE re-ack (Wyatt picks retry (a) or (b)), FIX-MIG, BOOTH-RAIL-COL-1, RAPIER-DEFAULT-MAX-1. Closed 08-05: HARNESS-GEO-1, BUNDLE-1/BUNDLE-E-PT-1, and the five-card physics run (all PASS)
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 
 Self-directed queue (one at a time, within the declared phase):
+- **FIX-EMISSIVE** Non-patterned carts read blown out on Classic — 🚧 ACTIVE — applied, unpushed, awaiting playtest (FIX-EMISSIVE-1 / -2). Retry after the 08-04 abort; Wyatt…
 - **FIX-EMISSIVE** Non-patterned carts read blown out on Classic — ⛔ ABORTED 08-04 — approved design invalidated, needs re-ack. See Open issues.
 - **FIX-MIG** Quickplay host-migration visibility + continuous-policy tests — 📋 next wave, scoped — see Open issues.
 - **BUNDLE-1** Menu/game code-split — ⚠️ CLOSED PARTIAL 08-05 — perf goal NOT met. Deployed `f2f90fd2`. Warm `menu-ready` −3% vs a −15% gate.…
