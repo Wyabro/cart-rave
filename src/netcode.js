@@ -298,7 +298,6 @@ let callbacks = {
   onJoinRejected: () => {},
 
   // Menu & HUD
-  getMenuVisible: () => true,
   hideMenuRef: () => {},
   updateCartMaterialsFromSlots: (slots) => {},
   updateHudColorsFromSlots: (slots) => {},
@@ -455,8 +454,52 @@ export const DEFERRED_GAME_CALLBACK_KEYS = Object.freeze([
 ]);
 
 /**
+ * CB-SEAM-1: literal callbacks key → bridge (`buildNetcodeGameBridge`) key when names differ.
+ * Same-name keys are omitted. Composed adapters list extras in
+ * {@link GAME_CALLBACK_COMPOSED_BRIDGE_KEYS}.
+ * @type {Readonly<Record<string, string>>}
+ */
+export const GAME_CALLBACK_RENAMES = Object.freeze({
+  getPALETTE: "getPalette",
+  hideMenuRef: "invokeHideMenu",
+  scheduleNameLabelUpdate: "getNameLabelUpdatePending",
+  respawnLocalMidRoundJoinRef: "getRespawnLocalMidRoundJoinRef",
+  playCollisionRef: "getPlayCollisionRef",
+  spawnTrashBurstRef: "getSpawnTrashBurstRef",
+  triggerLocalRamShakeRef: "getTriggerLocalRamShake",
+  triggerLocalHitTakenRef: "getTriggerLocalHitTaken",
+  onHopLandRef: "onHopLand",
+  onCartImpactSquashRef: "onCartImpactSquash",
+  playFloorImpactRef: "getSfx",
+  playEdgeImpactRef: "getSfx",
+  triggerCartShatterRef: "getTriggerCartShatterRef",
+  addKillFeedEntry: "getHud",
+});
+
+/**
+ * CB-SEAM-1: composed literal adapters that need more than one bridge key.
+ * @type {Readonly<Record<string, readonly string[]>>}
+ */
+export const GAME_CALLBACK_COMPOSED_BRIDGE_KEYS = Object.freeze({
+  scheduleNameLabelUpdate: Object.freeze([
+    "getNameLabelUpdatePending",
+    "setNameLabelUpdatePending",
+    "getUpdateNameLabelsRef",
+  ]),
+});
+
+/**
+ * Resolve the primary bridge key that backs a netcode `callbacks` literal key.
+ * @param {string} literalKey
+ * @returns {string}
+ */
+export function bridgeKeyForLiteral(literalKey) {
+  return GAME_CALLBACK_RENAMES[literalKey] ?? literalKey;
+}
+
+/**
  * Live key set of the game-callback table (defaults merged with whatever
- * `registerGameCallbacks` supplied). Test seam for the Lever E key-parity assert.
+ * `registerGameCallbacks` supplied). Test seam for CB-SEAM / Lever E parity.
  * @returns {string[]}
  */
 export function getGameCallbackKeys() {
@@ -501,7 +544,6 @@ export function registerGameCallbacks(deps) {
     getOnHostMigratedHandler: () => deps.getOnHostMigratedHandler?.(),
     onCountdownCancelled: () => deps.onCountdownCancelled?.(),
     onJoinRejected: () => deps.onJoinRejected?.(),
-    getMenuVisible: () => deps.getMenuVisible(),
     hideMenuRef: () => deps.invokeHideMenu(),
     updateCartMaterialsFromSlots: (slots) => deps.updateCartMaterialsFromSlots(slots),
     updateHudColorsFromSlots: (slots) => deps.updateHudColorsFromSlots(slots),
@@ -2792,7 +2834,6 @@ export function initNetcode(roomOverride) {
     if (!msg || typeof msg !== "object") return;
 
     const type = msg.type;
-    const menuVisible = callbacks.getMenuVisible();
 
     // * Party clock samples from any control-plane stamp (NET-CLK-1) — never from host tHost.
     maybeSamplePartyClock(msg);

@@ -255,7 +255,6 @@ export function buildNetcodeGameBridge(getContext, session, onFirstHello = null)
     getOnGameStartHandler: () => getContext()?.getOnGameStartHandler?.() ?? null,
     getOnHostMigratedHandler: () => getContext()?.getOnHostMigratedHandler?.() ?? null,
     onCountdownCancelled: () => getContext()?.onCountdownCancelled?.(),
-    getMenuVisible: () => getContext()?.getMenuVisible?.() ?? true,
     invokeHideMenu: () => getContext()?.invokeHideMenu?.(),
     onJoinRejected: () => session.returnToMenu({ reason: "joinRejected" }),
     updateCartMaterialsFromSlots: (slots) => getContext()?.updateCartMaterialsFromSlots?.(slots),

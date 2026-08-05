@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 /**
- * BUNDLE-1 Lever E — key-parity guard for the deferred game-callback seam.
+ * Callback seam guards (BUNDLE-1 Lever E + CB-SEAM-1).
  *
  * `netcode.js` stays eager but no longer statically imports the heavy game graph
  * (gameLoop / cartShatter / effects.groceryPool / scoring.koReactors /
@@ -15,6 +15,9 @@
  * So the key set is asserted on both sides, and each bridge lambda is proven to delegate
  * to the context key of the SAME name.
  *
+ * CB-SEAM-1 extends that to the full callbacks table via GAME_CALLBACK_RENAMES /
+ * GAME_CALLBACK_COMPOSED_BRIDGE_KEYS (literal ↔ bridge name mismatches).
+ *
  * See docs/planning/bundle-1.md §11.
  */
 import { describe, it, expect } from "vitest";
@@ -22,6 +25,8 @@ import * as Netcode from "../src/netcode.js";
 import { buildNetcodeGameBridge } from "../src/gameSession.js";
 
 const KEYS = Netcode.DEFERRED_GAME_CALLBACK_KEYS;
+const RENAMES = Netcode.GAME_CALLBACK_RENAMES;
+const COMPOSED = Netcode.GAME_CALLBACK_COMPOSED_BRIDGE_KEYS;
 
 /** Args that satisfy every deferred callback's arity without touching real game state. */
 const CALL_ARGS = {
@@ -94,5 +99,52 @@ describe("BUNDLE-1 Lever E — deferred game-callback key parity", () => {
     ];
     const leaked = forbidden.filter((m) => new RegExp(`^import[^\\n]*from "${m.replace(/[./]/g, "\\$&")}"`, "m").test(src));
     expect(leaked).toEqual([]);
+  });
+});
+
+describe("CB-SEAM-1 — full bridge ↔ adapter ↔ literal parity", () => {
+  it("rename map keys are live literal callbacks keys", () => {
+    const literal = new Set(Netcode.getGameCallbackKeys());
+    const orphanRenames = Object.keys(RENAMES).filter((k) => !literal.has(k));
+    expect(orphanRenames).toEqual([]);
+  });
+
+  it("composed map keys are live literal callbacks keys", () => {
+    const literal = new Set(Netcode.getGameCallbackKeys());
+    const orphanComposed = Object.keys(COMPOSED).filter((k) => !literal.has(k));
+    expect(orphanComposed).toEqual([]);
+  });
+
+  it("every literal key has a bridge function source (same name or rename)", () => {
+    const bridge = buildNetcodeGameBridge(() => null, { returnToMenu: () => {} });
+    const missing = [];
+    for (const literalKey of Netcode.getGameCallbackKeys()) {
+      const bridgeKey = Netcode.bridgeKeyForLiteral(literalKey);
+      if (typeof bridge[bridgeKey] !== "function") missing.push(`${literalKey}→${bridgeKey}`);
+      const extras = COMPOSED[literalKey];
+      if (extras) {
+        for (const extra of extras) {
+          if (typeof bridge[extra] !== "function") missing.push(`${literalKey}+${extra}`);
+        }
+      }
+    }
+    expect(missing).toEqual([]);
+  });
+
+  it("every rename target differs from the literal key", () => {
+    const same = Object.entries(RENAMES).filter(([lit, br]) => lit === br).map(([lit]) => lit);
+    expect(same).toEqual([]);
+  });
+
+  it("bridge does not expose stripped getMenuVisible", () => {
+    const bridge = buildNetcodeGameBridge(() => null, { returnToMenu: () => {} });
+    expect(Object.hasOwn(bridge, "getMenuVisible")).toBe(false);
+    expect(Netcode.getGameCallbackKeys()).not.toContain("getMenuVisible");
+  });
+
+  it("every bridge key is a function", () => {
+    const bridge = buildNetcodeGameBridge(() => null, { returnToMenu: () => {} });
+    const bad = Object.keys(bridge).filter((k) => typeof bridge[k] !== "function");
+    expect(bad).toEqual([]);
   });
 });
