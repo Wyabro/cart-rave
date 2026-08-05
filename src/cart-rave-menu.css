@@ -3701,12 +3701,13 @@ html, body {
 
 /* UI-SCALE-1 L4 — phone = fewer elements (not shrink-only).
    Wyatt-acked cut: tagline, cmd qualifiers, local stats, context blurb.
-   Hint bar already display:none at ≤1024 (block above). */
+   Hint bar already display:none at ≤1024 (block above).
+   Two-class/ID selectors beat `.cr-hero .cr-tagline { display:block }` etc. */
 @media (max-width: 768px), (max-width: 1024px) and (pointer: coarse) {
-  .cr-tagline,
-  .cr-cmd-qual,
-  #cr-stats-local,
-  .cr-context-desc {
+  .cr-hero .cr-tagline,
+  .cr-cmd .cr-cmd-qual,
+  #cr-player-card #cr-stats-local,
+  .cr-context .cr-context-desc {
     display: none;
   }
 }
