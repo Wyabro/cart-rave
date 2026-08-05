@@ -66,7 +66,8 @@ Live rows only. Shipped and closed cards live in
 
 | # | What | Status |
 |---|------|--------|
-| *(open — Wyatt's pick)* | Physics run closed 08-05 — 4 cards, all PASS | ✅ **STORE-PLAT-WALL-1 → STORE-PIT-WEDGE-1 → STORE-WALL-SLIDE-1 → WALL-SLIDE-CLASSIC-1.** The first three chained (each caused by the previous fix); the fourth carried the finding to Cart Rave. **Durable finding: a friction value in this codebase is not a felt value** — Rapier averages it with the cart's 1.1, so walls written 0.02–0.05 were acting like 0.56–0.575. Walls now use `FrictionCombineRule.Min`; **floors deliberately keep Average** (canaries in both test files) and **restitution keeps `Max`** on walls. Residual: **SUNDIAL-OBSTACLE-SLIDE-1** (Low). Detail in [completed-work.md](./planning/completed-work.md). |
+| **SUNDIAL-OBSTACLE-SLIDE-1** | Sundial's bollards + gnomon blade averaged friction | 🚧 **ACTIVE — applied `fd97ab8`, unpushed, awaiting playtest.** Last site in the combine-rule sweep (written `0.3`, effective **0.7**). `FrictionCombineRule.Min` on the 8 bollards + the gnomon blade, **no number changes**; floors stay Average, canaries in `tests/zanzibarObstacleFriction.test.js`. **Playtest:** grind the blade face (skim, not catch) · clip a bollard at speed · deck + booth grip unchanged. Detail: [BACKLOG § Engineering](./planning/BACKLOG.md). |
+| *(closed)* | Physics run 08-05 — 4 cards, all PASS | ✅ STORE-PLAT-WALL-1 → STORE-PIT-WEDGE-1 → STORE-WALL-SLIDE-1 → WALL-SLIDE-CLASSIC-1. **Durable finding: a friction value in this codebase is not a felt value** — Rapier averages it with the cart's 1.1, so walls written 0.02–0.05 acted like 0.56–0.575. Walls take `FrictionCombineRule.Min`; **floors deliberately keep Average** (canaries in three test files). Detail: [completed-work.md](./planning/completed-work.md). |
 | FIX-EMISSIVE | Non-patterned carts read blown out on Classic | ⛔ **ABORTED 08-04 — approved design invalidated, needs re-ack.** See Open issues. |
 | FIX-MIG | Quickplay host-migration visibility + continuous-policy tests | 📋 next wave, scoped — see Open issues. |
 | PERF-PASS-1 | 60 fps at Low on the Intel box — **Cart Rave only** (Wyatt scoped it 08-03) | ⏸ **PARKED BY WYATT 08-04 for HOST-TAB-1.** Wave 4 remains deployed (`b754e12`, Worker `9b8b1fbe`); honest measured range −1.66 to −2.54 ms and includes +0.55. Card remains open at ~46 fps; every future cell needs an A-B-A bracket on a cooled box. Menu + evidence: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md). |
@@ -75,7 +76,7 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. **Pick the next card — nothing owed, nothing mid-flight.** Candidates: **FIX-EMISSIVE** re-ack (Wyatt picks retry (a) or (b)), **FIX-MIG**, **HUD-TOAST-Z-1**, **BOOTH-RAIL-COL-1**, **SUNDIAL-OBSTACLE-SLIDE-1**. Closed 08-05 and not candidates: HARNESS-GEO-1, BUNDLE-1/BUNDLE-E-PT-1, and the four-card physics run (STORE-PLAT-WALL-1 → STORE-PIT-WEDGE-1 → STORE-WALL-SLIDE-1 → WALL-SLIDE-CLASSIC-1, all PASS).
+1. **SUNDIAL-OBSTACLE-SLIDE-1 is mid-flight — push + deploy, then Wyatt playtests.** No new card until it passes or fails. Then-candidates: **FIX-EMISSIVE** re-ack (Wyatt picks retry (a) or (b)), **FIX-MIG**, **HUD-TOAST-Z-1**, **BOOTH-RAIL-COL-1**, **RAPIER-DEFAULT-MAX-1**. Closed 08-05 and not candidates: HARNESS-GEO-1, BUNDLE-1/BUNDLE-E-PT-1, and the four-card physics run (all PASS).
 2. **Hitch forensics now has evidence** — cap-254–260 (build `8d96b0b`) are the first captures from a working upload path, including a Cart Rave F8 taken on a hitch. Read them before any perf knob.
 3. **Still owed separately:** 9-cell PERF sweep (~25 min). Resume Run 8 FAIL triage.
 

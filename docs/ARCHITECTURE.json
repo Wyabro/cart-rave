@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-05T05:51:19.892Z",
-    "commit": "9aad9cd"
+    "at": "2026-08-05T06:01:23.380Z",
+    "commit": "bade599"
   },
-  "source_digest": "4f653ce5",
+  "source_digest": "f71277b9",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -855,9 +855,15 @@
   "workstreams": {
     "queue": [
       {
-        "id": "*(open — Wyatt's pick)*",
-        "what": "Physics run closed 08-05 — 4 cards, all PASS",
-        "status": "✅ STORE-PLAT-WALL-1 → STORE-PIT-WEDGE-1 → STORE-WALL-SLIDE-1 → WALL-SLIDE-CLASSIC-1. The first three chained (each caused by the previous fix); the fourth carried the finding to Cart Rave. Durable finding: a friction value in this codebase is not a felt value — Rapier averages it with the cart's 1.1, so walls written 0.02–0.05 were acting like 0.56–0.575. Walls now use `FrictionCombineRule.Min`; floors deliberately keep Average (canaries in both test files) and restitution keeps `Max` on walls. Residual: SUNDIAL-OBSTACLE-SLIDE-1 (Low). Detail in [completed-work.md](./planning/completed-work.md).",
+        "id": "SUNDIAL-OBSTACLE-SLIDE-1",
+        "what": "Sundial's bollards + gnomon blade averaged friction",
+        "status": "🚧 ACTIVE — applied `fd97ab8`, unpushed, awaiting playtest. Last site in the combine-rule sweep (written `0.3`, effective 0.7). `FrictionCombineRule.Min` on the 8 bollards + the gnomon blade, no number changes; floors stay Average, canaries in `tests/zanzibarObstacleFriction.test.js`. Playtest: grind the blade face (skim, not catch) · clip a bollard at speed · deck + booth grip unchanged. Detail: [BACKLOG § Engineering](./planning/BACKLOG.md).",
+        "state": "waiting"
+      },
+      {
+        "id": "*(closed)*",
+        "what": "Physics run 08-05 — 4 cards, all PASS",
+        "status": "✅ STORE-PLAT-WALL-1 → STORE-PIT-WEDGE-1 → STORE-WALL-SLIDE-1 → WALL-SLIDE-CLASSIC-1. Durable finding: a friction value in this codebase is not a felt value — Rapier averages it with the cart's 1.1, so walls written 0.02–0.05 acted like 0.56–0.575. Walls take `FrictionCombineRule.Min`; floors deliberately keep Average (canaries in three test files). Detail: [completed-work.md](./planning/completed-work.md).",
         "state": "done"
       },
       {
@@ -901,7 +907,7 @@
       }
     ],
     "next_actions": [
-      "Pick the next card — nothing owed, nothing mid-flight. Candidates: FIX-EMISSIVE re-ack (Wyatt picks retry (a) or (b)), FIX-MIG, HUD-TOAST-Z-1, BOOTH-RAIL-COL-1, SUNDIAL-OBSTACLE-SLIDE-1. Closed 08-05 and not candidates: HARNESS-GEO-1, BUNDLE-1/BUNDLE-E-PT-1, and the four-card physics run (STORE-PLAT-WALL-1 → STORE-PIT-WEDGE-1 → STORE-WALL-SLIDE-1 → WALL-SLIDE-CLASSIC-1, all PASS).",
+      "SUNDIAL-OBSTACLE-SLIDE-1 is mid-flight — push + deploy, then Wyatt playtests. No new card until it passes or fails. Then-candidates: FIX-EMISSIVE re-ack (Wyatt picks retry (a) or (b)), FIX-MIG, HUD-TOAST-Z-1, BOOTH-RAIL-COL-1, RAPIER-DEFAULT-MAX-1. Closed 08-05 and not candidates: HARNESS-GEO-1, BUNDLE-1/BUNDLE-E-PT-1, and the four-card physics run (all PASS).",
       "Hitch forensics now has evidence — cap-254–260 (build `8d96b0b`) are the first captures from a working upload path, including a Cart Rave F8 taken on a hitch. Read them before any perf knob.",
       "Still owed separately: 9-cell PERF sweep (~25 min). Resume Run 8 FAIL triage."
     ],
@@ -944,7 +950,7 @@
         "title": "Engineering",
         "counts": {
           "Medium": 14,
-          "Low": 11,
+          "Low": 12,
           "High": 2,
           "Partial": 1
         },
@@ -958,7 +964,7 @@
           {
             "pri": "Low",
             "item": "SUNDIAL-OBSTACLE-SLIDE-1 — Sundial's bollards and gnomon blade still average friction with the cart",
-            "notes": "**Filed 08-05 closing out the combine-rule sweep, and it corrects an earlier claim of mine: \"Sundial is clean\" was an artifact of the grep, not a fact** — that search only matched friction ≤0.2, and Sundial's vertical obstacles are written `0.3`, so they never appeared. Averaged with the cart's 1.1 they act like **0.7**. Two sites: the 8 corner bollards ([zanzibarPlatform.js:3565](../../src/levels/zanzibarPlatform.js:3565)) and the gnomon blade ([:3606](../../src/levels/zanzibarPlatform.js:3606), made solid by `5ec432d`). **Lower priority than the pit cards on purpose:** those were long walls you *scrape along*, where sustained friction dominates the feel; a bollard is a brief point impact where restitution matters more. **The gnomon blade is the one worth judging** — it is a large flat vertical face you genuinely can grind along. **Nobody has reported it**, so this is a \"confirm it feels wrong before spending the card\" item, not a known defect. Sundial's floors (`DECK_FRICTION`, booth decks) correctly stay on Average, and [:3540](../../src/levels/zanzibarPlatform.js:3540) already carries `RestitutionCombineRule.Min` for the opposite reason — do not confuse the two axes. Context: [rapier combine-rule finding](./completed-work.md).",
+            "notes": "🚧 **APPLIED 08-05 `fd97ab8`, awaiting Wyatt playtest — now the active card in [STATUS.md](../STATUS.md).** `FrictionCombineRule.Min` on both sites, no number changes; all three floor classes (deck/podium cuboids, ramp hull, booth slabs) left on Average with canaries in `tests/zanzibarObstacleFriction.test.js`. Original filing follows. **Filed 08-05 closing out the combine-rule sweep, and it corrects an earlier claim of mine: \"Sundial is clean\" was an artifact of the grep, not a fact** — that search only matched friction ≤0.2, and Sundial's vertical obstacles are written `0.3`, so they never appeared. Averaged with the cart's 1.1 they act like **0.7**. Two sites: the 8 corner bollards ([zanzibarPlatform.js:3565](../../src/levels/zanzibarPlatform.js:3565)) and the gnomon blade ([:3606](../../src/levels/zanzibarPlatform.js:3606), made solid by `5ec432d`). **Lower priority than the pit cards on purpose:** those were long walls you *scrape along*, where sustained friction dominates the feel; a bollard is a brief point impact where restitution matters more. **The gnomon blade is the one worth judging** — it is a large flat vertical face you genuinely can grind along. **Nobody has reported it**, so this is a \"confirm it feels wrong before spending the card\" item, not a known defect. Sundial's floors (`DECK_FRICTION`, booth decks) correctly stay on Average, and [:3540](../../src/levels/zanzibarPlatform.js:3540) already carries `RestitutionCombineRule.Min` for the opposite reason — do not confuse the two axes. Context: [rapier combine-rule finding](./completed-work.md).",
             "ship1": null
           },
           {
@@ -971,6 +977,12 @@
             "pri": "Medium",
             "item": "RECORD-MED-1 — Cart Rave record floor looks wrong on Medium (vs Low and High)",
             "notes": "**Filed 08-04 from Wyatt.** Medium quality's vinyl/record surface reads weird next to Low and High on the same machine. **Likely mechanism (not yet measured):** `QUALITY_KNOBS.medium.reflector = false` ([qualityTiers.js:77](../../src/utils/qualityTiers.js:77)) so `setReflectorVisible(false)` shows the solid floor ([arena.js:1795](../../src/arena.js:1795)), but the record **body** is still built on the High material path because construction only branches on `isLowQualityMode()` ([arena.js:1601](../../src/arena.js:1601)) — Medium is not Low, so it gets High clearcoat/metalness/normal stack *plus* the Medium solid floor and postFX/bloom that Low disables. Low = opaque Low body + solid floor + no composer; High = translucent body + Reflector + vinyl detail. Medium is a hybrid nobody signed off. **Do not fold into PERF-PASS-1** — that card is Cart Rave cost, not look parity. **Cheapest repro:** `?preset=low` / medium / high on classicRecord, same camera, shoot three stills. **Pass:** Medium reads as a deliberate step between Low and High (or matches Low's solid-floor look cleanly), not a broken middle.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "RAPIER-DEFAULT-MAX-1 — the combine-rule sweep's docs claim Rapier defaults restitution to `Max`; it defaults to `Average`",
+            "notes": "**Filed 08-05 while applying SUNDIAL-OBSTACLE-SLIDE-1, and it corrects the card that shipped immediately before it.** `ColliderDesc` sets **both** `frictionCombineRule` **and** `restitutionCombineRule` to `Average` — read it directly at [collider.js:861-862](../../node_modules/@dimforge/rapier3d/geometry/collider.js), not inferred. Three places assert otherwise, all from WALL-SLIDE-CLASSIC-1 (`00ef1cb`): the comment at [arena.js:2548](../../src/arena.js:2548) (\"Rapier's default is Max\"), the last test in [classicPitWalls.test.js](../../tests/classicPitWalls.test.js) and its rationale, and that commit's own message. **Consequence:** Classic's containment lip and shaft staves deflect at **0.40 / 0.45**, not the 0.50 / 0.60 the comments claim (cart restitution 0.3, [config.js:87](../../src/config.js:87)). **This is a claim error, not a behaviour bug — do not \"fix\" the numbers.** WALL-SLIDE-CLASSIC-1 passed Wyatt's playtest *at the real effective values*, so the felt deflection is already signed off; raising it to the documented figures would change a passed card's feel on the strength of a comment. **Scope if picked up: edit the three claims to say Average, keep every collider value byte-identical.** Worth doing because the false premise is load-bearing prose — it is the stated reason the Classic walls take no restitution rule, and the next editor reading it will reason from a wrong model of what Rapier does. If a higher deflection is ever actually wanted there, that is a separate tuning card with its own playtest.",
             "ship1": null
           },
           {
