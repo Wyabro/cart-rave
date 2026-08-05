@@ -91,6 +91,12 @@ const WALL_DECOR_INSET = 0.1; // meters — shelves/pillars sit inside the inner
 // * Pit: black void filling the gap between the floor edge and the far walls. Carts
 // * rammed off the floor edge fall into it and respawn.
 
+// * STORE-PLAT-WALL-1: thickness of the cliff skirt that drops from the floor edge to the pit
+// * floor. Shared by the visual ring (buildPit → addCliffRing) and the collider ring
+// * (getBackroomsPitWallSpec) so the two cannot drift apart — the whole bug was physics that
+// * did not exist behind a wall the player could see.
+const PIT_CLIFF_SKIRT_THICKNESS = 1.0; // meters
+
 // * Kept for the level contract; consumed by scene extras / effects radii (those are
 // * disabled for this level, but the value still feeds any startup-time placement).
 const PIT_INNER_RADIUS = 66; // meters
@@ -1121,6 +1127,57 @@ function buildChamferColliders(world, friction, restitution) {
 // ===== Fall containment (Cart Rave-style shaft treatment) =====
 
 /**
+ * STORE-PLAT-WALL-1 — the collider ring backing the arena's cliff face.
+ *
+ * The pit was sealed on three sides and open on the fourth: the backstop cap covers the pit
+ * floor, the perimeter walls span the full height down to it, and each corner-void shaft has
+ * ricochet walls — but the 26 m cliff dropping from the floor edge to the pit floor was
+ * rendered by `buildPit` as four plain meshes with no physics at all. A cart down in the pit
+ * drove straight through the side of the arena and ended up underneath the playfield.
+ *
+ * Geometry mirrors `addCliffRing(ARENA_HALF)` exactly, from the same constants, so the
+ * collider cannot drift from the wall the player sees:
+ *   - inner face lands on ARENA_HALF (centre ARENA_HALF + skirt/2, half-depth skirt/2), so
+ *     the ring never intrudes into the playfield and become an invisible edge barrier;
+ *   - half-length ARENA_HALF + skirt overruns each corner by a full skirt thickness, the same
+ *     seam-free overlap the shaft walls use;
+ *   - the top sits CHAMFER_TUCK *above* FLOOR_BOTTOM_Y so it overlaps the perimeter chamfer
+ *     prism rather than sharing a plane with it. Exactly coplanar faces flip contact ownership
+ *     frame to frame — the CHAMFER_TUCK lesson from the Zanzibar floor work. A touch is not
+ *     enough; the overlap has to be real, which is why the test pins this Y exactly.
+ *
+ * Exported pure so tests can assert the geometry — Rapier is stubbed in unit tests, so there is
+ * no headless world to inspect. Same pattern as getZanzibarFloorColliderSpec.
+ *
+ * @returns {{
+ *   walls: Array<{ px: number, py: number, pz: number, hx: number, hy: number, hz: number }>,
+ *   arenaHalf: number, floorBottomY: number, pitFloorY: number, topY: number, skirt: number,
+ * }}
+ */
+export function getBackroomsPitWallSpec() {
+  const skirt = PIT_CLIFF_SKIRT_THICKNESS;
+  const topY = FLOOR_BOTTOM_Y + CHAMFER_TUCK;
+  const hy = (topY - PIT_FLOOR_Y) / 2;
+  const py = (topY + PIT_FLOOR_Y) / 2;
+  const off = ARENA_HALF + skirt / 2; // centre line of the skirt — inner face on ARENA_HALF
+  const halfThick = skirt / 2;
+  const halfLong = ARENA_HALF + skirt; // overruns the corners by one skirt thickness
+  return {
+    walls: [
+      { px: 0, py, pz: off, hx: halfLong, hy, hz: halfThick }, // +Z
+      { px: 0, py, pz: -off, hx: halfLong, hy, hz: halfThick }, // -Z
+      { px: off, py, pz: 0, hx: halfThick, hy, hz: halfLong }, // +X
+      { px: -off, py, pz: 0, hx: halfThick, hy, hz: halfLong }, // -X
+    ],
+    arenaHalf: ARENA_HALF,
+    floorBottomY: FLOOR_BOTTOM_Y,
+    pitFloorY: PIT_FLOOR_Y,
+    topY,
+    skirt,
+  };
+}
+
+/**
  * Adds the physical under-floor the Classic Record pit has and this level lacked:
  * a springy backstop cap at the pit floor (the "final bounce" a KO'd cart lands on)
  * and low-friction vertical ricochet walls lining each corner-void shaft so falling
@@ -1168,6 +1225,21 @@ function buildFallContainment(world) {
         body,
       );
     }
+  }
+
+  // * STORE-PLAT-WALL-1: the arena's own cliff face. Same friction/restitution as the shaft
+  // * walls above, so a cart caroms off the underside of the arena exactly like it caroms
+  // * down a void shaft — one consistent fall feel. Deliberately NOT pushed into
+  // * boothColliderHandles: that list is the "edge" wall-clang FX classification, scanned
+  // * linearly on every environment contact, and a pit wall is not a clang surface.
+  for (const w of getBackroomsPitWallSpec().walls) {
+    world.createCollider(
+      RAPIER.ColliderDesc.cuboid(w.hx, w.hy, w.hz)
+        .setTranslation(w.px, w.py, w.pz)
+        .setFriction(0.05)
+        .setRestitution(0.6),
+      body,
+    );
   }
 
   return [body];
@@ -1349,8 +1421,14 @@ function buildSquareVoid(cx, cz, shaftMat, subRoomMats, variant = 0) {
 /**
  * Builds the black pit that surrounds the play floor: a deep dark floor plane, an inner
  * cliff dropping from the floor edge, and an outer skirt rising to the perimeter walls.
- * Reads as an intentional dangerous void rather than a broken seam. Entirely visual — the
- * absence of floor collider beyond ARENA_HALF is what makes carts fall.
+ * Reads as an intentional dangerous void rather than a broken seam. What makes carts fall is
+ * the absence of a *floor* collider beyond ARENA_HALF — nothing here holds them up.
+ *
+ * * Mostly visual, but not entirely, and the difference matters: the inner cliff ring this
+ * * builds is backed by real colliders (STORE-PLAT-WALL-1), created in buildFallContainment
+ * * from getBackroomsPitWallSpec() off the shared PIT_CLIFF_SKIRT_THICKNESS. Before that this
+ * * comment said "entirely visual" and it was true — a cart on the pit floor drove straight
+ * * through the side of the arena. Do not re-file that; do keep the two rings in lockstep.
  *
  * @returns {{ group: THREE.Group, geometries: THREE.BufferGeometry[], materials: THREE.Material[] }}
  */
@@ -1371,7 +1449,8 @@ function buildPit() {
   pitFloor.position.y = PIT_FLOOR_Y;
   group.add(pitFloor);
 
-  const skirtThickness = 1.0;
+  // * Shared with the collider ring — see getBackroomsPitWallSpec().
+  const skirtThickness = PIT_CLIFF_SKIRT_THICKNESS;
 
   // Vertical inner cliff below the carpet chamfer lip + outer skirt at the perimeter wall.
   // Slopes are rendered by the floor trimesh; only the drop below the lip is duplicated here.
