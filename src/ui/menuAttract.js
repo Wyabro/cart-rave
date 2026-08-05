@@ -29,11 +29,15 @@
  */
 
 import { isComposerBypassActive } from "../scene.js";
+import { BAD_FRAME_MS } from "../utils/autoQuality.js";
 import {
   applyDebugCameraPose,
   getDebugAnimTimeMs,
   isDebugCameraLocked,
 } from "../utils/debugParams.js";
+import { isDiagActive, recordDiagEvent } from "../utils/diagnostics.js";
+import { getQualityTier } from "../utils/qualityMode.js";
+import { getSessionRenderScaleMul } from "../utils/qualityTiers.js";
 import { tickVisualHarnessFrame } from "../utils/visualHarness.js";
 
 /**
@@ -121,6 +125,93 @@ let shotIndex = 0;
 let shotStartMs = 0;
 let shotBaseAzimuth = 0;
 
+/* ── ATTRACT-JANK-1 Lever 0 — measurement only, no behaviour change ─────────────
+ * Nothing measured attract CADENCE anywhere: only frame cost reached the ring, and
+ * only on the frame a demotion fired. That cannot separate "this machine is slow"
+ * (cost) from "the 33ms throttle beats against vsync" (spacing), which are different
+ * cards with different fixes. So: per-second percentiles of both, plus one-shot
+ * markers at the two events cost is expected to spike on (shot cut, arena-swap hold
+ * release), because inferring cuts from the 9-15s shot walls is unreliable once
+ * spacing is already juddery — which is the case under test.
+ *
+ * Channel is "attract", NOT "perf", and that is load-bearing: evictOneEvent drops the
+ * oldest event of the LOUDEST channel (diagnostics.js:186), so ~90 windows on "perf"
+ * would evict `qualityStepDown` — the single event that decides the top-ranked
+ * verdict — before the capture is taken. On its own channel the flood eats its own.
+ *
+ * Emission is `?diag`-gated end to end (recordDiagEvent no-ops when inactive), and the
+ * sample arrays are reused, so an ordinary player pays two number pushes per frame.
+ */
+const ATTRACT_DIAG_WINDOW_MS = 1000;
+/** ~90s of 1Hz windows — the shot cycle is 46s (15+10+12+9), so a 60s sit fits whole. */
+const ATTRACT_DIAG_MAX_WINDOWS = 90;
+
+/** @type {number[]} */
+const diagSpacing = [];
+/** @type {number[]} */
+const diagCost = [];
+let diagWindowStartMs = 0;
+let diagWindowsEmitted = 0;
+
+function resetAttractDiag() {
+  diagSpacing.length = 0;
+  diagCost.length = 0;
+  diagWindowStartMs = 0;
+  diagWindowsEmitted = 0;
+}
+
+/**
+ * @param {number[]} sorted ascending
+ * @param {number} p 0..1
+ * @returns {number} ms, rounded to 0.1
+ */
+function pctMs(sorted, p) {
+  if (sorted.length === 0) return 0;
+  const v = sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * p))];
+  return Math.round(v * 10) / 10;
+}
+
+/**
+ * Close the 1s window and emit its summary.
+ * @param {number} nowMs
+ * @param {string} levelId
+ * @returns {void}
+ */
+function maybeEmitAttractWindow(nowMs, levelId) {
+  if (!diagWindowStartMs) diagWindowStartMs = nowMs;
+  if (nowMs - diagWindowStartMs < ATTRACT_DIAG_WINDOW_MS) return;
+  diagWindowStartMs = nowMs;
+  if (diagCost.length === 0) return;
+  if (diagWindowsEmitted >= ATTRACT_DIAG_MAX_WINDOWS) {
+    diagSpacing.length = 0;
+    diagCost.length = 0;
+    return;
+  }
+  const spacing = diagSpacing.slice().sort((a, b) => a - b);
+  const cost = diagCost.slice().sort((a, b) => a - b);
+  let overBar = 0;
+  for (const c of diagCost) if (c > BAD_FRAME_MS) overBar += 1;
+  recordDiagEvent("attract", "attractWindow", {
+    n: diagCost.length,
+    spacingP50: pctMs(spacing, 0.5),
+    spacingP95: pctMs(spacing, 0.95),
+    spacingMax: pctMs(spacing, 1),
+    costP50: pctMs(cost, 0.5),
+    costP95: pctMs(cost, 0.95),
+    costMax: pctMs(cost, 1),
+    // * Count and bar travel together — a bare count is unreadable if BAD_FRAME_MS moves.
+    overBar,
+    barMs: BAD_FRAME_MS,
+    shotIndex,
+    tier: getQualityTier(),
+    renderScale: getSessionRenderScaleMul(),
+    levelId,
+  });
+  diagWindowsEmitted += 1;
+  diagSpacing.length = 0;
+  diagCost.length = 0;
+}
+
 const reducedMotionQuery =
   typeof window !== "undefined" && typeof window.matchMedia === "function"
     ? window.matchMedia("(prefers-reduced-motion: reduce)")
@@ -168,10 +259,17 @@ function step(now) {
   const reduced = reducedMotionQuery?.matches === true;
   const interval = reduced ? REDUCED_MOTION_INTERVAL_MS : FRAME_INTERVAL_MS;
   if (now - lastFrameMs < interval) return;
+  // * ATTRACT-JANK-1: measured BEFORE the reset below, because that reset is the
+  // * suspect — `lastFrameMs = now` re-anchors on arrival rather than accumulating,
+  // * so a frame that misses the 33ms wall by a hair waits a whole extra vsync.
+  // * lastFrameMs === 0 is the render-now sentinel (fresh visit / hold release), not
+  // * an interval, so it yields no sample.
+  const spacingMs = lastFrameMs > 0 ? now - lastFrameMs : 0;
   lastFrameMs = now;
 
   const arenaRadius = Math.max(6, d.getArenaRadius());
-  const maxHeightM = LEVEL_MAX_CAM_HEIGHT_M[d.getLevelId?.() ?? ""] ?? Infinity;
+  const levelId = d.getLevelId?.() ?? "";
+  const maxHeightM = LEVEL_MAX_CAM_HEIGHT_M[levelId] ?? Infinity;
   // * Visual QA: ?cam= / ?freeze= pin pose (no orbit) so shoot tools are stable.
   if (isDebugCameraLocked()) {
     applyDebugCameraPose(d.camera);
@@ -187,9 +285,21 @@ function step(now) {
   } else {
     // Shot-list attract: hard-cut between framings, each drifting while it holds.
     if (shotStartMs === 0 || now - shotStartMs >= ATTRACT_SHOTS[shotIndex].durMs) {
-      shotIndex = shotStartMs === 0 ? shotIndex : (shotIndex + 1) % ATTRACT_SHOTS.length;
+      const isCut = shotStartMs !== 0;
+      shotIndex = isCut ? (shotIndex + 1) % ATTRACT_SHOTS.length : shotIndex;
       shotStartMs = now;
       shotBaseAzimuth = Math.random() * Math.PI * 2;
+      // * ATTRACT-JANK-1: mark the cut itself. Shot 3 (radiusMul 0.85, the close push)
+      // * is the fill/overdraw suspect, and a cut can link programs for newly framed
+      // * geometry — both would land as a cost spike ON this boundary. Only a real cut
+      // * is marked; the first frame of a visit sets the shot without cutting to it.
+      if (isCut) {
+        recordDiagEvent("attract", "attractCut", {
+          shotIndex,
+          radiusMul: ATTRACT_SHOTS[shotIndex].radiusMul,
+          levelId,
+        });
+      }
     }
     const shot = ATTRACT_SHOTS[shotIndex];
     const drift = ((now - shotStartMs) / ORBIT_PERIOD_MS) * Math.PI * 2 * shot.speedMul;
@@ -220,7 +330,14 @@ function step(now) {
   } else {
     d.composer.render();
   }
-  d.onRenderCost?.((performance.now() - frameStartMs) / 1000, frameStartMs);
+  const frameCostMs = performance.now() - frameStartMs;
+  d.onRenderCost?.(frameCostMs / 1000, frameStartMs);
+  // * ATTRACT-JANK-1: same cost the watchdog just judged, plus the spacing it never sees.
+  if (isDiagActive()) {
+    if (spacingMs > 0) diagSpacing.push(spacingMs);
+    diagCost.push(frameCostMs);
+    maybeEmitAttractWindow(now, levelId);
+  }
   tickVisualHarnessFrame();
   setRevealed(true);
 }
@@ -237,6 +354,10 @@ export function startMenuAttract() {
   lastFrameMs = 0;
   // * Fresh visit, fresh cut — restart the shot list from a new random azimuth.
   shotStartMs = 0;
+  // * ATTRACT-JANK-1: fresh visit, fresh window budget — the first ~10s of a visit is
+  // * where a menu-side demotion is expected, so it must never be the part that got
+  // * capped off by a previous visit's windows.
+  resetAttractDiag();
   rafId = requestAnimationFrame(step);
 }
 
@@ -245,6 +366,12 @@ export function startMenuAttract() {
  * @param {boolean} on
  */
 export function setMenuAttractRenderHold(on) {
+  // * ATTRACT-JANK-1: mark the RELEASE — the first frames after an arena swap draw new
+  // * geometry, and there is no menu-side autoQuality grace (noteModeEntryShown covers
+  // * mode entry only), so this is where a false demotion would fire. Transition-guarded
+  // * because maskMenuPreviewSwap releases twice, in the try AND the finally
+  // * (levelOrchestration.js:564,569) — an unguarded marker would double-count.
+  if (renderHold && !on) recordDiagEvent("attract", "attractHoldRelease", {});
   renderHold = on;
   // * Render immediately on release so the fade-in reveals the NEW arena, not a
   // * stale frame from before the swap.

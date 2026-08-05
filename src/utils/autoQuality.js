@@ -21,8 +21,12 @@ import {
 } from "./qualityTiers.js";
 
 const SAMPLE_CAP = 90;
-/** ms — ~48 fps threshold (was 22ms/~45fps; potato machines need earlier step-down) */
-const BAD_FRAME_MS = 20.5;
+/**
+ * ms — ~48 fps threshold (was 22ms/~45fps; potato machines need earlier step-down).
+ * Exported so ATTRACT-JANK-1's menu instrument counts over-bar frames against the
+ * SAME number the watchdog demotes on — a second literal would drift silently.
+ */
+export const BAD_FRAME_MS = 20.5;
 /** consecutive bad 1s windows before step-down (was 3 — ~3s of stutter before relief) */
 const BAD_WINDOWS_NEEDED = 2;
 const WINDOW_MS = 1000;
