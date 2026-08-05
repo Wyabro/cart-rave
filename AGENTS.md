@@ -250,6 +250,14 @@ falsifiable against a diff: if you cannot point at the line that violates it, it
   plan doc is **not** ready — put the checklist in the BACKLOG Playtest-owed Notes as
   `<br>1.` / `<br>2.` steps ([docs/playtest/README.md](docs/playtest/README.md)). Do not hand
   him the console path until that check passes.
+- **One issue per playtest card — his rule, 08-05.** A card id is one thing he can pass or fail on
+  its own. A ship with four fixes seeds **four cards**, not one card with seven steps; numbered
+  steps are the sub-steps of a single check, never a list of unrelated checks. If two steps could
+  disagree about PASS/FAIL, they are two cards. **Why:** MAIN-1's retest bundled four fixes, a
+  regression sweep, a look judgement and a hitch hunt onto one id, so a real defect (the toast
+  drawn under the boost slab, now HUD-TOAST-Z-1) came back buried inside an overall PASS and never
+  reached the tally. His words: he does not want to *"pass most of a card while having issues with
+  a few here and there"*. Full authoring rule: [BACKLOG.md § Playtest console seed](docs/planning/BACKLOG.md).
 - **His time and the context window are both budgets, and neither is yours to spend quietly.**
   Concretely: **move files with shell commands, never re-emit a document you already have**
   (relocating a 350-line plan by retyping it was this session's single largest spend); **never

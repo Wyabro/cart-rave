@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-05T02:55:37.481Z",
-    "commit": "2270f7a"
+    "at": "2026-08-05T03:32:04.722Z",
+    "commit": "ec50d6d"
   },
-  "source_digest": "45852ad4",
+  "source_digest": "168e2bb7",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -988,7 +988,7 @@
           {
             "pri": "Medium",
             "item": "FIX-EMISSIVE — non-patterned carts read blown out on Classic",
-            "notes": "**ABORTED 08-04 mid-wave — the acked lever was invalidated by the code, not by taste. Needs re-ack before any retry.** Report: \"emissive-ness on non patterned carts looks a bit blown out on cart rave\". **Correct map** (an earlier reading was wrong — do not trust stale notes): `cartPatterns.js:400` is `removeLegacyPatternMeshes`, *not* an emissive branch; a `classic` cart only gets `uPatternStrength = 0` (`cartPatterns.js:389-391`), and a pattern is the only thing that currently reduces emissive area. The full-area glow lives on the GLTF trim/accent mats — `getRaveGltfTrimEmissiveIntensity` / `applyRaveGltfTrimEmissive` ([cartRaveGltf.js:2407](../../src/cartRaveGltf.js:2407)) via `applyRaveGltfColorToCache` ← `applyThemeColorToCache` ([cartThemes.js:316](../../src/cartThemes.js:316)). Pattern population is **not** \"everyone but the local player is classic\": remote humans are `classic` (patterns are not networked yet) but **NPCs draw from a pool where classic is weighted 2/7** ([customization.js:442](../../src/customization.js:442)). **Why the acked design fails:** `intensityMul` is a **per-call argument, not per-cart state**, and the leader-glow block in [frameVisuals.js:395](../../src/frameVisuals.js:395) is **unguarded — it runs every frame, menu included** — with its idle branch (`:485`) calling `applyThemeColorToCache(cache, themeId, slotHex)` with no fourth arg, i.e. `intensityMul = 1`. `applyThemeChargeGlow` ([cartThemes.js:401](../../src/cartThemes.js:401)) also hard-passes `1`. That loop and `updateCartMaterialsFromSlots` ([cartOrchestration.js:249](../../src/orchestration/cartOrchestration.js:249)) mutate the **same** `cart._materialCache`, so a trim threaded from `cartOrchestration` is overwritten the moment `_themeGlowKey` changes — essentially immediately. **A retry must move the trim onto the cache** (e.g. `cache.emissiveTrimMul`, applied inside `applyRaveGltfColorToCache` **and** `applyRaveGltfLeaderGlow`, which hardcodes `getRaveGltfTrimEmissiveIntensity(neonHex, 1)` at [cartRaveGltf.js:2834](../../src/cartRaveGltf.js:2834) — miss it and a classic cart pops back to full brightness the instant it takes the lead). **The evidence gate is also unmet, and that is the second blocker:** `?shot=classic` is the menu attract path and contains **zero player carts**, so none of the four required subjects can appear in it; `shoot.mjs`/`shoot-gpu.mjs` accept no `room=solo`; `tools/sheet.mjs` is the only in-match rig and self-documents as SwiftShader/LOW, \"a layout baseline, **not a golden render**\"; and Classic's **15.9% construction-noise floor** swamps a 0.85 trim in `npm run compare` anyway. `shoot-gpu` itself works here on the real 4090 — the gap is subject matter, not GPU. **So the next card must choose one:** (a) cache-based trim + a new in-match GPU capture rig (new tooling — needs its own ack), or (b) cache-based trim gated on a **unit seam** only (assert the trim reaches `applyRaveGltfTrimEmissive` for classic, `1` for patterned, and survives leader glow) — clean, real evidence, no pixels. **Out of scope either way:** Classic's bloom profile (`BLOOM_DISPLAY_NEON`, [scene.js:87](../../src/scene.js:87), untuned since 07-13) is the *next* lever with its own evidence, not a substitute; and the hue-boost logic in `utils.js` is **not** the problem — an earlier claim that red/magenta are \"uncapped\" at `:65` was wrong (`:65` tames *bright* hues where `hueBoost < 0.85`; the high end is already capped by `CART_EMISSIVE_HUE_BOOST_MAX` at `:59`).",
+            "notes": "**ABORTED 08-04 mid-wave — the acked lever was invalidated by the code, not by taste. Needs re-ack before any retry.** Report: \"emissive-ness on non patterned carts looks a bit blown out on cart rave\". **Correct map** (an earlier reading was wrong — do not trust stale notes): `cartPatterns.js:400` is `removeLegacyPatternMeshes`, *not* an emissive branch; a `classic` cart only gets `uPatternStrength = 0` (`cartPatterns.js:389-391`), and a pattern is the only thing that currently reduces emissive area. The full-area glow lives on the GLTF trim/accent mats — `getRaveGltfTrimEmissiveIntensity` / `applyRaveGltfTrimEmissive` ([cartRaveGltf.js:2407](../../src/cartRaveGltf.js:2407)) via `applyRaveGltfColorToCache` ← `applyThemeColorToCache` ([cartThemes.js:316](../../src/cartThemes.js:316)). Pattern population is **not** \"everyone but the local player is classic\": remote humans are `classic` (patterns are not networked yet) but **NPCs draw from a pool where classic is weighted 2/7** ([customization.js:442](../../src/customization.js:442)). **Why the acked design fails:** `intensityMul` is a **per-call argument, not per-cart state**, and the leader-glow block in [frameVisuals.js:395](../../src/frameVisuals.js:395) is **unguarded — it runs every frame, menu included** — with its idle branch (`:485`) calling `applyThemeColorToCache(cache, themeId, slotHex)` with no fourth arg, i.e. `intensityMul = 1`. `applyThemeChargeGlow` ([cartThemes.js:401](../../src/cartThemes.js:401)) also hard-passes `1`. That loop and `updateCartMaterialsFromSlots` ([cartOrchestration.js:249](../../src/orchestration/cartOrchestration.js:249)) mutate the **same** `cart._materialCache`, so a trim threaded from `cartOrchestration` is overwritten the moment `_themeGlowKey` changes — essentially immediately. **A retry must move the trim onto the cache** (e.g. `cache.emissiveTrimMul`, applied inside `applyRaveGltfColorToCache` **and** `applyRaveGltfLeaderGlow`, which hardcodes `getRaveGltfTrimEmissiveIntensity(neonHex, 1)` at [cartRaveGltf.js:2834](../../src/cartRaveGltf.js:2834) — miss it and a classic cart pops back to full brightness the instant it takes the lead). **The evidence gate is also unmet, and that is the second blocker:** `?shot=classic` is the menu attract path and contains **zero player carts**, so none of the four required subjects can appear in it; `shoot.mjs`/`shoot-gpu.mjs` accept no `room=solo`; `tools/sheet.mjs` is the only in-match rig and self-documents as SwiftShader/LOW, \"a layout baseline, **not a golden render**\"; and Classic's **15.9% construction-noise floor** swamps a 0.85 trim in `npm run compare` anyway. `shoot-gpu` itself works here on the real 4090 — the gap is subject matter, not GPU. **So the next card must choose one:** (a) cache-based trim + a new in-match GPU capture rig (new tooling — needs its own ack), or (b) cache-based trim gated on a **unit seam** only (assert the trim reaches `applyRaveGltfTrimEmissive` for classic, `1` for patterned, and survives leader glow) — clean, real evidence, no pixels. **Out of scope either way:** Classic's bloom profile (`BLOOM_DISPLAY_NEON`, [scene.js:87](../../src/scene.js:87), untuned since 07-13) is the *next* lever with its own evidence, not a substitute; and the hue-boost logic in `utils.js` is **not** the problem — an earlier claim that red/magenta are \"uncapped\" at `:65` was wrong (`:65` tames *bright* hues where `hueBoost < 0.85`; the high end is already capped by `CART_EMISSIVE_HUE_BOOST_MAX` at `:59`). **Retest read 08-04 (Wyatt, MAIN-1 step 6 — the sentence the card was waiting on):** on the shipped build non-patterned carts *\"still look kind of blown out compared to patterned carts. not the biggest deal but it could be better for sure.\"* So the symptom is **confirmed on prod and low-urgency** — it does not change the two blockers above, and the only thing still missing for a re-ack is Wyatt picking (a) or (b).",
             "ship1": null
           },
           {
@@ -1333,7 +1333,7 @@
       {
         "title": "UI / UX",
         "counts": {
-          "Medium": 6,
+          "Medium": 7,
           "High": 3,
           "Low": 3
         },
@@ -1355,6 +1355,12 @@
             "item": "RESULTS-1 — results screen layout redesign `[SHIP-1 E1]`",
             "notes": "",
             "ship1": "E1"
+          },
+          {
+            "pri": "Medium",
+            "item": "HUD-TOAST-Z-1 — in-game toasts render *under* the boost slab",
+            "notes": "**Filed 08-05 from Wyatt's MAIN-1 retest (08-04)** — *\"the toast is drawn under the boost bar in game lol\"*. Reported against the new F8 capture toast, but it is **not diag-only**: `window.CartRave.showToast` ([cart-rave-menu.js:2417](../../src/cart-rave-menu.js:2417)) is the same path netcode uses for session-flow messages (failed join, disconnect return) and is the block **FIX-MIG** intends to use for `host_migrated`, so a real migration toast would be hidden the same way. **Mechanism:** `showUnlockToast` appends `#cr-unlock-toast` to `document.body` at `z-index: 12000`, `bottom: max(24px, …)` ([cart-rave-menu.css:3101](../../src/cart-rave-menu.css:3101)), while the HUD root is `position: fixed; inset: 0; z-index: 20000` ([hud.css:26](../../src/ui/styles/hud.css:26)) — a higher stacking context, so **every** HUD child wins regardless of its own z-index. The geometry collides too: `.hud-region-pod` (the boost slab) is bottom-centre at `bottom: clamp(18px, 3.5vh, 36px)` ([hud.css:80](../../src/ui/styles/hud.css:80)), the same strip. **Two candidate fixes — pick one, not both:** (a) lift the toast above the HUD root (z-index in the existing 20040 KO-sticker / 24000 lobby band) — smallest change, but the toast then covers the slab; (b) reuse the existing `.cr-unlock-toast--arena` offset (`bottom: 88px`, [:3125](../../src/cart-rave-menu.css:3125)) whenever the HUD is live, so it clears the slab entirely. **Pass:** in a solo round with the boost slab visible, press F8 — the toast is fully readable and the boost meter stays legible. Desktop-only judge (the slab is hidden on touch by design).",
+            "ship1": null
           },
           {
             "pri": "Medium",
@@ -1415,10 +1421,17 @@
       {
         "title": "Tech Debt",
         "counts": {
-          "Medium": 6,
+          "Medium": 7,
           "Low": 11
         },
         "rows": [
+          {
+            "pri": "Medium",
+            "id": "PT-CARD-SPLIT-1",
+            "item": "Playtest console should refuse multi-issue cards",
+            "notes": "**Filed 08-05 from Wyatt's own instruction** — *\"instead of separate card for these issues it put 7 tasks on one card… make sure future playtests put one issue I'm checking per card so i don't have to pass most a while having issues with a few here and there.\"* The rule is now written in [AGENTS.md](../../AGENTS.md) and the [§ Playtest console seed](./BACKLOG.md) header, but **nothing enforces it** — the generator is doing what it was told: [playtestQueue.mjs:4](../../tools/lib/playtestQueue.mjs:4) seeds one card per *work id*, and MAIN-1's row was authored as one id carrying seven unrelated checks, so the mega-card was an authoring failure the tool happily rendered. **Lever:** in `playtestQueue.mjs`, flag a seeded card whose steps look like independent verdicts — cheapest signal is step count over a small cap (MAIN-1 had 7; a legitimate single check is ~2–4 \"get here → do this → look at that\" steps), plus a check for multiple `FIX-*`/work ids inside one card's steps. Surface it as a build warning and in the export header so the author sees it before Wyatt does; consider promoting to a `health:check` gate only after the warning has run a couple of exports without false positives. **Needs ack — touches `tools/`, so it is frozen during a game card.** Do not silently split rows in the generator: the split has to happen in BACKLOG where the ids and their owed-state live, or PASS bookkeeping loses its anchor.",
+            "ship1": null
+          },
           {
             "pri": "Medium",
             "id": "SHADOW-HAZARD-SEAM-1",

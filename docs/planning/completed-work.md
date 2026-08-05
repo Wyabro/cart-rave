@@ -124,6 +124,9 @@ byte-identical to the local ship). BUNDLE-1 is unblocked.
   (+`captureLabel`) carried across menu returns via `menuReturnHref` (never `room=`, which would
   cause rejoin ghosts), a 2 s abort on the freshness probe, and a toast on every outcome including
   Worker non-ok and parse errors. **Verified live:** all 7 retest F8s arrived (cap-254–260).
+  **Residual filed 08-05:** the toast itself is drawn *under* the in-game boost slab (HUD root
+  is a higher stacking context than the body-level toast) — **HUD-TOAST-Z-1** in BACKLOG § UI/UX.
+  Not diag-only: the same `showToast` carries failed-join / disconnect-return messages.
 - *(UX · Medium)* **FIX-QUALFEEL** (`15be6ee`) — the quality-toggle overlay already existed; it was
   dismissed in `finally` the instant `rebuildForQualityChange()` resolved, i.e. *before* the
   expensive post-swap frames painted, so the freeze landed after the loader had gone. Now held
