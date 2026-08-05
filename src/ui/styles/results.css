@@ -545,29 +545,38 @@
     line-height: 1.1;
   }
 
+  /*
+   * Mobile body = two columns: rank list LEFT, match receipt RIGHT.
+   * Stacked layout left a big empty slab on the right (Wyatt 08-05).
+   * Actions sit under the receipt so the left column can use full height.
+   */
   #results-overlay .results-body {
     flex: 1 1 auto;
     min-height: 0;
-    display: flex;
-    flex-direction: column;
-    gap: clamp(4px, 1vh, 6px);
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "scores receipt"
+      "scores actions";
+    gap: 8px 12px;
     overflow: hidden;
   }
 
-  /* The desktop grid places these into rail columns; in this band the body is a
-     flex COLUMN, where align-self reads as the cross (horizontal) axis and would
-     shrink each block to its content. Put them back to full width. */
-  #results-overlay .results-final,
-  #results-overlay .results-receipt,
+  #results-overlay .results-final {
+    grid-area: scores;
+  }
+
+  #results-overlay .results-receipt {
+    grid-area: receipt;
+  }
+
   #results-overlay .results-actions {
-    align-self: stretch;
-    justify-self: stretch;
+    grid-area: actions;
   }
 
   /*
    * Mobile podium = ranked LIST, not four towers.
-   * Towers needed height ratios + name caps above blocks; short viewports
-   * flattened the steps and overflow:hidden clipped names (Wyatt 08-05).
    * DOM is already 1st→4th; drop the desktop visual reorder.
    */
   #results-overlay .results-final {
@@ -576,10 +585,11 @@
     align-items: stretch;
     gap: 6px;
     margin-bottom: 0;
-    flex: 0 1 auto;
     min-height: 0;
     width: 100%;
-    overflow: visible;
+    height: 100%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
 
   #results-overlay .results-podium-col,
@@ -664,20 +674,23 @@
     padding: 1px 5px;
   }
 
-  /* The receipt is the flex scroller now that the ledger below it is gone, so a
-     long round's extra lines never push the actions off a phone screen. */
   #results-overlay .results-receipt {
-    flex: 0 1 auto;
     min-height: 0;
+    max-height: 100%;
     overflow-y: auto;
     overscroll-behavior: contain;
-    margin-bottom: clamp(8px, 2vw, 12px);
+    margin-bottom: 0;
     padding: clamp(8px, 2vw, 10px) clamp(10px, 2.5vw, 12px);
+    align-self: stretch;
   }
 
   #results-overlay .results-actions {
     gap: clamp(6px, 1.5vw, 8px);
     flex-shrink: 0;
+    align-self: end;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
   }
 
   #results-overlay .results-btn {
@@ -688,49 +701,40 @@
   }
 }
 
-/* Landscape phones: rank list left (scroll if needed), receipt + actions right. */
-@media (pointer: coarse) and (orientation: landscape), (max-width: 768px) and (orientation: landscape) {
+/* Very narrow portrait: stack again — two columns get unreadable under ~420. */
+@media (max-width: 420px) and (orientation: portrait) {
   #results-overlay .results-body {
-    display: grid;
-    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1fr) auto;
-    grid-template-areas:
-      "scores receipt"
-      "scores actions";
-    gap: clamp(6px, 1.2vw, 10px);
-    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(6px, 1.2vh, 10px);
+  }
+
+  #results-overlay .results-final,
+  #results-overlay .results-receipt,
+  #results-overlay .results-actions {
+    grid-area: unset;
+    width: 100%;
   }
 
   #results-overlay .results-final {
-    grid-area: scores;
-    min-height: 0;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    /* Keep the list form from the coarse/≤768 band above. */
-    flex-direction: column;
-    align-items: stretch;
+    flex: 0 1 auto;
+    height: auto;
+    max-height: 42vh;
   }
 
   #results-overlay .results-receipt {
-    grid-area: receipt;
-    margin-bottom: 0;
-    max-height: 100%;
+    flex: 1 1 auto;
   }
 
   #results-overlay .results-actions {
-    grid-area: actions;
-    align-self: end;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: clamp(6px, 1.2vw, 8px);
+    display: flex;
+    flex-direction: column;
+    align-self: stretch;
   }
+}
 
-  #results-overlay .results-btn {
-    min-height: 38px;
-    padding: 8px 10px;
-    font-size: clamp(11px, 2.2vw, 13px);
-  }
-
+/* Landscape phones — slightly tighter type; layout is already left/right above. */
+@media (pointer: coarse) and (orientation: landscape), (max-width: 768px) and (orientation: landscape) {
   #results-overlay .results-podium-block {
     padding: 6px 8px;
     min-width: 4rem;
@@ -742,6 +746,12 @@
 
   #results-overlay .results-podium-col:nth-child(1) .results-podium-rank {
     font-size: 17px;
+  }
+
+  #results-overlay .results-btn {
+    min-height: 38px;
+    padding: 8px 10px;
+    font-size: clamp(11px, 2.2vw, 13px);
   }
 }
 
