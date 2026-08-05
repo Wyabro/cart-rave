@@ -66,19 +66,18 @@ Live rows only. Shipped and closed cards live in
 
 | # | What | Status |
 |---|------|--------|
+| **TIER-DEFAULT-1** | First-run tier is medium on Intel UHD (5–8.6 fps menu for ~3.3 s every visit) | 🚧 **ACTIVE — seated 08-05, awaiting lever plan + Wyatt ack.** Cap-288 already has the number; Block C must not start before this lands. Narrow lever recommended: `Intel . HD/UHD Graphics` → low. Do not retune watchdog. Detail: [BACKLOG § Engineering](./planning/BACKLOG.md). |
 | PERF-PASS-1 | 60 fps at Low on the Intel box — **Cart Rave only** (Wyatt scoped it 08-03) | ⏸ **PARKED BY WYATT 08-04 for HOST-TAB-1.** Wave 4 remains deployed (`b754e12`, Worker `9b8b1fbe`); honest measured range −1.66 to −2.54 ms and includes +0.55. Card remains open at ~46 fps; every future cell needs an A-B-A bracket on a cooled box. Menu + evidence: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md). |
 | BUNDLE-1 | Menu/game code-split | ⚠️ **CLOSED PARTIAL 08-05 — perf goal NOT met. Deployed `f2f90fd2`.** Warm `menu-ready` −3% vs a −15% gate. Banked: a `size:check` byte gate, `main.js` 2,582 → 1,262 lines, −22.6% off the initial set (**cold** visits only). Lever E playtested: BUNDLE-E-PT-1 PASS 6/6. [bundle-1.md §0](./planning/bundle-1.md) |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 
 ### Next actions
 
-1. **Work the ordered queue — [BACKLOG § Work order](./planning/BACKLOG.md)**, **re-ranked 08-05 by unblocking value** (every item now names what it unblocks; that clause is why it sits where it sits). Block A 1–5 closed. **Block A's remaining three, strict order: TIER-DEFAULT-1 → DEPLOY-STALE-HTML-1 → NET-LOOK-ACC-1.** (a) **TIER-DEFAULT-1** — first-run tier is medium on an Intel UHD: a 5–8.6 fps menu for 3.3 s *every visit* until the watchdog steps it down (cap-288). Needs a lever ack, not a measurement, and **Block C must not start before it lands** or the sweep measures a default we are about to change. (b) **DEPLOY-STALE-HTML-1** promoted into the ship bar — ~45 s after every ship, `GET /` serves the old HTML against 404ing assets (blank page, no retry, reproduced 2/2). Every remaining card ends in "verify on prod", so this can turn any of those into a false FAIL. (c) **NET-LOOK-ACC-1** must precede Pattern UI C3. Block B leads with **UI-SCALE-1** (it changes the unit system every later UI card is authored in); Block C now leads with **HARNESS-NULL-1**, not the sweep. Also closed 08-05: HARNESS-GEO-1, BUNDLE-1, HUD-TOAST-Z-1, FIX-EMISSIVE, physics run 5/5, DIAG-UPLOAD-GEN-1, **QUICKPLAY-SHARD-1**, **ARCH-DRIFT-1**.
+1. **TIER-DEFAULT-1 is ACTIVE — plan the lever, Wyatt acks, then apply.** No code until ack. Cap-288 is the evidence; recommended narrow lever is Intel HD/UHD → low. Then-queue (strict): **DEPLOY-STALE-HTML-1** → **NET-LOOK-ACC-1**. Block B leads with **UI-SCALE-1**; Block C with **HARNESS-NULL-1**. Logo scratch (`art/logo/*`, untracked splat-trim, render script, knip-report) wiped 08-05 — shipped menu look stays CSS + `public/brand/title-splat.*`.
 2. **Hitch forensics now has evidence** — cap-254–260 (build `8d96b0b`) are the first captures from a working upload path, including a Cart Rave F8 taken on a hitch. Read them before any perf knob.
-3. **Playtest export 08-05 (`4077a4a`) — 6 pass / 1 fail / 1 skip, triaged.** Closed: 3 UI-SCALE residual cards + 3 NET-AUDIT cards (wave A `145cc95` is pushed, so they count against shipped code). **New defect: NET-LOOK-ACC-1** — non-host sunglasses/pattern do not replicate, color does. **PERF-9CELL-1 parked with PERF-PASS-1**, no longer seeds the console; protocol now inline on its row. SHARD-PT-2 stays open for launch day.
+3. **Playtest export 08-05 (`4077a4a`) — 6 pass / 1 fail / 1 skip, triaged.** Closed: 3 UI-SCALE residual cards + 3 NET-AUDIT cards. **NET-LOOK-ACC-1** filed; **PERF-9CELL-1** parked with PERF-PASS-1; SHARD-PT-2 stays launch-day.
 
-4. **BACKLOG audit 08-05** — 4 finished rows retired (QUICKPLAY-SHARD-1 · ARCH-DRIFT-1 · the duplicate BUNDLE-1 Tech Debt row · host-reload live confirm) and 2 absorbed (ART-MAT-1 → CART-MODEL-1, ONBOARD-1 → ONBOARD-SLIDES-1). Five cards that *read* as closeable were checked and are genuinely still open — HOOK-COMMENT-1 · PT-CARD-SPLIT-1 · PT-CONSOLE-READY-1 · AUDIO-MASTER-1 · CC-ESC-1. [completed-work.md](./planning/completed-work.md).
-
-**Open High:** TIER-DEFAULT-1 · NET-LOOK-ACC-1 · UI-SCALE-1 · ONBOARD-SLIDES-1 · RESULTS-1 · CART-MODEL-1 · PERF-PASS-1 (⏸) · bloom.
+**Open High:** TIER-DEFAULT-1 (ACTIVE) · NET-LOOK-ACC-1 · UI-SCALE-1 · ONBOARD-SLIDES-1 · RESULTS-1 · CART-MODEL-1 · PERF-PASS-1 (⏸) · bloom.
 
 ## Open issues (top)
 
