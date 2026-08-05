@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-05 at commit `fd6c288` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `0bc0caf6`
+> Generated 2026-08-05 at commit `4a51a44` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `acca4df1`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -18,12 +18,12 @@ Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep a
 
 ## ACTIVE CARD
 
-HUD-TOAST-Z-1 is mid-flight — ship it, then Wyatt playtests 5 cases + a phone check. Applied, qa green 7/7, unpushed. No new card until it passes or fails. Then-candidates: FIX-EMISSIVE re-ack (Wyatt picks retry (a) or (b)), FIX-MIG, BOOTH-RAIL-COL-1, RAPIER-DEFAULT-MAX-1. Closed 08-05: HARNESS-GEO-1, BUNDLE-1/BUNDLE-E-PT-1, and the five-card physics run (all PASS)
+HUD-TOAST-Z-1 is mid-flight — deployed, Wyatt playtests 5 cases + a phone check. No new card until it passes or fails. Then-candidates: FIX-EMISSIVE re-ack (Wyatt picks retry (a) or (b)), FIX-MIG, BOOTH-RAIL-COL-1, RAPIER-DEFAULT-MAX-1. Closed 08-05: HARNESS-GEO-1, BUNDLE-1/BUNDLE-E-PT-1, and the five-card physics run (all PASS)
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 
 Self-directed queue (one at a time, within the declared phase):
-- **HUD-TOAST-Z-1** In-game toasts rendered under the boost slab — 🚧 ACTIVE — applied, unpushed, awaiting playtest. Re-ranked Medium → High: the same path carries *shipped*…
+- **HUD-TOAST-Z-1** In-game toasts rendered under the boost slab — 🚧 ACTIVE — DEPLOYED `4a51a44`, Version `100842ad`, awaiting playtest. Re-ranked Medium → High: the same path…
 - **FIX-EMISSIVE** Non-patterned carts read blown out on Classic — ⛔ ABORTED 08-04 — approved design invalidated, needs re-ack. See Open issues.
 - **FIX-MIG** Quickplay host-migration visibility + continuous-policy tests — 📋 next wave, scoped — see Open issues.
 - **BUNDLE-1** Menu/game code-split — ⚠️ CLOSED PARTIAL 08-05 — perf goal NOT met. Deployed `f2f90fd2`. Warm `menu-ready` −3% vs a −15% gate.…

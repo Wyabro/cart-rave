@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-05T07:15:35.455Z",
-    "commit": "fd6c288"
+    "at": "2026-08-05T07:37:54.185Z",
+    "commit": "4a51a44"
   },
-  "source_digest": "c65e3169",
+  "source_digest": "2c794de6",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -857,7 +857,7 @@
       {
         "id": "HUD-TOAST-Z-1",
         "what": "In-game toasts rendered under the boost slab",
-        "status": "🚧 ACTIVE — applied, unpushed, awaiting playtest. Re-ranked Medium → High: the same path carries *shipped* host-migration/weak-host messages, so this swallowed live multiplayer text. Both acked fixes landed — z-index 12000 → 26500 (above lobby/results/pause, below rotate) and a measured bottom offset (`measureBottomStripLift`, covering the pod, the lobby hint row and touch controls). Band table added to `hud.css`; canary in `tests/toastLayering.test.js`. Rendered position NOT machine-verified (pane does not composite; layout reads frozen) — playtest is the verdict. 5 cases: solo · friends lobby (judge the ESC hint strip too) · quickplay lobby · paused · <768px window, plus a phone check.",
+        "status": "🚧 ACTIVE — DEPLOYED `4a51a44`, Version `100842ad`, awaiting playtest. Re-ranked Medium → High: the same path carries *shipped* host-migration/weak-host messages, so this swallowed live multiplayer text. Both acked fixes landed — z-index 12000 → 26500 (above lobby/results/pause, below rotate) and a measured bottom offset (`measureBottomStripLift`, covering the pod, the lobby hint row and touch controls). Band table added to `hud.css`; canary in `tests/toastLayering.test.js`. Rendered position NOT machine-verified (pane does not composite; layout reads frozen) — playtest is the verdict. 5 cases: solo · friends lobby (judge the ESC hint strip too) · quickplay lobby · paused · <768px window, plus a phone check.",
         "state": "waiting",
         "touches_systems": [
           {
@@ -916,7 +916,7 @@
       }
     ],
     "next_actions": [
-      "HUD-TOAST-Z-1 is mid-flight — ship it, then Wyatt playtests 5 cases + a phone check. Applied, qa green 7/7, unpushed. No new card until it passes or fails. Then-candidates: FIX-EMISSIVE re-ack (Wyatt picks retry (a) or (b)), FIX-MIG, BOOTH-RAIL-COL-1, RAPIER-DEFAULT-MAX-1. Closed 08-05: HARNESS-GEO-1, BUNDLE-1/BUNDLE-E-PT-1, and the five-card physics run (all PASS).",
+      "HUD-TOAST-Z-1 is mid-flight — deployed, Wyatt playtests 5 cases + a phone check. No new card until it passes or fails. Then-candidates: FIX-EMISSIVE re-ack (Wyatt picks retry (a) or (b)), FIX-MIG, BOOTH-RAIL-COL-1, RAPIER-DEFAULT-MAX-1. Closed 08-05: HARNESS-GEO-1, BUNDLE-1/BUNDLE-E-PT-1, and the five-card physics run (all PASS).",
       "Hitch forensics now has evidence — cap-254–260 (build `8d96b0b`) are the first captures from a working upload path, including a Cart Rave F8 taken on a hitch. Read them before any perf knob.",
       "Still owed separately: 9-cell PERF sweep (~25 min). Resume Run 8 FAIL triage."
     ],
