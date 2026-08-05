@@ -2353,6 +2353,10 @@ function requestTurnCredentialsAndOpenPeers() {
  * @param {{ hostId?: unknown, reason?: unknown }} msg
  */
 function applyHostMigration(msg) {
+  // * Capture before reassignment — bare host_migrated (no reason) on a real A→B
+  // * handoff is still a disconnect: FIX-MIG-PT-1 FAIL when a warm DO was still on
+  // * pre-reason code, migration worked, toast gate skipped.
+  const previousHostId = hostId;
   hostId = typeof msg.hostId === "string" ? msg.hostId : null;
   const nextIsHost = Boolean(hostId && youConnId && hostId === youConnId);
   clearHostPresentRetry();
@@ -2429,28 +2433,45 @@ function applyHostMigration(msg) {
   }
   // * Reasoned migrations explain why the host glyph moved (AFK/return/quality) or
   // * that the prior host left (FIX-MIG disconnect: close/reap/ghost/snapshot).
-  // * Bare host_migrated (first-host / null-host) stays silent on toast.
+  // * Bare first-host / null-host stay toast-silent. Bare A→B handoff is treated as
+  // * host_disconnect so a warm DO still on pre-reason code cannot hide a real leave.
   // * Weak-host toast (HOST-CAP-1) stays separate: join-time score, once per hostship.
-  if (
+  const bareDisconnectHandoff =
+    (msg?.reason == null || msg?.reason === "")
+    && typeof previousHostId === "string"
+    && previousHostId.length > 0
+    && typeof hostId === "string"
+    && hostId.length > 0
+    && previousHostId !== hostId;
+  const migrateReason =
     msg?.reason === "host_quality"
     || msg?.reason === "host_afk"
     || msg?.reason === "host_return"
     || msg?.reason === "host_disconnect"
+      ? msg.reason
+      : bareDisconnectHandoff
+        ? "host_disconnect"
+        : null;
+  if (
+    migrateReason === "host_quality"
+    || migrateReason === "host_afk"
+    || migrateReason === "host_return"
+    || migrateReason === "host_disconnect"
   ) {
     try {
       const toast = typeof window !== "undefined" ? window.CartRave?.showToast : null;
       if (typeof toast === "function") {
-        if (msg.reason === "host_afk" && nextIsHost) {
+        if (migrateReason === "host_afk" && nextIsHost) {
           toast("You're hosting — previous host stepped away.", 4500);
-        } else if (msg.reason === "host_afk" && newHostSlot?.name) {
+        } else if (migrateReason === "host_afk" && newHostSlot?.name) {
           toast(`Host stepped away — ${newHostSlot.name} is hosting.`, 4500);
-        } else if (msg.reason === "host_afk") {
+        } else if (migrateReason === "host_afk") {
           toast("Host stepped away — a new player is hosting.", 4500);
-        } else if (msg.reason === "host_disconnect" && nextIsHost) {
+        } else if (migrateReason === "host_disconnect" && nextIsHost) {
           toast("You're hosting — previous host left.", 4500);
-        } else if (msg.reason === "host_disconnect" && newHostSlot?.name) {
+        } else if (migrateReason === "host_disconnect" && newHostSlot?.name) {
           toast(`Host left — ${newHostSlot.name} is hosting.`, 4500);
-        } else if (msg.reason === "host_disconnect") {
+        } else if (migrateReason === "host_disconnect") {
           toast("Host left — a new player is hosting.", 4500);
         } else if (nextIsHost) {
           toast("You're hosting — stronger machine for smoother multiplayer.", 4500);

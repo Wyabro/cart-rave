@@ -387,7 +387,7 @@ describe("applyHostMigration (client authority handoff)", () => {
     }
   });
 
-  it("stays toast-silent when host_migrated has no reason (FIX-MIG)", () => {
+  it("toasts a bare A→B handoff as disconnect (FIX-MIG-PT-1 stale-DO residual)", () => {
     const toasts = [];
     globalThis.window.CartRave = {
       showToast: (message) => toasts.push(message),
@@ -402,7 +402,28 @@ describe("applyHostMigration (client authority handoff)", () => {
       });
       hooks.setHostIdForTest("oldHost");
 
+      // * No reason field — same wire shape as pre-FIX-MIG / warm DO still on old code.
       hooks.applyHostMigration({ hostId: "newHost" });
+
+      expect(toasts).toEqual(["Host left — NOVA is hosting."]);
+    } finally {
+      delete globalThis.window.CartRave;
+    }
+  });
+
+  it("stays toast-silent on bare first-host assign (no prior host)", () => {
+    const toasts = [];
+    globalThis.window.CartRave = {
+      showToast: (message) => toasts.push(message),
+    };
+    try {
+      hooks.setHostStateForTest({
+        youConnId: "me",
+        netSlots: [{ kind: "human", connId: "me", name: "ME" }],
+      });
+      hooks.setHostIdForTest(null);
+
+      hooks.applyHostMigration({ hostId: "me" });
 
       expect(toasts).toEqual([]);
     } finally {
