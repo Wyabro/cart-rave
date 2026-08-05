@@ -318,6 +318,98 @@ describe("applyHostMigration (client authority handoff)", () => {
     }
   });
 
+  it("explains a disconnect migration to the promoted peer by name (FIX-MIG)", () => {
+    const toasts = [];
+    globalThis.window.CartRave = {
+      showToast: (message) => toasts.push(message),
+    };
+    try {
+      hooks.setHostStateForTest({
+        youConnId: "me",
+        netSlots: [
+          { kind: "human", connId: "me", name: "ME" },
+          { kind: "human", connId: "newHost", name: "NOVA" },
+        ],
+      });
+      hooks.setHostIdForTest("oldHost");
+
+      hooks.applyHostMigration({ hostId: "newHost", reason: "host_disconnect" });
+
+      expect(toasts).toEqual(["Host left — NOVA is hosting."]);
+    } finally {
+      delete globalThis.window.CartRave;
+    }
+  });
+
+  it("tells the survivor they are hosting after a disconnect (FIX-MIG)", () => {
+    const toasts = [];
+    globalThis.window.CartRave = {
+      showToast: (message) => toasts.push(message),
+    };
+    try {
+      hooks.setHostStateForTest({
+        youConnId: "me",
+        netSlots: [
+          { kind: "human", connId: "me", name: "ME" },
+          { kind: "human", connId: "peer", name: "PEER" },
+        ],
+      });
+      hooks.setHostIdForTest("oldHost");
+
+      hooks.applyHostMigration({ hostId: "me", reason: "host_disconnect" });
+
+      expect(toasts).toEqual(["You're hosting — previous host left."]);
+    } finally {
+      delete globalThis.window.CartRave;
+    }
+  });
+
+  it("falls back when disconnect promote has no host name (FIX-MIG)", () => {
+    const toasts = [];
+    globalThis.window.CartRave = {
+      showToast: (message) => toasts.push(message),
+    };
+    try {
+      hooks.setHostStateForTest({
+        youConnId: "me",
+        netSlots: [
+          { kind: "human", connId: "me", name: "ME" },
+          { kind: "human", connId: "newHost" },
+        ],
+      });
+      hooks.setHostIdForTest("oldHost");
+
+      hooks.applyHostMigration({ hostId: "newHost", reason: "host_disconnect" });
+
+      expect(toasts).toEqual(["Host left — a new player is hosting."]);
+    } finally {
+      delete globalThis.window.CartRave;
+    }
+  });
+
+  it("stays toast-silent when host_migrated has no reason (FIX-MIG)", () => {
+    const toasts = [];
+    globalThis.window.CartRave = {
+      showToast: (message) => toasts.push(message),
+    };
+    try {
+      hooks.setHostStateForTest({
+        youConnId: "me",
+        netSlots: [
+          { kind: "human", connId: "me", name: "ME" },
+          { kind: "human", connId: "newHost", name: "NOVA" },
+        ],
+      });
+      hooks.setHostIdForTest("oldHost");
+
+      hooks.applyHostMigration({ hostId: "newHost" });
+
+      expect(toasts).toEqual([]);
+    } finally {
+      delete globalThis.window.CartRave;
+    }
+  });
+
   it("restores open kill credit from the last attribution cache on promote (NET-MIG-1)", () => {
     hooks.setHostStateForTest({
       youConnId: "me",

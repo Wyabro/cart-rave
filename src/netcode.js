@@ -2427,12 +2427,15 @@ function applyHostMigration(msg) {
   if (newHostSlot?.name) {
     callbacks.announce("new_host", { name: newHostSlot.name });
   }
-  // * Reasoned migrations explain why the host glyph moved without a disconnect.
+  // * Reasoned migrations explain why the host glyph moved (AFK/return/quality) or
+  // * that the prior host left (FIX-MIG disconnect: close/reap/ghost/snapshot).
+  // * Bare host_migrated (first-host / null-host) stays silent on toast.
   // * Weak-host toast (HOST-CAP-1) stays separate: join-time score, once per hostship.
   if (
     msg?.reason === "host_quality"
     || msg?.reason === "host_afk"
     || msg?.reason === "host_return"
+    || msg?.reason === "host_disconnect"
   ) {
     try {
       const toast = typeof window !== "undefined" ? window.CartRave?.showToast : null;
@@ -2443,6 +2446,12 @@ function applyHostMigration(msg) {
           toast(`Host stepped away — ${newHostSlot.name} is hosting.`, 4500);
         } else if (msg.reason === "host_afk") {
           toast("Host stepped away — a new player is hosting.", 4500);
+        } else if (msg.reason === "host_disconnect" && nextIsHost) {
+          toast("You're hosting — previous host left.", 4500);
+        } else if (msg.reason === "host_disconnect" && newHostSlot?.name) {
+          toast(`Host left — ${newHostSlot.name} is hosting.`, 4500);
+        } else if (msg.reason === "host_disconnect") {
+          toast("Host left — a new player is hosting.", 4500);
         } else if (nextIsHost) {
           toast("You're hosting — stronger machine for smoother multiplayer.", 4500);
         } else if (newHostSlot?.name) {
