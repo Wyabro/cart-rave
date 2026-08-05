@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-05T08:40:11.832Z",
-    "commit": "982bdfe"
+    "at": "2026-08-05T08:42:27.158Z",
+    "commit": "8dce55f"
   },
-  "source_digest": "bba9fb79",
+  "source_digest": "a2ceb907",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -857,26 +857,14 @@
       {
         "id": "FIX-EMISSIVE",
         "what": "Non-patterned carts read blown out on Classic",
-        "status": "🚧 ACTIVE — applied, unpushed, awaiting playtest (FIX-EMISSIVE-1 / -2). Retry after the 08-04 abort; Wyatt acked option (b) — cache-owned trim, unit seam, no new capture rig. Trim moved onto `cache.emissiveTrimMul` via `setEmissiveTrimMul`, written at all four sites that decide a pattern and stamped on `mesh.userData` so cache rebuilds rehydrate. Wyatt's plan review caught a must-fix: birth-only would have inverted the fix in-match. Falsified: reverting the leader-glow line fails test 3 alone. Known limit: the peak white flash converges by design.",
+        "status": "🚧 ACTIVE — applied `8dce55f`, unpushed, awaiting FIX-EMISSIVE-1 / -2. Retry after the 08-04 abort on acked option (b): trim moved onto `cache.emissiveTrimMul`, written at all four pattern-deciding sites + stamped on `mesh.userData` so rebuilds rehydrate. Wyatt's review caught a must-fix — birth-only would have inverted it in-match. Falsified (reverting the leader-glow line fails test 3 alone). Known limit: the peak flash converges by design.",
         "state": "waiting"
-      },
-      {
-        "id": "*(closed)*",
-        "what": "HUD-TOAST-Z-1 — in-game toasts rendered under the boost slab",
-        "status": "✅ PASS 6/6 08-05 on `100842ad`, no FAIL. z-index 12000 → 26500 + a measured bottom offset; `#hud`'s root is a stacking context, so its children beat any lower z-index. Not diag-only — it was swallowing shipped host-migration text. Band table now beside `#hud`; canary in `tests/toastLayering.test.js`. Detail: [completed-work.md](./planning/completed-work.md).",
-        "state": "done"
       },
       {
         "id": "*(closed)*",
         "what": "Physics run 08-05 — 5 cards, all PASS",
         "status": "✅ Durable finding: a friction value in this codebase is not a felt value — Rapier averages it with the cart's 1.1. Verticals take `FrictionCombineRule.Min`; floors deliberately keep Average (canaries in three test files). Full run + evidence: [completed-work.md](./planning/completed-work.md).",
         "state": "done"
-      },
-      {
-        "id": "FIX-EMISSIVE",
-        "what": "Non-patterned carts read blown out on Classic",
-        "status": "⛔ ABORTED 08-04 — approved design invalidated, needs re-ack. See Open issues.",
-        "state": "waiting"
       },
       {
         "id": "FIX-MIG",
@@ -913,7 +901,7 @@
       }
     ],
     "next_actions": [
-      "FIX-EMISSIVE is mid-flight — ship it, then Wyatt plays FIX-EMISSIVE-1 / -2. qa green 7/7; battery 6/6 complete suite at this HEAD (08-05), so `ready` is no longer head-mismatched. No new card until it passes or fails. Then-candidates: FIX-EMISSIVE re-ack (Wyatt picks retry (a) or (b)), FIX-MIG, BOOTH-RAIL-COL-1, RAPIER-DEFAULT-MAX-1. Closed 08-05: HARNESS-GEO-1, BUNDLE-1/BUNDLE-E-PT-1, and the five-card physics run (all PASS).",
+      "FIX-EMISSIVE is mid-flight — ship it, then Wyatt plays FIX-EMISSIVE-1 / -2. qa green 7/7; battery 6/6 complete suite at this HEAD (08-05), so `ready` is no longer head-mismatched. No new card until it passes or fails. Then-candidates: FIX-MIG, BOOTH-RAIL-COL-1, RAPIER-DEFAULT-MAX-1. Closed 08-05: HARNESS-GEO-1, BUNDLE-1/BUNDLE-E-PT-1, HUD-TOAST-Z-1, and the five-card physics run (all PASS).",
       "Hitch forensics now has evidence — cap-254–260 (build `8d96b0b`) are the first captures from a working upload path, including a Cart Rave F8 taken on a hitch. Read them before any perf knob.",
       "Still owed separately: 9-cell PERF sweep (~25 min). Resume Run 8 FAIL triage."
     ],
@@ -931,7 +919,7 @@
       {
         "id": "FIX-EMISSIVE",
         "issue": "Non-patterned carts blown out on Classic",
-        "status": "⛔ **ABORTED 08-04 — acked lever invalidated, needs re-ack.** Wyatt has an F8 read from the retest. [BACKLOG § Engineering](./planning/BACKLOG.md)."
+        "status": "🚧 **RETRY APPLIED 08-05** on acked option (b) — see the active row above."
       },
       {
         "id": "FIX-MIG",

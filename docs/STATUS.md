@@ -66,9 +66,8 @@ Live rows only. Shipped and closed cards live in
 
 | # | What | Status |
 |---|------|--------|
-| *(closed)* | HUD-TOAST-Z-1 — in-game toasts rendered under the boost slab | ✅ **PASS 6/6 08-05** on `100842ad`, no FAIL. z-index **12000 → 26500** + a **measured** bottom offset; `#hud`'s root is a stacking context, so its children beat any lower z-index. Not diag-only — it was swallowing shipped host-migration text. Band table now beside `#hud`; canary in `tests/toastLayering.test.js`. Detail: [completed-work.md](./planning/completed-work.md). |
+| **FIX-EMISSIVE** | Non-patterned carts read blown out on Classic | 🚧 **ACTIVE — applied `8dce55f`, unpushed, awaiting FIX-EMISSIVE-1 / -2.** Retry after the 08-04 abort on acked **option (b)**: trim moved onto `cache.emissiveTrimMul`, written at all four pattern-deciding sites + stamped on `mesh.userData` so rebuilds rehydrate. **Wyatt's review caught a must-fix** — birth-only would have inverted it in-match. Falsified (reverting the leader-glow line fails test 3 alone). Known limit: the peak flash converges by design. |
 | *(closed)* | Physics run 08-05 — **5 cards, all PASS** | ✅ **Durable finding: a friction value in this codebase is not a felt value** — Rapier averages it with the cart's 1.1. Verticals take `FrictionCombineRule.Min`; **floors deliberately keep Average** (canaries in three test files). Full run + evidence: [completed-work.md](./planning/completed-work.md). |
-| FIX-EMISSIVE | Non-patterned carts read blown out on Classic | ⛔ **ABORTED 08-04 — approved design invalidated, needs re-ack.** See Open issues. |
 | FIX-MIG | Quickplay host-migration visibility + continuous-policy tests | 📋 next wave, scoped — see Open issues. |
 | PERF-PASS-1 | 60 fps at Low on the Intel box — **Cart Rave only** (Wyatt scoped it 08-03) | ⏸ **PARKED BY WYATT 08-04 for HOST-TAB-1.** Wave 4 remains deployed (`b754e12`, Worker `9b8b1fbe`); honest measured range −1.66 to −2.54 ms and includes +0.55. Card remains open at ~46 fps; every future cell needs an A-B-A bracket on a cooled box. Menu + evidence: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md). |
 | BUNDLE-1 | Menu/game code-split | ⚠️ **CLOSED PARTIAL 08-05 — perf goal NOT met. Deployed `f2f90fd2`.** Warm `menu-ready` −3% vs a −15% gate. Banked: a `size:check` byte gate, `main.js` 2,582 → 1,262 lines, −22.6% off the initial set (**cold** visits only). Lever E playtested: BUNDLE-E-PT-1 PASS 6/6. [bundle-1.md §0](./planning/bundle-1.md) |
@@ -76,7 +75,7 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. **Pick the next card — nothing owed, nothing mid-flight.** HUD-TOAST-Z-1 closed PASS 6/6. Candidates: **FIX-EMISSIVE** re-ack (Wyatt picks retry (a) or (b)), **FIX-MIG**, **BOOTH-RAIL-COL-1**, **RAPIER-DEFAULT-MAX-1**. Closed 08-05: HARNESS-GEO-1, BUNDLE-1/BUNDLE-E-PT-1, and the five-card physics run (all PASS).
+1. **FIX-EMISSIVE is mid-flight — ship it, then Wyatt plays FIX-EMISSIVE-1 / -2.** qa green 7/7; **battery 6/6 complete suite at this HEAD** (08-05), so `ready` is no longer head-mismatched. No new card until it passes or fails. Then-candidates: **FIX-MIG**, **BOOTH-RAIL-COL-1**, **RAPIER-DEFAULT-MAX-1**. Closed 08-05: HARNESS-GEO-1, BUNDLE-1/BUNDLE-E-PT-1, HUD-TOAST-Z-1, and the five-card physics run (all PASS).
 2. **Hitch forensics now has evidence** — cap-254–260 (build `8d96b0b`) are the first captures from a working upload path, including a Cart Rave F8 taken on a hitch. Read them before any perf knob.
 3. **Still owed separately:** 9-cell PERF sweep (~25 min). Resume Run 8 FAIL triage.
 
@@ -91,7 +90,7 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 |----|--------|--------|
 | PERF-PASS-1 | 60 fps at Low on the Intel box — **Cart Rave only** | ⏸ **PARKED 08-04.** Baseline 23.788 ms / 42.0 fps; menu: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md). |
 | WARM-SOLO-1 | Solo post-`carts-ready` stall (WARM-IGPU residual) | 📋 telemetry-gated — [warm-igpu-1.md](./planning/warm-igpu-1.md) |
-| FIX-EMISSIVE | Non-patterned carts blown out on Classic | ⛔ **ABORTED 08-04 — acked lever invalidated, needs re-ack.** Wyatt has an F8 read from the retest. [BACKLOG § Engineering](./planning/BACKLOG.md). |
+| FIX-EMISSIVE | Non-patterned carts blown out on Classic | 🚧 **RETRY APPLIED 08-05** on acked option (b) — see the active row above. |
 | FIX-MIG | Quickplay host migration | 📋 **next wave, scoped** (reason tags + continuous-policy tests). 08-04 auto-promote observation folded in. [BACKLOG § Engineering](./planning/BACKLOG.md). |
 | CARGO-LATCH-1 | `cargoLoad.js` repeats the FIX-DIRPAUSE latch bug | 📋 same class as `e7dd92e`, out of scope by instruction. [BACKLOG § Engineering](./planning/BACKLOG.md). |
 | BRAND-1 | Domain / Worker cutover | 🧊 frozen until deliberate cutover ([brand.md](./brand.md)) |
