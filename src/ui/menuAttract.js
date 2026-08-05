@@ -77,6 +77,12 @@ let revealed = false;
 let renderHold = false;
 /** Last rendered frame timestamp (ms) for throttling. */
 let lastFrameMs = 0;
+/**
+ * ATTRACT-JANK-1 Lever A: the animation clock handed to the level while reduced
+ * motion is active. Pinned to the first reduced frame of the session and never
+ * advanced, so every time-driven property holds one phase. See the step() call site.
+ */
+let reducedAnimPinMs = 0;
 
 /** Base orbit period (ms) — slow enough to read as a camera drift, not a spin. */
 const ORBIT_PERIOD_MS = 70000;
@@ -322,8 +328,20 @@ function step(now) {
   // * render at 60Hz) and BEFORE the render (after it, the drawn frame is one update
   // * stale). Timed together with the render because levelUpdate is real per-frame CPU
   // * — ships, water, rotors, beacons — and the watchdog must judge update+render.
+  // * ATTRACT-JANK-1 Lever A (cap-287, Intel UHD @ e3d4d03): reduced motion renders on
+  // * an 800ms heartbeat, so driving level animation from it advanced water, rotors,
+  // * beacons and rave dressing in 800ms STEPS at 1.25fps — the "attract animation reads
+  // * as jank" report. It is not a load problem: that capture measured 3-6ms frames on an
+  // * idle box. SHOOT-ANIM-1 turned animation on for every path at once; before it, this
+  // * path was a still image, which is what `prefers-reduced-motion: reduce` asks for.
+  // *
+  // * So the clock is PINNED here rather than the tick being skipped: `?t=` already
+  // * defines a pinned-phase mode these updaters honour, and skipping would also strand
+  // * updateLevelLod — which rides this callback but reads its own wall clock, and still
+  // * has to react to an arena swap. Pinned tick = static frame, live LOD.
   const frameStartMs = performance.now();
-  d.onAnimationTick?.(getDebugAnimTimeMs() ?? now);
+  if (reduced && !reducedAnimPinMs) reducedAnimPinMs = now;
+  d.onAnimationTick?.(getDebugAnimTimeMs() ?? (reduced ? reducedAnimPinMs : now));
   // Same latched path as frameVisuals.js — never flip render paths here.
   if (isComposerBypassActive()) {
     d.renderer.render(d.scene, d.camera);

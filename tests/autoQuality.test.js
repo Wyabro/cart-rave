@@ -86,6 +86,55 @@ describe("tickAutoQuality", () => {
     expect(getSessionRenderScaleMul()).toBe(0.7);
   });
 
+  it("ATTRACT-JANK-1: a 1.25fps feed never demotes, however bad one old frame was", () => {
+    // * cap-287 shape: reduced-motion attract renders every 800ms, so 20 samples span
+    // * ~16s. One 97.8ms boot-tail frame followed by healthy 3-6ms frames used to carry
+    // * a p95 of 24.7 into a demotion 16s after the spike was over.
+    setSessionQualityTier("low");
+    let now = 20_000;
+    let stepped = false;
+    // * The boot tail: a handful of genuinely expensive frames, then an idle menu.
+    for (let i = 0; i < 5; i += 1) {
+      tickAutoQuality(0.04, now, "attract");
+      now += 816;
+    }
+    for (let i = 0; i < 200; i += 1) {
+      if (tickAutoQuality(0.005, now, "attract")) stepped = true;
+      now += 816;
+    }
+    expect(stepped).toBe(false);
+    expect(getSessionRenderScaleMul()).toBe(1);
+  });
+
+  it("ATTRACT-JANK-1: ageing out samples does NOT silence a genuinely slow machine", () => {
+    // * The guard must key on feed rate, not on badness — a 5fps in-game feed is 20
+    // * samples in 4s, still inside SAMPLE_MAX_AGE_MS, and those machines are exactly
+    // * the ones the watchdog exists for.
+    let now = 1000;
+    let stepped = false;
+    for (let i = 0; i < 400; i += 1) {
+      if (tickAutoQuality(0.2, now, "game")) stepped = true;
+      now += 200;
+      if (stepped) break;
+    }
+    expect(stepped).toBe(true);
+    expect(getSessionQualityTierOverride()).toBe("medium");
+  });
+
+  it("ATTRACT-JANK-1: a spike still demotes while it is CURRENT", () => {
+    // * The complement of the two above — the fix drops stale samples, not bad ones.
+    setSessionQualityTier("low");
+    let now = 5000;
+    let stepped = false;
+    for (let i = 0; i < 400; i += 1) {
+      if (tickAutoQuality(0.03, now, "attract")) stepped = true;
+      now += 30;
+      if (stepped) break;
+    }
+    expect(stepped).toBe(true);
+    expect(getSessionRenderScaleMul()).toBe(0.85);
+  });
+
   it("FV-LOAD-1b: suppresses demotion during mode-entry + post-entry grace", () => {
     const t0 = 10_000;
     noteModeEntryShown();

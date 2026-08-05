@@ -22,6 +22,23 @@ import {
 
 const SAMPLE_CAP = 90;
 /**
+ * ATTRACT-JANK-1 Lever B: samples older than this are dropped before a window is
+ * evaluated. Without it the ring is bounded only by COUNT, so a slow FEED (not slow
+ * frames) lets a p95 be computed from frames that are many seconds gone.
+ *
+ * cap-287: the menu was in reduced motion at 1.25fps, so the 20-sample minimum took
+ * ~16s to fill and the watchdog demoted at t=44.6s on p95 24.7 — carried by a single
+ * 97.8ms boot-tail frame from t=28.4s — while every window in the preceding 15s
+ * measured under 9ms. That demotion is irreversible for the session and follows the
+ * player into the round, so a stale menu sample costs real in-game render scale.
+ *
+ * 4s, not 2s: the 20-sample minimum below is documented as covering a 10fps machine
+ * (~2s of frames) and those are exactly the machines that must still be able to
+ * demote. 4s clears that case with margin, admits a 5fps in-game feed, and still
+ * rejects the 1.25fps menu case by four-fold.
+ */
+const SAMPLE_MAX_AGE_MS = 4000;
+/**
  * ms — ~48 fps threshold (was 22ms/~45fps; potato machines need earlier step-down).
  * Exported so ATTRACT-JANK-1's menu instrument counts over-bar frames against the
  * SAME number the watchdog demotes on — a second literal would drift silently.
@@ -43,6 +60,9 @@ export const ENTRY_QUALITY_GRACE_MS = 2000;
 
 /** @type {number[]} */
 const samples = [];
+/** Arrival time of each entry in `samples`, same index — drives SAMPLE_MAX_AGE_MS. */
+/** @type {number[]} */
+const sampleTimes = [];
 let badWindows = 0;
 let windowStartMs = 0;
 let stepsApplied = 0;
@@ -90,6 +110,7 @@ export function noteModeEntryShown() {
   entryGraceUntilMs = 0;
   clearSamplesWhenGraceEnds = false;
   samples.length = 0;
+  sampleTimes.length = 0;
   badWindows = 0;
   windowStartMs = 0;
 }
@@ -118,6 +139,7 @@ export function isAutoQualityEntrySuppressed(nowMs = performance.now()) {
 
 function clearSampleRing() {
   samples.length = 0;
+  sampleTimes.length = 0;
   badWindows = 0;
   windowStartMs = 0;
 }
@@ -152,11 +174,24 @@ export function tickAutoQuality(dtSec, nowMs = performance.now(), source = "game
   if (!(dtMs > 0) || dtMs > 250) return false;
 
   samples.push(dtMs);
-  if (samples.length > SAMPLE_CAP) samples.shift();
+  sampleTimes.push(nowMs);
+  if (samples.length > SAMPLE_CAP) {
+    samples.shift();
+    sampleTimes.shift();
+  }
 
   if (!windowStartMs) windowStartMs = nowMs;
   if (nowMs - windowStartMs < WINDOW_MS) return false;
   windowStartMs = nowMs;
+
+  // * Lever B: age out before the count check, so the count is a count of CURRENT
+  // * frames. A slow feed then fails the 20-sample minimum on its own and no demotion
+  // * fires — which is the correct answer, because a feed that slow is not measuring
+  // * frame pacing at all. A genuinely slow but live feed keeps its samples and steps.
+  while (sampleTimes.length > 0 && nowMs - sampleTimes[0] > SAMPLE_MAX_AGE_MS) {
+    sampleTimes.shift();
+    samples.shift();
+  }
 
   // * 20 samples ≈ 2s of frames on a 10fps machine — enough for a stable p95;
   // * requiring more just prolongs the suffering on exactly the devices that
@@ -186,6 +221,7 @@ export function tickAutoQuality(dtSec, nowMs = performance.now(), source = "game
   }
   badWindows = 0;
   samples.length = 0;
+  sampleTimes.length = 0;
   windowStartMs = 0;
   cooldownUntilMs = nowMs + COOLDOWN_MS;
   // * Phase 0b: land the demotion in the diag ring so an F8 capture shows WHEN it fired
@@ -223,6 +259,7 @@ export function tickAutoQuality(dtSec, nowMs = performance.now(), source = "game
 /** Test/reset helper. */
 export function resetAutoQualityForTests() {
   samples.length = 0;
+  sampleTimes.length = 0;
   badWindows = 0;
   windowStartMs = 0;
   stepsApplied = 0;
