@@ -247,6 +247,7 @@ console every regeneration and got re-run. The export now says so out loud.
 
 | Pri | Item | Notes |
 |-----|------|-------|
+| Medium | ONBOARD-FLAG-PT-1 — the first-run tutorial survives being skipped (ONBOARD-FLAG-1) | **Owed: Wyatt playtest — ONBOARD-FLAG-PT-1 — on prod, prove the HOW TO PLAY tutorial comes back if you skip past it, and stays gone once you have read it.**<br>1. Open devtools → Application → Local Storage → delete `cartRaveHowToSeen`, then hard-refresh.<br>2. The moment the menu appears, click SOLO **immediately** — inside about half a second, before the tutorial can pop up. Play a few seconds, quit to menu, then refresh.<br>3. HOW TO PLAY **should** open by itself. That is the fix: skipping past it no longer burns it forever.<br>4. Now let it open, close it with DONE, and refresh once more. It **should not** come back.<br>FAIL if it never returns in step 3, or if it keeps reappearing in step 4. **Already verified by agent on the dev build:** the overlay auto-opens on a cleared flag and does not reappear once closed (step 3's *happy* half and step 4). **Step 2 is the one only a human can do** — an automated click cannot beat the 600 ms timer, so the skip path is unproven until you try it. Desktop judge. |
 | Low | AQ-RING-CLEAR-1 — autoQuality clear sample ring on every window eval | **Reserve only** if Wave 2 entry grace still demotes on retest. Comment in autoQuality.js already notes the ring can poison up to 3 windows. Own commit if needed; not in main batch path. |
 
 ## UI / UX
