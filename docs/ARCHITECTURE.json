@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-05T19:37:47.722Z",
-    "commit": "a65d3c9"
+    "at": "2026-08-05T20:03:49.838Z",
+    "commit": "e3d4d03"
   },
-  "source_digest": "7750ae5e",
+  "source_digest": "462983eb",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -939,7 +939,7 @@
         "title": "Engineering",
         "counts": {
           "High": 3,
-          "Medium": 12,
+          "Medium": 13,
           "Low": 11,
           "Partial": 1
         },
@@ -948,6 +948,12 @@
             "pri": "High",
             "item": "QUICKPLAY-SHARD-1 — quickplay is one global room; 4 humans worldwide `[pre-ship]`",
             "notes": "✅ **SHIPPED 08-05, awaiting playtest.** Quickplay was a single global Durable Object: four slots, so four humans **worldwide**, and the fifth was closed 4004 with a dead-end toast. Public shards are now `quickplay` + `quickplay2…quickplay20`, and `isQuickplayRoom` ([shared/roomCodes.js](../../shared/roomCodes.js)) is the single definition every mode and policy decision keys off. **DESIGN CHANGED DURING THE WAVE — the original lock said \"Worker-side seat-finder\"; that was wrong and is superseded.** Occupancy does not exist anywhere: no accessor, no endpoint, no registry, and `party/index.ts` has zero references to `this.ctx`/`storage`/`alarm` — all room state is in-memory. A seat-finder therefore needed either a registry DO (new class, migration, a DO→DO write per seat change, staleness, a new failure mode) or probe-on-demand, which **instantiates** a shard just to ask, burning its random arena roll for a room nobody joins. What shipped instead: the 5th socket is accepted and sent a `hello` before being refused at `join`, so a full **public** shard names the next one in `joinRejected.retryRoom` and the client re-dials — emitted once in `#rejectPendingConn`, null for friends rooms, `quickplay__*` harness rooms, and past the cap (null = today's toast, so an old client is never worse off). **Known limit, deliberately accepted:** hops are sequential, so at peak the Nth player pays one connect round-trip per full shard. `quickplay_shard_assigned { shard, hops }` measures it — deep or frequent chains are the signal to build the registry, and if they never appear it was correctly never built. **Evidence:** `npm run qa` green; party-do covers retryRoom against genuinely full rooms (full is structural, not a constant), the cap, the harness carve-out, and shard arena/difficulty parity; `node tools/netharness.mjs --scenario shardOverflow` **5/5 live in real browsers**. **SEC-DIAG-1's regression bar is met** — a shard returns mode `quickplay`, verified in units and live, so the prod score-cheat gate does not reopen. Commits `dbc6cdf` · `dd8e810` · `d81dcbc` · `5c83451` · `c7ba5b8`.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "DEPLOY-STALE-HTML-1 — for a window after `npm run ship`, the live site served old HTML whose hashed assets all 404",
+            "notes": "**Observed 08-05** during the ATTRACT-JANK-1 Lever 0 deploy (`e3d4d03`, worker version `a8b05205`), while doing the AGENTS post-deploy asset check. `wrangler deploy` reported the new set (`index-CQokl0d6.js`, `diagnostics-D3vg5QKH.js`, …), but `GET /` kept returning HTML referencing the **previous** build's names (`index-Czo5o8_c.js`, `scene-QOWmxIlR.js`, `utils-4zw_Hib0.js`, …), and **6 of the 14 referenced assets returned 404** — Workers Assets serves only the current manifest, so the prior build's hashed files stop existing the moment the new one lands. A visitor loading in that window gets an HTML document whose entry chunk 404s: **blank page, no error UI, no retry**. Two fetches ~2 minutes apart were both stale; the next check was fresh and clean (0 × 404), so it self-heals — the row is about the window, not a broken deploy. **Do not assume it is HTTP caching:** the second stale fetch used a unique `?cb=` URL *and* `Cache-Control: no-cache`, which an edge cache keyed on URL could not have served, so the likelier mechanism is Worker **version propagation** lagging the asset-manifest swap at that PoP (memory note: per-PoP propagation ~30 s). Confirm which before building anything — the fixes differ completely (cache headers on the HTML vs. a client-side retry/reload on chunk-load failure vs. simply accepting it). **Why it matters now:** launch is a **public post**, i.e. the one moment when a traffic spike and a deploy are most likely to overlap, and the failure is silent — nobody who hits it will report a blank page, they will just leave. **Cheapest mitigations to weigh, in order:** (1) don't deploy near the post (process, free); (2) a `window.addEventListener(\"error\")` chunk-load-failure → one hard reload, which turns a dead page into a 1-second flicker; (3) nothing, if the window is genuinely ~30 s. AGENTS already requires the post-deploy fetch + symbol check, which is exactly what caught this — that rule is doing its job and needs no change.",
             "ship1": null
           },
           {
