@@ -3786,6 +3786,11 @@ export const __netcodeTestHooks = {
 function handleRemoteClientInput(input, fromConnId, seq) {
   if (!isHost) return;
   if (!fromConnId || !input || typeof input !== "object") return;
+  // * INPUT-SEAT-1: defense-in-depth — only seated humans enqueue. Boost/hop already
+  // * gate slotIndex >= 0 on drain; orphan maps prune on MSG.slots. Reject early so
+  // * unknown/npc/empty peers cannot grow the jitter queue.
+  const seatIdx = strictSlotIndexForConn(fromConnId);
+  if (seatIdx < 0 || netSlots[seatIdx]?.kind !== "human") return;
   if (netTestOn) __dbgInputCounters.ingest += 1;
 
   const throttle = Math.max(-1, Math.min(1, Number.isFinite(input.throttle) ? input.throttle : 0));

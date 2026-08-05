@@ -268,9 +268,25 @@ describe("netcode game bridge wires session play ready (cap-63)", () => {
 });
 
 describe("host input jitter ackSeq (apply, not receive)", () => {
+  /** INPUT-SEAT-1: jitter tests must seed a live human slot for the peer connId. */
+  function humanSlots(...connIds) {
+    return connIds.map((connId, i) => ({
+      slotId: i,
+      kind: "human",
+      connId,
+      name: `P${i + 1}`,
+      color: "pink",
+      isReady: true,
+    }));
+  }
+
   beforeEach(() => {
     hooks.resetNetState();
-    hooks.setHostStateForTest({ isHost: true });
+    hooks.setHostStateForTest({
+      isHost: true,
+      youConnId: "host",
+      netSlots: humanSlots("peerA", "peerB", "peerC"),
+    });
   });
 
   it("does not advance ackSeq until the jitter buffer drains the frame", () => {
@@ -322,6 +338,40 @@ describe("host input jitter ackSeq (apply, not receive)", () => {
     hooks.drainRemoteInputJitterBuffers();
     expect(hooks.getHostLastProcessedInputSeq("peerC")).toBe(8);
     expect(hooks.getRemoteInputQueueLength("peerC")).toBe(0);
+  });
+
+  it("INPUT-SEAT-1: drops npc / unknown / empty-seat peers before enqueue", () => {
+    hooks.setHostStateForTest({
+      isHost: true,
+      youConnId: "host",
+      netSlots: [
+        { slotId: 0, kind: "human", connId: "host", name: "H", color: "pink", isReady: true },
+        { slotId: 1, kind: "npc", connId: null, name: "BOT", color: "blue", isReady: false },
+        { slotId: 2, kind: "empty", connId: null, name: "", color: "green", isReady: false },
+        { slotId: 3, kind: "human", connId: "alive", name: "P4", color: "yellow", isReady: true },
+      ],
+    });
+
+    hooks.handleRemoteClientInput(
+      { throttle: 1, steer: 0, nitro: true, hop: true },
+      "ghost",
+      1,
+    );
+    hooks.handleRemoteClientInput(
+      { throttle: 1, steer: 0, nitro: true, hop: true },
+      "npc-should-not-match",
+      2,
+    );
+    expect(hooks.getRemoteInputQueueLength("ghost")).toBe(0);
+    expect(hooks.getRemoteInputQueueLength("npc-should-not-match")).toBe(0);
+    expect(hooks.getHostLastProcessedInputSeq("ghost")).toBe(0);
+
+    hooks.handleRemoteClientInput(
+      { throttle: 0.25, steer: 0.1, nitro: false, hop: false },
+      "alive",
+      9,
+    );
+    expect(hooks.getRemoteInputQueueLength("alive")).toBe(1);
   });
 });
 
