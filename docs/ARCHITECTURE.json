@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-05T04:58:48.813Z",
-    "commit": "058649a"
+    "at": "2026-08-05T05:01:57.403Z",
+    "commit": "cc6dfdd"
   },
-  "source_digest": "2e0385f9",
+  "source_digest": "eec9c3b7",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -855,9 +855,9 @@
   "workstreams": {
     "queue": [
       {
-        "id": "STORE-PLAT-WALL-1",
-        "what": "Storerooms pit cliff had no collider",
-        "status": "✅ DEPLOYED 08-05 (`8ec9e3a`) · Version `251c51e4` · chunk `backroomsSupermarket-DSK1Rh_H.js`, prod SHA verified — playtest owed. The filing named the wrong geometry (booth rails); Wyatt's screenshot was at pit-floor level. Real bug: `addCliffRing(ARENA_HALF)` drew the 26 m arena cliff as plain meshes with zero colliders, so a cart in the pit drove under the playfield. Fixed with an exported spec + four cuboids on `buildFallContainment`'s body, top tucked `CHAMFER_TUCK` above `FLOOR_BOTTOM_Y` to avoid a coplanar seam. [BACKLOG § Playtest owed](./planning/BACKLOG.md).",
+        "id": "STORE-PIT-WEDGE-1",
+        "what": "Carts wedge in the Storerooms pit band",
+        "status": "✅ DEPLOYED 08-05 (`152d835`) · Version `c5711dd4`, prod SHA verified — playtest owed. Caused by STORE-PLAT-WALL-1's own fix (PASS 08-05, `8ec9e3a` — the arena cliff stops carts now): sealing the cliff made the pit band a corridor walled on both sides, with the gondolas 2.0 m off the inner one and a cart diagonal of 2.83 m. Gondola 9 → 7, band centre 45.5 → 46.7 = 4.2 m each side; dressing friction 0.4 → 0.05 so the tops shed instead of hold. Pushing the band outward alone rebuilds the wedge against the room wall — the test pins both gaps against `CONFIG.cart.size`. [BACKLOG § Playtest owed](./planning/BACKLOG.md).",
         "state": "done"
       },
       {
@@ -901,7 +901,7 @@
       }
     ],
     "next_actions": [
-      "Pick the next card. BUNDLE-1 closed partial + deployed, and BUNDLE-E-PT-1 passed 6/6, so nothing is mid-flight. HARNESS-GEO-1 is no longer a candidate — it closed 08-05 (`fde8d10` gated the soak on min per-cycle delta; `0b7f265` recorded the x10 table). Competing now: STORE-PLAT-WALL-1 (the only High that is a live gameplay-correctness bug — Storerooms platform walls have no colliders, carts ghost into the void by the pit; known mechanism, named fix site), FIX-EMISSIVE re-ack (needs Wyatt to pick retry (a) or (b)), FIX-MIG, or the new HUD-TOAST-Z-1. Wyatt's call.",
+      "Pick the next card. BUNDLE-1 closed partial + deployed, and BUNDLE-E-PT-1 passed 6/6, so nothing is mid-flight. HARNESS-GEO-1 is no longer a candidate — it closed 08-05 (`fde8d10` gated the soak on min per-cycle delta; `0b7f265` recorded the x10 table). STORE-PLAT-WALL-1 PASSed and its successor STORE-PIT-WEDGE-1 is deployed awaiting a check. Competing after that: FIX-EMISSIVE re-ack (needs Wyatt to pick retry (a) or (b)), FIX-MIG, HUD-TOAST-Z-1, or STORE-PLAT-WALL-1's Low split-off BOOTH-RAIL-COL-1. Wyatt's call.",
       "Hitch forensics now has evidence — cap-254–260 (build `8d96b0b`) are the first captures from a working upload path, including a Cart Rave F8 taken on a hitch. Read them before any perf knob.",
       "Still owed separately: 9-cell PERF sweep (~25 min). Resume Run 8 FAIL triage."
     ],
@@ -958,7 +958,7 @@
           {
             "pri": "High",
             "item": "STORE-PIT-WEDGE-1 — carts wedge in the pit band",
-            "notes": "✅ **CODE LANDED 08-05 (`152d835`), unshipped — see the Playtest owed row.** **Caused by STORE-PLAT-WALL-1's own fix**, which is the honest way to record it: giving the cliff a collider turned the pit band into a corridor with a solid wall on *both* sides, and the gondola rows sat 2.0 m off the inner one. A cart is 1.47 × 2.42 with its skin — diagonal **2.83 m** — so it enters sideways and then cannot rotate out. **Fix:** gondola length 9 → 7, band centre 45.5 → 46.7, giving **4.2 m on each side**; dressing collider friction 0.4 → 0.05 to match the shaft walls and the cliff, so the tops (which sit above the arena floor and 20 m above the y −18 kill line) shed a cart instead of holding it. **The symmetry is the load-bearing part:** simply pushing the band outward — the obvious fix, and the one first proposed and acked — shrinks the *outer* gap to 2.4 m and rebuilds the identical wedge against the room wall. [backroomsPitWall.test.js](../../tests/backroomsPitWall.test.js) now pins both clearances against `CONFIG.cart.size` rather than a literal, so growing the cart fails the test instead of silently re-creating the trap.",
+            "notes": "✅ **DEPLOYED 08-05 (`152d835`) · Version `c5711dd4`, prod SHA verified — playtest owed, see the Playtest owed row.** **Caused by STORE-PLAT-WALL-1's own fix**, which is the honest way to record it: giving the cliff a collider turned the pit band into a corridor with a solid wall on *both* sides, and the gondola rows sat 2.0 m off the inner one. A cart is 1.47 × 2.42 with its skin — diagonal **2.83 m** — so it enters sideways and then cannot rotate out. **Fix:** gondola length 9 → 7, band centre 45.5 → 46.7, giving **4.2 m on each side**; dressing collider friction 0.4 → 0.05 to match the shaft walls and the cliff, so the tops (which sit above the arena floor and 20 m above the y −18 kill line) shed a cart instead of holding it. **The symmetry is the load-bearing part:** simply pushing the band outward — the obvious fix, and the one first proposed and acked — shrinks the *outer* gap to 2.4 m and rebuilds the identical wedge against the room wall. [backroomsPitWall.test.js](../../tests/backroomsPitWall.test.js) now pins both clearances against `CONFIG.cart.size` rather than a literal, so growing the cart fails the test instead of silently re-creating the trap.",
             "ship1": null
           },
           {
@@ -1331,7 +1331,7 @@
           {
             "pri": "High",
             "item": "STORE-PIT-WEDGE-1 — you should be able to turn around anywhere in the pit `[solo]`",
-            "notes": "**Owed: Wyatt playtest — STORE-PIT-WEDGE-1 — nothing in the pit should pin you.** Sealing the arena wall worked, and it created a trap: the strip between that wall and the dark shelving out in the fog was only 2 m wide, which a cart fits into sideways but cannot turn around in. The shelving is now shorter and re-centred so there is 4.2 m of room on both sides of it, and nothing out there grips any more, so you slide off instead of parking on top. **NOT DEPLOYED YET — needs a ship first.**<br>1. Get into the Storerooms pit and drive the whole strip between the arena wall and the shelving, including behind the shelving and around the corners. You should be able to turn around anywhere in it — no spot that pins you, and nothing you can come to rest on top of.",
+            "notes": "**Owed: Wyatt playtest — STORE-PIT-WEDGE-1 — nothing in the pit should pin you.** Sealing the arena wall worked, and it created a trap: the strip between that wall and the dark shelving out in the fog was only 2 m wide, which a cart fits into sideways but cannot turn around in. The shelving is now shorter and re-centred so there is 4.2 m of room on both sides of it, and nothing out there grips any more, so you slide off instead of parking on top. **DEPLOYED** · Version `c5711dd4` · chunk `backroomsSupermarket-Du3D6qi8.js` (prod SHA byte-identical to the local ship, verified) · hard-refresh https://cart-rave.wyabro.workers.dev first.<br>1. Get into the Storerooms pit and drive the whole strip between the arena wall and the shelving, including behind the shelving and around the corners. You should be able to turn around anywhere in it — no spot that pins you, and nothing you can come to rest on top of.",
             "ship1": null
           },
           {
