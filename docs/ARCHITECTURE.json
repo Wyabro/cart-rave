@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-05T19:01:41.067Z",
-    "commit": "28c1a6c"
+    "at": "2026-08-05T19:05:59.590Z",
+    "commit": "9196297"
   },
-  "source_digest": "f08f5901",
+  "source_digest": "ac4f8196",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -901,7 +901,7 @@
       }
     ],
     "next_actions": [
-      "Work the ordered queue — [BACKLOG § Work order](./planning/BACKLOG.md) (2026-08-05 pre-launch audit). Block A 1–4: SEC-DIAG/ONBOARD PASS 4/4 on `fbe8163`; QUICKPLAY-SHARD-1 shipped (owed SHARD-PT-1/2 after deploy); FIX-MIG shipped `28c1a6c` (owed FIX-MIG-PT-1 after deploy). Next code: ATTRACT-JANK-1. Closed 08-05 also: HARNESS-GEO-1, BUNDLE-1, HUD-TOAST-Z-1, FIX-EMISSIVE, physics run 5/5.",
+      "Work the ordered queue — [BACKLOG § Work order](./planning/BACKLOG.md) (2026-08-05 pre-launch audit). Block A 1–4 done: SEC-DIAG/ONBOARD PASS 4/4 on `fbe8163`; QUICKPLAY-SHARD-1 SHARD-PT-1 PASS on `9c333d1` (SHARD-PT-2 deferred to the public playtest — needs 5 humans; now a launch-day check); FIX-MIG shipped `28c1a6c` (owed FIX-MIG-PT-1 after deploy). Next code: ATTRACT-JANK-1. Closed 08-05 also: HARNESS-GEO-1, BUNDLE-1, HUD-TOAST-Z-1, FIX-EMISSIVE, physics run 5/5.",
       "Hitch forensics now has evidence — cap-254–260 (build `8d96b0b`) are the first captures from a working upload path, including a Cart Rave F8 taken on a hitch. Read them before any perf knob.",
       "Still owed separately: 9-cell PERF sweep (~25 min). Resume Run 8 FAIL triage."
     ],
@@ -1325,13 +1325,20 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "High": 1
+          "Medium": 1,
+          "Low": 1
         },
         "rows": [
           {
-            "pri": "High",
-            "item": "SHARD-PT-1 — normal quickplay is unchanged `[solo]` (QUICKPLAY-SHARD-1)",
-            "notes": "**Owed: Wyatt playtest — SHARD-PT-1 — on prod, confirm the common case did not regress.** This is the card that matters most: almost every real player will only ever see shard 1, so the sharding work must be invisible to them.<br>1. Hard-refresh https://cart-rave.wyabro.workers.dev/ and start QUICKPLAY.<br>2. Play a full round through to the podium and let it roll into the next one.<br>3. It should feel exactly as it did before — you drop straight in with no READY button to press, the arena is random rather than always the same one, the bots are the usual medium difficulty, and the rematch rotates to a different arena.<br>FAIL if you are asked to ready up, if a private-lobby style screen with a room code appears, if the arena never changes between matches, or if the bots feel noticeably easier. Those are the exact symptoms of a quickplay room being mistaken for a private one. Desktop judge.",
+            "pri": "Medium",
+            "item": "FIX-MIG-PT-1 — disconnect host migration is visible `[2pc]` (FIX-MIG)",
+            "notes": "**Owed: Wyatt playtest — FIX-MIG-PT-1 — on prod after deploy, confirm a host drop shows a toast.** Disconnect migration used to be silent (PA only).<br>1. Two browsers, both windows fully visible (hidden tabs fake stalls). Join the same room (quickplay or friends is fine).<br>2. Note who has the host glyph.<br>3. Close the host tab completely (not just hide it).<br>4. On the survivor: a toast should say the host left / who is hosting; the host glyph moves; you can keep driving after a short hitch.<br>FAIL if migration works but there is no toast, if the room wedges, or if nobody becomes host.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "AQ-RING-CLEAR-1 — autoQuality clear sample ring on every window eval",
+            "notes": "**Reserve only** if Wave 2 entry grace still demotes on retest. Comment in autoQuality.js already notes the ring can poison up to 3 windows. Own commit if needed; not in main batch path.",
             "ship1": null
           }
         ]

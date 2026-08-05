@@ -35,6 +35,59 @@ Block A #4 of the pre-launch Work order. Code + unit/party-do complete; human ch
 
 ---
 
+### August 5, 2026 — QUICKPLAY-SHARD-1: the four-humans-worldwide cap is gone
+
+**SHARD-PT-1 PASS on prod `9c333d1`.** Quickplay was a single global Durable Object — four slots,
+so four humans **worldwide**, and the fifth was closed 4004 with a dead-end toast. On a public
+itch/Reddit post that fails within the first hour, in the mode strangers click first.
+
+- *(Engineering · High)* **QUICKPLAY-SHARD-1** — ✅ SHIPPED 08-05 (`dbc6cdf` · `dd8e810` ·
+  `d81dcbc` · `5c83451` · `c7ba5b8`). Public shards are `quickplay` + `quickplay2…quickplay20`;
+  `isQuickplayRoom` is the single definition every mode and policy decision keys off.
+- **The recorded design lock was wrong, and the row now says so rather than reading as if the hop
+  was always the plan.** The lock said "Worker-side seat-finder". Occupancy does not exist anywhere:
+  no accessor, no endpoint, no registry, and the DO has zero `this.ctx`/`storage`/`alarm` — all room
+  state is in-memory. A seat-finder therefore meant a registry DO (new class, migration, a DO→DO
+  write per seat change, staleness, a new failure mode) or probe-on-demand, which **instantiates**
+  a shard just to ask and burns its random arena roll for a room nobody joins.
+- **What shipped instead — a free channel that was already there.** The 5th socket is *not* refused
+  at connect: it is accepted and sent a `hello`, and only refused at `join`. So a full **public**
+  shard names the next one in `joinRejected.retryRoom` and the client re-dials. Emitted once in
+  `#rejectPendingConn`; null for friends rooms, `quickplay__*` harness rooms, and past the cap —
+  and null means exactly the old behaviour, so an old client is never worse off.
+- **The hop had to beat two races, both live on a reject.** `onJoinRejected()` fires immediately and
+  would toast back to the menu; then the socket closes 4004 and, because `hello` has already
+  arrived, the close handler falls to `scheduleNetcodeRetry()` and would re-dial *the same full
+  room* underneath the hop. `disconnectPartySession()` already sets the retry-suppression flag both
+  socket handlers check and already documented itself as safe "before a new room join" — so no new
+  flag was invented.
+- **The URL rewrite is load-bearing, not cosmetic.** `detectGameMode()` reads the URL and nothing
+  else, while the connect override only moves the socket: a socket-only hop would strand every mode
+  decision, refresh and auto-rejoin on shard 1.
+- **SEC-DIAG-1's regression bar is met.** A shard returns mode `quickplay` — pinned in units, source
+  -asserted at the wiring, and confirmed live by the rig. Without it, the private CHECKOUT LINE
+  lobby (with its invite link) would appear in public matchmaking and the prod score-cheat gate
+  would disarm.
+- **Known limit, deliberately accepted and instrumented.** Hops are sequential, so at peak the Nth
+  player pays one connect round-trip per full shard. `quickplay_shard_assigned { shard, hops }`
+  measures it: deep or frequent chains are the signal to build the registry, and if they never
+  appear the registry was correctly never built.
+- **Evidence:** `npm run qa` green (122 files / 1475 tests) · party-do covers `retryRoom` against
+  genuinely full rooms (full is *structural* — no NPC slot left — not a constant), the cap, the
+  harness carve-out, and shard arena/difficulty parity · `netharness --scenario shardOverflow`
+  **5/5 live in real browsers** · **SHARD-PT-1 PASS on prod**, which is the case ~every real player
+  will ever see.
+- **SHARD-PT-2 is deferred, not passed.** It needs five real humans and Wyatt does not have them:
+  *"i wont be able to test this until the public playtest."* Carried into the launch-day checks in
+  [BACKLOG § Work order](./BACKLOG.md). The residual is live infrastructure under real concurrency,
+  not the mechanism — which is rig-proven and whose common case passed on prod.
+- **One process exception, recorded:** `tools/netharness.mjs` was touched during a game card
+  (AGENTS.md freezes `tools/`). Wyatt authorized it in the design ack. It earned the exception
+  because party-do proves the *server* sends `retryRoom` while nothing else exercises the *client*
+  race, and only a real browser runs that race. Isolated in `c7ba5b8`.
+
+---
+
 ### August 5, 2026 — SEC-DIAG-1 + ONBOARD-FLAG-1 PASS 4/4 on prod `fbe8163`
 
 First two cards of the pre-launch **Work order** queue (BACKLOG § Work order, from the 08-05 audit

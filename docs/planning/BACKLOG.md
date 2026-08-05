@@ -78,7 +78,7 @@ closes, strike it here the same session its row is retired.
 **Block A — ship bar (launch blockers, strict order):**
 1. ~~**SEC-DIAG-1**~~ — ✅ **CLOSED PASS 3/3 08-05** on prod `fbe8163` ([completed-work.md](./completed-work.md))
 2. ~~**ONBOARD-FLAG-1**~~ — ✅ **CLOSED PASS 08-05** on prod `fbe8163`, with a named limit on the skip-click ([completed-work.md](./completed-work.md))
-3. ~~**QUICKPLAY-SHARD-1**~~ — ✅ **SHIPPED 08-05**, awaiting SHARD-PT-1 / SHARD-PT-2. Overflow hop, not a seat-finder — see the row. SEC-DIAG-1's regression bar met in units and live.
+3. ~~**QUICKPLAY-SHARD-1**~~ — ✅ **SHIPPED 08-05, SHARD-PT-1 PASS on prod `9c333d1`.** Overflow hop, not a seat-finder — see the row. SEC-DIAG-1's regression bar met in units and live. ⚠️ **SHARD-PT-2 deferred to the public playtest** — it needs five real humans, which Wyatt does not have; the overflow itself is rig-proven 5/5 in real browsers. **Launch-day check, do not lose it.**
 4. ~~**FIX-MIG**~~ — ✅ **SHIPPED 08-05** (`28c1a6c`), awaiting FIX-MIG-PT-1. Disconnect reason + toast + continuous party-do tests. [completed-work.md](./completed-work.md)
 5. **ATTRACT-JANK-1** — measure on the Intel box *when it's free* (slots anywhere in A/B), then the demotion guard if confirmed
 
@@ -108,6 +108,16 @@ PERF-WATCH-1 / PERF-TIER-1 / PROBE-WARM-RT-1 / WARM-SOLO-1 as attribution dictat
 **Block D — Wyatt-parallel (off the agent queue, any time):** CART-MODEL-1 (unblocks Pattern
 UI C3) · HIT-SFX-VAR-1 clips + announcer re-records · bloom sign-off (after #9) · SKYBOX-DIR-1
 call · Defeat-screen look call · 9-cell sweep · FIX-EMISSIVE-style owed playtests as they seed.
+
+**Launch-day checks (cannot be done before the public post — carry these into the ceremony):**
+- **SHARD-PT-2** — the 5th concurrent human overflows onto `quickplay2` instead of "couldn't join".
+  Deferred 08-05: it needs five real humans. Rig-proven 5/5 in real browsers, and SHARD-PT-1 passed
+  on prod, so the residual risk is *live infrastructure under real concurrency*, not the mechanism.
+  First real moment it can be observed is the public post. **Read it from analytics rather than
+  trying to catch it live:** `quickplay_shard_assigned { shard, hops }` answers it in aggregate with
+  no coordination — any row with `hops > 0` is an overflow that worked, and any `shard` other than
+  `quickplay` means a real player was seated past the old four-human ceiling. Zero rows past shard 1
+  means the cap was never reached, which is not a failure and not evidence either way.
 
 **Block E — ship-gate decision Wyatt must make once:** SHIP-1's **D tier (TRUST-1 → persistent
 leaderboard)** is formally pre-ship but is ~a week of work the audit's two-week frame did not
@@ -255,9 +265,7 @@ console every regeneration and got re-run. The export now says so out loud.
 
 | Pri | Item | Notes |
 |-----|------|-------|
-| High | SHARD-PT-1 — normal quickplay is unchanged `[solo]` (QUICKPLAY-SHARD-1) | **Owed: Wyatt playtest — SHARD-PT-1 — on prod, confirm the common case did not regress.** This is the card that matters most: almost every real player will only ever see shard 1, so the sharding work must be invisible to them.<br>1. Hard-refresh https://cart-rave.wyabro.workers.dev/ and start QUICKPLAY.<br>2. Play a full round through to the podium and let it roll into the next one.<br>3. It should feel exactly as it did before — you drop straight in with no READY button to press, the arena is random rather than always the same one, the bots are the usual medium difficulty, and the rematch rotates to a different arena.<br>FAIL if you are asked to ready up, if a private-lobby style screen with a room code appears, if the arena never changes between matches, or if the bots feel noticeably easier. Those are the exact symptoms of a quickplay room being mistaken for a private one. Desktop judge. |
-| Medium | FIX-MIG-PT-1 — disconnect host migration is visible `[2pc]` (FIX-MIG) | **Owed: Wyatt playtest — FIX-MIG-PT-1 — on prod after deploy, confirm a host drop shows a toast.** Disconnect migration used to be silent (PA only).<br>1. Two browsers, both windows fully visible (hidden tabs fake stalls). Join the same room (quickplay or friends is fine).<br>2. Note who has the host glyph.<br>3. Close the host tab completely (not just hide it).<br>4. On the survivor: a toast should say the host left / who is hosting; the host glyph moves; you can keep driving after a short hitch.<br>FAIL if migration works but there is no toast, if the room wedges, or if nobody becomes host.
-| Medium | SHARD-PT-2 — a full room sends you to a fresh one instead of turning you away `[2pc]` (QUICKPLAY-SHARD-1) | **Owed: Wyatt playtest — SHARD-PT-2 — on prod, confirm the overflow actually works with real people.** Before this, the 5th player anywhere in the world hit "Couldn't join that lobby" and was stuck. Needs 5 human clients — both your machines plus three extra browser windows/profiles is enough, since nobody has to play well.<br>1. Get four clients into the same quickplay match and wait until all four are seated and playing.<br>2. Bring in a fifth.<br>3. It should land in its own new match rather than showing the "couldn't join" message — check its address bar reads `room=quickplay2`.<br>FAIL if the fifth client bounces to the menu with an error, or if it lands somewhere that then asks it to ready up. Note: the automated rig already passes this 5/5 in real browsers, so this is confirmation on live infrastructure, not discovery. |
+| Medium | FIX-MIG-PT-1 — disconnect host migration is visible `[2pc]` (FIX-MIG) | **Owed: Wyatt playtest — FIX-MIG-PT-1 — on prod after deploy, confirm a host drop shows a toast.** Disconnect migration used to be silent (PA only).<br>1. Two browsers, both windows fully visible (hidden tabs fake stalls). Join the same room (quickplay or friends is fine).<br>2. Note who has the host glyph.<br>3. Close the host tab completely (not just hide it).<br>4. On the survivor: a toast should say the host left / who is hosting; the host glyph moves; you can keep driving after a short hitch.<br>FAIL if migration works but there is no toast, if the room wedges, or if nobody becomes host. |
 | Low | AQ-RING-CLEAR-1 — autoQuality clear sample ring on every window eval | **Reserve only** if Wave 2 entry grace still demotes on retest. Comment in autoQuality.js already notes the ring can poison up to 3 windows. Own commit if needed; not in main batch path. |
 
 ## UI / UX

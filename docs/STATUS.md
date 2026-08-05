@@ -75,7 +75,7 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. **Work the ordered queue — [BACKLOG § Work order](./planning/BACKLOG.md)** (2026-08-05 pre-launch audit). Block A 1–4: SEC-DIAG/ONBOARD **PASS 4/4** on `fbe8163`; **QUICKPLAY-SHARD-1 shipped** (owed SHARD-PT-1/2 after deploy); **FIX-MIG shipped** `28c1a6c` (owed FIX-MIG-PT-1 after deploy). **Next code: ATTRACT-JANK-1.** Closed 08-05 also: HARNESS-GEO-1, BUNDLE-1, HUD-TOAST-Z-1, FIX-EMISSIVE, physics run 5/5.
+1. **Work the ordered queue — [BACKLOG § Work order](./planning/BACKLOG.md)** (2026-08-05 pre-launch audit). Block A 1–4 done: SEC-DIAG/ONBOARD **PASS 4/4** on `fbe8163`; **QUICKPLAY-SHARD-1 SHARD-PT-1 PASS** on `9c333d1` (**SHARD-PT-2 deferred to the public playtest — needs 5 humans; now a launch-day check**); **FIX-MIG shipped** `28c1a6c` (owed FIX-MIG-PT-1 after deploy). **Next code: ATTRACT-JANK-1.** Closed 08-05 also: HARNESS-GEO-1, BUNDLE-1, HUD-TOAST-Z-1, FIX-EMISSIVE, physics run 5/5.
 2. **Hitch forensics now has evidence** — cap-254–260 (build `8d96b0b`) are the first captures from a working upload path, including a Cart Rave F8 taken on a hitch. Read them before any perf knob.
 3. **Still owed separately:** 9-cell PERF sweep (~25 min). Resume Run 8 FAIL triage.
 
