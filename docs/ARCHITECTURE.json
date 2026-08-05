@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-05T20:33:44.764Z",
-    "commit": "5983896"
+    "at": "2026-08-05T23:01:35.982Z",
+    "commit": "145cc95"
   },
-  "source_digest": "8bdcec13",
+  "source_digest": "9c7678bc",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1216,9 +1216,59 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Low": 1
+          "High": 5,
+          "Medium": 2,
+          "Low": 2
         },
         "rows": [
+          {
+            "pri": "High",
+            "item": "NET-AUDIT-INPUT-1 — joiner drive / hop / nitro hold after seat gate `[2pc]`",
+            "notes": "**Owed: Wyatt playtest — NET-AUDIT-INPUT-1 — non-host still drives, hops, and holds nitro charge across a jittery burst.** Unpushed wave A (`145cc95`); play on `npm run dev` until ship, then prod hard-refresh.<br>1. Open a Friends room on two machines; host starts a round.<br>2. On the joiner: drive out of spawn, hop once, then hold boost charge for at least one full charge window (do not tap-release).<br>3. FAIL if the joiner cannot leave spawn, hop does nothing, or charge drops mid-hold for no reason. PASS if drive + hop + charge-hold all feel normal.",
+            "ship1": null
+          },
+          {
+            "pri": "High",
+            "item": "NET-AUDIT-SLOTS-LOOK-1 — lobby color / lookHex still update carts `[2pc]`",
+            "notes": "**Owed: Wyatt playtest — NET-AUDIT-SLOTS-LOOK-1 — color pick and Customize look still retint both peers.** Same unpushed HEAD as INPUT; local or post-ship.<br>1. Two machines in one Friends lobby (not mid-round).<br>2. On machine A pick a different palette color; on machine B open Customize and change neon hex, then return to lobby.<br>3. FAIL if either peer keeps the old body color or old neon frame. PASS if both carts update on both screens within a second or two.",
+            "ship1": null
+          },
+          {
+            "pri": "High",
+            "item": "NET-AUDIT-SLOTS-READY-1 — ready toggle still arms the lobby `[2pc]`",
+            "notes": "**Owed: Wyatt playtest — NET-AUDIT-SLOTS-READY-1 — flipping Ready still moves the room toward countdown.** Same unpushed HEAD; Friends path (manual Ready), not Quickplay auto-ready.<br>1. Two humans in a Friends lobby, both unready.<br>2. Ready up on both machines.<br>3. FAIL if Ready sticks / never shows / countdown never arms after both ready. PASS if both ready chips stick and the room proceeds into countdown as usual.",
+            "ship1": null
+          },
+          {
+            "pri": "High",
+            "item": "UI-SCALE-RESULTS-PHONE-1 — phone results stack on portrait `[solo]`",
+            "notes": "**Owed: Wyatt playtest — UI-SCALE-RESULTS-PHONE-1 — portrait phone results read ranks-over-receipt, not crushed side-by-side.** Shipped residuals on `origin/cart-clash` (through `f057abe`); hard-refresh prod on a real phone or narrow DevTools (~390×844).<br>1. Finish a Solo round on portrait phone width so the results overlay opens.<br>2. Look at the layout: ranks should stack above the receipt, not fight side-by-side in a short window.<br>3. FAIL if ranks and receipt sit beside each other and feel crushed, or the short-window clobber returns. PASS if the stack is readable.",
+            "ship1": null
+          },
+          {
+            "pri": "High",
+            "item": "UI-SCALE-RESULTS-WIDE-1 — landscape phone results stay side-by-side `[solo]`",
+            "notes": "**Owed: Wyatt playtest — UI-SCALE-RESULTS-WIDE-1 — landscape phone results keep ranks left / receipt right with usable width.** Same deploy as the portrait card; rotate to landscape (~844×390).<br>1. Open results on landscape phone width (Solo finish or rotate after the portrait check).<br>2. Confirm ranks sit left and receipt right with wider rank column — not a portrait stack forced sideways.<br>3. FAIL if it still stacks like portrait or the ranks column is a skinny strip. PASS if side-by-side reads clean.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "UI-SCALE-FEED-PHONE-1 — kill feed size on phone `[solo]`",
+            "notes": "**Owed: Wyatt playtest — UI-SCALE-FEED-PHONE-1 — in-match kill feed on phone is smaller and does not eat the HUD.** Same UI-SCALE residual batch; phone portrait in a live Solo or Friends round.<br>1. Get at least two kill-feed rows during a round on phone portrait.<br>2. FAIL if the feed still feels desktop-huge or covers the boost / score chrome. PASS if rows are clearly phone-scaled and the HUD stays usable.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "PERF-9CELL-1 — Intel Low 9-cell PERF sweep `[solo]`",
+            "notes": "**Owed: Wyatt playtest — PERF-9CELL-1 — run the ~25 min 9-cell Intel Low sweep and bank F8s.** STATUS still lists this separately; needed before any PERF-PASS-1 unpark. Protocol: [perf-pass-1-handover.md](./perf-pass-1-handover.md). Cart Rave only, Low tier, Intel box, cooled between cells.<br>1. On the Intel machine, hard-refresh prod, set Low, Cart Rave Solo.<br>2. Run the handover's 9-cell matrix; F8 each cell (or the capture path the handover names).<br>3. FAIL only if a cell cannot be captured or the box was hot / wrong tier. PASS when all nine cells are banked — this is a measurement sitting, not a feel PASS.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "SHARD-PT-2 — fifth human overflows to quickplay2 `[2pc]`",
+            "notes": "**Owed: Wyatt playtest — SHARD-PT-2 — the 5th concurrent Quickplay human lands on quickplay2 instead of \"couldn't join\".** Launch-day / public-post check — needs five real humans (Wyatt deferred 08-05). Rig already 5/5; SHARD-PT-1 PASSed on prod `9c333d1`. Prefer analytics: any `quickplay_shard_assigned` with `hops > 0` or `shard !== quickplay` counts.<br>1. When five humans can join Quickplay at once (public post), watch the 5th seat.<br>2. FAIL if they get the dead-end couldn't-join toast with no hop. PASS if they seat on an overflow shard (or analytics shows hops greater than 0).<br>3. Skip / leave open until launch day — do not FAIL for lack of five people.",
+            "ship1": null
+          },
           {
             "pri": "Low",
             "item": "AQ-RING-CLEAR-1 — autoQuality clear sample ring on every window eval",
