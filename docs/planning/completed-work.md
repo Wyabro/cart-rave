@@ -13,6 +13,52 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 5, 2026 — SEC-DIAG-1 + ONBOARD-FLAG-1 PASS 4/4 on prod `fbe8163`
+
+First two cards of the pre-launch **Work order** queue (BACKLOG § Work order, from the 08-05 audit
+that set a public itch/Reddit post as the launch shape). Both shipped, deployed, and passed 4/4 with
+no FAIL.
+
+- *(Engineering · High)* **SEC-DIAG-1** — ✅ PASS 08-05 (`649b4ac`). `devControl` attaches in PROD
+  under `?diag=1` so live MP round-end bugs can be reproduced; the cost was that a **quickplay host
+  could set their own score**, flagged in-code since Run 6 as *"revisit before any public launch"*.
+  Two levers: the round levers (`setScores` / `forceSuddenDeath` / `rewindRoundClock`) now refuse in
+  public quickplay on prod builds, and `grantKos` is absent outside DEV on the SEC-UNLOCK-1
+  precedent. **SEC-DIAG-PT-1** (quickplay refuses, `reason: public-room`, no score moved),
+  **SEC-DIAG-PT-2** (solo still drives the levers) and **SEC-DIAG-PT-3** (F8 still uploads) all PASS.
+- **The gate is a conjunction, and that is the design.** `!isDev && mode === "quickplay"` — gating on
+  the room alone would have broken `tools/netharness.mjs`, which drives `room=quickplay` and calls
+  `control.setScores` against a **dev stack**. PT-2 exists precisely because a gate that refused
+  *everywhere* would have passed PT-1 while silently killing the live repro workflow.
+- **Evaluated at call time, not attach time.** menu → solo → menu → quickplay happens without a page
+  reload, so a mode captured at construction would outlive its room. Fail-closed on an unknown mode,
+  since `resolvedPartyRoomFromUrl` already defaults a missing `?room=` to `"quickplay"`.
+- **Known dependency, recorded on the shard card:** the gate asks `detectGameMode() === "quickplay"`,
+  which is an exact match — `quickplay2`/`quickplay3` classify as *friends*. **QUICKPLAY-SHARD-1 must
+  land the shared predicate or SEC-DIAG-1 reopens on exactly the rooms that card creates.** That is a
+  security requirement of the shard card, not free inheritance.
+- *(UI/UX · Medium)* **ONBOARD-FLAG-1** — ✅ PASS 08-05 (`f0fe90f`). `howtoSeen` was written when the
+  first-run auto-open was merely **armed**, before the 600 ms timer and before anything confirmed the
+  overlay rendered — so any disarm inside that window consumed a player's only tutorial permanently.
+  The write moved into `openHowToScreen()` **after both early returns**; placement is the whole fix,
+  since a write above the phase guard re-creates the bug for the mid-round bail.
+- **Honest limit on ONBOARD-FLAG-PT-1's PASS.** Wyatt could not execute step 2 — *"i cannot click solo
+  that fast so i think this is a non issue lol"* — so the human skip-click was never performed, and
+  he is right that the 600 ms window is hard to hit deliberately on a fast desktop. The property still
+  holds by construction rather than by that click: there is now exactly **one** write site (asserted
+  in `tests/onboardFirstRun.test.js`), it sits inside `openHowToScreen` past both guards, and the
+  agent confirmed live on the dev build that the flag is written when the overlay opens and that a
+  reload does not re-open it once set. **Frequency is low; the fix is free and removes a
+  permanent-loss failure mode.** Do not re-open on frequency grounds alone.
+- **Trap recorded as a test, not a comment.** Disarming inside `openHowToScreen` looks like the
+  obvious companion change and would break boot: `show()` calls `closeHowToScreen()` first and boot
+  calls `show()` twice, so the auto-open only survives because internal closes keep it armed. A test
+  now fails if anyone adds that disarm.
+- **Evidence:** prod `fbe8163`, cap-285 / cap-286 (complete bundles, 19 snapshot namespaces, 70
+  events) — which is what closed PT-3 rather than the on-screen confirmation alone.
+
+---
+
 ### August 5, 2026 — FIX-EMISSIVE PASS 2/2: the trim survives on the cache, second time around
 
 **Wyatt PASS on prod `a7dfd8f7`** — FIX-EMISSIVE-1 *"they dont read blown out"*, FIX-EMISSIVE-2

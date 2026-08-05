@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-05T17:42:38.189Z",
-    "commit": "9999a2a"
+    "at": "2026-08-05T18:01:59.979Z",
+    "commit": "fbe8163"
   },
-  "source_digest": "38bf0cf5",
+  "source_digest": "c102d700",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -901,7 +901,7 @@
       }
     ],
     "next_actions": [
-      "Work the ordered queue — [BACKLOG § Work order](./planning/BACKLOG.md) (2026-08-05 pre-launch audit; Wyatt asked for a single card order to work down). First up: SEC-DIAG-1 → ONBOARD-FLAG-1 → QUICKPLAY-SHARD-1 (design ack first) → FIX-MIG → ATTRACT-JANK-1. Nothing owed, nothing mid-flight; battery 6/6 complete suite at HEAD (08-05). Closed 08-05: HARNESS-GEO-1, BUNDLE-1/BUNDLE-E-PT-1, HUD-TOAST-Z-1, FIX-EMISSIVE, and the five-card physics run (all PASS).",
+      "Work the ordered queue — [BACKLOG § Work order](./planning/BACKLOG.md) (2026-08-05 pre-launch audit; Wyatt asked for a single card order to work down). Block A items 1–2 are closed PASS 4/4 on prod `fbe8163` (SEC-DIAG-1, ONBOARD-FLAG-1). Next: QUICKPLAY-SHARD-1 — design ack required before code, then FIX-MIG → ATTRACT-JANK-1. Nothing owed, nothing mid-flight. Closed 08-05: HARNESS-GEO-1, BUNDLE-1/BUNDLE-E-PT-1, HUD-TOAST-Z-1, FIX-EMISSIVE, the five-card physics run, and the SEC-DIAG/ONBOARD-FLAG pair (all PASS).",
       "Hitch forensics now has evidence — cap-254–260 (build `8d96b0b`) are the first captures from a working upload path, including a Cart Rave F8 taken on a hitch. Read them before any perf knob.",
       "Still owed separately: 9-cell PERF sweep (~25 min). Resume Run 8 FAIL triage."
     ],
@@ -943,7 +943,7 @@
       {
         "title": "Engineering",
         "counts": {
-          "High": 4,
+          "High": 3,
           "Medium": 13,
           "Low": 11,
           "Partial": 1
@@ -953,12 +953,6 @@
             "pri": "High",
             "item": "QUICKPLAY-SHARD-1 — quickplay is one global room; 4 humans worldwide `[pre-ship]`",
             "notes": "**Filed 08-05 from the pre-launch audit; Wyatt confirmed launch is a public post (itch/Reddit), which makes this existential.** Quickplay is a single global DO: [menuPlayEntry.js:463](../../src/orchestration/menuPlayEntry.js:463) hard-sets `room=quickplay`, [party/index.ts:203](../../party/index.ts:203) keys the mode off `this.name === \"quickplay\"` — so the 4-human cap is **worldwide** and the 5th concurrent player gets `joinRejected` 4004 \"Room full\". **Design lock (verified against the tree 08-05 — needs ack before code):** (1) public shard ids must be **alphanumeric only** — `quickplay2`, `quickplay3`, ≤16 chars. `quickplay__N` cannot work publicly: `resolvedPartyRoomFromUrl()` ([netcode.js:996](../../src/netcode.js:996)) rejects `_`/`-` and **silently falls back to `\"quickplay\"`**, so an underscore scheme would never shard via `?room=`; `quickplay__*` stays the harness-only continuous prefix ([readiness.js:18](../../shared/readiness.js:18) — party-do tests inject the DO name directly, bypassing the URL funnel). (2) One shared predicate — `room === \"quickplay\" \\",
-            "ship1": null
-          },
-          {
-            "pri": "High",
-            "item": "SEC-DIAG-1 — prod `?diag=1` control levers let a quickplay host set scores `[pre-ship]`",
-            "notes": "**Filed 08-05 from the pre-launch audit — the code already asks for this:** the attach block at [main.js:718](../../src/main.js:718) carries an open-risk comment (\"a player who adds `?diag=1` as quickplay host could cheat scores; revisit before launch\"). `installDiagnostics` works in prod by design, and `control` ([devControl.js](../../src/dev/devControl.js)) exposes `setScores` / `grantKos` / `forceSuddenDeath` / `rewindRoundClock` to the host — so any public-MP host can cheat with a URL param. **Scope:** gate the `control` levers out of public-MP contexts (solo/friends-host only, or DEV builds only — pick at ack). **Hard constraint: read-only diag + F8 capture keep working in prod everywhere** — the capture pipeline is load-bearing evidence collection and `MENU_RETURN_CARRY_PARAMS` must keep carrying `diag` across menu returns. Small; unit-testable (mode × build matrix on whether `control` attaches).",
             "ship1": null
           },
           {
@@ -1342,35 +1336,9 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "High": 2,
-          "Medium": 2,
           "Low": 1
         },
         "rows": [
-          {
-            "pri": "High",
-            "item": "SEC-DIAG-PT-1 — a quickplay host can no longer set their own score `[solo]` (SEC-DIAG-1)",
-            "notes": "**Owed: Wyatt playtest — SEC-DIAG-PT-1 — on prod, confirm the score lever is refused in quickplay.** Shared setup for the three SEC-DIAG cards: open https://cart-rave.wyabro.workers.dev/?diag=1 (hard-refresh) with the browser console open.<br>1. Start QUICKPLAY and wait until the round is actually running and you are the host.<br>2. In the console, run `__ccDiag.control.setScores({0:9,1:0,2:0,3:0})`.<br>3. It should come back refused — `ok: false`, reason `public-room` — and **no score on the HUD may move.**<br>FAIL if it reports success, or if any score changes. This is the launch-integrity check: a stranger who adds `?diag=1` and happens to be host must not be able to hand themselves a win. Unit tests cover the logic, but only prod proves the real build's DEV flag is off — which is also why `grantKos` needs no separate card, it rides the same flag.",
-            "ship1": null
-          },
-          {
-            "pri": "High",
-            "item": "SEC-DIAG-PT-2 — solo still lets you drive the round levers `[solo]` (SEC-DIAG-1)",
-            "notes": "**Owed: Wyatt playtest — SEC-DIAG-PT-2 — on prod, confirm the levers still work OUTSIDE quickplay.** Same `?diag=1` setup as SEC-DIAG-PT-1.<br>1. Start SOLO and wait until the round is running.<br>2. In the console, run `__ccDiag.control.setScores({0:9,1:0,2:0,3:0})`.<br>3. It should succeed and your score should jump to 9 on the HUD.<br>FAIL if it refuses. Separate verdict from SEC-DIAG-PT-1 because they can disagree in the worst way: a gate that refuses *everywhere* would look like a pass on that card while quietly killing your live round-end repro workflow. Friends rooms take the same path as solo, so a pass here covers both.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "SEC-DIAG-PT-3 — F8 capture still uploads from prod `[solo]` (SEC-DIAG-1)",
-            "notes": "**Owed: Wyatt playtest — SEC-DIAG-PT-3 — on prod, confirm evidence collection was not collateral damage.** Same `?diag=1` setup.<br>1. Start SOLO and play a few seconds of a running round.<br>2. Press **F8**.<br>3. The capture should confirm on screen and upload — check it lands with `npm run captures:pull`.<br>FAIL if nothing uploads. The card exists because SEC-DIAG-1 changed the shape of the diagnostics control object, and the capture pipeline is how every other playtest produces evidence — breaking it would be silent and expensive. A working F8 also proves read-only diag is intact, since the bundle is assembled from those same snapshots.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "ONBOARD-FLAG-PT-1 — the first-run tutorial survives being skipped (ONBOARD-FLAG-1)",
-            "notes": "**Owed: Wyatt playtest — ONBOARD-FLAG-PT-1 — on prod, prove the HOW TO PLAY tutorial comes back if you skip past it, and stays gone once you have read it.**<br>1. Open devtools → Application → Local Storage → delete `cartRaveHowToSeen`, then hard-refresh.<br>2. The moment the menu appears, click SOLO **immediately** — inside about half a second, before the tutorial can pop up. Play a few seconds, quit to menu, then refresh.<br>3. HOW TO PLAY **should** open by itself. That is the fix: skipping past it no longer burns it forever.<br>4. Now let it open, close it with DONE, and refresh once more. It **should not** come back.<br>FAIL if it never returns in step 3, or if it keeps reappearing in step 4. **Already verified by agent on the dev build:** the overlay auto-opens on a cleared flag and does not reappear once closed (step 3's *happy* half and step 4). **Step 2 is the one only a human can do** — an automated click cannot beat the 600 ms timer, so the skip path is unproven until you try it. Desktop judge.",
-            "ship1": null
-          },
           {
             "pri": "Low",
             "item": "AQ-RING-CLEAR-1 — autoQuality clear sample ring on every window eval",
@@ -1382,7 +1350,7 @@
       {
         "title": "UI / UX",
         "counts": {
-          "Medium": 8,
+          "Medium": 7,
           "High": 3,
           "Low": 4
         },
@@ -1397,12 +1365,6 @@
             "pri": "High",
             "item": "ONBOARD-SLIDES-1 — how-to-play as click-through visual slides `[pre-ship]`",
             "notes": "Replace wall-of-text “how to play” with a **slideshow**: card-by-card slides the player can click through, each with GIF / short animation / picture so rules land fast. Supersedes wall-of-text path of **ONBOARD-1**; keep Solo-as-tutorial stance. Needs asset list (slide topics + art) before full polish.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "ONBOARD-FLAG-1 — first-run HOW TO PLAY can be permanently consumed unseen `[pre-ship]`",
-            "notes": "**Filed 08-05 from the pre-launch audit.** `maybeAutoOpenHowTo` writes `STORAGE_KEYS.howtoSeen = \"1\"` at **arm time** — before the 600 ms timer ever shows the overlay ([cart-rave-menu.js:1182](../../src/cart-rave-menu.js:1182)). Any disarm inside that window (early Play click, invite `?room=` load, entering a match) leaves the flag set: that player never sees HOW TO PLAY and never will, short of clearing site data. **Fix:** write the flag when the overlay actually opens, not when the auto-open is armed. Distinct from ONBOARD-SLIDES-1 — that card is the *content*, this is the *delivery* bug; landing this first means the slides actually get shown. Small; unit-testable (arm → disarm before the timer fires → flag must still be unset).",
             "ship1": null
           },
           {

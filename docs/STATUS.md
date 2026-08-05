@@ -75,7 +75,7 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. **Work the ordered queue — [BACKLOG § Work order](./planning/BACKLOG.md)** (2026-08-05 pre-launch audit; Wyatt asked for a single card order to work down). First up: **SEC-DIAG-1** → ONBOARD-FLAG-1 → QUICKPLAY-SHARD-1 (design ack first) → FIX-MIG → ATTRACT-JANK-1. Nothing owed, nothing mid-flight; battery **6/6 complete suite** at HEAD (08-05). Closed 08-05: HARNESS-GEO-1, BUNDLE-1/BUNDLE-E-PT-1, HUD-TOAST-Z-1, FIX-EMISSIVE, and the five-card physics run (all PASS).
+1. **Work the ordered queue — [BACKLOG § Work order](./planning/BACKLOG.md)** (2026-08-05 pre-launch audit; Wyatt asked for a single card order to work down). Block A items 1–2 are **closed PASS 4/4 on prod `fbe8163`** (SEC-DIAG-1, ONBOARD-FLAG-1). **Next: QUICKPLAY-SHARD-1 — design ack required before code**, then FIX-MIG → ATTRACT-JANK-1. Nothing owed, nothing mid-flight. Closed 08-05: HARNESS-GEO-1, BUNDLE-1/BUNDLE-E-PT-1, HUD-TOAST-Z-1, FIX-EMISSIVE, the five-card physics run, and the SEC-DIAG/ONBOARD-FLAG pair (all PASS).
 2. **Hitch forensics now has evidence** — cap-254–260 (build `8d96b0b`) are the first captures from a working upload path, including a Cart Rave F8 taken on a hitch. Read them before any perf knob.
 3. **Still owed separately:** 9-cell PERF sweep (~25 min). Resume Run 8 FAIL triage.
 
