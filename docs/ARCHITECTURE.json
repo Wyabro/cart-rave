@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-05T04:26:35.190Z",
-    "commit": "8ec9e3a"
+    "at": "2026-08-05T04:30:15.897Z",
+    "commit": "ffcb9f3"
   },
-  "source_digest": "8e549069",
+  "source_digest": "5eb7ae7f",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -857,7 +857,7 @@
       {
         "id": "STORE-PLAT-WALL-1",
         "what": "Storerooms pit cliff had no collider",
-        "status": "✅ CODE LANDED 08-05 (`8ec9e3a`), unshipped — playtest owed. The filing named the wrong geometry (booth rails); Wyatt's screenshot was at pit-floor level. Real bug: `addCliffRing(ARENA_HALF)` drew the 26 m arena cliff as plain meshes with zero colliders, so a cart in the pit drove under the playfield. Fixed with an exported spec + four cuboids on `buildFallContainment`'s body, top tucked `CHAMFER_TUCK` above `FLOOR_BOTTOM_Y` to avoid a coplanar seam. [BACKLOG § Playtest owed](./planning/BACKLOG.md).",
+        "status": "✅ DEPLOYED 08-05 (`8ec9e3a`) · Version `251c51e4` · chunk `backroomsSupermarket-DSK1Rh_H.js`, prod SHA verified — playtest owed. The filing named the wrong geometry (booth rails); Wyatt's screenshot was at pit-floor level. Real bug: `addCliffRing(ARENA_HALF)` drew the 26 m arena cliff as plain meshes with zero colliders, so a cart in the pit drove under the playfield. Fixed with an exported spec + four cuboids on `buildFallContainment`'s body, top tucked `CHAMFER_TUCK` above `FLOOR_BOTTOM_Y` to avoid a coplanar seam. [BACKLOG § Playtest owed](./planning/BACKLOG.md).",
         "state": "done"
       },
       {
@@ -1331,7 +1331,7 @@
           {
             "pri": "High",
             "item": "STORE-PLAT-WALL-1 — the pit is a sealed box now `[solo]`",
-            "notes": "**Owed: Wyatt playtest — STORE-PLAT-WALL-1 — you should not be able to get under the arena any more.** You fell into the Storerooms pit and drove straight through the wall attached to the arena, ending up underneath the playfield. That wall was scenery — it had no physics at all. It does now. **NOT DEPLOYED YET — this needs a ship before you can check it.**<br>1. On Storerooms, get yourself into the pit — ram off the arena edge, or go down one of the square holes. Once you are down there, drive at the wall under the arena. You should hit it and stop, not pass under the floor. Try a couple of spots along the wall, and try the corners, which is where a gap would show up if one exists.",
+            "notes": "**Owed: Wyatt playtest — STORE-PLAT-WALL-1 — you should not be able to get under the arena any more.** You fell into the Storerooms pit and drove straight through the wall attached to the arena, ending up underneath the playfield. That wall was scenery — it had no physics at all. It does now. **DEPLOYED** · Version `251c51e4` · chunk `backroomsSupermarket-DSK1Rh_H.js` (prod SHA byte-identical to the local ship, verified) · hard-refresh https://cart-rave.wyabro.workers.dev first.<br>1. On Storerooms, get yourself into the pit — ram off the arena edge, or go down one of the square holes. Once you are down there, drive at the wall under the arena. You should hit it and stop, not pass under the floor. Try a couple of spots along the wall, and try the corners, which is where a gap would show up if one exists.",
             "ship1": null
           },
           {
