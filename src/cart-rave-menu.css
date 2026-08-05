@@ -3212,17 +3212,16 @@ html, body {
   z-index: 2;
 }
 .cr-hero .cr-title-stack {
-  position: relative;
-  z-index: 1;
   align-items: center; text-align: center; width: 100%;
   /* Mock 3a: 170px @1920, line-height 0.78, no tracking. Same clamp shape as the
      base rule — the vh term is the short-window ceiling — scaled to the mock cap. */
   font-size: clamp(68px, min(10.94vw, 16.8vh), 170px);
   line-height: 0.78;
   letter-spacing: 0;
-  /* MENU-LOGO-1a: sticker lettering — ink die-cut stroke + fill (HUD peel recipe). */
-  -webkit-text-stroke: 0.032em var(--color-ink-deep);
-  paint-order: stroke fill;
+  /* Prod title glow (restored MENU-LOGO-3 residual): stroke retired — soft bloom
+     on the words is the hero treatment, not a wash ellipse or aisle bar. */
+  -webkit-text-stroke: 0;
+  paint-order: normal;
   /* The beat pulse arrives as a scalar custom property (animLoop). NOTHING may
      write `transform` on this node — an inline transform wipes the -4deg lean,
      which is exactly how the lockup lost it (the rAF write set `scale()`). */
@@ -3230,72 +3229,15 @@ html, body {
   /* MENU-RESTRAINT-1d: bottom was clamp(20px, 4.8vh, 52px) — pull cmds closer. */
   margin: clamp(8px, 1.9vh, 20px) 0 clamp(12px, 3.2vh, 36px);
 }
-/* MENU-LOGO-3: graffiti splat retired — fought dark neon + Fight Night chrome.
-   (2) Arena wash halo — soft ellipse from --menu-glow1 / wash-a, same language as
-   the menu backdrop, not a decal. (4) Optional aisle-marker under CLASH only —
-   thin skewed ink bar; delete the ::after block if it still feels wrong. */
-.cr-hero .cr-title-stack::before {
-  content: "";
-  position: absolute;
-  z-index: 0;
-  inset: -10% -14% -8% -14%;
-  background: radial-gradient(
-    ellipse 72% 58% at 50% 46%,
-    color-mix(in srgb, var(--menu-glow1, var(--color-magenta)) 26%, transparent) 0%,
-    color-mix(in srgb, var(--menu-glow1, var(--color-magenta)) 10%, transparent) 42%,
-    transparent 72%
-  );
-  pointer-events: none;
-}
-@supports (background: oklch(0.7 0.2 340 / 0.2)) {
-  .cr-hero .cr-title-stack::before {
-    background: radial-gradient(
-      ellipse 72% 58% at 50% 46%,
-      oklch(var(--wash-a-l) var(--wash-a-c) var(--wash-a-h) / 0.28) 0%,
-      oklch(var(--wash-a-l) var(--wash-a-c) var(--wash-a-h) / 0.10) 42%,
-      transparent 72%
-    );
-  }
-}
-/* MENU-LOGO-1a: 2-step hard ink extrude (zero blur). Soft bloom stays retired. */
-.cr-hero .cr-title-stack .cr-title-word {
-  position: relative;
-  z-index: 1;
-}
+/* Prod word glow — CART soft magenta; CLASH hard cyan offset + soft magenta. */
 .cr-hero .cr-title-stack .cr-title-word:nth-child(1) {
   color: var(--color-sticker-white);
-  text-shadow:
-    3px 3px 0 var(--color-ink-deep),
-    6px 6px 0 var(--color-ink-deep);
+  text-shadow: 0 0 50px var(--glow-magenta-40);
 }
 .cr-hero .cr-title-stack .cr-title-word:nth-child(2) {
   color: var(--color-magenta);
-  /* MENU-LOGO-1b: one hard cyan underprint (cheap misregister) under CLASH only.
-     Zero blur — peeks left/up of the magenta fill, then 2-step ink extrude. */
-  text-shadow:
-    -2px 1px 0 var(--color-cyan),
-    3px 3px 0 var(--color-ink-deep),
-    6px 6px 0 var(--color-ink-deep);
+  text-shadow: 4px 4px 0 var(--glow-cyan-30), 0 0 60px var(--glow-magenta-40);
   margin-top: -0.06em;
-  /* Stack isn’t dead-centered twins — CLASH slips left a hair. */
-  margin-left: -0.03em;
-}
-/* MENU-LOGO-3 (4) — aisle-marker underline under CLASH. Skeptical lever: kill
-   this whole rule if it reads as clutter. */
-.cr-hero .cr-title-stack .cr-title-word:nth-child(2)::after {
-  content: "";
-  position: absolute;
-  z-index: -1;
-  left: 4%;
-  right: 2%;
-  bottom: 0.04em;
-  height: 0.14em;
-  background: var(--color-ink);
-  border: 1px solid var(--border-white-12);
-  box-shadow: 2px 2px 0 var(--color-ink-deep);
-  transform: skewX(-14deg);
-  opacity: 0.75;
-  pointer-events: none;
 }
 
 /* ── Command list — skewed rows; yellow = selection only (never permanent CTA).
