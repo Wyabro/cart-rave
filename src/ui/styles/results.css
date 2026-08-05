@@ -507,11 +507,19 @@
   transform: none;
 }
 
-/* Width-based fallback mirrors the coarse-pointer rules below: a narrow
-   pointer:fine window (e.g. a resized desktop browser) hits the same panel
-   clipping (min-width:min(420px,92vw) on .results-panel) that touch users
-   were already protected from — apply the same compaction by width. */
-@media (pointer: coarse), (max-width: 768px) {
+/*
+ * ── Mobile results (UI-SCALE-1) ───────────────────────────────────────────
+ * Shared chrome for touch / narrow. Layout is orientation-driven BELOW so
+ * portrait and landscape stop fighting each other.
+ *
+ * Rank list (not towers) is shared. Body layout:
+ *   PORTRAIT  → stack: ranks → receipt → buttons
+ *   LANDSCAPE → side-by-side: ranks left | receipt+actions right
+ *
+ * Use (orientation) + (max-height) for landscape so short DevTools windows
+ * still hit side-by-side even when pointer:fine and width > 768.
+ */
+@media (pointer: coarse), (max-width: 900px) {
   #results-overlay {
     align-items: stretch;
     justify-content: stretch;
@@ -529,9 +537,9 @@
     overflow: hidden;
     padding:
       max(8px, env(safe-area-inset-top, 0px))
-      max(10px, env(safe-area-inset-right, 0px))
+      max(12px, env(safe-area-inset-right, 0px))
       max(8px, env(safe-area-inset-bottom, 0px))
-      max(10px, env(safe-area-inset-left, 0px));
+      max(12px, env(safe-area-inset-left, 0px));
     display: flex;
     flex-direction: column;
     gap: clamp(4px, 1vh, 8px);
@@ -545,38 +553,12 @@
     line-height: 1.1;
   }
 
-  /*
-   * Mobile default = STACK (portrait-first). Two columns on a phone portrait
-   * truncated names and left a dead slab under the buttons (Wyatt 08-05).
-   * Landscape re-opens side-by-side below.
-   */
-  #results-overlay .results-body {
-    flex: 1 1 auto;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    gap: clamp(8px, 1.4vh, 12px);
-    overflow: hidden;
+  #results-overlay .results-kicker,
+  #results-overlay .results-verdict {
+    flex-shrink: 0;
   }
 
-  /*
-   * Mobile podium = ranked LIST, not four towers.
-   * DOM is already 1st→4th; drop the desktop visual reorder.
-   */
-  #results-overlay .results-final {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 6px;
-    margin-bottom: 0;
-    flex: 0 1 auto;
-    min-height: 0;
-    width: 100%;
-    max-height: 46vh;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-  }
-
+  /* Rank LIST chrome (both orientations). */
   #results-overlay .results-podium-col,
   #results-overlay .results-podium-col:nth-child(1),
   #results-overlay .results-podium-col:nth-child(2),
@@ -625,8 +607,8 @@
     order: 1;
     flex: 0 0 auto;
     width: auto;
-    min-width: 4.5rem;
-    height: auto;
+    min-width: 4.75rem;
+    height: auto !important; /* kill tower min() heights on mobile list */
     min-height: 0;
     flex-direction: row;
     align-items: center;
@@ -659,82 +641,133 @@
     padding: 1px 5px;
   }
 
+  #results-overlay .results-final {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    margin-bottom: 0;
+    min-height: 0;
+    width: 100%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  #results-overlay .results-btn {
+    touch-action: manipulation;
+  }
+}
+
+/* ── PORTRAIT (tall): stack ranks → receipt → full-width buttons ───────── */
+@media (pointer: coarse) and (orientation: portrait),
+       (max-width: 900px) and (orientation: portrait) {
+  #results-overlay .results-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow: hidden;
+  }
+
+  #results-overlay .results-final {
+    flex: 0 1 auto;
+    max-height: 42vh;
+  }
+
   #results-overlay .results-receipt {
     flex: 1 1 auto;
     min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
     margin-bottom: 0;
-    padding: clamp(10px, 2.2vw, 14px) clamp(12px, 3vw, 16px);
+    padding: 12px 14px;
     width: 100%;
   }
 
   #results-overlay .results-actions {
-    gap: clamp(8px, 2vw, 10px);
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
+    gap: 8px;
     width: 100%;
   }
 
   #results-overlay .results-btn {
     min-height: 44px;
     width: 100%;
-    padding: clamp(10px, 2.5vw, 12px) clamp(14px, 3.5vw, 18px);
-    font-size: clamp(13px, 3.4vw, 15px);
-    touch-action: manipulation;
+    padding: 12px 16px;
+    font-size: 14px;
   }
 }
 
 /*
- * Landscape mobile: ranks LEFT (wider), receipt + actions RIGHT.
- * Rank column ~1.55fr so the list isn't a thin rail (Wyatt 08-05).
+ * ── LANDSCAPE / SHORT: ranks LEFT (wide), receipt+actions RIGHT ──────────
+ * Trigger on orientation OR short height so DevTools / squat windows still
+ * get the side-by-side layout (orientation alone was unreliable).
  */
 @media (pointer: coarse) and (orientation: landscape),
-       (max-width: 900px) and (orientation: landscape) {
+       (max-width: 1100px) and (orientation: landscape),
+       (pointer: coarse) and (max-height: 520px) and (min-width: 560px),
+       (max-width: 1100px) and (max-height: 520px) and (min-width: 560px) {
   #results-overlay .results-body {
-    display: grid;
-    grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+    flex: 1 1 auto;
+    min-height: 0;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1.65fr) minmax(220px, 1fr);
     grid-template-rows: minmax(0, 1fr) auto;
     grid-template-areas:
       "scores receipt"
       "scores actions";
-    gap: 10px 14px;
+    gap: 10px 16px;
     overflow: hidden;
   }
 
   #results-overlay .results-final {
     grid-area: scores;
-    max-height: none;
+    max-height: none !important;
     height: 100%;
     flex: unset;
+    /* All four ranks must fit — no 46vh clip. */
+    justify-content: flex-start;
   }
 
   #results-overlay .results-receipt {
     grid-area: receipt;
     flex: unset;
     width: auto;
+    min-height: 0;
     max-height: 100%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    margin-bottom: 0;
+    padding: 10px 12px;
   }
 
   #results-overlay .results-actions {
     grid-area: actions;
     display: grid;
     grid-template-columns: 1fr 1fr;
+    gap: 8px;
     align-self: end;
     width: 100%;
+    flex-direction: unset;
   }
 
   #results-overlay .results-btn {
     width: auto;
     min-height: 40px;
-    padding: 8px 10px;
-    font-size: clamp(11px, 2.2vw, 13px);
+    padding: 8px 12px;
+    font-size: 13px;
   }
 
   #results-overlay .results-podium-block {
+    min-width: 5.25rem;
     padding: 7px 10px;
-    min-width: 5rem;
+  }
+
+  #results-overlay .results-podium-col .results-podium-name {
+    font-size: 13px;
   }
 
   #results-overlay .results-podium-rank {
@@ -745,8 +778,8 @@
     font-size: 19px;
   }
 
-  #results-overlay .results-podium-col .results-podium-name {
-    font-size: 13px;
+  #results-overlay .results-title {
+    font-size: clamp(16px, 4.2vh, 22px);
   }
 }
 
@@ -756,32 +789,26 @@
   }
 }
 
-/* Short windows with a fine pointer (a landscape 812x375, a squat laptop window)
-   reach neither the coarse nor the <=768 band, and the two-column composition
-   needs more height than they have — podium, receipt and actions overflowed
-   their rows and landed on each other. Stack and scroll instead.
-
-   DECLARED LAST ON PURPOSE (RESULTS-ACT-1). Media queries add no specificity and
-   every selector below is `#results-overlay .x` — identical to the base rule it
-   overrides — so from this block's old home near the top of the file the
-   compression rules below would silently LOSE on source order and the band would
-   stay broken with no visible cause. Same reason the coarse/<=768 band is
-   declared late; see the note at the top of the file. Keep this block last. */
-@media (max-height: 640px) and (min-width: 769px) and (pointer: fine) {
-  /* No `grid-template-rows` override here — the base `auto auto auto minmax(0,1fr)`
-     is the point: it gives the body a flexible track to absorb slack. This band
-     used to set every row to `auto`, so nothing was capped and the panel's
-     scrollHeight became a pure content sum — 706px inside a 390px window, which
-     put PLAY AGAIN 295px below the fold with no affordance saying so.
-     `overflow-y` stays: the band has no min-height, so 769x300 is legal and can
-     still exceed the header alone. The valve remains; it just stops being the
-     primary layout. */
+/*
+ * Short DESKTOP windows (fine pointer, tall enough that the mobile landscape
+ * side-by-side band above does not apply). Stack + scroll.
+ *
+ * CRITICAL: do NOT match short landscape here — that used to force
+ * grid-template-columns: 1fr AFTER the mobile landscape rules and wiped the
+ * ranks-left / receipt-right layout (Wyatt 08-05). Restrict to portrait or
+ * taller-than-520 short windows so mobile landscape keeps its 2-col.
+ *
+ * DECLARED LAST ON PURPOSE (RESULTS-ACT-1) vs base desktop rules only.
+ */
+@media (max-height: 640px) and (min-width: 769px) and (pointer: fine) and (orientation: portrait),
+       (max-height: 640px) and (min-height: 521px) and (min-width: 769px) and (pointer: fine) {
   #results-overlay .results-panel {
     overflow-y: auto;
     padding-top: clamp(12px, 3.4vh, 64px);
   }
 
   #results-overlay .results-body {
+    display: grid;
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto minmax(0, 1fr) auto;
     row-gap: clamp(6px, 1.6vh, 18px);
@@ -791,17 +818,13 @@
   #results-overlay .results-receipt,
   #results-overlay .results-actions {
     grid-column: 1;
+    grid-area: unset;
     align-self: stretch;
     justify-self: stretch;
   }
 
   #results-overlay .results-final { grid-row: 1; }
 
-  /* The same trade the coarse band already makes: the receipt is the only zone
-     that scrolls, so a long round's extra lines can never push the decision off
-     a squat window. `min-height: 0` is NOT optional — `minmax(0, 1fr)` sizes the
-     TRACK, but a grid item's automatic minimum size would still pin this box to
-     its content height and re-overflow the row. */
   #results-overlay .results-receipt {
     grid-row: 2;
     min-height: 0;
@@ -810,19 +833,6 @@
     padding: clamp(8px, 1.8vh, 26px) clamp(16px, 1.6vw, 30px);
   }
 
-  /* Belt and braces: the band has no min-height, so no static budget can be
-     PROVEN sufficient. Sticky, never fixed — the defeat-state `filter` and the
-     entrance timeline's residual inline transform each make the panel a
-     containing block for fixed descendants, which would anchor the actions to
-     the panel on a defeat and to the viewport on a victory. Sticky resolves
-     against the scrollport, so both outcomes behave alike.
-     The opaque fill is structural, not decoration: PLAY AGAIN's slab is a
-     skewX(-8deg) ::before with two transparent corners and MAIN MENU is
-     transparent with a 1px border, so receipt text would read straight through
-     both while scrolling under them. --color-ink-deep is the closest opaque
-     match to this overlay's own scrim. The lip is a 0-blur shadow rather than
-     padding so it costs no layout height. No `overflow` here — it would clip the
-     focus ring, which sits outside the box on outline-offset. */
   #results-overlay .results-actions {
     grid-row: 3;
     position: sticky;
@@ -831,14 +841,10 @@
     box-shadow: 0 -8px 0 var(--color-ink-deep);
   }
 
-  /* The header and the podium are sized in vw and px, so they are blind to the
-     one axis that is scarce in this band. Re-express them against vh. */
   #results-overlay .results-kicker {
     margin-bottom: clamp(2px, 0.6vh, 10px);
   }
 
-  /* One declaration carries three — ::before ("VICTORY"/"DEFEAT") is 1.1em with a
-     0.3em margin, so both scale off this font-size. */
   #results-overlay .results-title {
     font-size: clamp(18px, 5.2vh, 34px);
     margin-bottom: 4px;
@@ -846,12 +852,6 @@
 
   #results-overlay .results-verdict {
     margin-bottom: clamp(6px, 1.6vh, 16px);
-  }
-
-  /* The coarse band's value, for the reason the base cap already gives:
-     "capped so short viewports keep the block on screen". */
-  #results-overlay .results-podium-block {
-    height: max(44px, calc(var(--podium-h, 80px) * min(1, 22vh / 250px)));
   }
 
   #results-overlay .results-btn {
