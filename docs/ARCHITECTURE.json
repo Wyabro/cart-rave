@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-05T09:25:23.237Z",
-    "commit": "cfab2d0"
+    "at": "2026-08-05T17:15:31.054Z",
+    "commit": "15f8b48"
   },
-  "source_digest": "2b77f685",
+  "source_digest": "67d483a8",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1342,9 +1342,16 @@
       {
         "title": "Playtest owed",
         "counts": {
+          "Medium": 1,
           "Low": 1
         },
         "rows": [
+          {
+            "pri": "Medium",
+            "item": "ONBOARD-FLAG-PT-1 — the first-run tutorial survives being skipped (ONBOARD-FLAG-1)",
+            "notes": "**Owed: Wyatt playtest — ONBOARD-FLAG-PT-1 — on prod, prove the HOW TO PLAY tutorial comes back if you skip past it, and stays gone once you have read it.**<br>1. Open devtools → Application → Local Storage → delete `cartRaveHowToSeen`, then hard-refresh.<br>2. The moment the menu appears, click SOLO **immediately** — inside about half a second, before the tutorial can pop up. Play a few seconds, quit to menu, then refresh.<br>3. HOW TO PLAY **should** open by itself. That is the fix: skipping past it no longer burns it forever.<br>4. Now let it open, close it with DONE, and refresh once more. It **should not** come back.<br>FAIL if it never returns in step 3, or if it keeps reappearing in step 4. **Already verified by agent on the dev build:** the overlay auto-opens on a cleared flag and does not reappear once closed (step 3's *happy* half and step 4). **Step 2 is the one only a human can do** — an automated click cannot beat the 600 ms timer, so the skip path is unproven until you try it. Desktop judge.",
+            "ship1": null
+          },
           {
             "pri": "Low",
             "item": "AQ-RING-CLEAR-1 — autoQuality clear sample ring on every window eval",

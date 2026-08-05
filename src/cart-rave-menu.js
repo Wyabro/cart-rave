@@ -1114,6 +1114,16 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
     const phase = getRoundState().phase;
     if (phase === "running" || phase === "countdown") return;
     captureOverlayOpener();
+    // * ONBOARD-FLAG-1: mark first-run onboarding seen HERE — the overlay is now committed to
+    // * showing. It used to be written when the auto-open was merely ARMED, which meant any
+    // * disarm inside the 600ms window (an early SOLO click, an invite URL, or this very
+    // * function bailing on the phase guard above) consumed a player's only tutorial without
+    // * ever rendering it: flag set, overlay never seen, and no way back short of clearing
+    // * site data. Placement after both early returns is the whole fix — a write above them
+    // * reintroduces the bug for the mid-round case.
+    // * Manual opens (the HOW TO PLAY button, the openHowTo() API) mark it too, which is what
+    // * a flag named `howtoSeen` should mean, and stops nagging a player who already read it.
+    storageSet(STORAGE_KEYS.howtoSeen, "1");
     howtoScreen.style.display = 'flex';
     howtoScreen.setAttribute('aria-hidden', 'false');
     howtoDoneBtn?.focus();
@@ -1175,6 +1185,10 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
    * Boot calls show() more than once (initMenu, then the boot-splash dismiss),
    * so while armed each show() re-schedules the open; entering a match
    * (hide()) or an explicit user dismissal disarms it for good.
+   *
+   * ONBOARD-FLAG-1: arming deliberately writes NOTHING. `howtoSeen` is stamped by
+   * openHowToScreen() once the overlay is actually committed to showing — arming is
+   * only an intent, and a flag written here is a tutorial the player can lose unseen.
    */
   function maybeAutoOpenHowTo() {
     if (!firstMenuShowHandled) {
@@ -1182,7 +1196,6 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
       if (storageGet(STORAGE_KEYS.howtoSeen)) return;
       const roomParam = new URLSearchParams(window.location.search || "").get("room");
       if (roomParam) return;
-      storageSet(STORAGE_KEYS.howtoSeen, "1");
       howtoAutoOpenArmed = true;
     }
     if (!howtoAutoOpenArmed) return;
