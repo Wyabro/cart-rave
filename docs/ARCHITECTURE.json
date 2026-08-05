@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-05T09:04:30.286Z",
-    "commit": "7f20e8e"
+    "at": "2026-08-05T09:13:07.591Z",
+    "commit": "e8764af"
   },
-  "source_digest": "24ff03bb",
+  "source_digest": "d1852b0c",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -943,12 +943,24 @@
       {
         "title": "Engineering",
         "counts": {
+          "High": 4,
           "Medium": 14,
           "Low": 11,
-          "High": 2,
           "Partial": 1
         },
         "rows": [
+          {
+            "pri": "High",
+            "item": "QUICKPLAY-SHARD-1 — quickplay is one global room; 4 humans worldwide `[pre-ship]`",
+            "notes": "**Filed 08-05 from the pre-launch audit; Wyatt confirmed launch is a public post (itch/Reddit), which makes this existential.** Quickplay is a single global DO: [menuPlayEntry.js:463](../../src/orchestration/menuPlayEntry.js:463) hard-sets `room=quickplay`, [party/index.ts:203](../../party/index.ts:203) keys the mode off `this.name === \"quickplay\"` — so the 4-human cap is **worldwide** and the 5th concurrent player gets `joinRejected` 4004 \"Room full\". **Design lock (verified against the tree 08-05 — needs ack before code):** (1) public shard ids must be **alphanumeric only** — `quickplay2`, `quickplay3`, ≤16 chars. `quickplay__N` cannot work publicly: `resolvedPartyRoomFromUrl()` ([netcode.js:996](../../src/netcode.js:996)) rejects `_`/`-` and **silently falls back to `\"quickplay\"`**, so an underscore scheme would never shard via `?room=`; `quickplay__*` stays the harness-only continuous prefix ([readiness.js:18](../../shared/readiness.js:18) — party-do tests inject the DO name directly, bypassing the URL funnel). (2) One shared predicate — `room === \"quickplay\" \\",
+            "ship1": null
+          },
+          {
+            "pri": "High",
+            "item": "SEC-DIAG-1 — prod `?diag=1` control levers let a quickplay host set scores `[pre-ship]`",
+            "notes": "**Filed 08-05 from the pre-launch audit — the code already asks for this:** the attach block at [main.js:718](../../src/main.js:718) carries an open-risk comment (\"a player who adds `?diag=1` as quickplay host could cheat scores; revisit before launch\"). `installDiagnostics` works in prod by design, and `control` ([devControl.js](../../src/dev/devControl.js)) exposes `setScores` / `grantKos` / `forceSuddenDeath` / `rewindRoundClock` to the host — so any public-MP host can cheat with a URL param. **Scope:** gate the `control` levers out of public-MP contexts (solo/friends-host only, or DEV builds only — pick at ack). **Hard constraint: read-only diag + F8 capture keep working in prod everywhere** — the capture pipeline is load-bearing evidence collection and `MENU_RETURN_CARRY_PARAMS` must keep carrying `diag` across menu returns. Small; unit-testable (mode × build matrix on whether `control` attaches).",
+            "ship1": null
+          },
           {
             "pri": "Medium",
             "item": "SPAWN-SUNDIAL-1 — Sundial platform-leg colliders `[pre-ship]`",
@@ -1229,7 +1241,7 @@
         "title": "Audio",
         "counts": {
           "Medium": 3,
-          "Low": 1
+          "Low": 2
         },
         "rows": [
           {
@@ -1248,6 +1260,12 @@
             "pri": "Medium",
             "item": "Sudden Death music low-pass `[SHIP-1 E3]`",
             "notes": "Audio-graph surgery (shared Howler bus).",
+            "ship1": "E3"
+          },
+          {
+            "pri": "Low",
+            "item": "VOICE-BUS-1 — announcer has no volume of its own",
+            "notes": "**Filed 08-05 from the pre-launch audit.** The announcer — the game's signature audio feature — rides the SFX bus with no level control: [announcerManager.js](../../src/announcer/announcerManager.js) has no volume handling, and settings offer only on/off (`announcerVoiceEnabled` / `announcerCalloutsEnabled` in [settingsStore.js](../../src/stores/settingsStore.js)). **Scope:** a voice slider as a third category alongside music/SFX in [audioStore.js](../../src/stores/audioStore.js) + [audioControls.js](../../src/ui/audioControls.js). **Decide AUDIO-MASTER-1 in the same ack** (Tech Debt: `_masterVol` is write-only dead state — wire it as a real master or delete it) and mind that row's clamp warning: store domain is 0..1.15, Howler ceiling 1.0. This is the narrow slice of the `[SHIP-1 E3]` Howler-upgrade row's \"volume groups\".",
             "ship1": "E3"
           },
           {
@@ -1351,9 +1369,9 @@
       {
         "title": "UI / UX",
         "counts": {
-          "Medium": 6,
+          "Medium": 8,
           "High": 3,
-          "Low": 3
+          "Low": 4
         },
         "rows": [
           {
@@ -1366,6 +1384,24 @@
             "pri": "High",
             "item": "ONBOARD-SLIDES-1 — how-to-play as click-through visual slides `[pre-ship]`",
             "notes": "Replace wall-of-text “how to play” with a **slideshow**: card-by-card slides the player can click through, each with GIF / short animation / picture so rules land fast. Supersedes wall-of-text path of **ONBOARD-1**; keep Solo-as-tutorial stance. Needs asset list (slide topics + art) before full polish.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "ONBOARD-FLAG-1 — first-run HOW TO PLAY can be permanently consumed unseen `[pre-ship]`",
+            "notes": "**Filed 08-05 from the pre-launch audit.** `maybeAutoOpenHowTo` writes `STORAGE_KEYS.howtoSeen = \"1\"` at **arm time** — before the 600 ms timer ever shows the overlay ([cart-rave-menu.js:1182](../../src/cart-rave-menu.js:1182)). Any disarm inside that window (early Play click, invite `?room=` load, entering a match) leaves the flag set: that player never sees HOW TO PLAY and never will, short of clearing site data. **Fix:** write the flag when the overlay actually opens, not when the auto-open is armed. Distinct from ONBOARD-SLIDES-1 — that card is the *content*, this is the *delivery* bug; landing this first means the slides actually get shown. Small; unit-testable (arm → disarm before the timer fires → flag must still be unset).",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "COLOR-ID-1 — player identity is hue-only in a 4-player brawler",
+            "notes": "**Filed 08-05 from the pre-launch audit.** Player identity is carried entirely by neon hue — `--hud-player-accent` drives HUD scoreboard rows and the kill feed, cart bodies carry slot neon — with **no secondary channel anywhere**, so colorblind players (~5% of a public audience) cannot reliably tell four carts apart. The repo already knows the rule: [hud.css:1826](../../src/ui/styles/hud.css:1826) says warn/urgent \"must never be hue-only\" — this extends it to identity. **Scope: slot glyphs only** (a per-slot shape marker on HUD scoreboard rows + kill-feed entries; optionally over carts) — explicitly **not** a full colorblind mode or palette remap, and does not touch the frozen `CART_COLORS` invariant (ART-PALETTE-1 owns that). Patterns/sunglasses already differentiate carts visually when unlocked — glyphs close the gap for the default classic-heavy grid.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "LOAD-TIPS-1 — loading screen teaches nothing while it has the player's full attention",
+            "notes": "**Filed 08-05 from the pre-launch audit.** [loadingScreen.js](../../src/ui/loadingScreen.js) renders zero tips or hint strings — the mode-entry wait is dead air for a first-time player about to enter a 4-cart brawl. **Scope:** a small rotating tip line (charge boost, hop, directives, combo tiers, sudden-death rules) on the loading screen. Topic list overlaps ONBOARD-SLIDES-1 — if slides land first, source tips from the same copy; if this lands first, it is the cheapest 80% of that card's value. Layout note: the loading screen's scale problem is **LOAD-SCALE-1** (owned by the UI-SCALE-1 pass) — don't fix geometry here, just add the line inside the existing centre stage.",
             "ship1": null
           },
           {
@@ -1434,7 +1470,7 @@
         "title": "Tech Debt",
         "counts": {
           "Medium": 7,
-          "Low": 11
+          "Low": 12
         },
         "rows": [
           {
@@ -1484,6 +1520,13 @@
             "id": "BUNDLE-1",
             "item": "Menu/game code-split",
             "notes": "⚠️ **CLOSED PARTIAL 08-05 — the perf goal was not met.** Six levers landed (A–F, [bundle-1.md §0](./bundle-1.md)). Warm Intel prod `menu-ready` **988 → 958 ms (−3%)** against a **−15% / ≤921 ms** gate; `module-eval` **472 → 502**, i.e. still worse than pre-card, so Lever E's stated hypothesis (\"−351 kB cuts parse below 472\") is **falsified**, not \"inconclusive\". Mechanism: the locked target was a **warm** repeat visit, where the payload is already local — deferring bytes saves parse only, and the extra chunk boundaries cost requests plus lost cross-chunk optimization, roughly cancelling it. Cold was deliberately not measured (the bytes are kept regardless). **Banked and real:** a `size:check` byte + membership gate the repo did not have (Lever F re-keyed membership on **modules** — rolldown re-splits the entry chunk under new names every build and red-gated the card twice); `main.js` 2,582 → 1,262 lines, which also meets MAIN-1's missed ≤1500; **−351,503 B (−22.6%)** off the initial download set, baseline re-ratcheted to 1,203,360 B — worth nothing warm, worth 351 kB to a **cold** first-time visitor. **Lesson for the next perf card: measure the target profile's parse-vs-construction split BEFORE choosing levers** — this plan's lever order came from a cold profile (87/13) and the locked target was warm (48/52). Not deployed at close.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "id": "CHUNK-MEMBER-1",
+            "item": "Initial-set chunk membership: `errorReporter` chunk carries netcode + the cart rig",
+            "notes": "**Filed 08-05 from the pre-launch audit. NOT a BUNDLE-1 reopen** — no warm-perf goal (that hypothesis is falsified and closed); this is initial-download-set **membership**, worth ~bytes only to **cold first-time visitors**, which is exactly the profile a public launch maximizes. The 266 KB chunk *named* `errorReporter` in the 14-file initial set (per `dist/.chunk-manifest.json` / [bundle-budget.json](../bundle-budget.json)) actually holds ~56 modules including `netcode.js`, `cartRaveGltf.js`, `bootstrap.js` and the whole `src/netcode/` folder — game-side code in the menu's critical path under a misleading name (rolldown names a catch-all chunk after its first module, so the budget file reads as \"error reporting is 266 KB\" when it is not). Also: a duplicate empty `captureUpload-*.js` chunk (107 B, 0 modules). **Lever:** chunking group boundaries in [vite.config.js](../../vite.config.js); the Lever-F membership gate in `size:check` makes regressions loud. **Judge on the cold profile; do not re-litigate warm `menu-ready`.**",
             "ship1": null
           },
           {
