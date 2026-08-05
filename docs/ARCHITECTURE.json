@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-05T18:49:07.609Z",
-    "commit": "c7ba5b8"
+    "at": "2026-08-05T19:01:41.067Z",
+    "commit": "28c1a6c"
   },
-  "source_digest": "c888c12b",
+  "source_digest": "f08f5901",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -867,10 +867,10 @@
         "state": "done"
       },
       {
-        "id": "FIX-MIG",
-        "what": "Quickplay host-migration visibility + continuous-policy tests",
-        "status": "📋 next wave, scoped — see Open issues.",
-        "state": "waiting"
+        "id": "*(closed)*",
+        "what": "FIX-MIG — disconnect migration visibility + continuous tests",
+        "status": "✅ SHIPPED 08-05 (`28c1a6c`). `#ensureLiveHost` tags `reason: host_disconnect`; toast on close/reap/ghost/snapshot; continuous party-do covered. Owed: FIX-MIG-PT-1 (needs deploy). [completed-work.md](./planning/completed-work.md).",
+        "state": "done"
       },
       {
         "id": "PERF-PASS-1",
@@ -901,7 +901,7 @@
       }
     ],
     "next_actions": [
-      "Work the ordered queue — [BACKLOG § Work order](./planning/BACKLOG.md) (2026-08-05 pre-launch audit). Block A items 1–3 are done: SEC-DIAG-1 + ONBOARD-FLAG-1 closed PASS 4/4 on prod `fbe8163`, and QUICKPLAY-SHARD-1 shipped 08-05 (overflow hop; qa green, party-do + netharness `shardOverflow` 5/5 live) — owed: SHARD-PT-1 · SHARD-PT-2, needs a deploy. Then FIX-MIG → ATTRACT-JANK-1. Closed 08-05: HARNESS-GEO-1, BUNDLE-1/BUNDLE-E-PT-1, HUD-TOAST-Z-1, FIX-EMISSIVE, the five-card physics run, and the SEC-DIAG/ONBOARD-FLAG pair (all PASS).",
+      "Work the ordered queue — [BACKLOG § Work order](./planning/BACKLOG.md) (2026-08-05 pre-launch audit). Block A 1–4: SEC-DIAG/ONBOARD PASS 4/4 on `fbe8163`; QUICKPLAY-SHARD-1 shipped (owed SHARD-PT-1/2 after deploy); FIX-MIG shipped `28c1a6c` (owed FIX-MIG-PT-1 after deploy). Next code: ATTRACT-JANK-1. Closed 08-05 also: HARNESS-GEO-1, BUNDLE-1, HUD-TOAST-Z-1, FIX-EMISSIVE, physics run 5/5.",
       "Hitch forensics now has evidence — cap-254–260 (build `8d96b0b`) are the first captures from a working upload path, including a Cart Rave F8 taken on a hitch. Read them before any perf knob.",
       "Still owed separately: 9-cell PERF sweep (~25 min). Resume Run 8 FAIL triage."
     ],
@@ -922,11 +922,6 @@
         "status": "🚧 **RETRY APPLIED 08-05** on acked option (b) — see the active row above."
       },
       {
-        "id": "FIX-MIG",
-        "issue": "Quickplay host migration",
-        "status": "📋 **next wave, scoped** (reason tags + continuous-policy tests). 08-04 auto-promote observation folded in. [BACKLOG § Engineering](./planning/BACKLOG.md)."
-      },
-      {
         "id": "CARGO-LATCH-1",
         "issue": "`cargoLoad.js` repeats the FIX-DIRPAUSE latch bug",
         "status": "📋 same class as `e7dd92e`, out of scope by instruction. [BACKLOG § Engineering](./planning/BACKLOG.md)."
@@ -944,7 +939,7 @@
         "title": "Engineering",
         "counts": {
           "High": 3,
-          "Medium": 13,
+          "Medium": 12,
           "Low": 11,
           "Partial": 1
         },
@@ -1001,12 +996,6 @@
             "pri": "High",
             "item": "ATTRACT-JANK-1 — attract-mode animation reads as jank on weak machines",
             "notes": "**Filed 08-03 from his Run 8 report**, split from PERF-PASS-1 because it has a specific and recent suspect worth checking before any general sweep. **The attract loop only started animating on 08-02.** SHOOT-ANIM-1 (`6b27283`) found `menuAttract.js` was rendering without ever updating — the live main-menu arena was frozen for every player — and added the `onAnimationTick` dep; SHOOT-ANIM-2 (`33f0d15`) then put rave dressing (stage spots, crowd bulbs) on that same loop. So the menu went from static to fully animated in one day, immediately before this report. **That makes it the first thing to measure, not the confirmed cause** — same discipline as PERF-PASS-1. **Two specifics that matter if it is the loop:** (1) the attract path deliberately runs with **no frame budget** (`frameBudgetAllow` fails closed without `beginFrameBudget` and would latch a bucket off permanently), so its per-frame cost is unbounded by design and weak machines rely entirely on the auto-quality watchdog stepping the tier down; (2) attract render cost and in-game frame delta are judged against **one shared 20.5 ms bar** (see PERF-WATCH-1), and demotion is irreversible per session — so a heavy menu can demote the tier before the player ever enters a round. Check whether the watchdog is firing at the menu on the Intel box.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "FIX-MIG — quickplay host migration is invisible, and untested under continuous policy",
-            "notes": "**Filed 08-04**, deferred out of the MAIN-1 residual wave and **re-scoped after its original rationale was falsified.** Report: \"host migration not working normally. but it did transfer on tab hide. host did migrate on new round start after level changed.\" **The claim that score rebalance is unreachable in quickplay is WRONG** — `#maybeRebalanceHostForQuality` is lobby-gated, but continuous rooms *do* hit lobby on rematch (auto podium → `onHostPlayAgainClick`, then server `MSG.playAgain` → lobby → rebalance at `party/index.ts:1432`), so it already runs every rematch. Do not build a new rebalance boundary without a capture proving that path fails. **Verified defects, and the whole of the scope:** (1) migration triggers 1–4 (host `onClose`, silent reap, ghost exorcism, snapshot repair) broadcast `host_migrated` with **no `reason` field**, so the toast block at [netcode.js:2260](../../src/netcode.js:2260) — which handles only `host_quality` / `host_afk` / `host_return` — is skipped entirely; a working disconnect migration therefore looks like nothing happened. It is not fully silent: the PA `announce(\"new_host\")` still fires (`:2255`). (2) **Zero** migration tests run under continuous/quickplay policy — `tests/party-do/cartRaveServer.test.js` uses friends-shaped `a6a-*` rooms (`uniqueRoom()`, `:19-21`) for all five migration tests, while `uniqueContinuousRoom()` (`:24-26`) is only used by the countdown-arming tests. **Explicitly NOT in scope without product ack:** switching the disconnect successor from join-order `pickNextHostId` ([party/hostSelection.ts:29](../../party/hostSelection.ts:29)) to the score-based picker. Oldest-joiner is stability-first; score-picking on a hard disconnect can promote a high-score *late* joiner mid-sim. AFK/return already score-picks, so \"make it consistent\" is not an argument — this is a product call. **New observation 08-04 (MAIN-1 retest):** *\"the auto promote to stronger host didn't happen when i started quickplay this time.\"* Worth checking before assuming it is a bug — it may be working as designed. Joining an in-progress quickplay room lands the joiner while phase is `running`/`countdown`, and `#maybeRebalanceHostForQuality` returns immediately unless phase is `lobby` and `#countdownArmed` is false ([party/index.ts:309-311](../../party/index.ts:309)), so a stronger joiner is expected **not** to take host until the next rematch boundary. It is only a defect if it also failed to promote at the following `playAgain`. **Cheapest next evidence:** F8 on both machines right after the rematch that should have promoted, and read `hostScore` / the `host_migrated` reason out of the bundles — do not tune the picker before that.",
             "ship1": null
           },
           {
@@ -1336,27 +1325,13 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "High": 1,
-          "Medium": 1,
-          "Low": 1
+          "High": 1
         },
         "rows": [
           {
             "pri": "High",
             "item": "SHARD-PT-1 — normal quickplay is unchanged `[solo]` (QUICKPLAY-SHARD-1)",
             "notes": "**Owed: Wyatt playtest — SHARD-PT-1 — on prod, confirm the common case did not regress.** This is the card that matters most: almost every real player will only ever see shard 1, so the sharding work must be invisible to them.<br>1. Hard-refresh https://cart-rave.wyabro.workers.dev/ and start QUICKPLAY.<br>2. Play a full round through to the podium and let it roll into the next one.<br>3. It should feel exactly as it did before — you drop straight in with no READY button to press, the arena is random rather than always the same one, the bots are the usual medium difficulty, and the rematch rotates to a different arena.<br>FAIL if you are asked to ready up, if a private-lobby style screen with a room code appears, if the arena never changes between matches, or if the bots feel noticeably easier. Those are the exact symptoms of a quickplay room being mistaken for a private one. Desktop judge.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "SHARD-PT-2 — a full room sends you to a fresh one instead of turning you away `[2pc]` (QUICKPLAY-SHARD-1)",
-            "notes": "**Owed: Wyatt playtest — SHARD-PT-2 — on prod, confirm the overflow actually works with real people.** Before this, the 5th player anywhere in the world hit \"Couldn't join that lobby\" and was stuck. Needs 5 human clients — both your machines plus three extra browser windows/profiles is enough, since nobody has to play well.<br>1. Get four clients into the same quickplay match and wait until all four are seated and playing.<br>2. Bring in a fifth.<br>3. It should land in its own new match rather than showing the \"couldn't join\" message — check its address bar reads `room=quickplay2`.<br>FAIL if the fifth client bounces to the menu with an error, or if it lands somewhere that then asks it to ready up. Note: the automated rig already passes this 5/5 in real browsers, so this is confirmation on live infrastructure, not discovery.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "AQ-RING-CLEAR-1 — autoQuality clear sample ring on every window eval",
-            "notes": "**Reserve only** if Wave 2 entry grace still demotes on retest. Comment in autoQuality.js already notes the ring can poison up to 3 windows. Own commit if needed; not in main batch path.",
             "ship1": null
           }
         ]

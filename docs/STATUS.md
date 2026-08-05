@@ -68,14 +68,14 @@ Live rows only. Shipped and closed cards live in
 |---|------|--------|
 | *(closed)* | FIX-EMISSIVE — non-patterned carts read blown out | ✅ **PASS 2/2 08-05** on `a7dfd8f7`, after one abort. Trim moved onto `cache.emissiveTrimMul` — durable lesson: **a value that must persist per-object belongs on the object's state, not on the call that sets it first.** New finding filed separately as **CART-COLOR-DEPTH-1** (pastel / too-dark = chroma, not intensity). [completed-work.md](./planning/completed-work.md). |
 | *(closed)* | Physics run 08-05 — **5 cards, all PASS** | ✅ **Durable finding: a friction value in this codebase is not a felt value** — Rapier averages it with the cart's 1.1. Verticals take `FrictionCombineRule.Min`; **floors deliberately keep Average** (canaries in three test files). Full run + evidence: [completed-work.md](./planning/completed-work.md). |
-| FIX-MIG | Quickplay host-migration visibility + continuous-policy tests | 📋 next wave, scoped — see Open issues. |
+| *(closed)* | FIX-MIG — disconnect migration visibility + continuous tests | ✅ **SHIPPED 08-05** (`28c1a6c`). `#ensureLiveHost` tags `reason: host_disconnect`; toast on close/reap/ghost/snapshot; continuous party-do covered. **Owed: FIX-MIG-PT-1** (needs deploy). [completed-work.md](./planning/completed-work.md). |
 | PERF-PASS-1 | 60 fps at Low on the Intel box — **Cart Rave only** (Wyatt scoped it 08-03) | ⏸ **PARKED BY WYATT 08-04 for HOST-TAB-1.** Wave 4 remains deployed (`b754e12`, Worker `9b8b1fbe`); honest measured range −1.66 to −2.54 ms and includes +0.55. Card remains open at ~46 fps; every future cell needs an A-B-A bracket on a cooled box. Menu + evidence: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md). |
 | BUNDLE-1 | Menu/game code-split | ⚠️ **CLOSED PARTIAL 08-05 — perf goal NOT met. Deployed `f2f90fd2`.** Warm `menu-ready` −3% vs a −15% gate. Banked: a `size:check` byte gate, `main.js` 2,582 → 1,262 lines, −22.6% off the initial set (**cold** visits only). Lever E playtested: BUNDLE-E-PT-1 PASS 6/6. [bundle-1.md §0](./planning/bundle-1.md) |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 
 ### Next actions
 
-1. **Work the ordered queue — [BACKLOG § Work order](./planning/BACKLOG.md)** (2026-08-05 pre-launch audit). Block A items 1–3 are done: SEC-DIAG-1 + ONBOARD-FLAG-1 **closed PASS 4/4** on prod `fbe8163`, and **QUICKPLAY-SHARD-1 shipped 08-05** (overflow hop; qa green, party-do + netharness `shardOverflow` 5/5 live) — **owed: SHARD-PT-1 · SHARD-PT-2, needs a deploy.** Then FIX-MIG → ATTRACT-JANK-1. Closed 08-05: HARNESS-GEO-1, BUNDLE-1/BUNDLE-E-PT-1, HUD-TOAST-Z-1, FIX-EMISSIVE, the five-card physics run, and the SEC-DIAG/ONBOARD-FLAG pair (all PASS).
+1. **Work the ordered queue — [BACKLOG § Work order](./planning/BACKLOG.md)** (2026-08-05 pre-launch audit). Block A 1–4: SEC-DIAG/ONBOARD **PASS 4/4** on `fbe8163`; **QUICKPLAY-SHARD-1 shipped** (owed SHARD-PT-1/2 after deploy); **FIX-MIG shipped** `28c1a6c` (owed FIX-MIG-PT-1 after deploy). **Next code: ATTRACT-JANK-1.** Closed 08-05 also: HARNESS-GEO-1, BUNDLE-1, HUD-TOAST-Z-1, FIX-EMISSIVE, physics run 5/5.
 2. **Hitch forensics now has evidence** — cap-254–260 (build `8d96b0b`) are the first captures from a working upload path, including a Cart Rave F8 taken on a hitch. Read them before any perf knob.
 3. **Still owed separately:** 9-cell PERF sweep (~25 min). Resume Run 8 FAIL triage.
 
@@ -91,7 +91,6 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 | PERF-PASS-1 | 60 fps at Low on the Intel box — **Cart Rave only** | ⏸ **PARKED 08-04.** Baseline 23.788 ms / 42.0 fps; menu: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md). |
 | WARM-SOLO-1 | Solo post-`carts-ready` stall (WARM-IGPU residual) | 📋 telemetry-gated — [warm-igpu-1.md](./planning/warm-igpu-1.md) |
 | FIX-EMISSIVE | Non-patterned carts blown out on Classic | 🚧 **RETRY APPLIED 08-05** on acked option (b) — see the active row above. |
-| FIX-MIG | Quickplay host migration | 📋 **next wave, scoped** (reason tags + continuous-policy tests). 08-04 auto-promote observation folded in. [BACKLOG § Engineering](./planning/BACKLOG.md). |
 | CARGO-LATCH-1 | `cargoLoad.js` repeats the FIX-DIRPAUSE latch bug | 📋 same class as `e7dd92e`, out of scope by instruction. [BACKLOG § Engineering](./planning/BACKLOG.md). |
 | BRAND-1 | Domain / Worker cutover | 🧊 frozen until deliberate cutover ([brand.md](./brand.md)) |
 
