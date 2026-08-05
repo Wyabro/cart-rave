@@ -3698,7 +3698,18 @@ html, body {
   .cr-cmd { padding: 12px 20px; }
   .cr-cmd.is-selected { padding: 13px 20px; }
   .cr-cmd .cr-btn-label { font-size: 18px; }
-  .cr-cmd-qual { white-space: normal; }
+}
+
+/* UI-SCALE-1 L4 — phone = fewer elements (not shrink-only).
+   Wyatt-acked cut: tagline, cmd qualifiers, local stats, context blurb.
+   Hint bar already display:none at ≤1024 (block above). */
+@media (max-width: 768px), (max-width: 1024px) and (pointer: coarse) {
+  .cr-tagline,
+  .cr-cmd-qual,
+  #cr-stats-local,
+  .cr-context-desc {
+    display: none;
+  }
 }
 
 /* Title lockup across the bands. These were single-class `.cr-title-stack` rules
