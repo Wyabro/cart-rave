@@ -3234,7 +3234,10 @@ html, body {
 }
 .cr-hero .cr-title-stack .cr-title-word:nth-child(2) {
   color: var(--color-magenta);
+  /* MENU-LOGO-1b: one hard cyan underprint (cheap misregister) under CLASH only.
+     Zero blur — peeks left/up of the magenta fill, then 2-step ink extrude. */
   text-shadow:
+    -2px 1px 0 var(--color-cyan),
     3px 3px 0 var(--color-ink-deep),
     6px 6px 0 var(--color-ink-deep);
   margin-top: -0.06em;
