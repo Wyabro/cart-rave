@@ -858,7 +858,40 @@ tolerance.** That distribution shift is real and unexplained — deferring `cart
 `groceryPool` evaluation plausibly shifts when the first shatter/spill lands relative to cycle 1's
 sample — but it was **not** confirmed with an identity census on a Δ9/Δ10 run.
 
-### The gate itself is the defect → filed as HARNESS-GEO-1
+### ✅ Fixed 08-05 — and the ×10 evidence run closed the early-vs-late gap
+
+`min(per-cycle delta) <= ceil(tol / deltas.length)` replaces first-vs-last
+([tools/lib/soakGrowth.mjs](../../tools/lib/soakGrowth.mjs)). A one-time ratchet leaves at least one
+delta ≈ 0 whenever it fires; a real leak adds k *every* rematch. **10 consecutive soak runs: 10/10 pass**
+(8/8 checks each), and the full per-cycle series is now persisted into the battery JSON.
+
+| run | series | deltas | minΔ | note |
+|---|---|---|---:|---|
+| 1 · 3 | 121 → 126 → 126 | [5, 0] | 0 | early ratchet |
+| 2 · 5 · 9 · 10 | 121 → 121 → 121 | [0, 0] | 0 | flat |
+| 4 | 121 → 125 → 125 | [4, 0] | 0 | early |
+| **6** | **121 → 121 → 125** | **[0, 4]** | 0 | **LATE ratchet — real** |
+| **7** | **121 → 125 → 130** | **[4, 5]** | **4** | **STAGGERED — passed by exactly 0** |
+| 8 | 121 → 121 → 122 | [0, 1] | 0 | early |
+
+**Two things this proves that were previously assumption:**
+
+1. **The late ratchet is real (run 6).** Both BACKLOG-proposed fixes — "gate on the last two cycles" and
+   "sample cycles 2..N", which are the same check at 3 cycles — would have **failed run 6**. Choosing a
+   when-agnostic rule was necessary, not merely tidy.
+2. **The staggered shape is real, and residual 1 is live (run 7).** `[4, 5]` gives minΔ 4 against
+   perCycleTol 4 — it passed **by exactly zero margin**. One more first-drawn geometry and this fix
+   false-fails. **Do not treat 10/10 as comfortable.**
+
+**If it ever false-fails on a staggered run, the fix is `--soakCycles 4` plus drop-the-largest-delta —
+not a tolerance bump.** At 3 cycles drop-largest is identical to min-delta, so the extra cycle is what
+buys the headroom. Recorded here so the next reader does not reach for `TOLERANCE.geometries`.
+
+**Injected-leak proof (the other direction):** 10 cloned geometries added to the scene per rematch gave
+`[121 → 131 → 141]`, deltas `[10, 10]`, minΔ 10 → **FAIL**, as designed. A sentinel that cannot fail
+would be worse than a flaky one. Injection was harness-only via `page.evaluate` and fully reverted.
+
+### The original filing → HARNESS-GEO-1
 
 No fix applied: the correct fix lives in `tools/gameharness.mjs` (frozen) and changes the check's design.
 Two sound options — **(1)** sample cycles 2..N so the baseline is past the first-render ratchet, or
