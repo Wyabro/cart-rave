@@ -66,7 +66,7 @@ Live rows only. Shipped and closed cards live in
 
 | # | What | Status |
 |---|------|--------|
-| **HUD-TOAST-Z-1** | In-game toasts rendered under the boost slab | 🚧 **ACTIVE — DEPLOYED `4a51a44`, Version `100842ad`, awaiting playtest.** Re-ranked **Medium → High**: the same path carries *shipped* host-migration/weak-host messages, so this swallowed live multiplayer text. Both acked fixes landed — z-index **12000 → 26500** (above lobby/results/pause, below rotate) and a **measured** bottom offset (`measureBottomStripLift`, covering the pod, the lobby hint row and touch controls). Band table added to `hud.css`; canary in `tests/toastLayering.test.js`. **Rendered position NOT machine-verified** (pane does not composite; layout reads frozen) — playtest is the verdict. **5 cases:** solo · friends lobby (judge the ESC hint strip too) · quickplay lobby · paused · <768px window, plus a phone check. |
+| *(closed)* | HUD-TOAST-Z-1 — in-game toasts rendered under the boost slab | ✅ **PASS 6/6 08-05** on `100842ad`, no FAIL. z-index **12000 → 26500** + a **measured** bottom offset; `#hud`'s root is a stacking context, so its children beat any lower z-index. Not diag-only — it was swallowing shipped host-migration text. Band table now beside `#hud`; canary in `tests/toastLayering.test.js`. Detail: [completed-work.md](./planning/completed-work.md). |
 | *(closed)* | Physics run 08-05 — **5 cards, all PASS** | ✅ **Durable finding: a friction value in this codebase is not a felt value** — Rapier averages it with the cart's 1.1. Verticals take `FrictionCombineRule.Min`; **floors deliberately keep Average** (canaries in three test files). Full run + evidence: [completed-work.md](./planning/completed-work.md). |
 | FIX-EMISSIVE | Non-patterned carts read blown out on Classic | ⛔ **ABORTED 08-04 — approved design invalidated, needs re-ack.** See Open issues. |
 | FIX-MIG | Quickplay host-migration visibility + continuous-policy tests | 📋 next wave, scoped — see Open issues. |
@@ -76,7 +76,7 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. **HUD-TOAST-Z-1 is mid-flight — deployed, Wyatt playtests 5 cases + a phone check.** No new card until it passes or fails. Then-candidates: **FIX-EMISSIVE** re-ack (Wyatt picks retry (a) or (b)), **FIX-MIG**, **BOOTH-RAIL-COL-1**, **RAPIER-DEFAULT-MAX-1**. Closed 08-05: HARNESS-GEO-1, BUNDLE-1/BUNDLE-E-PT-1, and the five-card physics run (all PASS).
+1. **Pick the next card — nothing owed, nothing mid-flight.** HUD-TOAST-Z-1 closed PASS 6/6. Candidates: **FIX-EMISSIVE** re-ack (Wyatt picks retry (a) or (b)), **FIX-MIG**, **BOOTH-RAIL-COL-1**, **RAPIER-DEFAULT-MAX-1**. Closed 08-05: HARNESS-GEO-1, BUNDLE-1/BUNDLE-E-PT-1, and the five-card physics run (all PASS).
 2. **Hitch forensics now has evidence** — cap-254–260 (build `8d96b0b`) are the first captures from a working upload path, including a Cart Rave F8 taken on a hitch. Read them before any perf knob.
 3. **Still owed separately:** 9-cell PERF sweep (~25 min). Resume Run 8 FAIL triage.
 

@@ -13,6 +13,53 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 5, 2026 — HUD-TOAST-Z-1 PASS 6/6: the toast stops losing to a stacking context
+
+**Wyatt PASS on prod `100842ad`, 6 cards, no FAIL** — TOAST-BOOST-1 · TOAST-NARROW-1 ·
+TOAST-PAUSE-1 · TOAST-PHONE-1 · TOAST-QUICK-1 · TOAST-LOBBY-1.
+
+- *(UI · High)* **HUD-TOAST-Z-1** — ✅ PASS 08-05 (`4507a55`). `#cr-unlock-toast` sat at
+  `z-index: 12000` as a body-level singleton while `#hud` is `position: fixed; inset: 0;
+  z-index: 20000` — **a stacking context, so every HUD child won regardless of its own
+  z-index.** Fixed on two axes: **12000 → 26500** (above the lobby 24000, results 25000 and
+  pause 26000; below `#rotate-prompt` 27000) **and** a measured bottom offset.
+- **It was never a diagnostics bug.** Reported against the F8 capture toast, but
+  `window.CartRave.showToast` is the session-flow path that already carried the **shipped**
+  host-migration family, the weak-host warning and the host-stalled notice. Live multiplayer
+  text was being swallowed. Re-ranked Medium → High on that basis.
+- **"Pick one, not both" was wrong, and checking it was the whole value of the planning pass.**
+  The card offered a z-index lift *or* a bottom offset. Neither alone satisfies the card's own
+  pass line: the lift alone puts the toast **on top of** the boost meter, and the offset alone
+  cannot touch the friends lobby, where `.hud-lobby` is a full-screen body-level surface and
+  where the migration toasts actually fire. Both shipped.
+- **The offset is measured, not a constant.** `.hud-region-pod`'s `bottom` is three different
+  values across two media queries and the pod is a bottom-anchored column that grows with the
+  combo badge and ready button — the card's suggested flat `88px` lands *inside* the pod on a
+  narrow desktop window. TOAST-NARROW-1 existed specifically to prove the measurement does real
+  work rather than coincidentally matching a constant, and it passed.
+- **Measuring removed the need for a mode flag**, which is the part worth reusing: `menuVisible()`
+  and `getRoundState().phase` answer *which mode are we in*, and the question that matters is
+  *what is painted in that strip*. A hidden element measures 0, so the menu, `.hud-suppressed`
+  (pause/podium) and the touch-hidden slab all fall out for free.
+- **Wyatt caught the gap in the plan.** The first occupancy list omitted `.hud-lobby-hint`. The
+  friends lobby hides the pod's ready button, so the lift would have stayed 0 and the toast would
+  have landed on the ESC/PAUSE row — the same bug moved one surface over. TOAST-LOBBY-1 judged
+  both the toast *and* the hint strip because of it.
+- **Layer ordering is now documented once.** There was no scheme — magic numbers across five
+  stylesheets — and the only written record had gone actively misleading, claiming the HUD "tops
+  out at 20040" when 20040 is a `#hud` **descendant** ordered inside the HUD's own context.
+  Reading it as a band is exactly what buried the toast. Band table now lives beside `#hud`; every
+  other layer site carries a pointer and states no neighbour's number. **Deliberately not
+  tokenised** — the layers span five stylesheets, an injected `<style>` and inline `<style>` in
+  `index.html`, so a `:root` block would be a bundle-order dependency.
+- **Process note, and the reason this card was split six ways.** HUD-TOAST-Z-1 exists because it
+  rode inside MAIN-1's green verdict — a bundled card hid a real defect. Splitting the retest into
+  six ids Wyatt could pass or fail alone is the direct countermeasure. Two authoring faults
+  surfaced while doing it: the cases initially lived only in a commit message (the console seeds
+  from `Owed: Wyatt playtest` rows, so it found nothing), and a docs-only card was seeding a
+  phantom playtest because its prose read *"passed Wyatt's playtest"*. **A generated queue is only
+  as good as the rows it reads.**
+
 ### August 5, 2026 — SUNDIAL-OBSTACLE-SLIDE-1 PASS: the sweep's last site, and the one the grep missed
 
 **Wyatt PASS on prod `7faa6d73`** — *"blade slides now, deck feels the same"*. Fifth card of the
