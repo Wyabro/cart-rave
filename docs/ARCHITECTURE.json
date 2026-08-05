@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-05T03:50:27.402Z",
-    "commit": "1d5094e"
+    "at": "2026-08-05T04:26:35.190Z",
+    "commit": "8ec9e3a"
   },
-  "source_digest": "991314cb",
+  "source_digest": "8e549069",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -856,18 +856,9 @@
     "queue": [
       {
         "id": "STORE-PLAT-WALL-1",
-        "what": "Storerooms void/platform walls are visual-only",
-        "status": "▶ ACTIVE — Wyatt named it 08-05. Not planned yet. Rails/dividers/wall faces on the spawn platforms have no Rapier colliders; only the deck cuboid is created in `buildBackroomsBooths` ([backroomsSupermarket.js:3264](../src/levels/backroomsSupermarket.js:3264)). Carts ghost through geometry that reads solid, next to the pit — a fall/KO fairness bug. [BACKLOG § Engineering](./planning/BACKLOG.md).",
-        "state": "active",
-        "touches_systems": [
-          {
-            "id": "arenas-levels",
-            "name": "Arenas & levels",
-            "files": [
-              "src/levels/backroomsSupermarket.js"
-            ]
-          }
-        ]
+        "what": "Storerooms pit cliff had no collider",
+        "status": "✅ CODE LANDED 08-05 (`8ec9e3a`), unshipped — playtest owed. The filing named the wrong geometry (booth rails); Wyatt's screenshot was at pit-floor level. Real bug: `addCliffRing(ARENA_HALF)` drew the 26 m arena cliff as plain meshes with zero colliders, so a cart in the pit drove under the playfield. Fixed with an exported spec + four cuboids on `buildFallContainment`'s body, top tucked `CHAMFER_TUCK` above `FLOOR_BOTTOM_Y` to avoid a coplanar seam. [BACKLOG § Playtest owed](./planning/BACKLOG.md).",
+        "state": "done"
       },
       {
         "id": "FIX-EMISSIVE",
@@ -954,20 +945,26 @@
         "counts": {
           "Medium": 14,
           "High": 3,
-          "Low": 9,
+          "Low": 10,
           "Partial": 1
         },
         "rows": [
           {
             "pri": "Medium",
             "item": "SPAWN-SUNDIAL-1 — Sundial platform-leg colliders `[pre-ship]`",
-            "notes": "**Half closed 08-02.** The spawn inset shipped in `e64f1a3` via `booth.gapDistanceByLevel` — Sundial's booths and spawn ring both moved +0.75m outward with no level-file edit. **Still owed:** colliders on the platform legs. `buildZanzibarBooths` ([zanzibarPlatform.js:2508](../../src/levels/zanzibarPlatform.js:2508)) builds four 11m legs plus cross-braces per booth as **visual meshes only** — the deck cuboid at `:2579` is the sole `createCollider` in the builder, so carts ghost straight through the supports. ART-PASS-SUNDIAL-1 is closed (Run 8) — leg colliders are unblocked; still open work.",
+            "notes": "**Half closed 08-02.** The spawn inset shipped in `e64f1a3` via `booth.gapDistanceByLevel` — Sundial's booths and spawn ring both moved +0.75m outward with no level-file edit. **Still owed:** colliders on the platform legs. `buildZanzibarBooths` ([zanzibarPlatform.js:3745](../../src/levels/zanzibarPlatform.js:3745)) builds four 11m legs plus cross-braces per booth as **visual meshes only** — the deck cuboid at `:3828` is the sole `createCollider` in the builder, so carts ghost straight through the supports. ART-PASS-SUNDIAL-1 is closed (Run 8) — leg colliders are unblocked; still open work.",
             "ship1": null
           },
           {
             "pri": "High",
-            "item": "STORE-PLAT-WALL-1 — Storerooms void/platform walls are visual-only",
-            "notes": "**Filed 08-04 from Wyatt playtest.** Walls attached to the spawn platforms (rails, dividers, and any wall faces that read as solid next to the surrounding void) have **no Rapier colliders** — only the deck cuboid is created in `buildBackroomsBooths` ([backroomsSupermarket.js:3264](../../src/levels/backroomsSupermarket.js:3264)); rails/dividers are mesh-merge only. Carts ghost through geometry that looks solid, which is a fall/KO fairness bug near the pit. **Same shape as SPAWN-SUNDIAL-1** (visual supports without physics). **Pass:** drive into platform-side walls/rails on prod Storerooms — cart stops, does not phase through into void or through booth furniture. Do not over-collider decorative crates. Sibling of closed PIT-COL-INSET-1 / SPAWN-BACKROOMS-1 (those were floor/lip, not platform walls).",
+            "item": "STORE-PLAT-WALL-1 — Storerooms pit cliff had no collider `[solo]`",
+            "notes": "✅ **CODE LANDED 08-05 (`8ec9e3a`), playtest owed — see the Playtest owed row.** **The original filing named the wrong geometry and cost most of a planning session.** It said \"walls attached to the spawn platforms (rails, dividers)\" and pointed at `buildBackroomsBooths`; the researcher planned against that in good faith. Wyatt's screenshot was at **pit-floor level** — he had fallen in, and drove through the wall *attached to the arena*, i.e. the cliff. **Real mechanism:** the pit was sealed on three surfaces — backstop cap at `PIT_FLOOR_Y` ([:1138](../../src/levels/backroomsSupermarket.js:1138)), full-height perimeter walls ([:2217](../../src/levels/backroomsSupermarket.js:2217)), per-shaft ricochet walls ([:1163](../../src/levels/backroomsSupermarket.js:1163)) — and open on the fourth: `addCliffRing(ARENA_HALF)` built the 26 m cliff as four plain meshes with **zero** `createCollider` calls, so a cart in the pit drove under the playfield. `buildPit`'s doc comment said \"entirely visual\", which was true and is what would have made the next agent re-file it; corrected in the same commit. **Fix:** `getBackroomsPitWallSpec()` (exported pure, mirrors the visual ring from shared constants) + four cuboids on `buildFallContainment`'s existing body. Top pinned at `FLOOR_BOTTOM_Y + CHAMFER_TUCK` so it *overlaps* the perimeter chamfer rather than sharing a plane — [backroomsPitWall.test.js](../../tests/backroomsPitWall.test.js) asserts that exact Y (an inequality would pass a zero-overlap touch, which is the bug). **Lesson, same as [SHOOT-LEVEL-1](./completed-work.md):** an agent-written filing is a hypothesis, not evidence — check the reported geometry against the report before planning.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "BOOTH-RAIL-COL-1 — Storerooms booth rails/dividers are visual-only",
+            "notes": "**Split out 08-05 from STORE-PLAT-WALL-1's misfiling** — real, but *not* what Wyatt reported, and explicitly out of that card's scope. On the four elevated spawn booths, only the deck cuboid gets a collider ([backroomsSupermarket.js:3278](../../src/levels/backroomsSupermarket.js:3278)); the low back rail, side bars, corner posts and cubicle divider are mesh-merge visuals with no physics. **Note the sides are an open handrail** — a bar 1.8 m above the deck with nothing beneath it — so \"make the sides solid\" would be an invisible barrier where the player sees a gap. Wyatt's ruling 08-05 if this is ever picked up: posts only, back rail matches its visible 0.55 m (a cart may ram over it; there is a 4.35 m carpet apron behind each booth, so going over lands on floor, not in the pit), and **crates stay ghost**. Same shape as SPAWN-SUNDIAL-1. Low: nobody has reported it in play.",
             "ship1": null
           },
           {
@@ -1327,9 +1324,16 @@
       {
         "title": "Playtest owed",
         "counts": {
+          "High": 1,
           "Low": 1
         },
         "rows": [
+          {
+            "pri": "High",
+            "item": "STORE-PLAT-WALL-1 — the pit is a sealed box now `[solo]`",
+            "notes": "**Owed: Wyatt playtest — STORE-PLAT-WALL-1 — you should not be able to get under the arena any more.** You fell into the Storerooms pit and drove straight through the wall attached to the arena, ending up underneath the playfield. That wall was scenery — it had no physics at all. It does now. **NOT DEPLOYED YET — this needs a ship before you can check it.**<br>1. On Storerooms, get yourself into the pit — ram off the arena edge, or go down one of the square holes. Once you are down there, drive at the wall under the arena. You should hit it and stop, not pass under the floor. Try a couple of spots along the wall, and try the corners, which is where a gap would show up if one exists.",
+            "ship1": null
+          },
           {
             "pri": "Low",
             "item": "AQ-RING-CLEAR-1 — autoQuality clear sample ring on every window eval",
