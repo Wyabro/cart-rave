@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-05T05:23:59.136Z",
-    "commit": "f28268b"
+    "at": "2026-08-05T05:27:10.023Z",
+    "commit": "acbae00"
   },
-  "source_digest": "666dcb06",
+  "source_digest": "42346c48",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -857,7 +857,7 @@
       {
         "id": "STORE-WALL-SLIDE-1",
         "what": "Storerooms walls grab instead of letting a cart scrape past",
-        "status": "✅ CODE LANDED 08-05 (`f28268b`), unshipped — playtest owed. Third card in the Storerooms pit chain (STORE-PLAT-WALL-1 PASS → STORE-PIT-WEDGE-1 PASS → this). Rapier averages collider friction by default and the cart carries 1.1, so a wall written 0.05 acted like 0.575 and the perimeter walls (0.4) like 0.75 — the stickiest surface in the room. `FrictionCombineRule.Min` on all five vertical surfaces + perimeter 0.4 → 0.15. Friction twin of the phantom-bounce bug Sundial fixed with `RestitutionCombineRule.Min` ([zanzibarPlatform.js:25](../src/levels/zanzibarPlatform.js:25)); nobody had done the friction side. Floors keep Average on purpose. [BACKLOG § Playtest owed](./planning/BACKLOG.md).",
+        "status": "✅ DEPLOYED 08-05 (`f28268b`) · Version `a9dfef85`, prod SHA + all 5 rule calls verified — playtest owed. Third in the Storerooms pit chain (STORE-PLAT-WALL-1 PASS → STORE-PIT-WEDGE-1 PASS → this). Rapier averages collider friction and the cart carries 1.1, so a wall written 0.05 acted like 0.575 and the perimeter (0.4) like 0.75 — the stickiest surface in the room. `FrictionCombineRule.Min` on all five vertical surfaces + perimeter 0.4 → 0.15. Friction twin of the phantom-bounce bug Sundial fixed with `RestitutionCombineRule.Min` ([zanzibarPlatform.js:25](../src/levels/zanzibarPlatform.js:25)). Floors keep Average on purpose. [BACKLOG § Playtest owed](./planning/BACKLOG.md).",
         "state": "done",
         "touches_systems": [
           {
@@ -1334,7 +1334,7 @@
           {
             "pri": "High",
             "item": "STORE-WALL-SLIDE-1 — walls should let you scrape past, not grab `[solo]`",
-            "notes": "**Owed: Wyatt playtest — STORE-WALL-SLIDE-1 — walls should feel slippery, not sticky.** You said the pit cliff and the outer walls felt sticky. They were: the game was averaging each wall's slipperiness with the cart's own grip, so a wall set to be very slippery still behaved like a fairly grippy one, and the outer walls were the grippiest surface you could touch. Walls now use the value they were actually given, and the outer walls were loosened as well. Floors were left alone on purpose — that grip is what makes driving feel right. **NOT DEPLOYED YET — needs a ship first.**<br>1. On Storerooms, drive along the outer walls at a shallow angle and scrape them, then do the same against the wall under the arena down in the pit, and clip a corner where two walls meet. You should slide along and keep your speed instead of catching. If anything now feels *too* slippery — like the wall is throwing you off — that is worth saying too; it is one number either way.",
+            "notes": "**Owed: Wyatt playtest — STORE-WALL-SLIDE-1 — walls should feel slippery, not sticky.** You said the pit cliff and the outer walls felt sticky. They were: the game was averaging each wall's slipperiness with the cart's own grip, so a wall set to be very slippery still behaved like a fairly grippy one, and the outer walls were the grippiest surface you could touch. Walls now use the value they were actually given, and the outer walls were loosened as well. Floors were left alone on purpose — that grip is what makes driving feel right. **DEPLOYED** · Version `a9dfef85` · chunk `backroomsSupermarket-fZZx18UH.js` (prod SHA byte-identical to the local ship, and all 5 combine-rule calls present in the fetched chunk) · hard-refresh https://cart-rave.wyabro.workers.dev first.<br>1. On Storerooms, drive along the outer walls at a shallow angle and scrape them, then do the same against the wall under the arena down in the pit, and clip a corner where two walls meet. You should slide along and keep your speed instead of catching. If anything now feels *too* slippery — like the wall is throwing you off — that is worth saying too; it is one number either way.",
             "ship1": null
           },
           {
