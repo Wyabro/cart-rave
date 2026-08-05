@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-05T17:15:31.054Z",
-    "commit": "15f8b48"
+    "at": "2026-08-05T17:42:38.189Z",
+    "commit": "9999a2a"
   },
-  "source_digest": "67d483a8",
+  "source_digest": "38bf0cf5",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1342,10 +1342,29 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Medium": 1,
+          "High": 2,
+          "Medium": 2,
           "Low": 1
         },
         "rows": [
+          {
+            "pri": "High",
+            "item": "SEC-DIAG-PT-1 — a quickplay host can no longer set their own score `[solo]` (SEC-DIAG-1)",
+            "notes": "**Owed: Wyatt playtest — SEC-DIAG-PT-1 — on prod, confirm the score lever is refused in quickplay.** Shared setup for the three SEC-DIAG cards: open https://cart-rave.wyabro.workers.dev/?diag=1 (hard-refresh) with the browser console open.<br>1. Start QUICKPLAY and wait until the round is actually running and you are the host.<br>2. In the console, run `__ccDiag.control.setScores({0:9,1:0,2:0,3:0})`.<br>3. It should come back refused — `ok: false`, reason `public-room` — and **no score on the HUD may move.**<br>FAIL if it reports success, or if any score changes. This is the launch-integrity check: a stranger who adds `?diag=1` and happens to be host must not be able to hand themselves a win. Unit tests cover the logic, but only prod proves the real build's DEV flag is off — which is also why `grantKos` needs no separate card, it rides the same flag.",
+            "ship1": null
+          },
+          {
+            "pri": "High",
+            "item": "SEC-DIAG-PT-2 — solo still lets you drive the round levers `[solo]` (SEC-DIAG-1)",
+            "notes": "**Owed: Wyatt playtest — SEC-DIAG-PT-2 — on prod, confirm the levers still work OUTSIDE quickplay.** Same `?diag=1` setup as SEC-DIAG-PT-1.<br>1. Start SOLO and wait until the round is running.<br>2. In the console, run `__ccDiag.control.setScores({0:9,1:0,2:0,3:0})`.<br>3. It should succeed and your score should jump to 9 on the HUD.<br>FAIL if it refuses. Separate verdict from SEC-DIAG-PT-1 because they can disagree in the worst way: a gate that refuses *everywhere* would look like a pass on that card while quietly killing your live round-end repro workflow. Friends rooms take the same path as solo, so a pass here covers both.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "SEC-DIAG-PT-3 — F8 capture still uploads from prod `[solo]` (SEC-DIAG-1)",
+            "notes": "**Owed: Wyatt playtest — SEC-DIAG-PT-3 — on prod, confirm evidence collection was not collateral damage.** Same `?diag=1` setup.<br>1. Start SOLO and play a few seconds of a running round.<br>2. Press **F8**.<br>3. The capture should confirm on screen and upload — check it lands with `npm run captures:pull`.<br>FAIL if nothing uploads. The card exists because SEC-DIAG-1 changed the shape of the diagnostics control object, and the capture pipeline is how every other playtest produces evidence — breaking it would be silent and expensive. A working F8 also proves read-only diag is intact, since the bundle is assembled from those same snapshots.",
+            "ship1": null
+          },
           {
             "pri": "Medium",
             "item": "ONBOARD-FLAG-PT-1 — the first-run tutorial survives being skipped (ONBOARD-FLAG-1)",
