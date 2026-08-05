@@ -120,6 +120,112 @@ describe("CartRaveServer DO harness", () => {
     joiner.client.close();
   });
 
+  describe("FIX-MIG continuous-policy migration", () => {
+    it("migrates host onClose under continuous room with host_disconnect reason", async () => {
+      const room = uniqueContinuousRoom("mig-close");
+
+      const host = await connectAndSeat(room, {
+        name: "HOST",
+        color: "pink",
+        clientId: "cid-c-host",
+        ip: "10.0.3.1",
+        hostScore: 90,
+      });
+      expect(host.hello.hostId).toBe(host.youConnId);
+
+      const joiner = await connectAndSeat(room, {
+        name: "JOIN",
+        color: "green",
+        clientId: "cid-c-join",
+        ip: "10.0.3.2",
+        hostScore: 40,
+      });
+
+      const migratePromise = joiner.client.awaitMessage(
+        (m) => m.type === MSG.hostMigrated && m.hostId === joiner.youConnId,
+      );
+      host.client.close();
+
+      const migrated = await migratePromise;
+      expect(migrated.hostId).toBe(joiner.youConnId);
+      expect(migrated.reason).toBe("host_disconnect");
+
+      const slotsAfter = await joiner.client.awaitMessage(
+        (m) =>
+          m.type === MSG.slots &&
+          Array.isArray(m.slots) &&
+          !m.slots.some((s) => s && s.connId === host.youConnId) &&
+          m.slots.filter((s) => s && s.kind === "human").length === 1 &&
+          m.slots.some((s) => s && s.kind === "human" && s.connId === joiner.youConnId),
+      );
+      const humans = slotsAfter.slots.filter((s) => s.kind === "human");
+      expect(humans).toHaveLength(1);
+      expect(humans[0].connId).toBe(joiner.youConnId);
+
+      joiner.client.close();
+    });
+
+    describe("silent-drop reaper under continuous", () => {
+      beforeEach(() => {
+        setReapOverrides({ timeoutMs: 200, throttleMs: 100 });
+      });
+      afterEach(() => {
+        setReapOverrides(null);
+      });
+
+      it("reaps a silent host and migrates with host_disconnect reason", async () => {
+        const room = uniqueContinuousRoom("mig-silent");
+
+        const host = await connectAndSeat(room, {
+          name: "HOST",
+          color: "pink",
+          clientId: "cid-c-silent-host",
+          ip: "10.0.3.3",
+          hostScore: 90,
+        });
+        const joiner = await connectAndSeat(room, {
+          name: "JOIN",
+          color: "green",
+          clientId: "cid-c-silent-join",
+          ip: "10.0.3.4",
+          hostScore: 40,
+        });
+        expect(host.hello.hostId).toBe(host.youConnId);
+
+        const migratePromise = joiner.client.awaitMessage(
+          (m) => m.type === MSG.hostMigrated && m.hostId === joiner.youConnId,
+          1000,
+        );
+
+        await sleep(250);
+        joiner.client.sendJson({ type: MSG.keepalive, tClient: 1 });
+
+        const migrated = await migratePromise;
+        expect(migrated.hostId).toBe(joiner.youConnId);
+        expect(migrated.reason).toBe("host_disconnect");
+
+        const slotsAfter = await joiner.client.awaitMessage(
+          (m) =>
+            m.type === MSG.slots &&
+            Array.isArray(m.slots) &&
+            !m.slots.some((s) => s && s.connId === host.youConnId) &&
+            m.slots.some((s) => s && s.kind === "human" && s.connId === joiner.youConnId),
+          1000,
+        );
+        const humans = slotsAfter.slots.filter((s) => s && s.kind === "human");
+        expect(humans).toHaveLength(1);
+        expect(humans[0].connId).toBe(joiner.youConnId);
+
+        joiner.client.close();
+        try {
+          host.client.close();
+        } catch {
+          /* server may already have closed it */
+        }
+      });
+    });
+  });
+
   it("migrates an away live host mid-round, but ignores peers and cooldown thrash", async () => {
     const room = uniqueRoom("host-away");
     const host = await connectAndSeat(room, {
