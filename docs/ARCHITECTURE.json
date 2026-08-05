@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-05T05:01:57.403Z",
-    "commit": "cc6dfdd"
+    "at": "2026-08-05T05:23:59.136Z",
+    "commit": "f28268b"
   },
-  "source_digest": "eec9c3b7",
+  "source_digest": "666dcb06",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -855,10 +855,19 @@
   "workstreams": {
     "queue": [
       {
-        "id": "STORE-PIT-WEDGE-1",
-        "what": "Carts wedge in the Storerooms pit band",
-        "status": "✅ DEPLOYED 08-05 (`152d835`) · Version `c5711dd4`, prod SHA verified — playtest owed. Caused by STORE-PLAT-WALL-1's own fix (PASS 08-05, `8ec9e3a` — the arena cliff stops carts now): sealing the cliff made the pit band a corridor walled on both sides, with the gondolas 2.0 m off the inner one and a cart diagonal of 2.83 m. Gondola 9 → 7, band centre 45.5 → 46.7 = 4.2 m each side; dressing friction 0.4 → 0.05 so the tops shed instead of hold. Pushing the band outward alone rebuilds the wedge against the room wall — the test pins both gaps against `CONFIG.cart.size`. [BACKLOG § Playtest owed](./planning/BACKLOG.md).",
-        "state": "done"
+        "id": "STORE-WALL-SLIDE-1",
+        "what": "Storerooms walls grab instead of letting a cart scrape past",
+        "status": "✅ CODE LANDED 08-05 (`f28268b`), unshipped — playtest owed. Third card in the Storerooms pit chain (STORE-PLAT-WALL-1 PASS → STORE-PIT-WEDGE-1 PASS → this). Rapier averages collider friction by default and the cart carries 1.1, so a wall written 0.05 acted like 0.575 and the perimeter walls (0.4) like 0.75 — the stickiest surface in the room. `FrictionCombineRule.Min` on all five vertical surfaces + perimeter 0.4 → 0.15. Friction twin of the phantom-bounce bug Sundial fixed with `RestitutionCombineRule.Min` ([zanzibarPlatform.js:25](../src/levels/zanzibarPlatform.js:25)); nobody had done the friction side. Floors keep Average on purpose. [BACKLOG § Playtest owed](./planning/BACKLOG.md).",
+        "state": "done",
+        "touches_systems": [
+          {
+            "id": "arenas-levels",
+            "name": "Arenas & levels",
+            "files": [
+              "src/levels/zanzibarPlatform.js"
+            ]
+          }
+        ]
       },
       {
         "id": "FIX-EMISSIVE",
@@ -944,8 +953,8 @@
         "title": "Engineering",
         "counts": {
           "Medium": 14,
-          "High": 3,
           "Low": 10,
+          "High": 2,
           "Partial": 1
         },
         "rows": [
@@ -953,12 +962,6 @@
             "pri": "Medium",
             "item": "SPAWN-SUNDIAL-1 — Sundial platform-leg colliders `[pre-ship]`",
             "notes": "**Half closed 08-02.** The spawn inset shipped in `e64f1a3` via `booth.gapDistanceByLevel` — Sundial's booths and spawn ring both moved +0.75m outward with no level-file edit. **Still owed:** colliders on the platform legs. `buildZanzibarBooths` ([zanzibarPlatform.js:3745](../../src/levels/zanzibarPlatform.js:3745)) builds four 11m legs plus cross-braces per booth as **visual meshes only** — the deck cuboid at `:3828` is the sole `createCollider` in the builder, so carts ghost straight through the supports. ART-PASS-SUNDIAL-1 is closed (Run 8) — leg colliders are unblocked; still open work.",
-            "ship1": null
-          },
-          {
-            "pri": "High",
-            "item": "STORE-PIT-WEDGE-1 — carts wedge in the pit band",
-            "notes": "✅ **DEPLOYED 08-05 (`152d835`) · Version `c5711dd4`, prod SHA verified — playtest owed, see the Playtest owed row.** **Caused by STORE-PLAT-WALL-1's own fix**, which is the honest way to record it: giving the cliff a collider turned the pit band into a corridor with a solid wall on *both* sides, and the gondola rows sat 2.0 m off the inner one. A cart is 1.47 × 2.42 with its skin — diagonal **2.83 m** — so it enters sideways and then cannot rotate out. **Fix:** gondola length 9 → 7, band centre 45.5 → 46.7, giving **4.2 m on each side**; dressing collider friction 0.4 → 0.05 to match the shaft walls and the cliff, so the tops (which sit above the arena floor and 20 m above the y −18 kill line) shed a cart instead of holding it. **The symmetry is the load-bearing part:** simply pushing the band outward — the obvious fix, and the one first proposed and acked — shrinks the *outer* gap to 2.4 m and rebuilds the identical wedge against the room wall. [backroomsPitWall.test.js](../../tests/backroomsPitWall.test.js) now pins both clearances against `CONFIG.cart.size` rather than a literal, so growing the cart fails the test instead of silently re-creating the trap.",
             "ship1": null
           },
           {
@@ -1330,8 +1333,8 @@
         "rows": [
           {
             "pri": "High",
-            "item": "STORE-PIT-WEDGE-1 — you should be able to turn around anywhere in the pit `[solo]`",
-            "notes": "**Owed: Wyatt playtest — STORE-PIT-WEDGE-1 — nothing in the pit should pin you.** Sealing the arena wall worked, and it created a trap: the strip between that wall and the dark shelving out in the fog was only 2 m wide, which a cart fits into sideways but cannot turn around in. The shelving is now shorter and re-centred so there is 4.2 m of room on both sides of it, and nothing out there grips any more, so you slide off instead of parking on top. **DEPLOYED** · Version `c5711dd4` · chunk `backroomsSupermarket-Du3D6qi8.js` (prod SHA byte-identical to the local ship, verified) · hard-refresh https://cart-rave.wyabro.workers.dev first.<br>1. Get into the Storerooms pit and drive the whole strip between the arena wall and the shelving, including behind the shelving and around the corners. You should be able to turn around anywhere in it — no spot that pins you, and nothing you can come to rest on top of.",
+            "item": "STORE-WALL-SLIDE-1 — walls should let you scrape past, not grab `[solo]`",
+            "notes": "**Owed: Wyatt playtest — STORE-WALL-SLIDE-1 — walls should feel slippery, not sticky.** You said the pit cliff and the outer walls felt sticky. They were: the game was averaging each wall's slipperiness with the cart's own grip, so a wall set to be very slippery still behaved like a fairly grippy one, and the outer walls were the grippiest surface you could touch. Walls now use the value they were actually given, and the outer walls were loosened as well. Floors were left alone on purpose — that grip is what makes driving feel right. **NOT DEPLOYED YET — needs a ship first.**<br>1. On Storerooms, drive along the outer walls at a shallow angle and scrape them, then do the same against the wall under the arena down in the pit, and clip a corner where two walls meet. You should slide along and keep your speed instead of catching. If anything now feels *too* slippery — like the wall is throwing you off — that is worth saying too; it is one number either way.",
             "ship1": null
           },
           {

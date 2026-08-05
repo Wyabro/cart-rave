@@ -13,6 +13,23 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 5, 2026 — STORE-PIT-WEDGE-1 PASS: the pit band is driveable
+
+**Wyatt PASS on prod `c5711dd4`.** No spot in the band pins a cart any more.
+
+- *(Physics · High)* **STORE-PIT-WEDGE-1** — ✅ PASS 08-05 (`152d835`). Sealing the arena cliff
+  turned the pit band into a corridor walled on **both** sides, with the gondola rows 2.0 m off
+  the inner one. A cart is 1.47 × 2.42 with its skin, diagonal **2.83 m** — it enters sideways
+  and then cannot rotate out. Gondola length 9 → 7 and band centre 45.5 → 46.7 gives **4.2 m on
+  each side**; dressing friction dropped so the tops shed rather than hold.
+- *(Process)* **The obvious fix was wrong and got acked anyway.** The first proposal — push the
+  band outward to 47.5 — was acked before either of us checked the far side; it would have shrunk
+  the outer gap to 2.4 m and rebuilt the identical wedge against the room wall. Caught by
+  re-deriving during write-up, not by review. **A corridor has two walls; a clearance fix has to
+  prove both.** The test now pins both gaps against `CONFIG.cart.size` rather than literals, so
+  the check survives a bigger cart.
+- *(Residual)* Wyatt's PASS came with "collisions … are a bit sticky" → **STORE-WALL-SLIDE-1**.
+
 ### August 5, 2026 — STORE-PLAT-WALL-1 PASS: the pit is a sealed box
 
 **Wyatt PASS on prod `251c51e4`** — *"it works"*. The arena cliff stops carts; you can no longer
