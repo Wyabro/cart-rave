@@ -1447,6 +1447,10 @@ export function bootGameSystems(ctx) {
       }
       return false;
     },
+    // * HOST-SNAP-PUMP-1: host 40Hz snaps ride rAF + hidden MessageChannel pump, not setInterval.
+    onAfterSim() {
+      Netcode.tickHostSendFromFrame();
+    },
     onFrame(frameCtx) {
     gameCtx.setFrameCtx(frameCtx);
     // * Sudden Death tension bed — edge-latched here because this runs on EVERY client

@@ -156,7 +156,14 @@ const __dbgInputCounters = { drainCalls: 0, drainApplied: 0, sampleCalls: 0, sen
 /** @param {boolean} on Enable input-path counters for the netcode harness (?nettest only). */
 export function setNetTestActive(on) { netTestOn = Boolean(on); }
 
-let hostSendTimer = null;
+/**
+ * HOST-SNAP-PUMP-1: host broadcast is frame-driven (see {@link tickHostSendFromFrame}),
+ * not setInterval. Chrome clamps setInterval to ~1 Hz in hidden tabs while the
+ * MessageChannel pump keeps sim alive — peers starved (cap-280). Truthy while the
+ * host send path is armed (fall queue + start guards still use getHostSendTimer()).
+ * @type {boolean}
+ */
+let hostSendLoopArmed = false;
 let keepaliveTimer = null;
 /** @type {ReturnType<typeof setTimeout> | null} */
 let hostPresentRetryTimer = null;
@@ -209,7 +216,7 @@ export function queueHostFallEvent(eventData) {
   // * Solo/testdrive never start the loop — without this gate every solo fall would
   // * accumulate all session and flush as phantom KO replays into the first snapshot
   // * of a later hosted room.
-  if (!hostSendTimer) return;
+  if (!hostSendLoopArmed) return;
   pendingHostFallEvents.push(eventData);
   if (GameState.getRoundState().phase !== "running") {
     // * The ROUND-ENDING KO: gameFlow queues the fall after addScore→endRound has
@@ -698,7 +705,7 @@ const netFlowStats = {
   // * Most recent inter-arrival gap (ms). Prefer tHost delta; wall fallback without tHost.
   // * gameLoop skips replay only when this exceeds prediction.skipReplayAfterSnapGapMs.
   lastArrivalGapMs: 0,
-  // * Host-only: inter-send gaps of hostSendTick (setInterval @ hostSendHz). Independent
+  // * Host-only: inter-send gaps of hostSendTick (frame-driven @ hostSendHz). Independent
   // * of client receive path — use these on the host F8 for hitch forensics (2e).
   sendGapCount: 0,
   sendGapSumMs: 0,
@@ -964,8 +971,9 @@ export function getSkipNextPhysicsStep() { return skipNextPhysicsStep; }
 export function setSkipNextPhysicsStep(val) { skipNextPhysicsStep = val; }
 export function getPartySocket() { return partySocket; }
 
-// * Public integration getters — main.js / gameLoop bridge only need these timer checks.
-export function getHostSendTimer() { return hostSendTimer; }
+// * Public integration getters — main.js / gameLoop bridge only need these arm checks.
+// * Name kept for call sites; value is boolean (HOST-SNAP-PUMP-1 dropped setInterval).
+export function getHostSendTimer() { return hostSendLoopArmed; }
 
 // === CONNECTION & SOCKET ===
 
@@ -1798,12 +1806,11 @@ function processHostFallEvent(msg, cartsSnap) {
   }
 }
 
-/** Last hostSendTick wall time — the setInterval burst-coalescing guard reads this. */
+/** Last hostSendTick wall time — the frame rate-limit guard reads this. */
 let lastHostSendTickMs = 0;
 
 function stopHostSendLoop() {
-  if (hostSendTimer) clearInterval(hostSendTimer);
-  hostSendTimer = null;
+  hostSendLoopArmed = false;
   lastHostSendTickMs = 0;
   clearHostCollisionBatch();
   pendingHostFallEvents = [];
@@ -1954,13 +1961,13 @@ function hostSendTick(opts = {}) {
     return;
   }
 
-  // * Burst coalescing: setInterval callbacks queue while the host main thread hitches
-  // * and fire back-to-back on recovery — a burst of near-identical-tHost snapshots that
-  // * every non-host then reconciles one after another (visible as post-hitch rubberband
-  // * churn, run-4). Skip ticks that fire sooner than half the send period; the forced
-  // * round-end flush bypasses the guard.
+  // * Rate limit at hostSendHz (40 → 25ms). Frame path (rAF or hidden MessageChannel pump)
+  // * can fire every ~8–16ms; without a full-period floor we overshoot the wire rate.
+  // * Also absorbs post-hitch burst recovery (was half-period for setInterval coalesce).
+  // * force:true round-end flush bypasses.
   const sendNowMs = performance.now();
-  if (!opts.force && sendNowMs - lastHostSendTickMs < 500 / CONFIG.net.hostSendHz) return;
+  const minGapMs = 1000 / CONFIG.net.hostSendHz;
+  if (!opts.force && lastHostSendTickMs > 0 && sendNowMs - lastHostSendTickMs < minGapMs) return;
   // * 2e: record inter-send gap BEFORE stamping lastHostSendTickMs (uses prior stamp).
   noteHostSendTick(sendNowMs);
   lastHostSendTickMs = sendNowMs;
@@ -2020,12 +2027,23 @@ function hostSendTick(opts = {}) {
   P2P.sendToAll(binaryPayload);
 }
 
+/**
+ * Arm host snapshot broadcast. Actual ticks come from {@link tickHostSendFromFrame}
+ * on each sim frame (HOST-SNAP-PUMP-1) — not setInterval (Chrome hides → ~1 Hz).
+ */
 export function startHostSendLoop() {
   stopHostSendLoop();
   if (!partySocket || !isHost || !getAllCarts()) return;
+  hostSendLoopArmed = true;
+}
 
-  const intervalMs = Math.max(1, Math.round(1000 / CONFIG.net.hostSendHz));
-  hostSendTimer = setInterval(hostSendTick, intervalMs);
+/**
+ * HOST-SNAP-PUMP-1: one opportunity to broadcast host state from the game loop.
+ * No-op when disarmed (solo / non-host). Safe under both rAF and the hidden-host pump.
+ */
+export function tickHostSendFromFrame() {
+  if (!hostSendLoopArmed) return;
+  hostSendTick();
 }
 
 /** Diag probe: false means sampleLocalInputForTick is a no-op (the 07-17 spawn freeze). */
@@ -2142,7 +2160,7 @@ export function setAuthorityMode(nextIsHost) {
   }
 
   if (isHost) {
-    if (!hostSendTimer) startHostSendLoop();
+    if (!hostSendLoopArmed) startHostSendLoop();
     // * Remain-host path (hello re-entry): toast at most once per hostship.
     maybeWarnWeakHost();
   } else {
@@ -3502,6 +3520,7 @@ export const __netcodeTestHooks = {
   bufferState: (serverNowMs, seq, carts) => bufferAuthoritativeState(serverNowMs, seq, carts, hostEpoch),
   resetNetState: () => {
     clearHostPresentRetry();
+    stopHostSendLoop();
     partySocket = null;
     netStateBuffer = [];
     lastCartsCache = null;
@@ -3526,8 +3545,17 @@ export const __netcodeTestHooks = {
     recentHostCollisionFxByPair.clear();
     seenFallPresentationEids.clear();
     seenCollisionPresentationEids.clear();
+    getAllCartsRefFn = null;
   },
   setPartySocketForTest: (socket) => { partySocket = socket; },
+  /** HOST-SNAP-PUMP-1: arm/disarm + frame tick without a live game loop. */
+  setGetAllCartsForTest: (fn) => {
+    getAllCartsRefFn = typeof fn === "function" ? fn : null;
+  },
+  startHostSendLoopForTest: () => startHostSendLoop(),
+  stopHostSendLoopForTest: () => stopHostSendLoop(),
+  tickHostSendFromFrameForTest: () => tickHostSendFromFrame(),
+  isHostSendLoopArmedForTest: () => hostSendLoopArmed,
   /** HOST-CAP-1 seams: join-time score + weak-host toast latch. */
   setLocalHostScoreForTest: (score) => {
     localHostScore = typeof score === "number" && Number.isFinite(score) ? score : 50;

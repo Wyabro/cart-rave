@@ -646,6 +646,8 @@ export function resetGameLoopTiming(loopState) {
  *   handler should bail to a safe state (e.g. return to menu). The outer rAF stays alive.
  * @property {() => boolean} [shouldPumpWhileHidden] True only while a hidden authoritative
  *   host must keep the live simulation advancing.
+ * @property {(ctx: FrameContext) => void} [onAfterSim] After {@link onFrame}, before visuals.
+ *   HOST-SNAP-PUMP-1: host snapshot broadcast shares the sim driver (rAF + hidden pump).
  */
 
 /**
@@ -720,6 +722,7 @@ const HOST_PUMP_FRAME_MS = 1000 / 60;
 export function runGameLoop(loopState, callbacks) {
   const {
     onFrame,
+    onAfterSim,
     onVisualUpdate,
     shouldSkipTiming,
     onStepError,
@@ -928,6 +931,8 @@ export function runGameLoop(loopState, callbacks) {
       if (d && !isResume) {
         const simStart = performance.now();
         onFrame(frameCtx);
+        // * HOST-SNAP-PUMP-1: host snaps after sim, still inside simMs (wire serialize is CPU).
+        onAfterSim?.(frameCtx);
         const visStart = performance.now();
         onVisualUpdate?.(frameCtx);
         const visEnd = performance.now();
@@ -935,6 +940,7 @@ export function runGameLoop(loopState, callbacks) {
         d.visMs += visEnd - visStart;
       } else {
         onFrame(frameCtx);
+        onAfterSim?.(frameCtx);
         onVisualUpdate?.(frameCtx);
       }
 
