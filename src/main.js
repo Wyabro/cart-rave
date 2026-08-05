@@ -97,10 +97,12 @@ import {
   createHelloGate,
   createSessionBridgeRefs,
 } from "./gameSession.js";
+// * BUNDLE-1 Lever E — leaf module, NOT cartOrchestration.js: importing these two from
+// * cartOrchestration dragged simulation/entities/hud/effects onto the eager graph.
 import {
   displayColorHexForSlot,
   shuffledClientNpcNames,
-} from "./orchestration/cartOrchestration.js";
+} from "./orchestration/cartIdentity.js";
 import {
   captureInviteRoomForDeferredMenu,
   createMenuPlayEntry,

@@ -24,6 +24,7 @@ import { initAudioSystem } from "../audioSetup.js";
 import { initAnnouncerStings } from "../announcer/announcerStings.js";
 import {
   announce,
+  getAnnouncerDebugState,
   initAnnouncer,
   registerAnnouncerVoicePack,
   setAnnouncerPresenter,
@@ -42,6 +43,7 @@ import {
   initDirectiveEngine,
   shiftDirectiveTimersBy,
 } from "../directives/directiveEngine.js";
+import { clearNpcCartCache, resetReconciliationState } from "../gameLoop.js";
 import { settingsStore } from "../stores/settingsStore.js";
 import { AUDIO_VOLUME_DEFAULT, AUDIO_VOLUME_MAX } from "../stores/audioStore.js";
 import { CHALLENGE_POOL, challengeStore } from "../stores/challengeStore.js";
@@ -84,13 +86,25 @@ import {
   isWorldBootstrapped,
 } from "../bootstrap.js";
 import { animateCartBoostPulse, crossfadeElement } from "../animations.js";
-import { triggerCartShatter } from "../cartShatter.js";
+import { isShatterAnimating, triggerCartShatter } from "../cartShatter.js";
+// * BUNDLE-1 Lever E — these seven modules were static imports of `netcode.js` (eager),
+// * which held the whole gameplay/render graph on the eager side of the gameBoot split.
+// * They now arrive here and are merged into `sessionBridgeCtx.current` below.
+import * as GroceryPool from "../effects/groceryPool.js";
+import { dispatchKOEvent } from "../scoring/koReactors.js";
+import { armSpillBoost, stripLifeCargo } from "../cargoLoad.js";
+import {
+  applyRemoteDirective,
+  clearDirectiveOnHostMigration,
+  getActiveDirective,
+  getDirectiveWireState,
+} from "../directives/directiveEngine.js";
 import { buildSessionBridgeContext, wireNetcodeRuntimeRefs } from "../gameSession.js";
 import {
   buildCartMaterialCache,
   createCartOrchestration,
-  displayColorHexForSlot,
 } from "./cartOrchestration.js";
+import { displayColorHexForSlot } from "./cartIdentity.js";
 import { createLoopDeps } from "./loopDeps.js";
 import { createRoundLifecycle, resolveCinematicCountdownOverrides } from "./roundLifecycle.js";
 import {
@@ -237,6 +251,9 @@ export function bootGameSystems(ctx) {
     stopAnnouncer: () => stopAnnouncer(),
     startArenaAmbience: (levelId) => ArenaAmbience.startArenaAmbience(levelId),
     stopArenaAmbience: () => ArenaAmbience.stopArenaAmbience(),
+    // * BUNDLE-1 Lever E, third edge — F8 diag probes, read-only.
+    getAnnouncerDebugState: () => getAnnouncerDebugState(),
+    getActiveDirective: () => getActiveDirective(),
   });
 
   const {
@@ -1194,6 +1211,26 @@ export function bootGameSystems(ctx) {
     resetLeaderHum: () => refs.leaderHum?.setLeader?.(null),
     resetResultsOverlayKey,
     resetPodiumSessionState,
+
+    // * BUNDLE-1 Lever E — the deferred graph netcode.js used to import statically. Key
+    // * names match Netcode.DEFERRED_GAME_CALLBACK_KEYS and the buildNetcodeGameBridge
+    // * lambdas exactly; the bridge live-reads this object, so nothing re-registers.
+    clearNpcCartCache,
+    resetReconciliationState,
+    hideCargoBay: (cart) => GroceryPool.hideCargoBay(cart),
+    triggerGrocerySpill: (slotKey, pos, quat, vel, count, cargoBay) => {
+      GroceryPool.triggerSpill(slotKey, pos, quat, vel, count, cargoBay);
+    },
+    isShatterAnimating: (cart, nowMs) => isShatterAnimating(cart, nowMs),
+    dispatchKOEvent: (koEvent, koCtx) => dispatchKOEvent(koEvent, koCtx),
+    announce: (key, opts) => announce(key, opts),
+    applyRemoteDirective: (data) => applyRemoteDirective(data),
+    clearDirectiveOnHostMigration: () => clearDirectiveOnHostMigration(),
+    getDirectiveWireState: () => getDirectiveWireState(),
+    armSpillBoost: (cart) => armSpillBoost(cart),
+    stripLifeCargo: (cart) => stripLifeCargo(cart),
+    // ⚠ Adding a key here without adding it to DEFERRED_GAME_CALLBACK_KEYS + the bridge
+    // is a SILENT no-op in a live session. tests/netcodeDeferredCallbacks.test.js gates it.
   });
 
   void flushPendingSessionBootstrap();

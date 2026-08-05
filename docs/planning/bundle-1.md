@@ -592,6 +592,158 @@ below the regressed 563 — the hypothesis is dead and the card closes as a part
 
 ---
 
+## 11. Lever E — the last eager edges into the heavy graph (done 08-04)
+
+**Result: all seven gate-3 target modules are OUT of the preloaded set.** The hypothesis in
+§10 now has its test: ~350 kB left the initial download set. Whether `module-eval` drops
+below the pre-card ~472 ms is a **measurement still owed** — F8 on every load, n≥5.
+
+### There were THREE eager edges, not two
+
+§9 named two. A third was found by walking the static import graph from `main.js`, and
+without it `effects.js` + `simulation.js` would have stayed preloaded even after both named
+edges were cut — the same "cutting one frees nothing" trap §9 warned about, one level down:
+
+| # | edge | how it was cut |
+|---|------|----------------|
+| A | `main.js` → `netcode.js` → gameLoop · cartShatter · effects/groceryPool · scoring/koReactors · announcer/announcerManager · directives/directiveEngine · cargoLoad | 12 new keys on the **existing** `registerGameCallbacks` table (`Netcode.DEFERRED_GAME_CALLBACK_KEYS`), supplied through `buildNetcodeGameBridge`'s live-reading lambdas |
+| B | `main.js` → `orchestration/cartOrchestration.js` → `hud.js` | new leaf `src/orchestration/cartIdentity.js` holds `displayColorHexForSlot` / `displayCssColorForSlot` / `shuffledClientNpcNames`; **no re-export** — gameBoot and roundLifecycle import it directly, so there is one definition site |
+| C | `main.js` → `utils/gameplayDiagnostics.js` → `directiveEngine` + `announcerManager` → `cargoLoad` → `groceryPool` → `effects.js` + `simulation.js` | two read-only F8 probes (`getAnnouncerDebugState`, `getActiveDirective`) moved onto the Lever D `gameTeardownHooks` table |
+
+`netcode.js` itself stays eager, as scoped.
+
+### Fires-before-boot inventory (the NET-1 risk)
+
+15 call sites across the 12 deferred keys. **Every one is behind an open PartySocket.**
+Lever C's finding re-verified per import, not assumed: the only `Netcode.initNetcode()` call
+site in the app is `bootstrapNetcodeFromMenu`, which runs inside `enterPlayMode`'s
+`onArenaReady` — behind `startPlay`'s await. `bootstrapNetcodeEntryFromUrl` at module scope
+only registers callbacks and captures `?room=`; it opens no connection. **No key is
+reachable before `ensureGameSystems()` resolves**, including on lobby traffic and the
+`?room=` auto-enter window.
+
+| key | netcode call sites (enclosing fn) | reachable pre-latch? |
+|---|---|---|
+| `resetReconciliationState` | `resetClientPredictionState` · `disconnectPartySession` · `setAuthorityMode` · `broadcastHostTransform` · `applyHostSpawnSnapshot` | no — all five callers (`entities.js`, `gameBoot`, `roundLifecycle`, `cartOrchestration`) are themselves behind the boundary |
+| `clearNpcCartCache` | `initNetcode` | no — `initNetcode` IS the latch-gated entry |
+| `hideCargoBay` | `applyCartState` · `handleRemoteSpill` | no — snapshot / P2P spill message |
+| `triggerGrocerySpill` | `handleRemoteSpill` | no — P2P spill message |
+| `isShatterAnimating` | `applyCartState` | no — and doubly inert: the read is guarded by `cart._shatterState`, which only the deferred cartShatter module sets |
+| `dispatchKOEvent` | `processHostFallEvent` | no — host fall event off the wire |
+| `announce` | `applyHostMigration` | no — `MSG.hostMigrated` |
+| `applyRemoteDirective` | `handleRemoteP2PMessage` · `handleRemoteHostState` | no — P2P directive / host snapshot |
+| `clearDirectiveOnHostMigration` | `applyHostMigration` | no — `MSG.hostMigrated` |
+| `getDirectiveWireState` | `hostSendTick` | no — host-only send loop; default `null` omits `payload.dir`, which IS the "no directive" wire state |
+| `armSpillBoost` · `stripLifeCargo` | `handleRemoteSpill` | no — P2P spill message |
+
+So every default is a **fail-safe, not a live path** — the same ruling §8 made for the
+lobby bridge, re-derived. Guarded by `tests/netcodeDeferredCallbacks.test.js`: key-set
+parity between `DEFERRED_GAME_CALLBACK_KEYS`, netcode's stub table and the bridge, plus a
+delegation assert (each bridge lambda hits the context key of the same name) and a
+regression assert that netcode does not re-acquire any of the seven static imports. A
+missed key would otherwise be a **silent no-op in a live session**, not a crash.
+
+### Asserts
+
+- [x] `npm run qa` green — **113 files / 1,386 tests** (112/1,380 through A–D; +1 file, +6 tests)
+- [x] `npm run build` green
+- [x] **Gate 3 — decisive.** Manifest × `dist/index.html` modulepreload list:
+
+| module | chunk | preloaded? |
+|---|---|---|
+| `src/effects.js` | `gameBoot` | **OUT** ✅ |
+| `src/simulation.js` | `gameBoot` | **OUT** ✅ |
+| `src/hud.js` | `gameBoot` | **OUT** ✅ |
+| `src/cartShatter.js` | `cheapMirror` | **OUT** ✅ |
+| `src/effects/waterDeathFx.js` | `arenaReactiveLights` | **OUT** ✅ |
+| `src/scoring/koReactors.js` | `koReactors` | **OUT** ✅ |
+| `src/orchestration/cartOrchestration.js` | `gameBoot` | **OUT** ✅ |
+
+  Also newly out: `gameLoop.js`, `entities.js`, `announcerManager.js`, `directiveEngine.js`,
+  `cargoLoad.js`, `effects/groceryPool.js`. `netcode.js` and the new `cartIdentity.js` are
+  **IN** by design.
+- [x] Initial set **1,554,863 → 1,203,360 B (−351,503, −22.6%)** vs the Lever A baseline;
+  **−271,631 B** vs Lever D. 14 preloaded files, unchanged count.
+- [⚠] `size:check` **exits 1** — the §8 false positive again, now with four names.
+  Deliberately NOT re-baselined (Lever F owns the ratchet).
+- [x] `npm run shoot` default + `--level backrooms` — both `worldReady=true`, arena renders
+  (zanzibar skipped per SHOOT-LEVEL-1)
+- [❌] **`npm run battery` — 5/6, NOT the required 6/6. See below. This lever is NOT
+  deploy-clean.**
+
+### ❌ BLOCKER — soak geometry growth, reproduced twice, cause NOT diagnosed
+
+`gameharness` fails one check of 41: **`soak: geometries stays flat across rematches`**.
+
+| run | head | geometries | textures | sceneNodes | programs |
+|---|---|---:|---:|---:|---:|
+| pre-E full suite | `363520b` | 121 → 121 (Δ0) | 90 → 90 (Δ0) | Δ0 | Δ0 |
+| post-E full suite #1 | `bc47c4c`+wt | **121 → 130 (Δ9)** ❌ | 89 → 91 (Δ2) | Δ0 | Δ0 |
+| post-E full suite #2 | `bc47c4c`+wt | **121 → 131 (Δ10)** ❌ | 89 → 91 (Δ2) | Δ0 | Δ0 |
+| post-E `--only gameharness` | `bc47c4c`+wt | 121 → 121 (Δ0) ✅ | Δ0 | Δ0 | Δ0 |
+
+Tolerance is 8. Prior full-suite history across 08-03/08-04 was Δ0–5 — **Δ9/Δ10 is outside
+the observed range and reproduced twice**, so it should not be written off as spread.
+
+What the fingerprint says, and what it does not:
+
+- **Geometries + textures grow; `sceneNodes` and `programs` are dead flat.** Objects are
+  being allocated but never parented — that is a *lazily-built VFX resource being rebuilt*,
+  not carts or arena nodes leaking (either would move `sceneNodes`).
+- ~3 geometries per rematch cycle.
+- The first-sample texture count dropped 90 → 89, i.e. one resource that used to exist by
+  the first podium now appears later. Consistent with a build being deferred, not skipped.
+- **It does not reproduce under `--only gameharness`** (dead-flat 121/121/121 on all three
+  cycles), so it is state- or timing-dependent on the shared dev stack, not a pure function
+  of the code change.
+
+Plausible mechanism, **unverified**: `cartShatter.js` and `effects/waterDeathFx.js` both
+cache canvas textures + geometries at module scope on first explosion/splash, and both
+moved out of the entry chunk into different lazy chunks (`cheapMirror`,
+`arenaReactiveLights`) in this lever. A rebuild of those caches would produce exactly this
+signature. **This was NOT confirmed** — no probe was run, and the competing hypothesis (a
+Lever-E callback that is now a silent no-op on a cleanup path — `clearNpcCartCache`,
+`hideCargoBay`, `stripLifeCargo` are the candidates) is equally consistent with the counts
+and is precisely the NET-1 failure mode gate 5 exists to catch.
+
+**Next step is forensics, not knobs, and not a tolerance bump.** Instrument which module
+allocates the extra geometries across a rematch (`__cartRavePerf` geometry census before/
+after cycle 1), then attribute. Do not raise `TOLERANCE.geometries` in
+`tools/gameharness.mjs` — that would delete the only signal.
+
+**Until this is diagnosed, Lever E is committed but NOT deploy-clean.** The byte win in
+gate 3 stands on its own and is independently verifiable from the manifest; the runtime
+correctness of the netcode callback seam is what is unresolved.
+
+### ⚠ `size:check` red — the entry family re-split AGAIN, under four names
+
+Rolldown no longer emits `gamepadNav`; the entry family is now `index` (19 modules,
+91,267 B) + `errorReporter` (56 modules, 266,217 B) + `sfxSynth` (3, 11,902 B) +
+`animations` (1, 10,779 B) + `koEvent` (3, 3,993 B).
+
+**Entry-family arithmetic:** 91,267 + 266,217 + 11,902 + 10,779 + 3,993 = **384,158 B** vs
+the baseline `index` of **660,794 B** = **−276,636 B (−41.9%)**. Every other baseline chunk
+is Δraw = 0 (`three`, `animejs`, `scene`, `howler`, `diagnostics`, `utils`, `captureUpload`,
+`levelLod`, `rolldown-runtime`), and four baseline chunks **LEFT** the set (`waterDeathFx`,
+`cartShatter`, `koReactors`, `contactShadows`) — that accounts for the remaining −74,867 B.
+
+Verified not a re-eagering: every `src/` module in all four "entered" chunks is genuinely
+menu-reachable (netcode, bootstrap, camera, customization, input, audioManager, animations,
+koEvent/matchStats). No deferred module is present in any of them.
+
+**Lever F must re-baseline** and should give `strippedKey` an entry-chunk alias — this
+false positive has now fired twice with different names, which is a tool defect, not noise.
+
+### Noticed, not fixed
+
+- `contactShadows` leaving the initial set was a free side effect, not aimed at.
+- The `errorReporter` chunk name is itself an artifact of rolldown naming a shared chunk
+  after its first module; nothing about error reporting changed.
+- `main.js`'s ~18 genuinely unused imports (§6, carried from Lever B) are still there —
+  still Lever F's.
+
+---
+
 ## 6. Notes carried out of Lever A (not fixed here)
 
 - `docs/bundle-budget.json` records `generatedAt`, so a `size:update` always dirties the file even at zero byte delta. Intentional (provenance), but do not read a diff on that line as a size change.

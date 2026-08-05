@@ -30,8 +30,10 @@ import { gameStore, RoundPhase } from "../stores/gameStore.js";
 import { unlockStore, isLevelUnlocked, getLevelUnlockStatus } from "../stores/unlockStore.js";
 import { challengeStore } from "../stores/challengeStore.js";
 import { snapshotMatchStats } from "../scoring/matchStats.js";
-import { getAnnouncerDebugState } from "../announcer/announcerManager.js";
-import { getActiveDirective } from "../directives/directiveEngine.js";
+// * BUNDLE-1 Lever E, third edge: importing announcerManager/directiveEngine here dragged
+// * cargoLoad -> groceryPool -> effects.js + simulation.js onto the EAGER graph, because
+// * main.js installs these probes at boot. The Lever D hook table is dependency-free.
+import { gameTeardownHooks } from "../orchestration/gameTeardownHooks.js";
 import { getCameraMode } from "../camera.js";
 import {
   getIsHost,
@@ -144,14 +146,14 @@ function registerProbes(deps) {
     };
   });
 
-  registerDiagProbe("announcer", () => getAnnouncerDebugState());
+  registerDiagProbe("announcer", () => gameTeardownHooks.getAnnouncerDebugState());
 
   // * Added alongside the net probe (07-17 run 2): "the splash isn't audible" class
   // * of reports needs the audio stack's actual state in the bundle, not a guess.
   registerDiagProbe("audio", () => getAudioDebugState());
 
   registerDiagProbe("directive", () => {
-    const d = getActiveDirective();
+    const d = /** @type {{ id?: string } | null} */ (gameTeardownHooks.getActiveDirective());
     return d ? { id: d.id, ...serializeShallow(d) } : null;
   });
 

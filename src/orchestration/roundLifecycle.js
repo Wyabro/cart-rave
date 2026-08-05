@@ -44,9 +44,7 @@ import {
 import { emblemForSlot } from "../npcNames.js";
 import { svgIcon } from "../ui/icons.js";
 import { resetArenaReactiveLights } from "../arenaReactiveLights.js";
-import {
-  displayCssColorForSlot,
-} from "./cartOrchestration.js";
+import { displayCssColorForSlot } from "./cartIdentity.js";
 import { getPersonalStats, savePersonalStats } from "../ui/menuStats.js";
 import { STORAGE_KEYS, storageGet, storageSet } from "../utils/storage.js";
 

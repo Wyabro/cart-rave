@@ -7,22 +7,15 @@ import { CART_COLORS, CONFIG, MSG, PALETTE, WORKER_PUBLIC_HOST } from "./config.
 import { loadPlayerCustomization, resolveServerColorPick } from "./customization.js";
 import { consumeHopRequest } from "./input.js";
 import { clearHostCollisionBatch, drainHostCollisionBatch } from "./hostCollisionBatch.js";
-import { clearNpcCartCache, resetReconciliationState } from "./gameLoop.js";
-import * as GroceryPool from "./effects/groceryPool.js";
 import { settingsStore } from "./stores/settingsStore.js";
-import { isShatterAnimating } from "./cartShatter.js";
 import * as P2P from "./netcode/p2p.js";
 import { encodeHostStateSnapshot, decodeHostStateSnapshot } from "./netcode/binary.js";
 import { stampTailEventIds, markPresentationEid } from "./netcode/presentationDedupe.js";
 import { rebuildKOEvent } from "./scoring/koEvent.js";
-import { dispatchKOEvent } from "./scoring/koReactors.js";
 import { ChallengeTracker } from "./stores/challengeStore.js";
 import { UnlockTracker } from "./stores/unlockStore.js";
 import { FREE_LEVEL } from "./unlockConfig.js";
 import { getCurrentLevelId } from "./levelManager.js";
-import { announce } from "./announcer/announcerManager.js";
-import { applyRemoteDirective, clearDirectiveOnHostMigration, getDirectiveWireState } from "./directives/directiveEngine.js";
-import { armSpillBoost, stripLifeCargo } from "./cargoLoad.js";
 import { clamp } from "./utils.js";
 import { playSfx } from "./audioManager.js";
 import { recordDiagEvent } from "./utils/diagnostics.js";
@@ -379,7 +372,88 @@ let callbacks = {
   hasPendingNonHostCountdownApply: () => false,
   /** @returns {boolean} CAM-PT-MP-1: host is inside the opening fly-over pre-roll. */
   hasPendingHostMpHold: () => false,
+
+  // ─── BUNDLE-1 Lever E — formerly static imports of the heavy game graph ───────────
+  // * `netcode.js` stays eager (module-scope callback registration + ?room= capture), but
+  // * it used to statically import gameLoop / cartShatter / effects.groceryPool /
+  // * scoring.koReactors / announcer.announcerManager / directives.directiveEngine /
+  // * cargoLoad, which held ~500 kB of gameplay+render code on the eager side of the
+  // * gameBoot split. Each is now a key on this table, supplied by `gameBoot` through the
+  // * live-reading `buildNetcodeGameBridge` lambdas.
+  //
+  // * Every default below is a safe no-op ONLY because none is reachable before the boot
+  // * latch resolves: all 15 call sites sit behind an open PartySocket, and the only
+  // * `initNetcode()` call site is `bootstrapNetcodeFromMenu` inside `enterPlayMode`'s
+  // * `onArenaReady` — i.e. behind `startPlay`'s await (re-verified for Lever E; see
+  // * docs/planning/bundle-1.md §11 inventory). They are fail-safes, not a live path.
+  /** gameLoop.js — drop the cached NPC cart list on a fresh session. */
+  clearNpcCartCache: () => {},
+  /** gameLoop.js — wipe client-prediction reconciliation history. */
+  resetReconciliationState: () => {},
+  /** effects/groceryPool.js — hide every cargo bay under a cart. */
+  hideCargoBay: (cart) => {},
+  /** effects/groceryPool.js — remote spill VFX burst. */
+  triggerGrocerySpill: (slotKey, pos, quat, vel, count, cargoBay) => {},
+  /**
+   * cartShatter.js — is this cart's shatter VFX still playing?
+   * Default `false` is inert: the only read is guarded by `cart._shatterState`, which
+   * only the deferred cartShatter module ever sets, so the branch is structurally
+   * unreachable before boot.
+   * @returns {boolean}
+   */
+  isShatterAnimating: (cart, nowMs) => false,
+  /** scoring/koReactors.js — fan a KO event out to kill feed / challenges / FX. */
+  dispatchKOEvent: (koEvent, ctx) => {},
+  /** announcer/announcerManager.js — Store PA line. */
+  announce: (key, opts) => {},
+  /** directives/directiveEngine.js — apply a host-sent Living Store directive. */
+  applyRemoteDirective: (data) => {},
+  /** directives/directiveEngine.js — drop the active directive on host migration. */
+  clearDirectiveOnHostMigration: () => {},
+  /**
+   * directives/directiveEngine.js — active directive for the host snapshot payload.
+   * Default `null` is inert: the caller omits `payload.dir` when falsy, which is exactly
+   * the "no active directive" wire state.
+   * @returns {object | null}
+   */
+  getDirectiveWireState: () => null,
+  /** cargoLoad.js — spill drive-surge window. */
+  armSpillBoost: (cart) => {},
+  /** cargoLoad.js — clear life-scoped cargo weight. */
+  stripLifeCargo: (cart) => {},
 };
+
+/**
+ * BUNDLE-1 Lever E — the callback keys that replaced static imports of the deferred game
+ * graph. A key present here but missing from `buildNetcodeGameBridge` (or from the
+ * `gameBoot` context it reads) is a **silent no-op in a live multiplayer session**, not a
+ * crash: a KO reactor that never fires, a remote directive that never applies. Guarded by
+ * `tests/netcodeDeferredCallbacks.test.js`.
+ * @type {readonly string[]}
+ */
+export const DEFERRED_GAME_CALLBACK_KEYS = Object.freeze([
+  "clearNpcCartCache",
+  "resetReconciliationState",
+  "hideCargoBay",
+  "triggerGrocerySpill",
+  "isShatterAnimating",
+  "dispatchKOEvent",
+  "announce",
+  "applyRemoteDirective",
+  "clearDirectiveOnHostMigration",
+  "getDirectiveWireState",
+  "armSpillBoost",
+  "stripLifeCargo",
+]);
+
+/**
+ * Live key set of the game-callback table (defaults merged with whatever
+ * `registerGameCallbacks` supplied). Test seam for the Lever E key-parity assert.
+ * @returns {string[]}
+ */
+export function getGameCallbackKeys() {
+  return Object.keys(callbacks);
+}
 
 function registerCallbacks(cb) {
   callbacks = { ...callbacks, ...cb };
@@ -503,6 +577,25 @@ export function registerGameCallbacks(deps) {
         ? deps.hasPendingHostMpHold()
         : false
     ),
+
+    // * BUNDLE-1 Lever E — deferred-graph shims. Same key name on deps and on the table,
+    // * so a missing bridge key degrades to the documented default rather than throwing.
+    // * `registerGameCallbacks` runs ONCE (gameSession.bootstrapNetcodeEntryFromUrl), so
+    // * these must stay live reads through `deps`, never captured values.
+    clearNpcCartCache: () => deps.clearNpcCartCache?.(),
+    resetReconciliationState: () => deps.resetReconciliationState?.(),
+    hideCargoBay: (cart) => deps.hideCargoBay?.(cart),
+    triggerGrocerySpill: (slotKey, pos, quat, vel, count, cargoBay) => {
+      deps.triggerGrocerySpill?.(slotKey, pos, quat, vel, count, cargoBay);
+    },
+    isShatterAnimating: (cart, nowMs) => deps.isShatterAnimating?.(cart, nowMs) ?? false,
+    dispatchKOEvent: (koEvent, ctx) => deps.dispatchKOEvent?.(koEvent, ctx),
+    announce: (key, opts) => deps.announce?.(key, opts),
+    applyRemoteDirective: (data) => deps.applyRemoteDirective?.(data),
+    clearDirectiveOnHostMigration: () => deps.clearDirectiveOnHostMigration?.(),
+    getDirectiveWireState: () => deps.getDirectiveWireState?.() ?? null,
+    armSpillBoost: (cart) => deps.armSpillBoost?.(cart),
+    stripLifeCargo: (cart) => deps.stripLifeCargo?.(cart),
   });
 }
 
@@ -569,7 +662,7 @@ export function getRemoteInputsByConnId() {
 export function resetClientPredictionState() {
   pendingInputs = [];
   netStateBuffer = [];
-  resetReconciliationState();
+  callbacks.resetReconciliationState();
   resetNetFlowStats();
 }
 
@@ -1283,7 +1376,7 @@ export function applyCartState(cart, snap, options = {}) {
   if (typeof snap.s === "boolean") {
     cart.hasSpilled = snap.s;
     // * Host-authoritative spill flag: if the cart has spilled, basket cargo must go.
-    if (snap.s) GroceryPool.hideCargoBay(cart);
+    if (snap.s) callbacks.hideCargoBay(cart);
     else if (cart.cargoBay) cart.cargoBay.visible = true;
     // * Respawn teardown: the host says the cart is alive again and the death VFX has
     // * run its course — run the same local respawn as the host (cleanupShatter +
@@ -1291,7 +1384,7 @@ export function applyCartState(cart, snap, options = {}) {
     // * s:false snapshot is stale pre-death state (the falls[] tail replay applies
     // * immediately while transforms drain through the interp buffer); the shatter's own lifetime,
     // * not this network flag, decides when the VFX ends.
-    if (!snap.s && cart._shatterState && !isShatterAnimating(cart, performance.now())) {
+    if (!snap.s && cart._shatterState && !callbacks.isShatterAnimating(cart, performance.now())) {
       doRespawnRef?.(cart);
     }
   }
@@ -1651,7 +1744,7 @@ function processHostFallEvent(msg, cartsSnap) {
 
   // * challengeReactor now records the LOCAL player's own kills on non-hosts too (each device
   // * counts only kills where attacker === its local slot, so no double-counting with the host).
-  dispatchKOEvent(koEvent, {
+  callbacks.dispatchKOEvent(koEvent, {
     netSlots,
     localSlotIndex: localSlotIdx,
     hud: { addKillFeedEntry: callbacks.addKillFeedEntry, colorHexToCss: toCssHex },
@@ -1781,7 +1874,7 @@ export function disconnectPartySession() {
   remoteNitroLatchedByConnId = new Map();
   hostLastProcessedInputSeq = new Map();
   pendingInputs = [];
-  resetReconciliationState();
+  callbacks.resetReconciliationState();
 }
 
 /**
@@ -1914,7 +2007,7 @@ function hostSendTick(opts = {}) {
   }
   // * Active Living Store directive rides every snapshot — self-heal for a lost
   // * one-shot MSG.directive and the catch-up path for mid-window joiners.
-  const dir = getDirectiveWireState();
+  const dir = callbacks.getDirectiveWireState();
   if (dir) {
     payload.dir = dir;
   }
@@ -2030,7 +2123,7 @@ export function setAuthorityMode(nextIsHost) {
     remoteNitroLatchedByConnId.clear();
     hostLastProcessedInputSeq.clear();
     pendingInputs = [];
-    resetReconciliationState();
+    callbacks.resetReconciliationState();
 
     if (lastCartsCache) applyCartsSnapshotToBodies(lastCartsCache);
     resetSimTimingRef?.current?.();
@@ -2225,7 +2318,7 @@ function applyHostMigration(msg) {
   // * Living Store: mid-window CONFIG mutators die with the old host on every peer.
   // * New host re-derives schedule slots from round-elapsed; clients must not keep
   // * Rush Hour / Flash Sale overrides against base-rules host physics.
-  clearDirectiveOnHostMigration();
+  callbacks.clearDirectiveOnHostMigration();
   // * NET-MIG-3: freeze non-host prediction until first post-epoch snap (or freezeMaxMs).
   // * Past the freeze cap, keep awaitingFirstSnap so lastCartsCache / remote colliders
   // * cannot ghost-bounce until the new host's DC actually delivers a snap.
@@ -2253,7 +2346,7 @@ function applyHostMigration(msg) {
     ? netSlots.find((s) => s && s.connId === hostId)
     : null;
   if (newHostSlot?.name) {
-    announce("new_host", { name: newHostSlot.name });
+    callbacks.announce("new_host", { name: newHostSlot.name });
   }
   // * Reasoned migrations explain why the host glyph moved without a disconnect.
   // * Weak-host toast (HOST-CAP-1) stays separate: join-time score, once per hostship.
@@ -2834,7 +2927,7 @@ export function initNetcode(roomOverride) {
         ensureHostPeerConnections();
 
         if (kindsChanged) {
-          clearNpcCartCache();
+          callbacks.clearNpcCartCache();
         }
 
         const liveConnIds = new Set(
@@ -3064,7 +3157,7 @@ export function broadcastHostTransform(carts) {
   }
 
   // * Host also resets its own reconcile gate so a later demote→promote mid-session is clean.
-  resetReconciliationState();
+  callbacks.resetReconciliationState();
   hostLastProcessedInputSeq.clear();
   pendingInputs = [];
 }
@@ -3086,7 +3179,7 @@ function applyHostSpawnSnapshot(msg) {
   // * pre-rematch inputs on top of spawn.
   if (!isHost) {
     pendingInputs = [];
-    resetReconciliationState();
+    callbacks.resetReconciliationState();
     applyCartsSnapshotToBodies(carts);
     // * Buffer in the host tHost domain — the same domain as the live 40Hz entries and
     // * getInterpTargetServerNowMs(). msg.serverNowMs is Party (Worker) time; mixing
@@ -3654,7 +3747,7 @@ function handleRemoteP2PMessage(data) {
     handleRemoteSpill(data);
   } else if (data.type === MSG.directive) {
     // * Living Store directive start — apply the same CONFIG overrides locally.
-    applyRemoteDirective(data);
+    callbacks.applyRemoteDirective(data);
   } else if (data.type === MSG.spillBonus) {
     // * Presentation only — host already scored; local host uses onSpillBonusAward.
     callbacks.onSpillBonusPresentation?.(data);
@@ -3669,12 +3762,12 @@ function handleRemoteSpill(msg) {
   // * We only set hasSpilled if it wasn't already, to avoid stepping on respawn logic.
   if (cart && !cart.hasSpilled) cart.hasSpilled = true;
   // * Always despawn basket cargo on the wire spill (hide every bay under the cart).
-  if (cart) GroceryPool.hideCargoBay(cart);
+  if (cart) callbacks.hideCargoBay(cart);
   // * Life-scoped strip + spill announce window (drive surge is the stripped curve).
-  stripLifeCargo(cart);
-  armSpillBoost(cart);
+  callbacks.stripLifeCargo(cart);
+  callbacks.armSpillBoost(cart);
 
-  GroceryPool.triggerSpill(
+  callbacks.triggerGrocerySpill(
     String(msg.slotId),
     msg.pos,
     msg.quat,
@@ -3722,7 +3815,7 @@ function handleRemoteHostState(state) {
     // * (lost one-shot, mid-window join), apply it with the remaining duration.
     // * applyRemoteDirective no-ops when the same directive is already active.
     if (state.dir && state.dir.id) {
-      applyRemoteDirective({ id: state.dir.id, durationMs: state.dir.r });
+      callbacks.applyRemoteDirective({ id: state.dir.id, durationMs: state.dir.r });
     }
   }
 }

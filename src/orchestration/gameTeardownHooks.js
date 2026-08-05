@@ -32,6 +32,8 @@
  * @property {() => void} stopAnnouncer announcer/announcerManager
  * @property {(levelId?: string | null) => void} startArenaAmbience ambience/arenaAmbience
  * @property {() => void} stopArenaAmbience ambience/arenaAmbience
+ * @property {() => unknown} getAnnouncerDebugState announcer/announcerManager (F8 diag probe)
+ * @property {() => unknown} getActiveDirective directives/directiveEngine (F8 diag probe)
  */
 
 /**
@@ -53,6 +55,16 @@ export const gameTeardownHooks = {
   stopAnnouncer: () => {},
   startArenaAmbience: () => {},
   stopArenaAmbience: () => {},
+  // * BUNDLE-1 Lever E, third edge: `utils/gameplayDiagnostics.js` is EAGER (main.js
+  // * installs the F8 probes at boot) and imported these two read-only probes directly,
+  // * which held directiveEngine + announcerManager -> cargoLoad -> groceryPool ->
+  // * effects.js/simulation.js on the eager side. `null` is the correct pre-boot answer
+  // * for both: no world means no announcer state and no active directive, and each
+  // * probe already renders null as "absent" in the F8 bundle.
+  getAnnouncerDebugState: () => null,
+  getActiveDirective: () => null,
+  // ⚠ Read these THROUGH the table (see the note above) — destructuring either one at
+  // import time latches the null forever, which would silently blank the F8 probe.
 };
 
 /**

@@ -325,6 +325,27 @@ export function buildNetcodeGameBridge(getContext, session, onFirstHello = null)
       }
       return false;
     },
+
+    // * BUNDLE-1 Lever E — the deferred game graph netcode.js used to import statically
+    // * (gameLoop / cartShatter / groceryPool / koReactors / announcerManager /
+    // * directiveEngine / cargoLoad). `gameBoot` merges the real implementations into
+    // * `sessionBridgeCtx.current` under these exact key names; these lambdas live-read
+    // * them, so nothing re-registers after boot. Key list: Netcode's
+    // * DEFERRED_GAME_CALLBACK_KEYS, asserted by tests/netcodeDeferredCallbacks.test.js.
+    clearNpcCartCache: () => getContext()?.clearNpcCartCache?.(),
+    resetReconciliationState: () => getContext()?.resetReconciliationState?.(),
+    hideCargoBay: (cart) => getContext()?.hideCargoBay?.(cart),
+    triggerGrocerySpill: (slotKey, pos, quat, vel, count, cargoBay) => {
+      getContext()?.triggerGrocerySpill?.(slotKey, pos, quat, vel, count, cargoBay);
+    },
+    isShatterAnimating: (cart, nowMs) => getContext()?.isShatterAnimating?.(cart, nowMs) ?? false,
+    dispatchKOEvent: (koEvent, ctx) => getContext()?.dispatchKOEvent?.(koEvent, ctx),
+    announce: (key, opts) => getContext()?.announce?.(key, opts),
+    applyRemoteDirective: (data) => getContext()?.applyRemoteDirective?.(data),
+    clearDirectiveOnHostMigration: () => getContext()?.clearDirectiveOnHostMigration?.(),
+    getDirectiveWireState: () => getContext()?.getDirectiveWireState?.() ?? null,
+    armSpillBoost: (cart) => getContext()?.armSpillBoost?.(cart),
+    stripLifeCargo: (cart) => getContext()?.stripLifeCargo?.(cart),
   };
 }
 

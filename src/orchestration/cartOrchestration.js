@@ -21,14 +21,18 @@ import { animateCartBoostPulse, animateCartImpactSquash } from "../animations.js
 import { flashBoostActivate } from "../touchControls.js";
 import { spawnKoWorldHitmarker } from "../effects/koHitmarkerFx.js";
 import { triggerArenaKoFlash } from "../arenaReactiveLights.js";
-import { getNpcPersonality, PERSONALITY_META, NPC_NAME_POOL } from "../npcNames.js";
+import { getNpcPersonality, PERSONALITY_META } from "../npcNames.js";
 import { cargoFillLevelFor, cargoTierFor } from "../cargoLoad.js";
 import {
-  resolveCartNeonCss,
-  resolveCartNeonHex,
   resolveCartPatternForSlot,
   resolveCartThemeForSlot,
 } from "../customization.js";
+// * BUNDLE-1 Lever E: the three slot-identity helpers moved to the leaf module
+// * cartIdentity.js so main.js can import them WITHOUT pulling this module's heavy
+// * graph (simulation/entities/hud/effects) onto the eager side of the gameBoot split.
+// * Other consumers (gameBoot, roundLifecycle) import them from cartIdentity.js directly —
+// * no re-export here, so there is exactly one definition site.
+import { displayColorHexForSlot, displayCssColorForSlot } from "./cartIdentity.js";
 import { applyCartPattern } from "../cartPatterns.js";
 import { getCartTheme } from "../cartThemeConfig.js";
 import {
@@ -93,28 +97,9 @@ export function buildCartMaterialCache(cartMesh) {
   return buildCartThemeMaterialCache(cartMesh);
 }
 
-/** Neon frame color for rendering — local human uses Customize; others use server slot color. */
-export function displayColorHexForSlot(slot) {
-  return resolveCartNeonHex(slot, { youConnId: Netcode.getYouConnId() });
-}
-
-/** CSS hex for HUD, name labels, and results — same rules as displayColorHexForSlot. */
-export function displayCssColorForSlot(slot) {
-  return resolveCartNeonCss(slot, { youConnId: Netcode.getYouConnId() });
-}
-
 function testDriveSpawnForSlot(_slotIndex, config) {
   const y = config.cart.size.y / 2 + (config.cart.collider?.localYOffset ?? 0.13) + 0.05;
   return { x: 0, y, z: 0 };
-}
-
-export function shuffledClientNpcNames(count) {
-  const names = [...NPC_NAME_POOL];
-  for (let i = names.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [names[i], names[j]] = [names[j], names[i]];
-  }
-  return names.slice(0, count);
 }
 
 /**
