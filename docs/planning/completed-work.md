@@ -13,6 +13,33 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 5, 2026 — STORE-PLAT-WALL-1 PASS: the pit is a sealed box
+
+**Wyatt PASS on prod `251c51e4`** — *"it works"*. The arena cliff stops carts; you can no longer
+get underneath the playfield.
+
+- *(Physics · High)* **STORE-PLAT-WALL-1** — ✅ PASS 08-05 (`8ec9e3a`). The pit was sealed on three
+  surfaces — backstop cap at `PIT_FLOOR_Y`, full-height perimeter walls, per-shaft ricochet walls —
+  and open on the fourth: `addCliffRing(ARENA_HALF)` drew the 26 m cliff as four plain meshes with
+  **zero** `createCollider` calls. Fixed with `getBackroomsPitWallSpec()` (exported pure, mirrors
+  the visual ring from shared constants) plus four cuboids on `buildFallContainment`'s existing
+  body. Top pinned at `FLOOR_BOTTOM_Y + CHAMFER_TUCK` so it *overlaps* the perimeter chamfer
+  instead of sharing a plane with it; the test asserts that Y as an equality because an inequality
+  would pass a zero-overlap touch, which is the coplanar bug itself.
+- *(Process · the expensive part)* **The card was filed against the wrong geometry, and two Explore
+  agents mapped that wrong geometry thoroughly before anyone noticed.** The row said "spawn-platform
+  walls (rails, dividers)" and named `buildBackroomsBooths`; the research was correct and entirely
+  irrelevant. Wyatt's screenshot was at **pit-floor level** — he had fallen in and driven through
+  the *arena cliff*, a different surface in a different builder. Recovered only because he asked
+  *"are we talking about the same level??"* and sent a picture. The row's own title contained the
+  answer ("void/platform walls"). **An agent-written BACKLOG row is a hypothesis with a filename
+  attached, not the report** — match its stated geometry against what the human described, and ask
+  for a screenshot when the location is even slightly ambiguous. Second instance of this class in
+  one day; see the SHOOT-LEVEL-1 retraction below.
+- *(Follow-on)* The fix produced **STORE-PIT-WEDGE-1** — sealing the cliff turned the pit band into
+  a two-sided corridor and carts started wedging in it. Fixed same day (`152d835`); still open on a
+  playtest. **BOOTH-RAIL-COL-1** was split out to hold the real-but-unreported booth-rail gap.
+
 ### August 5, 2026 — BUNDLE-E-PT-1 PASS: the deferred-callback seam is proven live
 
 **6/6, no FAIL, on prod Worker `f2f90fd2`.** This was the human half of BUNDLE-1 Lever E, and the
