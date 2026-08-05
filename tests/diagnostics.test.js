@@ -365,6 +365,37 @@ describe("diagnostics — active (?diag)", () => {
       // * remains the fallback when the network is gone.
       expect(window.__ccDiag.captures()).toHaveLength(1);
     });
+
+    it("drops an auto-capture upload if hub generation moves before fetch starts (DIAG-UPLOAD-GEN-1)", async () => {
+      // * The upload chain yields on `import("./captureUpload.js")` before POST. A hub
+      // * reinstall in that window must drop the post (Guard 1). Once fetch has started we
+      // * deliberately do not abort — so this test bumps generation AFTER the assemble timer
+      // * returns and BEFORE import microtasks flush, not mid-flight.
+      //
+      // * Wrap setTimeout so the first fired callback (the auto-capture timer) reinstalls in
+      // * the same macrotask after the original body — microtasks have not run yet, so Guard 1
+      // * still sees the mismatch. Fake timers would also work for the bump, but they fight
+      // * __drainAutoCapturesForTest's Date.now/setTimeout poll.
+      let bumped = false;
+      const origSetTimeout = globalThis.setTimeout;
+      globalThis.setTimeout = /** @type {typeof setTimeout} */ (
+        (fn, delay, ...args) =>
+          origSetTimeout(() => {
+            Reflect.apply(/** @type {Function} */ (fn), undefined, args);
+            if (!bumped) {
+              bumped = true;
+              installDiagnostics({ flags: { enabled: true } });
+            }
+          }, delay)
+      );
+      try {
+        recordDiagEvent("assert", "gen-move-probe", { from: "podium", to: "running" });
+        await flush();
+        expect(postsFor("gen-move-probe")).toHaveLength(0);
+      } finally {
+        globalThis.setTimeout = origSetTimeout;
+      }
+    });
   });
 });
 

@@ -230,7 +230,7 @@ function scheduleAutoCapture(channel, type) {
       if (autoCaptures.length > AUTO_CAPTURE_MAX_KEPT) autoCaptures.shift();
       // eslint-disable-next-line no-console
       console.warn(`[diag] auto-captured bundle (${channel}/${type}) — __ccDiag.captures()`);
-      uploadAutoCapture(bundle, channel, type);
+      uploadAutoCapture(bundle, channel, type, scheduledForGeneration);
     } catch {
       /* never throw from evidence collection */
     }
@@ -258,31 +258,41 @@ function scheduleAutoCapture(channel, type) {
  * skipped where fetch does not exist (unit tests, SSR). Evidence collection must never
  * break the app it is observing.
  *
+ * Generation guard (DIAG-UPLOAD-GEN-1): the timer already drops assembly if the hub moved;
+ * this continues that lineage across the dynamic-import yield and skips success/fail logs if
+ * the hub moved after fetch started. Deliberately does not abort an in-flight POST —
+ * evidence collection stays non-blocking on every axis.
+ *
  * @param {Record<string, unknown>} bundle
  * @param {string} channel
  * @param {string} type
+ * @param {number} [targetGeneration=hubGeneration] Hub generation this upload was scheduled for.
  */
-function uploadAutoCapture(bundle, channel, type) {
+function uploadAutoCapture(bundle, channel, type, targetGeneration = hubGeneration) {
   if (typeof fetch !== "function") return;
   // * Build the whole chain and register it BEFORE awaiting anything (DIAG-FLAKE-2). Populate
   // * the set after the first yield and a drain can observe an empty set while the upload is
   // * still running — the exact hole the drain exists to close.
   const chain = import("./captureUpload.js")
-    .then(({ uploadCaptureBundle, deriveDefaultLabel }) =>
-      uploadCaptureBundle(bundle, {
+    .then(({ uploadCaptureBundle, deriveDefaultLabel }) => {
+      // * Hub torn down / reinstalled during the import yield — drop before POST (DIAG-UPLOAD-GEN-1).
+      if (targetGeneration !== hubGeneration) return null;
+      return uploadCaptureBundle(bundle, {
         // * Prefix so a pulled capture says at a glance that nobody pressed a key for it,
         // * and carries which channel tripped it — `auto-assert-podium-host-high`.
         label: `auto-${channel}-${deriveDefaultLabel(bundle)}`,
-      }),
-    )
+      });
+    })
     .then((up) => {
-      if (up?.ok) {
+      // * Logging only: a POST already in flight is not aborted (fire-and-forget).
+      if (!up || targetGeneration !== hubGeneration) return;
+      if (up.ok) {
         // eslint-disable-next-line no-console
         console.info(
           `[diag] auto-capture (${channel}/${type}) uploaded → id=${up.id} (pull: npm run captures:pull)`,
         );
       } else {
-        console.warn(`[diag] auto-capture upload failed: ${up?.error ?? "unknown"}`);
+        console.warn(`[diag] auto-capture upload failed: ${up.error ?? "unknown"}`);
       }
     })
     .catch(() => {

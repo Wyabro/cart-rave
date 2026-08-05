@@ -13,6 +13,10 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 5, 2026 — DIAG-UPLOAD-GEN-1: generation-guard the auto-capture upload continuation
+
+- *(Engineering · Low)* **DIAG-UPLOAD-GEN-1** — auto-capture upload continuation was not generation-guarded, so a torn-down / re-installed hub could still POST a bundle labelled against a dead session — ✅ **CLOSED 08-05**. Residual of DIAG-FLAKE-2 (that card fixed deferred *assembly*; this is deferred *send*). **Fix:** `scheduleAutoCapture` passes `scheduledForGeneration` into `uploadAutoCapture`; Guard 1 drops before `uploadCaptureBundle` if `hubGeneration` moved during the dynamic-import yield; Guard 2 skips success/fail logs only if gen moved after fetch started. Deliberately **no** AbortController / teardown cancel — fire-and-forget on every axis stays intentional. Test: bumps gen in the same macrotask after the assemble timer returns and before import microtasks flush; asserts `postsFor("gen-move-probe")` empty. Verified: `tests/diagnostics.test.js` 26/26 · `npm run qa` green (1497 tests).
+
 ### August 5, 2026 — playtest export: 6 PASS closed, 1 FAIL triaged, 1 SKIP held
 
 Wyatt's export off HEAD `4077a4a` — **6 pass / 1 fail / 1 skip**. All six passing rows were deleted
@@ -659,7 +663,7 @@ project-state/guides** (archives skipped). Cleanups applied:
 - Pass-1 closed six already-shipped cards (MENU-MUSIC · MENU-LOCK · GIT-INDEX · ART-PASS-1 ·
   ART-PASS-CLASSIC · NET-SIM).
 
-**Still true open work (not false-open):** FX-TIME-1 · SPAWN-SUNDIAL legs · DIAG-UPLOAD-GEN-1 ·
+**Still true open work (not false-open):** FX-TIME-1 · SPAWN-SUNDIAL legs ·
 playtest FAIL residue · PERF-PASS/INSTR · UI-SCALE · etc.
 
 ---
