@@ -3209,7 +3209,6 @@ html, body {
   text-align: center;
 }
 .cr-hero .cr-title-stack {
-  position: relative;
   align-items: center; text-align: center; width: 100%;
   /* Mock 3a: 170px @1920, line-height 0.78, no tracking. Same clamp shape as the
      base rule — the vh term is the short-window ceiling — scaled to the mock cap. */
@@ -3226,27 +3225,8 @@ html, body {
   /* MENU-RESTRAINT-1d: bottom was clamp(20px, 4.8vh, 52px) — pull cmds closer. */
   margin: clamp(8px, 1.9vh, 20px) 0 clamp(12px, 3.2vh, 36px);
 }
-/* MENU-LOGO-1c: micro vinyl chip behind the lockup — object hint, not a full plate.
-   Inherits the stack’s skew/beat (no transform on this node). Tight inset so it
-   hugs the glyphs; white die-cut + hard extrude, no blur/backdrop. */
-.cr-hero .cr-title-stack::before {
-  content: "";
-  position: absolute;
-  z-index: 0;
-  inset: 0.02em -0.08em 0.04em -0.06em;
-  background: var(--color-ink);
-  border-radius: 6px;
-  box-shadow:
-    0 0 0 2px var(--color-sticker-white),
-    3px 3px 0 0 var(--color-ink-deep),
-    inset 0 1px 0 rgba(255, 255, 255, 0.07);
-  pointer-events: none;
-}
+/* MENU-LOGO-1c retired: vinyl chip fought the wordmark. Inspo is paint-splat, not plate. */
 /* MENU-LOGO-1a: 2-step hard ink extrude (zero blur). Soft bloom stays retired. */
-.cr-hero .cr-title-stack .cr-title-word {
-  position: relative;
-  z-index: 1;
-}
 .cr-hero .cr-title-stack .cr-title-word:nth-child(1) {
   color: var(--color-sticker-white);
   text-shadow:
