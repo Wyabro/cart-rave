@@ -3558,11 +3558,19 @@ function buildDeck(scene, world, config, circumR) {
   );
   floorColliderHandles.push(podiumCollider.handle);
 
+  // * SUNDIAL-OBSTACLE-SLIDE-1 — FrictionCombineRule.Min on Sundial's VERTICAL obstacles.
+  // * Rapier combines both colliders' friction with Average by default and the cart carries
+  // * 1.1 (CONFIG.cart.friction), so this 0.3 has been behaving like 0.7 since it was written.
+  // * Min makes the written number the felt number; the 0.3 itself is unchanged and untuned.
+  // * Restitution stays ruleless on purpose — that is a separate axis and this card is slide.
+  // * The FLOORS in this file deliberately keep Average (deck rects, ramp hull, booth slabs) —
+  // * see tests/zanzibarObstacleFriction.test.js, which fails if a sweep ever "unifies" them.
   for (const p of bollardPositions) {
     world.createCollider(
       RAPIER.ColliderDesc.cylinder(BOLLARD_HEIGHT / 2, BOLLARD_RADIUS)
         .setTranslation(p.x, BOLLARD_HEIGHT / 2, p.z)
         .setFriction(0.3)
+        .setFrictionCombineRule(RAPIER.CoefficientCombineRule.Min)
         .setRestitution(0.55),
       body,
     );
@@ -3591,6 +3599,9 @@ function buildDeck(scene, world, config, circumR) {
   // * is a second stacked cuboid, not a hull.
   // * Thinness is safe here: cart bodies enable CCD (entities.js:95), so an 8.5 cm wall does
   // * not get tunnelled at ramming speed. Bollard friction/restitution — it is a post you hit.
+  // * SUNDIAL-OBSTACLE-SLIDE-1 applies here too, and this is the site that motivated the card:
+  // * a bollard is a brief point impact, but the blade is a 6 m flat vertical face you can
+  // * genuinely grind along, and at an effective 0.7 it gripped. See the bollard block above.
   {
     const bladeH = GNOMON_TIP_Y - GNOMON_BASE_Y;
     const rAtMatch =
@@ -3604,6 +3615,7 @@ function buildDeck(scene, world, config, circumR) {
         .setTranslation(0, GNOMON_BASE_Y + bladeH / 2, 0)
         .setRotation({ x: 0, y: Math.sin(bladeYaw / 2), z: 0, w: Math.cos(bladeYaw / 2) })
         .setFriction(0.3)
+        .setFrictionCombineRule(RAPIER.CoefficientCombineRule.Min)
         .setRestitution(0.55),
       body,
     );
