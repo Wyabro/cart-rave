@@ -3225,13 +3225,14 @@ html, body {
   /* MENU-RESTRAINT-1d: bottom was clamp(20px, 4.8vh, 52px) — pull cmds closer. */
   margin: clamp(8px, 1.9vh, 20px) 0 clamp(12px, 3.2vh, 36px);
 }
+/* MENU-RESTRAINT-1e: hard ink extrude only — soft magenta bloom retired. */
 .cr-hero .cr-title-stack .cr-title-word:nth-child(1) {
   color: var(--color-sticker-white);
-  text-shadow: 0 0 50px var(--glow-magenta-40);
+  text-shadow: 4px 4px 0 var(--color-ink-deep);
 }
 .cr-hero .cr-title-stack .cr-title-word:nth-child(2) {
   color: var(--color-magenta);
-  text-shadow: 4px 4px 0 var(--glow-cyan-30), 0 0 60px var(--glow-magenta-40);
+  text-shadow: 4px 4px 0 var(--color-ink-deep);
   margin-top: -0.06em;
 }
 
