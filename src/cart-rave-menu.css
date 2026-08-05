@@ -329,7 +329,8 @@ html, body {
   border-radius: 4px;
   box-shadow: var(--slab-shadow-sm);
   font-family: var(--mono);
-  font-size: 9px; letter-spacing: 0.22em;
+  /* MENU-RESTRAINT-1c: was 0.22em. */
+  font-size: 9px; letter-spacing: 0.11em;
   color: var(--color-ink-deep);
 }
 
@@ -3200,7 +3201,8 @@ html, body {
   display: block; width: 100%;
   font-family: var(--mono);
   font-size: clamp(9px, 1vw, 12px);
-  letter-spacing: 0.34em;
+  /* MENU-RESTRAINT-1c: was 0.34em tracked meta — denser reads less esports-AI. */
+  letter-spacing: 0.14em;
   color: var(--color-muted);
   text-transform: uppercase;
   text-align: center;
@@ -3461,7 +3463,9 @@ html, body {
   padding: 22px 26px;
 }
 .cr-plate-hd {
-  font-family: var(--mono); font-size: 11px; letter-spacing: 0.24em;
+  font-family: var(--mono); font-size: 11px;
+  /* MENU-RESTRAINT-1c: was 0.24em. */
+  letter-spacing: 0.11em;
   color: var(--color-muted); white-space: nowrap;
 }
 .cr-plate .cr-name-row {
