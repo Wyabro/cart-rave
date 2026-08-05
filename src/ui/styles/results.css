@@ -4,7 +4,7 @@
   --results-display: var(--display);
   position: fixed;
   inset: 0;
-  z-index: 25000;
+  z-index: 25000; /* Band table: hud.css, next to `#hud`. */
   display: none;
   align-items: stretch;
   justify-content: stretch;

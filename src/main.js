@@ -578,6 +578,7 @@ async function main() {
     backdrop.id = "cr-softgl-notice";
     backdrop.setAttribute("role", "alertdialog");
     backdrop.setAttribute("aria-modal", "true");
+    // * z-index 20010 — band table: hud.css, next to `#hud`.
     backdrop.style.cssText =
       "position:fixed;inset:0;z-index:20010;display:flex;align-items:center;justify-content:center;"
       + "padding:16px;background:rgba(4,2,8,0.72);backdrop-filter:blur(2px);";

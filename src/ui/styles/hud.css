@@ -25,6 +25,34 @@
   --hud-utility-width: 0px;
   position: fixed;
   inset: 0;
+  /* ── BODY-LEVEL Z-INDEX BAND TABLE — the authoritative copy ──────────────────
+     Kept here because this file owns two of the bands (20000 and .hud-lobby 24000), more than
+     any other, so it is the file most likely to be open when one changes. Every other layer
+     declaration carries a one-line pointer back here and states NO other surface's number —
+     four copies of an ordering drift, one copy plus pointers cannot. (That is exactly how
+     announcer.css came to claim the HUD "tops out at 20040" for months.)
+
+       19985  CSS2D nametag renderer        main.js
+       19990  #game-touch-controls          touchControls.js
+       20000  #hud                          this rule
+       20010  #cr-softgl-notice             main.js
+       21000  #announcer-display            announcer.css
+       24000  .hud-lobby                    this file — body-level, OUTSIDE #hud
+       25000  #results-overlay              results.css
+       26000  #esc-overlay                  pauseOverlay.css
+       26500  .cr-unlock-toast              cart-rave-menu.css — HUD-TOAST-Z-1
+       27000  #rotate-prompt                rotatePrompt.js (injected)
+      999995  #cr-mode-load                 loadingScreen.css
+      999999  #cr-load / #cr-boot-splash    loadingScreen.css / index.html
+    10000000  #cr-boot-error                index.html
+
+     THIS ROOT IS A STACKING CONTEXT. Every #hud descendant is ordered only against its
+     siblings, never against the list above — the hitmarker's 20040 (:1597) is intra-HUD and
+     does NOT put it over the announcer. Reading it as a band is what buried the toast.
+
+     No z-index custom properties on purpose: these are declared across five stylesheets, a
+     runtime-injected <style> and inline <style> in index.html, so a :root token block would be
+     a bundle-order dependency — the same dependency .hud-lobby refuses below. */
   z-index: 20000;
   pointer-events: none;
   font-family: var(--hud-mono);
@@ -1990,7 +2018,7 @@
   --lobby-pad-x: clamp(20px, 5vw, 96px);
   position: fixed;
   inset: 0;
-  z-index: 24000;
+  z-index: 24000; /* Band table: above, next to `#hud`. */
   /* Same region grid as the menu sub-screens: title band, left invite column /
      right roster, hint bar. Expressed locally rather than by borrowing
      .cr-screen from cart-rave-menu.css — a cross-stylesheet override of a

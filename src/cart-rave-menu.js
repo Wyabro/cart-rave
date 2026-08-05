@@ -532,6 +532,56 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
     });
   }
 
+  // * HUD-TOAST-Z-1 — the surfaces that can own the bottom-centre strip the toast lands in.
+  // * SELECTOR COUPLING, NOT AN IMPORT. This module deliberately has no module edge to hud.js
+  // * (see the routing note at the top of this file) and a DOM query does not create one — but
+  // * these strings do have to be revisited if the HUD renames a region.
+  // *   .hud-region-pod  boost slab + combo badge + ready button. Quickplay keeps the ready
+  // *                    button live here; the friends lobby hides it (hud.js updateLobbyScreen).
+  // *   .hud-lobby-hint  the friends lobby's full-bleed ESC/PAUSE row — with the pod stood down,
+  // *                    this is the ONLY bottom-strip occupant while .hud-lobby is up, so
+  // *                    leaving it out just moves the bug one surface over.
+  // *   .gtc-*           touch joystick and button cluster.
+  const TOAST_STRIP_OWNERS = [
+    "#hud .hud-region-pod",
+    ".hud-lobby-hint",
+    "#game-touch-controls .gtc-nipple-zone",
+    "#game-touch-controls .gtc-btns",
+  ];
+  const TOAST_STRIP_GAP = 12; // px of air between the strip owner and the toast
+
+  /**
+   * HUD-TOAST-Z-1 — pixels to lift the toast clear of the bottom-centre strip, or 0 if it is free.
+   *
+   * MEASURED, not hard-coded, because no constant could be right: `.hud-region-pod`'s `bottom` is
+   * three different values across two media queries (hud.css :80, :1029, :1145) and the pod is a
+   * bottom-anchored column whose height grows with the combo badge and ready button. Measuring
+   * also removes the need for any "are we in a round" flag — a hidden element measures 0, so the
+   * menu, the pause overlay (`.hud-suppressed`) and the podium all fall out for free, and the
+   * question answered is the one that actually matters: what is painted there right now.
+   *
+   * ONE forced layout read per toast. Toasts are user- or network-triggered and rare; this must
+   * not be moved into an update path.
+   * @returns {number}
+   */
+  function measureBottomStripLift() {
+    const viewportH = window.innerHeight || 0;
+    if (!viewportH) return 0;
+    let lift = 0;
+    for (const selector of TOAST_STRIP_OWNERS) {
+      const el = document.querySelector(selector);
+      if (!el) continue;
+      const rect = el.getBoundingClientRect();
+      // * Gate on height, NOT on getClientRects().length — .hud-region-pod is an empty
+      // * absolutely-positioned shrink-to-fit box that still reports one 0x0 rect when every
+      // * one of its children is hidden, which is exactly the menu case.
+      if (rect.height === 0) continue;
+      lift = Math.max(lift, viewportH - rect.top + TOAST_STRIP_GAP);
+    }
+    // * A pathological measurement must not launch the toast into the middle of the screen.
+    return Math.min(lift, viewportH * 0.4);
+  }
+
   /**
    * Lightweight toast for lock feedback + unlock grants.
    * @param {string} message
@@ -549,7 +599,21 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
       document.body.appendChild(el);
     }
     el.textContent = message;
-    el.classList.toggle('cr-unlock-toast--arena', variant === 'arena');
+    // * HUD-TOAST-Z-1 — placement is decided HERE, not by the caller. The proximate cause of the
+    // * bug was that the public showToast() bridge never forwarded a variant, and the tempting fix
+    // * is to add the parameter. That is the wrong lesson: it would put HUD geometry in the hands
+    // * of six call sites (hud.js, netcode.js x2, main.js, gameSession.js, menuPlayEntry.js), five
+    // * of which have no business knowing the boost slab exists, and any one of which can forget.
+    // * Deciding here means none of those files change and every future caller is right by default.
+    // *
+    // * All four properties are written UNCONDITIONALLY on every call. The element is a singleton
+    // * reused for the life of the page, so a skipped branch is precisely how it acquires a stuck
+    // * class or a stale inline lift.
+    const lift = measureBottomStripLift();
+    el.classList.toggle('cr-unlock-toast--arena', variant === 'arena' && lift === 0);
+    el.classList.toggle('cr-unlock-toast--lifted', lift > 0);
+    if (lift > 0) el.style.setProperty('--cr-toast-lift', `${Math.round(lift)}px`);
+    else el.style.removeProperty('--cr-toast-lift');
     el.classList.add('cr-unlock-toast--show');
     const prev = /** @type {HTMLElement & { _hideTimer?: number }} */ (el);
     window.clearTimeout(prev._hideTimer);

@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-05T06:55:00.898Z",
-    "commit": "b58340d"
+    "at": "2026-08-05T07:15:35.455Z",
+    "commit": "fd6c288"
   },
-  "source_digest": "0910d379",
+  "source_digest": "c65e3169",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -855,9 +855,24 @@
   "workstreams": {
     "queue": [
       {
+        "id": "HUD-TOAST-Z-1",
+        "what": "In-game toasts rendered under the boost slab",
+        "status": "🚧 ACTIVE — applied, unpushed, awaiting playtest. Re-ranked Medium → High: the same path carries *shipped* host-migration/weak-host messages, so this swallowed live multiplayer text. Both acked fixes landed — z-index 12000 → 26500 (above lobby/results/pause, below rotate) and a measured bottom offset (`measureBottomStripLift`, covering the pod, the lobby hint row and touch controls). Band table added to `hud.css`; canary in `tests/toastLayering.test.js`. Rendered position NOT machine-verified (pane does not composite; layout reads frozen) — playtest is the verdict. 5 cases: solo · friends lobby (judge the ESC hint strip too) · quickplay lobby · paused · <768px window, plus a phone check.",
+        "state": "waiting",
+        "touches_systems": [
+          {
+            "id": "ui-hud-menu",
+            "name": "UI, HUD & menu",
+            "files": [
+              "src/ui/styles/hud.css"
+            ]
+          }
+        ]
+      },
+      {
         "id": "*(closed)*",
         "what": "Physics run 08-05 — 5 cards, all PASS",
-        "status": "✅ STORE-PLAT-WALL-1 → STORE-PIT-WEDGE-1 → STORE-WALL-SLIDE-1 → WALL-SLIDE-CLASSIC-1 → SUNDIAL-OBSTACLE-SLIDE-1 (PASS 08-05 on `7faa6d73`, *\"blade slides now, deck feels the same\"*). Durable finding: a friction value in this codebase is not a felt value — Rapier averages it with the cart's 1.1, so walls written 0.02–0.05 acted like 0.56–0.575 and Sundial's 0.3 obstacles like 0.7. Verticals take `FrictionCombineRule.Min`; floors deliberately keep Average (canaries in three test files). Detail: [completed-work.md](./planning/completed-work.md).",
+        "status": "✅ Durable finding: a friction value in this codebase is not a felt value — Rapier averages it with the cart's 1.1. Verticals take `FrictionCombineRule.Min`; floors deliberately keep Average (canaries in three test files). Full run + evidence: [completed-work.md](./planning/completed-work.md).",
         "state": "done"
       },
       {
@@ -881,7 +896,7 @@
       {
         "id": "BUNDLE-1",
         "what": "Menu/game code-split",
-        "status": "⚠️ CLOSED PARTIAL 08-05 — perf goal NOT met. Deployed `f2f90fd2`. Warm `menu-ready` 988 → 958 ms (−3% vs a −15% gate); `module-eval` 472 → 502. Banked: a `size:check` byte gate, `main.js` 2,582 → 1,262 lines, −351,503 B (−22.6%) off the initial set — cold visits only. Lever E playtested 08-05: BUNDLE-E-PT-1 PASS 6/6 incl. the two-machine friends round — the deferred-callback seam is proven live, no correctness residual. [bundle-1.md §0](./planning/bundle-1.md)",
+        "status": "⚠️ CLOSED PARTIAL 08-05 — perf goal NOT met. Deployed `f2f90fd2`. Warm `menu-ready` −3% vs a −15% gate. Banked: a `size:check` byte gate, `main.js` 2,582 → 1,262 lines, −22.6% off the initial set (cold visits only). Lever E playtested: BUNDLE-E-PT-1 PASS 6/6. [bundle-1.md §0](./planning/bundle-1.md)",
         "state": "waiting",
         "touches_systems": [
           {
@@ -901,7 +916,7 @@
       }
     ],
     "next_actions": [
-      "HUD-TOAST-Z-1 is planned and acked — wave not opened. Nothing mid-flight; the physics run is fully closed. Plan decisions: both fixes (z-index + measured offset), z-index 26500, offset measured at show time. First step of the wave is re-ranking the stale BACKLOG row, not code. Other candidates: FIX-EMISSIVE re-ack (Wyatt picks retry (a) or (b)), FIX-MIG, BOOTH-RAIL-COL-1, RAPIER-DEFAULT-MAX-1. Closed 08-05: HARNESS-GEO-1, BUNDLE-1/BUNDLE-E-PT-1, and the five-card physics run (all PASS).",
+      "HUD-TOAST-Z-1 is mid-flight — ship it, then Wyatt playtests 5 cases + a phone check. Applied, qa green 7/7, unpushed. No new card until it passes or fails. Then-candidates: FIX-EMISSIVE re-ack (Wyatt picks retry (a) or (b)), FIX-MIG, BOOTH-RAIL-COL-1, RAPIER-DEFAULT-MAX-1. Closed 08-05: HARNESS-GEO-1, BUNDLE-1/BUNDLE-E-PT-1, and the five-card physics run (all PASS).",
       "Hitch forensics now has evidence — cap-254–260 (build `8d96b0b`) are the first captures from a working upload path, including a Cart Rave F8 taken on a hitch. Read them before any perf knob.",
       "Still owed separately: 9-cell PERF sweep (~25 min). Resume Run 8 FAIL triage."
     ],
@@ -1338,8 +1353,8 @@
       {
         "title": "UI / UX",
         "counts": {
-          "Medium": 7,
-          "High": 3,
+          "Medium": 6,
+          "High": 4,
           "Low": 3
         },
         "rows": [
@@ -1362,9 +1377,9 @@
             "ship1": "E1"
           },
           {
-            "pri": "Medium",
+            "pri": "High",
             "item": "HUD-TOAST-Z-1 — in-game toasts render *under* the boost slab",
-            "notes": "**Filed 08-05 from Wyatt's MAIN-1 retest (08-04)** — *\"the toast is drawn under the boost bar in game lol\"*. Reported against the new F8 capture toast, but it is **not diag-only**: `window.CartRave.showToast` ([cart-rave-menu.js:2417](../../src/cart-rave-menu.js:2417)) is the same path netcode uses for session-flow messages (failed join, disconnect return) and is the block **FIX-MIG** intends to use for `host_migrated`, so a real migration toast would be hidden the same way. **Mechanism:** `showUnlockToast` appends `#cr-unlock-toast` to `document.body` at `z-index: 12000`, `bottom: max(24px, …)` ([cart-rave-menu.css:3101](../../src/cart-rave-menu.css:3101)), while the HUD root is `position: fixed; inset: 0; z-index: 20000` ([hud.css:26](../../src/ui/styles/hud.css:26)) — a higher stacking context, so **every** HUD child wins regardless of its own z-index. The geometry collides too: `.hud-region-pod` (the boost slab) is bottom-centre at `bottom: clamp(18px, 3.5vh, 36px)` ([hud.css:80](../../src/ui/styles/hud.css:80)), the same strip. **Two candidate fixes — pick one, not both:** (a) lift the toast above the HUD root (z-index in the existing 20040 KO-sticker / 24000 lobby band) — smallest change, but the toast then covers the slab; (b) reuse the existing `.cr-unlock-toast--arena` offset (`bottom: 88px`, [:3125](../../src/cart-rave-menu.css:3125)) whenever the HUD is live, so it clears the slab entirely. **Pass:** in a solo round with the boost slab visible, press F8 — the toast is fully readable and the boost meter stays legible. Desktop-only judge (the slab is hidden on touch by design).",
+            "notes": "🚧 **WAVE OPEN 08-05 — plan acked, see [STATUS.md](../STATUS.md).** **Re-ranked Medium → High and the original framing below is corrected on three points.** (1) **Not diag-only and not a FIX-MIG future risk** — the host-migration toasts *ship today* ([netcode.js:2359-2373](../../src/netcode.js:2359)), as does the weak-host warning ([:2167](../../src/netcode.js:2167)) and the host-stalled notice ([hud.js:745](../../src/hud.js:745)). This swallows live multiplayer messages now. (2) **\"Pick one, not both\" is wrong** — verified against the files, neither candidate alone satisfies the card's own PASS. (a) alone covers the boost meter; (b) alone cannot touch the friends lobby, where `.hud-lobby` is a full-screen body-level surface at z-index 24000 ([hud.css:1993](../../src/ui/styles/hud.css:1993)) and where those migration toasts actually fire. **Acked fix = both**, z-index **26500** (above pause/results, below `#rotate-prompt`), offset **measured at show time**. (3) **The quoted geometry is off** — `.hud-region-pod` bottom is not one number but three (`hud.css:80`, `:1029` at ≤768 non-touch → 96-132px, `:1145` short landscape), and the pod grows taller when the combo badge or ready button is up, so *no* constant is right in more than one configuration; `--arena` is also `max(88px, env(…) + 72px)`, not a flat 88px. The `20040` band the card suggests borrowing is a **child of `#hud`**, not a body-level band — setting the toast to it would still lose. Original filing follows. **Filed 08-05 from Wyatt's MAIN-1 retest (08-04)** — *\"the toast is drawn under the boost bar in game lol\"*. Reported against the new F8 capture toast, but it is **not diag-only**: `window.CartRave.showToast` ([cart-rave-menu.js:2417](../../src/cart-rave-menu.js:2417)) is the same path netcode uses for session-flow messages (failed join, disconnect return) and is the block **FIX-MIG** intends to use for `host_migrated`, so a real migration toast would be hidden the same way. **Mechanism:** `showUnlockToast` appends `#cr-unlock-toast` to `document.body` at `z-index: 12000`, `bottom: max(24px, …)` ([cart-rave-menu.css:3101](../../src/cart-rave-menu.css:3101)), while the HUD root is `position: fixed; inset: 0; z-index: 20000` ([hud.css:26](../../src/ui/styles/hud.css:26)) — a higher stacking context, so **every** HUD child wins regardless of its own z-index. The geometry collides too: `.hud-region-pod` (the boost slab) is bottom-centre at `bottom: clamp(18px, 3.5vh, 36px)` ([hud.css:80](../../src/ui/styles/hud.css:80)), the same strip. **Two candidate fixes — pick one, not both:** (a) lift the toast above the HUD root (z-index in the existing 20040 KO-sticker / 24000 lobby band) — smallest change, but the toast then covers the slab; (b) reuse the existing `.cr-unlock-toast--arena` offset (`bottom: 88px`, [:3125](../../src/cart-rave-menu.css:3125)) whenever the HUD is live, so it clears the slab entirely. **Pass:** in a solo round with the boost slab visible, press F8 — the toast is fully readable and the boost meter stays legible. Desktop-only judge (the slab is hidden on touch by design).",
             "ship1": null
           },
           {

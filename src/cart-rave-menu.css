@@ -3103,7 +3103,11 @@ html, body {
   left: 50%;
   bottom: max(24px, env(safe-area-inset-bottom, 0px) + 16px);
   transform: translateX(-50%) translateY(12px);
-  z-index: 12000;
+  /* HUD-TOAST-Z-1: 12000 put this UNDER #hud (20000), whose root is a stacking context — so
+     every HUD child won regardless of its own z-index and in-game toasts were invisible.
+     26500 clears the full-screen surfaces this can fire over (lobby, results, pause) and stops
+     below #rotate-prompt. Band table: hud.css, next to `#hud`. */
+  z-index: 26500;
   max-width: min(90vw, 420px);
   padding: 10px 16px;
   border-radius: var(--radius-sm);
@@ -3124,6 +3128,24 @@ html, body {
    `bottom` (not transform — slide-in already uses translateY). */
 .cr-unlock-toast--arena {
   bottom: max(88px, env(safe-area-inset-bottom, 0px) + 72px);
+}
+
+/* HUD-TOAST-Z-1: lift clear of whatever owns the bottom-centre strip — the boost slab, the
+   quickplay ready button, the friends-lobby hint row, or the touch controls. The value is
+   MEASURED in JS at show time (measureBottomStripLift), because the pod's own `bottom` is three
+   different values across two media queries and its height grows with the combo badge; no
+   constant is right in more than one configuration, and a body-level sibling cannot see
+   `#hud:not(.hud-touch)` from CSS anyway.
+
+   The 88px default and the env()+72px floor are the same known-good offset as --arena, so a
+   failed or zero measurement degrades to the menu position rather than back down onto the slab.
+
+   Doubled class so precedence over --arena is decided by specificity, not source order.
+   `bottom` is already in the base transition list, so a toast replaced mid-flight at a different
+   lift slides over 250ms. That is pre-existing, reads as intentional, and is not worth a
+   transition-disable dance — leave it. */
+.cr-unlock-toast.cr-unlock-toast--lifted {
+  bottom: max(var(--cr-toast-lift, 88px), env(safe-area-inset-bottom, 0px) + 72px);
 }
 
 .cr-unlock-toast--show {

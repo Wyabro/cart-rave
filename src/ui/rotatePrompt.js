@@ -15,7 +15,7 @@ function injectStyles() {
     #rotate-prompt {
       position: fixed;
       inset: 0;
-      z-index: 27000;
+      z-index: 27000; /* Top band. Band table: hud.css, next to the #hud rule. */
       display: none;
       align-items: center;
       justify-content: center;

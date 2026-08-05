@@ -11,8 +11,11 @@
   --callout-accent: #22e6ff;
   position: fixed;
   inset: 0;
-  /* Above the game canvas + HUD (HUD tops out at 20040 for the hitmarker), below
-     the results overlay (25000) and pause/esc overlay (26000). */
+  /* Above the game canvas and the HUD root, below the full-screen surfaces.
+     Band table: hud.css, next to `#hud` — do not restate other layers' numbers here.
+     (This comment previously claimed the HUD "tops out at 20040 for the hitmarker". That was
+     wrong twice over: 20040 is a #hud DESCENDANT, ordered only inside the HUD's own stacking
+     context, and hud.css also owns .hud-lobby above this layer.) */
   z-index: 21000;
   pointer-events: none;
 }

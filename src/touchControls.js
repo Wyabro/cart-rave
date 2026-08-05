@@ -392,7 +392,7 @@ function injectTouchStyles() {
 
       position: fixed;
       inset: 0;
-      z-index: 19990;
+      z-index: 19990; /* Band table: hud.css, next to the #hud rule. */
       pointer-events: none;
       user-select: none;
       -webkit-user-select: none;
