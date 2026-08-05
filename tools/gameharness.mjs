@@ -40,6 +40,7 @@ import {
   CLIENT_PORT,
   killDevStack,
 } from "./lib/harness.mjs";
+import { evaluateSoakGrowth } from "./lib/soakGrowth.mjs";
 // * arenaCatalog.js is pure authoring data with zero imports, so a Node tool can read the
 // * progression gates straight from the source of truth the game uses (HARNESS-UNLOCK-1).
 import { ARENA_BY_ID } from "../src/levels/arenaCatalog.js";
@@ -465,24 +466,24 @@ async function scenarioSoak(browser, baseUrl, tally) {
     }
   }
 
-  // Growth gate: same arena, same flow — counts at the first and last podium must match
-  // within tolerance. A real leak (k objects per round) grows linearly and blows past it.
+  // Growth gate: same arena, same flow. Gated on the MINIMUM per-cycle delta, not
+  // first-vs-last — the counters are first-render ratchets, so a one-time step reads as
+  // growth while a real leak adds k every rematch. See tools/lib/soakGrowth.mjs.
   const first = samples[0];
   const last = samples[samples.length - 1];
   tally.check("soak: completed all rematch cycles", samples.length === cycles, `cycles=${samples.length}/${cycles}`);
   const TOLERANCE = { geometries: 8, textures: 4, programs: 4, sceneNodes: 60, howls: 4 };
   for (const [metric, tol] of Object.entries(TOLERANCE)) {
-    const a = first?.[metric];
-    const b = last?.[metric];
-    if (typeof a !== "number" || typeof b !== "number") {
+    const series = samples.map((s) => s?.[metric]);
+    if (!series.every((n) => typeof n === "number")) {
       log(`  soak: ${metric} unavailable (prod build / no __cartRavePerf) — skipped`);
       continue;
     }
-    tally.check(
-      `soak: ${metric} stays flat across rematches`,
-      b - a <= tol,
-      `${a} → ${b} (Δ${b - a}, tol ${tol})`,
-    );
+    // * The full series lands in the detail (and so in the battery JSON). The old gate kept
+    // * only "121 → 131"; that missing middle number is why diagnosing HARNESS-GEO-1 needed a
+    // * whole investigation. Never throw the shape away again.
+    const verdict = evaluateSoakGrowth(/** @type {number[]} */ (series), tol);
+    tally.check(`soak: ${metric} stays flat across rematches`, verdict.pass, verdict.detail);
   }
   if (typeof first?.heapMB === "number" && typeof last?.heapMB === "number") {
     log(`  soak: heap ${first.heapMB}MB → ${last.heapMB}MB (informational — GC noise, not gated)`);
