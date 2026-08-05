@@ -13,6 +13,36 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 5, 2026 — WALL-SLIDE-CLASSIC-1 PASS: the same fix on Cart Rave's pit rim
+
+**Wyatt PASS on prod `a028cb8a`** — *"feels good"*. Fourth and last card of the day's
+combine-rule run.
+
+- *(Physics · Medium)* **WALL-SLIDE-CLASSIC-1** — ✅ PASS 08-05 (`00ef1cb`). Classic set no
+  friction combine rule at all, so its containment lip written **0.02** — the author reaching for
+  ice — behaved like **0.56**, and the shaft staves (0.05) like 0.575. Both are live-cart
+  surfaces: the lip spans y −4 → 9, above the arena floor, and the fall KO fires at −30, so the
+  top 26 m of shaft still holds living carts. `Min` on 18 staves + 16 lip hulls, **no number
+  changes** — unlike Storerooms, nothing here was a mid-range value picked against the wrong scale.
+- **The lip is the story.** Its comment block is a documented fight against carts grinding on that
+  hull — inward lean so there is no resting equilibrium in the crease, knife edge so there is no
+  flat top to park on, all against the old *"drive on the upper pit edge"* bug. Ice friction was
+  the third leg of that fix and **the only leg that never took effect**. The geometry carried the
+  intent alone for months. This is the general shape worth remembering: *a tuning lever that
+  appears to do nothing may not be the wrong lever — check whether the value is transformed before
+  it reaches physics.*
+- **Deliberately untouched, both load-bearing:** the backstop cylinder (its top cap is the shaft
+  floor, and floors keep Average) and restitution everywhere in Classic (Rapier's default is
+  **Max**, and lip 0.5 / staves 0.6 over the cart's 0.3 *is* the deflection that keeps boosted rams
+  off the stands — the exact opposite of Sundial's floor case, which needed
+  `RestitutionCombineRule.Min` to hold a *lower* value).
+- *(Correction)* **My earlier "Sundial is clean" was wrong** — an artifact of a grep that only
+  matched friction ≤0.2. Sundial's bollards and gnomon blade are written `0.3`, so they never
+  showed up, and they average to **0.7**. Filed as **SUNDIAL-OBSTACLE-SLIDE-1** (Low — point
+  impacts, not scrapes, and nobody has reported it). The sweep is only now actually complete:
+  `arena.js` 2/5, `backroomsSupermarket.js` 5/13, both correct; the rest are floors, the cart
+  itself, dev-only, or dynamic groceries.
+
 ### August 5, 2026 — STORE-WALL-SLIDE-1 PASS: walls stopped averaging their friction with the cart
 
 **Wyatt PASS on prod `a9dfef85`** — *"feels way better"*. Closes the three-card Storerooms pit

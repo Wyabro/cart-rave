@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-05T05:46:01.838Z",
-    "commit": "295ab59"
+    "at": "2026-08-05T05:51:19.892Z",
+    "commit": "9aad9cd"
   },
-  "source_digest": "85b9f73d",
+  "source_digest": "4f653ce5",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -855,9 +855,9 @@
   "workstreams": {
     "queue": [
       {
-        "id": "WALL-SLIDE-CLASSIC-1",
-        "what": "Cart Rave's pit rim grabs instead of skimming",
-        "status": "✅ DEPLOYED 08-05 (`00ef1cb`) · Version `a028cb8a` · chunk `classicRecord-DVBZQxl6.js`, prod SHA + both rule calls verified — playtest owed. Carries the STORE-WALL-SLIDE-1 finding to the flagship arena: Classic set no friction combine rule, so its containment lip written `0.02` — the author reaching for ice — behaved like 0.56, and the shaft staves (0.05) like 0.575. Both are live-cart surfaces (lip spans y −4→9; fall KO at −30, so the top 26 m of shaft holds living carts). `Min` on 18 staves + 16 lip hulls, no number changes. Backstop cylinder and restitution untouched on purpose — its cap is a floor, and `Max` restitution is the deflection that keeps boosted rams off the stands. Storerooms pit chain closed 08-05 (STORE-PLAT-WALL-1 → STORE-PIT-WEDGE-1 → STORE-WALL-SLIDE-1, all PASS). [BACKLOG § Playtest owed](./planning/BACKLOG.md).",
+        "id": "*(open — Wyatt's pick)*",
+        "what": "Physics run closed 08-05 — 4 cards, all PASS",
+        "status": "✅ STORE-PLAT-WALL-1 → STORE-PIT-WEDGE-1 → STORE-WALL-SLIDE-1 → WALL-SLIDE-CLASSIC-1. The first three chained (each caused by the previous fix); the fourth carried the finding to Cart Rave. Durable finding: a friction value in this codebase is not a felt value — Rapier averages it with the cart's 1.1, so walls written 0.02–0.05 were acting like 0.56–0.575. Walls now use `FrictionCombineRule.Min`; floors deliberately keep Average (canaries in both test files) and restitution keeps `Max` on walls. Residual: SUNDIAL-OBSTACLE-SLIDE-1 (Low). Detail in [completed-work.md](./planning/completed-work.md).",
         "state": "done"
       },
       {
@@ -901,7 +901,7 @@
       }
     ],
     "next_actions": [
-      "WALL-SLIDE-CLASSIC-1 — DEPLOYED (`00ef1cb`, Version `a028cb8a`), awaiting Wyatt's rim check. Do not start another card against this slot. After it closes: FIX-EMISSIVE re-ack (Wyatt picks retry (a) or (b)), FIX-MIG, HUD-TOAST-Z-1, or BOOTH-RAIL-COL-1. Closed 08-05 and not candidates: HARNESS-GEO-1, the whole Storerooms pit chain, BUNDLE-1/BUNDLE-E-PT-1.",
+      "Pick the next card — nothing owed, nothing mid-flight. Candidates: FIX-EMISSIVE re-ack (Wyatt picks retry (a) or (b)), FIX-MIG, HUD-TOAST-Z-1, BOOTH-RAIL-COL-1, SUNDIAL-OBSTACLE-SLIDE-1. Closed 08-05 and not candidates: HARNESS-GEO-1, BUNDLE-1/BUNDLE-E-PT-1, and the four-card physics run (STORE-PLAT-WALL-1 → STORE-PIT-WEDGE-1 → STORE-WALL-SLIDE-1 → WALL-SLIDE-CLASSIC-1, all PASS).",
       "Hitch forensics now has evidence — cap-254–260 (build `8d96b0b`) are the first captures from a working upload path, including a Cart Rave F8 taken on a hitch. Read them before any perf knob.",
       "Still owed separately: 9-cell PERF sweep (~25 min). Resume Run 8 FAIL triage."
     ],
@@ -943,8 +943,8 @@
       {
         "title": "Engineering",
         "counts": {
-          "Medium": 15,
-          "Low": 10,
+          "Medium": 14,
+          "Low": 11,
           "High": 2,
           "Partial": 1
         },
@@ -956,9 +956,9 @@
             "ship1": null
           },
           {
-            "pri": "Medium",
-            "item": "WALL-SLIDE-CLASSIC-1 — Classic Record's pit walls have the same averaged-friction stickiness",
-            "notes": "✅ **CODE LANDED 08-05 (`00ef1cb`), unshipped — see the Playtest owed row.** `FrictionCombineRule.Min` on the 18 shaft staves + 16 lip hulls; **no number changes** (0.02/0.05 already meant ice), backstop cylinder and restitution deliberately untouched. Original filing follows. **Filed 08-05 from STORE-WALL-SLIDE-1's finding** (that card PASSed on Storerooms: *\"feels way better\"*). Rapier combines collider friction with **Average** by default and the cart carries `friction: 1.1`, so a wall's written value is not what a cart feels. Classic Record's wall colliders set **none** of the combine rules: the containment lip at [arena.js:2592](../../src/arena.js:2592) is written `0.02` — deliberate ice — and behaves like **0.56**; the pit shaft hulls at [:2549](../../src/arena.js:2549) are `0.05` → **0.575**; [:2492](../../src/arena.js:2492) is `0.2` → **0.65**. Whoever tuned 0.02 was aiming for frictionless and got a grippy wall, which is evidence the intent was never achieved rather than a taste call. **Fix is the same one lever:** `setFrictionCombineRule(RAPIER.CoefficientCombineRule.Min)` on those three, then re-judge the numbers — Storerooms also needed its perimeter dropped 0.4 → 0.15 afterwards, so expect a second pass on feel. **Sundial is clean** (no low-friction wall colliders). **Do not apply Min to floors** — chamfer/deck/carpet grip is what makes driving feel right; Storerooms carries a test canary asserting its backstop cap stayed on Average. Player-visible physics on the flagship arena, so it needs its own playtest, not a rubber stamp.",
+            "pri": "Low",
+            "item": "SUNDIAL-OBSTACLE-SLIDE-1 — Sundial's bollards and gnomon blade still average friction with the cart",
+            "notes": "**Filed 08-05 closing out the combine-rule sweep, and it corrects an earlier claim of mine: \"Sundial is clean\" was an artifact of the grep, not a fact** — that search only matched friction ≤0.2, and Sundial's vertical obstacles are written `0.3`, so they never appeared. Averaged with the cart's 1.1 they act like **0.7**. Two sites: the 8 corner bollards ([zanzibarPlatform.js:3565](../../src/levels/zanzibarPlatform.js:3565)) and the gnomon blade ([:3606](../../src/levels/zanzibarPlatform.js:3606), made solid by `5ec432d`). **Lower priority than the pit cards on purpose:** those were long walls you *scrape along*, where sustained friction dominates the feel; a bollard is a brief point impact where restitution matters more. **The gnomon blade is the one worth judging** — it is a large flat vertical face you genuinely can grind along. **Nobody has reported it**, so this is a \"confirm it feels wrong before spending the card\" item, not a known defect. Sundial's floors (`DECK_FRICTION`, booth decks) correctly stay on Average, and [:3540](../../src/levels/zanzibarPlatform.js:3540) already carries `RestitutionCombineRule.Min` for the opposite reason — do not confuse the two axes. Context: [rapier combine-rule finding](./completed-work.md).",
             "ship1": null
           },
           {
@@ -1324,16 +1324,9 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Medium": 1,
           "Low": 1
         },
         "rows": [
-          {
-            "pri": "Medium",
-            "item": "WALL-SLIDE-CLASSIC-1 — the Cart Rave pit rim should skim you, not catch you `[solo]`",
-            "notes": "**Owed: Wyatt playtest — WALL-SLIDE-CLASSIC-1 — same sticky-wall fix as Storerooms, now on Cart Rave.** The invisible wall around the pit rim was written to be ice, but the game was averaging it with your cart's own grip, so it has always behaved like a fairly grippy wall. It now means what it says. Nothing else changed — no new geometry, no bounce change. **DEPLOYED** · Version `a028cb8a` · chunk `classicRecord-DVBZQxl6.js` (prod SHA byte-identical to the local ship, both rule calls present in the fetched chunk) · hard-refresh https://cart-rave.wyabro.workers.dev first.<br>1. On Cart Rave, ram the pit rim at a shallow angle and graze along it, and take a boosted hit that throws you out over the edge. You should skim off the rim instead of catching on it. If it now feels like the rim *throws* you — too icy — say so; that is one number and it does not mean undoing the fix.",
-            "ship1": null
-          },
           {
             "pri": "Low",
             "item": "AQ-RING-CLEAR-1 — autoQuality clear sample ring on every window eval",

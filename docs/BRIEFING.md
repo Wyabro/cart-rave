@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-05 at commit `295ab59` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `7f728c4e`
+> Generated 2026-08-05 at commit `9aad9cd` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `1d9336e2`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -18,7 +18,7 @@ Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep a
 
 ## ACTIVE CARD
 
-WALL-SLIDE-CLASSIC-1 — DEPLOYED (`00ef1cb`, Version `a028cb8a`), awaiting Wyatt's rim check. Do not start another card against this slot. After it closes: FIX-EMISSIVE re-ack (Wyatt picks retry (a) or (b)), FIX-MIG, HUD-TOAST-Z-1, or BOOTH-RAIL-COL-1. Closed 08-05 and not candidates: HARNESS-GEO-1, the whole Storerooms pit chain, BUNDLE-1/BUNDLE-E-PT-1
+Pick the next card — nothing owed, nothing mid-flight. Candidates: FIX-EMISSIVE re-ack (Wyatt picks retry (a) or (b)), FIX-MIG, HUD-TOAST-Z-1, BOOTH-RAIL-COL-1, SUNDIAL-OBSTACLE-SLIDE-1. Closed 08-05 and not candidates: HARNESS-GEO-1, BUNDLE-1/BUNDLE-E-PT-1, and the four-card physics run (STORE-PLAT-WALL-1 → STORE-PIT-WEDGE-1 → STORE-WALL-SLIDE-1 → WALL-SLIDE-CLASSIC-1, all PASS)
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 
