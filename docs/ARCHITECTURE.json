@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-05T08:42:27.158Z",
-    "commit": "8dce55f"
+    "at": "2026-08-05T09:04:30.286Z",
+    "commit": "7f20e8e"
   },
-  "source_digest": "a2ceb907",
+  "source_digest": "24ff03bb",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -857,7 +857,7 @@
       {
         "id": "FIX-EMISSIVE",
         "what": "Non-patterned carts read blown out on Classic",
-        "status": "🚧 ACTIVE — applied `8dce55f`, unpushed, awaiting FIX-EMISSIVE-1 / -2. Retry after the 08-04 abort on acked option (b): trim moved onto `cache.emissiveTrimMul`, written at all four pattern-deciding sites + stamped on `mesh.userData` so rebuilds rehydrate. Wyatt's review caught a must-fix — birth-only would have inverted it in-match. Falsified (reverting the leader-glow line fails test 3 alone). Known limit: the peak flash converges by design.",
+        "status": "🚧 ACTIVE — DEPLOYED, Version `a7dfd8f7`, awaiting FIX-EMISSIVE-1 / -2. (Shipped from `7f20e8e`, which also carries another session's MENU-LOGO work — Wyatt acked the combined deploy.) Retry after the 08-04 abort on acked option (b): trim moved onto `cache.emissiveTrimMul`, written at all four pattern-deciding sites + stamped on `mesh.userData` so rebuilds rehydrate. Wyatt's review caught a must-fix — birth-only would have inverted it in-match. Falsified (reverting the leader-glow line fails test 3 alone). Known limit: the peak flash converges by design.",
         "state": "waiting"
       },
       {
