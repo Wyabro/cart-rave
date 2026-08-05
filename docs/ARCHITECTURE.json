@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-05T18:01:59.979Z",
-    "commit": "fbe8163"
+    "at": "2026-08-05T18:49:07.609Z",
+    "commit": "c7ba5b8"
   },
-  "source_digest": "c102d700",
+  "source_digest": "c888c12b",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -901,7 +901,7 @@
       }
     ],
     "next_actions": [
-      "Work the ordered queue — [BACKLOG § Work order](./planning/BACKLOG.md) (2026-08-05 pre-launch audit; Wyatt asked for a single card order to work down). Block A items 1–2 are closed PASS 4/4 on prod `fbe8163` (SEC-DIAG-1, ONBOARD-FLAG-1). Next: QUICKPLAY-SHARD-1 — design ack required before code, then FIX-MIG → ATTRACT-JANK-1. Nothing owed, nothing mid-flight. Closed 08-05: HARNESS-GEO-1, BUNDLE-1/BUNDLE-E-PT-1, HUD-TOAST-Z-1, FIX-EMISSIVE, the five-card physics run, and the SEC-DIAG/ONBOARD-FLAG pair (all PASS).",
+      "Work the ordered queue — [BACKLOG § Work order](./planning/BACKLOG.md) (2026-08-05 pre-launch audit). Block A items 1–3 are done: SEC-DIAG-1 + ONBOARD-FLAG-1 closed PASS 4/4 on prod `fbe8163`, and QUICKPLAY-SHARD-1 shipped 08-05 (overflow hop; qa green, party-do + netharness `shardOverflow` 5/5 live) — owed: SHARD-PT-1 · SHARD-PT-2, needs a deploy. Then FIX-MIG → ATTRACT-JANK-1. Closed 08-05: HARNESS-GEO-1, BUNDLE-1/BUNDLE-E-PT-1, HUD-TOAST-Z-1, FIX-EMISSIVE, the five-card physics run, and the SEC-DIAG/ONBOARD-FLAG pair (all PASS).",
       "Hitch forensics now has evidence — cap-254–260 (build `8d96b0b`) are the first captures from a working upload path, including a Cart Rave F8 taken on a hitch. Read them before any perf knob.",
       "Still owed separately: 9-cell PERF sweep (~25 min). Resume Run 8 FAIL triage."
     ],
@@ -952,7 +952,7 @@
           {
             "pri": "High",
             "item": "QUICKPLAY-SHARD-1 — quickplay is one global room; 4 humans worldwide `[pre-ship]`",
-            "notes": "**Filed 08-05 from the pre-launch audit; Wyatt confirmed launch is a public post (itch/Reddit), which makes this existential.** Quickplay is a single global DO: [menuPlayEntry.js:463](../../src/orchestration/menuPlayEntry.js:463) hard-sets `room=quickplay`, [party/index.ts:203](../../party/index.ts:203) keys the mode off `this.name === \"quickplay\"` — so the 4-human cap is **worldwide** and the 5th concurrent player gets `joinRejected` 4004 \"Room full\". **Design lock (verified against the tree 08-05 — needs ack before code):** (1) public shard ids must be **alphanumeric only** — `quickplay2`, `quickplay3`, ≤16 chars. `quickplay__N` cannot work publicly: `resolvedPartyRoomFromUrl()` ([netcode.js:996](../../src/netcode.js:996)) rejects `_`/`-` and **silently falls back to `\"quickplay\"`**, so an underscore scheme would never shard via `?room=`; `quickplay__*` stays the harness-only continuous prefix ([readiness.js:18](../../shared/readiness.js:18) — party-do tests inject the DO name directly, bypassing the URL funnel). (2) One shared predicate — `room === \"quickplay\" \\",
+            "notes": "✅ **SHIPPED 08-05, awaiting playtest.** Quickplay was a single global Durable Object: four slots, so four humans **worldwide**, and the fifth was closed 4004 with a dead-end toast. Public shards are now `quickplay` + `quickplay2…quickplay20`, and `isQuickplayRoom` ([shared/roomCodes.js](../../shared/roomCodes.js)) is the single definition every mode and policy decision keys off. **DESIGN CHANGED DURING THE WAVE — the original lock said \"Worker-side seat-finder\"; that was wrong and is superseded.** Occupancy does not exist anywhere: no accessor, no endpoint, no registry, and `party/index.ts` has zero references to `this.ctx`/`storage`/`alarm` — all room state is in-memory. A seat-finder therefore needed either a registry DO (new class, migration, a DO→DO write per seat change, staleness, a new failure mode) or probe-on-demand, which **instantiates** a shard just to ask, burning its random arena roll for a room nobody joins. What shipped instead: the 5th socket is accepted and sent a `hello` before being refused at `join`, so a full **public** shard names the next one in `joinRejected.retryRoom` and the client re-dials — emitted once in `#rejectPendingConn`, null for friends rooms, `quickplay__*` harness rooms, and past the cap (null = today's toast, so an old client is never worse off). **Known limit, deliberately accepted:** hops are sequential, so at peak the Nth player pays one connect round-trip per full shard. `quickplay_shard_assigned { shard, hops }` measures it — deep or frequent chains are the signal to build the registry, and if they never appear it was correctly never built. **Evidence:** `npm run qa` green; party-do covers retryRoom against genuinely full rooms (full is structural, not a constant), the cap, the harness carve-out, and shard arena/difficulty parity; `node tools/netharness.mjs --scenario shardOverflow` **5/5 live in real browsers**. **SEC-DIAG-1's regression bar is met** — a shard returns mode `quickplay`, verified in units and live, so the prod score-cheat gate does not reopen. Commits `dbc6cdf` · `dd8e810` · `d81dcbc` · `5c83451` · `c7ba5b8`.",
             "ship1": null
           },
           {
@@ -1336,9 +1336,23 @@
       {
         "title": "Playtest owed",
         "counts": {
+          "High": 1,
+          "Medium": 1,
           "Low": 1
         },
         "rows": [
+          {
+            "pri": "High",
+            "item": "SHARD-PT-1 — normal quickplay is unchanged `[solo]` (QUICKPLAY-SHARD-1)",
+            "notes": "**Owed: Wyatt playtest — SHARD-PT-1 — on prod, confirm the common case did not regress.** This is the card that matters most: almost every real player will only ever see shard 1, so the sharding work must be invisible to them.<br>1. Hard-refresh https://cart-rave.wyabro.workers.dev/ and start QUICKPLAY.<br>2. Play a full round through to the podium and let it roll into the next one.<br>3. It should feel exactly as it did before — you drop straight in with no READY button to press, the arena is random rather than always the same one, the bots are the usual medium difficulty, and the rematch rotates to a different arena.<br>FAIL if you are asked to ready up, if a private-lobby style screen with a room code appears, if the arena never changes between matches, or if the bots feel noticeably easier. Those are the exact symptoms of a quickplay room being mistaken for a private one. Desktop judge.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "SHARD-PT-2 — a full room sends you to a fresh one instead of turning you away `[2pc]` (QUICKPLAY-SHARD-1)",
+            "notes": "**Owed: Wyatt playtest — SHARD-PT-2 — on prod, confirm the overflow actually works with real people.** Before this, the 5th player anywhere in the world hit \"Couldn't join that lobby\" and was stuck. Needs 5 human clients — both your machines plus three extra browser windows/profiles is enough, since nobody has to play well.<br>1. Get four clients into the same quickplay match and wait until all four are seated and playing.<br>2. Bring in a fifth.<br>3. It should land in its own new match rather than showing the \"couldn't join\" message — check its address bar reads `room=quickplay2`.<br>FAIL if the fifth client bounces to the menu with an error, or if it lands somewhere that then asks it to ready up. Note: the automated rig already passes this 5/5 in real browsers, so this is confirmation on live infrastructure, not discovery.",
+            "ship1": null
+          },
           {
             "pri": "Low",
             "item": "AQ-RING-CLEAR-1 — autoQuality clear sample ring on every window eval",
