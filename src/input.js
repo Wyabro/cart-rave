@@ -337,7 +337,9 @@ function gamepadLoop() {
   pollGamepad();
   requestAnimationFrame(gamepadLoop);
 }
-gamepadLoop(); // Start the polling loop
+if (typeof requestAnimationFrame !== "undefined") {
+  gamepadLoop(); // Start the polling loop
+}
 
 let localNitroHeld = false;
 /** @type {boolean} One-shot hop flag consumed by the client input send loop. */
