@@ -2544,9 +2544,13 @@ export function initArena(scene, world, config, options = {}) {
     for (let i = 0; i < SHAFT_SEGMENTS; i++) {
       const angle = (i / SHAFT_SEGMENTS) * Math.PI * 2;
       const quat = new THREE.Quaternion().setFromAxisAngle(yAxis, angle);
+      // * WALL-SLIDE-CLASSIC-1: FrictionCombineRule.Min — see the lip block below for why.
+      // * Restitution deliberately has NO rule: Rapier's default is Max, and 0.6 over the
+      // * cart's 0.3 is exactly the ricochet these staves want.
       const wallDesc = RAPIER.ColliderDesc.convexHull(wallVertices)
         .setRotation({ x: quat.x, y: quat.y, z: quat.z, w: quat.w })
         .setFriction(0.05)
+        .setFrictionCombineRule(RAPIER.CoefficientCombineRule.Min)
         .setRestitution(0.6);
       const wallCollider = world.createCollider(wallDesc, shaftBody);
       // * Registered as "edge" so impacts get the wall-clang FX/audio classification.
@@ -2587,9 +2591,30 @@ export function initArena(scene, world, config, options = {}) {
     for (let i = 0; i < LIP_SEGMENTS; i++) {
       const angle = (i / LIP_SEGMENTS) * Math.PI * 2;
       const quat = new THREE.Quaternion().setFromAxisAngle(yAxis, angle);
+      // * WALL-SLIDE-CLASSIC-1 — this 0.02 never meant 0.02. Rapier combines the two
+      // * colliders' friction with Average by default and the cart carries 1.1
+      // * (CONFIG.cart.friction), so the lip has been behaving like 0.56 since it was
+      // * written: a grippy wall where the author asked for ice. Min makes the number real.
+      // *
+      // * That matters here specifically. The comment block above is a fight against carts
+      // * grinding on this hull — the inward lean exists so there is no resting equilibrium
+      // * in the crease, the knife edge so there is no flat top to park on. Ice friction was
+      // * the third leg of that fix and it was the one that never took effect; the geometry
+      // * has been carrying the anti-grind intent alone.
+      // *
+      // * THE LIP IS SLANTED, NOT VERTICAL (r 43.45 at y −4 leaning in to r 41.95 at y 9),
+      // * and it still takes Min. It is a deflecting overhang built to have nothing rest on
+      // * it — wall-class, not a driveable surface. Do not "correct" it into the
+      // * floors-keep-Average bucket on account of the lean. Floors that genuinely keep
+      // * Average here: the record deck segments and the backstop cylinder's top cap.
+      // *
+      // * Restitution keeps the default Max rule on purpose — 0.5 over the cart's 0.3 is the
+      // * deflection. This is the opposite of Sundial's floor case, which needed
+      // * RestitutionCombineRule.Min to hold a LOWER value (zanzibarPlatform.js:25).
       const lipDesc = RAPIER.ColliderDesc.convexHull(lipVertices)
         .setRotation({ x: quat.x, y: quat.y, z: quat.z, w: quat.w })
         .setFriction(0.02)
+        .setFrictionCombineRule(RAPIER.CoefficientCombineRule.Min)
         .setRestitution(0.5);
       const lipCollider = world.createCollider(lipDesc, shaftBody);
       boothColliderHandles.push(lipCollider.handle);
