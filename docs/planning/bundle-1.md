@@ -744,6 +744,64 @@ false positive has now fired twice with different names, which is a tool defect,
 
 ---
 
+## 12. The Lever E "geometry leak" was a false alarm — the check measures a ratchet
+
+**Mechanism (confirmed):** `renderer.info.memory.geometries` is a **monotone first-render ratchet**, not
+an allocation count — it increments in `WebGLGeometries.get()` the first time a geometry is *drawn* and
+decrements only on `dispose()`. So the soak's cycle-1→cycle-3 delta measures *how much never-disposed
+pooled VFX geometry happened to become visible for the first time after cycle 1 was sampled*, which is a
+nondeterministic function of where NPCs died that round. **No leak exists.**
+
+**Evidence:**
+1. **Stack census** (`defineProperty` trap on the counters): every event in every cycle of every run is a
+   `+` from `WebGLGeometries.get ← WebGLObjects.update ← projectObject ← WebGLRenderer.render`
+   (`frameVisuals.js:551`). **Zero decrements** — so nothing is disposed, and equally nothing is
+   allocated-and-abandoned. `projectObject` only registers geometry for visible, in-frustum objects.
+2. **Identity census:** Δ0 run registers 442/442/442 across cycles. Δ5 run: 442→448→**448**. The
+   newcomers are all **pre-parented pooled objects still in the scene** at cycle 3 (hidden planes,
+   circles, cylinders, cargoBay meshes, `vis=false`). It steps **once, then stops** — a real
+   k-per-round leak would keep climbing.
+
+This inverts the earlier "allocated but never parented" reading: `sceneNodes`/`programs` are flat because
+these objects were **already parented and already sharing materials** before cycle 1 — merely hidden.
+The `textures +2` is the same one-time effect on lazily-memoized VFX texture sets (`_tex` in
+`cartShatter.js`, same pattern in `waterDeathFx.js`).
+
+**Both prior hypotheses ruled out:**
+- **(b) a silently no-op'd Lever-E cleanup callback — ruled out by name.** An inert cleanup would leave
+  geometry orphaned (registered but absent from the scene) or growing unbounded; neither occurs.
+  `hideCargoBay`: cargoBay meshes read `vis=false` at podium, so hiding works. `clearNpcCartCache` /
+  `stripLifeCargo`: `sceneNodes` is dead flat at 552 across all cycles. Structurally, all 12
+  `DEFERRED_GAME_CALLBACK_KEYS` were counted present at each hop (gameBoot → `buildSessionBridgeContext`
+  spread → bridge lambdas / netcode `deps.*?.()` shims).
+- **(a) chunk-move cache rebuild — ruled out.** The harness runs against the **Vite dev server**, which
+  serves raw ES modules and does no chunking, so Lever E's chunk split is inert there.
+
+**The earlier "does not reproduce under `--only gameharness`" clue was invalid** — `gameharness` is the
+*first* entry in `BATTERY_STEPS`, so `--only` runs it against an identically-cold stack. There was never
+a state/timing difference; the Δ0 was just another draw.
+
+**It is bimodal:** at `a870a68`, full battery **6/6 green (41/41)**, soak runs gave Δ10 / Δ0 / Δ5.
+Historical mining of `.diag-captures/battery-*.json`: **32 pre-E runs all Δ0–5; 3 of 8 post-E runs over
+tolerance.** That distribution shift is real and unexplained — deferring `cartShatter`/`koReactors`/
+`groceryPool` evaluation plausibly shifts when the first shatter/spill lands relative to cycle 1's
+sample — but it was **not** confirmed with an identity census on a Δ9/Δ10 run.
+
+### The gate itself is the defect → filed as HARNESS-GEO-1
+
+No fix applied: the correct fix lives in `tools/gameharness.mjs` (frozen) and changes the check's design.
+Two sound options — **(1)** sample cycles 2..N so the baseline is past the first-render ratchet, or
+**(2)** gate on the delta between the *last two* cycles, which is immune to a one-time ratchet by
+construction. Option 2 is the more robust. `TOLERANCE.geometries` was **not** raised, the check was not
+disabled, and no static import was re-added.
+
+**Correction to the Lever E commit body:** its inventory says `clearNpcCartCache ← initNetcode`. The live
+call site is `callbacks.clearNpcCartCache()` at `netcode.js:2930`, inside the **slots-sync handler**. The
+conclusion holds (the socket only opens after `bootGameSystems` populates the bridge) but the stated
+derivation does not — and it would matter if boot ordering ever changed.
+
+---
+
 ## 6. Notes carried out of Lever A (not fixed here)
 
 - `docs/bundle-budget.json` records `generatedAt`, so a `size:update` always dirties the file even at zero byte delta. Intentional (provenance), but do not read a diff on that line as a size change.

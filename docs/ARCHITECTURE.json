@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-04T23:25:09.872Z",
-    "commit": "bc47c4c"
+    "at": "2026-08-05T00:49:31.461Z",
+    "commit": "a870a68"
   },
-  "source_digest": "9b7d6f7f",
+  "source_digest": "6e65edab",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -934,7 +934,7 @@
         "title": "Engineering",
         "counts": {
           "Medium": 14,
-          "High": 4,
+          "High": 5,
           "Low": 9,
           "Partial": 1
         },
@@ -949,6 +949,12 @@
             "pri": "High",
             "item": "STORE-PLAT-WALL-1 — Storerooms void/platform walls are visual-only",
             "notes": "**Filed 08-04 from Wyatt playtest.** Walls attached to the spawn platforms (rails, dividers, and any wall faces that read as solid next to the surrounding void) have **no Rapier colliders** — only the deck cuboid is created in `buildBackroomsBooths` ([backroomsSupermarket.js:3264](../../src/levels/backroomsSupermarket.js:3264)); rails/dividers are mesh-merge only. Carts ghost through geometry that looks solid, which is a fall/KO fairness bug near the pit. **Same shape as SPAWN-SUNDIAL-1** (visual supports without physics). **Pass:** drive into platform-side walls/rails on prod Storerooms — cart stops, does not phase through into void or through booth furniture. Do not over-collider decorative crates. Sibling of closed PIT-COL-INSET-1 / SPAWN-BACKROOMS-1 (those were floor/lip, not platform walls).",
+            "ship1": null
+          },
+          {
+            "pri": "High",
+            "item": "HARNESS-GEO-1 — `soak: geometries stays flat across rematches` measures a ratchet, not a leak",
+            "notes": "**Filed 08-05 from BUNDLE-1 Lever E diagnosis (full writeup: [bundle-1.md §12](./bundle-1.md)).** The check compares `renderer.info.memory.geometries` at cycle 1 vs cycle N, but that counter is a **monotone first-render ratchet** — it increments when a geometry is first *drawn* and only decrements on `dispose()`. So the delta measures how much pooled VFX geometry first became *visible* after cycle 1 was sampled, which depends on where NPCs happened to die. Proven with a stack census (every event a `+` from `WebGLGeometries.get ← projectObject`, **zero decrements**) and an identity census (newcomers are pre-parented pooled objects still in-scene at cycle 3; steps once then stops). **It cost a false \"Lever E leaked memory\" blocker.** Bimodal: 32 pre-E runs Δ0–5, 3 of 8 post-E runs over tolerance — the shift is real but is a sampling artifact, not a leak. **Fix (do NOT raise `TOLERANCE.geometries`):** gate on the delta between the **last two** cycles — immune to a one-time ratchet by construction; or sample cycles 2..N so the baseline is past the ratchet. Needs a `tools/` window. **Pass:** 10 consecutive soak runs with no false failure, and a deliberately injected per-round leak still caught.",
             "ship1": null
           },
           {
