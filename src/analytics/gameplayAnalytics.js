@@ -14,6 +14,10 @@
  *                        + the onPageHide hook) — { reason, phase }
  *   client_error         rate-limited error beacons (emitted in errorReporter.js)
  *   session_end          pagehide — session duration + matches played
+ *   quickplay_shard_assigned  first quickplay match of a page load — { shard, hops }.
+ *                        QUICKPLAY-SHARD-1's evidence: `hops > 0` over all of these is the
+ *                        overflow rate, and deep chains are the signal that the sequential
+ *                        hop needs replacing with an occupancy registry.
  *
  * Nothing here is per-frame; store subscriptions fire only on transitions. When analytics
  * are opted out, initAnalytics() declines and every subscription callback exits on the
@@ -44,6 +48,8 @@ import { initAnalytics, trackEvent, getAnalyticsDebugState } from "./analytics.j
  * @property {() => boolean} [getLocalCartActive] True when the local player has a live,
  *   enabled cart body — i.e. is actually IN this round. Absent ⇒ treated as true, so a
  *   caller that does not wire it keeps the old behaviour.
+ * @property {() => number} [getQuickplayHops] Overflow shards walked before this seat
+ *   (QUICKPLAY-SHARD-1). Absent ⇒ 0.
  */
 
 /**
@@ -55,6 +61,8 @@ import { initAnalytics, trackEvent, getAnalyticsDebugState } from "./analytics.j
  */
 export function installGameplayAnalytics(deps) {
   let matchesThisSession = 0;
+  /** QUICKPLAY-SHARD-1: one shard-assignment datapoint per page load, not per rematch. */
+  let shardAssignedEmitted = false;
   let matchStartedPerfMs = 0;
   let sawSuddenDeath = false;
 
@@ -137,6 +145,27 @@ export function installGameplayAnalytics(deps) {
     pendingStart = false;
     stopPoll();
     trackEvent("match_started", { arena: arena(), mode: mode(), joinedMidRound });
+    maybeEmitShardAssigned();
+  };
+
+  // * QUICKPLAY-SHARD-1. Fires on a SUCCESSFUL seat (not on a reject), once per page load, and
+  // * only for quickplay — so hops:0 is the denominator and `hops > 0` over all of them is the
+  // * overflow rate. This is the evidence that decides whether the sequential hop chain ever
+  // * needs replacing with an occupancy registry: the hop costs one connect round-trip per full
+  // * shard, which only bites at high concurrency, and guessing at that in advance would have
+  // * meant building a registry DO nobody may need. Deep or frequent chains here are the signal.
+  const maybeEmitShardAssigned = () => {
+    if (shardAssignedEmitted) return;
+    if (mode() !== "quickplay") return;
+    shardAssignedEmitted = true;
+    let shard = null;
+    try {
+      shard = new URLSearchParams(window.location.search || "").get("room") || "quickplay";
+    } catch { /* non-browser */ }
+    trackEvent("quickplay_shard_assigned", {
+      shard,
+      hops: typeof deps.getQuickplayHops === "function" ? deps.getQuickplayHops() : 0,
+    });
   };
 
   const pollParticipation = () => {

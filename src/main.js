@@ -1197,6 +1197,7 @@ async function main() {
       const cart = Array.isArray(gameRefs.allCartsRef) ? gameRefs.allCartsRef[slot] : null;
       return Boolean(cart?.body && cart.body.isEnabled());
     },
+    getQuickplayHops: () => Netcode.getQuickplayHopCount(),
   });
 
   // * VFX-1: live black-frame flicker monitor on real hardware (?blackmon=1). Opt-in,
