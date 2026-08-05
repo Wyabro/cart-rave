@@ -11,6 +11,21 @@ import {
 import { createDevControl } from "../src/dev/devControl.js";
 import { registerCartClashModules } from "../src/dev/index.js";
 import { gameStore } from "../src/stores/gameStore.js";
+import { isQuickplayRoom } from "../shared/roomCodes.js";
+
+/**
+ * Mirror of `detectGameMode` (src/netcode.js) for a given room, without importing netcode.js —
+ * that module pulls PartySocket and the whole netcode graph into a unit run. The test below
+ * source-asserts that the real function still routes through the same predicate, so this mirror
+ * cannot quietly diverge from it.
+ * @param {string} room
+ */
+function detectGameModeForRoom(room) {
+  if (room.toLowerCase().startsWith("testdrive")) return "testdrive";
+  if (room.startsWith("solo")) return "solo";
+  if (isQuickplayRoom(room)) return "quickplay";
+  return "friends";
+}
 
 describe("developer command registry", () => {
   it("registers and executes commands through names and aliases", () => {
@@ -185,6 +200,29 @@ describe("shared developer control", () => {
     // * published the cheated state before failing.
     expect(setRoundScores).not.toHaveBeenCalled();
     expect(sendHostRound).not.toHaveBeenCalled();
+  });
+
+  it("refuses on an overflow SHARD too — QUICKPLAY-SHARD-1 must not reopen SEC-DIAG-1", () => {
+    // * The regression bar recorded when SEC-DIAG-1 closed. The gate itself only ever sees a
+    // * MODE string, so the shard risk lives one layer up in detectGameMode, which used to
+    // * match the room name EXACTLY — `quickplay2` classified as "friends" and a ?diag=1 host
+    // * on any overflow shard got setScores back. Both halves are pinned here so the pair
+    // * cannot drift apart:
+    //
+    // * Half 1 (behaviour): whatever resolves to "quickplay" is refused in a prod build.
+    const setRoundScores = vi.fn();
+    const control = createDevControl(roundLeverDeps({
+      isDev: false,
+      getGameMode: () => detectGameModeForRoom("quickplay2"),
+      setRoundScores,
+    }));
+    expect(control.setScores({ 0: 9, 1: 0, 2: 0, 3: 0 }))
+      .toEqual(expect.objectContaining({ ok: false, reason: "public-room" }));
+    expect(setRoundScores).not.toHaveBeenCalled();
+
+    // * Half 2 — that the REAL detectGameMode still routes through this same predicate — is
+    // * source-asserted in tests/quickplayShards.test.js. It cannot live here: this spec runs
+    // * under happy-dom, where `import.meta.url` is not a file URL and readFileSync throws.
   });
 
   it("keeps the round levers in production friends and solo rooms", () => {

@@ -41,6 +41,17 @@ describe("nextQuickplayArenaId", () => {
     expect(src).not.toMatch(/this\.#currentLevelId\s*=\s*QUICKPLAY_ARENA_IDS\[0\]/);
   });
 
+  it("that random pick is gated on the SHARD predicate, not an exact room name", () => {
+    // * QUICKPLAY-SHARD-1. The assertion above pins the random pick itself but says nothing
+    // * about the branch it sits inside, so a shard silently losing its arena roll — and its
+    // * "medium" AI difficulty, which is set in the same block — would be invisible to this
+    // * suite. An exact `this.name === "quickplay"` leaves every quickplay2..N room on the
+    // * hardcoded default arena with AI "easy", broadcast to joiners as authoritative.
+    const src = readFileSync(new URL("../party/index.ts", import.meta.url), "utf8");
+    expect(src).toMatch(/if \(isQuickplayRoom\(this\.name\) && QUICKPLAY_ARENA_IDS\.length > 0\)/);
+    expect(src).not.toMatch(/this\.name === "quickplay"/);
+  });
+
   it("levelOrchestration rematch path uses nextQuickplayArenaId", () => {
     const src = readFileSync(
       new URL("../src/orchestration/levelOrchestration.js", import.meta.url),

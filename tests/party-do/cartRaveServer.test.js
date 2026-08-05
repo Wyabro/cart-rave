@@ -13,6 +13,7 @@ import {
   setReapOverrides,
 } from "../../party/constants.ts";
 import { MSG } from "../../shared/protocol.js";
+import { QUICKPLAY_ARENA_IDS } from "../../shared/arenaPool.js";
 import { COUNTDOWN_MS, FLYOVER_PREROLL_MS } from "../../shared/roundConstants.js";
 import { connectAndSeat, openPartyClient } from "./wsClient.js";
 
@@ -529,5 +530,102 @@ describe("CartRaveServer DO harness", () => {
     } finally {
       setPlayReadyTimeoutOverride(null);
     }
+  });
+
+  // * QUICKPLAY-SHARD-1. Quickplay was one global DO — four slots, so four humans WORLDWIDE,
+  // * and the fifth was closed 4004 with a dead-end toast. A full PUBLIC shard now names the
+  // * next one in `retryRoom` and the client hops there. These run against a real full room
+  // * rather than a mocked one, because "full" is structural (no NPC slot left), not a constant.
+  describe("overflow shards (QUICKPLAY-SHARD-1)", () => {
+    it("hands a rejected joiner the next shard when a public shard fills up", async () => {
+      const room = "quickplay19";
+      const seated = [];
+      try {
+        for (let i = 0; i < 4; i += 1) {
+          seated.push(await connectAndSeat(room, {
+            name: `FULL${i}`,
+            clientId: `cid-shard-${i}`,
+            ip: `10.9.9.${i + 1}`,
+          }));
+        }
+
+        // * Fifth human: the socket IS accepted and gets a hello — rejection only happens at
+        // * `join`, which is exactly why the server has a channel to answer on.
+        const fifth = await openPartyClient(room, { ip: "10.9.9.5" });
+        const hello = await fifth.awaitType("hello");
+        expect(hello.slots.filter((s) => s && s.kind === "human")).toHaveLength(4);
+
+        fifth.sendJson({ type: "join", name: "FIFTH", clientId: "cid-shard-5", hostScore: 50 });
+        const rejected = await fifth.awaitType(MSG.joinRejected, 3000);
+        expect(rejected.retryRoom).toBe("quickplay20");
+
+        fifth.close();
+      } finally {
+        for (const s of seated) s.client.close();
+      }
+    });
+
+    it("stops the chain at the cap rather than pointing past it", async () => {
+      const room = `quickplay${20}`;
+      const seated = [];
+      try {
+        for (let i = 0; i < 4; i += 1) {
+          seated.push(await connectAndSeat(room, {
+            name: `CAP${i}`,
+            clientId: `cid-cap-${i}`,
+            ip: `10.9.8.${i + 1}`,
+          }));
+        }
+        const fifth = await openPartyClient(room, { ip: "10.9.8.5" });
+        await fifth.awaitType("hello");
+        fifth.sendJson({ type: "join", name: "CAPX", clientId: "cid-cap-5", hostScore: 50 });
+        const rejected = await fifth.awaitType(MSG.joinRejected, 3000);
+        // * Null means "no hop" — the client falls back to today's room-full toast, so the
+        // * worst case at the cap is exactly the behaviour that shipped before this card.
+        expect(rejected.retryRoom).toBeNull();
+        fifth.close();
+      } finally {
+        for (const s of seated) s.client.close();
+      }
+    });
+
+    it("never sends a harness room chasing a shard", async () => {
+      // * `quickplay__*` is continuous for policy purposes but is NOT a public shard. A test
+      // * room that fills must not hand its client a retryRoom pointing at real traffic.
+      const room = uniqueContinuousRoom("nohop");
+      const seated = [];
+      try {
+        for (let i = 0; i < 4; i += 1) {
+          seated.push(await connectAndSeat(room, {
+            name: `HARN${i}`,
+            clientId: `cid-harn-${i}`,
+            ip: `10.9.7.${i + 1}`,
+          }));
+        }
+        const fifth = await openPartyClient(room, { ip: "10.9.7.5" });
+        await fifth.awaitType("hello");
+        fifth.sendJson({ type: "join", name: "HARNX", clientId: "cid-harn-5", hostScore: 50 });
+        const rejected = await fifth.awaitType(MSG.joinRejected, 3000);
+        expect(rejected.retryRoom).toBeNull();
+        fifth.close();
+      } finally {
+        for (const s of seated) s.client.close();
+      }
+    });
+
+    it("gives a shard the same random arena and medium AI as shard 1", async () => {
+      // * The branch that sets both was an exact `this.name === "quickplay"`, so a shard would
+      // * have started on the hardcoded default arena with AI "easy" and broadcast that to
+      // * joiners as authoritative — QP-ORDER-1 silently off on every shard.
+      const seat = await connectAndSeat("quickplay18", {
+        name: "ARENA", clientId: "cid-arena-1", ip: "10.9.6.1",
+      });
+      try {
+        expect(QUICKPLAY_ARENA_IDS).toContain(seat.hello.levelId);
+        expect(seat.hello.aiDifficulty).toBe("medium");
+      } finally {
+        seat.client.close();
+      }
+    });
   });
 });
