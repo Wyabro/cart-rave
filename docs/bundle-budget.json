@@ -1,57 +1,65 @@
 {
   "_doc": "Committed byte budget for the INITIAL DOWNLOAD SET (entry module + all modulepreloads) of dist/index.html. Keys are hash-stripped chunk names. gzip is a stable proxy only — Cloudflare serves brotli, so it is NOT wire bytes. Regenerate with `npm run size:update`. Tool + gate rules: tools/bundle-budget.mjs.",
-  "generatedAt": "2026-08-04T20:26:43.403Z",
+  "_membership": "`deferredModules` is the membership gate: any of these appearing in the initial set is a re-eagering and fails. `entryFamily` is the entry chunk plus the shared chunks rolldown split out of it — compared as one total, so a rename/re-split is not a regression.",
+  "generatedAt": "2026-08-05T01:14:57.946Z",
   "toleranceFraction": 0.02,
   "toleranceFloorBytes": 20000,
   "initialSet": {
     "count": 14,
-    "raw": 1554863,
-    "gzip": 461260
+    "raw": 1203360,
+    "gzip": 347497
+  },
+  "entryFamily": {
+    "keys": [
+      "index"
+    ],
+    "raw": 91267,
+    "gzip": 30601
   },
   "chunks": {
     "three": {
       "raw": 689139,
       "gzip": 174623
     },
+    "errorReporter": {
+      "raw": 266217,
+      "gzip": 86807
+    },
     "index": {
-      "raw": 660794,
-      "gzip": 215105
+      "raw": 91267,
+      "gzip": 30601
     },
     "animejs": {
       "raw": 48376,
       "gzip": 18005
     },
-    "waterDeathFx": {
-      "raw": 38995,
-      "gzip": 13002
-    },
     "scene": {
       "raw": 36861,
-      "gzip": 14095
+      "gzip": 14093
     },
     "howler": {
       "raw": 35952,
       "gzip": 9541
     },
-    "cartShatter": {
-      "raw": 27114,
-      "gzip": 8507
+    "sfxSynth": {
+      "raw": 11902,
+      "gzip": 4378
+    },
+    "animations": {
+      "raw": 10779,
+      "gzip": 3142
     },
     "diagnostics": {
       "raw": 5852,
-      "gzip": 2839
+      "gzip": 2838
     },
-    "koReactors": {
-      "raw": 5581,
-      "gzip": 2218
-    },
-    "contactShadows": {
-      "raw": 3177,
-      "gzip": 1549
+    "koEvent": {
+      "raw": 3993,
+      "gzip": 1692
     },
     "utils": {
       "raw": 1189,
-      "gzip": 601
+      "gzip": 602
     },
     "captureUpload": {
       "raw": 1074,
@@ -65,5 +73,109 @@
       "raw": 227,
       "gzip": 194
     }
-  }
+  },
+  "deferredModules": [
+    "/__vite-plugin-wasm-helper",
+    "node_modules/@dimforge/rapier3d/coarena.js",
+    "node_modules/@dimforge/rapier3d/control/character_controller.js",
+    "node_modules/@dimforge/rapier3d/control/index.js",
+    "node_modules/@dimforge/rapier3d/control/pid_controller.js",
+    "node_modules/@dimforge/rapier3d/control/ray_cast_vehicle_controller.js",
+    "node_modules/@dimforge/rapier3d/dynamics/ccd_solver.js",
+    "node_modules/@dimforge/rapier3d/dynamics/coefficient_combine_rule.js",
+    "node_modules/@dimforge/rapier3d/dynamics/impulse_joint.js",
+    "node_modules/@dimforge/rapier3d/dynamics/impulse_joint_set.js",
+    "node_modules/@dimforge/rapier3d/dynamics/index.js",
+    "node_modules/@dimforge/rapier3d/dynamics/integration_parameters.js",
+    "node_modules/@dimforge/rapier3d/dynamics/island_manager.js",
+    "node_modules/@dimforge/rapier3d/dynamics/multibody_joint.js",
+    "node_modules/@dimforge/rapier3d/dynamics/multibody_joint_set.js",
+    "node_modules/@dimforge/rapier3d/dynamics/rigid_body.js",
+    "node_modules/@dimforge/rapier3d/dynamics/rigid_body_set.js",
+    "node_modules/@dimforge/rapier3d/exports.js",
+    "node_modules/@dimforge/rapier3d/geometry/broad_phase.js",
+    "node_modules/@dimforge/rapier3d/geometry/collider.js",
+    "node_modules/@dimforge/rapier3d/geometry/collider_set.js",
+    "node_modules/@dimforge/rapier3d/geometry/contact.js",
+    "node_modules/@dimforge/rapier3d/geometry/feature.js",
+    "node_modules/@dimforge/rapier3d/geometry/index.js",
+    "node_modules/@dimforge/rapier3d/geometry/narrow_phase.js",
+    "node_modules/@dimforge/rapier3d/geometry/point.js",
+    "node_modules/@dimforge/rapier3d/geometry/ray.js",
+    "node_modules/@dimforge/rapier3d/geometry/shape.js",
+    "node_modules/@dimforge/rapier3d/geometry/toi.js",
+    "node_modules/@dimforge/rapier3d/math.js",
+    "node_modules/@dimforge/rapier3d/pipeline/debug_render_pipeline.js",
+    "node_modules/@dimforge/rapier3d/pipeline/event_queue.js",
+    "node_modules/@dimforge/rapier3d/pipeline/index.js",
+    "node_modules/@dimforge/rapier3d/pipeline/physics_hooks.js",
+    "node_modules/@dimforge/rapier3d/pipeline/physics_pipeline.js",
+    "node_modules/@dimforge/rapier3d/pipeline/query_pipeline.js",
+    "node_modules/@dimforge/rapier3d/pipeline/serialization_pipeline.js",
+    "node_modules/@dimforge/rapier3d/pipeline/world.js",
+    "node_modules/@dimforge/rapier3d/rapier.js",
+    "node_modules/@dimforge/rapier3d/rapier_wasm3d.js",
+    "node_modules/@dimforge/rapier3d/rapier_wasm3d_bg.js",
+    "node_modules/@dimforge/rapier3d/rapier_wasm3d_bg.wasm",
+    "node_modules/@dimforge/rapier3d/rapier_wasm3d_bg.wasm?url",
+    "node_modules/@dimforge/rapier3d/raw.js",
+    "src/ambience/arenaAmbience.js",
+    "src/announcer/announcerDirector.js",
+    "src/announcer/announcerEvents.js",
+    "src/announcer/announcerLines.js",
+    "src/announcer/announcerManager.js",
+    "src/announcer/announcerStings.js",
+    "src/announcer/announcerVoiceKeys.js",
+    "src/arena.js",
+    "src/arenaReactiveLights.js",
+    "src/audioSetup.js",
+    "src/cargoLoad.js",
+    "src/cartShatter.js",
+    "src/contactShadows.js",
+    "src/dev/commandRegistry.js",
+    "src/dev/devControl.js",
+    "src/directives/directiveEngine.js",
+    "src/directives/directives.js",
+    "src/effects.js",
+    "src/effects/groceryDefinitions.js",
+    "src/effects/groceryPool.js",
+    "src/effects/waterDeathFx.js",
+    "src/entities.js",
+    "src/frameVisuals.js",
+    "src/gameContext.js",
+    "src/gameFlow.js",
+    "src/gameLoop.js",
+    "src/haptics.js",
+    "src/hud.js",
+    "src/levels/backroomsSupermarket.js",
+    "src/levels/classicRecord.js",
+    "src/levels/testArena.js",
+    "src/levels/zanzibarPlatform.js",
+    "src/orchestration/cartOrchestration.js",
+    "src/orchestration/gameBoot.js",
+    "src/orchestration/levelOrchestration.js",
+    "src/orchestration/loopDeps.js",
+    "src/orchestration/roundLifecycle.js",
+    "src/sceneExtras.js",
+    "src/scoring/koReactors.js",
+    "src/simulation.js",
+    "src/ui/announcerDisplay.js",
+    "src/ui/centerStage.js",
+    "src/ui/icons.js",
+    "src/ui/pauseOverlay.js",
+    "src/ui/resultsOverlay.js",
+    "src/ui/styles/announcer.css",
+    "src/ui/styles/hud.css",
+    "src/ui/styles/pauseOverlay.css",
+    "src/ui/styles/results.css",
+    "src/utils/aiStallWatchdog.js",
+    "src/utils/cheapMirror.js",
+    "src/utils/edgeDanger.js",
+    "src/utils/frameBudget.js",
+    "src/utils/mergeStaticMeshes.js",
+    "src/utils/podiumEndLatch.js",
+    "src/utils/reconcileReplay.js",
+    "src/utils/soloRubberband.js",
+    "src/visuals.js"
+  ]
 }
