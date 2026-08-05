@@ -51,6 +51,42 @@ after both passes closed). **BUNDLE-1** note in BACKLOG flipped to UNBLOCKED.
 
 ---
 
+### August 5, 2026 — two harness bugs: one real, one I invented
+
+Both surfaced out of BUNDLE-1. Worth keeping together because they are the same lesson from opposite
+directions — **a subagent's observation can be correct while the premise under it is false.**
+
+- *(Tooling · High)* **HARNESS-GEO-1** — ✅ **fixed** (`fde8d10`). `soak: geometries stays flat across
+  rematches` had been holding battery at 5/6 and produced a false "Lever E leaked memory" blocker.
+  `renderer.info.memory.geometries` is a **monotone first-render ratchet** — three.js increments it the
+  first time a geometry is *drawn* and only decrements on `dispose()` — so comparing cycle 1 to cycle N
+  measured how much pooled VFX geometry happened to become *visible* after the first sample, which
+  depends on where the NPCs died. Proven by a stack census (every event a `+` from
+  `WebGLGeometries.get ← projectObject`, **zero decrements**) and an identity census (newcomers are
+  pre-parented pooled objects still in-scene at cycle 3, stepping once then stopping).
+  **Gate is now `min(per-cycle delta) <= ceil(tol / deltas.length)`** ([soakGrowth.mjs](../../tools/lib/soakGrowth.mjs)):
+  a one-time ratchet leaves one delta near zero *whenever* it fires; a real leak adds k every rematch.
+  Both originally-proposed fixes ("last two cycles", "cycles 2..N") are the same check at 3 cycles and
+  **would have failed run 6** of the evidence sweep, a genuine late ratchet. **Run 7 (`[4,5]`, minΔ 4 vs
+  tol 4) passed by exactly zero margin — do not read 10/10 as comfortable;** if it ever false-fails the
+  answer is `--soakCycles 4` + drop-largest-delta, **never** a tolerance bump. Verified both directions:
+  10/10 soak runs green, and an injected leak (10 cloned geometries retained per rematch) still failed it
+  at `[121 → 131 → 141]`. The full per-cycle series now persists into the battery JSON — losing that
+  middle sample is precisely why diagnosing this needed a whole investigation. Evidence table:
+  [bundle-1.md §12](./bundle-1.md).
+- *(Retracted)* **SHOOT-LEVEL-1** — ❌ **not a bug; the filing was mine and it was wrong** (`ec01054`).
+  Reported as "`shoot --level zanzibar` renders Classic." All three arenas in fact measure distinct:
+  `classicRecord` 114 draws / 548,185 tris · `backrooms` 98 / 241,425 · `zanzibar` **124 / 214,641**.
+  The observation was real — a default shot and `--level zanzibar` are byte-identical — but the premise
+  was not: **`FREE_LEVEL = "zanzibar"`** ([unlockConfig.js:113](../../src/unlockConfig.js:113)) and
+  `resolveLevelId` falls back to it, so the *default* shot already is Sundial. **Filed High on an
+  unchecked assumption, then amplified into "every Sundial shoot/compare has been diffing Classic
+  against Classic, including MAIN-1's sign-off" — which was false and briefly discredited valid
+  evidence.** MAIN-1 Lever H's "sundial meanAbs 0.048" was a genuine Sundial-vs-Sundial compare; no
+  arena went unverified and no re-shoot was owed. Ambiguity removed anyway: `tools/shoot.mjs` now always
+  pins `level=` explicitly via its own `DEFAULT_SHOT_LEVEL`, independent of `FREE_LEVEL`, so every run's
+  logged URL names the arena.
+
 ### August 4, 2026 — MAIN-1 CLOSED: composition seam + the residual wave behind it
 
 **MAIN-1 is done.** The §8 seam playtest came back 9/9 on `c9f6f44`, and the retest of the four

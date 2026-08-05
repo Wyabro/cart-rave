@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-05T02:52:10.598Z",
-    "commit": "ec01054"
+    "at": "2026-08-05T02:55:37.481Z",
+    "commit": "2270f7a"
   },
-  "source_digest": "f622cf22",
+  "source_digest": "45852ad4",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -939,7 +939,6 @@
         "counts": {
           "Medium": 14,
           "High": 3,
-          "?": 3,
           "Low": 9,
           "Partial": 1
         },
@@ -954,24 +953,6 @@
             "pri": "High",
             "item": "STORE-PLAT-WALL-1 — Storerooms void/platform walls are visual-only",
             "notes": "**Filed 08-04 from Wyatt playtest.** Walls attached to the spawn platforms (rails, dividers, and any wall faces that read as solid next to the surrounding void) have **no Rapier colliders** — only the deck cuboid is created in `buildBackroomsBooths` ([backroomsSupermarket.js:3264](../../src/levels/backroomsSupermarket.js:3264)); rails/dividers are mesh-merge only. Carts ghost through geometry that looks solid, which is a fall/KO fairness bug near the pit. **Same shape as SPAWN-SUNDIAL-1** (visual supports without physics). **Pass:** drive into platform-side walls/rails on prod Storerooms — cart stops, does not phase through into void or through booth furniture. Do not over-collider decorative crates. Sibling of closed PIT-COL-INSET-1 / SPAWN-BACKROOMS-1 (those were floor/lip, not platform walls).",
-            "ship1": null
-          },
-          {
-            "pri": "✅",
-            "item": "HARNESS-GEO-1 — `soak: geometries stays flat across rematches` measured a ratchet, not a leak",
-            "notes": "**CLOSED 08-05 — fixed, 10/10 soak runs green + injected-leak proof.** Gate is now `min(per-cycle delta) <= ceil(tol/deltas)` in [soakGrowth.mjs](../../tools/lib/soakGrowth.mjs); the full per-cycle series is persisted to the battery JSON so the next failure is self-diagnosing. **The ×10 evidence run earned its cost twice:** run 6 (`[0,4]`) proved the **late** ratchet is real, which both originally-proposed fixes would have failed; run 7 (`[4,5]`, minΔ 4 vs tol 4) passed by **exactly zero margin**, so the staggered-ratchet residual is live. If it ever false-fails, the answer is `--soakCycles 4` + drop-largest-delta, **not** a tolerance bump. Evidence table: [bundle-1.md §12](./bundle-1.md). Original diagnosis below.",
-            "ship1": null
-          },
-          {
-            "pri": "—",
-            "item": "~~HARNESS-GEO-1 original filing~~ (kept for the mechanism)",
-            "notes": "**Filed 08-05 from BUNDLE-1 Lever E diagnosis (full writeup: [bundle-1.md §12](./bundle-1.md)).** The check compares `renderer.info.memory.geometries` at cycle 1 vs cycle N, but that counter is a **monotone first-render ratchet** — it increments when a geometry is first *drawn* and only decrements on `dispose()`. So the delta measures how much pooled VFX geometry first became *visible* after cycle 1 was sampled, which depends on where NPCs happened to die. Proven with a stack census (every event a `+` from `WebGLGeometries.get ← projectObject`, **zero decrements**) and an identity census (newcomers are pre-parented pooled objects still in-scene at cycle 3; steps once then stops). **It cost a false \"Lever E leaked memory\" blocker.** Bimodal: 32 pre-E runs Δ0–5, 3 of 8 post-E runs over tolerance — the shift is real but is a sampling artifact, not a leak. **Fix (do NOT raise `TOLERANCE.geometries`):** gate on the delta between the **last two** cycles — immune to a one-time ratchet by construction; or sample cycles 2..N so the baseline is past the ratchet. Needs a `tools/` window. **Pass:** 10 consecutive soak runs with no false failure, and a deliberately injected per-round leak still caught.",
-            "ship1": null
-          },
-          {
-            "pri": "✅",
-            "item": "SHOOT-LEVEL-1 — ~~`shoot --level zanzibar` renders Classic~~ **NOT A BUG (retracted 08-05)**",
-            "notes": "**CLOSED 08-05 — the filing was wrong, and the error was mine.** Measured all three arenas: `classicRecord` 114 draws / 548,185 tris · `backrooms` 98 / 241,425 · `zanzibar` **124 / 214,641**. All distinct — **`--level zanzibar` renders Sundial correctly and always did.** The observation behind the filing was real (a default shot and `--level zanzibar` are byte-identical) but the premise was not: **`FREE_LEVEL = \"zanzibar\"`** ([unlockConfig.js:113](../../src/unlockConfig.js:113)) and `resolveLevelId` falls back to it, so the *default* shot is Sundial — not Classic. I filed it High on a subagent's assumption without checking. **Retracted in full: MAIN-1 Lever H's \"sundial meanAbs 0.048\" was a genuine Sundial-vs-Sundial compare, no arena was ever unverified, and no re-shoot is owed.** Fix applied anyway so the ambiguity cannot recur: `tools/shoot.mjs` now always pins `level=` explicitly (its own `DEFAULT_SHOT_LEVEL`, independent of `FREE_LEVEL`), so the logged URL names the arena on every run.",
             "ship1": null
           },
           {
