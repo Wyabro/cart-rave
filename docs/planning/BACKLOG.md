@@ -79,7 +79,7 @@ closes, strike it here the same session its row is retired.
 1. ~~**SEC-DIAG-1**~~ — ✅ **CLOSED PASS 3/3 08-05** on prod `fbe8163` ([completed-work.md](./completed-work.md))
 2. ~~**ONBOARD-FLAG-1**~~ — ✅ **CLOSED PASS 08-05** on prod `fbe8163`, with a named limit on the skip-click ([completed-work.md](./completed-work.md))
 3. ~~**QUICKPLAY-SHARD-1**~~ — ✅ **SHIPPED 08-05, SHARD-PT-1 PASS on prod `9c333d1`.** Overflow hop, not a seat-finder — see the row. SEC-DIAG-1's regression bar met in units and live. ⚠️ **SHARD-PT-2 deferred to the public playtest** — it needs five real humans, which Wyatt does not have; the overflow itself is rig-proven 5/5 in real browsers. **Launch-day check, do not lose it.**
-4. ~~**FIX-MIG**~~ — ✅ **SHIPPED 08-05** (`28c1a6c`), awaiting FIX-MIG-PT-1. Disconnect reason + toast + continuous party-do tests. [completed-work.md](./completed-work.md)
+4. ~~**FIX-MIG**~~ — ✅ **CLOSED PASS 08-05** on prod `a65d3c9` (FIX-MIG-PT-1). Disconnect reason + toast + continuous tests; bare A→B handoff residual fixed. [completed-work.md](./completed-work.md)
 5. **ATTRACT-JANK-1** — measure on the Intel box *when it's free* (slots anywhere in A/B), then the demotion guard if confirmed
 
 **Block B — pre-ship batch (after A, best first):**
@@ -229,7 +229,8 @@ Stuff that shipped and still needs your eyes on **production**
 Console: `npm run dashboard` → playtest console. Mark closed by rewriting Notes to
 `Wyatt playtest PASS — …` (drop the `Owed:` line).
 
-Finished and removed from this list: **SEC-DIAG-PT-1 · SEC-DIAG-PT-2 · SEC-DIAG-PT-3 ·
+Finished and removed from this list: **FIX-MIG-PT-1** (PASS 08-05 on prod `a65d3c9` — host close
+shows toast on the survivor after one FAIL + bare A→B residual), **SEC-DIAG-PT-1 · SEC-DIAG-PT-2 · SEC-DIAG-PT-3 ·
 ONBOARD-FLAG-PT-1** (PASS 08-05 on prod `fbe8163`, **4/4, no FAIL** — the first two cards of the
 pre-launch Work order. PT-2 earned its separate id: it is the card that would have caught a gate
 refusing *everywhere*, which would have read as a pass on PT-1 while killing live repro. PT-3 was
@@ -265,7 +266,6 @@ console every regeneration and got re-run. The export now says so out loud.
 
 | Pri | Item | Notes |
 |-----|------|-------|
-| Medium | FIX-MIG-PT-1 — disconnect host migration is visible `[2pc]` (FIX-MIG) | **Owed: Wyatt playtest — FIX-MIG-PT-1 — on prod after deploy, confirm a host drop shows a toast.** Disconnect migration used to be silent (PA only).<br>1. Two browsers, both windows fully visible (hidden tabs fake stalls). Join the same room (quickplay or friends is fine).<br>2. Note who has the host glyph.<br>3. Close the host tab completely (not just hide it).<br>4. On the survivor: a toast should say the host left / who is hosting; the host glyph moves; you can keep driving after a short hitch.<br>FAIL if migration works but there is no toast, if the room wedges, or if nobody becomes host. |
 | Low | AQ-RING-CLEAR-1 — autoQuality clear sample ring on every window eval | **Reserve only** if Wave 2 entry grace still demotes on retest. Comment in autoQuality.js already notes the ring can poison up to 3 windows. Own commit if needed; not in main batch path. |
 
 ## UI / UX

@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-05T19:05:59.590Z",
-    "commit": "9196297"
+    "at": "2026-08-05T19:37:47.722Z",
+    "commit": "a65d3c9"
   },
-  "source_digest": "ac4f8196",
+  "source_digest": "7750ae5e",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -869,7 +869,7 @@
       {
         "id": "*(closed)*",
         "what": "FIX-MIG — disconnect migration visibility + continuous tests",
-        "status": "✅ SHIPPED 08-05 (`28c1a6c`). `#ensureLiveHost` tags `reason: host_disconnect`; toast on close/reap/ghost/snapshot; continuous party-do covered. Owed: FIX-MIG-PT-1 (needs deploy). [completed-work.md](./planning/completed-work.md).",
+        "status": "✅ PASS 08-05 on prod `a65d3c9` (FIX-MIG-PT-1). First FAIL was bare `host_migrated` (warm DO / missing reason); client treats bare A→B as disconnect. [completed-work.md](./planning/completed-work.md).",
         "state": "done"
       },
       {
@@ -901,7 +901,7 @@
       }
     ],
     "next_actions": [
-      "Work the ordered queue — [BACKLOG § Work order](./planning/BACKLOG.md) (2026-08-05 pre-launch audit). Block A 1–4 done: SEC-DIAG/ONBOARD PASS 4/4 on `fbe8163`; QUICKPLAY-SHARD-1 SHARD-PT-1 PASS on `9c333d1` (SHARD-PT-2 deferred to the public playtest — needs 5 humans; now a launch-day check); FIX-MIG shipped `28c1a6c` (owed FIX-MIG-PT-1 after deploy). Next code: ATTRACT-JANK-1. Closed 08-05 also: HARNESS-GEO-1, BUNDLE-1, HUD-TOAST-Z-1, FIX-EMISSIVE, physics run 5/5.",
+      "Work the ordered queue — [BACKLOG § Work order](./planning/BACKLOG.md) (2026-08-05 pre-launch audit). Block A 1–4 closed: SEC-DIAG/ONBOARD PASS 4/4; SHARD-PT-1 PASS (SHARD-PT-2 launch-day); FIX-MIG PASS on prod `a65d3c9`. Next code: ATTRACT-JANK-1. Also closed 08-05: HARNESS-GEO-1, BUNDLE-1, HUD-TOAST-Z-1, FIX-EMISSIVE, physics run 5/5.",
       "Hitch forensics now has evidence — cap-254–260 (build `8d96b0b`) are the first captures from a working upload path, including a Cart Rave F8 taken on a hitch. Read them before any perf knob.",
       "Still owed separately: 9-cell PERF sweep (~25 min). Resume Run 8 FAIL triage."
     ],
@@ -1325,16 +1325,9 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Medium": 1,
           "Low": 1
         },
         "rows": [
-          {
-            "pri": "Medium",
-            "item": "FIX-MIG-PT-1 — disconnect host migration is visible `[2pc]` (FIX-MIG)",
-            "notes": "**Owed: Wyatt playtest — FIX-MIG-PT-1 — on prod after deploy, confirm a host drop shows a toast.** Disconnect migration used to be silent (PA only).<br>1. Two browsers, both windows fully visible (hidden tabs fake stalls). Join the same room (quickplay or friends is fine).<br>2. Note who has the host glyph.<br>3. Close the host tab completely (not just hide it).<br>4. On the survivor: a toast should say the host left / who is hosting; the host glyph moves; you can keep driving after a short hitch.<br>FAIL if migration works but there is no toast, if the room wedges, or if nobody becomes host.",
-            "ship1": null
-          },
           {
             "pri": "Low",
             "item": "AQ-RING-CLEAR-1 — autoQuality clear sample ring on every window eval",

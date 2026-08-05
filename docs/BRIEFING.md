@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-05 at commit `9196297` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `c5a8a2b6`
+> Generated 2026-08-05 at commit `a65d3c9` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `77325dfb`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -18,7 +18,7 @@ Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep a
 
 ## ACTIVE CARD
 
-Work the ordered queue — BACKLOG § Work order (2026-08-05 pre-launch audit). Block A 1–4 done: SEC-DIAG/ONBOARD PASS 4/4 on `fbe8163`; QUICKPLAY-SHARD-1 SHARD-PT-1 PASS on `9c333d1` (SHARD-PT-2 deferred to the public playtest — needs 5 humans; now a launch-day check); FIX-MIG shipped `28c1a6c` (owed FIX-MIG-PT-1 after deploy). Next code: ATTRACT-JANK-1. Closed 08-05 also: HARNESS-GEO-1, BUNDLE-1, HUD-TOAST-Z-1, FIX-EMISSIVE, physics run 5/5
+Work the ordered queue — BACKLOG § Work order (2026-08-05 pre-launch audit). Block A 1–4 closed: SEC-DIAG/ONBOARD PASS 4/4; SHARD-PT-1 PASS (SHARD-PT-2 launch-day); FIX-MIG PASS on prod `a65d3c9`. Next code: ATTRACT-JANK-1. Also closed 08-05: HARNESS-GEO-1, BUNDLE-1, HUD-TOAST-Z-1, FIX-EMISSIVE, physics run 5/5
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 

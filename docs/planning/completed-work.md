@@ -13,25 +13,18 @@ Chronological record of shipped work, newest first.
 
 ---
 
-### August 5, 2026 — FIX-MIG shipped (`28c1a6c`): disconnect migration is visible
+### August 5, 2026 — FIX-MIG PASS on prod `a65d3c9`
 
-Block A #4 of the pre-launch Work order. Code + unit/party-do complete; human check is
-**FIX-MIG-PT-1** (needs deploy).
+Block A #4 of the pre-launch Work order. **FIX-MIG-PT-1 PASS** (Wyatt) after one FAIL + residual.
 
-- *(Engineering · Medium)* **FIX-MIG** — ✅ **SHIPPED 08-05** (levers `18a413a` → `4428640` →
-  `28c1a6c`). Disconnect paths (host `onClose`, silent reap, ghost exorcism, snapshot repair) all
-  go through `#ensureLiveHost` and used to broadcast `host_migrated` with **no `reason`**, so the
-  client toast gate (only `host_quality` / `host_afk` / `host_return`) skipped them while PA
-  `new_host` still fired. One write site now tags `reason: "host_disconnect"`; first-ever host
-  assign and null-host remain bare.
-- **Client toast** mirrors AFK shape: *You're hosting — previous host left.* / *Host left — {name}
-  is hosting.* / *Host left — a new player is hosting.* Bare `host_migrated` stays toast-silent
-  (asserted). Ghost/snapshot repairs intentionally share the same "left" copy (Choice A).
-- **Continuous policy:** party-do onClose + silent-reap under `uniqueContinuousRoom()`; friends
-  paths assert the same reason. Picker policy, freeze, mid-round rebalance, SHARD, and
-  `host_return` quality-copy reuse were **not** touched.
-- **Evidence (machine):** `npm run qa` green; 1481 tests; hostMigration toast suite + 4 migrate
-  asserts (friends/continuous × onClose/reap). **Human:** FIX-MIG-PT-1 after ship/deploy.
+- *(Engineering · Medium)* **FIX-MIG** — ✅ **PASS 08-05**. Levers `18a413a` → `4428640` →
+  `28c1a6c` (server `reason: "host_disconnect"` on `#ensureLiveHost`, client toast, continuous
+  party-do). First PT FAIL: migration worked, **no toast** on the new host.
+- **Residual fix (`a65d3c9`):** bare A→B `host_migrated` (no reason — warm DO still on pre-reason
+  code, or any untagged handoff) is treated as disconnect for toast. First-host / null-host stay
+  silent. Ghost/snapshot share the same "left" copy (Choice A).
+- **Not touched:** picker, freeze, mid-round rebalance, SHARD, `host_return` quality-copy reuse.
+- **Evidence:** machine — qa green + toast suite; human — FIX-MIG-PT-1 PASS on prod `a65d3c9`.
 
 ---
 
