@@ -13,6 +13,51 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 5, 2026 — playtest export: 6 PASS closed, 1 FAIL triaged, 1 SKIP held
+
+Wyatt's export off HEAD `4077a4a` — **6 pass / 1 fail / 1 skip**. All six passing rows were deleted
+from BACKLOG § Playtest owed the same session they were reported, per the standing rule.
+
+- *(UI · High)* **UI-SCALE-RESULTS-PHONE-1** — ✅ **PASS 08-05.** Portrait phone results read
+  ranks-over-receipt; the short-window clobber did not return.
+- *(UI · High)* **UI-SCALE-RESULTS-WIDE-1** — ✅ **PASS 08-05.** Landscape phone keeps ranks left /
+  receipt right with a usable rank column, so the portrait stack is not being forced sideways.
+- *(UI · Medium)* **UI-SCALE-FEED-PHONE-1** — ✅ **PASS 08-05.** In-match kill feed is phone-scaled
+  and no longer eats the boost / score chrome. **These three close the UI-SCALE-1 residual batch**
+  (shipped through `f057abe`); UI-SCALE-1 itself now has phone evidence on all three of its
+  residual surfaces.
+- *(Engineering · High)* **NET-AUDIT-INPUT-1** — ✅ **PASS 08-05.** Joiner drives out of spawn, hops,
+  and holds a full nitro charge window across a jittery burst — the seat gate did not cost the
+  non-host their input path.
+- *(Engineering · High)* **NET-AUDIT-SLOTS-READY-1** — ✅ **PASS 08-05.** Ready chips stick on both
+  machines and the room still arms countdown on the manual-Ready Friends path.
+- *(Engineering · High)* **NET-AUDIT-SLOTS-LOOK-1** — ✅ **PASS 08-05, with a named limit.** Palette
+  color and Customize neon hex both retint both peers, which is what the card asked. **But Wyatt's
+  note carried a real defect:** *"the non hosts sunglasses and pattern are wrong/not showing
+  correctly. color is correct though."* That is a second mechanism, not a residual on this card, so
+  it is filed as **NET-LOOK-ACC-1** (Engineering, High) rather than downgrading a verdict the card's
+  own steps earned. The split is itself the diagnostic — color crosses the wire, so transport works
+  and the gap is in the payload or the remote apply.
+- **All three NET-AUDIT cards were seeded as "unpushed wave A (`145cc95`)" but wave A is on
+  `origin/cart-clash`** as of this session, so these passes count against shipped code, not just a
+  dev server.
+
+**FAIL — PERF-9CELL-1**, and the card was at fault. Wyatt: *"idk what you are asking me to do
+here."* The row said "run the handover's 9-cell matrix" and left the protocol 300 lines deep in a
+484-line doc, so the console handed him a ~25 minute measurement sitting with no cells in it — and
+its parent **PERF-PASS-1 has been parked since 08-04**, so the sweep was queued ahead of the card
+that would consume its numbers. Fix, at Wyatt's call: the row is **parked with PERF-PASS-1 and no
+longer seeds the console**, and was rewritten self-contained — URL template, setup, per-cell
+capture, the eight tokens in order with `none` first and last, and the ±1.5 ms drift-void rule all
+inline — so it is runnable off the row the day PERF-PASS-1 unparks. **This is the second time in
+two days that a card failed for being unactionable rather than for the code being wrong** (see the
+research-card reachability note); a card that names a *protocol* must carry the protocol.
+
+**SKIP — SHARD-PT-2** held open as designed: it needs five concurrent humans and is a launch-day /
+public-post check. Not a failure, not closeable, deliberately left in the queue.
+
+---
+
 ### August 5, 2026 — ATTRACT-JANK-1 closed on prod `5983896`
 
 Block A #5 of the pre-launch Work order, and the card's premise turned out to be wrong: it was

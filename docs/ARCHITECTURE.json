@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-05T23:01:35.982Z",
-    "commit": "145cc95"
+    "at": "2026-08-05T23:29:35.125Z",
+    "commit": "4077a4a"
   },
-  "source_digest": "9c7678bc",
+  "source_digest": "97c29aac",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -903,7 +903,7 @@
     "next_actions": [
       "Work the ordered queue — [BACKLOG § Work order](./planning/BACKLOG.md) (2026-08-05 pre-launch audit). Block A 1–5 closed: SEC-DIAG/ONBOARD PASS 4/4; SHARD-PT-1 PASS (SHARD-PT-2 launch-day); FIX-MIG PASS on prod `a65d3c9`; ATTRACT-JANK-1 CLOSED on prod `5983896` (reduced-motion path at 1.25 fps, not a load problem — levers A+B). Next code: TIER-DEFAULT-1, spun out of it: first-run tier is medium on an Intel UHD, a 5–8.6 fps menu for 3.3 s every visit until the watchdog steps it down (cap-288). Needs a lever ack, not a measurement. Also closed 08-05: HARNESS-GEO-1, BUNDLE-1, HUD-TOAST-Z-1, FIX-EMISSIVE, physics run 5/5.",
       "Hitch forensics now has evidence — cap-254–260 (build `8d96b0b`) are the first captures from a working upload path, including a Cart Rave F8 taken on a hitch. Read them before any perf knob.",
-      "Still owed separately: 9-cell PERF sweep (~25 min). Resume Run 8 FAIL triage."
+      "Playtest export 08-05 (`4077a4a`) — 6 pass / 1 fail / 1 skip, triaged. Closed: 3 UI-SCALE residual cards + 3 NET-AUDIT cards (wave A `145cc95` is pushed, so they count against shipped code). New defect: NET-LOOK-ACC-1 — non-host sunglasses/pattern do not replicate, color does. PERF-9CELL-1 parked with PERF-PASS-1, no longer seeds the console; protocol now inline on its row. SHARD-PT-2 stays open for launch day."
     ],
     "open_issues": [
       {
@@ -938,11 +938,17 @@
       {
         "title": "Engineering",
         "counts": {
-          "High": 2,
+          "High": 3,
           "Medium": 3,
           "Low": 4
         },
         "rows": [
+          {
+            "pri": "High",
+            "item": "NET-LOOK-ACC-1 — non-host sunglasses + pattern do not replicate `[2pc]`",
+            "notes": "**Filed 08-05 from Wyatt, riding inside NET-AUDIT-SLOTS-LOOK-1's PASS:** *\"this passes but the non hosts sunglasses and pattern are wrong/not showing correctly. color is correct though.\"* So the lobby look channel is **partially** wired — body color crosses the wire and lands on both screens, but the two *unlockable* look fields do not, or land wrong. That split is the diagnostic: whatever carries color is working, so this is not a transport failure, it is a **payload/apply gap** — either the accessory + pattern fields are absent from the slots look payload, or they arrive and the remote cart builder ignores them. **Do not start by reading the network layer** — start by diffing what a local cart applies from its own look against what a remote cart applies from `MSG.slots`, and find the first field that only one path reads. `145cc95` (SLOTS-JSON-1) fingerprints `MSG.slots`; check whether that fingerprint even includes the accessory/pattern fields, because if it does not, a look change that only moves those will not re-broadcast at all. Related: [cartPreview.js](../../src/ui/cartPreview.js) and `syncCartPreviewLook` own the local apply. **Pass:** on two machines in one Friends lobby, machine A picks sunglasses and a pattern; machine B sees both on A's cart within a second or two, and vice versa — and they survive into the round, not just the lobby. **Filed as one card because sunglasses and pattern almost certainly share one payload path; if the fix turns out to be two separate mechanisms, split it into two ids before playtesting so a half-fix cannot ride a green verdict.**",
+            "ship1": null
+          },
           {
             "pri": "High",
             "item": "QUICKPLAY-SHARD-1 — quickplay is one global room; 4 humans worldwide `[pre-ship]`",
@@ -1216,51 +1222,14 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "High": 5,
-          "Medium": 2,
+          "Medium": 1,
           "Low": 2
         },
         "rows": [
           {
-            "pri": "High",
-            "item": "NET-AUDIT-INPUT-1 — joiner drive / hop / nitro hold after seat gate `[2pc]`",
-            "notes": "**Owed: Wyatt playtest — NET-AUDIT-INPUT-1 — non-host still drives, hops, and holds nitro charge across a jittery burst.** Unpushed wave A (`145cc95`); play on `npm run dev` until ship, then prod hard-refresh.<br>1. Open a Friends room on two machines; host starts a round.<br>2. On the joiner: drive out of spawn, hop once, then hold boost charge for at least one full charge window (do not tap-release).<br>3. FAIL if the joiner cannot leave spawn, hop does nothing, or charge drops mid-hold for no reason. PASS if drive + hop + charge-hold all feel normal.",
-            "ship1": null
-          },
-          {
-            "pri": "High",
-            "item": "NET-AUDIT-SLOTS-LOOK-1 — lobby color / lookHex still update carts `[2pc]`",
-            "notes": "**Owed: Wyatt playtest — NET-AUDIT-SLOTS-LOOK-1 — color pick and Customize look still retint both peers.** Same unpushed HEAD as INPUT; local or post-ship.<br>1. Two machines in one Friends lobby (not mid-round).<br>2. On machine A pick a different palette color; on machine B open Customize and change neon hex, then return to lobby.<br>3. FAIL if either peer keeps the old body color or old neon frame. PASS if both carts update on both screens within a second or two.",
-            "ship1": null
-          },
-          {
-            "pri": "High",
-            "item": "NET-AUDIT-SLOTS-READY-1 — ready toggle still arms the lobby `[2pc]`",
-            "notes": "**Owed: Wyatt playtest — NET-AUDIT-SLOTS-READY-1 — flipping Ready still moves the room toward countdown.** Same unpushed HEAD; Friends path (manual Ready), not Quickplay auto-ready.<br>1. Two humans in a Friends lobby, both unready.<br>2. Ready up on both machines.<br>3. FAIL if Ready sticks / never shows / countdown never arms after both ready. PASS if both ready chips stick and the room proceeds into countdown as usual.",
-            "ship1": null
-          },
-          {
-            "pri": "High",
-            "item": "UI-SCALE-RESULTS-PHONE-1 — phone results stack on portrait `[solo]`",
-            "notes": "**Owed: Wyatt playtest — UI-SCALE-RESULTS-PHONE-1 — portrait phone results read ranks-over-receipt, not crushed side-by-side.** Shipped residuals on `origin/cart-clash` (through `f057abe`); hard-refresh prod on a real phone or narrow DevTools (~390×844).<br>1. Finish a Solo round on portrait phone width so the results overlay opens.<br>2. Look at the layout: ranks should stack above the receipt, not fight side-by-side in a short window.<br>3. FAIL if ranks and receipt sit beside each other and feel crushed, or the short-window clobber returns. PASS if the stack is readable.",
-            "ship1": null
-          },
-          {
-            "pri": "High",
-            "item": "UI-SCALE-RESULTS-WIDE-1 — landscape phone results stay side-by-side `[solo]`",
-            "notes": "**Owed: Wyatt playtest — UI-SCALE-RESULTS-WIDE-1 — landscape phone results keep ranks left / receipt right with usable width.** Same deploy as the portrait card; rotate to landscape (~844×390).<br>1. Open results on landscape phone width (Solo finish or rotate after the portrait check).<br>2. Confirm ranks sit left and receipt right with wider rank column — not a portrait stack forced sideways.<br>3. FAIL if it still stacks like portrait or the ranks column is a skinny strip. PASS if side-by-side reads clean.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "UI-SCALE-FEED-PHONE-1 — kill feed size on phone `[solo]`",
-            "notes": "**Owed: Wyatt playtest — UI-SCALE-FEED-PHONE-1 — in-match kill feed on phone is smaller and does not eat the HUD.** Same UI-SCALE residual batch; phone portrait in a live Solo or Friends round.<br>1. Get at least two kill-feed rows during a round on phone portrait.<br>2. FAIL if the feed still feels desktop-huge or covers the boost / score chrome. PASS if rows are clearly phone-scaled and the HUD stays usable.",
-            "ship1": null
-          },
-          {
             "pri": "Medium",
             "item": "PERF-9CELL-1 — Intel Low 9-cell PERF sweep `[solo]`",
-            "notes": "**Owed: Wyatt playtest — PERF-9CELL-1 — run the ~25 min 9-cell Intel Low sweep and bank F8s.** STATUS still lists this separately; needed before any PERF-PASS-1 unpark. Protocol: [perf-pass-1-handover.md](./perf-pass-1-handover.md). Cart Rave only, Low tier, Intel box, cooled between cells.<br>1. On the Intel machine, hard-refresh prod, set Low, Cart Rave Solo.<br>2. Run the handover's 9-cell matrix; F8 each cell (or the capture path the handover names).<br>3. FAIL only if a cell cannot be captured or the box was hot / wrong tier. PASS when all nine cells are banked — this is a measurement sitting, not a feel PASS.",
+            "notes": "⏸ **PARKED 08-05 with its parent PERF-PASS-1 — deliberately NOT seeded to the console.** It came back **FAIL 08-05** with *\"idk what you are asking me to do here\"*, and that was the card's fault, not Wyatt's: it said \"run the handover's 9-cell matrix\" and left the actual protocol 300 lines deep in a 484-line doc, so the console showed him a 25-minute measurement sitting with no cells in it. **PERF-PASS-1 has been parked since 08-04**, so the sweep was queued ahead of the card that consumes it. **Do not reseed this until Wyatt unparks PERF-PASS-1.** When he does, it is runnable straight off this row — no handover round-trip: **URL** `https://cart-rave.wyabro.workers.dev/?diag=1&preset=low&level=classicRecord&ablate=<token>`; **setup** Solo host, 3 NPCs, Cart Rave, entered *through the menu* (not a room link), Low tier, box cooled between cells; **per cell** play 60–90 s → **F8 mid-round** (`loopRound` is live, no podium needed) → `npm run captures:pull` → read `snapshot.perf.loopRound.meanMs`, discarding any cell where `straddledDemotion` is true. **Tokens in order:** `none` → `crowdcarts` → `crowd` → `pitlights` → `stadium` → `stagerig` → `billboard` → `bulbs` → `none`. **`none` runs FIRST and LAST**; if the two baselines differ by more than ±1.5 ms mean the box drifted and the whole sweep is void. **Never combine tokens** — the effects are not additive and combos destroy attribution. Full rationale, per-token expectations and the stills protocol: [perf-pass-1-handover.md](./perf-pass-1-handover.md#the-sweep--nine-cells-25-min-of-play-on-wyatts-intel-box).",
             "ship1": null
           },
           {

@@ -18,7 +18,8 @@ match the date first, then grep inside.
 
 | Date range | File |
 |---|---|
-| 2026-08-04 → present | **live** in [STATUS.md](../STATUS.md) (short current-session summary only) |
+| 2026-08-05 → present | **live** in [STATUS.md](../STATUS.md) (short current-session summary only) |
+| 2026-08-04 (MAIN-1 CLOSED · FX-TIME-1 / SHADOW-ORDER-1 / ARCH-DRIFT-1 · HOST-TAB-1 lever E · playtest export close · HOST-TAB-1 local wave) | [status-log-2026-08-04.md](./status-log-2026-08-04.md) |
 | 2026-08-03 (STATUS-TRIM-1 · AGENTS-PRIN-1 · ROUND-WEDGE-1 Phase B · TOOL-HYGIENE-1) | [status-log-2026-08-03.md](./status-log-2026-08-03.md) |
 | 2026-08-02 (DIAG-FLAKE-2 · process reset · Sundial waves 1–3) | [status-log-2026-08-02.md](./status-log-2026-08-02.md) |
 | 2026-08-01 · skills vendoring (3 entries) | [status-log-2026-08-01-skills.md](./status-log-2026-08-01-skills.md) |
