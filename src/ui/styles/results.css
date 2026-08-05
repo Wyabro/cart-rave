@@ -227,9 +227,10 @@
   justify-content: center;
   gap: 2px;
   width: 100%;
-  /* Design height (250/170/120/80 from main.js), capped so short viewports keep
-     the block on screen. */
-  height: min(var(--podium-h, 80px), 34vh);
+  /* Design heights 250/170/120/80 from JS. Scale ALL four by the same factor so
+     short viewports keep the podium step (min(h, 21vh) used to squash 1st–2nd
+     to the same height — Wyatt mobile screenshot 08-05). Peak design = 250px. */
+  height: max(52px, calc(var(--podium-h, 80px) * min(1, 34vh / 250px)));
   padding: 6px 4px;
   background: var(--color-ink);
   border: 1px solid var(--border-white-12);
@@ -564,9 +565,11 @@
   }
 
   #results-overlay .results-final {
-    gap: clamp(4px, 1vh, 5px);
+    gap: clamp(6px, 1.6vw, 10px);
     margin-bottom: 0;
     flex-shrink: 0;
+    align-items: flex-end;
+    width: 100%;
   }
 
   /* Four fixed 200px-ish columns don't fit a phone — share the width instead. */
@@ -577,16 +580,35 @@
   }
 
   #results-overlay .results-podium-block {
-    padding: clamp(4px, 1.2vw, 6px) 3px;
-    height: min(var(--podium-h, 80px), 21vh);
+    padding: clamp(5px, 1.4vw, 8px) 4px;
+    /* Same ratio scale as desktop; slightly shorter peak on phones. */
+    height: max(48px, calc(var(--podium-h, 80px) * min(1, 26vh / 250px)));
+  }
+
+  /* Names sat at ~9px and disappeared above the blocks on phone. */
+  #results-overlay .results-podium-col .results-podium-name {
+    font-size: clamp(10px, 2.8vw, 12px);
+    letter-spacing: 0.04em;
+  }
+
+  #results-overlay .results-podium-emblem {
+    font-size: 14px;
   }
 
   #results-overlay .results-score-name {
-    font-size: clamp(9px, 2.4vw, 10px);
+    font-size: clamp(10px, 2.6vw, 12px);
   }
 
   #results-overlay .results-score-val {
-    font-size: clamp(8px, 2.2vw, 9px);
+    font-size: clamp(9px, 2.4vw, 11px);
+  }
+
+  #results-overlay .results-podium-rank {
+    font-size: clamp(18px, 5vw, 28px);
+  }
+
+  #results-overlay .results-podium-col:nth-child(1) .results-podium-rank {
+    font-size: clamp(22px, 6vw, 34px);
   }
 
   /* The receipt is the flex scroller now that the ledger below it is gone, so a
@@ -753,7 +775,7 @@
   /* The coarse band's value, for the reason the base cap already gives:
      "capped so short viewports keep the block on screen". */
   #results-overlay .results-podium-block {
-    height: min(var(--podium-h, 80px), 21vh);
+    height: max(44px, calc(var(--podium-h, 80px) * min(1, 22vh / 250px)));
   }
 
   #results-overlay .results-btn {
