@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-05T23:37:09.361Z",
-    "commit": "a5e3f92"
+    "at": "2026-08-05T23:46:08.224Z",
+    "commit": "6cc9132"
   },
-  "source_digest": "bdbf67a1",
+  "source_digest": "41f11ffd",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -855,24 +855,6 @@
   "workstreams": {
     "queue": [
       {
-        "id": "*(closed)*",
-        "what": "FIX-EMISSIVE — non-patterned carts read blown out",
-        "status": "✅ PASS 2/2 08-05 on `a7dfd8f7`, after one abort. Trim moved onto `cache.emissiveTrimMul` — durable lesson: a value that must persist per-object belongs on the object's state, not on the call that sets it first. New finding filed separately as CART-COLOR-DEPTH-1 (pastel / too-dark = chroma, not intensity). [completed-work.md](./planning/completed-work.md).",
-        "state": "done"
-      },
-      {
-        "id": "*(closed)*",
-        "what": "Physics run 08-05 — 5 cards, all PASS",
-        "status": "✅ Durable finding: a friction value in this codebase is not a felt value — Rapier averages it with the cart's 1.1. Verticals take `FrictionCombineRule.Min`; floors deliberately keep Average (canaries in three test files). Full run + evidence: [completed-work.md](./planning/completed-work.md).",
-        "state": "done"
-      },
-      {
-        "id": "*(closed)*",
-        "what": "FIX-MIG — disconnect migration visibility + continuous tests",
-        "status": "✅ PASS 08-05 on prod `a65d3c9` (FIX-MIG-PT-1). First FAIL was bare `host_migrated` (warm DO / missing reason); client treats bare A→B as disconnect. [completed-work.md](./planning/completed-work.md).",
-        "state": "done"
-      },
-      {
         "id": "PERF-PASS-1",
         "what": "60 fps at Low on the Intel box — Cart Rave only (Wyatt scoped it 08-03)",
         "status": "⏸ PARKED BY WYATT 08-04 for HOST-TAB-1. Wave 4 remains deployed (`b754e12`, Worker `9b8b1fbe`); honest measured range −1.66 to −2.54 ms and includes +0.55. Card remains open at ~46 fps; every future cell needs an A-B-A bracket on a cooled box. Menu + evidence: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md).",
@@ -901,9 +883,10 @@
       }
     ],
     "next_actions": [
-      "Work the ordered queue — [BACKLOG § Work order](./planning/BACKLOG.md) (2026-08-05 pre-launch audit). Block A 1–5 closed: SEC-DIAG/ONBOARD PASS 4/4; SHARD-PT-1 PASS (SHARD-PT-2 launch-day); FIX-MIG PASS on prod `a65d3c9`; ATTRACT-JANK-1 CLOSED on prod `5983896` (reduced-motion path at 1.25 fps, not a load problem — levers A+B). Next code: TIER-DEFAULT-1, spun out of it: first-run tier is medium on an Intel UHD, a 5–8.6 fps menu for 3.3 s every visit until the watchdog steps it down (cap-288). Needs a lever ack, not a measurement. Also closed 08-05: HARNESS-GEO-1, BUNDLE-1, HUD-TOAST-Z-1, FIX-EMISSIVE, physics run 5/5, DIAG-UPLOAD-GEN-1.",
+      "Work the ordered queue — [BACKLOG § Work order](./planning/BACKLOG.md), re-ranked 08-05 by unblocking value (every item now names what it unblocks; that clause is why it sits where it sits). Block A 1–5 closed. Block A's remaining three, strict order: TIER-DEFAULT-1 → DEPLOY-STALE-HTML-1 → NET-LOOK-ACC-1. (a) TIER-DEFAULT-1 — first-run tier is medium on an Intel UHD: a 5–8.6 fps menu for 3.3 s *every visit* until the watchdog steps it down (cap-288). Needs a lever ack, not a measurement, and Block C must not start before it lands or the sweep measures a default we are about to change. (b) DEPLOY-STALE-HTML-1 promoted into the ship bar — ~45 s after every ship, `GET /` serves the old HTML against 404ing assets (blank page, no retry, reproduced 2/2). Every remaining card ends in \"verify on prod\", so this can turn any of those into a false FAIL. (c) NET-LOOK-ACC-1 must precede Pattern UI C3. Block B leads with UI-SCALE-1 (it changes the unit system every later UI card is authored in); Block C now leads with HARNESS-NULL-1, not the sweep. Also closed 08-05: HARNESS-GEO-1, BUNDLE-1, HUD-TOAST-Z-1, FIX-EMISSIVE, physics run 5/5, DIAG-UPLOAD-GEN-1, QUICKPLAY-SHARD-1, ARCH-DRIFT-1.",
       "Hitch forensics now has evidence — cap-254–260 (build `8d96b0b`) are the first captures from a working upload path, including a Cart Rave F8 taken on a hitch. Read them before any perf knob.",
-      "Playtest export 08-05 (`4077a4a`) — 6 pass / 1 fail / 1 skip, triaged. Closed: 3 UI-SCALE residual cards + 3 NET-AUDIT cards (wave A `145cc95` is pushed, so they count against shipped code). New defect: NET-LOOK-ACC-1 — non-host sunglasses/pattern do not replicate, color does. PERF-9CELL-1 parked with PERF-PASS-1, no longer seeds the console; protocol now inline on its row. SHARD-PT-2 stays open for launch day."
+      "Playtest export 08-05 (`4077a4a`) — 6 pass / 1 fail / 1 skip, triaged. Closed: 3 UI-SCALE residual cards + 3 NET-AUDIT cards (wave A `145cc95` is pushed, so they count against shipped code). New defect: NET-LOOK-ACC-1 — non-host sunglasses/pattern do not replicate, color does. PERF-9CELL-1 parked with PERF-PASS-1, no longer seeds the console; protocol now inline on its row. SHARD-PT-2 stays open for launch day.",
+      "BACKLOG audit 08-05 — 4 finished rows retired (QUICKPLAY-SHARD-1 · ARCH-DRIFT-1 · the duplicate BUNDLE-1 Tech Debt row · host-reload live confirm) and 2 absorbed (ART-MAT-1 → CART-MODEL-1, ONBOARD-1 → ONBOARD-SLIDES-1). Five cards that *read* as closeable were checked and are genuinely still open — HOOK-COMMENT-1 · PT-CARD-SPLIT-1 · PT-CONSOLE-READY-1 · AUDIO-MASTER-1 · CC-ESC-1. [completed-work.md](./planning/completed-work.md)."
     ],
     "open_issues": [
       {
@@ -915,11 +898,6 @@
         "id": "WARM-SOLO-1",
         "issue": "Solo post-`carts-ready` stall (WARM-IGPU residual)",
         "status": "📋 telemetry-gated — [warm-igpu-1.md](./planning/warm-igpu-1.md)"
-      },
-      {
-        "id": "FIX-EMISSIVE",
-        "issue": "Non-patterned carts blown out on Classic",
-        "status": "🚧 **RETRY APPLIED 08-05** on acked option (b) — see the active row above."
       },
       {
         "id": "CARGO-LATCH-1",
@@ -938,7 +916,7 @@
       {
         "title": "Engineering",
         "counts": {
-          "High": 3,
+          "High": 2,
           "Medium": 3,
           "Low": 4
         },
@@ -947,12 +925,6 @@
             "pri": "High",
             "item": "NET-LOOK-ACC-1 — non-host sunglasses + pattern do not replicate `[2pc]`",
             "notes": "**Filed 08-05 from Wyatt, riding inside NET-AUDIT-SLOTS-LOOK-1's PASS:** *\"this passes but the non hosts sunglasses and pattern are wrong/not showing correctly. color is correct though.\"* So the lobby look channel is **partially** wired — body color crosses the wire and lands on both screens, but the two *unlockable* look fields do not, or land wrong. That split is the diagnostic: whatever carries color is working, so this is not a transport failure, it is a **payload/apply gap** — either the accessory + pattern fields are absent from the slots look payload, or they arrive and the remote cart builder ignores them. **Do not start by reading the network layer** — start by diffing what a local cart applies from its own look against what a remote cart applies from `MSG.slots`, and find the first field that only one path reads. `145cc95` (SLOTS-JSON-1) fingerprints `MSG.slots`; check whether that fingerprint even includes the accessory/pattern fields, because if it does not, a look change that only moves those will not re-broadcast at all. Related: [cartPreview.js](../../src/ui/cartPreview.js) and `syncCartPreviewLook` own the local apply. **Pass:** on two machines in one Friends lobby, machine A picks sunglasses and a pattern; machine B sees both on A's cart within a second or two, and vice versa — and they survive into the round, not just the lobby. **Filed as one card because sunglasses and pattern almost certainly share one payload path; if the fix turns out to be two separate mechanisms, split it into two ids before playtesting so a half-fix cannot ride a green verdict.**",
-            "ship1": null
-          },
-          {
-            "pri": "High",
-            "item": "QUICKPLAY-SHARD-1 — quickplay is one global room; 4 humans worldwide `[pre-ship]`",
-            "notes": "✅ **SHIPPED 08-05, awaiting playtest.** Quickplay was a single global Durable Object: four slots, so four humans **worldwide**, and the fifth was closed 4004 with a dead-end toast. Public shards are now `quickplay` + `quickplay2…quickplay20`, and `isQuickplayRoom` ([shared/roomCodes.js](../../shared/roomCodes.js)) is the single definition every mode and policy decision keys off. **DESIGN CHANGED DURING THE WAVE — the original lock said \"Worker-side seat-finder\"; that was wrong and is superseded.** Occupancy does not exist anywhere: no accessor, no endpoint, no registry, and `party/index.ts` has zero references to `this.ctx`/`storage`/`alarm` — all room state is in-memory. A seat-finder therefore needed either a registry DO (new class, migration, a DO→DO write per seat change, staleness, a new failure mode) or probe-on-demand, which **instantiates** a shard just to ask, burning its random arena roll for a room nobody joins. What shipped instead: the 5th socket is accepted and sent a `hello` before being refused at `join`, so a full **public** shard names the next one in `joinRejected.retryRoom` and the client re-dials — emitted once in `#rejectPendingConn`, null for friends rooms, `quickplay__*` harness rooms, and past the cap (null = today's toast, so an old client is never worse off). **Known limit, deliberately accepted:** hops are sequential, so at peak the Nth player pays one connect round-trip per full shard. `quickplay_shard_assigned { shard, hops }` measures it — deep or frequent chains are the signal to build the registry, and if they never appear it was correctly never built. **Evidence:** `npm run qa` green; party-do covers retryRoom against genuinely full rooms (full is structural, not a constant), the cap, the harness carve-out, and shard arena/difficulty parity; `node tools/netharness.mjs --scenario shardOverflow` **5/5 live in real browsers**. **SEC-DIAG-1's regression bar is met** — a shard returns mode `quickplay`, verified in units and live, so the prod score-cheat gate does not reopen. Commits `dbc6cdf` · `dd8e810` · `d81dcbc` · `5c83451` · `c7ba5b8`.",
             "ship1": null
           },
           {
@@ -1009,7 +981,7 @@
         "title": "Art",
         "counts": {
           "Medium": 6,
-          "Low": 9,
+          "Low": 8,
           "High": 2
         },
         "rows": [
@@ -1046,14 +1018,8 @@
           {
             "pri": "High",
             "item": "CART-MODEL-1 — new cart basket/model `[SHIP-1 C1]`",
-            "notes": "Wyatt-led Blender work completing the prototype-era cart design. Author against the **cart material contract** in [art-direction.md](../reference/art-direction.md) (required maps per slot, 2nd UV channel, wear language) — **not blocked by ART-MAT-1**. While in Blender: clean body UVs / 2nd UV channel — unblocks patterns ([cart-pattern-reuv.md](../guides/cart-pattern-reuv.md)); fold **CART-FORK-1** if convenient.",
+            "notes": "Wyatt-led Blender work completing the prototype-era cart design. Author against the **cart material contract** in [art-direction.md](../reference/art-direction.md) (required maps per slot, 2nd UV channel, wear language). While in Blender: clean body UVs / 2nd UV channel — unblocks patterns ([cart-pattern-reuv.md](../guides/cart-pattern-reuv.md)); fold **CART-FORK-1** if convenient. **Absorbed 08-05: ART-MAT-1** (authored maps on the carts) — arenas already author maps, carts were the only Rule 1 miss, and that work is this card's material contract, so it is no longer a separate row.",
             "ship1": "C1"
-          },
-          {
-            "pri": "Low",
-            "item": "ART-MAT-1 — authored maps on the carts",
-            "notes": "**Absorbed by CART-MODEL-1** (docs audit 08-04). Arenas already author maps; carts are the only Rule 1 miss and are owned by the Blender cart card + material contract in [art-direction.md](../reference/art-direction.md). Do not run as a separate High track.",
-            "ship1": null
           },
           {
             "pri": "Low",
@@ -1249,7 +1215,7 @@
       {
         "title": "UI / UX",
         "counts": {
-          "Medium": 7,
+          "Medium": 6,
           "High": 3,
           "Low": 4
         },
@@ -1263,8 +1229,8 @@
           {
             "pri": "High",
             "item": "ONBOARD-SLIDES-1 — how-to-play as click-through visual slides `[pre-ship]`",
-            "notes": "Replace wall-of-text “how to play” with a **slideshow**: card-by-card slides the player can click through, each with GIF / short animation / picture so rules land fast. Supersedes wall-of-text path of **ONBOARD-1**; keep Solo-as-tutorial stance. Needs asset list (slide topics + art) before full polish.",
-            "ship1": null
+            "notes": "Replace wall-of-text “how to play” with a **slideshow**: card-by-card slides the player can click through, each with GIF / short animation / picture so rules land fast. Keep Solo-as-tutorial stance. Needs asset list (slide topics + art) before full polish. **Absorbed 08-05: ONBOARD-1** (`[SHIP-1 E4]` first-run controls card) — it was already marked \"fold into this card\", so it is no longer a separate row; if a one-shot controls reminder is still wanted *after* slides ship, file it fresh with its own evidence rather than reviving the stub.",
+            "ship1": "E4"
           },
           {
             "pri": "Medium",
@@ -1310,12 +1276,6 @@
           },
           {
             "pri": "Medium",
-            "item": "ONBOARD-1 — first-run controls card `[SHIP-1 E4]`",
-            "notes": "Fold into **ONBOARD-SLIDES-1** (visual cards). Residual only if a one-shot controls reminder is still needed after slides. Solo remains the live tutorial.",
-            "ship1": "E4"
-          },
-          {
-            "pri": "Medium",
             "item": "LOAD-SCALE-1 — the mode-entry loading screen is ~99% empty space above ~1000px wide",
             "notes": "**Found 07-31 by `npm run loadshots`** (FIGHT-VERIFY-1 Phase C) — the first time any of the three arena themes had been rendered by this toolkit. The centre-stage decor is hard-capped and never grows: `loadingScreen.css:157-162` `.cr-load__visual { width: clamp(88px, 22vw, 128px); height: clamp(88px, 22vw, 128px) }`, with backrooms at `clamp(96px, 24vw, 140px)` × `clamp(72px, 18vw, 96px)` (`:349-352`) and zanzibar's `.cr-load__seaside` at `clamp(110px, 26vw, 160px)` × `clamp(72px, 18vw, 96px)` (`:378-383`). At 390×844 that is 88px in a 390px frame — proportionate, and the design reads exactly as intended. At 1920×1080 the same motif is at most 128×128px inside a centre row of roughly 1920×820, i.e. **under 1% of the stage**, leaving the vinyl / boxes+chair / sun+deck floating as a postage stamp in an otherwise empty gradient with the title marooned in the top-left corner. Nothing is clipped or overflowing — the `overlay fits the viewport` check is green on all 8 cells — which is precisely why a DOM-geometry sign-off could never have caught it. Belongs in the UI-SCALE-1 pass rather than as a standalone fix. Evidence: `.diag-captures/loadshots/mode-{classicRecord,backrooms,zanzibar}-1920x1080-b-mid.png` versus `mode-classicRecord-390x844-b-mid.png`.",
             "ship1": null
@@ -1344,7 +1304,7 @@
         "title": "Tech Debt",
         "counts": {
           "Medium": 7,
-          "Low": 12
+          "Low": 10
         },
         "rows": [
           {
@@ -1391,13 +1351,6 @@
           },
           {
             "pri": "Low",
-            "id": "BUNDLE-1",
-            "item": "Menu/game code-split",
-            "notes": "⚠️ **CLOSED PARTIAL 08-05 — the perf goal was not met.** Six levers landed (A–F, [bundle-1.md §0](./bundle-1.md)). Warm Intel prod `menu-ready` **988 → 958 ms (−3%)** against a **−15% / ≤921 ms** gate; `module-eval` **472 → 502**, i.e. still worse than pre-card, so Lever E's stated hypothesis (\"−351 kB cuts parse below 472\") is **falsified**, not \"inconclusive\". Mechanism: the locked target was a **warm** repeat visit, where the payload is already local — deferring bytes saves parse only, and the extra chunk boundaries cost requests plus lost cross-chunk optimization, roughly cancelling it. Cold was deliberately not measured (the bytes are kept regardless). **Banked and real:** a `size:check` byte + membership gate the repo did not have (Lever F re-keyed membership on **modules** — rolldown re-splits the entry chunk under new names every build and red-gated the card twice); `main.js` 2,582 → 1,262 lines, which also meets MAIN-1's missed ≤1500; **−351,503 B (−22.6%)** off the initial download set, baseline re-ratcheted to 1,203,360 B — worth nothing warm, worth 351 kB to a **cold** first-time visitor. **Lesson for the next perf card: measure the target profile's parse-vs-construction split BEFORE choosing levers** — this plan's lever order came from a cold profile (87/13) and the locked target was warm (48/52). Not deployed at close.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
             "id": "CHUNK-MEMBER-1",
             "item": "Initial-set chunk membership: `errorReporter` chunk carries netcode + the cart rig",
             "notes": "**Filed 08-05 from the pre-launch audit. NOT a BUNDLE-1 reopen** — no warm-perf goal (that hypothesis is falsified and closed); this is initial-download-set **membership**, worth ~bytes only to **cold first-time visitors**, which is exactly the profile a public launch maximizes. The 266 KB chunk *named* `errorReporter` in the 14-file initial set (per `dist/.chunk-manifest.json` / [bundle-budget.json](../bundle-budget.json)) actually holds ~56 modules including `netcode.js`, `cartRaveGltf.js`, `bootstrap.js` and the whole `src/netcode/` folder — game-side code in the menu's critical path under a misleading name (rolldown names a catch-all chunk after its first module, so the budget file reads as \"error reporting is 266 KB\" when it is not). Also: a duplicate empty `captureUpload-*.js` chunk (107 B, 0 modules). **Lever:** chunking group boundaries in [vite.config.js](../../vite.config.js); the Lever-F membership gate in `size:check` makes regressions loud. **Judge on the cold profile; do not re-litigate warm `menu-ready`.**",
@@ -1436,13 +1389,6 @@
             "id": "TOOL-1",
             "item": "Tooling residue",
             "notes": "",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "id": "ARCH-DRIFT-1",
-            "item": "`archMap.mjs` curated prose has no staleness gate",
-            "notes": "**Found 08-01.** `arch:check` digest-gates only the *generated* JSON — nothing validates the hand-written seed in `tools/lib/archMap.mjs` against real code, so it drifted silently (two claims were outright false until the 08-01 pass). Every hardcoded line ref is stale: `main.js` `314→342`, `4748→5172`, `2149→2301`; `simulation.js` `2717→2889`; `party/index.ts` `801→1056`. Also \"~5.6k lines\"→5773, \"~84 inner fns\"→81, \"~40 impls\"→49/50. Proposal: replace line refs with grep-able symbol anchors + a test that fails when an anchor stops resolving.",
             "ship1": null
           },
           {
@@ -1601,7 +1547,7 @@
           },
           {
             "col0": "E4",
-            "item": "First-run controls card (minimal onboarding — Solo is the tutorial, sharpened by B1)"
+            "item": "~~First-run controls card~~ — **absorbed 08-05 into ONBOARD-SLIDES-1** (ONBOARD-1 retired as a row). Solo is still the tutorial; a one-shot controls reminder is a fresh card only if slides leave a gap."
           }
         ]
       }

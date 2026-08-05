@@ -84,11 +84,12 @@ opportunistically when touched — no dedicated refactor pass.
 | E1 | RESULTS-1 results-screen redesign · UI-FRAME-1 · ESC scoring panel |
 | E2 | Bloom sign-offs (Classic/Sundial) · defeat-screen art call · sunglasses materials — judged against [art-direction.md](../reference/art-direction.md) (per-arena budgets via ART-EXPO-1 / ART-FILTER-1), not a global keep-it-dark rule |
 | E3 | Announcer re-records · SD music low-pass · SFX slider · Howler upgrade |
-| E4 | First-run controls card (minimal onboarding — Solo is the tutorial, sharpened by B1) |
+| E4 | ~~First-run controls card~~ — **absorbed 08-05 into ONBOARD-SLIDES-1** (ONBOARD-1 retired as a row). Solo is still the tutorial; a one-shot controls reminder is a fresh card only if slides leave a gap. |
 
 ## Post-launch (unchanged from BACKLOG)
 
-MAIN-1 → BUNDLE-1, STORE-1, DIR-1, GLTF-1, DUAL-1, TS-1, TOOL-1, monetization,
+MAIN-1 (✅ closed 08-04) → ~~BUNDLE-1~~ (✅ closed partial 08-05; successor **CHUNK-MEMBER-1**),
+STORE-1, DIR-1, GLTF-1, DUAL-1, TS-1, TOOL-1, monetization,
 WebGPU VFX, economy/XP — see [BACKLOG.md](./BACKLOG.md) Tech Debt + Future Ideas.
 Backlog rows not tagged `[SHIP-1 Tier X]` and not listed above default to post-launch
 unless Wyatt pulls them forward.

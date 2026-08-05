@@ -13,6 +13,77 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 5, 2026 — BACKLOG audit: 4 finished rows retired, 2 absorbed, work order re-ranked
+
+Wyatt asked for a sweep of rows that were already done but still sitting open, then a re-rank of
+what remains by unblocking value. Every closure below was checked against the code or `git log`,
+not against the row's own ✅ badge.
+
+- **QUICKPLAY-SHARD-1** *(Engineering · High)* — row retired. It still read "SHIPPED, awaiting
+  playtest"; the playtest had already happened — **SHARD-PT-1 PASS on prod `9c333d1`** — so the row
+  outlived its own gate by a day. Full writeup already lives below (*the four-humans-worldwide cap
+  is gone*); nothing new is recorded here. **SHARD-PT-2 is a separate row and stays open for launch
+  day.**
+- **ARCH-DRIFT-1** *(Tech Debt · Low)* — ✅ **CLOSED.** Shipped `91b39aa` (symbol anchors in
+  control-flow.md + a resolution test) and recorded deployed in `222a4a8`; the false FRAGILE claims
+  it was filed against were corrected earlier in `886b551`. The row survived its own fix.
+  **Named residual, deliberately not re-filed:** a few hardcoded `:NNN` refs remain in
+  `archMap.mjs`'s curated prose (`main.js:283`, `netcode.js:434`, `netcode.js:2260`). The anchors
+  *rule* is now test-enforced for the doc that actually drifted, and `arch:check` / `health:check`
+  gate the generated manifest — so those are a style residual, not an ungated surface. Re-file with
+  evidence if they drift again.
+- **BUNDLE-1 duplicate row** *(Tech Debt · Low)* — removed. The card closed partial on 08-05 and its
+  writeup already lives in the STATUS active queue and [bundle-1.md §0](./bundle-1.md); the Tech
+  Debt copy was a second source of truth for a closed card. **CHUNK-MEMBER-1 is its live successor**
+  and is explicitly not a reopen — cold-visit membership, no warm-perf goal.
+- **Host-reload mid-round live confirm** *(Engineering · Low)* — ✅ **CLOSED.** The automated half is
+  done (netharness `hostReload` / SHIP-1 A6) and the row itself called the remainder "optional live
+  HOST-tab feel smoke only — not blocking". A card whose only remaining content is optional and
+  non-blocking is not a queue item; it rides the next HOST-tab wave if anyone wants it.
+
+**Absorbed, not closed** — finished by merger, and leaving them as rows meant two places claimed
+the same work: **ART-MAT-1** → **CART-MODEL-1** (which owns the cart material contract and the
+Blender pass) and **ONBOARD-1** → **ONBOARD-SLIDES-1**. Both rows already *said* they were absorbed
+and then sat in the queue anyway. If a one-shot controls reminder is still wanted after slides ship,
+it gets filed fresh with its own evidence rather than reviving the stub.
+
+**Verified still open** — each of these reads as closeable from its own row and is not, so they were
+checked rather than assumed: **HOOK-COMMENT-1** (AGENTS.md § Enforcement carries no strict-JSON
+caveat, so `guard-git-add.mjs:78` still points at content that moved to `guides/hook-enforcement.md`)
+· **PT-CARD-SPLIT-1** (nothing in `tools/` enforces the one-issue rule — it is prose only) ·
+**PT-CONSOLE-READY-1** (the 08-05 export's preamble still only asks agents to close PASSes) ·
+**AUDIO-MASTER-1** (`_masterVol` is assigned in two places and read in none) · **CC-ESC-1** (both
+implementations still live — `ccStyle.mjs:154` and `montage.mjs:19`).
+
+**Re-ordering.** BACKLOG § Work order was re-ranked by *unblocking* value rather than severity, and
+every item now names what it unblocks — that clause is the reason it sits where it sits. The
+substantive moves:
+
+- **Block A's remaining three: TIER-DEFAULT-1 → DEPLOY-STALE-HTML-1 → NET-LOOK-ACC-1.**
+  DEPLOY-STALE-HTML-1 was promoted out of the Engineering table into the ship bar. Every remaining
+  card ends in "verify on prod", and a ~45 s window where `GET /` serves the previous build's HTML
+  against 404ing assets can turn any of those verifications into a **false FAIL** — on top of being
+  a silent blank page during the exact traffic spike a public post creates, reproduced two deploys
+  for two. Fixing it de-noises the rest of the queue. NET-LOOK-ACC-1 is third because it must
+  precede **Pattern customize UI (C3)**, or patterns ship onto a wire already known not to carry them.
+- **Block B renumbered** (it restarted at 6 and collided with Block A) with **UI-SCALE-1 first on an
+  explicit rationale**: it changes the unit system every other UI card is authored in, so RESULTS-1 /
+  COLOR-ID-1 / UI-FRAME-1 / ESC-panel / ONBOARD-SLIDES-1 / MENU-CART-1 are all cheaper after it and
+  all get re-done if they land first. CART-COLOR-DEPTH-1 moved above COLOR-ID-1 so the glyphs are
+  drawn against a settled colour language.
+- **Block C now starts with HARNESS-NULL-1, not the sweep.** Until a rig can show it reports ~0 when
+  nothing changed, every A/B number this repo prints is unfalsifiable — and run-4's "GC metronome"
+  attribution was already wrong once. TIER-DEFAULT-1 is a hard precondition too: running the sweep
+  first measures a default tier the game is about to stop using.
+- **Block G leads with PT-CARD-SPLIT-1 + PT-CONSOLE-READY-1** — the two cards that stop the next
+  export from repeating failures this queue has already paid for (a multi-issue card hiding a defect
+  inside a green PASS; an owed card shipped with no runnable steps, which is how PERF-9CELL-1 FAILed).
+- **Block F leads with RAPIER-DEFAULT-MAX-1** (prose only) because it is load-bearing *false* prose:
+  it is the stated reason Classic's walls take no restitution rule, so the next physics editor
+  reasons from a wrong model of Rapier until it is corrected.
+
+---
+
 ### August 5, 2026 — DIAG-UPLOAD-GEN-1: generation-guard the auto-capture upload continuation
 
 - *(Engineering · Low)* **DIAG-UPLOAD-GEN-1** — auto-capture upload continuation was not generation-guarded, so a torn-down / re-installed hub could still POST a bundle labelled against a dead session — ✅ **CLOSED 08-05**. Residual of DIAG-FLAKE-2 (that card fixed deferred *assembly*; this is deferred *send*). **Fix:** `scheduleAutoCapture` passes `scheduledForGeneration` into `uploadAutoCapture`; Guard 1 drops before `uploadCaptureBundle` if `hubGeneration` moved during the dynamic-import yield; Guard 2 skips success/fail logs only if gen moved after fetch started. Deliberately **no** AbortController / teardown cancel — fire-and-forget on every axis stays intentional. Test: bumps gen in the same macrotask after the assemble timer returns and before import microtasks flush; asserts `postsFor("gen-move-probe")` empty. Verified: `tests/diagnostics.test.js` 26/26 · `npm run qa` green (1497 tests).

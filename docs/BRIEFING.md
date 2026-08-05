@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-05 at commit `a5e3f92` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `b7b1de47`
+> Generated 2026-08-05 at commit `6cc9132` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `2c1a66cf`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -18,7 +18,7 @@ Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep a
 
 ## ACTIVE CARD
 
-Work the ordered queue — BACKLOG § Work order (2026-08-05 pre-launch audit). Block A 1–5 closed: SEC-DIAG/ONBOARD PASS 4/4; SHARD-PT-1 PASS (SHARD-PT-2 launch-day); FIX-MIG PASS on prod `a65d3c9`; ATTRACT-JANK-1 CLOSED on prod `5983896` (reduced-motion path at 1.25 fps, not a load problem — levers A+B). Next code: TIER-DEFAULT-1, spun out of it: first-run tier is medium on an Intel UHD, a 5–8.6 fps menu for 3.3 s every visit until the watchdog steps it down (cap-288). Needs a lever ack, not a measurement. Also closed 08-05: HARNESS-GEO-1, BUNDLE-1, HUD-TOAST-Z-1, FIX-EMISSIVE, physics run 5/5, DIAG-UPLOAD-GEN-1
+Work the ordered queue — BACKLOG § Work order, re-ranked 08-05 by unblocking value (every item now names what it unblocks; that clause is why it sits where it sits). Block A 1–5 closed. Block A's remaining three, strict order: TIER-DEFAULT-1 → DEPLOY-STALE-HTML-1 → NET-LOOK-ACC-1. (a) TIER-DEFAULT-1 — first-run tier is medium on an Intel UHD: a 5–8.6 fps menu for 3.3 s *every visit* until the watchdog steps it down (cap-288). Needs a lever ack, not a measurement, and Block C must not start before it lands or the sweep measures a default we are about to change. (b) DEPLOY-STALE-HTML-1 promoted into the ship bar — ~45 s after every ship, `GET /` serves the old HTML against 404ing assets (blank page, no retry, reproduced 2/2). Every remaining card ends in "verify on prod", so this can turn any of those into a false FAIL. (c) NET-LOOK-ACC-1 must precede Pattern UI C3. Block B leads with UI-SCALE-1 (it changes the unit system every later UI card is authored in); Block C now leads with HARNESS-NULL-1, not the sweep. Also closed 08-05: HARNESS-GEO-1, BUNDLE-1, HUD-TOAST-Z-1, FIX-EMISSIVE, physics run 5/5, DIAG-UPLOAD-GEN-1, QUICKPLAY-SHARD-1, ARCH-DRIFT-1
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 
