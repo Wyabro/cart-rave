@@ -3231,7 +3231,12 @@ html, body {
   margin-top: -0.06em;
 }
 
-/* ── Command list — skewed rows; selected row is the ONLY solid yellow ── */
+/* ── Command list — skewed rows; yellow = selection only (never permanent CTA).
+   MENU-RESTRAINT-1b hierarchy (ids, no new classes):
+   · primary idle   (#cr-solo/#cr-quickplay/#cr-friends): transparent, white label
+   · secondary idle (customize/challenges/howto/settings): transparent, muted
+   · primary selected: hotter yellow + always-on white rail + larger label
+   · secondary selected: softer yellow, no permanent rail                          */
 .cr-commandlist {
   display: flex; flex-direction: column; gap: 2px;
   width: 100%; max-width: 480px; margin: 0;
@@ -3261,6 +3266,13 @@ html, body {
   letter-spacing: 0.1em;
   color: var(--color-muted);
   transition: color 130ms var(--ease-slap), font-size 130ms var(--ease-slap);
+}
+/* Primary idle: sticker-white label so Solo/QP/Friends read louder than How-to
+   without a permanent yellow fill (yellow stays selection-only). */
+#cr-solo:not(.is-selected) .cr-btn-label,
+#cr-quickplay:not(.is-selected) .cr-btn-label,
+#cr-friends:not(.is-selected) .cr-btn-label {
+  color: var(--color-sticker-white);
 }
 .cr-cmd-qual {
   transform: skewX(8deg);
@@ -3367,24 +3379,49 @@ html, body {
 .cr-btn.cr-cmd:active {
   box-shadow: none;
 }
-/* MENU-CMD-FEEL-1: sticker lift correctly killed above. Hover selects the row
-   (mouseenter → .is-selected), so subtle opacity nudes never read — use a hard
-   white left rail on selected hover + a stronger unselected wash.
+/* MENU-CMD-FEEL-1 + MENU-RESTRAINT-1b: sticker lift correctly killed above.
+   Hover selects the row (mouseenter → .is-selected). Secondary selected = soft
+   yellow only; primary selected = hotter yellow + always-on white rail.
    Label → white already at .cr-cmd:hover .cr-btn-label — do not restate it.
    Hover only on fine pointers. :active outside so touch still gets a press flash.
    Focus ring is the shared cyan block above. No anime hover-scale on .cr-cmd (JS). */
+
+/* Secondary selected (default): softer yellow, no permanent rail. */
 .cr-cmd.is-selected {
-  background: linear-gradient(90deg, rgba(255,229,61,0.92), rgba(255,229,61,0.75) 60%, transparent 98%);
+  background: linear-gradient(90deg, rgba(255,229,61,0.55), rgba(255,229,61,0.35) 50%, transparent 96%);
   padding: clamp(10px, 1.5vh, 16px) 30px;
 }
-.cr-cmd.is-selected .cr-btn-label { color: var(--color-ink); font-size: clamp(22px, 2.3vw, 30px); }
+.cr-cmd.is-selected .cr-btn-label { color: var(--color-ink); font-size: clamp(20px, 2.1vw, 26px); }
 .cr-cmd.is-selected .cr-cmd-qual { opacity: 1; }
+
+/* Primary selected: hotter wash + always-on rail + larger label than secondary. */
+#cr-solo.is-selected,
+#cr-quickplay.is-selected,
+#cr-friends.is-selected {
+  background:
+    linear-gradient(90deg, #fff 0 5px, transparent 5px),
+    linear-gradient(90deg, rgba(255,229,61,0.95), rgba(255,229,61,0.82) 55%, transparent 98%);
+}
+#cr-solo.is-selected .cr-btn-label,
+#cr-quickplay.is-selected .cr-btn-label,
+#cr-friends.is-selected .cr-btn-label {
+  font-size: clamp(22px, 2.3vw, 30px);
+}
+
 @media (hover: hover) and (pointer: fine) {
   .cr-cmd:hover:not(.is-selected) {
     background: rgba(255, 255, 255, 0.16);
   }
-  /* White rail + hotter yellow — subject-node background must change enough to see. */
+  /* Secondary selected hover: light rail + slightly hotter soft yellow. */
   .cr-cmd.is-selected:hover {
+    background:
+      linear-gradient(90deg, rgba(255,255,255,0.85) 0 5px, transparent 5px),
+      linear-gradient(90deg, rgba(255,229,61,0.7), rgba(255,229,61,0.45) 55%, transparent 98%);
+  }
+  /* Primary selected hover: keep always-on rail, max yellow heat. */
+  #cr-solo.is-selected:hover,
+  #cr-quickplay.is-selected:hover,
+  #cr-friends.is-selected:hover {
     background:
       linear-gradient(90deg, #fff 0 5px, transparent 5px),
       linear-gradient(90deg, #ffe53d 0%, rgba(255, 229, 61, 0.95) 55%, transparent 98%);
@@ -3393,7 +3430,16 @@ html, body {
 .cr-cmd:active:not(.is-selected) {
   background: rgba(255, 255, 255, 0.22);
 }
+/* Secondary selected press. */
 .cr-cmd.is-selected:active {
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.55) 0 5px, transparent 5px),
+    linear-gradient(90deg, rgba(255,229,61,0.65), rgba(255,229,61,0.4) 55%, transparent 98%);
+}
+/* Primary selected press: rail + pressed yellow. */
+#cr-solo.is-selected:active,
+#cr-quickplay.is-selected:active,
+#cr-friends.is-selected:active {
   background:
     linear-gradient(90deg, rgba(255, 255, 255, 0.7) 0 5px, transparent 5px),
     linear-gradient(90deg, rgba(230, 190, 20, 0.95) 0%, rgba(255, 229, 61, 0.7) 55%, transparent 98%);
