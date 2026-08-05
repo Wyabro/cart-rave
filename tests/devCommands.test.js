@@ -111,6 +111,9 @@ describe("shared developer control", () => {
       sendHostRound: () => { calls.syncs += 1; },
       grantKos: vi.fn(),
       roundDurationMs: 150_000,
+      // * Not a public room — the SEC-DIAG-1 gate below refuses in prod quickplay, and the
+      // * mode is fail-closed, so a round-lever test has to say which room it is in.
+      getGameMode: () => "solo",
     });
 
     expect(control.forceSuddenDeath()).toEqual(expect.objectContaining({ ok: true }));
@@ -133,6 +136,7 @@ describe("shared developer control", () => {
       sendHostRound: vi.fn(),
       grantKos: vi.fn(),
       roundDurationMs: 150_000,
+      getGameMode: () => "solo",
     });
 
     expect(control.setScores({ 0: 1, 1: 0, 2: 0, 3: 0 }))
@@ -140,10 +144,104 @@ describe("shared developer control", () => {
     expect(setRoundScores).not.toHaveBeenCalled();
   });
 
-  // * forceKillFeed (SHEET-1) is the one lever gated on isDev rather than host+running,
-  // * because devControl also attaches in PRODUCTION under ?diag=1 (main.js:1577) and a
-  // * kill-feed injector must not exist on the live site. isDev is passed IN precisely so
-  // * this prod branch is reachable from vitest, which always runs with DEV === true.
+  // * SEC-DIAG-1. devControl attaches in PRODUCTION under ?diag=1 (main.js) so round-end MP bugs
+  // * can be reproduced live, which let a quickplay HOST set their own score. The gate is a
+  // * conjunction — prod AND public quickplay — and both halves need pinning: gating on the room
+  // * alone would break `tools/netharness.mjs`, which drives `room=quickplay` and calls
+  // * control.setScores / rewindRoundClock against a dev stack.
+  const roundLeverDeps = (over = {}) => ({
+    getIsHost: () => true,
+    getRoundState: () => ({ phase: "running" }),
+    getNetSlots: () => [{ kind: "human" }, { kind: "npc" }, null, null],
+    getYouConnId: () => "host",
+    getLocalSlotIndex: () => 0,
+    setRoundScores: vi.fn(),
+    setRoundStartedAtMs: vi.fn(),
+    getRoundClockNowMs: () => 200_000,
+    sendHostRound: vi.fn(),
+    grantKos: vi.fn(),
+    roundDurationMs: 150_000,
+    ...over,
+  });
+
+  it("refuses every round lever in production quickplay, even for a host mid-round", () => {
+    const setRoundScores = vi.fn();
+    const sendHostRound = vi.fn();
+    const control = createDevControl(roundLeverDeps({
+      isDev: false,
+      getGameMode: () => "quickplay",
+      setRoundScores,
+      sendHostRound,
+    }));
+
+    for (const result of [
+      control.setScores({ 0: 9, 1: 0, 2: 0, 3: 0 }),
+      control.forceSuddenDeath(),
+      control.rewindRoundClock(1500),
+    ]) {
+      expect(result).toEqual(expect.objectContaining({ ok: false, reason: "public-room" }));
+    }
+    // * Nothing reached the wire — a refusal that still called sendHostRound would have
+    // * published the cheated state before failing.
+    expect(setRoundScores).not.toHaveBeenCalled();
+    expect(sendHostRound).not.toHaveBeenCalled();
+  });
+
+  it("keeps the round levers in production friends and solo rooms", () => {
+    for (const mode of ["friends", "solo", "testdrive"]) {
+      const control = createDevControl(roundLeverDeps({ isDev: false, getGameMode: () => mode }));
+      expect(control.setScores({ 0: 1, 1: 0, 2: 0, 3: 0 }))
+        .toEqual(expect.objectContaining({ ok: true }));
+    }
+  });
+
+  it("keeps the round levers in a DEV quickplay room, which is what the netharness drives", () => {
+    const control = createDevControl(roundLeverDeps({ isDev: true, getGameMode: () => "quickplay" }));
+    expect(control.setScores({ 0: 1, 1: 0, 2: 0, 3: 0 }))
+      .toEqual(expect.objectContaining({ ok: true }));
+    expect(control.rewindRoundClock(1500)).toEqual(expect.objectContaining({ ok: true }));
+  });
+
+  it("fails closed when the room mode is unknown or unwired", () => {
+    // * resolvedPartyRoomFromUrl already defaults a missing ?room= to "quickplay", so an
+    // * unreadable mode must refuse rather than open.
+    for (const getGameMode of [() => undefined, () => null, undefined]) {
+      const control = createDevControl(roundLeverDeps({ isDev: false, getGameMode }));
+      expect(control.setScores({ 0: 1, 1: 0, 2: 0, 3: 0 }))
+        .toEqual(expect.objectContaining({ ok: false, reason: "public-room" }));
+    }
+  });
+
+  it("leaves returnToMenu ungated — it is ESC-equivalent and the netharness teardown needs it", () => {
+    const returnToMenu = vi.fn();
+    const control = createDevControl(roundLeverDeps({
+      isDev: false,
+      getGameMode: () => "quickplay",
+      returnToMenu,
+    }));
+    expect(control.returnToMenu("esc")).toEqual(expect.objectContaining({ ok: true }));
+    expect(returnToMenu).toHaveBeenCalledWith("esc");
+  });
+
+  it("does not expose grantKos in a production build", () => {
+    // * SEC-UNLOCK-1 precedent: grantKos is not host-gated and writes progression directly, so
+    // * on prod any ?diag=1 tab could grant itself unlocks — the hole ?devUnlocks=all closed.
+    // * Omitted, not failing, so the surface documents intent (same shape as forceKillFeed).
+    const grantKos = vi.fn();
+    const prod = createDevControl(roundLeverDeps({ isDev: false, getGameMode: () => "solo", grantKos }));
+    expect(prod.grantKos).toBeUndefined();
+    expect(grantKos).not.toHaveBeenCalled();
+
+    const dev = createDevControl(roundLeverDeps({ isDev: true, getGameMode: () => "solo", grantKos }));
+    expect(dev.grantKos("classicRecord", 3)).toEqual(expect.objectContaining({ ok: true }));
+    expect(grantKos).toHaveBeenCalledWith("classicRecord", 3);
+  });
+
+  // * forceKillFeed (SHEET-1) is gated on isDev rather than host+running, because devControl
+  // * also attaches in PRODUCTION under ?diag=1 (see `createDevControl` at its main.js call
+  // * site) and a kill-feed injector must not exist on the live site. isDev is passed IN
+  // * precisely so this prod branch is reachable from vitest, which always runs DEV === true.
+  // * SEC-DIAG-1 put grantKos behind the same omit; its case lives above.
   const killFeedDeps = (over = {}) => ({
     getIsHost: () => true,
     getRoundState: () => ({ phase: "running" }),

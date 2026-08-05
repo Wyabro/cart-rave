@@ -7,7 +7,10 @@ declare global {
     | { ok: true; message: string }
     | {
       ok: false;
-      reason: "host-required" | "round-not-running" | "diagnostics-required" | "bad-args" | "unknown";
+      // * Keep in sync with CommandFailureReason in src/dev/commandRegistry.js — the two unions
+      // * are structurally compared at the dev/index.js seam, so a reason added to one and not
+      // * the other is a typecheck error there ("public-room" was, SEC-DIAG-1).
+      reason: "host-required" | "round-not-running" | "diagnostics-required" | "public-room" | "bad-args" | "unknown";
       message: string;
     };
 

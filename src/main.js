@@ -717,14 +717,21 @@ async function main() {
   let devControl = null;
   // * Run-6: control levers also attach in PROD when ?diag=1 is present — Wyatt needs
   // * forceSuddenDeath/setScores on the live site to reproduce MP-only round-end bugs
-  // * (still host-gated + running-round-gated inside devControl). Trade-off accepted:
-  // * a player who adds ?diag=1 as quickplay host could cheat scores; revisit before
-  // * any public launch.
+  // * (still host-gated + running-round-gated inside devControl).
+  // * SEC-DIAG-1 closed the trade-off that bought (a ?diag=1 quickplay host could cheat
+  // * scores): in prod the round levers refuse in PUBLIC QUICKPLAY and grantKos is absent
+  // * outside DEV. Live round-end repro now goes through a friends room, which is code-gated.
+  // * Read-only diag and F8 capture are deliberately untouched — they are how evidence is
+  // * collected on the live site.
   if (import.meta.env.DEV || diagUrlFlags().enabled) {
     try {
       const { createDevControl } = await import("./dev/devControl.js");
       devControl = createDevControl({
         getIsHost: () => Netcode.getIsHost(),
+        // * SEC-DIAG-1 public-room gate. A getter, not a captured value: menu → solo → menu →
+        // * quickplay happens without a page reload, so a mode read once at construction would
+        // * outlive its room and leave a solo-built control live in a public game.
+        getGameMode: () => Netcode.detectGameMode(),
         getRoundState: () => GameState.getRoundState(),
         getNetSlots: () => Netcode.getNetSlots(),
         getYouConnId: () => Netcode.getYouConnId(),

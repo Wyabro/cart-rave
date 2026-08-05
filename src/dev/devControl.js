@@ -1,6 +1,7 @@
 // devControl.js — shared mutation API for the debug panel and __ccDiag.control.
-// Created from main when DEV || ?diag=1 (prod included under ?diag=1). Most levers require
-// host + running phase; forceKillFeed is the exception (DEV-only via deps.isDev).
+// Created from main when DEV || ?diag=1 (prod included under ?diag=1). Round levers require
+// host + running phase, and in prod they additionally refuse in public quickplay (SEC-DIAG-1).
+// grantKos and forceKillFeed are absent entirely outside a DEV build.
 
 import { commandFail, commandOk } from "./commandRegistry.js";
 import { rebuildKOEvent } from "../scoring/koEvent.js";
@@ -20,9 +21,14 @@ import { killFeedReactor } from "../scoring/koReactors.js";
  * @property {(level: string, n: number) => void} grantKos
  * @property {number} roundDurationMs
  * @property {(reason?: string) => void} [returnToMenu]  Non-host session teardown → menu (07-17 freeze repro).
+ * @property {() => string | null | undefined} [getGameMode]  Live room mode (`detectGameMode`).
+ *   SEC-DIAG-1: the round levers refuse in public quickplay on prod builds. Read through a getter,
+ *   not captured once, because a session can return to menu and start a different mode without a
+ *   page reload — a value snapshotted at construction would outlive its room.
  * @property {boolean} [isDev]  True only in a Vite DEV build. Passed IN rather than read from
  *   `import.meta.env` here, because vitest runs with DEV === true and an internal read would
- *   make the production branch untestable. Gates `forceKillFeed` alone.
+ *   make the production branch untestable. Gates `grantKos` and `forceKillFeed` off entirely,
+ *   and disarms the public-quickplay refusal so the harnesses keep working.
  * @property {() => object | null | undefined} [getHud]  Live HUD facade (addKillFeedEntry, colorHexToCss).
  * @property {(slot: object | null | undefined) => number | string} [colorHexForSlot]
  * @property {() => Array<object> | null | undefined} [getAllCarts]
@@ -33,12 +39,35 @@ import { killFeedReactor } from "../scoring/koReactors.js";
  * @param {DevControlDeps} deps
  */
 export function createDevControl(deps) {
+  // * SEC-DIAG-1. devControl attaches in PRODUCTION under ?diag=1 so round-end MP bugs can be
+  // * reproduced on the live site — the cost of that was a quickplay HOST able to set their own
+  // * score, since quickplay is the one room a stranger reaches without a code. So in prod the
+  // * round levers refuse there; friends rooms (code-gated — everyone in one was invited) and
+  // * solo keep them, which is already the 2-machine repro path.
+  //
+  // * DEV disarms it entirely, and that is load-bearing, not a convenience: `tools/netharness.mjs`
+  // * drives `room=quickplay` and calls control.setScores / rewindRoundClock against a dev stack,
+  // * so gating on the room alone would break the rig that verifies quickplay itself.
+  //
+  // * Fail-closed on an unknown or unwired mode: `resolvedPartyRoomFromUrl` already resolves a
+  // * missing `?room=` to "quickplay", so a session that loses its room refuses rather than opens.
+  const isPublicRoom = () => {
+    const mode = deps.getGameMode?.();
+    return mode == null || mode === "quickplay";
+  };
+
   const requireHostRunningRound = () => {
     if (!deps.getIsHost()) {
       return commandFail("host-required", "Host control required.");
     }
     if (deps.getRoundState().phase !== "running") {
       return commandFail("round-not-running", "Start a round before using this control.");
+    }
+    if (!deps.isDev && isPublicRoom()) {
+      return commandFail(
+        "public-room",
+        "Round controls are disabled in public quickplay. Use a friends room.",
+      );
     }
     return null;
   };
@@ -81,19 +110,6 @@ export function createDevControl(deps) {
       deps.setRoundScores(normalized);
       deps.sendHostRound();
       return commandOk(`Scores set to ${Object.values(normalized).join("–")}.`);
-    },
-
-    /**
-     * @param {string} level
-     * @param {number} n
-     */
-    grantKos(level, n) {
-      const amount = Number(n);
-      if (!level || !Number.isInteger(amount) || amount <= 0) {
-        return commandFail("bad-args", "KO grant requires a level and a positive integer.");
-      }
-      deps.grantKos(level, amount);
-      return commandOk(`Granted ${amount} KOs on ${level}.`);
     },
 
     forceSuddenDeath() {
@@ -163,11 +179,29 @@ export function createDevControl(deps) {
   // * challenge counters and the per-level unlock funnel, and a screenshot tool must not
   // * write progression. No score or physics mutation either (reactors are pure consumers).
   //
-  // * DEV-only by `isDev`, unlike every other lever here: devControl attaches in PROD under
-  // * ?diag=1 (main.js:1577), and a lever that injects kill-feed rows on the live site would
-  // * let anyone fake a KO in a screenshot. The others gate on host+running; this one simply
-  // * does not exist outside a Vite DEV build.
+  // * DEV-only by `isDev`: devControl attaches in PROD under ?diag=1, and a lever that injects
+  // * kill-feed rows on the live site would let anyone fake a KO in a screenshot. The round
+  // * levers gate on host+running (+ public-room in prod); this one simply does not exist
+  // * outside a Vite DEV build.
+  //
+  // * `grantKos` joins it below for the same reason, on the SEC-UNLOCK-1 precedent: it is not
+  // * host-gated — it writes local progression directly — so in prod any ?diag=1 tab could grant
+  // * itself unlocks, which is exactly the hole `?devUnlocks=all` was made DEV-only to close.
+  // * Both are OMITTED rather than made to fail, so the surface itself documents intent.
   if (!deps.isDev) return control;
+
+  /**
+   * @param {string} level
+   * @param {number} n
+   */
+  const grantKos = (level, n) => {
+    const amount = Number(n);
+    if (!level || !Number.isInteger(amount) || amount <= 0) {
+      return commandFail("bad-args", "KO grant requires a level and a positive integer.");
+    }
+    deps.grantKos(level, amount);
+    return commandOk(`Granted ${amount} KOs on ${level}.`);
+  };
 
   /**
    * @param {{ victimSlotIndex?: number, attackerSlotIndex?: number | null, verb?: string,
@@ -218,5 +252,5 @@ export function createDevControl(deps) {
     return commandOk(`Kill-feed row rendered: ${who} → slot ${victimSlotIndex} (${koEvent.verb}).`);
   };
 
-  return { ...control, forceKillFeed };
+  return { ...control, grantKos, forceKillFeed };
 }

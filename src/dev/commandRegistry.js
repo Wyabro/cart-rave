@@ -2,7 +2,7 @@
 
 /**
  * @typedef {"host" | "local" | "any"} CommandScope
- * @typedef {"host-required" | "round-not-running" | "diagnostics-required" | "bad-args" | "unknown"} CommandFailureReason
+ * @typedef {"host-required" | "round-not-running" | "diagnostics-required" | "public-room" | "bad-args" | "unknown"} CommandFailureReason
  * @typedef {{ ok: true, message: string }} CommandSuccess
  * @typedef {{ ok: false, reason: CommandFailureReason, message: string }} CommandFailure
  * @typedef {CommandSuccess | CommandFailure} CommandResult
