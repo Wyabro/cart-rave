@@ -1125,7 +1125,7 @@ export function resolvedPartyRoomFromUrl() {
 export function detectGameMode() {
   const room = resolvedPartyRoomFromUrl();
   if (room.toLowerCase().startsWith("testdrive")) return "testdrive";
-  if (room.startsWith("solo")) return "solo";
+  if (room.toLowerCase().startsWith("solo")) return "solo";
   // * QUICKPLAY-SHARD-1: every public shard is quickplay, not just shard 1. This one line is
   // * load-bearing for ten downstream behaviours — an exact match here would classify a shard as
   // * `friends`, which stops client auto-ready (while the server also stops auto-seating ready,
