@@ -412,7 +412,7 @@ html, body {
   box-shadow: var(--slab-shadow);
 }
 
-.cr-btn:hover,
+/* Hover lift is gated below — focus-visible stays for keyboard/a11y. */
 .cr-btn:focus-visible {
   transform: translate(-1px, -2px);
   box-shadow: var(--slab-shadow-hover);
@@ -721,7 +721,7 @@ html, body {
   flex-shrink: 0;
 }
 
-.cr-reroll:hover { transform: rotate(180deg); }
+/* .cr-reroll:hover paint → (hover: hover) block (TOUCH-HOVER residual) */
 
 .cr-color-label {
   font-family: var(--mono);
@@ -3366,10 +3366,7 @@ html, body {
   font-size: 0.8125rem;
   letter-spacing: 0.12em;
 }
-.cr-join-go:hover {
-  background: var(--color-cyan);
-  color: var(--color-ink);
-}
+/* .cr-join-go:hover → (hover: hover) block */
 /* Spans both columns so the message sits under the field, not beside GO. */
 .cr-join-error {
   grid-column: 1 / -1;
@@ -3381,20 +3378,17 @@ html, body {
   color: var(--color-magenta);
 }
 .cr-join-error[hidden] { display: none; }
-.cr-cmd:hover .cr-btn-label { color: var(--color-sticker-white); }
+/* .cr-cmd:hover .cr-btn-label → (hover: hover) block */
 /* A command row is NOT a sticker button. `.cr-btn:hover/:focus-visible/:active`
    (0,2,0) outranks `.cr-cmd` (0,1,0), so hover was repainting the retired white
    die-cut ring AND replacing skewX(-8deg) with a translate — the row went flat
    while its label kept the counter-skew. Hover is selection here, so this fired
    constantly. Two classes so no single-class band rule can outrank it either. */
-/* Keep skew on hover/focus/press; kill sticker lift shadow only on hover/press
-   so focus can still carry the cyan glow ring. */
-.cr-btn.cr-cmd:hover,
+/* Keep skew on focus/press; hover variants gated in (hover: hover) block. */
 .cr-btn.cr-cmd:focus-visible,
 .cr-btn.cr-cmd:active {
   transform: skewX(-8deg);
 }
-.cr-btn.cr-cmd:hover,
 .cr-btn.cr-cmd:active {
   box-shadow: none;
 }
@@ -3427,7 +3421,17 @@ html, body {
   font-size: 1.875rem;
 }
 
+/* TOUCH-HOVER residual — live hover paint only (coarse pointer must not latch). */
 @media (hover: hover) and (pointer: fine) {
+  .cr-btn:hover {
+    transform: translate(-1px, -2px);
+    box-shadow: var(--slab-shadow-hover);
+  }
+  .cr-btn.cr-cmd:hover {
+    transform: skewX(-8deg);
+    box-shadow: none;
+  }
+  .cr-cmd:hover .cr-btn-label { color: var(--color-sticker-white); }
   .cr-cmd:hover:not(.is-selected) {
     background: rgba(255, 255, 255, 0.16);
   }
@@ -3444,6 +3448,25 @@ html, body {
     background:
       linear-gradient(90deg, #fff 0 5px, transparent 5px),
       linear-gradient(90deg, #ffe53d 0%, rgba(255, 229, 61, 0.95) 55%, transparent 98%);
+  }
+  .cr-reroll:hover { transform: rotate(180deg); }
+  .cr-plate .cr-plate-btn:hover {
+    color: var(--color-sticker-white);
+    border-color: var(--border-white-20);
+  }
+  .cr-arena-page:hover {
+    color: var(--color-sticker-white);
+    border-color: var(--border-white-15);
+  }
+  .cr-context .cr-diff-btn:hover {
+    transform: none;
+    box-shadow: none;
+    color: var(--color-sticker-white);
+  }
+  .cr-seg-chip:hover { color: var(--color-sticker-white); }
+  .cr-join-go:hover {
+    background: var(--color-cyan);
+    color: var(--color-ink);
   }
 }
 .cr-cmd:active:not(.is-selected) {
@@ -3512,7 +3535,7 @@ html, body {
   color: #b5afc0; font-size: 15px; line-height: 1; cursor: pointer;
   transition: color 120ms ease, border-color 120ms ease;
 }
-.cr-plate .cr-plate-btn:hover { color: var(--color-sticker-white); border-color: var(--border-white-20); }
+/* .cr-plate .cr-plate-btn:hover → (hover: hover) block */
 .cr-plate #cr-name-edit { margin-left: auto; }
 .cr-plate .cr-reroll { margin-left: 0; }
 .cr-plate .cr-stats {
@@ -3563,7 +3586,7 @@ html, body {
   border-radius: 8px; border: 1px solid var(--border-white-20); background: transparent;
   color: #b5afc0; display: grid; place-items: center; font-size: 15px; cursor: pointer;
 }
-.cr-arena-page:hover { color: var(--color-sticker-white); border-color: var(--border-white-15); }
+/* .cr-arena-page:hover → (hover: hover) block */
 .cr-arena-display { flex: 1; text-align: center; min-width: 0; }
 .cr-arena-name {
   font-family: var(--ui); font-weight: 700; font-size: 1.625rem;
@@ -3588,9 +3611,7 @@ html, body {
   box-shadow: none;
 }
 .cr-context .cr-diff-btn .cr-diff-btn-label { color: inherit; }
-.cr-context .cr-diff-btn:hover {
-  transform: none; box-shadow: none; color: var(--color-sticker-white);
-}
+/* .cr-context .cr-diff-btn:hover → (hover: hover) block */
 .cr-context .cr-diff-btn.active {
   background: rgba(255, 229, 61, 0.9); border-color: transparent; color: var(--color-ink);
   box-shadow: none;
@@ -3715,7 +3736,7 @@ html, body {
   text-transform: uppercase;
   transition: background 120ms var(--ease-slap), color 120ms var(--ease-slap);
 }
-.cr-seg-chip:hover { color: var(--color-sticker-white); }
+/* .cr-seg-chip:hover → (hover: hover) block */
 .cr-seg-chip.is-active {
   background: var(--color-yellow);
   border-color: transparent;
