@@ -3238,8 +3238,9 @@ html, body {
 
 /* ── Command list — skewed rows; yellow = selection only (never permanent CTA).
    MENU-RESTRAINT-1b hierarchy (ids, no new classes):
-   · primary idle   (#cr-solo/#cr-quickplay/#cr-friends): transparent, white label
-   · secondary idle (customize/challenges/howto/settings): transparent, muted
+   · primary idle   (#cr-solo/#cr-quickplay/#cr-friends): transparent, sticker-white
+   · secondary idle (customize/challenges/howto/settings): transparent, text-secondary
+     (not --color-muted — that reads disabled once primaries went white)
    · primary selected: hotter yellow + always-on white rail + larger label
    · secondary selected: softer yellow, no permanent rail                          */
 .cr-commandlist {
@@ -3269,10 +3270,11 @@ html, body {
   font-family: var(--ui); font-weight: 700;
   font-size: clamp(18px, 1.9vw, 24px);
   letter-spacing: 0.1em;
-  color: var(--color-muted);
+  /* Secondary idle: #d8d4e0 — interactive, not greyed-out disabled chrome. */
+  color: var(--color-text-secondary);
   transition: color 130ms var(--ease-slap), font-size 130ms var(--ease-slap);
 }
-/* Primary idle: sticker-white label so Solo/QP/Friends read louder than How-to
+/* Primary idle: full sticker-white so Solo/QP/Friends still rank above secondaries
    without a permanent yellow fill (yellow stays selection-only). */
 #cr-solo:not(.is-selected) .cr-btn-label,
 #cr-quickplay:not(.is-selected) .cr-btn-label,
