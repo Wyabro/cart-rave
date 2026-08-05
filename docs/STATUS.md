@@ -66,7 +66,7 @@ Live rows only. Shipped and closed cards live in
 
 | # | What | Status |
 |---|------|--------|
-| **SUNDIAL-OBSTACLE-SLIDE-1** | Sundial's bollards + gnomon blade averaged friction | 🚧 **ACTIVE — applied `fd97ab8`, unpushed, awaiting playtest.** Last site in the combine-rule sweep (written `0.3`, effective **0.7**). `FrictionCombineRule.Min` on the 8 bollards + the gnomon blade, **no number changes**; floors stay Average, canaries in `tests/zanzibarObstacleFriction.test.js`. **Playtest:** grind the blade face (skim, not catch) · clip a bollard at speed · deck + booth grip unchanged. Detail: [BACKLOG § Engineering](./planning/BACKLOG.md). |
+| **SUNDIAL-OBSTACLE-SLIDE-1** | Sundial's bollards + gnomon blade averaged friction | 🚧 **ACTIVE — DEPLOYED `ae186e2`, Version `7faa6d73`, awaiting playtest.** Last site in the combine-rule sweep (written `0.3`, effective **0.7**). `FrictionCombineRule.Min` on the 8 bollards + the gnomon blade, **no number changes**; floors stay Average, canaries in `tests/zanzibarObstacleFriction.test.js`. **Playtest:** grind the blade face (skim, not catch) · clip a bollard at speed · deck + booth grip unchanged. Detail: [BACKLOG § Engineering](./planning/BACKLOG.md). |
 | *(closed)* | Physics run 08-05 — 4 cards, all PASS | ✅ STORE-PLAT-WALL-1 → STORE-PIT-WEDGE-1 → STORE-WALL-SLIDE-1 → WALL-SLIDE-CLASSIC-1. **Durable finding: a friction value in this codebase is not a felt value** — Rapier averages it with the cart's 1.1, so walls written 0.02–0.05 acted like 0.56–0.575. Walls take `FrictionCombineRule.Min`; **floors deliberately keep Average** (canaries in three test files). Detail: [completed-work.md](./planning/completed-work.md). |
 | FIX-EMISSIVE | Non-patterned carts read blown out on Classic | ⛔ **ABORTED 08-04 — approved design invalidated, needs re-ack.** See Open issues. |
 | FIX-MIG | Quickplay host-migration visibility + continuous-policy tests | 📋 next wave, scoped — see Open issues. |
@@ -76,7 +76,7 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. **SUNDIAL-OBSTACLE-SLIDE-1 is mid-flight — push + deploy, then Wyatt playtests.** No new card until it passes or fails. Then-candidates: **FIX-EMISSIVE** re-ack (Wyatt picks retry (a) or (b)), **FIX-MIG**, **HUD-TOAST-Z-1**, **BOOTH-RAIL-COL-1**, **RAPIER-DEFAULT-MAX-1**. Closed 08-05 and not candidates: HARNESS-GEO-1, BUNDLE-1/BUNDLE-E-PT-1, and the four-card physics run (all PASS).
+1. **SUNDIAL-OBSTACLE-SLIDE-1 is mid-flight — deployed, Wyatt playtests it.** No new card until it passes or fails. Then-candidates: **FIX-EMISSIVE** re-ack (Wyatt picks retry (a) or (b)), **FIX-MIG**, **HUD-TOAST-Z-1**, **BOOTH-RAIL-COL-1**, **RAPIER-DEFAULT-MAX-1**. Closed 08-05 and not candidates: HARNESS-GEO-1, BUNDLE-1/BUNDLE-E-PT-1, and the four-card physics run (all PASS).
 2. **Hitch forensics now has evidence** — cap-254–260 (build `8d96b0b`) are the first captures from a working upload path, including a Cart Rave F8 taken on a hitch. Read them before any perf knob.
 3. **Still owed separately:** 9-cell PERF sweep (~25 min). Resume Run 8 FAIL triage.
 

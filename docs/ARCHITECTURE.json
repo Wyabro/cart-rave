@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-05T06:01:23.380Z",
-    "commit": "bade599"
+    "at": "2026-08-05T06:03:44.426Z",
+    "commit": "ae186e2"
   },
-  "source_digest": "f71277b9",
+  "source_digest": "060317ea",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -857,7 +857,7 @@
       {
         "id": "SUNDIAL-OBSTACLE-SLIDE-1",
         "what": "Sundial's bollards + gnomon blade averaged friction",
-        "status": "🚧 ACTIVE — applied `fd97ab8`, unpushed, awaiting playtest. Last site in the combine-rule sweep (written `0.3`, effective 0.7). `FrictionCombineRule.Min` on the 8 bollards + the gnomon blade, no number changes; floors stay Average, canaries in `tests/zanzibarObstacleFriction.test.js`. Playtest: grind the blade face (skim, not catch) · clip a bollard at speed · deck + booth grip unchanged. Detail: [BACKLOG § Engineering](./planning/BACKLOG.md).",
+        "status": "🚧 ACTIVE — DEPLOYED `ae186e2`, Version `7faa6d73`, awaiting playtest. Last site in the combine-rule sweep (written `0.3`, effective 0.7). `FrictionCombineRule.Min` on the 8 bollards + the gnomon blade, no number changes; floors stay Average, canaries in `tests/zanzibarObstacleFriction.test.js`. Playtest: grind the blade face (skim, not catch) · clip a bollard at speed · deck + booth grip unchanged. Detail: [BACKLOG § Engineering](./planning/BACKLOG.md).",
         "state": "waiting"
       },
       {
@@ -907,7 +907,7 @@
       }
     ],
     "next_actions": [
-      "SUNDIAL-OBSTACLE-SLIDE-1 is mid-flight — push + deploy, then Wyatt playtests. No new card until it passes or fails. Then-candidates: FIX-EMISSIVE re-ack (Wyatt picks retry (a) or (b)), FIX-MIG, HUD-TOAST-Z-1, BOOTH-RAIL-COL-1, RAPIER-DEFAULT-MAX-1. Closed 08-05 and not candidates: HARNESS-GEO-1, BUNDLE-1/BUNDLE-E-PT-1, and the four-card physics run (all PASS).",
+      "SUNDIAL-OBSTACLE-SLIDE-1 is mid-flight — deployed, Wyatt playtests it. No new card until it passes or fails. Then-candidates: FIX-EMISSIVE re-ack (Wyatt picks retry (a) or (b)), FIX-MIG, HUD-TOAST-Z-1, BOOTH-RAIL-COL-1, RAPIER-DEFAULT-MAX-1. Closed 08-05 and not candidates: HARNESS-GEO-1, BUNDLE-1/BUNDLE-E-PT-1, and the four-card physics run (all PASS).",
       "Hitch forensics now has evidence — cap-254–260 (build `8d96b0b`) are the first captures from a working upload path, including a Cart Rave F8 taken on a hitch. Read them before any perf knob.",
       "Still owed separately: 9-cell PERF sweep (~25 min). Resume Run 8 FAIL triage."
     ],
