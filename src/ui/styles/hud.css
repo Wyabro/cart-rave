@@ -1061,7 +1061,7 @@
   #hud:not(.hud-touch) .hud-scores {
     width: 100%;
     max-width: none;
-    gap: clamp(8px, 2vw, 12px);
+    gap: clamp(10px, 2.4vw, 14px);
   }
   #hud:not(.hud-touch) .hud-scoreBox {
     flex: 1 1 0;
@@ -1069,8 +1069,19 @@
     align-items: center;
     justify-content: center;
     gap: 2px;
-    padding: clamp(4px, 1.2vw, 6px) clamp(2px, 0.8vw, 4px);
+    padding: clamp(4px, 1.2vw, 6px) clamp(4px, 1.2vw, 8px);
     min-width: 0;
+    /* Same price-tag flatten as touch — docked strip was mashing noses. */
+    transform: none;
+    border-radius: 8px;
+    box-shadow: 0 0 0 1px var(--border-white-12), 2px 2px 0 var(--color-ink-deep);
+  }
+  #hud:not(.hud-touch) .hud-scoreBox > * {
+    transform: none;
+  }
+  #hud:not(.hud-touch) .hud-scoreBox::after,
+  #hud:not(.hud-touch) .hud-scoreBarcode {
+    display: none;
   }
   /* UI-SCALE-1 residual: 8–9px floors were unreadable on phone docks. */
   #hud:not(.hud-touch) .hud-scoreLabel {
@@ -1395,24 +1406,37 @@
 
 /* Touch / mobile — phone landscape is often >768 wide, so width-only never
    shrank tags on the most common mobile play mode. Coarse pointer catches it.
-   Aim: readable sticker chips, not desktop billboards and not micro text. */
+   Aim: readable sticker chips, not desktop billboards and not micro text.
+   UI-SCALE-1 residual: drop the price-tag nose/hole on small screens — the
+   asymmetric radius + left pad made clustered carts read as one mushed plate. */
 @media (max-width: 768px), (pointer: coarse) {
   .cart-nametag {
-    font-size: 13px;
-    gap: 6px;
-    padding: 3px 9px 3px 15px;
+    font-size: 12px;
+    gap: 5px;
+    padding: 3px 8px;
     border-width: 1px;
-    border-radius: 4px 4px 4px 11px;
-    box-shadow: 2px 2px 0 var(--color-ink-deep, #08050f);
+    border-radius: 6px;
+    box-shadow: 1px 1px 0 var(--color-ink-deep, #08050f);
+    letter-spacing: 0.04em;
   }
+  /* Colour identity moves onto a left hairline (no punched hole). */
   .cart-nametag::before {
-    left: 5px;
-    width: 5px;
-    height: 5px;
+    left: 0;
+    top: 3px;
+    bottom: 3px;
+    width: 3px;
+    height: auto;
+    transform: none;
+    border-radius: 2px 0 0 2px;
+    background: var(--nt, rgba(242, 237, 228, 0.45));
+    box-shadow: none;
   }
   .cart-nametag svg {
-    width: 1em;
-    height: 1em;
+    width: 0.9em;
+    height: 0.9em;
+  }
+  .cart-nametag-cargo {
+    margin-left: 0.04em;
   }
 }
 
@@ -1420,7 +1444,7 @@
 @media (max-width: 380px) {
   .cart-nametag {
     font-size: 11px;
-    padding: 2px 6px;
+    padding: 2px 7px;
   }
 }
 
@@ -1865,12 +1889,41 @@
 }
 /* More air between rank chips — compact was 3–6px and read as one blob. */
 #hud.hud-touch .hud-scores {
-  gap: clamp(8px, 2.2vw, 12px);
-  padding: 4px 4px 6px 2px;
+  gap: clamp(10px, 2.6vw, 14px);
+  padding: 2px 2px 4px 0;
 }
+/* UI-SCALE-1 residual: drop the price-tag silhouette on touch. Skew + punched
+   nose + barcode + hard extrude made four chips mash into one lumpy strip on
+   phones (Wyatt screenshot 08-05). Flat rounded chips keep colour identity. */
 #hud.hud-touch .hud-scoreBox {
-  padding: clamp(5px, 1.2vw, 8px) clamp(8px, 1.8vw, 12px) clamp(5px, 1.2vw, 8px) clamp(10px, 2vw, 14px);
-  gap: clamp(5px, 1.2vw, 8px);
+  padding: clamp(5px, 1.2vw, 8px) clamp(8px, 2vw, 12px);
+  gap: clamp(4px, 1vw, 6px);
+  transform: none;
+  border-radius: 8px;
+  box-shadow: 0 0 0 1px var(--border-white-12), 2px 2px 0 var(--color-ink-deep);
+  overflow: hidden;
+}
+#hud.hud-touch .hud-scoreBox > * {
+  transform: none;
+}
+#hud.hud-touch .hud-scoreBox::after {
+  display: none;
+}
+#hud.hud-touch .hud-scoreBarcode {
+  display: none;
+}
+#hud.hud-touch .hud-scoreBox.isLocal {
+  box-shadow:
+    0 0 0 1px rgba(34, 230, 255, 0.55),
+    2px 2px 0 var(--color-ink-deep),
+    0 0 14px var(--glow-cyan-24);
+}
+#hud.hud-touch .hud-scoreBox.isLeader,
+#hud.hud-touch .hud-scoreBox.isLocal.isLeader {
+  box-shadow:
+    0 0 0 1px rgba(255, 43, 214, 0.55),
+    2px 2px 0 var(--color-ink-deep),
+    0 0 14px var(--glow-magenta-16);
 }
 /* Touch chips drop the player name so four boxes fit across a phone. That was
    UNCONDITIONAL, though, so a 1200×528 landscape tablet — where all four names measure at
@@ -1903,11 +1956,17 @@
   max-width: min(72vw, 340px);
   z-index: 8;
 }
+/* Flat receipt on touch — skew rakes into nearby world nametags. */
 #hud.hud-touch .hud-feed {
   align-items: flex-end;
   text-align: right;
   gap: clamp(8px, 1.4vw, 12px);
   padding: 8px 12px 10px;
+  transform: none;
+  border-radius: 8px;
+}
+#hud.hud-touch .hud-feed-inner {
+  transform: none;
 }
 #hud.hud-touch .hud-feed-row {
   justify-content: flex-end;
