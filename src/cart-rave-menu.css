@@ -3207,9 +3207,13 @@ html, body {
   color: var(--color-muted);
   text-transform: uppercase;
   text-align: center;
+  /* Title-stack has transform (stacking context); splat overflow was painting over this. */
+  position: relative;
+  z-index: 2;
 }
 .cr-hero .cr-title-stack {
   position: relative;
+  z-index: 1;
   align-items: center; text-align: center; width: 100%;
   /* Mock 3a: 170px @1920, line-height 0.78, no tracking. Same clamp shape as the
      base rule — the vh term is the short-window ceiling — scaled to the mock cap. */
@@ -3227,15 +3231,17 @@ html, body {
   margin: clamp(8px, 1.9vh, 20px) 0 clamp(12px, 3.2vh, 36px);
 }
 /* MENU-LOGO-2 hybrid: gen-B paint splat behind LIVE Road Rage type.
-   Image models will not lock the .woff2 letterforms — splat is the asset, type is CSS. */
+   Image models will not lock the .woff2 letterforms — splat is the asset, type is CSS.
+   Tight inset so the burst hugs the lockup and stays under the tagline. */
 .cr-hero .cr-title-stack::before {
   content: "";
   position: absolute;
   z-index: 0;
-  /* Oversized so yellow flecks read around the glyphs without a boxed plate. */
-  inset: -28% -34% -22% -34%;
-  background: url("/brand/title-splat.webp") center / contain no-repeat;
+  /* Was -28%/-34% — huge halo ate the tagline. Hug the glyph box instead. */
+  inset: -6% -10% -4% -10%;
+  background: url("/brand/title-splat.webp") center / 100% 100% no-repeat;
   pointer-events: none;
+  opacity: 0.92;
 }
 /* MENU-LOGO-1a: 2-step hard ink extrude (zero blur). Soft bloom stays retired. */
 .cr-hero .cr-title-stack .cr-title-word {
