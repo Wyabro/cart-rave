@@ -229,9 +229,21 @@ export function validateHostRound(
         // * Host claimed draw but at least one slot has points — reject.
         return null;
       }
-      // * lastStanding with a true score-draw is rare (everyone 0); allow it so
-      // * the room never sticks in running/overtime when the host ends the round.
-      winnerSlotIndex = "draw";
+      // * lastStanding with zero scores: the host-authoritative winner slot is preserved
+      // * (e.g. sole survivor in a pure-SD eliminator where nobody scored beforehand).
+      // * Timer/null rounds with zero scores remain a draw — no scorer, no winner.
+      if (lastStanding) {
+        const w = typeof winnerRaw === "number" ? winnerRaw : Number(winnerRaw);
+        if (Number.isInteger(w) && w >= 0 && w <= 3) {
+          winnerSlotIndex = w;
+        } else {
+          // * Host did not name a slot (sent "draw" or null) — allow draw for this
+          // * unusual case rather than blocking the round from ending.
+          winnerSlotIndex = "draw";
+        }
+      } else {
+        winnerSlotIndex = "draw";
+      }
       if (endReason !== "timer" && endReason !== "lastStanding") {
         endReason = null;
       }
