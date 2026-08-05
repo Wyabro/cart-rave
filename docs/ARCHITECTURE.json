@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-05T02:39:46.314Z",
-    "commit": "846cf1b"
+    "at": "2026-08-05T02:48:53.131Z",
+    "commit": "0b7f265"
   },
-  "source_digest": "bfb308f5",
+  "source_digest": "2eeaf028",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -938,8 +938,8 @@
         "title": "Engineering",
         "counts": {
           "Medium": 14,
-          "High": 4,
-          "?": 2,
+          "High": 3,
+          "?": 3,
           "Low": 9,
           "Partial": 1
         },
@@ -969,9 +969,9 @@
             "ship1": null
           },
           {
-            "pri": "High",
-            "item": "SHOOT-LEVEL-1 — `npm run shoot --level zanzibar` renders **Classic**, not Sundial",
-            "notes": "**Filed 08-04 from BUNDLE-1 Lever C.** `npm run shoot --level zanzibar` produces geometry identical to the default (classic) shot — same draw calls, same tri count — while `--level backrooms` is clearly distinct (98 draws / 241,425 tris). So the harness silently falls back to Classic for that level, almost certainly via the unlock gate resolving to `FREE_LEVEL`. **Why this matters beyond one command: every `shoot`/`compare` run that claimed Sundial coverage has been comparing Classic against Classic** — including MAIN-1's Lever H sign-off (`shots/main-1-done/`, \"sundial meanAbs 0.048\") and every visual-QA gate since. A whole arena has effectively been unverified while reporting green. **Not caused by BUNDLE-1** — the level path is untouched by that card and backrooms works. **Pass:** `--level zanzibar` renders Sundial geometry distinct from Classic; then re-shoot the MAIN-1 baseline so future compares have a real reference. Check the unlock/`FREE_LEVEL` fallback in the harness URL build first.",
+            "pri": "✅",
+            "item": "SHOOT-LEVEL-1 — ~~`shoot --level zanzibar` renders Classic~~ **NOT A BUG (retracted 08-05)**",
+            "notes": "**CLOSED 08-05 — the filing was wrong, and the error was mine.** Measured all three arenas: `classicRecord` 114 draws / 548,185 tris · `backrooms` 98 / 241,425 · `zanzibar` **124 / 214,641**. All distinct — **`--level zanzibar` renders Sundial correctly and always did.** The observation behind the filing was real (a default shot and `--level zanzibar` are byte-identical) but the premise was not: **`FREE_LEVEL = \"zanzibar\"`** ([unlockConfig.js:113](../../src/unlockConfig.js:113)) and `resolveLevelId` falls back to it, so the *default* shot is Sundial — not Classic. I filed it High on a subagent's assumption without checking. **Retracted in full: MAIN-1 Lever H's \"sundial meanAbs 0.048\" was a genuine Sundial-vs-Sundial compare, no arena was ever unverified, and no re-shoot is owed.** Fix applied anyway so the ambiguity cannot recur: `tools/shoot.mjs` now always pins `level=` explicitly (its own `DEFAULT_SHOT_LEVEL`, independent of `FREE_LEVEL`), so the logged URL names the arena on every run.",
             "ship1": null
           },
           {

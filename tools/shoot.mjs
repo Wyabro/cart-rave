@@ -47,8 +47,15 @@ function buildUrl(base, args) {
   if (args.menu !== true && args.menu !== "1") u.searchParams.set("hud", "0");
   const shot = str(args.shot);
   if (shot) u.searchParams.set("shot", shot);
-  const level = str(args.level);
-  if (level) u.searchParams.set("level", level);
+  // * SHOOT-LEVEL-1: always pin the level explicitly, never rely on the app's fallback.
+  // * Omitting --level resolves to FREE_LEVEL (currently "zanzibar"), so a default shot and
+  // * `--level zanzibar` are byte-identical — which once read as "zanzibar silently falls
+  // * back to classic" and cost a false High-priority bug. Pinning makes the URL self-
+  // * documenting, and DEFAULT_SHOT_LEVEL is a fixed reference that will not move if
+  // * FREE_LEVEL is ever repointed at another arena.
+  const DEFAULT_SHOT_LEVEL = "zanzibar";
+  const level = str(args.level) ?? DEFAULT_SHOT_LEVEL;
+  u.searchParams.set("level", level);
   const cam = str(args.cam);
   if (cam) u.searchParams.set("cam", cam);
   const preset = str(args.preset);

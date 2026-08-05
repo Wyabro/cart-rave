@@ -601,7 +601,7 @@ other baseline chunks Δ0.
 | `cartShatter.js` · `effects/waterDeathFx.js` | own chunks | still IN ❌ |
 
 Gates: qa **112 files / 1,380 tests** · build green · **battery 6/6** · `shoot` default + `--level
-backrooms` both `worldReady=true` (zanzibar skipped per SHOOT-LEVEL-1).
+backrooms` both `worldReady=true` (zanzibar skipped per SHOOT-LEVEL-1 — **that card was retracted 08-05: zanzibar was never broken**).
 
 ### ⚠ Lever E's scope is bigger than planned — verified
 
@@ -738,7 +738,7 @@ missed key would otherwise be a **silent no-op in a live session**, not a crash.
 - [⚠] `size:check` **exits 1** — the §8 false positive again, now with four names.
   Deliberately NOT re-baselined (Lever F owns the ratchet).
 - [x] `npm run shoot` default + `--level backrooms` — both `worldReady=true`, arena renders
-  (zanzibar skipped per SHOOT-LEVEL-1)
+  (zanzibar skipped per SHOOT-LEVEL-1 — **retracted 08-05: not a bug**)
 - [❌] **`npm run battery` — 5/6, NOT the required 6/6. See below. This lever is NOT
   deploy-clean.**
 
@@ -982,7 +982,7 @@ JSDoc `@param` types respectively. Worth knowing before trusting that scan shape
   cosmetic: it only affects the family-total line in the report. The gate itself rests on
   `deferredModules`. A structural family test would need rolldown's `isDynamicEntry` in the
   manifest, i.e. a `vite.config.js` change, which was out of this card's carve-out.
-- HARNESS-GEO-1 and SHOOT-LEVEL-1 remain open and untouched, per their own cards.
+- HARNESS-GEO-1 fixed 08-05 (see §12). SHOOT-LEVEL-1 **retracted 08-05 — not a bug**: `FREE_LEVEL = "zanzibar"`, so a default shot *is* Sundial. Measured distinct: classicRecord 114 draws / 548,185 tris · backrooms 98 / 241,425 · zanzibar 124 / 214,641.
 
 ---
 
