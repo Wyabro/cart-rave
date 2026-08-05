@@ -13,6 +13,56 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 5, 2026 — ATTRACT-JANK-1 closed on prod `5983896`
+
+Block A #5 of the pre-launch Work order, and the card's premise turned out to be wrong: it was
+filed as a perf problem, and the box was **idle** the whole time.
+
+- *(Engineering · High)* **ATTRACT-JANK-1** — ✅ **CLOSED 08-05.** Instrument `e3d4d03`, fix
+  `5983896`. Measure-first held: no knob was touched before a capture existed.
+- **Lever 0 (instrument, `e3d4d03`):** nothing measured attract *cadence* anywhere — only cost
+  reached the ring, and only on the frame a demotion fired. Added per-second `attractWindow`
+  events (spacing + cost p50/p95/max, `overBar` against the watchdog's own `BAD_FRAME_MS`,
+  `shotIndex`, tier, renderScale, levelId) plus `attractCut` / `attractHoldRelease` markers, on
+  their own **`attract`** channel — `evictOneEvent` drops the oldest event of the *loudest*
+  channel, so ~90 windows on `perf` would have evicted the `qualityStepDown` the verdict turned on.
+- **Attribution (cap-287, Intel UHD, prod `e3d4d03`):** the machine was in the **reduced-motion**
+  path at 816 ms spacing (800 + one rAF tick) — **1.25 fps**. Proven by `shotIndex` pinned at 0
+  and **zero** `attractCut` markers across 97 s, which only that branch produces; cuts are
+  wall-clock driven and would have fired ~6 times at any frame rate. Cost was **3–6 ms**: not a
+  load problem. SHOOT-ANIM-1 (`6b27283`) turned level animation on for every path at once, so
+  water, rotors, beacons and rave dressing began advancing in **800 ms steps** — animation at
+  1.25 fps, one day before the report.
+- **Lever A (`5983896`):** pin the animation clock while reduced motion is active. Pinned rather
+  than skipped — `?t=` already defines a pinned-phase contract these updaters honour, and skipping
+  would strand `updateLevelLod`, which rides the same callback but reads its own wall clock and
+  must still react to an arena swap.
+- **Lever B (`5983896`):** age samples out of the auto-quality ring after 4 s. The ring was bounded
+  only by **count**, so a slow *feed* let a p95 come from frames long gone: at 1.25 fps the
+  20-sample minimum spans ~16 s, and cap-287 demoted at t=44.6 s (renderScale 1 → 0.85,
+  irreversible, carried into the round) on p95 24.7 from a boot-tail frame, while every window in
+  the preceding 15 s measured under 9 ms. 4 s not 2 s so a 10 fps machine — the documented case,
+  and the one the watchdog exists for — still demotes.
+- **Evidence:** machine — qa green, 1485 tests; the Lever B test was verified **failing** with the
+  age-out disabled, and is bracketed by two complements (a 5 fps feed still demotes, a *current*
+  spike still demotes). Human — **cap-289** opens with a 151.8 ms frame, worse than the 97.8 ms one
+  that demoted cap-287, and **no demotion fires**: same machine, same path, direct before/after.
+- **Named limit (same shape as ONBOARD-FLAG-PT-1):** Lever A's *visual* result — that the
+  reduced-motion menu now holds still instead of stuttering — was **never confirmed on screen**.
+  It holds by construction (one clock, one call site, pinned) and by the ring showing the path is
+  reached, not by a look at the menu. Cheap to confirm on any next reduced-motion visit.
+- **Refuted, and worth keeping:** the throttle-beat hypothesis — that `FRAME_INTERVAL_MS = 33`
+  beats against a 16.67 ms rAF and alternates 33/50 ms. cap-288 measured the normal path at
+  spacing p50 **33.3** / p95 33.4 / **max 33.5** across ten consecutive windows. No beat. It was
+  the second-ranked verdict and would have been built on plausibility alone.
+- **Not done, deliberately:** the menu-side swap grace (three `attractHoldRelease` markers, no
+  demotion after any — the hypothesis never fired) and the throttle-beat fix (refuted above).
+- **Spun out:** **TIER-DEFAULT-1** — cap-288 showed the *first-run tier default* is medium on that
+  box, which is a 5–8.6 fps menu until the watchdog rescues it 3.3 s later. Different root cause,
+  whole-app scope, its own card.
+
+---
+
 ### August 5, 2026 — FIX-MIG PASS on prod `a65d3c9`
 
 Block A #4 of the pre-launch Work order. **FIX-MIG-PT-1 PASS** (Wyatt) after one FAIL + residual.

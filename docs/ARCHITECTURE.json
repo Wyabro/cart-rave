@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-05T20:03:49.838Z",
-    "commit": "e3d4d03"
+    "at": "2026-08-05T20:33:44.764Z",
+    "commit": "5983896"
   },
-  "source_digest": "462983eb",
+  "source_digest": "8bdcec13",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -901,7 +901,7 @@
       }
     ],
     "next_actions": [
-      "Work the ordered queue — [BACKLOG § Work order](./planning/BACKLOG.md) (2026-08-05 pre-launch audit). Block A 1–4 closed: SEC-DIAG/ONBOARD PASS 4/4; SHARD-PT-1 PASS (SHARD-PT-2 launch-day); FIX-MIG PASS on prod `a65d3c9`. Next code: ATTRACT-JANK-1. Also closed 08-05: HARNESS-GEO-1, BUNDLE-1, HUD-TOAST-Z-1, FIX-EMISSIVE, physics run 5/5.",
+      "Work the ordered queue — [BACKLOG § Work order](./planning/BACKLOG.md) (2026-08-05 pre-launch audit). Block A 1–5 closed: SEC-DIAG/ONBOARD PASS 4/4; SHARD-PT-1 PASS (SHARD-PT-2 launch-day); FIX-MIG PASS on prod `a65d3c9`; ATTRACT-JANK-1 CLOSED on prod `5983896` (reduced-motion path at 1.25 fps, not a load problem — levers A+B). Next code: TIER-DEFAULT-1, spun out of it: first-run tier is medium on an Intel UHD, a 5–8.6 fps menu for 3.3 s every visit until the watchdog steps it down (cap-288). Needs a lever ack, not a measurement. Also closed 08-05: HARNESS-GEO-1, BUNDLE-1, HUD-TOAST-Z-1, FIX-EMISSIVE, physics run 5/5.",
       "Hitch forensics now has evidence — cap-254–260 (build `8d96b0b`) are the first captures from a working upload path, including a Cart Rave F8 taken on a hitch. Read them before any perf knob.",
       "Still owed separately: 9-cell PERF sweep (~25 min). Resume Run 8 FAIL triage."
     ],
@@ -938,10 +938,9 @@
       {
         "title": "Engineering",
         "counts": {
-          "High": 3,
-          "Medium": 13,
-          "Low": 11,
-          "Partial": 1
+          "High": 2,
+          "Medium": 3,
+          "Low": 4
         },
         "rows": [
           {
@@ -953,7 +952,7 @@
           {
             "pri": "Medium",
             "item": "DEPLOY-STALE-HTML-1 — for a window after `npm run ship`, the live site served old HTML whose hashed assets all 404",
-            "notes": "**Observed 08-05** during the ATTRACT-JANK-1 Lever 0 deploy (`e3d4d03`, worker version `a8b05205`), while doing the AGENTS post-deploy asset check. `wrangler deploy` reported the new set (`index-CQokl0d6.js`, `diagnostics-D3vg5QKH.js`, …), but `GET /` kept returning HTML referencing the **previous** build's names (`index-Czo5o8_c.js`, `scene-QOWmxIlR.js`, `utils-4zw_Hib0.js`, …), and **6 of the 14 referenced assets returned 404** — Workers Assets serves only the current manifest, so the prior build's hashed files stop existing the moment the new one lands. A visitor loading in that window gets an HTML document whose entry chunk 404s: **blank page, no error UI, no retry**. Two fetches ~2 minutes apart were both stale; the next check was fresh and clean (0 × 404), so it self-heals — the row is about the window, not a broken deploy. **Do not assume it is HTTP caching:** the second stale fetch used a unique `?cb=` URL *and* `Cache-Control: no-cache`, which an edge cache keyed on URL could not have served, so the likelier mechanism is Worker **version propagation** lagging the asset-manifest swap at that PoP (memory note: per-PoP propagation ~30 s). Confirm which before building anything — the fixes differ completely (cache headers on the HTML vs. a client-side retry/reload on chunk-load failure vs. simply accepting it). **Why it matters now:** launch is a **public post**, i.e. the one moment when a traffic spike and a deploy are most likely to overlap, and the failure is silent — nobody who hits it will report a blank page, they will just leave. **Cheapest mitigations to weigh, in order:** (1) don't deploy near the post (process, free); (2) a `window.addEventListener(\"error\")` chunk-load-failure → one hard reload, which turns a dead page into a 1-second flicker; (3) nothing, if the window is genuinely ~30 s. AGENTS already requires the post-deploy fetch + symbol check, which is exactly what caught this — that rule is doing its job and needs no change.",
+            "notes": "**Observed 08-05** during the ATTRACT-JANK-1 Lever 0 deploy (`e3d4d03`, worker version `a8b05205`), while doing the AGENTS post-deploy asset check. `wrangler deploy` reported the new set (`index-CQokl0d6.js`, `diagnostics-D3vg5QKH.js`, …), but `GET /` kept returning HTML referencing the **previous** build's names (`index-Czo5o8_c.js`, `scene-QOWmxIlR.js`, `utils-4zw_Hib0.js`, …), and **6 of the 14 referenced assets returned 404** — Workers Assets serves only the current manifest, so the prior build's hashed files stop existing the moment the new one lands. A visitor loading in that window gets an HTML document whose entry chunk 404s: **blank page, no error UI, no retry**. Two fetches ~2 minutes apart were both stale; the next check was fresh and clean (0 × 404), so it self-heals — the row is about the window, not a broken deploy. **Do not assume it is HTTP caching:** the second stale fetch used a unique `?cb=` URL *and* `Cache-Control: no-cache`, which an edge cache keyed on URL could not have served, so the likelier mechanism is Worker **version propagation** lagging the asset-manifest swap at that PoP (memory note: per-PoP propagation ~30 s). Confirm which before building anything — the fixes differ completely (cache headers on the HTML vs. a client-side retry/reload on chunk-load failure vs. simply accepting it). **Why it matters now:** launch is a **public post**, i.e. the one moment when a traffic spike and a deploy are most likely to overlap, and the failure is silent — nobody who hits it will report a blank page, they will just leave. **Cheapest mitigations to weigh, in order:** (1) don't deploy near the post (process, free); (2) a `window.addEventListener(\"error\")` chunk-load-failure → one hard reload, which turns a dead page into a 1-second flicker; (3) nothing, if the window is genuinely ~30 s. AGENTS already requires the post-deploy fetch + symbol check, which is exactly what caught this — that rule is doing its job and needs no change. **Reproduced on the very next deploy (`5983896`, version `d5d170c6`), with a measured window:** 5 → 6 → 1 → 0 asset 404s across four checks ~15 s apart, so **~45 s** before it went clean. One of those checks found the **new** build sha already present in one asset *while another asset still 404'd* — a mixed state a URL-keyed HTTP cache cannot produce, which is direct evidence for the propagation mechanism over the caching one. Two for two on deploys, so treat it as every deploy, not a fluke.",
             "ship1": null
           },
           {
@@ -996,120 +995,6 @@
             "pri": "High",
             "item": "PERF-PASS-1 — low-end performance is worse across the board",
             "notes": "**⏸ PARKED BY WYATT 08-04 (STATUS is the authority — this row briefly said ACTIVE after the same-day unpark for Wave 3, then Wyatt parked it for HOST-TAB-1; HOST-TAB-1 has since closed PASS, so unparking is his call, evidence-first: cap-254–260 + the owed 9-cell sweep before any knob). Plan for Waves 3–4, with verified line refs and the sweep protocol: [perf-pass-1-handover.md](./perf-pass-1-handover.md) — read it before touching this card.** Wave 3 delivers a **cost menu**, not shipped cuts; no visual cut ships without Wyatt picking it. Wyatt scoped pass bar to **Cart Rave only**, mean ≤ 16.7 ms (avg 60). **Wave 1 instrument SHIPPED** (`aeb83aa`) — `meanMs`/`fps`/`over16` + CPU split per RUNNING window; gate is **PERF-INSTR-1** (one Intel Low capture, never under `?perfPump`). No visual cut without Wyatt sign-off. Deliberately no long-lived Owed seed on this parent until a cut ships. *(Older \"all three arenas\" wording below is historical context from the filing.)* <br>**Filed 08-03 from his Run 8 report**, alongside ATTRACT-JANK-1 below. Report is a felt regression on weak hardware, not a number, so this card is **measure-first and nothing else until there is a delta**: the standing rule from run-4's \"GC metronome\" error (**HARNESS-NULL-1**) is that adjacency is not attribution. **Known floor to measure against:** run 5 put the Intel UHD iGPU at LOW at **54% of frames over 33 ms** — that is the pre-existing smoothness floor, so \"bad on the Intel box\" is only evidence if it is *worse than that*. **Method:** bisect recent batches on the Intel box, **prod not dev** — dev-only probes (`__cartRavePerf.scene`, `import(\"/src/…\")`) lie in prod, and dev-server timing is not the shipped bundle. Candidate surface added since the last known-good measurement is large (Sundial god rays + hologram, the three LOAD-POSTER-1 loading scenes, octagon/holo work, FX layers), which is exactly why a bisect beats guessing. **Do not** start tuning tier knobs before a measurement — `PERF-TIER-1` and `PERF-WATCH-1` are the levers *after* attribution, not instead of it. Related: WARM-SOLO-1 (weak-GPU first-draw stalls), PROBE-WARM-RT-1.<br>**MEASURED 08-03 (Wyatt) — and the card now has a target, which it did not before.** His words: *\"all three have less than passable fps on the intel machine. i want the goal to be 60 FPS on low on the intel machine. i took an f8 cap on all three levels.\"* **That is a spec, not a bug report** — the card stops being \"is it worse?\" and becomes \"hit 60 fps at Low on the Intel UHD box in Cart Rave, Storerooms and Sundial\". Note it reframes the known floor rather than clearing it: run 5 measured that box at Low at 54% of frames over 33 ms, i.e. it has **never** held 60, so this is a perf program against an absolute bar, not a regression hunt — do not spend the budget bisecting for a culprit that may not exist. Three F8 captures exist; pull with `npm run captures:pull` and attribute before touching a single knob. **PERF-TIER-1 / PERF-WATCH-1 are levers after attribution.** **ATTRIBUTED 08-03 from his own three captures (cap-236/237/238, build `2c18057`, Intel UHD, `quality_tier: low`, solo, host).** **Read them as one session, not three** — all three are F8 presses inside a single page load, so they share one event ring and the loop counters are **cumulative**; per-capture percentages understate the last arena badly (Cart Rave reads 16.1% cumulative but **27.8%** once diffed). Diffed segments: **Sundial → Storerooms 48.9 fps avg, 10.2% of frames over 33 ms**; **Storerooms → Cart Rave 38.2 fps avg, 27.8% over 33 ms**. **Cart Rave is roughly twice as expensive as the other two** and is where the budget goes first. **Two conclusions that change the plan:** (1) **This is steady-state frame cost, not stalls** — `over66` moves by only 2 and 4 across those segments and `warmupCompile` is a healthy 141 ms / 116 materials, so warm-up, shader compile and hitching are all cleared and the levers are per-frame cost (renderScale, post chain, draw calls / overdraw), **not** warm-up work. (2) **The box is far better than its own documented floor, so there is no regression to hunt** — run 5 put it at **54%** of frames over 33 ms; it is now 10–28%. His report is still correct, but the true statement is \"it has never been 60\", not \"it got worse\", so do **not** spend the card bisecting. **Caveat:** each segment carries ~16 s and ~24 s of menu/transition, which is cheaper than gameplay, so in-arena fps is somewhat *worse* than these averages — a per-arena isolation run is the next measurement, not a knob. **And the loop only counts `over33`/`over66`, so nothing currently measures the 16.7 ms bar the target is set at** — closing that instrumentation gap is step one.",
-            "ship1": null
-          },
-          {
-            "pri": "High",
-            "item": "ATTRACT-JANK-1 — attract-mode animation reads as jank on weak machines",
-            "notes": "**Filed 08-03 from his Run 8 report**, split from PERF-PASS-1 because it has a specific and recent suspect worth checking before any general sweep. **The attract loop only started animating on 08-02.** SHOOT-ANIM-1 (`6b27283`) found `menuAttract.js` was rendering without ever updating — the live main-menu arena was frozen for every player — and added the `onAnimationTick` dep; SHOOT-ANIM-2 (`33f0d15`) then put rave dressing (stage spots, crowd bulbs) on that same loop. So the menu went from static to fully animated in one day, immediately before this report. **That makes it the first thing to measure, not the confirmed cause** — same discipline as PERF-PASS-1. **Two specifics that matter if it is the loop:** (1) the attract path deliberately runs with **no frame budget** (`frameBudgetAllow` fails closed without `beginFrameBudget` and would latch a bucket off permanently), so its per-frame cost is unbounded by design and weak machines rely entirely on the auto-quality watchdog stepping the tier down; (2) attract render cost and in-game frame delta are judged against **one shared 20.5 ms bar** (see PERF-WATCH-1), and demotion is irreversible per session — so a heavy menu can demote the tier before the player ever enters a round. Check whether the watchdog is firing at the menu on the Intel box.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "CARGO-LATCH-1 — `cargoLoad.js` carries the same round-anchor latch as FIX-DIRPAUSE",
-            "notes": "**Filed 08-04** while fixing FIX-DIRPAUSE (`e7dd92e`), and deliberately left untouched there (out of scope by instruction). Same bug class: a latch that compares against the stored round-start anchor and treats **any** change as a new round, so a pause-compensation shift (which mutates `roundStartedAtMs` and then calls a shift helper) can be read as a round boundary and re-fire the overflow announce. The directive-engine fix was to shift the latch's anchor by the same delta inside `shiftDirectiveTimersBy`; check whether the same shape applies here, and whether cargo's latch is even reachable from the solo-pause and host-tab-return paths before spending a card on it.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "COUNTDOWN-QUICKPLAY-1 — empty quickplay countdown connect-wait edge case",
-            "notes": "In empty quickplay games, countdown either waits for player connection before starting or skips part of it. Documented from F8 captures (184–196); parked in backlog per Wyatt (07-22).",
-            "ship1": null
-          },
-          {
-            "pri": "🟡 Partial",
-            "item": "NET-PERF-1 — reconcile rewind-replay cost",
-            "notes": "Caps shipped; residual if retest still rubber-bands.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "NET-PERF-3 — p2p per-message buffer copy",
-            "notes": "Only batch if F8 shows alloc pressure after NET-PERF-1.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "Host-reload mid-round live confirm",
-            "notes": "**Automated half DONE** (netharness `hostReload` / SHIP-1 A6). Residual is optional live HOST-tab feel smoke only — not blocking.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "Customize screen performance pass *(pre-ship 07-19)*",
-            "notes": "Measure before tuning.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "Countdown timer survives menu return *(pre-ship 07-19)*",
-            "notes": "Stale countdown UI on main menu.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "HARNESS-FRIENDS-1 — netharness covers quickplay-shaped joins only; friends ready-up/lobby/rematch is manual",
-            "notes": "**Filed 08-01** (audit triage). Automated MP is quickplay-path / `?room=` join (`docs/guides/netcode-harness.md` coverage gap). Friends private-room ready-up, CHECKOUT LINE lobby, and rematch stay Wyatt/manual. One scenario later: friends room → ready-up → countdown → rematch. Tooling only — does not replace **FV-WILT-1** / friends manual checks. Extends NET-SIM-1 lane.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "WARM-SOLO-1 — solo post-`carts-ready` stall (WARM-IGPU-1 residual)",
-            "notes": "Laptop A cap-206 (**solo**) took a 6.4s longtask ~1.9s after `carts-ready`, inside the countdown. WARM-IGPU-1's Lever A does **not** cover it: arena rotation is quickplay-only, and solo's flyover warm already runs inside `ensureSessionCartsReady`. Proxy evidence says the residual is driver-side first-draw cost (a 13.1s menu-warm frame carried only 235ms of attributed span time), so raising budgets will not help. Candidate mechanism worth checking first: scene content added *after* the warm pass (CSS2D nametags, cargo bays — CARGO-RACE-1's self-heal adds 18–30 meshes per cart, announcer/VFX) introduces new materials whose programs link at the first live countdown draw. **Work only on real telemetry** (`warmupSettle` / longframe spans from a weak-GPU playtester), never on speculation — no iGPU hardware available to reproduce.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "DIAG-UPLOAD-GEN-1 — the auto-capture upload continuation is not generation-guarded, so a torn-down hub can still file a bundle",
-            "notes": "**Filed 08-02**, split out of DIAG-FLAKE-2 rather than folded in, because it is a **production behaviour change** and that card was test determinism. **Mechanism:** `scheduleAutoCapture`'s timer callback checks `hubGeneration` before assembling, but `uploadAutoCapture` never re-checks it anywhere in its continuation. A hub torn down or re-installed *while the upload is in flight* still POSTs to `/api/captures`, so a bundle lands labelled against a session that no longer exists. Same family as DIAG-FLAKE-1, one layer further out: that card fixed the deferred *assembly*, this is the deferred *send*. **Why Low:** the window is the length of one upload and the bundle content is still truthful — only its session attribution is stale, so it cannot corrupt a live session, only add a confusing row to a pull. **Fix:** capture `hubGeneration` in `uploadAutoCapture` and drop the post if it moved — the same three-line shape `be350b4` used. `tests/diagnostics.test.js` already has the drain (`__drainAutoCapturesForTest`) needed to test it deterministically: schedule, let the chain start, re-install, assert nothing posts. **Do not** fix it by cancelling in-flight uploads on teardown — fire-and-forget on every axis is deliberate (evidence collection must never block the app), and an abort path is a bigger change than the bug.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "HARNESS-NULL-1 — no measurement rig has a null-control arm",
-            "notes": "Process/tooling, not behavior. Every A/B number this repo produces is currently unfalsifiable: no rig can demonstrate it reports ~0 when nothing changed, so warm-up order, run ordering and accumulated state are indistinguishable from a real effect. We have already been burned — run-4's \"GC metronome\" attribution was wrong. The pattern: add a `--null` mode that runs **both** arms with the variable disabled, making the two runs byte-for-byte the same experiment; the measured delta must then be ~0, and anything else means the rig is biased and every number it prints in normal mode is contaminated rather than caused. Candidates in rough order of value: `perf-profile.mjs`, `battery.mjs` timing steps, `gameharness.mjs --scenario soak`. Prerequisite for trusting PROBE-WARM-RT-1's program-count deltas and for any future unattended tuning loop (an overnight loop compounds instrument error across every run). Source: `ryancampbell/kart-royale` `tools/drift-bench.mjs --null`; loop framing from `karpathy/autoresearch` `program.md`.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "PROBE-WARM-RT-1 — VFX program anchors may be holding the wrong program key",
-            "notes": "Instrument-first; **no behavior claim until measured**. `outputColorSpace` and `toneMapping` are both pushed into three's program cache key (`getProgramCacheKeyParameters`) and both switch on `renderer.getRenderTarget() === null` — `outputColorSpace` unconditionally, not just for `toneMapped` materials. `compileAsync` (`main.js:2664`) binds no RT, so the anchors compile the **default-framebuffer** variant; the `composer.render()` prime (`:2679`) builds correct RT-variant keys only for what it actually *draws*, and the anchors are `visible=false` at `y=-500` (`koHitmarkerFx.js:259`, `cartShatter.js:1062` — both comments say \"render skips them\"). If that holds, the anchors' stated job (next KO is a cache hit) is defeated and the first shatter/KO/water/ram spawn links synchronously mid-round. **Measure first:** `renderer.info.programs.length` across the first KO. Fix only if it climbs — bind any non-XR RT around the anchor compile (1×1 scratch is enough; only `=== null` is tested). Making the anchors visible does *not* work: they are off-camera and cull. Pairs with WARM-SOLO-1 — same symptom class, different mechanism (that one is new content added after the warm; this one is the right content under the wrong key). Source: `ryancampbell/kart-royale` `src/core/Prewarm.ts`. **W0.1 evidence 08-03 (cap-229 @ c418bd9):** after Cart Rave play-shader settled at materials=497, a mid-round `warmupCompile` at materials=505 + **6.5 s** longtask/`warmupSettle` poll fired ~8 s into running — late program link signature consistent with RT-variant miss. Still measure-first; not in PLAYTEST-BATCH-0803 scope.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "NET-RING-1 — decode-ring reject counters (review C-03)",
-            "notes": "Instrument-first. Rejects (dup/ooo seq etc.) burn ring slots AFTER decode; `netStateBuffer` retains ring-owned cart arrays by reference (`netcode.js:1422→1434`); true margin = 96−rejects, not 32, and only bites when consumption stalls. Count rejects-since-oldest-buffered; the copy-into-pooled-record fix only if counters show real traffic.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "PERF-WATCH-1 — auto-quality step-up path",
-            "notes": "Watchdog demotion is irreversible per session (no step-up anywhere; DEV-only warn; 2 tier steps + 2 renderScale steps; attract render-cost and game frame-delta both judged against one 20.5ms bar). Decide after WARM-IGPU-1 P0b telemetry shows how often it bites.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "PERF-TIER-1 — `high-lite` tier rung",
-            "notes": "`DISCRETE_GPU_RE` puts a 1660 Ti in the same discrete→High bucket as a 4090; High→Medium cuts 4 knobs at once (DPR 2→1.25, reflector off, crowd, lasers). Blocked on HYGIENE-1's `--dpr` profiling — tier table may be tuned against an inverted ranking (512px reflector is DPR-invariant; full-screen cost ×4 at DPR 2).",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "`structuredClone` → flat serializer in `party/index.ts`",
-            "notes": "Only after profiling shows it matters.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "Persistent leaderboard / player stats `[SHIP-1 D2]`",
-            "notes": "Needs TRUST-1.",
-            "ship1": "D2"
-          },
-          {
-            "pri": "Low",
-            "item": "Quickplay rotation live 2-browser check",
-            "notes": "Reconfirm after **QP-ORDER-1** (sequential rotation). Live multi-client smoke only.",
             "ship1": null
           }
         ]
