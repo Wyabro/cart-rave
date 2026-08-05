@@ -69,12 +69,12 @@ Live rows only. Shipped and closed cards live in
 | FIX-EMISSIVE | Non-patterned carts read blown out on Classic | ⛔ **ABORTED 08-04 — approved design invalidated, needs re-ack.** See Open issues. |
 | FIX-MIG | Quickplay host-migration visibility + continuous-policy tests | 📋 next wave, scoped — see Open issues. |
 | PERF-PASS-1 | 60 fps at Low on the Intel box — **Cart Rave only** (Wyatt scoped it 08-03) | ⏸ **PARKED BY WYATT 08-04 for HOST-TAB-1.** Wave 4 remains deployed (`b754e12`, Worker `9b8b1fbe`); honest measured range −1.66 to −2.54 ms and includes +0.55. Card remains open at ~46 fps; every future cell needs an A-B-A bracket on a cooled box. Menu + evidence: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md). |
-| BUNDLE-1 | Menu/game code-split | ⚠️ **CLOSED PARTIAL 08-05 — perf goal NOT met. Deployed `f2f90fd2`.** Warm `menu-ready` 988 → 958 ms (−3% vs a −15% gate); `module-eval` 472 → 502. Banked: a `size:check` byte gate, `main.js` 2,582 → 1,262 lines, −351,503 B (−22.6%) off the initial set — **cold** visits only. [bundle-1.md §0](./planning/bundle-1.md) |
+| BUNDLE-1 | Menu/game code-split | ⚠️ **CLOSED PARTIAL 08-05 — perf goal NOT met. Deployed `f2f90fd2`.** Warm `menu-ready` 988 → 958 ms (−3% vs a −15% gate); `module-eval` 472 → 502. Banked: a `size:check` byte gate, `main.js` 2,582 → 1,262 lines, −351,503 B (−22.6%) off the initial set — **cold** visits only. **Lever E playtested 08-05: BUNDLE-E-PT-1 PASS 6/6 incl. the two-machine friends round — the deferred-callback seam is proven live, no correctness residual.** [bundle-1.md §0](./planning/bundle-1.md) |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 
 ### Next actions
 
-1. **Pick the next card** — BUNDLE-1 closed partial, deployed. Competing: **HARNESS-GEO-1** (battery 5/6 on a proven-bogus check; gates `release:check`), FIX-EMISSIVE re-ack, or FIX-MIG. Wyatt's call.
+1. **Pick the next card.** BUNDLE-1 closed partial + deployed, and BUNDLE-E-PT-1 passed 6/6, so nothing is mid-flight. **HARNESS-GEO-1 is no longer a candidate — it closed 08-05** (`fde8d10` gated the soak on min per-cycle delta; `0b7f265` recorded the x10 table). Competing now: **STORE-PLAT-WALL-1** (the only High that is a live gameplay-correctness bug — Storerooms platform walls have no colliders, carts ghost into the void by the pit; known mechanism, named fix site), **FIX-EMISSIVE** re-ack (needs Wyatt to pick retry (a) or (b)), **FIX-MIG**, or the new **HUD-TOAST-Z-1**. Wyatt's call.
 2. **Hitch forensics now has evidence** — cap-254–260 (build `8d96b0b`) are the first captures from a working upload path, including a Cart Rave F8 taken on a hitch. Read them before any perf knob.
 3. **Still owed separately:** 9-cell PERF sweep (~25 min). Resume Run 8 FAIL triage.
 
@@ -127,7 +127,14 @@ The hot set — what a current session is likely to hit. Deep-domain and narrow 
 
 ## Last updated
 
-2026-08-05 (BUNDLE-1 CLOSED PARTIAL, **not deployed**) — six levers, perf goal missed, byte
+2026-08-05 (BUNDLE-E-PT-1 PASS) — Lever E's deferred-callback seam playtested on prod `f2f90fd2`,
+6/6 incl. the two-machine friends round. That seam fails **silent**, so the human pass is the only
+evidence KO effects / announcer / directives / cargo / colours survived the split — the unit test
+proves key parity, nothing more. No correctness residual on BUNDLE-1's partial close. Also: Wyatt's
+**one-issue-per-playtest-card** rule adopted (AGENTS.md + BACKLOG seed header; enforcement =
+PT-CARD-SPLIT-1), **HUD-TOAST-Z-1** filed, fragile-tag audit rewrote `boot-and-orchestration`.
+
+2026-08-05 (BUNDLE-1 CLOSED PARTIAL, **deployed `f2f90fd2`**) — six levers, perf goal missed, byte
 hypothesis falsified; `size:check` membership re-keyed on modules. [bundle-1.md §0](./planning/bundle-1.md)
 
 2026-08-04 (MAIN-1 CLOSED) — §8 seam check 9/9, residual-fix retest 7/7, both Wyatt PASS.
@@ -163,41 +170,5 @@ only when that pump never ticks. At 10s hidden, a multiplayer host asks the DO t
 best other live human; foreground humans trigger a margin-20 preferred-host check. Both mid-round
 paths share a 5s room cooldown and the existing `host_migrated` handoff.
 
-2026-08-03 (STATUS-TRIM-1) — STATUS.md was at 4,197 of a 4,200 budget, so every card paid a
-shaving tax before it could write anything down. **The reporter's "blind spot" is in its advice,
-not its measurement** — `status-size.mjs` counts the whole file; it just can only ever suggest
-cutting *dated* blocks, which is why it said "nothing safe to archive" while 82% of the weight sat
-in undated sections. Measured first, then cut where the weight was: 08-02 dated window archived,
-five deep-domain gotchas moved to [reference/gotchas.md](./reference/gotchas.md), Decision index
-compressed to true one-liners, duplicated Sundial narrative dropped, and five `### Do not` bullets
-that restated AGENTS.md replaced by one pointer. **4,197 → 3,215 tokens.** **Two near-misses:** the
-Decision index's "full text in the 07 log" was false — that log ends 07-23 and STATUS was the only
-copy of all seven live entries; and the "six of eleven Wave 6 items were misdiagnosed" warning
-existed nowhere else. Both archived before cutting. **A pointer claiming content is archived is not
-evidence that it is.**
-
-2026-08-03 (AGENTS-PRIN-1) — AGENTS.md governed behaviour *around* the code and said nothing
-about the code; that gap is why fixes accrete flags, shims and "temporary" paths. Six falsifiable
-rules now live in `## ENGINEERING PRINCIPLES` (principle 1 needs its three carve-outs or it fights
-the naming freeze). A mechanically-qualified **fast lane** drops the wave doc, playtest checklist
-and per-lever STATUS edit — **ack deliberately kept**; DoD amended to match. Its auto-DQ list
-means most gameplay fixes still pay full tax: **the principles are the lever, not the gear
-change.** Paid for by moving ~62 lines of hook internals to
-[guides/hook-enforcement.md](./guides/hook-enforcement.md). **Two limits:** `archRender` reads
-only four AGENTS sections, so the principles reach neither ARCHITECTURE.json nor BRIEFING; and
-`parseListItems` is line-based, so every `execution_loop` bullet is truncated to its first source
-line (the fast lane's was written to survive that).
-
-2026-08-03 (ROUND-WEDGE-1 Phase B code) — Client breaker for undamped podium⇄running re-entry:
-`podiumEndLatch` (MAX_END_SENDS=2, PODIUM_END_RETRY_MS=150), host-only reject arm, clear on
-lobby/countdown/rematch. Unit: `tests/podiumEndLatch.test.js` (8). **cap-217 still open** until
-playtest. Gates: see commit message.
-
-2026-08-03 (TOOL-HYGIENE-1) — HOOK-INDEX-1: post-commit clears staged generated docs when
-index blob ≠ HEAD (before dashboard). BRIEF-DIGEST-1: template fingerprint in digest + embed.
-STOP-DIRT-1 BACKLOG row retired (code already session-scoped). All three rows closed.
-
-> **Older entries are archived** — 08-02 in
-> [status-log-2026-08-02.md](./archive/status-log-2026-08-02.md), earlier windows indexed in
-> [archive/README.md](./archive/README.md).
-> History, not current truth — `git log` and the code are authoritative.
+2026-08-03 (4 entries: STATUS-TRIM-1 · AGENTS-PRIN-1 · ROUND-WEDGE-1 Phase B · TOOL-HYGIENE-1)
+— archived to [status-log-2026-08-03.md](./archive/status-log-2026-08-03.md).

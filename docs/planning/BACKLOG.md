@@ -153,7 +153,8 @@ Console: `npm run dashboard` → playtest console. Mark closed by rewriting Note
 
 Finished and removed from this list: **FV-FRIENDS-1**, **FV-REMATCH-1** (PASS 08-02),
 **HOST-TAB-1** · **FX-TIME-1** · **SHADOW-ORDER-1** (PASS 08-04 — 3/3, no FAIL),
-**MAIN-1** (both passes 08-04). **Run 8 (08-03), 15 PASS, all removed:** CAM-READY-1 ·
+**MAIN-1** (both passes 08-04), **BUNDLE-E-PT-1** (PASS 08-05, 6/6 — the deferred-callback seam
+is proven live on prod). **Run 8 (08-03), 15 PASS, all removed:** CAM-READY-1 ·
 CC-PT-1 · FV-BOOT-1 · FV-HUD-1 · FV-LOAD-1 · FV-SILVER-1 · LOAD-POSTER-1 · PIT-PT-1 ·
 RESULTS-ACT-1 · ROUND-WEDGE-1 · SHADOW-TILT-1 · SOLO-PT-1 · SUNDIAL-PT-1 · UNLOCK-PT-1 ·
 UNLOCK-TOAST-1. **Also retired from BACKLOG 08-04 (✅ → completed-work):** PERF-INSTR-1 ·
@@ -165,7 +166,6 @@ console every regeneration and got re-run. The export now says so out loud.
 
 | Pri | Item | Notes |
 |-----|------|-------|
-| High | BUNDLE-E-PT-1 — the game still feels right after the code-split `[2pc]` | **Owed: Wyatt playtest — BUNDLE-E-PT-1 — nothing went quiet after the big rewiring.** The last change moved a dozen internal hooks onto a new pathway — KO effects, announcer lines, directives, cargo, cart colours. Automated tests all pass, but they cannot hear a sound or see a spark, and a broken hook here goes **silent** rather than crashing. Nothing here is expected to be broken; this is the check that would catch it if it were. DEPLOYED · Worker `f2f90fd2` · hard-refresh https://cart-rave.wyabro.workers.dev first.<br>1. Solo round: KO a few shoppers. Each KO should look and sound like it always has — the hit spark, the sound, the announcer reacting. A KO that lands silently or with no spark is the thing to catch.<br>2. Directives: play until a store directive fires. It should announce, show its chip, count down, and actually change how the round plays. Then open ESC mid-directive and resume — it must not fire again or restart its timer.<br>3. Cargo: fill up and get rammed. Cargo should spill, the bay should empty, and the weight should come back off your handling.<br>4. Cart colours: check your own cart and the AI carts look right, and that colours are still right after a rematch.<br>5. Friends round with the other machine: both drive, both see each other's KOs and effects, round completes to podium. Anything that works solo but goes quiet in multiplayer is exactly the failure shape here.<br>6. Whole round end-to-end: podium, PLAY AGAIN, fresh round, music and announcer still behaving. |
 | Low | AQ-RING-CLEAR-1 — autoQuality clear sample ring on every window eval | **Reserve only** if Wave 2 entry grace still demotes on retest. Comment in autoQuality.js already notes the ring can poison up to 3 windows. Own commit if needed; not in main batch path. |
 
 ## UI / UX

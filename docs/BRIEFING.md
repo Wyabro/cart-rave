@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-05 at commit `e161296` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `9d51a4d4`
+> Generated 2026-08-05 at commit `4f7f02a` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `5d4c9193`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -18,7 +18,7 @@ Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep a
 
 ## ACTIVE CARD
 
-Pick the next card — BUNDLE-1 closed partial, deployed. Competing: HARNESS-GEO-1 (battery 5/6 on a proven-bogus check; gates `release:check`), FIX-EMISSIVE re-ack, or FIX-MIG. Wyatt's call
+Pick the next card. BUNDLE-1 closed partial + deployed, and BUNDLE-E-PT-1 passed 6/6, so nothing is mid-flight. HARNESS-GEO-1 is no longer a candidate — it closed 08-05 (`fde8d10` gated the soak on min per-cycle delta; `0b7f265` recorded the x10 table). Competing now: STORE-PLAT-WALL-1 (the only High that is a live gameplay-correctness bug — Storerooms platform walls have no colliders, carts ghost into the void by the pit; known mechanism, named fix site), FIX-EMISSIVE re-ack (needs Wyatt to pick retry (a) or (b)), FIX-MIG, or the new HUD-TOAST-Z-1. Wyatt's call
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 

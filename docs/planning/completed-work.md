@@ -2,7 +2,7 @@
 
 > Historical log. Past entries may still say "Cart Rave" / `next-level` — that is intentional. Living naming rules: [brand.md](../brand.md).
 
-**Last Updated:** August 4, 2026
+**Last Updated:** August 5, 2026
 
 > **This doc = the past** — the single home for historical/completed items. For what works
 > *today* see [project-state.md](./project-state.md); for forward plans see [ROADMAP.md](./ROADMAP.md).
@@ -12,6 +12,31 @@ Chronological record of shipped work, newest first.
 > **Convention:** As items ship, move their completed writeup here (out of ROADMAP.md / project-state.md).
 
 ---
+
+### August 5, 2026 — BUNDLE-E-PT-1 PASS: the deferred-callback seam is proven live
+
+**6/6, no FAIL, on prod Worker `f2f90fd2`.** This was the human half of BUNDLE-1 Lever E, and the
+only half that could ever have caught the failure it was written for. Lever E moved twelve netcode
+entry points off static imports onto the `registerGameCallbacks` table supplied through
+`buildNetcodeGameBridge` — KO reactors, announcer, directives, cargo spill, cart material updates.
+**That seam does not crash when it breaks; it goes quiet**, so `tests/netcodeDeferredCallbacks.test.js`
+(key parity + same-name delegation on both sides) proves the wiring exists while proving nothing
+about whether a KO still sparks. Wyatt's pass covers what the test cannot hear or see:
+
+- *(Playtest · High)* **BUNDLE-E-PT-1** — ✅ Wyatt PASS 08-05, all six steps. KO spark + sound +
+  announcer reaction intact; a directive fired, announced, counted down and changed play, and
+  survived an ESC mid-window without re-firing (**FIX-DIRPAUSE still holds after the code-split**);
+  cargo spilled, the bay emptied and the weight came back off handling; own and AI cart colours
+  correct and still correct after a rematch; **friends round on the second machine — both drove,
+  both saw each other's KOs and effects, round completed to podium**, which is the case where a
+  dead hook would have shown up as silence rather than an error; full round → podium → PLAY AGAIN →
+  fresh round with music and announcer behaving.
+
+So Lever E is clean on both planes and BUNDLE-1's partial close (perf goal missed, bytes banked)
+carries no correctness residual. **Process note:** this card was seeded before the one-issue-per-card
+rule landed (`18dbef0`) and is exactly the shape that rule now forbids — six independently
+falsifiable checks on one id. It passed 6/6 so nothing was lost, but under the new rule it would
+seed as six cards.
 
 ### August 4, 2026 — BACKLOG ✅ retire (25 checked rows + stale MAIN-1 pointer)
 

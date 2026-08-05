@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-05T03:37:37.908Z",
-    "commit": "18dbef0"
+    "at": "2026-08-05T03:47:48.560Z",
+    "commit": "4f7f02a"
   },
-  "source_digest": "87e489e0",
+  "source_digest": "149a0b51",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -875,7 +875,7 @@
       {
         "id": "BUNDLE-1",
         "what": "Menu/game code-split",
-        "status": "⚠️ CLOSED PARTIAL 08-05 — perf goal NOT met. Deployed `f2f90fd2`. Warm `menu-ready` 988 → 958 ms (−3% vs a −15% gate); `module-eval` 472 → 502. Banked: a `size:check` byte gate, `main.js` 2,582 → 1,262 lines, −351,503 B (−22.6%) off the initial set — cold visits only. [bundle-1.md §0](./planning/bundle-1.md)",
+        "status": "⚠️ CLOSED PARTIAL 08-05 — perf goal NOT met. Deployed `f2f90fd2`. Warm `menu-ready` 988 → 958 ms (−3% vs a −15% gate); `module-eval` 472 → 502. Banked: a `size:check` byte gate, `main.js` 2,582 → 1,262 lines, −351,503 B (−22.6%) off the initial set — cold visits only. Lever E playtested 08-05: BUNDLE-E-PT-1 PASS 6/6 incl. the two-machine friends round — the deferred-callback seam is proven live, no correctness residual. [bundle-1.md §0](./planning/bundle-1.md)",
         "state": "waiting",
         "touches_systems": [
           {
@@ -895,7 +895,7 @@
       }
     ],
     "next_actions": [
-      "Pick the next card — BUNDLE-1 closed partial, deployed. Competing: HARNESS-GEO-1 (battery 5/6 on a proven-bogus check; gates `release:check`), FIX-EMISSIVE re-ack, or FIX-MIG. Wyatt's call.",
+      "Pick the next card. BUNDLE-1 closed partial + deployed, and BUNDLE-E-PT-1 passed 6/6, so nothing is mid-flight. HARNESS-GEO-1 is no longer a candidate — it closed 08-05 (`fde8d10` gated the soak on min per-cycle delta; `0b7f265` recorded the x10 table). Competing now: STORE-PLAT-WALL-1 (the only High that is a live gameplay-correctness bug — Storerooms platform walls have no colliders, carts ghost into the void by the pit; known mechanism, named fix site), FIX-EMISSIVE re-ack (needs Wyatt to pick retry (a) or (b)), FIX-MIG, or the new HUD-TOAST-Z-1. Wyatt's call.",
       "Hitch forensics now has evidence — cap-254–260 (build `8d96b0b`) are the first captures from a working upload path, including a Cart Rave F8 taken on a hitch. Read them before any perf knob.",
       "Still owed separately: 9-cell PERF sweep (~25 min). Resume Run 8 FAIL triage."
     ],
@@ -1312,16 +1312,9 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "High": 1,
           "Low": 1
         },
         "rows": [
-          {
-            "pri": "High",
-            "item": "BUNDLE-E-PT-1 — the game still feels right after the code-split `[2pc]`",
-            "notes": "**Owed: Wyatt playtest — BUNDLE-E-PT-1 — nothing went quiet after the big rewiring.** The last change moved a dozen internal hooks onto a new pathway — KO effects, announcer lines, directives, cargo, cart colours. Automated tests all pass, but they cannot hear a sound or see a spark, and a broken hook here goes **silent** rather than crashing. Nothing here is expected to be broken; this is the check that would catch it if it were. DEPLOYED · Worker `f2f90fd2` · hard-refresh https://cart-rave.wyabro.workers.dev first.<br>1. Solo round: KO a few shoppers. Each KO should look and sound like it always has — the hit spark, the sound, the announcer reacting. A KO that lands silently or with no spark is the thing to catch.<br>2. Directives: play until a store directive fires. It should announce, show its chip, count down, and actually change how the round plays. Then open ESC mid-directive and resume — it must not fire again or restart its timer.<br>3. Cargo: fill up and get rammed. Cargo should spill, the bay should empty, and the weight should come back off your handling.<br>4. Cart colours: check your own cart and the AI carts look right, and that colours are still right after a rematch.<br>5. Friends round with the other machine: both drive, both see each other's KOs and effects, round completes to podium. Anything that works solo but goes quiet in multiplayer is exactly the failure shape here.<br>6. Whole round end-to-end: podium, PLAY AGAIN, fresh round, music and announcer still behaving.",
-            "ship1": null
-          },
           {
             "pri": "Low",
             "item": "AQ-RING-CLEAR-1 — autoQuality clear sample ring on every window eval",
