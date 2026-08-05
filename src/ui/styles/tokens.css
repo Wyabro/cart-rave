@@ -22,6 +22,14 @@
 @property --wash-b-c { syntax: "<number>"; inherits: true; initial-value: 0.14; }
 @property --wash-b-h { syntax: "<number>"; inherits: true; initial-value: 209; }
 
+/* UI-SCALE-1 — single fluid root scale. rem bounds respect browser font-size.
+   min(vw, svh): 16:9 crossover; ultrawide height-binds. svh not dvh so mobile
+   chrome show/hide does not reflow the whole UI. Floor 0.75 is a tunable knob
+   (may rise to ~0.85 if 1366 contact sheet fails legibility). */
+html {
+  font-size: clamp(0.75rem, min(0.84vw, 1.5svh), 1rem);
+}
+
 :root {
   /* Typography */
   --ui: "Russo One", sans-serif;
@@ -114,26 +122,27 @@
   --transition-interactive: all 150ms ease;
   --transition-scale-hover: transform 150ms, background 150ms, border-color 150ms;
 
-  /* Fluid Spacing */
-  --space-xs: clamp(4px, 0.8vw, 6px);
-  --space-sm: clamp(6px, 1vw, 8px);
-  --space-md: clamp(8px, 1.2vw, 10px);
-  --space-lg: clamp(10px, 1.5vw, 12px);
-  --space-xl: clamp(12px, 1.8vw, 14px);
-  --space-2xl: clamp(14px, 2vw, 16px);
-  --space-3xl: clamp(16px, 2.5vw, 18px);
-  --space-4xl: clamp(20px, 3vw, 24px);
-  --gap-section: clamp(16px, 2.5vw, 24px);
-  --gap-controls: clamp(10px, 1.5vw, 14px);
-  --gap-buttons: clamp(8px, 1.2vw, 12px);
+  /* Spacing — rem constants from former clamp max (UI-SCALE-1). Root scale
+     supplies mid-range shrink; do not reintroduce per-token vw clamps. */
+  --space-xs: 0.375rem;   /* was clamp max 6px */
+  --space-sm: 0.5rem;     /* 8px */
+  --space-md: 0.625rem;   /* 10px */
+  --space-lg: 0.75rem;    /* 12px */
+  --space-xl: 0.875rem;   /* 14px */
+  --space-2xl: 1rem;      /* 16px */
+  --space-3xl: 1.125rem;  /* 18px */
+  --space-4xl: 1.5rem;    /* 24px */
+  --gap-section: 1.5rem;  /* 24px */
+  --gap-controls: 0.875rem; /* 14px */
+  --gap-buttons: 0.75rem; /* 12px */
 
-  /* Fluid Padding */
-  --pad-btn: clamp(10px, 1.5vw, 14px) clamp(16px, 3vw, 24px);
-  --pad-card: clamp(14px, 2vw, 18px) clamp(14px, 2vw, 18px) clamp(12px, 1.5vw, 16px);
-  --pad-panel: clamp(12px, 1.5vw, 14px) clamp(14px, 2vw, 16px) clamp(14px, 2vw, 16px);
-  --pad-audio: clamp(8px, 1vw, 10px) clamp(12px, 1.5vw, 14px);
-  --pad-copy-btn: clamp(8px, 1vw, 10px) clamp(14px, 2vw, 18px);
-  --pad-content: clamp(20px, 4vw, 48px) clamp(24px, 5vw, 56px);
+  /* Padding — rem constants from former clamp max (UI-SCALE-1) */
+  --pad-btn: 0.875rem 1.5rem;           /* 14px 24px */
+  --pad-card: 1.125rem 1.125rem 1rem;   /* 18px 18px 16px */
+  --pad-panel: 0.875rem 1rem 1rem;      /* 14px 16px 16px */
+  --pad-audio: 0.625rem 0.875rem;       /* 10px 14px */
+  --pad-copy-btn: 0.625rem 1.125rem;    /* 10px 18px */
+  --pad-content: 3rem 3.5rem;           /* 48px 56px */
 
   /* Radii */
   --radius-pill: 999px;
