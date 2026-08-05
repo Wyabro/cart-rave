@@ -3215,9 +3215,9 @@ html, body {
   font-size: clamp(68px, min(10.94vw, 16.8vh), 170px);
   line-height: 0.78;
   letter-spacing: 0;
-  /* Glow only: the ink die-cut stroke that .cr-title carries is retired here. */
-  -webkit-text-stroke: 0;
-  paint-order: normal;
+  /* MENU-LOGO-1a: sticker lettering — ink die-cut stroke + fill (HUD peel recipe). */
+  -webkit-text-stroke: 0.032em var(--color-ink-deep);
+  paint-order: stroke fill;
   /* The beat pulse arrives as a scalar custom property (animLoop). NOTHING may
      write `transform` on this node — an inline transform wipes the -4deg lean,
      which is exactly how the lockup lost it (the rAF write set `scale()`). */
@@ -3225,15 +3225,21 @@ html, body {
   /* MENU-RESTRAINT-1d: bottom was clamp(20px, 4.8vh, 52px) — pull cmds closer. */
   margin: clamp(8px, 1.9vh, 20px) 0 clamp(12px, 3.2vh, 36px);
 }
-/* MENU-RESTRAINT-1e: hard ink extrude only — soft magenta bloom retired. */
+/* MENU-LOGO-1a: 2-step hard ink extrude (zero blur). Soft bloom stays retired. */
 .cr-hero .cr-title-stack .cr-title-word:nth-child(1) {
   color: var(--color-sticker-white);
-  text-shadow: 4px 4px 0 var(--color-ink-deep);
+  text-shadow:
+    3px 3px 0 var(--color-ink-deep),
+    6px 6px 0 var(--color-ink-deep);
 }
 .cr-hero .cr-title-stack .cr-title-word:nth-child(2) {
   color: var(--color-magenta);
-  text-shadow: 4px 4px 0 var(--color-ink-deep);
+  text-shadow:
+    3px 3px 0 var(--color-ink-deep),
+    6px 6px 0 var(--color-ink-deep);
   margin-top: -0.06em;
+  /* Stack isn’t dead-centered twins — CLASH slips left a hair. */
+  margin-left: -0.03em;
 }
 
 /* ── Command list — skewed rows; yellow = selection only (never permanent CTA).
