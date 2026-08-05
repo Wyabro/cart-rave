@@ -66,6 +66,7 @@ Live rows only. Shipped and closed cards live in
 
 | # | What | Status |
 |---|------|--------|
+| **STORE-PLAT-WALL-1** | **Storerooms void/platform walls are visual-only** | ▶ **ACTIVE — Wyatt named it 08-05.** Not planned yet. Rails/dividers/wall faces on the spawn platforms have no Rapier colliders; only the deck cuboid is created in `buildBackroomsBooths` ([backroomsSupermarket.js:3264](../src/levels/backroomsSupermarket.js:3264)). Carts ghost through geometry that reads solid, next to the pit — a fall/KO fairness bug. [BACKLOG § Engineering](./planning/BACKLOG.md). |
 | FIX-EMISSIVE | Non-patterned carts read blown out on Classic | ⛔ **ABORTED 08-04 — approved design invalidated, needs re-ack.** See Open issues. |
 | FIX-MIG | Quickplay host-migration visibility + continuous-policy tests | 📋 next wave, scoped — see Open issues. |
 | PERF-PASS-1 | 60 fps at Low on the Intel box — **Cart Rave only** (Wyatt scoped it 08-03) | ⏸ **PARKED BY WYATT 08-04 for HOST-TAB-1.** Wave 4 remains deployed (`b754e12`, Worker `9b8b1fbe`); honest measured range −1.66 to −2.54 ms and includes +0.55. Card remains open at ~46 fps; every future cell needs an A-B-A bracket on a cooled box. Menu + evidence: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md). |
