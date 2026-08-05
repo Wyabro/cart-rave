@@ -14,7 +14,7 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync, utimesSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { analyzeInitialSet, compareToBaseline, strippedKey } from "../tools/bundle-budget.mjs";
+import { analyzeInitialSet, compareToBaseline, entryFamilyKeys, strippedKey } from "../tools/bundle-budget.mjs";
 
 const TOOL = resolve(import.meta.dirname, "../tools/bundle-budget.mjs");
 const scratch = mkdtempSync(join(tmpdir(), "cart-clash-bundlebudget-"));
@@ -130,6 +130,91 @@ describe("compareToBaseline", () => {
     expect(r.left).toEqual(["three"]);
     expect(r.entered).toEqual([]);
     expect(r.failed).toBe(false);
+  });
+});
+
+/**
+ * BUNDLE-1 Lever F. `size:check` red-gated twice on a benign rolldown re-split of the ENTRY
+ * chunk — once as `gamepadNav` (Lever C), once as `errorReporter`/`sfxSynth`/`animations`/
+ * `koEvent` (Lever E) — because membership was keyed on chunk NAMES. Membership now keys on
+ * MODULES via dist/.chunk-manifest.json. Both directions are asserted here: the benign rename
+ * must pass, and a genuinely deferred module coming back must still fail.
+ */
+describe("entry-family re-split vs. real re-eagering", () => {
+  const HTML_TWO = `<!DOCTYPE html><html><head>
+    <script type="module" src="./assets/index-AAAAAAAA.js"></script>
+    <link rel="modulepreload" href="./assets/errorReporter-BBBBBBBB.js">
+    <link rel="modulepreload" href="./assets/three-CsDqmm-5.js">
+  </head></html>`;
+  const SIZES_TWO = {
+    "assets/index-AAAAAAAA.js": { raw: 200_000, gzip: 60_000 },
+    "assets/errorReporter-BBBBBBBB.js": { raw: 390_000, gzip: 130_000 },
+    "assets/three-CsDqmm-5.js": { raw: 400_000, gzip: 100_000 },
+  };
+  /** The pre-split baseline: one `index` chunk holding both halves of the entry code. */
+  const baseline = {
+    initialSet: { raw: 1_000_000, gzip: 300_000 },
+    entryFamily: { keys: ["index"], raw: 600_000, gzip: 200_000 },
+    chunks: { index: { raw: 600_000, gzip: 200_000 }, three: { raw: 400_000, gzip: 100_000 } },
+    deferredModules: ["src/effects.js", "src/simulation.js", "src/hud.js"],
+  };
+
+  it("passes a rename/re-split of the entry chunk — new name, no deferred module", () => {
+    const analysis = analyzeInitialSet(HTML_TWO, SIZES_TWO, {
+      "assets/index-AAAAAAAA.js": ["src/main.js", "index.html"],
+      "assets/errorReporter-BBBBBBBB.js": ["src/errorReporter.js", "src/netcode.js"],
+      "assets/three-CsDqmm-5.js": ["node_modules/three/build/three.core.js"],
+    });
+    const r = compareToBaseline(analysis, baseline);
+    expect(r.entered).toEqual([]);
+    expect(r.rejoinedFamily).toEqual(["errorReporter"]);
+    expect(r.enteredModules).toEqual([]);
+    expect(r.failed).toBe(false);
+    // * The family is compared as one total, so the split is legible as a byte delta.
+    expect(r.familyRaw).toBe(590_000);
+    expect(r.familyBaseRaw).toBe(600_000);
+    expect([...entryFamilyKeys(analysis, baseline)].sort()).toEqual(["errorReporter", "index"]);
+  });
+
+  it("FAILS when a deferred module is re-eagered, even hidden inside the renamed entry family", () => {
+    // * The regression drill: a static `import "./effects.js"` back in main.js. No NEW chunk
+    // * name appears at all — the module just lands in the entry family — so only the module
+    // * signal can catch it.
+    const analysis = analyzeInitialSet(HTML_TWO, SIZES_TWO, {
+      "assets/index-AAAAAAAA.js": ["src/main.js", "index.html"],
+      "assets/errorReporter-BBBBBBBB.js": ["src/errorReporter.js", "src/netcode.js", "src/effects.js"],
+      "assets/three-CsDqmm-5.js": ["node_modules/three/build/three.core.js"],
+    });
+    const r = compareToBaseline(analysis, baseline);
+    expect(r.enteredModules).toEqual([{ module: "src/effects.js", key: "errorReporter" }]);
+    expect(r.failed).toBe(true);
+    // * …and the chunk it re-entered through is excluded from the family, so it is named too.
+    expect(r.entered).toEqual(["errorReporter"]);
+  });
+
+  it("FAILS when a deferred chunk re-enters the preload set under its own name", () => {
+    const html = HTML_TWO.replace("</head>", `<link rel="modulepreload" href="./assets/hud-CCCCCCCC.js"></head>`);
+    const analysis = analyzeInitialSet(html, { ...SIZES_TWO, "assets/hud-CCCCCCCC.js": { raw: 5_000, gzip: 1_500 } }, {
+      "assets/index-AAAAAAAA.js": ["src/main.js"],
+      "assets/errorReporter-BBBBBBBB.js": ["src/errorReporter.js"],
+      "assets/three-CsDqmm-5.js": ["node_modules/three/build/three.core.js"],
+      "assets/hud-CCCCCCCC.js": ["src/hud.js"],
+    });
+    const r = compareToBaseline(analysis, baseline);
+    expect(r.overBudget).toBe(false);
+    expect(r.entered).toEqual(["hud"]);
+    expect(r.enteredModules.map((m) => m.module)).toEqual(["src/hud.js"]);
+    expect(r.failed).toBe(true);
+  });
+
+  it("falls back to the chunk-name rule when no manifest is available", () => {
+    // * An old dist with no .chunk-manifest.json must still gate — conservatively, which means
+    // * the rename false positive returns rather than the guard silently going quiet.
+    const analysis = analyzeInitialSet(HTML_TWO, SIZES_TWO);
+    const r = compareToBaseline(analysis, baseline);
+    expect(r.enteredModules).toEqual([]);
+    expect(r.entered).toEqual(["errorReporter"]);
+    expect(r.failed).toBe(true);
   });
 });
 
