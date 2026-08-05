@@ -14,6 +14,7 @@ import {
   applyCartState,
   resetClientPredictionState,
   serializeCartToWire,
+  slotsFingerprint,
 } from "../src/netcode.js";
 import { resetReconciliationState } from "../src/gameLoop.js";
 import { CONFIG } from "../src/config.js";
@@ -372,6 +373,44 @@ describe("host input jitter ackSeq (apply, not receive)", () => {
       9,
     );
     expect(hooks.getRemoteInputQueueLength("alive")).toBe(1);
+  });
+});
+
+describe("SLOTS-JSON-1 slotsFingerprint", () => {
+  const base = {
+    slotId: 0,
+    kind: "human",
+    connId: "a",
+    name: "P1",
+    color: "pink",
+    lookHex: 0xff00ff,
+    isReady: false,
+    isPlayReady: false,
+  };
+
+  it("matches equal wire slots", () => {
+    expect(slotsFingerprint([base])).toBe(slotsFingerprint([{ ...base }]));
+  });
+
+  it("changes when isReady flips (lobby arm)", () => {
+    const a = slotsFingerprint([base]);
+    const b = slotsFingerprint([{ ...base, isReady: true }]);
+    expect(a).not.toBe(b);
+  });
+
+  it("changes when isPlayReady flips", () => {
+    const a = slotsFingerprint([base]);
+    const b = slotsFingerprint([{ ...base, isPlayReady: true }]);
+    expect(a).not.toBe(b);
+  });
+
+  it("changes for color / lookHex / kind / name / connId", () => {
+    const a = slotsFingerprint([base]);
+    expect(slotsFingerprint([{ ...base, color: "blue" }])).not.toBe(a);
+    expect(slotsFingerprint([{ ...base, lookHex: 1 }])).not.toBe(a);
+    expect(slotsFingerprint([{ ...base, kind: "npc" }])).not.toBe(a);
+    expect(slotsFingerprint([{ ...base, name: "X" }])).not.toBe(a);
+    expect(slotsFingerprint([{ ...base, connId: "b" }])).not.toBe(a);
   });
 });
 

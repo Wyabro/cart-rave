@@ -207,10 +207,39 @@ let resetSimTimingRef = null;
 let doRespawnRef = null;
 
 let netSlots = [];
-let lastSlotsJson = "";
+/** SLOTS-JSON-1: fingerprint of last applied slots (not JSON.stringify). */
+let lastSlotsFingerprint = "";
 let lastSlotsServerMs = 0;
 
 let pendingHostFallEvents = [];
+
+/**
+ * Cheap equality token for MSG.slots payloads — every wire field the client stores
+ * (party Slot + solo empty seats). Missing isReady/isPlayReady would early-return
+ * and stall auto-ready / lobby arm.
+ * @param {unknown} slots
+ * @returns {string}
+ */
+export function slotsFingerprint(slots) {
+  if (!Array.isArray(slots)) return "";
+  let out = String(slots.length);
+  for (let i = 0; i < slots.length; i += 1) {
+    const s = slots[i];
+    if (!s || typeof s !== "object") {
+      out += "|n";
+      continue;
+    }
+    out += `|${s.slotId ?? i}`
+      + `:${s.kind ?? ""}`
+      + `:${s.connId ?? ""}`
+      + `:${s.name ?? ""}`
+      + `:${s.color ?? ""}`
+      + `:${s.lookHex ?? ""}`
+      + `:${s.isReady ? 1 : 0}`
+      + `:${s.isPlayReady ? 1 : 0}`;
+  }
+  return out;
+}
 
 export function queueHostFallEvent(eventData) {
   // * Only queue what the 40Hz tick can actually drain: an active MP host send loop.
@@ -1973,7 +2002,7 @@ export function disconnectPartySession() {
   skipNextPhysicsStep = false;
 
   netSlots = [];
-  lastSlotsJson = "";
+  lastSlotsFingerprint = "";
   lastSlotsServerMs = 0;
   netStateBuffer = [];
   lastCartsCache = null;
@@ -3012,10 +3041,10 @@ export function initNetcode(roomOverride) {
       // * keeps a single authority for slot state. (declashNpcSlotColors is retained only
       // * for solo/testdrive, where the client itself is the slot authority.)
       const merged = msg.slots;
-      const incomingJson = JSON.stringify(merged);
-      if (serverMs === lastSlotsServerMs && incomingJson === lastSlotsJson) return;
+      const incomingFp = slotsFingerprint(merged);
+      if (serverMs === lastSlotsServerMs && incomingFp === lastSlotsFingerprint) return;
       lastSlotsServerMs = serverMs;
-      lastSlotsJson = incomingJson;
+      lastSlotsFingerprint = incomingFp;
       if (Array.isArray(merged)) {
         const newColors = merged.map((s) => (s?.color || ""));
         const oldColors = netSlots.map((s) => (s?.color || ""));
@@ -3668,6 +3697,8 @@ export const __netcodeTestHooks = {
     localHostScore = 50;
     weakHostWarnedThisHostship = false;
     netSlots = [];
+    lastSlotsFingerprint = "";
+    lastSlotsServerMs = 0;
     peerReconnectNotBeforeMs.clear();
     resetClockState(partyClock);
     resetClockState(hostClock);
