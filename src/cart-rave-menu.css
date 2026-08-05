@@ -143,7 +143,7 @@ html, body {
   box-shadow: var(--slab-shadow);
   color: rgba(255, 255, 255, 0.82);
   font-family: var(--mono);
-  font-size: clamp(10px, 1.2vw, 11px);
+  font-size: 0.6875rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   user-select: none;
@@ -290,7 +290,7 @@ html, body {
    live on HOW TO PLAY. Customize still has its own 3D/SVG cart preview. */
 .cr-stats {
   display: flex; align-items: center; gap: var(--space-2xl);
-  padding: var(--space-2xl) clamp(12px, 2vw, 22px);
+  padding: var(--space-2xl) 1.375rem;
   background: var(--color-ink);
   border: none;
   border-radius: var(--radius-lg);
@@ -303,21 +303,21 @@ html, body {
 
 .cr-stat-num {
   font-family: var(--display);
-  font-size: clamp(20px, 3vw, 28px);
+  font-size: 1.75rem;
   line-height: 1;
   letter-spacing: 0.02em;
 }
 
 .cr-stat-lbl {
   font-family: var(--mono);
-  font-size: clamp(8px, 1vw, 9px);
+  font-size: 0.5625rem;
   letter-spacing: 0.18em;
   color: rgba(255,255,255,0.55);
 }
 
 #cr-stats-local { position: relative; padding-top: 26px; }
 .cr-stats-global { position: relative; padding-top: 26px; }
-.cr-stats-global .cr-stat-num { font-size: clamp(16px, 2.5vw, 22px); }
+.cr-stats-global .cr-stat-num { font-size: 1.375rem; }
 
 .cr-stats-tag {
   position: absolute;
@@ -334,13 +334,13 @@ html, body {
   color: var(--color-ink-deep);
 }
 
-.cr-stat-div { width: 1px; height: clamp(24px, 3vw, 28px); background: var(--border-white-15); }
+.cr-stat-div { width: 1px; height: 1.75rem; background: var(--border-white-15); }
 
 /* === CENTER COLUMN (Title, Tagline) === */
 .cr-tagline {
   display: flex; align-items: center; gap: var(--gap-controls);
   font-family: var(--mono);
-  font-size: clamp(9px, 1.2vw, 11px);
+  font-size: 0.6875rem;
   letter-spacing: 0.32em;
   color: rgba(255,255,255,0.7);
   text-transform: uppercase;
@@ -351,7 +351,7 @@ html, body {
 
 .cr-title {
   font-family: var(--display);
-  font-size: clamp(69px, 11.5vw, 161px);
+  font-size: 10.0625rem;
   line-height: 0.9;
   margin: 4px 0 var(--space-xl);
   text-align: center;
@@ -370,7 +370,7 @@ html, body {
      width — i.e. high OS DPI scaling or browser zoom, where the two-line title
      would otherwise push the arena picker off-screen. On a full-height monitor
      the vw term / 201px cap wins, so the established hero size is unchanged. */
-  font-size: clamp(80.5px, min(12.94vw, 21vh), 201px);
+  font-size: 12.5625rem;
   line-height: 0.81;
   letter-spacing: 0.05em;
 }
@@ -404,7 +404,7 @@ html, body {
   border-radius: var(--radius-sm);
   color: var(--color-sticker-white);
   font-family: var(--ui);
-  font-size: clamp(14px, 2vw, 18px);
+  font-size: 1.125rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   cursor: pointer;
@@ -461,7 +461,7 @@ html, body {
 
 .cr-levels-hd {
   font-family: var(--mono);
-  font-size: clamp(8px, 1vw, 9px);
+  font-size: 0.5625rem;
   letter-spacing: 0.22em;
   color: rgba(255, 255, 255, 0.45);
   text-align: center;
@@ -486,7 +486,7 @@ html, body {
   display: block;
   width: 100%;
   min-width: 0;
-  padding: clamp(8px, 1.2vw, 10px) clamp(10px, 1.5vw, 14px);
+  padding: 0.625rem 0.875rem;
   background: var(--color-ink);
   border: none;
   border-radius: var(--radius-sm);
@@ -509,7 +509,7 @@ html, body {
 }
 
 .cr-level-btn-label {
-  font-size: clamp(9px, 1.35vw, 11px);
+  font-size: 0.6875rem;
   letter-spacing: 0.05em;
   line-height: 1.2;
   color: var(--color-sticker-white);
@@ -517,7 +517,7 @@ html, body {
 
 .cr-level-btn-sub {
   font-family: var(--mono);
-  font-size: clamp(7px, 1vw, 8px);
+  font-size: 0.5rem;
   letter-spacing: 0.08em;
   color: rgba(255, 255, 255, 0.5);
   text-transform: uppercase;
@@ -558,7 +558,7 @@ html, body {
 
 .cr-diff-hd {
   font-family: var(--mono);
-  font-size: clamp(8px, 1vw, 9px);
+  font-size: 0.5625rem;
   letter-spacing: 0.22em;
   color: rgba(255, 255, 255, 0.45);
   text-align: center;
@@ -578,7 +578,7 @@ html, body {
   display: block;
   width: 100%;
   min-width: 0;
-  padding: clamp(8px, 1.2vw, 10px) clamp(10px, 1.5vw, 14px);
+  padding: 0.625rem 0.875rem;
   background: var(--color-ink);
   border: none;
   border-radius: var(--radius-sm);
@@ -601,7 +601,7 @@ html, body {
 }
 
 .cr-diff-btn-label {
-  font-size: clamp(9px, 1.35vw, 11px);
+  font-size: 0.6875rem;
   letter-spacing: 0.05em;
   line-height: 1.2;
   color: var(--color-sticker-white);
@@ -642,7 +642,7 @@ html, body {
 .cr-player-hd, .cr-audio-hd, .cr-controls-hd, .cr-levels-hd, .cr-diff-hd {
   display: flex; justify-content: space-between; align-items: center;
   font-family: var(--ui);
-  font-size: clamp(9px, 1.1vw, 10px);
+  font-size: 0.625rem;
   letter-spacing: 0.2em;
   color: rgba(255,255,255,0.6);
   margin-bottom: var(--gap-controls);
@@ -674,7 +674,7 @@ html, body {
 .cr-name-display {
   flex: 1;
   font-family: var(--ui);
-  font-size: clamp(16px, 2.5vw, 22px);
+  font-size: 1.375rem;
   letter-spacing: 0.02em;
   cursor: text;
   padding: var(--space-xs) var(--space-md);
@@ -700,22 +700,22 @@ html, body {
   border-radius: var(--radius-btn);
   padding: var(--space-xs) var(--space-md);
   font-family: var(--ui);
-  font-size: clamp(16px, 2.5vw, 22px);
+  font-size: 1.375rem;
   letter-spacing: 0.02em;
   outline: none;
   min-width: 0;
 }
 
 .cr-reroll {
-  width: clamp(28px, 4vw, 34px);
-  height: clamp(28px, 4vw, 34px);
+  width: 2.125rem;
+  height: 2.125rem;
   border-radius: var(--radius-sm);
   background: var(--color-ink);
   border: none;
   box-shadow: var(--slab-shadow-sm);
   color: var(--color-sticker-white);
   font-family: var(--ui);
-  font-size: clamp(14px, 2vw, 18px);
+  font-size: 1.125rem;
   cursor: pointer;
   transition: transform 200ms ease;
   flex-shrink: 0;
@@ -725,7 +725,7 @@ html, body {
 
 .cr-color-label {
   font-family: var(--mono);
-  font-size: clamp(8px, 1vw, 9px);
+  font-size: 0.5625rem;
   letter-spacing: 0.22em;
   color: rgba(255,255,255,0.45);
   margin-bottom: var(--space-sm);
@@ -745,7 +745,7 @@ html, body {
 
 .cr-color-chip--custom {
   font-family: var(--mono);
-  font-size: clamp(6px, 0.9vw, 8px);
+  font-size: 0.5rem;
   letter-spacing: 0.08em;
   color: rgba(255, 255, 255, 0.85);
 }
@@ -756,8 +756,8 @@ html, body {
 }
 
 .cr-custom-hue-wrap {
-  margin: clamp(14px, 1.4vw, 22px) 0 0;
-  padding-top: clamp(12px, 1.2vw, 18px);
+  margin: 1.375rem 0 0;
+  padding-top: 1.125rem;
   border-top: 1px solid var(--border-white-10);
 }
 
@@ -768,7 +768,7 @@ html, body {
   justify-content: space-between;
   gap: 10px;
   margin-bottom: 10px;
-  font-size: clamp(8px, 1vw, 10px);
+  font-size: 0.625rem;
   letter-spacing: 0.2em;
 }
 
@@ -844,7 +844,7 @@ html, body {
 
 .cr-custom-hue-val {
   font-family: var(--mono);
-  font-size: clamp(8px, 1vw, 10px);
+  font-size: 0.625rem;
   letter-spacing: 0.08em;
   color: var(--cr-hue-thumb, var(--color-cyan));
   min-width: 32px;
@@ -857,7 +857,7 @@ html, body {
 .cr-color-chip {
   position: relative;
   display: flex; align-items: center; justify-content: center;
-  height: clamp(44px, 4.4vw, 64px);
+  height: 4rem;
   min-height: 44px;
   padding: 2px 4px;
   border-radius: 10px;
@@ -916,7 +916,7 @@ html, body {
 
 .cr-audio-hd {
   font-family: var(--mono);
-  font-size: clamp(9px, 1.1vw, 10px);
+  font-size: 0.625rem;
   letter-spacing: 0.2em;
   color: rgba(255,255,255,0.6);
 }
@@ -933,8 +933,8 @@ html, body {
 
 .cr-mute-btn {
   display: flex; align-items: center; justify-content: center;
-  width: clamp(26px, 3.5vw, 30px);
-  height: clamp(26px, 3.5vw, 30px);
+  width: 1.875rem;
+  height: 1.875rem;
   border-radius: var(--radius-sm);
   border: none;
   box-shadow: var(--slab-shadow-sm);
@@ -965,7 +965,7 @@ html, body {
   width: var(--space-xl);
   text-align: center;
   color: var(--mc, var(--color-cyan));
-  font-size: clamp(10px, 1.2vw, 12px);
+  font-size: 0.75rem;
 }
 
 .cr-vol-track {
@@ -983,14 +983,14 @@ html, body {
    a child of it would be stretched with it. --vol-scale is mirrored onto the
    track in syncSettingsAudioUi so the knob can follow. */
 .cr-settings-panel .cr-vol-row {
-  gap: clamp(10px, 1.2vw, 16px);
+  gap: 1rem;
 }
 
 .cr-settings-panel .cr-vol-label {
-  width: clamp(44px, 4.6vw, 70px);
+  width: 4.375rem;
   text-align: left;
   font-family: var(--mono);
-  font-size: clamp(10px, 1.05vw, 12px);
+  font-size: 0.75rem;
   letter-spacing: 0.14em;
   color: rgba(242, 237, 228, 0.7);
 }
@@ -1027,7 +1027,7 @@ html, body {
   width: 36px;
   min-width: 36px;
   font-weight: 700;
-  font-size: clamp(10px, 1.05vw, 12px);
+  font-size: 0.75rem;
   color: var(--vol-accent, var(--color-cyan));
 }
 
@@ -1043,7 +1043,7 @@ html, body {
 
 .cr-vol-val {
   font-family: var(--mono);
-  font-size: clamp(9px, 1.1vw, 10px);
+  font-size: 0.625rem;
   font-weight: 700;
   letter-spacing: 0.1em;
   color: rgba(255,255,255,0.65);
@@ -1064,7 +1064,7 @@ html, body {
 .cr-controls-hd {
   display: flex; align-items: center; justify-content: space-between;
   font-family: var(--mono);
-  font-size: clamp(9px, 1.1vw, 10px);
+  font-size: 0.625rem;
   letter-spacing: 0.22em;
   color: rgba(255,255,255,0.5);
   padding-bottom: var(--space-sm);
@@ -1088,7 +1088,7 @@ html, body {
   box-shadow: var(--slab-shadow-sm);
   border-radius: 4px;
   font-family: var(--display);
-  font-size: clamp(9px, 1.2vw, 11px);
+  font-size: 0.6875rem;
   font-weight: 400;
   color: var(--kc, var(--color-sticker-white));
   letter-spacing: 0.04em;
@@ -1098,7 +1098,7 @@ html, body {
 
 .cr-ctl-lbl {
   font-family: var(--mono);
-  font-size: clamp(9px, 1.2vw, 11px);
+  font-size: 0.6875rem;
   color: rgba(255,255,255,0.75);
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -1109,7 +1109,7 @@ html, body {
 
 .cr-btn--graphics {
   flex: 1;
-  font-size: clamp(11px, 1.5vw, 14px);
+  font-size: 0.875rem;
 }
 
 .cr-btn--gfx-off .cr-btn-label,
@@ -1145,16 +1145,16 @@ html, body {
    instead of overflowing. Consumed by .cr-customize-panel first; the other
    sub-screens adopt it as they are rebuilt. */
 .cr-screen {
-  --screen-pad-x: clamp(20px, 5vw, 96px);
+  --screen-pad-x: 6rem;
   position: relative;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   grid-template-rows: auto minmax(0, 1fr) auto auto;
-  gap: clamp(12px, 2vw, 28px) clamp(16px, 3vw, 48px);
+  gap: 1.75rem 3rem;
   width: 100%;
   height: 100%;
   padding:
-    max(clamp(20px, 3.4vh, 56px), env(safe-area-inset-top, 0px))
+    max(3.5rem, env(safe-area-inset-top, 0px))
     max(var(--screen-pad-x), env(safe-area-inset-right, 0px))
     0
     max(var(--screen-pad-x), env(safe-area-inset-left, 0px));
@@ -1172,7 +1172,7 @@ html, body {
 
 .cr-screen-kicker {
   font-family: var(--mono);
-  font-size: clamp(9px, 1vw, 12px);
+  font-size: 0.75rem;
   letter-spacing: 0.34em;
   color: rgba(255, 255, 255, 0.55);
   white-space: nowrap;
@@ -1185,7 +1185,7 @@ html, body {
   margin: 0;
   font-family: var(--display);
   font-weight: 400;
-  font-size: clamp(38px, 7.2vw, 110px);
+  font-size: 6.875rem;
   line-height: 0.9;
   letter-spacing: 0.02em;
   color: var(--color-sticker-white);
@@ -1203,8 +1203,8 @@ html, body {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  width: clamp(150px, 15.6vw, 300px);
-  padding-top: clamp(8px, 4vh, 64px);
+  width: 18.72rem;
+  padding-top: 4rem;
 }
 
 /* Centre stage — owns the 3D preview / hero content. */
@@ -1224,9 +1224,9 @@ html, body {
   grid-column: 3;
   grid-row: 2;
   align-self: start;
-  width: clamp(240px, 22vw, 400px);
-  margin-top: clamp(8px, 4vh, 64px);
-  padding: clamp(16px, 1.6vw, 26px) clamp(18px, 1.9vw, 30px);
+  width: 25rem;
+  margin-top: 4rem;
+  padding: 1.625rem 1.875rem;
   background: rgba(12, 10, 17, 0.85);
   border: 1px solid var(--border-white-10);
   border-radius: var(--radius-panel);
@@ -1248,10 +1248,10 @@ html, body {
   align-self: start;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: clamp(12px, 1.6vw, 24px);
+  gap: 1.5rem;
   width: 100%;
   max-width: 1176px; /* mock: two 560px panels + 24px gap */
-  margin-top: clamp(8px, 3vh, 48px);
+  margin-top: 3rem;
   min-height: 0;
   /* align-self:start means this box takes its CONTENT height, so overflow-y
      alone never engages — without the cap it grows past its grid row and lands
@@ -1263,8 +1263,8 @@ html, body {
 .cr-screen-card {
   display: flex;
   flex-direction: column;
-  gap: clamp(10px, 1.2vw, 18px);
-  padding: clamp(16px, 1.8vw, 28px) clamp(18px, 2vw, 32px);
+  gap: 1.125rem;
+  padding: 1.75rem 2rem;
   background: rgba(12, 10, 17, 0.85);
   border: 1px solid var(--border-white-10);
   border-radius: var(--radius-panel);
@@ -1278,7 +1278,7 @@ html, body {
 
 .cr-screen-card-hd {
   font-family: var(--mono);
-  font-size: clamp(9px, 1vw, 11px);
+  font-size: 0.6875rem;
   letter-spacing: 0.26em;
   color: rgba(255, 255, 255, 0.55);
 }
@@ -1293,13 +1293,13 @@ html, body {
 
 .cr-settings-row--rule {
   margin-top: auto;
-  padding-top: clamp(12px, 1.2vw, 18px);
+  padding-top: 1.125rem;
   border-top: 1px solid var(--border-white-10);
 }
 
 .cr-settings-row-lbl {
   font-family: var(--mono);
-  font-size: clamp(10px, 1.05vw, 12px);
+  font-size: 0.75rem;
   letter-spacing: 0.14em;
   color: rgba(242, 237, 228, 0.7);
   white-space: nowrap;
@@ -1325,7 +1325,7 @@ html, body {
   color: var(--color-muted);
   font-family: var(--mono);
   font-weight: 700;
-  font-size: clamp(9px, 1vw, 11px);
+  font-size: 0.6875rem;
   letter-spacing: 0.06em;
   cursor: pointer;
   transition: background 120ms var(--ease-slap), color 120ms var(--ease-slap);
@@ -1344,7 +1344,7 @@ html, body {
   height: auto;
   min-height: 0;
   padding: 5px 14px;
-  font-size: clamp(9px, 1vw, 11px);
+  font-size: 0.6875rem;
 }
 
 .cr-settings-chip:hover { color: var(--color-sticker-white); }
@@ -1388,10 +1388,10 @@ html, body {
 
 .cr-settings-footnote {
   margin: auto 0 0;
-  padding-top: clamp(12px, 1.2vw, 18px);
+  padding-top: 1.125rem;
   border-top: 1px solid var(--border-white-10);
   font-family: var(--mono);
-  font-size: clamp(8px, 0.9vw, 10px);
+  font-size: 0.625rem;
   letter-spacing: 0.08em;
   line-height: 1.5;
   color: rgba(242, 237, 228, 0.35);
@@ -1404,7 +1404,7 @@ html, body {
   align-items: center;
   justify-content: flex-end;
   gap: 14px;
-  padding-bottom: clamp(8px, 1.5vh, 16px);
+  padding-bottom: 1rem;
 }
 
 /* Hint bar — full-bleed against the screen edges, so it negates the shell pad. */
@@ -1413,14 +1413,14 @@ html, body {
   grid-row: 4;
   display: flex;
   align-items: center;
-  gap: clamp(14px, 2.4vw, 36px);
+  gap: 2.25rem;
   margin: 0 calc(var(--screen-pad-x) * -1);
-  padding: clamp(10px, 1.5vh, 16px) var(--screen-pad-x);
-  padding-bottom: max(clamp(10px, 1.5vh, 16px), env(safe-area-inset-bottom, 0px));
+  padding: 1rem var(--screen-pad-x);
+  padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
   background: rgba(9, 7, 13, 0.9);
   border-top: 1px solid rgba(255, 255, 255, 0.07);
   font-family: var(--mono);
-  font-size: clamp(9px, 1vw, 12px);
+  font-size: 0.75rem;
   letter-spacing: 0.12em;
   color: rgba(255, 255, 255, 0.55);
   overflow-x: auto;
@@ -1496,7 +1496,7 @@ html, body {
 .cr-screen-actions .cr-overlay-done,
 .cr-screen-actions .cr-overlay-back {
   width: auto;
-  padding: 16px clamp(20px, 2.5vw, 48px);
+  padding: 16px 3rem;
   border-radius: var(--radius-sm);
   transform: skewX(-8deg);
   transition: transform 120ms var(--ease-slap), box-shadow 120ms var(--ease-slap);
@@ -1537,7 +1537,7 @@ html, body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: clamp(8px, 1.8vh, 20px);
+  gap: 1.215rem;
   min-height: 0;
   margin: 0;
 }
@@ -1546,7 +1546,7 @@ html, body {
   position: static;
   transform: none;
   width: min(320px, 62%);
-  height: clamp(14px, 2.4vh, 26px);
+  height: 1.62rem;
   border-radius: 0;
   flex: none;
   pointer-events: none;
@@ -1580,7 +1580,7 @@ html, body {
 }
 
 .cr-customize-preview-cart svg {
-  width: clamp(160px, 38vw, 220px);
+  width: 13.75rem;
   height: auto;
 }
 
@@ -1616,7 +1616,7 @@ html, body {
 /* 7a tab rail: the command-list parallelogram, not a chip. Idle rows are bare
    (no slab) exactly like the menu list; the active row is the screen's yellow. */
 .cr-customize-tab {
-  padding: 15px clamp(16px, 1.6vw, 30px);
+  padding: 15px 1.875rem;
   background: transparent;
   border: none;
   box-shadow: none;
@@ -1624,7 +1624,7 @@ html, body {
   text-align: left;
   color: rgba(255, 255, 255, 0.55);
   font-family: var(--ui);
-  font-size: clamp(13px, 1.1vw, 17px);
+  font-size: 1.0625rem;
   letter-spacing: 0.1em;
   cursor: pointer;
   transform: skewX(-8deg);
@@ -1649,7 +1649,7 @@ html, body {
 }
 
 .cr-customize-tab.active {
-  padding: 16px clamp(14px, 1.4vw, 26px);
+  padding: 16px 1.625rem;
   color: var(--color-ink-deep);
   background: linear-gradient(
     90deg,
@@ -1657,7 +1657,7 @@ html, body {
     rgba(255, 229, 61, 0.75) 60%,
     transparent 98%
   );
-  font-size: clamp(15px, 1.25vw, 20px);
+  font-size: 1.25rem;
 }
 
 .cr-customize-tab--soon {
@@ -1707,8 +1707,8 @@ html, body {
  * * gradient stops, --mc the glow hex; all set inline per chip. */
 .cr-sunglasses-chip-swatch {
   display: block;
-  width: clamp(18px, 4.5vw, 26px);
-  height: clamp(18px, 4.5vw, 26px);
+  width: 1.625rem;
+  height: 1.625rem;
   border-radius: 50%;
   background:
     radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0.15) 22%, transparent 45%),
@@ -1752,7 +1752,7 @@ html, body {
 
 .cr-sunglasses-chip-label {
   font-family: var(--ui);
-  font-size: clamp(6px, 0.9vw, 8px);
+  font-size: 0.5rem;
   letter-spacing: 0.05em;
   color: rgba(255, 255, 255, 0.8);
   text-align: center;
@@ -1818,7 +1818,7 @@ html, body {
 
 .cr-pattern-chip-label {
   font-family: var(--ui);
-  font-size: clamp(6px, 0.9vw, 8px);
+  font-size: 0.5rem;
   letter-spacing: 0.05em;
   color: rgba(255, 255, 255, 0.8);
   text-align: center;
@@ -1855,7 +1855,7 @@ html, body {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: clamp(10px, 1.5vw, 16px);
+  gap: 1rem;
   max-width: 560px;
   width: 92%;
   max-height: min(92dvh, 740px);
@@ -1866,10 +1866,10 @@ html, body {
      indicators (landscape phones) to need the clearance. Shared by every
      .cr-overlay-panel consumer: howto/challenges/settings/customize/friends. */
   padding:
-    max(clamp(14px, 2.5vw, 24px), env(safe-area-inset-top, 0px))
-    max(clamp(14px, 2.5vw, 24px), env(safe-area-inset-right, 0px))
-    max(clamp(14px, 2.5vw, 24px), env(safe-area-inset-bottom, 0px))
-    max(clamp(14px, 2.5vw, 24px), env(safe-area-inset-left, 0px));
+    max(1.5rem, env(safe-area-inset-top, 0px))
+    max(1.5rem, env(safe-area-inset-right, 0px))
+    max(1.5rem, env(safe-area-inset-bottom, 0px))
+    max(1.5rem, env(safe-area-inset-left, 0px));
   background: var(--color-ink);
   border: 1px solid var(--border-white-12);
   border-radius: var(--radius-lg);
@@ -1880,7 +1880,7 @@ html, body {
 .cr-overlay-title {
   font-family: var(--display);
   font-weight: 400;
-  font-size: clamp(22px, 4vw, 30px);
+  font-size: 1.875rem;
   color: var(--color-sticker-white);
   paint-order: stroke fill;
   -webkit-text-stroke: 0.07em var(--color-ink-deep);
@@ -1894,7 +1894,7 @@ html, body {
 
 .cr-overlay-desc {
   font-family: var(--mono);
-  font-size: clamp(10px, 1.4vw, 12px);
+  font-size: 0.75rem;
   line-height: 1.6;
   color: rgba(255, 255, 255, 0.55);
   text-align: center;
@@ -1914,7 +1914,7 @@ html, body {
   color: var(--color-ink-deep);
   font-family: var(--ui);
   text-transform: uppercase;
-  font-size: clamp(14px, 2vw, 18px);
+  font-size: 1.125rem;
   letter-spacing: 0.06em;
   cursor: pointer;
   transition: transform 120ms var(--ease-slap), box-shadow 120ms var(--ease-slap);
@@ -1941,7 +1941,7 @@ html, body {
   color: var(--color-sticker-white);
   font-family: var(--mono);
   text-transform: uppercase;
-  font-size: clamp(11px, 1.2vw, 12px);
+  font-size: 0.75rem;
   cursor: pointer;
   letter-spacing: 0.1em;
   transition: transform 120ms var(--ease-slap), box-shadow 120ms var(--ease-slap);
@@ -1989,7 +1989,7 @@ html, body {
 .cr-howto-aisles {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: clamp(12px, 1.6vw, 20px);
+  gap: 1.25rem;
 }
 
 .cr-howto-aisle {
@@ -1998,10 +1998,10 @@ html, body {
   display: flex;
   flex-direction: column;
   padding:
-    clamp(16px, 1.8vw, 28px)
-    clamp(18px, 2vw, 30px)
-    clamp(16px, 1.8vw, 28px)
-    clamp(28px, 2.9vw, 44px);
+    1.75rem
+    1.875rem
+    1.75rem
+    2.75rem;
   background: rgba(12, 10, 17, 0.85);
   border: 1px solid var(--border-white-10);
   border-radius: 12px 12px 12px 30px;
@@ -2028,7 +2028,7 @@ html, body {
 /* The aisle sign itself — Road Rage at shelf scale, one accent per card. */
 .cr-howto-aisle-no {
   font-family: var(--display);
-  font-size: clamp(24px, 3vw, 44px);
+  font-size: 2.75rem;
   line-height: 1;
   letter-spacing: 0.02em;
   color: var(--aisle);
@@ -2037,15 +2037,15 @@ html, body {
 .cr-howto-aisle-name {
   margin: 6px 0 0;
   font-family: var(--ui);
-  font-size: clamp(12px, 1.5vw, 16px);
+  font-size: 1rem;
   letter-spacing: 0.06em;
   color: var(--color-sticker-white);
 }
 
 .cr-howto-aisle-body {
-  margin: clamp(8px, 1vw, 14px) 0 0;
+  margin: 0.875rem 0 0;
   font-family: var(--mono);
-  font-size: clamp(9px, 1.15vw, 12px);
+  font-size: 0.75rem;
   line-height: 1.7;
   letter-spacing: 0.03em;
   color: rgba(242, 237, 228, 0.55);
@@ -2077,8 +2077,8 @@ html, body {
 .cr-howto-strip {
   display: flex;
   align-items: center;
-  gap: clamp(14px, 2.2vw, 40px);
-  padding: clamp(12px, 1.4vw, 22px) clamp(16px, 1.9vw, 30px);
+  gap: 2.5rem;
+  padding: 1.375rem 1.875rem;
   background: rgba(12, 10, 17, 0.85);
   border: 1px solid var(--border-white-10);
   border-radius: 12px;
@@ -2089,7 +2089,7 @@ html, body {
   margin: 0;
   flex-shrink: 0;
   font-family: var(--mono);
-  font-size: clamp(9px, 1.15vw, 11px);
+  font-size: 0.6875rem;
   letter-spacing: 0.26em;
   color: rgba(255, 255, 255, 0.55);
   white-space: nowrap;
@@ -2098,7 +2098,7 @@ html, body {
 .cr-howto-strip-row {
   display: flex;
   flex-wrap: wrap;
-  gap: clamp(5px, 0.8vw, 8px);
+  gap: 0.5rem;
 }
 
 /* Gamepad line sits hard right on the FULL CONTROLS strip, per the mock. */
@@ -2108,7 +2108,7 @@ html, body {
   gap: 6px;
   margin-left: auto;
   font-family: var(--mono);
-  font-size: clamp(8px, 1vw, 11px);
+  font-size: 0.6875rem;
   letter-spacing: 0.14em;
   color: var(--color-cyan);
   white-space: nowrap;
@@ -2119,7 +2119,7 @@ html, body {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px clamp(7px, 1vw, 9px);
+  padding: 4px 0.5625rem;
   background: var(--color-ink-deep);
   border: 1px solid var(--border-white-10);
   border-radius: var(--radius-sm);
@@ -2130,7 +2130,7 @@ html, body {
 .cr-howto-price-lbl,
 .cr-howto-ctl-lbl {
   font-family: var(--mono);
-  font-size: clamp(7px, 0.95vw, 9px);
+  font-size: 0.5625rem;
   letter-spacing: 0.12em;
   color: rgba(255, 255, 255, 0.6);
 }
@@ -2138,7 +2138,7 @@ html, body {
 .cr-howto-price-val {
   font-family: var(--mono);
   font-weight: 700;
-  font-size: clamp(10px, 1.3vw, 12px);
+  font-size: 0.75rem;
   color: var(--color-yellow);
 }
 
@@ -2152,7 +2152,7 @@ html, body {
   min-width: 16px;
   padding: 1px 4px;
   font-family: var(--mono);
-  font-size: clamp(8px, 1.05vw, 10px);
+  font-size: 0.625rem;
   text-align: center;
   color: var(--color-cyan);
   background: var(--color-ink);
@@ -2170,7 +2170,7 @@ html, body {
 
 .cr-settings-ctl-badge {
   font-family: var(--mono);
-  font-size: clamp(7px, 0.9vw, 8px);
+  font-size: 0.5rem;
   letter-spacing: 0.14em;
   color: var(--color-cyan);
 }
@@ -2181,7 +2181,7 @@ html, body {
 .cr-settings-controls {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 4px clamp(8px, 1.5vw, 12px);
+  gap: 4px 0.75rem;
 }
 
 .cr-settings-ctl-row {
@@ -2212,7 +2212,7 @@ html, body {
   box-shadow: var(--slab-extrude-sm);
   border-radius: 5px;
   font-family: var(--display);
-  font-size: clamp(11px, 1.3vw, 14px);
+  font-size: 0.875rem;
   font-weight: 400;
   color: var(--kc, var(--color-sticker-white));
   letter-spacing: 0.04em;
@@ -2220,13 +2220,13 @@ html, body {
 
 .cr-settings-ctl-key kbd.wide {
   min-width: 64px;
-  font-size: clamp(9px, 1.15vw, 12px);
+  font-size: 0.75rem;
   letter-spacing: 0.1em;
 }
 
 .cr-settings-ctl-lbl {
   font-family: var(--mono);
-  font-size: clamp(8px, 1vw, 10px);
+  font-size: 0.625rem;
   color: rgba(255, 255, 255, 0.7);
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -2251,9 +2251,9 @@ html, body {
 .cr-btn--extra {
   flex: 1;
   min-width: 0;
-  padding-left: clamp(6px, 1vw, 10px);
-  padding-right: clamp(6px, 1vw, 10px);
-  font-size: clamp(10px, 1.4vw, 12px);
+  padding-left: 0.625rem;
+  padding-right: 0.625rem;
+  font-size: 0.75rem;
   color: var(--glow, var(--color-sticker-white));
   box-shadow:
     0 0 0 2px var(--glow, var(--color-sticker-white)),
@@ -2261,7 +2261,7 @@ html, body {
 }
 
 .cr-btn--extra .cr-btn-label {
-  font-size: clamp(9px, 1.15vw, 11px);
+  font-size: 0.6875rem;
   line-height: 1.3;
   overflow-wrap: break-word;
 }
@@ -2928,12 +2928,12 @@ html, body {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: clamp(5px, 0.7vw, 8px);
+  gap: 0.5rem;
   padding:
-    clamp(14px, 1.6vw, 24px)
-    clamp(16px, 1.9vw, 28px)
-    clamp(14px, 1.6vw, 24px)
-    clamp(26px, 2.7vw, 40px);
+    1.5rem
+    1.75rem
+    1.5rem
+    2.5rem;
   background: rgba(12, 10, 17, 0.85);
   border: 1px solid var(--border-white-10);
   border-radius: 10px 10px 10px 26px;
@@ -2962,12 +2962,12 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: clamp(8px, 1vw, 12px);
+  gap: 0.75rem;
 }
 
 .cr-chal-name {
   font-family: var(--ui);
-  font-size: clamp(13px, 1.4vw, 19px);
+  font-size: 1.1875rem;
   letter-spacing: 0.06em;
   line-height: 1.2;
   color: var(--color-sticker-white);
@@ -2982,7 +2982,7 @@ html, body {
   flex-shrink: 0;
   font-family: var(--mono);
   font-weight: 700;
-  font-size: clamp(8px, 0.85vw, 10px);
+  font-size: 0.625rem;
   letter-spacing: 0.1em;
   padding: 3px 9px;
   border-radius: 4px;
@@ -3007,7 +3007,7 @@ html, body {
   flex-shrink: 0;
   font-family: var(--mono);
   font-weight: 700;
-  font-size: clamp(9px, 0.95vw, 12px);
+  font-size: 0.75rem;
   letter-spacing: 0.16em;
   padding: 3px 10px;
   border: 2px solid var(--color-portal);
@@ -3019,7 +3019,7 @@ html, body {
 
 .cr-chal-desc {
   font-family: var(--mono);
-  font-size: clamp(9px, 1vw, 12px);
+  font-size: 0.75rem;
   line-height: 1.35;
   color: rgba(242, 237, 228, 0.55);
 }
@@ -3031,8 +3031,8 @@ html, body {
 .cr-chal-ft {
   display: flex;
   align-items: center;
-  gap: clamp(8px, 1vw, 12px);
-  margin-top: clamp(4px, 0.8vw, 8px);
+  gap: 0.75rem;
+  margin-top: 0.5rem;
 }
 
 /* Progress runs the boost-bar recipe: flat track, flat fill, no contour. */
@@ -3059,7 +3059,7 @@ html, body {
   flex-shrink: 0;
   font-family: var(--mono);
   font-weight: 700;
-  font-size: clamp(9px, 1vw, 12px);
+  font-size: 0.75rem;
   letter-spacing: 0.05em;
   color: var(--color-cyan);
 }
@@ -3090,7 +3090,7 @@ html, body {
   display: block;
   margin-top: var(--space-xs);
   font-family: var(--mono);
-  font-size: clamp(8px, 1.1vw, 10px);
+  font-size: 0.625rem;
   letter-spacing: 0.06em;
   color: rgba(255, 220, 120, 0.9);
 }
@@ -3112,7 +3112,7 @@ html, body {
   background: var(--color-ink);
   color: var(--color-sticker-white);
   font-family: var(--ui, "Russo One", sans-serif);
-  font-size: clamp(12px, 2.2vw, 14px);
+  font-size: 0.875rem;
   letter-spacing: 0.04em;
   text-align: center;
   box-shadow: var(--slab-shadow);
@@ -3185,7 +3185,7 @@ html, body {
 .cr-content { --cr-hint-h: 64px; }
 .cr-hero {
   position: absolute;
-  left: clamp(24px, 5vw, 96px);
+  left: 6rem;
   /* Top-anchored like the mock (96px in, 60px down), and the box stops ABOVE the
      hint bar: centring it over the full height slid SETTINGS under the bar on any
      short window (1280x720 put the last row 14px under it) while looking fine at
@@ -3193,15 +3193,15 @@ html, body {
   top: 0; bottom: var(--cr-hint-h);
   width: min(480px, 44vw);
   display: flex; flex-direction: column; justify-content: flex-start;
-  /* MENU-RESTRAINT-1d: was clamp(20px, 5.6vh, 60px) — less dead air above title. */
-  padding-top: clamp(16px, 4.2vh, 48px);
+  /* MENU-RESTRAINT-1d: was 3.75rem — less dead air above title. */
+  padding-top: 3rem;
   gap: 0;
   z-index: 22;
 }
 .cr-hero .cr-tagline {
   display: block; width: 100%;
   font-family: var(--mono);
-  font-size: clamp(9px, 1vw, 12px);
+  font-size: 0.75rem;
   /* MENU-RESTRAINT-1c: was 0.34em tracked meta — denser reads less esports-AI. */
   letter-spacing: 0.14em;
   color: var(--color-muted);
@@ -3215,7 +3215,7 @@ html, body {
   align-items: center; text-align: center; width: 100%;
   /* Mock 3a: 170px @1920, line-height 0.78, no tracking. Same clamp shape as the
      base rule — the vh term is the short-window ceiling — scaled to the mock cap. */
-  font-size: clamp(68px, min(10.94vw, 16.8vh), 170px);
+  font-size: 10.625rem;
   line-height: 0.78;
   letter-spacing: 0;
   /* MENU-LOGO-1a: ink die-cut stroke + fill (kept). */
@@ -3225,8 +3225,8 @@ html, body {
      write `transform` on this node — an inline transform wipes the -4deg lean,
      which is exactly how the lockup lost it (the rAF write set `scale()`). */
   transform: skewX(-4deg) scale(var(--cr-title-beat, 1));
-  /* MENU-RESTRAINT-1d: bottom was clamp(20px, 4.8vh, 52px) — pull cmds closer. */
-  margin: clamp(8px, 1.9vh, 20px) 0 clamp(12px, 3.2vh, 36px);
+  /* MENU-RESTRAINT-1d: bottom was 3.24rem — pull cmds closer. */
+  margin: 1.25rem 0 2.25rem;
 }
 /* MENU-LOGO-1a/1b kept + prod soft glow under hard shadows (glow last = behind).
    Wash ellipse / aisle bar / graffiti splat stay dead. */
@@ -3266,7 +3266,7 @@ html, body {
   /* Mock's 15px at 1080. Seven rows make this the biggest vertical lever on a
      short window, so the padding is vh-aware — it holds the mock's rhythm at
      full height and compresses before the list can reach the hint bar. */
-  padding: clamp(9px, 1.4vh, 15px) 30px;
+  padding: 0.9375rem 30px;
   background: transparent; border: none; border-radius: 0; box-shadow: none;
   transform: skewX(-8deg);
   margin-left: -8px;
@@ -3280,7 +3280,7 @@ html, body {
 .cr-cmd .cr-btn-label { display: inline-block; transform: skewX(8deg); }
 .cr-cmd .cr-btn-label {
   font-family: var(--ui); font-weight: 700;
-  font-size: clamp(18px, 1.9vw, 24px);
+  font-size: 1.5rem;
   letter-spacing: 0.1em;
   /* Secondary idle: #d8d4e0 — interactive, not greyed-out disabled chrome. */
   color: var(--color-text-secondary);
@@ -3322,21 +3322,21 @@ html, body {
   gap: var(--space-xs);
   align-items: center;
   width: 100%;
-  padding: clamp(4px, 0.8vh, 8px) 30px;
+  padding: 0.5rem 30px;
   transform: skewX(-8deg);
   margin-left: -8px;
 }
 .cr-join-input {
   transform: skewX(8deg);
   min-width: 0;
-  padding: clamp(6px, 1vh, 9px) 10px;
+  padding: 0.5625rem 10px;
   background: rgba(0, 0, 0, 0.35);
   border: 1px solid var(--border-white-10);
   border-radius: 3px;
   color: var(--color-sticker-white);
   font-family: var(--mono);
   font-weight: 700;
-  font-size: clamp(12px, 1.1vw, 15px);
+  font-size: 0.9375rem;
   letter-spacing: 0.18em;
   /* The code is read aloud and typed back — never let the field lowercase it. */
   text-transform: uppercase;
@@ -3352,7 +3352,7 @@ html, body {
 }
 .cr-join-go {
   transform: skewX(8deg);
-  padding: clamp(6px, 1vh, 9px) clamp(12px, 1.6vw, 18px);
+  padding: 0.5625rem 1.125rem;
   background: transparent;
   border: 1px solid var(--color-cyan);
   border-radius: 3px;
@@ -3363,7 +3363,7 @@ html, body {
 .cr-join-go-label {
   font-family: var(--mono);
   font-weight: 800;
-  font-size: clamp(11px, 1vw, 13px);
+  font-size: 0.8125rem;
   letter-spacing: 0.12em;
 }
 .cr-join-go:hover {
@@ -3376,7 +3376,7 @@ html, body {
   transform: skewX(8deg);
   margin: 2px 0 0;
   font-family: var(--mono);
-  font-size: clamp(9px, 0.9vw, 11px);
+  font-size: 0.6875rem;
   letter-spacing: 0.08em;
   color: var(--color-magenta);
 }
@@ -3408,9 +3408,9 @@ html, body {
 /* Secondary selected (default): softer yellow, no permanent rail. */
 .cr-cmd.is-selected {
   background: linear-gradient(90deg, rgba(255,229,61,0.55), rgba(255,229,61,0.35) 50%, transparent 96%);
-  padding: clamp(10px, 1.5vh, 16px) 30px;
+  padding: 1rem 30px;
 }
-.cr-cmd.is-selected .cr-btn-label { color: var(--color-ink); font-size: clamp(20px, 2.1vw, 26px); }
+.cr-cmd.is-selected .cr-btn-label { color: var(--color-ink); font-size: 1.625rem; }
 .cr-cmd.is-selected .cr-cmd-qual { opacity: 1; }
 
 /* Primary selected: hotter wash + always-on rail + larger label than secondary. */
@@ -3424,7 +3424,7 @@ html, body {
 #cr-solo.is-selected .cr-btn-label,
 #cr-quickplay.is-selected .cr-btn-label,
 #cr-friends.is-selected .cr-btn-label {
-  font-size: clamp(22px, 2.3vw, 30px);
+  font-size: 1.875rem;
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -3467,7 +3467,7 @@ html, body {
 /* ── TOP-RIGHT player plate + BOTTOM-RIGHT context: shared dark-glass panel ── */
 .cr-plate, .cr-context {
   position: absolute;
-  right: clamp(24px, 5vw, 96px);
+  right: 6rem;
   background: rgba(12, 10, 17, 0.85);
   border: 1px solid var(--border-white-10);
   border-radius: 12px;
@@ -3475,7 +3475,7 @@ html, body {
   z-index: 22;
 }
 .cr-plate {
-  top: clamp(20px, 4vh, 44px);
+  top: 2.7rem;
   width: min(430px, 34vw);
   padding: 22px 26px;
 }
@@ -3490,14 +3490,14 @@ html, body {
 }
 .cr-plate .cr-name-display {
   display: flex; align-items: center; gap: 8px;
-  font-family: var(--ui); font-weight: 700; font-size: clamp(26px, 3vw, 36px);
+  font-family: var(--ui); font-weight: 700; font-size: 2.25rem;
   color: var(--color-sticker-white); letter-spacing: 0.02em; cursor: pointer;
   /* Mock 3a: the name is plain type. The retired rename affordance (inset pad +
      dashed contour) is gone — the pencil button beside it carries that job. */
   padding: 0; border: 0;
 }
 .cr-plate .cr-name-input {
-  flex: 1; min-width: 0; font-family: var(--ui); font-weight: 700; font-size: clamp(24px, 2.6vw, 32px);
+  flex: 1; min-width: 0; font-family: var(--ui); font-weight: 700; font-size: 2rem;
   color: var(--color-sticker-white); background: transparent;
   border: none; border-bottom: 1px solid var(--border-white-20); outline: none;
 }
@@ -3522,7 +3522,7 @@ html, body {
 }
 .cr-plate .cr-stat { flex: 1; text-align: center; }
 .cr-plate .cr-stat-num {
-  font-family: var(--ui); font-weight: 700; font-size: clamp(18px, 2vw, 24px);
+  font-family: var(--ui); font-weight: 700; font-size: 1.5rem;
   color: var(--color-sticker-white);
 }
 .cr-plate #stat-wins { color: var(--color-magenta); }
@@ -3536,7 +3536,7 @@ html, body {
 
 /* ── Context panel — driven by the highlighted command ── */
 .cr-context {
-  bottom: clamp(88px, 14vh, 130px);
+  bottom: 8.125rem;
   width: min(500px, 40vw);
   padding: 26px 30px;
 }
@@ -3566,7 +3566,7 @@ html, body {
 .cr-arena-page:hover { color: var(--color-sticker-white); border-color: var(--border-white-15); }
 .cr-arena-display { flex: 1; text-align: center; min-width: 0; }
 .cr-arena-name {
-  font-family: var(--ui); font-weight: 700; font-size: clamp(20px, 2.2vw, 26px);
+  font-family: var(--ui); font-weight: 700; font-size: 1.625rem;
   letter-spacing: 0.06em; color: var(--color-cyan); white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis;
 }
@@ -3600,8 +3600,8 @@ html, body {
 /* ── Bottom hint bar — device-aware ── */
 .cr-hintbar {
   position: absolute; left: 0; right: 0; bottom: 0;
-  display: flex; align-items: center; gap: clamp(16px, 3vw, 36px);
-  padding: 16px clamp(24px, 5vw, 96px);
+  display: flex; align-items: center; gap: 2.25rem;
+  padding: 16px 6rem;
   /* Opaque, not 0.9: the menu column scrolls UNDERNEATH this bar, and at 90% the cart
      name and stats ghosted straight through it — which reads as a broken overlap rather
      than as content passing behind a chrome bar. */
@@ -3616,7 +3616,7 @@ html, body {
   border: 1px solid rgba(255, 68, 212, 0.45); border-radius: var(--radius-pill);
   padding: 6px 16px; color: var(--color-magenta); white-space: nowrap;
 }
-.cr-hint-keys { display: flex; align-items: center; gap: clamp(12px, 2vw, 28px); flex-wrap: wrap; }
+.cr-hint-keys { display: flex; align-items: center; gap: 1.75rem; flex-wrap: wrap; }
 .cr-hint-keys .cr-hint-item { white-space: nowrap; }
 .cr-hint-keys .cr-key {
   display: inline-block; border: 1px solid var(--border-white-20); border-radius: 4px;
@@ -3704,7 +3704,7 @@ html, body {
 .cr-seg-chip {
   font-family: var(--mono);
   font-weight: 700;
-  font-size: clamp(9px, 1vw, 11px);
+  font-size: 0.6875rem;
   padding: 5px 12px;
   border-radius: 5px;
   border: 1px solid var(--border-white-14);
