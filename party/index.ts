@@ -424,11 +424,14 @@ export class CartRaveServer extends Server {
     this.#hostId = plan.nextHostId;
     this.#lastSeq = -1;
     if (this.#hostId) {
+      // * FIX-MIG: disconnect repairs (onClose / silent reap / ghost / snapshot)
+      // * used to omit reason, so clients skipped the toast while PA still fired.
       this.#broadcastJson({
         v: PROTOCOL_VERSION,
         type: MSG.hostMigrated,
         serverNowMs: this.#serverNowMs(),
         hostId: this.#hostId,
+        reason: "host_disconnect",
       });
     }
     // * Host loss during countdown strands clients waiting on a game_start the dead

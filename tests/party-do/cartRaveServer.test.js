@@ -101,6 +101,7 @@ describe("CartRaveServer DO harness", () => {
 
     const migrated = await migratePromise;
     expect(migrated.hostId).toBe(joiner.youConnId);
+    expect(migrated.reason).toBe("host_disconnect");
 
     // * Room always has NPC slots — wait until the departed host connId is gone
     // * and only the joiner remains human.
@@ -298,6 +299,7 @@ describe("CartRaveServer DO harness", () => {
 
       const migrated = await migratePromise;
       expect(migrated.hostId).toBe(joiner.youConnId);
+      expect(migrated.reason).toBe("host_disconnect");
 
       const slotsAfter = await joiner.client.awaitMessage(
         (m) =>
