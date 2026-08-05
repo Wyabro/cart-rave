@@ -1072,15 +1072,16 @@
     padding: clamp(4px, 1.2vw, 6px) clamp(2px, 0.8vw, 4px);
     min-width: 0;
   }
+  /* UI-SCALE-1 residual: 8–9px floors were unreadable on phone docks. */
   #hud:not(.hud-touch) .hud-scoreLabel {
     display: block;
-    font-size: clamp(8px, 2vw, 9px);
+    font-size: clamp(10px, 2.4vw, 11px);
     letter-spacing: 0;
     text-align: center;
     width: 100%;
   }
   #hud:not(.hud-touch) .hud-scoreValue {
-    font-size: clamp(11px, 2.8vw, 13px);
+    font-size: clamp(13px, 3.2vw, 15px);
     min-width: 0;
   }
   #hud .hud-scoreYou {
@@ -1885,39 +1886,51 @@
     display: block !important;
   }
 }
+/* UI-SCALE-1 residual: score chips were micro-type on phone. */
 #hud.hud-touch .hud-scoreValue {
-  font-size: clamp(12px, 2.8vw, 15px);
+  font-size: clamp(14px, 3.4vw, 17px);
 }
-#hud.hud-touch .hud-scoreBox.isLocal .hud-scoreValue { font-size: clamp(14px, 3.2vw, 17px); }
+#hud.hud-touch .hud-scoreBox.isLocal .hud-scoreValue { font-size: clamp(15px, 3.6vw, 18px); }
 
 /* Kill feed — top-right under utility, right-aligned (desktop side).
-   Width-capped so it cannot grow across the left timer. */
+   Was min(46vw, 260px) → ~179px at 390w, narrower than a KO row's rigid parts
+   (HUD-FEED-1 already fixed the non-touch band to 78vw/400). Touch kept the
+   old squeeze; widen so names can ellipsize inside the plate, not vanish. */
 #hud.hud-touch .hud-region-events {
   top: var(--hud-feed-top);
   left: auto;
   right: max(var(--hud-pad), env(safe-area-inset-right, 0px));
-  max-width: min(46vw, 260px);
+  max-width: min(72vw, 340px);
   z-index: 8;
 }
 #hud.hud-touch .hud-feed {
   align-items: flex-end;
   text-align: right;
   gap: clamp(8px, 1.4vw, 12px);
+  padding: 8px 12px 10px;
 }
 #hud.hud-touch .hud-feed-row {
   justify-content: flex-end;
+  gap: 6px;
 }
 #hud.hud-touch .hud-feed-row:nth-child(n + 3) {
   display: none;
 }
 #hud.hud-touch .hud-feed-actor,
 #hud.hud-touch .hud-feed-target {
-  font-size: clamp(12px, 3vw, 14px);
+  font-size: clamp(13px, 3.2vw, 15px);
   flex-shrink: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+#hud.hud-touch .hud-feed-verb {
+  font-size: clamp(13px, 3.4vw, 16px);
+}
+#hud.hud-touch .hud-feed-hd {
+  font-size: clamp(8px, 2vw, 9px);
+  letter-spacing: 0.2em;
 }
 
 /* Center Stage — same queue, ~60% scale so banners never dwarf the arena. */
