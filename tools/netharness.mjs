@@ -14,6 +14,7 @@
  *   node tools/netharness.mjs --scenario spawnlock           # (default) mid-round joiner drives
  *   node tools/netharness.mjs --scenario hostReload          # mid-round host tab reload (A6b)
  *   node tools/netharness.mjs --scenario teardownRejoin      # menu-return teardown BEFORE join (07-17 freeze)
+ *   node tools/netharness.mjs --scenario shardOverflow       # 5th human overflows a full shard (QUICKPLAY-SHARD-1)
  *
  * Requires: Playwright Chromium (`npx playwright install chromium`).
  * Exit code 0 = all assertions passed; 1 = a scenario failed; 2 = harness/setup error;
@@ -47,7 +48,7 @@ const nlog = (...a) => console.log("[netharness]", ...a);
  * A client wrapper: its own browser context (isolated localStorage → distinct username),
  * one page with the netTest hook installed.
  */
-async function makeClient(browser, { username, baseUrl, label, diag = false }) {
+async function makeClient(browser, { username, baseUrl, label, diag = false, room = "quickplay" }) {
   const context = await browser.newContext({ viewport: { width: 900, height: 600 } });
   // * Seed identity + skip intro overlays BEFORE any page script runs, so the
   // * ?room=quickplay auto-rejoin path (main.js) fires without DOM interaction.
@@ -80,7 +81,10 @@ async function makeClient(browser, { username, baseUrl, label, diag = false }) {
   });
 
   const url = new URL(baseUrl);
-  url.searchParams.set("room", "quickplay");
+  // * Defaults to the public shard 1, so every pre-existing scenario is byte-for-byte unchanged.
+  // * QUICKPLAY-SHARD-1's scenario overrides it to fill an isolated shard instead of the room
+  // * a developer might be sitting in.
+  url.searchParams.set("room", room);
   url.searchParams.set("nettest", "1");
   // * Both clients run backgrounded (only one Playwright page can be foreground), so their
   // * rAF throttles to ~1fps and the fixed-step sim loop stalls (dt > RESUME_GAP_S zeroes the
@@ -1105,6 +1109,97 @@ async function scenarioHostReload(browserHost, browserJoiner, baseUrl) {
  * so the assertion pins the exact root cause, not just a symptom. Pre-fix, re-entry left the axis
  * null and every check after the teardown fails.
  */
+/**
+ * QUICKPLAY-SHARD-1 — overflow hop, in real browsers.
+ *
+ * Quickplay was ONE global Durable Object: four slots, so four humans worldwide, and the fifth
+ * was closed 4004 with a dead-end toast. A full public shard now names the next one in
+ * `joinRejected.retryRoom` and the client re-dials there.
+ *
+ * The party-do suite proves the SERVER sends `retryRoom`. This proves the CLIENT acts on it,
+ * which is the risky half: a reject fires two things at once — `onJoinRejected()` (which would
+ * toast and return to the menu) and, a beat later, the socket close, whose handler would call
+ * `scheduleNetcodeRetry()` and re-dial the same full room underneath the hop, because `hello`
+ * has already arrived by then. Both have to lose. Nothing but a real browser exercises that.
+ *
+ * Runs on an isolated high shard rather than `quickplay`, so it neither fills nor is disturbed by
+ * the room a developer or another scenario is sitting in.
+ */
+async function scenarioShardOverflow(browserHost, browserJoiner, baseUrl) {
+  console.log("[scenario] shardOverflow — a 5th human overflows a full public shard onto the next one");
+  const BASE_SHARD = "quickplay17";
+  const NEXT_SHARD = "quickplay18";
+  const clients = [];
+  try {
+    // 1. Fill the shard: four humans, alternating browsers so no single one is starved.
+    for (let i = 0; i < 4; i += 1) {
+      const c = await makeClient(i % 2 === 0 ? browserHost : browserJoiner, {
+        username: `SH${i}`,
+        baseUrl,
+        label: `filler${i}`,
+        room: BASE_SHARD,
+      });
+      clients.push(c);
+      await waitForState(c.page, (s) => s.localSlotIndex >= 0, {
+        timeout: 40_000,
+        label: `filler${i}-seated`,
+      });
+    }
+    console.log(`[scenario] ${BASE_SHARD} is full (4 humans seated)`);
+
+    // 2. The fifth. Pre-fix this bounced to the menu; now it must seat somewhere.
+    const fifth = await makeClient(browserJoiner, {
+      username: "SHOVER",
+      baseUrl,
+      label: "overflow",
+      room: BASE_SHARD,
+    });
+    clients.push(fifth);
+
+    const seated = await waitForState(fifth.page, (s) => s.localSlotIndex >= 0, {
+      timeout: 45_000,
+      label: "overflow-seated",
+    });
+    check("5th human seats instead of being turned away", seated.localSlotIndex >= 0,
+      `slot=${seated.localSlotIndex}`);
+
+    // 3. It must be a DIFFERENT room, and the URL must carry it — detectGameMode reads the URL
+    //    and nothing else, so a hop that moved only the socket would leave every mode decision,
+    //    refresh and auto-rejoin still believing this is shard 1.
+    const landedRoom = await fifth.page.evaluate(
+      () => new URL(window.location.href).searchParams.get("room"),
+    );
+    check("overflow client landed on the next shard", landedRoom === NEXT_SHARD,
+      `room=${landedRoom} (expected ${NEXT_SHARD})`);
+
+    // 4. The SEC-DIAG-1 regression bar, live: the shard must still classify as quickplay. If this
+    //    reads "friends" the private lobby shows in public matchmaking and the prod score-cheat
+    //    gate disarms.
+    check("the shard still classifies as quickplay", seated.mode === "quickplay",
+      `mode=${seated.mode}`);
+
+    // 5. Continuous policy: reaching a running round from a cold join with nobody pressing READY
+    //    is the observable proof the shard is continuous and not ready-up gated.
+    const running = await waitForState(fifth.page, (s) => s.phase === "running", {
+      timeout: 60_000,
+      label: "overflow-running",
+    });
+    check("overflow client reaches a running round with no manual ready-up",
+      running.phase === "running", `phase=${running.phase}`);
+
+    // 6. The filled shard must be undisturbed — the hop is the joiner's business alone.
+    const firstStill = await clients[0].page.evaluate(
+      () => new URL(window.location.href).searchParams.get("room"),
+    );
+    check("the full shard's existing players are not moved", firstStill === BASE_SHARD,
+      `room=${firstStill}`);
+  } finally {
+    for (const c of clients) {
+      try { await c.context.close(); } catch { /* ignore */ }
+    }
+  }
+}
+
 async function scenarioTeardownRejoin(browserHost, browserJoiner, baseUrl) {
   console.log("[scenario] teardownRejoin — joiner returns to menu, re-joins, must still drive (07-17 axis-unwire freeze)");
   const mark = results.length;
@@ -1274,6 +1369,7 @@ async function main() {
     hostMigration: scenarioHostMigration,
     hostReload: scenarioHostReload,
     teardownRejoin: scenarioTeardownRejoin,
+    shardOverflow: scenarioShardOverflow,
   };
   const run = SCENARIOS[scenario];
   if (!run) {
