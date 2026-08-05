@@ -13,6 +13,32 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 5, 2026 — STORE-WALL-SLIDE-1 PASS: walls stopped averaging their friction with the cart
+
+**Wyatt PASS on prod `a9dfef85`** — *"feels way better"*. Closes the three-card Storerooms pit
+chain, each card caused by the previous one's fix, with no residual on the third.
+
+- *(Physics · High)* **STORE-WALL-SLIDE-1** — ✅ PASS 08-05 (`f28268b`). **Rapier combines the two
+  colliders' friction with `Average` by default**, and the cart carries `friction: 1.1`. So every
+  wall in the level was acting far grippier than its written value: the cliff and shaft walls at
+  0.05 behaved like **0.575**, the perimeter walls at 0.4 like **0.75** — the stickiest surface a
+  player could touch. `FrictionCombineRule.Min` on all five vertical surfaces makes the written
+  number the felt number; the perimeter also went 0.4 → 0.15, because Min alone still drags.
+- **This invalidated the previous card's tuning in hindsight.** STORE-PIT-WEDGE-1 set the pit
+  dressing to 0.05 "so carts slide off instead of parking" — that number was really 0.575 the
+  whole time. The lever only started working when this card landed. Worth remembering: **a
+  friction value in this codebase is not a felt value unless a combine rule says so.**
+- **Floors deliberately keep `Average`** — chamfer prisms, backstop cap, carpet slices, booth
+  decks. Their grip is what makes driving feel right. The test carries a canary asserting the
+  backstop cap did *not* acquire the rule, specifically so a later "make it consistent" pass
+  cannot quietly sand the driving feel off the whole arena.
+- *(Precedent found, not invented)* Sundial hit the identical bug on the **restitution** side and
+  fixed it the same way — [zanzibarPlatform.js:25](../../src/levels/zanzibarPlatform.js:25) records
+  that `Average` "produced a phantom ~0.175 bounce". Nobody had ever done the friction equivalent.
+- *(Follow-on)* **WALL-SLIDE-CLASSIC-1** filed: Classic Record's pit walls set no combine rule
+  either, so its containment lip written `0.02` — deliberate ice — behaves like **0.56**. Sundial
+  is clean.
+
 ### August 5, 2026 — STORE-PIT-WEDGE-1 PASS: the pit band is driveable
 
 **Wyatt PASS on prod `c5711dd4`.** No spot in the band pins a cart any more.

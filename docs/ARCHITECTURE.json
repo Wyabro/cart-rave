@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-05T05:27:10.023Z",
-    "commit": "acbae00"
+    "at": "2026-08-05T05:34:15.831Z",
+    "commit": "76f5317"
   },
-  "source_digest": "42346c48",
+  "source_digest": "46870f61",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -855,19 +855,10 @@
   "workstreams": {
     "queue": [
       {
-        "id": "STORE-WALL-SLIDE-1",
-        "what": "Storerooms walls grab instead of letting a cart scrape past",
-        "status": "✅ DEPLOYED 08-05 (`f28268b`) · Version `a9dfef85`, prod SHA + all 5 rule calls verified — playtest owed. Third in the Storerooms pit chain (STORE-PLAT-WALL-1 PASS → STORE-PIT-WEDGE-1 PASS → this). Rapier averages collider friction and the cart carries 1.1, so a wall written 0.05 acted like 0.575 and the perimeter (0.4) like 0.75 — the stickiest surface in the room. `FrictionCombineRule.Min` on all five vertical surfaces + perimeter 0.4 → 0.15. Friction twin of the phantom-bounce bug Sundial fixed with `RestitutionCombineRule.Min` ([zanzibarPlatform.js:25](../src/levels/zanzibarPlatform.js:25)). Floors keep Average on purpose. [BACKLOG § Playtest owed](./planning/BACKLOG.md).",
-        "state": "done",
-        "touches_systems": [
-          {
-            "id": "arenas-levels",
-            "name": "Arenas & levels",
-            "files": [
-              "src/levels/zanzibarPlatform.js"
-            ]
-          }
-        ]
+        "id": "*(open — Wyatt's pick)*",
+        "what": "Storerooms pit chain closed 08-05",
+        "status": "✅ STORE-PLAT-WALL-1 → STORE-PIT-WEDGE-1 → STORE-WALL-SLIDE-1, all PASS, each caused by the previous one's fix, third closed clean (*\"feels way better\"*). Detail in [completed-work.md](./planning/completed-work.md). Follow-on filed: WALL-SLIDE-CLASSIC-1 — Classic Record's pit walls set no friction combine rule either, so its `0.02` ice lip really behaves like 0.56.",
+        "state": "done"
       },
       {
         "id": "FIX-EMISSIVE",
@@ -952,7 +943,7 @@
       {
         "title": "Engineering",
         "counts": {
-          "Medium": 14,
+          "Medium": 15,
           "Low": 10,
           "High": 2,
           "Partial": 1
@@ -962,6 +953,12 @@
             "pri": "Medium",
             "item": "SPAWN-SUNDIAL-1 — Sundial platform-leg colliders `[pre-ship]`",
             "notes": "**Half closed 08-02.** The spawn inset shipped in `e64f1a3` via `booth.gapDistanceByLevel` — Sundial's booths and spawn ring both moved +0.75m outward with no level-file edit. **Still owed:** colliders on the platform legs. `buildZanzibarBooths` ([zanzibarPlatform.js:3745](../../src/levels/zanzibarPlatform.js:3745)) builds four 11m legs plus cross-braces per booth as **visual meshes only** — the deck cuboid at `:3828` is the sole `createCollider` in the builder, so carts ghost straight through the supports. ART-PASS-SUNDIAL-1 is closed (Run 8) — leg colliders are unblocked; still open work.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "WALL-SLIDE-CLASSIC-1 — Classic Record's pit walls have the same averaged-friction stickiness",
+            "notes": "**Filed 08-05 from STORE-WALL-SLIDE-1's finding** (that card PASSed on Storerooms: *\"feels way better\"*). Rapier combines collider friction with **Average** by default and the cart carries `friction: 1.1`, so a wall's written value is not what a cart feels. Classic Record's wall colliders set **none** of the combine rules: the containment lip at [arena.js:2592](../../src/arena.js:2592) is written `0.02` — deliberate ice — and behaves like **0.56**; the pit shaft hulls at [:2549](../../src/arena.js:2549) are `0.05` → **0.575**; [:2492](../../src/arena.js:2492) is `0.2` → **0.65**. Whoever tuned 0.02 was aiming for frictionless and got a grippy wall, which is evidence the intent was never achieved rather than a taste call. **Fix is the same one lever:** `setFrictionCombineRule(RAPIER.CoefficientCombineRule.Min)` on those three, then re-judge the numbers — Storerooms also needed its perimeter dropped 0.4 → 0.15 afterwards, so expect a second pass on feel. **Sundial is clean** (no low-friction wall colliders). **Do not apply Min to floors** — chamfer/deck/carpet grip is what makes driving feel right; Storerooms carries a test canary asserting its backstop cap stayed on Average. Player-visible physics on the flagship arena, so it needs its own playtest, not a rubber stamp.",
             "ship1": null
           },
           {
@@ -1327,16 +1324,9 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "High": 1,
           "Low": 1
         },
         "rows": [
-          {
-            "pri": "High",
-            "item": "STORE-WALL-SLIDE-1 — walls should let you scrape past, not grab `[solo]`",
-            "notes": "**Owed: Wyatt playtest — STORE-WALL-SLIDE-1 — walls should feel slippery, not sticky.** You said the pit cliff and the outer walls felt sticky. They were: the game was averaging each wall's slipperiness with the cart's own grip, so a wall set to be very slippery still behaved like a fairly grippy one, and the outer walls were the grippiest surface you could touch. Walls now use the value they were actually given, and the outer walls were loosened as well. Floors were left alone on purpose — that grip is what makes driving feel right. **DEPLOYED** · Version `a9dfef85` · chunk `backroomsSupermarket-fZZx18UH.js` (prod SHA byte-identical to the local ship, and all 5 combine-rule calls present in the fetched chunk) · hard-refresh https://cart-rave.wyabro.workers.dev first.<br>1. On Storerooms, drive along the outer walls at a shallow angle and scrape them, then do the same against the wall under the arena down in the pit, and clip a corner where two walls meet. You should slide along and keep your speed instead of catching. If anything now feels *too* slippery — like the wall is throwing you off — that is worth saying too; it is one number either way.",
-            "ship1": null
-          },
           {
             "pri": "Low",
             "item": "AQ-RING-CLEAR-1 — autoQuality clear sample ring on every window eval",
