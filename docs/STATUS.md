@@ -69,12 +69,12 @@ Live rows only. Shipped and closed cards live in
 | FIX-EMISSIVE | Non-patterned carts read blown out on Classic | ⛔ **ABORTED 08-04 — approved design invalidated, needs re-ack.** See Open issues. |
 | FIX-MIG | Quickplay host-migration visibility + continuous-policy tests | 📋 next wave, scoped — see Open issues. |
 | PERF-PASS-1 | 60 fps at Low on the Intel box — **Cart Rave only** (Wyatt scoped it 08-03) | ⏸ **PARKED BY WYATT 08-04 for HOST-TAB-1.** Wave 4 remains deployed (`b754e12`, Worker `9b8b1fbe`); honest measured range −1.66 to −2.54 ms and includes +0.55. Card remains open at ~46 fps; every future cell needs an A-B-A bracket on a cooled box. Menu + evidence: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md). |
-| BUNDLE-1 | Menu/game code-split | ⚠️ **CLOSED PARTIAL 08-05 — perf goal NOT met, awaiting deploy.** Warm `menu-ready` 988 → 958 ms (−3% vs a −15% gate); `module-eval` 472 → 502. Banked: a `size:check` byte gate, `main.js` 2,582 → 1,262 lines, −351,503 B (−22.6%) off the initial set — **cold** visits only. [bundle-1.md §0](./planning/bundle-1.md) |
+| BUNDLE-1 | Menu/game code-split | ⚠️ **CLOSED PARTIAL 08-05 — perf goal NOT met. Deployed `f2f90fd2`.** Warm `menu-ready` 988 → 958 ms (−3% vs a −15% gate); `module-eval` 472 → 502. Banked: a `size:check` byte gate, `main.js` 2,582 → 1,262 lines, −351,503 B (−22.6%) off the initial set — **cold** visits only. [bundle-1.md §0](./planning/bundle-1.md) |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 
 ### Next actions
 
-1. **Pick the next card** — BUNDLE-1 closed partial 08-05 (needs a deploy). Competing: re-ack FIX-EMISSIVE (needs a design that survives the per-frame re-tint) or FIX-MIG as scoped. Wyatt's call.
+1. **Pick the next card** — BUNDLE-1 closed partial, deployed. Competing: **HARNESS-GEO-1** (battery 5/6 on a proven-bogus check; gates `release:check`), FIX-EMISSIVE re-ack, or FIX-MIG. Wyatt's call.
 2. **Hitch forensics now has evidence** — cap-254–260 (build `8d96b0b`) are the first captures from a working upload path, including a Cart Rave F8 taken on a hitch. Read them before any perf knob.
 3. **Still owed separately:** 9-cell PERF sweep (~25 min). Resume Run 8 FAIL triage.
 

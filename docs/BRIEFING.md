@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-05 at commit `5b26106` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `4d8588bf`
+> Generated 2026-08-05 at commit `e161296` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `9d51a4d4`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -18,14 +18,14 @@ Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep a
 
 ## ACTIVE CARD
 
-Pick the next card — BUNDLE-1 closed partial 08-05 (needs a deploy). Competing: re-ack FIX-EMISSIVE (needs a design that survives the per-frame re-tint) or FIX-MIG as scoped. Wyatt's call
+Pick the next card — BUNDLE-1 closed partial, deployed. Competing: HARNESS-GEO-1 (battery 5/6 on a proven-bogus check; gates `release:check`), FIX-EMISSIVE re-ack, or FIX-MIG. Wyatt's call
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 
 Self-directed queue (one at a time, within the declared phase):
 - **FIX-EMISSIVE** Non-patterned carts read blown out on Classic — ⛔ ABORTED 08-04 — approved design invalidated, needs re-ack. See Open issues.
 - **FIX-MIG** Quickplay host-migration visibility + continuous-policy tests — 📋 next wave, scoped — see Open issues.
-- **BUNDLE-1** Menu/game code-split — ⚠️ CLOSED PARTIAL 08-05 — perf goal NOT met, awaiting deploy. Warm `menu-ready` 988 → 958 ms (−3% vs a −15%…
+- **BUNDLE-1** Menu/game code-split — ⚠️ CLOSED PARTIAL 08-05 — perf goal NOT met. Deployed `f2f90fd2`. Warm `menu-ready` 988 → 958 ms (−3% vs a…
 
 ## Do not
 
