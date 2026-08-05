@@ -101,6 +101,7 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 [decision-log-2026-08.md](./archive/decision-log-2026-08.md), 07-11 → 07-23 in
 [decision-log-2026-07.md](./archive/decision-log-2026-07.md).
 
+- **D-AGENT-OS-1** (08-05): Slim always-on `AGENTS.md` (~1.6k tok; depth → `docs/reference/agent-manual.md`). **Grok + Codex equal** heavy-lift defaults; Cursor IDE/backup; Claude demoted. Shared authority = AGENTS + git hooks + `verify:head` (not Claude PreToolUse). David Ondrej skills cherry-picked user-level (Grok+Codex).
 - **D-BUNDLE-1-CLOSE** (08-05): BUNDLE-1 PARTIAL — bytes moved, warm menu-ready did not. **Warm cache ⇒ byte cuts are near-worthless; measure parse-vs-construction first.** Supersedes D-PERF-3.
 - **D-SUNDIAL-OQ8** (08-02): Stylise — keep the 9.93° sun key *and* the 1.87° disc; judge sun-facing vs anti-sun **vertical** surfaces, never whole-deck frame mean.
 - **D-SUNDIAL-OQ6** (08-02): Low is a shipping look — every lever ships its Low path in the same commit.
@@ -127,6 +128,12 @@ The hot set — what a current session is likely to hit. Deep-domain and narrow 
 - **Before any public / external-tester playtest: reset the analytics DO** so aggregates are not polluted by dev/harness traffic. Token-gated (SEC-TOKEN-1): `DELETE` with `Authorization: Bearer <ERROR_LOG_TOKEN>` on `/api/analytics` (never `?token=`).
 
 ## Last updated
+
+2026-08-05 (AGENT-OS-1 tooling) — Cold-start cut: `AGENTS.md` 7.6k → ~1.6k always-on tokens;
+depth in `docs/reference/agent-manual.md`. Tool routing: Grok ≡ Codex, Claude demoted. Pointers
+rewritten (`GROK.md` / `CLAUDE.md` / `GEMINI.md` / `.cursorrules`). Seven David skills at
+`~/.grok/skills` + `~/.codex/skills` (not vendored into repo). Left for later: `skills:sync`
+still health-gates the Claude repo mirror; optional Grok config skill prune.
 
 2026-08-05 (BUNDLE-E-PT-1 PASS) — Lever E's deferred-callback seam playtested on prod `f2f90fd2`,
 6/6 incl. the two-machine friends round. That seam fails **silent**, so the human pass is the only

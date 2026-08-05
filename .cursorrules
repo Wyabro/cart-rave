@@ -25,7 +25,8 @@
 
 ## Cursor notes
 
-- Cursor is used primarily for cross-file refactors (see AGENTS.md § Model / tool routing).
+- **Role:** IDE surface + backup. **Equal heavy-lift defaults are Grok and Codex** (see AGENTS.md § Tool routing). Claude is demoted.
+- Deep process: `docs/reference/agent-manual.md` (read when needed — not every session).
 - Durable Object state persists across `wrangler deploy` — deploys do NOT reset in-memory server state.
 - Use PowerShell for commands (`Select-String`, not `grep`; single-line commit messages with `-m "..."`).
 - Behavior-changing diffs require human playtest on production before proceeding.
