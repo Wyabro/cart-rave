@@ -3193,7 +3193,8 @@ html, body {
   top: 0; bottom: var(--cr-hint-h);
   width: min(480px, 44vw);
   display: flex; flex-direction: column; justify-content: flex-start;
-  padding-top: clamp(20px, 5.6vh, 60px);
+  /* MENU-RESTRAINT-1d: was clamp(20px, 5.6vh, 60px) — less dead air above title. */
+  padding-top: clamp(16px, 4.2vh, 48px);
   gap: 0;
   z-index: 22;
 }
@@ -3221,7 +3222,8 @@ html, body {
      write `transform` on this node — an inline transform wipes the -4deg lean,
      which is exactly how the lockup lost it (the rAF write set `scale()`). */
   transform: skewX(-4deg) scale(var(--cr-title-beat, 1));
-  margin: clamp(8px, 1.9vh, 20px) 0 clamp(20px, 4.8vh, 52px);
+  /* MENU-RESTRAINT-1d: bottom was clamp(20px, 4.8vh, 52px) — pull cmds closer. */
+  margin: clamp(8px, 1.9vh, 20px) 0 clamp(12px, 3.2vh, 36px);
 }
 .cr-hero .cr-title-stack .cr-title-word:nth-child(1) {
   color: var(--color-sticker-white);
