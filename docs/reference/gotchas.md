@@ -31,6 +31,76 @@ gotcha here starts biting again, move it back rather than duplicating it.
 ## Physics / platform
 
 - **Rapier WASM:** standard build is the default; SIMD is opt-in only (borrow error).
+- **A friction or restitution value on a collider is NOT what the cart feels.** Rapier combines
+  the two colliders' coefficients first, and `ColliderDesc` defaults **both**
+  `frictionCombineRule` **and** `restitutionCombineRule` to `Average` — read it at
+  `node_modules/@dimforge/rapier3d/geometry/collider.js:861-862`, do not infer it. The cart
+  carries `friction: 1.1` / `restitution: 0.3` ([config.js](../../src/config.js) `CONFIG.cart`),
+  so a wall written `0.02` behaved like **0.56** and one written `0.3` like **0.7**. Verticals a
+  cart scrapes along take `FrictionCombineRule.Min`; **floors deliberately keep `Average`**,
+  because their values were tuned *against* the cart's 1.1 — three test files carry canaries to
+  stop a "make it consistent" sweep sanding the driving feel off. Full run and the five cards
+  that closed it: [completed-work.md](../planning/completed-work.md).
+  - **Do not "correct" Classic's restitution numbers.** Several comments claim Rapier defaults
+    restitution to `Max`; that is wrong (see above), so the pit lip and staves deflect at
+    0.40/0.45 rather than the documented 0.50/0.60. The card passed playtest **at the real
+    values**, so the feel is signed off and only the prose is wrong — filed as
+    `RAPIER-DEFAULT-MAX-1`.
+  - **The two axes are independent and easy to confuse.** Sundial's deck needs
+    `RestitutionCombineRule.Min` to hold a *lower* value (0.05 under the cart's 0.3); Classic's
+    walls take no restitution rule because they want the bounce.
+- **`world.castRay*` exclusion filters want the Collider/RigidBody OBJECT, never `.handle`.**
+  Rapier unwraps the handle internally
+  (`filterExcludeCollider ? filterExcludeCollider.handle : null`). Passing a handle silently
+  disables the exclusion — no throw, no warning, the ray just starts hitting the thing you meant
+  to skip. Live call sites: [camera.js:179](../../src/camera.js:179),
+  [cartOrchestration.js:903](../../src/orchestration/cartOrchestration.js:903).
+- **There is NO seed for gameplay RNG.** Two runs of the "same" scenario diverge. Never report a
+  physics or AI difference from a single pair of runs, and never build a regression check that
+  assumes reproducible gameplay.
+
+## Audio
+
+Loudness targets and the loudnorm start-ramp trap are documented where they belong —
+[music.md](./music.md) (≈ −13.5 LUFS integrated, two-pass EBU R128) and
+[ambience.md](./ambience.md) (**no loudnorm on loops**). Not repeated here.
+
+- **Howler's `_playLock` can revive a track you already stopped.** A deferred `play()` whose
+  `onplay` lands *after* `stopMenuMusic()` ran will resurrect the menu bed under the game. The
+  fix in place is a terminal guard inside `onplay` itself, not a longer deferral — see
+  [audioManager.js:339](../../src/audioManager.js:339). A previous attempt to fix this by
+  deferring caused the bleed it was meant to prevent.
+- **Synth stings and file-backed audio sit on different volume buses.** The listener volume is a
+  mute gate only; applying a slider to both paths double-applies it (an SFX slider was once
+  applied twice to synth stings). Check which bus a sound is on before scaling it.
+
+## Dev loop & measuring
+
+- **Dev-only probes lie in production.** `__cartRavePerf.scene`, `import("/src/…")` and friends
+  do not exist in a built bundle, so a probe that "returns nothing" on prod is telling you about
+  the probe, not the game. Verify prod changes **visually**, or through something that ships.
+- **Judge performance on a production build, never `npm run dev`.** Dev-server timings include
+  transform and module-graph cost that no player pays.
+- **A deploy is not instantly live everywhere** — edge propagation is roughly 30 s per PoP.
+  Hard-refresh, and give it a beat before concluding a fix did not land.
+- **Warm-cache byte cuts are near-worthless.** BUNDLE-1 moved −22.6 % off the initial set and
+  warm `menu-ready` improved 3 % against a 15 % gate. Measure parse-vs-construction before
+  spending a card on bytes (D-BUNDLE-1-CLOSE).
+- **`localhost` and `127.0.0.1` are not interchangeable here** — they differ for storage origin
+  and for the netcode rig. Match whatever the harness or the deployed URL uses.
+- **A hidden or non-compositing tab freezes `rAF`** (and with it the boot sequence, so a round
+  will not start). Dev tooling passes `?perfPump`. This bites automated browser checks hardest:
+  layout reads can come back frozen and stale rather than absent, which looks like a CSS bug.
+- **Stale `workerd` processes survive a killed dev server** and hold the port; kill them before
+  blaming a config change. Worktrees and the Vite cache have the same shape of trap — a stale
+  cache serves the previous branch's modules.
+
+## Known blockers
+
+- **Stay on TypeScript 6.0.3.** TS 7's native flags surface ~849 JSDoc `object` errors across
+  the codebase; upgrading is a project, not a bump.
+- **The PATTERNS customize tab is blocked on `cartrave4` geometry**, whose body UVs are
+  fragmented. The plan is a second UV channel authored in Blender first — not a shader workaround.
 
 ## Naming
 

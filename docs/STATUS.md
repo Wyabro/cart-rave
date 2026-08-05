@@ -114,8 +114,11 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 
 ## Gotchas (append-only)
 
-The hot set — what a current session is likely to hit. Deep-domain and narrow entries move to
-[reference/gotchas.md](./reference/gotchas.md); grep there when a subsystem surprises you.
+The hot set — what a current session is likely to hit. Deep-domain and narrow entries live in
+**[reference/gotchas.md](./reference/gotchas.md)** — grep it *before* debugging physics
+(combine rules · `castRay` filters · no RNG seed), audio (Howler `_playLock` · volume buses),
+the dev loop (dev probes lie in prod · edge propagation · frozen `rAF`), or a suspected blocker
+(TS 7 · `cartrave4` UVs). Several of those cost a session each to learn the first time.
 
 - Hidden-tab rAF freezes the loop unless `?perfPump` (DEV) is set — shoot tools should pass it.
 - **Level animation IS capturable** — SHOOT-ANIM-1 closed (`6b27283`); free-running it lands on a random phase, so pin one with `--t <ms>` and compare two. Judge against the arena's null floor, not zero: **Sundial ~1.2%, Classic ~15.9%** (construction randomness, not animation). Rave **dressing** is still frozen — SHOOT-ANIM-2.
