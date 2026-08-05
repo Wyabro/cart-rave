@@ -10,14 +10,23 @@
 // This module is the single source of truth for "does a seated human count as ready", so the
 // decision is unit-testable without the Workers runtime (the DO class is not).
 
+import { isQuickplayRoom } from "./roomCodes.js";
+
 /** Grace before an armed countdown aborts on a transient unready — a reseat/blip within this
  *  window is tolerated, so a flapping peer no longer bounces everyone back to lobby (fix A). */
 export const COUNTDOWN_ABORT_GRACE_MS = 1500;
 
-/** Room names that are continuous (no manual ready-up). Quickplay is the shared public room.
- *  `quickplay__*` is a party-do harness prefix so continuous-policy tests get isolated DOs. */
+/** Room names that are continuous (no manual ready-up). Quickplay is the public mode, and
+ *  since QUICKPLAY-SHARD-1 it spans `quickplay` plus the `quickplay2…N` overflow shards —
+ *  `isQuickplayRoom` is the single definition, so a shard is continuous exactly like shard 1.
+ *  Miss this and a shard seats humans `isReady:false` while the client also stops auto-readying:
+ *  nobody is ever ready and the room deadlocks in lobby.
+ *
+ *  `quickplay__*` is RETAINED alongside it as the party-do harness prefix — those tests inject
+ *  the Durable Object name directly (bypassing the URL funnel that would reject an underscore)
+ *  so each continuous-policy test gets an isolated DO. The shard regex does not match it. */
 export function isContinuousModeRoom(roomName) {
-  if (roomName === "quickplay") return true;
+  if (isQuickplayRoom(roomName)) return true;
   return typeof roomName === "string" && roomName.startsWith("quickplay__");
 }
 

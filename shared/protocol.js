@@ -45,6 +45,10 @@ export const MSG = {
   hostMigrated: "host_migrated",
   slots: "slots",
   round: "round",
+  // * Carries `retryRoom: string | null` (QUICKPLAY-SHARD-1). On a full PUBLIC quickplay shard
+  // * it names the next shard to try, and the client hops there instead of returning to the
+  // * menu. Null/absent — friends rooms, harness rooms, or a chain that hit the shard cap —
+  // * means "no hop", i.e. the original behaviour: toast and back to the menu.
   joinRejected: "join_rejected",
   gameStart: "game_start",
   countdownCancel: "countdown_cancel",

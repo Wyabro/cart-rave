@@ -89,6 +89,61 @@ export const ROOM_CODE_WORDS = Object.freeze([
 const ROOM_CODE_PATTERN = /^[A-Za-z0-9]{2,16}$/;
 
 /**
+ * QUICKPLAY-SHARD-1. Public quickplay is sharded: shard 1 is `quickplay`, and overflow
+ * shards are `quickplay2` … `quickplay<MAX_QUICKPLAY_SHARDS>`. This predicate is the single
+ * definition of "is this a public quickplay room", and every mode/policy decision on both
+ * planes must route through it — `detectGameMode` (src/netcode.js), `isContinuousModeRoom`
+ * (shared/readiness.js) and the arena/difficulty branch in party/index.ts. Miss one and a
+ * shard silently becomes a *friends* room: no auto-ready (so the lobby deadlocks), no arena
+ * rotation, the private CHECKOUT LINE lobby with its invite link in public matchmaking, and
+ * SEC-DIAG-1's score-cheat gate disarms.
+ *
+ * ALPHANUMERIC ONLY, and that is a hard constraint, not a style choice.
+ * `resolvedPartyRoomFromUrl` (src/netcode.js) tests `/^[A-Za-z0-9]{2,16}$/` and **silently
+ * falls back to `"quickplay"`** on a miss, so a `quickplay__2`-style scheme would collapse
+ * every shard URL back into the one global room and sharding would appear to do nothing.
+ * (`quickplay__*` remains the party-do harness prefix — those tests inject the Durable Object
+ * name directly and never pass through the URL funnel. See `isContinuousModeRoom`.)
+ *
+ * Shard 1 is `quickplay`, never `quickplay1`, so one room can never have two names.
+ * `quickplay1` is *accepted* here rather than special-cased — it is unreachable in practice,
+ * since `isReservedRoomName` already refuses the whole `quickplay*` family from the typed-code
+ * field and `nextQuickplayShard` never emits it.
+ *
+ * @param {unknown} room
+ * @returns {room is string} Type predicate so callers (e.g. `nextQuickplayShard`) narrow.
+ */
+export function isQuickplayRoom(room) {
+  if (typeof room !== "string") return false;
+  return room === "quickplay" || /^quickplay[0-9]+$/.test(room);
+}
+
+/**
+ * Highest shard index the overflow chain will walk to. 20 shards × 4 seats = 80 concurrent
+ * humans; past that a joiner gets the same "room full" toast it gets today, so the cap can
+ * only ever be as bad as current behaviour, never worse.
+ */
+export const MAX_QUICKPLAY_SHARDS = 20;
+
+/**
+ * Next shard in the overflow chain, or `null` once the cap is reached.
+ *
+ * Filling is deliberately sequential from shard 1 rather than spread: a four-player brawler
+ * is worth playing because other humans are in it, so concentrating joiners beats balancing
+ * them across empty rooms.
+ *
+ * @param {unknown} room Current (full) room name.
+ * @returns {string | null}
+ */
+export function nextQuickplayShard(room) {
+  if (!isQuickplayRoom(room)) return null;
+  const index = room === "quickplay" ? 1 : Number(room.slice("quickplay".length));
+  if (!Number.isInteger(index) || index < 1) return null;
+  const next = index + 1;
+  return next > MAX_QUICKPLAY_SHARDS ? null : `quickplay${next}`;
+}
+
+/**
  * Whether a room name is reserved for a built-in mode.
  * @param {unknown} raw
  * @returns {boolean}

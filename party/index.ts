@@ -61,6 +61,7 @@ import {
 } from './slotReconcile';
 import { NPC_NAME_POOL } from '../shared/npcNames.js';
 import { QUICKPLAY_ARENA_IDS } from '../shared/arenaPool.js';
+import { isQuickplayRoom, nextQuickplayShard } from '../shared/roomCodes.js';
 import { assetCacheControlForPath } from '../shared/assetCache.js';
 import {
   classifyWsMessagePostParse,
@@ -200,7 +201,10 @@ export class CartRaveServer extends Server {
     // * nextQuickplayArenaId on the host. Otherwise a hardcoded default would clobber
     // * every joiner's local pick via adoptAuthoritativeRoomLevel. Friends rooms keep
     // * the default — the host's local pick reaches everyone via the first host_round.
-    if (this.name === "quickplay" && QUICKPLAY_ARENA_IDS.length > 0) {
+    // * QUICKPLAY-SHARD-1: every public shard (`quickplay`, `quickplay2`…) gets this, not just
+    // * shard 1. An exact-match here would leave shards on the hardcoded default arena with AI
+    // * "easy" — QP-ORDER-1 silently off, and the wrong difficulty broadcast as authoritative.
+    if (isQuickplayRoom(this.name) && QUICKPLAY_ARENA_IDS.length > 0) {
       const idx = Math.floor(Math.random() * QUICKPLAY_ARENA_IDS.length);
       this.#currentLevelId = QUICKPLAY_ARENA_IDS[idx] ?? this.#currentLevelId;
       this.#currentAiDifficulty = "medium";
@@ -708,9 +712,20 @@ export class CartRaveServer extends Server {
    * Reject a pending picker and close the socket.
    * Cleanup is owned by {@link onClose} — do not clear #pendingPickers / IP maps here,
    * or onClose takes the human→NPC branch for a connection that never held a slot.
+   *
+   * QUICKPLAY-SHARD-1: a rejected joiner on a **public** shard is handed the next shard in
+   * `retryRoom` so the client can hop instead of bouncing to the menu — the whole overflow
+   * mechanism, and the reason no seat-finder endpoint or registry DO exists. Both full-reject
+   * call sites funnel through here, so this is the single emission point.
+   *
+   * `retryRoom` is null for friends rooms, for `quickplay__*` harness rooms (a test asserting
+   * a full room must not send its client chasing a shard), and once the chain hits
+   * MAX_QUICKPLAY_SHARDS. Null or absent means "no hop" — a client that does not understand
+   * the field, or one that has run out of shards, gets exactly today's behaviour.
    */
   #rejectPendingConn(conn: Connection, code: number, reason: string) {
-    this.#sendJson(conn, { v: PROTOCOL_VERSION, type: MSG.joinRejected });
+    const retryRoom = isQuickplayRoom(this.name) ? nextQuickplayShard(this.name) : null;
+    this.#sendJson(conn, { v: PROTOCOL_VERSION, type: MSG.joinRejected, retryRoom });
     try {
       conn.close(code, reason);
     } catch {
