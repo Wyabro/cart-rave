@@ -66,7 +66,7 @@ Live rows only. Shipped and closed cards live in
 
 | # | What | Status |
 |---|------|--------|
-| *(open — Wyatt's pick)* | Storerooms pit chain closed 08-05 | ✅ **STORE-PLAT-WALL-1 → STORE-PIT-WEDGE-1 → STORE-WALL-SLIDE-1, all PASS**, each caused by the previous one's fix, third closed clean (*"feels way better"*). Detail in [completed-work.md](./planning/completed-work.md). Follow-on filed: **WALL-SLIDE-CLASSIC-1** — Classic Record's pit walls set no friction combine rule either, so its `0.02` ice lip really behaves like 0.56. |
+| **WALL-SLIDE-CLASSIC-1** | **Cart Rave's pit rim grabs instead of skimming** | ✅ **CODE LANDED 08-05 (`00ef1cb`), unshipped — playtest owed.** Carries the STORE-WALL-SLIDE-1 finding to the flagship arena: Classic set no friction combine rule, so its containment lip written `0.02` — the author reaching for ice — behaved like **0.56**, and the shaft staves (0.05) like 0.575. Both are live-cart surfaces (lip spans y −4→9; fall KO at −30, so the top 26 m of shaft holds living carts). `Min` on 18 staves + 16 lip hulls, **no number changes**. Backstop cylinder and restitution untouched on purpose — its cap is a floor, and `Max` restitution is the deflection that keeps boosted rams off the stands. **Storerooms pit chain closed 08-05** (STORE-PLAT-WALL-1 → STORE-PIT-WEDGE-1 → STORE-WALL-SLIDE-1, all PASS). [BACKLOG § Playtest owed](./planning/BACKLOG.md). |
 | FIX-EMISSIVE | Non-patterned carts read blown out on Classic | ⛔ **ABORTED 08-04 — approved design invalidated, needs re-ack.** See Open issues. |
 | FIX-MIG | Quickplay host-migration visibility + continuous-policy tests | 📋 next wave, scoped — see Open issues. |
 | PERF-PASS-1 | 60 fps at Low on the Intel box — **Cart Rave only** (Wyatt scoped it 08-03) | ⏸ **PARKED BY WYATT 08-04 for HOST-TAB-1.** Wave 4 remains deployed (`b754e12`, Worker `9b8b1fbe`); honest measured range −1.66 to −2.54 ms and includes +0.55. Card remains open at ~46 fps; every future cell needs an A-B-A bracket on a cooled box. Menu + evidence: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md). |
@@ -75,7 +75,7 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. **Pick the next card.** BUNDLE-1 closed partial + deployed, and BUNDLE-E-PT-1 passed 6/6, so nothing is mid-flight. **HARNESS-GEO-1 is no longer a candidate — it closed 08-05** (`fde8d10` gated the soak on min per-cycle delta; `0b7f265` recorded the x10 table). STORE-PLAT-WALL-1 PASSed and its successor STORE-PIT-WEDGE-1 is deployed awaiting a check. Competing after that: **FIX-EMISSIVE** re-ack (needs Wyatt to pick retry (a) or (b)), **FIX-MIG**, **HUD-TOAST-Z-1**, or **STORE-PLAT-WALL-1**'s Low split-off **BOOTH-RAIL-COL-1**. Wyatt's call.
+1. **WALL-SLIDE-CLASSIC-1 — code landed (`00ef1cb`), awaiting "ship it", then Wyatt's rim check.** Do not start another card against this slot. After it closes: **FIX-EMISSIVE** re-ack (Wyatt picks retry (a) or (b)), **FIX-MIG**, **HUD-TOAST-Z-1**, or **BOOTH-RAIL-COL-1**. Closed 08-05 and not candidates: HARNESS-GEO-1, the whole Storerooms pit chain, BUNDLE-1/BUNDLE-E-PT-1.
 2. **Hitch forensics now has evidence** — cap-254–260 (build `8d96b0b`) are the first captures from a working upload path, including a Cart Rave F8 taken on a hitch. Read them before any perf knob.
 3. **Still owed separately:** 9-cell PERF sweep (~25 min). Resume Run 8 FAIL triage.
 

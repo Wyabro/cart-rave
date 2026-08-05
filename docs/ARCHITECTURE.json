@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-05T05:34:15.831Z",
-    "commit": "76f5317"
+    "at": "2026-08-05T05:43:43.417Z",
+    "commit": "00ef1cb"
   },
-  "source_digest": "46870f61",
+  "source_digest": "e6ba4843",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -855,9 +855,9 @@
   "workstreams": {
     "queue": [
       {
-        "id": "*(open — Wyatt's pick)*",
-        "what": "Storerooms pit chain closed 08-05",
-        "status": "✅ STORE-PLAT-WALL-1 → STORE-PIT-WEDGE-1 → STORE-WALL-SLIDE-1, all PASS, each caused by the previous one's fix, third closed clean (*\"feels way better\"*). Detail in [completed-work.md](./planning/completed-work.md). Follow-on filed: WALL-SLIDE-CLASSIC-1 — Classic Record's pit walls set no friction combine rule either, so its `0.02` ice lip really behaves like 0.56.",
+        "id": "WALL-SLIDE-CLASSIC-1",
+        "what": "Cart Rave's pit rim grabs instead of skimming",
+        "status": "✅ CODE LANDED 08-05 (`00ef1cb`), unshipped — playtest owed. Carries the STORE-WALL-SLIDE-1 finding to the flagship arena: Classic set no friction combine rule, so its containment lip written `0.02` — the author reaching for ice — behaved like 0.56, and the shaft staves (0.05) like 0.575. Both are live-cart surfaces (lip spans y −4→9; fall KO at −30, so the top 26 m of shaft holds living carts). `Min` on 18 staves + 16 lip hulls, no number changes. Backstop cylinder and restitution untouched on purpose — its cap is a floor, and `Max` restitution is the deflection that keeps boosted rams off the stands. Storerooms pit chain closed 08-05 (STORE-PLAT-WALL-1 → STORE-PIT-WEDGE-1 → STORE-WALL-SLIDE-1, all PASS). [BACKLOG § Playtest owed](./planning/BACKLOG.md).",
         "state": "done"
       },
       {
@@ -901,7 +901,7 @@
       }
     ],
     "next_actions": [
-      "Pick the next card. BUNDLE-1 closed partial + deployed, and BUNDLE-E-PT-1 passed 6/6, so nothing is mid-flight. HARNESS-GEO-1 is no longer a candidate — it closed 08-05 (`fde8d10` gated the soak on min per-cycle delta; `0b7f265` recorded the x10 table). STORE-PLAT-WALL-1 PASSed and its successor STORE-PIT-WEDGE-1 is deployed awaiting a check. Competing after that: FIX-EMISSIVE re-ack (needs Wyatt to pick retry (a) or (b)), FIX-MIG, HUD-TOAST-Z-1, or STORE-PLAT-WALL-1's Low split-off BOOTH-RAIL-COL-1. Wyatt's call.",
+      "WALL-SLIDE-CLASSIC-1 — code landed (`00ef1cb`), awaiting \"ship it\", then Wyatt's rim check. Do not start another card against this slot. After it closes: FIX-EMISSIVE re-ack (Wyatt picks retry (a) or (b)), FIX-MIG, HUD-TOAST-Z-1, or BOOTH-RAIL-COL-1. Closed 08-05 and not candidates: HARNESS-GEO-1, the whole Storerooms pit chain, BUNDLE-1/BUNDLE-E-PT-1.",
       "Hitch forensics now has evidence — cap-254–260 (build `8d96b0b`) are the first captures from a working upload path, including a Cart Rave F8 taken on a hitch. Read them before any perf knob.",
       "Still owed separately: 9-cell PERF sweep (~25 min). Resume Run 8 FAIL triage."
     ],
@@ -958,7 +958,7 @@
           {
             "pri": "Medium",
             "item": "WALL-SLIDE-CLASSIC-1 — Classic Record's pit walls have the same averaged-friction stickiness",
-            "notes": "**Filed 08-05 from STORE-WALL-SLIDE-1's finding** (that card PASSed on Storerooms: *\"feels way better\"*). Rapier combines collider friction with **Average** by default and the cart carries `friction: 1.1`, so a wall's written value is not what a cart feels. Classic Record's wall colliders set **none** of the combine rules: the containment lip at [arena.js:2592](../../src/arena.js:2592) is written `0.02` — deliberate ice — and behaves like **0.56**; the pit shaft hulls at [:2549](../../src/arena.js:2549) are `0.05` → **0.575**; [:2492](../../src/arena.js:2492) is `0.2` → **0.65**. Whoever tuned 0.02 was aiming for frictionless and got a grippy wall, which is evidence the intent was never achieved rather than a taste call. **Fix is the same one lever:** `setFrictionCombineRule(RAPIER.CoefficientCombineRule.Min)` on those three, then re-judge the numbers — Storerooms also needed its perimeter dropped 0.4 → 0.15 afterwards, so expect a second pass on feel. **Sundial is clean** (no low-friction wall colliders). **Do not apply Min to floors** — chamfer/deck/carpet grip is what makes driving feel right; Storerooms carries a test canary asserting its backstop cap stayed on Average. Player-visible physics on the flagship arena, so it needs its own playtest, not a rubber stamp.",
+            "notes": "✅ **CODE LANDED 08-05 (`00ef1cb`), unshipped — see the Playtest owed row.** `FrictionCombineRule.Min` on the 18 shaft staves + 16 lip hulls; **no number changes** (0.02/0.05 already meant ice), backstop cylinder and restitution deliberately untouched. Original filing follows. **Filed 08-05 from STORE-WALL-SLIDE-1's finding** (that card PASSed on Storerooms: *\"feels way better\"*). Rapier combines collider friction with **Average** by default and the cart carries `friction: 1.1`, so a wall's written value is not what a cart feels. Classic Record's wall colliders set **none** of the combine rules: the containment lip at [arena.js:2592](../../src/arena.js:2592) is written `0.02` — deliberate ice — and behaves like **0.56**; the pit shaft hulls at [:2549](../../src/arena.js:2549) are `0.05` → **0.575**; [:2492](../../src/arena.js:2492) is `0.2` → **0.65**. Whoever tuned 0.02 was aiming for frictionless and got a grippy wall, which is evidence the intent was never achieved rather than a taste call. **Fix is the same one lever:** `setFrictionCombineRule(RAPIER.CoefficientCombineRule.Min)` on those three, then re-judge the numbers — Storerooms also needed its perimeter dropped 0.4 → 0.15 afterwards, so expect a second pass on feel. **Sundial is clean** (no low-friction wall colliders). **Do not apply Min to floors** — chamfer/deck/carpet grip is what makes driving feel right; Storerooms carries a test canary asserting its backstop cap stayed on Average. Player-visible physics on the flagship arena, so it needs its own playtest, not a rubber stamp.",
             "ship1": null
           },
           {
@@ -1324,9 +1324,16 @@
       {
         "title": "Playtest owed",
         "counts": {
+          "Medium": 1,
           "Low": 1
         },
         "rows": [
+          {
+            "pri": "Medium",
+            "item": "WALL-SLIDE-CLASSIC-1 — the Cart Rave pit rim should skim you, not catch you `[solo]`",
+            "notes": "**Owed: Wyatt playtest — WALL-SLIDE-CLASSIC-1 — same sticky-wall fix as Storerooms, now on Cart Rave.** The invisible wall around the pit rim was written to be ice, but the game was averaging it with your cart's own grip, so it has always behaved like a fairly grippy wall. It now means what it says. Nothing else changed — no new geometry, no bounce change. **NOT DEPLOYED YET — needs a ship first.**<br>1. On Cart Rave, ram the pit rim at a shallow angle and graze along it, and take a boosted hit that throws you out over the edge. You should skim off the rim instead of catching on it. If it now feels like the rim *throws* you — too icy — say so; that is one number and it does not mean undoing the fix.",
+            "ship1": null
+          },
           {
             "pri": "Low",
             "item": "AQ-RING-CLEAR-1 — autoQuality clear sample ring on every window eval",
