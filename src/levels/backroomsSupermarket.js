@@ -1224,6 +1224,7 @@ function buildFallContainment(world) {
         RAPIER.ColliderDesc.cuboid(hx, wallHalfY, hz)
           .setTranslation(h.x + ox, wallMidY, h.z + oz)
           .setFriction(0.05)
+          .setFrictionCombineRule(RAPIER.CoefficientCombineRule.Min) // STORE-WALL-SLIDE-1
           .setRestitution(0.6),
         body,
       );
@@ -1235,11 +1236,24 @@ function buildFallContainment(world) {
   // * down a void shaft — one consistent fall feel. Deliberately NOT pushed into
   // * boothColliderHandles: that list is the "edge" wall-clang FX classification, scanned
   // * linearly on every environment contact, and a pit wall is not a clang surface.
+  // *
+  // * STORE-WALL-SLIDE-1 — FrictionCombineRule.Min on every VERTICAL surface in this file.
+  // * Rapier's default is Average, and the cart carries friction 1.1 (CONFIG.cart.friction),
+  // * so a wall set to 0.05 was really acting like 0.575 and the perimeter walls (0.4) like
+  // * 0.75. Wyatt's report was walls that grab instead of letting a cart scrape past. This is
+  // * the friction twin of the bug Sundial already fixed on the restitution side, where
+  // * Average "produced a phantom ~0.175 bounce" (zanzibarPlatform.js:25). With Min, the
+  // * number written here is the number a cart feels.
+  // *
+  // * FLOORS DELIBERATELY KEEP AVERAGE — the chamfer prisms, the backstop cap, the carpet
+  // * slices and the booth decks are rest/drive surfaces whose grip is what makes driving
+  // * feel right. Do not "make it consistent" by applying Min to those.
   for (const w of getBackroomsPitWallSpec().walls) {
     world.createCollider(
       RAPIER.ColliderDesc.cuboid(w.hx, w.hy, w.hz)
         .setTranslation(w.px, w.py, w.pz)
         .setFriction(0.05)
+        .setFrictionCombineRule(RAPIER.CoefficientCombineRule.Min) // STORE-WALL-SLIDE-1
         .setRestitution(0.6),
       body,
     );
@@ -2296,9 +2310,13 @@ function buildWalls(scene, world, wallpaperTex) {
       const body = world.createRigidBody(
         RAPIER.RigidBodyDesc.fixed().setTranslation(px, py, pz),
       );
+      // * STORE-WALL-SLIDE-1: 0.4 → 0.15 AND FrictionCombineRule.Min. These two go together —
+      // * under Rapier's default Average the 0.4 was really 0.75 against the cart's 1.1, which
+      // * is what made the perimeter grab. Min alone would still leave 0.4, enough to drag.
       const collider = world.createCollider(
         RAPIER.ColliderDesc.cuboid(hx, wallFullHeight / 2, hz)
-          .setFriction(0.4)
+          .setFriction(0.15)
+          .setFrictionCombineRule(RAPIER.CoefficientCombineRule.Min)
           .setRestitution(0.2),
         body,
       );
@@ -2320,9 +2338,12 @@ function buildWalls(scene, world, wallpaperTex) {
     const body = world.createRigidBody(
       RAPIER.RigidBodyDesc.fixed().setTranslation(cx, wallCenterY, cz),
     );
+    // * STORE-WALL-SLIDE-1: matches the wall slabs above — a corner that grips harder than the
+    // * wall it seals would be worse than the seam it exists to close.
     const collider = world.createCollider(
       RAPIER.ColliderDesc.cuboid(cornerHalf, wallFullHeight / 2, cornerHalf)
-        .setFriction(0.4)
+        .setFriction(0.15)
+        .setFrictionCombineRule(RAPIER.CoefficientCombineRule.Min)
         .setRestitution(0.2),
       body,
     );
@@ -2478,6 +2499,7 @@ function buildPitRingDressing(scene, world) {
       RAPIER.ColliderDesc.cuboid(hx, (topY - PIT_FLOOR_Y) / 2, hz)
         .setTranslation(px, (topY + PIT_FLOOR_Y) / 2, pz)
         .setFriction(0.05)
+        .setFrictionCombineRule(RAPIER.CoefficientCombineRule.Min) // STORE-WALL-SLIDE-1
         .setRestitution(0.3),
       body,
     );

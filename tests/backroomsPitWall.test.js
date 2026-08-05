@@ -4,6 +4,7 @@ import {
   getBackroomsPitDressingSpec,
 } from "../src/levels/backroomsSupermarket.js";
 import { CONFIG } from "../src/config.js";
+import { readFileSync } from "node:fs";
 
 // STORE-PLAT-WALL-1 — the arena cliff face had no collider.
 //
@@ -146,5 +147,47 @@ describe("STORE-PIT-WEDGE-1 — pit band clearance", () => {
     const innerGap = d.innerFace - d.cliffOuterFace;
     const outerGap = d.wallInnerFace - d.outerFace;
     expect(Math.abs(innerGap - outerGap)).toBeLessThan(1.0);
+  });
+});
+
+// STORE-WALL-SLIDE-1 — every vertical surface must set FrictionCombineRule.Min.
+//
+// Rapier combines the two colliders' friction with Average by default. The cart carries
+// friction 1.1 (CONFIG.cart.friction), so a wall written as 0.05 behaved like 0.575 and the
+// perimeter walls (0.4) like 0.75 — walls that grab a cart instead of letting it scrape past.
+// Sundial hit the identical bug on the restitution side and fixed it the same way
+// (zanzibarPlatform.js:25, "Average produced a phantom ~0.175 bounce").
+//
+// Rapier is stubbed in unit tests, so there is no world to measure friction in. This is a
+// source assertion — the same approach tests/spawnRing.test.js uses — and it exists because
+// the rule is one chained call that is easy to drop when a collider is edited later.
+//
+// FLOORS ARE DELIBERATELY EXCLUDED: chamfer prisms, the backstop cap, carpet slices and booth
+// decks keep Average, because their grip is what makes driving feel right.
+
+describe("STORE-WALL-SLIDE-1 — vertical surfaces do not average friction with the cart", () => {
+  const src = readFileSync(
+    new URL("../src/levels/backroomsSupermarket.js", import.meta.url),
+    "utf8",
+  );
+
+  it("sets the Min rule once per vertical wall collider", () => {
+    const rules = src.match(/setFrictionCombineRule\(RAPIER\.CoefficientCombineRule\.Min\)/g);
+    // shaft ricochet walls · arena cliff ring · perimeter slabs · corner fillers · pit dressing
+    expect(rules?.length).toBe(5);
+  });
+
+  it("keeps the perimeter walls below the drag threshold the report was about", () => {
+    // Both the slab and the corner filler; 0.4 was the sticky value.
+    const perimeter = src.match(/\.setFriction\(0\.15\)/g);
+    expect(perimeter?.length).toBe(2);
+    expect(src).not.toMatch(/\.setFriction\(0\.4\)\s*\n\s*\.setRestitution\(0\.2\)/);
+  });
+
+  it("leaves floor surfaces on the default Average rule", () => {
+    // The backstop cap is the canary: a floor that acquired Min would mean someone
+    // "made it consistent" across the file, which is exactly the wrong move.
+    const capBlock = src.slice(src.indexOf("Backstop cap spanning"), src.indexOf("Void shaft ricochet"));
+    expect(capBlock).not.toMatch(/setFrictionCombineRule/);
   });
 });
