@@ -5,7 +5,12 @@
 // flagged tier boundaries as never verified on real hardware).
 
 import { describe, expect, it } from "vitest";
-import { classifyGpuRendererString, defaultTierForCaps, migrateStoredTierIfNeeded } from "../src/utils/gpuCaps.js";
+import {
+  classifyGpuRendererString,
+  defaultTierForCaps,
+  HIGH_TIER_MAX_BACKING_PIXELS,
+  migrateStoredTierIfNeeded,
+} from "../src/utils/gpuCaps.js";
 
 describe("classifyGpuRendererString", () => {
   it("software rasterizers", () => {
@@ -142,6 +147,43 @@ describe("defaultTierForCaps — lever 1 (hard floors + base class)", () => {
       "ANGLE (Intel, Intel(R) UHD Graphics (0x00008A56) Direct3D11 vs_5_0 ps_5_0, D3D11)",
     );
     expect(defaultTierForCaps({ gpuClass, deviceMemoryGb: 8, touchLike: false })).toBe("low");
+  });
+});
+
+describe("defaultTierForCaps — lever 5 (4K backing-pixel guard)", () => {
+  it("only demotes a high verdict — never touches medium/low bases", () => {
+    expect(
+      defaultTierForCaps({ gpuClass: "igpu-modern", backingPixels: HIGH_TIER_MAX_BACKING_PIXELS * 10 }),
+    ).toBe("medium");
+    expect(
+      defaultTierForCaps({ gpuClass: "igpu-basic", backingPixels: HIGH_TIER_MAX_BACKING_PIXELS * 10 }),
+    ).toBe("low");
+  });
+
+  it("MacBook Pro 16\" (1728x1117 @2, ~7.72M) stays High — under the ceiling", () => {
+    const backingPixels = 1728 * 1117 * 2 * 2;
+    expect(backingPixels).toBeLessThan(HIGH_TIER_MAX_BACKING_PIXELS);
+    expect(defaultTierForCaps({ gpuClass: "discrete", backingPixels })).toBe("high");
+  });
+
+  it("true 4K (3840x2160 @1, or 1920x1080 @2, ~8.29M) demotes discrete High to Medium", () => {
+    const backingPixels4k = 3840 * 2160 * 1 * 1;
+    const backingPixelsRetina1080 = 1920 * 1080 * 2 * 2;
+    expect(backingPixels4k).toBe(backingPixelsRetina1080);
+    expect(backingPixels4k).toBeGreaterThan(HIGH_TIER_MAX_BACKING_PIXELS);
+    expect(defaultTierForCaps({ gpuClass: "discrete", backingPixels: backingPixels4k })).toBe("medium");
+  });
+
+  it("no backingPixels signal (null) leaves discrete at High — same as before this lever", () => {
+    expect(defaultTierForCaps({ gpuClass: "discrete", backingPixels: null })).toBe("high");
+    expect(defaultTierForCaps({ gpuClass: "discrete" })).toBe("high");
+  });
+
+  it("stacks with lever 4: a 4K discrete box with reduced-motion demotes TWICE (high->medium->low)", () => {
+    const backingPixels4k = 3840 * 2160;
+    expect(
+      defaultTierForCaps({ gpuClass: "discrete", backingPixels: backingPixels4k, reducedMotion: true }),
+    ).toBe("low");
   });
 });
 

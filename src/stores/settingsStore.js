@@ -19,6 +19,10 @@ const VALID_TIERS = ["low", "medium", "high"];
  * `reducedMotion` (TIER-DEFAULT-1 lever 4) demotes the result one rung inside
  * {@link defaultTierForCaps} rather than hard-pinning low — see that function's
  * docstring for why (cap-287/288: the a11y toggle was silently picking tier).
+ *
+ * `backingPixels` (TIER-DEFAULT-1 lever 5) is `screen.width * screen.height *
+ * dpr²` — the ceiling the canvas can reach, not `innerWidth`/`innerHeight`
+ * (which can be smaller than the screen at boot, before any window resize).
  */
 function detectDefaultQualityTier() {
   if (typeof window === "undefined") return "high";
@@ -29,7 +33,12 @@ function detectDefaultQualityTier() {
     // * deviceMemory is Chrome-only and clamped to [0.25, 8]; ≤2 GB is a hard
     // * potato signal regardless of GPU string.
     const deviceMemoryGb = /** @type {{ deviceMemory?: number }} */ (navigator).deviceMemory;
-    return defaultTierForCaps({ gpuClass: gpu.gpuClass, deviceMemoryGb, touchLike, reducedMotion });
+    const dpr = window.devicePixelRatio || 1;
+    const backingPixels =
+      typeof screen !== "undefined" && screen.width && screen.height
+        ? screen.width * screen.height * dpr * dpr
+        : null;
+    return defaultTierForCaps({ gpuClass: gpu.gpuClass, deviceMemoryGb, touchLike, reducedMotion, backingPixels });
   } catch {
     return "medium";
   }

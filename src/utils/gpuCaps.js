@@ -231,6 +231,23 @@ const BASE_TIER_BY_CLASS = {
 const TIER_ORDER = ["low", "medium", "high"];
 
 /**
+ * TIER-DEFAULT-1 lever 5: above this many backing pixels — screen width times
+ * screen height times device-pixel-ratio squared — a discrete verdict demotes
+ * High to Medium instead of booting High at up to pixelRatioCap-times-2
+ * fragments. Chosen so a MacBook Pro 16-inch (1728x1117 at 2x, about 7.72
+ * million, carrying at minimum an M3 Pro — B1 keeps bare Apple M at discrete)
+ * still boots High; true 4K (3840x2160 at 1x, or 1920x1080 at 2x, about 8.29
+ * million) and 5K panels demote to Medium.
+ *
+ * This is a resolution guard, not a GPU-model guard (TIER-DEFAULT-1 decision 1:
+ * no NVIDIA/AMD model parsing) — it cannot tell a 4090 from a 3060, so a 4090
+ * on a 4K monitor now boots Medium. Escapes are one click: the menu segmented
+ * control or `?preset=high`. Exported so the threshold is a one-line change if
+ * it reads wrong on real hardware (see PT-3 in the TIER-DEFAULT-1 plan).
+ */
+export const HIGH_TIER_MAX_BACKING_PIXELS = 8_000_000;
+
+/**
  * Pure first-run quality-tier policy. No globals — every signal is a parameter,
  * which is what makes the six-class table falsifiable in tests/gpuCaps.test.js
  * without owning six machines (docs/playtest/README.md previously flagged that
@@ -238,28 +255,53 @@ const TIER_ORDER = ["low", "medium", "high"];
  *
  * Evaluation order: hard floors first (touch device, software GL, ≤2GB RAM —
  * all unchanged from the original 3-class policy), then the base tier for the
- * GPU class, then `reducedMotion` steps the result down one rung.
+ * GPU class, then the 4K backing-pixel guard, then `reducedMotion` steps the
+ * result down one more rung. The guard runs before the RM rung deliberately —
+ * a 4K discrete box with reduced-motion on demotes TWICE (high→medium via the
+ * guard, then medium→low via RM) — see {@link HIGH_TIER_MAX_BACKING_PIXELS}.
  *
  * `reducedMotion` used to be a hard floor → low (cap-287/288: the same Intel
  * box booted Low with Windows animations on and Medium with them off — an OS
  * accessibility toggle was silently picking the graphics tier). TIER-DEFAULT-1
  * lever 4 changes it to a one-rung demotion instead: high→medium, medium→low,
- * low stays low. Net effect for a discrete-GPU user with reduced-motion on:
- * Low → Medium, a quality *increase* for that cohort. The real fix — actually
- * reducing motion (attract-camera spin, shake, screen flash) — is filed as
- * MOTION-A11Y-1; this is the interim so the OS flag stops overriding hardware.
+ * low stays low. Net effect for a discrete-GPU user with reduced-motion on a
+ * sub-4K panel: Low → Medium, a quality *increase* for that cohort. The real
+ * fix — actually reducing motion (attract-camera spin, shake, screen flash) —
+ * is filed as MOTION-A11Y-1; this is the interim so the OS flag stops
+ * overriding hardware.
  *
- * @param {{ gpuClass: GpuClass, deviceMemoryGb?: number | null, touchLike?: boolean, reducedMotion?: boolean }} caps
+ * @param {{
+ *   gpuClass: GpuClass,
+ *   deviceMemoryGb?: number | null,
+ *   touchLike?: boolean,
+ *   reducedMotion?: boolean,
+ *   backingPixels?: number | null,
+ * }} caps
  * @returns {QualityTier}
  */
-export function defaultTierForCaps({ gpuClass, deviceMemoryGb = null, touchLike = false, reducedMotion = false }) {
+export function defaultTierForCaps({
+  gpuClass,
+  deviceMemoryGb = null,
+  touchLike = false,
+  reducedMotion = false,
+  backingPixels = null,
+}) {
   if (touchLike) return "low";
   if (gpuClass === "software") return "low";
   if (typeof deviceMemoryGb === "number" && deviceMemoryGb <= 2) return "low";
 
-  const base = BASE_TIER_BY_CLASS[gpuClass] ?? "medium";
-  if (!reducedMotion) return base;
-  const idx = TIER_ORDER.indexOf(base);
+  let tier = BASE_TIER_BY_CLASS[gpuClass] ?? "medium";
+
+  if (
+    tier === "high"
+    && typeof backingPixels === "number"
+    && backingPixels > HIGH_TIER_MAX_BACKING_PIXELS
+  ) {
+    tier = "medium";
+  }
+
+  if (!reducedMotion) return tier;
+  const idx = TIER_ORDER.indexOf(tier);
   return TIER_ORDER[Math.max(0, idx - 1)];
 }
 
