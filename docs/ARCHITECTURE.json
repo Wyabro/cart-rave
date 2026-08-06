@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-06T01:38:23.242Z",
-    "commit": "1198d26"
+    "at": "2026-08-06T01:54:54.306Z",
+    "commit": "2a00962"
   },
-  "source_digest": "8129bd09",
+  "source_digest": "5ce5f846",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1397,8 +1397,8 @@
           },
           {
             "pri": "High",
-            "item": "UI-SCALE-1 — responsive root-scale migration",
-            "notes": "Two passes per [responsive-scale-migration.md](./responsive-scale-migration.md): fluid root + rem clamps; media queries stay px. **Pass 1 also does ≤768 reflow — phone = fewer elements.** SHEET-1 unblocked (tool exists). Sequential single-owner. Safety: ≥1920 pixel-identical pre/post.",
+            "item": "UI-SCALE-1 — responsive root-scale migration — **Pass 2 remains**",
+            "notes": "Two passes per [responsive-scale-migration.md](./responsive-scale-migration.md): fluid root + rem clamps; media queries stay px. **Pass 1 shipped + PASSed 08-05** (`9e2ec60`..`f057abe`) — `tokens.css` root scale, `cart-rave-menu.css` fully converted, ≤768 reflow answered \"phone = fewer elements\" (tagline/cmd-qual/stats/context-desc hidden), menu hover gated behind `(hover: hover)`. Playtest evidence: UI-SCALE-RESULTS-PHONE-1 / UI-SCALE-RESULTS-WIDE-1 / UI-SCALE-FEED-PHONE-1 all PASS 08-05 (those three also got opportunistic phone patches to `results.css`/`hud.css`, not the full sweep). **Pass 2 (open):** the same clamp→rem conversion on `hud.css`, `results.css`, `pauseOverlay.css`, `announcer.css`, `stickers.css`, `loadingScreen.css`. SHEET-1 unblocked (tool exists). Sequential single-owner. Safety: ≥1920 pixel-identical pre/post.",
             "ship1": null
           }
         ]
