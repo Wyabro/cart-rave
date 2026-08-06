@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-06T01:01:14.457Z",
-    "commit": "75cb242"
+    "at": "2026-08-06T01:38:23.242Z",
+    "commit": "1198d26"
   },
-  "source_digest": "0e2ad44e",
+  "source_digest": "8129bd09",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -883,7 +883,7 @@
       }
     ],
     "next_actions": [
-      "TIER-DEFAULT-1 ✅ CLOSED 08-05 — Wyatt PASS on both real boxes. Hardware-aware 6-class GPU taxonomy shipped in five acked commits (taxonomy, one-shot medium→low migration, host-capability scores, reduced-motion rung, 4K guard); `npm run qa` green, dev spot-check done, deployed and confirmed live. Detail: [completed-work.md](./planning/completed-work.md). Block A now has one card left: NET-LOOK-ACC-1 (no active card until Wyatt picks/acks it). Block C is unblocked to start (TIER-DEFAULT-1 was its hard precondition). Block B leads with UI-SCALE-1; Block C with HARNESS-NULL-1.",
+      "TIER-DEFAULT-1 ✅ CLOSED 08-05 — Wyatt PASS on both real boxes. Hardware-aware 6-class GPU taxonomy shipped in five acked commits (taxonomy, one-shot medium→low migration, host-capability scores, reduced-motion rung, 4K guard); `npm run qa` green, dev spot-check done, deployed and confirmed live. Detail: [completed-work.md](./planning/completed-work.md). Block C is unblocked to start (TIER-DEFAULT-1 was its hard precondition). Block B leads with UI-SCALE-1; Block C with HARNESS-NULL-1. NET-LOOK-ACC-1 ⏳ SHIPPED 08-06 (`1198d26`, prod Worker `3cfb33f8`), not closed — `patternId`/`sunglassesStyle` now ride the wire alongside `lookHex`; `npm run qa` 7/7, dev-verified with two real network clients (wire + resolver both correct). Owed: Wyatt playtest — row in [BACKLOG.md § Playtest owed](./planning/BACKLOG.md#playtest-owed); it must PASS before Pattern customize UI (C3).",
       "Hitch forensics now has evidence — cap-254–260 (build `8d96b0b`) are the first captures from a working upload path, including a Cart Rave F8 taken on a hitch. Read them before any perf knob.",
       "Playtest export 08-05 (`4077a4a`) — 6 pass / 1 fail / 1 skip, triaged. Closed: 3 UI-SCALE residual cards + 3 NET-AUDIT cards. NET-LOOK-ACC-1 filed; PERF-9CELL-1 parked with PERF-PASS-1; SHARD-PT-2 stays launch-day."
     ],
@@ -923,8 +923,8 @@
         "rows": [
           {
             "pri": "High",
-            "item": "NET-LOOK-ACC-1 — non-host sunglasses + pattern do not replicate `[2pc]`",
-            "notes": "**Filed 08-05 from Wyatt, riding inside NET-AUDIT-SLOTS-LOOK-1's PASS:** *\"this passes but the non hosts sunglasses and pattern are wrong/not showing correctly. color is correct though.\"* So the lobby look channel is **partially** wired — body color crosses the wire and lands on both screens, but the two *unlockable* look fields do not, or land wrong. That split is the diagnostic: whatever carries color is working, so this is not a transport failure, it is a **payload/apply gap** — either the accessory + pattern fields are absent from the slots look payload, or they arrive and the remote cart builder ignores them. **Do not start by reading the network layer** — start by diffing what a local cart applies from its own look against what a remote cart applies from `MSG.slots`, and find the first field that only one path reads. `145cc95` (SLOTS-JSON-1) fingerprints `MSG.slots`; check whether that fingerprint even includes the accessory/pattern fields, because if it does not, a look change that only moves those will not re-broadcast at all. Related: [cartPreview.js](../../src/ui/cartPreview.js) and `syncCartPreviewLook` own the local apply. **Pass:** on two machines in one Friends lobby, machine A picks sunglasses and a pattern; machine B sees both on A's cart within a second or two, and vice versa — and they survive into the round, not just the lobby. **Filed as one card because sunglasses and pattern almost certainly share one payload path; if the fix turns out to be two separate mechanisms, split it into two ids before playtesting so a half-fix cannot ride a green verdict.**",
+            "item": "*(NET-LOOK-ACC-1 shipped 08-06, moved to [Playtest owed](#playtest-owed) below)*",
+            "notes": "",
             "ship1": null
           },
           {
@@ -1284,10 +1284,17 @@
       {
         "title": "Playtest owed",
         "counts": {
+          "High": 1,
           "Medium": 1,
           "Low": 2
         },
         "rows": [
+          {
+            "pri": "High",
+            "item": "NET-LOOK-ACC-1 — non-host sunglasses + pattern now replicate `[2pc]`",
+            "notes": "**Owed: Wyatt playtest — NET-LOOK-ACC-1 — your peer's real pattern and sunglasses show on their cart instead of classic pattern / silver-mirror glasses.** Shipped 08-06 (`1198d26`, prod Worker `3cfb33f8`) — `patternId`/`sunglassesStyle` now ride the wire alongside `lookHex`; color already worked, this closes the other two fields the original NET-AUDIT-SLOTS-LOOK-1 PASS flagged as wrong. Dev-verified with two real network clients (wire payload + resolver both correct, 8/8) — this is the first real human check. **Use a Friends lobby** (Quickplay's NPCs don't carry these fields, so a 2-human Quickplay room is fine too but a Friends room guarantees no NPC noise).<br>1. On two machines, before starting a round, each of you picks a **different** pattern and a **different** sunglasses style in Customize (a custom hue too, if you like).<br>2. Within a couple seconds, each of your screens should show the OTHER player's real pattern and glasses on their cart in the lobby — not plain/classic pattern, not the default silver-mirror glasses.<br>3. Start the round. PASS if both peers' real pattern + glasses are still correct once carts spawn and stay correct through play.<br>4. Known limit, not a fail: if you change sunglasses again from Customize **after** the round has already started, your peer won't see the new glasses until your cart's next KO respawn (glasses are baked into the cart model, no live swap — pattern *does* update live, no delay).",
+            "ship1": null
+          },
           {
             "pri": "Medium",
             "item": "PERF-9CELL-1 — Intel Low 9-cell PERF sweep `[solo]`",
