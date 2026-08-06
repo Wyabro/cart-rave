@@ -76,17 +76,15 @@ Live rows only. Shipped and closed cards live in
    `evaluateNullDelta`; ≥3 same-adapter PASSes on RTX 4090 (max \|Δ\| gpu ≈ 0.20 ms under 1.5 ms
    provisional-n3). **Does not unpark PERF-PASS-1** or replace live F8 A-B-A. Detail:
    [completed-work.md](./planning/completed-work.md). Code `8992816` + `00da0aa`.
-2. **NET-LOOK-ACC-1 ⏳ SHIPPED 08-06 (`1198d26`), not closed** — owed Wyatt
-   playtest in [BACKLOG.md § Playtest owed](./planning/BACKLOG.md#playtest-owed).
-3. **UI-SCALE-1 Pass 2 + TOUCH-HOVER-1 ⏳ SHIPPED + DEPLOYED 08-06 (`dacca48`..`78acdb4`, 6 commits,
-   prod Worker `f2b389d6`), not closed** — `hud.css`/`results.css`/`pauseOverlay.css`/`announcer.css`/
-   `stickers.css`/`loadingScreen.css` base-scope clamps → rem, plus all 11 remaining `:hover`
-   rules gated behind `(hover: hover)`. LOAD-SCALE-1 closed (already fixed by LOAD-POSTER-1, this
-   wave only verified it). `npm run qa` 7/7, MAE identity-gated on every file, `npm run states`
-   252/259 (baseline). 4 playtest cards + the deferred media-query cleanup card
-   (UI-SCALE-P2-MEDIA-1) in [BACKLOG.md § Playtest owed](./planning/BACKLOG.md#playtest-owed).
+2. **NET-LOOK-ACC-1 ✅ CLOSED PASS 08-06** (`1198d26`) — two-human Friends-lobby check confirmed.
+   Block A ship bar now fully drained. Detail: [completed-work.md](./planning/completed-work.md).
+3. **UI-SCALE-1 (both passes) + TOUCH-HOVER-1 ✅ CLOSED PASS 08-06** (`dacca48`..`78acdb4`, prod
+   Worker `f2b389d6`) — all 4 owed playtest cards PASSed (HUD, pause, results, touch-hover), no
+   FAIL. Two new look nits surfaced in the notes, filed fresh (not folded into the PASS):
+   **KILLFEED-PHONE-1** (kill feed overlaps on phone) and **ORIENT-TOAST-Z-1** (orientation toast
+   draws under other UI). The deferred **UI-SCALE-P2-MEDIA-1** media-query cleanup stays open.
 4. **Hitch forensics:** cap-254–260 (build `8d96b0b`) before any PERF-PASS-1 knob.
-**Open High:** NET-LOOK-ACC-1 · UI-SCALE-1 · TOUCH-HOVER-1 · ONBOARD-SLIDES-1 · RESULTS-1 · CART-MODEL-1 · PERF-PASS-1 (⏸) · bloom.
+**Open High:** ONBOARD-SLIDES-1 · RESULTS-1 · CART-MODEL-1 · PERF-PASS-1 (⏸) · bloom.
 
 ## Open issues (top)
 

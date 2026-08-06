@@ -13,6 +13,35 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 6, 2026 — Playtest export: 5 PASS (UI-SCALE-1 Pass 2, TOUCH-HOVER-1, NET-LOOK-ACC-1)
+
+All five owed cards from the 08-06 shipping wave came back Wyatt PASS on prod (Worker
+`f2b389d6` for the UI cards, `3cfb33f8` for NET-LOOK-ACC-1). No FAIL. Two new look nits
+surfaced inside the HUD check's notes and are filed below as their own cards, not folded into
+this PASS, per the one-issue-per-card rule.
+
+- *(UI/UX)* **TOUCH-HOVER-PT-1** — ✅ **CLOSED PASS 08-06.** Phone taps on READY, mute, and a
+  results-screen button all release the `:hover` look immediately; no button stuck lit. Confirms
+  `npm run states`' 0/9 touch-hover survey in the real browser.
+- *(UI/UX)* **UI-P2-HUD-PT-1** — ✅ **CLOSED PASS 08-06, with a caveat.** Score chips, timer,
+  boost bar all read right at phone scale. Two things noted are **not** this card's regression:
+  the browser chrome itself cropping the viewport (not the game's fault), and two pre-existing
+  issues spun into their own cards below (kill-feed overlap, orientation-toast z-index).
+- *(UI/UX)* **UI-P2-PAUSE-PT-1** — ✅ **CLOSED PASS 08-06.** PAUSED panel proportionate, mouse
+  hover still lights buttons correctly (fine-pointer path unaffected by TOUCH-HOVER-1). Same
+  browser-chrome cropping noted, not a card regression.
+- *(UI/UX)* **UI-P2-RESULTS-PT-1** — ✅ **CLOSED PASS 08-06.** Results podium, crown icon, rank
+  cards, and match receipt all read the same as before the rem conversion.
+- *(Engineering · Net)* **NET-LOOK-ACC-1** — ✅ **CLOSED PASS 08-06.** First real two-human check:
+  a peer's actual pattern and sunglasses style now show correctly instead of classic
+  pattern/silver-mirror glasses, and both hold through spawn and play. Confirms the dev-verified
+  wire fix (`1198d26`) in a live Friends lobby. Unblocks Pattern customize UI (SHIP-1 C3).
+
+**New from this session's notes** (Wyatt, filed as separate cards per the one-issue rule, not
+retroactively added to UI-P2-HUD-PT-1's steps):
+- **KILLFEED-PHONE-1** — kill feed reads awkward/overlapping on phone. See UI/UX table.
+- **ORIENT-TOAST-Z-1** — main-menu phone-orientation toast draws under other UI. See UI/UX table.
+
 ### August 6, 2026 — Block G wave 5: HARNESS-FRIENDS-1, HARNESS-FREEZE-1
 
 Last two cards in the Block G tooling-window batch, same `tools/netharness.mjs` scenario lane,
