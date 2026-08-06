@@ -9,4 +9,14 @@
 node tools/briefing.mjs || { echo "[pre-commit] briefing failed — aborting (SKIP_DOCS_HOOK=1 to bypass)"; exit 1; }
 node tools/architecture.mjs || { echo "[pre-commit] arch failed — aborting (SKIP_DOCS_HOOK=1 to bypass)"; exit 1; }
 git add docs/BRIEFING.md docs/ARCHITECTURE.json
+
+# BACKLOG.md is hand-authored everywhere except its GENERATED counts block — unlike
+# the two docs above, it must NOT be regenerated/staged on every commit (that would
+# mutate the working tree on commits that never touched it, the same cross-session
+# dirt class BACKLOG-GATE-1 was filed to stop). Only run it when the file is already
+# part of this commit.
+if git diff --cached --name-only | grep -q '^docs/planning/BACKLOG.md$'; then
+  node tools/backlog.mjs || { echo "[pre-commit] backlog failed — aborting (SKIP_DOCS_HOOK=1 to bypass)"; exit 1; }
+  git add docs/planning/BACKLOG.md
+fi
 exit 0
