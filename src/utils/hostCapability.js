@@ -8,7 +8,12 @@
  * (neutral) so older clients don't thrash against each other.
  */
 
-/** @typedef {"software" | "discrete" | "unknown"} GpuClass */
+/**
+ * Shared with gpuCaps.js (TIER-DEFAULT-1 M1 — was a duplicate 3-value typedef;
+ * a widened gpuCaps.js GpuClass silently collapsed the new classes to "unknown"
+ * here otherwise). Type-only import, zero runtime edge.
+ * @typedef {import("./gpuCaps.js").GpuClass} GpuClass
+ */
 /** @typedef {"low" | "medium" | "high"} QualityTier */
 
 /** Neutral default when a peer has not reported a score (legacy join). */

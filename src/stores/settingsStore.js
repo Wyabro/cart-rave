@@ -2,32 +2,35 @@
 import { createStore } from "zustand/vanilla";
 import { STORAGE_KEYS, storageGet, storageSet } from "../utils/storage.js";
 import { isTouchLikeDevice } from "../utils/device.js";
-import { probeGpu } from "../utils/gpuCaps.js";
+import { defaultTierForCaps, probeGpu } from "../utils/gpuCaps.js";
 import { DEFAULT_SOLO, normalizeDifficulty } from "../aiDifficulty.js";
 
 /** @type {ReadonlyArray<string>} */
 const VALID_TIERS = ["low", "medium", "high"];
 
 /**
- * First-run tier default. Device-aware: "high" (reflector, DPR×2, HDR bloom) is
- * only safe on clearly-discrete GPUs — iGPUs and unknowns start MEDIUM (full
- * personality, leaner budget), software rasterizers and weak/touch devices start
- * LOW. Runs only when no tier is stored; the probe result is not persisted, so a
- * user whose hardware situation changes gets re-detected next visit.
+ * First-run tier default. Device-aware via the six-class GPU taxonomy in
+ * gpuCaps.js (TIER-DEFAULT-1) — "high" is only safe on clearly-discrete GPUs
+ * under a resolution ceiling; modern iGPUs and old/weak discrete cards start
+ * MEDIUM; basic iGPUs, software rasterizers, and weak/touch devices start LOW.
+ * Runs only when no tier is stored; the probe result is not persisted, so a user
+ * whose hardware situation changes gets re-detected next visit.
+ *
+ * `reducedMotion` is still a hard floor here (unchanged from the original
+ * policy) — TIER-DEFAULT-1's reduced-motion-demotes-one-rung change lives
+ * entirely inside {@link defaultTierForCaps} and is not wired yet.
  */
 function detectDefaultQualityTier() {
   if (typeof window === "undefined") return "high";
   try {
     const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
-    if (isTouchLikeDevice() || reducedMotion) return "low";
+    if (reducedMotion) return "low";
+    const touchLike = isTouchLikeDevice();
     const gpu = probeGpu();
-    if (gpu.gpuClass === "software") return "low";
     // * deviceMemory is Chrome-only and clamped to [0.25, 8]; ≤2 GB is a hard
     // * potato signal regardless of GPU string.
     const deviceMemoryGb = /** @type {{ deviceMemory?: number }} */ (navigator).deviceMemory;
-    if (typeof deviceMemoryGb === "number" && deviceMemoryGb <= 2) return "low";
-    if (gpu.gpuClass === "discrete") return "high";
-    return "medium";
+    return defaultTierForCaps({ gpuClass: gpu.gpuClass, deviceMemoryGb, touchLike });
   } catch {
     return "medium";
   }

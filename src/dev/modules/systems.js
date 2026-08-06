@@ -10,8 +10,16 @@ const FLAG_HELP = [
   "?nettest=1 netcode harness",
   "?hud=0 hide HUD",
   "?ablate=bloom,arcade,fxaa,vhs,output",
-  "?forcegpu=sw|igpu|discrete",
+  "?forcegpu=sw|igpu|discrete|igpu-basic|igpu-modern|discrete-entry|unknown",
+  "?gpustr=<renderer string> (DEV only, checks the classifier)",
 ].join(" · ");
+
+/**
+ * `?forcegpu=` values — legacy (`real`/`sw`/`igpu`/`discrete`, TIER-DEFAULT-1
+ * B3: `igpu` keeps mapping to gpuClass "unknown", unchanged) plus the four new
+ * class names not reachable through a legacy alias.
+ */
+const FORCEGPU_OPTIONS = ["real", "sw", "igpu", "discrete", "igpu-basic", "igpu-modern", "discrete-entry", "unknown"];
 
 /**
  * @param {string} key
@@ -85,11 +93,11 @@ export function registerSystemsModule(registry) {
   });
   registry.register({
     name: "forcegpu",
-    args: "<real|sw|igpu|discrete>",
+    args: "<real|sw|igpu|discrete|igpu-basic|igpu-modern|discrete-entry|unknown>",
     help: "Set the existing GPU-class override and reload.",
     run: (args) => {
-      if (args.length !== 1 || !["real", "sw", "igpu", "discrete"].includes(args[0])) {
-        return commandFail("bad-args", "Usage: forcegpu <real|sw|igpu|discrete>");
+      if (args.length !== 1 || !FORCEGPU_OPTIONS.includes(args[0])) {
+        return commandFail("bad-args", `Usage: forcegpu <${FORCEGPU_OPTIONS.join("|")}>`);
       }
       reloadWithParam("forcegpu", args[0] === "real" ? null : args[0]);
       return commandOk(`GPU override set to ${args[0]}; reloading.`);
@@ -111,7 +119,16 @@ export function registerSystemsModule(registry) {
       const currentGpu = new URLSearchParams(window.location.search).get("forcegpu") || "real";
       const state = { forcegpu: currentGpu };
       folder.addBinding(state, "forcegpu", {
-        options: { "real GPU": "real", software: "sw", iGPU: "igpu", discrete: "discrete" },
+        options: {
+          "real GPU": "real",
+          software: "sw",
+          "iGPU (unknown, legacy)": "igpu",
+          discrete: "discrete",
+          "iGPU basic": "igpu-basic",
+          "iGPU modern": "igpu-modern",
+          "discrete entry": "discrete-entry",
+          unknown: "unknown",
+        },
         label: "forcegpu (reload)",
       }).on("change", (event) => run(`forcegpu ${event.value}`));
       folder.addButton({ title: getIsMuted() ? "Unmute audio" : "Mute audio" })
