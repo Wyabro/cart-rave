@@ -75,8 +75,8 @@
 //     express `-vA`, `:`, `:(top)`, a literal `*` (in rule syntax `*` IS the wildcard),
 //     or the HOOK-WHOLETREE-1 forms (`.\`, `.\\`, an absolute pathspec naming the repo
 //     root). Those forms are hook-only. settings.json is strict JSON, not JSONC,
-//     so that caveat lives here and in AGENTS.md § Enforcement — never as a comment
-//     in the settings file, where it would break parsing and drop every hook.
+//     so that caveat lives here and in docs/guides/hook-enforcement.md — never as a
+//     comment in the settings file, where it would break parsing and drop every hook.
 
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
