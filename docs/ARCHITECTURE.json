@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-06T20:31:57.845Z",
-    "commit": "f4dde49"
+    "at": "2026-08-06T21:06:17.683Z",
+    "commit": "5fba34f"
   },
-  "source_digest": "b5742697",
+  "source_digest": "8b301b46",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -918,7 +918,7 @@
         "title": "Engineering",
         "counts": {
           "Medium": 13,
-          "Low": 9,
+          "Low": 7,
           "High": 1,
           "Partial": 1
         },
@@ -945,18 +945,6 @@
             "pri": "Medium",
             "item": "RECORD-MED-1 — Cart Rave record floor looks wrong on Medium (vs Low and High)",
             "notes": "**Filed 08-04 from Wyatt.** Medium quality's vinyl/record surface reads weird next to Low and High on the same machine. **Likely mechanism (not yet measured):** `QUALITY_KNOBS.medium.reflector = false` ([qualityTiers.js:77](../../src/utils/qualityTiers.js:77)) so `setReflectorVisible(false)` shows the solid floor ([arena.js:1795](../../src/arena.js:1795)), but the record **body** is still built on the High material path because construction only branches on `isLowQualityMode()` ([arena.js:1601](../../src/arena.js:1601)) — Medium is not Low, so it gets High clearcoat/metalness/normal stack *plus* the Medium solid floor and postFX/bloom that Low disables. Low = opaque Low body + solid floor + no composer; High = translucent body + Reflector + vinyl detail. Medium is a hybrid nobody signed off. **Do not fold into PERF-PASS-1** — that card is Cart Rave cost, not look parity. **Cheapest repro:** `?preset=low` / medium / high on classicRecord, same camera, shoot three stills. **Pass:** Medium reads as a deliberate step between Low and High (or matches Low's solid-floor look cleanly), not a broken middle.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "RAPIER-DEFAULT-MAX-1 — the combine-rule sweep's docs claim Rapier defaults restitution to `Max`; it defaults to `Average`",
-            "notes": "**Filed 08-05 while applying SUNDIAL-OBSTACLE-SLIDE-1, and it corrects the card that shipped immediately before it.** `ColliderDesc` sets **both** `frictionCombineRule` **and** `restitutionCombineRule` to `Average` — read it directly at [collider.js:861-862](../../node_modules/@dimforge/rapier3d/geometry/collider.js), not inferred. Four places assert otherwise, all from WALL-SLIDE-CLASSIC-1 (`00ef1cb`): the comment at [arena.js:2548](../../src/arena.js:2548) (\"Rapier's default is Max\"), the last test in [classicPitWalls.test.js](../../tests/classicPitWalls.test.js) and its rationale, that commit's own message, and its entry in [completed-work.md](./completed-work.md). **Consequence:** Classic's containment lip and shaft staves deflect at **0.40 / 0.45**, not the 0.50 / 0.60 the comments claim (cart restitution 0.3, [config.js:87](../../src/config.js:87)). **This is a claim error, not a behaviour bug — do not \"fix\" the numbers.** WALL-SLIDE-CLASSIC-1 was signed off on prod `a028cb8a` *at the real effective values*, so the felt deflection is already accepted; raising it to the documented figures would change a passed card's feel on the strength of a comment. **Scope if picked up: edit the three claims to say Average, keep every collider value byte-identical.** Worth doing because the false premise is load-bearing prose — it is the stated reason the Classic walls take no restitution rule, and the next editor reading it will reason from a wrong model of what Rapier does. If a higher deflection is ever actually wanted there, that is a separate tuning card with its own playtest.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "SPINDLE-COLOR-DEAD-1 — Classic still declares and returns a colour pair nobody reads",
-            "notes": "**Filed 08-03**, found while closing Sundial audit item 28 and deliberately left out of that commit (Wyatt's instruction: do not expand into Classic). Sundial's spindle \"colour contract\" turned out to be dead — `main.js` destructured `spindleLightColorPink`/`Cyan` into locals and never read them — so `60486c9` moved the cycle into Sundial's own `update()` and deleted the locals, Sundial's returns and its typedef. **Classic was not touched and still declares the pair at [arena.js:1672](../../src/arena.js:1672) and returns it at [:2786](../../src/arena.js:2786),** while its live reactive path uses `reactive.accentColor` ([:2753](../../src/arena.js:2753)) instead. So the pair looks dead there too. `backroomsSupermarket` keeps its own pair on purpose, labelled inert, for API shape. **Check before deleting** whether anything reads Classic's pair through the shared level-result shape (`levels/index.js` types them optional, so the type system will not tell you). Cosmetic only — no player-visible effect either way.",
             "ship1": null
           },
           {
@@ -1412,7 +1400,7 @@
           {
             "pri": "Low",
             "item": "STATES-DEAD-1 — interactive-state CSS for elements that no longer render",
-            "notes": "**Found 07-31 by `npm run states`** (FIGHT-VERIFY-1 Phase B) via its reachability family, which enumerates every `:hover`/`:active`/`:focus-visible` rule from the live CSSOM and asserts each one matches a live element on some visited screen. Seven subjects match nothing, on any of the 11 screens the tool sweeps (menu · customize + its sunglasses and patterns tabs · settings · challenges · how-to · in-match HUD · pause · results podium · touch in-match): **(1) `.cr-touch-btn`** (`cart-rave-menu.css:182`, `:active`) and **(2) `.cr-kbm-toast-close`** (`:178`, `:hover`/`:active`) — both class names appear in **zero `.js`/`.ts`/`.html` files repo-wide**; the CSS is all that is left of them. **(3) `.cr-level-btn`** (`:529` `:hover:not(.cr-level-btn--disabled)`, `:2400` inside the designed focus ring, `:3289` in the reduced-motion block) — the arena radiogroup at `index.html:703` carries the `hidden` attribute and its own comment calls it a \"hidden radiogroup: arena data source\"; the visible control is the `.cr-arena-page` pager. That also means the nine-selector designed focus ring at `:2398-2409` is an **eight**-selector ring in practice. **(4-6) `a`, `select`, `[role=\"button\"]`** — three of the five element types listed in the unscoped fallback ring at `src/ui/loadingScreen.css:577`; no `<select>` and no `role=\"button\"` element exists anywhere, and the only `<a>` elements created are transient download links (`main.js:5604`, `postFxDebug.js:190/241`). Harmless defensive CSS, but it means that rule is doing two-fifths of the work it looks like it does. All seven are held in `DECLARED_UNREACHABLE` in `tools/states.mjs` with these reasons, printed on stdout every run and in the montage banner — **and if any of them ever starts matching again the run says so out loud**, so declaring them does not hide a future regression.",
+            "notes": "**Found 07-31 by `npm run states`** (FIGHT-VERIFY-1 Phase B) via its reachability family, which enumerates every `:hover`/`:active`/`:focus-visible` rule from the live CSSOM and asserts each one matches a live element on some visited screen. **Partially closed 08-06** (wave with KBM-TOAST-1): subjects **(1) `.cr-touch-btn`** and **(2) `.cr-kbm-toast-close`** are deleted — both were dead CSS with zero `.js`/`.ts`/`.html` references, confirmed and removed along with their `DECLARED_UNREACHABLE` entries; writeup in [completed-work.md](./completed-work.md). **Four subjects remain open,** on any of the 11 screens the tool sweeps (menu · customize + its sunglasses and patterns tabs · settings · challenges · how-to · in-match HUD · pause · results podium · touch in-match): **(1) `.cr-level-btn`** (`:529` `:hover:not(.cr-level-btn--disabled)`, `:2400` inside the designed focus ring, `:3289` in the reduced-motion block) — the arena radiogroup at `index.html:703` carries the `hidden` attribute and its own comment calls it a \"hidden radiogroup: arena data source\"; the visible control is the `.cr-arena-page` pager. That also means the nine-selector designed focus ring at `:2398-2409` is an **eight**-selector ring in practice. **(2-4) `a`, `select`, `[role=\"button\"]`** — three of the five element types listed in the unscoped fallback ring at `src/ui/loadingScreen.css:577`; no `<select>` and no `role=\"button\"` element exists anywhere, and the only `<a>` elements created are transient download links (`main.js:5604`, `postFxDebug.js:190/241`). Harmless defensive CSS, but it means that rule is doing two-fifths of the work it looks like it does. All four remaining are held in `DECLARED_UNREACHABLE` in `tools/states.mjs` with these reasons, printed on stdout every run and in the montage banner — **and if any of them ever starts matching again the run says so out loud**, so declaring them does not hide a future regression.",
             "ship1": null
           },
           {
@@ -1426,18 +1414,10 @@
       {
         "title": "Tech Debt",
         "counts": {
-          "High": 1,
           "Medium": 6,
-          "Low": 12
+          "Low": 10
         },
         "rows": [
-          {
-            "pri": "High",
-            "id": "MONTAGE-ESC-1",
-            "item": "`tools/lib/montage.mjs` throws `ReferenceError: esc is not defined` — every contact sheet fails to write",
-            "notes": "**Found 08-06 while running `npm run states` for ONBOARD-SLIDES-1; `tools/` was frozen so it was filed, not fixed.** [montage.mjs:22](../../tools/lib/montage.mjs) is `export { esc } from \"./ccStyle.mjs\"` — a **re-export, which creates no local binding**, so the two `esc()` calls inside `montagePage` itself throw. Introduced by **CC-ESC-1 (`894b448`, 08-06)**, which replaced a local copy of the escaper with the re-export; the *importers* were fine (a re-export is valid for consumers), which is why it read as correct. **Blast radius: `states` · `sheet` · `podium` · `loadshots` — all four call `montagePage` and all four now crash after their checks complete.** The checks themselves still run and report, so this reads as a passing run with a stack trace at the end; `npm run states` exits non-zero regardless of the sweep result. **Fix is one line:** `import { esc } from \"./ccStyle.mjs\"; export { esc };` — keep the single-source intent CC-ESC-1 was after, just give the module a local binding too. Worth a regression test that actually *calls* `montagePage`, since nothing currently does in unit tests.",
-            "ship1": null
-          },
           {
             "pri": "Medium",
             "id": "SHOOT-SOFTGL-1",
@@ -1531,13 +1511,6 @@
           },
           {
             "pri": "Low",
-            "id": "RESULTS-GLOW-1",
-            "item": "`.results-defeat .results-title { --title-glow }` never applies",
-            "notes": "**Note for later (cosmetic, pre-existing).** `main.js` sets that property **inline**, so no stylesheet rule can outrank it. Defeat still reads because the panel filter desaturates everything. Do **not** reach for `!important` unless a real look pass re-owns title styling. Not a ship blocker.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
             "id": "AUDIO-MASTER-1",
             "item": "`_masterVol` is write-only dead state",
             "notes": "**Filed 08-02** during MENU-MUSIC-VOL-1. `audioManager.js:14` initialises `_masterVol = 0.575` and `restoreVolumeState` (`:233`) clamps and re-assigns it — but **nothing ever reads it**, so the \"master\" volume the boot path carefully restores from localStorage has no effect on any bus. Music and SFX each carry their own category volume (`_musicVol` / `_sfxVol`) and `applyAllVolumes` deliberately pins `Howler.volume(1)`, so there is no master stage left for it to feed. Either wire it up as a real third stage (product decision — it would rescale every existing user's audio) or delete it and drop `master` from the restore payload. **Do not** \"fix\" it by multiplying it into the Howler writes without a look at MENU-MUSIC-VOL-1's clamp: the store domain is 0..1.15 and Howler's ceiling is 1.0, so an extra 0.575 factor would silently re-scale the whole mix. Not a ship blocker; zero current behaviour.",
@@ -1548,13 +1521,6 @@
             "id": "PERF-RENDERINFO-1",
             "item": "Perf captures never record GPU cost breakdown (draw calls / triangles / programs)",
             "notes": "**Filed 08-06** — exploratory, prompted by fact-checking a Reddit post on Three.js perf pitfalls against this codebase (not a bug report). Every claim in that post already has a real answer here, so this is the one loose thread, not a list: shadows are already avoided entirely (`receiveShadow=false` everywhere, no `renderer.shadowMap`, cheap blob quads instead — [scene.js:939](../../src/scene.js:939), [config.js:608](../../src/config.js:608)); repeated geometry is already instanced ([arena.js](../../src/arena.js), [effects.js](../../src/effects.js), [zanzibarPlatform.js](../../src/levels/zanzibarPlatform.js), [groceryPool.js](../../src/effects/groceryPool.js)) and static-merged ([mergeStaticMeshes.js](../../src/utils/mergeStaticMeshes.js)); allocation-hot paths already reuse scratch objects (`cartShatter.js`, `netcode/binary.js`, `frameVisuals.js`, `simulation.js`). **The one real gap:** `renderer.info` (draw calls, triangles, geometries, programs) is only ever read ad hoc — the dev-only debug panel ([postFxDebug.js:741](../../src/postFxDebug.js:741)) or PROBE-WARM-RT-1's one-off manual `programs.length` check. It is not captured by the F8 / `perf-profile` pipeline (HARNESS-NULL-1 lineage), so every bisect so far (PERF-PASS-1's Intel-Low investigation) has ms-level frame cost but no GPU-cost breakdown to say *why* a frame is slow — draw-call count vs overdraw vs program count are all invisible to the same snapshot that already carries `meanMs`/`fps`/`over16`. **Instrument-first, no target claimed:** add `renderer.info.render.{calls,triangles}` + `.programs.length` to that snapshot object, same gating as the existing fields. **Not a fix, not a knob** — a diagnostic addition so the next PERF-PASS-1 bisect doesn't re-derive this by hand. Low priority: nothing is blocked on it, it would just have made the last three perf investigations faster.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "id": "KBM-TOAST-1",
-            "item": "`.cr-kbm-toast` / `-toast-text` / `-toast-close` (cart-rave-menu.css:130-206) has no JS reference anywhere in `src/`",
-            "notes": "**Filed 08-06** — found while auditing `text-transform: uppercase` usage (unrelated question). No `document.createElement`/`classList`/template literal anywhere in `src/` sets `cr-kbm-toast` or its children, and `Select-String -Path src -Pattern kbm -Recurse` only hits this one CSS file — looks like orphaned CSS from a removed keyboard/mouse-switch toast. Confirm with a full-text search before deleting (dynamic class construction elsewhere could still reference it), then drop the three rules and their `@media` overrides. Not a ship blocker — dead weight, not a bug. **⚠️ Same subject as STATES-DEAD-1 (UI/UX, Low) — run them as ONE card, 08-06 audit.** That card's `npm run states` sweep already found `.cr-kbm-toast-close` as its subject (2), and its subject (1) `.cr-touch-btn` is the immediate neighbour in the same block of `cart-rave-menu.css`. Both re-verified with a repo-wide search 08-06. Picking either alone edits lines the other one owns.",
             "ship1": null
           },
           {

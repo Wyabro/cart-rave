@@ -97,7 +97,7 @@ Live rows only. Shipped and closed cards live in
    contact-sheet write throw, so `states`/`sheet`/`podium`/`loadshots` all exit non-zero after
    their checks pass · **DIFF-FRIENDS-1** — NPC difficulty applies in Friends rooms with no way
    to set it there · **SHOOT-SOFTGL-1** — `npm run shoot` cannot photograph gameplay.
-**Open High:** ONBOARD-SLIDES-1 (playtest owed) · MONTAGE-ESC-1 · RESULTS-1 · CART-MODEL-1 · PERF-PASS-1 (⏸) · bloom.
+**Open High:** ONBOARD-SLIDES-1 (playtest owed) · RESULTS-1 · CART-MODEL-1 · PERF-PASS-1 (⏸) · bloom.
 
 ## Open issues (top)
 

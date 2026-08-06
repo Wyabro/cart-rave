@@ -13,6 +13,73 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 6, 2026 — Wave F1: desk-only sweep, 5 commits (MONTAGE-ESC-1, RAPIER-DEFAULT-MAX-1, STATES-DEAD-1 partial + KBM-TOAST-1, SPINDLE-COLOR-DEAD-1, RESULTS-GLOW-1)
+
+Block F1 — the desk-only tier of the sweep-day batch, one commit per card, no playtest owed
+(every verdict was a diff read, a unit test, or an `npm run states` report).
+
+- *(Tech Debt · High)* **MONTAGE-ESC-1** — ✅ **CLOSED 08-06** (`d6cba84`). `montage.mjs`'s
+  `export { esc } from "./ccStyle.mjs"` re-export created no local binding, so the two `esc()`
+  calls inside `montagePage()` (the `<title>` and `<h1>` lines) threw `ReferenceError` — breaking
+  `states`/`sheet`/`podium`/`loadshots` after their checks reported. Fixed by importing `esc` too,
+  then re-exporting it, keeping CC-ESC-1's single-source intent. Added
+  [tests/montagePage.test.js](../../tests/montagePage.test.js), the first test to actually call
+  `montagePage()` — it also caught that `.toUpperCase()` upcases escaped entity text
+  (`&lt;` → `&LT;`), which is correct behavior, not a bug.
+- *(Engineering · Low)* **RAPIER-DEFAULT-MAX-1** — ✅ **CLOSED 08-06** (`2b70201`). Corrected four
+  living claims that Rapier's default restitution combine rule is `Max` — it is `Average`
+  (`@dimforge/rapier3d/geometry/collider.js:861-862`). Fixed: the staves comment
+  ([arena.js:2548](../../src/arena.js:2548)) and the lip comment
+  ([arena.js:2611](../../src/arena.js:2611)) (the card's own row only named the staves comment;
+  the lip comment carried the identical claim and was caught during execution), the last test's
+  name/rationale in [classicPitWalls.test.js](../../tests/classicPitWalls.test.js), and this file's
+  own WALL-SLIDE-CLASSIC-1 bullet below. Corrected effective values: lip 0.40, staves 0.45 — the
+  real numbers WALL-SLIDE-CLASSIC-1 passed playtest at on prod `a028cb8a`, so the feel stays
+  signed off. Prose only; every collider value and the test's assertion are byte-identical.
+- *(UI/UX + Tech Debt · Low)* **STATES-DEAD-1 (partial) + KBM-TOAST-1** — ✅ **KBM-TOAST-1 CLOSED,
+  STATES-DEAD-1 subjects (1)+(2) CLOSED, 08-06** (`38f4472`). Deleted `.cr-kbm-toast`/`-text`/
+  `-close` and `.cr-touch-btns`/`.cr-touch-btn*` from
+  [cart-rave-menu.css](../../src/cart-rave-menu.css) — both had zero JS/HTML references
+  repo-wide, confirmed by a fresh repo-wide grep including a dynamic-class-construction check
+  (the only templated `cr-` string in `src/` is a client-id in `netcode.js`, unrelated). Also
+  removed the two now-stale `DECLARED_UNREACHABLE` entries in
+  [tools/states.mjs](../../tools/states.mjs) and updated the comment there that referenced
+  `.cr-touch-btn`, and swapped `tests/stateSelectors.test.js`'s fixture (and its title, which
+  named the exact CSS line deleted) from `.cr-kbm-toast-close:hover` to the still-live
+  `.cr-diff-btn:hover`. STATES-DEAD-1's other four subjects (`.cr-level-btn`, `a`, `select`,
+  `[role="button"]`) were out of scope and stay open. `npm run states` confirmed both deleted
+  subjects no longer appear (not PASS, not FAIL — gone), montage completes without crashing, and
+  the remaining FAILs (`#cr-solo`, `#cr-friends`, `.cr-arena-page`, `.cr-context .cr-diff-btn`) are
+  unrelated selectors, consistent with the existing party/live-connection gating pattern already
+  documented for `.cr-friends-copy`. **Also found but explicitly out of scope:** the whole
+  "TOUCH / MOBILE" block's joystick CSS (`.cr-touch`, `.cr-joy`, `.cr-joy-knob`) also has zero
+  JS/HTML references — a candidate for a future card, not folded into this one.
+- *(Tech Debt · Low)* **SPINDLE-COLOR-DEAD-1** — ✅ **CLOSED 08-06** (`316b017`). Deleted
+  Classic's `spindleLightColorPink`/`Cyan` declarations, return lines, and typedef entries from
+  [arena.js](../../src/arena.js) — nothing read them through the shared level-result shape;
+  Classic's live reactive path uses `reactive.accentColor` instead. `backroomsSupermarket.js`'s
+  own deliberate inert pair (it carries its own separate typedef), `testArena.js`'s `null` stubs,
+  and the optional `levels/index.js` typedef are untouched — the shared shape keeps both fields
+  optional, so nothing outside `arena.js` changes type. No player-visible effect; the values were
+  never read.
+- *(Tech Debt · Low)* **RESULTS-GLOW-1** — ✅ **CLOSED 08-06** (`5fba34f`), documented-no-change.
+  `.results-defeat .results-title`'s `--title-glow: #7c8596` never applies — `roundLifecycle.js`
+  (not `main.js`, as the card's row said) sets `--title-glow` inline on the title element every
+  round, and an inline style always outranks a stylesheet rule. Defeat still reads correctly
+  because the `.results-panel` filter desaturates everything. Rewrote the CSS comment to state
+  this rather than reaching for `!important`; the declaration stays as the intended value for
+  whenever a look pass re-owns title styling from the inline set.
+
+All five premises were re-verified directly in code before the wave's plan was written, and the
+plan itself went through two rounds of adversarial review before Wyatt's ack — one round from an
+external critique that surfaced a mis-stated escaper bug count and a stale `stateSelectors.test.js`
+line reference, a second self-review pass that caught the missed second Rapier claim (the lip
+comment), a stale Block G "fully drained" line, and a missing do-not-reopen list update. `npm run
+qa` 7/7 green after all five commits (1600/1600 tests, knip clean, briefing/arch fresh,
+health:check ok).
+
+---
+
 ### August 6, 2026 — Playtest export: 5 PASS (UI-SCALE-1 Pass 2, TOUCH-HOVER-1, NET-LOOK-ACC-1)
 
 All five owed cards from the 08-06 shipping wave came back Wyatt PASS on prod (Worker
