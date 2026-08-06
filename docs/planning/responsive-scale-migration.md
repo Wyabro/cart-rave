@@ -1,8 +1,10 @@
 # Responsive Scale Migration — Cart Clash UI
 
-**Date:** 2026-07-30
+**Date:** 2026-07-30 (diagnosis); **Pass 1 shipped + PASSed 08-05.**
 **Branch:** `cart-clash` @ `56dfa61` (2026-07-23, merge of PR #3 from `redesign/fight-night-ui`)
-**Status:** Diagnosed and specced. Not yet implemented.
+**Status:** Pass 1 (root scale + `cart-rave-menu.css`) done, `9e2ec60`..`f057abe`, playtest-verified
+3/3 08-05. **Pass 2 (`hud.css`, `results.css`, `pauseOverlay.css`, `announcer.css`, `stickers.css`,
+`loadingScreen.css`) not started** — see [BACKLOG.md](./BACKLOG.md) UI/UX § UI-SCALE-1.
 
 ---
 
@@ -187,35 +189,38 @@ is appropriate.
 
 ## Execution plan — split into two passes
 
-### Pass 1
+### Pass 1 — ✅ shipped + PASSed 08-05
 - `src/ui/styles/tokens.css` — add the root scale; convert `--space-*` / `--pad-*` / `--gap-*`
-  tokens.
+  tokens. Shipped `9e2ec60`.
 - `src/cart-rave-menu.css` — 172 font-sizes, 24 media queries. This file holds the bulk of the
-  breakpoint drift.
+  breakpoint drift. Shipped `97e4591`/`1b09a33`/`0599796`/`39d6afb`/`cd683a7`.
 
-HUD and overlays stay untouched and keep their own clamps. They remain visually correct at ≥1920
-during pass 1 because both systems produce max values there.
+HUD and overlays stayed untouched and keep their own clamps, as planned — they remain visually
+correct at ≥1920 because both systems produce max values there. Playtest evidence: three phone
+checks PASSed 08-05 (results portrait/landscape stacking, kill-feed sizing), which also landed
+opportunistic patches to `results.css`/`hud.css` — real fixes, but not the systematic sweep below.
 
-### Pass 2
+### Pass 2 — open, not started
 - `src/ui/styles/hud.css`, `results.css`, `pauseOverlay.css`, `announcer.css`, `stickers.css`,
-  `src/ui/loadingScreen.css` — once the scale is proven.
+  `src/ui/loadingScreen.css` — the scale is now proven (Pass 1 PASSed), so this is unblocked.
 
 ---
 
 ## Open items
 
-1. **Tuning is unverified.** The numbers `0.84vw` / `1.5svh` / `0.75rem` floor are a reasoned
-   starting point derived from the saturation analysis and the two known-good screens. They have
-   **not** been checked against a render and will need one tuning pass on screenshots.
+1. **Tuning is unverified — ✅ resolved for Pass 1's scope (menu), still open for Pass 2.** The
+   `0.84vw` / `1.5svh` / `0.75rem` numbers held up on real phone hardware — 3/3 PASS 08-05. Pass 2's
+   files (HUD, results, pause overlay, announcer, stickers, loading screen) haven't had an equivalent
+   render check yet.
 
-2. **Analysis is static, not rendered.** Measurements come from parsing sizing declarations, not from
-   observing layout. How much of the mobile breakage is flex/grid *structure* rather than scale is
-   still unknown. Screenshots at 1366×768 and mobile portrait would settle this fastest.
+2. **Analysis is static, not rendered — same scope split as #1.** Settled for the menu by the Pass 1
+   playtest; still genuinely unknown for Pass 2's files (how much of their mobile breakage, if any,
+   is flex/grid structure rather than scale).
 
-3. **Blocking question for pass 1 (end-result framing):** on a 1366×768 laptop and on a phone in
-   portrait, should the player see the *same* menu at ~75% size, or does the phone need *fewer
-   elements* on screen? This determines whether pass 1 is a pure scale swap or also touches the ≤768
-   reflow structure.
+3. **Blocking question for pass 1 — ✅ answered: fewer elements.** Shipped in L4 (`1b09a33`,
+   `cd683a7`): phone hides tagline / cmd-qual / stats / context-desc rather than shrinking them to
+   ~75%. Pass 2 will need the same call made per-file (HUD kill-feed already chose "fewer/smaller
+   elements" too, per the `hud.css` residual patches — see Pass 1 note above).
 
 ---
 
