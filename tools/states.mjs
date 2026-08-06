@@ -134,16 +134,6 @@ const DECLARED_UNREACHABLE = {
   // * zero-match — the regression this family exists to catch — would arrive unnoticed in a
   // * sea of expected reds. Every entry is printed on stdout and in the montage banner on
   // * every run, and if one ever starts matching again the run says so out loud.
-  ".cr-touch-btn": {
-    kind: "dead",
-    why: "DEAD CSS — `cr-touch-btn` appears in ZERO .js/.ts/.html files repo-wide; the class "
-      + "exists only in cart-rave-menu.css. Filed as STATES-DEAD-1.",
-  },
-  ".cr-kbm-toast-close": {
-    kind: "dead",
-    why: "DEAD CSS — `cr-kbm-toast-close` appears in ZERO .js/.ts/.html files repo-wide. "
-      + "Filed as STATES-DEAD-1.",
-  },
   ".cr-level-btn": {
     kind: "dead",
     why: "the arena radiogroup at index.html:703 carries the `hidden` attribute — its own "
@@ -1803,9 +1793,10 @@ async function main() {
           enter: async (page) => {
             await page.evaluate(clearDevServerChrome);
             const s = await page.evaluate(readRound);
-            // * NOT gated on `.cr-touch-btn` — that class renders nowhere (see
-            // * DECLARED_UNREACHABLE). `#hud.hud-touch` is the real proof the app took its
-            // * touch branch: isTouchLikeDevice() needs a touch point AND (pointer: coarse).
+            // * NOT gated on `.cr-touch-btn` — STATES-DEAD-1/KBM-TOAST-1 deleted that class
+            // * (dead CSS, zero JS references) along with its DECLARED_UNREACHABLE entry.
+            // * `#hud.hud-touch` is the real proof the app took its touch branch:
+            // * isTouchLikeDevice() needs a touch point AND (pointer: coarse).
             const g = await page.evaluate(() => ({
               hudTouch: document.getElementById("hud")?.classList.contains("hud-touch") ?? false,
               joystick: document.querySelectorAll("#game-touch-controls, .gtc-joy, .gtc-btn").length,

@@ -126,85 +126,6 @@ html, body {
   background: radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.7) 100%);
 }
 
-/* === KBM TOAST === */
-.cr-kbm-toast {
-  position: absolute;
-  top: var(--space-2xl);
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 60;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-md);
-  padding: var(--space-sm) var(--space-lg);
-  border-radius: var(--radius-pill);
-  background: var(--color-ink);
-  border: none;
-  box-shadow: var(--slab-shadow);
-  color: rgba(255, 255, 255, 0.82);
-  font-family: var(--mono);
-  font-size: 0.6875rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  user-select: none;
-}
-
-.cr-kbm-toast-text {
-  color: var(--color-sticker-white);
-}
-
-.cr-kbm-toast-close {
-  appearance: none;
-  -webkit-appearance: none;
-  border: 0;
-  background: var(--surface-white-06);
-  color: rgba(255, 255, 255, 0.85);
-  width: 22px;
-  height: 22px;
-  line-height: 22px;
-  border-radius: var(--radius-pill);
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--mono);
-  font-size: 14px;
-}
-
-.cr-kbm-toast-close:hover {
-  background: var(--surface-white-12);
-}
-
-.cr-kbm-toast-close:active {
-  transform: var(--transform-active-press);
-}
-
-/* Mobile-only: scale toast for readability without affecting desktop. */
-@media (pointer: coarse) and (max-width: 1024px) {
-  .cr-kbm-toast {
-    top: clamp(14px, 3.2vw, 22px);
-    gap: clamp(10px, 2.6vw, 14px);
-    padding: clamp(12px, 3.2vw, 18px) clamp(14px, 3.8vw, 22px);
-    border-width: 1px;
-    max-width: min(92vw, 560px);
-    justify-content: center;
-    text-align: center;
-    font-size: clamp(13px, 3.6vw, 16px);
-    letter-spacing: 0.09em;
-  }
-
-  .cr-kbm-toast-text {
-    line-height: 1.25;
-  }
-
-  .cr-kbm-toast-close {
-    width: clamp(28px, 7.5vw, 36px);
-    height: clamp(28px, 7.5vw, 36px);
-    line-height: clamp(28px, 7.5vw, 36px);
-    font-size: clamp(16px, 4.8vw, 20px);
-  }
-}
-
 /* === TOUCH / MOBILE === */
 .cr-touch {
   position: absolute;
@@ -238,43 +159,6 @@ html, body {
   background: var(--color-sticker-white);
   border: none;
   box-shadow: var(--slab-shadow-sm);
-}
-
-.cr-touch-btns {
-  position: absolute;
-  right: var(--gap-section);
-  bottom: var(--gap-section);
-  display: grid;
-  gap: var(--gap-controls);
-  pointer-events: auto;
-}
-
-.cr-touch-btn {
-  width: 108px;
-  height: 54px;
-  border-radius: var(--radius-pill);
-  border: none;
-  background: var(--color-ink);
-  color: var(--color-sticker-white);
-  font-family: var(--mono);
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  box-shadow: var(--slab-shadow);
-  touch-action: none;
-}
-
-.cr-touch-btn--boost {
-  color: var(--color-cyan);
-}
-
-.cr-touch-btn--hop {
-  color: var(--color-magenta);
-}
-
-.cr-touch-btn:active {
-  transform: translate(2px, 2px);
-  box-shadow: var(--slab-shadow-pressed);
 }
 
 @media (pointer: coarse) {

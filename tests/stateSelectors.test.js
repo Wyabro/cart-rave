@@ -84,12 +84,15 @@ describe("scanCompound", () => {
 });
 
 describe("parseStateSelector — real rules from src/**/*.css", () => {
-  it("cart-rave-menu.css:178 — the simplest form", () => {
-    const p = parseStateSelector(".cr-kbm-toast-close:hover");
+  it("cart-rave-menu.css:494 — the simplest form", () => {
+    // Was .cr-kbm-toast-close:hover (cart-rave-menu.css:178) until STATES-DEAD-1/KBM-TOAST-1
+    // deleted that dead CSS 08-06; swapped to a live single-class :hover rule so this fixture
+    // does not outlive the selector it was drawn from.
+    const p = parseStateSelector(".cr-diff-btn:hover");
     expect(p).toMatchObject({
       state: "hover",
-      queryBase: ".cr-kbm-toast-close",
-      fullBase: ".cr-kbm-toast-close",
+      queryBase: ".cr-diff-btn",
+      fullBase: ".cr-diff-btn",
       descendantDelta: false,
       pseudoElement: null,
     });
