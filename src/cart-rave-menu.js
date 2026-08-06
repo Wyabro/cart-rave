@@ -489,13 +489,16 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
   }
 
   /**
-   * Every difficulty chip row in the document — the menu context panel's row and
-   * the Friends invite screen's host row. One controller drives both so the two
-   * can't disagree about `settingsStore.aiDifficulty`.
+   * Menu context difficulty chips only (`#cr-diff-row`). Shown for Solo and for
+   * Friends pre-enter (DIFF-FRIENDS-1: `MENU_ITEMS.friends.diff = true`).
+   * Writes `settingsStore.aiDifficulty` only — no netcode import (BUNDLE-1).
+   * The Friends CHECKOUT LINE host row is built and wired in hud.js; it paints
+   * from the room latch and calls `hostSetRoomAiDifficulty`.
    * @returns {HTMLElement[]}
    */
-  function allDiffButtons() {
-    return /** @type {HTMLElement[]} */ ([...document.querySelectorAll(".cr-diff-row .cr-diff-btn")]);
+  function allMenuDiffButtons() {
+    if (!diffRow) return [];
+    return /** @type {HTMLElement[]} */ ([...diffRow.querySelectorAll(".cr-diff-btn")]);
   }
 
   function updateDiffButtons() {
@@ -503,7 +506,7 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
       settingsStore.getState().aiDifficulty,
       DEFAULT_SOLO,
     );
-    allDiffButtons().forEach((btn) => {
+    allMenuDiffButtons().forEach((btn) => {
       const id = btn.dataset.difficulty || "";
       const isActive = id === current;
       btn.classList.toggle("active", isActive);
@@ -532,7 +535,9 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
       normalizeDifficulty(settingsStore.getState().aiDifficulty, DEFAULT_SOLO),
     );
     updateDiffButtons();
-    allDiffButtons().forEach((btn) => {
+    // * Bind only the menu row — lobby chips are created later in hud and must not
+    // * share this store-only handler (room latch is netcode's job).
+    allMenuDiffButtons().forEach((btn) => {
       btn.addEventListener("click", () => selectDifficulty(btn.dataset.difficulty));
     });
   }
@@ -1943,7 +1948,7 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
     // * QUICKPLAY has no arena picker: matchmaking decides the arena, so offering
     // * the pager here promised a choice the mode does not honour.
     quickplay:  { kicker: "QUICKPLAY · ONLINE",     desc: "Jump into a public four-cart brawl.",                        arena: false, diff: false },
-    friends:    { kicker: "FRIENDS · PRIVATE ROOM", desc: "Spin up a private room and invite your crew.",               arena: false, diff: false },
+    friends:    { kicker: "FRIENDS · PRIVATE ROOM", desc: "Spin up a private room and invite your crew.",               arena: false, diff: true },
     customize:  { kicker: "CART DETAILING",         desc: "Paint your cart — colors, sunglasses and patterns.",         arena: false, diff: false },
     challenges: { kicker: "WEEKLY RESTOCK",         desc: "Weekly goals for bonus points.",                             arena: false, diff: false },
     howto:      { kicker: "STORE POLICY",           desc: "Learn to drive, body carts, and win before closing.",        arena: false, diff: false },

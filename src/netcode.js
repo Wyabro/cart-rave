@@ -2978,6 +2978,10 @@ export function initNetcode(roomOverride) {
       }
 
       setAuthorityMode(Boolean(hostId && youConnId && hostId === youConnId));
+      // * DIFF-FRIENDS-1: hello already adopted Party's aiDifficulty (default "easy").
+      // * Friends host preference lives in settingsStore — overwrite latch + push hostRound
+      // * so bots and joiners track the host pick, not the server field default.
+      adoptFriendsHostAiDifficultyFromStore();
       // * Host peer offers are opened from requestTurnCredentialsAndOpenPeers (TURN-gated).
 
       // * Enter game only after server hello — menu stays up while connecting.
@@ -3443,11 +3447,53 @@ export function adoptRoomAiDifficultyAsHost(mode) {
 
 /**
  * First-time host latch only — does not overwrite an existing room latch (hello / rematch).
+ * Friends host enter uses {@link adoptFriendsHostAiDifficultyFromStore} instead: hello stamps
+ * the server default ("easy") first, so a no-op here would leave store picks dead forever.
  * @param {"solo" | "friends" | "quickplay" | "testdrive" | string} mode
  */
 export function ensureHostAiDifficultyLatched(mode) {
   if (authoritativeRoomAiDifficulty != null) return;
   adoptRoomAiDifficultyAsHost(mode);
+}
+
+/**
+ * DIFF-FRIENDS-1: Friends host overwrites hello-stamped room AI with the host's store pick.
+ *
+ * Party defaults `#currentAiDifficulty` to "easy". MSG.hello adopts that into the client
+ * latch before any host brain runs; {@link ensureHostAiDifficultyLatched} then no-ops.
+ * Call this once the local client is Friends host (after setAuthorityMode on hello) so
+ * store → latch → hostRound and the server leaves Easy.
+ *
+ * No-ops when not host or not Friends. Does not touch Quickplay (Medium fixed).
+ * @returns {boolean} True when adopt + send ran.
+ */
+export function adoptFriendsHostAiDifficultyFromStore() {
+  if (!isHost) return false;
+  if (detectGameMode() !== "friends") return false;
+  adoptRoomAiDifficultyAsHost("friends");
+  sendHostRound();
+  return true;
+}
+
+/**
+ * DIFF-FRIENDS-1: host changes room AI difficulty mid-lobby (or any Friends host session).
+ * Writes the host preference, stamps the room latch, and broadcasts via hostRound so
+ * Party + joiners adopt. Guests no-op (return false).
+ * @param {unknown} difficulty
+ * @returns {boolean}
+ */
+export function hostSetRoomAiDifficulty(difficulty) {
+  if (!isHost) return false;
+  const next = normalizeDifficulty(difficulty, DEFAULT_SOLO);
+  settingsStore.getState().setAiDifficulty(next);
+  // * Friends store path is identity via resolveRoomDifficulty; call it so a future
+  // * mode gate stays in one place. Quickplay host should not land here from UI.
+  const mode = detectGameMode();
+  const resolved = resolveRoomDifficulty(mode === "testdrive" ? "solo" : mode, next);
+  authoritativeRoomAiDifficulty = resolved;
+  setActiveAiDifficulty(resolved);
+  sendHostRound();
+  return true;
 }
 
 /** @returns {import("./aiDifficulty.js").AiDifficulty} */
@@ -3770,6 +3816,15 @@ export const __netcodeTestHooks = {
     if (y !== undefined) youConnId = y;
     if (s !== undefined) netSlots = s;
   },
+  /** DIFF-FRIENDS-1: stamp / read room AI latch without a live hello. */
+  setAuthoritativeRoomAiDifficultyForTest: (d) => {
+    if (d == null) {
+      authoritativeRoomAiDifficulty = null;
+      return;
+    }
+    adoptAuthoritativeRoomAiDifficulty(d);
+  },
+  getAuthoritativeRoomAiDifficultyForTest: () => authoritativeRoomAiDifficulty,
   /** Cap-61 unit seam: countdown hold predicate (hello + MSG.round). */
   shouldHoldNonHostCountdownPhase: (newPhase, clientIsHost) =>
     shouldHoldNonHostCountdownPhase(newPhase, clientIsHost),

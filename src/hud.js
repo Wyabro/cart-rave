@@ -17,7 +17,16 @@ import { updateBoostRing } from "./touchControls.js";
 import { clamp, clampInt } from "./utils.js";
 import { resolveCartNeonCss } from "./customization.js";
 import { playTimerTick } from "./sfxSynth.js";
-import { getConnectionState, getHostId, getHostClockOffsetMs, getNetSlots, resolvedPartyRoomFromUrl } from "./netcode.js";
+import {
+  getConnectionState,
+  getHostId,
+  getHostClockOffsetMs,
+  getNetSlots,
+  resolvedPartyRoomFromUrl,
+  getActiveRoomAiDifficulty,
+  hostSetRoomAiDifficulty,
+} from "./netcode.js";
+import { normalizeDifficulty, DEFAULT_SOLO } from "./aiDifficulty.js";
 import { getRoundClockNowMs, getRoundRemainingMs } from "./roundClock.js";
 import { ROUND_DURATION_MS } from "../shared/roundConstants.js";
 import { announce } from "./announcer/announcerManager.js";
@@ -150,6 +159,8 @@ const elements = {
   lobbyLinkField: null,
   lobbyReadyBtn: null,
   lobbyReadyLabel: null,
+  /** @type {HTMLElement | null} DIFF-FRIENDS-1 host-only bot difficulty row */
+  lobbyDiffRow: null,
   menuBtn: null,
   audio: null,
   comboBadge: null,
@@ -1280,6 +1291,23 @@ function lobbyPressTarget(btn) {
 }
 
 /**
+ * DIFF-FRIENDS-1: paint lobby difficulty chips from the **room latch**, not the
+ * menu store alone — after hello, store can say HARD while latch is still Easy.
+ */
+function paintLobbyDiffButtons() {
+  const row = elements.lobbyDiffRow;
+  if (!row) return;
+  const current = normalizeDifficulty(getActiveRoomAiDifficulty(), DEFAULT_SOLO);
+  row.querySelectorAll(".cr-diff-btn").forEach((btn) => {
+    const el = /** @type {HTMLElement} */ (btn);
+    const id = el.dataset.difficulty || "";
+    const isActive = id === current;
+    el.classList.toggle("active", isActive);
+    el.setAttribute("aria-pressed", isActive ? "true" : "false");
+  });
+}
+
+/**
  * Friends-only full-screen CHECKOUT LINE lobby (7e, model B).
  *
  * Gate is `phase === "lobby"` — deliberately NOT the compact roster's
@@ -1363,6 +1391,12 @@ function updateLobbyScreen(roundPhase, netSlots, youConnId, menuVisible) {
   }
 
   if (elements.lobbyCount) elements.lobbyCount.textContent = `${humans}/4`;
+  // * DIFF-FRIENDS-1: host-only bot difficulty on the invite slab. Guests never see it.
+  const localIsHost = Boolean(hostId && youConnId && hostId === youConnId);
+  if (elements.lobbyDiffRow) {
+    elements.lobbyDiffRow.hidden = !localIsHost;
+    if (localIsHost) paintLobbyDiffButtons();
+  }
   if (elements.lobbyCode) {
     const code = String(resolvedPartyRoomFromUrl() || "").toUpperCase();
     if (elements.lobbyCode.textContent !== code) elements.lobbyCode.textContent = code;
@@ -1762,6 +1796,50 @@ export function init(options) {
   lobbyCodeCard.appendChild(lobbyCodeRow);
   lobbyCodeCard.appendChild(elements.lobbyLinkField);
   lobbyCodeCard.appendChild(lobbyShare);
+
+  // * DIFF-FRIENDS-1: host-only Easy/Med/Hard for bot seats. Same chip classes as the
+  // * menu context row so visual language matches; wiring stays here (hud already
+  // * imports netcode) so cart-rave-menu never pulls the P2P graph.
+  elements.lobbyDiffRow = document.createElement("div");
+  elements.lobbyDiffRow.className = "hud-lobby-diff";
+  elements.lobbyDiffRow.hidden = true;
+  const lobbyDiffLbl = document.createElement("span");
+  lobbyDiffLbl.className = "hud-lobby-diff-lbl";
+  lobbyDiffLbl.textContent = "BOT DIFFICULTY";
+  const lobbyDiffChips = document.createElement("div");
+  lobbyDiffChips.className = "cr-diff-row hud-lobby-diff-chips";
+  lobbyDiffChips.setAttribute("role", "radiogroup");
+  lobbyDiffChips.setAttribute("aria-label", "Choose bot difficulty");
+  /** @type {ReadonlyArray<{ id: string, label: string, colorkey: string }>} */
+  const DIFF_CHIPS = [
+    { id: "easy", label: "EASY", colorkey: "secondary" },
+    { id: "medium", label: "MEDIUM", colorkey: "primary" },
+    { id: "hard", label: "HARD", colorkey: "p2" },
+  ];
+  for (const chip of DIFF_CHIPS) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "cr-diff-btn";
+    btn.dataset.difficulty = chip.id;
+    btn.dataset.colorkey = chip.colorkey;
+    btn.setAttribute("aria-pressed", "false");
+    const inner = document.createElement("span");
+    inner.className = "cr-diff-btn-inner";
+    const label = document.createElement("span");
+    label.className = "cr-diff-btn-label";
+    label.textContent = chip.label;
+    inner.appendChild(label);
+    btn.appendChild(inner);
+    btn.addEventListener("click", () => {
+      hostSetRoomAiDifficulty(chip.id);
+      paintLobbyDiffButtons();
+    });
+    wireButtonPressFeedback(btn, { scale: 0.96 });
+    lobbyDiffChips.appendChild(btn);
+  }
+  elements.lobbyDiffRow.appendChild(lobbyDiffLbl);
+  elements.lobbyDiffRow.appendChild(lobbyDiffChips);
+  lobbyCodeCard.appendChild(elements.lobbyDiffRow);
 
   // Right column: the roster itself.
   const lobbyRoster = document.createElement("div");

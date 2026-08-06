@@ -2263,6 +2263,30 @@
   color: rgba(242, 237, 228, 0.45);
 }
 
+/* DIFF-FRIENDS-1 — host-only bot difficulty under the invite share blurb.
+   Chip look reuses .cr-diff-btn from cart-rave-menu.css (already loaded on menu). */
+.hud-lobby-diff {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(6px, 1vh, 10px);
+  padding-top: clamp(10px, 1.2vh, 16px);
+  border-top: 1px solid var(--border-white-10);
+}
+
+.hud-lobby-diff[hidden] {
+  display: none;
+}
+
+.hud-lobby-diff-lbl {
+  font-size: 0.6875rem;
+  letter-spacing: 0.2em;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.hud-lobby-diff-chips {
+  width: 100%;
+}
+
 /* Right column — the roster itself. */
 .hud-lobby-roster {
   grid-column: 2;

@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-06T19:17:46.391Z",
-    "commit": "725c348"
+    "at": "2026-08-06T20:06:27.189Z",
+    "commit": "b63e122"
   },
-  "source_digest": "38b169be",
+  "source_digest": "07053076",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -925,8 +925,8 @@
         "rows": [
           {
             "pri": "Medium",
-            "item": "DIFF-FRIENDS-1 — NPC difficulty applies in Friends rooms but cannot be set there",
-            "notes": "**Filed 08-06 from Wyatt, who remembered picking difficulty in Friends — and the code agrees with him, but the UI does not.** [cart-rave-menu.js:492-494](../../src/cart-rave-menu.js:492) documents the controller as driving *\"the menu context panel's row **and the Friends invite screen's host row**\"*, and `allDiffButtons()` queries `.cr-diff-row .cr-diff-btn` document-wide as if two rows exist. **Only one does** — `#cr-diff-row` in the menu context panel ([index.html:736](../../index.html:736)) — and it only renders when `MENU_ITEMS[cmd].diff === true`, which is **`solo` alone** (`quickplay` and `friends` are both `diff: false`, [:1942-1946](../../src/cart-rave-menu.js:1942)). Git says the comment arrived with `de6797f` (fight-night part 4b, Friends invite chrome), which also touched `cr-diff-row` in index.html — so the row existed at some point and was lost, most likely in the Fight Night redesign. **Why it is not cosmetic:** [party/index.ts:236](../../party/index.ts:236) seeds **all four slots as `kind: \"npc\"`** in *every* room and humans claim seats from there, so any Friends room that is not full has NPC carts in it. Those NPCs run at `settingsStore.aiDifficulty` — whatever the host last chose **in Solo** — so the setting is live in Friends and unreachable from Friends. A host who has never opened Solo gets `DEFAULT_SOLO` silently. **Scope:** decide first whether Friends *should* expose it (host-only, since it is a room-wide setting and only the host's value can win) — if yes, restore the row on the invite screen and wire it through the existing `selectDifficulty` controller, which already handles multiple rows; if no, delete the false half of the comment so the next reader is not hunting a row that does not exist. Either way **fix the comment in the same commit.** Related: the `.cr-context .cr-diff-btn` reachability FAIL in `npm run states` is a *different* pre-existing issue (the row is Solo-only and the sweep never selects Solo) — do not conflate them. **Does not block ONBOARD-SLIDES-1:** AISLE 8's copy deliberately never says where difficulty is chosen, so it stays true either way.",
+            "item": "DIFF-FRIENDS-1 — Friends host bot difficulty UI + hello-latch fix",
+            "notes": "⏳ **SHIPPED 08-06, awaiting playtest (DIFF-FRIENDS-PT-1).** Host-only Easy/Med/Hard on main-menu FRIENDS (`friends.diff = true`) and on CHECKOUT LINE lobby (`hud.js`). **Root cause was not \"store never applied\" alone:** Party hello stamps `#currentAiDifficulty` default **easy**, client latch adopts it, `ensureHostAiDifficultyLatched` no-ops — store pick never won. Fix: `adoptFriendsHostAiDifficultyFromStore()` after hello host authority + `hostSetRoomAiDifficulty` for mid-lobby changes (both `sendHostRound`). Lobby chips paint from **room latch**, not store alone. Menu never imports netcode. Units: `tests/diffFriendsAi.test.js` (5).",
             "ship1": null
           },
           {
@@ -1280,7 +1280,7 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "High": 3,
+          "High": 4,
           "Medium": 1,
           "Low": 2
         },
@@ -1301,6 +1301,12 @@
             "pri": "High",
             "item": "ONBOARD-SLIDES-PT-3 — the slides work on a phone `[phone]`",
             "notes": "**Owed: Wyatt playtest — ONBOARD-SLIDES-PT-3 — the how-to cards are readable and tappable on your phone, in both orientations.** Shipped 08-06, deployed with this wave. Card 1's control list is rebuilt for touch, so it should name the on-screen stick and buttons — not WASD or SHIFT.<br>1. On your phone, open **HOW TO PLAY** from the main menu.<br>2. On the first card, check the little control chips: they should talk about the stick and the on-screen BOOST and HOP buttons. Seeing `W` `A` `S` `D` or `SHIFT` there is a FAIL.<br>3. Tap through all eight cards. Nothing should be cut off, overlapping, or too small to read.<br>4. Turn the phone sideways and page through again — the layout is deliberately tighter there.<br>5. PASS if it reads cleanly both ways. FAIL with a screenshot and which card.",
+            "ship1": null
+          },
+          {
+            "pri": "High",
+            "item": "DIFF-FRIENDS-PT-1 — host sets bot difficulty; room latch matches chip `[solo]`",
+            "notes": "**Owed: Wyatt playtest — DIFF-FRIENDS-PT-1 — host chips on Friends lobby, and the active chip matches the room difficulty (not vibes alone).** Shipped 08-06. Hard assert is the chip itself — lobby paints from the room latch after hello overwrites server Easy.<br>1. Main menu: select **FRIENDS** → set **HARD** on the context chips.<br>2. Create a private room. On **CHECKOUT LINE** as host, confirm Easy/Med/Hard chips appear and **HARD** is the lit one.<br>3. Switch to **EASY** — the lit chip must move to EASY (if it sticks on HARD, FAIL: latch did not update).<br>4. Ready alone (bots fill empty lanes). Optional feel check only after the chip/latch steps pass.<br>5. FAIL if chips missing on the lobby, HARD pick leaves chips on Easy after enter, or a guest sees the chips (second client optional).",
             "ship1": null
           },
           {
@@ -1548,7 +1554,7 @@
             "pri": "Low",
             "id": "KBM-TOAST-1",
             "item": "`.cr-kbm-toast` / `-toast-text` / `-toast-close` (cart-rave-menu.css:130-206) has no JS reference anywhere in `src/`",
-            "notes": "**Filed 08-06** — found while auditing `text-transform: uppercase` usage (unrelated question). No `document.createElement`/`classList`/template literal anywhere in `src/` sets `cr-kbm-toast` or its children, and `Select-String -Path src -Pattern kbm -Recurse` only hits this one CSS file — looks like orphaned CSS from a removed keyboard/mouse-switch toast. Confirm with a full-text search before deleting (dynamic class construction elsewhere could still reference it), then drop the three rules and their `@media` overrides. Not a ship blocker — dead weight, not a bug.",
+            "notes": "**Filed 08-06** — found while auditing `text-transform: uppercase` usage (unrelated question). No `document.createElement`/`classList`/template literal anywhere in `src/` sets `cr-kbm-toast` or its children, and `Select-String -Path src -Pattern kbm -Recurse` only hits this one CSS file — looks like orphaned CSS from a removed keyboard/mouse-switch toast. Confirm with a full-text search before deleting (dynamic class construction elsewhere could still reference it), then drop the three rules and their `@media` overrides. Not a ship blocker — dead weight, not a bug. **⚠️ Same subject as STATES-DEAD-1 (UI/UX, Low) — run them as ONE card, 08-06 audit.** That card's `npm run states` sweep already found `.cr-kbm-toast-close` as its subject (2), and its subject (1) `.cr-touch-btn` is the immediate neighbour in the same block of `cart-rave-menu.css`. Both re-verified with a repo-wide search 08-06. Picking either alone edits lines the other one owns.",
             "ship1": null
           }
         ]
