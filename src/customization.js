@@ -7,15 +7,19 @@
  * 2. `loadPlayerCustomization()` reads `cartRaveCustomization` and seeds defaults on first visit.
  * 3. `resolveCartNeonHex(slot, ctx)` picks the neon frame hex: local human → saved customization;
  *    remote humans → server-synced `slot.lookHex`; NPCs → server slot color via CART_COLORS.
- * 4. `resolveCartPatternForSlot(slot, ctx)` picks the wireframe pattern id (local human → saved; others → classic).
+ * 4. `resolveCartPatternForSlot(slot, ctx)` picks the wireframe pattern id: local human → saved;
+ *    remote humans → server-synced `slot.patternId`; NPCs → name-seeded pool pick.
  * 4b. `resolveCartThemeForSlot(slot, ctx)` always returns "rave" — the sole permanent base theme.
- * 4c. `resolveCartSunglassesStyleForSlot(slot, ctx)` picks the sunglasses style id (local human → saved; others → silver mirror).
+ * 4c. `resolveCartSunglassesStyleForSlot(slot, ctx)` picks the sunglasses style id: local human →
+ *     saved; remote humans → server-synced `slot.sunglassesStyle`; NPCs → name-seeded pick.
  * 5. `main.js` passes `displayColorHexForSlot` into cart spawn/recolor, calls `applyCartFrameGlow()`
  *    for neon color, then `applyCartPattern()` for the wireframe pattern overlay layer. Color and pattern are independent.
  * 6. `resolveServerColorPick()` maps custom hues to the nearest preset for PartyKit slot assignment only.
- * 7. Clients send `lookHex` with `color_pick` / `cart_look`; the server stores it on the human slot and
- *    rebroadcasts via `slots` so every client renders the same cosmetic color. Sunglasses style is
- *    local-only for now (not networked) — only the local human's saved style is applied at spawn.
+ * 7. Clients send `lookHex` + `patternId` + `sunglassesStyle` with `color_pick` / `cart_look`; the
+ *    server stores them on the human slot and rebroadcasts via `slots` so every client renders the
+ *    same cosmetics. Sunglasses style is baked into cloned GLTF materials at cart-build time
+ *    (NET-LOOK-ACC-1), so a remote peer's style change lands on that cart's next KO respawn or
+ *    rebuild, not instantly — pattern and color apply live.
  *
  * Theme selection was removed: "rave" is the only theme. Any legacy `theme` field in localStorage
  * is silently ignored on load (never re-written), so old payloads migrate cleanly.
@@ -432,10 +436,10 @@ const NPC_PATTERN_POOL = Object.freeze(["classic", "classic", "stripes", "checke
 
 /**
  * Pattern id for a cart mesh — local human uses saved pattern; NPCs draw a stable
- * pseudo-random pattern from their name seed; remote humans stay classic (their
- * pattern pick is not networked yet).
+ * pseudo-random pattern from their name seed; remote humans use the server-synced
+ * `slot.patternId` (NET-LOOK-ACC-1), falling back to classic if absent/unrecognized.
  *
- * @param {{ kind?: string, connId?: string, name?: string } | null | undefined} slot
+ * @param {{ kind?: string, connId?: string, name?: string, patternId?: string | null } | null | undefined} slot
  * @param {{ youConnId?: string | null, isLocalHuman?: boolean }} [ctx]
  * @returns {CartPatternId}
  */
@@ -445,7 +449,7 @@ export function resolveCartPatternForSlot(slot, ctx = {}) {
   if (slot?.kind === "npc") {
     return NPC_PATTERN_POOL[npcLookSeed(slot) % NPC_PATTERN_POOL.length];
   }
-  return DEFAULT_CART_PATTERN;
+  return normalizePatternId(slot?.patternId);
 }
 
 /**
@@ -465,10 +469,13 @@ export function resolveCartThemeForSlot(_slot, _ctx = {}) {
 /**
  * Sunglasses style id for a cart mesh — local human uses saved style; NPCs draw a
  * stable pseudo-random mirror style from their name seed (offset from the pattern
- * roll so pattern/style pairings vary independently); remote humans fall back to
- * silver mirror (style is not networked yet).
+ * roll so pattern/style pairings vary independently); remote humans use the
+ * server-synced `slot.sunglassesStyle` (NET-LOOK-ACC-1), falling back to silver
+ * mirror if absent/unrecognized. Style is baked into cart materials at build time,
+ * so callers resolving this for an already-spawned remote cart only see it applied
+ * on that cart's next rebuild (KO respawn) — see cartOrchestration.js.
  *
- * @param {{ kind?: string, connId?: string, name?: string } | null | undefined} slot
+ * @param {{ kind?: string, connId?: string, name?: string, sunglassesStyle?: string | null } | null | undefined} slot
  * @param {{ youConnId?: string | null, isLocalHuman?: boolean }} [ctx]
  * @returns {SunglassesStyleId}
  */
@@ -479,7 +486,7 @@ export function resolveCartSunglassesStyleForSlot(slot, ctx = {}) {
     const idx = (npcLookSeed(slot) >>> 3) % SUNGLASSES_STYLES.length;
     return SUNGLASSES_STYLES[idx].id;
   }
-  return DEFAULT_SUNGLASSES_STYLE;
+  return normalizeSunglassesStyleId(slot?.sunglassesStyle);
 }
 
 /**

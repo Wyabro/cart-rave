@@ -412,6 +412,12 @@ describe("SLOTS-JSON-1 slotsFingerprint", () => {
     expect(slotsFingerprint([{ ...base, name: "X" }])).not.toBe(a);
     expect(slotsFingerprint([{ ...base, connId: "b" }])).not.toBe(a);
   });
+
+  it("changes for patternId / sunglassesStyle (NET-LOOK-ACC-1)", () => {
+    const a = slotsFingerprint([base]);
+    expect(slotsFingerprint([{ ...base, patternId: "stripes" }])).not.toBe(a);
+    expect(slotsFingerprint([{ ...base, sunglassesStyle: "goldMirror" }])).not.toBe(a);
+  });
 });
 
 describe("declashNpcSlotColors", () => {

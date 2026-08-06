@@ -22,6 +22,10 @@ type Slot = {
   color: string;
   /** Client-synced neon frame hex (0–0xffffff); preset slot color is assignment only. */
   lookHex?: number | null;
+  /** Client-synced wireframe pattern id (NET-LOOK-ACC-1); client normalizes unknown ids. */
+  patternId?: string | null;
+  /** Client-synced sunglasses style id (NET-LOOK-ACC-1); client normalizes unknown ids. */
+  sunglassesStyle?: string | null;
   isReady: boolean;
   /**
    * COUNTDOWN-ARM-1: carts + play-shader warm acknowledged via MSG.clientPlayReady.
@@ -191,6 +195,16 @@ export class CartRaveServer extends Server {
     const n = typeof raw === "number" ? raw : Number(raw);
     if (!Number.isFinite(n)) return null;
     return Math.floor(n) & 0xffffff;
+  }
+
+  // * NET-LOOK-ACC-1: length/charset sanitizer, not an id whitelist — the server can't import
+  // * client pattern/sunglasses config, and both clients already fall back to a default on an
+  // * unknown id (normalizePatternId / normalizeSunglassesStyleId in customization.js).
+  #normalizeLookId(raw: unknown): string | null {
+    if (typeof raw !== "string") return null;
+    const trimmed = raw.trim();
+    if (!/^[a-z0-9_-]{1,24}$/i.test(trimmed)) return null;
+    return trimmed;
   }
 
   #ensureInitialized() {
@@ -521,6 +535,8 @@ export class CartRaveServer extends Server {
     // Reassign color to avoid collisions with other slots.
     slot.color = nextFreePaletteColor(slots, slot, PALETTE);
     slot.lookHex = null;
+    slot.patternId = null;
+    slot.sunglassesStyle = null;
   }
 
   #getAvailableColors(): string[] {
@@ -1307,6 +1323,10 @@ export class CartRaveServer extends Server {
         slot.color = color;
         const lookHex = this.#normalizeLookHex(data?.lookHex);
         if (lookHex !== null) slot.lookHex = lookHex;
+        const patternId = this.#normalizeLookId(data?.patternId);
+        if (patternId !== null) slot.patternId = patternId;
+        const sunglassesStyle = this.#normalizeLookId(data?.sunglassesStyle);
+        if (sunglassesStyle !== null) slot.sunglassesStyle = sunglassesStyle;
 
         // Displace any NPC holding the picked color to the unused 5th color.
         const npcWithColor = this.#slots?.find(
@@ -1375,8 +1395,24 @@ export class CartRaveServer extends Server {
         const slot = this.#slots?.find((s) => s.connId === connection.id);
         if (!slot || slot.kind !== "human") return;
         const lookHex = this.#normalizeLookHex(data?.lookHex);
-        if (lookHex === null) return;
-        slot.lookHex = lookHex;
+        const patternId = this.#normalizeLookId(data?.patternId);
+        const sunglassesStyle = this.#normalizeLookId(data?.sunglassesStyle);
+        // * NET-LOOK-ACC-1: any of the three cosmetics may change independently (e.g. a
+        // * glasses-only pick sends a null lookHex) — broadcast if any parsed, not just color.
+        let changed = false;
+        if (lookHex !== null) {
+          slot.lookHex = lookHex;
+          changed = true;
+        }
+        if (patternId !== null) {
+          slot.patternId = patternId;
+          changed = true;
+        }
+        if (sunglassesStyle !== null) {
+          slot.sunglassesStyle = sunglassesStyle;
+          changed = true;
+        }
+        if (!changed) return;
         this.#broadcastJson({
           v: PROTOCOL_VERSION,
           type: MSG.slots,

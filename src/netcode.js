@@ -235,6 +235,8 @@ export function slotsFingerprint(slots) {
       + `:${s.name ?? ""}`
       + `:${s.color ?? ""}`
       + `:${s.lookHex ?? ""}`
+      + `:${s.patternId ?? ""}`
+      + `:${s.sunglassesStyle ?? ""}`
       + `:${s.isReady ? 1 : 0}`
       + `:${s.isPlayReady ? 1 : 0}`;
   }
@@ -2568,8 +2570,8 @@ function applyHostMigration(msg) {
  */
 export function sendColorPick(color) {
   if (!partySocket || partySocket.readyState !== WebSocket.OPEN) return;
-  const lookHex = loadPlayerCustomization().hex;
-  partySocket.send(JSON.stringify({ type: MSG.colorPick, color, lookHex }));
+  const { hex: lookHex, pattern: patternId, sunglassesStyle } = loadPlayerCustomization();
+  partySocket.send(JSON.stringify({ type: MSG.colorPick, color, lookHex, patternId, sunglassesStyle }));
 }
 
 /** Reports that the current multiplayer host stayed hidden past the AFK threshold. */
@@ -2602,20 +2604,22 @@ export function sendHostPresent({ retry = true } = {}) {
   }, HOST_MIGRATION_COOLDOWN_MS);
 }
 
-/** Pushes an updated cosmetic hex to the server (Customize menu mid-session). */
+/** Pushes updated cosmetics to the server (Customize menu mid-session). */
 export function syncCartLookToServer() {
   if (!partySocket || partySocket.readyState !== WebSocket.OPEN) return;
-  const lookHex = loadPlayerCustomization().hex;
-  partySocket.send(JSON.stringify({ type: MSG.cartLook, lookHex }));
+  const { hex: lookHex, pattern: patternId, sunglassesStyle } = loadPlayerCustomization();
+  partySocket.send(JSON.stringify({ type: MSG.cartLook, lookHex, patternId, sunglassesStyle }));
 }
 
-/** Solo / offline path: patch lookHex on the local human slot in netSlots. */
+/** Solo / offline path: patch cosmetics on the local human slot in netSlots. */
 export function syncLocalSlotLookHex() {
   if (!youConnId) return;
-  const lookHex = loadPlayerCustomization().hex;
+  const { hex: lookHex, pattern: patternId, sunglassesStyle } = loadPlayerCustomization();
   const idx = strictSlotIndexForConn(youConnId);
   if (idx < 0 || !netSlots[idx]) return;
   netSlots[idx].lookHex = lookHex;
+  netSlots[idx].patternId = patternId;
+  netSlots[idx].sunglassesStyle = sunglassesStyle;
 }
 
 /**
@@ -2666,11 +2670,11 @@ export function initNetcode(roomOverride) {
       } catch {}
     }
     const colorToSend = resolveServerColorPick();
-    const lookHex = loadPlayerCustomization().hex;
+    const { hex: lookHex, pattern: patternId, sunglassesStyle } = loadPlayerCustomization();
 
     if (modeAtConnect === "testdrive") {
       netSlots = declashNpcSlotColors([
-        { slotId: 0, kind: "human", connId: youConnId, name: savedUsername, color: colorToSend, lookHex },
+        { slotId: 0, kind: "human", connId: youConnId, name: savedUsername, color: colorToSend, lookHex, patternId, sunglassesStyle },
         { slotId: 1, kind: "empty", connId: null, name: "", color: "blue" },
         { slotId: 2, kind: "empty", connId: null, name: "", color: "green" },
         { slotId: 3, kind: "empty", connId: null, name: "", color: "yellow" },
@@ -2685,7 +2689,7 @@ export function initNetcode(roomOverride) {
         [npcColors[i], npcColors[j]] = [npcColors[j], npcColors[i]];
       }
       netSlots = declashNpcSlotColors([
-        { slotId: 0, kind: "human", connId: youConnId, name: savedUsername, color: colorToSend, lookHex },
+        { slotId: 0, kind: "human", connId: youConnId, name: savedUsername, color: colorToSend, lookHex, patternId, sunglassesStyle },
         { slotId: 1, kind: "npc", connId: null, name: npcNames[1], color: npcColors[0] },
         { slotId: 2, kind: "npc", connId: null, name: npcNames[2], color: npcColors[1] },
         { slotId: 3, kind: "npc", connId: null, name: npcNames[3], color: npcColors[2] },
@@ -3049,10 +3053,19 @@ export function initNetcode(roomOverride) {
         const newColors = merged.map((s) => (s?.color || ""));
         const oldColors = netSlots.map((s) => (s?.color || ""));
         const colorsChanged = newColors.some((c, i) => c !== oldColors[i]);
+        // * NET-LOOK-ACC-1: patternId is diffed because it's a live shader-mask swap
+        // * (updateCartMaterialsFromSlots re-applies it visibly). sunglassesStyle is diffed
+        // * too, even though the glasses themselves don't rebuild live (style is baked into
+        // * the cloned GLTF materials) — this only needs to trip updateCartMaterialsFromSlots
+        // * so it refreshes cart.cartSunglassesStyle, the field the next KO respawn reads.
+        // * Without it, a glasses-only change (no color/pattern/kind/name change alongside it)
+        // * would never run that function and the cache would stay stale forever, not just
+        // * until the next respawn.
         const looksChanged = merged.some((s, i) => {
-          const oldLook = netSlots[i]?.lookHex ?? null;
-          const newLook = s?.lookHex ?? null;
-          return oldLook !== newLook;
+          const old = netSlots[i];
+          return (old?.lookHex ?? null) !== (s?.lookHex ?? null)
+            || (old?.patternId ?? null) !== (s?.patternId ?? null)
+            || (old?.sunglassesStyle ?? null) !== (s?.sunglassesStyle ?? null);
         });
 
         const kindsChanged = merged.some(

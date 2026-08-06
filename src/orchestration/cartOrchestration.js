@@ -25,6 +25,7 @@ import { getNpcPersonality, PERSONALITY_META } from "../npcNames.js";
 import { cargoFillLevelFor, cargoTierFor } from "../cargoLoad.js";
 import {
   resolveCartPatternForSlot,
+  resolveCartSunglassesStyleForSlot,
   resolveCartThemeForSlot,
 } from "../customization.js";
 // * BUNDLE-1 Lever E: the three slot-identity helpers moved to the leaf module
@@ -251,6 +252,11 @@ export function createCartOrchestration(deps) {
       }
 
       cart.cartColor = finalHex;
+      // * NET-LOOK-ACC-1: cache only — style is baked into the cloned GLTF materials, so a
+      // * live cart keeps its current glasses. This is what rebuildCartVisualsIntoRoot reads
+      // * (entities.js), so a peer's new style lands on that cart's next KO respawn instead
+      // * of never.
+      cart.cartSunglassesStyle = resolveCartSunglassesStyleForSlot(slot, { youConnId });
     }
     scheduleSlotsMaterialWarmup();
   }

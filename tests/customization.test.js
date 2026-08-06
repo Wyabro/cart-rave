@@ -13,8 +13,12 @@ import {
   loadPlayerCustomization,
   invalidateCustomizationCache,
   CUSTOM_COLOR_ID,
+  resolveCartPatternForSlot,
+  resolveCartSunglassesStyleForSlot,
 } from "../src/customization.js";
 import { PALETTE } from "../src/config.js";
+import { DEFAULT_CART_PATTERN } from "../src/cartPatternConfig.js";
+import { DEFAULT_SUNGLASSES_STYLE } from "../src/cartThemeConfig.js";
 
 beforeEach(() => {
   localStorage.clear();
@@ -76,5 +80,66 @@ describe("savePlayerCustomization partial saves", () => {
     const saved = loadPlayerCustomization();
     expect(saved.colorMode).toBe("preset");
     expect(saved.color).toBe(PALETTE[2]);
+  });
+});
+
+// NET-LOOK-ACC-1: remote humans render the server-synced slot.patternId /
+// slot.sunglassesStyle instead of a hardcoded default.
+describe("resolveCartPatternForSlot", () => {
+  it("uses the remote slot's synced patternId", () => {
+    const slot = { kind: "human", connId: "peer", patternId: "stripes" };
+    expect(resolveCartPatternForSlot(slot, { youConnId: "me" })).toBe("stripes");
+  });
+
+  it("falls back to the default for a garbage patternId", () => {
+    const slot = { kind: "human", connId: "peer", patternId: "not-a-real-pattern" };
+    expect(resolveCartPatternForSlot(slot, { youConnId: "me" })).toBe(DEFAULT_CART_PATTERN);
+  });
+
+  it("falls back to the default when patternId is absent", () => {
+    const slot = { kind: "human", connId: "peer" };
+    expect(resolveCartPatternForSlot(slot, { youConnId: "me" })).toBe(DEFAULT_CART_PATTERN);
+  });
+
+  it("still reads the local human's saved pattern, not the slot field", () => {
+    savePlayerCustomization({ pattern: "checker" });
+    const slot = { kind: "human", connId: "me", patternId: "stripes" };
+    expect(resolveCartPatternForSlot(slot, { youConnId: "me" })).toBe("checker");
+  });
+
+  it("still name-seeds NPCs regardless of any patternId field", () => {
+    const slot = { kind: "npc", name: "BOT_A", patternId: "stripes" };
+    const result = resolveCartPatternForSlot(slot, { youConnId: "me" });
+    expect(typeof result).toBe("string");
+    expect(result).not.toBe("stripes");
+  });
+});
+
+describe("resolveCartSunglassesStyleForSlot", () => {
+  it("uses the remote slot's synced sunglassesStyle", () => {
+    const slot = { kind: "human", connId: "peer", sunglassesStyle: "goldMirror" };
+    expect(resolveCartSunglassesStyleForSlot(slot, { youConnId: "me" })).toBe("goldMirror");
+  });
+
+  it("falls back to the default for a garbage sunglassesStyle", () => {
+    const slot = { kind: "human", connId: "peer", sunglassesStyle: "not-a-real-style" };
+    expect(resolveCartSunglassesStyleForSlot(slot, { youConnId: "me" })).toBe(DEFAULT_SUNGLASSES_STYLE);
+  });
+
+  it("falls back to the default when sunglassesStyle is absent", () => {
+    const slot = { kind: "human", connId: "peer" };
+    expect(resolveCartSunglassesStyleForSlot(slot, { youConnId: "me" })).toBe(DEFAULT_SUNGLASSES_STYLE);
+  });
+
+  it("still reads the local human's saved style, not the slot field", () => {
+    savePlayerCustomization({ sunglassesStyle: "blueMirror" });
+    const slot = { kind: "human", connId: "me", sunglassesStyle: "goldMirror" };
+    expect(resolveCartSunglassesStyleForSlot(slot, { youConnId: "me" })).toBe("blueMirror");
+  });
+
+  it("still name-seeds NPCs regardless of any sunglassesStyle field", () => {
+    const slot = { kind: "npc", name: "BOT_A", sunglassesStyle: "goldMirror" };
+    const result = resolveCartSunglassesStyleForSlot(slot, { youConnId: "me" });
+    expect(typeof result).toBe("string");
   });
 });
