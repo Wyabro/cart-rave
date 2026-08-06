@@ -15,9 +15,11 @@
 
 import { ROOT_TOKENS } from "./ccStyle.mjs";
 
-/** HTML-escape for interpolated card text. */
-export const esc = (s) =>
-  String(s ?? "").replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch]);
+// CC-ESC-1: this used to be a second, slightly weaker HTML-escaper (missing the
+// apostrophe) that could silently re-diverge from ccStyle's any time either one was
+// edited alone. A re-export — not a wrapper — is the fix: the two can no longer drift
+// because there is only one function.
+export { esc } from "./ccStyle.mjs";
 
 /**
  * Render a full montage page.

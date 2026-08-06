@@ -15,7 +15,9 @@ import {
   CHROME_CSS,
   CC_SURFACES,
   crossNav,
+  esc,
 } from "../tools/lib/ccStyle.mjs";
+import { esc as montageEsc } from "../tools/lib/montage.mjs";
 
 /**
  * Read a generator with every comment removed.
@@ -193,6 +195,18 @@ describe("Command Center label hierarchy", () => {
     const m = console_.match(/\.card\s+\.note-label\s*\{[^}]*\}/);
     expect(m, "rule not found: .card .note-label").toBeTruthy();
     expect(m[0]).not.toMatch(/text-transform:\s*uppercase/);
+  });
+});
+
+describe("CC-ESC-1 — one HTML-escaper for every generated surface", () => {
+  it("escapes all five reserved characters, apostrophe included", () => {
+    expect(esc(`&<>"'`)).toBe("&amp;&lt;&gt;&quot;&#39;");
+  });
+
+  it("montage's esc is the exact same function as ccStyle's, not a lookalike copy", () => {
+    // A wrapper would pass a behaviour test like the one above and still silently
+    // re-diverge later; reference identity is what actually rules that out.
+    expect(montageEsc).toBe(esc);
   });
 });
 
