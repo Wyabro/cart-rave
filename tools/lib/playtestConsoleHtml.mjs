@@ -288,6 +288,7 @@ ${PAGE_CSS}
     lines.push("- **Generated HEAD:** " + ((DATA.meta && DATA.meta.head) || "?"));
     lines.push("");
     lines.push("Agents: triage **one FAIL at a time**. Retest the same card id after a fix.");
+    lines.push("After closing PASSes and regenerating, check every remaining FAIL/owed card still shows non-empty steps — a stepless card means its BACKLOG Notes cell is empty; fix the row, not this generator.");
     lines.push("");
 
     const warnings = (DATA.meta && DATA.meta.warnings) || [];

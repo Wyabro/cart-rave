@@ -55,3 +55,72 @@ describe("renderPlaytestConsoleHtml", () => {
     expect(ids.indexOf("SOLO-CARD-1")).toBeLessThan(ids.indexOf("MP-CARD-1"));
   });
 });
+
+describe("PT-CARD-SPLIT-1 — multi-issue warning banner", () => {
+  it("stays silent when meta.warnings is empty (this BACKLOG's cards are clean)", () => {
+    // "card-warn-banner" alone also matches the static CSS rule selector, which is
+    // always present — the element itself is the real signal.
+    const html = render();
+    expect(html).not.toContain('<div class="card-warn-banner">');
+  });
+
+  it("renders a server-side banner naming the count when meta.warnings is non-empty", () => {
+    const { cards, meta } = buildPlaytestQueue({ statusMd: "# empty\n", backlogMd: BACKLOG });
+    const html = renderPlaytestConsoleHtml({
+      cards,
+      meta: { ...meta, warnings: [{ id: "SOLO-CARD-1", reason: "step-overflow", detail: "7 steps" }] },
+      git: { branch: "cart-clash", head: "abc1234" },
+    });
+    expect(html).toContain('<div class="card-warn-banner">');
+    expect(html).toContain("1 card look like more than one issue");
+  });
+
+  it("threads meta.warnings into the embedded JSON payload for the client export", () => {
+    const { cards, meta } = buildPlaytestQueue({ statusMd: "# empty\n", backlogMd: BACKLOG });
+    const html = renderPlaytestConsoleHtml({
+      cards,
+      meta: { ...meta, warnings: [{ id: "SOLO-CARD-1", reason: "multi-id", detail: "names HOST-TAB-1, DIAG-FLAKE-2" }] },
+      git: { branch: "cart-clash", head: "abc1234" },
+    });
+    const m = html.match(/<script type="application\/json" id="pt-data">([\s\S]*?)<\/script>/);
+    const data = JSON.parse(m[1]);
+    expect(data.meta.warnings).toEqual([
+      { id: "SOLO-CARD-1", reason: "multi-id", detail: "names HOST-TAB-1, DIAG-FLAKE-2" },
+    ]);
+  });
+});
+
+describe("PT-CONSOLE-READY-1 — stepless-card export reminder", () => {
+  // buildMarkdown() runs client-side inside the generated page's own <script>, closed
+  // over browser-only state (localStorage, DOM ids) that nothing in this suite
+  // executes. The card's whole point is PLACEMENT — PERF-9CELL-1 shipped stepless
+  // because the "CLOSE THESE FIRST" block that would have warned about it is silent
+  // whenever closable.length is 0. So instead of running the script, prove the
+  // reminder push is textually outside that conditional: it must appear between the
+  // existing triage-line push and the `if (closable.length)` gate, at the same
+  // statement level — never nested inside the block it needs to survive without.
+  it("reminder push sits after the triage line and before the closable-only gate", () => {
+    const html = render();
+    const scriptMatch = html.match(/<script>([\s\S]*?)<\/script>\s*<\/body>/);
+    expect(scriptMatch).toBeTruthy();
+    const script = scriptMatch[1];
+
+    const triageIdx = script.indexOf('lines.push("Agents: triage');
+    const reminderIdx = script.indexOf("check every remaining FAIL/owed card still shows non-empty steps");
+    const closableGateIdx = script.indexOf("if (closable.length) {");
+
+    expect(triageIdx).toBeGreaterThan(-1);
+    expect(reminderIdx).toBeGreaterThan(-1);
+    expect(closableGateIdx).toBeGreaterThan(-1);
+    // Order proves the reminder isn't nested inside the closable-only block: it comes
+    // after the triage line and before the gate even opens, so no runtime state can
+    // suppress it — a zero-PASS export still carries the source text unconditionally.
+    expect(reminderIdx).toBeGreaterThan(triageIdx);
+    expect(reminderIdx).toBeLessThan(closableGateIdx);
+  });
+
+  it("the reminder text itself is present in the rendered page", () => {
+    const html = render();
+    expect(html).toContain("check every remaining FAIL/owed card still shows non-empty steps");
+  });
+});
