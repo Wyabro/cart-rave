@@ -1563,8 +1563,6 @@ function buildBooths(scene, world, config, boothNeonMeshes, boothColliderHandles
  *   boothColliderHandles: number[],
  *   boothNeonMeshes: THREE.Mesh[],
  *   spindleLight: THREE.PointLight,
- *   spindleLightColorPink: THREE.Color,
- *   spindleLightColorCyan: THREE.Color,
  *   pitInnerRadius: number,
  *   applyQualityTier: (knobs: import("./utils/qualityTiers.js").QualityKnobs) => void,
  *   dispose: () => void,
@@ -1670,9 +1668,10 @@ export function initArena(scene, world, config, options = {}) {
   window.recordMesh = recordMesh;
 
   // * Spindle accent light: slowly cycles pink <-> cyan in the render loop.
+  // * SPINDLE-COLOR-DEAD-1: the pink/cyan Color pair used to be declared and returned here
+  // * too, but nothing ever read them through the shared level-result shape — Classic's live
+  // * reactive path uses `reactive.accentColor` instead (see the return object below).
   const spindleLight = new THREE.PointLight(0xff2bd6, 80, 30, 2);
-  const spindleLightColorPink = new THREE.Color(0xff2bd6);
-  const spindleLightColorCyan = new THREE.Color(0x2bd6ff);
   spindleLight.position.set(0, 1.5, 0);
   scene.add(spindleLight);
 
@@ -2847,8 +2846,6 @@ export function initArena(scene, world, config, options = {}) {
     boothColliderHandles,
     boothNeonMeshes,
     spindleLight,
-    spindleLightColorPink,
-    spindleLightColorCyan,
     pitInnerRadius,
     // @ts-expect-error THREE duck-typing suppress
     recordLabelMat,
