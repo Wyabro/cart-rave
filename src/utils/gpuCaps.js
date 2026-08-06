@@ -241,3 +241,29 @@ export function defaultTierForCaps({ gpuClass, deviceMemoryGb = null, touchLike 
   if (typeof deviceMemoryGb === "number" && deviceMemoryGb <= 2) return "low";
   return BASE_TIER_BY_CLASS[gpuClass] ?? "medium";
 }
+
+/**
+ * One-shot stored-preference migration (TIER-DEFAULT-1 lever 2 / H1). The
+ * auto-quality watchdog never writes to localStorage (autoQuality.js — "no
+ * localStorage write" is deliberate, a separate BACKLOG decision), so a
+ * returning visitor whose GPU now classifies as igpu-basic or software can
+ * carry a stale `qualityTier: "medium"` from before this card — cap-288's own
+ * capture showed exactly that (`qualityTierStored: "medium"` beside effective
+ * `"low"`). A first-run-only fix reaches nobody who has already loaded the
+ * game once.
+ *
+ * Pure and pre-computed like {@link defaultTierForCaps} so it's testable
+ * without a localStorage mock. Only ever downgrades, only from "medium", only
+ * on hardware the watchdog was already about to demote — a user who re-picks
+ * Medium afterwards keeps it (the migration key means "already checked", not
+ * "was rewritten", so it never re-fires).
+ *
+ * @param {{ storedTier: string | null, migrationDone: string | null, gpuClass: GpuClass }} args
+ * @returns {QualityTier | null} The tier to rewrite storage to, or null for no-op.
+ */
+export function migrateStoredTierIfNeeded({ storedTier, migrationDone, gpuClass }) {
+  if (migrationDone) return null;
+  if (storedTier !== "medium") return null;
+  if (gpuClass !== "igpu-basic" && gpuClass !== "software") return null;
+  return "low";
+}

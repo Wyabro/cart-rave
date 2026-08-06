@@ -40,6 +40,12 @@ export const STORAGE_KEYS = {
   lowQuality: "cartRaveLowQuality",
   /** Graphics quality tier ("low" | "medium" | "high"). */
   qualityTier: "cartRaveQualityTier",
+  /**
+   * One-shot stamp (TIER-DEFAULT-1 lever 2): once set, `migrateStoredTierIfNeeded`
+   * in gpuCaps.js never runs again for this browser. Value is a version string
+   * ("2") so a future migration generation can bump it and re-run once more.
+   */
+  tierMigration: "cartRaveTierMigration",
   /** Audio persistence. */
   musicVolume: "cartRaveVolume",
   sfxVolume: "cartRaveSfxVol",

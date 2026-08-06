@@ -5,7 +5,7 @@
 // flagged tier boundaries as never verified on real hardware).
 
 import { describe, expect, it } from "vitest";
-import { classifyGpuRendererString, defaultTierForCaps } from "../src/utils/gpuCaps.js";
+import { classifyGpuRendererString, defaultTierForCaps, migrateStoredTierIfNeeded } from "../src/utils/gpuCaps.js";
 
 describe("classifyGpuRendererString", () => {
   it("software rasterizers", () => {
@@ -142,5 +142,39 @@ describe("defaultTierForCaps — lever 1 (hard floors + base class)", () => {
       "ANGLE (Intel, Intel(R) UHD Graphics (0x00008A56) Direct3D11 vs_5_0 ps_5_0, D3D11)",
     );
     expect(defaultTierForCaps({ gpuClass, deviceMemoryGb: 8, touchLike: false })).toBe("low");
+  });
+});
+
+describe("migrateStoredTierIfNeeded — lever 2 (H1: returning visitors)", () => {
+  it("rewrites a stored medium to low on igpu-basic or software (cap-288's own box)", () => {
+    expect(
+      migrateStoredTierIfNeeded({ storedTier: "medium", migrationDone: null, gpuClass: "igpu-basic" }),
+    ).toBe("low");
+    expect(
+      migrateStoredTierIfNeeded({ storedTier: "medium", migrationDone: null, gpuClass: "software" }),
+    ).toBe("low");
+  });
+
+  it("no-ops when the GPU class doesn't warrant it, even if stored is medium", () => {
+    expect(migrateStoredTierIfNeeded({ storedTier: "medium", migrationDone: null, gpuClass: "discrete" })).toBeNull();
+    expect(
+      migrateStoredTierIfNeeded({ storedTier: "medium", migrationDone: null, gpuClass: "igpu-modern" }),
+    ).toBeNull();
+    expect(
+      migrateStoredTierIfNeeded({ storedTier: "medium", migrationDone: null, gpuClass: "discrete-entry" }),
+    ).toBeNull();
+    expect(migrateStoredTierIfNeeded({ storedTier: "medium", migrationDone: null, gpuClass: "unknown" })).toBeNull();
+  });
+
+  it("no-ops when the stored tier isn't medium", () => {
+    expect(migrateStoredTierIfNeeded({ storedTier: "high", migrationDone: null, gpuClass: "igpu-basic" })).toBeNull();
+    expect(migrateStoredTierIfNeeded({ storedTier: "low", migrationDone: null, gpuClass: "igpu-basic" })).toBeNull();
+    expect(migrateStoredTierIfNeeded({ storedTier: null, migrationDone: null, gpuClass: "igpu-basic" })).toBeNull();
+  });
+
+  it("never re-fires once the migration key is set — the key means 'already checked', not 'was rewritten'", () => {
+    expect(
+      migrateStoredTierIfNeeded({ storedTier: "medium", migrationDone: "2", gpuClass: "igpu-basic" }),
+    ).toBeNull();
   });
 });

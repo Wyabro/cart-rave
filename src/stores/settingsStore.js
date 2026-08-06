@@ -2,7 +2,7 @@
 import { createStore } from "zustand/vanilla";
 import { STORAGE_KEYS, storageGet, storageSet } from "../utils/storage.js";
 import { isTouchLikeDevice } from "../utils/device.js";
-import { defaultTierForCaps, probeGpu } from "../utils/gpuCaps.js";
+import { defaultTierForCaps, migrateStoredTierIfNeeded, probeGpu } from "../utils/gpuCaps.js";
 import { DEFAULT_SOLO, normalizeDifficulty } from "../aiDifficulty.js";
 
 /** @type {ReadonlyArray<string>} */
@@ -49,6 +49,25 @@ function loadInitialSettings() {
     if (legacy === "true") qualityTier = "low";
     else if (legacy === "false") qualityTier = "high";
     else qualityTier = detectDefaultQualityTier();
+  }
+
+  // * TIER-DEFAULT-1 lever 2 (H1): one-shot — a returning visitor's stored
+  // * "medium" is rewritten to "low" if their GPU now classifies as igpu-basic
+  // * or software. See migrateStoredTierIfNeeded's docstring for why. Gated on
+  // * the migration key so probeGpu()'s throwaway WebGL context only runs once
+  // * ever per browser, not on every boot after the migration has already run.
+  const migrationDone = storageGet(STORAGE_KEYS.tierMigration);
+  if (!migrationDone) {
+    const migratedTier = migrateStoredTierIfNeeded({
+      storedTier: qualityTier,
+      migrationDone,
+      gpuClass: probeGpu().gpuClass,
+    });
+    if (migratedTier) {
+      qualityTier = migratedTier;
+      storageSet(STORAGE_KEYS.qualityTier, migratedTier);
+    }
+    storageSet(STORAGE_KEYS.tierMigration, "2");
   }
 
   const selectedLevelId = storageGet(STORAGE_KEYS.level);
