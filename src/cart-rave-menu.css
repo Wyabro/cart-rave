@@ -126,49 +126,6 @@ html, body {
   background: radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.7) 100%);
 }
 
-/* === TOUCH / MOBILE === */
-.cr-touch {
-  position: absolute;
-  inset: 0;
-  z-index: 55;
-  pointer-events: none;
-}
-
-.cr-joy {
-  position: absolute;
-  left: var(--gap-section);
-  bottom: var(--gap-section);
-  width: 140px;
-  height: 140px;
-  border-radius: var(--radius-pill);
-  background: var(--color-ink);
-  border: none;
-  box-shadow: var(--slab-shadow);
-  pointer-events: auto;
-  touch-action: none;
-}
-
-.cr-joy-knob {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 56px;
-  height: 56px;
-  transform: translate(-50%, -50%);
-  border-radius: var(--radius-pill);
-  background: var(--color-sticker-white);
-  border: none;
-  box-shadow: var(--slab-shadow-sm);
-}
-
-@media (pointer: coarse) {
-  .cr-touch { display: none; }
-}
-
-@media (pointer: fine) {
-  .cr-touch { display: none; }
-}
-
 /* === LEFT COLUMN (Stats) ===
    Menu cart SVG + hover/tap "how to score" tooltip retired — scoring rules
    live on HOW TO PLAY. Customize still has its own 3D/SVG cart preview. */

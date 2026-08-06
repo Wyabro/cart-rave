@@ -13,6 +13,23 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 6, 2026 — TOUCH-JOY-DEAD-1: delete unreferenced `.cr-touch`/`.cr-joy`/`.cr-joy-knob` CSS
+
+Filed and closed same session, Wyatt-acked. `cart-rave-menu.css:130-169` — the touch-HUD
+container `.cr-touch`, joystick base `.cr-joy`, and knob `.cr-joy-knob`, plus their two
+`@media (pointer: …)` overrides — had zero references anywhere in `src/**/*.{js,html}`, repo-wide
+grep for `cr-touch\b` and `cr-joy\b` confirmed, including a check for dynamic
+template-literal construction (none). `touchControls.js`'s only nearby hit was a comment naming
+the unrelated `.gtc-joy-knob`. Left out of scope during the F1 wave (STATES-DEAD-1 +
+KBM-TOAST-1, `38f4472`) pending its own ack. **Not caught by `npm run states`'s reachability
+sweep** — that tool only enumerates rules whose selector carries `:hover`/`:active`/
+`:focus-visible` from the live CSSOM ([tools/states.mjs](../../tools/states.mjs) header), and none
+of these three rules use a pseudo-class, so they were never in its inventory — a blind spot of
+that method, not something it already checked and passed. Deleted whole; no code or test
+referenced the class names, so no follow-on changes were needed.
+
+---
+
 ### August 6, 2026 — Wave F1: desk-only sweep, 5 commits (MONTAGE-ESC-1, RAPIER-DEFAULT-MAX-1, STATES-DEAD-1 partial + KBM-TOAST-1, SPINDLE-COLOR-DEAD-1, RESULTS-GLOW-1)
 
 Block F1 — the desk-only tier of the sweep-day batch, one commit per card, no playtest owed
