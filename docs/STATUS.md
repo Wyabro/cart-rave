@@ -73,7 +73,7 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. **TIER-DEFAULT-1 is ACTIVE — plan the lever, Wyatt acks, then apply.** No code until ack. Cap-288 is the evidence; recommended narrow lever is Intel HD/UHD → low. Then-queue (strict): **DEPLOY-STALE-HTML-1** → **NET-LOOK-ACC-1**. Block B leads with **UI-SCALE-1**; Block C with **HARNESS-NULL-1**. Logo scratch (`art/logo/*`, untracked splat-trim, render script, knip-report) wiped 08-05 — shipped menu look stays CSS + `public/brand/title-splat.*`.
+1. **TIER-DEFAULT-1 is ACTIVE — plan the lever, Wyatt acks, then apply.** No code until ack. Cap-288 is the evidence; recommended narrow lever is Intel HD/UHD → low. Then-queue (strict): **NET-LOOK-ACC-1**. **DEPLOY-STALE-HTML-1 process A acked 08-05** — post-ship poll until 0×404 + no deploy near public post ([AGENTS.md](../AGENTS.md)); client B later if needed. Block B leads with **UI-SCALE-1**; Block C with **HARNESS-NULL-1**. Logo scratch (`art/logo/*`, untracked splat-trim, render script, knip-report) wiped 08-05 — shipped menu look stays CSS + `public/brand/title-splat.*`.
 2. **Hitch forensics now has evidence** — cap-254–260 (build `8d96b0b`) are the first captures from a working upload path, including a Cart Rave F8 taken on a hitch. Read them before any perf knob.
 3. **Playtest export 08-05 (`4077a4a`) — 6 pass / 1 fail / 1 skip, triaged.** Closed: 3 UI-SCALE residual cards + 3 NET-AUDIT cards. **NET-LOOK-ACC-1** filed; **PERF-9CELL-1** parked with PERF-PASS-1; SHARD-PT-2 stays launch-day.
 

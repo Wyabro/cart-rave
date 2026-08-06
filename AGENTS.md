@@ -63,7 +63,10 @@ Cart Clash: browser **4-player shopping-cart physics sumo**. Production:
 ## Standing rules
 
 - Verify before you speak; **code wins** over stale claims.
-- Never "done"/"verified" without pull + HEAD check (post-deploy: fetch asset + `Select-String`).
+- Never "done"/"verified" without pull + HEAD check. **Post-deploy (DEPLOY-STALE-HTML-1 process A):**
+  poll `GET /` + every hashed asset it references until **0×404** (window can be ~45 s; mixed
+  HTML/asset state is real), *then* fetch a symbol + `Select-String`. Do not share the live URL or
+  start prod playtest inside a dirty window. **Do not deploy near a public post.**
 - **Unpushed** until on `origin/cart-clash`. Report gates by number. No `git add -A`.
 - Ship only on explicit **"ship it"**. Behavior change → production playtest.
 - PowerShell: `Select-String`, not `grep`; single-line `-m` commits.
