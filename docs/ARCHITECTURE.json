@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-06T01:54:54.306Z",
-    "commit": "2a00962"
+    "at": "2026-08-06T02:00:48.483Z",
+    "commit": "00da0aa"
   },
-  "source_digest": "5ce5f846",
+  "source_digest": "dc51926d",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -883,9 +883,9 @@
       }
     ],
     "next_actions": [
-      "TIER-DEFAULT-1 ✅ CLOSED 08-05 — Wyatt PASS on both real boxes. Hardware-aware 6-class GPU taxonomy shipped in five acked commits (taxonomy, one-shot medium→low migration, host-capability scores, reduced-motion rung, 4K guard); `npm run qa` green, dev spot-check done, deployed and confirmed live. Detail: [completed-work.md](./planning/completed-work.md). Block C is unblocked to start (TIER-DEFAULT-1 was its hard precondition). Block B leads with UI-SCALE-1; Block C with HARNESS-NULL-1. NET-LOOK-ACC-1 ⏳ SHIPPED 08-06 (`1198d26`, prod Worker `3cfb33f8`), not closed — `patternId`/`sunglassesStyle` now ride the wire alongside `lookHex`; `npm run qa` 7/7, dev-verified with two real network clients (wire + resolver both correct). Owed: Wyatt playtest — row in [BACKLOG.md § Playtest owed](./planning/BACKLOG.md#playtest-owed); it must PASS before Pattern customize UI (C3).",
-      "Hitch forensics now has evidence — cap-254–260 (build `8d96b0b`) are the first captures from a working upload path, including a Cart Rave F8 taken on a hitch. Read them before any perf knob.",
-      "Playtest export 08-05 (`4077a4a`) — 6 pass / 1 fail / 1 skip, triaged. Closed: 3 UI-SCALE residual cards + 3 NET-AUDIT cards. NET-LOOK-ACC-1 filed; PERF-9CELL-1 parked with PERF-PASS-1; SHARD-PT-2 stays launch-day."
+      "HARNESS-NULL-1 ✅ CLOSED 08-06. Headless `perf-profile --null` (shared-page AB+BA); pure",
+      "NET-LOOK-ACC-1 ⏳ SHIPPED 08-06 (`1198d26`, prod Worker `3cfb33f8`), not closed — owed Wyatt",
+      "Hitch forensics: cap-254–260 (build `8d96b0b`) before any PERF-PASS-1 knob."
     ],
     "open_issues": [
       {
@@ -916,7 +916,7 @@
         "title": "Engineering",
         "counts": {
           "High": 2,
-          "Medium": 12,
+          "Medium": 11,
           "Low": 10,
           "Partial": 1
         },
@@ -1021,12 +1021,6 @@
             "pri": "Medium",
             "item": "WARM-SOLO-1 — solo post-`carts-ready` stall (WARM-IGPU-1 residual)",
             "notes": "Laptop A cap-206 (**solo**) took a 6.4s longtask ~1.9s after `carts-ready`, inside the countdown. WARM-IGPU-1's Lever A does **not** cover it: arena rotation is quickplay-only, and solo's flyover warm already runs inside `ensureSessionCartsReady`. Proxy evidence says the residual is driver-side first-draw cost (a 13.1s menu-warm frame carried only 235ms of attributed span time), so raising budgets will not help. Candidate mechanism worth checking first: scene content added *after* the warm pass (CSS2D nametags, cargo bays — CARGO-RACE-1's self-heal adds 18–30 meshes per cart, announcer/VFX) introduces new materials whose programs link at the first live countdown draw. **Work only on real telemetry** (`warmupSettle` / longframe spans from a weak-GPU playtester), never on speculation — no iGPU hardware available to reproduce.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "HARNESS-NULL-1 — no measurement rig has a null-control arm",
-            "notes": "Process/tooling, not behavior. Every A/B number this repo produces is currently unfalsifiable: no rig can demonstrate it reports ~0 when nothing changed, so warm-up order, run ordering and accumulated state are indistinguishable from a real effect. We have already been burned — run-4's \"GC metronome\" attribution was wrong. The pattern: add a `--null` mode that runs **both** arms with the variable disabled, making the two runs byte-for-byte the same experiment; the measured delta must then be ~0, and anything else means the rig is biased and every number it prints in normal mode is contaminated rather than caused. Candidates in rough order of value: `perf-profile.mjs`, `battery.mjs` timing steps, `gameharness.mjs --scenario soak`. Prerequisite for trusting PROBE-WARM-RT-1's program-count deltas and for any future unattended tuning loop (an overnight loop compounds instrument error across every run). Source: `ryancampbell/kart-royale` `tools/drift-bench.mjs --null`; loop framing from `karpathy/autoresearch` `program.md`.",
             "ship1": null
           },
           {

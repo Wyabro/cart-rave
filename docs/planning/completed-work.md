@@ -2,7 +2,7 @@
 
 > Historical log. Past entries may still say "Cart Rave" / `next-level` — that is intentional. Living naming rules: [brand.md](../brand.md).
 
-**Last Updated:** August 5, 2026
+**Last Updated:** August 6, 2026
 
 > **This doc = the past** — the single home for historical/completed items. For what works
 > *today* see [project-state.md](./project-state.md); for forward plans see [ROADMAP.md](./ROADMAP.md).
@@ -10,6 +10,43 @@
 Chronological record of shipped work, newest first.
 
 > **Convention:** As items ship, move their completed writeup here (out of ROADMAP.md / project-state.md).
+
+---
+
+### August 6, 2026 — HARNESS-NULL-1: null-control arm on perf-profile
+
+- *(Engineering · Medium)* **HARNESS-NULL-1** — no measurement rig had a null-control arm; every
+  A/B number was unfalsifiable — ✅ **CLOSED 08-06** (code `8992816` + `00da0aa`; full close after
+  ≥3 same-adapter calibration runs).
+
+**What shipped.** Pure `evaluateNullDelta` ([tools/lib/nullDelta.mjs](../../tools/lib/nullDelta.mjs),
+9 unit tests) — either arm non-finite → FAIL (stricter than soakGrowth). `perf-profile --null`
+([tools/perf-profile.mjs](../../tools/perf-profile.mjs)): shared-page sequential `goto` lifecycle
+**identical to normal mode** (Option A); classic/low runs AB+BA schedule (A1,B1 then B2,A2); split
+result (one pair pass, one fail) → full FAIL + `orderBias` and does **not** count toward
+calibration; `drawCalls > 0` sanity on both arms; default floor 1.5 ms via `--nullFloor` labeled
+`provisional-default` in JSON; `--nullDiscardFirst` is the single hygiene remedy; exit 1 on FAIL.
+Not in `qa` / battery.
+
+**Calibration series (classic/low, `--gpu`, same adapter, n=3 all PASS):**
+
+| run | gpuVendor (short) | AB \|Δ\| gpu | BA \|Δ\| gpu | AB \|Δ\| frame | BA \|Δ\| frame | exit | orderBias |
+|-----|-------------------|--------------|--------------|----------------|----------------|------|-----------|
+| 1 | ANGLE NVIDIA GeForce RTX 4090 D3D11 | 0.100 | 0 | 0 | 0 | 0 | false |
+| 2 | same | 0.200 | 0.200 | 0 | 0 | 0 | false |
+| 3 | same | ~0 | ~0 | 0 | 0 | 0 | false |
+
+Max counted \|Δ\| gpu ≈ 0.20 ms ≪ 1.5 → keep default floor; **floorStatus = `provisional-n3`**
+(weak stats by design — not "calibrated variance"; upgrade path HARNESS-NULL-N5-1). JSON artifacts:
+`shots/perf-null-run{1,2,3}.json` (gitignored).
+
+**Category boundary (do not over-read).** Null-control for **headless perf-profile only**
+(`?perfPump` + `?freeze` + `gl.finish`). Does **not** unpark PERF-PASS-1, does **not** replace
+live F8 A-B-A / PERF-9CELL, does **not** claim Intel-box variance. This series is RTX 4090; a
+SwiftShader/software green is non-authoritative for Intel F8. Block C's next evidence step remains
+cap-254–260 + PERF-9CELL protocol when unparked — with a machine-checkable null on this rig.
+
+**Command:** `npm run perf:profile -- --null --level classic --preset low --gpu`
 
 ---
 

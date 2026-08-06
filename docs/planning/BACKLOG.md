@@ -145,14 +145,13 @@ what it unblocks; that clause is the reason it sits where it sits. Block B now c
 15. **UI-FRAME-1 + ESC scoring panel** `[SHIP-1 E1]` look pair.
 16. **Controller menu nav polish.**
 
-**Block C — perf program (evidence-gated; ⏸ unpark is Wyatt's call).** Re-ordered 08-05: the null
-arm now comes **first**, and the 9-cell sweep is **parked with PERF-PASS-1** (it FAILed 08-05 as
-unactionable; its row now carries the protocol inline). Order: **TIER-DEFAULT-1 must have landed**
-→ read cap-254–260 → **HARNESS-NULL-1** (a null-control arm; until it exists every A/B number this
-repo prints is unfalsifiable, and run-4's "GC metronome" attribution was already wrong once) →
-**PERF-9CELL-1** sweep → PERF-PASS-1 re-entry bracketed A-B-A with a "55 fps at Low or park"
-reachability ack → then PERF-WATCH-1 / PERF-TIER-1 / PROBE-WARM-RT-1 / WARM-SOLO-1 as attribution
-dictates, not before. **Running the sweep before the null arm buys numbers nobody can defend.**
+**Block C — perf program (evidence-gated; ⏸ unpark is Wyatt's call).** Re-ordered 08-05; null arm
+shipped 08-06. Order: **TIER-DEFAULT-1 landed** → **HARNESS-NULL-1 ✅ CLOSED 08-06** (headless
+`perf-profile --null` only; provisional-n3 on RTX 4090 — does **not** unpark PERF-PASS-1 or replace
+F8 A-B-A) → read cap-254–260 → **PERF-9CELL-1** sweep (still ⏸ with PERF-PASS-1) → PERF-PASS-1
+re-entry bracketed A-B-A with a "55 fps at Low or park" reachability ack → then PERF-WATCH-1 /
+PERF-TIER-1 / PROBE-WARM-RT-1 / WARM-SOLO-1 as attribution dictates. Before any ablate ranking on
+`perf-profile`, re-run `--null` on that machine/adapter.
 
 **Block D — Wyatt-parallel (off the agent queue, any time):** CART-MODEL-1 (absorbs ART-MAT-1;
 unblocks Pattern UI C3 via the 2nd UV channel — the single biggest unblocker Wyatt owns) ·
@@ -187,9 +186,9 @@ is active).** Ordered 08-05 by what each one prevents from recurring: **PT-CARD-
 **PT-CONSOLE-READY-1** first — they are the two cards that stop the *next* playtest export from
 repeating the two failures this queue has already paid for (a multi-issue card hiding a real defect
 inside a green PASS, and an owed card shipped with no runnable steps, which is exactly how
-PERF-9CELL-1 FAILed on 08-05). Then **HARNESS-NULL-1** (also Block C's first gate, so doing it here
-unblocks the whole perf program) · HARNESS-FRIENDS-1 · HOOK-COMMENT-1 (one-line stale comment) ·
-CC-ESC-1. **ARCH-DRIFT-1 removed — closed**, shipped `91b39aa`.
+PERF-9CELL-1 FAILed on 08-05). **HARNESS-NULL-1 ✅ CLOSED 08-06** · HARNESS-FRIENDS-1 ·
+HOOK-COMMENT-1 (one-line stale comment) · CC-ESC-1. **ARCH-DRIFT-1 removed — closed**, shipped
+`91b39aa`.
 
 **Do not pick (blocked / trigger-gated / post-launch):** WARM-SOLO-1 (needs real weak-GPU
 telemetry) · PROBE-WARM-RT-1 / NET-RING-1 (instrument-first, live inside Block C) ·
@@ -223,7 +222,6 @@ Design rows · BRAND-1 (ship ceremony) · Future Ideas.
 | Low | Countdown timer survives menu return *(pre-ship 07-19)* | Stale countdown UI on main menu. |
 | Medium | HARNESS-FRIENDS-1 — netharness covers quickplay-shaped joins only; friends ready-up/lobby/rematch is manual | **Filed 08-01** (audit triage). Automated MP is quickplay-path / `?room=` join (`docs/guides/netcode-harness.md` coverage gap). Friends private-room ready-up, CHECKOUT LINE lobby, and rematch stay Wyatt/manual. One scenario later: friends room → ready-up → countdown → rematch. Tooling only — does not replace **FV-WILT-1** / friends manual checks. Extends NET-SIM-1 lane. |
 | Medium | WARM-SOLO-1 — solo post-`carts-ready` stall (WARM-IGPU-1 residual) | Laptop A cap-206 (**solo**) took a 6.4s longtask ~1.9s after `carts-ready`, inside the countdown. WARM-IGPU-1's Lever A does **not** cover it: arena rotation is quickplay-only, and solo's flyover warm already runs inside `ensureSessionCartsReady`. Proxy evidence says the residual is driver-side first-draw cost (a 13.1s menu-warm frame carried only 235ms of attributed span time), so raising budgets will not help. Candidate mechanism worth checking first: scene content added *after* the warm pass (CSS2D nametags, cargo bays — CARGO-RACE-1's self-heal adds 18–30 meshes per cart, announcer/VFX) introduces new materials whose programs link at the first live countdown draw. **Work only on real telemetry** (`warmupSettle` / longframe spans from a weak-GPU playtester), never on speculation — no iGPU hardware available to reproduce. |
-| Medium | HARNESS-NULL-1 — no measurement rig has a null-control arm | Process/tooling, not behavior. Every A/B number this repo produces is currently unfalsifiable: no rig can demonstrate it reports ~0 when nothing changed, so warm-up order, run ordering and accumulated state are indistinguishable from a real effect. We have already been burned — run-4's "GC metronome" attribution was wrong. The pattern: add a `--null` mode that runs **both** arms with the variable disabled, making the two runs byte-for-byte the same experiment; the measured delta must then be ~0, and anything else means the rig is biased and every number it prints in normal mode is contaminated rather than caused. Candidates in rough order of value: `perf-profile.mjs`, `battery.mjs` timing steps, `gameharness.mjs --scenario soak`. Prerequisite for trusting PROBE-WARM-RT-1's program-count deltas and for any future unattended tuning loop (an overnight loop compounds instrument error across every run). Source: `ryancampbell/kart-royale` `tools/drift-bench.mjs --null`; loop framing from `karpathy/autoresearch` `program.md`. |
 | Medium | PROBE-WARM-RT-1 — VFX program anchors may be holding the wrong program key | Instrument-first; **no behavior claim until measured**. `outputColorSpace` and `toneMapping` are both pushed into three's program cache key (`getProgramCacheKeyParameters`) and both switch on `renderer.getRenderTarget() === null` — `outputColorSpace` unconditionally, not just for `toneMapped` materials. `compileAsync` (`main.js:2664`) binds no RT, so the anchors compile the **default-framebuffer** variant; the `composer.render()` prime (`:2679`) builds correct RT-variant keys only for what it actually *draws*, and the anchors are `visible=false` at `y=-500` (`koHitmarkerFx.js:259`, `cartShatter.js:1062` — both comments say "render skips them"). If that holds, the anchors' stated job (next KO is a cache hit) is defeated and the first shatter/KO/water/ram spawn links synchronously mid-round. **Measure first:** `renderer.info.programs.length` across the first KO. Fix only if it climbs — bind any non-XR RT around the anchor compile (1×1 scratch is enough; only `=== null` is tested). Making the anchors visible does *not* work: they are off-camera and cull. Pairs with WARM-SOLO-1 — same symptom class, different mechanism (that one is new content added after the warm; this one is the right content under the wrong key). Source: `ryancampbell/kart-royale` `src/core/Prewarm.ts`. **W0.1 evidence 08-03 (cap-229 @ c418bd9):** after Cart Rave play-shader settled at materials=497, a mid-round `warmupCompile` at materials=505 + **6.5 s** longtask/`warmupSettle` poll fired ~8 s into running — late program link signature consistent with RT-variant miss. Still measure-first; not in PLAYTEST-BATCH-0803 scope. |
 | Medium | NET-RING-1 — decode-ring reject counters (review C-03) | Instrument-first. Rejects (dup/ooo seq etc.) burn ring slots AFTER decode; `netStateBuffer` retains ring-owned cart arrays by reference (`netcode.js:1422→1434`); true margin = 96−rejects, not 32, and only bites when consumption stalls. Count rejects-since-oldest-buffered; the copy-into-pooled-record fix only if counters show real traffic. |
 | Medium | PERF-WATCH-1 — auto-quality step-up path | Watchdog demotion is irreversible per session (no step-up anywhere; DEV-only warn; 2 tier steps + 2 renderScale steps; attract render-cost and game frame-delta both judged against one 20.5ms bar). Decide after WARM-IGPU-1 P0b telemetry shows how often it bites. |

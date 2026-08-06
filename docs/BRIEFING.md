@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-06 at commit `1198d26` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `179372cb`
+> Generated 2026-08-06 at commit `00da0aa` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `a2025ec0`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -18,7 +18,7 @@ Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep a
 
 ## ACTIVE CARD
 
-TIER-DEFAULT-1 ✅ CLOSED 08-05 — Wyatt PASS on both real boxes. Hardware-aware 6-class GPU taxonomy shipped in five acked commits (taxonomy, one-shot medium→low migration, host-capability scores, reduced-motion rung, 4K guard); `npm run qa` green, dev spot-check done, deployed and confirmed live. Detail: completed-work.md. Block C is unblocked to start (TIER-DEFAULT-1 was its hard precondition). Block B leads with UI-SCALE-1; Block C with HARNESS-NULL-1. NET-LOOK-ACC-1 ⏳ SHIPPED 08-06 (`1198d26`, prod Worker `3cfb33f8`), not closed — `patternId`/`sunglassesStyle` now ride the wire alongside `lookHex`; `npm run qa` 7/7, dev-verified with two real network clients (wire + resolver both correct). Owed: Wyatt playtest — row in BACKLOG.md § Playtest owed; it must PASS before Pattern customize UI (C3)
+HARNESS-NULL-1 ✅ CLOSED 08-06. Headless `perf-profile --null` (shared-page AB+BA); pure
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 
