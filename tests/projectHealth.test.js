@@ -22,6 +22,7 @@ import {
   deriveNextAction,
   parseStatusDoNots,
   parseBacklogSections,
+  flattenBacklogRows,
   captureTimeMs,
   captureRankMs,
   normalizeCapturedAt,
@@ -80,6 +81,73 @@ const BACKLOG_FIXTURE = `# Backlog
 | Pri | ID | Item | Notes |
 |-----|----|------|-------|
 | Medium | MAIN-1 | Carve main.js seam | post-gate |
+`;
+
+// BACKLOG-GATE-1 fixture — a miniature of every real-file hazard the 2026-08-06 audit
+// found: a Block/State table sitting ABOVE the Department table under the same ###
+// section (parseBacklogSections must not see either — both are level-3, not `## `);
+// GENERATED markers around the Department table with a `(+N partial)` low cell; a
+// Work order with one struck-through closed id and one ✅-attributed closed id living
+// in prose, plus an unrelated id in a "do not pick" aside that must NOT read as
+// closed; a `[SHIP-1 E1]` tag inside an Item cell (which also contains that row's
+// real id); the 4-column Tech Debt table immediately followed by the differently-
+// shaped `### Explicitly *not* tech debt` sub-table; one malformed 3-cell row inside
+// that 4-column table; and a closed do-not-reopen list with a bold, comma-containing,
+// two-line entry. This fixture is internally CLEAN (no hygiene violation fires) —
+// individual validator tests mutate it via .replace() to introduce exactly one
+// violation at a time, same idiom as the STATUS/briefing fixtures above.
+const BACKLOG_HYGIENE_FIXTURE = `# Backlog
+
+### Status at a glance
+
+| Block | State | Next action |
+|-------|-------|-------------|
+| **A** — ship bar | 🟢 done | n/a |
+
+**Department tables:**
+
+<!-- BEGIN GENERATED counts — npm run backlog. Do not hand-edit. -->
+| Department | Open | High | Medium | Low |
+|---|---:|---:|---:|---:|
+| [Engineering](#engineering) | 4 | 1 | 1 | 1 (+1 partial) |
+| [Tech Debt](#tech-debt) | 2 | 0 | 1 | 1 |
+
+**6 open rows total.**
+<!-- END GENERATED counts -->
+
+## Work order (2026-08-05 audit)
+
+1. ~~**ZED-1**~~ — ✅ **CLOSED PASS** done, absorbed elsewhere.
+2. **BAR-1** — next up, not done yet.
+
+**Do not pick:** QUX-1 (parked, unrelated mention).
+
+## Engineering
+
+| Pri | Item | Notes |
+|-----|------|-------|
+| High | ALPHA-1 — real card \`[SHIP-1 E1]\` | notes |
+| Medium | BETA-1 — another card | notes |
+| Low | EPS-1 — low card | notes |
+| 🟡 Partial | GAMMA-1 — partial card | notes |
+
+## Tech Debt
+
+| Pri | ID | Item | Notes |
+|-----|----|------|-------|
+| Medium | DELTA-1 | Delta thing | notes |
+| Low | Malformed row with no id cell | Cosmetic. |
+
+### Explicitly *not* tech debt (do not "modernize" these)
+
+| Topic | Why leave it |
+|-------|----------------|
+| Some invariant | Because reasons. |
+
+## Closed / do-not-reopen reference
+
+ZED-1, WOZ-1, **YAK-1 — retracted, was
+never real** (parenthetical caveat), QUX-1
 `;
 
 describe("extractSection", () => {
@@ -387,6 +455,14 @@ describe("live-doc canaries (real docs/ vs parsers)", () => {
     expect(parseBacklogSections(read("docs/planning/BACKLOG.md")).length).toBeGreaterThan(0);
   });
 
+  it("flattenBacklogRows sees every row parseBacklogSections does — canary against the section filter silently dropping a table", () => {
+    const md = read("docs/planning/BACKLOG.md");
+    const bySection = parseBacklogSections(md).flatMap((s) => s.rows).length;
+    const flat = flattenBacklogRows(md).length;
+    expect(flat).toBe(bySection);
+    expect(flat).toBeGreaterThan(50); // never assert the literal count — that's the drift the gate exists to prevent
+  });
+
   it("STATUS.md ### Do not list parses non-empty (feeds BRIEFING.md + dashboard firewall)", () => {
     expect(parseStatusDoNots(read("docs/STATUS.md")).length).toBeGreaterThan(0);
   });
@@ -539,6 +615,45 @@ describe("parseBacklogSections", () => {
     expect(sections.map((s) => s.title)).toEqual(["Engineering", "Tech Debt"]);
     expect(sections[0].counts).toEqual({ Critical: 1, Low: 1 });
     expect(sections[1].rows[0].id).toBe("MAIN-1");
+  });
+});
+
+describe("flattenBacklogRows", () => {
+  it("flattens every discipline table, skipping the ### Status-at-a-glance tables and the not-tech-debt sub-table", () => {
+    const rows = flattenBacklogRows(BACKLOG_HYGIENE_FIXTURE);
+    // 4 Engineering + 2 Tech Debt = 6. The Block/State table (###, above the markers)
+    // and the "Explicitly *not* tech debt" table (2-column, no Pri) contribute none.
+    expect(rows).toHaveLength(6);
+    expect(rows.map((r) => r.section)).toEqual([
+      "Engineering", "Engineering", "Engineering", "Engineering", "Tech Debt", "Tech Debt",
+    ]);
+  });
+
+  it("takes the Tech Debt ID column as authoritative", () => {
+    const rows = flattenBacklogRows(BACKLOG_HYGIENE_FIXTURE);
+    const delta = rows.find((r) => r.section === "Tech Debt" && r.pri === "Medium");
+    expect(delta.id).toBe("DELTA-1");
+  });
+
+  it("anchors the 3-column id to the START of the Item cell — a [SHIP-1 E1] tag never wins", () => {
+    const rows = flattenBacklogRows(BACKLOG_HYGIENE_FIXTURE);
+    const alpha = rows.find((r) => r.pri === "High");
+    expect(alpha.id).toBe("ALPHA-1");
+  });
+
+  it("a mid-sentence mention is not the row's id", () => {
+    const md = `# B\n\n## Engineering\n\n| Pri | Item | Notes |\n|-----|------|-------|\n| Low | Needs TRUST-1 before it can land | notes |\n`;
+    expect(flattenBacklogRows(md)[0].id).toBeNull();
+  });
+
+  it("degrades the malformed 3-cell Tech Debt row to an id-less row instead of throwing", () => {
+    const rows = flattenBacklogRows(BACKLOG_HYGIENE_FIXTURE);
+    const malformed = rows.find((r) => r.section === "Tech Debt" && r.pri === "Low");
+    expect(malformed.id).toBeNull();
+  });
+
+  it("leaves 25%-ish of real rows id-less rather than failing — degrades to null, never throws", () => {
+    expect(() => flattenBacklogRows(readFileSync(new URL("../docs/planning/BACKLOG.md", import.meta.url), "utf8"))).not.toThrow();
   });
 });
 

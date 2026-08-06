@@ -298,6 +298,63 @@ export function parseBacklogSections(backlogMd) {
 }
 
 /**
+ * Leading work-id of a BACKLOG Item cell (`ID — rest of sentence…`), or null.
+ * Anchored to the START of the cell (after stripping `[SHIP-1 …]` tags and leading
+ * markup/backticks) so a mid-sentence mention — `Needs TRUST-1.`, or the `SHIP-1`
+ * inside a `[SHIP-1 E1]` tag (15 Item cells carry one, and `SHIP-1` is itself a real
+ * Tech Debt row id) — can never be read as the row's own identity.
+ * @param {string} itemCell
+ * @returns {string | null}
+ */
+function extractAnchoredBacklogId(itemCell) {
+  const stripped = String(itemCell ?? "")
+    .replace(/\[SHIP-1[^\]]*\]/g, "")
+    .replace(/^[\s*`]+/, "")
+    .trim();
+  const m = stripped.match(/^([A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+)\b/);
+  return m ? m[1] : null;
+}
+
+/**
+ * BACKLOG.md tables, flattened across every discipline section into one row list —
+ * the shared source for the glance-box generator and the hygiene validator (both
+ * `tools/lib/backlogGlance.mjs` and `validateBacklogHygiene` build on this).
+ *
+ * Card identity: Tech Debt's table is 4-column (`Pri | ID | Item | Notes`) and its
+ * `id` cell is authoritative; every other table is 3-column (`Pri | Item | Notes`)
+ * and the id, if any, comes from {@link extractAnchoredBacklogId}. Roughly a quarter
+ * of rows carry no id at all (Design / Gameplay is almost entirely id-less) — every
+ * id-based check must skip rows where `id` is null rather than treating that as a
+ * parse failure. The one known-malformed row (a 3-cell row inside the 4-column Tech
+ * Debt table, missing its ID cell) degrades to an id-less row with a shifted item/
+ * notes pairing rather than throwing — its `pri` cell is unaffected, which is all the
+ * glance count needs.
+ * @param {string} backlogMd
+ * @returns {Array<{section: string, pri: string, id: string | null, item: string, notes: string, index: number}>}
+ */
+export function flattenBacklogRows(backlogMd) {
+  const out = [];
+  let index = 0;
+  for (const section of parseBacklogSections(backlogMd)) {
+    for (const r of section.rows) {
+      if (!("pri" in r)) continue; // only pipe-tables with a Pri column count as cards
+      const item = String(r.item ?? "").trim();
+      const idCell = "id" in r ? String(r.id ?? "").replace(/\*\*/g, "").trim() : "";
+      const id = idCell ? extractWorkId(idCell) : extractAnchoredBacklogId(item);
+      out.push({
+        section: section.title,
+        pri: String(r.pri ?? "").trim(),
+        id,
+        item,
+        notes: String(r.notes ?? "").trim(),
+        index: index++,
+      });
+    }
+  }
+  return out;
+}
+
+/**
  * STATUS.md "### Release phases" list → the release-brain strip. Markers:
  * ✅ done · ▶ current · ⬜ todo. Anything else is ignored (prose lines).
  * @param {string} statusMd
