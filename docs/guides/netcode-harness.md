@@ -37,19 +37,27 @@ The default scenario (`spawnlock`) is the "non-host cart can't leave spawn" repo
 reaches a running round, joiner joins mid-round and seats into an ex-NPC slot, then the rig
 holds forward and asserts the joiner's cart leaves spawn.
 
-> **Coverage gap (07-18):** every scenario joins via a `?room=` URL, which skips the menu
-> teardown. That structurally hid the real 07-17 spawn-lock — `returnToMenu` nulls netcode's
-> input-axis ref and only boot re-wired it, so a human going solo → menu → join froze
-> (fixed in `dabdb6b` via `wireNetcodeRuntimeRefs()` on every `ensureSessionCartsReady`).
-> A menu-teardown-before-join scenario is the open follow-up; until it lands, this class is
-> not regression-covered here.
+> **07-17 coverage gap — CLOSED.** Every early scenario joined via a `?room=` URL, which
+> skipped the menu teardown and structurally hid the real 07-17 spawn-lock —
+> `returnToMenu` nulls netcode's input-axis ref and only boot re-wired it, so a human going
+> solo → menu → join froze (fixed in `dabdb6b` via `wireNetcodeRuntimeRefs()` on every
+> `ensureSessionCartsReady`). `teardownRejoin` now drives exactly that path and is
+> regression-covered below.
 
 Opt-in scenarios (`--scenario <name>`): **`mpIntegration`** — the netcode↔gameplay seam
 (roles, joiner drive, score sync, same winner both clients, victory/defeat PA, quickplay
 rematch, zero sim errors); **`hostMigration`** — clean host departure (survivor promoted,
 NPCs handed off, new host drives, zero sim errors); **`hostReload`** — mid-round host tab
 reload (survivor promoted, reloaded tab rejoins as non-host, menu not stuck over game);
-**`teardownRejoin`** — menu-return teardown before rejoin. See
+**`teardownRejoin`** — menu-return teardown before rejoin; **`shardOverflow`** — a 5th
+human overflows a full public quickplay shard onto the next one (QUICKPLAY-SHARD-1);
+**`friendsLobby`** — a real friends private room: CHECKOUT LINE lobby renders, manual
+ready-up (no auto-ready), countdown only arms once every live human is ready, and a
+rematch that re-readies both humans without the joiner pressing ready again
+(HARNESS-FRIENDS-1); **`hostFreeze`** — the host tab freezes for real via CDP
+(throttled/backgrounded, not dead) and thaws: snapshot silence + bounded pose hold while
+frozen, snapshots resume and `snap_gap`/`host_send_gap` fire on the first post-thaw
+send/arrival, host identity unchanged (HARNESS-FREEZE-1). See
 [diagnostics.md](./diagnostics.md) for what each asserts. Both rigs also preflight the
 dev stack over HTTP first, so a wedged `workerd` (port open, never answers) exits 2 with
 the fix in the message instead of a bogus scenario failure.

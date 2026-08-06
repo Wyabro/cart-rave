@@ -13,6 +13,56 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 6, 2026 — Block G wave 5: HARNESS-FRIENDS-1, HARNESS-FREEZE-1
+
+Last two cards in the Block G tooling-window batch, same `tools/netharness.mjs` scenario lane,
+one tooling commit each per BACKLOG's instruction, taken in the same sitting. Both closed a real
+E2E gap flagged by the 08-01/08-06 harness review; neither touches `src/`. `node --check` clean on
+each commit; full verification (both scenarios run + `npm run qa`) tracked separately.
+
+- *(Engineering · Medium)* **HARNESS-FRIENDS-1** — the harness only ever drove quickplay-shaped
+  joins; friends private-room ready-up, the CHECKOUT LINE lobby, and rematch were Wyatt/manual
+  only (`tools/states.mjs` marked the lobby's own DOM selectors unreachable for exactly this
+  reason) — ✅ **CLOSED 08-06** (`c334d25`). New `friendsLobby` scenario in
+  [netharness.mjs](../../tools/netharness.mjs): generates a room via the real
+  [shared/roomCodes.js](../../shared/roomCodes.js) `generateRoomCode()` funnel, brings up host then
+  joiner into the same friends room (`makeClient` gained a `menuEntry` option that dispatches the
+  real `cartrave:menu` `joinroom` event after menu boot — friends rooms don't auto-enter on load,
+  and `__ccTest.ready` is not a room-entry signal since it's already true from ordinary menu boot),
+  asserts the CHECKOUT LINE lobby actually renders (title, room code), proves the host readying
+  *alone* does **not** start the round (only every live human being ready arms the countdown — the
+  joiner has to seat first, or a solo-host-ready would false-negative that check), then both ready
+  and reach a running round, drives the joiner, forces a decisive round end via the diag control
+  levers, and rematches — asserting both clients reach a fresh round **without the joiner pressing
+  ready again** (friends auto-ready every live human on `playAgain`), same room, same mode, zero
+  host sim errors. Tooling only — complements, does not replace, the FV-WILT-1 manual friends
+  checks. `--scenario friendsLobby`, `core:false` in [batteryPlan.mjs](../../tools/lib/batteryPlan.mjs)
+  (opt-in; promote to core once proven stable across a few real runs).
+- *(Engineering · Medium)* **HARNESS-FREEZE-1** — the harness had no scenario for the host going
+  quiet *without dying* (tab hidden/throttled, then recovery) — the exact case HOST-TAB-1 shipped a
+  joiner-side hold/skip-replay guard against, and the producer of the `host_send_gap` diag event
+  the rig had never exercised — ✅ **CLOSED 08-06** (`a20df6f`). New `hostFreeze` scenario freezes
+  the host tab for real via CDP `Page.setWebLifecycleState({state:"frozen"})` — a plain
+  `document.hidden` toggle is not enough: HOST-TAB-1's own hidden-host pump plus this rig's
+  `?perfPump=1` + focus emulation are both designed to defeat a plain hide, so nothing but a real
+  lifecycle freeze produces genuine silence. Scope deliberately stayed **one scenario, not two**
+  per the card: freeze/thaw only, migration stays with the existing `hostMigration` scenario.
+  Asserts during the freeze (snapshot seq stall, and a **bounded** pose settle — remotes still
+  extrapolate from last velocity capped at 50ms then hold flat, so the check is "no unbounded
+  ghost-movement growth," not "zero movement") and after thaw (snapshots resume; `snap_gap` and
+  `host_send_gap` fire on the first post-thaw send/arrival, since both counters are measured
+  retrospectively and could not exist during the freeze itself; host identity unchanged — a freeze,
+  not a migration; zero sim errors; joiner still drives normally). If the CDP lifecycle call proves
+  unreliable in a given Chromium, the run records an INCONCLUSIVE rather than silently falling back
+  to a fake CPU-throttle or in-page stub — that fallback ban was explicit in the card. `makeClient`
+  now retains its CDP session (returns it as `cdp`) instead of opening and dropping it, additively —
+  every other scenario ignores the new field. `--scenario hostFreeze`, `core:false` in
+  [batteryPlan.mjs](../../tools/lib/batteryPlan.mjs) (opt-in, same reasoning as friendsLobby).
+
+Docs: [netcode-harness.md](../guides/netcode-harness.md) scenario list now names all seven
+scenarios (`shardOverflow` was missing entirely) and the stale 07-17 "coverage gap" note is closed
+out (`teardownRejoin` has covered it since it shipped).
+
 ### August 6, 2026 — Block G wave: PT-CARD-SPLIT-1, PT-CONSOLE-READY-1, HOOK-COMMENT-1, CC-ESC-1
 
 Wyatt picked Block G (the tooling-window batch) as the next wave, one commit per card, so tomorrow's

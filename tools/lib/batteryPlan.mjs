@@ -62,6 +62,20 @@ export const BATTERY_STEPS = [
     note: "2-client: menu-return teardown before rejoin",
   },
   {
+    name: "friendsLobby",
+    cmd: ["node", "tools/netharness.mjs", "--scenario", "friendsLobby"],
+    urlArg: true,
+    core: false,
+    note: "2-client: friends CHECKOUT LINE lobby, ready-up, rematch (HARNESS-FRIENDS-1)",
+  },
+  {
+    name: "hostFreeze",
+    cmd: ["node", "tools/netharness.mjs", "--scenario", "hostFreeze"],
+    urlArg: true,
+    core: false,
+    note: "2-client: host tab freezes (CDP) without dying, then thaws (HARNESS-FREEZE-1)",
+  },
+  {
     name: "visual",
     cmd: ["node", "tools/blackframes.mjs", "--shot", "classic", "--frames", "30"],
     optIn: "visual",
