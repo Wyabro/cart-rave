@@ -139,7 +139,13 @@
   filter: saturate(0.42) brightness(0.86);
 }
 #results-overlay.results-defeat .results-title {
-  --title-glow: #7c8596; /* cold, drained — overrides the winner's cart color */
+  /* RESULTS-GLOW-1: this declaration never applies — roundLifecycle.js sets --title-glow
+     inline on the title element every round, and an inline style always outranks a
+     stylesheet rule, so this #7c8596 "cold, drained" value can't win. Defeat still reads
+     because the .results-panel filter above desaturates everything. Kept as the intended
+     value for whenever a look pass re-owns title styling from the inline set; do not reach
+     for !important to force it live without that pass. */
+  --title-glow: #7c8596;
 }
 /* Headline-scale kicker (playtest 2026-07-15: 0.5em read smaller than the score
    rows). At this size it carries the full sticker extrude like the title. */
