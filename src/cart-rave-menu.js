@@ -318,6 +318,11 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
   const howtoScreen = $("cr-howto-screen");
   const howtoDoneBtn = $("cr-howto-done");
   const howtoBackBtn = $("cr-howto-back");
+  const howtoPrevBtn = $("cr-howto-prev");
+  const howtoNextBtn = $("cr-howto-next");
+  const howtoPosEl = $("cr-howto-pos");
+  const howtoControlsEl = $("cr-howto-controls");
+  const howtoPadEl = $("cr-howto-pad");
   const settingsMuteBtn = $("cr-settings-mute-btn");
   const settingsVolFill = $("cr-settings-vol-fill");
   const settingsVolVal = $("cr-settings-vol-val");
@@ -1109,6 +1114,103 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
 
   // ─── How To Play overlay screen ────────────────────────────────────────────
 
+  /**
+   * ONBOARD-SLIDES-1: per-input-mode controls for AISLE 1. WASD/SHIFT/SPACE is simply
+   * wrong copy on a phone, and this overlay is the first thing a first-run player sees —
+   * so the chips rematch the live device off the same setInputMode signal the Settings
+   * controls table already uses, not a poll.
+   * @type {Record<'keyboard'|'gamepad'|'touch', Array<{ keys: string[], wide?: boolean, label: string }>>}
+   */
+  const HOWTO_CONTROLS = {
+    keyboard: [
+      { keys: ["W", "A", "S", "D"], label: "MOVE" },
+      { keys: ["SHIFT"], wide: true, label: "BOOST" },
+      { keys: ["SPACE"], wide: true, label: "HOP" },
+      { keys: ["M"], label: "MUTE" },
+      { keys: ["ESC"], label: "MENU" },
+    ],
+    gamepad: [
+      { keys: ["L STICK"], wide: true, label: "MOVE" },
+      { keys: ["RT"], label: "BOOST" },
+      { keys: ["A"], label: "HOP" },
+      { keys: ["B"], label: "BACK" },
+      { keys: ["START"], wide: true, label: "MENU" },
+    ],
+    touch: [
+      { keys: ["STICK"], wide: true, label: "DRAG TO STEER" },
+      { keys: ["BOOST"], wide: true, label: "HOLD TO CHARGE" },
+      { keys: ["HOP"], wide: true, label: "TAP" },
+    ],
+  };
+
+  /** @param {'keyboard'|'gamepad'|'touch'} [mode] */
+  function renderHowToControls(mode = getInputMode()) {
+    if (!howtoControlsEl) return;
+    const rows = HOWTO_CONTROLS[mode] ?? HOWTO_CONTROLS.keyboard;
+    howtoControlsEl.replaceChildren(
+      ...rows.map((row) => {
+        const chip = document.createElement("span");
+        chip.className = "cr-howto-ctl";
+        chip.setAttribute("role", "listitem");
+        const keys = document.createElement("span");
+        keys.className = "cr-howto-keys";
+        for (const k of row.keys) {
+          const kbd = document.createElement("kbd");
+          if (row.wide) kbd.className = "wide";
+          kbd.textContent = k;
+          keys.appendChild(kbd);
+        }
+        const label = document.createElement("span");
+        label.className = "cr-howto-ctl-lbl";
+        label.textContent = row.label;
+        chip.append(keys, label);
+        return chip;
+      }),
+    );
+    // * "PLUG & PLAY" is noise to someone already holding a pad, and nonsense on touch.
+    if (howtoPadEl) howtoPadEl.hidden = mode !== "keyboard";
+  }
+
+  /** @type {HTMLElement[]} AISLE slides, in order. Populated by initHowToScreen(). */
+  let howtoSlides = [];
+  /** @type {HTMLElement[]} */
+  let howtoDots = [];
+  let howtoSlideIndex = 0;
+
+  /**
+   * Shows slide `idx` and re-dresses the pager chrome around it.
+   *
+   * The primary button MORPHS rather than sitting beside a separate NEXT: it is the
+   * focused control on open, so if it closed the overlay the first-run happy path would
+   * be "see 1 of 5 rules, then never be asked again" (`howtoSeen` is stamped on open —
+   * see ONBOARD-FLAG-1 below). Pressing it repeatedly now walks the whole deck.
+   * @param {number} idx
+   * @param {{ animate?: boolean }} [opts]
+   */
+  function showHowToSlide(idx, opts) {
+    if (!howtoSlides.length) return;
+    const clamped = Math.max(0, Math.min(howtoSlides.length - 1, idx));
+    howtoSlideIndex = clamped;
+    const last = clamped === howtoSlides.length - 1;
+    howtoSlides.forEach((slide, i) => { slide.hidden = i !== clamped; });
+    howtoDots.forEach((dot, i) => { dot.classList.toggle("is-on", i === clamped); });
+    if (howtoPosEl) howtoPosEl.textContent = `${clamped + 1}/${howtoSlides.length}`;
+    // * No wrap-around: this is a tutorial, and a 5 -> 1 jump reads as "there is more".
+    if (howtoPrevBtn instanceof HTMLButtonElement) howtoPrevBtn.disabled = clamped === 0;
+    if (howtoNextBtn instanceof HTMLButtonElement) howtoNextBtn.disabled = last;
+    const label = howtoDoneBtn?.querySelector(".cr-screen-btn-label");
+    if (label) label.textContent = last ? "LET'S ROLL" : "NEXT ▸";
+    if (opts?.animate !== false) {
+      const shown = howtoSlides[clamped];
+      if (shown) animateMenuReveal(shown, { duration: 200, y: 8, ease: "outQuad" });
+    }
+  }
+
+  /** @param {number} dir */
+  function pageHowTo(dir) {
+    showHowToSlide(howtoSlideIndex + dir);
+  }
+
   function openHowToScreen() {
     if (!howtoScreen) return;
     const phase = getRoundState().phase;
@@ -1126,6 +1228,10 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
     storageSet(STORAGE_KEYS.howtoSeen, "1");
     howtoScreen.style.display = 'flex';
     howtoScreen.setAttribute('aria-hidden', 'false');
+    // * Always reopen on AISLE 1 — a player who left on slide 4 last time is not
+    // * resuming a session, they are asking to be taught again from the top.
+    renderHowToControls();
+    showHowToSlide(0, { animate: false });
     howtoDoneBtn?.focus();
     const panel = howtoScreen.querySelector('.cr-howto-panel');
     if (panel instanceof HTMLElement) {
@@ -1161,14 +1267,28 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
   }
 
   function initHowToScreen() {
-    howtoDoneBtn?.addEventListener('click', () => closeHowToScreen({ userDismissed: true }));
+    howtoSlides = Array.from(howtoScreen?.querySelectorAll(".cr-howto-slide") ?? []);
+    howtoDots = Array.from(howtoScreen?.querySelectorAll(".cr-howto-dot") ?? []);
+    // * The primary is slide-aware, NOT an unconditional close — see showHowToSlide().
+    // * Wiring a close here as well would make a NEXT click page AND dismiss.
+    howtoDoneBtn?.addEventListener('click', () => {
+      if (howtoSlideIndex < howtoSlides.length - 1) pageHowTo(1);
+      else closeHowToScreen({ userDismissed: true });
+    });
+    howtoPrevBtn?.addEventListener('click', () => pageHowTo(-1));
+    howtoNextBtn?.addEventListener('click', () => pageHowTo(1));
     howtoBackBtn?.addEventListener('click', () => closeHowToScreen({ userDismissed: true }));
     wireMenuPressFeedback(howtoDoneBtn);
     wireMenuPressFeedback(howtoBackBtn);
-    // * Live-rematch the Settings controls panel when keyboard / gamepad / touch
-    // * becomes active — same setInputMode signal it uses, not a poll.
-    onInputModeChange(() => {
+    wireMenuPressFeedback(howtoPrevBtn);
+    wireMenuPressFeedback(howtoNextBtn);
+    renderHowToControls();
+    showHowToSlide(0, { animate: false });
+    // * Live-rematch the Settings controls panel and the HOW TO PLAY controls chips when
+    // * keyboard / gamepad / touch becomes active — same setInputMode signal, not a poll.
+    onInputModeChange((mode) => {
       if (settingsScreen?.style.display === "flex") updateSettingsControlsUI();
+      if (howtoScreen?.style.display === "flex") renderHowToControls(mode);
     });
   }
 

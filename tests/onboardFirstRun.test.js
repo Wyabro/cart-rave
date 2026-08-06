@@ -83,3 +83,46 @@ describe("ONBOARD-FLAG-1 — howtoSeen is stamped on open, not on arm", () => {
     expect(fnBody(menu, "openHowToScreen")).not.toMatch(/howtoAutoOpenArmed\s*=\s*false/);
   });
 });
+
+// ONBOARD-SLIDES-1 — the wall of text became a five-slide deck, which put the flag above
+// at risk in a new way: `howtoSeen` is still stamped on OPEN, so if the focused primary
+// button closed the overlay the way it used to, a first-run player's single most likely
+// keypress would spend their only tutorial on 1 rule out of 5. The primary paging instead
+// of closing is what makes stamp-on-open still honest, so it is pinned here.
+describe("ONBOARD-SLIDES-1 — the deck cannot be skipped by the default action", () => {
+  it("reopens on the first slide, never where the player left off", () => {
+    // * Reopening on AISLE 4 would mean a player who bailed once can never see 1-3 again
+    // * without clearing site data — the flag stops the auto-open from ever returning.
+    const body = fnBody(menu, "openHowToScreen");
+    expect(body).toMatch(/showHowToSlide\(\s*0\b/);
+  });
+
+  it("renders the controls chips for the live input mode on open", () => {
+    // * WASD/SHIFT/SPACE is wrong copy on a phone, and this overlay auto-opens there too.
+    expect(fnBody(menu, "openHowToScreen")).toMatch(/renderHowToControls\(/);
+    expect(menu).toMatch(/HOWTO_CONTROLS\s*=\s*\{/);
+    for (const mode of ["keyboard", "gamepad", "touch"]) {
+      expect(menu).toMatch(new RegExp(`${mode}:\\s*\\[`));
+    }
+  });
+
+  it("wires the primary to page forward and only close on the last slide", () => {
+    const body = fnBody(menu, "initHowToScreen");
+    expect(body).not.toBe("");
+    // * The pre-slides listener closed unconditionally. Left in place beside the new
+    // * handler, a NEXT click would page AND dismiss — so assert the close is guarded.
+    const done = body.slice(body.indexOf("howtoDoneBtn?.addEventListener"));
+    expect(done).toMatch(/howtoSlideIndex\s*<\s*howtoSlides\.length\s*-\s*1/);
+    expect(done).toMatch(/pageHowTo\(1\)/);
+    expect(done).toMatch(/closeHowToScreen\(\{ userDismissed: true \}\)/);
+  });
+
+  it("clamps at both ends — a tutorial must not wrap 5 back to 1", () => {
+    // * pageArena's wrap-around is right for arenas and wrong here: looping to AISLE 1
+    // * reads as "there is more content", so the deck ends instead.
+    const body = fnBody(menu, "showHowToSlide");
+    expect(body).not.toBe("");
+    expect(body).toMatch(/Math\.max\(\s*0\s*,\s*Math\.min\(/);
+    expect(body).not.toMatch(/%\s*howtoSlides\.length/);
+  });
+});
