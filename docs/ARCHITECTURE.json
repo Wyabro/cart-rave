@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-06T20:06:27.189Z",
-    "commit": "b63e122"
+    "at": "2026-08-06T20:25:55.913Z",
+    "commit": "9863f61"
   },
-  "source_digest": "07053076",
+  "source_digest": "62f85ada",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1428,7 +1428,7 @@
         "counts": {
           "High": 1,
           "Medium": 6,
-          "Low": 11
+          "Low": 12
         },
         "rows": [
           {
@@ -1555,6 +1555,13 @@
             "id": "KBM-TOAST-1",
             "item": "`.cr-kbm-toast` / `-toast-text` / `-toast-close` (cart-rave-menu.css:130-206) has no JS reference anywhere in `src/`",
             "notes": "**Filed 08-06** — found while auditing `text-transform: uppercase` usage (unrelated question). No `document.createElement`/`classList`/template literal anywhere in `src/` sets `cr-kbm-toast` or its children, and `Select-String -Path src -Pattern kbm -Recurse` only hits this one CSS file — looks like orphaned CSS from a removed keyboard/mouse-switch toast. Confirm with a full-text search before deleting (dynamic class construction elsewhere could still reference it), then drop the three rules and their `@media` overrides. Not a ship blocker — dead weight, not a bug. **⚠️ Same subject as STATES-DEAD-1 (UI/UX, Low) — run them as ONE card, 08-06 audit.** That card's `npm run states` sweep already found `.cr-kbm-toast-close` as its subject (2), and its subject (1) `.cr-touch-btn` is the immediate neighbour in the same block of `cart-rave-menu.css`. Both re-verified with a repo-wide search 08-06. Picking either alone edits lines the other one owns.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "id": "BACKLOG-GATE-2",
+            "item": "promote `BACKLOG_WORKORDER_CLOSED_HAS_ROW` from warn to error",
+            "notes": "**Filed 08-06 alongside BACKLOG-GATE-1**, the mechanical hygiene gate on this file (`validateBacklogHygiene` in [tools/lib/projectHealthValidation.mjs](../../tools/lib/projectHealthValidation.mjs), wired into `health:check`). That one check ships as **warn**, not error, because it parses hand-rewritten Work-order prose rather than a table — a nearest-left-before-✅ heuristic that had one documented false positive during design (PERF-9CELL-1, fixed by narrowing the window) and could plausibly produce another as the Work order's phrasing evolves. **This card is the owner of \"when does it stop being provisional\":** promote it to error after 2–3 Work-order rewrites land clean with zero `BACKLOG_WORKORDER_CLOSED_HAS_ROW` warnings in `health:check`'s output. If a false positive shows up first, narrow the heuristic instead and reset the counter.",
             "ship1": null
           }
         ]
