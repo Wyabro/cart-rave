@@ -2105,6 +2105,30 @@ html, body {
   box-shadow: var(--slab-extrude-sm);
 }
 
+/* ─── ART SLOTS OFF (ONBOARD-ART-1) ────────────────────────────────────────────
+   The four art slots above are authored and sized, but the stills/GIFs are not
+   shot yet — Wyatt is capturing them as their own card. Empty framed panels read
+   as broken, so until the art lands the slots are OFF and every slide is a
+   single column of text + chips.
+
+   TO TURN THE ART BACK ON: delete this block. Nothing else. It sits after the
+   rules it overrides so it wins on source order, and it has to neutralise the
+   two-column rules as well — `:has(.cr-howto-slide-media)` still matches a
+   display:none element, so leaving them would reserve an empty 28rem column on
+   four slides. AISLE 4's callouts go with it; its chip row names the same five
+   pieces and stays useful once the picture is there.
+
+   The deck keeps its 23rem floor deliberately: it is what holds the pager still
+   between slides of different length, and it is already sized for the art. */
+.cr-howto-slide-media {
+  display: none;
+}
+
+.cr-howto-slide:has(.cr-howto-slide-media),
+.cr-howto-slide:has(.cr-howto-slide-media--hud) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 /* Capped for line length — the panel runs nearly the full viewport at 1920 and
    an unbounded rule sentence became one 90-character line. */
 .cr-howto-slide-copy {

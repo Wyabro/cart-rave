@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-06T17:54:57.568Z",
-    "commit": "6509efc"
+    "at": "2026-08-06T19:17:46.391Z",
+    "commit": "725c348"
   },
-  "source_digest": "340e7de7",
+  "source_digest": "38b169be",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -886,8 +886,8 @@
       "HARNESS-NULL-1 ✅ CLOSED 08-06. Headless `perf-profile --null` (shared-page AB+BA); pure",
       "NET-LOOK-ACC-1 ✅ CLOSED PASS 08-06 (`1198d26`) — two-human Friends-lobby check confirmed.",
       "UI-SCALE-1 (both passes) + TOUCH-HOVER-1 ✅ CLOSED PASS 08-06 (`dacca48`..`78acdb4`, prod",
-      "ONBOARD-SLIDES-1 L1 ⏳ SHIPPED 08-06 (`4c89e04` + `ad8f890`), UNPUSHED — L2 blocked on art.",
-      "Hitch forensics: cap-254–260 (build `8d96b0b`) before any PERF-PASS-1 knob."
+      "ONBOARD-SLIDES-1 ⏳ SHIPPED 08-06 (`4c89e04`..`725c348`), UNPUSHED — owed 3 playtest cards.",
+      "Also filed 08-06: MONTAGE-ESC-1 (High) — a one-line break from CC-ESC-1 makes every"
     ],
     "open_issues": [
       {
@@ -917,18 +917,12 @@
       {
         "title": "Engineering",
         "counts": {
-          "High": 2,
           "Medium": 13,
           "Low": 9,
+          "High": 1,
           "Partial": 1
         },
         "rows": [
-          {
-            "pri": "High",
-            "item": "*(NET-LOOK-ACC-1 ✅ CLOSED PASS 08-06 — [completed-work.md](./completed-work.md))*",
-            "notes": "",
-            "ship1": null
-          },
           {
             "pri": "Medium",
             "item": "DIFF-FRIENDS-1 — NPC difficulty applies in Friends rooms but cannot be set there",
@@ -1286,10 +1280,29 @@
       {
         "title": "Playtest owed",
         "counts": {
+          "High": 3,
           "Medium": 1,
           "Low": 2
         },
         "rows": [
+          {
+            "pri": "High",
+            "item": "ONBOARD-SLIDES-PT-1 — the how-to slides read and advance `[solo]`",
+            "notes": "**Owed: Wyatt playtest — ONBOARD-SLIDES-PT-1 — clicking through HOW TO PLAY teaches you the game and never gets stuck.** Shipped 08-06 (`4c89e04`..`725c348`). The wall of text is now eight click-through cards. No pictures yet on purpose — that is ONBOARD-ART-1 — so judge the words and the clicking, not the art.<br>1. From the main menu open **HOW TO PLAY**.<br>2. Click the yellow button on the right eight times, reading each card as you go. It says NEXT until the last card, then LET'S ROLL.<br>3. Watch the little row of dots in the middle: exactly one should be lit, and the arrows on either side of it should also move you a card at a time. The left arrow should be dead on card 1, the right arrow dead on card 8.<br>4. PASS if you can read all eight, the buttons never lie about where you are, and nothing jumps around as you move between cards. FAIL with which card and what went wrong.",
+            "ship1": null
+          },
+          {
+            "pri": "High",
+            "item": "ONBOARD-SLIDES-PT-2 — a brand-new player is not dumped out of the tutorial `[solo]`",
+            "notes": "**Owed: Wyatt playtest — ONBOARD-SLIDES-PT-2 — a first-time player pressing the obvious button walks the whole deck instead of closing it.** Shipped 08-06. This is the one that matters: the \"seen it\" flag is set the moment the screen opens, so if the highlighted button closed the screen, a new player would spend their only tutorial on card 1 and never be shown it again. The button now pages instead.<br>1. Wipe your first-run state: open the site with dev tools, run `localStorage.removeItem(\"cartRaveHowToSeen\")`, then reload.<br>2. Sit on the main menu and let HOW TO PLAY open by itself (about half a second).<br>3. Without clicking anything else, press **Enter** repeatedly — the button that is already highlighted.<br>4. PASS if Enter walks you card by card through all eight and only closes on the last one. FAIL if the first Enter closes the screen.<br>5. Also check the deck does not drag: eight cards is more than it was, and you should still want to reach the end. Say so if it feels long.",
+            "ship1": null
+          },
+          {
+            "pri": "High",
+            "item": "ONBOARD-SLIDES-PT-3 — the slides work on a phone `[phone]`",
+            "notes": "**Owed: Wyatt playtest — ONBOARD-SLIDES-PT-3 — the how-to cards are readable and tappable on your phone, in both orientations.** Shipped 08-06, deployed with this wave. Card 1's control list is rebuilt for touch, so it should name the on-screen stick and buttons — not WASD or SHIFT.<br>1. On your phone, open **HOW TO PLAY** from the main menu.<br>2. On the first card, check the little control chips: they should talk about the stick and the on-screen BOOST and HOP buttons. Seeing `W` `A` `S` `D` or `SHIFT` there is a FAIL.<br>3. Tap through all eight cards. Nothing should be cut off, overlapping, or too small to read.<br>4. Turn the phone sideways and page through again — the layout is deliberately tighter there.<br>5. PASS if it reads cleanly both ways. FAIL with a screenshot and which card.",
+            "ship1": null
+          },
           {
             "pri": "Medium",
             "item": "PERF-9CELL-1 — Intel Low 9-cell PERF sweep `[solo]`",
@@ -1313,11 +1326,17 @@
       {
         "title": "UI / UX",
         "counts": {
-          "Medium": 7,
-          "High": 4,
-          "Low": 5
+          "Medium": 8,
+          "High": 2,
+          "Low": 4
         },
         "rows": [
+          {
+            "pri": "Medium",
+            "item": "ONBOARD-ART-1 — the HOW TO PLAY slides have art slots but no art `[pre-ship]`",
+            "notes": "**Split out of ONBOARD-SLIDES-1 08-06 at Wyatt's call** — *\"i think i'll just wait till i can make the gifs\"*. The deck shipped complete and text-only; this card is the picture pass. **The slots are already authored, sized and commented** — turning them on is deleting one clearly-marked block (`ART SLOTS OFF (ONBOARD-ART-1)`) at the end of the `.cr-howto-*` section in [cart-rave-menu.css](../../src/cart-rave-menu.css). That block also neutralises the two-column rules, which is load-bearing: `:has(.cr-howto-slide-media)` still matches a `display:none` element, so removing only the `display` rule would reserve an empty 28rem column on four slides. **Four slots:** `drive`, `boost`, `ram` (16:10, cropped, HUD out of frame) and `hud` (**16:9, uncropped, HUD is the subject**) — the fifth slide, THE LIVING STORE, also has a `cargo` slot. **AISLE 4's callouts** are `.cr-howto-callout` spans positioned by `--x`/`--y` percentages over the image; the current values are guesses against a blank placeholder and **must be re-aimed against the real frame** — that is the one part of this card that is not just dropping files in. Its chip row (`TOP LEFT / TIME LEFT` …) stays either way — the callouts label, the chips define. **Do not shoot these with `npm run shoot`** — see SHOOT-SOFTGL-1; a working scratch rig that drives a real solo round is described there. Wyatt is capturing GIFs by hand instead, so the likely shape is animated webp dropped into `public/howto/` and referenced by an `<img>` in each slot.",
+            "ship1": null
+          },
           {
             "pri": "Medium",
             "item": "KILLFEED-PHONE-1 — kill feed reads awkward/overlapping on phone",
@@ -1339,7 +1358,7 @@
           {
             "pri": "High",
             "item": "ONBOARD-SLIDES-1 — how-to-play as click-through visual slides `[pre-ship]`",
-            "notes": "⏳ **L1 SHIPPED 08-06 (`4c89e04`), UNPUSHED AND NOT DEPLOYED — L2 (the art) is blocked on an art source, see below.** L1 replaced the wall of text with a deck, **grown to eight slides 08-06 on Wyatt's call** (`ad8f890`): AISLE 1 DRIVE (controls, re-rendered per keyboard/gamepad/touch) · 2 BOOST · 3 RAM THEM OUT · 4 READ THE HUD · 5 CHAIN COMBOS · 6 THE LIVING STORE · 7 PRICE CHECK · 8 THE BOTS. Nothing dropped from the old screen. **Eight is safe because of ordering, not count** — the game is fully taught by AISLE 4, so 5–8 are depth a first-run player can bail on without losing the rules. **BOOST's copy carries a standing lesson (Wyatt, 08-06): verified-against-code is not the same as true-for-players.** The first draft was checked against [simulation.js:509-513](../../src/simulation.js:509) and stated the sub-100 ms silent cancel as a rule. Accurate, and wrong to ship — a deliberate tap lands *above* that threshold, so the dead zone is an accidental-brush filter nobody feels, and naming it would teach players to distrust tapping, which is a real move (a tap fires an instant burst at the 0.3 floor; holding scales it to 1.0). The shipped copy is the choice the player actually makes — **tap for a quick shove, hold for a big hit** — and the chips name that choice rather than the ms constants behind it. Apply the same test to any future mechanic copy. AISLE 4 carries the one **uncropped** still with callouts in percent coordinates; **those positions are provisional against the placeholder and need a pass when the real still lands.** The primary button **morphs** `NEXT ▸`→`LET'S ROLL` rather than closing, because `howtoSeen` is still stamped on open (ONBOARD-FLAG-1) and a closing focused default would have made \"see 1 rule of 5, never asked again\" the first-run happy path. No wrap-around, dots are non-focusable spans, no new keyboard handler (gamepadNav already owns the arrows). `npm run qa` 7/7 (1563 tests, +4); `npm run states` FAIL set byte-identical to a stash-measured pre-change baseline. **Absorbed 08-05: ONBOARD-1.** <br>**L2 BLOCKED — the plan's capture premise was falsified.** **Four** slides now ship a styled placeholder panel where a still goes — DRIVE, BOOST, RAM THEM OUT (all cropped 16:10) and READ THE HUD (**uncropped 16:9, HUD deliberately in frame** — it is the subject). `npm run shoot` cannot produce them: it renders the **attract state, so the arena is empty of carts**, it bakes the software-mode modal into the frame, and it runs on SwiftShader (see **SHOOT-SOFTGL-1**). A scratch rig that drives a real solo round with real GPU flags *does* produce the right look (verified: RTX 4090, 60 fps, correct dark neon), but framing is non-deterministic — the chase cam follows the local cart and NPC positions differ every run — so getting three *good* stills is a sample-and-hand-pick job, not a scripted one. **Wyatt is the art director and owns a 4090; three of his own screenshots are minutes of his time versus an hour of uncertain agent iteration.** Decide the art source before spending more: (a) Wyatt supplies 3 stills, agent crops/encodes/wires; (b) agent iterates the scratch rig; (c) drop the art slot and ship 5 text/chip slides, art as a follow-up. **Do not deploy L1 alone** — placeholder panels on prod.",
+            "notes": "⏳ **SHIPPED 08-06 (`4c89e04`..`725c348`), UNPUSHED. The art split out to ONBOARD-ART-1 at Wyatt's call.** Human checks live on **ONBOARD-SLIDES-PT-1/2/3** under [Playtest owed](#playtest-owed) — this row is the engineering writeup and deliberately carries no checklist, so it must not seed a card of its own. L1 replaced the wall of text with a deck, **grown to eight slides 08-06 on Wyatt's call** (`ad8f890`): AISLE 1 DRIVE (controls, re-rendered per keyboard/gamepad/touch) · 2 BOOST · 3 RAM THEM OUT · 4 READ THE HUD · 5 CHAIN COMBOS · 6 THE LIVING STORE · 7 PRICE CHECK · 8 THE BOTS. Nothing dropped from the old screen. **Eight is safe because of ordering, not count** — the game is fully taught by AISLE 4, so 5–8 are depth a first-run player can bail on without losing the rules. **BOOST's copy carries a standing lesson (Wyatt, 08-06): verified-against-code is not the same as true-for-players.** The first draft was checked against [simulation.js:509-513](../../src/simulation.js:509) and stated the sub-100 ms silent cancel as a rule. Accurate, and wrong to ship — a deliberate tap lands *above* that threshold, so the dead zone is an accidental-brush filter nobody feels, and naming it would teach players to distrust tapping, which is a real move (a tap fires an instant burst at the 0.3 floor; holding scales it to 1.0). The shipped copy is the choice the player actually makes — **tap for a quick shove, hold for a big hit** — and the chips name that choice rather than the ms constants behind it. Apply the same test to any future mechanic copy. AISLE 4 carries the one **uncropped** still with callouts in percent coordinates; **those positions are provisional against the placeholder and need a pass when the real still lands.** The primary button **morphs** `NEXT ▸`→`LET'S ROLL` rather than closing, because `howtoSeen` is still stamped on open (ONBOARD-FLAG-1) and a closing focused default would have made \"see 1 rule of 5, never asked again\" the first-run happy path. No wrap-around, dots are non-focusable spans, no new keyboard handler (gamepadNav already owns the arrows). `npm run qa` 7/7 (1563 tests, +4); `npm run states` FAIL set byte-identical to a stash-measured pre-change baseline. **Absorbed 08-05: ONBOARD-1.** <br>**The art is now ONBOARD-ART-1, not part of this card.** Wyatt chose 08-06 to wait until he can make GIFs rather than ship stills, so the four art slots were switched OFF behind one clearly-marked CSS block and every slide is single-column text + chips. **The deck is complete and shippable as it stands** — AISLE 4 keeps a chip row naming the five HUD pieces, which was always the fallback and stays useful once a picture sits beside it. Pager verified steady at `pagerY` 629 on all eight slides (the deck's 23rem floor does that work — a floor on the slide instead does **not**, the body grid overrides it: a computed `min-height` of 240px still rendered at 221px). `npm run shoot` cannot produce this art — **SHOOT-SOFTGL-1**.",
             "ship1": null
           },
           {
@@ -1386,26 +1405,8 @@
           },
           {
             "pri": "Low",
-            "item": "*(LOAD-SCALE-1 ✅ closed 08-06 — [completed-work.md](./completed-work.md))*",
-            "notes": "",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
             "item": "STATES-DEAD-1 — interactive-state CSS for elements that no longer render",
             "notes": "**Found 07-31 by `npm run states`** (FIGHT-VERIFY-1 Phase B) via its reachability family, which enumerates every `:hover`/`:active`/`:focus-visible` rule from the live CSSOM and asserts each one matches a live element on some visited screen. Seven subjects match nothing, on any of the 11 screens the tool sweeps (menu · customize + its sunglasses and patterns tabs · settings · challenges · how-to · in-match HUD · pause · results podium · touch in-match): **(1) `.cr-touch-btn`** (`cart-rave-menu.css:182`, `:active`) and **(2) `.cr-kbm-toast-close`** (`:178`, `:hover`/`:active`) — both class names appear in **zero `.js`/`.ts`/`.html` files repo-wide**; the CSS is all that is left of them. **(3) `.cr-level-btn`** (`:529` `:hover:not(.cr-level-btn--disabled)`, `:2400` inside the designed focus ring, `:3289` in the reduced-motion block) — the arena radiogroup at `index.html:703` carries the `hidden` attribute and its own comment calls it a \"hidden radiogroup: arena data source\"; the visible control is the `.cr-arena-page` pager. That also means the nine-selector designed focus ring at `:2398-2409` is an **eight**-selector ring in practice. **(4-6) `a`, `select`, `[role=\"button\"]`** — three of the five element types listed in the unscoped fallback ring at `src/ui/loadingScreen.css:577`; no `<select>` and no `role=\"button\"` element exists anywhere, and the only `<a>` elements created are transient download links (`main.js:5604`, `postFxDebug.js:190/241`). Harmless defensive CSS, but it means that rule is doing two-fifths of the work it looks like it does. All seven are held in `DECLARED_UNREACHABLE` in `tools/states.mjs` with these reasons, printed on stdout every run and in the montage banner — **and if any of them ever starts matching again the run says so out loud**, so declaring them does not hide a future regression.",
-            "ship1": null
-          },
-          {
-            "pri": "High",
-            "item": "*(TOUCH-HOVER-1 ✅ CLOSED PASS 08-06 — TOUCH-HOVER-PT-1, [completed-work.md](./completed-work.md))*",
-            "notes": "",
-            "ship1": null
-          },
-          {
-            "pri": "High",
-            "item": "UI-SCALE-1 — Pass 1 ✅ PASSed 08-05; Pass 2 ⏳ shipped 08-06, awaiting Wyatt playtest",
-            "notes": "Two passes per [responsive-scale-migration.md](./responsive-scale-migration.md): fluid root + rem clamps; media queries stay px. **Pass 1** (`9e2ec60`..`f057abe`) — `tokens.css` root scale, `cart-rave-menu.css` fully converted, ≤768 reflow answered \"phone = fewer elements\", menu hover gated. Playtest: UI-SCALE-RESULTS-PHONE-1 / -WIDE-1 / UI-SCALE-FEED-PHONE-1 all PASS 08-05. **Pass 2** (`dacca48`, `271c5cc`, `5cbc63f`, `8c65bd7`) — the same clamp→rem conversion on `hud.css`, `results.css`, `pauseOverlay.css`, `announcer.css`, `stickers.css`, `loadingScreen.css`, base scope only (media-query internals and breakpoint reconciliation deferred — see UI-SCALE-P2-MEDIA-1 below). `npm run qa` 7/7 throughout; MAE identity-gated at 1920×1080 + 3440×1440 on every file. SHEET-1 fully used (sheet/podium/loadshots); pauseOverlay/announcer covered by a scratch capture script (no dedicated tool). **Not closed** — playtest cards below.",
             "ship1": null
           },
           {
@@ -1421,7 +1422,7 @@
         "counts": {
           "High": 1,
           "Medium": 6,
-          "Low": 10
+          "Low": 11
         },
         "rows": [
           {
@@ -1541,6 +1542,13 @@
             "id": "PERF-RENDERINFO-1",
             "item": "Perf captures never record GPU cost breakdown (draw calls / triangles / programs)",
             "notes": "**Filed 08-06** — exploratory, prompted by fact-checking a Reddit post on Three.js perf pitfalls against this codebase (not a bug report). Every claim in that post already has a real answer here, so this is the one loose thread, not a list: shadows are already avoided entirely (`receiveShadow=false` everywhere, no `renderer.shadowMap`, cheap blob quads instead — [scene.js:939](../../src/scene.js:939), [config.js:608](../../src/config.js:608)); repeated geometry is already instanced ([arena.js](../../src/arena.js), [effects.js](../../src/effects.js), [zanzibarPlatform.js](../../src/levels/zanzibarPlatform.js), [groceryPool.js](../../src/effects/groceryPool.js)) and static-merged ([mergeStaticMeshes.js](../../src/utils/mergeStaticMeshes.js)); allocation-hot paths already reuse scratch objects (`cartShatter.js`, `netcode/binary.js`, `frameVisuals.js`, `simulation.js`). **The one real gap:** `renderer.info` (draw calls, triangles, geometries, programs) is only ever read ad hoc — the dev-only debug panel ([postFxDebug.js:741](../../src/postFxDebug.js:741)) or PROBE-WARM-RT-1's one-off manual `programs.length` check. It is not captured by the F8 / `perf-profile` pipeline (HARNESS-NULL-1 lineage), so every bisect so far (PERF-PASS-1's Intel-Low investigation) has ms-level frame cost but no GPU-cost breakdown to say *why* a frame is slow — draw-call count vs overdraw vs program count are all invisible to the same snapshot that already carries `meanMs`/`fps`/`over16`. **Instrument-first, no target claimed:** add `renderer.info.render.{calls,triangles}` + `.programs.length` to that snapshot object, same gating as the existing fields. **Not a fix, not a knob** — a diagnostic addition so the next PERF-PASS-1 bisect doesn't re-derive this by hand. Low priority: nothing is blocked on it, it would just have made the last three perf investigations faster.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "id": "KBM-TOAST-1",
+            "item": "`.cr-kbm-toast` / `-toast-text` / `-toast-close` (cart-rave-menu.css:130-206) has no JS reference anywhere in `src/`",
+            "notes": "**Filed 08-06** — found while auditing `text-transform: uppercase` usage (unrelated question). No `document.createElement`/`classList`/template literal anywhere in `src/` sets `cr-kbm-toast` or its children, and `Select-String -Path src -Pattern kbm -Recurse` only hits this one CSS file — looks like orphaned CSS from a removed keyboard/mouse-switch toast. Confirm with a full-text search before deleting (dynamic class construction elsewhere could still reference it), then drop the three rules and their `@media` overrides. Not a ship blocker — dead weight, not a bug.",
             "ship1": null
           }
         ]
