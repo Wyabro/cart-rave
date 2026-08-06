@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-06T07:29:27.538Z",
-    "commit": "9e995a2"
+    "at": "2026-08-06T09:49:41.505Z",
+    "commit": "4c89e04"
   },
-  "source_digest": "dd902870",
+  "source_digest": "9a1ea6fe",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -886,6 +886,7 @@
       "HARNESS-NULL-1 ✅ CLOSED 08-06. Headless `perf-profile --null` (shared-page AB+BA); pure",
       "NET-LOOK-ACC-1 ✅ CLOSED PASS 08-06 (`1198d26`) — two-human Friends-lobby check confirmed.",
       "UI-SCALE-1 (both passes) + TOUCH-HOVER-1 ✅ CLOSED PASS 08-06 (`dacca48`..`78acdb4`, prod",
+      "ONBOARD-SLIDES-1 L1 ⏳ SHIPPED 08-06 (`4c89e04`), UNPUSHED — L2 blocked on an art source.",
       "Hitch forensics: cap-254–260 (build `8d96b0b`) before any PERF-PASS-1 knob."
     ],
     "open_issues": [
@@ -1332,8 +1333,8 @@
           {
             "pri": "High",
             "item": "ONBOARD-SLIDES-1 — how-to-play as click-through visual slides `[pre-ship]`",
-            "notes": "Replace wall-of-text “how to play” with a **slideshow**: card-by-card slides the player can click through, each with GIF / short animation / picture so rules land fast. Keep Solo-as-tutorial stance. Needs asset list (slide topics + art) before full polish. **Absorbed 08-05: ONBOARD-1** (`[SHIP-1 E4]` first-run controls card) — it was already marked \"fold into this card\", so it is no longer a separate row; if a one-shot controls reminder is still wanted *after* slides ship, file it fresh with its own evidence rather than reviving the stub.",
-            "ship1": "E4"
+            "notes": "⏳ **L1 SHIPPED 08-06 (`4c89e04`), UNPUSHED AND NOT DEPLOYED — L2 (the art) is blocked on an art source, see below.** L1 replaced the wall of text with a five-slide deck: AISLE 1 DRIVE (controls, re-rendered per keyboard/gamepad/touch) · 2 RAM THEM OUT · 3 CHAIN COMBOS (combo chips) · 4 THE LIVING STORE · 5 PRICE CHECK (directives + price chips). Nothing dropped from the old screen. The primary button **morphs** `NEXT ▸`→`LET'S ROLL` rather than closing, because `howtoSeen` is still stamped on open (ONBOARD-FLAG-1) and a closing focused default would have made \"see 1 rule of 5, never asked again\" the first-run happy path. No wrap-around, dots are non-focusable spans, no new keyboard handler (gamepadNav already owns the arrows). `npm run qa` 7/7 (1563 tests, +4); `npm run states` FAIL set byte-identical to a stash-measured pre-change baseline. **Absorbed 08-05: ONBOARD-1.** <br>**L2 BLOCKED — the plan's capture premise was falsified.** Three slides ship a styled placeholder panel where a still goes. `npm run shoot` cannot produce them: it renders the **attract state, so the arena is empty of carts**, it bakes the software-mode modal into the frame, and it runs on SwiftShader (see **SHOOT-SOFTGL-1**). A scratch rig that drives a real solo round with real GPU flags *does* produce the right look (verified: RTX 4090, 60 fps, correct dark neon), but framing is non-deterministic — the chase cam follows the local cart and NPC positions differ every run — so getting three *good* stills is a sample-and-hand-pick job, not a scripted one. **Wyatt is the art director and owns a 4090; three of his own screenshots are minutes of his time versus an hour of uncertain agent iteration.** Decide the art source before spending more: (a) Wyatt supplies 3 stills, agent crops/encodes/wires; (b) agent iterates the scratch rig; (c) drop the art slot and ship 5 text/chip slides, art as a follow-up. **Do not deploy L1 alone** — placeholder panels on prod.",
+            "ship1": null
           },
           {
             "pri": "Medium",
@@ -1412,10 +1413,25 @@
       {
         "title": "Tech Debt",
         "counts": {
-          "Medium": 5,
-          "Low": 9
+          "High": 1,
+          "Medium": 6,
+          "Low": 10
         },
         "rows": [
+          {
+            "pri": "High",
+            "id": "MONTAGE-ESC-1",
+            "item": "`tools/lib/montage.mjs` throws `ReferenceError: esc is not defined` — every contact sheet fails to write",
+            "notes": "**Found 08-06 while running `npm run states` for ONBOARD-SLIDES-1; `tools/` was frozen so it was filed, not fixed.** [montage.mjs:22](../../tools/lib/montage.mjs) is `export { esc } from \"./ccStyle.mjs\"` — a **re-export, which creates no local binding**, so the two `esc()` calls inside `montagePage` itself throw. Introduced by **CC-ESC-1 (`894b448`, 08-06)**, which replaced a local copy of the escaper with the re-export; the *importers* were fine (a re-export is valid for consumers), which is why it read as correct. **Blast radius: `states` · `sheet` · `podium` · `loadshots` — all four call `montagePage` and all four now crash after their checks complete.** The checks themselves still run and report, so this reads as a passing run with a stack trace at the end; `npm run states` exits non-zero regardless of the sweep result. **Fix is one line:** `import { esc } from \"./ccStyle.mjs\"; export { esc };` — keep the single-source intent CC-ESC-1 was after, just give the module a local binding too. Worth a regression test that actually *calls* `montagePage`, since nothing currently does in unit tests.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "id": "SHOOT-SOFTGL-1",
+            "item": "`npm run shoot` bakes the software-mode modal into every capture, and renders on SwiftShader",
+            "notes": "**Found 08-06 alongside MONTAGE-ESC-1, same freeze.** Two gaps, one card because the fix is one place. (1) [shoot.mjs:201-213](../../tools/shoot.mjs) dismisses onboarding and hides `#cr-howto-screen`, but never removes **`#cr-softgl-notice`** — so headless captures carry a full-screen \"GRAPHICS RUNNING IN SOFTWARE MODE\" modal across the middle of the frame. `states.mjs:480`, `loadshots.mjs:629`, `sheet.mjs:203` and `podium.mjs:350` all remove it; `shoot` is the only capture tool that does not. (2) `shoot` passes **no GPU flags**, so Chromium falls back to SwiftShader and the colour is wrong, not merely blurry — Cart Rave's record floor renders **olive green** instead of the dark neon read. [shoot-gpu.mjs](../../tools/shoot-gpu.mjs) already documents both as \"visual-qa.md trap #1\" and carries the fix (`--enable-gpu --ignore-gpu-blocklist --use-gl=angle` + an `UNMASKED_RENDERER` readout), but it is scoped in its own header as a **one-off for ART-PASS-CLASSIC-1**. **Scope if picked up:** fold shoot-gpu's launch args and vendor readout into `shoot.mjs` behind a `--gpu` flag and add the softgl removal unconditionally; do **not** silently change the default launch, since every committed `shots/` baseline was captured under SwiftShader and MAE comparisons against them would move.",
+            "ship1": null
+          },
           {
             "pri": "Medium",
             "id": "SHADOW-HAZARD-SEAM-1",
@@ -1512,6 +1528,13 @@
             "id": "AUDIO-MASTER-1",
             "item": "`_masterVol` is write-only dead state",
             "notes": "**Filed 08-02** during MENU-MUSIC-VOL-1. `audioManager.js:14` initialises `_masterVol = 0.575` and `restoreVolumeState` (`:233`) clamps and re-assigns it — but **nothing ever reads it**, so the \"master\" volume the boot path carefully restores from localStorage has no effect on any bus. Music and SFX each carry their own category volume (`_musicVol` / `_sfxVol`) and `applyAllVolumes` deliberately pins `Howler.volume(1)`, so there is no master stage left for it to feed. Either wire it up as a real third stage (product decision — it would rescale every existing user's audio) or delete it and drop `master` from the restore payload. **Do not** \"fix\" it by multiplying it into the Howler writes without a look at MENU-MUSIC-VOL-1's clamp: the store domain is 0..1.15 and Howler's ceiling is 1.0, so an extra 0.575 factor would silently re-scale the whole mix. Not a ship blocker; zero current behaviour.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "id": "PERF-RENDERINFO-1",
+            "item": "Perf captures never record GPU cost breakdown (draw calls / triangles / programs)",
+            "notes": "**Filed 08-06** — exploratory, prompted by fact-checking a Reddit post on Three.js perf pitfalls against this codebase (not a bug report). Every claim in that post already has a real answer here, so this is the one loose thread, not a list: shadows are already avoided entirely (`receiveShadow=false` everywhere, no `renderer.shadowMap`, cheap blob quads instead — [scene.js:939](../../src/scene.js:939), [config.js:608](../../src/config.js:608)); repeated geometry is already instanced ([arena.js](../../src/arena.js), [effects.js](../../src/effects.js), [zanzibarPlatform.js](../../src/levels/zanzibarPlatform.js), [groceryPool.js](../../src/effects/groceryPool.js)) and static-merged ([mergeStaticMeshes.js](../../src/utils/mergeStaticMeshes.js)); allocation-hot paths already reuse scratch objects (`cartShatter.js`, `netcode/binary.js`, `frameVisuals.js`, `simulation.js`). **The one real gap:** `renderer.info` (draw calls, triangles, geometries, programs) is only ever read ad hoc — the dev-only debug panel ([postFxDebug.js:741](../../src/postFxDebug.js:741)) or PROBE-WARM-RT-1's one-off manual `programs.length` check. It is not captured by the F8 / `perf-profile` pipeline (HARNESS-NULL-1 lineage), so every bisect so far (PERF-PASS-1's Intel-Low investigation) has ms-level frame cost but no GPU-cost breakdown to say *why* a frame is slow — draw-call count vs overdraw vs program count are all invisible to the same snapshot that already carries `meanMs`/`fps`/`over16`. **Instrument-first, no target claimed:** add `renderer.info.render.{calls,triangles}` + `.programs.length` to that snapshot object, same gating as the existing fields. **Not a fix, not a knob** — a diagnostic addition so the next PERF-PASS-1 bisect doesn't re-derive this by hand. Low priority: nothing is blocked on it, it would just have made the last three perf investigations faster.",
             "ship1": null
           }
         ]
