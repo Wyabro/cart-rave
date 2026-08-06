@@ -13,13 +13,16 @@
  * D-SHEET-1 discipline in HTML form.
  */
 
-import { ROOT_TOKENS } from "./ccStyle.mjs";
+import { ROOT_TOKENS, esc } from "./ccStyle.mjs";
 
 // CC-ESC-1: this used to be a second, slightly weaker HTML-escaper (missing the
 // apostrophe) that could silently re-diverge from ccStyle's any time either one was
-// edited alone. A re-export — not a wrapper — is the fix: the two can no longer drift
-// because there is only one function.
-export { esc } from "./ccStyle.mjs";
+// edited alone. Re-exporting the single source is the fix: the two can no longer drift
+// because there is only one function. MONTAGE-ESC-1: the re-export alone creates no
+// local binding, so the two esc() calls inside montagePage below threw ReferenceError —
+// import it too, then re-export, so both this module's own calls and its consumers share
+// the one function.
+export { esc };
 
 /**
  * Render a full montage page.
