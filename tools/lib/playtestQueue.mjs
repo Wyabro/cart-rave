@@ -16,11 +16,13 @@ import {
   parseStatusOpenIssues,
   parseBacklogSections,
   issueState,
+  WORK_ID_RE,
 } from "./projectHealth.mjs";
 
 /** @typedef {"solo" | "mp"} PlaytestRig */
 /** @typedef {"tag" | "hint" | "default"} RigVia */
 /** @typedef {{ id: string, phase: string, title: string, do: string, context: string, steps: string[], tail: string, expect: string, f8: string, source: string, priority: string, rig: PlaytestRig, rigVia: RigVia, requiresNote?: boolean, notePrompt?: string }} PlaytestCard */
+/** @typedef {{ id: string, reason: "step-overflow" | "multi-id", detail: string }} PlaytestWarning */
 
 const OWED_BACKLOG_RE =
   /owed:\s*wyatt\s+playtest|needs?\s+wyatt(?:'s)?\s+(?:multiplayer\s+)?playtest|playtest\s+requested/i;
@@ -63,6 +65,69 @@ export function classifyRig(sourceText) {
 
 /** @type {Record<RigVia, number>} */
 const RIG_VIA_RANK = { tag: 3, hint: 2, default: 1 };
+
+// Fresh global copy of the shared work-id shape. `String.prototype.matchAll` requires
+// the `g` flag but does not mutate the regex's `lastIndex` between calls (it clones
+// internally per spec), so one module-level instance is safe to reuse across every
+// card in a queue — unlike `.exec()` in a loop, which would need explicit resets.
+const WORK_ID_RE_G = new RegExp(WORK_ID_RE.source, "g");
+
+/** @param {string} text */
+function allWorkIds(text) {
+  return [...String(text ?? "").matchAll(WORK_ID_RE_G)].map((m) => m[1]);
+}
+
+const MAX_STEPS_BEFORE_WARN = 5;
+
+/**
+ * Flag playtest cards that read as more than one independent verdict — the MAIN-1
+ * failure shape (BACKLOG § Playtest console seed): a real defect can ride inside a
+ * green PASS when a card bundles unrelated checks with nowhere for a mixed result to
+ * go. Two signals, both deliberately narrow:
+ *
+ *   - **step overflow** — more than MAX_STEPS_BEFORE_WARN numbered steps. A legit
+ *     single check runs 2-4 "get here → do this → look at that" steps; MAIN-1 had 7.
+ *   - **multiple foreign work ids** — >=2 distinct ids other than the card's own,
+ *     found in `steps` + `tail` ONLY (never `do`/`context`). A single cross-ref in a
+ *     step is ordinary card prose (UI-P2-PAUSE-PT-1's steps cite TOUCH-HOVER-1) —
+ *     which is why the bar is >=2, not >=1 — and scanning the goal/context sentence
+ *     would false-positive today on cards that just *mention* a related id
+ *     (NET-LOOK-ACC-1 → NET-AUDIT-SLOTS-LOOK-1, SHARD-PT-2 → SHARD-PT-1). Widening
+ *     either the scope or the threshold "for safety" breaks the very next real queue.
+ *
+ * Warning only. This does not gate `health:check` (not until it survives a few real
+ * exports without a false positive) and does not auto-split rows — the split has to
+ * happen in BACKLOG, where PASS bookkeeping is anchored, not in the generator.
+ *
+ * @param {PlaytestCard[]} cards
+ * @returns {PlaytestWarning[]}
+ */
+export function multiIssueWarnings(cards) {
+  /** @type {PlaytestWarning[]} */
+  const warnings = [];
+  for (const c of cards || []) {
+    if (!c || c.source === "system") continue;
+    const steps = c.steps || [];
+    if (steps.length > MAX_STEPS_BEFORE_WARN) {
+      warnings.push({
+        id: c.id,
+        reason: "step-overflow",
+        detail: `${steps.length} steps (cap ${MAX_STEPS_BEFORE_WARN}) — split the BACKLOG row, one issue per card.`,
+      });
+    }
+    const foreign = [...new Set(allWorkIds(`${steps.join("\n")}\n${c.tail || ""}`))].filter(
+      (id) => id !== c.id,
+    );
+    if (foreign.length >= 2) {
+      warnings.push({
+        id: c.id,
+        reason: "multi-id",
+        detail: `steps/tail name ${foreign.join(", ")} — split the BACKLOG row, one issue per card.`,
+      });
+    }
+  }
+  return warnings;
+}
 
 /**
  * Combine the rig verdicts of two rows describing the same work id (STATUS and
@@ -457,6 +522,7 @@ export function buildPlaytestQueue(opts) {
       generatedAt: opts.generatedAt || new Date().toISOString(),
       head: opts.head ?? null,
       sources: ["STATUS.md active queue + open issues (blockedOnWyatt)", "BACKLOG.md Owed: Wyatt playtest", "system PREFLIGHT/EXPORT"],
+      warnings: multiIssueWarnings(cards),
     },
   };
 }

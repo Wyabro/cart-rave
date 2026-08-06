@@ -47,6 +47,10 @@ function main() {
   const generatedAt = new Date().toISOString();
   const { cards, meta } = buildPlaytestQueue({ statusMd, backlogMd, head, generatedAt });
 
+  for (const w of meta.warnings || []) {
+    log(`⚠ ${w.id} (${w.reason}): ${w.detail}`);
+  }
+
   const html = renderPlaytestConsoleHtml({
     cards,
     meta,
@@ -62,7 +66,7 @@ function main() {
   const jsonPath = resolve(CAPTURE_DIR, "playtest-queue.json");
   writeFileSync(
     jsonPath,
-    `${JSON.stringify({ generatedAt, head, branch, cards, sources: meta.sources }, null, 2)}\n`,
+    `${JSON.stringify({ generatedAt, head, branch, cards, sources: meta.sources, warnings: meta.warnings ?? [] }, null, 2)}\n`,
     "utf8",
   );
   log(`playtest-queue.json → ${jsonPath}`);

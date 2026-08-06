@@ -78,6 +78,10 @@ const PAGE_CSS = `
   .toast.show { opacity:1; }
   .empty-queue { padding:28px 20px; text-align:center; border:1px dashed var(--edge); border-radius:12px; color:var(--dim); }
   .empty-queue code { color:var(--cyan); }
+  /* PT-CARD-SPLIT-1 — same warning language as ccStyle's #stale, but always-on when
+     rendered (this one is decided server-side at generation time, not toggled by JS). */
+  .card-warn-banner { margin:0 0 16px; padding:12px 18px; border:1px solid rgba(255,194,75,.5);
+    border-radius:10px; background:rgba(255,194,75,.08); color:var(--warn); font-weight:600; }
   .footer-note { margin-top:18px; color:var(--dim); font-size:.8rem; line-height:1.4; }
   .upnext-label { font-size:.78rem; color:var(--dim); margin:18px 0 8px; }
 `;
@@ -92,6 +96,10 @@ export function renderPlaytestConsoleHtml(opts) {
   const head = opts.git?.head || meta.head || "?";
   const gen = meta.generatedAt || new Date().toISOString();
   const payloadJson = JSON.stringify({ cards, meta: { ...meta, branch, head } }).replace(/</g, "\\u003c");
+  const warnings = meta.warnings || [];
+  const warningsBannerHtml = warnings.length
+    ? `<div class="card-warn-banner">⚠ ${warnings.length} card${warnings.length === 1 ? "" : "s"} look like more than one issue — split the BACKLOG row before the next sitting. Details in the export (Copy report).</div>`
+    : "";
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -108,6 +116,7 @@ ${PAGE_CSS}
 </head>
 <body data-generated="${esc(gen)}">
   <div id="stale"></div>
+  ${warningsBannerHtml}
   <div class="sticky-bar">
     <div class="sticky-inner">
       <a href="dashboard.html" class="nav-brand">CART <span class="neon">CLASH</span> PLAYTEST</a>
@@ -280,6 +289,14 @@ ${PAGE_CSS}
     lines.push("");
     lines.push("Agents: triage **one FAIL at a time**. Retest the same card id after a fix.");
     lines.push("");
+
+    const warnings = (DATA.meta && DATA.meta.warnings) || [];
+    if (warnings.length) {
+      lines.push("## CARD WARNINGS (multi-issue check)");
+      lines.push("");
+      for (const w of warnings) lines.push("- " + w.id + " (" + w.reason + "): " + w.detail);
+      lines.push("");
+    }
 
     const fails = TASKS.filter((t) => taskState[t.id]?.status === "fail");
     const passes = TASKS.filter((t) => taskState[t.id]?.status === "pass");

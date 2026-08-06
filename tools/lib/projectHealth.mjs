@@ -162,12 +162,19 @@ export function blockedOnWyatt(status) {
 }
 
 /**
+ * Shared work-id shape: an ALL-CAPS kebab id like `PRE-PODIUM-1`. No `g` flag — callers
+ * that need every match in a blob (not just the first) should build their own global
+ * copy via `new RegExp(WORK_ID_RE.source, "g")` rather than mutate this one.
+ */
+export const WORK_ID_RE = /\b([A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+)\b/;
+
+/**
  * Work-card id from free text (`HUD-FEED-1`, `PRE-PODIUM-1`, …). First ALL-CAPS kebab id wins.
  * @param {string} text
  * @returns {string | null}
  */
 export function extractWorkId(text) {
-  const m = String(text ?? "").match(/\b([A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+)\b/);
+  const m = String(text ?? "").match(WORK_ID_RE);
   return m ? m[1] : null;
 }
 

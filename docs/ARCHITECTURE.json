@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-06T04:21:17.956Z",
-    "commit": "66da5b4"
+    "at": "2026-08-06T05:10:27.931Z",
+    "commit": "bc30c9d"
   },
-  "source_digest": "3e2b2e8f",
+  "source_digest": "a1535723",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -918,7 +918,7 @@
         "counts": {
           "High": 2,
           "Medium": 14,
-          "Low": 10,
+          "Low": 9,
           "Partial": 1
         },
         "rows": [
@@ -950,12 +950,6 @@
             "pri": "Low",
             "item": "RAPIER-DEFAULT-MAX-1 — the combine-rule sweep's docs claim Rapier defaults restitution to `Max`; it defaults to `Average`",
             "notes": "**Filed 08-05 while applying SUNDIAL-OBSTACLE-SLIDE-1, and it corrects the card that shipped immediately before it.** `ColliderDesc` sets **both** `frictionCombineRule` **and** `restitutionCombineRule` to `Average` — read it directly at [collider.js:861-862](../../node_modules/@dimforge/rapier3d/geometry/collider.js), not inferred. Four places assert otherwise, all from WALL-SLIDE-CLASSIC-1 (`00ef1cb`): the comment at [arena.js:2548](../../src/arena.js:2548) (\"Rapier's default is Max\"), the last test in [classicPitWalls.test.js](../../tests/classicPitWalls.test.js) and its rationale, that commit's own message, and its entry in [completed-work.md](./completed-work.md). **Consequence:** Classic's containment lip and shaft staves deflect at **0.40 / 0.45**, not the 0.50 / 0.60 the comments claim (cart restitution 0.3, [config.js:87](../../src/config.js:87)). **This is a claim error, not a behaviour bug — do not \"fix\" the numbers.** WALL-SLIDE-CLASSIC-1 was signed off on prod `a028cb8a` *at the real effective values*, so the felt deflection is already accepted; raising it to the documented figures would change a passed card's feel on the strength of a comment. **Scope if picked up: edit the three claims to say Average, keep every collider value byte-identical.** Worth doing because the false premise is load-bearing prose — it is the stated reason the Classic walls take no restitution rule, and the next editor reading it will reason from a wrong model of what Rapier does. If a higher deflection is ever actually wanted there, that is a separate tuning card with its own playtest.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "HOOK-COMMENT-1 — `guard-git-add.mjs` header points at a caveat that moved",
-            "notes": "**Filed 08-03 by AGENTS-PRIN-1.** [guard-git-add.mjs:78](../../.claude/hooks/guard-git-add.mjs:78) says the strict-JSON-not-JSONC caveat \"lives here and in AGENTS.md § Enforcement\". That section now carries only the summary + escape hatches; the caveat moved to [guides/hook-enforcement.md](../guides/hook-enforcement.md). **Not fixed inline — `.claude/hooks/` is frozen during a game card**, and this is a stale comment, not a behaviour bug (the hook is unaffected). One-line edit whenever a tooling block opens.",
             "ship1": null
           },
           {
@@ -1449,17 +1443,10 @@
       {
         "title": "Tech Debt",
         "counts": {
-          "Medium": 7,
-          "Low": 10
+          "Medium": 5,
+          "Low": 9
         },
         "rows": [
-          {
-            "pri": "Medium",
-            "id": "PT-CARD-SPLIT-1",
-            "item": "Playtest console should refuse multi-issue cards",
-            "notes": "**Filed 08-05 from Wyatt's own instruction** — *\"instead of separate card for these issues it put 7 tasks on one card… make sure future playtests put one issue I'm checking per card so i don't have to pass most a while having issues with a few here and there.\"* The rule is now written in [AGENTS.md](../../AGENTS.md) and the [§ Playtest console seed](./BACKLOG.md) header, but **nothing enforces it** — the generator is doing what it was told: [playtestQueue.mjs:4](../../tools/lib/playtestQueue.mjs:4) seeds one card per *work id*, and MAIN-1's row was authored as one id carrying seven unrelated checks, so the mega-card was an authoring failure the tool happily rendered. **Lever:** in `playtestQueue.mjs`, flag a seeded card whose steps look like independent verdicts — cheapest signal is step count over a small cap (MAIN-1 had 7; a legitimate single check is ~2–4 \"get here → do this → look at that\" steps), plus a check for multiple `FIX-*`/work ids inside one card's steps. Surface it as a build warning and in the export header so the author sees it before Wyatt does; consider promoting to a `health:check` gate only after the warning has run a couple of exports without false positives. **Needs ack — touches `tools/`, so it is frozen during a game card.** Do not silently split rows in the generator: the split has to happen in BACKLOG where the ids and their owed-state live, or PASS bookkeeping loses its anchor.",
-            "ship1": null
-          },
           {
             "pri": "Medium",
             "id": "SHADOW-HAZARD-SEAM-1",
@@ -1524,13 +1511,6 @@
             "ship1": null
           },
           {
-            "pri": "Medium",
-            "id": "PT-CONSOLE-READY-1",
-            "item": "Export reminder: owed cards need non-empty steps",
-            "notes": "**Filed 08-04 under tools freeze (HOST-TAB-1 active).** Standing rule already in AGENTS.md + playtest README. Export copy still only asks agents to close PASSes — it never reminds them to verify remaining owed cards have steps. **Placement:** unconditional preamble near `playtestConsoleHtml.mjs` ~281 (\"Agents: triage one FAIL…\"), **not** inside `if (closable.length)` / CLOSE THESE FIRST (that block is silent when the export has zero PASSes). Draft line: remind agents that remaining FAIL/owed cards must show non-empty steps after regen; fix BACKLOG Notes if empty. Own tools commit when HOST-TAB-1 clears.",
-            "ship1": null
-          },
-          {
             "pri": "Low",
             "id": "TOOL-1",
             "item": "Tooling residue",
@@ -1563,13 +1543,6 @@
             "id": "AUDIO-MASTER-1",
             "item": "`_masterVol` is write-only dead state",
             "notes": "**Filed 08-02** during MENU-MUSIC-VOL-1. `audioManager.js:14` initialises `_masterVol = 0.575` and `restoreVolumeState` (`:233`) clamps and re-assigns it — but **nothing ever reads it**, so the \"master\" volume the boot path carefully restores from localStorage has no effect on any bus. Music and SFX each carry their own category volume (`_musicVol` / `_sfxVol`) and `applyAllVolumes` deliberately pins `Howler.volume(1)`, so there is no master stage left for it to feed. Either wire it up as a real third stage (product decision — it would rescale every existing user's audio) or delete it and drop `master` from the restore payload. **Do not** \"fix\" it by multiplying it into the Howler writes without a look at MENU-MUSIC-VOL-1's clamp: the store domain is 0..1.15 and Howler's ceiling is 1.0, so an extra 0.575 factor would silently re-scale the whole mix. Not a ship blocker; zero current behaviour.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "id": "CC-ESC-1",
-            "item": "Two `esc()` implementations with different escaping",
-            "notes": "`montage.mjs:19` escapes `[&<>\"]`; `ccStyle.mjs:92` escapes `[&<>\"']` — the apostrophe is the delta. Consolidating changes the output of every string the capture sheets render, so it needs **its own card and its own test**, not a drive-by during a styling pass. The import path already exists: `montage.mjs` took `ROOT_TOKENS` from `ccStyle.mjs` on 08-01, so only the behaviour difference blocks this.",
             "ship1": null
           }
         ]

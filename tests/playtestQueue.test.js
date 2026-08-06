@@ -10,6 +10,7 @@ import {
   classifyRig,
   parseOwedCheck,
   f8LabelFor,
+  multiIssueWarnings,
 } from "../tools/lib/playtestQueue.mjs";
 
 describe("blockedOnWyatt", () => {
@@ -253,5 +254,77 @@ describe("cardsFromStatus / cardsFromBacklog", () => {
   it("empty sources → no system bookends", () => {
     const { cards } = buildPlaytestQueue({ statusMd: "# empty\n", backlogMd: "# empty\n" });
     expect(cards).toEqual([]);
+  });
+});
+
+describe("multiIssueWarnings (PT-CARD-SPLIT-1)", () => {
+  /** @param {object} over */
+  const card = (over) => ({ id: "CARD-1", source: "backlog", steps: [], tail: "", context: "", ...over });
+
+  it("warns on step overflow — cap 5, MAIN-1 had 7", () => {
+    const warnings = multiIssueWarnings([
+      card({ steps: Array.from({ length: 7 }, (_, i) => `step ${i}`) }),
+    ]);
+    expect(warnings).toEqual([
+      expect.objectContaining({ id: "CARD-1", reason: "step-overflow" }),
+    ]);
+  });
+
+  it("does not warn at or under the cap — current queue max is 4", () => {
+    expect(multiIssueWarnings([card({ steps: ["a", "b", "c", "d"] })])).toEqual([]);
+    expect(multiIssueWarnings([card({ steps: ["a", "b", "c", "d", "e"] })])).toEqual([]);
+  });
+
+  it("does not warn on a single foreign id in steps — an ordinary cross-ref", () => {
+    // UI-P2-PAUSE-PT-1's real steps cite TOUCH-HOVER-1; that must stay clean.
+    const warnings = multiIssueWarnings([
+      card({ id: "UI-P2-PAUSE-PT-1", steps: ["Confirm hover paint is gated after TOUCH-HOVER-1."] }),
+    ]);
+    expect(warnings).toEqual([]);
+  });
+
+  it("warns when two distinct foreign ids appear across separate steps", () => {
+    const warnings = multiIssueWarnings([
+      card({ steps: ["Retest after HOST-TAB-1 lands.", "Also confirm the DIAG-FLAKE-2 residual is gone."] }),
+    ]);
+    expect(warnings).toEqual([
+      expect.objectContaining({ id: "CARD-1", reason: "multi-id" }),
+    ]);
+  });
+
+  it("warns when one step alone names two foreign ids — the matchAll case", () => {
+    // extractWorkId is first-match-only, so a single-step scan built on it would
+    // false-negative this: the second id in the same step would never be seen.
+    const warnings = multiIssueWarnings([
+      card({ steps: ["Regression window is after HOST-TAB-1 and before DIAG-FLAKE-2."] }),
+    ]);
+    expect(warnings).toEqual([
+      expect.objectContaining({ id: "CARD-1", reason: "multi-id" }),
+    ]);
+  });
+
+  it("ignores foreign ids in context/do — steps + tail only", () => {
+    // NET-LOOK-ACC-1's goal sentence names NET-AUDIT-SLOTS-LOOK-1; SHARD-PT-2's
+    // names SHARD-PT-1. Scanning context/do would false-positive both today.
+    const warnings = multiIssueWarnings([
+      card({
+        id: "NET-LOOK-ACC-1",
+        context: "Related to NET-AUDIT-SLOTS-LOOK-1 and SHARD-PT-1, but not itself.",
+        steps: ["Play one round.", "Confirm camera look accel feels the same."],
+      }),
+    ]);
+    expect(warnings).toEqual([]);
+  });
+
+  it("never warns on system cards regardless of step count", () => {
+    const warnings = multiIssueWarnings([
+      card({ id: "PREFLIGHT", source: "system", steps: Array.from({ length: 9 }, (_, i) => `s${i}`) }),
+    ]);
+    expect(warnings).toEqual([]);
+  });
+
+  it("clean queue produces no warnings", () => {
+    expect(multiIssueWarnings([])).toEqual([]);
+    expect(multiIssueWarnings([card({ steps: ["one", "two"] })])).toEqual([]);
   });
 });
