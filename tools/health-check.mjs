@@ -47,8 +47,12 @@ async function main() {
     ? undefined
     : planSync(skillsSrc, resolve(cwd, ".claude/skills"));
 
+  // * BACKLOG.md is committed like STATUS.md, so no CI escape hatch — read without a
+  // * try/catch: a missing file is a setup error (exit 2), same as STATUS.md above.
+  const backlogMd = await readFile(resolve(cwd, "docs/planning/BACKLOG.md"), "utf8");
+
   const health = await collectProjectHealth({ cwd });
-  const result = evaluateProjectHealth({ statusMd, briefingMd, health, archInput, skillsPlan });
+  const result = evaluateProjectHealth({ statusMd, briefingMd, health, archInput, skillsPlan, backlogMd });
   for (const f of result.findings) {
     const tag = f.severity === "error" ? "ERR" : "WARN";
     log(`${tag} ${f.code}: ${f.message}`);

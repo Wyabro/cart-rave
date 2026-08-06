@@ -119,6 +119,7 @@ const BACKLOG_HYGIENE_FIXTURE = `# Backlog
 
 1. ~~**ZED-1**~~ — ✅ **CLOSED PASS** done, absorbed elsewhere.
 2. **BAR-1** — next up, not done yet.
+3. WOO-1 — ✅ shipped separately, not yet added to the closed do-not-reopen list below.
 
 **Do not pick:** QUX-1 (parked, unrelated mention).
 
@@ -654,6 +655,142 @@ describe("flattenBacklogRows", () => {
 
   it("leaves 25%-ish of real rows id-less rather than failing — degrades to null, never throws", () => {
     expect(() => flattenBacklogRows(readFileSync(new URL("../docs/planning/BACKLOG.md", import.meta.url), "utf8"))).not.toThrow();
+  });
+});
+
+describe("validateBacklogHygiene", () => {
+  const errors = (findings) => findings.filter((f) => f.severity === "error").map((f) => f.code);
+  const warns = (findings) => findings.filter((f) => f.severity === "warn").map((f) => f.code);
+
+  it("BACKLOG_HYGIENE_FIXTURE is clean — baseline for every mutation test below", async () => {
+    const { validateBacklogHygiene } = await import("../tools/lib/projectHealthValidation.mjs");
+    expect(validateBacklogHygiene(BACKLOG_HYGIENE_FIXTURE)).toEqual([]);
+  });
+
+  it("flags a stub row (✅/CLOSED in Pri or Item) but not a mention of either in Notes", async () => {
+    const { validateBacklogHygiene } = await import("../tools/lib/projectHealthValidation.mjs");
+    const dirty = BACKLOG_HYGIENE_FIXTURE.replace(
+      "| Medium | BETA-1 — another card | notes |",
+      "| Medium | *(BETA-1 ✅ CLOSED PASS)* | notes |",
+    );
+    expect(errors(validateBacklogHygiene(dirty))).toContain("BACKLOG_CLOSED_STUB_ROW");
+    // A Notes cell discussing another closed card is normal prose, not a stub — must stay clean.
+    const notesOnly = BACKLOG_HYGIENE_FIXTURE.replace(
+      "| Medium | DELTA-1 | Delta thing | notes |",
+      "| Medium | DELTA-1 | Delta thing | superseded the now-✅ CLOSED FOO-1 |",
+    );
+    expect(errors(validateBacklogHygiene(notesOnly))).toEqual([]);
+  });
+
+  it("flags two rows sharing one id", async () => {
+    const { validateBacklogHygiene } = await import("../tools/lib/projectHealthValidation.mjs");
+    const dirty = BACKLOG_HYGIENE_FIXTURE.replace(
+      "| Low | EPS-1 — low card | notes |",
+      "| Low | ALPHA-1 — duplicate low card | notes |",
+    );
+    expect(errors(validateBacklogHygiene(dirty))).toContain("BACKLOG_DUPLICATE_ROW_ID");
+  });
+
+  it("flags an open row whose id is already on the closed do-not-reopen list", async () => {
+    const { validateBacklogHygiene } = await import("../tools/lib/projectHealthValidation.mjs");
+    const dirty = BACKLOG_HYGIENE_FIXTURE.replace(
+      "| 🟡 Partial | GAMMA-1 — partial card | notes |",
+      "| 🟡 Partial | ZED-1 — partial card | notes |",
+    );
+    expect(errors(validateBacklogHygiene(dirty))).toContain("BACKLOG_CLOSED_ID_HAS_ROW");
+  });
+
+  it("flags a closed-list that still ends in an ellipsis", async () => {
+    const { validateBacklogHygiene } = await import("../tools/lib/projectHealthValidation.mjs");
+    const dirty = BACKLOG_HYGIENE_FIXTURE.replace(
+      "never real** (parenthetical caveat), QUX-1\n",
+      "never real** (parenthetical caveat), QUX-1, …\n",
+    );
+    expect(errors(validateBacklogHygiene(dirty))).toContain("BACKLOG_CLOSED_LIST_TRUNCATED");
+  });
+
+  it("flags a glance box that lags the real rows (BACKLOG_GLANCE_STALE)", async () => {
+    const { validateBacklogHygiene } = await import("../tools/lib/projectHealthValidation.mjs");
+    const dirty = BACKLOG_HYGIENE_FIXTURE.replace(
+      "| [Engineering](#engineering) | 4 | 1 | 1 | 1 (+1 partial) |",
+      "| [Engineering](#engineering) | 99 | 1 | 1 | 1 (+1 partial) |",
+    );
+    expect(errors(validateBacklogHygiene(dirty))).toContain("BACKLOG_GLANCE_STALE");
+  });
+
+  it("flags a missing GENERATED markers block (BACKLOG_GLANCE_UNPARSED)", async () => {
+    const { validateBacklogHygiene } = await import("../tools/lib/projectHealthValidation.mjs");
+    const md = `# B\n\n## Engineering\n\n| Pri | Item | Notes |\n|-----|------|-------|\n| Low | X-1 — thing | n |\n`;
+    expect(errors(validateBacklogHygiene(md))).toContain("BACKLOG_GLANCE_UNPARSED");
+  });
+
+  it("flags an unrecognized priority the glance table has no column for (BACKLOG_GLANCE_UNPARSED)", async () => {
+    const { validateBacklogHygiene } = await import("../tools/lib/projectHealthValidation.mjs");
+    const md = `# B\n\n## Engineering\n\n| Pri | Item | Notes |\n|-----|------|-------|\n| Critical | X-1 — thing | n |\n`;
+    const result = validateBacklogHygiene(md);
+    expect(errors(result)).toContain("BACKLOG_GLANCE_UNPARSED");
+    expect(result.find((f) => f.code === "BACKLOG_GLANCE_UNPARSED").message).toContain("Critical");
+  });
+
+  // Regression pin: naive "every id on the ✅ line" attribution misattributed PERF-9CELL-1 to
+  // an unrelated ✅ during design. The nearest-left-within-120-chars window fixed it — this
+  // pins that exact shape so a future refactor can't silently regress to the naive version.
+  it("PERF-9CELL-1 regression: an id named >120 chars before an unrelated ✅ is not attributed to it", async () => {
+    const { validateBacklogHygiene } = await import("../tools/lib/projectHealthValidation.mjs");
+    // 175 chars separate "PERF-9CELL-1" from "✅" here — well past the 120-char window — with
+    // HARNESS-NULL-1 sitting inside the window immediately before ✅. A naive "every id on this
+    // line" attribution would (wrongly) mark PERF-9CELL-1 closed; nearest-left must not.
+    const workOrderLine =
+      "2. **BAR-1** — mentions PERF-9CELL-1 early, then a very long padding sentence exists here so " +
+      "the attribution window genuinely expires before reaching the closing marker on this same " +
+      "line, HARNESS-NULL-1 finally ✅ closes for an unrelated reason.";
+    const dirty = BACKLOG_HYGIENE_FIXTURE
+      .replace("2. **BAR-1** — next up, not done yet.", workOrderLine)
+      .replace("| Low | EPS-1 — low card | notes |", "| Low | PERF-9CELL-1 — low card | notes |");
+    expect(warns(validateBacklogHygiene(dirty))).not.toContain("BACKLOG_WORKORDER_CLOSED_HAS_ROW");
+  });
+
+  it("warns (not errors) on an id the Work order marks closed while still an open row", async () => {
+    const { validateBacklogHygiene } = await import("../tools/lib/projectHealthValidation.mjs");
+    const dirty = BACKLOG_HYGIENE_FIXTURE.replace(
+      "| Low | EPS-1 — low card | notes |",
+      "| Low | WOO-1 — low card | notes |",
+    );
+    const result = validateBacklogHygiene(dirty);
+    expect(warns(result)).toContain("BACKLOG_WORKORDER_CLOSED_HAS_ROW");
+    expect(errors(result)).toEqual([]); // this signal is provisional prose-parsing, not a hard error
+  });
+});
+
+describe("evaluateProjectHealth backlog wiring", () => {
+  it("omitting backlogMd yields no BACKLOG_* finding", async () => {
+    const { evaluateProjectHealth } = await import("../tools/lib/projectHealthValidation.mjs");
+    const { findings } = evaluateProjectHealth({ statusMd: "# S\n\n### Release phases\n\n- ▶ Playtesting\n" });
+    expect(findings.some((f) => f.code.startsWith("BACKLOG_"))).toBe(false);
+  });
+
+  it("passing backlogMd surfaces BACKLOG_* findings through the aggregate", async () => {
+    const { evaluateProjectHealth } = await import("../tools/lib/projectHealthValidation.mjs");
+    const dirty = BACKLOG_HYGIENE_FIXTURE.replace(
+      "| Low | EPS-1 — low card | notes |",
+      "| Low | ALPHA-1 — duplicate low card | notes |",
+    );
+    const { ok, findings } = evaluateProjectHealth({
+      statusMd: "# S\n\n### Release phases\n\n- ▶ Playtesting\n",
+      backlogMd: dirty,
+    });
+    expect(ok).toBe(false);
+    expect(findings.map((f) => f.code)).toContain("BACKLOG_DUPLICATE_ROW_ID");
+  });
+});
+
+describe("live docs/planning/BACKLOG.md hygiene", () => {
+  const read = () => readFileSync(new URL("../docs/planning/BACKLOG.md", import.meta.url), "utf8");
+
+  it("has no error-severity BACKLOG_* findings", async () => {
+    const { validateBacklogHygiene } = await import("../tools/lib/projectHealthValidation.mjs");
+    const findings = validateBacklogHygiene(read());
+    expect(findings.filter((f) => f.severity === "error").map((f) => f.code)).toEqual([]);
   });
 });
 

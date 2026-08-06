@@ -6,9 +6,10 @@
  * deterministically when docs/tools drift.
  */
 
-import { issueState, queueRowState, parseStatusReleasePhases, parseStatusCurrentFocus, parseStatusPlaytestQueue, parseStatusOpenIssues, parseStatusDoNots, extractSection, parseListItems } from "./projectHealth.mjs";
+import { issueState, queueRowState, parseStatusReleasePhases, parseStatusCurrentFocus, parseStatusPlaytestQueue, parseStatusOpenIssues, parseStatusDoNots, extractSection, parseListItems, flattenBacklogRows, WORK_ID_RE } from "./projectHealth.mjs";
 import { extractBriefingDigest, briefingSourceDigest } from "./briefing.mjs";
 import { extractArchDigest } from "./archRender.mjs";
+import { computeBacklogGlance, renderBacklogGlanceBlock, extractBacklogGlanceBlock } from "./backlogGlance.mjs";
 
 /** Canonical phase order (STATUS ### Release phases). */
 export const PHASE_ORDER = [
@@ -284,6 +285,143 @@ export function validateArchitectureFreshness(archJsonText, liveDigest) {
 }
 
 /**
+ * IDs on the "## Closed / do-not-reopen reference" list, scanned by regex rather than
+ * a comma-split — one real entry there is bold prose with internal commas spanning
+ * two lines, so splitting on "," would shred it into bogus fragments.
+ * @param {string} backlogMd
+ * @returns {Set<string>}
+ */
+function closedRefIds(backlogMd) {
+  const section = extractSection(backlogMd, "## Closed / do-not-reopen reference") ?? "";
+  const re = new RegExp(WORK_ID_RE.source, "g");
+  return new Set([...section.matchAll(re)].map((m) => m[1]));
+}
+
+/**
+ * IDs the "## Work order" prose marks as closed: either struck (`~~**ID**~~`) or the
+ * nearest id within 120 characters BEFORE a `✅`. The 120-char nearest-left window is
+ * load-bearing, not arbitrary — attributing every id on a ✅'s line produced a real
+ * false positive while this was designed (PERF-9CELL-1, named later on a line whose
+ * ✅ belonged to HARNESS-NULL-1); nearest-left fixed it. Prose, not a table, hence
+ * this feeds a warn-severity finding, not an error — see BACKLOG_WORKORDER_CLOSED_HAS_ROW.
+ * @param {string} backlogMd
+ * @returns {Set<string>}
+ */
+function workOrderClosedIds(backlogMd) {
+  const section = extractSection(backlogMd, "## Work order") ?? "";
+  const ids = new Set();
+  for (const m of section.matchAll(/~~\*\*([A-Z][A-Z0-9-]+)\*\*~~/g)) ids.add(m[1]);
+  const idRe = new RegExp(WORK_ID_RE.source, "g");
+  for (const m of section.matchAll(/✅/g)) {
+    const head = section.slice(Math.max(0, m.index - 120), m.index);
+    const near = [...head.matchAll(idRe)];
+    if (near.length) ids.add(near.at(-1)[1]);
+  }
+  return ids;
+}
+
+/**
+ * Mechanical hygiene checks on docs/planning/BACKLOG.md — the 2026-08-06 audit found
+ * five classes of drift in this file (glance-box counts 87 vs 92 real rows; four
+ * closed cards left as stub rows instead of deleted; a duplicate-subject card filed
+ * against CSS an existing card already owned; a Work-order block claiming "fully
+ * drained" with two open cards under it; a row claiming "awaiting playtest" after the
+ * Work order had already recorded it closed). This validator makes the mechanical
+ * subset of that — arithmetic, stub rows, duplicate/reopened ids, glance freshness —
+ * impossible to miss. Subject-duplicates and "is this block really drained" claims
+ * are not machine-checkable and stay judgment, held by BACKLOG.md's own house rules.
+ * @param {string} backlogMd
+ * @returns {HealthFinding[]}
+ */
+export function validateBacklogHygiene(backlogMd) {
+  /** @type {HealthFinding[]} */
+  const findings = [];
+  const rows = flattenBacklogRows(backlogMd);
+
+  for (const r of rows) {
+    if (/✅/.test(r.pri) || /\bCLOSED\b/.test(r.pri) || /✅/.test(r.item) || /\bCLOSED\b/.test(r.item)) {
+      findings.push({
+        code: "BACKLOG_CLOSED_STUB_ROW",
+        severity: "error",
+        message: `${r.section} row "${r.id ?? r.item.slice(0, 60)}" reads closed but is still a row — delete it and move the writeup to completed-work.md`,
+      });
+    }
+  }
+
+  const byId = new Map();
+  for (const r of rows) {
+    if (!r.id) continue;
+    if (!byId.has(r.id)) byId.set(r.id, []);
+    byId.get(r.id).push(r);
+  }
+  for (const [id, group] of byId) {
+    if (group.length > 1) {
+      findings.push({
+        code: "BACKLOG_DUPLICATE_ROW_ID",
+        severity: "error",
+        message: `${id} heads ${group.length} rows (${group.map((r) => r.section).join(", ")}) — one card = one row`,
+      });
+    }
+  }
+
+  const closed = closedRefIds(backlogMd);
+  for (const id of byId.keys()) {
+    if (closed.has(id)) {
+      findings.push({
+        code: "BACKLOG_CLOSED_ID_HAS_ROW",
+        severity: "error",
+        message: `${id} is on the closed do-not-reopen list and is also an open row — new evidence needed to re-file it, or the list entry is stale`,
+      });
+    }
+  }
+
+  const closedSection = extractSection(backlogMd, "## Closed / do-not-reopen reference") ?? "";
+  if (/…\s*$/.test(closedSection.trim()) || /\.\.\.\s*$/.test(closedSection.trim())) {
+    findings.push({
+      code: "BACKLOG_CLOSED_LIST_TRUNCATED",
+      severity: "error",
+      message: "the closed do-not-reopen list still ends in an ellipsis — finish it so BACKLOG_CLOSED_ID_HAS_ROW isn't checking against a known-incomplete list",
+    });
+  }
+
+  const glance = computeBacklogGlance(backlogMd);
+  if (!glance.ok) {
+    findings.push({ code: "BACKLOG_GLANCE_UNPARSED", severity: "error", message: glance.reason });
+  } else {
+    const current = extractBacklogGlanceBlock(backlogMd);
+    if (current === null) {
+      findings.push({
+        code: "BACKLOG_GLANCE_UNPARSED",
+        severity: "error",
+        message: "docs/planning/BACKLOG.md is missing the GENERATED counts markers — run `npm run backlog` after inserting them once by hand",
+      });
+    } else {
+      const expected = renderBacklogGlanceBlock(glance);
+      if (current !== expected) {
+        findings.push({
+          code: "BACKLOG_GLANCE_STALE",
+          severity: "error",
+          message: "docs/planning/BACKLOG.md's glance box lags the real rows — run `npm run backlog`",
+        });
+      }
+    }
+  }
+
+  const woClosedIds = workOrderClosedIds(backlogMd);
+  for (const id of byId.keys()) {
+    if (woClosedIds.has(id)) {
+      findings.push({
+        code: "BACKLOG_WORKORDER_CLOSED_HAS_ROW",
+        severity: "warn",
+        message: `${id} reads closed in the Work order but is still an open row`,
+      });
+    }
+  }
+
+  return findings;
+}
+
+/**
  * Validate that Claude Code's local skills mirror matches the committed one.
  *
  * Skills are committed to `.agents/skills/` (the cross-runtime alias every non-Claude tool
@@ -316,6 +454,7 @@ export function validateSkillsMirror(plan) {
  *   health?: any,
  *   archInput?: { expansion?: any, archJsonText?: string, liveDigest?: string },
  *   skillsPlan?: { name: string, status: "created" | "updated" | "unchanged" }[],
+ *   backlogMd?: string,
  * }} input
  */
 export function evaluateProjectHealth(input) {
@@ -327,6 +466,7 @@ export function evaluateProjectHealth(input) {
     ...(arch?.expansion ? validateArchitectureMap(arch.expansion) : []),
     ...(arch?.liveDigest !== undefined ? validateArchitectureFreshness(arch.archJsonText ?? "", arch.liveDigest) : []),
     ...(input.skillsPlan !== undefined ? validateSkillsMirror(input.skillsPlan) : []),
+    ...(input.backlogMd !== undefined ? validateBacklogHygiene(input.backlogMd) : []),
   ];
   return {
     ok: findings.every((f) => f.severity !== "error"),
