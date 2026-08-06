@@ -43,6 +43,26 @@ describe("scoreHostCapability", () => {
     expect(scoreHostCapability({ gpuClass: "unknown", qualityTier: "medium" })).toBeGreaterThan(30);
   });
 
+  it("TIER-DEFAULT-1 lever 3: six-class buckets no longer collapse to one iGPU score", () => {
+    // * qualityTier: "low" isolates the gpuClass bucket (tier adds +0 at low).
+    const base = { qualityTier: "low", hardwareConcurrency: null, deviceMemoryGb: null };
+    const basic = scoreHostCapability({ ...base, gpuClass: "igpu-basic" });
+    const modern = scoreHostCapability({ ...base, gpuClass: "igpu-modern" });
+    const entry = scoreHostCapability({ ...base, gpuClass: "discrete-entry" });
+    const unknown = scoreHostCapability({ ...base, gpuClass: "unknown" });
+    const software = scoreHostCapability({ ...base, gpuClass: "software" });
+    const discrete = scoreHostCapability({ ...base, gpuClass: "discrete" });
+    // * Strictly ordered: an Intel UHD and a GTX 1050 laptop must no longer
+    // * score identically (both used to fall into the 40 "unknown / iGPU" bucket).
+    expect(software).toBeLessThan(basic);
+    expect(basic).toBeLessThan(modern);
+    expect(modern).toBeLessThan(entry);
+    expect(entry).toBeLessThan(discrete);
+    // * "unknown" (genuinely unrecognized) stays at the original neutral 40 —
+    // * only the recognized iGPU/entry-discrete classes get their own bucket.
+    expect(unknown).toBe(40);
+  });
+
   it("clamps to 0–100", () => {
     expect(clampHostScore(999)).toBe(100);
     expect(clampHostScore(-3)).toBe(0);

@@ -71,10 +71,19 @@ export function shouldShowWeakHostWarning({ isHost, hostScore, alreadyWarned }) 
  */
 export function scoreHostCapability(caps = {}) {
   const gpuClass = caps.gpuClass ?? "unknown";
+  // * TIER-DEFAULT-1 lever 3: six-class base scores. Values for "software" and
+  // * "discrete" are unchanged from the original 3-class table (existing tests
+  // * pin them); igpu-basic/igpu-modern/discrete-entry are new buckets that
+  // * previously all collapsed into the 40 "unknown / iGPU" catch-all — an Intel
+  // * UHD (igpu-basic) and a GTX 1050 laptop (discrete-entry) used to score
+  // * identically for host election.
   let score = 40;
   if (gpuClass === "software") score = 8;
+  else if (gpuClass === "igpu-basic") score = 25;
+  else if (gpuClass === "igpu-modern") score = 45;
+  else if (gpuClass === "discrete-entry") score = 55;
   else if (gpuClass === "discrete") score = 75;
-  else score = 40; // unknown / iGPU
+  else score = 40; // unknown
 
   const tier = caps.qualityTier ?? "medium";
   if (tier === "high") score += 20;
