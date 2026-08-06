@@ -21,10 +21,10 @@
 
 /* ═══ 7g full-screen results ════════════════════════════════════════════════
    The centred 620px billboard card is retired — the mock is a full surface: PA
-   callout centred at the top, podium bottom-left, receipt + actions in a right
-   rail. The panel carries no sticker material of its own now; it is the layout
-   grid. (Phones keep their own stack — see the coarse/≤768 band below, which is
-   declared later in this file and so still wins there.) */
+   callout centred at the top, podium along the bottom, receipt + actions in a
+   right rail. The panel carries no sticker material of its own now; it is the
+   layout grid. (Phones keep their own stack — see the coarse/≤900 band below,
+   which is declared later in this file and so still wins there.) */
 #results-overlay .results-panel {
   pointer-events: auto;
   display: grid;
@@ -43,9 +43,11 @@
   overflow: hidden;
 }
 
-/* Podium bottom-left, receipt + actions in the right rail. That is the whole
-   screen now — the recessed ledger (lifetime stats, superlatives, per-challenge
-   progress, session history) was cut at review as clutter under the reward. */
+/* Podium along the bottom of column 1, receipt + actions in the right rail.
+   That is the whole screen now — the recessed ledger (lifetime stats,
+   superlatives, per-challenge progress, session history) was cut at review as
+   clutter under the reward. Where in column 1 the podium sits is set below:
+   left edge by default, against the column gap on wide desktop (RESULTS-1). */
 #results-overlay .results-body {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 27.5rem;
@@ -866,6 +868,27 @@
 
   #results-overlay .results-btn--ghost {
     padding: clamp(5px, 1.2vh, 14px);
+  }
+}
+
+/*
+ * RESULTS-1: wide fine-pointer desktop only. The base rules park the podium at
+ * the panel's left edge, so all of column 1's slack became a void between the
+ * podium and the receipt rail — ~240px at 1920, ~1760px at 3440. Park it against
+ * the column gap instead, so the 4.5rem gap is the gutter at every width.
+ *
+ * The 1300px floor is measured, not a round number. The podium is 53.75rem
+ * (4 x 12.5rem + 3 x 1.25rem) and the right rail plus gap is 32rem, against a
+ * root that is itself fluid with a 12px floor (tokens.css). Below ~1283px the
+ * podium is WIDER than column 1, so it overflows either way and justify-self
+ * only picks the direction — and `end` sends the overflow off the panel's left
+ * edge, clipping 2nd place off-screen (measured at 1101x641). Above the floor
+ * there is real slack and the podium simply slides right. Narrower, shorter and
+ * coarse-pointer viewports keep their own bands above, unchanged.
+ */
+@media (min-width: 1300px) and (min-height: 641px) and (pointer: fine) {
+  #results-overlay .results-final {
+    justify-self: end; /* was: start */
   }
 }
 

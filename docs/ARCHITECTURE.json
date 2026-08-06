@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-06T21:06:17.683Z",
-    "commit": "5fba34f"
+    "at": "2026-08-06T23:04:43.082Z",
+    "commit": "ad011e8"
   },
-  "source_digest": "8b301b46",
+  "source_digest": "3bd98988",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1268,7 +1268,7 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "High": 4,
+          "High": 5,
           "Medium": 1,
           "Low": 2
         },
@@ -1304,6 +1304,12 @@
             "ship1": null
           },
           {
+            "pri": "High",
+            "item": "RESULTS-PT-1 — the results screen reads as one composition `[solo]`",
+            "notes": "**Owed: Wyatt playtest — RESULTS-PT-1 — after a match, the podium and the receipt read as one screen instead of two things floating apart.** Shipped 08-06 (unpushed as of seed — use `npm run dev`, or ship first). The podium used to sit hard against the left edge with a big empty gap before the receipt; it now sits right next to it. **Nothing about what is shown changed — judge the arrangement only.**<br>1. Play a solo round to the end and let the results screen come up.<br>2. Look at the bottom half: the four rank blocks should sit just to the left of the receipt card, with a normal gap between them — not a wide empty stripe.<br>3. Check nothing is cut off at the left edge of the screen, and the blocks do not touch or overlap the receipt or the PLAY AGAIN / MAIN MENU buttons.<br>4. **If you have the ultrawide handy, look there too** — that is the one I am least sure about. The podium and receipt are together on the right now, which means the empty space moved to the left half while the title stays centred. Tell me if that reads worse than the old version; it is a deliberate trade, not a bug, and I will move the receipt down to meet the podium if you want it tighter.<br>5. PASS if the screen reads as one composition. FAIL with the window size and what looked wrong.",
+            "ship1": null
+          },
+          {
             "pri": "Low",
             "item": "SHARD-PT-2 — fifth human overflows to quickplay2 `[2pc]`",
             "notes": "**Owed: Wyatt playtest — SHARD-PT-2 — the 5th concurrent Quickplay human lands on quickplay2 instead of \"couldn't join\".** Launch-day / public-post check — needs five real humans (Wyatt deferred 08-05). Rig already 5/5; SHARD-PT-1 PASSed on prod `9c333d1`. Prefer analytics: any `quickplay_shard_assigned` with `hops > 0` or `shard !== quickplay` counts.<br>1. When five humans can join Quickplay at once (public post), watch the 5th seat.<br>2. FAIL if they get the dead-end couldn't-join toast with no hop. PASS if they seat on an overflow shard (or analytics shows hops greater than 0).<br>3. Skip / leave open until launch day — do not FAIL for lack of five people.",
@@ -1320,7 +1326,7 @@
       {
         "title": "UI / UX",
         "counts": {
-          "Medium": 8,
+          "Medium": 10,
           "High": 2,
           "Low": 4
         },
@@ -1329,6 +1335,18 @@
             "pri": "Medium",
             "item": "ONBOARD-ART-1 — the HOW TO PLAY slides have art slots but no art `[pre-ship]`",
             "notes": "**Split out of ONBOARD-SLIDES-1 08-06 at Wyatt's call** — *\"i think i'll just wait till i can make the gifs\"*. The deck shipped complete and text-only; this card is the picture pass. **The slots are already authored, sized and commented** — turning them on is deleting one clearly-marked block (`ART SLOTS OFF (ONBOARD-ART-1)`) at the end of the `.cr-howto-*` section in [cart-rave-menu.css](../../src/cart-rave-menu.css). That block also neutralises the two-column rules, which is load-bearing: `:has(.cr-howto-slide-media)` still matches a `display:none` element, so removing only the `display` rule would reserve an empty 28rem column on four slides. **Four slots:** `drive`, `boost`, `ram` (16:10, cropped, HUD out of frame) and `hud` (**16:9, uncropped, HUD is the subject**) — the fifth slide, THE LIVING STORE, also has a `cargo` slot. **AISLE 4's callouts** are `.cr-howto-callout` spans positioned by `--x`/`--y` percentages over the image; the current values are guesses against a blank placeholder and **must be re-aimed against the real frame** — that is the one part of this card that is not just dropping files in. Its chip row (`TOP LEFT / TIME LEFT` …) stays either way — the callouts label, the chips define. **Do not shoot these with `npm run shoot`** — see SHOOT-SOFTGL-1; a working scratch rig that drives a real solo round is described there. Wyatt is capturing GIFs by hand instead, so the likely shape is animated webp dropped into `public/howto/` and referenced by an `<img>` in each slot.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "RESULTS-UNLOCK-TOAST-1 — the unlock toast lands on top of the podium blocks",
+            "notes": "**Filed 08-06 during RESULTS-1's verification, pre-existing and not caused by it** — visible in `.diag-captures/podium/` captures going back to the 07-31 set, i.e. before that card touched anything. When a round ends with an unlock, the \"… unlocked!\" toast (e.g. *\"Green Mirror shades unlocked!\"*) is drawn near the bottom centre of the screen and **overlaps the rank blocks** — at 1920 it sits across 3rd/4th place, at 390×844 it covers part of the PLAY AGAIN button. Same family as the closed HUD-TOAST-Z-1 six (PASS 08-05) but a different surface: those were in-match, this is the results overlay, so it was never in that sweep's scope. **Note it moved but did not appear with RESULTS-1** — the podium shifted right underneath a toast that is centred on the viewport, so which blocks it covers changed. Check the toast's anchor/z-index against `#results-overlay` (z-index 25000, `results.css:7`) before assuming it needs the same fix the TOAST-* cards got; the likelier lever is where the toast is anchored while the results overlay is up, not its stacking order.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "RESULTS-CRAMP-1 — at ~1101-1299px wide the podium overflows its column and collides with the buttons",
+            "notes": "**Filed 08-06, measured during RESULTS-1, pre-existing and explicitly left unfixed by it.** On a fine-pointer window between about **1101px and 1299px** wide and taller than 640px — above the mobile-landscape band (`≤1100`) and above the short-desktop band (`max-height:640`) — the base rules apply and the podium's fixed `53.75rem` width **exceeds column 1**. Measured at 1101×641: podium renders **645px into a ~499px column**, so it overflows ~146px to the right and the **4th-place block slides under the PLAY AGAIN / MAIN MENU buttons**. RESULTS-1 deliberately floors its band at 1300px to avoid making this worse (with `justify-self:end` the same overflow instead clips 2nd place off the *left* edge of the screen — captured and rejected), so this band still behaves exactly as it did before that card. **`npm run podium` will not catch it**: its \"podium fits the panel\" check asserts vertical fit and compares `scrollWidth` to `clientWidth` on `.results-final`, and horizontal overflow of that element into a sibling column trips neither. **Lever is sizing, not placement** — the podium columns (`12.5rem`, `results.css:192`) and gap (`1.25rem`, `:183`) need to shrink in this band, or the band needs its own narrower treatment. Low-traffic window size; not a ship blocker.",
             "ship1": null
           },
           {
@@ -1369,8 +1387,8 @@
           },
           {
             "pri": "High",
-            "item": "RESULTS-1 — results screen layout redesign `[SHIP-1 E1]`",
-            "notes": "",
+            "item": "RESULTS-1 — results screen composition rebalance `[SHIP-1 E1]`",
+            "notes": "⏳ **SHIPPED 08-06 (unpushed), human check owed on RESULTS-PT-1.** **Scoped 08-06 — the row was bare, and \"the last big screen still on the old layout\" turned out to be wrong as written:** the screen was rebuilt 07-22/23 (fight-night 7g) and its units are current (UI-SCALE-1 Pass 2, `271c5cc`). What was actually stale was the *composition*, confirmed by looking at `npm run podium` captures rather than by reading the row: the base rules (`results.css:58-63`) pinned the podium to the panel's left edge with `justify-self: start`, so **all of column 1's slack became a void between podium and receipt rail** — ~240px at 1920, ~880px at 2560, ~1760px at 3440 — and the two read as separate floating islands. **Lever (one line):** a wide-desktop band setting `justify-self: end`, so the existing `4.5rem` column-gap is the gutter at every width. **Deliberately NOT done:** wrapping the screen in one frame/panel (that is UI-FRAME-1 and would be re-done by it), any content change, any unit change, and any *vertical* move of the receipt — moving the receipt alone while the podium stays floor-pinned risks reading *more* disconnected, so that question is deferred to RESULTS-PT-1's look-pass. **The 1300px floor on the media query is measured, not a round number, and the first draft got it wrong:** the podium is `53.75rem` against a root that is itself a fluid clamp with a **12px floor** (`tokens.css:30`), so below ~1283px the podium is *wider* than column 1 and overflows either way — `justify-self` only picks the direction. A 1101px floor was drafted, captured at 1101×641, and **clipped 2nd place off the left edge of the screen**; `npm run podium`'s checks passed on that capture because they assert vertical fit and `scrollWidth`, not horizontal clipping. Floor raised to 1300 after measuring. Effect by width: 0 below 1300 (band does not apply) · 67px at 1366 · 168px at 1920 · 808px at 2560 · 1688px at 3440. Verified `npm run podium` 88/88 + `--all` 352/352 + a 4-viewport threshold sweep 88/88; `npm run qa` 7/7 (1600 tests). Same commit corrected three now-stale design comments in `results.css` (two describing \"podium bottom-left\", plus a pre-existing one calling the mobile band \"coarse/≤768\" when it is `≤900`). **Known open question for the look-pass: at 3440 ultrawide the podium and receipt are now adjacent on the right and the empty half moves to the LEFT** — the islands are joined, but the composition is right-weighted while the header stays centred. That is a judgment call, not a defect, and it is what RESULTS-PT-1 asks.",
             "ship1": "E1"
           },
           {
