@@ -13,6 +13,25 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 6, 2026 — LOAD-SCALE-1: closed on geometry, not code
+
+- *(UI · Medium)* **LOAD-SCALE-1** — mode-entry loading screen ~99% empty space above ~1000px
+  wide — ✅ **CLOSED 08-06.** Filed against the pre-LOAD-POSTER-1 file (`loadingScreen.css`
+  `.cr-load__visual` fixed at `clamp(88px, 22vw, 128px)`). Three commits since then
+  (`106fc50`/`cc20174`/`4acf5d7`, Run 8) rewrote the whole surface as container-query posters —
+  `.cr-load__stage` is `container-type: size`, the title sizes off the stage box
+  (`clamp(32px, 18cqmin, 260px)`), `.cr-load__visual` is a bare full-bleed layer — the file's own
+  header comment says this fixes "tiny art on a 1440p screen." Never re-verified against this row
+  until the UI-SCALE-1 Pass 2 wave touched the same file. **Closing evidence:** fresh
+  `npm run loadshots --surface mode` at HEAD (08-06) — all "overlay fits the viewport" checks
+  green on all cells, 1920×1080 `-b-mid` frames show the poster filling the stage, title centred,
+  not the filed postage-stamp-in-the-corner look. No code changed for this row specifically — the
+  UI-SCALE-1 Pass 2 commits that shipped alongside converted `loadingScreen.css`'s *convertible*
+  clamps to rem but deliberately left the container-query sizing (`cqmin`) that LOAD-POSTER-1
+  built, untouched. Same class of trap as UI-SCALE-1's own row this session: a BACKLOG row and
+  its evidence screenshots can go stale once the fix that moots them lands under a different
+  card's name, and nothing re-checks the row until someone happens to touch the same file again.
+
 ### August 6, 2026 — HARNESS-NULL-1: null-control arm on perf-profile
 
 - *(Engineering · Medium)* **HARNESS-NULL-1** — no measurement rig had a null-control arm; every

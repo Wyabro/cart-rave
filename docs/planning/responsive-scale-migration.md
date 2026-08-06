@@ -1,10 +1,13 @@
 # Responsive Scale Migration — Cart Clash UI
 
-**Date:** 2026-07-30 (diagnosis); **Pass 1 shipped + PASSed 08-05.**
+**Date:** 2026-07-30 (diagnosis); **Pass 1 shipped + PASSed 08-05; Pass 2 shipped 08-06.**
 **Branch:** `cart-clash` @ `56dfa61` (2026-07-23, merge of PR #3 from `redesign/fight-night-ui`)
 **Status:** Pass 1 (root scale + `cart-rave-menu.css`) done, `9e2ec60`..`f057abe`, playtest-verified
-3/3 08-05. **Pass 2 (`hud.css`, `results.css`, `pauseOverlay.css`, `announcer.css`, `stickers.css`,
-`loadingScreen.css`) not started** — see [BACKLOG.md](./BACKLOG.md) UI/UX § UI-SCALE-1.
+3/3 08-05. **Pass 2 shipped 08-06** (`dacca48`, `271c5cc`, `5cbc63f`, `8c65bd7` — `hud.css`,
+`results.css`, `pauseOverlay.css`, `announcer.css`/`stickers.css`/`loadingScreen.css`), base-scope
+clamps only per the plan's rule 4 (skip `@media` internals — see `## Execution plan` below for
+what that deliberately left out). Awaiting Wyatt playtest — see [BACKLOG.md](./BACKLOG.md)
+§ Playtest owed. TOUCH-HOVER-1 rode the same wave (`78acdb4`).
 
 ---
 
@@ -200,9 +203,19 @@ correct at ≥1920 because both systems produce max values there. Playtest evide
 checks PASSed 08-05 (results portrait/landscape stacking, kill-feed sizing), which also landed
 opportunistic patches to `results.css`/`hud.css` — real fixes, but not the systematic sweep below.
 
-### Pass 2 — open, not started
-- `src/ui/styles/hud.css`, `results.css`, `pauseOverlay.css`, `announcer.css`, `stickers.css`,
-  `src/ui/loadingScreen.css` — the scale is now proven (Pass 1 PASSed), so this is unblocked.
+### Pass 2 — ✅ shipped 08-06, awaiting playtest
+- `src/ui/styles/hud.css` (`dacca48`), `results.css` (`271c5cc`), `pauseOverlay.css` (`5cbc63f`),
+  `announcer.css`/`stickers.css`/`src/ui/loadingScreen.css` (`8c65bd7`).
+- **Scope was narrower than this doc's rules 5–6 on purpose:** every `@media` block was left
+  untouched (values, breakpoints, the 08-05 phone/orientation patches), matching Pass 1's own
+  "skip @media internals" precedent — reconciling the drifted breakpoints and deleting size-only
+  media queries is now its own follow-up, filed as **UI-SCALE-P2-MEDIA-1** in
+  [BACKLOG.md](./BACKLOG.md) UI/UX, so it doesn't re-open playtest-PASSed phone evidence.
+- A handful of sites that mathematically saturate at 1920 (an exact or near-exact tie, margin
+  under ~1px) were left unconverted anyway: real viewports aren't always exactly 1920 logical px
+  (scrollbar gutter, vw rounding), and `--screen-pad-x`'s identical shape already proved this in
+  Pass 1 (L6, `39d6afb`, reverted after breaking 1920 identity). See the P2a/P2b commit messages
+  for the exact sites.
 
 ---
 

@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-06T02:00:48.483Z",
-    "commit": "00da0aa"
+    "at": "2026-08-06T03:51:03.856Z",
+    "commit": "78acdb4"
   },
-  "source_digest": "dc51926d",
+  "source_digest": "58a3b1d9",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -885,6 +885,7 @@
     "next_actions": [
       "HARNESS-NULL-1 ✅ CLOSED 08-06. Headless `perf-profile --null` (shared-page AB+BA); pure",
       "NET-LOOK-ACC-1 ⏳ SHIPPED 08-06 (`1198d26`, prod Worker `3cfb33f8`), not closed — owed Wyatt",
+      "UI-SCALE-1 Pass 2 + TOUCH-HOVER-1 ⏳ SHIPPED 08-06 (`dacca48`..`78acdb4`, 6 commits), not",
       "Hitch forensics: cap-254–260 (build `8d96b0b`) before any PERF-PASS-1 knob."
     ],
     "open_issues": [
@@ -1278,11 +1279,35 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "High": 1,
+          "High": 5,
           "Medium": 1,
           "Low": 2
         },
         "rows": [
+          {
+            "pri": "High",
+            "item": "UI-P2-HUD-PT-1 — in-match HUD reads right after the rem conversion `[phone]`",
+            "notes": "**Owed: Wyatt playtest — UI-P2-HUD-PT-1 — the in-match HUD looks the same as before, just scaled sanely on your phone.** Shipped 08-06 (`dacca48`), **not yet on prod** — use `npm run dev` (or ship first). `hud.css`'s 108 saturated clamps converted to rem; the 08-05 phone/orientation patches were left untouched on purpose.<br>1. On your phone, play a solo round.<br>2. Look at the score chips, timer, kill feed, and boost bar — do they read as the same design as before (just appropriately sized for the phone), or does anything look tiny, oversized, cut off, or overlapping?<br>3. PASS if nothing looks wrong. FAIL with a screenshot of whatever's off.",
+            "ship1": null
+          },
+          {
+            "pri": "High",
+            "item": "UI-P2-PAUSE-PT-1 — pause overlay reads right after the rem conversion `[solo]`",
+            "notes": "**Owed: Wyatt playtest — UI-P2-PAUSE-PT-1 — the Esc pause screen looks the same as before.** Shipped 08-06 (`5cbc63f` + `78acdb4`), **not yet on prod** — use `npm run dev` (or ship first).<br>1. Mid-round, press Esc.<br>2. Check the PAUSED panel: title, audio sliders, controls list, RESUME/RESTART/MAIN MENU buttons — proportionate, nothing crowded or oddly sized?<br>3. Hover the buttons with a mouse — do RESUME etc. still light up on hover like before? (This is also the TOUCH-HOVER-1 check's fine-pointer control case — hover should be unchanged on a mouse, only touch changes.)<br>4. PASS if it reads exactly like before. FAIL with a screenshot.",
+            "ship1": null
+          },
+          {
+            "pri": "High",
+            "item": "UI-P2-RESULTS-PT-1 — results/podium screen reads right after the rem conversion `[solo]`",
+            "notes": "**Owed: Wyatt playtest — UI-P2-RESULTS-PT-1 — the results podium looks the same as before, crown icon included.** Shipped 08-06 (`271c5cc`), **not yet on prod** — use `npm run dev` (or ship first). The winner's crown icon's font-size changed from a bare `15px` to `0.9375rem` (identical at scale 1) because it also sizes an SVG via `1.15em` — this is the one site worth a specific look.<br>1. Finish a solo round.<br>2. On the results podium, check the winner's crown icon above their name, the rank cards, and the match receipt panel — sized and positioned like before?<br>3. PASS if it all reads the same. FAIL with a screenshot, especially if the crown looks wrong.",
+            "ship1": null
+          },
+          {
+            "pri": "High",
+            "item": "TOUCH-HOVER-PT-1 — buttons don't stay lit after a tap `[phone]`",
+            "notes": "**Owed: Wyatt playtest — TOUCH-HOVER-PT-1 — tapping a button on your phone doesn't leave it looking hovered/lit afterward.** Shipped 08-06 (`78acdb4`), **not yet on prod** — use `npm run dev` (or ship first). Before this, a tap set `:hover` and it stuck until you tapped elsewhere; automated checks (`npm run states`' touch-hover survey) now read 0/9 on the menu, but no human has tapped it yet.<br>1. On your phone: tap READY in a lobby, tap the mute button, and (after a round) tap a results-screen button.<br>2. After each tap, look at the button you just tapped — does it stay visually \"lit\"/lifted/highlighted after your finger leaves it, the way a desktop mouse-hover would show?<br>3. PASS if buttons return to their normal look right after the tap (a brief press flash is fine — that's `:active`, not the bug). FAIL if a button stays lit until you tap something else, and say which button.",
+            "ship1": null
+          },
           {
             "pri": "High",
             "item": "NET-LOOK-ACC-1 — non-host sunglasses + pattern now replicate `[2pc]`",
@@ -1312,9 +1337,9 @@
       {
         "title": "UI / UX",
         "counts": {
-          "Medium": 6,
-          "High": 3,
-          "Low": 4
+          "Medium": 5,
+          "High": 4,
+          "Low": 5
         },
         "rows": [
           {
@@ -1372,9 +1397,9 @@
             "ship1": "E3"
           },
           {
-            "pri": "Medium",
-            "item": "LOAD-SCALE-1 — the mode-entry loading screen is ~99% empty space above ~1000px wide",
-            "notes": "**Found 07-31 by `npm run loadshots`** (FIGHT-VERIFY-1 Phase C) — the first time any of the three arena themes had been rendered by this toolkit. The centre-stage decor is hard-capped and never grows: `loadingScreen.css:157-162` `.cr-load__visual { width: clamp(88px, 22vw, 128px); height: clamp(88px, 22vw, 128px) }`, with backrooms at `clamp(96px, 24vw, 140px)` × `clamp(72px, 18vw, 96px)` (`:349-352`) and zanzibar's `.cr-load__seaside` at `clamp(110px, 26vw, 160px)` × `clamp(72px, 18vw, 96px)` (`:378-383`). At 390×844 that is 88px in a 390px frame — proportionate, and the design reads exactly as intended. At 1920×1080 the same motif is at most 128×128px inside a centre row of roughly 1920×820, i.e. **under 1% of the stage**, leaving the vinyl / boxes+chair / sun+deck floating as a postage stamp in an otherwise empty gradient with the title marooned in the top-left corner. Nothing is clipped or overflowing — the `overlay fits the viewport` check is green on all 8 cells — which is precisely why a DOM-geometry sign-off could never have caught it. Belongs in the UI-SCALE-1 pass rather than as a standalone fix. Evidence: `.diag-captures/loadshots/mode-{classicRecord,backrooms,zanzibar}-1920x1080-b-mid.png` versus `mode-classicRecord-390x844-b-mid.png`.",
+            "pri": "Low",
+            "item": "*(LOAD-SCALE-1 ✅ closed 08-06 — [completed-work.md](./completed-work.md))*",
+            "notes": "",
             "ship1": null
           },
           {
@@ -1384,15 +1409,21 @@
             "ship1": null
           },
           {
-            "pri": "Low",
-            "item": "TOUCH-HOVER-1 — no `@media (hover: hover)` guard anywhere, so hover states latch on touch",
-            "notes": "**Measured 07-31 by `npm run states`** (FIGHT-VERIFY-1 Phase B) on a `hasTouch + isMobile` 390×844 client. There are **zero** occurrences of the `(hover:` media feature in `src/**/*.css` — the only three hover-capability checks in the repo live in JS (`touchControls.js:580`, `rotatePrompt.js:124`, `device.js:36`) — so every `:hover` rule applies on a coarse-pointer device, where a tap latches it until the user taps elsewhere. Reported as **one aggregate advisory row**, not one failure per selector: it is one missing media query, and 30-odd reds would drown the tally. Measured with `CSS.forcePseudoState`, **not** synthetic mouse input — Chromium under mobile emulation routes `mouse.move()` through the touch pipeline and produces no `:hover` at all, which made an earlier mouse-driven pass under-report this (1/6) before the method was corrected. Result on two consecutive runs: **2 of the 5** (run B: 2 of 4) hover rules whose subject is actually on screen at 390×844 still repaint — `.cr-reroll` and `.cr-plate .cr-plate-btn`. The denominator is small because the phone menu shows fewer controls, and the non-repainting remainder are exactly the dead ones filed as **MENU-CMD-FEEL-1** / **MENU-NAME-HOVER-1** — i.e. **every hover rule that has a live delta at all does apply on touch**. Low because the visual result is mild (a re-roll button and a plate button staying lit after a tap), but it belongs to the same pass as UI-SCALE-1's ≤768 reflow.",
+            "pri": "High",
+            "item": "TOUCH-HOVER-1 — ⏳ shipped 08-06 (`78acdb4`), awaiting Wyatt playtest",
+            "notes": "Gated all 11 remaining `:hover` rules across the six UI-SCALE-1 Pass 2 files behind `@media (hover: hover) and (pointer: fine)` (Pass 1 L5's pattern) — full worklist and cascade-order notes in the commit. **Verified:** `npm run states` 252/259 (4 pre-existing menu-reachability FAILs, none new); the aggregate touch-hover-latch survey on the touch-menu screen now reads **0/9** (was 2/5 when this row was filed). The two originally-named offenders, `.cr-reroll` and `.cr-plate .cr-plate-btn`, are `cart-rave-menu.css` selectors already covered by Pass 1 L5 — this row's own 11 sites were the six-file remainder. **Not closed** — no phone tap check yet; see Playtest owed.",
             "ship1": null
           },
           {
             "pri": "High",
-            "item": "UI-SCALE-1 — responsive root-scale migration — **Pass 2 remains**",
-            "notes": "Two passes per [responsive-scale-migration.md](./responsive-scale-migration.md): fluid root + rem clamps; media queries stay px. **Pass 1 shipped + PASSed 08-05** (`9e2ec60`..`f057abe`) — `tokens.css` root scale, `cart-rave-menu.css` fully converted, ≤768 reflow answered \"phone = fewer elements\" (tagline/cmd-qual/stats/context-desc hidden), menu hover gated behind `(hover: hover)`. Playtest evidence: UI-SCALE-RESULTS-PHONE-1 / UI-SCALE-RESULTS-WIDE-1 / UI-SCALE-FEED-PHONE-1 all PASS 08-05 (those three also got opportunistic phone patches to `results.css`/`hud.css`, not the full sweep). **Pass 2 (open):** the same clamp→rem conversion on `hud.css`, `results.css`, `pauseOverlay.css`, `announcer.css`, `stickers.css`, `loadingScreen.css`. SHEET-1 unblocked (tool exists). Sequential single-owner. Safety: ≥1920 pixel-identical pre/post.",
+            "item": "UI-SCALE-1 — Pass 1 ✅ PASSed 08-05; Pass 2 ⏳ shipped 08-06, awaiting Wyatt playtest",
+            "notes": "Two passes per [responsive-scale-migration.md](./responsive-scale-migration.md): fluid root + rem clamps; media queries stay px. **Pass 1** (`9e2ec60`..`f057abe`) — `tokens.css` root scale, `cart-rave-menu.css` fully converted, ≤768 reflow answered \"phone = fewer elements\", menu hover gated. Playtest: UI-SCALE-RESULTS-PHONE-1 / -WIDE-1 / UI-SCALE-FEED-PHONE-1 all PASS 08-05. **Pass 2** (`dacca48`, `271c5cc`, `5cbc63f`, `8c65bd7`) — the same clamp→rem conversion on `hud.css`, `results.css`, `pauseOverlay.css`, `announcer.css`, `stickers.css`, `loadingScreen.css`, base scope only (media-query internals and breakpoint reconciliation deferred — see UI-SCALE-P2-MEDIA-1 below). `npm run qa` 7/7 throughout; MAE identity-gated at 1920×1080 + 3440×1440 on every file. SHEET-1 fully used (sheet/podium/loadshots); pauseOverlay/announcer covered by a scratch capture script (no dedicated tool). **Not closed** — playtest cards below.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "UI-SCALE-P2-MEDIA-1 — Pass 2's deferred media-query cleanup",
+            "notes": "**Filed 08-06, split out of UI-SCALE-1 Pass 2 on Wyatt's pre-ack review** (\"skip @media internals\" — exact Pass 1 precedent, to avoid re-opening the 08-05 phone/orientation patches that already playtest-PASSed). Doc rules 5–6 remain undone: delete `@media` blocks that only adjust *size* now that the root scale covers it, and reconcile the drifted breakpoints (900, 1100, 560, and any others found) back to the documented 380/768/1024/1025 contract. Do this file-by-file, same base-clamp discipline, and re-run the relevant playtest card after each file since it touches the phone-specific rules directly this time.",
             "ship1": null
           }
         ]

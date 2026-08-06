@@ -77,10 +77,16 @@ Live rows only. Shipped and closed cards live in
    provisional-n3). **Does not unpark PERF-PASS-1** or replace live F8 A-B-A. Detail:
    [completed-work.md](./planning/completed-work.md). Code `8992816` + `00da0aa`.
 2. **NET-LOOK-ACC-1 ⏳ SHIPPED 08-06 (`1198d26`, prod Worker `3cfb33f8`), not closed** — owed Wyatt
-   playtest in [BACKLOG.md § Playtest owed](./planning/BACKLOG.md#playtest-owed). Block B still
-   leads with **UI-SCALE-1**. Block C next evidence: cap-254–260 + PERF-9CELL when unparked.
-3. **Hitch forensics:** cap-254–260 (build `8d96b0b`) before any PERF-PASS-1 knob.
-**Open High:** NET-LOOK-ACC-1 · UI-SCALE-1 · ONBOARD-SLIDES-1 · RESULTS-1 · CART-MODEL-1 · PERF-PASS-1 (⏸) · bloom.
+   playtest in [BACKLOG.md § Playtest owed](./planning/BACKLOG.md#playtest-owed).
+3. **UI-SCALE-1 Pass 2 + TOUCH-HOVER-1 ⏳ SHIPPED 08-06 (`dacca48`..`78acdb4`, 6 commits), not
+   closed, not yet deployed** — `hud.css`/`results.css`/`pauseOverlay.css`/`announcer.css`/
+   `stickers.css`/`loadingScreen.css` base-scope clamps → rem, plus all 11 remaining `:hover`
+   rules gated behind `(hover: hover)`. LOAD-SCALE-1 closed (already fixed by LOAD-POSTER-1, this
+   wave only verified it). `npm run qa` 7/7, MAE identity-gated on every file, `npm run states`
+   252/259 (baseline). 4 playtest cards + the deferred media-query cleanup card
+   (UI-SCALE-P2-MEDIA-1) in [BACKLOG.md § Playtest owed](./planning/BACKLOG.md#playtest-owed).
+4. **Hitch forensics:** cap-254–260 (build `8d96b0b`) before any PERF-PASS-1 knob.
+**Open High:** NET-LOOK-ACC-1 · UI-SCALE-1 · TOUCH-HOVER-1 · ONBOARD-SLIDES-1 · RESULTS-1 · CART-MODEL-1 · PERF-PASS-1 (⏸) · bloom.
 
 ## Open issues (top)
 
