@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-06T09:49:41.505Z",
-    "commit": "4c89e04"
+    "at": "2026-08-06T17:35:12.490Z",
+    "commit": "ad8f890"
   },
-  "source_digest": "9a1ea6fe",
+  "source_digest": "0aad49aa",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -886,7 +886,7 @@
       "HARNESS-NULL-1 ✅ CLOSED 08-06. Headless `perf-profile --null` (shared-page AB+BA); pure",
       "NET-LOOK-ACC-1 ✅ CLOSED PASS 08-06 (`1198d26`) — two-human Friends-lobby check confirmed.",
       "UI-SCALE-1 (both passes) + TOUCH-HOVER-1 ✅ CLOSED PASS 08-06 (`dacca48`..`78acdb4`, prod",
-      "ONBOARD-SLIDES-1 L1 ⏳ SHIPPED 08-06 (`4c89e04`), UNPUSHED — L2 blocked on an art source.",
+      "ONBOARD-SLIDES-1 L1 ⏳ SHIPPED 08-06 (`4c89e04` + `ad8f890`), UNPUSHED — L2 blocked on art.",
       "Hitch forensics: cap-254–260 (build `8d96b0b`) before any PERF-PASS-1 knob."
     ],
     "open_issues": [
@@ -918,7 +918,7 @@
         "title": "Engineering",
         "counts": {
           "High": 2,
-          "Medium": 12,
+          "Medium": 13,
           "Low": 9,
           "Partial": 1
         },
@@ -927,6 +927,12 @@
             "pri": "High",
             "item": "*(NET-LOOK-ACC-1 ✅ CLOSED PASS 08-06 — [completed-work.md](./completed-work.md))*",
             "notes": "",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "DIFF-FRIENDS-1 — NPC difficulty applies in Friends rooms but cannot be set there",
+            "notes": "**Filed 08-06 from Wyatt, who remembered picking difficulty in Friends — and the code agrees with him, but the UI does not.** [cart-rave-menu.js:492-494](../../src/cart-rave-menu.js:492) documents the controller as driving *\"the menu context panel's row **and the Friends invite screen's host row**\"*, and `allDiffButtons()` queries `.cr-diff-row .cr-diff-btn` document-wide as if two rows exist. **Only one does** — `#cr-diff-row` in the menu context panel ([index.html:736](../../index.html:736)) — and it only renders when `MENU_ITEMS[cmd].diff === true`, which is **`solo` alone** (`quickplay` and `friends` are both `diff: false`, [:1942-1946](../../src/cart-rave-menu.js:1942)). Git says the comment arrived with `de6797f` (fight-night part 4b, Friends invite chrome), which also touched `cr-diff-row` in index.html — so the row existed at some point and was lost, most likely in the Fight Night redesign. **Why it is not cosmetic:** [party/index.ts:236](../../party/index.ts:236) seeds **all four slots as `kind: \"npc\"`** in *every* room and humans claim seats from there, so any Friends room that is not full has NPC carts in it. Those NPCs run at `settingsStore.aiDifficulty` — whatever the host last chose **in Solo** — so the setting is live in Friends and unreachable from Friends. A host who has never opened Solo gets `DEFAULT_SOLO` silently. **Scope:** decide first whether Friends *should* expose it (host-only, since it is a room-wide setting and only the host's value can win) — if yes, restore the row on the invite screen and wire it through the existing `selectDifficulty` controller, which already handles multiple rows; if no, delete the false half of the comment so the next reader is not hunting a row that does not exist. Either way **fix the comment in the same commit.** Related: the `.cr-context .cr-diff-btn` reachability FAIL in `npm run states` is a *different* pre-existing issue (the row is Solo-only and the sweep never selects Solo) — do not conflate them. **Does not block ONBOARD-SLIDES-1:** AISLE 8's copy deliberately never says where difficulty is chosen, so it stays true either way.",
             "ship1": null
           },
           {
@@ -1333,7 +1339,7 @@
           {
             "pri": "High",
             "item": "ONBOARD-SLIDES-1 — how-to-play as click-through visual slides `[pre-ship]`",
-            "notes": "⏳ **L1 SHIPPED 08-06 (`4c89e04`), UNPUSHED AND NOT DEPLOYED — L2 (the art) is blocked on an art source, see below.** L1 replaced the wall of text with a five-slide deck: AISLE 1 DRIVE (controls, re-rendered per keyboard/gamepad/touch) · 2 RAM THEM OUT · 3 CHAIN COMBOS (combo chips) · 4 THE LIVING STORE · 5 PRICE CHECK (directives + price chips). Nothing dropped from the old screen. The primary button **morphs** `NEXT ▸`→`LET'S ROLL` rather than closing, because `howtoSeen` is still stamped on open (ONBOARD-FLAG-1) and a closing focused default would have made \"see 1 rule of 5, never asked again\" the first-run happy path. No wrap-around, dots are non-focusable spans, no new keyboard handler (gamepadNav already owns the arrows). `npm run qa` 7/7 (1563 tests, +4); `npm run states` FAIL set byte-identical to a stash-measured pre-change baseline. **Absorbed 08-05: ONBOARD-1.** <br>**L2 BLOCKED — the plan's capture premise was falsified.** Three slides ship a styled placeholder panel where a still goes. `npm run shoot` cannot produce them: it renders the **attract state, so the arena is empty of carts**, it bakes the software-mode modal into the frame, and it runs on SwiftShader (see **SHOOT-SOFTGL-1**). A scratch rig that drives a real solo round with real GPU flags *does* produce the right look (verified: RTX 4090, 60 fps, correct dark neon), but framing is non-deterministic — the chase cam follows the local cart and NPC positions differ every run — so getting three *good* stills is a sample-and-hand-pick job, not a scripted one. **Wyatt is the art director and owns a 4090; three of his own screenshots are minutes of his time versus an hour of uncertain agent iteration.** Decide the art source before spending more: (a) Wyatt supplies 3 stills, agent crops/encodes/wires; (b) agent iterates the scratch rig; (c) drop the art slot and ship 5 text/chip slides, art as a follow-up. **Do not deploy L1 alone** — placeholder panels on prod.",
+            "notes": "⏳ **L1 SHIPPED 08-06 (`4c89e04`), UNPUSHED AND NOT DEPLOYED — L2 (the art) is blocked on an art source, see below.** L1 replaced the wall of text with a deck, **grown to eight slides 08-06 on Wyatt's call** (`ad8f890`): AISLE 1 DRIVE (controls, re-rendered per keyboard/gamepad/touch) · 2 BOOST · 3 RAM THEM OUT · 4 READ THE HUD · 5 CHAIN COMBOS · 6 THE LIVING STORE · 7 PRICE CHECK · 8 THE BOTS. Nothing dropped from the old screen. **Eight is safe because of ordering, not count** — the game is fully taught by AISLE 4, so 5–8 are depth a first-run player can bail on without losing the rules. BOOST's copy was verified against [simulation.js:509-513](../../src/simulation.js:509), not assumed: a flick under 100 ms is a deliberate silent cancel, which is the surprising part and so it is stated. AISLE 4 carries the one **uncropped** still with callouts in percent coordinates; **those positions are provisional against the placeholder and need a pass when the real still lands.** The primary button **morphs** `NEXT ▸`→`LET'S ROLL` rather than closing, because `howtoSeen` is still stamped on open (ONBOARD-FLAG-1) and a closing focused default would have made \"see 1 rule of 5, never asked again\" the first-run happy path. No wrap-around, dots are non-focusable spans, no new keyboard handler (gamepadNav already owns the arrows). `npm run qa` 7/7 (1563 tests, +4); `npm run states` FAIL set byte-identical to a stash-measured pre-change baseline. **Absorbed 08-05: ONBOARD-1.** <br>**L2 BLOCKED — the plan's capture premise was falsified.** **Four** slides now ship a styled placeholder panel where a still goes — DRIVE, BOOST, RAM THEM OUT (all cropped 16:10) and READ THE HUD (**uncropped 16:9, HUD deliberately in frame** — it is the subject). `npm run shoot` cannot produce them: it renders the **attract state, so the arena is empty of carts**, it bakes the software-mode modal into the frame, and it runs on SwiftShader (see **SHOOT-SOFTGL-1**). A scratch rig that drives a real solo round with real GPU flags *does* produce the right look (verified: RTX 4090, 60 fps, correct dark neon), but framing is non-deterministic — the chase cam follows the local cart and NPC positions differ every run — so getting three *good* stills is a sample-and-hand-pick job, not a scripted one. **Wyatt is the art director and owns a 4090; three of his own screenshots are minutes of his time versus an hour of uncertain agent iteration.** Decide the art source before spending more: (a) Wyatt supplies 3 stills, agent crops/encodes/wires; (b) agent iterates the scratch rig; (c) drop the art slot and ship 5 text/chip slides, art as a follow-up. **Do not deploy L1 alone** — placeholder panels on prod.",
             "ship1": null
           },
           {

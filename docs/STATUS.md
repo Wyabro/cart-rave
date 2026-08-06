@@ -83,15 +83,18 @@ Live rows only. Shipped and closed cards live in
    FAIL. Two new look nits surfaced in the notes, filed fresh (not folded into the PASS):
    **KILLFEED-PHONE-1** (kill feed overlaps on phone) and **ORIENT-TOAST-Z-1** (orientation toast
    draws under other UI). The deferred **UI-SCALE-P2-MEDIA-1** media-query cleanup stays open.
-4. **ONBOARD-SLIDES-1 L1 ⏳ SHIPPED 08-06 (`4c89e04`), UNPUSHED — L2 blocked on an art source.**
-   HOW TO PLAY is now a five-slide deck (AISLE 1–5) with an input-mode-aware controls slide and
-   a morphing `NEXT ▸`/`LET'S ROLL` primary, so the first-run default action walks the deck
-   instead of spending the tutorial on slide 1. `npm run qa` 7/7 (1563, +4); `npm run states`
-   FAIL set identical to a stash-measured baseline. **Three slides carry a placeholder where a
-   still goes — do not deploy L1 alone.** `npm run shoot` cannot make those stills (empty arena,
-   baked software-mode modal, SwiftShader colour → **SHOOT-SOFTGL-1**); Wyatt's call on the art
-   source is the next step. Also filed: **MONTAGE-ESC-1**, a live one-line break in
-   `tools/lib/montage.mjs` from CC-ESC-1 that makes every contact-sheet write throw.
+4. **ONBOARD-SLIDES-1 L1 ⏳ SHIPPED 08-06 (`4c89e04` + `ad8f890`), UNPUSHED — L2 blocked on art.**
+   HOW TO PLAY is now an **eight-slide** deck (DRIVE · BOOST · RAM THEM OUT · READ THE HUD ·
+   CHAIN COMBOS · THE LIVING STORE · PRICE CHECK · THE BOTS) with an input-mode-aware controls
+   slide and a morphing `NEXT ▸`/`LET'S ROLL` primary, so the first-run default action walks the
+   deck instead of spending the tutorial on slide 1. Eight is safe because the game is fully
+   taught by AISLE 4 — 5–8 are bail-able depth. `npm run qa` 7/7 (1563, +4); `npm run states`
+   FAIL set identical to a stash-measured baseline. **Four slides carry a placeholder where a
+   still goes — do not deploy alone.** `npm run shoot` cannot make those stills (empty arena,
+   baked software-mode modal, SwiftShader colour → **SHOOT-SOFTGL-1**); Wyatt is supplying them.
+   Also filed: **MONTAGE-ESC-1**, a live one-line break in `tools/lib/montage.mjs` from CC-ESC-1
+   that makes every contact-sheet write throw, and **DIFF-FRIENDS-1**, NPC difficulty applying
+   in Friends rooms with no way to set it there.
 5. **Hitch forensics:** cap-254–260 (build `8d96b0b`) before any PERF-PASS-1 knob.
 **Open High:** ONBOARD-SLIDES-1 (L2) · MONTAGE-ESC-1 · RESULTS-1 · CART-MODEL-1 · PERF-PASS-1 (⏸) · bloom.
 
