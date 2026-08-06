@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-06 at commit `fc8bb4e` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `41894586`
+> Generated 2026-08-06 at commit `75cb242` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `bbca333f`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -18,7 +18,7 @@ Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep a
 
 ## ACTIVE CARD
 
-TIER-DEFAULT-1 ✅ CLOSED 08-05 — hardware-aware 6-class GPU taxonomy shipped in five acked commits (taxonomy, one-shot medium→low migration, host-capability scores, reduced-motion rung, 4K guard); `npm run qa` green, dev spot-check done. Owed: five real-hardware playtest cards (PT-1–PT-5), not yet run. Detail: completed-work.md. Block A now has one card left: NET-LOOK-ACC-1 (no active card until Wyatt picks/acks it). Block C is unblocked to start (TIER-DEFAULT-1 was its hard precondition). Block B leads with UI-SCALE-1; Block C with HARNESS-NULL-1
+TIER-DEFAULT-1 ✅ CLOSED 08-05 — Wyatt PASS on both real boxes. Hardware-aware 6-class GPU taxonomy shipped in five acked commits (taxonomy, one-shot medium→low migration, host-capability scores, reduced-motion rung, 4K guard); `npm run qa` green, dev spot-check done, deployed and confirmed live. Detail: completed-work.md. Block A now has one card left: NET-LOOK-ACC-1 (no active card until Wyatt picks/acks it). Block C is unblocked to start (TIER-DEFAULT-1 was its hard precondition). Block B leads with UI-SCALE-1; Block C with HARNESS-NULL-1
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 

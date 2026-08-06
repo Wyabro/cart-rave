@@ -79,9 +79,29 @@ decision and stays with **BACKLOG**'s existing note under autoQuality.js.
 
 **Verified:** `npm run qa` (all 7 gates) green after all five levers; dev spot-check via `?forcegpu=`
 and `?gpustr=` confirmed the store→UI wiring end to end, including cap-288's exact renderer string
-resolving to Low and the stale-`medium`→`low` migration firing on a seeded stored value. **Owed:**
-five real-hardware playtest cards (PT-1 through PT-5) — Intel UHD fresh boot, Intel UHD migration,
-4090 guard prediction, two-box host-migration direction, and reduced-motion on a sub-4K panel.
+resolving to Low and the stale-`medium`→`low` migration firing on a seeded stored value.
+
+**Real-hardware verification found a second bug first.** `git push` only updates GitHub, not the
+live Worker — the code sat unshipped while Wyatt's first Intel-box F8 pass (cap-290/291/292) still
+read `build.sha: "1050e92"`, seven commits behind, with `gpuClass: "unknown"` reproducing the exact
+original cap-288 pattern (medium → watchdog step to low ~2.5s later). cap-290 also carried a 28.2s
++ 3.6s back-to-back longtask (Wyatt's "froze up") — real, but pre-existing Intel-UHD warm-up cost
+tracked separately under WARM-SOLO-1, not a TIER-DEFAULT-1 regression.
+
+**Shipped** (`npm run ship`, Worker `d91f34a6-2ad4-4bbe-9858-1e39ea83e1b5`, entry
+`index-BKAcELHu.js`). Post-deploy: polled `GET /` until the entry hash flipped (~15s edge
+propagation) and confirmed 0×404 on the entry + key hashed chunks, then pulled the live bundle
+directly and grepped it for `igpu-basic` to confirm the new classifier — not just a new build, but
+the new *code* — was actually being served.
+
+**Wyatt PASS, both boxes, live 08-05.** Intel UHD (the actual cap-288 hardware): confirmed working
+after the reload, no repeat of the slideshow. RTX 4090: confirmed working. This is Wyatt's direct
+sign-off, not five discrete capture-backed playtests — no fresh F8 exists post-deploy (the last
+capture on file, cap-292, is still from the pre-deploy broken run). The granular sub-verifications
+originally scoped (PT-3 4K-guard prediction on the 4090's actual monitor, PT-4 two-box
+host-migration direction, PT-5 reduced-motion on a sub-4K panel) were not individually exercised —
+named here as residuals, not reopened as blockers, since the measured bug this card was filed
+against is confirmed fixed on the hardware it was measured on.
 
 ---
 

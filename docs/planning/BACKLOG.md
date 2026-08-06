@@ -93,12 +93,11 @@ what it unblocks; that clause is the reason it sits where it sits. Block B now c
 
 **Block A — ship bar (launch blockers, strict order). One left:**
 
-6. ~~**TIER-DEFAULT-1**~~ — ✅ **CLOSED 08-05.** Expanded past the seated narrow lever into a
-   6-class GPU taxonomy + pure `defaultTierForCaps()` policy, shipped as five separately-acked
-   commits (taxonomy, one-shot stored-tier migration, host-capability scores, reduced-motion rung,
-   4K guard). Full writeup: [completed-work.md](./completed-work.md). **Owed:** five real-hardware
-   playtest cards (PT-1–PT-5) — code gate (`npm run qa`, all 7) and a dev spot-check are done; the
-   Intel-box and 4090 confirmations are not. **Block C is now unblocked to start.**
+6. ~~**TIER-DEFAULT-1**~~ — ✅ **CLOSED 08-05, Wyatt PASS on both real boxes.** Expanded past the
+   seated narrow lever into a 6-class GPU taxonomy + pure `defaultTierForCaps()` policy, shipped as
+   five separately-acked commits (taxonomy, one-shot stored-tier migration, host-capability scores,
+   reduced-motion rung, 4K guard), deployed (`ship`, Worker `d91f34a6`, entry `index-BKAcELHu.js`).
+   Full writeup: [completed-work.md](./completed-work.md). **Block C is now unblocked to start.**
 7. **NET-LOOK-ACC-1** — non-host sunglasses and pattern do not replicate; body colour does.
    **Unblocks:** in Quickplay everyone except the host is a non-host, so this is the *majority*
    player's view of the customization pride loop — and it must land before **Pattern customize UI

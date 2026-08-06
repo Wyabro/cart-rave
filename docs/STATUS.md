@@ -72,7 +72,7 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. **TIER-DEFAULT-1 ✅ CLOSED 08-05** — hardware-aware 6-class GPU taxonomy shipped in five acked commits (taxonomy, one-shot medium→low migration, host-capability scores, reduced-motion rung, 4K guard); `npm run qa` green, dev spot-check done. **Owed: five real-hardware playtest cards (PT-1–PT-5)**, not yet run. Detail: [completed-work.md](./planning/completed-work.md). **Block A now has one card left: NET-LOOK-ACC-1** (no active card until Wyatt picks/acks it). **Block C is unblocked to start** (TIER-DEFAULT-1 was its hard precondition). Block B leads with **UI-SCALE-1**; Block C with **HARNESS-NULL-1**.
+1. **TIER-DEFAULT-1 ✅ CLOSED 08-05 — Wyatt PASS on both real boxes.** Hardware-aware 6-class GPU taxonomy shipped in five acked commits (taxonomy, one-shot medium→low migration, host-capability scores, reduced-motion rung, 4K guard); `npm run qa` green, dev spot-check done, deployed and confirmed live. Detail: [completed-work.md](./planning/completed-work.md). **Block A now has one card left: NET-LOOK-ACC-1** (no active card until Wyatt picks/acks it). **Block C is unblocked to start** (TIER-DEFAULT-1 was its hard precondition). Block B leads with **UI-SCALE-1**; Block C with **HARNESS-NULL-1**.
 2. **Hitch forensics now has evidence** — cap-254–260 (build `8d96b0b`) are the first captures from a working upload path, including a Cart Rave F8 taken on a hitch. Read them before any perf knob.
 3. **Playtest export 08-05 (`4077a4a`) — 6 pass / 1 fail / 1 skip, triaged.** Closed: 3 UI-SCALE residual cards + 3 NET-AUDIT cards. **NET-LOOK-ACC-1** filed; **PERF-9CELL-1** parked with PERF-PASS-1; SHARD-PT-2 stays launch-day.
 
