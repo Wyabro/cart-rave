@@ -3852,10 +3852,28 @@ function buildZanzibarBooths(
     trim.position.set(0, deckTopY + 0.02, -pd + 0.15);
     boothGroup.add(trim);
 
+    // * SPAWN-SUNDIAL-1 — platform legs were visual-only; carts ghosted through supports.
+    // * Cuboids match legGeo (0.5 × (platformY+7) × 0.5). Local offsets on platBody
+    // * (same yaw as the deck) so host/client stay identical. Bollard friction class
+    // * (0.3 + Min + rest 0.55) — vertical posts you hit, not driveable floor.
+    // * Handles join boothColliderHandles so classifyEnvironmentCollision returns "edge"
+    // * clang, not floor. Cross-braces stay mesh-only this lever (horizontal beams; not
+    // * bollard-class columns — wrong half-size would invent invisible walls).
+    const legHalfH = (B.platformY + 7) / 2;
     for (const [lx, lz] of [[-pw + 0.4, -pd + 0.4], [pw - 0.4, -pd + 0.4], [-pw + 0.4, pd - 0.4], [pw - 0.4, pd - 0.4]]) {
       const leg = new THREE.Mesh(legGeo, legMat);
-      leg.position.set(lx, topY - (B.platformY + 7) / 2, lz);
+      leg.position.set(lx, topY - legHalfH, lz);
       boothGroup.add(leg);
+
+      const legCollider = world.createCollider(
+        RAPIER.ColliderDesc.cuboid(0.25, legHalfH, 0.25)
+          .setTranslation(lx, -legHalfH, lz)
+          .setFriction(0.3)
+          .setFrictionCombineRule(RAPIER.CoefficientCombineRule.Min)
+          .setRestitution(0.55),
+        platBody,
+      );
+      boothColliderHandles.push(legCollider.handle);
     }
     for (const sx of [-pw + 0.4, pw - 0.4]) {
       const brace = new THREE.Mesh(braceGeo, legMat);

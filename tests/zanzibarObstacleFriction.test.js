@@ -7,9 +7,10 @@ import { readFileSync } from "node:fs";
 // Rapier combines the two colliders' friction with Average by default (verified in
 // @dimforge/rapier3d/geometry/collider.js — ColliderDesc sets frictionCombineRule AND
 // restitutionCombineRule to Average), and the cart carries friction 1.1 (CONFIG.cart.friction).
-// So the 8 corner bollards and the gnomon blade, both written 0.3, behaved like 0.7 — grippy
-// where the author asked for a glancing surface. The blade is the site that matters: a 6.2 m
-// flat vertical face a cart can grind along, versus a bollard's brief point impact.
+// So the 8 corner bollards, the gnomon blade, and (SPAWN-SUNDIAL-1) the booth legs — all
+// written 0.3 — behaved like 0.7 where Average still applied. The blade is the site that
+// matters: a 6.2 m flat vertical face a cart can grind along, versus a bollard's brief
+// point impact. Legs are the same class (vertical posts you hit, not driveable floor).
 //
 // The written 0.3 is deliberately NOT retuned. Min only makes the number real.
 //
@@ -37,23 +38,26 @@ function sliceBetween(startAnchor, endAnchor) {
 }
 
 describe("SUNDIAL-OBSTACLE-SLIDE-1 — Sundial obstacles do not average friction with the cart", () => {
-  it("sets the Min rule exactly twice", () => {
-    // The 8 bollards (one loop) + the gnomon blade. Nothing else in Sundial is obstacle-class.
+  it("sets the Min rule exactly three times", () => {
+    // Bollard loop + gnomon blade + SPAWN-SUNDIAL-1 booth-leg create chain (one source
+    // occurrence inside the per-booth leg loop — count is text, not runtime colliders).
+    // Cross-braces stay mesh-only; floors stay Average.
     const hits = src.split(MIN_RULE).length - 1;
-    expect(hits).toBe(2);
+    expect(hits).toBe(3);
   });
 
   it("attaches each rule to the friction value it governs, not just somewhere in the file", () => {
-    // A bare count would pass if both Mins landed on the deck. Requiring each rule to sit in
+    // A bare count would pass if Mins landed on the deck. Requiring each rule to sit in
     // the same chain as its own setFriction(0.3) fails for the right reason instead.
     const chain = /setFriction\(0\.3\)\s*\n\s*\.setFrictionCombineRule\(RAPIER\.CoefficientCombineRule\.Min\)/g;
-    expect(src.match(chain)?.length ?? 0).toBe(2);
+    expect(src.match(chain)?.length ?? 0).toBe(3);
   });
 
-  it("keeps the bollards and the blade at the written 0.3 — Min makes it real, it is not a retune", () => {
+  it("keeps the bollards, blade, and booth legs at the written 0.3 — Min makes it real, it is not a retune", () => {
     const bollards = sliceBetween(BOLLARD_ANCHOR, "// * Gnomon blade collider");
     const blade = sliceBetween("const bladeH = GNOMON_TIP_Y - GNOMON_BASE_Y;", "// Per-frame deck animation");
-    for (const [name, chunk] of [["bollards", bollards], ["gnomon blade", blade]]) {
+    const legs = sliceBetween("// * SPAWN-SUNDIAL-1 — platform legs were visual-only", "for (const sx of [-pw + 0.4, pw - 0.4])");
+    for (const [name, chunk] of [["bollards", bollards], ["gnomon blade", blade], ["booth legs", legs]]) {
       expect(chunk, `${name} friction changed`).toContain("setFriction(0.3)");
       expect(chunk, `${name} lost the Min rule`).toContain(MIN_RULE);
     }
