@@ -56,9 +56,12 @@ describe("WALL-SLIDE-CLASSIC-1 — Classic pit walls do not average friction wit
     expect(backstop).not.toContain("setFrictionCombineRule");
   });
 
-  it("never sets a restitution combine rule, because Max is load-bearing here", () => {
-    // Lip 0.5 and staves 0.6 both sit above the cart's 0.3, and Rapier's default Max is what
-    // gives them their deflection. Sundial needed RestitutionCombineRule.Min for the opposite
+  it("never sets a restitution combine rule, because Rapier's default Average is load-bearing here", () => {
+    // RAPIER-DEFAULT-MAX-1: this test's name and this comment used to say the default is Max —
+    // it is Average (@dimforge/rapier3d/geometry/collider.js:861-862). Lip 0.5 and staves 0.6
+    // averaged with the cart's 0.3 give 0.40 / 0.45, the deflection WALL-SLIDE-CLASSIC-1 passed
+    // playtest at on prod a028cb8a — the feel is signed off at these real values, not the higher
+    // ones the old comment implied. Sundial needed RestitutionCombineRule.Min for the opposite
     // reason — to hold a LOWER deck value (zanzibarPlatform.js:25). Copying that here would
     // flatten the bounce that keeps boosted rams from sailing out over the stands.
     expect(src).not.toContain("setRestitutionCombineRule");

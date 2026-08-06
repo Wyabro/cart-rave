@@ -730,10 +730,14 @@ combine-rule run.
   appears to do nothing may not be the wrong lever — check whether the value is transformed before
   it reaches physics.*
 - **Deliberately untouched, both load-bearing:** the backstop cylinder (its top cap is the shaft
-  floor, and floors keep Average) and restitution everywhere in Classic (Rapier's default is
-  **Max**, and lip 0.5 / staves 0.6 over the cart's 0.3 *is* the deflection that keeps boosted rams
-  off the stands — the exact opposite of Sundial's floor case, which needed
-  `RestitutionCombineRule.Min` to hold a *lower* value).
+  floor, and floors keep Average) and restitution everywhere in Classic. *(RAPIER-DEFAULT-MAX-1,
+  08-06: this bullet used to say Rapier's default is Max — it is **Average**
+  (`@dimforge/rapier3d/geometry/collider.js:861-862`). Lip 0.5 / staves 0.6 averaged with the
+  cart's 0.3 give **0.40 / 0.45**, not 0.50/0.60 — and that is the deflection this card actually
+  passed playtest at, on prod `a028cb8a`, so the feel is signed off at the real values and the
+  numbers must not be "corrected" upward on the strength of this comment.)* That deflection keeps
+  boosted rams off the stands — the exact opposite of Sundial's floor case, which needed
+  `RestitutionCombineRule.Min` to hold a *lower* value.
 - *(Correction)* **My earlier "Sundial is clean" was wrong** — an artifact of a grep that only
   matched friction ≤0.2. Sundial's bollards and gnomon blade are written `0.3`, so they never
   showed up, and they average to **0.7**. Filed as **SUNDIAL-OBSTACLE-SLIDE-1** (Low — point

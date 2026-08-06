@@ -2545,8 +2545,9 @@ export function initArena(scene, world, config, options = {}) {
       const angle = (i / SHAFT_SEGMENTS) * Math.PI * 2;
       const quat = new THREE.Quaternion().setFromAxisAngle(yAxis, angle);
       // * WALL-SLIDE-CLASSIC-1: FrictionCombineRule.Min — see the lip block below for why.
-      // * Restitution deliberately has NO rule: Rapier's default is Max, and 0.6 over the
-      // * cart's 0.3 is exactly the ricochet these staves want.
+      // * Restitution deliberately has NO rule: Rapier's default is Average (RAPIER-DEFAULT-MAX-1
+      // * corrected this comment — it used to say Max), and 0.6 averaged with the cart's 0.3 is
+      // * 0.45, the ricochet these staves want.
       const wallDesc = RAPIER.ColliderDesc.convexHull(wallVertices)
         .setRotation({ x: quat.x, y: quat.y, z: quat.z, w: quat.w })
         .setFriction(0.05)
@@ -2608,7 +2609,8 @@ export function initArena(scene, world, config, options = {}) {
       // * floors-keep-Average bucket on account of the lean. Floors that genuinely keep
       // * Average here: the record deck segments and the backstop cylinder's top cap.
       // *
-      // * Restitution keeps the default Max rule on purpose — 0.5 over the cart's 0.3 is the
+      // * Restitution keeps the default Average rule on purpose (RAPIER-DEFAULT-MAX-1 corrected
+      // * this comment — it used to say Max) — 0.5 averaged with the cart's 0.3 is 0.40, the
       // * deflection. This is the opposite of Sundial's floor case, which needed
       // * RestitutionCombineRule.Min to hold a LOWER value (zanzibarPlatform.js:25).
       const lipDesc = RAPIER.ColliderDesc.convexHull(lipVertices)
