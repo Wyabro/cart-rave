@@ -840,8 +840,8 @@
               <span class="cr-howto-slide-no">AISLE 1</span>
               <h3 class="cr-howto-slide-name" id="cr-howto-s1-hd">DRIVE</h3>
               <p class="cr-howto-slide-body">
-                Steer, hop the pit, and hold <strong>BOOST</strong> to charge a bigger shove.
-                The longer you hold, the harder you hit.
+                Steer with the stick, and <strong>hop</strong> to clear the pit or land on
+                someone. Boost gets its own aisle — it is worth the read.
               </p>
               <!-- Rebuilt per input mode by renderHowToControls() — keyboard copy is wrong
                    on a phone, and this screen is the first thing a first-run player sees. -->
@@ -856,10 +856,27 @@
           </section>
 
           <section class="cr-howto-slide cr-howto-slide--2" data-slide="1" aria-labelledby="cr-howto-s2-hd" hidden>
-            <div class="cr-howto-slide-media" data-media="ram" aria-hidden="true"></div>
+            <div class="cr-howto-slide-media" data-media="boost" aria-hidden="true"></div>
             <div class="cr-howto-slide-copy">
               <span class="cr-howto-slide-no">AISLE 2</span>
-              <h3 class="cr-howto-slide-name" id="cr-howto-s2-hd">RAM THEM OUT</h3>
+              <h3 class="cr-howto-slide-name" id="cr-howto-s2-hd">BOOST</h3>
+              <p class="cr-howto-slide-body">
+                Hold to charge, release to shove — the longer you hold, the harder you hit. A
+                full charge fires on its own, and a flick too quick to register does nothing.
+              </p>
+              <div class="cr-howto-strip-row" role="list">
+                <span class="cr-howto-price" role="listitem"><span class="cr-howto-price-lbl">MIN HOLD</span><span class="cr-howto-price-val">0.1s</span></span>
+                <span class="cr-howto-price" role="listitem"><span class="cr-howto-price-lbl">FULL CHARGE</span><span class="cr-howto-price-val">1.5s</span></span>
+                <span class="cr-howto-price" role="listitem"><span class="cr-howto-price-lbl">COOLDOWN</span><span class="cr-howto-price-val">0.2s</span></span>
+              </div>
+            </div>
+          </section>
+
+          <section class="cr-howto-slide cr-howto-slide--3" data-slide="2" aria-labelledby="cr-howto-s3-hd" hidden>
+            <div class="cr-howto-slide-media" data-media="ram" aria-hidden="true"></div>
+            <div class="cr-howto-slide-copy">
+              <span class="cr-howto-slide-no">AISLE 3</span>
+              <h3 class="cr-howto-slide-name" id="cr-howto-s3-hd">RAM THEM OUT</h3>
               <p class="cr-howto-slide-body">
                 You only score when <strong>you</strong> force a rival off the edge. Self-falls
                 count for nothing, so pick your moment.
@@ -867,10 +884,30 @@
             </div>
           </section>
 
-          <section class="cr-howto-slide cr-howto-slide--3" data-slide="2" aria-labelledby="cr-howto-s3-hd" hidden>
+          <!-- AISLE 4 carries the one UNCROPPED still, HUD included, with callouts placed in
+               PERCENT coordinates over it so they scale with the image instead of drifting. -->
+          <section class="cr-howto-slide cr-howto-slide--4" data-slide="3" aria-labelledby="cr-howto-s4-hd" hidden>
+            <div class="cr-howto-slide-media cr-howto-slide-media--hud" data-media="hud" aria-hidden="true">
+              <span class="cr-howto-callout" style="--x:14%; --y:8%">TIME LEFT</span>
+              <span class="cr-howto-callout" style="--x:62%; --y:8%">SCORES</span>
+              <span class="cr-howto-callout" style="--x:80%; --y:26%">KILL FEED</span>
+              <span class="cr-howto-callout" style="--x:50%; --y:92%">BOOST</span>
+              <span class="cr-howto-callout" style="--x:16%; --y:78%">CARGO BAY</span>
+            </div>
             <div class="cr-howto-slide-copy">
-              <span class="cr-howto-slide-no">AISLE 3</span>
-              <h3 class="cr-howto-slide-name" id="cr-howto-s3-hd">CHAIN COMBOS</h3>
+              <span class="cr-howto-slide-no">AISLE 4</span>
+              <h3 class="cr-howto-slide-name" id="cr-howto-s4-hd">READ THE HUD</h3>
+              <p class="cr-howto-slide-body">
+                Everything you need mid-round sits on two lines — the clock and the standings up
+                top, your boost and your cargo down below.
+              </p>
+            </div>
+          </section>
+
+          <section class="cr-howto-slide cr-howto-slide--5" data-slide="4" aria-labelledby="cr-howto-s5-hd" hidden>
+            <div class="cr-howto-slide-copy">
+              <span class="cr-howto-slide-no">AISLE 5</span>
+              <h3 class="cr-howto-slide-name" id="cr-howto-s5-hd">CHAIN COMBOS</h3>
               <p class="cr-howto-slide-body">
                 Bonuses add first, then the combo multiplier hits the whole reward. Chain KOs
                 before the ~5s streak fades.
@@ -883,11 +920,11 @@
             </div>
           </section>
 
-          <section class="cr-howto-slide cr-howto-slide--4" data-slide="3" aria-labelledby="cr-howto-s4-hd" hidden>
+          <section class="cr-howto-slide cr-howto-slide--6" data-slide="5" aria-labelledby="cr-howto-s6-hd" hidden>
             <div class="cr-howto-slide-media" data-media="cargo" aria-hidden="true"></div>
             <div class="cr-howto-slide-copy">
-              <span class="cr-howto-slide-no">AISLE 4</span>
-              <h3 class="cr-howto-slide-name" id="cr-howto-s4-hd">THE LIVING STORE</h3>
+              <span class="cr-howto-slide-no">AISLE 6</span>
+              <h3 class="cr-howto-slide-name" id="cr-howto-s6-hd">THE LIVING STORE</h3>
               <p class="cr-howto-slide-body">
                 Scoring fills your <strong>cargo bay</strong> — fuller means heavier handling and
                 a bigger spill. Forcing a spill grants a short speed buff.
@@ -895,10 +932,10 @@
             </div>
           </section>
 
-          <section class="cr-howto-slide cr-howto-slide--5" data-slide="4" aria-labelledby="cr-howto-s5-hd" hidden>
+          <section class="cr-howto-slide cr-howto-slide--7" data-slide="6" aria-labelledby="cr-howto-s7-hd" hidden>
             <div class="cr-howto-slide-copy">
-              <span class="cr-howto-slide-no">AISLE 5</span>
-              <h3 class="cr-howto-slide-name" id="cr-howto-s5-hd">PRICE CHECK</h3>
+              <span class="cr-howto-slide-no">AISLE 7</span>
+              <h3 class="cr-howto-slide-name" id="cr-howto-s7-hd">PRICE CHECK</h3>
               <p class="cr-howto-slide-body">
                 Every ~18s the PA calls a directive that rewrites the round:
                 <strong>FLASH SALE</strong> · <strong>DOUBLE BAG</strong> ·
@@ -914,22 +951,42 @@
               </div>
             </div>
           </section>
+
+          <!-- Last on purpose: the game is fully taught by AISLE 4, so everything past it is
+               depth a first-run player can bail on without losing the rules. Deliberately
+               says nothing about WHERE difficulty is picked — see DIFF-FRIENDS-1. -->
+          <section class="cr-howto-slide cr-howto-slide--8" data-slide="7" aria-labelledby="cr-howto-s8-hd" hidden>
+            <div class="cr-howto-slide-copy">
+              <span class="cr-howto-slide-no">AISLE 8</span>
+              <h3 class="cr-howto-slide-name" id="cr-howto-s8-hd">THE BOTS</h3>
+              <p class="cr-howto-slide-body">
+                NPC carts fill any empty seat. Easy ones hesitate and rarely save themselves at
+                the edge · hard ones react twice as fast, gang up on humans, and hop back from
+                the brink.
+              </p>
+              <div class="cr-howto-strip-row" role="list">
+                <span class="cr-howto-price" role="listitem"><span class="cr-howto-price-lbl">EASY</span><span class="cr-howto-price-val">SLOW</span></span>
+                <span class="cr-howto-price" role="listitem"><span class="cr-howto-price-lbl">MEDIUM</span><span class="cr-howto-price-val">EVEN</span></span>
+                <span class="cr-howto-price" role="listitem"><span class="cr-howto-price-lbl">HARD</span><span class="cr-howto-price-val">RUTHLESS</span></span>
+              </div>
+            </div>
+          </section>
         </div>
 
-        <!-- Dots are presentational: five dot BUTTONS would put eight stops in the
+        <!-- Dots are presentational: eight dot BUTTONS would put eleven stops in the
              spatial-nav ring that gamepadNav walks. The live region carries the
              position for screen readers instead. -->
         <div class="cr-howto-pager">
           <button class="cr-howto-page" id="cr-howto-prev" type="button" aria-label="Previous rule">◂</button>
           <span class="cr-howto-dots" aria-hidden="true">
-            <span class="cr-howto-dot"></span><span class="cr-howto-dot"></span><span class="cr-howto-dot"></span><span class="cr-howto-dot"></span><span class="cr-howto-dot"></span>
+            <span class="cr-howto-dot"></span><span class="cr-howto-dot"></span><span class="cr-howto-dot"></span><span class="cr-howto-dot"></span><span class="cr-howto-dot"></span><span class="cr-howto-dot"></span><span class="cr-howto-dot"></span><span class="cr-howto-dot"></span>
           </span>
           <!-- Pairs with ◂ so the chrome reads as a pager on sight (the .cr-arena-page
                idiom), and so exactly one arrow is enabled on slide 1 — the hover rule is
                scoped :not(:disabled), and with a lone disabled ◂ it would match nothing
                on the only slide `npm run states` opens, failing the reachability sweep. -->
           <button class="cr-howto-page" id="cr-howto-next" type="button" aria-label="Next rule">▸</button>
-          <span class="cr-howto-pos" id="cr-howto-pos" role="status" aria-live="polite">1/5</span>
+          <span class="cr-howto-pos" id="cr-howto-pos" role="status" aria-live="polite">1/8</span>
         </div>
       </div>
 
