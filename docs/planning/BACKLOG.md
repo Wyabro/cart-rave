@@ -7,6 +7,45 @@
 (phase definitions), [completed-work.md](./completed-work.md) (shipped),
 [netcode-deep-dive.md](./netcode-deep-dive.md) (hazard writeups).
 
+### Status at a glance
+
+*(Hand-maintained summary, kept in sync with the sections below by whoever closes or reorders a
+card. If it ever drifts, the [Work order](#work-order-2026-08-05-audit--the-queue-wyatt-works-down)
+narrative and the department tables further down are the source of truth, not this box.)*
+
+**Work order — where the ship-bar queue stands**, block by block:
+
+| Block | State | Next action |
+|-------|-------|-------------|
+| **A** — ship bar (launch blockers) | 🟡 6/7 closed | **NET-LOOK-ACC-1** — shipped, awaiting Wyatt playtest (unblocks Pattern customize UI C3) |
+| **B** — pre-ship batch (16 items, best-first) | 🟡 in progress | #1 **UI-SCALE-1** Pass 2 shipped, awaiting playtest; #2 **ONBOARD-SLIDES-1** is next once #1 closes |
+| **C** — perf program | 🔵 parked | Wyatt's call to unpark; next step when he does is the **PERF-9CELL-1** sweep |
+| **D** — Wyatt-parallel (off the agent queue) | 👤 ongoing | CART-MODEL-1, HIT-SFX-VAR-1 (needs his clips), bloom sign-off, art-direction calls |
+| **E** — ship-gate decision | 🔵 needs a call | Cut D-tier (persistent leaderboard) from launch, or schedule it as its own phase |
+| **F** — sweep-day batch (Lows, one commit each) | ⚪ not started | **RAPIER-DEFAULT-MAX-1** first (prose-only fix), then 6 more small items |
+| **G** — tooling-window batch | 🟢 fully drained | — |
+
+**Launch-day only (can't test before the public post):** SHARD-PT-2 — 5th concurrent human needs
+to land on `quickplay2`; rig already 5/5 in browsers, this just needs real traffic.
+
+**Department tables — how much open work is where** (🟢 = shippable, everything else needs work):
+
+| Department | Open | High | Medium | Low |
+|---|---:|---:|---:|---:|
+| [Engineering](#engineering) | 24 | 2 | 12 | 9 (+1 partial) |
+| [Art](#art) | 16 | 2 | 6 | 8 |
+| [Audio](#audio) | 5 | 0 | 3 | 2 |
+| [Design / Gameplay](#design--gameplay) | 9 | 0 | 3 | 6 |
+| 🟢 [Playtest owed](#playtest-owed) | 8 | 5 | 1 | 2 |
+| [UI / UX](#ui--ux) | 14 | 4 | 5 | 5 |
+| [Tech Debt](#tech-debt) | 14 | 0 | 5 | 9 |
+
+**90 open rows total.** Everything in **Playtest owed** already shipped — those rows are just
+waiting on Wyatt's eyes, not on more engineering. That's usually the fastest place to look for
+"what do I personally need to go do."
+
+---
+
 Priorities: **Critical** = blocks Version 2 · **High** = should land before V2 ·
 **Medium** = V2-window polish · **Low** = post-launch / opportunistic.
 
@@ -39,24 +78,9 @@ the row text (`two clients`, `both machines`, `non-host`, …) and defaults to s
 Item cell `[solo]`/`[1pc]` or `[2pc]` to override the guess. Tag any row whose *steps* mention a
 second client but whose *evidence* is single-machine — otherwise it sinks to the bottom unread.
 
-Do not re-add closed IDs (NET-1, NET-2, NET-MIG-3, NET-PRES-1, NET-SD-1, HOST-ROLE-1,
-HOST-CAP-1, VFX-1, NET-CLK-*, NET-BUF-1, BOOT-PERF-1, COUNTDOWN-SYNC-1, HUD-FEED-1,
-MENU-HINT-1, DIAG-DOC-1, ANLX-VIEW-1, ANLX-ATTRACT-1, ANLX-BULK-1, MP-FX-1, ARENA-COL-1,
-SRV-TEST-1, HYGIENE-1, SKYBOX-1, SEC-BEACON-1, SEC-UNLOCK-1, SEC-ROUTE-1, SEC-TOKEN-1,
-CARGO-RACE-1, CARGO-VIS-1, CARGO-WT-1, CARGO-HUD-1, CARGO-HUD-1a, SHEET-1, AI-DIFF-1,
-HIT-FEEL-1, ARENA-BAL-1, INPUT-KB-1, SOLO-DIFF-1, LOD-UNCANNY-1, FX-TEXDISPOSE-1,
-PIT-DEPTH-1, PIT-COL-INSET-1, SPAWN-BACKROOMS-1, CAM-OPEN-1, UNLOCK-ORDER-1,
-CC-TOKEN-1, CC-STRIPE-1, CC-LABEL-1, CC-ICON-1, MENU-MUSIC-VOL-1, MENU-LOCK-HINT-1,
-GIT-INDEX-1, GIT-INDEX-2, ART-PASS-1, ART-PASS-CLASSIC-1, NET-SIM-1, PRE-PODIUM-1,
-FIGHT-VERIFY-1, ROUND-WEDGE-1, SHOOT-ANIM-1, SHOOT-ANIM-2, FX-TIME-1, HOOK-INDEX-1,
-STOP-DIRT-1, SUNDIAL-DECK-DETAIL-1, HOST-TAB-1, MAIN-1, PERF-INSTR-1, SPAWN-PT-1,
-CAM-PT-1, HOST-TOAST-1, BRIEF-DIGEST-1, SKILLSYNC-PRUNE-1, SHADOW-TILT-1,
-SHADOW-ORDER-1, BUNDLE-1, HARNESS-GEO-1, FIX-MIG, **SHOOT-LEVEL-1 — retracted 08-05, was
-never a bug** (`FREE_LEVEL = "zanzibar"`, so a default shot already *is* Sundial),
-QUICKPLAY-SHARD-1, ARCH-DRIFT-1, DIAG-UPLOAD-GEN-1, UI-SCALE-RESULTS-PHONE-1,
-UI-SCALE-RESULTS-WIDE-1, UI-SCALE-FEED-PHONE-1, NET-AUDIT-INPUT-1, NET-AUDIT-SLOTS-LOOK-1,
-NET-AUDIT-SLOTS-READY-1, PT-CARD-SPLIT-1, PT-CONSOLE-READY-1, HOOK-COMMENT-1, CC-ESC-1, …)
-without new evidence.
+**Do not re-add a closed ID without new evidence.** The full list (100+ IDs) moved out of the
+way — it's an agent grep-target, not something a human needs to read top to bottom — see
+[Closed / do-not-reopen reference](#closed--do-not-reopen-reference) at the very end of this file.
 
 **Absorbed into another card, not closed on their own** (do not re-add as standalone rows):
 **ART-MAT-1** → CART-MODEL-1 · **ONBOARD-1** → ONBOARD-SLIDES-1.
@@ -396,3 +420,32 @@ Priorities below are post-gate unless Wyatt pulls them forward.
 - MAIN-1 → BUNDLE-1 after V2.
 - DIR-1 runtime modifier stack if Living Store grows mutators.
 - GLTF-1 legacy layout deletion after cartrave4-only sign-off.
+
+---
+
+## Closed / do-not-reopen reference
+
+Every ID below is **closed** — full writeups live in [completed-work.md](./completed-work.md).
+This list exists so nobody re-files a closed card without new evidence; agents grep it, humans
+can skip it entirely. Relocated here from the top of the file 08-06 — it was never `##`-scannable
+prose, and pushing 130+ IDs at anyone before they've seen a single open item was the biggest single
+readability tax this file had. Nothing else on this page changed.
+
+NET-1, NET-2, NET-MIG-3, NET-PRES-1, NET-SD-1, HOST-ROLE-1,
+HOST-CAP-1, VFX-1, NET-CLK-*, NET-BUF-1, BOOT-PERF-1, COUNTDOWN-SYNC-1, HUD-FEED-1,
+MENU-HINT-1, DIAG-DOC-1, ANLX-VIEW-1, ANLX-ATTRACT-1, ANLX-BULK-1, MP-FX-1, ARENA-COL-1,
+SRV-TEST-1, HYGIENE-1, SKYBOX-1, SEC-BEACON-1, SEC-UNLOCK-1, SEC-ROUTE-1, SEC-TOKEN-1,
+CARGO-RACE-1, CARGO-VIS-1, CARGO-WT-1, CARGO-HUD-1, CARGO-HUD-1a, SHEET-1, AI-DIFF-1,
+HIT-FEEL-1, ARENA-BAL-1, INPUT-KB-1, SOLO-DIFF-1, LOD-UNCANNY-1, FX-TEXDISPOSE-1,
+PIT-DEPTH-1, PIT-COL-INSET-1, SPAWN-BACKROOMS-1, CAM-OPEN-1, UNLOCK-ORDER-1,
+CC-TOKEN-1, CC-STRIPE-1, CC-LABEL-1, CC-ICON-1, MENU-MUSIC-VOL-1, MENU-LOCK-HINT-1,
+GIT-INDEX-1, GIT-INDEX-2, ART-PASS-1, ART-PASS-CLASSIC-1, NET-SIM-1, PRE-PODIUM-1,
+FIGHT-VERIFY-1, ROUND-WEDGE-1, SHOOT-ANIM-1, SHOOT-ANIM-2, FX-TIME-1, HOOK-INDEX-1,
+STOP-DIRT-1, SUNDIAL-DECK-DETAIL-1, HOST-TAB-1, MAIN-1, PERF-INSTR-1, SPAWN-PT-1,
+CAM-PT-1, HOST-TOAST-1, BRIEF-DIGEST-1, SKILLSYNC-PRUNE-1, SHADOW-TILT-1,
+SHADOW-ORDER-1, BUNDLE-1, HARNESS-GEO-1, FIX-MIG, **SHOOT-LEVEL-1 — retracted 08-05, was
+never a bug** (`FREE_LEVEL = "zanzibar"`, so a default shot already *is* Sundial),
+QUICKPLAY-SHARD-1, ARCH-DRIFT-1, DIAG-UPLOAD-GEN-1, UI-SCALE-RESULTS-PHONE-1,
+UI-SCALE-RESULTS-WIDE-1, UI-SCALE-FEED-PHONE-1, NET-AUDIT-INPUT-1, NET-AUDIT-SLOTS-LOOK-1,
+NET-AUDIT-SLOTS-READY-1, PT-CARD-SPLIT-1, PT-CONSOLE-READY-1, HOOK-COMMENT-1, CC-ESC-1,
+HARNESS-NULL-1, HARNESS-FRIENDS-1, HARNESS-FREEZE-1, …
