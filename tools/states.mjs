@@ -226,6 +226,15 @@ const SKIP_GRACE_SLEEP_MS = 600;
 /* ─────────────────────────────── page-side functions ─────────────────────────────── */
 
 /**
+ * TOUCH-HOVER-1: matches a rule's `media[]` conditions when it sits inside
+ * `@media (hover: hover) …` — Pass 1 L5's gating pattern (`cart-rave-menu.css:3424`) and the
+ * one this wave adds to the six Pass 2 files. Deliberately loose (no anchors / pointer-fine
+ * requirement) — any `(hover: hover)` ancestor condition means the rule cannot paint on a
+ * coarse-pointer / no-hover client, which is all `runScreen`'s forced-touch check needs to know.
+ */
+const HOVER_MEDIA_RE = /\(\s*hover\s*:\s*hover\s*\)/i;
+
+/**
  * Enumerate every interactive-state rule from the LIVE CSSOM.
  *
  * Provenance comes from `data-vite-dev-id` on the injected `<style>` node: Vite dev serves
@@ -980,15 +989,23 @@ async function runScreen(page, cdp, { screen, subjects, outDir, tally, cards, re
         continue;
       }
       const where = r.onDescendant > 0 && r.onSelf === 0 && r.onSelfPseudo === 0 ? "DESCENDANT ONLY" : "self";
+      // * TOUCH-HOVER-1: a `:hover` rule gated behind `@media (hover: hover)` (subject.hoverGated)
+      // * cannot paint at all on a forced/touch screen — the media condition itself doesn't
+      // * match there, regardless of the CDP-forced pseudo-class. So on such a screen the CORRECT
+      // * reading is zero delta, and asserting `r.changes > 0` would fail the fix for working.
+      // * Every other case keeps the original "must show a delta" assertion unchanged.
+      const invertForGatedTouch = s === "hover" && subject.hoverGated && card.forced;
       tally.check(
-        `${subject.slug} · ${s} · shows a presentation delta`,
-        r.changes > 0,
+        `${subject.slug} · ${s} · shows a presentation delta`
+          + `${invertForGatedTouch ? " (inverted — (hover: hover) gated)" : ""}`,
+        invertForGatedTouch ? r.changes === 0 : r.changes > 0,
         `${r.changes} changed propert${r.changes === 1 ? "y" : "ies"} on ${screen.key} `
           + `(self ${r.onSelf} / self-pseudo ${r.onSelfPseudo} / descendant ${r.onDescendant} — ${where}) · `
           + `${r.summary}${card.noise ? ` · noise floor ${card.noise} prop(s) subtracted: ${(card.noiseList || []).join(", ")}` : ""} · `
           + `subject <${card.tag} class="${card.cls}"> match ${card.candidateIndex + 1}/${card.matches}, `
           + `${card.candidatesTried} of ${card.candidatesVisible} visible match(es) tried`
-          + `${card.forced ? " · state FORCED via CDP (touch client — synthetic mouse input does not produce :hover/:active under mobile emulation)" : ""}`,
+          + `${card.forced ? " · state FORCED via CDP (touch client — synthetic mouse input does not produce :hover/:active under mobile emulation)" : ""}`
+          + `${invertForGatedTouch ? " · TOUCH-HOVER-1: gated behind (hover: hover) — zero delta on touch is the fix working" : ""}`,
       );
     }
 
@@ -1040,11 +1057,13 @@ async function runScreen(page, cdp, { screen, subjects, outDir, tally, cards, re
 /**
  * The aggregate touch advisory.
  *
- * There is genuinely no `@media (hover: hover)` guard on ANY interactive-state rule in this
- * repo — zero occurrences of the media feature in `src/**\/*.css`; the only three `hover`
- * capability checks live in JS (`touchControls.js:580`, `rotatePrompt.js:124`,
- * `device.js:36`). So on a coarse-pointer device every one of these hover rules still applies,
- * and a tap latches it until the user taps elsewhere. That is ONE fact about ONE missing media
+ * **Stale as of TOUCH-HOVER-1:** this used to say there was NO `@media (hover: hover)` guard
+ * anywhere in the repo. Pass 1 L5 (`0599796`) already gated the main menu's hover rules that
+ * way, and this wave gates the six Pass 2 files' hover rules the same way (subjects flagged
+ * `hoverGated` in `buildSubjects`) — so `applies`/`measured` below should now read low, not
+ * high, on a repo in good shape. What's still true: any UNGATED hover rule still applies on a
+ * coarse-pointer device and latches a tap until the user taps elsewhere. That is ONE fact about
+ * whichever rules are still missing their media
  * query, so it is reported as ONE row with a count — 30-odd individual failures would drown
  * the tally and teach everyone to skim it.
  */
@@ -1107,9 +1126,10 @@ async function touchHoverSurvey(page, cdp, { subjects, tally, screenKey }) {
     measured > 0,
     `${applies}/${measured} hover rule(s) still repaint on a coarse-pointer / hasTouch client `
       + `(${names.slice(0, 6).join(", ")}${names.length > 6 ? `, +${names.length - 6}` : ""}). `
-      + "There is NO `@media (hover: hover)` guard anywhere in src/**/*.css — zero occurrences — "
-      + "so on a real touchscreen these latch on tap until the user taps elsewhere. "
-      + "ONE advisory, not one failure per selector: it is one missing media query.",
+      + "Any rule still in this count is missing an `@media (hover: hover)` guard — the menu "
+      + "(Pass 1 L5) and the six UI-SCALE-1 Pass 2 files (TOUCH-HOVER-1) are already gated, "
+      + "so on a real touchscreen an UNGATED rule latches on tap until the user taps elsewhere. "
+      + "ONE advisory, not one failure per selector: it is one missing media query per name above.",
   );
   return { applies, measured, names };
 }
@@ -1293,10 +1313,17 @@ function buildSubjects(rules, tally) {
           props: new Set(FLOOR_PROPS),
           srcs: new Set(),
           selectors: [],
+          // * TOUCH-HOVER-1: true when this subject's `:hover` paint sits inside an
+          // * `@media (hover: hover)` block (Pass 1 L5's pattern). A forced-CDP touch screen
+          // * correctly produces ZERO delta for a gated rule — that is the fix working, not a
+          // * dead rule — so runScreen's per-state assertion inverts for these on forceStates
+          // * screens instead of demanding a delta.
+          hoverGated: false,
         });
       }
       const s = byBase.get(key);
       if (!s.states.includes(p.state)) s.states.push(p.state);
+      if (p.state === "hover" && HOVER_MEDIA_RE.test(rule.media.join(" "))) s.hoverGated = true;
       // * A descendant delta on ANY of a base's rules makes the whole subject's fullBase the
       // * deeper one, so reachability asserts the node the declarations actually land on.
       if (p.descendantDelta) {
