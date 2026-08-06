@@ -192,8 +192,9 @@ is active).** Ordered 08-05 by what each one prevents from recurring: **PT-CARD-
 repeating the two failures this queue has already paid for (a multi-issue card hiding a real defect
 inside a green PASS, and an owed card shipped with no runnable steps, which is exactly how
 PERF-9CELL-1 FAILed on 08-05). **HARNESS-NULL-1 ✅ CLOSED 08-06** · HARNESS-FRIENDS-1 ·
-HOOK-COMMENT-1 (one-line stale comment) · CC-ESC-1. **ARCH-DRIFT-1 removed — closed**, shipped
-`91b39aa`.
+HARNESS-FREEZE-1 (*added 08-06*; take it in the same sitting as HARNESS-FRIENDS-1 — same
+`netharness.mjs` scenario lane, one tooling commit each) · HOOK-COMMENT-1 (one-line stale
+comment) · CC-ESC-1. **ARCH-DRIFT-1 removed — closed**, shipped `91b39aa`.
 
 **Do not pick (blocked / trigger-gated / post-launch):** WARM-SOLO-1 (needs real weak-GPU
 telemetry) · PROBE-WARM-RT-1 / NET-RING-1 (instrument-first, live inside Block C) ·
