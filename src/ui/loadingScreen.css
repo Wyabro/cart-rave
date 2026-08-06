@@ -104,7 +104,7 @@
 
 .cr-load__meta {
   font-family: var(--cr-load-mono);
-  font-size: clamp(9px, 1vw, 12px);
+  font-size: 0.75rem;
   letter-spacing: 0.34em;
   color: rgba(255, 255, 255, 0.38);
   white-space: nowrap;
@@ -173,7 +173,7 @@
    The brightness pulse stays — it is the one cue that this screen is working. */
 .cr-load__kicker {
   font-family: var(--cr-load-mono);
-  font-size: clamp(9px, 1vw, 12px);
+  font-size: 0.75rem;
   letter-spacing: 0.34em;
   color: rgba(255, 255, 255, 0.55);
   white-space: nowrap;
@@ -214,7 +214,7 @@
 
 .cr-load__subtitle {
   font-family: var(--cr-load-mono);
-  font-size: clamp(9px, 1vw, 12px);
+  font-size: 0.75rem;
   letter-spacing: 0.12em;
   color: rgba(255, 255, 255, 0.55);
   min-height: 1.2em;
@@ -250,7 +250,7 @@
 .cr-load__strip {
   display: flex;
   align-items: center;
-  gap: clamp(14px, 2.4vw, 36px);
+  gap: 2.25rem;
   margin: 0 calc(var(--cr-load-pad-x) * -1);
   padding: clamp(10px, 1.5vh, 16px) var(--cr-load-pad-x);
   padding-bottom: max(clamp(10px, 1.5vh, 16px), env(safe-area-inset-bottom, 0px));
@@ -263,7 +263,7 @@
    counter-skewed contents. Same recipe drives the HUD boost bar and 7b's
    challenge bars, so the loading bar is no longer its own invention. */
 .cr-load__meter {
-  flex: 0 1 clamp(240px, 34vw, 420px);
+  flex: 0 1 26.25rem;
   padding: 10px 20px;
   background: var(--color-ink);
   border: 1px solid var(--border-white-12);
@@ -283,7 +283,7 @@
 .cr-load__meter-label {
   font-family: var(--cr-load-mono);
   font-weight: 700;
-  font-size: clamp(9px, 1vw, 10px);
+  font-size: 0.625rem;
   letter-spacing: 0.18em;
   color: var(--cr-load-accent, var(--cr-load-magenta));
   white-space: nowrap;
@@ -292,7 +292,7 @@
 .cr-load__pct {
   font-family: var(--cr-load-mono);
   font-weight: 700;
-  font-size: clamp(11px, 1.2vw, 12px);
+  font-size: 0.75rem;
   color: var(--cr-load-accent, var(--cr-load-magenta));
   min-width: 2.6em;
   text-align: right;
