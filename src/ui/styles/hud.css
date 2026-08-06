@@ -882,9 +882,7 @@
    slab (`.hud-lobby-btn`), so writing translate() on the outer node flattens it
    and leaves the label slanted (trap 4). The press beat lives on the inner node
    via lobbyPressTarget(); hover/active only move the extrude. */
-#hud .hud-ready-btn:hover {
-  box-shadow: var(--slab-shadow-hover);
-}
+/* .hud-ready-btn:hover paint -> (hover: hover) block (TOUCH-HOVER-1) */
 
 #hud .hud-ready-btn:active {
   box-shadow: var(--slab-shadow-pressed);
@@ -923,9 +921,7 @@
   font-size: 1.0625rem;
   transition: transform 100ms ease, box-shadow 100ms ease, background 150ms ease;
 }
-#hud .hud-mute-btn:hover {
-  transform: translate(-1px, -1px);
-}
+/* #hud .hud-mute-btn:hover paint -> (hover: hover) block (TOUCH-HOVER-1) */
 #hud .hud-mute-btn:active {
   transform: translate(2px, 2px);
   box-shadow: var(--slab-shadow-pressed);
@@ -2227,10 +2223,7 @@
   transition: background 120ms var(--ease-slap), color 120ms var(--ease-slap);
 }
 
-.hud-lobby-copy:hover {
-  background: rgba(34, 230, 255, 0.12);
-  color: var(--color-sticker-white);
-}
+/* .hud-lobby-copy:hover paint -> (hover: hover) block (TOUCH-HOVER-1) */
 
 .hud-lobby-copy:active {
   background: var(--color-cyan);
@@ -2451,7 +2444,7 @@
   transition: transform 120ms var(--ease-slap), box-shadow 120ms var(--ease-slap);
 }
 
-.cc-btn.hud-lobby-btn:hover,
+/* .cc-btn.hud-lobby-btn:hover paint -> (hover: hover) block (TOUCH-HOVER-1) */
 .cc-btn.hud-lobby-btn:focus-visible {
   transform: skewX(-8deg) translate(-1px, -2px);
 }
@@ -2555,4 +2548,23 @@
   .hud-lobby { gap: 10px; }
   .hud-lobby-slot { gap: 8px; }
   .hud-lobby-code-card { padding: 14px 16px; }
+}
+
+/* TOUCH-HOVER-1: hover paint gated off coarse-pointer/no-hover clients (Pass 1 L5 pattern) —
+   a tap on a touch device sets :hover and it would otherwise latch until the next tap
+   elsewhere. Rules moved here keep their original selector; only the trigger changed. */
+@media (hover: hover) and (pointer: fine) {
+  #hud .hud-ready-btn:hover {
+    box-shadow: var(--slab-shadow-hover);
+  }
+  #hud .hud-mute-btn:hover {
+    transform: translate(-1px, -1px);
+  }
+  .hud-lobby-copy:hover {
+    background: rgba(34, 230, 255, 0.12);
+    color: var(--color-sticker-white);
+  }
+  .cc-btn.hud-lobby-btn:hover {
+    transform: skewX(-8deg) translate(-1px, -2px);
+  }
 }

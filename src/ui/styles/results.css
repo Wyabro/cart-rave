@@ -483,8 +483,8 @@
   box-shadow: none;
 }
 
-/* Press/hover move the slab, never the label — the text would shimmer. */
-#results-overlay .results-btn:hover,
+/* Press/hover move the slab, never the label — the text would shimmer.
+   :hover paint -> (hover: hover) block (TOUCH-HOVER-1) */
 #results-overlay .results-btn:focus-visible,
 #results-overlay .results-btn:active {
   transform: none;
@@ -492,7 +492,7 @@
   box-shadow: none;
 }
 
-#results-overlay .results-btn:hover::before,
+/* .results-btn:hover::before paint -> (hover: hover) block (TOUCH-HOVER-1) */
 #results-overlay .results-btn:focus-visible::before {
   transform: skewX(-8deg) translate(-1px, -2px);
 }
@@ -860,5 +860,17 @@
 
   #results-overlay .results-btn--ghost {
     padding: clamp(5px, 1.2vh, 14px);
+  }
+}
+
+/* TOUCH-HOVER-1: hover paint gated off coarse-pointer/no-hover clients (Pass 1 L5 pattern). */
+@media (hover: hover) and (pointer: fine) {
+  #results-overlay .results-btn:hover {
+    transform: none;
+    background: transparent;
+    box-shadow: none;
+  }
+  #results-overlay .results-btn:hover::before {
+    transform: skewX(-8deg) translate(-1px, -2px);
   }
 }

@@ -123,7 +123,7 @@
   padding: var(--pad-btn);
   transition: transform 120ms var(--ease-slap), box-shadow 120ms var(--ease-slap);
 }
-.cc-btn:hover,
+/* .cc-btn:hover paint -> (hover: hover) block (TOUCH-HOVER-1) */
 .cc-btn:focus-visible {
   transform: translate(-1px, -2px);
   box-shadow: var(--slab-shadow-hover);
@@ -162,7 +162,7 @@
   border-color: var(--border-white-20);
   box-shadow: none;
 }
-.cc-btn--ghost:hover,
+/* .cc-btn--ghost:hover paint -> (hover: hover) block (TOUCH-HOVER-1) */
 .cc-btn--ghost:focus-visible {
   background: var(--color-ink);
   transform: translate(-1px, -2px);
@@ -205,6 +205,22 @@
   .cc-title,
   .cc-title--celebrate {
     -webkit-text-stroke-width: 0.02em;
+  }
+}
+
+/* TOUCH-HOVER-1: hover paint gated off coarse-pointer/no-hover clients (Pass 1 L5 pattern).
+   Placed BEFORE the reduced-motion block below on purpose: both target `.cc-btn:hover` at
+   equal specificity, and source order is the tiebreak — the RM block must come LAST so it
+   still wins `transform: none` for a hover-capable desktop user who also has RM on. */
+@media (hover: hover) and (pointer: fine) {
+  .cc-btn:hover {
+    transform: translate(-1px, -2px);
+    box-shadow: var(--slab-shadow-hover);
+  }
+  .cc-btn--ghost:hover {
+    background: var(--color-ink);
+    transform: translate(-1px, -2px);
+    box-shadow: var(--slab-shadow-sm);
   }
 }
 
