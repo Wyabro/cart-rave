@@ -51,6 +51,9 @@ Cart Clash: browser **4-player shopping-cart physics sumo**. Production:
 - **Plan → Wyatt ack → apply, per WAVE.** One plan (goal · files · asserts · risks · playtest
   checklist), one ack, then levers. **ACTIVE CARD names the card — not permission to edit.**
 - **One lever per commit**; mid-wave abort if a lever fails. One card at a time; ideas → BACKLOG.
+- **Closing a BACKLOG card:** delete its row + writeup to `completed-work.md` + add its ID to
+  BACKLOG's closed do-not-reopen list, same session — skip the third step and `health:check`'s
+  reopen gate goes blind for that ID forever. Full house rules: BACKLOG.md's own header.
 - **Fast lane** (all must hold): one file · stated symptom only · no new file/dep/CONFIG/?flag ·
   not invariants · not `main.js` / `party/` / `src/netcode*` / physics / player-visible.
   Still needs one-line intent + go + `npm run qa` + commit. Grows past that → full wave plan.

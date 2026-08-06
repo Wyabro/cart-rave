@@ -7,11 +7,34 @@
 (phase definitions), [completed-work.md](./completed-work.md) (shipped),
 [netcode-deep-dive.md](./netcode-deep-dive.md) (hazard writeups).
 
+### House rules (BACKLOG-GATE-1, 08-06)
+
+The 08-06 audit found five ways this file had drifted from itself — a stale glance box, four
+closed cards left as stub rows, a duplicate-subject card, a "fully drained" block that wasn't, a
+row claiming "awaiting playtest" after the Work order recorded it closed. `npm run health:check`
+now catches the **mechanical** subset of that (see `validateBacklogHygiene` in
+[projectHealthValidation.mjs](../../tools/lib/projectHealthValidation.mjs)) — everything below is
+the part a gate can't hold, which is why it's written down instead:
+
+- **One card = one row = one source of truth.**
+- **Closing a card = delete its row + write it up in [completed-work.md](./completed-work.md) +
+  add its ID to the [closed do-not-reopen list](#closed--do-not-reopen-reference), same session.**
+  Skip the third step and the gate goes blind for that ID forever.
+- **Grep the file for your subject before filing a new ID.** The gate cannot catch a duplicate
+  subject under a different name — KBM-TOAST-1 shipped as a fresh card for CSS STATES-DEAD-1
+  already owned.
+- **Work-order blocks are order only, never state.** State lives in the row; a block claiming
+  "fully drained" is prose, not a check — Block G said that while two cards were still open under it.
+- **Notes are a brief, not an essay.** Long is fine when the card needs it; padding is not.
+- **The glance box is generated — `npm run backlog`, never hand-edit it.** `health:check` fails if
+  it's stale; the command fixes that in one write.
+
 ### Status at a glance
 
-*(Hand-maintained summary, kept in sync with the sections below by whoever closes or reorders a
-card. If it ever drifts, the [Work order](#work-order-2026-08-05-audit--the-queue-wyatt-works-down)
-narrative and the department tables further down are the source of truth, not this box.)*
+*(The Work-order Block/State table just below is hand-maintained — kept in sync by whoever closes
+or reorders a card, same as before. The Department table further down is different: it's generated,
+see its own marker comment, and `health:check` gates its freshness — it cannot silently drift the
+way the Block table still can.)*
 
 **Work order — where the ship-bar queue stands**, block by block:
 

@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-06T20:25:55.913Z",
-    "commit": "9863f61"
+    "at": "2026-08-06T20:31:57.845Z",
+    "commit": "f4dde49"
   },
-  "source_digest": "62f85ada",
+  "source_digest": "b5742697",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1742,6 +1742,7 @@
     "execution_loop": [
       "Plan → Wyatt ack → apply, per WAVE. One plan (goal · files · asserts · risks · playtest",
       "One lever per commit; mid-wave abort if a lever fails. One card at a time; ideas → BACKLOG.",
+      "Closing a BACKLOG card: delete its row + writeup to `completed-work.md` + add its ID to",
       "Fast lane (all must hold): one file · stated symptom only · no new file/dep/CONFIG/?flag ·",
       "Game-card freeze: no commits to `tools/`, `.claude/hooks/`, `.agents/`, or CC styling.",
       "Timebox: ~45 min or 3 failed approaches → STATUS findings (5 lines) before #4.",
