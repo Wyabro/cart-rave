@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-06T03:51:03.856Z",
-    "commit": "78acdb4"
+    "at": "2026-08-06T03:57:26.656Z",
+    "commit": "a90c82f"
   },
-  "source_digest": "58a3b1d9",
+  "source_digest": "afeda2b8",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -884,8 +884,8 @@
     ],
     "next_actions": [
       "HARNESS-NULL-1 ✅ CLOSED 08-06. Headless `perf-profile --null` (shared-page AB+BA); pure",
-      "NET-LOOK-ACC-1 ⏳ SHIPPED 08-06 (`1198d26`, prod Worker `3cfb33f8`), not closed — owed Wyatt",
-      "UI-SCALE-1 Pass 2 + TOUCH-HOVER-1 ⏳ SHIPPED 08-06 (`dacca48`..`78acdb4`, 6 commits), not",
+      "NET-LOOK-ACC-1 ⏳ SHIPPED 08-06 (`1198d26`), not closed — owed Wyatt",
+      "UI-SCALE-1 Pass 2 + TOUCH-HOVER-1 ⏳ SHIPPED + DEPLOYED 08-06 (`dacca48`..`78acdb4`, 6 commits,",
       "Hitch forensics: cap-254–260 (build `8d96b0b`) before any PERF-PASS-1 knob."
     ],
     "open_issues": [
@@ -1287,25 +1287,25 @@
           {
             "pri": "High",
             "item": "UI-P2-HUD-PT-1 — in-match HUD reads right after the rem conversion `[phone]`",
-            "notes": "**Owed: Wyatt playtest — UI-P2-HUD-PT-1 — the in-match HUD looks the same as before, just scaled sanely on your phone.** Shipped 08-06 (`dacca48`), **not yet on prod** — use `npm run dev` (or ship first). `hud.css`'s 108 saturated clamps converted to rem; the 08-05 phone/orientation patches were left untouched on purpose.<br>1. On your phone, play a solo round.<br>2. Look at the score chips, timer, kill feed, and boost bar — do they read as the same design as before (just appropriately sized for the phone), or does anything look tiny, oversized, cut off, or overlapping?<br>3. PASS if nothing looks wrong. FAIL with a screenshot of whatever's off.",
+            "notes": "**Owed: Wyatt playtest — UI-P2-HUD-PT-1 — the in-match HUD looks the same as before, just scaled sanely on your phone.** Shipped 08-06 (`dacca48`), deployed 08-06 (prod Worker `f2b389d6`). `hud.css`'s 108 saturated clamps converted to rem; the 08-05 phone/orientation patches were left untouched on purpose.<br>1. On your phone, play a solo round.<br>2. Look at the score chips, timer, kill feed, and boost bar — do they read as the same design as before (just appropriately sized for the phone), or does anything look tiny, oversized, cut off, or overlapping?<br>3. PASS if nothing looks wrong. FAIL with a screenshot of whatever's off.",
             "ship1": null
           },
           {
             "pri": "High",
             "item": "UI-P2-PAUSE-PT-1 — pause overlay reads right after the rem conversion `[solo]`",
-            "notes": "**Owed: Wyatt playtest — UI-P2-PAUSE-PT-1 — the Esc pause screen looks the same as before.** Shipped 08-06 (`5cbc63f` + `78acdb4`), **not yet on prod** — use `npm run dev` (or ship first).<br>1. Mid-round, press Esc.<br>2. Check the PAUSED panel: title, audio sliders, controls list, RESUME/RESTART/MAIN MENU buttons — proportionate, nothing crowded or oddly sized?<br>3. Hover the buttons with a mouse — do RESUME etc. still light up on hover like before? (This is also the TOUCH-HOVER-1 check's fine-pointer control case — hover should be unchanged on a mouse, only touch changes.)<br>4. PASS if it reads exactly like before. FAIL with a screenshot.",
+            "notes": "**Owed: Wyatt playtest — UI-P2-PAUSE-PT-1 — the Esc pause screen looks the same as before.** Shipped 08-06 (`5cbc63f` + `78acdb4`), deployed 08-06 (prod Worker `f2b389d6`).<br>1. Mid-round, press Esc.<br>2. Check the PAUSED panel: title, audio sliders, controls list, RESUME/RESTART/MAIN MENU buttons — proportionate, nothing crowded or oddly sized?<br>3. Hover the buttons with a mouse — do RESUME etc. still light up on hover like before? (This is also the TOUCH-HOVER-1 check's fine-pointer control case — hover should be unchanged on a mouse, only touch changes.)<br>4. PASS if it reads exactly like before. FAIL with a screenshot.",
             "ship1": null
           },
           {
             "pri": "High",
             "item": "UI-P2-RESULTS-PT-1 — results/podium screen reads right after the rem conversion `[solo]`",
-            "notes": "**Owed: Wyatt playtest — UI-P2-RESULTS-PT-1 — the results podium looks the same as before, crown icon included.** Shipped 08-06 (`271c5cc`), **not yet on prod** — use `npm run dev` (or ship first). The winner's crown icon's font-size changed from a bare `15px` to `0.9375rem` (identical at scale 1) because it also sizes an SVG via `1.15em` — this is the one site worth a specific look.<br>1. Finish a solo round.<br>2. On the results podium, check the winner's crown icon above their name, the rank cards, and the match receipt panel — sized and positioned like before?<br>3. PASS if it all reads the same. FAIL with a screenshot, especially if the crown looks wrong.",
+            "notes": "**Owed: Wyatt playtest — UI-P2-RESULTS-PT-1 — the results podium looks the same as before, crown icon included.** Shipped 08-06 (`271c5cc`), deployed 08-06 (prod Worker `f2b389d6`). The winner's crown icon's font-size changed from a bare `15px` to `0.9375rem` (identical at scale 1) because it also sizes an SVG via `1.15em` — this is the one site worth a specific look.<br>1. Finish a solo round.<br>2. On the results podium, check the winner's crown icon above their name, the rank cards, and the match receipt panel — sized and positioned like before?<br>3. PASS if it all reads the same. FAIL with a screenshot, especially if the crown looks wrong.",
             "ship1": null
           },
           {
             "pri": "High",
             "item": "TOUCH-HOVER-PT-1 — buttons don't stay lit after a tap `[phone]`",
-            "notes": "**Owed: Wyatt playtest — TOUCH-HOVER-PT-1 — tapping a button on your phone doesn't leave it looking hovered/lit afterward.** Shipped 08-06 (`78acdb4`), **not yet on prod** — use `npm run dev` (or ship first). Before this, a tap set `:hover` and it stuck until you tapped elsewhere; automated checks (`npm run states`' touch-hover survey) now read 0/9 on the menu, but no human has tapped it yet.<br>1. On your phone: tap READY in a lobby, tap the mute button, and (after a round) tap a results-screen button.<br>2. After each tap, look at the button you just tapped — does it stay visually \"lit\"/lifted/highlighted after your finger leaves it, the way a desktop mouse-hover would show?<br>3. PASS if buttons return to their normal look right after the tap (a brief press flash is fine — that's `:active`, not the bug). FAIL if a button stays lit until you tap something else, and say which button.",
+            "notes": "**Owed: Wyatt playtest — TOUCH-HOVER-PT-1 — tapping a button on your phone doesn't leave it looking hovered/lit afterward.** Shipped 08-06 (`78acdb4`), deployed 08-06 (prod Worker `f2b389d6`). Before this, a tap set `:hover` and it stuck until you tapped elsewhere; automated checks (`npm run states`' touch-hover survey) now read 0/9 on the menu, but no human has tapped it yet.<br>1. On your phone: tap READY in a lobby, tap the mute button, and (after a round) tap a results-screen button.<br>2. After each tap, look at the button you just tapped — does it stay visually \"lit\"/lifted/highlighted after your finger leaves it, the way a desktop mouse-hover would show?<br>3. PASS if buttons return to their normal look right after the tap (a brief press flash is fine — that's `:active`, not the bug). FAIL if a button stays lit until you tap something else, and say which button.",
             "ship1": null
           },
           {
