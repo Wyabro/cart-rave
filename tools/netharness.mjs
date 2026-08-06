@@ -1407,7 +1407,11 @@ async function scenarioFriendsLobby(browserHost, browserJoiner, baseUrl) {
   );
 
   // 2. CHECKOUT LINE actually renders — first automated look at this screen ever.
-  const lobbyDom = await host.page.evaluate(() => {
+  //    updateLobbyScreen() (hud.js) gates on `!menuVisible` as well as phase, and the menu's
+  //    hide is an async fade that lands a beat AFTER __ccTest already reports phase:"lobby" —
+  //    a one-shot read here raced that fade and caught the screen still hidden with its code
+  //    cell never populated. Poll instead, same pattern as every other DOM read below.
+  const readLobbyDom = () => {
     const el = document.querySelector(".hud-lobby");
     return {
       present: Boolean(el),
@@ -1415,7 +1419,13 @@ async function scenarioFriendsLobby(browserHost, browserJoiner, baseUrl) {
       title: document.querySelector(".hud-lobby-title")?.textContent ?? null,
       code: document.querySelector(".hud-lobby-code")?.textContent ?? null,
     };
-  });
+  };
+  const lobbyDom = await pollDiag(
+    host.page,
+    readLobbyDom,
+    (d) => d.present && d.hidden === false && Boolean(d.code),
+    { timeout: 10_000, label: "checkout-line-renders" },
+  ).catch(() => host.page.evaluate(readLobbyDom));
   check(
     "CHECKOUT LINE lobby renders",
     lobbyDom.present && lobbyDom.hidden === false,
@@ -1653,11 +1663,20 @@ async function scenarioHostFreeze(browserHost, browserJoiner, baseUrl) {
   const FREEZE_MS = 3000;
   let stalled = true;
   let maxDriftDuringFreeze = 0;
-  const freezeDeadline = Date.now() + FREEZE_MS;
+  let seqAtStallBreak = null;
+  let msAtStallBreak = null;
+  const seqTrace = [];
+  const freezeStart = Date.now();
+  const freezeDeadline = freezeStart + FREEZE_MS;
   while (Date.now() < freezeDeadline) {
     // eslint-disable-next-line no-await-in-loop
     const s = await joiner.page.evaluate(() => window.__ccTest.getState());
-    if ((s.latestSnapSeq ?? 0) > preSnapSeq) stalled = false;
+    seqTrace.push(s.latestSnapSeq ?? 0);
+    if ((s.latestSnapSeq ?? 0) > preSnapSeq && stalled) {
+      stalled = false;
+      seqAtStallBreak = s.latestSnapSeq ?? 0;
+      msAtStallBreak = Date.now() - freezeStart;
+    }
     const hc = hostCartOf(s);
     if (hc && hostCartBefore) {
       const d = Math.hypot(hc.x - hostCartBefore.x, hc.z - hostCartBefore.z);
@@ -1666,17 +1685,40 @@ async function scenarioHostFreeze(browserHost, browserJoiner, baseUrl) {
     // eslint-disable-next-line no-await-in-loop
     await sleep(250);
   }
-  check("snapshot seq stalls while host is frozen", stalled, `seq stayed at ${preSnapSeq}`);
-  // * Bounded settle, not a literal freeze — remotes are still rendered every frame off the
-  // * snapshot buffer; when it runs dry they extrapolate from last-known velocity capped at
-  // * CONFIG.net.extrapolationCapMs (50ms, netcode.js:1575-1599), then hold flat. So the
-  // * assertion is a bounded one-time settle, not near-zero-throughout: the failure mode this
-  // * guards is UNBOUNDED growth (ghost movement), not the small settle itself.
-  check(
-    "host cart pose holds (no ghost movement) while frozen",
-    maxDriftDuringFreeze < 2,
-    `max drift observed ${maxDriftDuringFreeze.toFixed(2)}m during freeze (bounded settle expected, not growth)`,
-  );
+  console.log(`[diag] seq trace during freeze window (baseline ${preSnapSeq}): [${seqTrace.join(",")}]`);
+
+  if (!stalled) {
+    // * HARNESS-FREEZE-1 explicit amendment (measured live, not a boundary race — the trace
+    // * below shows steady ~40Hz sends across the WHOLE freeze window): CDP
+    // * Page.setWebLifecycleState({state:"frozen"}) can resolve without throwing yet still not
+    // * silence a page holding a live RTCPeerConnection — Chromium's page-freeze/bfcache
+    // * eligibility normally excludes pages with an active WebRTC connection, and the CDP
+    // * override did not force past that in this build. This is the exact "lever proves
+    // * unreliable" case the card calls out: record ONE clear INCONCLUSIVE for the whole
+    // * freeze-dependent portion and do NOT report pass/fail on evidence that was never
+    // * produced. No CPU-throttle or in-page fallback substitutes for it silently — this needs
+    // * a re-ack, not a workaround.
+    inconclusive(
+      "CDP Page.setWebLifecycleState achieved genuine host silence",
+      `host kept sending through the whole ${FREEZE_MS}ms freeze window (seq advanced to ${seqAtStallBreak} at +${msAtStallBreak}ms; trace=[${seqTrace.join(",")}]) — the lifecycle freeze had no observable effect in this Chromium/Playwright build, most likely because the host page holds a live RTCPeerConnection. The seq-stall, pose-hold, and both post-thaw gap-event checks have no real freeze to measure against and are skipped rather than scored pass/fail.`,
+    );
+  } else {
+    check(
+      "snapshot seq stalls while host is frozen",
+      stalled,
+      `seq stayed at ${preSnapSeq} for the full ${FREEZE_MS}ms freeze window`,
+    );
+    // * Bounded settle, not a literal freeze — remotes are still rendered every frame off the
+    // * snapshot buffer; when it runs dry they extrapolate from last-known velocity capped at
+    // * CONFIG.net.extrapolationCapMs (50ms, netcode.js:1575-1599), then hold flat. So the
+    // * assertion is a bounded one-time settle, not near-zero-throughout: the failure mode this
+    // * guards is UNBOUNDED growth (ghost movement), not the small settle itself.
+    check(
+      "host cart pose holds (no ghost movement) while frozen",
+      maxDriftDuringFreeze < 2,
+      `max drift observed ${maxDriftDuringFreeze.toFixed(2)}m during freeze (bounded settle expected, not growth)`,
+    );
+  }
 
   // 5. Thaw.
   console.log("[scenario] thawing host tab…");
@@ -1684,29 +1726,32 @@ async function scenarioHostFreeze(browserHost, browserJoiner, baseUrl) {
 
   // 6. AFTER thaw: snapshots resume, and the gap events fire on the first send/arrival
   //    following the gap (noteHostSendTick / noteSnapshotArrival measure retrospectively —
-  //    during the freeze the host's JS was dead and the joiner received nothing, so neither
-  //    event could exist yet; they are producer, not during-freeze, evidence).
-  const resumed = await waitForState(joiner.page, (s) => (s.latestSnapSeq ?? 0) > preSnapSeq + 2, {
-    timeout: 10_000,
-    label: "joiner-snapshots-resume",
-  }).catch(() => null);
-  check("snapshots resume after thaw", Boolean(resumed), resumed ? `seq now ${resumed.latestSnapSeq}` : "never resumed");
+  //    during a REAL freeze the host's JS would be dead and the joiner would receive nothing,
+  //    so neither event could exist yet; they are producer, not during-freeze, evidence). Only
+  //    meaningful when the freeze actually silenced the host — see the inconclusive above.
+  if (stalled) {
+    const resumed = await waitForState(joiner.page, (s) => (s.latestSnapSeq ?? 0) > preSnapSeq + 2, {
+      timeout: 10_000,
+      label: "joiner-snapshots-resume",
+    }).catch(() => null);
+    check("snapshots resume after thaw", Boolean(resumed), resumed ? `seq now ${resumed.latestSnapSeq}` : "never resumed");
 
-  const joinerSnapGap = await pollDiag(
-    joiner.page,
-    () => window.__ccDiag.events().filter((e) => e.ch === "net" && e.type === "snap_gap").length,
-    (n) => n > 0,
-    { timeout: 6_000, label: "joiner-snap-gap-event" },
-  ).catch(() => 0);
-  check("joiner recorded a snap_gap event (the real producer, post-thaw)", joinerSnapGap > 0, `count=${joinerSnapGap}`);
+    const joinerSnapGap = await pollDiag(
+      joiner.page,
+      () => window.__ccDiag.events().filter((e) => e.ch === "net" && e.type === "snap_gap").length,
+      (n) => n > 0,
+      { timeout: 6_000, label: "joiner-snap-gap-event" },
+    ).catch(() => 0);
+    check("joiner recorded a snap_gap event (the real producer, post-thaw)", joinerSnapGap > 0, `count=${joinerSnapGap}`);
 
-  const hostSendGap = await pollDiag(
-    host.page,
-    () => window.__ccDiag.events().filter((e) => e.ch === "net" && e.type === "host_send_gap").length,
-    (n) => n > 0,
-    { timeout: 6_000, label: "host-send-gap-event" },
-  ).catch(() => 0);
-  check("host recorded a host_send_gap event (the real producer, post-thaw)", hostSendGap > 0, `count=${hostSendGap}`);
+    const hostSendGap = await pollDiag(
+      host.page,
+      () => window.__ccDiag.events().filter((e) => e.ch === "net" && e.type === "host_send_gap").length,
+      (n) => n > 0,
+      { timeout: 6_000, label: "host-send-gap-event" },
+    ).catch(() => 0);
+    check("host recorded a host_send_gap event (the real producer, post-thaw)", hostSendGap > 0, `count=${hostSendGap}`);
+  }
 
   const postState = await joiner.page.evaluate(() => window.__ccTest.getState());
   check(
