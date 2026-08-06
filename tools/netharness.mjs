@@ -16,6 +16,7 @@
  *   node tools/netharness.mjs --scenario teardownRejoin      # menu-return teardown BEFORE join (07-17 freeze)
  *   node tools/netharness.mjs --scenario shardOverflow       # 5th human overflows a full shard (QUICKPLAY-SHARD-1)
  *   node tools/netharness.mjs --scenario friendsLobby        # friends room: CHECKOUT LINE, ready-up, rematch (HARNESS-FRIENDS-1)
+ *   node tools/netharness.mjs --scenario hostFreeze          # host tab freezes without dying, then thaws (HARNESS-FREEZE-1)
  *
  * Requires: Playwright Chromium (`npx playwright install chromium`).
  * Exit code 0 = all assertions passed; 1 = a scenario failed; 2 = harness/setup error;
@@ -71,8 +72,13 @@ async function makeClient(
   // * Force the page to always report focused/visible. Chromium throttles background pages
   // * to ~3fps (intensive wake-up throttling reaches even perfPump's MessageChannel), which
   // * starves the fixed-step sim loop. Belt-and-suspenders with per-client browser processes.
+  // * HARNESS-FREEZE-1: the session is now RETAINED (not opened and dropped) so a scenario can
+  // * drive further lifecycle calls on it later (Page.setWebLifecycleState). Every existing
+  // * scenario only ever used the one-shot focus-emulation call and never touches the returned
+  // * field, so this is additive.
+  let cdp = null;
   try {
-    const cdp = await context.newCDPSession(page);
+    cdp = await context.newCDPSession(page);
     await cdp.send("Emulation.setFocusEmulationEnabled", { enabled: true });
   } catch (e) {
     console.warn(`[${label}] focus emulation unavailable:`, e instanceof Error ? e.message : e);
@@ -130,7 +136,7 @@ async function makeClient(
       { timeout: 60_000 },
     );
   }
-  return { context, page, label, username };
+  return { context, page, label, username, cdp };
 }
 
 /**
@@ -1565,6 +1571,188 @@ async function scenarioFriendsLobby(browserHost, browserJoiner, baseUrl) {
   await host.context.close();
 }
 
+/**
+ * Scenario: host tab freezes (throttled without dying), then thaws. The case HOST-TAB-1
+ * shipped a joiner-side hold/skip-replay guard against, and the producer of the
+ * `host_send_gap` diag event this rig has never exercised. HARNESS-FREEZE-1 scope is
+ * deliberately ONE scenario: freeze/thaw, not migration (hostMigration already covers clean
+ * departure).
+ *
+ * Freezes the HOST's page for real via CDP `Page.setWebLifecycleState({state:"frozen"})` — a
+ * plain `document.hidden` toggle is not enough here: the HOST-TAB-1 pump keeps a genuinely
+ * hidden host sending (MessageChannel, gameLoop.js), and this rig additionally runs
+ * `?perfPump=1` + CDP focus emulation on every client, both designed to defeat throttling. A
+ * frozen page cannot run its own hostAway timer either, so this cannot accidentally trigger a
+ * migration — it is testing the freeze/thaw path, not the handoff path. If the lifecycle call
+ * proves unreliable in this Chromium, the run records an INCONCLUSIVE and says so — no
+ * CPU-throttle or in-page fallback ships silently (both are fake under focus emulation +
+ * perfPump).
+ */
+async function scenarioHostFreeze(browserHost, browserJoiner, baseUrl) {
+  console.log("[scenario] hostFreeze — host tab freezes (throttled, not dead); joiner holds; host thaws, snapshots resume");
+  const mark = results.length;
+  const hostCartOf = (s) => s.carts.find((c) => c.connId === s.hostId) || null;
+
+  // 1. Bring-up identical to spawnlock: host running, joiner seated with snapshots flowing.
+  const host = await makeClient(browserHost, { username: "FreezeHost", baseUrl, label: "host", diag: true });
+  await waitForState(host.page, (s) => s.phase === "running" && s.localSlotIndex >= 0, {
+    timeout: 40_000,
+    label: "host-running",
+  });
+  const joiner = await makeClient(browserJoiner, { username: "FreezeJoin", baseUrl, label: "joiner", diag: true });
+  const seated = await waitForState(
+    joiner.page,
+    (s) => s.phase === "running" && s.localSlotIndex >= 0 && s.carts.some((c) => c.slot === s.localSlotIndex),
+    { timeout: 40_000, label: "joiner-seated" },
+  );
+  check("joiner starts as a non-host client", seated.isHost === false, `isHost=${seated.isHost}`);
+  const snap0 = seated.latestSnapSeq ?? 0;
+  await waitForState(joiner.page, (s) => (s.latestSnapSeq ?? 0) > snap0 + 3, {
+    timeout: 15_000,
+    label: "joiner-receiving-host-snapshots",
+  });
+  await waitForColdLoadDone(joiner.page, { label: "joiner-loop" });
+
+  if (!host.cdp) {
+    inconclusive(
+      "host freeze lever available",
+      "no CDP session on the host client (see the focus-emulation warning above) — cannot drive Page.setWebLifecycleState",
+    );
+    await joiner.context.close();
+    await host.context.close();
+    return;
+  }
+
+  // 2. Baseline just before freezing.
+  await sleep(500);
+  const preState = await joiner.page.evaluate(() => window.__ccTest.getState());
+  const preSnapSeq = preState.latestSnapSeq ?? 0;
+  const hostIdBefore = preState.hostId;
+  const hostCartBefore = hostCartOf(preState);
+
+  // 3. Freeze the host tab for real.
+  console.log("[scenario] freezing host tab via CDP Page.setWebLifecycleState…");
+  try {
+    await host.cdp.send("Page.enable");
+    await host.cdp.send("Page.setWebLifecycleState", { state: "frozen" });
+  } catch (e) {
+    inconclusive(
+      "host freeze lever applied (CDP Page.setWebLifecycleState)",
+      `CDP call failed in this Chromium — ${e instanceof Error ? e.message : e}. Per HARNESS-FREEZE-1, no fallback lever ships silently; this needs a re-ack, not a workaround.`,
+    );
+    await joiner.context.close();
+    await host.context.close();
+    return;
+  }
+
+  // 4. WHILE frozen: poll from the joiner (which keeps running) for the whole freeze window —
+  //    seq stall + pose hold. Beyond the 150ms holdAfterSnapGapMs hold and the 500ms
+  //    skip-replay threshold, far under the 10s host-away bar and the server's 20s
+  //    REAP_TIMEOUT_MS silent-connection reaper — there is no time-driven alarm/heartbeat that
+  //    could reap or migrate the host purely from this freeze.
+  const FREEZE_MS = 3000;
+  let stalled = true;
+  let maxDriftDuringFreeze = 0;
+  const freezeDeadline = Date.now() + FREEZE_MS;
+  while (Date.now() < freezeDeadline) {
+    // eslint-disable-next-line no-await-in-loop
+    const s = await joiner.page.evaluate(() => window.__ccTest.getState());
+    if ((s.latestSnapSeq ?? 0) > preSnapSeq) stalled = false;
+    const hc = hostCartOf(s);
+    if (hc && hostCartBefore) {
+      const d = Math.hypot(hc.x - hostCartBefore.x, hc.z - hostCartBefore.z);
+      if (d > maxDriftDuringFreeze) maxDriftDuringFreeze = d;
+    }
+    // eslint-disable-next-line no-await-in-loop
+    await sleep(250);
+  }
+  check("snapshot seq stalls while host is frozen", stalled, `seq stayed at ${preSnapSeq}`);
+  // * Bounded settle, not a literal freeze — remotes are still rendered every frame off the
+  // * snapshot buffer; when it runs dry they extrapolate from last-known velocity capped at
+  // * CONFIG.net.extrapolationCapMs (50ms, netcode.js:1575-1599), then hold flat. So the
+  // * assertion is a bounded one-time settle, not near-zero-throughout: the failure mode this
+  // * guards is UNBOUNDED growth (ghost movement), not the small settle itself.
+  check(
+    "host cart pose holds (no ghost movement) while frozen",
+    maxDriftDuringFreeze < 2,
+    `max drift observed ${maxDriftDuringFreeze.toFixed(2)}m during freeze (bounded settle expected, not growth)`,
+  );
+
+  // 5. Thaw.
+  console.log("[scenario] thawing host tab…");
+  await host.cdp.send("Page.setWebLifecycleState", { state: "active" });
+
+  // 6. AFTER thaw: snapshots resume, and the gap events fire on the first send/arrival
+  //    following the gap (noteHostSendTick / noteSnapshotArrival measure retrospectively —
+  //    during the freeze the host's JS was dead and the joiner received nothing, so neither
+  //    event could exist yet; they are producer, not during-freeze, evidence).
+  const resumed = await waitForState(joiner.page, (s) => (s.latestSnapSeq ?? 0) > preSnapSeq + 2, {
+    timeout: 10_000,
+    label: "joiner-snapshots-resume",
+  }).catch(() => null);
+  check("snapshots resume after thaw", Boolean(resumed), resumed ? `seq now ${resumed.latestSnapSeq}` : "never resumed");
+
+  const joinerSnapGap = await pollDiag(
+    joiner.page,
+    () => window.__ccDiag.events().filter((e) => e.ch === "net" && e.type === "snap_gap").length,
+    (n) => n > 0,
+    { timeout: 6_000, label: "joiner-snap-gap-event" },
+  ).catch(() => 0);
+  check("joiner recorded a snap_gap event (the real producer, post-thaw)", joinerSnapGap > 0, `count=${joinerSnapGap}`);
+
+  const hostSendGap = await pollDiag(
+    host.page,
+    () => window.__ccDiag.events().filter((e) => e.ch === "net" && e.type === "host_send_gap").length,
+    (n) => n > 0,
+    { timeout: 6_000, label: "host-send-gap-event" },
+  ).catch(() => 0);
+  check("host recorded a host_send_gap event (the real producer, post-thaw)", hostSendGap > 0, `count=${hostSendGap}`);
+
+  const postState = await joiner.page.evaluate(() => window.__ccTest.getState());
+  check(
+    "freeze did not migrate the host (hostId unchanged)",
+    postState.hostId === hostIdBefore,
+    `before=${hostIdBefore} after=${postState.hostId}`,
+  );
+  const hostStillHost = await host.page.evaluate(() => window.__ccTest.getState().isHost);
+  check("host is still isHost after thaw", hostStillHost === true, `isHost=${hostStillHost}`);
+
+  const hostErrors = await host.page.evaluate(() => window.__ccDiag.events().filter((e) => e.ch === "error").length);
+  const joinerErrors = await joiner.page.evaluate(() => window.__ccDiag.events().filter((e) => e.ch === "error").length);
+  check("no sim errors on host", hostErrors === 0, `errors=${hostErrors}`);
+  check("no sim errors on joiner", joinerErrors === 0, `errors=${joinerErrors}`);
+
+  // 7. Post-recovery drive: the freeze must not wedge the joiner's prediction.
+  await sleep(500);
+  const before = await joiner.page.evaluate(() => window.__ccTest.getSelfCart());
+  const sampled = await holdForwardSampled(joiner.page, { label: "hostFreeze-recovery-drive" });
+  let maxDisp = 0;
+  const t1 = Date.now();
+  while (Date.now() - t1 < 3500) {
+    // eslint-disable-next-line no-await-in-loop
+    const now = await joiner.page.evaluate(() => window.__ccTest.getSelfCart());
+    if (now && before) maxDisp = Math.max(maxDisp, Math.hypot(now.x - before.x, now.z - before.z));
+    // eslint-disable-next-line no-await-in-loop
+    await sleep(100);
+  }
+  await releaseKey(joiner.page, "KeyW");
+  if (!sampled && maxDisp < 0.5) {
+    inconclusive(
+      "joiner drives normally after thaw",
+      `input never sampled — starved loop (NET-2 class), peak ${maxDisp.toFixed(2)}m proves nothing`,
+    );
+  } else {
+    check("joiner drives normally after thaw", maxDisp > 0.5, `peak ${maxDisp.toFixed(2)}m`);
+  }
+
+  if (results.slice(mark).some((r) => !r.pass && !r.inconclusive)) {
+    await dumpFailureBundle(host.page, { scenario: "hostFreeze", label: "host", log: nlog }).catch(() => {});
+    await dumpFailureBundle(joiner.page, { scenario: "hostFreeze", label: "joiner", log: nlog }).catch(() => {});
+  }
+  await joiner.context.close();
+  await host.context.close();
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const baseUrl = str(args.url) || `http://127.0.0.1:${CLIENT_PORT}/`;
@@ -1598,6 +1786,7 @@ async function main() {
     teardownRejoin: scenarioTeardownRejoin,
     shardOverflow: scenarioShardOverflow,
     friendsLobby: scenarioFriendsLobby,
+    hostFreeze: scenarioHostFreeze,
   };
   const run = SCENARIOS[scenario];
   if (!run) {
