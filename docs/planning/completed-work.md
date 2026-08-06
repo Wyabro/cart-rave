@@ -13,6 +13,32 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 5, 2026 — DEPLOY-STALE-HTML-1: post-deploy stale HTML blank page
+
+- *(Engineering · Medium)* **DEPLOY-STALE-HTML-1** — for ~45 s after `npm run ship`, `GET /`
+  could serve the previous build's HTML while Workers Assets only had the new hashed files →
+  entry 404 → blank/hung boot — ✅ **CLOSED 08-05.**
+
+**A — process (agent / verify de-noise):** AGENTS.md post-deploy rule — poll `GET /` + every
+hashed asset it references until **0×404** before sharing URL or starting prod playtest; do not
+deploy near a public post. That is what stops false FAILs on the rest of the queue.
+
+**B — client heal (visitor safety net):** `index.html` inline boot script. On prod entry
+(`/assets/index-*.js`) or dynamic-import failure: poll fresh `GET /` + HEAD of the *current*
+entry named by that HTML (cap 60 s, ~2.5 s interval) until 200, then one **hard**
+`location.replace` with `_boot=` cache-buster. sessionStorage `cc-deploy-heal` one-shot; second
+fail → existing boot-error panel; Retry clears the flag and hard-reloads. Dev `/src/main.js`
+never auto-heals (keeps HMR 8 s panel). `main.js` clears the flag on successful boot.
+
+**Not used:** immediate one-shot `reload()` (burns the heal while the PoP is still stale);
+HEAD-only of the failed old hash (never becomes 200 under the documented mechanism).
+
+**Shipped:** `1050e92` · Worker `4d390947-af69-4d1b-9545-fe6af9645e39` · entry
+`assets/index-BliU0udj.js` · post-deploy asset poll 16/16 × 200 with heal symbols present in
+live HTML + main clear in entry.
+
+---
+
 ### August 5, 2026 — BACKLOG audit: 4 finished rows retired, 2 absorbed, work order re-ranked
 
 Wyatt asked for a sweep of rows that were already done but still sitting open, then a re-rank of
@@ -59,17 +85,8 @@ implementations still live — `ccStyle.mjs:154` and `montage.mjs:19`).
 every item now names what it unblocks — that clause is the reason it sits where it sits. The
 substantive moves:
 
-- **Block A's remaining three: TIER-DEFAULT-1 → DEPLOY-STALE-HTML-1 → NET-LOOK-ACC-1.**
-  DEPLOY-STALE-HTML-1 was promoted out of the Engineering table into the ship bar. Every remaining
-  card ends in "verify on prod", and a ~45 s window where `GET /` serves the previous build's HTML
-  against 404ing assets can turn any of those verifications into a **false FAIL** — on top of being
-  a silent blank page during the exact traffic spike a public post creates, reproduced two deploys
-  for two. Fixing it de-noises the rest of the queue. NET-LOOK-ACC-1 is third because it must
-  precede **Pattern customize UI (C3)**, or patterns ship onto a wire already known not to carry them.
-- **DEPLOY-STALE-HTML-1 A+B (08-05)** — Process A in AGENTS.md (poll until 0×404; no deploy near
-  public post). Client B: on prod entry/chunk load fail, poll for a consistent HTML+entry pair
-  (cap 60 s) then one hard document reload; sessionStorage one-shot; clear on successful boot
-  (`main.js`). Not immediate reload (would burn the heal inside the ~45 s window).
+- **Block A's remaining three were TIER-DEFAULT-1 → DEPLOY-STALE-HTML-1 → NET-LOOK-ACC-1.**
+  DEPLOY closed the same day (writeup above). Ship bar now: TIER-DEFAULT-1 → NET-LOOK-ACC-1.
 - **Block B renumbered** (it restarted at 6 and collided with Block A) with **UI-SCALE-1 first on an
   explicit rationale**: it changes the unit system every other UI card is authored in, so RESULTS-1 /
   COLOR-ID-1 / UI-FRAME-1 / ESC-panel / ONBOARD-SLIDES-1 / MENU-CART-1 are all cheaper after it and

@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-06 at commit `8abffdf` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `5900e4ff`
+> Generated 2026-08-06 at commit `1050e92` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `33d2f65b`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -18,7 +18,7 @@ Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep a
 
 ## ACTIVE CARD
 
-TIER-DEFAULT-1 is ACTIVE — plan the lever, Wyatt acks, then apply. No code until ack. Cap-288 is the evidence; recommended narrow lever is Intel HD/UHD → low. Then-queue (strict): NET-LOOK-ACC-1. DEPLOY-STALE-HTML-1 closed A+B 08-05 — process poll + client heal (poll then hard reload). Needs prod deploy + live window hit or DevTools block of `assets/index-*.js` to smoke. Block B leads with UI-SCALE-1; Block C with HARNESS-NULL-1
+TIER-DEFAULT-1 is ACTIVE — plan the lever, Wyatt acks, then apply. No code until ack. Cap-288 is the evidence; recommended narrow lever is Intel HD/UHD → low. Then-queue (strict): NET-LOOK-ACC-1. DEPLOY-STALE-HTML-1 ✅ CLOSED 08-05 (process A + client B; prod `1050e92` / Worker `4d390947`). Block B leads with UI-SCALE-1; Block C with HARNESS-NULL-1
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 
