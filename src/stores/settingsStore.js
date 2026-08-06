@@ -16,21 +16,20 @@ const VALID_TIERS = ["low", "medium", "high"];
  * Runs only when no tier is stored; the probe result is not persisted, so a user
  * whose hardware situation changes gets re-detected next visit.
  *
- * `reducedMotion` is still a hard floor here (unchanged from the original
- * policy) — TIER-DEFAULT-1's reduced-motion-demotes-one-rung change lives
- * entirely inside {@link defaultTierForCaps} and is not wired yet.
+ * `reducedMotion` (TIER-DEFAULT-1 lever 4) demotes the result one rung inside
+ * {@link defaultTierForCaps} rather than hard-pinning low — see that function's
+ * docstring for why (cap-287/288: the a11y toggle was silently picking tier).
  */
 function detectDefaultQualityTier() {
   if (typeof window === "undefined") return "high";
   try {
     const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
-    if (reducedMotion) return "low";
     const touchLike = isTouchLikeDevice();
     const gpu = probeGpu();
     // * deviceMemory is Chrome-only and clamped to [0.25, 8]; ≤2 GB is a hard
     // * potato signal regardless of GPU string.
     const deviceMemoryGb = /** @type {{ deviceMemory?: number }} */ (navigator).deviceMemory;
-    return defaultTierForCaps({ gpuClass: gpu.gpuClass, deviceMemoryGb, touchLike });
+    return defaultTierForCaps({ gpuClass: gpu.gpuClass, deviceMemoryGb, touchLike, reducedMotion });
   } catch {
     return "medium";
   }

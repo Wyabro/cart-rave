@@ -223,6 +223,14 @@ const BASE_TIER_BY_CLASS = {
 };
 
 /**
+ * Ordered worst→best. Local mirror of qualityMode.js's QUALITY_TIER_ORDER — not
+ * imported, because qualityMode.js imports settingsStore.js (which imports this
+ * module for defaultTierForCaps), and that would be a cycle.
+ * @type {ReadonlyArray<QualityTier>}
+ */
+const TIER_ORDER = ["low", "medium", "high"];
+
+/**
  * Pure first-run quality-tier policy. No globals — every signal is a parameter,
  * which is what makes the six-class table falsifiable in tests/gpuCaps.test.js
  * without owning six machines (docs/playtest/README.md previously flagged that
@@ -230,16 +238,29 @@ const BASE_TIER_BY_CLASS = {
  *
  * Evaluation order: hard floors first (touch device, software GL, ≤2GB RAM —
  * all unchanged from the original 3-class policy), then the base tier for the
- * GPU class.
+ * GPU class, then `reducedMotion` steps the result down one rung.
  *
- * @param {{ gpuClass: GpuClass, deviceMemoryGb?: number | null, touchLike?: boolean }} caps
+ * `reducedMotion` used to be a hard floor → low (cap-287/288: the same Intel
+ * box booted Low with Windows animations on and Medium with them off — an OS
+ * accessibility toggle was silently picking the graphics tier). TIER-DEFAULT-1
+ * lever 4 changes it to a one-rung demotion instead: high→medium, medium→low,
+ * low stays low. Net effect for a discrete-GPU user with reduced-motion on:
+ * Low → Medium, a quality *increase* for that cohort. The real fix — actually
+ * reducing motion (attract-camera spin, shake, screen flash) — is filed as
+ * MOTION-A11Y-1; this is the interim so the OS flag stops overriding hardware.
+ *
+ * @param {{ gpuClass: GpuClass, deviceMemoryGb?: number | null, touchLike?: boolean, reducedMotion?: boolean }} caps
  * @returns {QualityTier}
  */
-export function defaultTierForCaps({ gpuClass, deviceMemoryGb = null, touchLike = false }) {
+export function defaultTierForCaps({ gpuClass, deviceMemoryGb = null, touchLike = false, reducedMotion = false }) {
   if (touchLike) return "low";
   if (gpuClass === "software") return "low";
   if (typeof deviceMemoryGb === "number" && deviceMemoryGb <= 2) return "low";
-  return BASE_TIER_BY_CLASS[gpuClass] ?? "medium";
+
+  const base = BASE_TIER_BY_CLASS[gpuClass] ?? "medium";
+  if (!reducedMotion) return base;
+  const idx = TIER_ORDER.indexOf(base);
+  return TIER_ORDER[Math.max(0, idx - 1)];
 }
 
 /**

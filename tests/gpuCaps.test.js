@@ -145,6 +145,29 @@ describe("defaultTierForCaps — lever 1 (hard floors + base class)", () => {
   });
 });
 
+describe("defaultTierForCaps — lever 4 (reduced-motion demotes one rung)", () => {
+  it("steps the base tier down one rung instead of hard-pinning low", () => {
+    expect(defaultTierForCaps({ gpuClass: "discrete", reducedMotion: true })).toBe("medium");
+    expect(defaultTierForCaps({ gpuClass: "igpu-modern", reducedMotion: true })).toBe("low");
+    expect(defaultTierForCaps({ gpuClass: "discrete-entry", reducedMotion: true })).toBe("low");
+    expect(defaultTierForCaps({ gpuClass: "unknown", reducedMotion: true })).toBe("low");
+  });
+
+  it("low stays low under reduced motion (floor, not negative)", () => {
+    expect(defaultTierForCaps({ gpuClass: "igpu-basic", reducedMotion: true })).toBe("low");
+  });
+
+  it("hard floors still win over the RM rung (touch, software, low memory)", () => {
+    expect(defaultTierForCaps({ gpuClass: "discrete", touchLike: true, reducedMotion: true })).toBe("low");
+    expect(defaultTierForCaps({ gpuClass: "software", reducedMotion: true })).toBe("low");
+    expect(defaultTierForCaps({ gpuClass: "discrete", deviceMemoryGb: 2, reducedMotion: true })).toBe("low");
+  });
+
+  it("no reducedMotion (default false) leaves the base tier untouched", () => {
+    expect(defaultTierForCaps({ gpuClass: "discrete" })).toBe("high");
+  });
+});
+
 describe("migrateStoredTierIfNeeded — lever 2 (H1: returning visitors)", () => {
   it("rewrites a stored medium to low on igpu-basic or software (cap-288's own box)", () => {
     expect(
