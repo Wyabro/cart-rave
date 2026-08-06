@@ -976,6 +976,12 @@ async function main() {
   enableModeMenuButtons();
   window.__cartRaveMainReady = true;
   window.__cartRaveBootstrapped = true;
+  // * DEPLOY-STALE-HTML-1 B: boot succeeded — allow a future deploy-window heal in this tab.
+  try {
+    sessionStorage.removeItem("cc-deploy-heal");
+  } catch {
+    /* private mode / blocked storage */
+  }
   // * Boot telemetry — time-to-menu-interactive from navigation start (ms). Read via
   // * performance.getEntriesByName("cr:menu-ready")[0].startTime or the DevTools timeline.
   // * The app had no boot marks, so load-time regressions were invisible to profiling.

@@ -1041,6 +1041,138 @@
 
       window.__cartRaveShedBootSplash = shedBootSplash;
 
+      // * DEPLOY-STALE-HTML-1 B — after a deploy, old HTML can point at hashed files that
+      // * no longer exist (~45 s). Do not immediate-reload (burns the only heal while the
+      // * PoP is still stale). Poll for a consistent HTML+entry pair, then hard-reload once.
+      var DEPLOY_HEAL_KEY = "cc-deploy-heal";
+      var DEPLOY_HEAL_CAP_MS = 60000;
+      var DEPLOY_HEAL_INTERVAL_MS = 2500;
+      var deployHealInFlight = false;
+
+      function hardReloadDocument() {
+        try {
+          var u = new URL(location.href);
+          u.searchParams.set("_boot", String(Date.now()));
+          location.replace(u.href);
+        } catch (_) {
+          location.reload();
+        }
+      }
+
+      function clearDeployHealFlag() {
+        try { sessionStorage.removeItem(DEPLOY_HEAL_KEY); } catch (_) {}
+      }
+
+      function deployHealAlreadyUsed() {
+        try { return sessionStorage.getItem(DEPLOY_HEAL_KEY) === "1"; } catch (_) { return false; }
+      }
+
+      function markDeployHealUsed() {
+        try { sessionStorage.setItem(DEPLOY_HEAL_KEY, "1"); } catch (_) {}
+      }
+
+      /** Prod entry only — never auto-heal /src/main.js (dev HMR needs the 8 s delay). */
+      function isProdEntryUrl(src) {
+        if (!src) return false;
+        return /\/assets\/index-[A-Za-z0-9_-]+\.js(?:\?|$)/.test(src);
+      }
+
+      function isDevGameModuleUrl(src) {
+        if (!src) return false;
+        return /\/src\/main\.js/.test(src);
+      }
+
+      function isProdBootPage() {
+        try {
+          var scripts = document.querySelectorAll("script[src]");
+          for (var i = 0; i < scripts.length; i++) {
+            if (isProdEntryUrl(scripts[i].getAttribute("src") || scripts[i].src || "")) return true;
+          }
+        } catch (_) {}
+        return false;
+      }
+
+      /**
+       * Wait until GET / names an entry that actually returns 200, then hard-reload once.
+       * HEAD on the *failed* (old) URL never becomes 200 — re-parse HTML each tick.
+       */
+      function beginDeployHeal(context) {
+        if (window.__cartRaveBootstrapped || deployHealInFlight) return;
+        deployHealInFlight = true;
+
+        if (deployHealAlreadyUsed()) {
+          scheduleBootError(
+            "Cart Clash couldn't finish loading. Hit Retry, or hard-refresh the page (Ctrl+Shift+R).",
+            0
+          );
+          return;
+        }
+
+        var statusEl = document.getElementById("cr-boot-msg");
+        if (statusEl) statusEl.textContent = "Updating…";
+        // eslint-disable-next-line no-console
+        console.info("[CartRave] deploy heal: waiting for a consistent build (" + (context || "boot") + ")");
+
+        var startedAt = Date.now();
+
+        function probeEntryOk(html) {
+          var m = /(?:\.?\/)?assets\/index-([A-Za-z0-9_-]+)\.js/.exec(html);
+          if (!m) return Promise.resolve(false);
+          var entryUrl = "/assets/index-" + m[1] + ".js?_cb=" + Date.now();
+          return fetch(entryUrl, {
+            method: "HEAD",
+            cache: "no-store",
+            credentials: "same-origin",
+          }).then(function (res) {
+            if (res.ok) return true;
+            // * Some hosts reject HEAD — fall back to a cheap GET status check.
+            if (res.status === 405 || res.status === 501 || res.status === 400) {
+              return fetch(entryUrl, {
+                method: "GET",
+                cache: "no-store",
+                credentials: "same-origin",
+              }).then(function (getRes) { return getRes.ok; });
+            }
+            return false;
+          });
+        }
+
+        function tick() {
+          if (window.__cartRaveBootstrapped) return;
+          if (Date.now() - startedAt > DEPLOY_HEAL_CAP_MS) {
+            scheduleBootError(
+              "Cart Clash couldn't finish loading. Hit Retry, or hard-refresh the page (Ctrl+Shift+R).",
+              0
+            );
+            return;
+          }
+          fetch("/?_cb=" + Date.now(), {
+            cache: "no-store",
+            credentials: "same-origin",
+          })
+            .then(function (res) {
+              if (!res.ok) throw new Error("html " + res.status);
+              return res.text();
+            })
+            .then(function (html) { return probeEntryOk(html); })
+            .then(function (ok) {
+              if (window.__cartRaveBootstrapped) return;
+              if (ok) {
+                markDeployHealUsed();
+                hardReloadDocument();
+                return;
+              }
+              setTimeout(tick, DEPLOY_HEAL_INTERVAL_MS);
+            })
+            .catch(function () {
+              if (window.__cartRaveBootstrapped) return;
+              setTimeout(tick, DEPLOY_HEAL_INTERVAL_MS);
+            });
+        }
+
+        tick();
+      }
+
       window.__cartRaveShowBootError = function (detail) {
         shedBootSplash();
         var box = document.getElementById("cr-boot-error");
@@ -1048,7 +1180,9 @@
         if (detailEl && detail) detailEl.textContent = detail;
         if (box) box.classList.add("cr-boot-error--visible");
         document.getElementById("cr-boot-retry")?.addEventListener("click", function () {
-          location.reload();
+          // * Give the user a fresh heal attempt after an explicit Retry.
+          clearDeployHealFlag();
+          hardReloadDocument();
         }, { once: true });
       };
 
@@ -1064,7 +1198,7 @@
             "[CartRave] Boot did not complete. Dev: hot-reload interruptions are common — restart with Ctrl+C then `npm run dev:local`."
           );
           window.__cartRaveShowBootError(detail);
-        }, delayMs || 12000);
+        }, delayMs == null ? 12000 : delayMs);
       }
 
       window.__cartRaveCancelBootError = function () {
@@ -1074,11 +1208,6 @@
         }
         document.getElementById("cr-boot-error")?.classList.remove("cr-boot-error--visible");
       };
-
-      function isGameModuleUrl(src) {
-        if (!src) return false;
-        return /\/src\/main\.js/.test(src);
-      }
 
       /**
        * Inline error forwarder — mirrors sendErrorLog from src/utils/errorReporter.js
@@ -1112,17 +1241,31 @@
       window.addEventListener("error", function (ev) {
         if (window.__cartRaveBootstrapped) return;
         var t = ev.target;
-        if (t && t.tagName === "SCRIPT" && isGameModuleUrl(t.src)) {
-          forwardBootError(
-            ev.error ? ev.error.message : "Failed to load game module",
-            ev.error ? ev.error.stack : "",
-            { context: "bootScriptError", src: t.src || "" }
-          );
-          scheduleBootError(
-            "Cart Clash couldn't finish loading. Hit Retry, or hard-refresh the page (Ctrl+Shift+R).",
-            8000
-          );
-          return;
+        if (t && t.tagName === "SCRIPT") {
+          var src = t.src || "";
+          // * Prod entry 404 during deploy window — poll then hard-reload once (not immediate).
+          if (isProdEntryUrl(src)) {
+            forwardBootError(
+              ev.error ? ev.error.message : "Failed to load game module",
+              ev.error ? ev.error.stack : "",
+              { context: "bootScriptErrorDeploy", src: src }
+            );
+            beginDeployHeal("prod-entry");
+            return;
+          }
+          // * Dev entry — keep the delayed panel (HMR false positives).
+          if (isDevGameModuleUrl(src)) {
+            forwardBootError(
+              ev.error ? ev.error.message : "Failed to load game module",
+              ev.error ? ev.error.stack : "",
+              { context: "bootScriptError", src: src }
+            );
+            scheduleBootError(
+              "Cart Clash couldn't finish loading. Hit Retry, or hard-refresh the page (Ctrl+Shift+R).",
+              8000
+            );
+            return;
+          }
         }
         // * Runtime exception during module evaluation (TDZ error, top-level await
         // * rejection surfacing as ErrorEvent, throw in module init): fires with
@@ -1150,7 +1293,12 @@
             context: "bootDynamicImportError",
           });
           ev.preventDefault();
-          scheduleBootError(msg || "Cart Clash couldn't finish loading. Hit Retry, or hard-refresh the page.", 8000);
+          // * Prod chunk 404 mid-graph (same deploy window) — heal. Dev keeps delayed panel.
+          if (isProdBootPage()) {
+            beginDeployHeal("dynamic-import");
+          } else {
+            scheduleBootError(msg || "Cart Clash couldn't finish loading. Hit Retry, or hard-refresh the page.", 8000);
+          }
         }
       });
 

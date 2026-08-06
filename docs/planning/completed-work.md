@@ -66,9 +66,10 @@ substantive moves:
   a silent blank page during the exact traffic spike a public post creates, reproduced two deploys
   for two. Fixing it de-noises the rest of the queue. NET-LOOK-ACC-1 is third because it must
   precede **Pattern customize UI (C3)**, or patterns ship onto a wire already known not to carry them.
-- **DEPLOY-STALE-HTML-1 process A (08-05)** — Wyatt ack: A now, B later if needed. Process rule
-  written into AGENTS.md (poll until 0×404 post-ship; no deploy near public post). Client B not
-  built; residual visitor blank page stays on the Engineering row until needed.
+- **DEPLOY-STALE-HTML-1 A+B (08-05)** — Process A in AGENTS.md (poll until 0×404; no deploy near
+  public post). Client B: on prod entry/chunk load fail, poll for a consistent HTML+entry pair
+  (cap 60 s) then one hard document reload; sessionStorage one-shot; clear on successful boot
+  (`main.js`). Not immediate reload (would burn the heal inside the ~45 s window).
 - **Block B renumbered** (it restarted at 6 and collided with Block A) with **UI-SCALE-1 first on an
   explicit rationale**: it changes the unit system every other UI card is authored in, so RESULTS-1 /
   COLOR-ID-1 / UI-FRAME-1 / ESC-panel / ONBOARD-SLIDES-1 / MENU-CART-1 are all cheaper after it and
