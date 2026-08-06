@@ -13,6 +13,58 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 6, 2026 — Block G wave: PT-CARD-SPLIT-1, PT-CONSOLE-READY-1, HOOK-COMMENT-1, CC-ESC-1
+
+Wyatt picked Block G (the tooling-window batch) as the next wave, one commit per card, so tomorrow's
+playtest day runs on a console that can't repeat two failures the queue had already paid for. No
+game card was active, so the `tools/`/`.claude/hooks/` freeze was lifted for the sitting.
+`npm run qa` green (1559/1559) across all four; pushed and `verify:head`-confirmed.
+
+- *(Tech Debt · Medium)* **PT-CARD-SPLIT-1** — playtest console had no way to flag a multi-issue
+  card, the exact MAIN-1 shape where a real defect (the toast under the boost bar) rode inside a
+  green PASS invisibly — ✅ **CLOSED 08-06.** `multiIssueWarnings()` in
+  [playtestQueue.mjs](../../tools/lib/playtestQueue.mjs) flags two narrow signals: more than 5
+  numbered steps (a legit single check runs 2–4; MAIN-1 had 7), or ≥2 distinct foreign work ids
+  found in a card's `steps`+`tail` only. Scope is deliberately narrow — `do`/`context` are never
+  scanned (would false-positive today: NET-LOOK-ACC-1's goal sentence names
+  NET-AUDIT-SLOTS-LOOK-1, SHARD-PT-2's names SHARD-PT-1) and the bar is ≥2 foreign ids, not ≥1
+  (a single cross-ref in a step is ordinary card prose — UI-P2-PAUSE-PT-1's steps cite
+  TOUCH-HOVER-1 and must stay clean). The multi-id scan uses a shared `WORK_ID_RE` exported from
+  [projectHealth.mjs](../../tools/lib/projectHealth.mjs) and `matchAll`, not `extractWorkId`
+  (first-match-only, would miss a second foreign id inside the same step). Surfaced three places:
+  a generation-time log line, a server-rendered banner on the console page itself (author sees it
+  before Wyatt does), and a `## CARD WARNINGS` block in the Copy report export; the
+  `playtest-queue.json` sidecar also carries `warnings`. **Warning only** — no `health:check` gate
+  yet (needs a few real exports without a false positive first) and no auto-splitting rows (the
+  split has to happen in BACKLOG, where PASS bookkeeping is anchored). **Verified against the live
+  queue:** regenerated at HEAD, 8 real cards, `warnings: []` — 0 false positives, including the
+  UI-P2-PAUSE-PT-1 near-miss staying correctly under the bar. Tests: 8 new cases in
+  [playtestQueue.test.js](../../tests/playtestQueue.test.js).
+- *(Tech Debt · Medium)* **PT-CONSOLE-READY-1** — the export only ever reminded agents to close
+  PASSes, never to check that remaining owed cards still have steps — exactly how PERF-9CELL-1
+  shipped stepless on 08-05 — ✅ **CLOSED 08-06** (reminder, not prevention — an honest scope, not
+  a promise this stops a stepless BACKLOG row from seeding). One unconditional line added to
+  `buildMarkdown()` in [playtestConsoleHtml.mjs](../../tools/lib/playtestConsoleHtml.mjs)
+  immediately after the existing triage line — placement is the whole card: it sits **outside**
+  `if (closable.length)`, the block that stays silent on a zero-PASS export (the PERF-9CELL-1
+  path). Test proves this structurally rather than by executing the client script (`buildMarkdown`
+  is closed over browser-only state — localStorage, DOM ids — that nothing in this suite runs): it
+  asserts the reminder push sits at the same statement depth as the triage-line push, between it
+  and the `if (closable.length)` gate, so no runtime state can suppress it.
+- *(Engineering · Low)* **HOOK-COMMENT-1** — `guard-git-add.mjs`'s header comment pointed the
+  strict-JSON-not-JSONC caveat at "AGENTS.md § Enforcement", which now carries only the summary —
+  the caveat moved to `docs/guides/hook-enforcement.md` — ✅ **CLOSED 08-06.** Comment-only,
+  confirmed the target doc actually carries the caveat before repointing; zero behaviour change.
+- *(Tech Debt · Low)* **CC-ESC-1** — two `esc()` implementations had silently diverged:
+  `montage.mjs`'s escaped `[&<>"]`, `ccStyle.mjs`'s also escaped the apostrophe — ✅ **CLOSED
+  08-06.** `montage.mjs` now does `export { esc } from "./ccStyle.mjs"` — a re-export, not a
+  wrapper, so the two functions can no longer drift because there is only one. The four consumers
+  (`sheet.mjs`, `podium.mjs`, `loadshots.mjs`, `states.mjs`) import `esc` from montage unchanged.
+  Behaviour delta is exactly the apostrophe (`'` → `&#39;`, identical rendered result). Tests in
+  [ccStyle.test.js](../../tests/ccStyle.test.js) assert all five reserved characters escape, and
+  that montage's `esc` is reference-identical (`toBe`) to ccStyle's — not just behaviourally
+  matching, which a wrapper could pass and still re-diverge later.
+
 ### August 6, 2026 — LOAD-SCALE-1: closed on geometry, not code
 
 - *(UI · Medium)* **LOAD-SCALE-1** — mode-entry loading screen ~99% empty space above ~1000px
