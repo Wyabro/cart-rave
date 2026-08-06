@@ -15,6 +15,7 @@
  *   node tools/netharness.mjs --scenario hostReload          # mid-round host tab reload (A6b)
  *   node tools/netharness.mjs --scenario teardownRejoin      # menu-return teardown BEFORE join (07-17 freeze)
  *   node tools/netharness.mjs --scenario shardOverflow       # 5th human overflows a full shard (QUICKPLAY-SHARD-1)
+ *   node tools/netharness.mjs --scenario friendsLobby        # friends room: CHECKOUT LINE, ready-up, rematch (HARNESS-FRIENDS-1)
  *
  * Requires: Playwright Chromium (`npx playwright install chromium`).
  * Exit code 0 = all assertions passed; 1 = a scenario failed; 2 = harness/setup error;
@@ -41,6 +42,7 @@ import {
   CLIENT_PORT,
   killDevStack,
 } from "./lib/harness.mjs";
+import { generateRoomCode } from "../shared/roomCodes.js";
 
 const nlog = (...a) => console.log("[netharness]", ...a);
 
@@ -48,7 +50,10 @@ const nlog = (...a) => console.log("[netharness]", ...a);
  * A client wrapper: its own browser context (isolated localStorage → distinct username),
  * one page with the netTest hook installed.
  */
-async function makeClient(browser, { username, baseUrl, label, diag = false, room = "quickplay" }) {
+async function makeClient(
+  browser,
+  { username, baseUrl, label, diag = false, room = "quickplay", menuEntry = false },
+) {
   const context = await browser.newContext({ viewport: { width: 900, height: 600 } });
   // * Seed identity + skip intro overlays BEFORE any page script runs, so the
   // * ?room=quickplay auto-rejoin path (main.js) fires without DOM interaction.
@@ -96,11 +101,35 @@ async function makeClient(browser, { username, baseUrl, label, diag = false, roo
   // * byte the same as before (the netcode rig stays unchanged).
   if (diag) url.searchParams.set("diag", "1");
   await page.goto(url.toString(), { waitUntil: "domcontentloaded", timeout: 60_000 });
-  await page.waitForFunction(
-    (needDiag) => window.__ccTest?.ready === true && (!needDiag || window.__ccDiag?.active === true),
-    diag,
-    { timeout: 60_000 },
-  );
+
+  if (menuEntry) {
+    // * HARNESS-FRIENDS-1: friends rooms do NOT auto-enter on load (only quickplay does), so
+    // * the real join dispatch has to fire after menu boot. `__ccTest.ready` is NOT a room-entry
+    // * signal here — it is Boolean(window.__cartRaveMainReady), already true from ordinary
+    // * menu boot before any room is touched, so waiting on it after dispatch would resolve
+    // * instantly and prove nothing. Gate on `__cartRaveBootstrapped` (menu JS live) instead,
+    // * dispatch the same event the JOIN LOBBY button fires, then wait for REAL session state —
+    // * getState() is safe to call pre-session (sentinel phase:"unknown") so this is a genuine
+    // * wait, not a rubber stamp.
+    await page.waitForFunction(() => window.__cartRaveBootstrapped === true, { timeout: 60_000 });
+    await page.evaluate(() => {
+      window.dispatchEvent(new CustomEvent("cartrave:menu", { detail: { action: "joinroom" } }));
+    });
+    await page.waitForFunction(
+      (needDiag) => {
+        const s = window.__ccTest?.getState?.();
+        return Boolean(s) && s.phase !== "unknown" && (!needDiag || window.__ccDiag?.active === true);
+      },
+      diag,
+      { timeout: 60_000 },
+    );
+  } else {
+    await page.waitForFunction(
+      (needDiag) => window.__ccTest?.ready === true && (!needDiag || window.__ccDiag?.active === true),
+      diag,
+      { timeout: 60_000 },
+    );
+  }
   return { context, page, label, username };
 }
 
@@ -1338,6 +1367,204 @@ async function scenarioTeardownRejoin(browserHost, browserJoiner, baseUrl) {
   await host.context.close();
 }
 
+/**
+ * Scenario: friends private room — CHECKOUT LINE lobby, manual ready-up (friends have no
+ * auto-ready), countdown, and rematch. Automates the one surface the harness has never
+ * touched: `tools/states.mjs` marks the lobby's own DOM selectors unreachable for exactly
+ * this reason ("needs a second client — the CHECKOUT LINE lobby has never rendered anywhere
+ * in this toolkit"). Tooling only — complements, does not replace, the FV-WILT-1 manual
+ * friends checks.
+ */
+async function scenarioFriendsLobby(browserHost, browserJoiner, baseUrl) {
+  console.log("[scenario] friendsLobby — CHECKOUT LINE lobby, manual ready-up, countdown, rematch");
+  const mark = results.length;
+
+  // Real production room-code funnel (shared/roomCodes.js) — same shape a player's link
+  // carries, unique per run so a stale Durable Object from a prior run never bleeds in.
+  const room = generateRoomCode();
+  console.log(`[scenario] room ${room}`);
+
+  // 1. Host loads first and wins the host seat — whichever client connects to the Durable
+  //    Object first becomes host, the same as a real shared link nobody has "created" yet.
+  const host = await makeClient(browserHost, {
+    username: "LobbyHost", baseUrl, label: "host", diag: true, room, menuEntry: true,
+  });
+  const hostSeated = await waitForState(
+    host.page,
+    (s) => s.phase === "lobby" && s.mode === "friends" && s.localSlotIndex >= 0,
+    { timeout: 40_000, label: "host-seated-lobby" },
+  );
+  check(
+    "host lands in friends mode, lobby phase, no auto-start",
+    hostSeated.mode === "friends" && hostSeated.phase === "lobby",
+    `mode=${hostSeated.mode} phase=${hostSeated.phase}`,
+  );
+
+  // 2. CHECKOUT LINE actually renders — first automated look at this screen ever.
+  const lobbyDom = await host.page.evaluate(() => {
+    const el = document.querySelector(".hud-lobby");
+    return {
+      present: Boolean(el),
+      hidden: el ? el.hidden : null,
+      title: document.querySelector(".hud-lobby-title")?.textContent ?? null,
+      code: document.querySelector(".hud-lobby-code")?.textContent ?? null,
+    };
+  });
+  check(
+    "CHECKOUT LINE lobby renders",
+    lobbyDom.present && lobbyDom.hidden === false,
+    `present=${lobbyDom.present} hidden=${lobbyDom.hidden}`,
+  );
+  check("lobby title reads CHECKOUT LINE", lobbyDom.title === "CHECKOUT LINE", `title=${lobbyDom.title}`);
+  check("lobby shows the room code", lobbyDom.code === room, `code=${lobbyDom.code} (expected ${room})`);
+
+  // 3. Joiner joins the SAME room next, BEFORE anyone readies. #checkAllReady arms the
+  //    countdown once every LIVE human present is ready — with only the host in the room,
+  //    the host readying alone would start the game immediately, not stay in lobby. Bringing
+  //    the joiner in first is what makes step 4 correct.
+  const joiner = await makeClient(browserJoiner, {
+    username: "LobbyJoin", baseUrl, label: "joiner", room, menuEntry: true,
+  });
+  await waitForState(
+    joiner.page,
+    (s) => s.phase === "lobby" && s.mode === "friends" && s.localSlotIndex >= 0,
+    { timeout: 40_000, label: "joiner-seated-lobby" },
+  );
+  const bothSeated = await pollDiag(
+    host.page,
+    () => document.querySelector(".hud-lobby-count")?.textContent ?? null,
+    (t) => t === "2/4",
+    { timeout: 15_000, label: "host-sees-both-seated" },
+  ).catch(() => null);
+  check("both clients seated in the lobby", bothSeated === "2/4", `host lobby count=${bothSeated}`);
+
+  // 4. Host readies alone — must NOT start (the joiner, the second live human, isn't ready).
+  await host.page.click(".hud-lobby-btn--ready");
+  await sleep(2000);
+  const afterHostReady = await host.page.evaluate(() => window.__ccTest.getState());
+  check(
+    "host readying alone does not start the round",
+    afterHostReady.phase === "lobby",
+    `phase=${afterHostReady.phase}`,
+  );
+
+  // 5. Joiner readies too — now every live human is ready, so the countdown arms.
+  await joiner.page.click(".hud-lobby-btn--ready");
+  const hostRunning = await waitForState(host.page, (s) => s.phase === "running", {
+    timeout: 30_000,
+    label: "host-running-after-both-ready",
+  });
+  const joinerRunning = await waitForState(
+    joiner.page,
+    (s) => s.phase === "running" && s.localSlotIndex >= 0,
+    { timeout: 30_000, label: "joiner-running-after-both-ready" },
+  );
+  check(
+    "both clients reach a running round once both readied",
+    hostRunning.phase === "running" && joinerRunning.phase === "running",
+    `host=${hostRunning.phase} joiner=${joinerRunning.phase}`,
+  );
+
+  // 6. Sanity drive on the joiner (same bring-up/verdict-split pattern as spawnlock).
+  const snap0 = joinerRunning.latestSnapSeq ?? 0;
+  await waitForState(joiner.page, (s) => (s.latestSnapSeq ?? 0) > snap0 + 3, {
+    timeout: 15_000,
+    label: "joiner-receiving-host-snapshots",
+  });
+  await waitForColdLoadDone(joiner.page, { label: "joiner-loop" });
+  await sleep(1000);
+  const before = await joiner.page.evaluate(() => window.__ccTest.getSelfCart());
+  const sampled = await holdForwardSampled(joiner.page, { label: "friendsLobby-joiner-input" });
+  let maxDisp = 0;
+  const dt0 = Date.now();
+  while (Date.now() - dt0 < 3500) {
+    // eslint-disable-next-line no-await-in-loop
+    const now = await joiner.page.evaluate(() => window.__ccTest.getSelfCart());
+    if (now && before) maxDisp = Math.max(maxDisp, Math.hypot(now.x - before.x, now.z - before.z));
+    // eslint-disable-next-line no-await-in-loop
+    await sleep(100);
+  }
+  await releaseKey(joiner.page, "KeyW");
+  if (!sampled && maxDisp < 0.5) {
+    inconclusive(
+      "joiner drives in the friends round",
+      `input never sampled — starved loop (NET-2 class), peak ${maxDisp.toFixed(2)}m proves nothing`,
+    );
+  } else {
+    check("joiner drives in the friends round", maxDisp > 0.5, `peak ${maxDisp.toFixed(2)}m`);
+  }
+
+  // 7. Force a decisive round end. Crown the HOST via the diag levers (friends rooms permit
+  //    them, same as quickplay) so the podium can never land on a scoring tie / Sudden Death —
+  //    mirrors mpIntegration's lever pattern. Who wins is irrelevant to what this scenario
+  //    checks; only that a podium is reached and a rematch can be driven from it.
+  const CROWN_SCORE = 60;
+  const hostSlot = hostRunning.localSlotIndex;
+  const ended = await host.page.evaluate(([slot, crown]) => {
+    const c = window.__ccDiag.control;
+    if (!c || typeof c.setScores !== "function" || typeof c.rewindRoundClock !== "function") return false;
+    const s = { 0: 0, 1: 0, 2: 0, 3: 0 };
+    s[slot] = crown;
+    const set = c.setScores(s);
+    if (set?.ok !== true) return set;
+    return c.rewindRoundClock(1200);
+  }, [hostSlot, CROWN_SCORE]);
+  check("host diag levers force the round to end", ended?.ok === true, ended?.message ?? String(ended));
+  const hostPodium = await pollDiag(
+    host.page,
+    () => window.__ccDiag.snapshot("round"),
+    (r) => r?.phase === "podium",
+    { timeout: 20_000, label: "host-podium" },
+  );
+  check("host reaches podium", hostPodium?.phase === "podium", `phase=${hostPodium?.phase}`);
+
+  // 8. Rematch. The overlay is withheld until the winner cam elapses (PODIUM_WINNER_CAM_MS),
+  //    and `playAgain.disabled = !isHost` is set the same tick the overlay becomes visible —
+  //    so wait for the overlay itself, not a disabled→enabled transition. Click promptly:
+  //    friends auto-continue fires 10s after the overlay appears and would race this assertion
+  //    if the poll were slow.
+  await host.page.waitForFunction(
+    () => document.getElementById("results-overlay")?.style.display === "flex",
+    { timeout: 15_000 },
+  );
+  await host.page.click("#results-overlay .cc-btn--primary");
+
+  // 9. Both clients cycle back into a fresh round WITHOUT the joiner pressing ready again —
+  //    friends auto-ready every live human on playAgain (2s rematch grace) — same room, same
+  //    mode; friends keep the arena rather than rotating (no shard hop).
+  const hostRematch = await pollDiag(
+    host.page,
+    () => window.__ccDiag.snapshot("round"),
+    (r) => r && (r.phase === "countdown" || r.phase === "running"),
+    { timeout: 25_000, label: "host-rematch" },
+  ).catch(() => null);
+  const joinerRematch = await waitForState(
+    joiner.page,
+    (s) => s.phase === "running" || s.phase === "countdown",
+    { timeout: 25_000, label: "joiner-rematch" },
+  ).catch(() => null);
+  check(
+    "both clients reach a fresh round after rematch, no re-ready needed",
+    Boolean(hostRematch) && Boolean(joinerRematch),
+    `host=${hostRematch?.phase} joiner=${joinerRematch?.phase}`,
+  );
+
+  const roomAfter = await joiner.page.evaluate(() => new URL(window.location.href).searchParams.get("room"));
+  check("friends keep the same room across rematch (no shard hop)", roomAfter === room, `room=${roomAfter} (expected ${room})`);
+  const modeAfter = await joiner.page.evaluate(() => window.__ccTest.getState().mode);
+  check("mode is still friends after rematch", modeAfter === "friends", `mode=${modeAfter}`);
+
+  const hostErrors = await host.page.evaluate(() => window.__ccDiag.events().filter((e) => e.ch === "error").length);
+  check("no sim errors on host across the whole scenario", hostErrors === 0, `errors=${hostErrors}`);
+
+  if (results.slice(mark).some((r) => !r.pass && !r.inconclusive)) {
+    await dumpFailureBundle(host.page, { scenario: "friendsLobby", label: "host", log: nlog }).catch(() => {});
+    await dumpFailureBundle(joiner.page, { scenario: "friendsLobby", label: "joiner", log: nlog }).catch(() => {});
+  }
+  await joiner.context.close();
+  await host.context.close();
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const baseUrl = str(args.url) || `http://127.0.0.1:${CLIENT_PORT}/`;
@@ -1370,6 +1597,7 @@ async function main() {
     hostReload: scenarioHostReload,
     teardownRejoin: scenarioTeardownRejoin,
     shardOverflow: scenarioShardOverflow,
+    friendsLobby: scenarioFriendsLobby,
   };
   const run = SCENARIOS[scenario];
   if (!run) {
