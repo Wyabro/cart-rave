@@ -13,6 +13,78 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 5, 2026 — TIER-DEFAULT-1: hardware-aware first-run quality tier
+
+- *(Engineering · High)* **TIER-DEFAULT-1** — first-run quality tier defaulted to Medium on
+  integrated GPUs that can only hold Low (cap-288: Intel UHD menu at 5.0–8.6 fps for ~3.3 s every
+  visit, until the auto-quality watchdog rescued it) — ✅ **CLOSED 08-05.**
+
+**Mechanism.** `detectDefaultQualityTier()` asked `probeGpu()` for a GPU class, but the classifier
+had only three values — `software` / `discrete` / `unknown` — so an Intel UHD renderer string
+matched neither real pattern and fell through to Medium.
+
+**Scope expanded past the seated card.** The seated lever was one regex (`Intel … HD/UHD` → low).
+Wyatt's call this session was to make the whole hardware→tier mapping real: high-end → High,
+mid-range → Medium, integrated/weak → Low. Shipped as five separately-acked, separately-revertable
+levers:
+
+1. **6-rung GPU taxonomy + pure tier policy** (`86a6015`) — widened `GpuClass` from 3 to 6 values
+   (`software` / `igpu-basic` / `igpu-modern` / `discrete-entry` / `discrete` / `unknown`) via an
+   ordered regex table in [gpuCaps.js](../../src/utils/gpuCaps.js), and extracted the decision into
+   a pure `defaultTierForCaps()` — unit-testable without owning six machines
+   ([tests/gpuCaps.test.js](../../tests/gpuCaps.test.js), ~40 renderer strings + the ordering traps
+   an adversarial review named: RX 5500 XT vs RX 550, GTX 1060 vs 1050, Apple M3 Max, AMD Radeon
+   780M, Meteor Lake `Intel(R) Arc(TM) Graphics`).
+2. **One-shot stored-tier migration** (`83c584e`) — the auto-quality watchdog never writes to
+   `localStorage`, so returning visitors (including Wyatt's own Intel box — cap-288 shows
+   `qualityTierStored: "medium"` beside effective `"low"`) kept the slideshow every visit. A pure,
+   one-shot `migrateStoredTierIfNeeded()` rewrites a stored `"medium"` to `"low"` on igpu-basic/
+   software hardware, gated by a new `cartRaveTierMigration` key so it never re-fires.
+3. **Six-class host-capability score** (`a6267de`) — `scoreHostCapability()` previously collapsed
+   an Intel UHD and a GTX 1050 laptop into the same 40-point "iGPU/unknown" bucket for lobby host
+   election. Extended to `software 8 / igpu-basic 25 / igpu-modern 45 / discrete-entry 55 /
+   discrete 75 / unknown 40`.
+4. **Reduced-motion demotes one rung, not hard-pinned to Low** (`17bfb15`) — cap-287/288 showed the
+   same box booted Low with Windows animations on and Medium with them off; an OS accessibility
+   toggle was silently picking the graphics tier. Now steps the verdict down one rung instead
+   (high→medium, medium→low). Real fix (actually reducing motion) filed as **MOTION-A11Y-1**.
+5. **4K backing-pixel guard** (`fc8bb4e`) — resolution was previously ignored entirely.
+   `HIGH_TIER_MAX_BACKING_PIXELS = 8,000,000` demotes a `discrete` High verdict to Medium above
+   that ceiling (true 4K/5K; a MacBook Pro 16" at 2× stays High). **Named consequence, not a bug:**
+   since this is a resolution guard and not a GPU-model guard (deliberately no NVIDIA/AMD model
+   parsing — see "Declined" below), **a 4090 on a 4K monitor now boots Medium.** Escape is one
+   click: the menu segmented control or `?preset=high`.
+
+**Adversarial review caught three real blockers before this shipped**, all fixed in the plan before
+any code was written:
+
+- **Apple M-series reverted to no change.** An early draft moved bare M1–M4 to Medium; cap-288 is
+  Intel-only evidence, and a wrong-Low verdict is permanent for the session while a wrong-High
+  self-heals via the watchdog in ~3.3 s. Bare Apple M stays classified `discrete` → High.
+- **`?forcegpu=igpu` kept its exact legacy meaning** (`unknown`, not the new `igpu-basic`) — it is
+  dev muscle memory and a live Tweakpane option in
+  [systems.js](../../src/dev/modules/systems.js).
+- **The lever-4/lever-5 stack is named, not hidden:** a 4K discrete box with reduced-motion on
+  demotes twice (high→medium via the guard, then medium→low via the RM rung) — covered by an
+  explicit test and called out for the real-hardware playtest.
+
+**Declined this session:** NVIDIA/AMD model-number parsing to split mid-range discrete into its own
+tier (would have caught the external-review F-03 finding — a GTX 1660 Ti in the same discrete→High
+bucket as a 4090 — but every threshold would be a guess on ~200 SKUs, permanent-loss direction).
+**PERF-TIER-1**'s `high-lite` rung stays open, unblocked by this decision. A step-up path for the
+auto-quality watchdog (the measured 3.5× tier-cost ratio on the Intel box means a step-up from Low
+would oscillate straight back to Medium) — belongs to **PERF-WATCH-1**. Persisting the watchdog's
+own demotions under a separate key — a stored-*preference* migration (lever 2) is not the same
+decision and stays with **BACKLOG**'s existing note under autoQuality.js.
+
+**Verified:** `npm run qa` (all 7 gates) green after all five levers; dev spot-check via `?forcegpu=`
+and `?gpustr=` confirmed the store→UI wiring end to end, including cap-288's exact renderer string
+resolving to Low and the stale-`medium`→`low` migration firing on a seeded stored value. **Owed:**
+five real-hardware playtest cards (PT-1 through PT-5) — Intel UHD fresh boot, Intel UHD migration,
+4090 guard prediction, two-box host-migration direction, and reduced-motion on a sub-4K panel.
+
+---
+
 ### August 5, 2026 — DEPLOY-STALE-HTML-1: post-deploy stale HTML blank page
 
 - *(Engineering · Medium)* **DEPLOY-STALE-HTML-1** — for ~45 s after `npm run ship`, `GET /`

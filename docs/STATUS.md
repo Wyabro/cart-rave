@@ -66,18 +66,17 @@ Live rows only. Shipped and closed cards live in
 
 | # | What | Status |
 |---|------|--------|
-| **TIER-DEFAULT-1** | First-run tier is medium on Intel UHD (5–8.6 fps menu for ~3.3 s every visit) | 🚧 **ACTIVE — seated 08-05, awaiting lever plan + Wyatt ack.** Cap-288 already has the number; Block C must not start before this lands. Narrow lever recommended: `Intel . HD/UHD Graphics` → low. Do not retune watchdog. Detail: [BACKLOG § Engineering](./planning/BACKLOG.md). |
 | PERF-PASS-1 | 60 fps at Low on the Intel box — **Cart Rave only** (Wyatt scoped it 08-03) | ⏸ **PARKED BY WYATT 08-04 for HOST-TAB-1.** Wave 4 remains deployed (`b754e12`, Worker `9b8b1fbe`); honest measured range −1.66 to −2.54 ms and includes +0.55. Card remains open at ~46 fps; every future cell needs an A-B-A bracket on a cooled box. Menu + evidence: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md). |
 | BUNDLE-1 | Menu/game code-split | ⚠️ **CLOSED PARTIAL 08-05 — perf goal NOT met. Deployed `f2f90fd2`.** Warm `menu-ready` −3% vs a −15% gate. Banked: a `size:check` byte gate, `main.js` 2,582 → 1,262 lines, −22.6% off the initial set (**cold** visits only). Lever E playtested: BUNDLE-E-PT-1 PASS 6/6. [bundle-1.md §0](./planning/bundle-1.md) |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 
 ### Next actions
 
-1. **TIER-DEFAULT-1 is ACTIVE — plan the lever, Wyatt acks, then apply.** No code until ack. Cap-288 is the evidence; recommended narrow lever is Intel HD/UHD → low. Then-queue (strict): **NET-LOOK-ACC-1**. **DEPLOY-STALE-HTML-1 ✅ CLOSED 08-05** (process A + client B; prod `1050e92` / Worker `4d390947`). Block B leads with **UI-SCALE-1**; Block C with **HARNESS-NULL-1**.
+1. **TIER-DEFAULT-1 ✅ CLOSED 08-05** — hardware-aware 6-class GPU taxonomy shipped in five acked commits (taxonomy, one-shot medium→low migration, host-capability scores, reduced-motion rung, 4K guard); `npm run qa` green, dev spot-check done. **Owed: five real-hardware playtest cards (PT-1–PT-5)**, not yet run. Detail: [completed-work.md](./planning/completed-work.md). **Block A now has one card left: NET-LOOK-ACC-1** (no active card until Wyatt picks/acks it). **Block C is unblocked to start** (TIER-DEFAULT-1 was its hard precondition). Block B leads with **UI-SCALE-1**; Block C with **HARNESS-NULL-1**.
 2. **Hitch forensics now has evidence** — cap-254–260 (build `8d96b0b`) are the first captures from a working upload path, including a Cart Rave F8 taken on a hitch. Read them before any perf knob.
 3. **Playtest export 08-05 (`4077a4a`) — 6 pass / 1 fail / 1 skip, triaged.** Closed: 3 UI-SCALE residual cards + 3 NET-AUDIT cards. **NET-LOOK-ACC-1** filed; **PERF-9CELL-1** parked with PERF-PASS-1; SHARD-PT-2 stays launch-day.
 
-**Open High:** TIER-DEFAULT-1 (ACTIVE) · NET-LOOK-ACC-1 · UI-SCALE-1 · ONBOARD-SLIDES-1 · RESULTS-1 · CART-MODEL-1 · PERF-PASS-1 (⏸) · bloom.
+**Open High:** NET-LOOK-ACC-1 · UI-SCALE-1 · ONBOARD-SLIDES-1 · RESULTS-1 · CART-MODEL-1 · PERF-PASS-1 (⏸) · bloom.
 
 ## Open issues (top)
 
