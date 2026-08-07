@@ -78,21 +78,28 @@ Live rows only. Shipped and closed cards live in
 2. **FEEL-DAY-1 ✅ CLOSED PASS 08-06** (`da9063c`..`0e0a1b7`). Collision punch + impact juice +
    Medium bot aggression. PT-1/2/3 all PASS. Shared config (MP feel changes by design). Not
    deployed until ship. Detail: [completed-work.md](./planning/completed-work.md).
-2. **ONBOARD-SLIDES-1 ⏳ SHIPPED + PUSHED — owed ONBOARD-SLIDES-PT-1/2/3** (eight-slide HOW TO
-   PLAY; art = ONBOARD-ART-1). [BACKLOG § Playtest owed](./planning/BACKLOG.md#playtest-owed).
-3. **RESULTS-1 / DIFF-FRIENDS-1 / SPAWN-SUNDIAL-1** — shipped; playtest cards still owed.
-4. **ART-FILTER-1 + ART-EXPO-1 ⏳ SHIPPED 08-06 (`403ab2f`, `91e3b24`) — owed ART-FILTER-PT-1 ·
-   ART-FILTER-PT-2 · ART-EXPO-PT-1 (pushed, not deployed — use `npm run dev`).**
-   CRT is Storerooms-only; exposure is a per-arena budget with the global lock retired.
-   art-direction.md Rules 2 and 3 now PASS/recorded, which unblocks the **High bloom sign-off**
-   (its success criteria came from these two). Two traps worth knowing: writing `uVignette = 0`
-   does **not** turn the vignette off (reversed-edge smoothstep leaves ~41% corner darkening —
-   the shader needed a fade), and a live impact pulse across an arena swap restores the previous
-   arena's CRT unless the gate clears it. Detail: [completed-work.md](./planning/completed-work.md).
+2. **Playtest export 08-06 ✅ 10/10 PASS, 0 FAIL — six cards closed:** ONBOARD-SLIDES-1 ·
+   RESULTS-1 · ART-FILTER-1 · ART-EXPO-1 · DIFF-FRIENDS-1 · SPAWN-SUNDIAL-1 · ORIENT-TOAST-Z-1.
+   All judged on `npm run dev` (seven of the ten ids were pushed-but-not-deployed). Rows deleted
+   from BACKLOG; detail in [completed-work.md](./planning/completed-work.md). Only playtest row
+   left is **SHARD-PT-2** (SKIP — needs five humans, waits for the public post).
+3. **Five new cards off those passes** (notes, not residuals — each names a different mechanism
+   than the card that carried it): **FRIENDS-LEVEL-1** (High — arena picked on FRIENDS is not the
+   arena the private lobby opens on; looks like the DIFF-FRIENDS-1 hello-latch hole again) ·
+   **ONBOARD-ATTRACT-1** (High — stop force-opening HOW TO PLAY; make the button attract) ·
+   **ONBOARD-SIZE-1** (High — arrows and body text too small) · **ONBOARD-SCROLL-1** (Medium —
+   focus ring adds a page scrollbar) · **SPAWN-SUNDIAL-GAP-1** (Medium — carts wedge between the
+   Sundial booths and the platform; solid legs created it).
+4. **The High bloom sign-off is unblocked** — its success criteria came from ART-FILTER-1 +
+   ART-EXPO-1, both now closed. art-direction.md Rules 2 and 3 are PASS/recorded. Two traps worth
+   carrying: writing `uVignette = 0` does **not** turn the vignette off (reversed-edge smoothstep
+   leaves ~41% corner darkening — the shader needed a fade), and a live impact pulse across an
+   arena swap restores the previous arena's CRT unless the gate clears it.
 5. **Closed 08-06 (detail in completed-work):** HARNESS-NULL-1 · NET-LOOK-ACC-1 · UI-SCALE-1 +
-   TOUCH-HOVER-1 · DIAG-NET-CAPTURE-1 · SHOOT-SOFTGL-1 · MONTAGE-ESC-1. Killfeed/orient nits
-   filed (KILLFEED-PHONE-1 · ORIENT-TOAST-Z-1); luma-metric tool filed (ART-LUMA-TOOL-1).
-**Open High:** ONBOARD-SLIDES playtest · RESULTS-1 playtest · CART-MODEL-1 · bloom (now unblocked).
+   TOUCH-HOVER-1 · DIAG-NET-CAPTURE-1 · SHOOT-SOFTGL-1 · MONTAGE-ESC-1. Killfeed nit filed
+   (KILLFEED-PHONE-1); luma-metric tool filed (ART-LUMA-TOOL-1).
+**Open High:** FRIENDS-LEVEL-1 · ONBOARD-ATTRACT-1 · ONBOARD-SIZE-1 · CART-MODEL-1 ·
+bloom (now unblocked).
 
 ## Open issues (top)
 

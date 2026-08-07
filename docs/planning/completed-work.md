@@ -13,6 +13,61 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 6, 2026 — playtest export: 10/10 PASS, 0 FAIL — six cards close, five new ones open
+
+*(Second 08-06 export. Cards closed: **ONBOARD-SLIDES-1** · **RESULTS-1** · **ART-FILTER-1** ·
+**ART-EXPO-1** · **DIFF-FRIENDS-1** · **SPAWN-SUNDIAL-1** · **ORIENT-TOAST-Z-1**, via their ten
+playtest ids. **SHARD-PT-2** stays SKIP — it needs five humans and waits for the public post.)*
+
+The largest clean sweep so far, and the first where every *shipped-but-not-deployed* card was
+judged on `npm run dev` instead of waiting on a ship — seven of the ten ids were in that state.
+
+**Verdicts.** ART-EXPO-PT-1: the customize cart is unchanged, so `applyRendererColorGrading`'s
+second caller (`ui/cartPreview.js`, no arena, takes `arenaExposureDefault`) really does land on the
+same 0.4 the retired global gave it. ART-FILTER-PT-1 / PT-2: the CRT is gone from Cart Rave and
+Sundial, still intact on The Storerooms, and the impact punch survives — the vignette *fade* below
+0.5 was the right call over a hard cutoff, since the fade is what kept the pulse tail from popping.
+ONBOARD-SLIDES-PT-1/2/3: eight slides read, page and hold up on a phone, and Enter walks a
+first-run player through the deck rather than closing it on card 1 — the failure mode the card
+existed for. RESULTS-PT-1: the podium and receipt read as one composition at every width checked.
+DIFF-FRIENDS-PT-1: the lobby chip tracks the *room latch*, not the store, which is the hard assert.
+SPAWN-SUNDIAL-PT-1: the four corner posts stop a cart and nothing invisible does.
+ORIENT-TOAST-PT-1: the portrait hint draws over the button column in the coarse-pointer landscape
+band — the z-lift alone was sufficient, as the mechanism predicted.
+
+**Four passes came back with a note, and every note became its own card rather than a residual on
+a green verdict.** This is the FIX-EMISSIVE-1 precedent applied on purpose: a note that names a
+*different mechanism* than the card checked is new work, and holding the card open for it would
+lose both the pass and the note.
+
+- **FRIENDS-LEVEL-1** (High) — *"i had the storerooms selected but the friends lobby went to cart
+  rave."* Filed investigate-first, but with a strong prior: it looks like the DIFF-FRIENDS-1 shape
+  exactly. The server broadcasts `levelId` on hello/round and the client latches it
+  (`adoptAuthoritativeRoomLevel`), while the only host-side push (`adoptRoomLevelAsHost`) is called
+  from one site — arena rotation in `roundLifecycle.js` — never at room create/enter. So the menu
+  pick has no path to win the hello, the same hole the difficulty pick had before
+  `adoptFriendsHostAiDifficultyFromStore()`.
+- **ONBOARD-ATTRACT-1** (High) — *"i'm afraid that if the how to play thing is the first thing they
+  see they might be confused… it should glow and move more on first play."* The auto-open policy
+  itself, one level above what PT-2 checked. Replaces `maybeAutoOpenHowTo()`'s 600 ms open with an
+  attract state on the button; keeps the `?room=` bail, ONBOARD-FLAG-1's "arming writes nothing"
+  rule, and the entering-a-match disarm.
+- **ONBOARD-SIZE-1** (High) and **ONBOARD-SCROLL-1** (Medium) — split from one note, because they
+  are two mechanisms: how big the arrows and body text are, versus a focus ring that adds a page
+  scrollbar when an arrow takes focus.
+- **SPAWN-SUNDIAL-GAP-1** (Medium) — *"we need to move the spawn booths away from the platform a
+  bit so they cant get caught between them."* **Its own fix created it:** the gap between posts and
+  platform edge used to be ghost geometry a cart drove through, and solid legs turned it into a
+  wedge. The lever is `booth.gapDistanceByLevel`, the same knob that moved Sundial's booths +0.75 m
+  on 08-02 — likely one number. Wyatt thought a similar card existed; it did not (checked).
+
+**Process note worth keeping:** ONBOARD-SLIDES-1 shipped as three separate playtest ids and
+DIFF-FRIENDS-1 as one, and that split is why a note about *arena selection* had somewhere to go
+without touching a difficulty card's verdict. Ten ids, ten independent verdicts, four notes, zero
+mixed results.
+
+---
+
 ### August 6, 2026 — ART-FILTER-1 + ART-EXPO-1: the CRT becomes Storerooms-only, exposure becomes per-arena
 
 *(Block B #4 · wave, one commit per lever)* — ⏳ **SHIPPED 08-06** (`403ab2f`, `91e3b24`), playtest
