@@ -704,6 +704,9 @@ export function initCrowd(scene, cartColors, pitInnerRadius) {
     const mesh = new THREE.InstancedMesh(variantGeos[v], mat, capacities[v]);
     mesh.count = 0;
     mesh.frustumCulled = true;
+    // * Crowd matrices are rewritten every frame (updateCrowd), so the instance buffer
+    // * needs dynamic usage — static usage makes every partial needsUpdate a full teardown.
+    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     // * Out of the vinyl mirror so carts read cleanly (not drowned by 5k silhouettes).
     registerMirrorExclude(mesh);
     crowdLayers.push({
@@ -2079,7 +2082,13 @@ export function updateCrowd(nowMs) {
         crowdAnimDummy.updateMatrix();
         layer.mesh.setMatrixAt(i, crowdAnimDummy.matrix);
       }
-      layer.mesh.instanceMatrix.needsUpdate = true;
+      // * Partial upload bounded to the mutated batch instead of the whole buffer.
+      // * clearUpdateRanges is mandatory first: ranges accumulate across frames, and an
+      // * uncleared union would eventually re-upload everything.
+      const im = layer.mesh.instanceMatrix;
+      im.clearUpdateRanges();
+      im.addUpdateRange(start * im.itemSize, (end - start) * im.itemSize);
+      im.needsUpdate = true;
     }
   } else if (crowdCarts) {
     // * Fallback for any path that only set the legacy single mesh.
@@ -2104,7 +2113,11 @@ export function updateCrowd(nowMs) {
       crowdAnimDummy.updateMatrix();
       crowdCarts.setMatrixAt(i, crowdAnimDummy.matrix);
     }
-    crowdCarts.instanceMatrix.needsUpdate = true;
+    // * Same bounded partial upload as the layered path above.
+    const im = crowdCarts.instanceMatrix;
+    im.clearUpdateRanges();
+    im.addUpdateRange(start * im.itemSize, (end - start) * im.itemSize);
+    im.needsUpdate = true;
   }
 }
 
