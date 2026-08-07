@@ -49,6 +49,8 @@ const EVENT_BUFFER_MAX = 512;
 
 /** Channels whose events auto-trigger a capture bundle (the "something is wrong" channels). */
 const AUTO_CAPTURE_CHANNELS = new Set(["error", "assert"]);
+/** Severity floor for the one net event type allowed to auto-capture (DIAG-NET-CAPTURE-1). */
+const AUTO_CAPTURE_NET_GAP_MIN_MS = 1000;
 /** Auto-captured bundles kept in memory (oldest dropped first). */
 const AUTO_CAPTURE_MAX_KEPT = 3;
 /** Hard cap per page load — an error loop must not keep assembling bundles. */
@@ -148,8 +150,29 @@ export function recordDiagEvent(channel, type, data) {
   events.push(evt);
   bumpChannelCount(channel, 1);
   if (events.length > EVENT_BUFFER_MAX) evictOneEvent();
-  if (AUTO_CAPTURE_CHANNELS.has(channel)) scheduleAutoCapture(channel, type);
+  if (shouldAutoCapture(channel, type, data)) scheduleAutoCapture(channel, type);
   return seq;
+}
+
+/**
+ * Auto-capture trigger: whole channels for the "something is wrong" classes, plus the one
+ * net event whose severity a channel-wide Set cannot express (DIAG-NET-CAPTURE-1). A
+ * host_send_gap past the floor is a real host main-thread freeze; the routine 250–1000 ms
+ * gaps stay ring-only, as do every other net event type. Type + severity, never channel
+ * promotion. Emission is already rate-limited at the source (netcode) and the shared
+ * debounce + session cap in scheduleAutoCapture are the ceiling — no net-specific budget.
+ *
+ * @param {string} channel
+ * @param {string} type
+ * @param {Record<string, unknown>} [data]
+ */
+function shouldAutoCapture(channel, type, data) {
+  if (AUTO_CAPTURE_CHANNELS.has(channel)) return true;
+  if (channel === "net" && type === "host_send_gap") {
+    const gapMs = typeof data?.gapMs === "number" ? data.gapMs : NaN;
+    return Number.isFinite(gapMs) && gapMs > AUTO_CAPTURE_NET_GAP_MIN_MS;
+  }
+  return false;
 }
 
 /**

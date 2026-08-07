@@ -2,7 +2,7 @@
 // diagnostics.test.js — the __ccDiag core: zero-cost when inactive, probe registry, and the
 // bounded event ring buffer. Deterministic (no browser, no rAF) — the module is a pure hub.
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   installDiagnostics,
   registerDiagProbe,
@@ -271,6 +271,57 @@ describe("diagnostics — active (?diag)", () => {
       recordDiagEvent("error", "fatal", { message: "boom" });
       await settle();
       expect(window.__ccDiag).toBeUndefined();
+    });
+  });
+
+  // * DIAG-NET-CAPTURE-1: a >1s host_send_gap is a real host main-thread freeze and must
+  // * self-upload — Wyatt cannot press F8 while he is playing through the freeze. The trigger
+  // * is type+severity, not channel promotion, so every row below the floor stays ring-only.
+  describe("auto-capture — net host_send_gap trigger (DIAG-NET-CAPTURE-1)", () => {
+    const settle = () => __drainAutoCapturesForTest();
+
+    it("auto-captures a severe host_send_gap", async () => {
+      recordDiagEvent("net", "host_send_gap", { gapMs: 1500, phase: "running" });
+      expect(window.__ccDiag.captures()).toHaveLength(0); // deferred, not synchronous
+      await settle();
+      const captures = window.__ccDiag.captures();
+      expect(captures).toHaveLength(1);
+      expect(captures[0].reason).toBe("net/host_send_gap");
+    });
+
+    it("stays ring-only below the floor, at the floor, and for every other net type", async () => {
+      recordDiagEvent("net", "host_send_gap", { gapMs: 500 });
+      recordDiagEvent("net", "host_send_gap", { gapMs: 1000 }); // strict >
+      recordDiagEvent("net", "snap_gap", { gapMs: 5000 });
+      recordDiagEvent("net", "host_send_gap", { phase: "running" }); // no gapMs payload
+      await settle();
+      expect(window.__ccDiag.captures()).toHaveLength(0);
+    });
+
+    it("shares the 5-per-session cap with error/assert — no separate net budget", async () => {
+      // * Reaching the cap past the 5s debounce needs ~30s of clock. performance.now is the
+      // * only clock nowMs() reads and the drain polls Date.now/setTimeout, so mocking it
+      // * here cannot wedge the drain (unlike full fake timers — see the gen-move test).
+      const clock = vi.spyOn(performance, "now");
+      const warns = vi.spyOn(console, "warn").mockImplementation(() => {});
+      let fakeNow = 100_000;
+      clock.mockImplementation(() => fakeNow);
+      try {
+        for (let i = 0; i < 7; i += 1) {
+          if (i % 2 === 0) recordDiagEvent("net", "host_send_gap", { gapMs: 1500 });
+          else recordDiagEvent("error", "cap-probe", { i });
+          fakeNow += 6000;
+          // * Settle per trigger so each deferred assemble fires and warns before the next.
+          await settle();
+        }
+        const assembled = warns.mock.calls.filter((c) =>
+          String(c[0]).includes("auto-captured bundle")
+        );
+        expect(assembled).toHaveLength(5);
+      } finally {
+        clock.mockRestore();
+        warns.mockRestore();
+      }
     });
   });
 
