@@ -69,8 +69,10 @@ whole, and do not assume STATUS.md is the complete record.
 [docs/reference/control-flow.md](docs/reference/control-flow.md).** Most high-traffic edges in this
 codebase are *not* imports — they run through injected `callbacks`/`deps` objects, the string-keyed
 `MSG.*` wire protocol, and zustand subscriptions. Grep alone will tell you a live function is
-dead, and `main.js` is a single 4,500-line closure holding ~84 unexported inner functions. That
-file is the map.
+dead, but it will not show you those wired edges — control-flow.md is the map for those.
+(`main.js` was a single ~4,500-line closure before the BUNDLE-1 split, 08-05; it is now a
+**1,287-line** composition root. The god-file mass moved, not away: `netcode.js`, `effects.js`,
+`simulation.js`, and `hud.js` are each 3,000+ lines now.)
 
 Cart Clash is a browser-based **4-player shopping-cart physics sumo** game. Neon shopping
 carts battle on arena floors; ram opponents off the edge or into voids to score.
@@ -206,7 +208,8 @@ falsifiable against a diff: if you cannot point at the line that violates it, it
   ends with the game less playable than it started, that was not a step forward.
 - **Keep concerns separated — prefer the module that already owns the concern.** Extract a new
   file only when there is a clear system home for it, not by default. **Never default to
-  `main.js`** — it is a single 4,500-line closure holding ~84 unexported inner functions
+  `main.js`** — even at its post-BUNDLE-1 size (1,287 lines) it is still the shared boot
+  composition root every system threads through
   ([docs/reference/control-flow.md](docs/reference/control-flow.md)). A new file no system claims
   red-gates `health:check` with `ARCH_UNMAPPED_FILE`, and the mapping lives in
   `tools/lib/archMap.mjs`, which is **frozen during a game card** — so do not invent a home

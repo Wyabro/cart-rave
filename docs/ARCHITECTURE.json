@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-07T09:12:31.348Z",
-    "commit": "63878e4"
+    "at": "2026-08-07T09:35:28.375Z",
+    "commit": "5b18f32"
   },
-  "source_digest": "d2d88269",
+  "source_digest": "23e1aeef",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -846,7 +846,7 @@
     "Diagnostics globals namespace is `__cc*` (`__ccTest` / `__ccDiag` / `__ccLoopDbg`).",
     "F8 uploads were silently size-capped until `e7e64e4` (`keepalive: true` → Chrome's ~64 KiB body limit, rejection swallowed into a `console.warn`). Measured 08-04 over the 251-capture ring: max body 54,786 chars ≈ 65,179 wire bytes, 357 under 65,536 — clipped exactly at the ceiling. `?diag` was also dropped by quit-to-menu, killing F8 for the rest of the session. Any ring pulled before that commit under-represents the heaviest KO/announcer-dense frames — the ones a hitch hunt wants — and it holds zero `pt-main-1` bundles, so the MAIN-1 hitch reports have no server-side evidence yet.",
     "The in-app Browser pane does not composite while hidden, so rAF never fires there: loaders sit at 4% forever and live HUD checks stall. Not a game bug — verify rendered behavior on prod or in tests.",
-    "`window.__cartRavePerf.scene` is DEV-ONLY (`main.js:1543`) — in prod it does not exist, so scene-graph probes silently return empty and read as \"not built\". `import(\"/src/…\")` likewise only resolves against the dev server. It does not always give a duplicate module instance, though: under Vite dev, importing the same resolved URL the app imported returns the same instance with shared state — verified 08-02 by firing `triggerArenaKoFlash` from a probe-side import and watching the app's own materials react. A duplicate is what you get from a *different* specifier for the same file. Verify prod visually (screenshot + build stamp), not by scene introspection.",
+    "`window.__cartRavePerf.scene` is DEV-ONLY (`main.js:664-667`) — in prod it does not exist, so scene-graph probes silently return empty and read as \"not built\". `import(\"/src/…\")` likewise only resolves against the dev server. It does not always give a duplicate module instance, though: under Vite dev, importing the same resolved URL the app imported returns the same instance with shared state — verified 08-02 by firing `triggerArenaKoFlash` from a probe-side import and watching the app's own materials react. A duplicate is what you get from a *different* specifier for the same file. Verify prod visually (screenshot + build stamp), not by scene introspection.",
     "A round that ends with no scores is a legitimate draw → neither `victory` nor `defeat`.",
     "Rapier `world.castRay(...)` reads `.handle` off the exclude args — pass Collider/RigidBody objects, never raw handles.",
     "`MSG.readyToggle` without a `ready` field is a TOGGLE — programmatic ready must send `{ ready: true }`.",
@@ -907,8 +907,8 @@
       {
         "title": "Engineering",
         "counts": {
-          "Medium": 11,
-          "Low": 7,
+          "Medium": 18,
+          "Low": 11,
           "Partial": 1
         },
         "rows": [
@@ -1024,6 +1024,72 @@
             "pri": "Low",
             "item": "Quickplay rotation live 2-browser check",
             "notes": "Reconfirm after **QP-ORDER-1** (sequential rotation). Live multi-client smoke only.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "FREEZE-TELEMETRY-1 — no production signal exists for the open host 1–8s freeze",
+            "notes": "**Filed 08-07 from the principal-engineering audit.** All freeze/longframe forensics — the per-frame span + focus-latch instrumentation that actually diagnoses this — only record when `window.__ccNetTest \\",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "CONNSTATE-REFLIP-1 — `connectionState` re-flips to \"reconnecting\" after a deliberate disconnect",
+            "notes": "**Filed 08-07 from the principal-engineering audit — a regression of the cap-220/221 fix.** The socket `close`/`error` handlers set `connectionState = \"reconnecting\"` whenever `helloReceivedThisSession` is true, **before** checking `_suppressRetry` ([netcode.js:2822-2826](../../src/netcode.js:2822), [:2839-2843](../../src/netcode.js:2839)). `disconnectPartySession()` sets `connectionState = \"ok\"` synchronously ([:2004-2010](../../src/netcode.js:2004), with an inline comment naming cap-220/221 as the bug it fixed) — but the socket-close event that call triggers dispatches asynchronously *after* that assignment, re-setting \"reconnecting\" with nothing left to flip it back until the next open event. Consequence: the RECONNECTING pill ([hud.js:2305](../../src/hud.js:2305)) and lobby status line ([hud.js:1482](../../src/hud.js:1482)) show a stuck, misleading state at the menu after quitting online — the exact symptom cap-220/221 fixed. **Fix:** reorder both handlers so `_suppressRetry` is checked before the state write. Quick win — under 2h.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "SIM-CALLBACK-FREEZE-1 — object-spread on a getter-bearing bundle freezes non-host collision classification forever",
+            "notes": "**Filed 08-07 from the principal-engineering audit.** `hostSimCallbacks` defines `partySocket` / `recordColliderHandles` / `pitWallColliderHandle` / `boothColliderHandles` as live getters ([loopDeps.js:261-264](../../src/orchestration/loopDeps.js:261)); `clientSimCallbacks = { ...hostSimCallbacks, … }` spreads it, which invokes each getter once and copies the result ([:273-274](../../src/orchestration/loopDeps.js:273)). The spread runs before arena load on every boot path, and `recordColliderHandles`/`boothColliderHandles` start as `[]` and `pitWallColliderHandle` as `undefined` at init ([levelOrchestration.js:102-104](../../src/orchestration/levelOrchestration.js:102)) — so the non-host bundle holds those empty values **permanently**. Non-host path: [gameLoop.js:386](../../src/gameLoop.js:386), [:511](../../src/gameLoop.js:511) → `getSimulationCallbacks(false)`. Consequence: `classifyEnvironmentCollision` ([simulation.js:2926-2930](../../src/simulation.js:2926)) always falls through to `\"floor\"` on non-host clients; the reachable symptom is hop-land detection ([simulation.js:3047-3060](../../src/simulation.js:3047)) firing early on a pit-wall/booth graze the host would classify differently. **Fix:** re-declare the four getters explicitly on `clientSimCallbacks` instead of spreading; don't restructure `loopDeps.js` beyond that. **Sketch:** add a test instantiating `clientSimCallbacks` before/after arena load asserting `recordColliderHandles` reflects the post-load value; assert `classifyEnvironmentCollision` returns non-`\"floor\"` for a scripted non-host pit-wall contact. `partySocket` on this bundle is confirmed dead — do not wire it up while in here.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "LASTHITBY-MUTATE-1 — `gameStore`'s `lastHitBy` Map is mutated directly, bypassing `set()`",
+            "notes": "**Filed 08-07 from the principal-engineering audit.** `getLastHitBy()` returns the store's live `Map`, not a copy ([gameState.js:196-198](../../src/gameState.js:196)); the KO-clear calls `.delete()` straight on that reference ([gameFlow.js:403](../../src/gameFlow.js:403)). Every other writer clones (`new Map(get().lastHitBy)`, [gameStore.js:107](../../src/stores/gameStore.js:107)) or uses the `replaceLastHitBy` action ([:123](../../src/stores/gameStore.js:123)). Currently latent — none of the six `gameStore.subscribe` call sites select `lastHitBy` today — but it silently breaks the moment a selector-based subscriber, `persist`, or devtools integration is added, and it makes attribution state invisible to the diagnostics event log in the meantime. **Fix:** add a `clearLastHitBy(slotIndex)` action alongside `replaceLastHitBy`; swap the raw `.delete()` for it. Quick win — under 2h.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "HOLE-FRICTION-COMBINE-1 — hole-lip friction assist is defeated by Rapier's default combine rule",
+            "notes": "**Filed 08-07 from the principal-engineering audit — same bug class already fixed on walls (WALL-SLIDE-CLASSIC-1 / STORE-WALL-SLIDE-1), still open on the cart collider itself.** [simulation.js:436](../../src/simulation.js:436) sets the cart collider to `CONFIG.record.holeAssist.lowFriction` (0.05) while overhanging the hole; the cart collider never calls `setFrictionCombineRule` ([entities.js:146-150](../../src/entities.js:146)). With no combine rule Rapier averages against the deck's 0.8 ([config.js:40](../../src/config.js:40)): normal driving is (1.1+0.8)/2 = 0.95, overhanging the hole is (0.05+0.8)/2 = 0.425 — a ~2.2× drop, not the ~22× the configured value implies. Hole-assist accel terms mask the shortfall today; any future retune of `lowFriction` fights the wrong knob. **Fix:** `CombineRule::Min` on the cart collider, matching the wall fix's pattern. **Needs a playtest pass, not just a unit check** — friction feel here is tuned and played-in; verify the hole-assist and unstick friction cut ([simulation.js:970-972](../../src/simulation.js:970)) still feel right at the corrected effective value before closing.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "RAM-CONTACT-STALE-1 — ram re-qualification has no range check; stale contact pairs survive respawn",
+            "notes": "**Filed 08-07 from the principal-engineering audit.** `_activeCartContacts` ([simulation.js:2979](../../src/simulation.js:2979)) prunes by collider identity only ([:3105-3122](../../src/simulation.js:3105)) and otherwise relies entirely on Rapier's collision-stopped event firing ([:3006-3010](../../src/simulation.js:3006)); `getRammingQualificationScore` checks speed + angle with no distance term ([:986-1008](../../src/simulation.js:986)). `resetCartTransientState` clears `pendingRam` etc. but never touches this map ([entities.js:520-573](../../src/entities.js:520)). If a stopped-collision event is ever missed — teleport-to-spawn while touching, or `setEnabled(false)` for a Sudden Death spectator mid-contact, both real paths — the stale pair can re-fire a fully attributed ram + knockback every 500ms from across the arena whenever the geometric cone happens to realign; also leaks dead cart references from quit-to-menu until the next session's first collision pass. **Fix:** add a max-separation guard to the sweep, and clear `_activeCartContacts` entries inside `resetCartTransientState`. Narrow trigger — needs a specific missed-event scenario — but a real vector the NET-MIG fixes don't cover.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "CROWD-INSTANCE-RANGE-1 — crowd animation re-uploads the full instanceMatrix buffer for a small mutated batch",
+            "notes": "**Filed 08-07 from the principal-engineering audit — a fresh, unexploited lever, not a PERF-PASS-1 reopen (that card closed 08-06 with its bar unmet).** Each frame rewrites a batch of ~66 of up to ~2,600 instances per crowd layer ([effects.js:2042-2047](../../src/effects.js:2042)), then sets `layer.mesh.instanceMatrix.needsUpdate = true` — a full-buffer flag — regardless of batch size ([:2082](../../src/effects.js:2082)). Three.js uploads the whole attribute buffer whenever `needsUpdate` is set with no update range. On HIGH tier (budget `Infinity`, [qualityTiers.js:65,89,109](../../src/utils/qualityTiers.js:65)): ~320KB/frame ≈ 19MB/s of `glBufferSubData` traffic for ~13KB/frame actually changed — roughly 25× over-upload. The buffer was also never given `DynamicDrawUsage`. **Fix:** `instanceMatrix.addUpdateRange()`/`clearUpdateRanges()` per layer per frame bounded to `[start, end)` (three r185 supports this, r159+); set `DynamicDrawUsage` once at layer creation. **Pitfall:** don't accumulate ranges across frames — clear before adding each frame's, or the union grows unbounded; the one-time initial layer population still needs a full `needsUpdate = true` at creation.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "CARGO-BAY-INSTANCE-1 — cargo bays render as up to 30 individually-toggled meshes per cart",
+            "notes": "**Filed 08-07 from the principal-engineering audit — fresh perf surface, not a PERF-PASS-1 reopen.** `GRID` is 15 floor + 10 mid + 5 crest = 30 slots, one `THREE.Mesh` each ([groceryPool.js:630-664](../../src/effects/groceryPool.js:630), [:688](../../src/effects/groceryPool.js:688)); fill level only toggles `.visible` ([:764-776](../../src/effects/groceryPool.js:764)) — each visible item is still its own draw call. 4 carts × up to 30 visible items = up to 120 draw calls every frame during play, on **every** quality tier including LOW (bays aren't tier-gated — core to the mechanic); roughly doubled on HIGH where the Classic vinyl Reflector re-renders the scene. **Fix:** one `InstancedMesh` per grocery model, driven by the existing `GRID` transforms, collapsing this to a handful of draws. **Caution before starting:** the `GRID` comments reference a recent tuning pass (\"Session-3 pass 3, Wyatt 07-30\") — confirm the visual fill pattern is considered stable before refactoring its rendering, or this fights concurrent design changes (see Block H open question). L effort — needs a breakdown.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "SD-SPECTATOR-WIRE-1 — Sudden-Death spectator flag is host-local; phantom falls after a mid-SD migration",
+            "notes": "**Filed 08-07 from the principal-engineering audit — a concrete vector the NET-MIG fixes don't cover, not a reopen of them.** `isSuddenDeathSpectator` is set host-side only ([gameFlow.js:271-279,295-301](../../src/gameFlow.js:271)) and is absent from both the wire cart record ([netcode.js:2061-2094](../../src/netcode.js:2061) `serializeCartToWire`) and the migration attribution tail ([:3683-3729](../../src/netcode.js:3683) `buildAttributionWire`). `applyHostMigration` re-enables all remote bodies from cached poses ([:2476-2510](../../src/netcode.js:2476)), and the fall-loop spectator guard reads only the local flag ([gameFlow.js:198,215](../../src/gameFlow.js:198)). A promoted host's copy of an already-eliminated cart therefore sits enabled and unflagged, and gets processed as a fresh fall on the next frame — one phantom \"SUDDEN DEATH\" kill-feed row, shatter replay, and announcer callout per parked spectator, broadcast to every peer. **Needs a 3+-way SD tie, an elimination, then a migration in that window** — narrow. **Fix:** add the flag to the wire cart record or the migration attribution tail; check binary format versioning conventions first.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "REMATCH-NULLGUARD-1 — `rematchResetWorld` skips the null guard its sibling loops use",
+            "notes": "**Filed 08-07 from the principal-engineering audit.** `for (const cart of allCartsRef)` and `.length` at [entities.js:740](../../src/entities.js:740) and [:769](../../src/entities.js:769) are bare, vs. guarded siblings at [:619](../../src/entities.js:619) and [:714](../../src/entities.js:714) (`allCartsRef \\",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "CAPTURE-RING-LIMIT-1 — the F8 capture ring is evictable well inside its own accepted rate limit",
+            "notes": "**Filed 08-07 from the principal-engineering audit.** `BEACON_MAX_PER_WINDOW = 30` per 60s ([constants.ts:25,28](../../party/constants.ts:25)); `captureLog.ts`'s ring is `MAX_ROWS = 80`, unconditionally pruned on insert ([:14](../../party/captureLog.ts:14), [:118-122](../../party/captureLog.ts:118)). The POST route is unauthenticated by design ([index.ts:1746-1804](../../party/index.ts:1746)). A single IP staying inside the accepted rate limit cycles the entire 80-row capture ring in ~2.7 minutes; same shape on analytics (`MAX_ROWS = 20,000` at 50 events/batch → ~13 minutes, [analyticsLog.ts:17,20](../../party/analyticsLog.ts:17)), and analytics POSTs carry no authenticity signal, so `match_ended` aggregates read for product decisions can be diluted with fabricated rows with no way to separate them after the fact. **This isn't \"beacons are unauthenticated\"** (already accepted) **— it's that the accepted per-IP limit is ~26× deeper than the capture ring it can evict.** **Fix:** shrink the accepted limit or grow the ring (especially `captureLog`'s 80 rows) so they're proportionate — Wyatt's call on which.",
             "ship1": null
           }
         ]
@@ -1280,8 +1346,9 @@
       {
         "title": "UI / UX",
         "counts": {
-          "Medium": 10,
-          "Low": 5
+          "Medium": 12,
+          "Low": 6,
+          "High": 1
         },
         "rows": [
           {
@@ -1372,6 +1439,30 @@
             "pri": "Low",
             "item": "UI-SCALE-P2-MEDIA-1 — Pass 2's deferred media-query cleanup",
             "notes": "**Filed 08-06, split out of UI-SCALE-1 Pass 2 on Wyatt's pre-ack review** (\"skip @media internals\" — exact Pass 1 precedent, to avoid re-opening the 08-05 phone/orientation patches that already playtest-PASSed). Doc rules 5–6 remain undone: delete `@media` blocks that only adjust *size* now that the root scale covers it, and reconcile the drifted breakpoints (900, 1100, 560, and any others found) back to the documented 380/768/1024/1025 contract. Do this file-by-file, same base-clamp discipline, and re-run the relevant playtest card after each file since it touches the phone-specific rules directly this time.",
+            "ship1": null
+          },
+          {
+            "pri": "High",
+            "item": "GAMEPAD-LOBBY-1 — gamepad navigation is dead in the Friends lobby; a pad-only player cannot ready up",
+            "notes": "**Filed 08-07 from the principal-engineering audit — this is the screen FIGHT-VERIFY-1 flagged as never having rendered in a real-browser check.** `isUiActive = refs.menuVisible \\",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "PODIUM-FOCUS-1 — non-host podium: the only pad-focusable control is MAIN MENU",
+            "notes": "**Filed 08-07 from the principal-engineering audit.** `playAgain.disabled = !isHost` ([roundLifecycle.js:452](../../src/orchestration/roundLifecycle.js:452)); disabled elements are excluded from gamepad focusables ([gamepadNav.js:37](../../src/ui/gamepadNav.js:37)), so a guest's results screen has exactly one focusable button. A guest mashing A through the podium — reasonable muscle memory while a rematch is promised in 5–10s — hits MAIN MENU and silently leaves the room instead; a host doing the same correctly rematches. **Fix:** give guests a real focus target — a disabled-but-labeled state (e.g. \"waiting for host\") instead of an absent one — so habitual A-presses can't reach MAIN MENU by accident.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "ARENA-BUMPER-HINT-1 — menu hint bar advertises \"LB / RB — ARENA\"; nothing reads the bumpers",
+            "notes": "**Filed 08-07 from the principal-engineering audit.** Hint text at [cart-rave-menu.js:2107](../../src/cart-rave-menu.js:2107); no `buttons[4]`/`buttons[5]` read exists anywhere in `src/` — `input.js` polls indices 0,1,6,7,8,9,11–15, `gamepadNav.js` polls 12–15,0,1 only, and arena paging (`pageArena`, [:2013](../../src/cart-rave-menu.js:2013)) is keyboard/click-only. A pad player presses the button the UI itself tells them to press, and nothing happens. **Product call before code:** either wire LB/RB to arena paging, or drop the hint if bumper paging was never actually planned. Quick to fix either direction — under 2h.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "PAUSE-CTRL-CHART-1 — pause-overlay controls card has no gamepad variant, freezes device choice at init",
+            "notes": "**Filed 08-07 from the principal-engineering audit.** `touchDevice` is resolved once, in `init` ([pauseOverlay.js:586](../../src/ui/pauseOverlay.js:586)); the tag is `touchDevice ? \"TOUCH\" : \"KEYBOARD\"` with no gamepad branch ([:617](../../src/ui/pauseOverlay.js:617)). Contrast [input.js:38-49](../../src/input.js:38), which the main-menu controller chart subscribes to for live updates and this overlay never does. A gamepad player pausing mid-match sees a chart labeled KEYBOARD (or TOUCH, on a touch-capable device like Steam Deck) showing W/A/S/D/SHIFT/SPACE — wrong reference exactly where a confused mid-match player looks. Function is unaffected; only the reference card is wrong. **Fix:** subscribe the pause-overlay controls card to the same `onInputModeChange` pattern the main menu already uses; add a gamepad chart branch.",
             "ship1": null
           }
         ]

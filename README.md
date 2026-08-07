@@ -13,7 +13,7 @@ Post-jam development continues on the **`cart-clash`** branch toward **Version 2
 - **Living Store**: Score-driven cargo bay (cart is the scoreboard) + mid-round PA **directives** (Flash Sale, Double Bag, Express Lane, Spill Bonus, Rush Hour). As-built: [docs/reference/living-store.md](./docs/reference/living-store.md).
 - **Feel & presentation**: Store PA announcer, production-value / feel passes, match-stat superlatives, charge glow.
 - **Perf foundations**: Boot/load pass, self-hosted fonts, half-res bloom, level prop LOD, Draco cart models.
-- **Stack**: Three.js r185 + Rapier3D + **partyserver** / PartySocket on Cloudflare Workers (Vite 8 + Wrangler 4; WebRTC P2P + Calls TURN). Full table: [docs/README.md § Tech stack](./docs/README.md#tech-stack) · [docs/reference/CREDITS.md](./docs/reference/CREDITS.md). Baseline gate: `npm run check` (typecheck + tests + knip).
+- **Stack**: Three.js r185 + Rapier3D + **partyserver** / PartySocket on Cloudflare Workers (Vite 8 + Wrangler 4; WebRTC P2P + Calls TURN). Full table: [docs/README.md § Tech stack](./docs/README.md#tech-stack) · [docs/reference/CREDITS.md](./docs/reference/CREDITS.md). Baseline gate: `npm run check` — status:size → typecheck → test → knip → briefing:check → arch:check → health:check (7 steps; see `check` in package.json).
 
 ## Documentation
 
