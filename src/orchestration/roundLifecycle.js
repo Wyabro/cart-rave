@@ -449,8 +449,18 @@ function updateResultsOverlay() {
       }
     }
 
-    playAgain.disabled = !isHost;
+    // * PODIUM-FOCUS-1: a real `disabled` attribute drops a control out of
+    // * gamepadNav's focusables (isElementVisible rejects disabled elements),
+    // * leaving MAIN MENU as a guest's only pad-reachable podium button — a
+    // * guest mashing A through the rematch window would silently leave the
+    // * room. Guests instead get a focusable-but-inert rematch target: enabled
+    // * so the pad lands on it, dimmed (.cc-btn--disabled) + aria-disabled so
+    // * it reads as non-actionable, and the guarded onHostPlayAgainClick
+    // * swallows the press. Host behavior is unchanged.
+    playAgain.disabled = false;
+    playAgain.classList.toggle("cc-btn--disabled", !isHost);
     if (isHost) {
+      playAgain.removeAttribute("aria-disabled");
       playAgain.textContent = "PLAY AGAIN";
     } else {
       // * Arm a local auto-continue estimate so non-hosts see a countdown, not a
@@ -463,6 +473,7 @@ function updateResultsOverlay() {
         const delayMs = mode === "friends" ? 10000 : 5000;
         clientPodiumAutoContinueDeadlineMs = performance.now() + delayMs;
       }
+      playAgain.setAttribute("aria-disabled", "true");
       playAgain.innerHTML = `<span style="opacity:.8;margin-right:6px;">${svgIcon("host", { label: "Host" })}</span>WAITING FOR HOST…`;
     }
 
