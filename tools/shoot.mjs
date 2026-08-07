@@ -63,15 +63,19 @@ function buildUrl(base, args) {
   if (args.menu !== true && args.menu !== "1") u.searchParams.set("hud", "0");
   const shot = str(args.shot);
   if (shot) u.searchParams.set("shot", shot);
-  // * SHOOT-LEVEL-1: always pin the level explicitly, never rely on the app's fallback.
-  // * Omitting --level resolves to FREE_LEVEL (currently "zanzibar"), so a default shot and
-  // * `--level zanzibar` are byte-identical — which once read as "zanzibar silently falls
-  // * back to classic" and cost a false High-priority bug. Pinning makes the URL self-
-  // * documenting, and DEFAULT_SHOT_LEVEL is a fixed reference that will not move if
-  // * FREE_LEVEL is ever repointed at another arena.
+  // * SHOOT-LEVEL-1 (revised, SHOOT-SOFTGL-1): pin the level explicitly ONLY when no --shot
+  // * was given either — debugParams.js:175 resolves `?level` before a bookmark's own level,
+  // * so pinning unconditionally made every `--shot` silently render the wrong arena
+  // * (`--shot classic` rendered Sundial with Classic's camera). Omitting `level` here lets
+  // * the bookmark supply it; DEFAULT_SHOT_LEVEL still covers the true no-flags-at-all case,
+  // * so a bare `npm run shoot` stays byte-identical to before.
   const DEFAULT_SHOT_LEVEL = "zanzibar";
-  const level = str(args.level) ?? DEFAULT_SHOT_LEVEL;
-  u.searchParams.set("level", level);
+  const explicitLevel = str(args.level);
+  if (explicitLevel) {
+    u.searchParams.set("level", explicitLevel);
+  } else if (!shot) {
+    u.searchParams.set("level", DEFAULT_SHOT_LEVEL);
+  }
   const cam = str(args.cam);
   if (cam) u.searchParams.set("cam", cam);
   const preset = str(args.preset);
@@ -268,6 +272,14 @@ async function main() {
       softgl: devChrome1.softgl || devChrome2.softgl,
       eruda: devChrome1.eruda || devChrome2.eruda,
     };
+
+    // * Resolved (not asserted) arena — window.__cartRave.params already reflects
+    // * debugParams.js's actual level/bookmark resolution (visualHarness.js:57-70), so this
+    // * is self-documenting proof of what rendered, not a restatement of the CLI flags.
+    const resolvedParams = hasHarness
+      ? await page.evaluate(() => window.__cartRave?.params ?? null)
+      : null;
+    console.log(`[shoot] level=${resolvedParams?.level ?? "?"} shot=${resolvedParams?.shot ?? "-"}`);
 
     mkdirSync(dirname(out), { recursive: true });
     // * Full viewport: menu attract composites canvas under translucent menu chrome.
