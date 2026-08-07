@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-07T15:05:08.293Z",
-    "commit": "5469880"
+    "at": "2026-08-07T15:15:51.833Z",
+    "commit": "0365b61"
   },
-  "source_digest": "821a5241",
+  "source_digest": "8f5e10ab",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1431,8 +1431,8 @@
           },
           {
             "pri": "High",
-            "item": "GAMEPAD-LOBBY-1 — gamepad navigation is dead in the Friends lobby; a pad-only player cannot ready up",
-            "notes": "**Filed 08-07 from the principal-engineering audit — this is the screen FIGHT-VERIFY-1 flagged as never having rendered in a real-browser check.** `isUiActive = refs.menuVisible \\",
+            "item": "GAMEPAD-LOBBY-1 [2pc] — gamepad navigation is dead in the Friends lobby; a pad-only player cannot ready up",
+            "notes": "**Implemented and deployed 08-07** (`0365b61`, Worker `64c7d252-3e4e-47c6-9662-9215759d84a6`); source-pin test added, targeted 26/26 and QA 7/7 passed. **Owed: Wyatt playtest — GAMEPAD-LOBBY-1 — Controller navigation works in a Friends lobby.**<br>1. As the host, use the stick or D-pad to focus a difficulty choice, READY UP, and LEAVE ROOM; press A on each and confirm it performs the labeled action.<br>2. As a guest, use the stick or D-pad and A to READY UP and LEAVE ROOM; difficulty choices should not appear.<br>3. Press B or Start in the lobby; it should open pause, not leave the room.<br>4. Check pause, results, and a running round still use their current controller behavior. **Residual:** document-wide navigation can still reach visually covered controls; scoping that set is a separate lever.",
             "ship1": null
           },
           {

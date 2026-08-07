@@ -134,6 +134,19 @@ function syncPlayerAccent(slot, youConnId) {
   }
 }
 
+/**
+ * Human identity chips must follow the rendered cart look, not the server's
+ * palette-assignment key. NPC personality stickers retain their fixed color.
+ * @param {{ kind?: string, color?: string, lookHex?: number | null } | null | undefined} slot
+ * @param {{ color?: string } | null | undefined} emblem
+ * @param {string | null | undefined} youConnId
+ */
+function identityChipColor(slot, emblem, youConnId) {
+  return slot?.kind === "human"
+    ? clampAccentLuminance(resolveCartNeonCss(slot, { youConnId }))
+    : (emblem?.color || "#f2ede4");
+}
+
 let _options = {};
 
 /** @type {Record<string, any>} */
@@ -1160,7 +1173,7 @@ function updateScores(roundState, netSlots, youConnId) {
             entry.slotGlyph.innerHTML = svgIcon(slotMark.icon, { label: slotMark.label });
             entry.slotGlyph.title = slotMark.label.charAt(0) + slotMark.label.slice(1).toLowerCase();
           }
-          entry.slotGlyph.style.color = info?.color || "#f2ede4";
+          entry.slotGlyph.style.color = identityChipColor(slot, info, youConnId);
           entry.slotGlyph.style.display = "inline-flex";
         } else {
           entry.slotGlyph.style.display = "none";
@@ -1425,7 +1438,7 @@ function updateLobbyScreen(roundPhase, netSlots, youConnId, menuVisible) {
         cell.emblem.dataset.icon = info.icon;
         cell.emblem.innerHTML = svgIcon(info.icon, { label: info.label });
       }
-      cell.emblem.style.color = info.color;
+      cell.emblem.style.color = identityChipColor(slot, info, youConnId);
       cell.emblem.style.display = "inline-flex";
     } else {
       cell.emblem.style.display = "none";
@@ -1441,7 +1454,7 @@ function updateLobbyScreen(roundPhase, netSlots, youConnId, menuVisible) {
         cell.slotGlyph.innerHTML = svgIcon(lobbySlotMark.icon, { label: lobbySlotMark.label });
         cell.slotGlyph.title = lobbySlotMark.label.charAt(0) + lobbySlotMark.label.slice(1).toLowerCase();
       }
-      cell.slotGlyph.style.color = info?.color || "#f2ede4";
+      cell.slotGlyph.style.color = identityChipColor(slot, info, youConnId);
       cell.slotGlyph.style.display = "inline-flex";
     } else {
       cell.slotGlyph.style.display = "none";

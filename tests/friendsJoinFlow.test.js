@@ -81,11 +81,11 @@ describe("stranded-in-an-empty-room banner", () => {
     ...aloneSlots.slice(2),
   ];
 
-  const pump = (netSlots, youConnId = "me") =>
+  const pump = (netSlots, youConnId = "me", phase = "lobby") =>
     HUD.update({
       youConnId,
       netSlots,
-      roundState: { phase: "lobby", scores: [0, 0, 0, 0] },
+      roundState: { phase, scores: [0, 0, 0, 0] },
       matchHistoryLength: 0,
       menuVisible: false,
     });
@@ -137,5 +137,22 @@ describe("stranded-in-an-empty-room banner", () => {
     expect(statusText()).toBe("NOBODY HERE — CHECK THE CODE");
     pump(withFriendSlots);
     expect(statusText()).not.toBe("NOBODY HERE — CHECK THE CODE");
+  });
+
+  it("tints a remote custom-look human's Friends chips with the rendered cart color", () => {
+    const slots = [
+      { ...aloneSlots[0], color: "pink", lookHex: 0xff7a22 },
+      ...aloneSlots.slice(1),
+    ];
+    pump(slots, "pal");
+
+    const lane = document.querySelector(".hud-lobby-slot");
+    expect(lane?.querySelector(".hud-lobby-emblem")?.style.color).toBe("#ff7a22");
+    expect(lane?.querySelector(".hud-lobby-slotGlyph")?.style.color).toBe("#ff7a22");
+
+    pump(slots, "pal", "running");
+    const scoreBox = document.querySelector(".hud-scoreBox");
+    expect(scoreBox?.style.getPropertyValue("--hud-glow")).toBe("#ff7a22");
+    expect(scoreBox?.querySelector(".hud-scoreSlot")?.style.color).toBe("#ff7a22");
   });
 });
