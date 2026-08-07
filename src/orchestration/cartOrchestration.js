@@ -49,6 +49,7 @@ import {
   getHopAlignmentDotMin,
   isHardTactics,
 } from "../aiDifficulty.js";
+import { resolveNpcHumanBoostCommit } from "../utils/npcBoostCommit.js";
 import { clearNpcCartCache } from "../gameLoop.js";
 import {
   getLastSuccessfulHelloGen,
@@ -1034,21 +1035,27 @@ function maybeTriggerNpcOpportunisticRamBoost(nowMs, npc) {
   if (!nearestTarget) return;
   const op = nearestTarget.body.translation();
 
-  // * NPC-vs-NPC: personality commit chance. NPC-vs-human: always commit (legacy),
-  // * except solo rubberband can throttle when the human is far behind.
+  // * NPC-vs-NPC: personality commit chance. NPC-vs-human: always commit in MP (legacy).
+  // * Solo: rubberband + AI-DAY-1 finisher/safe-center frequency gate (NPC-BOOST-1 carve-out).
   let aimSlackDeg = 0;
+  const dist = Math.sqrt(nearestD2);
   if (!nearestIsHuman) {
     const commitChance = npc.aiPersonality?.npcRamCommitChance ?? 0.25;
     if (Math.random() >= commitChance) return;
   } else if (Netcode.detectGameMode() === "solo") {
     const solo = Simulation.getSoloRubberbandFactors(netSlots);
     aimSlackDeg = solo.aimSlackDeg;
-    // * nitroMul is absolute vs human (base was 1.0). Trail ~0.55; lead stays 1.0.
-    const humanCommit = Math.min(1, Math.max(0.05, solo.nitroMul >= 1 ? 1 : solo.nitroMul));
+    const edgeBias = Simulation.getEdgeVictimBias(op.x, op.z);
+    const { commit: humanCommit } = resolveNpcHumanBoostCommit({
+      nitroMul: solo.nitroMul,
+      edgeBias,
+      dist,
+      difficulty: getActiveAiDifficulty(),
+      cfg: ncfg,
+    });
     if (Math.random() >= humanCommit) return;
   }
 
-  const dist = Math.sqrt(nearestD2);
   if (dist < ncfg.minTargetDistance || dist > ncfg.maxTargetDistance) return;
 
   // * Backrooms corner-void safety gate — abort boost if the line crosses a square hole.
