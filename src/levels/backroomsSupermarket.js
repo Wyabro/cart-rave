@@ -2082,7 +2082,11 @@ function buildFurniturePileSpotlight(scene) {
   }
 
   function update(timeMs) {
-    const dt = lastTimeMs ? Math.min((timeMs - lastTimeMs) * 0.001, 0.05) : 0.016;
+    // * syncedNow can jump backward on host-clock correction (LOD-CLOCK-1) — a negative
+    // * dt makes exp(-k*dt) > 1, smooth < 0, and intensity overshoot. Floor at 0.
+    const dt = lastTimeMs && timeMs >= lastTimeMs
+      ? Math.min((timeMs - lastTimeMs) * 0.001, 0.05)
+      : 0.016;
     lastTimeMs = timeMs;
 
     if (timeMs >= phaseUntil) {
