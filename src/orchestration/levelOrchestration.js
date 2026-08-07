@@ -42,6 +42,7 @@ import { isTouchDevice } from "../utils.js";
 import { getQualityTier } from "../utils/qualityMode.js";
 import { getQualityKnobs } from "../utils/qualityTiers.js";
 import { storageGet } from "../utils/storage.js";
+import { recordDiagEvent } from "../utils/diagnostics.js";
 import { CONFIG, CART_COLORS } from "../config.js";
 import { STAGE_PRIORITY } from "../ui/centerStage.js";
 
@@ -689,12 +690,30 @@ export function createLevelOrchestration(deps) {
 
   async function drainPendingArenaRotation() {
     if (pendingArenaRotationLevelId == null) return;
-    if (deps.getMenuVisible() || !isWorldBootstrapped() || !world) return;
-    if (!Array.isArray(deps.getAllCartsRef()) || deps.getAllCartsRef().length === 0) return;
-    if (arenaRotationInFlight) return;
-    const next = resolveLevelId(pendingArenaRotationLevelId);
+    const target = resolveLevelId(pendingArenaRotationLevelId);
+    const carts = deps.getAllCartsRef();
+    if (deps.getMenuVisible() || !isWorldBootstrapped() || !world) {
+      recordDiagEvent("arena", "rotation_deferred", {
+        target,
+        reason: deps.getMenuVisible() ? "menu" : "world",
+        loaded: getCurrentLevelId(),
+      });
+      return;
+    }
+    if (!Array.isArray(carts) || carts.length === 0) {
+      recordDiagEvent("arena", "rotation_deferred", { target, reason: "carts", loaded: getCurrentLevelId() });
+      return;
+    }
+    if (arenaRotationInFlight) {
+      recordDiagEvent("arena", "rotation_deferred", { target, reason: "in_flight", loaded: getCurrentLevelId() });
+      return;
+    }
+    const next = target;
     pendingArenaRotationLevelId = null;
-    if (next === getCurrentLevelId()) return;
+    if (next === getCurrentLevelId()) {
+      recordDiagEvent("arena", "rotation_skipped", { target: next, reason: "already_loaded" });
+      return;
+    }
     await rotateLoadedArenaInPlace(next);
   }
 
@@ -710,6 +729,11 @@ export function createLevelOrchestration(deps) {
     if (nextLevelId === getCurrentLevelId()) return;
     arenaRotationInFlight = true;
     setLevelSwapping(true);
+    recordDiagEvent("arena", "rotation_started", {
+      target: nextLevelId,
+      loaded: getCurrentLevelId(),
+      isHost: Netcode.getIsHost(),
+    });
     // * Old arena's beds fade out under the canvas crossfade; the new arena's start
     // * in the finally below (getCurrentLevelId() — correct even if the swap failed).
     ArenaAmbience.stopArenaAmbience();
@@ -739,8 +763,13 @@ export function createLevelOrchestration(deps) {
         Entities.rematchResetWorld();
         Netcode.reapplyCachedCartsSnapshot();
       }
+      recordDiagEvent("arena", "rotation_finished", { target: nextLevelId, loaded: getCurrentLevelId() });
     } catch (err) {
       console.error("[arena-rotation] in-place swap failed:", err);
+      recordDiagEvent("arena", "rotation_failed", {
+        target: nextLevelId,
+        message: err instanceof Error ? err.message : String(err),
+      });
     } finally {
       setLevelSwapping(false);
       arenaRotationInFlight = false;

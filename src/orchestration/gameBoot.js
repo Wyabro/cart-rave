@@ -1132,6 +1132,12 @@ export function bootGameSystems(ctx) {
     // * plays a different arena.
     onLevelIdChanged: (levelId) => {
       level.pendingArenaRotationLevelId = levelId;
+      recordDiagEvent("arena", "rotation_queued", {
+        levelId,
+        loaded: getCurrentLevelId(),
+        menuVisible: refs.menuVisible,
+        carts: refs.allCartsRef?.length ?? 0,
+      });
       void drainPendingArenaRotation();
     },
     onPodiumRejected: () => {

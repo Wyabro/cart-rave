@@ -2967,13 +2967,22 @@ export function initNetcode(roomOverride) {
         roundPhase: msg.round?.phase,
       });
       const helloIsFriendsHost = isFriendsHostHello(detectGameMode(), msg.hostId, msg.youConnId);
+      if (typeof msg.levelId === "string" && msg.levelId.trim() !== "") {
+        recordDiagEvent("arena", "room_level_received", {
+          source: "hello",
+          incoming: msg.levelId.trim(),
+          stored: settingsStore.getState().selectedLevelId,
+          loaded: getCurrentLevelId(),
+          friendsHostSkip: helloIsFriendsHost,
+        });
+      }
       if (!helloIsFriendsHost && typeof msg.levelId === "string" && msg.levelId.trim() !== "") {
         // * Room level is server truth — adopt into settingsStore (not only raw
         // * localStorage) so a later host promote does not rematch on the wrong arena.
         // * FRIENDS-LEVEL-1: skipped for the Friends host — their menu pick must win
         // * the room instead of the hello-stamped default; see
         // * adoptFriendsHostLevelFromStore() below, called after setAuthorityMode.
-        adoptAuthoritativeRoomLevel(msg.levelId, { notify: true });
+        adoptAuthoritativeRoomLevel(msg.levelId, { notify: true, source: "hello" });
       }
       if (msg.aiDifficulty != null) {
         adoptAuthoritativeRoomAiDifficulty(msg.aiDifficulty);
@@ -3328,7 +3337,13 @@ export function initNetcode(roomOverride) {
         // * Server now broadcasts levelId on every MSG.round. Clients latch it so
         // * rematch / host promote keep the room arena (not each player's menu pick).
         if (typeof msg.levelId === "string" && msg.levelId.trim() !== "") {
-          adoptAuthoritativeRoomLevel(msg.levelId, { notify: true });
+          recordDiagEvent("arena", "room_level_received", {
+            source: "round",
+            incoming: msg.levelId.trim(),
+            stored: settingsStore.getState().selectedLevelId,
+            loaded: getCurrentLevelId(),
+          });
+          adoptAuthoritativeRoomLevel(msg.levelId, { notify: true, source: "round" });
         }
         if (msg.aiDifficulty != null) {
           adoptAuthoritativeRoomAiDifficulty(msg.aiDifficulty);
@@ -3462,19 +3477,30 @@ function applyHostSpawnSnapshot(msg) {
  * Apply a room-authoritative level id (from server hello/round or our own host_round).
  * Updates the latch used by {@link sendHostRound} and keeps settings/localStorage aligned.
  * @param {string | null | undefined} levelId
- * @param {{ notify?: boolean }} [opts] When notify, fire onLevelIdChanged if the store changed.
+ * @param {{ notify?: boolean, source?: string }} [opts] When notify, fire onLevelIdChanged if the store changed.
  */
 function adoptAuthoritativeRoomLevel(levelId, opts = {}) {
   const incoming = typeof levelId === "string" ? levelId.trim() : "";
   if (!incoming) return;
   authoritativeRoomLevelId = incoming;
   const stored = settingsStore.getState().selectedLevelId;
-  if (incoming !== stored) {
+  const storeChanged = incoming !== stored;
+  const shouldNotify = storeChanged && opts.notify !== false;
+  if (storeChanged) {
     settingsStore.getState().setSelectedLevelId(incoming);
-    if (opts.notify !== false) {
+    if (shouldNotify) {
       callbacks.onLevelIdChanged?.(incoming);
     }
   }
+  recordDiagEvent("arena", "room_level_latched", {
+    source: opts.source ?? "unknown",
+    incoming,
+    storedBefore: stored,
+    storedAfter: settingsStore.getState().selectedLevelId,
+    loaded: getCurrentLevelId(),
+    storeChanged,
+    notified: shouldNotify,
+  });
 }
 
 /**
