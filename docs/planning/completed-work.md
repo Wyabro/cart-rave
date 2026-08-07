@@ -13,6 +13,75 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 7, 2026 — Block H desk-only completion: 12 cards closed, one commit each (7 of Block H + 5 filed 08-06/08-07)
+
+The rest of Block H's desk-only levers plus five earlier-filed desk-only cards, one commit each,
+no playtest owed — verdict in the diff/test run. `npm run qa` 7/7 on the whole wave (146 files,
+1735 tests). Shipped commits `cae4a35`…`7131f40`; pushed to `origin/cart-clash` 08-07. GAMEPAD-LOBBY-1
+is **not** in this close — it deployed (`0365b61`) but still owes its two-PC playtest (see its
+UI/UX row).
+
+- *(Engineering · Medium)* **SIM-CALLBACK-FREEZE-1** — ✅ **CLOSED 08-07** (`cae4a35`). The
+  `clientSimCallbacks = { ...hostSimCallbacks }` spread in `loopDeps.js` invoked each host getter
+  once pre-arena-load and copied the empty result — so a non-host's `recordColliderHandles` /
+  `boothColliderHandles` were permanently `[]` and `pitWallColliderHandle` `undefined`, and
+  `classifyEnvironmentCollision` fell through to `"floor"` for every pit-wall/booth graze (early
+  hop-land detection on non-hosts). Re-declared the four getters on the client bundle instead of
+  spreading; `partySocket` stays dead there. Test in
+  [simCallbackFreeze.test.js](../../tests/simCallbackFreeze.test.js).
+- *(Engineering · Low)* **REMATCH-NULLGUARD-1** — ✅ **CLOSED 08-07** (`5d24436`). Two bare
+  `allCartsRef` loops in `rematchResetWorld` (the `for...of` and the `.length` index loop) gained
+  the `|| []` guard their sibling loops already had — a rematch racing session teardown no longer
+  throws into the game-loop tripwire. Test in [rematchNullguard.test.js](../../tests/rematchNullguard.test.js).
+- *(Engineering · Medium)* **CROWD-INSTANCE-RANGE-1** — ✅ **CLOSED 08-07** (`1bca251`). Crowd
+  `InstancedMesh` matrices now use `DynamicDrawUsage` + per-frame `addUpdateRange`/`clearUpdateRanges`
+  bounded to the mutated batch instead of a full-buffer `needsUpdate` — cuts ~25× over-upload on
+  HIGH (≈19MB/s → ~1MB/s of `glBufferSubData`). Test in [crowdInstanceRange.test.js](../../tests/crowdInstanceRange.test.js).
+- *(UI/UX · Low)* **PAUSE-CTRL-CHART-1** — ✅ **CLOSED 08-07** (`414afe6`). The pause-overlay
+  CONTROLS card froze on the init-time `touchDevice` flag with no gamepad branch; it now
+  live-subscribes to the same `onInputModeChange` the main menu uses and renders a real GAMEPAD
+  chart (L-STICK/D-PAD move, A/LT boost, B/RT hop, SELECT mute, START menu). Test in
+  [pauseCtrlChart.test.js](../../tests/pauseCtrlChart.test.js).
+- *(UI/UX · Medium)* **PODIUM-FOCUS-1** — ✅ **CLOSED 08-07** (`2faa829`). `playAgain.disabled =
+  !isHost` dropped the control out of gamepadNav's focusables, leaving MAIN MENU as a guest's only
+  pad-reachable podium button (A-mash = silent room-leave). Guests now get a focusable-but-inert
+  rematch target (`cc-btn--disabled` + `aria-disabled`, guarded `onHostPlayAgainClick` swallows the
+  press); host behavior unchanged. Test in [podiumFocus.test.js](../../tests/podiumFocus.test.js).
+- *(Art · Low)* **ART-EXPO-DUMP-1** — ✅ **CLOSED 08-07** (`0c1167e`). The postFxDebug config dump
+  emitted the retired `toneMappingExposure` key (paste-back was a silent no-op); it now emits
+  `arenaExposure[levelId]` from the live panel snapshot via `buildPostFxDump`. Test in
+  [artExpoDump.test.js](../../tests/artExpoDump.test.js).
+- *(UI/UX · Medium)* **ONBOARD-SCROLL-1** — ✅ **CLOSED 08-07** (`23405f6`, test-only — the CSS fix
+  was already in `49299de`). Regression test pins `overflow: hidden` on `#cr-howto-screen` and the
+  negative `outline-offset` on `.cr-howto-page:focus-visible`. Test in
+  [onboardScroll.test.js](../../tests/onboardScroll.test.js).
+- *(UI/UX · Medium)* **RESULTS-CRAMP-1** — ✅ **CLOSED 08-07** (`802c4c1`). The 1101–1299px band
+  between the mobile-landscape and desktop rules had the 53.75rem podium overflowing a ~499px
+  column, sliding 4th place under the action buttons; gated media query shrinks columns + gap
+  (9.25rem / 0.75rem) to fit. Test in [resultsCramp.test.js](../../tests/resultsCramp.test.js).
+- *(Engineering · Medium)* **RAM-CONTACT-STALE-1** — ✅ **CLOSED 08-07** (`5257294`, +`8af97f4`
+  encoding fix). The `_activeCartContacts` sweep gained a max-separation guard (planar, same as ram)
+  and `resetCartTransientState` now calls `clearActiveCartContactsForCart` — a missed Rapier
+  stopped-event (respawn teleport, SD `setEnabled(false)`) can no longer re-fire an attributed ram
+  from across the arena. Tests in [ramContactStale.test.js](../../tests/ramContactStale.test.js).
+- *(Engineering · Low)* **SD-SPECTATOR-WIRE-1** — ✅ **CLOSED 08-07** (`ba061c6`). The migration
+  attribution tail now names parked Sudden-Death spectator slots (`sds`), and the promoted host
+  restores `isSuddenDeathSpectator` from it — a re-enabled remote body after mid-SD migration no
+  longer re-fires as a phantom fall. Test in [sdSpectatorWire.test.js](../../tests/sdSpectatorWire.test.js).
+- *(UI/UX · Medium)* **RESULTS-UNLOCK-TOAST-1** — ✅ **CLOSED 08-07** (`3f398bc`). While the results
+  overlay is visible the unlock toast lifts clear of the podium (34vh + 9rem, with coarse/phone and
+  short-desktop bands) instead of sitting across the rank blocks / PLAY AGAIN. Test in
+  [resultsUnlockToast.test.js](../../tests/resultsUnlockToast.test.js).
+- *(Engineering · Medium)* **NET-P2P-DIAG-1** — ✅ **CLOSED 08-07** (`7131f40`). WebRTC recovery is
+  now visible in `?diag` captures: `p2p_reconnect_attempt` / `p2p_reconnect_offer_failed` net diag
+  events on each re-offer, rate-limited by the existing per-peer cooldown. Instrument-only — no
+  retune of `p2pReconnectCooldownMs`/`p2pConnectingTimeoutMs`. Test in [netP2pDiag.test.js](../../tests/netP2pDiag.test.js).
+
+**H1 remaining (2):** GAMEPAD-LOBBY-1 (deployed, owed its two-PC playtest), HOLE-FRICTION-COMBINE-1
+(needs a playtest pass of its own). **H2 remaining (2):** CARGO-BAY-INSTANCE-1 (Wyatt stability
+call first), ARENA-BUMPER-HINT-1 (product call). **H3 remaining (1):** CAPTURE-RING-LIMIT-1 — see
+[BACKLOG.md Block H](./BACKLOG.md).
+
 ### August 7, 2026 — Wave H1 (partial): desk-only correctness sweep, 3 commits (CONNSTATE-REFLIP-1, LASTHITBY-MUTATE-1, FREEZE-TELEMETRY-1)
 
 First 3 of Block H's 7-item H1 batch (the principal-engineering audit's correctness levers), one
@@ -50,8 +119,8 @@ live code before implementation, not assumed from the original audit.
   [gameLoopResilience.test.js](../../tests/gameLoopResilience.test.js); wiring/unconditional
   presence proven in [analyticsGating.test.js](../../tests/analyticsGating.test.js).
 
-**H1 remaining (4):** GAMEPAD-LOBBY-1 (High), SIM-CALLBACK-FREEZE-1, HOLE-FRICTION-COMBINE-1,
-RAM-CONTACT-STALE-1 — see [BACKLOG.md Block H](./BACKLOG.md).
+**H1 remaining (2):** GAMEPAD-LOBBY-1 (High, deployed — owed its two-PC playtest),
+HOLE-FRICTION-COMBINE-1 — see [BACKLOG.md Block H](./BACKLOG.md).
 
 ### August 7, 2026 — ONBOARD-SIZE-1: how-to arrows and card text sized up
 

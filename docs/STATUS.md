@@ -153,17 +153,18 @@ the dev loop (dev probes lie in prod · edge propagation · frozen `rAF`), or a 
 
 ## Last updated
 
+2026-08-07 (Block H desk-only completion: 12 cards closed, one commit each) — Remaining Block H
+desk-only levers + five earlier desk-only cards landed as 12 commits (`cae4a35`…`7131f40`,
+pushed `8af97f4`); none player-visible. Block H 10/15 closed; remaining H1:
+GAMEPAD-LOBBY-1 (owed its two-PC playtest), HOLE-FRICTION-COMBINE-1. Full list:
+[completed-work.md](./planning/completed-work.md).
+
 2026-08-07 (BACKLOG Block H opened; H1 3/7 landed, unpushed to prod) — Full principal-engineering
 audit (physics/netcode/perf/input/arch/security/UX/testing) filed as 15 new cards across 3
-sub-batches (H1 correctness, H2 perf + gamepad, H3 polish); 3 docs-accuracy fixes applied directly
-(agent-manual.md, this file's gotcha section, README.md). H1's first 3 desk-only levers landed same
-session — `CONNSTATE-REFLIP-1` (connectionState no longer re-flips to reconnecting after a
-deliberate disconnect), `LASTHITBY-MUTATE-1` (KO-attribution clear now goes through a store
-action), `FREEZE-TELEMETRY-1` (match_ended carries an always-on maxFrameMs/framesOver33 pair, not
-gated behind ?diag=1). None player-visible — no playtest owed, verdict was the diff/test run.
-Detail: [completed-work.md](./planning/completed-work.md). **Remaining H1 (4):**
-GAMEPAD-LOBBY-1 (the one High — pad-only players can't use the Friends lobby),
-SIM-CALLBACK-FREEZE-1, HOLE-FRICTION-COMBINE-1, RAM-CONTACT-STALE-1.
+sub-batches (H1 correctness, H2 perf + gamepad, H3 polish); 3 docs-accuracy fixes applied directly.
+H1's first 3 desk-only levers landed same session — `CONNSTATE-REFLIP-1`, `LASTHITBY-MUTATE-1`,
+`FREEZE-TELEMETRY-1` (writeups in
+[completed-work.md](./planning/completed-work.md)).
 
 2026-08-07 (PACE-KO-1 deployed `157bf81`; player check owed) — An attributed attacker now gets the
 existing KO hitmarker/sting/flash as the victim crosses the shared below-rim no-return marker;
