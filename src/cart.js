@@ -675,11 +675,12 @@ export function buildCart(colorHex) {
  * @param {THREE.Object3D} root Cart root returned by {@link buildCart}.
  */
 export function resetCartVisualState(root) {
-  if (root?.userData?.isRaveGltf) {
+  if (!root) return;
+  if (root.userData?.isRaveGltf) {
     resetRaveGltfCartVisualState(root);
     return;
   }
-  const data = root.userData.cartVisual;
+  const data = root.userData?.cartVisual;
   if (!data) return;
   data.wheelRoll = new Array(data.wheelPitchObjects.length).fill(0);
   for (const yawG of data.casterYawGroups) {
@@ -701,11 +702,12 @@ export function resetCartVisualState(root) {
  * @param {THREE.Vector3 | null | undefined} [angvelWorld] World-space angular velocity (optional).
  */
 export function updateCartVisuals(root, linvelWorld, dtSec, timeMs, angvelWorld = null) {
-  if (root?.userData?.isRaveGltf) {
+  if (!root || !linvelWorld) return;
+  if (root.userData?.isRaveGltf) {
     updateRaveGltfCartVisuals(root, linvelWorld, dtSec, angvelWorld);
     return;
   }
-  const data = root.userData.cartVisual;
+  const data = root.userData?.cartVisual;
   if (!data) return;
 
   const { casterYawGroups, wheelPitchObjects, wobblePhases } = data;
