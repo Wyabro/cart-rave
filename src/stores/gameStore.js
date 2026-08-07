@@ -116,6 +116,13 @@ export const gameStore = createStore((set, get) => ({
     set({ lastHitBy: map });
   },
 
+  /** Clears one slot's open hit attribution (e.g. after its KO is dispatched). */
+  clearLastHitBy: (slotIndex) => {
+    const map = new Map(get().lastHitBy);
+    map.delete(slotIndex);
+    set({ lastHitBy: map });
+  },
+
   /**
    * Host-migration restore: replace open hit attribution with wire ages applied to local now.
    * @param {Map<number, { attackerSlotIndex: number, wasCritical: boolean, impactSpeed: number, fromPodium?: boolean, timestamp: number }>} map

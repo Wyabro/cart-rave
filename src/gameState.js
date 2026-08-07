@@ -95,6 +95,11 @@ export function recordHit(victimSlot, attackerSlotIndex, wasCritical, impactSpee
   gameStore.getState().recordHit(victimSlot, attackerSlotIndex, wasCritical, impactSpeed, fromPodium);
 }
 
+/** @param {number} slotIndex */
+export function clearLastHitBy(slotIndex) {
+  gameStore.getState().clearLastHitBy(slotIndex);
+}
+
 /**
  * Replace all slot scores (used when applying host round snapshots).
  * @param {Record<number, number>} scores

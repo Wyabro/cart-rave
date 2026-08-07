@@ -1,5 +1,34 @@
 import { describe, it, expect } from "vitest";
-import { pickTimerWinner } from "../src/gameState.js";
+import { pickTimerWinner, recordHit, clearLastHitBy, getLastHitBy } from "../src/gameState.js";
+import { gameStore } from "../src/stores/gameStore.js";
+
+describe("clearLastHitBy (LASTHITBY-MUTATE-1)", () => {
+  it("goes through set() — a gameStore.subscribe listener observes the clear", () => {
+    recordHit(1, 0, false);
+    expect(getLastHitBy().has(1)).toBe(true);
+
+    let seenLastHitBy = null;
+    const unsubscribe = gameStore.subscribe((state) => {
+      seenLastHitBy = state.lastHitBy;
+    });
+
+    clearLastHitBy(1);
+    unsubscribe();
+
+    expect(seenLastHitBy).not.toBeNull();
+    expect(seenLastHitBy.has(1)).toBe(false);
+  });
+
+  it("leaves other slots' attribution untouched", () => {
+    recordHit(1, 0, false);
+    recordHit(2, 3, true);
+
+    clearLastHitBy(1);
+
+    expect(getLastHitBy().has(1)).toBe(false);
+    expect(getLastHitBy().has(2)).toBe(true);
+  });
+});
 
 describe("pickTimerWinner", () => {
   it("returns the winning slot index when one score is strictly higher", () => {

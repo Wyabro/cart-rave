@@ -1,6 +1,7 @@
 // gameFlow.js — host-authoritative fall/scoring, respawns, round transitions
 
 import { resetCartTransientState } from "./entities.js";
+import * as GameState from "./gameState.js";
 import { mark } from "./utils/perfSpans.js";
 import { ChallengeTracker } from "./stores/challengeStore.js";
 import { UnlockTracker } from "./stores/unlockStore.js";
@@ -406,7 +407,7 @@ export function updateGameFlow(deps, context) {
               recordKillOnLevel: UnlockTracker.recordKillOnLevel,
             });
 
-            deps.getLastHitBy().delete(slotIndex);
+            GameState.clearLastHitBy(slotIndex);
           }
 
           // * Trigger the shatter + explosion VFX on the host (non-host clients replay
