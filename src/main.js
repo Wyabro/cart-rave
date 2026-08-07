@@ -472,9 +472,12 @@ async function main() {
   // Make canvas able to receive keyboard focus.
   canvas.tabIndex = 0;
   canvas.style.outline = "none";
-  // Try to focus immediately on load (some browsers require a user gesture;
-  // pointerdown above covers that).
-  setTimeout(() => canvas.focus(), 0);
+  // * Focus only when the menu is not covering the canvas — boot-time focus steals
+  // * keyboard/screen-reader attention from #cr-root controls. Game entry paths focus
+  // * the canvas when leaving the menu; pointerdown also covers gesture-gated focus.
+  setTimeout(() => {
+    if (!gameRefs.menuVisible) canvas.focus();
+  }, 0);
 
   input = Input.setupInput(
     canvas,
@@ -1074,7 +1077,9 @@ async function main() {
       // * sampled at all, and whether an arena swap gate is still up.
       getNetDebug: () => {
         const slot = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
-        const localCart = Array.isArray(gameRefs.allCartsRef) ? gameRefs.allCartsRef[slot] : null;
+        const localCart = Array.isArray(gameRefs.allCartsRef) && slot >= 0
+          ? gameRefs.allCartsRef[slot]
+          : null;
         return {
           // * Lever D: null until the latch resolves — a diag probe must never throw.
           arenaRotationInFlight: gameRefs.level?.arenaRotationInFlight ?? null,
@@ -1176,6 +1181,7 @@ async function main() {
       }
     };
     window.addEventListener("keydown", (e) => {
+      if (e.repeat) return;
       const isF8 = e.code === "F8" && !e.ctrlKey && !e.shiftKey && !e.altKey;
       const isLegacy = e.ctrlKey && e.shiftKey && e.code === "KeyD";
       if (!isF8 && !isLegacy) return;
@@ -1200,7 +1206,9 @@ async function main() {
     // * Same shape as getNetDebug's localBodyEnabled above — keep them in step.
     getLocalCartActive: () => {
       const slot = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
-      const cart = Array.isArray(gameRefs.allCartsRef) ? gameRefs.allCartsRef[slot] : null;
+      const cart = Array.isArray(gameRefs.allCartsRef) && slot >= 0
+        ? gameRefs.allCartsRef[slot]
+        : null;
       return Boolean(cart?.body && cart.body.isEnabled());
     },
     getQuickplayHops: () => Netcode.getQuickplayHopCount(),
