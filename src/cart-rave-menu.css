@@ -3168,7 +3168,6 @@ html, body {
    cover the CSS ambient loops so motion-sensitive players get a still menu. */
 @media (prefers-reduced-motion: reduce) {
   .cr-pulse,
-  .cr-cmd--howto-attract .cr-btn-label,
   .cr-cart-preview-loading .cr-cart-preview-canvas {
     animation: none !important;
   }
@@ -3298,25 +3297,6 @@ html, body {
   /* Secondary idle: #d8d4e0 — interactive, not greyed-out disabled chrome. */
   color: var(--color-text-secondary);
   transition: color 130ms var(--ease-slap), font-size 130ms var(--ease-slap);
-}
-/* ONBOARD-ATTRACT-1: first-run guidance invites instead of taking over the menu.
-   The label owns this transform: the row owns its skew/entrance and .cr-btn-inner
-   is the anime.js press target. Base shadow survives reduced-motion as a still cue. */
-.cr-cmd--howto-attract .cr-btn-label {
-  color: var(--color-sticker-white);
-  text-shadow:
-    0 0 8px rgba(55, 231, 255, 0.95),
-    0 0 20px rgba(55, 231, 255, 0.72),
-    0 0 34px rgba(255, 61, 216, 0.45);
-  animation: cr-howto-attract 1.35s var(--ease-slap) infinite;
-}
-@keyframes cr-howto-attract {
-  0%, 100% { transform: skewX(8deg) translateX(0) scale(1); }
-  42% { transform: skewX(8deg) translateX(5px) scale(1.055); }
-  58% { transform: skewX(8deg) translateX(2px) scale(1.025); }
-}
-.cr-cmd--howto-attract:is(.is-selected, :hover) .cr-btn-label {
-  animation: none;
 }
 /* Primary idle: full sticker-white so Solo/QP/Friends still rank above secondaries
    without a permanent yellow fill (yellow stays selection-only). */
