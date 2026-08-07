@@ -38,6 +38,22 @@ function str(v) {
   return typeof v === "string" ? v : undefined;
 }
 
+/**
+ * Strip the two things the DEV SERVER puts on screen that production never has — the
+ * SwiftShader advisory (fires on every headless cell) and the CDN-injected Eruda console
+ * (localhost-gated, `index.html:36-55`, a cog in the corner that looks like a real control).
+ * Same removal their own dismiss handlers use. Idempotent. Returns whether each was present,
+ * so two calls (main-ready + pre-screenshot) can be OR-merged into one truthful record —
+ * eruda is a 4s CDN timer and can appear between an early removal and the shot.
+ */
+const clearDevServerChrome = () => {
+  const softgl = Boolean(document.getElementById("cr-softgl-notice"));
+  const eruda = Boolean(document.getElementById("eruda"));
+  document.getElementById("cr-softgl-notice")?.remove();
+  document.getElementById("eruda")?.remove();
+  return { softgl, eruda };
+};
+
 function buildUrl(base, args) {
   const u = new URL(base);
   u.searchParams.set("harness", "1");
@@ -185,6 +201,10 @@ async function main() {
       undefined,
       { timeout: timeoutMs },
     );
+    // * First pass — the softgl notice is created at boot (main.js:562), long before this
+    // * wait resolves, so this call always catches it. Eruda (4s CDN timer) may not exist
+    // * yet; the second call below covers that.
+    const devChrome1 = await page.evaluate(clearDevServerChrome);
 
     // * Prefer harness API when installed; otherwise wait main ready only.
     const hasHarness = await page.evaluate(() => Boolean(window.__cartRave));
@@ -234,6 +254,20 @@ async function main() {
     } else {
       await sleep(Math.max(2000, settle * 20));
     }
+
+    // * Second pass, latest possible moment before the shot — covers eruda's 4s timer
+    // * landing after the first pass on a fast machine, and covers the non-harness branch,
+    // * which the first pass ran before diverging into.
+    const devChrome2 = await page.evaluate(clearDevServerChrome);
+    // * Two rAFs so the removal is painted before Playwright's screenshot, not racing it —
+    // * same shape as loadingScreen.js's yieldForPaint (loadshots.mjs:633-635).
+    await page.evaluate(
+      () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(undefined)))),
+    );
+    const devChrome = {
+      softgl: devChrome1.softgl || devChrome2.softgl,
+      eruda: devChrome1.eruda || devChrome2.eruda,
+    };
 
     mkdirSync(dirname(out), { recursive: true });
     // * Full viewport: menu attract composites canvas under translucent menu chrome.
