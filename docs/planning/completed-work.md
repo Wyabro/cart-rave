@@ -13,6 +13,39 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 6, 2026 — DIAG-NET-CAPTURE-1: `host_send_gap` auto-captures past a severity floor
+
+*(Engineering · Medium)* — ✅ **CLOSED 08-06** (`69506db`). Filed from the same Copilot netcode
+review as NET-P2P-DIAG-1. `recordDiagEvent("net", "host_send_gap", …)` fired at >250 ms but
+`AUTO_CAPTURE_CHANNELS` was `new Set(["error", "assert"])`, so a host freeze produced an F8 capture
+only if Wyatt hit F8 *during* the freeze — the one moment he is playing, not pressing keys.
+
+**Lever (one module):** replaced the bare `AUTO_CAPTURE_CHANNELS.has(channel)` gate in
+`recordDiagEvent` with a `shouldAutoCapture(channel, type, data)` predicate
+([diagnostics.js](../../src/utils/diagnostics.js)). `error`/`assert` are unchanged; `net` is
+admitted **only** for type `host_send_gap` with `gapMs > 1000` (strict) — a type+severity trigger,
+never channel promotion, so routine gaps (250–1000 ms) and every other net event stay ring-only.
+`data` was already shallow-spread into the record, and the emission site passes `gapMs` as a plain
+primitive, so the predicate reads the third argument directly — no inspect-after-push needed.
+Shared 5 s debounce + 5/session cap are the ceiling (Wyatt's explicit call: no net-specific budget;
+netcode's 1 s event rate-limit stacks underneath). A one-comparison boolean is the only cost on an
+already-gated path, so prod without `?diag=1` pays nothing. No `netcode.js` timing touched; no
+`tools/` edit, so no freeze conflict.
+
+**Tests** ([diagnostics.test.js](../../tests/diagnostics.test.js), +3): severe gap (1500) assembles
+one bundle with reason `net/host_send_gap`; sub-floor (500), at-floor (1000), `snap_gap` (5000), and
+a gap-less payload all stay silent; 7 mixed net+error triggers exhaust exactly the shared 5-bundle
+session cap (via a `performance.now` mock that cannot wedge `__drainAutoCapturesForTest`).
+
+**Gate:** unit project green (123 files / 1565 tests in one clean run); `status:size`, `typecheck`,
+`knip`, `briefing:check`, `arch:check`, `health:check` all pass individually. The `qa` chain as a
+whole could not reach green because the Cloudflare `party-do` pool intermittently fails to *start*
+(`connect ETIMEDOUT 127.0.0.1:<ephemeral port>`) on this machine — baseline-with-changes-stashed
+failed worse (9/6), so it is environmental, not this diff. **Value shows at first real freeze:** a
+wedged host uploads itself via `npm run captures:pull` instead of needing an F8 press.
+
+---
+
 ### August 6, 2026 — TOUCH-JOY-DEAD-1: delete unreferenced `.cr-touch`/`.cr-joy`/`.cr-joy-knob` CSS
 
 Filed and closed same session, Wyatt-acked. `cart-rave-menu.css:130-169` — the touch-HUD

@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-07T00:46:40.390Z",
-    "commit": "9845781"
+    "at": "2026-08-07T00:54:11.955Z",
+    "commit": "69506db"
   },
-  "source_digest": "a2262b7f",
+  "source_digest": "ad0b9002",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -917,7 +917,7 @@
       {
         "title": "Engineering",
         "counts": {
-          "Medium": 13,
+          "Medium": 12,
           "Low": 7,
           "High": 1,
           "Partial": 1
@@ -1017,12 +1017,6 @@
             "pri": "Medium",
             "item": "NET-P2P-DIAG-1 — WebRTC peer recovery is invisible in prod captures",
             "notes": "**Filed 08-06** from a Copilot netcode review — *the only one of its seven risk areas that survived checking* (its other six were either already handled or already tested; see the review triage below). The recovery **logic** is fine and is not the card: `maintainHostPeerConnections` ([netcode.js:2366](../../src/netcode.js:2366)) already skips ICE `disconnected` for grace self-heal, skips fresh negotiations under `p2pConnectingTimeoutMs`, rate-limits per peer via `peerReconnectNotBeforeMs`, force-closes only non-`missing` peers before re-offering, clears the cooldown on health-ok, prunes dead conn ids ([:3146](../../src/netcode.js:3146)) and clears the whole map on migration/teardown ([:1977](../../src/netcode.js:1977), [:2438](../../src/netcode.js:2438), [:3715](../../src/netcode.js:3715)). **The gap is telemetry, not behaviour:** the reconnect path logs `devLog` (dev-only) and a bare `console.warn` on offer failure — **no `recordDiagEvent`** — so a host thrashing re-offers at the 3 s cooldown against one wedged peer produces an F8 capture with nothing in it. That is precisely the shape a player reports as \"the other cart froze\" and we cannot attribute after the fact. **Lever:** emit a `net` diag event on each recovery attempt (connId, `health.reason`, `health.ageMs`, attempt count since last health-ok) and on offer rejection; keep the existing rate-limit as the event rate-limit so a wedged peer cannot flood the ring. **Instrument-only — do not retune `p2pReconnectCooldownMs` / `p2pConnectingTimeoutMs` in the same commit;** those values have never been measured against a real failure and changing them alongside the instrument destroys the attribution the instrument exists to provide. Pairs with NET-RING-1 (both are counters-before-fixes).",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "DIAG-NET-CAPTURE-1 — `host_send_gap` fires into the ring but never triggers an upload",
-            "notes": "**Filed 08-06** from the same review. `recordDiagEvent(\"net\", \"host_send_gap\", …)` already fires at >250 ms with a 1 s rate-limit ([netcode.js:832](../../src/netcode.js:832)), and the arrival side tracks `gapMaxMs` / `gapsOver100` in `netFlowStats` — but `AUTO_CAPTURE_CHANNELS` is `new Set([\"error\", \"assert\"])` ([diagnostics.js:51](../../src/utils/diagnostics.js:51)), so the `net` channel never reaches `scheduleAutoCapture`. **Consequence:** the evidence for the open *host 1–8 s freezes while FOCUSED near KO/PA* item only exists if Wyatt happens to hit F8 during the freeze — which is exactly when he is playing and will not. **Lever:** a narrow trigger, not a channel promotion — adding `\"net\"` to `AUTO_CAPTURE_CHANNELS` wholesale would upload on every routine net event. Gate on the event *type* plus a severity threshold (e.g. `host_send_gap` with gap > 1000 ms) and a per-session upload cap, then let the existing `scheduleAutoCapture` → `uploadAutoCapture` path do the rest — that path is already generation-guarded (DIAG-UPLOAD-GEN-1, closed 08-05) and drain-testable (DIAG-FLAKE-2), so **this is a trigger card, not an upload-plumbing card; do not reopen either.** `src/` only — no `tools/` edit, so it is not frozen during a game card. Pull with `npm run captures:pull` as usual.",
             "ship1": null
           },
           {
