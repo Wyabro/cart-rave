@@ -40,6 +40,7 @@ import {
   setSceneFog,
 } from "./scene.js";
 import { getDebugParams } from "./utils/debugParams.js";
+import { getCurrentLevelId } from "./levelManager.js";
 import { getQualityTier } from "./utils/qualityMode.js";
 import { applyQualityTier } from "./ui/graphicsToggles.js";
 import { announce, resetAnnouncerRound, stopAnnouncer } from "./announcer/announcerManager.js";
@@ -244,6 +245,66 @@ window.exportPhysicsGeometry = function () {
   a.click();
   URL.revokeObjectURL(url);
 };
+
+/**
+ * Builds the "[Graphics Debug] Copy into src/config.js" payload.
+ *
+ * ART-EXPO-1 retired the global `toneMappingExposure` key from CONFIG.postFx — exposure
+ * is now a per-arena budget (`CONFIG.postFx.arenaExposure[levelId]`, read via
+ * resolveArenaExposure() in scene.js). The dump emits the live value keyed by the current
+ * arena id, so pasting the snippet back is a real config change, not a silent no-op.
+ *
+ * @param {object} params Live panel snapshot (exposure, bloom, arcade, shadows, ...).
+ * @param {string} levelId Current arena id — getCurrentLevelId() at the call site.
+ * @param {object} fogColor Live scene fog color — getFogColor() at the call site.
+ * @returns {object} Payload object; JSON.stringify happens in the caller.
+ */
+export function buildPostFxDump(params, levelId, fogColor) {
+  return {
+    postFx: {
+      arenaExposure: { [levelId]: params.exposure },
+      toneMapping: params.toneMapping,
+      environment: {
+        intensity: params.environmentIntensity,
+        materialEnvMapIntensity: params.materialEnvMapIntensity,
+      },
+      fog: {
+        enabled: params.fogEnabled,
+        color: fogColor,
+        density: params.fogDensity,
+      },
+      bloom: {
+        enabled: params.bloomEnabled,
+        strength: params.strength,
+        radius: params.radius,
+        threshold: params.threshold,
+        smoothWidth: params.smoothWidth,
+      },
+      arcade: {
+        enabled: params.arcadeEnabled,
+        aberration: params.aberration,
+        scanlineDensity: params.scanlineDensity,
+        vignette: params.vignette,
+      },
+      fxaa: {
+        enabled: params.fxaaEnabled,
+      },
+    },
+    contactShadows: {
+      enabled: params.shadowsEnabled,
+      textureSoftness: params.shadowSoftness,
+      cart: {
+        opacity: params.shadowCartOpacity,
+        footprintRadiusX: params.shadowFootprintX,
+        footprintRadiusZ: params.shadowFootprintZ,
+      },
+      static: {
+        opacity: params.shadowStaticOpacity,
+      },
+    },
+    raveGltfTuning: { ...raveGltfTuning },
+  };
+}
 
 export function initPostFxDebugGui(deps) {
   const {
@@ -624,47 +685,7 @@ export function initPostFxDebugGui(deps) {
 
   // — Log all values —
   pane.addButton({ title: "Log all values → console" }).on("click", () => {
-    const payload = {
-      postFx: {
-        toneMappingExposure: params.exposure,
-        toneMapping: params.toneMapping,
-        environment: {
-          intensity: params.environmentIntensity,
-          materialEnvMapIntensity: params.materialEnvMapIntensity,
-        },
-        fog: {
-          enabled: params.fogEnabled,
-          color: getFogColor(),
-          density: params.fogDensity,
-        },
-        bloom: {
-          enabled: params.bloomEnabled,
-          ...bloomLive,
-        },
-        arcade: {
-          enabled: params.arcadeEnabled,
-          aberration: params.aberration,
-          scanlineDensity: params.scanlineDensity,
-          vignette: params.vignette,
-        },
-        fxaa: {
-          enabled: params.fxaaEnabled,
-        },
-      },
-      contactShadows: {
-        enabled: params.shadowsEnabled,
-        textureSoftness: params.shadowSoftness,
-        cart: {
-          opacity: params.shadowCartOpacity,
-          footprintRadiusX: params.shadowFootprintX,
-          footprintRadiusZ: params.shadowFootprintZ,
-        },
-        static: {
-          opacity: params.shadowStaticOpacity,
-        },
-      },
-      raveGltfTuning: { ...raveGltfTuning },
-    };
+    const payload = buildPostFxDump(params, getCurrentLevelId(), getFogColor());
     const json = JSON.stringify(payload, null, 2);
     // eslint-disable-next-line no-console
     console.log("[Graphics Debug] Copy into src/config.js:\n", json);
