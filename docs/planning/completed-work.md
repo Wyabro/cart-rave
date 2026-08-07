@@ -13,6 +13,33 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 7, 2026 — ONBOARD-SIZE-1: how-to arrows and card text sized up
+
+*(Shipped `9bc315e`, deployed Worker version `aa703973-88a0-4047-ac27-917b9d36ca28` — ✅
+**CLOSED PASS**, ONBOARD-SIZE-PT-1 1/1, confirmed live 08-07.)*
+
+Wyatt's note on the ONBOARD-SLIDES-PT-1 PASS — *"the forward and back buttons are too small by
+the way, same with the card text — it should be large and simple"* — was a type-and-target-size
+pass over `.cr-howto-*`, CSS only, no copy rewrite (his call: the deck's text had already passed
+PT-1/2/3, so the words stayed, just bigger). The prev/next pager arrows grew from 2rem to 2.75rem
+(44px, the same touch-target bar TOUCH-HOVER-1 used), the slide body text grew from 13px to 18px
+and brightened (60% to 72% opacity), and the slide name plus the control/price chip text scaled up
+to match so nothing on the card reads smaller than the body it sits next to. The deck's 23rem
+height floor was left untouched — nothing grew past it, so the pager still lands in the same place
+across every slide.
+
+A `git commit -- <pathspec>` mistake during this card briefly pulled an unrelated, still-uncommitted
+ONBOARD-ATTRACT-1 CSS block into the first commit; caught immediately via `git show --stat` and
+corrected with a follow-up commit before anything shipped, so ONBOARD-SIZE-1's shipped commit
+carries only its own change.
+
+**Evidence.** `npm run qa` 7/7 on the shipped commit. Computed-style values (rem/px/color/
+line-height) were verified directly against the live DOM before ship; the deployed `.cr-howto-page`
+rule was then confirmed byte-for-byte against the served production CSS. ONBOARD-SIZE-PT-1 (Wyatt,
+production) passed 08-07.
+
+---
+
 ### August 7, 2026 — ONBOARD-ATTRACT-1: first-run guidance invites instead of interrupting
 
 *(Shipped `9bc315e`, deployed Worker version `e4fce545-a821-4be9-9a25-ff9d371c6b0a` — ✅
