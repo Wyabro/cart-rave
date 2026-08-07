@@ -44,16 +44,20 @@ describe("aiDifficulty", () => {
     expect(DEFAULT_SOLO).toBe("medium");
   });
 
-  it("Medium is identity on personality fields", () => {
+  it("Medium is FEEL-DAY-1 baseline (not personality identity)", () => {
     const out = applyPersonalityMods(AGGRESSOR, "medium");
-    expect(out.humanWeight).toBe(AGGRESSOR.humanWeight);
+    // * humanWeightOffset +0.06, clamp 0.95 → aggressor 0.93 only gains to 0.95
+    expect(out.humanWeight).toBe(0.95);
     expect(out.decisionIntervalMin).toBe(AGGRESSOR.decisionIntervalMin);
     expect(out.decisionIntervalMax).toBe(AGGRESSOR.decisionIntervalMax);
     expect(out.steerGainMin).toBe(AGGRESSOR.steerGainMin);
     expect(out.steerGainMax).toBe(AGGRESSOR.steerGainMax);
-    expect(out.npcRamCommitChance).toBe(AGGRESSOR.npcRamCommitChance);
+    // * npcRamCommitMul 1.18
+    expect(out.npcRamCommitChance).toBeCloseTo(AGGRESSOR.npcRamCommitChance * 1.18);
     expect(getStuckWindowMs("medium")).toBe(1100);
     expect(getRandomStopChance(false, "medium")).toBeCloseTo(0.04);
+    expect(getDifficultyMods("medium").npcRamCommitMul).toBe(1.18);
+    expect(getDifficultyMods("medium").humanWeightOffset).toBe(0.06);
   });
 
   it("Easy dials down aggression and slows decisions", () => {

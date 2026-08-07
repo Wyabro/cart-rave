@@ -1,9 +1,9 @@
 /**
  * aiDifficulty.js — Easy / Medium / Hard decision-quality tiers for NPC AI.
  *
- * Medium is the identity row (current post–cautious-fix baseline). Easy dials
- * down; Hard dials up. Personalities stay intact — mods scale how sharply each
- * executes. No physics / speed / scoring cheats.
+ * Medium is the FEEL-DAY-1 baseline (not a no-op identity; quickplay pins here).
+ * Easy dials down; Hard dials up. Personalities stay intact — mods scale how
+ * sharply each executes. No physics / speed / scoring cheats.
  */
 
 /** @typedef {"easy" | "medium" | "hard"} AiDifficulty */
@@ -54,13 +54,13 @@ const DIFFICULTY_MODS = Object.freeze({
     hardSteerTopHalf: false,
     hardTactics: false,
   }),
-  // * Medium — identity (today's shipped AI feel).
+  // * Medium — FEEL-DAY-1 baseline (not personality identity). Quickplay pins here.
   medium: Object.freeze({
     decisionIntervalMul: 1.0,
     randomStopMul: 1.0,
-    humanWeightOffset: 0,
+    humanWeightOffset: 0.06,
     humanWeightClamp: 0.95,
-    npcRamCommitMul: 1.0,
+    npcRamCommitMul: 1.18,
     stuckWindowMs: 1100,
     edgeSaveHopMul: 1.0,
     reachOuterNudge: 0,
@@ -140,7 +140,7 @@ export function getDifficultyMods(difficulty) {
 
 /**
  * Apply difficulty multipliers to a personality profile (returns a new object).
- * Medium leaves numeric fields unchanged (identity).
+ * Medium is the FEEL-DAY-1 baseline (not a no-op identity); Easy dials down, Hard up.
  * @param {PersonalityProfile} profile
  * @param {AiDifficulty | string | null | undefined} difficulty
  * @returns {PersonalityProfile}

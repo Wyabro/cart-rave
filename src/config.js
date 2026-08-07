@@ -138,7 +138,8 @@ const physics = {
       streakChargedGoldChance: 0.4, // unitless — chance a charged segment is solid gold
       npc: {
         enabled: true,
-        alignmentAngleDeg: 40, // degrees — aim cone toward target
+        // * FEEL-DAY-1: global base cone (all difficulties + MP host-sim); Hard stacks −12°.
+        alignmentAngleDeg: 34, // degrees — aim cone toward target
         minTargetDistance: 5.0, // meters
         maxTargetDistance: 12.0, // meters
       },
@@ -150,11 +151,11 @@ const physics = {
         trailBy: 2, // points — human behind best NPC by this much → ease up
         leadBy: 3, // points — human ahead of best NPC by this much → hunt harder
         trailChaseMul: 0.72, // unitless — human-chase weight scale while trailing
-        leadChaseMul: 1.22, // unitless — human-chase weight scale while leading
+        leadChaseMul: 1.32, // unitless — human-chase weight scale while leading
         trailDistanceMul: 1.28, // unitless — effective human distance² while trailing (>1 = less chase)
         leadDistanceMul: 0.72, // unitless — effective human distance² while leading (<1 = more chase)
         trailNitroMul: 0.55, // unitless — nitro commit scale vs human while trailing
-        leadNitroMul: 1.28, // unitless — nitro commit scale vs human while leading
+        leadNitroMul: 1.40, // unitless — nitro commit scale vs human while leading
         trailAimSlackDeg: 10, // degrees — looser aim cone while trailing (fewer clean boosts)
         leadAimSlackDeg: -6, // degrees — tighter aim cone while leading
       },
