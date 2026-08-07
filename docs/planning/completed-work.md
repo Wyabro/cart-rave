@@ -13,6 +13,31 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 7, 2026 — ONBOARD-ATTRACT-1: first-run guidance invites instead of interrupting
+
+*(Shipped `9bc315e`, deployed Worker version `e4fce545-a821-4be9-9a25-ff9d371c6b0a` — ✅
+**CLOSED PASS**, production visual check confirmed 08-07.)*
+
+The first visit no longer opens HOW TO PLAY over the menu after 600 ms. When `howtoSeen` is unset,
+the existing HOW TO PLAY command glows and runs a smooth tracked Anime.js nudge; opening the guide
+stops it and stamps the existing flag. Starting a match stops it for that session without falsely
+marking the guide seen, so it can attract again after a later clean menu presentation. Invite and
+rejoin URLs keep the existing `?room=` bail and never attract.
+
+The motion took three rejected prototypes to attribute correctly: slap-eased and symmetric CSS
+pulses read like a heartbeat, while directly sharing the title's beat was too slow and stepped at
+button-label scale. The shipped loop animates a CSS custom property through Anime.js at 680 ms with
+`inOutSine`, preserving the command row's skew and press transform ownership. It is lifecycle-
+tracked and cancelled on open/hide; reduced-motion users keep the strong static glow with no drift.
+
+**Evidence.** `tests/onboardFirstRun.test.js` pins both menu presentation paths (`show()` and
+`revealShell()`), invite/seen policy ownership, flag-write placement, start/stop lifecycle, the
+tracked Anime.js loop, and reduced-motion fallback. Targeted 12/12; full suite 1647/1647; `npm run
+qa` 7/7. Post-deploy verification found 16/16 referenced hashed assets available, zero 404s, and
+the deployed `cr-cmd--howto-attract` symbol before Wyatt's production PASS.
+
+---
+
 ### August 7, 2026 — FRIENDS-LEVEL-1: the Friends host's arena pick now wins the room
 
 *(Shipped `f8281c5`, deployed `ec23ccb9` — ✅ **CLOSED PASS**, FRIENDS-LEVEL-PT-1 1/1, confirmed
