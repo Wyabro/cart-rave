@@ -126,39 +126,6 @@ const DECLARED_UNREACHABLE = {
   ".hud-lobby-copy": { kind: "party", why: "in-match lobby room-code chip — multiplayer lobby only" },
   ".cc-btn.hud-lobby-btn": { kind: "party", why: "in-match lobby action button — multiplayer lobby only" },
   "#hud .hud-ready-btn": { kind: "party", why: "lobby ready-up button — never mounts in `?room=solo`" },
-
-  // ── the rule matches nothing because the element does not exist ────────────────────
-  // * Each of these is FILED, not hidden. They sit here rather than as failing rows because
-  // * `finish()` exits 1 on any `pass:false`: leaving months-old dead CSS red forever would
-  // * make `npm run states` a tool everyone learns to skip, and then a genuinely NEW
-  // * zero-match — the regression this family exists to catch — would arrive unnoticed in a
-  // * sea of expected reds. Every entry is printed on stdout and in the montage banner on
-  // * every run, and if one ever starts matching again the run says so out loud.
-  ".cr-level-btn": {
-    kind: "dead",
-    why: "the arena radiogroup at index.html:703 carries the `hidden` attribute — its own "
-      + "comment calls it a 'hidden radiogroup: arena data source'. The visible arena control "
-      + "is the `.cr-arena-page` pager. Filed as STATES-DEAD-1.",
-  },
-  ".cr-level-btn:not(.cr-level-btn--disabled)": {
-    kind: "dead",
-    why: "same permanently-`hidden` radiogroup (index.html:703). Filed as STATES-DEAD-1.",
-  },
-  a: {
-    kind: "dead",
-    why: "the unscoped fallback ring (loadingScreen.css:577) lists five element types; no "
-      + "<a> is ever rendered as UI — the only ones created are transient download links "
-      + "(main.js:5604, postFxDebug.js:190/241). Filed as STATES-DEAD-1.",
-  },
-  select: {
-    kind: "dead",
-    why: "no <select> exists anywhere in the app. Filed as STATES-DEAD-1.",
-  },
-  '[role="button"]': {
-    kind: "dead",
-    why: "no element carries role=\"button\"; the only occurrence is a selector string in "
-      + "gamepadNav.js:52. Filed as STATES-DEAD-1.",
-  },
 };
 
 /**
@@ -178,7 +145,6 @@ const DESIGNED_CYAN = "rgb(34, 230, 255)";
 const CYAN_RE = /34,\s*230,\s*255/;
 const DESIGNED_FOCUS_RING = [
   ".cr-btn",
-  ".cr-level-btn",
   ".cr-color-chip",
   ".cr-sunglasses-chip",
   ".cr-pattern-chip",
@@ -1182,6 +1148,17 @@ ${rows}
       .join("");
   const unreachable = li("party");
   const deadCss = li("dead");
+  // * STATES-DEAD-1: the last dead entries were deleted, so this banner section renders
+  // * only while there is something to say about.
+  const deadCssSection = deadCss
+    ? `      <b>DEAD CSS — these rules match nothing because their element does not render.</b> Found
+      by this tool's reachability family and filed rather than fixed; they are excluded from the
+      check rows for the same exit-code reason as above, and every one is re-printed on stdout
+      on every run. If any of them ever starts matching again, the run says so out loud.
+      <ul>${deadCss}</ul>
+      <br>
+`
+    : "";
 
   const page = montagePage({
     title: "interactive states contact sheet",
@@ -1230,13 +1207,7 @@ ${rows}
       A failing row for a surface the tool cannot reach would make every clean run exit non-zero;
       a passing one would be a lie. Treat them as owed.
       <br><br>
-      <b>DEAD CSS — these rules match nothing because their element does not render.</b> Found
-      by this tool's reachability family and filed rather than fixed; they are excluded from the
-      check rows for the same exit-code reason as above, and every one is re-printed on stdout
-      on every run. If any of them ever starts matching again, the run says so out loud.
-      <ul>${deadCss}</ul>
-      <br>
-      Cells run headless with no GPU flags (SwiftShader) and the WebGL canvas is hidden in every
+      ${deadCssSection}      Cells run headless with no GPU flags (SwiftShader) and the WebGL canvas is hidden in every
       crop, so what you are looking at is DOM chrome only. <b>Image diffs can never gate this
       tool</b> (D-SHEET-1) — the computed-style assertions are the gate; the crops are here to
       answer what assertions cannot: is the delta actually <i>visible</i>, does a moved slab

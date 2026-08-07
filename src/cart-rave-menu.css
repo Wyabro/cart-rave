@@ -364,11 +364,6 @@ html, body {
   text-transform: uppercase;
 }
 
-.cr-level-btn:hover:not(.cr-level-btn--disabled) {
-  transform: translate(-1px, -2px);
-  box-shadow: var(--slab-shadow-hover);
-}
-
 /* Press scale handled by Anime.js on .cr-level-btn-inner. */
 
 /* Selected arena — yellow die-cut edge reads as the picked sticker. */
@@ -2274,7 +2269,6 @@ html, body {
 /* Focus ring = cyan solid + glow everywhere (matches loadingScreen.css gamepad
    fallback). Yellow dashed retired per Wyatt 08-01. */
 .cr-btn:focus-visible,
-.cr-level-btn:focus-visible,
 .cr-color-chip:focus-visible,
 .cr-sunglasses-chip:focus-visible,
 .cr-pattern-chip:focus-visible,
@@ -3216,8 +3210,6 @@ html, body {
   .cr-btn,
   .cr-btn:hover,
   .cr-btn:active,
-  .cr-level-btn,
-  .cr-level-btn:hover:not(.cr-level-btn--disabled),
   .cr-overlay-done,
   .cr-overlay-back,
   .cr-join-go,
