@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-07T07:06:17.136Z",
-    "commit": "c3d42c3"
+    "at": "2026-08-07T07:21:36.828Z",
+    "commit": "7f8b870"
   },
-  "source_digest": "70e5a0a9",
+  "source_digest": "ec4dca31",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1287,7 +1287,7 @@
           {
             "pri": "High",
             "item": "ONBOARD-SIZE-1 — the how-to slide arrows and body text are too small",
-            "notes": "**Filed 08-06 from Wyatt's note on the ONBOARD-SLIDES-PT-1 PASS** — *\"the forward and back buttons are too small by the way, same with the card text — it should be large and simple.\"* The deck reads and pages correctly (that is what PT-1 passed); this is the type-and-target-size pass over `.cr-howto-*` in [cart-rave-menu.css](../../src/cart-rave-menu.css). Two separate asks in the same note: the prev/next arrows want a real touch target (≥44 px, the same bar TOUCH-HOVER-1 used), and the card body wants to be bigger and plainer — this is the screen a brand-new player reads once, so favour few large words over dense copy. **Coordinate with ONBOARD-ART-1** — the art slots reserve a 28 rem column on four slides, so growing the text without knowing the final two-column widths risks doing the work twice; if ONBOARD-ART-1 is close, do the type pass after the slots turn on. Phone was already judged separately and passed (ONBOARD-SLIDES-PT-3), so this is not a mobile-only fix.",
+            "notes": "**Filed 08-06 from Wyatt's note on the ONBOARD-SLIDES-PT-1 PASS** — *\"the forward and back buttons are too small by the way, same with the card text — it should be large and simple.\"* The deck reads and pages correctly (that is what PT-1 passed); this is the type-and-target-size pass over `.cr-howto-*` in [cart-rave-menu.css](../../src/cart-rave-menu.css). Two separate asks in the same note: the prev/next arrows want a real touch target (≥44 px, the same bar TOUCH-HOVER-1 used), and the card body wants to be bigger and plainer — this is the screen a brand-new player reads once, so favour few large words over dense copy. **Coordinate with ONBOARD-ART-1** — the art slots reserve a 28 rem column on four slides, so growing the text without knowing the final two-column widths risks doing the work twice; if ONBOARD-ART-1 is close, do the type pass after the slots turn on. Phone was already judged separately and passed (ONBOARD-SLIDES-PT-3), so this is not a mobile-only fix. **Implemented 08-07, committed `b893eba` (+ scope-correction `7f8b870`, see below) — CSS sizing only, no copy change (Wyatt's call): arrows 2rem→2.75rem/44px (`cr-howto-page`), body 13px→18px + brighter (0.6→0.72 alpha), name/chip text bumped to match, deck floor unchanged (nothing grew past 23rem). `npm run qa` 7/7. **Not deployed** — needs `npm run ship` and a Wyatt playtest pass on prod before this closes; do not add an `Owed: Wyatt playtest` row until then. Screenshot/visual confirmation and a real Tab-key focus-ring check were blocked this session by the Browser-pane panel not being displayed (computed-style values were verified instead — exact rem/color/line-height matches, confirmed by direct DOM inspection). **Unrelated finding while committing:** `cart-rave-menu.css` and `tests/onboardFirstRun.test.js` already carried uncommitted ONBOARD-ATTRACT-1 work (the `.cr-cmd--howto-attract` glow/pulse CSS + its matching test rewrite) sitting alongside this edit — that's a different card (row above) and was deliberately left untouched/uncommitted for whoever owns it. Also: `maybeAutoOpenHowTo`/`howtoAutoOpenArmed`, which the ONBOARD-ATTRACT-1 row above cites as the current mechanism, no longer exist in `cart-rave-menu.js` — replaced by `applyHowToAttract`/`clearHowToAttract`, committed under `463e389` (an unrelated-sounding message, \"fix Settings music fill palette + muted keyboard volume steps\"). That row's \"todo\" framing may be stale; worth a look before anyone re-implements it.**",
             "ship1": null
           },
           {
