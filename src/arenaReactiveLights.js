@@ -25,6 +25,28 @@ const SUDDEN_DEATH_A = new THREE.Color(0xff2233);
 const SUDDEN_DEATH_B = new THREE.Color(0xff2bd6);
 const FLASH_WHITE = new THREE.Color(0xffffff);
 
+/**
+ * Returns the bounded presentation profile for one KO. The host already stamps
+ * `wasCritical` on the falls[] tail, so every peer can make the same distinction
+ * without a new network message or any simulation change.
+ *
+ * @param {{ isKill?: boolean, wasCritical?: boolean } | null | undefined} koEvent
+ * @param {boolean} [isFirstBlood=false]
+ * @returns {{ strength: number, durationMs: number, hitmarkerIntensity: number }}
+ */
+export function getArenaKoPresentationProfile(koEvent, isFirstBlood = false) {
+  const isKill = Boolean(koEvent?.isKill);
+  const firstBloodMul = isFirstBlood ? 1.45 : 1;
+  // Critical is a high-speed, credited ram only. A self-fall cannot borrow the
+  // bigger payoff even if an older/invalid wire event carries the flag.
+  const criticalMul = isKill && koEvent?.wasCritical ? 1.22 : 1;
+  return {
+    strength: (isKill ? 0.6 : 0.35) * firstBloodMul * criticalMul,
+    durationMs: (isKill ? 340 : 240) * (isFirstBlood ? 1.3 : 1),
+    hitmarkerIntensity: (isKill ? 1.05 : 0.6) * firstBloodMul * criticalMul,
+  };
+}
+
 const _leader = new THREE.Color(0xff2bd6);
 const _out = new THREE.Color();
 const _koColor = new THREE.Color(0xffffff);

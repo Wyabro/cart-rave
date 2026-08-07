@@ -153,6 +153,13 @@ the dev loop (dev probes lie in prod · edge propagation · frozen `rAF`), or a 
 
 ## Last updated
 
+2026-08-07 (COMBAT-READ-1 code-ready; player check owed) — Critical KOs now amplify the existing
+arena flash + world hitmarker on every peer; normal/self KOs are unchanged. Targeted 50/50, full
+QA 7/7, production build, and two-client harness 6/6 PASSed. The first verification attempt found
+a partial dependency checkout (`.bin` + Workers pool missing); `npm install --ignore-scripts`
+restored it. Local Worker tests need sandbox escape because Wrangler writes under AppData. The only
+remaining evidence is the two-player player-visible check in BACKLOG; no deploy without “ship it.”
+
 2026-08-05 (AGENT-OS-1 tooling) — Cold-start cut: `AGENTS.md` 7.6k → ~1.6k always-on tokens;
 depth in `docs/reference/agent-manual.md`. Tool routing: Grok ≡ Codex, Claude demoted. Pointers
 rewritten (`GROK.md` / `CLAUDE.md` / `GEMINI.md` / `.cursorrules`). Seven David skills at

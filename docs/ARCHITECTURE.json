@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-07T07:55:34.566Z",
-    "commit": "eafedcd"
+    "at": "2026-08-07T09:12:31.348Z",
+    "commit": "63878e4"
   },
-  "source_digest": "d5f04768",
+  "source_digest": "d2d88269",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1247,6 +1247,7 @@
         "title": "Playtest owed",
         "counts": {
           "Medium": 1,
+          "High": 1,
           "Low": 2
         },
         "rows": [
@@ -1254,6 +1255,12 @@
             "pri": "Medium",
             "item": "PERF-9CELL-1 — Intel Low 9-cell PERF sweep `[solo]`",
             "notes": "⏸ **PARKED 08-05 with its parent PERF-PASS-1.** It came back **FAIL 08-05** with *\"idk what you are asking me to do here\"*, and that was the card's fault, not Wyatt's: it said \"run the handover's 9-cell matrix\" and left the actual protocol 300 lines deep in a 484-line doc, so the console showed him a 25-minute measurement sitting with no cells in it. **MOOT 08-06 — parent PERF-PASS-1 CLOSED with the bar unmet** (Wave 5 cells null/unproven, stadium kept). If it is ever reopened, the sweep is runnable off this row: **URL** `https://cart-rave.wyabro.workers.dev/?diag=1&preset=low&level=classicRecord&ablate=<token>`; **setup** Solo host, 3 NPCs, Cart Rave, entered *through the menu* (not a room link), Low tier, box cooled between cells; **per cell** play 60–90 s → **F8 mid-round** (`loopRound` is live, no podium needed) → `npm run captures:pull` → read `snapshot.perf.loopRound.meanMs`, discarding any cell where `straddledDemotion` is true. **Tokens in order:** `none` → `crowdcarts` → `crowd` → `pitlights` → `stadium` → `stagerig` → `billboard` → `bulbs` → `none`. **`none` runs FIRST and LAST**; if the two baselines differ by more than ±1.5 ms mean the box drifted and the whole sweep is void. **Never combine tokens** — the effects are not additive and combos destroy attribution. Full rationale, per-token expectations and the stills protocol: [perf-pass-1-handover.md](./perf-pass-1-handover.md#the-sweep--nine-cells-25-min-of-play-on-wyatts-intel-box).",
+            "ship1": null
+          },
+          {
+            "pri": "High",
+            "item": "COMBAT-READ-1 — critical KOs have a clearer visual payoff `[2pc]`",
+            "notes": "**Owed: Wyatt playtest — COMBAT-READ-1 — a full-speed KO should look stronger than an ordinary KO, for both players.** Implemented 08-07; targeted 50/50, full QA 7/7, and the two-client harness 6/6. **Not yet deployed**, so use a local Friends room or wait for the next ship.<br>1. In a two-player Friends match, score one normal KO first (so it is not first blood).<br>2. Then score a full-speed boost KO.<br>3. The boost KO should produce a clearly stronger arena flash and world hitmarker on both screens.<br>4. FAIL if only the scorer sees the difference, normal KOs become overwhelming, or a self-fall gets the stronger effect.",
             "ship1": null
           },
           {

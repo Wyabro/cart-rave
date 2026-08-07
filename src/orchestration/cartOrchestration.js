@@ -20,7 +20,7 @@ import { sideWeightsFromCartBasis } from "../utils/edgeDanger.js";
 import { animateCartBoostPulse, animateCartImpactSquash } from "../animations.js";
 import { flashBoostActivate } from "../touchControls.js";
 import { spawnKoWorldHitmarker } from "../effects/koHitmarkerFx.js";
-import { triggerArenaKoFlash } from "../arenaReactiveLights.js";
+import { getArenaKoPresentationProfile, triggerArenaKoFlash } from "../arenaReactiveLights.js";
 import { getNpcPersonality, PERSONALITY_META } from "../npcNames.js";
 import { cargoFillLevelFor, cargoTierFor } from "../cargoLoad.js";
 import {
@@ -455,11 +455,11 @@ function onArenaKoFlash(koEvent) {
   const roundKey = GameState.getRoundState()?.startedAtMs ?? 0;
   const isFirstBlood = koEvent.isKill && firstBloodRoundKey !== roundKey;
   if (isFirstBlood) firstBloodRoundKey = roundKey;
-  const fbFlashMul = isFirstBlood ? 1.45 : 1;
+  const presentation = getArenaKoPresentationProfile(koEvent, isFirstBlood);
   // * Reduced strengths vs the original reactive mode — a punch accent, not a recolor.
   triggerArenaKoFlash(hex, {
-    strength: (koEvent.isKill ? 0.6 : 0.35) * fbFlashMul,
-    durationMs: (koEvent.isKill ? 340 : 240) * (isFirstBlood ? 1.3 : 1),
+    strength: presentation.strength,
+    durationMs: presentation.durationMs,
   });
   // * World hitmarker at the victim — every peer sees where the KO landed.
   const victim = allCarts?.[koEvent.victimSlotIndex];
@@ -483,7 +483,7 @@ function onArenaKoFlash(koEvent) {
       py,
       pz,
       hex,
-      (koEvent.isKill ? 1.05 : 0.6) * fbFlashMul,
+      presentation.hitmarkerIntensity,
     );
   }
   // * Scoreboard rampage pips ride this reactor because it fires for every fall on
