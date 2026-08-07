@@ -97,6 +97,11 @@ Live rows only. Shipped and closed cards live in
    contact-sheet write throw, so `states`/`sheet`/`podium`/`loadshots` all exit non-zero after
    their checks pass · **DIFF-FRIENDS-1** — NPC difficulty applies in Friends rooms with no way
    to set it there · **SHOOT-SOFTGL-1** — `npm run shoot` cannot photograph gameplay.
+6. **DIAG-NET-CAPTURE-1 ✅ CLOSED + DEPLOYED 08-06** (`69506db`+`657ca8c`, prod Worker `bd77de23`).
+   `host_send_gap` >1000 ms now auto-captures (type+severity gate in `shouldAutoCapture`, shared
+   5/session cap); instrument-only, no playtest owed. Post-deploy poll 0×404 on all 22 refs;
+   `host_send_gap` + the `gapMs>1000` gate confirmed in the deployed diagnostics chunk. Detail:
+   [completed-work.md](./planning/completed-work.md).
 **Open High:** ONBOARD-SLIDES-1 (playtest owed) · RESULTS-1 · CART-MODEL-1 · PERF-PASS-1 (⏸) · bloom.
 
 ## Open issues (top)
