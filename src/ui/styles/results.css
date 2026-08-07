@@ -217,6 +217,14 @@
   line-height: 1;
 }
 
+/* Slot identity mark — the colorblind secondary channel (human seats only). */
+#results-overlay .results-podium-slot {
+  display: inline-flex;
+  font-size: 0.8rem;
+  line-height: 1;
+  filter: drop-shadow(1px 1px 0 var(--color-ink-deep));
+}
+
 /* Ancestor in the selector so this beats the shared .results-score-name rule
    further down the file (same specificity would otherwise let it win). */
 #results-overlay .results-podium-col .results-podium-name {

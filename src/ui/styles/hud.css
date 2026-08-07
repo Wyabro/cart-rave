@@ -1505,6 +1505,15 @@
   filter: drop-shadow(1px 1px 0 var(--color-ink-deep));
   flex-shrink: 0;
 }
+/* Slot identity mark — the colorblind secondary channel. Pure currentColor
+   (JS tints it with the slot cart color); chunky fill, small, reads in gray. */
+#hud .hud-scoreSlot {
+  display: none;
+  align-items: center;
+  font-size: 0.85em;
+  flex-shrink: 0;
+  filter: drop-shadow(1px 1px 0 var(--color-ink-deep));
+}
 /* Host = steering wheel on a small round ink sticker. Neutral, never loud. */
 #hud .hud-scoreHost,
 #hud .hud-feed-host {
@@ -1524,6 +1533,17 @@
 #hud .hud-feed-host {
   display: inline-flex;
   font-size: 0.8em;
+}
+
+/* Slot identity mark — the colorblind secondary channel. Small and flush:
+   the phone feed's rigid width is scarce (KILLFEED-PHONE-1), so this must not
+   add its own gap. Tint is inline (var(--c) / var(--c2)). */
+#hud .hud-feed-slot {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.7em;
+  flex-shrink: 0;
+  filter: drop-shadow(1px 1px 0 var(--color-ink-deep));
 }
 
 /* ── Connection pill — a solid warning sticker, only while reconnecting ─── */
@@ -2370,6 +2390,7 @@
    off to the right — an empty lane shows nothing but its one line. */
 .hud-lobby-slot.is-empty .hud-lobby-name,
 .hud-lobby-slot.is-empty .hud-lobby-emblem,
+.hud-lobby-slot.is-empty .hud-lobby-slotGlyph,
 .hud-lobby-slot.is-empty .hud-lobby-pips { display: none; }
 
 .hud-lobby-slot.is-you { border-color: var(--color-cyan); }
@@ -2383,6 +2404,16 @@
   align-items: center;
   flex: 0 0 auto;
   font-size: 1.5rem;
+  line-height: 1;
+  filter: drop-shadow(1px 1px 0 var(--color-ink-deep));
+}
+
+/* Slot identity mark — the colorblind secondary channel (human seats only). */
+.hud-lobby-slotGlyph {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  font-size: 0.85rem;
   line-height: 1;
   filter: drop-shadow(1px 1px 0 var(--color-ink-deep));
 }

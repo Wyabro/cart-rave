@@ -31,7 +31,7 @@ import { getRoundClockNowMs, getRoundRemainingMs } from "./roundClock.js";
 import { ROUND_DURATION_MS } from "../shared/roundConstants.js";
 import { announce } from "./announcer/announcerManager.js";
 import { gameStore } from "./stores/gameStore.js";
-import { emblemForSlot } from "./npcNames.js";
+import { emblemForSlot, slotGlyphForIndex } from "./npcNames.js";
 import { isWorldBootstrapped } from "./bootstrap.js";
 import {
   show as showPauseOverlay,
@@ -1126,6 +1126,23 @@ function updateScores(roundState, netSlots, youConnId) {
           entry.badge.style.display = "none";
         }
 
+        // * Slot identity mark rides beside the emblem for humans only — the
+        // * scoreboard re-sorts by rank every frame, so the glyph follows the
+        // * PLAYER (row.slotIndex), never the row position.
+        const slotMark = row.kind === "human" ? slotGlyphForIndex(row.slotIndex) : null;
+        if (slotMark) {
+          if (entry.slotGlyph.dataset.slot !== String(row.slotIndex)) {
+            entry.slotGlyph.dataset.slot = String(row.slotIndex);
+            entry.slotGlyph.innerHTML = svgIcon(slotMark.icon, { label: slotMark.label });
+            entry.slotGlyph.title = slotMark.label.charAt(0) + slotMark.label.slice(1).toLowerCase();
+          }
+          entry.slotGlyph.style.color = info?.color || "#f2ede4";
+          entry.slotGlyph.style.display = "inline-flex";
+        } else {
+          entry.slotGlyph.style.display = "none";
+          entry.slotGlyph.dataset.slot = "";
+        }
+
         const isLocal = row.slotIndex === localIdx;
         if (dataChanged && prevScoresBySlot && !isLobbyRoster) {
           const oldScore = Number(prevScoresBySlot[row.slotIndex] ?? 0);
@@ -1226,6 +1243,10 @@ function updateScores(roundState, netSlots, youConnId) {
         entry.you.style.display = "none";
         if (entry.crown) entry.crown.style.display = "none";
         if (entry.pip) entry.pip.style.display = "none";
+        if (entry.slotGlyph) {
+          entry.slotGlyph.style.display = "none";
+          entry.slotGlyph.dataset.slot = "";
+        }
         entry.slotIndex = -1;
       }
       const pip = _comboPipBySlot[i];
@@ -1376,6 +1397,23 @@ function updateLobbyScreen(roundPhase, netSlots, youConnId, menuVisible) {
       cell.emblem.style.display = "inline-flex";
     } else {
       cell.emblem.style.display = "none";
+    }
+
+    // * Slot identity mark beside the emblem for humans only — same resolver
+    // * as the scoreboard, so seat shape is consistent before and during the
+    // * round.
+    const lobbySlotMark = row.kind === "human" ? slotGlyphForIndex(i) : null;
+    if (lobbySlotMark) {
+      if (cell.slotGlyph.dataset.slot !== String(i)) {
+        cell.slotGlyph.dataset.slot = String(i);
+        cell.slotGlyph.innerHTML = svgIcon(lobbySlotMark.icon, { label: lobbySlotMark.label });
+        cell.slotGlyph.title = lobbySlotMark.label.charAt(0) + lobbySlotMark.label.slice(1).toLowerCase();
+      }
+      cell.slotGlyph.style.color = info?.color || "#f2ede4";
+      cell.slotGlyph.style.display = "inline-flex";
+    } else {
+      cell.slotGlyph.style.display = "none";
+      cell.slotGlyph.dataset.slot = "";
     }
 
     const isHostSlot = Boolean(hostId && row.connId && row.connId === hostId);
@@ -1619,6 +1657,12 @@ export function init(options) {
     badge.className = "hud-scoreBadge";
     badge.style.display = "none";
 
+    // * Slot identity mark — the colorblind secondary channel. Rendered for
+    // * human slots only (NPC rows carry their personality emblem instead).
+    const slotGlyph = document.createElement("span");
+    slotGlyph.className = "hud-scoreSlot";
+    slotGlyph.style.display = "none";
+
     const label = document.createElement("div");
     label.className = "hud-scoreLabel";
     label.textContent = `P${i + 1}`;
@@ -1670,13 +1714,14 @@ export function init(options) {
 
     box.appendChild(crown);
     box.appendChild(badge);
+    box.appendChild(slotGlyph);
     box.appendChild(label);
     box.appendChild(host);
     box.appendChild(you);
     box.appendChild(pip);
     box.appendChild(valueWrap);
     elements.scores.appendChild(box);
-    elements.scoreBoxes.push({ root: elements.root, box, badge, label, host, you, value, barcode, crown, pip, dizzy, dizzyTimeoutId: null, slotIndex: -1 });
+    elements.scoreBoxes.push({ root: elements.root, box, badge, slotGlyph, label, host, you, value, barcode, crown, pip, dizzy, dizzyTimeoutId: null, slotIndex: -1 });
   }
 
   elements.readyBtn = document.createElement("button");
@@ -1863,6 +1908,9 @@ export function init(options) {
     root.className = "hud-lobby-slot";
     const emblem = document.createElement("span");
     emblem.className = "hud-lobby-emblem";
+    const slotGlyph = document.createElement("span");
+    slotGlyph.className = "hud-lobby-slotGlyph";
+    slotGlyph.style.display = "none";
     const name = document.createElement("span");
     name.className = "hud-lobby-name";
     const pips = document.createElement("span");
@@ -1880,11 +1928,12 @@ export function init(options) {
     const status = document.createElement("span");
     status.className = "hud-lobby-status-cell";
     root.appendChild(emblem);
+    root.appendChild(slotGlyph);
     root.appendChild(name);
     root.appendChild(pips);
     root.appendChild(status);
     lobbySlotWrap.appendChild(root);
-    elements.lobbySlots.push({ root, emblem, name, host, you, status });
+    elements.lobbySlots.push({ root, emblem, slotGlyph, name, host, you, status });
   }
 
   elements.lobbyStatus = document.createElement("p");
@@ -2792,8 +2841,10 @@ function clearKillFeedRows() {
  * @param {string|null} targetColor
  * @param {number} [comboTier=0]
  * @param {number} [comboMultiplier=1.0]
+ * @param {number|null} [actorSlotIndex=null] Slot identity mark for the actor (human slots only).
+ * @param {number|null} [victimSlotIndex=null] Slot identity mark for the victim (human slots only).
  */
-export function addKillFeedEntry(actorName, actorColor, verb, targetName, targetColor, comboTier = 0, comboMultiplier = 1.0) {
+export function addKillFeedEntry(actorName, actorColor, verb, targetName, targetColor, comboTier = 0, comboMultiplier = 1.0, actorSlotIndex = null, victimSlotIndex = null) {
   if (!elements.feed) return;
   const row = document.createElement("div");
   row.className = "hud-feed-row";
@@ -2830,6 +2881,24 @@ export function addKillFeedEntry(actorName, actorColor, verb, targetName, target
     return glyph;
   };
 
+  // * Slot identity mark — the colorblind secondary channel. Inline before the
+  // * name (never inside it: the name spans ellipsize on phones), tinted by the
+  // * name's color. Kept small and flush — the row's rigid width is the phone
+  // * feed's scarce resource (KILLFEED-PHONE-1).
+  const makeSlotGlyph = (slotIndex, colorVar) => {
+    if (slotIndex == null) return null;
+    const info = slotGlyphForIndex(slotIndex);
+    if (!info) return null;
+    const glyph = document.createElement("span");
+    glyph.className = "hud-feed-slot";
+    glyph.innerHTML = svgIcon(info.icon, { label: info.label });
+    glyph.style.color = `var(${colorVar})`;
+    glyph.title = info.label.charAt(0) + info.label.slice(1).toLowerCase();
+    return glyph;
+  };
+  const actorSlot = makeSlotGlyph(actorSlotIndex, "--c");
+  const victimSlot = makeSlotGlyph(victimSlotIndex, "--c2");
+
   if (actorName) {
     const actor = document.createElement("span");
     actor.className = "hud-feed-actor";
@@ -2841,10 +2910,12 @@ export function addKillFeedEntry(actorName, actorColor, verb, targetName, target
     target.className = "hud-feed-target";
     target.textContent = targetName;
     row.appendChild(icon);
+    if (actorSlot) row.appendChild(actorSlot);
     if (isHostPlayerName(actorName)) row.appendChild(makeHostGlyph());
     row.appendChild(actor);
     row.appendChild(v);
     if (comboPip) row.appendChild(comboPip);
+    if (victimSlot) row.appendChild(victimSlot);
     if (isHostPlayerName(targetName)) row.appendChild(makeHostGlyph());
     row.appendChild(target);
   } else {
@@ -2855,6 +2926,7 @@ export function addKillFeedEntry(actorName, actorColor, verb, targetName, target
     v.className = "hud-feed-verb";
     v.textContent = displayVerb;
     row.appendChild(icon);
+    if (victimSlot) row.appendChild(victimSlot);
     if (isHostPlayerName(targetName)) row.appendChild(makeHostGlyph());
     row.appendChild(target);
     row.appendChild(v);

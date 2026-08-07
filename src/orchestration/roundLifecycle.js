@@ -41,7 +41,7 @@ import {
   spawnResultsConfetti,
   spawnResultsDefeatWilt,
 } from "../ui/resultsOverlay.js";
-import { emblemForSlot } from "../npcNames.js";
+import { emblemForSlot, slotGlyphForIndex } from "../npcNames.js";
 import { svgIcon } from "../ui/icons.js";
 import { resetArenaReactiveLights } from "../arenaReactiveLights.js";
 import { displayCssColorForSlot } from "./cartIdentity.js";
@@ -542,6 +542,18 @@ function updateResultsOverlay() {
         emblemEl.innerHTML = svgIcon(emblemInfo.icon, { label: emblemInfo.label });
         emblemEl.style.color = emblemInfo.color;
         cap.appendChild(emblemEl);
+      }
+
+      // * Slot identity mark for humans only — the podium keeps the seat shape
+      // * the HUD showed all round, so "who ended where" reads without hue.
+      const podiumSlotMark = netSlot?.kind === "human" ? slotGlyphForIndex(i) : null;
+      if (podiumSlotMark) {
+        const slotGlyphEl = document.createElement("span");
+        slotGlyphEl.className = "results-podium-slot";
+        slotGlyphEl.innerHTML = svgIcon(podiumSlotMark.icon, { label: podiumSlotMark.label });
+        slotGlyphEl.style.color = emblemInfo?.color || "#f2ede4";
+        slotGlyphEl.title = podiumSlotMark.label.charAt(0) + podiumSlotMark.label.slice(1).toLowerCase();
+        cap.appendChild(slotGlyphEl);
       }
 
       const nameEl = document.createElement("span");

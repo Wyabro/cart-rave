@@ -37,6 +37,20 @@ const GLYPHS = {
     `<circle cx="10.9" cy="16.5" r="1.15" fill="${INK_DEEP}"/>` +
     `<circle cx="15" cy="16.5" r="1.15" fill="${INK_DEEP}"/>`,
 
+  // ── Slot identity marks — the colorblind secondary channel ──────────────
+  // One chunky filled shape per player seat (diamond / triangle / square /
+  // inverted triangle). Pure currentColor (tints with the slot cart color),
+  // distinct in grayscale, and deliberately outside the crown / burst / dizzy /
+  // bolt / host / shopper visual family — and outside the round shopper backing.
+  slot0:
+    '<path d="M12 2.6 L21.4 12 L12 21.4 L2.6 12 Z" fill="currentColor"/>',
+  slot1:
+    '<path d="M12 3.8 L21 20.2 H3 Z" fill="currentColor"/>',
+  slot2:
+    '<rect x="4" y="4" width="16" height="16" fill="currentColor"/>',
+  slot3:
+    '<path d="M3 3.8 H21 L12 20.2 Z" fill="currentColor"/>',
+
   // ── Personality emblems — collectible sticker set ──────────────────────
   // Aggressor: red impact burst ("SMASH"), white star punch.
   aggressor:

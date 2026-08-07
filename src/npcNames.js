@@ -15,6 +15,19 @@ export const PERSONALITY_META = Object.freeze({
   chaotic: Object.freeze({ icon: "chaotic", color: "#ffaa33", label: "CHAOTIC" }),
 });
 
+/**
+ * Per-seat identity marks for HUMAN slots — diamond / triangle / square /
+ * inverted triangle, indexed by slot. Distinct in grayscale; the whole point
+ * is to disambiguate humans when hue cannot. NPCs are intentionally absent:
+ * their personality emblems already differ by shape.
+ */
+export const SLOT_GLYPHS = Object.freeze([
+  Object.freeze({ icon: "slot0", label: "DIAMOND" }),
+  Object.freeze({ icon: "slot1", label: "TRIANGLE" }),
+  Object.freeze({ icon: "slot2", label: "SQUARE" }),
+  Object.freeze({ icon: "slot3", label: "INVERTED TRIANGLE" }),
+]);
+
 const PERSONALITY_PROFILES = {
   aggressor: {
     name: "aggressor",
@@ -190,4 +203,18 @@ export function emblemForSlot(slot) {
     return { icon: "shopper", color: cartColorCss(slot.color), label: "SHOPPER" };
   }
   return null;
+}
+
+/**
+ * One identity mark per player seat — the colorblind secondary channel for
+ * HUMAN slots. NPCs already carry four distinct personality emblems, so this
+ * resolver deliberately returns nothing for them: it exists to tell four
+ * humans apart by shape (diamond / triangle / square / inverted triangle) when
+ * hue alone fails. Tints with the slot cart color at the call site.
+ * @param {number|null|undefined} slotIndex
+ * @returns {{ icon: string, label: string }|null}
+ */
+export function slotGlyphForIndex(slotIndex) {
+  if (!Number.isInteger(slotIndex) || slotIndex < 0 || slotIndex >= SLOT_GLYPHS.length) return null;
+  return SLOT_GLYPHS[slotIndex];
 }
