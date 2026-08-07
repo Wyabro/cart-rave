@@ -171,6 +171,8 @@ let hostPresentRetryTimer = null;
 
 /** @type {Map<string, number>} connId → earliest monotonic ms we may re-offer WebRTC. */
 let peerReconnectNotBeforeMs = new Map();
+/** @type {Map<string, number>} connId → recovery offers since last health-ok (NET-P2P-DIAG-1). */
+let peerReconnectAttemptCountByConnId = new Map();
 
 let hostMigrationFreezeUntilMs = 0;
 /**
@@ -1998,6 +2000,7 @@ export function disconnectPartySession() {
   // * onmessage/ICE handlers or keep background peer objects alive.
   P2P.closeAllConnections();
   peerReconnectNotBeforeMs.clear();
+  peerReconnectAttemptCountByConnId.clear();
 
   if (partySocket) {
     try { partySocket.close(); } catch {}
@@ -2400,6 +2403,7 @@ function maintainHostPeerConnections() {
 
     if (health.ok) {
       peerReconnectNotBeforeMs.delete(connId);
+      peerReconnectAttemptCountByConnId.delete(connId);
       continue;
     }
     // * Let ICE self-heal during the disconnect grace window.
@@ -2411,12 +2415,30 @@ function maintainHostPeerConnections() {
     if (now < notBefore) continue;
 
     peerReconnectNotBeforeMs.set(connId, now + cooldownMs);
+    const attempt = (peerReconnectAttemptCountByConnId.get(connId) ?? 0) + 1;
+    peerReconnectAttemptCountByConnId.set(connId, attempt);
     if (health.reason !== "missing") {
       P2P.forceClosePeer(connId);
     }
     devLog(`[netcode] WebRTC recovery reconnect to peer ${connId} (${health.reason})`);
+    // * NET-P2P-DIAG-1: recovery must be visible in ?diag captures — a host
+    // * thrashing re-offers against one wedged peer previously left an F8 bundle
+    // * with no net trace. Event rate is bounded by the per-peer cooldown above.
+    recordDiagEvent("net", "p2p_reconnect_attempt", {
+      connId,
+      reason: health.reason,
+      ageMs: health.ageMs,
+      attempt,
+    });
     P2P.initiateP2PConnection(connId).catch((e) => {
       console.warn("[netcode] P2P recovery offer failed (cooldown retry pending)", e);
+      recordDiagEvent("net", "p2p_reconnect_offer_failed", {
+        connId,
+        reason: health.reason,
+        ageMs: health.ageMs,
+        attempt,
+        err: String(e && e.message ? e.message : e).slice(0, 300),
+      });
     });
   }
 }
@@ -2459,6 +2481,7 @@ function applyHostMigration(msg) {
 
   P2P.closeAllConnections();
   peerReconnectNotBeforeMs.clear();
+  peerReconnectAttemptCountByConnId.clear();
   if (youConnId) {
     P2P.initP2P({
       localId: youConnId,
@@ -3192,6 +3215,9 @@ export function initNetcode(roomOverride) {
         for (const id of peerReconnectNotBeforeMs.keys()) {
           if (!liveConnIds.has(id)) peerReconnectNotBeforeMs.delete(id);
         }
+        for (const id of peerReconnectAttemptCountByConnId.keys()) {
+          if (!liveConnIds.has(id)) peerReconnectAttemptCountByConnId.delete(id);
+        }
         // * Terminate WebRTC peer connections that are no longer in live slots
         P2P.prunePeers(liveConnIds);
 
@@ -3694,7 +3720,7 @@ function maybeSamplePartyClock(msg) {
  * Ages are relative to host tHost so a new host can re-anchor to local now.
  * `sds` names parked Sudden-Death spectator slots (SD-SPECTATOR-WIRE-1) so a
  * promoted host restores the host-local flag instead of inferring it from
- * scores/poses. It rides the JSON tail ΓÇö no binary format change.
+ * scores/poses. It rides the JSON tail — no binary format change.
  * @param {number} tHost
  * @returns {{ h: number[][], s: number[], c: number[][], sds?: number[] } | null}
  */
@@ -3750,7 +3776,7 @@ function buildAttributionWire(tHost) {
     }
   }
 
-  // * Keep the tail alive on spectator-only ticks ΓÇö sds is the only thing the
+  // * Keep the tail alive on spectator-only ticks — sds is the only thing the
   // * promoted host needs even when every hit window / combo has closed.
   if (h.length === 0 && c.length === 0 && s.every((v) => v === 0) && sds.length === 0) return null;
   const wire = { h, s, c };
@@ -3820,7 +3846,7 @@ function applyAttributionSnapshot(attr) {
 
   // * SD-SPECTATOR-WIRE-1: the host's migration tail names which carts are parked
   // * Sudden Death spectators. Mark them so the fall-loop guard treats them as
-  // * inert after promotion ΓÇö without this a re-enabled remote body re-fires as a
+  // * inert after promotion — without this a re-enabled remote body re-fires as a
   // * phantom fall (feed row, shatter replay, announcer callout) on the next frame.
   if (Array.isArray(attr.sds)) {
     const allCarts = getAllCarts();
@@ -3860,6 +3886,7 @@ export const __netcodeTestHooks = {
     lastSlotsFingerprint = "";
     lastSlotsServerMs = 0;
     peerReconnectNotBeforeMs.clear();
+    peerReconnectAttemptCountByConnId.clear();
     resetClockState(partyClock);
     resetClockState(hostClock);
     hostLastProcessedInputSeq = new Map();
