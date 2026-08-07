@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-07T14:49:41.449Z",
-    "commit": "157bf81"
+    "at": "2026-08-07T15:05:08.293Z",
+    "commit": "5469880"
   },
-  "source_digest": "c1b9c9dd",
+  "source_digest": "821a5241",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -907,8 +907,8 @@
       {
         "title": "Engineering",
         "counts": {
-          "Medium": 18,
-          "Low": 11,
+          "Medium": 16,
+          "Low": 10,
           "Partial": 1
         },
         "rows": [
@@ -1028,26 +1028,8 @@
           },
           {
             "pri": "Medium",
-            "item": "FREEZE-TELEMETRY-1 — no production signal exists for the open host 1–8s freeze",
-            "notes": "**Filed 08-07 from the principal-engineering audit.** All freeze/longframe forensics — the per-frame span + focus-latch instrumentation that actually diagnoses this — only record when `window.__ccNetTest \\",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "CONNSTATE-REFLIP-1 — `connectionState` re-flips to \"reconnecting\" after a deliberate disconnect",
-            "notes": "**Filed 08-07 from the principal-engineering audit — a regression of the cap-220/221 fix.** The socket `close`/`error` handlers set `connectionState = \"reconnecting\"` whenever `helloReceivedThisSession` is true, **before** checking `_suppressRetry` ([netcode.js:2822-2826](../../src/netcode.js:2822), [:2839-2843](../../src/netcode.js:2839)). `disconnectPartySession()` sets `connectionState = \"ok\"` synchronously ([:2004-2010](../../src/netcode.js:2004), with an inline comment naming cap-220/221 as the bug it fixed) — but the socket-close event that call triggers dispatches asynchronously *after* that assignment, re-setting \"reconnecting\" with nothing left to flip it back until the next open event. Consequence: the RECONNECTING pill ([hud.js:2305](../../src/hud.js:2305)) and lobby status line ([hud.js:1482](../../src/hud.js:1482)) show a stuck, misleading state at the menu after quitting online — the exact symptom cap-220/221 fixed. **Fix:** reorder both handlers so `_suppressRetry` is checked before the state write. Quick win — under 2h.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
             "item": "SIM-CALLBACK-FREEZE-1 — object-spread on a getter-bearing bundle freezes non-host collision classification forever",
             "notes": "**Filed 08-07 from the principal-engineering audit.** `hostSimCallbacks` defines `partySocket` / `recordColliderHandles` / `pitWallColliderHandle` / `boothColliderHandles` as live getters ([loopDeps.js:261-264](../../src/orchestration/loopDeps.js:261)); `clientSimCallbacks = { ...hostSimCallbacks, … }` spreads it, which invokes each getter once and copies the result ([:273-274](../../src/orchestration/loopDeps.js:273)). The spread runs before arena load on every boot path, and `recordColliderHandles`/`boothColliderHandles` start as `[]` and `pitWallColliderHandle` as `undefined` at init ([levelOrchestration.js:102-104](../../src/orchestration/levelOrchestration.js:102)) — so the non-host bundle holds those empty values **permanently**. Non-host path: [gameLoop.js:386](../../src/gameLoop.js:386), [:511](../../src/gameLoop.js:511) → `getSimulationCallbacks(false)`. Consequence: `classifyEnvironmentCollision` ([simulation.js:2926-2930](../../src/simulation.js:2926)) always falls through to `\"floor\"` on non-host clients; the reachable symptom is hop-land detection ([simulation.js:3047-3060](../../src/simulation.js:3047)) firing early on a pit-wall/booth graze the host would classify differently. **Fix:** re-declare the four getters explicitly on `clientSimCallbacks` instead of spreading; don't restructure `loopDeps.js` beyond that. **Sketch:** add a test instantiating `clientSimCallbacks` before/after arena load asserting `recordColliderHandles` reflects the post-load value; assert `classifyEnvironmentCollision` returns non-`\"floor\"` for a scripted non-host pit-wall contact. `partySocket` on this bundle is confirmed dead — do not wire it up while in here.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "LASTHITBY-MUTATE-1 — `gameStore`'s `lastHitBy` Map is mutated directly, bypassing `set()`",
-            "notes": "**Filed 08-07 from the principal-engineering audit.** `getLastHitBy()` returns the store's live `Map`, not a copy ([gameState.js:196-198](../../src/gameState.js:196)); the KO-clear calls `.delete()` straight on that reference ([gameFlow.js:403](../../src/gameFlow.js:403)). Every other writer clones (`new Map(get().lastHitBy)`, [gameStore.js:107](../../src/stores/gameStore.js:107)) or uses the `replaceLastHitBy` action ([:123](../../src/stores/gameStore.js:123)). Currently latent — none of the six `gameStore.subscribe` call sites select `lastHitBy` today — but it silently breaks the moment a selector-based subscriber, `persist`, or devtools integration is added, and it makes attribution state invisible to the diagnostics event log in the meantime. **Fix:** add a `clearLastHitBy(slotIndex)` action alongside `replaceLastHitBy`; swap the raw `.delete()` for it. Quick win — under 2h.",
             "ship1": null
           },
           {

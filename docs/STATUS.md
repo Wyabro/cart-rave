@@ -153,6 +153,18 @@ the dev loop (dev probes lie in prod · edge propagation · frozen `rAF`), or a 
 
 ## Last updated
 
+2026-08-07 (BACKLOG Block H opened; H1 3/7 landed, unpushed to prod) — Full principal-engineering
+audit (physics/netcode/perf/input/arch/security/UX/testing) filed as 15 new cards across 3
+sub-batches (H1 correctness, H2 perf + gamepad, H3 polish); 3 docs-accuracy fixes applied directly
+(agent-manual.md, this file's gotcha section, README.md). H1's first 3 desk-only levers landed same
+session — `CONNSTATE-REFLIP-1` (connectionState no longer re-flips to reconnecting after a
+deliberate disconnect), `LASTHITBY-MUTATE-1` (KO-attribution clear now goes through a store
+action), `FREEZE-TELEMETRY-1` (match_ended carries an always-on maxFrameMs/framesOver33 pair, not
+gated behind ?diag=1). None player-visible — no playtest owed, verdict was the diff/test run.
+Detail: [completed-work.md](./planning/completed-work.md). **Remaining H1 (4):**
+GAMEPAD-LOBBY-1 (the one High — pad-only players can't use the Friends lobby),
+SIM-CALLBACK-FREEZE-1, HOLE-FRICTION-COMBINE-1, RAM-CONTACT-STALE-1.
+
 2026-08-07 (PACE-KO-1 deployed `157bf81`; player check owed) — An attributed attacker now gets the
 existing KO hitmarker/sting/flash as the victim crosses the shared below-rim no-return marker;
 the per-arena fall depth, shatter/explosion, score, announcer, and respawn timing are unchanged.
@@ -187,8 +199,4 @@ PT-CARD-SPLIT-1), **HUD-TOAST-Z-1** filed, fragile-tag audit rewrote `boot-and-o
 2026-08-05 (BUNDLE-1 CLOSED PARTIAL, **deployed `f2f90fd2`**) — six levers, perf goal missed, byte
 hypothesis falsified; `size:check` membership re-keyed on modules. [bundle-1.md §0](./planning/bundle-1.md)
 
-2026-08-04 (5 entries: MAIN-1 CLOSED · FX-TIME-1 / SHADOW-ORDER-1 / ARCH-DRIFT-1 · HOST-TAB-1
-lever E · playtest export close · HOST-TAB-1 local wave) — archived to
-[status-log-2026-08-04.md](./archive/status-log-2026-08-04.md), together with the 2026-08-03
-pointer stub. Rolled on 08-05 to bring this file back under its token budget; index:
-[archive/README.md](./archive/README.md).
+Older session logs (2026-08-04 and earlier): [archive/README.md](./archive/README.md).

@@ -13,6 +13,46 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 7, 2026 — Wave H1 (partial): desk-only correctness sweep, 3 commits (CONNSTATE-REFLIP-1, LASTHITBY-MUTATE-1, FREEZE-TELEMETRY-1)
+
+First 3 of Block H's 7-item H1 batch (the principal-engineering audit's correctness levers), one
+commit per card, no playtest owed — verdict is in the diff/test run, same shape as Block F1.
+Wyatt's plan review (before any code) caught real gaps in all three: a stale line citation and the
+wrong sibling pattern on L2, and a missing test seam on both L1 and L3 — each corrected against
+live code before implementation, not assumed from the original audit.
+
+- *(Engineering · Medium)* **CONNSTATE-REFLIP-1** — ✅ **CLOSED 08-07** (`3475478`).
+  `connectionState` re-flipped to `"reconnecting"` after a deliberate `disconnectPartySession()`
+  because both the socket close and error handlers wrote the state before checking
+  `_suppressRetry`, not after — regressing the cap-220/221 fix that same session. Extracted the
+  condition into a pure `shouldMarkReconnecting({ suppressRetry, helloReceived })`
+  ([netcode.js](../../src/netcode.js)) rather than reaching for a new test-hook seam
+  (`__netcodeTestHooks` exists but is explicitly read-only, for the 2-client E2E rig — wrong tool
+  here); 4-case truth table in [netcode.test.js](../../tests/netcode.test.js).
+- *(Engineering · Medium)* **LASTHITBY-MUTATE-1** — ✅ **CLOSED 08-07** (`f5a8420`). The
+  KO-attribution clear (`gameFlow.js`) mutated `gameStore`'s live `lastHitBy` Map directly via the
+  getter's return value, bypassing `set()` — silently unobservable to any future selector-based
+  subscriber. Added a `clearLastHitBy` action (clone-then-delete-then-set, matching `recordHit`'s
+  pattern, not `clearAllHits`'s blunt reset) plus a `GameState.clearLastHitBy` facade, and swapped
+  the call site. Real line was `gameFlow.js:409`, not the `:403` the original audit cited; the
+  right call is a direct `GameState.*` call (`gameFlow.js` had zero prior `GameState` coupling —
+  added the same `import * as GameState` all 11 other consumer files already use), not routed
+  through the `deps` injection pattern, since writes were never injected there. Subscribe-based
+  test in [gameState.test.js](../../tests/gameState.test.js) proves the clear is now observable.
+- *(Engineering · Medium)* **FREEZE-TELEMETRY-1** — ✅ **CLOSED 08-07** (`5469880`). The open
+  "host 1-8s freeze" investigation (Run 7) had zero production signal — all forensics gate behind
+  `?diag=1`/`window.__ccDiagActive`, so nothing distinguishes "nobody hit it" from "we stopped
+  being able to see it" once external testers arrive. Added an always-on (not diag-gated)
+  `maxFrameMs`/`framesOver33` pair to `gameLoop.js`, reset on entering `RoundPhase.RUNNING` and
+  read into the `match_ended` analytics payload — deliberately separate from the heavier
+  `__ccLoopDbg` diag block (sample, don't stream), zero-allocation (two mutated primitives, resume
+  frames excluded so alt-tab can't read as a freeze). Accumulation math unit-tested directly in
+  [gameLoopResilience.test.js](../../tests/gameLoopResilience.test.js); wiring/unconditional
+  presence proven in [analyticsGating.test.js](../../tests/analyticsGating.test.js).
+
+**H1 remaining (4):** GAMEPAD-LOBBY-1 (High), SIM-CALLBACK-FREEZE-1, HOLE-FRICTION-COMBINE-1,
+RAM-CONTACT-STALE-1 — see [BACKLOG.md Block H](./BACKLOG.md).
+
 ### August 7, 2026 — ONBOARD-SIZE-1: how-to arrows and card text sized up
 
 *(Shipped `9bc315e`, deployed Worker version `aa703973-88a0-4047-ac27-917b9d36ca28` — ✅
