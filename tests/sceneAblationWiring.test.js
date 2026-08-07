@@ -47,6 +47,15 @@ describe("scene ablation — effects.js call site", () => {
     }
   });
 
+  it("isolates the billboard lights from the group — ?ablate=billboardlights (Wave 5)", () => {
+    // * The two billboard PointLights are the only lights no tier knob gates; the token
+    // * must target the lights alone (not the group) so the cell prices the light-loop
+    // * cost, not geometry. If the handle array ever empties, the probe silently measures
+    // * ~0 and reads as "worthless" — the exact silent-un-ablate shape this file guards.
+    const body = applyRaveExtrasQualityBody();
+    expect(body).toMatch(/billboardlights:\s*billboardLightEntries\.map\(\(e\) => e\.light\)/);
+  });
+
   it("non-vacuity: setRaveExtrasVisible really does re-show these blocks", () => {
     // * If this stops being a re-show, the ordering assert above guards nothing.
     const start = effectsSrc.indexOf("export function setRaveExtrasVisible(");
@@ -123,6 +132,20 @@ describe("Classic applyQualityTier — PERF-PASS-1 arenaFillLights", () => {
     const writes = [...body.matchAll(/\.visible\s*=/g)].map((m) => m.index);
     expect(writes.length).toBeGreaterThan(0);
     expect(ablateAt).toBeGreaterThan(Math.max(...writes));
+  });
+
+  it("?ablate=recordbody swaps the record body to Standard — the Physical→Standard probe (Wave 5)", () => {
+    // * The bracket for the Low ship lever (clearcoat lobe off the biggest screen-fill)
+    // * must swap the material, not hide the mesh — hiding would overstate the cut.
+    // * It is keyed on type so a live tier re-apply cannot double-clone the material.
+    const body = classicTierBody();
+    expect(body).toMatch(/ablate\.has\("recordbody"\)/);
+    expect(body).toMatch(/MeshStandardMaterial/);
+    expect(body).toMatch(/MeshPhysicalMaterial/);
+    expect(body).toMatch(/p\.ablate\.has\("recordbody"\)/);
+    // * The swap itself must not write .visible on any pit light or the spindle — those
+    // * are the existing, measured cuts and must stay exactly what they are.
+    expect(body).not.toMatch(/spindleLight\.visible\s*=/);
   });
 
   it("is exposed on the level result so main.js's tier hook can reach it", () => {

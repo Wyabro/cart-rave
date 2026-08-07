@@ -1626,6 +1626,10 @@ export function initArena(scene, world, config, options = {}) {
       useOgFloor ? 0.35 : 0.55,
     );
   }
+  // * `recordMesh.material` is intentionally union-typed: the `?ablate=recordbody` probe
+  // * (PERF-PASS-1 Wave 5) swaps it Physical→Standard in place, so the declared type must
+  // * admit both rather than pin the Physical default.
+  /** @type {THREE.Mesh<THREE.BufferGeometry, THREE.MeshPhysicalMaterial | THREE.MeshStandardMaterial>} */
   const recordMesh = new THREE.Mesh(recordGeo, recordMat);
   if (import.meta.env.DEV && !lowQ) {
     // eslint-disable-next-line no-console
@@ -2835,6 +2839,28 @@ export function initArena(scene, world, config, options = {}) {
       pitlights: [spindleLight, pitUplight, pitRimFill],
       pitfill: [pitUplight, pitRimFill],
     });
+
+    // * ?ablate=recordbody — PERF-PASS-1 Wave 5 probe. Prices the Low ship lever (record body
+    // * Physical→Standard, dropping the clearcoat lobe on the largest screen-fill) WITHOUT hiding
+    // * the floor, so the bracketed cell measures the real cut. Idempotent: swaps only while the
+    // * body is still Physical, so a live tier re-apply cannot double-clone.
+    const p = getDebugParams();
+    const recordMat0 = recordMesh.material;
+    if (
+      p.ablate.has("recordbody") &&
+      recordMat0 &&
+      recordMat0.type === "MeshPhysicalMaterial"
+    ) {
+      recordMesh.material = new THREE.MeshStandardMaterial({
+        color: recordMat0.color ?? 0x0c0818,
+        map: recordMat0.map ?? null,
+        roughnessMap: recordMat0.roughnessMap ?? null,
+        roughness: recordMat0.roughness ?? 0.55,
+        metalness: recordMat0.metalness ?? 0.25,
+        transparent: false,
+        depthWrite: true,
+      });
+    }
   }
   applyQualityTier(getQualityKnobs());
 

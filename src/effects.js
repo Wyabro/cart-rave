@@ -268,6 +268,11 @@ const crowdWiggleQuat = new THREE.Quaternion();
 /** @type {THREE.Group | null} */
 let stageGroup = null;
 
+/** Billboard PointLights — never tier-gated (only the group is), so a dedicated
+ *  handle exists for the ?ablate=billboardlights measurement probe (PERF-PASS-1). */
+/** @type {{ light: THREE.PointLight | null }[]} */
+let billboardLightEntries = [];
+
 /** @type {{ light: THREE.SpotLight, target: THREE.Object3D, baseX: number, index: number }[]} */
 let stageLightEntries = [];
 
@@ -1934,6 +1939,10 @@ export function applyRaveExtrasQuality(knobs) {
     stadium: stadiumGroup,
     stagerig: stageGroup,
     billboard: billboardGroup,
+    // * PERF-PASS-1 Wave 5: the two billboard lights are the only lights the tier
+    // * knobs never gate (extrasLasers:false leaves them on at Low). Isolate them
+    // * from the billboard geometry so the cell measures just the light-loop cost.
+    billboardlights: billboardLightEntries.map((e) => e.light),
     bulbs: crowdPointLightEntries.map((e) => e.bulb),
   });
 }
@@ -3296,6 +3305,10 @@ export function initBillboard(scene, pitInnerRadius) {
   const bbLightR = new THREE.PointLight(0xff00ff, 2, 8);
   bbLightR.position.set(7, -1, 0);
   billboardGroup.add(bbLightR);
+  billboardLightEntries = [
+    { light: bbLightL },
+    { light: bbLightR },
+  ];
 
   billboardGroup.position.set(0, 15, 0);
   mergeStaticMeshesByMaterial(billboardGroup, { deep: true });
