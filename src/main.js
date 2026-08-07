@@ -398,7 +398,6 @@ async function main() {
   // * every page load quietly decayed saved volume by ~1/AUDIO_VOLUME_MAX until the
   // * player touched a slider (trended toward silence over ~15 reloads).
   AudioManager.restoreVolumeState({
-    master: getMusicVolume(),
     sfx: getSfxVolume(),
     music: getMusicVolume(),
     muted: getIsMuted(),

@@ -34,7 +34,6 @@ function howlerVol(v) {
   return Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 0;
 }
 
-let _masterVol = 0.575;
 let _sfxVol = howlerVol(_initialAudio.sfxVolume);
 let _musicVol = howlerVol(_initialAudio.musicVolume);
 let _isMuted = _initialAudio.isMuted;
@@ -252,10 +251,9 @@ function applyAllVolumes() {
 
 /**
  * Bulk-restore volumes from saved values (called on boot from localStorage).
- * @param {{ master: number, sfx: number, music: number, muted: boolean }} state
+ * @param {{ sfx: number, music: number, muted: boolean }} state
  */
 export function restoreVolumeState(state) {
-  _masterVol = Math.max(0, Math.min(1, state.master));
   audioStore.getState().setSfxVolume(state.sfx);
   audioStore.getState().setMusicVolume(state.music);
   audioStore.getState().setMuted(state.muted);
