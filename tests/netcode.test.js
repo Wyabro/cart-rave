@@ -15,6 +15,7 @@ import {
   resetClientPredictionState,
   serializeCartToWire,
   slotsFingerprint,
+  shouldMarkReconnecting,
 } from "../src/netcode.js";
 import { resetReconciliationState } from "../src/gameLoop.js";
 import { CONFIG } from "../src/config.js";
@@ -925,6 +926,24 @@ describe("applyCartState bounds validation", () => {
     expect(cart.netPos).toEqual([20, 21, 22]);
     expect(cart.netQuat).toEqual([0, 1, 0, 0]);
     expect(cart._lastNetLinvel).toEqual({ x: 7, y: 8, z: 9 });
+  });
+});
+
+describe("shouldMarkReconnecting (CONNSTATE-REFLIP-1)", () => {
+  it("marks reconnecting on an organic drop after a successful hello", () => {
+    expect(shouldMarkReconnecting({ suppressRetry: false, helloReceived: true })).toBe(true);
+  });
+
+  it("does not mark reconnecting when retry was already suppressed (deliberate quit)", () => {
+    expect(shouldMarkReconnecting({ suppressRetry: true, helloReceived: true })).toBe(false);
+  });
+
+  it("does not mark reconnecting before any hello was ever received", () => {
+    expect(shouldMarkReconnecting({ suppressRetry: false, helloReceived: false })).toBe(false);
+  });
+
+  it("does not mark reconnecting when both suppressed and never helloed", () => {
+    expect(shouldMarkReconnecting({ suppressRetry: true, helloReceived: false })).toBe(false);
   });
 });
 

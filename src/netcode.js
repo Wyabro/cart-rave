@@ -2646,6 +2646,18 @@ export function syncLocalSlotLookHex() {
 }
 
 /**
+ * Whether a socket close/error after a successful hello should flip the connection pill to
+ * "reconnecting". `false` when a caller already suppressed retry (e.g. a deliberate
+ * disconnectPartySession() quit-to-menu) — otherwise the close event that follows re-flips the
+ * state cap-220/221's fix had just set back to "ok" (CONNSTATE-REFLIP-1).
+ * @param {{ suppressRetry: boolean, helloReceived: boolean }} args
+ * @returns {boolean}
+ */
+export function shouldMarkReconnecting({ suppressRetry, helloReceived }) {
+  return helloReceived && !suppressRetry;
+}
+
+/**
  * Initializes PartyKit networking for the current game mode.
  * Solo mode skips the socket and seeds local slots; multiplayer opens a WebSocket and wires handlers.
  *
@@ -2822,7 +2834,7 @@ export function initNetcode(roomOverride) {
       code: ev?.code,
       reason: ev?.reason,
     });
-    if (helloReceivedThisSession) {
+    if (shouldMarkReconnecting({ suppressRetry: _suppressRetry, helloReceived: helloReceivedThisSession })) {
       devLog("[netcode] Socket closed after successful hello (will retry with backoff)");
       connectionState = "reconnecting";
     }
@@ -2839,7 +2851,7 @@ export function initNetcode(roomOverride) {
       didSendJoin,
       helloReceivedThisSession,
     });
-    if (helloReceivedThisSession) {
+    if (shouldMarkReconnecting({ suppressRetry: _suppressRetry, helloReceived: helloReceivedThisSession })) {
       devLog("[netcode] Socket error after successful hello (will retry with backoff)");
       connectionState = "reconnecting";
     }
