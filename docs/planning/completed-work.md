@@ -13,6 +13,57 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 7, 2026 — Block I desk-only: four cards closed, one commit each
+
+Block I's four desk-only levers, one commit each, no playtest owed — verdict in the diff/test
+run. `npm run qa` green by number at wave end (after claiming the new arch file). Commits
+`8bc648f`…`cb15b6e` on `cart-clash`. **CARGO-LATCH-1 investigated → REACHABLE** (card stays open;
+fix + deploy + production playtest owed as a separate wave — solo pause and host tab-return).
+**CHUNK-MEMBER-1 lever ABORTED** (config-only split is capped by the eager import graph; card
+stays open with the evidence on its row).
+
+- *(Engineering · Low)* **PERF-RENDERINFO-1** — ✅ **CLOSED 08-07** (`8bc648f`). Production F8
+  now reads `renderer.info`. New `src/utils/rendererInfo.js` keeps a prod-safe ref
+  (`setRendererRef` sets `info.autoReset = false`, never throws); `frameVisuals` resets
+  `info.render.*` once per frame at the visual seam before the composer chain so calls/triangles
+  accumulate across every pass; `scene.js` registers the renderer unconditionally (prod + dev —
+  the DEV-only `__cartRavePerf.renderer` is kept for tooling); `gameplayDiagnostics` per-window
+  `callsMax/Mean` + `trianglesMax/Mean` (raw per-frame samples folded, since the seam reset makes
+  reads per-frame) plus at-summarize `programs`/`geometries`/`textures`, and the `resources` probe
+  now reads the same module ref so prod captures carry memory/programs (previously null). New file
+  claimed in the arch map (`tools/lib/archMap.mjs` + regenerated `docs/ARCHITECTURE.json`). Tests:
+  `tests/rendererInfo.test.js` (9). Note for a later perf-profile pass: under `?shot`/freeze the
+  game loop doesn't run, so a cumulative read is possible — `tools/perf-profile.mjs` (out of this
+  wave's scope) may want its own `info.reset()` before measuring.
+- *(Engineering · Medium)* **NET-RING-1** — ✅ **CLOSED 08-07** (`85e8f67`). Always-on
+  authoritative-ring traffic-quality counters, exposed as `getNetFlowStats().ring`:
+  `ringRejectsStaleSource` (`handleP2PMessage` fromConnId≠hostId), `ringRejectsDupSeq` /
+  `ringRejectsOooSeq` (split of the old single `seq <= last.seq` reject), `ringRejectsNonFinite`
+  (the non-finite guard). All rejects return **before** `netStateBuffer.push`, so counters measure
+  garbage arrival, not ring-space margin. Reset at every `hostEpoch += 1` (session teardown /
+  reconnect / migration) + `resetNetFlowStats` — deliberately NOT in the per-frame
+  `pruneNetStateBufferForEpoch`. Tests: `tests/netRing.test.js` (6) incl. a real
+  `applyHostMigration` epoch-reset; netcode + hostMigration suites still 77/77.
+- *(Tech Debt · Low)* **AUDIO-MASTER-1** — ✅ **CLOSED 08-07** (`d7066b5`). Deleted the write-only
+  `_masterVol` (`audioManager.js`) and dropped `master` from the `restoreVolumeState` API + the one
+  boot call site (`main.js`); `applyAllVolumes` already pins `Howler.volume(1)`, so no bus ever
+  read it. Zero `_masterVol` references remain in `src/`. Tests: `tests/audioMaster.test.js` (3) —
+  source-level `master`-omission asserts + unit restore-identical.
+- *(UI/UX · Low)* **STATES-DEAD-1** — ✅ **CLOSED 08-07** (`cb15b6e`). The last four dead
+  interactive-state subjects (`.cr-level-btn`, bare `a`/`select`/`[role="button"]`) deleted:
+  `.cr-level-btn` hover + designed-ring + reduced-motion members out of `cart-rave-menu.css`
+  (base box styles kept — the hidden radiogroup is still the arena data source), `a`/`select`/
+  `[role="button"]` out of the `loadingScreen.css` unscoped ring (button+input kept), the 5
+  `DECLARED_UNREACHABLE` entries removed from `tools/states.mjs`, and `DESIGNED_FOCUS_RING`
+  10 → 9. **`npm run states` re-run by parent:** 256/264 checks; the card's effect verified by the
+  inventory (dead subjects gone, all nine ring subjects PASS cyan) — the remaining reds are
+  pre-existing and unrelated: the `:is()` parse gap on the ONBOARD-ATTRACT-1 block, the `.cr-reroll`
+  glow being overridden by `.cr-plate .cr-plate-btn`, and four reachability zero-match rules
+  surfaced now that the family ran to completion (`#cr-solo.is-selected`, `#cr-friends.is-selected`,
+  `.cr-arena-page:hover`, `.cr-context .cr-diff-btn:hover`) — candidates for a future cheap-low.
+
+---
+
 ### August 7, 2026 — AI-ARENA-SELFKO-1: Sundial + Storerooms unforced bot falls — PASS closed
 
 - *(Design/Gameplay · High)* **AI-ARENA-SELFKO-1** — ✅ **CLOSED PASS 08-07** (`9b2e374` · `fdd47a0`).

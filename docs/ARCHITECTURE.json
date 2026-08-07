@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-07T23:34:20.522Z",
-    "commit": "1bc8dfa"
+    "at": "2026-08-07T23:40:31.379Z",
+    "commit": "cb15b6e"
   },
-  "source_digest": "89c0f320",
+  "source_digest": "65aa520b",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -878,6 +878,7 @@
       }
     ],
     "next_actions": [
+      "Block I desk-only wave 08-07 — 4 closed. PERF-RENDERINFO-1 · NET-RING-1 · AUDIO-MASTER-1 ·",
       "PERF-PASS-1 ✅ CLOSED 08-06 — perf goal NOT met. Wave 5 cells on the Intel box: `billboardlights`",
       "FEEL-DAY-1 ✅ CLOSED PASS 08-06 (`da9063c`..`0e0a1b7`). Collision punch + impact juice +",
       "Playtest export 08-06 ✅ 10/10 PASS, 0 FAIL — six cards closed: ONBOARD-SLIDES-1 ·",
@@ -894,7 +895,7 @@
       {
         "id": "CARGO-LATCH-1",
         "issue": "`cargoLoad.js` repeats the FIX-DIRPAUSE latch bug",
-        "status": "📋 same class as `e7dd92e`, out of scope by instruction. [BACKLOG § Engineering](./planning/BACKLOG.md)."
+        "status": "📋 **REACHABLE 08-07** — fix+playtest next wave. [BACKLOG § Engineering](./planning/BACKLOG.md)."
       },
       {
         "id": "BRAND-1",
@@ -908,7 +909,7 @@
       {
         "title": "Engineering",
         "counts": {
-          "Medium": 12,
+          "Medium": 11,
           "Low": 8,
           "Partial": 1
         },
@@ -940,7 +941,7 @@
           {
             "pri": "Low",
             "item": "CARGO-LATCH-1 — `cargoLoad.js` carries the same round-anchor latch as FIX-DIRPAUSE",
-            "notes": "**Filed 08-04** while fixing FIX-DIRPAUSE (`e7dd92e`), and deliberately left untouched there (out of scope by instruction). Same bug class: a latch that compares against the stored round-start anchor and treats **any** change as a new round, so a pause-compensation shift (which mutates `roundStartedAtMs` and then calls a shift helper) can be read as a round boundary and re-fire the overflow announce. The directive-engine fix was to shift the latch's anchor by the same delta inside `shiftDirectiveTimersBy`; check whether the same shape applies here, and whether cargo's latch is even reachable from the solo-pause and host-tab-return paths before spending a card on it.",
+            "notes": "**Filed 08-04** while fixing FIX-DIRPAUSE (`e7dd92e`), and deliberately left untouched there (out of scope by instruction). Same bug class: a latch that compares against the stored round-start anchor and treats **any** change as a new round, so a pause-compensation shift (which mutates `roundStartedAtMs` and then calls a shift helper) can be read as a round boundary and re-fire the overflow announce. The directive-engine fix was to shift the latch's anchor by the same delta inside `shiftDirectiveTimersBy`; check whether the same shape applies here, and whether cargo's latch is even reachable from the solo-pause and host-tab-return paths before spending a card on it. **Investigated 08-07 → REACHABLE** (static proof, no code): solo pause (`roundLifecycle.js`) and host tab-return (`gameBoot.js`) both shift `roundStartedAtMs` by +delta via `setRoundStartedAtMs` + `shiftDirectiveTimersBy` and never touch cargo's latch; the next frame's `updateCargoLoad` sees `roundStartedAtMs !== _lastRoundStartedAtMs`, clears `_overflowAnnounced`, and re-fires `cart_overflow` for any cart still at boss fill. Fix + deploy + production playtest owed as a separate wave (solo pause AND host tab-return).",
             "ship1": null
           },
           {
@@ -983,12 +984,6 @@
             "pri": "Medium",
             "item": "PROBE-WARM-RT-1 — VFX program anchors may be holding the wrong program key",
             "notes": "Instrument-first; **no behavior claim until measured**. `outputColorSpace` and `toneMapping` are both pushed into three's program cache key (`getProgramCacheKeyParameters`) and both switch on `renderer.getRenderTarget() === null` — `outputColorSpace` unconditionally, not just for `toneMapped` materials. `compileAsync` (`main.js:2664`) binds no RT, so the anchors compile the **default-framebuffer** variant; the `composer.render()` prime (`:2679`) builds correct RT-variant keys only for what it actually *draws*, and the anchors are `visible=false` at `y=-500` (`koHitmarkerFx.js:259`, `cartShatter.js:1062` — both comments say \"render skips them\"). If that holds, the anchors' stated job (next KO is a cache hit) is defeated and the first shatter/KO/water/ram spawn links synchronously mid-round. **Measure first:** `renderer.info.programs.length` across the first KO. Fix only if it climbs — bind any non-XR RT around the anchor compile (1×1 scratch is enough; only `=== null` is tested). Making the anchors visible does *not* work: they are off-camera and cull. Pairs with WARM-SOLO-1 — same symptom class, different mechanism (that one is new content added after the warm; this one is the right content under the wrong key). Source: `ryancampbell/kart-royale` `src/core/Prewarm.ts`. **W0.1 evidence 08-03 (cap-229 @ c418bd9):** after Cart Rave play-shader settled at materials=497, a mid-round `warmupCompile` at materials=505 + **6.5 s** longtask/`warmupSettle` poll fired ~8 s into running — late program link signature consistent with RT-variant miss. Still measure-first; not in PLAYTEST-BATCH-0803 scope.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "NET-RING-1 — decode-ring reject counters (review C-03)",
-            "notes": "Instrument-first. Rejects (dup/ooo seq etc.) burn ring slots AFTER decode; `netStateBuffer` retains ring-owned cart arrays by reference (`netcode.js:1422→1434`); true margin = 96−rejects, not 32, and only bites when consumption stalls. Count rejects-since-oldest-buffered; the copy-into-pooled-record fix only if counters show real traffic.",
             "ship1": null
           },
           {
@@ -1169,7 +1164,7 @@
           {
             "pri": "Low",
             "item": "VOICE-BUS-1 — announcer has no volume of its own",
-            "notes": "**Filed 08-05 from the pre-launch audit.** The announcer — the game's signature audio feature — rides the SFX bus with no level control: [announcerManager.js](../../src/announcer/announcerManager.js) has no volume handling, and settings offer only on/off (`announcerVoiceEnabled` / `announcerCalloutsEnabled` in [settingsStore.js](../../src/stores/settingsStore.js)). **Scope:** a voice slider as a third category alongside music/SFX in [audioStore.js](../../src/stores/audioStore.js) + [audioControls.js](../../src/ui/audioControls.js). **Decide AUDIO-MASTER-1 in the same ack** (Tech Debt: `_masterVol` is write-only dead state — wire it as a real master or delete it) and mind that row's clamp warning: store domain is 0..1.15, Howler ceiling 1.0. This is the narrow slice of the `[SHIP-1 E3]` Howler-upgrade row's \"volume groups\".",
+            "notes": "**Filed 08-05 from the pre-launch audit.** The announcer — the game's signature audio feature — rides the SFX bus with no level control: [announcerManager.js](../../src/announcer/announcerManager.js) has no volume handling, and settings offer only on/off (`announcerVoiceEnabled` / `announcerCalloutsEnabled` in [settingsStore.js](../../src/stores/settingsStore.js)). **Scope:** a voice slider as a third category alongside music/SFX in [audioStore.js](../../src/stores/audioStore.js) + [audioControls.js](../../src/ui/audioControls.js). **AUDIO-MASTER-1 closed 08-07** (the dead `_masterVol` was deleted — no master bus ever existed, so a voice slider is genuinely a new third bus) and mind its clamp lesson: store domain is 0..1.15, Howler ceiling 1.0. This is the narrow slice of the `[SHIP-1 E3]` Howler-upgrade row's \"volume groups\".",
             "ship1": "E3"
           },
           {
@@ -1274,7 +1269,7 @@
         "title": "UI / UX",
         "counts": {
           "Medium": 7,
-          "Low": 5
+          "Low": 4
         },
         "rows": [
           {
@@ -1333,12 +1328,6 @@
           },
           {
             "pri": "Low",
-            "item": "STATES-DEAD-1 — interactive-state CSS for elements that no longer render",
-            "notes": "**Found 07-31 by `npm run states`** (FIGHT-VERIFY-1 Phase B) via its reachability family, which enumerates every `:hover`/`:active`/`:focus-visible` rule from the live CSSOM and asserts each one matches a live element on some visited screen. **Partially closed 08-06** (wave with KBM-TOAST-1): subjects **(1) `.cr-touch-btn`** and **(2) `.cr-kbm-toast-close`** are deleted — both were dead CSS with zero `.js`/`.ts`/`.html` references, confirmed and removed along with their `DECLARED_UNREACHABLE` entries; writeup in [completed-work.md](./completed-work.md). **Four subjects remain open,** on any of the 11 screens the tool sweeps (menu · customize + its sunglasses and patterns tabs · settings · challenges · how-to · in-match HUD · pause · results podium · touch in-match): **(1) `.cr-level-btn`** (`:529` `:hover:not(.cr-level-btn--disabled)`, `:2400` inside the designed focus ring, `:3289` in the reduced-motion block) — the arena radiogroup at `index.html:703` carries the `hidden` attribute and its own comment calls it a \"hidden radiogroup: arena data source\"; the visible control is the `.cr-arena-page` pager. That also means the nine-selector designed focus ring at `:2398-2409` is an **eight**-selector ring in practice. **(2-4) `a`, `select`, `[role=\"button\"]`** — three of the five element types listed in the unscoped fallback ring at `src/ui/loadingScreen.css:577`; no `<select>` and no `role=\"button\"` element exists anywhere, and the only `<a>` elements created are transient download links (`main.js:5604`, `postFxDebug.js:190/241`). Harmless defensive CSS, but it means that rule is doing two-fifths of the work it looks like it does. All four remaining are held in `DECLARED_UNREACHABLE` in `tools/states.mjs` with these reasons, printed on stdout every run and in the montage banner — **and if any of them ever starts matching again the run says so out loud**, so declaring them does not hide a future regression.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
             "item": "UI-SCALE-P2-MEDIA-1 — Pass 2's deferred media-query cleanup",
             "notes": "**Filed 08-06, split out of UI-SCALE-1 Pass 2 on Wyatt's pre-ack review** (\"skip @media internals\" — exact Pass 1 precedent, to avoid re-opening the 08-05 phone/orientation patches that already playtest-PASSed). Doc rules 5–6 remain undone: delete `@media` blocks that only adjust *size* now that the root scale covers it, and reconcile the drifted breakpoints (900, 1100, 560, and any others found) back to the documented 380/768/1024/1025 contract. Do this file-by-file, same base-clamp discipline, and re-run the relevant playtest card after each file since it touches the phone-specific rules directly this time.",
             "ship1": null
@@ -1355,7 +1344,7 @@
         "title": "Tech Debt",
         "counts": {
           "Medium": 5,
-          "Low": 10
+          "Low": 8
         },
         "rows": [
           {
@@ -1397,7 +1386,7 @@
             "pri": "Low",
             "id": "CHUNK-MEMBER-1",
             "item": "Initial-set chunk membership: `errorReporter` chunk carries netcode + the cart rig",
-            "notes": "**Filed 08-05 from the pre-launch audit. NOT a BUNDLE-1 reopen** — no warm-perf goal (that hypothesis is falsified and closed); this is initial-download-set **membership**, worth ~bytes only to **cold first-time visitors**, which is exactly the profile a public launch maximizes. The 266 KB chunk *named* `errorReporter` in the 14-file initial set (per `dist/.chunk-manifest.json` / [bundle-budget.json](../bundle-budget.json)) actually holds ~56 modules including `netcode.js`, `cartRaveGltf.js`, `bootstrap.js` and the whole `src/netcode/` folder — game-side code in the menu's critical path under a misleading name (rolldown names a catch-all chunk after its first module, so the budget file reads as \"error reporting is 266 KB\" when it is not). Also: a duplicate empty `captureUpload-*.js` chunk (107 B, 0 modules). **Lever:** chunking group boundaries in [vite.config.js](../../vite.config.js); the Lever-F membership gate in `size:check` makes regressions loud. **Judge on the cold profile; do not re-litigate warm `menu-ready`.**",
+            "notes": "**Filed 08-05 from the pre-launch audit. NOT a BUNDLE-1 reopen** — no warm-perf goal (that hypothesis is falsified and closed); this is initial-download-set **membership**, worth ~bytes only to **cold first-time visitors**, which is exactly the profile a public launch maximizes. The 266 KB chunk *named* `errorReporter` in the 14-file initial set (per `dist/.chunk-manifest.json` / [bundle-budget.json](../bundle-budget.json)) actually holds ~56 modules including `netcode.js`, `cartRaveGltf.js`, `bootstrap.js` and the whole `src/netcode/` folder — game-side code in the menu's critical path under a misleading name (rolldown names a catch-all chunk after its first module, so the budget file reads as \"error reporting is 266 KB\" when it is not). Also: a duplicate empty `captureUpload-*.js` chunk (107 B, 0 modules). **Lever:** chunking group boundaries in [vite.config.js](../../vite.config.js); the Lever-F membership gate in `size:check` makes regressions loud. **Judge on the cold profile; do not re-litigate warm `menu-ready`.** **Lever 08-07 ABORT — config-only split is capped by the eager graph** (empirical, manifest-diffed): `main.js` statically imports `netcode.js`/`cartRaveGltf.js`/`bootstrap.js` and `netcode.js` statically imports all four `src/netcode/` submodules; group probes emitted separate chunks but they stayed `<link rel=modulepreload>` in the initial set (181→181 modules, zero left/entered). A real split needs a dynamic-import boundary in `main.js` (cross-card, not done this wave). Note: the catch-all chunk is now named `gamepadNav-*` (this row's `errorReporter` name drifted) and the duplicate empty `captureUpload-*.js` orphan (107 B, 0 modules) is confirmed — it is not in the preload set, so it is a shipped orphan only. Card stays open.",
             "ship1": null
           },
           {
@@ -1440,20 +1429,6 @@
             "id": "BRAND-1",
             "item": "Brand / domain cutover ceremony",
             "notes": "Frozen — [brand.md](../brand.md).",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "id": "AUDIO-MASTER-1",
-            "item": "`_masterVol` is write-only dead state",
-            "notes": "**Filed 08-02** during MENU-MUSIC-VOL-1. `audioManager.js:14` initialises `_masterVol = 0.575` and `restoreVolumeState` (`:233`) clamps and re-assigns it — but **nothing ever reads it**, so the \"master\" volume the boot path carefully restores from localStorage has no effect on any bus. Music and SFX each carry their own category volume (`_musicVol` / `_sfxVol`) and `applyAllVolumes` deliberately pins `Howler.volume(1)`, so there is no master stage left for it to feed. Either wire it up as a real third stage (product decision — it would rescale every existing user's audio) or delete it and drop `master` from the restore payload. **Do not** \"fix\" it by multiplying it into the Howler writes without a look at MENU-MUSIC-VOL-1's clamp: the store domain is 0..1.15 and Howler's ceiling is 1.0, so an extra 0.575 factor would silently re-scale the whole mix. Not a ship blocker; zero current behaviour.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "id": "PERF-RENDERINFO-1",
-            "item": "Perf captures never record GPU cost breakdown (draw calls / triangles / programs)",
-            "notes": "**Filed 08-06** — exploratory, prompted by fact-checking a Reddit post on Three.js perf pitfalls against this codebase (not a bug report). Every claim in that post already has a real answer here, so this is the one loose thread, not a list: shadows are already avoided entirely (`receiveShadow=false` everywhere, no `renderer.shadowMap`, cheap blob quads instead — [scene.js:939](../../src/scene.js:939), [config.js:608](../../src/config.js:608)); repeated geometry is already instanced ([arena.js](../../src/arena.js), [effects.js](../../src/effects.js), [zanzibarPlatform.js](../../src/levels/zanzibarPlatform.js), [groceryPool.js](../../src/effects/groceryPool.js)) and static-merged ([mergeStaticMeshes.js](../../src/utils/mergeStaticMeshes.js)); allocation-hot paths already reuse scratch objects (`cartShatter.js`, `netcode/binary.js`, `frameVisuals.js`, `simulation.js`). **The one real gap:** `renderer.info` (draw calls, triangles, geometries, programs) is only ever read ad hoc — the dev-only debug panel ([postFxDebug.js:741](../../src/postFxDebug.js:741)) or PROBE-WARM-RT-1's one-off manual `programs.length` check. It is not captured by the F8 / `perf-profile` pipeline (HARNESS-NULL-1 lineage), so every bisect so far (PERF-PASS-1's Intel-Low investigation) has ms-level frame cost but no GPU-cost breakdown to say *why* a frame is slow — draw-call count vs overdraw vs program count are all invisible to the same snapshot that already carries `meanMs`/`fps`/`over16`. **Instrument-first, no target claimed:** add `renderer.info.render.{calls,triangles}` + `.programs.length` to that snapshot object, same gating as the existing fields. **Not a fix, not a knob** — a diagnostic addition so the next PERF-PASS-1 bisect doesn't re-derive this by hand. Low priority: nothing is blocked on it, it would just have made the last three perf investigations faster.",
             "ship1": null
           },
           {

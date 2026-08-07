@@ -71,7 +71,10 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. **PERF-PASS-1 ✅ CLOSED 08-06 — perf goal NOT met.** Wave 5 cells on the Intel box: `billboardlights`
+1. **Block I desk-only wave 08-07 — 4 closed.** PERF-RENDERINFO-1 · NET-RING-1 · AUDIO-MASTER-1 ·
+   STATES-DEAD-1 closed. CARGO-LATCH-1 **REACHABLE**, CHUNK-MEMBER-1 **ABORT** (eager graph); both
+   open. [completed-work.md](./planning/completed-work.md).
+2. **PERF-PASS-1 ✅ CLOSED 08-06 — perf goal NOT met.** Wave 5 cells on the Intel box: `billboardlights`
    null (−0.13 ms, not a lever), `recordbody` unproven (+7.8 ms, CPU 9→24 ms — polluted/throttled cell),
    `stadium` needed → kept. Card closes with no further cuts; Wave 4 `arenaFillLights` remains the only
    shipped lever (−1.66 to −2.54 ms). Detail: [completed-work.md](./planning/completed-work.md).
@@ -113,7 +116,7 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 | ID | Issue | Status |
 |----|--------|--------|
 | WARM-SOLO-1 | Solo post-`carts-ready` stall (WARM-IGPU residual) | 📋 telemetry-gated — [warm-igpu-1.md](./planning/warm-igpu-1.md) |
-| CARGO-LATCH-1 | `cargoLoad.js` repeats the FIX-DIRPAUSE latch bug | 📋 same class as `e7dd92e`, out of scope by instruction. [BACKLOG § Engineering](./planning/BACKLOG.md). |
+| CARGO-LATCH-1 | `cargoLoad.js` repeats the FIX-DIRPAUSE latch bug | 📋 **REACHABLE 08-07** — fix+playtest next wave. [BACKLOG § Engineering](./planning/BACKLOG.md). |
 | BRAND-1 | Domain / Worker cutover | 🧊 frozen until deliberate cutover ([brand.md](./brand.md)) |
 
 ## Decision index
