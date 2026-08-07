@@ -214,6 +214,58 @@ investigation, which is worth more than any remaining cut on the menu.
 
 ---
 
+## Wave 5 — re-entry 08-06 (unparked by Wyatt), token plumbing shipped `b348ba8`
+
+### 5a diagnosis (done 08-06, read-only, at HEAD `16ca169`)
+
+Scene-graph probe of the deployed Low Cart Rave shell (dev server, real browser — draw/tri counts
+are renderer.info, Intel F8 remains the only meanMs source):
+
+| Metric | Low, Cart Rave shell |
+|---|---|
+| Draw calls | 147 |
+| Tris | 550,449 |
+| Transparent meshes | 265 |
+
+**Fragment budget after Wave 4 (light loop is the lever that works):** the pit lights are off, so
+the per-pixel light loop is down to **3 PointLights**: `spindleLight` (arena, kept by Wyatt) + the
+two billboard lights (`effects.js`). **No tier knob gates the billboard lights** (`extrasLasers`
+is the lasers, not the lights), which is exactly why they get their own token now.
+
+**Screen-fill candidates (Standard/Physical × large fill):**
+
+1. **Record body** (`arena.js:1609`) — **always** `MeshPhysicalMaterial` (`createPhysicalMaterial`),
+   clearcoat 0.2 even at Low (0.72 on the og/High path), 9.5 m screen-fill floor disk. This is the
+   **largest Physical surface in the arena** and the one screen-fill no token had ever touched —
+   at Low it carries a clearcoat lobe on every fragment.
+2. **Stadium bowl** — already swept (`stadium`, −2.66 ms). `crowdGlow` is a child of `stadiumGroup`.
+3. **Billboard lights** — the two un-gated PointLights (see 5a light loop above).
+
+### 5b token plumbing (shipped `b348ba8`, deployed, no visual default change)
+
+| Token | Mechanism | Scene-graph verification (dev) |
+|---|---|---|
+| `?ablate=recordbody` | swaps record body material Physical→Standard **in place** (idempotent, keyed on `type`) | Physical 91→90, Standard 39→40 |
+| `?ablate=billboardlights` | hides only the 2 billboard PointLights, not the group | shell no-ops (billboard not built) |
+
+**Cell shapes for the bracket** — each menu row gets a `none` bookend on a cooled box, same A-B-A
+discipline as the sweep. **Menu v2 candidate rows:**
+
+| Row | Token | Predicted Δms | Why (Wave 3 model) | Still path |
+|---|---|---|---|---|
+| Stadium bowl | `stadium` | −2.66 (swept) | shell geometry + glow ring + overdraw | `shoot` (`--shot classic`) — shell token |
+| Record body | `recordbody` | **unmeasured — the cell** | clearcoat lobe off the biggest screen-fill; swap, not hide | `shoot` shell (body exists in shell); 1.0% pixel Δ verified dev vs 0.78% noise floor |
+| Billboard lights | `billboardlights` | **unmeasured — the cell** | light-loop cost only, isolated from group | ⚠ **in-round only** — billboard is `includeJuice: true`, shoot cannot see it |
+| Spindle (kept) | `pitlights` | known | identity light — Wyatt kept it; stills must show shaft after KO (Wave 4 playtest still owed) | `shoot` |
+
+**The two `none` bookends must agree within ±1.5 ms mean or the cell is void** (same rule as the
+sweep, line 327). Treat any delta under ~1.5 ms as noise. After Wyatt's cells: stills, then he
+picks; one `qualityTiers.js` commit per pick (Wave 4 preference order in the table at line 388
+applies — for `recordbody` the sanctioned mechanism is `recordBodyMaterial` or equivalent in
+`qualityTiers.js`, **not** a code path).
+
+---
+
 ## The code change — one commit, then measurement only
 
 ### 1. `applySceneAblation` in `src/utils/debugParams.js`

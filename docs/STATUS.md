@@ -66,13 +66,17 @@ Live rows only. Shipped and closed cards live in
 
 | # | What | Status |
 |---|------|--------|
-| PERF-PASS-1 | 60 fps at Low on the Intel box — **Cart Rave only** (Wyatt scoped it 08-03) | ⏸ **PARKED BY WYATT 08-04 for HOST-TAB-1.** Wave 4 remains deployed (`b754e12`, Worker `9b8b1fbe`); honest measured range −1.66 to −2.54 ms and includes +0.55. Card remains open at ~46 fps; every future cell needs an A-B-A bracket on a cooled box. Menu + evidence: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md). |
+| PERF-PASS-1 | 60 fps at Low on the Intel box — **Cart Rave only** (Wyatt scoped it 08-03) | **UNPARKED BY WYATT 08-06 — Wave 5 running.** 5a diagnosis at HEAD `16ca169`: 147 draws / 550k tris / 265 transparent at Low; light loop down to 3 PointLights (spindle + 2 un-gated billboard lights); record body = largest Physical screen-fill. 5b plumbing deployed `b348ba8`: new `?ablate=recordbody` (Physical→Standard swap) + `?ablate=billboardlights` tokens, no visual default change. **Next: Wyatt bracketed A-B-A cells on a cooled box, then stills + menu pick.** Menu + evidence: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md). |
 | BUNDLE-1 | Menu/game code-split | ⚠️ **CLOSED PARTIAL 08-05 — perf goal NOT met. Deployed `f2f90fd2`.** Warm `menu-ready` −3% vs a −15% gate. Banked: a `size:check` byte gate, `main.js` 2,582 → 1,262 lines, −22.6% off the initial set (**cold** visits only). Lever E playtested: BUNDLE-E-PT-1 PASS 6/6. [bundle-1.md §0](./planning/bundle-1.md) |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 
 ### Next actions
 
-1. **FEEL-DAY-1 ✅ CLOSED PASS 08-06** (`da9063c`..`0e0a1b7`). Collision punch + impact juice +
+1. **PERF-PASS-1 ▶ Wave 5 — 5c: Wyatt bracketed A-B-A cells** on a cooled Intel box, then stills +
+   pick. 5b tokens (`recordbody`, `billboardlights`) are deployed `b348ba8`. Cell table + protocol:
+   [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md) § Wave 5. Also runnable: the owed
+   PERF-9CELL-1 nine-cell sweep.
+2. **FEEL-DAY-1 ✅ CLOSED PASS 08-06** (`da9063c`..`0e0a1b7`). Collision punch + impact juice +
    Medium bot aggression. PT-1/2/3 all PASS. Shared config (MP feel changes by design). Not
    deployed until ship. Detail: [completed-work.md](./planning/completed-work.md).
 2. **ONBOARD-SLIDES-1 ⏳ SHIPPED + PUSHED — owed ONBOARD-SLIDES-PT-1/2/3** (eight-slide HOW TO
@@ -89,7 +93,7 @@ Live rows only. Shipped and closed cards live in
 5. **Closed 08-06 (detail in completed-work):** HARNESS-NULL-1 · NET-LOOK-ACC-1 · UI-SCALE-1 +
    TOUCH-HOVER-1 · DIAG-NET-CAPTURE-1 · SHOOT-SOFTGL-1 · MONTAGE-ESC-1. Killfeed/orient nits
    filed (KILLFEED-PHONE-1 · ORIENT-TOAST-Z-1); luma-metric tool filed (ART-LUMA-TOOL-1).
-**Open High:** ONBOARD-SLIDES playtest · RESULTS-1 playtest · CART-MODEL-1 · PERF-PASS-1 (⏸) · bloom (now unblocked).
+**Open High:** ONBOARD-SLIDES playtest · RESULTS-1 playtest · CART-MODEL-1 · PERF-PASS-1 (▶ Wave 5 — A-B-A cells owed) · bloom (now unblocked).
 
 ## Open issues (top)
 
@@ -98,7 +102,7 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 
 | ID | Issue | Status |
 |----|--------|--------|
-| PERF-PASS-1 | 60 fps at Low on the Intel box — **Cart Rave only** | ⏸ **PARKED 08-04.** Baseline 23.788 ms / 42.0 fps; menu: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md). |
+| PERF-PASS-1 | 60 fps at Low on the Intel box — **Cart Rave only** | ▶ **UNPARKED 08-06 (Wyatt), Wave 5 active.** 5a diagnosis done; 5b tokens (`recordbody` + `billboardlights`) deployed `b348ba8`. **Wyatt A-B-A cells owed.** Baseline 23.788 ms / 42.0 fps; menu: [perf-pass-1-handover.md](./planning/perf-pass-1-handover.md). |
 | WARM-SOLO-1 | Solo post-`carts-ready` stall (WARM-IGPU residual) | 📋 telemetry-gated — [warm-igpu-1.md](./planning/warm-igpu-1.md) |
 | CARGO-LATCH-1 | `cargoLoad.js` repeats the FIX-DIRPAUSE latch bug | 📋 same class as `e7dd92e`, out of scope by instruction. [BACKLOG § Engineering](./planning/BACKLOG.md). |
 | BRAND-1 | Domain / Worker cutover | 🧊 frozen until deliberate cutover ([brand.md](./brand.md)) |
