@@ -17,6 +17,7 @@ vi.mock("../src/levelManager.js", () => ({
   getCurrentLevelId: () => "classicRecord",
 }));
 vi.mock("../src/scoring/koEvent.js", () => ({
+  buildKOConfirmPreview: vi.fn(() => null),
   buildKOEvent: vi.fn(),
 }));
 vi.mock("../src/scoring/koReactors.js", () => ({
@@ -24,7 +25,7 @@ vi.mock("../src/scoring/koReactors.js", () => ({
 }));
 
 import { updateGameFlow } from "../src/gameFlow.js";
-import { buildKOEvent } from "../src/scoring/koEvent.js";
+import { buildKOConfirmPreview, buildKOEvent } from "../src/scoring/koEvent.js";
 import { dispatchKOEvent } from "../src/scoring/koReactors.js";
 
 const ROUND_MS = 150000;
@@ -119,6 +120,7 @@ function makeTimedWorld(scores) {
     triggerCartShatter: vi.fn(),
     getYouConnId: () => "you",
     queueHostFallEvent: vi.fn(),
+    onKoConfirmPreview: vi.fn(),
     onSpill: vi.fn(),
     onCartOutOfPlay: vi.fn(),
     setLocalCombo: vi.fn(),
@@ -171,6 +173,25 @@ beforeEach(() => {
 });
 
 describe("timer expiry vs same-frame falls", () => {
+  it("confirms an attributed KO at the shared rim before the tuned death threshold", () => {
+    const { carts, deps } = makeTimedWorld({ 0: 0, 1: 0, 2: 0, 3: 0 });
+    carts[1].body._pos.y = -2.1; // shared entry threshold; final KO remains at -10.
+    vi.mocked(buildKOConfirmPreview).mockReturnValue({ victimSlotIndex: 1, attackerSlotIndex: 0 });
+
+    updateGameFlow(deps, {
+      now: performance.now(),
+      dt: 16,
+      loopState: {},
+      roundNowMs: 2_000,
+    });
+
+    expect(deps.onKoConfirmPreview).toHaveBeenCalledWith({ victimSlotIndex: 1, attackerSlotIndex: 0 });
+    expect(buildKOEvent).not.toHaveBeenCalled();
+    expect(deps.addScore).not.toHaveBeenCalled();
+    expect(deps.triggerCartShatter).not.toHaveBeenCalled();
+    expect(deps.scheduleRespawn).not.toHaveBeenCalled();
+  });
+
   it("still presents a KO that lands on the exact expiry frame, then ends the round", () => {
     const { carts, deps } = makeTimedWorld({ 0: 3, 1: 1, 2: 0, 3: 0 });
     mockEnvFall();

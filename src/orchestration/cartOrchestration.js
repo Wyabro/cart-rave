@@ -148,6 +148,8 @@ export function createCartOrchestration(deps) {
   const impactPulse = { until: 0, durationMs: 170, strength: 0, baseVignette: null, baseAberration: null };
   /** Round key (startedAtMs) whose first-blood KO has already been escalated. */
   let firstBloodRoundKey = null;
+  /** Victim slot → local early-confirm time. Final fall still supplies the score float. */
+  const earlyKoConfirmByVictim = new Map();
 
   /** Scratch for hit-direction → cart-local side mapping (no per-hit allocs). */
   const _hitDirFwd = new THREE.Vector3();
@@ -416,10 +418,8 @@ function squashCartsOnImpact(rammerCart, victimCart, intensity) {
   if (rammerCart?.mesh) animateCartImpactSquash(rammerCart.mesh, intensity * 0.6);
 }
 // * Attacker-side KO payoff — confirm sting + hitmarker + harder FOV punch + white
-// * flash + aberration kick + reward-breakdown float. Fired by gameFlow on the host
-// * and by the falls[] replay path on non-host clients (the wire fall record carries
-// * the reward context). Purely presentational — never touches physics dt.
-function onLocalKillConfirm(_victimSlotIndex, _comboTier, koEvent) {
+// * flash + aberration kick. Purely presentational — never touches physics dt.
+function playLocalKoConfirmFeedback() {
   const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
   if (!reducedMotion) {
     // * max-of on chained KOs so a double-kill can't truncate the first stop.
@@ -435,6 +435,29 @@ function onLocalKillConfirm(_victimSlotIndex, _comboTier, koEvent) {
   AudioManager.duckMusic(0.45, 600);
   AudioManager.playSfx("killConfirm");
   getHud()?.showKillConfirm?.();
+}
+
+// * PACE-KO-1: host-confirmed at the shared rim crossing; the tuned fall and explosion
+// * continue untouched. Remember the victim so its later authoritative fall only adds score.
+function onLocalKoConfirm(victimSlotIndex) {
+  if (!Number.isInteger(victimSlotIndex)) return;
+  const nowMs = performance.now();
+  earlyKoConfirmByVictim.set(victimSlotIndex, nowMs);
+  for (const [slot, atMs] of earlyKoConfirmByVictim) {
+    if (nowMs - atMs > 5000) earlyKoConfirmByVictim.delete(slot);
+  }
+  playLocalKoConfirmFeedback();
+}
+
+// * Full death still owns scoring, announcer, shatter, and respawn timing. If an early
+// * P2P confirm was dropped, replay the full attacker feedback here as a loss-safe fallback.
+function onLocalKillConfirm(victimSlotIndex, _comboTier, koEvent) {
+  const earlyAtMs = earlyKoConfirmByVictim.get(victimSlotIndex);
+  if (earlyAtMs != null && performance.now() - earlyAtMs <= 5000) {
+    earlyKoConfirmByVictim.delete(victimSlotIndex);
+  } else {
+    playLocalKoConfirmFeedback();
+  }
   if (koEvent?.reward) getHud()?.showScoreFloat?.(koEvent.reward, koEvent.cause);
 }
 
@@ -1230,6 +1253,7 @@ function maybeTriggerNpcOpportunisticHop(nowMs, npc) {
     pulseLocalHitDirectionVignette,
     _playerAccentFromHud,
     squashCartsOnImpact,
+    onLocalKoConfirm,
     onLocalKillConfirm,
     onArenaKoFlash,
     triggerSpillNetcode,

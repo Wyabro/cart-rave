@@ -364,6 +364,8 @@ let callbacks = {
   // * the void (host fires it from gameFlow; non-host from the falls[] replay path).
   // * The optional third arg is the full KO Event (reward breakdown for the score float).
   onLocalKillConfirm: (victimSlotIndex, comboTier, koEvent) => {},
+  // * PACE-KO-1: host-confirmed at the shared fall rim; never changes score/death timing.
+  onLocalKoConfirm: (victimSlotIndex) => {},
   // * Arena light flash — every fall on every peer (club reacts to the KO).
   onArenaKoFlash: (koEvent) => {},
   // * Presentation-only observer hook for the announcer director — fired for EVERY fall
@@ -643,6 +645,7 @@ export function registerGameCallbacks(deps) {
       if (hud && hud.addKillFeedEntry) hud.addKillFeedEntry(actorName, actorColor, verb, targetName, targetColor, comboTier, comboMultiplier, actorSlotIndex, victimSlotIndex);
     },
     onLocalKillConfirm: (victimSlotIndex, comboTier, koEvent) => deps.onLocalKillConfirm?.(victimSlotIndex, comboTier, koEvent),
+    onLocalKoConfirm: (victimSlotIndex) => deps.onLocalKoConfirm?.(victimSlotIndex),
     onArenaKoFlash: (koEvent) => deps.onArenaKoFlash?.(koEvent),
     onAnnouncerFall: (fall) => deps.onAnnouncerFall?.(fall),
     onSpillBonusPresentation: (msg) => deps.onSpillBonusPresentation?.(msg),
@@ -4078,6 +4081,15 @@ function handleRemoteP2PMessage(data) {
     handleRemoteHostState(data);
   } else if (data.type === MSG.spill) {
     handleRemoteSpill(data);
+  } else if (data.type === MSG.koConfirm) {
+    const localSlotIdx = strictSlotIndexForConn(youConnId);
+    if (
+      Number.isInteger(data.victimSlotIndex)
+      && Number.isInteger(data.attackerSlotIndex)
+      && data.attackerSlotIndex === localSlotIdx
+    ) {
+      callbacks.onLocalKoConfirm(data.victimSlotIndex);
+    }
   } else if (data.type === MSG.directive) {
     // * Living Store directive start — apply the same CONFIG overrides locally.
     callbacks.applyRemoteDirective(data);

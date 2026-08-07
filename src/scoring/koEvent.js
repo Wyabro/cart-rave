@@ -219,6 +219,25 @@ export function buildKOEvent(deps, slotIndex, p, nowMs, options = {}) {
 }
 
 /**
+ * Builds the presentation-only early confirmation for a cart that has crossed the
+ * shared no-return rim. This intentionally does not call buildKOEvent: final KO
+ * scoring refreshes combo expiry and must remain at the existing death threshold.
+ *
+ * @param {{ getLastHitBy: () => Map<number, { attackerSlotIndex: number, timestamp: number }>, CONFIG: object }} deps
+ * @param {number} victimSlotIndex
+ * @param {number} creditTimeMs
+ * @returns {{ victimSlotIndex: number, attackerSlotIndex: number } | null}
+ */
+export function buildKOConfirmPreview(deps, victimSlotIndex, creditTimeMs) {
+  const hit = deps.getLastHitBy().get(victimSlotIndex);
+  const hitWindowMs = deps.CONFIG.scoring?.hitWindowMs ?? 3000;
+  if (!hit || !Number.isInteger(hit.attackerSlotIndex) || creditTimeMs - hit.timestamp > hitWindowMs) {
+    return null;
+  }
+  return { victimSlotIndex, attackerSlotIndex: hit.attackerSlotIndex };
+}
+
+/**
  * Reconstructs a KO Event on a non-host client from a wire fall record (the host snapshot's
  * falls[] tail). Non-hosts don't run buildKOEvent — they replay this so the *same* reactors
  * (kill feed, announcer, local kill-confirm, local challenges) fire identically to the host.

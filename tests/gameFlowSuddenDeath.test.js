@@ -15,6 +15,7 @@ vi.mock("../src/levelManager.js", () => ({
   getCurrentLevelId: () => "classicRecord",
 }));
 vi.mock("../src/scoring/koEvent.js", () => ({
+  buildKOConfirmPreview: vi.fn(() => null),
   buildKOEvent: vi.fn(() => ({
     isKill: false,
     attackerSlotIndex: null,

@@ -5,7 +5,7 @@ import { mark } from "./utils/perfSpans.js";
 import { ChallengeTracker } from "./stores/challengeStore.js";
 import { UnlockTracker } from "./stores/unlockStore.js";
 import { getCurrentLevelId } from "./levelManager.js";
-import { buildKOEvent } from "./scoring/koEvent.js";
+import { buildKOConfirmPreview, buildKOEvent } from "./scoring/koEvent.js";
 import { dispatchKOEvent } from "./scoring/koReactors.js";
 import { getRoundClockNowMs, isRoundTimerExpired } from "./roundClock.js";
 import { ROUND_DURATION_MS } from "../shared/roundConstants.js";
@@ -54,6 +54,7 @@ export function resetSuddenDeathStalemateForTest() {
  * @property {() => boolean} isScoreTied
  * @property {(val: boolean) => void} setSuddenDeath
  * @property {(victimSlotIndex: number, comboTier: number, koEvent?: import("./scoring/koEvent.js").KOEvent) => void} [onLocalKillConfirm]
+ * @property {(preview: { victimSlotIndex: number, attackerSlotIndex: number }) => void} [onKoConfirmPreview]
  * @property {(koEvent: import("./scoring/koEvent.js").KOEvent) => void} [onArenaKoFlash]
  * @property {() => string} [detectGameMode]
  * @property {() => THREE.Scene | null | undefined} [getScene]
@@ -206,6 +207,11 @@ export function updateGameFlow(deps, context) {
           if (!cart.fallEntryPos) {
             cart.fallEntryPos = { x: p.x, y: p.y, z: p.z };
             cart.fallEntryTimeMs = roundNowMs;
+            // * PACE-KO-1: the shared rim crossing is the player-visible point of no
+            // * return. Confirm to the credited attacker now, but keep score, shatter,
+            // * respawn, and every arena's tuned death depth on the later fall path.
+            const preview = buildKOConfirmPreview(deps, slotIndex, roundNowMs);
+            if (preview) deps.onKoConfirmPreview?.(preview);
           }
         } else if (p.y >= FALL_ENTRY_Y) {
           cart.fallEntryPos = null;

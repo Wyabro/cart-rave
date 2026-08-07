@@ -17,6 +17,7 @@ import {
 } from "../directives/directiveEngine.js";
 import { armSpillBoost, spillCountForCart, stripLifeCargo } from "../cargoLoad.js";
 import { announcerDirectorOnFall } from "../announcer/announcerDirector.js";
+import { MSG } from "../config.js";
 
 /** Host-away toast delay after tab hide (HOST-TAB-1). */
 const HOST_AWAY_AFTER_MS = 10_000;
@@ -116,6 +117,7 @@ export function createLoopDeps(deps) {
       endRound,
       scheduleLastCartStandingFinish,
       abortLastCartStandingFlourish,
+      onLocalKoConfirm,
       onLocalKillConfirm,
       onArenaKoFlash,
       getAllCartsRef,
@@ -203,6 +205,13 @@ export function createLoopDeps(deps) {
       sendHostRound: () => Netcode.sendHostRound(),
       getPartySocket: () => Netcode.getPartySocket(),
       queueHostFallEvent: Netcode.queueHostFallEvent,
+      onKoConfirmPreview: (preview) => {
+        const localSlotIndex = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
+        if (preview.attackerSlotIndex === localSlotIndex) {
+          onLocalKoConfirm(preview.victimSlotIndex);
+        }
+        Netcode.sendP2PEvent({ type: MSG.koConfirm, ...preview });
+      },
       onLocalKillConfirm,
       onArenaKoFlash,
       onAnnouncerFall: announcerDirectorOnFall,

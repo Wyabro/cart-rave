@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-07T09:35:28.375Z",
-    "commit": "5b18f32"
+    "at": "2026-08-07T14:38:29.949Z",
+    "commit": "e23fdc7"
   },
-  "source_digest": "23e1aeef",
+  "source_digest": "eba37757",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1312,7 +1312,7 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Medium": 1,
+          "Medium": 2,
           "High": 1,
           "Low": 2
         },
@@ -1321,6 +1321,12 @@
             "pri": "Medium",
             "item": "PERF-9CELL-1 — Intel Low 9-cell PERF sweep `[solo]`",
             "notes": "⏸ **PARKED 08-05 with its parent PERF-PASS-1.** It came back **FAIL 08-05** with *\"idk what you are asking me to do here\"*, and that was the card's fault, not Wyatt's: it said \"run the handover's 9-cell matrix\" and left the actual protocol 300 lines deep in a 484-line doc, so the console showed him a 25-minute measurement sitting with no cells in it. **MOOT 08-06 — parent PERF-PASS-1 CLOSED with the bar unmet** (Wave 5 cells null/unproven, stadium kept). If it is ever reopened, the sweep is runnable off this row: **URL** `https://cart-rave.wyabro.workers.dev/?diag=1&preset=low&level=classicRecord&ablate=<token>`; **setup** Solo host, 3 NPCs, Cart Rave, entered *through the menu* (not a room link), Low tier, box cooled between cells; **per cell** play 60–90 s → **F8 mid-round** (`loopRound` is live, no podium needed) → `npm run captures:pull` → read `snapshot.perf.loopRound.meanMs`, discarding any cell where `straddledDemotion` is true. **Tokens in order:** `none` → `crowdcarts` → `crowd` → `pitlights` → `stadium` → `stagerig` → `billboard` → `bulbs` → `none`. **`none` runs FIRST and LAST**; if the two baselines differ by more than ±1.5 ms mean the box drifted and the whole sweep is void. **Never combine tokens** — the effects are not additive and combos destroy attribution. Full rationale, per-token expectations and the stills protocol: [perf-pass-1-handover.md](./perf-pass-1-handover.md#the-sweep--nine-cells-25-min-of-play-on-wyatts-intel-box).",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "PACE-KO-1 — KO confirmation lands at the no-return rim `[2pc]`",
+            "notes": "**Owed: Wyatt playtest — PACE-KO-1 — a KO should confirm as the victim passes below the rim, while its familiar fall and explosion timing stay intact.** Implemented 08-07; targeted 60/60 passes. **Not yet deployed**, so use a local Friends room or wait for the next ship.<br>1. In a two-player Friends match on Classic Record, knock the other cart into the hole. The scorer gets the KO hitmarker/sting as the cart drops below the rim; the cart keeps falling before its normal explosion.<br>2. Repeat on Storerooms and Sundial. The confirm should land at the same below-rim moment on all three, despite their different fall lengths.<br>3. On both screens, the scorer gets one confirm only — it must not replay when the cart later explodes or scores.<br>4. Self-fall once. FAIL if it gives another player a KO confirm, if the shatter/explosion moves earlier, or if the score/feed arrives before the existing death beat.",
             "ship1": null
           },
           {
