@@ -1813,6 +1813,9 @@ html, body {
 #cr-howto-screen {
   align-items: stretch;
   justify-content: stretch;
+  /* ONBOARD-SCROLL-1: focus outlines on pager buttons were painting past
+     the fixed overlay and pushing the document past 100% height. */
+  overflow: hidden;
   background:
     linear-gradient(100deg, #0a0810 0%, #0a0810 30%, rgba(10, 8, 16, 0.6) 70%, rgba(10, 8, 16, 0.9) 100%),
     radial-gradient(ellipse at 50% 55%, var(--color-bg-deep) 0%, var(--color-bg-black) 95%);
@@ -2045,6 +2048,17 @@ html, body {
 .cr-howto-page:disabled {
   opacity: 0.3;
   cursor: default;
+}
+
+/* ONBOARD-SCROLL-1: keep the focus ring inside the button so it cannot
+   overflow the overlay and trigger a page scrollbar.  outline-offset: 0
+   (not the shared ring's +2px) because the button is only 2rem square. */
+.cr-howto-page:focus-visible {
+  outline: 2px solid var(--color-cyan);
+  outline-offset: -2px;
+  box-shadow: 0 0 12px rgba(34, 230, 255, 0.6);
+  z-index: 100;
+  position: relative;
 }
 
 .cr-howto-dots {
