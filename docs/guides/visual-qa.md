@@ -78,23 +78,30 @@ explicitly because they need a live loop regardless of host role or game phase.
 
 ### Screenshot
 
+Renders on a real GPU by default (SHOOT-SOFTGL-1) and writes a `<out>.json` sidecar next to
+every capture — `gpuVendor`, `software`, the resolved arena, dev-chrome removal. Check the
+sidecar before trusting a capture as look-critical evidence.
+
 ```bash
 # Dev server auto-starts on :5173 if not running
 npm run shoot -- --shot classic --out shots/classic.png
 npm run shoot -- --shot sundial --ablate bloom --out shots/sundial-no-bloom.png
 npm run shoot -- --url http://127.0.0.1:5173/ --noserver --shot storerooms
+npm run shoot -- --shot classic --require-gpu --out shots/classic.png   # fail (exit 2) if software
 ```
 
-### Look-critical capture (real GPU)
+### Proving a capture is look-critical
+
+GPU flags are on by default now, so `npm run shoot`'s own sidecar carries the proof —
+`gpuVendor` names the renderer, `software: true/false` says whether it's SwiftShader/llvmpipe.
+Use `--require-gpu` to turn that into a hard gate instead of just a warning, and `--no-gpu` to
+reproduce the old SwiftShader launch for an A/B against a real-GPU capture:
 
 ```bash
-node tools/shoot-gpu.mjs --out shots/x.png --shot classic-edge --cam "34,4,0,46,-16,0"
+npm run shoot -- --shot classic-edge --cam "34,4,0,46,-16,0" --require-gpu --out shots/x.png
+npm run shoot -- --shot classic-edge --cam "34,4,0,46,-16,0" --no-gpu       --out shots/x-sw.png
+npm run compare -- --a shots/x-sw.png --b shots/x.png
 ```
-
-Use this instead of `npm run shoot` whenever the *look* is the thing being judged.
-`shoot.mjs` passes no GPU flags (trap #1 below); this copies `perf-profile.mjs --gpu`'s
-launch args and **records the actual `UNMASKED_RENDERER`** in a sidecar `.json` next to
-the image. If that says SwiftShader/llvmpipe, the capture is not proof — it warns.
 
 `--cam "x,y,z,lx,ly,lz"` is usually required: the named `?shot=` bookmarks frame the
 arena overview, not whatever surface you changed.
@@ -118,8 +125,8 @@ Level animation is driven by the attract loop (SHOOT-ANIM-1). Without `--t` it f
 capture lands on whatever phase it caught. `--t <ms>` pins it to one timestamp:
 
 ```bash
-node tools/shoot-gpu.mjs --shot sundial --t 0   --out shots/a.png
-node tools/shoot-gpu.mjs --shot sundial --t 250 --out shots/b.png
+npm run shoot -- --shot sundial --t 0   --out shots/a.png
+npm run shoot -- --shot sundial --t 250 --out shots/b.png
 npm run compare -- --a shots/a.png --b shots/b.png
 ```
 
@@ -220,12 +227,18 @@ tune the background window; `--scene menu|round|all` picks scenes.
 Learned the hard way while building one-off rigs. Each of these produced a **confident wrong
 answer**, not an error, so none of them announce themselves.
 
-1. **`shoot.mjs` passes no GPU flags.** Headless falls back to SwiftShader, which is blurry and
-   raises a full-screen "graphics running in software mode" modal that covers the shot. For
-   look-critical captures launch Chromium yourself with
-   `--enable-gpu --ignore-gpu-blocklist --use-gl=angle` (and dismiss the modal if it still
-   appears). `tools/perf-profile.mjs --gpu` does this, and every run now records the actual
-   `UNMASKED_RENDERER` as `gpuVendor` — check it before trusting absolute numbers.
+1. **~~`shoot.mjs` passes no GPU flags.~~ CLOSED — SHOOT-SOFTGL-1.** Headless used to fall back
+   to SwiftShader (blurry, wrong colour — the record floor rendered washed-out grey instead of
+   dark neon) and raise a full-screen "graphics running in software mode" modal that covered
+   the shot, on every single capture. `npm run shoot` now launches with hardware-GPU flags by
+   default, removes the modal (and the dev-only Eruda console) before every screenshot, and
+   writes a `gpuVendor`/`software` sidecar next to the image. **What's still true:** the launch
+   flags are best-effort, not a guarantee — the sidecar's `software` field is the proof, not
+   the flags themselves, so a capture whose sidecar reads `software: true` (SwiftShader,
+   llvmpipe, or a driverless "Basic Render Driver"/WARP box) is not look-critical evidence no
+   matter what flags were passed. Use `--require-gpu` to turn that into a hard failure instead
+   of trusting the flags silently. `tools/perf-profile.mjs --gpu` follows the same pattern for
+   perf numbers, independently.
 
 2. **`window.__cartRavePerf.scene` is DEV-ONLY** (`main.js`, `if (import.meta.env.DEV)`).
    Against **production** it does not exist, so `scene?.traverse(...)` silently yields nothing
