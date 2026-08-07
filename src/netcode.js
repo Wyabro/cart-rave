@@ -559,6 +559,26 @@ function shouldHoldNonHostCountdownPhase(newPhase, clientIsHost) {
 }
 
 /**
+ * FRIENDS-LEVEL-1: true when this hello is arriving for a client who will become
+ * the Friends-mode host of this room. hostId/youConnId module vars are not yet
+ * assigned at this point in the hello handler (that happens after adopt calls) —
+ * read the same fields off the raw message, matching the Cap-61 workaround used
+ * a few lines below for helloIsHost.
+ * @param {string} mode - result of detectGameMode()
+ * @param {unknown} msgHostId
+ * @param {unknown} msgYouConnId
+ * @returns {boolean}
+ */
+export function isFriendsHostHello(mode, msgHostId, msgYouConnId) {
+  return (
+    mode === "friends" &&
+    typeof msgHostId === "string" &&
+    msgHostId !== "" &&
+    msgHostId === msgYouConnId
+  );
+}
+
+/**
  * Binds main-game hooks into netcode message handlers (slots, collisions, color pick, podium, etc.).
  * Call once during bootstrap before initNetcode(); deps supply live refs to main.js state.
  * @param {object} deps
@@ -2908,9 +2928,13 @@ export function initNetcode(roomOverride) {
         slotCount: msg.slots?.length,
         roundPhase: msg.round?.phase,
       });
-      if (typeof msg.levelId === "string" && msg.levelId.trim() !== "") {
+      const helloIsFriendsHost = isFriendsHostHello(detectGameMode(), msg.hostId, msg.youConnId);
+      if (!helloIsFriendsHost && typeof msg.levelId === "string" && msg.levelId.trim() !== "") {
         // * Room level is server truth — adopt into settingsStore (not only raw
         // * localStorage) so a later host promote does not rematch on the wrong arena.
+        // * FRIENDS-LEVEL-1: skipped for the Friends host — their menu pick must win
+        // * the room instead of the hello-stamped default; see
+        // * adoptFriendsHostLevelFromStore() below, called after setAuthorityMode.
         adoptAuthoritativeRoomLevel(msg.levelId, { notify: true });
       }
       if (msg.aiDifficulty != null) {
@@ -2978,6 +3002,9 @@ export function initNetcode(roomOverride) {
       }
 
       setAuthorityMode(Boolean(hostId && youConnId && hostId === youConnId));
+      // * FRIENDS-LEVEL-1: stamp the level latch from the host's store pick BEFORE the
+      // * difficulty call below, so the single sendHostRound() it fires carries both.
+      adoptFriendsHostLevelFromStore();
       // * DIFF-FRIENDS-1: hello already adopted Party's aiDifficulty (default "easy").
       // * Friends host preference lives in settingsStore — overwrite latch + push hostRound
       // * so bots and joiners track the host pick, not the server field default.
@@ -3457,6 +3484,35 @@ export function ensureHostAiDifficultyLatched(mode) {
 }
 
 /**
+ * FRIENDS-LEVEL-1: Friends host overwrites hello-stamped room level with the host's
+ * store pick (the arena the host chose on the main menu before creating the room).
+ *
+ * Party defaults #currentLevelId to "classicRecord". MSG.hello would normally adopt
+ * that into the client latch + settingsStore before any host logic runs — the hello
+ * handler now skips that adopt for the Friends host (isFriendsHostHello), so this
+ * function is the only place the room latch gets stamped for them.
+ *
+ * Depends on the adjacent adoptFriendsHostAiDifficultyFromStore() call firing the
+ * sendHostRound() that actually broadcasts this latch — if that function's guards
+ * ever tighten, this latch would silently never send. Call this one first so both
+ * land in the same hostRound message.
+ *
+ * Safe when the host has no saved pick: adoptRoomLevelAsHost("") no-ops (empty
+ * string), and sendHostRound's fallback is FREE_LEVEL ("zanzibar"), which is also
+ * the menu's own DEFAULT_LEVEL — i.e. the arena already loaded, so nothing rotates.
+ *
+ * No-ops when not host or not Friends. Does not touch Quickplay (server-random pick
+ * must still win there).
+ * @returns {boolean} True when adopt ran.
+ */
+export function adoptFriendsHostLevelFromStore() {
+  if (!isHost) return false;
+  if (detectGameMode() !== "friends") return false;
+  adoptRoomLevelAsHost(settingsStore.getState().selectedLevelId);
+  return true;
+}
+
+/**
  * DIFF-FRIENDS-1: Friends host overwrites hello-stamped room AI with the host's store pick.
  *
  * Party defaults `#currentAiDifficulty` to "easy". MSG.hello adopts that into the client
@@ -3753,6 +3809,7 @@ export const __netcodeTestHooks = {
     isHost = false;
     hostId = null;
     youConnId = null;
+    authoritativeRoomLevelId = null;
     localHostScore = 50;
     weakHostWarnedThisHostship = false;
     netSlots = [];
@@ -3825,6 +3882,14 @@ export const __netcodeTestHooks = {
     adoptAuthoritativeRoomAiDifficulty(d);
   },
   getAuthoritativeRoomAiDifficultyForTest: () => authoritativeRoomAiDifficulty,
+  /** FRIENDS-LEVEL-1: stamp / read room level latch directly, without going through
+   * adoptAuthoritativeRoomLevel (which also writes settingsStore) — tests need to
+   * pre-stamp a latch value that DIFFERS from the store to prove the store wins. */
+  setAuthoritativeRoomLevelForTest: (id) => {
+    authoritativeRoomLevelId = id == null ? null : id;
+  },
+  getAuthoritativeRoomLevelForTest: () => authoritativeRoomLevelId,
+  isFriendsHostHello: (mode, msgHostId, msgYouConnId) => isFriendsHostHello(mode, msgHostId, msgYouConnId),
   /** Cap-61 unit seam: countdown hold predicate (hello + MSG.round). */
   shouldHoldNonHostCountdownPhase: (newPhase, clientIsHost) =>
     shouldHoldNonHostCountdownPhase(newPhase, clientIsHost),
