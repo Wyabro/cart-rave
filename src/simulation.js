@@ -1698,7 +1698,20 @@ export function circularKeepOutTangentEscape(px, pz, zone, targetX, targetZ) {
  * @param {number} [targetX] Optional chase X for tangent routing around voids.
  * @param {number} [targetZ] Optional chase Z for tangent routing around voids.
  */
-function applySquareHoleAvoidance(px, pz, dir, targetX, targetZ) {
+/**
+ * * Steers an NPC heading away from Storerooms/Backrooms square corner voids.
+ * * AI-ARENA-SELFKO-1 L2: radial is from-hole (not Chebyshev speed). Gutter stays
+ * * mostly tangent; small radial only when diving into the hole. Lip radial raised
+ * * so bots peel off the void instead of full-sending.
+ *
+ * @param {number} px Cart world X.
+ * @param {number} pz Cart world Z.
+ * @param {{ x: number, z: number }} lv Planar linear velocity.
+ * @param {THREE.Vector3} dir Normalized planar heading (modified in place).
+ * @param {number} [targetX]
+ * @param {number} [targetZ]
+ */
+function applySquareHoleAvoidance(px, pz, lv, dir, targetX, targetZ) {
   const holes = _levelHazards.squareHoles;
   const edge = _levelHazards.half + _levelHazards.avoidMargin;
   const band = _levelHazards.influenceBand;
@@ -1711,11 +1724,17 @@ function applySquareHoleAvoidance(px, pz, dir, targetX, targetZ) {
     if (cheb >= edge + band) continue;
     const strength = clamp((edge + band - cheb) / band, 0, 2.2);
     const len = Math.hypot(dx, dz) || 1;
+    // * Radial from hole → cart (outward). Diving = velocity toward hole = −(lv · radial).
     const radialX = dx / len;
     const radialZ = dz / len;
-    // * Gutter band: tangent only — radial push reads as "scared of the whole corner".
+    const towardHoleSpeed = -(lv.x * radialX + lv.z * radialZ);
+    const movingTowardHole = towardHoleSpeed > 0.5;
+    // * Gutter: tangent-first; light radial only when diving (avoids "scared of whole corner").
+    // * Inside lip: stronger peel-off so unforced void dives drop.
     const inGutterBand = cheb >= edge;
-    const radialScale = inGutterBand ? 0 : 0.35;
+    const radialScale = inGutterBand
+      ? (movingTowardHole ? 0.15 : 0)
+      : 0.60;
     if (radialScale > 0) {
       rx += radialX * strength * radialScale;
       rz += radialZ * strength * radialScale;
@@ -2741,7 +2760,7 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
   // * Steer the heading away from arena hazards (hole voids, center pit, furniture).
   if (_levelHazards) {
     // * Backrooms: square-void keep-out zones + circular furniture avoidance.
-    applySquareHoleAvoidance(p.x, p.z, toTarget, cart.aiTarget.x, cart.aiTarget.z);
+    applySquareHoleAvoidance(p.x, p.z, lv, toTarget, cart.aiTarget.x, cart.aiTarget.z);
     applyCircularKeepOutAvoidance(p.x, p.z, toTarget);
   } else if (_octagonHazards) {
     // * Open octagon: steer away from the outer kill rim always, and around the center

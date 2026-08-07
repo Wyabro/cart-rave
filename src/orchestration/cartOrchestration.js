@@ -1063,7 +1063,10 @@ function maybeTriggerNpcOpportunisticRamBoost(nowMs, npc) {
   if (dist < ncfg.minTargetDistance || dist > ncfg.maxTargetDistance) return;
 
   // * Backrooms corner-void safety gate — abort boost if the line crosses a square hole.
-  if (Simulation.findBlockingSquareHole(p.x, p.z, op.x, op.z, 0.4)) {
+  // * Named constant only for opportunistic boost (AI-ARENA-SELFKO-1 L2). Chase routing
+  // * still uses 0.04 — do not unify those margins.
+  const NPC_BOOST_SQUARE_HOLE_MARGIN = 0.6;
+  if (Simulation.findBlockingSquareHole(p.x, p.z, op.x, op.z, NPC_BOOST_SQUARE_HOLE_MARGIN)) {
     return;
   }
 
