@@ -193,6 +193,26 @@ describe("TURN credentials applied to live peer connections", () => {
     expect(opened).toBe(true);
     expect(createdPCs).toHaveLength(1);
   });
+
+  it("re-entrant beginIceServersWait releases prior waiters and still settles the new wait", async () => {
+    P2P.initP2P({ host: true, sendSignal: () => {}, onInput: () => {}, onState: () => {} });
+    P2P.beginIceServersWait(5000);
+    const p1 = P2P.waitForIceServers();
+    P2P.beginIceServersWait(5000);
+    const p2 = P2P.waitForIceServers();
+
+    // * Prior wait must not hang forever when the second wait is the one that settles.
+    let p1Done = false;
+    void p1.then(() => { p1Done = true; });
+    await flush();
+    expect(p1Done).toBe(true);
+
+    P2P.setTurnServers([{ urls: "stun:stun.example" }]);
+    await Promise.race([
+      Promise.all([p1, p2]),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("ice wait hung")), 200)),
+    ]);
+  });
 });
 
 describe("netcode fix: host opens offers to every non-self human peer", () => {

@@ -43,6 +43,8 @@ let iceServersReady = Promise.resolve();
 let iceServersReadyResolve = null;
 /** True once setTurnServers ran or the wait timed out for this wait cycle. */
 let iceServersReadySettled = true;
+/** @type {ReturnType<typeof setTimeout> | null} Active wait-timeout; cleared on settle / re-entry. */
+let iceServersReadyTimeout = null;
 /**
  * Bumped only in {@link closeAllConnections}. In-flight initiate / answerer awaits
  * capture the value and abort when it changes so a demoted host cannot finish an offer
@@ -77,17 +79,38 @@ function answererSessionStillValid(gen) {
   return !isHost && gen === sessionGeneration;
 }
 
+/** Clear the wait timer and resolve any in-flight iceServersReady waiter. */
+function settleIceServersWait() {
+  if (iceServersReadyTimeout != null) {
+    clearTimeout(iceServersReadyTimeout);
+    iceServersReadyTimeout = null;
+  }
+  if (!iceServersReadySettled) {
+    iceServersReadySettled = true;
+    const resolve = iceServersReadyResolve;
+    iceServersReadyResolve = null;
+    resolve?.();
+  }
+}
+
 /**
  * Begin waiting for TURN credentials before creating peer connections.
  * Call immediately before requesting credentials from the server.
+ * Safe to call again while a wait is open: prior waiters are released, then a
+ * fresh window starts (rapid rejoin / double requestTurnCredentials must not hang).
  * @param {number} [timeoutMs=2500]
  */
 export function beginIceServersWait(timeoutMs = 2500) {
+  // * Re-entry must not orphan holders of the previous iceServersReady promise —
+  // * overwriting iceServersReadyResolve left them pending forever after setTurnServers
+  // * or the first timer settled the wrong generation.
+  settleIceServersWait();
   iceServersReadySettled = false;
   iceServersReady = new Promise((resolve) => {
     iceServersReadyResolve = resolve;
     const ms = Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 2500;
-    setTimeout(() => {
+    iceServersReadyTimeout = setTimeout(() => {
+      iceServersReadyTimeout = null;
       if (!iceServersReadySettled) {
         iceServersReadySettled = true;
         iceServersReadyResolve = null;
@@ -126,12 +149,7 @@ export function setTurnServers(servers) {
       }
     }
   }
-  if (!iceServersReadySettled) {
-    iceServersReadySettled = true;
-    const resolve = iceServersReadyResolve;
-    iceServersReadyResolve = null;
-    resolve?.();
-  }
+  settleIceServersWait();
 }
 
 /**
@@ -642,12 +660,7 @@ export function closeAllConnections() {
   pendingInputTarget = null;
   // * Leave iceServers as-is (credentials still valid); settle any in-flight wait
   // * so a subsequent initiate is not stuck behind a closed session's promise.
-  if (!iceServersReadySettled) {
-    iceServersReadySettled = true;
-    const resolve = iceServersReadyResolve;
-    iceServersReadyResolve = null;
-    resolve?.();
-  }
+  settleIceServersWait();
   iceServersReady = Promise.resolve();
 }
 
