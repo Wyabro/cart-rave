@@ -1475,7 +1475,7 @@ export function bootGameSystems(ctx) {
         if (sdNow) ArenaAmbience.bumpCrowdExcitement(0.9);
       }
     }
-    const isUiActive = refs.menuVisible || HUD.isEscOverlayVisible() || GameState.getRoundState().phase === "podium";
+    const isUiActive = refs.menuVisible || HUD.isEscOverlayVisible() || GameState.getRoundState().phase === "podium" || GameState.getRoundState().phase === "lobby";
     setGamepadUiMode(isUiActive);
     setGamepadNavActive(isUiActive);
     const { now, loopState } = frameCtx;
