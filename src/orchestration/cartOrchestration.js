@@ -1046,15 +1046,18 @@ function maybeTriggerNpcOpportunisticRamBoost(nowMs, npc) {
     const solo = Simulation.getSoloRubberbandFactors(netSlots);
     aimSlackDeg = solo.aimSlackDeg;
     const edgeBias = Simulation.getEdgeVictimBias(op.x, op.z);
-    // * Pure gate on soloRubberband (ai-bots arch map) — frequency only, solo only.
+    const botEdgeBias = Simulation.getEdgeVictimBias(p.x, p.z);
+    // * Pure gate on soloRubberband — frequency only; SELFKO-1 bot-lip deny + pusher finisher.
     const { commit: humanCommit } = resolveNpcHumanBoostCommit({
       nitroMul: solo.nitroMul,
       edgeBias,
+      botEdgeBias,
       dist,
       difficulty: getActiveAiDifficulty(),
       cfg: ncfg,
     });
-    if (Math.random() >= humanCommit) return;
+    // * commit 0 = hard deny (bot on lip); otherwise roll.
+    if (humanCommit <= 0 || Math.random() >= humanCommit) return;
   }
 
   if (dist < ncfg.minTargetDistance || dist > ncfg.maxTargetDistance) return;

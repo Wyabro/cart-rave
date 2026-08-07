@@ -132,19 +132,24 @@ export function computeSoloRubberband(scores, netSlots, cfg) {
 
 /**
  * @typedef {object} NpcHumanBoostCommitResult
- * @property {number} commit 0..1 probability of firing boost this frame
- * @property {boolean} finisher target near death edge
+ * @property {number} commit 0..1 probability of firing boost this frame (0 = hard deny)
+ * @property {boolean} finisher target near death edge and bot is a safe pusher
  * @property {boolean} safeCenter mid-arena thrift applied
+ * @property {boolean} botLipDeny bot already on a death edge — no full-send
  */
 
 /**
- * AI-DAY-1 lever 3: pure solo NPC→human boost commit gate.
+ * AI-DAY-1 lever 3 + SELFKO-1: pure solo NPC→human boost commit gate.
  * Multiplayer always commits on humans (legacy) — only call from the solo branch.
  * Frequency only; does not change instant boost / duration / max speed (NPC-BOOST-1 carve-out).
  *
+ * SELFKO-1: hard-deny when the bot is already on a lip; finisher bonus only when the
+ * human is on a lip and the bot is not (pusher geometry — fewer boost suicides).
+ *
  * @param {object} args
  * @param {number} args.nitroMul solo rubberband nitroMul
- * @param {number} args.edgeBias 0..1 from Simulation.getEdgeVictimBias
+ * @param {number} args.edgeBias 0..1 target (human) edge bias
+ * @param {number} [args.botEdgeBias] 0..1 bot edge bias (0 if omitted = assume safe)
  * @param {number} args.dist meters to human
  * @param {string | null | undefined} args.difficulty
  * @param {NpcBoostFinisherCfg | null | undefined} [args.cfg]
@@ -153,6 +158,7 @@ export function computeSoloRubberband(scores, netSlots, cfg) {
 export function resolveNpcHumanBoostCommit({
   nitroMul,
   edgeBias,
+  botEdgeBias = 0,
   dist,
   difficulty,
   cfg,
@@ -162,15 +168,27 @@ export function resolveNpcHumanBoostCommit({
   const safeMul = cfg?.safeCenterCommitMul ?? 0.72;
   const safeDist = cfg?.safeCenterMinDist ?? 8.0;
 
-  const bias = Math.max(0, Math.min(1, Number(edgeBias) || 0));
+  const targetBias = Math.max(0, Math.min(1, Number(edgeBias) || 0));
+  const botBias = Math.max(0, Math.min(1, Number(botEdgeBias) || 0));
   const d = Number(dist) || 0;
   const nm = Number(nitroMul);
   const nitro = Number.isFinite(nm) ? nm : 1;
 
+  // * SELFKO-1: never full-send while the bot is already on a death edge.
+  if (botBias >= finisherMin) {
+    return {
+      commit: 0,
+      finisher: false,
+      safeCenter: false,
+      botLipDeny: true,
+    };
+  }
+
   // * Match prior solo gate: lead/even full commit base; trail throttles.
   let baseCommit = nitro >= 1 ? 1 : Math.max(0.05, Math.min(1, nitro));
 
-  const finisher = bias >= finisherMin;
+  // * Finisher only when human is on a lip AND bot is safer (not on lip) — pusher, not peer-suicide.
+  const finisher = targetBias >= finisherMin && botBias < finisherMin;
   // * Pre-clamp bonus so trail+finisher can still rise (lead stays 1 after min).
   if (finisher) {
     baseCommit = Math.min(1, baseCommit + finisherBonus);
@@ -188,5 +206,5 @@ export function resolveNpcHumanBoostCommit({
   }
 
   const commit = Math.max(0.05, Math.min(1, baseCommit));
-  return { commit, finisher, safeCenter };
+  return { commit, finisher, safeCenter, botLipDeny: false };
 }

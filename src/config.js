@@ -142,9 +142,10 @@ const physics = {
         alignmentAngleDeg: 34, // degrees — aim cone toward target
         minTargetDistance: 5.0, // meters
         maxTargetDistance: 12.0, // meters
-        // * AI-DAY-1 lever 3: solo human boost frequency only (NPC-BOOST-1 carve-out).
+        // * AI-DAY-1 lever 3 + SELFKO-1: solo human boost frequency only (NPC-BOOST-1 carve-out).
         // * MP human path still always commits. Easy skips safe-center thrift.
-        finisherEdgeBiasMin: 0.35, // unitless — getEdgeVictimBias threshold for "finisher"
+        // * Bot edgeBias >= finisherEdgeBiasMin → hard deny (no full-send on the lip).
+        finisherEdgeBiasMin: 0.35, // unitless — getEdgeVictimBias threshold for "finisher" / bot-lip
         finisherCommitBonus: 0.25, // unitless — added to pre-clamp commit when finisher
         safeCenterCommitMul: 0.72, // unitless — mid-arena thrift when not finisher
         safeCenterMinDist: 8.0, // meters — thrift only when dist > this (inside 5–12 band)
@@ -350,7 +351,7 @@ const physics = {
     // * cart spawning off its deck. Storerooms and Sundial sit +0.75m further out
     // * (SPAWN-BACKROOMS-1 / SPAWN-SUNDIAL-1: spawns were close enough to the edge that
     // * an opening scramble could put a cart over it). Classic keeps the base 1.5.
-    gapDistanceByLevel: { backrooms: 2.25, zanzibar: 3.0 },
+    gapDistanceByLevel: { backrooms: 2.25, zanzibar: 3.75 },
     railHeight: 1.8, // meters
     railThickness: 0.12, // meters
     gearEnabled: true,
