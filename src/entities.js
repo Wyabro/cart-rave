@@ -522,7 +522,7 @@ export function resetCartTransientState(cart) {
 
   cart.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
   cart.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
-  // * Drop any tracked sustained-contact pair involving this cart ΓÇö a respawn/rematch
+  // * Drop any tracked sustained-contact pair involving this cart — a respawn/rematch
   // * teleport (or Sudden Death setEnabled(false)) can leave a stale pair in
   // * _activeCartContacts with no Rapier stopped edge, and it would re-fire an
   // * attributed ram whenever the geometric cone realigns (RAM-CONTACT-STALE-1).
