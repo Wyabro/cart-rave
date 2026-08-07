@@ -282,6 +282,14 @@ export function createLoopDeps(deps) {
     const clientSimCallbacks = {
       ...hostSimCallbacks,
       getAiAxis: null,
+      // * SIM-CALLBACK-FREEZE-1: the spread above invokes hostSimCallbacks' getters once and
+      // * copies their results — pit/booth/record handles are still empty pre-arena-load, so a
+      // * plain copy would freeze the non-host bundle on those empties and misclassify every
+      // * environment contact as "floor". Re-declare the getters to keep the client bundle live.
+      get partySocket() { return Netcode.getPartySocket(); },
+      get recordColliderHandles() { return getRecordColliderHandles(); },
+      get pitWallColliderHandle() { return getPitWallColliderHandle(); },
+      get boothColliderHandles() { return getBoothColliderHandles(); },
       onSpill: (spillCart) => {
         const localSlot = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
         // * Non-host client only predicts tip-over spills for own local cart;
