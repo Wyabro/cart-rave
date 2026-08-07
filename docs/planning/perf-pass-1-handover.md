@@ -430,8 +430,8 @@ the lever did not land.
    harness on and takes the "warm world ASAP" boot path. **A baseline without the param boots
    differently from every ablated cell**, so `ablate=none` must be present on the baseline too.
 4. **`main.js:2430`** — see §4 above.
-5. **`shoot.mjs` runs SwiftShader** and its software-mode modal covers the frame. Use
-   `tools/shoot-gpu.mjs` (real GPU flags, writes a `gpuVendor` sidecar) if a still looks wrong.
+5. **`shoot.mjs` renders on a real GPU by default now** (SHOOT-SOFTGL-1) and writes a
+   `gpuVendor` sidecar next to every capture — check `software` there before trusting a still.
    Scene-graph counts (draw calls, triangles) are valid on SwiftShader; timing is not.
 6. **`__cartRavePerf.scene` is DEV-only.** Against production it silently reads empty and a probe
    looks like "the thing never built".

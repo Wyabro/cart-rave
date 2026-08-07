@@ -10,7 +10,7 @@
  * It also drives per-frame LEVEL animation via `onAnimationTick`. It used to
  * render WITHOUT updating, so every animated property — water scroll, turbines,
  * beacon pulses, ship glows — sat frozen at its constructor value behind the
- * menu and in every `shoot-gpu` capture, which silently invalidated any
+ * menu and in every `npm run shoot` capture, which silently invalidated any
  * capture-based claim about motion (SHOOT-ANIM-1). The tick runs before the
  * render, in the same frame, exactly as the game loop orders it.
  *
