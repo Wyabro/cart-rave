@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-07T07:47:54.516Z",
-    "commit": "deecb7d"
+    "at": "2026-08-07T07:55:34.566Z",
+    "commit": "eafedcd"
   },
-  "source_digest": "c4443cd9",
+  "source_digest": "d5f04768",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1273,17 +1273,10 @@
       {
         "title": "UI / UX",
         "counts": {
-          "High": 1,
           "Medium": 10,
           "Low": 5
         },
         "rows": [
-          {
-            "pri": "High",
-            "item": "ONBOARD-SIZE-1 — the how-to slide arrows and body text are too small",
-            "notes": "**Filed 08-06 from Wyatt's note on the ONBOARD-SLIDES-PT-1 PASS** — *\"the forward and back buttons are too small by the way, same with the card text — it should be large and simple.\"* The deck reads and pages correctly (that is what PT-1 passed); this is the type-and-target-size pass over `.cr-howto-*` in [cart-rave-menu.css](../../src/cart-rave-menu.css). Two separate asks in the same note: the prev/next arrows want a real touch target (≥44 px, the same bar TOUCH-HOVER-1 used), and the card body wants to be bigger and plainer — this is the screen a brand-new player reads once, so favour few large words over dense copy. **Coordinate with ONBOARD-ART-1** — the art slots reserve a 28 rem column on four slides, so growing the text without knowing the final two-column widths risks doing the work twice; if ONBOARD-ART-1 is close, do the type pass after the slots turn on. Phone was already judged separately and passed (ONBOARD-SLIDES-PT-3), so this is not a mobile-only fix. **Implemented and deployed 08-07 — committed `b893eba` (+ scope-correction `7f8b870`), CSS sizing only, no copy change (Wyatt's call): arrows 2rem→2.75rem/44px (`cr-howto-page`), body 13px→18px + brighter (0.6→0.72 alpha), name/chip text bumped to match, deck floor unchanged. `npm run qa` 7/7 on the shipped commit, confirmed live on prod (`aa703973`) via the served CSS bytes. (The commit this card shipped under, `9bc315e`, also carried the already-in-flight ONBOARD-ATTRACT-1 landing — unrelated, not this card's work.) Computed-style values were verified directly against the DOM; a real screenshot/Tab-focus-ring check was blocked that session by the Browser-pane panel not being displayed, hence the playtest pass below. **Owed: Wyatt playtest — ONBOARD-SIZE-PT-1 — the how-to screen's arrows and card text read as big and easy, not cramped.**<br>1. Open HOW TO PLAY from the main menu.<br>2. Look at the ◂ ▸ arrows at the bottom — they should be a comfortable, easy target, not a tiny tap.<br>3. Read a slide's paragraph text — it should be big and plain at a glance, no squinting.<br>4. Page through a few slides — nothing should jump, resize, or add a scrollbar as you go.<br>5. FAIL if the arrows still feel small, the text still feels small or dense, or paging causes a jump/scrollbar.",
-            "ship1": null
-          },
           {
             "pri": "Medium",
             "item": "ONBOARD-SCROLL-1 — focusing the how-to arrows adds a scrollbar to the page",

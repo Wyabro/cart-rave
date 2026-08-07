@@ -2878,7 +2878,9 @@ function buildDeck(scene, world, config, circumR) {
     ownedMaterials.push(shadowMat);
     const shadow = new THREE.Mesh(shadowGeo, shadowMat);
     shadow.rotation.x = -Math.PI / 2;
-    // Away from sun azimuth.
+    // Away from sun azimuth. Long axis is PlaneGeometry local +Y; after Rx(-π/2),
+    // rotation.z = -shadowAz - π/2 maps that axis onto (cos shadowAz, 0, sin shadowAz).
+    // (+π/2 was 180° reversed — long axis pointed back at the sun.)
     const shadowAz = SUN_AZIMUTH + Math.PI;
     const midR = PODIUM_BASE_R + 1.2 + shadowLen * 0.5;
     shadow.position.set(
@@ -2886,7 +2888,7 @@ function buildDeck(scene, world, config, circumR) {
       0.025,
       Math.sin(shadowAz) * midR,
     );
-    shadow.rotation.z = -shadowAz + Math.PI / 2;
+    shadow.rotation.z = -shadowAz - Math.PI / 2;
     group.add(shadow);
   }
   const edgeLen = 2 * circumR * Math.sin(HALF_ANGLE);
@@ -3798,8 +3800,9 @@ function buildZanzibarBooths(
   const ownedGeometries = [platGeo, trimGeo, legGeo, braceGeo, railGeo];
   /** @type {THREE.Material[]} */
   const ownedMaterials = [slabMat, legMat, trimMat];
+  // * Clones are independent GPU uploads — parent panelTex dispose does not free them.
   /** @type {THREE.Texture[]} */
-  const ownedTextures = [];
+  const ownedTextures = [slabTex, slabNormalTex];
 
   const pw = B.platformWidth / 2;
   const pd = B.platformDepth / 2;
@@ -4135,16 +4138,9 @@ export function initZanzibarPlatform(scene, world, config) {
   }
 
   function dispose() {
+    // * sceneRoots already includes spindleLight + deck/booth groups (and thus neon meshes).
     for (const root of sceneRoots) {
       if (scene) scene.remove(root);
-    }
-
-    if (scene && spindleLight) scene.remove(spindleLight);
-    if (scene && boothNeonMeshes) {
-      for (const mesh of boothNeonMeshes) {
-        if (scene) scene.remove(mesh);
-        if (mesh.parent) mesh.parent.remove(mesh);
-      }
     }
 
     for (const geo of new Set(ownedGeometries)) geo.dispose();
