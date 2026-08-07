@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveNpcHumanBoostCommit } from "../src/utils/npcBoostCommit.js";
+import { resolveNpcHumanBoostCommit } from "../src/utils/soloRubberband.js";
 
 const CFG = Object.freeze({
   finisherEdgeBiasMin: 0.35,

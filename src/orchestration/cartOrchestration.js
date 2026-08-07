@@ -49,7 +49,7 @@ import {
   getHopAlignmentDotMin,
   isHardTactics,
 } from "../aiDifficulty.js";
-import { resolveNpcHumanBoostCommit } from "../utils/npcBoostCommit.js";
+import { resolveNpcHumanBoostCommit } from "../utils/soloRubberband.js";
 import { clearNpcCartCache } from "../gameLoop.js";
 import {
   getLastSuccessfulHelloGen,
@@ -1046,6 +1046,7 @@ function maybeTriggerNpcOpportunisticRamBoost(nowMs, npc) {
     const solo = Simulation.getSoloRubberbandFactors(netSlots);
     aimSlackDeg = solo.aimSlackDeg;
     const edgeBias = Simulation.getEdgeVictimBias(op.x, op.z);
+    // * Pure gate on soloRubberband (ai-bots arch map) — frequency only, solo only.
     const { commit: humanCommit } = resolveNpcHumanBoostCommit({
       nitroMul: solo.nitroMul,
       edgeBias,
