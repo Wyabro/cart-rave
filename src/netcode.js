@@ -812,6 +812,13 @@ const netFlowStats = {
   sendGapsOver100: 0,
   sendCount: 0,
   lastSendGapEventMs: 0,
+  // * NET-RING-1: authoritative-state ring traffic-quality counters (epoch-scoped).
+  // * Ring rejects return BEFORE netStateBuffer.push — these count how much garbage
+  // * arrives, NOT a "stateBufferMaxSize − buffer length" margin.
+  ringRejectsStaleSource: 0,
+  ringRejectsDupSeq: 0,
+  ringRejectsOooSeq: 0,
+  ringRejectsNonFinite: 0,
 };
 
 function resetNetFlowStats() {
@@ -835,6 +842,15 @@ function resetNetFlowStats() {
   netFlowStats.sendGapsOver100 = 0;
   netFlowStats.sendCount = 0;
   netFlowStats.lastSendGapEventMs = 0;
+  resetNetRingCounters();
+}
+
+/** NET-RING-1: zero the authoritative-ring traffic-quality counters (epoch-scoped). */
+function resetNetRingCounters() {
+  netFlowStats.ringRejectsStaleSource = 0;
+  netFlowStats.ringRejectsDupSeq = 0;
+  netFlowStats.ringRejectsOooSeq = 0;
+  netFlowStats.ringRejectsNonFinite = 0;
 }
 
 /**
@@ -1001,6 +1017,13 @@ export function getNetFlowStats() {
     reconcileReplayTrimEvents: netFlowStats.reconcileReplayTrimEvents,
     reconcileReplaySkips: netFlowStats.reconcileReplaySkips,
     windowMs: netFlowStats.startedMs > 0 ? Math.round(performance.now() - netFlowStats.startedMs) : 0,
+    // * NET-RING-1: authoritative-ring traffic quality since the last epoch bump.
+    ring: {
+      ringRejectsStaleSource: netFlowStats.ringRejectsStaleSource,
+      ringRejectsDupSeq: netFlowStats.ringRejectsDupSeq,
+      ringRejectsOooSeq: netFlowStats.ringRejectsOooSeq,
+      ringRejectsNonFinite: netFlowStats.ringRejectsNonFinite,
+    },
   };
 }
 /**
@@ -1735,11 +1758,18 @@ function bufferAuthoritativeState(serverNowMs, seq, carts, epoch) {
   // * stale pre-migration snapshot is instead rejected at the source in handleP2PMessage
   // * (fromConnId !== hostId), so it never reaches this append. The stored epoch backs
   // * pruneNetStateBufferForEpoch for locally-driven epoch bumps (disconnect/reconnect).
-  if (!Number.isFinite(serverNowMs) || !Number.isFinite(seq)) return;
+  if (!Number.isFinite(serverNowMs) || !Number.isFinite(seq)) {
+    netFlowStats.ringRejectsNonFinite += 1;
+    return;
+  }
   if (!carts || typeof carts !== "object") return;
 
   const last = netStateBuffer[netStateBuffer.length - 1];
-  if (last && seq <= last.seq) return;
+  if (last && seq <= last.seq) {
+    if (seq === last.seq) netFlowStats.ringRejectsDupSeq += 1;
+    else netFlowStats.ringRejectsOooSeq += 1;
+    return;
+  }
 
   netStateBuffer.push({ serverNowMs, seq, carts, epoch });
   while (netStateBuffer.length > CONFIG.net.stateBufferMaxSize) netStateBuffer.shift();
@@ -2019,6 +2049,8 @@ export function disconnectPartySession() {
   hostSeq = 0;
   inputSeq = 0;
   hostEpoch += 1;
+  // * NET-RING-1: epoch-scoped ring counters restart on a full session reset.
+  resetNetRingCounters();
   resetClockState(partyClock);
   resetClockState(hostClock);
   hostMigrationFreezeUntilMs = 0;
@@ -2054,6 +2086,8 @@ function resetNetcodeReconnectState() {
   clearHostCollisionBatch();
   netStateBuffer = [];
   hostEpoch += 1;
+  // * NET-RING-1: reconnect starts a fresh epoch — ring counters restart too.
+  resetNetRingCounters();
   lastCartsCache = null;
   lastCartsCacheIsSpawn = false;
 }
@@ -2536,6 +2570,8 @@ function applyHostMigration(msg) {
     setRemoteBodiesEnabledForMigration(true);
   }
   hostEpoch += 1;
+  // * NET-RING-1: host migration bumps the epoch — ring counters restart too.
+  resetNetRingCounters();
   netStateBuffer = [];
   recentHostFallByVictim.clear();
   recentHostCollisionFxByPair.clear();
@@ -4159,7 +4195,10 @@ function handleP2PMessage(data, fromConnId) {
   // * so a pre-migration packet can still fire on the event loop after we've bumped
   // * the epoch and cleared the buffer. Reject by source connId — the stale old-host
   // * channel no longer matches hostId — so it can't poison the freshly-cleared buffer.
-  if (fromConnId && hostId && fromConnId !== hostId) return;
+  if (fromConnId && hostId && fromConnId !== hostId) {
+    netFlowStats.ringRejectsStaleSource += 1;
+    return;
+  }
   if (data instanceof ArrayBuffer) {
     const decoded = decodeHostStateSnapshot(data);
     if (decoded) {
