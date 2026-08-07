@@ -31,6 +31,20 @@ const LEAD_TIME_S = Object.freeze({
 });
 
 /**
+ * AI-DAY-1 lever 2: scale for edge-aware chase-weight bonus (Easy off).
+ * Multiplies into max bonus — not a multi-human ranking reweight.
+ * @type {Readonly<Record<AiDifficulty, number>>}
+ */
+const EDGE_CHASE_WEIGHT_MUL = Object.freeze({
+  easy: 0,
+  medium: 0.55,
+  hard: 1.0,
+});
+
+/** Max humanWeight add when edgeBias=1 and mul=1 (Hard on the lip). */
+export const EDGE_CHASE_BONUS_MAX = 0.22;
+
+/**
  * @typedef {object} DifficultyMods
  * @property {number} decisionIntervalMul
  * @property {number} randomStopMul
@@ -306,6 +320,47 @@ export function clampAiLeadDisplacement(dx, dz, capM = AI_LEAD_DIST_CAP_M) {
   if (!(len > capM) || len < 1e-8) return { x: dx, z: dz };
   const s = capM / len;
   return { x: dx * s, z: dz * s };
+}
+
+/**
+ * AI-DAY-1 lever 2: edge chase-weight mul (0 = Easy / off).
+ * @param {AiDifficulty | string | null | undefined} difficulty
+ * @returns {number}
+ */
+export function getEdgeChaseWeightMul(difficulty) {
+  const id = normalizeDifficulty(difficulty, DEFAULT_SOLO);
+  return EDGE_CHASE_WEIGHT_MUL[id];
+}
+
+/**
+ * Pure edge-aware chase/patrol adjust (solo-effective — raises hunt weight, never ranks humans).
+ * @param {object} args
+ * @param {number} args.humanWeight
+ * @param {number} args.patrolWeight
+ * @param {number} args.edgeBias 0..1 from getEdgeVictimBias
+ * @param {number} args.mul getEdgeChaseWeightMul
+ * @param {boolean} [args.isSuddenDeath] halves bonus so SD bloodhound does not stack
+ * @param {number} [args.bonusMax]
+ * @returns {{ humanWeight: number, patrolWeight: number }}
+ */
+export function applyEdgeChaseWeights({
+  humanWeight,
+  patrolWeight,
+  edgeBias,
+  mul,
+  isSuddenDeath = false,
+  bonusMax = EDGE_CHASE_BONUS_MAX,
+}) {
+  const m = Number(mul) || 0;
+  const bias = Math.max(0, Math.min(1, Number(edgeBias) || 0));
+  if (!(m > 0) || !(bias > 0)) {
+    return { humanWeight, patrolWeight };
+  }
+  const sdScale = isSuddenDeath ? 0.5 : 1;
+  const bonus = bias * m * bonusMax * sdScale;
+  const nextHuman = Math.min(0.97, humanWeight + bonus);
+  const nextPatrol = Math.max(0.04, patrolWeight * (1 - 0.35 * bias * m * sdScale));
+  return { humanWeight: nextHuman, patrolWeight: nextPatrol };
 }
 
 /** Session-active difficulty the host AI brain reads (latched by netcode/main). */

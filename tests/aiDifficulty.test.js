@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   AI_LEAD_DIST_CAP_M,
+  EDGE_CHASE_BONUS_MAX,
   HARD_STEER_GAIN_MAX_CAP,
+  applyEdgeChaseWeights,
   applyPersonalityMods,
   clampAiLeadDisplacement,
   getAiLeadTimeS,
   getDifficultyMods,
+  getEdgeChaseWeightMul,
   getRandomStopChance,
   getStuckWindowMs,
   normalizeDifficulty,
@@ -120,5 +123,29 @@ describe("aiDifficulty", () => {
     const soft = clampAiLeadDisplacement(1.2, 1.6);
     expect(soft.x).toBeCloseTo(1.2);
     expect(soft.z).toBeCloseTo(1.6);
+  });
+
+  // * AI-DAY-1 lever 2 — solo-effective chase weight (not multi-human d2 ranking).
+  it("edge chase weight mul is Easy 0 < Medium 0.55 < Hard 1", () => {
+    expect(getEdgeChaseWeightMul("easy")).toBe(0);
+    expect(getEdgeChaseWeightMul("medium")).toBe(0.55);
+    expect(getEdgeChaseWeightMul("hard")).toBe(1);
+  });
+
+  it("applyEdgeChaseWeights raises hunt weight on the lip; Easy mul is a no-op", () => {
+    const base = { humanWeight: 0.7, patrolWeight: 0.3, edgeBias: 1, mul: 0.55 };
+    const out = applyEdgeChaseWeights(base);
+    // * bonus = 1 * 0.55 * 0.22 ≈ 0.121
+    expect(out.humanWeight).toBeCloseTo(0.7 + 0.55 * EDGE_CHASE_BONUS_MAX);
+    expect(out.humanWeight).toBeLessThanOrEqual(0.97);
+    expect(out.patrolWeight).toBeLessThan(0.3);
+    expect(out.patrolWeight).toBeGreaterThanOrEqual(0.04);
+
+    const easy = applyEdgeChaseWeights({ ...base, mul: 0 });
+    expect(easy.humanWeight).toBe(0.7);
+    expect(easy.patrolWeight).toBe(0.3);
+
+    const sd = applyEdgeChaseWeights({ ...base, isSuddenDeath: true });
+    expect(sd.humanWeight).toBeCloseTo(0.7 + 0.55 * EDGE_CHASE_BONUS_MAX * 0.5);
   });
 });

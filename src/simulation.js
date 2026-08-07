@@ -18,10 +18,12 @@ import {
 import { clamp } from "./utils.js";
 import { recordDiagEvent } from "./utils/diagnostics.js";
 import {
+  applyEdgeChaseWeights,
   applyPersonalityMods,
   clampAiLeadDisplacement,
   getActiveAiDifficulty,
   getAiLeadTimeS,
+  getEdgeChaseWeightMul,
   getPodiumContestMs,
   getRandomStopChance,
   getReachOuter,
@@ -2115,6 +2117,16 @@ function hardEdgeVictimBias(x, z) {
   return 0;
 }
 
+/**
+ * AI-DAY-1: read-only edge/void proximity of a point (0..1). Used by chase-weight + solo finisher boost.
+ * @param {number} x
+ * @param {number} z
+ * @returns {number}
+ */
+export function getEdgeVictimBias(x, z) {
+  return hardEdgeVictimBias(x, z);
+}
+
 function findNearestHumanTarget(fromPos, allCarts, netSlots, slotIndex = 0) {
   let nearestPos = null;
   let nearestWeightedD2 = Infinity;
@@ -2374,6 +2386,23 @@ function pickAiTarget(cart, fromPos, allCarts, netSlots, nowMs, slotIndex = 0) {
   if (humanTarget) {
     const closeDist = Math.hypot(humanTarget.x - fromPos.x, humanTarget.z - fromPos.z);
     if (closeDist < 8) humanWeight = Math.max(humanWeight, 0.95);
+  }
+
+  // * AI-DAY-1 lever 2: edge-aware chase weight (solo/quickplay effective — not multi-human ranking).
+  // * Rim / hole-lip camps raise hunt weight and trim patrol so bots leave mid-arena loops.
+  // * SD bonus is halved so bloodhound does not stack into pure pinball.
+  if (humanTarget) {
+    const edgeBias = hardEdgeVictimBias(humanTarget.x, humanTarget.z);
+    const edgeMul = getEdgeChaseWeightMul(getActiveAiDifficulty());
+    const edged = applyEdgeChaseWeights({
+      humanWeight,
+      patrolWeight,
+      edgeBias,
+      mul: edgeMul,
+      isSuddenDeath,
+    });
+    humanWeight = edged.humanWeight;
+    patrolWeight = edged.patrolWeight;
   }
 
   if (roll < humanWeight && humanTarget) {
