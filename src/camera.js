@@ -191,7 +191,11 @@ export function updateCamera(camera, localCart, dt, playerPos, playerRot, physic
         excludeCollider,
         excludeRigidBody,
       );
-      if (hit && hit.timeOfImpact >= minValidHit) {
+      // * Accept any hit; floor distance at minValidHit so near-field noise (floor lip,
+      // * self-grazing after exclude) cannot pull the camera inside ~1.5m. The old
+      // * `toi >= minValidHit` gate ignored close walls entirely and left desiredPos at
+      // * full chase offset through geometry when pinned ~1m from a surface.
+      if (hit) {
         const hitDist = Math.max(minValidHit, hit.timeOfImpact - 0.3);
         if (hitDist < maxDist) {
           desiredPos.copy(rayOrigin).addScaledVector(rayDir, hitDist);
