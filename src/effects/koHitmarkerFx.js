@@ -16,9 +16,11 @@ const active = [];
  * @param {{ step: (now: number, dt: number) => boolean, teardown: () => void }} fx
  */
 function addFx(fx) {
+  // * Cap is a soft pool: drop the oldest still-playing hitmarker so a fresh KO
+  // * always gets feedback. (Previously dropped the newest after full alloc —
+  // * wasted WebGL objects and hid the hit that mattered.)
   if (active.length >= MAX_ACTIVE) {
-    fx.teardown();
-    return;
+    active.shift().teardown();
   }
   active.push(fx);
 }
