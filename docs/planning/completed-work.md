@@ -2,7 +2,7 @@
 
 > Historical log. Past entries may still say "Cart Rave" / `next-level` — that is intentional. Living naming rules: [brand.md](../brand.md).
 
-**Last Updated:** August 6, 2026
+**Last Updated:** August 7, 2026
 
 > **This doc = the past** — the single home for historical/completed items. For what works
 > *today* see [project-state.md](./project-state.md); for forward plans see [ROADMAP.md](./ROADMAP.md).
@@ -10,6 +10,58 @@
 Chronological record of shipped work, newest first.
 
 > **Convention:** As items ship, move their completed writeup here (out of ROADMAP.md / project-state.md).
+
+---
+
+### August 7, 2026 — FRIENDS-LEVEL-1: the Friends host's arena pick now wins the room
+
+*(Shipped `f8281c5`, playtest owed **FRIENDS-LEVEL-PT-1**.)*
+
+Wyatt's note on the DIFF-FRIENDS-PT-1 PASS (08-06) — *"i had the storerooms selected but the
+friends lobby went to cart rave"* — turned out to be the exact same hole DIFF-FRIENDS-1 closed for
+AI difficulty, one level down: `MSG.hello` adopted the room's hello-stamped `levelId` (server
+defaults new rooms to `"classicRecord"`) into `settingsStore.selectedLevelId` before any host logic
+ran, clobbering the Friends host's menu pick in both the latch and localStorage — so
+`sendHostRound` had nothing but the default left to re-broadcast.
+
+**Fix mirrors the precedent rather than reinventing it.** The hello handler now skips that adopt
+specifically for the Friends host — `isFriendsHostHello(mode, msgHostId, msgYouConnId)`, keyed off
+`msg.hostId === msg.youConnId` because the module-level `hostId`/`youConnId` vars aren't assigned
+yet at that point in the handler (the same workaround the existing Cap-61 code a few lines below
+already relies on). `adoptFriendsHostLevelFromStore()` then stamps the room latch from the store
+directly — reusing the existing `adoptRoomLevelAsHost` rather than a second direct call, to keep
+one host-push call site — and is ordered *before* the existing `adoptFriendsHostAiDifficultyFromStore()`
+call so both land in a single `sendHostRound` message. Server needed no change: `MSG.hostRound`
+already latched `levelId` and `aiDifficulty` off one payload.
+
+**Why skip instead of capture-and-restore:** the host's arena is already loaded as their picked
+level (the menu loaded it before FRIENDS was even pressed). Adopting the wrong hello value and
+then correcting it a few lines later would have rotated the host's own arena to Cart Rave and back
+— a visible flash for no reason. Skipping the adopt entirely means the host's client never touches
+the wrong level at all.
+
+**Adversarial review (pre-implementation) surfaced one accepted edge, one real trap, and cleared
+four other attack angles.** The trap: mirroring the DIFF-FRIENDS-1 test hook naively would have
+broken the regression test it exists for — that hook's underlying adopt function deliberately never
+writes the store (Quickplay Medium must not overwrite a Solo preference), but the *level* adopt
+does write the store, so a hook built the same way would silently overwrite the store to match any
+pre-stamped latch, making "store wins over a stale latch" impossible to prove. The test hook
+instead assigns the module variable directly. The accepted edge: a host who refreshes, changes
+their pick, and rejoins into the narrow window where they get re-crowned over still-seated guests
+will now rebroadcast the new pick and rotate them — mid-round if unlucky. That is the card's
+intent (host's pick wins the room), not a bug, and was left uncoded-around. Four other angles —
+double hello / reconnect, host migration on rejoin, URL-rewrite timing vs. `detectGameMode()`, and
+whether anything in the boot/arena-load path depended on the skipped adopt having fired — were each
+traced through the actual code and refuted; notably, if any guest remains when a host drops, the
+server migrates `hostId` immediately, so a rejoining ex-host is a guest on their next hello and just
+adopts room truth normally, no special case needed.
+
+**Evidence.** `tests/friendsLevel.test.js` (9 new): store-wins-over-a-differing-pre-stamped-latch
+regression, guest and Quickplay no-ops (asserted on latch state, not just the return value),
+no-saved-pick fallback (`FREE_LEVEL` = `"zanzibar"`, which is also the menu's own default arena —
+so even a fresh profile lands where it already was), and the `isFriendsHostHello` predicate's edge
+cases including `"" === ""` (must not match). 14/14 targeted with the existing `diffFriendsAi.test.js`,
+1626/1626 full suite, `npm run qa` 7/7.
 
 ---
 
