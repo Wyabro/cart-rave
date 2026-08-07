@@ -872,23 +872,31 @@
 }
 
 /*
- * RESULTS-1: wide fine-pointer desktop only. The base rules park the podium at
- * the panel's left edge, so all of column 1's slack became a void between the
- * podium and the receipt rail — ~240px at 1920, ~1760px at 3440. Park it against
- * the column gap instead, so the 4.5rem gap is the gutter at every width.
+ * RESULTS-1: wide fine-pointer desktop only. Column 1 is `1fr`, so it swallowed
+ * every spare pixel and the podium — parked at its left edge — ended up a whole
+ * void away from the receipt rail: ~240px at 1920, ~1760px at 3440. The two read
+ * as separate floating islands.
+ *
+ * Size column 1 to the podium instead of to the leftovers, then centre the pair.
+ * The gutter is exactly the 4.5rem column-gap at every width, and the spare space
+ * splits evenly outside the pair rather than being dumped between them. Centring
+ * the group (rather than pushing the podium right) is deliberate: on a 3440 the
+ * podium+receipt block is ~1372px of a ~3060px panel, so parking it right left
+ * the whole left half empty under a centred title.
  *
  * The 1300px floor is measured, not a round number. The podium is 53.75rem
  * (4 x 12.5rem + 3 x 1.25rem) and the right rail plus gap is 32rem, against a
- * root that is itself fluid with a 12px floor (tokens.css). Below ~1283px the
- * podium is WIDER than column 1, so it overflows either way and justify-self
- * only picks the direction — and `end` sends the overflow off the panel's left
- * edge, clipping 2nd place off-screen (measured at 1101x641). Above the floor
- * there is real slack and the podium simply slides right. Narrower, shorter and
- * coarse-pointer viewports keep their own bands above, unchanged.
+ * root that is itself fluid with a 12px floor (tokens.css). Below ~1283px that
+ * pair is WIDER than the panel's content box, and centring an overflow would
+ * clip BOTH ends — 2nd place off the left edge, the receipt off the right. So
+ * this band starts above it and the cramped 1101-1299 window keeps the base
+ * layout, tracked as RESULTS-CRAMP-1. Shorter and coarse-pointer viewports keep
+ * their own bands above, unchanged.
  */
 @media (min-width: 1300px) and (min-height: 641px) and (pointer: fine) {
-  #results-overlay .results-final {
-    justify-self: end; /* was: start */
+  #results-overlay .results-body {
+    grid-template-columns: minmax(0, max-content) 27.5rem;
+    justify-content: center;
   }
 }
 
