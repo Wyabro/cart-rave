@@ -13,6 +13,17 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 7, 2026 — Playtest export: four cards passed
+
+Wyatt's export recorded **4 PASS / 0 FAIL / 1 SKIP**. The four PASS cards are closed; SHARD-PT-2 remains deferred to launch day.
+
+- **COLOR-ID-1** — PASS. The lobby, scoreboard, kill feed, and podium retained distinct per-seat marks. The same playtest also exposed the customized-cart chip mismatch, fixed and deployed in `b9c0daa`.
+- **COMBAT-READ-1** — PASS. A full-speed KO has a stronger payoff than an ordinary KO for both players.
+- **GAMEPAD-LOBBY-1** — PASS. Controller navigation worked for host and guest Friends-lobby controls without regressing pause, results, or match controls.
+- **PACE-KO-1** — PASS. KO confirmation lands below the rim while the existing fall and explosion timing remains intact.
+
+---
+
 ### August 7, 2026 — Block H desk-only completion: 12 cards closed, one commit each (7 of Block H + 5 filed 08-06/08-07)
 
 The rest of Block H's desk-only levers plus five earlier-filed desk-only cards, one commit each,

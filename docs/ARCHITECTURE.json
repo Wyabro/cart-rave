@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-07T21:29:07.464Z",
-    "commit": "b9c0daa"
+    "at": "2026-08-07T21:38:29.782Z",
+    "commit": "2998f46"
   },
-  "source_digest": "2fda4866",
+  "source_digest": "e82e81d7",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1252,8 +1252,7 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Medium": 2,
-          "High": 1,
+          "Medium": 1,
           "Low": 2
         },
         "rows": [
@@ -1261,18 +1260,6 @@
             "pri": "Medium",
             "item": "PERF-9CELL-1 — Intel Low 9-cell PERF sweep `[solo]`",
             "notes": "⏸ **PARKED 08-05 with its parent PERF-PASS-1.** It came back **FAIL 08-05** with *\"idk what you are asking me to do here\"*, and that was the card's fault, not Wyatt's: it said \"run the handover's 9-cell matrix\" and left the actual protocol 300 lines deep in a 484-line doc, so the console showed him a 25-minute measurement sitting with no cells in it. **MOOT 08-06 — parent PERF-PASS-1 CLOSED with the bar unmet** (Wave 5 cells null/unproven, stadium kept). If it is ever reopened, the sweep is runnable off this row: **URL** `https://cart-rave.wyabro.workers.dev/?diag=1&preset=low&level=classicRecord&ablate=<token>`; **setup** Solo host, 3 NPCs, Cart Rave, entered *through the menu* (not a room link), Low tier, box cooled between cells; **per cell** play 60–90 s → **F8 mid-round** (`loopRound` is live, no podium needed) → `npm run captures:pull` → read `snapshot.perf.loopRound.meanMs`, discarding any cell where `straddledDemotion` is true. **Tokens in order:** `none` → `crowdcarts` → `crowd` → `pitlights` → `stadium` → `stagerig` → `billboard` → `bulbs` → `none`. **`none` runs FIRST and LAST**; if the two baselines differ by more than ±1.5 ms mean the box drifted and the whole sweep is void. **Never combine tokens** — the effects are not additive and combos destroy attribution. Full rationale, per-token expectations and the stills protocol: [perf-pass-1-handover.md](./perf-pass-1-handover.md#the-sweep--nine-cells-25-min-of-play-on-wyatts-intel-box).",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "PACE-KO-1 — KO confirmation lands at the no-return rim `[2pc]`",
-            "notes": "**Owed: Wyatt playtest — PACE-KO-1 — a KO should confirm as the victim passes below the rim, while its familiar fall and explosion timing stay intact.** Implemented 08-07; targeted 60/60 passes. **DEPLOYED 08-07 — `157bf81`, Worker `7ea75009-7068-44b8-b54d-4ac73f4d5cea`.**<br>1. In a two-player Friends match on Classic Record, knock the other cart into the hole. The scorer gets the KO hitmarker/sting as the cart drops below the rim; the cart keeps falling before its normal explosion.<br>2. Repeat on Storerooms and Sundial. The confirm should land at the same below-rim moment on all three, despite their different fall lengths.<br>3. On both screens, the scorer gets one confirm only — it must not replay when the cart later explodes or scores.<br>4. Self-fall once. FAIL if it gives another player a KO confirm, if the shatter/explosion moves earlier, or if the score/feed arrives before the existing death beat.",
-            "ship1": null
-          },
-          {
-            "pri": "High",
-            "item": "COMBAT-READ-1 — critical KOs have a clearer visual payoff `[2pc]`",
-            "notes": "**Owed: Wyatt playtest — COMBAT-READ-1 — a full-speed KO should look stronger than an ordinary KO, for both players.** Implemented 08-07; targeted 50/50, full QA 7/7, and the two-client harness 6/6. **DEPLOYED 08-07 — `157bf81`, Worker `7ea75009-7068-44b8-b54d-4ac73f4d5cea`.**<br>1. In a two-player Friends match, score one normal KO first (so it is not first blood).<br>2. Then score a full-speed boost KO.<br>3. The boost KO should produce a clearly stronger arena flash and world hitmarker on both screens.<br>4. FAIL if only the scorer sees the difference, normal KOs become overwhelming, or a self-fall gets the stronger effect.",
             "ship1": null
           },
           {
@@ -1292,9 +1279,8 @@
       {
         "title": "UI / UX",
         "counts": {
-          "Medium": 8,
-          "Low": 5,
-          "High": 1
+          "Medium": 7,
+          "Low": 5
         },
         "rows": [
           {
@@ -1319,12 +1305,6 @@
             "pri": "Medium",
             "item": "MENU-CART-1 — main-menu 3D cart under player name",
             "notes": "**Filed 08-04 from Wyatt.** Reuse the customize `CartPreview` ([cartPreview.js](../../src/ui/cartPreview.js) — already mounted only while customize is open via [cart-rave-menu.js:900](../../src/cart-rave-menu.js:900)) on the **main menu under the name plate** so players admire color/pattern/sunglasses without opening Customize. **Not** a second GLB loader path — same `CartPreview` instance or a shared factory; sync look from localStorage/store the same way `syncCartPreviewLook` does. **Constraints:** must not fight menu attract perf (ATTRACT-JANK-1 / PERF-PASS-1) — pause/hide when customize open; consider Low tier still-frame or lower DPR; one WebGL context only if the stack already shares the game canvas (prefer CSS overlay viewport into existing pattern, do not spawn a second full rAF renderer if avoidable). **Pass:** main menu shows your cart under your name; changing color/pattern in Customize updates it when you return; no extra hitch on weak machines. Pairs with SHIP-1 C / customize pride; not blocked on CART-MODEL-1.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "COLOR-ID-1 — player identity is hue-only in a 4-player brawler `[2pc]`",
-            "notes": "**Owed: Wyatt playtest — COLOR-ID-1 — each player seat has its own shape mark (diamond / triangle / square / upside-down triangle) beside the cart colour, on the lobby, scoreboard, kill feed, and podium.** Implemented 08-07 (L1 `19cee58` scoreboard/lobby/podium glyphs + L2 `9326262` kill-feed threading), `npm run qa` 7/7 — **not yet deployed**, so run this pass on a dev stack (both machines on `npm run dev:local`) or after the next ship on prod. `[2pc]` — the non-host feed check needs a second machine.<br>1. Open a FRIENDS room and seat two humans (bots fill the rest); in the CHECKOUT LINE lobby each human name shows a different shape beside the shopper sticker.<br>2. During the round, the scoreboard row for each human carries that same shape, tinted their cart colour — and the shapes do not swap seats as the board re-sorts.<br>3. KO someone: the feed entry shows the attacker's shape and the victim's shape on your screen — and both shapes appear on your friend's (non-host) machine too.<br>4. On the podium, each human's column shows their shape in their finishing spot.<br>5. FAIL if two humans ever share a shape, a shape flips between players mid-round, or the feed shapes are missing on the non-host machine.",
             "ship1": null
           },
           {
@@ -1367,12 +1347,6 @@
             "pri": "Low",
             "item": "UI-SCALE-P2-MEDIA-1 — Pass 2's deferred media-query cleanup",
             "notes": "**Filed 08-06, split out of UI-SCALE-1 Pass 2 on Wyatt's pre-ack review** (\"skip @media internals\" — exact Pass 1 precedent, to avoid re-opening the 08-05 phone/orientation patches that already playtest-PASSed). Doc rules 5–6 remain undone: delete `@media` blocks that only adjust *size* now that the root scale covers it, and reconcile the drifted breakpoints (900, 1100, 560, and any others found) back to the documented 380/768/1024/1025 contract. Do this file-by-file, same base-clamp discipline, and re-run the relevant playtest card after each file since it touches the phone-specific rules directly this time.",
-            "ship1": null
-          },
-          {
-            "pri": "High",
-            "item": "GAMEPAD-LOBBY-1 [2pc] — gamepad navigation is dead in the Friends lobby; a pad-only player cannot ready up",
-            "notes": "**Implemented and deployed 08-07** (`0365b61`, Worker `64c7d252-3e4e-47c6-9662-9215759d84a6`); source-pin test added, targeted 26/26 and QA 7/7 passed. **Owed: Wyatt playtest — GAMEPAD-LOBBY-1 — Controller navigation works in a Friends lobby.**<br>1. As the host, use the stick or D-pad to focus a difficulty choice, READY UP, and LEAVE ROOM; press A on each and confirm it performs the labeled action.<br>2. As a guest, use the stick or D-pad and A to READY UP and LEAVE ROOM; difficulty choices should not appear.<br>3. Press B or Start in the lobby; it should open pause, not leave the room.<br>4. Check pause, results, and a running round still use their current controller behavior. **Residual:** document-wide navigation can still reach visually covered controls; scoping that set is a separate lever.",
             "ship1": null
           },
           {
