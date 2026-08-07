@@ -1996,7 +1996,7 @@ html, body {
 .cr-howto-slide-name {
   margin: 6px 0 0;
   font-family: var(--ui);
-  font-size: 1.25rem;
+  font-size: 1.5rem;
   letter-spacing: 0.06em;
   color: var(--color-sticker-white);
 }
@@ -2004,10 +2004,10 @@ html, body {
 .cr-howto-slide-body {
   margin: 0.875rem 0 0;
   font-family: var(--mono);
-  font-size: 0.8125rem;
-  line-height: 1.7;
+  font-size: 1.125rem;
+  line-height: 1.6;
   letter-spacing: 0.03em;
-  color: rgba(242, 237, 228, 0.6);
+  color: rgba(242, 237, 228, 0.72);
 }
 
 .cr-howto-slide-body strong {
@@ -2033,10 +2033,10 @@ html, body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2rem;
-  height: 2rem;
+  width: 2.75rem;
+  height: 2.75rem;
   font-family: var(--ui);
-  font-size: 1rem;
+  font-size: 1.25rem;
   color: var(--color-sticker-white);
   background: var(--color-ink-deep);
   border: 1px solid var(--border-white-15);
@@ -2053,7 +2053,7 @@ html, body {
 
 /* ONBOARD-SCROLL-1: keep the focus ring inside the button so it cannot
    overflow the overlay and trigger a page scrollbar.  outline-offset: 0
-   (not the shared ring's +2px) because the button is only 2rem square. */
+   (not the shared ring's +2px) because the button is only 2.75rem square. */
 .cr-howto-page:focus-visible {
   outline: 2px solid var(--color-cyan);
   outline-offset: -2px;
@@ -2104,7 +2104,7 @@ html, body {
   gap: 6px;
   margin-top: var(--space-lg);
   font-family: var(--mono);
-  font-size: 0.6875rem;
+  font-size: 0.8125rem;
   letter-spacing: 0.14em;
   color: var(--color-cyan);
   white-space: nowrap;
@@ -2131,7 +2131,7 @@ html, body {
 .cr-howto-price-lbl,
 .cr-howto-ctl-lbl {
   font-family: var(--mono);
-  font-size: 0.5625rem;
+  font-size: 0.6875rem;
   letter-spacing: 0.12em;
   color: rgba(255, 255, 255, 0.6);
 }
@@ -2139,7 +2139,7 @@ html, body {
 .cr-howto-price-val {
   font-family: var(--mono);
   font-weight: 700;
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   color: var(--color-yellow);
 }
 
@@ -2153,7 +2153,7 @@ html, body {
   min-width: 16px;
   padding: 1px 4px;
   font-family: var(--mono);
-  font-size: 0.625rem;
+  font-size: 0.75rem;
   text-align: center;
   color: var(--color-cyan);
   background: var(--color-ink);
@@ -3168,6 +3168,7 @@ html, body {
    cover the CSS ambient loops so motion-sensitive players get a still menu. */
 @media (prefers-reduced-motion: reduce) {
   .cr-pulse,
+  .cr-cmd--howto-attract .cr-btn-label,
   .cr-cart-preview-loading .cr-cart-preview-canvas {
     animation: none !important;
   }
@@ -3297,6 +3298,25 @@ html, body {
   /* Secondary idle: #d8d4e0 — interactive, not greyed-out disabled chrome. */
   color: var(--color-text-secondary);
   transition: color 130ms var(--ease-slap), font-size 130ms var(--ease-slap);
+}
+/* ONBOARD-ATTRACT-1: first-run guidance invites instead of taking over the menu.
+   The label owns this transform: the row owns its skew/entrance and .cr-btn-inner
+   is the anime.js press target. Base shadow survives reduced-motion as a still cue. */
+.cr-cmd--howto-attract .cr-btn-label {
+  color: var(--color-sticker-white);
+  text-shadow:
+    0 0 8px rgba(55, 231, 255, 0.95),
+    0 0 20px rgba(55, 231, 255, 0.72),
+    0 0 34px rgba(255, 61, 216, 0.45);
+  animation: cr-howto-attract 1.35s var(--ease-slap) infinite;
+}
+@keyframes cr-howto-attract {
+  0%, 100% { transform: skewX(8deg) translateX(0) scale(1); }
+  42% { transform: skewX(8deg) translateX(5px) scale(1.055); }
+  58% { transform: skewX(8deg) translateX(2px) scale(1.025); }
+}
+.cr-cmd--howto-attract:is(.is-selected, :hover) .cr-btn-label {
+  animation: none;
 }
 /* Primary idle: full sticker-white so Solo/QP/Friends still rank above secondaries
    without a permanent yellow fill (yellow stays selection-only). */
