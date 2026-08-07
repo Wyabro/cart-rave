@@ -226,21 +226,22 @@ const physics = {
     boostImpulseMultiplier: 2.55, // unitless — nitro ram impulse scale
     nitroAccelMultiplier: 1.72, // unitless — fallback drive accel when boostedAccel is null
     fx: {
-      particleCountBase: 8, // count — cart-hit burst floor
-      particleCountPerIntensity: 16, // count — extra particles per unit intensity
+      // * FEEL-DAY-1 lever 2: hedged juice — one non-boost gate + modest scale/floor.
+      particleCountBase: 10, // count — cart-hit burst floor
+      particleCountPerIntensity: 20, // count — extra particles per unit intensity
       particleBoostCountBonus: 6, // count — extra particles when rammer is boosting
       particleMaxCount: 28, // count — hard cap per burst (pool performance guard)
       // * HIT-FEEL-1 Round 2: normals often land ~0.1–0.35; old 0.38 gate muted most of them.
-      shakeMinIntensity: 0.22, // unitless — min intensity for local ram screen shake / pulse / rumble
-      shakeBoostMinIntensity: 0.16, // unitless — lower shake threshold during nitro rams
-      shakePixelScale: 5.5, // px — screen shake amplitude scale
+      shakeMinIntensity: 0.20, // unitless — min intensity for local ram screen shake / pulse / rumble
+      shakeBoostMinIntensity: 0.12, // unitless — lower shake threshold during nitro rams
+      shakePixelScale: 6.2, // px — screen shake amplitude scale
       // * Directional hit vignette (DOM) — lower than shake so everyday rams still cue.
       // * HIT-FEEL-1 Round 1: raised floor + softer display remap so love-taps don't scream.
       hitDirMinIntensity: 0.14, // unitless — min collision intensity for hit-from vignette
       hitDirDisplayBias: 0.3, // unitless — displayI = bias + sqrt(intensity) * scale
       hitDirDisplayScale: 0.62, // unitless — was 0.46 + sqrt * 0.79 (too loud on soft hits)
       // * Crash SFX volume floor (not an intensity gate — SFX still fires when fxIntensity > 0).
-      crashVolumeFloor: 0.22, // unitless — playCartCrash volume max(floor, floor + intensity * 0.7)
+      crashVolumeFloor: 0.25, // unitless — playCartCrash volume max(floor, floor + intensity * 0.7)
     },
   },
 
