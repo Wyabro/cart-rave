@@ -9,6 +9,7 @@ import { spansOverlapping } from "./utils/perfSpans.js";
 import { tickAiStallWatchdog } from "./utils/aiStallWatchdog.js";
 import { trimPendingForReconcileReplay } from "./utils/reconcileReplay.js";
 import { headingYawFromQuat, wrapAngleRad } from "./simulation.js";
+import { getRoundClockNowMs } from "./roundClock.js";
 
 export { updateVisualsAndEffects, armRoundStartRenderProbe } from "./frameVisuals.js";
 
@@ -333,9 +334,10 @@ export function runPhysicsStep(loopState, deps, context) {
     // * Multiplayer client: prediction + reconciliation (solo never enters this branch).
     const localSlotIndex = localSlotIndexThisFrame;
 
-    if (performance.timeOrigin + performance.now() < deps.getHostMigrationFreezeUntilMs()) {
+    // * Same clock domain as netcode getMonotonicNow / getRoundClockNowMs (timeOrigin ?? 0).
+    // * Raw performance.timeOrigin can be undefined in incomplete test DOMs → NaN compares.
+    if (getRoundClockNowMs() < deps.getHostMigrationFreezeUntilMs()) {
       // * Hold positions until a new host's snapshots arrive after migration.
-      // * Monotonic clock (matches netcode's getMonotonicNow that sets the freeze deadline).
       // * Drain accumulator debt so the freeze window does not pile up ~300ms of
       // * catch-up substeps (and "Physics substep cap hit" warnings) when it ends.
       // * Do NOT touch lastT — the outer rAF loop owns frame timing.
@@ -406,7 +408,9 @@ export function runPhysicsStep(loopState, deps, context) {
       if (latestSnap && latestSnap.seq > lastReconciledSnapSeq) {
         lastReconciledSnapSeq = latestSnap.seq;
         const cartSnap = (latestSnap.carts && localSlotIndex >= 0) ? latestSnap.carts[localSlotIndex] : null;
-        if (cartSnap && Array.isArray(cartSnap.p) && cartSnap.p.length === 3) {
+        // * Null-guard: cold join / teardown can leave slot index set while getLocalCart()
+        // * is still null — bare localCart._shatterState throws (cart-access invariant).
+        if (localCart && cartSnap && Array.isArray(cartSnap.p) && cartSnap.p.length === 3) {
           // * True KO/respawn path (not tip-spill). Wire s=hasSpilled is shared with grocery
           // * spill — only treat as death when shatter/respawn timer says so (cap-84).
           const localTrulyDead = Boolean(localCart._shatterState)
@@ -576,15 +580,16 @@ export function runPhysicsStep(loopState, deps, context) {
     }
   } else {
     // Non-host without prediction (defensive fallback): interpolate all carts from buffer.
-    if (performance.timeOrigin + performance.now() < deps.getHostMigrationFreezeUntilMs()) {
-      // hold (monotonic clock — matches netcode's freeze deadline)
+    if (getRoundClockNowMs() < deps.getHostMigrationFreezeUntilMs()) {
+      // hold (same round-clock domain as netcode freeze deadline)
       loopState.accumulator = 0;
     } else {
       const localSlotIndex = localSlotIndexThisFrame;
       deps.updateRemoteCartNetTargets(-1);
       const localSnap = deps.sampleAuthoritativeCartState(localSlotIndex);
       const fallbackCart = localSlotIndex >= 0 ? deps.getAllCarts()[localSlotIndex] : null;
-      if (fallbackCart && localSnap) {
+      // * Cart may exist without a live Rapier body mid-teardown / pre-bootstrap.
+      if (fallbackCart?.body && localSnap) {
         const { p, q, lv, av } = localSnap;
         if (Array.isArray(p) && p.length === 3) {
           fallbackCart.body.setTranslation({ x: p[0], y: p[1], z: p[2] }, true);
