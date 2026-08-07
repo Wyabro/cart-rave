@@ -24,7 +24,8 @@ the part a gate can't hold, which is why it's written down instead:
   subject under a different name — KBM-TOAST-1 shipped as a fresh card for CSS STATES-DEAD-1
   already owned.
 - **Work-order blocks are order only, never state.** State lives in the row; a block claiming
-  "fully drained" is prose, not a check — Block G said that while two cards were still open under it.
+  "fully drained" is prose, not a check. Blocks are **1–7 high→low** (NOW → LATER); closed
+  cards leave the index the same session their row is retired — do not keep strike archaeology.
 - **Notes are a brief, not an essay.** Long is fine when the card needs it; padding is not.
 - **The glance box is generated — `npm run backlog`, never hand-edit it.** `health:check` fails if
   it's stale; the command fixes that in one write.
@@ -36,21 +37,18 @@ or reorders a card, same as before. The Department table further down is differe
 see its own marker comment, and `health:check` gates its freshness — it cannot silently drift the
 way the Block table still can.)*
 
-**Work order — where the ship-bar queue stands**, block by block:
+**Work order — high priority → low**, block by block (open cards only; closed history lives in
+[completed-work.md](./completed-work.md)):
 
 | Block | State | Next action |
 |-------|-------|-------------|
-| **A** — ship bar (launch blockers) | 🟢 7/7 closed | **NET-LOOK-ACC-1 ✅ CLOSED PASS 08-06** — Block A fully drained |
-| **B** — pre-ship batch (16 items, best-first) | 🟡 in progress | #2 **ONBOARD-SLIDES-1**, #3 **RESULTS-1** and #4 **ART-FILTER-1 + ART-EXPO-1** all ✅ **CLOSED PASS 08-06** (10/10 playtest export, 0 FAIL); art still split to **ONBOARD-ART-1**, and the notes on those passes filed **ONBOARD-ATTRACT-1 · ONBOARD-SIZE-1 · ONBOARD-SCROLL-1**. Next unstarted item in the batch is #5 |
-| **C** — perf program | 🔵 closed | **PERF-PASS-1 ✅ CLOSED 08-06 — bar not met** (Wave 5 cells null/unproven; stadium needed, kept). Wave 4 `arenaFillLights` shipped. Perf residual items still open under D/E/F as their own rows. |
-| **D** — Wyatt-parallel (off the agent queue) | 👤 ongoing | CART-MODEL-1, HIT-SFX-VAR-1 (needs his clips), bloom sign-off, art-direction calls |
-| **E** — ship-gate decision | 🔵 needs a call | Cut D-tier (persistent leaderboard) from launch, or schedule it as its own phase |
-| **F** — sweep-day batch (Lows, one commit each) | 🟡 in progress | **F1 (desk-only) ✅ CLOSED 08-06** — MONTAGE-ESC-1 → RAPIER-DEFAULT-MAX-1 → STATES-DEAD-1 (+KBM-TOAST-1, partial close) → SPINDLE-COLOR-DEAD-1 → RESULTS-GLOW-1, five commits, writeups in [completed-work.md](./completed-work.md). **F2 (needs a look)** not started — BOOTH-RAIL-COL-1, SUNDIAL-LOW-WATER-1, CART-FORK-SWIVEL-1, main-menu SFX slider |
-| **G** — tooling-window batch | 🟢 drained | **MONTAGE-ESC-1 ✅ CLOSED 08-06**, **SHOOT-SOFTGL-1 ✅ CLOSED 08-06** — both filed the same tools-freeze window, now both closed. |
-| **H** — principal-engineering audit batch (5 open, 10 closed) | 🟡 in progress | **H1 5/7 landed 08-07** (desk-only, not deployed); **GAMEPAD-LOBBY-1** PASSed its two-PC playtest. **H2 3/5 + H3 2/3 landed 08-07** (desk-only). Next unstarted: **HOLE-FRICTION-COMBINE-1**. Detail below in Block H. |
-
-**Launch-day only (can't test before the public post):** SHARD-PT-2 — 5th concurrent human needs
-to land on `quickplay2`; rig already 5/5 in browsers, this just needs real traffic.
+| **1** — NOW (player-facing correctness) | 🟡 in progress | **HOLE-FRICTION-COMBINE-1** → **SPAWN-SUNDIAL-GAP-1** |
+| **2** — PRE-SHIP (before public post) | 🟡 queued | Definition: **CART-COLOR-DEPTH-1**. Then ONBOARD-ART-1 · MENU-CART-1 · LOAD-TIPS-1 · VOICE-BUS-1 · SD music · RECORD-MED-1 · CHUNK-MEMBER-1 · NPC-BOOST-1 (measure) · UI-FRAME-1 + ESC · controller menu · KILLFEED-PHONE-1 · ARENA-BUMPER-HINT-1 (after product call) |
+| **3** — WYATT LANE (blocked on you) | 👤 ongoing | CART-MODEL-1 · HIT-SFX clips · announcer re-records · bloom sign-off · Defeat look · SKYBOX-DIR-1 · CARGO-BAY-INSTANCE-1 stability · SHIP-1 D-tier cut/keep |
+| **4** — PERF RESIDUAL (measure-first) | 🟡 queued | CARGO-BAY-INSTANCE-1 · PROBE-WARM-RT-1 · WARM-SOLO-1 · NET-RING-1 · PERF-WATCH-1 · PERF-TIER-1 · PERF-RENDERINFO-1 · Customize perf |
+| **5** — SWEEP (cheap Lows) | 🟡 queued | CAPTURE-RING-LIMIT-1 · CART-FORK-SWIVEL-1 · BOOTH-RAIL-COL-1 · SUNDIAL-LOW-WATER-1 · main-menu SFX · STATES-DEAD-1 residual · UI-SCALE-P2-MEDIA-1 · ORIENT-HINT-SCROLL-1 |
+| **6** — LAUNCH DAY | ⏳ waiting | **SHARD-PT-2** — 5th concurrent human → `quickplay2` (needs real traffic) |
+| **7** — LATER (post-launch / parked) | 🧊 parked | TRUST-1 · leaderboard · BRAND-1 · taste-gated Design · Future Ideas · do-not-pick list |
 
 **Department tables — how much open work is where** (🟢 = shippable, everything else needs work):
 
@@ -60,12 +58,12 @@ to land on `quickplay2`; rig already 5/5 in browsers, this just needs real traff
 | [Engineering](#engineering) | 21 | 0 | 12 | 8 (+1 partial) |
 | [Art](#art) | 15 | 2 | 4 | 9 |
 | [Audio](#audio) | 5 | 0 | 3 | 2 |
-| [Design / Gameplay](#design--gameplay) | 10 | 1 | 3 | 6 |
+| [Design / Gameplay](#design--gameplay) | 9 | 0 | 3 | 6 |
 | 🟢 [Playtest owed](#playtest-owed) | 3 | 0 | 1 | 2 |
 | [UI / UX](#ui--ux) | 12 | 0 | 7 | 5 |
 | [Tech Debt](#tech-debt) | 15 | 0 | 5 | 10 |
 
-**81 open rows total.**
+**80 open rows total.**
 <!-- END GENERATED counts -->
 
 *(This box is generated by `npm run backlog` — BACKLOG-GATE-1, 08-06 — and cannot drift again by
@@ -134,219 +132,80 @@ post-launch unless Wyatt pulls them forward.
 
 ---
 
-## Work order (2026-08-05 audit — the queue Wyatt works down)
+## Work order (2026-08-07 — high → low)
 
 **This index is order only** — card content stays in the department tables below (one card = one
-row = one source of truth). Filed from the pre-launch audit after Wyatt confirmed launch is a
-**public post (itch/Reddit)**. One card at a time, plan → ack per wave, as always. When a card
-closes, strike it here the same session its row is retired.
+row = one source of truth). Pick from the top open block; one card at a time; plan → ack per wave.
+When a card closes: **delete its line here** the same session its department row is retired to
+[completed-work.md](./completed-work.md). Do not leave closed archaeology in this index.
 
-**Block A — ship bar (launch blockers, strict order):**
-1. ~~**SEC-DIAG-1**~~ — ✅ **CLOSED PASS 3/3 08-05** on prod `fbe8163` ([completed-work.md](./completed-work.md))
-2. ~~**ONBOARD-FLAG-1**~~ — ✅ **CLOSED PASS 08-05** on prod `fbe8163`, with a named limit on the skip-click ([completed-work.md](./completed-work.md))
-3. ~~**QUICKPLAY-SHARD-1**~~ — ✅ **CLOSED 08-05, SHARD-PT-1 PASS on prod `9c333d1`.** Overflow hop, not a seat-finder — full writeup in [completed-work.md](./completed-work.md); the Engineering row was retired 08-05. SEC-DIAG-1's regression bar met in units and live. ⚠️ **SHARD-PT-2 deferred to the public playtest** — it needs five real humans, which Wyatt does not have; the overflow itself is rig-proven 5/5 in real browsers. **Launch-day check, do not lose it.**
-4. ~~**FIX-MIG**~~ — ✅ **CLOSED PASS 08-05** on prod `a65d3c9` (FIX-MIG-PT-1). Disconnect reason + toast + continuous tests; bare A→B handoff residual fixed. [completed-work.md](./completed-work.md)
-5. ~~**ATTRACT-JANK-1**~~ — ✅ **CLOSED 08-05** on prod `5983896`. Premise was wrong: the box was **idle** (3–6 ms frames), running the reduced-motion path at 1.25 fps, so SHOOT-ANIM-1's new level animation advanced in 800 ms steps. Levers A (pin the reduced-motion clock) + B (age stale samples out of the auto-quality ring, which had demoted the session from the menu on frames 16 s gone). Throttle-beat hypothesis **refuted** by measurement; swap-grace hypothesis never fired. Lever A's on-screen result is a **named limit** — held by construction, not by a look at the menu. [completed-work.md](./completed-work.md)
-**Re-ordered 08-05 (second pass).** Blocks A and B were re-ranked by *unblocking value* — what
-makes the next card cheaper or its verdict trustworthy — not by severity alone. Each item names
-what it unblocks; that clause is the reason it sits where it sits. Block B now carries its own
-1..N numbering (it previously restarted at 6 and collided with Block A).
+**How to read blocks:** 1 is what agents should start next; 3 is Wyatt-only; 6 waits for launch
+traffic; 7 is post-launch or parked. Priority ranks *inside* a block too (top first).
 
-**Block A — ship bar (launch blockers, strict order). One left:**
+**Block 1 — NOW (player-facing correctness / High).** Land these before polish.
+1. **HOLE-FRICTION-COMBINE-1** — hole-lip friction assist defeated by Rapier combine default. Same class as wall-slide fixes; needs a feel playtest, not units alone.
+2. **SPAWN-SUNDIAL-GAP-1** — carts wedge between Sundial booths and platform after solid legs landed. Likely one `booth.gapDistanceByLevel` number + feel check.
 
-6. ~~**TIER-DEFAULT-1**~~ — ✅ **CLOSED 08-05, Wyatt PASS on both real boxes.** Expanded past the
-   seated narrow lever into a 6-class GPU taxonomy + pure `defaultTierForCaps()` policy, shipped as
-   five separately-acked commits (taxonomy, one-shot stored-tier migration, host-capability scores,
-   reduced-motion rung, 4K guard), deployed (`ship`, Worker `d91f34a6`, entry `index-BKAcELHu.js`).
-   Full writeup: [completed-work.md](./completed-work.md). **Block C is now unblocked to start.**
-7. **NET-LOOK-ACC-1** — ✅ **CLOSED PASS 08-06** (`1198d26`, prod Worker `3cfb33f8`). Two-human
-   Friends-lobby check confirmed a peer's real pattern + sunglasses replicate and hold through
-   spawn/play. **Block A is now fully drained. Unblocks Pattern customize UI (C3).** Detail:
-   [completed-work.md](./completed-work.md).
-   *(DEPLOY-STALE-HTML-1 closed 08-05 — [completed-work.md](./completed-work.md).)*
+**Block 2 — PRE-SHIP (should land before the public post).** Best-first among open Medium pre-ship work.
+1. **CART-COLOR-DEPTH-1** — definition session first (2–3 candidate treatments side-by-side; not a code card until "deeper" is agreed). Sets colour language for later cart art.
+2. **ONBOARD-ART-1** — HOW TO PLAY slots authored; waiting on Wyatt GIFs / webp drop-in.
+3. **MENU-CART-1** — main-menu 3D cart under the name plate (reuse CartPreview; watch attract perf).
+4. **LOAD-TIPS-1** — rotating tips on the loading screen; share copy with onboard if possible.
+5. **VOICE-BUS-1** — announcer volume of its own; decide **AUDIO-MASTER-1** in the same ack.
+6. **Sudden Death music low-pass** `[SHIP-1 E3]`
+7. **RECORD-MED-1** — Medium-tier record floor parity (look, not PERF-PASS-1).
+8. **CHUNK-MEMBER-1** — cold-visit chunk membership (public-post profile).
+9. **NPC-BOOST-1** — measure session only; retune is a separate ack.
+10. **UI-FRAME-1 + ESC scoring panel** `[SHIP-1 E1]` look pair.
+11. **Controller menu navigation polish** *(pre-ship 07-19 residual)*.
+12. **KILLFEED-PHONE-1** — kill feed awkward/overlapping on phone.
+13. **ARENA-BUMPER-HINT-1** — menu advertises LB/RB arena; nothing reads bumpers. Product call first (wire or drop the hint).
 
-**Block B — pre-ship batch (after A, best first; own numbering):**
-1. **UI-SCALE-1 — ✅ CLOSED, both passes PASSed.** Pass 1 (root scale + `cart-rave-menu.css`,
-   `9e2ec60`..`f057abe`) playtest-verified 3/3 08-05. **Pass 2** — the same clamp→rem conversion on
-   `hud.css` (`dacca48`), `results.css` (`271c5cc`), `pauseOverlay.css` (`5cbc63f`),
-   `announcer.css`/`stickers.css`/`loadingScreen.css` (`8c65bd7`) — playtest-verified 08-06
-   (UI-P2-HUD-PT-1 · UI-P2-PAUSE-PT-1 · UI-P2-RESULTS-PT-1, all PASS). **LOAD-SCALE-1 closed**
-   below (already fixed by LOAD-POSTER-1, this wave only verified it at HEAD). **TOUCH-HOVER-1
-   ✅ CLOSED PASS 08-06** — see [completed-work.md](./completed-work.md). `npm run qa` 7/7
-   throughout; MAE identity-gated at 1920×1080/3440×1440 on every file (chrome-shot noise floor
-   measured at ~1.7–6.4 depending on surface — kill-feed/NPC-name/cart-color RNG bleeds into the
-   region, confirmed by same-code-state recapture, not a regression); `npm run states` 252/259
-   (same 4 pre-existing menu-reachability FAILs as baseline). **Residual, not blocking close:**
-   two new look nits from the 08-06 playtest, filed as **KILLFEED-PHONE-1** and
-   **ORIENT-TOAST-Z-1** (which itself ✅ closed PASS 08-06 on ORIENT-TOAST-PT-1), plus the
-   still-open **UI-SCALE-P2-MEDIA-1** media-query
-   cleanup. **Was first in B on purpose:** it changes the unit system every other UI card is authored in,
-   so RESULTS-1, COLOR-ID-1, UI-FRAME-1, ESC-panel, ONBOARD-SLIDES-1 and MENU-CART-1 are all cheaper
-   after it and all get re-done if they land first. Highest unblock-per-card on the board.
-2. **ONBOARD-SLIDES-1** — ✅ **CLOSED PASS 08-06** (PT-1/2/3, 3/3). Absorbed ONBOARD-1; still shares
-   its copy with LOAD-TIPS-1, which is why LOAD-TIPS-1 sits below it rather than above. Art is
-   ONBOARD-ART-1; the three notes off its passes are ONBOARD-ATTRACT-1 · ONBOARD-SIZE-1 ·
-   ONBOARD-SCROLL-1.
-3. **RESULTS-1** — ✅ **CLOSED PASS 08-06** (`7296e24`, RESULTS-PT-1). Scoping
-   found the premise wrong: the screen is not on an old layout, its *composition* was unbalanced
-   (podium pinned to the left edge, void between it and the receipt rail). Rebalance, not redesign —
-   one wide-desktop band. The frame/panel question stays UI-FRAME-1's; the cramped-window case
-   stays RESULTS-CRAMP-1.
-4. **ART-FILTER-1 + ART-EXPO-1** — ✅ **CLOSED PASS 08-06** (PT-1/PT-2/EXPO-PT-1, 3/3).
-   **The High bloom sign-off is now unblocked** — its success criteria came from these two.
-5. **CART-COLOR-DEPTH-1** — definition session first (2–3 candidate treatments side-by-side;
-   **not a code card until "deeper" is agreed**). Moved up: it sets the colour language that
-   COLOR-ID-1's glyphs and any later cart art are read against.
-6. **COLOR-ID-1** — slot glyphs; the colourblind gap in a hue-only 4-player brawler. After #1
-   (HUD units) and #5 (colour language).
-7. **SPAWN-SUNDIAL-1** — ✅ **CLOSED PASS 08-06** (`ad011e8`, SPAWN-SUNDIAL-PT-1). Leg colliders
-   landed on the bollard friction class; cross-braces stay mesh-only on purpose. The fix landed
-   with no BACKLOG update, so the row and its playtest were reconstructed from the commit 08-06.
-   **Its own PASS opened SPAWN-SUNDIAL-GAP-1** — solid legs turned a ghost gap into a wedge.
-8. **LOAD-TIPS-1** — skip if #2 covered it.
-9. **VOICE-BUS-1** — gives the announcer its own volume; **also decides AUDIO-MASTER-1**, which is
-   why that Tech Debt row stays parked until this lands.
-10. **SD music low-pass** `[SHIP-1 E3]`
-11. **RECORD-MED-1** — Medium-tier floor parity. Judge it *after* TIER-DEFAULT-1, which changes who
-    ever sees Medium.
-12. **CHUNK-MEMBER-1** — cold-visit chunk membership; the profile a public post maximizes.
-13. **MENU-CART-1** — main-menu cart under the name plate. After #1 and after NET-LOOK-ACC-1, since
-    it reuses the same look-sync path.
-14. **NPC-BOOST-1** — measure session only; retune is a separate ack.
-15. **UI-FRAME-1 + ESC scoring panel** `[SHIP-1 E1]` look pair.
-16. **Controller menu nav polish.**
+**Block 3 — WYATT LANE (off the agent queue until you unblock).**
+- **CART-MODEL-1** — Blender cart / 2nd UV; unblocks Pattern customize UI.
+- **HIT-SFX-VAR-1** — blocked on new hit clips from you.
+- **Announcer re-records** `[SHIP-1 E3]`
+- **Bloom look sign-off** (Classic/Sundial) — criteria from ART-FILTER / ART-EXPO.
+- **Wilting-groceries Defeat screen look** — art-direction call before code.
+- **SKYBOX-DIR-1** — keep / cut / re-author the space skybox.
+- **CARGO-BAY-INSTANCE-1 stability call** — is cargo-bay fill pattern frozen enough to instance?
+- **SHIP-1 D-tier** — cut persistent leaderboard from launch, or schedule its own phase. Decide once; deciding late is the only wrong option.
 
-**Block C — perf program (CLOSED 08-06).** Re-ordered 08-05; null arm shipped 08-06.
-**PERF-PASS-1 ✅ CLOSED 08-06 — bar not met, deliberate close.** Wave 5 cells on the Intel box:
-`billboardlights` null (−0.13 ms, not a lever), `recordbody` unproven (+7.8 ms, CPU 9→24 ms —
-polluted/throttled cell), `stadium` needed → kept. Only shipped lever remains Wave 4
-`arenaFillLights` (−1.66 to −2.54 ms). **PERF-9CELL-1 sweep is moot with the parent closed.** Before
-any ablate ranking on `perf-profile`, re-run `--null` on that machine/adapter.
+**Block 4 — PERF RESIDUAL (measure-first / instrument; not a reopen of PERF-PASS-1).**
+1. **CARGO-BAY-INSTANCE-1** — after Block 3 stability call; up to 120 draw calls from cargo bays.
+2. **PROBE-WARM-RT-1** — instrument first; VFX program-key / RT-variant miss.
+3. **WARM-SOLO-1** — only on real weak-GPU telemetry.
+4. **NET-RING-1** — decode-ring reject counters first.
+5. **PERF-WATCH-1** — auto-quality step-up path decision.
+6. **PERF-TIER-1** — `high-lite` rung (1660 Ti vs 4090 split).
+7. **PERF-RENDERINFO-1** — capture `renderer.info` in F8 / perf-profile snapshots.
+8. **Customize screen performance pass** *(pre-ship 07-19)* — measure before tuning.
+9. **NET-PERF-1** residual / **NET-PERF-3** — only if F8 still shows rubber-band / alloc pressure.
 
-**Block D — Wyatt-parallel (off the agent queue, any time):** CART-MODEL-1 (absorbs ART-MAT-1;
-unblocks Pattern UI C3 via the 2nd UV channel — the single biggest unblocker Wyatt owns) ·
-HIT-SFX-VAR-1 clips + announcer re-records (HIT-SFX-VAR-1 is **blocked on Wyatt providing clips**,
-nothing else) · bloom sign-off (after B#4) · SKYBOX-DIR-1 call · Defeat-screen look call ·
-owed playtests as they seed.
+**Block 5 — SWEEP (cheap Lows; one commit each).** Schedule against a quiet window; items that need a look end with you in-game.
+1. **CAPTURE-RING-LIMIT-1** — rate limit vs ring depth mismatch (desk/product call on which side moves).
+2. **CART-FORK-SWIVEL-1** — verify by steering in a live match (attract path does not exercise caster).
+3. **BOOTH-RAIL-COL-1** — Storerooms booth rails visual-only (posts only if picked up).
+4. **SUNDIAL-LOW-WATER-1** — Low still skips ocean normal; check cost on Intel min-spec box.
+5. **Main-menu SFX slider** `[SHIP-1 E3]`
+6. **STATES-DEAD-1** residual subjects (`.cr-level-btn`, bare `a`/`select`/`[role=button]`).
+7. **UI-SCALE-P2-MEDIA-1** — Pass 2 media-query cleanup; re-check phone per file.
+8. **ORIENT-HINT-SCROLL-1** — landscape stacked column + portrait-hint clip.
+9. Opportunistic Low neighbors when idle: **MOTION-A11Y-1** (needs definition of done first) · **CARGO-LATCH-1** · **COUNTDOWN-QUICKPLAY-1** · **countdown survives menu return**.
 
-**Launch-day checks (cannot be done before the public post — carry these into the ceremony):**
-- **SHARD-PT-2** — the 5th concurrent human overflows onto `quickplay2` instead of "couldn't join".
-  Deferred 08-05: it needs five real humans. Rig-proven 5/5 in real browsers, and SHARD-PT-1 passed
-  on prod, so the residual risk is *live infrastructure under real concurrency*, not the mechanism.
-  First real moment it can be observed is the public post. **Read it from analytics rather than
-  trying to catch it live:** `quickplay_shard_assigned { shard, hops }` answers it in aggregate with
-  no coordination — any row with `hops > 0` is an overflow that worked, and any `shard` other than
-  `quickplay` means a real player was seated past the old four-human ceiling. Zero rows past shard 1
-  means the cap was never reached, which is not a failure and not evidence either way.
+**Block 6 — LAUNCH DAY (cannot close before the public post).**
+- **SHARD-PT-2** — 5th concurrent Quickplay human overflows to `quickplay2` instead of "couldn't join". Rig-proven 5/5; prefer analytics (`quickplay_shard_assigned` with `hops > 0` or non-default shard). Not a FAIL for lack of five people before launch day.
 
-**Block E — ship-gate decision Wyatt must make once:** SHIP-1's **D tier (TRUST-1 → persistent
-leaderboard)** is formally pre-ship but is ~a week of work the audit's two-week frame did not
-schedule. Either cut D from the launch gate (leaderboard ships post-launch) or schedule it as
-its own phase — deciding late is the only wrong option.
-
-**Block F — sweep-day batch (Lows, one commit each).** **Re-ranked 08-06 by what the card costs
-*Wyatt*, not by what it costs the agent** — the 08-05 order mixed desk-only corrections with cards
-that cannot close without him driving the game, so a "sweep day" of eight would have stalled on the
-first one that needed his eyes. Two tiers now:
-
-**F1 — desk-only (no playtest, verdict is in the diff or the test run). ✅ CLOSED 08-06 — all
-five landed as five separate commits, writeups in [completed-work.md](./completed-work.md).**
-1. ~~**MONTAGE-ESC-1**~~ — ✅ **CLOSED 08-06** (`d6cba84`).
-2. ~~**RAPIER-DEFAULT-MAX-1**~~ — ✅ **CLOSED 08-06** (`2b70201`).
-3. ~~**STATES-DEAD-1 + KBM-TOAST-1**~~ — ✅ **KBM-TOAST-1 CLOSED, STATES-DEAD-1 subjects (1)+(2)
-   CLOSED 08-06** (`38f4472`); STATES-DEAD-1's other four subjects stay open under its own row.
-4. ~~**SPINDLE-COLOR-DEAD-1**~~ — ✅ **CLOSED 08-06** (`316b017`).
-5. ~~**RESULTS-GLOW-1**~~ — ✅ **CLOSED 08-06** (`5fba34f`), documented-no-change.
-
-**F2 — needs a look (each one ends with Wyatt in the game or on a specific box). Schedule these
-against a playtest, not against a sweep day.** BOOTH-RAIL-COL-1 (physics feel on the booth rails) ·
-SUNDIAL-LOW-WATER-1 (costs a check on the Intel box, which is the min-spec floor) ·
-CART-FORK-SWIVEL-1 (**verify by steering in a live match** — the attract capture path never
-exercises caster swivel) · main-menu SFX slider (he judges at sfx ≈ 0.08).
-
-**Deliberately not in F, though they are Low:** UI-SCALE-P2-MEDIA-1 (touches the phone rules that
-just playtest-PASSed — its own card with its own re-check per file) · MOTION-A11Y-1 (has no
-definition of done yet — which motions, how much) · AQ-RING-CLEAR-1 (reserve, trigger-gated) ·
-PERF-RENDERINFO-1 (instrument that belongs with a Block C measurement, not a sweep) ·
-LOAD-TIPS-1 and CHUNK-MEMBER-1 (already seated in Block B at #8 and #12).
-
-**Block G — tooling-window batch (`tools/`/hooks frozen during game cards — run when no game card
-is active).** Ordered 08-05 by what each one prevents from recurring — the two cards that stopped
-the *next* playtest export from repeating the two failures this queue had already paid for (a
-multi-issue card hiding a real defect inside a green PASS, and an owed card shipped with no
-runnable steps, which is exactly how PERF-9CELL-1 FAILed on 08-05): **PT-CARD-SPLIT-1 ✅ CLOSED
-08-06** and **PT-CONSOLE-READY-1 ✅ CLOSED 08-06** (writeups in
-[completed-work.md](./completed-work.md)). **HARNESS-NULL-1 ✅ CLOSED 08-06**. **HOOK-COMMENT-1
-✅ CLOSED 08-06** (one-line stale comment) · **CC-ESC-1 ✅ CLOSED 08-06**. **HARNESS-FRIENDS-1 ✅
-CLOSED 08-06** and **HARNESS-FREEZE-1 ✅ CLOSED 08-06** — same `netharness.mjs` scenario lane, one
-tooling commit each (writeups in [completed-work.md](./completed-work.md)). **Block G tooling
-batch is now fully drained.** **ARCH-DRIFT-1 removed — closed**, shipped `91b39aa`.
-
-**Block H — principal-engineering audit batch (08-07, 15 items).** Filed from a full 8-dimension
-audit (physics, netcode, perf, input, architecture, security, UX, testing/docs) run against
-`cart-clash` @ `e4399f2` — 0 Critical, 1 High, 12 Medium, 3 Low, every finding file:line cited and
-the highest-stakes ones independently re-verified before filing. Three docs findings from the
-same audit were fixed directly rather than filed as cards (agent-manual.md's stale `main.js` size
-claim in two spots, STATUS.md's stale `__cartRavePerf` gotcha line-ref, README.md's undercounted
-qa-gate step list) since they needed no ack — a doc's own facts don't need a wave. Card content lives in the Engineering / UI-UX department tables below; this
-index is order only, same convention as A-G. **Sub-batched by what the fix costs, not by finding
-severity alone** — same reasoning Block F used.
-
-**H1 — correctness (7 items, all S/M effort, land as their own commits). 5/7 landed 08-07,
-unpushed-to-prod desk-only fixes — no playtest owed (GAMEPAD-LOBBY-1 deployed and PASSed its playtest;
-HOLE-FRICTION-COMBINE-1 remains). Writeup:
-[completed-work.md](./completed-work.md).**
-1. **GAMEPAD-LOBBY-1** — ✅ **CLOSED PASS 08-07.** The Friends-lobby controller path passed its
-   two-PC playtest; its writeup is in completed-work.md.
-2. ~~**FREEZE-TELEMETRY-1**~~ — ✅ **CLOSED 08-07** (`5469880`). Cheap, and directly serves this
-   phase's own mission ("prove residuals") by making the open host-freeze issue visible past
-   Wyatt's own `?diag=1` rig.
-3. ~~**CONNSTATE-REFLIP-1**~~ — ✅ **CLOSED 08-07** (`3475478`). Regression of an already-shipped
-   fix (cap-220/221); restoring known-correct behavior outranked new work.
-4. ~~**SIM-CALLBACK-FREEZE-1**~~ — ✅ **CLOSED 08-07** (`cae4a35`). Narrow fix, broad reach:
-   every non-host session's environment-contact feel is affected.
-5. ~~**LASTHITBY-MUTATE-1**~~ — ✅ **CLOSED 08-07** (`f5a8420`). Quick win, was latent, closed
-   before it stopped being latent.
-6. **HOLE-FRICTION-COMBINE-1** — mechanical fix is small but the friction feel is tuned and
-   played-in; sequence after the pure-mechanical items above so it can get its own playtest
-   attention rather than riding a batch.
-7. ~~**RAM-CONTACT-STALE-1**~~ — ✅ **CLOSED 08-07** (`5257294`, +`8af97f4` encoding fix). Real
-   but narrow-trigger; last in H1 because nothing else depends on it.
-
-**H2 — perf + remaining gamepad gaps (5 items). 3/5 landed 08-07 (desk-only):**
-1. ~~**CROWD-INSTANCE-RANGE-1**~~ — ✅ **CLOSED 08-07** (`1bca251`). Answers PERF-PASS-1's unmet bar
-   with a fresh, unexploited lever (not a reopen — that card is closed). Led H2 on expected impact.
-2. **CARGO-BAY-INSTANCE-1** — larger perf win but flagged risk (recently-tuned visuals per the
-   code's own comments) — confirm stability with Wyatt before starting; see Open Questions below.
-3. ~~**PODIUM-FOCUS-1**~~ — ✅ **CLOSED 08-07** (`2faa829`). Prevents an accidental room-leave; cheap.
-4. **ARENA-BUMPER-HINT-1** — needs a product call (wire the bumpers or drop the hint) before
-   either direction is code.
-5. ~~**PAUSE-CTRL-CHART-1**~~ — ✅ **CLOSED 08-07** (`414afe6`). Cosmetic-correctness only; last
-   because nothing blocks on it.
-
-**H3 — polish (3 items, pick up opportunistically). 2/3 landed 08-07 (desk-only):**
-1. ~~**SD-SPECTATOR-WIRE-1**~~ — ✅ **CLOSED 08-07** (`ba061c6`). Narrow trigger (3+-way SD tie +
-   elimination + migration).
-2. ~~**REMATCH-NULLGUARD-1**~~ — ✅ **CLOSED 08-07** (`5d24436`). Quick win, already caught safely
-   by the step-error tripwire.
-3. **CAPTURE-RING-LIMIT-1** — evidence-integrity hygiene, not player-facing.
-
-**Open questions before H2#2 (CARGO-BAY-INSTANCE-1) starts:** is the cargo-bay rendering approach
-stable enough to refactor, or still under active visual tuning? **Before H2#4** (ARENA-BUMPER-HINT-1):
-is bumper arena-paging actually planned, or should the hint copy just drop LB/RB? Both are Wyatt
-calls, not engineering ones.
-
-**Do not pick (blocked / trigger-gated / post-launch):** WARM-SOLO-1 (needs real weak-GPU
-telemetry) · PROBE-WARM-RT-1 / NET-RING-1 (instrument-first, live inside Block C) ·
-CARGO-LATCH-1 · COUNTDOWN-QUICKPLAY-1 · NET-PERF-1/3 · SHADOW-HAZARD-SEAM-1 (trigger: next
-arena) · structuredClone serializer (profile first) · Customize perf pass (measure first) ·
-countdown-survives-menu-return · STORE-1 · DIR-1 · GLTF-1 ·
-DUAL-1 · TS-1 · TOOL-1 · Vite chunk hint · ART-PALETTE-1 · CLAD-REPEAT-1 · LOD-PITRING-1 ·
-SHELF-RAIL-1 · sunglasses materials (E2, with an art wave) · asset filename rebrand · taste-gated
-Design rows · BRAND-1 (ship ceremony) · Future Ideas.
+**Block 7 — LATER (post-launch / parked / do not pick now).**
+- **TRUST-1** → persistent leaderboard / player stats `[SHIP-1 D]` (only if Block 3 keeps D in scope).
+- **BRAND-1** — domain / rebrand ceremony (frozen until ship).
+- Trigger-gated / instrument-gated: **SHADOW-HAZARD-SEAM-1** (next arena) · **AQ-RING-CLEAR-1** (reserve) · **PERF-9CELL-1** (parked with closed parent).
+- Structure debt after multiplayer is proven: **STORE-1** · **DIR-1** · **GLTF-1** · **DUAL-1** · **TS-1** · **TOOL-1** · Vite chunk hint · **BACKLOG-GATE-2**.
+- Art/background Lows: **CLAD-REPEAT-1** · **LOD-PITRING-1** · **SHELF-RAIL-1** · **ART-PALETTE-1** · sunglasses materials · asset filename rebrand · **ART-LUMA-TOOL-1**.
+- Taste-gated Design / Future Ideas rows — only on new evidence or explicit pull-forward.
+- **SHIP-1** living checklist row stays as the ship-doc pointer until ship.
 
 ---
-
 ## Engineering
 
 | Pri | Item | Notes |
@@ -407,7 +266,6 @@ Design rows · BRAND-1 (ship ceremony) · Future Ideas.
 
 | Pri | Item | Notes |
 |-----|------|-------|
-| High | AI-ARENA-SELFKO-1 — Sundial + Storerooms unforced bot falls | **Acked 08-07.** Pattern = Classic TTE + boost-line abort. **L1 Sundial:** TTE on `applyOctagonRimAvoidance` + null-safe `boostSegmentExitsOctagon` (margin 1.25, bot→target). **L2 Storerooms:** radial-from-hole gutter 0.15 when diving + lip ~0.55; `NPC_BOOST_SQUARE_HOLE_MARGIN` ~0.6 only (chase stays 0.04). Do **not** retune FEEL-DAY / AI-DAY / SELFKO-1. Host-sim NPCs in Friends/Quickplay get the same safety (intended). **PT:** ARENA-SELFKO-PT-1 (Sundial rim contest + fewer water falls) · ARENA-SELFKO-PT-2 (Storerooms voids). Rim-camper fail → dial abort margin 1.0→1.25→1.5 before touching TTE. |
 | Medium | NPC-BOOST-1 — NPCs feel like they boost "better" than players | **Filed 08-04 from external playtester perception.** Not yet measured — do not retune knobs on vibes. **Known asymmetry by design:** humans use charge-release nitro (`boostCharge` 1.5s to full, then burst) while NPCs fire **instant** boost (`triggerRamBoost` `{ instant: true }`, [main.js:4388](../../src/main.js:4388) / [config.js:164](../../src/config.js:164)) so bots never freeze charging in traffic. Shared caps: same `durationSec` / `boostedMaxSpeed` / cooldown family; NPCs also get aim-cone + range gates and solo rubberband nitro mul. Hard difficulty tightens aim (`boostAlignmentAngleDegDelta: -12`). **Why a tester can still feel "bots better":** zero charge tax, opportunistic auto-fire when aimed, gold/charged trail language only on human full-charge release (so NPC boosts look "cleaner"/more frequent). **Method before code:** Solo Medium/Hard, note human charge delay vs bot instant windows; if still unfair after knowing the design, options are (a) short NPC wind-up, (b) slightly lower NPC boostedMaxSpeed/accel, (c) looser player charge (`boostChargeTimeMs`), (d) leave it and teach charge in ONBOARD-SLIDES-1. Related: closed HIT-FEEL-1 / AI-DIFF-1. |
 | Medium | Taste-tuning follow-ups from Pass 4 | Only reopen with playtest evidence (D-GP4-1). |
 | Medium | Clutch slow-mo (Pass 5 deferral) | Taste-gated. |
@@ -592,4 +450,5 @@ CONNSTATE-REFLIP-1, LASTHITBY-MUTATE-1, FREEZE-TELEMETRY-1,
 SIM-CALLBACK-FREEZE-1, REMATCH-NULLGUARD-1, CROWD-INSTANCE-RANGE-1, RAM-CONTACT-STALE-1,
 NET-P2P-DIAG-1, SD-SPECTATOR-WIRE-1, ART-EXPO-DUMP-1, ONBOARD-SCROLL-1,
 RESULTS-CRAMP-1, RESULTS-UNLOCK-TOAST-1, PODIUM-FOCUS-1, PAUSE-CTRL-CHART-1.
-COLOR-ID-1, COMBAT-READ-1, GAMEPAD-LOBBY-1, PACE-KO-1.
+COLOR-ID-1, COMBAT-READ-1, GAMEPAD-LOBBY-1, PACE-KO-1,
+AI-ARENA-SELFKO-1, ARENA-SELFKO-PT-1, ARENA-SELFKO-PT-2.

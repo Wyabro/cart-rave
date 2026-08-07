@@ -13,6 +13,20 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 7, 2026 — AI-ARENA-SELFKO-1: Sundial + Storerooms unforced bot falls — PASS closed
+
+- *(Design/Gameplay · High)* **AI-ARENA-SELFKO-1** — ✅ **CLOSED PASS 08-07** (`9b2e374` · `fdd47a0`).
+  Classic-style self-KO stack ported to the two arenas that still lost bots unforced.
+  **L1 Sundial:** TTE panic on `computeOctagonRimStrength` / `applyOctagonRimAvoidance` (max with
+  static band, not sum) + null-safe `boostSegmentExitsOctagon` (margin 1.25, bot→target) in
+  opportunistic NPC boost. Units: [octagonRimSafety.test.js](../../tests/octagonRimSafety.test.js).
+  **L2 Storerooms:** `applySquareHoleAvoidance` takes linvel; radial-from-hole with gutter radial
+  0.15 only when diving, lip radial 0.60; opportunistic boost hole margin 0.6 (chase stays 0.04).
+  Did **not** retune FEEL-DAY / AI-DAY / AI-DAY-SELFKO-1. Host-sim NPCs in Friends/Quickplay share
+  the same path (intended). **PT:** ARENA-SELFKO-PT-1 · ARENA-SELFKO-PT-2 — Wyatt PASS 08-07.
+
+---
+
 ### August 7, 2026 — Playtest export: four cards passed
 
 Wyatt's export recorded **4 PASS / 0 FAIL / 1 SKIP**. The four PASS cards are closed; SHARD-PT-2 remains deferred to launch day.

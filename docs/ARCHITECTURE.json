@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-07T21:38:29.782Z",
-    "commit": "2998f46"
+    "at": "2026-08-07T22:32:56.033Z",
+    "commit": "0e75d05"
   },
-  "source_digest": "e82e81d7",
+  "source_digest": "60d7e037",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1182,17 +1182,10 @@
       {
         "title": "Design / Gameplay",
         "counts": {
-          "High": 1,
           "Medium": 3,
           "Low": 6
         },
         "rows": [
-          {
-            "pri": "High",
-            "item": "AI-ARENA-SELFKO-1 — Sundial + Storerooms unforced bot falls",
-            "notes": "**Acked 08-07.** Pattern = Classic TTE + boost-line abort. **L1 Sundial:** TTE on `applyOctagonRimAvoidance` + null-safe `boostSegmentExitsOctagon` (margin 1.25, bot→target). **L2 Storerooms:** radial-from-hole gutter 0.15 when diving + lip ~0.55; `NPC_BOOST_SQUARE_HOLE_MARGIN` ~0.6 only (chase stays 0.04). Do **not** retune FEEL-DAY / AI-DAY / SELFKO-1. Host-sim NPCs in Friends/Quickplay get the same safety (intended). **PT:** ARENA-SELFKO-PT-1 (Sundial rim contest + fewer water falls) · ARENA-SELFKO-PT-2 (Storerooms voids). Rim-camper fail → dial abort margin 1.0→1.25→1.5 before touching TTE.",
-            "ship1": null
-          },
           {
             "pri": "Medium",
             "item": "NPC-BOOST-1 — NPCs feel like they boost \"better\" than players",
