@@ -22,6 +22,7 @@ import { tickBlackFrameMonitor } from "./utils/blackFrameMonitor.js";
 import { frameBudgetAllow } from "./utils/frameBudget.js";
 import { isComposerBypassActive } from "./scene.js";
 import { mark } from "./utils/perfSpans.js";
+import { resetRendererInfoFrame } from "./utils/rendererInfo.js";
 
 
 /** Last round phase seen by results overlay — used to hide overlay once when leaving podium. */
@@ -538,6 +539,11 @@ export function updateVisualsAndEffects(deps, frameCtx) {
   // * the freeze to `render.roundStart` instead of the usual "unknown|window". The common
   // * path (counter drained) stays the bare, closure-free render() it always was — the
   // * probe branch allocates a closure only for those first N frames, never during play.
+  // * PERF-RENDERINFO-1: once-per-frame render-info reset at the visual seam, immediately
+  // * before the first pass of the render chain. With info.autoReset = false (setRendererRef
+  // * in scene.js) info.render.{calls,triangles} accumulate across every pass of the frame
+  // * and reset here at the next frame, so an F8 read mid-frame sees a whole frame's cost.
+  resetRendererInfoFrame();
   if (_roundStartRenderFrames > 0) {
     _roundStartRenderFrames -= 1;
     mark("render.roundStart", () => {

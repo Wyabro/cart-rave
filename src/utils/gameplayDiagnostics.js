@@ -25,6 +25,7 @@ import { registerDiagProbe, recordDiagEvent } from "./diagnostics.js";
 import { getLongTaskStats } from "./longTaskProbe.js";
 import { getSessionRenderScaleMul } from "./qualityTiers.js";
 import { readBootTimeline } from "./bootTimeline.js";
+import { readRendererInfo } from "./rendererInfo.js";
 import { isLegalPhaseTransition } from "./invariants.js";
 import { gameStore, RoundPhase } from "../stores/gameStore.js";
 import { unlockStore, isLevelUnlocked, getLevelUnlockStatus } from "../stores/unlockStore.js";
@@ -230,21 +231,23 @@ function registerProbes(deps) {
   // * Live GPU/audio resource counts — the leak-sentinel read. Every past leak in this
   // * codebase (suction rings, boost rings, countdown pulse, VFX dispose) would have shown
   // * up as one of these counters growing across rematch cycles; the gameharness `soak`
-  // * scenario asserts exactly that. renderer/scene arrive via the DEV-only __cartRavePerf
-  // * probe (scene.js/main.js), so fields degrade to null in prod builds — documented.
+  // * scenario asserts exactly that. PERF-RENDERINFO-1: renderer.info now reads via the
+  // * prod-safe module ref (setRendererRef in scene.js), so memory/programs are live in
+  // * prod captures too — previously null because __cartRavePerf.renderer is DEV-only.
+  // * sceneNodes still comes from __cartRavePerf.scene (DEV-only; main.js assembles it).
   registerDiagProbe("resources", () => {
     const w = /** @type {any} */ (window);
     const perf = w.__cartRavePerf;
-    const info = perf?.renderer?.info;
+    const info = readRendererInfo();
     let sceneNodes = null;
     if (perf?.scene) {
       sceneNodes = 0;
       safeCall(() => perf.scene.traverse(() => { sceneNodes += 1; }));
     }
     return {
-      geometries: info?.memory?.geometries ?? null,
-      textures: info?.memory?.textures ?? null,
-      programs: info?.programs?.length ?? null,
+      geometries: info?.geometries ?? null,
+      textures: info?.textures ?? null,
+      programs: info?.programs ?? null,
       sceneNodes,
       howls: safeCall(() => /** @type {any} */ (Howler)?._howls?.length) ?? null,
       heapMB: safeCall(() => {
@@ -367,7 +370,24 @@ function registerProbes(deps) {
 const ROUND_WINDOW_MAX = 8;
 /** @type {Array<Record<string, unknown>>} */
 let perfRoundWindows = [];
-/** @type {{ start: Record<string, number>, startedAtMs: number, levelId: unknown, mode: unknown, isHost: boolean, tier0: unknown, rsm0: unknown } | null} */
+/**
+ * @typedef {object} RendererWindowStats Per-frame renderer.info accumulators (PERF-RENDERINFO-1).
+ * @property {number} samples Number of per-frame samples folded into the window.
+ * @property {{ calls: number, triangles: number }} sum Sum of raw per-frame samples (mean = sum / samples).
+ * @property {{ calls: number, triangles: number }} max Largest raw per-frame sample.
+ */
+/**
+ * @typedef {object} PerfWindowOpen
+ * @property {Record<string, number>} start
+ * @property {number} startedAtMs
+ * @property {unknown} levelId
+ * @property {unknown} mode
+ * @property {boolean} isHost
+ * @property {unknown} tier0
+ * @property {unknown} rsm0
+ * @property {RendererWindowStats} renderer
+ */
+/** @type {PerfWindowOpen | null} */
 let perfWindowOpen = null;
 
 /** @param {number} n @param {number} [places] */
@@ -417,6 +437,10 @@ function summarizePerfWindow(open) {
   const cpuMeanMs = (simMs + visMs) / timed;
   const tier1 = safeCall(() => getQualityTier()) ?? null;
   const rsm1 = safeCall(() => getSessionRenderScaleMul()) ?? null;
+  // * PERF-RENDERINFO-1: at-summarize renderer.info snapshot (memory counters are
+  // * first-render ratchets, so "current" ≈ the window max).
+  const ri = readRendererInfo();
+  const renderSamples = open.renderer?.samples ?? 0;
   return {
     levelId: open.levelId,
     mode: open.mode,
@@ -444,6 +468,17 @@ function summarizePerfWindow(open) {
     // * `?preset=` disables the watchdog, so this should never be true under the measurement
     // * protocol — it is here to catch a protocol slip, not to be relied on.
     straddledDemotion: open.tier0 !== tier1 || open.rsm0 !== rsm1,
+    // * PERF-RENDERINFO-1: per-frame GPU cost (draw calls / triangles) over the window,
+    // * folded by the per-frame renderer sampler while the window was open. Null when the
+    // * renderer ref was never set or no frame was sampled. programs/geometries/textures
+    // * are the at-summarize snapshot (monotone ratchets, so ≈ window max).
+    callsMax: renderSamples > 0 ? open.renderer.max.calls : null,
+    callsMean: renderSamples > 0 ? roundTo(open.renderer.sum.calls / renderSamples) : null,
+    trianglesMax: renderSamples > 0 ? open.renderer.max.triangles : null,
+    trianglesMean: renderSamples > 0 ? roundTo(open.renderer.sum.triangles / renderSamples) : null,
+    programs: ri?.programs ?? null,
+    geometries: ri?.geometries ?? null,
+    textures: ri?.textures ?? null,
     pass: meanMs <= 16.7,
   };
 }
@@ -463,12 +498,54 @@ function openPerfRoundWindow(deps) {
     isHost: Boolean(safeCall(() => getIsHost())),
     tier0: safeCall(() => getQualityTier()) ?? null,
     rsm0: safeCall(() => getSessionRenderScaleMul()) ?? null,
+    renderer: { samples: 0, sum: { calls: 0, triangles: 0 }, max: { calls: 0, triangles: 0 } },
   };
+  startRendererSampler();
+}
+
+// ————— PERF-RENDERINFO-1: per-frame renderer.info sampler —————
+// * info.render.{calls,triangles} are PER-FRAME counts: setRendererRef (scene.js) disables
+// * info.autoReset and frameVisuals zeroes them once per frame at the visual seam, so each
+// * read is the current frame's accumulated render cost. The sampler folds every frame's
+// * read into the open window's max + sum (mean = sum / samples). rAF ordering keeps it
+// * behind the game's render: the game loop registered its callback at boot, before ?diag
+// * installs this module, so it always runs first and the sampler reads a completed frame.
+let rendererSamplerRaf = null;
+
+/** @param {PerfWindowOpen} open */
+function sampleRendererWindow(open) {
+  const s = readRendererInfo();
+  if (!s) return;
+  open.renderer.samples += 1;
+  open.renderer.sum.calls += s.calls;
+  open.renderer.sum.triangles += s.triangles;
+  if (s.calls > open.renderer.max.calls) open.renderer.max.calls = s.calls;
+  if (s.triangles > open.renderer.max.triangles) open.renderer.max.triangles = s.triangles;
+}
+
+function startRendererSampler() {
+  if (rendererSamplerRaf !== null) return;
+  if (typeof requestAnimationFrame === "undefined") return;
+  const tick = () => {
+    rendererSamplerRaf = null;
+    if (!perfWindowOpen) return;
+    sampleRendererWindow(perfWindowOpen);
+    rendererSamplerRaf = requestAnimationFrame(tick);
+  };
+  rendererSamplerRaf = requestAnimationFrame(tick);
+}
+
+function stopRendererSampler() {
+  if (rendererSamplerRaf !== null) {
+    cancelAnimationFrame(rendererSamplerRaf);
+    rendererSamplerRaf = null;
+  }
 }
 
 function closePerfRoundWindow() {
   const record = summarizePerfWindow(perfWindowOpen);
   perfWindowOpen = null;
+  stopRendererSampler();
   if (!record) return;
   perfRoundWindows.push(record);
   while (perfRoundWindows.length > ROUND_WINDOW_MAX) perfRoundWindows.shift();
@@ -482,6 +559,7 @@ function closePerfRoundWindow() {
 export function __resetPerfRoundWindowsForTest() {
   perfRoundWindows = [];
   perfWindowOpen = null;
+  stopRendererSampler();
 }
 
 /**

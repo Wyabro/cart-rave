@@ -15,6 +15,7 @@ import { classifyGpuRendererString, probeGpu, readRendererString } from "./utils
 import { recordDiagEvent } from "./utils/diagnostics.js";
 import { mark } from "./utils/perfSpans.js";
 import { getDebugParams } from "./utils/debugParams.js";
+import { setRendererRef } from "./utils/rendererInfo.js";
 
 /**
  * Rebuilds UnrealBloomPass mip render targets to a given texture type and
@@ -966,6 +967,11 @@ export function createRenderer(canvas) {
   renderer.setClearColor(FOG_CONFIG.color, 1);
   applyRendererColorGrading(renderer);
   // * Contact grounding uses blob quads (contactShadows.js), not shadowMap — keeps GPU cost flat.
+  // * PERF-RENDERINFO-1: register the renderer ref unconditionally (prod + dev) so the F8
+  // * diagnostics overlay reads renderer.info in production too — it used to be DEV-only via
+  // * __cartRavePerf. autoReset=false + the frameVisuals seam reset make info.render.*
+  // * accumulate a full frame across all passes.
+  setRendererRef(renderer);
   if (import.meta.env.DEV) {
     // * Dev-only perf probe: lets console tooling read renderer.info (draw calls, textures, programs).
     /** @type {any} */ (window).__cartRavePerf = { renderer };

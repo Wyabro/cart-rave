@@ -393,6 +393,7 @@ export const SYSTEMS = [
       "src/utils/invariants.js",
       "src/utils/longTaskProbe.js",
       "src/utils/perfSpans.js",
+      "src/utils/rendererInfo.js",
       "party/errorLog.ts",
       "party/analyticsLog.ts",
       "party/captureLog.ts",
