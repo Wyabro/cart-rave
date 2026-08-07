@@ -737,7 +737,7 @@ export function rematchResetWorld() {
     /* netcode may not be initialised in isolated unit tests */
   }
 
-  for (const cart of allCartsRef) {
+  for (const cart of allCartsRef || []) {
     if (!cart?.body) continue;
 
     // * Clear Sudden Death spectator state on every cart between rounds.
@@ -766,8 +766,8 @@ export function rematchResetWorld() {
   }
 
   const carts = [];
-  for (let slotIndex = 0; slotIndex < allCartsRef.length; slotIndex += 1) {
-    const c = allCartsRef[slotIndex];
+  for (let slotIndex = 0; slotIndex < (allCartsRef || []).length; slotIndex += 1) {
+    const c = (allCartsRef || [])[slotIndex];
     if (!c?.body) continue;
 
     const t = c.body.translation();
