@@ -231,6 +231,9 @@ export function bootGameSystems(ctx) {
     prepareLevelMusic,
     startLevelMusic,
     stopAllChargeSfx: () => refs.cart?.stopAllChargeSfx(),
+    // * ART-FILTER-1: level load clears any in-flight impact pulse so its captured base
+    // * cannot restore the previous arena's CRT over the freshly gated uniforms.
+    getImpactPulse: () => refs.cart?.getImpactPulse(),
   });
   refs.level = level;
 

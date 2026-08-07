@@ -568,7 +568,17 @@ const ArcadeFxShader = {
         color.rgb = mix(color.rgb, vec3(luma), staticMix * 0.35);
       }
 
-      float vig = smoothstep(0.8, 0.5 * uVignette, dist * (uVignette * 0.5 + 0.5));
+      // * ART-FILTER-1: uVignette == 0 does NOT mean "off" in the raw smoothstep — edge0
+      // * (0.8) is above edge1 (0.5 * uVignette) at every shipping value, so the reversed
+      // * interpolation keeps ~42% corner darkening even at 0. Fade the whole effect out
+      // * below 0.5 instead. vigOn saturates at uVignette >= 0.5, so the Storerooms config
+      // * (0.5), the shader default (1.2) and impact-pulse peaks are bit-identical to before;
+      // * only the gated-off arenas and a decaying pulse on a 0 base ride the ramp, which is
+      // * what keeps that decay from popping in its final frame.
+      float vigOn = clamp(uVignette * 2.0, 0.0, 1.0);
+      float vig = vigOn > 0.001
+        ? mix(1.0, smoothstep(0.8, 0.5 * uVignette, dist * (uVignette * 0.5 + 0.5)), vigOn)
+        : 1.0;
       color.rgb *= vig;
 
       // Kill-confirm flash — brief lift toward white, strongest at screen center.

@@ -71,6 +71,7 @@ const TEST_ARENA_FOG_DENSITY = 0.0032;
  * @param {() => boolean} deps.getMenuVisible
  * @param {() => Array<unknown> | null | undefined} deps.getAllCartsRef
  * @param {() => any} deps.getHud
+ * @param {() => { until: number, baseVignette: number | null, baseAberration: number | null } | undefined} [deps.getImpactPulse]
  * @param {() => { radius: number, height: number } | undefined} deps.resolveCinematicCountdownOverrides
  * @param {(levelId: string) => void} deps.prepareLevelMusic
  * @param {(levelId: string) => void} deps.startLevelMusic
@@ -237,6 +238,28 @@ export function createLevelOrchestration(deps) {
     renderer.toneMappingExposure =
       (CONFIG.postFx.toneMappingExposure ?? 1.0) *
       (CONFIG.postFx.arenaExposureMul?.[resolved] ?? 1);
+    // * ART-FILTER-1: the CRT layer (aberration/scanlines/vignette) is a per-arena device,
+    // * not a global veneer — identity in The Storerooms, noise everywhere else. Must write
+    // * an explicit 0 rather than skip the write: the shader's own uniform defaults are
+    // * non-zero, and createComposer seeds all three from the global config at boot.
+    if (arcadePass?.uniforms?.uAberration) {
+      const arcadeCfg = CONFIG.postFx.arcade;
+      const arcadeOn = resolved === "backrooms";
+      arcadePass.uniforms.uAberration.value = arcadeOn ? arcadeCfg.aberration : 0;
+      arcadePass.uniforms.uScanlineDensity.value = arcadeOn ? arcadeCfg.scanlineDensity : 0;
+      arcadePass.uniforms.uVignette.value = arcadeOn ? arcadeCfg.vignette : 0;
+      // ! A pulse still live across an arena swap would restore the OLD arena's vignette/
+      // ! aberration over the values just written (frameVisuals re-applies the captured base
+      // ! every frame until it decays), resurrecting the CRT on Classic/Sundial. Clearing
+      // ! `until` as well as the bases is required: with a future `until`, the next impact
+      // ! skips base capture entirely and its spike never renders.
+      const pulse = deps.getImpactPulse?.();
+      if (pulse) {
+        pulse.until = 0;
+        pulse.baseVignette = null;
+        pulse.baseAberration = null;
+      }
+    }
     // * VHS/security-cam layer rides the arcade pass; only The Storerooms turns it on.
     if (arcadePass?.uniforms?.uVhsAmount) {
       const vhsCfg = CONFIG.postFx.vhs;
