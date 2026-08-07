@@ -153,20 +153,23 @@ the dev loop (dev probes lie in prod · edge propagation · frozen `rAF`), or a 
 
 ## Last updated
 
-2026-08-07 (PACE-KO-1 code-ready; player check owed) — An attributed attacker now gets the
+2026-08-07 (PACE-KO-1 deployed `157bf81`; player check owed) — An attributed attacker now gets the
 existing KO hitmarker/sting/flash as the victim crosses the shared below-rim no-return marker;
 the per-arena fall depth, shatter/explosion, score, announcer, and respawn timing are unchanged.
 Host sends the presentation-only confirm over P2P; the later full KO remains the loss-safe
 fallback if that packet drops. Targeted 60/60 passes; the deferred bridge test first caught and
 then verified the required callback seam. Full QA/build/two-client verification and the three-arena
-player check remain before the card can close. No deploy without “ship it.”
+player check remain before the card can close. Worker `7ea75009-7068-44b8-b54d-4ac73f4d5cea` is
+live; production HTML + 16 referenced assets returned 0×404 and the deployed bundle contains
+`ko_confirm`.
 
-2026-08-07 (COMBAT-READ-1 code-ready; player check owed) — Critical KOs now amplify the existing
+2026-08-07 (COMBAT-READ-1 deployed `157bf81`; player check owed) — Critical KOs now amplify the existing
 arena flash + world hitmarker on every peer; normal/self KOs are unchanged. Targeted 50/50, full
 QA 7/7, production build, and two-client harness 6/6 PASSed. The first verification attempt found
 a partial dependency checkout (`.bin` + Workers pool missing); `npm install --ignore-scripts`
 restored it. Local Worker tests need sandbox escape because Wrangler writes under AppData. The only
-remaining evidence is the two-player player-visible check in BACKLOG; no deploy without “ship it.”
+remaining evidence is the two-player player-visible check in BACKLOG. Worker
+`7ea75009-7068-44b8-b54d-4ac73f4d5cea` is live under the same production verification.
 
 2026-08-05 (AGENT-OS-1 tooling) — Cold-start cut: `AGENTS.md` 7.6k → ~1.6k always-on tokens;
 depth in `docs/reference/agent-manual.md`. Tool routing: Grok ≡ Codex, Claude demoted. Pointers
