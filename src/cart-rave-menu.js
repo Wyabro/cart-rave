@@ -323,6 +323,7 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
   const howtoPosEl = $("cr-howto-pos");
   const howtoControlsEl = $("cr-howto-controls");
   const howtoPadEl = $("cr-howto-pad");
+  const howtoMenuBtn = root?.querySelector('[data-action="howto"]');
   const settingsMuteBtn = $("cr-settings-mute-btn");
   const settingsVolFill = $("cr-settings-vol-fill");
   const settingsVolVal = $("cr-settings-vol-val");
@@ -1220,6 +1221,7 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
     if (!howtoScreen) return;
     const phase = getRoundState().phase;
     if (phase === "running" || phase === "countdown") return;
+    clearHowToAttract();
     captureOverlayOpener();
     // * ONBOARD-FLAG-1: mark first-run onboarding seen HERE — the overlay is now committed to
     // * showing. It used to be written when the auto-open was merely ARMED, which meant any
@@ -1255,7 +1257,6 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
    *   twice: initMenu, then the boot-splash dismiss in loadingScreen.js).
    */
   function closeHowToScreen(opts) {
-    if (opts?.userDismissed) howtoAutoOpenArmed = false;
     if (!howtoScreen) return;
     if (document.activeElement instanceof HTMLElement) {
       document.activeElement.blur();
@@ -1297,53 +1298,22 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
     });
   }
 
-  /** @type {number|null} Pending first-run HOW TO PLAY auto-open timeout. */
-  let howtoAutoOpenTimeoutId = null;
-  /** True while the first-run auto-open should (re)fire on menu shows. */
-  let howtoAutoOpenArmed = false;
-  let firstMenuShowHandled = false;
-
   /**
-   * First-run onboarding: auto-opens the HOW TO PLAY overlay once, ever.
-   * Arms on the first menu show after boot — never on ?room= URLs
-   * (invite/rejoin flows), so lobby joins are not blocked by the overlay.
-   * Boot calls show() more than once (initMenu, then the boot-splash dismiss),
-   * so while armed each show() re-schedules the open; entering a match
-   * (hide()) or an explicit user dismissal disarms it for good.
+   * First-run onboarding: attract toward HOW TO PLAY without interrupting the menu.
+   * Re-evaluate on every menu presentation: invite/rejoin URLs never attract, while
+   * a quit-to-menu presentation can attract once its room param has been stripped.
    *
-   * ONBOARD-FLAG-1: arming deliberately writes NOTHING. `howtoSeen` is stamped by
-   * openHowToScreen() once the overlay is actually committed to showing — arming is
-   * only an intent, and a flag written here is a tutorial the player can lose unseen.
+   * ONBOARD-FLAG-1: attracting deliberately writes NOTHING. `howtoSeen` is stamped
+   * only by openHowToScreen() once the overlay is actually committed to showing.
    */
-  function maybeAutoOpenHowTo() {
-    if (!firstMenuShowHandled) {
-      firstMenuShowHandled = true;
-      if (storageGet(STORAGE_KEYS.howtoSeen)) return;
-      const roomParam = new URLSearchParams(window.location.search || "").get("room");
-      if (roomParam) return;
-      howtoAutoOpenArmed = true;
-    }
-    if (!howtoAutoOpenArmed) return;
-    // * Let the menu entrance settle before layering the overlay on top.
-    clearHowToAutoOpenTimeout();
-    howtoAutoOpenTimeoutId = window.setTimeout(() => {
-      howtoAutoOpenTimeoutId = null;
-      if (!howtoAutoOpenArmed) return;
-      if (menuHidden || root?.style.display === 'none') return;
-      openHowToScreen();
-    }, 600);
+  function applyHowToAttract() {
+    const roomParam = new URLSearchParams(window.location.search || "").get("room");
+    const shouldAttract = !storageGet(STORAGE_KEYS.howtoSeen) && !roomParam;
+    howtoMenuBtn?.classList.toggle("cr-cmd--howto-attract", shouldAttract);
   }
 
-  function disarmHowToAutoOpen() {
-    howtoAutoOpenArmed = false;
-    clearHowToAutoOpenTimeout();
-  }
-
-  function clearHowToAutoOpenTimeout() {
-    if (howtoAutoOpenTimeoutId != null) {
-      clearTimeout(howtoAutoOpenTimeoutId);
-      howtoAutoOpenTimeoutId = null;
-    }
+  function clearHowToAttract() {
+    howtoMenuBtn?.classList.remove("cr-cmd--howto-attract");
   }
 
   // ─── Challenges overlay screen ─────────────────────────────────────────────
@@ -1496,8 +1466,12 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
       settingsSfxFill.style.background = state.palette.secondary;
     }
     if (settingsSfxVal) settingsSfxVal.textContent = String(muted ? 'OFF' : sfxPct);
+    // * aria-valuenow is 0 while muted (screen reader: "off"). data-vol-pct keeps the
+    // * real stored level so ←/→ keyboard steps climb from that value, not from 0.
     settingsVolTrackEl?.setAttribute('aria-valuenow', String(muted ? 0 : pct));
+    settingsVolTrackEl?.setAttribute('data-vol-pct', String(pct));
     settingsSfxTrackEl?.setAttribute('aria-valuenow', String(muted ? 0 : sfxPct));
+    settingsSfxTrackEl?.setAttribute('data-vol-pct', String(sfxPct));
     if (!settingsMuteBtn) return;
     if (muted) {
       settingsMuteBtn.classList.add('muted');
@@ -1674,7 +1648,10 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
         : 0;
       if (!step) return;
       e.preventDefault();
-      const cur = Number(track.getAttribute('aria-valuenow') || 0) / 100;
+      // * Prefer data-vol-pct (real stored level) over aria-valuenow, which is 0 while muted.
+      const cur = Number(
+        track.getAttribute('data-vol-pct') || track.getAttribute('aria-valuenow') || 0,
+      ) / 100;
       applyRatio(cur + step);
     });
   }
@@ -1783,9 +1760,15 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
       muteBtn.style.setProperty('--mc', p.secondary);
       musicVolFill.style.background = p.secondary;
     }
-    // * Also refresh the Settings overlay fill so it stays in palette sync.
+    // * Settings overlay: MUSIC = primary, SFX = secondary (must match syncSettingsAudioUi).
+    // * Do not paint both fills secondary — that collapses the two rows into one accent.
     if (settingsVolFill) {
-      settingsVolFill.style.background = p.secondary;
+      settingsVolFill.style.background = p.primary;
+      settingsVolFill.closest('.cr-vol-row')?.style.setProperty('--vol-accent', p.primary);
+    }
+    if (settingsSfxFill) {
+      settingsSfxFill.style.background = p.secondary;
+      settingsSfxFill.closest('.cr-vol-row')?.style.setProperty('--vol-accent', p.secondary);
     }
 
     // Controls kbd colors
@@ -2574,7 +2557,7 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
     },
     hide() {
       stopMenuLoopsAndTimers();
-      disarmHowToAutoOpen();
+      clearHowToAttract();
       closeCustomizeScreen();
       closeHowToScreen();
       closeChallengesScreen();
@@ -2596,7 +2579,7 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
       wireAllMenuPressFeedback();
       playMenuEntrance();
       startMenuAnimations();
-      maybeAutoOpenHowTo();
+      applyHowToAttract();
     },
     /** Shows menu shell without entrance animation (quit-to-menu, post-bootstrap). */
     revealShell() {
@@ -2611,6 +2594,7 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
       updateChallengesBadge();
       wireAllMenuPressFeedback();
       startMenuAnimations();
+      applyHowToAttract();
     },
     wireMenuButton(btn, entranceOptions) {
       registerMenuButton(btn, entranceOptions);
