@@ -3692,8 +3692,11 @@ function maybeSamplePartyClock(msg) {
 /**
  * Compact kill-credit / combo tail for host migration (NET-MIG-1).
  * Ages are relative to host tHost so a new host can re-anchor to local now.
+ * `sds` names parked Sudden-Death spectator slots (SD-SPECTATOR-WIRE-1) so a
+ * promoted host restores the host-local flag instead of inferring it from
+ * scores/poses. It rides the JSON tail ΓÇö no binary format change.
  * @param {number} tHost
- * @returns {{ h: number[][], s: number[], c: number[][] } | null}
+ * @returns {{ h: number[][], s: number[], c: number[][], sds?: number[] } | null}
  */
 function buildAttributionWire(tHost) {
   const hitWindowMs = CONFIG.scoring?.hitWindowMs ?? 3000;
@@ -3728,6 +3731,8 @@ function buildAttributionWire(tHost) {
   const c = [];
   const allCarts = getAllCarts();
   const nowPerf = performance.now();
+  /** @type {number[]} */
+  const sds = [];
   if (allCarts) {
     for (let i = 0; i < allCarts.length; i += 1) {
       const cart = allCarts[i];
@@ -3737,15 +3742,25 @@ function buildAttributionWire(tHost) {
       if (remainMs <= 0) continue;
       c.push([i, tier, remainMs]);
     }
+    // * SD-SPECTATOR-WIRE-1: the host-local spectator flag must survive migration,
+    // * so the promoted host's copy of a parked cart does not re-fire as a fresh
+    // * "SUDDEN DEATH" fall the moment its body is re-enabled.
+    for (let i = 0; i < allCarts.length; i += 1) {
+      if (allCarts[i]?.isSuddenDeathSpectator) sds.push(i);
+    }
   }
 
-  if (h.length === 0 && c.length === 0 && s.every((v) => v === 0)) return null;
-  return { h, s, c };
+  // * Keep the tail alive on spectator-only ticks ΓÇö sds is the only thing the
+  // * promoted host needs even when every hit window / combo has closed.
+  if (h.length === 0 && c.length === 0 && s.every((v) => v === 0) && sds.length === 0) return null;
+  const wire = { h, s, c };
+  if (sds.length > 0) wire.sds = sds;
+  return wire;
 }
 
 /**
  * Restore open hits / scoring stamps / combos after host promotion.
- * @param {{ h?: unknown[], s?: unknown[], c?: unknown[] } | null} attr
+ * @param {{ h?: unknown[], s?: unknown[], c?: unknown[], sds?: unknown[] } | null} attr
  */
 function applyAttributionSnapshot(attr) {
   if (!attr || typeof attr !== "object") return;
@@ -3800,6 +3815,20 @@ function applyAttributionSnapshot(attr) {
       if (slot === localIdx) {
         GameState.setLocalCombo(tier, cart.comboExpiryMs);
       }
+    }
+  }
+
+  // * SD-SPECTATOR-WIRE-1: the host's migration tail names which carts are parked
+  // * Sudden Death spectators. Mark them so the fall-loop guard treats them as
+  // * inert after promotion ΓÇö without this a re-enabled remote body re-fires as a
+  // * phantom fall (feed row, shatter replay, announcer callout) on the next frame.
+  if (Array.isArray(attr.sds)) {
+    const allCarts = getAllCarts();
+    for (const slot of attr.sds) {
+      const idx = Number(slot) | 0;
+      if (!Number.isFinite(Number(slot)) || idx < 0 || idx > 3) continue;
+      const cart = allCarts?.[idx];
+      if (cart) cart.isSuddenDeathSpectator = true;
     }
   }
 }
