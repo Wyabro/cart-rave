@@ -23,9 +23,11 @@ function ringFor(levelId) {
 }
 
 describe("spawn ring per-level overrides", () => {
-  it("pushes Storerooms and Sundial spawns 0.75m further out", () => {
+  it("pushes Storerooms and Sundial spawns further out", () => {
     expect(CONFIG.booth.gapDistanceByLevel.backrooms).toBeCloseTo(2.25, 6);
-    expect(CONFIG.booth.gapDistanceByLevel.zanzibar).toBeCloseTo(2.25, 6);
+    // SPAWN-SUNDIAL-GAP-1: widened from 2.25 to 3.0 so carts can't wedge
+    // between booth legs and the platform edge.
+    expect(CONFIG.booth.gapDistanceByLevel.zanzibar).toBeCloseTo(3.0, 6);
 
     const base = computeSpawnRingRadius(CONFIG);
     expect(ringFor("backrooms")).toBeCloseTo(base + 0.75, 6);
@@ -40,7 +42,7 @@ describe("spawn ring per-level overrides", () => {
     // * Sundial overrides BOTH. The two must compose, not shadow each other.
     expect(CONFIG.record.radiusByLevel.zanzibar).toBeCloseTo(31.7, 6);
     const expected =
-      31.7 + 2.25 + CONFIG.booth.rampLength + CONFIG.booth.platformDepth / 2;
+      31.7 + 3.0 + CONFIG.booth.rampLength + CONFIG.booth.platformDepth / 2;
     expect(ringFor("zanzibar")).toBeCloseTo(expected, 6);
   });
 
