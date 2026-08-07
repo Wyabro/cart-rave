@@ -214,10 +214,7 @@ function nearestPresetForHue(hue) {
   let best = PALETTE[0];
   let bestDist = Infinity;
   for (const p of PRESET_HUES) {
-    const dist = Math.min(
-      Math.abs(target - p.hue),
-      360 - Math.abs(target - p.hue),
-    );
+    const dist = hueAngularDistance(target, p.hue);
     if (dist < bestDist) {
       bestDist = dist;
       best = p.id;
@@ -238,7 +235,6 @@ function normalizeCustomization(raw) {
   let pattern = DEFAULT_CART_PATTERN;
   let sunglassesStyle = DEFAULT_SUNGLASSES_STYLE;
 
-  let hasStoredCustomHue = false;
   if (raw && typeof raw === "object") {
     const obj = /** @type {Record<string, unknown>} */ (raw);
     if (typeof obj.pattern === "string") {
@@ -251,10 +247,8 @@ function normalizeCustomization(raw) {
     if (obj.colorMode === "custom") colorMode = "custom";
     if (typeof obj.customHue === "number" && Number.isFinite(obj.customHue)) {
       customHue = normalizeHue(obj.customHue);
-      hasStoredCustomHue = true;
     } else if (typeof obj.customHue === "string" && obj.customHue.trim() !== "") {
       customHue = normalizeHue(Number(obj.customHue));
-      hasStoredCustomHue = true;
     }
     if (typeof obj.color === "string") {
       if (obj.color === CUSTOM_COLOR_ID) {
@@ -320,6 +314,7 @@ export function loadPlayerCustomization() {
   const raw = storageGetJson(CUSTOMIZE_STORAGE_KEY, null);
   if (raw) {
     try {
+      // * Single clamp + normalize: unlock gate first, then canonical hex/css fields.
       loaded = normalizeCustomization(clampCustomizationToUnlocks(raw));
     } catch {}
   }
@@ -328,9 +323,6 @@ export function loadPlayerCustomization() {
     // * First visit: seed canonical key so menu and game share one write path.
     loaded = getDefaultCustomization();
     writeCustomizationToStorage(loaded);
-  } else {
-    // * Re-normalize after unlock clamp so hex/css stay consistent.
-    loaded = normalizeCustomization(clampCustomizationToUnlocks(loaded));
   }
 
   cachedCustomization = loaded;
@@ -508,6 +500,10 @@ function isLocalHumanSlot(slot, youConnId) {
  * @returns {number | null}
  */
 function normalizeLookHex(value) {
+  // * Number(null) === 0 and Number("") === 0 — reject those so a pre-cosmetic
+  // * human slot (lookHex: null after human→npc recycle) falls through to CART_COLORS
+  // * instead of painting pure black neon (0x000000).
+  if (value === null || value === undefined || value === "") return null;
   const n = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(n)) return null;
   return Math.floor(n) & 0xffffff;

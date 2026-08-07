@@ -13,10 +13,11 @@ import {
   loadPlayerCustomization,
   invalidateCustomizationCache,
   CUSTOM_COLOR_ID,
+  resolveCartNeonHex,
   resolveCartPatternForSlot,
   resolveCartSunglassesStyleForSlot,
 } from "../src/customization.js";
-import { PALETTE } from "../src/config.js";
+import { CART_COLORS, PALETTE } from "../src/config.js";
 import { DEFAULT_CART_PATTERN } from "../src/cartPatternConfig.js";
 import { DEFAULT_SUNGLASSES_STYLE } from "../src/cartThemeConfig.js";
 
@@ -80,6 +81,27 @@ describe("savePlayerCustomization partial saves", () => {
     const saved = loadPlayerCustomization();
     expect(saved.colorMode).toBe("preset");
     expect(saved.color).toBe(PALETTE[2]);
+  });
+});
+
+// lookHex: null must not coerce to 0x000000 (Number(null) === 0) — recycled human
+// seats leave lookHex null until color_pick arrives; fall through to CART_COLORS.
+describe("resolveCartNeonHex — null lookHex", () => {
+  it("falls through to palette color when remote human lookHex is null", () => {
+    const slot = { kind: "human", connId: "peer", color: "blue", lookHex: null };
+    expect(resolveCartNeonHex(slot, { youConnId: "me" })).toBe(CART_COLORS.blue.hex);
+  });
+
+  it("falls through when lookHex is absent or empty string", () => {
+    const absent = { kind: "human", connId: "peer", color: "green" };
+    const empty = { kind: "human", connId: "peer", color: "green", lookHex: "" };
+    expect(resolveCartNeonHex(absent, { youConnId: "me" })).toBe(CART_COLORS.green.hex);
+    expect(resolveCartNeonHex(empty, { youConnId: "me" })).toBe(CART_COLORS.green.hex);
+  });
+
+  it("still honors an explicit zero lookHex as pure black", () => {
+    const slot = { kind: "human", connId: "peer", color: "blue", lookHex: 0 };
+    expect(resolveCartNeonHex(slot, { youConnId: "me" })).toBe(0);
   });
 });
 

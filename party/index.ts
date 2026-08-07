@@ -192,6 +192,9 @@ export class CartRaveServer extends Server {
   }
 
   #normalizeLookHex(raw: unknown): number | null {
+    // * Number(null) === 0 / Number("") === 0 — reject so a missing look does not
+    // * stamp pure black (0x000000) onto the slot (mirrors client normalizeLookHex).
+    if (raw === null || raw === undefined || raw === "") return null;
     const n = typeof raw === "number" ? raw : Number(raw);
     if (!Number.isFinite(n)) return null;
     return Math.floor(n) & 0xffffff;
