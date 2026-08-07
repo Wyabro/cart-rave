@@ -217,11 +217,13 @@ const physics = {
 
   ramming: {
     minSpeed: 0.6, // m/s — minimum relative speed to score a hit
-    strength: 2.88, // unitless — collision impulse multiplier
-    maxImpulse: 200.0, // N·s — per-frame impulse clamp
+    // * FEEL-DAY-1: strength is mid-hit only — maxImpulse clamps base before boost mul.
+    strength: 3.15, // unitless — collision impulse multiplier
+    maxImpulse: 200.0, // N·s — per-frame impulse clamp (base only; boost mul is post-clamp)
     spreadSteps: 1, // count — fixed steps over which ram impulse is applied; 1 = full knockback on the next step (3 read as a hit→launch delay in playtests)
     alignmentDotMin: 0.18, // unitless — min rammer→victim alignment dot (~80° cone; eased 10% from 0.2/~78°)
-    boostImpulseMultiplier: 2.35, // unitless — nitro ram impulse scale (intentionally unchanged)
+    // * FEEL-DAY-1 primary launch lever: boosted impulse is uncapped after the base clamp.
+    boostImpulseMultiplier: 2.55, // unitless — nitro ram impulse scale
     nitroAccelMultiplier: 1.72, // unitless — fallback drive accel when boostedAccel is null
     fx: {
       particleCountBase: 8, // count — cart-hit burst floor

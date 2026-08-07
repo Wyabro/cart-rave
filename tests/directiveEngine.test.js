@@ -261,7 +261,7 @@ describe("safety rails", () => {
     gameStore.setState({ isSuddenDeath: true });
     updateDirectiveEngine(now + 100);
     expect(getActiveDirective()).toBeNull();
-    expect(CONFIG.ramming.strength).toBe(2.88);
+    expect(CONFIG.ramming.strength).toBe(3.15);
 
     updateDirectiveEngine(now + 200);
     expect(getActiveDirective()).toBeNull();
