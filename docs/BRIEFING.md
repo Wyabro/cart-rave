@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-06 at commit `00da0aa` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `a2025ec0`
+> Generated 2026-08-07 at commit `0e0a1b7` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `91a5a295`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -18,7 +18,7 @@ Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep a
 
 ## ACTIVE CARD
 
-HARNESS-NULL-1 ✅ CLOSED 08-06. Headless `perf-profile --null` (shared-page AB+BA); pure
+FEEL-DAY-1 ✅ CLOSED PASS 08-06 (`da9063c`..`0e0a1b7`). Collision punch + impact juice +
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 

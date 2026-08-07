@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-07T01:59:41.828Z",
-    "commit": "1d124c3"
+    "at": "2026-08-07T02:29:23.273Z",
+    "commit": "0e0a1b7"
   },
-  "source_digest": "ce0bc951",
+  "source_digest": "b696a8b3",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -883,13 +883,11 @@
       }
     ],
     "next_actions": [
-      "HARNESS-NULL-1 ✅ CLOSED 08-06. Headless `perf-profile --null` (shared-page AB+BA); pure",
-      "NET-LOOK-ACC-1 ✅ CLOSED PASS 08-06 (`1198d26`) — two-human Friends-lobby check confirmed.",
-      "UI-SCALE-1 (both passes) + TOUCH-HOVER-1 ✅ CLOSED PASS 08-06 (`dacca48`..`78acdb4`, prod",
-      "ONBOARD-SLIDES-1 ⏳ SHIPPED + PUSHED 08-06 (`4c89e04`..`725c348`) — owed 3 playtest cards.",
-      "Also filed 08-06: MONTAGE-ESC-1 (High) — a one-line break from CC-ESC-1 makes every",
-      "DIAG-NET-CAPTURE-1 ✅ CLOSED + DEPLOYED 08-06 (`69506db`+`657ca8c`, prod Worker `bd77de23`).",
-      "SHOOT-SOFTGL-1 ✅ CLOSED 08-06 (`c45bb28`..`1d124c3`, five commits). `npm run shoot` renders"
+      "FEEL-DAY-1 ✅ CLOSED PASS 08-06 (`da9063c`..`0e0a1b7`). Collision punch + impact juice +",
+      "ONBOARD-SLIDES-1 ⏳ SHIPPED + PUSHED — owed ONBOARD-SLIDES-PT-1/2/3 (eight-slide HOW TO",
+      "RESULTS-1 / DIFF-FRIENDS-1 / SPAWN-SUNDIAL-1 — shipped; playtest cards still owed.",
+      "Block B next code: ART-FILTER-1 + ART-EXPO-1 (SHOOT-SOFTGL-1 unblocked evidence path).",
+      "Closed 08-06 (detail in completed-work): HARNESS-NULL-1 · NET-LOOK-ACC-1 · UI-SCALE-1 +"
     ],
     "open_issues": [
       {

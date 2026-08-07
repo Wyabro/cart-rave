@@ -72,46 +72,17 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. **HARNESS-NULL-1 ✅ CLOSED 08-06.** Headless `perf-profile --null` (shared-page AB+BA); pure
-   `evaluateNullDelta`; ≥3 same-adapter PASSes on RTX 4090 (max \|Δ\| gpu ≈ 0.20 ms under 1.5 ms
-   provisional-n3). **Does not unpark PERF-PASS-1** or replace live F8 A-B-A. Detail:
-   [completed-work.md](./planning/completed-work.md). Code `8992816` + `00da0aa`.
-2. **NET-LOOK-ACC-1 ✅ CLOSED PASS 08-06** (`1198d26`) — two-human Friends-lobby check confirmed.
-   Block A ship bar now fully drained. Detail: [completed-work.md](./planning/completed-work.md).
-3. **UI-SCALE-1 (both passes) + TOUCH-HOVER-1 ✅ CLOSED PASS 08-06** (`dacca48`..`78acdb4`, prod
-   Worker `f2b389d6`) — all 4 owed playtest cards PASSed (HUD, pause, results, touch-hover), no
-   FAIL. Two new look nits surfaced in the notes, filed fresh (not folded into the PASS):
-   **KILLFEED-PHONE-1** (kill feed overlaps on phone) and **ORIENT-TOAST-Z-1** (orientation toast
-   draws under other UI). The deferred **UI-SCALE-P2-MEDIA-1** media-query cleanup stays open.
-4. **ONBOARD-SLIDES-1 ⏳ SHIPPED + PUSHED 08-06 (`4c89e04`..`725c348`) — owed 3 playtest cards.**
-   HOW TO PLAY is now an **eight-slide** deck (DRIVE · BOOST · RAM THEM OUT · READ THE HUD ·
-   CHAIN COMBOS · THE LIVING STORE · PRICE CHECK · THE BOTS) with an input-mode-aware controls
-   slide and a morphing `NEXT ▸`/`LET'S ROLL` primary, so a first-run player's default keypress
-   walks the deck instead of spending the tutorial on slide 1. Eight is safe because the game is
-   fully taught by AISLE 4 — 5–8 are bail-able depth. **The art split out to ONBOARD-ART-1** at
-   Wyatt's call (he is making GIFs later); the slots are off behind one marked CSS block and the
-   deck is complete and shippable text-only. `npm run qa` 7/7 (1563, +4); `npm run states` FAIL
-   set identical to a stash-measured baseline. Cards: ONBOARD-SLIDES-PT-1/2/3 in
-   [BACKLOG.md § Playtest owed](./planning/BACKLOG.md#playtest-owed).
-5. **Also filed 08-06:** **MONTAGE-ESC-1** (High) — a one-line break from CC-ESC-1 makes every
-   contact-sheet write throw, so `states`/`sheet`/`podium`/`loadshots` all exit non-zero after
-   their checks pass · **DIFF-FRIENDS-1** — NPC difficulty applies in Friends rooms with no way
-   to set it there · **SHOOT-SOFTGL-1** — `npm run shoot` cannot photograph gameplay.
-6. **DIAG-NET-CAPTURE-1 ✅ CLOSED + DEPLOYED 08-06** (`69506db`+`657ca8c`, prod Worker `bd77de23`).
-   `host_send_gap` >1000 ms now auto-captures (type+severity gate in `shouldAutoCapture`, shared
-   5/session cap); instrument-only, no playtest owed. Post-deploy poll 0×404 on all 22 refs;
-   `host_send_gap` + the `gapMs>1000` gate confirmed in the deployed diagnostics chunk. Detail:
-   [completed-work.md](./planning/completed-work.md).
-7. **SHOOT-SOFTGL-1 ✅ CLOSED 08-06** (`c45bb28`..`1d124c3`, five commits). `npm run shoot` renders
-   on a real GPU by default now (was SwiftShader, no flags) and strips `#cr-softgl-notice` +
-   `#eruda` before every capture; a `<out>.json` sidecar records `gpuVendor`/`software` next to
-   every image, `--require-gpu` turns that into a hard gate. Card's own "don't change the
-   default" premise was false — `shots/` has zero committed baselines — and `buildUrl` had a
-   second bug found in the same read: `--shot` silently lost to a pinned `?level`, so
-   `--shot classic` rendered Sundial. Both fixed; `shoot-gpu.mjs` deleted, folded in. Block G
-   drained. Unblocks ART-FILTER-1 + ART-EXPO-1's before/after evidence. Detail:
-   [completed-work.md](./planning/completed-work.md).
-**Open High:** ONBOARD-SLIDES-1 (playtest owed) · RESULTS-1 · CART-MODEL-1 · PERF-PASS-1 (⏸) · bloom.
+1. **FEEL-DAY-1 ✅ CLOSED PASS 08-06** (`da9063c`..`0e0a1b7`). Collision punch + impact juice +
+   Medium bot aggression. PT-1/2/3 all PASS. Shared config (MP feel changes by design). Not
+   deployed until ship. Detail: [completed-work.md](./planning/completed-work.md).
+2. **ONBOARD-SLIDES-1 ⏳ SHIPPED + PUSHED — owed ONBOARD-SLIDES-PT-1/2/3** (eight-slide HOW TO
+   PLAY; art = ONBOARD-ART-1). [BACKLOG § Playtest owed](./planning/BACKLOG.md#playtest-owed).
+3. **RESULTS-1 / DIFF-FRIENDS-1 / SPAWN-SUNDIAL-1** — shipped; playtest cards still owed.
+4. **Block B next code:** ART-FILTER-1 + ART-EXPO-1 (SHOOT-SOFTGL-1 unblocked evidence path).
+5. **Closed 08-06 (detail in completed-work):** HARNESS-NULL-1 · NET-LOOK-ACC-1 · UI-SCALE-1 +
+   TOUCH-HOVER-1 · DIAG-NET-CAPTURE-1 · SHOOT-SOFTGL-1 · MONTAGE-ESC-1. Killfeed/orient nits
+   filed (KILLFEED-PHONE-1 · ORIENT-TOAST-Z-1).
+**Open High:** ONBOARD-SLIDES playtest · RESULTS-1 playtest · CART-MODEL-1 · PERF-PASS-1 (⏸) · bloom.
 
 ## Open issues (top)
 

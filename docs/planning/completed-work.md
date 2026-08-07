@@ -13,6 +13,29 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 6, 2026 — FEEL-DAY-1: collision punch + impact juice + bot aggression
+
+*(Playtesting feel · wave)* — ✅ **CLOSED PASS 08-06** (`da9063c`, `e67071b`, `0e0a1b7`).
+One-day feel pack: rams launch harder, hits read louder, Medium bots hunt more. Config + test
+literals only — no `simulation.js` rewrite, no new SFX assets, NH-HIT/NH-SMOOTH stayed parked.
+
+**Lever 1 — collision punch:** `boostImpulseMultiplier` 2.35→2.55 (primary launch; post-clamp,
+uncapped), `strength` 2.88→3.15 (mid-hit only; `maxImpulse` 200 still clamps base before boost),
+`directiveEngine.test.js` strength literal tracks config.
+
+**Lever 2 — impact juice (hedged HIT-FEEL-1 path):** shakeMin 0.22→0.20, shakeBoostMin 0.16→0.12,
+shakePixelScale 5.5→6.2, particles 8/16→10/20, crashVolumeFloor 0.22→0.25.
+
+**Lever 3 — bot aggression:** Medium `npcRamCommitMul` 1.18, `humanWeightOffset` +0.06 (clamp-eaten
+on high-humanWeight profiles — expected); Medium is **not** identity and inherits into quickplay
+(accepted). Global NPC `alignmentAngleDeg` 40→34 (all difficulties + MP host-sim; Hard stacks −12).
+Solo lead rubberband: `leadChaseMul` 1.32, `leadNitroMul` 1.40. `aiDifficulty.test.js` updated.
+
+**Playtest:** FEEL-DAY-PT-1/2/3 all PASS (Wyatt 08-06). Shared config changes multiplayer feel by
+design. Not deployed until explicit ship.
+
+---
+
 ### August 6, 2026 — SHOOT-SOFTGL-1: `npm run shoot` renders on a real GPU and strips dev chrome
 
 *(Tech Debt · Medium)* — ✅ **CLOSED 08-06** (`c45bb28`, `3b071be`, `4358f89`, `23d50c9`, `1d124c3`).
