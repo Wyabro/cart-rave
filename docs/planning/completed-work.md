@@ -176,6 +176,28 @@ Docs: [netcode-harness.md](../guides/netcode-harness.md) scenario list now names
 scenarios (`shardOverflow` was missing entirely) and the stale 07-17 "coverage gap" note is closed
 out (`teardownRejoin` has covered it since it shipped).
 
+### August 6, 2026 — BACKLOG-GATE-1: this file's index stops drifting by hand
+
+**Writeup added 08-06 during a later BACKLOG audit, not by the session that shipped it.** The five
+levers landed and the row was retired, but no entry was ever written here and the id never reached
+the closed do-not-reopen list — which is the exact failure the card exists to prevent, since the
+hygiene gate is blind to an id that appears in neither place. Reconstructed from the commits.
+
+- *(Tech Debt · Medium)* **BACKLOG-GATE-1** — BACKLOG.md's "status at a glance" counts and its
+  closed list were maintained by hand, so both drifted silently: a row could close without the
+  counts moving, and a closed id could vanish from the record entirely. Shipped as five separate
+  commits — `8b52d75` (lever 1, flatten every row into one id-aware list), `9863f61` (lever 2,
+  **generate** the glance box, `npm run backlog`), `f0be985` (lever 3a, complete the closed
+  do-not-reopen list), `f4dde49` (lever 3b, arm `validateBacklogHygiene` inside `health:check`),
+  `c14c3be` (lever 4, house rules in the file plus an AGENTS.md pointer). The counts box is now
+  generated and cannot drift; the gate reads the file mechanically. **One check ships as `warn`,
+  not `error`** — `BACKLOG_WORKORDER_CLOSED_HAS_ROW` parses hand-written Work-order prose with a
+  nearest-left-before-✅ heuristic that had one documented false positive during design, so
+  promoting it is its own card, **BACKLOG-GATE-2**, which stays open. That warn has since earned
+  its keep: it caught a real inconsistency on 08-06 (RESULTS-1 struck in the Work order while its
+  row was still open pending playtest), a true positive, which counts toward GATE-2's promotion
+  bar rather than against it.
+
 ### August 6, 2026 — Block G wave: PT-CARD-SPLIT-1, PT-CONSOLE-READY-1, HOOK-COMMENT-1, CC-ESC-1
 
 Wyatt picked Block G (the tooling-window batch) as the next wave, one commit per card, so tomorrow's

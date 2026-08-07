@@ -83,7 +83,7 @@ Live rows only. Shipped and closed cards live in
    FAIL. Two new look nits surfaced in the notes, filed fresh (not folded into the PASS):
    **KILLFEED-PHONE-1** (kill feed overlaps on phone) and **ORIENT-TOAST-Z-1** (orientation toast
    draws under other UI). The deferred **UI-SCALE-P2-MEDIA-1** media-query cleanup stays open.
-4. **ONBOARD-SLIDES-1 ⏳ SHIPPED 08-06 (`4c89e04`..`725c348`), UNPUSHED — owed 3 playtest cards.**
+4. **ONBOARD-SLIDES-1 ⏳ SHIPPED + PUSHED 08-06 (`4c89e04`..`725c348`) — owed 3 playtest cards.**
    HOW TO PLAY is now an **eight-slide** deck (DRIVE · BOOST · RAM THEM OUT · READ THE HUD ·
    CHAIN COMBOS · THE LIVING STORE · PRICE CHECK · THE BOTS) with an input-mode-aware controls
    slide and a morphing `NEXT ▸`/`LET'S ROLL` primary, so a first-run player's default keypress
