@@ -2083,11 +2083,16 @@ export function updateCrowd(nowMs) {
     }
   } else if (crowdCarts) {
     // * Fallback for any path that only set the legacy single mesh.
+    // * Bound by mesh.count (quality budget), not the module capacity constant —
+    // * crowdInstanceCount is total across all layers and can exceed this mesh's capacity.
     const nowSec = nowMs * 0.001;
+    const n = crowdCarts.count;
+    if (n <= 0) return;
     const batchSize = 200;
-    const offset = Math.floor(nowSec * 4) % Math.ceil(crowdInstanceCount / batchSize);
+    const batches = Math.max(1, Math.ceil(n / batchSize));
+    const offset = Math.floor(nowSec * 4) % batches;
     const start = offset * batchSize;
-    const end = Math.min(start + batchSize, crowdInstanceCount);
+    const end = Math.min(start + batchSize, n);
     for (let i = start; i < end; i++) {
       crowdCarts.getMatrixAt(i, crowdAnimDummy.matrix);
       crowdAnimDummy.matrix.decompose(crowdAnimDummy.position, crowdAnimDummy.quaternion, crowdAnimDummy.scale);
@@ -2746,8 +2751,11 @@ export function tickRamBoostStreakSpawners(allCarts, nowMs, dtSec) {
   const secondaryChance = rb.streakSecondaryChance ?? 0.55;
   for (const cart of allCarts) {
     if (!cart) continue;
-    if (nowMs > cart.ramBoostActiveUntilMs) continue;
-    cart.ramBoostStreakCarry += rb.streakSpawnRatePerSec * dtSec;
+    // * Missing/undefined untilMs would make `nowMs > undefined` false and never skip —
+    // * treat as inactive. createCart always sets 0; this is belt-and-suspenders for
+    // * partial mocks / mid-hello cart objects.
+    if (nowMs > (cart.ramBoostActiveUntilMs || 0)) continue;
+    cart.ramBoostStreakCarry = (cart.ramBoostStreakCarry || 0) + rb.streakSpawnRatePerSec * dtSec;
     while (cart.ramBoostStreakCarry >= 1) {
       cart.ramBoostStreakCarry -= 1;
       spawnRamBoostStreakForCart(cart, nowMs);
