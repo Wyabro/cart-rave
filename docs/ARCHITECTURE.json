@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-07T07:33:04.078Z",
-    "commit": "bda5a9c"
+    "at": "2026-08-07T07:41:23.034Z",
+    "commit": "c3a68f0"
   },
-  "source_digest": "66e93f4f",
+  "source_digest": "2a358102",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1273,17 +1273,11 @@
       {
         "title": "UI / UX",
         "counts": {
-          "High": 2,
+          "High": 1,
           "Medium": 10,
           "Low": 5
         },
         "rows": [
-          {
-            "pri": "High",
-            "item": "ONBOARD-ATTRACT-1 — HOW TO PLAY should invite a first-time player, not open itself on them",
-            "notes": "**Filed 08-06 from Wyatt's note on the ONBOARD-SLIDES-PT-2 PASS** — *\"i'm afraid that if the how to play thing is the first thing they see they might be confused. maybe instead of forcing them to it, HOW TO PLAY should glow and move more on first play to direct them to it.\"* The mechanism the card checked (Enter pages instead of closing) works; **this is the auto-open policy itself**, one level up. Today `maybeAutoOpenHowTo()` ([cart-rave-menu.js:1318](../../src/cart-rave-menu.js:1318)) arms on the first menu show when `howtoSeen` is unset and no `?room=` param, then opens the overlay 600 ms later. Replace that with an attract state on the HOW TO PLAY button — glow/pulse/nudge while unseen, stopping the moment it is opened or the player starts a match. **Keep three things from the current design when it changes:** the `?room=` bail (a player following a friend's link must never be interrupted), the \"arming writes nothing\" rule from ONBOARD-FLAG-1 (`howtoSeen` is stamped when the overlay actually shows, never on intent), and `disarmHowToAutoOpen()`'s entering-a-match path. Respect `prefers-reduced-motion` for the pulse — see MOTION-A11Y-1.",
-            "ship1": null
-          },
           {
             "pri": "High",
             "item": "ONBOARD-SIZE-1 — the how-to slide arrows and body text are too small",

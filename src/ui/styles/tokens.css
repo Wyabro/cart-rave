@@ -63,6 +63,7 @@ html {
   --glow-magenta-22: rgba(255, 43, 214, 0.22);
   --glow-magenta-24: rgba(255, 43, 214, 0.24);
   --glow-magenta-28: rgba(255, 43, 214, 0.28);
+  --glow-magenta-30: rgba(255, 43, 214, 0.30);
   --glow-magenta-40: rgba(255, 43, 214, 0.40);
 
   /* Glow / shadow RGBA (cyan) */
@@ -98,7 +99,9 @@ html {
   --border-white-12: rgba(255, 255, 255, 0.12);
   --border-white-14: rgba(255, 255, 255, 0.14);
   --border-white-15: rgba(255, 255, 255, 0.15);
+  --border-white-18: rgba(255, 255, 255, 0.18);
   --border-white-20: rgba(255, 255, 255, 0.20);
+  --border-white-25: rgba(255, 255, 255, 0.25);
   --border-white-05-inset: rgba(255, 255, 255, 0.05);
 
   /* Surface backgrounds */
