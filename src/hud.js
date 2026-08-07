@@ -42,17 +42,18 @@ import {
 } from "./ui/pauseOverlay.js";
 
 /**
- * True when the given display name belongs to the current host's slot — used to
- * pin the host antenna glyph onto kill-feed rows without new wire fields.
- * @param {string | null | undefined} name
+ * True when the seat at slotIndex is the current host — used to pin the host
+ * antenna glyph onto kill-feed rows. Match by connId (not display name) so
+ * duplicate names cannot steal the host mark.
+ * @param {number | null | undefined} slotIndex
  */
-function isHostPlayerName(name) {
-  if (!name || !hostGlyphEligible()) return false;
+function isHostSlotIndex(slotIndex) {
+  if (slotIndex == null || slotIndex < 0 || !hostGlyphEligible()) return false;
   const hostId = getHostId();
   if (!hostId) return false;
   const slots = getNetSlots();
-  const hostSlot = Array.isArray(slots) ? slots.find((s) => s && s.connId === hostId) : null;
-  return Boolean(hostSlot && hostSlot.name === name);
+  const slot = Array.isArray(slots) ? slots[slotIndex] : null;
+  return Boolean(slot && slot.connId === hostId);
 }
 
 /** Host glyphs only mean something online — solo/testdrive is always "host". */
@@ -202,6 +203,8 @@ let _lastCountdownN = null;
 /** Generation bumped every fresh countdown entry — guards a deferred catch-up beat
  *  (see updateStatus) from firing against a LATER, unrelated countdown. */
 let _countdownGeneration = 0;
+/** Pending missed-digit catch-up timeout; cleared on menu hide / re-init. */
+let _countdownCatchupTimeoutId = /** @type {ReturnType<typeof setTimeout> | null} */ (null);
 /** Minimum perceptible gap between a retroactively-fired missed digit and the GO beat
  *  that follows it — see updateStatus's countdown→running catch-up branch. */
 const MISSED_COUNTDOWN_CATCHUP_MS = 220;
@@ -605,7 +608,12 @@ function updateStatus(roundState) {
       _lastCountdownN = 1;
       announce("countdown_1");
       const generation = _countdownGeneration;
-      setTimeout(() => {
+      if (_countdownCatchupTimeoutId != null) {
+        clearTimeout(_countdownCatchupTimeoutId);
+        _countdownCatchupTimeoutId = null;
+      }
+      _countdownCatchupTimeoutId = setTimeout(() => {
+        _countdownCatchupTimeoutId = null;
         // * A newer countdown (or an abort back to lobby) since this was scheduled owns
         // * its own GO beat now — this stale catch-up must not fire on top of it.
         if (_countdownGeneration !== generation) return;
@@ -1051,10 +1059,26 @@ function buildRosterRows(netSlots, roundScores, isLobbyRoster) {
   return rows;
 }
 
+/**
+ * Compact roster meta for change detection — includes lookHex so neon glow
+ * updates when cosmetics change without a name/color/ready flip.
+ * @param {object | null | undefined} slot
+ * @param {number} i
+ */
+function scoreSlotMeta(slot, i) {
+  return `${slot?.name || `P${i + 1}`}:${slot?.color || ""}:${slot?.kind ?? ""}:${slot?.connId || ""}:${slot?.isReady ? 1 : 0}:${slot?.lookHex ?? ""}`;
+}
+
 function updateScores(roundState, netSlots, youConnId) {
   const roundPhase = roundState?.phase;
   const roundScores = roundState?.scores;
   const isSolo = _options.detectGameMode?.() === "solo";
+  // * Friends lobby owns the full-screen CHECKOUT LINE — do not flex the compact
+  // * roster first (that thrash was undone every frame by updateLobbyScreen).
+  if (roundPhase === "lobby" && _options.detectGameMode?.() === "friends") {
+    setHudDisplay(elements.scores, "none", "scores");
+    return;
+  }
   // * Lobby/countdown roster: show names + ready state so Friends/Quickplay aren't dark.
   const isLobbyRoster = (roundPhase === "lobby" || roundPhase === "countdown") && !isSolo;
 
@@ -1068,7 +1092,7 @@ function updateScores(roundState, netSlots, youConnId) {
         ? (netSlots?.[i]?.kind === "human" ? (netSlots[i].isReady ? 1 : 0) : -1)
         : Number(roundScores?.[i] ?? 0);
       const slot = netSlots?.[i];
-      const meta = `${slot?.name || `P${i + 1}`}:${slot?.color || ""}:${slot?.kind ?? ""}:${slot?.connId || ""}:${slot?.isReady ? 1 : 0}`;
+      const meta = scoreSlotMeta(slot, i);
       if (_lastScores[i] !== score || _lastSlotMeta[i] !== meta) {
         dataChanged = true;
       }
@@ -1083,7 +1107,7 @@ function updateScores(roundState, netSlots, youConnId) {
         _lastScores[i] = isLobbyRoster
           ? (slot?.kind === "human" ? (slot.isReady ? 1 : 0) : -1)
           : Number(roundScores?.[i] ?? 0);
-        _lastSlotMeta[i] = `${slot?.name || `P${i + 1}`}:${slot?.color || ""}:${slot?.kind ?? ""}:${slot?.connId || ""}:${slot?.isReady ? 1 : 0}`;
+        _lastSlotMeta[i] = scoreSlotMeta(slot, i);
       }
     }
 
@@ -1269,9 +1293,11 @@ function updateReadyButton(roundPhase, netSlots, youConnId, menuVisible) {
   if (!elements.readyBtn) return;
 
   const isSolo = _options.detectGameMode?.() === "solo";
+  const isFriends = _options.detectGameMode?.() === "friends";
   const localSlot = netSlots?.find((s) => s && s.connId === youConnId);
   const isLocalReady = localSlot ? Boolean(localSlot.isReady) : false;
-  if (roundPhase === "lobby" && !menuVisible && !isSolo) {
+  // * Friends lobby: full-screen CHECKOUT LINE owns READY — corner button stays down.
+  if (roundPhase === "lobby" && !menuVisible && !isSolo && !isFriends) {
     // * Roster ready count so multiplayer lobby isn't a dark button with no context.
     let humanTotal = 0;
     let humanReady = 0;
@@ -1284,7 +1310,9 @@ function updateReadyButton(roundPhase, netSlots, youConnId, menuVisible) {
     }
     const countSuffix = humanTotal > 1 ? ` (${humanReady}/${humanTotal})` : "";
     const nextText = (isLocalReady ? "READY!" : "READY UP!") + countSuffix;
-    elements.readyBtn.style.display = "block";
+    if (elements.readyBtn.style.display !== "block") {
+      elements.readyBtn.style.display = "block";
+    }
     if (elements.readyBtn.textContent !== nextText) {
       elements.readyBtn.textContent = nextText;
     }
@@ -1294,7 +1322,9 @@ function updateReadyButton(roundPhase, netSlots, youConnId, menuVisible) {
     }
     _lastReadyState = isLocalReady;
   } else {
-    elements.readyBtn.style.display = "none";
+    if (elements.readyBtn.style.display !== "none") {
+      elements.readyBtn.style.display = "none";
+    }
     elements.readyBtn.classList.remove("is-ready");
     _lastReadyState = null;
   }
@@ -1358,10 +1388,12 @@ function updateLobbyScreen(roundPhase, netSlots, youConnId, menuVisible) {
   }
   screen.hidden = false;
 
-  // * One lobby surface: the compact roster and corner ready button stand down
-  // * while the full screen is up (both are restored by their own updaters).
+  // * Compact roster + corner ready already stay down from updateScores /
+  // * updateReadyButton (friends lobby early-out). Belt-and-suspenders only.
   setHudDisplay(elements.scores, "none", "scores");
-  if (elements.readyBtn) elements.readyBtn.style.display = "none";
+  if (elements.readyBtn && elements.readyBtn.style.display !== "none") {
+    elements.readyBtn.style.display = "none";
+  }
 
   const rows = buildRosterRows(netSlots, null, true);
   const hostId = getHostId();
@@ -1507,6 +1539,11 @@ export function init(options) {
   _lastCountdownN = null;
   _lastBannerKey = null;
   _prevRoundPhase = null;
+  if (_countdownCatchupTimeoutId != null) {
+    clearTimeout(_countdownCatchupTimeoutId);
+    _countdownCatchupTimeoutId = null;
+  }
+  _countdownGeneration += 1;
   _goUntilMs = 0;
   _goSoundPlayed = false;
   _lastReadyState = null;
@@ -2911,12 +2948,12 @@ export function addKillFeedEntry(actorName, actorColor, verb, targetName, target
     target.textContent = targetName;
     row.appendChild(icon);
     if (actorSlot) row.appendChild(actorSlot);
-    if (isHostPlayerName(actorName)) row.appendChild(makeHostGlyph());
+    if (isHostSlotIndex(actorSlotIndex)) row.appendChild(makeHostGlyph());
     row.appendChild(actor);
     row.appendChild(v);
     if (comboPip) row.appendChild(comboPip);
     if (victimSlot) row.appendChild(victimSlot);
-    if (isHostPlayerName(targetName)) row.appendChild(makeHostGlyph());
+    if (isHostSlotIndex(victimSlotIndex)) row.appendChild(makeHostGlyph());
     row.appendChild(target);
   } else {
     const target = document.createElement("span");
@@ -2927,7 +2964,7 @@ export function addKillFeedEntry(actorName, actorColor, verb, targetName, target
     v.textContent = displayVerb;
     row.appendChild(icon);
     if (victimSlot) row.appendChild(victimSlot);
-    if (isHostPlayerName(targetName)) row.appendChild(makeHostGlyph());
+    if (isHostSlotIndex(victimSlotIndex)) row.appendChild(makeHostGlyph());
     row.appendChild(target);
     row.appendChild(v);
     if (comboPip) row.appendChild(comboPip);
@@ -3041,6 +3078,12 @@ export function hideGameplayElements() {
   setEdgeDanger(0);
   _lastBannerKey = null;
   _lastCountdownN = null;
+  // * Drop any deferred countdown catch-up so menu return cannot fire GO mid-session.
+  if (_countdownCatchupTimeoutId != null) {
+    clearTimeout(_countdownCatchupTimeoutId);
+    _countdownCatchupTimeoutId = null;
+  }
+  _countdownGeneration += 1;
   _goUntilMs = 0;
 }
 
