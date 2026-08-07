@@ -14,6 +14,7 @@ import {
 import { getQualityTier } from "../utils/qualityMode.js";
 import { clamp, clampInt } from "../utils.js";
 import { settingsStore } from "../stores/settingsStore.js";
+import { getInputMode, onInputModeChange } from "../input.js";
 import { svgIcon } from "./icons.js";
 import { menuReturnHref } from "../utils/captureUpload.js";
 
@@ -25,6 +26,9 @@ let escEntranceToken = 0;
 let _options = {};
 /** @type {Record<string, any>} */
 let _hudContext = {};
+
+/** @type {(() => void) | null} Unsubscribes the CONTROLS-card input-mode subscription on re-init. */
+let _unsubscribeInputMode = null;
 
 /** @type {Record<string, any>} */
 const elements = {
@@ -614,32 +618,66 @@ export function init(options = {}, hudContext = {}) {
   elements.escContext.className = "esc-context";
   elements.escContext.textContent = "MATCH HELD";
 
-  const controlsSection = createEscSection("CONTROLS", touchDevice ? "TOUCH" : "KEYBOARD");
+  // * The CONTROLS card tag + chart live-subscribe to the input mode
+  // * (PAUSE-CTRL-CHART-1): it used to freeze on the init-time touchDevice flag,
+  // * so a pad player pausing mid-match saw a KEYBOARD (or TOUCH, on a
+  // * touch-capable device like Steam Deck) chart. Same setInputMode signal the
+  // * main menu, Settings and HOW TO PLAY charts consume (onInputModeChange).
+  const controlsSection = createEscSection("CONTROLS", "KEYBOARD");
   controlsSection.section.classList.add("esc-section--controls");
   const controlsList = document.createElement("div");
   controlsList.className = "esc-ctl-list";
+  controlsSection.body.appendChild(controlsList);
 
   // * Key splits, casing and wording track the SETTINGS chart row for row — a
-  // * player who reads the keys there and then pauses must see one chart.
-  /** @type {Array<[string[], string, boolean, string]>} */
-  const escControls = touchDevice
-    ? [
-      [["STICK"], "MOVE", true, "move"],
-      [["BOOST"], "BOOST", true, "boost"],
-      [["HOP"], "HOP", true, "hop"],
-      [["MENU"], "MENU", true, "menu"],
-    ]
-    : [
+  // * player who reads the keys there and then pauses must see one chart. The
+  // * gamepad mapping mirrors updateSettingsControlsUI (input.js button indices
+  // * 0/6/7/8/9: A/LT boost, B/RT hop, SELECT mute, START menu).
+  /** @type {Record<'keyboard'|'gamepad'|'touch', Array<[string[], string, boolean, string]>>} */
+  const escControlsChart = {
+    keyboard: [
       [["W", "A", "S", "D"], "MOVE", false, "move"],
       [["SHIFT"], "BOOST", true, "boost"],
       [["SPACE"], "HOP", true, "hop"],
       [["M"], "MUTE", false, "mute"],
       [["ESC"], "MENU", false, "menu"],
-    ];
-  escControls.forEach(([keys, labelText, wide, action]) => {
-    controlsList.appendChild(createEscControlRow(keys, labelText, wide, action));
-  });
-  controlsSection.body.appendChild(controlsList);
+    ],
+    gamepad: [
+      [["L-STICK", "D-PAD"], "MOVE", false, "move"],
+      [["A", "LT"], "BOOST", false, "boost"],
+      [["B", "RT"], "HOP", false, "hop"],
+      [["SELECT"], "MUTE", true, "mute"],
+      [["START"], "MENU", true, "menu"],
+    ],
+    touch: [
+      [["STICK"], "MOVE", true, "move"],
+      [["BOOST"], "BOOST", true, "boost"],
+      [["HOP"], "HOP", true, "hop"],
+      [["MENU"], "MENU", true, "menu"],
+    ],
+  };
+
+  /** @param {'keyboard'|'gamepad'|'touch'} mode */
+  const syncControlsChart = (mode) => {
+    const tagEl = controlsSection.hd.querySelector(".esc-section-tag");
+    if (tagEl) {
+      tagEl.textContent = mode === "gamepad" ? "GAMEPAD" : mode === "touch" ? "TOUCH" : "KEYBOARD";
+    }
+    const rows = escControlsChart[mode] ?? escControlsChart.keyboard;
+    controlsList.replaceChildren(
+      ...rows.map(([keys, labelText, wide, action]) =>
+        createEscControlRow(keys, labelText, wide, action),
+      ),
+    );
+  };
+
+  // * input.js starts at "keyboard" and only flips on device activity, so the
+  // * init-time touchDevice flag still picks the label for touch-capable
+  // * hardware that has not taken input yet.
+  const initialMode = getInputMode() === "keyboard" && touchDevice ? "touch" : getInputMode();
+  syncControlsChart(initialMode);
+  _unsubscribeInputMode?.();
+  _unsubscribeInputMode = onInputModeChange((mode) => syncControlsChart(mode));
 
   const audioSection = createEscSection("AUDIO");
   audioSection.section.classList.add("esc-section--audio");
