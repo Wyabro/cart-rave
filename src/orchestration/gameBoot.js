@@ -866,6 +866,8 @@ export function bootGameSystems(ctx) {
             await ensureSessionCartsReady();
           } catch (err) {
             console.warn("[CartClash] host MP countdown gate failed:", err);
+            // * Hard bootstrap failure — do not enter countdown/running with no carts.
+            return;
           }
           if (deferGen !== hostMpCountdownDeferGen) return;
           if (refs.menuVisible) return; // quit during wait
@@ -935,6 +937,9 @@ export function bootGameSystems(ctx) {
           await ensureSessionCartsReady();
         } catch (err) {
           console.warn("[CartRave] non-host countdown gate failed:", err);
+          // * Hard bootstrap failure — do not enter countdown/running with no carts.
+          nonHostCountdownApplyPending = false;
+          return;
         }
         if (applyGen !== nonHostCountdownApplyGen) return;
         if (GameState.getRoundState().phase === "running") {
