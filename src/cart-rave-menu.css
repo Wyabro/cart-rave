@@ -3157,6 +3157,43 @@ html, body {
   bottom: max(var(--cr-toast-lift, 88px), env(safe-area-inset-bottom, 0px) + 72px);
 }
 
+/* RESULTS-UNLOCK-TOAST-1: while the results overlay is up, the bottom-centre strip is the
+   podium's — the base toast (bottom: 24px) sat across the rank blocks at 1920 (3rd/4th) and
+   over PLAY AGAIN at 390x844. roundLifecycle shows the overlay by writing its inline
+   `style.display: flex`, so this attribute-substring gate fires ONLY while it is visible —
+   no :has() (avoided repo-wide, hud.js) and no class JS would have to maintain. Sibling order
+   is safe: initResultsOverlay mounts at boot (gameBoot.js) before the toast is ever created.
+   The lift clears the tallest block: .results-podium-block caps at 34vh (results.css), so
+   34vh + the cap above the block + the panel's bottom padding clears it on every desktop band.
+   Specificity (1,1,1) beats --arena / --lifted / --show without touching z-index (HUD-TOAST-Z-1)
+   or the --show slide-in transform, so in-match and menu placements are unchanged while the
+   overlay is hidden. */
+#results-overlay[style*="display: flex"] ~ .cr-unlock-toast {
+  bottom: max(calc(34vh + 9rem), env(safe-area-inset-bottom, 0px) + 72px);
+}
+
+/* The two bands where the podium is not bottom-anchored take a smaller, still-clear lift,
+   mirroring the exact media conditions of the results.css bands they match (declared after the
+   base results rule so source order settles the same-specificity tie):
+   * coarse / <=900px — the mobile stack: ranks, a scrollable receipt, then the PLAY AGAIN
+     actions pinned to the bottom. 10.5rem clears the actions and the rank list and lands over
+     the receipt, where a non-interactive toast is allowed to sit.
+   * short fine-pointer desktop (max-height 640) — the podium is top-anchored in row 1 with the
+     actions sticky at the bottom, so the 34vh formula would drop the toast mid-screen across
+     the podium; this puts it just above the actions instead. */
+@media (pointer: coarse), (max-width: 900px) {
+  #results-overlay[style*="display: flex"] ~ .cr-unlock-toast {
+    bottom: max(10.5rem, env(safe-area-inset-bottom, 0px) + 8.5rem);
+  }
+}
+
+@media (max-height: 640px) and (min-width: 769px) and (pointer: fine) and (orientation: portrait),
+       (max-height: 640px) and (min-height: 521px) and (min-width: 769px) and (pointer: fine) {
+  #results-overlay[style*="display: flex"] ~ .cr-unlock-toast {
+    bottom: max(9.5rem, env(safe-area-inset-bottom, 0px) + 7.5rem);
+  }
+}
+
 .cr-unlock-toast--show {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
