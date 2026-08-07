@@ -9,6 +9,12 @@
  *
  * Requires: dev server (auto-started if --url omitted), Playwright Chromium.
  *   npx playwright install chromium
+ *
+ * Renders on a real GPU by default (SHOOT-SOFTGL-1) and writes a `<out>.json` sidecar next
+ * to every capture with `gpuVendor` / `software` / the resolved arena / dev-chrome removal —
+ * check it before trusting a capture as look-critical evidence.
+ *   --no-gpu       force the old SwiftShader launch (for an A/B against a real-GPU capture)
+ *   --require-gpu  exit 2 if the renderer turns out software (sidecar is still written first)
  */
 
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -184,22 +190,62 @@ async function main() {
     console.warn("[shoot] continuing — ensure `npm run dev` is already running");
   }
 
+  // * GPU by default (SHOOT-SOFTGL-1) — no committed shots/ baseline depends on the old
+  // * SwiftShader default (shots/ is gitignored), and these flags are inert without a real
+  // * GPU (still falls to SwiftShader — cannot break a GPU-less box, only fix one that has a
+  // * GPU). --no-gpu reproduces the old launch for an A/B; a bare --gpu is accepted and
+  // * ignored since it's now the default.
+  const gpuOff = args["no-gpu"] === true;
+  const gpuArgs = gpuOff ? [] : ["--enable-gpu", "--ignore-gpu-blocklist", "--use-gl=angle"];
+
   const { chromium } = await ensurePlaywright();
   const browser = await chromium.launch({
     headless: true,
     channel: process.env.PLAYWRIGHT_CHROME_CHANNEL || undefined,
+    args: gpuArgs,
   });
   const page = await browser.newPage({
     viewport: { width, height },
     deviceScaleFactor: 1,
   });
   page.on("pageerror", (err) => console.error("[pageerror]", err.message));
+  /** @type {string[]} */
+  const consoleErrors = [];
   page.on("console", (msg) => {
-    if (msg.type() === "error") console.error("[page]", msg.text());
+    if (msg.type() === "error") {
+      console.error("[page]", msg.text());
+      if (consoleErrors.length < 10) consoleErrors.push(msg.text());
+    }
   });
 
   try {
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: timeoutMs });
+
+    // * Ported from shoot-gpu.mjs — a throwaway canvas probe run before the app's own
+    // * renderer claims a context, so it never competes for one. This is the proof, not the
+    // * launch flags: `--enable-gpu` etc. are best-effort and silently no-op on a box with no
+    // * real GPU (or no driver — see the widened regex below).
+    const gpuVendor = await page.evaluate(() => {
+      try {
+        const c = document.createElement("canvas");
+        const gl = c.getContext("webgl2") || c.getContext("webgl");
+        if (!gl) return "no-webgl";
+        const ext = gl.getExtension("WEBGL_debug_renderer_info");
+        const vendor = ext ? String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)) : "webgl(no-debug-info)";
+        gl.getExtension("WEBGL_lose_context")?.loseContext();
+        return vendor;
+      } catch {
+        return "probe-failed";
+      }
+    });
+    // * Beyond shoot-gpu's swiftshader/llvmpipe/software — also catch "Basic Render Driver" /
+    // * WARP, the string main.js:564 branches on for "no GPU driver installed", the likelier
+    // * failure on a Windows box with hardware present but no driver.
+    const software = /swiftshader|llvmpipe|software|basic render|warp\b/i.test(gpuVendor);
+    if (software) {
+      console.warn(`[shoot] WARNING: software rasterizer (${gpuVendor}) — not look-critical proof.`);
+    }
+
     await page.waitForFunction(
       () => window.__cartRaveMainReady === true || window.__cartRave?.ready === true,
       undefined,
@@ -286,16 +332,53 @@ async function main() {
     // * Canvas-only shots miss that composite and often capture a black buffer.
     await page.screenshot({ path: out, fullPage: false });
 
-    const stats = hasHarness
-      ? await page.evaluate(() => JSON.stringify(window.__cartRave?.stats?.() ?? {}))
-      : "{}";
+    const statsObj = hasHarness ? await page.evaluate(() => window.__cartRave?.stats?.() ?? {}) : {};
+    const stats = JSON.stringify(statsObj);
     console.log(`[stats] ${stats}`);
+
+    // * Automatic sidecar (SHOOT-SOFTGL-1) — always written, reviewer-facing evidence of what
+    // * this capture actually is: which renderer, which arena, whether dev chrome leaked in.
+    // * Guard against a non-.png --out: shoot-gpu.mjs's blind .replace(/\.png$/, ".json") is a
+    // * no-op on e.g. --out x.jpg and would overwrite the image with JSON.
+    const sidecarPath = /\.png$/i.test(out) ? out.replace(/\.png$/i, ".json") : `${out}.json`;
+
+    // * --stats <path> keeps its exact pre-existing shape (the raw stats string) UNLESS it
+    // * collides with the sidecar path, in which case the merged sidecar wins — it's a strict
+    // * superset, so the collision writes one file instead of one clobbering the other.
     const statsOut = str(args.stats);
-    if (statsOut) {
+    const statsCollidesWithSidecar = statsOut !== undefined && resolve(statsOut) === resolve(sidecarPath);
+    if (statsOut && !statsCollidesWithSidecar) {
       mkdirSync(dirname(resolve(statsOut)), { recursive: true });
       writeFileSync(resolve(statsOut), stats);
+    } else if (statsCollidesWithSidecar) {
+      console.warn(`[shoot] --stats path collides with the sidecar — writing only the merged sidecar`);
     }
     console.log(`[shoot] wrote ${out}`);
+
+    const sidecar = {
+      url,
+      out,
+      gpuVendor,
+      software,
+      gpuFlags: gpuArgs,
+      level: resolvedParams?.level ?? null,
+      params: resolvedParams,
+      devChrome,
+      stats: statsObj,
+      consoleErrors: consoleErrors.slice(0, 10),
+    };
+    writeFileSync(sidecarPath, JSON.stringify(sidecar, null, 2));
+    console.log(`[shoot] gpuVendor = ${gpuVendor}`);
+    console.log(`[shoot] wrote ${sidecarPath}`);
+
+    // * --require-gpu: hard-fail a software capture. Sidecar is already written above, so a
+    // * failed gate still leaves its evidence file. exitCode (not a throw, not process.exit)
+    // * so the `finally` below still closes the browser and kills the spawned dev server.
+    if (software && (args["require-gpu"] === true || args["require-gpu"] === "1")) {
+      console.error(`[shoot] FAILED: --require-gpu set but renderer is software (${gpuVendor})`);
+      process.exitCode = 2;
+      return;
+    }
   } finally {
     await browser.close();
     if (serverProc && !serverProc.killed) {
