@@ -14,7 +14,12 @@ import {
 function makeCtx(overrides = {}) {
   const calls = { killFeed: [], announcer: [], localConfirm: [], challenge: [], arenaFlash: [] };
   const ctx = {
-    netSlots: [{ name: "A" }, { name: "B" }, { name: "C" }, { name: "D" }],
+    netSlots: [
+      { name: "A", kind: "human" },
+      { name: "B", kind: "human" },
+      { name: "C", kind: "human" },
+      { name: "D", kind: "human" },
+    ],
     localSlotIndex: 1,
     colorHexForSlot: () => 0xff00ff,
     pickSelfDeathVerb: () => "FELL OFF",
@@ -75,24 +80,24 @@ describe("localKillConfirmReactor", () => {
 });
 
 describe("killFeedReactor", () => {
-  it("renders an attributed kill with attacker, verb and combo", () => {
+  it("renders an attributed kill with attacker, verb, combo and both slot marks", () => {
     const { ctx, calls } = makeCtx();
     killFeedReactor(KILL, ctx);
     expect(calls.killFeed).toHaveLength(1);
-    expect(calls.killFeed[0]).toEqual(["B", "#ff00ff", "RAMMED", "D", "#ff00ff", 2, 2.0]);
+    expect(calls.killFeed[0]).toEqual(["B", "#ff00ff", "RAMMED", "D", "#ff00ff", 2, 2.0, 1, 3]);
   });
 
   it("renders a self fall using the event's verb and no actor", () => {
     const { ctx, calls } = makeCtx();
     killFeedReactor(SELF, ctx); // SELF.verb === "SUDDEN DEATH"
     expect(calls.killFeed).toHaveLength(1);
-    expect(calls.killFeed[0]).toEqual([null, null, "SUDDEN DEATH", "D", "#ff00ff"]);
+    expect(calls.killFeed[0]).toEqual([null, null, "SUDDEN DEATH", "D", "#ff00ff", 0, 1, null, 3]);
   });
 
   it("falls back to FELL OFF when a self fall has no verb", () => {
     const { ctx, calls } = makeCtx();
     killFeedReactor({ ...SELF, verb: undefined }, ctx);
-    expect(calls.killFeed[0]).toEqual([null, null, "FELL OFF", "D", "#ff00ff"]);
+    expect(calls.killFeed[0]).toEqual([null, null, "FELL OFF", "D", "#ff00ff", 0, 1, null, 3]);
   });
 
   it("falls back to P-labels when a slot has no name", () => {
@@ -100,6 +105,22 @@ describe("killFeedReactor", () => {
     killFeedReactor(KILL, ctx);
     expect(calls.killFeed[0][0]).toBe("P2"); // attacker slot 1
     expect(calls.killFeed[0][3]).toBe("P4"); // victim slot 3
+    expect(calls.killFeed[0][7]).toBeNull(); // unknown slot kind -> no mark
+    expect(calls.killFeed[0][8]).toBeNull();
+  });
+
+  it("omits slot marks for NPC participants", () => {
+    const { ctx, calls } = makeCtx({
+      netSlots: [
+        { name: "A", kind: "npc" },
+        { name: "B", kind: "npc" },
+        { name: "C", kind: "npc" },
+        { name: "D", kind: "npc" },
+      ],
+    });
+    killFeedReactor(KILL, ctx);
+    expect(calls.killFeed[0][7]).toBeNull();
+    expect(calls.killFeed[0][8]).toBeNull();
   });
 
   it("no-ops when the hud has no kill feed", () => {

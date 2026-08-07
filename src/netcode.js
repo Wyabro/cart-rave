@@ -359,7 +359,7 @@ let callbacks = {
   getSceneRef: () => null,
 
   // Kill feed
-  addKillFeedEntry: (actorName, actorColor, verb, targetName, targetColor, comboTier, comboMultiplier) => {},
+  addKillFeedEntry: (actorName, actorColor, verb, targetName, targetColor, comboTier, comboMultiplier, actorSlotIndex, victimSlotIndex) => {},
   // * Presentation-only hook — fired when the LOCAL player's ram sent a victim into
   // * the void (host fires it from gameFlow; non-host from the falls[] replay path).
   // * The optional third arg is the full KO Event (reward breakdown for the score float).
@@ -638,9 +638,9 @@ export function registerGameCallbacks(deps) {
       deps.getTriggerCartShatterRef?.()?.(cart, scene, neonHex);
     },
     getSceneRef: () => deps.getSceneRef?.() ?? null,
-    addKillFeedEntry: (actorName, actorColor, verb, targetName, targetColor, comboTier, comboMultiplier) => {
+    addKillFeedEntry: (actorName, actorColor, verb, targetName, targetColor, comboTier, comboMultiplier, actorSlotIndex, victimSlotIndex) => {
       const hud = deps.getHud();
-      if (hud && hud.addKillFeedEntry) hud.addKillFeedEntry(actorName, actorColor, verb, targetName, targetColor, comboTier, comboMultiplier);
+      if (hud && hud.addKillFeedEntry) hud.addKillFeedEntry(actorName, actorColor, verb, targetName, targetColor, comboTier, comboMultiplier, actorSlotIndex, victimSlotIndex);
     },
     onLocalKillConfirm: (victimSlotIndex, comboTier, koEvent) => deps.onLocalKillConfirm?.(victimSlotIndex, comboTier, koEvent),
     onArenaKoFlash: (koEvent) => deps.onArenaKoFlash?.(koEvent),

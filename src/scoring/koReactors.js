@@ -59,6 +59,9 @@ export function killFeedReactor(koEvent, ctx) {
   const victimSlot = ctx.netSlots[koEvent.victimSlotIndex];
   const targetName = victimSlot?.name || `P${koEvent.victimSlotIndex + 1}`;
   const targetColor = colorForSlot(ctx, victimSlot);
+  // * Slot identity marks ride the feed for human slots only (NPCs carry their
+  // * personality emblem in the nameplate, so no shape needed here).
+  const victimSlotIndex = victimSlot?.kind === "human" ? koEvent.victimSlotIndex : null;
 
   // * Cartoon dizzy-stars dip on the victim's score chip (every client).
   ctx.hud.noteChipKO?.(koEvent.victimSlotIndex);
@@ -67,12 +70,15 @@ export function killFeedReactor(koEvent, ctx) {
     const attackerSlot = ctx.netSlots[koEvent.attackerSlotIndex];
     const actorName = attackerSlot?.name || `P${koEvent.attackerSlotIndex + 1}`;
     const actorColor = colorForSlot(ctx, attackerSlot);
+    const actorSlotIndex = attackerSlot?.kind === "human" ? koEvent.attackerSlotIndex : null;
     ctx.hud.addKillFeedEntry(
       actorName, actorColor, koEvent.verb, targetName, targetColor,
       koEvent.comboTier, koEvent.comboMultiplier,
+      actorSlotIndex, victimSlotIndex,
     );
   } else {
-    ctx.hud.addKillFeedEntry(null, null, koEvent.verb || "FELL OFF", targetName, targetColor);
+    ctx.hud.addKillFeedEntry(null, null, koEvent.verb || "FELL OFF", targetName, targetColor,
+      0, 1, null, victimSlotIndex);
   }
 }
 
