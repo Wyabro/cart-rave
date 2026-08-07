@@ -84,14 +84,14 @@ Live rows only. Shipped and closed cards live in
    from BACKLOG; detail in [completed-work.md](./planning/completed-work.md). Only playtest row
    left is **SHARD-PT-2** (SKIP — needs five humans, waits for the public post).
 3. **Five new cards off those passes** (notes, not residuals — each names a different mechanism
-   than the card that carried it): **FRIENDS-LEVEL-1 ✅ SHIPPED 08-07 (`f8281c5`) — owed
-   FRIENDS-LEVEL-PT-1** (arena picked on FRIENDS is now the arena the private lobby opens on;
-   confirmed the DIFF-FRIENDS-1 hello-latch hole one level down — the Friends host's menu pick was
-   clobbered by the room's hello-stamped default before host logic ever ran. Fix skips the hello
-   adopt for the Friends host and stamps the latch from the store instead, ordered ahead of the
-   existing difficulty push so one `sendHostRound` carries both. Quickplay/guests/rotation/migration
-   unaffected; server untouched. `tests/friendsLevel.test.js`, 14/14 targeted, 1626/1626 full suite,
-   qa 7/7) · **ONBOARD-ATTRACT-1** (High — stop force-opening HOW TO PLAY; make the button attract) ·
+   than the card that carried it): **FRIENDS-LEVEL-1 ✅ CLOSED PASS 08-07** (`f8281c5`,
+   deployed `ec23ccb9`, FRIENDS-LEVEL-PT-1 1/1 PASS) — confirmed the DIFF-FRIENDS-1
+   hello-latch hole one level down: the Friends host's menu pick was clobbered by the room's
+   hello-stamped default before host logic ever ran. Fix skips the hello adopt for the Friends
+   host and stamps the latch from the store instead, ordered ahead of the existing difficulty
+   push so one `sendHostRound` carries both. Quickplay/guests/rotation/migration unaffected;
+   server untouched. `tests/friendsLevel.test.js`, 14/14 targeted, 1626/1626 full suite, qa 7/7,
+   confirmed live · **ONBOARD-ATTRACT-1** (High — stop force-opening HOW TO PLAY; make the button attract) ·
    **ONBOARD-SIZE-1** (High — arrows and body text too small) · **ONBOARD-SCROLL-1** (Medium —
    focus ring adds a page scrollbar) · **SPAWN-SUNDIAL-GAP-1** (Medium — carts wedge between the
    Sundial booths and the platform; solid legs created it).
@@ -103,8 +103,7 @@ Live rows only. Shipped and closed cards live in
 5. **Closed 08-06 (detail in completed-work):** HARNESS-NULL-1 · NET-LOOK-ACC-1 · UI-SCALE-1 +
    TOUCH-HOVER-1 · DIAG-NET-CAPTURE-1 · SHOOT-SOFTGL-1 · MONTAGE-ESC-1. Killfeed nit filed
    (KILLFEED-PHONE-1); luma-metric tool filed (ART-LUMA-TOOL-1).
-**Open High:** FRIENDS-LEVEL-1 playtest · ONBOARD-ATTRACT-1 · ONBOARD-SIZE-1 · CART-MODEL-1 ·
-bloom (now unblocked).
+**Open High:** ONBOARD-ATTRACT-1 · ONBOARD-SIZE-1 · CART-MODEL-1 · bloom (now unblocked).
 
 ## Open issues (top)
 

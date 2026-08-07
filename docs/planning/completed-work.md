@@ -15,7 +15,8 @@ Chronological record of shipped work, newest first.
 
 ### August 7, 2026 — FRIENDS-LEVEL-1: the Friends host's arena pick now wins the room
 
-*(Shipped `f8281c5`, playtest owed **FRIENDS-LEVEL-PT-1**.)*
+*(Shipped `f8281c5`, deployed `ec23ccb9` — ✅ **CLOSED PASS**, FRIENDS-LEVEL-PT-1 1/1, confirmed
+live the same day it was filed.)*
 
 Wyatt's note on the DIFF-FRIENDS-PT-1 PASS (08-06) — *"i had the storerooms selected but the
 friends lobby went to cart rave"* — turned out to be the exact same hole DIFF-FRIENDS-1 closed for

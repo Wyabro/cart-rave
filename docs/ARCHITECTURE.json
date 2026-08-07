@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-07T06:33:21.543Z",
-    "commit": "f8281c5"
+    "at": "2026-08-07T06:49:11.560Z",
+    "commit": "c011d48"
   },
-  "source_digest": "72573be4",
+  "source_digest": "aba7ebcf",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -907,18 +907,11 @@
       {
         "title": "Engineering",
         "counts": {
-          "High": 1,
           "Medium": 11,
           "Low": 7,
           "Partial": 1
         },
         "rows": [
-          {
-            "pri": "High",
-            "item": "FRIENDS-LEVEL-1 — arena picked on the FRIENDS menu is not the arena the private lobby opens on",
-            "notes": "⏳ **SHIPPED 08-07 (`f8281c5`), human check owed on FRIENDS-LEVEL-PT-1.** Filed 08-06 from Wyatt's DIFF-FRIENDS-PT-1 note, confirmed the same day as the DIFF-FRIENDS-1 hole one level down: `MSG.hello` adopted the room's default `levelId` (`classicRecord`) into `settingsStore.selectedLevelId` before the Friends host ever got a chance to push their own pick — clobbering it in both the latch and localStorage, so `sendHostRound` re-broadcast the default. Fix: the hello handler now skips that adopt for the Friends host (`isFriendsHostHello`, keyed off `msg.hostId === msg.youConnId` since the module vars aren't assigned yet) so the host's already-loaded arena is never rotated away and back; `adoptFriendsHostLevelFromStore()` stamps the room latch from the store instead, ordered *before* the existing `adoptFriendsHostAiDifficultyFromStore()` call so one `sendHostRound` carries both. Quickplay, guests, rematch rotation and host migration are unaffected — predicate false, or no hello involved. Server untouched (`MSG.hostRound` already latched `levelId` and `aiDifficulty` off one payload). `tests/friendsLevel.test.js`: store-wins-over-stale-latch regression, guest/quickplay no-ops (state-checked, not just return value), no-saved-pick fallback, predicate unit cases — 14/14 targeted, 1626/1626 full suite, qa 7/7.",
-            "ship1": null
-          },
           {
             "pri": "Medium",
             "item": "SPAWN-SUNDIAL-GAP-1 — carts wedge between the Sundial spawn booths and the platform",
@@ -1246,17 +1239,10 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "High": 1,
           "Medium": 1,
           "Low": 2
         },
         "rows": [
-          {
-            "pri": "High",
-            "item": "FRIENDS-LEVEL-PT-1 — the Friends lobby opens on the arena you picked, not the default `[solo]`",
-            "notes": "**Owed: Wyatt playtest — FRIENDS-LEVEL-PT-1 — the arena you had selected on the main menu is the arena your private room actually opens on.** Shipped 08-07 (`f8281c5`). The room used to always start on Cart Rave regardless of your pick — that's the bug this fixes. *(Quickplay staying random is covered by an automated regression test, not a step here — one issue per card.)*<br>1. Main menu: select **THE STOREROOMS** (or any arena besides Cart Rave).<br>2. Select **FRIENDS** and create a private room.<br>3. Look at the lobby (CHECKOUT LINE) — it should be **The Storerooms**, with no flash or arena swap as it loads.<br>4. If you have a second device, have a friend join your room link and confirm they also land on The Storerooms.<br>5. PASS if your Friends room opens on the arena you picked. FAIL with what arena you picked and what the lobby showed instead.",
-            "ship1": null
-          },
           {
             "pri": "Medium",
             "item": "PERF-9CELL-1 — Intel Low 9-cell PERF sweep `[solo]`",
