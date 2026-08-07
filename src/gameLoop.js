@@ -22,6 +22,13 @@ let lastReconciledSnapSeq = -1;
 /** Rate limiter for perf/longframe diag events (ms timestamp of last record). */
 let _lastLongFrameLogMs = 0;
 
+// * FREEZE-TELEMETRY-1: always-on (not ?diag=1-gated) per-match frame-time signal, so
+// * production has SOME evidence for the open host 1-8s-freeze investigation once real
+// * testers replace Wyatt's own diag-flagged sessions. Deliberately separate from the
+// * heavier __ccLoopDbg block below — sample, don't stream.
+let _matchMaxFrameMs = 0;
+let _matchFramesOver33 = 0;
+
 // * ---- Reconcile visual-offset capture (run-4 "laggy-rubberbandy" fix) ----
 // * Reconciliation hard-snaps the local Rapier body to host truth and replays unacked
 // * inputs — correct for physics, but the mesh rendered straight off the body jerked on
@@ -115,6 +122,30 @@ function accumulateReconcileVisOffset(cart, pcfg, noteReconcileError) {
  */
 export function resetReconciliationState() {
   lastReconciledSnapSeq = -1;
+}
+
+/**
+ * Accumulates the always-on per-match frame-time signal. Cheap by design: two primitive
+ * comparisons, no allocation, called once per frame regardless of diag flags. Resume frames
+ * (the zeroed gap after alt-tab/hidden-tab) are excluded so they can't read as a freeze.
+ * @param {number} dtMs
+ * @param {boolean} isResume
+ */
+export function recordMatchFrameForTelemetry(dtMs, isResume) {
+  if (isResume) return;
+  if (dtMs > _matchMaxFrameMs) _matchMaxFrameMs = dtMs;
+  if (dtMs > 33) _matchFramesOver33 += 1;
+}
+
+/** Resets the per-match frame-time signal — call on entering RoundPhase.RUNNING. */
+export function resetMatchFrameTelemetry() {
+  _matchMaxFrameMs = 0;
+  _matchFramesOver33 = 0;
+}
+
+/** @returns {{ maxFrameMs: number, framesOver33: number }} */
+export function getMatchFrameTelemetry() {
+  return { maxFrameMs: Math.round(_matchMaxFrameMs), framesOver33: _matchFramesOver33 };
 }
 
 /** Clears cached NPC cart refs after session teardown (bodies are removed from Rapier). */
@@ -831,6 +862,7 @@ export function runGameLoop(loopState, callbacks) {
       const overGap = dt > RESUME_GAP_S;
       overGapStreak = overGap ? overGapStreak + 1 : 0;
       const isResume = overGap && overGapStreak === 1;
+      recordMatchFrameForTelemetry(dt * 1000, isResume);
       // * PERF-PASS-1: hoisted so the callback timing below can reach the same counter object
       // * and the same gate. Stays null in ordinary play, which is what keeps that path free.
       let d = null;

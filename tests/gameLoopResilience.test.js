@@ -2,7 +2,13 @@
 // happy-dom: gameLoop.js transitively imports nipplejs (via touchControls), which
 // touches `window` at module load; the default node environment throws on import.
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { runGameLoop, createGameLoopState } from "../src/gameLoop.js";
+import {
+  runGameLoop,
+  createGameLoopState,
+  recordMatchFrameForTelemetry,
+  resetMatchFrameTelemetry,
+  getMatchFrameTelemetry,
+} from "../src/gameLoop.js";
 
 // * Drive the rAF game loop deterministically: the loop self-schedules via
 // * requestAnimationFrame, so we capture the scheduled step and invoke it by hand
@@ -390,5 +396,23 @@ describe("gameLoop hidden-host frame driver", () => {
     driver.refresh();
     expect(driver.isPumping()).toBe(true);
     expect(scheduled.size).toBe(0);
+  });
+});
+
+describe("match frame telemetry (FREEZE-TELEMETRY-1)", () => {
+  it("tracks the max frame and over-33ms count, ignoring resume frames", () => {
+    resetMatchFrameTelemetry();
+    recordMatchFrameForTelemetry(50, false);
+    recordMatchFrameForTelemetry(10, false);
+    recordMatchFrameForTelemetry(999, true); // resume — must not count as a freeze
+
+    expect(getMatchFrameTelemetry()).toEqual({ maxFrameMs: 50, framesOver33: 1 });
+  });
+
+  it("resets to zero", () => {
+    recordMatchFrameForTelemetry(500, false);
+    resetMatchFrameTelemetry();
+
+    expect(getMatchFrameTelemetry()).toEqual({ maxFrameMs: 0, framesOver33: 0 });
   });
 });

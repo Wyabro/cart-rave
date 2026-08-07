@@ -127,6 +127,28 @@ describe("ANLX-ATTRACT-1 — participation gate", () => {
     expect(names().filter((n) => n === "match_ended")).toHaveLength(1);
   });
 
+  it("match_ended carries per-match frame telemetry unconditionally (FREEZE-TELEMETRY-1)", async () => {
+    let now = 10_000;
+    vi.spyOn(performance, "now").mockImplementation(() => now);
+    cartActive = true;
+    install();
+    setPhase(RoundPhase.RUNNING);
+    now += 4_000; // past MIN_MATCH_DURATION_MS
+    setPhase(RoundPhase.PODIUM);
+    await Promise.resolve();
+
+    flushAnalytics();
+    const events = sink.batches.flatMap((b) => b.events ?? []);
+    const matchEnded = events.find((e) => e.name === "match_ended");
+
+    // * No real gameLoop.js frames ticked in this test — asserts the fields are present,
+    // * numeric, and unconditional (not gated behind any diag flag), not the accumulation
+    // * math itself (covered directly in gameLoopResilience.test.js).
+    expect(matchEnded).toBeDefined();
+    expect(matchEnded.maxFrameMs).toBe(0);
+    expect(matchEnded.framesOver33).toBe(0);
+  });
+
   it("does not emit match_ended when duration is below MIN_MATCH_DURATION_MS (ANLX-BULK-1 L2)", async () => {
     let now = 10_000;
     vi.spyOn(performance, "now").mockImplementation(() => now);

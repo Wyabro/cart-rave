@@ -7,7 +7,8 @@
  *
  *   session_start        once per page load — device tier context
  *   match_started        phase → running — { arena, mode }
- *   match_ended          running → podium — duration, end reason, local result, KO totals
+ *   match_ended          running → podium — duration, end reason, local result, KO totals,
+ *                        per-match frame telemetry (maxFrameMs, framesOver33 — FREEZE-TELEMETRY-1)
  *   unlock_earned        any unlock grant (levels + cosmetics, via onUnlockGranted)
  *   challenge_completed  a daily/weekly challenge finished — { id }
  *   player_quit          returnToMenu (reason) or page close mid-round (see gameSession.js
@@ -39,6 +40,7 @@ import { getAutoQualityStepLog } from "../utils/autoQuality.js";
 import { getQualityTier } from "../utils/qualityMode.js";
 import { probeGpu } from "../utils/gpuCaps.js";
 import { initAnalytics, trackEvent, getAnalyticsDebugState } from "./analytics.js";
+import { resetMatchFrameTelemetry, getMatchFrameTelemetry } from "../gameLoop.js";
 
 /**
  * @typedef {object} GameplayAnalyticsDeps
@@ -207,6 +209,7 @@ export function installGameplayAnalytics(deps) {
 
     if (phase === RoundPhase.RUNNING) {
       startedEmitted = false;
+      resetMatchFrameTelemetry();
       if (hasLocalCart()) {
         emitStarted(false);
       } else {
@@ -237,6 +240,7 @@ export function installGameplayAnalytics(deps) {
         // * floor (scripted/tool 4–12 ms ends). Do NOT also drop null here — null still
         // * emits; L1 summary excludes null-duration ends. Out of scope for this PR.
         if (durationMs != null && durationMs < MIN_MATCH_DURATION_MS) return;
+        const frameTelemetry = getMatchFrameTelemetry();
         trackEvent("match_ended", {
           arena: arena(),
           mode: mode(),
@@ -248,6 +252,8 @@ export function installGameplayAnalytics(deps) {
           localKos: stats.localKos,
           localDeaths: stats.localDeaths,
           maxComboTier: stats.maxComboTier,
+          maxFrameMs: frameTelemetry.maxFrameMs,
+          framesOver33: frameTelemetry.framesOver33,
         });
       });
     }
