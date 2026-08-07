@@ -1096,6 +1096,13 @@ function maybeTriggerNpcOpportunisticRamBoost(nowMs, npc) {
     }
   }
 
+  // * Sundial octagon rim — abort boost if bot→target leaves the safe deck (AI-ARENA-SELFKO-1).
+  // * No-ops off octagon arenas. Margin dial gate: 1.0 / 1.25 / 1.5 from PT-1.
+  const OCTAGON_BOOST_EXIT_MARGIN = 1.25;
+  if (Simulation.boostSegmentExitsOctagon?.(p.x, p.z, op.x, op.z, OCTAGON_BOOST_EXIT_MARGIN)) {
+    return;
+  }
+
   const rot = npc.body.rotation();
   const yaw = Simulation.yawFromQuaternion(rot);
   Simulation.setForwardRightFromYaw(yaw, ramBoostForwardXZ, ramBoostRightXZ);

@@ -1875,28 +1875,87 @@ function routeClassicHoleTarget(fx, fz, tx, tz) {
 }
 
 /**
- * * Steers an octagon-arena NPC's heading inward when it's within the rim influence band.
- * * Sundial Station's outer rim is the only kill edge, so — unlike a center hole — bots must
- * * be pushed toward center. Robust across all eight flats (pushes along −position).
+ * Pure octagon rim avoidance strength: static band + Classic-style time-to-edge panic.
+ * Used by applyOctagonRimAvoidance and unit tests (AI-ARENA-SELFKO-1).
  *
  * @param {number} px Cart world X.
  * @param {number} pz Cart world Z.
+ * @param {number} lvx Linear velocity X.
+ * @param {number} lvz Linear velocity Z.
+ * @param {number} apothem Octagon apothem (arenaHalf).
+ * @param {number} [band=OCTAGON_RIM_BAND]
+ * @returns {number} Strength ≥ 0 (0 outside the band).
+ */
+export function computeOctagonRimStrength(px, pz, lvx, lvz, apothem, band = OCTAGON_RIM_BAND) {
+  const edgeDist = octagonEdgeDistance(px, pz);
+  if (edgeDist <= apothem - band) return 0;
+  // * Static band (position-only), same shape as pre-SELFKO Sundial.
+  let strength = clamp((edgeDist - (apothem - band)) / band, 0, 1.5);
+  // * Classic outer-rim TTE panic: only when moving outward fast enough.
+  const dist = Math.hypot(px, pz) || 1;
+  const rx = px / dist;
+  const rz = pz / dist;
+  const outwardSpeed = lvx * rx + lvz * rz;
+  if (outwardSpeed > 0.5) {
+    const gap = apothem - edgeDist;
+    const tte = gap / outwardSpeed;
+    strength = Math.max(strength, clamp((0.55 - tte) / 0.55, 0, 1) * 1.6);
+  }
+  return strength;
+}
+
+/**
+ * * Steers an octagon-arena NPC's heading inward when it's within the rim influence band.
+ * * Sundial Station's outer rim is the only kill edge, so — unlike a center hole — bots must
+ * * be pushed toward center. Robust across all eight flats (pushes along −position).
+ * * AI-ARENA-SELFKO-1: Classic-style TTE panic on top of the static band (max, not sum).
+ *
+ * @param {number} px Cart world X.
+ * @param {number} pz Cart world Z.
+ * @param {{ x: number, z: number }} lv Planar linear velocity.
  * @param {THREE.Vector3} dir Normalized planar heading (modified in place).
  */
-function applyOctagonRimAvoidance(px, pz, dir) {
+function applyOctagonRimAvoidance(px, pz, lv, dir) {
   if (!_octagonHazards) return;
   const apothem = _octagonHazards.arenaHalf ?? CONFIG.record.radius;
-  // * AI-3: ~+5% Sundial rim caution — engage ~5% sooner (band 5.0→5.25) and push ~5% harder
-  // * inward (1.2→1.26) so bots stop occasionally lemming off the rim.
-  const band = OCTAGON_RIM_BAND;
-  const edgeDist = octagonEdgeDistance(px, pz);
-  if (edgeDist <= apothem - band) return;
-  const strength = clamp((edgeDist - (apothem - band)) / band, 0, 1.5);
+  // * AI-3 band 5.25 + gain 1.26; SELFKO-1 adds speed-aware TTE via computeOctagonRimStrength.
+  const strength = computeOctagonRimStrength(px, pz, lv.x, lv.z, apothem);
+  if (strength <= 0) return;
   const dist = Math.hypot(px, pz) || 1;
   dir.x += (-px / dist) * strength * 1.26;
   dir.z += (-pz / dist) * strength * 1.26;
   if (dir.lengthSq() < 1e-6) dir.set(-px / dist, 0, -pz / dist);
   dir.normalize();
+}
+
+/**
+ * True when Sundial-style open-octagon hazards are active (not Classic / Storerooms).
+ * @returns {boolean}
+ */
+export function isOctagonArenaActive() {
+  return !!_octagonHazards;
+}
+
+/**
+ * Abort opportunistic nitro when the bot→target segment leaves the safe octagon deck.
+ * No-ops (false) when not on an octagon arena — never mis-fire on Classic/Storerooms.
+ * Safe zone is convex (regular octagon), so endpoint checks are exact for the segment.
+ *
+ * @param {number} ax Bot X.
+ * @param {number} az Bot Z.
+ * @param {number} bx Target X.
+ * @param {number} bz Target Z.
+ * @param {number} [marginM=1.25] Inset from apothem (meters).
+ * @returns {boolean}
+ */
+export function boostSegmentExitsOctagon(ax, az, bx, bz, marginM = 1.25) {
+  if (!_octagonHazards) return false;
+  const apothem = _octagonHazards.arenaHalf ?? CONFIG.record.radius;
+  const margin = Number.isFinite(marginM) ? marginM : 1.25;
+  const safe = apothem - margin;
+  if (octagonEdgeDistance(ax, az) > safe) return true;
+  if (octagonEdgeDistance(bx, bz) > safe) return true;
+  return false;
 }
 
 /**
@@ -2688,10 +2747,10 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
     // * Open octagon: steer away from the outer kill rim always, and around the center
     // * podium keep-out UNLESS this bot is actively contesting a camper on the high ground.
     if (now < cart.aiContestPodiumUntilMs) {
-      applyOctagonRimAvoidance(p.x, p.z, toTarget);
+      applyOctagonRimAvoidance(p.x, p.z, lv, toTarget);
     } else {
       applyCircularKeepOutAvoidance(p.x, p.z, toTarget);
-      applyOctagonRimAvoidance(p.x, p.z, toTarget);
+      applyOctagonRimAvoidance(p.x, p.z, lv, toTarget);
     }
   } else if (CONFIG.record.centerHole?.enabled !== false) {
     // * Classic Record: reactive radial push away from the center hole + the rim.
