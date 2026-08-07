@@ -2983,6 +2983,16 @@ const _activeCartContacts = new Map();
  *  again, or a single hard ram held in contact would machine-gun impulses. */
 const RAM_SUSTAINED_REQUALIFY_MS = 500;
 
+/** * Max planar separation (m) for a tracked contact pair before it is dropped as stale.
+ * Two carts in physical contact keep their body origins within one full cart length
+ * (2 × CONFIG.cart.size.z half-extent) even end-to-end; doubling that leaves margin for
+ * tilt / round-cuboid corner contact, while the two closest spawn-ring slots sit tens of
+ * meters apart. Prunes pairs whose Rapier stopped edge never fired (teleport-to-spawn,
+ * Sudden Death setEnabled(false)) so they cannot re-qualify an attributed ram from
+ * across the arena (RAM-CONTACT-STALE-1). */
+const RAM_SUSTAINED_MAX_SEPARATION_M = CONFIG.cart.size.z * 4;
+const RAM_SUSTAINED_MAX_SEPARATION_SQ = RAM_SUSTAINED_MAX_SEPARATION_M ** 2;
+
 /** @param {object} c1 @param {object} c2 @returns {string} */
 function cartPairKey(c1, c2) {
   const s1 = c1.slotIndex ?? -1;
@@ -3113,12 +3123,42 @@ function processCollisionEvents(world, eventQueue, allCarts, callbacks, isHost, 
       _activeCartContacts.delete(key);
       continue;
     }
+    // * Separation guard — a pair this far apart is not touching, whatever the stopped
+    // * edge said (or never fired). The geometric cone can realign from across the arena
+    // * and the stale pair would re-fire a fully attributed ram + knockback without it.
+    const pa = a.body.translation();
+    const pb = b.body.translation();
+    const dx = pa.x - pb.x;
+    const dz = pa.z - pb.z;
+    if (dx * dx + dz * dz > RAM_SUSTAINED_MAX_SEPARATION_SQ) {
+      _activeCartContacts.delete(key);
+      continue;
+    }
     if (nowMs - rec.lastRamAtMs < RAM_SUSTAINED_REQUALIFY_MS) continue;
     const ram = resolveCartRamCollision(a, b);
     if (ram) {
       applyRammingImpulse(ram.rammer, ram.victim, ram.rammerState, ram.victimState, callbacks, isHost, nowMs);
       rec.lastRamAtMs = nowMs;
     }
+  }
+}
+
+/**
+ * * Drops every tracked sustained-contact pair involving `cart` from `_activeCartContacts`.
+ *
+ * Called from {@link resetCartTransientState} (entities.js) on respawn/rematch so a pair
+ * whose Rapier stopped edge never fired (teleport-to-spawn while touching, Sudden Death
+ * `setEnabled(false)` mid-contact) cannot re-qualify a ram from across the arena
+ * (RAM-CONTACT-STALE-1). The separation guard in {@link processCollisionEvents} is the
+ * backstop for pairs no code path resets.
+ *
+ * @param {object} cart
+ * @returns {void}
+ */
+export function clearActiveCartContactsForCart(cart) {
+  if (!cart) return;
+  for (const [key, rec] of _activeCartContacts) {
+    if (rec.a === cart || rec.b === cart) _activeCartContacts.delete(key);
   }
 }
 
