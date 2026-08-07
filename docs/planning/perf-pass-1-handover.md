@@ -1,23 +1,15 @@
-# PERF-PASS-1 Waves 3–4 — HANDOFF
+# PERF-PASS-1 Waves 3–5 — HANDOFF
+
+> **Status: CLOSED 08-06 — bar NOT met, deliberate close on Wyatt's call ("stadium is needed").**
+> Wave 4 shipped `arenaFillLights` (−1.66 to −2.54 ms). Wave 5 cells: `billboardlights` null
+> (−0.13 ms, not a lever), `recordbody` unproven (polluted cell), `stadium` needed → kept. The
+> card is do-not-reopen; PERF-9CELL-1 is moot with it. Full close writeup in
+> [completed-work.md](./completed-work.md). Everything below is the historical method.
 
 **This document is written for a fresh session.** It assumes no memory of the previous one.
 Read it top to bottom before touching code. Every line ref was verified 08-03 at HEAD `6404fbd`
 and re-checked 08-04 at `adbe6ca` (only `main.js` and `backroomsSupermarket.js` moved since; the
 `main.js` refs below are unchanged).
-
-> **Status: UNPARKED 08-04 — Wyatt unparked PERF-PASS-1 and acked Wave 3.**
-> Wave 3 = this plan's plumbing commit + the nine-cell sweep + the cost menu. **Wave 4 ships
-> nothing until Wyatt picks from that menu and acks separately.**
->
-> Order of operations for Wave 3:
-> 1. ✅ This file committed to `docs/planning/perf-pass-1-handover.md`, linked from the
->    PERF-PASS-1 rows in `docs/STATUS.md` and `docs/planning/BACKLOG.md`. A plan under
->    `.claude/plans/` is not in the repo's cold-start read order
->    (`docs/BRIEFING.md` → `AGENTS.md` → `docs/STATUS.md`), so a third window would never find it.
->    The repo already uses this pattern — `art-pass-sundial-handover.md`,
->    `fight-night-ui-handover.md`, `PERF-WARM-handover.md`.
-> 2. The plumbing commit (`applySceneAblation` + two call sites + the `main.js:2430` pairing + tests).
-> 3. Deploy, then Wyatt runs the sweep. Cost menu built from what comes back.
 
 ---
 
@@ -263,6 +255,23 @@ sweep, line 327). Treat any delta under ~1.5 ms as noise. After Wyatt's cells: s
 picks; one `qualityTiers.js` commit per pick (Wave 4 preference order in the table at line 388
 applies — for `recordbody` the sanctioned mechanism is `recordBodyMaterial` or equivalent in
 `qualityTiers.js`, **not** a code path).
+
+### 5c result (ran 08-06, Intel UHD box, build `b348ba8`) — card CLOSED
+
+Wyatt ran the bracket across Edge + Firefox, solo host 3 NPCs, Low, `straddledDemotion: false`
+throughout:
+
+| Cap | Cell | meanMs | fps | CPU | vis | Δ vs Edge baseline | Verdict |
+|---|---|---|---|---|---|---|---|
+| cap-293 | `none` (Edge) | 23.185 | 43.1 | 9.17 | 8.11 | — | baseline |
+| cap-295 | `recordbody` (Edge) | 30.942 | 32.3 | 23.89 | 21.61 | **+7.76** | **unproven — polluted cell.** CPU 9→24 ms is the throttled/drifting box signature, not a material swap (zero draws touched). Reads as pollution, not a real regression — needs a cooled re-run to disambiguate, which never happened because the card closed. |
+| cap-296 | `billboardlights` (Edge) | 23.056 | 43.4 | 11.66 | 10.46 | **−0.13** | **null — not a lever.** Two PointLights cost ~nothing on this box. Do not ship. |
+| cap-294 | `none` (Firefox, dpr 1.25) | 24.302 | 41.2 | 12.88 | 11.03 | — | cross-browser sanity only (different engine/viewport — not a same-box A-B-A pair) |
+
+**Decision:** Wyatt closed the card — **`stadium` is needed, kept.** No qualityTiers knob was added
+for either Wave 5 candidate. `arenaFillLights` (Wave 4) remains the only shipped lever. This
+documents the outcome that ranked-risk #1 predicted: *no new fragment lever → menu is stadium-only.*
+Both new `?ablate=` tokens stay as permanent debug surface (documented in `debugParams.js`).
 
 ---
 

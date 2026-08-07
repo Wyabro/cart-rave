@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-07 at commit `b348ba8` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `633d96db`
+> Generated 2026-08-07 at commit `e4399f2` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `c323f7e2`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -18,12 +18,11 @@ Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep a
 
 ## ACTIVE CARD
 
-PERF-PASS-1 ▶ Wave 5 — 5c: Wyatt bracketed A-B-A cells on a cooled Intel box, then stills +
+PERF-PASS-1 ✅ CLOSED 08-06 — perf goal NOT met. Wave 5 cells on the Intel box: `billboardlights`
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 
 Self-directed queue (one at a time, within the declared phase):
-- **PERF-PASS-1** 60 fps at Low on the Intel box — Cart Rave only (Wyatt scoped it 08-03) — UNPARKED BY WYATT 08-06 — Wave 5 running. 5a diagnosis at HEAD `16ca169`: 147 draws / 550k tris / 265…
 - **BUNDLE-1** Menu/game code-split — ⚠️ CLOSED PARTIAL 08-05 — perf goal NOT met. Deployed `f2f90fd2`. Warm `menu-ready` −3% vs a −15% gate.…
 
 ## Do not

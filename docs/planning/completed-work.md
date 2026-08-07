@@ -69,6 +69,52 @@ metric into `compare.mjs` is filed as **ART-LUMA-TOOL-1**. **ART-EXPO-DUMP-1** f
 
 ---
 
+### August 6, 2026 — PERF-PASS-1: low-end perf program closed — bar NOT met, deliberate close
+
+*(Perf program · Block C)* — ✅ **CLOSED 08-06 on Wyatt's call: "stadium is needed."** The card set
+out to hit **60 fps / mean ≤ 16.7 ms at Low on the Intel UHD box, Cart Rave only**. It closes with
+**no further cuts** — the pass bar is not met and the card is deliberately parked in the grave
+rather than kept open for a cut that would cost the arena's look.
+
+**What shipped (the only lever):** **Wave 4 `arenaFillLights`** (`b754e12`, Worker `9b8b1fbe`) —
+`pitUplight` + `pitRimFill` off at Low, spindle kept (Wyatt's identity-light call). Measured range
+**−1.66 to −2.54 ms**, which includes +0.55 — never quoted as a single figure. Still owed (Wave 4
+playtest): look down the shaft after a KO at Low — darker, not pure black; spindle reads lit, not
+orphaned; High unchanged.
+
+**Wave 5 (unparked 08-06, `b348ba8` + `e4399f2`):** 5a diagnosis at HEAD `16ca169` — 147 draws /
+550,449 tris / 265 transparent at Low (Cart Rave shell); light loop already down to **3 PointLights**
+(spindle + two un-gated billboard lights); record body = largest Physical screen-fill, never
+measured. 5b shipped + deployed two new `?ablate=` tokens with no visual default change:
+`recordbody` (Physical→Standard swap, verified 91→90 physical on the scene graph) and
+`billboardlights` (the two un-gated PointLights only).
+
+**5c cells (Wyatt, Intel UHD box, solo host 3 NPCs, Low, build `b348ba8`, `straddledDemotion: false`):**
+
+| Cap | Cell | meanMs | fps | CPU | vis | Verdict |
+|---|---|---|---|---|---|---|
+| cap-293 | `none` (Edge baseline) | 23.185 | 43.1 | 9.17 | 8.11 | — |
+| cap-295 | `recordbody` (Edge) | 30.942 | 32.3 | 23.89 | 21.61 | **unproven — polluted cell** (+7.8 ms; CPU 9→24 ms is a throttled/drifting box, not a material swap that touches zero draws) |
+| cap-296 | `billboardlights` (Edge) | 23.056 | 43.4 | 11.66 | 10.46 | **null — not a lever** (−0.13 ms, in noise) |
+| cap-294 | `none` (Firefox, dpr 1.25) | 24.302 | 41.2 | 12.88 | 11.03 | cross-browser sanity only |
+
+**Outcome — ranked-risk #1 realised:** *no new fragment lever found → menu is stadium-only.* Of the
+two new candidates, `billboardlights` cost ~nothing and `recordbody` read polluted (unproven in
+either direction). **`stadium` (−2.66 ms, swept) is needed → kept.** The card closes with
+`arenaFillLights` as the only shipped lever and the box still ~43 fps against a 60 bar.
+
+**What is NOT true going forward:** PERF-PASS-1 is closed do-not-reopen. PERF-9CELL-1 (the 9-cell
+sweep) is **moot** with its parent closed. The `?ablate=` tokens stay (permanent debug surface —
+`recordbody`/`billboardlights` joined the existing seven, documented in `debugParams.js`).
+Perf residual items that remain open live under their own rows: **RECORD-MED-1** (Medium look
+parity — explicitly not a cost card), **WARM-SOLO-1**, **PERF-RENDERINFO-1**, **PERF-WATCH-1 /
+PERF-TIER-1 / PROBE-WARM-RT-1** (levers after attribution — untouched by this close).
+
+Full method, per-token expectations and the drift discipline live in
+[perf-pass-1-handover.md](./perf-pass-1-handover.md).
+
+---
+
 ### August 6, 2026 — FEEL-DAY-1: collision punch + impact juice + bot aggression
 
 *(Playtesting feel · wave)* — ✅ **CLOSED PASS 08-06** (`da9063c`, `e67071b`, `0e0a1b7`).
