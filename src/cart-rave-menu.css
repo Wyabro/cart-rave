@@ -2616,7 +2616,13 @@ html, body {
   left: 50%;
   bottom: max(8px, env(safe-area-inset-bottom, 0px));
   transform: translateX(-50%);
-  z-index: 3;
+  /* ORIENT-TOAST-Z-1: was 3, which lost to the whole menu. `.cr-content` is
+     `position:absolute; z-index:20` — a STACKING CONTEXT — so every value inside it
+     (hero 22, plate 22, hintbar 23) is local and irrelevant here; the hint only ever
+     argued with the 20 on the container itself, and lost. Any value above 20 clears the
+     entire subtree in one step; 24 for headroom. No bottom offset is needed: the hintbar
+     is inside `.cr-content` (index.html) AND `display:none` in this phone band. */
+  z-index: 24;
   align-items: center;
   gap: 8px;
   padding: 6px 14px;

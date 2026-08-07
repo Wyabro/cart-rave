@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-07T00:22:12.746Z",
-    "commit": "27a1caf"
+    "at": "2026-08-07T00:31:29.281Z",
+    "commit": "7296e24"
   },
-  "source_digest": "f02a86e5",
+  "source_digest": "800cff53",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1269,7 +1269,7 @@
         "title": "Playtest owed",
         "counts": {
           "High": 5,
-          "Medium": 1,
+          "Medium": 2,
           "Low": 2
         },
         "rows": [
@@ -1295,6 +1295,12 @@
             "pri": "High",
             "item": "DIFF-FRIENDS-PT-1 — host sets bot difficulty; room latch matches chip `[solo]`",
             "notes": "**Owed: Wyatt playtest — DIFF-FRIENDS-PT-1 — host chips on Friends lobby, and the active chip matches the room difficulty (not vibes alone).** Shipped 08-06. Hard assert is the chip itself — lobby paints from the room latch after hello overwrites server Easy.<br>1. Main menu: select **FRIENDS** → set **HARD** on the context chips.<br>2. Create a private room. On **CHECKOUT LINE** as host, confirm Easy/Med/Hard chips appear and **HARD** is the lit one.<br>3. Switch to **EASY** — the lit chip must move to EASY (if it sticks on HARD, FAIL: latch did not update).<br>4. Ready alone (bots fill empty lanes). Optional feel check only after the chip/latch steps pass.<br>5. FAIL if chips missing on the lobby, HARD pick leaves chips on Easy after enter, or a guest sees the chips (second client optional).",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "ORIENT-TOAST-PT-1 — the portrait hint is visible on a landscape phone menu `[phone]`",
+            "notes": "**Owed: Wyatt playtest — ORIENT-TOAST-PT-1 — turning your phone sideways on the main menu shows the \"MENU IS BEST IN PORTRAIT\" chip on top, not buried under the buttons.** Shipped 08-06, deployed with this wave. It was drawing *under* the scrolling button column; it now draws over it. **Phone only** — a desktop window resized small will not reproduce it, the CSS requires a real coarse pointer.<br>1. On your phone, open the main menu in **portrait** — confirm **no** hint appears (it is landscape-only; a hint in portrait is a FAIL).<br>2. Rotate to **landscape**. The dark chip with the little rotating phone glyph and **MENU IS BEST IN PORTRAIT** should sit at the bottom centre, fully readable.<br>3. FAIL if it is missing, half-hidden behind a menu button, or clipped by the screen edge.<br>4. Do **not** judge the in-match rotate prompt here — that is a different element and is not in this card.",
             "ship1": null
           },
           {
@@ -1327,8 +1333,8 @@
         "title": "UI / UX",
         "counts": {
           "Medium": 10,
-          "High": 2,
-          "Low": 4
+          "Low": 5,
+          "High": 2
         },
         "rows": [
           {
@@ -1358,7 +1364,13 @@
           {
             "pri": "Medium",
             "item": "ORIENT-TOAST-Z-1 — phone orientation toast on main menu draws under other UI",
-            "notes": "**Filed 08-06 from Wyatt's UI-P2-HUD-PT-1 playtest note:** *\"the phone orientation toast on the main menu gets drawn under stuff.\"* Same shape as the closed HUD-TOAST-Z-1 family (six toast-occlusion cards, PASS 08-05) — likely a stacking-context/z-index gap that family didn't cover because this toast lives on the main menu, not in-match. Check the toast's z-index against whatever main-menu layer is covering it before assuming it needs the same fix as the TOAST-* cards.",
+            "notes": "⏳ **SHIPPED 08-06, human check owed on ORIENT-TOAST-PT-1.** Filed from Wyatt's UI-P2-HUD-PT-1 note *\"the phone orientation toast on the main menu gets drawn under stuff.\"* **The element is `.cr-portrait-hint`** ([index.html:627](../../index.html:627), styles [cart-rave-menu.css:2613](../../src/cart-rave-menu.css:2613)) — CSS-only, `aria-hidden`, `pointer-events:none`, shown only under `(orientation:landscape) and (pointer:coarse) and (max-height:480px)`. **Not** `ui/rotatePrompt.js`, which is the in-match prompt at z 27000 and is healthy. **The filed guess \"same shape as HUD-TOAST-Z-1\" was wrong and cost a plan revision** — that family's recipe is *lift **and** a measured offset*, and the offset half does not apply here: the hint's presumed occluder `.cr-hintbar` is `display:none` in this exact band **and** is a child of `.cr-content` (index.html:744), so its z 23 is local and could never have reached the hint. **Real mechanism:** `.cr-portrait-hint` sat at `z-index: 3` as a *sibling* of `.cr-content`, which is `position:absolute; z-index:20` — **a stacking context** — so it lost to the entire menu subtree in one step, regardless of any inner value. Fix = z-lift alone to 24; any value above 20 clears the whole subtree. **Verified in the live band (740×360, coarse):** `elementFromPoint` at the hint's centre returned `.cr-buttons.cr-commandlist` at z 3 and the hint itself at z 24; portrait (375×812) still computes `display:none`, so the change is inert outside the band.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "ORIENT-HINT-SCROLL-1 — the landscape menu resolves to the stacked column, and the portrait hint clips its last item",
+            "notes": "**Filed 08-06 from the ORIENT-TOAST-Z-1 repro, split out rather than folded into that fix** (it is layout, that card was a one-line z-index change, and its capture would have been ambiguous). Two findings, one row because both fall out of the same measurement at 740×360 coarse. (1) **The landscape band does not win.** `.cr-content` computes `display:flex` + `overflow:hidden auto` there — i.e. the stacked-mobile band (`max-width:900px`) beats the landscape-phone 3-col grid at [cart-rave-menu.css:2660](../../src/cart-rave-menu.css:2660) on **source order**, since it is declared later. Whether the 3-col landscape composition is meant to be reachable at all on a phone is the open question; if it is not, that band is dead CSS and should be deleted rather than left looking authoritative. (2) **Consequent clip:** the column scrolls (439px of scroll at that size) under a viewport-pinned `.cr-portrait-hint` that occupies the bottom **36px**, while `.cr-content`'s `padding-bottom` is **33px** — 3px short, so the last item clips at full scroll. Same contract `.cr-hintbar` already documents (\"the menu column scrolls UNDERNEATH this bar\"), which is why the hint carries its own opaque background; only the reserve is off. **Cheapest fix if picked up:** raise the stacked band's bottom padding to clear the hint's real height, measured, not constant — and mind that the padding applies at every stacked width while the hint only shows in the coarse/landscape/≤480 band, so a flat bump would add dead space on portrait phones that just PASSed UI-SCALE-1. Low: cosmetic, below the fold, and nobody has reported it in play.",
             "ship1": null
           },
           {
