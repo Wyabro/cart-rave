@@ -43,6 +43,7 @@ import {
   animateButtonPress,
   animateButtonRelease,
   animateColorChipSelect,
+  animateHowToAttract,
   animateLevelCardSelect,
   animateMenuCardEnter,
   animateMenuDismiss,
@@ -50,6 +51,7 @@ import {
   animateRerollSpin,
   animateTogglePop,
   stagger,
+  stopHowToAttract,
   wireButtonPressFeedback,
   wireHoverFeedback,
 } from "./animations.js";
@@ -324,6 +326,9 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
   const howtoControlsEl = $("cr-howto-controls");
   const howtoPadEl = $("cr-howto-pad");
   const howtoMenuBtn = root?.querySelector('[data-action="howto"]');
+  const howtoMenuLabel = /** @type {HTMLElement | null} */ (
+    howtoMenuBtn?.querySelector(".cr-btn-label") ?? null
+  );
   const settingsMuteBtn = $("cr-settings-mute-btn");
   const settingsVolFill = $("cr-settings-vol-fill");
   const settingsVolVal = $("cr-settings-vol-val");
@@ -1310,9 +1315,12 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
     const roomParam = new URLSearchParams(window.location.search || "").get("room");
     const shouldAttract = !storageGet(STORAGE_KEYS.howtoSeen) && !roomParam;
     howtoMenuBtn?.classList.toggle("cr-cmd--howto-attract", shouldAttract);
+    if (shouldAttract) animateHowToAttract(howtoMenuLabel);
+    else stopHowToAttract(howtoMenuLabel);
   }
 
   function clearHowToAttract() {
+    stopHowToAttract(howtoMenuLabel);
     howtoMenuBtn?.classList.remove("cr-cmd--howto-attract");
   }
 
@@ -2196,7 +2204,6 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
     if (titleEl) {
       titleEl.style.setProperty("--cr-title-beat", String(1 + state.beat * CONFIG.titleBeatScale));
     }
-
     animFrameId = requestAnimationFrame(animLoop);
   }
   animFrameId = requestAnimationFrame(animLoop);

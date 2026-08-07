@@ -41,6 +41,9 @@ const activeByElement = new WeakMap();
 /** @type {WeakMap<Element, JSAnimation>} */
 const pulseByElement = new WeakMap();
 
+/** @type {WeakMap<Element, JSAnimation>} */
+const howToAttractByElement = new WeakMap();
+
 /** @type {WeakMap<import('three').Object3D, JSAnimation>} */
 const cartPulseByMesh = new WeakMap();
 
@@ -215,6 +218,46 @@ function runTouchAnimation(element, params, options = {}) {
 
   const animation = animate(element, params);
   return trackAnimation(element, animation);
+}
+
+/**
+ * Smooth first-run HOW TO PLAY drift. The custom property preserves the label's
+ * CSS counter-skew, unlike animating transform directly.
+ * @param {HTMLElement | null | undefined} element
+ * @returns {JSAnimation | null}
+ */
+export function animateHowToAttract(element) {
+  if (!element || howToAttractByElement.has(element)) return null;
+  if (!shouldAnimate()) return null;
+
+  const animation = runAnimation(element, {
+    "--cr-howto-beat": [0, 1, 0],
+    duration: 680,
+    loop: true,
+    ease: "inOutSine",
+  });
+  if (animation) howToAttractByElement.set(element, animation);
+  return animation;
+}
+
+/** @param {HTMLElement | null | undefined} element */
+export function stopHowToAttract(element) {
+  if (!element) return;
+  const animation = howToAttractByElement.get(element);
+  if (animation) {
+    try {
+      animation.revert();
+    } catch {
+      try {
+        animation.cancel();
+      } catch {
+        // Animation may already be reverted.
+      }
+    }
+    activeByElement.get(element)?.delete(animation);
+    howToAttractByElement.delete(element);
+  }
+  element.style.removeProperty("--cr-howto-beat");
 }
 
 /**

@@ -3172,6 +3172,10 @@ html, body {
     animation: none !important;
   }
 
+  .cr-cmd--howto-attract .cr-btn-label {
+    transform: skewX(8deg) !important;
+  }
+
   /* Sticker press/lift transitions reduced to color-only feedback. */
   .cr-btn,
   .cr-btn:hover,
@@ -3297,6 +3301,23 @@ html, body {
   /* Secondary idle: #d8d4e0 — interactive, not greyed-out disabled chrome. */
   color: var(--color-text-secondary);
   transition: color 130ms var(--ease-slap), font-size 130ms var(--ease-slap);
+}
+/* ONBOARD-ATTRACT-1: first-run guidance invites instead of taking over the menu.
+   The label owns this transform: the row owns its skew/entrance and .cr-btn-inner
+   is the anime.js press target. Base shadow survives reduced-motion as a still cue. */
+.cr-cmd--howto-attract .cr-btn-label {
+  color: var(--color-sticker-white);
+  transform:
+    skewX(8deg)
+    translateX(calc(var(--cr-howto-beat, 0) * 6px))
+    scale(calc(1 + var(--cr-howto-beat, 0) * 0.03));
+  text-shadow:
+    0 0 8px rgba(55, 231, 255, 0.95),
+    0 0 20px rgba(55, 231, 255, 0.72),
+    0 0 34px rgba(255, 61, 216, 0.45);
+}
+.cr-cmd--howto-attract:is(.is-selected, :hover) .cr-btn-label {
+  transform: skewX(8deg);
 }
 /* Primary idle: full sticker-white so Solo/QP/Friends still rank above secondaries
    without a permanent yellow fill (yellow stays selection-only). */
