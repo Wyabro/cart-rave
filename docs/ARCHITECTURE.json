@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-07T07:21:36.828Z",
-    "commit": "7f8b870"
+    "at": "2026-08-07T07:33:04.078Z",
+    "commit": "bda5a9c"
   },
-  "source_digest": "ec4dca31",
+  "source_digest": "66e93f4f",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1334,8 +1334,8 @@
           },
           {
             "pri": "Medium",
-            "item": "COLOR-ID-1 — player identity is hue-only in a 4-player brawler",
-            "notes": "**Filed 08-05 from the pre-launch audit.** Player identity is carried entirely by neon hue — `--hud-player-accent` drives HUD scoreboard rows and the kill feed, cart bodies carry slot neon — with **no secondary channel anywhere**, so colorblind players (~5% of a public audience) cannot reliably tell four carts apart. The repo already knows the rule: [hud.css:1826](../../src/ui/styles/hud.css:1826) says warn/urgent \"must never be hue-only\" — this extends it to identity. **Scope: slot glyphs only** (a per-slot shape marker on HUD scoreboard rows + kill-feed entries; optionally over carts) — explicitly **not** a full colorblind mode or palette remap, and does not touch the frozen `CART_COLORS` invariant (ART-PALETTE-1 owns that). Patterns/sunglasses already differentiate carts visually when unlocked — glyphs close the gap for the default classic-heavy grid.",
+            "item": "COLOR-ID-1 — player identity is hue-only in a 4-player brawler `[2pc]`",
+            "notes": "**Owed: Wyatt playtest — COLOR-ID-1 — each player seat has its own shape mark (diamond / triangle / square / upside-down triangle) beside the cart colour, on the lobby, scoreboard, kill feed, and podium.** Implemented 08-07 (L1 `19cee58` scoreboard/lobby/podium glyphs + L2 `9326262` kill-feed threading), `npm run qa` 7/7 — **not yet deployed**, so run this pass on a dev stack (both machines on `npm run dev:local`) or after the next ship on prod. `[2pc]` — the non-host feed check needs a second machine.<br>1. Open a FRIENDS room and seat two humans (bots fill the rest); in the CHECKOUT LINE lobby each human name shows a different shape beside the shopper sticker.<br>2. During the round, the scoreboard row for each human carries that same shape, tinted their cart colour — and the shapes do not swap seats as the board re-sorts.<br>3. KO someone: the feed entry shows the attacker's shape and the victim's shape on your screen — and both shapes appear on your friend's (non-host) machine too.<br>4. On the podium, each human's column shows their shape in their finishing spot.<br>5. FAIL if two humans ever share a shape, a shape flips between players mid-round, or the feed shapes are missing on the non-host machine.",
             "ship1": null
           },
           {
