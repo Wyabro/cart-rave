@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-07T00:31:29.281Z",
-    "commit": "7296e24"
+    "at": "2026-08-07T00:33:52.952Z",
+    "commit": "de0f32c"
   },
-  "source_digest": "800cff53",
+  "source_digest": "e523c854",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1300,7 +1300,7 @@
           {
             "pri": "Medium",
             "item": "ORIENT-TOAST-PT-1 — the portrait hint is visible on a landscape phone menu `[phone]`",
-            "notes": "**Owed: Wyatt playtest — ORIENT-TOAST-PT-1 — turning your phone sideways on the main menu shows the \"MENU IS BEST IN PORTRAIT\" chip on top, not buried under the buttons.** Shipped 08-06, deployed with this wave. It was drawing *under* the scrolling button column; it now draws over it. **Phone only** — a desktop window resized small will not reproduce it, the CSS requires a real coarse pointer.<br>1. On your phone, open the main menu in **portrait** — confirm **no** hint appears (it is landscape-only; a hint in portrait is a FAIL).<br>2. Rotate to **landscape**. The dark chip with the little rotating phone glyph and **MENU IS BEST IN PORTRAIT** should sit at the bottom centre, fully readable.<br>3. FAIL if it is missing, half-hidden behind a menu button, or clipped by the screen edge.<br>4. Do **not** judge the in-match rotate prompt here — that is a different element and is not in this card.",
+            "notes": "**Owed: Wyatt playtest — ORIENT-TOAST-PT-1 — turning your phone sideways on the main menu shows the \"MENU IS BEST IN PORTRAIT\" chip on top, not buried under the buttons.** Shipped + pushed 08-06; **not yet deployed** — use `npm run dev` on your phone, or ship first. It was drawing *under* the scrolling button column; it now draws over it. **Phone only** — a desktop window resized small will not reproduce it, the CSS requires a real coarse pointer.<br>1. On your phone, open the main menu in **portrait** — confirm **no** hint appears (it is landscape-only; a hint in portrait is a FAIL).<br>2. Rotate to **landscape**. The dark chip with the little rotating phone glyph and **MENU IS BEST IN PORTRAIT** should sit at the bottom centre, fully readable.<br>3. FAIL if it is missing, half-hidden behind a menu button, or clipped by the screen edge.<br>4. Do **not** judge the in-match rotate prompt here — that is a different element and is not in this card.",
             "ship1": null
           },
           {
@@ -1312,7 +1312,7 @@
           {
             "pri": "High",
             "item": "RESULTS-PT-1 — the results screen reads as one composition `[solo]`",
-            "notes": "**Owed: Wyatt playtest — RESULTS-PT-1 — after a match, the podium and the receipt read as one screen instead of two things floating apart.** Shipped 08-06 (unpushed as of seed — use `npm run dev`, or ship first). The podium used to sit hard against the left edge with a big empty gap before the receipt; it now sits right next to it. **Nothing about what is shown changed — judge the arrangement only.**<br>1. Play a solo round to the end and let the results screen come up.<br>2. Look at the bottom half: the four rank blocks should sit just to the left of the receipt card, with a normal gap between them — not a wide empty stripe.<br>3. Check nothing is cut off at the left edge of the screen, and the blocks do not touch or overlap the receipt or the PLAY AGAIN / MAIN MENU buttons.<br>4. **If you have the ultrawide handy, look there too** — the pair should sit in the middle of the screen with the empty space split evenly either side, sitting under the centred title. (The first build parked them against the right edge; you called it, and it was changed before this card was seeded.)<br>5. PASS if the screen reads as one composition. FAIL with the window size and what looked wrong.",
+            "notes": "**Owed: Wyatt playtest — RESULTS-PT-1 — after a match, the podium and the receipt read as one screen instead of two things floating apart.** Shipped 08-06 — **pushed 08-06 but NOT yet deployed**, so use `npm run dev`, or ship first. The podium used to sit hard against the left edge with a big empty gap before the receipt; it now sits right next to it. **Nothing about what is shown changed — judge the arrangement only.**<br>1. Play a solo round to the end and let the results screen come up.<br>2. Look at the bottom half: the four rank blocks should sit just to the left of the receipt card, with a normal gap between them — not a wide empty stripe.<br>3. Check nothing is cut off at the left edge of the screen, and the blocks do not touch or overlap the receipt or the PLAY AGAIN / MAIN MENU buttons.<br>4. **If you have the ultrawide handy, look there too** — the pair should sit in the middle of the screen with the empty space split evenly either side, sitting under the centred title. (The first build parked them against the right edge; you called it, and it was changed before this card was seeded.)<br>5. PASS if the screen reads as one composition. FAIL with the window size and what looked wrong.",
             "ship1": null
           },
           {
