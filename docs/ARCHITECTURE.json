@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-07T00:59:15.986Z",
-    "commit": "657ca8c"
+    "at": "2026-08-07T01:59:41.828Z",
+    "commit": "1d124c3"
   },
-  "source_digest": "d5cec56a",
+  "source_digest": "ce0bc951",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -888,7 +888,8 @@
       "UI-SCALE-1 (both passes) + TOUCH-HOVER-1 ✅ CLOSED PASS 08-06 (`dacca48`..`78acdb4`, prod",
       "ONBOARD-SLIDES-1 ⏳ SHIPPED + PUSHED 08-06 (`4c89e04`..`725c348`) — owed 3 playtest cards.",
       "Also filed 08-06: MONTAGE-ESC-1 (High) — a one-line break from CC-ESC-1 makes every",
-      "DIAG-NET-CAPTURE-1 ✅ CLOSED + DEPLOYED 08-06 (`69506db`+`657ca8c`, prod Worker `bd77de23`)."
+      "DIAG-NET-CAPTURE-1 ✅ CLOSED + DEPLOYED 08-06 (`69506db`+`657ca8c`, prod Worker `bd77de23`).",
+      "SHOOT-SOFTGL-1 ✅ CLOSED 08-06 (`c45bb28`..`1d124c3`, five commits). `npm run shoot` renders"
     ],
     "open_issues": [
       {
@@ -1445,17 +1446,10 @@
       {
         "title": "Tech Debt",
         "counts": {
-          "Medium": 6,
+          "Medium": 5,
           "Low": 10
         },
         "rows": [
-          {
-            "pri": "Medium",
-            "id": "SHOOT-SOFTGL-1",
-            "item": "`npm run shoot` bakes the software-mode modal into every capture, and renders on SwiftShader",
-            "notes": "**Found 08-06 alongside MONTAGE-ESC-1, same freeze.** Two gaps, one card because the fix is one place. (1) [shoot.mjs:201-213](../../tools/shoot.mjs) dismisses onboarding and hides `#cr-howto-screen`, but never removes **`#cr-softgl-notice`** — so headless captures carry a full-screen \"GRAPHICS RUNNING IN SOFTWARE MODE\" modal across the middle of the frame. `states.mjs:480`, `loadshots.mjs:629`, `sheet.mjs:203` and `podium.mjs:350` all remove it; `shoot` is the only capture tool that does not. (2) `shoot` passes **no GPU flags**, so Chromium falls back to SwiftShader and the colour is wrong, not merely blurry — Cart Rave's record floor renders **olive green** instead of the dark neon read. [shoot-gpu.mjs](../../tools/shoot-gpu.mjs) already documents both as \"visual-qa.md trap #1\" and carries the fix (`--enable-gpu --ignore-gpu-blocklist --use-gl=angle` + an `UNMASKED_RENDERER` readout), but it is scoped in its own header as a **one-off for ART-PASS-CLASSIC-1**. **Scope if picked up:** fold shoot-gpu's launch args and vendor readout into `shoot.mjs` behind a `--gpu` flag and add the softgl removal unconditionally; do **not** silently change the default launch, since every committed `shots/` baseline was captured under SwiftShader and MAE comparisons against them would move.",
-            "ship1": null
-          },
           {
             "pri": "Medium",
             "id": "SHADOW-HAZARD-SEAM-1",

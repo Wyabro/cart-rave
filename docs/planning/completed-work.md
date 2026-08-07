@@ -13,6 +13,57 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 6, 2026 — SHOOT-SOFTGL-1: `npm run shoot` renders on a real GPU and strips dev chrome
+
+*(Tech Debt · Medium)* — ✅ **CLOSED 08-06** (`c45bb28`, `3b071be`, `4358f89`, `23d50c9`, `1d124c3`).
+Filed 08-06 alongside MONTAGE-ESC-1, same tools-freeze window — the last open card in Block G,
+now drained. `npm run shoot` never removed `#cr-softgl-notice` before screenshotting (every other
+capture tool — `states.mjs`, `loadshots.mjs`, `sheet.mjs`, `podium.mjs` — already did) and passed
+no GPU flags, so headless fell back to SwiftShader: every capture carried a full-screen
+"GRAPHICS RUNNING IN SOFTWARE MODE" modal, and the record floor rendered washed-out grey instead
+of the dark-neon look. This blocked ART-FILTER-1 + ART-EXPO-1 (Block B #4), whose evidence is
+before/after `npm run shoot` captures judging exposure/luma on three arenas.
+
+**The card's own stated reason to keep GPU flags opt-in was false, verified before touching
+code:** `shots/` is gitignored and has zero committed baselines (`.gitignore:23-24`,
+`git ls-files shots` → empty); `tools/compare.mjs` takes explicit `--a/--b` paths and
+`projectHealth.mjs` only globs `shots/perf-profile-*.json`, never PNGs. Nothing depends on the
+old SwiftShader default, so GPU is now the launch default (`--no-gpu` to opt out) instead of
+being gated behind `--gpu`.
+
+**Second defect found while reading `buildUrl`, fixed in the same window because it would have
+poisoned ART-FILTER-1's evidence:** `shoot.mjs` unconditionally pinned `?level`, and
+`debugParams.js:175` resolves the URL's `level` before a `--shot` bookmark's own — so
+`npm run shoot -- --shot classic` silently rendered **Sundial** with Classic's camera, not
+Classic (2 of 3 examples in `visual-qa.md` were wrong). `level` is now pinned only when neither
+`--level` nor `--shot` is given; the resolved arena is read back from `__cartRave.params` and
+logged/recorded, so a capture is self-documenting about what actually rendered.
+
+**Five commits:** (1) strip `#cr-softgl-notice` + `#eruda`, called twice (main-ready + pre-shot,
+OR-merged) since eruda's 4s CDN timer can land between an early removal and the shot; (2) the
+`--shot`/`level` precedence fix; (3) GPU-by-default launch, `gpuVendor` readout ported from the
+now-deleted `shoot-gpu.mjs` with a widened software-detection regex (adds "Basic Render
+Driver"/WARP, the string `main.js:564` branches on for "no driver installed"), a merged
+`<out>.json` sidecar (gpuVendor/software/resolved level+params/devChrome/stats/consoleErrors)
+written before the `--require-gpu` gate so a failed gate still leaves its evidence, exit code 2
+via `process.exitCode` (not a throw/bare `process.exit`, so the `finally` still tears down the
+browser and spawned dev server); (4) delete `shoot-gpu.mjs` (self-scoped as a one-off for the
+closed ART-PASS-CLASSIC-1, feature-complete once folded in) and touch up its two live references
+(`perf-pass-1-handover.md`, `menuAttract.js` source comment); (5) rewrite `visual-qa.md`'s
+screenshot examples, look-critical-capture section, and trap #1 (kept as a closed entry, not
+deleted — the lesson that flags are best-effort and the sidecar is the proof still matters).
+
+**Verified live** (RTX 4090): `--no-gpu` → `gpuVendor` reads SwiftShader, `software:true`,
+`devChrome.softgl:true`; default → reads the RTX 4090, `software:false`, `devChrome.softgl:false`;
+`--no-gpu --require-gpu` → exit 2 with the sidecar still written. Classic Record captured both
+ways shows the claimed defect directly — SwiftShader washed-out grey vs the real dark-neon
+bloom/glow look on GPU. `--shot classic` with no `--level` logs `level=classicRecord` and
+matches an explicit-`--level` capture's arena identity pixel-for-pixel. No `tools/**` coverage
+in `tsconfig`/`knip`/tests, so every claim above came from running the tool, not from `npm run
+qa` (run anyway to catch the BACKLOG/ARCHITECTURE regeneration).
+
+---
+
 ### August 6, 2026 — DIAG-NET-CAPTURE-1: `host_send_gap` auto-captures past a severity floor
 
 *(Engineering · Medium)* — ✅ **CLOSED 08-06** (`69506db`). Filed from the same Copilot netcode

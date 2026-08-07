@@ -102,6 +102,15 @@ Live rows only. Shipped and closed cards live in
    5/session cap); instrument-only, no playtest owed. Post-deploy poll 0×404 on all 22 refs;
    `host_send_gap` + the `gapMs>1000` gate confirmed in the deployed diagnostics chunk. Detail:
    [completed-work.md](./planning/completed-work.md).
+7. **SHOOT-SOFTGL-1 ✅ CLOSED 08-06** (`c45bb28`..`1d124c3`, five commits). `npm run shoot` renders
+   on a real GPU by default now (was SwiftShader, no flags) and strips `#cr-softgl-notice` +
+   `#eruda` before every capture; a `<out>.json` sidecar records `gpuVendor`/`software` next to
+   every image, `--require-gpu` turns that into a hard gate. Card's own "don't change the
+   default" premise was false — `shots/` has zero committed baselines — and `buildUrl` had a
+   second bug found in the same read: `--shot` silently lost to a pinned `?level`, so
+   `--shot classic` rendered Sundial. Both fixed; `shoot-gpu.mjs` deleted, folded in. Block G
+   drained. Unblocks ART-FILTER-1 + ART-EXPO-1's before/after evidence. Detail:
+   [completed-work.md](./planning/completed-work.md).
 **Open High:** ONBOARD-SLIDES-1 (playtest owed) · RESULTS-1 · CART-MODEL-1 · PERF-PASS-1 (⏸) · bloom.
 
 ## Open issues (top)
