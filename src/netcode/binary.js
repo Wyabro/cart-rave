@@ -38,7 +38,9 @@ function encodeF32(v, fallback = 0) {
  */
 export function encodeHostStateSnapshot(state) {
   const carts = state.carts || [];
-  const numCarts = carts.length;
+  // * Wire header is one byte; decoder rejects > MAX_CARTS. Cap here so a bad
+  // * caller cannot emit a packet every peer will drop (room is always 4 slots).
+  const numCarts = Math.min(carts.length, MAX_CARTS);
 
   // * Most 40 Hz frames carry no collisions/falls/directive/attribution — skip the
   // * stringify+encode (and the client's parse) entirely instead of shipping
@@ -57,11 +59,11 @@ export function encodeHostStateSnapshot(state) {
     // * Active Living Store directive ({ id, r: remainingMs }) — rides every snapshot
     // * so a client that missed the one-shot MSG.directive (unreliable channel) or
     // * joined mid-window self-heals from the next 40Hz frame.
-    if (state.dir) _tailScratch.dir = state.dir;
-    else delete _tailScratch.dir;
+    // * Assign undefined (not delete) so _tailScratch keeps a stable V8 shape;
+    // * JSON.stringify omits undefined keys.
+    _tailScratch.dir = state.dir || undefined;
     // * Compact kill-credit / combo ages for host migration (NET-MIG-1).
-    if (state.attr) _tailScratch.attr = state.attr;
-    else delete _tailScratch.attr;
+    _tailScratch.attr = state.attr || undefined;
     jsonBytes = _textEncoder.encode(JSON.stringify(_tailScratch));
   }
 

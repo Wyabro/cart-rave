@@ -791,6 +791,36 @@ describe("Binary snapshot serialization", () => {
     view.setFloat64(8, 1000, true);
     expect(decodeHostStateSnapshot(buffer)).toBeNull();
   });
+
+  it("encode clamps cart count to the room slot max so peers never drop the packet", () => {
+    const five = Array.from({ length: 5 }, (_, i) => ({
+      p: [i, 0, 0],
+      q: [0, 0, 0, 1],
+      lv: [0, 0, 0],
+      av: [0, 0, 0],
+      ackSeq: 0,
+    }));
+    const buffer = encodeHostStateSnapshot({ seq: 1, tHost: 1000, carts: five });
+    expect(new DataView(buffer).getUint8(1)).toBe(4);
+    const decoded = decodeHostStateSnapshot(buffer);
+    expect(decoded).not.toBeNull();
+    expect(decoded.carts).toHaveLength(4);
+  });
+
+  it("encode omits absent dir/attr from the JSON tail without delete churn", () => {
+    const buffer = encodeHostStateSnapshot({
+      seq: 2,
+      tHost: 1000,
+      carts: [],
+      collisions: [{ a: 0, b: 1 }],
+    });
+    const header = 16;
+    const tail = new TextDecoder().decode(new Uint8Array(buffer, header));
+    const parsed = JSON.parse(tail);
+    expect(parsed.collisions).toHaveLength(1);
+    expect(parsed).not.toHaveProperty("dir");
+    expect(parsed).not.toHaveProperty("attr");
+  });
 });
 
 describe("binary snapshot dispatch (end-to-end into the buffer)", () => {
