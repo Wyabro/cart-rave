@@ -1831,6 +1831,7 @@ html, body {
   grid-template-columns: minmax(0, 1fr);
   align-content: start;
   max-width: none;
+  overflow: hidden;
 }
 
 /* The deck reserves height so the pager beneath does not hop between a slide
