@@ -18,6 +18,19 @@ export const QUICKPLAY_FIXED = /** @type {AiDifficulty} */ ("medium");
 export const HARD_STEER_GAIN_MAX_CAP = 1.85;
 
 /**
+ * AI-DAY-1: max planar meters of intercept lead so proximity gates (8 m hunt /
+ * 9 m pause / Hard 6 m disengage) still see a nearby body when the human is fast.
+ */
+export const AI_LEAD_DIST_CAP_M = 4.5;
+
+/** @type {Readonly<Record<AiDifficulty, number>>} */
+const LEAD_TIME_S = Object.freeze({
+  easy: 0.35,
+  medium: 0.55,
+  hard: 0.70,
+});
+
+/**
  * @typedef {object} DifficultyMods
  * @property {number} decisionIntervalMul
  * @property {number} randomStopMul
@@ -269,6 +282,30 @@ export function getTrailChaseMul(base, difficulty) {
  */
 export function isHardTactics(difficulty) {
   return getDifficultyMods(difficulty).hardTactics;
+}
+
+/**
+ * AI-DAY-1: intercept lead time (seconds of velocity look-ahead) by difficulty.
+ * @param {AiDifficulty | string | null | undefined} difficulty
+ * @returns {number}
+ */
+export function getAiLeadTimeS(difficulty) {
+  const id = normalizeDifficulty(difficulty, DEFAULT_SOLO);
+  return LEAD_TIME_S[id];
+}
+
+/**
+ * Clamp planar lead displacement so a fast human's led point stays near the body.
+ * @param {number} dx
+ * @param {number} dz
+ * @param {number} [capM]
+ * @returns {{ x: number, z: number }}
+ */
+export function clampAiLeadDisplacement(dx, dz, capM = AI_LEAD_DIST_CAP_M) {
+  const len = Math.hypot(dx, dz);
+  if (!(len > capM) || len < 1e-8) return { x: dx, z: dz };
+  const s = capM / len;
+  return { x: dx * s, z: dz * s };
 }
 
 /** Session-active difficulty the host AI brain reads (latched by netcode/main). */

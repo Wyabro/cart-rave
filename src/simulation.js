@@ -19,7 +19,9 @@ import { clamp } from "./utils.js";
 import { recordDiagEvent } from "./utils/diagnostics.js";
 import {
   applyPersonalityMods,
+  clampAiLeadDisplacement,
   getActiveAiDifficulty,
+  getAiLeadTimeS,
   getPodiumContestMs,
   getRandomStopChance,
   getReachOuter,
@@ -2117,7 +2119,8 @@ function findNearestHumanTarget(fromPos, allCarts, netSlots, slotIndex = 0) {
   let nearestPos = null;
   let nearestWeightedD2 = Infinity;
   let nearestVel = null;
-  const LEAD_TIME_S = 0.5;
+  // * AI-DAY-1: difficulty-scaled intercept; planar lead clamped so proximity gates still fire.
+  const leadTimeS = getAiLeadTimeS(getActiveAiDifficulty());
   const fallYThreshold = CONFIG.fall.yThreshold;
 
   // * Rubberbanding: fetch current round scores to prioritize match leader
@@ -2179,8 +2182,11 @@ function findNearestHumanTarget(fromPos, allCarts, netSlots, slotIndex = 0) {
   if (!nearestPos) return null;
 
   const jitter = _levelHazards?.arenaHalf != null ? 0.5 : 1.8;
-  let targetX = nearestPos.x + (nearestVel ? nearestVel.x * LEAD_TIME_S : 0);
-  let targetZ = nearestPos.z + (nearestVel ? nearestVel.z * LEAD_TIME_S : 0);
+  const rawLeadX = nearestVel ? nearestVel.x * leadTimeS : 0;
+  const rawLeadZ = nearestVel ? nearestVel.z * leadTimeS : 0;
+  const lead = clampAiLeadDisplacement(rawLeadX, rawLeadZ);
+  let targetX = nearestPos.x + lead.x;
+  let targetZ = nearestPos.z + lead.z;
 
   // * Sudden Death Tactics: Flanking / Pincer angles & Edge push bias
   if (roundState.isSuddenDeath) {

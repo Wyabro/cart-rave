@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  AI_LEAD_DIST_CAP_M,
   HARD_STEER_GAIN_MAX_CAP,
   applyPersonalityMods,
+  clampAiLeadDisplacement,
+  getAiLeadTimeS,
   getDifficultyMods,
   getRandomStopChance,
   getStuckWindowMs,
@@ -93,5 +96,29 @@ describe("aiDifficulty", () => {
     expect(getActiveAiDifficulty()).toBe("hard");
     setActiveAiDifficulty("easy");
     expect(getActiveAiDifficulty()).toBe("easy");
+  });
+
+  // * AI-DAY-1 lever 1 — intercept lead scales Easy < Medium < Hard; planar cap protects 8 m gates.
+  it("AI lead time scales Easy < Medium < Hard", () => {
+    expect(getAiLeadTimeS("easy")).toBe(0.35);
+    expect(getAiLeadTimeS("medium")).toBe(0.55);
+    expect(getAiLeadTimeS("hard")).toBe(0.70);
+    expect(getAiLeadTimeS("easy")).toBeLessThan(getAiLeadTimeS("medium"));
+    expect(getAiLeadTimeS("medium")).toBeLessThan(getAiLeadTimeS("hard"));
+  });
+
+  it("AI lead displacement clamps so a 20 m/s Hard lead stays ≤ 4.5 m planar", () => {
+    const t = getAiLeadTimeS("hard");
+    const speed = 20;
+    const raw = speed * t; // 14 m without clamp
+    expect(raw).toBeGreaterThan(AI_LEAD_DIST_CAP_M);
+    const c = clampAiLeadDisplacement(raw, 0);
+    expect(Math.hypot(c.x, c.z)).toBeCloseTo(AI_LEAD_DIST_CAP_M);
+    expect(c.x).toBeCloseTo(AI_LEAD_DIST_CAP_M);
+    expect(c.z).toBe(0);
+    // * Under cap: unchanged
+    const soft = clampAiLeadDisplacement(1.2, 1.6);
+    expect(soft.x).toBeCloseTo(1.2);
+    expect(soft.z).toBeCloseTo(1.6);
   });
 });
