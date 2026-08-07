@@ -10,6 +10,7 @@ import {
   isComposerBypassActive,
   setComposerBypassActive,
   COMPILE_ASYNC_WARM_PLAY_MAX_WAIT_MS,
+  resolveArenaExposure,
 } from "../scene.js";
 import { applyPostFxAblation, getDebugParams } from "../utils/debugParams.js";
 import { mark } from "../utils/perfSpans.js";
@@ -232,12 +233,10 @@ export function createLevelOrchestration(deps) {
     const resolved = levelId ?? getCurrentLevelId();
     Simulation.setLevelHazards(levelHazards ?? null);
     setContactShadowHazards(levelHazards ?? null);
-    // * Per-arena exposure ride on the global grade (scene.js applyRendererColorGrading
-    // * stays the base). Same tone-map curve everywhere — only the exposure scalar moves,
-    // * so no program-cache rebuild on arena swap.
-    renderer.toneMappingExposure =
-      (CONFIG.postFx.toneMappingExposure ?? 1.0) *
-      (CONFIG.postFx.arenaExposureMul?.[resolved] ?? 1);
+    // * ART-EXPO-1: each arena carries its own absolute exposure budget (config.postFx
+    // * arenaExposure) — no global lock to ride. Same tone-map curve everywhere; only the
+    // * exposure scalar moves, so no program-cache rebuild on arena swap.
+    renderer.toneMappingExposure = resolveArenaExposure(resolved);
     // * ART-FILTER-1: the CRT layer (aberration/scanlines/vignette) is a per-arena device,
     // * not a global veneer — identity in The Storerooms, noise everywhere else. Must write
     // * an explicit 0 rather than skip the write: the shader's own uniform defaults are

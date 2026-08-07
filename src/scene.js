@@ -621,11 +621,30 @@ const ArcadeFxShader = {
  * the in-game composer (via OutputPass, which reads renderer.toneMapping) and the
  * customization cart preview (direct render) grade colors identically.
  *
+ * ART-EXPO-1: exposure is a per-arena budget, so callers with a level pass its id. The
+ * cart preview has no arena and takes the default — same number Classic/Storerooms/Test
+ * Drive use, so the preview keeps matching gameplay everywhere except Sundial (which it
+ * did not match before this card either).
+ *
  * @param {THREE.WebGLRenderer} renderer
+ * @param {string} [levelId] Arena whose exposure budget to apply; omit for no-arena renderers.
  */
-export function applyRendererColorGrading(renderer) {
+export function applyRendererColorGrading(renderer, levelId) {
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = CONFIG.postFx.toneMappingExposure ?? 1.0;
+  renderer.toneMappingExposure = resolveArenaExposure(levelId);
+}
+
+/**
+ * Exposure budget for an arena, falling back to the no-arena default.
+ * Single source of truth for both the boot grade and the per-level reapply.
+ *
+ * @param {string} [levelId]
+ * @returns {number}
+ */
+export function resolveArenaExposure(levelId) {
+  const fallback = CONFIG.postFx.arenaExposureDefault ?? 1.0;
+  if (!levelId) return fallback;
+  return CONFIG.postFx.arenaExposure?.[levelId] ?? fallback;
 }
 
 /**

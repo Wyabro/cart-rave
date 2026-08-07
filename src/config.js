@@ -506,20 +506,25 @@ export const CONFIG = {
 
   postFx: {
     // * Renderer exposure — lower keeps diffuse surfaces subdued while emissive neon blooms.
-    // * Retuned for the corrected pipeline (OutputPass tone-map + sRGB encode): the old
-    // * 0.88 was authored when exposure was silently ignored; values now display brighter.
-    // * HISTORICAL: "kept deliberately low — dark arena + punchy neon" (2026-07-08). That rule
-    // * is SUPERSEDED by docs/reference/art-direction.md: brightness is a per-arena budget, not
-    // * one global number. ART-EXPO-1 owns retiring this lock; do not tune it ad-hoc.
-    toneMappingExposure: 0.4,
-
-    // * Per-arena multiplier on toneMappingExposure, applied at level load (main.js
-    // * applyLoadedLevelSideEffects). ACESFilmic pulls mids down harder than Neutral
-    // * and Sundial's sunset palette lives in those mids (07-17 playtest: "sundial
-    // * looks a bit too dark with acesfilmic on"). Unlisted arenas get 1.0.
-    arenaExposureMul: {
-      zanzibar: 1.32, // 1.18 still read as too dark in run 2; artifacts near the sun under review
+    // * ART-EXPO-1 retired the global `toneMappingExposure: 0.4` lock: per art-direction.md
+    // * brightness is a per-arena budget, not one global number, so each arena carries its own
+    // * absolute value here rather than a global times a multiplier. The values below are the
+    // * old global x arenaExposureMul, i.e. this refactor is look-preserving; the budget is now
+    // * a knob per arena to move independently. Sundial sits high because ACESFilmic pulls mids
+    // * down harder than Neutral and its sunset palette lives in those mids (07-17 playtest:
+    // * "sundial looks a bit too dark with acesfilmic on"; 1.18-equivalent still read dark in
+    // * run 2). Applied at level load — see applyLoadedLevelSideEffects in levelOrchestration.
+    // ! Blacks stay genuinely black (Rule 3): raising an arena here may not lift its darkest
+    // ! decile. Check the luma floors recorded in art-direction.md before tuning.
+    arenaExposure: {
+      classicRecord: 0.4,
+      backrooms: 0.4,
+      zanzibar: 0.528,
+      testArena: 0.4,
     },
+    // * Fallback for any renderer with no arena context — notably the customize cart preview
+    // * (ui/cartPreview.js), which grades its own offscreen renderer and has no level.
+    arenaExposureDefault: 0.4,
 
     // * IBL (Image-Based Lighting) — RoomEnvironment PMREM on scene.environment.
     // * intensity drives scene.environmentIntensity — the only knob that scales IBL for
