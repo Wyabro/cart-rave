@@ -566,10 +566,12 @@ export const CONFIG = {
       smoothWidth: 0.05,
     },
 
-    // * Applied ONCE in createComposer (scene.js) from this global object, so every level
-    // * inherits it — there is no per-level arcade write today. Per art-direction.md the CRT
-    // * layer belongs to The Storerooms only; ART-FILTER-1 adds the level gate (mirror the VHS
-    // * gate below). Keep the impact-pulse base capture intact when you do (main.js ~1110).
+    // * Seeded into the pass in createComposer (scene.js), then re-gated per level by
+    // * applyLoadedLevelSideEffects — ART-FILTER-1 made the CRT a Storerooms-only device, so
+    // * these numbers only ever reach the screen there; every other arena is written 0.
+    // ! Tuning `vignette` below 0.5 lands on the shader's fade-out ramp (scene.js ArcadeFxShader),
+    // ! which exists so the gated-off arenas and a decaying impact pulse reach a true zero. If
+    // ! you want a subtler resting vignette, move the ramp's knee — do not just lower this.
     arcade: {
       aberration: 0.003,
       scanlineDensity: 1.8,

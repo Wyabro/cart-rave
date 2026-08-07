@@ -78,11 +78,18 @@ Live rows only. Shipped and closed cards live in
 2. **ONBOARD-SLIDES-1 ⏳ SHIPPED + PUSHED — owed ONBOARD-SLIDES-PT-1/2/3** (eight-slide HOW TO
    PLAY; art = ONBOARD-ART-1). [BACKLOG § Playtest owed](./planning/BACKLOG.md#playtest-owed).
 3. **RESULTS-1 / DIFF-FRIENDS-1 / SPAWN-SUNDIAL-1** — shipped; playtest cards still owed.
-4. **Block B next code:** ART-FILTER-1 + ART-EXPO-1 (SHOOT-SOFTGL-1 unblocked evidence path).
+4. **ART-FILTER-1 + ART-EXPO-1 ⏳ SHIPPED 08-06 (`403ab2f`, `91e3b24`) — owed ART-FILTER-PT-1 ·
+   ART-FILTER-PT-2 · ART-EXPO-PT-1 (pushed, not deployed — use `npm run dev`).**
+   CRT is Storerooms-only; exposure is a per-arena budget with the global lock retired.
+   art-direction.md Rules 2 and 3 now PASS/recorded, which unblocks the **High bloom sign-off**
+   (its success criteria came from these two). Two traps worth knowing: writing `uVignette = 0`
+   does **not** turn the vignette off (reversed-edge smoothstep leaves ~41% corner darkening —
+   the shader needed a fade), and a live impact pulse across an arena swap restores the previous
+   arena's CRT unless the gate clears it. Detail: [completed-work.md](./planning/completed-work.md).
 5. **Closed 08-06 (detail in completed-work):** HARNESS-NULL-1 · NET-LOOK-ACC-1 · UI-SCALE-1 +
    TOUCH-HOVER-1 · DIAG-NET-CAPTURE-1 · SHOOT-SOFTGL-1 · MONTAGE-ESC-1. Killfeed/orient nits
-   filed (KILLFEED-PHONE-1 · ORIENT-TOAST-Z-1).
-**Open High:** ONBOARD-SLIDES playtest · RESULTS-1 playtest · CART-MODEL-1 · PERF-PASS-1 (⏸) · bloom.
+   filed (KILLFEED-PHONE-1 · ORIENT-TOAST-Z-1); luma-metric tool filed (ART-LUMA-TOOL-1).
+**Open High:** ONBOARD-SLIDES playtest · RESULTS-1 playtest · CART-MODEL-1 · PERF-PASS-1 (⏸) · bloom (now unblocked).
 
 ## Open issues (top)
 

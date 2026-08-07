@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-07T02:29:23.273Z",
-    "commit": "0e0a1b7"
+    "at": "2026-08-07T03:09:08.480Z",
+    "commit": "91e3b24"
   },
-  "source_digest": "b696a8b3",
+  "source_digest": "2856c346",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -886,7 +886,7 @@
       "FEEL-DAY-1 ✅ CLOSED PASS 08-06 (`da9063c`..`0e0a1b7`). Collision punch + impact juice +",
       "ONBOARD-SLIDES-1 ⏳ SHIPPED + PUSHED — owed ONBOARD-SLIDES-PT-1/2/3 (eight-slide HOW TO",
       "RESULTS-1 / DIFF-FRIENDS-1 / SPAWN-SUNDIAL-1 — shipped; playtest cards still owed.",
-      "Block B next code: ART-FILTER-1 + ART-EXPO-1 (SHOOT-SOFTGL-1 unblocked evidence path).",
+      "ART-FILTER-1 + ART-EXPO-1 ⏳ SHIPPED 08-06 (`403ab2f`, `91e3b24`) — owed ART-FILTER-PT-1 ·",
       "Closed 08-06 (detail in completed-work): HARNESS-NULL-1 · NET-LOOK-ACC-1 · UI-SCALE-1 +"
     ],
     "open_issues": [
@@ -1054,8 +1054,8 @@
       {
         "title": "Art",
         "counts": {
-          "Medium": 6,
-          "Low": 8,
+          "Medium": 4,
+          "Low": 10,
           "High": 2
         },
         "rows": [
@@ -1120,15 +1120,15 @@
             "ship1": null
           },
           {
-            "pri": "Medium",
-            "item": "ART-FILTER-1 — arcade pass gated to The Storerooms",
-            "notes": "The CRT layer (aberration/scanlines/vignette) is written once in `createComposer` from global config, so every level inherits it. Add a per-level gate mirroring the VHS gate (`main.js` ~2448); preserve the impact-pulse base capture (`main.js` ~1110 / `frameVisuals.js` ~630). Before/after `npm run shoot` on all three arenas. Satisfies Rule 2.",
+            "pri": "Low",
+            "item": "ART-LUMA-TOOL-1 — luma metric in `npm run compare`",
+            "notes": "Rule 3's luma floors were computed with a one-off scratchpad script because `tools/` is frozen during a game card. Fold a darkest-decile / median / mean luma readout into [compare.mjs](../../tools/compare.mjs) (it already decodes both PNGs via sharp) so drift is guardable by the committed tool. Baselines to reproduce are in [art-direction.md](../reference/art-direction.md) Rule 3.",
             "ship1": null
           },
           {
-            "pri": "Medium",
-            "item": "ART-EXPO-1 — retire the global exposure lock",
-            "notes": "Replace the single `toneMappingExposure: 0.4` with a per-arena budget alongside `arenaExposureMul`. Captures the Rule 3 luma-floor baselines into [art-direction.md](../reference/art-direction.md). Fresh sign-off with before/after shots.",
+            "pri": "Low",
+            "item": "ART-EXPO-DUMP-1 — postFxDebug config dump emits a retired key",
+            "notes": "[postFxDebug.js:629](../../src/postFxDebug.js:629) still writes `toneMappingExposure: <value>` into its copyable config snippet, but ART-EXPO-1 removed that key from `CONFIG.postFx`. Pasting the dump back is now a silent no-op. Emit an `arenaExposure` entry for the current arena instead. Cosmetic, dev-tool only.",
             "ship1": null
           },
           {
@@ -1262,11 +1262,29 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "High": 5,
-          "Medium": 3,
-          "Low": 2
+          "Medium": 5,
+          "Low": 3,
+          "High": 5
         },
         "rows": [
+          {
+            "pri": "Medium",
+            "item": "ART-FILTER-PT-1 — the TV-screen filter is gone from Cart Rave and Sundial `[solo]`",
+            "notes": "**Owed: Wyatt playtest — ART-FILTER-PT-1 — Cart Rave and Sundial Station look like clean 3D, not like footage of a screen, and hits still punch.** Shipped 08-06 (`403ab2f`), pushed but **not yet deployed** — use `npm run dev`. Until now every arena wore the same faint CRT layer: colour fringing on edges, fine horizontal scanlines, and darkened corners. That layer is meant to be The Storerooms' identity only, so it has been switched off everywhere else.<br>1. Play a round on **CART RAVE**. Look at the crowd along the back wall and at the neon rings on the floor — edges should look clean, with no red/blue colour fringe running along them.<br>2. Look at the four corners of the screen. They should be as bright as the middle, not dimmed like an old TV.<br>3. Now ram someone hard. The corners should still darken and the picture still kick for a moment — that punch is supposed to stay.<br>4. Watch the very end of that kick as it fades. It should ease away smoothly; if the corners snap back to bright in one jarring step, that is a FAIL.<br>5. Repeat on **SUNDIAL STATION**.<br>6. PASS if both arenas look cleaner and the hit punch still lands. FAIL with the arena and what you saw.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "ART-FILTER-PT-2 — The Storerooms still looks like a security tape `[solo]`",
+            "notes": "**Owed: Wyatt playtest — ART-FILTER-PT-2 — The Storerooms' CRT/VHS look is exactly as it was.** Shipped 08-06 (`403ab2f`), pushed but **not yet deployed** — use `npm run dev`. The same change that stripped the screen filter off the other arenas is supposed to leave this one untouched. Measured as identical, but it is the arena where the effect *is* the identity, so it wants your eyes.<br>1. Play a round on **THE STOREROOMS**.<br>2. Check the things that make it feel like CCTV: soft scanlines, the slight colour fringe on edges, dimmed corners, the tape noise, and the tracking band that sweeps down the screen every half minute or so.<br>3. Get a KO and confirm the burst of static still fires.<br>4. PASS if it feels exactly like you remember. FAIL if anything about the tape look is weaker, missing, or stronger than before.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "ART-EXPO-PT-1 — the customize cart is the same brightness `[solo]`",
+            "notes": "**Owed: Wyatt playtest — ART-EXPO-PT-1 — the cart on the CUSTOMIZE screen is lit exactly as it was.** Shipped 08-06 (`91e3b24`), pushed but **not yet deployed** — use `npm run dev`. Arena brightness moved from one global number to a per-arena budget. Every arena was proved unchanged automatically, but the customize preview renders on its own and could not be checked the same way — so this is the one spot that needs a human look.<br>1. Main menu → **CUSTOMIZE**.<br>2. Look at the cart: the paint, the chrome on the handle, and the glow of the neon frame.<br>3. PASS if it looks normal — same brightness and contrast you are used to. FAIL if it looks washed out, murky, or noticeably brighter or darker than the cart you see in a match.",
+            "ship1": null
+          },
           {
             "pri": "High",
             "item": "ONBOARD-SLIDES-PT-1 — the how-to slides read and advance `[solo]`",

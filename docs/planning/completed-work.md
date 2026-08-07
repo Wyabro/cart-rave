@@ -13,6 +13,62 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 6, 2026 — ART-FILTER-1 + ART-EXPO-1: the CRT becomes Storerooms-only, exposure becomes per-arena
+
+*(Block B #4 · wave, one commit per lever)* — ⏳ **SHIPPED 08-06** (`403ab2f`, `91e3b24`), playtest
+owed (ART-FILTER-PT-1 · ART-FILTER-PT-2 · ART-EXPO-PT-1). Both cards are art infra whose whole
+point was to give the **High bloom sign-off** its success criteria; that card is now unblocked.
+art-direction.md Rule 2 moved FAILS → PASSES and Rule 3's per-arena luma floors are recorded.
+
+**Lever 1 — ART-FILTER-1.** The arcade pass (aberration/scanlines/vignette) was written once in
+`createComposer` from global config, so every arena inherited it. Gated at level load in
+`applyLoadedLevelSideEffects`, mirroring the VHS gate: `backrooms` keeps the filter, the other
+three are written an explicit 0. Verified live on a real 4090 across all four arenas.
+
+**The trap that made this more than a ternary: `uVignette = 0` does not turn the vignette off.**
+Its `smoothstep` runs with edge0 (`0.8`) above edge1 (`0.5 * uVignette`) at *every* shipping
+value, so the reversed-edge path was already load-bearing, and under it the corner sample only
+moves `0.485 → 0.587` across `uVignette 0.5 → 0`. Writing 0 would have left ~41% corner darkening
+while every probe said the gate was applied — a card that measured itself as passing and shipped
+the defect it existed to fix. The shader now fades the effect out below 0.5. A hard
+`uVignette > 0.001` cutoff was rejected on a second look: it fixes the resting value but pops the
+corners (`0.580 → 1.0` in one frame) at the end of every impact pulse on the gated arenas, since
+those pulses decay toward a 0 base. The fade saturates at 0.5, so Storerooms, the shader default
+(1.2) and all pulse peaks are bit-identical to before.
+
+**Second trap: a pulse live across an arena swap.** `frameVisuals` re-applies the pulse's captured
+base every frame until it decays, so a pulse in flight during a level load would write the *old*
+arena's vignette/aberration over the freshly gated uniforms and bring the CRT back on Classic. The
+gate clears the pulse — and must clear `until` as well as the bases, because with a future `until`
+the next impact skips base capture entirely and its spike silently never renders. `getImpactPulse`
+was not in `levelOrchestration`'s deps; wired through `gameBoot`.
+
+**Lever 2 — ART-EXPO-1.** Retired the global `toneMappingExposure: 0.4` and the `arenaExposureMul`
+that only Sundial used, in favour of absolute per-arena values in `config.postFx.arenaExposure`
+(`classicRecord` 0.4 · `backrooms` 0.4 · `zanzibar` 0.528 · `testArena` 0.4) resolved by
+`resolveArenaExposure()`. Look-preserving **bit-identically**, not approximately: `0.4 * 1.32`
+rounds to the same double as the literal `0.528` (verified live, delta `0`). The non-obvious call
+site is `applyRendererColorGrading`'s **second** caller — `ui/cartPreview.js` grades its own
+offscreen renderer and has no arena, so it takes `arenaExposureDefault`, the same 0.4 the retired
+global gave it. Adding a `levelId` param without handling it would have shifted the menu cart.
+
+**Evidence.** Before/after `npm run shoot` on all three arenas, real GPU (4090), sidecars recorded.
+Storerooms is a confirmed no-op on both levers: meanAbs 0.287 against a 0.315 noise floor measured
+between two identical-code captures, and luma floor 1.36 → 1.36 / median 83.91 → 83.98.
+
+**A measurement caveat worth carrying forward: `npm run compare` cannot judge Cart Rave.** Its
+animated crowd puts the noise floor between two identical-code captures at meanAbs **7.18**
+(pctDiff 39%) — higher than the 6.65 the real CRT removal produced. The pixel metric was therefore
+*incapable* of proving that change; the uniform probe and the visual did. Do not read a Classic
+compare number as evidence in either direction without measuring its floor in the same session.
+
+**Rule 3 baselines** (recorded in [art-direction.md](../reference/art-direction.md)) were computed
+with a one-off scratchpad script, since `tools/` is frozen during a game card — folding a luma
+metric into `compare.mjs` is filed as **ART-LUMA-TOOL-1**. **ART-EXPO-DUMP-1** filed for
+`postFxDebug`'s config dump, which still emits the now-removed `toneMappingExposure` key.
+
+---
+
 ### August 6, 2026 — FEEL-DAY-1: collision punch + impact juice + bot aggression
 
 *(Playtesting feel · wave)* — ✅ **CLOSED PASS 08-06** (`da9063c`, `e67071b`, `0e0a1b7`).

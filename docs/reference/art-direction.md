@@ -70,7 +70,8 @@ brightness. Each arena expresses it differently, and an arena is not broken for 
   **It stays liminal.** It is not a warehouse rave and must not be pushed toward one. Its
   VHS/CCTV layer and its near-silence are identity here, not deficiencies.
 - **Sundial Station (`zanzibar`)** — golden-hour mood arena, warm and open. It is *not dark*,
-  and its `arenaExposureMul` of `1.32` is correct behavior rather than a violation of anything.
+  and its exposure budget of `0.528` — the highest of the four — is correct behavior rather than
+  a violation of anything.
 
   **The sun key and the sun disc do not agree, by intent (D-SUNDIAL-OQ8, 08-02).** The key light
   sits at **9.93°** elevation while the visible disc sits at **1.87°** on the waterline. That 8°
@@ -132,27 +133,27 @@ and the Storerooms furniture builders for material variety.
 
 ## Per-arena look budget
 
-Current values, recorded as the starting point rather than as targets. ART-EXPO-1 and
-ART-FILTER-1 own moving them and will record the resulting baselines here.
+Current values. ART-EXPO-1 and ART-FILTER-1 closed 2026-08-06; the exposure and arcade rows
+below are their result, and the Rule 3 luma floors those values produce are recorded above.
 
 | Knob | Where | Current |
 |---|---|---|
-| Tone mapping | `applyRendererColorGrading()`, [`scene.js:591`](../../src/scene.js:591) | ACESFilmic |
-| Exposure (global) | [`config.js:495`](../../src/config.js:495) | `0.4` — **lock retired**, per-arena budget replaces it |
-| Exposure (per arena) | [`config.js:501`](../../src/config.js:501) | `zanzibar: 1.32`; unlisted arenas `1.0` |
-| Bloom (`?bloompipe=hdr` only) | [`config.js:522`](../../src/config.js:522) | `0.34 / 0.34 / 0.76 / 0.14` |
-| Bloom — Cart Rave | `BLOOM_DISPLAY_NEON`, [`scene.js:85`](../../src/scene.js:85) | `0.25 / 0.67 / 0.5 / 0.025` |
-| Bloom — Sundial | `BLOOM_DISPLAY_SUNDIAL`, [`scene.js:108`](../../src/scene.js:108) | `0.25 / 0.67 / **0.68** / 0.025` — D-SUNDIAL-OQ5, split off NEON `93c3deb`; threshold is the only knob moved |
+| Tone mapping | `applyRendererColorGrading()`, [`scene.js:632`](../../src/scene.js:632) | ACESFilmic |
+| Exposure (per arena) | [`config.js:519`](../../src/config.js:519) | `classicRecord 0.4` · `backrooms 0.4` · `zanzibar 0.528` · `testArena 0.4`. Absolute values — the global lock and its multiplier are both gone. Resolved by `resolveArenaExposure()`. |
+| Exposure (no arena) | [`config.js:527`](../../src/config.js:527) | `0.4` — customize cart preview, which grades its own renderer |
+| Bloom (`?bloompipe=hdr` only) | [`config.js:546`](../../src/config.js:546) | `0.34 / 0.34 / 0.76 / 0.14` |
+| Bloom — Cart Rave | `BLOOM_DISPLAY_NEON`, [`scene.js:86`](../../src/scene.js:86) | `0.25 / 0.67 / 0.5 / 0.025` |
+| Bloom — Sundial | `BLOOM_DISPLAY_SUNDIAL`, [`scene.js:109`](../../src/scene.js:109) | `0.25 / 0.67 / **0.68** / 0.025` — D-SUNDIAL-OQ5, split off NEON `93c3deb`; threshold is the only knob moved |
 | Bloom — Storerooms | `BLOOM_DISPLAY_STOREROOMS`, [`scene.js:73`](../../src/scene.js:73) | `0.62 / 0.4 / 0.62 / 0.1` |
-| Bloom — Test Drive | `BLOOM_DISPLAY_TESTDRIVE`, [`scene.js:120`](../../src/scene.js:120) | `0.2 / 0.5 / 0.7 / 0.05` |
-| Arcade (CRT) | [`config.js:545`](../../src/config.js:545) | aberration `0.003`, scanlines `1.8`, vignette `0.5` — **global today, should be Storerooms-only** |
-| VHS | [`config.js:554`](../../src/config.js:554) | amount `0.3` — correctly level-gated already |
-| Fog — Cart Rave | [`config.js:565`](../../src/config.js:565) | `0x040112` @ `0.0065` |
-| Fog — Storerooms | [`config.js:567`](../../src/config.js:567) | `0x1a1510` @ `0.029` |
-| Fog — Sundial | [`config.js:571`](../../src/config.js:571) | `0xff5a22` @ `0.00355` |
+| Bloom — Test Drive | `BLOOM_DISPLAY_TESTDRIVE`, [`scene.js:121`](../../src/scene.js:121) | `0.2 / 0.5 / 0.7 / 0.05` |
+| Arcade (CRT) | [`config.js:573`](../../src/config.js:573) | aberration `0.003`, scanlines `1.8`, vignette `0.5` — **Storerooms only**, gated at level load like VHS |
+| VHS | [`config.js:582`](../../src/config.js:582) | amount `0.3` — Storerooms only |
+| Fog — Cart Rave | [`config.js:593`](../../src/config.js:593) | `0x040112` @ `0.0065` |
+| Fog — Storerooms | [`config.js:596`](../../src/config.js:596) | `0x1a1510` @ `0.029` |
+| Fog — Sundial | [`config.js:600`](../../src/config.js:600) | `0xff5a22` @ `0.00355` |
 
 Bloom profile selection: `resolveDisplayBloomConfig()`,
-[`scene.js:131`](../../src/scene.js:131) — four branches, one per row above.
+[`scene.js:132`](../../src/scene.js:132) — four branches, one per row above.
 
 ---
 
@@ -221,9 +222,10 @@ Two mechanical notes before adding placements:
 
 ## Falsifiable rules
 
-Rules 1 and 2 are checkable against source today and **both fail today** — that is deliberate.
-Rules 3–5 are procedures whose per-arena baselines are captured by ART-EXPO-1 and ART-FILTER-1;
-capturing them before those cards move the look would baseline a look that is about to change.
+Rule 1 is checkable against source today and still fails on the carts. **Rule 2 passes as of
+2026-08-06 (ART-FILTER-1).** Rules 3–5 are procedures whose per-arena baselines were blocked on
+ART-EXPO-1 / ART-FILTER-1 landing, because capturing them first would have baselined a look that
+was about to change. Rule 3's baselines are now recorded; 4 and 5 are still open.
 
 ### Rule 1 — no pristine hero surface
 
@@ -268,29 +270,68 @@ surface *reads* is a separate question, answered by measurement.
 
 ### Rule 2 — no screen filter outside The Storerooms
 
-This rule has two halves, because the measurement point does not exist in the code yet.
+**The test reads the resting base, not a live frame** — any live frame will violate a naive
+version of this rule, because event juice is allowed to spike from that base.
 
-**Smell test today:** `CONFIG.postFx.arcade` is non-zero
-([`config.js:545`](../../src/config.js:545)) and
-[`scene.js:1168`](../../src/scene.js:1168)–`1173` writes it into the pass **once, inside
-`createComposer()`**, from global config. Every level inherits it at composer-create time.
-There is **no per-level arcade write** — `applyLoadedLevelSideEffects` gates VHS only
-(`main.js` ~2448). So the rule fails today, globally, by construction.
+**Measurement:** resting `uAberration`, `uScanlineDensity`, and `uVignette`, read after
+`applyLoadedLevelSideEffects` ([`levelOrchestration.js:240`](../../src/orchestration/levelOrchestration.js:240))
+with the Tweakpane closed — its arcade sliders write the same uniforms live, so a stale tweak
+reads as a gate failure.
 
-**Target, after ART-FILTER-1:** resting `uAberration`, `uScanlineDensity`, and `uVignette` read
-`0` for `classicRecord` and `zanzibar` when measured after `applyLoadedLevelSideEffects`,
-mirroring the VHS gate. Event juice may spike **from that base** — the impact pulse and KO
-flash capture `pulse.baseVignette` / `baseAberration`
-([`main.js:1110`](../../src/main.js:1110)) and return to it
-([`frameVisuals.js:630`](../../src/frameVisuals.js:630)–`634`). **The test reads the base, not
-a live frame** — any live frame will violate a naive version of this rule.
+**Status: PASSES** as of 2026-08-06 (ART-FILTER-1), measured on a real GPU across all four
+arenas:
 
-**Status today: FAILS**, globally.
+| Arena | uAberration | uScanlineDensity | uVignette | VHS |
+|---|---|---|---|---|
+| `classicRecord` | 0 | 0 | 0 | 0 |
+| `zanzibar` | 0 | 0 | 0 | 0 |
+| `testArena` | 0 | 0 | 0 | 0 |
+| `backrooms` | 0.003 | 1.8 | 0.5 | 0.3 |
+
+Event juice still spikes from that base — the impact pulse and KO flash capture
+`pulse.baseVignette` / `baseAberration`
+([`cartOrchestration.js:268`](../../src/orchestration/cartOrchestration.js:268)) and return to it
+([`frameVisuals.js:626`](../../src/frameVisuals.js:626)–`637`). The gate clears any in-flight
+pulse on level load; without that, a pulse live across an arena swap restores the previous
+arena's values over the gated uniforms and the CRT comes back on Classic.
+
+**A zero uniform is not automatically "off".** The vignette's `smoothstep` runs with edge0
+(`0.8`) above edge1 (`0.5 * uVignette`) at every shipping value, and under that reversed
+interpolation the corner sample only moves `0.485 → 0.587` across `uVignette 0.5 → 0` — writing
+0 alone would leave ~41% corner darkening and fail this rule while appearing to satisfy it. The
+shader therefore fades the whole effect out below `uVignette 0.5`
+([`scene.js:571`](../../src/scene.js:571)); the fade saturates at 0.5, so Storerooms and every
+pulse peak are bit-identical to the pre-card look. A hard `> 0.001` cutoff instead of a fade
+would pop the corners in a pulse's final frame (`0.580 → 1.0` in one step).
 
 ### Rule 3 — blacks stay black
 
 Per-arena luma floor captured with `npm run shoot`, drift guarded by `npm run compare`. Raising
-an arena's exposure may not lift its darkest decile. `baseline: TBD` — ART-EXPO-1 records.
+an arena's exposure may not lift its darkest decile.
+
+**Baselines, 2026-08-06** (post ART-FILTER-1 + ART-EXPO-1, real GPU, 1280×720, Rec.709 luma on
+sRGB bytes 0–255; `floor` = mean of the darkest decile):
+
+| Arena | floor | median | mean | pure-black % |
+|---|---|---|---|---|
+| Cart Rave (`classicRecord`) | 0.00 | 5.72 | 21.37 | 16.0% |
+| Sundial (`zanzibar`) | 0.18 | 6.54 | 16.82 | 21.8% |
+| The Storerooms (`backrooms`) | 1.36 | 83.98 | 64.84 | 3.9% |
+
+Shots: `--shot classic`, `--shot sundial`, `--level backrooms --cam "0,8,16,0,0.5,0"`. Reproduce
+the numbers with a darkest-decile mean over the capture; there is no committed tool for it yet
+(**ART-LUMA-TOOL-1** folds one into `npm run compare`).
+
+**Read the floor together with the black %.** Classic and Sundial sit at a floor of ~0 with a
+fifth of the frame already pure black, so the floor column has almost no headroom to register a
+small lift — median and mean are the sensitive drift indicators there. The Storerooms is the
+only arena whose floor is meaningfully above zero.
+
+**These are post-vignette-removal numbers and are not comparable to pre-08-06 captures.** The
+CRT vignette was crushing the corners of every arena; removing it on Classic/Sundial raised
+their mean (Classic 19.76 → 21.37) while leaving the floor at 0. Blacks stayed black — the
+change added corner brightness, it did not lift the low end. Storerooms was unaffected by both
+levers (floor 1.36 → 1.36, median 83.91 → 83.98).
 
 ### Rule 4 — silhouette rule
 
