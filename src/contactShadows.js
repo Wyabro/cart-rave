@@ -1,8 +1,10 @@
 // contactShadows.js — lightweight blob contact shadows (no shadow maps)
 //
-// Technique: shared radial-gradient alpha on horizontal PlaneGeometry quads
+// Technique: shared radial-gradient texture on horizontal PlaneGeometry quads
 // (MeshBasicMaterial, depthWrite off, depthTest off so sloped floor chamfers do not
-// clip the blob into a half-circle). Shadows are hidden over open holes and pit voids.
+// clip the blob into a half-circle). The center stays black; a very soft cool outer
+// tint preserves the grounding read on the near-black Classic and Sundial floors.
+// Shadows are hidden over open holes and pit voids.
 //
 // Tune in CONFIG.contactShadows — cart.opacity, footprintRadiusX/Z, textureSoftness.
 
@@ -181,10 +183,9 @@ function getSharedBlobTexture() {
   const ctx = canvas.getContext("2d");
   const center = size * 0.5;
   const gradient = ctx.createRadialGradient(center, center, 0, center, center, center);
-  gradient.addColorStop(0, "rgba(0, 0, 0, 1)");
-  gradient.addColorStop(0.2 + 0.12 * softness, "rgba(0, 0, 0, 0.76)");
-  gradient.addColorStop(0.45 + 0.17 * softness, "rgba(0, 0, 0, 0.34)");
-  gradient.addColorStop(Math.min(0.99, 0.55 + 0.45 * softness), "rgba(0, 0, 0, 0)");
+  for (const [offset, color] of getContactShadowGradientStops(softness)) {
+    gradient.addColorStop(offset, color);
+  }
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, size, size);
 
@@ -193,6 +194,26 @@ function getSharedBlobTexture() {
   sharedBlobTexture.userData.softness = softness;
   sharedBlobTexture.needsUpdate = true;
   return sharedBlobTexture;
+}
+
+/**
+ * Returns the authored radial-gradient stops used by every contact shadow.
+ *
+ * @param {number} softness
+ * @returns {Array<[number, string]>}
+ */
+export function getContactShadowGradientStops(softness) {
+  const s = clamp(softness, 0.15, 1);
+  return [
+    [0, "rgba(0, 0, 0, 1)"],
+    [0.2 + 0.12 * s, "rgba(0, 0, 0, 0.76)"],
+    [0.45 + 0.17 * s, "rgba(0, 0, 0, 0.34)"],
+    // * Classic/Sundial's darkest decile is only ~2–3/255. A pure-black falloff therefore
+    // * collapses into the floor even when the quad is rendering. Keep the contact core dark,
+    // * but give the last band a restrained cool-violet tint so the footprint has a visible edge.
+    [0.52 + 0.25 * s, "rgba(28, 24, 36, 0.16)"],
+    [Math.min(0.99, 0.55 + 0.45 * s), "rgba(0, 0, 0, 0)"],
+  ];
 }
 
 /**
@@ -286,7 +307,9 @@ function createBlobMesh(options = {}) {
   const cfg = shadowCfg();
   const mat = new THREE.MeshBasicMaterial({
     map: getSharedBlobTexture(),
-    color: 0x000000,
+    // * The texture carries both the black core and the subtle outer contrast tint.
+    // * White leaves those authored texture colors intact.
+    color: 0xffffff,
     transparent: true,
     opacity: options.opacity ?? cfg?.cart?.opacity ?? 0.36,
     depthWrite: false,
