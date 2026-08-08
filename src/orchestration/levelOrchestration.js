@@ -36,7 +36,7 @@ import { installWaterFxProgramWarmup } from "../effects/waterDeathFx.js";
 import { yieldForPaint } from "../ui/loadingScreen.js";
 import { getCurrentLevelId, setLevelSwapping, swapLoadedLevel } from "../levelManager.js";
 import { isWorldBootstrapped } from "../bootstrap.js";
-import { setMenuAttractRenderHold } from "../ui/menuAttract.js";
+import { setMenuAttractRenderHold, setMenuAttractReveal } from "../ui/menuAttract.js";
 import { crossfadeElement } from "../animations.js";
 import { isTouchDevice } from "../utils.js";
 import { getQualityTier } from "../utils/qualityMode.js";
@@ -544,53 +544,24 @@ export function createLevelOrchestration(deps) {
     }
   }
 
-  function fadeGameCanvasTo(to, ms) {
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) {
-      canvas.style.opacity = String(to);
-      return Promise.resolve();
-    }
-    const from = parseFloat(canvas.style.opacity || "1");
-    const start = performance.now();
-    return new Promise((resolve) => {
-      let done = false;
-      const finish = () => {
-        if (done) return;
-        done = true;
-        canvas.style.opacity = String(to);
-        resolve();
-      };
-      const step = (now) => {
-        if (done) return;
-        const t = Math.min(1, (now - start) / ms);
-        const eased = 1 - (1 - t) * (1 - t);
-        canvas.style.opacity = String(from + (to - from) * eased);
-        if (t < 1) requestAnimationFrame(step);
-        else finish();
-      };
-      requestAnimationFrame(step);
-      // * Hidden-tab safety: rAF may stall; never leave the fade promise pending.
-      window.setTimeout(finish, ms + 600);
-    });
-  }
-
   async function maskMenuPreviewSwap(runSwap, opts = {}) {
     const fade = opts.fade !== false;
     setMenuAttractRenderHold(true);
     try {
-      // * Slightly longer fades than 180/260 — geometry + compile run under the
-      // * opaque gradient so the work reads as a transition, not a frozen UI.
-      if (fade) await fadeGameCanvasTo(0, 220);
+      // * Swap under the OPAQUE menu backdrop, not the 0.42 attract wash — the old
+      // * canvas fade to 0 read as a whole-menu flash through the translucent wash.
+      // * Lifting the reveal pushes .cr-root::before to opacity 1 (its 600ms
+      // * transition) so geometry + compile run hidden behind the menu's own
+      // * backdrop; the release re-reveals and the new arena crossfades in
+      // * underneath the persistent menu. Canvas opacity is never touched.
+      if (fade) setMenuAttractReveal(false);
       await runSwap();
-      if (fade) {
-        // * Release with the canvas still transparent — the attract loop draws the
-        // * new arena (programs already warm), then the fade-in reveals it.
-        setMenuAttractRenderHold(false);
-        await yieldForPaint();
-        await fadeGameCanvasTo(1, 300);
-      }
+      setMenuAttractRenderHold(false);
+      await yieldForPaint();
+      if (fade) setMenuAttractReveal(true);
     } finally {
       setMenuAttractRenderHold(false);
-      if (fade) canvas.style.opacity = "1";
+      if (fade) setMenuAttractReveal(true);
     }
   }
 
@@ -805,7 +776,6 @@ export function createLevelOrchestration(deps) {
     finalizeArenaShellForMenu,
     finalizeArenaForPlay,
     warmupActiveSceneShaders,
-    fadeGameCanvasTo,
     maskMenuPreviewSwap,
     commitLevelLoad,
     bootstrapWorldCore,

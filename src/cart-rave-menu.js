@@ -463,7 +463,10 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
     persistLevel(levelId);
     updateLevelButtons();
     updateArenaPager();
-    applyLevelAmbience(levelId);
+    // * Ambience stays put: the menu does NOT re-theme to the arena on browse/select
+    // * (the backdrop, title, stats, and button glows snap and read as a flash).
+    // * applyLevelAmbience runs once at init from the saved level; the arena preview
+    // * underneath the persistent menu is the only thing that changes.
     window.dispatchEvent(new CustomEvent("cartrave:level-changed"));
     if (levelRow) {
       const active = levelRow.querySelector(".cr-level-btn.active");

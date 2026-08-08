@@ -366,9 +366,11 @@ async function previewMenuLevelIfNeeded(levelId) {
         }
 
         await yieldForPaint();
-        // * Masked swap: attract-hold + canvas fade + light compile so the first
-        // * attract frame after reveal does not sync-compile. Menu uses light warm
-        // * (no VFX anchors — those install once at play entry).
+        // * Masked swap: attract-hold + opaque-backdrop reveal + light compile so the
+        // * first attract frame after reveal does not sync-compile. The swap hides
+        // * behind the menu's own backdrop (see maskMenuPreviewSwap); the release
+        // * crossfades the new arena in underneath the persistent menu. Menu uses
+        // * light warm (no VFX anchors — those install once at play entry).
         const runSwap = async () => {
           await swapLoadedLevel(selected, { menuPreview: true });
           if (d.warmupAfterLevelSwap) await d.warmupAfterLevelSwap({ forPlay: false });

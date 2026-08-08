@@ -76,7 +76,8 @@ let revealed = false;
  * While true the loop keeps running but skips rendering — the canvas holds its
  * last frame. Set around menu arena swaps so the attract render never hits a
  * half-built scene or compiles the new arena's shaders mid-frame (the swap path
- * fades the canvas, swaps, warm-compiles, then releases the hold).
+ * hides the work behind the opaque menu backdrop, warm-compiles, then releases
+ * the hold).
  */
 let renderHold = false;
 /** Last rendered frame timestamp (ms) for throttling. */
@@ -430,6 +431,17 @@ export function setMenuAttractRenderHold(on) {
   // * Render immediately on release so the fade-in reveals the NEW arena, not a
   // * stale frame from before the swap.
   if (!on) lastFrameMs = 0;
+}
+
+/**
+ * Forces the menu backdrop to the opaque or attract-revealed state without
+ * touching the render loop. Used by the menu-preview swap mask so the level
+ * swap hides behind the opaque backdrop (opacity 1) instead of a translucent
+ * one — see levelOrchestration.js maskMenuPreviewSwap.
+ * @param {boolean} on
+ */
+export function setMenuAttractReveal(on) {
+  setRevealed(on);
 }
 
 /** Stops the loop and restores the opaque menu backdrop. */
