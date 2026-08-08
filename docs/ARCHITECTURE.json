@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-08T17:32:42.720Z",
-    "commit": "79708aa"
+    "at": "2026-08-08T17:58:02.618Z",
+    "commit": "d3538c0"
   },
-  "source_digest": "cec528ca",
+  "source_digest": "844d1808",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1243,7 +1243,7 @@
       {
         "title": "UI / UX",
         "counts": {
-          "Medium": 6,
+          "Medium": 5,
           "Low": 3
         },
         "rows": [
@@ -1263,12 +1263,6 @@
             "pri": "Low",
             "item": "ORIENT-HINT-SCROLL-1 — the landscape menu resolves to the stacked column, and the portrait hint clips its last item",
             "notes": "**Filed 08-06 from the ORIENT-TOAST-Z-1 repro, split out rather than folded into that fix** (it is layout, that card was a one-line z-index change, and its capture would have been ambiguous). Two findings, one row because both fall out of the same measurement at 740×360 coarse. (1) **The landscape band does not win.** `.cr-content` computes `display:flex` + `overflow:hidden auto` there — i.e. the stacked-mobile band (`max-width:900px`) beats the landscape-phone 3-col grid at [cart-rave-menu.css:2660](../../src/cart-rave-menu.css:2660) on **source order**, since it is declared later. Whether the 3-col landscape composition is meant to be reachable at all on a phone is the open question; if it is not, that band is dead CSS and should be deleted rather than left looking authoritative. (2) **Consequent clip:** the column scrolls (439px of scroll at that size) under a viewport-pinned `.cr-portrait-hint` that occupies the bottom **36px**, while `.cr-content`'s `padding-bottom` is **33px** — 3px short, so the last item clips at full scroll. Same contract `.cr-hintbar` already documents (\"the menu column scrolls UNDERNEATH this bar\"), which is why the hint carries its own opaque background; only the reserve is off. **Cheapest fix if picked up:** raise the stacked band's bottom padding to clear the hint's real height, measured, not constant — and mind that the padding applies at every stacked width while the hint only shows in the coarse/landscape/≤480 band, so a flat bump would add dead space on portrait phones that just PASSed UI-SCALE-1. Low: cosmetic, below the fold, and nobody has reported it in play.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "PAD-MENU-1 — Controller menu navigation polish *(pre-ship 07-19)*",
-            "notes": "Modal-scoping shipped 07-20; remaining = polish + pad-in-hand validation.",
             "ship1": null
           },
           {

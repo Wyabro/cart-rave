@@ -13,6 +13,33 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 8, 2026 — PAD-MENU-1 PASS: controller menu navigation polish
+
+- *(UI / UX · Medium)* **PAD-MENU-1** — ✅ **CLOSED PASS 08-08** (commits `674d84d`, `c984bea`,
+  `a14640a`, `42fe305`, `1213ce9`; Wyatt pad-in-hand PASS). Modal scoping had shipped 07-20; this
+  card closed the four polish levers left after it. **L1** — text-typing controls and the whole
+  `#cr-join` row (room-code input + GO) are out of `getFocusables`, so d-pad down past FRIENDS
+  lands on CUSTOMIZE on both pad and keyboard (they share the engine), and the ring can no longer
+  sit on a field a pad can't type into. **L1b** — bare `input[type=range]` nudges like the
+  `role="slider"` tracks (d-pad left/right adjusts the value instead of navigating away), plus a
+  real keydown handler on the customize hue slider (untrusted events don't trigger native range
+  stepping; `e.isTrusted` guard keeps real keyboard on the native path). **L2** — idle re-seed
+  after a chip rebuild: when `innerHTML` in `build*Chips()` destroys the focused node and the
+  browser parks focus on body/html, the next idle frame restores the ring to the row's
+  `[aria-checked="true"]` chip (or clamped `navIndex`), gated on the ring node being
+  **disconnected** — so a mouse click on empty chrome and the name-edit input are never stolen
+  from (regression for the old focus-steal bug, pinned by test). **L3** — all four `.cr-screen-hint`
+  rows author keyboard + gamepad copy (`data-hint-kb` / `data-hint-pad`, default kb) and flip via
+  `updateScreenHints()` on the same `onInputModeChange` hook as `updateHintBar`; pad dialect
+  matches the main bar (D-PAD / Ⓐ / Ⓑ). Tests: `gamepadNav.test.js` 18 → 25 (join row skipped on
+  pad and keyboard, visible text input not a nav stop, hue range nudges, chip-rebuild re-seed with
+  no eaten press, `aria-checked` preference over out-of-range index, empty-chrome no-steal) + new
+  `padMenuHints.test.js`. QA 7/7. **Not this card:** ring-vs-`.is-selected` alignment on non-command
+  controls (mute / name ✎ / arena ◂▸ — pre-existing, out of scope), and the main bar's `LB / RB
+  ARENA` hint lie (`ARENA-BUMPER-HINT-1`).
+
+---
+
 ### August 8, 2026 — CART-COLOR-DEPTH-1 HARD-CLOSED: no signed visual target
 
 - *(Art · Medium)* **CART-COLOR-DEPTH-1** — **HARD-CLOSED 08-08 at Wyatt's direction.** The

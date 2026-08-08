@@ -72,8 +72,9 @@ Live rows only. Shipped and closed cards live in
 ### Next actions
 
 1. **NOW:** Block 1 empty. **RECORD-MED-1** ✅ PASS 08-08 (`125cdd4`);
-   **MENU-CART-1** ✅ production PASS 08-08 (`dbf8612`). Block 2 next:
-   **CART-COLOR-DEPTH-1** hard-closed 08-08 (no visual sign-off). Block 2 next:
+   **MENU-CART-1** ✅ production PASS 08-08 (`dbf8612`);
+   **PAD-MENU-1** ✅ PASS 08-08 (pad menu nav polish; commits `674d84d`–`1213ce9`).
+   Block 2 next: **CART-COLOR-DEPTH-1** hard-closed 08-08 (no visual sign-off). Block 2 next:
    **ONBOARD-ART-1** (then VOICE-BUS-1 · …).
 2. **Open / REACHABLE:** CARGO-LATCH-1 · **CHUNK-DEFER-1** (dynamic-import residual of closed
    CHUNK-MEMBER-1). Block I desk-only wave closed 08-07 (PERF-RENDERINFO-1 · NET-RING-1 ·
@@ -131,6 +132,16 @@ the dev loop (dev probes lie in prod · edge propagation · frozen `rAF`), or a 
 - **Before any public / external-tester playtest: reset the analytics DO** so aggregates are not polluted by dev/harness traffic. Token-gated (SEC-TOKEN-1): `DELETE` with `Authorization: Bearer <ERROR_LOG_TOKEN>` on `/api/analytics` (never `?token=`).
 
 ## Last updated
+
+2026-08-08 (PAD-MENU-1 PASS — controller menu navigation polish) — Four pad-nav levers closed
+after the 07-20 modal-scoping groundwork: text inputs + the whole `#cr-join` row (room-code +
+GO) out of the pad/keyboard ring (FRIENDS ↓ → CUSTOMIZE), bare `input[type=range]` nudged by
+d-pad like the `role="slider"` tracks + a real hue-slider keydown handler, idle re-seed when a
+chip rebuild destroys the focused node (gated on the node being disconnected — never steals from
+a live input or empty chrome), and all four sub-screen hint rows swapped to pad copy on gamepad
+input. `gamepadNav.test.js` 18 → 25 + new `padMenuHints.test.js`; QA 7/7; Wyatt pad-in-hand PASS.
+Not this card: ring-vs-`.is-selected` on non-command controls, and the main-bar LB/RB ARENA hint
+(`ARENA-BUMPER-HINT-1`).
 
 2026-08-07 (ONBOARD-ART-1 — HOW TO PLAY art rig landed; Block 2 pre-ship at Wyatt's call) —
 The deck now takes art as a **drop-in directory**: drop `<token>.webp` (`drive` / `boost` /
