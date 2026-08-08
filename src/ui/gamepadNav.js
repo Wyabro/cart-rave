@@ -2,7 +2,9 @@ import { getActiveGamepad, setInputMode } from "../input.js";
 
 let _navActive = true;
 let navIndex = 0;
-let prevDpad = { up: false, down: false, left: false, right: false, a: false, b: false };
+let prevDpad = {
+  up: false, down: false, left: false, right: false, a: false, b: false, lb: false, rb: false,
+};
 
 // * The last node the ring actually focused, plus the radiogroup row it lived
 // * in. The row survives a chip rebuild (innerHTML replaces its children), which
@@ -222,8 +224,12 @@ function updateNav() {
   const right = isPressed(15) || stickRight;
   const a = isPressed(0);
   const b = isPressed(1);
+  // * Standard Gamepad: buttons[4]/[5] = LB / RB. Unused in-match (boost/hop are
+  // * triggers + face). Menu hint advertises them for arena paging (ARENA-BUMPER-HINT-1).
+  const lb = isPressed(4);
+  const rb = isPressed(5);
 
-  if (up || down || left || right || a || b) {
+  if (up || down || left || right || a || b || lb || rb) {
     setInputMode("gamepad");
   }
 
@@ -234,6 +240,25 @@ function updateNav() {
     // * open, so the adopt branch below re-derives the right index.
     navIndex = 0;
     lastScope = scope;
+  }
+
+  // * ARENA-BUMPER-HINT-1: LB/RB → arena pager (same handlers as mouse/keyboard).
+  // * Document scope only (overlays must not page the menu behind them). Visibility
+  // * via isElementVisible beats attribute-only checks — matches real CSS [hidden]
+  // * + author display rules. pointerdown/up before click matches A-button squash.
+  if (scope === document && !isTypingTarget(document.activeElement)) {
+    const arenaPrev = /** @type {HTMLElement|null} */ (document.getElementById("cr-arena-prev"));
+    const arenaNext = /** @type {HTMLElement|null} */ (document.getElementById("cr-arena-next"));
+    if (lb && !prevDpad.lb && arenaPrev && isElementVisible(arenaPrev)) {
+      arenaPrev.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+      arenaPrev.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }));
+      arenaPrev.click();
+    }
+    if (rb && !prevDpad.rb && arenaNext && isElementVisible(arenaNext)) {
+      arenaNext.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+      arenaNext.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }));
+      arenaNext.click();
+    }
   }
 
   const focusables = getFocusables(scope);
@@ -313,7 +338,7 @@ function updateNav() {
     }
   }
 
-  prevDpad = { up, down, left, right, a, b };
+  prevDpad = { up, down, left, right, a, b, lb, rb };
   requestAnimationFrame(updateNav);
 }
 

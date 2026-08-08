@@ -8,6 +8,7 @@
 // clicks hidden back buttons (old query hit the invisible customize back on
 // the main menu, and used the dead `.cr-esc-resume` selector on pause).
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { setInputMode } from "../src/input.js";
 
 // * Feed the nav loop a hand-built pad; the real input.js touches
 // * navigator.getGamepads + the controls panel DOM.
@@ -17,7 +18,7 @@ vi.mock("../src/input.js", () => ({
   setInputMode: vi.fn(),
 }));
 
-const BTN = { a: 0, b: 1, up: 12, down: 13, left: 14, right: 15 };
+const BTN = { a: 0, b: 1, lb: 4, rb: 5, up: 12, down: 13, left: 14, right: 15 };
 
 function makePad(pressed = []) {
   return {
@@ -32,6 +33,10 @@ function makePad(pressed = []) {
 // * container that must stay out of the ring. The color row + range mirror the
 // * customize screen (chips rebuilt via innerHTML on selection; hue is a bare
 // * input[type=range], nudged by d-pad left/right).
+// * Arena pager mirrors index.html SOLO context. Happy-dom's isElementVisible
+// * polyfill only walks inline style.display === "none" — it ignores the
+// * `hidden` attribute and stylesheets. For non-SOLO tests set
+// * #cr-context-arena style.display = "none" (same open/closed contract as overlays).
 const FIXTURE = `
 <div id="cr-root">
   <button id="play-btn">PLAY</button>
@@ -40,6 +45,10 @@ const FIXTURE = `
     <button class="cr-join-go" id="cr-join-go" type="button">GO</button>
   </div>
   <button id="customize-btn">CUSTOMIZE</button>
+  <div id="cr-context-arena">
+    <button class="cr-arena-page" id="cr-arena-prev" type="button" aria-label="Previous arena">◂</button>
+    <button class="cr-arena-page" id="cr-arena-next" type="button" aria-label="Next arena">▸</button>
+  </div>
   <div id="hud-note" tabindex="0"></div>
   <input id="cr-name-input" style="display:none" />
 </div>
@@ -97,6 +106,16 @@ function clickSpy(id) {
   return spy;
 }
 
+/** pointerdown → pointerup → click order (A-button / bumper squash path). */
+function pressFeedbackSpies(id) {
+  const el = document.getElementById(id);
+  const order = [];
+  el.addEventListener("pointerdown", () => order.push("pointerdown"));
+  el.addEventListener("pointerup", () => order.push("pointerup"));
+  el.addEventListener("click", () => order.push("click"));
+  return order;
+}
+
 function pressKey(code) {
   window.dispatchEvent(new KeyboardEvent("keydown", { code, bubbles: true, cancelable: true }));
 }
@@ -107,6 +126,7 @@ let navModule;
 beforeEach(async () => {
   scheduled = [];
   padRef.pad = makePad();
+  vi.mocked(setInputMode).mockClear();
   vi.stubGlobal("requestAnimationFrame", (cb) => {
     scheduled.push(cb);
     return scheduled.length;
@@ -343,6 +363,75 @@ describe("focus re-yank", () => {
 // * order worked. These pin the keyboard path onto the same engine the gamepad tests above
 // * already cover (scoping, seed-on-first-press, focus re-yank), so only the
 // * keyboard-specific wiring (gating, preventDefault, typing targets) needs its own cases.
+// * ARENA-BUMPER-HINT-1: menu hint advertises LB/RB arena; wire rising-edge to pager buttons.
+describe("LB/RB arena paging", () => {
+  it("LB edge fires pointerdown/up/click on #cr-arena-prev when pager is visible", () => {
+    const order = pressFeedbackSpies("cr-arena-prev");
+    const nextSpy = clickSpy("cr-arena-next");
+    press(BTN.lb);
+    expect(order).toEqual(["pointerdown", "pointerup", "click"]);
+    expect(nextSpy).not.toHaveBeenCalled();
+  });
+
+  it("RB edge fires pointerdown/up/click on #cr-arena-next when pager is visible", () => {
+    const order = pressFeedbackSpies("cr-arena-next");
+    const prevSpy = clickSpy("cr-arena-prev");
+    press(BTN.rb);
+    expect(order).toEqual(["pointerdown", "pointerup", "click"]);
+    expect(prevSpy).not.toHaveBeenCalled();
+  });
+
+  it("held bumper pages once only (rising edge)", () => {
+    const prevSpy = clickSpy("cr-arena-prev");
+    // * 3-frame: press → hold → release (not the 2-frame press() helper).
+    padRef.pad = makePad([BTN.lb]);
+    frame();
+    padRef.pad = makePad([BTN.lb]);
+    frame();
+    padRef.pad = makePad();
+    frame();
+    expect(prevSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not page arena while an overlay owns the nav scope", () => {
+    show("cr-settings-screen");
+    const prevSpy = clickSpy("cr-arena-prev");
+    const nextSpy = clickSpy("cr-arena-next");
+    press(BTN.lb);
+    press(BTN.rb);
+    expect(prevSpy).not.toHaveBeenCalled();
+    expect(nextSpy).not.toHaveBeenCalled();
+  });
+
+  it("does not page when the arena context is hidden (non-SOLO)", () => {
+    // * A1: polyfill only sees inline display:none — wrap.hidden = true would NOT hide.
+    document.getElementById("cr-context-arena").style.display = "none";
+    const prevSpy = clickSpy("cr-arena-prev");
+    const nextSpy = clickSpy("cr-arena-next");
+    press(BTN.lb);
+    press(BTN.rb);
+    expect(prevSpy).not.toHaveBeenCalled();
+    expect(nextSpy).not.toHaveBeenCalled();
+  });
+
+  it("LB alone flips input mode to gamepad from the nav loop", () => {
+    press(BTN.lb);
+    expect(setInputMode).toHaveBeenCalledWith("gamepad");
+  });
+
+  it("RB alone flips input mode to gamepad from the nav loop", () => {
+    press(BTN.rb);
+    expect(setInputMode).toHaveBeenCalledWith("gamepad");
+  });
+
+  it("does not steal focus from the current nav ring when paging", () => {
+    press(BTN.down); // seed → PLAY
+    expect(document.activeElement).toBe(document.getElementById("play-btn"));
+    press(BTN.rb);
+    expect(document.activeElement).toBe(document.getElementById("play-btn"));
+  });
+});
+
 describe("keyboard arrow-key navigation", () => {
   it("ArrowDown seeds focus, a second ArrowDown navigates to the next control", () => {
     pressKey("ArrowDown");
