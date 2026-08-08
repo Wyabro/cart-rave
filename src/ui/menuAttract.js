@@ -60,6 +60,10 @@ import { tickVisualHarnessFrame } from "../utils/visualHarness.js";
  *   MENU — before play — instead of only after sustained bad in-game frames.
  *   Frame *spacing* is useless here (the loop throttles to ~30fps by design);
  *   only the measured frame duration reflects GPU/CPU load.
+ * @property {(renderer: import("three").WebGLRenderer, nowMs: number) => void} [onOverlayRender]
+ *   Optional direct-render overlay pass. It runs after the arena's latched
+ *   composer/direct pass and before frame cost is sampled, so the same watchdog
+ *   and diagnostics account for its CPU/GPU submission work.
  */
 
 /** @type {MenuAttractDeps | null} */
@@ -156,12 +160,18 @@ const ATTRACT_DIAG_MAX_WINDOWS = 90;
 const diagSpacing = [];
 /** @type {number[]} */
 const diagCost = [];
+/** @type {number[]} */
+const diagOverlayCost = [];
 let diagWindowStartMs = 0;
 let diagWindowsEmitted = 0;
+// * An overlay must never take down the menu backdrop. A failed integration stays
+// * off for this browser session until its owner is corrected and reloaded.
+let overlayRenderDisabled = false;
 
 function resetAttractDiag() {
   diagSpacing.length = 0;
   diagCost.length = 0;
+  diagOverlayCost.length = 0;
   diagWindowStartMs = 0;
   diagWindowsEmitted = 0;
 }
@@ -191,10 +201,12 @@ function maybeEmitAttractWindow(nowMs, levelId) {
   if (diagWindowsEmitted >= ATTRACT_DIAG_MAX_WINDOWS) {
     diagSpacing.length = 0;
     diagCost.length = 0;
+    diagOverlayCost.length = 0;
     return;
   }
   const spacing = diagSpacing.slice().sort((a, b) => a - b);
   const cost = diagCost.slice().sort((a, b) => a - b);
+  const overlayCost = diagOverlayCost.slice().sort((a, b) => a - b);
   let overBar = 0;
   for (const c of diagCost) if (c > BAD_FRAME_MS) overBar += 1;
   recordDiagEvent("attract", "attractWindow", {
@@ -205,6 +217,11 @@ function maybeEmitAttractWindow(nowMs, levelId) {
     costP50: pctMs(cost, 0.5),
     costP95: pctMs(cost, 0.95),
     costMax: pctMs(cost, 1),
+    // * Always present: zero is the stable baseline when no menu overlay is mounted.
+    overlayN: diagOverlayCost.length,
+    overlayCostP50: pctMs(overlayCost, 0.5),
+    overlayCostP95: pctMs(overlayCost, 0.95),
+    overlayCostMax: pctMs(overlayCost, 1),
     // * Count and bar travel together — a bare count is unreadable if BAD_FRAME_MS moves.
     overBar,
     barMs: BAD_FRAME_MS,
@@ -216,6 +233,7 @@ function maybeEmitAttractWindow(nowMs, levelId) {
   diagWindowsEmitted += 1;
   diagSpacing.length = 0;
   diagCost.length = 0;
+  diagOverlayCost.length = 0;
 }
 
 const reducedMotionQuery =
@@ -348,12 +366,30 @@ function step(now) {
   } else {
     d.composer.render();
   }
+  // * MENU-CART-1 Lever 0: direct menu overlays render after the arena's final
+  // * composer/direct pass. Keeping this above frameCostMs makes auto-quality judge
+  // * the whole displayed menu frame, not only the arena beneath the overlay.
+  let overlayCostMs = 0;
+  if (d.onOverlayRender && !overlayRenderDisabled) {
+    const overlayStartMs = performance.now();
+    try {
+      d.onOverlayRender(d.renderer, now);
+    } catch (error) {
+      overlayRenderDisabled = true;
+      recordDiagEvent("attract", "overlayRenderFailed", {
+        message: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      overlayCostMs = performance.now() - overlayStartMs;
+    }
+  }
   const frameCostMs = performance.now() - frameStartMs;
   d.onRenderCost?.(frameCostMs / 1000, frameStartMs);
   // * ATTRACT-JANK-1: same cost the watchdog just judged, plus the spacing it never sees.
   if (isDiagActive()) {
     if (spacingMs > 0) diagSpacing.push(spacingMs);
     diagCost.push(frameCostMs);
+    diagOverlayCost.push(overlayCostMs);
     maybeEmitAttractWindow(now, levelId);
   }
   tickVisualHarnessFrame();
