@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-08T00:15:29.150Z",
-    "commit": "519d905"
+    "at": "2026-08-08T00:43:49.008Z",
+    "commit": "a89416a"
   },
-  "source_digest": "43476d79",
+  "source_digest": "689ab3ba",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -961,13 +961,13 @@
           },
           {
             "pri": "Medium",
-            "item": "Customize screen performance pass *(pre-ship 07-19)*",
+            "item": "CUSTOMIZE-PERF-1 — Customize screen performance pass *(pre-ship 07-19)*",
             "notes": "Measure before tuning.",
             "ship1": null
           },
           {
             "pri": "Low",
-            "item": "Countdown timer survives menu return *(pre-ship 07-19)*",
+            "item": "COUNTDOWN-LEAK-1 — Countdown timer survives menu return *(pre-ship 07-19)*",
             "notes": "Stale countdown UI on main menu.",
             "ship1": null
           },
@@ -997,19 +997,19 @@
           },
           {
             "pri": "Medium",
-            "item": "`structuredClone` → flat serializer in `party/index.ts`",
+            "item": "PARTY-SERIALIZE-1 — `structuredClone` → flat serializer in `party/index.ts`",
             "notes": "Only after profiling shows it matters.",
             "ship1": null
           },
           {
             "pri": "Medium",
-            "item": "Persistent leaderboard / player stats `[SHIP-1 D2]`",
+            "item": "LEADERBOARD-1 — Persistent leaderboard / player stats `[SHIP-1 D2]`",
             "notes": "Needs TRUST-1.",
             "ship1": "D2"
           },
           {
             "pri": "Low",
-            "item": "Quickplay rotation live 2-browser check",
+            "item": "QP-ROTATE-PT-1 — Quickplay rotation live 2-browser check",
             "notes": "Reconfirm after **QP-ORDER-1** (sequential rotation). Live multi-client smoke only.",
             "ship1": null
           },
@@ -1055,13 +1055,13 @@
           },
           {
             "pri": "High",
-            "item": "Bloom look sign-off (Classic/Sundial) `[SHIP-1 E2]`",
+            "item": "BLOOM-SIGNOFF-1 — Bloom look sign-off (Classic/Sundial) `[SHIP-1 E2]`",
             "notes": "Art half of closed VFX-1. Success criteria now come from **ART-EXPO-1 / ART-FILTER-1**, not \"dark arenas + punchy neon\" — see [art-direction.md](../reference/art-direction.md).",
             "ship1": "E2"
           },
           {
             "pri": "Medium",
-            "item": "Wilting-groceries Defeat screen reads as \"confetti / something good\" `[SHIP-1 E2]`",
+            "item": "DEFEAT-READ-1 — Wilting-groceries Defeat screen reads as \"confetti / something good\" `[SHIP-1 E2]`",
             "notes": "Needs art-direction call before code — see [art-direction.md](../reference/art-direction.md). Effects already fire (see closed **PRE-PODIUM-1**); this row is **look only**. MP observation closed (**FV-WILT-1** Wyatt PASS 08-04).",
             "ship1": "E2"
           },
@@ -1109,19 +1109,19 @@
           },
           {
             "pri": "Medium",
-            "item": "Pattern customize UI `[SHIP-1 C3]`",
+            "item": "PATTERNS-UI-1 — Pattern customize UI `[SHIP-1 C3]`",
             "notes": "Unblocked by CART-MODEL-1's re-UV.",
             "ship1": "C3"
           },
           {
             "pri": "Low",
-            "item": "Sunglasses finish materials broken `[SHIP-1 E2]`",
+            "item": "SHADES-MAT-1 — Sunglasses finish materials broken `[SHIP-1 E2]`",
             "notes": "",
             "ship1": "E2"
           },
           {
             "pri": "Low",
-            "item": "Asset filename rebrand (`cart-rave-base*.glb` etc.)",
+            "item": "ASSET-RENAME-1 — Asset filename rebrand (`cart-rave-base*.glb` etc.)",
             "notes": "Deliberate asset pass — [brand.md](../brand.md).",
             "ship1": null
           }
@@ -1142,13 +1142,13 @@
           },
           {
             "pri": "Medium",
-            "item": "Announcer re-records (Wyatt) `[SHIP-1 E3]`",
+            "item": "ANNOUNCER-RERECORD-1 — Announcer re-records (Wyatt) `[SHIP-1 E3]`",
             "notes": "Shorter directive takes + odd lines. Pipeline drop-in.",
             "ship1": "E3"
           },
           {
             "pri": "Medium",
-            "item": "Sudden Death music low-pass `[SHIP-1 E3]`",
+            "item": "SD-MUSIC-LPF-1 — Sudden Death music low-pass `[SHIP-1 E3]`",
             "notes": "Audio-graph surgery (shared Howler bus).",
             "ship1": "E3"
           },
@@ -1160,7 +1160,7 @@
           },
           {
             "pri": "Low",
-            "item": "Deeper Howler upgrade `[SHIP-1 E3]`",
+            "item": "HOWLER-UPGRADE-1 — Deeper Howler upgrade `[SHIP-1 E3]`",
             "notes": "Spatial, pooling, volume groups.",
             "ship1": "E3"
           }
@@ -1181,49 +1181,49 @@
           },
           {
             "pri": "Medium",
-            "item": "Taste-tuning follow-ups from Pass 4",
+            "item": "TASTE-P4-1 — Taste-tuning follow-ups from Pass 4",
             "notes": "Only reopen with playtest evidence (D-GP4-1).",
             "ship1": null
           },
           {
             "pri": "Medium",
-            "item": "Clutch slow-mo (Pass 5 deferral)",
+            "item": "CLUTCH-SLOMO-1 — Clutch slow-mo (Pass 5 deferral)",
             "notes": "Taste-gated.",
             "ship1": null
           },
           {
             "pri": "Low",
-            "item": "Turntable swirl force revive",
+            "item": "SWIRL-REVIVE-1 — Turntable swirl force revive",
             "notes": "Scoped prototype via DIR-1 — taste-gated.",
             "ship1": null
           },
           {
             "pri": "Low",
-            "item": "KO \"doomed\" presentational cue",
+            "item": "KO-DOOMED-1 — KO \"doomed\" presentational cue",
             "notes": "Idea stage.",
             "ship1": null
           },
           {
             "pri": "Low",
-            "item": "Death-cam \"follow killer\" revisit",
+            "item": "DEATHCAM-KILLER-1 — Death-cam \"follow killer\" revisit",
             "notes": "Previously reverted.",
             "ship1": null
           },
           {
             "pri": "Low",
-            "item": "Animate the customize sunglasses-tab camera zoom",
+            "item": "SHADES-ZOOM-1 — Animate the customize sunglasses-tab camera zoom",
             "notes": "",
             "ship1": null
           },
           {
             "pri": "Low",
-            "item": "Subtle monetization path",
+            "item": "MONETIZE-1 — Subtle monetization path",
             "notes": "Idea stage only.",
             "ship1": null
           },
           {
             "pri": "Low",
-            "item": "Controller vibration strength *(pre-ship 07-19)*",
+            "item": "RUMBLE-STRENGTH-1 — Controller vibration strength *(pre-ship 07-19)*",
             "notes": "",
             "ship1": null
           }
@@ -1295,7 +1295,7 @@
           },
           {
             "pri": "Medium",
-            "item": "Controller menu navigation polish *(pre-ship 07-19)*",
+            "item": "PAD-MENU-1 — Controller menu navigation polish *(pre-ship 07-19)*",
             "notes": "Modal-scoping shipped 07-20; remaining = polish + pad-in-hand validation.",
             "ship1": null
           },
@@ -1307,13 +1307,13 @@
           },
           {
             "pri": "Medium",
-            "item": "ESC scoring panel refresh `[SHIP-1 E1]`",
+            "item": "ESC-PANEL-1 — ESC scoring panel refresh `[SHIP-1 E1]`",
             "notes": "",
             "ship1": "E1"
           },
           {
             "pri": "Low",
-            "item": "Main-menu SFX slider `[SHIP-1 E3]`",
+            "item": "MENU-SFX-1 — Main-menu SFX slider `[SHIP-1 E3]`",
             "notes": "",
             "ship1": "E3"
           },
@@ -1410,7 +1410,7 @@
           },
           {
             "pri": "Low",
-            "id": "Vite 500 kB chunk-size hint",
+            "id": "VITE-CHUNKWARN-1 — Vite 500 kB chunk-size hint",
             "item": "Cosmetic.",
             "notes": "",
             "ship1": null
