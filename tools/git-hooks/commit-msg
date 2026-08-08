@@ -1,0 +1,10 @@
+#!/bin/sh
+# commit-msg — BACKLOG-GATE-3 lever 1: one card claim per code commit.
+# Errors on a ";"-joined two-claim subject, warns on a second id named in passing.
+# Docs-only commits are exempt (a wave close names every card it retires).
+# Installed via `npm run setup` (git config core.hooksPath tools/git-hooks).
+# Escape hatch: SKIP_GIT_GUARD=1 git commit ...
+[ -n "$SKIP_GIT_GUARD" ] && exit 0
+
+node tools/commit-msg-guard.mjs "$1" || exit 1
+exit 0
