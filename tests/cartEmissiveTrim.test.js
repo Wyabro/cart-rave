@@ -40,17 +40,18 @@ const NEON = 0xff2ec4;
 /** A cache shaped like the real one, around a real material. */
 function makeCache(patternId, root) {
   const mat = new THREE.MeshStandardMaterial({ color: 0xffffff });
+  const bodyMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
   mat.emissive = new THREE.Color(0x000000);
   mat.emissiveIntensity = 1;
   const cache = {
     isRaveGltf: true,
-    frameMats: [mat],
-    frameBodyMats: [],
+    frameMats: [bodyMat, mat],
+    frameBodyMats: [bodyMat],
     accentMats: [mat],
     frameGlowMats: [mat],
   };
   if (patternId !== undefined) setEmissiveTrimMul(cache, patternId, root);
-  return { cache, mat };
+  return { cache, mat, bodyMat };
 }
 
 describe("FIX-EMISSIVE — classic carts carry a dimmer trim", () => {
@@ -138,5 +139,25 @@ describe("FIX-EMISSIVE — classic carts carry a dimmer trim", () => {
 
     const entities = readFileSync(new URL("../src/entities.js", import.meta.url), "utf8");
     expect(entities).toContain("setEmissiveTrimMul(materialCache, cart.cartPatternId, cart.mesh)");
+  });
+
+  it("8. gives the selected cart color a deep base and restores it after the white flash", () => {
+    const { cache, bodyMat } = makeCache("classic");
+    const raw = new THREE.Color().setHex(NEON);
+
+    applyRaveGltfColorToCache(cache, NEON);
+    expect(bodyMat.color.r).toBeCloseTo(raw.r * 0.72, 5);
+    expect(bodyMat.color.g).toBeCloseTo(raw.g * 0.72, 5);
+    expect(bodyMat.color.b).toBeCloseTo(raw.b * 0.72, 5);
+
+    applyRaveGltfLeaderGlow(cache, NEON, 1, 99);
+    expect(bodyMat.color.r).toBeCloseTo(1, 5);
+    expect(bodyMat.color.g).toBeCloseTo(1, 5);
+    expect(bodyMat.color.b).toBeCloseTo(1, 5);
+
+    applyRaveGltfLeaderGlow(cache, NEON, 0, 99);
+    expect(bodyMat.color.r).toBeCloseTo(raw.r * 0.72, 5);
+    expect(bodyMat.color.g).toBeCloseTo(raw.g * 0.72, 5);
+    expect(bodyMat.color.b).toBeCloseTo(raw.b * 0.72, 5);
   });
 });

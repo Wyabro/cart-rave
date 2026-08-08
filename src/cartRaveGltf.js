@@ -220,6 +220,8 @@ export function logRaveGltfTuningValues() {
 
 /** How much the player neon shifts body albedo (0 = authored grey, 1 = full neon). */
 const RAVE_GLTF_BODY_TINT_STRENGTH = 1;
+/** CART-COLOR-DEPTH-1 — keep the picked hue vivid while giving the resting body a deeper base. */
+const RAVE_GLTF_BODY_TINT_SCALE = 0.72;
 
 // --- Caster / wheel animation tuning ---
 
@@ -2474,8 +2476,13 @@ function applyRaveGltfTrimEmissive(mat, neonHex, intensityMul = 1) {
 function applyRaveGltfBodyTint(mat, neonHex, strength) {
   if (!mat?.color || strength <= 0) return;
 
+  // * CART-COLOR-DEPTH-1 — let emissive carry the neon read while the body stays deep.
+  // * Scaling preserves the picked color's channel ratio, so the leader white-mix can
+  // * return to this exact base instead of returning to the pastel-rendering raw albedo.
+  _bodyTintNeon.setHex(neonHex).multiplyScalar(RAVE_GLTF_BODY_TINT_SCALE);
+
   if (strength >= 1) {
-    mat.color.setHex(neonHex);
+    mat.color.copy(_bodyTintNeon);
     mat.needsUpdate = true;
     return;
   }
@@ -2484,7 +2491,6 @@ function applyRaveGltfBodyTint(mat, neonHex, strength) {
   if (authored?.isColor) _bodyTintScratch.copy(authored);
   else _bodyTintScratch.setRGB(1, 1, 1);
 
-  _bodyTintNeon.setHex(neonHex);
   mat.color.copy(_bodyTintScratch).lerp(_bodyTintNeon, strength);
   mat.needsUpdate = true;
 }
