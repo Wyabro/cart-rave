@@ -62,7 +62,7 @@ function isElementVisible(el) {
 function isNavReachable(el) {
   if (el.closest?.(".cr-join")) return false;
   if (el.tagName === "TEXTAREA") return false;
-  if (el.tagName === "INPUT" && el.type !== "range") return false;
+  if (el instanceof HTMLInputElement && el.type !== "range") return false;
   return true;
 }
 
@@ -108,7 +108,7 @@ function setFocus(targetEl, focusables) {
  */
 function focusLostToRoot() {
   const a = document.activeElement;
-  return !a || a === document.body || a === document.documentElement || a === document;
+  return !a || a === document.body || a === document.documentElement;
 }
 
 /**
@@ -270,7 +270,7 @@ function updateNav() {
       // * same way — the customize hue slider is a bare input[type=range] with
       // * no role, so treat both by the same rule.
       const activeIsSlider = activeEl.getAttribute?.("role") === "slider"
-        || (activeEl.tagName === "INPUT" && activeEl.type === "range");
+        || (activeEl instanceof HTMLInputElement && activeEl.type === "range");
 
       if (up && !prevDpad.up) navigateSpatial("up", focusables);
       if (down && !prevDpad.down) navigateSpatial("down", focusables);
@@ -291,7 +291,7 @@ function updateNav() {
           // * squash/release. Fire them first (skip sliders and ranges, which
           // * use d-pad left/right and would misread a synthetic pointer),
           // * then click.
-          if (el.getAttribute("role") !== "slider" && !(el.tagName === "INPUT" && el.type === "range")) {
+          if (el.getAttribute("role") !== "slider" && !(el instanceof HTMLInputElement && el.type === "range")) {
             el.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
             el.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }));
           }
