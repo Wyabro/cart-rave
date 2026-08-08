@@ -20,6 +20,18 @@ the part a gate can't hold, which is why it's written down instead:
 - **Closing a card = delete its row + write it up in [completed-work.md](./completed-work.md) +
   add its ID to the [closed do-not-reopen list](#closed--do-not-reopen-reference), same session.**
   Skip the third step and the gate goes blind for that ID forever.
+- **The row deletion rides in the SAME commit as the code** (BACKLOG-GATE-3, 08-07) — not in a
+  later docs sweep. Between the fix landing and the row disappearing, this file says the card is
+  open, and whoever cold-starts in that window picks work that is already done. It happened twice
+  in two days: SPAWN-SUNDIAL-GAP-1 shipped 08-06 in `92c44f2` under *another card's subject* and
+  sat open until 08-07, and HOLE-FRICTION-COMBINE-1's row was still here while its fix and its
+  PASS were both already committed. With two agents running, that window is the whole failure.
+- **One card ID per code commit subject.** Two claims in one commit is how an ID lands on a diff
+  that does not contain its change — `c8f65d8` advertised "bump zanzibar gap to 3.75" while
+  holding only CSS and a test, so `git log --grep` answered for a fix that was somewhere else.
+  The `commit-msg` hook now refuses this shape; docs commits may still name every card they close.
+- **Every row carries an ID, including prose-named ones.** An ID is the only join key
+  `npm run backlog:audit` has — a row named only in prose is invisible to it forever.
 - **Grep the file for your subject before filing a new ID.** The gate cannot catch a duplicate
   subject under a different name — KBM-TOAST-1 shipped as a fresh card for CSS STATES-DEAD-1
   already owned.
@@ -29,6 +41,10 @@ the part a gate can't hold, which is why it's written down instead:
 - **Notes are a brief, not an essay.** Long is fine when the card needs it; padding is not.
 - **The glance box is generated — `npm run backlog`, never hand-edit it.** `health:check` fails if
   it's stale; the command fixes that in one write.
+- **Run `npm run backlog:audit` at wave end.** It asks git whether an open row's own cited lever
+  has already been touched under some other card's name — the one thing no markdown check can see.
+  It is a report, not a gate, and deliberately not in `npm run qa`: measured precision is roughly
+  one real hit per six, which is fine for a human reading ten lines and fatal for a blocking gate.
 
 ### Status at a glance
 
@@ -387,10 +403,7 @@ Priorities below are post-gate unless Wyatt pulls them forward.
 
 ## Future Ideas (post-launch)
 
-- WebGPU compute shaders for targeted VFX — after mobile perf; no physics rewrite.
-- Economy/XP progression beyond lifetime unlocks — only if reopened deliberately.
 - Domain + full rebrand cutover (BRAND-1).
-- MAIN-1 → BUNDLE-1 after V2.
 - DIR-1 runtime modifier stack if Living Store grows mutators.
 - GLTF-1 legacy layout deletion after cartrave4-only sign-off.
 
