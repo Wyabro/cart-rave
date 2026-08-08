@@ -20,7 +20,11 @@ import * as ContactShadows from "./contactShadows.js";
 import * as Visuals from "./visuals.js";
 import * as GameState from "./gameState.js";
 import * as Netcode from "./netcode.js";
-import { applyCartMassPropertiesOverride, clearActiveCartContactsForCart } from "./simulation.js";
+import {
+  applyCartFrictionMode,
+  applyCartMassPropertiesOverride,
+  clearActiveCartContactsForCart,
+} from "./simulation.js";
 import {
   baselineLifeCargoPoints,
   clearCargoOverflowForSlot,
@@ -527,6 +531,9 @@ export function resetCartTransientState(cart) {
   // * _activeCartContacts with no Rapier stopped edge, and it would re-fire an
   // * attributed ram whenever the geometric cone realigns (RAM-CONTACT-STALE-1).
   clearActiveCartContactsForCart(cart);
+  // * HOLE-FRICTION-COMBINE-1 — force Average + cart μ on every respawn/rematch/SD
+  // * reset so Min never survives the mid-fall window into the next life.
+  applyCartFrictionMode(cart, "normal");
   cart.respawnAtMs = null;
   cart.fallEntryPos = null;
   cart.fallEntryTimeMs = null;

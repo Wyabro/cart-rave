@@ -393,17 +393,86 @@ function rereadLinvelIntoScratch(cart) {
 }
 
 /**
+ * HOLE-FRICTION-COMBINE-1 — which friction *mode* a cart should be in.
+ *
+ * Rapier defaults both friction and restitution combine rules to Average
+ * (`ColliderDesc` in @dimforge/rapier3d). Setting cart μ to holeAssist.lowFriction
+ * (0.05) while the deck is 0.8 therefore felt like ~0.425, not 0.05. Mode `hole`
+ * pairs low μ with FrictionCombineRule.Min so the authored value wins; mode
+ * `normal` restores Average so floors keep the grip they were tuned against
+ * (gotchas.md — floors deliberately keep Average; walls already own Min).
+ *
+ * Min is collider-wide while active (cart–cart and other contacts slip too).
+ * Accepted for v1 — there is no cheap "Min only vs floor" without contact hooks.
+ *
+ * @param {{
+ *   overhanging?: boolean,
+ *   centerHoleEnabled?: boolean,
+ *   respawning?: boolean,
+ * }} opts
+ * @returns {"normal" | "hole"}
+ */
+export function resolveCartFrictionMode(opts = {}) {
+  if (opts.respawning) return "normal";
+  if (opts.centerHoleEnabled === false) return "normal";
+  if (!opts.overhanging) return "normal";
+  return "hole";
+}
+
+/**
+ * Rapier CoefficientCombineRule values. Prefer the live enum after initRapier();
+ * numeric fallbacks match the crate (Average=0, Min=1) so unit tests with mock
+ * colliders do not need WASM.
+ *
+ * @param {"normal" | "hole"} mode
+ * @returns {number}
+ */
+function frictionCombineRuleForMode(mode) {
+  const rules = RAPIER?.CoefficientCombineRule;
+  if (mode === "hole") return rules?.Min ?? 1;
+  return rules?.Average ?? 0;
+}
+
+/**
+ * Applies cart friction + combine rule for `mode`, writing WASM only on transition.
+ * Cache lives on `cart._frictionMode` — every other setFriction site must clear it
+ * or go through this helper (see applyGeometryUnstick).
+ *
+ * @param {object | null | undefined} cart
+ * @param {"normal" | "hole"} mode
+ * @returns {void}
+ */
+export function applyCartFrictionMode(cart, mode) {
+  if (!cart?.collider) return;
+  const next = mode === "hole" ? "hole" : "normal";
+  if (cart._frictionMode === next) return;
+
+  const friction =
+    next === "hole"
+      ? (CONFIG.record.holeAssist?.lowFriction ?? 0)
+      : (CONFIG.cart.friction ?? 1.1);
+
+  if (typeof cart.collider.setFriction === "function") {
+    cart.collider.setFriction(friction);
+  }
+  if (typeof cart.collider.setFrictionCombineRule === "function") {
+    cart.collider.setFrictionCombineRule(frictionCombineRuleForMode(next));
+  }
+  cart._frictionMode = next;
+}
+
+/**
  * Applies continuous arena contact response for one cart.
  *
  * Flat record driving uses Rapier-native linear/angular damping set at body spawn —
  * no per-frame planar impulses on the open floor. Manual X/Z damping impulses fight the
  * trimesh contact solver and cause micro-hopping.
  *
- * Center-hole: once the oriented footprint overhangs the physics lip (`playInnerR` in
- * `buildRecordPhysicsGeometry`), friction drops to `holeAssist.lowFriction` and a gentle
- * inward + downward assist (ramped by overhang depth) helps the cart slide off the chamfer
- * and tumble through. Carts fully on the flat annulus keep normal grip and receive no assist.
- * Fall scoring still happens via `CONFIG.fall.yThreshold` in gameFlow.
+ * Center-hole: once the oriented footprint overhangs the assist lip, hole mode drops
+ * friction to `holeAssist.lowFriction` with FrictionCombineRule.Min (HOLE-FRICTION-COMBINE-1)
+ * and a gentle inward + downward assist (ramped by overhang depth) helps the cart slide
+ * off the chamfer and tumble through. Carts fully on the flat annulus keep normal grip
+ * and receive no assist. Fall scoring still happens via `CONFIG.fall.yThreshold` in gameFlow.
  *
  * Reads pos/rot from the module scratch cache (populated by the caller via
  * {@link readBodyStateIntoScratch}); avoids redundant Rapier getter allocations.
@@ -412,30 +481,36 @@ function rereadLinvelIntoScratch(cart) {
  * @param {number} dtFixed Fixed physics timestep in seconds (drives hole assist impulses).
  */
 function applyEnvironmentResponse(cart, dtFixed) {
-  if (!cart?.body || cart.respawnAtMs != null || !cart.collider) return;
+  if (!cart?.body || !cart.collider) return;
 
-  // * Levels without a central hole (Backrooms Supermarket) disable the origin
-  // * suck/assist so carts keep normal grip on the solid arena center.
-  if (CONFIG.record.centerHole && CONFIG.record.centerHole.enabled === false) {
-    cart.collider.setFriction(CONFIG.cart.friction);
+  // * Mid-fall / shatter window: force normal mode so Min does not stick across
+  // * respawn. Do not early-return before the restore (HOLE-FRICTION-COMBINE-1).
+  const respawning = cart.respawnAtMs != null;
+  const centerHoleEnabled = !(
+    CONFIG.record.centerHole && CONFIG.record.centerHole.enabled === false
+  );
+
+  if (respawning || !centerHoleEnabled) {
+    applyCartFrictionMode(cart, "normal");
     return;
   }
 
-  const collider = cart.collider;
   const { overhanging, commit, dirX, dirZ } = writeCenterHoleOverhangState(
     cart,
     _scratchPos,
     _holeOverhangState,
   );
 
-  if (!overhanging) {
-    collider.setFriction(CONFIG.cart.friction);
-    return;
-  }
+  const mode = resolveCartFrictionMode({
+    overhanging,
+    centerHoleEnabled: true,
+    respawning: false,
+  });
+  applyCartFrictionMode(cart, mode);
 
-  collider.setFriction(CONFIG.record.holeAssist?.lowFriction ?? 0);
+  if (mode !== "hole") return;
+
   cart.body.wakeUp();
-
   if (!dtFixed || dtFixed <= 0) return;
 
   const mass = getBodyMass(cart.body);
@@ -967,8 +1042,14 @@ function applyGeometryUnstick(cart, dtFixed, nowMs) {
   _impulse.y = 3.0 * mass * dtFixed;
   _impulse.z = Math.sin(jitter) * 2.2 * mass * dtFixed;
   cart.body.applyImpulse(_impulse, true);
+  // * HOLE-FRICTION-COMBINE-1 — hole mode owns friction while overhanging. Unstick
+  // * impulse may still free a wedge; the μ cut must not overwrite lowFriction/Min
+  // * (call order: env then unstick). Non-hole: cut μ and clear the mode cache so
+  // * the next env pass re-applies normal cleanly.
+  if (cart._frictionMode === "hole") return;
   if (cart.collider?.setFriction) {
     cart.collider.setFriction((CONFIG.cart.friction ?? 1.1) * 0.35);
+    cart._frictionMode = null;
   }
 }
 
