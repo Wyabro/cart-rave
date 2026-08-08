@@ -1817,15 +1817,20 @@
    compact top-right chip strip beside the utility corner, kill feed top-right
    under utility (right-aligned). Boost on the BOOST button. */
 #hud.hud-touch {
-  /* Below mute/menu + standings strip — needs real air, not 56px under the pad. */
-  --hud-feed-top: clamp(108px, 20dvh, 148px);
+  /* Kill feed top-right under utility/standings.
+     KILLFEED-PHONE-1 (desk 390×844 touch): clamp(108px, 20dvh, 148px) pinned at 148 and
+     the 2-row receipt (bottom ~202) intersected the center stage band (top ~21dvh ≈ 177).
+     Pulling it up to ~72px cleared stage but then kissed the Living Store directive under
+     the timer (directive bottom ~122, feed left edge under its right edge). Park the feed
+     in the narrow band under the directive (~15dvh) and pair with a slightly lower stage
+     top (see .hud-region-stage below) so both chrome and banners keep air. */
+  --hud-feed-top: clamp(110px, 15dvh, 128px);
 }
 
-/* Timer — compact top-left pill: number + tier color + thin bar. The kill
-   feed slots in directly beneath it; the right side belongs to the chip strip
-   so the two never collide on narrow phones. The price-tag silhouette is
-   desktop-only: on touch the clip is dropped and the sticker shadow moves
-   back to a plain box-shadow. */
+/* Timer — compact top-left pill. Kill feed is top-right under utility (not under the
+   timer); the chip strip owns the right so the two stay on opposite corners. The
+   price-tag silhouette is desktop-only: on touch the clip is dropped and the sticker
+   shadow moves back to a plain box-shadow. */
 #hud.hud-touch .hud-region-match {
   top: max(var(--hud-pad), env(safe-area-inset-top, 0px));
   left: max(var(--hud-pad), env(safe-area-inset-left, 0px));
@@ -2016,10 +2021,28 @@
   margin-bottom: 4px;
 }
 
-/* Center Stage — same queue, ~60% scale so banners never dwarf the arena. */
+/* KILLFEED-PHONE-1: short-landscape touch overrides earlier in this file set
+   --hud-feed-top / events max-width / 1-row, but this main #hud.hud-touch block is
+   declared later and was winning on source order (measured 900×390: max-width 260
+   not 220, top 108 not the landscape clamp). Re-assert after the touch block. */
+@media (orientation: landscape) and (max-height: 600px) {
+  #hud.hud-touch {
+    --hud-feed-top: clamp(64px, 18dvh, 96px);
+  }
+  #hud.hud-touch .hud-region-events {
+    max-width: min(40vw, 220px);
+  }
+  #hud.hud-touch .hud-feed-row:nth-child(n + 2) {
+    display: none;
+  }
+}
+
+/* Center Stage — same queue, ~60% scale so banners never dwarf the arena.
+   KILLFEED-PHONE-1: 21dvh left only ~55px between an active directive (~122) and stage;
+   a 2-row receipt is ~54px so it could not clear both. 23dvh buys the feed that band. */
 #hud.hud-touch .hud-region-stage {
-  top: 21vh;
-  top: 21dvh;
+  top: 23vh;
+  top: 23dvh;
 }
 #hud.hud-touch .hud-status {
   font-size: clamp(2rem, 8vw, 3.4rem);
