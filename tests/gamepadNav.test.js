@@ -28,15 +28,28 @@ function makePad(pressed = []) {
 
 // * Fixture mirrors the real ids/classes gamepadNav scopes and queries by.
 // * #hud-note is focusable via tabindex but outside the nav selector set.
+// * The .cr-join row mirrors index.html: an input + GO button nested in a
+// * container that must stay out of the ring. The color row + range mirror the
+// * customize screen (chips rebuilt via innerHTML on selection; hue is a bare
+// * input[type=range], nudged by d-pad left/right).
 const FIXTURE = `
 <div id="cr-root">
   <button id="play-btn">PLAY</button>
+  <div class="cr-join" id="cr-join">
+    <input class="cr-join-input" id="cr-join-code" type="text" name="room-code" placeholder="ROOM CODE" />
+    <button class="cr-join-go" id="cr-join-go" type="button">GO</button>
+  </div>
   <button id="customize-btn">CUSTOMIZE</button>
   <div id="hud-note" tabindex="0"></div>
   <input id="cr-name-input" style="display:none" />
 </div>
 <div id="cr-customize-screen" style="display:none">
   <button class="cr-overlay-back" id="cr-customize-back">BACK</button>
+  <div id="color-row" role="radiogroup">
+    <button id="chip-0" type="button" role="radio" aria-checked="true">RED</button>
+    <button id="chip-1" type="button" role="radio" aria-checked="false">BLUE</button>
+  </div>
+  <input type="range" id="hue-slider" min="0" max="360" value="280" />
 </div>
 <div id="cr-settings-screen" style="display:none">
   <button class="cr-overlay-back" id="cr-settings-back">BACK</button>
@@ -192,6 +205,31 @@ describe("B button", () => {
     press(BTN.b);
     expect(customizeBack).not.toHaveBeenCalled();
     expect(keys).toEqual(["Escape"]);
+  });
+});
+
+describe("join row + text inputs are not nav stops", () => {
+  it("d-pad down past FRIENDS lands on CUSTOMIZE, never GO or the join input", () => {
+    press(BTN.down); // seed → PLAY
+    press(BTN.down); // → CUSTOMIZE (join row skipped)
+    expect(document.activeElement).toBe(document.getElementById("customize-btn"));
+    expect(document.getElementById("cr-join-go").classList.contains("gamepad-focused")).toBe(false);
+    expect(document.getElementById("cr-join-code").classList.contains("gamepad-focused")).toBe(false);
+  });
+
+  it("keyboard arrows skip the join row exactly like the gamepad", () => {
+    pressKey("ArrowDown");
+    pressKey("ArrowDown");
+    expect(document.activeElement).toBe(document.getElementById("customize-btn"));
+    expect(document.getElementById("cr-join-go").classList.contains("gamepad-focused")).toBe(false);
+  });
+
+  it("a visible text input is not a nav stop either", () => {
+    const input = document.getElementById("cr-name-input");
+    input.style.display = "";
+    press(BTN.down); // seed → PLAY
+    press(BTN.down); // → CUSTOMIZE (name input skipped)
+    expect(document.activeElement).toBe(document.getElementById("customize-btn"));
   });
 });
 

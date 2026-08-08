@@ -45,11 +45,27 @@ function isElementVisible(el) {
 }
 
 /**
+ * Whether a control belongs in the pad/keyboard nav ring. Text-typing controls
+ * are out — a pad cannot type into them, and the W/S command list already skips
+ * the whole `#cr-join` row (it is deliberately not `.cr-cmd`). Without this the
+ * FRIENDS ↓ fall would land on the room-code field / GO button and the ring
+ * would disagree with the yellow command selection. Range sliders stay in so
+ * d-pad left/right can nudge them like the role="slider" tracks.
+ * @param {HTMLElement} el
+ */
+function isNavReachable(el) {
+  if (el.closest?.(".cr-join")) return false;
+  if (el.tagName === "TEXTAREA") return false;
+  if (el.tagName === "INPUT" && el.type !== "range") return false;
+  return true;
+}
+
+/**
  * @param {HTMLElement|Document} scope
  */
 function getFocusables(scope) {
   const elements = /** @type {HTMLElement[]} */ (Array.from(scope.querySelectorAll('button, a, [role="button"], [role="slider"], input, select, textarea')));
-  return elements.filter(isElementVisible);
+  return elements.filter((el) => isElementVisible(el) && isNavReachable(el));
 }
 
 /**
