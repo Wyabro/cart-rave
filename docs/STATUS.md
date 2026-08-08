@@ -71,7 +71,9 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. **NOW:** **SPAWN-SUNDIAL-GAP-1** (Block 1). HOLE-FRICTION-COMBINE-1 ✅ PASS 08-07 (`519d905`).
+1. **NOW:** Block 1 has no open cards — SPAWN-SUNDIAL-GAP-1 ✅ PASS 08-07 (shipped 08-06,
+   `92c44f2`) and HOLE-FRICTION-COMBINE-1 ✅ PASS 08-07 (`519d905`). Next work is Block 2,
+   starting with the **CART-COLOR-DEPTH-1** definition session.
 2. **Open / REACHABLE:** CARGO-LATCH-1 · CHUNK-MEMBER-1 (ABORT — eager graph). Block I desk-only
    wave closed 08-07 (PERF-RENDERINFO-1 · NET-RING-1 · AUDIO-MASTER-1 · STATES-DEAD-1).
 3. **Open High:** ONBOARD-ATTRACT-1 · ONBOARD-SIZE-1 · CART-MODEL-1 · bloom (unblocked by ART-*).
@@ -126,8 +128,14 @@ the dev loop (dev probes lie in prod · edge propagation · frozen `rAF`), or a 
 
 ## Last updated
 
+2026-08-07 (SPAWN-SUNDIAL-GAP-1 PASS + BACKLOG-GATE-3) — Sundial booth gap PASS; the fix had
+already shipped 08-06 (`92c44f2`) under another card's commit subject and the row survived a full
+day, so **BACKLOG-GATE-3** landed alongside it: a `commit-msg` hook (one card claim per code
+commit), `npm run backlog:audit` (pickaxe an open row's own lever across git), IDs on 25
+prose-named rows, and three house rules. **Block 1 is now empty** → Block 2, **CART-COLOR-DEPTH-1**.
+
 2026-08-07 (HOLE-FRICTION-COMBINE-1 PASS) — Dynamic Min friction combine while overhanging the
-center hole (`519d905`); Wyatt playtest PASS. Block 1 NOW → **SPAWN-SUNDIAL-GAP-1**.
+center hole (`519d905`); Wyatt playtest PASS.
 
 2026-08-07 (Block H desk-only completion: 12 cards closed, one commit each) — Remaining Block H
 desk-only levers + five earlier desk-only cards landed as 12 commits (`cae4a35`…`7131f40`,

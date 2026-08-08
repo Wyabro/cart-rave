@@ -13,6 +13,37 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 7, 2026 — SPAWN-SUNDIAL-GAP-1 PASS: closed a day late, and that lateness is the story
+
+**Wyatt PASS 08-07.** Carts no longer wedge between the Sundial spawn booths and the platform.
+
+**The fix shipped 08-06, not 08-07.** `booth.gapDistanceByLevel.zanzibar` went 2.25 → 3.0
+(`6ba472b`) → **3.75** (`92c44f2`) — one knob, exactly as the card predicted, moving the booths
+and the spawn ring together. Deck edge to first solid leg face is now 3.9 m against a 2.26 m cart.
+
+**Why the row still said "likely one number" a day later** — this is the part worth keeping, and
+it is what [BACKLOG-GATE-3](./BACKLOG.md) was built from:
+
+1. Both value bumps landed inside commits titled for a *different* card (`AI-DAY-1 lever 3`,
+   `AI-DAY-SELFKO-1: deny NPC boost on bot lip`). The documented staleness check,
+   `git log --grep SPAWN-SUNDIAL-GAP-1`, could not see either of them.
+2. The one commit that *did* name the id — `c8f65d8`, "bump zanzibar gap to 3.75" — landed 24
+   seconds after the real change and contained only `cart-rave-menu.css` and a test. The config
+   edit had already been swept into its parent. So the id answered for a diff that did not hold
+   its change, and anyone who checked that commit found no fix and left the row open.
+3. `health:check`'s backlog gates are all markdown-internal: they compare the file to itself, and
+   every one of them fires only *after* an id reaches the closed list. A row whose lever already
+   shipped is invisible to all of them by construction.
+
+Net cost: the card was picked up twice — once by a fresh agent that spent a session re-deriving
+the octagon geometry before noticing the 3.9 m clearance *was* the fix, and once by Wyatt, who
+had to say "we already did this one". `npm run backlog:audit` now reports exactly this shape
+(`92c44f2 LEVER \`gapDistanceByLevel\` — AI-DAY-SELFKO-1: deny NPC boost on bot lip`).
+
+**Not reopened:** SPAWN-SUNDIAL-1 (posts stop you — asked and answered 08-02).
+
+---
+
 ### August 7, 2026 — HOLE-FRICTION-COMBINE-1 PASS: hole-lip lowFriction finally wins the combine
 
 **Wyatt PASS 08-07** on Lever 1 (`519d905`). Same bug class as WALL-SLIDE-CLASSIC-1 /

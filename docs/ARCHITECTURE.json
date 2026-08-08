@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-08T00:43:49.008Z",
-    "commit": "a89416a"
+    "at": "2026-08-08T01:35:56.956Z",
+    "commit": "0790842"
   },
-  "source_digest": "689ab3ba",
+  "source_digest": "4d93926a",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -878,7 +878,7 @@
       }
     ],
     "next_actions": [
-      "NOW: SPAWN-SUNDIAL-GAP-1 (Block 1). HOLE-FRICTION-COMBINE-1 ✅ PASS 08-07 (`519d905`).",
+      "NOW: Block 1 has no open cards — SPAWN-SUNDIAL-GAP-1 ✅ PASS 08-07 (shipped 08-06,",
       "Open / REACHABLE: CARGO-LATCH-1 · CHUNK-MEMBER-1 (ABORT — eager graph). Block I desk-only",
       "Open High: ONBOARD-ATTRACT-1 · ONBOARD-SIZE-1 · CART-MODEL-1 · bloom (unblocked by ART-*).",
       "Playtest row left: SHARD-PT-2 (launch day, five humans). Detail for all closed work:"
@@ -906,17 +906,11 @@
       {
         "title": "Engineering",
         "counts": {
-          "Medium": 10,
           "Low": 8,
+          "Medium": 9,
           "Partial": 1
         },
         "rows": [
-          {
-            "pri": "Medium",
-            "item": "SPAWN-SUNDIAL-GAP-1 — carts wedge between the Sundial spawn booths and the platform",
-            "notes": "**Filed 08-06 from Wyatt's note on the SPAWN-SUNDIAL-PT-1 PASS** — *\"we need to move the spawn booths away from the platform a bit so they cant get caught between them.\"* The legs becoming solid (SPAWN-SUNDIAL-1 half two, `ad011e8`) is what created the trap: the gap between a booth's posts and the platform edge used to be ghost geometry a cart drove through, and is now a wedge it can stick in. **Not a reopen of SPAWN-SUNDIAL-1** — that card asked \"do the posts stop you\", and they do. **The lever already exists:** `booth.gapDistanceByLevel` in [zanzibarPlatform.js](../../src/levels/zanzibarPlatform.js) is the same knob half one used on 08-02 to move Sundial's booths and spawn ring +0.75 m outward with no level-file edit — so this is very likely one number, not new geometry. Wyatt thought a similar card already existed; **it does not** (checked 08-06 — the near misses are SPAWN-SUNDIAL-1, shipped, and BOOTH-RAIL-COL-1, which is Storerooms). Widen far enough that a cart cannot be pinned, without opening a gap wide enough to drive *behind* the booth into the void. Needs a feel check on ship.",
-            "ship1": null
-          },
           {
             "pri": "Low",
             "item": "BOOTH-RAIL-COL-1 — Storerooms booth rails/dividers are visual-only",
