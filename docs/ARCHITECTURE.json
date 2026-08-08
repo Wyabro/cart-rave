@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-08T19:15:31.025Z",
-    "commit": "9b0da20"
+    "at": "2026-08-08T19:45:44.357Z",
+    "commit": "f6205a2"
   },
-  "source_digest": "4b110551",
+  "source_digest": "57dfd1d7",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1243,7 +1243,7 @@
       {
         "title": "UI / UX",
         "counts": {
-          "Medium": 2,
+          "Medium": 1,
           "Low": 3
         },
         "rows": [
@@ -1251,12 +1251,6 @@
             "pri": "Medium",
             "item": "ONBOARD-ART-1 — HOW TO PLAY art: rig landed; drop-in webp + AISLE 4 aim gate `[pre-ship]`",
             "notes": "**Art rig landed 08-07** — the deck now takes art as a drop-in directory: drop `<token>.webp` into [src/assets/howto/](../../src/assets/howto/README.md) (`drive` / `boost` / `ram` / `hud` / `cargo`, matching each slot's `data-media`) and that slot turns on at the next build; no file → the slot stays dark, so the deck reads exactly like the playtested text-only deck. Optional `<token>.still.webp` swaps in under `prefers-reduced-motion`. Kept under ~400 KB each. **Remaining:** Wyatt captures the webp by hand and drops them in, then AISLE 4's callouts get aimed: add `data-callouts=\"aimed\"` to the hud slot in [index.html](../../index.html) once the real frame exists — the current `--x`/`--y` are guesses and stay hidden until then. **Do not shoot these with `npm run shoot`** — see SHOOT-SOFTGL-1; Wyatt captures by hand.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "KILLFEED-PHONE-1 — kill feed reads awkward/overlapping on phone",
-            "notes": "**Filed 08-06 from Wyatt's UI-P2-HUD-PT-1 playtest note:** *\"the kill feed is a bit awkward and overlappy on my phone.\"* Surfaced during the HUD Pass-2 rem-conversion check but not that card's regression — the rem conversion kept the same layout, this is a pre-existing phone-scale issue in the kill-feed region of `hud.css`. Needs its own phone repro before a fix — check entry stacking/line-wrap under the touch-HUD layout at narrow widths.",
             "ship1": null
           },
           {

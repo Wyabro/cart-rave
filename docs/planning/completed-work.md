@@ -13,6 +13,23 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 8, 2026 — KILLFEED-PHONE-1 PASS: touch kill feed clear of stage and directive
+
+- *(UI / UX · Medium)* **KILLFEED-PHONE-1** — ✅ **CLOSED PASS 08-08** (code `f6205a2`;
+  Wyatt phone PASS). Filed 08-06 from UI-P2-HUD-PT-1 ("awkward and overlappy on my phone") —
+  pre-existing layout, not a rem-conversion regression. **Desk repro** (Playwright
+  `hasTouch`+`isMobile` on `.hud-touch`): portrait 390×844 feed rect intersected center stage;
+  landscape short touch max-width stayed **260** because the main `#hud.hud-touch` block was
+  declared *after* the landscape media and clobbered `min(40vw, 220px)` / landscape `--hud-feed-top`.
+  Not wrap, not enter overshoot, not COLOR-ID glyphs (those landed 08-07 after the filing).
+  **Lever (`hud.css` only):** park touch `--hud-feed-top` at `clamp(110px, 15dvh, 128px)` under
+  the Living Store directive band; touch stage `21dvh → 23dvh` so a 2-row receipt fits between
+  directive and stage; re-assert landscape-short touch feed overrides after the main touch block.
+  Measured after: gap directive ~4.9px, stage ~13px, all chrome hits false; landscape max-width
+  220. No widen, no glyph hide.
+
+---
+
 ### August 8, 2026 — CART-FORK-SWIVEL-1 PASS: rear-left fork piece steers with its caster
 
 - *(Art · Low)* **CART-FORK-SWIVEL-1** — ✅ **CLOSED PASS 08-08** (code `9b0da20`; docs close
