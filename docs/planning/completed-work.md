@@ -13,6 +13,22 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 8, 2026 — RECORD-MED-1 PASS: Medium Classic floor no longer washes white
+
+- *(Engineering · Medium)* **RECORD-MED-1** — ✅ **CLOSED PASS 08-08** (code `125cdd4`; Wyatt PASS).
+  **Symptom:** Medium quality Classic record looked broken vs Low/High — center brand label
+  pure white, vinyl plane too hot. **Measured (not the backlog’s first guess):** default
+  `?floor=og` body is not a High clearcoat hybrid; root cause was **solid floor + Medium
+  postFx/bloom**. Classic shot label mean L ≈198 on Medium vs ≈115 High / ≈114 Medium+nobloom.
+  **Lever (`src/arena.js` only):** bloom-safe solid-floor stack (darker base, lower clearcoat);
+  dim label tint + lower spindle emissive only on **solid+postFx** (Medium); Low keeps full
+  label brightness (composer bypass); `setReflectorVisible` keeps live tier toggles in sync;
+  visibility seeded from `getQualityKnobs().reflector`. **Stills:**
+  `.diag-captures/record-med-1/classic-*-final.png` — Medium label mean L ≈112 after fix.
+  **Not this card:** body High-path retune, `medium.reflector=true`, bloom profile, PERF-PASS-1.
+
+---
+
 ### August 8, 2026 — CHUNK-MEMBER-1 CLOSED: membership restore only (not full cold-defer)
 
 **Scope closed here:** restore BUNDLE-1 deferred-module membership after a FREEZE-TELEMETRY-1
@@ -583,9 +599,10 @@ either direction). **`stadium` (−2.66 ms, swept) is needed → kept.** The car
 **What is NOT true going forward:** PERF-PASS-1 is closed do-not-reopen. PERF-9CELL-1 (the 9-cell
 sweep) is **moot** with its parent closed. The `?ablate=` tokens stay (permanent debug surface —
 `recordbody`/`billboardlights` joined the existing seven, documented in `debugParams.js`).
-Perf residual items that remain open live under their own rows: **RECORD-MED-1** (Medium look
-parity — explicitly not a cost card), **WARM-SOLO-1**, **PERF-RENDERINFO-1**, **PERF-WATCH-1 /
+Perf residual items that remain open live under their own rows: **WARM-SOLO-1**, **PERF-WATCH-1 /
 PERF-TIER-1 / PROBE-WARM-RT-1** (levers after attribution — untouched by this close).
+**RECORD-MED-1** closed PASS 08-08 (look parity, not a cost card). **PERF-RENDERINFO-1** closed
+with Block I 08-07.
 
 Full method, per-token expectations and the drift discipline live in
 [perf-pass-1-handover.md](./perf-pass-1-handover.md).

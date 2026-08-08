@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-08T06:53:51.094Z",
-    "commit": "125cdd4"
+    "at": "2026-08-08T07:04:47.900Z",
+    "commit": "2ebfafd"
   },
-  "source_digest": "d32ac486",
+  "source_digest": "33c837ef",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -879,7 +879,7 @@
       }
     ],
     "next_actions": [
-      "NOW: Block 1 has no open cards — SPAWN-SUNDIAL-GAP-1 ✅ PASS 08-07 (shipped 08-06,",
+      "NOW: Block 1 empty. RECORD-MED-1 ✅ PASS 08-08 (`125cdd4`). Block 2 next:",
       "Open / REACHABLE: CARGO-LATCH-1 · CHUNK-DEFER-1 (dynamic-import residual of closed",
       "Open High: ONBOARD-ATTRACT-1 · ONBOARD-SIZE-1 · CART-MODEL-1 · bloom (unblocked by ART-*).",
       "Playtest row left: SHARD-PT-2 (launch day, five humans). Detail for all closed work:"
@@ -908,20 +908,14 @@
         "title": "Engineering",
         "counts": {
           "Low": 8,
-          "Medium": 9,
-          "Partial": 1
+          "Partial": 1,
+          "Medium": 8
         },
         "rows": [
           {
             "pri": "Low",
             "item": "BOOTH-RAIL-COL-1 — Storerooms booth rails/dividers are visual-only",
             "notes": "**Split out 08-05 from STORE-PLAT-WALL-1's misfiling** — real, but *not* what Wyatt reported, and explicitly out of that card's scope. On the four elevated spawn booths, only the deck cuboid gets a collider ([backroomsSupermarket.js:3278](../../src/levels/backroomsSupermarket.js:3278)); the low back rail, side bars, corner posts and cubicle divider are mesh-merge visuals with no physics. **Note the sides are an open handrail** — a bar 1.8 m above the deck with nothing beneath it — so \"make the sides solid\" would be an invisible barrier where the player sees a gap. Wyatt's ruling 08-05 if this is ever picked up: posts only, back rail matches its visible 0.55 m (a cart may ram over it; there is a 4.35 m carpet apron behind each booth, so going over lands on floor, not in the pit), and **crates stay ghost**. Same shape as SPAWN-SUNDIAL-1. Low: nobody has reported it in play.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "RECORD-MED-1 — Cart Rave record floor looks wrong on Medium (vs Low and High)",
-            "notes": "**Filed 08-04 from Wyatt.** Medium quality's vinyl/record surface reads weird next to Low and High on the same machine. **Likely mechanism (not yet measured):** `QUALITY_KNOBS.medium.reflector = false` ([qualityTiers.js:77](../../src/utils/qualityTiers.js:77)) so `setReflectorVisible(false)` shows the solid floor ([arena.js:1795](../../src/arena.js:1795)), but the record **body** is still built on the High material path because construction only branches on `isLowQualityMode()` ([arena.js:1601](../../src/arena.js:1601)) — Medium is not Low, so it gets High clearcoat/metalness/normal stack *plus* the Medium solid floor and postFX/bloom that Low disables. Low = opaque Low body + solid floor + no composer; High = translucent body + Reflector + vinyl detail. Medium is a hybrid nobody signed off. **Do not fold into PERF-PASS-1** — that card is Cart Rave cost, not look parity. **Cheapest repro:** `?preset=low` / medium / high on classicRecord, same camera, shoot three stills. **Pass:** Medium reads as a deliberate step between Low and High (or matches Low's solid-floor look cleanly), not a broken middle.",
             "ship1": null
           },
           {
