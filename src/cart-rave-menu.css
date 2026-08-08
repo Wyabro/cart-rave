@@ -3646,14 +3646,15 @@ html, body {
   padding: 26px 30px;
 }
 /* MENU-CART-1 — layout marker only. The cart is drawn into this rectangle by
-   the shared game canvas; no extra canvas, chrome, or pointer target lives here. */
+   the shared game canvas; no extra canvas, chrome, or pointer target lives here.
+   top 43% / ~1.1× box: sits closer under the name plate with a bit more presence. */
 .cr-menu-cart {
   position: absolute;
   right: 6rem;
-  top: 50%;
+  top: 43%;
   transform: translateY(-50%);
-  width: min(420px, 34vw);
-  height: clamp(180px, 24vh, 280px);
+  width: min(460px, 37vw);
+  height: clamp(200px, 26vh, 310px);
   pointer-events: none;
   z-index: 21;
 }
