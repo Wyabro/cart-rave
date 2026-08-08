@@ -1002,6 +1002,20 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
     customHueSlider.addEventListener('change', () => {
       onCustomHueInput(Number(customHueSlider.value), true);
     });
+    // * PAD-MENU-1: gamepadNav nudges a focused range by dispatching a synthetic
+    // * keydown (nudgeSlider), but untrusted events do not trigger the browser's
+    // * native range stepping. Trusted keys (a real keyboard on a focused range)
+    // * already step natively via the input/change listeners above, so this
+    // * handler only owns the synthetic path.
+    customHueSlider.addEventListener('keydown', (e) => {
+      if (e.isTrusted) return;
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      e.preventDefault();
+      const step = e.key === 'ArrowRight' ? 1 : -1;
+      customHueSlider.value = String(Math.max(0, Math.min(360, Number(customHueSlider.value) + step)));
+      customHueSlider.dispatchEvent(new Event('input', { bubbles: true }));
+      customHueSlider.dispatchEvent(new Event('change', { bubbles: true }));
+    });
   }
 
   function renderCustomizePreview() {

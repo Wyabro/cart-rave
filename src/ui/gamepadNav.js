@@ -213,8 +213,11 @@ function updateNav() {
 
     if (focusInScope && activeEl) {
       // * A focused slider claims left/right for value adjustment; up/down still
-      // * navigate away from it to the next control.
-      const activeIsSlider = activeEl.getAttribute?.("role") === "slider";
+      // * navigate away from it to the next control. Range inputs behave the
+      // * same way — the customize hue slider is a bare input[type=range] with
+      // * no role, so treat both by the same rule.
+      const activeIsSlider = activeEl.getAttribute?.("role") === "slider"
+        || (activeEl.tagName === "INPUT" && activeEl.type === "range");
 
       if (up && !prevDpad.up) navigateSpatial("up", focusables);
       if (down && !prevDpad.down) navigateSpatial("down", focusables);
@@ -232,9 +235,10 @@ function updateNav() {
         if (el) {
           // * Press-feedback wiring listens for pointerdown/up, which a bare
           // * .click() never dispatches — so gamepad confirm used to skip the
-          // * squash/release. Fire them first (skip sliders, which use d-pad
-          // * left/right and would misread a synthetic pointer), then click.
-          if (el.getAttribute("role") !== "slider") {
+          // * squash/release. Fire them first (skip sliders and ranges, which
+          // * use d-pad left/right and would misread a synthetic pointer),
+          // * then click.
+          if (el.getAttribute("role") !== "slider" && !(el.tagName === "INPUT" && el.type === "range")) {
             el.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
             el.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }));
           }

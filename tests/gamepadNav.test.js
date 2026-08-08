@@ -233,6 +233,23 @@ describe("join row + text inputs are not nav stops", () => {
   });
 });
 
+describe("range sliders stay in the ring and nudge on left/right", () => {
+  it("d-pad left/right nudges a focused range instead of navigating away", () => {
+    show("cr-customize-screen");
+    press(BTN.down); // seed → BACK
+    press(BTN.down); // → chip-0
+    press(BTN.down); // → chip-1
+    press(BTN.down); // → hue-slider
+    expect(document.activeElement).toBe(document.getElementById("hue-slider"));
+    const keys = [];
+    document.getElementById("hue-slider").addEventListener("keydown", (e) => keys.push(e.key));
+    press(BTN.right);
+    press(BTN.left);
+    expect(keys).toEqual(["ArrowRight", "ArrowLeft"]);
+    expect(document.activeElement).toBe(document.getElementById("hue-slider"));
+  });
+});
+
 describe("focus re-yank", () => {
   it("never steals focus on idle frames while a pad is connected", () => {
     const note = document.getElementById("hud-note");
