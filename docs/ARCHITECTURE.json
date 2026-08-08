@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-08T18:11:08.084Z",
-    "commit": "2b7b872"
+    "at": "2026-08-08T18:54:35.607Z",
+    "commit": "6b10e2f"
   },
-  "source_digest": "3ce7a78c",
+  "source_digest": "517c4f16",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1204,7 +1204,7 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Medium": 3,
+          "Medium": 4,
           "Low": 2
         },
         "rows": [
@@ -1236,6 +1236,12 @@
             "pri": "Medium",
             "item": "SD-MUSIC-LPF-1 `[solo]`",
             "notes": "**Owed: Wyatt playtest — SD-MUSIC-LPF-1 — Sudden Death muffles the music.**<br>1. Solo/Quickplay with music audible at normal bandwidth (not muffled outside SD).<br>2. Enter SD (natural timer or dev Force Sudden Death ⚡): music goes muffled within ~0.5 s; tension drone + red ambience still there; announcer SD sting cuts through.<br>3. SD resolves (win or round end): music ramps back to full band.<br>4. Phone: Android/desktop LPF active. **iOS skips the LPF by design** (`createMediaElementSource` routing is unreliable on Apple/WebKit — WebKit 203435/261668/836531) — music must stay full-band, with **no** silence or dropout through SD.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "MENU-SWAP-FLASH-1 — paging arenas no longer flashes/redraws the menu `[solo]`",
+            "notes": "**Owed: Wyatt playtest — MENU-SWAP-FLASH-1 — paging arenas keeps the menu persistent; the arena crossfades underneath.** Shipped `6b10e2f` — the menu-preview swap now hides behind the opaque menu backdrop instead of fading the canvas, and the menu no longer re-themes per arena.<br>1. On the menu, page through all 3 arenas (Prev/Next arrows or LB/RB bumpers).<br>2. The menu chrome — title, buttons, stat colors, glows — stays put the whole time; only the arena name/subtitle updates.<br>3. The 3D arena behind fades in and out underneath the menu; there is never a dark/black flash of the whole screen.<br>4. FAIL if the menu visibly redraws, re-themes, or the screen flashes black on any arena swap.",
             "ship1": null
           }
         ]
