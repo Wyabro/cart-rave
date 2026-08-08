@@ -8,7 +8,11 @@
 import * as THREE from "three";
 import { buildCart } from "../cart.js";
 import { applyCartPattern } from "../cartPatterns.js";
-import { setEmissiveTrimMul } from "../cartRaveGltf.js";
+import {
+  resetRaveGltfCartVisualState,
+  setEmissiveTrimMul,
+  updateRaveGltfCartVisuals,
+} from "../cartRaveGltf.js";
 import { DEFAULT_CART_PATTERN, normalizePatternId } from "../cartPatternConfig.js";
 import {
   DEFAULT_CART_THEME,
@@ -54,6 +58,18 @@ const LOOK_AT_Y_RATIO = 0.36;
 const CAMERA_ELEVATION = 0.2;
 /** Camera azimuth around the cart, in radians (~49° — balances perspective foreshortening). */
 const CAMERA_AZIMUTH = 0.85;
+
+const SHOWROOM_FEINT_CYCLE_MS = 16000;
+const SHOWROOM_FEINT_START_MS = 10400;
+const SHOWROOM_FEINT_PREP_MS = 550;
+const SHOWROOM_FEINT_RAM_MS = 400;
+const SHOWROOM_FEINT_RECOVER_MS = 900;
+
+/** @param {number} t @returns {number} */
+function easeInOutCubic(t) {
+  const x = THREE.MathUtils.clamp(t, 0, 1);
+  return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+}
 
 /**
  * Centers the cart footprint on the origin with wheel bottoms at y = 0.
@@ -191,6 +207,19 @@ export class CartPreview {
     this._savedViewport = new THREE.Vector4();
     this._savedScissor = new THREE.Vector4();
     this._drawingBufferSize = new THREE.Vector2();
+
+    /** Rest transform after centering; feint offsets are always relative to this. */
+    this._showroomRestPosition = new THREE.Vector3();
+    this._showroomLastPosition = new THREE.Vector3();
+    this._showroomForward = new THREE.Vector3();
+    this._showroomLinvel = new THREE.Vector3();
+    this._showroomAngvel = new THREE.Vector3();
+    this._showroomUp = new THREE.Vector3(0, 1, 0);
+    this._showroomLastYaw = 0;
+    this._showroomLastMs = 0;
+    this._showroomAnimating = false;
+    this._showroomCameraPush = 0;
+    this._showroomLastCameraPush = 0;
   }
 
   /**
@@ -366,6 +395,7 @@ export class CartPreview {
     const mesh = new THREE.Mesh(geo, mat);
     group.add(mesh);
     centerCartGroup(group);
+    this._captureShowroomRestPosition(group);
 
     this._placeholderGroup = group;
     this._placeholderMat = mat;
@@ -423,6 +453,98 @@ export class CartPreview {
   setHeroPose() {
     this.setAutoRotate(false);
     this.setZoom(1.35);
+  }
+
+  /**
+   * Applies one deterministic showroom feint sample. It is presentation only:
+   * no gameplay rigid body is touched, and the velocity passed to wheel/caster
+   * cosmetics is derived from this visible trajectory rather than simulation.
+   *
+   * @param {number} elapsedMs Time since this menu showcase mounted.
+   * @returns {boolean} Whether the feint is currently moving.
+   */
+  applyShowroomFeint(elapsedMs) {
+    if (!this.cartGroup) return false;
+    const phaseMs = ((elapsedMs % SHOWROOM_FEINT_CYCLE_MS) + SHOWROOM_FEINT_CYCLE_MS) % SHOWROOM_FEINT_CYCLE_MS;
+    const prepEndMs = SHOWROOM_FEINT_START_MS + SHOWROOM_FEINT_PREP_MS;
+    const ramEndMs = prepEndMs + SHOWROOM_FEINT_RAM_MS;
+    const recoverEndMs = ramEndMs + SHOWROOM_FEINT_RECOVER_MS;
+    if (phaseMs < SHOWROOM_FEINT_START_MS || phaseMs >= recoverEndMs) {
+      this.resetShowroomFeint();
+      return false;
+    }
+
+    let cameraPush = 0;
+    let lean = 0;
+    let yawOffset = 0;
+    if (phaseMs < prepEndMs) {
+      const p = easeInOutCubic((phaseMs - SHOWROOM_FEINT_START_MS) / SHOWROOM_FEINT_PREP_MS);
+      cameraPush = -0.018 * p;
+      lean = 0.055 * p;
+      yawOffset = -0.05 * p;
+    } else if (phaseMs < ramEndMs) {
+      const p = easeInOutCubic((phaseMs - prepEndMs) / SHOWROOM_FEINT_RAM_MS);
+      cameraPush = THREE.MathUtils.lerp(-0.018, 0.085, p);
+      lean = THREE.MathUtils.lerp(0.055, -0.105, p);
+      yawOffset = THREE.MathUtils.lerp(-0.05, 0.075, p);
+    } else {
+      const p = easeInOutCubic((phaseMs - ramEndMs) / SHOWROOM_FEINT_RECOVER_MS);
+      cameraPush = THREE.MathUtils.lerp(0.085, 0, p);
+      lean = THREE.MathUtils.lerp(-0.105, 0, p);
+      yawOffset = THREE.MathUtils.lerp(0.075, 0, p);
+    }
+
+    const yaw = this._spinY + yawOffset;
+    this._showroomForward.set(0, 0, -1).applyAxisAngle(this._showroomUp, yaw);
+    // * `cartGroup.position` is the GLTF centering transform (see centerCartGroup),
+    // * not a presentation parent. Keep it exact and sell the surge as a small camera
+    // * push, otherwise the origin-framed preview throws the whole cart offscreen.
+    this.cartGroup.position.copy(this._showroomRestPosition);
+    this.cartGroup.rotation.set(lean, yaw, lean * 0.18);
+    this._showroomCameraPush = cameraPush;
+
+    const dtSec = this._showroomLastMs > 0
+      ? Math.min(Math.max((elapsedMs - this._showroomLastMs) * 0.001, 1 / 240), 0.05)
+      : 1 / 30;
+    const linvelWorld = this._showroomLinvel.set(0, 0, 0);
+    if (this._showroomAnimating) {
+      linvelWorld.copy(this._showroomForward).multiplyScalar(
+        (cameraPush - this._showroomLastCameraPush) / dtSec,
+      );
+    }
+    const angvelWorld = this._showroomAngvel.set(0, (yaw - this._showroomLastYaw) / dtSec, 0);
+    if (this._usesRaveGltf) {
+      updateRaveGltfCartVisuals(this.cartGroup, linvelWorld, dtSec, angvelWorld);
+    }
+    this._showroomLastPosition.copy(this.cartGroup.position);
+    this._showroomLastYaw = yaw;
+    this._showroomLastMs = elapsedMs;
+    this._showroomLastCameraPush = cameraPush;
+    this._showroomAnimating = true;
+    return true;
+  }
+
+  /** Restores the exact hero pose and releases presentation-only wheel/caster state. */
+  resetShowroomFeint() {
+    if (!this.cartGroup || !this._showroomAnimating) return;
+    this.cartGroup.position.copy(this._showroomRestPosition);
+    this.cartGroup.rotation.set(0, this._spinY, 0);
+    if (this._usesRaveGltf) resetRaveGltfCartVisualState(this.cartGroup);
+    this._showroomLastMs = 0;
+    this._showroomCameraPush = 0;
+    this._showroomLastCameraPush = 0;
+    this._showroomAnimating = false;
+  }
+
+  /** @param {THREE.Group} group @private */
+  _captureShowroomRestPosition(group) {
+    this._showroomRestPosition.copy(group.position);
+    this._showroomLastPosition.copy(group.position);
+    this._showroomLastYaw = this._spinY;
+    this._showroomLastMs = 0;
+    this._showroomCameraPush = 0;
+    this._showroomLastCameraPush = 0;
+    this._showroomAnimating = false;
   }
 
   /**
@@ -504,6 +626,7 @@ export class CartPreview {
     }
 
     centerCartGroup(cart);
+    this._captureShowroomRestPosition(cart);
     this._materialCache = buildCartThemeMaterialCache(cart);
     applyThemeColorToCache(this._materialCache, this._themeId, this._neonHex);
 
@@ -590,6 +713,7 @@ export class CartPreview {
         this._patternId,
       );
       centerCartGroup(cart);
+      this._captureShowroomRestPosition(cart);
 
       this._clearPlaceholder();
       if (retiringCart) {
@@ -857,7 +981,10 @@ export class CartPreview {
     if (this._ownsRenderer) this.renderer.setSize(w, h, false);
 
     if (this.cartGroup) {
-      frameCartInCamera(this.camera, this.cartGroup, w / h, this._zoomMultiplier);
+      const target = frameCartInCamera(this.camera, this.cartGroup, w / h, this._zoomMultiplier);
+      if (this._showroomCameraPush !== 0) {
+        this.camera.position.sub(target).multiplyScalar(1 - this._showroomCameraPush).add(target);
+      }
     }
   }
 

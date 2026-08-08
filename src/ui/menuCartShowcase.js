@@ -23,11 +23,19 @@ export function createMenuCartShowcase({ renderer, getMenuVisible }) {
   let preview = null;
   let suspended = false;
   let targetFaulted = false;
+  let mountedAtMs = 0;
+  let feintActive = false;
   const holder = document.getElementById("cr-menu-cart-holder");
 
   function disposePreview() {
+    if (feintActive) {
+      recordDiagEvent("attract", "menuCartFeintEnd", { reason: "unmounted" });
+      feintActive = false;
+    }
+    preview?.resetShowroomFeint();
     preview?.dispose();
     preview = null;
+    mountedAtMs = 0;
   }
 
   function hide() {
@@ -54,7 +62,8 @@ export function createMenuCartShowcase({ renderer, getMenuVisible }) {
     preview.setSunglassesStyle(look.sunglassesStyle, { rebuild: preview.cartGroup != null });
   }
 
-  function mount() {
+  /** @param {number} nowMs */
+  function mount(nowMs) {
     if (!(holder instanceof HTMLElement) || preview) return;
     const look = loadPlayerCustomization();
     preview = new CartPreview();
@@ -63,6 +72,8 @@ export function createMenuCartShowcase({ renderer, getMenuVisible }) {
     syncLook(look);
     preview.initExternal(renderer, holder);
     preview.setHeroPose();
+    mountedAtMs = nowMs;
+    recordDiagEvent("attract", "menuCartMount", { tier: getQualityTier() });
   }
 
   /** @param {number} _nowMs Attract callback timestamp; static Lever A pose ignores it. */
@@ -72,7 +83,16 @@ export function createMenuCartShowcase({ renderer, getMenuVisible }) {
       hide();
       return;
     }
-    mount();
+    mount(_nowMs);
+    const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true;
+    const nextFeintActive = reducedMotion ? false : preview?.applyShowroomFeint(_nowMs - mountedAtMs) === true;
+    if (reducedMotion) preview?.resetShowroomFeint();
+    if (nextFeintActive && !feintActive) {
+      recordDiagEvent("attract", "menuCartFeintStart", { cycleMs: 16000 });
+    } else if (!nextFeintActive && feintActive) {
+      recordDiagEvent("attract", "menuCartFeintEnd", { reason: "cycle" });
+    }
+    feintActive = nextFeintActive;
     const result = preview?.renderExternal(renderer);
     if (result === "targetNonNull") {
       // * A direct pass into a composer target would be undefined. Make the failure

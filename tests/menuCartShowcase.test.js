@@ -26,6 +26,8 @@ vi.mock("../src/ui/cartPreview.js", () => ({
       this.setPattern = vi.fn();
       this.setSunglassesStyle = vi.fn();
       this.setHeroPose = vi.fn();
+      this.applyShowroomFeint = vi.fn(() => false);
+      this.resetShowroomFeint = vi.fn();
       this.renderExternal = vi.fn(() => state.renderResult);
       this.dispose = vi.fn();
       state.instances.push(this);
