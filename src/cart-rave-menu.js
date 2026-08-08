@@ -1191,6 +1191,28 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
   let howtoDots = [];
   let howtoSlideIndex = 0;
 
+  // ONBOARD-ART-1 — drop-in art. Every `<token>.webp` in src/assets/howto/ turns its
+  // slot on at build time (glob = real detection, not a hand-maintained list);
+  // `<token>.still.webp` is the reduced-motion swap. The glob is token-constrained
+  // so a stray file dropped beside the contract can never enter the bundle.
+  // Full contract: src/assets/howto/README.md
+  const HOWTO_ART_FILES = import.meta.glob(
+    "./assets/howto/{drive,boost,ram,hud,cargo}.{webp,still.webp}",
+    { eager: true, query: "?url", import: "default" },
+  );
+
+  /** @type {Map<string, { motion: string | null, still: string | null }>} */
+  const howtoArt = new Map();
+  for (const [file, url] of Object.entries(HOWTO_ART_FILES)) {
+    const base = file.split("/").pop();
+    const isStill = base.endsWith(".still.webp");
+    const token = base.replace(/\.still\.webp$/, "").replace(/\.webp$/, "");
+    const entry = howtoArt.get(token) ?? { motion: null, still: null };
+    if (isStill) entry.still = url;
+    else entry.motion = url;
+    howtoArt.set(token, entry);
+  }
+
   /**
    * Shows slide `idx` and re-dresses the pager chrome around it.
    *
@@ -1280,6 +1302,35 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
     if (opts?.userDismissed) restoreOverlayFocus();
   }
 
+  /**
+   * Hydrates the HOW TO PLAY art slots from the drop-in directory. Runs once at
+   * initHowToScreen(), NOT per slide — the two-column layout has to be stable
+   * before the overlay is ever shown so nothing reflows under animateMenuReveal.
+   * A slot with no file behind its token keeps no data-art and stays CSS-hidden:
+   * that is the "no empty frame, no broken-image icon, ever" guarantee.
+   */
+  function hydrateHowToArt() {
+    if (!howtoScreen) return;
+    const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    for (const slot of howtoScreen.querySelectorAll(".cr-howto-slide-media[data-media]")) {
+      const art = howtoArt.get(slot.dataset.media);
+      if (!art) continue;
+      const src = reducedMotion && art.still ? art.still : (art.motion ?? art.still);
+      if (!src) continue;
+      const img = document.createElement("img");
+      img.src = src;
+      // Decorative by contract: the slot is aria-hidden, and AISLE 4's chip row is
+      // the accessible equivalent of the HUD callouts.
+      img.alt = "";
+      img.decoding = "async";
+      // lazy inside a display:none overlay means nothing fetches during menu boot.
+      img.loading = "lazy";
+      img.draggable = false;
+      slot.append(img);
+      slot.dataset.art = "1";
+    }
+  }
+
   function initHowToScreen() {
     howtoSlides = Array.from(howtoScreen?.querySelectorAll(".cr-howto-slide") ?? []);
     howtoDots = Array.from(howtoScreen?.querySelectorAll(".cr-howto-dot") ?? []);
@@ -1296,6 +1347,7 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
     wireMenuPressFeedback(howtoBackBtn);
     wireMenuPressFeedback(howtoPrevBtn);
     wireMenuPressFeedback(howtoNextBtn);
+    hydrateHowToArt();
     renderHowToControls();
     showHowToSlide(0, { animate: false });
     // * Live-rematch the Settings controls panel and the HOW TO PLAY controls chips when

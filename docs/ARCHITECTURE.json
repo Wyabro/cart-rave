@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-08T04:50:15.931Z",
-    "commit": "dc7a170"
+    "at": "2026-08-08T05:14:18.389Z",
+    "commit": "869cd95"
   },
-  "source_digest": "4258c2d3",
+  "source_digest": "70df2ace",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1259,8 +1259,8 @@
         "rows": [
           {
             "pri": "Medium",
-            "item": "ONBOARD-ART-1 — the HOW TO PLAY slides have art slots but no art `[pre-ship]`",
-            "notes": "**Split out of ONBOARD-SLIDES-1 08-06 at Wyatt's call** — *\"i think i'll just wait till i can make the gifs\"*. The deck shipped complete and text-only; this card is the picture pass. **The slots are already authored, sized and commented** — turning them on is deleting one clearly-marked block (`ART SLOTS OFF (ONBOARD-ART-1)`) at the end of the `.cr-howto-*` section in [cart-rave-menu.css](../../src/cart-rave-menu.css). That block also neutralises the two-column rules, which is load-bearing: `:has(.cr-howto-slide-media)` still matches a `display:none` element, so removing only the `display` rule would reserve an empty 28rem column on four slides. **Four slots:** `drive`, `boost`, `ram` (16:10, cropped, HUD out of frame) and `hud` (**16:9, uncropped, HUD is the subject**) — the fifth slide, THE LIVING STORE, also has a `cargo` slot. **AISLE 4's callouts** are `.cr-howto-callout` spans positioned by `--x`/`--y` percentages over the image; the current values are guesses against a blank placeholder and **must be re-aimed against the real frame** — that is the one part of this card that is not just dropping files in. Its chip row (`TOP LEFT / TIME LEFT` …) stays either way — the callouts label, the chips define. **Do not shoot these with `npm run shoot`** — see SHOOT-SOFTGL-1; a working scratch rig that drives a real solo round is described there. Wyatt is capturing GIFs by hand instead, so the likely shape is animated webp dropped into `public/howto/` and referenced by an `<img>` in each slot.",
+            "item": "ONBOARD-ART-1 — HOW TO PLAY art: rig landed; drop-in webp + AISLE 4 aim gate `[pre-ship]`",
+            "notes": "**Art rig landed 08-07** — the deck now takes art as a drop-in directory: drop `<token>.webp` into [src/assets/howto/](../../src/assets/howto/README.md) (`drive` / `boost` / `ram` / `hud` / `cargo`, matching each slot's `data-media`) and that slot turns on at the next build; no file → the slot stays dark, so the deck reads exactly like the playtested text-only deck. Optional `<token>.still.webp` swaps in under `prefers-reduced-motion`. Kept under ~400 KB each. **Remaining:** Wyatt captures the webp by hand and drops them in, then AISLE 4's callouts get aimed: add `data-callouts=\"aimed\"` to the hud slot in [index.html](../../index.html) once the real frame exists — the current `--x`/`--y` are guesses and stay hidden until then. **Do not shoot these with `npm run shoot`** — see SHOOT-SOFTGL-1; Wyatt captures by hand.",
             "ship1": null
           },
           {

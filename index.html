@@ -889,7 +889,11 @@
           </section>
 
           <!-- AISLE 4 carries the one UNCROPPED still, HUD included, with callouts placed in
-               PERCENT coordinates over it so they scale with the image instead of drifting. -->
+               PERCENT coordinates over it so they scale with the image instead of drifting.
+               Art is drop-in: src/assets/howto/hud.webp (contract in that folder's README).
+               The callouts are gated on data-callouts="aimed" — add that attribute here and
+               re-aim --x/--y against the real frame once it exists, so guessed labels never
+               ship pointing at the wrong part of a picture. -->
           <section class="cr-howto-slide cr-howto-slide--4" data-slide="3" aria-labelledby="cr-howto-s4-hd" hidden>
             <div class="cr-howto-slide-media cr-howto-slide-media--hud" data-media="hud" aria-hidden="true">
               <span class="cr-howto-callout" style="--x:14%; --y:8%">TIME LEFT</span>

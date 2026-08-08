@@ -162,3 +162,55 @@ describe("ONBOARD-SLIDES-1 — the deck cannot be skipped by the default action"
     expect(body).not.toMatch(/%\s*howtoSlides\.length/);
   });
 });
+
+// ONBOARD-ART-1 — art is a drop-in directory, not a code wave. `import.meta.glob` sees
+// `src/assets/howto/<token>.webp` at build time, and hydrateHowToArt() sets `data-art`
+// only when a file resolved behind the slot's token; every art rule in the CSS keys on
+// that attribute. Dropping a file therefore needs no HTML/CSS edit, and a slot with no
+// file stays exactly as dark as the shipped deck.
+describe("ONBOARD-ART-1 — the drop-in art rig", () => {
+  it("discovers the art by token-constrained glob and hydrates at init, not per slide", () => {
+    expect(menu).toMatch(/import\.meta\.glob\(\s*["']\.\/assets\/howto\//);
+    expect(menu).toMatch(/assets\/howto\/\{drive,boost,ram,hud,cargo\}\.\{webp,still\.webp\}/);
+    expect(menu).toMatch(/howtoArt\.get/);
+    expect(fnBody(menu, "initHowToScreen")).toMatch(/hydrateHowToArt\(\)/);
+    // * Hydrating inside showHowToSlide would reflow the column layout mid-reveal.
+    expect(fnBody(menu, "showHowToSlide")).not.toMatch(/hydrateHowToArt/);
+  });
+
+  it("sets data-art only on the branch where a token resolved", () => {
+    const body = fnBody(menu, "hydrateHowToArt");
+    expect(body).not.toBe("");
+    // * The miss path must skip the slot untouched — writing data-art there would turn
+    // * the CSS gate back into today's all-or-nothing switch.
+    expect(body).toMatch(/if \(!art\) continue;/);
+    expect(body).toMatch(/dataset\.art\s*=\s*["']1["']/);
+  });
+
+  it("swaps to the still when reduced motion is on and one exists, else falls back", () => {
+    const body = fnBody(menu, "hydrateHowToArt");
+    expect(body).toMatch(/prefers-reduced-motion:\s*reduce/);
+    expect(body).toMatch(/art\.still/);
+    // * A still-only slot (no motion file) must still resolve to something, or the
+    // * reduced-motion pick of `undefined` would create the one broken state promised
+    // * impossible: an <img> with no src.
+    expect(body).toMatch(/art\.motion\s*\?\?\s*art\.still/);
+  });
+
+  it("gates every art rule on the data-art attribute", () => {
+    // * The old ART SLOTS OFF block hid every slot with a bare display:none and
+    // * re-collapsed the two-column rules. Both must now key on data-art, or a
+    // * framed-but-artless slot reserves an empty 28rem column.
+    expect(css).toMatch(/\.cr-howto-slide-media:not\(\[data-art\]\)\s*\{\s*display:\s*none;\s*\}/);
+    expect(css).toMatch(/\.cr-howto-slide:has\(\.cr-howto-slide-media\[data-art\]\)/);
+    expect(css).toMatch(/\.cr-howto-slide:has\(\.cr-howto-slide-media--hud\[data-art\]\)/);
+    // * The paired all-or-nothing override (media + --hud back to one column) is gone;
+    // * the phone bands' single-column rules are intentionally left alone.
+    expect(css).not.toMatch(/\.cr-howto-slide:has\(\.cr-howto-slide-media\),[\s\S]{0,80}\.cr-howto-slide:has\(\.cr-howto-slide-media--hud\)/);
+    // * Every :has() gate — desktop, phone and landscape bands — keys on the art
+    // * attribute. A bare :has(.cr-howto-slide-media) would re-open the empty-column
+    // * trap AND lose to the rekeyed desktop rule on specificity, which on a phone
+    // * squeezed an art slide into `286px 0px` columns (copy column invisible).
+    expect(css).not.toMatch(/cr-howto-slide-media\)/);
+  });
+});

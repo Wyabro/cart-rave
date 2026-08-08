@@ -1865,12 +1865,12 @@ html, body {
    the art (28rem, matching .cr-howto-slide-media's cap) rather than a fraction —
    a 1fr column reserved ~740px at 1920 for a 448px picture and left a dead gap
    between the two columns. */
-.cr-howto-slide:has(.cr-howto-slide-media) {
+.cr-howto-slide:has(.cr-howto-slide-media[data-art]) {
   grid-template-columns: minmax(0, 28rem) minmax(0, 1fr);
 }
 
 /* AISLE 4's column has to match its wider cap or the 34rem max never applies. */
-.cr-howto-slide:has(.cr-howto-slide-media--hud) {
+.cr-howto-slide:has(.cr-howto-slide-media--hud[data-art]) {
   grid-template-columns: minmax(0, 34rem) minmax(0, 1fr);
 }
 
@@ -1897,25 +1897,20 @@ html, body {
 .cr-howto-slide--7 { --aisle: var(--color-cyan); }
 .cr-howto-slide--8 { --aisle: var(--color-magenta); }
 
-/* L1 placeholder — the art slot is sized and styled now so the layout it will
-   live in is what gets playtested; the stills land in L2 (ONBOARD-SLIDES-1).
-   max-width bounds the ASPECT BOX rather than capping height: a max-height on a
-   16/10 box just violates the ratio, which would letterbox the real still in L2.
-   28rem x 16/10 = 17.5rem of art, which is what .cr-howto-deck's min-height is
-   sized against so the pager lands identically on art and text-only slides. */
+/* The framed art box. max-width bounds the ASPECT BOX rather than capping height:
+   a max-height on a 16/10 box just violates the ratio, which would letterbox the
+   real art. 28rem x 16/10 = 17.5rem of art, which is what .cr-howto-deck's
+   min-height is sized against so the pager lands identically on art and text-only
+   slides. The hatch placeholder is gone — this box is only ever visible when art
+   resolved behind its token (data-art). */
 .cr-howto-slide-media {
   aspect-ratio: 16 / 10;
   width: 100%;
   max-width: 28rem;
   border-radius: var(--radius-panel);
-  border: 1px dashed var(--border-white-15);
-  background:
-    repeating-linear-gradient(
-      -45deg,
-      rgba(255, 255, 255, 0.02) 0 10px,
-      rgba(255, 255, 255, 0.05) 10px 20px
-    ),
-    var(--color-ink-deep);
+  border: 1px solid var(--border-white-15);
+  overflow: hidden;
+  background: var(--color-ink-deep);
 }
 
 /* AISLE 4's still is the ONE uncropped frame — the HUD is the subject, so it is
@@ -1925,6 +1920,33 @@ html, body {
   position: relative;
   aspect-ratio: 16 / 9;
   max-width: 34rem;
+}
+
+/* Gate: artless slots are invisible. The box only exists when data-art is set,
+   so there is no empty frame, no gap, and no broken-image state. */
+.cr-howto-slide-media:not([data-art]) {
+  display: none;
+}
+
+/* The art fills its framed box; 16:10 crops are COVER, AISLE 4's uncropped HUD
+   is CONTAIN so nothing vital gets cut. */
+.cr-howto-slide-media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cr-howto-slide-media--hud img {
+  object-fit: contain;
+}
+
+/* Callouts are an explicit aim gate: they render only after a human adds
+   data-callouts="aimed" to the hud slot, once --x/--y are aimed at the real
+   frame. Guessed labels pointing at the wrong part of a picture would ship
+   silently otherwise. */
+.cr-howto-slide-media:not([data-callouts="aimed"]) .cr-howto-callout {
+  display: none;
 }
 
 /* Placed in PERCENT via --x/--y so a callout stays on its HUD element at every
@@ -1945,29 +1967,11 @@ html, body {
   box-shadow: var(--slab-extrude-sm);
 }
 
-/* ─── ART SLOTS OFF (ONBOARD-ART-1) ────────────────────────────────────────────
-   The four art slots above are authored and sized, but the stills/GIFs are not
-   shot yet — Wyatt is capturing them as their own card. Empty framed panels read
-   as broken, so until the art lands the slots are OFF and every slide is a
-   single column of text + chips.
-
-   TO TURN THE ART BACK ON: delete this block. Nothing else. It sits after the
-   rules it overrides so it wins on source order, and it has to neutralise the
-   two-column rules as well — `:has(.cr-howto-slide-media)` still matches a
-   display:none element, so leaving them would reserve an empty 28rem column on
-   four slides. AISLE 4's callouts go with it; its chip row names the same five
-   pieces and stays useful once the picture is there.
-
-   The deck keeps its 23rem floor deliberately: it is what holds the pager still
-   between slides of different length, and it is already sized for the art. */
-.cr-howto-slide-media {
-  display: none;
-}
-
-.cr-howto-slide:has(.cr-howto-slide-media),
-.cr-howto-slide:has(.cr-howto-slide-media--hud) {
-  grid-template-columns: minmax(0, 1fr);
-}
+/* Art is drop-in, not a switch: dropping src/assets/howto/<token>.webp turns that
+   slot on (hydrateHowToArt in cart-rave-menu.js sets data-art at init). A slot
+   with no file keeps the :not([data-art]) gate above and stays dark, so the deck
+   reads exactly as it did before any art shipped — no empty frame, no 404.
+   Full contract: src/assets/howto/README.md */
 
 /* Capped for line length — the panel runs nearly the full viewport at 1920 and
    an unbounded rule sentence became one 90-character line. */
@@ -2526,7 +2530,7 @@ html, body {
   }
 
   .cr-howto-slide,
-  .cr-howto-slide:has(.cr-howto-slide-media) {
+  .cr-howto-slide:has(.cr-howto-slide-media[data-art]) {
     grid-template-columns: minmax(0, 1fr);
     gap: clamp(8px, 2vw, 12px);
     padding: clamp(10px, 2.4vw, 14px) clamp(12px, 2.6vw, 16px) clamp(10px, 2.4vw, 14px) 28px;
@@ -2536,6 +2540,16 @@ html, body {
     max-height: 30svh;
     aspect-ratio: auto;
     min-height: 6rem;
+  }
+
+  /* The parent box is aspect-ratio:auto + max-height here, so a height:100% child
+     would keep its intrinsic size and clip — size the art by the same cap the box
+     uses, preserving the ratio. */
+  .cr-howto-slide-media[data-art] img {
+    height: auto;
+    width: auto;
+    max-width: 100%;
+    max-height: 30svh;
   }
 
   .cr-howto-slide-no {
@@ -2792,7 +2806,7 @@ html, body {
   }
 
   .cr-howto-slide,
-  .cr-howto-slide:has(.cr-howto-slide-media) {
+  .cr-howto-slide:has(.cr-howto-slide-media[data-art]) {
     grid-template-columns: minmax(0, 1fr);
     padding: clamp(8px, 1.8dvh, 12px) clamp(10px, 1.6vw, 14px) clamp(8px, 1.8dvh, 12px) 26px;
   }
