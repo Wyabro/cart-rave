@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-08T17:58:02.618Z",
-    "commit": "d3538c0"
+    "at": "2026-08-08T18:11:08.084Z",
+    "commit": "2b7b872"
   },
-  "source_digest": "844d1808",
+  "source_digest": "3ce7a78c",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1243,7 +1243,7 @@
       {
         "title": "UI / UX",
         "counts": {
-          "Medium": 5,
+          "Medium": 4,
           "Low": 3
         },
         "rows": [
@@ -1287,12 +1287,6 @@
             "pri": "Low",
             "item": "UI-SCALE-P2-MEDIA-1 — Pass 2's deferred media-query cleanup",
             "notes": "**Filed 08-06, split out of UI-SCALE-1 Pass 2 on Wyatt's pre-ack review** (\"skip @media internals\" — exact Pass 1 precedent, to avoid re-opening the 08-05 phone/orientation patches that already playtest-PASSed). Doc rules 5–6 remain undone: delete `@media` blocks that only adjust *size* now that the root scale covers it, and reconcile the drifted breakpoints (900, 1100, 560, and any others found) back to the documented 380/768/1024/1025 contract. Do this file-by-file, same base-clamp discipline, and re-run the relevant playtest card after each file since it touches the phone-specific rules directly this time.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "ARENA-BUMPER-HINT-1 — menu hint bar advertises \"LB / RB — ARENA\"; nothing reads the bumpers",
-            "notes": "**Filed 08-07 from the principal-engineering audit.** Hint text at [cart-rave-menu.js:2107](../../src/cart-rave-menu.js:2107); no `buttons[4]`/`buttons[5]` read exists anywhere in `src/` — `input.js` polls indices 0,1,6,7,8,9,11–15, `gamepadNav.js` polls 12–15,0,1 only, and arena paging (`pageArena`, [:2013](../../src/cart-rave-menu.js:2013)) is keyboard/click-only. A pad player presses the button the UI itself tells them to press, and nothing happens. **Product call before code:** either wire LB/RB to arena paging, or drop the hint if bumper paging was never actually planned. Quick to fix either direction — under 2h.",
             "ship1": null
           }
         ]

@@ -73,9 +73,9 @@ Live rows only. Shipped and closed cards live in
 
 1. **NOW:** Block 1 empty. **RECORD-MED-1** ✅ PASS 08-08 (`125cdd4`);
    **MENU-CART-1** ✅ production PASS 08-08 (`dbf8612`);
-   **PAD-MENU-1** ✅ PASS 08-08 (pad menu nav polish; commits `674d84d`–`1213ce9`).
-   Block 2 next: **CART-COLOR-DEPTH-1** hard-closed 08-08 (no visual sign-off). Block 2 next:
-   **ONBOARD-ART-1** (then VOICE-BUS-1 · …).
+   **PAD-MENU-1** ✅ PASS 08-08 (pad menu nav polish; commits `674d84d`–`1213ce9`);
+   **ARENA-BUMPER-HINT-1** ✅ production PASS 08-08 (`2b7b872`, Worker `547bcecc`).
+   Block 2 next: **ONBOARD-ART-1** (then VOICE-BUS-1 · CHUNK-DEFER-1 · …).
 2. **Open / REACHABLE:** CARGO-LATCH-1 · **CHUNK-DEFER-1** (dynamic-import residual of closed
    CHUNK-MEMBER-1). Block I desk-only wave closed 08-07 (PERF-RENDERINFO-1 · NET-RING-1 ·
    AUDIO-MASTER-1 · STATES-DEAD-1). SD-MUSIC-LPF-1 desk work closed 08-07 (SD music low-pass;

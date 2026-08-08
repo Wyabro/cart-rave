@@ -13,6 +13,23 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 8, 2026 — ARENA-BUMPER-HINT-1 PASS: LB/RB pages menu arena
+
+- *(UI / UX · Medium)* **ARENA-BUMPER-HINT-1** — ✅ **CLOSED PASS 08-08** (code `2b7b872`;
+  deployed Worker version `547bcecc-9e8e-4d33-baf7-f65533f11efa`; Wyatt production PASS).
+  **Product call:** wire (not drop) — the gamepad hint already advertised `LB / RB — ARENA`
+  while nothing read `buttons[4]`/`[5]`. **Lever (`src/ui/gamepadNav.js` only):** rising-edge
+  LB/RB → synthetic pointerdown/up/click on `#cr-arena-prev` / `#cr-arena-next` when nav scope
+  is the document (no overlay), the pager button is `isElementVisible`, and focus is not a typing
+  target; `setInputMode("gamepad")` includes bumpers so the nav loop is self-sufficient. Hint
+  copy unchanged. Reuses the menu's existing `pageArena` handlers via the pager buttons
+  (closure-private — no new export). Tests: `gamepadNav.test.js` +8 (edge, hold, overlay,
+  non-SOLO via inline `display:none` for happy-dom polyfill, mode flip, focus stay). QA 7/7.
+  Post-deploy: hashed assets 0×404; live `errorReporter-*.js` carries `cr-arena-prev` +
+  `PointerEvent` + `lb` edge.
+
+---
+
 ### August 8, 2026 — PAD-MENU-1 PASS: controller menu navigation polish
 
 - *(UI / UX · Medium)* **PAD-MENU-1** — ✅ **CLOSED PASS 08-08** (commits `674d84d`, `c984bea`,
