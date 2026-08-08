@@ -15,8 +15,9 @@ Chronological record of shipped work, newest first.
 
 ### August 8, 2026 — KILLFEED-PHONE-1 PASS: touch kill feed clear of stage and directive
 
-- *(UI / UX · Medium)* **KILLFEED-PHONE-1** — ✅ **CLOSED PASS 08-08** (code `f6205a2`;
-  Wyatt phone PASS). Filed 08-06 from UI-P2-HUD-PT-1 ("awkward and overlappy on my phone") —
+- *(UI / UX · Medium)* **KILLFEED-PHONE-1** — ✅ **CLOSED PASS 08-08** (code `f6205a2`; docs
+  close `a47060a`; Worker `2e3e4b40`; Wyatt phone PASS). Filed 08-06 from UI-P2-HUD-PT-1
+  ("awkward and overlappy on my phone") —
   pre-existing layout, not a rem-conversion regression. **Desk repro** (Playwright
   `hasTouch`+`isMobile` on `.hud-touch`): portrait 390×844 feed rect intersected center stage;
   landscape short touch max-width stayed **260** because the main `#hud.hud-touch` block was
