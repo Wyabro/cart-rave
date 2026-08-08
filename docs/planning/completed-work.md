@@ -2,7 +2,7 @@
 
 > Historical log. Past entries may still say "Cart Rave" / `next-level` — that is intentional. Living naming rules: [brand.md](../brand.md).
 
-**Last Updated:** August 7, 2026
+**Last Updated:** August 8, 2026
 
 > **This doc = the past** — the single home for historical/completed items. For what works
 > *today* see [project-state.md](./project-state.md); for forward plans see [ROADMAP.md](./ROADMAP.md).
@@ -10,6 +10,28 @@
 Chronological record of shipped work, newest first.
 
 > **Convention:** As items ship, move their completed writeup here (out of ROADMAP.md / project-state.md).
+
+---
+
+### August 8, 2026 — CHUNK-MEMBER-1 CLOSED: membership restore only (not full cold-defer)
+
+**Scope closed here:** restore BUNDLE-1 deferred-module membership after a FREEZE-TELEMETRY-1
+re-eager regression. **Not closed here:** dynamic-import of netcode / bootstrap / cartRaveGltf
+off the cold menu initial set — filed as successor **CHUNK-DEFER-1** (clean split 08-08).
+
+- *(Tech Debt · Low)* **CHUNK-MEMBER-1** — ✅ **CLOSED 08-08** (L1 `5739659` + test tighten
+  `6f5552e`; shipped production version `1fca4410-042d-4a22-85ca-77c65fd55919` on
+  `cart-rave.wyabro.workers.dev`). **Root cause:** FREEZE-TELEMETRY-1 (`5469880`, 08-07) made
+  eager `gameplayAnalytics.js` static-import deferred `gameLoop.js`, re-eagering ~25 modules
+  (+~212 KB over budget; catch-all bloated as `gamepadNav-*`). **Lever:** leaf
+  `src/analytics/matchFrameTelemetry.js` (dir prefix → no archMap edit); gameLoop records into
+  the leaf; analytics never imports gameLoop; no re-export from gameLoop. **Gates:**
+  `size:check --require-dist` green (0 re-eagered; initial set ~1,222 KB under ceiling — no
+  rebaseline); full test suite green at L1; post-deploy asset poll CLEAN + telemetry symbol in
+  live index/errorReporter chunks. **Process note (not fixed this card):** `npm run qa` does
+  **not** run `size:check` (only `release:check` does) — membership can regress under green qa.
+  **08-07 config-only abort still true** for remaining eager netcode/cart/bootstrap → **CHUNK-DEFER-1**.
+  Tests: `tests/matchFrameTelemetry.test.js` (leaf + import-line source asserts).
 
 ---
 
@@ -129,8 +151,8 @@ Block I's four desk-only levers, one commit each, no playtest owed — verdict i
 run. `npm run qa` green by number at wave end (after claiming the new arch file). Commits
 `8bc648f`…`cb15b6e` on `cart-clash`. **CARGO-LATCH-1 investigated → REACHABLE** (card stays open;
 fix + deploy + production playtest owed as a separate wave — solo pause and host tab-return).
-**CHUNK-MEMBER-1 lever ABORTED** (config-only split is capped by the eager import graph; card
-stays open with the evidence on its row).
+**CHUNK-MEMBER-1** config-only lever ABORTED that day (eager graph); **membership restore
+closed 08-08** — residual dynamic-import is **CHUNK-DEFER-1** (see Aug 8 writeup).
 
 - *(Engineering · Low)* **PERF-RENDERINFO-1** — ✅ **CLOSED 08-07** (`8bc648f`). Production F8
   now reads `renderer.info`. New `src/utils/rendererInfo.js` keeps a prod-safe ref

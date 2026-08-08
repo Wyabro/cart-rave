@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-08T06:02:48.796Z",
-    "commit": "cd9371e"
+    "at": "2026-08-08T06:53:51.094Z",
+    "commit": "125cdd4"
   },
-  "source_digest": "82d7af61",
+  "source_digest": "d32ac486",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -880,7 +880,7 @@
     ],
     "next_actions": [
       "NOW: Block 1 has no open cards — SPAWN-SUNDIAL-GAP-1 ✅ PASS 08-07 (shipped 08-06,",
-      "Open / REACHABLE: CARGO-LATCH-1 · CHUNK-MEMBER-1 (ABORT — eager graph). Block I desk-only",
+      "Open / REACHABLE: CARGO-LATCH-1 · CHUNK-DEFER-1 (dynamic-import residual of closed",
       "Open High: ONBOARD-ATTRACT-1 · ONBOARD-SIZE-1 · CART-MODEL-1 · bloom (unblocked by ART-*).",
       "Playtest row left: SHARD-PT-2 (launch day, five humans). Detail for all closed work:"
     ],
@@ -1364,9 +1364,9 @@
           },
           {
             "pri": "Low",
-            "id": "CHUNK-MEMBER-1",
-            "item": "Initial-set chunk membership: `errorReporter` chunk carries netcode + the cart rig",
-            "notes": "**Filed 08-05 from the pre-launch audit. NOT a BUNDLE-1 reopen** — no warm-perf goal (that hypothesis is falsified and closed); this is initial-download-set **membership**, worth ~bytes only to **cold first-time visitors**, which is exactly the profile a public launch maximizes. The 266 KB chunk *named* `errorReporter` in the 14-file initial set (per `dist/.chunk-manifest.json` / [bundle-budget.json](../bundle-budget.json)) actually holds ~56 modules including `netcode.js`, `cartRaveGltf.js`, `bootstrap.js` and the whole `src/netcode/` folder — game-side code in the menu's critical path under a misleading name (rolldown names a catch-all chunk after its first module, so the budget file reads as \"error reporting is 266 KB\" when it is not). Also: a duplicate empty `captureUpload-*.js` chunk (107 B, 0 modules). **Lever:** chunking group boundaries in [vite.config.js](../../vite.config.js); the Lever-F membership gate in `size:check` makes regressions loud. **Judge on the cold profile; do not re-litigate warm `menu-ready`.** **Lever 08-07 ABORT — config-only split is capped by the eager graph** (empirical, manifest-diffed): `main.js` statically imports `netcode.js`/`cartRaveGltf.js`/`bootstrap.js` and `netcode.js` statically imports all four `src/netcode/` submodules; group probes emitted separate chunks but they stayed `<link rel=modulepreload>` in the initial set (181→181 modules, zero left/entered). A real split needs a dynamic-import boundary in `main.js` (cross-card, not done this wave). Note: the catch-all chunk is now named `gamepadNav-*` (this row's `errorReporter` name drifted) and the duplicate empty `captureUpload-*.js` orphan (107 B, 0 modules) is confirmed — it is not in the preload set, so it is a shipped orphan only. Card stays open.",
+            "id": "CHUNK-DEFER-1",
+            "item": "Dynamic-import: defer `netcode` / `bootstrap` / `cartRaveGltf` off the cold menu initial set",
+            "notes": "**Filed 08-08** as the clean-split residual of closed **CHUNK-MEMBER-1** (membership restore). **NOT a BUNDLE-1 reopen** — no warm `menu-ready` goal. **08-07 proven dead path:** `codeSplitting.groups` alone cannot remove modules that `main.js` / `menuPlayEntry` / `gameSession` static-import (they stay `<link rel=modulepreload>`). **Lever:** real `import()` boundaries after menu paint (or on play / `?room=` / harness / idle-warm triggers). Risks: invite URL connect timing, net harness, idle world warm, cart preview/prefetch. Judge cold initial-set bytes + membership (`size:check --require-dist`); qa alone does not gate membership. Empty `captureUpload` 0-module orphan is hygiene-only (not this card).",
             "ship1": null
           },
           {

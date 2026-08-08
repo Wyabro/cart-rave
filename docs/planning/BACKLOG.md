@@ -59,7 +59,7 @@ way the Block table still can.)*
 | Block | State | Next action |
 |-------|-------|-------------|
 | **1** — NOW (player-facing correctness) | ⬜ no open cards | → Block 2 (**CART-COLOR-DEPTH-1** definition) |
-| **2** — PRE-SHIP (before public post) | 🟡 queued | Definition: **CART-COLOR-DEPTH-1**. Then ONBOARD-ART-1 · MENU-CART-1 · VOICE-BUS-1 · RECORD-MED-1 · CHUNK-MEMBER-1 · NPC-BOOST-1 (measure) · UI-FRAME-1 + ESC-PANEL-1 · PAD-MENU-1 · KILLFEED-PHONE-1 · ARENA-BUMPER-HINT-1 (after product call) |
+| **2** — PRE-SHIP (before public post) | 🟡 queued | Definition: **CART-COLOR-DEPTH-1**. Then ONBOARD-ART-1 · MENU-CART-1 · VOICE-BUS-1 · RECORD-MED-1 · CHUNK-DEFER-1 · NPC-BOOST-1 (measure) · UI-FRAME-1 + ESC-PANEL-1 · PAD-MENU-1 · KILLFEED-PHONE-1 · ARENA-BUMPER-HINT-1 (after product call) |
 | **3** — WYATT LANE (blocked on you) | 👤 ongoing | CART-MODEL-1 · HIT-SFX-VAR-1 clips · ANNOUNCER-RERECORD-1 · BLOOM-SIGNOFF-1 · DEFEAT-READ-1 · SKYBOX-DIR-1 · CARGO-BAY-INSTANCE-1 stability · SHIP-1 D-tier cut/keep |
 | **4** — PERF RESIDUAL (measure-first) | 🟡 queued | CARGO-BAY-INSTANCE-1 · PROBE-WARM-RT-1 · WARM-SOLO-1 · PERF-WATCH-1 · PERF-TIER-1 · Customize perf |
 | **5** — SWEEP (cheap Lows) | 🟡 queued | CAPTURE-RING-LIMIT-1 · CART-FORK-SWIVEL-1 · BOOTH-RAIL-COL-1 · SUNDIAL-LOW-WATER-1 · main-menu SFX · UI-SCALE-P2-MEDIA-1 · ORIENT-HINT-SCROLL-1 |
@@ -169,7 +169,7 @@ moment a player-facing correctness bug turns up.)*
 3. **MENU-CART-1** — main-menu 3D cart under the name plate (reuse CartPreview; watch attract perf).
 4. **VOICE-BUS-1** — announcer volume of its own (**AUDIO-MASTER-1 closed 08-07**: the dead `_masterVol` was deleted — a voice slider is genuinely a new third bus).
 5. **RECORD-MED-1** — Medium-tier record floor parity (look, not PERF-PASS-1).
-6. **CHUNK-MEMBER-1** — cold-visit chunk membership (public-post profile).
+6. **CHUNK-DEFER-1** — dynamic-import deferral of netcode / bootstrap / cartRaveGltf off the cold menu initial set (successor residual from closed CHUNK-MEMBER-1).
 7. **NPC-BOOST-1** — measure session only; retune is a separate ack.
 8. **UI-FRAME-1 + ESC scoring panel** `[SHIP-1 E1]` look pair.
 9. **Controller menu navigation polish** *(pre-ship 07-19 residual)*.
@@ -381,7 +381,7 @@ Priorities below are post-gate unless Wyatt pulls them forward.
 | Medium | STORE-1 | Collapse `gameState` facade dual import | |
 | Medium | DIR-1 | Directive modifiers without mutating `CONFIG` | |
 | Medium | TRUST-1 | Worker validates host-asserted outcomes | Prerequisite for trusted leaderboard. Builds on SRV-TEST-1 helpers. `[SHIP-1 D1]` *(was also an Engineering row — deduped 08-01)* |
-| Low | CHUNK-MEMBER-1 | Initial-set chunk membership: `errorReporter` chunk carries netcode + the cart rig | **Filed 08-05 from the pre-launch audit. NOT a BUNDLE-1 reopen** — no warm-perf goal (that hypothesis is falsified and closed); this is initial-download-set **membership**, worth ~bytes only to **cold first-time visitors**, which is exactly the profile a public launch maximizes. The 266 KB chunk *named* `errorReporter` in the 14-file initial set (per `dist/.chunk-manifest.json` / [bundle-budget.json](../bundle-budget.json)) actually holds ~56 modules including `netcode.js`, `cartRaveGltf.js`, `bootstrap.js` and the whole `src/netcode/` folder — game-side code in the menu's critical path under a misleading name (rolldown names a catch-all chunk after its first module, so the budget file reads as "error reporting is 266 KB" when it is not). Also: a duplicate empty `captureUpload-*.js` chunk (107 B, 0 modules). **Lever:** chunking group boundaries in [vite.config.js](../../vite.config.js); the Lever-F membership gate in `size:check` makes regressions loud. **Judge on the cold profile; do not re-litigate warm `menu-ready`.** **Lever 08-07 ABORT — config-only split is capped by the eager graph** (empirical, manifest-diffed): `main.js` statically imports `netcode.js`/`cartRaveGltf.js`/`bootstrap.js` and `netcode.js` statically imports all four `src/netcode/` submodules; group probes emitted separate chunks but they stayed `<link rel=modulepreload>` in the initial set (181→181 modules, zero left/entered). A real split needs a dynamic-import boundary in `main.js` (cross-card, not done this wave). Note: the catch-all chunk is now named `gamepadNav-*` (this row's `errorReporter` name drifted) and the duplicate empty `captureUpload-*.js` orphan (107 B, 0 modules) is confirmed — it is not in the preload set, so it is a shipped orphan only. Card stays open. |
+| Low | CHUNK-DEFER-1 | Dynamic-import: defer `netcode` / `bootstrap` / `cartRaveGltf` off the cold menu initial set | **Filed 08-08** as the clean-split residual of closed **CHUNK-MEMBER-1** (membership restore). **NOT a BUNDLE-1 reopen** — no warm `menu-ready` goal. **08-07 proven dead path:** `codeSplitting.groups` alone cannot remove modules that `main.js` / `menuPlayEntry` / `gameSession` static-import (they stay `<link rel=modulepreload>`). **Lever:** real `import()` boundaries after menu paint (or on play / `?room=` / harness / idle-warm triggers). Risks: invite URL connect timing, net harness, idle world warm, cart preview/prefetch. Judge cold initial-set bytes + membership (`size:check --require-dist`); qa alone does not gate membership. Empty `captureUpload` 0-module orphan is hygiene-only (not this card). |
 | Low | GLTF-1 | Drop legacy cart GLTF layout path | |
 | Low | DUAL-1 | Delete leftover dual-era paths | |
 | Low | TS-1 | TypeScript on hot paths / TS 7 | Stay on TS 6.x for the gate. |
@@ -455,4 +455,4 @@ RESULTS-CRAMP-1, RESULTS-UNLOCK-TOAST-1, PODIUM-FOCUS-1, PAUSE-CTRL-CHART-1.
 COLOR-ID-1, COMBAT-READ-1, GAMEPAD-LOBBY-1, PACE-KO-1,
 AI-ARENA-SELFKO-1, ARENA-SELFKO-PT-1, ARENA-SELFKO-PT-2, LOAD-TIPS-1.
 PERF-RENDERINFO-1, NET-RING-1, AUDIO-MASTER-1, STATES-DEAD-1,
-HOLE-FRICTION-COMBINE-1, SPAWN-SUNDIAL-GAP-1.
+HOLE-FRICTION-COMBINE-1, SPAWN-SUNDIAL-GAP-1, CHUNK-MEMBER-1.

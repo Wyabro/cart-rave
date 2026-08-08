@@ -74,10 +74,11 @@ Live rows only. Shipped and closed cards live in
 1. **NOW:** Block 1 has no open cards — SPAWN-SUNDIAL-GAP-1 ✅ PASS 08-07 (shipped 08-06,
    `92c44f2`) and HOLE-FRICTION-COMBINE-1 ✅ PASS 08-07 (`519d905`). Next work is Block 2,
    starting with the **CART-COLOR-DEPTH-1** definition session.
-2. **Open / REACHABLE:** CARGO-LATCH-1 · CHUNK-MEMBER-1 (ABORT — eager graph). Block I desk-only
-   wave closed 08-07 (PERF-RENDERINFO-1 · NET-RING-1 · AUDIO-MASTER-1 · STATES-DEAD-1).
-   SD-MUSIC-LPF-1 desk work closed 08-07 (SD music low-pass; iOS/WebKit gated off by design) —
-   playtest owed with VOICE-BUS-1 under [BACKLOG § Playtest owed](./planning/BACKLOG.md).
+2. **Open / REACHABLE:** CARGO-LATCH-1 · **CHUNK-DEFER-1** (dynamic-import residual of closed
+   CHUNK-MEMBER-1). Block I desk-only wave closed 08-07 (PERF-RENDERINFO-1 · NET-RING-1 ·
+   AUDIO-MASTER-1 · STATES-DEAD-1). SD-MUSIC-LPF-1 desk work closed 08-07 (SD music low-pass;
+   iOS/WebKit gated off by design) — playtest owed with VOICE-BUS-1 under
+   [BACKLOG § Playtest owed](./planning/BACKLOG.md).
 3. **Open High:** ONBOARD-ATTRACT-1 · ONBOARD-SIZE-1 · CART-MODEL-1 · bloom (unblocked by ART-*).
 4. **Playtest row left:** SHARD-PT-2 (launch day, five humans). Detail for all closed work:
    [completed-work.md](./planning/completed-work.md).

@@ -88,7 +88,8 @@ opportunistically when touched — no dedicated refactor pass.
 
 ## Post-launch (unchanged from BACKLOG)
 
-MAIN-1 (✅ closed 08-04) → ~~BUNDLE-1~~ (✅ closed partial 08-05; successor **CHUNK-MEMBER-1**),
+MAIN-1 (✅ closed 08-04) → ~~BUNDLE-1~~ (✅ closed partial 08-05) → ~~CHUNK-MEMBER-1~~ (✅ membership
+restore 08-08) → successor residual **CHUNK-DEFER-1** (dynamic-import cold defer),
 STORE-1, DIR-1, GLTF-1, DUAL-1, TS-1, TOOL-1, monetization,
 WebGPU VFX, economy/XP — see [BACKLOG.md](./BACKLOG.md) Tech Debt + Future Ideas.
 Backlog rows not tagged `[SHIP-1 Tier X]` and not listed above default to post-launch
