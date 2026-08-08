@@ -62,6 +62,8 @@ Cart Clash: browser **4-player shopping-cart physics sumo**. Production:
 - **Escalation:** timebox → findings → `.agents/skills/systematic-debugging` → hand off / ask Wyatt.
 - **Done:** `npm run qa` green **by number** + pushed + `verify:head` + briefing fresh + STATUS
   at wave boundary. Behavior change → Wyatt playtest on production (console ready first).
+- **Post-lever:** no notification-driven follow-ups, no baseline worktrees, no `states` gate
+  unless the wave owns that gate. Outside-diff fails = one-line note + stop.
 
 ## Standing rules
 
