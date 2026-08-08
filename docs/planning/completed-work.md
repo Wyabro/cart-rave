@@ -15,8 +15,8 @@ Chronological record of shipped work, newest first.
 
 ### August 8, 2026 — CART-FORK-SWIVEL-1 PASS: rear-left fork piece steers with its caster
 
-- *(Art · Low)* **CART-FORK-SWIVEL-1** — ✅ **CLOSED PASS 08-08** (code `9b0da20`; Wyatt local
-  steer PASS, then ship). Split out of closed **CART-FORK-1** (role-only): `tripo_part_23` was
+- *(Art · Low)* **CART-FORK-SWIVEL-1** — ✅ **CLOSED PASS 08-08** (code `9b0da20`; docs close
+  `59fed1a`; Worker `93e78ffb`; Wyatt local steer PASS, then ship). Split out of closed **CART-FORK-1** (role-only): `tripo_part_23` was
   already roled `fork` but sat in **no** `RAVE_GLTF_V4_FORK_GROUPS` entry, so it stayed model-static
   while its caster swiveled. Mirror twin `tripo_part_22` was already in BR `forkParts`. Lever:
   BL `forkParts` → `["tripo_part_5", "tripo_part_21", "tripo_part_23"]` in
