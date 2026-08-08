@@ -13,6 +13,25 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 7, 2026 — HOLE-FRICTION-COMBINE-1 PASS: hole-lip lowFriction finally wins the combine
+
+**Wyatt PASS 08-07** on Lever 1 (`519d905`). Same bug class as WALL-SLIDE-CLASSIC-1 /
+STORE-WALL-SLIDE-1, on the **cart** while overhanging the center hole rather than on walls.
+
+- *(Physics · Medium)* **HOLE-FRICTION-COMBINE-1** — ✅ **PASS 08-07** (`519d905`). Rapier defaults
+  friction combine to **Average**, so `holeAssist.lowFriction` (0.05) against the deck's 0.8 felt
+  like **~0.425**, not 0.05 (~2.2× drop instead of ~22×). **Option B (dynamic):** mode `hole`
+  while footprint overhangs with centerHole on — low μ + `FrictionCombineRule.Min`; mode `normal`
+  on the annulus, centerHole-off, and every respawn/rematch/SD reset — Average + `CONFIG.cart.friction`.
+  Floors never got Min (canaries stay valid). **Unstick** impulse still fires; its μ cut is skipped
+  while hole mode owns friction. WASM writes are transition-cached (`cart._frictionMode`).
+  **Collider-wide Min while overhanging accepted for v1** (cart–cart on the lip may feel slipperier;
+  not a contact-mod / split-collider scope). Tests:
+  [holeFrictionCombine.test.js](../../tests/holeFrictionCombine.test.js) (13). `npm run qa` 7/7.
+  Not deployed until ship.
+
+---
+
 ### August 7, 2026 — Block I desk-only: four cards closed, one commit each
 
 Block I's four desk-only levers, one commit each, no playtest owed — verdict in the diff/test
@@ -153,10 +172,10 @@ UI/UX row).
   events on each re-offer, rate-limited by the existing per-peer cooldown. Instrument-only — no
   retune of `p2pReconnectCooldownMs`/`p2pConnectingTimeoutMs`. Test in [netP2pDiag.test.js](../../tests/netP2pDiag.test.js).
 
-**H1 remaining (2):** GAMEPAD-LOBBY-1 (deployed, owed its two-PC playtest), HOLE-FRICTION-COMBINE-1
-(needs a playtest pass of its own). **H2 remaining (2):** CARGO-BAY-INSTANCE-1 (Wyatt stability
+**H1 remaining (0 playtest-open):** GAMEPAD-LOBBY-1 closed PASS in the playtest export; HOLE-FRICTION-COMBINE-1
+PASS 08-07 (`519d905`) — see entry above. **H2 remaining (2):** CARGO-BAY-INSTANCE-1 (Wyatt stability
 call first), ARENA-BUMPER-HINT-1 (product call). **H3 remaining (1):** CAPTURE-RING-LIMIT-1 — see
-[BACKLOG.md Block H](./BACKLOG.md).
+[BACKLOG.md](./BACKLOG.md).
 
 ### August 7, 2026 — Wave H1 (partial): desk-only correctness sweep, 3 commits (CONNSTATE-REFLIP-1, LASTHITBY-MUTATE-1, FREEZE-TELEMETRY-1)
 

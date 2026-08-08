@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-08T00:10:17.014Z",
-    "commit": "147c37e"
+    "at": "2026-08-08T00:15:29.150Z",
+    "commit": "519d905"
   },
-  "source_digest": "f3837445",
+  "source_digest": "43476d79",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -878,13 +878,10 @@
       }
     ],
     "next_actions": [
-      "Block I desk-only wave 08-07 — 4 closed. PERF-RENDERINFO-1 · NET-RING-1 · AUDIO-MASTER-1 ·",
-      "PERF-PASS-1 ✅ CLOSED 08-06 — perf goal NOT met. Wave 5 cells on the Intel box: `billboardlights`",
-      "FEEL-DAY-1 ✅ CLOSED PASS 08-06 (`da9063c`..`0e0a1b7`). Collision punch + impact juice +",
-      "Playtest export 08-06 ✅ 10/10 PASS, 0 FAIL — six cards closed: ONBOARD-SLIDES-1 ·",
-      "Five new cards off those passes (notes, not residuals — each names a different mechanism",
-      "The High bloom sign-off is unblocked — its success criteria came from ART-FILTER-1 +",
-      "Closed 08-06 (detail in completed-work): HARNESS-NULL-1 · NET-LOOK-ACC-1 · UI-SCALE-1 +"
+      "NOW: SPAWN-SUNDIAL-GAP-1 (Block 1). HOLE-FRICTION-COMBINE-1 ✅ PASS 08-07 (`519d905`).",
+      "Open / REACHABLE: CARGO-LATCH-1 · CHUNK-MEMBER-1 (ABORT — eager graph). Block I desk-only",
+      "Open High: ONBOARD-ATTRACT-1 · ONBOARD-SIZE-1 · CART-MODEL-1 · bloom (unblocked by ART-*).",
+      "Playtest row left: SHARD-PT-2 (launch day, five humans). Detail for all closed work:"
     ],
     "open_issues": [
       {
@@ -909,7 +906,7 @@
       {
         "title": "Engineering",
         "counts": {
-          "Medium": 11,
+          "Medium": 10,
           "Low": 8,
           "Partial": 1
         },
@@ -1014,12 +1011,6 @@
             "pri": "Low",
             "item": "Quickplay rotation live 2-browser check",
             "notes": "Reconfirm after **QP-ORDER-1** (sequential rotation). Live multi-client smoke only.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "HOLE-FRICTION-COMBINE-1 — hole-lip friction assist is defeated by Rapier's default combine rule",
-            "notes": "**Filed 08-07 from the principal-engineering audit — same bug class already fixed on walls (WALL-SLIDE-CLASSIC-1 / STORE-WALL-SLIDE-1), still open on the cart collider itself.** [simulation.js:436](../../src/simulation.js:436) sets the cart collider to `CONFIG.record.holeAssist.lowFriction` (0.05) while overhanging the hole; the cart collider never calls `setFrictionCombineRule` ([entities.js:146-150](../../src/entities.js:146)). With no combine rule Rapier averages against the deck's 0.8 ([config.js:40](../../src/config.js:40)): normal driving is (1.1+0.8)/2 = 0.95, overhanging the hole is (0.05+0.8)/2 = 0.425 — a ~2.2× drop, not the ~22× the configured value implies. Hole-assist accel terms mask the shortfall today; any future retune of `lowFriction` fights the wrong knob. **Fix:** `CombineRule::Min` on the cart collider, matching the wall fix's pattern. **Needs a playtest pass, not just a unit check** — friction feel here is tuned and played-in; verify the hole-assist and unstick friction cut ([simulation.js:970-972](../../src/simulation.js:970)) still feel right at the corrected effective value before closing.",
             "ship1": null
           },
           {

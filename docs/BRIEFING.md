@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-07 at commit `cb15b6e` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `d3ce7e84`
+> Generated 2026-08-08 at commit `519d905` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `49600c6e`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -18,7 +18,7 @@ Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep a
 
 ## ACTIVE CARD
 
-Block I desk-only wave 08-07 — 4 closed. PERF-RENDERINFO-1 · NET-RING-1 · AUDIO-MASTER-1 ·
+NOW: SPAWN-SUNDIAL-GAP-1 (Block 1). HOLE-FRICTION-COMBINE-1 ✅ PASS 08-07 (`519d905`)
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 

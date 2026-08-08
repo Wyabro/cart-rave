@@ -71,42 +71,12 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. **Block I desk-only wave 08-07 — 4 closed.** PERF-RENDERINFO-1 · NET-RING-1 · AUDIO-MASTER-1 ·
-   STATES-DEAD-1 closed. CARGO-LATCH-1 **REACHABLE**, CHUNK-MEMBER-1 **ABORT** (eager graph); both
-   open. [completed-work.md](./planning/completed-work.md).
-2. **PERF-PASS-1 ✅ CLOSED 08-06 — perf goal NOT met.** Wave 5 cells on the Intel box: `billboardlights`
-   null (−0.13 ms, not a lever), `recordbody` unproven (+7.8 ms, CPU 9→24 ms — polluted/throttled cell),
-   `stadium` needed → kept. Card closes with no further cuts; Wave 4 `arenaFillLights` remains the only
-   shipped lever (−1.66 to −2.54 ms). Detail: [completed-work.md](./planning/completed-work.md).
-2. **FEEL-DAY-1 ✅ CLOSED PASS 08-06** (`da9063c`..`0e0a1b7`). Collision punch + impact juice +
-   Medium bot aggression. PT-1/2/3 all PASS. Shared config (MP feel changes by design). Not
-   deployed until ship. Detail: [completed-work.md](./planning/completed-work.md).
-2. **Playtest export 08-06 ✅ 10/10 PASS, 0 FAIL — six cards closed:** ONBOARD-SLIDES-1 ·
-   RESULTS-1 · ART-FILTER-1 · ART-EXPO-1 · DIFF-FRIENDS-1 · SPAWN-SUNDIAL-1 · ORIENT-TOAST-Z-1.
-   All judged on `npm run dev` (seven of the ten ids were pushed-but-not-deployed). Rows deleted
-   from BACKLOG; detail in [completed-work.md](./planning/completed-work.md). Only playtest row
-   left is **SHARD-PT-2** (SKIP — needs five humans, waits for the public post).
-3. **Five new cards off those passes** (notes, not residuals — each names a different mechanism
-   than the card that carried it): **FRIENDS-LEVEL-1 ✅ CLOSED PASS 08-07** (`f8281c5`,
-   deployed `ec23ccb9`, FRIENDS-LEVEL-PT-1 1/1 PASS) — confirmed the DIFF-FRIENDS-1
-   hello-latch hole one level down: the Friends host's menu pick was clobbered by the room's
-   hello-stamped default before host logic ever ran. Fix skips the hello adopt for the Friends
-   host and stamps the latch from the store instead, ordered ahead of the existing difficulty
-   push so one `sendHostRound` carries both. Quickplay/guests/rotation/migration unaffected;
-   server untouched. `tests/friendsLevel.test.js`, 14/14 targeted, 1626/1626 full suite, qa 7/7,
-   confirmed live · **ONBOARD-ATTRACT-1** (High — stop force-opening HOW TO PLAY; make the button attract) ·
-   **ONBOARD-SIZE-1** (High — arrows and body text too small) · **ONBOARD-SCROLL-1** (Medium —
-   focus ring adds a page scrollbar) · **SPAWN-SUNDIAL-GAP-1** (Medium — carts wedge between the
-   Sundial booths and the platform; solid legs created it).
-4. **The High bloom sign-off is unblocked** — its success criteria came from ART-FILTER-1 +
-   ART-EXPO-1, both now closed. art-direction.md Rules 2 and 3 are PASS/recorded. Two traps worth
-   carrying: writing `uVignette = 0` does **not** turn the vignette off (reversed-edge smoothstep
-   leaves ~41% corner darkening — the shader needed a fade), and a live impact pulse across an
-   arena swap restores the previous arena's CRT unless the gate clears it.
-5. **Closed 08-06 (detail in completed-work):** HARNESS-NULL-1 · NET-LOOK-ACC-1 · UI-SCALE-1 +
-   TOUCH-HOVER-1 · DIAG-NET-CAPTURE-1 · SHOOT-SOFTGL-1 · MONTAGE-ESC-1. Killfeed nit filed
-   (KILLFEED-PHONE-1); luma-metric tool filed (ART-LUMA-TOOL-1).
-**Open High:** ONBOARD-ATTRACT-1 · ONBOARD-SIZE-1 · CART-MODEL-1 · bloom (now unblocked).
+1. **NOW:** **SPAWN-SUNDIAL-GAP-1** (Block 1). HOLE-FRICTION-COMBINE-1 ✅ PASS 08-07 (`519d905`).
+2. **Open / REACHABLE:** CARGO-LATCH-1 · CHUNK-MEMBER-1 (ABORT — eager graph). Block I desk-only
+   wave closed 08-07 (PERF-RENDERINFO-1 · NET-RING-1 · AUDIO-MASTER-1 · STATES-DEAD-1).
+3. **Open High:** ONBOARD-ATTRACT-1 · ONBOARD-SIZE-1 · CART-MODEL-1 · bloom (unblocked by ART-*).
+4. **Playtest row left:** SHARD-PT-2 (launch day, five humans). Detail for all closed work:
+   [completed-work.md](./planning/completed-work.md).
 
 ## Open issues (top)
 
@@ -156,10 +126,12 @@ the dev loop (dev probes lie in prod · edge propagation · frozen `rAF`), or a 
 
 ## Last updated
 
+2026-08-07 (HOLE-FRICTION-COMBINE-1 PASS) — Dynamic Min friction combine while overhanging the
+center hole (`519d905`); Wyatt playtest PASS. Block 1 NOW → **SPAWN-SUNDIAL-GAP-1**.
+
 2026-08-07 (Block H desk-only completion: 12 cards closed, one commit each) — Remaining Block H
 desk-only levers + five earlier desk-only cards landed as 12 commits (`cae4a35`…`7131f40`,
-pushed `8af97f4`); none player-visible. Block H 10/15 closed; remaining H1:
-GAMEPAD-LOBBY-1 (owed its two-PC playtest), HOLE-FRICTION-COMBINE-1. Full list:
+pushed `8af97f4`); none player-visible. Full list:
 [completed-work.md](./planning/completed-work.md).
 
 2026-08-07 (BACKLOG Block H opened; H1 3/7 landed, unpushed to prod) — Full principal-engineering
