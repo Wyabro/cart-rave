@@ -38,16 +38,22 @@ describe("matchFrameTelemetry leaf", () => {
 });
 
 describe("CHUNK-MEMBER-1 L1 import edges (source)", () => {
-  it("gameplayAnalytics does not import gameLoop", () => {
+  it("gameplayAnalytics has no import of gameLoop (comments allowed)", () => {
     const src = readFileSync(resolve(ROOT, "src/analytics/gameplayAnalytics.js"), "utf8");
-    expect(src).not.toMatch(/from\s+["'][^"']*gameLoop/);
-    expect(src).toMatch(/from\s+["']\.\/matchFrameTelemetry\.js["']/);
+    // * Import lines only — a comment mentioning gameLoop must not fail CI (W3).
+    expect(src).not.toMatch(/^\s*import\b.*gameLoop/m);
+    expect(src).toMatch(/^\s*import\b.*from\s+["']\.\/matchFrameTelemetry\.js["']/m);
   });
 
-  it("gameLoop records via the leaf (does not own counters)", () => {
+  it("gameLoop records via the leaf; no counters and no re-export (W2)", () => {
     const src = readFileSync(resolve(ROOT, "src/gameLoop.js"), "utf8");
-    expect(src).toMatch(/from\s+["']\.\/analytics\/matchFrameTelemetry\.js["']/);
+    expect(src).toMatch(
+      /^\s*import\s*\{[^}]*recordMatchFrameForTelemetry[^}]*\}\s*from\s+["']\.\/analytics\/matchFrameTelemetry\.js["']/m,
+    );
     expect(src).not.toMatch(/let\s+_matchMaxFrameMs/);
-    expect(src).not.toMatch(/export function (reset|get|record)MatchFrameTelemetry/);
+    // * No export of the three leaf APIs — re-export would re-open the eager edge (W2).
+    expect(src).not.toMatch(
+      /^\s*export\b.*\b(recordMatchFrameForTelemetry|resetMatchFrameTelemetry|getMatchFrameTelemetry)\b/m,
+    );
   });
 });
