@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-08T01:35:56.956Z",
-    "commit": "0790842"
+    "at": "2026-08-08T04:31:24.021Z",
+    "commit": "b5f8e3f"
   },
-  "source_digest": "4d93926a",
+  "source_digest": "0764c443",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1254,7 +1254,7 @@
         "title": "UI / UX",
         "counts": {
           "Medium": 7,
-          "Low": 4
+          "Low": 3
         },
         "rows": [
           {
@@ -1279,12 +1279,6 @@
             "pri": "Medium",
             "item": "MENU-CART-1 — main-menu 3D cart under player name",
             "notes": "**Filed 08-04 from Wyatt.** Reuse the customize `CartPreview` ([cartPreview.js](../../src/ui/cartPreview.js) — already mounted only while customize is open via [cart-rave-menu.js:900](../../src/cart-rave-menu.js:900)) on the **main menu under the name plate** so players admire color/pattern/sunglasses without opening Customize. **Not** a second GLB loader path — same `CartPreview` instance or a shared factory; sync look from localStorage/store the same way `syncCartPreviewLook` does. **Constraints:** must not fight menu attract perf (ATTRACT-JANK-1 / PERF-PASS-1) — pause/hide when customize open; consider Low tier still-frame or lower DPR; one WebGL context only if the stack already shares the game canvas (prefer CSS overlay viewport into existing pattern, do not spawn a second full rAF renderer if avoidable). **Pass:** main menu shows your cart under your name; changing color/pattern in Customize updates it when you return; no extra hitch on weak machines. Pairs with SHIP-1 C / customize pride; not blocked on CART-MODEL-1.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "LOAD-TIPS-1 — loading screen teaches nothing while it has the player's full attention",
-            "notes": "**Filed 08-05 from the pre-launch audit.** [loadingScreen.js](../../src/ui/loadingScreen.js) renders zero tips or hint strings — the mode-entry wait is dead air for a first-time player about to enter a 4-cart brawl. **Scope:** a small rotating tip line (charge boost, hop, directives, combo tiers, sudden-death rules) on the loading screen. Topic list overlaps ONBOARD-SLIDES-1 — if slides land first, source tips from the same copy; if this lands first, it is the cheapest 80% of that card's value. Layout note: the loading screen's scale problem is **LOAD-SCALE-1** (owned by the UI-SCALE-1 pass) — don't fix geometry here, just add the line inside the existing centre stage.",
             "ship1": null
           },
           {

@@ -13,6 +13,23 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 7, 2026 — LOAD-TIPS-1 PASS: mode-entry subtitle teaches rules
+
+**Wyatt PASS 08-07.** Code `b5f8e3f`. Mode-entry wait is no longer flavor dead air.
+
+- *(UI · Low)* **LOAD-TIPS-1** — ✅ **PASS 08-07** (`b5f8e3f`). Replaced per-theme flavor
+  `THEME_COPY.*.messages` with a shared **`LOAD_TIPS`** pool (6 lines) derived from HOW TO PLAY
+  aisles 1–3 and 5–7: boost charge, hop, edge KO scoring, combo tiers, PA directives, cargo bay.
+  **No SD tip** (win condition is multi-path; name-only would still over-teach). Same subtitle
+  node + rotator; random first tip; first swap 1.2s / then 2s (warm floor often never rotates —
+  one tip per show is the value); reduced-motion static; dropped `"Starting..."` label that
+  stomped the tip on every show. Subtitle CSS: 2-line clamp (instructional lines longer than
+  gags). `tools/loadshots.mjs` tip mirror synced (Decision A gate exception). Test:
+  [loadingScreenGate.test.js](../../tests/loadingScreenGate.test.js) seeds ∈ `LOAD_TIPS`.
+  `npm run qa` 7/7. Not deployed until ship.
+
+---
+
 ### August 7, 2026 — SPAWN-SUNDIAL-GAP-1 PASS: closed a day late, and that lateness is the story
 
 **Wyatt PASS 08-07.** Carts no longer wedge between the Sundial spawn booths and the platform.
