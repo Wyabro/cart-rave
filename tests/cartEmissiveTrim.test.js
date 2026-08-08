@@ -160,4 +160,14 @@ describe("FIX-EMISSIVE — classic carts carry a dimmer trim", () => {
     expect(bodyMat.color.g).toBeCloseTo(raw.g * 0.72, 5);
     expect(bodyMat.color.b).toBeCloseTo(raw.b * 0.72, 5);
   });
+
+  it("9. keeps the patterned valley lift independent from the shared cart base", () => {
+    const patterns = readFileSync(
+      new URL("../src/cartPatterns.js", import.meta.url),
+      "utf8",
+    );
+    expect(patterns).toContain("const PATTERN_OVERLAY_TINT_SCALE = 0.38;");
+    expect(patterns).toContain("multiplyScalar(PATTERN_OVERLAY_TINT_SCALE);");
+    expect(patterns).toContain("PATTERN_OVERLAY_TINT_SCALE * emissiveIntensity");
+  });
 });
