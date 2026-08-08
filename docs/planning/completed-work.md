@@ -13,6 +13,33 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 8, 2026 — CART-COLOR-DEPTH-1 HARD-CLOSED: no signed visual target
+
+- *(Art · Medium)* **CART-COLOR-DEPTH-1** — **HARD-CLOSED 08-08 at Wyatt's direction.** The
+  palette is intentionally not being reopened without new player evidence. Existing committed
+  treatment remains (`3529221`: deeper resting body base; `b69c7ba`: patterned-valley lift), but
+  this definition session produced no human resting-colour PASS and no deployment. A proposed
+  15% retune was discarded before commit. Reopen only with a concrete player-visible target and
+  a valid idle-cart capture; do not treat this closure as colour sign-off.
+
+---
+
+### August 8, 2026 — MENU-CART-1 PASS: desktop menu cart showroom
+
+- *(Engineering · Medium)* **MENU-CART-1** — ✅ **CLOSED PASS 08-08** (commits `5a9c0bb`,
+  `9ba930b`, `dbf8612`; deployed Worker version
+  `032847e4-ccbd-4322-8d55-4a30c82c8130`; Wyatt production PASS). Medium and High desktop menus
+  now render the player's cart right-middle through the existing menu-attract renderer: one GL
+  context, no second loader or rAF. The shared `CartPreview` presentation retains the Sunglasses
+  hero pose, syncs cosmetics after Customize, and suspends while Customize owns its preview.
+  Low, mobile, narrow, and short desktop layouts omit it; reduced motion omits the 16-second
+  showroom ram-feint. The feint rolls the wheels/casters, returns exactly to the hero pose, and
+  fails closed if the overlay render throws. Tests: `menuAttract`, `menuCartShowcase`, and
+  `cartPreviewShowroom`; QA 7/7. Post-deploy: entry plus 16/16 referenced hashed assets returned
+  200, and the deployed bundle contained `menuCartComposerTargetNonNull`.
+
+---
+
 ### August 8, 2026 — RECORD-MED-1 PASS: Medium Classic floor no longer washes white
 
 - *(Engineering · Medium)* **RECORD-MED-1** — ✅ **CLOSED PASS 08-08** (code `125cdd4`; Wyatt PASS).
