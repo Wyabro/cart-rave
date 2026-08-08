@@ -3645,9 +3645,8 @@ html, body {
   width: min(500px, 40vw);
   padding: 26px 30px;
 }
-/* MENU-CART-1 — layout marker only. The cart is drawn into this rectangle by
-   the shared game canvas; no extra canvas, chrome, or pointer target lives here.
-   top 43% / ~1.1× box: sits closer under the name plate with a bit more presence. */
+/* MENU-CART-1 — owned CartPreview canvas (same path as Customize), above the
+   attract dim so grade matches. Transparent clear — no panel chrome. */
 .cr-menu-cart {
   position: absolute;
   right: 6rem;
@@ -3657,6 +3656,15 @@ html, body {
   height: clamp(200px, 26vh, 310px);
   pointer-events: none;
   z-index: 21;
+  overflow: hidden;
+}
+.cr-menu-cart .cr-cart-preview-canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
 }
 .cr-context-kicker {
   font-family: var(--mono); font-size: 11px; letter-spacing: 0.26em; color: var(--color-magenta);

@@ -667,14 +667,12 @@ async function main() {
     probe.__cartRavePerf = { ...probe.__cartRavePerf, scene, camera, composer };
   }
 
-  // * MENU-CART-1: a scene-only CartPreview borrows this renderer after the
-  // * attract composer has finished. It never creates a second desktop canvas/rAF.
+  // * MENU-CART-1: owned CartPreview canvas in the holder (above the attract dim),
+  // * same init/grade path as Customize. Suspend before Customize opens so the
+  // * two previews never hold PMREM on different WebGL contexts at once.
   const menuCartShowcase = createMenuCartShowcase({
-    renderer,
     getMenuVisible: () => gameRefs.menuVisible,
   });
-  // * cart-rave-menu owns the opaque Customize overlay. Its bridge suspends this
-  // * borrowed scene before the overlay creates its existing owned-canvas preview.
   if (window.CartRave) {
     window.CartRave.setMenuCartPreviewSuspended = (suspended) => {
       menuCartShowcase.setSuspended(suspended);
@@ -729,8 +727,7 @@ async function main() {
       // * 20.5ms bar. WARM-IGPU-1 Phase 0b.
       if (tickAutoQuality(frameCostSec, nowMs, "attract")) handleAutoQualityStepDown();
     },
-    // * Direct post-composer pass: CartPreview asserts the default framebuffer,
-    // * scissors to its layout marker, clears only depth, then restores renderer state.
+    // * Menu-cart lifecycle + showroom feint (GL draw is the owned canvas rAF).
     onOverlayRender: (_sharedRenderer, nowMs) => menuCartShowcase.render(nowMs),
   });
 

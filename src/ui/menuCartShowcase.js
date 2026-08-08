@@ -1,10 +1,10 @@
 /**
- * menuCartShowcase.js — desktop menu cart rendered through the shared game canvas.
+ * menuCartShowcase.js — desktop menu cart as an owned CartPreview canvas.
  *
- * The holder is only a layout marker. CartPreview owns a separate Three scene but
- * borrows the already-running menu renderer, so this module adds neither a canvas
- * nor an rAF loop. Customize suspends this scene before it opens its owned-canvas
- * preview because PMREM textures cannot cross WebGL contexts.
+ * Sits in the #cr-menu-cart-holder above the attract dim layer, using the same
+ * init path as Customize. Borrowing the game canvas (initExternal under the dim)
+ * could never match Customize grade without a box or a hole. Suspend/dispose
+ * before Customize opens so PMREM never crosses WebGL contexts.
  */
 
 import { loadPlayerCustomization } from "../customization.js";
@@ -16,13 +16,12 @@ const MIN_WIDTH_PX = 240;
 const MIN_HEIGHT_PX = 180;
 
 /**
- * @param {{ renderer: import("three").WebGLRenderer, getMenuVisible: () => boolean }} deps
+ * @param {{ getMenuVisible: () => boolean }} deps
  */
-export function createMenuCartShowcase({ renderer, getMenuVisible }) {
+export function createMenuCartShowcase({ getMenuVisible }) {
   /** @type {CartPreview | null} */
   let preview = null;
   let suspended = false;
-  let targetFaulted = false;
   let mountedAtMs = 0;
   let feintActive = false;
   const holder = document.getElementById("cr-menu-cart-holder");
@@ -46,7 +45,7 @@ export function createMenuCartShowcase({ renderer, getMenuVisible }) {
   function hasEligibleViewport() {
     if (!(holder instanceof HTMLElement)) return false;
     // * Exact product gate: desktop only, and never add this extra scene at Low.
-    if (suspended || targetFaulted || !getMenuVisible() || window.innerWidth <= 1024 || getQualityTier() === "low") {
+    if (suspended || !getMenuVisible() || window.innerWidth <= 1024 || getQualityTier() === "low") {
       return false;
     }
     holder.hidden = false;
@@ -67,25 +66,30 @@ export function createMenuCartShowcase({ renderer, getMenuVisible }) {
     if (!(holder instanceof HTMLElement) || preview) return;
     const look = loadPlayerCustomization();
     preview = new CartPreview();
-    // * Set fields before initExternal starts its one GLTF load, avoiding a second
+    // * Set fields before init starts its one GLTF load, avoiding a second
     // * short-lived clone when the saved mirror style is not the default.
     syncLook(look);
-    preview.initExternal(renderer, holder);
+    // * Owned canvas above the attract dim — same grade path as Customize.
+    preview.init(holder);
     preview.setHeroPose();
     mountedAtMs = nowMs;
     recordDiagEvent("attract", "menuCartMount", { tier: getQualityTier() });
   }
 
-  /** @param {number} _nowMs Attract callback timestamp; static Lever A pose ignores it. */
-  function render(_nowMs) {
+  /**
+   * Attract-loop tick: gate mount/dispose and drive showroom feint.
+   * GL draw is owned by CartPreview's rAF (not the shared game canvas).
+   * @param {number} nowMs
+   */
+  function render(nowMs) {
     if (!hasEligibleViewport()) {
       disposePreview();
       hide();
       return;
     }
-    mount(_nowMs);
+    mount(nowMs);
     const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true;
-    const nextFeintActive = reducedMotion ? false : preview?.applyShowroomFeint(_nowMs - mountedAtMs) === true;
+    const nextFeintActive = reducedMotion ? false : preview?.applyShowroomFeint(nowMs - mountedAtMs) === true;
     if (reducedMotion) preview?.resetShowroomFeint();
     if (nextFeintActive && !feintActive) {
       recordDiagEvent("attract", "menuCartFeintStart", { cycleMs: 16000 });
@@ -93,15 +97,6 @@ export function createMenuCartShowcase({ renderer, getMenuVisible }) {
       recordDiagEvent("attract", "menuCartFeintEnd", { reason: "cycle" });
     }
     feintActive = nextFeintActive;
-    const result = preview?.renderExternal(renderer);
-    if (result === "targetNonNull") {
-      // * A direct pass into a composer target would be undefined. Make the failure
-      // * inspectable once, hide the marker, and release the borrowed scene.
-      targetFaulted = true;
-      recordDiagEvent("attract", "menuCartComposerTargetNonNull", {});
-      disposePreview();
-      hide();
-    }
   }
 
   /** @param {boolean} next */

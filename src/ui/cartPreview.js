@@ -27,7 +27,7 @@ import {
   buildCartThemeMaterialCache,
   disposeCartThemeResources,
 } from "../cartThemes.js";
-import { applyRendererColorGrading, resolveArenaExposure, setupSceneEnvironment } from "../scene.js";
+import { applyRendererColorGrading, setupSceneEnvironment } from "../scene.js";
 import { getQualityKnobs } from "../utils/qualityTiers.js";
 import {
   applyPreviewPlaceholderColor,
@@ -39,15 +39,6 @@ import {
 import { gameStore, RoundPhase } from "../stores/gameStore.js";
 
 const ROTATION_SPEED_RAD_PER_SEC = 0.45;
-
-/**
- * Attract backdrop over the shared canvas. Keep in lockstep with
- * `.cr-root.cr-root--attract::before { opacity }` in cart-rave-menu.css.
- * Menu cart pixels are drawn UNDER that layer, so the external pass lifts
- * exposure by 1/(1 − opacity) to land near Customize brightness without
- * punching a visible hole in the dim (hard rect = square of undimmed arena).
- */
-const ATTRACT_BACKDROP_OPACITY = 0.42;
 
 /**
  * @param {number | string} value
@@ -212,10 +203,6 @@ export class CartPreview {
     /** @type {number} Camera distance divisor (1.0 = default, 1.35 = 35% closer). */
     this._zoomMultiplier = 1;
 
-    /** Reused render-state snapshots for the shared-renderer menu path. */
-    this._savedViewport = new THREE.Vector4();
-    this._savedScissor = new THREE.Vector4();
-
     /** Rest transform after centering; feint offsets are always relative to this. */
     this._showroomRestPosition = new THREE.Vector3();
     this._showroomLastPosition = new THREE.Vector3();
@@ -279,37 +266,6 @@ export class CartPreview {
     this._lastFrameTime = performance.now();
     this._tick = this._tick.bind(this);
     this._rafId = requestAnimationFrame(this._tick);
-
-    this._showPlaceholder();
-    this._setLoadingState(true);
-    this._rebuildCart();
-  }
-
-  /**
-   * Mounts a scene-only preview that borrows a caller-owned renderer. This mode
-   * deliberately creates no canvas, ResizeObserver, or rAF loop; callers render it
-   * from their existing frame path with {@link renderExternal}.
-   *
-   * @param {THREE.WebGLRenderer} renderer
-   * @param {HTMLElement} container Viewport marker used to derive the scissor rectangle.
-   */
-  initExternal(renderer, container) {
-    if (!renderer || !container) {
-      throw new Error("CartPreview.initExternal: renderer and container are required");
-    }
-    if (this.renderer || this.scene) this.dispose();
-
-    this._disposed = false;
-    this._ownsRenderer = false;
-    this.renderer = renderer;
-    this.container = container;
-    const { width, height } = this._getContentSize();
-    this._createScene(width, height);
-
-    // * PMREM textures belong to their creating WebGL context. This scene is disposed
-    // * before Customize creates its own renderer, and rebuilt when it returns.
-    const env = setupSceneEnvironment(renderer, this.scene);
-    this._disposeEnvironment = env.dispose;
 
     this._showPlaceholder();
     this._setLoadingState(true);
@@ -994,75 +950,6 @@ export class CartPreview {
         this.camera.position.sub(target).multiplyScalar(1 - this._showroomCameraPush).add(target);
       }
     }
-  }
-
-  /**
-   * Draws this scene into its container's rectangle on the borrowed renderer.
-   * This must be called after the owner's final composer/direct arena pass.
-   *
-   * Viewport/scissor coords are CSS (logical) pixels. Three multiplies them by
-   * the renderer pixel ratio itself — pre-scaling by drawing-buffer size double-
-   * applies DPR and slides the cart off the right edge on Windows scaling / high-DPI.
-   *
-   * @param {THREE.WebGLRenderer} renderer
-   * @returns {"rendered"|"unavailable"|"tooSmall"|"targetNonNull"}
-   */
-  renderExternal(renderer) {
-    if (
-      this._disposed
-      || this._ownsRenderer
-      || renderer !== this.renderer
-      || !this.container
-      || !this.scene
-      || !this.camera
-    ) {
-      return "unavailable";
-    }
-
-    // * The composer should have returned to the default framebuffer before this
-    // * direct pass. Never draw into an unknown intermediate target.
-    if (renderer.getRenderTarget() !== null) return "targetNonNull";
-
-    const holderRect = this.container.getBoundingClientRect();
-    const canvasRect = renderer.domElement.getBoundingClientRect();
-    if (holderRect.width < 1 || holderRect.height < 1 || canvasRect.width < 1 || canvasRect.height < 1) {
-      return "tooSmall";
-    }
-
-    // * Logical pixels relative to the canvas CSS box (Three setViewport/setScissor
-    // * contract). Y is from the bottom edge, matching WebGL / Three.
-    const x = holderRect.left - canvasRect.left;
-    const y = canvasRect.bottom - holderRect.bottom;
-    const width = holderRect.width;
-    const height = holderRect.height;
-    if (width < 1 || height < 1) return "tooSmall";
-
-    this._resizeTo(width, height);
-    renderer.getViewport(this._savedViewport);
-    renderer.getScissor(this._savedScissor);
-    const wasScissorTest = renderer.getScissorTest();
-    const wasAutoClear = renderer.autoClear;
-    const prevExposure = renderer.toneMappingExposure;
-    try {
-      renderer.autoClear = false;
-      renderer.setViewport(x, y, width, height);
-      renderer.setScissor(x, y, width, height);
-      renderer.setScissorTest(true);
-      // * Customize grade × attract-dim compensation. No solid clear (box) and
-      // * no CSS hole in the dim (undimmed arena square). Depth-only so the cart
-      // * floats on the arena with a soft ground disk, not a hard rect.
-      const transmit = 1 - ATTRACT_BACKDROP_OPACITY;
-      renderer.toneMappingExposure = resolveArenaExposure() / Math.max(transmit, 0.01);
-      renderer.clearDepth();
-      renderer.render(this.scene, this.camera);
-    } finally {
-      renderer.toneMappingExposure = prevExposure;
-      renderer.setViewport(this._savedViewport);
-      renderer.setScissor(this._savedScissor);
-      renderer.setScissorTest(wasScissorTest);
-      renderer.autoClear = wasAutoClear;
-    }
-    return "rendered";
   }
 
   /**

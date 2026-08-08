@@ -3,7 +3,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
   quality: "high",
-  renderResult: "rendered",
   instances: [],
   record: vi.fn(),
 }));
@@ -21,6 +20,7 @@ vi.mock("../src/ui/cartPreview.js", () => ({
   CartPreview: class {
     constructor() {
       this.cartGroup = null;
+      this.init = vi.fn();
       this.initExternal = vi.fn();
       this.setColor = vi.fn();
       this.setPattern = vi.fn();
@@ -28,7 +28,7 @@ vi.mock("../src/ui/cartPreview.js", () => ({
       this.setHeroPose = vi.fn();
       this.applyShowroomFeint = vi.fn(() => false);
       this.resetShowroomFeint = vi.fn();
-      this.renderExternal = vi.fn(() => state.renderResult);
+      this.renderExternal = vi.fn();
       this.dispose = vi.fn();
       state.instances.push(this);
     }
@@ -40,7 +40,6 @@ let showcaseModule;
 
 beforeEach(async () => {
   state.quality = "high";
-  state.renderResult = "rendered";
   state.instances = [];
   state.record.mockReset();
   document.body.innerHTML = '<div id="cr-menu-cart-holder" hidden></div>';
@@ -56,18 +55,19 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("menu cart showcase gates", () => {
-  it("mounts one static shared preview only on desktop Medium/High", () => {
+describe("menu cart showcase", () => {
+  it("mounts an owned CartPreview (Customize path) only on desktop Medium/High", () => {
     const showcase = showcaseModule.createMenuCartShowcase({
-      renderer: /** @type {any} */ ({}),
       getMenuVisible: () => true,
     });
 
     showcase.render(100);
     const preview = state.instances[0];
-    expect(preview.initExternal).toHaveBeenCalledTimes(1);
+    expect(preview.init).toHaveBeenCalledTimes(1);
+    expect(preview.initExternal).not.toHaveBeenCalled();
     expect(preview.setHeroPose).toHaveBeenCalledTimes(1);
-    expect(preview.renderExternal).toHaveBeenCalledTimes(1);
+    // * Owned rAF draws; attract tick only drives feint.
+    expect(preview.renderExternal).not.toHaveBeenCalled();
 
     state.quality = "low";
     showcase.render(140);
@@ -75,18 +75,14 @@ describe("menu cart showcase gates", () => {
     expect(document.getElementById("cr-menu-cart-holder").hidden).toBe(true);
   });
 
-  it("fails closed rather than drawing into a non-default composer target", () => {
-    state.renderResult = "targetNonNull";
+  it("disposes the owned canvas when suspended for Customize", () => {
     const showcase = showcaseModule.createMenuCartShowcase({
-      renderer: /** @type {any} */ ({}),
       getMenuVisible: () => true,
     });
-
     showcase.render(100);
-    showcase.render(140);
-
-    expect(state.record).toHaveBeenCalledWith("attract", "menuCartComposerTargetNonNull", {});
-    expect(state.instances).toHaveLength(1);
-    expect(state.instances[0].dispose).toHaveBeenCalledTimes(1);
+    const preview = state.instances[0];
+    showcase.setSuspended(true);
+    expect(preview.dispose).toHaveBeenCalledTimes(1);
+    expect(document.getElementById("cr-menu-cart-holder").hidden).toBe(true);
   });
 });
