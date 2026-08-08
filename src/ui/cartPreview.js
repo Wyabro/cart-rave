@@ -112,6 +112,9 @@ export class CartPreview {
     /** @type {THREE.WebGLRenderer | null} */
     this.renderer = null;
 
+    /** @type {boolean} Whether this preview created and must dispose `renderer`. */
+    this._ownsRenderer = false;
+
     /** @type {THREE.Scene | null} */
     this.scene = null;
 
@@ -183,6 +186,11 @@ export class CartPreview {
 
     /** @type {number} Camera distance divisor (1.0 = default, 1.35 = 35% closer). */
     this._zoomMultiplier = 1;
+
+    /** Reused render-state snapshots for the shared-renderer menu path. */
+    this._savedViewport = new THREE.Vector4();
+    this._savedScissor = new THREE.Vector4();
+    this._drawingBufferSize = new THREE.Vector2();
   }
 
   /**
@@ -195,63 +203,16 @@ export class CartPreview {
       throw new Error("CartPreview.init: container is required");
     }
 
-    if (this.renderer) {
+    if (this.renderer || this.scene) {
       this.dispose();
     }
 
     this._disposed = false;
+    this._ownsRenderer = true;
     this.container = container;
 
     const { width, height } = this._getContentSize();
-
-    this.scene = new THREE.Scene();
-    this.scene.background = null;
-
-    this.camera = new THREE.PerspectiveCamera(42, width / height, 0.1, 50);
-
-    const hemi = new THREE.HemisphereLight(0x9eb8ff, 0x1a0a1e, 0.42);
-    this.scene.add(hemi);
-
-    const ambient = new THREE.AmbientLight(0xffffff, 0.28);
-    this.scene.add(ambient);
-
-    const keyLight = new THREE.DirectionalLight(0xffffff, 1.2);
-    keyLight.position.set(2.8, 4.5, 3.5);
-    this.scene.add(keyLight);
-
-    const fillLight = new THREE.DirectionalLight(0x88ccff, 0.45);
-    fillLight.position.set(-3, 2.2, 1.5);
-    this.scene.add(fillLight);
-
-    const rimLight = new THREE.DirectionalLight(0xff44dd, 0.5);
-    rimLight.position.set(-0.5, 2.5, -4.2);
-    this.scene.add(rimLight);
-
-    this._stageGroup = new THREE.Group();
-    const groundGeo = new THREE.CircleGeometry(1.85, 48);
-    const groundMat = new THREE.MeshStandardMaterial({
-      color: 0x0a0612,
-      metalness: 0.15,
-      roughness: 0.94,
-    });
-    const ground = new THREE.Mesh(groundGeo, groundMat);
-    ground.rotation.x = -Math.PI / 2;
-    ground.position.y = 0.002;
-    this._stageGroup.add(ground);
-
-    const shadowGeo = new THREE.CircleGeometry(0.95, 32);
-    const shadowMat = new THREE.MeshBasicMaterial({
-      color: 0x000000,
-      transparent: true,
-      opacity: 0.38,
-      depthWrite: false,
-    });
-    const shadowDisk = new THREE.Mesh(shadowGeo, shadowMat);
-    shadowDisk.rotation.x = -Math.PI / 2;
-    shadowDisk.position.y = 0.008;
-    shadowDisk.renderOrder = 1;
-    this._stageGroup.add(shadowDisk);
-    this.scene.add(this._stageGroup);
+    this._createScene(width, height);
 
     // * Preview obeys the quality tier like the main renderer: MSAA + full DPR are
     // * a hidden cost on phones (this canvas previously ignored quality entirely).
@@ -285,6 +246,90 @@ export class CartPreview {
     this._showPlaceholder();
     this._setLoadingState(true);
     this._rebuildCart();
+  }
+
+  /**
+   * Mounts a scene-only preview that borrows a caller-owned renderer. This mode
+   * deliberately creates no canvas, ResizeObserver, or rAF loop; callers render it
+   * from their existing frame path with {@link renderExternal}.
+   *
+   * @param {THREE.WebGLRenderer} renderer
+   * @param {HTMLElement} container Viewport marker used to derive the scissor rectangle.
+   */
+  initExternal(renderer, container) {
+    if (!renderer || !container) {
+      throw new Error("CartPreview.initExternal: renderer and container are required");
+    }
+    if (this.renderer || this.scene) this.dispose();
+
+    this._disposed = false;
+    this._ownsRenderer = false;
+    this.renderer = renderer;
+    this.container = container;
+    const { width, height } = this._getContentSize();
+    this._createScene(width, height);
+
+    // * PMREM textures belong to their creating WebGL context. This scene is disposed
+    // * before Customize creates its own renderer, and rebuilt when it returns.
+    const env = setupSceneEnvironment(renderer, this.scene);
+    this._disposeEnvironment = env.dispose;
+
+    this._showPlaceholder();
+    this._setLoadingState(true);
+    this._rebuildCart();
+  }
+
+  /**
+   * Builds the context-independent preview scene. Renderer ownership stays with the
+   * caller, which is why IBL setup happens in each public init path instead.
+   * @param {number} width
+   * @param {number} height
+   * @private
+   */
+  _createScene(width, height) {
+    this.scene = new THREE.Scene();
+    this.scene.background = null;
+    this.camera = new THREE.PerspectiveCamera(42, width / height, 0.1, 50);
+
+    const hemi = new THREE.HemisphereLight(0x9eb8ff, 0x1a0a1e, 0.42);
+    this.scene.add(hemi);
+    const ambient = new THREE.AmbientLight(0xffffff, 0.28);
+    this.scene.add(ambient);
+    const keyLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    keyLight.position.set(2.8, 4.5, 3.5);
+    this.scene.add(keyLight);
+    const fillLight = new THREE.DirectionalLight(0x88ccff, 0.45);
+    fillLight.position.set(-3, 2.2, 1.5);
+    this.scene.add(fillLight);
+    const rimLight = new THREE.DirectionalLight(0xff44dd, 0.5);
+    rimLight.position.set(-0.5, 2.5, -4.2);
+    this.scene.add(rimLight);
+
+    this._stageGroup = new THREE.Group();
+    const groundGeo = new THREE.CircleGeometry(1.85, 48);
+    const groundMat = new THREE.MeshStandardMaterial({
+      color: 0x0a0612,
+      metalness: 0.15,
+      roughness: 0.94,
+    });
+    const ground = new THREE.Mesh(groundGeo, groundMat);
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.y = 0.002;
+    this._stageGroup.add(ground);
+
+    const shadowGeo = new THREE.CircleGeometry(0.95, 32);
+    const shadowMat = new THREE.MeshBasicMaterial({
+      color: 0x000000,
+      transparent: true,
+      opacity: 0.38,
+      depthWrite: false,
+    });
+    const shadowDisk = new THREE.Mesh(shadowGeo, shadowMat);
+    shadowDisk.rotation.x = -Math.PI / 2;
+    shadowDisk.position.y = 0.008;
+    shadowDisk.renderOrder = 1;
+    this._stageGroup.add(shadowDisk);
+    this.scene.add(this._stageGroup);
   }
 
   /**
@@ -369,6 +414,15 @@ export class CartPreview {
       const { width, height } = this._getContentSize();
       frameCartInCamera(this.camera, this.cartGroup, width / height, multiplier);
     }
+  }
+
+  /**
+   * Matches the close, readable pose used by the Sunglasses customization tab.
+   * Kept as a named pose so menu art and the tab cannot silently drift apart.
+   */
+  setHeroPose() {
+    this.setAutoRotate(false);
+    this.setZoom(1.35);
   }
 
   /**
@@ -712,14 +766,15 @@ export class CartPreview {
     this._disposeEnvironment?.();
     this._disposeEnvironment = null;
 
-    this.renderer?.dispose();
+    if (this._ownsRenderer) this.renderer?.dispose();
 
-    if (this.renderer?.domElement?.parentElement === this.container) {
+    if (this._ownsRenderer && this.renderer?.domElement?.parentElement === this.container) {
       this.container.removeChild(this.renderer.domElement);
     }
 
     this.container = null;
     this.renderer = null;
+    this._ownsRenderer = false;
     this.scene = null;
     this.camera = null;
     this._stageGroup = null;
@@ -799,11 +854,74 @@ export class CartPreview {
 
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
-    this.renderer.setSize(w, h, false);
+    if (this._ownsRenderer) this.renderer.setSize(w, h, false);
 
     if (this.cartGroup) {
       frameCartInCamera(this.camera, this.cartGroup, w / h, this._zoomMultiplier);
     }
+  }
+
+  /**
+   * Draws this scene into its container's rectangle on the borrowed renderer.
+   * This must be called after the owner's final composer/direct arena pass.
+   *
+   * @param {THREE.WebGLRenderer} renderer
+   * @returns {"rendered"|"unavailable"|"tooSmall"|"targetNonNull"}
+   */
+  renderExternal(renderer) {
+    if (
+      this._disposed
+      || this._ownsRenderer
+      || renderer !== this.renderer
+      || !this.container
+      || !this.scene
+      || !this.camera
+    ) {
+      return "unavailable";
+    }
+
+    // * The composer should have returned to the default framebuffer before this
+    // * direct pass. Never draw into an unknown intermediate target.
+    if (renderer.getRenderTarget() !== null) return "targetNonNull";
+
+    const holderRect = this.container.getBoundingClientRect();
+    const canvasRect = renderer.domElement.getBoundingClientRect();
+    if (holderRect.width < 1 || holderRect.height < 1 || canvasRect.width < 1 || canvasRect.height < 1) {
+      return "tooSmall";
+    }
+
+    renderer.getDrawingBufferSize(this._drawingBufferSize);
+    const scaleX = this._drawingBufferSize.x / canvasRect.width;
+    const scaleY = this._drawingBufferSize.y / canvasRect.height;
+    const x = Math.round((holderRect.left - canvasRect.left) * scaleX);
+    const width = Math.round(holderRect.width * scaleX);
+    const height = Math.round(holderRect.height * scaleY);
+    const y = Math.round(
+      this._drawingBufferSize.y - (holderRect.bottom - canvasRect.top) * scaleY,
+    );
+    if (width < 1 || height < 1) return "tooSmall";
+
+    this._resizeTo(width, height);
+    renderer.getViewport(this._savedViewport);
+    renderer.getScissor(this._savedScissor);
+    const wasScissorTest = renderer.getScissorTest();
+    const wasAutoClear = renderer.autoClear;
+    try {
+      renderer.autoClear = false;
+      renderer.setViewport(x, y, width, height);
+      renderer.setScissor(x, y, width, height);
+      renderer.setScissorTest(true);
+      // * Preserve the composed arena colour underneath while ensuring its depth
+      // * buffer cannot occlude this independent preview scene.
+      renderer.clearDepth();
+      renderer.render(this.scene, this.camera);
+    } finally {
+      renderer.setViewport(this._savedViewport);
+      renderer.setScissor(this._savedScissor);
+      renderer.setScissorTest(wasScissorTest);
+      renderer.autoClear = wasAutoClear;
+    }
+    return "rendered";
   }
 
   /**

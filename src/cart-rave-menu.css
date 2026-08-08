@@ -3645,6 +3645,18 @@ html, body {
   width: min(500px, 40vw);
   padding: 26px 30px;
 }
+/* MENU-CART-1 — layout marker only. The cart is drawn into this rectangle by
+   the shared game canvas; no extra canvas, chrome, or pointer target lives here. */
+.cr-menu-cart {
+  position: absolute;
+  right: 6rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: min(420px, 34vw);
+  height: clamp(180px, 24vh, 280px);
+  pointer-events: none;
+  z-index: 21;
+}
 .cr-context-kicker {
   font-family: var(--mono); font-size: 11px; letter-spacing: 0.26em; color: var(--color-magenta);
 }
@@ -3763,10 +3775,16 @@ html, body {
     position: static; inset: auto; right: auto; left: auto; bottom: auto; top: auto;
     width: min(480px, 94vw);
   }
+  .cr-menu-cart { display: none; }
   /* padding-top is the desktop column's 60px top anchor — the stacked band gets
      its spacing from .cr-content's padding, so drop it or it doubles up. */
   .cr-hero { justify-content: flex-start; padding-top: 0; }
   .cr-context { order: 3; }
+}
+/* The player plate and context panel own the right column on a short desktop.
+   The showcase controller sees the resulting zero rect and releases its scene. */
+@media (min-width: 1025px) and (max-height: 680px) {
+  .cr-menu-cart { display: none; }
 }
 @media (max-width: 768px) {
   .cr-hintbar { gap: 12px; padding: 12px 16px; font-size: 11px; }

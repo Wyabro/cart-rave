@@ -948,8 +948,12 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
     });
     // * Freeze auto-rotation on the Sunglasses tab so the mirror finish is readable.
     if (cartPreview) {
-      cartPreview.setAutoRotate(tabId !== 'sunglasses');
-      cartPreview.setZoom(tabId === 'sunglasses' ? 1.35 : 1.0);
+      if (tabId === 'sunglasses') {
+        cartPreview.setHeroPose();
+      } else {
+        cartPreview.setAutoRotate(true);
+        cartPreview.setZoom(1.0);
+      }
     }
   }
 
@@ -1035,6 +1039,9 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
     captureOverlayOpener();
     wireCustomHueSlider();
     updateCustomHueUi();
+    // * The desktop menu cart borrows the game renderer. Release that scene before
+    // * opening this opaque, owned-canvas preview so PMREM textures never cross contexts.
+    window.CartRave?.setMenuCartPreviewSuspended?.(true);
     mountCartPreview();
     renderCustomizePreview();
     buildColorChips();
@@ -1080,6 +1087,7 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
       abortIf: () => customizeScreen.getAttribute('aria-hidden') === 'false',
     });
     applyPalette();
+    window.CartRave?.setMenuCartPreviewSuspended?.(false);
     restoreOverlayFocus();
   }
 
@@ -2643,6 +2651,7 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
       closeHowToScreen();
       closeChallengesScreen();
       closeSettingsScreen();
+      window.CartRave?.setMenuCartPreviewSuspended?.(true);
       if (root) root.style.display = 'none';
     },
     show() {
@@ -2661,6 +2670,7 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
       playMenuEntrance();
       startMenuAnimations();
       applyHowToAttract();
+      window.CartRave?.setMenuCartPreviewSuspended?.(false);
     },
     /** Shows menu shell without entrance animation (quit-to-menu, post-bootstrap). */
     revealShell() {
@@ -2676,6 +2686,7 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
       wireAllMenuPressFeedback();
       startMenuAnimations();
       applyHowToAttract();
+      window.CartRave?.setMenuCartPreviewSuspended?.(false);
     },
     wireMenuButton(btn, entranceOptions) {
       registerMenuButton(btn, entranceOptions);

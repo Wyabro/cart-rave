@@ -77,6 +77,7 @@ import {
   scheduleIdleWorldWarm,
 } from "./bootstrap.js";
 import { initMenuAttract, startMenuAttract } from "./ui/menuAttract.js";
+import { createMenuCartShowcase } from "./ui/menuCartShowcase.js";
 import {
   getIsMuted,
   getMusicVolume,
@@ -666,6 +667,20 @@ async function main() {
     probe.__cartRavePerf = { ...probe.__cartRavePerf, scene, camera, composer };
   }
 
+  // * MENU-CART-1: a scene-only CartPreview borrows this renderer after the
+  // * attract composer has finished. It never creates a second desktop canvas/rAF.
+  const menuCartShowcase = createMenuCartShowcase({
+    renderer,
+    getMenuVisible: () => gameRefs.menuVisible,
+  });
+  // * cart-rave-menu owns the opaque Customize overlay. Its bridge suspends this
+  // * borrowed scene before the overlay creates its existing owned-canvas preview.
+  if (window.CartRave) {
+    window.CartRave.setMenuCartPreviewSuspended = (suspended) => {
+      menuCartShowcase.setSuspended(suspended);
+    };
+  }
+
   // * Attract-mode arena backdrop: renders the idle-warmed arena behind the
   // * menu on its own throttled loop (the game loop skips while menuVisible).
   initMenuAttract({
@@ -714,6 +729,9 @@ async function main() {
       // * 20.5ms bar. WARM-IGPU-1 Phase 0b.
       if (tickAutoQuality(frameCostSec, nowMs, "attract")) handleAutoQualityStepDown();
     },
+    // * Direct post-composer pass: CartPreview asserts the default framebuffer,
+    // * scissors to its layout marker, clears only depth, then restores renderer state.
+    onOverlayRender: (_sharedRenderer, nowMs) => menuCartShowcase.render(nowMs),
   });
 
   let devControl = null;

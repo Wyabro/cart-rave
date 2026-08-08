@@ -702,6 +702,11 @@
         </div>
       </div>
 
+      <!-- Desktop-only layout marker for the shared-canvas menu cart. It owns no
+           canvas or controls: menuCartShowcase renders into this rect after the
+           arena compositor has finished. -->
+      <div class="cr-menu-cart" id="cr-menu-cart-holder" aria-hidden="true" hidden></div>
+
       <!-- BOTTOM-RIGHT: context panel (driven by the highlighted command) -->
       <div class="cr-context" id="cr-context">
         <div class="cr-context-kicker" id="cr-context-kicker">SOLO · VS BOTS</div>
