@@ -128,6 +128,20 @@ the dev loop (dev probes lie in prod · edge propagation · frozen `rAF`), or a 
 
 ## Last updated
 
+2026-08-07 (ONBOARD-ART-1 — HOW TO PLAY art rig landed; Block 2 pre-ship at Wyatt's call) —
+The deck now takes art as a **drop-in directory**: drop `<token>.webp` (`drive` / `boost` /
+`ram` / `hud` / `cargo`) into [src/assets/howto/](../src/assets/howto/README.md) and that slot
+turns on at the next build; no file → the slot stays dark, so the deck reads identical to the
+playtested text-only deck. Optional `<token>.still.webp` swaps in under
+`prefers-reduced-motion`. AISLE 4's callouts are gated behind `data-callouts="aimed"` and stay
+hidden until the real frame lands and `--x`/`--y` are re-aimed. Verified in preview: qa 7/7,
+prod build, zero-art regression (all 8 slides single-column), throwaway-file positive (AISLE 1
+two-column + art), phone 375×812 (art inside 30svh, copy visible) and landscape 740×360 (art
+dropped). The phone sweep caught a specificity trap — rekeying the desktop `:has()` rules to
+`[data-art]` raised them to (0,3,0), so the phone/landscape one-column bands had to be rekeyed
+too or an art slide squeezed into `286px 0px`. **Remaining:** Wyatt's webp captures + callout
+aim. Do not shoot with `npm run shoot` (SHOOT-SOFTGL-1).
+
 2026-08-07 (SPAWN-SUNDIAL-GAP-1 PASS + BACKLOG-GATE-3) — Sundial booth gap PASS; the fix had
 already shipped 08-06 (`92c44f2`) under another card's commit subject and the row survived a full
 day, so **BACKLOG-GATE-3** landed alongside it: a `commit-msg` hook (one card claim per code
@@ -149,23 +163,17 @@ H1's first 3 desk-only levers landed same session — `CONNSTATE-REFLIP-1`, `LAS
 `FREEZE-TELEMETRY-1` (writeups in
 [completed-work.md](./planning/completed-work.md)).
 
-2026-08-07 (PACE-KO-1 deployed `157bf81`; player check owed) — An attributed attacker now gets the
-existing KO hitmarker/sting/flash as the victim crosses the shared below-rim no-return marker;
-the per-arena fall depth, shatter/explosion, score, announcer, and respawn timing are unchanged.
-Host sends the presentation-only confirm over P2P; the later full KO remains the loss-safe
-fallback if that packet drops. Targeted 60/60 passes; the deferred bridge test first caught and
-then verified the required callback seam. Full QA/build/two-client verification and the three-arena
-player check remain before the card can close. Worker `7ea75009-7068-44b8-b54d-4ac73f4d5cea` is
-live; production HTML + 16 referenced assets returned 0×404 and the deployed bundle contains
-`ko_confirm`.
-
-2026-08-07 (COMBAT-READ-1 deployed `157bf81`; player check owed) — Critical KOs now amplify the existing
-arena flash + world hitmarker on every peer; normal/self KOs are unchanged. Targeted 50/50, full
-QA 7/7, production build, and two-client harness 6/6 PASSed. The first verification attempt found
-a partial dependency checkout (`.bin` + Workers pool missing); `npm install --ignore-scripts`
-restored it. Local Worker tests need sandbox escape because Wrangler writes under AppData. The only
-remaining evidence is the two-player player-visible check in BACKLOG. Worker
-`7ea75009-7068-44b8-b54d-4ac73f4d5cea` is live under the same production verification.
+2026-08-07 (PACE-KO-1 + COMBAT-READ-1 deployed `157bf81`; player checks owed) — Attributed KOs now
+show the existing KO hitmarker/sting/flash as the victim crosses the shared below-rim no-return
+marker (host sends the presentation-only confirm over P2P; the later full KO remains the loss-safe
+fallback if that packet drops; fall depth / shatter / score / announcer / respawn timing unchanged),
+and Critical KOs amplify the existing arena flash + world hitmarker on every peer; normal/self KOs
+unchanged. PACE-KO-1 targeted 60/60 with the deferred bridge test first catching then verifying the
+required callback seam; COMBAT-READ-1 targeted 50/50, full QA 7/7, production build, two-client
+harness 6/6 (its first verification hit a partial dependency checkout — `npm install --ignore-scripts`
+restored it; local Worker tests need sandbox escape because Wrangler writes under AppData). Worker
+`7ea75009-7068-44b8-b54d-4ac73f4d5cea` is live under the same production verification. Remaining:
+the player-visible checks in BACKLOG.
 
 2026-08-05 (AGENT-OS-1 tooling) — Cold-start cut: `AGENTS.md` 7.6k → ~1.6k always-on tokens;
 depth in `docs/reference/agent-manual.md`. Tool routing: Grok ≡ Codex, Claude demoted. Pointers
