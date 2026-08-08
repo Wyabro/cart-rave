@@ -385,7 +385,10 @@ const RAVE_GLTF_V4_FORK_GROUPS = Object.freeze([
     label: "backLeft",
     swivelHub: "tripo_part_12",
     wheel: "tripo_part_2",
-    forkParts: Object.freeze(["tripo_part_5", "tripo_part_21"]),
+    // * CART-FORK-SWIVEL-1: tripo_part_23 is the mirror twin of BR's tripo_part_22
+    // * (same x -0.148, mirrored z +0.236 vs -0.235). Without it, the piece stayed
+    // * model-static while the rest of the BL caster swiveled.
+    forkParts: Object.freeze(["tripo_part_5", "tripo_part_21", "tripo_part_23"]),
   },
   {
     id: 3,
@@ -444,8 +447,7 @@ const RAVE_GLTF_PART_ROLES_V4 = Object.freeze({
   // * `role === "trim" && srcMat.map` branch), so this rendered basket-pink and glowing down
   // * among the white casters. It is the mirror twin of tripo_part_22 (same x -0.148,
   // * mirrored z +0.236 vs -0.235, 29 vs 26 verts), which was already "fork".
-  // * Still in no fork group, so it does not swivel with its caster the way part_22 does —
-  // * that is CART-FORK-SWIVEL-1, deliberately not folded in here.
+  // * Swivel membership: backLeft.forkParts (CART-FORK-SWIVEL-1).
   tripo_part_23: "fork",
 });
 

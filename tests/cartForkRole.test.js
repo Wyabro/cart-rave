@@ -1,14 +1,18 @@
-// cartForkRole.test.js — CART-FORK-1.
+// cartForkRole.test.js — CART-FORK-1 + CART-FORK-SWIVEL-1.
 //
 // * Source asserts, not a render test: cartRaveGltf.js is three.js-heavy and the repo gates
 // * rendering visually (SHIP-1 § "Rendering coverage — handled differently"). What IS worth
 // * pinning is the pure data table, because CART-MODEL-1 will re-author this model and a
 // * re-import is exactly how a part quietly lands back in the wrong bucket.
 //
-// * The bug: a "trim" part WITH an albedo map is treated as a neon wire segment on the
+// * CART-FORK-1: a "trim" part WITH an albedo map is treated as a neon wire segment on the
 // * basket and takes the body bloom mask. tripo_part_23 is a tiny caster-level piece, so it
 // * rendered basket-pink and glowing down among the white forks, while its mirror twin
 // * tripo_part_22 (same x, mirrored z) was correctly "fork".
+//
+// * CART-FORK-SWIVEL-1: role alone is not enough — buildRaveGltfCasterCorner only reparents
+// * meshes listed in RAVE_GLTF_V4_FORK_GROUPS.forkParts. part_23 must sit in backLeft with
+// * its twin part_22 in backRight. Source pins membership; live steer still owns done.
 
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
@@ -27,6 +31,23 @@ function roleOf(part) {
   );
   const m = new RegExp(`\\b${part}:\\s*"([a-z]+)"`).exec(table);
   return m ? m[1] : null;
+}
+
+/**
+ * forkParts array for one RAVE_GLTF_V4_FORK_GROUPS entry by corner label.
+ * @param {string} label
+ * @returns {string[]}
+ */
+function forkPartsOf(label) {
+  const groups = src.slice(
+    src.indexOf("const RAVE_GLTF_V4_FORK_GROUPS"),
+    src.indexOf("RAVE_GLTF_CASTER_CORNER_SIGNS"),
+  );
+  const block = new RegExp(
+    `label:\\s*"${label}"[\\s\\S]*?forkParts:\\s*Object\\.freeze\\(\\[([^\\]]+)\\]\\)`,
+  ).exec(groups);
+  if (!block) return [];
+  return [...block[1].matchAll(/"([^"]+)"/g)].map((m) => m[1]);
 }
 
 describe("CART-FORK-1 — cartrave4 part roles", () => {
@@ -61,5 +82,20 @@ describe("CART-FORK-1 — cartrave4 part roles", () => {
     // * the asserts above and break the cart's look.
     expect(roleOf("tripo_part_15")).toBe("trim");
     expect(roleOf("tripo_part_16")).toBe("trim");
+  });
+});
+
+describe("CART-FORK-SWIVEL-1 — rear fork group membership", () => {
+  it("tripo_part_23 is in backLeft forkParts (not orphaned)", () => {
+    expect(forkPartsOf("backLeft")).toContain("tripo_part_23");
+  });
+
+  it("keeps mirror twins on opposite rear casters", () => {
+    // * part_22 (z -0.235) → BR; part_23 (z +0.236) → BL. Both must be listed or one side
+    // * stays model-static while its caster steers — the SWIVEL defect.
+    expect(forkPartsOf("backRight")).toContain("tripo_part_22");
+    expect(forkPartsOf("backLeft")).toContain("tripo_part_23");
+    expect(forkPartsOf("backLeft")).not.toContain("tripo_part_22");
+    expect(forkPartsOf("backRight")).not.toContain("tripo_part_23");
   });
 });
