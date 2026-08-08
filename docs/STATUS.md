@@ -75,6 +75,7 @@ Live rows only. Shipped and closed cards live in
    **MENU-CART-1** ✅ production PASS 08-08 (`dbf8612`);
    **PAD-MENU-1** ✅ PASS 08-08 (pad menu nav polish; commits `674d84d`–`1213ce9`);
    **ARENA-BUMPER-HINT-1** ✅ production PASS 08-08 (`2b7b872`, Worker `547bcecc`).
+   **UI-FRAME-1 + ESC-PANEL-1** ✅ closed 08-08 — absorbed by the Fight Night redesign + RESULTS-1.
    Block 2 next: **ONBOARD-ART-1** (then VOICE-BUS-1 · CHUNK-DEFER-1 · …).
 2. **Open / REACHABLE:** CARGO-LATCH-1 · **CHUNK-DEFER-1** (dynamic-import residual of closed
    CHUNK-MEMBER-1). Block I desk-only wave closed 08-07 (PERF-RENDERINFO-1 · NET-RING-1 ·
@@ -133,6 +134,14 @@ the dev loop (dev probes lie in prod · edge propagation · frozen `rAF`), or a 
 
 ## Last updated
 
+2026-08-08 (UI-FRAME-1 + ESC-PANEL-1 closed — absorbed) — Both `[SHIP-1 E1]` look rows audited:
+their intent already shipped under the Fight Night redesign (ESC pause 7f via `2192461` + `c5be94f`
++ 3 fix rounds, shared slab shell `87790dc`) and RESULTS-1 (7g); no commit ever cited either ID.
+Closed as absorbed — BACKLOG rows + Work-order entry deleted, SHIP-1 E1 updated, both IDs on the
+do-not-reopen list, writeup in [completed-work.md](./planning/completed-work.md). **Named
+residual:** a paused player cannot read standings (7f deliberately dropped the ESC scoring chart;
+it now lives on HOW TO PLAY AISLE 7) — fresh card only if Wyatt wants it back.
+
 2026-08-08 (PAD-MENU-1 PASS — controller menu navigation polish) — Four pad-nav levers closed
 after the 07-20 modal-scoping groundwork: text inputs + the whole `#cr-join` row (room-code +
 GO) out of the pad/keyboard ring (FRIENDS ↓ → CUSTOMIZE), bare `input[type=range]` nudged by
@@ -190,20 +199,4 @@ restored it; local Worker tests need sandbox escape because Wrangler writes unde
 `7ea75009-7068-44b8-b54d-4ac73f4d5cea` is live under the same production verification. Remaining:
 the player-visible checks in BACKLOG.
 
-2026-08-05 (AGENT-OS-1 tooling) — Cold-start cut: `AGENTS.md` 7.6k → ~1.6k always-on tokens;
-depth in `docs/reference/agent-manual.md`. Tool routing: Grok ≡ Codex, Claude demoted. Pointers
-rewritten (`GROK.md` / `CLAUDE.md` / `GEMINI.md` / `.cursorrules`). Seven David skills at
-`~/.grok/skills` + `~/.codex/skills` (not vendored into repo). Left for later: `skills:sync`
-still health-gates the Claude repo mirror; optional Grok config skill prune.
-
-2026-08-05 (BUNDLE-E-PT-1 PASS) — Lever E's deferred-callback seam playtested on prod `f2f90fd2`,
-6/6 incl. the two-machine friends round. That seam fails **silent**, so the human pass is the only
-evidence KO effects / announcer / directives / cargo / colours survived the split — the unit test
-proves key parity, nothing more. No correctness residual on BUNDLE-1's partial close. Also: Wyatt's
-**one-issue-per-playtest-card** rule adopted (AGENTS.md + BACKLOG seed header; enforcement =
-PT-CARD-SPLIT-1), **HUD-TOAST-Z-1** filed, fragile-tag audit rewrote `boot-and-orchestration`.
-
-2026-08-05 (BUNDLE-1 CLOSED PARTIAL, **deployed `f2f90fd2`**) — six levers, perf goal missed, byte
-hypothesis falsified; `size:check` membership re-keyed on modules. [bundle-1.md §0](./planning/bundle-1.md)
-
-Older session logs (2026-08-04 and earlier): [archive/README.md](./archive/README.md).
+Older session logs (2026-08-05 and earlier): [archive/README.md](./archive/README.md).

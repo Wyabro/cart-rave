@@ -13,6 +13,26 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 8, 2026 — UI-FRAME-1 + ESC-PANEL-1 closed: absorbed by Fight Night + RESULTS-1
+
+- *(UI / UX · Medium)* **UI-FRAME-1** — ✅ **CLOSED 08-08 — absorbed.** "Premium frame/panel
+  styling pass" shipped under the Fight Night redesign (3a menu · 6a HUD · 7a–7g; shared overlay
+  shell → slab material, `87790dc`; handover
+  [fight-night-ui-handover.md](./fight-night-ui-handover.md)) and RESULTS-1. Every panel surface
+  now draws one recipe from `tokens.css` (slab-shadow + hairline `--border-white-10` +
+  `--radius-panel` over `rgba(12,10,17,0.85)`), and the legacy die-cut sticker-panel material is
+  retired by design. No commit in history ever cited this ID.
+- *(UI / UX · Medium)* **ESC-PANEL-1** — ✅ **CLOSED 08-08 — absorbed.** The ESC panel was
+  re-laid-out to mock 7f across the fight-night series (`2192461` "part 3g — pause overlay
+  re-layout (7f)", `c5be94f` "7f — PAUSE re-laid out to the mock", plus three fix rounds; three
+  Wyatt review rounds recorded in the handover). Its "scoring panel" premise no longer exists by
+  design: the scoring chart was deleted from the pause overlay ("Deleted, not hidden",
+  `pauseOverlay.css:457`) and now lives on HOW TO PLAY AISLE 7 (7d). **Named residual:** a paused
+  player cannot read standings (HUD is suppressed; 7f deliberately dropped the chart) — a mock
+  decision, not a bug; file a fresh card only if Wyatt ever wants it back.
+
+---
+
 ### August 8, 2026 — ARENA-BUMPER-HINT-1 PASS: LB/RB pages menu arena
 
 - *(UI / UX · Medium)* **ARENA-BUMPER-HINT-1** — ✅ **CLOSED PASS 08-08** (code `2b7b872`;
