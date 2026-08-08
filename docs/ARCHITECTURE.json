@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-08T18:57:05.711Z",
-    "commit": "67e5b6a"
+    "at": "2026-08-08T19:15:31.025Z",
+    "commit": "9b0da20"
   },
-  "source_digest": "63610267",
+  "source_digest": "4b110551",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1020,7 +1020,7 @@
       {
         "title": "Art",
         "counts": {
-          "Low": 9,
+          "Low": 8,
           "High": 2,
           "Medium": 3
         },
@@ -1029,12 +1029,6 @@
             "pri": "Low",
             "item": "SUNDIAL-LOW-WATER-1 — Low still skips the ocean normal map",
             "notes": "**Filed 08-03**, the one residual after Sundial audit item 36 was otherwise closed. `waterNormalTex` is still built inside `if (!lowQ)` ([zanzibarPlatform.js:1427](../../src/levels/zanzibarPlatform.js:1427)), so Low's ocean has no ripple normal — the audit asked to keep it (\"a 256 px canvas built once; one extra texture fetch, not a pass\"). Everything else item 36 named is now on Low and was verified in source 08-03: foam ring (built on every tier with an explicit D-SUNDIAL-OQ6 comment), sun-path glint (ungated), 2 of 3 god-ray shafts (`rakeCount = lowQ ? 2 : 3`), a Low-specific ocean roughness of 0.5, and the reduced hologram — core + one glyph band + one ring — shipped in Wave 5 `0428f17`. Filed rather than built because Wave 6's close-out lever was scoped as verification only. Cheap; check the cost on the Intel UHD box, which is the min-spec smoothness floor.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "CART-FORK-SWIVEL-1 — the un-painted fork piece still does not steer with its caster",
-            "notes": "**Filed 08-02**, split out of CART-FORK-1 rather than folded in, because it is behaviour and that card was a one-line material fix. `tripo_part_23` is now correctly roled `fork` (`cartRaveGltf.js`), but it appears in **no** entry of `RAVE_GLTF_V4_FORK_GROUPS`, so it stays static while the caster it belongs to swivels. Its mirror twin `tripo_part_22` **is** in the BR group's `forkParts` and does swivel, which is the asymmetry to close. By position (`[-0.148, 0.197, +0.236]`, from the master GLB accessor bounds) it belongs to the **BL** group, whose `forkParts` is currently `[\"tripo_part_5\", \"tripo_part_21\"]`. Cheap now that the role is right — `buildRaveGltfCaster` only accepts meshes already roled `fork` (`cartRaveGltf.js` ~:1963), so before CART-FORK-1 it could not have been added at all. **Check before shipping:** whether the piece is rigid with the fork legs or is authored at the connector, since `captureRaveGltfCasterRestTransforms` bakes rest transforms from whatever is in the list; and confirm `classifyCartrave4AnimRole` still lets it animate (centreY 0.197 and maxDim 0.056 are both well under the 0.38 / 0.48 static cutoffs, so it should). Verify by steering in a live match — the attract capture path does not exercise caster swivel.",
             "ship1": null
           },
           {

@@ -13,6 +13,20 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 8, 2026 — CART-FORK-SWIVEL-1 PASS: rear-left fork piece steers with its caster
+
+- *(Art · Low)* **CART-FORK-SWIVEL-1** — ✅ **CLOSED PASS 08-08** (code `9b0da20`; Wyatt local
+  steer PASS, then ship). Split out of closed **CART-FORK-1** (role-only): `tripo_part_23` was
+  already roled `fork` but sat in **no** `RAVE_GLTF_V4_FORK_GROUPS` entry, so it stayed model-static
+  while its caster swiveled. Mirror twin `tripo_part_22` was already in BR `forkParts`. Lever:
+  BL `forkParts` → `["tripo_part_5", "tripo_part_21", "tripo_part_23"]` in
+  [cartRaveGltf.js](../../src/cartRaveGltf.js). Source pin in `tests/cartForkRole.test.js` (membership
+  + twin corners). Attract path does not exercise caster swivel — verified by live match steer.
+  Kingpin side-effect (all listed fork tops re-score attach) checked at playtest: no crooked BL rest
+  vs BR.
+
+---
+
 ### August 8, 2026 — UI-FRAME-1 + ESC-PANEL-1 closed: absorbed by Fight Night + RESULTS-1
 
 - *(UI / UX · Medium)* **UI-FRAME-1** — ✅ **CLOSED 08-08 — absorbed.** "Premium frame/panel

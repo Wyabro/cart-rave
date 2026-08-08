@@ -76,6 +76,7 @@ Live rows only. Shipped and closed cards live in
    **PAD-MENU-1** ✅ PASS 08-08 (pad menu nav polish; commits `674d84d`–`1213ce9`);
    **ARENA-BUMPER-HINT-1** ✅ production PASS 08-08 (`2b7b872`, Worker `547bcecc`).
    **UI-FRAME-1 + ESC-PANEL-1** ✅ closed 08-08 — absorbed by the Fight Night redesign + RESULTS-1.
+   **CART-FORK-SWIVEL-1** ✅ PASS 08-08 (`9b0da20`) — BL `tripo_part_23` steers with caster.
    Block 2 next: **ONBOARD-ART-1** (then VOICE-BUS-1 · CHUNK-DEFER-1 · …).
 2. **Open / REACHABLE:** CARGO-LATCH-1 · **CHUNK-DEFER-1** (dynamic-import residual of closed
    CHUNK-MEMBER-1). Block I desk-only wave closed 08-07 (PERF-RENDERINFO-1 · NET-RING-1 ·
