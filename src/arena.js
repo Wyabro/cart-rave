@@ -1709,7 +1709,9 @@ export function initArena(scene, world, config, options = {}) {
 
   // * Reflector — always created so quality toggle can show/hide it without a world rebuild.
   let recordReflector = createRecordReflector(reflectorTextureSize);
-  recordReflector.visible = !isLowQualityMode();
+  // * Visibility is re-applied from knobs in setReflectorVisible / rebuildForQualityChange;
+  // * seed from knobs so Medium (reflector off, not Low) does not flash mirror-on.
+  recordReflector.visible = getQualityKnobs().reflector;
   recordMesh.add(recordReflector);
 
   // * Vinyl detail layer ON the reflective floor — maps sell grooves without killing the
@@ -1741,11 +1743,16 @@ export function initArena(scene, world, config, options = {}) {
   vinylDetailMesh.rotation.x = -Math.PI / 2;
   vinylDetailMesh.position.y = reflectorYOffset + 0.002;
   vinylDetailMesh.renderOrder = 1;
-  vinylDetailMesh.visible = !isLowQualityMode();
+  vinylDetailMesh.visible = getQualityKnobs().reflector;
   vinylDetailMesh.userData.isVinylDetail = true;
   recordMesh.add(vinylDetailMesh);
 
-  // * Solid opaque floor ring for low-quality mode — covers the record surface when the Reflector is hidden.
+  // * Solid opaque floor ring — covers the record surface when the Reflector is hidden
+  // * (Low + Medium; QUALITY_KNOBS.*.reflector). Medium keeps postFx/bloom; a clearcoat-shiny
+  // * solid floor was feeding the neon bloom bright-pass and washing the center label white
+  // * (RECORD-MED-1: Medium label mean L≈198 vs High≈115 / Medium+nobloom≈114 on classic shot).
+  // * Keep this stack matte enough to survive Medium bloom; Low has no composer so it only
+  // * gains a slightly flatter vinyl read.
   const solidFloorGeo = new THREE.RingGeometry(
     config.record.innerRadius,
     config.record.radius,
@@ -1755,13 +1762,15 @@ export function initArena(scene, world, config, options = {}) {
   const solidFloorMat = createPhysicalMaterial({
     map: vinylTex.map,
     normalMap: vinylTex.normalMap,
-    normalScale: new THREE.Vector2(0.65, 0.65),
+    normalScale: new THREE.Vector2(0.55, 0.55),
     roughnessMap: vinylTex.roughnessMap,
-    color: 0xffffff,
-    roughness: 0.48,
-    metalness: 0.4,
-    clearcoat: 0.35,
-    clearcoatRoughness: 0.25,
+    // * Darker base than pure white: Medium bloom was lifting the solid plane (RECORD-MED-1).
+    // * Keep metalness high enough that black vinyl still reads dark under fill lights.
+    color: 0x6a6a72,
+    roughness: 0.58,
+    metalness: 0.32,
+    clearcoat: 0.12,
+    clearcoatRoughness: 0.5,
     side: THREE.DoubleSide,
     depthWrite: true,
   });
@@ -1773,7 +1782,9 @@ export function initArena(scene, world, config, options = {}) {
   const recordSolidFloor = new THREE.Mesh(solidFloorGeo, solidFloorMat);
   recordSolidFloor.rotation.x = -Math.PI / 2;
   recordSolidFloor.position.y = reflectorYOffset;
-  recordSolidFloor.visible = isLowQualityMode();
+  // * Knobs, not isLowQualityMode — Medium is not Low but still reflector-off.
+  const reflectorOnAtBuild = getQualityKnobs().reflector;
+  recordSolidFloor.visible = !reflectorOnAtBuild;
   recordSolidFloor.renderOrder = 0;
   recordSolidFloor.userData.isRecordSolidFloor = true;
   recordMesh.add(recordSolidFloor);
@@ -1794,7 +1805,9 @@ export function initArena(scene, world, config, options = {}) {
 
   /**
    * Toggles the Reflector and solid-floor replacement for quality changes.
-   * Call with `true` to show the reflective floor, `false` for the opaque low-quality surface.
+   * Call with `true` to show the reflective floor, `false` for the opaque solid-floor path
+   * (Low + Medium). Also retunes the center label so it does not soft-blend over the solid
+   * floor under Medium bloom (RECORD-MED-1).
    * @param {boolean} visible
    */
   function setReflectorVisible(visible) {
@@ -1807,6 +1820,18 @@ export function initArena(scene, world, config, options = {}) {
       recordMat.opacity = visible ? recordBodyOpacityHigh : 1.0;
       recordMat.depthWrite = !visible;
       recordMat.needsUpdate = true;
+    }
+    // * Dim label/spindle only on solid+postFx (Medium). Low is solid without bloom.
+    const solidBloom = !visible && getQualityKnobs().postFx;
+    if (recordLabelMat) {
+      recordLabelMat.opacity = visible ? 0.72 : solidBloom ? 0.92 : 1.0;
+      recordLabelMat.depthWrite = !visible;
+      recordLabelMat.color.setHex(solidBloom ? 0x9a9aa4 : 0xffffff);
+      recordLabelMat.needsUpdate = true;
+    }
+    if (spindleRingMat) {
+      spindleRingMat.emissiveIntensity = visible ? 1.35 : solidBloom ? 0.85 : 1.35;
+      spindleRingMat.needsUpdate = true;
     }
   }
 
@@ -1952,13 +1977,19 @@ export function initArena(scene, world, config, options = {}) {
   recordLabelTex.needsUpdate = true;
   recordLabelTex.colorSpace = THREE.SRGBColorSpace;
   const recordLabelGeo = new THREE.RingGeometry(LABEL_RING_INNER_M, LABEL_RING_OUTER_M, 96);
+  // * Label + spindle sit in the neon bloom bright-pass. Mirror path (High) has a dark
+  // * Reflector underlayer; solid+postFx (Medium) does not — Medium's composer washed the
+  // * brand label pure white (RECORD-MED-1: label mean L≈198 vs High≈115). Low is solid
+  // * but composer-bypassed, so it keeps full label brightness.
+  const labelKnobs = getQualityKnobs();
+  const labelSolidBloom = !labelKnobs.reflector && labelKnobs.postFx;
   const recordLabelMat = new THREE.MeshBasicMaterial({
     map: recordLabelTex,
     transparent: true,
-    depthWrite: false,
-    opacity: 0.72,
+    depthWrite: !labelKnobs.reflector,
+    opacity: labelKnobs.reflector ? 0.72 : labelSolidBloom ? 0.92 : 1.0,
     blending: THREE.NormalBlending,
-    color: 0xffffff,
+    color: labelSolidBloom ? 0x9a9aa4 : 0xffffff,
     side: THREE.DoubleSide,
   });
   recordLabelMat.depthTest = true;
@@ -1980,10 +2011,15 @@ export function initArena(scene, world, config, options = {}) {
     const sInner = spindleCfg?.innerRadius ?? config.record.innerRadius * 0.91;
     const sOuter = spindleCfg?.outerRadius ?? 3.7;
     spindleRingGeo = new THREE.RingGeometry(sInner, sOuter, 64);
+    // * toneMapped:false + emissive is a bloom bomb next to the label. Solid+postFx
+    // * (Medium) has no dark Reflector under it — pull emissive down so the lip still reads
+    // * pink without white-washing the label (RECORD-MED-1). Low has no bloom → full 1.35.
+    const spindleKnobs = getQualityKnobs();
+    const spindleSolidBloom = !spindleKnobs.reflector && spindleKnobs.postFx;
     spindleRingMat = createPhysicalMaterial({
       color: spindleCfg?.color ?? 0xffffff,
       emissive: spindleCfg?.color ?? 0xffffff,
-      emissiveIntensity: 1.35,
+      emissiveIntensity: spindleSolidBloom ? 0.85 : 1.35,
       roughness: 0.35,
       metalness: 0.55,
       toneMapped: false,
