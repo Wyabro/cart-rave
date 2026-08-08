@@ -6,6 +6,7 @@ import {
   whenModeEntryHidden,
   initLoadingScreen,
   shouldBootRevealMenu,
+  LOAD_TIPS,
 } from "../src/ui/loadingScreen.js";
 
 describe("shouldBootRevealMenu", () => {
@@ -160,6 +161,19 @@ describe("loadingScreen — progress floor + ambient ticker", () => {
       { levelId: "classic", minVisibleMs: 0, backfillBootMarks: () => true },
     );
     expect(Number.parseInt(atTaskStart, 10)).toBe(85);
+  }, 10000);
+
+  // * LOAD-TIPS-1: first paint must be a gameplay tip (not flavor). Progress labels
+  // * may overwrite mid-task — seed before any report.
+  it("seeds the subtitle with a LOAD_TIPS line on show", async () => {
+    let seeded = "";
+    await withModeEntryLoading(
+      async () => {
+        seeded = subtitleText();
+      },
+      { levelId: "classic", minVisibleMs: 0 },
+    );
+    expect(LOAD_TIPS).toContain(seeded);
   }, 10000);
 });
 

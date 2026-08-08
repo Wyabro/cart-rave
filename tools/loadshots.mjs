@@ -88,42 +88,40 @@ const log = makeLogger("loadshots");
 /* ───────────────────────────── expectations (the gate) ─────────────────────────────── */
 
 /**
- * Mirror of `THEME_COPY` (loadingScreen.js:23-78). Duplicated ON PURPOSE — this is the
- * assertion, and an assertion that imports its own expected value proves nothing. `title`
- * and `kicker` are written once by `applyTheme` and never overwritten, which makes them the
- * load-bearing identity strings; `messages` is what the 1000ms rotation timer picks from.
- * @type {Record<"classic"|"backrooms"|"zanzibar", { title: string, kicker: string, messages: string[] }>}
+ * Mirror of LOAD_TIPS (loadingScreen.js) — shared across arenas (LOAD-TIPS-1).
+ * Duplicated ON PURPOSE: an assertion that imports its own expected value proves
+ * nothing. `title`/`kicker` stay per-theme identity; `messages` is the tip pool
+ * the rotation timer picks from (same list for every theme).
+ * @type {readonly string[]}
+ */
+const LOAD_TIPS = Object.freeze([
+  "Tap boost for a quick shove · hold to wind up a harder one.",
+  "Hop to clear a pit or land on someone.",
+  "You only score when you force a rival off the edge.",
+  "Chain KOs before the streak fades — RAMPAGE · SAVAGE · CARNAGE.",
+  "Every ~18s the PA calls a directive that rewrites the round.",
+  "Scoring fills your cargo bay — fuller means heavier and a bigger spill.",
+]);
+
+/**
+ * Mirror of `THEME_COPY` identity strings + tip pool (loadingScreen.js).
+ * @type {Record<"classic"|"backrooms"|"zanzibar", { title: string, kicker: string, messages: readonly string[] }>}
  */
 const THEME_COPY = {
   classic: {
     title: "CART RAVE",
     kicker: "RESTOCKING THE DANCE FLOOR",
-    messages: [
-      "Polishing the disco ball...", "Syncing strobe lights...", "Untangling audio cables...",
-      "Warming up the subwoofers...", "Aligning vinyl grooves...", "Charging neon tubes...",
-      "Mixing the bass drop...", "Setting up the smoke machines...", "Calibrating laser grids...",
-      "Finding the perfect BPM...",
-    ],
+    messages: LOAD_TIPS,
   },
   backrooms: {
     title: "THE STOREROOMS",
     kicker: "AISLE INVENTORY IN PROGRESS",
-    messages: [
-      "Mopping the linoleum...", "Replacing flickering bulbs...", "Avoiding eye contact...",
-      "Humming along to the buzz...", "Wandering the aisles...", "Stocking empty shelves...",
-      "Lost in the backrooms...", "Checking expiration dates...", "Wiping down glass doors...",
-      "Following the yellow line...",
-    ],
+    messages: LOAD_TIPS,
   },
   zanzibar: {
     title: "SUNDIAL STATION",
     kicker: "OPENING THE SUNDECK",
-    messages: [
-      "Waxing the sundeck...", "Bolting down the bollards...", "Chasing gulls off the podium...",
-      "Watching the sun refuse to set...", "Salting the guard rails...", "Untangling the horizon...",
-      "Warming up the water glints...", "Checking the tide tables...", "Polishing the kill edges...",
-      "Aiming the deck at the sunset...",
-    ],
+    messages: LOAD_TIPS,
   },
 };
 
@@ -964,8 +962,8 @@ async function captureModeCell(browser, baseUrl, { arena, cell, outDir, tally })
 
     const frameA = await shoot("a-first");
 
-    // * Mid-progress: hold until the meter has actually moved AND the 1000ms first message
-    // * swap has had its chance (loadingScreen.js:237-243), but never past the dismissal —
+    // * Mid-progress: hold until the meter has actually moved AND the 1200ms first tip
+    // * swap has had its chance (LOAD-TIPS-1), but never past the dismissal —
     // * after that there is no "mid" left to photograph.
     const midStart = Date.now();
     for (;;) {
@@ -1122,21 +1120,22 @@ async function captureModeCell(browser, baseUrl, { arena, cell, outDir, tally })
               + `${isTerminal(g) ? `, terminal, budget ${MAX_TERMINAL_GAP_MS}ms` : ""})`).join(", ")}`,
     );
 
-    // * Conditional BY DESIGN, and a PASS when the condition is not met: the first swap is a
-    // * 1000ms timer (loadingScreen.js:243), so a load that finished sooner never had one.
+    // * Conditional BY DESIGN, and a PASS when the condition is not met: the first tip swap
+    // * is a 1200ms timer (LOAD-TIPS-1), so a load that finished sooner never had one.
     // * Per the exit-code contract a not-applicable case must not emit pass:false.
+    // * want.messages is LOAD_TIPS (shared); progress labels may also appear on the timeline.
     const seen = (hold?.subtitles ?? []).map((s) => s.v);
     const rotated = seen.filter((v) => want.messages.includes(v));
     const window_ = card.visibleWindowMs;
-    const rotationApplicable = typeof window_ === "number" && window_ > 1000;
+    const rotationApplicable = typeof window_ === "number" && window_ > 1200;
     tally.check(
       `${id} · message rotation ran`,
       rotationApplicable ? rotated.length > 0 : true,
       rotationApplicable
-        ? `${rotated.length} of the ${want.messages.length} ${theme} flavour lines appeared across a `
+        ? `${rotated.length} of the ${want.messages.length} load tips appeared across a `
           + `${window_}ms visible window: ${JSON.stringify(rotated)} · full subtitle timeline `
           + `${JSON.stringify(hold?.subtitles ?? [])}`
-        : `not applicable — the overlay's own visible window was ${window_}ms, under the 1000ms `
+        : `not applicable — the overlay's own visible window was ${window_}ms, under the 1200ms `
           + `first-swap timer, so no rotation was due. timeline ${JSON.stringify(hold?.subtitles ?? [])}`,
     );
 
@@ -1285,10 +1284,10 @@ function montageHtml(cards, meta) {
       the app genuinely showed this screen.
       <br><br>
       <b>The subtitle line is not a theme signature — read the title and kicker instead.</b> The
-      rotating flavour messages are written by a 1000ms timer, but every
+      rotating load tips (LOAD-TIPS-1, shared pool, 1200ms first swap) teach rules, but every
       <code>reportProgress()</code> milestone (<code>bootstrap.js:431-476</code>) overwrites the
       same element with a generic label, and the dismissal ends on <code>"Ready"</code>. The
-      per-cell subtitle timeline on the TERMINAL card shows exactly how long each flavour line
+      per-cell subtitle timeline on the TERMINAL card shows exactly how long each tip
       survived. Identity is asserted on <code>.cr-load__title</code> /
       <code>.cr-load__kicker</code>, which <code>applyTheme</code> writes once.
       <br><br>

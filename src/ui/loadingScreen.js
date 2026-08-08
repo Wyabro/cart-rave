@@ -17,10 +17,29 @@ const MIN_MODE_ENTRY_VISIBLE_MS = 720;
 const MIN_MODE_ENTRY_WARM_MS = 200;
 
 /**
+ * LOAD-TIPS-1: mode-entry subtitle teaches rules, not flavor gags.
+ * Mechanical truth must match HOW TO PLAY (`index.html` #cr-howto-screen) —
+ * AISLE tags below; do not invent SD win conditions here (no SD aisle).
+ * Shared across arenas: rules are not arena-specific. Warm loads often never
+ * rotate (floor 200ms); value is one random tip per show + swap on long cold.
+ * loadshots.mjs mirrors this list on purpose — keep them in lockstep.
+ * @type {readonly string[]}
+ */
+export const LOAD_TIPS = Object.freeze([
+  "Tap boost for a quick shove · hold to wind up a harder one.", // AISLE 2
+  "Hop to clear a pit or land on someone.", // AISLE 1
+  "You only score when you force a rival off the edge.", // AISLE 3
+  "Chain KOs before the streak fades — RAMPAGE · SAVAGE · CARNAGE.", // AISLE 5
+  "Every ~18s the PA calls a directive that rewrites the round.", // AISLE 7
+  "Scoring fills your cargo bay — fuller means heavier and a bigger spill.", // AISLE 6
+]);
+
+/**
  * Kickers are the store voice the rest of the redesign speaks in ("WEEKLY
  * RESTOCK", "STORE POLICY · ALL SALES FINAL", "THE STORE IS NOW CLOSED") — a
  * loading screen is the store getting an aisle ready for you.
- * @type {Record<"classic" | "backrooms" | "zanzibar", { title: string, titleLines: string[], meta: string, kicker: string, subtitle: string, progress: string, messages: string[] }>}
+ * Subtitle rotation uses {@link LOAD_TIPS}, not per-theme flavor.
+ * @type {Record<"classic" | "backrooms" | "zanzibar", { title: string, titleLines: string[], meta: string, kicker: string }>}
  */
 const THEME_COPY = {
   classic: {
@@ -31,60 +50,18 @@ const THEME_COPY = {
     titleLines: ["CART", "RAVE"],
     meta: "AISLE 01",
     kicker: "RESTOCKING THE DANCE FLOOR",
-    subtitle: "Spinning up the vinyl arena...",
-    progress: "Loading crowd & lights...",
-    messages: [
-      "Polishing the disco ball...",
-      "Syncing strobe lights...",
-      "Untangling audio cables...",
-      "Warming up the subwoofers...",
-      "Aligning vinyl grooves...",
-      "Charging neon tubes...",
-      "Mixing the bass drop...",
-      "Setting up the smoke machines...",
-      "Calibrating laser grids...",
-      "Finding the perfect BPM...",
-    ],
   },
   backrooms: {
     title: "THE STOREROOMS",
     titleLines: ["THE", "STOREROOMS"],
     meta: "AISLE 02",
     kicker: "AISLE INVENTORY IN PROGRESS",
-    subtitle: "The fluorescent hum grows louder...",
-    progress: "Mapping the liminal aisles...",
-    messages: [
-      "Mopping the linoleum...",
-      "Replacing flickering bulbs...",
-      "Avoiding eye contact...",
-      "Humming along to the buzz...",
-      "Wandering the aisles...",
-      "Stocking empty shelves...",
-      "Lost in the backrooms...",
-      "Checking expiration dates...",
-      "Wiping down glass doors...",
-      "Following the yellow line...",
-    ],
   },
   zanzibar: {
     title: "SUNDIAL STATION",
     titleLines: ["SUNDIAL", "STATION"],
     meta: "AISLE 03",
     kicker: "OPENING THE SUNDECK",
-    subtitle: "The tide carries the bassline in...",
-    progress: "Aligning the gnomon...",
-    messages: [
-      "Waxing the sundeck...",
-      "Bolting down the bollards...",
-      "Chasing gulls off the podium...",
-      "Watching the sun refuse to set...",
-      "Salting the guard rails...",
-      "Untangling the horizon...",
-      "Warming up the water glints...",
-      "Checking the tide tables...",
-      "Polishing the kill edges...",
-      "Aiming the deck at the sunset...",
-    ],
   },
 };
 
@@ -752,30 +729,35 @@ function stopModeTicker() {
   }
 }
 
-/* ── Mode-entry message rotation ── */
+/* ── Mode-entry tip rotation (LOAD-TIPS-1) ── */
 
-function startModeMessageRotation(messages) {
+/**
+ * Paints a random tip immediately; swaps only on long cold loads.
+ * Reduced-motion: static first tip (no timer — aria-live is on the overlay).
+ * @param {readonly string[]} tips
+ */
+function startModeMessageRotation(tips) {
   stopModeMessageRotation();
-  if (!messages || messages.length === 0) return;
-  let last = pickRandom(messages);
+  if (!tips || tips.length === 0) return;
+  let last = pickRandom(tips);
   if (modeSubtitleEl) modeSubtitleEl.textContent = last;
+  if (prefersReducedMotion()) return;
   const nextMessage = () => {
-    if (messages.length < 2) return last;
+    if (tips.length < 2) return last;
     let pick = last;
-    while (pick === last) pick = pickRandom(messages);
+    while (pick === last) pick = pickRandom(tips);
     last = pick;
     return pick;
   };
-  // * First swap comes early so loads that outlive the 720ms floor still show a
-  // * second line; the steady cadence stays readable after that. Fast paths
-  // * (<1s) are unchanged — they never reach the first swap.
+  // * First swap at 1.2s (past cold min floor 720ms); then 2s so tips stay
+  // * readable. Warm path (~200ms) never reaches a swap — one tip is enough.
   const rotate = (delay) => {
     modeMsgIntervalId = window.setTimeout(() => {
       if (modeSubtitleEl) modeSubtitleEl.textContent = nextMessage();
-      rotate(1600);
+      rotate(2000);
     }, delay);
   };
-  rotate(1000);
+  rotate(1200);
 }
 
 function stopModeMessageRotation() {
@@ -837,7 +819,7 @@ function applyTheme(theme) {
     modeVisualSlot.appendChild(decor);
   }
 
-  startModeMessageRotation(copy.messages);
+  startModeMessageRotation(LOAD_TIPS);
 }
 
 export function revealGameCanvas() {
@@ -983,8 +965,10 @@ function showModeEntryLoading(opts = {}) {
   // * cannot demote the session (cap-229 high→medium during Cart Rave countdown).
   noteModeEntryShown();
   // * Drop the floor before the first write, or the previous session's 100 sticks.
+  // * No label — LOAD-TIPS-1 owns the subtitle until a real milestone reports one.
+  // * "Starting..." was dead air that stomped the tip on every warm flash.
   modeProgressValue = 0;
-  setProgress(0, "Starting...");
+  setProgress(0);
 
   // * Subscribe BEFORE backfilling: a mark that lands between the two is then merely a
   // * duplicate raise, which the floor absorbs, rather than a lost anchor.
