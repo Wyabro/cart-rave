@@ -49,6 +49,7 @@ export const STORAGE_KEYS = {
   /** Audio persistence. */
   musicVolume: "cartRaveVolume",
   sfxVolume: "cartRaveSfxVol",
+  voiceVolume: "cartRaveVoiceVol",
   muted: "cartRaveMuted",
   /** Announcer toggles ("on"/"off"). */
   announcerVoice: "cartRaveAnnouncerVoice",

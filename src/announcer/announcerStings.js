@@ -8,7 +8,7 @@
 /** @type {THREE.AudioListener | null} */
 let _audioListener = null;
 /** @type {(() => number) | null} */
-let _getSfxVolume = null;
+let _getVoiceVolume = null;
 /** @type {(() => boolean) | null} */
 let _getIsMuted = null;
 
@@ -49,15 +49,15 @@ function spawnTone(ctx, destination, type, startFreq, endFreq, duration, peakGai
 
 /**
  * Guard shared by every play function: resolves the audio context and effective
- * SFX volume, or null when playback must silently no-op (not initialized, muted,
- * volume zero, or the AudioContext isn't running yet).
+ * announcer-voice volume, or null when playback must silently no-op (not
+ * initialized, muted, volume zero, or the AudioContext isn't running yet).
  *
  * @returns {{ ctx: AudioContext, dest: AudioNode, vol: number, now: number } | null}
  */
 function resolvePlayback() {
-  if (!_audioListener || !_getSfxVolume || !_getIsMuted) return null;
+  if (!_audioListener || !_getVoiceVolume || !_getIsMuted) return null;
   if (_getIsMuted()) return null;
-  const vol = _getSfxVolume();
+  const vol = _getVoiceVolume();
   if (vol <= 0) return null;
   const ctx = _audioListener.context;
   if (ctx.state !== "running") return null;
@@ -69,13 +69,13 @@ function resolvePlayback() {
  *
  * @param {THREE.AudioListener} audioListener Three.js audio listener on the camera.
  * @param {{
- *   getSfxVolume: () => number,
+ *   getVoiceVolume: () => number,
  *   getIsMuted: () => boolean,
  * }} deps
  */
 export function initAnnouncerStings(audioListener, deps) {
   _audioListener = audioListener;
-  _getSfxVolume = deps.getSfxVolume;
+  _getVoiceVolume = deps.getVoiceVolume;
   _getIsMuted = deps.getIsMuted;
 }
 

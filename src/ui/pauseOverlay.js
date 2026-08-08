@@ -46,6 +46,7 @@ const elements = {
   escMuteBtn: null,
   escMusicVol: null,
   escSfxVol: null,
+  escVoiceVol: null,
   announcerVoiceBtn: null,
   announcerCalloutsBtn: null,
 };
@@ -101,7 +102,7 @@ function syncQualityTierButtonState(tierOverride) {
  * @param {string} labelText
  * @param {(gain: number) => void} onChange
  * @param {string} ariaLabel
- * @param {string} [variant] Row modifier ("music" / "sfx") — drives the accent.
+ * @param {string} [variant] Row modifier ("music" / "sfx" / "voice") — drives the accent.
  */
 function createEscVolumeRow(labelText, onChange, ariaLabel, variant = "") {
   const row = document.createElement("div");
@@ -148,7 +149,8 @@ function createEscVolumeRow(labelText, onChange, ariaLabel, variant = "") {
     const isMuted = _options.getIsMuted ? _options.getIsMuted() : false;
     const musicGain = _options.getMusicGain ? _options.getMusicGain() : 0.5;
     const sfxVolume = _options.getSfxVolume ? _options.getSfxVolume() : 0.5;
-    updateAudioState(isMuted, musicGain, sfxVolume, valueMax);
+    const voiceVolume = _options.getVoiceVolume ? _options.getVoiceVolume() : 0.5;
+    updateAudioState(isMuted, musicGain, sfxVolume, voiceVolume, valueMax);
   };
 
   trackWrap.addEventListener("pointerdown", (e) => {
@@ -185,7 +187,8 @@ function createEscVolumeRow(labelText, onChange, ariaLabel, variant = "") {
     const isMuted = _options.getIsMuted ? _options.getIsMuted() : false;
     const musicGain = _options.getMusicGain ? _options.getMusicGain() : 0.5;
     const sfxVolume = _options.getSfxVolume ? _options.getSfxVolume() : 0.5;
-    updateAudioState(isMuted, musicGain, sfxVolume, valueMax);
+    const voiceVolume = _options.getVoiceVolume ? _options.getVoiceVolume() : 0.5;
+    updateAudioState(isMuted, musicGain, sfxVolume, voiceVolume, valueMax);
   };
   trackWrap.addEventListener("keydown", (e) => {
     let delta = 0;
@@ -446,14 +449,17 @@ function syncPostFxButtonState(enabled) {
  * @param {boolean} isMuted
  * @param {number} musicGain
  * @param {number} sfxVolume
+ * @param {number} [voiceVolume=0.5]
  * @param {number} [audioVolumeMax=1.15]
  */
-export function updateAudioState(isMuted, musicGain, sfxVolume, audioVolumeMax = 1.15) {
+export function updateAudioState(isMuted, musicGain, sfxVolume, voiceVolume = 0.5, audioVolumeMax = 1.15) {
   if (!elements.escMuteBtn) return;
   const musicPercent = Math.round((musicGain / audioVolumeMax) * 100);
   const sfxPercent = Math.round((sfxVolume / audioVolumeMax) * 100);
+  const voicePercent = Math.round((voiceVolume / audioVolumeMax) * 100);
   const musicPct = isMuted ? 0 : musicPercent;
   const sfxPct = isMuted ? 0 : sfxPercent;
+  const voicePct = isMuted ? 0 : voicePercent;
 
   if (elements.escMuteBtn) {
     // * Proper sticker speaker glyph (icons.js), matching the HUD mute — replaces
@@ -469,6 +475,9 @@ export function updateAudioState(isMuted, musicGain, sfxVolume, audioVolumeMax =
   }
   if (elements.escSfxVol?.setPct) {
     elements.escSfxVol.setPct(sfxPct, isMuted);
+  }
+  if (elements.escVoiceVol?.setPct) {
+    elements.escVoiceVol.setPct(voicePct, isMuted);
   }
 }
 
@@ -501,8 +510,9 @@ export function show() {
     const isMuted = _options.getIsMuted ? _options.getIsMuted() : false;
     const musicGain = _options.getMusicGain ? _options.getMusicGain() : 0.5;
     const sfxVolume = _options.getSfxVolume ? _options.getSfxVolume() : 0.5;
+    const voiceVolume = _options.getVoiceVolume ? _options.getVoiceVolume() : 0.5;
     const audioVolumeMax = _options.getAudioVolumeMax ? _options.getAudioVolumeMax() : 1.15;
-    updateAudioState(isMuted, musicGain, sfxVolume, audioVolumeMax);
+    updateAudioState(isMuted, musicGain, sfxVolume, voiceVolume, audioVolumeMax);
 
     syncPostFxButtonState(
       (_options.getBloomEnabled ? _options.getBloomEnabled() : true)
@@ -693,8 +703,9 @@ export function init(options = {}, hudContext = {}) {
     const isMuted = _options.getIsMuted ? _options.getIsMuted() : false;
     const musicGain = _options.getMusicGain ? _options.getMusicGain() : 0.5;
     const sfxVolume = _options.getSfxVolume ? _options.getSfxVolume() : 0.5;
+    const voiceVolume = _options.getVoiceVolume ? _options.getVoiceVolume() : 0.5;
     const audioVolumeMax = _options.getAudioVolumeMax ? _options.getAudioVolumeMax() : 1.15;
-    updateAudioState(isMuted, musicGain, sfxVolume, audioVolumeMax);
+    updateAudioState(isMuted, musicGain, sfxVolume, voiceVolume, audioVolumeMax);
   });
   wireButtonPressFeedback(elements.escMuteBtn, { scale: 0.92 });
 
@@ -705,11 +716,15 @@ export function init(options = {}, hudContext = {}) {
   elements.escSfxVol = createEscVolumeRow("SFX", (v) => {
     if (_options.setSfxVolume) _options.setSfxVolume(v);
   }, "SFX volume", "sfx");
+  elements.escVoiceVol = createEscVolumeRow("VOICE", (v) => {
+    if (_options.setVoiceVolume) _options.setVoiceVolume(v);
+  }, "Announcer volume", "voice");
 
   const escVolStack = document.createElement("div");
   escVolStack.className = "esc-vol-stack";
   escVolStack.appendChild(elements.escMusicVol.row);
   escVolStack.appendChild(elements.escSfxVol.row);
+  escVolStack.appendChild(elements.escVoiceVol.row);
   // * Mute rides the card header, not the slider row: sitting beside MUSIC/SFX
   // * it crowded their labels and pushed the whole stack off the card's left
   // * edge, out of line with the mock (and with the CONTROLS card beside it).
@@ -872,8 +887,9 @@ export function init(options = {}, hudContext = {}) {
   const isMuted = _options.getIsMuted ? _options.getIsMuted() : false;
   const musicGain = _options.getMusicGain ? _options.getMusicGain() : 0.5;
   const sfxVolume = _options.getSfxVolume ? _options.getSfxVolume() : 0.5;
+  const voiceVolume = _options.getVoiceVolume ? _options.getVoiceVolume() : 0.5;
   const audioVolumeMax = _options.getAudioVolumeMax ? _options.getAudioVolumeMax() : 1.15;
-  updateAudioState(isMuted, musicGain, sfxVolume, audioVolumeMax);
+  updateAudioState(isMuted, musicGain, sfxVolume, voiceVolume, audioVolumeMax);
 
   return {
     escOverlay: elements.escOverlay,
@@ -889,6 +905,7 @@ export function init(options = {}, hudContext = {}) {
     escMuteBtn: elements.escMuteBtn,
     escMusicVol: elements.escMusicVol,
     escSfxVol: elements.escSfxVol,
+    escVoiceVol: elements.escVoiceVol,
     announcerVoiceBtn: elements.announcerVoiceBtn,
     announcerCalloutsBtn: elements.announcerCalloutsBtn,
   };

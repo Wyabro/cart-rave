@@ -29,7 +29,7 @@ import { getQualityTier } from "./utils/qualityMode.js";
 import { settingsStore } from "./stores/settingsStore.js";
 import { DEFAULT_SOLO, normalizeDifficulty } from "./aiDifficulty.js";
 import { togglePostFx, applyQualityTier } from "./ui/graphicsToggles.js";
-import { setAllAudioMuted, setMusicGainValue, setSfxSliderVolume } from "./ui/audioControls.js";
+import { setAllAudioMuted, setMusicGainValue, setSfxSliderVolume, setVoiceSliderVolume } from "./ui/audioControls.js";
 import { playUiClick } from "./sfxSynth.js";
 import { AUDIO_VOLUME_MAX } from "./stores/audioStore.js";
 import { getRoundState } from "./gameState.js";
@@ -334,8 +334,11 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
   const settingsVolVal = $("cr-settings-vol-val");
   const settingsSfxFill = $("cr-settings-sfx-fill");
   const settingsSfxVal = $("cr-settings-sfx-val");
+  const settingsVoiceFill = $("cr-settings-voice-fill");
+  const settingsVoiceVal = $("cr-settings-voice-val");
   const settingsVolTrackEl = $("cr-settings-vol-track");
   const settingsSfxTrackEl = $("cr-settings-sfx-track");
+  const settingsVoiceTrackEl = $("cr-settings-voice-track");
   let currentCustomizeCartSvg = null;
   /** @type {CartPreview | null} Live 3D cart preview while customize screen is open. */
   let cartPreview = null;
@@ -1438,14 +1441,14 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
   /**
    * Cached audio state from the last {@link syncAudioUi} call.
    * Used as fallback when syncSettingsAudioUi runs without params (e.g. on Settings open).
-   * @type {{ muted: boolean, musicPct: number, musicNorm?: number, sfxPct?: number, sfxNorm?: number } | null}
+   * @type {{ muted: boolean, musicPct: number, musicNorm?: number, sfxPct?: number, sfxNorm?: number, voicePct?: number, voiceNorm?: number } | null}
    */
   let _lastSettingsAudioSync = null;
 
   /**
-   * Syncs Settings overlay mute button and volume displays (music + SFX) from
-   * main-owned audio state.
-   * @param {{ muted: boolean, musicPct: number, musicNorm?: number, sfxPct?: number, sfxNorm?: number }} [audio]
+   * Syncs Settings overlay mute button and volume displays (music + SFX + voice)
+   * from main-owned audio state.
+   * @param {{ muted: boolean, musicPct: number, musicNorm?: number, sfxPct?: number, sfxNorm?: number, voicePct?: number, voiceNorm?: number }} [audio]
    */
   function syncSettingsAudioUi(audio) {
     // * Cache the last explicit sync so openSettingsScreen() can reuse it.
@@ -1456,6 +1459,8 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
     const norm = src ? (src.musicNorm ?? (src.muted ? 0 : src.musicPct / 100)) : 0.25;
     const sfxPct = src ? (src.sfxPct ?? 25) : 25;
     const sfxNorm = src ? (src.sfxNorm ?? (src.muted ? 0 : sfxPct / 100)) : 0.25;
+    const voicePct = src ? (src.voicePct ?? 25) : 25;
+    const voiceNorm = src ? (src.voiceNorm ?? (src.muted ? 0 : voicePct / 100)) : 0.25;
     settingsAudioUiMuted = muted;
     if (settingsVolFill) {
       settingsVolFill.style.setProperty('--vol-scale', String(muted ? 0 : norm));
@@ -1474,12 +1479,23 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
       settingsSfxFill.style.background = state.palette.secondary;
     }
     if (settingsSfxVal) settingsSfxVal.textContent = String(muted ? 'OFF' : sfxPct);
+    // * VOICE rides the palette tertiary so all three rows stay distinct while
+    // * still morphing with the arena palette.
+    if (settingsVoiceFill) {
+      settingsVoiceFill.style.setProperty('--vol-scale', String(muted ? 0 : voiceNorm));
+      settingsVoiceFill.closest('.cr-vol-row')?.style.setProperty('--vol-accent', state.palette.tertiary);
+      settingsVoiceTrackEl?.style.setProperty('--vol-scale', String(muted ? 0 : voiceNorm));
+      settingsVoiceFill.style.background = state.palette.tertiary;
+    }
+    if (settingsVoiceVal) settingsVoiceVal.textContent = String(muted ? 'OFF' : voicePct);
     // * aria-valuenow is 0 while muted (screen reader: "off"). data-vol-pct keeps the
     // * real stored level so ←/→ keyboard steps climb from that value, not from 0.
     settingsVolTrackEl?.setAttribute('aria-valuenow', String(muted ? 0 : pct));
     settingsVolTrackEl?.setAttribute('data-vol-pct', String(pct));
     settingsSfxTrackEl?.setAttribute('aria-valuenow', String(muted ? 0 : sfxPct));
     settingsSfxTrackEl?.setAttribute('data-vol-pct', String(sfxPct));
+    settingsVoiceTrackEl?.setAttribute('aria-valuenow', String(muted ? 0 : voicePct));
+    settingsVoiceTrackEl?.setAttribute('data-vol-pct', String(voicePct));
     if (!settingsMuteBtn) return;
     if (muted) {
       settingsMuteBtn.classList.add('muted');
@@ -1604,9 +1620,10 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
       });
     }
     // * Proxy the volume track clicks so the position calculation works on each rect.
-    // * Both rows share one handler; only the setter differs (music gain vs SFX gain).
+    // * All three rows share one handler; only the setter differs (music / SFX / voice).
     wireSettingsVolTrack(settingsVolTrackEl, setMusicGainValue);
     wireSettingsVolTrack(settingsSfxTrackEl, setSfxSliderVolume);
+    wireSettingsVolTrack(settingsVoiceTrackEl, setVoiceSliderVolume);
   }
 
   /**
@@ -1768,8 +1785,9 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
       muteBtn.style.setProperty('--mc', p.secondary);
       musicVolFill.style.background = p.secondary;
     }
-    // * Settings overlay: MUSIC = primary, SFX = secondary (must match syncSettingsAudioUi).
-    // * Do not paint both fills secondary — that collapses the two rows into one accent.
+    // * Settings overlay: MUSIC = primary, SFX = secondary, VOICE = tertiary
+    // * (must match syncSettingsAudioUi). Do not paint fills the same accent —
+    // * that collapses the rows into one color.
     if (settingsVolFill) {
       settingsVolFill.style.background = p.primary;
       settingsVolFill.closest('.cr-vol-row')?.style.setProperty('--vol-accent', p.primary);
@@ -1777,6 +1795,10 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
     if (settingsSfxFill) {
       settingsSfxFill.style.background = p.secondary;
       settingsSfxFill.closest('.cr-vol-row')?.style.setProperty('--vol-accent', p.secondary);
+    }
+    if (settingsVoiceFill) {
+      settingsVoiceFill.style.background = p.tertiary;
+      settingsVoiceFill.closest('.cr-vol-row')?.style.setProperty('--vol-accent', p.tertiary);
     }
 
     // Controls kbd colors
@@ -1818,15 +1840,15 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
   // ─── Mute / volume (view only — main.js owns audio state) ─────────────────
   /**
    * Syncs menu mute button and music slider from main-owned audio state.
-   * @param {{ muted: boolean, musicPct: number, musicNorm?: number, sfxPct?: number, sfxNorm?: number }} audio
+   * @param {{ muted: boolean, musicPct: number, musicNorm?: number, sfxPct?: number, sfxNorm?: number, voicePct?: number, voiceNorm?: number }} audio
    */
-  function syncAudioUi({ muted, musicPct, musicNorm, sfxPct, sfxNorm }) {
+  function syncAudioUi({ muted, musicPct, musicNorm, sfxPct, sfxNorm, voicePct, voiceNorm }) {
     audioUiMuted = Boolean(muted);
     const scale = muted ? 0 : (musicNorm ?? musicPct / 100);
     if (musicVolFill) musicVolFill.style.setProperty('--vol-scale', String(scale));
     if (musicVolVal) musicVolVal.textContent = String(muted ? 'OFF' : musicPct);
     // * Always sync the Settings overlay, even if the main-menu muteBtn is missing.
-    syncSettingsAudioUi({ muted, musicPct, musicNorm, sfxPct, sfxNorm });
+    syncSettingsAudioUi({ muted, musicPct, musicNorm, sfxPct, sfxNorm, voicePct, voiceNorm });
     if (!muteBtn) return;
     if (muted) {
       muteBtn.classList.add('muted');

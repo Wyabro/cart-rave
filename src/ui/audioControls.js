@@ -1,4 +1,4 @@
-// audioControls.js — user-facing audio state (music/SFX volume, mute) + menu/HUD audio UI wiring.
+// audioControls.js — user-facing audio state (music/SFX/voice volume, mute) + menu/HUD audio UI wiring.
 //
 // * Owns the volume/mute state formerly held as module state in main.js. Values are
 // * persisted through audioStore; every change fans out to the DOM menu
@@ -12,6 +12,7 @@ import { animateMuteToggle, animateVolumeTick } from "../animations.js";
 
 let musicVolume = audioStore.getState().musicVolume;
 let sfxVolume = audioStore.getState().sfxVolume;
+let voiceVolume = audioStore.getState().voiceVolume;
 let isMuted = audioStore.getState().isMuted;
 let menuAudioControlsWired = false;
 
@@ -45,16 +46,21 @@ export function getIsMuted() { return isMuted; }
 export function getMusicVolume() { return musicVolume; }
 /** @returns {number} */
 export function getSfxVolume() { return sfxVolume; }
+/** @returns {number} */
+export function getVoiceVolume() { return voiceVolume; }
 
 export function syncAllAudioUi() {
   const musicPct = Math.round((musicVolume / AUDIO_VOLUME_MAX) * 100);
   const sfxPct = Math.round((sfxVolume / AUDIO_VOLUME_MAX) * 100);
+  const voicePct = Math.round((voiceVolume / AUDIO_VOLUME_MAX) * 100);
   window.CartRave?.syncAudioUi?.({
     muted: isMuted,
     musicPct,
     musicNorm: musicVolume / AUDIO_VOLUME_MAX,
     sfxPct,
     sfxNorm: sfxVolume / AUDIO_VOLUME_MAX,
+    voicePct,
+    voiceNorm: voiceVolume / AUDIO_VOLUME_MAX,
   });
   const hud = deps.getHud();
   if (hud?.syncAudioControls) hud.syncAudioControls();
@@ -86,6 +92,13 @@ export function setAllAudioMuted(muted) {
 export function setSfxSliderVolume(v) {
   sfxVolume = clamp(v, 0, AUDIO_VOLUME_MAX);
   audioStore.getState().setSfxVolume(sfxVolume);
+  syncAllAudioUi();
+}
+
+/** @param {number} v */
+export function setVoiceSliderVolume(v) {
+  voiceVolume = clamp(v, 0, AUDIO_VOLUME_MAX);
+  audioStore.getState().setVoiceVolume(voiceVolume);
   syncAllAudioUi();
 }
 

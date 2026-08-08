@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-08T04:31:24.021Z",
-    "commit": "b5f8e3f"
+    "at": "2026-08-08T04:50:15.931Z",
+    "commit": "dc7a170"
   },
-  "source_digest": "0764c443",
+  "source_digest": "4258c2d3",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1125,7 +1125,7 @@
         "title": "Audio",
         "counts": {
           "Medium": 3,
-          "Low": 2
+          "Low": 1
         },
         "rows": [
           {
@@ -1144,12 +1144,6 @@
             "pri": "Medium",
             "item": "SD-MUSIC-LPF-1 — Sudden Death music low-pass `[SHIP-1 E3]`",
             "notes": "Audio-graph surgery (shared Howler bus).",
-            "ship1": "E3"
-          },
-          {
-            "pri": "Low",
-            "item": "VOICE-BUS-1 — announcer has no volume of its own",
-            "notes": "**Filed 08-05 from the pre-launch audit.** The announcer — the game's signature audio feature — rides the SFX bus with no level control: [announcerManager.js](../../src/announcer/announcerManager.js) has no volume handling, and settings offer only on/off (`announcerVoiceEnabled` / `announcerCalloutsEnabled` in [settingsStore.js](../../src/stores/settingsStore.js)). **Scope:** a voice slider as a third category alongside music/SFX in [audioStore.js](../../src/stores/audioStore.js) + [audioControls.js](../../src/ui/audioControls.js). **AUDIO-MASTER-1 closed 08-07** (the dead `_masterVol` was deleted — no master bus ever existed, so a voice slider is genuinely a new third bus) and mind its clamp lesson: store domain is 0..1.15, Howler ceiling 1.0. This is the narrow slice of the `[SHIP-1 E3]` Howler-upgrade row's \"volume groups\".",
             "ship1": "E3"
           },
           {
@@ -1226,7 +1220,7 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Medium": 1,
+          "Medium": 2,
           "Low": 2
         },
         "rows": [
@@ -1246,6 +1240,12 @@
             "pri": "Low",
             "item": "AQ-RING-CLEAR-1 — autoQuality clear sample ring on every window eval",
             "notes": "**Reserve only** if Wave 2 entry grace still demotes on retest. Comment in autoQuality.js already notes the ring can poison up to 3 windows. Own commit if needed; not in main batch path.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "VOICE-BUS-1 `[solo]`",
+            "notes": "**Owed: Wyatt playtest — VOICE-BUS-1 — the announcer has a VOICE slider independent of SFX.**<br>1. Settings -> AUDIO: VOICE sits under MUSIC/SFX; reload persists.<br>2. Solo: VOICE down quiets PA voice takes + PA stings (victory, KO lines); countdown + crash/boost still follow SFX.<br>3. VOICE=0 -> PA silent; MUTE still kills everything; SFX no longer moves announcer.",
             "ship1": null
           }
         ]

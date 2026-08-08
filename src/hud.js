@@ -3158,10 +3158,11 @@ export function syncAudioControls() {
   const isMuted = _options.getIsMuted ? _options.getIsMuted() : false;
   const musicGain = _options.getMusicGain ? _options.getMusicGain() : 0.5;
   const sfxVolume = _options.getSfxVolume ? _options.getSfxVolume() : 0.5;
+  const voiceVolume = _options.getVoiceVolume ? _options.getVoiceVolume() : 0.5;
   const AUDIO_VOLUME_MAX = _options.getAudioVolumeMax ? _options.getAudioVolumeMax() : 1.15;
 
   elements.muteBtn.innerHTML = svgIcon(isMuted ? "speakerMuted" : "speaker");
   elements.muteBtn.classList.toggle("muted", isMuted);
 
-  updatePauseOverlayAudioState(isMuted, musicGain, sfxVolume, AUDIO_VOLUME_MAX);
+  updatePauseOverlayAudioState(isMuted, musicGain, sfxVolume, voiceVolume, AUDIO_VOLUME_MAX);
 }

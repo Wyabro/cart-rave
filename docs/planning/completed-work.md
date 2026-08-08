@@ -13,6 +13,24 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 7, 2026 — VOICE-BUS-1: "The Store PA" gets a real VOICE volume bus
+
+Desk work landed (one commit); **Wyatt playtest owed** — row filed under `## Playtest owed`.
+
+- *(Audio · Low)* **VOICE-BUS-1** — desk work complete 08-07; playtest owed (BACKLOG Playtest
+  owed row). A third volume category, VOICE, wired end-to-end: store key `cartRaveVoiceVol` +
+  `setVoiceVolume` ([audioStore.js](../../src/stores/audioStore.js)); the AudioManager bus
+  branches `announcer_*` Howls to `_voiceVol` (construction + live re-apply) and
+  `getAudioDebugState` exposes `voiceVol`; announcer stings gate on `getVoiceVolume`; menu
+  Settings gains a VOICE row (palette-tertiary accent) and the ESC overlay gains a VOICE slider
+  row, both persisted through audioStore. Countdown / kill-confirm / crash/boost/hop stay on
+  SFX. Clamp lesson held (store domain 0..1.15, Howler ceiling 1.0 — voice path clamps through
+  `howlerVol()`, never divides by `AUDIO_VOLUME_MAX`). Tests: `tests/audioManager.test.js` (3
+  new VOICE-BUS-1 cases). announcer + audioMaster suites untouched and green. Not deployed —
+  ship on Wyatt's instruction.
+
+---
+
 ### August 7, 2026 — LOAD-TIPS-1 PASS: mode-entry subtitle teaches rules
 
 **Wyatt PASS 08-07.** Code `b5f8e3f`. Mode-entry wait is no longer flavor dead air.

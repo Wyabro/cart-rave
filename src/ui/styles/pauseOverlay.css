@@ -404,6 +404,7 @@
 
 #esc-overlay .esc-vol-row--music { --esc-vol-accent: var(--esc-magenta); }
 #esc-overlay .esc-vol-row--sfx { --esc-vol-accent: var(--esc-cyan); }
+#esc-overlay .esc-vol-row--voice { --esc-vol-accent: var(--color-yellow); }
 
 #esc-overlay .esc-vol-label {
   text-align: left;

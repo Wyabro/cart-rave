@@ -35,6 +35,7 @@ function howlerVol(v) {
 }
 
 let _sfxVol = howlerVol(_initialAudio.sfxVolume);
+let _voiceVol = howlerVol(_initialAudio.voiceVolume);
 let _musicVol = howlerVol(_initialAudio.musicVolume);
 let _isMuted = _initialAudio.isMuted;
 
@@ -42,6 +43,7 @@ let _isMuted = _initialAudio.isMuted;
 audioStore.subscribe((state) => {
   _musicVol = howlerVol(state.musicVolume);
   _sfxVol = howlerVol(state.sfxVolume);
+  _voiceVol = howlerVol(state.voiceVolume);
   _isMuted = state.isMuted;
   applyAllVolumes();
 });
@@ -98,9 +100,13 @@ const _sfxPerVolumes = { ..._DEFAULT_SFX_VOLUMES };
 function applySfxVolumes() {
   for (const [key, sound] of Object.entries(sfxRegistry)) {
     const perVol = _sfxPerVolumes[key] ?? _DEFAULT_SFX_VOLUMES[key] ?? 1;
-    // * Clamp the PRODUCT, not just _sfxVol — a dev Tweakpane perVol above 1 can push a
-    // * legal slider value back over the line on its own.
-    sound.volume(_isMuted ? 0 : howlerVol(_sfxVol * perVol));
+    // * Clamp the PRODUCT, not just the category volume — a dev Tweakpane perVol
+    // * above 1 can push a legal slider value back over the line on its own.
+    // * "The Store PA" voice takes ride the VOICE bus: announcer_* keys follow
+    // * _voiceVol, everything else follows _sfxVol (countdown, kill confirm,
+    // * crash/boost/hop stay on SFX).
+    const base = key.startsWith("announcer_") ? _voiceVol : _sfxVol;
+    sound.volume(_isMuted ? 0 : howlerVol(base * perVol));
   }
 }
 
@@ -665,6 +671,7 @@ export function getAudioDebugState() {
     muted: _isMuted,
     musicVol: Math.round(_musicVol * 1000) / 1000,
     sfxVol: Math.round(_sfxVol * 1000) / 1000,
+    voiceVol: Math.round(_voiceVol * 1000) / 1000,
     gameMusicPlaying: isGameMusicPlaying(),
     registeredSfxCount: Object.keys(sfxRegistry).length,
     waterSplashRegistered: Boolean(sfxRegistry.waterSplash),
@@ -676,12 +683,15 @@ export function registerSfx(key, src, options = {}) {
     try { sfxRegistry[key].unload(); } catch {}
   }
   const perVol = _sfxPerVolumes[key] ?? _DEFAULT_SFX_VOLUMES[key] ?? 1;
+  // * VOICE-BUS-1: announcer_* takes construct at the VOICE category volume, all
+  // * other SFX (countdown, kill confirm, crash/boost/hop) at the SFX category.
+  const base = key.startsWith("announcer_") ? _voiceVol : _sfxVol;
   sfxRegistry[key] = new Howl({
     src: Array.isArray(src) ? src : [src],
     // * Constructor, not the setter: Howler validates neither, but only the setter can be
     // * silently refused later — a poisoned >1 here survives into every Sound this Howl
     // * creates. Clamp on the way in.
-    volume: _isMuted ? 0 : howlerVol(_sfxVol * perVol),
+    volume: _isMuted ? 0 : howlerVol(base * perVol),
     pool: options.pool ?? 4,
     sprite: options.sprite,
     loop: Boolean(options.loop),

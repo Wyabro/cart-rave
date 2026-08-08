@@ -73,9 +73,9 @@ way the Block table still can.)*
 |---|---:|---:|---:|---:|
 | [Engineering](#engineering) | 18 | 0 | 9 | 8 (+1 partial) |
 | [Art](#art) | 15 | 2 | 4 | 9 |
-| [Audio](#audio) | 5 | 0 | 3 | 2 |
+| [Audio](#audio) | 4 | 0 | 3 | 1 |
 | [Design / Gameplay](#design--gameplay) | 9 | 0 | 3 | 6 |
-| 🟢 [Playtest owed](#playtest-owed) | 3 | 0 | 1 | 2 |
+| 🟢 [Playtest owed](#playtest-owed) | 4 | 0 | 2 | 2 |
 | [UI / UX](#ui--ux) | 10 | 0 | 7 | 3 |
 | [Tech Debt](#tech-debt) | 13 | 0 | 5 | 8 |
 
@@ -269,7 +269,6 @@ moment a player-facing correctness bug turns up.)*
 | Medium | HIT-SFX-VAR-1 — more cart hit SFX variety `[pre-ship]` | Current hit clips are too repetitive. **Blocked on Wyatt providing new sound clips**; then wire into the hit pool (random / cooldown / velocity tiers — pick cheapest that reads varied). |
 | Medium | ANNOUNCER-RERECORD-1 — Announcer re-records (Wyatt) `[SHIP-1 E3]` | Shorter directive takes + odd lines. Pipeline drop-in. |
 | Medium | SD-MUSIC-LPF-1 — Sudden Death music low-pass `[SHIP-1 E3]` | Audio-graph surgery (shared Howler bus). |
-| Low | VOICE-BUS-1 — announcer has no volume of its own | **Filed 08-05 from the pre-launch audit.** The announcer — the game's signature audio feature — rides the SFX bus with no level control: [announcerManager.js](../../src/announcer/announcerManager.js) has no volume handling, and settings offer only on/off (`announcerVoiceEnabled` / `announcerCalloutsEnabled` in [settingsStore.js](../../src/stores/settingsStore.js)). **Scope:** a voice slider as a third category alongside music/SFX in [audioStore.js](../../src/stores/audioStore.js) + [audioControls.js](../../src/ui/audioControls.js). **AUDIO-MASTER-1 closed 08-07** (the dead `_masterVol` was deleted — no master bus ever existed, so a voice slider is genuinely a new third bus) and mind its clamp lesson: store domain is 0..1.15, Howler ceiling 1.0. This is the narrow slice of the `[SHIP-1 E3]` Howler-upgrade row's "volume groups". |
 | Low | HOWLER-UPGRADE-1 — Deeper Howler upgrade `[SHIP-1 E3]` | Spatial, pooling, volume groups. |
 
 ## Design / Gameplay
@@ -354,6 +353,7 @@ checked is a new card, not a reason to hold the PASS open. Detail:
 | Medium | PERF-9CELL-1 — Intel Low 9-cell PERF sweep `[solo]` | ⏸ **PARKED 08-05 with its parent PERF-PASS-1.** It came back **FAIL 08-05** with *"idk what you are asking me to do here"*, and that was the card's fault, not Wyatt's: it said "run the handover's 9-cell matrix" and left the actual protocol 300 lines deep in a 484-line doc, so the console showed him a 25-minute measurement sitting with no cells in it. **MOOT 08-06 — parent PERF-PASS-1 CLOSED with the bar unmet** (Wave 5 cells null/unproven, stadium kept). If it is ever reopened, the sweep is runnable off this row: **URL** `https://cart-rave.wyabro.workers.dev/?diag=1&preset=low&level=classicRecord&ablate=<token>`; **setup** Solo host, 3 NPCs, Cart Rave, entered *through the menu* (not a room link), Low tier, box cooled between cells; **per cell** play 60–90 s → **F8 mid-round** (`loopRound` is live, no podium needed) → `npm run captures:pull` → read `snapshot.perf.loopRound.meanMs`, discarding any cell where `straddledDemotion` is true. **Tokens in order:** `none` → `crowdcarts` → `crowd` → `pitlights` → `stadium` → `stagerig` → `billboard` → `bulbs` → `none`. **`none` runs FIRST and LAST**; if the two baselines differ by more than ±1.5 ms mean the box drifted and the whole sweep is void. **Never combine tokens** — the effects are not additive and combos destroy attribution. Full rationale, per-token expectations and the stills protocol: [perf-pass-1-handover.md](./perf-pass-1-handover.md#the-sweep--nine-cells-25-min-of-play-on-wyatts-intel-box). |
 | Low | SHARD-PT-2 — fifth human overflows to quickplay2 `[2pc]` | **Owed: Wyatt playtest — SHARD-PT-2 — the 5th concurrent Quickplay human lands on quickplay2 instead of "couldn't join".** Launch-day / public-post check — needs five real humans (Wyatt deferred 08-05). Rig already 5/5; SHARD-PT-1 PASSed on prod `9c333d1`. Prefer analytics: any `quickplay_shard_assigned` with `hops > 0` or `shard !== quickplay` counts.<br>1. When five humans can join Quickplay at once (public post), watch the 5th seat.<br>2. FAIL if they get the dead-end couldn't-join toast with no hop. PASS if they seat on an overflow shard (or analytics shows hops greater than 0).<br>3. Skip / leave open until launch day — do not FAIL for lack of five people. |
 | Low | AQ-RING-CLEAR-1 — autoQuality clear sample ring on every window eval | **Reserve only** if Wave 2 entry grace still demotes on retest. Comment in autoQuality.js already notes the ring can poison up to 3 windows. Own commit if needed; not in main batch path. |
+| Medium | VOICE-BUS-1 `[solo]` | **Owed: Wyatt playtest — VOICE-BUS-1 — the announcer has a VOICE slider independent of SFX.**<br>1. Settings -> AUDIO: VOICE sits under MUSIC/SFX; reload persists.<br>2. Solo: VOICE down quiets PA voice takes + PA stings (victory, KO lines); countdown + crash/boost still follow SFX.<br>3. VOICE=0 -> PA silent; MUTE still kills everything; SFX no longer moves announcer. |
 
 ## UI / UX
 

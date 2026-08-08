@@ -22,6 +22,7 @@ function loadInitialAudioState() {
   return {
     musicVolume: loadVolumePct(STORAGE_KEYS.musicVolume) ?? MUSIC_VOLUME_DEFAULT,
     sfxVolume: loadVolumePct(STORAGE_KEYS.sfxVolume) ?? AUDIO_VOLUME_DEFAULT,
+    voiceVolume: loadVolumePct(STORAGE_KEYS.voiceVolume) ?? AUDIO_VOLUME_DEFAULT,
     isMuted: storageGet(STORAGE_KEYS.muted) === "true",
   };
 }
@@ -46,6 +47,12 @@ export const audioStore = createStore((set, get) => ({
     const clamped = Math.min(Math.max(volume, 0), AUDIO_VOLUME_MAX);
     set({ sfxVolume: clamped });
     saveVolumePct(STORAGE_KEYS.sfxVolume, clamped);
+  },
+
+  setVoiceVolume: (volume) => {
+    const clamped = Math.min(Math.max(volume, 0), AUDIO_VOLUME_MAX);
+    set({ voiceVolume: clamped });
+    saveVolumePct(STORAGE_KEYS.voiceVolume, clamped);
   },
 
   setMuted: (muted) => {

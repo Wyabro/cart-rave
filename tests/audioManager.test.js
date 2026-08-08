@@ -510,3 +510,67 @@ describe("volume clamp at the Howler boundary (MENU-MUSIC-VOL-1)", () => {
     for (const v of sfx.volumeCalls) expect(v).toBeLessThanOrEqual(1);
   });
 });
+
+// * VOICE-BUS-1 — "The Store PA" voice takes (announcer_* keys) ride a third volume
+// * category (VOICE) independent of SFX. Same clamp discipline as MENU-MUSIC-VOL-1:
+// * the store domain reaches 1.15 but Howler's ceiling is 1.0, so the bus clamps
+// * through howlerVol() and never divides by AUDIO_VOLUME_MAX.
+describe("VOICE-BUS-1: announcer voice bus vs SFX bus", () => {
+  const initial = audioStore.getState();
+  const restore = {
+    music: initial.musicVolume,
+    sfx: initial.sfxVolume,
+    voice: initial.voiceVolume,
+  };
+
+  afterEach(() => {
+    audioStore.getState().setMusicVolume(restore.music);
+    audioStore.getState().setSfxVolume(restore.sfx);
+    audioStore.getState().setVoiceVolume(restore.voice);
+    setSfxPerVolume("cartCrash", 1);
+  });
+
+  function findHowl(src) {
+    return MockHowl.instances.find((h) => (h.opts.src || []).includes(src));
+  }
+
+  it("constructs announcer_* Howls at the VOICE category volume, not SFX", () => {
+    audioStore.getState().setVoiceVolume(0.8);
+    audioStore.getState().setSfxVolume(0.2);
+    MockHowl.instances.length = 0;
+    registerSfx("announcer_voice_bus_a", ["voice-a.opus"], { preload: false });
+    registerSfx("plain_sfx_bus_a", ["plain-a.opus"], { preload: false });
+    expect(findHowl("voice-a.opus").opts.volume).toBeCloseTo(0.8);
+    expect(findHowl("plain-a.opus").opts.volume).toBeCloseTo(0.2);
+  });
+
+  it("voiceVolume moves only the announcer_* Howls and never writes above 1", () => {
+    audioStore.getState().setSfxVolume(0.4);
+    registerSfx("announcer_voice_bus_b", ["voice-b.opus"], { preload: false });
+    registerSfx("plain_sfx_bus_b", ["plain-b.opus"], { preload: false });
+    const voice = findHowl("voice-b.opus");
+    const plain = findHowl("plain-b.opus");
+    voice.volumeCalls.length = 0;
+    plain.volumeCalls.length = 0;
+    // * Store domain 1.15 must clamp to Howler's 1.0 ceiling on the VOICE bus too.
+    audioStore.getState().setVoiceVolume(AUDIO_VOLUME_MAX);
+    expect(voice.volumeCalls.at(-1)).toBeCloseTo(1);
+    expect(voice.volumeCalls.at(-1)).toBeLessThanOrEqual(1);
+    // * The re-apply loop visits plain SFX too, but at its own unchanged SFX level.
+    expect(plain.volumeCalls.at(-1)).toBeCloseTo(0.4);
+  });
+
+  it("plain SFX is unaffected by voiceVolume changes", () => {
+    audioStore.getState().setSfxVolume(0.9);
+    audioStore.getState().setVoiceVolume(0.7);
+    registerSfx("announcer_voice_bus_c", ["voice-c.opus"], { preload: false });
+    registerSfx("plain_sfx_bus_c", ["plain-c.opus"], { preload: false });
+    const voice = findHowl("voice-c.opus");
+    const plain = findHowl("plain-c.opus");
+    voice.volumeCalls.length = 0;
+    plain.volumeCalls.length = 0;
+    audioStore.getState().setVoiceVolume(0.1);
+    expect(voice.volumeCalls.at(-1)).toBeCloseTo(0.1);
+    expect(plain.volumeCalls.at(-1)).toBeCloseTo(0.9);
+  });
+});

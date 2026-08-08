@@ -54,9 +54,11 @@ import {
   getIsMuted,
   getMusicVolume,
   getSfxVolume,
+  getVoiceVolume,
   setAllAudioMuted,
   setMusicGainValue,
   setSfxSliderVolume,
+  setVoiceSliderVolume,
 } from "../ui/audioControls.js";
 import { animateResultsDismiss, initResultsOverlay } from "../ui/resultsOverlay.js";
 import { showRotatePromptIfNeeded } from "../ui/rotatePrompt.js";
@@ -373,7 +375,7 @@ export function bootGameSystems(ctx) {
 
   // * "The Store PA" announcer — voice/sting playback core, then the presentation-only
   // * game-state observer that decides what to announce and when.
-  initAnnouncerStings(audioListener, { getSfxVolume, getIsMuted });
+  initAnnouncerStings(audioListener, { getVoiceVolume, getIsMuted });
   initAnnouncer({
     getSfxVolume,
     getIsMuted,
@@ -481,6 +483,8 @@ export function bootGameSystems(ctx) {
     setMusicGain: setMusicGainValue,
     getSfxVolume,
     setSfxVolume: setSfxSliderVolume,
+    getVoiceVolume,
+    setVoiceVolume: setVoiceSliderVolume,
     getAudioVolumeMax: () => AUDIO_VOLUME_MAX,
     getAudioVolumeDefault: () => AUDIO_VOLUME_DEFAULT,
     getBloomEnabled: () => refs.bloomEnabled,
