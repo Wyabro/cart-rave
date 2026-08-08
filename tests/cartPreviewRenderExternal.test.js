@@ -1,8 +1,9 @@
 // @vitest-environment happy-dom
 /**
- * MENU-CART-1 scissor contract: Three setViewport/setScissor take CSS (logical)
- * pixels and multiply by pixelRatio themselves. Pre-scaling by drawing-buffer
- * size double-applies DPR and clips the menu cart off the right edge.
+ * MENU-CART-1 external pass contracts:
+ * - setViewport/setScissor take CSS (logical) pixels — Three multiplies by DPR.
+ * - Exposure is lifted for the attract backdrop dim, then restored.
+ * - Scissor clears to a solid stage color (no arena bleed).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as THREE from "three";
@@ -13,6 +14,7 @@ vi.mock("../src/scene.js", async (importOriginal) => {
     ...actual,
     applyRendererColorGrading: vi.fn(),
     setupSceneEnvironment: () => ({ dispose: vi.fn() }),
+    resolveArenaExposure: () => 0.4,
   };
 });
 
@@ -74,24 +76,39 @@ afterEach(() => {
  *   renderer: import("three").WebGLRenderer,
  *   setViewport: ReturnType<typeof vi.fn>,
  *   setScissor: ReturnType<typeof vi.fn>,
+ *   clear: ReturnType<typeof vi.fn>,
+ *   setClearColor: ReturnType<typeof vi.fn>,
+ *   exposuresDuringRender: number[],
  * }}
  */
 function makeBorrowedRenderer() {
   const canvas = /** @type {HTMLCanvasElement} */ (document.getElementById("game"));
   const setViewport = vi.fn();
   const setScissor = vi.fn();
+  const clear = vi.fn();
+  const setClearColor = vi.fn();
   const viewport = new THREE.Vector4(0, 0, 1600, 900);
   const scissor = new THREE.Vector4(0, 0, 1600, 900);
+  const clearColor = new THREE.Color(0x000000);
+  /** @type {number[]} */
+  const exposuresDuringRender = [];
+  let exposure = 0.4;
   const renderer = /** @type {import("three").WebGLRenderer} */ ({
     domElement: canvas,
     autoClear: true,
+    get toneMappingExposure() {
+      return exposure;
+    },
+    set toneMappingExposure(v) {
+      exposure = v;
+    },
     getRenderTarget: () => null,
-    // * Drawing buffer is 1.25× CSS (Windows 125% scale). The bug pre-multiplied
-    // * by this, then Three multiplied again.
     getDrawingBufferSize: (target) => target.set(2000, 1125),
     getViewport: (target) => target.copy(viewport),
     getScissor: (target) => target.copy(scissor),
     getScissorTest: () => false,
+    getClearColor: (target) => target.copy(clearColor),
+    getClearAlpha: () => 1,
     setViewport: (...args) => {
       setViewport(...args);
       if (args[0] instanceof THREE.Vector4) viewport.copy(args[0]);
@@ -103,13 +120,21 @@ function makeBorrowedRenderer() {
       else scissor.set(args[0], args[1], args[2], args[3]);
     },
     setScissorTest: vi.fn(),
+    setClearColor: (color, alpha) => {
+      setClearColor(color, alpha);
+      if (color instanceof THREE.Color) clearColor.copy(color);
+      else clearColor.set(color);
+    },
+    clear,
     clearDepth: vi.fn(),
-    render: vi.fn(),
+    render: vi.fn(() => {
+      exposuresDuringRender.push(exposure);
+    }),
   });
-  return { renderer, setViewport, setScissor };
+  return { renderer, setViewport, setScissor, clear, setClearColor, exposuresDuringRender };
 }
 
-describe("CartPreview.renderExternal scissor coords", () => {
+describe("CartPreview.renderExternal", () => {
   it("passes CSS logical pixels (not drawing-buffer scaled) to setViewport/setScissor", () => {
     const { CartPreview } = cartPreviewModule;
     const preview = new CartPreview();
@@ -117,7 +142,6 @@ describe("CartPreview.renderExternal scissor coords", () => {
     const holder = /** @type {HTMLElement} */ (document.getElementById("holder"));
 
     preview.initExternal(renderer, holder);
-    // * Skip the async GLTF path — render only needs scene/camera/container.
     preview.cartGroup = new THREE.Group();
     preview.scene?.add(preview.cartGroup);
 
@@ -129,10 +153,33 @@ describe("CartPreview.renderExternal scissor coords", () => {
     expect(setViewport).toHaveBeenCalledWith(1100, 344, 420, 216);
     expect(setScissor).toHaveBeenCalledWith(1100, 344, 420, 216);
 
-    // * Must not pass the DPR-pre-scaled numbers.
     for (const call of setViewport.mock.calls) {
       expect(call).not.toEqual([1375, 430, 525, 270]);
     }
+
+    preview.dispose();
+  });
+
+  it("clears a solid stage, boosts exposure for attract dim, then restores grade", () => {
+    const { CartPreview } = cartPreviewModule;
+    const preview = new CartPreview();
+    const { renderer, clear, setClearColor, exposuresDuringRender } = makeBorrowedRenderer();
+    const holder = /** @type {HTMLElement} */ (document.getElementById("holder"));
+
+    renderer.toneMappingExposure = 0.4;
+    preview.initExternal(renderer, holder);
+    preview.cartGroup = new THREE.Group();
+    preview.scene?.add(preview.cartGroup);
+
+    preview.renderExternal(renderer);
+
+    // * 0.4 / (1 - 0.42) ≈ 0.6897 — Customize grade lifted through the attract dim.
+    expect(exposuresDuringRender).toHaveLength(1);
+    expect(exposuresDuringRender[0]).toBeCloseTo(0.4 / 0.58, 5);
+    expect(renderer.toneMappingExposure).toBe(0.4);
+
+    expect(setClearColor).toHaveBeenCalledWith(0x0a0612, 1);
+    expect(clear).toHaveBeenCalledWith(true, true, false);
 
     preview.dispose();
   });
