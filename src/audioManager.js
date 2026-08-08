@@ -119,6 +119,80 @@ function installDevMusicGate() {
   window.addEventListener("keydown", unlock, { capture: true, once: true });
 }
 
+// === Music low-pass (SD-MUSIC-LPF-1) ===
+// * Music runs as html5-streamed <audio> elements OUTSIDE the WebAudio graph
+// * (2 MB/track; buffered mode would cost ~40 MB decoded RAM and block playback on
+// * download). Low-pass therefore routes each element into a shared BiquadFilter via
+// * createMediaElementSource. That routing has gone SILENT across multiple iOS
+// * releases (WebKit 203435 / 261668 / 836531), so it is gated off on Apple/WebKit —
+// * SD music stays full-band there rather than risk muted music.
+
+/** Sudden Death low-pass cutoff (Hz). Taste knob — playtest verifies. */
+const MUSIC_LPF_CUTOFF_ON = 280;
+/** Fully-open cutoff (Hz) — transparent for Opus content. */
+const MUSIC_LPF_CUTOFF_OFF = 20000;
+/** setTargetAtTime time constant (s) for the cutoff glide in/out. */
+const MUSIC_LPF_RAMP_TC = 0.15;
+
+/**
+ * True when this platform can route streamed music through the WebAudio graph.
+ * Computed lazily but assigned ONCE in initAudioManager — never re-evaluated.
+ * A lazy per-Howl probe would be wrong: howler returns <audio> elements to a
+ * shared pool on unload(), so one successful wrap on a supported platform would
+ * route every future reuse of that element through the graph forever.
+ * @returns {boolean}
+ */
+function detectMusicLpSupported() {
+  try {
+    if (typeof navigator === "undefined") return true;
+    const isAppleWebKit = /Apple/i.test(navigator.vendor ?? "")
+      && /(iPhone|iPad|iPod|Mac)/i.test(navigator.userAgent ?? "");
+    return !isAppleWebKit;
+  } catch {
+    return true;
+  }
+}
+
+/** Whether music elements can be routed through the graph (set in initAudioManager). */
+let _musicLpSupported = false;
+/** AudioContext the music filter chain lives on (null until initialized). */
+/** @type {AudioContext | null} */
+let _musicCtx = null;
+/** Shared music-only low-pass filter; null when unsupported / not initialized. */
+/** @type {BiquadFilterNode | null} */
+let _musicFilter = null;
+let _musicLpActive = false;
+/** Music <audio> elements already routed into _musicFilter (reuse guard). */
+/** @type {Set<HTMLMediaElement>} */
+const _wrappedMusicElements = new Set();
+
+/**
+ * Route a music Howl's html5 <audio> elements through the shared low-pass filter.
+ * Howler creates the pooled element synchronously in the Howl constructor, so
+ * calling this right after construction covers even preload:false tracks.
+ * @param {Howl | null | undefined} howl
+ */
+function wrapMusicElements(howl) {
+  if (!_musicLpSupported || !_musicFilter || !_musicCtx) return;
+  const sounds = howl?._sounds;
+  if (!Array.isArray(sounds)) return;
+  for (const s of sounds) {
+    const el = s?._node;
+    // * Only html5 music Howls reach here; a hypothetical webAudio Howl would
+    // * expose a gain node, and createMediaElementSource would throw on it.
+    if (!(el instanceof HTMLMediaElement)) continue;
+    if (_wrappedMusicElements.has(el)) continue;
+    try {
+      const src = _musicCtx.createMediaElementSource(el);
+      src.connect(_musicFilter);
+      _wrappedMusicElements.add(el);
+    } catch {
+      // * Element may already be sourced or the graph is unusable — leave it
+      // * on the direct path; the LPF just won't apply to this element.
+    }
+  }
+}
+
 // === Initialization ===
 
 /**
@@ -134,6 +208,18 @@ export function initAudioManager(audioContext, opts = {}) {
   Howler.masterGain = audioContext.createGain();
   Howler.masterGain.gain.setValueAtTime(Howler._volume, audioContext.currentTime);
   Howler.masterGain.connect(audioContext.destination);
+  // * Music low-pass bus (SD-MUSIC-LPF-1): music <audio> elements join the graph
+  // * here so Sudden Death can filter them. Decided once — see detectMusicLpSupported.
+  _musicLpSupported = detectMusicLpSupported();
+  if (_musicLpSupported && typeof audioContext.createBiquadFilter === "function") {
+    _musicFilter = audioContext.createBiquadFilter();
+    _musicFilter.type = "lowpass";
+    _musicFilter.frequency.value = MUSIC_LPF_CUTOFF_OFF;
+    // * Howler.masterGain is manually wired above and never recreated — keep
+    // * masterGain first, then this connect, or the filter is orphaned.
+    _musicFilter.connect(Howler.masterGain);
+    _musicCtx = audioContext;
+  }
   // * Menu music + up to 4 game tracks + SFX share Howler's HTML5 pool.
   // * Default 10-slot pool only fills as objects are released, so pre-populate it.
   Howler.html5PoolSize = 40;
@@ -351,6 +437,7 @@ export function loadMenuMusic(src) {
       }
     },
   });
+  wrapMusicElements(menuMusic);
 }
 
 /**
@@ -398,6 +485,7 @@ function materializeGamePlaylist(urls) {
       }
     },
   }));
+  for (const t of gameMusicTracks) wrapMusicElements(t);
   currentGameTrackIdx = -1;
   gameMusicPlaying = false;
   pendingGamePlaylistUrls = null;
@@ -499,6 +587,27 @@ function advanceGameTrack() {
   if (gameMusicPlaying) {
     startGameTrack(gameMusicTracks[currentGameTrackIdx]);
   }
+}
+
+/**
+ * Glide the shared music filter's cutoff down (Sudden Death) or back up.
+ * Independent of duckMusic — that is a per-announcement volume fade, this is the
+ * whole-SD spectral change. No-op when the platform cannot route music into the
+ * graph (Apple/WebKit) or the filter was never built.
+ * @param {boolean} active
+ * @returns {void}
+ */
+export function setMusicLowPass(active) {
+  const on = Boolean(active);
+  if (on === _musicLpActive || !_musicFilter || !_musicCtx) return;
+  _musicLpActive = on;
+  const t = _musicCtx.currentTime;
+  _musicFilter.frequency.cancelScheduledValues(t);
+  _musicFilter.frequency.setTargetAtTime(
+    on ? MUSIC_LPF_CUTOFF_ON : MUSIC_LPF_CUTOFF_OFF,
+    t,
+    MUSIC_LPF_RAMP_TC,
+  );
 }
 
 // === Ambience beds (looping arena atmosphere) ===

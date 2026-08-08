@@ -15,6 +15,9 @@ vi.mock("howler", () => {
     constructor(opts) {
       this.opts = opts;
       this._state = opts.preload === false ? "unloaded" : "loaded";
+      // * Howler's Sound pool lives on the Howl as `_sounds`; the music low-pass
+      // * wrap helper iterates it. Empty array exercises that path as a no-op.
+      this._sounds = [];
       this.loadCalls = 0;
       this.playCalls = 0;
       this.fadeCalls = [];
@@ -99,7 +102,7 @@ vi.mock("howler", () => {
   return { Howl: MockHowl, Howler };
 });
 
-import { Howl as MockHowl } from "howler";
+import { Howl as MockHowl, Howler as MockHowler } from "howler";
 import {
   initAudioManager,
   setGamePlaylist,
@@ -109,6 +112,7 @@ import {
   playMenuMusic,
   stopMenuMusic,
   duckMusic,
+  setMusicLowPass,
   registerSfx,
   registerAmbience,
   prefetchSfxByPrefix,
@@ -124,16 +128,42 @@ import { audioStore, AUDIO_VOLUME_MAX } from "../src/stores/audioStore.js";
 
 /** Minimal AudioContext stub — only what initAudioManager touches. */
 function makeAudioContextStub() {
-  return {
+  const ctx = {
     currentTime: 0,
     state: "running",
+    /** Filters handed out by createBiquadFilter, for observing the module's filter. */
+    filters: [],
     createGain: () => ({
       gain: { setValueAtTime: () => {} },
       connect: () => {},
     }),
+    createBiquadFilter: () => {
+      const filter = {
+        type: "",
+        Q: {},
+        rampCalls: 0,
+        connectedTo: undefined,
+        frequency: {
+          value: 0,
+          cancelScheduledValues: () => {},
+          setTargetAtTime: (value, time, tc) => {
+            filter.frequency.value = value;
+            filter.frequency.lastRamp = { value, time, tc };
+            filter.rampCalls += 1;
+          },
+        },
+        connect: (target) => {
+          filter.connectedTo = target;
+        },
+      };
+      ctx.filters.push(filter);
+      return filter;
+    },
+    createMediaElementSource: () => ({ connect: () => {} }),
     destination: {},
     addEventListener: () => {},
   };
+  return ctx;
 }
 
 /** The game-track Howls created by the most recent materialization. */
@@ -572,5 +602,65 @@ describe("VOICE-BUS-1: announcer voice bus vs SFX bus", () => {
     audioStore.getState().setVoiceVolume(0.1);
     expect(voice.volumeCalls.at(-1)).toBeCloseTo(0.1);
     expect(plain.volumeCalls.at(-1)).toBeCloseTo(0.9);
+  });
+});
+
+// * SD-MUSIC-LPF-1 — Sudden Death low-passes the music. Music is html5-streamed
+// * outside the graph, so the filter rides a shared BiquadFilter that each music
+// * element joins via createMediaElementSource. The gate is decided once at
+// * initAudioManager; Apple/WebKit platforms are excluded (that routing has gone
+// * silent in several iOS releases).
+describe("SD-MUSIC-LPF-1: music low-pass bus", () => {
+  it("initAudioManager wires the filter into Howler.masterGain and opens it", () => {
+    const ctx = makeAudioContextStub();
+    initAudioManager(ctx);
+
+    const filter = ctx.filters[0];
+    expect(filter).toBeDefined();
+    expect(filter.type).toBe("lowpass");
+    expect(filter.frequency.value).toBe(20000);
+    expect(filter.connectedTo).toBe(MockHowler.masterGain);
+  });
+
+  it("setMusicLowPass(true) glides the cutoff down and is idempotent", () => {
+    const ctx = makeAudioContextStub();
+    initAudioManager(ctx);
+    const filter = ctx.filters[0];
+
+    setMusicLowPass(true);
+    expect(filter.frequency.lastRamp.value).toBe(280);
+    const rampsAfterFirst = filter.rampCalls;
+
+    setMusicLowPass(true);
+    expect(filter.rampCalls).toBe(rampsAfterFirst);
+  });
+
+  it("setMusicLowPass(false) glides the cutoff back to full band", () => {
+    const ctx = makeAudioContextStub();
+    initAudioManager(ctx);
+    const filter = ctx.filters[0];
+
+    setMusicLowPass(true);
+    setMusicLowPass(false);
+
+    expect(filter.frequency.lastRamp.value).toBe(20000);
+  });
+
+  it("Apple/WebKit platforms never build the filter; setMusicLowPass is a no-op", () => {
+    vi.stubGlobal("navigator", {
+      vendor: "Apple Computer, Inc.",
+      userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15",
+    });
+    try {
+      const ctx = makeAudioContextStub();
+      initAudioManager(ctx);
+
+      expect(ctx.filters).toHaveLength(0);
+      expect(() => setMusicLowPass(true)).not.toThrow();
+    } finally {
+      vi.unstubAllGlobals();
+      // * Restore the supported flag for later tests in this file.
+      initAudioManager(makeAudioContextStub());
+    }
   });
 });

@@ -1482,6 +1482,10 @@ export function bootGameSystems(ctx) {
       if (sdNow !== sdTensionLatched) {
         sdTensionLatched = sdNow;
         ArenaAmbience.setSuddenDeathTension(sdNow);
+        // * SD-MUSIC-LPF-1: music muffles for the whole Sudden Death phase (same
+        // * edge — the volume duck is per-announcement and unrelated). No-op on
+        // * platforms that cannot route music into the graph.
+        AudioManager.setMusicLowPass(sdNow);
         if (sdNow) ArenaAmbience.bumpCrowdExcitement(0.9);
       }
     }

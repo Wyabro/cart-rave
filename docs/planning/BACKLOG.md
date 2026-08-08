@@ -59,7 +59,7 @@ way the Block table still can.)*
 | Block | State | Next action |
 |-------|-------|-------------|
 | **1** — NOW (player-facing correctness) | ⬜ no open cards | → Block 2 (**CART-COLOR-DEPTH-1** definition) |
-| **2** — PRE-SHIP (before public post) | 🟡 queued | Definition: **CART-COLOR-DEPTH-1**. Then ONBOARD-ART-1 · MENU-CART-1 · VOICE-BUS-1 · SD-MUSIC-LPF-1 · RECORD-MED-1 · CHUNK-MEMBER-1 · NPC-BOOST-1 (measure) · UI-FRAME-1 + ESC-PANEL-1 · PAD-MENU-1 · KILLFEED-PHONE-1 · ARENA-BUMPER-HINT-1 (after product call) |
+| **2** — PRE-SHIP (before public post) | 🟡 queued | Definition: **CART-COLOR-DEPTH-1**. Then ONBOARD-ART-1 · MENU-CART-1 · VOICE-BUS-1 · RECORD-MED-1 · CHUNK-MEMBER-1 · NPC-BOOST-1 (measure) · UI-FRAME-1 + ESC-PANEL-1 · PAD-MENU-1 · KILLFEED-PHONE-1 · ARENA-BUMPER-HINT-1 (after product call) |
 | **3** — WYATT LANE (blocked on you) | 👤 ongoing | CART-MODEL-1 · HIT-SFX-VAR-1 clips · ANNOUNCER-RERECORD-1 · BLOOM-SIGNOFF-1 · DEFEAT-READ-1 · SKYBOX-DIR-1 · CARGO-BAY-INSTANCE-1 stability · SHIP-1 D-tier cut/keep |
 | **4** — PERF RESIDUAL (measure-first) | 🟡 queued | CARGO-BAY-INSTANCE-1 · PROBE-WARM-RT-1 · WARM-SOLO-1 · PERF-WATCH-1 · PERF-TIER-1 · Customize perf |
 | **5** — SWEEP (cheap Lows) | 🟡 queued | CAPTURE-RING-LIMIT-1 · CART-FORK-SWIVEL-1 · BOOTH-RAIL-COL-1 · SUNDIAL-LOW-WATER-1 · main-menu SFX · UI-SCALE-P2-MEDIA-1 · ORIENT-HINT-SCROLL-1 |
@@ -73,9 +73,9 @@ way the Block table still can.)*
 |---|---:|---:|---:|---:|
 | [Engineering](#engineering) | 18 | 0 | 9 | 8 (+1 partial) |
 | [Art](#art) | 15 | 2 | 4 | 9 |
-| [Audio](#audio) | 4 | 0 | 3 | 1 |
+| [Audio](#audio) | 3 | 0 | 2 | 1 |
 | [Design / Gameplay](#design--gameplay) | 9 | 0 | 3 | 6 |
-| 🟢 [Playtest owed](#playtest-owed) | 4 | 0 | 2 | 2 |
+| 🟢 [Playtest owed](#playtest-owed) | 5 | 0 | 3 | 2 |
 | [UI / UX](#ui--ux) | 10 | 0 | 7 | 3 |
 | [Tech Debt](#tech-debt) | 13 | 0 | 5 | 8 |
 
@@ -168,14 +168,13 @@ moment a player-facing correctness bug turns up.)*
 2. **ONBOARD-ART-1** — art rig landed; waiting on Wyatt's webp drops (`src/assets/howto/`) + AISLE 4 callout aim (`data-callouts="aimed"`).
 3. **MENU-CART-1** — main-menu 3D cart under the name plate (reuse CartPreview; watch attract perf).
 4. **VOICE-BUS-1** — announcer volume of its own (**AUDIO-MASTER-1 closed 08-07**: the dead `_masterVol` was deleted — a voice slider is genuinely a new third bus).
-5. **Sudden Death music low-pass** `[SHIP-1 E3]`
-6. **RECORD-MED-1** — Medium-tier record floor parity (look, not PERF-PASS-1).
-7. **CHUNK-MEMBER-1** — cold-visit chunk membership (public-post profile).
-8. **NPC-BOOST-1** — measure session only; retune is a separate ack.
-9. **UI-FRAME-1 + ESC scoring panel** `[SHIP-1 E1]` look pair.
-10. **Controller menu navigation polish** *(pre-ship 07-19 residual)*.
-11. **KILLFEED-PHONE-1** — kill feed awkward/overlapping on phone.
-12. **ARENA-BUMPER-HINT-1** — menu advertises LB/RB arena; nothing reads bumpers. Product call first (wire or drop the hint).
+5. **RECORD-MED-1** — Medium-tier record floor parity (look, not PERF-PASS-1).
+6. **CHUNK-MEMBER-1** — cold-visit chunk membership (public-post profile).
+7. **NPC-BOOST-1** — measure session only; retune is a separate ack.
+8. **UI-FRAME-1 + ESC scoring panel** `[SHIP-1 E1]` look pair.
+9. **Controller menu navigation polish** *(pre-ship 07-19 residual)*.
+10. **KILLFEED-PHONE-1** — kill feed awkward/overlapping on phone.
+11. **ARENA-BUMPER-HINT-1** — menu advertises LB/RB arena; nothing reads bumpers. Product call first (wire or drop the hint).
 
 **Block 3 — WYATT LANE (off the agent queue until you unblock).**
 - **CART-MODEL-1** — Blender cart / 2nd UV; unblocks Pattern customize UI.
@@ -268,7 +267,6 @@ moment a player-facing correctness bug turns up.)*
 |-----|------|-------|
 | Medium | HIT-SFX-VAR-1 — more cart hit SFX variety `[pre-ship]` | Current hit clips are too repetitive. **Blocked on Wyatt providing new sound clips**; then wire into the hit pool (random / cooldown / velocity tiers — pick cheapest that reads varied). |
 | Medium | ANNOUNCER-RERECORD-1 — Announcer re-records (Wyatt) `[SHIP-1 E3]` | Shorter directive takes + odd lines. Pipeline drop-in. |
-| Medium | SD-MUSIC-LPF-1 — Sudden Death music low-pass `[SHIP-1 E3]` | Audio-graph surgery (shared Howler bus). |
 | Low | HOWLER-UPGRADE-1 — Deeper Howler upgrade `[SHIP-1 E3]` | Spatial, pooling, volume groups. |
 
 ## Design / Gameplay
@@ -354,6 +352,7 @@ checked is a new card, not a reason to hold the PASS open. Detail:
 | Low | SHARD-PT-2 — fifth human overflows to quickplay2 `[2pc]` | **Owed: Wyatt playtest — SHARD-PT-2 — the 5th concurrent Quickplay human lands on quickplay2 instead of "couldn't join".** Launch-day / public-post check — needs five real humans (Wyatt deferred 08-05). Rig already 5/5; SHARD-PT-1 PASSed on prod `9c333d1`. Prefer analytics: any `quickplay_shard_assigned` with `hops > 0` or `shard !== quickplay` counts.<br>1. When five humans can join Quickplay at once (public post), watch the 5th seat.<br>2. FAIL if they get the dead-end couldn't-join toast with no hop. PASS if they seat on an overflow shard (or analytics shows hops greater than 0).<br>3. Skip / leave open until launch day — do not FAIL for lack of five people. |
 | Low | AQ-RING-CLEAR-1 — autoQuality clear sample ring on every window eval | **Reserve only** if Wave 2 entry grace still demotes on retest. Comment in autoQuality.js already notes the ring can poison up to 3 windows. Own commit if needed; not in main batch path. |
 | Medium | VOICE-BUS-1 `[solo]` | **Owed: Wyatt playtest — VOICE-BUS-1 — the announcer has a VOICE slider independent of SFX.**<br>1. Settings -> AUDIO: VOICE sits under MUSIC/SFX; reload persists.<br>2. Solo: VOICE down quiets PA voice takes + PA stings (victory, KO lines); countdown + crash/boost still follow SFX.<br>3. VOICE=0 -> PA silent; MUTE still kills everything; SFX no longer moves announcer. |
+| Medium | SD-MUSIC-LPF-1 `[solo]` | **Owed: Wyatt playtest — SD-MUSIC-LPF-1 — Sudden Death muffles the music.**<br>1. Solo/Quickplay with music audible at normal bandwidth (not muffled outside SD).<br>2. Enter SD (natural timer or dev Force Sudden Death ⚡): music goes muffled within ~0.5 s; tension drone + red ambience still there; announcer SD sting cuts through.<br>3. SD resolves (win or round end): music ramps back to full band.<br>4. Phone: Android/desktop LPF active. **iOS skips the LPF by design** (`createMediaElementSource` routing is unreliable on Apple/WebKit — WebKit 203435/261668/836531) — music must stay full-band, with **no** silence or dropout through SD. |
 
 ## UI / UX
 

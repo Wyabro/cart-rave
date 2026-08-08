@@ -13,6 +13,31 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 7, 2026 — SD-MUSIC-LPF-1: Sudden Death music low-pass
+
+Desk work landed (one commit); **Wyatt playtest owed** — row filed under `## Playtest owed`.
+
+- *(Audio · Medium)* **SD-MUSIC-LPF-1** — desk work complete 08-07; playtest owed (BACKLOG
+  Playtest owed row). Sudden Death now muffles the music. Music runs as html5-streamed `<audio>`
+  elements OUTSIDE the WebAudio graph (2 MB/track; buffered mode = ~40 MB decoded RAM + full
+  download before playback), so `duckMusic`'s volume fade cannot do a spectral change — each music
+  element is instead routed through a shared `BiquadFilter` via `createMediaElementSource` into
+  `Howler.masterGain` ([audioManager.js](../../src/audioManager.js)). Menu + playlist Howls are
+  wrapped once at construction (howler creates the pooled element synchronously in the `Howl`
+  constructor, so even `preload:false` tracks are covered); a Set guards pooled-element reuse
+  (howler returns elements to a shared pool on `unload()`). `setMusicLowPass(active)` glides the
+  cutoff 20 kHz → 280 Hz (τ 0.15 s, `setTargetAtTime`, both directions, idempotent), latched on
+  the existing SD edge watch in [gameBoot.js](../../src/orchestration/gameBoot.js) `onFrame`
+  (runs on every client — host flips `isSuddenDeath` locally, remotes via `host_round`; the same
+  edge drives the tension drone). **iOS/WebKit limitation by design:** that graph routing has gone
+  silent across several iOS releases (WebKit 203435 / 261668 / 836531), so the filter is skipped
+  on Apple/WebKit and SD music stays full-band there rather than risk muted music. Volume paths
+  are untouched — element volume/mute apply before the graph, `duckMusic` fades unchanged. Tests:
+  `tests/audioManager.test.js` (4 new SD-MUSIC-LPF-1 cases: chain wiring into `masterGain`, ramp
+  down, idempotency, Apple gate). `npm run qa` 7/7. Not deployed — ship on Wyatt's instruction.
+
+---
+
 ### August 7, 2026 — VOICE-BUS-1: "The Store PA" gets a real VOICE volume bus
 
 Desk work landed (one commit); **Wyatt playtest owed** — row filed under `## Playtest owed`.
