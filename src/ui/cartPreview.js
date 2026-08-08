@@ -206,7 +206,6 @@ export class CartPreview {
     /** Reused render-state snapshots for the shared-renderer menu path. */
     this._savedViewport = new THREE.Vector4();
     this._savedScissor = new THREE.Vector4();
-    this._drawingBufferSize = new THREE.Vector2();
 
     /** Rest transform after centering; feint offsets are always relative to this. */
     this._showroomRestPosition = new THREE.Vector3();
@@ -992,6 +991,10 @@ export class CartPreview {
    * Draws this scene into its container's rectangle on the borrowed renderer.
    * This must be called after the owner's final composer/direct arena pass.
    *
+   * Viewport/scissor coords are CSS (logical) pixels. Three multiplies them by
+   * the renderer pixel ratio itself — pre-scaling by drawing-buffer size double-
+   * applies DPR and slides the cart off the right edge on Windows scaling / high-DPI.
+   *
    * @param {THREE.WebGLRenderer} renderer
    * @returns {"rendered"|"unavailable"|"tooSmall"|"targetNonNull"}
    */
@@ -1017,15 +1020,12 @@ export class CartPreview {
       return "tooSmall";
     }
 
-    renderer.getDrawingBufferSize(this._drawingBufferSize);
-    const scaleX = this._drawingBufferSize.x / canvasRect.width;
-    const scaleY = this._drawingBufferSize.y / canvasRect.height;
-    const x = Math.round((holderRect.left - canvasRect.left) * scaleX);
-    const width = Math.round(holderRect.width * scaleX);
-    const height = Math.round(holderRect.height * scaleY);
-    const y = Math.round(
-      this._drawingBufferSize.y - (holderRect.bottom - canvasRect.top) * scaleY,
-    );
+    // * Logical pixels relative to the canvas CSS box (Three setViewport/setScissor
+    // * contract). Y is from the bottom edge, matching WebGL / Three.
+    const x = holderRect.left - canvasRect.left;
+    const y = canvasRect.bottom - holderRect.bottom;
+    const width = holderRect.width;
+    const height = holderRect.height;
     if (width < 1 || height < 1) return "tooSmall";
 
     this._resizeTo(width, height);
