@@ -5,10 +5,13 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import {
   runGameLoop,
   createGameLoopState,
+} from "../src/gameLoop.js";
+// * CHUNK-MEMBER-1 L1: counters live on the analytics leaf, not gameLoop exports.
+import {
   recordMatchFrameForTelemetry,
   resetMatchFrameTelemetry,
   getMatchFrameTelemetry,
-} from "../src/gameLoop.js";
+} from "../src/analytics/matchFrameTelemetry.js";
 
 // * Drive the rAF game loop deterministically: the loop self-schedules via
 // * requestAnimationFrame, so we capture the scheduled step and invoke it by hand

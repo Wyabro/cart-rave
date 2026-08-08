@@ -40,7 +40,8 @@ import { getAutoQualityStepLog } from "../utils/autoQuality.js";
 import { getQualityTier } from "../utils/qualityMode.js";
 import { probeGpu } from "../utils/gpuCaps.js";
 import { initAnalytics, trackEvent, getAnalyticsDebugState } from "./analytics.js";
-import { resetMatchFrameTelemetry, getMatchFrameTelemetry } from "../gameLoop.js";
+// * CHUNK-MEMBER-1 L1: leaf only — never import gameLoop (re-eagers the deferred graph).
+import { resetMatchFrameTelemetry, getMatchFrameTelemetry } from "./matchFrameTelemetry.js";
 
 /**
  * @typedef {object} GameplayAnalyticsDeps
