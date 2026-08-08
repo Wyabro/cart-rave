@@ -250,6 +250,51 @@ describe("range sliders stay in the ring and nudge on left/right", () => {
   });
 });
 
+describe("ring re-seed after the focused node is rebuilt away", () => {
+  it("re-seeds the ring to the rebuilt chip on the next idle frame; next press navigates", () => {
+    show("cr-customize-screen");
+    press(BTN.down); // seed → BACK (navIndex 0)
+    press(BTN.down); // → chip-0 (navIndex 1)
+    expect(document.activeElement).toBe(document.getElementById("chip-0"));
+    // * Simulate a chip select: the row rebuilds via innerHTML and the browser
+    // * parks focus on body because the focused node was removed.
+    document.getElementById("color-row").innerHTML =
+      '<button id="chip-0" type="button" role="radio" aria-checked="true">RED</button>' +
+      '<button id="chip-1" type="button" role="radio" aria-checked="false">BLUE</button>';
+    document.body.focus();
+    idleFrames(2);
+    expect(document.activeElement).toBe(document.getElementById("chip-0"));
+    expect(document.getElementById("chip-0").classList.contains("gamepad-focused")).toBe(true);
+    // * The next press navigates — it is not eaten re-seeding the ring.
+    press(BTN.down);
+    expect(document.activeElement).toBe(document.getElementById("chip-1"));
+  });
+
+  it("prefers the row's active chip over a stale out-of-range navIndex", () => {
+    show("cr-customize-screen");
+    press(BTN.down); // seed → BACK
+    press(BTN.down); // → chip-0
+    press(BTN.down); // → chip-1 (navIndex 2)
+    // * Tab switch: the row is replaced by a single active chip.
+    document.getElementById("color-row").innerHTML =
+      '<button id="chip-new" type="button" role="radio" aria-checked="true">NEW</button>';
+    document.body.focus();
+    idleFrames(2);
+    // * navIndex 2 is out of range for [BACK, chip-new] — a naive clamp would
+    // * land on BACK; the active chip in the focused row must win.
+    expect(document.activeElement).toBe(document.getElementById("chip-new"));
+  });
+
+  it("does not re-seed when focus left the ring but the node is still connected", () => {
+    press(BTN.down); // seed → PLAY (ring on play-btn)
+    document.body.focus(); // mouse click on empty chrome
+    idleFrames(3);
+    // * The ring stays visual but focus is not stolen back from the root.
+    expect(document.getElementById("play-btn").classList.contains("gamepad-focused")).toBe(true);
+    expect(document.activeElement).not.toBe(document.getElementById("play-btn"));
+  });
+});
+
 describe("focus re-yank", () => {
   it("never steals focus on idle frames while a pad is connected", () => {
     const note = document.getElementById("hud-note");

@@ -4,6 +4,12 @@ let _navActive = true;
 let navIndex = 0;
 let prevDpad = { up: false, down: false, left: false, right: false, a: false, b: false };
 
+// * The last node the ring actually focused, plus the radiogroup row it lived
+// * in. The row survives a chip rebuild (innerHTML replaces its children), which
+// * is what lets restoreDeadFocusRing find the new active chip after selection.
+let lastFocusedEl = /** @type {HTMLElement|null} */ (null);
+let lastFocusedRow = /** @type {HTMLElement|null} */ (null);
+
 // * Overlay containers that scope gamepad nav while open, topmost z-order
 // * first (esc 26000 > results 25000 > menu screens 1002 > 1001). They all
 // * share the same open contract — inline style.display === "flex" — the
@@ -90,6 +96,43 @@ function setFocus(targetEl, focusables) {
     targetEl.focus();
   }
   navIndex = focusables.indexOf(targetEl);
+  lastFocusedEl = targetEl;
+  lastFocusedRow = targetEl.closest?.('[role="radiogroup"]') ?? null;
+}
+
+/**
+ * True when focus has fallen back to the document root — the browser parks
+ * focus there both when the focused node is removed from the DOM and when the
+ * user clicks dead chrome. Both cases look identical from here, so the rest of
+ * the restore guard (ring node actually gone) separates them.
+ */
+function focusLostToRoot() {
+  const a = document.activeElement;
+  return !a || a === document.body || a === document.documentElement || a === document;
+}
+
+/**
+ * Re-seed the ring after the focused node was destroyed by a rebuild
+ * (customize chips re-assign their row's innerHTML on selection). Runs only when
+ * focus is on the root AND the last ring node is disconnected — a click on dead
+ * chrome parks focus on body with the ring node still live, which must NOT
+ * restore (that is the old focus-steal bug).
+ * Prefers the row's `[aria-checked="true"]` chip (a tab switch can shorten the
+ * list, so clamping navIndex alone could land on BACK/DONE), else the clamped
+ * navIndex.
+ * @param {HTMLElement[]} focusables
+ * @returns {HTMLElement|null}
+ */
+function restoreDeadFocusRing(focusables) {
+  if (!focusLostToRoot()) return null;
+  if (!lastFocusedEl || lastFocusedEl.isConnected) return null;
+  if (lastFocusedRow) {
+    const checked = lastFocusedRow.querySelector('[aria-checked="true"]');
+    const idx = checked ? focusables.indexOf(/** @type {HTMLElement} */ (checked)) : -1;
+    if (idx >= 0) return focusables[idx];
+  }
+  const idx = navIndex >= 0 && navIndex < focusables.length ? navIndex : 0;
+  return focusables[idx] || null;
 }
 
 function navigateSpatial(dir, focusables) {
@@ -199,16 +242,26 @@ function updateNav() {
     const focusInScope = !!activeEl && focusables.includes(activeEl);
     if (focusInScope && activeEl) {
       navIndex = focusables.indexOf(activeEl);
-    } else if (
-      (up && !prevDpad.up) || (down && !prevDpad.down) ||
-      (left && !prevDpad.left) || (right && !prevDpad.right) ||
-      (a && !prevDpad.a)
-    ) {
-      // * Focus lives outside the nav set (name input mid-edit, or nothing).
-      // * Reclaim it only on an actual press — re-seizing every idle frame
-      // * stole focus while a pad sat connected. The press is consumed as the
-      // * reveal; navigation/confirm start from the next press.
-      setFocus(focusables[navIndex] || focusables[0], focusables);
+    } else {
+      const restored = restoreDeadFocusRing(focusables);
+      if (restored) {
+        // * A rebuild (customize chip innerHTML, …) destroyed the focused node
+        // * and the browser parked focus on body. Re-seed the ring now — on an
+        // * idle frame, before any press — so the next press navigates instead
+        // * of being consumed re-seeding. Only fires when the ring node is
+        // * actually gone, never while focus sits on a live control.
+        setFocus(restored, focusables);
+      } else if (
+        (up && !prevDpad.up) || (down && !prevDpad.down) ||
+        (left && !prevDpad.left) || (right && !prevDpad.right) ||
+        (a && !prevDpad.a)
+      ) {
+        // * Focus lives outside the nav set (name input mid-edit, or nothing).
+        // * Reclaim it only on an actual press — re-seizing every idle frame
+        // * stole focus while a pad sat connected. The press is consumed as the
+        // * reveal; navigation/confirm start from the next press.
+        setFocus(focusables[navIndex] || focusables[0], focusables);
+      }
     }
 
     if (focusInScope && activeEl) {
@@ -308,6 +361,14 @@ function onKeyboardNav(e) {
   setInputMode("keyboard");
 
   if (!focusInScope) {
+    // * Same restore-first rule as the gamepad idle path: a rebuild killed the
+    // * focused node, so seed the ring back to it (consuming this press) before
+    // * falling back to the generic seed-from-navIndex.
+    const restored = restoreDeadFocusRing(focusables);
+    if (restored) {
+      setFocus(restored, focusables);
+      return;
+    }
     // * Mirrors the gamepad "first press seeds focus, doesn't navigate yet" behavior.
     setFocus(focusables[navIndex] || focusables[0], focusables);
     return;
@@ -329,6 +390,8 @@ export function setGamepadNavActive(active) {
   _navActive = active;
   if (!active) {
     document.querySelectorAll('.gamepad-focused').forEach(el => el.classList.remove('gamepad-focused'));
+    lastFocusedEl = null;
+    lastFocusedRow = null;
   }
 }
 
