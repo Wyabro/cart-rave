@@ -41,14 +41,13 @@ import { gameStore, RoundPhase } from "../stores/gameStore.js";
 const ROTATION_SPEED_RAD_PER_SEC = 0.45;
 
 /**
- * Attract dim over the shared canvas. Keep in lockstep with
- * `.cr-root.cr-root--attract::before { opacity }` in cart-rave-menu.css — the
- * menu cart is drawn on the game canvas UNDER that layer, so exposure is
- * lifted by 1/(1 − opacity) for the external pass only.
+ * Attract backdrop over the shared canvas. Keep in lockstep with
+ * `.cr-root.cr-root--attract::before { opacity }` in cart-rave-menu.css.
+ * Menu cart pixels are drawn UNDER that layer, so the external pass lifts
+ * exposure by 1/(1 − opacity) to land near Customize brightness without
+ * punching a visible hole in the dim (hard rect = square of undimmed arena).
  */
 const ATTRACT_BACKDROP_OPACITY = 0.42;
-/** Stage clear under the scissor — matches the preview ground and blocks arena bleed. */
-const MENU_SHOWCASE_CLEAR = 0x0a0612;
 
 /**
  * @param {number | string} value
@@ -1044,27 +1043,20 @@ export class CartPreview {
     const wasScissorTest = renderer.getScissorTest();
     const wasAutoClear = renderer.autoClear;
     const prevExposure = renderer.toneMappingExposure;
-    const prevClearColor = new THREE.Color();
-    renderer.getClearColor(prevClearColor);
-    const prevClearAlpha = renderer.getClearAlpha();
     try {
       renderer.autoClear = false;
       renderer.setViewport(x, y, width, height);
       renderer.setScissor(x, y, width, height);
       renderer.setScissorTest(true);
-      // * Same grade as Customize (no arena id), then lift for the attract
-      // * backdrop dim so the cart does not read darker/washed vs that panel.
+      // * Customize grade × attract-dim compensation. No solid clear (box) and
+      // * no CSS hole in the dim (undimmed arena square). Depth-only so the cart
+      // * floats on the arena with a soft ground disk, not a hard rect.
       const transmit = 1 - ATTRACT_BACKDROP_OPACITY;
       renderer.toneMappingExposure = resolveArenaExposure() / Math.max(transmit, 0.01);
-      // * Solid stage under the scissor: arena neon was bleeding through null
-      // * scene.background and compounding the wash. Depth must clear too so
-      // * the arena depth buffer cannot occlude this independent scene.
-      renderer.setClearColor(MENU_SHOWCASE_CLEAR, 1);
-      renderer.clear(true, true, false);
+      renderer.clearDepth();
       renderer.render(this.scene, this.camera);
     } finally {
       renderer.toneMappingExposure = prevExposure;
-      renderer.setClearColor(prevClearColor, prevClearAlpha);
       renderer.setViewport(this._savedViewport);
       renderer.setScissor(this._savedScissor);
       renderer.setScissorTest(wasScissorTest);

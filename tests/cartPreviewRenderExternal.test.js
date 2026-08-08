@@ -2,8 +2,8 @@
 /**
  * MENU-CART-1 external pass contracts:
  * - setViewport/setScissor take CSS (logical) pixels — Three multiplies by DPR.
- * - Exposure is lifted for the attract backdrop dim, then restored.
- * - Scissor clears to a solid stage color (no arena bleed).
+ * - Exposure = Customize grade / attract transmit (no CSS hole, no solid box).
+ * - Depth-only clear.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as THREE from "three";
@@ -47,7 +47,6 @@ beforeEach(async () => {
     y: 0,
     toJSON() {},
   });
-  // * Holder mid-right: CSS box that must map 1:1 into setViewport (not ×1.25 DPR).
   holder.getBoundingClientRect = () => ({
     left: 1100,
     top: 340,
@@ -76,8 +75,8 @@ afterEach(() => {
  *   renderer: import("three").WebGLRenderer,
  *   setViewport: ReturnType<typeof vi.fn>,
  *   setScissor: ReturnType<typeof vi.fn>,
+ *   clearDepth: ReturnType<typeof vi.fn>,
  *   clear: ReturnType<typeof vi.fn>,
- *   setClearColor: ReturnType<typeof vi.fn>,
  *   exposuresDuringRender: number[],
  * }}
  */
@@ -85,14 +84,13 @@ function makeBorrowedRenderer() {
   const canvas = /** @type {HTMLCanvasElement} */ (document.getElementById("game"));
   const setViewport = vi.fn();
   const setScissor = vi.fn();
+  const clearDepth = vi.fn();
   const clear = vi.fn();
-  const setClearColor = vi.fn();
   const viewport = new THREE.Vector4(0, 0, 1600, 900);
   const scissor = new THREE.Vector4(0, 0, 1600, 900);
-  const clearColor = new THREE.Color(0x000000);
   /** @type {number[]} */
   const exposuresDuringRender = [];
-  let exposure = 0.4;
+  let exposure = 0.528;
   const renderer = /** @type {import("three").WebGLRenderer} */ ({
     domElement: canvas,
     autoClear: true,
@@ -107,8 +105,6 @@ function makeBorrowedRenderer() {
     getViewport: (target) => target.copy(viewport),
     getScissor: (target) => target.copy(scissor),
     getScissorTest: () => false,
-    getClearColor: (target) => target.copy(clearColor),
-    getClearAlpha: () => 1,
     setViewport: (...args) => {
       setViewport(...args);
       if (args[0] instanceof THREE.Vector4) viewport.copy(args[0]);
@@ -120,18 +116,13 @@ function makeBorrowedRenderer() {
       else scissor.set(args[0], args[1], args[2], args[3]);
     },
     setScissorTest: vi.fn(),
-    setClearColor: (color, alpha) => {
-      setClearColor(color, alpha);
-      if (color instanceof THREE.Color) clearColor.copy(color);
-      else clearColor.set(color);
-    },
+    clearDepth,
     clear,
-    clearDepth: vi.fn(),
     render: vi.fn(() => {
       exposuresDuringRender.push(exposure);
     }),
   });
-  return { renderer, setViewport, setScissor, clear, setClearColor, exposuresDuringRender };
+  return { renderer, setViewport, setScissor, clearDepth, clear, exposuresDuringRender };
 }
 
 describe("CartPreview.renderExternal", () => {
@@ -148,8 +139,6 @@ describe("CartPreview.renderExternal", () => {
     const result = preview.renderExternal(renderer);
     expect(result).toBe("rendered");
 
-    // * CSS: x = 1100-0, y from bottom = 900-556 = 344, size 420×216.
-    // * Drawing-buffer (wrong) would be ×1.25 → 1375, 430, 525, 270.
     expect(setViewport).toHaveBeenCalledWith(1100, 344, 420, 216);
     expect(setScissor).toHaveBeenCalledWith(1100, 344, 420, 216);
 
@@ -160,26 +149,25 @@ describe("CartPreview.renderExternal", () => {
     preview.dispose();
   });
 
-  it("clears a solid stage, boosts exposure for attract dim, then restores grade", () => {
+  it("boosts exposure for attract dim, depth-only clear, restores game exposure", () => {
     const { CartPreview } = cartPreviewModule;
     const preview = new CartPreview();
-    const { renderer, clear, setClearColor, exposuresDuringRender } = makeBorrowedRenderer();
+    const { renderer, clearDepth, clear, exposuresDuringRender } = makeBorrowedRenderer();
     const holder = /** @type {HTMLElement} */ (document.getElementById("holder"));
 
-    renderer.toneMappingExposure = 0.4;
+    renderer.toneMappingExposure = 0.528;
     preview.initExternal(renderer, holder);
     preview.cartGroup = new THREE.Group();
     preview.scene?.add(preview.cartGroup);
 
     preview.renderExternal(renderer);
 
-    // * 0.4 / (1 - 0.42) ≈ 0.6897 — Customize grade lifted through the attract dim.
+    // * 0.4 / (1 - 0.42) — Customize grade through the full attract dim.
     expect(exposuresDuringRender).toHaveLength(1);
     expect(exposuresDuringRender[0]).toBeCloseTo(0.4 / 0.58, 5);
-    expect(renderer.toneMappingExposure).toBe(0.4);
-
-    expect(setClearColor).toHaveBeenCalledWith(0x0a0612, 1);
-    expect(clear).toHaveBeenCalledWith(true, true, false);
+    expect(renderer.toneMappingExposure).toBe(0.528);
+    expect(clearDepth).toHaveBeenCalledTimes(1);
+    expect(clear).not.toHaveBeenCalled();
 
     preview.dispose();
   });
