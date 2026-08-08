@@ -1265,6 +1265,12 @@ html, body {
 
 .cr-screen-hint::-webkit-scrollbar { display: none; }
 
+/* PAD-MENU-1: sub-screen hint rows author both keyboard and gamepad copy in the
+   markup, tagged [data-hint-kb]/[data-hint-pad]; updateScreenHints in
+   cart-rave-menu.js flips data-mode on the row. Default (kb) is in the markup. */
+.cr-screen-hint[data-mode="pad"] [data-hint-kb] { display: none; }
+.cr-screen-hint[data-mode="kb"] [data-hint-pad] { display: none; }
+
 .cr-screen-hint-item {
   display: inline-flex;
   align-items: center;

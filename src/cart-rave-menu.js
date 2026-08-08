@@ -2216,6 +2216,19 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
     }
   }
 
+  /**
+   * PAD-MENU-1: sub-screen hint rows (`.cr-screen-hint`) author both keyboard
+   * and gamepad copy in index.html, tagged `[data-hint-kb]` / `[data-hint-pad]`.
+   * Flips which set is visible from the same input-mode hook updateHintBar
+   * rides, so a pad player reads D-PAD/Ⓑ instead of W/S/ESC.
+   */
+  function updateScreenHints() {
+    const isPad = getInputMode() === "gamepad";
+    document.querySelectorAll(".cr-screen-hint").forEach((hint) => {
+      hint.dataset.mode = isPad ? "pad" : "kb";
+    });
+  }
+
   function onMenuNavKeydown(e) {
     if (!menuVisible() || isMenuOverlayOpen()) return;
     // * Any focused text field owns its own keystrokes. W/S move the command selection
@@ -2255,7 +2268,11 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
     updateArenaPager();
     setMenuSelection(0, { silent: true });
     updateHintBar();
-    onInputModeChange(() => updateHintBar());
+    updateScreenHints();
+    onInputModeChange(() => {
+      updateHintBar();
+      updateScreenHints();
+    });
     // * The bar re-wraps on width change (and on the URL-bar show/hide that moves dvh),
     // * so the reserve has to track it live — a one-shot measure goes stale on rotate.
     if (typeof ResizeObserver === "function") {
