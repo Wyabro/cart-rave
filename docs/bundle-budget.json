@@ -1,73 +1,119 @@
 {
   "_doc": "Committed byte budget for the INITIAL DOWNLOAD SET (entry module + all modulepreloads) of dist/index.html. Keys are hash-stripped chunk names. gzip is a stable proxy only — Cloudflare serves brotli, so it is NOT wire bytes. Regenerate with `npm run size:update`. Tool + gate rules: tools/bundle-budget.mjs.",
   "_membership": "`deferredModules` is the membership gate: any of these appearing in the initial set is a re-eagering and fails. `entryFamily` is the entry chunk plus the shared chunks rolldown split out of it — compared as one total, so a rename/re-split is not a regression.",
-  "generatedAt": "2026-08-05T01:14:57.946Z",
+  "generatedAt": "2026-08-09T06:38:21.285Z",
   "toleranceFraction": 0.02,
   "toleranceFloorBytes": 20000,
   "initialSet": {
-    "count": 14,
-    "raw": 1203360,
-    "gzip": 347497
+    "count": 23,
+    "raw": 1077807,
+    "gzip": 309301
   },
   "entryFamily": {
     "keys": [
-      "index"
+      "audioManager",
+      "bootstrap",
+      "cartThemeConfig",
+      "config",
+      "eventIds",
+      "gameStore",
+      "index",
+      "matchStats",
+      "rapierInstance",
+      "rendererInfo",
+      "roomCodes"
     ],
-    "raw": 91267,
-    "gzip": 30601
+    "raw": 227041,
+    "gzip": 77344
   },
   "chunks": {
     "three": {
       "raw": 689139,
-      "gzip": 174623
+      "gzip": 174923
     },
-    "errorReporter": {
-      "raw": 266217,
-      "gzip": 86807
+    "roomCodes": {
+      "raw": 91270,
+      "gzip": 29195
     },
     "index": {
-      "raw": 91267,
-      "gzip": 30601
+      "raw": 81050,
+      "gzip": 26850
     },
     "animejs": {
       "raw": 48376,
       "gzip": 18005
     },
-    "scene": {
-      "raw": 36861,
-      "gzip": 14093
-    },
     "howler": {
       "raw": 35952,
       "gzip": 9541
     },
-    "sfxSynth": {
-      "raw": 11902,
-      "gzip": 4378
+    "errorReporter": {
+      "raw": 35937,
+      "gzip": 13437
+    },
+    "config": {
+      "raw": 21398,
+      "gzip": 8538
+    },
+    "scene": {
+      "raw": 17750,
+      "gzip": 6769
+    },
+    "bootstrap": {
+      "raw": 11251,
+      "gzip": 4498
     },
     "animations": {
-      "raw": 10779,
-      "gzip": 3142
+      "raw": 11132,
+      "gzip": 3238
+    },
+    "audioManager": {
+      "raw": 10056,
+      "gzip": 3812
     },
     "diagnostics": {
-      "raw": 5852,
-      "gzip": 2838
+      "raw": 6044,
+      "gzip": 2940
     },
-    "koEvent": {
-      "raw": 3993,
-      "gzip": 1692
+    "cartThemeConfig": {
+      "raw": 5902,
+      "gzip": 1846
+    },
+    "sfxSynth": {
+      "raw": 3414,
+      "gzip": 1334
+    },
+    "gameStore": {
+      "raw": 3407,
+      "gzip": 1119
     },
     "utils": {
       "raw": 1189,
-      "gzip": 602
+      "gzip": 594
     },
     "captureUpload": {
       "raw": 1074,
       "gzip": 622
     },
+    "rapierInstance": {
+      "raw": 1049,
+      "gzip": 586
+    },
+    "matchStats": {
+      "raw": 1022,
+      "gzip": 455
+    },
     "levelLod": {
       "raw": 532,
-      "gzip": 359
+      "gzip": 360
+    },
+    "rendererInfo": {
+      "raw": 400,
+      "gzip": 236
+    },
+    "eventIds": {
+      "raw": 236,
+      "gzip": 209
     },
     "rolldown-runtime": {
       "raw": 227,
@@ -119,6 +165,9 @@
     "node_modules/@dimforge/rapier3d/rapier_wasm3d_bg.wasm",
     "node_modules/@dimforge/rapier3d/rapier_wasm3d_bg.wasm?url",
     "node_modules/@dimforge/rapier3d/raw.js",
+    "node_modules/partysocket/dist/index.js",
+    "node_modules/partysocket/dist/ws.js",
+    "shared/protocol.js",
     "src/ambience/arenaAmbience.js",
     "src/announcer/announcerDirector.js",
     "src/announcer/announcerEvents.js",
@@ -130,7 +179,11 @@
     "src/arenaReactiveLights.js",
     "src/audioSetup.js",
     "src/cargoLoad.js",
+    "src/cart.js",
+    "src/cartPatterns.js",
+    "src/cartRaveGltf.js",
     "src/cartShatter.js",
+    "src/cartThemes.js",
     "src/contactShadows.js",
     "src/dev/commandRegistry.js",
     "src/dev/devControl.js",
@@ -146,20 +199,31 @@
     "src/gameFlow.js",
     "src/gameLoop.js",
     "src/haptics.js",
+    "src/hostCollisionBatch.js",
     "src/hud.js",
     "src/levels/backroomsSupermarket.js",
     "src/levels/classicRecord.js",
     "src/levels/testArena.js",
     "src/levels/zanzibarPlatform.js",
+    "src/loaders/sharedDracoLoader.js",
+    "src/netcode.js",
+    "src/netcode/binary.js",
+    "src/netcode/p2p.js",
+    "src/netcode/p2pLimits.js",
+    "src/netcode/presentationDedupe.js",
     "src/orchestration/cartOrchestration.js",
     "src/orchestration/gameBoot.js",
     "src/orchestration/levelOrchestration.js",
     "src/orchestration/loopDeps.js",
     "src/orchestration/roundLifecycle.js",
     "src/sceneExtras.js",
+    "src/scoring/koEvent.js",
     "src/scoring/koReactors.js",
     "src/simulation.js",
+    "src/stores/cartTuningStore.js",
     "src/ui/announcerDisplay.js",
+    "src/ui/cartPreview.js",
+    "src/ui/cartPreviewGltf.js",
     "src/ui/centerStage.js",
     "src/ui/icons.js",
     "src/ui/pauseOverlay.js",
@@ -170,8 +234,13 @@
     "src/ui/styles/results.css",
     "src/utils/aiStallWatchdog.js",
     "src/utils/cheapMirror.js",
+    "src/utils/devLog.js",
     "src/utils/edgeDanger.js",
     "src/utils/frameBudget.js",
+    "src/utils/gameplayDiagnostics.js",
+    "src/utils/hostCapability.js",
+    "src/utils/invariants.js",
+    "src/utils/longTaskProbe.js",
     "src/utils/mergeStaticMeshes.js",
     "src/utils/podiumEndLatch.js",
     "src/utils/reconcileReplay.js",
