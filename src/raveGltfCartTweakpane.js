@@ -6,6 +6,7 @@ import {
   logRaveGltfCasterPivotsOnScene,
   logRaveGltfTuningValues,
   RAVE_GLTF_TUNING_RESET_GROUPS,
+  reapplyRaveGltfCartTuningOnScene,
   resetRaveGltfTuningAll,
   resetRaveGltfTuningKeys,
   raveGltfTuningKeysNeedVisualReapply,
@@ -55,12 +56,7 @@ function addSectionReset(folder, keys, rootPane, applyVisuals) {
  * @returns {import("tweakpane").FolderApi}
  */
 export function wireRaveGltfCartDebugTweakpane(pane, scene) {
-  // * Layout keys (the ↻ folders) are baked in at cart build time — there is no
-  // * live re-layout. Surface that instead of failing silently.
-  const applyVisuals = () => {
-    // eslint-disable-next-line no-console
-    console.info("[cart tuning] layout keys apply to newly built carts — respawn or reload the level to see them");
-  };
+  const applyVisuals = () => reapplyRaveGltfCartTuningOnScene(scene);
 
   const folder = pane.addFolder({ title: "Cart Forks & Wheels", expanded: true });
 

@@ -79,11 +79,7 @@ const RAVE_GLTF_FRAME_MESH = "tripo_part_0";
  */
 const RAVE_GLTF_ORIENTATION_Y = Math.PI / 2;
 
-/**
- * Layout keys baked in at cart build time — changing them only affects newly
- * built carts (respawn / level reload). The dev Tweakpane surfaces that hint
- * via `raveGltfTuningKeysNeedVisualReapply`.
- */
+/** Keys whose changes require `reapplyRaveGltfCartTuningOnScene`. */
 const RAVE_GLTF_TUNING_VISUAL_KEYS = new Set([
   "scale",
   "yOffset",
@@ -2220,6 +2216,115 @@ function applyRaveGltfBodyYDropToGroup(bodyGroup) {
   const bodyHeight = bodyGroup.userData.raveGltfBodyHeight;
   if (typeof pivotY !== "number" || typeof bodyHeight !== "number") return;
   bodyGroup.position.y = pivotY - bodyHeight * raveGltfTuning.bodyYDrop;
+}
+
+/**
+ * Reapplies `raveGltfTuning` layout keys on one live rave GLTF cart (scale, stance, kingpin).
+ * Steering / damping keys do not need this — they are read every frame.
+ *
+ * @param {THREE.Object3D} cartRoot
+ */
+export function reapplyRaveGltfCartTuning(cartRoot) {
+  if (!cartRoot?.userData?.isRaveGltf) return;
+
+  const model = cartRoot.getObjectByName("RaveGltfModel");
+  if (!model) return;
+
+  model.scale.setScalar(raveGltfTuning.scale);
+  model.position.y = raveGltfTuning.yOffset;
+
+  const bodyGroup = model.getObjectByName("RaveGltfBodyScale");
+  if (bodyGroup) {
+    bodyGroup.scale.setScalar(raveGltfTuning.bodyScale);
+    applyRaveGltfBodyYDropToGroup(/** @type {THREE.Group} */ (bodyGroup));
+  }
+
+  const data = cartRoot.userData.cartVisual;
+  if (!data?.casters?.length || _sourceLayout !== "cartrave4") return;
+
+  const bodyMesh = cartRoot.getObjectByName("CartFrame") ?? model.getObjectByName("CartFrame");
+  /** @type {Map<string, THREE.Mesh>} */
+  const meshByName = new Map();
+  model.traverse((child) => {
+    const mesh = /** @type {THREE.Mesh} */ (child);
+    if (mesh.isMesh && mesh.name) meshByName.set(mesh.name, mesh);
+  });
+
+  let maxWheelRadius = RAVE_GLTF_WHEEL_RADIUS_FALLBACK * raveGltfTuning.scale;
+
+  for (const caster of data.casters) {
+    const group = RAVE_GLTF_V4_FORK_GROUPS.find((g) => g.id === caster.id);
+    if (!group) continue;
+
+    const connectorMesh = meshByName.get(group.swivelHub);
+    /** @type {THREE.Mesh[]} */
+    const forkMeshes = [];
+    for (const partName of group.forkParts) {
+      const mesh = meshByName.get(partName);
+      if (mesh?.userData.raveGltfPartRole === "fork") forkMeshes.push(mesh);
+    }
+    if (!connectorMesh || forkMeshes.length === 0) continue;
+
+    const wheelMesh = meshByName.get(group.wheel);
+    captureRaveGltfCasterRestTransforms(
+      forkMeshes,
+      connectorMesh,
+      wheelMesh?.userData.raveGltfPartRole === "wheel" ? wheelMesh : undefined,
+      model,
+    );
+
+    const {
+      baseKingpin,
+      steerPivot,
+      stanceX,
+      stanceZ,
+    } = computeRaveGltfCasterSteerLayout(
+      forkMeshes,
+      /** @type {THREE.Mesh | null | undefined} */ (bodyMesh),
+      group.label,
+      model,
+      connectorMesh,
+      caster.baseKingpinModel ?? null,
+    );
+    if (!caster.baseKingpinModel) {
+      caster.baseKingpinModel = baseKingpin.clone();
+    }
+
+    const rollWheelMesh = caster.rollPivot?.children[0];
+
+    layoutRaveGltfCasterAssembly(
+      caster,
+      connectorMesh,
+      forkMeshes,
+      rollWheelMesh?.isMesh
+        ? /** @type {THREE.Mesh} */ (rollWheelMesh)
+        : wheelMesh?.isMesh
+          ? wheelMesh
+          : undefined,
+      baseKingpin,
+      steerPivot,
+      stanceX,
+      stanceZ,
+      model,
+    );
+
+    if (caster.wheelRadius) {
+      maxWheelRadius = Math.max(maxWheelRadius, caster.wheelRadius);
+    }
+  }
+
+  data.wheelRadius = maxWheelRadius;
+}
+
+/**
+ * Reapplies `raveGltfTuning` on every rave GLTF cart in a scene.
+ *
+ * @param {THREE.Object3D} scene
+ */
+export function reapplyRaveGltfCartTuningOnScene(scene) {
+  scene.traverse((obj) => {
+    if (obj.userData?.isRaveGltf) reapplyRaveGltfCartTuning(obj);
+  });
 }
 
 /**
