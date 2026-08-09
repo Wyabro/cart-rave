@@ -8,7 +8,7 @@
 import { resolveLevelId, LEVEL_STORAGE_KEY } from "./levels/index.js";
 import { storageGet } from "./utils/storage.js";
 import { withModeEntryLoading, yieldForPaint } from "./ui/loadingScreen.js";
-import { getNetSlots } from "./netcode.js";
+import { getNetcode } from "./netcode/load.js";
 import { markBootPhase } from "./utils/bootTimeline.js";
 
 /** @returns {Promise<unknown>} */
@@ -323,7 +323,7 @@ export async function ensureSessionCartsReady() {
       if (import.meta.env.DEV) {
         // eslint-disable-next-line no-console
         console.log("[bootstrap] Hello received, creating carts from slots", {
-          slotCount: getNetSlots()?.length,
+          slotCount: getNetcode()?.getNetSlots()?.length,
         });
       }
       const created = d.bootstrapSessionCarts(bootstrapGen);

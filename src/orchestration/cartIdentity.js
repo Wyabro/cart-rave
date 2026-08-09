@@ -7,21 +7,21 @@
 // nothing while this edge stood. See docs/planning/bundle-1.md §9 / §11.
 //
 // ⚠ This module must stay a LEAF: its only imports are `customization.js`, `npcNames.js`
-// and `netcode.js`, all of which are eager already. Never import a gameplay/render module
-// here — a static edge would silently re-eager the graph and undo the split.
+// and `netcodeLoad.js` (not netcode itself — CHUNK-DEFER-1 L2). Never import a
+// gameplay/render module here — a static edge would silently re-eager the graph.
 
-import * as Netcode from "../netcode.js";
+import { getNetcode } from "../netcode/load.js";
 import { resolveCartNeonCss, resolveCartNeonHex } from "../customization.js";
 import { NPC_NAME_POOL } from "../npcNames.js";
 
 /** Numeric hex for cart materials, particles and shatter debris. */
 export function displayColorHexForSlot(slot) {
-  return resolveCartNeonHex(slot, { youConnId: Netcode.getYouConnId() });
+  return resolveCartNeonHex(slot, { youConnId: getNetcode()?.getYouConnId() ?? null });
 }
 
 /** CSS hex for HUD, name labels, and results — same rules as displayColorHexForSlot. */
 export function displayCssColorForSlot(slot) {
-  return resolveCartNeonCss(slot, { youConnId: Netcode.getYouConnId() });
+  return resolveCartNeonCss(slot, { youConnId: getNetcode()?.getYouConnId() ?? null });
 }
 
 /** Fisher-Yates shuffle of the NPC name pool, truncated to `count`. */

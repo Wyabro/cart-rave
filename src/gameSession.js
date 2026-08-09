@@ -1,7 +1,7 @@
 // gameSession.js — connect → play → teardown → in-tab menu return
 
 import * as GameState from "./gameState.js";
-import * as Netcode from "./netcode.js";
+import { getNetcode } from "./netcode/load.js";
 import { SESSION_KEYS, sessionRemove } from "./utils/storage.js";
 import { trackEvent } from "./analytics/analytics.js";
 import { invalidateActivePlayEntry } from "./bootstrap.js";
@@ -100,7 +100,7 @@ export function createHelloBootstrapFlush(helloGate, getBridge) {
   }
 
   function markFirstHelloReceived(slots) {
-    helloGate.markReceived(slots ?? Netcode.getNetSlots());
+    helloGate.markReceived(slots ?? getNetcode()?.getNetSlots());
     void flushPendingSessionBootstrap();
   }
 
@@ -108,24 +108,14 @@ export function createHelloBootstrapFlush(helloGate, getBridge) {
 }
 
 /**
- * Registers netcode game callbacks and optionally defers connect for invite ?room=.
- * @param {{ current: object | null }} sessionBridgeCtx
- * @param {{ returnToMenu: (opts?: object) => void }} gameSession
+ * CHUNK-DEFER-1 L2: capture invite `?room=` only. Does **not** load netcode or
+ * register callbacks — `preparePlayNetworking()` in main owns that sequence.
+ *
  * @param {() => boolean} captureInviteRoomForDeferredMenu
- * @param {(() => Promise<void>) | null} [ensureGameSystems] BUNDLE-1 Lever C trigger 5 —
- *   forces the deferred gameBoot load on the first server hello. Injected, never imported.
  */
-export function bootstrapNetcodeEntryFromUrl(
-  sessionBridgeCtx,
-  gameSession,
-  captureInviteRoomForDeferredMenu,
-  ensureGameSystems = null,
-) {
+export function bootstrapNetcodeEntryFromUrl(captureInviteRoomForDeferredMenu) {
   if (typeof window === "undefined") return;
-  Netcode.registerGameCallbacks(
-    buildNetcodeGameBridge(() => sessionBridgeCtx.current, gameSession, ensureGameSystems),
-  );
-  if (captureInviteRoomForDeferredMenu()) return;
+  captureInviteRoomForDeferredMenu();
 }
 
 /**

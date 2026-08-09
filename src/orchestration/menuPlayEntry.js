@@ -4,7 +4,7 @@
 import * as AudioManager from "../audioManager.js";
 import * as GameState from "../gameState.js";
 import * as Input from "../input.js";
-import * as Netcode from "../netcode.js";
+import { ensureNetcode, getNetcode, requireNetcode } from "../netcode/load.js";
 import { resolveLevelMusic } from "../music/levelMusic.js";
 import { getCurrentLevelId, scheduleMenuLevelPreview } from "../levelManager.js";
 import { enterPlayMode, ensureSessionCartsReady } from "../bootstrap.js";
@@ -44,6 +44,18 @@ import {
 import { isTouchDevice } from "../utils.js";
 
 const MODE_MENU_BUTTON_IDS = ["cr-solo", "cr-quickplay", "cr-friends"];
+
+/**
+ * Pure URL room parse (same rules as netcode.resolvedPartyRoomFromUrl) for menu
+ * before the netcode module is loaded.
+ * @returns {string}
+ */
+function resolvedPartyRoomFromUrlFallback() {
+  if (typeof window === "undefined") return "quickplay";
+  const params = new URLSearchParams(window.location.search || "");
+  const raw = (params.get("room") || "").trim();
+  return /^[A-Za-z0-9]{2,16}$/.test(raw) ? raw : "quickplay";
+}
 
 /** @type {string | null} Valid ?room= on first paint for friend-invite deferred menu. */
 let pendingInviteRoomFromUrl = null;
@@ -111,6 +123,8 @@ export function enableModeMenuButtons() {
  *   orchestration/gameBoot.js and runs bootGameSystems() once. Injected, never imported:
  *   a static edge from this (eager) module to gameBoot.js would undo the code split.
  * @param {() => boolean} [deps.isGameSystemsReady] Sync "latch already resolved?" probe.
+ * @param {() => Promise<void>} [deps.preparePlayNetworking] CHUNK-DEFER-1 L2 —
+ *   ensureGameSystems → ensureNetcode → registerGameCallbacks (no connect).
  */
 export function createMenuPlayEntry(deps) {
   const {
@@ -120,6 +134,10 @@ export function createMenuPlayEntry(deps) {
     // * Lever C: an already-booted world behaves exactly as it did before.
     ensureGameSystems = async () => {},
     isGameSystemsReady = () => true,
+    preparePlayNetworking = async () => {
+      await ensureGameSystems();
+      await ensureNetcode();
+    },
     getMenuVisible,
     setMenuVisible,
     getLabelRenderer,
@@ -230,26 +248,31 @@ export function createMenuPlayEntry(deps) {
    * @returns {Promise<void>}
    */
   function startPlay(modeLabel, opts) {
-    if (isGameSystemsReady()) return enterPlayMode(opts);
+    // * Always run preparePlayNetworking so netcode callbacks exist before connect,
+    // * even when game systems were already idle-warmed (Choice 3 may have loaded
+    // * netcode as a gameBoot dep without registering callbacks).
     return withModeEntryLoading(
       async (report) => {
-        report(2, "Warming up…");
-        await ensureGameSystems();
+        if (!isGameSystemsReady() || !getNetcode()) {
+          report(2, "Warming up…");
+        }
+        await preparePlayNetworking();
         await enterPlayMode(opts);
       },
       { gameMode: opts?.gameMode ?? null, levelId: opts?.levelId ?? null },
     ).catch((err) => {
       // ! Re-thrown so each call site's own .catch(onMenuBootstrapError) still runs
       // ! exactly once; this branch only names the mode for the console line.
-      console.warn(`[menu] ${modeLabel} deferred game-systems boot failed`, err);
+      console.warn(`[menu] ${modeLabel} deferred play-networking boot failed`, err);
       throw err;
     });
   }
 
-  /** @returns {boolean} true when initNetcode was invoked without throwing. */
-  function bootstrapNetcodeFromMenu(mode, roomOverride) {
+  /** @returns {Promise<boolean>} true when initNetcode was invoked without throwing. */
+  async function bootstrapNetcodeFromMenu(mode, roomOverride) {
     try {
-      Netcode.initNetcode(roomOverride);
+      await preparePlayNetworking();
+      requireNetcode().initNetcode(roomOverride);
       return true;
     } catch (err) {
       onMenuBootstrapError(mode, err);
@@ -268,7 +291,7 @@ export function createMenuPlayEntry(deps) {
   function makeSoloArenaReadyHook(modeLabel) {
     return async (report) => {
       report?.(96, "Rolling out carts…");
-      if (!bootstrapNetcodeFromMenu(modeLabel)) return;
+      if (!(await bootstrapNetcodeFromMenu(modeLabel))) return;
       await ensureSessionCartsReady();
     };
   }
@@ -283,10 +306,10 @@ export function createMenuPlayEntry(deps) {
   function makeMultiplayerArenaReadyHook(modeLabel, roomOverride) {
     return async (report) => {
       report?.(94, "Connecting…");
-      if (!bootstrapNetcodeFromMenu(modeLabel, roomOverride)) return;
+      if (!(await bootstrapNetcodeFromMenu(modeLabel, roomOverride))) return;
       report?.(97, "Rolling out carts…");
       await ensureSessionCartsReady();
-      Netcode.reapplyCachedCartsSnapshot?.();
+      requireNetcode().reapplyCachedCartsSnapshot?.();
       // * Cap-56: game_start used to stack menu-hide + first music/ambience play +
       // * startCountdown teleports into one ~400ms host LT. Play-entry already
       // * decoded those packs (audio warm); roll playback under the loading overlay
@@ -356,14 +379,16 @@ export function createMenuPlayEntry(deps) {
           const colorToSend = resolveServerColorPick();
           const nextKey = colorToSend && PALETTE.includes(colorToSend) ? colorToSend : null;
           setPendingColorKey(nextKey);
-          if (nextKey && Netcode.getPartySocket() && Netcode.getPartySocket().readyState === WebSocket.OPEN) {
-            Netcode.sendColorPick(nextKey);
+          const nc = getNetcode();
+          if (nextKey && nc?.getPartySocket()?.readyState === WebSocket.OPEN) {
+            nc.sendColorPick(nextKey);
           }
         });
       }
     }
 
-    let room = Netcode.resolvedPartyRoomFromUrl();
+    // * URL parse lives on netcode module — use local fallback until loaded (pure menu).
+    let room = getNetcode()?.resolvedPartyRoomFromUrl() ?? resolvedPartyRoomFromUrlFallback();
 
     // * Mid-round refresh recovery: a solo/testdrive ?room= this tab already
     // * entered gameplay in is a stale leftover, not a deep link. Strip it and
@@ -602,7 +627,7 @@ export function createMenuPlayEntry(deps) {
     stopMenuAttract();
     setGamepadNavActive(false);
     revealGameCanvas();
-    const isTestDrive = Netcode.detectGameMode() === "testdrive";
+    const isTestDrive = (getNetcode()?.detectGameMode?.() ?? "solo") === "testdrive";
     const labelRenderer = getLabelRenderer();
     if (labelRenderer) {
       labelRenderer.domElement.style.display = isTestDrive ? "none" : "block";
@@ -622,7 +647,8 @@ export function createMenuPlayEntry(deps) {
     // * Mark solo/testdrive rooms as "engaged" so a mid-round refresh recovers to
     // * the menu instead of auto-restarting the room from the stale ?room= URL.
     // * (Quickplay refresh deliberately auto-rejoins — see initMenu.)
-    const engagedRoom = Netcode.resolvedPartyRoomFromUrl();
+    const engagedRoom =
+      getNetcode()?.resolvedPartyRoomFromUrl() ?? resolvedPartyRoomFromUrlFallback();
     if (engagedRoom && /^(solo|testdrive)/i.test(engagedRoom)) {
       sessionSet(SESSION_KEYS.engagedRoom, engagedRoom);
     }

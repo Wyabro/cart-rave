@@ -42,7 +42,10 @@ import { tickAutoQuality } from "./utils/autoQuality.js";
 import { CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer.js";
 // * CHUNK-DEFER-1 L1b: cartRaveGltf is not a static cold-entry dep — prefetch via import().
 import * as Input from "./input.js";
-import * as Netcode from "./netcode.js";
+import {
+  ensureNetcode,
+  getNetcode,
+} from "./netcode/load.js";
 import * as GameState from "./gameState.js";
 import { unlockStore } from "./stores/unlockStore.js";
 
@@ -94,6 +97,7 @@ import { createMenuStats } from "./ui/menuStats.js";
 import { getRoundClockNowMs, getRoundRemainingMs } from "./roundClock.js";
 import {
   bootstrapNetcodeEntryFromUrl,
+  buildNetcodeGameBridge,
   createGameSessionController,
   createHelloBootstrapFlush,
   createHelloGate,
@@ -271,8 +275,47 @@ function ensureGameSystems() {
     // ! Deliberately NOT reset on throw: a half-run boot must never be re-entered.
     mod.bootGameSystems(gameBootCtx);
     gameSystemsReady = true;
+    // * gameBoot static-imports netcode — sync the netcodeLoad latch so getNetcode()
+    // * is non-null after idle warm (Choice 3) without a separate prepare call.
+    await ensureNetcode();
   })();
   return gameSystemsPromise;
+}
+
+// === CHUNK-DEFER-1 L2 — preparePlayNetworking (systems → netcode → register) ===
+
+let netcodeCallbacksRegistered = false;
+/** @type {Promise<void> | null} */
+let preparePlayNetworkingPromise = null;
+
+/**
+ * Ordered play-networking prepare. No Party connect / initNetcode.
+ * 1. ensureGameSystems  2. ensureNetcode  3. registerGameCallbacks once
+ * @returns {Promise<void>}
+ */
+function preparePlayNetworking() {
+  if (preparePlayNetworkingPromise) return preparePlayNetworkingPromise;
+  preparePlayNetworkingPromise = (async () => {
+    try {
+      await ensureGameSystems();
+      const Netcode = await ensureNetcode();
+      if (!netcodeCallbacksRegistered) {
+        Netcode.registerGameCallbacks(
+          buildNetcodeGameBridge(
+            () => sessionBridgeCtx.current,
+            gameSession,
+            // * Fail-safe: first hello forces prepare if a future path connects early.
+            () => preparePlayNetworking(),
+          ),
+        );
+        netcodeCallbacksRegistered = true;
+      }
+    } catch (err) {
+      preparePlayNetworkingPromise = null;
+      throw err;
+    }
+  })();
+  return preparePlayNetworkingPromise;
 }
 
 /** Renderer handle for the module-level idle warm (set once in main()). */
@@ -449,6 +492,7 @@ async function main() {
     // * there) so menuPlayEntry keeps no static edge to gameBoot.js.
     ensureGameSystems,
     isGameSystemsReady,
+    preparePlayNetworking,
     getMenuVisible: () => gameRefs.menuVisible,
     setMenuVisible: (v) => { gameRefs.menuVisible = v; },
     getLabelRenderer: () => labelRenderer,
@@ -746,19 +790,19 @@ async function main() {
     try {
       const { createDevControl } = await import("./dev/devControl.js");
       devControl = createDevControl({
-        getIsHost: () => Netcode.getIsHost(),
+        getIsHost: () => getNetcode()?.getIsHost() ?? false,
         // * SEC-DIAG-1 public-room gate. A getter, not a captured value: menu → solo → menu →
         // * quickplay happens without a page reload, so a mode read once at construction would
         // * outlive its room and leave a solo-built control live in a public game.
-        getGameMode: () => Netcode.detectGameMode(),
+        getGameMode: () => getNetcode()?.detectGameMode() ?? "solo",
         getRoundState: () => GameState.getRoundState(),
-        getNetSlots: () => Netcode.getNetSlots(),
-        getYouConnId: () => Netcode.getYouConnId(),
-        getLocalSlotIndex: (connId) => Netcode.strictSlotIndexForConn(connId),
+        getNetSlots: () => getNetcode()?.getNetSlots(),
+        getYouConnId: () => getNetcode()?.getYouConnId(),
+        getLocalSlotIndex: (connId) => getNetcode()?.strictSlotIndexForConn(connId) ?? -1,
         setRoundScores: (scores) => GameState.setRoundScores(scores),
         setRoundStartedAtMs: (startedAtMs) => GameState.setRoundStartedAtMs(startedAtMs),
         getRoundClockNowMs,
-        sendHostRound: () => Netcode.sendHostRound(),
+        sendHostRound: () => getNetcode()?.sendHostRound(),
         grantKos: (level, n) => unlockStore.getState().recordKillOnLevel(level, n),
         roundDurationMs: CONFIG.round.durationMs,
         // * Non-host session teardown lever — drives the real menu-return path so the
@@ -782,7 +826,7 @@ async function main() {
       const { initPostFxDebugGui } = await import("./postFxDebug.js");
       const getDevStatus = () => {
         const state = GameState.getRoundState();
-        const adjustedNow = getRoundClockNowMs() - Netcode.getHostClockOffsetMs();
+        const adjustedNow = getRoundClockNowMs() - (getNetcode()?.getHostClockOffsetMs() ?? 0);
         let unlockOverride = null;
         try {
           unlockOverride = localStorage.getItem(DEV_UNLOCKS_STORAGE_KEY);
@@ -790,7 +834,7 @@ async function main() {
           // * Privacy modes report the default rather than blocking the panel.
         }
         return {
-          isHost: Netcode.getIsHost(),
+          isHost: getNetcode()?.getIsHost() ?? false,
           phase: state.phase,
           remainMs: state.phase === "running" && !state.isSuddenDeath
             ? getRoundRemainingMs(state.startedAtMs, CONFIG.round.durationMs, adjustedNow)
@@ -1036,30 +1080,32 @@ async function main() {
   // * Input is driven by real keydown events, not this hook. Zero cost when the flag is absent.
   if (new URLSearchParams(window.location.search || "").has("nettest")) {
     window.__ccNetTest = true;
-    Netcode.setNetTestActive(true);
+    void ensureNetcode().then((m) => {
+      m.setNetTestActive(true);
+    });
     installNetTestHarness({
       isReady: () => Boolean(window.__cartRaveMainReady),
       getPhase: () => GameState.getRoundState()?.phase ?? "unknown",
-      getYouConnId: () => Netcode.getYouConnId(),
-      getHostId: () => Netcode.getHostId(),
-      getIsHost: () => Netcode.getIsHost(),
-      getLocalSlotIndex: () => Netcode.strictSlotIndexForConn(Netcode.getYouConnId()),
+      getYouConnId: () => getNetcode()?.getYouConnId(),
+      getHostId: () => getNetcode()?.getHostId(),
+      getIsHost: () => getNetcode()?.getIsHost() ?? false,
+      getLocalSlotIndex: () => getNetcode()?.strictSlotIndexForConn(getNetcode()?.getYouConnId()) ?? -1,
       getCarts: () => gameRefs.allCartsRef,
-      getNetSlots: () => Netcode.getNetSlots(),
-      getLatestSnap: () => Netcode.getLatestSnap(),
+      getNetSlots: () => getNetcode()?.getNetSlots(),
+      getLatestSnap: () => getNetcode()?.getLatestSnap(),
       getAxis: () => Input.getAxis(),
-      getPendingInputCount: () => Netcode.getPendingInputs().length,
+      getPendingInputCount: () => (getNetcode()?.getPendingInputs() ?? []).length,
       getPendingMidJoinConnId: () => gameRefs.pendingMidRoundJoinRespawnConnId,
-      getInputCounters: () => Netcode.__netcodeTestHooks.getInputCounters(),
-      getShouldPredict: () => Netcode.shouldUseClientPrediction(),
-      getMode: () => Netcode.detectGameMode(),
+      getInputCounters: () => getNetcode()?.__netcodeTestHooks?.getInputCounters?.(),
+      getShouldPredict: () => getNetcode()?.shouldUseClientPrediction() ?? false,
+      getMode: () => getNetcode()?.detectGameMode() ?? "solo",
       getMigFreezeRemMs: () =>
-        Netcode.getHostMigrationFreezeUntilMs() - (performance.timeOrigin + performance.now()),
+        (getNetcode()?.getHostMigrationFreezeUntilMs() ?? 0) - (performance.timeOrigin + performance.now()),
       getHostInputDebug: (connId) => {
-        const h = Netcode.__netcodeTestHooks;
+        const h = getNetcode()?.__netcodeTestHooks;
         return {
-          queueLen: h.getRemoteInputQueueLength(connId),
-          lastAckSeq: h.getHostLastProcessedInputSeq(connId),
+          queueLen: h?.getRemoteInputQueueLength?.(connId),
+          lastAckSeq: h?.getHostLastProcessedInputSeq?.(connId),
         };
       },
     });
@@ -1092,16 +1138,16 @@ async function main() {
       .then((m) => {
         m.installGameplayDiagnostics({
           getCarts: () => gameRefs.allCartsRef,
-          getNetSlots: () => Netcode.getNetSlots(),
+          getNetSlots: () => getNetcode()?.getNetSlots(),
           getCamera: () => camera,
-          getMode: () => Netcode.detectGameMode(),
+          getMode: () => getNetcode()?.detectGameMode() ?? "solo",
           getLevelId: () => getCurrentLevelId(),
-          getLocalSlot: () => Netcode.strictSlotIndexForConn(Netcode.getYouConnId()),
+          getLocalSlot: () => getNetcode()?.strictSlotIndexForConn(getNetcode()?.getYouConnId()) ?? -1,
           // * Spawn-lock triage (07-17 run 2): main-closure state the "net" probe can't
           // * reach — an F8 during "can't leave spawn" must show whether inputs are being
           // * sampled at all, and whether an arena swap gate is still up.
           getNetDebug: () => {
-            const slot = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
+            const slot = getNetcode()?.strictSlotIndexForConn(getNetcode()?.getYouConnId()) ?? -1;
             const localCart = Array.isArray(gameRefs.allCartsRef) && slot >= 0
               ? gameRefs.allCartsRef[slot]
               : null;
@@ -1120,10 +1166,10 @@ async function main() {
               localBodyEnabled: localCart?.body ? localCart.body.isEnabled() : null,
               // * The two client-freeze gates the 07-17 captures could NOT see: an unwired
               // * axis ref (input sampling no-op) and a live host-migration freeze window.
-              axisWired: Netcode.isInputAxisWired(),
+              axisWired: getNetcode()?.isInputAxisWired() ?? false,
               migFreezeRemMs: Math.max(
                 0,
-                Math.round(Netcode.getHostMigrationFreezeUntilMs() - (performance.timeOrigin + performance.now())),
+                Math.round((getNetcode()?.getHostMigrationFreezeUntilMs() ?? 0) - (performance.timeOrigin + performance.now())),
               ),
             };
           },
@@ -1225,22 +1271,22 @@ async function main() {
   // * nothing per-frame. Runs AFTER the diagnostics block so its `analytics` probe can register
   // * with an installed hub (registerDiagProbe is a no-op before installDiagnostics).
   installGameplayAnalytics({
-    getMode: () => Netcode.detectGameMode(),
+    getMode: () => getNetcode()?.detectGameMode() ?? "solo",
     getLevelId: () => getCurrentLevelId(),
-    getLocalSlot: () => Netcode.strictSlotIndexForConn(Netcode.getYouConnId()),
+    getLocalSlot: () => getNetcode()?.strictSlotIndexForConn(getNetcode()?.getYouConnId()) ?? -1,
     // * ANLX-ATTRACT-1: "did I actually play this round?". A mid-round joiner adopts the
     // * room's running phase from hello/MSG.round while still on the menu with no cart, so
     // * the phase transition alone booked phantom matches. Read live (allCartsRef is a
     // * mutable closure ref) and null-guard per the standing cart-access invariant.
     // * Same shape as getNetDebug's localBodyEnabled above — keep them in step.
     getLocalCartActive: () => {
-      const slot = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
+      const slot = getNetcode()?.strictSlotIndexForConn(getNetcode()?.getYouConnId()) ?? -1;
       const cart = Array.isArray(gameRefs.allCartsRef) && slot >= 0
         ? gameRefs.allCartsRef[slot]
         : null;
       return Boolean(cart?.body && cart.body.isEnabled());
     },
-    getQuickplayHops: () => Netcode.getQuickplayHopCount(),
+    getQuickplayHops: () => getNetcode()?.getQuickplayHopCount() ?? 0,
   });
 
   // * VFX-1: live black-frame flicker monitor on real hardware (?blackmon=1). Opt-in,
@@ -1291,18 +1337,8 @@ async function main() {
 }
 
 
-// * BUNDLE-1 Lever C trigger 5 — the lobby-bridge guard. `registerGameCallbacks` is wired
-// * here at module scope reading `() => sessionBridgeCtx.current`, but `.current` is
-// * assigned inside gameBoot. Today no socket can exist before the latch (the only
-// * initNetcode() call is inside enterPlayMode's onArenaReady, already behind startPlay),
-// * so this is a fail-safe: the first hello forces the boot rather than reading a dead
-// * bridge. See docs/planning/bundle-1.md §8 for the full key inventory.
-bootstrapNetcodeEntryFromUrl(
-  sessionBridgeCtx,
-  gameSession,
-  captureInviteRoomForDeferredMenu,
-  ensureGameSystems,
-);
+// * CHUNK-DEFER-1 L2: invite capture only. Callbacks register in preparePlayNetworking.
+bootstrapNetcodeEntryFromUrl(captureInviteRoomForDeferredMenu);
 
 main().catch((err) => {
   console.error("[CartRave] bootstrap failed:", err);
