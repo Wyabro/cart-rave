@@ -124,6 +124,34 @@ const ATTRACT_SHOTS = Object.freeze([
 ]);
 
 /**
+ * Returns the camera poses used by the menu attract shots.
+ *
+ * Idle warm used to compile only the default gameplay camera. The first
+ * attract frame could then compile newly visible arena programs after
+ * world-ready, which made the menu look frozen.
+ *
+ * @param {number} arenaRadius
+ * @param {string} [levelId]
+ * @returns {ReadonlyArray<{ position: { x: number, y: number, z: number }, lookAt: { x: number, y: number, z: number } }>}
+ */
+export function getMenuAttractWarmupPoses(arenaRadius, levelId = "") {
+  const maxHeightM = LEVEL_MAX_CAM_HEIGHT_M[levelId] ?? Infinity;
+  const azimuths = [0, Math.PI * 0.5, Math.PI, Math.PI * 1.5];
+  return ATTRACT_SHOTS.map((shot, index) => {
+    const azimuth = azimuths[index];
+    const radius = arenaRadius * shot.radiusMul;
+    return {
+      position: {
+        x: Math.cos(azimuth) * radius,
+        y: Math.min(arenaRadius * shot.heightMul, maxHeightM),
+        z: Math.sin(azimuth) * radius,
+      },
+      lookAt: { x: 0, y: arenaRadius * shot.lookHeightMul, z: 0 },
+    };
+  });
+}
+
+/**
  * Per-arena camera height ceiling (meters). The Storerooms has a dropped ceiling at
  * y=14.5 — the old fixed 0.62×radius orbit (~16.4 m) floated ABOVE it, showing the
  * roof void. Clamp comfortably below the tiles (fixtures hang under them).

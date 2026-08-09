@@ -36,7 +36,11 @@ import { installWaterFxProgramWarmup } from "../effects/waterDeathFx.js";
 import { yieldForPaint } from "../ui/loadingScreen.js";
 import { getCurrentLevelId, setLevelSwapping, swapLoadedLevel } from "../levelManager.js";
 import { isWorldBootstrapped } from "../bootstrap.js";
-import { setMenuAttractRenderHold, setMenuAttractReveal } from "../ui/menuAttract.js";
+import {
+  getMenuAttractWarmupPoses,
+  setMenuAttractRenderHold,
+  setMenuAttractReveal,
+} from "../ui/menuAttract.js";
 import { crossfadeElement } from "../animations.js";
 import { isTouchDevice } from "../utils.js";
 import { getQualityTier } from "../utils/qualityMode.js";
@@ -504,6 +508,33 @@ export function createLevelOrchestration(deps) {
         if (isComposerBypassActive()) renderer.render(scene, camera);
         else composer.render();
       });
+
+      // * MENU-WARM-1: the default gameplay camera does not cover the menu's
+      // * shot-list. Compile/render each attract framing while world-ready is
+      // * still false, so newly visible arena programs cannot freeze the first
+      // * menu frame. This deliberately makes cold menu load longer on weak
+      // * drivers; the player gets a ready menu instead of a post-load hitch.
+      if (!forPlay) {
+        const savedPos = camera.position.clone();
+        const savedQuat = camera.quaternion.clone();
+        try {
+          const poses = getMenuAttractWarmupPoses(CONFIG.record.radius, getCurrentLevelId());
+          for (let i = 0; i < poses.length; i += 1) {
+            const pose = poses[i];
+            camera.position.set(pose.position.x, pose.position.y, pose.position.z);
+            camera.lookAt(pose.lookAt.x, pose.lookAt.y, pose.lookAt.z);
+            camera.updateMatrixWorld(true);
+            mark(`warm.render.attract.${i}`, () => {
+              if (isComposerBypassActive()) renderer.render(scene, camera);
+              else composer.render();
+            });
+          }
+        } finally {
+          camera.position.copy(savedPos);
+          camera.quaternion.copy(savedQuat);
+          camera.updateMatrixWorld(true);
+        }
+      }
 
       // * The countdown fly-over (beginRoundFlyover) hard-cuts to a wide, high orbit the
       // * default-camera warm-up above never renders from — first use of that framing (new
