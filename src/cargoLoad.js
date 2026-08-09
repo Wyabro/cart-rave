@@ -102,6 +102,19 @@ export function clearCargoOverflowForSlot(slotIndex) {
 }
 
 /**
+ * Shift the cargo round anchor with a compensated round-clock pause/tab delta.
+ * Call beside every setRoundStartedAtMs(+delta) compensation so the next frame
+ * does not mistake the same round for a new round.
+ * @param {number} deltaMs
+ */
+export function shiftCargoLatchBy(deltaMs) {
+  if (!Number.isFinite(deltaMs) || deltaMs <= 0) return;
+  if (_lastRoundStartedAtMs > 0) {
+    _lastRoundStartedAtMs += deltaMs;
+  }
+}
+
+/**
  * Visible grocery count for life cargo — 4 discrete phases (Wyatt 07-30: distinct
  * "cart got fuller" jumps read better than a per-point creep). Quarter-split over
  * fullScore; stripped (0) stays hidden. Defaults: life 1–2 → 5, 3–4 → 10, 5–7 → 20,

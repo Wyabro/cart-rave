@@ -17,6 +17,7 @@ let updateCargoLoad;
 let grantLifeCargo;
 let stripLifeCargo;
 let clearCargoOverflowForSlot;
+let shiftCargoLatchBy;
 let baselineLifeCargoPoints;
 let cargoCurveMul;
 let lifeCargoVisibleCount;
@@ -37,6 +38,7 @@ beforeEach(async () => {
     grantLifeCargo,
     stripLifeCargo,
     clearCargoOverflowForSlot,
+    shiftCargoLatchBy,
     baselineLifeCargoPoints,
     cargoCurveMul,
     lifeCargoVisibleCount,
@@ -284,6 +286,33 @@ describe("updateCargoLoad — CART OVERFLOW announce", () => {
     expect(overflowCalls).toHaveLength(2);
   });
 
+  it("does not re-arm after a compensated round-clock shift", () => {
+    const cart = makeCart(0, { lifeCargoPoints: CONFIG.cargo.fullScore });
+    updateCargoLoad([cart], 1000, makeCtx());
+    gameStore.setState({ roundStartedAtMs: 15_000 });
+    shiftCargoLatchBy(5_000);
+    updateCargoLoad([cart], 2000, makeCtx());
+    const overflowCalls = announce.mock.calls.filter(([id]) => id === "cart_overflow");
+    expect(overflowCalls).toHaveLength(1);
+  });
+
+  it("ignores invalid or unlatched cargo anchor shifts", () => {
+    const cart = makeCart(0, { lifeCargoPoints: CONFIG.cargo.fullScore });
+    gameStore.setState({ roundStartedAtMs: 0 });
+    updateCargoLoad([cart], 1000, makeCtx());
+    expect(() => {
+      shiftCargoLatchBy(Number.NaN);
+      shiftCargoLatchBy(Number.POSITIVE_INFINITY);
+      shiftCargoLatchBy(0);
+      shiftCargoLatchBy(-1);
+      shiftCargoLatchBy(5_000);
+    }).not.toThrow();
+    gameStore.setState({ roundStartedAtMs: 5_000 });
+    updateCargoLoad([cart], 2000, makeCtx());
+    const overflowCalls = announce.mock.calls.filter(([id]) => id === "cart_overflow");
+    expect(overflowCalls).toHaveLength(2);
+  });
+
   it("re-arms after clearCargoOverflowForSlot (respawn)", () => {
     const cart = makeCart(0, { lifeCargoPoints: CONFIG.cargo.fullScore });
     updateCargoLoad([cart], 1000, makeCtx());
@@ -301,6 +330,16 @@ describe("updateCargoLoad — FRESH START (spill_rush) announce", () => {
     cart.spillBoostUntilMs = nowMs + CONFIG.cargo.spillBoost.durationMs;
     updateCargoLoad([cart], nowMs, makeCtx({ localSlotIndex: 0 }));
     updateCargoLoad([cart], nowMs + 16, makeCtx({ localSlotIndex: 0 }));
+    const rushCalls = announce.mock.calls.filter(([id]) => id === "spill_rush");
+    expect(rushCalls).toHaveLength(1);
+  });
+
+  it("does not re-arm after a compensated round-clock shift", () => {
+    const cart = makeCart(0, { spillBoostUntilMs: 20_000 });
+    updateCargoLoad([cart], 10_000, makeCtx({ localSlotIndex: 0 }));
+    gameStore.setState({ roundStartedAtMs: 15_000 });
+    shiftCargoLatchBy(5_000);
+    updateCargoLoad([cart], 11_000, makeCtx({ localSlotIndex: 0 }));
     const rushCalls = announce.mock.calls.filter(([id]) => id === "spill_rush");
     expect(rushCalls).toHaveLength(1);
   });

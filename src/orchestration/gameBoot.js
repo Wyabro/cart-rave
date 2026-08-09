@@ -94,7 +94,7 @@ import { isShatterAnimating, triggerCartShatter } from "../cartShatter.js";
 // * They now arrive here and are merged into `sessionBridgeCtx.current` below.
 import * as GroceryPool from "../effects/groceryPool.js";
 import { dispatchKOEvent } from "../scoring/koReactors.js";
-import { armSpillBoost, stripLifeCargo } from "../cargoLoad.js";
+import { armSpillBoost, shiftCargoLatchBy, stripLifeCargo } from "../cargoLoad.js";
 import {
   applyRemoteDirective,
   clearDirectiveOnHostMigration,
@@ -1354,6 +1354,7 @@ export function bootGameSystems(ctx) {
     if (state.phase === "running" && state.startedAtMs > 0) {
       GameState.setRoundStartedAtMs(state.startedAtMs + delta);
       shiftDirectiveTimersBy(delta);
+      shiftCargoLatchBy(delta);
       Netcode.sendHostRound();
     }
     if (state.phase === "countdown" && state.countdownStartedAtMs > 0) {

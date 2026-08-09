@@ -33,6 +33,7 @@ import {
   snapshotMatchStats,
 } from "../scoring/matchStats.js";
 import { shiftDirectiveTimersBy } from "../directives/directiveEngine.js";
+import { shiftCargoLatchBy } from "../cargoLoad.js";
 import { announce, stopAnnouncer } from "../announcer/announcerManager.js";
 import {
   animateResultsPodiumShow,
@@ -1027,6 +1028,7 @@ function handleSoloPauseOverlay(open) {
       // * Run-6: the PA directive window rides performance.now(), not the round
       // * clock — shift it too or the chip drains/expires behind the Esc menu.
       shiftDirectiveTimersBy(delta);
+      shiftCargoLatchBy(delta);
     }
   }
   if (soloPauseCountdownRemainingMs != null) {
