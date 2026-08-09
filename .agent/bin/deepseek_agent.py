@@ -251,12 +251,32 @@ def _execute_tool(name: str, arguments: dict, role: str) -> str:
         return f"tool_error: {type(exc).__name__}: {exc}"
 
 
+def _api_key() -> str | None:
+    for name in ("DEEPSEEK_API_KEY", "CURSOR_DEEPSEEK_API_KEY"):
+        value = os.environ.get(name)
+        if value:
+            return value
+    if os.name != "nt":
+        return None
+    try:
+        import winreg
+
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Environment") as key:
+            for name in ("DEEPSEEK_API_KEY", "CURSOR_DEEPSEEK_API_KEY"):
+                value, _ = winreg.QueryValueEx(key, name)
+                if isinstance(value, str) and value:
+                    return value
+    except (FileNotFoundError, OSError):
+        pass
+    return None
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--role", choices=("maker", "checker"), required=True)
     parser.add_argument("prompt", nargs="+")
     args = parser.parse_args()
-    api_key = os.environ.get("DEEPSEEK_API_KEY") or os.environ.get("CURSOR_DEEPSEEK_API_KEY")
+    api_key = _api_key()
     if not api_key:
         print("DEEPSEEK_API_KEY is not set; the key is required but is never stored in the repository", file=sys.stderr)
         return 2
