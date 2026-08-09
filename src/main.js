@@ -16,8 +16,9 @@ import { installNetTestHarness } from "./utils/netTestHarness.js";
 import { installDiagnostics, diagUrlFlags } from "./utils/diagnostics.js";
 import { logBuildBanner, refreshBuildFreshness } from "./utils/buildFreshness.js";
 import { uploadCaptureBundle } from "./utils/captureUpload.js";
-import { installGameplayDiagnostics } from "./utils/gameplayDiagnostics.js";
-import { installLongTaskProbe } from "./utils/longTaskProbe.js";
+// * CHUNK-DEFER-1 L1a: gameplayDiagnostics + longTaskProbe load only under ?diag.
+// * Static imports here always pulled them (and diagnostics' netcode edge) into the
+// * eager graph for every visitor. Dynamic import keeps the install path identical.
 import { installGameplayAnalytics } from "./analytics/gameplayAnalytics.js";
 import { startBlackFrameMonitor } from "./utils/blackFrameMonitor.js";
 import {
@@ -1076,47 +1077,60 @@ async function main() {
     // * mutation route. Run-6: also attached in prod builds under ?diag=1 (host-gated;
     // * see the devControl creation note) so live MP round-end bugs are reproducible.
     installDiagnostics({ flags: diagUrlFlags(), control: devControl });
-    // * Run-7 P0: Long Task observer so multi-second host freezes attribute to a
-    // * main-thread task (or empty lt[] + focus flags) on the next friend F8.
-    installLongTaskProbe();
-    installGameplayDiagnostics({
-      getCarts: () => gameRefs.allCartsRef,
-      getNetSlots: () => Netcode.getNetSlots(),
-      getCamera: () => camera,
-      getMode: () => Netcode.detectGameMode(),
-      getLevelId: () => getCurrentLevelId(),
-      getLocalSlot: () => Netcode.strictSlotIndexForConn(Netcode.getYouConnId()),
-      // * Spawn-lock triage (07-17 run 2): main-closure state the "net" probe can't
-      // * reach — an F8 during "can't leave spawn" must show whether inputs are being
-      // * sampled at all, and whether an arena swap gate is still up.
-      getNetDebug: () => {
-        const slot = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
-        const localCart = Array.isArray(gameRefs.allCartsRef) && slot >= 0
-          ? gameRefs.allCartsRef[slot]
-          : null;
-        return {
-          // * Lever D: null until the latch resolves — a diag probe must never throw.
-          arenaRotationInFlight: gameRefs.level?.arenaRotationInFlight ?? null,
-          menuVisible: gameRefs.menuVisible,
-          // * Cap-200: DOM truth next to the flag — late CartRave.show() after hide left
-          // * menuVisible false while #cr-root was visible (harness false green).
-          crRootDisplay: (() => {
-            const el = document.getElementById("cr-root");
-            if (!el) return null;
-            return el.style.display || getComputedStyle(el).display;
-          })(),
-          localShatterState: Boolean(localCart?._shatterState),
-          localBodyEnabled: localCart?.body ? localCart.body.isEnabled() : null,
-          // * The two client-freeze gates the 07-17 captures could NOT see: an unwired
-          // * axis ref (input sampling no-op) and a live host-migration freeze window.
-          axisWired: Netcode.isInputAxisWired(),
-          migFreezeRemMs: Math.max(
-            0,
-            Math.round(Netcode.getHostMigrationFreezeUntilMs() - (performance.timeOrigin + performance.now())),
-          ),
-        };
-      },
-    });
+    // * CHUNK-DEFER-1 L1a: probe modules are not static deps of the cold entry graph.
+    void import("./utils/longTaskProbe.js")
+      .then((m) => {
+        // * Run-7 P0: Long Task observer so multi-second host freezes attribute to a
+        // * main-thread task (or empty lt[] + focus flags) on the next friend F8.
+        m.installLongTaskProbe();
+      })
+      .catch((err) => {
+        console.warn("[diag] longTaskProbe load failed:", err);
+      });
+    void import("./utils/gameplayDiagnostics.js")
+      .then((m) => {
+        m.installGameplayDiagnostics({
+          getCarts: () => gameRefs.allCartsRef,
+          getNetSlots: () => Netcode.getNetSlots(),
+          getCamera: () => camera,
+          getMode: () => Netcode.detectGameMode(),
+          getLevelId: () => getCurrentLevelId(),
+          getLocalSlot: () => Netcode.strictSlotIndexForConn(Netcode.getYouConnId()),
+          // * Spawn-lock triage (07-17 run 2): main-closure state the "net" probe can't
+          // * reach — an F8 during "can't leave spawn" must show whether inputs are being
+          // * sampled at all, and whether an arena swap gate is still up.
+          getNetDebug: () => {
+            const slot = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
+            const localCart = Array.isArray(gameRefs.allCartsRef) && slot >= 0
+              ? gameRefs.allCartsRef[slot]
+              : null;
+            return {
+              // * Lever D: null until the latch resolves — a diag probe must never throw.
+              arenaRotationInFlight: gameRefs.level?.arenaRotationInFlight ?? null,
+              menuVisible: gameRefs.menuVisible,
+              // * Cap-200: DOM truth next to the flag — late CartRave.show() after hide left
+              // * menuVisible false while #cr-root was visible (harness false green).
+              crRootDisplay: (() => {
+                const el = document.getElementById("cr-root");
+                if (!el) return null;
+                return el.style.display || getComputedStyle(el).display;
+              })(),
+              localShatterState: Boolean(localCart?._shatterState),
+              localBodyEnabled: localCart?.body ? localCart.body.isEnabled() : null,
+              // * The two client-freeze gates the 07-17 captures could NOT see: an unwired
+              // * axis ref (input sampling no-op) and a live host-migration freeze window.
+              axisWired: Netcode.isInputAxisWired(),
+              migFreezeRemMs: Math.max(
+                0,
+                Math.round(Netcode.getHostMigrationFreezeUntilMs() - (performance.timeOrigin + performance.now())),
+              ),
+            };
+          },
+        });
+      })
+      .catch((err) => {
+        console.warn("[diag] gameplayDiagnostics load failed:", err);
+      });
 
     // * Bug-capture hotkeys (F8, or legacy Ctrl+Shift+D): assemble a __ccDiag capture bundle for
     // * the moment a bug is on screen — "player reports it, dev presses the key". Logs the bundle,
