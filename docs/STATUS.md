@@ -161,7 +161,7 @@ input. `gamepadNav.test.js` 18 → 25 + new `padMenuHints.test.js`; QA 7/7; Wyat
 Not this card: ring-vs-`.is-selected` on non-command controls, and the main-bar LB/RB ARENA hint
 (`ARENA-BUMPER-HINT-1`).
 
-2026-08-07 (ONBOARD-ART-1 — HOW TO PLAY art rig landed; Block 2 pre-ship at Wyatt's call) —
+2026-08-07 (ONBOARD-ART-1 — HOW TO PLAY art rig landed; Block 2) —
 The deck now takes art as a **drop-in directory**: drop `<token>.webp` (`drive` / `boost` /
 `ram` / `hud` / `cargo`) into [src/assets/howto/](../src/assets/howto/README.md) and that slot
 turns on at the next build; no file → the slot stays dark, so the deck reads identical to the

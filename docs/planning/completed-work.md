@@ -13,6 +13,18 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 9, 2026 — SHADES-ZOOM-1 PASS: sunglasses tab camera settle
+
+- *(UI · Low)* **SHADES-ZOOM-1** — ✅ **CLOSED PASS 08-09** (Wyatt visual PASS). The customize
+  sunglasses tab now eases the intentional 1.0× ↔ 1.35× camera change over 240 ms with a
+  restrained cubic settle, reverses from the current position on rapid tab changes, and snaps
+  for `prefers-reduced-motion`. Cart scale, rotation behavior, and gameplay stay unchanged.
+  Regression coverage is in `tests/cartPreviewZoom.test.js`; focused tests, typecheck, build,
+  knip, briefing, architecture, and health checks passed. The full QA battery also exposed and
+  cleared the existing five-token `STATUS.md` budget overage before shipping.
+
+---
+
 ### August 9, 2026 — PATTERNS-UI-1 PASS: pattern customize UI verified on the re-UV'd body
 
 - *(UI · Medium · SHIP-1 C3)* **PATTERNS-UI-1** — ✅ **CLOSED PASS 08-09** (local dev PASS on

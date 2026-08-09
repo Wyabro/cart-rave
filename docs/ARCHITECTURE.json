@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-09T07:46:28.163Z",
-    "commit": "968f934"
+    "at": "2026-08-09T08:03:55.424Z",
+    "commit": "9d2ef5a"
   },
-  "source_digest": "cc65163d",
+  "source_digest": "91c6d77b",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1119,7 +1119,7 @@
         "title": "Design / Gameplay",
         "counts": {
           "Medium": 3,
-          "Low": 6
+          "Low": 5
         },
         "rows": [
           {
@@ -1156,12 +1156,6 @@
             "pri": "Low",
             "item": "DEATHCAM-KILLER-1 — Death-cam \"follow killer\" revisit",
             "notes": "Previously reverted.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "SHADES-ZOOM-1 — Animate the customize sunglasses-tab camera zoom",
-            "notes": "",
             "ship1": null
           },
           {

@@ -64,11 +64,23 @@ const SHOWROOM_FEINT_START_MS = 10400;
 const SHOWROOM_FEINT_PREP_MS = 550;
 const SHOWROOM_FEINT_RAM_MS = 400;
 const SHOWROOM_FEINT_RECOVER_MS = 900;
+const ZOOM_TRANSITION_MS = 240;
 
 /** @param {number} t @returns {number} */
 function easeInOutCubic(t) {
   const x = THREE.MathUtils.clamp(t, 0, 1);
   return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+}
+
+/**
+ * @returns {boolean}
+ */
+function prefersReducedMotion() {
+  try {
+    return window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -202,6 +214,9 @@ export class CartPreview {
 
     /** @type {number} Camera distance divisor (1.0 = default, 1.35 = 35% closer). */
     this._zoomMultiplier = 1;
+
+    /** @type {{ from: number, to: number, elapsedMs: number } | null} */
+    this._zoomTransition = null;
 
     /** Rest transform after centering; feint offsets are always relative to this. */
     this._showroomRestPosition = new THREE.Vector3();
@@ -398,25 +413,80 @@ export class CartPreview {
 
   /**
    * Zooms the cart by adjusting camera distance. 1.0 = default, >1 = tighter.
-   * Triggers an immediate camera re-frame when a cart mesh is mounted.
+   * Triggers an immediate camera re-frame when a cart mesh is mounted unless
+   * `{ animate: true }` is requested.
    *
    * @param {number} multiplier
+   * @param {{ animate?: boolean }} [options]
    */
-  setZoom(multiplier) {
-    this._zoomMultiplier = multiplier;
-    if (this.cartGroup && this.camera && this.renderer) {
-      const { width, height } = this._getContentSize();
-      frameCartInCamera(this.camera, this.cartGroup, width / height, multiplier);
+  setZoom(multiplier, { animate = false } = {}) {
+    const nextMultiplier = Number.isFinite(multiplier) ? Math.max(multiplier, 0.01) : 1;
+    const currentMultiplier = this._zoomMultiplier;
+    const currentTarget = this._zoomTransition?.to ?? currentMultiplier;
+    if (animate && Math.abs(currentTarget - nextMultiplier) < 0.0001) return;
+
+    this._zoomTransition = null;
+    const canAnimate = animate
+      && !prefersReducedMotion()
+      && this.cartGroup
+      && this.camera
+      && this.renderer
+      && Math.abs(currentMultiplier - nextMultiplier) >= 0.0001;
+
+    if (canAnimate) {
+      this._zoomTransition = {
+        from: currentMultiplier,
+        to: nextMultiplier,
+        elapsedMs: 0,
+      };
+      return;
     }
+
+    this._zoomMultiplier = nextMultiplier;
+    this._frameCartAtZoom(nextMultiplier);
   }
 
   /**
    * Matches the close, readable pose used by the Sunglasses customization tab.
    * Kept as a named pose so menu art and the tab cannot silently drift apart.
+   *
+   * @param {{ animate?: boolean }} [options]
    */
-  setHeroPose() {
+  setHeroPose(options = {}) {
     this.setAutoRotate(false);
-    this.setZoom(1.35);
+    this.setZoom(1.35, options);
+  }
+
+  /** @private */
+  _frameCartAtZoom(multiplier) {
+    if (!this.cartGroup || !this.camera || !this.renderer) return;
+    const { width, height } = this._getContentSize();
+    frameCartInCamera(this.camera, this.cartGroup, width / height, multiplier);
+  }
+
+  /**
+   * Advances the presentation-only camera transition without changing cart state.
+   *
+   * @param {number} elapsedMs
+   * @private
+   */
+  _advanceZoomTransition(elapsedMs) {
+    const transition = this._zoomTransition;
+    if (!transition) return;
+
+    transition.elapsedMs = Math.min(
+      transition.elapsedMs + Math.max(elapsedMs, 0),
+      ZOOM_TRANSITION_MS,
+    );
+    const progress = easeInOutCubic(transition.elapsedMs / ZOOM_TRANSITION_MS);
+    this._zoomMultiplier = THREE.MathUtils.lerp(transition.from, transition.to, progress);
+    this._frameCartAtZoom(this._zoomMultiplier);
+
+    if (transition.elapsedMs >= ZOOM_TRANSITION_MS) {
+      this._zoomMultiplier = transition.to;
+      this._zoomTransition = null;
+      this._frameCartAtZoom(this._zoomMultiplier);
+    }
   }
 
   /**
@@ -1002,6 +1072,8 @@ export class CartPreview {
       this._spinY += ROTATION_SPEED_RAD_PER_SEC * dt;
       this._applySpinRotation();
     }
+
+    this._advanceZoomTransition(dt * 1000);
 
     if (this.renderer && this.scene && this.camera) {
       this.renderer.render(this.scene, this.camera);

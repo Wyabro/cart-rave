@@ -953,10 +953,10 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
     // * Freeze auto-rotation on the Sunglasses tab so the mirror finish is readable.
     if (cartPreview) {
       if (tabId === 'sunglasses') {
-        cartPreview.setHeroPose();
+        cartPreview.setHeroPose({ animate: true });
       } else {
         cartPreview.setAutoRotate(true);
-        cartPreview.setZoom(1.0);
+        cartPreview.setZoom(1.0, { animate: true });
       }
     }
   }
