@@ -2,7 +2,7 @@
 
 > Historical log. Past entries may still say "Cart Rave" / `next-level` — that is intentional. Living naming rules: [brand.md](../brand.md).
 
-**Last Updated:** August 8, 2026
+**Last Updated:** August 9, 2026
 
 > **This doc = the past** — the single home for historical/completed items. For what works
 > *today* see [project-state.md](./project-state.md); for forward plans see [ROADMAP.md](./ROADMAP.md).
@@ -10,6 +10,21 @@
 Chronological record of shipped work, newest first.
 
 > **Convention:** As items ship, move their completed writeup here (out of ROADMAP.md / project-state.md).
+
+---
+
+### August 9, 2026 — CART-MODEL-1 PASS: repaired basket and tapered visor sides
+
+- *(Art · High · SHIP-1 C1)* **CART-MODEL-1** — ✅ **CLOSED PASS 08-09** (model fix
+  `9c176ae`; Wyatt local dev-build PASS; not deployed). Repaired `tripo_part_0` after the
+  replacement sunglasses exposed damaged surfaces from the old glasses. Used `art/reee.blend`
+  only as a high-poly shape reference. Removed the old glasses pieces, kept two UV channels,
+  restored a clean body-colour surface behind the sunglasses, nose, and smile, and closed the
+  side and rear gaps. The last correction tapered only 442 side-pocket Y positions. The accepted
+  centre vertices, faces, and UVs stayed unchanged, so the smile stayed clean and the square side
+  tabs disappeared. Front, side, and rear local views passed. Structure, build, and QA 7/7 passed
+  (156 files / 1,814 tests). **ART-MAT-1** remains absorbed here. The completed re-UV unblocks
+  **PATTERNS-UI-1**.
 
 ---
 

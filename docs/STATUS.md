@@ -84,7 +84,7 @@ Live rows only. Shipped and closed cards live in
    AUDIO-MASTER-1 · STATES-DEAD-1). SD-MUSIC-LPF-1 desk work closed 08-07 (SD music low-pass;
    iOS/WebKit gated off by design) — playtest owed with VOICE-BUS-1 under
    [BACKLOG § Playtest owed](./planning/BACKLOG.md).
-3. **Open High:** ONBOARD-ATTRACT-1 · ONBOARD-SIZE-1 · CART-MODEL-1 · bloom (unblocked by ART-*).
+3. **Open High:** ONBOARD-ATTRACT-1 · ONBOARD-SIZE-1 · bloom (unblocked by ART-*).
 4. **Playtest row left:** SHARD-PT-2 (launch day, five humans). Detail for all closed work:
    [completed-work.md](./planning/completed-work.md).
 
@@ -92,13 +92,6 @@ Live rows only. Shipped and closed cards live in
 
 Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed IDs live in
 [completed-work.md](./planning/completed-work.md) — not here.
-
-**CART-MODEL-1 local repair (08-09):**
-1. Wyatt rejected the lower trim because it exposed smeared smile texture; the side tabs were the target.
-2. Restored the clean-smile backing and preserved its center vertices, faces, and UVs exactly.
-3. Tapered only the two full-height side closures so they no longer form square visor tabs.
-4. Front, side, and rear checks are clean; both UVs survive WebP + Draco.
-5. Structure, build, and QA are green; Wyatt review remains, and this is not deployed.
 
 | ID | Issue | Status |
 |----|--------|--------|
@@ -142,6 +135,11 @@ the dev loop (dev probes lie in prod · edge propagation · frozen `rAF`), or a 
 - **Before any public / external-tester playtest: reset the analytics DO** so aggregates are not polluted by dev/harness traffic. Token-gated (SEC-TOKEN-1): `DELETE` with `Authorization: Bearer <ERROR_LOG_TOKEN>` on `/api/analytics` (never `?token=`).
 
 ## Last updated
+
+2026-08-09 (CART-MODEL-1 local visual PASS) — Repaired the basket surfaces exposed by the
+replacement sunglasses, restored the clean smile backing, and tapered only the two side closures.
+Front, side, and rear local views passed. Both UV channels survive WebP and Draco. The model fix is
+in `9c176ae`; Wyatt passed it in the dev build. The card is closed, but this change is not deployed.
 
 2026-08-08 (UI-FRAME-1 + ESC-PANEL-1 closed — absorbed) — Both `[SHIP-1 E1]` look rows audited:
 their intent already shipped under the Fight Night redesign (ESC pause 7f via `2192461` + `c5be94f`

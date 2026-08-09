@@ -10,10 +10,10 @@ CARGO-HUD-1a mocks: **nameplate placement, score-strip chip treatment, 3 discret
 all four carts, always-on.** This file stays as the research input; the plan of record is
 **[cargo-hud-1.md](./cargo-hud-1.md)**. Read that before writing any code.
 
-> **Do NOT conflate this with CARGO-VIS-1.** That card is the *3D basket look* (fill layout,
-> overflow pile at boss) and is Wyatt-led art gated behind CART-MODEL-1 — see
-> [BACKLOG.md:57](../planning/BACKLOG.md). CARGO-HUD-1 is a **2D HUD readout**, needs no
-> Blender work, and can ship independently. They are complementary, not duplicates.
+> **Do NOT conflate this with CARGO-VIS-1.** That card is the *3D basket look* (fill layout and
+> overflow pile at boss). It passed in production on 07-30, before CART-MODEL-1 closed on 08-09.
+> CARGO-HUD-1 is a **2D HUD readout**, needs no Blender work, and can ship independently. They are
+> complementary, not duplicates.
 >
 > **Do NOT add a contested-objective pickup.** Proposed and withdrawn with evidence — §6.
 
