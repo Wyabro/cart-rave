@@ -93,12 +93,12 @@ Live rows only. Shipped and closed cards live in
 Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed IDs live in
 [completed-work.md](./planning/completed-work.md) — not here.
 
-**CART-MODEL-1 basket repair (08-08):**
-1. Used `reee.blend` only as the clean basket shape reference.
-2. Preserved the old low-poly cart and replaced 1,205 damaged front faces.
-3. Added six clean openings and closed both old-glasses side gaps.
-4. Preserved uniform paint, pattern UVs, and all 21 named mesh parts.
-5. Dev check passed pink, blue, sunglasses, stripes, and checker; Wyatt review remains.
+**CART-MODEL-1 local repair (08-08):**
+1. Wyatt's marked close-up confirmed the full visor footprint needed backing, not three slivers.
+2. Restored the untouched `0ea0e75` basket and kept its original silhouette and 21 mesh names.
+3. Added a 288-face curved backing limited to the visor and fitted to the `reee.blend` profile.
+4. Both UVs survive WebP + Draco; classic and stripes show a clean nose and outer sides.
+5. Build and QA are green; Wyatt review remains, and this repair is not deployed.
 
 | ID | Issue | Status |
 |----|--------|--------|
