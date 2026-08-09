@@ -94,11 +94,11 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 [completed-work.md](./planning/completed-work.md) — not here.
 
 **CART-MODEL-1 local repair (08-08):**
-1. Wyatt accepted the front and identified two remaining old-glasses marks on the side walls.
-2. Kept the approved front, original basket silhouette, openings, and 21 mesh names unchanged.
-3. Added one 96-face tapered skin per side, limited to the old-glasses side footprints.
-4. Both UVs survive WebP + Draco; classic and stripes are clean in exact left and right views.
-5. Structure, build, and QA are green; Wyatt side review remains, and this is not deployed.
+1. Wyatt's five views proved the open side skins crossed the visor and failed at rear angles.
+2. Measured the fitted visor side at depth 0.340-0.454; the old skin overlapped it at 0.284-0.423.
+3. Rebuilt the corners as closed pockets behind that envelope while keeping the accepted center.
+4. Both UVs survive WebP + Draco; classic and stripes are clean in five front/rear corner views.
+5. Structure, build, and QA are green; Wyatt review remains, and this repair is not deployed.
 
 | ID | Issue | Status |
 |----|--------|--------|
