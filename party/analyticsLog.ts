@@ -88,14 +88,23 @@ export class AnalyticsLog {
     this.#ready = true;
   }
 
-  /** Insert one batch (bounded) and prune the ring buffer back down to MAX_ROWS. */
-  #ingest(batch: AnalyticsBatch): number {
+  /**
+   * Insert one batch (bounded) and prune the ring buffer back down to MAX_ROWS.
+   * @param geo Coarse CF geo from the Worker (country + region / US state). Merged into
+   *   props — never stored as columns, never includes IP.
+   */
+  #ingest(
+    batch: AnalyticsBatch,
+    geo: { country?: string | null; region?: string | null } = {},
+  ): number {
     this.#ensureSchema();
     const events = Array.isArray(batch.events) ? batch.events.slice(0, MAX_EVENTS_PER_BATCH) : [];
     const received = Date.now();
     const session = clampStr(batch.sessionId, CAP.session);
     const client = clampStr(batch.clientId, CAP.client);
     const build = clampStr(batch.build, CAP.build);
+    const country = clampStr(geo.country, 2);
+    const region = clampStr(geo.region, 6);
 
     let stored = 0;
     for (const raw of events) {
@@ -104,6 +113,23 @@ export class AnalyticsLog {
       if (!name) continue;
       // * Known dimensions become columns; the whole event is kept in props for anything else.
       const { name: _n, t: _t, ...rest } = e;
+      // * Server geo wins over any client-supplied country/region (do not trust the browser).
+      const propsObj: Record<string, unknown> = { ...rest };
+      if (country) propsObj.country = country;
+      else delete propsObj.country;
+      if (region) propsObj.region = region;
+      else delete propsObj.region;
+      // * Returning = this clientId already has a prior session_start in the ring.
+      if (name === "session_start" && client) {
+        const prior =
+          this.#ctx.storage.sql
+            .exec(
+              `SELECT COUNT(*) AS n FROM events WHERE client = ? AND name = 'session_start'`,
+              client,
+            )
+            .toArray()[0]?.n ?? 0;
+        propsObj.returning = Number(prior) > 0 ? 1 : 0;
+      }
       this.#ctx.storage.sql.exec(
         `INSERT INTO events (received, session, client, build, name, arena, mode, phase, reason, result, duration_ms, t, props)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -119,7 +145,7 @@ export class AnalyticsLog {
         clampStr(e.result, CAP.str),
         asIntOrNull(e.durationMs),
         asIntOrNull(e.t),
-        clampStr(rest, CAP.props),
+        clampStr(propsObj, CAP.props),
       );
       stored += 1;
     }
@@ -173,10 +199,63 @@ export class AnalyticsLog {
     const errorsByContext = sql
       .exec(`SELECT reason AS context, COUNT(*) AS n FROM events WHERE name = 'client_error' GROUP BY reason ORDER BY n DESC`)
       .toArray();
+    // * Wave A: geo + session length rollups from props / session_end (old rows lack geo).
+    const byCountry = sql
+      .exec(
+        `SELECT json_extract(props, '$.country') AS country, COUNT(*) AS n
+           FROM events
+          WHERE name = 'session_start' AND json_extract(props, '$.country') IS NOT NULL
+          GROUP BY country ORDER BY n DESC`,
+      )
+      .toArray();
+    const byRegion = sql
+      .exec(
+        `SELECT json_extract(props, '$.country') AS country,
+                json_extract(props, '$.region') AS region,
+                COUNT(*) AS n
+           FROM events
+          WHERE name = 'session_start' AND json_extract(props, '$.region') IS NOT NULL
+          GROUP BY country, region ORDER BY n DESC`,
+      )
+      .toArray();
+    const avgSessionMs =
+      sql
+        .exec(
+          `SELECT ROUND(AVG(duration_ms)) AS avgSessionMs
+             FROM events
+            WHERE name = 'session_end' AND duration_ms IS NOT NULL AND duration_ms > 0`,
+        )
+        .toArray()[0]?.avgSessionMs ?? null;
+    const returningRow = sql
+      .exec(
+        `SELECT
+            SUM(CASE WHEN CAST(json_extract(props, '$.returning') AS INTEGER) = 1 THEN 1 ELSE 0 END) AS ret_n,
+            SUM(CASE WHEN CAST(json_extract(props, '$.returning') AS INTEGER) = 0 THEN 1 ELSE 0 END) AS first_n
+           FROM events WHERE name = 'session_start'`,
+      )
+      .toArray()[0];
+    const returningSessions = {
+      returning: Number(returningRow?.ret_n ?? 0),
+      first: Number(returningRow?.first_n ?? 0),
+    };
     const window = sql
       .exec(`SELECT MIN(received) AS oldest, MAX(received) AS newest, COUNT(*) AS rows FROM events`)
       .toArray()[0];
-    return { window, sessions, clients, byName, matchesByArena, matchesByMode, resultSplit, quitsByPhase, errorsByContext };
+    return {
+      window,
+      sessions,
+      clients,
+      byName,
+      matchesByArena,
+      matchesByMode,
+      resultSplit,
+      quitsByPhase,
+      errorsByContext,
+      byCountry,
+      byRegion,
+      avgSessionMs,
+      returningSessions,
+    };
   }
 
   #list(limit: number): Record<string, unknown>[] {
@@ -205,7 +284,10 @@ export class AnalyticsLog {
       }
       try {
         const body = (await request.json()) as AnalyticsBatch;
-        this.#ingest(body);
+        this.#ingest(body, {
+          country: request.headers.get("cf-ipcountry"),
+          region: request.headers.get("cf-region-code"),
+        });
       } catch {
         // Malformed body — drop it rather than 500 the beacon path.
       }

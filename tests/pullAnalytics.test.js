@@ -60,6 +60,22 @@ describe("formatSummary null-guards window", () => {
     expect(text).toContain("rows=3");
     expect(text).toContain("classic");
   });
+
+  it("prints Wave A geo + session rollups when present", () => {
+    const text = formatSummary({
+      window: { rows: 2, oldest: 1, newest: 2 },
+      sessions: 2,
+      clients: 1,
+      avgSessionMs: 45000,
+      returningSessions: { first: 1, returning: 1 },
+      byCountry: [{ country: "US", n: 2 }],
+      byRegion: [{ country: "US", region: "UT", n: 1 }],
+    });
+    expect(text).toContain("avgSessionMs=45000");
+    expect(text).toContain("returning=1");
+    expect(text).toContain("US=2");
+    expect(text).toContain("US-UT=1");
+  });
 });
 
 describe("pullAnalytics fetch paths", () => {

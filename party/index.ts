@@ -1667,12 +1667,34 @@ function withAssetCacheHeaders(request: Request, response: Response): Response {
 /**
  * Headers for a log-DO store call. Carries the caller IP inward — the DO enforces
  * the SEC-BEACON-1 per-IP budget and cannot see cf-connecting-ip on its own.
+ * Also forwards coarse CF geo (country + regionCode / US state) for analytics props —
+ * never the raw IP into SQLite.
  */
 function beaconHeaders(request: Request): Record<string, string> {
-  return {
+  const headers: Record<string, string> = {
     "content-type": "application/json",
     "cf-connecting-ip": request.headers.get("cf-connecting-ip") || UNKNOWN_IP,
   };
+  // * Production Workers expose request.cf; tests / odd paths may only set headers.
+  const cf = (request as Request & { cf?: { country?: string; regionCode?: string } }).cf;
+  const countryRaw = cf?.country || request.headers.get("cf-ipcountry") || "";
+  const country = String(countryRaw)
+    .toUpperCase()
+    .replace(/[^A-Z]/g, "")
+    .slice(0, 2);
+  // * XX = unknown, T1 = Tor — skip both so summary is not polluted.
+  if (country && country !== "XX" && country !== "T1") {
+    headers["cf-ipcountry"] = country;
+  }
+  const regionRaw = cf?.regionCode || request.headers.get("cf-region-code") || "";
+  const region = String(regionRaw)
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "")
+    .slice(0, 6);
+  if (region) {
+    headers["cf-region-code"] = region;
+  }
+  return headers;
 }
 
 export default {

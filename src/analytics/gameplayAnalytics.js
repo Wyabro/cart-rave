@@ -109,7 +109,11 @@ export function installGameplayAnalytics(deps) {
     dpr: typeof window !== "undefined" ? Math.round((window.devicePixelRatio ?? 1) * 100) / 100 : null,
     touch: typeof navigator !== "undefined" ? (navigator.maxTouchPoints ?? 0) > 0 : null,
     menuReadyMs: readMenuReadyMs(),
+    // * Wave A: arrival channel only (hostname or "direct") — no full URL.
+    referrerHost: readReferrerHost(),
   });
+  const sessionStartPerfMs = performance.now();
+  let firstMatchTimed = false;
 
   // — Match lifecycle (gameStore): running = match_started, running→podium = match_ended —
   //
@@ -147,7 +151,14 @@ export function installGameplayAnalytics(deps) {
     startedEmitted = true;
     pendingStart = false;
     stopPoll();
-    trackEvent("match_started", { arena: arena(), mode: mode(), joinedMidRound });
+    /** @type {Record<string, unknown>} */
+    const startedProps = { arena: arena(), mode: mode(), joinedMidRound };
+    // * Wave A: time from page analytics install → first participated match (once per load).
+    if (!firstMatchTimed) {
+      firstMatchTimed = true;
+      startedProps.ttFirstMatchMs = Math.round(performance.now() - sessionStartPerfMs);
+    }
+    trackEvent("match_started", startedProps);
     maybeEmitShardAssigned();
   };
 
@@ -297,6 +308,19 @@ function readMenuReadyMs() {
     return e ? Math.round(e.startTime) : null;
   } catch {
     return null;
+  }
+}
+
+/** Referrer hostname only ("direct" when absent) — Wave A arrival channel. */
+function readReferrerHost() {
+  try {
+    if (typeof document === "undefined") return "direct";
+    const ref = document.referrer;
+    if (!ref) return "direct";
+    const host = new URL(ref).hostname;
+    return host ? host.slice(0, 80) : "direct";
+  } catch {
+    return "direct";
   }
 }
 

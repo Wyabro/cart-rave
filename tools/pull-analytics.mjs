@@ -101,7 +101,16 @@ export function formatSummary(summary) {
     lines.push("window: (no data yet — empty DO or zero rows)");
   }
   lines.push(`sessions=${s.sessions ?? 0}  clients=${s.clients ?? 0}`);
+  if (s.avgSessionMs != null) lines.push(`avgSessionMs=${s.avgSessionMs}`);
+  const ret = s.returningSessions && typeof s.returningSessions === "object"
+    ? /** @type {Record<string, unknown>} */ (s.returningSessions)
+    : null;
+  if (ret) {
+    lines.push(`returningSessions: first=${ret.first ?? 0}  returning=${ret.returning ?? 0}`);
+  }
   lines.push(formatNamedCounts("byName", s.byName));
+  lines.push(formatNamedCounts("byCountry", s.byCountry, "country"));
+  lines.push(formatRegionRows(s.byRegion));
   lines.push(formatArenaRows(s.matchesByArena));
   lines.push(formatNamedCounts("matchesByMode", s.matchesByMode, "mode"));
   lines.push(formatNamedCounts("resultSplit", s.resultSplit, "result"));
@@ -132,6 +141,17 @@ function formatArenaRows(rows) {
     return `${arena}:n=${r?.n ?? 0},avgMs=${r?.avgDurationMs ?? "?"},avgKos=${r?.avgKos ?? "?"}`;
   });
   return `matchesByArena: ${parts.join("  ")}`;
+}
+
+/** @param {unknown} rows */
+function formatRegionRows(rows) {
+  if (!Array.isArray(rows) || rows.length === 0) return "byRegion: (none)";
+  const parts = rows.map((r) => {
+    const country = r?.country ?? "?";
+    const region = r?.region ?? "?";
+    return `${country}-${region}=${r?.n ?? 0}`;
+  });
+  return `byRegion: ${parts.join("  ")}`;
 }
 
 /** @param {unknown} rows */
@@ -218,8 +238,23 @@ Exit: 0 ok · 2 missing token · 1 HTTP/other failure`);
     console.log(`count=${data.count ?? events.length}`);
     for (const ev of events.slice(0, args.limit)) {
       const row = /** @type {Record<string, unknown>} */ (ev);
+      let extra = "";
+      try {
+        const props = typeof row.props === "string" ? JSON.parse(row.props) : row.props;
+        if (props && typeof props === "object") {
+          const p = /** @type {Record<string, unknown>} */ (props);
+          if (p.country || p.region) {
+            extra += `  geo=${p.country ?? "?"}${p.region ? `-${p.region}` : ""}`;
+          }
+          if (p.pageHost) extra += `  host=${p.pageHost}`;
+          if (p.ttFirstMatchMs != null) extra += `  ttFirst=${p.ttFirstMatchMs}`;
+          if (p.returning != null) extra += `  ret=${p.returning}`;
+        }
+      } catch {
+        /* props may be truncated JSON */
+      }
       console.log(
-        `#${row.id ?? "?"}  ${row.name ?? "?"}  arena=${row.arena ?? "-"}  mode=${row.mode ?? "-"}  result=${row.result ?? "-"}`,
+        `#${row.id ?? "?"}  ${row.name ?? "?"}  arena=${row.arena ?? "-"}  mode=${row.mode ?? "-"}  result=${row.result ?? "-"}${extra}`,
       );
     }
     process.exit(0);

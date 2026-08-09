@@ -32,9 +32,10 @@ export async function clearAllLogs() {
  * @param {string} path e.g. "/api/log-error"
  * @param {unknown} body JSON-serializable payload.
  * @param {string|null} ip cf-connecting-ip, or null to omit it entirely.
+ * @param {Record<string, string>} [extraHeaders] Optional CF geo headers for analytics tests.
  */
-export function postBeacon(path, body, ip) {
-  const headers = { "content-type": "application/json" };
+export function postBeacon(path, body, ip, extraHeaders) {
+  const headers = { "content-type": "application/json", ...(extraHeaders || {}) };
   if (ip) headers["cf-connecting-ip"] = ip;
   return exports.default.fetch(`http://example.com${path}`, {
     method: "POST",
