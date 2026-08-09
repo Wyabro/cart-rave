@@ -94,11 +94,11 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 [completed-work.md](./planning/completed-work.md) — not here.
 
 **CART-MODEL-1 local repair (08-08):**
-1. Wyatt's marked close-up confirmed the full visor footprint needed backing, not three slivers.
-2. Restored the untouched `0ea0e75` basket and kept its original silhouette and 21 mesh names.
-3. Added a 288-face curved backing limited to the visor and fitted to the `reee.blend` profile.
-4. Both UVs survive WebP + Draco; classic and stripes show a clean nose and outer sides.
-5. Build and QA are green; Wyatt review remains, and this repair is not deployed.
+1. Wyatt accepted the front and identified two remaining old-glasses marks on the side walls.
+2. Kept the approved front, original basket silhouette, openings, and 21 mesh names unchanged.
+3. Added one 96-face tapered skin per side, limited to the old-glasses side footprints.
+4. Both UVs survive WebP + Draco; classic and stripes are clean in exact left and right views.
+5. Structure, build, and QA are green; Wyatt side review remains, and this is not deployed.
 
 | ID | Issue | Status |
 |----|--------|--------|
