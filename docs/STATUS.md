@@ -93,6 +93,13 @@ Live rows only. Shipped and closed cards live in
 Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed IDs live in
 [completed-work.md](./planning/completed-work.md) — not here.
 
+**CART-MODEL-1 basket repair (08-08):**
+1. Used `reee.blend` only as the clean basket shape reference.
+2. Preserved the old low-poly cart and replaced 1,205 damaged front faces.
+3. Added six clean openings and closed both old-glasses side gaps.
+4. Preserved uniform paint, pattern UVs, and all 21 named mesh parts.
+5. Dev check passed pink, blue, sunglasses, stripes, and checker; Wyatt review remains.
+
 | ID | Issue | Status |
 |----|--------|--------|
 | WARM-SOLO-1 | Solo post-`carts-ready` stall (WARM-IGPU residual) | 📋 telemetry-gated — [warm-igpu-1.md](./planning/warm-igpu-1.md) |
