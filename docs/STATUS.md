@@ -93,12 +93,12 @@ Live rows only. Shipped and closed cards live in
 Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed IDs live in
 [completed-work.md](./planning/completed-work.md) — not here.
 
-**CART-MODEL-1 local repair (08-08):**
-1. Wyatt accepted the closed side pockets; the final marked view isolated a flat lower shelf.
-2. The backing started at height 0.545 while the fitted visor bottom starts near 0.580.
-3. Lifted both lens areas to 0.576 and kept only the low center needed behind the nose.
-4. Both UVs survive WebP + Draco; the shelf is gone and the accepted sides stay unchanged.
-5. Structure, build, and QA are green; Wyatt review remains, and this repair is not deployed.
+**CART-MODEL-1 local repair (08-09):**
+1. Wyatt rejected the lower trim because it exposed smeared smile texture; the side tabs were the target.
+2. Restored the clean-smile backing and preserved its center vertices, faces, and UVs exactly.
+3. Tapered only the two full-height side closures so they no longer form square visor tabs.
+4. Front, side, and rear checks are clean; both UVs survive WebP + Draco.
+5. Structure, build, and QA are green; Wyatt review remains, and this is not deployed.
 
 | ID | Issue | Status |
 |----|--------|--------|
