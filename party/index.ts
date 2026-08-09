@@ -1667,32 +1667,34 @@ function withAssetCacheHeaders(request: Request, response: Response): Response {
 /**
  * Headers for a log-DO store call. Carries the caller IP inward — the DO enforces
  * the SEC-BEACON-1 per-IP budget and cannot see cf-connecting-ip on its own.
- * Also forwards coarse CF geo (country + regionCode / US state) for analytics props —
- * never the raw IP into SQLite.
+ * Coarse CF geo (country + regionCode / US state) is copied onto x-cc-* headers —
+ * Durable Object subrequests strip most cf-* headers, so we must not forward geo as cf-*.
+ * Never persist the raw IP into SQLite.
  */
 function beaconHeaders(request: Request): Record<string, string> {
   const headers: Record<string, string> = {
     "content-type": "application/json",
     "cf-connecting-ip": request.headers.get("cf-connecting-ip") || UNKNOWN_IP,
   };
-  // * Production Workers expose request.cf; tests / odd paths may only set headers.
+  // * Production Workers expose request.cf; tests may set inbound headers instead.
   const cf = (request as Request & { cf?: { country?: string; regionCode?: string } }).cf;
-  const countryRaw = cf?.country || request.headers.get("cf-ipcountry") || "";
+  const countryRaw = cf?.country || request.headers.get("cf-ipcountry") || request.headers.get("x-cc-country") || "";
   const country = String(countryRaw)
     .toUpperCase()
     .replace(/[^A-Z]/g, "")
     .slice(0, 2);
   // * XX = unknown, T1 = Tor — skip both so summary is not polluted.
   if (country && country !== "XX" && country !== "T1") {
-    headers["cf-ipcountry"] = country;
+    headers["x-cc-country"] = country;
   }
-  const regionRaw = cf?.regionCode || request.headers.get("cf-region-code") || "";
+  const regionRaw =
+    cf?.regionCode || request.headers.get("cf-region-code") || request.headers.get("x-cc-region") || "";
   const region = String(regionRaw)
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, "")
     .slice(0, 6);
   if (region) {
-    headers["cf-region-code"] = region;
+    headers["x-cc-region"] = region;
   }
   return headers;
 }

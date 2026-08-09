@@ -285,8 +285,8 @@ export class AnalyticsLog {
       try {
         const body = (await request.json()) as AnalyticsBatch;
         this.#ingest(body, {
-          country: request.headers.get("cf-ipcountry"),
-          region: request.headers.get("cf-region-code"),
+          country: request.headers.get("x-cc-country"),
+          region: request.headers.get("x-cc-region"),
         });
       } catch {
         // Malformed body — drop it rather than 500 the beacon path.
