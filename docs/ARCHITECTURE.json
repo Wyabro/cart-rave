@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-09T08:03:55.424Z",
-    "commit": "9d2ef5a"
+    "at": "2026-08-09T21:41:31.535Z",
+    "commit": "af8ecf4"
   },
-  "source_digest": "91c6d77b",
+  "source_digest": "3c08647e",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -881,10 +881,10 @@
       }
     ],
     "next_actions": [
-      "NOW: Block 1 empty. RECORD-MED-1 ✅ PASS 08-08 (`125cdd4`);",
-      "Open / REACHABLE: CARGO-LATCH-1 · CHUNK-DEFER-1 (dynamic-import residual of closed",
+      "NOW: Block 1 empty → ONBOARD-ART-1 (Wyatt webp drops + AISLE 4 aim). Then VOICE-BUS-1 · CHUNK-DEFER-1. Closed 08-08/08-09 IDs → [completed-work.md](./planning/completed-work.md).",
+      "Open / REACHABLE: CARGO-LATCH-1 · CHUNK-DEFER-1. Playtest owed: [BACKLOG § Playtest owed](./planning/BACKLOG.md).",
       "Open High: ONBOARD-ATTRACT-1 · ONBOARD-SIZE-1 · bloom (unblocked by ART-*).",
-      "Playtest row left: SHARD-PT-2 (launch day, five humans). Detail for all closed work:"
+      "Playtest row left: SHARD-PT-2 (launch day, five humans)."
     ],
     "open_issues": [
       {
