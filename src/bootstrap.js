@@ -4,12 +4,17 @@
  * Level mesh loading is orchestrated by levelManager.js; Rapier warm-up stays here.
  */
 
-import { prefetchRaveGltf } from "./cartRaveGltf.js";
+// * CHUNK-DEFER-1 L1b: do not static-import cartRaveGltf — bootstrap is still eager.
 import { resolveLevelId, LEVEL_STORAGE_KEY } from "./levels/index.js";
 import { storageGet } from "./utils/storage.js";
 import { withModeEntryLoading, yieldForPaint } from "./ui/loadingScreen.js";
 import { getNetSlots } from "./netcode.js";
 import { markBootPhase } from "./utils/bootTimeline.js";
+
+/** @returns {Promise<unknown>} */
+function prefetchRaveGltf() {
+  return import("./cartRaveGltf.js").then((m) => m.prefetchRaveGltf());
+}
 
 /** @type {import("./bootstrap.js").BootstrapDeps | null} */
 let deps = null;

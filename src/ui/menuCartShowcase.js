@@ -10,7 +10,7 @@
 import { loadPlayerCustomization } from "../customization.js";
 import { recordDiagEvent } from "../utils/diagnostics.js";
 import { getQualityTier } from "../utils/qualityMode.js";
-import { CartPreview } from "./cartPreview.js";
+// * CHUNK-DEFER-1 L1b: CartPreview pulls cart.js + cartRaveGltf — load only on mount.
 
 const MIN_WIDTH_PX = 240;
 const MIN_HEIGHT_PX = 180;
@@ -19,8 +19,10 @@ const MIN_HEIGHT_PX = 180;
  * @param {{ getMenuVisible: () => boolean }} deps
  */
 export function createMenuCartShowcase({ getMenuVisible }) {
-  /** @type {CartPreview | null} */
+  /** @type {InstanceType<typeof import("./cartPreview.js").CartPreview> | null} */
   let preview = null;
+  /** @type {Promise<void> | null} */
+  let mountPromise = null;
   let suspended = false;
   let mountedAtMs = 0;
   let feintActive = false;
@@ -34,6 +36,7 @@ export function createMenuCartShowcase({ getMenuVisible }) {
     preview?.resetShowroomFeint();
     preview?.dispose();
     preview = null;
+    mountPromise = null;
     mountedAtMs = 0;
   }
 
@@ -63,17 +66,28 @@ export function createMenuCartShowcase({ getMenuVisible }) {
 
   /** @param {number} nowMs */
   function mount(nowMs) {
-    if (!(holder instanceof HTMLElement) || preview) return;
+    if (!(holder instanceof HTMLElement) || preview || mountPromise) return;
     const look = loadPlayerCustomization();
-    preview = new CartPreview();
-    // * Set fields before init starts its one GLTF load, avoiding a second
-    // * short-lived clone when the saved mirror style is not the default.
-    syncLook(look);
-    // * Owned canvas above the attract dim — same grade path as Customize.
-    preview.init(holder);
-    preview.setHeroPose();
-    mountedAtMs = nowMs;
-    recordDiagEvent("attract", "menuCartMount", { tier: getQualityTier() });
+    const startMs = nowMs;
+    mountPromise = import("./cartPreview.js")
+      .then(({ CartPreview }) => {
+        if (!hasEligibleViewport() || preview) return;
+        preview = new CartPreview();
+        // * Set fields before init starts its one GLTF load, avoiding a second
+        // * short-lived clone when the saved mirror style is not the default.
+        syncLook(look);
+        // * Owned canvas above the attract dim — same grade path as Customize.
+        preview.init(holder);
+        preview.setHeroPose();
+        mountedAtMs = startMs;
+        recordDiagEvent("attract", "menuCartMount", { tier: getQualityTier() });
+      })
+      .catch((err) => {
+        console.warn("[menuCartShowcase] CartPreview load failed:", err);
+      })
+      .finally(() => {
+        mountPromise = null;
+      });
   }
 
   /**

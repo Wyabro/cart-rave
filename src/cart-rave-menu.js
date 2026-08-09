@@ -22,8 +22,7 @@ import {
   DEFAULT_SUNGLASSES_STYLE,
   SUNGLASSES_STYLES,
 } from "./cartThemeConfig.js";
-import { CartPreview } from "./ui/cartPreview.js";
-import { prefetchPreviewCartGltf } from "./ui/cartPreviewGltf.js";
+// * CHUNK-DEFER-1 L1b: CartPreview + cartPreviewGltf pull cartRaveGltf — dynamic only.
 import { isTouchDevice } from "./utils.js";
 import { getQualityTier } from "./utils/qualityMode.js";
 import { settingsStore } from "./stores/settingsStore.js";
@@ -340,8 +339,10 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
   const settingsSfxTrackEl = $("cr-settings-sfx-track");
   const settingsVoiceTrackEl = $("cr-settings-voice-track");
   let currentCustomizeCartSvg = null;
-  /** @type {CartPreview | null} Live 3D cart preview while customize screen is open. */
+  /** @type {InstanceType<typeof import("./ui/cartPreview.js").CartPreview> | null} Live 3D cart preview while customize screen is open. */
   let cartPreview = null;
+  /** @type {Promise<void> | null} */
+  let cartPreviewMountPromise = null;
   let customHueSliderWired = false;
   // NOTE: Quickplay and Friends support touch controls on mobile (see main.js updateTouchControlsVisibility).
 
@@ -976,6 +977,7 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
 
   /** Tears down the 3D preview and releases WebGL resources. */
   function disposeCartPreview() {
+    cartPreviewMountPromise = null;
     if (!cartPreview) return;
     cartPreview.dispose();
     cartPreview = null;
@@ -986,14 +988,30 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
   /**
    * Mounts the rotating 3D cart inside `#cr-customize-cart-holder`.
    * Disposes any existing instance first so rapid open/close cannot stack previews.
+   * CHUNK-DEFER-1 L1b: CartPreview module loads on demand (placeholder SVG until ready).
    */
   function mountCartPreview() {
     if (!customizeCartHolder) return;
     disposeCartPreview();
     customizeCartHolder.innerHTML = '';
-    cartPreview = new CartPreview();
-    cartPreview.init(customizeCartHolder);
-    syncCartPreviewLook(true);
+    // * SVG fallback while the deferred preview chunk loads.
+    renderCustomizePreview();
+    const holder = customizeCartHolder;
+    cartPreviewMountPromise = import("./ui/cartPreview.js")
+      .then(({ CartPreview }) => {
+        if (cartPreviewMountPromise == null || !holder.isConnected) return;
+        if (holder !== customizeCartHolder) return;
+        holder.innerHTML = '';
+        cartPreview = new CartPreview();
+        cartPreview.init(holder);
+        syncCartPreviewLook(true);
+      })
+      .catch((err) => {
+        console.warn("[menu] CartPreview load failed — SVG fallback stays:", err);
+      })
+      .finally(() => {
+        cartPreviewMountPromise = null;
+      });
   }
 
   function wireCustomHueSlider() {
@@ -2789,6 +2807,8 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
   // * Preferred product API; CartRave remains for existing call sites (docs/brand.md).
   window.CartClash = window.CartRave;
 
-  // * Warm the preview GLTF cache while the menu is idle.
-  prefetchPreviewCartGltf().catch(() => {});
+  // * Warm the preview GLTF cache while the menu is idle (dynamic — not a cold static edge).
+  void import("./ui/cartPreviewGltf.js")
+    .then((m) => m.prefetchPreviewCartGltf())
+    .catch(() => {});
 })();

@@ -40,7 +40,7 @@ import {
 } from "./scene.js";
 import { tickAutoQuality } from "./utils/autoQuality.js";
 import { CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer.js";
-import { prefetchRaveGltf } from "./cartRaveGltf.js";
+// * CHUNK-DEFER-1 L1b: cartRaveGltf is not a static cold-entry dep — prefetch via import().
 import * as Input from "./input.js";
 import * as Netcode from "./netcode.js";
 import * as GameState from "./gameState.js";
@@ -329,7 +329,8 @@ async function main() {
   const startGlbPrefetch = () => {
     const glbPrefetchT0 = performance.now();
     markBootPhase("glb-prefetch-start");
-    void prefetchRaveGltf()
+    void import("./cartRaveGltf.js")
+      .then((m) => m.prefetchRaveGltf())
       .then(() => {
         noteBootMilestone(75);
         markBootPhase("glb-prefetch-end", {

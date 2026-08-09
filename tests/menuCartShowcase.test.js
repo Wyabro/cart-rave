@@ -56,12 +56,16 @@ afterEach(() => {
 });
 
 describe("menu cart showcase", () => {
-  it("mounts an owned CartPreview (Customize path) only on desktop Medium/High", () => {
+  it("mounts an owned CartPreview (Customize path) only on desktop Medium/High", async () => {
     const showcase = showcaseModule.createMenuCartShowcase({
       getMenuVisible: () => true,
     });
 
     showcase.render(100);
+    // * CHUNK-DEFER-1 L1b: CartPreview loads via dynamic import().
+    await vi.waitFor(() => {
+      expect(state.instances.length).toBe(1);
+    });
     const preview = state.instances[0];
     expect(preview.init).toHaveBeenCalledTimes(1);
     expect(preview.initExternal).not.toHaveBeenCalled();
@@ -75,11 +79,14 @@ describe("menu cart showcase", () => {
     expect(document.getElementById("cr-menu-cart-holder").hidden).toBe(true);
   });
 
-  it("disposes the owned canvas when suspended for Customize", () => {
+  it("disposes the owned canvas when suspended for Customize", async () => {
     const showcase = showcaseModule.createMenuCartShowcase({
       getMenuVisible: () => true,
     });
     showcase.render(100);
+    await vi.waitFor(() => {
+      expect(state.instances.length).toBe(1);
+    });
     const preview = state.instances[0];
     showcase.setSuspended(true);
     expect(preview.dispose).toHaveBeenCalledTimes(1);
