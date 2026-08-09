@@ -24,6 +24,11 @@ MAX_TOOL_OUTPUT = 30_000
 MAX_FILE_OUTPUT = 80_000
 MAX_COMMAND_SECONDS = 120
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 
 def _clip(value: object, limit: int = MAX_TOOL_OUTPUT) -> str:
     text = str(value)

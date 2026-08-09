@@ -4,16 +4,23 @@
 > this file after 2 days of inactivity — don't keep long-lived notes here.
 
 ## Current task
-_none_
+Apply the acknowledged CARGO-LATCH-1 shift-aware cargo latch.
 
 ## Open files
-- _(none)_
+- `src/cargoLoad.js`
+- `src/orchestration/roundLifecycle.js`
+- `src/orchestration/gameBoot.js`
+- `tests/cargoLoad.test.js`
 
 ## Active hypotheses
-- _(none)_
+- Static evidence confirmed the cargo latch mistook pause or host tab-return compensation for a new round; the shift-aware helper now covers both paths.
 
 ## Checkpoints
-- [ ] _(none)_
+- [x] DeepSeek audit verified both compensation call sites.
+- [x] Approved helper and both call-site wires implemented.
+- [x] Focused cargo tests pass: 32/32.
+- [x] Full `npm run qa` passes all 7 gates.
+- [ ] Production playtest after explicit ship authorization.
 
 ## Next step
-_(what would you do if interrupted and resumed tomorrow?)_
+Wait for explicit `ship it` before deployment; then playtest solo pause and host tab-return.
