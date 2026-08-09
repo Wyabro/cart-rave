@@ -446,6 +446,9 @@ export function createCart({ scene, world, color, themeId, sunglassesStyle, spaw
     cartSunglassesStyle: sunglassesStyle,
     _materialCache: materialCache,
     _lastNetLinvel: { x: 0, y: 0, z: 0 },
+    // * Host snapshot yaw/pitch/roll rates — remote present path reads this instead of
+    // * body.angvel() (WASM boundary alloc per remote cart per visual frame).
+    _lastNetAngvel: { x: 0, y: 0, z: 0 },
     _netTargetPos: new THREE.Vector3(spawnFrozen.x, spawnFrozen.y, spawnFrozen.z),
     _netTargetQuat: new THREE.Quaternion(spawnQuat.x, spawnQuat.y, spawnQuat.z, spawnQuat.w),
     prevPosition: { x: spawnFrozen.x, y: spawnFrozen.y, z: spawnFrozen.z },

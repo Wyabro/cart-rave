@@ -282,16 +282,12 @@ export function updateVisualsAndEffects(deps, frameCtx) {
       if (c._netTargetQuat) c.mesh.quaternion.slerp(c._netTargetQuat, netAlpha);
       // * Pose write dirties this root; force=false still propagates to children.
       c.mesh.updateMatrixWorld(false);
+      // * Remote carts: linvel + angvel from the last host snapshot cache — no Rapier
+      // * getter allocs on the present path (local/host still uses readBodyStateIntoVisScratch).
       const lv = c._lastNetLinvel || { x: 0, y: 0, z: 0 };
       deps.cartLinvelScratch.set(lv.x || 0, lv.y || 0, lv.z || 0);
-      // * Remote carts: angvel is the only live Rapier fetch (linvel comes from the net
-      // * snapshot). Guarded optional-call preserves the original null-body tolerance.
-      if (c.body?.angvel) {
-        const av = c.body.angvel();
-        deps.cartAngvelScratch.set(av.x, av.y, av.z);
-      } else {
-        deps.cartAngvelScratch.set(0, 0, 0);
-      }
+      const av = c._lastNetAngvel || { x: 0, y: 0, z: 0 };
+      deps.cartAngvelScratch.set(av.x || 0, av.y || 0, av.z || 0);
       deps.updateCartVisuals(c.mesh, deps.cartLinvelScratch, dt, now, deps.cartAngvelScratch);
       if (c.contactShadow) {
         const bodyY = c._netTargetPos

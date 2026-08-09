@@ -28,7 +28,13 @@ let signalingSend = null;
 let onInputCallback = null;
 let onStateCallback = null;
 
-/** @type {object | null} */
+/**
+ * Last-wins buffer for client→host input while the host DataChannel is not open.
+ * Contract: only MSG.clientInput (from netcode.js) uses {@link sendToPeer}. Lobby
+ * control (color pick, ready, host away/present) rides the PartyKit WebSocket and
+ * must never enter this buffer — intermediate frames would be overwritten.
+ * @type {object | ArrayBuffer | null}
+ */
 let pendingInputPayload = null;
 /** @type {string | null} */
 let pendingInputTarget = null;
@@ -599,11 +605,21 @@ function setupDataChannel(dc, connId) {
 }
 
 /**
- * Sends data to a specific peer (used by Non-Host to send input to Host).
+ * Sends data to a specific peer (non-host → host client input only).
+ * Last-wins when the channel is closed: only the newest frame is kept.
+ * Do not send readiness / customization / host-afk here — use the WS path.
  * @param {string} targetConnId
- * @param {object} data
+ * @param {object | ArrayBuffer} data
  */
 export function sendToPeer(targetConnId, data) {
+  // * DEV contract check: this path is last-wins input. A control message would
+  // * silently lose intermediate payloads under the single-slot buffer below.
+  if (import.meta.env?.DEV && data && !(data instanceof ArrayBuffer)) {
+    const t = /** @type {{ type?: unknown }} */ (data).type;
+    if (t !== MSG.clientInput) {
+      console.warn("[p2p] sendToPeer is input-only; unexpected type:", t);
+    }
+  }
   const dc = dataChannels.get(targetConnId);
   if (dc && dc.readyState === "open") {
     const payload = data instanceof ArrayBuffer ? data : JSON.stringify(data);
@@ -616,7 +632,7 @@ export function sendToPeer(targetConnId, data) {
       // Channel died between the readyState check and send — fall through to buffering.
     }
   }
-  // Buffer the latest input. We only care about the most recent frame.
+  // * Buffer the latest input frame only. Older unsent frames are intentionally dropped.
   pendingInputPayload = data;
   pendingInputTarget = targetConnId;
 }

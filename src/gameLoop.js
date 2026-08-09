@@ -18,7 +18,11 @@ export { updateVisualsAndEffects, armRoundStartRenderProbe } from "./frameVisual
 
 /** @type {object[] | null} */
 let _npcCache = null;
-/** @type {string | null} */
+/**
+ * Integer fingerprint of slot kinds — avoids per-frame `map`+`join` string allocs.
+ * Layout: high 16 bits = slots.length; low bits = 2 bits/slot (0 empty, 1 human, 2 npc, 3 other).
+ * @type {number | null}
+ */
 let _npcCacheKey = null;
 /** @type {number} */
 let lastReconciledSnapSeq = -1;
@@ -128,6 +132,23 @@ export function clearNpcCartCache() {
 }
 
 /**
+ * Packs slot kinds into one integer for NPC-list cache identity (no string/array alloc).
+ * @param {Array<{ kind?: string } | null | undefined>} slots
+ * @returns {number}
+ */
+function slotKindsCacheKey(slots) {
+  // * 2 bits per slot covers empty/human/npc/other for MAX_CARTS=4 (8 bits) + length in high half.
+  let kinds = 0;
+  const n = slots.length;
+  for (let i = 0; i < n; i += 1) {
+    const k = slots[i]?.kind;
+    const code = k === "human" ? 1 : k === "npc" ? 2 : k ? 3 : 0;
+    kinds |= code << (i * 2);
+  }
+  return (n << 16) | kinds;
+}
+
+/**
  * Returns NPC carts for the current slot layout, reusing a cache when slot kinds are unchanged.
  *
  * @param {Array<object>} allCarts
@@ -141,7 +162,7 @@ function resolveNpcCarts(allCarts, slots) {
     return [];
   }
 
-  const key = slots.map((s) => s?.kind ?? "").join(",");
+  const key = slotKindsCacheKey(slots);
   if (key === _npcCacheKey && _npcCache) {
     // * Quit-to-menu destroys carts but slot kinds stay the same — drop stale body refs.
     const stillValid = _npcCache.every((c) => c && allCarts.includes(c));

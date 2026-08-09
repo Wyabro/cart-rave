@@ -255,7 +255,10 @@ export function decodeHostStateSnapshot(buffer) {
     cart.p[0] = pX; cart.p[1] = pY; cart.p[2] = pZ;
     cart.q[0] = qX; cart.q[1] = qY; cart.q[2] = qZ; cart.q[3] = qW;
     cart.lv[0] = lvX; cart.lv[1] = lvY; cart.lv[2] = lvZ;
+    // * Wire carries yaw only — zero pitch/roll so pooled cart.av never leaks stale values.
+    cart.av[0] = 0;
     cart.av[1] = avY;
+    cart.av[2] = 0;
     cart.ackSeq = ackSeq;
     cart.b = (flags & 1) === 1;
     cart.h = (flags & 2) === 2;

@@ -1473,8 +1473,16 @@ export function applyCartState(cart, snap, options = {}) {
     cart._lastNetLinvel.y = lv[1];
     cart._lastNetLinvel.z = lv[2];
   }
-  if (Array.isArray(av) && av.length === 3 && Number.isFinite(av[0]) && Number.isFinite(av[1]) && Number.isFinite(av[2]) && cart.body) {
-    cart.body.setAngvel({ x: av[0], y: av[1], z: av[2] }, true);
+  if (Array.isArray(av) && av.length === 3 && Number.isFinite(av[0]) && Number.isFinite(av[1]) && Number.isFinite(av[2])) {
+    // * Cache for remote visual present (frameVisuals) — mirrors _lastNetLinvel.
+    if (cart._lastNetAngvel) {
+      cart._lastNetAngvel.x = av[0];
+      cart._lastNetAngvel.y = av[1];
+      cart._lastNetAngvel.z = av[2];
+    }
+    if (cart.body) {
+      cart.body.setAngvel({ x: av[0], y: av[1], z: av[2] }, true);
+    }
   }
 
   const nowBoostMs = performance.now();
