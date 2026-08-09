@@ -24,6 +24,8 @@
  *
  * Privacy: no PII. `clientId` is the existing random cartRaveClientId; props are flat
  * primitives from gameplay state. Opt-out: ?analytics=off or localStorage cartRaveAnalytics="off".
+ * Each event is stamped with `pageHost` (location.hostname) at flush so staging vs public
+ * traffic is separable in list view without a DO schema change.
  */
 
 import { STORAGE_KEYS, storageGet } from "../utils/storage.js";
@@ -218,6 +220,18 @@ export function flushAnalytics(reason = "manual") {
   }
   const events = state.queue;
   state.queue = [];
+  // * Stamp pageHost onto each event so list-view props can separate staging (workers.dev)
+  // * from public (cartclash.lol). Lands in the DO props JSON — no schema change. Summary
+  // * aggregates ignore it; prove with analytics:pull --list.
+  const pageHost =
+    typeof location !== "undefined" && location.hostname
+      ? String(location.hostname).slice(0, PROP_STRING_MAX)
+      : "";
+  if (pageHost) {
+    for (const evt of events) {
+      if (evt.pageHost == null) evt.pageHost = pageHost;
+    }
+  }
   const payload = {
     v: 1,
     sessionId: state.sessionId,

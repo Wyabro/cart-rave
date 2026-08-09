@@ -17,7 +17,7 @@ This freezes product naming so "Cart Rave" / `next-level` thrash stops mid-V2. I
 | **Daily local multiplayer** | `npm run dev:local` | Aliases: `dev:cart-clash`, `dev:next-level` (deprecated) |
 | **GitHub repo folder** | `cart-rave` | Repo path may lag product name |
 | **Cloudflare Worker name** | `cart-rave` | **Do not rename casually** — new Worker + URL |
-| **Production host** | `cart-rave.wyabro.workers.dev` | Until a domain cutover |
+| **Production host** | `cartclash.lol` | Custom domain on Worker `cart-rave`; `cart-rave.wyabro.workers.dev` stays staging |
 | **Durable Object class** | `CartRaveServer` | Wrangler migration-bound; leave until planned migration |
 | **PartySocket `party` id** | `cart-rave-server` | Must match server routing |
 | **localStorage keys** | `cartRave*` | Keep until a one-shot migration ships |

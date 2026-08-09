@@ -3,7 +3,7 @@
 import PartySocket from "partysocket";
 import * as THREE from "three";
 import * as GameState from "./gameState.js";
-import { CART_COLORS, CONFIG, MSG, PALETTE, WORKER_PUBLIC_HOST } from "./config.js";
+import { CART_COLORS, CONFIG, MSG, PALETTE, WORKER_PAGE_HOSTS, WORKER_PUBLIC_HOST } from "./config.js";
 import { loadPlayerCustomization, resolveServerColorPick } from "./customization.js";
 import { consumeHopRequest } from "./input.js";
 import { clearHostCollisionBatch, drainHostCollisionBatch } from "./hostCollisionBatch.js";
@@ -1099,7 +1099,9 @@ export function getHostSendTimer() { return hostSendLoopArmed; }
 
 // === CONNECTION & SOCKET ===
 
-// * Local dev vs production Worker host — internal to initNetcode only.
+// * Local dev vs Worker page host — internal to initNetcode only.
+// * On cartclash.lol / workers.dev (same Worker), use location.host for same-origin WS.
+// * Unknown hosts fall back to WORKER_PUBLIC_HOST so a stray mirror still reaches signaling.
 function partyHostFromWindowLocation() {
   const hostname = window.location.hostname;
   const isLocal =
@@ -1108,7 +1110,9 @@ function partyHostFromWindowLocation() {
     /^192\.168\./.test(hostname) ||
     /^10\./.test(hostname) ||
     /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(hostname);
-  return isLocal ? `${hostname}:8787` : WORKER_PUBLIC_HOST;
+  if (isLocal) return `${hostname}:8787`;
+  if (WORKER_PAGE_HOSTS.includes(hostname)) return window.location.host;
+  return WORKER_PUBLIC_HOST;
 }
 
 /** Shards walked this page-load, for `quickplay_shard_assigned`. Reset when a hop chain starts. */

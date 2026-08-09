@@ -9,7 +9,8 @@
  *   - CONFIG.physics     — grouped physics / arena / cart tuning (flat aliases on CONFIG.*)
  *   - CART_COLORS / PALETTE — immutable cart color palette ("Original Rave")
  *   - MSG                — wire-protocol message type strings
- *   - WORKER_PUBLIC_HOST — deployed Cloudflare Worker host
+ *   - WORKER_PUBLIC_HOST — legacy workers.dev host (staging URL; fallback PartySocket host)
+ *   - WORKER_PAGE_HOSTS — hostnames that serve this Worker (custom domain + workers.dev)
  *
  * Spawn ring radius and spawn height are computed after CONFIG is defined (see bottom).
  */
@@ -690,3 +691,10 @@ export const PALETTE = Object.keys(CART_COLORS);
 export { MSG } from '../shared/protocol.js';
 
 export const WORKER_PUBLIC_HOST = "cart-rave.wyabro.workers.dev";
+
+/** Hostnames that serve this Worker. PartySocket uses the page host when on these (same-origin WS). */
+export const WORKER_PAGE_HOSTS = Object.freeze([
+  WORKER_PUBLIC_HOST,
+  "cartclash.lol",
+  "www.cartclash.lol",
+]);

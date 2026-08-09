@@ -74,6 +74,26 @@ describe("analytics — queue + batching", () => {
     expect(() => JSON.stringify(batch)).not.toThrow();
   });
 
+  it("stamps pageHost on each event at flush (props; list-view proof)", () => {
+    const sink = memorySink();
+    initAnalytics({ sink });
+    // * happy-dom location.hostname is typically "localhost"
+    trackEvent("session_start", { mode: "solo" });
+    flushAnalytics("test");
+    const evt = sink.batches[0].events[0];
+    expect(typeof evt.pageHost).toBe("string");
+    expect(evt.pageHost.length).toBeGreaterThan(0);
+    expect(evt.pageHost).toBe(location.hostname);
+  });
+
+  it("does not overwrite an explicit pageHost prop", () => {
+    const sink = memorySink();
+    initAnalytics({ sink });
+    trackEvent("session_start", { pageHost: "explicit.example" });
+    flushAnalytics("test");
+    expect(sink.batches[0].events[0].pageHost).toBe("explicit.example");
+  });
+
   it("keeps props flat: drops nested objects, clamps long strings", () => {
     const sink = memorySink();
     initAnalytics({ sink });
