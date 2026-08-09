@@ -360,24 +360,16 @@
   background: radial-gradient(circle, var(--cr-load-cyan) 0%, #66f0ff 45%, #001822 100%);
 }
 
-/* Beam fans thrown from the truss across the whole stage. Rotation lives in the
-   base rule's transform; the sweep animates opacity only (compositor-cheap —
-/* Beams are SVG polygons inside the scene (see buildClassicDecor) — only the
-   sweep is CSS, and it animates opacity alone so it stays compositor-cheap while
-   the main thread is compiling shaders. */
+/* Beams are SVG polygons inside the scene (see buildClassicDecor). Only opacity
+   animates, so the loading screen stays cheap while the main thread compiles. */
 .cr-load--classic .cr-load__laser {
   animation: cr-load-laser 2.8s ease-in-out infinite;
 }
 .cr-load--classic .cr-load__laser:nth-of-type(2) { animation-delay: 0.6s; }
 .cr-load--classic .cr-load__laser:nth-of-type(3) { animation-delay: 1.1s; }
 
-/* Crowd sections banked around the bowl. These stay HTML because the gate counts
-   `.cr-load__crowd span` and SVG has no span; they sit on the bowl, which runs
-   edge to edge, so the small drift when the artwork slices costs nothing.
-
-   People are SPARSE soft blobs (the real arena's confetti crowd), not dense LED
-   panels. The SVG already draws the dark tiered benches; these spans only paint
-   the bodies sitting on them. */
+/* Crowd sections stay HTML because the gate counts `.cr-load__crowd span` and
+   SVG has no span. They remain signature-only nodes with no extra dots. */
 .cr-load--classic .cr-load__crowd {
   position: absolute;
   inset: 0;
@@ -386,38 +378,14 @@
 }
 
 .cr-load--classic .cr-load__crowd span {
-  position: absolute;
-  display: block;
-  border-radius: 4% 4% 1% 1%;
-  /* Stand faces rake away from the floor — same perspective as the bowl arc. */
-  clip-path: polygon(8% 0, 92% 0, 100% 100%, 0 100%);
-  transform-origin: center bottom;
-  /* Soft people blobs in arena colours — wide spacing so seats read as seats. */
-  background-image:
-    radial-gradient(ellipse 55% 70% at 18% 42%, #ff2bd6 0 42%, transparent 68%),
-    radial-gradient(ellipse 50% 65% at 48% 58%, #22e6ff 0 40%, transparent 66%),
-    radial-gradient(ellipse 48% 62% at 78% 38%, #ffe53d 0 38%, transparent 64%),
-    radial-gradient(ellipse 52% 68% at 32% 78%, #2bff7a 0 36%, transparent 62%),
-    radial-gradient(ellipse 45% 60% at 64% 22%, #ff6be8 0 34%, transparent 60%),
-    radial-gradient(ellipse 50% 64% at 88% 72%, #66f0ff 0 36%, transparent 62%);
-  background-size:
-    22% 48%,
-    20% 44%,
-    18% 42%,
-    20% 46%,
-    16% 40%,
-    18% 44%;
-  background-repeat: space;
-  opacity: 0.55;
-  filter: saturate(1.15);
-  animation: cr-load-crowd 1.6s ease-in-out infinite;
+  display: none;
 }
 
-.cr-load--classic .cr-load__crowd span:nth-child(1) { left: -1%; top: 8%;  width: 22%; height: 22%; rotate: -9deg; }
-.cr-load--classic .cr-load__crowd span:nth-child(2) { left: 18%; top: 4%;  width: 22%; height: 20%; rotate: -3deg;  animation-delay: 0.2s; }
-.cr-load--classic .cr-load__crowd span:nth-child(3) { left: 39%; top: 2%;  width: 22%; height: 18%;                 animation-delay: 0.35s; }
-.cr-load--classic .cr-load__crowd span:nth-child(4) { left: 60%; top: 4%;  width: 22%; height: 20%; rotate: 3deg;   animation-delay: 0.15s; }
-.cr-load--classic .cr-load__crowd span:nth-child(5) { left: 81%; top: 8%;  width: 22%; height: 22%; rotate: 9deg;   animation-delay: 0.45s; }
+.cr-load--classic .cr-load__crowd span:nth-child(1) { left: -1%; top: 9%; width: 18%; height: 15%; rotate: -8deg; }
+.cr-load--classic .cr-load__crowd span:nth-child(2) { left: 20%; top: 5%; width: 18%; height: 14%; rotate: -3deg; animation-delay: 0.2s; }
+.cr-load--classic .cr-load__crowd span:nth-child(3) { left: 41%; top: 3%; width: 18%; height: 13%; animation-delay: 0.35s; }
+.cr-load--classic .cr-load__crowd span:nth-child(4) { left: 62%; top: 5%; width: 18%; height: 14%; rotate: 3deg; animation-delay: 0.15s; }
+.cr-load--classic .cr-load__crowd span:nth-child(5) { left: 83%; top: 9%; width: 18%; height: 15%; rotate: 8deg; animation-delay: 0.45s; }
 
 
 .cr-load--backrooms .cr-load__bg {
@@ -464,6 +432,7 @@
   paint-order: stroke fill;
   -webkit-text-stroke: 0.05em #0f050d;
   text-shadow: 0.045em 0.05em 0 rgba(255, 196, 132, 0.85);
+  z-index: 5;
 }
 
 .cr-load--zanzibar .cr-load__subtitle {
@@ -474,34 +443,10 @@
   display: none;
 }
 
-/* The ringed planet hanging low in the sky — `.sea-sun` is the counted node, and
-   this arena's sun analogue is the planet. Its ring is the ::before. */
+/* `.sea-sun` remains as the counted Sundial signature node, but the loading art
+   follows the playable level: a warm horizon with the mast as the focal point. */
 .cr-load__seaside .sea-sun {
-  position: absolute;
-  left: 50%;
-  top: 16%;
-  width: clamp(96px, 30cqmin, 396px);
-  height: clamp(96px, 30cqmin, 396px);
-  margin-left: calc(clamp(96px, 30cqmin, 396px) / -2);
-  z-index: 1;
-  border-radius: 50%;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0 18%, transparent 18% 30%, rgba(0, 0, 0, 0.12) 30% 42%, transparent 42%),
-    radial-gradient(circle at 38% 32%, #b9a9d6 0%, #8e7cae 46%, #4e3f6b 100%);
-  opacity: 0.92;
-  animation: cr-load-sun-bob 5s ease-in-out infinite;
-}
-
-.cr-load__seaside .sea-sun::before {
-  content: "";
-  position: absolute;
-  left: -34%;
-  right: -34%;
-  top: 41%;
-  height: 18%;
-  border-radius: 50%;
-  border: max(2px, 0.5cqmin) solid rgba(226, 214, 248, 0.65);
-  rotate: -7deg;
+  display: none;
 }
 
 /* Glints on the water. */
@@ -540,7 +485,7 @@
   left: -4%;
   right: -4%;
   bottom: 0;
-  height: 19%;
+  height: 29%;
   z-index: 3;
   background:
     /* solid rail line on the far flat */
@@ -557,7 +502,7 @@
       rgba(20, 8, 14, 0.85) 1.1cqmin 2.2cqmin
     ),
     repeating-linear-gradient(90deg, rgba(255, 200, 150, 0.045) 0 2px, transparent 2px 3.4cqmin),
-    linear-gradient(180deg, #2a1420 0%, #120810 100%);
+    linear-gradient(180deg, #26151b 0%, #0d090f 100%);
   background-size:
     100% 100%,
     100% max(5px, 0.9cqmin),
@@ -565,6 +510,9 @@
     100% 100%;
   background-repeat: no-repeat;
   background-position: 0 0, 0 max(3px, 0.55cqmin), 0 0, 0 0;
+  box-shadow:
+    0 0 0 max(2px, 0.35cqmin) rgba(255, 192, 96, 0.72),
+    inset 0 max(2px, 0.35cqmin) 0 rgba(255, 224, 150, 0.48);
   /* 8-gon silhouette: far flat → far bevels → side flanks → near bevels */
   clip-path: polygon(
     20% 0%,
@@ -585,56 +533,72 @@
 }
 
 /* Floor dial + floating hologram over the octagon centre. Uncounted node
-   (loadshots only requires .sea-deck === 1). Sits low so the lockup clears it. */
+   (loadshots only requires `.sea-deck === 1`). The base paints the mast and
+   warm cone; the pseudo-elements paint the two readable level landmarks. */
 .cr-load__seaside .sea-holo {
   position: absolute;
   left: 50%;
-  bottom: 6%;
-  width: clamp(100px, 28cqmin, 340px);
-  height: clamp(72px, 20cqmin, 250px);
-  margin-left: calc(clamp(100px, 28cqmin, 340px) / -2);
+  bottom: 14%;
+  width: clamp(180px, 42cqmin, 620px);
+  height: clamp(220px, 52cqmin, 700px);
+  margin-left: calc(clamp(180px, 42cqmin, 620px) / -2);
   z-index: 4;
   pointer-events: none;
+  background:
+    conic-gradient(
+      from 180deg at 50% 24%,
+      transparent 0deg 34deg,
+      rgba(255, 212, 136, 0.13) 34deg 146deg,
+      transparent 146deg 214deg,
+      rgba(255, 212, 136, 0.13) 214deg 326deg,
+      transparent 326deg 360deg
+    ),
+    linear-gradient(
+      90deg,
+      transparent 47%,
+      rgba(255, 224, 150, 0.9) 48% 52%,
+      transparent 53%
+    );
 }
 
-/* Floor dial ring on the plate */
+/* Floor dial ring: one compact octagonal-looking mark on the dark platform. */
 .cr-load__seaside .sea-holo::before {
   content: "";
   position: absolute;
   left: 50%;
-  bottom: 8%;
-  width: 72%;
-  height: 28%;
-  transform: translateX(-50%);
+  bottom: 0;
+  width: 84%;
+  height: 22%;
+  transform: translateX(-50%) perspective(520px) rotateX(58deg);
+  border: max(2px, 0.45cqmin) solid #ffc267;
   border-radius: 50%;
-  border: max(2px, 0.55cqmin) solid #ffc267;
-  box-shadow: 0 0 10px rgba(255, 180, 80, 0.3);
-  opacity: 0.92;
+  box-shadow:
+    0 0 0 max(5px, 0.8cqmin) rgba(255, 180, 80, 0.15),
+    0 0 18px rgba(255, 180, 80, 0.38);
+  opacity: 0.96;
 }
 
-/* Floating hologram: rings + diamond + soft cone glow */
+/* Floating hologram: hard horizontal scan bands with two bright crossing beams. */
 .cr-load__seaside .sea-holo::after {
   content: "";
   position: absolute;
   left: 50%;
-  bottom: 22%;
-  width: 78%;
-  height: 58%;
-  transform: translateX(-50%);
-  border-radius: 50%;
+  top: 17%;
+  width: 84%;
+  height: 27%;
+  transform: translateX(-50%) skewX(-7deg);
+  border: max(2px, 0.35cqmin) solid rgba(255, 230, 160, 0.86);
+  border-radius: 3px;
   background:
-    /* diamond core */
-    linear-gradient(135deg, transparent 43%, #ffe8b0 43% 57%, transparent 57%) center 42% / 18% 28% no-repeat,
-    linear-gradient(45deg, transparent 43%, #ffe8b0 43% 57%, transparent 57%) center 42% / 18% 28% no-repeat,
-    /* soft fill */
-    radial-gradient(ellipse at center 55%, rgba(255, 200, 100, 0.2) 0%, transparent 62%);
+    linear-gradient(165deg, transparent 0 43%, rgba(255, 244, 190, 0.98) 44% 48%, transparent 49%),
+    linear-gradient(15deg, transparent 0 43%, rgba(255, 244, 190, 0.98) 44% 48%, transparent 49%),
+    repeating-linear-gradient(180deg, rgba(255, 216, 132, 0.84) 0 6%, transparent 6% 17%),
+    linear-gradient(90deg, rgba(255, 196, 92, 0.16), rgba(255, 247, 194, 0.78) 50%, rgba(255, 196, 92, 0.16));
   box-shadow:
-    0 0 24px 6px rgba(255, 176, 80, 0.28),
-    0 0 0 max(2px, 0.45cqmin) rgba(255, 192, 96, 0.95),
-    inset 0 0 0 max(2px, 0.35cqmin) rgba(255, 192, 96, 0.5),
-    0 0 0 max(9px, 1.5cqmin) transparent,
-    0 0 0 calc(max(9px, 1.5cqmin) + max(2px, 0.35cqmin)) rgba(255, 192, 96, 0.7);
-  opacity: 0.95;
+    0 0 22px 5px rgba(255, 176, 80, 0.44),
+    0 0 0 max(7px, 1.1cqmin) rgba(255, 192, 96, 0.2),
+    0 0 0 max(10px, 1.6cqmin) rgba(255, 192, 96, 0.64);
+  opacity: 0.98;
 }
 
 @keyframes cr-load-spin {
@@ -716,19 +680,39 @@
   width: clamp(96px, 28cqmin, 360px);
   height: clamp(100px, 30cqmin, 390px);
   margin-left: calc(clamp(96px, 28cqmin, 360px) / -2);
-  z-index: 3;
+  z-index: 1;
   rotate: -2deg;
   transform-origin: bottom center;
 }
 
 .furn-box {
   position: absolute;
-  border: max(2px, 0.3cqmin) solid #12120e;
+  border: max(2px, 0.3cqmin) solid #15150f;
   /* Liminal: hard ink extrude only. No glow — this arena never gets one. */
   box-shadow:
-    max(3px, 0.45cqmin) max(3px, 0.45cqmin) 0 rgba(6, 6, 4, 0.8),
-    inset max(-4px, -0.6cqmin) 0 0 rgba(0, 0, 0, 0.25);
+    max(3px, 0.45cqmin) max(3px, 0.45cqmin) 0 rgba(6, 6, 4, 0.85),
+    inset max(-5px, -0.7cqmin) 0 0 rgba(0, 0, 0, 0.22);
   border-radius: 2px;
+}
+.furn-box::before {
+  content: "";
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  top: 18%;
+  height: max(2px, 0.35cqmin);
+  background: rgba(220, 205, 132, 0.56);
+  box-shadow: 0 max(9px, 1.2cqmin) 0 rgba(17, 17, 12, 0.38);
+}
+.furn-box::after {
+  content: "";
+  position: absolute;
+  left: 44%;
+  top: 35%;
+  width: 12%;
+  height: max(3px, 0.55cqmin);
+  border: max(1px, 0.16cqmin) solid rgba(225, 211, 145, 0.5);
+  border-radius: 1px;
 }
 /* Base cabinet — dark grey steel */
 .furn-box.b1 {
@@ -737,8 +721,8 @@
   bottom: 0;
   left: 10%;
   background:
-    linear-gradient(90deg, rgba(0, 0, 0, 0.28) 0 12%, transparent 12%),
-    linear-gradient(180deg, #4a4a40 0%, #2a2a24 55%, #1e1e18 100%);
+    linear-gradient(90deg, rgba(0, 0, 0, 0.24) 0 12%, transparent 12%),
+    linear-gradient(180deg, #676550 0%, #4a4939 55%, #34342a 100%);
 }
 /* Mid filing unit / crate — mid grey with a wood lid stripe */
 .furn-box.b2 {
@@ -748,8 +732,8 @@
   left: 18%;
   rotate: 6deg;
   background:
-    linear-gradient(180deg, #7a5a32 0 14%, transparent 14%),
-    linear-gradient(135deg, #4e4e44 0%, #2c2c26 100%);
+    linear-gradient(180deg, #aa8348 0 14%, transparent 14%),
+    linear-gradient(135deg, #77735a 0%, #4e4d3c 100%);
 }
 /* Top cabinet — tipped, cooler grey */
 .furn-box.b3 {
@@ -760,7 +744,7 @@
   rotate: -9deg;
   background:
     linear-gradient(90deg, transparent 70%, rgba(0, 0, 0, 0.3) 70%),
-    linear-gradient(135deg, #55554a 0%, #303028 100%);
+    linear-gradient(135deg, #85816a 0%, #565544 100%);
 }
 
 /* The chair tipped into the heap, as it sits in the arena. */
@@ -771,7 +755,7 @@
   width: clamp(28px, 8.5cqmin, 110px);
   height: clamp(36px, 11cqmin, 144px);
   margin-left: calc(clamp(28px, 8.5cqmin, 110px) * -1.45);
-  z-index: 4;
+  z-index: 1;
   rotate: -18deg;
 }
 .chair-back {
