@@ -94,10 +94,10 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 [completed-work.md](./planning/completed-work.md) — not here.
 
 **CART-MODEL-1 local repair (08-08):**
-1. Wyatt's five views proved the open side skins crossed the visor and failed at rear angles.
-2. Measured the fitted visor side at depth 0.340-0.454; the old skin overlapped it at 0.284-0.423.
-3. Rebuilt the corners as closed pockets behind that envelope while keeping the accepted center.
-4. Both UVs survive WebP + Draco; classic and stripes are clean in five front/rear corner views.
+1. Wyatt accepted the closed side pockets; the final marked view isolated a flat lower shelf.
+2. The backing started at height 0.545 while the fitted visor bottom starts near 0.580.
+3. Lifted both lens areas to 0.576 and kept only the low center needed behind the nose.
+4. Both UVs survive WebP + Draco; the shelf is gone and the accepted sides stay unchanged.
 5. Structure, build, and QA are green; Wyatt review remains, and this repair is not deployed.
 
 | ID | Issue | Status |
