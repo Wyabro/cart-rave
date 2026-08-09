@@ -83,7 +83,6 @@ Structural / product items after Ship. Full IDs: [BACKLOG.md § Tech Debt](./BAC
 | Carve `main.js` composition seam | MAIN-1 | Prerequisite for BUNDLE-1 |
 | Directive modifiers without mutating CONFIG | DIR-1 | |
 | Collapse gameState / gameStore | STORE-1 | |
-| Pattern customize UI | | Blocked on cartrave4 re-UV |
 | Domain / Worker cutover | BRAND-1 | Deliberate ceremony — [brand.md](../brand.md) |
 
 ---

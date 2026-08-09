@@ -78,6 +78,8 @@ Live rows only. Shipped and closed cards live in
    **UI-FRAME-1 + ESC-PANEL-1** ✅ closed 08-08 — absorbed by the Fight Night redesign + RESULTS-1.
    **CART-FORK-SWIVEL-1** ✅ PASS 08-08 (`9b0da20`) — BL `tripo_part_23` steers with caster.
    **KILLFEED-PHONE-1** ✅ PASS 08-08 (`f6205a2`) — touch feed clear of stage/directive.
+   **PATTERNS-UI-1** ✅ PASS 08-09 — six patterns verified on the re-UV'd body (local dev; not
+   deployed — re-UV'd GLB rides the next ship). Seam `tests/patternSeam.test.js`.
    Block 2 next: **ONBOARD-ART-1** (then VOICE-BUS-1 · CHUNK-DEFER-1 · …).
 2. **Open / REACHABLE:** CARGO-LATCH-1 · **CHUNK-DEFER-1** (dynamic-import residual of closed
    CHUNK-MEMBER-1). Block I desk-only wave closed 08-07 (PERF-RENDERINFO-1 · NET-RING-1 ·

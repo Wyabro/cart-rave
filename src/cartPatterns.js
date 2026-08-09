@@ -4,12 +4,11 @@
  * Pattern flow (menu → state → 3D cart):
  * 1. Menu PATTERNS tab calls `savePlayerCustomization({ pattern })` (customization.js).
  * 2. `loadPlayerCustomization().pattern` is read when spawning or recoloring carts.
- * 3. `resolveCartPatternForSlot()` picks the pattern id (local human → saved; others → classic).
+ * 3. `resolveCartPatternForSlot()` picks the pattern id (local human → saved; remote humans →
+ *    server-synced `slot.patternId`; NPCs → name-seeded pool pick — NET-LOOK-ACC-1).
  * 4. `applyCartPattern(mesh, patternId, neonHex)` injects a mask sampler into the CartFrame's
  *    own MeshPhysicalMaterial (via `onBeforeCompile`) so pattern "valleys" read as darker
  *    tinted neon while the base wireframe keeps full emissive bloom — no second draw pass.
- *
- * Patterns are local-only for now (not synced over PartyKit).
  */
 
 import * as THREE from "three";

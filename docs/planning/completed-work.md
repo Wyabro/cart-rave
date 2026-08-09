@@ -13,6 +13,26 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 9, 2026 — PATTERNS-UI-1 PASS: pattern customize UI verified on the re-UV'd body
+
+- *(UI · Medium · SHIP-1 C3)* **PATTERNS-UI-1** — ✅ **CLOSED PASS 08-09** (local dev PASS on
+  the CART-MODEL-1 precedent; not deployed — the re-UV'd GLB rides the next ship). The pattern
+  customize UI (PATTERN tab, six chips, 3D preview sync, persistence, unlock gates, network
+  sync) was already built inside earlier waves; this card was the first visual validation on the
+  clean `TEXCOORD_1` UV plus regression guards. Verified on `npm run dev:local` (visible
+  foreground tab, canvas live): all six patterns (classic/stripes/checker/dots/waves/bolt) read
+  as clean geometry on the body; each non-classic chip changed the cart-region pixels vs classic
+  (stripes 2.5% · checker 5.6% · dots 5.4% · waves 6.0% · bolt 5.4%); classic clears the mask;
+  albedo + neon wire-glow unchanged; selection persists across reload. Locked-gate path under
+  `?devUnlocks=off`: gated chips show lock + hint, a locked click toasts ("Locked — 10 KOs
+  (0/10)") and does not apply or persist. Landed a regression seam (`tests/patternSeam.test.js`)
+  guarding `TEXCOORD_1` survival on both GLBs (the `prune`-strips-`uv1` trap) and registry
+  coherence across `CART_PATTERN_IDS` / `CART_PATTERNS` / `PATTERN_UNLOCKS`, and fixed two stale
+  "patterns are not networked yet" comments (false since NET-LOOK-ACC-1). QA 7/7 (159 files /
+  1,825 tests). Evidence: `.diag-captures/patterns/`.
+
+---
+
 ### August 9, 2026 — SHADES-MAT-1 PASS: solid frames and rainbow lens materials
 
 - *(Art · Low · SHIP-1 E2)* **SHADES-MAT-1** — ✅ **CLOSED PASS 08-09** (local code,

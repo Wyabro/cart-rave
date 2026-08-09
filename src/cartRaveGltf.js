@@ -545,8 +545,8 @@ export function splitRaveGltfVisorGeometry(geometry) {
  *
  * * A pattern is the only thing that currently reduces emissive AREA, so a `classic` cart shows
  * * full-area trim glow and reads blown out beside a patterned one (Wyatt, 08-04). This trims the
- * * intensity instead. Not a niche case: remote humans are always classic (patterns are not
- * * networked yet) and the NPC pool draws classic 2/7.
+ * * intensity instead. Not a niche case: `classic` stays common even with networked patterns
+ * * (NET-LOOK-ACC-1) — it is the default, and the NPC pool draws it 2/7.
  *
  * * Eye-tuned starting value, NOT a measured gate — Classic's ~15.9% construction-noise floor
  * * swamps a trim this size in `npm run compare`, which is why this card ships on a unit seam
