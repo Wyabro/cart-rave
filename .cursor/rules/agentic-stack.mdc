@@ -1,0 +1,28 @@
+---
+description: Cart Clash bounded agent loop using the local DeepSeek proxy
+alwaysApply: true
+---
+
+# Cart Clash automated loop
+
+The root `AGENTS.md`, `docs/BRIEFING.md`, and existing `cart-clash.mdc` remain
+authoritative. `.agent/` is an optional loop and memory layer; it must not
+override the Cart Clash rules.
+
+The automated loop uses `deepseek-v4-flash` through the local
+`deepseek-cursor-proxy` at `http://127.0.0.1:9000/v1`. Keep
+`DEEPSEEK_API_KEY` in the user environment only. Never place keys in this repo.
+
+Run the bounded loop from the persistent agentic-stack checkout:
+
+```bash
+python -X utf8 -m harness_manager.cli loop validate --target . --loop cart-clash-qa
+python -X utf8 -m harness_manager.cli loop run cart-clash-qa "<one bounded task>" --target . --approved
+```
+
+The runner uses worktree isolation, `npm run qa` verification, a separate
+read-only checker, bounded attempts, and no deploy, push, commit, or staging.
+Inspect the run checkpoint before accepting a change.
+
+Cursor desktop can still use its custom DeepSeek model. Cursor CLI is not the
+model runner because it rejects desktop-only custom model IDs.

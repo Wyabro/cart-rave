@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "agentic_stack_version": "0.19.1",
+  "abs_target": "C:\\Users\\wyatt\\cart-rave",
+  "installed_at": "2026-08-09T20:56:13Z",
+  "adapters": {
+    "cursor": {
+      "installed_at": "2026-08-09T20:56:13Z",
+      "files_written": [
+        ".cursor/rules/agentic-stack.mdc"
+      ],
+      "files_overwritten": [],
+      "files_alerted": [],
+      "file_results": [
+        {
+          "dst": ".cursor/rules/agentic-stack.mdc",
+          "result": "written_new"
+        }
+      ],
+      "post_install_results": []
+    }
+  }
+}

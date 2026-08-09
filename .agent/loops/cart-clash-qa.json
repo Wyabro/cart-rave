@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "name": "cart-clash-qa",
+  "description": "Repair one bounded Cart Clash issue with DeepSeek V4 Flash and QA verification.",
+  "autonomy": "L2",
+  "executor": "deepseek-maker",
+  "checker": "deepseek-checker",
+  "state_file": ".agent/runtime/loops/cart-clash-qa-state.json",
+  "isolation": {"mode": "worktree", "base": "HEAD"},
+  "instructions": {
+    "initial": "Diagnose the bounded task and make the smallest verified fix.",
+    "retry": "Use the verifier feedback, inspect the current diff, and correct the failed approach without repeating it.",
+    "check": "Review the outcome independently against the task, Cart Clash rules, and constraints."
+  },
+  "verification": {"command": ["npm", "run", "qa"], "timeout_seconds": 1800},
+  "limits": {
+    "max_attempts": 3,
+    "max_runtime_seconds": 5400,
+    "max_output_chars": 200000,
+    "estimated_token_budget": 200000,
+    "stagnation_threshold": 2
+  },
+  "approval": {"before_first_mutating_run": true, "before_external_write": true},
+  "tags": ["cart-clash", "qa", "deepseek-v4-flash"]
+}
