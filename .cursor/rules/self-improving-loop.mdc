@@ -1,0 +1,20 @@
+---
+description: Start the DeepSeek maker, Luna watcher, and Sol rewriter workflow for loop-prefixed tasks
+alwaysApply: true
+---
+
+# Self-improving loop trigger
+
+When Wyatt's message begins with `loop:`, treat the remaining text as the task brief and run the saved self-improving workflow automatically. Do not ask Wyatt to repeat the setup or manually prepare the loop files.
+
+1. Read `AGENTS.md`, `docs/BRIEFING.md`, the top of `docs/STATUS.md`, and the existing `.agent/self-improving/` files.
+2. If this is a new card, preserve the old prompt and log, then prepare a fresh `prompt.md` and `log.md` for the new card. Keep one card at a time and protect unrelated work.
+3. Make the first DeepSeek pass plan-only. Run the maker through the existing Cursor proxy with model `deepseek-v4-flash`:
+   `python .agent/bin/deepseek_agent.py --role maker "$(Get-Content -Raw .agent/self-improving/prompt.md)"`
+4. Perform Luna's watcher role without waiting for another instruction: read the run result and `watcher.md`, then append no more than 12 blunt lines to `log.md` using GOAL, KEPT, WASTED, FAILED, and NEXT.
+5. Perform Sol's rewriter role without waiting for another instruction: read `prompt.md`, `log.md`, and `rewriter.md`; apply the latest NEXT note; update only the next prompt and append one change line to `log.md`.
+6. Show Wyatt the resulting plan and stop for explicit `ack` before source edits. Do not commit, push, deploy, or delete files during the plan pass.
+7. After `ack`, continue the maker -> Luna -> Sol cycle for the approved card. Apply the repository's normal QA and one-lever-per-commit rules. Stop after implementation and evidence unless Wyatt says `ship it`.
+8. Treat `ship it` as separate deployment authorization. Run the required QA, push, deploy, and post-deploy checks only then. Never claim human playtest PASS without Wyatt's visual or playtest confirmation.
+
+If the DeepSeek proxy or key is unavailable, report the exact setup error and stop. Never print or request the API key in chat.

@@ -107,6 +107,12 @@ backup. Claude is **demoted** (do not design process around it; cancel path).
   (including third-party) live under each runtime’s `skills/`; do not vendor huge packs into
   `.agents/skills/`. Details: [agent-manual.md § routing](docs/reference/agent-manual.md).
 
+## SELF-IMPROVING LOOP
+
+When Wyatt starts a message with `loop:`, run the DeepSeek maker plus the Luna watcher and Sol
+rewriter workflow described in `.cursor/rules/self-improving-loop.mdc`. The first pass is always
+plan-only and stops at Wyatt's `ack`; `ship it` remains separate deployment authorization.
+
 ## WHAT'S OFF-LIMITS
 
 - Do not edit `docs/archive/handovers/` or `docs/archive/audits/`.
