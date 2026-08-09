@@ -113,6 +113,7 @@ import {
   captureInviteRoomForDeferredMenu,
   createMenuPlayEntry,
   enableModeMenuButtons,
+  wirePlayCtaChunkPrefetch,
 } from "./orchestration/menuPlayEntry.js";
 import { setQualityTier, setSessionQualityTier } from "./utils/qualityMode.js";
 
@@ -1037,6 +1038,14 @@ async function main() {
 
   window.addEventListener("resize", updateViewport);
   enableModeMenuButtons();
+  // * CHUNK-DEFER-1 L5: hover/focus play CTAs warm gameBoot + netcode + cart GLTF — no connect.
+  wirePlayCtaChunkPrefetch(() => {
+    void prefetchGameSystems();
+    void ensureNetcode();
+    void import("./cartRaveGltf.js")
+      .then((m) => m.prefetchRaveGltf())
+      .catch(() => {});
+  });
   window.__cartRaveMainReady = true;
   window.__cartRaveBootstrapped = true;
   // * DEPLOY-STALE-HTML-1 B: boot succeeded — allow a future deploy-window heal in this tab.

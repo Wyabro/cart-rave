@@ -97,6 +97,36 @@ export function enableModeMenuButtons() {
 }
 
 /**
+ * CHUNK-DEFER-1 L5: bare chunk warm on play CTA hover/focus — no connect, no register.
+ * @param {() => void} prefetchChunks
+ */
+export function wirePlayCtaChunkPrefetch(prefetchChunks) {
+  if (typeof prefetchChunks !== "function") return;
+  const run = () => {
+    try {
+      prefetchChunks();
+    } catch {
+      /* prefetch-only */
+    }
+  };
+  for (const id of MODE_MENU_BUTTON_IDS) {
+    const btn = document.getElementById(id);
+    if (!btn || btn.dataset.chunkPrefetchWired === "1") continue;
+    btn.dataset.chunkPrefetchWired = "1";
+    btn.addEventListener("pointerenter", run, { passive: true });
+    btn.addEventListener("focus", run, { passive: true });
+  }
+  // * Friends invite join button (typed code / link) lives outside MODE_MENU_BUTTON_IDS.
+  const joinBtn = document.getElementById("cr-join-room")
+    || document.getElementById("cr-friends-join");
+  if (joinBtn && joinBtn.dataset.chunkPrefetchWired !== "1") {
+    joinBtn.dataset.chunkPrefetchWired = "1";
+    joinBtn.addEventListener("pointerenter", run, { passive: true });
+    joinBtn.addEventListener("focus", run, { passive: true });
+  }
+}
+
+/**
  * Menu / play-entry seam: level music, audio unlock, touch HUD visibility,
  * bootstrap arena-ready hooks, initMenu, commitMenuHiddenForGame.
  *
