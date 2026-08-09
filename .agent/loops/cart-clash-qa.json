@@ -12,7 +12,7 @@
     "retry": "Use the verifier feedback, inspect the current diff, and correct the failed approach without repeating it.",
     "check": "Review the outcome independently against the task, Cart Clash rules, and constraints."
   },
-  "verification": {"command": ["npm", "run", "qa"], "timeout_seconds": 1800},
+  "verification": {"command": ["npm.cmd", "run", "qa"], "timeout_seconds": 1800},
   "limits": {
     "max_attempts": 3,
     "max_runtime_seconds": 5400,
