@@ -16,8 +16,11 @@ vi.mock("howler", () => {
       this.opts = opts;
       this._state = opts.preload === false ? "unloaded" : "loaded";
       // * Howler's Sound pool lives on the Howl as `_sounds`; the music low-pass
-      // * wrap helper iterates it. Empty array exercises that path as a no-op.
-      this._sounds = [];
+      // * wrap helper iterates it. html5 music Howls get a real <audio> node so
+      // * wrapMusicElements / createMediaElementSource can be asserted.
+      this._sounds = opts.html5 && typeof document !== "undefined"
+        ? [{ _node: document.createElement("audio") }]
+        : [];
       this.loadCalls = 0;
       this.playCalls = 0;
       this.fadeCalls = [];
@@ -93,6 +96,8 @@ vi.mock("howler", () => {
     _html5AudioPool: [],
     html5PoolSize: 10,
     autoUnlock: false,
+    /** Howler private: sampleRate-reload latch (see initAudioManager pin). */
+    _mobileUnloaded: false,
     ctx: null,
     masterGain: null,
     volume: () => {},
@@ -123,6 +128,7 @@ import {
   materializeGamePlaylistIfPending,
   hasMaterializedGamePlaylist,
   setSfxPerVolume,
+  getAudioDebugState,
 } from "../src/audioManager.js";
 import { audioStore, AUDIO_VOLUME_MAX } from "../src/stores/audioStore.js";
 
@@ -610,6 +616,11 @@ describe("VOICE-BUS-1: announcer voice bus vs SFX bus", () => {
 // * element joins via createMediaElementSource. The gate is decided once at
 // * initAudioManager; Apple/WebKit platforms are excluded (that routing has gone
 // * silent in several iOS releases).
+// *
+// * Music-silence regression (2026-08-08): Howler._unlockAudio closes a shared
+// * THREE AudioContext when sampleRate !== 44100 and recreates one. Wrapping
+// * music into the closed stash silences it permanently. init pins
+// * _mobileUnloaded; wrap refuses closed contexts.
 describe("SD-MUSIC-LPF-1: music low-pass bus", () => {
   it("initAudioManager wires the filter into Howler.masterGain and opens it", () => {
     const ctx = makeAudioContextStub();
@@ -620,6 +631,12 @@ describe("SD-MUSIC-LPF-1: music low-pass bus", () => {
     expect(filter.type).toBe("lowpass");
     expect(filter.frequency.value).toBe(20000);
     expect(filter.connectedTo).toBe(MockHowler.masterGain);
+  });
+
+  it("pins Howler._mobileUnloaded so unlock cannot close the shared THREE context", () => {
+    MockHowler._mobileUnloaded = false;
+    initAudioManager(makeAudioContextStub());
+    expect(MockHowler._mobileUnloaded).toBe(true);
   });
 
   it("setMusicLowPass(true) glides the cutoff down and is idempotent", () => {
@@ -662,5 +679,51 @@ describe("SD-MUSIC-LPF-1: music low-pass bus", () => {
       // * Restore the supported flag for later tests in this file.
       initAudioManager(makeAudioContextStub());
     }
+  });
+
+  it("wrapMusicElements does not createMediaElementSource on a closed context", () => {
+    const ctx = makeAudioContextStub();
+    let mediaSourceCalls = 0;
+    ctx.createMediaElementSource = () => {
+      mediaSourceCalls += 1;
+      return { connect: () => {} };
+    };
+    initAudioManager(ctx);
+    try {
+      // * Live wrap at init+load is allowed.
+      loadMenuMusic("menu-live.opus");
+      const liveCalls = mediaSourceCalls;
+      expect(liveCalls).toBeGreaterThan(0);
+
+      // * Simulate Howler.unload() closing the shared THREE context after LPF init.
+      ctx.state = "closed";
+      MockHowler.ctx = ctx;
+      mediaSourceCalls = 0;
+
+      // * ensureMusicLpGraph must disable the dead bus; wrap must not source again.
+      expect(() => setMusicLowPass(true)).not.toThrow();
+      loadMenuMusic("menu-closed.opus");
+      expect(mediaSourceCalls).toBe(0);
+
+      const dbg = getAudioDebugState();
+      expect(dbg.howlerMobileUnloaded).toBe(true);
+      expect(dbg.musicLpSupported).toBe(true);
+      // * Bus cleared (null) once ensure sees only a closed ctx.
+      expect(dbg.musicCtxState).toBe(null);
+    } finally {
+      initAudioManager(makeAudioContextStub());
+    }
+  });
+
+  it("getAudioDebugState exposes LPF + mobile-unload pin fields", () => {
+    initAudioManager(makeAudioContextStub());
+    const dbg = getAudioDebugState();
+    expect(dbg).toMatchObject({
+      musicLpSupported: true,
+      musicLpActive: false,
+      musicCtxState: "running",
+      howlerMobileUnloaded: true,
+    });
+    expect(typeof dbg.musicWrappedCount).toBe("number");
   });
 });

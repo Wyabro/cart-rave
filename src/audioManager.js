@@ -166,14 +166,81 @@ let _musicLpActive = false;
 /** @type {Set<HTMLMediaElement>} */
 const _wrappedMusicElements = new Set();
 
+/** @param {AudioContext | null | undefined} ctx */
+function musicCtxIsLive(ctx) {
+  return Boolean(ctx && ctx.state !== "closed");
+}
+
+/**
+ * Wire (or re-wire) the music LPF bus onto a live AudioContext.
+ * Returns false when the platform cannot host the filter — callers must then
+ * leave html5 music on the direct speaker path (audible, no SD muffling).
+ * @param {AudioContext} audioContext
+ * @returns {boolean}
+ */
+function buildMusicLpGraph(audioContext) {
+  if (!_musicLpSupported || typeof audioContext.createBiquadFilter !== "function") {
+    _musicFilter = null;
+    _musicCtx = null;
+    return false;
+  }
+  if (!musicCtxIsLive(audioContext)) {
+    _musicFilter = null;
+    _musicCtx = null;
+    return false;
+  }
+  _musicFilter = audioContext.createBiquadFilter();
+  _musicFilter.type = "lowpass";
+  _musicFilter.frequency.value = _musicLpActive
+    ? MUSIC_LPF_CUTOFF_ON
+    : MUSIC_LPF_CUTOFF_OFF;
+  // * Howler.masterGain must already exist on this same live context.
+  _musicFilter.connect(Howler.masterGain);
+  _musicCtx = audioContext;
+  return true;
+}
+
+/**
+ * Make sure the music LPF bus is attached to a LIVE AudioContext.
+ * Howler._unlockAudio may close a shared context when sampleRate !== 44100
+ * (unless we pin _mobileUnloaded in initAudioManager). A closed stash leaves
+ * createMediaElementSource disconnecting <audio> from speakers into a dead
+ * graph — permanent silence. Prefer the live Howler.ctx; if nothing is live,
+ * disable LPF so wrapMusicElements skips and music stays on the direct path.
+ * @returns {boolean}
+ */
+function ensureMusicLpGraph() {
+  if (!_musicLpSupported) return false;
+  if (musicCtxIsLive(_musicCtx) && _musicFilter) return true;
+
+  const live = musicCtxIsLive(Howler.ctx) ? Howler.ctx : null;
+  if (!live) {
+    _musicFilter = null;
+    _musicCtx = null;
+    return false;
+  }
+  // * After Howler.unload(), setupAudioContext recreates masterGain on the new
+  // * ctx. If masterGain is missing, rebuild it the same way init does.
+  if (!Howler.masterGain) {
+    Howler.masterGain = live.createGain();
+    Howler.masterGain.gain.setValueAtTime(Howler._volume, live.currentTime);
+    Howler.masterGain.connect(live.destination);
+  }
+  return buildMusicLpGraph(live);
+}
+
 /**
  * Route a music Howl's html5 <audio> elements through the shared low-pass filter.
  * Howler creates the pooled element synchronously in the Howl constructor, so
  * calling this right after construction covers even preload:false tracks.
+ * Never calls createMediaElementSource on a closed context — that permanently
+ * detaches the element from speakers with no recovery path.
  * @param {Howl | null | undefined} howl
  */
 function wrapMusicElements(howl) {
-  if (!_musicLpSupported || !_musicFilter || !_musicCtx) return;
+  if (!_musicLpSupported) return;
+  if (!ensureMusicLpGraph()) return;
+  if (!musicCtxIsLive(_musicCtx) || !_musicFilter) return;
   const sounds = howl?._sounds;
   if (!Array.isArray(sounds)) return;
   for (const s of sounds) {
@@ -203,6 +270,15 @@ function wrapMusicElements(howl) {
  */
 export function initAudioManager(audioContext, opts = {}) {
   Howler.ctx = audioContext;
+  // * Pin Howler's mobile sample-rate reload BEFORE any Howl is constructed.
+  // * howler.js _unlockAudio (howler.js ~315): when ctx.sampleRate !== 44100 it
+  // * calls Howler.unload(), which closes THIS shared THREE context and creates
+  // * a new one. Desktop Chrome is often 48000. After SD-MUSIC-LPF-1, music html5
+  // * elements are routed via createMediaElementSource into the stashed ctx —
+  // * a closed stash = permanent silence (element leaves the speaker path;
+  // * currentTime stuck; master RMS 0). We keep the device sample rate on purpose;
+  // * the Mobile-Safari sampleRate dance is wrong for a shared THREE context.
+  Howler._mobileUnloaded = true;
   // * Manually wire masterGain — Howler's setupAudioContext() only fires
   // * when !Howler.ctx, but we pre-seed ctx to share THREE's AudioContext.
   Howler.masterGain = audioContext.createGain();
@@ -211,15 +287,8 @@ export function initAudioManager(audioContext, opts = {}) {
   // * Music low-pass bus (SD-MUSIC-LPF-1): music <audio> elements join the graph
   // * here so Sudden Death can filter them. Decided once — see detectMusicLpSupported.
   _musicLpSupported = detectMusicLpSupported();
-  if (_musicLpSupported && typeof audioContext.createBiquadFilter === "function") {
-    _musicFilter = audioContext.createBiquadFilter();
-    _musicFilter.type = "lowpass";
-    _musicFilter.frequency.value = MUSIC_LPF_CUTOFF_OFF;
-    // * Howler.masterGain is manually wired above and never recreated — keep
-    // * masterGain first, then this connect, or the filter is orphaned.
-    _musicFilter.connect(Howler.masterGain);
-    _musicCtx = audioContext;
-  }
+  _musicLpActive = false;
+  buildMusicLpGraph(audioContext);
   // * Menu music + up to 4 game tracks + SFX share Howler's HTML5 pool.
   // * Default 10-slot pool only fills as objects are released, so pre-populate it.
   Howler.html5PoolSize = 40;
@@ -599,8 +668,11 @@ function advanceGameTrack() {
  */
 export function setMusicLowPass(active) {
   const on = Boolean(active);
-  if (on === _musicLpActive || !_musicFilter || !_musicCtx) return;
+  if (on === _musicLpActive) return;
   _musicLpActive = on;
+  // * Re-bind if Howler closed the stash mid-session (should not happen once
+  // * _mobileUnloaded is pinned; still a safe no-op when LPF is unavailable).
+  if (!ensureMusicLpGraph() || !_musicFilter || !_musicCtx) return;
   const t = _musicCtx.currentTime;
   _musicFilter.frequency.cancelScheduledValues(t);
   _musicFilter.frequency.setTargetAtTime(
@@ -784,6 +856,13 @@ export function getAudioDebugState() {
     gameMusicPlaying: isGameMusicPlaying(),
     registeredSfxCount: Object.keys(sfxRegistry).length,
     waterSplashRegistered: Boolean(sfxRegistry.waterSplash),
+    // * SD-MUSIC-LPF-1 / music-silence forensics: closed musicCtx + wrapped>0
+    // * is the permanent-silence path (createMediaElementSource on a dead graph).
+    musicLpSupported: _musicLpSupported,
+    musicLpActive: _musicLpActive,
+    musicCtxState: _musicCtx?.state ?? null,
+    musicWrappedCount: _wrappedMusicElements.size,
+    howlerMobileUnloaded: Boolean(Howler._mobileUnloaded),
   };
 }
 
