@@ -36,6 +36,7 @@
  * @property {string} id — stable programmatic key (used by resolveSunglassesStyle)
  * @property {string} label — display name shown in the picker UI
  * @property {number} color — legacy single hex; still the menu chip glow + emissive tint base
+ * @property {number} frameColor — solid frame colour coordinated with the lens palette
  * @property {readonly string[]} gradient — mirror gradient stops (CSS hex), hot core → cool
  *   edge. Drives the per-style reflection env map (cartRaveGltf getSunglassesStyleEnvMap)
  *   and the picker swatch sweep — the "Pit Viper" iridescent read (Wyatt reference
@@ -76,16 +77,16 @@ export const DEFAULT_CART_THEME = "rave";
 
 /**
  * * Six "Mirror Finish" sunglasses styles. Each is a metallic mirrored lens color
- * * applied to the GLB face assembly (frame + lenses + accent) in cartRaveGltf.js.
+ * * applied to the GLB face assembly (solid frame + procedural lenses) in cartRaveGltf.js.
  * @type {ReadonlyArray<SunglassesStyleDef>}
  */
 export const SUNGLASSES_STYLES = Object.freeze([
-  { id: "silverMirror", label: "Silver Mirror", color: 0xc8c8d0, gradient: Object.freeze(["#ffffff", "#cfd9e6", "#8fa3c4", "#4a5a7d"]), metalness: 1.0, roughness: 0.02, clearcoat: 1.0, envMapIntensity: 1.5 },
-  { id: "goldMirror", label: "Gold Mirror", color: 0xd4af37, gradient: Object.freeze(["#ff6a00", "#ffd23a", "#2ee6c8", "#1a4fd6"]), metalness: 1.0, roughness: 0.02, clearcoat: 1.0, envMapIntensity: 1.5 },
-  { id: "blueMirror", label: "Blue Mirror", color: 0x2a6cff, gradient: Object.freeze(["#d9f4ff", "#38b6ff", "#2a6cff", "#141fa8"]), metalness: 1.0, roughness: 0.02, clearcoat: 1.0, envMapIntensity: 1.5 },
-  { id: "redMirror", label: "Red Mirror", color: 0xff1f3a, gradient: Object.freeze(["#ffd23a", "#ff5a2e", "#ff1f3a", "#8f1290"]), metalness: 1.0, roughness: 0.02, clearcoat: 1.0, envMapIntensity: 1.5 },
-  { id: "greenMirror", label: "Green Mirror", color: 0x19e07a, gradient: Object.freeze(["#f2ff6a", "#3aff9e", "#19e07a", "#0a7fa8"]), metalness: 1.0, roughness: 0.02, clearcoat: 1.0, envMapIntensity: 1.5 },
-  { id: "purpleMirror", label: "Purple Mirror", color: 0x9b3cff, gradient: Object.freeze(["#ff5ad6", "#b455ff", "#9b3cff", "#2a1e9e"]), metalness: 1.0, roughness: 0.02, clearcoat: 1.0, envMapIntensity: 1.5 },
+  { id: "silverMirror", label: "Silver", color: 0xc8c8d0, frameColor: 0x8d96a6, gradient: Object.freeze(["#f4f7ff", "#c5d0df", "#5b6677", "#070b13"]), metalness: 1.0, roughness: 0.02, clearcoat: 1.0, envMapIntensity: 1.5 },
+  { id: "goldMirror", label: "Gold", color: 0xd4af37, frameColor: 0xb98223, gradient: Object.freeze(["#ff6a00", "#ffd23a", "#2ee6c8", "#1a4fd6"]), metalness: 1.0, roughness: 0.02, clearcoat: 1.0, envMapIntensity: 1.5 },
+  { id: "blueMirror", label: "Blue", color: 0x2a6cff, frameColor: 0x245fc4, gradient: Object.freeze(["#d9f4ff", "#38b6ff", "#2a6cff", "#141fa8"]), metalness: 1.0, roughness: 0.02, clearcoat: 1.0, envMapIntensity: 1.5 },
+  { id: "redMirror", label: "Red", color: 0xff1f3a, frameColor: 0xc52f49, gradient: Object.freeze(["#ffd23a", "#ff5a2e", "#ff1f3a", "#8f1290"]), metalness: 1.0, roughness: 0.02, clearcoat: 1.0, envMapIntensity: 1.5 },
+  { id: "greenMirror", label: "Green", color: 0x19e07a, frameColor: 0x15966b, gradient: Object.freeze(["#f2ff6a", "#3aff9e", "#19e07a", "#0a7fa8"]), metalness: 1.0, roughness: 0.02, clearcoat: 1.0, envMapIntensity: 1.5 },
+  { id: "purpleMirror", label: "Purple", color: 0x9b3cff, frameColor: 0x7245ad, gradient: Object.freeze(["#ff5ad6", "#b455ff", "#9b3cff", "#2a1e9e"]), metalness: 1.0, roughness: 0.02, clearcoat: 1.0, envMapIntensity: 1.5 },
 ]);
 
 /** Stable fallback when no sunglasses style is supplied to the GLTF material pipeline. */

@@ -13,6 +13,19 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 9, 2026 — SHADES-MAT-1 PASS: solid frames and rainbow lens materials
+
+- *(Art · Low · SHIP-1 E2)* **SHADES-MAT-1** — ✅ **CLOSED PASS 08-09** (local code,
+  production build, and QA 7/7; not deployed). Split the one-piece visor into runtime frame
+  and lens material groups. Each style now has a solid coordinated frame colour, while the
+  lens keeps its procedural rainbow mirror gradient; Silver ends in black. The six menu labels
+  are now **Silver**, **Gold**, **Blue**, **Red**, **Green**, and **Purple**; stable style IDs
+  still use their existing `*Mirror` names. Contract coverage checks the split, frame colours,
+  menu labels, and Silver gradient. Wyatt accepted the local result; no production visual
+  playtest was requested.
+
+---
+
 ### August 9, 2026 — CART-MODEL-1 PASS: repaired basket and tapered visor sides
 
 - *(Art · High · SHIP-1 C1)* **CART-MODEL-1** — ✅ **CLOSED PASS 08-09** (model fix

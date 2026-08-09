@@ -29,7 +29,7 @@ import { raveGltfTuning, cartTuningStore } from "./stores/cartTuningStore.js";
 /** @typedef {import("./cartThemes.js").CartThemeMaterialCache} CartThemeMaterialCache */
 /** @typedef {import("./cartThemeConfig.js").SunglassesStyleDef} SunglassesStyleDef */
 
-/** @typedef {"body" | "wheel" | "fork" | "handle" | "face" | "smile" | "trim" | "unknown"} RaveGltfPartRole */
+/** @typedef {"body" | "wheel" | "fork" | "handle" | "face" | "faceFrame" | "faceLens" | "smile" | "trim" | "unknown"} RaveGltfPartRole */
 
 /** @typedef {"cartrave4" | "legacy"} RaveGltfLayoutId */
 
@@ -471,6 +471,8 @@ const RAVE_GLTF_ROLE_MAT_PRESETS = Object.freeze({
   fork: { metalness: 0.45, roughness: 0.5, clearcoat: 0.2 },
   handle: { metalness: 0.2, roughness: 0.65, clearcoat: 0.05 },
   face: { metalness: 0.15, roughness: 0.7, clearcoat: 0.0 },
+  faceFrame: { metalness: 0.28, roughness: 0.38, clearcoat: 0.35, clearcoatRoughness: 0.16 },
+  faceLens: { metalness: 1.0, roughness: 0.02, clearcoat: 1.0, clearcoatRoughness: 0.05 },
   // * Matches the procedural cart's glossy-black face trim (cart.js SHARED_FACE_TRIM_MAT).
   smile: { metalness: 0.88, roughness: 0.42, clearcoat: 0.4 },
   trim: {},
@@ -483,6 +485,60 @@ const RAVE_GLTF_FRAME_PRESET = CART_THEMES.rave.frameMaterial;
 const RAVE_GLTF_EMISSIVE_MUL = RAVE_GLTF_FRAME_PRESET.emissiveMul ?? 1.15;
 /** Wireframe trim uses an emissive map (partial coverage); kept at 1.0 to match procedural bloom balance. */
 const RAVE_GLTF_TRIM_MASK_BOOST = 1.0;
+
+/**
+ * Split the one-piece visor index into solid frame group 0 and lens group 1.
+ * The source asset has large lens sheets facing +/-X and a frame around them.
+ *
+ * @param {THREE.BufferGeometry} geometry
+ * @returns {boolean}
+ */
+export function splitRaveGltfVisorGeometry(geometry) {
+  const position = geometry?.getAttribute("position");
+  const index = geometry?.getIndex();
+  const indexCount = index?.count ?? position?.count ?? 0;
+  if (!position || indexCount < 6 || indexCount % 3 !== 0) return false;
+
+  const readIndex = (offset) => index ? index.getX(offset) : offset;
+  const frameIndices = [];
+  const lensIndices = [];
+  const a = new THREE.Vector3();
+  const b = new THREE.Vector3();
+  const c = new THREE.Vector3();
+  const edge = new THREE.Vector3();
+  const normal = new THREE.Vector3();
+
+  for (let offset = 0; offset < indexCount; offset += 3) {
+    a.fromBufferAttribute(position, readIndex(offset));
+    b.fromBufferAttribute(position, readIndex(offset + 1));
+    c.fromBufferAttribute(position, readIndex(offset + 2));
+    edge.subVectors(b, a);
+    normal.subVectors(c, a);
+    edge.cross(normal);
+    const normalLength = edge.length();
+    const triangle = [readIndex(offset), readIndex(offset + 1), readIndex(offset + 2)];
+    if (normalLength < 1e-8) {
+      frameIndices.push(...triangle);
+      continue;
+    }
+
+    edge.multiplyScalar(1 / normalLength);
+    const centroidX = (a.x + b.x + c.x) / 3;
+    const target = Math.abs(edge.x) > 0.55 && centroidX > 0.02
+      ? lensIndices
+      : frameIndices;
+    target.push(...triangle);
+  }
+
+  if (!frameIndices.length || !lensIndices.length) return false;
+  geometry.setIndex(frameIndices.concat(lensIndices));
+  geometry.clearGroups();
+  geometry.addGroup(0, frameIndices.length, 0);
+  geometry.addGroup(frameIndices.length, lensIndices.length, 1);
+  geometry.userData.raveGltfVisorSplit = true;
+  geometry.userData.raveGltfVisorLensTriangles = lensIndices.length / 3;
+  return true;
+}
 
 /**
  * FIX-EMISSIVE — trim emissive multiplier for a cart with NO pattern.
@@ -1787,6 +1843,28 @@ function cloneRaveGltfMaterial(srcMat, role, sunglassesStyle) {
       mat.emissiveIntensity = SUNGLASSES_LENS_EMISSIVE_INTENSITY;
     }
     mat.userData.raveGltfSunglassesStyle = style.id;
+  } else if (role === "faceFrame" || role === "faceLens") {
+    const style = resolveSunglassesStyle(sunglassesStyle);
+    mat.userData.raveGltfHasEmissiveAccent = false;
+    mat.map = null;
+    if (mat.emissive) mat.emissive.setHex(0x000000);
+    if (role === "faceFrame") {
+      if (mat.color) mat.color.setHex(style.frameColor ?? style.color);
+      mat.envMapIntensity = 0.45;
+    } else {
+      if (mat.color) mat.color.setHex(0xffffff);
+      mat.metalness = style.metalness;
+      mat.roughness = style.roughness;
+      mat.envMapIntensity = style.envMapIntensity;
+      mat.clearcoat = style.clearcoat;
+      const lensEnv = getSunglassesStyleEnvMap(style) ?? getNeonLensEnvMap();
+      if (lensEnv) mat.envMap = lensEnv;
+      if (mat.emissive) {
+        mat.emissive.set(style.gradient?.[0] ?? style.color);
+        mat.emissiveIntensity = SUNGLASSES_LENS_EMISSIVE_INTENSITY;
+      }
+    }
+    mat.userData.raveGltfSunglassesStyle = style.id;
   } else {
     mat.userData.raveGltfHasEmissiveAccent = !!srcMat.emissiveMap;
     mat.emissiveMap = srcMat.emissiveMap || null;
@@ -1802,7 +1880,7 @@ function cloneRaveGltfMaterial(srcMat, role, sunglassesStyle) {
 
   // * "face" keeps its style self-tint (set above) — everything else without an
   // * emissive mask is forced dark so only authored accents bloom.
-  if (mat.emissive && !mat.emissiveMap && role !== "body" && role !== "face") mat.emissive.setHex(0x000000);
+  if (mat.emissive && !mat.emissiveMap && role !== "body" && role !== "face" && role !== "faceFrame" && role !== "faceLens") mat.emissive.setHex(0x000000);
 
   return mat;
 }
@@ -2652,8 +2730,8 @@ function loadRaveGltfFromUrl(url) {
  *   basket — no runtime patch needed.
  * - The old parts (8/9/11) no longer ship, so the footprint is a baked constant
  *   (RAVE_GLTF_V4_SUNGLASSES_FOOTPRINT); leftover parts are removed defensively.
- * - Its authored base-color map is dropped: face-role materials are fully procedural
- *   (cloneRaveGltfMaterial overrides PBR with the SunglassesStyleDef mirror finish).
+ * - Its authored base-color map is dropped: frame and lens materials are fully procedural
+ *   (cloneRaveGltfMaterial gives the frame a solid colour and the lenses the mirror finish).
  *
  * @param {THREE.Object3D} sourceScene
  * @returns {Promise<void>}
@@ -2696,6 +2774,7 @@ async function integrateOnePieceSunglasses(sourceScene) {
   const geo = visor.geometry;
   geo.center();
   geo.computeBoundingBox();
+  const visorSplit = splitRaveGltfVisorGeometry(geo);
   const vSize = geo.boundingBox
     ? geo.boundingBox.getSize(new THREE.Vector3())
     : new THREE.Vector3(0.15, 0.22, 0.69);
@@ -2715,7 +2794,7 @@ async function integrateOnePieceSunglasses(sourceScene) {
   const visorMesh = new THREE.Mesh(geo, visor.material);
   visorMesh.name = "SunglassesVisor";
   const mat = /** @type {any} */ (Array.isArray(visor.material) ? visor.material[0] : visor.material);
-  if (mat) mat.map = null; // mirror finish is procedural — drop the baked base color
+  if (mat) mat.map = null; // frame/lens finish is procedural — drop the baked single-material map
   visorMesh.position.copy(center);
   // * Top-edge aligned to the old frame box, then lowered a smidge so it seats naturally
   // * over the sealed basket face.
@@ -2728,6 +2807,7 @@ async function integrateOnePieceSunglasses(sourceScene) {
   visorMesh.scale.setScalar(scale);
   visorMesh.userData.isFace = true;
   visorMesh.userData.raveGltfPartRole = "face";
+  visorMesh.userData.raveGltfVisorSplit = visorSplit;
   parent.add(visorMesh);
 
   if (import.meta.env?.DEV) {
@@ -2871,8 +2951,14 @@ export function createRaveGltfCartInstance(sunglassesStyle) {
     if (s.isMesh) {
       const srcMat = Array.isArray(s.material) ? s.material[0] : s.material;
       const role = resolveRaveGltfPartRole(s);
+      const isSplitVisor = s.userData?.raveGltfVisorSplit === true;
       let material;
-      if (role === "body") {
+      if (isSplitVisor) {
+        material = [
+          cloneRaveGltfMaterial(srcMat, "faceFrame", sunglassesStyle),
+          cloneRaveGltfMaterial(srcMat, "faceLens", sunglassesStyle),
+        ];
+      } else if (role === "body") {
         material = cloneRaveGltfMaterial(srcMat, role, sunglassesStyle);
       } else {
         const memoKey = [
@@ -2895,6 +2981,7 @@ export function createRaveGltfCartInstance(sunglassesStyle) {
       mesh.quaternion.copy(src.quaternion);
       mesh.scale.copy(src.scale);
       mesh.userData.raveGltfPartRole = role;
+      mesh.userData.raveGltfVisorSplit = isSplitVisor;
       parent.add(mesh);
       return;
     }
@@ -2937,7 +3024,7 @@ export function buildRaveGltfMaterialCache(root) {
       seen.add(mat);
 
       const role = mat.userData?.raveGltfPartRole;
-      if (role === "wheel" || role === "fork" || role === "handle" || role === "face" || role === "smile") continue;
+      if (role === "wheel" || role === "fork" || role === "handle" || role === "face" || role === "faceFrame" || role === "faceLens" || role === "smile") continue;
 
       frameMats.push(mat);
       if (role === "body") frameBodyMats.push(mat);
