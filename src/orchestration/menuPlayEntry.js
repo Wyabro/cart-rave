@@ -42,6 +42,7 @@ import {
   sessionRemove,
 } from "../utils/storage.js";
 import { isTouchDevice } from "../utils.js";
+import { trackGlitchEvent } from "../analytics/analytics.js";
 
 const MODE_MENU_BUTTON_IDS = ["cr-solo", "cr-quickplay", "cr-friends"];
 
@@ -458,6 +459,10 @@ export function createMenuPlayEntry(deps) {
           '<span class="cr-btn-inner"><span class="cr-btn-label">JOIN LOBBY</span></span>';
         btnRow.insertBefore(btn, btnRow.firstChild);
         btn.addEventListener("click", () => {
+          trackGlitchEvent("engagement", "menu_click", {
+            action: "joinroom",
+            location: "invite_banner",
+          });
           window.dispatchEvent(new CustomEvent("cartrave:menu", { detail: { action: "joinroom" } }));
         });
         window.CartRave?.wireMenuButton?.(btn, { delay: 0, duration: 340, y: 18 });
@@ -570,6 +575,10 @@ export function createMenuPlayEntry(deps) {
         setJoinedViaTypedCode(true);
         if (joinInput) joinInput.value = "";
         // * 4. Same action the invite link's JOIN LOBBY button fires — one enter path.
+        trackGlitchEvent("engagement", "menu_click", {
+          action: "joinroom",
+          location: "typed_code",
+        });
         window.dispatchEvent(new CustomEvent("cartrave:menu", { detail: { action: "joinroom" } }));
       };
 

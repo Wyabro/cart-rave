@@ -6,6 +6,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   initAnalytics,
   trackEvent,
+  trackGlitchEvent,
   flushAnalytics,
   getAnalyticsDebugState,
   isAnalyticsOptedOut,
@@ -207,5 +208,33 @@ describe("gameplayAnalytics — challenge_completed from isComplete", () => {
     flushAnalytics("test2");
     const again = sink.batches.flatMap((b) => b.events).filter((e) => e.name === "challenge_completed");
     expect(again).toHaveLength(1);
+  });
+});
+
+describe("analytics — Glitch bridge", () => {
+  it("trackGlitchEvent is a no-op without GameAnalyticsTracker", () => {
+    expect(trackGlitchEvent("engagement", "menu_click", { action: "solo" })).toBe(false);
+  });
+
+  it("trackGlitchEvent forwards when the tracker exists", () => {
+    const trackEventSpy = vi.fn();
+    window.GameAnalyticsTracker = { trackEvent: trackEventSpy };
+    expect(trackGlitchEvent("engagement", "menu_click", { action: "solo", location: "main_menu" })).toBe(
+      true,
+    );
+    expect(trackEventSpy).toHaveBeenCalledWith("engagement", "menu_click", {
+      action: "solo",
+      location: "main_menu",
+    });
+    delete window.GameAnalyticsTracker;
+  });
+
+  it("trackGlitchEvent refuses when analytics is opted out", () => {
+    localStorage.setItem(STORAGE_KEYS.analytics, "off");
+    const trackEventSpy = vi.fn();
+    window.GameAnalyticsTracker = { trackEvent: trackEventSpy };
+    expect(trackGlitchEvent("engagement", "menu_click", { action: "solo" })).toBe(false);
+    expect(trackEventSpy).not.toHaveBeenCalled();
+    delete window.GameAnalyticsTracker;
   });
 });

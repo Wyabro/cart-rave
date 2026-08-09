@@ -206,6 +206,39 @@ export function trackEvent(name, props) {
 }
 
 /**
+ * Optional Glitch festival GameAnalyticsTracker bridge (loaded from index.html).
+ * Pageviews are automatic; custom actions feed their dashboard. Never throws into gameplay.
+ * No-op when the script has not loaded, or when Cart Clash analytics is opted out.
+ *
+ * @param {string} category  e.g. "engagement" | "gameplay"
+ * @param {string} action    e.g. "menu_click" | "match_started"
+ * @param {Record<string, unknown>} [props]
+ * @returns {boolean} True when the third-party tracker accepted the call.
+ */
+export function trackGlitchEvent(category, action, props) {
+  if (state == null && typeof window !== "undefined") {
+    // * Before initAnalytics: still allow menu clicks if Glitch loaded and player did not opt out.
+    try {
+      if (isAnalyticsOptedOut()) return false;
+    } catch {
+      /* ignore */
+    }
+  } else if (state == null) {
+    return false;
+  }
+  try {
+    if (typeof window === "undefined") return false;
+    /** @type {{ trackEvent?: (c: string, a: string, p?: Record<string, unknown>) => void } | undefined} */
+    const tracker = /** @type {any} */ (window).GameAnalyticsTracker;
+    if (!tracker || typeof tracker.trackEvent !== "function") return false;
+    tracker.trackEvent(String(category), String(action), props ?? {});
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Serialize the queue into one batch and hand it to the sink. Serialization is deferred
  * to here — never per event. Safe to call anytime; empty queue is a no-op.
  *

@@ -38,6 +38,7 @@ import { getRoundState } from "./gameState.js";
 import { setMenuBrowseLevel, scheduleMenuLevelPreview } from "./levelManager.js";
 import { setInputMode, updateControlsPanelUI, getInputMode, onInputModeChange } from "./input.js";
 import { readBuildInfo } from "./utils/buildInfo.js";
+import { trackGlitchEvent } from "./analytics/analytics.js";
 import {
   animateButtonPress,
   animateButtonRelease,
@@ -2044,8 +2045,16 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
         showUnlockToast(`Locked — ${status.hint} (${status.progress}/${status.goal})`);
         return;
       }
+      const action = btn.dataset.action;
+      // * Glitch festival custom action (optional Step 2) — menu CTAs are the wishlist-equivalent.
+      if (action) {
+        trackGlitchEvent("engagement", "menu_click", {
+          action: String(action),
+          location: "main_menu",
+        });
+      }
       window.dispatchEvent(new CustomEvent('cartrave:menu', {
-        detail: { action: btn.dataset.action }
+        detail: { action }
       }));
     });
   });

@@ -39,7 +39,7 @@ import { registerDiagProbe } from "../utils/diagnostics.js";
 import { getAutoQualityStepLog } from "../utils/autoQuality.js";
 import { getQualityTier } from "../utils/qualityMode.js";
 import { probeGpu } from "../utils/gpuCaps.js";
-import { initAnalytics, trackEvent, getAnalyticsDebugState } from "./analytics.js";
+import { initAnalytics, trackEvent, trackGlitchEvent, getAnalyticsDebugState } from "./analytics.js";
 // * CHUNK-MEMBER-1 L1: leaf only — never import gameLoop (re-eagers the deferred graph).
 import { resetMatchFrameTelemetry, getMatchFrameTelemetry } from "./matchFrameTelemetry.js";
 
@@ -79,6 +79,11 @@ export function installGameplayAnalytics(deps) {
       const phase = gameStore.getState().roundPhase;
       if (phase === RoundPhase.RUNNING || phase === RoundPhase.COUNTDOWN) {
         trackEvent("player_quit", { reason: "pagehide", phase, arena: arena(), mode: mode() });
+        trackGlitchEvent("engagement", "player_quit", {
+          reason: "pagehide",
+          phase,
+          mode: mode(),
+        });
       }
       // * WARM-IGPU-1 Phase 0b: the tier a session ENDED on, plus every auto step-down.
       // * `tier` at session_start is the stored preference; the watchdog can silently
@@ -86,14 +91,19 @@ export function installGameplayAnalytics(deps) {
       // * `steps` > 0 with `firstStepSource: "attract"` means players are being demoted
       // * by menu shader-compile stalls before gameplay is ever measured.
       const steps = getAutoQualityStepLog();
+      const durationMs = Math.round(performance.now());
       trackEvent("session_end", {
-        durationMs: Math.round(performance.now()),
+        durationMs,
         matches: matchesThisSession,
         tier: safeCall(() => getQualityTier()) ?? null,
         steps: steps.length,
         firstStepSource: steps[0]?.source ?? null,
         firstStepAtMs: steps[0]?.tMs ?? null,
         firstStepP95: steps[0]?.p95 ?? null,
+      });
+      trackGlitchEvent("engagement", "session_end", {
+        durationMs,
+        matches: matchesThisSession,
       });
     },
   });
@@ -111,6 +121,12 @@ export function installGameplayAnalytics(deps) {
     menuReadyMs: readMenuReadyMs(),
     // * Wave A: arrival channel only (hostname or "direct") — no full URL.
     referrerHost: readReferrerHost(),
+  });
+  // * Glitch festival web analytics (index.html script) — pageviews are automatic; these
+  // * custom actions feed their dashboard. No-op until the script loads / if opted out.
+  trackGlitchEvent("engagement", "session_start", {
+    referrerHost: readReferrerHost(),
+    touch: typeof navigator !== "undefined" ? (navigator.maxTouchPoints ?? 0) > 0 : null,
   });
   const sessionStartPerfMs = performance.now();
   let firstMatchTimed = false;
@@ -159,6 +175,11 @@ export function installGameplayAnalytics(deps) {
       startedProps.ttFirstMatchMs = Math.round(performance.now() - sessionStartPerfMs);
     }
     trackEvent("match_started", startedProps);
+    trackGlitchEvent("gameplay", "match_started", {
+      arena: startedProps.arena,
+      mode: startedProps.mode,
+      joinedMidRound: startedProps.joinedMidRound,
+    });
     maybeEmitShardAssigned();
   };
 
@@ -253,12 +274,14 @@ export function installGameplayAnalytics(deps) {
         // * emits; L1 summary excludes null-duration ends. Out of scope for this PR.
         if (durationMs != null && durationMs < MIN_MATCH_DURATION_MS) return;
         const frameTelemetry = getMatchFrameTelemetry();
+        const result =
+          winner === "draw" || winner == null ? "draw" : winner === localSlot ? "win" : "loss";
         trackEvent("match_ended", {
           arena: arena(),
           mode: mode(),
           durationMs,
           endReason: s.roundEndReason,
-          result: winner === "draw" || winner == null ? "draw" : winner === localSlot ? "win" : "loss",
+          result,
           suddenDeath: sdLatch || s.isSuddenDeath,
           kos: stats.kos,
           localKos: stats.localKos,
@@ -267,20 +290,32 @@ export function installGameplayAnalytics(deps) {
           maxFrameMs: frameTelemetry.maxFrameMs,
           framesOver33: frameTelemetry.framesOver33,
         });
+        trackGlitchEvent("gameplay", "match_ended", {
+          arena: arena(),
+          mode: mode(),
+          durationMs,
+          result,
+        });
       });
     }
     if (state.isSuddenDeath) sawSuddenDeath = true;
   });
 
   // — Unlocks: every grant (levels + cosmetics) already funnels through one notifier —
-  onUnlockGranted((msg) => trackEvent("unlock_earned", { unlock: msg }));
+  onUnlockGranted((msg) => {
+    trackEvent("unlock_earned", { unlock: msg });
+    trackGlitchEvent("engagement", "unlock_earned", { unlock: msg });
+  });
 
   // — Challenge completions: diff completed ids on store change —
   let prevDone = completedChallengeIds(challengeStore.getState());
   challengeStore.subscribe((state) => {
     const done = completedChallengeIds(state);
     for (const id of done) {
-      if (!prevDone.has(id)) trackEvent("challenge_completed", { id });
+      if (!prevDone.has(id)) {
+        trackEvent("challenge_completed", { id });
+        trackGlitchEvent("engagement", "challenge_completed", { id });
+      }
     }
     prevDone = done;
   });

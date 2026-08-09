@@ -3,7 +3,7 @@
 import * as GameState from "./gameState.js";
 import { getNetcode } from "./netcode/load.js";
 import { SESSION_KEYS, sessionRemove } from "./utils/storage.js";
-import { trackEvent } from "./analytics/analytics.js";
+import { trackEvent, trackGlitchEvent } from "./analytics/analytics.js";
 import { invalidateActivePlayEntry } from "./bootstrap.js";
 import { menuReturnHref } from "./utils/captureUpload.js";
 
@@ -406,9 +406,15 @@ export function createGameSessionController(getContext) {
   function returnToMenu(opts = {}) {
     // * Quit-location analytics: stamp the phase BEFORE teardown resets it to lobby.
     // * "esc"/"results" are chosen exits; "simError"/"joinRejected" are forced ones.
+    const quitReason = opts.reason ?? "menu";
+    const quitPhase = GameState.getRoundState()?.phase ?? null;
     trackEvent("player_quit", {
-      reason: opts.reason ?? "menu",
-      phase: GameState.getRoundState()?.phase ?? null,
+      reason: quitReason,
+      phase: quitPhase,
+    });
+    trackGlitchEvent("engagement", "player_quit", {
+      reason: quitReason,
+      phase: quitPhase,
     });
     teardownGameSession();
     stripRoomFromUrl();

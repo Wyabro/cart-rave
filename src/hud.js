@@ -29,6 +29,7 @@ import {
 import { normalizeDifficulty, DEFAULT_SOLO } from "./aiDifficulty.js";
 import { getRoundClockNowMs, getRoundRemainingMs } from "./roundClock.js";
 import { ROUND_DURATION_MS } from "../shared/roundConstants.js";
+import { trackGlitchEvent } from "./analytics/analytics.js";
 import { announce } from "./announcer/announcerManager.js";
 import { gameStore } from "./stores/gameStore.js";
 import { emblemForSlot, slotGlyphForIndex } from "./npcNames.js";
@@ -1877,7 +1878,13 @@ export function init(options) {
       settle("COPY FAILED", true);
       return;
     }
-    write.then(() => settle("COPIED!", false)).catch(() => settle("COPY FAILED", true));
+    write
+      .then(() => {
+        settle("COPIED!", false);
+        // * Glitch festival — invite copy is the share / wishlist-style engagement action.
+        trackGlitchEvent("engagement", "invite_copy", { location: "lobby" });
+      })
+      .catch(() => settle("COPY FAILED", true));
   });
 
   lobbyCodeRow.appendChild(elements.lobbyCode);
