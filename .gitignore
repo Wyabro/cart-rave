@@ -80,6 +80,7 @@ tessl.json
 # Art / capture scratch — tracked masters in art/models stay (cartrave4.glb, groceries/, …)
 /art/scripts/
 /art/models/*.png
+/art/models/previews/
 /art/models/*.jpg
 /art/models/*backup*.glb
 /art/models/*uvfix*.glb
