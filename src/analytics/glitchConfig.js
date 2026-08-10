@@ -10,7 +10,7 @@ export const GLITCH_TITLE_ID = "bf9f27c8-27be-4996-a3f0-cc4dc68ad2bb";
 export const GLITCH_API_BASE = "https://api.glitch.fun/api";
 
 /** Human version stamped on installs + Glitch deploy confirms. */
-export const GLITCH_GAME_VERSION = "0.8.5";
+export const GLITCH_GAME_VERSION = "0.8.6";
 
 /** Build channel for installs / deploy confirm. */
 export const GLITCH_BUILD_TYPE = "playtest";
