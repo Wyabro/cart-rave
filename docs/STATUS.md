@@ -71,8 +71,8 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. **NOW:** Block 1 empty → **ONBOARD-ART-1** (Wyatt webp drops + AISLE 4 aim). Then VOICE-BUS-1 · CHUNK-DEFER-1. Closed 08-08/08-09 IDs → [completed-work.md](./planning/completed-work.md).
-2. **Open / REACHABLE:** CARGO-LATCH-1 · CHUNK-DEFER-1. Playtest owed: [BACKLOG § Playtest owed](./planning/BACKLOG.md).
+1. **NOW:** Block 1 empty → **ONBOARD-ART-1** (Wyatt webp drops + AISLE 4 aim). Then **NPC-BOOST-1** (measure). Closed 08-08/08-09 IDs → [completed-work.md](./planning/completed-work.md).
+2. **Open / REACHABLE:** CARGO-LATCH-1. Playtest owed: [BACKLOG § Playtest owed](./planning/BACKLOG.md).
 3. **Open High:** ONBOARD-ATTRACT-1 · ONBOARD-SIZE-1 · bloom (unblocked by ART-*).
 4. **Playtest row left:** SHARD-PT-2 (launch day, five humans).
 
@@ -123,6 +123,13 @@ the dev loop (dev probes lie in prod · edge propagation · frozen `rAF`), or a 
 - **Before any public / external-tester playtest: reset the analytics DO** so aggregates are not polluted by dev/harness traffic. Token-gated (SEC-TOKEN-1): `DELETE` with `Authorization: Bearer <ERROR_LOG_TOKEN>` on `/api/analytics` (never `?token=`).
 
 ## Last updated
+
+2026-08-09 (retroactive analytics cards) — Three analytics features landed 08-09 without card
+IDs (`d18568a` + `30a8151`, `b6de16e`, `df8da00`) and are now carded retroactively:
+**ANLX-GEO-1** (CF geo → props, returning sessions, ttFirstMatch, summary rollups),
+**ANLX-PAGEHOST-1** (pageHost stamp + cartclash.lol OG/PartySocket hosts), **ANLX-GLITCH-1**
+(Glitch festival tracker bridge + custom events). All pushed, **not deployed**; writeups in
+[completed-work.md](./planning/completed-work.md), IDs on the do-not-reopen list.
 
 2026-08-09 (CART-MODEL-1 local visual PASS) — Repaired the basket surfaces exposed by the
 replacement sunglasses, restored the clean smile backing, and tapered only the two side closures.

@@ -13,6 +13,49 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 9, 2026 — ANLX-GEO-1 PASS: geo, returning sessions, ttFirstMatch + rollups
+
+- *(Engineering · Medium)* **ANLX-GEO-1** — ✅ **CLOSED PASS 08-09** (code `d18568a`, geo-header
+  fix `30a8151`). Production analytics got coarse CF geo, returning-session detection,
+  time-to-first-match, and summary rollups. **Worker → DO:** `beaconHeaders` forwards CF
+  country/region as `cf-ipcountry` / `cf-region-code` (skips `XX` / `T1`, never the raw IP);
+  `analyticsLog.#ingest` merges server-side country (2) + region (6) into event props so the
+  browser can never spoof them. **Insights:** `session_start` gains `returning` (client already
+  had a prior session_start in the ring), and the summary adds `byCountry` / `byRegion` /
+  `avgSessionMs` / `returningSessions` rollups. **Client:** `referrerHost` (hostname-only
+  arrival channel, "direct" fallback) on `session_start`, and `ttFirstMatchMs` on the first
+  `match_started` per load. Tests: `analyticsGeoInsights.test.js`,
+  `tests/pullAnalytics.test.js`, `beaconClient.js`. **Not deployed** — pushed only.
+
+---
+
+### August 9, 2026 — ANLX-PAGEHOST-1 PASS: pageHost stamp + cartclash.lol host wiring
+
+- *(Engineering · Medium)* **ANLX-PAGEHOST-1** — ✅ **CLOSED PASS 08-09** (code `b6de16e`).
+  Analytics events are now stamped with `pageHost` (`location.hostname`) at flush, so staging
+  (workers.dev) vs public (cartclash.lol) traffic is separable in list view without a DO schema
+  change (summaries ignore it; prove with `analytics:pull --list`). OG/twitter meta and the
+  preconnect moved to `cartclash.lol`; `WORKER_PAGE_HOSTS` added to `config.js`
+  (`cart-rave.wyabro.workers.dev` · `cartclash.lol` · `www.cartclash.lol`) and PartySocket
+  uses the page host for same-origin WS when on those hosts. Tests: `analytics.test.js`.
+  **Not deployed** — pushed only. Related: BRAND-1 domain cutover stays frozen; this wires the
+  host list ahead of it.
+
+---
+
+### August 9, 2026 — ANLX-GLITCH-1 PASS: Glitch festival analytics bridge
+
+- *(Engineering · Medium)* **ANLX-GLITCH-1** — ✅ **CLOSED PASS 08-09** (code `df8da00`).
+  Optional Glitch-festival `GameAnalyticsTracker` bridge, loaded from `index.html`; pageviews
+  are automatic, custom actions feed the dashboard. `trackGlitchEvent` no-ops until the script
+  loads, never throws into gameplay, and respects the analytics opt-out. Wired to:
+  `session_start` / `session_end` (engagement), `match_started` / `match_ended` (gameplay,
+  with result), `player_quit` (pagehide + menu-exit), `unlock_earned`, `challenge_completed`,
+  `menu_click` (main menu CTAs + invite-banner join), and `invite_copy` (lobby). Tests:
+  `analytics.test.js`. **Not deployed** — pushed only.
+
+---
+
 ### August 9, 2026 — SHADES-ZOOM-1 PASS: sunglasses tab camera settle
 
 - *(UI · Low)* **SHADES-ZOOM-1** — ✅ **CLOSED PASS 08-09** (Wyatt visual PASS). The customize
@@ -22,6 +65,28 @@ Chronological record of shipped work, newest first.
   Regression coverage is in `tests/cartPreviewZoom.test.js`; focused tests, typecheck, build,
   knip, briefing, architecture, and health checks passed. The full QA battery also exposed and
   cleared the existing five-token `STATUS.md` budget overage before shipping.
+
+---
+
+### August 9, 2026 — Playtest export PASS: deferred chunks, menu swap, and audio
+
+- *(Tech Debt · Low)* **CHUNK-DEFER-1** — ✅ **CLOSED PASS 08-09** (Wyatt playtest export
+  generated at `df8da00`). Both human path checks passed: cold menu/Solo/Customize/harness entry
+  paths stayed live, and invite/Friends still formed a playable P2P round after the dynamic
+  import. No new residual was reported, so the parent engineering row closes with its two owed
+  playtest cards.
+- *(Playtest · Medium)* **CHUNK-DEFER-PT-1** — ✅ **CLOSED PASS 08-09**. Cold menu, Solo,
+  Customize, and harness entry paths passed without a blank frame or module-load error.
+- *(Playtest · Medium)* **CHUNK-DEFER-PT-2** — ✅ **CLOSED PASS 08-09**. Invite join, Friends
+  lobby/round drive, KO feed, and hit FX passed after netcode defer.
+- *(Playtest · Medium)* **MENU-SWAP-FLASH-1** — ✅ **CLOSED PASS 08-09**. All three arena
+  pages kept the menu chrome stable while the arena changed underneath without a black flash.
+- *(Audio · Medium)* **SD-MUSIC-LPF-1** — ✅ **CLOSED PASS 08-09**. Sudden Death music
+  muffled and restored correctly; the tension drone, red ambience, announcer sting, and the
+  Android/desktop versus iOS routing behavior passed the export steps.
+- *(Audio · Low)* **VOICE-BUS-1** — ✅ **CLOSED PASS 08-09**. The VOICE slider persisted,
+  controlled announcer takes and stings independently from SFX, and reached a silent PA at zero
+  without muting unrelated SFX.
 
 ---
 
