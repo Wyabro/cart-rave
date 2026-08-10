@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-09T23:56:37.101Z",
-    "commit": "df8da00"
+    "at": "2026-08-10T00:47:09.837Z",
+    "commit": "85e2120"
   },
-  "source_digest": "47f134a3",
+  "source_digest": "55674c7d",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -881,7 +881,7 @@
       }
     ],
     "next_actions": [
-      "NOW: Block 1 empty → ONBOARD-ART-1 (Wyatt webp drops + AISLE 4 aim). Then NPC-BOOST-1 (measure). Closed 08-08/08-09 IDs → [completed-work.md](./planning/completed-work.md).",
+      "NOW: Block 1 empty → NPC-BOOST-1 (measure). Closed 08-08/08-09 IDs → [completed-work.md](./planning/completed-work.md).",
       "Open / REACHABLE: CARGO-LATCH-1. Playtest owed: [BACKLOG § Playtest owed](./planning/BACKLOG.md).",
       "Open High: ONBOARD-ATTRACT-1 · ONBOARD-SIZE-1 · bloom (unblocked by ART-*).",
       "Playtest row left: SHARD-PT-2 (launch day, five humans)."
@@ -1202,16 +1202,9 @@
       {
         "title": "UI / UX",
         "counts": {
-          "Medium": 1,
           "Low": 3
         },
         "rows": [
-          {
-            "pri": "Medium",
-            "item": "ONBOARD-ART-1 — HOW TO PLAY art: rig landed; drop-in webp + AISLE 4 aim gate `[pre-ship]`",
-            "notes": "**Art rig landed 08-07** — the deck now takes art as a drop-in directory: drop `<token>.webp` into [src/assets/howto/](../../src/assets/howto/README.md) (`drive` / `boost` / `ram` / `hud` / `cargo`, matching each slot's `data-media`) and that slot turns on at the next build; no file → the slot stays dark, so the deck reads exactly like the playtested text-only deck. Optional `<token>.still.webp` swaps in under `prefers-reduced-motion`. Kept under ~400 KB each. **Remaining:** Wyatt captures the webp by hand and drops them in, then AISLE 4's callouts get aimed: add `data-callouts=\"aimed\"` to the hud slot in [index.html](../../index.html) once the real frame exists — the current `--x`/`--y` are guesses and stay hidden until then. **Do not shoot these with `npm run shoot`** — see SHOOT-SOFTGL-1; Wyatt captures by hand.",
-            "ship1": null
-          },
           {
             "pri": "Low",
             "item": "ORIENT-HINT-SCROLL-1 — the landscape menu resolves to the stacked column, and the portrait hint clips its last item",

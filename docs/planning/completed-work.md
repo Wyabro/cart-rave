@@ -13,6 +13,17 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 9, 2026 — ONBOARD-ART-1 PASS: HOW TO PLAY gameplay art
+
+- *(UI/UX · Medium)* **ONBOARD-ART-1** — ✅ **CLOSED PASS 08-09** (asset commit `e1717e4`,
+  not deployed). Added `drive`, `boost`, `ram`, `hud`, and `cargo` animated WebPs plus
+  reduced-motion stills under `src/assets/howto/`; every asset stays under the ~400 KB budget.
+  `npm run build` passed and the focused onboarding test passed 16/16. Wyatt accepted the
+  current HUD capture with AISLE 4 callouts left hidden because it does not show a reliable
+  cargo-bay target; this closure does not claim `data-callouts="aimed"`.
+
+---
+
 ### August 9, 2026 — ANLX-GEO-1 PASS: geo, returning sessions, ttFirstMatch + rollups
 
 - *(Engineering · Medium)* **ANLX-GEO-1** — ✅ **CLOSED PASS 08-09** (code `d18568a`, geo-header
