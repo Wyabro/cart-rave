@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-10T19:04:29.859Z",
-    "commit": "991a500"
+    "at": "2026-08-10T19:14:40.943Z",
+    "commit": "c11e22d"
   },
-  "source_digest": "72ee3633",
+  "source_digest": "e22698aa",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -385,11 +385,12 @@
         "src/effects.js",
         "src/effects/groceryDefinitions.js",
         "src/effects/groceryPool.js",
+        "src/effects/index.js",
         "src/effects/koHitmarkerFx.js",
         "src/effects/waterDeathFx.js",
         "src/visuals.js"
       ],
-      "file_count": 8,
+      "file_count": 9,
       "edges": [
         {
           "to": "rendering-and-postfx",

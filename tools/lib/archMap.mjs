@@ -260,6 +260,7 @@ export const SYSTEMS = [
     members: [
       "src/effects.js",
       "src/effects/",
+      "src/effects/index.js",
       "src/cartShatter.js",
       "src/cargoLoad.js",
       "src/visuals.js",
