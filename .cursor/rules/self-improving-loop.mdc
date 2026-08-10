@@ -9,11 +9,12 @@ When Wyatt's message begins with `loop:`, treat the remaining text as the task b
 
 1. Read `AGENTS.md`, `docs/BRIEFING.md`, the top of `docs/STATUS.md`, and the existing `.agent/self-improving/` files.
 2. If this is a new card, preserve the old prompt and log, then prepare a fresh `prompt.md` and `log.md` for the new card. Keep one card at a time and protect unrelated work.
-3. Make the first DeepSeek pass plan-only. Run the maker through the existing Cursor proxy with model `deepseek-v4-flash`:
-   `python .agent/bin/deepseek_agent.py --role maker "$(Get-Content -Raw .agent/self-improving/prompt.md)"`
+3. Make the first DeepSeek pass plan-only. Run the read-only planner through the existing Cursor proxy with model `deepseek-v4-flash`:
+   `python .agent/bin/deepseek_agent.py --role maker --plan-only --run-timeout-seconds 900 "$(Get-Content -Raw .agent/self-improving/prompt.md)"`
+   The runner writes `.agent/self-improving/run-state.json` during the run and emits progress lines. Continue only when that state says `status=completed`, `mode=plan-only`, and `run-result.md` starts with the matching `run_id`. A missing or failed checkpoint is a hard stop; do not start Luna or Sol from stale output.
 4. After the maker finishes, spawn one sequential Codex sub-agent for Luna with model `gpt-5.6-luna` and reasoning effort `high`. Give it the full brief: read `prompt.md`, `run-result.md`, `watcher.md`, `log.md`, and relevant source; inspect the maker result; write no source code; append no more than 12 blunt lines to `log.md` using GOAL, KEPT, WASTED, FAILED, and NEXT; return a short summary.
 5. After Luna finishes, spawn one sequential Codex sub-agent for Sol with model `gpt-5.6-sol` and reasoning effort `medium`. Give it the full brief: read `prompt.md`, `log.md`, and `rewriter.md`; apply the latest NEXT note; edit only `prompt.md` and `log.md`; keep the prompt change under 20%; return a short summary.
-6. Do not run Luna and Sol in parallel. They depend on the previous stage and share loop state. Inspect each sub-agent result and confirm its allowed file scope.
+6. Do not run Luna and Sol in parallel. They depend on the previous stage and share loop state. Inspect each sub-agent result and confirm its allowed file scope. If either sub-agent fails, preserve the checkpoint and stop instead of reusing an older prompt or log.
 7. Show Wyatt the resulting plan and stop for explicit `ack` before source edits. Do not commit, push, deploy, or delete files during the plan pass.
 8. After `ack`, continue the DeepSeek maker -> Luna -> Sol cycle for the approved card. Apply the repository's normal QA and one-lever-per-commit rules. Stop after implementation and evidence unless Wyatt says `ship it`.
 9. Treat `ship it` as separate deployment authorization. Run the required QA, push, deploy, and post-deploy checks only then. Never claim human playtest PASS without Wyatt's visual or playtest confirmation.

@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
 import json
 import os
 import re
 import subprocess
 import sys
+import time
+from uuid import uuid4
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -20,10 +23,13 @@ ENDPOINT = os.environ.get(
     "http://127.0.0.1:9000/v1/chat/completions",
 ).rstrip("/")
 RUN_RESULT = ROOT / ".agent" / "self-improving" / "run-result.md"
+RUN_STATE = ROOT / ".agent" / "self-improving" / "run-state.json"
 MAX_TURNS = 24
 MAX_TOOL_OUTPUT = 30_000
 MAX_FILE_OUTPUT = 80_000
-MAX_COMMAND_SECONDS = 120
+MAX_COMMAND_SECONDS = 60
+MODEL_REQUEST_TIMEOUT_SECONDS = 90
+RUN_TIMEOUT_SECONDS = 900
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -38,9 +44,66 @@ def _clip(value: object, limit: int = MAX_TOOL_OUTPUT) -> str:
     return text[:limit] + f"\n... output clipped at {limit} characters ..."
 
 
-def _save_run_result(value: object) -> None:
+def _save_run_result(value: object, *, run_id: str) -> None:
     RUN_RESULT.parent.mkdir(parents=True, exist_ok=True)
-    RUN_RESULT.write_text(f"{str(value).rstrip()}\n", encoding="utf-8")
+    RUN_RESULT.write_text(
+        f"# DeepSeek run {run_id}\n\n{str(value).rstrip()}\n",
+        encoding="utf-8",
+    )
+
+
+def _utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def _write_json_atomic(path: Path, payload: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = path.with_name(f".{path.name}.{uuid4().hex}.tmp")
+    temp_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    temp_path.replace(path)
+
+
+def _write_checkpoint(
+    path: Path,
+    *,
+    run_id: str,
+    role: str,
+    mode: str,
+    status: str,
+    event: str,
+    turn: int,
+    started_at: str,
+    error: str | None = None,
+) -> dict:
+    payload = {
+        "run_id": run_id,
+        "role": role,
+        "mode": mode,
+        "status": status,
+        "event": event,
+        "turn": turn,
+        "started_at": started_at,
+        "updated_at": _utc_now(),
+    }
+    if error:
+        payload["error"] = error
+    _write_json_atomic(path, payload)
+    return payload
+
+
+def _tool_definitions_for(role: str, *, plan_only: bool) -> list[dict]:
+    if role == "checker" or plan_only:
+        return [
+            tool
+            for tool in TOOL_DEFINITIONS
+            if tool["function"]["name"] != "write_file"
+        ]
+    return TOOL_DEFINITIONS
+
+
+def _run_id() -> str:
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    return f"{stamp}-{uuid4().hex[:10]}"
 
 
 def _safe_path(raw_path: str, *, allow_missing: bool = False) -> Path:
@@ -198,7 +261,7 @@ TOOL_DEFINITIONS = [
 ]
 
 
-def _system_prompt(role: str) -> str:
+def _system_prompt(role: str, *, plan_only: bool = False) -> str:
     common = "\n".join(
         [
             f"You are the {role} for Cart Clash.",
@@ -211,10 +274,18 @@ def _system_prompt(role: str) -> str:
     )
     if role == "checker":
         return common + "\nYou are read-only. Inspect the diff and relevant files, and run safe checks when useful. Do not use write_file. Your final non-empty line MUST be exactly APPROVE, REJECT: <actionable reason>, or ESCALATE: <reason requiring human judgment>."
+    if plan_only:
+        return common + "\nYou are the plan-only maker. Diagnose the task and produce an implementation-ready plan. Do not modify files, stage, commit, push, deploy, or delete anything. The write_file tool is unavailable by design. Return the plan and state missing evidence."
     return common + "\nYou are the maker. Diagnose the task, make the requested change in this isolated worktree, and verify it with safe commands. Do not stop at a proposed patch: apply the change with write_file, then inspect the result."
 
 
-def _call_model(messages: list[dict], tools: list[dict], api_key: str) -> dict:
+def _call_model(
+    messages: list[dict],
+    tools: list[dict],
+    api_key: str,
+    *,
+    timeout_seconds: int = MODEL_REQUEST_TIMEOUT_SECONDS,
+) -> dict:
     payload = {
         "model": MODEL,
         "messages": messages,
@@ -232,7 +303,7 @@ def _call_model(messages: list[dict], tools: list[dict], api_key: str) -> dict:
         method="POST",
     )
     try:
-        with urlopen(request, timeout=300) as response:
+        with urlopen(request, timeout=timeout_seconds) as response:
             return json.loads(response.read().decode("utf-8"))
     except HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")
@@ -243,7 +314,7 @@ def _call_model(messages: list[dict], tools: list[dict], api_key: str) -> dict:
         raise RuntimeError(f"DeepSeek proxy is unreachable at {ENDPOINT}: {exc.reason}") from exc
 
 
-def _execute_tool(name: str, arguments: dict, role: str) -> str:
+def _execute_tool(name: str, arguments: dict, role: str, *, plan_only: bool = False) -> str:
     try:
         if name == "read_file":
             return _read_file(arguments)
@@ -252,8 +323,8 @@ def _execute_tool(name: str, arguments: dict, role: str) -> str:
         if name == "run_command":
             return _run_command(arguments)
         if name == "write_file":
-            if role != "maker":
-                raise PermissionError("checker is read-only")
+            if role != "maker" or plan_only:
+                raise PermissionError("write_file is unavailable in this mode")
             return _write_file(arguments)
         raise ValueError(f"unknown tool: {name}")
     except subprocess.TimeoutExpired:
@@ -282,36 +353,134 @@ def _api_key() -> str | None:
     return None
 
 
+def _emit(event: str, run_id: str, **fields: object) -> None:
+    payload = {"event": event, "run_id": run_id, **fields}
+    print(f"[loop] {json.dumps(payload, ensure_ascii=False, sort_keys=True)}", flush=True)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--role", choices=("maker", "checker"), required=True)
+    parser.add_argument(
+        "--plan-only",
+        action="store_true",
+        help="run the maker as a read-only planner; write_file is not exposed",
+    )
+    parser.add_argument("--max-turns", type=int, default=MAX_TURNS)
+    parser.add_argument(
+        "--request-timeout-seconds",
+        type=int,
+        default=MODEL_REQUEST_TIMEOUT_SECONDS,
+    )
+    parser.add_argument(
+        "--run-timeout-seconds",
+        type=int,
+        default=RUN_TIMEOUT_SECONDS,
+    )
+    parser.add_argument("--run-state", default=str(RUN_STATE))
     parser.add_argument("prompt", nargs="+")
     args = parser.parse_args()
+    role = args.role
+    if not 1 <= args.max_turns <= MAX_TURNS:
+        parser.error(f"--max-turns must be between 1 and {MAX_TURNS}")
+    if not 1 <= args.request_timeout_seconds <= MODEL_REQUEST_TIMEOUT_SECONDS:
+        parser.error(
+            f"--request-timeout-seconds must be between 1 and {MODEL_REQUEST_TIMEOUT_SECONDS}"
+        )
+    if not 1 <= args.run_timeout_seconds <= RUN_TIMEOUT_SECONDS:
+        parser.error(
+            f"--run-timeout-seconds must be between 1 and {RUN_TIMEOUT_SECONDS}"
+        )
+    if args.plan_only and role != "maker":
+        parser.error("--plan-only is only valid with --role maker")
+
+    plan_only = bool(args.plan_only)
+    mode = "plan-only" if plan_only else role
+    run_id = _run_id()
+    state_path = Path(args.run_state).resolve()
+    started_at = _utc_now()
+    turn = 0
+    deadline = time.monotonic() + args.run_timeout_seconds
+    _write_checkpoint(
+        state_path,
+        run_id=run_id,
+        role=role,
+        mode=mode,
+        status="running",
+        event="started",
+        turn=turn,
+        started_at=started_at,
+    )
+    _emit("started", run_id, role=role, mode=mode, max_turns=args.max_turns)
+
     api_key = _api_key()
     if not api_key:
-        print("DEEPSEEK_API_KEY is not set; the key is required but is never stored in the repository", file=sys.stderr)
+        error = "DEEPSEEK_API_KEY is not set; the key is required but is never stored in the repository"
+        _write_checkpoint(
+            state_path,
+            run_id=run_id,
+            role=role,
+            mode=mode,
+            status="failed",
+            event="missing_api_key",
+            turn=turn,
+            started_at=started_at,
+            error=error,
+        )
+        _emit("failed", run_id, error=error)
+        print(error, file=sys.stderr)
         return 2
 
-    role = args.role
     messages: list[dict] = [
-        {"role": "system", "content": _system_prompt(role)},
+        {"role": "system", "content": _system_prompt(role, plan_only=plan_only)},
         {"role": "user", "content": " ".join(args.prompt)},
     ]
-    tools = TOOL_DEFINITIONS if role == "maker" else [tool for tool in TOOL_DEFINITIONS if tool["function"]["name"] != "write_file"]
+    tools = _tool_definitions_for(role, plan_only=plan_only)
 
     try:
-        for _ in range(MAX_TURNS):
-            response = _call_model(messages, tools, api_key)
+        for turn in range(1, args.max_turns + 1):
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError(f"DeepSeek run exceeded {args.run_timeout_seconds}s")
+            request_timeout = max(1, min(args.request_timeout_seconds, int(remaining)))
+            _write_checkpoint(
+                state_path,
+                run_id=run_id,
+                role=role,
+                mode=mode,
+                status="running",
+                event="model_request",
+                turn=turn,
+                started_at=started_at,
+            )
+            _emit("model_request", run_id, turn=turn, timeout_seconds=request_timeout)
+            response = _call_model(
+                messages,
+                tools,
+                api_key,
+                timeout_seconds=request_timeout,
+            )
             choices = response.get("choices") or []
             if not choices or not isinstance(choices[0], dict):
                 raise RuntimeError("DeepSeek returned no assistant choice")
             message = choices[0].get("message") or {}
             messages.append(message)
             tool_calls = message.get("tool_calls") or []
+            _write_checkpoint(
+                state_path,
+                run_id=run_id,
+                role=role,
+                mode=mode,
+                status="running",
+                event="model_response",
+                turn=turn,
+                started_at=started_at,
+            )
+            _emit("model_response", run_id, turn=turn, tool_calls=len(tool_calls))
             if not tool_calls:
                 text = message.get("content") or ""
                 if role == "maker":
-                    _save_run_result(text)
+                    _save_run_result(text, run_id=run_id)
                 if role == "checker":
                     lines = [line.strip() for line in str(text).splitlines() if line.strip()]
                     if not lines or not re.fullmatch(r"(?:APPROVE|REJECT|ESCALATE)(?::.*)?", lines[-1]):
@@ -321,16 +490,40 @@ def main() -> int:
                         print(text)
                 else:
                     print(text)
+                _write_checkpoint(
+                    state_path,
+                    run_id=run_id,
+                    role=role,
+                    mode=mode,
+                    status="completed",
+                    event="completed",
+                    turn=turn,
+                    started_at=started_at,
+                )
+                _emit("completed", run_id, turn=turn)
                 return 0
             for tool_call in tool_calls:
+                if deadline - time.monotonic() <= 0:
+                    raise TimeoutError(f"DeepSeek run exceeded {args.run_timeout_seconds}s")
                 function = tool_call.get("function") or {}
                 name = function.get("name", "")
+                _write_checkpoint(
+                    state_path,
+                    run_id=run_id,
+                    role=role,
+                    mode=mode,
+                    status="running",
+                    event="tool_request",
+                    turn=turn,
+                    started_at=started_at,
+                )
+                _emit("tool_request", run_id, turn=turn, tool=name)
                 try:
                     arguments = json.loads(function.get("arguments") or "{}")
                 except json.JSONDecodeError as exc:
                     result = f"tool_error: invalid JSON arguments: {exc}"
                 else:
-                    result = _execute_tool(name, arguments, role)
+                    result = _execute_tool(name, arguments, role, plan_only=plan_only)
                 messages.append(
                     {
                         "role": "tool",
@@ -338,10 +531,33 @@ def main() -> int:
                         "content": _clip(result),
                     }
                 )
-        print(f"DeepSeek reached the {MAX_TURNS}-turn bound before finishing", file=sys.stderr)
-        return 1
-    except RuntimeError as exc:
-        print(str(exc), file=sys.stderr)
+                _write_checkpoint(
+                    state_path,
+                    run_id=run_id,
+                    role=role,
+                    mode=mode,
+                    status="running",
+                    event="tool_result",
+                    turn=turn,
+                    started_at=started_at,
+                )
+                _emit("tool_result", run_id, turn=turn, tool=name, error=result.startswith("tool_error:"))
+        raise RuntimeError(f"DeepSeek reached the {args.max_turns}-turn bound before finishing")
+    except (RuntimeError, TimeoutError) as exc:
+        error = str(exc)
+        _write_checkpoint(
+            state_path,
+            run_id=run_id,
+            role=role,
+            mode=mode,
+            status="failed",
+            event="failed",
+            turn=turn,
+            started_at=started_at,
+            error=error,
+        )
+        _emit("failed", run_id, turn=turn, error=error)
+        print(error, file=sys.stderr)
         return 1
 
 
