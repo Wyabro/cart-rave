@@ -56,6 +56,12 @@ export const STORAGE_KEYS = {
   announcerCallouts: "cartRaveAnnouncerCallouts",
   /** Gameplay analytics opt-out ("off" disables all event collection). */
   analytics: "cartRaveAnalytics",
+  /** Glitch install UUID (data.id from POST /installs). */
+  glitchInstallId: "cartRaveGlitchInstallId",
+  /** Glitch stable local user_install_id (never regenerate each launch). */
+  glitchUserInstallId: "cartRaveGlitchUserInstallId",
+  /** Glitch retention session_id for the current page session. */
+  glitchSessionId: "cartRaveGlitchSessionId",
 };
 
 /**

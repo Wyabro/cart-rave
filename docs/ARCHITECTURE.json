@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-10T05:46:09.787Z",
-    "commit": "c15333b"
+    "at": "2026-08-10T07:10:51.717Z",
+    "commit": "3d1e263"
   },
-  "source_digest": "25084136",
+  "source_digest": "d92814b9",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -620,6 +620,8 @@
         "party/logUtil.ts",
         "src/analytics/analytics.js",
         "src/analytics/gameplayAnalytics.js",
+        "src/analytics/glitchConfig.js",
+        "src/analytics/glitchPlatform.js",
         "src/analytics/matchFrameTelemetry.js",
         "src/utils/aiStallWatchdog.js",
         "src/utils/blackFrameMonitor.js",
@@ -634,9 +636,10 @@
         "src/utils/invariants.js",
         "src/utils/longTaskProbe.js",
         "src/utils/perfSpans.js",
+        "src/utils/publicUrl.js",
         "src/utils/rendererInfo.js"
       ],
-      "file_count": 23,
+      "file_count": 26,
       "edges": [
         {
           "to": "state-stores",
@@ -881,21 +884,21 @@
       }
     ],
     "next_actions": [
-      "NOW: FRIENDS-JOIN-LAYOUT-1 — implemented locally; explicit ship + Wyatt production visual PASS remain.",
-      "Playtest owed: NPC-BOOST-PT-1 [2pc] on deployed Worker `4e4fd25a-452b-40b6-adb8-c8e1c41d6bde`. Open / REACHABLE: CARGO-LATCH-1.",
+      "NOW: NPC-BOOST-2 — restore visible NPC charged attacks and stop boost self-KOs. Code is local; QA/build and a new explicit ship authorization remain.",
+      "Playtest owed: NPC-BOOST-2-PT-1 [2pc] after deployment. The prior NPC-BOOST-PT-1 check is FAIL: Wyatt saw no NPC charge-ups and more NPC self-KOs. Open / REACHABLE: CARGO-LATCH-1.",
       "Open High: ONBOARD-ATTRACT-1 · ONBOARD-SIZE-1 · bloom (unblocked by ART-*).",
       "Playtest row left: SHARD-PT-2 (launch day, five humans)."
     ],
     "open_issues": [
       {
-        "id": "FRIENDS-JOIN-LAYOUT-1",
-        "issue": "Room-code controls below CART NAME on desktop/mobile",
-        "status": "🚧 implemented locally; ship + production visual PASS remain"
-      },
-      {
         "id": "WARM-SOLO-1",
         "issue": "Solo post-`carts-ready` stall (WARM-IGPU residual)",
         "status": "📋 telemetry-gated — [warm-igpu-1.md](./planning/warm-igpu-1.md)"
+      },
+      {
+        "id": "NPC-BOOST-2",
+        "issue": "NPC charge visibility and boost self-KO regression",
+        "status": "🛠️ local repair; not deployed"
       },
       {
         "id": "CARGO-LATCH-1",
@@ -1123,14 +1126,21 @@
       {
         "title": "Design / Gameplay",
         "counts": {
+          "High": 1,
           "Medium": 4,
           "Low": 5
         },
         "rows": [
           {
+            "pri": "High",
+            "item": "NPC-BOOST-2 — restore visible NPC charged attacks and stop boost self-KOs",
+            "notes": "**Local, not deployed.** NPC-BOOST-PT-1 **FAILed** in Wyatt's production playtest: NPCs did not visibly charge and self-KOs rose. The repair widens charge selection to Easy/Medium/Hard 9–12m/20°, 8–12m/25°, and 7–12m/30°; it rejects the 18.9m boost launch runway at Classic, octagon, and square-hole hazards; and it sends charged-release mode to remote clients. QA/build and a fresh `ship it` remain.",
+            "ship1": null
+          },
+          {
             "pri": "Medium",
             "item": "NPC-BOOST-1 — NPCs use charged attacks and instant boosts by intent",
-            "notes": "**Deployed 08-10:** Worker `4e4fd25a-452b-40b6-adb8-c8e1c41d6bde`, commits `033bb8f` / `4e47e16`; entry HTML plus 62 hashed assets returned 200, and the live game bundle contains the NPC intent marker. Attack uses the existing full human charge when target, range, and path stay safe; chase, escape, and recovery use instant boost; patrol never boosts. Unsafe charges hard-cancel with no burst. Easy / Medium / Hard select charge at 9–12m/12°, 8–12m/16°, and 7–12m/20°; boost physics and cooldown stay shared. Human closure is tracked by **NPC-BOOST-PT-1**.",
+            "notes": "**Deployed 08-10:** Worker `4e4fd25a-452b-40b6-adb8-c8e1c41d6bde`, commits `033bb8f` / `4e47e16`. **Production playtest FAIL 08-10:** superseded by NPC-BOOST-2; do not close from the old deployment.",
             "ship1": null
           },
           {
@@ -1186,14 +1196,15 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Medium": 2,
+          "High": 1,
+          "Medium": 1,
           "Low": 2
         },
         "rows": [
           {
-            "pri": "Medium",
-            "item": "NPC-BOOST-PT-1 — charged and instant NPC boosts `[2pc]`",
-            "notes": "**Owed: Wyatt production playtest** on Worker `4e4fd25a-452b-40b6-adb8-c8e1c41d6bde`.<br>1. Hard-refresh two browsers, create a Friends room with bots, and confirm both screens receive the same NPC boost state.<br>2. In a safe attack run, PASS if an NPC visibly charges then releases full boost; PASS if chase and escape use instant boost instead.<br>3. Force a target/path to become unsafe during charge. PASS only if the charge stops with no burst or nitro window.<br>4. Compare rounds: Easy must read less decisive than Medium; Hard must find more charge runs. FAIL on any boost desync, unsafe burst, or reversed difficulty order.",
+            "pri": "High",
+            "item": "NPC-BOOST-2-PT-1 — charged and instant NPC boosts `[2pc]`",
+            "notes": "**Blocked on a new deployment.** The prior NPC-BOOST-PT-1 is **FAIL**: no visible NPC charge-ups and more NPC self-KOs.<br>1. After deployment, hard-refresh a Solo round with three NPCs. PASS if each difficulty visibly produces charge-ups in safe attacks, with Easy least frequent and Hard most frequent.<br>2. In a Friends room, view the same NPC charge and release from both clients. PASS only if both show the charge telegraph and charged burst.<br>3. On Classic, drive NPCs near the outer rim and center hole; repeat on octagon and square-hole maps. PASS only if every unsafe charge cancels and every unsafe instant boost is skipped.<br>4. FAIL on any NPC boost self-KO, boost-state desync, or reversed difficulty order.",
             "ship1": null
           },
           {
@@ -1219,15 +1230,9 @@
       {
         "title": "UI / UX",
         "counts": {
-          "Low": 4
+          "Low": 3
         },
         "rows": [
-          {
-            "pri": "Low",
-            "item": "FRIENDS-JOIN-LAYOUT-1 — room-code box below CART NAME",
-            "notes": "**IMPLEMENTED LOCALLY 08-09; awaiting explicit `ship it` + Wyatt production visual PASS.** The existing room-code input/GO/error controls moved out of the command list and directly below the cart-name plate in desktop and stacked mobile DOM order. Desktop uses one right-side grid rail: the name plate, join row, a flexible measured cart-preview slot, then context. At 1280×720 the preview slot falls below its existing 240×180 mount gate and releases the canvas instead of overlapping; at 1440×900 it stays visible with zero join/cart/context intersection. Local browser PASS: 1440×900, 1280×720, 390×844, 740×360, plus invalid-code error expansion. Focused tests 13/13. No netcode or join-flow behavior changed.",
-            "ship1": null
-          },
           {
             "pri": "Low",
             "item": "ORIENT-HINT-SCROLL-1 — the landscape menu resolves to the stacked column, and the portrait hint clips its last item",

@@ -394,6 +394,7 @@ export const SYSTEMS = [
       "src/utils/longTaskProbe.js",
       "src/utils/perfSpans.js",
       "src/utils/rendererInfo.js",
+      "src/utils/publicUrl.js",
       "party/errorLog.ts",
       "party/analyticsLog.ts",
       "party/captureLog.ts",

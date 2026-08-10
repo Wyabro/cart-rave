@@ -25,6 +25,7 @@ import { CART_THEMES, resolveSunglassesStyle } from "./cartThemeConfig.js";
 import { createPhysicalMaterial, getMaterialEnvMapIntensity } from "./scene.js";
 import { cartEmissiveIntensityForHex, emissiveRefHexForNeonHex, lerpAngle } from "./utils.js";
 import { raveGltfTuning, cartTuningStore } from "./stores/cartTuningStore.js";
+import { publicUrl } from "./utils/publicUrl.js";
 
 /** @typedef {import("./cartThemes.js").CartThemeMaterialCache} CartThemeMaterialCache */
 /** @typedef {import("./cartThemeConfig.js").SunglassesStyleDef} SunglassesStyleDef */
@@ -52,18 +53,22 @@ import { raveGltfTuning, cartTuningStore } from "./stores/cartTuningStore.js";
  * @property {"x" | "y" | "z"} wheelRollAxis
  */
 
-/** DRACO-compressed legacy model (fallback). */
-const RAVE_GLTF_URL_DRACO = "/models/cart-rave-base-draco.glb";
+/** DRACO-compressed legacy model (fallback). Public path — resolve via {@link publicUrl}. */
+const RAVE_GLTF_PATH_DRACO = "models/cart-rave-base-draco.glb";
 
-/** Primary segmented rave cart — DRACO + WebP compressed (separate fork + wheel meshes per corner). */
-const RAVE_GLTF_URL = "/models/cartrave4-draco.glb";
+/** Primary segmented rave cart — DRACO + WebP. Public path — resolve via {@link publicUrl}. */
+const RAVE_GLTF_PATH = "models/cartrave4-draco.glb";
 
 /**
  * One-piece sunglasses visor (DRACO, master in art/models/sunglasses-visor.glb).
  * Replaces the four segmented cartrave4 face parts at source-load time — see
  * integrateOnePieceSunglasses(). Load failure falls back to the segmented parts.
  */
-const SUNGLASSES_VISOR_URL = "/models/sunglasses-visor.glb";
+const SUNGLASSES_VISOR_PATH = "models/sunglasses-visor.glb";
+
+const raveGltfUrl = () => publicUrl(RAVE_GLTF_PATH);
+const raveGltfUrlDraco = () => publicUrl(RAVE_GLTF_PATH_DRACO);
+const sunglassesVisorUrl = () => publicUrl(SUNGLASSES_VISOR_PATH);
 
 // * Uncompressed masters live under art/models/ for authoring + npm run compress:rave-gltf.
 // * They are not shipped in public/ (saves ~14 MB per deploy).
@@ -716,8 +721,12 @@ const RAVE_GLTF_TRIPO_PART_RE = /^tripo_part_\d+$/;
  * @returns {RaveGltfLayoutId}
  */
 function detectRaveGltfLayout(scene, loadedUrl = null) {
-  if (loadedUrl === RAVE_GLTF_URL) return "cartrave4";
-  if (loadedUrl === RAVE_GLTF_URL_DRACO) return "legacy";
+  if (/cartrave4-draco\.glb(\?|#|$)/i.test(loadedUrl) || loadedUrl === RAVE_GLTF_PATH) {
+    return "cartrave4";
+  }
+  if (/cart-rave-base-draco\.glb(\?|#|$)/i.test(loadedUrl) || loadedUrl === RAVE_GLTF_PATH_DRACO) {
+    return "legacy";
+  }
 
   let hasTripoPart = false;
   scene.traverse((child) => {
@@ -2751,14 +2760,15 @@ async function integrateOnePieceSunglasses(sourceScene) {
     if (mesh) mesh.parent?.remove(mesh);
   }
 
-  const visorScene = await loadRaveGltfFromUrl(SUNGLASSES_VISOR_URL);
+  const visorUrl = sunglassesVisorUrl();
+  const visorScene = await loadRaveGltfFromUrl(visorUrl);
   /** @type {THREE.Mesh | null} */
   let visor = null;
   visorScene.traverse((child) => {
     const c = /** @type {any} */ (child);
     if (!visor && c.isMesh) visor = c;
   });
-  if (!visor) throw new Error(`No mesh found in ${SUNGLASSES_VISOR_URL}`);
+  if (!visor) throw new Error(`No mesh found in ${visorUrl}`);
 
   // * Footprint of the old glasses in ParentNode-local space, from the baked constant
   // * (the parts it was measured from no longer ship — see the constant's docstring).
@@ -2826,23 +2836,26 @@ async function loadRaveGltfSourceScene() {
   let lastError = null;
 
   // * Runtime ships DRACO only (~1.1 MB combined). Uncompressed masters stay in art/models/.
+  // * publicUrl(): Glitch CDN nests the build — root-absolute /models/* 403s there.
   try {
-    const scene = await loadRaveGltfFromUrl(RAVE_GLTF_URL);
-    return { scene, url: RAVE_GLTF_URL };
+    const url = raveGltfUrl();
+    const scene = await loadRaveGltfFromUrl(url);
+    return { scene, url };
   } catch (err) {
     lastError = err instanceof Error ? err : new Error(String(err));
     console.warn(
-      `[cartRaveGltf] Primary DRACO unavailable (${RAVE_GLTF_URL}), trying legacy DRACO.`,
+      `[cartRaveGltf] Primary DRACO unavailable (${RAVE_GLTF_PATH}), trying legacy DRACO.`,
       lastError.message,
     );
   }
 
   try {
-    const scene = await loadRaveGltfFromUrl(RAVE_GLTF_URL_DRACO);
+    const url = raveGltfUrlDraco();
+    const scene = await loadRaveGltfFromUrl(url);
     console.warn(
-      `[cartRaveGltf] Fell back to Draco-compressed legacy GLTF (${RAVE_GLTF_URL_DRACO}).`,
+      `[cartRaveGltf] Fell back to Draco-compressed legacy GLTF (${RAVE_GLTF_PATH_DRACO}).`,
     );
-    return { scene, url: RAVE_GLTF_URL_DRACO };
+    return { scene, url };
   } catch (err) {
     lastError = err instanceof Error ? err : new Error(String(err));
   }
@@ -2884,9 +2897,9 @@ function ensureRaveGltfSource() {
         }
       }
 
-      if (url !== RAVE_GLTF_URL) {
+      if (!/cartrave4-draco\.glb(\?|#|$)/i.test(url)) {
         console.warn(
-          `[cartRaveGltf] Using fallback GLTF (${url}) instead of primary ${RAVE_GLTF_URL}.`,
+          `[cartRaveGltf] Using fallback GLTF (${url}) instead of primary ${RAVE_GLTF_PATH}.`,
         );
       }
 

@@ -18,6 +18,7 @@ import { CONFIG } from "../config.js";
 import { spawnTrashBurst } from "../effects.js";
 import { playGrocerySpill } from "../sfxSynth.js";
 import { GROCERY_DEFINITIONS } from "./groceryDefinitions.js";
+import { publicUrl } from "../utils/publicUrl.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -294,7 +295,7 @@ async function buildPool(scene, world) {
   /** @type {THREE.Object3D[]} */
   const gltfs = await Promise.all(
     MODEL_DEFS.map((def) =>
-      loader.loadAsync(def.path).then((gltf) => gltf.scene),
+      loader.loadAsync(publicUrl(def.path)).then((gltf) => gltf.scene),
     ),
   );
 

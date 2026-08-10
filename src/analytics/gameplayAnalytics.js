@@ -42,6 +42,7 @@ import { probeGpu } from "../utils/gpuCaps.js";
 import { initAnalytics, trackEvent, trackGlitchEvent, getAnalyticsDebugState } from "./analytics.js";
 // * CHUNK-MEMBER-1 L1: leaf only — never import gameLoop (re-eagers the deferred graph).
 import { resetMatchFrameTelemetry, getMatchFrameTelemetry } from "./matchFrameTelemetry.js";
+import { installGlitchPlatform, trackGlitchGameEvent } from "./glitchPlatform.js";
 
 /**
  * @typedef {object} GameplayAnalyticsDeps
@@ -109,6 +110,13 @@ export function installGameplayAnalytics(deps) {
   });
   if (!enabled) return;
 
+  // * Glitch festival install + validate + 30s heartbeat (title token via Vite env).
+  void installGlitchPlatform().then(() => {
+    void trackGlitchGameEvent("session", "session_start", {
+      referrerHost: readReferrerHost(),
+    }, { step_label: "Session", event_label: "Session Start" });
+  });
+
   trackEvent("session_start", {
     mode: mode(),
     tier: safeCall(() => settingsStore.getState().qualityTier) ?? null,
@@ -122,8 +130,6 @@ export function installGameplayAnalytics(deps) {
     // * Wave A: arrival channel only (hostname or "direct") — no full URL.
     referrerHost: readReferrerHost(),
   });
-  // * Glitch festival web analytics (index.html script) — pageviews are automatic; these
-  // * custom actions feed their dashboard. No-op until the script loads / if opted out.
   trackGlitchEvent("engagement", "session_start", {
     referrerHost: readReferrerHost(),
     touch: typeof navigator !== "undefined" ? (navigator.maxTouchPoints ?? 0) > 0 : null,
@@ -180,6 +186,11 @@ export function installGameplayAnalytics(deps) {
       mode: startedProps.mode,
       joinedMidRound: startedProps.joinedMidRound,
     });
+    void trackGlitchGameEvent("match", "match_started", {
+      arena: startedProps.arena,
+      mode: startedProps.mode,
+      joinedMidRound: startedProps.joinedMidRound,
+    }, { step_label: "Match", event_label: "Match Started" });
     maybeEmitShardAssigned();
   };
 
@@ -296,6 +307,12 @@ export function installGameplayAnalytics(deps) {
           durationMs,
           result,
         });
+        void trackGlitchGameEvent("match", "match_ended", {
+          arena: arena(),
+          mode: mode(),
+          durationMs,
+          result,
+        }, { step_label: "Match", event_label: "Match Ended" });
       });
     }
     if (state.isSuddenDeath) sawSuddenDeath = true;

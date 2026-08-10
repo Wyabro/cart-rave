@@ -6,9 +6,10 @@
  */
 
 import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
+import { publicUrl } from "../utils/publicUrl.js";
 
-/** WASM/JS Draco decoder served from `public/draco/gltf/`. */
-const DRACO_DECODER_PATH = "/draco/gltf/";
+/** WASM/JS Draco decoder served from `public/draco/gltf/` (base-aware for Glitch CDN). */
+const DRACO_DECODER_PATH = "draco/gltf/";
 
 /** @type {DRACOLoader | null} */
 let _dracoLoader = null;
@@ -17,7 +18,7 @@ let _dracoLoader = null;
 export function getSharedDracoLoader() {
   if (!_dracoLoader) {
     _dracoLoader = new DRACOLoader();
-    _dracoLoader.setDecoderPath(DRACO_DECODER_PATH);
+    _dracoLoader.setDecoderPath(publicUrl(DRACO_DECODER_PATH));
     _dracoLoader.setWorkerLimit(
       Math.max(1, Math.min(4, (navigator.hardwareConcurrency ?? 4) - 1)),
     );

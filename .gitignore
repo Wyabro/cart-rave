@@ -4,6 +4,7 @@ Thumbs.db
 # Env / deploy artifacts
 .env
 .env.local
+.env.*.local
 .vercel/
 
 # Logs
@@ -50,6 +51,10 @@ index.html.partykit.bak
 __pycache__/
 *.pyc
 .venv/
+
+# Self-improving loop runtime artifacts
+.agent/self-improving/run-result.md
+.agent/self-improving/run-state.json
 
 .tmp-gltf-imgs/
 
