@@ -2194,10 +2194,6 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
     subEl.textContent = sub ? `${sub} · ${position}` : position;
   }
 
-  function toggleMenuMute() {
-    muteBtn?.click();
-  }
-
   /**
    * Publishes the hint bar's measured height as `--cr-hintbar-h` so the scrolling menu
    * column can reserve exactly that much instead of guessing.
@@ -2281,8 +2277,6 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
         if (arenaContextShown()) { e.preventDefault(); pageArena(-1); } break;
       case "ArrowRight":
         if (arenaContextShown()) { e.preventDefault(); pageArena(1); } break;
-      case "m": case "M":
-        toggleMenuMute(); break;
       default: break;
     }
   }
