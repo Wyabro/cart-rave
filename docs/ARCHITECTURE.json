@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-10T19:14:40.943Z",
-    "commit": "c11e22d"
+    "at": "2026-08-10T19:19:28.278Z",
+    "commit": "2c9a82f"
   },
-  "source_digest": "e22698aa",
+  "source_digest": "e8605205",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1257,10 +1257,17 @@
       {
         "title": "Tech Debt",
         "counts": {
-          "Medium": 5,
-          "Low": 7
+          "Low": 8,
+          "Medium": 5
         },
         "rows": [
+          {
+            "pri": "Low",
+            "id": "ORGANIZE-1",
+            "item": "Codebase organization pass — Wave 3",
+            "notes": "**Filed 08-10 from the root-organization wave.** Remaining items after Waves 1–2 (5 src moves, barrel, art previews): **(a)** Move remaining loose `src/` files into existing subdirs — `gameFlow.js`, `gameLoop.js`, `gameSession.js`, `gameState.js` → `src/orchestration/`; `frameVisuals.js`, `contactShadows.js`, `visuals.js` → `src/effects/`; `cart.js` → `src/physics/`. Each move needs two-direction import sweeps. **(b)** Split `src/effects.js` (138 KB) into `src/effects/` now that the barrel exists (`229b324`). **(c)** Organize `tests/` into subdirectories mirroring `src/` (~160 test files). **(d)** Consolidate ~80 loose baseline/comparison PNGs in `shots/` into feature-named folders. **(e)** Delete stale `.blend` scratch files from `art/` root. **Do not execute during stabilization — file only.**",
+            "ship1": null
+          },
           {
             "pri": "Medium",
             "id": "SHADOW-HAZARD-SEAM-1",
