@@ -667,18 +667,6 @@
             <span class="cr-btn-inner"><span class="cr-btn-label">FRIENDS</span></span>
             <span class="cr-cmd-qual">PRIVATE</span>
           </button>
-          <!-- Join by spoken code. Deliberately NOT .cr-cmd: initCommandList builds
-               cmdButtons from `#cr-commandlist .cr-cmd`, and W/S selection walks that
-               array — a text field in it would become a navigation stop. -->
-          <div class="cr-join" id="cr-join">
-            <input class="cr-join-input" id="cr-join-code" type="text" name="room-code"
-                   maxlength="16" placeholder="ROOM CODE" aria-label="Room code"
-                   autocomplete="off" autocapitalize="characters" spellcheck="false" />
-            <button class="cr-join-go" id="cr-join-go" type="button">
-              <span class="cr-join-go-label">GO</span>
-            </button>
-            <p class="cr-join-error" id="cr-join-error" role="alert" hidden>BAD CODE — TRY AGAIN</p>
-          </div>
           <button class="cr-btn cr-cmd" data-action="customize" data-cmd="customize" type="button">
             <span class="cr-btn-inner"><span class="cr-btn-label">CUSTOMIZE</span></span>
           </button>
@@ -695,67 +683,83 @@
         </nav>
       </div>
 
-      <!-- TOP-RIGHT: player plate (CART NAME) -->
-      <div class="cr-plate" id="cr-player-card">
-        <div class="cr-plate-hd">CART NAME</div>
-        <div class="cr-name-row">
-          <div class="cr-name-display" id="cr-name-display" aria-label="Your cart name">
-            <span id="cr-name-text"></span>
+      <!-- RIGHT RAIL: identity + room join + cart preview + selected-command context.
+           The flow layout reserves the preview only the space that remains between
+           the controls, so its measured mount gate cannot overlap either panel. -->
+      <div class="cr-right-rail">
+        <div class="cr-plate" id="cr-player-card">
+          <div class="cr-plate-hd">CART NAME</div>
+          <div class="cr-name-row">
+            <div class="cr-name-display" id="cr-name-display" aria-label="Your cart name">
+              <span id="cr-name-text"></span>
+            </div>
+            <input class="cr-name-input" id="cr-name-input" name="username" autocomplete="username" style="display:none" maxlength="12" aria-label="Your cart name" />
+            <button class="cr-plate-btn" id="cr-name-edit" type="button" title="Rename cart" aria-label="Rename cart">✎</button>
+            <button class="cr-reroll cr-plate-btn" id="cr-reroll" title="Re-roll handle" aria-label="Re-roll username">⟲</button>
           </div>
-          <input class="cr-name-input" id="cr-name-input" name="username" autocomplete="username" style="display:none" maxlength="12" aria-label="Your cart name" />
-          <button class="cr-plate-btn" id="cr-name-edit" type="button" title="Rename cart" aria-label="Rename cart">✎</button>
-          <button class="cr-reroll cr-plate-btn" id="cr-reroll" title="Re-roll handle" aria-label="Re-roll username">⟲</button>
-        </div>
-        <div class="cr-stats" id="cr-stats-local">
-          <div class="cr-stat"><span class="cr-stat-num" id="stat-wins">0</span><span class="cr-stat-lbl">WINS</span></div>
-          <div class="cr-stat-div"></div>
-          <div class="cr-stat"><span class="cr-stat-num" id="stat-played">0</span><span class="cr-stat-lbl">PLAYED</span></div>
-          <div class="cr-stat-div"></div>
-          <div class="cr-stat"><span class="cr-stat-num" id="stat-pts">0</span><span class="cr-stat-lbl">POINTS</span></div>
-          <div class="cr-stat-div"></div>
-          <div class="cr-stat"><span class="cr-stat-num" id="stat-solo">0</span><span class="cr-stat-lbl">SOLO</span></div>
-        </div>
-      </div>
-
-      <!-- Desktop menu cart holder — CartPreview owns a transparent canvas here
-           (same path as Customize), above the attract dim. -->
-      <div class="cr-menu-cart" id="cr-menu-cart-holder" aria-hidden="true" hidden></div>
-
-      <!-- BOTTOM-RIGHT: context panel (driven by the highlighted command) -->
-      <div class="cr-context" id="cr-context">
-        <div class="cr-context-kicker" id="cr-context-kicker">SOLO · VS BOTS</div>
-        <div class="cr-context-desc" id="cr-context-desc">Brawl three bots. Most points when the store closes wins.</div>
-
-        <div class="cr-context-arena" id="cr-context-arena">
-          <button class="cr-arena-page" id="cr-arena-prev" type="button" aria-label="Previous arena">◂</button>
-          <div class="cr-arena-display">
-            <!-- * Pre-JS paint only: updateArenaPager() overwrites both as soon as a level is
-                 * selected. Kept in sync with the FIRST radiogroup entry below so the initial
-                 * frame is not a different arena than the one about to be selected. -->
-            <div class="cr-arena-name" id="cr-arena-name">SUNDIAL STATION</div>
-            <div class="cr-arena-sub" id="cr-arena-sub">OFFSHORE SUNSET SHOWDOWN · 1/3</div>
-          </div>
-          <button class="cr-arena-page" id="cr-arena-next" type="button" aria-label="Next arena">▸</button>
-          <!-- hidden radiogroup: arena data source + existing selectLevel wiring -->
-          <!-- * ORDER IS PROGRESSION ORDER, and it is load-bearing (UNLOCK-ORDER-1 follow-up).
-               * updateArenaPager prints `idx + 1 / btns.length` straight off this list and
-               * cycleArena steps through it, so DOM order IS the "1/3" a player reads and the
-               * order ◂ ▸ walks. It must match the unlock chain in src/unlockConfig.js:
-               * zanzibar (free) → backrooms (10 KOs on Sundial) → classicRecord (15 KOs on
-               * Storerooms). Do NOT re-sort this to match ARENA_CATALOG: that array is the
-               * QUICKPLAY ROTATION and is asserted against shared/arenaPool.js by QP-ORDER-1.
-               * The two orders are different on purpose. tests/arenaMenuOrder.test.js pins this. -->
-          <div class="cr-level-row" id="cr-level-row" role="radiogroup" aria-label="Choose your arena" hidden>
-            <button type="button" class="cr-level-btn active" data-level="zanzibar" data-colorkey="p2" aria-pressed="true"><span class="cr-level-btn-inner"><span class="cr-level-btn-label">SUNDIAL STATION</span><span class="cr-level-btn-sub">Offshore sunset showdown</span></span></button>
-            <button type="button" class="cr-level-btn" data-level="backrooms" data-colorkey="primary" aria-pressed="false"><span class="cr-level-btn-inner"><span class="cr-level-btn-label">THE STOREROOMS</span><span class="cr-level-btn-sub">Liminal battleground</span></span></button>
-            <button type="button" class="cr-level-btn" data-level="classicRecord" data-colorkey="secondary" aria-pressed="false"><span class="cr-level-btn-inner"><span class="cr-level-btn-label">CART RAVE</span><span class="cr-level-btn-sub">Neon vinyl arena</span></span></button>
+          <div class="cr-stats" id="cr-stats-local">
+            <div class="cr-stat"><span class="cr-stat-num" id="stat-wins">0</span><span class="cr-stat-lbl">WINS</span></div>
+            <div class="cr-stat-div"></div>
+            <div class="cr-stat"><span class="cr-stat-num" id="stat-played">0</span><span class="cr-stat-lbl">PLAYED</span></div>
+            <div class="cr-stat-div"></div>
+            <div class="cr-stat"><span class="cr-stat-num" id="stat-pts">0</span><span class="cr-stat-lbl">POINTS</span></div>
+            <div class="cr-stat-div"></div>
+            <div class="cr-stat"><span class="cr-stat-num" id="stat-solo">0</span><span class="cr-stat-lbl">SOLO</span></div>
           </div>
         </div>
 
-        <div class="cr-diff-row" id="cr-diff-row" role="radiogroup" aria-label="Choose bot difficulty">
-          <button type="button" class="cr-diff-btn" data-difficulty="easy" data-colorkey="secondary" aria-pressed="false"><span class="cr-diff-btn-inner"><span class="cr-diff-btn-label">EASY</span></span></button>
-          <button type="button" class="cr-diff-btn" data-difficulty="medium" data-colorkey="primary" aria-pressed="false"><span class="cr-diff-btn-inner"><span class="cr-diff-btn-label">MEDIUM</span></span></button>
-          <button type="button" class="cr-diff-btn" data-difficulty="hard" data-colorkey="p2" aria-pressed="false"><span class="cr-diff-btn-inner"><span class="cr-diff-btn-label">HARD</span></span></button>
+        <!-- Join by spoken code. Deliberately outside #cr-commandlist: W/S selection
+             walks only that list's .cr-cmd buttons, never this text field. -->
+        <div class="cr-join" id="cr-join">
+          <input class="cr-join-input" id="cr-join-code" type="text" name="room-code"
+                 maxlength="16" placeholder="ROOM CODE" aria-label="Room code"
+                 autocomplete="off" autocapitalize="characters" spellcheck="false" />
+          <button class="cr-join-go" id="cr-join-go" type="button">
+            <span class="cr-join-go-label">GO</span>
+          </button>
+          <p class="cr-join-error" id="cr-join-error" role="alert" hidden>BAD CODE — TRY AGAIN</p>
+        </div>
+
+        <!-- Desktop menu cart holder — CartPreview owns a transparent canvas here
+             (same path as Customize), above the attract dim. -->
+        <div class="cr-menu-cart" id="cr-menu-cart-holder" aria-hidden="true" hidden></div>
+
+        <!-- BOTTOM-RIGHT: context panel (driven by the highlighted command) -->
+        <div class="cr-context" id="cr-context">
+          <div class="cr-context-kicker" id="cr-context-kicker">SOLO · VS BOTS</div>
+          <div class="cr-context-desc" id="cr-context-desc">Brawl three bots. Most points when the store closes wins.</div>
+
+          <div class="cr-context-arena" id="cr-context-arena">
+            <button class="cr-arena-page" id="cr-arena-prev" type="button" aria-label="Previous arena">◂</button>
+            <div class="cr-arena-display">
+              <!-- * Pre-JS paint only: updateArenaPager() overwrites both as soon as a level is
+                   * selected. Kept in sync with the FIRST radiogroup entry below so the initial
+                   * frame is not a different arena than the one about to be selected. -->
+              <div class="cr-arena-name" id="cr-arena-name">SUNDIAL STATION</div>
+              <div class="cr-arena-sub" id="cr-arena-sub">OFFSHORE SUNSET SHOWDOWN · 1/3</div>
+            </div>
+            <button class="cr-arena-page" id="cr-arena-next" type="button" aria-label="Next arena">▸</button>
+            <!-- hidden radiogroup: arena data source + existing selectLevel wiring -->
+            <!-- * ORDER IS PROGRESSION ORDER, and it is load-bearing (UNLOCK-ORDER-1 follow-up).
+                 * updateArenaPager prints `idx + 1 / btns.length` straight off this list and
+                 * cycleArena steps through it, so DOM order IS the "1/3" a player reads and the
+                 * order ◂ ▸ walks. It must match the unlock chain in src/unlockConfig.js:
+                 * zanzibar (free) → backrooms (10 KOs on Sundial) → classicRecord (15 KOs on
+                 * Storerooms). Do NOT re-sort this to match ARENA_CATALOG: that array is the
+                 * QUICKPLAY ROTATION and is asserted against shared/arenaPool.js by QP-ORDER-1.
+                 * The two orders are different on purpose. tests/arenaMenuOrder.test.js pins this. -->
+            <div class="cr-level-row" id="cr-level-row" role="radiogroup" aria-label="Choose your arena" hidden>
+              <button type="button" class="cr-level-btn active" data-level="zanzibar" data-colorkey="p2" aria-pressed="true"><span class="cr-level-btn-inner"><span class="cr-level-btn-label">SUNDIAL STATION</span><span class="cr-level-btn-sub">Offshore sunset showdown</span></span></button>
+              <button type="button" class="cr-level-btn" data-level="backrooms" data-colorkey="primary" aria-pressed="false"><span class="cr-level-btn-inner"><span class="cr-level-btn-label">THE STOREROOMS</span><span class="cr-level-btn-sub">Liminal battleground</span></span></button>
+              <button type="button" class="cr-level-btn" data-level="classicRecord" data-colorkey="secondary" aria-pressed="false"><span class="cr-level-btn-inner"><span class="cr-level-btn-label">CART RAVE</span><span class="cr-level-btn-sub">Neon vinyl arena</span></span></button>
+            </div>
+          </div>
+
+          <div class="cr-diff-row" id="cr-diff-row" role="radiogroup" aria-label="Choose bot difficulty">
+            <button type="button" class="cr-diff-btn" data-difficulty="easy" data-colorkey="secondary" aria-pressed="false"><span class="cr-diff-btn-inner"><span class="cr-diff-btn-label">EASY</span></span></button>
+            <button type="button" class="cr-diff-btn" data-difficulty="medium" data-colorkey="primary" aria-pressed="false"><span class="cr-diff-btn-inner"><span class="cr-diff-btn-label">MEDIUM</span></span></button>
+            <button type="button" class="cr-diff-btn" data-difficulty="hard" data-colorkey="p2" aria-pressed="false"><span class="cr-diff-btn-inner"><span class="cr-diff-btn-label">HARD</span></span></button>
+          </div>
         </div>
       </div>
 

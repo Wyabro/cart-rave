@@ -20,6 +20,7 @@ vi.mock("../src/bootstrap.js", async (importOriginal) => ({
 // * happy-dom resolves import.meta.url against the page origin, not a file:// URL —
 // * vitest runs from the repo root, so read relative to cwd.
 const indexHtml = readFileSync(resolve(process.cwd(), "index.html"), "utf8");
+const menuCss = readFileSync(resolve(process.cwd(), "src/cart-rave-menu.css"), "utf8");
 
 describe("the invite screen is gone", () => {
   it("index.html no longer ships #cr-friends-screen or its controls", () => {
@@ -48,18 +49,36 @@ describe("the JOIN field", () => {
     expect(indexHtml).toContain('id="cr-join-error"');
   });
 
-  it("is not a .cr-cmd, so W/S selection cannot land on it", () => {
+  it("sits below the cart-name plate and outside the command list", () => {
     // * initCommandList builds cmdButtons from `#cr-commandlist .cr-cmd`; a focusable
-    // * text field in that array becomes a navigation stop.
-    // * The command list alone — parsing further would drag index.html's inline
-    // * bootstrap <script> into happy-dom and it would try to run.
-    const start = indexHtml.indexOf('<nav class="cr-buttons');
-    const end = indexHtml.indexOf("</nav>", start) + "</nav>".length;
-    document.body.innerHTML = indexHtml.slice(start, end);
-    const input = document.getElementById("cr-join-code");
-    expect(input).not.toBeNull();
-    expect(input.closest(".cr-cmd")).toBeNull();
-    expect(input.classList.contains("cr-cmd")).toBe(false);
+    // * text field inside that nav could become a navigation stop. DOM order also
+    // * controls the stacked mobile menu, so the identity -> join order is load-bearing.
+    const commandStart = indexHtml.indexOf('<nav class="cr-buttons');
+    const commandEnd = indexHtml.indexOf("</nav>", commandStart) + "</nav>".length;
+    const railStart = indexHtml.indexOf('<div class="cr-right-rail">');
+    const plate = indexHtml.indexOf('id="cr-player-card"', railStart);
+    const join = indexHtml.indexOf('id="cr-join"', railStart);
+    const cart = indexHtml.indexOf('id="cr-menu-cart-holder"', railStart);
+
+    expect(join).toBeGreaterThan(commandEnd);
+    expect(railStart).toBeLessThan(plate);
+    expect(plate).toBeLessThan(join);
+    expect(join).toBeLessThan(cart);
+  });
+
+  it("reserves a separate flexible rail row for the cart preview", () => {
+    const railRule = menuCss.match(/\.cr-right-rail\s*\{([^}]*)\}/)?.[1] ?? "";
+    expect(railRule).toMatch(/grid-template-rows:\s*auto auto minmax\(0,\s*1fr\) auto/);
+
+    for (const [selector, row] of [
+      [".cr-plate", 1],
+      [".cr-right-rail > .cr-join", 2],
+      [".cr-menu-cart", 3],
+      [".cr-context", 4],
+    ]) {
+      const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      expect(menuCss).toMatch(new RegExp(`${escapedSelector}\\s*\\{[^}]*grid-row:\\s*${row}`));
+    }
   });
 });
 

@@ -92,4 +92,17 @@ describe("menu cart showcase", () => {
     expect(preview.dispose).toHaveBeenCalledTimes(1);
     expect(document.getElementById("cr-menu-cart-holder").hidden).toBe(true);
   });
+
+  it("stays unmounted when the layout rail leaves less than 180px of height", () => {
+    const holder = document.getElementById("cr-menu-cart-holder");
+    holder.getBoundingClientRect = () => ({ width: 300, height: 179 });
+    const showcase = showcaseModule.createMenuCartShowcase({
+      getMenuVisible: () => true,
+    });
+
+    showcase.render(100);
+
+    expect(state.instances).toHaveLength(0);
+    expect(holder.hidden).toBe(true);
+  });
 });

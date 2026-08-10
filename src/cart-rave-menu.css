@@ -3392,23 +3392,18 @@ html, body {
 .cr-cmd-new--done { background: var(--color-portal); }
 .cr-cmd-new[hidden] { display: none; }
 
-/* ═══ JOIN by spoken code (FRIENDS-JOIN-1) ═════════════════════════════════
-   Sits in the command list but is NOT a .cr-cmd — cmdButtons is built from
-   `#cr-commandlist .cr-cmd` and W/S walks that array, so a focusable text field
-   in it would become a navigation stop. Carries the same skew as the command
-   rows so it reads as part of the stack rather than a foreign control. */
+/* ═══ JOIN by spoken code (FRIENDS-JOIN-1 / FRIENDS-JOIN-LAYOUT-1) ═════════
+   Lives below the cart-name plate and outside #cr-commandlist, so W/S walks
+   only command buttons and can never land on this focusable text field. */
 .cr-join {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: var(--space-xs);
   align-items: center;
-  width: 100%;
-  padding: 0.5rem 30px;
-  transform: skewX(-8deg);
-  margin-left: -8px;
+  width: min(430px, 100%);
+  padding: 0;
 }
 .cr-join-input {
-  transform: skewX(8deg);
   min-width: 0;
   padding: 0.5625rem 10px;
   background: rgba(0, 0, 0, 0.35);
@@ -3432,7 +3427,6 @@ html, body {
   background: rgba(0, 0, 0, 0.5);
 }
 .cr-join-go {
-  transform: skewX(8deg);
   padding: 0.5625rem 1.125rem;
   background: transparent;
   border: 1px solid var(--color-cyan);
@@ -3451,7 +3445,6 @@ html, body {
 /* Spans both columns so the message sits under the field, not beside GO. */
 .cr-join-error {
   grid-column: 1 / -1;
-  transform: skewX(8deg);
   margin: 2px 0 0;
   font-family: var(--mono);
   font-size: 0.6875rem;
@@ -3575,21 +3568,33 @@ html, body {
     linear-gradient(90deg, rgba(230, 190, 20, 0.95) 0%, rgba(255, 229, 61, 0.7) 55%, transparent 98%);
 }
 
-/* ── TOP-RIGHT player plate + BOTTOM-RIGHT context: shared dark-glass panel ── */
-.cr-plate, .cr-context {
+/* ── RIGHT rail: identity, room join, measured cart slot, command context ──
+   The preview owns only the flexible third row. If the fixed controls leave it
+   less than 240×180, menuCartShowcase's measured gate releases the canvas. */
+.cr-right-rail {
   position: absolute;
   right: 6rem;
+  top: 2.7rem;
+  bottom: 8.125rem;
+  width: min(500px, 40vw);
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  gap: 12px;
+  justify-items: end;
+  z-index: 22;
+}
+.cr-plate, .cr-context {
   background: rgba(12, 10, 17, 0.85);
   border: 1px solid var(--border-white-10);
   border-radius: 12px;
   backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
-  z-index: 22;
 }
 .cr-plate {
-  top: 2.7rem;
-  width: min(430px, 34vw);
+  grid-row: 1;
+  width: min(430px, 100%);
   padding: 22px 26px;
 }
+.cr-right-rail > .cr-join { grid-row: 2; }
 .cr-plate-hd {
   font-family: var(--mono); font-size: 11px;
   /* MENU-RESTRAINT-1c: was 0.24em. */
@@ -3647,21 +3652,21 @@ html, body {
 
 /* ── Context panel — driven by the highlighted command ── */
 .cr-context {
-  bottom: 8.125rem;
-  width: min(500px, 40vw);
+  grid-row: 4;
+  width: min(500px, 100%);
   padding: 26px 30px;
 }
 /* MENU-CART-1 — owned CartPreview canvas (same path as Customize), above the
    attract dim so grade matches. Transparent clear — no panel chrome. */
 .cr-menu-cart {
-  position: absolute;
-  right: 6rem;
-  top: 43%;
-  transform: translateY(-50%);
-  width: min(460px, 37vw);
-  height: clamp(200px, 26vh, 310px);
+  grid-row: 3;
+  position: relative;
+  width: min(460px, 100%);
+  height: 100%;
+  min-height: 0;
+  max-height: 310px;
+  align-self: center;
   pointer-events: none;
-  z-index: 21;
   overflow: hidden;
 }
 .cr-menu-cart .cr-cart-preview-canvas {
@@ -3760,6 +3765,7 @@ html, body {
 
 /* ── Named responsive collapse (tokens.css breakpoint contract) ── */
 @media (max-width: 1024px) {
+  .cr-right-rail { display: contents; }
   .cr-content {
     display: flex; flex-direction: column; align-items: center;
     gap: 18px; overflow-y: auto;
@@ -3790,6 +3796,7 @@ html, body {
     position: static; inset: auto; right: auto; left: auto; bottom: auto; top: auto;
     width: min(480px, 94vw);
   }
+  .cr-join { width: min(480px, 94vw); }
   .cr-menu-cart { display: none; }
   /* padding-top is the desktop column's 60px top anchor — the stacked band gets
      its spacing from .cr-content's padding, so drop it or it doubles up. */

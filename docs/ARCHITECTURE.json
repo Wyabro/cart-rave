@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-10T05:42:30.122Z",
-    "commit": "5ea9c4b"
+    "at": "2026-08-10T05:46:09.787Z",
+    "commit": "c15333b"
   },
-  "source_digest": "79234578",
+  "source_digest": "25084136",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -881,12 +881,17 @@
       }
     ],
     "next_actions": [
-      "NOW: NPC-BOOST-1 and AI-EASY-SOFTEN-1 are deployed on Worker `4e4fd25a-452b-40b6-adb8-c8e1c41d6bde`: intent-based charged attacks, instant chase/escape/recovery, hard unsafe cancellation, difficulty charge envelopes, and Easy decisions 10% slower. QA, build, live HTML, 62 hashed assets, and both bundle markers pass. Await NPC-BOOST-PT-1 [2pc].",
-      "Open / REACHABLE: CARGO-LATCH-1. Playtest owed: [BACKLOG § Playtest owed](./planning/BACKLOG.md).",
+      "NOW: FRIENDS-JOIN-LAYOUT-1 — implemented locally; explicit ship + Wyatt production visual PASS remain.",
+      "Playtest owed: NPC-BOOST-PT-1 [2pc] on deployed Worker `4e4fd25a-452b-40b6-adb8-c8e1c41d6bde`. Open / REACHABLE: CARGO-LATCH-1.",
       "Open High: ONBOARD-ATTRACT-1 · ONBOARD-SIZE-1 · bloom (unblocked by ART-*).",
       "Playtest row left: SHARD-PT-2 (launch day, five humans)."
     ],
     "open_issues": [
+      {
+        "id": "FRIENDS-JOIN-LAYOUT-1",
+        "issue": "Room-code controls below CART NAME on desktop/mobile",
+        "status": "🚧 implemented locally; ship + production visual PASS remain"
+      },
       {
         "id": "WARM-SOLO-1",
         "issue": "Solo post-`carts-ready` stall (WARM-IGPU residual)",
@@ -1214,9 +1219,15 @@
       {
         "title": "UI / UX",
         "counts": {
-          "Low": 3
+          "Low": 4
         },
         "rows": [
+          {
+            "pri": "Low",
+            "item": "FRIENDS-JOIN-LAYOUT-1 — room-code box below CART NAME",
+            "notes": "**IMPLEMENTED LOCALLY 08-09; awaiting explicit `ship it` + Wyatt production visual PASS.** The existing room-code input/GO/error controls moved out of the command list and directly below the cart-name plate in desktop and stacked mobile DOM order. Desktop uses one right-side grid rail: the name plate, join row, a flexible measured cart-preview slot, then context. At 1280×720 the preview slot falls below its existing 240×180 mount gate and releases the canvas instead of overlapping; at 1440×900 it stays visible with zero join/cart/context intersection. Local browser PASS: 1440×900, 1280×720, 390×844, 740×360, plus invalid-code error expansion. Focused tests 13/13. No netcode or join-flow behavior changed.",
+            "ship1": null
+          },
           {
             "pri": "Low",
             "item": "ORIENT-HINT-SCROLL-1 — the landscape menu resolves to the stacked column, and the portrait hint clips its last item",
