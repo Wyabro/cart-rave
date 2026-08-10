@@ -28,14 +28,14 @@ const EAGER_MUST_NOT_STATIC_NETCODE = [
   "src/gameSession.js",
   "src/orchestration/menuPlayEntry.js",
   "src/orchestration/cartIdentity.js",
-  "src/cart-rave-menu.js",
+  "src/ui/cart-rave-menu.js",
   "src/ui/menuCartShowcase.js",
 ];
 
 const EAGER_MUST_NOT_STATIC_GLTF = [
   "src/main.js",
   "src/bootstrap.js",
-  "src/cart-rave-menu.js",
+  "src/ui/cart-rave-menu.js",
   "src/ui/menuCartShowcase.js",
 ];
 

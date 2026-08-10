@@ -14,7 +14,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 
-const menu = readFileSync(new URL("../src/cart-rave-menu.js", import.meta.url), "utf8");
+const menu = readFileSync(new URL("../src/ui/cart-rave-menu.js", import.meta.url), "utf8");
 const css = readFileSync(new URL("../src/ui/styles/cart-rave-menu.css", import.meta.url), "utf8");
 const animations = readFileSync(new URL("../src/animations.js", import.meta.url), "utf8");
 

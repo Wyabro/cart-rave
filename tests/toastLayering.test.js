@@ -28,7 +28,7 @@ import { readFileSync } from "node:fs";
 
 const read = (rel) => readFileSync(new URL(`../${rel}`, import.meta.url), "utf8");
 
-const menuJs = read("src/cart-rave-menu.js");
+const menuJs = read("src/ui/cart-rave-menu.js");
 const menuCss = read("src/ui/styles/cart-rave-menu.css");
 
 /**

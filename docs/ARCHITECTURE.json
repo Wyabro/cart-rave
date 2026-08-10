@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-10T19:01:34.420Z",
-    "commit": "99a6f79"
+    "at": "2026-08-10T19:04:29.859Z",
+    "commit": "991a500"
   },
-  "source_digest": "5f4605d2",
+  "source_digest": "72ee3633",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -451,15 +451,15 @@
       "name": "UI, HUD & menu",
       "responsibility": "The DOM menu (index.html-driven) + its CSS, the in-game HUD + center-stage arbiter, overlays (pause/results/loading), and all src/ui/ widgets + styles.",
       "entry": [
-        "src/cart-rave-menu.js"
+        "src/ui/cart-rave-menu.js"
       ],
       "files": [
         "src/animations.js",
-        "src/cart-rave-menu.js",
         "src/hud.js",
         "src/ui/announcerDisplay.js",
         "src/ui/audioControls.js",
         "src/ui/cameraFraming.js",
+        "src/ui/cart-rave-menu.js",
         "src/ui/cartPreview.js",
         "src/ui/cartPreviewGltf.js",
         "src/ui/centerStage.js",

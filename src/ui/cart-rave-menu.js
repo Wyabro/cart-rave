@@ -1,6 +1,6 @@
 // Cart Clash — Main Menu
-import { CART_COLORS, PALETTE } from "./config.js";
-import { STORAGE_KEYS, storageGet, storageSet } from "./utils/storage.js";
+import { CART_COLORS, PALETTE } from "../config.js";
+import { STORAGE_KEYS, storageGet, storageSet } from "../utils/storage.js";
 import {
   CUSTOM_COLOR_ID,
   DEFAULT_CUSTOM_HUE,
@@ -8,7 +8,7 @@ import {
   loadPlayerCustomization,
   normalizeHue,
   savePlayerCustomization,
-} from "./customization.js";
+} from "../customization.js";
 import {
   CART_PATTERN_IDS,
   CART_PATTERNS,
@@ -16,29 +16,29 @@ import {
   makePatternMiniCartSvg,
   normalizePatternId,
   patternSvgParts,
-} from "./cartPatternConfig.js";
+} from "../cartPatternConfig.js";
 import {
   DEFAULT_CART_THEME,
   DEFAULT_SUNGLASSES_STYLE,
   SUNGLASSES_STYLES,
-} from "./cartThemeConfig.js";
+} from "../cartThemeConfig.js";
 // * CHUNK-DEFER-1 L1b: CartPreview + cartPreviewGltf pull cartRaveGltf — dynamic only.
-import { isTouchDevice } from "./utils.js";
-import { getQualityTier } from "./utils/qualityMode.js";
-import { settingsStore } from "./stores/settingsStore.js";
-import { DEFAULT_SOLO, normalizeDifficulty } from "./aiDifficulty.js";
-import { togglePostFx, applyQualityTier } from "./ui/graphicsToggles.js";
-import { setAllAudioMuted, setMusicGainValue, setSfxSliderVolume, setVoiceSliderVolume } from "./ui/audioControls.js";
-import { playUiClick } from "./sfxSynth.js";
-import { AUDIO_VOLUME_MAX } from "./stores/audioStore.js";
-import { getRoundState } from "./gameState.js";
+import { isTouchDevice } from "../utils.js";
+import { getQualityTier } from "../utils/qualityMode.js";
+import { settingsStore } from "../stores/settingsStore.js";
+import { DEFAULT_SOLO, normalizeDifficulty } from "../aiDifficulty.js";
+import { togglePostFx, applyQualityTier } from "./graphicsToggles.js";
+import { setAllAudioMuted, setMusicGainValue, setSfxSliderVolume, setVoiceSliderVolume } from "./audioControls.js";
+import { playUiClick } from "../sfxSynth.js";
+import { AUDIO_VOLUME_MAX } from "../stores/audioStore.js";
+import { getRoundState } from "../gameState.js";
 // * MENU-LOCK-HINT-1: browsing a locked arena must retarget the 3D preview without
 // * selecting it. Imported directly rather than routed through main.js — levelManager is
 // * already a shared module (gameFlow/netcode/main) and imports nothing from the menu.
-import { setMenuBrowseLevel, scheduleMenuLevelPreview } from "./levels/levelManager.js";
-import { setInputMode, updateControlsPanelUI, getInputMode, onInputModeChange } from "./input.js";
-import { readBuildInfo } from "./utils/buildInfo.js";
-import { trackGlitchEvent } from "./analytics/analytics.js";
+import { setMenuBrowseLevel, scheduleMenuLevelPreview } from "../levels/levelManager.js";
+import { setInputMode, updateControlsPanelUI, getInputMode, onInputModeChange } from "../input.js";
+import { readBuildInfo } from "../utils/buildInfo.js";
+import { trackGlitchEvent } from "../analytics/analytics.js";
 import {
   animateButtonPress,
   animateButtonRelease,
@@ -54,7 +54,7 @@ import {
   stopHowToAttract,
   wireButtonPressFeedback,
   wireHoverFeedback,
-} from "./animations.js";
+} from "../animations.js";
 import {
   isCustomColorUnlocked,
   isLevelUnlocked,
@@ -67,11 +67,11 @@ import {
   clampLevelIdToUnlocks,
   onUnlockGranted,
   unlockStore,
-} from "./stores/unlockStore.js";
-import { FREE_LEVEL, LEVEL_UNLOCKS } from "./unlockConfig.js";
-import { challengeStore, CHALLENGE_POOL, CHALLENGE_ROTATION_MS } from "./stores/challengeStore.js";
-import { NPC_NAME_POOL } from "./npcNames.js";
-import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
+} from "../stores/unlockStore.js";
+import { FREE_LEVEL, LEVEL_UNLOCKS } from "../unlockConfig.js";
+import { challengeStore, CHALLENGE_POOL, CHALLENGE_ROTATION_MS } from "../stores/challengeStore.js";
+import { NPC_NAME_POOL } from "../npcNames.js";
+import { ARENA_CATALOG } from "../levels/arenaCatalog.js";
 
 (function () {
   'use strict';
@@ -340,7 +340,7 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
   const settingsSfxTrackEl = $("cr-settings-sfx-track");
   const settingsVoiceTrackEl = $("cr-settings-voice-track");
   let currentCustomizeCartSvg = null;
-  /** @type {InstanceType<typeof import("./ui/cartPreview.js").CartPreview> | null} Live 3D cart preview while customize screen is open. */
+  /** @type {InstanceType<typeof import("./cartPreview.js").CartPreview> | null} Live 3D cart preview while customize screen is open. */
   let cartPreview = null;
   /** @type {Promise<void> | null} */
   let cartPreviewMountPromise = null;
@@ -998,7 +998,7 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
     // * SVG fallback while the deferred preview chunk loads.
     renderCustomizePreview();
     const holder = customizeCartHolder;
-    cartPreviewMountPromise = import("./ui/cartPreview.js")
+    cartPreviewMountPromise = import("./cartPreview.js")
       .then(({ CartPreview }) => {
         if (cartPreviewMountPromise == null || !holder.isConnected) return;
         if (holder !== customizeCartHolder) return;
@@ -2002,7 +2002,7 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
   if (qualitySeg) {
     qualitySeg.querySelectorAll(".cr-seg-chip").forEach((chip) => {
       chip.addEventListener("click", () => {
-        applyQualityTier(/** @type {import("./utils/qualityMode.js").QualityTier} */ (chip.dataset.tier));
+        applyQualityTier(/** @type {import("../utils/qualityMode.js").QualityTier} */ (chip.dataset.tier));
         syncGfxButtonStates();
         animateTogglePop(chip);
       });
@@ -2811,7 +2811,7 @@ import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
   window.CartClash = window.CartRave;
 
   // * Warm the preview GLTF cache while the menu is idle (dynamic — not a cold static edge).
-  void import("./ui/cartPreviewGltf.js")
+  void import("./cartPreviewGltf.js")
     .then((m) => m.prefetchPreviewCartGltf())
     .catch(() => {});
 })();

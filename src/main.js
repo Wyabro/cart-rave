@@ -25,7 +25,7 @@ import {
   loadPlayerCustomization,
   wireCustomizationStorageSync,
 } from "./customization.js";
-import "./cart-rave-menu.js";
+import "./ui/cart-rave-menu.js";
 import "./ui/styles/tokens.css";
 import "./ui/styles/stickers.css";
 import "./ui/styles/cart-rave-menu.css";

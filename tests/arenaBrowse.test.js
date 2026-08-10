@@ -15,7 +15,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 
-const menu = readFileSync(new URL("../src/cart-rave-menu.js", import.meta.url), "utf8");
+const menu = readFileSync(new URL("../src/ui/cart-rave-menu.js", import.meta.url), "utf8");
 const levelManager = readFileSync(new URL("../src/levels/levelManager.js", import.meta.url), "utf8");
 
 /** Body of a top-level `function name(...) { ... }` in the menu module. */

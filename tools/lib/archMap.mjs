@@ -302,9 +302,9 @@ export const SYSTEMS = [
     name: "UI, HUD & menu",
     responsibility:
       "The DOM menu (index.html-driven) + its CSS, the in-game HUD + center-stage arbiter, overlays (pause/results/loading), and all src/ui/ widgets + styles.",
-    entry: ["src/cart-rave-menu.js"],
+    entry: ["src/ui/cart-rave-menu.js"],
     members: [
-      "src/cart-rave-menu.js",
+      "src/ui/cart-rave-menu.js",
       "src/ui/styles/cart-rave-menu.css",
       "src/hud.js",
       "src/animations.js",

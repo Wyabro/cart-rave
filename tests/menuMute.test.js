@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const menu = readFileSync(new URL("../src/cart-rave-menu.js", import.meta.url), "utf8");
+const menu = readFileSync(new URL("../src/ui/cart-rave-menu.js", import.meta.url), "utf8");
 const input = readFileSync(new URL("../src/input.js", import.meta.url), "utf8");
 
 describe("main-menu mute keyboard ownership", () => {

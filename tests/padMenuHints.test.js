@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 // from the same input-mode hook as the main hint bar. Source-level checks keep
 // the seam honest without booting cart-rave-menu.js (three.js, GLTF, …) — same
 // pattern as gamepadLobbyNavWiring.test.js.
-const menuSrc = readFileSync(new URL("../src/cart-rave-menu.js", import.meta.url), "utf8");
+const menuSrc = readFileSync(new URL("../src/ui/cart-rave-menu.js", import.meta.url), "utf8");
 const indexHtml = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 
 describe("PAD-MENU-1 sub-screen hint mode swap", () => {

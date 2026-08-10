@@ -149,9 +149,9 @@ each cell links the subscribing file and anchors on its actual `subscribe` call:
 | Store | Subscribers |
 |---|---|
 | `gameStore` | [`gameStore.subscribe`](../../src/analytics/gameplayAnalytics.js) · [`gameStore.subscribe`](../../src/announcer/announcerDirector.js) · [`gameStore.subscribe`](../../src/directives/directiveEngine.js) · [`gameStore.subscribe`](../../src/utils/gameplayDiagnostics.js) |
-| `challengeStore` | [`challengeStore.subscribe`](../../src/analytics/gameplayAnalytics.js) · [`challengeStore.subscribe`](../../src/cart-rave-menu.js) · [`challengeStore.subscribe`](../../src/orchestration/gameBoot.js) · [`challengeStore.subscribe`](../../src/utils/gameplayDiagnostics.js) |
+| `challengeStore` | [`challengeStore.subscribe`](../../src/analytics/gameplayAnalytics.js) · [`challengeStore.subscribe`](../../src/ui/cart-rave-menu.js) · [`challengeStore.subscribe`](../../src/orchestration/gameBoot.js) · [`challengeStore.subscribe`](../../src/utils/gameplayDiagnostics.js) |
 | `audioStore` | [`audioStore.subscribe`](../../src/audioManager.js) |
-| `unlockStore` | [`unlockStore.subscribe`](../../src/cart-rave-menu.js) · [`unlockStore.subscribe`](../../src/utils/gameplayDiagnostics.js) |
+| `unlockStore` | [`unlockStore.subscribe`](../../src/ui/cart-rave-menu.js) · [`unlockStore.subscribe`](../../src/utils/gameplayDiagnostics.js) |
 | `settingsStore`, `cartTuningStore` | read via `getState()`; no subscribers |
 
 (The four `gameStore` cells are four different files — hover the link to see which.)
@@ -176,7 +176,7 @@ change. `gameStore` / `gameState` dual-import surface is tracked as **STORE-1** 
   call edges exist to find; grep the `userData` key instead.
 - **DOM custom events** — a small seam, 4 names only: `cartrave:menu`, `cartrave:level-changed`,
   `cartrave:customization-changed`, `cartrave:round-started` (~13 sites; dispatched from
-  [`cartrave:level-changed`](../../src/cart-rave-menu.js) in the menu, consumed at
+  [`cartrave:level-changed`](../../src/ui/cart-rave-menu.js) in the menu, consumed at
   [`cartrave:round-started`](../../src/orchestration/gameBoot.js) and friends in `main.js`). There is no custom
   emitter class.
 - **Rapier collisions** — one callback:
