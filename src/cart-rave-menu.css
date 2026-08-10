@@ -3428,15 +3428,15 @@ html, body {
 }
 .cr-join-go {
   padding: 0.5625rem 1.125rem;
-  background: transparent;
-  border: 1px solid var(--color-cyan);
+  background: var(--color-magenta);
+  border: 1px solid var(--color-magenta);
   border-radius: 3px;
-  color: var(--color-cyan);
+  color: var(--color-ink);
   cursor: pointer;
-  transition: background 130ms var(--ease-slap), color 130ms var(--ease-slap);
+  transition: filter 130ms var(--ease-slap);
 }
 .cr-join-go-label {
-  font-family: var(--mono);
+  font-family: var(--ui);
   font-weight: 800;
   font-size: 0.8125rem;
   letter-spacing: 0.12em;
@@ -3546,10 +3546,10 @@ html, body {
   }
   .cr-seg-chip:hover { color: var(--color-sticker-white); }
   .cr-join-go:hover {
-    background: var(--color-cyan);
-    color: var(--color-ink);
+    filter: brightness(1.12);
   }
 }
+.cr-join-go:active { filter: brightness(0.9); }
 .cr-cmd:active:not(.is-selected) {
   background: rgba(255, 255, 255, 0.22);
 }

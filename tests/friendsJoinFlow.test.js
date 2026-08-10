@@ -80,6 +80,21 @@ describe("the JOIN field", () => {
       expect(menuCss).toMatch(new RegExp(`${escapedSelector}\\s*\\{[^}]*grid-row:\\s*${row}`));
     }
   });
+
+  it("uses the CHALLENGES NEW badge material for GO", () => {
+    const newBadgeRule = menuCss.match(/\.cr-cmd-new\s*\{([^}]*)\}/)?.[1] ?? "";
+    const goRule = menuCss.match(/\.cr-join-go\s*\{([^}]*)\}/)?.[1] ?? "";
+    const goLabelRule = menuCss.match(/\.cr-join-go-label\s*\{([^}]*)\}/)?.[1] ?? "";
+
+    for (const rule of [newBadgeRule, goRule]) {
+      expect(rule).toMatch(/background:\s*var\(--color-magenta\)/);
+      expect(rule).toMatch(/color:\s*var\(--color-ink\)/);
+    }
+    for (const rule of [newBadgeRule, goLabelRule]) {
+      expect(rule).toMatch(/font-family:\s*var\(--ui\)/);
+      expect(rule).toMatch(/font-weight:\s*800/);
+    }
+  });
 });
 
 describe("stranded-in-an-empty-room banner", () => {
