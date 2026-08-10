@@ -19,6 +19,12 @@
     "directory": "dist",
     "binding": "ASSETS"
   },
+  // * Public domain cutover: Custom Domains on the same Worker (not Pages/Vercel).
+  // * Cloudflare creates DNS + certs on deploy. workers.dev stays staging.
+  "routes": [
+    { "pattern": "cartclash.lol", "custom_domain": true },
+    { "pattern": "www.cartclash.lol", "custom_domain": true }
+  ],
   "durable_objects": {
     "bindings": [
       {
