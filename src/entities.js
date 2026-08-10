@@ -479,6 +479,11 @@ export function createCart({ scene, world, color, themeId, sunglassesStyle, spaw
     lastRamTimeMs: 0,
     aiNextDecisionMs: 0,
     aiTarget: { x: 0, z: 0 },
+    // * NPC-BOOST-1: host-only boost intent. The fixed AI tick holds or hard-cancels
+    // * a charged attack against this target slot; snapshots already carry charge state.
+    aiDriveIntent: "patrol",
+    npcBoostChargeTargetSlotIndex: null,
+    aiBoostDirection: { x: spawnFrozen.x, z: spawnFrozen.z },
     idleAnchorX: spawnFrozen.x,
     idleAnchorZ: spawnFrozen.z,
     idleStillSinceMs: 0,
@@ -565,6 +570,12 @@ export function resetCartTransientState(cart) {
   // * AI decision state reset
   cart.aiNextDecisionMs = 0;
   cart.aiTarget = { x: 0, z: 0 };
+  cart.aiDriveIntent = "patrol";
+  cart.npcBoostChargeTargetSlotIndex = null;
+  cart.aiBoostDirection = {
+    x: cart.spawn?.x ?? cart.pos?.x ?? 0,
+    z: cart.spawn?.z ?? cart.pos?.z ?? 0,
+  };
   cart.aiPauseUntilMs = 0;
   cart.aiReverseUntilMs = 0;
   cart.aiSteerGain = 1.1;

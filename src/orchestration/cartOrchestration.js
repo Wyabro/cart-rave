@@ -48,6 +48,7 @@ import {
   getEdgeSaveHopChance,
   getHopAlignmentDotMin,
   isHardTactics,
+  resolveNpcBoostMode,
 } from "../aiDifficulty.js";
 import { resolveNpcHumanBoostCommit } from "../utils/soloRubberband.js";
 import { clearNpcCartCache } from "../gameLoop.js";
@@ -794,19 +795,29 @@ function getAiAxis(now, cart) {
   Simulation.setSoloRubberbandActive(Netcode.detectGameMode() === "solo");
   // * Latch room difficulty once for the host brain (Quickplay → medium; Solo/Friends → store).
   Netcode.ensureHostAiDifficultyLatched(Netcode.detectGameMode());
-  return Simulation.getAiAxis(now, cart, allCarts, Netcode.getNetSlots());
+  const axis = Simulation.getAiAxis(now, cart, allCarts, Netcode.getNetSlots());
+  if (!cart.isChargingBoost || cart.npcBoostChargeTargetSlotIndex == null) return axis;
+
+  // * NPC-BOOST-1: the host fixed tick owns charge hold/cancel. A normal false
+  // * boostHeld would enter the human early-release branch and fire a partial burst.
+  if (canContinueNpcChargedAttack(cart)) {
+    axis.boostHeld = true;
+  } else {
+    axis.boostCancel = true;
+  }
+  return axis;
 }
 
 /**
- * Starts an Auto-Charge Boost for a human cart, or fires an instant nitro for NPCs.
+ * Starts an Auto-Charge Boost for a human cart, or the selected NPC boost mode.
  *
  * Human path (default): sets `isChargingBoost` + records the start time + plays the
  * looping charge-up SFX locally. The actual burst is auto-released by
  * `applyArcadeControls` once `boostChargeTimeMs` elapses, which then fires
  * `onBoostRelease` to swap the SFX and trigger the visual pulse.
  *
- * NPC path (`{ instant: true }`): preserves the legacy instant nitro window so bots
- * do not freeze for 1.5s while charging in unsafe positions.
+ * NPC charge state is held by the host AI fixed tick. Instant remains available for
+ * chase, escape, and recovery intents.
  *
  * @param {ReturnType<typeof createCart>} cart
  * @param {number} nowMs
@@ -881,6 +892,7 @@ function triggerRamBoost(cart, nowMs, opts = {}) {
  * @param {ReturnType<typeof createCart>} cart
  */
 function onBoostRelease(cart) {
+  cart.npcBoostChargeTargetSlotIndex = null;
   const isLocal = cart === localCartForConnId();
   if (cart.chargeUpSfxId != null) {
     AudioManager.stopSfx("chargeUp", cart.chargeUpSfxId);
@@ -906,6 +918,7 @@ function onBoostRelease(cart) {
  * @param {ReturnType<typeof createCart>} cart
  */
 function onBoostCancel(cart) {
+  cart.npcBoostChargeTargetSlotIndex = null;
   // * Always stop by id when present — only the local cart ever sets chargeUpSfxId.
   // * Gating on localCartForConnId() first left orphan loops when identity briefly
   // * mismatched after respawn/rebuild (charge cancelled, SFX kept looping).
@@ -1013,6 +1026,59 @@ function onHopLand(cart, intensity) {
   }
 }
 
+function npcBoostCooldownMs() {
+  const rb = CONFIG.cart.ramBoost;
+  return GameState.getRoundState()?.isSuddenDeath ? rb.cooldownSec * 500 : rb.cooldownSec * 1000;
+}
+
+function npcBoostPathIsUnsafe(from, to) {
+  if (Simulation.findBlockingSquareHole(from.x, from.z, to.x, to.z, 0.6)) return true;
+
+  if (CONFIG.record.centerHole?.enabled !== false) {
+    const holeLip = CONFIG.record.innerRadius + (CONFIG.record.physics?.holeClearance ?? 0.45);
+    const minClear = holeLip + 1.5;
+    const abX = to.x - from.x;
+    const abZ = to.z - from.z;
+    const abLenSq = abX * abX + abZ * abZ;
+    if (abLenSq > 1e-8) {
+      const t = clamp((-from.x * abX - from.z * abZ) / abLenSq, 0, 1);
+      if (Math.hypot(from.x + t * abX, from.z + t * abZ) < minClear) return true;
+    } else if (Math.hypot(from.x, from.z) < minClear) {
+      return true;
+    }
+  }
+
+  return Boolean(Simulation.boostSegmentExitsOctagon?.(from.x, from.z, to.x, to.z, 1.25));
+}
+
+function npcAimAngleDeg(npc, targetPos) {
+  const p = npc.body.translation();
+  const yaw = Simulation.yawFromQuaternion(npc.body.rotation());
+  Simulation.setForwardRightFromYaw(yaw, ramBoostForwardXZ, ramBoostRightXZ);
+  ramBoostToTargetXZ.set(targetPos.x - p.x, 0, targetPos.z - p.z);
+  if (ramBoostToTargetXZ.lengthSq() < 1e-8 || ramBoostForwardXZ.lengthSq() < 1e-8) return Infinity;
+  ramBoostToTargetXZ.normalize();
+  ramBoostForwardXZ.normalize();
+  return Math.acos(clamp(ramBoostForwardXZ.dot(ramBoostToTargetXZ), -1, 1)) * (180 / Math.PI);
+}
+
+function canContinueNpcChargedAttack(npc) {
+  const targetIndex = npc.npcBoostChargeTargetSlotIndex;
+  const target = Number.isInteger(targetIndex) ? allCarts[targetIndex] : null;
+  if (!target?.body || target.respawnAtMs != null || target.isSuddenDeathSpectator) return false;
+  const p = npc.body.translation();
+  const op = target.body.translation();
+  const dist = Math.hypot(op.x - p.x, op.z - p.z);
+  const ncfg = CONFIG.cart.ramBoost.npc;
+  if (
+    op.y < CONFIG.fall.yThreshold
+    || dist < ncfg.minTargetDistance
+    || dist > ncfg.maxTargetDistance
+  ) return false;
+  if (Simulation.getEdgeVictimBias(p.x, p.z) >= (ncfg.finisherEdgeBiasMin ?? 0.35)) return false;
+  return !npcBoostPathIsUnsafe(p, op);
+}
+
 /**
  * @param {number} nowMs
  * @param {ReturnType<typeof createCart>} npc
@@ -1020,134 +1086,88 @@ function onHopLand(cart, intensity) {
 function maybeTriggerNpcOpportunisticRamBoost(nowMs, npc) {
   const rb = CONFIG.cart.ramBoost;
   const ncfg = rb.npc;
-  if (!rb.enabled || !ncfg.enabled) return;
-  // * Self-guard, mirroring maybeTriggerNpcOpportunisticHop. The host fall loop
-  // * calls this every frame for NPC slots including ones already knocked out, and
-  // * the target scan below only rejects *other* dead carts. Range is planar (dx/dz),
-  // * so a bot tumbling 10-15m below the arena still "reaches" a live cart and fires
-  // * a boost whoosh + mesh pulse from a corpse mid-shatter — right on the death beat.
-  if (!npc?.body || npc.respawnAtMs != null || npc.isSuddenDeathSpectator) return;
-  if (nowMs <= npc.ramBoostActiveUntilMs) return;
-  const roundState = GameState.getRoundState();
-  const cooldownMs = roundState?.isSuddenDeath ? (rb.cooldownSec * 500) : (rb.cooldownSec * 1000);
-  if (nowMs - npc.lastRamBoostTimeMs < cooldownMs) return;
+  if (!rb.enabled || !ncfg.enabled || !npc?.body) return;
+  if (npc.respawnAtMs != null || npc.isSuddenDeathSpectator || npc.isChargingBoost) return;
+  if (nowMs <= npc.ramBoostActiveUntilMs || nowMs - npc.lastRamBoostTimeMs < npcBoostCooldownMs()) return;
 
-  // * Find nearest target (human or NPC) — humans always pass the gate; NPCs only 25%.
+  const p = npc.body.translation();
+  const driveIntent = npc.aiDriveIntent;
+  if (
+    (driveIntent === "escape" || driveIntent === "recover")
+    && p.y <= CONFIG.booth.platformY - 0.5
+  ) {
+    const direction = npc.aiBoostDirection;
+    const aimLimit = Math.max(
+      12,
+      getBoostAlignmentAngleDeg(ncfg.alignmentAngleDeg ?? 40, getActiveAiDifficulty()),
+    );
+    if (
+      direction
+      && !npcBoostPathIsUnsafe(p, direction)
+      && npcAimAngleDeg(npc, direction) <= aimLimit
+    ) {
+      triggerRamBoost(npc, nowMs, { instant: true });
+    }
+    return;
+  }
+
   const netSlots = Netcode.getNetSlots();
   let nearestTarget = null;
+  let nearestTargetIndex = -1;
   let nearestD2 = Infinity;
   let nearestIsHuman = false;
-  const p = npc.body.translation();
-  const fallYThreshold = CONFIG.fall.yThreshold;
   for (let i = 0; i < allCarts.length; i += 1) {
     const o = allCarts[i];
-    if (o === npc) continue;
-    if (!o?.body || o.respawnAtMs != null || o.isSuddenDeathSpectator) continue;
+    if (o === npc || !o?.body || o.respawnAtMs != null || o.isSuddenDeathSpectator) continue;
     const op = o.body.translation();
-    if (op.y < fallYThreshold) continue;
-    const dx = op.x - p.x;
-    const dz = op.z - p.z;
-    const d2 = dx * dx + dz * dz;
+    if (op.y < CONFIG.fall.yThreshold) continue;
+    const d2 = (op.x - p.x) ** 2 + (op.z - p.z) ** 2;
     if (d2 < nearestD2) {
       nearestD2 = d2;
       nearestTarget = o;
-      const s = netSlots?.[i];
-      nearestIsHuman = s?.kind === "human" && !!s?.connId;
+      nearestTargetIndex = i;
+      const slot = netSlots?.[i];
+      nearestIsHuman = slot?.kind === "human" && !!slot?.connId;
     }
   }
   if (!nearestTarget) return;
-  const op = nearestTarget.body.translation();
 
-  // * NPC-vs-NPC: personality commit chance. NPC-vs-human: always commit in MP (legacy).
-  // * Solo: rubberband + AI-DAY-1 finisher/safe-center frequency gate (NPC-BOOST-1 carve-out).
-  let aimSlackDeg = 0;
+  const op = nearestTarget.body.translation();
   const dist = Math.sqrt(nearestD2);
+  if (dist < ncfg.minTargetDistance || dist > ncfg.maxTargetDistance || npcBoostPathIsUnsafe(p, op)) return;
+
+  let aimSlackDeg = 0;
   if (!nearestIsHuman) {
-    const commitChance = npc.aiPersonality?.npcRamCommitChance ?? 0.25;
-    if (Math.random() >= commitChance) return;
+    if (Math.random() >= (npc.aiPersonality?.npcRamCommitChance ?? 0.25)) return;
   } else if (Netcode.detectGameMode() === "solo") {
     const solo = Simulation.getSoloRubberbandFactors(netSlots);
     aimSlackDeg = solo.aimSlackDeg;
-    const edgeBias = Simulation.getEdgeVictimBias(op.x, op.z);
-    const botEdgeBias = Simulation.getEdgeVictimBias(p.x, p.z);
-    // * Pure gate on soloRubberband — frequency only; SELFKO-1 bot-lip deny + pusher finisher.
-    const { commit: humanCommit } = resolveNpcHumanBoostCommit({
+    const commit = resolveNpcHumanBoostCommit({
       nitroMul: solo.nitroMul,
-      edgeBias,
-      botEdgeBias,
+      edgeBias: Simulation.getEdgeVictimBias(op.x, op.z),
+      botEdgeBias: Simulation.getEdgeVictimBias(p.x, p.z),
       dist,
       difficulty: getActiveAiDifficulty(),
       cfg: ncfg,
-    });
-    // * commit 0 = hard deny (bot on lip); otherwise roll.
-    if (humanCommit <= 0 || Math.random() >= humanCommit) return;
+    }).commit;
+    if (commit <= 0 || Math.random() >= commit) return;
   }
 
-  if (dist < ncfg.minTargetDistance || dist > ncfg.maxTargetDistance) return;
-
-  // * Backrooms corner-void safety gate — abort boost if the line crosses a square hole.
-  // * Named constant only for opportunistic boost (AI-ARENA-SELFKO-1 L2). Chase routing
-  // * still uses 0.04 — do not unify those margins.
-  const NPC_BOOST_SQUARE_HOLE_MARGIN = 0.6;
-  if (Simulation.findBlockingSquareHole(p.x, p.z, op.x, op.z, NPC_BOOST_SQUARE_HOLE_MARGIN)) {
-    return;
-  }
-
-  // * Classic Record center-hole safety gate — abort nitro if the boost line
-  // * passes too close to the hole. Prevents NPCs from nitro-suiciding across the pit.
-  if (CONFIG.record.centerHole?.enabled !== false) {
-    const holeLip = CONFIG.record.innerRadius + (CONFIG.record.physics?.holeClearance ?? 0.45);
-    const safetyMargin = 1.5;
-    const minClear = holeLip + safetyMargin;
-
-    const ax = p.x;
-    const az = p.z;
-    const bx = op.x;
-    const bz = op.z;
-    const abX = bx - ax;
-    const abZ = bz - az;
-    const abLenSq = abX * abX + abZ * abZ;
-
-    if (abLenSq > 1e-8) {
-      // * Project origin onto the segment AB, clamped to [0, 1].
-      const t = clamp((-ax * abX - az * abZ) / abLenSq, 0, 1);
-      const closestX = ax + t * abX;
-      const closestZ = az + t * abZ;
-      const closestDist = Math.hypot(closestX, closestZ);
-
-      if (closestDist < minClear) return;
-    } else {
-      // * Degenerate segment — NPC and target are on the same point; check position.
-      if (Math.hypot(ax, az) < minClear) return;
-    }
-  }
-
-  // * Sundial octagon rim — abort boost if bot→target leaves the safe deck (AI-ARENA-SELFKO-1).
-  // * No-ops off octagon arenas. Margin dial gate: 1.0 / 1.25 / 1.5 from PT-1.
-  const OCTAGON_BOOST_EXIT_MARGIN = 1.25;
-  if (Simulation.boostSegmentExitsOctagon?.(p.x, p.z, op.x, op.z, OCTAGON_BOOST_EXIT_MARGIN)) {
-    return;
-  }
-
-  const rot = npc.body.rotation();
-  const yaw = Simulation.yawFromQuaternion(rot);
-  Simulation.setForwardRightFromYaw(yaw, ramBoostForwardXZ, ramBoostRightXZ);
-  ramBoostToTargetXZ.set(op.x - p.x, 0, op.z - p.z);
-  if (ramBoostToTargetXZ.lengthSq() < 1e-8) return;
-  ramBoostToTargetXZ.normalize();
-  if (ramBoostForwardXZ.lengthSq() < 1e-8) return;
-  ramBoostForwardXZ.normalize();
-  const dot = clamp(ramBoostForwardXZ.dot(ramBoostToTargetXZ), -1, 1);
-  const angleDeg = Math.acos(dot) * (180 / Math.PI);
-  // * Solo trailing: looser cone → fewer boosts line up; leading: tighter cone.
+  const angleDeg = npcAimAngleDeg(npc, op);
   const aimLimit = Math.max(
     12,
     getBoostAlignmentAngleDeg(ncfg.alignmentAngleDeg ?? 40, getActiveAiDifficulty()) + aimSlackDeg,
   );
   if (angleDeg > aimLimit) return;
 
-  // * NPCs use the instant nitro path — keeps bot movement responsive and avoids
-  // * freezing in a 1.5s charge window mid-combat.
+  const isChargedAttack = resolveNpcBoostMode(dist, angleDeg, getActiveAiDifficulty()) === "charge";
+  npc.aiDriveIntent = isChargedAttack ? "attack" : "chase";
+
+  if (isChargedAttack) {
+    triggerRamBoost(npc, nowMs);
+    if (npc.isChargingBoost) npc.npcBoostChargeTargetSlotIndex = nearestTargetIndex;
+    return;
+  }
   triggerRamBoost(npc, nowMs, { instant: true });
 }
 

@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-10T00:47:09.837Z",
-    "commit": "85e2120"
+    "at": "2026-08-10T04:15:09.960Z",
+    "commit": "cd1c10c"
   },
-  "source_digest": "55674c7d",
+  "source_digest": "3be46bb9",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -881,7 +881,7 @@
       }
     ],
     "next_actions": [
-      "NOW: Block 1 empty → NPC-BOOST-1 (measure). Closed 08-08/08-09 IDs → [completed-work.md](./planning/completed-work.md).",
+      "NOW: NPC-BOOST-1 is implemented locally: intent-based charged attacks, instant chase/escape/recovery, hard unsafe cancellation, and Easy/Medium/Hard charge envelopes. QA + build pass; await `ship it`, deploy proof, and Wyatt [2pc] playtest. Then plan AI-EASY-SOFTEN-1 as its separate wave.",
       "Open / REACHABLE: CARGO-LATCH-1. Playtest owed: [BACKLOG § Playtest owed](./planning/BACKLOG.md).",
       "Open High: ONBOARD-ATTRACT-1 · ONBOARD-SIZE-1 · bloom (unblocked by ART-*).",
       "Playtest row left: SHARD-PT-2 (launch day, five humans)."
@@ -1118,14 +1118,20 @@
       {
         "title": "Design / Gameplay",
         "counts": {
-          "Medium": 3,
+          "Medium": 4,
           "Low": 5
         },
         "rows": [
           {
             "pri": "Medium",
-            "item": "NPC-BOOST-1 — NPCs feel like they boost \"better\" than players",
-            "notes": "**Filed 08-04 from external playtester perception.** Not yet measured — do not retune knobs on vibes. **Known asymmetry by design:** humans use charge-release nitro (`boostCharge` 1.5s to full, then burst) while NPCs fire **instant** boost (`triggerRamBoost` `{ instant: true }`, [main.js:4388](../../src/main.js:4388) / [config.js:164](../../src/config.js:164)) so bots never freeze charging in traffic. Shared caps: same `durationSec` / `boostedMaxSpeed` / cooldown family; NPCs also get aim-cone + range gates and solo rubberband nitro mul. Hard difficulty tightens aim (`boostAlignmentAngleDegDelta: -12`). **Why a tester can still feel \"bots better\":** zero charge tax, opportunistic auto-fire when aimed, gold/charged trail language only on human full-charge release (so NPC boosts look \"cleaner\"/more frequent). **Method before code:** Solo Medium/Hard, note human charge delay vs bot instant windows; if still unfair after knowing the design, options are (a) short NPC wind-up, (b) slightly lower NPC boostedMaxSpeed/accel, (c) looser player charge (`boostChargeTimeMs`), (d) leave it and teach charge in ONBOARD-SLIDES-1. Related: closed HIT-FEEL-1 / AI-DIFF-1.",
+            "item": "NPC-BOOST-1 — NPCs use charged attacks and instant boosts by intent",
+            "notes": "**Local implementation, not shipped.** Attack uses the existing full human charge when target, range, and path stay safe; chase, escape, and recovery use instant boost; patrol never boosts. Unsafe charges hard-cancel with no burst. Easy / Medium / Hard select charge at 9–12m/12°, 8–12m/16°, and 7–12m/20°; boost physics and cooldown stay shared. Focused tests, QA, and build pass. Owed after ship: host and non-host [2pc] evidence for charged release, instant chase/escape, unsafe cancellation, and difficulty order.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "AI-EASY-SOFTEN-1 — Easy NPC decisions 10% slower",
+            "notes": "Separate wave after NPC-BOOST-1. Scope: only the Easy decision interval becomes 10% longer; no physics, boost values, or Medium/Hard changes. Requires its own plan and Wyatt ack.",
             "ship1": null
           },
           {

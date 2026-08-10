@@ -598,7 +598,9 @@ function applyArcadeControls(cart, axis, dtFixed, nowMs, callbacks) {
     const honorRelease = !callbacks?.isReconcileReplay;
 
     // * Early-release: player let go of the boost button before full charge.
-    if (!axis.boostHeld && honorRelease) {
+    if (axis.boostCancel) {
+      cancelNpcBoostCharge(cart, nowMs, callbacks);
+    } else if (!axis.boostHeld && honorRelease) {
       if (chargeElapsedMs > 100) {
         // Proportional burst — tap for a small dash, hold for the big boom.
         const proportionalMultiplier = clamp(
@@ -844,6 +846,27 @@ function applyArcadeControls(cart, axis, dtFixed, nowMs, callbacks) {
       cart.tipOverStartMs = null;
     }
   }
+}
+
+/**
+ * Hard-cancels a host NPC charge when its target or path becomes unsafe. This differs
+ * from the human early-release branch: it never applies a burst or opens nitro.
+ *
+ * @param {object} cart
+ * @param {number} nowMs
+ * @param {{ onBoostCancel?: (cart: object) => void }} [callbacks]
+ * @returns {boolean} true when a live charge was cancelled
+ */
+export function cancelNpcBoostCharge(cart, nowMs, callbacks) {
+  if (!cart?.isChargingBoost) return false;
+  cart.isChargingBoost = false;
+  cart.boostChargeStartedAtMs = 0;
+  cart.boostChargeMultiplier = 1;
+  cart.nitroStreakCharged = false;
+  // * NPC instant, charged, and cancelled attempts share one cooldown family.
+  cart.lastRamBoostTimeMs = nowMs;
+  callbacks?.onBoostCancel?.(cart);
+  return true;
 }
 
 // * Storerooms void suction (playtest 2026-07-15: the outward lip rescue made the holes feel
@@ -2484,7 +2507,7 @@ function ensureAiBehaviorState(cart) {
  * @param {object[]|null} netSlots Network slot metadata.
  * @param {number} nowMs Current time in milliseconds.
  * @param {number} [slotIndex] Cart slot for corner-sweep variety.
- * @returns {{ x: number, z: number }}
+ * @returns {{ x: number, z: number, aiDriveIntent?: "chase" | "patrol" }}
  */
 function pickAiTarget(cart, fromPos, allCarts, netSlots, nowMs, slotIndex = 0) {
   ensureAiBehaviorState(cart);
@@ -2567,9 +2590,12 @@ function pickAiTarget(cart, fromPos, allCarts, netSlots, nowMs, slotIndex = 0) {
   if (roll < humanWeight && humanTarget) {
     if (_levelHazards?.arenaHalf != null) {
       if (!findBlockingSquareHole(fromPos.x, fromPos.z, humanTarget.x, humanTarget.z, 0.04)) {
-        return clampBackroomsAiTarget(humanTarget.x, humanTarget.z, cautious);
+        return { ...clampBackroomsAiTarget(humanTarget.x, humanTarget.z, cautious), aiDriveIntent: "chase" };
       }
-      return routeBackroomsChaseTarget(fromPos.x, fromPos.z, humanTarget.x, humanTarget.z, cautious);
+      return {
+        ...routeBackroomsChaseTarget(fromPos.x, fromPos.z, humanTarget.x, humanTarget.z, cautious),
+        aiDriveIntent: "chase",
+      };
     }
     // * Sundial high-ground contest: if the human is camping the podium, drive onto it to
     // * ram them off instead of being repelled by the keep-out. Gated to real campers so bots
@@ -2580,17 +2606,23 @@ function pickAiTarget(cart, fromPos, allCarts, netSlots, nowMs, slotIndex = 0) {
       // * contest ~10% longer, so they fight harder for the bigger ART-4 podium zone.
       const contestMs = getPodiumContestMs(1650, getActiveAiDifficulty());
       cart.aiContestPodiumUntilMs = nowMs + contestMs;
-      return clampOctagonAiTarget(humanTarget.x, humanTarget.z, cautious, { allowPodium: true });
+      return {
+        ...clampOctagonAiTarget(humanTarget.x, humanTarget.z, cautious, { allowPodium: true }),
+        aiDriveIntent: "chase",
+      };
     }
     // * reachOuter: when chasing a human, let the goal reach closer to the arena rim so bots
     // * follow edge-campers instead of stopping short at the safe-annulus cap.
-    return clampAiTargetAwayFromHazards(humanTarget.x, humanTarget.z, cautious, { reachOuter: true });
+    return {
+      ...clampAiTargetAwayFromHazards(humanTarget.x, humanTarget.z, cautious, { reachOuter: true }),
+      aiDriveIntent: "chase",
+    };
   }
 
   if (roll < humanWeight + patrolWeight) {
-    return pickAiPatrolTarget(cautious, slotIndex);
+    return { ...pickAiPatrolTarget(cautious, slotIndex), aiDriveIntent: "patrol" };
   }
-  return pickAiRandomWanderTarget(fromPos, cautious, slotIndex);
+  return { ...pickAiRandomWanderTarget(fromPos, cautious, slotIndex), aiDriveIntent: "patrol" };
 }
 
 /**
@@ -2605,12 +2637,13 @@ function pickAiTarget(cart, fromPos, allCarts, netSlots, nowMs, slotIndex = 0) {
  * @param {any} cart Active cart object.
  * @param {object[]|null} allCarts All slot carts.
  * @param {object[]|null} netSlots Network slot metadata.
- * @returns {{ forward: number, turn: number }}
+ * @returns {{ forward: number, turn: number, boostHeld?: boolean, boostCancel?: boolean }}
  */
 export function getAiAxis(now, cart, allCarts, netSlots) {
   ensureAiBehaviorState(cart);
 
   if (now < cart.aiPauseUntilMs) {
+    cart.aiDriveIntent = "patrol";
     cart.aiLastProgressMs = now;
     const idleWobble = Math.sin(now * 0.002 + (cart.slotIndex || 0)) * 0.12;
     return { forward: 0, turn: clamp(idleWobble, -0.18, 0.18) };
@@ -2623,6 +2656,7 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
   // * corner voids (Backrooms) or the center hole (Classic) at round start / respawn.
   const onSpawnPlatform = p.y > CONFIG.booth.platformY - 0.5;
   if (onSpawnPlatform) {
+    cart.aiDriveIntent = "recover";
     // * Classic disc: "toward center" must stop SHORT of the center hole — with the
     // * raw {0,0} target, freshly-landed bots carried a dead-center heading at speed
     // * and dove straight in (playtest 2026-07-15). Mid-annulus point on the same
@@ -2699,6 +2733,7 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
 
   if (now >= cart.aiNextDecisionMs) {
     cart.aiTarget = pickAiTarget(cart, p, allCarts, netSlots, now, slotIndex);
+    cart.aiDriveIntent = cart.aiTarget.aiDriveIntent ?? "patrol";
     cart._aiWorkingTarget = null;
     const pcfg = cart.aiPersonality;
     const minI = pcfg?.decisionIntervalMin ?? 300;
@@ -2734,6 +2769,7 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
 
   if (distToTarget < 0.5) {
     cart.aiTarget = pickAiTarget(cart, p, allCarts, netSlots, now, slotIndex);
+    cart.aiDriveIntent = cart.aiTarget.aiDriveIntent ?? "patrol";
     cart._aiWorkingTarget = null;
     const pcfg = cart.aiPersonality;
     const minI = pcfg?.decisionIntervalMin ?? 300;
@@ -2906,6 +2942,7 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
   }
 
   if (now < cart.aiAvoidanceCommitUntilMs) {
+    cart.aiDriveIntent = "escape";
     // * Escape vector — tangent to circle a void, or straight inward to leave a kill rim.
     let escapeX, escapeZ;
     if (escapeKeepOut) {
@@ -2934,6 +2971,12 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
     toTarget.set(escapeX, 0, escapeZ);
   }
 
+  // * NPC-BOOST-1: save the final safe steering direction after hazard avoidance.
+  // * The frame-level boost selector may use it for an instant escape/recovery boost.
+  if (!cart.aiBoostDirection) cart.aiBoostDirection = { x: 0, z: 0 };
+  cart.aiBoostDirection.x = p.x + toTarget.x * 6;
+  cart.aiBoostDirection.z = p.z + toTarget.z * 6;
+
   const desiredYaw = Math.atan2(-toTarget.x, -toTarget.z);
   const currentYaw = yawFromQuaternion(_scratchRot);
   const yawDiff = wrapAngleRad(desiredYaw - currentYaw);
@@ -2943,6 +2986,7 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
   const turn = clamp(yawDiff * cart.aiSteerGain + steerWobble, -1, 1);
 
   if (now < cart.aiReverseUntilMs) {
+    cart.aiDriveIntent = "recover";
     return {
       forward: -(0.5 + Math.random() * 0.3),
       turn,

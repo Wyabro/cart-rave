@@ -41,6 +41,17 @@ const EDGE_CHASE_WEIGHT_MUL = Object.freeze({
   hard: 1.0,
 });
 
+/**
+ * NPC charged attacks need more runway and cleaner aim than instant chase nitro.
+ * Higher difficulties recognise more valid charge windows; boost physics stays shared.
+ * @type {Readonly<Record<AiDifficulty, Readonly<{ minDistance: number, maxDistance: number, maxAngleDeg: number }>>>}
+ */
+const NPC_CHARGED_ATTACK_ENVELOPES = Object.freeze({
+  easy: Object.freeze({ minDistance: 9, maxDistance: 12, maxAngleDeg: 12 }),
+  medium: Object.freeze({ minDistance: 8, maxDistance: 12, maxAngleDeg: 16 }),
+  hard: Object.freeze({ minDistance: 7, maxDistance: 12, maxAngleDeg: 20 }),
+});
+
 /** Max humanWeight add when edgeBias=1 and mul=1 (Hard on the lip). */
 export const EDGE_CHASE_BONUS_MAX = 0.22;
 
@@ -278,6 +289,31 @@ export function getHopAlignmentDotMin(baseDotMin, difficulty) {
  */
 export function getBoostAlignmentAngleDeg(baseAngleDeg, difficulty) {
   return Math.max(5, baseAngleDeg + getDifficultyMods(difficulty).boostAlignmentAngleDegDelta);
+}
+
+/**
+ * @param {AiDifficulty | string | null | undefined} difficulty
+ * @returns {Readonly<{ minDistance: number, maxDistance: number, maxAngleDeg: number }>}
+ */
+export function getNpcChargedAttackEnvelope(difficulty) {
+  const id = normalizeDifficulty(difficulty, DEFAULT_SOLO);
+  return NPC_CHARGED_ATTACK_ENVELOPES[id];
+}
+
+/**
+ * Resolve the NPC action after the shared range, safety, and normal aim gates pass.
+ * @param {number} distance
+ * @param {number} angleDeg
+ * @param {AiDifficulty | string | null | undefined} difficulty
+ * @returns {"charge" | "instant"}
+ */
+export function resolveNpcBoostMode(distance, angleDeg, difficulty) {
+  const envelope = getNpcChargedAttackEnvelope(difficulty);
+  return distance >= envelope.minDistance
+    && distance <= envelope.maxDistance
+    && angleDeg <= envelope.maxAngleDeg
+    ? "charge"
+    : "instant";
 }
 
 /**
