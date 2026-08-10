@@ -34,7 +34,7 @@ import { installShatterProgramWarmup } from "../cartShatter.js";
 import { installKoHitmarkerProgramWarmup } from "../effects/koHitmarkerFx.js";
 import { installWaterFxProgramWarmup } from "../effects/waterDeathFx.js";
 import { yieldForPaint } from "../ui/loadingScreen.js";
-import { getCurrentLevelId, setLevelSwapping, swapLoadedLevel } from "../levelManager.js";
+import { getCurrentLevelId, setLevelSwapping, swapLoadedLevel } from "../levels/levelManager.js";
 import { isWorldBootstrapped } from "../bootstrap.js";
 import {
   getMenuAttractWarmupPoses,

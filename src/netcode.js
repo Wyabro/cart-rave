@@ -15,7 +15,7 @@ import { rebuildKOEvent } from "./scoring/koEvent.js";
 import { ChallengeTracker } from "./stores/challengeStore.js";
 import { UnlockTracker } from "./stores/unlockStore.js";
 import { FREE_LEVEL } from "./unlockConfig.js";
-import { getCurrentLevelId } from "./levelManager.js";
+import { getCurrentLevelId } from "./levels/levelManager.js";
 import { clamp } from "./utils.js";
 import { playSfx } from "./audioManager.js";
 import { recordDiagEvent } from "./utils/diagnostics.js";

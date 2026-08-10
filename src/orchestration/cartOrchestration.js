@@ -14,7 +14,7 @@ import * as AudioManager from "../audioManager.js";
 import * as ArenaAmbience from "../ambience/arenaAmbience.js";
 import * as SfxSynth from "../sfxSynth.js";
 import { CONFIG, MSG, CART_COLORS } from "../config.js";
-import { getCurrentLevelId } from "../levelManager.js";
+import { getCurrentLevelId } from "../levels/levelManager.js";
 import { hapticPulse } from "../haptics.js";
 import { sideWeightsFromCartBasis } from "../utils/edgeDanger.js";
 import { animateCartBoostPulse, animateCartImpactSquash } from "../animations.js";

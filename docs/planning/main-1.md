@@ -33,7 +33,7 @@ Prep baseline locked at `f1ec6d1` (qa 109 files / 1,350 tests · battery 6/6 · 
 `main.js` is the orchestration spine. Most cross-module edges are **not imports** — they run through:
 
 1. **`buildNetcodeGameBridge`** → `sessionBridgeCtx.current` ([`gameSession.js`](../../src/gameSession.js))
-2. **`LevelManagerDeps`** → `initLevelManager({ … })` ([`levelManager.js`](../../src/levelManager.js))
+2. **`LevelManagerDeps`** → `initLevelManager({ … })` ([`levelManager.js`](../../src/levels/levelManager.js))
 3. **`runGameLoop(loopState, callbacks)`** + **`gameContext` phase deps** ([`gameLoop.js`](../../src/gameLoop.js), [`gameContext.js`](../../src/gameContext.js))
 4. **`initBootstrap`** play-entry deps ([`bootstrap.js`](../../src/bootstrap.js))
 

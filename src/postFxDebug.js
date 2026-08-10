@@ -40,7 +40,7 @@ import {
   setSceneFog,
 } from "./scene.js";
 import { getDebugParams } from "./utils/debugParams.js";
-import { getCurrentLevelId } from "./levelManager.js";
+import { getCurrentLevelId } from "./levels/levelManager.js";
 import { getQualityTier } from "./utils/qualityMode.js";
 import { applyQualityTier } from "./ui/graphicsToggles.js";
 import { announce, resetAnnouncerRound, stopAnnouncer } from "./announcer/announcerManager.js";

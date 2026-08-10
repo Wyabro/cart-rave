@@ -72,7 +72,7 @@ import {
 import {
   getCurrentLevelId,
   scheduleMenuLevelPreview,
-} from "./levelManager.js";
+} from "./levels/levelManager.js";
 import {
   ensureWorldBootstrapped,
   isIdleWorldWarmSuppressed,

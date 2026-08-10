@@ -78,7 +78,7 @@ import {
   initLevelManager,
   isLevelSwapping,
   rebuildLevelIfNeeded,
-} from "../levelManager.js";
+} from "../levels/levelManager.js";
 import {
   enterPlayMode,
   ensureSessionCartsReady,

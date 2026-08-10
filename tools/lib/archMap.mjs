@@ -209,9 +209,9 @@ export const SYSTEMS = [
     name: "Arenas & levels",
     responsibility:
       "Level preview + hot-swap (levelManager), arena shell + reactive lights + scene extras, and the four ~3k-line level modules loaded through a dynamic importer table.",
-    entry: ["src/levelManager.js"],
+    entry: ["src/levels/levelManager.js"],
     members: [
-      "src/levelManager.js",
+      "src/levels/levelManager.js",
       "src/levels/arena.js",
       "src/levels/arenaReactiveLights.js",
       "src/sceneExtras.js",
@@ -473,7 +473,7 @@ export const IMPORTANT_FILES = [
   { path: "src/netcode/p2p.js", role: "WebRTC peers/DataChannels, ICE grace, TURN wait — the gameplay plane. hostTransform/clientInput/spill only." },
   { path: "src/netcode/binary.js", role: "Host snapshot encode/decode, bounds-checked. 40Hz binary transforms + JSON kill-feed tail." },
   { path: "src/simulation.js", role: "Host Rapier physics + the single drainCollisionEvents callback; bot decision logic lives here too." },
-  { path: "src/levelManager.js", role: "Level preview + hot-swap; driven by the LevelManagerDeps typedef contract — read the typedef before touching swaps." },
+  { path: "src/levels/levelManager.js", role: "Level preview + hot-swap; driven by the LevelManagerDeps typedef contract — read the typedef before touching swaps." },
   { path: "src/levels/index.js", role: "LEVEL_IMPORTERS dynamic id→import() table, a loader NOT a barrel — the only way the four level modules are reached." },
   { path: "src/cartRaveGltf.js", role: "userData state-machine hub (raveGltfPartRole/cartVisual/deathState/followState) — grep the userData key, there are no call edges." },
   { path: "src/config.js", role: "CART_COLORS (invariant, do not modify) + the CONFIG knob table incl. CONFIG.round.durationMs (imports ROUND_DURATION_MS)." },

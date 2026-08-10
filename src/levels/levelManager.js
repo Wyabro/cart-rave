@@ -4,9 +4,9 @@
  * Low-level `loadLevel()` mesh/collider work stays in main via injected deps.
  */
 
-import { resolveLevelId, LEVEL_STORAGE_KEY } from "./levels/index.js";
-import { storageGet } from "./utils/storage.js";
-import { yieldForPaint } from "./ui/loadingScreen.js";
+import { resolveLevelId, LEVEL_STORAGE_KEY } from "./index.js";
+import { storageGet } from "../utils/storage.js";
+import { yieldForPaint } from "../ui/loadingScreen.js";
 
 /**
  * Reflector resolution ladder: menu preview 128² → play entry 256² → idle
@@ -85,7 +85,7 @@ function requireDeps() {
   return deps;
 }
 
-import { settingsStore } from "./stores/settingsStore.js";
+import { settingsStore } from "../stores/settingsStore.js";
 
 /**
  * @param {string | null | undefined} [levelId]

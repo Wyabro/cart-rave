@@ -80,9 +80,9 @@ registered globally. `deps.` appears **~399 times across `src/`**.
 - **[`export function runGameLoop`](../../src/gameLoop.js)`(loopState, callbacks)`** — called from
   `main.js`. Every physics/frame decision inside is `deps.isHost()`, `deps.getRoundState()`,
   `deps.runFixedPhysicsStep({…})`, `deps.getSimulationCallbacks(true)`.
-- **[`export function initLevelManager`](../../src/levelManager.js)`(dependencies)`** — also called
+- **[`export function initLevelManager`](../../src/levels/levelManager.js)`(dependencies)`** — also called
   from `main.js`. Its contract exists **only as a JSDoc**
-  [`LevelManagerDeps`](../../src/levelManager.js) typedef — a ~20-property interface
+  [`LevelManagerDeps`](../../src/levels/levelManager.js) typedef — a ~20-property interface
   (`getMenuVisible`, `performLevelLoad`, `finalizeArenaForPlay`, `maskMenuPreviewSwap`,
   `warmupAfterLevelSwap`, …). That typedef is the contract; read it before touching level swaps.
 

@@ -6,7 +6,7 @@ import * as GameState from "../gameState.js";
 import * as Input from "../input.js";
 import { ensureNetcode, getNetcode, requireNetcode } from "../netcode/load.js";
 import { resolveLevelMusic } from "../music/levelMusic.js";
-import { getCurrentLevelId, scheduleMenuLevelPreview } from "../levelManager.js";
+import { getCurrentLevelId, scheduleMenuLevelPreview } from "../levels/levelManager.js";
 import { enterPlayMode, ensureSessionCartsReady } from "../bootstrap.js";
 // * BUNDLE-1 Lever D Edge 1: HUD / directiveEngine / announcerManager / arenaAmbience are
 // * reached through the hook table instead of imported. Every one of those static edges kept

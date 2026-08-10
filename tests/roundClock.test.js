@@ -11,7 +11,7 @@ import { updateGameFlow } from "../src/gameFlow.js";
 vi.mock("../src/entities.js", () => ({
   resetCartTransientState: () => {},
 }));
-vi.mock("../src/levelManager.js", () => ({
+vi.mock("../src/levels/levelManager.js", () => ({
   getCurrentLevelId: () => "classicRecord",
 }));
 vi.mock("../src/scoring/koEvent.js", () => ({

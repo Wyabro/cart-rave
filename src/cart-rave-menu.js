@@ -35,7 +35,7 @@ import { getRoundState } from "./gameState.js";
 // * MENU-LOCK-HINT-1: browsing a locked arena must retarget the 3D preview without
 // * selecting it. Imported directly rather than routed through main.js — levelManager is
 // * already a shared module (gameFlow/netcode/main) and imports nothing from the menu.
-import { setMenuBrowseLevel, scheduleMenuLevelPreview } from "./levelManager.js";
+import { setMenuBrowseLevel, scheduleMenuLevelPreview } from "./levels/levelManager.js";
 import { setInputMode, updateControlsPanelUI, getInputMode, onInputModeChange } from "./input.js";
 import { readBuildInfo } from "./utils/buildInfo.js";
 import { trackGlitchEvent } from "./analytics/analytics.js";

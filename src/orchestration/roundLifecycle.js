@@ -12,7 +12,7 @@ import * as ArenaAmbience from "../ambience/arenaAmbience.js";
 import * as SfxSynth from "../sfxSynth.js";
 import { CONFIG } from "../config.js";
 import { ROUND_DURATION_MS } from "../../shared/roundConstants.js";
-import { getCurrentLevelId } from "../levelManager.js";
+import { getCurrentLevelId } from "../levels/levelManager.js";
 import { getRoundClockNowMs } from "../roundClock.js";
 import { armRoundStartRenderProbe } from "../gameLoop.js";
 import {

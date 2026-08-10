@@ -5,7 +5,7 @@ import * as GameState from "./gameState.js";
 import { mark } from "./utils/perfSpans.js";
 import { ChallengeTracker } from "./stores/challengeStore.js";
 import { UnlockTracker } from "./stores/unlockStore.js";
-import { getCurrentLevelId } from "./levelManager.js";
+import { getCurrentLevelId } from "./levels/levelManager.js";
 import { buildKOConfirmPreview, buildKOEvent } from "./scoring/koEvent.js";
 import { dispatchKOEvent } from "./scoring/koReactors.js";
 import { getRoundClockNowMs, isRoundTimerExpired } from "./roundClock.js";
