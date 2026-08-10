@@ -71,7 +71,7 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. **NOW:** **NPC-BOOST-1** is implemented locally: intent-based charged attacks, instant chase/escape/recovery, hard unsafe cancellation, and Easy/Medium/Hard charge envelopes. QA + build pass; await `ship it`, deploy proof, and Wyatt [2pc] playtest. Then plan **AI-EASY-SOFTEN-1** as its separate wave.
+1. **NOW:** **NPC-BOOST-1** and **AI-EASY-SOFTEN-1** are implemented locally: intent-based charged attacks, instant chase/escape/recovery, hard unsafe cancellation, difficulty charge envelopes, and Easy decisions 10% slower. QA + build pass; await `ship it`, deploy proof, and Wyatt [2pc] playtest.
 2. **Open / REACHABLE:** CARGO-LATCH-1. Playtest owed: [BACKLOG § Playtest owed](./planning/BACKLOG.md).
 3. **Open High:** ONBOARD-ATTRACT-1 · ONBOARD-SIZE-1 · bloom (unblocked by ART-*).
 4. **Playtest row left:** SHARD-PT-2 (launch day, five humans).

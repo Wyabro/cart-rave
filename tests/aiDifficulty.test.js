@@ -68,13 +68,16 @@ describe("aiDifficulty", () => {
     expect(getDifficultyMods("medium").humanWeightOffset).toBe(0.06);
   });
 
-  it("Easy dials down aggression and slows decisions", () => {
+  it("Easy dials down aggression and makes decisions exactly 10% slower than prior Easy", () => {
     const out = applyPersonalityMods(AGGRESSOR, "easy");
     expect(out.humanWeight).toBeLessThan(AGGRESSOR.humanWeight);
-    expect(out.decisionIntervalMin).toBeGreaterThan(AGGRESSOR.decisionIntervalMin);
+    expect(out.decisionIntervalMin).toBeCloseTo(316.8, 8);
+    expect(out.decisionIntervalMax).toBeCloseTo(712.8, 8);
     expect(out.npcRamCommitChance).toBeLessThan(AGGRESSOR.npcRamCommitChance);
     expect(getStuckWindowMs("easy")).toBe(1610);
     expect(getRandomStopChance(false, "easy")).toBeCloseTo(0.0692);
+    expect(getDifficultyMods("medium").decisionIntervalMul).toBe(1);
+    expect(getDifficultyMods("hard").decisionIntervalMul).toBe(0.48);
   });
 
   it("Hard dials up and caps Chaotic steerGainMax", () => {

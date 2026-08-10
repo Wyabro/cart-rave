@@ -75,9 +75,9 @@ export const EDGE_CHASE_BONUS_MAX = 0.22;
 
 /** @type {Readonly<Record<AiDifficulty, Readonly<DifficultyMods>>>} */
 const DIFFICULTY_MODS = Object.freeze({
-  // * Easy — ~15% softer than the first B1 pass (dial further down from Medium).
+  // * AI-EASY-SOFTEN-1: decisions are 10% slower than the previous Easy tuning.
   easy: Object.freeze({
-    decisionIntervalMul: 1.44,
+    decisionIntervalMul: 1.584,
     randomStopMul: 1.73,
     humanWeightOffset: -0.115,
     humanWeightClamp: 0.95,
