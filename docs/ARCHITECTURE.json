@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-10T05:40:32.525Z",
-    "commit": "4e47e16"
+    "at": "2026-08-10T05:42:30.122Z",
+    "commit": "5ea9c4b"
   },
-  "source_digest": "b645ed2f",
+  "source_digest": "79234578",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -881,7 +881,7 @@
       }
     ],
     "next_actions": [
-      "NOW: NPC-BOOST-1 and AI-EASY-SOFTEN-1 are deployed on Worker `4e4fd25a-452b-40b6-adb8-c8e1c41d6bde`: intent-based charged attacks, instant chase/escape/recovery, hard unsafe cancellation, difficulty charge envelopes, and Easy decisions 10% slower. QA, build, live HTML, 62 hashed assets, and both bundle markers pass. Await Wyatt [2pc] playtest.",
+      "NOW: NPC-BOOST-1 and AI-EASY-SOFTEN-1 are deployed on Worker `4e4fd25a-452b-40b6-adb8-c8e1c41d6bde`: intent-based charged attacks, instant chase/escape/recovery, hard unsafe cancellation, difficulty charge envelopes, and Easy decisions 10% slower. QA, build, live HTML, 62 hashed assets, and both bundle markers pass. Await NPC-BOOST-PT-1 [2pc].",
       "Open / REACHABLE: CARGO-LATCH-1. Playtest owed: [BACKLOG § Playtest owed](./planning/BACKLOG.md).",
       "Open High: ONBOARD-ATTRACT-1 · ONBOARD-SIZE-1 · bloom (unblocked by ART-*).",
       "Playtest row left: SHARD-PT-2 (launch day, five humans)."
@@ -1125,13 +1125,13 @@
           {
             "pri": "Medium",
             "item": "NPC-BOOST-1 — NPCs use charged attacks and instant boosts by intent",
-            "notes": "**Deployed 08-10:** Worker `4e4fd25a-452b-40b6-adb8-c8e1c41d6bde`, commits `033bb8f` / `4e47e16`; entry HTML plus 62 hashed assets returned 200, and the live game bundle contains the NPC intent marker. Attack uses the existing full human charge when target, range, and path stay safe; chase, escape, and recovery use instant boost; patrol never boosts. Unsafe charges hard-cancel with no burst. Easy / Medium / Hard select charge at 9–12m/12°, 8–12m/16°, and 7–12m/20°; boost physics and cooldown stay shared. **Owed: Wyatt [2pc] playtest.** In a Friends room, confirm on both screens: a safe attack charges to the full release; chase/escape use instant boost; an unsafe charge cancels with no burst; Easy reads less decisive than Medium, and Hard finds more charge openings.",
+            "notes": "**Deployed 08-10:** Worker `4e4fd25a-452b-40b6-adb8-c8e1c41d6bde`, commits `033bb8f` / `4e47e16`; entry HTML plus 62 hashed assets returned 200, and the live game bundle contains the NPC intent marker. Attack uses the existing full human charge when target, range, and path stay safe; chase, escape, and recovery use instant boost; patrol never boosts. Unsafe charges hard-cancel with no burst. Easy / Medium / Hard select charge at 9–12m/12°, 8–12m/16°, and 7–12m/20°; boost physics and cooldown stay shared. Human closure is tracked by **NPC-BOOST-PT-1**.",
             "ship1": null
           },
           {
             "pri": "Medium",
             "item": "AI-EASY-SOFTEN-1 — Easy NPC decisions 10% slower",
-            "notes": "**Deployed with NPC-BOOST-1.** Easy decision intervals changed from 1.44× to 1.584× their personality baseline: exactly 10% slower than prior Easy. No physics, boost values, or Medium/Hard changes. **Owed: Wyatt [2pc] playtest** under NPC-BOOST-1: Easy must feel less decisive while charged and instant intent behaviour remains intact.",
+            "notes": "**Deployed with NPC-BOOST-1.** Easy decision intervals changed from 1.44× to 1.584× their personality baseline: exactly 10% slower than prior Easy. No physics, boost values, or Medium/Hard changes. Human closure is tracked by **NPC-BOOST-PT-1**.",
             "ship1": null
           },
           {
@@ -1181,10 +1181,16 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Medium": 1,
+          "Medium": 2,
           "Low": 2
         },
         "rows": [
+          {
+            "pri": "Medium",
+            "item": "NPC-BOOST-PT-1 — charged and instant NPC boosts `[2pc]`",
+            "notes": "**Owed: Wyatt production playtest** on Worker `4e4fd25a-452b-40b6-adb8-c8e1c41d6bde`.<br>1. Hard-refresh two browsers, create a Friends room with bots, and confirm both screens receive the same NPC boost state.<br>2. In a safe attack run, PASS if an NPC visibly charges then releases full boost; PASS if chase and escape use instant boost instead.<br>3. Force a target/path to become unsafe during charge. PASS only if the charge stops with no burst or nitro window.<br>4. Compare rounds: Easy must read less decisive than Medium; Hard must find more charge runs. FAIL on any boost desync, unsafe burst, or reversed difficulty order.",
+            "ship1": null
+          },
           {
             "pri": "Medium",
             "item": "PERF-9CELL-1 — Intel Low 9-cell PERF sweep `[solo]`",
