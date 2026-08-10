@@ -347,6 +347,8 @@ let callbacks = {
   spawnTrashBurstRef: (pos, vel, count) => {},
   triggerLocalRamShakeRef: (intensity) => {},
   triggerLocalHitTakenRef: (_intensity, _isBoosting, _hitFromX, _hitFromZ) => {},
+  // * Remote NPC charge start (rising `ch` edge from host snapshots) — local loop SFX.
+  onRemoteNpcChargeStart: (cart) => {},
   // * Remote-cart boost start (rising edge from host snapshots) — attenuated SFX + pulse.
   onRemoteBoostStart: (cart, options) => {},
   // * Local-cart death teardown on the NON-host fall path (run-5: charge loop kept
@@ -633,6 +635,7 @@ export function registerGameCallbacks(deps) {
     triggerLocalHitTakenRef: (intensity, isBoosting, hitFromX, hitFromZ) => {
       deps.getTriggerLocalHitTaken?.()?.(intensity, isBoosting, hitFromX, hitFromZ);
     },
+    onRemoteNpcChargeStart: (cart) => deps.onRemoteNpcChargeStart?.(cart),
     onRemoteBoostStart: (cart, options) => deps.onRemoteBoostStart?.(cart, options),
     stopChargeSfxForCart: (cart) => deps.stopChargeSfxForCart?.(cart),
     onHopLandRef: (cart, intensity) => deps.onHopLand?.(cart, intensity),
@@ -1523,11 +1526,22 @@ export function applyCartState(cart, snap, options = {}) {
   cart._prevRemoteBoosting = Boolean(snap.b);
 
   if (typeof snap.ch === "boolean") {
+    const wasCharging = Boolean(cart.isChargingBoost);
+    const isRemoteNpc = !isHost
+      && cart.slotIndex !== strictSlotIndexForConn(youConnId)
+      && netSlots?.[cart.slotIndex]?.kind === "npc";
     cart.isChargingBoost = snap.ch;
     if (snap.ch && !cart.boostChargeStartedAtMs) {
       cart.boostChargeStartedAtMs = nowBoostMs;
+    }
+    if (snap.ch && !wasCharging && isRemoteNpc && GameState.getRoundState().phase === "running") {
+      callbacks.onRemoteNpcChargeStart(cart);
     } else if (!snap.ch) {
-      cart.boostChargeStartedAtMs = 0;
+      if (wasCharging && isRemoteNpc) {
+        callbacks.stopChargeSfxForCart(cart);
+      } else {
+        cart.boostChargeStartedAtMs = 0;
+      }
     }
   }
   if (typeof snap.bc === "boolean") {

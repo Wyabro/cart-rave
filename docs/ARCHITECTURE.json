@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-10T07:10:51.717Z",
-    "commit": "3d1e263"
+    "at": "2026-08-10T07:21:16.401Z",
+    "commit": "6a18aa1"
   },
-  "source_digest": "d92814b9",
+  "source_digest": "a6dbfe11",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -884,7 +884,7 @@
       }
     ],
     "next_actions": [
-      "NOW: NPC-BOOST-2 — restore visible NPC charged attacks and stop boost self-KOs. Code is local; QA/build and a new explicit ship authorization remain.",
+      "NOW: NPC-BOOST-2 Wave 2 — make NPC charge-ups audible to the host and Friends clients. Code is local; QA/build and a new explicit ship authorization remain.",
       "Playtest owed: NPC-BOOST-2-PT-1 [2pc] after deployment. The prior NPC-BOOST-PT-1 check is FAIL: Wyatt saw no NPC charge-ups and more NPC self-KOs. Open / REACHABLE: CARGO-LATCH-1.",
       "Open High: ONBOARD-ATTRACT-1 · ONBOARD-SIZE-1 · bloom (unblocked by ART-*).",
       "Playtest row left: SHARD-PT-2 (launch day, five humans)."
@@ -1134,7 +1134,7 @@
           {
             "pri": "High",
             "item": "NPC-BOOST-2 — restore visible NPC charged attacks and stop boost self-KOs",
-            "notes": "**Local, not deployed.** NPC-BOOST-PT-1 **FAILed** in Wyatt's production playtest: NPCs did not visibly charge and self-KOs rose. The repair widens charge selection to Easy/Medium/Hard 9–12m/20°, 8–12m/25°, and 7–12m/30°; it rejects the 18.9m boost launch runway at Classic, octagon, and square-hole hazards; and it sends charged-release mode to remote clients. QA/build and a fresh `ship it` remain.",
+            "notes": "**Local, not deployed.** NPC-BOOST-PT-1 **FAILed** in Wyatt's production playtest: NPCs did not visibly charge and self-KOs rose. The repair widens charge selection to Easy/Medium/Hard 9–12m/20°, 8–12m/25°, and 7–12m/30°; it rejects the 18.9m boost launch runway at Classic, octagon, and square-hole hazards; sends charged-release mode to remote clients; and plays the charge-up loop for the Solo host and Friends clients. QA/build and a fresh `ship it` remain.",
             "ship1": null
           },
           {
@@ -1204,7 +1204,7 @@
           {
             "pri": "High",
             "item": "NPC-BOOST-2-PT-1 — charged and instant NPC boosts `[2pc]`",
-            "notes": "**Blocked on a new deployment.** The prior NPC-BOOST-PT-1 is **FAIL**: no visible NPC charge-ups and more NPC self-KOs.<br>1. After deployment, hard-refresh a Solo round with three NPCs. PASS if each difficulty visibly produces charge-ups in safe attacks, with Easy least frequent and Hard most frequent.<br>2. In a Friends room, view the same NPC charge and release from both clients. PASS only if both show the charge telegraph and charged burst.<br>3. On Classic, drive NPCs near the outer rim and center hole; repeat on octagon and square-hole maps. PASS only if every unsafe charge cancels and every unsafe instant boost is skipped.<br>4. FAIL on any NPC boost self-KO, boost-state desync, or reversed difficulty order.",
+            "notes": "**Blocked on a new deployment.** The prior NPC-BOOST-PT-1 is **FAIL**: no visible NPC charge-ups and more NPC self-KOs.<br>1. After deployment, hard-refresh a Solo round with three NPCs. PASS if each difficulty visibly produces charge-ups in safe attacks, with Easy least frequent and Hard most frequent, and the host hears each charge loop.<br>2. In a Friends room, view the same NPC charge and release from both clients. PASS only if both show the charge telegraph, hear the charge loop, and show the charged burst.<br>3. On Classic, drive NPCs near the outer rim and center hole; repeat on octagon and square-hole maps. PASS only if every unsafe charge cancels and every unsafe instant boost is skipped.<br>4. FAIL on any NPC boost self-KO, missing charge sound, boost-state desync, or reversed difficulty order.",
             "ship1": null
           },
           {

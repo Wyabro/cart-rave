@@ -71,7 +71,7 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. **NOW:** **NPC-BOOST-2** — restore visible NPC charged attacks and stop boost self-KOs. Code is local; QA/build and a new explicit ship authorization remain.
+1. **NOW:** **NPC-BOOST-2 Wave 2** — make NPC charge-ups audible to the host and Friends clients. Code is local; QA/build and a new explicit ship authorization remain.
 2. **Playtest owed:** **NPC-BOOST-2-PT-1 [2pc]** after deployment. The prior NPC-BOOST-PT-1 check is **FAIL**: Wyatt saw no NPC charge-ups and more NPC self-KOs. **Open / REACHABLE:** CARGO-LATCH-1.
 3. **Open High:** ONBOARD-ATTRACT-1 · ONBOARD-SIZE-1 · bloom (unblocked by ART-*).
 4. **Playtest row left:** SHARD-PT-2 (launch day, five humans).

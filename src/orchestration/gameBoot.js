@@ -1075,6 +1075,7 @@ export function bootGameSystems(ctx) {
     getSpawnTrashBurstRef: () => refs.spawnTrashBurstRef,
     getTriggerLocalRamShake: () => triggerLocalRamShakeRef,
     getTriggerLocalHitTaken: () => triggerLocalHitTakenRef,
+    onRemoteNpcChargeStart: (remoteCart) => cart.startNpcChargeSfx(remoteCart),
     onRemoteBoostStart: (cart, options = {}) => {
       AudioManager.playSfx("boost", undefined, { volume: 0.45 });
       if (cart?.mesh) animateCartBoostPulse(cart.mesh);

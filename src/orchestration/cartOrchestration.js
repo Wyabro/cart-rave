@@ -596,6 +596,15 @@ function stopChargeSfxForCart(cart) {
 }
 
 /**
+ * Starts the local presentation loop for an NPC charge.
+ * Remote humans never use this path: their own client already owns its charge SFX.
+ */
+function startNpcChargeSfx(cart) {
+  if (!cart || cart.chargeUpSfxId != null) return;
+  cart.chargeUpSfxId = AudioManager.playSfx("chargeUp", undefined, { volume: 0.45 });
+}
+
+/**
  * Round-boundary sweep: stops any looping charge-up SFX on every cart. Charging
  * through the running→podium transition otherwise leaks the loop forever —
  * resetCartTransientState nulls chargeUpSfxId without stopping the sound, so the
@@ -857,6 +866,10 @@ function triggerRamBoost(cart, nowMs, opts = {}) {
       }
       // * Looping charge-up SFX; stopped on release / interrupt via onBoostRelease or respawn.
       cart.chargeUpSfxId = AudioManager.playSfx("chargeUp");
+    } else if (Netcode.getNetSlots()?.[cart.slotIndex]?.kind === "npc") {
+      // * Solo host has no incoming snapshot for its NPCs. Play the same local
+      // * presentation loop that non-host clients start from the `ch` wire edge.
+      startNpcChargeSfx(cart);
     }
     return;
   }
@@ -1303,6 +1316,7 @@ function maybeTriggerNpcOpportunisticHop(nowMs, npc) {
     onArenaKoFlash,
     triggerSpillNetcode,
     presentSpillBonusAward,
+    startNpcChargeSfx,
     stopChargeSfxForCart,
     stopAllChargeSfx,
     scheduleRespawn,

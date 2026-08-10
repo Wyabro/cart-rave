@@ -3,7 +3,7 @@
 // happy-dom environment: netcode.js transitively imports nipplejs, which touches
 // window at module scope.
 
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   __netcodeTestHooks as hooks,
   declashNpcSlotColors,
@@ -12,6 +12,7 @@ import {
   prunePendingInputs,
   getLatestSnap,
   applyCartState,
+  registerGameCallbacks,
   resetClientPredictionState,
   serializeCartToWire,
   slotsFingerprint,
@@ -19,6 +20,7 @@ import {
 } from "../src/netcode.js";
 import { resetReconciliationState } from "../src/gameLoop.js";
 import { CONFIG } from "../src/config.js";
+import * as GameState from "../src/gameState.js";
 import { MSG } from "../shared/protocol.js";
 import { encodeHostStateSnapshot, decodeHostStateSnapshot } from "../src/netcode/binary.js";
 
@@ -55,7 +57,11 @@ function mockCart(pose = {}) {
   };
 }
 
-beforeEach(() => hooks.resetNetState());
+beforeEach(() => {
+  hooks.resetNetState();
+  GameState.resetRoundToLobby();
+});
+afterEach(() => registerGameCallbacks({}));
 
 describe("bufferAuthoritativeState", () => {
   it("drops stale and duplicate sequence numbers", () => {
@@ -878,6 +884,42 @@ describe("binary snapshot dispatch (end-to-end into the buffer)", () => {
 });
 
 describe("applyCartState bounds validation", () => {
+  it("starts and stops the local charge loop for a remote NPC only once", () => {
+    const onRemoteNpcChargeStart = vi.fn();
+    const stopChargeSfxForCart = vi.fn((cart) => {
+      cart.chargeUpSfxId = null;
+      cart.isChargingBoost = false;
+      cart.boostChargeStartedAtMs = 0;
+    });
+    registerGameCallbacks({ onRemoteNpcChargeStart, stopChargeSfxForCart });
+    GameState.setRoundPhase("running");
+    hooks.setHostStateForTest({
+      isHost: false,
+      youConnId: "human-0",
+      netSlots: [
+        { slotId: 0, kind: "human", connId: "human-0" },
+        { slotId: 1, kind: "npc", connId: null },
+      ],
+    });
+    const npc = mockCart();
+    npc.slotIndex = 1;
+    npc.chargeUpSfxId = null;
+    npc.isChargingBoost = false;
+    npc.boostChargeStartedAtMs = 0;
+
+    const chargingSnap = {
+      p: [0, 0, 0], q: [0, 0, 0, 1], lv: [0, 0, 0], av: [0, 0, 0],
+      b: false, h: false, ch: true, bc: false, c: true, s: false,
+    };
+    applyCartState(npc, chargingSnap, { interpolate: false });
+    applyCartState(npc, chargingSnap, { interpolate: false });
+    expect(onRemoteNpcChargeStart).toHaveBeenCalledTimes(1);
+    expect(onRemoteNpcChargeStart).toHaveBeenCalledWith(npc);
+
+    applyCartState(npc, { ...chargingSnap, ch: false }, { interpolate: false });
+    expect(stopChargeSfxForCart).toHaveBeenCalledWith(npc);
+  });
+
   it("preserves charged release mode from a remote snapshot", () => {
     const cart = mockCart();
     cart.nitroStreakCharged = false;

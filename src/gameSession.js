@@ -258,6 +258,7 @@ export function buildNetcodeGameBridge(getContext, session, onFirstHello = null)
     getSpawnTrashBurstRef: () => getContext()?.getSpawnTrashBurstRef?.() ?? null,
     getTriggerLocalRamShake: () => getContext()?.getTriggerLocalRamShake?.() ?? null,
     getTriggerLocalHitTaken: () => getContext()?.getTriggerLocalHitTaken?.() ?? null,
+    onRemoteNpcChargeStart: (cart) => getContext()?.onRemoteNpcChargeStart?.(cart),
     onRemoteBoostStart: (cart, options) => getContext()?.onRemoteBoostStart?.(cart, options),
     stopChargeSfxForCart: (cart) => getContext()?.stopChargeSfxForCart?.(cart),
     // * MP-FX-1: non-host remote hop land thud/dust — registerGameCallbacks reads deps.onHopLand.
