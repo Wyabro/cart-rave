@@ -109,9 +109,11 @@ backup. Claude is **demoted** (do not design process around it; cancel path).
 
 ## SELF-IMPROVING LOOP
 
-When Wyatt starts a message with `loop:`, run the DeepSeek maker plus the Luna watcher and Sol
-rewriter workflow described in `.cursor/rules/self-improving-loop.mdc`. The first pass is always
-plan-only and stops at Wyatt's `ack`; `ship it` remains separate deployment authorization.
+When Wyatt starts a message with `loop:`, run the sequential three-model workflow described in
+`.cursor/rules/self-improving-loop.mdc`: DeepSeek-v4-flash maker, `gpt-5.6-luna` with high
+reasoning as Luna watcher, and `gpt-5.6-sol` with medium reasoning as Sol rewriter. The first pass
+is always plan-only and stops at Wyatt's `ack`; `ship it` remains separate deployment
+authorization.
 
 ## WHAT'S OFF-LIMITS
 

@@ -19,6 +19,7 @@ ENDPOINT = os.environ.get(
     "DEEPSEEK_PROXY_URL",
     "http://127.0.0.1:9000/v1/chat/completions",
 ).rstrip("/")
+RUN_RESULT = ROOT / ".agent" / "self-improving" / "run-result.md"
 MAX_TURNS = 24
 MAX_TOOL_OUTPUT = 30_000
 MAX_FILE_OUTPUT = 80_000
@@ -35,6 +36,11 @@ def _clip(value: object, limit: int = MAX_TOOL_OUTPUT) -> str:
     if len(text) <= limit:
         return text
     return text[:limit] + f"\n... output clipped at {limit} characters ..."
+
+
+def _save_run_result(value: object) -> None:
+    RUN_RESULT.parent.mkdir(parents=True, exist_ok=True)
+    RUN_RESULT.write_text(f"{str(value).rstrip()}\n", encoding="utf-8")
 
 
 def _safe_path(raw_path: str, *, allow_missing: bool = False) -> Path:
@@ -304,6 +310,8 @@ def main() -> int:
             tool_calls = message.get("tool_calls") or []
             if not tool_calls:
                 text = message.get("content") or ""
+                if role == "maker":
+                    _save_run_result(text)
                 if role == "checker":
                     lines = [line.strip() for line in str(text).splitlines() if line.strip()]
                     if not lines or not re.fullmatch(r"(?:APPROVE|REJECT|ESCALATE)(?::.*)?", lines[-1]):
