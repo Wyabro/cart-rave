@@ -20,7 +20,7 @@ vi.mock("../src/bootstrap.js", async (importOriginal) => ({
 // * happy-dom resolves import.meta.url against the page origin, not a file:// URL —
 // * vitest runs from the repo root, so read relative to cwd.
 const indexHtml = readFileSync(resolve(process.cwd(), "index.html"), "utf8");
-const menuCss = readFileSync(resolve(process.cwd(), "src/cart-rave-menu.css"), "utf8");
+const menuCss = readFileSync(resolve(process.cwd(), "src/ui/styles/cart-rave-menu.css"), "utf8");
 
 describe("the invite screen is gone", () => {
   it("index.html no longer ships #cr-friends-screen or its controls", () => {

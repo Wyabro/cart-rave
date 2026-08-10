@@ -28,7 +28,7 @@ import {
 import "./cart-rave-menu.js";
 import "./ui/styles/tokens.css";
 import "./ui/styles/stickers.css";
-import "./cart-rave-menu.css";
+import "./ui/styles/cart-rave-menu.css";
 import "./ui/styles/global.css";
 import * as THREE from "three";
 import {

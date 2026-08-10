@@ -24,7 +24,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { readFileSync } from "node:fs";
 
 // * happy-dom rewrites import.meta.url to a non-file scheme, so resolve from cwd.
-const css = readFileSync(`${process.cwd()}/src/cart-rave-menu.css`, "utf8");
+const css = readFileSync(`${process.cwd()}/src/ui/styles/cart-rave-menu.css`, "utf8");
 
 // * Overlay structure that matters: the selectors the fix targets are #cr-howto-screen
 // * and .cr-howto-page:focus-visible. Mirrors index.html's cr-howto-screen nesting.

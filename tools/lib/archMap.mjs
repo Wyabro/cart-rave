@@ -305,7 +305,7 @@ export const SYSTEMS = [
     entry: ["src/cart-rave-menu.js"],
     members: [
       "src/cart-rave-menu.js",
-      "src/cart-rave-menu.css",
+      "src/ui/styles/cart-rave-menu.css",
       "src/hud.js",
       "src/animations.js",
       "src/ui/",

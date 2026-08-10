@@ -29,7 +29,7 @@ import { readFileSync } from "node:fs";
 const read = (rel) => readFileSync(new URL(`../${rel}`, import.meta.url), "utf8");
 
 const menuJs = read("src/cart-rave-menu.js");
-const menuCss = read("src/cart-rave-menu.css");
+const menuCss = read("src/ui/styles/cart-rave-menu.css");
 
 /**
  * First z-index value declared after `selector` in `src`.

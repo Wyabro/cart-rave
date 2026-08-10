@@ -25,7 +25,7 @@ import { resolve } from "node:path";
 
 // * happy-dom resolves import.meta.url against the page origin, not a file:// URL —
 // * vitest runs from the repo root, so read relative to cwd (friendsJoinFlow pattern).
-const menuCss = readFileSync(resolve(process.cwd(), "src/cart-rave-menu.css"), "utf8");
+const menuCss = readFileSync(resolve(process.cwd(), "src/ui/styles/cart-rave-menu.css"), "utf8");
 const resultsCss = readFileSync(resolve(process.cwd(), "src/ui/styles/results.css"), "utf8");
 
 // * Minimal CSS block walker — every style rule with its enclosing @media query (null for
