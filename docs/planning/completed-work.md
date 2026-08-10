@@ -2,7 +2,7 @@
 
 > Historical log. Past entries may still say "Cart Rave" / `next-level` — that is intentional. Living naming rules: [brand.md](../brand.md).
 
-**Last Updated:** August 9, 2026
+**Last Updated:** August 10, 2026
 
 > **This doc = the past** — the single home for historical/completed items. For what works
 > *today* see [project-state.md](./project-state.md); for forward plans see [ROADMAP.md](./ROADMAP.md).
@@ -10,6 +10,22 @@
 Chronological record of shipped work, newest first.
 
 > **Convention:** As items ship, move their completed writeup here (out of ROADMAP.md / project-state.md).
+
+---
+
+### August 10, 2026 — FRIENDS-JOIN-LAYOUT-1 PASS: room-code controls below CART NAME
+
+- *(UI / UX · Low)* **FRIENDS-JOIN-LAYOUT-1** — ✅ **CLOSED PASS 08-10** (layout
+  `6301ca1`, GO badge style `6b02e54`, Wyatt production visual PASS on build `f513d84`).
+  The existing room-code input, GO button, and inline error now sit directly below the cart-name
+  panel in desktop and stacked mobile order. The desktop right rail reserves a flexible slot for
+  the cart preview: it stays visible without intersection at 1440×900 and releases the canvas
+  below its 240×180 mount gate at 1280×720 instead of overlapping the join or context controls.
+  The GO button now uses the same magenta, ink, Russo One, and heavy-label treatment as the NEW
+  badge beside CHALLENGES. Local browser coverage passed at 1440×900, 1280×720, 390×844, and
+  740×360, including invalid-code error expansion. Focused tests passed 13/13; full QA passed
+  7/7 on the deployed HEAD; production HTML and all 25 referenced hashed assets returned 200.
+  Join behavior and netcode did not change.
 
 ---
 

@@ -71,7 +71,7 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. **NOW:** **FRIENDS-JOIN-LAYOUT-1** — implemented locally; explicit ship + Wyatt production visual PASS remain.
+1. **NOW:** No active card — wait for Wyatt.
 2. **Playtest owed:** **NPC-BOOST-PT-1 [2pc]** on deployed Worker `4e4fd25a-452b-40b6-adb8-c8e1c41d6bde`. **Open / REACHABLE:** CARGO-LATCH-1.
 3. **Open High:** ONBOARD-ATTRACT-1 · ONBOARD-SIZE-1 · bloom (unblocked by ART-*).
 4. **Playtest row left:** SHARD-PT-2 (launch day, five humans).
@@ -83,7 +83,6 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 
 | ID | Issue | Status |
 |----|--------|--------|
-| FRIENDS-JOIN-LAYOUT-1 | Room-code controls below CART NAME on desktop/mobile | 🚧 implemented locally; ship + production visual PASS remain |
 | WARM-SOLO-1 | Solo post-`carts-ready` stall (WARM-IGPU residual) | 📋 telemetry-gated — [warm-igpu-1.md](./planning/warm-igpu-1.md) |
 | CARGO-LATCH-1 | `cargoLoad.js` repeats the FIX-DIRPAUSE latch bug | 📋 **REACHABLE 08-07** — fix+playtest next wave. [BACKLOG § Engineering](./planning/BACKLOG.md). |
 | BRAND-1 | Domain / Worker cutover | 🧊 frozen until deliberate cutover ([brand.md](./brand.md)) |
