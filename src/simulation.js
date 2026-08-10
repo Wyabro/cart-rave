@@ -2082,6 +2082,23 @@ export function boostSegmentExitsOctagon(ax, az, bx, bz, marginM = 1.25) {
 }
 
 /**
+ * Classic Record is a circular floor, not an octagon. Keep its boost runway check
+ * separate so callers do not accidentally treat the missing octagon hazards as safe.
+ * @param {number} ax Bot X.
+ * @param {number} az Bot Z.
+ * @param {number} bx Runway-end X.
+ * @param {number} bz Runway-end Z.
+ * @param {number} [marginM=1.25] Inset from the outer death rim (meters).
+ * @returns {boolean}
+ */
+export function boostSegmentExitsClassicDisc(ax, az, bx, bz, marginM = 1.25) {
+  if (_levelHazards || _octagonHazards || CONFIG.record.centerHole?.enabled === false) return false;
+  const margin = Number.isFinite(marginM) ? marginM : 1.25;
+  const safeRadius = CONFIG.record.radius - margin;
+  return Math.hypot(ax, az) > safeRadius || Math.hypot(bx, bz) > safeRadius;
+}
+
+/**
  * Sundial "near the kill rim" band, meters in from the octagon apothem. One
  * constant for BOTH the steering push (applyOctagonRimAvoidance) and the
  * inward escape-commit trigger — these drifted apart during AI-3 (5.25 vs 5.0)

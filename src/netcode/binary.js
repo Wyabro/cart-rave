@@ -114,6 +114,9 @@ export function encodeHostStateSnapshot(state) {
     if (c.c) flags |= 4;
     if (c.s) flags |= 8;
     if (c.ch) flags |= 16;
+    // * NPC-BOOST-2: charged release needs its own bit. `ch` is already false
+    // * when the burst begins, so it cannot tell remote clients which FX to show.
+    if (c.bc) flags |= 32;
     view.setUint8(offset, flags); offset += 1;
     // * Padding[0] = life cargo points (CARGO-WT-1); remaining two bytes reserved.
     const lc = Math.max(0, Math.min(255, Number(c.lc) || 0)) | 0;
@@ -159,6 +162,7 @@ function nextDecodeRingEntry() {
         c: false,
         s: false,
         ch: false,
+        bc: false,
         lc: 0,
       });
     }
@@ -265,6 +269,7 @@ export function decodeHostStateSnapshot(buffer) {
     cart.c = (flags & 4) === 4;
     cart.s = (flags & 8) === 8;
     cart.ch = (flags & 16) === 16;
+    cart.bc = (flags & 32) === 32;
     cart.lc = lc;
     carts.push(cart);
   }

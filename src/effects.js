@@ -2688,8 +2688,8 @@ function spawnRamBoostStreakForCart(cart, birthMs, variant = {}) {
   const t = cart.body.translation();
   ramBoostStreakScratchOrigin.set(t.x, t.y, t.z);
 
-  // * Charged (human charge-release): energy shader + gold filaments + intensity.
-  // * Instant/NPC: simple solid cart afterimage (different look on purpose).
+  // * Charged release (human or NPC): energy shader + gold filaments + intensity.
+  // * Instant boost: simple solid cart afterimage (different look on purpose).
   const charged = cart.nitroStreakCharged === true;
   const chargeMul = charged
     ? clamp(Number(cart.boostChargeMultiplier) || 1, 0, 1)

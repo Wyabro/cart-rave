@@ -50,7 +50,7 @@ const _slerpQuatOut = [0, 0, 0, 0];
 /** Scratch pair result for findSnapshotPair — callers must destructure/consume before the next call. */
 const _snapshotPairScratch = { before: null, after: null, beforeIndex: -1 };
 /** Scratch cart snapshot (extrapolation/passthrough/interpolation) — avoids a fresh object alloc per cart per frame. */
-const _cartSnapScratch = { p: null, q: null, lv: null, av: null, b: undefined, h: undefined, ch: undefined, c: undefined, s: undefined, lc: undefined };
+const _cartSnapScratch = { p: null, q: null, lv: null, av: null, b: undefined, h: undefined, ch: undefined, bc: undefined, c: undefined, s: undefined, lc: undefined };
 const _cartSnapPosOut = [0, 0, 0];
 
 /** Copies a cart snapshot's fields into a scratch object (avoids a `{...snap}` alloc). */
@@ -62,6 +62,7 @@ function copyCartSnapIntoScratch(scratch, snap) {
   scratch.b = snap.b;
   scratch.h = snap.h;
   scratch.ch = snap.ch;
+  scratch.bc = snap.bc;
   scratch.c = snap.c;
   scratch.s = snap.s;
   scratch.lc = snap.lc;
@@ -347,7 +348,7 @@ let callbacks = {
   triggerLocalRamShakeRef: (intensity) => {},
   triggerLocalHitTakenRef: (_intensity, _isBoosting, _hitFromX, _hitFromZ) => {},
   // * Remote-cart boost start (rising edge from host snapshots) — attenuated SFX + pulse.
-  onRemoteBoostStart: (cart) => {},
+  onRemoteBoostStart: (cart, options) => {},
   // * Local-cart death teardown on the NON-host fall path (run-5: charge loop kept
   // * repeating after death — host-side scheduleRespawn stops it, this path must too).
   stopChargeSfxForCart: (cart) => {},
@@ -632,7 +633,7 @@ export function registerGameCallbacks(deps) {
     triggerLocalHitTakenRef: (intensity, isBoosting, hitFromX, hitFromZ) => {
       deps.getTriggerLocalHitTaken?.()?.(intensity, isBoosting, hitFromX, hitFromZ);
     },
-    onRemoteBoostStart: (cart) => deps.onRemoteBoostStart?.(cart),
+    onRemoteBoostStart: (cart, options) => deps.onRemoteBoostStart?.(cart, options),
     stopChargeSfxForCart: (cart) => deps.stopChargeSfxForCart?.(cart),
     onHopLandRef: (cart, intensity) => deps.onHopLand?.(cart, intensity),
     onCartImpactSquashRef: (rammerCart, victimCart, intensity) => {
@@ -1423,6 +1424,7 @@ function writeInterpolatedRemoteTargets(cart, b, a, alpha) {
   _cartSnapScratch.b = a.b ?? b.b;
   _cartSnapScratch.h = a.h ?? b.h;
   _cartSnapScratch.ch = a.ch ?? b.ch;
+  _cartSnapScratch.bc = a.bc ?? b.bc;
   _cartSnapScratch.c = a.c ?? b.c;
   _cartSnapScratch.s = a.s ?? b.s;
   _cartSnapScratch.lc = a.lc ?? b.lc;
@@ -1514,7 +1516,7 @@ export function applyCartState(cart, snap, options = {}) {
       Number(cart.ramBoostActiveUntilMs) || 0,
       nowBoostMs + boostWindowMs,
     );
-    callbacks.onRemoteBoostStart(cart);
+    callbacks.onRemoteBoostStart(cart, { charged: Boolean(snap.bc) });
   }
   cart.isRamBoosting = snap.b;
   cart.isBoosting = snap.b;
@@ -1527,6 +1529,10 @@ export function applyCartState(cart, snap, options = {}) {
     } else if (!snap.ch) {
       cart.boostChargeStartedAtMs = 0;
     }
+  }
+  if (typeof snap.bc === "boolean") {
+    cart.nitroStreakCharged = snap.bc;
+    cart.boostChargeMultiplier = snap.bc ? 1 : 0;
   }
 
   if (snap.h && !cart._prevRemoteHopping) {
@@ -2140,6 +2146,8 @@ export function serializeCartToWire(c) {
     b: isBoosting,
     h: isHopping,
     ch: Boolean(c.isChargingBoost),
+    // * Carries the release mode while `b` is true; charge state is false by then.
+    bc: Boolean(c.nitroStreakCharged),
     c: c.cargoBay ? Boolean(c.cargoBay.visible) : true,
     s: Boolean(c.hasSpilled),
     lc: Math.max(0, Math.min(255, Number(c.lifeCargoPoints) || 0)) | 0,

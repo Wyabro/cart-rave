@@ -562,6 +562,7 @@ describe("Binary snapshot serialization", () => {
           b: true,
           h: false,
           ch: true,
+          bc: true,
           c: true,
           s: false,
         },
@@ -621,6 +622,7 @@ describe("Binary snapshot serialization", () => {
     expect(decoded.carts[0].b).toBe(true);
     expect(decoded.carts[0].h).toBe(false);
     expect(decoded.carts[0].ch).toBe(true);
+    expect(decoded.carts[0].bc).toBe(true);
     expect(decoded.carts[0].c).toBe(true);
     expect(decoded.carts[0].s).toBe(false);
 
@@ -661,12 +663,20 @@ describe("Binary snapshot serialization", () => {
     };
     expect(serializeCartToWire(idle)?.b).toBe(false);
     expect(serializeCartToWire(idle)?.ch).toBe(false);
+    expect(serializeCartToWire(idle)?.bc).toBe(false);
 
     const charging = {
       ...idle,
       isChargingBoost: true,
     };
     expect(serializeCartToWire(charging)?.ch).toBe(true);
+
+    const chargedRelease = {
+      ...idle,
+      ramBoostActiveUntilMs: performance.now() + 500,
+      nitroStreakCharged: true,
+    };
+    expect(serializeCartToWire(chargedRelease)?.bc).toBe(true);
 
     const boosting = {
       ...idle,
@@ -868,6 +878,20 @@ describe("binary snapshot dispatch (end-to-end into the buffer)", () => {
 });
 
 describe("applyCartState bounds validation", () => {
+  it("preserves charged release mode from a remote snapshot", () => {
+    const cart = mockCart();
+    cart.nitroStreakCharged = false;
+    cart.boostChargeMultiplier = 0;
+
+    applyCartState(cart, {
+      p: [0, 0, 0], q: [0, 0, 0, 1], lv: [0, 0, 0], av: [0, 0, 0],
+      b: true, h: false, ch: false, bc: true, c: true, s: false,
+    }, { interpolate: false });
+
+    expect(cart.nitroStreakCharged).toBe(true);
+    expect(cart.boostChargeMultiplier).toBe(1);
+  });
+
   it("rejects non-finite values from updating physics body and net targets", () => {
     const cart = mockCart({
       t: { x: 10, y: 11, z: 12 },

@@ -1031,14 +1031,36 @@ function npcBoostCooldownMs() {
   return GameState.getRoundState()?.isSuddenDeath ? rb.cooldownSec * 500 : rb.cooldownSec * 1000;
 }
 
+/**
+ * Returns a conservative target point for the dangerous opening of an NPC boost.
+ * The cart keeps steering after this point, but six metres was too short to stop an
+ * escape/recovery boost from entering a death rim before the AI could turn back.
+ */
+function npcBoostRunwayEndpoint(from, to) {
+  const dx = to.x - from.x;
+  const dz = to.z - from.z;
+  const distance = Math.hypot(dx, dz);
+  if (distance < 1e-6) return null;
+  // * About 0.7 s at boosted top speed: long enough to cover the launch danger,
+  // * short enough that an inward attack on the 26.4 m Classic floor remains valid.
+  const runwayM = Math.max(12, Math.min(20, CONFIG.cart.ramBoost.boostedMaxSpeed * 0.7));
+  const runDistance = Math.max(distance, runwayM);
+  return {
+    x: from.x + (dx / distance) * runDistance,
+    z: from.z + (dz / distance) * runDistance,
+  };
+}
+
 function npcBoostPathIsUnsafe(from, to) {
-  if (Simulation.findBlockingSquareHole(from.x, from.z, to.x, to.z, 0.6)) return true;
+  const runwayEnd = npcBoostRunwayEndpoint(from, to);
+  if (!runwayEnd) return true;
+  if (Simulation.findBlockingSquareHole(from.x, from.z, runwayEnd.x, runwayEnd.z, 0.6)) return true;
 
   if (CONFIG.record.centerHole?.enabled !== false) {
     const holeLip = CONFIG.record.innerRadius + (CONFIG.record.physics?.holeClearance ?? 0.45);
     const minClear = holeLip + 1.5;
-    const abX = to.x - from.x;
-    const abZ = to.z - from.z;
+    const abX = runwayEnd.x - from.x;
+    const abZ = runwayEnd.z - from.z;
     const abLenSq = abX * abX + abZ * abZ;
     if (abLenSq > 1e-8) {
       const t = clamp((-from.x * abX - from.z * abZ) / abLenSq, 0, 1);
@@ -1048,7 +1070,10 @@ function npcBoostPathIsUnsafe(from, to) {
     }
   }
 
-  return Boolean(Simulation.boostSegmentExitsOctagon?.(from.x, from.z, to.x, to.z, 1.25));
+  return Boolean(
+    Simulation.boostSegmentExitsClassicDisc?.(from.x, from.z, runwayEnd.x, runwayEnd.z, 1.25)
+    || Simulation.boostSegmentExitsOctagon?.(from.x, from.z, runwayEnd.x, runwayEnd.z, 1.25),
+  );
 }
 
 function npcAimAngleDeg(npc, targetPos) {

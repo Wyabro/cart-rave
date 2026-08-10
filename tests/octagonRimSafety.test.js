@@ -5,6 +5,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
   computeOctagonRimStrength,
+  boostSegmentExitsClassicDisc,
   boostSegmentExitsOctagon,
   isOctagonArenaActive,
   setLevelHazards,
@@ -108,5 +109,21 @@ describe("boostSegmentExitsOctagon", () => {
     const px = 25.2;
     expect(boostSegmentExitsOctagon(0, 0, px, 0, 1.0)).toBe(false);
     expect(boostSegmentExitsOctagon(0, 0, px, 0, 1.5)).toBe(true);
+  });
+});
+
+describe("boostSegmentExitsClassicDisc", () => {
+  afterEach(() => setLevelHazards(null));
+
+  it("rejects a boost runway that crosses the Classic outer death rim", () => {
+    setLevelHazards(null);
+    expect(boostSegmentExitsClassicDisc(12, 0, 26, 0, 1.25)).toBe(true);
+  });
+
+  it("allows an inward Classic runway and no-ops for an octagon arena", () => {
+    setLevelHazards(null);
+    expect(boostSegmentExitsClassicDisc(12, 0, -6, 0, 1.25)).toBe(false);
+    registerOctagon();
+    expect(boostSegmentExitsClassicDisc(12, 0, 26, 0, 1.25)).toBe(false);
   });
 });

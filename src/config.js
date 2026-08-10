@@ -170,7 +170,7 @@ const physics = {
 
       // * Auto-Charge Boost — tap to charge, auto-releases at full charge.
       // * Replaces the instant nitro for human carts (mobile-friendly one-tap flow).
-      // * NPCs keep instant boost via the instant flag on triggerRamBoost.
+      // * NPC attacks may charge for a committed hit; chase / recovery can request instant boost.
       boostCharge: {
         enabled: true, // bool — master toggle for the charge mechanic
         boostChargeTimeMs: 1500, // ms — full charge duration before auto-release

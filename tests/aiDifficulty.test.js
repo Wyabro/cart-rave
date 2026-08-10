@@ -138,15 +138,16 @@ describe("aiDifficulty", () => {
   });
 
   it("NPC charged-attack envelopes widen Easy < Medium < Hard without changing boost physics", () => {
-    expect(getNpcChargedAttackEnvelope("easy")).toEqual({ minDistance: 9, maxDistance: 12, maxAngleDeg: 12 });
-    expect(getNpcChargedAttackEnvelope("medium")).toEqual({ minDistance: 8, maxDistance: 12, maxAngleDeg: 16 });
-    expect(getNpcChargedAttackEnvelope("hard")).toEqual({ minDistance: 7, maxDistance: 12, maxAngleDeg: 20 });
+    expect(getNpcChargedAttackEnvelope("easy")).toEqual({ minDistance: 9, maxDistance: 12, maxAngleDeg: 20 });
+    expect(getNpcChargedAttackEnvelope("medium")).toEqual({ minDistance: 8, maxDistance: 12, maxAngleDeg: 25 });
+    expect(getNpcChargedAttackEnvelope("hard")).toEqual({ minDistance: 7, maxDistance: 12, maxAngleDeg: 30 });
 
     expect(resolveNpcBoostMode(8, 15, "easy")).toBe("instant");
     expect(resolveNpcBoostMode(8, 15, "medium")).toBe("charge");
     expect(resolveNpcBoostMode(8, 15, "hard")).toBe("charge");
-    expect(resolveNpcBoostMode(7, 19, "hard")).toBe("charge");
-    expect(resolveNpcBoostMode(7, 21, "hard")).toBe("instant");
+    expect(resolveNpcBoostMode(9, 19, "easy")).toBe("charge");
+    expect(resolveNpcBoostMode(7, 29, "hard")).toBe("charge");
+    expect(resolveNpcBoostMode(7, 31, "hard")).toBe("instant");
   });
 
   it("applyEdgeChaseWeights raises hunt weight on the lip; Easy mul is a no-op", () => {

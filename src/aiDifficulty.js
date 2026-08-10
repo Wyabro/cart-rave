@@ -47,9 +47,12 @@ const EDGE_CHASE_WEIGHT_MUL = Object.freeze({
  * @type {Readonly<Record<AiDifficulty, Readonly<{ minDistance: number, maxDistance: number, maxAngleDeg: number }>>>}
  */
 const NPC_CHARGED_ATTACK_ENVELOPES = Object.freeze({
-  easy: Object.freeze({ minDistance: 9, maxDistance: 12, maxAngleDeg: 12 }),
-  medium: Object.freeze({ minDistance: 8, maxDistance: 12, maxAngleDeg: 16 }),
-  hard: Object.freeze({ minDistance: 7, maxDistance: 12, maxAngleDeg: 20 }),
+  // * NPC-BOOST-2: the first windows were so narrow that a charge almost never
+  // * began in a real round. Easy still needs more runway and cleaner aim, while
+  // * Medium / Hard recognise progressively more safe attack opportunities.
+  easy: Object.freeze({ minDistance: 9, maxDistance: 12, maxAngleDeg: 20 }),
+  medium: Object.freeze({ minDistance: 8, maxDistance: 12, maxAngleDeg: 25 }),
+  hard: Object.freeze({ minDistance: 7, maxDistance: 12, maxAngleDeg: 30 }),
 });
 
 /** Max humanWeight add when edgeBias=1 and mul=1 (Hard on the lip). */

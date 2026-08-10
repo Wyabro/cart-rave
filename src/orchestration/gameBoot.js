@@ -1075,15 +1075,13 @@ export function bootGameSystems(ctx) {
     getSpawnTrashBurstRef: () => refs.spawnTrashBurstRef,
     getTriggerLocalRamShake: () => triggerLocalRamShakeRef,
     getTriggerLocalHitTaken: () => triggerLocalHitTakenRef,
-    onRemoteBoostStart: (cart) => {
+    onRemoteBoostStart: (cart, options = {}) => {
       AudioManager.playSfx("boost", undefined, { volume: 0.45 });
       if (cart?.mesh) animateCartBoostPulse(cart.mesh);
-      // * Humans use charge-release (gold energy); NPCs use instant (simple cart trail).
-      const kind = Netcode.getNetSlots()?.[cart?.slotIndex]?.kind;
       if (cart) {
-        const charged = kind !== "npc";
+        const charged = Boolean(options.charged);
         cart.nitroStreakCharged = charged;
-        // * Remotes don't carry chargeMul — full charged look for human peers.
+        // * The host carries release mode in snapshots; remotes do not infer it from slot kind.
         cart.boostChargeMultiplier = charged ? 1 : 0;
       }
     },
