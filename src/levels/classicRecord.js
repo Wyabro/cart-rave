@@ -1,6 +1,6 @@
 // classicRecord.js — Classic Record vinyl arena (current default level)
 
-import { initArena } from "../arena.js";
+import { initArena } from "./arena.js";
 
 /**
  * Builds the Classic Record dancefloor arena: vinyl record mesh, physics ring,

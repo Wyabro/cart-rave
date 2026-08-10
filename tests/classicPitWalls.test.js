@@ -18,7 +18,7 @@ import { readFileSync } from "node:fs";
 // tests/spawnRing.test.js, and it exists because the rule is one chained call that is trivially
 // dropped when a collider is edited later.
 
-const src = readFileSync(new URL("../src/arena.js", import.meta.url), "utf8");
+const src = readFileSync(new URL("../src/levels/arena.js", import.meta.url), "utf8");
 const MIN_RULE = "setFrictionCombineRule(RAPIER.CoefficientCombineRule.Min)";
 
 /** Source between two unique anchors, so the slice does not drift as the file is edited. */

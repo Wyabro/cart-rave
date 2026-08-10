@@ -20,7 +20,7 @@ import { sideWeightsFromCartBasis } from "../utils/edgeDanger.js";
 import { animateCartBoostPulse, animateCartImpactSquash } from "../animations.js";
 import { flashBoostActivate } from "../touchControls.js";
 import { spawnKoWorldHitmarker } from "../effects/koHitmarkerFx.js";
-import { getArenaKoPresentationProfile, triggerArenaKoFlash } from "../arenaReactiveLights.js";
+import { getArenaKoPresentationProfile, triggerArenaKoFlash } from "../levels/arenaReactiveLights.js";
 import { getNpcPersonality, PERSONALITY_META } from "../npcNames.js";
 import { cargoFillLevelFor, cargoTierFor } from "../cargoLoad.js";
 import {

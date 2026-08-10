@@ -11,7 +11,7 @@ import { CONFIG } from "./config.js";
 import { clamp } from "./utils.js";
 import { getQualityKnobs } from "./utils/qualityTiers.js";
 import { createPhysicalMaterial } from "./scene.js";
-import { sampleArenaReactive } from "./arenaReactiveLights.js";
+import { sampleArenaReactive } from "./levels/arenaReactiveLights.js";
 import { mergeStaticMeshesByMaterial } from "./utils/mergeStaticMeshes.js";
 import { registerMirrorExclude } from "./utils/cheapMirror.js";
 import { applySceneAblation } from "./utils/debugParams.js";

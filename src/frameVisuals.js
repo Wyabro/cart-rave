@@ -16,7 +16,7 @@ import { updateCargoLoad } from "./cargoLoad.js";
 import { updateDirectiveEngine, getActiveDirective } from "./directives/directiveEngine.js";
 import { updateWaterDeathFx } from "./effects/waterDeathFx.js";
 import { updateKoHitmarkers } from "./effects/koHitmarkerFx.js";
-import { setArenaReactiveLeaderHex, setArenaSuddenDeathMode } from "./arenaReactiveLights.js";
+import { setArenaReactiveLeaderHex, setArenaSuddenDeathMode } from "./levels/arenaReactiveLights.js";
 import { tickAutoQuality } from "./utils/autoQuality.js";
 import { tickBlackFrameMonitor } from "./utils/blackFrameMonitor.js";
 import { frameBudgetAllow } from "./utils/frameBudget.js";

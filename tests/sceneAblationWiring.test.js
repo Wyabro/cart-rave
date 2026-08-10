@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
 
 const read = (rel) => readFileSync(new URL(rel, import.meta.url), "utf8");
 const effectsSrc = read("../src/effects.js");
-const arenaSrc = read("../src/arena.js");
+const arenaSrc = read("../src/levels/arena.js");
 // * BUNDLE-1 Lever B: initLevelManager's deps moved into orchestration/gameBoot.js.
 const mainSrc = read("../src/orchestration/gameBoot.js");
 
@@ -97,7 +97,7 @@ describe("scene ablation — arena.js pit lights", () => {
 
   it("reuses the existing debugParams import rather than adding a module edge", () => {
     expect(arenaSrc).toMatch(
-      /import \{ getDebugParams, applySceneAblation \} from "\.\/utils\/debugParams\.js";/,
+      /import \{ getDebugParams, applySceneAblation \} from "\.\.\/utils\/debugParams\.js";/,
     );
   });
 });

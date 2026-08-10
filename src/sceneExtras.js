@@ -6,7 +6,7 @@
 
 import * as THREE from "three";
 import { CONFIG, CART_COLORS } from "./config.js";
-import { sampleArenaReactive } from "./arenaReactiveLights.js";
+import { sampleArenaReactive } from "./levels/arenaReactiveLights.js";
 import { isLowQualityMode } from "./utils.js";
 
 /** Slow sky yaw (rad/s) — full turn ~7 min; reads as living void without spinning hard. */

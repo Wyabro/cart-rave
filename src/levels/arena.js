@@ -3,15 +3,15 @@
 import * as THREE from "three";
 import { Reflector } from "three/examples/jsm/objects/Reflector.js";
 import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import { RAPIER } from "./physics/rapierInstance.js";
-import { setShatterEnvironment } from "./cartShatter.js";
-import { createPhysicalMaterial, getMaterialEnvMapIntensity } from "./scene.js";
-import { isLowQualityMode } from "./utils.js";
+import { RAPIER } from "../physics/rapierInstance.js";
+import { setShatterEnvironment } from "../cartShatter.js";
+import { createPhysicalMaterial, getMaterialEnvMapIntensity } from "../scene.js";
+import { isLowQualityMode } from "../utils.js";
 import { sampleArenaReactive } from "./arenaReactiveLights.js";
-import { mergeStaticMeshesByMaterial } from "./utils/mergeStaticMeshes.js";
-import { installCheapMirrorPass } from "./utils/cheapMirror.js";
-import { getDebugParams, applySceneAblation } from "./utils/debugParams.js";
-import { getQualityKnobs } from "./utils/qualityTiers.js";
+import { mergeStaticMeshesByMaterial } from "../utils/mergeStaticMeshes.js";
+import { installCheapMirrorPass } from "../utils/cheapMirror.js";
+import { getDebugParams, applySceneAblation } from "../utils/debugParams.js";
+import { getQualityKnobs } from "../utils/qualityTiers.js";
 
 // * Play-time Reflector RT. Was 1024² (Pass 2 isolation: Reflector ≈ 60% of Classic High
 // * GPU). 512² is a 4× bandwidth cut; cart/booth silhouettes still read on the vinyl at
@@ -1564,7 +1564,7 @@ function buildBooths(scene, world, config, boothNeonMeshes, boothColliderHandles
  *   boothNeonMeshes: THREE.Mesh[],
  *   spindleLight: THREE.PointLight,
  *   pitInnerRadius: number,
- *   applyQualityTier: (knobs: import("./utils/qualityTiers.js").QualityKnobs) => void,
+ *   applyQualityTier: (knobs: import("../utils/qualityTiers.js").QualityKnobs) => void,
  *   dispose: () => void,
  * }}
  */
@@ -2860,7 +2860,7 @@ export function initArena(scene, world, config, options = {}) {
    *
    * Safe to call repeatedly — main.js calls it after every level load and on every live tier
    * change (the `levelApplyQualityTier` hook).
-   * @param {import("./utils/qualityTiers.js").QualityKnobs} knobs
+   * @param {import("../utils/qualityTiers.js").QualityKnobs} knobs
    */
   function applyQualityTier(knobs) {
     const on = knobs.arenaFillLights;

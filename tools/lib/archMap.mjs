@@ -212,8 +212,8 @@ export const SYSTEMS = [
     entry: ["src/levelManager.js"],
     members: [
       "src/levelManager.js",
-      "src/arena.js",
-      "src/arenaReactiveLights.js",
+      "src/levels/arena.js",
+      "src/levels/arenaReactiveLights.js",
       "src/sceneExtras.js",
       "src/levels/",
     ],

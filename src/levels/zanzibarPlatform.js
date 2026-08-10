@@ -31,7 +31,7 @@ import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUti
 // * deliberately never reads `accentColor` — that is the cycling hue driving arena.js's
 // * spindle and effects.js's crowd glow, and Sundial's whole palette is a fixed amber dusk.
 // * arena.js:2753 copies accentColor onto its spindle; that is the line NOT to copy here.
-import { sampleArenaReactive } from "../arenaReactiveLights.js";
+import { sampleArenaReactive } from "./arenaReactiveLights.js";
 import { CONFIG } from "../config.js";
 import { createStaticContactShadowCluster } from "../contactShadows.js";
 import { setWaterDeathEnvironment } from "../effects/waterDeathFx.js";

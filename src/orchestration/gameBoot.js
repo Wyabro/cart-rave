@@ -120,7 +120,7 @@ import {
 import { cleanupSuddenDeathState, updateGameFlow } from "../gameFlow.js";
 import { getRoundClockNowMs } from "../roundClock.js";
 import { ROUND_DURATION_MS } from "../../shared/roundConstants.js";
-import { sampleArenaReactive } from "../arenaReactiveLights.js";
+import { sampleArenaReactive } from "../levels/arenaReactiveLights.js";
 import { updateLevelLod } from "../utils/levelLod.js";
 import { beginFrameBudget, frameBudgetAllow } from "../utils/frameBudget.js";
 import {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getArenaKoPresentationProfile } from "../src/arenaReactiveLights.js";
+import { getArenaKoPresentationProfile } from "../src/levels/arenaReactiveLights.js";
 
 describe("getArenaKoPresentationProfile", () => {
   it("makes a critical KO stronger than a normal KO", () => {
