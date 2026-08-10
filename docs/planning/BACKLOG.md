@@ -59,7 +59,7 @@ way the Block table still can.)*
 | Block | State | Next action |
 |-------|-------|-------------|
 | **1** — NOW (player-facing correctness) | ⬜ no open cards | → Block 2 (**NPC-BOOST-1**) |
-| **2** — PRE-SHIP (before public post) | 🟡 queued | NPC-BOOST-1 (local, needs ship + [2pc]) |
+| **2** — PRE-SHIP (before public post) | 🟡 queued | NPC-BOOST-1 (deployed, needs [2pc]) |
 | **3** — WYATT LANE (blocked on you) | 👤 ongoing | HIT-SFX-VAR-1 clips · ANNOUNCER-RERECORD-1 · BLOOM-SIGNOFF-1 · DEFEAT-READ-1 · SKYBOX-DIR-1 · CARGO-BAY-INSTANCE-1 stability · SHIP-1 D-tier cut/keep |
 | **4** — PERF RESIDUAL (measure-first) | 🟡 queued | CARGO-BAY-INSTANCE-1 · PROBE-WARM-RT-1 · WARM-SOLO-1 · PERF-WATCH-1 · PERF-TIER-1 · Customize perf |
 | **5** — SWEEP (cheap Lows) | 🟡 queued | CAPTURE-RING-LIMIT-1 · BOOTH-RAIL-COL-1 · SUNDIAL-LOW-WATER-1 · main-menu SFX · UI-SCALE-P2-MEDIA-1 · ORIENT-HINT-SCROLL-1 |
@@ -164,8 +164,8 @@ Next work is Block 2. This line is an index, not a claim about the game: file a 
 moment a player-facing correctness bug turns up.)*
 
 **Block 2 — PRE-SHIP (should land before the public post).** Best-first among open Medium pre-ship work.
-1. **NPC-BOOST-1** — local implementation; needs ship, then Wyatt [2pc] playtest.
-2. **AI-EASY-SOFTEN-1** — local implementation: Easy decisions 10% slower only; needs ship and playtest with NPC-BOOST-1.
+1. **NPC-BOOST-1** — deployed; needs Wyatt [2pc] playtest.
+2. **AI-EASY-SOFTEN-1** — deployed with NPC-BOOST-1; needs the same playtest.
 
 **Block 3 — WYATT LANE (off the agent queue until you unblock).**
 - **HIT-SFX-VAR-1** — blocked on new hit clips from you.
@@ -256,8 +256,8 @@ moment a player-facing correctness bug turns up.)*
 
 | Pri | Item | Notes |
 |-----|------|-------|
-| Medium | NPC-BOOST-1 — NPCs use charged attacks and instant boosts by intent | **Local implementation, not shipped.** Attack uses the existing full human charge when target, range, and path stay safe; chase, escape, and recovery use instant boost; patrol never boosts. Unsafe charges hard-cancel with no burst. Easy / Medium / Hard select charge at 9–12m/12°, 8–12m/16°, and 7–12m/20°; boost physics and cooldown stay shared. Focused tests, QA, and build pass. Owed after ship: host and non-host [2pc] evidence for charged release, instant chase/escape, unsafe cancellation, and difficulty order. |
-| Medium | AI-EASY-SOFTEN-1 — Easy NPC decisions 10% slower | **Local implementation, not shipped.** Easy decision intervals changed from 1.44× to 1.584× their personality baseline: exactly 10% slower than prior Easy. No physics, boost values, or Medium/Hard changes. QA and build pass. Owed after ship: confirm Easy reads less decisive while NPC-BOOST-1 intent behaviour remains intact. |
+| Medium | NPC-BOOST-1 — NPCs use charged attacks and instant boosts by intent | **Deployed 08-10:** Worker `4e4fd25a-452b-40b6-adb8-c8e1c41d6bde`, commits `033bb8f` / `4e47e16`; entry HTML plus 62 hashed assets returned 200, and the live game bundle contains the NPC intent marker. Attack uses the existing full human charge when target, range, and path stay safe; chase, escape, and recovery use instant boost; patrol never boosts. Unsafe charges hard-cancel with no burst. Easy / Medium / Hard select charge at 9–12m/12°, 8–12m/16°, and 7–12m/20°; boost physics and cooldown stay shared. **Owed: Wyatt [2pc] playtest.** In a Friends room, confirm on both screens: a safe attack charges to the full release; chase/escape use instant boost; an unsafe charge cancels with no burst; Easy reads less decisive than Medium, and Hard finds more charge openings. |
+| Medium | AI-EASY-SOFTEN-1 — Easy NPC decisions 10% slower | **Deployed with NPC-BOOST-1.** Easy decision intervals changed from 1.44× to 1.584× their personality baseline: exactly 10% slower than prior Easy. No physics, boost values, or Medium/Hard changes. **Owed: Wyatt [2pc] playtest** under NPC-BOOST-1: Easy must feel less decisive while charged and instant intent behaviour remains intact. |
 | Medium | TASTE-P4-1 — Taste-tuning follow-ups from Pass 4 | Only reopen with playtest evidence (D-GP4-1). |
 | Medium | CLUTCH-SLOMO-1 — Clutch slow-mo (Pass 5 deferral) | Taste-gated. |
 | Low | SWIRL-REVIVE-1 — Turntable swirl force revive | Scoped prototype via DIR-1 — taste-gated. |
