@@ -59,3 +59,24 @@ __pycache__/
 *.blend[0-9]
 /art/*.blend
 !/art/cartrave4.blend
+
+# Local scratch (keep on disk; do not commit)
+tmp/
+.codex/
+.codex-remote-attachments/
+.gemini/
+.mcp.json
+.tessl/
+tessl.json
+.github/mcp.json
+.github/skills/
+.agents/skills/tessl__*
+
+# Art / capture scratch — tracked masters in art/models stay (cartrave4.glb, groceries/, …)
+/art/scripts/
+/art/models/*.png
+/art/models/*.jpg
+/art/models/*backup*.glb
+/art/models/*uvfix*.glb
+/mc-*.png
+/menu-cart-*.png
