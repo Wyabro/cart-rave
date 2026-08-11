@@ -89,7 +89,7 @@ describe("Night Shift blockout", () => {
 
   it("wires spawn decks as floor colliders and support shafts as obstacles", () => {
     const source = readFileSync(new URL("../src/levels/rooftop.js", import.meta.url), "utf8");
-    const start = source.indexOf("for (const platform of getNightShiftSpawnPlatforms(config))");
+    const start = source.indexOf("for (const platform of spawnPlatforms)");
     const end = source.indexOf("// Spawn-side baffles", start);
     const platformBuild = source.slice(start, end);
     expect(start).toBeGreaterThan(-1);

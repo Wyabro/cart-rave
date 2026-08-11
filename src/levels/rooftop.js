@@ -4,6 +4,10 @@ import * as THREE from "three";
 import { RAPIER } from "../physics/rapierInstance.js";
 import { computeSpawnAngleForSlot } from "../config.js";
 import { createPhysicalMaterial } from "../scene.js";
+import {
+  createNightShiftCityArchitecture,
+  createNightShiftCityPlan,
+} from "./nightShiftVisuals.js";
 
 const FLOOR_TOP_Y = 0;
 const FLOOR_THICKNESS = 0.6;
@@ -221,6 +225,7 @@ export function initRooftop(scene, world, config) {
   const bodies = [];
   const recordColliderHandles = [];
   const edgeColliderHandles = [];
+  const spawnPlatforms = getNightShiftSpawnPlatforms(config);
 
   const moonHemi = new THREE.HemisphereLight(0x91b9ff, 0x101522, 1.2);
   const roofKey = new THREE.DirectionalLight(0x8ca8ff, 1.6);
@@ -254,7 +259,7 @@ export function initRooftop(scene, world, config) {
     }, highRoofMaterial, ownedGeometries, ownedMaterials, bodies, recordColliderHandles);
   }
 
-  for (const platform of getNightShiftSpawnPlatforms(config)) {
+  for (const platform of spawnPlatforms) {
     addBox(root, world, {
       x: platform.x,
       y: platform.supportY,
@@ -300,7 +305,14 @@ export function initRooftop(scene, world, config) {
     ownedGeometries.push(geometry);
   }
 
+  const cityArchitecture = createNightShiftCityArchitecture(
+    root,
+    createNightShiftCityPlan(),
+    spawnPlatforms,
+  );
+
   function dispose() {
+    cityArchitecture.dispose();
     scene.remove(root);
     config.record.centerHole = previousCenterHole;
     scene.background = previousBackground;
@@ -325,6 +337,7 @@ export function initRooftop(scene, world, config) {
     recordLabelMat: null,
     upgradeRecordReflector: null,
     aiHazards: getNightShiftBlockoutHazards(),
+    nightShiftDiagnostics: cityArchitecture.diagnostics,
     update: () => {},
     dispose,
   };
