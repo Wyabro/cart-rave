@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-11T19:13:53.693Z",
-    "commit": "3b5f1e5"
+    "at": "2026-08-11T19:55:23.789Z",
+    "commit": "fa7ada0"
   },
-  "source_digest": "6bcb3ac9",
+  "source_digest": "d49fae05",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -866,12 +866,6 @@
   "workstreams": {
     "queue": [
       {
-        "id": "DEV-GRAPH-1",
-        "what": "Model-free development plan graph",
-        "status": "🔧 Active — persist a fail-closed preflight → plan artifact → review artifact → human ACK flow. No model runner, source edits, commit, deploy, or playtest node.",
-        "state": "waiting"
-      },
-      {
         "id": "BUNDLE-1",
         "what": "Menu/game code-split",
         "status": "⚠️ CLOSED PARTIAL 08-05 — perf goal NOT met. Deployed `f2f90fd2`. Warm `menu-ready` −3% vs a −15% gate. Banked: a `size:check` byte gate, `main.js` 2,582 → 1,262 lines, −22.6% off the initial set (cold visits only). Lever E playtested: BUNDLE-E-PT-1 PASS 6/6. [bundle-1.md §0](./planning/bundle-1.md)",
@@ -894,7 +888,7 @@
       }
     ],
     "next_actions": [
-      "DEV-GRAPH-1: build the model-free state graph and its focused Python tests; it must stop after an explicit human ACK.",
+      "No active card — wait for Wyatt.",
       "Playtest owed: SHARD-PT-2 (skip, needs five humans)."
     ],
     "open_issues": [
@@ -1178,17 +1172,10 @@
       {
         "title": "Tech Debt",
         "counts": {
-          "Medium": 6,
-          "Low": 8
+          "Low": 8,
+          "Medium": 5
         },
         "rows": [
-          {
-            "pri": "Medium",
-            "id": "DEV-GRAPH-1",
-            "item": "Model-free development plan graph",
-            "notes": "**Wyatt-selected 08-11.** Build only the fail-closed control-plane prefix: clean-worktree preflight → plan artifact → review artifact → explicit human ACK. Persist atomic state and artifacts under ignored `.agent/runtime/`; bind review to the plan SHA-256; keep one persistent run lock. No model, shell, source-edit, commit, deploy, closure, or player-playtest node. DeepSeek integration waits for `LOOP-SAFETY-2`.",
-            "ship1": null
-          },
           {
             "pri": "Low",
             "id": "ORGANIZE-1",
