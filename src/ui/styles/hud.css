@@ -1955,7 +1955,7 @@
 #hud.hud-touch .hud-scoreBadge {
   display: none !important;
 }
-@media (min-width: 900px) {
+@media (min-width: 1025px) {
   #hud.hud-touch .hud-scoreLabel {
     display: block !important;
   }
@@ -2599,9 +2599,9 @@
 
 .hud-lobby-link.is-warn { color: var(--color-alert); }
 
-/* ≤900: the invite column drops under the roster — the roster is the reason the
+/* ≤1024: the invite column drops under the roster — the roster is the reason the
    screen exists, so it keeps the top of the frame. */
-@media (max-width: 900px) {
+@media (max-width: 1024px) {
   .hud-lobby {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto auto minmax(0, 1fr) auto;

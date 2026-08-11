@@ -160,7 +160,7 @@ describe("RESULTS-CRAMP-1 — the band exists with the exact bug-window guards",
     expect(band["#results-overlay .results-final"].gap).toBe("0.75rem");
   });
 
-  it("leaves the playtest-PASSed neighbour bands in place (RESULTS-1 >=1300, mobile-landscape <=1100)", () => {
+  it("leaves the playtest-PASSed neighbour bands in place (RESULTS-1 >=1300, mobile-landscape <=1024)", () => {
     expect(
       RULES.some(
         (r) =>
@@ -169,7 +169,7 @@ describe("RESULTS-CRAMP-1 — the band exists with the exact bug-window guards",
           r.body.includes("max-content"),
       ),
     ).toBe(true);
-    expect(RULES.some((r) => !!r.media && /max-width\s*:\s*1100px/.test(r.media))).toBe(true);
+    expect(RULES.some((r) => !!r.media && /max-width\s*:\s*1024px/.test(r.media))).toBe(true);
   });
 });
 
