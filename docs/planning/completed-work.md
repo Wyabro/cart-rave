@@ -13,6 +13,21 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 11, 2026 — NIGHT-SHIFT-CITY-1 CLOSED FOR NOW: temporary visual baseline
+
+- *(Art · High)* **NIGHT-SHIFT-CITY-1** — ⏸️ **CLOSED FOR NOW 08-11** per Wyatt. This is an
+  accepted temporary baseline, not a visual PASS. Wyatt judged the final local result
+  unsuccessful and stopped further polish. The retained work includes the approved square-roof
+  blockout and four AC launchers, the city base and fixed facade lights (`282c7e2`), the distant
+  telecom mast (`46e47ec`), subtle dish and beacon life (`4c3848d`), damp-smoothing correction
+  (`bf2c088`), and Full-only roof dressing (`ae23749`). The final handoff is `e3dd24a`. No new
+  colliders were added. Architecture uses 9 Low / 15 Full draw calls; the mast uses 2,112 Low /
+  2,916 Full triangles. Focused tests passed 11/11; typecheck and build passed. Full QA reached
+  1,883 passed / 1 known unrelated backlog-row canary failure. **Not pushed, deployed, shipped,
+  renamed, or approved as final art.** A future pass needs new direction and a new card.
+
+---
+
 ### August 11, 2026 — NIGHT-SHIFT-BLOCKOUT-1 CLOSED PASS: playable rooftop blockout
 
 - *(Level design · Medium)* **NIGHT-SHIFT-BLOCKOUT-1** — ✅ **CLOSED PASS 08-11**

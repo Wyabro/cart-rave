@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-11 at commit `ae23749` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `09996216`
+> Generated 2026-08-11 at commit `e3dd24a` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `19cbb5f0`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -18,10 +18,12 @@ Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep a
 
 ## ACTIVE CARD
 
-NIGHT-SHIFT-CITY-1 — Night Shift visual-structure pass
-Pass looks like: ▶ MAST/DRESSING LOCAL HANDOFF — WYATT REVIEW PENDING. `46e47ec` builds a distant functional mast from an img2threejs quality contract; `4c3848d` adds slow dish motion and asynchronous beacons; `ae23749` adds Full-only flush roof-edge dressing and two solid props on the unreachable mast roof. No colliders; gameplay layout, spawns, camera, and AC physics stay frozen. Architecture budget is 9 Low / 15 Full draw calls; mast is 2,112 Low / 2,916 Full triangles. Focused 11/11, typecheck, and build green. Full QA: 1,883 passed / 1 known unrelated exact-50-row backlog canary. Captures: `.diag-captures/night-shift-mast-t0.png`, `night-shift-mast-low.png`, and `night-shift-mast-close-t0.png`. Working name only; not pushed, deployed, or closed.
+No active game card: wait for Wyatt
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
+
+Self-directed queue (one at a time, within the declared phase):
+- **BUNDLE-1** Menu/game code-split — ⚠️ CLOSED PARTIAL 08-05 — perf goal NOT met. Deployed `f2f90fd2`. Warm `menu-ready` −3% vs a −15% gate.…
 
 ## Do not
 

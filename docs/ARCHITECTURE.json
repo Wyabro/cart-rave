@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-11T18:40:47.015Z",
-    "commit": "ae23749"
+    "at": "2026-08-11T18:50:04.066Z",
+    "commit": "e3dd24a"
   },
-  "source_digest": "63b4b1e9",
+  "source_digest": "326c1932",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -866,12 +866,6 @@
   "workstreams": {
     "queue": [
       {
-        "id": "NIGHT-SHIFT-CITY-1",
-        "what": "Night Shift visual-structure pass",
-        "status": "▶ MAST/DRESSING LOCAL HANDOFF — WYATT REVIEW PENDING. `46e47ec` builds a distant functional mast from an img2threejs quality contract; `4c3848d` adds slow dish motion and asynchronous beacons; `ae23749` adds Full-only flush roof-edge dressing and two solid props on the unreachable mast roof. No colliders; gameplay layout, spawns, camera, and AC physics stay frozen. Architecture budget is 9 Low / 15 Full draw calls; mast is 2,112 Low / 2,916 Full triangles. Focused 11/11, typecheck, and build green. Full QA: 1,883 passed / 1 known unrelated exact-50-row backlog canary. Captures: `.diag-captures/night-shift-mast-t0.png`, `night-shift-mast-low.png`, and `night-shift-mast-close-t0.png`. Working name only; not pushed, deployed, or closed.",
-        "state": "active"
-      },
-      {
         "id": "BUNDLE-1",
         "what": "Menu/game code-split",
         "status": "⚠️ CLOSED PARTIAL 08-05 — perf goal NOT met. Deployed `f2f90fd2`. Warm `menu-ready` −3% vs a −15% gate. Banked: a `size:check` byte gate, `main.js` 2,582 → 1,262 lines, −22.6% off the initial set (cold visits only). Lever E playtested: BUNDLE-E-PT-1 PASS 6/6. [bundle-1.md §0](./planning/bundle-1.md)",
@@ -894,7 +888,7 @@
       }
     ],
     "next_actions": [
-      "NIGHT-SHIFT-CITY-1: Wyatt reviews the local mast/dressing pass. Close only after that review and after the unrelated exact-50-row backlog canary returns green.",
+      "No active game card: wait for Wyatt.",
       "Playtest owed: SHARD-PT-2 (skip, needs five humans)."
     ],
     "open_issues": [
@@ -1009,17 +1003,11 @@
       {
         "title": "Art",
         "counts": {
-          "High": 2,
+          "High": 1,
           "Medium": 2,
           "Low": 6
         },
         "rows": [
-          {
-            "pri": "High",
-            "item": "NIGHT-SHIFT-CITY-1 — Night Shift visual-structure pass",
-            "notes": "**MAST/DRESSING LOCAL HANDOFF — WYATT REVIEW PENDING.** The working name is not final. Approved square roof, spawns, raised roofs, camera, and AC physics remain frozen. City base through `282c7e2`; mast `46e47ec`; subtle dish/beacon life `4c3848d`; Full-only edge dressing `ae23749`. The mast follows an img2threejs reference contract and sits on distant tower `near-7`; all driveable dressing is flush, solid props stay unreachable, and no collider was added. Budget: 9 Low / 15 Full architecture draw calls; mast 2,112 / 2,916 triangles. Focused 11/11, typecheck, and build green. Full QA remains red only on the unrelated exact-50-row backlog canary. Captures: `.diag-captures/night-shift-mast-t0.png`, `night-shift-mast-low.png`, `night-shift-mast-close-t0.png`. Not pushed, deployed, or closed.",
-            "ship1": null
-          },
           {
             "pri": "High",
             "item": "BLOOM-SIGNOFF-1 — Bloom look sign-off (Classic/Sundial) `[SHIP-1 E2]`",
