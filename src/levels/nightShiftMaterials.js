@@ -184,6 +184,8 @@ export function createNightShiftMaterialBundle() {
     mastMetal: createPhysicalMaterial({ ...mastMaps, color: 0xb7cad0, metalness: 0.62, roughness: 0.72, normalScale: new THREE.Vector2(0.26, 0.26) }),
     antennaPaint: createPhysicalMaterial({ ...antennaMaps, color: 0xb4c3cf, metalness: 0.26, roughness: 0.78, normalScale: new THREE.Vector2(0.22, 0.22) }),
     beacon: createPhysicalMaterial({ color: 0xff365c, emissive: 0xff365c, emissiveIntensity: 1.6, metalness: 0.02, roughness: 0.28 }),
+    roofDressing: createPhysicalMaterial({ color: 0xffffff, vertexColors: true, metalness: 0.14, roughness: 0.82 }),
+    roofWet: createPhysicalMaterial({ color: 0x2d6b91, transparent: true, opacity: 0.46, depthWrite: false, metalness: 0.06, roughness: 0.24 }),
   };
 
   return {

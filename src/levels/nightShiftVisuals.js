@@ -552,6 +552,168 @@ function createNightShiftTelecomMast(root, plan, materials, options = {}) {
   };
 }
 
+/** @param {THREE.BufferGeometry} geometry @param {number} hex */
+function colorGeometry(geometry, hex) {
+  const color = new THREE.Color(hex);
+  const count = geometry.getAttribute("position").count;
+  const colors = new Float32Array(count * 3);
+  for (let index = 0; index < count; index += 1) {
+    colors[index * 3] = color.r;
+    colors[index * 3 + 1] = color.g;
+    colors[index * 3 + 2] = color.b;
+  }
+  geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+  return geometry;
+}
+
+/**
+ * Adds two Full-only dressing batches. Anything on the driveable roof is effectively flush;
+ * solid tool props live on the unreachable mast tower, and conduit stays below the roof edge.
+ *
+ * @param {THREE.Group} root
+ * @param {ReturnType<typeof createNightShiftCityPlan>} plan
+ * @param {{ roofDressing: THREE.Material, roofWet: THREE.Material }} materials
+ */
+function createNightShiftRoofDressing(root, plan, materials) {
+  const solidParts = [];
+  const wetParts = [];
+  const addSolid = (geometry, position, color, rotation = new THREE.Quaternion()) => {
+    solidParts.push(colorGeometry(placeGeometry(geometry, position, rotation), color));
+  };
+
+  const markings = [
+    { x: 0, z: 31.7, width: 14, depth: 0.62, color: 0xe49934 },
+    { x: 0, z: -31.7, width: 14, depth: 0.62, color: NIGHT_SHIFT_NEON_COLORS.cyan },
+    { x: 31.7, z: 0, width: 0.62, depth: 14, color: NIGHT_SHIFT_NEON_COLORS.violet },
+    { x: -31.7, z: 0, width: 0.62, depth: 14, color: NIGHT_SHIFT_NEON_COLORS.pink },
+  ];
+  for (const marking of markings) {
+    addSolid(
+      new THREE.BoxGeometry(marking.width, 0.025, marking.depth),
+      new THREE.Vector3(marking.x, 0.014, marking.z),
+      marking.color,
+    );
+  }
+
+  const servicePlates = [
+    { x: -7.28, z: 0, yaw: 0, color: 0xe49934 },
+    { x: 7.28, z: 0, yaw: 0, color: 0xe49934 },
+    { x: 0, z: 8.28, yaw: Math.PI / 2, color: NIGHT_SHIFT_NEON_COLORS.pink },
+    { x: 0, z: -8.28, yaw: Math.PI / 2, color: NIGHT_SHIFT_NEON_COLORS.violet },
+  ];
+  for (const plate of servicePlates) {
+    addSolid(
+      new THREE.BoxGeometry(0.72, 0.035, 1.15),
+      new THREE.Vector3(plate.x, 0.02, plate.z),
+      plate.color,
+      new THREE.Quaternion().setFromEuler(new THREE.Euler(0, plate.yaw, 0)),
+    );
+  }
+
+  const flushProps = [
+    { x: -28.4, z: 16.2, width: 4.4, depth: 2.7, yaw: 0.18, color: 0x247995 },
+    { x: 27.7, z: -18.5, width: 4.8, depth: 2.5, yaw: -0.24, color: 0x6f4ca2 },
+    { x: -29.8, z: -24.4, width: 1.8, depth: 0.9, yaw: 0.08, color: 0x344b5b },
+    { x: 29.4, z: 24.8, width: 1.6, depth: 1.05, yaw: -0.12, color: 0x344b5b },
+  ];
+  for (const prop of flushProps) {
+    addSolid(
+      new THREE.BoxGeometry(prop.width, 0.028, prop.depth),
+      new THREE.Vector3(prop.x, 0.016, prop.z),
+      prop.color,
+      new THREE.Quaternion().setFromEuler(new THREE.Euler(0, prop.yaw, 0)),
+    );
+  }
+
+  for (const side of [-1, 1]) {
+    solidParts.push(colorGeometry(createBeamGeometry(
+      new THREE.Vector3(-24, -0.24, side * 35.86),
+      new THREE.Vector3(24, -0.24, side * 35.86),
+      0.09,
+      6,
+    ), 0x4b7180));
+    solidParts.push(colorGeometry(createBeamGeometry(
+      new THREE.Vector3(side * 35.86, -0.24, -24),
+      new THREE.Vector3(side * 35.86, -0.24, 24),
+      0.09,
+      6,
+    ), 0x4b7180));
+  }
+
+  const anchor = plan.buildings.find((building) => building.id === NIGHT_SHIFT_MAST_BUILDING_ID);
+  if (anchor) {
+    const roofY = anchor.roofY + anchor.crownHeight;
+    addSolid(
+      new THREE.BoxGeometry(2.25, 0.9, 1.25),
+      new THREE.Vector3(anchor.x + 4.2, roofY + 0.45, anchor.z - 1.8),
+      0xd48335,
+      new THREE.Quaternion().setFromEuler(new THREE.Euler(0, anchor.yaw + 0.18, 0)),
+    );
+    addSolid(
+      new THREE.TorusGeometry(1.05, 0.11, 6, 18),
+      new THREE.Vector3(anchor.x - 4.1, roofY + 0.14, anchor.z + 1.8),
+      0x4b7180,
+      new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.PI / 2, 0, anchor.yaw)),
+    );
+  }
+
+  const horizontal = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, 0));
+  const puddles = [
+    { x: -27.5, z: -14.8, width: 3.8, depth: 2.1 },
+    { x: 26.8, z: 15.5, width: 3.2, depth: 1.8 },
+    { x: -18.5, z: 28.8, width: 2.7, depth: 1.5 },
+    { x: 20.5, z: -28.4, width: 3.4, depth: 1.7 },
+  ];
+  for (const puddle of puddles) {
+    wetParts.push(placeGeometry(
+      new THREE.CircleGeometry(1, 14),
+      new THREE.Vector3(puddle.x, 0.032, puddle.z),
+      horizontal,
+      new THREE.Vector3(puddle.width, puddle.depth, 1),
+    ));
+  }
+
+  const solidGeometry = mergeOwnedGeometries(solidParts);
+  const wetGeometry = mergeOwnedGeometries(wetParts);
+  const solid = new THREE.Mesh(solidGeometry, materials.roofDressing);
+  solid.name = "night-shift-roof-dressing-solid";
+  const wet = new THREE.Mesh(wetGeometry, materials.roofWet);
+  wet.name = "night-shift-roof-dressing-wet";
+  for (const mesh of [solid, wet]) {
+    mesh.castShadow = false;
+    mesh.receiveShadow = false;
+    mesh.frustumCulled = true;
+    root.add(mesh);
+  }
+
+  const triangleCount = (geometry) => (
+    geometry.index ? geometry.index.count / 3 : geometry.getAttribute("position").count / 3
+  );
+  const diagnostics = Object.freeze({
+    fullDrawCalls: 2,
+    fullTriangles: triangleCount(solidGeometry) + triangleCount(wetGeometry),
+    flushPlayablePartCount: markings.length + servicePlates.length + flushProps.length + puddles.length,
+    unreachableSolidPropCount: anchor ? 2 : 0,
+    hasGameplayCollider: false,
+  });
+
+  return {
+    solid,
+    wet,
+    diagnostics,
+    applyQualityTier(knobs) {
+      const visible = knobs.skyExtras !== false;
+      solid.visible = visible;
+      wet.visible = visible;
+    },
+    dispose() {
+      root.remove(solid, wet);
+      solidGeometry.dispose();
+      wetGeometry.dispose();
+    },
+  };
+}
+
 /**
  * Returns the rotated building face that looks most directly toward the arena. Width and
  * normal offset come from the active lower or setback mass, so facade details stay attached.
@@ -721,7 +883,8 @@ function buildNeonSignSpecs(plan) {
  * @param {ReturnType<import("./rooftop.js").getNightShiftSpawnPlatforms>} spawnPlatforms
  * @param {{ tower: THREE.Material, brace: THREE.Material,
  *   skylineCore: THREE.Material, skylineExtended: THREE.Material,
- *   mastMetal: THREE.Material, antennaPaint: THREE.Material }} materials
+ *   mastMetal: THREE.Material, antennaPaint: THREE.Material,
+ *   roofDressing: THREE.Material, roofWet: THREE.Material }} materials
  * @param {{ reducedMotion?: boolean }} [options]
  */
 export function createNightShiftCityArchitecture(root, plan, spawnPlatforms, materials, options = {}) {
@@ -854,6 +1017,7 @@ export function createNightShiftCityArchitecture(root, plan, spawnPlatforms, mat
   }
   root.add(coreWindows, extendedWindows, coreNeon, extendedNeon);
   const telecomMast = createNightShiftTelecomMast(root, plan, materials, options);
+  const roofDressing = createNightShiftRoofDressing(root, plan, materials);
 
   function applyQualityTier(knobs) {
     const fullCity = knobs.skyExtras !== false;
@@ -861,6 +1025,7 @@ export function createNightShiftCityArchitecture(root, plan, spawnPlatforms, mat
     extendedWindows.visible = fullCity;
     extendedNeon.visible = fullCity;
     telecomMast.applyQualityTier(knobs);
+    roofDressing.applyQualityTier(knobs);
   }
 
   const diagnostics = Object.freeze({
@@ -878,8 +1043,9 @@ export function createNightShiftCityArchitecture(root, plan, spawnPlatforms, mat
     deckBraceCount,
     facadeBandCount,
     lowDrawCalls: 5 + telecomMast.diagnostics.lowDrawCalls,
-    fullDrawCalls: 8 + telecomMast.diagnostics.fullDrawCalls,
+    fullDrawCalls: 8 + telecomMast.diagnostics.fullDrawCalls + roofDressing.diagnostics.fullDrawCalls,
     telecomMast: telecomMast.diagnostics,
+    roofDressing: roofDressing.diagnostics,
   });
   root.userData.nightShiftCity = diagnostics;
 
@@ -888,6 +1054,7 @@ export function createNightShiftCityArchitecture(root, plan, spawnPlatforms, mat
     extendedWindows,
     extendedNeon,
     telecomMast,
+    roofDressing,
     diagnostics,
     applyQualityTier,
     update(timeMs) {
@@ -895,6 +1062,7 @@ export function createNightShiftCityArchitecture(root, plan, spawnPlatforms, mat
     },
     dispose() {
       telecomMast.dispose();
+      roofDressing.dispose();
       root.remove(
         tower,
         braces,

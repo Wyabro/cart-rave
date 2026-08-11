@@ -16,6 +16,8 @@ function createTestMaterials(material) {
     skylineExtended: material,
     mastMetal: material,
     antennaPaint: material,
+    roofDressing: material,
+    roofWet: material,
   };
 }
 
@@ -114,7 +116,7 @@ describe("Night Shift city architecture", () => {
       .toBeGreaterThan(architecture.diagnostics.lowWindowCount);
     expect(architecture.diagnostics.fullNeonSignCount)
       .toBeGreaterThan(architecture.diagnostics.lowNeonSignCount);
-    expect(architecture.diagnostics.fullDrawCalls).toBe(13);
+    expect(architecture.diagnostics.fullDrawCalls).toBe(15);
 
     architecture.dispose();
     material.dispose();
@@ -196,6 +198,46 @@ describe("Night Shift city architecture", () => {
     expect(mast.detail.visible).toBe(false);
     architecture.applyQualityTier({ skyExtras: true });
     expect(mast.detail.visible).toBe(true);
+
+    architecture.dispose();
+    material.dispose();
+  });
+
+  it("keeps solid roof dressing flush in the arena and reserves raised props for an unreachable roof", () => {
+    const root = new THREE.Group();
+    const material = new THREE.MeshBasicMaterial();
+    const architecture = createNightShiftCityArchitecture(
+      root,
+      createNightShiftCityPlan(),
+      [],
+      createTestMaterials(material),
+    );
+    const dressing = architecture.roofDressing;
+    const positions = dressing.solid.geometry.getAttribute("position");
+
+    expect(dressing.solid.name).toBe("night-shift-roof-dressing-solid");
+    expect(dressing.wet.name).toBe("night-shift-roof-dressing-wet");
+    expect(dressing.diagnostics).toMatchObject({
+      fullDrawCalls: 2,
+      flushPlayablePartCount: 16,
+      unreachableSolidPropCount: 2,
+      hasGameplayCollider: false,
+    });
+    expect(dressing.diagnostics.fullTriangles).toBeLessThan(1000);
+
+    for (let index = 0; index < positions.count; index += 1) {
+      const x = positions.getX(index);
+      const y = positions.getY(index);
+      const z = positions.getZ(index);
+      if (Math.abs(x) <= 36 && Math.abs(z) <= 36) expect(y).toBeLessThanOrEqual(0.05);
+    }
+
+    architecture.applyQualityTier({ skyExtras: false });
+    expect(dressing.solid.visible).toBe(false);
+    expect(dressing.wet.visible).toBe(false);
+    architecture.applyQualityTier({ skyExtras: true });
+    expect(dressing.solid.visible).toBe(true);
+    expect(dressing.wet.visible).toBe(true);
 
     architecture.dispose();
     material.dispose();
