@@ -319,8 +319,9 @@ function addDishGeometry(parts, center, radius, depth, direction) {
  * @param {THREE.Group} root
  * @param {ReturnType<typeof createNightShiftCityPlan>} plan
  * @param {{ mastMetal: THREE.Material, antennaPaint: THREE.Material }} materials
+ * @param {{ reducedMotion?: boolean }} [options]
  */
-function createNightShiftTelecomMast(root, plan, materials) {
+function createNightShiftTelecomMast(root, plan, materials, options = {}) {
   const anchor = plan.buildings.find((building) => building.id === NIGHT_SHIFT_MAST_BUILDING_ID);
   if (!anchor) throw new Error(`Night Shift mast anchor ${NIGHT_SHIFT_MAST_BUILDING_ID} is missing`);
 
@@ -328,6 +329,10 @@ function createNightShiftTelecomMast(root, plan, materials) {
   mastRoot.name = "night-shift-telecom-mast";
   mastRoot.position.set(anchor.x, anchor.roofY + anchor.crownHeight, anchor.z);
   mastRoot.rotation.y = anchor.yaw;
+  const reducedMotion = options.reducedMotion ?? (
+    typeof window !== "undefined"
+      && window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true
+  );
 
   const coreParts = [];
   const detailParts = [];
@@ -447,6 +452,8 @@ function createNightShiftTelecomMast(root, plan, materials) {
   const dishPivot = new THREE.Group();
   dishPivot.name = "night-shift-mast-dish-pivot";
   dishPivot.position.set(0.95, 10.7, 0.1);
+  const dishBaseYaw = 0.42;
+  dishPivot.rotation.y = dishBaseYaw;
   const movingDishParts = [];
   addDishGeometry(
     movingDishParts,
@@ -475,11 +482,11 @@ function createNightShiftTelecomMast(root, plan, materials) {
   const beacons = new THREE.InstancedMesh(beaconGeometry, beaconMaterial, 2);
   beacons.name = "night-shift-mast-beacons";
   const beaconMatrix = new THREE.Matrix4();
-  const beaconColor = new THREE.Color(0xff365c);
+  const beaconColor = new THREE.Color();
   for (const [index, x] of [-0.52, 0.52].entries()) {
     beaconMatrix.makeTranslation(x, 20.55, 0);
     beacons.setMatrixAt(index, beaconMatrix);
-    beacons.setColorAt(index, beaconColor);
+    beacons.setColorAt(index, beaconColor.setRGB(1, 0.09, 0.24));
   }
   beacons.instanceMatrix.needsUpdate = true;
   if (beacons.instanceColor) beacons.instanceColor.needsUpdate = true;
@@ -515,9 +522,23 @@ function createNightShiftTelecomMast(root, plan, materials) {
       lowTriangles,
       fullTriangles,
       hasGameplayCollider: false,
+      reducedMotion,
     }),
     applyQualityTier(knobs) {
       mastDetail.visible = knobs.skyExtras !== false;
+    },
+    update(timeMs) {
+      if (reducedMotion) return;
+      dishPivot.rotation.y = dishBaseYaw + (timeMs * 0.000035) % (Math.PI * 2);
+      for (let index = 0; index < 2; index += 1) {
+        const wave = 0.5 + 0.5 * Math.sin(timeMs * 0.0017 + index * 2.35);
+        const intensity = 0.22 + 0.78 * wave ** 6;
+        beacons.setColorAt(
+          index,
+          beaconColor.setRGB(intensity, intensity * 0.09, intensity * 0.24),
+        );
+      }
+      if (beacons.instanceColor) beacons.instanceColor.needsUpdate = true;
     },
     dispose() {
       root.remove(mastRoot);
@@ -701,8 +722,9 @@ function buildNeonSignSpecs(plan) {
  * @param {{ tower: THREE.Material, brace: THREE.Material,
  *   skylineCore: THREE.Material, skylineExtended: THREE.Material,
  *   mastMetal: THREE.Material, antennaPaint: THREE.Material }} materials
+ * @param {{ reducedMotion?: boolean }} [options]
  */
-export function createNightShiftCityArchitecture(root, plan, spawnPlatforms, materials) {
+export function createNightShiftCityArchitecture(root, plan, spawnPlatforms, materials, options = {}) {
   const unitBox = new THREE.BoxGeometry(1, 1, 1);
 
   const towerHeight = Math.abs(TOWER_BOTTOM_Y);
@@ -831,7 +853,7 @@ export function createNightShiftCityArchitecture(root, plan, spawnPlatforms, mat
     root.add(mesh);
   }
   root.add(coreWindows, extendedWindows, coreNeon, extendedNeon);
-  const telecomMast = createNightShiftTelecomMast(root, plan, materials);
+  const telecomMast = createNightShiftTelecomMast(root, plan, materials, options);
 
   function applyQualityTier(knobs) {
     const fullCity = knobs.skyExtras !== false;
@@ -868,6 +890,9 @@ export function createNightShiftCityArchitecture(root, plan, spawnPlatforms, mat
     telecomMast,
     diagnostics,
     applyQualityTier,
+    update(timeMs) {
+      telecomMast.update(timeMs);
+    },
     dispose() {
       telecomMast.dispose();
       root.remove(

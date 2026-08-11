@@ -362,7 +362,7 @@ export function initRooftop(scene, world, config) {
     upgradeRecordReflector: null,
     aiHazards: getNightShiftBlockoutHazards(),
     nightShiftDiagnostics: cityArchitecture.diagnostics,
-    update: () => {},
+    update: (timeMs) => cityArchitecture.update(timeMs),
     dispose,
   };
 }

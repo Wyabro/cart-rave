@@ -200,4 +200,47 @@ describe("Night Shift city architecture", () => {
     architecture.dispose();
     material.dispose();
   });
+
+  it("updates subtle mast life deterministically and freezes it for reduced motion", () => {
+    const root = new THREE.Group();
+    const material = new THREE.MeshBasicMaterial();
+    const architecture = createNightShiftCityArchitecture(
+      root,
+      createNightShiftCityPlan(),
+      [],
+      createTestMaterials(material),
+      { reducedMotion: false },
+    );
+    const mast = architecture.telecomMast;
+    const firstBeacon = new THREE.Color();
+    const secondBeacon = new THREE.Color();
+
+    architecture.update(1000);
+    const firstYaw = mast.dishPivot.rotation.y;
+    mast.beacons.getColorAt(0, firstBeacon);
+    mast.beacons.getColorAt(1, secondBeacon);
+    expect(firstYaw).toBeGreaterThan(0.42);
+    expect(firstYaw).toBeLessThan(Math.PI * 2 + 0.42);
+    expect(firstBeacon.getHex()).not.toBe(secondBeacon.getHex());
+
+    architecture.update(1000);
+    expect(mast.dishPivot.rotation.y).toBe(firstYaw);
+    architecture.dispose();
+
+    const reducedRoot = new THREE.Group();
+    const reduced = createNightShiftCityArchitecture(
+      reducedRoot,
+      createNightShiftCityPlan(),
+      [],
+      createTestMaterials(material),
+      { reducedMotion: true },
+    );
+    const reducedYaw = reduced.telecomMast.dishPivot.rotation.y;
+    reduced.update(120000);
+    expect(reduced.telecomMast.dishPivot.rotation.y).toBe(reducedYaw);
+    expect(reduced.diagnostics.telecomMast.reducedMotion).toBe(true);
+
+    reduced.dispose();
+    material.dispose();
+  });
 });
