@@ -13,6 +13,22 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 11, 2026 — LOOP-SAFETY-2 CLOSED LOCAL: fail-closed maker boundary
+
+- *(Tech Debt · Medium)* **LOOP-SAFETY-2** — ✅ **CLOSED LOCAL 08-11.** Commits `aa248cb`,
+  `8c69399`, `7be3817`, and `d02a733` replace model-provided PowerShell with four fixed
+  host-defined read-only operations, reject all others before process spawn, and use no shell.
+  Loop and graph artifacts now write atomically to per-run paths; the latest pointer binds the
+  matching result path and run ID. A Windows file-lock failure added a bounded 0.75 s retry,
+  temporary cleanup, and ignore coverage without weakening the fail-closed outcome. Focused
+  control-plane tests passed **17/17**; `npm run qa` passed all **7** gates. Five clean maker-only,
+  plan-only dry runs completed with matching artifacts and unchanged Git baselines: `20260811T203618Z-8a80d85bbe`,
+  `20260811T204337Z-22b237346b`, `20260811T205348Z-56c5179a99`, `20260811T215526Z-da438e303a`,
+  and `20260812T004408Z-f042704f79`. **DEV-GRAPH-2 is eligible for a new plan; no maker/reviewer
+  stage was connected.** This closure is local and unpushed; no deployment or player playtest was needed.
+
+---
+
 ### August 11, 2026 — DEV-GRAPH-1 CLOSED: fail-closed plan workflow ledger
 
 - *(Tech Debt · Medium)* **DEV-GRAPH-1** — ✅ **CLOSED 08-11.** Commit `fa7ada0` is on

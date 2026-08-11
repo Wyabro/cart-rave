@@ -33,6 +33,49 @@ class LoopSafetyTests(unittest.TestCase):
             self.assertTrue(second.path("plan.md").is_file())
             self.assertEqual(list(root.rglob("*.tmp")), [])
 
+    def test_atomic_write_retries_transient_windows_file_locks(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "run-state.json"
+            real_replace = loop_safety.os.replace
+            attempts = 0
+
+            def replace_after_two_locks(source: Path, destination: Path) -> None:
+                nonlocal attempts
+                attempts += 1
+                if attempts < 3:
+                    raise PermissionError("file is locked")
+                real_replace(source, destination)
+
+            with (
+                patch.object(loop_safety.os, "replace", side_effect=replace_after_two_locks),
+                patch.object(loop_safety.time, "sleep") as sleep,
+            ):
+                loop_safety.atomic_write_text(path, "clean\n")
+
+            self.assertEqual(attempts, 3)
+            self.assertEqual(path.read_text(encoding="utf-8"), "clean\n")
+            self.assertEqual(list(path.parent.glob("*.tmp")), [])
+            sleep.assert_has_calls(
+                [
+                    unittest.mock.call(loop_safety.ATOMIC_REPLACE_INITIAL_DELAY_SECONDS),
+                    unittest.mock.call(loop_safety.ATOMIC_REPLACE_INITIAL_DELAY_SECONDS * 2),
+                ]
+            )
+
+    def test_atomic_write_removes_temporary_file_after_persistent_lock(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "run-state.json"
+            with (
+                patch.object(loop_safety.os, "replace", side_effect=PermissionError("file is locked")) as replace,
+                patch.object(loop_safety.time, "sleep"),
+                self.assertRaisesRegex(PermissionError, "file is locked"),
+            ):
+                loop_safety.atomic_write_text(path, "blocked\n")
+
+            self.assertEqual(replace.call_count, loop_safety.ATOMIC_REPLACE_ATTEMPTS)
+            self.assertFalse(path.exists())
+            self.assertEqual(list(path.parent.glob("*.tmp")), [])
+
     def test_run_artifacts_reject_path_escape(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

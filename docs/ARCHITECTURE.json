@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-11T20:58:17.425Z",
-    "commit": "7be3817"
+    "at": "2026-08-12T00:51:00.399Z",
+    "commit": "d02a733"
   },
-  "source_digest": "c4eb8bb8",
+  "source_digest": "aac0dab6",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -866,12 +866,6 @@
   "workstreams": {
     "queue": [
       {
-        "id": "LOOP-SAFETY-2",
-        "what": "Harden loop command and artifact boundary",
-        "status": "🔧 ACTIVE 08-11 — replace model-provided PowerShell with fixed host-defined read-only operations; write loop and graph artifacts atomically per run. DEV-GRAPH-2 remains blocked until five clean plan-only dry runs.",
-        "state": "waiting"
-      },
-      {
         "id": "BUNDLE-1",
         "what": "Menu/game code-split",
         "status": "⚠️ CLOSED PARTIAL 08-05 — perf goal NOT met. Deployed `f2f90fd2`. Warm `menu-ready` −3% vs a −15% gate. Banked: a `size:check` byte gate, `main.js` 2,582 → 1,262 lines, −22.6% off the initial set (cold visits only). Lever E playtested: BUNDLE-E-PT-1 PASS 6/6. [bundle-1.md §0](./planning/bundle-1.md)",
@@ -894,7 +888,8 @@
       }
     ],
     "next_actions": [
-      "LOOP-SAFETY-2 — complete the fixed read-only command capability, per-run atomic artifact store, and focused tests. Do not connect model stages.",
+      "No active card — wait for Wyatt to select the next card.",
+      "DEV-GRAPH-2 — five clean plan-only runs now permit a new plan to connect the hardened maker and reviewer stages. Plan → Wyatt ack → apply; do not start those stages yet.",
       "Playtest owed: SHARD-PT-2 (skip, needs five humans)."
     ],
     "open_issues": [
@@ -1152,17 +1147,10 @@
       {
         "title": "Tech Debt",
         "counts": {
-          "Medium": 6,
-          "Low": 8
+          "Low": 8,
+          "Medium": 5
         },
         "rows": [
-          {
-            "pri": "Medium",
-            "id": "LOOP-SAFETY-2",
-            "item": "Harden loop command and artifact boundary",
-            "notes": "**Wyatt-selected 08-11.** Replace model-provided PowerShell text with fixed host-defined read-only operations. Move loop state/results and DEV-GRAPH artifacts to one atomic per-run store. Test capability rejection, fixed argv, artifact isolation, and atomic writes. DEV-GRAPH-1 owns only the model-free state machine, lock, review schema, and synthetic traces. **Do not connect maker/reviewer stages:** DEV-GRAPH-2 needs five clean plan-only dry runs first.",
-            "ship1": null
-          },
           {
             "pri": "Low",
             "id": "ORGANIZE-1",

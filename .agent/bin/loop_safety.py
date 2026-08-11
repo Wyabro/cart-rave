@@ -6,12 +6,15 @@ import json
 import os
 import re
 import subprocess
+import time
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
 
 MAX_READ_ONLY_COMMAND_SECONDS = 60
+ATOMIC_REPLACE_ATTEMPTS = 5
+ATOMIC_REPLACE_INITIAL_DELAY_SECONDS = 0.05
 RUN_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$")
 NPM_EXECUTABLE = "npm.cmd" if os.name == "nt" else "npm"
 READ_ONLY_COMMANDS: dict[str, tuple[str, ...]] = {
@@ -30,8 +33,21 @@ def atomic_write_text(path: Path, value: str) -> None:
     """Write one text artifact by replace, never in place."""
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(f".{path.name}.{uuid4().hex}.tmp")
-    temporary.write_text(value, encoding="utf-8")
-    temporary.replace(path)
+    try:
+        temporary.write_text(value, encoding="utf-8")
+        for attempt in range(ATOMIC_REPLACE_ATTEMPTS):
+            try:
+                os.replace(temporary, path)
+                return
+            except PermissionError:
+                if attempt == ATOMIC_REPLACE_ATTEMPTS - 1:
+                    raise
+                time.sleep(ATOMIC_REPLACE_INITIAL_DELAY_SECONDS * (2**attempt))
+    finally:
+        try:
+            temporary.unlink()
+        except FileNotFoundError:
+            pass
 
 
 def atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
