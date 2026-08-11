@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-11 at commit `e8289c2` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `94a0b37c`
+> Generated 2026-08-11 at commit `cbfaf74` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `42f49bd1`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -19,7 +19,7 @@ Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep a
 ## ACTIVE CARD
 
 NIGHT-SHIFT-CITY-1 — Night Shift visual-structure pass
-Pass looks like: ▶ IMPLEMENTED LOCALLY 08-11 — Wyatt visual PASS pending. `39df058` tower/corner supports + 8/14/24 deterministic skyline bands; `62e8845` causal worn roof/facade maps; `e8289c2` moon, fog, warm/cool windows, occupied tower floors, and Low/full density paths. Gameplay geometry stayed frozen. QA: 169/169 specs, 1,880 tests; build green. Fixed Low/no-post captures: `.diag-captures/night-shift-city.png` and `night-shift-horizon.png` (RTX 4090 sidecars). Working name only.
+Pass looks like: ▶ TOUCH-UP IMPLEMENTED LOCALLY 08-11 — Wyatt visual PASS pending. Base: `39df058` / `62e8845` / `e8289c2`. Touch-up: `23d2c53` tower bands, columns, coping, and deck braces; `8c4e9e7` denser 10/18/32 skyline with setbacks and crowns; `cbfaf74` cyan/indigo structure, amber windows, and sparse neon signs. Gameplay geometry, spawns, camera, and AC physics stayed frozen. Low/full architecture budgets are 5/8 draw calls. QA: 169/169 specs, 1,880 tests; build green. Fixed full capture: `.diag-captures/night-shift-touchup.png`; Low path inspected in-app. Working name only.
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 

@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-11T09:33:37.614Z",
-    "commit": "e8289c2"
+    "at": "2026-08-11T17:27:39.265Z",
+    "commit": "cbfaf74"
   },
-  "source_digest": "ba6dc21b",
+  "source_digest": "6dc70c81",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -868,7 +868,7 @@
       {
         "id": "NIGHT-SHIFT-CITY-1",
         "what": "Night Shift visual-structure pass",
-        "status": "▶ IMPLEMENTED LOCALLY 08-11 — Wyatt visual PASS pending. `39df058` tower/corner supports + 8/14/24 deterministic skyline bands; `62e8845` causal worn roof/facade maps; `e8289c2` moon, fog, warm/cool windows, occupied tower floors, and Low/full density paths. Gameplay geometry stayed frozen. QA: 169/169 specs, 1,880 tests; build green. Fixed Low/no-post captures: `.diag-captures/night-shift-city.png` and `night-shift-horizon.png` (RTX 4090 sidecars). Working name only.",
+        "status": "▶ TOUCH-UP IMPLEMENTED LOCALLY 08-11 — Wyatt visual PASS pending. Base: `39df058` / `62e8845` / `e8289c2`. Touch-up: `23d2c53` tower bands, columns, coping, and deck braces; `8c4e9e7` denser 10/18/32 skyline with setbacks and crowns; `cbfaf74` cyan/indigo structure, amber windows, and sparse neon signs. Gameplay geometry, spawns, camera, and AC physics stayed frozen. Low/full architecture budgets are 5/8 draw calls. QA: 169/169 specs, 1,880 tests; build green. Fixed full capture: `.diag-captures/night-shift-touchup.png`; Low path inspected in-app. Working name only.",
         "state": "active"
       },
       {
@@ -894,7 +894,7 @@
       }
     ],
     "next_actions": [
-      "NIGHT-SHIFT-CITY-1: Wyatt visual playtest of local commits `39df058` / `62e8845` / `e8289c2`; do not close or ship before his result.",
+      "NIGHT-SHIFT-CITY-1: Wyatt visual playtest through local touch-up commit `cbfaf74`; do not close or ship before his result.",
       "Playtest owed: SHARD-PT-2 (skip, needs five humans)."
     ],
     "open_issues": [

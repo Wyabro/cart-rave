@@ -66,13 +66,13 @@ Live rows only. Shipped and closed cards live in
 
 | # | What | Status |
 |---|------|--------|
-| NIGHT-SHIFT-CITY-1 | Night Shift visual-structure pass | ▶ **IMPLEMENTED LOCALLY 08-11 — Wyatt visual PASS pending.** `39df058` tower/corner supports + 8/14/24 deterministic skyline bands; `62e8845` causal worn roof/facade maps; `e8289c2` moon, fog, warm/cool windows, occupied tower floors, and Low/full density paths. Gameplay geometry stayed frozen. QA: 169/169 specs, 1,880 tests; build green. Fixed Low/no-post captures: `.diag-captures/night-shift-city.png` and `night-shift-horizon.png` (RTX 4090 sidecars). Working name only. |
+| NIGHT-SHIFT-CITY-1 | Night Shift visual-structure pass | ▶ **TOUCH-UP IMPLEMENTED LOCALLY 08-11 — Wyatt visual PASS pending.** Base: `39df058` / `62e8845` / `e8289c2`. Touch-up: `23d2c53` tower bands, columns, coping, and deck braces; `8c4e9e7` denser 10/18/32 skyline with setbacks and crowns; `cbfaf74` cyan/indigo structure, amber windows, and sparse neon signs. Gameplay geometry, spawns, camera, and AC physics stayed frozen. Low/full architecture budgets are 5/8 draw calls. QA: 169/169 specs, 1,880 tests; build green. Fixed full capture: `.diag-captures/night-shift-touchup.png`; Low path inspected in-app. Working name only. |
 | BUNDLE-1 | Menu/game code-split | ⚠️ **CLOSED PARTIAL 08-05 — perf goal NOT met. Deployed `f2f90fd2`.** Warm `menu-ready` −3% vs a −15% gate. Banked: a `size:check` byte gate, `main.js` 2,582 → 1,262 lines, −22.6% off the initial set (**cold** visits only). Lever E playtested: BUNDLE-E-PT-1 PASS 6/6. [bundle-1.md §0](./planning/bundle-1.md) |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 
 ### Next actions
 
-1. **NIGHT-SHIFT-CITY-1:** Wyatt visual playtest of local commits `39df058` / `62e8845` / `e8289c2`; do not close or ship before his result.
+1. **NIGHT-SHIFT-CITY-1:** Wyatt visual playtest through local touch-up commit `cbfaf74`; do not close or ship before his result.
 2. **Playtest owed:** SHARD-PT-2 (skip, needs five humans).
 
 ## Open issues (top)
@@ -123,14 +123,14 @@ the dev loop (dev probes lie in prod · edge propagation · frozen `rAF`), or a 
 
 ## Last updated
 
-2026-08-11 (NIGHT-SHIFT-BLOCKOUT-1) — Wyatt's sketch replaces the plus-shaped roof with one
-static 72×72 square. Night Shift uses a level-scoped 42 m spawn ring with a 45° offset, placing
-four supported platforms near the corners while the shared cart spawn path keeps initial spawn,
-respawn, and arena swaps aligned and facing center. Raised roofs move left/right. Two route ACs
-launch outward to them; north/south ACs use the stronger straight-up launch. AC registration is
-independent of internal-hole AI data, so filling the corners does not disable launch physics.
-Focused layout/launch tests, full QA, and the production build pass. Human review remains. Not
-pushed or deployed.
+2026-08-11 (NIGHT-SHIFT-CITY-1 touch-up) — Added realistic tower bands, corner columns,
+roof coping, and braced spawn decks without changing gameplay geometry. The deterministic city
+now has 60 towers across 10/18/32 depth bands, with stepped silhouettes, warm/cool windows, and
+sparse cyan/violet/pink/blue signs. Cyan/indigo structure and amber windows keep the AC colors as
+the strongest gameplay accents. Low keeps 20 towers and five isolated architecture draw calls;
+full uses eight. QA: 169/169 specs and 1,880 tests; production build green. Fixed full capture:
+`.diag-captures/night-shift-touchup.png`; Low path inspected in-app. Human review remains. Not
+pushed, deployed, closed, or renamed.
 
 2026-08-11 (NPC-BOOST-2-PT-1 PASS · NPC cluster closed) — NPC-BOOST-2-PT-1 all four
 steps PASS. NPC-BOOST-1, NPC-BOOST-2, AI-EASY-SOFTEN-1 all closed. Proportional
