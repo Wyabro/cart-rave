@@ -11,7 +11,7 @@
 // gated on the ERROR_LOG_TOKEN secret, which is absent in CI.
 
 import { beforeEach, describe, expect, it } from "vitest";
-import { BEACON_MAX_PER_WINDOW } from "../../party/constants.ts";
+import { ANALYTICS_MAX_PER_WINDOW, BEACON_MAX_PER_WINDOW } from "../../party/constants.ts";
 import { clearAllLogs, listFrom, postBeacon } from "./beaconClient.js";
 
 const CAP = BEACON_MAX_PER_WINDOW;
@@ -48,8 +48,8 @@ describe("SEC-BEACON-1 open beacon rate limit", () => {
   // of magnitude. On the default 5000ms it ran with no headroom in CI (10681ms for this
   // FILE against 4.66s locally), so unrelated load elsewhere in the run tipped it over
   // and turned the gate red. The flood size is deliberately NOT reduced to buy that
-  // margin back: 200 is what makes "far past the 80-row ring depth" mean anything.
-  it("stops a flood from evicting a real capture out of the 80-row ring", async () => {
+  // margin back: the cap admits exactly CAP of 200, which is what the assertion needs.
+  it("stops a flood from evicting a real capture out of the ring", async () => {
     // The whole point of the card: unbounded, ~80 junk POSTs erase a playtest's
     // F8 bundles. Capped, one IP can never reach the ring depth.
     const sentinel = await postBeacon("/api/captures", capture("SENTINEL"), "10.9.9.3");
@@ -67,7 +67,7 @@ describe("SEC-BEACON-1 open beacon rate limit", () => {
     expect(rows.some((r) => r.label === "SENTINEL")).toBe(true);
   }, 30_000);
 
-  it("budgets per route, not shared — capped on log-error, still open on analytics", async () => {
+  it("budgets per route, not shared — each log DO defends its own ring", async () => {
     const ip = "10.9.9.5";
     for (let i = 0; i < CAP; i += 1) {
       await postBeacon("/api/log-error", { message: `flood-${i}` }, ip);
@@ -80,6 +80,20 @@ describe("SEC-BEACON-1 open beacon rate limit", () => {
       ip,
     );
     expect(analytics.status).toBe(204);
+  });
+
+  it("caps analytics POSTs at ANALYTICS_MAX_PER_WINDOW per ip", async () => {
+    const ip = "10.9.9.7";
+    let accepted = 0;
+    for (let i = 0; i < ANALYTICS_MAX_PER_WINDOW + 5; i += 1) {
+      const res = await postBeacon(
+        "/api/analytics",
+        { sessionId: "s3", events: [{ name: "match_ended", durationMs: 4000 }] },
+        ip,
+      );
+      if (res.status === 204) accepted += 1;
+    }
+    expect(accepted).toBe(ANALYTICS_MAX_PER_WINDOW);
   });
 
   it("exempts requests with no cf-connecting-ip so local dev is never throttled", async () => {

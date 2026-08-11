@@ -24,6 +24,14 @@ export const IP_CONNECTION_CAP = 5;
  */
 export const BEACON_MAX_PER_WINDOW = 30;
 
+/**
+ * Analytics is capped tighter than the other beacons: each POST carries up to
+ * MAX_EVENTS_PER_BATCH events and the analytics ring feeds product aggregates,
+ * so the per-IP fabrication budget here is the real ceiling, not the shared
+ * BEACON_MAX_PER_WINDOW. Applied only inside AnalyticsLog (CAPTURE-RING-LIMIT-1).
+ */
+export const ANALYTICS_MAX_PER_WINDOW = 5;
+
 /** Sliding window length for open-beacon rate limiting. */
 export const BEACON_WINDOW_MS = 60_000;
 

@@ -123,6 +123,16 @@ the dev loop (dev probes lie in prod · edge propagation · frozen `rAF`), or a 
 
 ## Last updated
 
+2026-08-10 (CARGO-LATCH-1 · MENU-SFX-1 · CAPTURE-RING-LIMIT-1) — Housekeeping closed two
+stale rows: CARGO-LATCH-1's fix actually landed 08-09 (`a20d547`) and is deployed
+(`7569051`) — remaining work is the **CARGO-LATCH-PT-1** production playtest (solo pause +
+host tab-return at boss fill); MENU-SFX-1's menu SFX slider shipped under the
+audio-controls / VOICE-BUS-1 work and closed as absorbed. **CAPTURE-RING-LIMIT-1 landed:**
+capture ring 80 → 400 (~13 min depth at the accepted rate) and analytics POSTs capped at
+5/60s per IP (`ANALYTICS_MAX_PER_WINDOW`) — the analytics fabrication budget drops 6× and
+the 20k-row ring cycles in ~80 min at the cap. Not player-visible; prod smoke check rides
+the next ship. Deployed `7569051` · Worker `8e5f274f` remains current.
+
 2026-08-09 (retroactive analytics cards) — Three analytics features landed 08-09 without card
 IDs (`d18568a` + `30a8151`, `b6de16e`, `df8da00`) and are now carded retroactively:
 **ANLX-GEO-1** (CF geo → props, returning sessions, ttFirstMatch, summary rollups),

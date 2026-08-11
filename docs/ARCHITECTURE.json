@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-11T01:13:33.717Z",
-    "commit": "2e5a2c1"
+    "at": "2026-08-11T01:14:35.857Z",
+    "commit": "606237e"
   },
-  "source_digest": "2b0829a6",
+  "source_digest": "99994253",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -916,7 +916,7 @@
       {
         "title": "Engineering",
         "counts": {
-          "Low": 8,
+          "Low": 7,
           "Partial": 1,
           "Medium": 8
         },
@@ -1015,12 +1015,6 @@
             "pri": "Medium",
             "item": "CARGO-BAY-INSTANCE-1 — cargo bays render as up to 30 individually-toggled meshes per cart",
             "notes": "**Filed 08-07 from the principal-engineering audit — fresh perf surface, not a PERF-PASS-1 reopen.** `GRID` is 15 floor + 10 mid + 5 crest = 30 slots, one `THREE.Mesh` each ([groceryPool.js:630-664](../../src/effects/groceryPool.js:630), [:688](../../src/effects/groceryPool.js:688)); fill level only toggles `.visible` ([:764-776](../../src/effects/groceryPool.js:764)) — each visible item is still its own draw call. 4 carts × up to 30 visible items = up to 120 draw calls every frame during play, on **every** quality tier including LOW (bays aren't tier-gated — core to the mechanic); roughly doubled on HIGH where the Classic vinyl Reflector re-renders the scene. **Fix:** one `InstancedMesh` per grocery model, driven by the existing `GRID` transforms, collapsing this to a handful of draws. **Caution before starting:** the `GRID` comments reference a recent tuning pass (\"Session-3 pass 3, Wyatt 07-30\") — confirm the visual fill pattern is considered stable before refactoring its rendering, or this fights concurrent design changes (see Block H open question). L effort — needs a breakdown.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "CAPTURE-RING-LIMIT-1 — the F8 capture ring is evictable well inside its own accepted rate limit",
-            "notes": "**Filed 08-07 from the principal-engineering audit.** `BEACON_MAX_PER_WINDOW = 30` per 60s ([constants.ts:25,28](../../party/constants.ts:25)); `captureLog.ts`'s ring is `MAX_ROWS = 80`, unconditionally pruned on insert ([:14](../../party/captureLog.ts:14), [:118-122](../../party/captureLog.ts:118)). The POST route is unauthenticated by design ([index.ts:1746-1804](../../party/index.ts:1746)). A single IP staying inside the accepted rate limit cycles the entire 80-row capture ring in ~2.7 minutes; same shape on analytics (`MAX_ROWS = 20,000` at 50 events/batch → ~13 minutes, [analyticsLog.ts:17,20](../../party/analyticsLog.ts:17)), and analytics POSTs carry no authenticity signal, so `match_ended` aggregates read for product decisions can be diluted with fabricated rows with no way to separate them after the fact. **This isn't \"beacons are unauthenticated\"** (already accepted) **— it's that the accepted per-IP limit is ~26× deeper than the capture ring it can evict.** **Fix:** shrink the accepted limit or grow the ring (especially `captureLog`'s 80 rows) so they're proportionate — Wyatt's call on which.",
             "ship1": null
           }
         ]

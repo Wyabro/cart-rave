@@ -10,8 +10,12 @@
 import { type BeaconBucket, UNKNOWN_IP, checkBeaconLimit } from "./beaconLimit";
 import { clampStr as clamp, jsonResponse } from "./logUtil";
 
-/** Ring-buffer cap — full bundles are ~5–40 KB; keep the last N. */
-const MAX_ROWS = 80;
+/**
+ * Ring-buffer cap — full bundles are ~5–40 KB; keep the last N.
+ * 400 ≈ 13 min of capture depth at the accepted beacon rate (CAPTURE-RING-LIMIT-1:
+ * the old 80 rows cycled in ~2.7 min, so a focused capture run evicted itself).
+ */
+const MAX_ROWS = 400;
 
 /** Hard ceiling on stored JSON body (chars). Hostile / runaway clients get dropped. */
 const MAX_BODY_CHARS = 350_000;

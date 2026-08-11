@@ -10,6 +10,7 @@
 // parsing at read time. Everything else stays in the props JSON column.
 
 import { MIN_MATCH_DURATION_MS } from "../shared/analyticsConstants.js";
+import { ANALYTICS_MAX_PER_WINDOW } from "./constants";
 import { type BeaconBucket, UNKNOWN_IP, checkBeaconLimit } from "./beaconLimit";
 import { clampStrOrNull as clampStr, jsonResponse } from "./logUtil";
 
@@ -278,8 +279,10 @@ export class AnalyticsLog {
     const url = new URL(request.url);
     if (request.method === "POST" && url.pathname === "/ingest") {
       // * SEC-BEACON-1: cap before the INSERT so a flood can't prune the ring.
+      // * CAPTURE-RING-LIMIT-1: analytics POSTs run their own tighter per-IP budget
+      // * (analytics events feed product aggregates; captures/errors just need depth).
       const ip = request.headers.get("cf-connecting-ip") || UNKNOWN_IP;
-      if (!checkBeaconLimit(this.#beaconIps, ip, Date.now())) {
+      if (!checkBeaconLimit(this.#beaconIps, ip, Date.now(), ANALYTICS_MAX_PER_WINDOW)) {
         return new Response(null, { status: 429 });
       }
       try {

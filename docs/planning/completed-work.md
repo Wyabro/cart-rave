@@ -13,6 +13,23 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 10, 2026 — CAPTURE-RING-LIMIT-1 PASS: proportionate beacon limits
+
+- *(Engineering · Low)* **CAPTURE-RING-LIMIT-1** — ✅ **CLOSED 08-10** (desk-only, verdict in
+  diff/test). The accepted beacon budget no longer dwarfs the rings it feeds. **Capture ring
+  (`captureLog.ts`) 80 → 400** — ~13 min of capture depth at the accepted rate, was ~2.7 min.
+  **Analytics POSTs capped at `ANALYTICS_MAX_PER_WINDOW = 5/60s` per IP** (new
+  `party/constants.ts`; `analyticsLog.ts` passes it to the existing beacon limiter) — with
+  `MAX_EVENTS_PER_BATCH = 50` the per-IP fabrication budget drops 6×, and the 20k-row
+  analytics ring now cycles in ~80 min at the cap instead of ~13 min. Legit clients never get
+  close: analytics flushes at 20 events / 30 s idle — "explicitly NOT continuous telemetry."
+  Tests: new "caps analytics POSTs at ANALYTICS_MAX_PER_WINDOW per ip" case in
+  [beacons.test.js](../../tests/party-do/beacons.test.js); `npm run qa` green. Not
+  player-visible; the prod smoke check (beacon lands, 429 works) rides the next ship. One
+  constraint respected: analytics rows still never store IP.
+
+---
+
 ### August 10, 2026 — MENU-SFX-1 CLOSED: main-menu SFX slider (absorbed)
 
 - *(UI / UX · Low)* **MENU-SFX-1** — ✅ **CLOSED 08-10 as shipped**. Intent (a working SFX
