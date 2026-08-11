@@ -141,12 +141,12 @@ const physics = {
         enabled: true,
         // * FEEL-DAY-1: global base cone (all difficulties + MP host-sim); Hard stacks −12°.
         alignmentAngleDeg: 34, // degrees — aim cone toward target
-        minTargetDistance: 1.5, // meters — NPC-BOOST-2: was 5.0, cancelled every charge before 1.5s hold completed
+        minTargetDistance: 3.0, // meters — NPC-BOOST-2: early-release at this range gives proportional burst
         maxTargetDistance: 12.0, // meters
         // * AI-DAY-1 lever 3 + SELFKO-1: solo human boost frequency only (NPC-BOOST-1 carve-out).
         // * MP human path still always commits. Easy skips safe-center thrift.
         // * Bot edgeBias >= finisherEdgeBiasMin → hard deny (no full-send on the lip).
-        finisherEdgeBiasMin: 0.55, // unitless — NPC-BOOST-2-PT-1: was 0.35, burst impulse overcame the 2.6m edge buffer
+        finisherEdgeBiasMin: 0.35, // unitless — getEdgeVictimBias threshold for "finisher" / bot-lip
         finisherCommitBonus: 0.25, // unitless — added to pre-clamp commit when finisher
         safeCenterCommitMul: 0.72, // unitless — mid-arena thrift when not finisher
         safeCenterMinDist: 8.0, // meters — thrift only when dist > this (inside 5–12 band)

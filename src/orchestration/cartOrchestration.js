@@ -807,12 +807,12 @@ function getAiAxis(now, cart) {
   const axis = Simulation.getAiAxis(now, cart, allCarts, Netcode.getNetSlots());
   if (!cart.isChargingBoost || cart.npcBoostChargeTargetSlotIndex == null) return axis;
 
-  // * NPC-BOOST-1: the host fixed tick owns charge hold/cancel. A normal false
-  // * boostHeld would enter the human early-release branch and fire a partial burst.
+  // * NPC-BOOST-2: when the charge can no longer continue (target too close,
+  // * edge danger, path unsafe), do NOT cancel. Leave boostHeld unset —
+  // * applyArcadeControls sees a human-style release and fires a proportional
+  // * burst instead of a full-power auto-release or a silent cancel.
   if (canContinueNpcChargedAttack(cart)) {
     axis.boostHeld = true;
-  } else {
-    axis.boostCancel = true;
   }
   return axis;
 }
