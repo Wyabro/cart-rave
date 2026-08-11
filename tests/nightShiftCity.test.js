@@ -50,6 +50,9 @@ describe("Night Shift city architecture", () => {
     expect(architecture.extendedWindows.visible).toBe(false);
     expect(architecture.diagnostics.lowBuildingCount).toBe(16);
     expect(architecture.diagnostics.lowWindowCount).toBeGreaterThan(0);
+    expect(architecture.diagnostics.deckBraceCount).toBe(12);
+    expect(architecture.diagnostics.facadeBandCount).toBe(32);
+    expect(architecture.diagnostics.structuralBeamCount).toBe(52);
 
     architecture.applyQualityTier({ skyExtras: true });
     expect(architecture.extendedSkyline.visible).toBe(true);

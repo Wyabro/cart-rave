@@ -238,6 +238,7 @@ export function createNightShiftCityArchitecture(root, plan, spawnPlatforms, mat
   writeBoxInstances(tower, towerSpecs);
 
   const beams = [];
+  const deckBraceStart = beams.length;
   for (const platform of spawnPlatforms) {
     const signX = Math.sign(platform.x) || 1;
     const signZ = Math.sign(platform.z) || 1;
@@ -253,10 +254,49 @@ export function createNightShiftCityArchitecture(root, plan, spawnPlatforms, mat
         end: new THREE.Vector3(platform.x, -5.5, signZ * (TOWER_HALF_SIZE - 0.35)),
         thickness: 0.42,
       },
+      {
+        start: new THREE.Vector3(platform.x, undersideY - 0.1, platform.z),
+        end: new THREE.Vector3(
+          signX * (TOWER_HALF_SIZE - 0.35),
+          -8.5,
+          signZ * (TOWER_HALF_SIZE - 0.35),
+        ),
+        thickness: 0.5,
+      },
     );
   }
+  const deckBraceCount = beams.length - deckBraceStart;
+
+  // Horizontal floor plates and vertical corner columns break the tower shell into readable
+  // construction layers. Every beam stays outside or below the driveable roof plane.
+  const facadeBandStart = beams.length;
+  for (let y = -8; y >= -92; y -= 12) {
+    beams.push(
+      { start: new THREE.Vector3(-35.7, y, 36.45), end: new THREE.Vector3(35.7, y, 36.45), thickness: 0.34 },
+      { start: new THREE.Vector3(-35.7, y, -36.45), end: new THREE.Vector3(35.7, y, -36.45), thickness: 0.34 },
+      { start: new THREE.Vector3(36.45, y, -35.7), end: new THREE.Vector3(36.45, y, 35.7), thickness: 0.34 },
+      { start: new THREE.Vector3(-36.45, y, -35.7), end: new THREE.Vector3(-36.45, y, 35.7), thickness: 0.34 },
+    );
+  }
+  const facadeBandCount = beams.length - facadeBandStart;
+
+  for (const x of [-36.45, 36.45]) {
+    for (const z of [-36.45, 36.45]) {
+      beams.push({
+        start: new THREE.Vector3(x, -95, z),
+        end: new THREE.Vector3(x, -0.3, z),
+        thickness: 0.58,
+      });
+    }
+  }
+  beams.push(
+    { start: new THREE.Vector3(-36, -0.2, 36.35), end: new THREE.Vector3(36, -0.2, 36.35), thickness: 0.36 },
+    { start: new THREE.Vector3(-36, -0.2, -36.35), end: new THREE.Vector3(36, -0.2, -36.35), thickness: 0.36 },
+    { start: new THREE.Vector3(36.35, -0.2, -36), end: new THREE.Vector3(36.35, -0.2, 36), thickness: 0.36 },
+    { start: new THREE.Vector3(-36.35, -0.2, -36), end: new THREE.Vector3(-36.35, -0.2, 36), thickness: 0.36 },
+  );
   const braces = new THREE.InstancedMesh(unitBox, materials.brace, beams.length);
-  braces.name = "night-shift-corner-deck-braces";
+  braces.name = "night-shift-tower-structure";
   writeBeamInstances(braces, beams);
 
   const coreSpecs = [];
@@ -314,7 +354,9 @@ export function createNightShiftCityArchitecture(root, plan, spawnPlatforms, mat
     fullBuildingCount: plan.buildings.length,
     lowWindowCount: windowBuffers.corePositions.length / 3,
     fullWindowCount: (windowBuffers.corePositions.length + windowBuffers.extendedPositions.length) / 3,
-    braceCount: beams.length,
+    structuralBeamCount: beams.length,
+    deckBraceCount,
+    facadeBandCount,
     lowDrawCalls: 4,
     fullDrawCalls: 6,
   });
