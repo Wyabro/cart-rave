@@ -45,6 +45,14 @@ Chronological record of shipped work, newest first.
   from `!lowQ` in `zanzibarPlatform.js`. Low tier ocean now has ripple normal map.
   Deployed `6e63efcd`. Perf check on Intel UHD min-spec: PASS.
 
+- *(UI/UX · Low)* **UI-SCALE-P2-MEDIA-1** — ✅ **PASS 08-11.** Breakpoints reconciled to
+  380/768/1024/1025 contract (`bf2dde6`), two size-only 380px blocks deleted (`e139bb6`).
+  Deployed `b5e1d758`. All breakpoints playtest-PASSed.
+
+- *(UI/UX · Low)* **ORIENT-HINT-SCROLL-1** — ✅ **PASS 08-11.** Added `padding-bottom: 56px`
+  in portrait-hint's landscape/coarse/≤480 band (`cf54119`). Deployed `b5e1d758`.
+  740×360 coarse landscape scroll-to-bottom: PASS.
+
 - *(Engineering · High)* **NPC-BOOST-2** — ✅ **CLOSED 08-11.** Charge visibility + audio
   confirmed working on prod. Repair commits `3d1e263` / `544f4b5`; deployed `7569051`.
   Follow-up (`dec9a66`) replaced charge cancel with proportional early-release:

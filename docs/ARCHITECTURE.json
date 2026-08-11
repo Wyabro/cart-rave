@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-11T17:27:39.265Z",
-    "commit": "cbfaf74"
+    "at": "2026-08-11T17:36:40.635Z",
+    "commit": "577551f"
   },
-  "source_digest": "6dc70c81",
+  "source_digest": "c211eb03",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1157,8 +1157,8 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Medium": 2,
-          "Low": 3
+          "Medium": 1,
+          "Low": 2
         },
         "rows": [
           {
@@ -1177,18 +1177,6 @@
             "pri": "Low",
             "item": "AQ-RING-CLEAR-1 — autoQuality clear sample ring on every window eval",
             "notes": "**Reserve only** if Wave 2 entry grace still demotes on retest. Comment in autoQuality.js already notes the ring can poison up to 3 windows. Own commit if needed; not in main batch path.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "UI-SCALE-P2-MEDIA-1 — Pass 2 media-query cleanup `[solo]`",
-            "notes": "**Owed: Wyatt playtest — UI-SCALE-P2-MEDIA-1 — drifted breakpoints reconciled to 380/768/1024/1025 contract, size-only 380px blocks deleted.** Deployed `b5e1d758` · prefer **https://www.cartclash.lol/?diag=1**.<br>1. Phone ≤768px: HUD lobby single-column, score labels hidden, nametags legible, menu stacked column scrolls correctly.<br>2. Tablet 768–1024px: lobby single-column, results landscape at ≤1024px.<br>3. Desktop ≥1025px: score labels visible, lobby two-column, results wide layout.<br>4. FAIL on broken layout, missing elements, or clipping at any breakpoint.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "ORIENT-HINT-SCROLL-1 — portrait-hint clips last menu item `[solo]`",
-            "notes": "**Owed: Wyatt playtest — ORIENT-HINT-SCROLL-1 — stacked mobile band now clears the 36px portrait-hint bar.** Deployed `b5e1d758` · prefer **https://www.cartclash.lol/?diag=1**.<br>1. 740×360 coarse landscape: open menu, scroll to bottom — last item must be fully visible, not clipped by the portrait-hint bar.<br>2. Portrait phone: no extra dead space at bottom of menu (padding should be normal).<br>3. FAIL if last item clips or if portrait has excessive bottom padding.",
             "ship1": null
           }
         ]
