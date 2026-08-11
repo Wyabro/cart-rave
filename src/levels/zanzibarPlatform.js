@@ -1421,13 +1421,10 @@ function buildSeascape(scene, circumR) {
   /** @type {THREE.Texture[]} */
   const ownedTextures = [];
 
-  // Ocean plane — ripple normals drift in update() (skipped in Low Quality).
+  // Ocean plane — ripple normals drift in update().
   const waterGeo = new THREE.PlaneGeometry(WATER_SIZE, WATER_SIZE, 1, 1);
-  let waterNormalTex = null;
-  if (!lowQ) {
-    waterNormalTex = buildWaterNormalTexture();
-    ownedTextures.push(waterNormalTex);
-  }
+  const waterNormalTex = buildWaterNormalTexture();
+  ownedTextures.push(waterNormalTex);
   // * Deep ink ocean with a warm bias — pure teal under the platform read as a cold blue
   // * ring against sunset fog; slight amber in the base color keeps near-water coherent.
   // * Water is a DIELECTRIC. metalness 0.82 gave it F0 (0.0129, 0.0217, 0.0279) — below the

@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-11T05:49:48.378Z",
-    "commit": "dec9a66"
+    "at": "2026-08-11T06:14:08.165Z",
+    "commit": "effa338"
   },
-  "source_digest": "741df00b",
+  "source_digest": "640aa94a",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -905,17 +905,11 @@
       {
         "title": "Engineering",
         "counts": {
-          "Low": 6,
+          "Low": 5,
           "Partial": 1,
           "Medium": 8
         },
         "rows": [
-          {
-            "pri": "Low",
-            "item": "BOOTH-RAIL-COL-1 — Storerooms booth rails/dividers are visual-only",
-            "notes": "**Split out 08-05 from STORE-PLAT-WALL-1's misfiling** — real, but *not* what Wyatt reported, and explicitly out of that card's scope. On the four elevated spawn booths, only the deck cuboid gets a collider ([backroomsSupermarket.js:3278](../../src/levels/backroomsSupermarket.js:3278)); the low back rail, side bars, corner posts and cubicle divider are mesh-merge visuals with no physics. **Note the sides are an open handrail** — a bar 1.8 m above the deck with nothing beneath it — so \"make the sides solid\" would be an invisible barrier where the player sees a gap. Wyatt's ruling 08-05 if this is ever picked up: posts only, back rail matches its visible 0.55 m (a cart may ram over it; there is a 4.35 m carpet apron behind each booth, so going over lands on floor, not in the pit), and **crates stay ghost**. Same shape as SPAWN-SUNDIAL-1. Low: nobody has reported it in play.",
-            "ship1": null
-          },
           {
             "pri": "Low",
             "item": "MOTION-A11Y-1 — `prefers-reduced-motion` doesn't actually reduce any motion",

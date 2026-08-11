@@ -23,6 +23,11 @@ Chronological record of shipped work, newest first.
 - *(Playtest)* **CARGO-LATCH-PT-1** — ✅ **PASS 08-11.** Solo pause + host tab-return at
   boss fill: no repeat overflow callout. Steps 1–3 all passed.
 
+- *(Art · Low)* **BOOTH-RAIL-COL-1** — 🚫 **CLOSED 08-11 per Wyatt.** Will not fix.
+
+- *(Art · Low)* **SUNDIAL-LOW-WATER-1** — 🛠️ Ungated `buildWaterNormalTexture()` from
+  `!lowQ` in `zanzibarPlatform.js`. Low tier ocean now has ripple normal map.
+
 - *(Engineering · High)* **NPC-BOOST-2** — ✅ **CLOSED 08-11.** Charge visibility + audio
   confirmed working on prod. Repair commits `3d1e263` / `544f4b5`; deployed `7569051`.
   Follow-up (`dec9a66`) replaced charge cancel with proportional early-release:
