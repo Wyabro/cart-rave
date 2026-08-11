@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  createNightShiftCityArchitecture,
   createNightShiftCityPlan,
   NIGHT_SHIFT_CITY_SEED,
 } from "../src/levels/nightShiftVisuals.js";
+import * as THREE from "three";
 
 describe("Night Shift city architecture", () => {
   it("compiles an identical building plan from the same seed", () => {
@@ -26,5 +28,37 @@ describe("Night Shift city architecture", () => {
       expect(building.roofY).toBeLessThanOrEqual(-10);
       expect(building.bottomY).toBeLessThan(building.roofY);
     }
+  });
+
+  it("keeps the core city on Low and enables extended depth on Medium and High", () => {
+    const root = new THREE.Group();
+    const material = new THREE.MeshBasicMaterial();
+    const architecture = createNightShiftCityArchitecture(
+      root,
+      createNightShiftCityPlan(),
+      [
+        { x: 30, y: 4, z: 30, height: 0.6 },
+        { x: -30, y: 4, z: 30, height: 0.6 },
+        { x: -30, y: 4, z: -30, height: 0.6 },
+        { x: 30, y: 4, z: -30, height: 0.6 },
+      ],
+      { tower: material, brace: material, skylineCore: material, skylineExtended: material },
+    );
+
+    architecture.applyQualityTier({ skyExtras: false });
+    expect(architecture.extendedSkyline.visible).toBe(false);
+    expect(architecture.extendedWindows.visible).toBe(false);
+    expect(architecture.diagnostics.lowBuildingCount).toBe(16);
+    expect(architecture.diagnostics.lowWindowCount).toBeGreaterThan(0);
+
+    architecture.applyQualityTier({ skyExtras: true });
+    expect(architecture.extendedSkyline.visible).toBe(true);
+    expect(architecture.extendedWindows.visible).toBe(true);
+    expect(architecture.diagnostics.fullBuildingCount).toBe(46);
+    expect(architecture.diagnostics.fullWindowCount)
+      .toBeGreaterThan(architecture.diagnostics.lowWindowCount);
+
+    architecture.dispose();
+    material.dispose();
   });
 });

@@ -5,10 +5,12 @@ import { RAPIER } from "../physics/rapierInstance.js";
 import { computeSpawnAngleForSlot } from "../config.js";
 import { createPhysicalMaterial } from "../scene.js";
 import {
+  createNightShiftAtmosphere,
   createNightShiftCityArchitecture,
   createNightShiftCityPlan,
 } from "./nightShiftVisuals.js";
 import { createNightShiftMaterialBundle } from "./nightShiftMaterials.js";
+import { getQualityKnobs } from "../utils/qualityTiers.js";
 
 const FLOOR_TOP_Y = 0;
 const FLOOR_THICKNESS = 0.6;
@@ -211,7 +213,7 @@ export function initRooftop(scene, world, config) {
   const previousCenterHole = config.record.centerHole;
   const previousBackground = scene.background;
   config.record.centerHole = { enabled: false };
-  scene.background = new THREE.Color(0x07111f);
+  scene.background = new THREE.Color(0x0a1222);
 
   const materialBundle = createNightShiftMaterialBundle();
   const {
@@ -235,10 +237,12 @@ export function initRooftop(scene, world, config) {
   const edgeColliderHandles = [];
   const spawnPlatforms = getNightShiftSpawnPlatforms(config);
 
-  const moonHemi = new THREE.HemisphereLight(0x91b9ff, 0x101522, 1.2);
-  const roofKey = new THREE.DirectionalLight(0x8ca8ff, 1.6);
+  const moonHemi = new THREE.HemisphereLight(0xa8c6ff, 0x151b2b, 2.25);
+  const roofKey = new THREE.DirectionalLight(0x9eb7ff, 3.2);
   roofKey.position.set(-20, 32, 18);
-  root.add(moonHemi, roofKey);
+  const cityUplight = new THREE.PointLight(0xff7855, 115, 260, 2);
+  cityUplight.position.set(0, -28, 0);
+  root.add(moonHemi, roofKey, cityUplight);
 
   for (const roof of NIGHT_SHIFT_BLOCKOUT_LAYOUT.mainRoofs) {
     addBox(root, world, {
@@ -319,8 +323,17 @@ export function initRooftop(scene, world, config) {
     spawnPlatforms,
     materialBundle.materials,
   );
+  const atmosphere = createNightShiftAtmosphere(scene, root);
+
+  function applyQualityTier(knobs) {
+    cityArchitecture.applyQualityTier(knobs);
+    atmosphere.applyQualityTier(knobs);
+    cityUplight.visible = knobs.skyExtras !== false;
+  }
+  applyQualityTier(getQualityKnobs());
 
   function dispose() {
+    atmosphere.dispose();
     cityArchitecture.dispose();
     scene.remove(root);
     config.record.centerHole = previousCenterHole;
@@ -334,6 +347,7 @@ export function initRooftop(scene, world, config) {
   }
 
   return {
+    applyQualityTier,
     recordMesh,
     recordCollider: null,
     recordColliderHandles,

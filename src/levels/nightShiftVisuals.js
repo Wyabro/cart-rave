@@ -120,6 +120,99 @@ function writeBeamInstances(mesh, beams) {
   mesh.instanceMatrix.needsUpdate = true;
 }
 
+/** @param {ReturnType<typeof createNightShiftCityPlan>} plan */
+function buildWindowBuffers(plan) {
+  const corePositions = [];
+  const coreColors = [];
+  const extendedPositions = [];
+  const extendedColors = [];
+  const random = makeRng(plan.seed ^ 0xbb67ae85);
+
+  for (const building of plan.buildings) {
+    const positions = building.detail === "core" ? corePositions : extendedPositions;
+    const colors = building.detail === "core" ? coreColors : extendedColors;
+    const angle = Math.atan2(building.z, building.x);
+    const inwardX = -Math.cos(angle);
+    const inwardZ = -Math.sin(angle);
+    const tangentX = -Math.sin(angle);
+    const tangentZ = Math.cos(angle);
+    const faceOffset = Math.min(building.width, building.depth) * 0.5 + 0.55;
+    const columns = Math.max(2, Math.floor(building.width / 7));
+    const rows = Math.max(2, Math.floor((building.roofY - building.bottomY) / 8));
+
+    for (let row = 1; row < rows; row += 1) {
+      for (let column = 0; column < columns; column += 1) {
+        if (random() > 0.48) continue;
+        const across = ((column + 0.5) / columns - 0.5) * building.width * 0.78;
+        positions.push(
+          building.x + inwardX * faceOffset + tangentX * across,
+          building.bottomY + row * 8 + (random() - 0.5) * 0.7,
+          building.z + inwardZ * faceOffset + tangentZ * across,
+        );
+        const brightness = 0.48 + random() * 0.52;
+        const cool = random() < 0.24;
+        colors.push(
+          brightness * (cool ? 0.62 : 1),
+          brightness * (cool ? 0.8 : 0.66),
+          brightness * (cool ? 1 : 0.34),
+        );
+      }
+    }
+  }
+
+  // The arena's own tower needs occupied floors below the roof. These four facade grids make
+  // the drop legible from the chase camera instead of reading as one unbroken black slab.
+  const towerFaces = [
+    { axis: "x", fixed: 36.45 },
+    { axis: "x", fixed: -36.45 },
+    { axis: "z", fixed: 36.45 },
+    { axis: "z", fixed: -36.45 },
+  ];
+  for (const face of towerFaces) {
+    for (let row = 0; row < 11; row += 1) {
+      for (let column = 0; column < 8; column += 1) {
+        if (random() > 0.42) continue;
+        const across = -28 + column * 8;
+        const y = -9 - row * 7.2;
+        if (face.axis === "x") corePositions.push(face.fixed, y, across);
+        else corePositions.push(across, y, face.fixed);
+        const brightness = 0.54 + random() * 0.46;
+        const cool = random() < 0.2;
+        coreColors.push(
+          brightness * (cool ? 0.6 : 1),
+          brightness * (cool ? 0.82 : 0.64),
+          brightness * (cool ? 1 : 0.3),
+        );
+      }
+    }
+  }
+  return { corePositions, coreColors, extendedPositions, extendedColors };
+}
+
+/**
+ * @param {number[]} positions
+ * @param {number[]} colors
+ * @param {string} name
+ */
+function createWindowPoints(positions, colors, name) {
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+  const material = new THREE.PointsMaterial({
+    color: 0xffffff,
+    vertexColors: true,
+    size: 2.4,
+    sizeAttenuation: false,
+    transparent: true,
+    opacity: 0.94,
+    fog: false,
+    depthWrite: false,
+  });
+  const points = new THREE.Points(geometry, material);
+  points.name = name;
+  return points;
+}
+
 /**
  * Builds exposed facade faces, corner-deck braces, and three batched skyline depth bands.
  * This module never receives Rapier's world, so it cannot change gameplay collision.
@@ -188,11 +281,30 @@ export function createNightShiftCityArchitecture(root, plan, spawnPlatforms, mat
   extendedSkyline.name = "night-shift-skyline-extended";
   writeBoxInstances(extendedSkyline, extendedSpecs);
 
+  const windowBuffers = buildWindowBuffers(plan);
+  const coreWindows = createWindowPoints(
+    windowBuffers.corePositions,
+    windowBuffers.coreColors,
+    "night-shift-windows-core",
+  );
+  const extendedWindows = createWindowPoints(
+    windowBuffers.extendedPositions,
+    windowBuffers.extendedColors,
+    "night-shift-windows-extended",
+  );
+
   for (const mesh of [tower, braces, coreSkyline, extendedSkyline]) {
     mesh.castShadow = false;
     mesh.receiveShadow = true;
     mesh.frustumCulled = true;
     root.add(mesh);
+  }
+  root.add(coreWindows, extendedWindows);
+
+  function applyQualityTier(knobs) {
+    const fullCity = knobs.skyExtras !== false;
+    extendedSkyline.visible = fullCity;
+    extendedWindows.visible = fullCity;
   }
 
   const diagnostics = Object.freeze({
@@ -200,16 +312,74 @@ export function createNightShiftCityArchitecture(root, plan, spawnPlatforms, mat
     bandCounts: plan.bandCounts,
     lowBuildingCount: coreSpecs.length,
     fullBuildingCount: plan.buildings.length,
+    lowWindowCount: windowBuffers.corePositions.length / 3,
+    fullWindowCount: (windowBuffers.corePositions.length + windowBuffers.extendedPositions.length) / 3,
     braceCount: beams.length,
-    architectureDrawCalls: 4,
+    lowDrawCalls: 4,
+    fullDrawCalls: 6,
   });
+  root.userData.nightShiftCity = diagnostics;
 
   return {
     extendedSkyline,
+    extendedWindows,
     diagnostics,
+    applyQualityTier,
     dispose() {
-      root.remove(tower, braces, coreSkyline, extendedSkyline);
+      root.remove(tower, braces, coreSkyline, extendedSkyline, coreWindows, extendedWindows);
       unitBox.dispose();
+      coreWindows.geometry.dispose();
+      extendedWindows.geometry.dispose();
+      coreWindows.material.dispose();
+      extendedWindows.material.dispose();
+      delete root.userData.nightShiftCity;
+    },
+  };
+}
+
+/**
+ * Adds no-post-process atmosphere: distance fog, a moon landmark, and a restrained warm glow
+ * below the tower. The glow is tier-gated; moon and fog preserve the level identity on Low.
+ *
+ * @param {THREE.Scene} scene
+ * @param {THREE.Group} root
+ */
+export function createNightShiftAtmosphere(scene, root) {
+  const previousFog = scene.fog;
+  scene.fog = new THREE.FogExp2(0x070d19, 0.0018);
+
+  const moonGeometry = new THREE.SphereGeometry(12, 24, 12);
+  const moonMaterial = new THREE.MeshBasicMaterial({ color: 0xc7d7ff, fog: false });
+  const moon = new THREE.Mesh(moonGeometry, moonMaterial);
+  moon.name = "night-shift-moon";
+  moon.position.set(-82, 54, -235);
+
+  const glowGeometry = new THREE.CircleGeometry(430, 48);
+  const glowMaterial = new THREE.MeshBasicMaterial({
+    color: 0x7a2849,
+    transparent: true,
+    opacity: 0.3,
+    depthWrite: false,
+    fog: true,
+    side: THREE.DoubleSide,
+  });
+  const cityGlow = new THREE.Mesh(glowGeometry, glowMaterial);
+  cityGlow.name = "night-shift-city-glow";
+  cityGlow.position.y = -101;
+  cityGlow.rotation.x = -Math.PI / 2;
+  root.add(moon, cityGlow);
+
+  return {
+    applyQualityTier(knobs) {
+      cityGlow.visible = knobs.skyExtras !== false;
+    },
+    dispose() {
+      scene.fog = previousFog;
+      root.remove(moon, cityGlow);
+      moonGeometry.dispose();
+      glowGeometry.dispose();
+      moonMaterial.dispose();
+      glowMaterial.dispose();
     },
   };
 }
