@@ -1108,7 +1108,10 @@ export function playCartCrash(intensity = 1, opts = {}) {
   // * Volume floor (HIT-FEEL-1) — not an intensity gate; soft hits still play, just quieter.
   const floor = CONFIG.ramming?.fx?.crashVolumeFloor ?? 0.22;
   const volume = Math.max(floor, Math.min(1, floor + (intensity ?? 1) * 0.7));
-  return playSfx("cartCrash", undefined, { rate, volume });
+  // * HIT-SFX-VAR-1 — random selection from 3 crash variants.
+  const keys = ["cartCrash", "cartCrash2", "cartCrash3"];
+  const key = keys[Math.floor(Math.random() * keys.length)];
+  return playSfx(key, undefined, { rate, volume });
 }
 
 /**
