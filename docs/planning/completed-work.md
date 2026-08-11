@@ -25,8 +25,21 @@ Chronological record of shipped work, newest first.
 
 - *(Engineering · High)* **NPC-BOOST-2** — ✅ **CLOSED 08-11.** Charge visibility + audio
   confirmed working on prod. Repair commits `3d1e263` / `544f4b5`; deployed `7569051`.
-  `minTargetDistance` lowered 5.0→1.5 (`a29fe33`) to let charges complete the 1.5s hold.
-  Self-KO residual tracked under NPC-BOOST-2-PT-1.
+  Follow-up (`dec9a66`) replaced charge cancel with proportional early-release:
+  `minTargetDistance` 3.0, `finisherEdgeBiasMin` 0.35, NPC releases instead of cancels
+  when conditions turn unsafe. Deployed `e917da49`.
+
+- *(Playtest)* **NPC-BOOST-2-PT-1** — ✅ **PASS 08-11.** All four steps passed. NPC
+  charged boosts visible and audible across difficulties, Friends sync verified,
+  unsafe charges cancel / unsafe instants skip correctly, zero boost self-KOs.
+
+- *(Engineering · Medium)* **NPC-BOOST-1** — ✅ **CLOSED 08-11.** Initial NPC charged
+  boost feature (`033bb8f`). Superseded by NPC-BOOST-2 which now fully passes.
+  Easy 10% slower decisions (`4e47e16`) shipped alongside.
+
+- *(Engineering · Medium)* **AI-EASY-SOFTEN-1** — ✅ **CLOSED 08-11.** Easy NPC
+  decision intervals 1.44× → 1.584× (10% slower). Deployed with NPC-BOOST-1.
+  Closure tracked by NPC-BOOST-2-PT-1 PASS.
 
 ### August 10, 2026 — CAPTURE-RING-LIMIT-1 PASS: proportionate beacon limits
 
