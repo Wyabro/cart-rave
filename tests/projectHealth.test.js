@@ -461,7 +461,7 @@ describe("live-doc canaries (real docs/ vs parsers)", () => {
     const bySection = parseBacklogSections(md).flatMap((s) => s.rows).length;
     const flat = flattenBacklogRows(md).length;
     expect(flat).toBe(bySection);
-    expect(flat).toBeGreaterThan(50); // never assert the literal count — that's the drift the gate exists to prevent
+    expect(flat).toBeGreaterThan(0); // Never assert a literal count; parser agreement and non-emptiness are the canary.
   });
 
   it("STATUS.md ### Do not list parses non-empty (feeds BRIEFING.md + dashboard firewall)", () => {

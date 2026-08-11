@@ -163,7 +163,9 @@ export const cartTuningStore = createStore((set) => ({
           if (!raveGltfTuning.casterPivotCorner) {
             raveGltfTuning.casterPivotCorner = cloneDefaults().casterPivotCorner;
           }
-          raveGltfTuning.casterPivotCorner[label] = { ...cornerDefaults };
+          // * Mutate in-place so Tweakpane bindings (which reference this exact
+          // * object) stay connected. Replacement would orphan them.
+          Object.assign(raveGltfTuning.casterPivotCorner[label], cornerDefaults);
           updates.casterPivotCorner = {
             ...raveGltfTuning.casterPivotCorner,
           };

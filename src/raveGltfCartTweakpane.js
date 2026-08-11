@@ -56,7 +56,12 @@ function addSectionReset(folder, keys, rootPane, applyVisuals) {
  * @returns {import("tweakpane").FolderApi}
  */
 export function wireRaveGltfCartDebugTweakpane(pane, scene) {
-  const applyVisuals = () => reapplyRaveGltfCartTuningOnScene(scene);
+  // * Only reapply on the final change event (slider release / checkbox toggle).
+  // * Intermediate drag ticks fire with ev.options.last === false; skipping them
+  // * avoids redundant full-scene traverses that cause fork flicker during gameplay.
+  const applyVisuals = (ev) => {
+    if (ev?.options?.last !== false) reapplyRaveGltfCartTuningOnScene(scene);
+  };
 
   const folder = pane.addFolder({ title: "Cart Forks & Wheels", expanded: true });
 

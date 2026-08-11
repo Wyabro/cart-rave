@@ -2339,6 +2339,11 @@ export function reapplyRaveGltfCartTuning(cartRoot) {
 
   let maxWheelRadius = RAVE_GLTF_WHEEL_RADIUS_FALLBACK * raveGltfTuning.scale;
 
+  // * Save swivel rotations before layout — layoutRaveGltfCasterAssembly resets them
+  // * to zero, which causes a 1-frame fork flicker during live tweakpane adjustments
+  // * while the cart is turning. Restore after the loop so the steering angle survives.
+  const savedRots = data.casters.map((c) => c.swivelPivot.rotation.clone());
+
   for (const caster of data.casters) {
     const group = RAVE_GLTF_V4_FORK_GROUPS.find((g) => g.id === caster.id);
     if (!group) continue;
@@ -2398,6 +2403,11 @@ export function reapplyRaveGltfCartTuning(cartRoot) {
     if (caster.wheelRadius) {
       maxWheelRadius = Math.max(maxWheelRadius, caster.wheelRadius);
     }
+  }
+
+  // * Restore steering angles that layoutRaveGltfCasterAssembly reset to zero.
+  for (let i = 0; i < data.casters.length; i += 1) {
+    data.casters[i].swivelPivot.rotation.copy(savedRots[i]);
   }
 
   data.wheelRadius = maxWheelRadius;
