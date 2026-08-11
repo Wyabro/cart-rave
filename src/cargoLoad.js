@@ -8,7 +8,7 @@
  *   - cargoFullness01  — weight01 from lifeCargoPoints / fullScore (0 stripped → 1 boss);
  *     consumed by grip / drive / ram-incoming / spill-count in simulation.js.
  *   - Bay fill         — GroceryPool.setCargoFillCount via lifeCargoVisibleCount;
- *     4 discrete phases (CONFIG.cargo.fillPhases 5/10/20/30), hidden while stripped.
+ *     3 discrete phases (CONFIG.cargo.fillPhases 10/20/30), hidden while stripped.
  *   - Life cargo API   — grantLifeCargo / stripLifeCargo / clearCargoOverflowForSlot;
  *     host awards on KO/SD/SpillBonus; spill strips; respawn resets via entities.
  *   - Announcer        — "cart_overflow" first boss fill this life; "spill_rush" on strip.
@@ -115,44 +115,41 @@ export function shiftCargoLatchBy(deltaMs) {
 }
 
 /**
- * Visible grocery count for life cargo — 4 discrete phases (Wyatt 07-30: distinct
- * "cart got fuller" jumps read better than a per-point creep). Quarter-split over
- * fullScore; stripped (0) stays hidden. Defaults: life 1–2 → 5, 3–4 → 10, 5–7 → 20,
- * 8 → 30. Weight/handling (cargoFullness01) stays continuous — only the LOOK steps.
+ * Visible grocery count for life cargo — 3 discrete phases. Half-split: stripped
+ * (0) stays hidden, then baseline→half, half→almost-full, full. Defaults:
+ * life 1–3 → 10, 4–7 → 20, 8 → 30. Weight/handling (cargoFullness01) stays
+ * continuous — only the LOOK steps.
  * @param {number} lifeCargoPoints
  * @returns {number}
  */
 export function lifeCargoVisibleCount(lifeCargoPoints) {
   const cargoCfg = CONFIG.cargo;
   const phases =
-    Array.isArray(cargoCfg?.fillPhases) && cargoCfg.fillPhases.length === 4
+    Array.isArray(cargoCfg?.fillPhases) && cargoCfg.fillPhases.length === 3
       ? cargoCfg.fillPhases
-      : [5, 10, 20, 30];
+      : [10, 20, 30];
   const idx = cargoFillLevelFor(lifeCargoPoints);
   return idx === 0 ? 0 : phases[idx - 1];
 }
 
 /**
- * Fill level 0–4: 0 = stripped, 1–4 = the four `fillPhases` buckets.
+ * Fill level 0–3: 0 = stripped, 1–3 = the three `fillPhases` buckets.
  *
  * THE single source for "which step is this cart on" — `lifeCargoVisibleCount` (the 3D bay)
  * and the CARGO-HUD-1 nameplate chip both read it, so the chip cannot drift out of sync with
- * the basket it exists to summarize. That drift was the 07-30 defect: the chip originally had
- * its own 3-state split, which collapsed life 1–7 (three whole bay phases) into one reading
- * and made a single kill off stripped jump the readout two bars.
+ * the basket it exists to summarize.
  *
  * @param {number} lifeCargoPoints
- * @returns {0 | 1 | 2 | 3 | 4}
+ * @returns {0 | 1 | 2 | 3}
  */
 export function cargoFillLevelFor(lifeCargoPoints) {
   const full = Math.max(1, CONFIG.cargo?.fullScore ?? 8);
   const life = clamp(Number(lifeCargoPoints) || 0, 0, full);
   if (life <= 0) return 0;
+  if (life >= full) return 3;
   const t = life / full;
-  if (t <= 0.25) return 1;
-  if (t <= 0.5) return 2;
-  if (t < 1) return 3;
-  return 4;
+  if (t < 0.5) return 1;
+  return 2;
 }
 
 /**

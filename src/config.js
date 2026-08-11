@@ -267,9 +267,9 @@ const physics = {
     baselinePoints: 3, // points — spawn/respawn stocked load (maps to today's handling = 1.0)
     // * 4-phase visual fill (Wyatt 07-30): discrete jumps read as "cart got fuller"
     // * moments. Quarter-split over fullScore: life 1–2 → 5, 3–4 → 10, 5–7 → 20, 8 → 30.
-    fillPhases: [5, 10, 20, 30], // counts per phase; last entry = GRID length
-    baseItems: 10, // count — spawn/baseline look (= fillPhases[1]; legacy setCargoFill floor)
-    maxItems: 30, // count — full cargo (= fillPhases[3]; mirrors GRID length in createCargoBay)
+    fillPhases: [10, 20, 30], // counts per phase; last entry = GRID length
+    baseItems: 10, // count — spawn/baseline look (= fillPhases[0]; legacy setCargoFill floor)
+    maxItems: 30, // count — full cargo (= fillPhases[2]; mirrors GRID length in createCargoBay)
     // * Top-heavy handling — lateral grip at BOSS weight (piecewise: baseline stays 1.0).
     gripFullFactor: 0.58, // unitless — lateral grip scale at weight01 1.0 (readable slide)
     // * Drive curve vs baseline 1.0 (piecewise stripped ↔ baseline ↔ boss).

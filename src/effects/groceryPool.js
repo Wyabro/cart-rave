@@ -624,9 +624,9 @@ function populateCargoBay(group, hw, hl, rimY) {
   // * the overflowing top layer comes last.
   // * D-CARGO-VIS-1 (07-30): the old "keep the pile under the rim" invariant is REVERSED —
   // * a boss/full bay is SUPPOSED to crest the rim (layer 2 solves against rimY below).
-  // * Session-3 pass 3 (Wyatt 07-30 4-phase pacing): 30 slots (15 floor · 10 mid ·
+  // * Session-3 pass 3 (Wyatt 07-30 3-phase pacing): 30 slots (15 floor · 10 mid ·
   // * 5 crest) — the last fillPhases step reveals every slot, so a boss bay reads
-  // * PACKED across the widened real cavity. CONFIG.cargo.maxItems (= fillPhases[3])
+  // * PACKED across the widened real cavity. CONFIG.cargo.maxItems (= fillPhases[2])
   // * mirrors GRID.length — keep them synced.
   const GRID = [
     // layer 0 — floor (corners, edge midpoints, mid-edge band, centre: the full footprint)

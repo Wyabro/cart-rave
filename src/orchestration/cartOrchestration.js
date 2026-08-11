@@ -86,7 +86,7 @@ function nametagHtml(name, meta, mode, isHost, isLeader = false, cargoChip = nul
     ? `<span class="cart-nametag-crown">${svgIcon("crown", { label: "Leader" })}</span>`
     : "";
   const cargo = cargoChip
-    ? `<span class="cart-nametag-cargo" data-cargo="${cargoChip.tier}" data-fill="${cargoChip.fill | 0}" aria-label="Cargo ${cargoChip.fill | 0} of 4"><i></i><i></i><i></i><i></i></span>`
+    ? `<span class="cart-nametag-cargo" data-cargo="${cargoChip.tier}" data-fill="${cargoChip.fill | 0}" aria-label="Cargo ${cargoChip.fill | 0} of 3"><i></i><i></i><i></i></span>`
     : "";
   if (!meta) return `${hostGlyph}${escapeHtml(name)}${crown}${cargo}`;
   const icon = `<span style="color:${meta.color};margin-right:6px;">${svgIcon(meta.icon, { label: meta.label })}</span>`;

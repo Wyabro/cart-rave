@@ -1383,14 +1383,13 @@
   /* Empty segment — dim enough to read as "nothing there" against the ink plate. */
   background: rgba(242, 237, 228, 0.3);
 }
-/* Lit segments = the bay's phase (1–4). Count carries "how far along". */
+/* Lit segments = the bay's phase (1–3). Count carries "how far along". */
 .cart-nametag-cargo[data-fill="1"] i:nth-child(-n + 1),
 .cart-nametag-cargo[data-fill="2"] i:nth-child(-n + 2),
-.cart-nametag-cargo[data-fill="3"] i:nth-child(-n + 3),
-.cart-nametag-cargo[data-fill="4"] i {
+.cart-nametag-cargo[data-fill="3"] i {
   background: var(--color-cyan, #35e0e8);
 }
-/* Boss: all four in the rampage-pip amber + a soft glow. Colour carries "this
+/* Boss: all three in the rampage-pip amber + a soft glow. Colour carries "this
    one is a tank" — it must win over the cyan fill rules, so it stays last.
    Nothing else on the plate glows. */
 .cart-nametag-cargo[data-cargo="boss"] i {
