@@ -7,13 +7,20 @@ from datetime import datetime, timezone
 import json
 import os
 import re
-import subprocess
 import sys
 import time
-from uuid import uuid4
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
+from uuid import uuid4
+
+from loop_safety import (
+    MAX_READ_ONLY_COMMAND_SECONDS,
+    READ_ONLY_COMMANDS,
+    RunArtifacts,
+    atomic_write_json,
+    run_readonly,
+)
 
 
 ROOT = Path.cwd().resolve()
@@ -22,12 +29,12 @@ ENDPOINT = os.environ.get(
     "DEEPSEEK_PROXY_URL",
     "http://127.0.0.1:9000/v1/chat/completions",
 ).rstrip("/")
-RUN_RESULT = ROOT / ".agent" / "self-improving" / "run-result.md"
 RUN_STATE = ROOT / ".agent" / "self-improving" / "run-state.json"
+RUN_ARTIFACT_NAMESPACE = Path(".agent/self-improving/runs")
 MAX_TURNS = 24
 MAX_TOOL_OUTPUT = 30_000
 MAX_FILE_OUTPUT = 80_000
-MAX_COMMAND_SECONDS = 60
+MAX_COMMAND_SECONDS = MAX_READ_ONLY_COMMAND_SECONDS
 MODEL_REQUEST_TIMEOUT_SECONDS = 90
 RUN_TIMEOUT_SECONDS = 900
 
@@ -44,11 +51,14 @@ def _clip(value: object, limit: int = MAX_TOOL_OUTPUT) -> str:
     return text[:limit] + f"\n... output clipped at {limit} characters ..."
 
 
-def _save_run_result(value: object, *, run_id: str) -> None:
-    RUN_RESULT.parent.mkdir(parents=True, exist_ok=True)
-    RUN_RESULT.write_text(
+def _run_artifacts(run_id: str) -> RunArtifacts:
+    return RunArtifacts(ROOT, RUN_ARTIFACT_NAMESPACE, run_id)
+
+
+def _save_run_result(artifacts: RunArtifacts, value: object, *, run_id: str) -> Path:
+    return artifacts.write_text(
+        "run-result.md",
         f"# DeepSeek run {run_id}\n\n{str(value).rstrip()}\n",
-        encoding="utf-8",
     )
 
 
@@ -56,15 +66,9 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
-def _write_json_atomic(path: Path, payload: dict) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temp_path = path.with_name(f".{path.name}.{uuid4().hex}.tmp")
-    temp_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
-    temp_path.replace(path)
-
-
 def _write_checkpoint(
-    path: Path,
+    index_path: Path,
+    artifacts: RunArtifacts,
     *,
     run_id: str,
     role: str,
@@ -75,6 +79,7 @@ def _write_checkpoint(
     started_at: str,
     error: str | None = None,
 ) -> dict:
+    artifact_root = artifacts.run_dir.relative_to(artifacts.root).as_posix()
     payload = {
         "run_id": run_id,
         "role": role,
@@ -84,10 +89,15 @@ def _write_checkpoint(
         "turn": turn,
         "started_at": started_at,
         "updated_at": _utc_now(),
+        "artifacts": {
+            "run_state": f"{artifact_root}/run-state.json",
+            "run_result": f"{artifact_root}/run-result.md",
+        },
     }
     if error:
         payload["error"] = error
-    _write_json_atomic(path, payload)
+    artifacts.write_json("run-state.json", payload)
+    atomic_write_json(index_path, payload)
     return payload
 
 
@@ -159,35 +169,18 @@ def _list_files(args: dict) -> str:
     return "\n".join(results) or "(no files)"
 
 
-_DENIED_COMMANDS = (
-    r"\bgit\s+(commit|push|reset|clean|checkout|restore)\b",
-    r"\bnpm\s+run\s+(ship|deploy)\b",
-    r"\b(remove-item|del\s|erase\s|rmdir\s|format\s|rm\s+-)\b",
-    r"\b(powershell|pwsh)\b.*\b(remove-item|del\s|erase\s|rmdir\s)\b",
-)
-
-
-def _run_command(args: dict) -> str:
-    command = str(args.get("command", "")).strip()
-    if not command:
-        raise ValueError("command is required")
-    lowered = command.lower()
-    if any(re.search(pattern, lowered) for pattern in _DENIED_COMMANDS):
-        raise PermissionError("staging, commits, pushes, deploys, and deletes are blocked")
-    requested_timeout = float(args.get("timeout_seconds", 60))
-    timeout = max(1, min(int(requested_timeout), MAX_COMMAND_SECONDS))
-    completed = subprocess.run(
-        ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", command],
-        cwd=ROOT,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        timeout=timeout,
-        check=False,
+def _run_readonly(args: dict) -> str:
+    operation = args.get("operation")
+    if not isinstance(operation, str):
+        raise ValueError("operation is required")
+    requested_timeout = float(args.get("timeout_seconds", MAX_COMMAND_SECONDS))
+    return _clip(
+        run_readonly(
+            ROOT,
+            operation,
+            timeout_seconds=max(1, min(int(requested_timeout), MAX_COMMAND_SECONDS)),
+        )
     )
-    output = (completed.stdout or "") + ("\n" + completed.stderr if completed.stderr else "")
-    return _clip(f"exit_code={completed.returncode}\n{output.strip()}")
 
 
 def _write_file(args: dict) -> str:
@@ -241,13 +234,17 @@ TOOL_DEFINITIONS = [
         [],
     ),
     _tool(
-        "run_command",
-        "Run a bounded read or test command. No deploy, commit, push, or delete commands.",
+        "run_readonly",
+        "Run one host-defined read-only operation. Arbitrary commands are unavailable.",
         {
-            "command": {"type": "string"},
-            "timeout_seconds": {"type": "number", "minimum": 1, "maximum": 120},
+            "operation": {"type": "string", "enum": sorted(READ_ONLY_COMMANDS)},
+            "timeout_seconds": {
+                "type": "number",
+                "minimum": 1,
+                "maximum": MAX_COMMAND_SECONDS,
+            },
         },
-        ["command"],
+        ["operation"],
     ),
     _tool(
         "write_file",
@@ -269,7 +266,7 @@ def _system_prompt(role: str, *, plan_only: bool = False) -> str:
             "Read docs/BRIEFING.md, AGENTS.md, and the top of docs/STATUS.md before acting.",
             "Follow AGENTS.md exactly: protect unrelated dirty work; do not deploy, push, commit, stage, or edit project authority files.",
             "Work only on the stated task. Use the smallest coherent change.",
-            "Use tools for repository facts. Do not invent test results. Keep the final response short and factual.",
+            "Use tools for repository facts. Only host-defined read-only operations are available; arbitrary commands are unavailable. Do not invent test results. Keep the final response short and factual.",
         ]
     )
     if role == "checker":
@@ -320,15 +317,13 @@ def _execute_tool(name: str, arguments: dict, role: str, *, plan_only: bool = Fa
             return _read_file(arguments)
         if name == "list_files":
             return _list_files(arguments)
-        if name == "run_command":
-            return _run_command(arguments)
+        if name == "run_readonly":
+            return _run_readonly(arguments)
         if name == "write_file":
             if role != "maker" or plan_only:
                 raise PermissionError("write_file is unavailable in this mode")
             return _write_file(arguments)
         raise ValueError(f"unknown tool: {name}")
-    except subprocess.TimeoutExpired:
-        return "tool_error: command timed out"
     except Exception as exc:
         return f"tool_error: {type(exc).__name__}: {exc}"
 
@@ -397,12 +392,14 @@ def main() -> int:
     plan_only = bool(args.plan_only)
     mode = "plan-only" if plan_only else role
     run_id = _run_id()
+    artifacts = _run_artifacts(run_id)
     state_path = Path(args.run_state).resolve()
     started_at = _utc_now()
     turn = 0
     deadline = time.monotonic() + args.run_timeout_seconds
     _write_checkpoint(
         state_path,
+        artifacts,
         run_id=run_id,
         role=role,
         mode=mode,
@@ -418,6 +415,7 @@ def main() -> int:
         error = "DEEPSEEK_API_KEY is not set; the key is required but is never stored in the repository"
         _write_checkpoint(
             state_path,
+            artifacts,
             run_id=run_id,
             role=role,
             mode=mode,
@@ -445,6 +443,7 @@ def main() -> int:
             request_timeout = max(1, min(args.request_timeout_seconds, int(remaining)))
             _write_checkpoint(
                 state_path,
+                artifacts,
                 run_id=run_id,
                 role=role,
                 mode=mode,
@@ -468,6 +467,7 @@ def main() -> int:
             tool_calls = message.get("tool_calls") or []
             _write_checkpoint(
                 state_path,
+                artifacts,
                 run_id=run_id,
                 role=role,
                 mode=mode,
@@ -480,7 +480,7 @@ def main() -> int:
             if not tool_calls:
                 text = message.get("content") or ""
                 if role == "maker":
-                    _save_run_result(text, run_id=run_id)
+                    _save_run_result(artifacts, text, run_id=run_id)
                 if role == "checker":
                     lines = [line.strip() for line in str(text).splitlines() if line.strip()]
                     if not lines or not re.fullmatch(r"(?:APPROVE|REJECT|ESCALATE)(?::.*)?", lines[-1]):
@@ -492,6 +492,7 @@ def main() -> int:
                     print(text)
                 _write_checkpoint(
                     state_path,
+                    artifacts,
                     run_id=run_id,
                     role=role,
                     mode=mode,
@@ -509,6 +510,7 @@ def main() -> int:
                 name = function.get("name", "")
                 _write_checkpoint(
                     state_path,
+                    artifacts,
                     run_id=run_id,
                     role=role,
                     mode=mode,
@@ -533,6 +535,7 @@ def main() -> int:
                 )
                 _write_checkpoint(
                     state_path,
+                    artifacts,
                     run_id=run_id,
                     role=role,
                     mode=mode,
@@ -547,6 +550,7 @@ def main() -> int:
         error = str(exc)
         _write_checkpoint(
             state_path,
+            artifacts,
             run_id=run_id,
             role=role,
             mode=mode,

@@ -66,12 +66,13 @@ Live rows only. Shipped and closed cards live in
 
 | # | What | Status |
 |---|------|--------|
+| LOOP-SAFETY-2 | Harden loop command and artifact boundary | 🔧 **ACTIVE 08-11** — replace model-provided PowerShell with fixed host-defined read-only operations; write loop and graph artifacts atomically per run. DEV-GRAPH-2 remains blocked until five clean plan-only dry runs. |
 | BUNDLE-1 | Menu/game code-split | ⚠️ **CLOSED PARTIAL 08-05 — perf goal NOT met. Deployed `f2f90fd2`.** Warm `menu-ready` −3% vs a −15% gate. Banked: a `size:check` byte gate, `main.js` 2,582 → 1,262 lines, −22.6% off the initial set (**cold** visits only). Lever E playtested: BUNDLE-E-PT-1 PASS 6/6. [bundle-1.md §0](./planning/bundle-1.md) |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 
 ### Next actions
 
-1. **No active card** — wait for Wyatt.
+1. **LOOP-SAFETY-2** — complete the fixed read-only command capability, per-run atomic artifact store, and focused tests. Do not connect model stages.
 2. **Playtest owed:** SHARD-PT-2 (skip, needs five humans).
 
 ## Open issues (top)

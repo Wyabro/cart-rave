@@ -8,11 +8,15 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
 MODULE_PATH = ROOT / ".agent" / "bin" / "deepseek_agent.py"
+if str(MODULE_PATH.parent) not in sys.path:
+    sys.path.insert(0, str(MODULE_PATH.parent))
+
+import loop_safety
+
 SPEC = importlib.util.spec_from_file_location("cart_clash_deepseek_agent", MODULE_PATH)
 assert SPEC and SPEC.loader
 agent = importlib.util.module_from_spec(SPEC)
@@ -27,6 +31,8 @@ class DeepSeekAgentControlPlaneTests(unittest.TestCase):
 
         self.assertNotIn("write_file", {tool["function"]["name"] for tool in plan_tools})
         self.assertIn("write_file", {tool["function"]["name"] for tool in apply_tools})
+        self.assertIn("run_readonly", {tool["function"]["name"] for tool in plan_tools})
+        self.assertNotIn("run_command", {tool["function"]["name"] for tool in apply_tools})
         self.assertIn("write_file tool is unavailable by design", agent._system_prompt("maker", plan_only=True))
 
     def test_plan_only_write_attempt_is_rejected_before_path_access(self) -> None:
@@ -41,9 +47,16 @@ class DeepSeekAgentControlPlaneTests(unittest.TestCase):
 
     def test_checkpoint_is_atomic_and_has_run_identity(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
-            state_path = Path(temp_dir) / "run-state.json"
+            root = Path(temp_dir)
+            state_path = root / "run-state.json"
+            artifacts = loop_safety.RunArtifacts(
+                root,
+                Path(".agent/self-improving/runs"),
+                "run-123",
+            )
             payload = agent._write_checkpoint(
                 state_path,
+                artifacts,
                 run_id="run-123",
                 role="maker",
                 mode="plan-only",
@@ -55,15 +68,28 @@ class DeepSeekAgentControlPlaneTests(unittest.TestCase):
 
             self.assertEqual(payload["run_id"], "run-123")
             self.assertEqual(json.loads(state_path.read_text(encoding="utf-8"))["event"], "model_request")
-            self.assertEqual(list(state_path.parent.glob("*.tmp")), [])
+            self.assertEqual(
+                json.loads(artifacts.path("run-state.json").read_text(encoding="utf-8"))["run_id"],
+                "run-123",
+            )
+            self.assertEqual(
+                payload["artifacts"]["run_result"],
+                ".agent/self-improving/runs/run-123/run-result.md",
+            )
+            self.assertEqual(list(root.rglob("*.tmp")), [])
 
     def test_run_result_carries_the_same_run_identity(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
-            result_path = Path(temp_dir) / "run-result.md"
-            with patch.object(agent, "RUN_RESULT", result_path):
-                agent._save_run_result("PLAN", run_id="run-456")
+            root = Path(temp_dir)
+            artifacts = loop_safety.RunArtifacts(
+                root,
+                Path(".agent/self-improving/runs"),
+                "run-456",
+            )
+            result_path = agent._save_run_result(artifacts, "PLAN", run_id="run-456")
 
             self.assertTrue(result_path.read_text(encoding="utf-8").startswith("# DeepSeek run run-456\n"))
+            self.assertEqual(result_path, artifacts.path("run-result.md"))
 
     def test_deadline_order_leaves_tool_commands_shorter_than_model_requests(self) -> None:
         self.assertLess(agent.MAX_COMMAND_SECONDS, agent.MODEL_REQUEST_TIMEOUT_SECONDS)

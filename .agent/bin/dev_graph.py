@@ -14,6 +14,12 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+BIN_DIR = Path(__file__).resolve().parent
+if str(BIN_DIR) not in sys.path:
+    sys.path.insert(0, str(BIN_DIR))
+
+from loop_safety import LoopSafetyError, RunArtifacts
+
 
 ROOT = Path(__file__).resolve().parents[2]
 GRAPH_RELATIVE_PATH = Path(".agent/graphs/dev-graph.json")
@@ -31,17 +37,6 @@ class GraphError(RuntimeError):
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
-
-
-def _atomic_write_text(path: Path, value: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_name(f".{path.name}.{uuid4().hex}.tmp")
-    temporary.write_text(value, encoding="utf-8")
-    temporary.replace(path)
-
-
-def _atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
-    _atomic_write_text(path, json.dumps(payload, indent=2, sort_keys=True) + "\n")
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -151,11 +146,18 @@ def _lock_path(root: Path) -> Path:
 
 
 def _run_dir(root: Path, run_id: str) -> Path:
-    return _runtime_root(root) / _validate_run_id(run_id)
+    return _artifacts(root, run_id).run_dir
+
+
+def _artifacts(root: Path, run_id: str) -> RunArtifacts:
+    try:
+        return RunArtifacts(root, RUNTIME_RELATIVE_PATH, _validate_run_id(run_id))
+    except LoopSafetyError as exc:
+        raise GraphError(str(exc)) from exc
 
 
 def _state_path(root: Path, run_id: str) -> Path:
-    return _run_dir(root, run_id) / "state.json"
+    return _artifacts(root, run_id).path("state.json")
 
 
 def _read_lock(root: Path) -> dict[str, Any]:
@@ -226,7 +228,7 @@ def _read_state(root: Path, run_id: str) -> dict[str, Any]:
 
 def _write_state(root: Path, run_id: str, state: dict[str, Any]) -> None:
     state["updated_at"] = _utc_now()
-    _atomic_write_json(_state_path(root, run_id), state)
+    _artifacts(root, run_id).write_json("state.json", state)
 
 
 def _transition(
@@ -298,7 +300,7 @@ def submit_plan(root: Path, run_id: str, content: str) -> dict[str, Any]:
         raise GraphError("a plan is not expected at this graph node")
     artifact = _artifact_bytes(content)
     digest = _artifact_sha256(artifact)
-    _atomic_write_text(_run_dir(root, run_id) / "plan.md", artifact.decode("utf-8"))
+    _artifacts(root, run_id).write_text("plan.md", artifact.decode("utf-8"))
     state["artifacts"]["plan"] = {"file": "plan.md", "sha256": digest}
     _transition(root, graph, state, "submit_plan")
     _write_state(root, run_id, state)
@@ -343,7 +345,7 @@ def submit_review(root: Path, run_id: str, content: str) -> dict[str, Any]:
     if review["verdict"] != "APPROVE" and not findings:
         raise GraphError("rejected or escalated reviews must include findings")
 
-    _atomic_write_json(_run_dir(root, run_id) / "review.json", review)
+    _artifacts(root, run_id).write_json("review.json", review)
     state["artifacts"]["review"] = {
         "file": "review.json",
         "sha256": _artifact_sha256(

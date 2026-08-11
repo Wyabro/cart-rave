@@ -16,11 +16,11 @@ Chronological record of shipped work, newest first.
 ### August 11, 2026 — DEV-GRAPH-1 CLOSED: fail-closed plan workflow ledger
 
 - *(Tech Debt · Medium)* **DEV-GRAPH-1** — ✅ **CLOSED 08-11.** Commit `fa7ada0` is on
-  `origin/cart-clash` at the same SHA. The model-free graph enforces a clean-worktree
-  preflight, atomic per-run artifacts, a persistent lock, a review bound to the plan SHA-256,
-  and host-only exact `ack DEV-GRAPH-1`. It has no model, shell, source-edit, commit, deploy,
-  or player-playtest node. Focused Python tests passed 6/6; full QA passed 7/7 (169 files,
-  1,884 tests). No production deployment or player playtest was needed.
+  `origin/cart-clash`. The model-free graph owns a clean-worktree preflight, persistent lock,
+  review artifact bound to the plan SHA-256, host-only exact `ack DEV-GRAPH-1`, and synthetic
+  traces. It has no model node, model-provided command, source-edit, commit, deploy, or
+  player-playtest node. **LOOP-SAFETY-2 owns all command capability and per-run atomic
+  artifacts.** No production deployment or player playtest was needed.
 
 ---
 

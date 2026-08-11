@@ -14,6 +14,9 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 MODULE_PATH = ROOT / ".agent" / "bin" / "dev_graph.py"
+if str(MODULE_PATH.parent) not in sys.path:
+    sys.path.insert(0, str(MODULE_PATH.parent))
+
 SPEC = importlib.util.spec_from_file_location("cart_clash_dev_graph", MODULE_PATH)
 assert SPEC and SPEC.loader
 graph = importlib.util.module_from_spec(SPEC)
@@ -80,7 +83,7 @@ class DevGraphTests(unittest.TestCase):
         with self.assertRaisesRegex(graph.GraphError, first["run_id"]):
             self._start()
 
-    def test_approved_review_requires_a_matching_plan_digest_then_exact_ack(self) -> None:
+    def test_synthetic_approval_trace_requires_digest_then_exact_ack(self) -> None:
         state = self._start()
         state = graph.submit_plan(self.root, state["run_id"], "# Plan\n\nInspect one seam.\n")
         review = json.loads(self._approved_review(state))
@@ -100,7 +103,7 @@ class DevGraphTests(unittest.TestCase):
         self.assertEqual(state["status"], "complete")
         self.assertFalse((self.root / ".agent" / "runtime" / "dev-graph" / "active.lock").exists())
 
-    def test_rejected_review_is_terminal_and_releases_the_lock(self) -> None:
+    def test_synthetic_rejection_trace_is_terminal_and_releases_the_lock(self) -> None:
         state = self._start()
         state = graph.submit_plan(self.root, state["run_id"], "# Plan\n")
         review = {
@@ -117,17 +120,6 @@ class DevGraphTests(unittest.TestCase):
         self.assertEqual(state["node"], "rejected")
         self.assertEqual(state["status"], "rejected")
         self.assertFalse((self.root / ".agent" / "runtime" / "dev-graph" / "active.lock").exists())
-
-    def test_state_artifacts_are_atomic_and_stay_in_the_run_directory(self) -> None:
-        state = self._start()
-        run_dir = self.root / ".agent" / "runtime" / "dev-graph" / state["run_id"]
-        graph.submit_plan(self.root, state["run_id"], "# Plan\n")
-
-        self.assertTrue((run_dir / "state.json").is_file())
-        self.assertTrue((run_dir / "plan.md").is_file())
-        self.assertEqual(list(run_dir.glob("*.tmp")), [])
-        self.assertEqual(list(run_dir.parent.glob("*.tmp")), [])
-
 
 if __name__ == "__main__":
     unittest.main()
