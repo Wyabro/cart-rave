@@ -214,7 +214,7 @@ Lanes: [deploy-urls.md](./guides/deploy-urls.md).
 index.html          # Static shell, menu markup
 src/main.js         # Entry point + game wiring
 src/bootstrap.js    # Menu → gameplay flow
-src/levelManager.js # Level preview + swapping
+src/levels/levelManager.js # Level preview + swapping
 src/netcode.js      # Multiplayer + prediction
 src/simulation.js   # Host Rapier physics
 src/scoring/        # KO events, reactors, match stats

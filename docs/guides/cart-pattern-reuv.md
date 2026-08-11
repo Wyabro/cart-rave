@@ -109,5 +109,5 @@ The Draco decoder is served from `public/draco/gltf/` — no change needed.
 
 Proceed to the **PATTERNS tab** (customize-screen UI): add the third tab + section in
 `index.html`, export `makePatternMiniCartSvg` / `CART_PATTERNS` from `src/cartPatternConfig.js`,
-and add `buildPatternChips()` / `selectPattern()` in `src/cart-rave-menu.js` mirroring the
+and add `buildPatternChips()` / `selectPattern()` in `src/ui/cart-rave-menu.js` mirroring the
 existing sunglasses tab (`buildSunglassesChips` / `selectSunglassesStyle`).

@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-11T06:14:08.165Z",
-    "commit": "effa338"
+    "at": "2026-08-11T06:49:17.286Z",
+    "commit": "0fd3c7c"
   },
-  "source_digest": "640aa94a",
+  "source_digest": "6f93ec1c",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -999,17 +999,11 @@
       {
         "title": "Art",
         "counts": {
-          "Low": 7,
           "High": 1,
-          "Medium": 2
+          "Medium": 2,
+          "Low": 6
         },
         "rows": [
-          {
-            "pri": "Low",
-            "item": "SUNDIAL-LOW-WATER-1 — Low still skips the ocean normal map",
-            "notes": "**Filed 08-03**, the one residual after Sundial audit item 36 was otherwise closed. `waterNormalTex` is still built inside `if (!lowQ)` ([zanzibarPlatform.js:1427](../../src/levels/zanzibarPlatform.js:1427)), so Low's ocean has no ripple normal — the audit asked to keep it (\"a 256 px canvas built once; one extra texture fetch, not a pass\"). Everything else item 36 named is now on Low and was verified in source 08-03: foam ring (built on every tier with an explicit D-SUNDIAL-OQ6 comment), sun-path glint (ungated), 2 of 3 god-ray shafts (`rakeCount = lowQ ? 2 : 3`), a Low-specific ocean roughness of 0.5, and the reduced hologram — core + one glyph band + one ring — shipped in Wave 5 `0428f17`. Filed rather than built because Wave 6's close-out lever was scoped as verification only. Cheap; check the cost on the Intel UHD box, which is the min-spec smoothness floor.",
-            "ship1": null
-          },
           {
             "pri": "High",
             "item": "BLOOM-SIGNOFF-1 — Bloom look sign-off (Classic/Sundial) `[SHIP-1 E2]`",

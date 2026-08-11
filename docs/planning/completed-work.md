@@ -25,8 +25,9 @@ Chronological record of shipped work, newest first.
 
 - *(Art · Low)* **BOOTH-RAIL-COL-1** — 🚫 **CLOSED 08-11 per Wyatt.** Will not fix.
 
-- *(Art · Low)* **SUNDIAL-LOW-WATER-1** — 🛠️ Ungated `buildWaterNormalTexture()` from
-  `!lowQ` in `zanzibarPlatform.js`. Low tier ocean now has ripple normal map.
+- *(Art · Low)* **SUNDIAL-LOW-WATER-1** — ✅ **PASS 08-11.** Ungated `buildWaterNormalTexture()`
+  from `!lowQ` in `zanzibarPlatform.js`. Low tier ocean now has ripple normal map.
+  Deployed `6e63efcd`. Perf check on Intel UHD min-spec: PASS.
 
 - *(Engineering · High)* **NPC-BOOST-2** — ✅ **CLOSED 08-11.** Charge visibility + audio
   confirmed working on prod. Repair commits `3d1e263` / `544f4b5`; deployed `7569051`.

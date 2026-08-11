@@ -106,7 +106,7 @@ Bundled audio ships in a single `.opus` format under `public/sounds/` — Opus h
 
 **Cart body (first-party asset):** the playable cart uses a project-owned GLB (`cartrave4` / related masters under `art/models/`, Draco runtime under `public/models/`). Pattern masks sample a second UV channel — see [cart-pattern-reuv.md](../guides/cart-pattern-reuv.md). Compress with `npm run compress:rave-gltf`.
 
-**Arenas and most scene dressing** are **procedurally built in code** (`src/arena.js`, `src/levels/`, `src/sceneExtras.js`, etc.) from Three.js primitives and custom mesh builders — not third-party marketplace packs.
+**Arenas and most scene dressing** are **procedurally built in code** (`src/levels/arena.js`, `src/levels/`, `src/sceneExtras.js`, etc.) from Three.js primitives and custom mesh builders — not third-party marketplace packs.
 
 > **Note (July 2026):** Arena floor colliders use `convexHull` + primitive colliders (cuboids) rather than trimesh for stability and performance.
 

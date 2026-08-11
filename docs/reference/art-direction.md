@@ -109,7 +109,7 @@ files. The real inventory:
 
 | Arena | Authored surfaces today |
 |---|---|
-| **Cart Rave** | Vinyl floor — albedo + normal + roughness, with groove lands/valleys, 36 hairline radial play-wear scratches, dust and fingerprint blotches ([`arena.js:180`](../../src/arena.js:180)). Pit wall — albedo + normal + roughness plated panels ([`arena.js:33`](../../src/arena.js:33)). Booths — metal + grille albedo ([`arena.js:320`](../../src/arena.js:320)). |
+| **Cart Rave** | Vinyl floor — albedo + normal + roughness, with groove lands/valleys, 36 hairline radial play-wear scratches, dust and fingerprint blotches ([`arena.js:180`](../../src/levels/arena.js:180)). Pit wall — albedo + normal + roughness plated panels ([`arena.js:33`](../../src/levels/arena.js:33)). Booths — metal + grille albedo ([`arena.js:320`](../../src/levels/arena.js:320)). |
 | **The Storerooms** | ~9 builders — carpet, wallpaper, ceiling, concrete, prop-surface (carton/cardboard), furniture (wood/fabric/metal/plastic) — plus wet-floor, tape, and arrow canvases ([`backroomsSupermarket.js:150`](../../src/levels/backroomsSupermarket.js:150)–`596`). |
 | **Sundial Station** | ~12 builders — deck albedo + deck roughness (plate seams, bolt rings, rust streaks, 46 traffic-wear scuff arcs, hazard band), water normal, foam, panel, vent grille, hazard stripe, hologlyphs ([`zanzibarPlatform.js:144`](../../src/levels/zanzibarPlatform.js:144)+). |
 | **The carts** | **None.** Zero maps on any slot ([`cart.js:118`](../../src/cart.js:118)–`152`). |
@@ -125,7 +125,7 @@ filler sitting beside well-authored ones. That is a per-element art pass, tracke
 not a texturing sweep.
 
 When authoring anything new, read the existing builders first: the vinyl floor
-([`arena.js:180`](../../src/arena.js:180)) for wear, the Sundial deck
+([`arena.js:180`](../../src/levels/arena.js:180)) for wear, the Sundial deck
 ([`zanzibarPlatform.js:146`](../../src/levels/zanzibarPlatform.js:146)) for use-driven grime,
 and the Storerooms furniture builders for material variety.
 

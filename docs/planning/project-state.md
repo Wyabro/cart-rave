@@ -71,7 +71,7 @@ Full version table + licenses: [CREDITS.md](../reference/CREDITS.md) and [docs/R
 |------|------|
 | `src/main.js` | Entry point, render loop, system wiring |
 | `src/bootstrap.js` | Menu/gameplay transition |
-| `src/levelManager.js` | Level preview and hot-swap |
+| `src/levels/levelManager.js` | Level preview and hot-swap |
 | `src/netcode.js` | Multiplayer, prediction, interpolation, host P2P maintain |
 | `src/netcode/p2p.js` | WebRTC peers/DataChannels, ICE grace, TURN wait |
 | `src/netcode/binary.js` | Host snapshot encode/decode (bounds-checked) |
