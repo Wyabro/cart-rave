@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-11 at commit `bf2dde6` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `7c558565`
+> Generated 2026-08-11 at commit `554de9b` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `6a1f7ef0`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -18,12 +18,12 @@ Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep a
 
 ## ACTIVE CARD
 
-NIGHT-SHIFT-BLOCKOUT-1: in Solo Dev, load `?level=rooftop`; check the four spawn arms, two ramps and high roofs, and four corner gaps
+NIGHT-SHIFT-BLOCKOUT-1: in Solo Dev, load `?level=rooftop`; check the four spawn arms, two high roofs, and four corner gaps
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 
 Self-directed queue (one at a time, within the declared phase):
-- **NIGHT-SHIFT-BLOCKOUT-1** Night Shift rooftop blockout — 🔧 Local code and gates pass. Four corner voids, two high roofs, ramps, inert AC markers, and countdown…
+- **NIGHT-SHIFT-BLOCKOUT-1** Night Shift rooftop blockout — 🔧 Local code and gates pass. Four corner voids, two high roofs, inert AC markers, and countdown framing.…
 - **BUNDLE-1** Menu/game code-split — ⚠️ CLOSED PARTIAL 08-05 — perf goal NOT met. Deployed `f2f90fd2`. Warm `menu-ready` −3% vs a −15% gate.…
 
 ## Do not

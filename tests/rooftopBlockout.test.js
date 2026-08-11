@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 import { CONFIG, computeSpawnRingRadius } from "../src/config.js";
 import {
   getNightShiftBlockoutHazards,
@@ -45,5 +46,11 @@ describe("Night Shift blockout", () => {
         expect(insideHole).toBe(false);
       }
     }
+  });
+
+  it("keeps elevated roofs as future AC-launch targets, not driveable ramps", () => {
+    const source = readFileSync(new URL("../src/levels/rooftop.js", import.meta.url), "utf8");
+    expect(source).not.toContain("addRamp(");
+    expect(source).not.toContain("RAMP_");
   });
 });

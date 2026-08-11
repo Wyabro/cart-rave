@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-11T07:15:45.065Z",
-    "commit": "bf2dde6"
+    "at": "2026-08-11T07:27:59.097Z",
+    "commit": "554de9b"
   },
-  "source_digest": "69e303f8",
+  "source_digest": "e5de660c",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -866,7 +866,7 @@
       {
         "id": "NIGHT-SHIFT-BLOCKOUT-1",
         "what": "Night Shift rooftop blockout",
-        "status": "🔧 Local code and gates pass. Four corner voids, two high roofs, ramps, inert AC markers, and countdown framing. Non-quickplay; human blockout review pending.",
+        "status": "🔧 Local code and gates pass. Four corner voids, two high roofs, inert AC markers, and countdown framing. High roofs become AC-launch landing targets later. Non-quickplay; human blockout review pending.",
         "state": "waiting"
       },
       {
@@ -892,7 +892,7 @@
       }
     ],
     "next_actions": [
-      "NIGHT-SHIFT-BLOCKOUT-1: in Solo Dev, load `?level=rooftop`; check the four spawn arms, two ramps and high roofs, and four corner gaps.",
+      "NIGHT-SHIFT-BLOCKOUT-1: in Solo Dev, load `?level=rooftop`; check the four spawn arms, two high roofs, and four corner gaps.",
       "Playtest owed: SHARD-PT-2 (skip, needs five humans)."
     ],
     "open_issues": [

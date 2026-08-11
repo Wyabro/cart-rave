@@ -12,13 +12,11 @@ const GAP_CENTER = 23;
 const GAP_HALF = 12.4;
 const HIGH_ROOF_TOP_Y = 3.4;
 const HIGH_ROOF_SIZE = 12;
-const RAMP_WIDTH = 5.5;
-const RAMP_THICKNESS = 0.5;
 
 /**
  * Blockout dimensions stay data-only so the geometry, Rapier colliders, AI-safe voids, and
  * focused tests share one layout. The elevated roofs stay on the north/south arms, outside the
- * corner-void contract, so existing human lip assist cannot fight their ramps.
+ * corner-void contract. They become AC-launch landing targets in a later card.
  */
 export const NIGHT_SHIFT_BLOCKOUT_LAYOUT = Object.freeze({
   mainRoofs: Object.freeze([
@@ -106,39 +104,6 @@ function addBox(root, world, spec, material, ownedGeometries, ownedMaterials, bo
 }
 
 /**
- * A sloped cuboid provides a robust blockout ramp without introducing trimesh seams. Its Three
- * and Rapier rotations are sourced from the same direction vector.
- */
-function addRamp(root, world, from, to, material, ownedGeometries, ownedMaterials, bodies, handles) {
-  const delta = new THREE.Vector3(to.x - from.x, to.y - from.y, to.z - from.z);
-  const length = delta.length();
-  const direction = delta.normalize();
-  const center = new THREE.Vector3().addVectors(from, to).multiplyScalar(0.5);
-  const rotation = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), direction);
-  const geometry = new THREE.BoxGeometry(RAMP_WIDTH, RAMP_THICKNESS, length);
-  const mesh = new THREE.Mesh(geometry, material);
-  mesh.position.copy(center).add(new THREE.Vector3(0, -RAMP_THICKNESS / 2, 0));
-  mesh.quaternion.copy(rotation);
-  mesh.receiveShadow = true;
-  root.add(mesh);
-  ownedGeometries.push(geometry);
-  if (!ownedMaterials.includes(material)) ownedMaterials.push(material);
-
-  const body = world.createRigidBody(
-    RAPIER.RigidBodyDesc.fixed().setTranslation(mesh.position.x, mesh.position.y, mesh.position.z),
-  );
-  body.setRotation({ x: rotation.x, y: rotation.y, z: rotation.z, w: rotation.w }, true);
-  const collider = world.createCollider(
-    RAPIER.ColliderDesc.cuboid(RAMP_WIDTH / 2, RAMP_THICKNESS / 2, length / 2)
-      .setFriction(0.82)
-      .setRestitution(0.08),
-    body,
-  );
-  bodies.push(body);
-  handles.push(collider.handle);
-}
-
-/**
  * Night Shift blockout. The visible cross creates four lethal corner voids, while two high
  * roofs test the vertical camera envelope. The three yellow pads are inactive AC placeholders;
  * they have no colliders or gameplay effect until NIGHT-SHIFT-VENT-1.
@@ -190,19 +155,6 @@ export function initRooftop(scene, world, config) {
       depth: HIGH_ROOF_SIZE,
     }, highRoofMaterial, ownedGeometries, ownedMaterials, bodies, recordColliderHandles);
   }
-
-  addRamp(
-    root, world,
-    { x: -8, y: FLOOR_TOP_Y, z: 6 },
-    { x: -6, y: HIGH_ROOF_TOP_Y, z: 12 },
-    highRoofMaterial, ownedGeometries, ownedMaterials, bodies, recordColliderHandles,
-  );
-  addRamp(
-    root, world,
-    { x: 8, y: FLOOR_TOP_Y, z: -6 },
-    { x: 6, y: HIGH_ROOF_TOP_Y, z: -12 },
-    highRoofMaterial, ownedGeometries, ownedMaterials, bodies, recordColliderHandles,
-  );
 
   // Spawn-side baffles prevent an immediate backward fall while keeping the long edges exposed.
   const parapets = [
