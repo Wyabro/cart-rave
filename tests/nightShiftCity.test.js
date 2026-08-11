@@ -3,9 +3,21 @@ import {
   createNightShiftCityArchitecture,
   createNightShiftCityPlan,
   NIGHT_SHIFT_CITY_SEED,
+  NIGHT_SHIFT_MAST_BUILDING_ID,
   NIGHT_SHIFT_NEON_COLORS,
 } from "../src/levels/nightShiftVisuals.js";
 import * as THREE from "three";
+
+function createTestMaterials(material) {
+  return {
+    tower: material,
+    brace: material,
+    skylineCore: material,
+    skylineExtended: material,
+    mastMetal: material,
+    antennaPaint: material,
+  };
+}
 
 function touchesFacade(point, building, tolerance = 0.35) {
   if (point.y < building.bottomY || point.y > building.roofY) return false;
@@ -76,7 +88,7 @@ describe("Night Shift city architecture", () => {
         { x: -30, y: 4, z: -30, height: 0.6 },
         { x: 30, y: 4, z: -30, height: 0.6 },
       ],
-      { tower: material, brace: material, skylineCore: material, skylineExtended: material },
+      createTestMaterials(material),
     );
 
     architecture.applyQualityTier({ skyExtras: false });
@@ -87,7 +99,7 @@ describe("Night Shift city architecture", () => {
     expect(architecture.diagnostics.lowBuildingCount).toBeGreaterThan(20);
     expect(architecture.diagnostics.lowWindowCount).toBeGreaterThan(0);
     expect(architecture.diagnostics.lowNeonSignCount).toBeGreaterThan(0);
-    expect(architecture.diagnostics.lowDrawCalls).toBe(5);
+    expect(architecture.diagnostics.lowDrawCalls).toBe(9);
     expect(architecture.diagnostics.deckBraceCount).toBe(12);
     expect(architecture.diagnostics.facadeBandCount).toBe(32);
     expect(architecture.diagnostics.structuralBeamCount).toBe(52);
@@ -102,7 +114,7 @@ describe("Night Shift city architecture", () => {
       .toBeGreaterThan(architecture.diagnostics.lowWindowCount);
     expect(architecture.diagnostics.fullNeonSignCount)
       .toBeGreaterThan(architecture.diagnostics.lowNeonSignCount);
-    expect(architecture.diagnostics.fullDrawCalls).toBe(8);
+    expect(architecture.diagnostics.fullDrawCalls).toBe(13);
 
     architecture.dispose();
     material.dispose();
@@ -116,7 +128,7 @@ describe("Night Shift city architecture", () => {
       root,
       plan,
       [],
-      { tower: material, brace: material, skylineCore: material, skylineExtended: material },
+      createTestMaterials(material),
     );
     const extendedBuildings = plan.buildings.filter((building) => building.detail === "extended");
     const detachedWindows = [];
@@ -145,6 +157,45 @@ describe("Night Shift city architecture", () => {
       detachedWindowCount: detachedWindows.length,
       detachedNeonCount: detachedNeon.length,
     }).toEqual({ detachedWindowCount: 0, detachedNeonCount: 0 });
+
+    architecture.dispose();
+    material.dispose();
+  });
+
+  it("attaches the telecom mast to one deterministic city roof without gameplay collision", () => {
+    const root = new THREE.Group();
+    const material = new THREE.MeshBasicMaterial();
+    const plan = createNightShiftCityPlan();
+    const anchor = plan.buildings.find((building) => building.id === NIGHT_SHIFT_MAST_BUILDING_ID);
+    const architecture = createNightShiftCityArchitecture(
+      root,
+      plan,
+      [],
+      createTestMaterials(material),
+    );
+    const mast = architecture.telecomMast;
+    const bounds = new THREE.Box3().setFromObject(mast.root);
+
+    expect(anchor).toBeDefined();
+    expect(mast.root.name).toBe("night-shift-telecom-mast");
+    expect(mast.root.position.toArray()).toEqual([anchor.x, anchor.roofY + anchor.crownHeight, anchor.z]);
+    expect(bounds.min.y).toBeGreaterThanOrEqual(anchor.roofY + anchor.crownHeight - 0.01);
+    expect(mast.root.getObjectByName("night-shift-mast-core")).toBeTruthy();
+    expect(mast.root.getObjectByName("night-shift-mast-moving-dish")).toBeTruthy();
+    expect(mast.root.getObjectByName("night-shift-mast-beacons")).toBeTruthy();
+    expect(architecture.diagnostics.telecomMast).toMatchObject({
+      anchorBuildingId: NIGHT_SHIFT_MAST_BUILDING_ID,
+      lowDrawCalls: 4,
+      fullDrawCalls: 5,
+      hasGameplayCollider: false,
+    });
+    expect(architecture.diagnostics.telecomMast.lowTriangles).toBeLessThanOrEqual(4000);
+    expect(architecture.diagnostics.telecomMast.fullTriangles).toBeLessThanOrEqual(12000);
+
+    architecture.applyQualityTier({ skyExtras: false });
+    expect(mast.detail.visible).toBe(false);
+    architecture.applyQualityTier({ skyExtras: true });
+    expect(mast.detail.visible).toBe(true);
 
     architecture.dispose();
     material.dispose();

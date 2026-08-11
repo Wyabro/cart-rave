@@ -25,7 +25,7 @@ function hashNoise(x, y, seed) {
  * Samples one causal field used by albedo, roughness, and normal generation. The facade uses
  * vertical rain streaks; the roof uses broad damp patches, aggregate, and expansion seams.
  *
- * @param {"roof" | "facade"} kind
+ * @param {"roof" | "facade" | "metal"} kind
  * @param {number} x
  * @param {number} y
  * @param {number} [seed]
@@ -36,21 +36,26 @@ export function sampleNightShiftSurface(kind, x, y, seed = SURFACE_SEED) {
   const broad = hashNoise(Math.floor(x / 41), Math.floor(y / 41), seed ^ 0x6a09e667);
   const seam = kind === "roof"
     ? (x % 64 < 2 || y % 64 < 2 ? 1 : 0)
-    : (x % 48 < 2 || y % 72 < 2 ? 1 : 0);
-  const streak = kind === "facade"
-    ? Math.max(0, 1 - Math.abs((x % 31) - 15.5) / 4) * (0.25 + 0.75 * coarse)
+    : kind === "facade"
+      ? (x % 48 < 2 || y % 72 < 2 ? 1 : 0)
+      : 0;
+  const streak = kind === "facade" || kind === "metal"
+    ? Math.max(0, 1 - Math.abs((x % (kind === "metal" ? 23 : 31)) - (kind === "metal" ? 11.5 : 15.5)) / 4)
+      * (0.25 + 0.75 * coarse)
     : 0;
   const damp = Math.max(0, broad * 0.92 + coarse * 0.32 - 0.68);
   const aggregate = fine * 0.55 + coarse * 0.3 + broad * 0.15;
-  const height = aggregate * 0.2 - seam * 0.62 - damp * 0.12 - streak * 0.18;
+  const height = aggregate * (kind === "metal" ? 0.12 : 0.2)
+    - seam * 0.62 - damp * 0.12 - streak * (kind === "metal" ? 0.1 : 0.18);
   const roughness = Math.max(0.34, Math.min(0.98,
-    0.78 + aggregate * 0.16 + seam * 0.12 - damp * 0.38 + streak * 0.1,
+    (kind === "metal" ? 0.58 : 0.78)
+      + aggregate * 0.16 + seam * 0.12 - damp * 0.28 + streak * 0.1,
   ));
   return { aggregate, damp, seam, streak, height, roughness };
 }
 
 /**
- * @param {"roof" | "facade"} kind
+ * @param {"roof" | "facade" | "metal"} kind
  * @param {number} seed
  */
 function buildSurfaceTextures(kind, seed) {
@@ -76,8 +81,11 @@ function buildSurfaceTextures(kind, seed) {
       const pixel = index * 4;
       heightField[index] = sample.height;
 
-      const base = kind === "roof" ? [39, 48, 61] : [21, 29, 43];
-      const wear = sample.aggregate * 15 - sample.damp * 18 - sample.seam * 10 - sample.streak * 12;
+      const base = kind === "roof" ? [39, 48, 61]
+        : kind === "metal" ? [92, 108, 116]
+          : [21, 29, 43];
+      const wear = sample.aggregate * (kind === "metal" ? 19 : 15)
+        - sample.damp * 18 - sample.seam * 10 - sample.streak * (kind === "metal" ? 8 : 12);
       albedo.data[pixel] = clampByte(base[0] + wear + (kind === "roof" ? sample.damp * 2 : 0));
       albedo.data[pixel + 1] = clampByte(base[1] + wear + sample.damp * 3);
       albedo.data[pixel + 2] = clampByte(base[2] + wear + sample.damp * 7);
@@ -147,14 +155,18 @@ function cloneSurface(source, x, y) {
 export function createNightShiftMaterialBundle() {
   const roofSource = buildSurfaceTextures("roof", SURFACE_SEED);
   const facadeSource = buildSurfaceTextures("facade", SURFACE_SEED ^ 0x3c6ef372);
+  const metalSource = buildSurfaceTextures("metal", SURFACE_SEED ^ 0xbb67ae85);
   const roofMaps = cloneSurface(roofSource, 7, 7);
   const highRoofMaps = cloneSurface(roofSource, 1.5, 1.5);
   const deckMaps = cloneSurface(roofSource, 1, 0.75);
   const facadeMaps = cloneSurface(facadeSource, 5, 12);
+  const mastMaps = cloneSurface(metalSource, 3, 10);
+  const antennaMaps = cloneSurface(metalSource, 2, 3);
   const allTextures = [
-    ...Object.values(roofSource), ...Object.values(facadeSource),
+    ...Object.values(roofSource), ...Object.values(facadeSource), ...Object.values(metalSource),
     ...Object.values(roofMaps), ...Object.values(highRoofMaps),
     ...Object.values(deckMaps), ...Object.values(facadeMaps),
+    ...Object.values(mastMaps), ...Object.values(antennaMaps),
   ];
 
   const materials = {
@@ -168,6 +180,9 @@ export function createNightShiftMaterialBundle() {
     brace: new THREE.MeshBasicMaterial({ color: 0xffffff, fog: true, toneMapped: false }),
     skylineCore: createPhysicalMaterial({ color: 0x182446, metalness: 0.08, roughness: 0.9 }),
     skylineExtended: createPhysicalMaterial({ color: 0x130f2b, metalness: 0.04, roughness: 0.94 }),
+    mastMetal: createPhysicalMaterial({ ...mastMaps, color: 0xb7cad0, metalness: 0.62, roughness: 0.72, normalScale: new THREE.Vector2(0.26, 0.26) }),
+    antennaPaint: createPhysicalMaterial({ ...antennaMaps, color: 0xb4c3cf, metalness: 0.26, roughness: 0.78, normalScale: new THREE.Vector2(0.22, 0.22) }),
+    beacon: createPhysicalMaterial({ color: 0xff365c, emissive: 0xff365c, emissiveIntensity: 1.6, metalness: 0.02, roughness: 0.28 }),
   };
 
   return {

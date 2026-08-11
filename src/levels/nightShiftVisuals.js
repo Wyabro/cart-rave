@@ -1,8 +1,10 @@
 // nightShiftVisuals.js — deterministic, visual-only architecture for Night Shift.
 
 import * as THREE from "three";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 
 export const NIGHT_SHIFT_CITY_SEED = 0x4e534331;
+export const NIGHT_SHIFT_MAST_BUILDING_ID = "near-7";
 export const NIGHT_SHIFT_NEON_COLORS = Object.freeze({
   cyan: 0x36d8e8,
   violet: 0xa45cff,
@@ -21,6 +23,7 @@ const LOW_MID_COUNT = 10;
 const TOWER_BOTTOM_Y = -96;
 const TOWER_HALF_SIZE = 36;
 const FACADE_THICKNESS = 0.8;
+const MAST_HEIGHT = 20;
 
 /** @param {number} value */
 function round3(value) {
@@ -218,6 +221,317 @@ function writeBeamInstances(mesh, beams) {
 }
 
 /**
+ * Creates one low-sided cylinder between two local-space endpoints. The mast is a distant
+ * silhouette, so six radial sides preserve the open lattice without spending close-up geometry.
+ *
+ * @param {THREE.Vector3} start
+ * @param {THREE.Vector3} end
+ * @param {number} radius
+ * @param {number} [radialSegments]
+ */
+function createBeamGeometry(start, end, radius, radialSegments = 6) {
+  const direction = new THREE.Vector3().subVectors(end, start);
+  const length = direction.length();
+  const geometry = new THREE.CylinderGeometry(radius, radius, length, radialSegments, 1, false);
+  const midpoint = new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5);
+  const quaternion = new THREE.Quaternion().setFromUnitVectors(
+    new THREE.Vector3(0, 1, 0),
+    direction.normalize(),
+  );
+  geometry.applyMatrix4(new THREE.Matrix4().compose(
+    midpoint,
+    quaternion,
+    new THREE.Vector3(1, 1, 1),
+  ));
+  return geometry;
+}
+
+/**
+ * @param {THREE.BufferGeometry} geometry
+ * @param {THREE.Vector3} position
+ * @param {THREE.Quaternion} [quaternion]
+ * @param {THREE.Vector3} [scale]
+ */
+function placeGeometry(
+  geometry,
+  position,
+  quaternion = new THREE.Quaternion(),
+  scale = new THREE.Vector3(1, 1, 1),
+) {
+  geometry.applyMatrix4(new THREE.Matrix4().compose(position, quaternion, scale));
+  return geometry;
+}
+
+/** @param {THREE.BufferGeometry[]} parts */
+function mergeOwnedGeometries(parts) {
+  const merged = mergeGeometries(parts, false);
+  parts.forEach((geometry) => geometry.dispose());
+  if (!merged) throw new Error("Night Shift mast geometry merge failed");
+  return merged;
+}
+
+/**
+ * Adds one shrouded dish to paint geometry and keeps all parts attached to the same local pivot.
+ * The source photograph establishes the thick shroud and feed arm; hidden rear hardware is a
+ * deliberate stylized inference for the distant game prop.
+ *
+ * @param {THREE.BufferGeometry[]} parts
+ * @param {THREE.Vector3} center
+ * @param {number} radius
+ * @param {number} depth
+ * @param {THREE.Vector3} direction
+ */
+function addDishGeometry(parts, center, radius, depth, direction) {
+  const axis = direction.clone().normalize();
+  const cylinderRotation = new THREE.Quaternion().setFromUnitVectors(
+    new THREE.Vector3(0, 1, 0),
+    axis,
+  );
+  const faceCenter = center.clone().addScaledVector(axis, -depth * 0.34);
+  parts.push(placeGeometry(
+    new THREE.CylinderGeometry(radius, radius, depth, 16, 1, true),
+    center,
+    cylinderRotation,
+  ));
+  parts.push(placeGeometry(
+    new THREE.CylinderGeometry(radius * 0.92, radius * 0.92, 0.14, 16, 1, false),
+    faceCenter,
+    cylinderRotation,
+  ));
+  parts.push(placeGeometry(
+    new THREE.TorusGeometry(radius, Math.max(0.08, radius * 0.055), 6, 16),
+    center.clone().addScaledVector(axis, depth * 0.5),
+    new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), axis),
+  ));
+  const feedStart = faceCenter.clone().addScaledVector(axis, depth * 0.25);
+  const feedEnd = faceCenter.clone().addScaledVector(axis, depth * 0.95);
+  parts.push(createBeamGeometry(feedStart, feedEnd, Math.max(0.07, radius * 0.05), 6));
+  parts.push(placeGeometry(
+    new THREE.SphereGeometry(Math.max(0.12, radius * 0.09), 8, 5),
+    feedEnd,
+  ));
+}
+
+/**
+ * Builds the reference-informed functional mast as four bounded draw-call groups on Low and one
+ * extra detail group on Full. It never receives Rapier state and cannot add gameplay collision.
+ *
+ * @param {THREE.Group} root
+ * @param {ReturnType<typeof createNightShiftCityPlan>} plan
+ * @param {{ mastMetal: THREE.Material, antennaPaint: THREE.Material }} materials
+ */
+function createNightShiftTelecomMast(root, plan, materials) {
+  const anchor = plan.buildings.find((building) => building.id === NIGHT_SHIFT_MAST_BUILDING_ID);
+  if (!anchor) throw new Error(`Night Shift mast anchor ${NIGHT_SHIFT_MAST_BUILDING_ID} is missing`);
+
+  const mastRoot = new THREE.Group();
+  mastRoot.name = "night-shift-telecom-mast";
+  mastRoot.position.set(anchor.x, anchor.roofY + anchor.crownHeight, anchor.z);
+  mastRoot.rotation.y = anchor.yaw;
+
+  const coreParts = [];
+  const detailParts = [];
+  const paintParts = [];
+  coreParts.push(placeGeometry(
+    new THREE.BoxGeometry(5.2, 0.42, 5.2),
+    new THREE.Vector3(0, 0.21, 0),
+  ));
+
+  const levels = 5;
+  const halfAt = (y) => THREE.MathUtils.lerp(2.05, 0.72, y / MAST_HEIGHT);
+  const cornerSigns = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
+  for (const [signX, signZ] of cornerSigns) {
+    coreParts.push(createBeamGeometry(
+      new THREE.Vector3(signX * halfAt(0.35), 0.35, signZ * halfAt(0.35)),
+      new THREE.Vector3(signX * halfAt(MAST_HEIGHT), MAST_HEIGHT, signZ * halfAt(MAST_HEIGHT)),
+      0.16,
+      6,
+    ));
+  }
+
+  for (let level = 0; level <= levels; level += 1) {
+    const y = 0.6 + level * ((MAST_HEIGHT - 0.9) / levels);
+    const half = halfAt(y);
+    const corners = [
+      new THREE.Vector3(-half, y, -half),
+      new THREE.Vector3(half, y, -half),
+      new THREE.Vector3(half, y, half),
+      new THREE.Vector3(-half, y, half),
+    ];
+    for (let side = 0; side < 4; side += 1) {
+      coreParts.push(createBeamGeometry(corners[side], corners[(side + 1) % 4], 0.11, 6));
+    }
+  }
+
+  for (let level = 0; level < levels; level += 1) {
+    const y0 = 0.6 + level * ((MAST_HEIGHT - 0.9) / levels);
+    const y1 = 0.6 + (level + 1) * ((MAST_HEIGHT - 0.9) / levels);
+    const h0 = halfAt(y0);
+    const h1 = halfAt(y1);
+    const faces = [
+      [new THREE.Vector3(-h0, y0, h0), new THREE.Vector3(h1, y1, h1), new THREE.Vector3(h0, y0, h0), new THREE.Vector3(-h1, y1, h1)],
+      [new THREE.Vector3(-h0, y0, -h0), new THREE.Vector3(h1, y1, -h1), new THREE.Vector3(h0, y0, -h0), new THREE.Vector3(-h1, y1, -h1)],
+      [new THREE.Vector3(h0, y0, -h0), new THREE.Vector3(h1, y1, h1), new THREE.Vector3(h0, y0, h0), new THREE.Vector3(h1, y1, -h1)],
+      [new THREE.Vector3(-h0, y0, -h0), new THREE.Vector3(-h1, y1, h1), new THREE.Vector3(-h0, y0, h0), new THREE.Vector3(-h1, y1, -h1)],
+    ];
+    for (const [startA, endA, startB, endB] of faces) {
+      coreParts.push(createBeamGeometry(startA, endA, 0.085, 5));
+      detailParts.push(createBeamGeometry(startB, endB, 0.07, 5));
+    }
+  }
+
+  const ladderX = -0.58;
+  detailParts.push(
+    createBeamGeometry(new THREE.Vector3(ladderX - 0.24, 1, -1.36), new THREE.Vector3(ladderX - 0.24, 15.8, -0.7), 0.055, 5),
+    createBeamGeometry(new THREE.Vector3(ladderX + 0.24, 1, -1.36), new THREE.Vector3(ladderX + 0.24, 15.8, -0.7), 0.055, 5),
+  );
+  for (let rung = 0; rung < 14; rung += 1) {
+    const y = 1.35 + rung * 1.02;
+    const z = THREE.MathUtils.lerp(-1.34, -0.72, y / 15.8);
+    detailParts.push(createBeamGeometry(
+      new THREE.Vector3(ladderX - 0.25, y, z),
+      new THREE.Vector3(ladderX + 0.25, y, z),
+      0.045,
+      5,
+    ));
+  }
+
+  detailParts.push(placeGeometry(
+    new THREE.BoxGeometry(1.45, 1.9, 0.9),
+    new THREE.Vector3(-1.55, 1.18, 1.15),
+  ));
+  detailParts.push(placeGeometry(
+    new THREE.BoxGeometry(1.15, 0.055, 0.66),
+    new THREE.Vector3(-1.55, 1.18, 1.61),
+  ));
+
+  const panelGeometry = new THREE.BoxGeometry(0.46, 3.4, 1.02);
+  for (let index = 0; index < 3; index += 1) {
+    const angle = index * (Math.PI * 2 / 3);
+    const position = new THREE.Vector3(Math.cos(angle) * 1.85, 17.2, Math.sin(angle) * 1.85);
+    const rotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, -angle, 0));
+    paintParts.push(placeGeometry(panelGeometry.clone(), position, rotation));
+    detailParts.push(createBeamGeometry(
+      new THREE.Vector3(Math.cos(angle) * 0.65, 17.2, Math.sin(angle) * 0.65),
+      position.clone().multiplyScalar(0.92).setY(17.2),
+      0.08,
+      5,
+    ));
+  }
+  panelGeometry.dispose();
+
+  addDishGeometry(
+    paintParts,
+    new THREE.Vector3(-1.55, 13.4, 0.7),
+    1.75,
+    0.72,
+    new THREE.Vector3(-0.82, 0.08, 0.56),
+  );
+
+  coreParts.push(
+    placeGeometry(new THREE.CylinderGeometry(0.2, 0.24, 0.55, 8), new THREE.Vector3(-0.52, 20.18, 0)),
+    placeGeometry(new THREE.CylinderGeometry(0.2, 0.24, 0.55, 8), new THREE.Vector3(0.52, 20.18, 0)),
+    placeGeometry(new THREE.CylinderGeometry(0.045, 0.07, 2.7, 6), new THREE.Vector3(0, 21.25, 0)),
+  );
+
+  const coreGeometry = mergeOwnedGeometries(coreParts);
+  const detailGeometry = mergeOwnedGeometries(detailParts);
+  const paintGeometry = mergeOwnedGeometries(paintParts);
+  const mastCore = new THREE.Mesh(coreGeometry, materials.mastMetal);
+  mastCore.name = "night-shift-mast-core";
+  const mastDetail = new THREE.Mesh(detailGeometry, materials.mastMetal);
+  mastDetail.name = "night-shift-mast-detail";
+  const staticAntennas = new THREE.Mesh(paintGeometry, materials.antennaPaint);
+  staticAntennas.name = "night-shift-mast-static-antennas";
+
+  const dishPivot = new THREE.Group();
+  dishPivot.name = "night-shift-mast-dish-pivot";
+  dishPivot.position.set(0.95, 10.7, 0.1);
+  const movingDishParts = [];
+  addDishGeometry(
+    movingDishParts,
+    new THREE.Vector3(1.4, 0, 0),
+    2.15,
+    0.82,
+    new THREE.Vector3(0.92, 0.06, 0.38),
+  );
+  movingDishParts.push(createBeamGeometry(
+    new THREE.Vector3(0, 0, 0),
+    new THREE.Vector3(1.3, 0, 0),
+    0.13,
+    6,
+  ));
+  const movingDish = new THREE.Mesh(mergeOwnedGeometries(movingDishParts), materials.antennaPaint);
+  movingDish.name = "night-shift-mast-moving-dish";
+  dishPivot.add(movingDish);
+
+  const beaconGeometry = new THREE.SphereGeometry(0.28, 8, 5);
+  const beaconMaterial = new THREE.MeshBasicMaterial({
+    color: 0xffffff,
+    vertexColors: true,
+    fog: false,
+    toneMapped: false,
+  });
+  const beacons = new THREE.InstancedMesh(beaconGeometry, beaconMaterial, 2);
+  beacons.name = "night-shift-mast-beacons";
+  const beaconMatrix = new THREE.Matrix4();
+  const beaconColor = new THREE.Color(0xff365c);
+  for (const [index, x] of [-0.52, 0.52].entries()) {
+    beaconMatrix.makeTranslation(x, 20.55, 0);
+    beacons.setMatrixAt(index, beaconMatrix);
+    beacons.setColorAt(index, beaconColor);
+  }
+  beacons.instanceMatrix.needsUpdate = true;
+  if (beacons.instanceColor) beacons.instanceColor.needsUpdate = true;
+
+  for (const object of [mastCore, mastDetail, staticAntennas, movingDish, beacons]) {
+    object.castShadow = false;
+    object.receiveShadow = false;
+    object.frustumCulled = true;
+  }
+  mastRoot.add(mastCore, mastDetail, staticAntennas, dishPivot, beacons);
+  root.add(mastRoot);
+
+  const triangleCount = (geometry) => (
+    geometry.index ? geometry.index.count / 3 : geometry.getAttribute("position").count / 3
+  );
+  const lowTriangles = triangleCount(coreGeometry)
+    + triangleCount(paintGeometry)
+    + triangleCount(movingDish.geometry)
+    + triangleCount(beaconGeometry) * 2;
+  const fullTriangles = lowTriangles + triangleCount(detailGeometry);
+
+  return {
+    root: mastRoot,
+    detail: mastDetail,
+    dishPivot,
+    beacons,
+    diagnostics: Object.freeze({
+      anchorBuildingId: anchor.id,
+      anchorRoofY: anchor.roofY + anchor.crownHeight,
+      localHeight: MAST_HEIGHT,
+      lowDrawCalls: 4,
+      fullDrawCalls: 5,
+      lowTriangles,
+      fullTriangles,
+      hasGameplayCollider: false,
+    }),
+    applyQualityTier(knobs) {
+      mastDetail.visible = knobs.skyExtras !== false;
+    },
+    dispose() {
+      root.remove(mastRoot);
+      coreGeometry.dispose();
+      detailGeometry.dispose();
+      paintGeometry.dispose();
+      movingDish.geometry.dispose();
+      beaconGeometry.dispose();
+      beaconMaterial.dispose();
+    },
+  };
+}
+
+/**
  * Returns the rotated building face that looks most directly toward the arena. Width and
  * normal offset come from the active lower or setback mass, so facade details stay attached.
  *
@@ -385,7 +699,8 @@ function buildNeonSignSpecs(plan) {
  * @param {ReturnType<typeof createNightShiftCityPlan>} plan
  * @param {ReturnType<import("./rooftop.js").getNightShiftSpawnPlatforms>} spawnPlatforms
  * @param {{ tower: THREE.Material, brace: THREE.Material,
- *   skylineCore: THREE.Material, skylineExtended: THREE.Material }} materials
+ *   skylineCore: THREE.Material, skylineExtended: THREE.Material,
+ *   mastMetal: THREE.Material, antennaPaint: THREE.Material }} materials
  */
 export function createNightShiftCityArchitecture(root, plan, spawnPlatforms, materials) {
   const unitBox = new THREE.BoxGeometry(1, 1, 1);
@@ -516,12 +831,14 @@ export function createNightShiftCityArchitecture(root, plan, spawnPlatforms, mat
     root.add(mesh);
   }
   root.add(coreWindows, extendedWindows, coreNeon, extendedNeon);
+  const telecomMast = createNightShiftTelecomMast(root, plan, materials);
 
   function applyQualityTier(knobs) {
     const fullCity = knobs.skyExtras !== false;
     extendedSkyline.visible = fullCity;
     extendedWindows.visible = fullCity;
     extendedNeon.visible = fullCity;
+    telecomMast.applyQualityTier(knobs);
   }
 
   const diagnostics = Object.freeze({
@@ -538,8 +855,9 @@ export function createNightShiftCityArchitecture(root, plan, spawnPlatforms, mat
     structuralBeamCount: beams.length,
     deckBraceCount,
     facadeBandCount,
-    lowDrawCalls: 5,
-    fullDrawCalls: 8,
+    lowDrawCalls: 5 + telecomMast.diagnostics.lowDrawCalls,
+    fullDrawCalls: 8 + telecomMast.diagnostics.fullDrawCalls,
+    telecomMast: telecomMast.diagnostics,
   });
   root.userData.nightShiftCity = diagnostics;
 
@@ -547,9 +865,11 @@ export function createNightShiftCityArchitecture(root, plan, spawnPlatforms, mat
     extendedSkyline,
     extendedWindows,
     extendedNeon,
+    telecomMast,
     diagnostics,
     applyQualityTier,
     dispose() {
+      telecomMast.dispose();
       root.remove(
         tower,
         braces,
