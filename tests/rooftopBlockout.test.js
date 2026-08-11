@@ -26,8 +26,8 @@ describe("Night Shift blockout", () => {
     expect(NIGHT_SHIFT_BLOCKOUT_LAYOUT.highRoofPlinths).toHaveLength(2);
     expect(NIGHT_SHIFT_BLOCKOUT_LAYOUT.acLaunchers).toHaveLength(4);
     expect(NIGHT_SHIFT_BLOCKOUT_LAYOUT.highRoofs).toEqual([
-      { x: -18, z: 0 },
-      { x: 18, z: 0 },
+      { x: -23, z: 0 },
+      { x: 23, z: 0 },
     ]);
 
     for (const [index, roof] of NIGHT_SHIFT_BLOCKOUT_LAYOUT.highRoofs.entries()) {
@@ -40,8 +40,8 @@ describe("Night Shift blockout", () => {
 
   it("aims two route units outward and keeps two stronger vertical units", () => {
     const [west, east, north, south] = NIGHT_SHIFT_BLOCKOUT_LAYOUT.acLaunchers;
-    expect(west).toMatchObject({ kind: "route", targetX: -18, targetZ: 0, cooldownMs: 750 });
-    expect(east).toMatchObject({ kind: "route", targetX: 18, targetZ: 0, cooldownMs: 750 });
+    expect(west).toMatchObject({ kind: "route", targetX: -23, targetZ: 0, cooldownMs: 750 });
+    expect(east).toMatchObject({ kind: "route", targetX: 23, targetZ: 0, cooldownMs: 750 });
     expect(north).toMatchObject({ kind: "vertical", x: 0, z: 6, cooldownMs: 750 });
     expect(south).toMatchObject({ kind: "vertical", x: 0, z: -6, cooldownMs: 750 });
     expect(north.verticalSpeed).toBeGreaterThan(west.verticalSpeed);

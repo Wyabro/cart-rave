@@ -28,12 +28,12 @@ export const NIGHT_SHIFT_BLOCKOUT_LAYOUT = Object.freeze({
     Object.freeze({ x: 0, z: 0, width: ARM_HALF_LENGTH * 2, depth: ARM_HALF_LENGTH * 2 }),
   ]),
   highRoofs: Object.freeze([
-    Object.freeze({ x: -18, z: 0 }),
-    Object.freeze({ x: 18, z: 0 }),
+    Object.freeze({ x: -23, z: 0 }),
+    Object.freeze({ x: 23, z: 0 }),
   ]),
   highRoofPlinths: Object.freeze([
-    Object.freeze({ x: -18, z: 0, width: HIGH_ROOF_SIZE - HIGH_ROOF_PLINTH_INSET, depth: HIGH_ROOF_SIZE - HIGH_ROOF_PLINTH_INSET }),
-    Object.freeze({ x: 18, z: 0, width: HIGH_ROOF_SIZE - HIGH_ROOF_PLINTH_INSET, depth: HIGH_ROOF_SIZE - HIGH_ROOF_PLINTH_INSET }),
+    Object.freeze({ x: -23, z: 0, width: HIGH_ROOF_SIZE - HIGH_ROOF_PLINTH_INSET, depth: HIGH_ROOF_SIZE - HIGH_ROOF_PLINTH_INSET }),
+    Object.freeze({ x: 23, z: 0, width: HIGH_ROOF_SIZE - HIGH_ROOF_PLINTH_INSET, depth: HIGH_ROOF_SIZE - HIGH_ROOF_PLINTH_INSET }),
   ]),
   acLaunchers: Object.freeze([
     Object.freeze({
@@ -45,7 +45,7 @@ export const NIGHT_SHIFT_BLOCKOUT_LAYOUT = Object.freeze({
       maxBodyY: AC_MAX_BODY_Y,
       maxVerticalSpeed: AC_MAX_VERTICAL_SPEED,
       cooldownMs: AC_COOLDOWN_MS,
-      targetX: -18,
+      targetX: -23,
       targetZ: 0,
       horizontalSpeed: 25,
       verticalSpeed: 18,
@@ -59,7 +59,7 @@ export const NIGHT_SHIFT_BLOCKOUT_LAYOUT = Object.freeze({
       maxBodyY: AC_MAX_BODY_Y,
       maxVerticalSpeed: AC_MAX_VERTICAL_SPEED,
       cooldownMs: AC_COOLDOWN_MS,
-      targetX: 18,
+      targetX: 23,
       targetZ: 0,
       horizontalSpeed: 25,
       verticalSpeed: 18,
