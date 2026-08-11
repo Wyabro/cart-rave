@@ -3868,3 +3868,13 @@ html, body {
   border-color: transparent;
   color: var(--color-ink);
 }
+
+/* ORIENT-HINT-SCROLL-1: clear the portrait-hint bar when it overlays the
+   stacked mobile menu. The hint occupies 36px at the viewport bottom; this
+   reserves extra padding so the last scrollable item is not clipped. Only
+   fires in the exact band where the hint is visible (landscape coarse phone). */
+@media (orientation: landscape) and (pointer: coarse) and (max-height: 480px) {
+  .cr-content {
+    padding-bottom: 56px; /* 16px base reserve + 40px for .cr-portrait-hint */
+  }
+}
