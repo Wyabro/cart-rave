@@ -14,7 +14,7 @@
  *   npm run analytics:pull
  *   npm run analytics:pull -- --list
  *   npm run analytics:pull -- --limit 50
- *   npm run analytics:pull -- --url https://cart-rave.wyabro.workers.dev
+ *   npm run analytics:pull -- --url https://www.cartclash.lol
  *   npm run analytics   # alias
  */
 
@@ -29,7 +29,7 @@ const OUT_DIR = path.join(ROOT, ".diag-captures");
 const CACHE_NAME = "analytics-summary.json";
 const CACHE_PATH = path.join(OUT_DIR, CACHE_NAME);
 const CACHE_TMP = path.join(OUT_DIR, "analytics-summary.tmp.json");
-const DEFAULT_URL = "https://cart-rave.wyabro.workers.dev";
+const DEFAULT_URL = "https://www.cartclash.lol";
 
 /**
  * @param {string[]} argv

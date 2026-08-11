@@ -13,7 +13,7 @@
  *   npm run captures:pull -- --limit 20
  *   npm run captures:pull -- --id 42
  *   npm run captures:pull -- --list
- *   npm run captures:pull -- --url https://cart-rave.wyabro.workers.dev
+ *   npm run captures:pull -- --url https://www.cartclash.lol
  */
 
 import { mkdir, writeFile, readFile } from "node:fs/promises";
@@ -24,7 +24,7 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 const OUT_DIR = path.join(ROOT, ".diag-captures", "playtest");
-const DEFAULT_URL = "https://cart-rave.wyabro.workers.dev";
+const DEFAULT_URL = "https://www.cartclash.lol";
 
 function parseArgs(argv) {
   const out = { limit: 20, id: null, list: false, url: DEFAULT_URL, help: false };

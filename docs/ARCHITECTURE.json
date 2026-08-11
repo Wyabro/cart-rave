@@ -2,14 +2,14 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-11T00:34:02.281Z",
-    "commit": "79d6887"
+    "at": "2026-08-11T00:42:41.225Z",
+    "commit": "7569051"
   },
-  "source_digest": "3f0b42dc",
+  "source_digest": "9ee9d30e",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
-    "production_url": "https://cart-rave.wyabro.workers.dev/",
+    "production_url": "https://www.cartclash.lol/",
     "mission": "Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep and the analytics gating are closed. Run 7 closed; NET-2 / NET-MIG-3 passed live; NET-PRES-1 landed (loss-on-drop residual accepted). The analytics DO has been reset, so the ring starts clean for external testers. Stay in this phase until Wyatt advances the marker.",
     "phase": "Playtesting & stabilization — stabilize after Run 7; prove residuals; no auto-advance to RC",
     "phases": [
@@ -885,14 +885,14 @@
       }
     ],
     "next_actions": [
-      "NOW: NPC-BOOST-2-PT-1 [2pc] — resume parked parent; code already on prod. Prior NPC-BOOST-PT-1 FAIL.",
+      "NOW: NPC-BOOST-2-PT-1 [2pc] — Owed: Wyatt playtest. DEPLOYED `7569051` · Worker `8e5f274f` · https://www.cartclash.lol/?diag=1. Prior NPC-BOOST-PT-1 FAIL.",
       "Open / REACHABLE: CARGO-LATCH-1. Open High: ONBOARD-ATTRACT-1 · ONBOARD-SIZE-1 · bloom. Playtest row left: SHARD-PT-2."
     ],
     "open_issues": [
       {
         "id": "NPC-BOOST-2",
         "issue": "NPC charge visibility / audio / boost self-KO",
-        "status": "🛠️ **NOW** — PT-1 [2pc] owed (code shipped)"
+        "status": "🛠️ **NOW** — Owed: Wyatt playtest (NPC-BOOST-2-PT-1 [2pc]); DEPLOYED `7569051`"
       },
       {
         "id": "WARM-SOLO-1",
@@ -1203,7 +1203,7 @@
           {
             "pri": "High",
             "item": "NPC-BOOST-2-PT-1 — charged and instant NPC boosts `[2pc]`",
-            "notes": "**NOW.** Unparked 08-10 after DEV-LOOP-1. Prior NPC-BOOST-PT-1 **FAIL**. Code already on prod.<br>1. Hard-refresh Solo with three NPCs. PASS if each difficulty visibly produces charge-ups in safe attacks, Easy least / Hard most, host hears each charge loop.<br>2. Friends room: both clients see telegraph, hear charge loop, see charged burst.<br>3. Classic rim + hole; octagon + square-hole: unsafe charge cancels / unsafe instant skipped.<br>4. FAIL on NPC boost self-KO, missing charge sound, desync, or reversed difficulty order.",
+            "notes": "**Owed: Wyatt playtest — NPC-BOOST-2-PT-1 — charged NPC boosts are visible and audible on Solo and Friends, without boost self-KOs.** DEPLOYED `7569051` · Worker `8e5f274f` · prefer **https://www.cartclash.lol/?diag=1**. Prior NPC-BOOST-PT-1 **FAIL**.<br>1. Hard-refresh Solo with three NPCs. PASS if each difficulty visibly produces charge-ups in safe attacks, Easy least / Hard most, host hears each charge loop.<br>2. Friends room: both clients see telegraph, hear charge loop, see charged burst.<br>3. Classic rim + hole; octagon + square-hole: unsafe charge cancels / unsafe instant skipped.<br>4. FAIL on NPC boost self-KO, missing charge sound, desync, or reversed difficulty order.",
             "ship1": null
           },
           {

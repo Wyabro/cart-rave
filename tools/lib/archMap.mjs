@@ -595,7 +595,7 @@ export const PROJECT_IDENTITY = {
   name: "Cart Clash",
   one_liner:
     "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
-  production_url: "https://cart-rave.wyabro.workers.dev/",
+  production_url: "https://www.cartclash.lol/",
 };
 
 /**

@@ -98,7 +98,7 @@ function renderAnalyticsPanel(analytics) {
 }
 
 /** Stable prod origin (docs/guides/deploy-urls.md) — the bundle name is observed, never hand-tracked. */
-const PROD_URL = "https://cart-rave.wyabro.workers.dev/";
+const PROD_URL = "https://www.cartclash.lol/";
 
 /** @param {any} h @returns {string} */
 function renderHtml(h) {

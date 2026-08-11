@@ -479,8 +479,8 @@ export function buildPlaytestQueue(opts) {
       do: "Get production open, on the current build, with diagnostics on.",
       context: "",
       steps: [
-        "Open https://cart-rave.wyabro.workers.dev/?diag=1",
-        "Hard-refresh (Ctrl+Shift+R) until you are sure you are on the current build.",
+        "Open https://www.cartclash.lol/?diag=1",
+        "Hard-refresh (Ctrl+Shift+R) until you are sure you are on the current build (HEAD should match origin/cart-clash).",
         "Check the console — no red errors on the menu.",
       ],
       tail: "The cards below are sorted so everything you can do at one desk comes first.",

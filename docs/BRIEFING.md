@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-11 at commit `79d6887` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `3432a4f3`
+> Generated 2026-08-11 at commit `7569051` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `68b06ebf`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -18,7 +18,7 @@ Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep a
 
 ## ACTIVE CARD
 
-NOW: NPC-BOOST-2-PT-1 [2pc] — resume parked parent; code already on prod. Prior NPC-BOOST-PT-1 FAIL
+NOW: NPC-BOOST-2-PT-1 [2pc] — Owed: Wyatt playtest. DEPLOYED `7569051` · Worker `8e5f274f` · https://www.cartclash.lol/?diag=1. Prior NPC-BOOST-PT-1 FAIL
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 

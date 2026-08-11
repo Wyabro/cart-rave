@@ -71,7 +71,7 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. **NOW:** **NPC-BOOST-2-PT-1 [2pc]** — resume parked parent; code already on prod. Prior NPC-BOOST-PT-1 **FAIL**.
+1. **NOW:** **NPC-BOOST-2-PT-1 [2pc]** — **Owed: Wyatt playtest.** DEPLOYED `7569051` · Worker `8e5f274f` · https://www.cartclash.lol/?diag=1. Prior NPC-BOOST-PT-1 **FAIL**.
 2. **Open / REACHABLE:** CARGO-LATCH-1. **Open High:** ONBOARD-ATTRACT-1 · ONBOARD-SIZE-1 · bloom. **Playtest row left:** SHARD-PT-2.
 
 ## Open issues (top)
@@ -81,7 +81,7 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 
 | ID | Issue | Status |
 |----|--------|--------|
-| NPC-BOOST-2 | NPC charge visibility / audio / boost self-KO | 🛠️ **NOW** — PT-1 [2pc] owed (code shipped) |
+| NPC-BOOST-2 | NPC charge visibility / audio / boost self-KO | 🛠️ **NOW** — Owed: Wyatt playtest (NPC-BOOST-2-PT-1 [2pc]); DEPLOYED `7569051` |
 | WARM-SOLO-1 | Solo post-`carts-ready` stall (WARM-IGPU residual) | 📋 telemetry-gated — [warm-igpu-1.md](./planning/warm-igpu-1.md) |
 | CARGO-LATCH-1 | `cargoLoad.js` repeats the FIX-DIRPAUSE latch bug | 📋 **REACHABLE 08-07** — fix+playtest next wave. [BACKLOG § Engineering](./planning/BACKLOG.md). |
 | BRAND-1 | Domain / Worker cutover | 🧊 frozen until deliberate cutover ([brand.md](./brand.md)) |
