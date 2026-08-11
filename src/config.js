@@ -141,7 +141,7 @@ const physics = {
         enabled: true,
         // * FEEL-DAY-1: global base cone (all difficulties + MP host-sim); Hard stacks −12°.
         alignmentAngleDeg: 34, // degrees — aim cone toward target
-        minTargetDistance: 5.0, // meters
+        minTargetDistance: 1.5, // meters — NPC-BOOST-2: was 5.0, cancelled every charge before 1.5s hold completed
         maxTargetDistance: 12.0, // meters
         // * AI-DAY-1 lever 3 + SELFKO-1: solo human boost frequency only (NPC-BOOST-1 carve-out).
         // * MP human path still always commits. Easy skips safe-center thrift.
