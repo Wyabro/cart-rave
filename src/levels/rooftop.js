@@ -8,6 +8,7 @@ import {
   createNightShiftCityArchitecture,
   createNightShiftCityPlan,
 } from "./nightShiftVisuals.js";
+import { createNightShiftMaterialBundle } from "./nightShiftMaterials.js";
 
 const FLOOR_TOP_Y = 0;
 const FLOOR_THICKNESS = 0.6;
@@ -212,16 +213,23 @@ export function initRooftop(scene, world, config) {
   config.record.centerHole = { enabled: false };
   scene.background = new THREE.Color(0x07111f);
 
-  const roofMaterial = createPhysicalMaterial({ color: 0x263142, metalness: 0.2, roughness: 0.78 });
-  const highRoofMaterial = createPhysicalMaterial({ color: 0x41506a, metalness: 0.18, roughness: 0.72 });
-  const utilityPlinthMaterial = createPhysicalMaterial({ color: 0x1c2432, metalness: 0.28, roughness: 0.62 });
-  const spawnPlatformMaterial = createPhysicalMaterial({ color: 0x55647b, metalness: 0.32, roughness: 0.58 });
-  const spawnSupportMaterial = createPhysicalMaterial({ color: 0x202a38, metalness: 0.3, roughness: 0.68 });
-  const parapetMaterial = createPhysicalMaterial({ color: 0x1a202b, metalness: 0.38, roughness: 0.55 });
+  const materialBundle = createNightShiftMaterialBundle();
+  const {
+    roof: roofMaterial,
+    highRoof: highRoofMaterial,
+    utility: utilityPlinthMaterial,
+    spawnPlatform: spawnPlatformMaterial,
+    spawnSupport: spawnSupportMaterial,
+    parapet: parapetMaterial,
+  } = materialBundle.materials;
   const routeVentMaterial = createPhysicalMaterial({ color: 0xd38e28, metalness: 0.2, roughness: 0.6, emissive: 0x2e1600 });
   const chaosVentMaterial = createPhysicalMaterial({ color: 0xd82bd4, metalness: 0.22, roughness: 0.55, emissive: 0x31072f });
   const ownedGeometries = [];
-  const ownedMaterials = [routeVentMaterial, chaosVentMaterial];
+  const ownedMaterials = [
+    routeVentMaterial,
+    chaosVentMaterial,
+    ...Object.values(materialBundle.materials),
+  ];
   const bodies = [];
   const recordColliderHandles = [];
   const edgeColliderHandles = [];
@@ -309,6 +317,7 @@ export function initRooftop(scene, world, config) {
     root,
     createNightShiftCityPlan(),
     spawnPlatforms,
+    materialBundle.materials,
   );
 
   function dispose() {
@@ -321,6 +330,7 @@ export function initRooftop(scene, world, config) {
     }
     ownedGeometries.forEach((geometry) => geometry.dispose());
     ownedMaterials.forEach(disposeMaterial);
+    materialBundle.disposeTextures();
   }
 
   return {

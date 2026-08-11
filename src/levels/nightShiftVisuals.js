@@ -127,14 +127,11 @@ function writeBeamInstances(mesh, beams) {
  * @param {THREE.Group} root
  * @param {ReturnType<typeof createNightShiftCityPlan>} plan
  * @param {ReturnType<import("./rooftop.js").getNightShiftSpawnPlatforms>} spawnPlatforms
+ * @param {{ tower: THREE.Material, brace: THREE.Material,
+ *   skylineCore: THREE.Material, skylineExtended: THREE.Material }} materials
  */
-export function createNightShiftCityArchitecture(root, plan, spawnPlatforms) {
+export function createNightShiftCityArchitecture(root, plan, spawnPlatforms, materials) {
   const unitBox = new THREE.BoxGeometry(1, 1, 1);
-  const towerMaterial = new THREE.MeshStandardMaterial({ color: 0x111a28, metalness: 0.22, roughness: 0.82 });
-  const braceMaterial = new THREE.MeshStandardMaterial({ color: 0x303d50, metalness: 0.58, roughness: 0.56 });
-  const coreMaterial = new THREE.MeshStandardMaterial({ color: 0x111827, metalness: 0.08, roughness: 0.92 });
-  const extendedMaterial = new THREE.MeshStandardMaterial({ color: 0x0b101c, metalness: 0.04, roughness: 0.96 });
-  const materials = [towerMaterial, braceMaterial, coreMaterial, extendedMaterial];
 
   const towerHeight = Math.abs(TOWER_BOTTOM_Y);
   const towerSpecs = [
@@ -143,7 +140,7 @@ export function createNightShiftCityArchitecture(root, plan, spawnPlatforms) {
     { x: TOWER_HALF_SIZE, y: TOWER_BOTTOM_Y / 2, z: 0, width: FACADE_THICKNESS, height: towerHeight, depth: TOWER_HALF_SIZE * 2 },
     { x: -TOWER_HALF_SIZE, y: TOWER_BOTTOM_Y / 2, z: 0, width: FACADE_THICKNESS, height: towerHeight, depth: TOWER_HALF_SIZE * 2 },
   ];
-  const tower = new THREE.InstancedMesh(unitBox, towerMaterial, towerSpecs.length);
+  const tower = new THREE.InstancedMesh(unitBox, materials.tower, towerSpecs.length);
   tower.name = "night-shift-tower-shell";
   writeBoxInstances(tower, towerSpecs);
 
@@ -165,7 +162,7 @@ export function createNightShiftCityArchitecture(root, plan, spawnPlatforms) {
       },
     );
   }
-  const braces = new THREE.InstancedMesh(unitBox, braceMaterial, beams.length);
+  const braces = new THREE.InstancedMesh(unitBox, materials.brace, beams.length);
   braces.name = "night-shift-corner-deck-braces";
   writeBeamInstances(braces, beams);
 
@@ -184,10 +181,10 @@ export function createNightShiftCityArchitecture(root, plan, spawnPlatforms) {
     (building.detail === "core" ? coreSpecs : extendedSpecs).push(spec);
   }
 
-  const coreSkyline = new THREE.InstancedMesh(unitBox, coreMaterial, coreSpecs.length);
+  const coreSkyline = new THREE.InstancedMesh(unitBox, materials.skylineCore, coreSpecs.length);
   coreSkyline.name = "night-shift-skyline-core";
   writeBoxInstances(coreSkyline, coreSpecs);
-  const extendedSkyline = new THREE.InstancedMesh(unitBox, extendedMaterial, extendedSpecs.length);
+  const extendedSkyline = new THREE.InstancedMesh(unitBox, materials.skylineExtended, extendedSpecs.length);
   extendedSkyline.name = "night-shift-skyline-extended";
   writeBoxInstances(extendedSkyline, extendedSpecs);
 
@@ -213,7 +210,6 @@ export function createNightShiftCityArchitecture(root, plan, spawnPlatforms) {
     dispose() {
       root.remove(tower, braces, coreSkyline, extendedSkyline);
       unitBox.dispose();
-      materials.forEach((material) => material.dispose());
     },
   };
 }
