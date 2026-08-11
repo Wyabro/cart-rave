@@ -66,13 +66,13 @@ Live rows only. Shipped and closed cards live in
 
 | # | What | Status |
 |---|------|--------|
-| NIGHT-SHIFT-BLOCKOUT-1 | Night Shift rooftop playable blockout | 🔧 Vent wave in progress. Four corner voids, two high roofs on inset utility plinths, two route ACs aimed at opposite roofs, one stronger vertical AC, and countdown framing. Non-quickplay; human launch-feel review pending. |
+| NIGHT-SHIFT-BLOCKOUT-1 | Night Shift rooftop playable blockout | 🔧 Local correction in progress. Rooftop visuals are static; four elevated spawn slabs match the cart spawn poses and sit on solid utility shafts. Two route ACs aim at opposite roofs; one stronger AC launches vertically. Non-quickplay; human launch-feel review pending. |
 | BUNDLE-1 | Menu/game code-split | ⚠️ **CLOSED PARTIAL 08-05 — perf goal NOT met. Deployed `f2f90fd2`.** Warm `menu-ready` −3% vs a −15% gate. Banked: a `size:check` byte gate, `main.js` 2,582 → 1,262 lines, −22.6% off the initial set (**cold** visits only). Lever E playtested: BUNDLE-E-PT-1 PASS 6/6. [bundle-1.md §0](./planning/bundle-1.md) |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 
 ### Next actions
 
-1. **NIGHT-SHIFT-BLOCKOUT-1:** in Solo Dev, load `?level=rooftop`; drive over all three AC pads and check both roof landings, the stronger center launch, and no repeat bounce.
+1. **NIGHT-SHIFT-BLOCKOUT-1:** in Solo Dev, load `?level=rooftop`; confirm the roof stays still, all four carts start on supported platforms, then test both roof launches and the stronger center launch.
 2. **Playtest owed:** SHARD-PT-2 (skip, needs five humans).
 
 ## Open issues (top)
@@ -123,12 +123,12 @@ the dev loop (dev probes lie in prod · edge propagation · frozen `rAF`), or a 
 
 ## Last updated
 
-2026-08-11 (NIGHT-SHIFT-BLOCKOUT-1) — Non-quickplay rooftop playable blockout built: four
-corner voids with AI avoidance, north/south high roofs on inset utility plinths, and countdown
-framing. The approved vent wave activates two instant route ACs aimed at the opposite roofs and
-one stronger straight-up center AC. Launches run only in the host fixed step; each cart has a
-per-unit 750 ms cooldown and must exit a pad before that pad can fire again. Focused launch tests,
-full QA, and the production build pass. Human launch-feel review remains. Not pushed or deployed.
+2026-08-11 (NIGHT-SHIFT-BLOCKOUT-1) — The visual rooftop rotated while its fixed colliders did
+not because the level returned its visible root through Classic's rotating `recordMesh` contract.
+Night Shift now uses the established detached static proxy. Four elevated spawn slabs match the
+exact cardinal spawn poses and sit on solid utility shafts attached to the roof; their deck
+colliders classify as floor and their shafts as obstacles. Focused blockout/launch tests, full
+QA, and the production build pass. Human launch-feel review remains. Not pushed or deployed.
 
 2026-08-11 (NPC-BOOST-2-PT-1 PASS · NPC cluster closed) — NPC-BOOST-2-PT-1 all four
 steps PASS. NPC-BOOST-1, NPC-BOOST-2, AI-EASY-SOFTEN-1 all closed. Proportional

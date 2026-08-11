@@ -2,6 +2,7 @@
 
 import * as THREE from "three";
 import { RAPIER } from "../physics/rapierInstance.js";
+import { computeSpawnRingRadius } from "../config.js";
 import { createPhysicalMaterial } from "../scene.js";
 
 const FLOOR_TOP_Y = 0;
@@ -18,12 +19,13 @@ const AC_HALF_WIDTH = 2.1;
 const AC_MAX_BODY_Y = 1.55;
 const AC_MAX_VERTICAL_SPEED = 2;
 const AC_COOLDOWN_MS = 750;
+const SPAWN_SUPPORT_INSET = 1;
 
 /**
  * Blockout dimensions stay data-only so the geometry, Rapier colliders, AI-safe voids, and
  * focused tests share one layout. The elevated roofs stay on the north/south arms, outside the
- * corner-void contract. Inset utility plinths attach them to the main roof; they become
- * AC-launch landing targets in a later card.
+ * corner-void contract. Inset utility plinths attach them to the main roof and support the
+ * AC-launch landing targets.
  */
 export const NIGHT_SHIFT_BLOCKOUT_LAYOUT = Object.freeze({
   mainRoofs: Object.freeze([
@@ -109,6 +111,42 @@ export function getNightShiftBlockoutHazards() {
   };
 }
 
+/**
+ * Builds the four data-only rooftop spawn structures from the same radius and height inputs as
+ * cart spawning. East/west platforms swap width/depth so their short axis stays radial.
+ *
+ * @param {object} config
+ * @returns {Array<{ x: number, y: number, z: number, width: number, height: number,
+ *   depth: number, supportY: number, supportHeight: number, supportWidth: number,
+ *   supportDepth: number }>}
+ */
+export function getNightShiftSpawnPlatforms(config) {
+  const radius = computeSpawnRingRadius(config);
+  const platformY = config.booth.platformY;
+  const platformHeight = config.booth.platformThickness;
+  const supportHeight = platformY - platformHeight / 2 - FLOOR_TOP_Y;
+  const supportY = FLOOR_TOP_Y + supportHeight / 2;
+  const angles = [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2];
+
+  return angles.map((angle, index) => {
+    const radialX = index % 2 === 0;
+    const width = radialX ? config.booth.platformDepth : config.booth.platformWidth;
+    const depth = radialX ? config.booth.platformWidth : config.booth.platformDepth;
+    return {
+      x: radius * Math.cos(angle),
+      y: platformY,
+      z: radius * Math.sin(angle),
+      width,
+      height: platformHeight,
+      depth,
+      supportY,
+      supportHeight,
+      supportWidth: width - SPAWN_SUPPORT_INSET,
+      supportDepth: depth - SPAWN_SUPPORT_INSET,
+    };
+  });
+}
+
 /** @param {THREE.Material | THREE.Material[]} material */
 function disposeMaterial(material) {
   if (Array.isArray(material)) {
@@ -165,6 +203,10 @@ export function initRooftop(scene, world, config) {
   const root = new THREE.Group();
   root.name = "night-shift-blockout";
   scene.add(root);
+  // * gameBoot rotates `recordMesh` for Classic's vinyl. Static arenas return a detached empty
+  // * proxy so their visible geometry and fixed Rapier colliders cannot drift apart.
+  const recordMesh = new THREE.Group();
+  recordMesh.name = "night-shift-static-rotation-proxy";
 
   const previousCenterHole = config.record.centerHole;
   const previousBackground = scene.background;
@@ -174,6 +216,8 @@ export function initRooftop(scene, world, config) {
   const roofMaterial = createPhysicalMaterial({ color: 0x263142, metalness: 0.2, roughness: 0.78 });
   const highRoofMaterial = createPhysicalMaterial({ color: 0x41506a, metalness: 0.18, roughness: 0.72 });
   const utilityPlinthMaterial = createPhysicalMaterial({ color: 0x1c2432, metalness: 0.28, roughness: 0.62 });
+  const spawnPlatformMaterial = createPhysicalMaterial({ color: 0x55647b, metalness: 0.32, roughness: 0.58 });
+  const spawnSupportMaterial = createPhysicalMaterial({ color: 0x202a38, metalness: 0.3, roughness: 0.68 });
   const parapetMaterial = createPhysicalMaterial({ color: 0x1a202b, metalness: 0.38, roughness: 0.55 });
   const routeVentMaterial = createPhysicalMaterial({ color: 0xd38e28, metalness: 0.2, roughness: 0.6, emissive: 0x2e1600 });
   const chaosVentMaterial = createPhysicalMaterial({ color: 0xd82bd4, metalness: 0.22, roughness: 0.55, emissive: 0x31072f });
@@ -215,6 +259,25 @@ export function initRooftop(scene, world, config) {
     }, highRoofMaterial, ownedGeometries, ownedMaterials, bodies, recordColliderHandles);
   }
 
+  for (const platform of getNightShiftSpawnPlatforms(config)) {
+    addBox(root, world, {
+      x: platform.x,
+      y: platform.supportY,
+      z: platform.z,
+      width: platform.supportWidth,
+      height: platform.supportHeight,
+      depth: platform.supportDepth,
+    }, spawnSupportMaterial, ownedGeometries, ownedMaterials, bodies, edgeColliderHandles);
+    addBox(root, world, {
+      x: platform.x,
+      y: platform.y,
+      z: platform.z,
+      width: platform.width,
+      height: platform.height,
+      depth: platform.depth,
+    }, spawnPlatformMaterial, ownedGeometries, ownedMaterials, bodies, recordColliderHandles);
+  }
+
   // Spawn-side baffles prevent an immediate backward fall while keeping the long edges exposed.
   const parapets = [
     { x: 35.7, z: 0, width: 0.6, depth: 8 },
@@ -252,7 +315,7 @@ export function initRooftop(scene, world, config) {
   }
 
   return {
-    recordMesh: root,
+    recordMesh,
     recordCollider: null,
     recordColliderHandles,
     pitWallColliderHandle: edgeColliderHandles[0] ?? null,

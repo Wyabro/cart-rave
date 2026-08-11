@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { CONFIG, computeSpawnRingRadius } from "../src/config.js";
 import {
   getNightShiftBlockoutHazards,
+  getNightShiftSpawnPlatforms,
   NIGHT_SHIFT_BLOCKOUT_LAYOUT,
 } from "../src/levels/rooftop.js";
 
@@ -66,5 +67,43 @@ describe("Night Shift blockout", () => {
     const source = readFileSync(new URL("../src/levels/rooftop.js", import.meta.url), "utf8");
     expect(source).not.toContain("addRamp(");
     expect(source).not.toContain("RAMP_");
+  });
+
+  it("matches four supported platforms to the exact cardinal spawn poses", () => {
+    const platforms = getNightShiftSpawnPlatforms(CONFIG);
+    const radius = computeSpawnRingRadius(CONFIG);
+    expect(platforms).toHaveLength(4);
+
+    const expected = [
+      { x: radius, z: 0 },
+      { x: 0, z: radius },
+      { x: -radius, z: 0 },
+      { x: 0, z: -radius },
+    ];
+    for (const [index, platform] of platforms.entries()) {
+      expect(platform.x).toBeCloseTo(expected[index].x, 6);
+      expect(platform.z).toBeCloseTo(expected[index].z, 6);
+      expect(platform.y + platform.height / 2 + CONFIG.cart.size.y / 2 + 0.05)
+        .toBeCloseTo(CONFIG.cart.spawnHeight, 6);
+      expect(platform.supportY - platform.supportHeight / 2).toBeCloseTo(0, 6);
+      expect(platform.supportY + platform.supportHeight / 2)
+        .toBeCloseTo(platform.y - platform.height / 2, 6);
+    }
+  });
+
+  it("returns a detached rotation proxy instead of rotating the rooftop root", () => {
+    const source = readFileSync(new URL("../src/levels/rooftop.js", import.meta.url), "utf8");
+    expect(source).toContain('recordMesh.name = "night-shift-static-rotation-proxy"');
+    expect(source).not.toContain("recordMesh: root");
+  });
+
+  it("wires spawn decks as floor colliders and support shafts as obstacles", () => {
+    const source = readFileSync(new URL("../src/levels/rooftop.js", import.meta.url), "utf8");
+    const start = source.indexOf("for (const platform of getNightShiftSpawnPlatforms(config))");
+    const end = source.indexOf("// Spawn-side baffles", start);
+    const platformBuild = source.slice(start, end);
+    expect(start).toBeGreaterThan(-1);
+    expect(platformBuild).toMatch(/spawnSupportMaterial[\s\S]*edgeColliderHandles/);
+    expect(platformBuild).toMatch(/spawnPlatformMaterial[\s\S]*recordColliderHandles/);
   });
 });
