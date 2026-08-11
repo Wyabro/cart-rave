@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-11T20:23:50.901Z",
-    "commit": "8c69399"
+    "at": "2026-08-11T20:58:17.425Z",
+    "commit": "7be3817"
   },
-  "source_digest": "d46db73c",
+  "source_digest": "c4eb8bb8",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1053,16 +1053,10 @@
       {
         "title": "Audio",
         "counts": {
-          "Medium": 2,
+          "Medium": 1,
           "Low": 1
         },
         "rows": [
-          {
-            "pri": "Medium",
-            "item": "HIT-SFX-VAR-1 — more cart hit SFX variety `[pre-ship]`",
-            "notes": "Current hit clips are too repetitive. **Blocked on Wyatt providing new sound clips**; then wire into the hit pool (random / cooldown / velocity tiers — pick cheapest that reads varied).",
-            "ship1": null
-          },
           {
             "pri": "Medium",
             "item": "ANNOUNCER-RERECORD-1 — Announcer re-records (Wyatt) `[SHIP-1 E3]`",

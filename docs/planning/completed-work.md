@@ -3370,6 +3370,16 @@ All seven verified fixed:
 
 ---
 
+### August 11, 2026 — HIT-SFX-VAR-1 CLOSED PASS: 3-variant cart crash SFX
+
+- *(Audio · Medium)* **HIT-SFX-VAR-1** — ✅ **CLOSED PASS 08-11.** Wyatt provided two new
+  hit SFX. Converted to Opus (`cart-crash-2.opus`, `cart-crash-3.opus`) and wired into
+  the existing `playCartCrash()` pool: each call randomly picks from `["cartCrash",
+  "cartCrash2", "cartCrash3"]`. Same rate/volume/intensity logic applies to all three.
+  Pool: 4 per variant. Commit `1f3f090`. Wyatt PASS on production.
+
+---
+
 ### August 11, 2026 — SKYBOX-DIR-1 CLOSED: kept + optimized
 
 - *(Art · Medium)* **SKYBOX-DIR-1** — ✅ **CLOSED 08-11.** Wyatt decided to keep the space
