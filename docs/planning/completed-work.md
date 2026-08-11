@@ -13,6 +13,19 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 10, 2026 — MENU-SFX-1 CLOSED: main-menu SFX slider (absorbed)
+
+- *(UI / UX · Low)* **MENU-SFX-1** — ✅ **CLOSED 08-10 as shipped**. Intent (a working SFX
+  volume slider in the menu) already shipped under the audio-controls extraction and the
+  VOICE-BUS-1 volume-bus work: `src/ui/audioControls.js` owns the SFX bus
+  (`setSfxSliderVolume` → `audioStore.sfxVolume`), and the menu Settings overlay
+  (`src/ui/cart-rave-menu.js` — `cr-settings-sfx-track`, `syncSettingsAudioUi`) wires a live
+  SFX slider next to MUSIC and VOICE, palette-secondary accent. No commit ever cited the ID —
+  caught 08-10 while closing out stale backlog rows. BACKLOG row + Work-order lines deleted;
+  ID on the do-not-reopen list.
+
+---
+
 ### August 10, 2026 — DEPLOY-MAP-1 PASS: three-lane deploy map (no CF split)
 
 - *(Engineering · Low)* **DEPLOY-MAP-1** — ✅ **CLOSED 08-10**. Locked lanes: local =
