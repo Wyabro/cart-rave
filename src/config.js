@@ -84,6 +84,9 @@ const physics = {
   cart: {
     size: { x: 1.31, y: 1.35, z: 2.26 }, // meters — collider half-extents basis
     spawnHeight: 1.077, // meters — overridden below from booth geometry
+    spawnRingRadiusByLevel: { rooftop: 42 }, // meters — diagonal decks near square roof corners
+    spawnAngleOffset: 0, // radians — live per-level offset, restored by loadLevel()
+    spawnAngleOffsetByLevel: { rooftop: Math.PI / 4 }, // Night Shift uses diagonal corner spawns
     friction: 1.1, // unitless — Mongoose-style grip
     restitution: 0.3, // unitless
     linearDamping: 0.6, // 1/s — light, agile coast
@@ -654,8 +657,8 @@ export const CONFIG = {
 
 /**
  * Spawn-ring radius from the current arena radius — the single source of truth for the
- * booth/spawn distance formula. Re-invoked by loadLevel() after a per-level radius
- * override so spawns land on the (possibly resized) booth ring.
+ * standard booth/spawn distance formula. Re-invoked by loadLevel() after a per-level radius
+ * override; levels with non-circular layouts may then supply an explicit ring override.
  *
  * @param {typeof CONFIG} config
  * @returns {number}
@@ -667,6 +670,18 @@ export function computeSpawnRingRadius(config) {
     config.booth.rampLength +
     config.booth.platformDepth / 2
   );
+}
+
+/**
+ * Spawn angle from the active level's live offset. Both carts and level-owned spawn decks use
+ * this helper so a level override cannot rotate one without the other.
+ *
+ * @param {typeof CONFIG} config
+ * @param {number} slotIndex
+ * @returns {number}
+ */
+export function computeSpawnAngleForSlot(config, slotIndex) {
+  return (slotIndex * Math.PI) / 2 + (config.cart.spawnAngleOffset ?? 0);
 }
 
 // Spawn ring radius calculation (same as original)

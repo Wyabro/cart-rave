@@ -1,16 +1,13 @@
-// rooftop.js — Night Shift blockout: a high-rise rooftop cross with four open voids.
+// rooftop.js — Night Shift blockout: a square high-rise roof with corner spawn decks.
 
 import * as THREE from "three";
 import { RAPIER } from "../physics/rapierInstance.js";
-import { computeSpawnRingRadius } from "../config.js";
+import { computeSpawnAngleForSlot } from "../config.js";
 import { createPhysicalMaterial } from "../scene.js";
 
 const FLOOR_TOP_Y = 0;
 const FLOOR_THICKNESS = 0.6;
 const ARM_HALF_LENGTH = 36;
-const ARM_HALF_WIDTH = 10;
-const GAP_CENTER = 23;
-const GAP_HALF = 12.4;
 const HIGH_ROOF_TOP_Y = 3.4;
 const HIGH_ROOF_SIZE = 12;
 const HIGH_ROOF_PLINTH_INSET = 1.2;
@@ -22,22 +19,13 @@ const AC_COOLDOWN_MS = 750;
 const SPAWN_SUPPORT_INSET = 1;
 
 /**
- * Blockout dimensions stay data-only so the geometry, Rapier colliders, AI-safe voids, and
- * focused tests share one layout. The elevated roofs stay on the north/south arms, outside the
- * corner-void contract. Inset utility plinths attach them to the main roof and support the
- * AC-launch landing targets.
+ * Blockout dimensions stay data-only so the geometry, Rapier colliders, and focused tests
+ * share one layout. The square roof leaves every outer edge dangerous while the
+ * elevated roofs and their inset utility plinths remain AC-launch landing targets.
  */
 export const NIGHT_SHIFT_BLOCKOUT_LAYOUT = Object.freeze({
   mainRoofs: Object.freeze([
-    Object.freeze({ x: 0, z: 0, width: ARM_HALF_LENGTH * 2, depth: ARM_HALF_WIDTH * 2 }),
-    Object.freeze({ x: 0, z: 23, width: ARM_HALF_WIDTH * 2, depth: 26 }),
-    Object.freeze({ x: 0, z: -23, width: ARM_HALF_WIDTH * 2, depth: 26 }),
-  ]),
-  cornerVoids: Object.freeze([
-    Object.freeze({ x: GAP_CENTER, z: GAP_CENTER }),
-    Object.freeze({ x: -GAP_CENTER, z: GAP_CENTER }),
-    Object.freeze({ x: GAP_CENTER, z: -GAP_CENTER }),
-    Object.freeze({ x: -GAP_CENTER, z: -GAP_CENTER }),
+    Object.freeze({ x: 0, z: 0, width: ARM_HALF_LENGTH * 2, depth: ARM_HALF_LENGTH * 2 }),
   ]),
   highRoofs: Object.freeze([
     Object.freeze({ x: 0, z: 18 }),
@@ -91,58 +79,48 @@ export const NIGHT_SHIFT_BLOCKOUT_LAYOUT = Object.freeze({
 });
 
 /**
- * Reuses the established square-void AI contract only for this blockout. Omitting
- * `suctionBand` retains the gentle existing lip assist, so this card cannot silently inherit
- * Storerooms' pull-to-death behavior.
+ * Keeps AC launch data available without claiming any internal square voids. The simulation
+ * registers launchers separately from AI hole avoidance, so Night Shift uses the conservative
+ * default outer-rim model instead of Storerooms' corner-hole routing.
  *
- * @returns {{ squareHoles: { x: number, z: number }[], half: number, holeCenter: number,
- *   arenaHalf: number, avoidMargin: number, influenceBand: number,
- *   acLaunchers: readonly object[] }}
+ * @returns {{ squareHoles: never[], acLaunchers: readonly object[] }}
  */
 export function getNightShiftBlockoutHazards() {
   return {
-    squareHoles: NIGHT_SHIFT_BLOCKOUT_LAYOUT.cornerVoids.map(({ x, z }) => ({ x, z })),
-    half: GAP_HALF,
-    holeCenter: GAP_CENTER,
-    arenaHalf: ARM_HALF_LENGTH,
-    avoidMargin: 1.8,
-    influenceBand: 1.2,
+    squareHoles: [],
     acLaunchers: NIGHT_SHIFT_BLOCKOUT_LAYOUT.acLaunchers,
   };
 }
 
 /**
- * Builds the four data-only rooftop spawn structures from the same radius and height inputs as
- * cart spawning. East/west platforms swap width/depth so their short axis stays radial.
+ * Builds the four data-only rooftop spawn structures from the same live radius, angle, and
+ * height inputs as cart spawning. Each platform rotates so its short axis stays radial.
  *
  * @param {object} config
- * @returns {Array<{ x: number, y: number, z: number, width: number, height: number,
+ * @returns {Array<{ x: number, y: number, z: number, yaw: number, width: number, height: number,
  *   depth: number, supportY: number, supportHeight: number, supportWidth: number,
  *   supportDepth: number }>}
  */
 export function getNightShiftSpawnPlatforms(config) {
-  const radius = computeSpawnRingRadius(config);
+  const radius = config.cart.spawnRingRadius;
   const platformY = config.booth.platformY;
   const platformHeight = config.booth.platformThickness;
   const supportHeight = platformY - platformHeight / 2 - FLOOR_TOP_Y;
   const supportY = FLOOR_TOP_Y + supportHeight / 2;
-  const angles = [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2];
-
-  return angles.map((angle, index) => {
-    const radialX = index % 2 === 0;
-    const width = radialX ? config.booth.platformDepth : config.booth.platformWidth;
-    const depth = radialX ? config.booth.platformWidth : config.booth.platformDepth;
+  return [0, 1, 2, 3].map((index) => {
+    const angle = computeSpawnAngleForSlot(config, index);
     return {
       x: radius * Math.cos(angle),
       y: platformY,
       z: radius * Math.sin(angle),
-      width,
+      yaw: Math.PI / 2 - angle,
+      width: config.booth.platformWidth,
       height: platformHeight,
-      depth,
+      depth: config.booth.platformDepth,
       supportY,
       supportHeight,
-      supportWidth: width - SPAWN_SUPPORT_INSET,
-      supportDepth: depth - SPAWN_SUPPORT_INSET,
+      supportWidth: config.booth.platformWidth - SPAWN_SUPPORT_INSET,
+      supportDepth: config.booth.platformDepth - SPAWN_SUPPORT_INSET,
     };
   });
 }
@@ -159,7 +137,8 @@ function disposeMaterial(material) {
 /**
  * @param {THREE.Group} root
  * @param {import("@dimforge/rapier3d").World} world
- * @param {{ x: number, y: number, z: number, width: number, height: number, depth: number }} spec
+ * @param {{ x: number, y: number, z: number, width: number, height: number, depth: number,
+ *   yaw?: number }} spec
  * @param {THREE.Material} material
  * @param {THREE.BufferGeometry[]} ownedGeometries
  * @param {THREE.Material[]} ownedMaterials
@@ -170,6 +149,7 @@ function addBox(root, world, spec, material, ownedGeometries, ownedMaterials, bo
   const geometry = new THREE.BoxGeometry(spec.width, spec.height, spec.depth);
   const mesh = new THREE.Mesh(geometry, material);
   mesh.position.set(spec.x, spec.y, spec.z);
+  mesh.rotation.y = spec.yaw ?? 0;
   mesh.castShadow = false;
   mesh.receiveShadow = true;
   root.add(mesh);
@@ -179,6 +159,10 @@ function addBox(root, world, spec, material, ownedGeometries, ownedMaterials, bo
   const body = world.createRigidBody(
     RAPIER.RigidBodyDesc.fixed().setTranslation(spec.x, spec.y, spec.z),
   );
+  if (spec.yaw) {
+    const halfYaw = spec.yaw / 2;
+    body.setRotation({ x: 0, y: Math.sin(halfYaw), z: 0, w: Math.cos(halfYaw) }, true);
+  }
   const collider = world.createCollider(
     RAPIER.ColliderDesc.cuboid(spec.width / 2, spec.height / 2, spec.depth / 2)
       .setFriction(0.82)
@@ -191,8 +175,8 @@ function addBox(root, world, spec, material, ownedGeometries, ownedMaterials, bo
 }
 
 /**
- * Night Shift blockout. The visible cross creates four lethal corner voids, while two high
- * roofs test the vertical camera envelope. The three colored pads mark the active AC launch
+ * Night Shift blockout. The square roof exposes four lethal outer edges, while two high roofs
+ * test the vertical camera envelope. The colored pads mark the active AC launch
  * zones; launch physics is owned by the host fixed step through the level hazard descriptor.
  *
  * @param {THREE.Scene} scene
@@ -267,6 +251,7 @@ export function initRooftop(scene, world, config) {
       width: platform.supportWidth,
       height: platform.supportHeight,
       depth: platform.supportDepth,
+      yaw: platform.yaw,
     }, spawnSupportMaterial, ownedGeometries, ownedMaterials, bodies, edgeColliderHandles);
     addBox(root, world, {
       x: platform.x,
@@ -275,6 +260,7 @@ export function initRooftop(scene, world, config) {
       width: platform.width,
       height: platform.height,
       depth: platform.depth,
+      yaw: platform.yaw,
     }, spawnPlatformMaterial, ownedGeometries, ownedMaterials, bodies, recordColliderHandles);
   }
 

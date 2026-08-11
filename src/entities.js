@@ -9,7 +9,7 @@ import {
   prepareRaveGltfCart,
   setEmissiveTrimMul,
 } from "./cartRaveGltf.js";
-import { CONFIG } from "./config.js";
+import { CONFIG, computeSpawnAngleForSlot } from "./config.js";
 import { resolveCartThemeForSlot, resolveCartSunglassesStyleForSlot } from "./customization.js";
 import {
   applyCartTheme,
@@ -721,7 +721,7 @@ export function doRespawn(cart, callbacks) {
  */
 function spawnOnRingForSlot(slotIndex) {
   const ringR = CONFIG.cart.spawnRingRadius;
-  const angle = (slotIndex * Math.PI) / 2;
+  const angle = computeSpawnAngleForSlot(CONFIG, slotIndex);
   return {
     x: ringR * Math.cos(angle),
     y: CONFIG.cart.spawnHeight,

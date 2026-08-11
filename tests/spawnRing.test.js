@@ -7,19 +7,24 @@
 
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { CONFIG, computeSpawnRingRadius } from "../src/config.js";
+import {
+  CONFIG,
+  computeSpawnAngleForSlot,
+  computeSpawnRingRadius,
+} from "../src/config.js";
 
 /** loadLevel's derived-value bookkeeping, replayed on a throwaway config. */
 function ringFor(levelId) {
   const cfg = {
     record: { ...CONFIG.record },
     booth: { ...CONFIG.booth },
+    cart: { ...CONFIG.cart },
   };
   const overrideRadius = cfg.record.radiusByLevel?.[levelId];
   const overrideGap = cfg.booth.gapDistanceByLevel?.[levelId];
   if (overrideRadius != null) cfg.record.radius = overrideRadius;
   if (overrideGap != null) cfg.booth.gapDistance = overrideGap;
-  return computeSpawnRingRadius(cfg);
+  return cfg.cart.spawnRingRadiusByLevel?.[levelId] ?? computeSpawnRingRadius(cfg);
 }
 
 describe("spawn ring per-level overrides", () => {
@@ -38,6 +43,24 @@ describe("spawn ring per-level overrides", () => {
     expect(ringFor("classicRecord")).toBeCloseTo(computeSpawnRingRadius(CONFIG), 6);
   });
 
+  it("rotates only Night Shift spawns onto the diagonal ring", () => {
+    const baseConfig = {
+      ...CONFIG,
+      cart: { ...CONFIG.cart, spawnAngleOffset: 0 },
+    };
+    const rooftopConfig = {
+      ...CONFIG,
+      cart: {
+        ...CONFIG.cart,
+        spawnAngleOffset: CONFIG.cart.spawnAngleOffsetByLevel.rooftop,
+      },
+    };
+    expect(computeSpawnAngleForSlot(baseConfig, 0)).toBeCloseTo(0, 6);
+    expect(computeSpawnAngleForSlot(rooftopConfig, 0)).toBeCloseTo(Math.PI / 4, 6);
+    expect(computeSpawnAngleForSlot(rooftopConfig, 3)).toBeCloseTo((7 * Math.PI) / 4, 6);
+    expect(ringFor("rooftop")).toBeCloseTo(42, 6);
+  });
+
   it("stacks the gap override on top of Sundial's radius override", () => {
     // * Sundial overrides BOTH. The two must compose, not shadow each other.
     expect(CONFIG.record.radiusByLevel.zanzibar).toBeCloseTo(31.7, 6);
@@ -52,6 +75,17 @@ describe("spawn ring per-level overrides", () => {
     const src = readFileSync(new URL("../src/levels/index.js", import.meta.url), "utf8");
     expect(src).toMatch(/overrideRadius\s*!=\s*null\s*\|\|\s*overrideGap\s*!=\s*null/);
     expect(src).toMatch(/config\.booth\.gapDistance\s*=\s*overrideGap/);
+    expect(src).toMatch(/config\.cart\.spawnRingRadius\s*=\s*overrideSpawnRing/);
+  });
+
+  it("uses the shared spawn-angle helper for initial carts and later refreshes", () => {
+    const src = readFileSync(new URL("../src/entities.js", import.meta.url), "utf8");
+    const spawnHelper = src.slice(
+      src.indexOf("function spawnOnRingForSlot"),
+      src.indexOf("export function refreshCartSpawnPositions"),
+    );
+    expect(spawnHelper).toContain("computeSpawnAngleForSlot(CONFIG, slotIndex)");
+    expect(src).toMatch(/refreshCartSpawnPositions[\s\S]*spawnOnRingForSlot\(cart\.slotIndex\)/);
   });
 
   it("restores every overridden value, so the next level starts from base", () => {
@@ -63,5 +97,6 @@ describe("spawn ring per-level overrides", () => {
     expect(restore).toMatch(/config\.record\.radius\s*=\s*prevRadius/);
     expect(restore).toMatch(/config\.booth\.gapDistance\s*=\s*prevGap/);
     expect(restore).toMatch(/config\.cart\.spawnRingRadius\s*=\s*prevSpawnRing/);
+    expect(restore).toMatch(/config\.cart\.spawnAngleOffset\s*=\s*prevSpawnAngle/);
   });
 });

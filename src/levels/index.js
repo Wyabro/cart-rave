@@ -102,27 +102,33 @@ export async function loadLevel(levelId, scene, world, config, options = {}) {
   const importer = LEVEL_IMPORTERS[resolved] ?? LEVEL_IMPORTERS[DEFAULT_LEVEL_ID];
   const initFn = await importer();
 
-  // * Per-level overrides (config.record.radiusByLevel, config.booth.gapDistanceByLevel).
-  // * Applied before the level builds — levels read both live — and restored on dispose so
-  // * the next level always starts from the base values. Spawn ring is the one cached
-  // * derived value, and it must be recomputed when EITHER input moves: Storerooms
+  // * Per-level overrides (radius, booth gap, spawn ring, and spawn angle).
+  // * Applied before the level builds — levels read them live — and restored on dispose so
+  // * the next level always starts from the base values. The formula-derived spawn ring
+  // * must be recomputed when EITHER input moves: Storerooms
   // * overrides only the gap, so keying the recompute off the radius alone would leave
   // * carts spawning on the old ring while the booths moved out from under them.
   const overrideRadius = config.record.radiusByLevel?.[resolved];
   const overrideGap = config.booth.gapDistanceByLevel?.[resolved];
+  const overrideSpawnRing = config.cart.spawnRingRadiusByLevel?.[resolved];
+  const overrideSpawnAngle = config.cart.spawnAngleOffsetByLevel?.[resolved];
   const prevRadius = config.record.radius;
   const prevGap = config.booth.gapDistance;
   const prevSpawnRing = config.cart.spawnRingRadius;
+  const prevSpawnAngle = config.cart.spawnAngleOffset;
   const restoreOverrides = () => {
     config.record.radius = prevRadius;
     config.booth.gapDistance = prevGap;
     config.cart.spawnRingRadius = prevSpawnRing;
+    config.cart.spawnAngleOffset = prevSpawnAngle;
   };
+  if (overrideSpawnAngle != null) config.cart.spawnAngleOffset = overrideSpawnAngle;
   if (overrideRadius != null || overrideGap != null) {
     if (overrideRadius != null) config.record.radius = overrideRadius;
     if (overrideGap != null) config.booth.gapDistance = overrideGap;
     config.cart.spawnRingRadius = computeSpawnRingRadius(config);
   }
+  if (overrideSpawnRing != null) config.cart.spawnRingRadius = overrideSpawnRing;
 
   onProgress?.(60, "Building arena geometry…");
   clearLevelLod();

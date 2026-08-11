@@ -1373,6 +1373,9 @@ const AI_CAUTIOUS_MS = 8000;
  */
 let _levelHazards = null;
 
+/** @type {readonly object[] | null} */
+let _levelAcLaunchers = null;
+
 /**
  * Computes the fixed launch velocity for a Night Shift AC unit. Route units aim at a roof
  * center from the cart's live position; the chaos unit cancels planar travel and fires straight
@@ -1416,7 +1419,7 @@ export function computeAcLauncherVelocity(launcher, position) {
  * @returns {string | null} Fired launcher id.
  */
 function applyLevelAcLauncher(cart, nowMs) {
-  const launchers = _levelHazards?.acLaunchers;
+  const launchers = _levelAcLaunchers;
   if (!launchers?.length || !cart?.body || cart.respawnAtMs != null) return null;
 
   const position = cart.body.translation();
@@ -1520,6 +1523,7 @@ function isOnPodiumHighGround(x, z) {
  * @param {typeof _levelHazards & { isOctagon?: boolean }} hazards
  */
 export function setLevelHazards(hazards) {
+  _levelAcLaunchers = hazards?.acLaunchers?.length ? hazards.acLaunchers : null;
   _levelHazards =
     hazards && Array.isArray(hazards.squareHoles) && hazards.squareHoles.length > 0
       ? hazards

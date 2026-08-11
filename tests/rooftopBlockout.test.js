@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import { CONFIG, computeSpawnRingRadius } from "../src/config.js";
+import { CONFIG, computeSpawnAngleForSlot } from "../src/config.js";
 import {
   getNightShiftBlockoutHazards,
   getNightShiftSpawnPlatforms,
@@ -8,30 +8,17 @@ import {
 } from "../src/levels/rooftop.js";
 
 describe("Night Shift blockout", () => {
-  it("keeps every cardinal spawn on the central cross, not over a corner void", () => {
-    const radius = computeSpawnRingRadius(CONFIG);
-    expect(radius).toBeLessThan(36);
-
-    const spawns = [
-      { x: radius, z: 0 }, { x: -radius, z: 0 },
-      { x: 0, z: radius }, { x: 0, z: -radius },
-    ];
-    const hazards = getNightShiftBlockoutHazards();
-    for (const spawn of spawns) {
-      for (const hole of hazards.squareHoles) {
-        const insideHole =
-          Math.abs(spawn.x - hole.x) < hazards.half
-          && Math.abs(spawn.z - hole.z) < hazards.half;
-        expect(insideHole).toBe(false);
-      }
-    }
+  it("uses one full square roof with no internal corner voids", () => {
+    expect(NIGHT_SHIFT_BLOCKOUT_LAYOUT.mainRoofs).toEqual([
+      { x: 0, z: 0, width: 72, depth: 72 },
+    ]);
+    expect(getNightShiftBlockoutHazards().squareHoles).toEqual([]);
   });
 
-  it("uses four AI-visible voids without Storerooms suction", () => {
+  it("keeps AC data without enabling Storerooms hole avoidance", () => {
     const hazards = getNightShiftBlockoutHazards();
-    expect(hazards.squareHoles).toHaveLength(4);
+    expect(hazards.squareHoles).toHaveLength(0);
     expect(hazards.suctionBand).toBeUndefined();
-    expect(hazards.arenaHalf).toBe(36);
   });
 
   it("supports two elevated roofs with inset utility plinths and three active AC launchers", () => {
@@ -69,20 +56,25 @@ describe("Night Shift blockout", () => {
     expect(source).not.toContain("RAMP_");
   });
 
-  it("matches four supported platforms to the exact cardinal spawn poses", () => {
-    const platforms = getNightShiftSpawnPlatforms(CONFIG);
-    const radius = computeSpawnRingRadius(CONFIG);
+  it("matches four supported platforms to the exact diagonal spawn poses", () => {
+    const rooftopConfig = {
+      ...CONFIG,
+      cart: {
+        ...CONFIG.cart,
+        spawnRingRadius: CONFIG.cart.spawnRingRadiusByLevel.rooftop,
+        spawnAngleOffset: CONFIG.cart.spawnAngleOffsetByLevel.rooftop,
+      },
+    };
+    const platforms = getNightShiftSpawnPlatforms(rooftopConfig);
+    const radius = rooftopConfig.cart.spawnRingRadius;
     expect(platforms).toHaveLength(4);
-
-    const expected = [
-      { x: radius, z: 0 },
-      { x: 0, z: radius },
-      { x: -radius, z: 0 },
-      { x: 0, z: -radius },
-    ];
     for (const [index, platform] of platforms.entries()) {
-      expect(platform.x).toBeCloseTo(expected[index].x, 6);
-      expect(platform.z).toBeCloseTo(expected[index].z, 6);
+      const angle = computeSpawnAngleForSlot(rooftopConfig, index);
+      expect(platform.x).toBeCloseTo(radius * Math.cos(angle), 6);
+      expect(platform.z).toBeCloseTo(radius * Math.sin(angle), 6);
+      expect(Math.abs(platform.x)).toBeGreaterThan(29);
+      expect(Math.abs(platform.z)).toBeGreaterThan(29);
+      expect(platform.yaw).toBeCloseTo(Math.PI / 2 - angle, 6);
       expect(platform.y + platform.height / 2 + CONFIG.cart.size.y / 2 + 0.05)
         .toBeCloseTo(CONFIG.cart.spawnHeight, 6);
       expect(platform.supportY - platform.supportHeight / 2).toBeCloseTo(0, 6);
@@ -105,5 +97,7 @@ describe("Night Shift blockout", () => {
     expect(start).toBeGreaterThan(-1);
     expect(platformBuild).toMatch(/spawnSupportMaterial[\s\S]*edgeColliderHandles/);
     expect(platformBuild).toMatch(/spawnPlatformMaterial[\s\S]*recordColliderHandles/);
+    expect(platformBuild.match(/yaw: platform\.yaw/g)).toHaveLength(2);
+    expect(source).toMatch(/body\.setRotation\(\{ x: 0, y: Math\.sin\(halfYaw\), z: 0, w: Math\.cos\(halfYaw\) \}, true\)/);
   });
 });

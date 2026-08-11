@@ -48,6 +48,18 @@ afterEach(() => {
 });
 
 describe("NIGHT-SHIFT-VENT-1", () => {
+  it("registers AC launchers even when the square roof has no internal holes", () => {
+    GameState.setRoundPhase("running");
+    const hazards = getNightShiftBlockoutHazards();
+    expect(hazards.squareHoles).toEqual([]);
+    setLevelHazards(hazards);
+    const cart = makeCart(0, 6);
+
+    step(cart);
+
+    expect(cart.body.applyImpulse).toHaveBeenCalledTimes(1);
+  });
+
   it("aims route launches at their roof centers and sends the chaos unit straight up", () => {
     const [north, south, center] = getNightShiftBlockoutHazards().acLaunchers;
     const northVelocity = computeAcLauncherVelocity(north, { x: north.x, z: north.z });
