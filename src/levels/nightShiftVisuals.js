@@ -3,6 +3,13 @@
 import * as THREE from "three";
 
 export const NIGHT_SHIFT_CITY_SEED = 0x4e534331;
+export const NIGHT_SHIFT_NEON_COLORS = Object.freeze({
+  cyan: 0x36d8e8,
+  violet: 0xa45cff,
+  pink: 0xff3fa4,
+  blue: 0x4aa8ff,
+});
+const NEON_KEYS = Object.freeze(Object.keys(NIGHT_SHIFT_NEON_COLORS));
 
 const BAND_SPECS = Object.freeze([
   Object.freeze({ id: "near", count: 10, radiusMin: 94, radiusMax: 132, roofMin: -26, roofMax: -11, bottomY: -118, widthMin: 24, widthMax: 44, depthMin: 22, depthMax: 42 }),
@@ -53,6 +60,7 @@ export function createNightShiftCityPlan(seed = NIGHT_SHIFT_CITY_SEED) {
       const depth = band.depthMin + random() * (band.depthMax - band.depthMin);
       const silhouetteRoll = random();
       const silhouette = silhouetteRoll < 0.18 ? "slab" : silhouetteRoll < 0.76 ? "setback" : "crown";
+      const neonRoll = random();
       buildings.push(Object.freeze({
         id: `${band.id}-${index + 1}`,
         band: band.id,
@@ -69,6 +77,9 @@ export function createNightShiftCityPlan(seed = NIGHT_SHIFT_CITY_SEED) {
         setbackRatio: round3(0.55 + random() * 0.18),
         crownHeight: silhouette === "crown" ? round3(3.5 + random() * 3) : 0,
         antennaHeight: silhouette === "crown" && random() < 0.62 ? round3(4 + random() * 6) : 0,
+        neonAccent: neonRoll < 0.3
+          ? NEON_KEYS[Math.floor(random() * NEON_KEYS.length)]
+          : null,
       }));
     }
   }
@@ -167,7 +178,22 @@ function writeBoxInstances(mesh, specs) {
 
 /**
  * @param {THREE.InstancedMesh} mesh
- * @param {Array<{ start: THREE.Vector3, end: THREE.Vector3, thickness: number }>} beams
+ * @param {Array<{ x: number, y: number, z: number, yaw?: number, width: number,
+ *   height: number, depth: number, color: number }>} specs
+ */
+function writeColoredBoxInstances(mesh, specs) {
+  writeBoxInstances(mesh, specs);
+  const color = new THREE.Color();
+  for (const [index, spec] of specs.entries()) {
+    mesh.setColorAt(index, color.setHex(spec.color));
+  }
+  if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+}
+
+/**
+ * @param {THREE.InstancedMesh} mesh
+ * @param {Array<{ start: THREE.Vector3, end: THREE.Vector3, thickness: number,
+ *   color?: number }>} beams
  */
 function writeBeamInstances(mesh, beams) {
   const position = new THREE.Vector3();
@@ -185,8 +211,10 @@ function writeBeamInstances(mesh, beams) {
     scale.set(beam.thickness, length, beam.thickness);
     matrix.compose(position, rotation, scale);
     mesh.setMatrixAt(index, matrix);
+    if (beam.color != null) mesh.setColorAt(index, new THREE.Color(beam.color));
   }
   mesh.instanceMatrix.needsUpdate = true;
+  if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
 }
 
 /** @param {ReturnType<typeof createNightShiftCityPlan>} plan */
@@ -288,6 +316,32 @@ function createWindowPoints(positions, colors, name) {
   return points;
 }
 
+/** @param {ReturnType<typeof createNightShiftCityPlan>} plan */
+function buildNeonSignSpecs(plan) {
+  const core = [];
+  const extended = [];
+  for (const [index, building] of plan.buildings.entries()) {
+    if (!building.neonAccent) continue;
+    const angle = Math.atan2(building.z, building.x);
+    const inwardX = -Math.cos(angle);
+    const inwardZ = -Math.sin(angle);
+    const faceOffset = Math.min(building.width, building.depth) * 0.5 + 0.85;
+    const totalHeight = building.roofY - building.bottomY;
+    const spec = {
+      x: building.x + inwardX * faceOffset,
+      y: building.bottomY + totalHeight * (0.66 + (index % 3) * 0.08),
+      z: building.z + inwardZ * faceOffset,
+      yaw: Math.PI / 2 - angle,
+      width: Math.min(16, building.width * 0.48),
+      height: 2.1 + (index % 2) * 1.1,
+      depth: 0.38,
+      color: NIGHT_SHIFT_NEON_COLORS[building.neonAccent],
+    };
+    (building.detail === "core" ? core : extended).push(spec);
+  }
+  return { core, extended };
+}
+
 /**
  * Builds exposed facade faces, corner-deck braces, and three batched skyline depth bands.
  * This module never receives Rapier's world, so it cannot change gameplay collision.
@@ -323,11 +377,13 @@ export function createNightShiftCityArchitecture(root, plan, spawnPlatforms, mat
         start: new THREE.Vector3(platform.x - signX * 2.1, undersideY, platform.z),
         end: new THREE.Vector3(signX * (TOWER_HALF_SIZE - 0.35), -5.5, platform.z),
         thickness: 0.42,
+        color: NIGHT_SHIFT_NEON_COLORS.blue,
       },
       {
         start: new THREE.Vector3(platform.x, undersideY, platform.z - signZ * 2.1),
         end: new THREE.Vector3(platform.x, -5.5, signZ * (TOWER_HALF_SIZE - 0.35)),
         thickness: 0.42,
+        color: NIGHT_SHIFT_NEON_COLORS.blue,
       },
       {
         start: new THREE.Vector3(platform.x, undersideY - 0.1, platform.z),
@@ -337,6 +393,7 @@ export function createNightShiftCityArchitecture(root, plan, spawnPlatforms, mat
           signZ * (TOWER_HALF_SIZE - 0.35),
         ),
         thickness: 0.5,
+        color: NIGHT_SHIFT_NEON_COLORS.cyan,
       },
     );
   }
@@ -345,12 +402,15 @@ export function createNightShiftCityArchitecture(root, plan, spawnPlatforms, mat
   // Horizontal floor plates and vertical corner columns break the tower shell into readable
   // construction layers. Every beam stays outside or below the driveable roof plane.
   const facadeBandStart = beams.length;
-  for (let y = -8; y >= -92; y -= 12) {
+  for (let bandIndex = 0, y = -8; y >= -92; bandIndex += 1, y -= 12) {
+    const bandColor = bandIndex % 4 === 2
+      ? NIGHT_SHIFT_NEON_COLORS.violet
+      : NIGHT_SHIFT_NEON_COLORS.cyan;
     beams.push(
-      { start: new THREE.Vector3(-35.7, y, 36.45), end: new THREE.Vector3(35.7, y, 36.45), thickness: 0.34 },
-      { start: new THREE.Vector3(-35.7, y, -36.45), end: new THREE.Vector3(35.7, y, -36.45), thickness: 0.34 },
-      { start: new THREE.Vector3(36.45, y, -35.7), end: new THREE.Vector3(36.45, y, 35.7), thickness: 0.34 },
-      { start: new THREE.Vector3(-36.45, y, -35.7), end: new THREE.Vector3(-36.45, y, 35.7), thickness: 0.34 },
+      { start: new THREE.Vector3(-35.7, y, 36.45), end: new THREE.Vector3(35.7, y, 36.45), thickness: 0.34, color: bandColor },
+      { start: new THREE.Vector3(-35.7, y, -36.45), end: new THREE.Vector3(35.7, y, -36.45), thickness: 0.34, color: bandColor },
+      { start: new THREE.Vector3(36.45, y, -35.7), end: new THREE.Vector3(36.45, y, 35.7), thickness: 0.34, color: bandColor },
+      { start: new THREE.Vector3(-36.45, y, -35.7), end: new THREE.Vector3(-36.45, y, 35.7), thickness: 0.34, color: bandColor },
     );
   }
   const facadeBandCount = beams.length - facadeBandStart;
@@ -361,14 +421,15 @@ export function createNightShiftCityArchitecture(root, plan, spawnPlatforms, mat
         start: new THREE.Vector3(x, -95, z),
         end: new THREE.Vector3(x, -0.3, z),
         thickness: 0.58,
+        color: NIGHT_SHIFT_NEON_COLORS.blue,
       });
     }
   }
   beams.push(
-    { start: new THREE.Vector3(-36, -0.2, 36.35), end: new THREE.Vector3(36, -0.2, 36.35), thickness: 0.36 },
-    { start: new THREE.Vector3(-36, -0.2, -36.35), end: new THREE.Vector3(36, -0.2, -36.35), thickness: 0.36 },
-    { start: new THREE.Vector3(36.35, -0.2, -36), end: new THREE.Vector3(36.35, -0.2, 36), thickness: 0.36 },
-    { start: new THREE.Vector3(-36.35, -0.2, -36), end: new THREE.Vector3(-36.35, -0.2, 36), thickness: 0.36 },
+    { start: new THREE.Vector3(-36, -0.2, 36.35), end: new THREE.Vector3(36, -0.2, 36.35), thickness: 0.36, color: NIGHT_SHIFT_NEON_COLORS.cyan },
+    { start: new THREE.Vector3(-36, -0.2, -36.35), end: new THREE.Vector3(36, -0.2, -36.35), thickness: 0.36, color: NIGHT_SHIFT_NEON_COLORS.cyan },
+    { start: new THREE.Vector3(36.35, -0.2, -36), end: new THREE.Vector3(36.35, -0.2, 36), thickness: 0.36, color: NIGHT_SHIFT_NEON_COLORS.cyan },
+    { start: new THREE.Vector3(-36.35, -0.2, -36), end: new THREE.Vector3(-36.35, -0.2, 36), thickness: 0.36, color: NIGHT_SHIFT_NEON_COLORS.cyan },
   );
   const braces = new THREE.InstancedMesh(unitBox, materials.brace, beams.length);
   braces.name = "night-shift-tower-structure";
@@ -400,18 +461,32 @@ export function createNightShiftCityArchitecture(root, plan, spawnPlatforms, mat
     "night-shift-windows-extended",
   );
 
+  const neonSignSpecs = buildNeonSignSpecs(plan);
+  const neonMaterial = new THREE.MeshBasicMaterial({
+    color: 0xffffff,
+    fog: false,
+    toneMapped: false,
+  });
+  const coreNeon = new THREE.InstancedMesh(unitBox, neonMaterial, neonSignSpecs.core.length);
+  coreNeon.name = "night-shift-neon-core";
+  writeColoredBoxInstances(coreNeon, neonSignSpecs.core);
+  const extendedNeon = new THREE.InstancedMesh(unitBox, neonMaterial, neonSignSpecs.extended.length);
+  extendedNeon.name = "night-shift-neon-extended";
+  writeColoredBoxInstances(extendedNeon, neonSignSpecs.extended);
+
   for (const mesh of [tower, braces, coreSkyline, extendedSkyline]) {
     mesh.castShadow = false;
     mesh.receiveShadow = true;
     mesh.frustumCulled = true;
     root.add(mesh);
   }
-  root.add(coreWindows, extendedWindows);
+  root.add(coreWindows, extendedWindows, coreNeon, extendedNeon);
 
   function applyQualityTier(knobs) {
     const fullCity = knobs.skyExtras !== false;
     extendedSkyline.visible = fullCity;
     extendedWindows.visible = fullCity;
+    extendedNeon.visible = fullCity;
   }
 
   const diagnostics = Object.freeze({
@@ -423,26 +498,39 @@ export function createNightShiftCityArchitecture(root, plan, spawnPlatforms, mat
     fullTowerCount: plan.buildings.length,
     lowWindowCount: windowBuffers.corePositions.length / 3,
     fullWindowCount: (windowBuffers.corePositions.length + windowBuffers.extendedPositions.length) / 3,
+    lowNeonSignCount: neonSignSpecs.core.length,
+    fullNeonSignCount: neonSignSpecs.core.length + neonSignSpecs.extended.length,
     structuralBeamCount: beams.length,
     deckBraceCount,
     facadeBandCount,
-    lowDrawCalls: 4,
-    fullDrawCalls: 6,
+    lowDrawCalls: 5,
+    fullDrawCalls: 8,
   });
   root.userData.nightShiftCity = diagnostics;
 
   return {
     extendedSkyline,
     extendedWindows,
+    extendedNeon,
     diagnostics,
     applyQualityTier,
     dispose() {
-      root.remove(tower, braces, coreSkyline, extendedSkyline, coreWindows, extendedWindows);
+      root.remove(
+        tower,
+        braces,
+        coreSkyline,
+        extendedSkyline,
+        coreWindows,
+        extendedWindows,
+        coreNeon,
+        extendedNeon,
+      );
       unitBox.dispose();
       coreWindows.geometry.dispose();
       extendedWindows.geometry.dispose();
       coreWindows.material.dispose();
       extendedWindows.material.dispose();
+      neonMaterial.dispose();
       delete root.userData.nightShiftCity;
     },
   };

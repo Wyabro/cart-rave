@@ -161,13 +161,13 @@ export function createNightShiftMaterialBundle() {
     roof: createPhysicalMaterial({ ...roofMaps, color: 0xffffff, metalness: 0.08, roughness: 1, normalScale: new THREE.Vector2(0.34, 0.34) }),
     highRoof: createPhysicalMaterial({ ...highRoofMaps, color: 0xe5edff, metalness: 0.1, roughness: 1, normalScale: new THREE.Vector2(0.32, 0.32) }),
     utility: createPhysicalMaterial({ color: 0x182232, metalness: 0.34, roughness: 0.72 }),
-    spawnPlatform: createPhysicalMaterial({ ...deckMaps, color: 0xdce7ff, metalness: 0.2, roughness: 1, normalScale: new THREE.Vector2(0.3, 0.3) }),
-    spawnSupport: createPhysicalMaterial({ color: 0x273449, metalness: 0.5, roughness: 0.6 }),
-    parapet: createPhysicalMaterial({ color: 0x192333, metalness: 0.46, roughness: 0.66 }),
-    tower: createPhysicalMaterial({ ...facadeMaps, color: 0xd9e4fa, metalness: 0.16, roughness: 1, normalScale: new THREE.Vector2(0.42, 0.42) }),
-    brace: createPhysicalMaterial({ color: 0x33445d, metalness: 0.62, roughness: 0.52 }),
-    skylineCore: createPhysicalMaterial({ color: 0x111a29, metalness: 0.08, roughness: 0.92 }),
-    skylineExtended: createPhysicalMaterial({ color: 0x0a101c, metalness: 0.04, roughness: 0.96 }),
+    spawnPlatform: createPhysicalMaterial({ ...deckMaps, color: 0xcce9ff, metalness: 0.2, roughness: 1, normalScale: new THREE.Vector2(0.3, 0.3) }),
+    spawnSupport: createPhysicalMaterial({ color: 0x244b62, metalness: 0.5, roughness: 0.6 }),
+    parapet: createPhysicalMaterial({ color: 0x17354a, metalness: 0.46, roughness: 0.66 }),
+    tower: createPhysicalMaterial({ ...facadeMaps, color: 0xc7d7ff, metalness: 0.16, roughness: 1, normalScale: new THREE.Vector2(0.42, 0.42) }),
+    brace: new THREE.MeshBasicMaterial({ color: 0xffffff, fog: true, toneMapped: false }),
+    skylineCore: createPhysicalMaterial({ color: 0x182446, metalness: 0.08, roughness: 0.9 }),
+    skylineExtended: createPhysicalMaterial({ color: 0x130f2b, metalness: 0.04, roughness: 0.94 }),
   };
 
   return {
