@@ -55,6 +55,7 @@ __pycache__/
 # Self-improving loop runtime artifacts
 .agent/self-improving/run-result.md
 .agent/self-improving/run-state.json
+.agent/self-improving/runs/
 
 .tmp-gltf-imgs/
 
