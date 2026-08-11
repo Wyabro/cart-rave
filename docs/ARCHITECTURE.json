@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-11T08:59:16.032Z",
-    "commit": "ee15955"
+    "at": "2026-08-11T09:10:05.215Z",
+    "commit": "cf54119"
   },
-  "source_digest": "a7aed952",
+  "source_digest": "a58233bf",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -864,6 +864,12 @@
   "workstreams": {
     "queue": [
       {
+        "id": "NIGHT-SHIFT-CITY-1",
+        "what": "Night Shift visual-structure pass",
+        "status": "▶ ACTIVE 08-11 — Wyatt ack. Freeze approved gameplay geometry. Build a deterministic main-tower shell, supported corner decks, three skyline depth bands, authored worn rooftop/facade materials, and moonlit city atmosphere with explicit Low and Medium/High paths. Working name only; final player-facing arena name remains open.",
+        "state": "active"
+      },
+      {
         "id": "BUNDLE-1",
         "what": "Menu/game code-split",
         "status": "⚠️ CLOSED PARTIAL 08-05 — perf goal NOT met. Deployed `f2f90fd2`. Warm `menu-ready` −3% vs a −15% gate. Banked: a `size:check` byte gate, `main.js` 2,582 → 1,262 lines, −22.6% off the initial set (cold visits only). Lever E playtested: BUNDLE-E-PT-1 PASS 6/6. [bundle-1.md §0](./planning/bundle-1.md)",
@@ -886,7 +892,7 @@
       }
     ],
     "next_actions": [
-      "Wait for Wyatt to select the next card.",
+      "NIGHT-SHIFT-CITY-1: implement the approved architecture, material, and atmosphere levers without changing gameplay geometry.",
       "Playtest owed: SHARD-PT-2 (skip, needs five humans)."
     ],
     "open_issues": [
@@ -1001,11 +1007,17 @@
       {
         "title": "Art",
         "counts": {
-          "High": 1,
+          "High": 2,
           "Medium": 2,
           "Low": 6
         },
         "rows": [
+          {
+            "pri": "High",
+            "item": "NIGHT-SHIFT-CITY-1 — Night Shift visual-structure pass",
+            "notes": "**ACTIVE 08-11 — Wyatt ack.** The working name is not final. Freeze the approved square roof, spawn locations, raised roofs, and AC physics. Lever A: deterministic visual plan for the main tower shell, corner-deck supports, rooftop penthouse masses, and near/mid/far skyline bands. Lever B: causal worn concrete/roofing and facade material maps; no pristine hero surfaces. Lever C: moon key, warm city depth, fog separation, and explicit Low versus Medium/High density. Use instancing/material batching; no per-window lights. Verify fixed design/near/far views, no-post readability, disposal, render counts, QA/build, then Wyatt visual playtest.",
+            "ship1": null
+          },
           {
             "pri": "High",
             "item": "BLOOM-SIGNOFF-1 — Bloom look sign-off (Classic/Sundial) `[SHIP-1 E2]`",
@@ -1143,8 +1155,8 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Medium": 1,
-          "Low": 2
+          "Medium": 2,
+          "Low": 3
         },
         "rows": [
           {
@@ -1164,25 +1176,17 @@
             "item": "AQ-RING-CLEAR-1 — autoQuality clear sample ring on every window eval",
             "notes": "**Reserve only** if Wave 2 entry grace still demotes on retest. Comment in autoQuality.js already notes the ring can poison up to 3 windows. Own commit if needed; not in main batch path.",
             "ship1": null
-          }
-        ]
-      },
-      {
-        "title": "UI / UX",
-        "counts": {
-          "Low": 2
-        },
-        "rows": [
+          },
           {
-            "pri": "Low",
-            "item": "ORIENT-HINT-SCROLL-1 — the landscape menu resolves to the stacked column, and the portrait hint clips its last item",
-            "notes": "**Filed 08-06 from the ORIENT-TOAST-Z-1 repro, split out rather than folded into that fix** (it is layout, that card was a one-line z-index change, and its capture would have been ambiguous). Two findings, one row because both fall out of the same measurement at 740×360 coarse. (1) **The landscape band does not win.** `.cr-content` computes `display:flex` + `overflow:hidden auto` there — i.e. the stacked-mobile band (`max-width:900px`) beats the landscape-phone 3-col grid at [cart-rave-menu.css:2660](../../src/ui/styles/cart-rave-menu.css:2660) on **source order**, since it is declared later. Whether the 3-col landscape composition is meant to be reachable at all on a phone is the open question; if it is not, that band is dead CSS and should be deleted rather than left looking authoritative. (2) **Consequent clip:** the column scrolls (439px of scroll at that size) under a viewport-pinned `.cr-portrait-hint` that occupies the bottom **36px**, while `.cr-content`'s `padding-bottom` is **33px** — 3px short, so the last item clips at full scroll. Same contract `.cr-hintbar` already documents (\"the menu column scrolls UNDERNEATH this bar\"), which is why the hint carries its own opaque background; only the reserve is off. **Cheapest fix if picked up:** raise the stacked band's bottom padding to clear the hint's real height, measured, not constant — and mind that the padding applies at every stacked width while the hint only shows in the coarse/landscape/≤480 band, so a flat bump would add dead space on portrait phones that just PASSed UI-SCALE-1. Low: cosmetic, below the fold, and nobody has reported it in play.",
+            "pri": "Medium",
+            "item": "UI-SCALE-P2-MEDIA-1 — Pass 2 media-query cleanup `[solo]`",
+            "notes": "**Owed: Wyatt playtest — UI-SCALE-P2-MEDIA-1 — drifted breakpoints reconciled to 380/768/1024/1025 contract, size-only 380px blocks deleted.** Deployed `b5e1d758` · prefer **https://www.cartclash.lol/?diag=1**.<br>1. Phone ≤768px: HUD lobby single-column, score labels hidden, nametags legible, menu stacked column scrolls correctly.<br>2. Tablet 768–1024px: lobby single-column, results landscape at ≤1024px.<br>3. Desktop ≥1025px: score labels visible, lobby two-column, results wide layout.<br>4. FAIL on broken layout, missing elements, or clipping at any breakpoint.",
             "ship1": null
           },
           {
             "pri": "Low",
-            "item": "UI-SCALE-P2-MEDIA-1 — Pass 2's deferred media-query cleanup",
-            "notes": "**Filed 08-06, split out of UI-SCALE-1 Pass 2 on Wyatt's pre-ack review** (\"skip @media internals\" — exact Pass 1 precedent, to avoid re-opening the 08-05 phone/orientation patches that already playtest-PASSed). Doc rules 5–6 remain undone: delete `@media` blocks that only adjust *size* now that the root scale covers it, and reconcile the drifted breakpoints (900, 1100, 560, and any others found) back to the documented 380/768/1024/1025 contract. Do this file-by-file, same base-clamp discipline, and re-run the relevant playtest card after each file since it touches the phone-specific rules directly this time.",
+            "item": "ORIENT-HINT-SCROLL-1 — portrait-hint clips last menu item `[solo]`",
+            "notes": "**Owed: Wyatt playtest — ORIENT-HINT-SCROLL-1 — stacked mobile band now clears the 36px portrait-hint bar.** Deployed `b5e1d758` · prefer **https://www.cartclash.lol/?diag=1**.<br>1. 740×360 coarse landscape: open menu, scroll to bottom — last item must be fully visible, not clipped by the portrait-hint bar.<br>2. Portrait phone: no extra dead space at bottom of menu (padding should be normal).<br>3. FAIL if last item clips or if portrait has excessive bottom padding.",
             "ship1": null
           }
         ]
