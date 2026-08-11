@@ -541,8 +541,11 @@ export function scheduleIdleWorldWarm(opts) {
     ensureGameSystems = async () => {},
   } = opts;
 
+  // * Prod keeps 1800 ms so first menu paint stays quiet (Run-7 MENU-WARM). DEV shortens
+  // * the wait so Solo after reload hits a warm world sooner (DEV-LOOP-1 Wave 1) — warm
+  // * work itself is unchanged (still ensureWorldBootstrapped + idle-shader).
   /** @type {number} ms — let menu music / first paint settle before WASM + arena work. */
-  const IDLE_WARM_DELAY_MS = 1800;
+  const IDLE_WARM_DELAY_MS = import.meta.env.DEV ? 600 : 1800;
 
   const warmWorld = () => {
     const selectedId = resolveLevelId(storageGet(LEVEL_STORAGE_KEY));

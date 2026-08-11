@@ -176,11 +176,13 @@ export default defineConfig(({ mode }) => ({
     host: "127.0.0.1",
     open: true,
     // * Pre-transform entry files so first load is less likely to reset mid-flight.
+    // * Paths follow the ui/ levels/ layout (menu lived at src/cart-rave-menu.js before).
     warmup: {
       clientFiles: [
         "./index.html",
-        "./src/cart-rave-menu.js",
         "./src/main.js",
+        "./src/ui/cart-rave-menu.js",
+        "./src/ui/styles/cart-rave-menu.css",
       ],
     },
     hmr: {
