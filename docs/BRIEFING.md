@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-11 at commit `cf54119` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `a32f5d79`
+> Generated 2026-08-11 at commit `e8289c2` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `94a0b37c`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -19,7 +19,7 @@ Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep a
 ## ACTIVE CARD
 
 NIGHT-SHIFT-CITY-1 — Night Shift visual-structure pass
-Pass looks like: ▶ ACTIVE 08-11 — Wyatt ack. Freeze approved gameplay geometry. Build a deterministic main-tower shell, supported corner decks, three skyline depth bands, authored worn rooftop/facade materials, and moonlit city atmosphere with explicit Low and Medium/High paths. Working name only; final player-facing arena name remains open.
+Pass looks like: ▶ IMPLEMENTED LOCALLY 08-11 — Wyatt visual PASS pending. `39df058` tower/corner supports + 8/14/24 deterministic skyline bands; `62e8845` causal worn roof/facade maps; `e8289c2` moon, fog, warm/cool windows, occupied tower floors, and Low/full density paths. Gameplay geometry stayed frozen. QA: 169/169 specs, 1,880 tests; build green. Fixed Low/no-post captures: `.diag-captures/night-shift-city.png` and `night-shift-horizon.png` (RTX 4090 sidecars). Working name only.
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 

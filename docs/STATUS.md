@@ -66,13 +66,13 @@ Live rows only. Shipped and closed cards live in
 
 | # | What | Status |
 |---|------|--------|
-| NIGHT-SHIFT-CITY-1 | Night Shift visual-structure pass | ▶ **ACTIVE 08-11 — Wyatt ack.** Freeze approved gameplay geometry. Build a deterministic main-tower shell, supported corner decks, three skyline depth bands, authored worn rooftop/facade materials, and moonlit city atmosphere with explicit Low and Medium/High paths. Working name only; final player-facing arena name remains open. |
+| NIGHT-SHIFT-CITY-1 | Night Shift visual-structure pass | ▶ **IMPLEMENTED LOCALLY 08-11 — Wyatt visual PASS pending.** `39df058` tower/corner supports + 8/14/24 deterministic skyline bands; `62e8845` causal worn roof/facade maps; `e8289c2` moon, fog, warm/cool windows, occupied tower floors, and Low/full density paths. Gameplay geometry stayed frozen. QA: 169/169 specs, 1,880 tests; build green. Fixed Low/no-post captures: `.diag-captures/night-shift-city.png` and `night-shift-horizon.png` (RTX 4090 sidecars). Working name only. |
 | BUNDLE-1 | Menu/game code-split | ⚠️ **CLOSED PARTIAL 08-05 — perf goal NOT met. Deployed `f2f90fd2`.** Warm `menu-ready` −3% vs a −15% gate. Banked: a `size:check` byte gate, `main.js` 2,582 → 1,262 lines, −22.6% off the initial set (**cold** visits only). Lever E playtested: BUNDLE-E-PT-1 PASS 6/6. [bundle-1.md §0](./planning/bundle-1.md) |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 
 ### Next actions
 
-1. **NIGHT-SHIFT-CITY-1:** implement the approved architecture, material, and atmosphere levers without changing gameplay geometry.
+1. **NIGHT-SHIFT-CITY-1:** Wyatt visual playtest of local commits `39df058` / `62e8845` / `e8289c2`; do not close or ship before his result.
 2. **Playtest owed:** SHARD-PT-2 (skip, needs five humans).
 
 ## Open issues (top)
