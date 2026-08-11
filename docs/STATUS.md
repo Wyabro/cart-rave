@@ -71,7 +71,7 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. **NOW:** **NPC-BOOST-2-PT-1 [2pc]** — **Owed: Wyatt playtest.** DEPLOYED `7569051` · Worker `8e5f274f` · https://www.cartclash.lol/?diag=1. Prior NPC-BOOST-PT-1 **FAIL**.
+1. **NOW:** **NPC-BOOST-2-PT-1 [2pc]** — **FAIL 08-11 (self-KOs).** Fix pending: `finisherEdgeBiasMin` 0.35→0.55. Prior NPC-BOOST-PT-1 **FAIL**.
 2. **Playtest owed:** SHARD-PT-2 (skip, needs five humans). **Closed 08-11:** CARGO-LATCH-1 + CARGO-LATCH-PT-1 PASS. **Closed 08-10:** MENU-SFX-1 (shipped, absorbed).
 
 ## Open issues (top)
@@ -81,7 +81,7 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 
 | ID | Issue | Status |
 |----|--------|--------|
-| NPC-BOOST-2 | NPC charge visibility / audio / boost self-KO | 🛠️ **NOW** — Owed: Wyatt playtest (NPC-BOOST-2-PT-1 [2pc]); DEPLOYED `7569051` |
+
 | WARM-SOLO-1 | Solo post-`carts-ready` stall (WARM-IGPU residual) | 📋 telemetry-gated — [warm-igpu-1.md](./planning/warm-igpu-1.md) |
 | BRAND-1 | Domain / Worker cutover | 🧊 frozen until deliberate cutover ([brand.md](./brand.md)) |
 
@@ -122,7 +122,11 @@ the dev loop (dev probes lie in prod · edge propagation · frozen `rAF`), or a 
 
 ## Last updated
 
-2026-08-11 (CARGO-LATCH-1 CLOSED · NPC-BOOST-2) — CARGO-LATCH-PT-1 PASSed: no re-fired
+2026-08-11 (NPC-BOOST-2 CLOSED) — NPC-BOOST-2 PASS: charge visibility + audio confirmed.
+NPC-BOOST-2-PT-1 FAIL: self-KOs on all three levels — `minTargetDistance` 1.5 too
+greedy; `finisherEdgeBiasMin` 0.35→0.55 in flight.
+
+2026-08-11 (CARGO-LATCH-1 CLOSED · NPC-BOOST-2 fix) — CARGO-LATCH-PT-1 PASSed: no re-fired
 `cart_overflow` after solo pause or host tab-return. NPC-BOOST-2: `minTargetDistance`
 5.0 → 1.5 so NPC charges survive the full 1.5s hold; redeploy owed.
 

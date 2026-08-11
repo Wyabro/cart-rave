@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-11T04:12:45.039Z",
-    "commit": "2d738b1"
+    "at": "2026-08-11T05:09:28.947Z",
+    "commit": "a29fe33"
   },
-  "source_digest": "8a5ac803",
+  "source_digest": "dcf683fe",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -885,15 +885,10 @@
       }
     ],
     "next_actions": [
-      "NOW: NPC-BOOST-2-PT-1 [2pc] — Owed: Wyatt playtest. DEPLOYED `7569051` · Worker `8e5f274f` · https://www.cartclash.lol/?diag=1. Prior NPC-BOOST-PT-1 FAIL.",
+      "NOW: NPC-BOOST-2-PT-1 [2pc] — FAIL 08-11 (self-KOs). Fix pending: `finisherEdgeBiasMin` 0.35→0.55. Prior NPC-BOOST-PT-1 FAIL.",
       "Playtest owed: SHARD-PT-2 (skip, needs five humans). Closed 08-11: CARGO-LATCH-1 + CARGO-LATCH-PT-1 PASS. Closed 08-10: MENU-SFX-1 (shipped, absorbed)."
     ],
     "open_issues": [
-      {
-        "id": "NPC-BOOST-2",
-        "issue": "NPC charge visibility / audio / boost self-KO",
-        "status": "🛠️ **NOW** — Owed: Wyatt playtest (NPC-BOOST-2-PT-1 [2pc]); DEPLOYED `7569051`"
-      },
       {
         "id": "WARM-SOLO-1",
         "issue": "Solo post-`carts-ready` stall (WARM-IGPU residual)",
@@ -1108,17 +1103,10 @@
       {
         "title": "Design / Gameplay",
         "counts": {
-          "High": 1,
           "Medium": 4,
           "Low": 5
         },
         "rows": [
-          {
-            "pri": "High",
-            "item": "NPC-BOOST-2 — restore visible NPC charged attacks and stop boost self-KOs",
-            "notes": "**NOW — PT owed.** Unparked 08-10 after DEV-LOOP-1 PASS. Repair commits include visible charge + all-players charge audio (`3d1e263` / `544f4b5`); earlier CF ship carried them. Close only after **NPC-BOOST-2-PT-1 [2pc]** PASS. Prior NPC-BOOST-PT-1 **FAIL**.",
-            "ship1": null
-          },
           {
             "pri": "Medium",
             "item": "NPC-BOOST-1 — NPCs use charged attacks and instant boosts by intent",

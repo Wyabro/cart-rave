@@ -23,6 +23,11 @@ Chronological record of shipped work, newest first.
 - *(Playtest)* **CARGO-LATCH-PT-1** — ✅ **PASS 08-11.** Solo pause + host tab-return at
   boss fill: no repeat overflow callout. Steps 1–3 all passed.
 
+- *(Engineering · High)* **NPC-BOOST-2** — ✅ **CLOSED 08-11.** Charge visibility + audio
+  confirmed working on prod. Repair commits `3d1e263` / `544f4b5`; deployed `7569051`.
+  `minTargetDistance` lowered 5.0→1.5 (`a29fe33`) to let charges complete the 1.5s hold.
+  Self-KO residual tracked under NPC-BOOST-2-PT-1.
+
 ### August 10, 2026 — CAPTURE-RING-LIMIT-1 PASS: proportionate beacon limits
 
 - *(Engineering · Low)* **CAPTURE-RING-LIMIT-1** — ✅ **CLOSED 08-10** (desk-only, verdict in
