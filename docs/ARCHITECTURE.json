@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-11T19:55:23.789Z",
-    "commit": "fa7ada0"
+    "at": "2026-08-11T20:04:21.963Z",
+    "commit": "e95e895"
   },
-  "source_digest": "d49fae05",
+  "source_digest": "4e403168",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1003,23 +1003,10 @@
       {
         "title": "Art",
         "counts": {
-          "High": 1,
-          "Medium": 2,
-          "Low": 6
+          "Low": 6,
+          "Medium": 1
         },
         "rows": [
-          {
-            "pri": "High",
-            "item": "BLOOM-SIGNOFF-1 — Bloom look sign-off (Classic/Sundial) `[SHIP-1 E2]`",
-            "notes": "Art half of closed VFX-1. Success criteria now come from **ART-EXPO-1 / ART-FILTER-1**, not \"dark arenas + punchy neon\" — see [art-direction.md](../reference/art-direction.md).",
-            "ship1": "E2"
-          },
-          {
-            "pri": "Medium",
-            "item": "DEFEAT-READ-1 — Wilting-groceries Defeat screen reads as \"confetti / something good\" `[SHIP-1 E2]`",
-            "notes": "Needs art-direction call before code — see [art-direction.md](../reference/art-direction.md). Effects already fire (see closed **PRE-PODIUM-1**); this row is **look only**. MP observation closed (**FV-WILT-1** Wyatt PASS 08-04).",
-            "ship1": "E2"
-          },
           {
             "pri": "Low",
             "item": "CLAD-REPEAT-1 — stand cladding shares one repeat across three deck radii",

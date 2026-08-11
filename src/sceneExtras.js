@@ -256,7 +256,7 @@ function createNeonVoidSky(ctx) {
 
   const mesh = new THREE.Mesh(geo, mat);
   mesh.name = "neonVoidSky";
-  mesh.renderOrder = -20;
+  mesh.renderOrder = 10;
   mesh.frustumCulled = false;
   ctx.addToFar(mesh);
   ctx.disposables.push(geo, mat);

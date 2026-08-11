@@ -3370,4 +3370,20 @@ All seven verified fixed:
 
 ---
 
+### August 11, 2026 — BLOOM-SIGNOFF-1 CLOSED: bloom look signed off
+
+- *(Art · High)* **BLOOM-SIGNOFF-1** — ✅ **CLOSED 08-11.** Wyatt signed off on the
+  bloom look for both Classic and Sundial arenas. No code changes; direction call only.
+  Criteria from ART-FILTER-1 / ART-EXPO-1.
+
+---
+
+### August 11, 2026 — DEFEAT-READ-1 CLOSED: Defeat screen look signed off
+
+- *(Art · Medium)* **DEFEAT-READ-1** — ✅ **CLOSED 08-11.** Wyatt signed off on the
+  wilting-groceries Defeat screen look. No code changes; art-direction call only. The
+  effects already fire (see closed PRE-PODIUM-1); this was look-only confirmation.
+
+---
+
 **Note on annotations:** Where a later audit contradicted a claim, the original entry stands with a **[Corrected]** annotation rather than being rewritten — the log should show what was believed at the time and what turned out to be true.
