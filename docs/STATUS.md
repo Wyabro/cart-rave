@@ -66,13 +66,12 @@ Live rows only. Shipped and closed cards live in
 
 | # | What | Status |
 |---|------|--------|
-| NIGHT-SHIFT-BLOCKOUT-1 | Night Shift rooftop playable blockout | 🔧 Revised local blockout ready. One static square roof; four supported diagonal corner spawns face center; two lateral raised roofs; two route ACs launch outward and two stronger ACs launch vertically. Non-quickplay; human layout/launch review pending. |
 | BUNDLE-1 | Menu/game code-split | ⚠️ **CLOSED PARTIAL 08-05 — perf goal NOT met. Deployed `f2f90fd2`.** Warm `menu-ready` −3% vs a −15% gate. Banked: a `size:check` byte gate, `main.js` 2,582 → 1,262 lines, −22.6% off the initial set (**cold** visits only). Lever E playtested: BUNDLE-E-PT-1 PASS 6/6. [bundle-1.md §0](./planning/bundle-1.md) |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 
 ### Next actions
 
-1. **NIGHT-SHIFT-BLOCKOUT-1:** in Solo Dev, load `?level=rooftop`; confirm the square roof, four diagonal corner spawns facing center, both lateral roof launches, and both stronger vertical launches.
+1. **Wait for Wyatt to select the next card.**
 2. **Playtest owed:** SHARD-PT-2 (skip, needs five humans).
 
 ## Open issues (top)

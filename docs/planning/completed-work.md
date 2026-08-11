@@ -2,7 +2,7 @@
 
 > Historical log. Past entries may still say "Cart Rave" / `next-level` — that is intentional. Living naming rules: [brand.md](../brand.md).
 
-**Last Updated:** August 10, 2026
+**Last Updated:** August 11, 2026
 
 > **This doc = the past** — the single home for historical/completed items. For what works
 > *today* see [project-state.md](./project-state.md); for forward plans see [ROADMAP.md](./ROADMAP.md).
@@ -10,6 +10,22 @@
 Chronological record of shipped work, newest first.
 
 > **Convention:** As items ship, move their completed writeup here (out of ROADMAP.md / project-state.md).
+
+---
+
+### August 11, 2026 — NIGHT-SHIFT-BLOCKOUT-1 CLOSED PASS: playable rooftop blockout
+
+- *(Level design · Medium)* **NIGHT-SHIFT-BLOCKOUT-1** — ✅ **CLOSED PASS 08-11**
+  per Wyatt; local only and explicitly not shipped. Commits `554de9b` through `ee15955`
+  create one stationary square rooftop, four supported diagonal corner spawn platforms that
+  face center, two lateral raised landing roofs, matching Rapier colliders, and four instant
+  AC launchers. West/east route units launch toward their matching raised roofs; north/south
+  units launch straight up with stronger force. Host-only fixed-step activation, per-unit
+  cooldowns, and exit latches prevent repeated firing while a cart remains on a unit. Wyatt
+  passed the final layout, spawn direction, launch behavior, and wider landing-roof spacing in
+  Solo Dev. Focused Night Shift tests passed 14/14; full QA passed 7/7 with 1,873 tests; the
+  production build passed. Final AC models, wind VFX, audio, menu card, progression, ambience,
+  and quickplay remain separate future work. **Not pushed or deployed**, by explicit request.
 
 ---
 
