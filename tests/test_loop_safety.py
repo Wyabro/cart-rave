@@ -54,6 +54,11 @@ class LoopSafetyTests(unittest.TestCase):
         self.assertNotIn("shell", keywords)
         self.assertNotIn("powershell", " ".join(arguments[0]).lower())
 
+    def test_npm_qa_uses_the_platform_executable(self) -> None:
+        expected = "npm.cmd" if loop_safety.os.name == "nt" else "npm"
+
+        self.assertEqual(loop_safety.READ_ONLY_COMMANDS["npm_qa"][0], expected)
+
     def test_unknown_operation_fails_before_process_spawn(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             with patch.object(loop_safety.subprocess, "run") as run:

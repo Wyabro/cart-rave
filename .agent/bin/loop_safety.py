@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -12,11 +13,12 @@ from uuid import uuid4
 
 MAX_READ_ONLY_COMMAND_SECONDS = 60
 RUN_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$")
+NPM_EXECUTABLE = "npm.cmd" if os.name == "nt" else "npm"
 READ_ONLY_COMMANDS: dict[str, tuple[str, ...]] = {
     "git_diff": ("git", "diff", "--"),
     "git_log": ("git", "log", "--oneline", "-12"),
     "git_status": ("git", "status", "--short", "--untracked-files=all"),
-    "npm_qa": ("npm", "run", "qa"),
+    "npm_qa": (NPM_EXECUTABLE, "run", "qa"),
 }
 
 
