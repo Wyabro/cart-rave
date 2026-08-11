@@ -32,7 +32,8 @@ git add -A. Never claim "done" without pulling cart-clash and verifying HEAD.
 ```
 
 Cart Clash: browser **4-player shopping-cart physics sumo**. Production:
-<https://cart-rave.wyabro.workers.dev/>. Branch: **`cart-clash`**.
+<https://www.cartclash.lol/> (same Worker also serves `cart-rave.wyabro.workers.dev`).
+Branch: **`cart-clash`**. Deploy map: [docs/guides/deploy-urls.md](docs/guides/deploy-urls.md).
 
 ## ARCHITECTURE INVARIANTS
 
@@ -88,7 +89,7 @@ for that runtime only — process authority is this file + git hooks, not Claude
 
 - **`npm run qa`** = `check` in package.json (read-only): status:size → typecheck → test → knip →
   briefing:check → arch:check → health:check.
-- **Dev:** `npm run dev:local` · **Ship:** `npm run ship` · **Build:** `npm run build`
+- **Dev:** `npm run dev:local` · **Ship it:** `npm run ship` (CF / cartclash.lol) · **Ship glitch:** `npm run ship:glitch` (after prod is good) · **Build:** `npm run build`
 - Full command catalog + stack detail: [agent-manual.md § STACK](docs/reference/agent-manual.md)
 
 ## MODEL / TOOL ROUTING

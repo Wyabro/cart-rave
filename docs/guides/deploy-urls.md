@@ -1,58 +1,52 @@
-# Cart Clash — Production Deployment & Verification
+# Cart Clash — Deploy map
 
-Product name is **Cart Clash**. Cloudflare Worker / host still use the **`cart-rave`** slug until domain cutover — see [brand.md](../brand.md).
+Three lanes. Do not invent a second Cloudflare “prod.”
 
-Quick reference to track deployment targets, live URLs, and verification commands.
+| Lane | Job | Command |
+|------|-----|---------|
+| **Local** | Daily test | `npm run dev:local` → `http://127.0.0.1:3000/` |
+| **Cloudflare** | Public prod | **“ship it”** → `npm run ship` |
+| **Glitch** | Festival copy of public | **“ship glitch”** → `npm run ship:glitch` (only after prod is good) |
 
-## Unified Cloudflare Deployment
+## Cloudflare (one Worker)
 
-In the raw **partyserver** setup, a single Cloudflare Worker hosts both the static client assets and the WebSocket Durable Object rooms. Vercel is no longer used for static hosting.
+Worker name stays **`cart-rave`**. One `npm run ship` updates **both** hosts:
 
-| Resource | URL | Role |
-|----------|-----|------|
-| **Production Game URL** | `https://cart-rave.wyabro.workers.dev/` | Serves client assets (HTML/JS/CSS/SFX) and acts as the WebSocket endpoint |
-| **Durable Object Room** | `wss://cart-rave.wyabro.workers.dev/parties/cart-rave-server/<room>` | Real-time game room socket (`CartRaveServer` Durable Object) |
-| **Error Log Endpoint** | `https://cart-rave.wyabro.workers.dev/api/log-error` | Receives client-side exception forwarder payloads |
+| URL | Role |
+|-----|------|
+| **https://www.cartclash.lol/** | Share this with players (prefer `www` if apex DNS is bad) |
+| **https://cartclash.lol/** | Same Worker (apex) |
+| **https://cart-rave.wyabro.workers.dev/** | Same build — agent/bookmark twin, **not** a separate staging env |
 
----
+Rooms / signaling use the **page host** when it is in `WORKER_PAGE_HOSTS` (`src/config.js`). Local uses `:8787`.
 
-## Client Wiring (`src/netcode.js`)
+Post-ship (DEPLOY-STALE-HTML-1): poll `GET /` + every hashed asset until **0×404**, then confirm a symbol. Do not share the live URL in a dirty window.
 
-The client automatically detects its hosting context:
-- On `localhost` / `127.0.0.1`, it points to `<hostname>:8787` using `ws://`.
-- In production, it connects to `wss://cart-rave.wyabro.workers.dev/parties/cart-rave-server/<room>` (`?room=` value from URL query, defaulting to `quickplay`).
+## Glitch (separate)
 
----
+Static festival CDN. Multiplayer still talks to **public** CF (`cartclash.lol`).
 
-## Deploying Updates
-
-To deploy changes to the live site:
-
-```bash
-npm run ship
+```powershell
+npm run build
+$env:GLITCH_DEPLOY_TOKEN = "gl_deploy_..."   # shell only — never commit
+$env:GLITCH_ACTIVATE = "1"
+npm run ship:glitch
 ```
-This builds client assets to `dist/` and runs `npx wrangler deploy` to push them alongside the Durable Object worker class.
 
----
+Version defaults to `GLITCH_GAME_VERSION` in `src/analytics/glitchConfig.js`. Override with `GLITCH_VERSION` if needed.
 
-## Verification Commands
+## Chat → command
 
-To check on active connections, debug issues, or tail live production server console logs, use the Wrangler CLI:
+| Wyatt says | Agent runs |
+|------------|------------|
+| **ship it** | `npm run qa` then `npm run ship` (CF only) |
+| **ship glitch** | `npm run ship:glitch` (Glitch only) |
+| (daily test) | `npm run dev:local` — do **not** deploy to try a tweak |
 
-### 1. Tail Production Server Logs
+## Verify
+
 ```bash
 npx wrangler tail
 ```
 
-### 2. Inspect Deployed Source (GitHub vs. Cloudflare)
-Compare your local or main branch with the deployed worker script schema:
-```bash
-git show origin/main:party/index.ts | grep -E 'broadcast|onMessage|DurableObject'
-```
-
-### 3. Check for Runtime Errors
-Join a room, trigger actions (e.g., collisions, custom colors, level switches), and monitor `npx wrangler tail` to verify that no unhandled server-side exceptions occur.
-- Non-host connections correctly map to the new broadcast sequence.
-- Late-joining clients receive the correct `#currentLevelId` authority from the Durable Object.
-
-For the active V2 feature progression, see [ROADMAP.md](../planning/ROADMAP.md).
+Join a room and watch for unhandled server exceptions. Full gates: `npm run qa` (report by number).

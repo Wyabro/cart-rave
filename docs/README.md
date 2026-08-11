@@ -157,9 +157,12 @@ npm run dev:party
 ### Deploy
 
 ```bash
-npm run build    # Vite → dist/
-npm run ship     # build + wrangler deploy (production)
+npm run build         # Vite → dist/
+npm run ship          # CF prod (cartclash.lol + workers.dev twin) — “ship it”
+npm run ship:glitch   # Glitch festival build — only after prod is good
 ```
+
+Lanes: [deploy-urls.md](./guides/deploy-urls.md).
 
 ---
 
@@ -197,7 +200,8 @@ npm run ship     # build + wrangler deploy (production)
 | `npm run dev:local` | Vite + local Wrangler worker (preferred daily) |
 | `npm run dev:party` | Local wrangler worker (Durable Object) |
 | `npm run build` | Production build to `dist/` |
-| `npm run ship` | Build + deploy worker to Cloudflare |
+| `npm run ship` | Build + deploy Worker to Cloudflare (lol + workers.dev) |
+| `npm run ship:glitch` | Build + upload Glitch festival build |
 | `npm run knip` | Unused export analysis |
 | `npm run typecheck` | Typecheck codebase with tsc |
 | `npm test` | Run Vitest unit tests |

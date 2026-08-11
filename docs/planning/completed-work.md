@@ -13,6 +13,29 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 10, 2026 — DEPLOY-MAP-1 PASS: three-lane deploy map (no CF split)
+
+- *(Engineering · Low)* **DEPLOY-MAP-1** — ✅ **CLOSED 08-10**. Locked lanes: local =
+  daily test (`dev:local`); Cloudflare `npm run ship` / “ship it” = public
+  (`cartclash.lol` + same-Worker `workers.dev` twin); Glitch `npm run ship:glitch` /
+  “ship glitch” only after prod is good. No wrangler env split. Guide:
+  [deploy-urls.md](../guides/deploy-urls.md). Glitch version default now reads
+  `GLITCH_GAME_VERSION` (stops `0.8.4` drift).
+
+---
+
+### August 10, 2026 — DEV-LOOP-1 PASS: Vite warmup paths + DEV idle-warm delay
+
+- *(Engineering · Medium)* **DEV-LOOP-1** — ✅ **CLOSED PASS 08-10** (Wyatt visible-Chrome
+  playtest). Wave 0 showed menu `menu-ready` is fast once Vite is warm (~0.3–1.3s); the long
+  Solo wait is cold world bootstrap when idle warm did not run first (~8.2s
+  `play-entry`→`carts-ready`). Wave 1: fixed stale Vite `server.warmup` paths after the menu
+  move to `src/ui/` (`vite.config.js`), and shortened `IDLE_WARM_DELAY_MS` to **600 in DEV**
+  only (`src/bootstrap.js`; prod stays 1800). Idle warm work itself unchanged. Residual:
+  Solo still pays full world cost if you click before warm finishes, or in a hidden tab.
+
+---
+
 ### August 10, 2026 — FRIENDS-JOIN-LAYOUT-1 PASS: room-code controls below CART NAME
 
 - *(UI / UX · Low)* **FRIENDS-JOIN-LAYOUT-1** — ✅ **CLOSED PASS 08-10** (layout

@@ -17,6 +17,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "ship": "npm run build && npx wrangler deploy",
+    "ship:glitch": "npm run build && node tools/glitch-deploy.mjs",
     "glitch:deploy": "node tools/glitch-deploy.mjs",
     "compress:rave-gltf": "node scripts/compress-rave-gltf.mjs",
     "compress:groceries": "node scripts/compress-groceries.mjs",

@@ -4,13 +4,13 @@
  *
  * Env:
  *   GLITCH_DEPLOY_TOKEN  required — gl_deploy_* token (never commit)
- *   GLITCH_VERSION       optional — default 0.8.4
- *   GLITCH_BUILD_TYPE    optional — production|playtest|demo (default playtest)
+ *   GLITCH_VERSION       optional — default GLITCH_GAME_VERSION from glitchConfig.js
+ *   GLITCH_BUILD_TYPE    optional — production|playtest|demo (default from glitchConfig)
  *   GLITCH_ACTIVATE      optional — "1" to PUT status ready after processing starts
  *
  * Usage:
  *   npm run build
- *   $env:GLITCH_DEPLOY_TOKEN="gl_deploy_..."; npm run glitch:deploy
+ *   $env:GLITCH_DEPLOY_TOKEN="gl_deploy_..."; npm run ship:glitch
  */
 
 import { existsSync, statSync } from "node:fs";
@@ -19,6 +19,7 @@ import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
+import { GLITCH_BUILD_TYPE, GLITCH_GAME_VERSION } from "../src/analytics/glitchConfig.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, "..");
@@ -28,8 +29,8 @@ const API = `https://api.glitch.fun/api/titles/${TITLE_ID}`;
 const PART_SIZE = 5 * 1024 * 1024; // 5 MiB minimum (except last)
 
 const token = String(process.env.GLITCH_DEPLOY_TOKEN || "").trim();
-const version = String(process.env.GLITCH_VERSION || "0.8.4").slice(0, 20);
-const buildType = String(process.env.GLITCH_BUILD_TYPE || "playtest");
+const version = String(process.env.GLITCH_VERSION || GLITCH_GAME_VERSION).slice(0, 20);
+const buildType = String(process.env.GLITCH_BUILD_TYPE || GLITCH_BUILD_TYPE);
 const activate = process.env.GLITCH_ACTIVATE === "1" || process.env.GLITCH_ACTIVATE === "true";
 
 if (!token) {

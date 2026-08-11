@@ -71,10 +71,8 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. **NOW:** **NPC-BOOST-2 Wave 2** — make NPC charge-ups audible to the host and Friends clients. Code is local; QA/build and a new explicit ship authorization remain.
-2. **Playtest owed:** **NPC-BOOST-2-PT-1 [2pc]** after deployment. The prior NPC-BOOST-PT-1 check is **FAIL**: Wyatt saw no NPC charge-ups and more NPC self-KOs. **Open / REACHABLE:** CARGO-LATCH-1.
-3. **Open High:** ONBOARD-ATTRACT-1 · ONBOARD-SIZE-1 · bloom (unblocked by ART-*).
-4. **Playtest row left:** SHARD-PT-2 (launch day, five humans).
+1. **NOW:** **NPC-BOOST-2-PT-1 [2pc]** — resume parked parent; code already on prod. Prior NPC-BOOST-PT-1 **FAIL**.
+2. **Open / REACHABLE:** CARGO-LATCH-1. **Open High:** ONBOARD-ATTRACT-1 · ONBOARD-SIZE-1 · bloom. **Playtest row left:** SHARD-PT-2.
 
 ## Open issues (top)
 
@@ -83,8 +81,8 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 
 | ID | Issue | Status |
 |----|--------|--------|
+| NPC-BOOST-2 | NPC charge visibility / audio / boost self-KO | 🛠️ **NOW** — PT-1 [2pc] owed (code shipped) |
 | WARM-SOLO-1 | Solo post-`carts-ready` stall (WARM-IGPU residual) | 📋 telemetry-gated — [warm-igpu-1.md](./planning/warm-igpu-1.md) |
-| NPC-BOOST-2 | NPC charge visibility and boost self-KO regression | 🛠️ local repair; not deployed |
 | CARGO-LATCH-1 | `cargoLoad.js` repeats the FIX-DIRPAUSE latch bug | 📋 **REACHABLE 08-07** — fix+playtest next wave. [BACKLOG § Engineering](./planning/BACKLOG.md). |
 | BRAND-1 | Domain / Worker cutover | 🧊 frozen until deliberate cutover ([brand.md](./brand.md)) |
 
