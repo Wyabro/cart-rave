@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-11T20:12:13.375Z",
-    "commit": "a805d98"
+    "at": "2026-08-11T20:23:50.901Z",
+    "commit": "8c69399"
   },
-  "source_digest": "114e2140",
+  "source_digest": "d46db73c",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1009,8 +1009,7 @@
       {
         "title": "Art",
         "counts": {
-          "Low": 6,
-          "Medium": 1
+          "Low": 6
         },
         "rows": [
           {
@@ -1029,12 +1028,6 @@
             "pri": "Low",
             "item": "SHELF-RAIL-1 — the booth rails are the shiniest thing in a dead room",
             "notes": "**Filed 08-02**, split out of audit item 4 rather than folded in as a silent ride-along. `railMat` ([backroomsSupermarket.js:2948](../../src/levels/backroomsSupermarket.js:2948)) is the **booth** rails, a different surface from the shelf steel, and separately the lowest-roughness / highest-metalness pair in the file — so under the RoomEnvironment PMREM it reads as polished chrome in a room where nothing else is polished. Item 4's new `buildShelfSteelTexture()` is a natural donor, but the rails also want their own roughness call, and doing both in one commit would have made the item-4 capture ambiguous. Also parked here: **per-bay board segmentation** (break each 114 m shelf board into bays with a 4 cm gap so the run reads as bolted sections) — a geometry/merge change, not a material one, and the audit lists it under the same item.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "SKYBOX-DIR-1 — does a space skybox serve an underground-warehouse-party mood?",
-            "notes": "**Direction question, not a defect.** The 08-01 audit measured the visible sky as a ~0–5° sliver and found the arena's worst-authored props (3580 stars, gas giant, 2 UFOs) are the ones sitting in it — turned on for the first time by SKYBOX-1 (07-30, +54 draw calls). Either commit to it and author it properly, or cut it and spend the budget on the room. Wyatt's call; do not resolve inside an art-pass lever. Split out of ART-PASS-CLASSIC-1.",
             "ship1": null
           },
           {

@@ -3370,6 +3370,16 @@ All seven verified fixed:
 
 ---
 
+### August 11, 2026 — SKYBOX-DIR-1 CLOSED: kept + optimized
+
+- *(Art · Medium)* **SKYBOX-DIR-1** — ✅ **CLOSED 08-11.** Wyatt decided to keep the space
+  skybox. Direction call resolved. The neon void dome shader now renders after the arena
+  (`renderOrder: -20` → `10`) so the arena depth buffer automatically culls dome fragments
+  behind walls — ~95% fragment shader savings on the ground, full upper hemisphere during
+  knock-ups preserved. Commit `a805d98`.
+
+---
+
 ### August 11, 2026 — BLOOM-SIGNOFF-1 CLOSED: bloom look signed off
 
 - *(Art · High)* **BLOOM-SIGNOFF-1** — ✅ **CLOSED 08-11.** Wyatt signed off on the
