@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-11 at commit `5dc661a` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `e6fb0c20`
+> Generated 2026-08-11 at commit `ae23749` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `09996216`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -19,7 +19,7 @@ Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep a
 ## ACTIVE CARD
 
 NIGHT-SHIFT-CITY-1 — Night Shift visual-structure pass
-Pass looks like: ▶ WYATT VISUAL PASS 08-11 — closure waits on global QA. Base/touch-up through `cbfaf74`; `282c7e2` binds city windows and neon signs to each rotated lower/setback facade instead of a radial shell. Gameplay geometry, spawns, camera, AC physics, and 5/8 Low/full architecture draw-call budgets stayed frozen. Regression: 1,385 detached extended windows → 0; focused 5/5 and build green. Full QA: 1,880 passed / 1 unrelated backlog-canary failure after concurrent `48e4364` reduced live rows to exactly 50. Fixed capture: `.diag-captures/night-shift-lights-fixed.png`. Working name only.
+Pass looks like: ▶ MAST/DRESSING LOCAL HANDOFF — WYATT REVIEW PENDING. `46e47ec` builds a distant functional mast from an img2threejs quality contract; `4c3848d` adds slow dish motion and asynchronous beacons; `ae23749` adds Full-only flush roof-edge dressing and two solid props on the unreachable mast roof. No colliders; gameplay layout, spawns, camera, and AC physics stay frozen. Architecture budget is 9 Low / 15 Full draw calls; mast is 2,112 Low / 2,916 Full triangles. Focused 11/11, typecheck, and build green. Full QA: 1,883 passed / 1 known unrelated exact-50-row backlog canary. Captures: `.diag-captures/night-shift-mast-t0.png`, `night-shift-mast-low.png`, and `night-shift-mast-close-t0.png`. Working name only; not pushed, deployed, or closed.
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 

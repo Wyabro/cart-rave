@@ -66,13 +66,13 @@ Live rows only. Shipped and closed cards live in
 
 | # | What | Status |
 |---|------|--------|
-| NIGHT-SHIFT-CITY-1 | Night Shift visual-structure pass | ▶ **WYATT VISUAL PASS 08-11 — closure waits on global QA.** Base/touch-up through `cbfaf74`; `282c7e2` binds city windows and neon signs to each rotated lower/setback facade instead of a radial shell. Gameplay geometry, spawns, camera, AC physics, and 5/8 Low/full architecture draw-call budgets stayed frozen. Regression: 1,385 detached extended windows → 0; focused 5/5 and build green. Full QA: 1,880 passed / 1 unrelated backlog-canary failure after concurrent `48e4364` reduced live rows to exactly 50. Fixed capture: `.diag-captures/night-shift-lights-fixed.png`. Working name only. |
+| NIGHT-SHIFT-CITY-1 | Night Shift visual-structure pass | ▶ **MAST/DRESSING LOCAL HANDOFF — WYATT REVIEW PENDING.** `46e47ec` builds a distant functional mast from an img2threejs quality contract; `4c3848d` adds slow dish motion and asynchronous beacons; `ae23749` adds Full-only flush roof-edge dressing and two solid props on the unreachable mast roof. No colliders; gameplay layout, spawns, camera, and AC physics stay frozen. Architecture budget is 9 Low / 15 Full draw calls; mast is 2,112 Low / 2,916 Full triangles. Focused 11/11, typecheck, and build green. Full QA: 1,883 passed / 1 known unrelated exact-50-row backlog canary. Captures: `.diag-captures/night-shift-mast-t0.png`, `night-shift-mast-low.png`, and `night-shift-mast-close-t0.png`. Working name only; not pushed, deployed, or closed. |
 | BUNDLE-1 | Menu/game code-split | ⚠️ **CLOSED PARTIAL 08-05 — perf goal NOT met. Deployed `f2f90fd2`.** Warm `menu-ready` −3% vs a −15% gate. Banked: a `size:check` byte gate, `main.js` 2,582 → 1,262 lines, −22.6% off the initial set (**cold** visits only). Lever E playtested: BUNDLE-E-PT-1 PASS 6/6. [bundle-1.md §0](./planning/bundle-1.md) |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 
 ### Next actions
 
-1. **NIGHT-SHIFT-CITY-1:** visual PASS recorded; close only after global QA returns green. Current blocker is the unrelated exact-50-row backlog canary introduced with `48e4364`.
+1. **NIGHT-SHIFT-CITY-1:** Wyatt reviews the local mast/dressing pass. Close only after that review and after the unrelated exact-50-row backlog canary returns green.
 2. **Playtest owed:** SHARD-PT-2 (skip, needs five humans).
 
 ## Open issues (top)
@@ -122,6 +122,14 @@ the dev loop (dev probes lie in prod · edge propagation · frozen `rAF`), or a 
 - **Before any public / external-tester playtest: reset the analytics DO** so aggregates are not polluted by dev/harness traffic. Token-gated (SEC-TOKEN-1): `DELETE` with `Authorization: Bearer <ERROR_LOG_TOKEN>` on `/api/analytics` (never `?token=`).
 
 ## Last updated
+
+2026-08-11 (NIGHT-SHIFT-CITY-1 mast/dressing handoff) — Added a functional lattice telecom
+mast on deterministic distant tower `near-7`, two dish systems, panel antennas, utility details,
+slow pivot motion, asynchronous red beacons, and reduced-motion freeze. Full adds two batched
+roof-dressing meshes; driveable details stay at or below 5 cm and raised props stay on the
+unreachable mast roof. No colliders. Focused 11/11, typecheck, and build green; full QA reached
+1,883 passed / 1 known unrelated backlog-canary failure. Local RTX 4090 captures are clean at
+the arena and mast review cameras. Not pushed, deployed, closed, renamed, or Wyatt-approved.
 
 2026-08-11 (NIGHT-SHIFT-CITY-1 facade lights) — Root cause: city lights used a radial shell
 that ignored each building's yaw and upper setback. `282c7e2` selects the rotated facade that
