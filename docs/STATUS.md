@@ -72,7 +72,7 @@ Live rows only. Shipped and closed cards live in
 ### Next actions
 
 1. **NOW:** **NPC-BOOST-2-PT-1 [2pc]** — **Owed: Wyatt playtest.** DEPLOYED `7569051` · Worker `8e5f274f` · https://www.cartclash.lol/?diag=1. Prior NPC-BOOST-PT-1 **FAIL**.
-2. **Open:** CARGO-LATCH-1 (fix deployed — playtest owed, **CARGO-LATCH-PT-1**). **Closed 08-10:** MENU-SFX-1 (shipped, absorbed). **Playtest row left:** SHARD-PT-2.
+2. **Playtest owed:** SHARD-PT-2 (skip, needs five humans). **Closed 08-11:** CARGO-LATCH-1 + CARGO-LATCH-PT-1 PASS. **Closed 08-10:** MENU-SFX-1 (shipped, absorbed).
 
 ## Open issues (top)
 
@@ -83,7 +83,6 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 |----|--------|--------|
 | NPC-BOOST-2 | NPC charge visibility / audio / boost self-KO | 🛠️ **NOW** — Owed: Wyatt playtest (NPC-BOOST-2-PT-1 [2pc]); DEPLOYED `7569051` |
 | WARM-SOLO-1 | Solo post-`carts-ready` stall (WARM-IGPU residual) | 📋 telemetry-gated — [warm-igpu-1.md](./planning/warm-igpu-1.md) |
-| CARGO-LATCH-1 | `cargoLoad.js` repeats the FIX-DIRPAUSE latch bug | 🛠️ **fix deployed** `a20d547` → `7569051` — **playtest owed** (CARGO-LATCH-PT-1) |
 | BRAND-1 | Domain / Worker cutover | 🧊 frozen until deliberate cutover ([brand.md](./brand.md)) |
 
 ## Decision index
@@ -123,9 +122,13 @@ the dev loop (dev probes lie in prod · edge propagation · frozen `rAF`), or a 
 
 ## Last updated
 
+2026-08-11 (CARGO-LATCH-1 CLOSED · NPC-BOOST-2) — CARGO-LATCH-PT-1 PASSed: no re-fired
+`cart_overflow` after solo pause or host tab-return. NPC-BOOST-2: `minTargetDistance`
+5.0 → 1.5 so NPC charges survive the full 1.5s hold; redeploy owed.
+
 2026-08-10 (CARGO-LATCH-1 · MENU-SFX-1 · CAPTURE-RING-LIMIT-1) — Housekeeping closed two
 stale rows: CARGO-LATCH-1's fix actually landed 08-09 (`a20d547`) and is deployed
-(`7569051`) — remaining work is the **CARGO-LATCH-PT-1** production playtest (solo pause +
+(`7569051`) — remaining work was the **CARGO-LATCH-PT-1** production playtest (solo pause +
 host tab-return at boss fill); MENU-SFX-1's menu SFX slider shipped under the
 audio-controls / VOICE-BUS-1 work and closed as absorbed. **CAPTURE-RING-LIMIT-1 landed:**
 capture ring 80 → 400 (~13 min depth at the accepted rate) and analytics POSTs capped at

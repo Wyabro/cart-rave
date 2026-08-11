@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-11T01:14:35.857Z",
-    "commit": "606237e"
+    "at": "2026-08-11T04:12:45.039Z",
+    "commit": "2d738b1"
   },
-  "source_digest": "99994253",
+  "source_digest": "8a5ac803",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -886,7 +886,7 @@
     ],
     "next_actions": [
       "NOW: NPC-BOOST-2-PT-1 [2pc] — Owed: Wyatt playtest. DEPLOYED `7569051` · Worker `8e5f274f` · https://www.cartclash.lol/?diag=1. Prior NPC-BOOST-PT-1 FAIL.",
-      "Open: CARGO-LATCH-1 (fix deployed — playtest owed, CARGO-LATCH-PT-1). Closed 08-10: MENU-SFX-1 (shipped, absorbed). Playtest row left: SHARD-PT-2."
+      "Playtest owed: SHARD-PT-2 (skip, needs five humans). Closed 08-11: CARGO-LATCH-1 + CARGO-LATCH-PT-1 PASS. Closed 08-10: MENU-SFX-1 (shipped, absorbed)."
     ],
     "open_issues": [
       {
@@ -900,11 +900,6 @@
         "status": "📋 telemetry-gated — [warm-igpu-1.md](./planning/warm-igpu-1.md)"
       },
       {
-        "id": "CARGO-LATCH-1",
-        "issue": "`cargoLoad.js` repeats the FIX-DIRPAUSE latch bug",
-        "status": "🛠️ **fix deployed** `a20d547` → `7569051` — **playtest owed** (CARGO-LATCH-PT-1)"
-      },
-      {
         "id": "BRAND-1",
         "issue": "Domain / Worker cutover",
         "status": "🧊 frozen until deliberate cutover ([brand.md](./brand.md))"
@@ -916,7 +911,7 @@
       {
         "title": "Engineering",
         "counts": {
-          "Low": 7,
+          "Low": 6,
           "Partial": 1,
           "Medium": 8
         },
@@ -931,12 +926,6 @@
             "pri": "Low",
             "item": "MOTION-A11Y-1 — `prefers-reduced-motion` doesn't actually reduce any motion",
             "notes": "**Filed 08-05, spun out of TIER-DEFAULT-1's lever 4.** The OS accessibility flag was, until TIER-DEFAULT-1 closed, silently forcing the graphics quality tier to Low (cap-287/288: the same Intel box booted Low with Windows animations on and Medium with them off). TIER-DEFAULT-1 fixed the *tier* side (reduced-motion now demotes one rung inside `defaultTierForCaps()` — [gpuCaps.js](../../src/utils/gpuCaps.js) — instead of hard-pinning Low), but that was always an interim: reduced-motion should reduce **motion**, not graphics fidelity. Nothing currently reads the flag for motion at all. Candidates once picked up: attract-camera spin/drift, cart-impact screen shake, KO/win screen flash, any continuous idle animation loop. Needs a definition-of-done pass (which motions, how much) before it's a code card.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "CARGO-LATCH-1 — `cargoLoad.js` carries the same round-anchor latch as FIX-DIRPAUSE",
-            "notes": "**Filed 08-04** while fixing FIX-DIRPAUSE (`e7dd92e`) — same bug class: a latch that compares against the stored round-start anchor and treats **any** change as a new round, so a pause-compensation shift can re-fire the overflow announce. **Fix landed 08-09 `a20d547`** (did not cite the card — caught 08-10): `shiftCargoLatchBy(deltaMs)` added to `src/cargoLoad.js` and called beside every `shiftDirectiveTimersBy(delta)` in `roundLifecycle.js` (solo pause) and `gameBoot.js` (host tab-return), with coverage in `tests/cargoLoad.test.js`. **Deployed `7569051`.** **Owed: production playtest** — solo pause AND host tab-return at boss fill, confirm no re-fired `cart_overflow` (see **CARGO-LATCH-PT-1**).",
             "ship1": null
           },
           {
@@ -1190,7 +1179,7 @@
         "title": "Playtest owed",
         "counts": {
           "High": 1,
-          "Medium": 2,
+          "Medium": 1,
           "Low": 2
         },
         "rows": [
@@ -1198,12 +1187,6 @@
             "pri": "High",
             "item": "NPC-BOOST-2-PT-1 — charged and instant NPC boosts `[2pc]`",
             "notes": "**Owed: Wyatt playtest — NPC-BOOST-2-PT-1 — charged NPC boosts are visible and audible on Solo and Friends, without boost self-KOs.** DEPLOYED `7569051` · Worker `8e5f274f` · prefer **https://www.cartclash.lol/?diag=1**. Prior NPC-BOOST-PT-1 **FAIL**.<br>1. Hard-refresh Solo with three NPCs. PASS if each difficulty visibly produces charge-ups in safe attacks, Easy least / Hard most, host hears each charge loop.<br>2. Friends room: both clients see telegraph, hear charge loop, see charged burst.<br>3. Classic rim + hole; octagon + square-hole: unsafe charge cancels / unsafe instant skipped.<br>4. FAIL on NPC boost self-KO, missing charge sound, desync, or reversed difficulty order.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "CARGO-LATCH-PT-1 — no re-fired `cart_overflow` after pause or tab return `[solo]`",
-            "notes": "**Owed: Wyatt playtest — CARGO-LATCH-PT-1 — the \"cart overflow\" callout does not repeat after a solo pause or a host tab return.** Fix `a20d547` · deployed `7569051` · prefer **https://www.cartclash.lol/?diag=1**.<br>1. Solo: get a cart to boss fill so the overflow callout announces, pause (Esc), resume — the callout must not fire again on its own.<br>2. Host: same fill, hide the tab ~10 s, return — no repeat callout.<br>3. FAIL on a repeat overflow callout after either resume.",
             "ship1": null
           },
           {
@@ -1235,7 +1218,7 @@
           {
             "pri": "Low",
             "item": "ORIENT-HINT-SCROLL-1 — the landscape menu resolves to the stacked column, and the portrait hint clips its last item",
-            "notes": "**Filed 08-06 from the ORIENT-TOAST-Z-1 repro, split out rather than folded into that fix** (it is layout, that card was a one-line z-index change, and its capture would have been ambiguous). Two findings, one row because both fall out of the same measurement at 740×360 coarse. (1) **The landscape band does not win.** `.cr-content` computes `display:flex` + `overflow:hidden auto` there — i.e. the stacked-mobile band (`max-width:900px`) beats the landscape-phone 3-col grid at [cart-rave-menu.css:2660](../../src/cart-rave-menu.css:2660) on **source order**, since it is declared later. Whether the 3-col landscape composition is meant to be reachable at all on a phone is the open question; if it is not, that band is dead CSS and should be deleted rather than left looking authoritative. (2) **Consequent clip:** the column scrolls (439px of scroll at that size) under a viewport-pinned `.cr-portrait-hint` that occupies the bottom **36px**, while `.cr-content`'s `padding-bottom` is **33px** — 3px short, so the last item clips at full scroll. Same contract `.cr-hintbar` already documents (\"the menu column scrolls UNDERNEATH this bar\"), which is why the hint carries its own opaque background; only the reserve is off. **Cheapest fix if picked up:** raise the stacked band's bottom padding to clear the hint's real height, measured, not constant — and mind that the padding applies at every stacked width while the hint only shows in the coarse/landscape/≤480 band, so a flat bump would add dead space on portrait phones that just PASSed UI-SCALE-1. Low: cosmetic, below the fold, and nobody has reported it in play.",
+            "notes": "**Filed 08-06 from the ORIENT-TOAST-Z-1 repro, split out rather than folded into that fix** (it is layout, that card was a one-line z-index change, and its capture would have been ambiguous). Two findings, one row because both fall out of the same measurement at 740×360 coarse. (1) **The landscape band does not win.** `.cr-content` computes `display:flex` + `overflow:hidden auto` there — i.e. the stacked-mobile band (`max-width:900px`) beats the landscape-phone 3-col grid at [cart-rave-menu.css:2660](../../src/ui/styles/cart-rave-menu.css:2660) on **source order**, since it is declared later. Whether the 3-col landscape composition is meant to be reachable at all on a phone is the open question; if it is not, that band is dead CSS and should be deleted rather than left looking authoritative. (2) **Consequent clip:** the column scrolls (439px of scroll at that size) under a viewport-pinned `.cr-portrait-hint` that occupies the bottom **36px**, while `.cr-content`'s `padding-bottom` is **33px** — 3px short, so the last item clips at full scroll. Same contract `.cr-hintbar` already documents (\"the menu column scrolls UNDERNEATH this bar\"), which is why the hint carries its own opaque background; only the reserve is off. **Cheapest fix if picked up:** raise the stacked band's bottom padding to clear the hint's real height, measured, not constant — and mind that the padding applies at every stacked width while the hint only shows in the coarse/landscape/≤480 band, so a flat bump would add dead space on portrait phones that just PASSed UI-SCALE-1. Low: cosmetic, below the fold, and nobody has reported it in play.",
             "ship1": null
           },
           {

@@ -13,6 +13,16 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 11, 2026 — CARGO-LATCH-1 / CARGO-LATCH-PT-1 CLOSED: latch fix playtest PASS
+
+- *(Engineering · Low)* **CARGO-LATCH-1** — ✅ **CLOSED 08-11.** Fix `a20d547` deployed `7569051`.
+  `shiftCargoLatchBy(deltaMs)` added to `src/cargoLoad.js`, called beside every
+  `shiftDirectiveTimersBy(delta)` in `roundLifecycle.js` (solo pause) and `gameBoot.js`
+  (host tab-return), with coverage in `tests/cargoLoad.test.js`. Prevents re-fired
+  `cart_overflow` callout after pause/tab-return.
+- *(Playtest)* **CARGO-LATCH-PT-1** — ✅ **PASS 08-11.** Solo pause + host tab-return at
+  boss fill: no repeat overflow callout. Steps 1–3 all passed.
+
 ### August 10, 2026 — CAPTURE-RING-LIMIT-1 PASS: proportionate beacon limits
 
 - *(Engineering · Low)* **CAPTURE-RING-LIMIT-1** — ✅ **CLOSED 08-10** (desk-only, verdict in
