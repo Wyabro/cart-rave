@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "name": "dev-plan-graph",
+  "description": "Fail-closed host-mediated plan, review, and acknowledgement flow.",
+  "nodes": {
+    "preflight": {
+      "kind": "deterministic",
+      "events": {
+        "preflight_pass": "await_plan",
+        "preflight_fail": "blocked"
+      }
+    },
+    "await_plan": {
+      "kind": "host",
+      "events": {
+        "submit_plan": "await_review"
+      }
+    },
+    "await_review": {
+      "kind": "host",
+      "events": {
+        "review_approve": "await_ack",
+        "review_reject": "rejected",
+        "review_escalate": "escalated"
+      }
+    },
+    "await_ack": {
+      "kind": "human",
+      "events": {
+        "human_ack": "complete"
+      }
+    },
+    "blocked": {
+      "kind": "terminal",
+      "events": {}
+    },
+    "rejected": {
+      "kind": "terminal",
+      "events": {}
+    },
+    "escalated": {
+      "kind": "terminal",
+      "events": {}
+    },
+    "complete": {
+      "kind": "terminal",
+      "events": {}
+    }
+  }
+}
