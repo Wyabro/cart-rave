@@ -5,12 +5,12 @@ import * as THREE from "three";
 export const NIGHT_SHIFT_CITY_SEED = 0x4e534331;
 
 const BAND_SPECS = Object.freeze([
-  Object.freeze({ id: "near", count: 8, radiusMin: 94, radiusMax: 126, roofMin: -24, roofMax: -10, bottomY: -118, widthMin: 26, widthMax: 46, depthMin: 24, depthMax: 44 }),
-  Object.freeze({ id: "mid", count: 14, radiusMin: 150, radiusMax: 226, roofMin: -52, roofMax: -28, bottomY: -132, widthMin: 25, widthMax: 50, depthMin: 24, depthMax: 48 }),
-  Object.freeze({ id: "far", count: 24, radiusMin: 270, radiusMax: 410, roofMin: -84, roofMax: -48, bottomY: -160, widthMin: 32, widthMax: 72, depthMin: 30, depthMax: 68 }),
+  Object.freeze({ id: "near", count: 10, radiusMin: 94, radiusMax: 132, roofMin: -26, roofMax: -11, bottomY: -118, widthMin: 24, widthMax: 44, depthMin: 22, depthMax: 42 }),
+  Object.freeze({ id: "mid", count: 18, radiusMin: 145, radiusMax: 230, roofMin: -54, roofMax: -28, bottomY: -134, widthMin: 23, widthMax: 48, depthMin: 22, depthMax: 46 }),
+  Object.freeze({ id: "far", count: 32, radiusMin: 250, radiusMax: 420, roofMin: -88, roofMax: -48, bottomY: -164, widthMin: 28, widthMax: 68, depthMin: 28, depthMax: 64 }),
 ]);
 
-const LOW_MID_COUNT = 8;
+const LOW_MID_COUNT = 10;
 const TOWER_BOTTOM_Y = -96;
 const TOWER_HALF_SIZE = 36;
 const FACADE_THICKNESS = 0.8;
@@ -51,6 +51,8 @@ export function createNightShiftCityPlan(seed = NIGHT_SHIFT_CITY_SEED) {
       const roofY = band.roofMin + random() * (band.roofMax - band.roofMin);
       const width = band.widthMin + random() * (band.widthMax - band.widthMin);
       const depth = band.depthMin + random() * (band.depthMax - band.depthMin);
+      const silhouetteRoll = random();
+      const silhouette = silhouetteRoll < 0.18 ? "slab" : silhouetteRoll < 0.76 ? "setback" : "crown";
       buildings.push(Object.freeze({
         id: `${band.id}-${index + 1}`,
         band: band.id,
@@ -62,6 +64,11 @@ export function createNightShiftCityPlan(seed = NIGHT_SHIFT_CITY_SEED) {
         depth: round3(depth),
         roofY: round3(roofY),
         bottomY: band.bottomY,
+        silhouette,
+        setbackScale: round3(0.58 + random() * 0.2),
+        setbackRatio: round3(0.55 + random() * 0.18),
+        crownHeight: silhouette === "crown" ? round3(3.5 + random() * 3) : 0,
+        antennaHeight: silhouette === "crown" && random() < 0.62 ? round3(4 + random() * 6) : 0,
       }));
     }
   }
@@ -72,6 +79,68 @@ export function createNightShiftCityPlan(seed = NIGHT_SHIFT_CITY_SEED) {
     bandCounts: Object.freeze(Object.fromEntries(BAND_SPECS.map((band) => [band.id, band.count]))),
     lowBuildingCount: buildings.filter((building) => building.detail === "core").length,
   });
+}
+
+/** @param {ReturnType<typeof createNightShiftCityPlan>["buildings"][number]} building */
+function compileBuildingMasses(building) {
+  const totalHeight = building.roofY - building.bottomY;
+  if (building.silhouette === "slab") {
+    return [{
+      x: building.x,
+      y: (building.roofY + building.bottomY) / 2,
+      z: building.z,
+      yaw: building.yaw,
+      width: building.width,
+      height: totalHeight,
+      depth: building.depth,
+    }];
+  }
+
+  const setbackY = building.bottomY + totalHeight * building.setbackRatio;
+  const masses = [
+    {
+      x: building.x,
+      y: (setbackY + building.bottomY) / 2,
+      z: building.z,
+      yaw: building.yaw,
+      width: building.width,
+      height: setbackY - building.bottomY,
+      depth: building.depth,
+    },
+    {
+      x: building.x,
+      y: (building.roofY + setbackY) / 2,
+      z: building.z,
+      yaw: building.yaw,
+      width: building.width * building.setbackScale,
+      height: building.roofY - setbackY,
+      depth: building.depth * building.setbackScale,
+    },
+  ];
+
+  if (building.silhouette === "crown") {
+    masses.push({
+      x: building.x,
+      y: building.roofY + building.crownHeight / 2,
+      z: building.z,
+      yaw: building.yaw,
+      width: building.width * building.setbackScale * 0.7,
+      height: building.crownHeight,
+      depth: building.depth * building.setbackScale * 0.7,
+    });
+    if (building.antennaHeight > 0) {
+      masses.push({
+        x: building.x,
+        y: building.roofY + building.crownHeight + building.antennaHeight / 2,
+        z: building.z,
+        yaw: building.yaw,
+        width: 0.65,
+        height: building.antennaHeight,
+        depth: 0.65,
+      });
+    }
+  }
+  return masses;
 }
 
 /**
@@ -142,11 +211,17 @@ function buildWindowBuffers(plan) {
 
     for (let row = 1; row < rows; row += 1) {
       for (let column = 0; column < columns; column += 1) {
-        if (random() > 0.48) continue;
-        const across = ((column + 0.5) / columns - 0.5) * building.width * 0.78;
+        if (random() > 0.56) continue;
+        const rowY = building.bottomY + row * 8;
+        const setbackY = building.bottomY
+          + (building.roofY - building.bottomY) * building.setbackRatio;
+        const rowWidth = building.silhouette !== "slab" && rowY >= setbackY
+          ? building.width * building.setbackScale
+          : building.width;
+        const across = ((column + 0.5) / columns - 0.5) * rowWidth * 0.78;
         positions.push(
           building.x + inwardX * faceOffset + tangentX * across,
-          building.bottomY + row * 8 + (random() - 0.5) * 0.7,
+          rowY + (random() - 0.5) * 0.7,
           building.z + inwardZ * faceOffset + tangentZ * across,
         );
         const brightness = 0.48 + random() * 0.52;
@@ -302,16 +377,8 @@ export function createNightShiftCityArchitecture(root, plan, spawnPlatforms, mat
   const coreSpecs = [];
   const extendedSpecs = [];
   for (const building of plan.buildings) {
-    const spec = {
-      x: building.x,
-      y: (building.roofY + building.bottomY) / 2,
-      z: building.z,
-      yaw: building.yaw,
-      width: building.width,
-      height: building.roofY - building.bottomY,
-      depth: building.depth,
-    };
-    (building.detail === "core" ? coreSpecs : extendedSpecs).push(spec);
+    (building.detail === "core" ? coreSpecs : extendedSpecs)
+      .push(...compileBuildingMasses(building));
   }
 
   const coreSkyline = new THREE.InstancedMesh(unitBox, materials.skylineCore, coreSpecs.length);
@@ -351,7 +418,9 @@ export function createNightShiftCityArchitecture(root, plan, spawnPlatforms, mat
     seed: plan.seed,
     bandCounts: plan.bandCounts,
     lowBuildingCount: coreSpecs.length,
-    fullBuildingCount: plan.buildings.length,
+    fullBuildingCount: coreSpecs.length + extendedSpecs.length,
+    lowTowerCount: plan.lowBuildingCount,
+    fullTowerCount: plan.buildings.length,
     lowWindowCount: windowBuffers.corePositions.length / 3,
     fullWindowCount: (windowBuffers.corePositions.length + windowBuffers.extendedPositions.length) / 3,
     structuralBeamCount: beams.length,

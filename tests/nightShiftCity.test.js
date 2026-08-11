@@ -14,10 +14,12 @@ describe("Night Shift city architecture", () => {
 
   it("allocates all three depth bands and keeps a lean Low silhouette", () => {
     const plan = createNightShiftCityPlan();
-    expect(plan.bandCounts).toEqual({ near: 8, mid: 14, far: 24 });
-    expect(plan.buildings).toHaveLength(46);
-    expect(plan.lowBuildingCount).toBe(16);
-    expect(plan.buildings.filter((building) => building.detail === "extended")).toHaveLength(30);
+    expect(plan.bandCounts).toEqual({ near: 10, mid: 18, far: 32 });
+    expect(plan.buildings).toHaveLength(60);
+    expect(plan.lowBuildingCount).toBe(20);
+    expect(plan.buildings.filter((building) => building.detail === "extended")).toHaveLength(40);
+    expect(new Set(plan.buildings.map((building) => building.silhouette)))
+      .toEqual(new Set(["slab", "setback", "crown"]));
   });
 
   it("keeps every skyline mass below and clear of the playable tower", () => {
@@ -48,7 +50,8 @@ describe("Night Shift city architecture", () => {
     architecture.applyQualityTier({ skyExtras: false });
     expect(architecture.extendedSkyline.visible).toBe(false);
     expect(architecture.extendedWindows.visible).toBe(false);
-    expect(architecture.diagnostics.lowBuildingCount).toBe(16);
+    expect(architecture.diagnostics.lowTowerCount).toBe(20);
+    expect(architecture.diagnostics.lowBuildingCount).toBeGreaterThan(20);
     expect(architecture.diagnostics.lowWindowCount).toBeGreaterThan(0);
     expect(architecture.diagnostics.deckBraceCount).toBe(12);
     expect(architecture.diagnostics.facadeBandCount).toBe(32);
@@ -57,7 +60,8 @@ describe("Night Shift city architecture", () => {
     architecture.applyQualityTier({ skyExtras: true });
     expect(architecture.extendedSkyline.visible).toBe(true);
     expect(architecture.extendedWindows.visible).toBe(true);
-    expect(architecture.diagnostics.fullBuildingCount).toBe(46);
+    expect(architecture.diagnostics.fullTowerCount).toBe(60);
+    expect(architecture.diagnostics.fullBuildingCount).toBeGreaterThan(60);
     expect(architecture.diagnostics.fullWindowCount)
       .toBeGreaterThan(architecture.diagnostics.lowWindowCount);
 
