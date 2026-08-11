@@ -1368,9 +1368,96 @@ const AI_CAUTIOUS_MS = 8000;
  *   influenceBand: number,
  *   suctionBand?: number,
  *   circularKeepOuts?: { x: number, z: number, radius: number, margin?: number, solid?: boolean }[],
+ *   acLaunchers?: readonly object[],
  * } | null}
  */
 let _levelHazards = null;
+
+/**
+ * Computes the fixed launch velocity for a Night Shift AC unit. Route units aim at a roof
+ * center from the cart's live position; the chaos unit cancels planar travel and fires straight
+ * up. Exported so the authored route and strength contract can be tested without Rapier.
+ *
+ * @param {object} launcher
+ * @param {{ x: number, y?: number, z: number }} position
+ * @returns {{ x: number, y: number, z: number } | null}
+ */
+export function computeAcLauncherVelocity(launcher, position) {
+  if (!launcher || !position || !Number.isFinite(launcher.verticalSpeed)) return null;
+  if (launcher.kind === "vertical") {
+    return { x: 0, y: launcher.verticalSpeed, z: 0 };
+  }
+  if (
+    launcher.kind !== "route"
+    || !Number.isFinite(launcher.targetX)
+    || !Number.isFinite(launcher.targetZ)
+    || !Number.isFinite(launcher.horizontalSpeed)
+  ) {
+    return null;
+  }
+  const dx = launcher.targetX - position.x;
+  const dz = launcher.targetZ - position.z;
+  const distance = Math.hypot(dx, dz);
+  if (distance < 1e-4) return { x: 0, y: launcher.verticalSpeed, z: 0 };
+  return {
+    x: (dx / distance) * launcher.horizontalSpeed,
+    y: launcher.verticalSpeed,
+    z: (dz / distance) * launcher.horizontalSpeed,
+  };
+}
+
+/**
+ * Applies at most one level AC launch to a cart. A launcher stays latched until the cart exits
+ * its footprint, which prevents the vertical unit from re-firing as the same airborne cart
+ * descends. The independent cooldowns still allow deliberate chains across different units.
+ *
+ * @param {object} cart
+ * @param {number} nowMs
+ * @returns {string | null} Fired launcher id.
+ */
+function applyLevelAcLauncher(cart, nowMs) {
+  const launchers = _levelHazards?.acLaunchers;
+  if (!launchers?.length || !cart?.body || cart.respawnAtMs != null) return null;
+
+  const position = cart.body.translation();
+  const state = cart._acLauncherState ??= {
+    latched: Object.create(null),
+    cooldownUntilMs: Object.create(null),
+  };
+
+  for (const launcher of launchers) {
+    const halfWidth = launcher.halfWidth ?? 2.1;
+    const insideXz =
+      Math.abs(position.x - launcher.x) <= halfWidth
+      && Math.abs(position.z - launcher.z) <= halfWidth;
+    if (!insideXz) {
+      state.latched[launcher.id] = false;
+      continue;
+    }
+    if (
+      state.latched[launcher.id]
+      || position.y > (launcher.maxBodyY ?? 1.55)
+      || nowMs < (state.cooldownUntilMs[launcher.id] ?? Number.NEGATIVE_INFINITY)
+    ) {
+      continue;
+    }
+
+    const current = cart.body.linvel();
+    if (Math.abs(current.y) > (launcher.maxVerticalSpeed ?? 2)) continue;
+    const velocity = computeAcLauncherVelocity(launcher, position);
+    if (!velocity) continue;
+    const rawMass = cart.body.mass?.() ?? 1;
+    const mass = Number.isFinite(rawMass) && rawMass > 0 ? rawMass : 1;
+    _impulse.x = (velocity.x - current.x) * mass;
+    _impulse.y = (velocity.y - current.y) * mass;
+    _impulse.z = (velocity.z - current.z) * mass;
+    cart.body.applyImpulse(_impulse, true);
+    state.latched[launcher.id] = true;
+    state.cooldownUntilMs[launcher.id] = nowMs + (launcher.cooldownMs ?? 750);
+    return launcher.id;
+  }
+  return null;
+}
 
 /**
  * Open-octagon hazard descriptor (e.g. Sundial Station): every edge is a kill zone, plus
@@ -3575,7 +3662,15 @@ export function runFixedPhysicsStep({
     if (cart.pendingRam.remainingSteps <= 0) cart.pendingRam = null;
   }
 
-  // 5. Step world
+  // 5. Host-authoritative level launchers. Apply after controls/ram impulses so the authored
+  // launch vector wins this step; ordinary host snapshots carry the result to remote clients.
+  if (isHost && GameState.getRoundState().phase === "running") {
+    for (const cart of allCarts || []) {
+      if (!cart?.isSuddenDeathSpectator) applyLevelAcLauncher(cart, now);
+    }
+  }
+
+  // 6. Step world
   if (world && eventQueue) {
     // * Named span so a KO-adjacent host freeze can be attributed to (or ruled out of)
     // * the Rapier step vs shatter VFX / PA audio (perfSpans → longframe.spans).

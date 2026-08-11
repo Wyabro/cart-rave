@@ -33,10 +33,10 @@ describe("Night Shift blockout", () => {
     expect(hazards.arenaHalf).toBe(36);
   });
 
-  it("supports two elevated roofs with inset utility plinths and reserves three inactive AC markers", () => {
+  it("supports two elevated roofs with inset utility plinths and three active AC launchers", () => {
     expect(NIGHT_SHIFT_BLOCKOUT_LAYOUT.highRoofs).toHaveLength(2);
     expect(NIGHT_SHIFT_BLOCKOUT_LAYOUT.highRoofPlinths).toHaveLength(2);
-    expect(NIGHT_SHIFT_BLOCKOUT_LAYOUT.inactiveVentMarkers).toHaveLength(3);
+    expect(NIGHT_SHIFT_BLOCKOUT_LAYOUT.acLaunchers).toHaveLength(3);
 
     const hazards = getNightShiftBlockoutHazards();
     for (const [index, roof] of NIGHT_SHIFT_BLOCKOUT_LAYOUT.highRoofs.entries()) {
@@ -53,7 +53,16 @@ describe("Night Shift blockout", () => {
     }
   });
 
-  it("keeps elevated roofs as future AC-launch targets, not driveable ramps", () => {
+  it("aims two route units at opposite roofs and makes the center unit stronger", () => {
+    const [north, south, center] = NIGHT_SHIFT_BLOCKOUT_LAYOUT.acLaunchers;
+    expect(north).toMatchObject({ kind: "route", targetX: 0, targetZ: 18, cooldownMs: 750 });
+    expect(south).toMatchObject({ kind: "route", targetX: 0, targetZ: -18, cooldownMs: 750 });
+    expect(center).toMatchObject({ kind: "vertical", x: 0, z: 6, cooldownMs: 750 });
+    expect(center.verticalSpeed).toBeGreaterThan(north.verticalSpeed);
+    expect(center.verticalSpeed).toBeGreaterThan(south.verticalSpeed);
+  });
+
+  it("keeps elevated roofs as AC-launch targets, not driveable ramps", () => {
     const source = readFileSync(new URL("../src/levels/rooftop.js", import.meta.url), "utf8");
     expect(source).not.toContain("addRamp(");
     expect(source).not.toContain("RAMP_");

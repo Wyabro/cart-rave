@@ -14,6 +14,10 @@ const HIGH_ROOF_TOP_Y = 3.4;
 const HIGH_ROOF_SIZE = 12;
 const HIGH_ROOF_PLINTH_INSET = 1.2;
 const HIGH_ROOF_PLINTH_HEIGHT = HIGH_ROOF_TOP_Y - FLOOR_THICKNESS;
+const AC_HALF_WIDTH = 2.1;
+const AC_MAX_BODY_Y = 1.55;
+const AC_MAX_VERTICAL_SPEED = 2;
+const AC_COOLDOWN_MS = 750;
 
 /**
  * Blockout dimensions stay data-only so the geometry, Rapier colliders, AI-safe voids, and
@@ -41,10 +45,46 @@ export const NIGHT_SHIFT_BLOCKOUT_LAYOUT = Object.freeze({
     Object.freeze({ x: 0, z: 18, width: HIGH_ROOF_SIZE - HIGH_ROOF_PLINTH_INSET, depth: HIGH_ROOF_SIZE - HIGH_ROOF_PLINTH_INSET }),
     Object.freeze({ x: 0, z: -18, width: HIGH_ROOF_SIZE - HIGH_ROOF_PLINTH_INSET, depth: HIGH_ROOF_SIZE - HIGH_ROOF_PLINTH_INSET }),
   ]),
-  inactiveVentMarkers: Object.freeze([
-    Object.freeze({ x: -5, z: 0 }),
-    Object.freeze({ x: 5, z: 0 }),
-    Object.freeze({ x: 0, z: 6 }),
+  acLaunchers: Object.freeze([
+    Object.freeze({
+      id: "north-route",
+      kind: "route",
+      x: -5,
+      z: 0,
+      halfWidth: AC_HALF_WIDTH,
+      maxBodyY: AC_MAX_BODY_Y,
+      maxVerticalSpeed: AC_MAX_VERTICAL_SPEED,
+      cooldownMs: AC_COOLDOWN_MS,
+      targetX: 0,
+      targetZ: 18,
+      horizontalSpeed: 25,
+      verticalSpeed: 18,
+    }),
+    Object.freeze({
+      id: "south-route",
+      kind: "route",
+      x: 5,
+      z: 0,
+      halfWidth: AC_HALF_WIDTH,
+      maxBodyY: AC_MAX_BODY_Y,
+      maxVerticalSpeed: AC_MAX_VERTICAL_SPEED,
+      cooldownMs: AC_COOLDOWN_MS,
+      targetX: 0,
+      targetZ: -18,
+      horizontalSpeed: 25,
+      verticalSpeed: 18,
+    }),
+    Object.freeze({
+      id: "center-chaos",
+      kind: "vertical",
+      x: 0,
+      z: 6,
+      halfWidth: AC_HALF_WIDTH,
+      maxBodyY: AC_MAX_BODY_Y,
+      maxVerticalSpeed: AC_MAX_VERTICAL_SPEED,
+      cooldownMs: AC_COOLDOWN_MS,
+      verticalSpeed: 26,
+    }),
   ]),
 });
 
@@ -54,7 +94,8 @@ export const NIGHT_SHIFT_BLOCKOUT_LAYOUT = Object.freeze({
  * Storerooms' pull-to-death behavior.
  *
  * @returns {{ squareHoles: { x: number, z: number }[], half: number, holeCenter: number,
- *   arenaHalf: number, avoidMargin: number, influenceBand: number }}
+ *   arenaHalf: number, avoidMargin: number, influenceBand: number,
+ *   acLaunchers: readonly object[] }}
  */
 export function getNightShiftBlockoutHazards() {
   return {
@@ -64,6 +105,7 @@ export function getNightShiftBlockoutHazards() {
     arenaHalf: ARM_HALF_LENGTH,
     avoidMargin: 1.8,
     influenceBand: 1.2,
+    acLaunchers: NIGHT_SHIFT_BLOCKOUT_LAYOUT.acLaunchers,
   };
 }
 
@@ -112,8 +154,8 @@ function addBox(root, world, spec, material, ownedGeometries, ownedMaterials, bo
 
 /**
  * Night Shift blockout. The visible cross creates four lethal corner voids, while two high
- * roofs test the vertical camera envelope. The three yellow pads are inactive AC placeholders;
- * they have no colliders or gameplay effect until NIGHT-SHIFT-VENT-1.
+ * roofs test the vertical camera envelope. The three colored pads mark the active AC launch
+ * zones; launch physics is owned by the host fixed step through the level hazard descriptor.
  *
  * @param {THREE.Scene} scene
  * @param {import("@dimforge/rapier3d").World} world
@@ -133,9 +175,10 @@ export function initRooftop(scene, world, config) {
   const highRoofMaterial = createPhysicalMaterial({ color: 0x41506a, metalness: 0.18, roughness: 0.72 });
   const utilityPlinthMaterial = createPhysicalMaterial({ color: 0x1c2432, metalness: 0.28, roughness: 0.62 });
   const parapetMaterial = createPhysicalMaterial({ color: 0x1a202b, metalness: 0.38, roughness: 0.55 });
-  const ventMarkerMaterial = createPhysicalMaterial({ color: 0xd38e28, metalness: 0.2, roughness: 0.6, emissive: 0x2e1600 });
+  const routeVentMaterial = createPhysicalMaterial({ color: 0xd38e28, metalness: 0.2, roughness: 0.6, emissive: 0x2e1600 });
+  const chaosVentMaterial = createPhysicalMaterial({ color: 0xd82bd4, metalness: 0.22, roughness: 0.55, emissive: 0x31072f });
   const ownedGeometries = [];
-  const ownedMaterials = [ventMarkerMaterial];
+  const ownedMaterials = [routeVentMaterial, chaosVentMaterial];
   const bodies = [];
   const recordColliderHandles = [];
   const edgeColliderHandles = [];
@@ -187,11 +230,12 @@ export function initRooftop(scene, world, config) {
     }, parapetMaterial, ownedGeometries, ownedMaterials, bodies, edgeColliderHandles);
   }
 
-  for (const marker of NIGHT_SHIFT_BLOCKOUT_LAYOUT.inactiveVentMarkers) {
+  for (const launcher of NIGHT_SHIFT_BLOCKOUT_LAYOUT.acLaunchers) {
     const geometry = new THREE.BoxGeometry(4.2, 0.12, 4.2);
-    const mesh = new THREE.Mesh(geometry, ventMarkerMaterial);
-    mesh.position.set(marker.x, 0.07, marker.z);
-    mesh.name = "night-shift-inactive-vent-marker";
+    const material = launcher.kind === "vertical" ? chaosVentMaterial : routeVentMaterial;
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.position.set(launcher.x, 0.07, launcher.z);
+    mesh.name = `night-shift-ac-${launcher.id}`;
     root.add(mesh);
     ownedGeometries.push(geometry);
   }

@@ -245,7 +245,7 @@ traffic; 7 is post-launch or parked. Priority ranks *inside* a block too (top fi
 |-----|------|-------|
 | Medium | TASTE-P4-1 — Taste-tuning follow-ups from Pass 4 | Only reopen with playtest evidence (D-GP4-1). |
 | Medium | CLUTCH-SLOMO-1 — Clutch slow-mo (Pass 5 deferral) | Taste-gated. |
-| Medium | NIGHT-SHIFT-BLOCKOUT-1 — Night Shift rooftop blockout | Approved 08-11. Build a non-quickplay rooftop cross with four AI-visible corner voids, two high roofs, matching Rapier colliders, spawn-safe cardinal arms, and countdown framing. No AC launch force, final art, menu card, progression, music, ambience, or quickplay until separate cards. |
+| Medium | NIGHT-SHIFT-BLOCKOUT-1 — Night Shift rooftop playable blockout | Approved 08-11. Build a non-quickplay rooftop cross with four AI-visible corner voids, two high roofs, matching Rapier colliders, spawn-safe cardinal arms, and countdown framing. Approved vent wave: two instant route ACs launch toward opposite high roofs; one stronger center AC launches straight up; host-only fixed-step physics, per-unit cooldowns, and exit latches prevent repeat firing. Final AC models, wind VFX, audio, menu card, progression, ambience, and quickplay remain separate. |
 | Low | SWIRL-REVIVE-1 — Turntable swirl force revive | Scoped prototype via DIR-1 — taste-gated. |
 | Low | KO-DOOMED-1 — KO "doomed" presentational cue | Idea stage. |
 | Low | DEATHCAM-KILLER-1 — Death-cam "follow killer" revisit | Previously reverted. |
