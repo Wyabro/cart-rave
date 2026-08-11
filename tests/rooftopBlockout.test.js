@@ -21,33 +21,31 @@ describe("Night Shift blockout", () => {
     expect(hazards.suctionBand).toBeUndefined();
   });
 
-  it("supports two elevated roofs with inset utility plinths and three active AC launchers", () => {
+  it("supports two lateral elevated roofs with inset plinths and four active AC launchers", () => {
     expect(NIGHT_SHIFT_BLOCKOUT_LAYOUT.highRoofs).toHaveLength(2);
     expect(NIGHT_SHIFT_BLOCKOUT_LAYOUT.highRoofPlinths).toHaveLength(2);
-    expect(NIGHT_SHIFT_BLOCKOUT_LAYOUT.acLaunchers).toHaveLength(3);
+    expect(NIGHT_SHIFT_BLOCKOUT_LAYOUT.acLaunchers).toHaveLength(4);
+    expect(NIGHT_SHIFT_BLOCKOUT_LAYOUT.highRoofs).toEqual([
+      { x: -18, z: 0 },
+      { x: 18, z: 0 },
+    ]);
 
-    const hazards = getNightShiftBlockoutHazards();
     for (const [index, roof] of NIGHT_SHIFT_BLOCKOUT_LAYOUT.highRoofs.entries()) {
       const plinth = NIGHT_SHIFT_BLOCKOUT_LAYOUT.highRoofPlinths[index];
       expect(plinth).toMatchObject({ x: roof.x, z: roof.z });
       expect(plinth.width).toBeLessThan(12);
       expect(plinth.depth).toBeLessThan(12);
-      for (const hole of hazards.squareHoles) {
-        const insideHole =
-          Math.abs(roof.x - hole.x) < hazards.half
-          && Math.abs(roof.z - hole.z) < hazards.half;
-        expect(insideHole).toBe(false);
-      }
     }
   });
 
-  it("aims two route units at opposite roofs and makes the center unit stronger", () => {
-    const [north, south, center] = NIGHT_SHIFT_BLOCKOUT_LAYOUT.acLaunchers;
-    expect(north).toMatchObject({ kind: "route", targetX: 0, targetZ: 18, cooldownMs: 750 });
-    expect(south).toMatchObject({ kind: "route", targetX: 0, targetZ: -18, cooldownMs: 750 });
-    expect(center).toMatchObject({ kind: "vertical", x: 0, z: 6, cooldownMs: 750 });
-    expect(center.verticalSpeed).toBeGreaterThan(north.verticalSpeed);
-    expect(center.verticalSpeed).toBeGreaterThan(south.verticalSpeed);
+  it("aims two route units outward and keeps two stronger vertical units", () => {
+    const [west, east, north, south] = NIGHT_SHIFT_BLOCKOUT_LAYOUT.acLaunchers;
+    expect(west).toMatchObject({ kind: "route", targetX: -18, targetZ: 0, cooldownMs: 750 });
+    expect(east).toMatchObject({ kind: "route", targetX: 18, targetZ: 0, cooldownMs: 750 });
+    expect(north).toMatchObject({ kind: "vertical", x: 0, z: 6, cooldownMs: 750 });
+    expect(south).toMatchObject({ kind: "vertical", x: 0, z: -6, cooldownMs: 750 });
+    expect(north.verticalSpeed).toBeGreaterThan(west.verticalSpeed);
+    expect(south.verticalSpeed).toBeGreaterThan(east.verticalSpeed);
   });
 
   it("keeps elevated roofs as AC-launch targets, not driveable ramps", () => {

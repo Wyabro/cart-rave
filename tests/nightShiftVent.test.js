@@ -60,18 +60,19 @@ describe("NIGHT-SHIFT-VENT-1", () => {
     expect(cart.body.applyImpulse).toHaveBeenCalledTimes(1);
   });
 
-  it("aims route launches at their roof centers and sends the chaos unit straight up", () => {
-    const [north, south, center] = getNightShiftBlockoutHazards().acLaunchers;
+  it("aims route launches at lateral roofs and sends both chaos units straight up", () => {
+    const [west, east, north, south] = getNightShiftBlockoutHazards().acLaunchers;
+    const westVelocity = computeAcLauncherVelocity(west, { x: west.x, z: west.z });
+    const eastVelocity = computeAcLauncherVelocity(east, { x: east.x, z: east.z });
     const northVelocity = computeAcLauncherVelocity(north, { x: north.x, z: north.z });
     const southVelocity = computeAcLauncherVelocity(south, { x: south.x, z: south.z });
-    const centerVelocity = computeAcLauncherVelocity(center, { x: center.x, z: center.z });
 
-    expect(northVelocity.x).toBeGreaterThan(0);
-    expect(northVelocity.z).toBeGreaterThan(0);
-    expect(southVelocity.x).toBeLessThan(0);
-    expect(southVelocity.z).toBeLessThan(0);
-    expect(centerVelocity).toEqual({ x: 0, y: center.verticalSpeed, z: 0 });
-    expect(centerVelocity.y).toBeGreaterThan(northVelocity.y);
+    expect(westVelocity).toEqual({ x: -west.horizontalSpeed, y: west.verticalSpeed, z: 0 });
+    expect(eastVelocity).toEqual({ x: east.horizontalSpeed, y: east.verticalSpeed, z: 0 });
+    expect(northVelocity).toEqual({ x: 0, y: north.verticalSpeed, z: 0 });
+    expect(southVelocity).toEqual({ x: 0, y: south.verticalSpeed, z: 0 });
+    expect(northVelocity.y).toBeGreaterThan(westVelocity.y);
+    expect(southVelocity.y).toBeGreaterThan(eastVelocity.y);
   });
 
   it("fires instantly on the host during running and cancels incoming velocity", () => {
@@ -111,7 +112,8 @@ describe("NIGHT-SHIFT-VENT-1", () => {
     cart.velocity = { x: 0, y: 0, z: 0 };
     step(cart, { now: 2050 });
     expect(cart.body.applyImpulse).toHaveBeenCalledTimes(2);
-    expect(cart.velocity.z).toBeLessThan(0);
+    expect(cart.velocity.x).toBeGreaterThan(0);
+    expect(cart.velocity.z).toBe(0);
   });
 
   it("requires the same unit cooldown to expire after the cart exits", () => {

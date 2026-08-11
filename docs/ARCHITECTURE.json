@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-11T08:09:46.258Z",
-    "commit": "e139bb6"
+    "at": "2026-08-11T08:43:35.775Z",
+    "commit": "4f8d3a3"
   },
-  "source_digest": "a4997a4a",
+  "source_digest": "b46e8e55",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -866,7 +866,7 @@
       {
         "id": "NIGHT-SHIFT-BLOCKOUT-1",
         "what": "Night Shift rooftop playable blockout",
-        "status": "🔧 Local correction in progress. Rooftop visuals are static; four elevated spawn slabs match the cart spawn poses and sit on solid utility shafts. Two route ACs aim at opposite roofs; one stronger AC launches vertically. Non-quickplay; human launch-feel review pending.",
+        "status": "🔧 Revised local blockout ready. One static square roof; four supported diagonal corner spawns face center; two lateral raised roofs; two route ACs launch outward and two stronger ACs launch vertically. Non-quickplay; human layout/launch review pending.",
         "state": "waiting"
       },
       {
@@ -892,7 +892,7 @@
       }
     ],
     "next_actions": [
-      "NIGHT-SHIFT-BLOCKOUT-1: in Solo Dev, load `?level=rooftop`; confirm the roof stays still, all four carts start on supported platforms, then test both roof launches and the stronger center launch.",
+      "NIGHT-SHIFT-BLOCKOUT-1: in Solo Dev, load `?level=rooftop`; confirm the square roof, four diagonal corner spawns facing center, both lateral roof launches, and both stronger vertical launches.",
       "Playtest owed: SHARD-PT-2 (skip, needs five humans)."
     ],
     "open_issues": [
@@ -1117,7 +1117,7 @@
           {
             "pri": "Medium",
             "item": "NIGHT-SHIFT-BLOCKOUT-1 — Night Shift rooftop playable blockout",
-            "notes": "Approved 08-11. Build a stationary non-quickplay rooftop cross with four AI-visible corner voids, two high roofs, four supported cardinal spawn platforms, matching Rapier colliders, and countdown framing. Approved vent wave: two instant route ACs launch toward opposite high roofs; one stronger center AC launches straight up; host-only fixed-step physics, per-unit cooldowns, and exit latches prevent repeat firing. Final AC models, wind VFX, audio, menu card, progression, ambience, and quickplay remain separate.",
+            "notes": "Revised 08-11 from Wyatt's sketch. Build one stationary square roof with four supported diagonal corner spawn platforms facing center, two lateral raised roofs, matching Rapier colliders, and midpoint edge rails. Four instant ACs: west/east route units launch toward their matching raised roofs; north/south units launch straight up with stronger force. Host-only fixed-step physics, per-unit cooldowns, and exit latches prevent repeat firing. Final AC models, wind VFX, audio, menu card, progression, ambience, and quickplay remain separate.",
             "ship1": null
           },
           {
