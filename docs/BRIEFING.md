@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-11 at commit `282c7e2` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `a058cced`
+> Generated 2026-08-11 at commit `5dc661a` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `e6fb0c20`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -19,7 +19,7 @@ Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep a
 ## ACTIVE CARD
 
 NIGHT-SHIFT-CITY-1 — Night Shift visual-structure pass
-Pass looks like: ▶ FACADE-LIGHT REPAIR IMPLEMENTED LOCALLY 08-11 — Wyatt visual PASS pending. Base/touch-up through `cbfaf74`; `282c7e2` now binds city windows and neon signs to each rotated lower/setback facade instead of a radial shell. Gameplay geometry, spawns, camera, AC physics, and 5/8 Low/full architecture draw-call budgets stayed frozen. Regression: 1,385 detached extended windows → 0; focused 5/5 and build green. Full QA: 1,880 passed / 1 unrelated backlog-canary failure after concurrent `48e4364` reduced live rows to exactly 50. Fixed capture: `.diag-captures/night-shift-lights-fixed.png`. Working name only.
+Pass looks like: ▶ WYATT VISUAL PASS 08-11 — closure waits on global QA. Base/touch-up through `cbfaf74`; `282c7e2` binds city windows and neon signs to each rotated lower/setback facade instead of a radial shell. Gameplay geometry, spawns, camera, AC physics, and 5/8 Low/full architecture draw-call budgets stayed frozen. Regression: 1,385 detached extended windows → 0; focused 5/5 and build green. Full QA: 1,880 passed / 1 unrelated backlog-canary failure after concurrent `48e4364` reduced live rows to exactly 50. Fixed capture: `.diag-captures/night-shift-lights-fixed.png`. Working name only.
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 

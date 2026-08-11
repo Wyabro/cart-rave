@@ -66,13 +66,13 @@ Live rows only. Shipped and closed cards live in
 
 | # | What | Status |
 |---|------|--------|
-| NIGHT-SHIFT-CITY-1 | Night Shift visual-structure pass | ▶ **FACADE-LIGHT REPAIR IMPLEMENTED LOCALLY 08-11 — Wyatt visual PASS pending.** Base/touch-up through `cbfaf74`; `282c7e2` now binds city windows and neon signs to each rotated lower/setback facade instead of a radial shell. Gameplay geometry, spawns, camera, AC physics, and 5/8 Low/full architecture draw-call budgets stayed frozen. Regression: 1,385 detached extended windows → 0; focused 5/5 and build green. Full QA: 1,880 passed / 1 unrelated backlog-canary failure after concurrent `48e4364` reduced live rows to exactly 50. Fixed capture: `.diag-captures/night-shift-lights-fixed.png`. Working name only. |
+| NIGHT-SHIFT-CITY-1 | Night Shift visual-structure pass | ▶ **WYATT VISUAL PASS 08-11 — closure waits on global QA.** Base/touch-up through `cbfaf74`; `282c7e2` binds city windows and neon signs to each rotated lower/setback facade instead of a radial shell. Gameplay geometry, spawns, camera, AC physics, and 5/8 Low/full architecture draw-call budgets stayed frozen. Regression: 1,385 detached extended windows → 0; focused 5/5 and build green. Full QA: 1,880 passed / 1 unrelated backlog-canary failure after concurrent `48e4364` reduced live rows to exactly 50. Fixed capture: `.diag-captures/night-shift-lights-fixed.png`. Working name only. |
 | BUNDLE-1 | Menu/game code-split | ⚠️ **CLOSED PARTIAL 08-05 — perf goal NOT met. Deployed `f2f90fd2`.** Warm `menu-ready` −3% vs a −15% gate. Banked: a `size:check` byte gate, `main.js` 2,582 → 1,262 lines, −22.6% off the initial set (**cold** visits only). Lever E playtested: BUNDLE-E-PT-1 PASS 6/6. [bundle-1.md §0](./planning/bundle-1.md) |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 
 ### Next actions
 
-1. **NIGHT-SHIFT-CITY-1:** Wyatt visual playtest through local facade-light repair `282c7e2`; do not close or ship before his result.
+1. **NIGHT-SHIFT-CITY-1:** visual PASS recorded; close only after global QA returns green. Current blocker is the unrelated exact-50-row backlog canary introduced with `48e4364`.
 2. **Playtest owed:** SHARD-PT-2 (skip, needs five humans).
 
 ## Open issues (top)
@@ -129,8 +129,8 @@ faces the arena and places every window/sign from that facade's true width, norm
 Regression proof: 1,385 detached extended windows before → 0 windows and 0 signs after; focused
 5/5 and production build green. Full QA reached 1,880 passed / 1 unrelated failure: concurrent
 `48e4364` reduced BACKLOG to exactly 50 rows while its existing canary requires more than 50.
-Fixed capture: `.diag-captures/night-shift-lights-fixed.png`. Human review remains. Not pushed,
-deployed, closed, or renamed.
+Fixed capture: `.diag-captures/night-shift-lights-fixed.png`. Wyatt visual PASS 08-11. Closure
+waits on the unrelated global QA canary. Not pushed, deployed, closed, or renamed.
 
 2026-08-11 (NPC-BOOST-2-PT-1 PASS · NPC cluster closed) — NPC-BOOST-2-PT-1 all four
 steps PASS. NPC-BOOST-1, NPC-BOOST-2, AI-EASY-SOFTEN-1 all closed. Proportional
