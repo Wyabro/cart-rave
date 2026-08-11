@@ -7,6 +7,32 @@ import {
 } from "../src/levels/nightShiftVisuals.js";
 import * as THREE from "three";
 
+function touchesFacade(point, building, tolerance = 0.35) {
+  if (point.y < building.bottomY || point.y > building.roofY) return false;
+
+  const totalHeight = building.roofY - building.bottomY;
+  const setbackY = building.bottomY + totalHeight * building.setbackRatio;
+  const scale = building.silhouette !== "slab" && point.y >= setbackY
+    ? building.setbackScale
+    : 1;
+  const halfWidth = building.width * scale * 0.5;
+  const halfDepth = building.depth * scale * 0.5;
+  const dx = point.x - building.x;
+  const dz = point.z - building.z;
+  const cos = Math.cos(building.yaw);
+  const sin = Math.sin(building.yaw);
+  const localX = cos * dx - sin * dz;
+  const localZ = sin * dx + cos * dz;
+
+  return (
+    Math.abs(Math.abs(localX) - halfWidth) <= tolerance
+      && Math.abs(localZ) <= halfDepth + tolerance
+  ) || (
+    Math.abs(Math.abs(localZ) - halfDepth) <= tolerance
+      && Math.abs(localX) <= halfWidth + tolerance
+  );
+}
+
 describe("Night Shift city architecture", () => {
   it("compiles an identical building plan from the same seed", () => {
     expect(createNightShiftCityPlan()).toEqual(createNightShiftCityPlan(NIGHT_SHIFT_CITY_SEED));
@@ -77,6 +103,48 @@ describe("Night Shift city architecture", () => {
     expect(architecture.diagnostics.fullNeonSignCount)
       .toBeGreaterThan(architecture.diagnostics.lowNeonSignCount);
     expect(architecture.diagnostics.fullDrawCalls).toBe(8);
+
+    architecture.dispose();
+    material.dispose();
+  });
+
+  it("binds every skyline window and neon sign to a rotated facade face", () => {
+    const root = new THREE.Group();
+    const material = new THREE.MeshBasicMaterial();
+    const plan = createNightShiftCityPlan();
+    const architecture = createNightShiftCityArchitecture(
+      root,
+      plan,
+      [],
+      { tower: material, brace: material, skylineCore: material, skylineExtended: material },
+    );
+    const extendedBuildings = plan.buildings.filter((building) => building.detail === "extended");
+    const detachedWindows = [];
+    const positions = architecture.extendedWindows.geometry.getAttribute("position");
+    const point = new THREE.Vector3();
+    for (let index = 0; index < positions.count; index += 1) {
+      point.fromBufferAttribute(positions, index);
+      if (!extendedBuildings.some((building) => touchesFacade(point, building))) {
+        detachedWindows.push(index);
+      }
+    }
+
+    const detachedNeon = [];
+    const matrix = new THREE.Matrix4();
+    const rotation = new THREE.Quaternion();
+    const scale = new THREE.Vector3();
+    for (let index = 0; index < architecture.extendedNeon.count; index += 1) {
+      architecture.extendedNeon.getMatrixAt(index, matrix);
+      matrix.decompose(point, rotation, scale);
+      if (!extendedBuildings.some((building) => touchesFacade(point, building))) {
+        detachedNeon.push(index);
+      }
+    }
+
+    expect({
+      detachedWindowCount: detachedWindows.length,
+      detachedNeonCount: detachedNeon.length,
+    }).toEqual({ detachedWindowCount: 0, detachedNeonCount: 0 });
 
     architecture.dispose();
     material.dispose();

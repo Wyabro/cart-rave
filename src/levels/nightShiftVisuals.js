@@ -217,6 +217,51 @@ function writeBeamInstances(mesh, beams) {
   if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
 }
 
+/**
+ * Returns the rotated building face that looks most directly toward the arena. Width and
+ * normal offset come from the active lower or setback mass, so facade details stay attached.
+ *
+ * @param {ReturnType<typeof createNightShiftCityPlan>["buildings"][number]} building
+ * @param {number} y
+ * @param {number} surfaceOffset
+ */
+function getInwardFacadeFrame(building, y, surfaceOffset) {
+  const totalHeight = building.roofY - building.bottomY;
+  const setbackY = building.bottomY + totalHeight * building.setbackRatio;
+  const massScale = building.silhouette !== "slab" && y >= setbackY
+    ? building.setbackScale
+    : 1;
+  const halfWidth = building.width * massScale * 0.5;
+  const halfDepth = building.depth * massScale * 0.5;
+  const cos = Math.cos(building.yaw);
+  const sin = Math.sin(building.yaw);
+  const localX = { x: cos, z: -sin };
+  const localZ = { x: sin, z: cos };
+  const radius = Math.hypot(building.x, building.z) || 1;
+  const inwardX = -building.x / radius;
+  const inwardZ = -building.z / radius;
+  const faces = [
+    { normalX: localX.x, normalZ: localX.z, tangentX: localZ.x, tangentZ: localZ.z, halfNormal: halfWidth, faceWidth: halfDepth * 2 },
+    { normalX: -localX.x, normalZ: -localX.z, tangentX: localZ.x, tangentZ: localZ.z, halfNormal: halfWidth, faceWidth: halfDepth * 2 },
+    { normalX: localZ.x, normalZ: localZ.z, tangentX: localX.x, tangentZ: localX.z, halfNormal: halfDepth, faceWidth: halfWidth * 2 },
+    { normalX: -localZ.x, normalZ: -localZ.z, tangentX: localX.x, tangentZ: localX.z, halfNormal: halfDepth, faceWidth: halfWidth * 2 },
+  ];
+  let face = faces[0];
+  let bestDot = -Infinity;
+  for (const candidate of faces) {
+    const dot = candidate.normalX * inwardX + candidate.normalZ * inwardZ;
+    if (dot > bestDot) {
+      face = candidate;
+      bestDot = dot;
+    }
+  }
+  return {
+    ...face,
+    x: building.x + face.normalX * (face.halfNormal + surfaceOffset),
+    z: building.z + face.normalZ * (face.halfNormal + surfaceOffset),
+  };
+}
+
 /** @param {ReturnType<typeof createNightShiftCityPlan>} plan */
 function buildWindowBuffers(plan) {
   const corePositions = [];
@@ -228,29 +273,21 @@ function buildWindowBuffers(plan) {
   for (const building of plan.buildings) {
     const positions = building.detail === "core" ? corePositions : extendedPositions;
     const colors = building.detail === "core" ? coreColors : extendedColors;
-    const angle = Math.atan2(building.z, building.x);
-    const inwardX = -Math.cos(angle);
-    const inwardZ = -Math.sin(angle);
-    const tangentX = -Math.sin(angle);
-    const tangentZ = Math.cos(angle);
-    const faceOffset = Math.min(building.width, building.depth) * 0.5 + 0.55;
-    const columns = Math.max(2, Math.floor(building.width / 7));
     const rows = Math.max(2, Math.floor((building.roofY - building.bottomY) / 8));
 
     for (let row = 1; row < rows; row += 1) {
+      const rowY = building.bottomY + row * 8;
+      const rowFacade = getInwardFacadeFrame(building, rowY, 0.12);
+      const columns = Math.max(2, Math.floor(rowFacade.faceWidth / 7));
       for (let column = 0; column < columns; column += 1) {
         if (random() > 0.56) continue;
-        const rowY = building.bottomY + row * 8;
-        const setbackY = building.bottomY
-          + (building.roofY - building.bottomY) * building.setbackRatio;
-        const rowWidth = building.silhouette !== "slab" && rowY >= setbackY
-          ? building.width * building.setbackScale
-          : building.width;
-        const across = ((column + 0.5) / columns - 0.5) * rowWidth * 0.78;
+        const y = rowY + (random() - 0.5) * 0.7;
+        const facade = getInwardFacadeFrame(building, y, 0.12);
+        const across = ((column + 0.5) / columns - 0.5) * facade.faceWidth * 0.78;
         positions.push(
-          building.x + inwardX * faceOffset + tangentX * across,
-          rowY + (random() - 0.5) * 0.7,
-          building.z + inwardZ * faceOffset + tangentZ * across,
+          facade.x + facade.tangentX * across,
+          y,
+          facade.z + facade.tangentZ * across,
         );
         const brightness = 0.48 + random() * 0.52;
         const cool = random() < 0.24;
@@ -322,17 +359,15 @@ function buildNeonSignSpecs(plan) {
   const extended = [];
   for (const [index, building] of plan.buildings.entries()) {
     if (!building.neonAccent) continue;
-    const angle = Math.atan2(building.z, building.x);
-    const inwardX = -Math.cos(angle);
-    const inwardZ = -Math.sin(angle);
-    const faceOffset = Math.min(building.width, building.depth) * 0.5 + 0.85;
     const totalHeight = building.roofY - building.bottomY;
+    const y = building.bottomY + totalHeight * (0.66 + (index % 3) * 0.08);
+    const facade = getInwardFacadeFrame(building, y, 0.2);
     const spec = {
-      x: building.x + inwardX * faceOffset,
-      y: building.bottomY + totalHeight * (0.66 + (index % 3) * 0.08),
-      z: building.z + inwardZ * faceOffset,
-      yaw: Math.PI / 2 - angle,
-      width: Math.min(16, building.width * 0.48),
+      x: facade.x,
+      y,
+      z: facade.z,
+      yaw: Math.atan2(facade.normalX, facade.normalZ),
+      width: Math.min(16, facade.faceWidth * 0.48),
       height: 2.1 + (index % 2) * 1.1,
       depth: 0.38,
       color: NIGHT_SHIFT_NEON_COLORS[building.neonAccent],
