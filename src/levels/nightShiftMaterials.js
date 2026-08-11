@@ -49,7 +49,8 @@ export function sampleNightShiftSurface(kind, x, y, seed = SURFACE_SEED) {
     - seam * 0.62 - damp * 0.12 - streak * (kind === "metal" ? 0.1 : 0.18);
   const roughness = Math.max(0.34, Math.min(0.98,
     (kind === "metal" ? 0.58 : 0.78)
-      + aggregate * 0.16 + seam * 0.12 - damp * 0.28 + streak * 0.1,
+      + aggregate * 0.16 + seam * 0.12
+      - damp * (kind === "metal" ? 0.28 : 0.38) + streak * 0.1,
   ));
   return { aggregate, damp, seam, streak, height, roughness };
 }
