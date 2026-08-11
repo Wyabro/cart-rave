@@ -33,12 +33,17 @@ describe("Night Shift blockout", () => {
     expect(hazards.arenaHalf).toBe(36);
   });
 
-  it("reserves two elevated roofs and three inactive AC markers for later cards", () => {
+  it("supports two elevated roofs with inset utility plinths and reserves three inactive AC markers", () => {
     expect(NIGHT_SHIFT_BLOCKOUT_LAYOUT.highRoofs).toHaveLength(2);
+    expect(NIGHT_SHIFT_BLOCKOUT_LAYOUT.highRoofPlinths).toHaveLength(2);
     expect(NIGHT_SHIFT_BLOCKOUT_LAYOUT.inactiveVentMarkers).toHaveLength(3);
 
     const hazards = getNightShiftBlockoutHazards();
-    for (const roof of NIGHT_SHIFT_BLOCKOUT_LAYOUT.highRoofs) {
+    for (const [index, roof] of NIGHT_SHIFT_BLOCKOUT_LAYOUT.highRoofs.entries()) {
+      const plinth = NIGHT_SHIFT_BLOCKOUT_LAYOUT.highRoofPlinths[index];
+      expect(plinth).toMatchObject({ x: roof.x, z: roof.z });
+      expect(plinth.width).toBeLessThan(12);
+      expect(plinth.depth).toBeLessThan(12);
       for (const hole of hazards.squareHoles) {
         const insideHole =
           Math.abs(roof.x - hole.x) < hazards.half

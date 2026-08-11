@@ -12,11 +12,14 @@ const GAP_CENTER = 23;
 const GAP_HALF = 12.4;
 const HIGH_ROOF_TOP_Y = 3.4;
 const HIGH_ROOF_SIZE = 12;
+const HIGH_ROOF_PLINTH_INSET = 1.2;
+const HIGH_ROOF_PLINTH_HEIGHT = HIGH_ROOF_TOP_Y - FLOOR_THICKNESS;
 
 /**
  * Blockout dimensions stay data-only so the geometry, Rapier colliders, AI-safe voids, and
  * focused tests share one layout. The elevated roofs stay on the north/south arms, outside the
- * corner-void contract. They become AC-launch landing targets in a later card.
+ * corner-void contract. Inset utility plinths attach them to the main roof; they become
+ * AC-launch landing targets in a later card.
  */
 export const NIGHT_SHIFT_BLOCKOUT_LAYOUT = Object.freeze({
   mainRoofs: Object.freeze([
@@ -33,6 +36,10 @@ export const NIGHT_SHIFT_BLOCKOUT_LAYOUT = Object.freeze({
   highRoofs: Object.freeze([
     Object.freeze({ x: 0, z: 18 }),
     Object.freeze({ x: 0, z: -18 }),
+  ]),
+  highRoofPlinths: Object.freeze([
+    Object.freeze({ x: 0, z: 18, width: HIGH_ROOF_SIZE - HIGH_ROOF_PLINTH_INSET, depth: HIGH_ROOF_SIZE - HIGH_ROOF_PLINTH_INSET }),
+    Object.freeze({ x: 0, z: -18, width: HIGH_ROOF_SIZE - HIGH_ROOF_PLINTH_INSET, depth: HIGH_ROOF_SIZE - HIGH_ROOF_PLINTH_INSET }),
   ]),
   inactiveVentMarkers: Object.freeze([
     Object.freeze({ x: -5, z: 0 }),
@@ -124,6 +131,7 @@ export function initRooftop(scene, world, config) {
 
   const roofMaterial = createPhysicalMaterial({ color: 0x263142, metalness: 0.2, roughness: 0.78 });
   const highRoofMaterial = createPhysicalMaterial({ color: 0x41506a, metalness: 0.18, roughness: 0.72 });
+  const utilityPlinthMaterial = createPhysicalMaterial({ color: 0x1c2432, metalness: 0.28, roughness: 0.62 });
   const parapetMaterial = createPhysicalMaterial({ color: 0x1a202b, metalness: 0.38, roughness: 0.55 });
   const ventMarkerMaterial = createPhysicalMaterial({ color: 0xd38e28, metalness: 0.2, roughness: 0.6, emissive: 0x2e1600 });
   const ownedGeometries = [];
@@ -143,6 +151,14 @@ export function initRooftop(scene, world, config) {
       y: FLOOR_TOP_Y - FLOOR_THICKNESS / 2,
       height: FLOOR_THICKNESS,
     }, roofMaterial, ownedGeometries, ownedMaterials, bodies, recordColliderHandles);
+  }
+
+  for (const plinth of NIGHT_SHIFT_BLOCKOUT_LAYOUT.highRoofPlinths) {
+    addBox(root, world, {
+      ...plinth,
+      y: FLOOR_TOP_Y + HIGH_ROOF_PLINTH_HEIGHT / 2,
+      height: HIGH_ROOF_PLINTH_HEIGHT,
+    }, utilityPlinthMaterial, ownedGeometries, ownedMaterials, bodies, recordColliderHandles);
   }
 
   for (const roof of NIGHT_SHIFT_BLOCKOUT_LAYOUT.highRoofs) {

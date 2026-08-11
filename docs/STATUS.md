@@ -66,7 +66,7 @@ Live rows only. Shipped and closed cards live in
 
 | # | What | Status |
 |---|------|--------|
-| NIGHT-SHIFT-BLOCKOUT-1 | Night Shift rooftop blockout | 🔧 Local code and gates pass. Four corner voids, two high roofs, inert AC markers, and countdown framing. High roofs become AC-launch landing targets later. Non-quickplay; human blockout review pending. |
+| NIGHT-SHIFT-BLOCKOUT-1 | Night Shift rooftop blockout | 🔧 Local code and gates pass. Four corner voids, two high roofs on inset utility plinths, inert AC markers, and countdown framing. High roofs become AC-launch landing targets later. Non-quickplay; human blockout review pending. |
 | BUNDLE-1 | Menu/game code-split | ⚠️ **CLOSED PARTIAL 08-05 — perf goal NOT met. Deployed `f2f90fd2`.** Warm `menu-ready` −3% vs a −15% gate. Banked: a `size:check` byte gate, `main.js` 2,582 → 1,262 lines, −22.6% off the initial set (**cold** visits only). Lever E playtested: BUNDLE-E-PT-1 PASS 6/6. [bundle-1.md §0](./planning/bundle-1.md) |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 
@@ -125,7 +125,8 @@ the dev loop (dev probes lie in prod · edge propagation · frozen `rAF`), or a 
 
 2026-08-11 (NIGHT-SHIFT-BLOCKOUT-1) — Non-quickplay rooftop blockout built: four corner
 voids with AI avoidance, north/south high roofs, inert AC markers, and countdown framing. The
-sideways ramps were removed after visual review; roofs become AC-launch landing targets later.
+sideways ramps were removed after visual review; inset utility plinths now attach the roofs to
+the main deck. The roofs become AC-launch landing targets later.
 Build and QA passed. The local visual capture cannot start Chromium (`spawn EPERM`),
 so human visual review is still owed.
 
