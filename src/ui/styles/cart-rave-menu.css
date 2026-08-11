@@ -2623,14 +2623,6 @@ html, body {
   }
 }
 
-/* Tiny phone safety net */
-@media (max-width: 380px) {
-  .cr-content {
-    padding: 12px;
-    gap: 12px;
-  }
-}
-
 /* ==========================================
    PORTRAIT HINT — phones holding the menu in landscape
    ==========================================

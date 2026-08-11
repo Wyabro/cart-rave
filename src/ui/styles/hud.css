@@ -1436,14 +1436,6 @@
   }
 }
 
-/* Tiny — Pass 3.1 ≤380 */
-@media (max-width: 380px) {
-  .cart-nametag {
-    font-size: 11px;
-    padding: 2px 7px;
-  }
-}
-
 /* Short landscape — slightly tighter, still legible */
 @media (orientation: landscape) and (max-height: 600px) {
   .cart-nametag {
