@@ -20,6 +20,7 @@ export const LEVEL_IMPORTERS = {
   classicRecord: () => import("./classicRecord.js").then((m) => m.initClassicRecord),
   backrooms: () => import("./backroomsSupermarket.js").then((m) => m.initBackroomsSupermarket),
   zanzibar: () => import("./zanzibarPlatform.js").then((m) => m.initZanzibarPlatform),
+  rooftop: () => import("./rooftop.js").then((m) => m.initRooftop),
   testArena: () => import("./testArena.js").then((m) => m.initTestArena),
 };
 
@@ -53,11 +54,11 @@ export function prefetchLevelChunks() {
  * Resolves a raw level id from storage or menu to a supported loader key.
  *
  * @param {string | null | undefined} raw
- * @returns {"classicRecord" | "backrooms" | "zanzibar" | "testArena"}
+ * @returns {"classicRecord" | "backrooms" | "zanzibar" | "rooftop" | "testArena"}
  */
 export function resolveLevelId(raw) {
   if (raw && ARENA_BY_ID[raw]) {
-    return /** @type {"classicRecord" | "backrooms" | "zanzibar" | "testArena"} */ (raw);
+    return /** @type {"classicRecord" | "backrooms" | "zanzibar" | "rooftop" | "testArena"} */ (raw);
   }
   return DEFAULT_LEVEL_ID;
 }

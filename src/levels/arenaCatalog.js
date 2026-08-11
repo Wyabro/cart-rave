@@ -77,6 +77,20 @@ export const ARENA_CATALOG = Object.freeze([
     }),
   }),
   Object.freeze({
+    id: "rooftop",
+    displayName: "Night Shift",
+    menuTheme: "classic",
+    // * NIGHT-SHIFT-BLOCKOUT-1: the layout is selectable only through dev level loading.
+    // * Quickplay, progression, final menu art, music, and ambience belong to NIGHT-SHIFT-ART-1.
+    quickplay: false,
+    music: Object.freeze([]),
+    ambience: Object.freeze({ bed: "" }),
+    unlock: Object.freeze({
+      free: true,
+      hint: "Blockout",
+    }),
+  }),
+  Object.freeze({
     id: "testArena",
     displayName: "Test Arena",
     menuTheme: "classic",

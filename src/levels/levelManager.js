@@ -19,7 +19,7 @@ const PLAY_ENTRY_REFLECTOR_SIZE = 256;
 /** @type {import("./levelManager.js").LevelManagerDeps | null} */
 let deps = null;
 
-/** @type {"classicRecord" | "backrooms" | "zanzibar" | "testArena"} */
+/** @type {"classicRecord" | "backrooms" | "zanzibar" | "rooftop" | "testArena"} */
 let loadedLevelId = resolveLevelId(
   storageGet(LEVEL_STORAGE_KEY),
 );
@@ -89,7 +89,7 @@ import { settingsStore } from "../stores/settingsStore.js";
 
 /**
  * @param {string | null | undefined} [levelId]
- * @returns {"classicRecord" | "backrooms" | "zanzibar" | "testArena"}
+ * @returns {"classicRecord" | "backrooms" | "zanzibar" | "rooftop" | "testArena"}
  */
 function resolveTargetLevelId(levelId) {
   if (levelId != null) return resolveLevelId(levelId);
@@ -130,7 +130,7 @@ export function setMenuBrowseLevel(levelId) {
  * * INSIDE the swap loop, and a second schedule early-returns while one is in flight. A frozen
  * * value would strand a stale load — Storerooms finishing after the cursor moved back to
  * * Sundial, with the corrective schedule short-circuited.
- * @returns {"classicRecord" | "backrooms" | "zanzibar" | "testArena"}
+ * @returns {"classicRecord" | "backrooms" | "zanzibar" | "rooftop" | "testArena"}
  */
 function resolvePreviewTargetLevelId() {
   if (menuBrowseLevelId != null) return resolveLevelId(menuBrowseLevelId);

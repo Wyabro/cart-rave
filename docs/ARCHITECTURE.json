@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-11T06:49:17.286Z",
-    "commit": "0fd3c7c"
+    "at": "2026-08-11T07:15:45.065Z",
+    "commit": "bf2dde6"
   },
-  "source_digest": "6f93ec1c",
+  "source_digest": "69e303f8",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -315,11 +315,12 @@
         "src/levels/classicRecord.js",
         "src/levels/index.js",
         "src/levels/levelManager.js",
+        "src/levels/rooftop.js",
         "src/levels/testArena.js",
         "src/levels/zanzibarPlatform.js",
         "src/sceneExtras.js"
       ],
-      "file_count": 10,
+      "file_count": 11,
       "edges": [
         {
           "to": "boot-and-orchestration",
@@ -863,6 +864,12 @@
   "workstreams": {
     "queue": [
       {
+        "id": "NIGHT-SHIFT-BLOCKOUT-1",
+        "what": "Night Shift rooftop blockout",
+        "status": "🔧 Local code and gates pass. Four corner voids, two high roofs, ramps, inert AC markers, and countdown framing. Non-quickplay; human blockout review pending.",
+        "state": "waiting"
+      },
+      {
         "id": "BUNDLE-1",
         "what": "Menu/game code-split",
         "status": "⚠️ CLOSED PARTIAL 08-05 — perf goal NOT met. Deployed `f2f90fd2`. Warm `menu-ready` −3% vs a −15% gate. Banked: a `size:check` byte gate, `main.js` 2,582 → 1,262 lines, −22.6% off the initial set (cold visits only). Lever E playtested: BUNDLE-E-PT-1 PASS 6/6. [bundle-1.md §0](./planning/bundle-1.md)",
@@ -885,6 +892,7 @@
       }
     ],
     "next_actions": [
+      "NIGHT-SHIFT-BLOCKOUT-1: in Solo Dev, load `?level=rooftop`; check the four spawn arms, two ramps and high roofs, and four corner gaps.",
       "Playtest owed: SHARD-PT-2 (skip, needs five humans)."
     ],
     "open_issues": [
@@ -1090,7 +1098,7 @@
       {
         "title": "Design / Gameplay",
         "counts": {
-          "Medium": 2,
+          "Medium": 3,
           "Low": 5
         },
         "rows": [
@@ -1104,6 +1112,12 @@
             "pri": "Medium",
             "item": "CLUTCH-SLOMO-1 — Clutch slow-mo (Pass 5 deferral)",
             "notes": "Taste-gated.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "NIGHT-SHIFT-BLOCKOUT-1 — Night Shift rooftop blockout",
+            "notes": "Approved 08-11. Build a non-quickplay rooftop cross with four AI-visible corner voids, two high roofs, matching Rapier colliders, spawn-safe cardinal arms, and countdown framing. No AC launch force, final art, menu card, progression, music, ambience, or quickplay until separate cards.",
             "ship1": null
           },
           {

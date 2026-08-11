@@ -61,6 +61,10 @@ export function resolveCinematicCountdownOverrides() {
     const circumR = CONFIG.record.radius / Math.cos(Math.PI / 8);
     return { radius: circumR + 4, height: 16 };
   }
+  if (getCurrentLevelId() === "rooftop") {
+    // * NIGHT-SHIFT-BLOCKOUT-1: frame the outer cross and both high roofs before final art.
+    return { radius: 48, height: 19 };
+  }
   return undefined;
 }
 

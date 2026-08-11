@@ -66,12 +66,14 @@ Live rows only. Shipped and closed cards live in
 
 | # | What | Status |
 |---|------|--------|
+| NIGHT-SHIFT-BLOCKOUT-1 | Night Shift rooftop blockout | 🔧 Local code and gates pass. Four corner voids, two high roofs, ramps, inert AC markers, and countdown framing. Non-quickplay; human blockout review pending. |
 | BUNDLE-1 | Menu/game code-split | ⚠️ **CLOSED PARTIAL 08-05 — perf goal NOT met. Deployed `f2f90fd2`.** Warm `menu-ready` −3% vs a −15% gate. Banked: a `size:check` byte gate, `main.js` 2,582 → 1,262 lines, −22.6% off the initial set (**cold** visits only). Lever E playtested: BUNDLE-E-PT-1 PASS 6/6. [bundle-1.md §0](./planning/bundle-1.md) |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 
 ### Next actions
 
-1. **Playtest owed:** SHARD-PT-2 (skip, needs five humans).
+1. **NIGHT-SHIFT-BLOCKOUT-1:** in Solo Dev, load `?level=rooftop`; check the four spawn arms, two ramps and high roofs, and four corner gaps.
+2. **Playtest owed:** SHARD-PT-2 (skip, needs five humans).
 
 ## Open issues (top)
 
@@ -120,6 +122,11 @@ the dev loop (dev probes lie in prod · edge propagation · frozen `rAF`), or a 
 - **Before any public / external-tester playtest: reset the analytics DO** so aggregates are not polluted by dev/harness traffic. Token-gated (SEC-TOKEN-1): `DELETE` with `Authorization: Bearer <ERROR_LOG_TOKEN>` on `/api/analytics` (never `?token=`).
 
 ## Last updated
+
+2026-08-11 (NIGHT-SHIFT-BLOCKOUT-1) — Non-quickplay rooftop blockout built: four corner
+voids with AI avoidance, north/south high roofs and ramps, inert AC markers, and countdown
+framing. Build and QA passed. The local visual capture cannot start Chromium (`spawn EPERM`),
+so human visual review is still owed.
 
 2026-08-11 (NPC-BOOST-2-PT-1 PASS · NPC cluster closed) — NPC-BOOST-2-PT-1 all four
 steps PASS. NPC-BOOST-1, NPC-BOOST-2, AI-EASY-SOFTEN-1 all closed. Proportional
