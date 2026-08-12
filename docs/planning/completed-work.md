@@ -13,6 +13,12 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 12, 2026 — CONN-TRACK-LEAK-1: release platform-dead IP tracking before the connection cap
+
+- *(Engineering · correctness)* **CONN-TRACK-LEAK-1** — ✅ **CLOSED 08-12.** The zombie-prune path in `party/index.ts` deleted a conn from `#connections` without releasing its IP-cap count, and the ghost-exorcism path never dropped `#rateLimitWindows`. Five leaked counts on one IP then rejected the only connection that could trigger cleanup — a permanent lockout. Fix: `#forgetConnectionTracking()` consolidates the five teardown paths (onClose, silent reap, stale picker, ghost exorcism, pre-cap prune); `#prunePlatformDeadTracking()` runs before the cap decision and releases tracking for any conn the platform no longer lists (iterating `#connToIp`, not `#connections`). Test seam `setPlatformLiveIdsOverride` fakes a platform-dead socket; the deterministic test proves 5 stale counts → first live join accepted → 6th live join still 4029, and it fails without the fix. Deployed `5ae6f69b`; zero-404 clean; live cap probe PASS. Commit `9439cd2`. Nine deferred findings filed to BACKLOG (CONN-DEADCODE-1 … PARTY-ENVTYPE-1). Playtest owed: CONN-TRACK-LEAK-PT-1 (host-leave migration), CONN-TRACK-LEAK-PT-2 (ghost exorcism).
+
+---
+
 ### August 12, 2026 — STORE-1: collapse gameState / gameStore
 
 - *(Tech Debt · Medium)* **STORE-1** — ✅ **CLOSED 08-12.** Deleted `src/gameState.js`. Named command functions (`addScore`, `syncRoundPhase`, `pickTimerWinner`, …) live on `src/stores/gameStore.js`. Unused store methods `startRunning` / `startCountdown` / `endRound` removed (zero callers; live path stays `roundLifecycle.startRunningAt`). One module, one import path. Call bodies unchanged. Lock: `tests/storeImportLock.test.js`. Commits: `54f15a9` (Lever A) + Lever B this commit.

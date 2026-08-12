@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-12T18:39:50.291Z",
-    "commit": "0787fc2"
+    "at": "2026-08-12T18:55:48.407Z",
+    "commit": "9439cd2"
   },
-  "source_digest": "660be89e",
+  "source_digest": "b03a1185",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -886,11 +886,17 @@
         "what": "Per-bay InstancedMesh for cargo bays",
         "status": "✅ CLOSED 08-12 (`9e86382`). 30 Mesh → per-model InstancedMesh. Draw calls ≤120 → ~24. Single-lever wave. Playtest owed: solo fill, multiplayer parity, spill/rebuild, screenshot.",
         "state": "done"
+      },
+      {
+        "id": "CONN-TRACK-LEAK-1",
+        "what": "Release platform-dead IP tracking before the cap",
+        "status": "✅ CLOSED 08-12 (`9439cd2`, deployed `5ae6f69b`). `#prunePlatformDeadTracking()` releases leaked IP counts before the cap decision; five teardown paths consolidated via `#forgetConnectionTracking()`. Playtest owed: CONN-TRACK-LEAK-PT-1 (host-leave migration), CONN-TRACK-LEAK-PT-2 (ghost exorcism).",
+        "state": "done"
       }
     ],
     "next_actions": [
       "No active engineering card — wait for Wyatt.",
-      "Playtest owed: STORE-1-PT-1 on `npm run dev:local` (console row). SHARD-PT-2 (skip, needs five humans). CARGO-BAY-INSTANCE-1 — solo fill, multiplayer parity, spill/rebuild, before/after screenshot."
+      "Playtest owed: STORE-1-PT-1 on `npm run dev:local` (console row). SHARD-PT-2 (skip, needs five humans). CARGO-BAY-INSTANCE-1 — solo fill, multiplayer parity, spill/rebuild, before/after screenshot. CONN-TRACK-LEAK-PT-1 (Friends host-leave migration) + CONN-TRACK-LEAK-PT-2 (same-clientId reconnect) — prod `5ae6f69b`."
     ],
     "open_issues": [
       {
@@ -1150,7 +1156,7 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Medium": 3,
+          "Medium": 5,
           "Low": 3
         },
         "rows": [
@@ -1188,6 +1194,18 @@
             "pri": "Low",
             "item": "AQ-RING-CLEAR-1 — autoQuality clear sample ring on every window eval",
             "notes": "**Reserve only** if Wave 2 entry grace still demotes on retest. Comment in autoQuality.js already notes the ring can poison up to 3 windows. Own commit if needed; not in main batch path.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "CONN-TRACK-LEAK-PT-1 — Friends host-leave migration still works `[2pc]`",
+            "notes": "**Owed: Wyatt playtest — CONN-TRACK-LEAK-PT-1 — the host closing their tab hands the room to the survivor.** CONN-TRACK-LEAK-1 (`9439cd2`, deployed `5ae6f69b`) refactored the server's onClose teardown; this checks that path live on prod.<br>1. Two browsers, same Friends code, both seat.<br>2. Close the host's tab (do not use a LEAVE button).<br>3. FAIL if the survivor is stuck with no host or the round can never start. PASS if the survivor becomes host and can start the round.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "CONN-TRACK-LEAK-PT-2 — same-clientId reconnect keeps one seat `[1pc]`",
+            "notes": "**Owed: Wyatt playtest — CONN-TRACK-LEAK-PT-2 — a hard refresh reclaims your seat instead of leaving a ghost.** CONN-TRACK-LEAK-1 (`9439cd2`, deployed `5ae6f69b`) refactored the server's ghost-exorcism teardown; this checks it live on prod.<br>1. Join a Friends room, seat, note your name and color.<br>2. Hard-refresh the tab.<br>3. FAIL if you land as a second human (old ghost seat still yours) or the room is hostless. PASS if you reclaim your seat and the lobby shows one human.",
             "ship1": null
           }
         ]
