@@ -34,6 +34,19 @@ export async function openPartyClient(room, opts = {}) {
   if (!socket) {
     throw new Error(`Expected WebSocket upgrade, got status ${response.status}`);
   }
+
+  // * Close tracking — register BEFORE accept() so an immediate server-side close
+  // * (e.g. 4029 cap rejection) cannot arrive before the listener.
+  let closeCode = null;
+  /** @type {Array<() => void>} */
+  let closeResolvers = [];
+  socket.addEventListener("close", (event) => {
+    closeCode = typeof event.code === "number" ? event.code : null;
+    const rs = closeResolvers;
+    closeResolvers = [];
+    for (const r of rs) r();
+  });
+
   socket.accept();
 
   /** @type {PartyMsg[]} */
@@ -91,6 +104,28 @@ export async function openPartyClient(room, opts = {}) {
   }
 
   /**
+   * Resolves with the socket close code (number) once closed, or null when the
+   * close event carried no numeric code. Bounded timeout; rejects if never closed.
+   * @param {number} [timeoutMs]
+   * @returns {Promise<number | null>}
+   */
+  function awaitClose(timeoutMs = 3000) {
+    if (closeCode !== null) return Promise.resolve(closeCode);
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        const idx = closeResolvers.indexOf(onClose);
+        if (idx >= 0) closeResolvers.splice(idx, 1);
+        reject(new Error(`awaitClose timed out after ${timeoutMs}ms`));
+      }, timeoutMs);
+      function onClose() {
+        clearTimeout(timer);
+        resolve(closeCode);
+      }
+      closeResolvers.push(onClose);
+    });
+  }
+
+  /**
    * @param {Record<string, unknown>} payload
    */
   function sendJson(payload) {
@@ -110,6 +145,7 @@ export async function openPartyClient(room, opts = {}) {
     messages,
     awaitMessage,
     awaitType,
+    awaitClose,
     sendJson,
     close,
     ip,

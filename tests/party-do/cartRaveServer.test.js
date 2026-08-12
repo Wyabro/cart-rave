@@ -9,6 +9,7 @@ import {
   REAP_TIMEOUT_MS,
   getReapThrottleMs,
   getReapTimeoutMs,
+  setPlatformLiveIdsOverride,
   setPlayReadyTimeoutOverride,
   setReapOverrides,
 } from "../../party/constants.ts";
@@ -31,6 +32,12 @@ function sleep(ms) {
 }
 
 describe("CartRaveServer DO harness", () => {
+  // * CONN-TRACK-LEAK-1: the platform-live override is module-global. Clear it
+  // * after every test (even a failed one) so it can never poison later tests.
+  afterEach(() => {
+    setPlatformLiveIdsOverride(null);
+  });
+
   it("sends hello with youConnId as host on first connect", async () => {
     const room = uniqueRoom("hello");
     const client = await openPartyClient(room, { ip: "10.0.0.1" });
@@ -41,6 +48,44 @@ describe("CartRaveServer DO harness", () => {
     expect(hello.v).toBe(2);
 
     client.close();
+  });
+
+  it("releases platform-dead IP tracking before the connection cap", async () => {
+    const room = uniqueRoom("conn-track-leak");
+    const ip = "10.9.9.9";
+
+    // Five connections from one IP fill the cap; the platform then drops all of
+    // them without onClose firing (simulated via the override).
+    const stale = [];
+    for (let i = 0; i < 5; i += 1) {
+      const c = await openPartyClient(room, { ip });
+      await c.awaitType(MSG.hello);
+      stale.push(c);
+    }
+
+    setPlatformLiveIdsOverride(new Set());
+
+    // Five genuinely-live joins: the first triggers the pre-cap prune, which
+    // releases the five stale counts before the cap decision. Without the fix,
+    // the first live join is rejected 4029 and this hello never arrives.
+    const live = [];
+    const liveIds = new Set();
+    for (let n = 0; n < 5; n += 1) {
+      const c = await openPartyClient(room, { ip });
+      const hello = await c.awaitType(MSG.hello);
+      liveIds.add(hello.youConnId);
+      setPlatformLiveIdsOverride(new Set(liveIds));
+      live.push(c);
+    }
+
+    // Sixth live attempt hits the cap (4029).
+    const over = await openPartyClient(room, { ip });
+    expect(await over.awaitClose()).toBe(4029);
+
+    setPlatformLiveIdsOverride(null);
+    for (const c of stale) c.close();
+    for (const c of live) c.close();
+    over.close();
   });
 
   it("seats a human via join + color_pick and echoes keepalive", async () => {

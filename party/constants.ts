@@ -92,3 +92,19 @@ export function setPlayReadyTimeoutOverride(ms: number | null): void {
 export function getPlayReadyTimeoutMs(): number {
   return playReadyTimeoutOverrideMs ?? PLAY_READY_TIMEOUT_MS;
 }
+
+// ── Test-only platform-live override (CONN-TRACK-LEAK-1) ────────────────
+// Production never calls setPlatformLiveIdsOverride. Pass null to clear.
+// Lets party-do tests fake a socket the platform dropped without onClose firing
+// (the zombie-prune path) by overriding what #platformLiveConnIds sees as live.
+let platformLiveIdsOverride: Set<string> | null = null;
+
+/** Test-only. Force the platform-live connection-id set. Pass null to clear. */
+export function setPlatformLiveIdsOverride(ids: Set<string> | null): void {
+  platformLiveIdsOverride = ids;
+}
+
+/** Current override, or null when production getConnections() applies. */
+export function getPlatformLiveIdsOverride(): Set<string> | null {
+  return platformLiveIdsOverride;
+}

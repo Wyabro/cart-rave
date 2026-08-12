@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-12T18:17:37.257Z",
-    "commit": "04eba81"
+    "at": "2026-08-12T18:39:50.291Z",
+    "commit": "0787fc2"
   },
-  "source_digest": "724fb6e3",
+  "source_digest": "660be89e",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -910,7 +910,7 @@
       {
         "title": "Engineering",
         "counts": {
-          "Low": 5,
+          "Low": 14,
           "Partial": 1,
           "Medium": 4
         },
@@ -973,6 +973,60 @@
             "pri": "Low",
             "item": "QP-ROTATE-PT-1 — Quickplay rotation live 2-browser check",
             "notes": "Reconfirm after **QP-ORDER-1** (sequential rotation). Live multi-client smoke only.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "CONN-DEADCODE-1 — dead code in `party/index.ts`",
+            "notes": "Remove unused `#clamp`, the `void reaped/reconciled` no-ops, and unused teardown return values. Grep tests for return-value assertions first. Filed from the 08-12 prod-surface audit.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "CONN-SNAPSHOT-PURE-1 — `#snapshot()` has a side effect",
+            "notes": "It calls `#ensureLiveHost()`, which can broadcast and reset the round. Redundant at its single call site (`onConnect` repairs host just before). Remove the internal call; add a pre-snapshot-repair comment at the call site.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "CONN-SPAWN-SANITIZE-1 — `hostSpawn` carts stored unvalidated",
+            "notes": "Server keeps host-supplied `carts` verbatim and echoes it into late-join hellos. Sanitize permissively (require `p` only, length ≤ 4). Bounded by WS_SIGNALING_MAX today.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "SNAP-SPARSE-1 — sparse cart slots emit a phantom cart at origin",
+            "notes": "`hostSendTick` leaves holes in the carts array; the encoder turns a hole into a zeroed cart. Add a session-scoped warning guard; a protocol-level present-bitmask is the real fix.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "BINARY-F32NAME-1 — misnamed `encodeF32`",
+            "notes": "It returns values unchanged and is also used for the Float64 `tHost`. Rename to `toFiniteNumber`.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "ROUND-CLOCKDOMAIN-1 — podium MAX mixes clock domains",
+            "notes": "`now - runningAnchor - paused` mixes server-domain and host-domain terms. Rename/split `pausedWallMs` so the domains are explicit.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "CONSOLE-HI-1 — `%cHI :D` console line in prod",
+            "notes": "Decide keep vs gate behind DEV in `src/main.js`.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "CONN-SOURCETRUTH-1 — two connection sources of truth",
+            "notes": "`#connections` vs `getConnections()` reconciled by hand in several paths. Consolidate.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "PARTY-ENVTYPE-1 — untyped `Env` bindings",
+            "notes": "`env: Record<string, any>` in Worker/DO. A typo in a binding name is a runtime 500. Add a typed interface.",
             "ship1": null
           }
         ]

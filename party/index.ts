@@ -40,6 +40,7 @@ import { requireAdminToken } from './adminAuth';
 import { UNKNOWN_IP } from './beaconLimit';
 import {
   IP_CONNECTION_CAP,
+  getPlatformLiveIdsOverride,
   getPlayReadyTimeoutMs,
   getReapThrottleMs,
   getReapTimeoutMs,
@@ -185,6 +186,62 @@ export class CartRaveServer extends Server {
       this.#ipConnectionCounts.set(ip, count - 1);
     }
     this.#connToIp.delete(connId);
+  }
+
+  /**
+   * Forgets every per-connection tracking map that is NOT branch-sensitive.
+   * Idempotent — every sub-call is a no-op on a missing id, so a second call is safe.
+   *
+   * Owned here: IP tracking (#releaseIp → #connToIp / #ipConnectionCounts),
+   * #connections, #joinOrder, #lastSeenAtMs, #connClientId, #hostScores,
+   * #awayHostIds, #rateLimitWindows.
+   *
+   * NOT owned here (branch-sensitive, each caller handles its own branch):
+   * - #pendingPickers / #pendingPickerAtMs / #pendingNames — onClose uses pending
+   *   membership to choose slot conversion; the reaper branch and
+   *   #reapStalePendingPickers own these.
+   * - #readyConnIds — owned by onClose only (COUNTDOWN-ABORT-1 B preservation rules).
+   */
+  #forgetConnectionTracking(connId: string) {
+    this.#releaseIp(connId);
+    this.#connections.delete(connId);
+    this.#removeFromJoinOrder(connId);
+    this.#lastSeenAtMs.delete(connId);
+    this.#connClientId.delete(connId);
+    this.#hostScores.delete(connId);
+    this.#awayHostIds.delete(connId);
+    this.#rateLimitWindows.delete(connId);
+  }
+
+  /**
+   * The set of connection ids the platform currently lists as live.
+   * Single funnel for pre-cap pruning — the test seam (getPlatformLiveIdsOverride)
+   * can fake a socket the platform dropped without onClose firing. Several other
+   * deliberate getConnections() call sites remain (reconcile, ready checks).
+   */
+  #platformLiveConnIds(): Set<string> {
+    const override = getPlatformLiveIdsOverride();
+    if (override) return new Set(override);
+    const ids = new Set<string>();
+    for (const c of this.getConnections()) ids.add(c.id);
+    return ids;
+  }
+
+  /**
+   * CONN-TRACK-LEAK-1: release IP + tracking maps for any conn the platform no
+   * longer lists, so leaked counts cannot deadlock the cap on the next join.
+   * Iterates #connToIp (the IP-cap surface), not #connections — the leak lives
+   * in the IP map. Does NOT convert slots, touch pending maps, or repair the
+   * host; those effects stay in the later #reconcileOrphanSlots /
+   * #reapStalePendingPickers / #ensureLiveHost, unchanged.
+   */
+  #prunePlatformDeadTracking() {
+    if (this.#connToIp.size === 0) return;
+    const liveIds = this.#platformLiveConnIds();
+    for (const connId of [...this.#connToIp.keys()]) {
+      if (liveIds.has(connId)) continue;
+      this.#forgetConnectionTracking(connId);
+    }
   }
 
   #serverNowMs() {
@@ -606,14 +663,7 @@ export class CartRaveServer extends Server {
       this.#pendingNames.delete(id);
       this.#pendingPickerAtMs.delete(id);
       const conn = this.#connections.get(id);
-      this.#connections.delete(id);
-      this.#removeFromJoinOrder(id);
-      this.#lastSeenAtMs.delete(id);
-      this.#connClientId.delete(id);
-      this.#hostScores.delete(id);
-      this.#awayHostIds.delete(id);
-      this.#rateLimitWindows.delete(id);
-      this.#releaseIp(id);
+      this.#forgetConnectionTracking(id);
       try {
         conn?.close(4011, "Picker timeout");
       } catch {
@@ -934,13 +984,7 @@ export class CartRaveServer extends Server {
       if (conn) {
         try { conn.close(); } catch {}
       }
-      this.#connections.delete(id);
-      this.#removeFromJoinOrder(id);
-      this.#lastSeenAtMs.delete(id);
-      this.#connClientId.delete(id);
-      this.#hostScores.delete(id);
-      this.#awayHostIds.delete(id);
-      this.#rateLimitWindows.delete(id);
+      this.#forgetConnectionTracking(id);
       if (this.#pendingPickers.has(id)) {
         this.#pendingPickers.delete(id);
         this.#pendingPickerAtMs.delete(id);
@@ -948,9 +992,6 @@ export class CartRaveServer extends Server {
       } else {
         this.#convertHumanSlotToNpc(id);
       }
-      
-      // Cleanup IP tracking on reap
-      this.#releaseIp(id);
     }
 
     // * Cancel any armed countdown if the departed human(s) broke the all-ready
@@ -971,6 +1012,11 @@ export class CartRaveServer extends Server {
   }
 
   onConnect(conn: Connection, ctx: ConnectionContext) {
+    // * CONN-TRACK-LEAK-1: release platform-dead tracking BEFORE the cap decision.
+    // * A leaked IP count (zombie prune never released it) would otherwise reject
+    // * the only connection that could trigger cleanup — a permanent lockout.
+    this.#prunePlatformDeadTracking();
+
     // Security: Enforce connection rate limit per IP
     const ip = ctx.request.headers.get("cf-connecting-ip") || "unknown";
     const currentConnections = this.#ipConnectionCounts.get(ip) ?? 0;
@@ -1020,14 +1066,7 @@ export class CartRaveServer extends Server {
     void reaped;
     void reconciled;
 
-    // Prune zombies from #connections to match platform reality.
-    for (const staleId of [...this.#connections.keys()]) {
-      if (![...this.getConnections()].some((c) => c.id === staleId) && staleId !== conn.id) {
-        this.#connections.delete(staleId);
-      }
-    }
-
-    // * After pruning, the prior host may have been a zombie we just removed.
+    // * Platform-dead conns were already pruned pre-cap (#prunePlatformDeadTracking).
     // * Repair #hostId before we advertise it via hello. The newly joined conn
     // * is already in #connections and #joinOrder, so #pickNextHostId() will
     // * return it as a last resort if no older connection survives.
@@ -1072,16 +1111,7 @@ export class CartRaveServer extends Server {
   }
 
   onClose(conn: Connection) {
-    // Security: Cleanup IP tracking
-    this.#releaseIp(conn.id);
-
-    this.#connections.delete(conn.id);
-    this.#removeFromJoinOrder(conn.id);
-    this.#lastSeenAtMs.delete(conn.id);
-    this.#connClientId.delete(conn.id);
-    this.#hostScores.delete(conn.id);
-    this.#awayHostIds.delete(conn.id);
-    this.#rateLimitWindows.delete(conn.id);
+    this.#forgetConnectionTracking(conn.id);
     if (this.#pendingPickers.has(conn.id)) {
       this.#pendingPickers.delete(conn.id);
       this.#pendingPickerAtMs.delete(conn.id);
@@ -1210,15 +1240,7 @@ export class CartRaveServer extends Server {
               this.#convertHumanSlotToNpc(ghostConnId);
               ghostHumanExorcised = true;
             }
-            this.#connections.delete(ghostConnId);
-            this.#removeFromJoinOrder(ghostConnId);
-            this.#lastSeenAtMs.delete(ghostConnId);
-            this.#connClientId.delete(ghostConnId);
-            this.#hostScores.delete(ghostConnId);
-            this.#awayHostIds.delete(ghostConnId);
-
-            // Cleanup IP tracking on ghost exorcism
-            this.#releaseIp(ghostConnId);
+            this.#forgetConnectionTracking(ghostConnId);
 
             try {
               ghostConn?.close(4010, "Replaced by new session");
