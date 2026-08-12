@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-12T19:11:32.378Z",
-    "commit": "6423f5c"
+    "at": "2026-08-12T20:32:58.458Z",
+    "commit": "7c725a9"
   },
-  "source_digest": "1a4ab068",
+  "source_digest": "3229b110",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -892,11 +892,17 @@
         "what": "Release platform-dead IP tracking before the cap",
         "status": "✅ CLOSED 08-12 (`9439cd2`, deployed `5ae6f69b`). `#prunePlatformDeadTracking()` releases leaked IP counts before the cap decision; five teardown paths consolidated via `#forgetConnectionTracking()`. Playtest owed: CONN-TRACK-LEAK-PT-1 (host-leave migration), CONN-TRACK-LEAK-PT-2 (ghost exorcism).",
         "state": "done"
+      },
+      {
+        "id": "PA-QUIET-1",
+        "what": "Quiet the Store PA",
+        "status": "✅ CLOSED 08-12 (code). Director skips flavor when the same fall already fired a streak line. Busy channel queues high only. `last_call` is critical / no focus. Playtest owed: PA-QUIET-PT-1.",
+        "state": "done"
       }
     ],
     "next_actions": [
       "No active engineering card — wait for Wyatt.",
-      "Playtest owed (console rows): STORE-1-PT-1 on `npm run dev:local`. SHARD-PT-2 (skip, needs five humans). CARGO-BAY-INSTANCE-PT-1 · PT-2 · PT-3. CONN-TRACK-LEAK-PT-1 + CONN-TRACK-LEAK-PT-2 — prod `5ae6f69b`."
+      "Playtest owed (console rows): PA-QUIET-PT-1 on `npm run dev:local`. STORE-1-PT-1 on `npm run dev:local`. SHARD-PT-2 (skip, needs five humans). CARGO-BAY-INSTANCE-PT-1 · PT-2 · PT-3. CONN-TRACK-LEAK-PT-1 + CONN-TRACK-LEAK-PT-2 — prod `5ae6f69b`."
     ],
     "open_issues": [
       {
@@ -1156,7 +1162,7 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Medium": 8,
+          "Medium": 9,
           "Low": 3
         },
         "rows": [
@@ -1206,6 +1212,12 @@
             "pri": "Medium",
             "item": "CONN-TRACK-LEAK-PT-2 — same-clientId reconnect keeps one seat `[1pc]`",
             "notes": "**Owed: Wyatt playtest — CONN-TRACK-LEAK-PT-2 — a hard refresh reclaims your seat instead of leaving a ghost.** CONN-TRACK-LEAK-1 (`9439cd2`, deployed `5ae6f69b`) refactored the server's ghost-exorcism teardown; this checks it live on prod.<br>1. Join a Friends room, seat, note your name and color.<br>2. Hard-refresh the tab.<br>3. FAIL if you land as a second human (old ghost seat still yours) or the room is hostless. PASS if you reclaim your seat and the lobby shows one human.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "PA-QUIET-PT-1 — one line per KO, 10 SECONDS cuts through `[solo]`",
+            "notes": "**Owed: Wyatt playtest — PA-QUIET-1 — one line per KO, 10 SECONDS cuts through.** Not on prod until ship. Run `npm run dev:local`.<br>1. Cause a multi-KO pileup. Confirm one line, no chain.<br>2. Cause a critical-hit first KO. Confirm FIRST BLOOD. Confirm CRITICAL HIT does not play.<br>3. Mid-round, KO the leader with no combo. Confirm LEADER DOWN plays.<br>4. At 10 s, start a line then wait for the clock. Confirm 10 SECONDS cuts in.<br>5. Confirm countdown / GO still cut through.",
             "ship1": null
           },
           {

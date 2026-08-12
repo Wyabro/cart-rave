@@ -103,7 +103,7 @@ function isRoundRunning() {
  * Handles the double_spill / aisle_wipeout rolling-window fall chain. Any fall (attributed
  * or not) counts toward the chain.
  * @param {number} nowMs
- * @returns {void}
+ * @returns {boolean} True when this fall announced a pileup line.
  */
 function trackFallBurst(nowMs) {
   if (nowMs - _fallBurstLastMs <= FALL_BURST_WINDOW_MS) {
@@ -115,42 +115,51 @@ function trackFallBurst(nowMs) {
 
   if (_fallBurstCount === 2) {
     _deps.announce("double_spill");
-  } else if (_fallBurstCount === 3) {
-    _deps.announce("aisle_wipeout");
+    return true;
   }
+  if (_fallBurstCount === 3) {
+    _deps.announce("aisle_wipeout");
+    return true;
+  }
+  return false;
 }
 
 /**
  * Handles rampage/savage/carnage tier-up announcements for an attributed kill.
  * @param {number} attackerSlotIndex
  * @param {number} comboTier
- * @returns {void}
+ * @returns {boolean} True when this fall announced a combo line.
  */
 function trackComboTierUp(attackerSlotIndex, comboTier) {
-  if (comboTier <= 0) return;
+  if (comboTier <= 0) return false;
   const lastAnnounced = _comboLastAnnouncedTier[attackerSlotIndex] ?? 0;
-  if (comboTier <= lastAnnounced) return;
+  if (comboTier <= lastAnnounced) return false;
   _comboLastAnnouncedTier[attackerSlotIndex] = comboTier;
   const eventId = TIER_EVENT_IDS[comboTier];
   if (eventId) {
     _deps.announce(eventId, { attacker: nameForSlot(attackerSlotIndex) });
+    return true;
   }
+  return false;
 }
 
 /**
  * Handles refund (revenge) detection/bookkeeping for an attributed kill.
  * @param {number} attackerSlotIndex
  * @param {number} victimSlotIndex
- * @returns {void}
+ * @returns {boolean} True when this fall announced a refund line.
  */
 function trackRefund(attackerSlotIndex, victimSlotIndex) {
+  let announced = false;
   if (_lastKillerOf.get(attackerSlotIndex) === victimSlotIndex) {
     _deps.announce("refund", { attacker: nameForSlot(attackerSlotIndex) });
     _lastKillerOf.delete(attackerSlotIndex);
+    announced = true;
   }
   // * Recorded AFTER the revenge check so this kill becomes the new lookup entry for
   // * the victim's own eventual payback.
   _lastKillerOf.set(victimSlotIndex, attackerSlotIndex);
+  return announced;
 }
 
 /**
@@ -170,24 +179,28 @@ export function announcerDirectorOnFall(fall) {
     _closeCallTimer = null;
   }
 
-  trackFallBurst(performance.now());
+  const pileupThisFall = trackFallBurst(performance.now());
 
   if (attackerSlotIndex != null) {
+    let streakThisFall = pileupThisFall;
     if (!_firstSpillFired) {
       _firstSpillFired = true;
       _deps.announce("first_spill", { attacker: nameForSlot(attackerSlotIndex) });
+      streakThisFall = true;
     }
-    trackComboTierUp(attackerSlotIndex, comboTier ?? 0);
-    trackRefund(attackerSlotIndex, victimSlotIndex);
-    // * Bonus-flavored callouts — the manager's priority queue + kill-burst merge
-    // * arbitrate against the streak/revenge events fired above.
-    if (fall.victimWasLeader) {
-      _deps.announce("leader_down", {
-        attacker: nameForSlot(attackerSlotIndex),
-        victim: nameForSlot(victimSlotIndex),
-      });
-    } else if (fall.wasCritical) {
-      _deps.announce("critical_ko", { attacker: nameForSlot(attackerSlotIndex) });
+    if (trackComboTierUp(attackerSlotIndex, comboTier ?? 0)) streakThisFall = true;
+    if (trackRefund(attackerSlotIndex, victimSlotIndex)) streakThisFall = true;
+    // * Same-fall flavor skip (PA-QUIET-1): one KO = one spoken line. Isolated
+    // * leader_down / critical_ko still fire when this fall has no streak line.
+    if (!streakThisFall) {
+      if (fall.victimWasLeader) {
+        _deps.announce("leader_down", {
+          attacker: nameForSlot(attackerSlotIndex),
+          victim: nameForSlot(victimSlotIndex),
+        });
+      } else if (fall.wasCritical) {
+        _deps.announce("critical_ko", { attacker: nameForSlot(attackerSlotIndex) });
+      }
     }
   } else {
     _deps.announce("cleanup_aisle", {
