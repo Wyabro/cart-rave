@@ -35,13 +35,12 @@
  * @type {Readonly<Record<string, DirectiveDef>>}
  */
 export const DIRECTIVES = Object.freeze({
-  // * Blurbs are store voice first. They currently overflow the HUD chip below the
-  // * widest viewports (see .hud-directive-blurb) — shorten them here if that bothers
-  // * you, rather than shrinking the type, but the voice is the point.
+  // * Blurbs are store voice first — one short phrase, kept under the chip width
+  // * so they never overflow (see .hud-directive-blurb). The voice is the point.
   flash_sale: Object.freeze({
     id: "flash_sale",
     title: "FLASH SALE",
-    blurb: "EVERYTHING MUST GO · RAMS HIT HARDER",
+    blurb: "EVERYTHING MUST GO",
     announceEvent: "directive_flash_sale",
     weight: 1,
     overrides: Object.freeze([
@@ -51,7 +50,7 @@ export const DIRECTIVES = Object.freeze({
   double_bag: Object.freeze({
     id: "double_bag",
     title: "DOUBLE BAG",
-    blurb: "TWO FOR ONE · EVERY BODY COUNTS TWICE",
+    blurb: "TWO FOR ONE",
     announceEvent: "directive_double_bag",
     weight: 1,
     koRewardMul: 2,
@@ -59,7 +58,7 @@ export const DIRECTIVES = Object.freeze({
   express_lane: Object.freeze({
     id: "express_lane",
     title: "EXPRESS LANE",
-    blurb: "10 ITEMS OR LESS · NO EXCEPTIONS",
+    blurb: "10 ITEMS OR LESS",
     announceEvent: "directive_express_lane",
     weight: 1,
     overrides: Object.freeze([
@@ -71,7 +70,7 @@ export const DIRECTIVES = Object.freeze({
   spill_bonus: Object.freeze({
     id: "spill_bonus",
     title: "SPILL BONUS",
-    blurb: "CLEAN UP ON EVERY AISLE · SPILLS PAY",
+    blurb: "CLEAN UP ON EVERY AISLE",
     announceEvent: "directive_spill_bonus",
     weight: 1,
     spillBonusPoints: 1,
@@ -82,7 +81,7 @@ export const DIRECTIVES = Object.freeze({
   rush_hour: Object.freeze({
     id: "rush_hour",
     title: "RUSH HOUR",
-    blurb: "PEAK TRADING HOURS · EVERYONE MOVES",
+    blurb: "PEAK TRADING HOURS",
     announceEvent: "directive_rush_hour",
     weight: 1,
     overrides: Object.freeze([
