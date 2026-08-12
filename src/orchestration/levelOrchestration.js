@@ -1,6 +1,7 @@
 // levelOrchestration.js — LevelManagerDeps impls + level-load helpers (MAIN-1 Lever C)
 // Mechanical extract from main(); call order preserved. setContactShadowHazards stays inside applyLoadedLevelSideEffects.
 
+import * as THREE from "three";
 import {
   applyComposerQualityTier,
   setupSceneEnvironment,
@@ -432,64 +433,79 @@ export function createLevelOrchestration(deps) {
           ? ".play-warm"
           : ".play-full"
       : ".menu";
+    // * PROBE-WARM-RT-1: bind a scratch 1×1 RT during anchor install + compileAsync so
+    // * three.js builds program cache keys with ColorManagement.workingColorSpace
+    // * instead of renderer.outputColorSpace (the null-RT path).  The composer's internal
+    // * RTs also use workingColorSpace, so the first KO mid-round is a cache hit instead
+    // * of a synchronous shader link.  Any non-null non-XR RT triggers the right path.
+    const prevTarget = renderer.getRenderTarget();
+    const scratchRT = new THREE.WebGLRenderTarget(1, 1);
+    /** @type {Promise<unknown>[]} */
+    let audioWarmPromises = [];
+    // * Menu path: still compileAsync so the first attract frame after a swap does not
+    // * hitch. compileAsync uses KHR_parallel_shader_compile when available.
+    // * Optional maxWaitMs / warm cap the readiness poll (scene.js patchSafeCompileAsync).
+    // * FV-LOAD-1b: juiceFresh forces full default budget (4000ms) even on warm play-entry.
+    // * Hoisted outside the inner RT-binding try (used by flyover warmup too).
+    const maxWaitMs =
+      typeof opts.maxWaitMs === "number"
+        ? opts.maxWaitMs
+        : useWarmBudget
+          ? COMPILE_ASYNC_WARM_PLAY_MAX_WAIT_MS
+          : undefined;
+    // * 4th-arg opts is our patchSafeCompileAsync extension (not in three's types).
+    const compileSceneAsync = () =>
+      maxWaitMs != null
+        ? /** @type {(s: typeof scene, c: typeof camera, t?: unknown, o?: { maxWaitMs?: number }) => Promise<typeof scene>} */ (
+            renderer.compileAsync
+          )(scene, camera, null, { maxWaitMs })
+        : renderer.compileAsync(scene, camera);
     try {
-      if (forPlay || !vfxProgramAnchorsInstalled) {
-        // * PERF-WARM: attribute the ~1.4s play-entry freeze — this VFX-anchor install re-runs
-        // * every play-entry (forPlay). Names it in longframe.spans if it's the cost.
-        mark("warm.anchors", () => {
-          installShatterProgramWarmup(scene);
-          installKoHitmarkerProgramWarmup(scene);
-          installWaterFxProgramWarmup(scene);
-          Effects.installRamStreakProgramWarmup(scene);
-        });
-        vfxProgramAnchorsInstalled = true;
+      try {
+        renderer.setRenderTarget(scratchRT);
+        if (forPlay || !vfxProgramAnchorsInstalled) {
+          // * PERF-WARM: attribute the ~1.4s play-entry freeze — this VFX-anchor install re-runs
+          // * every play-entry (forPlay). Names it in longframe.spans if it's the cost.
+          mark("warm.anchors", () => {
+            installShatterProgramWarmup(scene);
+            installKoHitmarkerProgramWarmup(scene);
+            installWaterFxProgramWarmup(scene);
+            Effects.installRamStreakProgramWarmup(scene);
+          });
+          vfxProgramAnchorsInstalled = true;
+        }
+        // * Audio pack warm (forPlay): fetch/decode under the loading overlay in parallel
+        // * with compileAsync so first play is not a main-thread hitch.
+        // * - Announcer (cap-23): mid-round 600–2000ms freezes on first callouts when warm
+        // *   was fire-and-forget.
+        // * - Ambience + game music + countdown (cap-54): MP commitMenuHidden starts beds
+        // *   and playlist on the same tick as startCountdown — ~1.3s host LT swallowed
+        // *   countdown_3. maxWaitMs caps a hung network.
+        audioWarmPromises = [];
+        if (forPlay) {
+          const levelId = getCurrentLevelId();
+          // * PERF-WARM: audio kickoff is synchronous up to the network/decode await — if
+          // * prepareLevelMusic or a prefetch does sync decode/Howler work, it lands here.
+          mark("warm.audioKickoff", () => {
+            deps.prepareLevelMusic(levelId);
+            audioWarmPromises.push(
+              AudioManager.prefetchSfxByPrefixAsync("announcer_", { maxWaitMs: 8000 }),
+              AudioManager.prefetchGameMusicAsync({ maxWaitMs: 6000 }),
+              AudioManager.prefetchAmbienceAsync(ArenaAmbience.ambienceKeysForArena(levelId), {
+                maxWaitMs: 6000,
+              }),
+              AudioManager.prefetchSfxKeysAsync(
+                ["countdown_3", "countdown_2", "countdown_1", "countdown_go"],
+                { maxWaitMs: 4000 },
+              ),
+            );
+          });
+        }
+        await compileSceneAsync();
+      } finally {
+        renderer.setRenderTarget(prevTarget);
+        scratchRT.dispose();
       }
-      // * Audio pack warm (forPlay): fetch/decode under the loading overlay in parallel
-      // * with compileAsync so first play is not a main-thread hitch.
-      // * - Announcer (cap-23): mid-round 600–2000ms freezes on first callouts when warm
-      // *   was fire-and-forget.
-      // * - Ambience + game music + countdown (cap-54): MP commitMenuHidden starts beds
-      // *   and playlist on the same tick as startCountdown — ~1.3s host LT swallowed
-      // *   countdown_3. maxWaitMs caps a hung network.
-      /** @type {Promise<unknown>[]} */
-      const audioWarmPromises = [];
-      if (forPlay) {
-        const levelId = getCurrentLevelId();
-        // * PERF-WARM: audio kickoff is synchronous up to the network/decode await — if
-        // * prepareLevelMusic or a prefetch does sync decode/Howler work, it lands here.
-        mark("warm.audioKickoff", () => {
-          deps.prepareLevelMusic(levelId);
-          audioWarmPromises.push(
-            AudioManager.prefetchSfxByPrefixAsync("announcer_", { maxWaitMs: 8000 }),
-            AudioManager.prefetchGameMusicAsync({ maxWaitMs: 6000 }),
-            AudioManager.prefetchAmbienceAsync(ArenaAmbience.ambienceKeysForArena(levelId), {
-              maxWaitMs: 6000,
-            }),
-            AudioManager.prefetchSfxKeysAsync(
-              ["countdown_3", "countdown_2", "countdown_1", "countdown_go"],
-              { maxWaitMs: 4000 },
-            ),
-          );
-        });
-      }
-      // * Menu path: still compileAsync so the first attract frame after a swap does not
-      // * hitch. compileAsync uses KHR_parallel_shader_compile when available.
-      // * Optional maxWaitMs / warm cap the readiness poll (scene.js patchSafeCompileAsync).
-      // * FV-LOAD-1b: juiceFresh forces full default budget (4000ms) even on warm play-entry.
-      const maxWaitMs =
-        typeof opts.maxWaitMs === "number"
-          ? opts.maxWaitMs
-          : useWarmBudget
-            ? COMPILE_ASYNC_WARM_PLAY_MAX_WAIT_MS
-            : undefined;
-      // * 4th-arg opts is our patchSafeCompileAsync extension (not in three's types).
-      const compileSceneAsync = () =>
-        maxWaitMs != null
-          ? /** @type {(s: typeof scene, c: typeof camera, t?: unknown, o?: { maxWaitMs?: number }) => Promise<typeof scene>} */ (
-              renderer.compileAsync
-            )(scene, camera, null, { maxWaitMs })
-          : renderer.compileAsync(scene, camera);
-      await compileSceneAsync();
       if (audioWarmPromises.length) {
         try {
           await Promise.all(audioWarmPromises);
