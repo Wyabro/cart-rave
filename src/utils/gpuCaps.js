@@ -40,7 +40,7 @@
  * follows that asymmetry: demote confidently, never demote on a guess.
  */
 
-/** @typedef {"software" | "igpu-basic" | "igpu-modern" | "discrete-entry" | "discrete" | "unknown"} GpuClass */
+/** @typedef {"software" | "igpu-basic" | "igpu-modern" | "discrete-entry" | "discrete-mid" | "discrete" | "unknown"} GpuClass */
 /** @typedef {{ rendererString: string, gpuClass: GpuClass }} GpuProbeResult */
 /** @typedef {"low" | "medium" | "high-lite" | "high"} QualityTier */
 
@@ -74,6 +74,18 @@ const GPU_CLASS_RULES = [
   { re: /geforce\s+gt\s?\d{3,4}\b/i, gpuClass: "discrete-entry" },
   { re: /radeon\s+r[579]\s?\d{3}\b/i, gpuClass: "discrete-entry" },
   { re: /\brx\s?5[3-6]0(?!\d)/i, gpuClass: "discrete-entry" },
+
+  // * Mid-range discrete — PERF-TIER-1: narrow allow-list of GPUs that belong
+  // * on high-lite instead of high. Deliberately conservative: 1080/1080Ti,
+  // * RTX 2060/3060/4060, RX 66x0XT/67x0+, and Arc A750/A770 stay in
+  // * discrete/high (prefer false-High → watchdog self-heals over false-demotion).
+  // * Placed before the general discrete rules so first-match wins over the
+  // * catch-all /geforce|rtx|gtx|...|apple m\d/ pattern below.
+  { re: /\bgtx\s?(1060|1070|1660|1660\s*ti|1660\s*super)\b/i, gpuClass: "discrete-mid" },
+  { re: /\brtx\s?(3050|4050)\b/i, gpuClass: "discrete-mid" },
+  // * (?!\s*xt) keeps RX 6600 XT in discrete; plain 6600 lands here.
+  { re: /\brx\s?(5500|5600|5700|6500|6600|7600)(?!\s*xt)\b/i, gpuClass: "discrete-mid" },
+  { re: /\barc\b[^,]*\b[ab](310|380|530|580|730)\b/i, gpuClass: "discrete-mid" },
 
   // * Clearly-discrete (or desktop-class Apple silicon). `apple\s+m\d` is kept
   // * verbatim from the original 3-class DISCRETE_GPU_RE — bare M1–M4 stay
@@ -119,7 +131,7 @@ let cachedProbe = null;
 
 /** The full class vocabulary — used to validate `?forcegpu=` values. */
 const GPU_CLASSES = new Set(
-  /** @type {GpuClass[]} */ (["software", "igpu-basic", "igpu-modern", "discrete-entry", "discrete", "unknown"]),
+  /** @type {GpuClass[]} */ (["software", "igpu-basic", "igpu-modern", "discrete-entry", "discrete-mid", "discrete", "unknown"]),
 );
 
 /**
@@ -218,6 +230,7 @@ const BASE_TIER_BY_CLASS = {
   "igpu-basic": "low",
   "igpu-modern": "medium",
   "discrete-entry": "medium",
+  "discrete-mid": "high-lite",
   discrete: "high",
   unknown: "medium",
 };

@@ -82,9 +82,9 @@ describe("classifyGpuRendererString", () => {
     );
   });
 
-  it("discrete — ordering trap: GTX 1060 is NOT discrete-entry", () => {
+  it("discrete-mid — ordering trap: GTX 1060 is NOT discrete-entry", () => {
     expect(classifyGpuRendererString("ANGLE (NVIDIA, NVIDIA GeForce GTX 1060 6GB Direct3D11 vs_5_0 ps_5_0, D3D11)")).toBe(
-      "discrete",
+      "discrete-mid",
     );
   });
 
@@ -114,6 +114,38 @@ describe("classifyGpuRendererString", () => {
     );
   });
 
+  // * PERF-TIER-1: mid-range discrete GPUs → high-lite tier.
+  it("discrete-mid — GTX 1060/1070/1660, RTX 3050/4050, RX 5500–6600, Arc A3xx/A5xx/A730", () => {
+    expect(classifyGpuRendererString("GeForce GTX 1060")).toBe("discrete-mid");
+    expect(classifyGpuRendererString("GeForce GTX 1070")).toBe("discrete-mid");
+    expect(classifyGpuRendererString("GeForce GTX 1660 Ti")).toBe("discrete-mid");
+    expect(classifyGpuRendererString("GeForce GTX 1660 SUPER")).toBe("discrete-mid");
+    expect(classifyGpuRendererString("GeForce RTX 3050")).toBe("discrete-mid");
+    expect(classifyGpuRendererString("GeForce RTX 4050 Laptop GPU")).toBe("discrete-mid");
+    expect(classifyGpuRendererString("Radeon RX 6600")).toBe("discrete-mid");
+    expect(classifyGpuRendererString("Radeon RX 7600")).toBe("discrete-mid");
+    expect(classifyGpuRendererString("Intel(R) Arc(TM) A380 Graphics")).toBe("discrete-mid");
+    expect(classifyGpuRendererString("Intel(R) Arc(TM) A730 Graphics")).toBe("discrete-mid");
+  });
+
+  it("discrete-mid does NOT catch 1080 Ti, RTX 3060, RX 6600 XT, Arc A770", () => {
+    // * 1080 Ti stays discrete (high) — regex must not match "1080" inside "1080 Ti" as discrete-mid.
+    expect(classifyGpuRendererString("GeForce GTX 1080 Ti")).toBe("discrete");
+    // * 1080 (non-Ti) also stays discrete — mid-range list is 1060/1070/1660 only.
+    expect(classifyGpuRendererString("GeForce GTX 1080")).toBe("discrete");
+    expect(classifyGpuRendererString("GeForce RTX 3060")).toBe("discrete");
+    expect(classifyGpuRendererString("GeForce RTX 4060")).toBe("discrete");
+    expect(classifyGpuRendererString("GeForce RTX 2060")).toBe("discrete");
+    // * (?!\\s*xt) keeps RX 6600 XT in discrete.
+    expect(classifyGpuRendererString("Radeon RX 6600 XT")).toBe("discrete");
+    expect(classifyGpuRendererString("Radeon RX 6700 XT")).toBe("discrete");
+    expect(classifyGpuRendererString("Intel(R) Arc(TM) A770 Graphics")).toBe("discrete");
+    // * Arc iGPU (no model number) stays igpu-modern — not caught by discrete-mid or discrete.
+    expect(classifyGpuRendererString("Intel(R) Arc(TM) Graphics")).toBe("igpu-modern");
+    // * Existing discrete-entry still works.
+    expect(classifyGpuRendererString("GeForce GTX 970")).toBe("discrete-entry");
+  });
+
   it("unknown — empty, missing, unrecognized", () => {
     expect(classifyGpuRendererString("")).toBe("unknown");
     expect(classifyGpuRendererString(null)).toBe("unknown");
@@ -138,6 +170,7 @@ describe("defaultTierForCaps — lever 1 (hard floors + base class)", () => {
     expect(defaultTierForCaps({ gpuClass: "igpu-basic" })).toBe("low");
     expect(defaultTierForCaps({ gpuClass: "igpu-modern" })).toBe("medium");
     expect(defaultTierForCaps({ gpuClass: "discrete-entry" })).toBe("medium");
+    expect(defaultTierForCaps({ gpuClass: "discrete-mid" })).toBe("high-lite");
     expect(defaultTierForCaps({ gpuClass: "discrete" })).toBe("high");
     expect(defaultTierForCaps({ gpuClass: "unknown" })).toBe("medium");
   });
