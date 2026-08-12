@@ -28,10 +28,10 @@ deck: single column of text + chips, no empty frame.
 
 ## How it works
 
-- The rig in `src/cart-rave-menu.js` discovers files with `import.meta.glob` at **build
-  time** — that is what makes detection real rather than a hand-maintained list, and it
-  is why this folder lives under `src/assets/` instead of `public/`. Only the five
-  tokens above are ever bundled; any other file dropped here is ignored.
+- The rig in `src/ui/cart-rave-menu.js` discovers files with `import.meta.glob` at
+  **build time** — that is what makes detection real rather than a hand-maintained list,
+  and it is why this folder lives under `src/assets/` instead of `public/`. Only the
+  five tokens above are ever bundled; any other file dropped here is ignored.
 - `hydrateHowToArt()` runs once at menu init: matching slot gets an `<img>` and
   `data-art="1"`, which is the only attribute CSS keys on.
 

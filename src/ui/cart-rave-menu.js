@@ -1241,7 +1241,7 @@ import { ARENA_CATALOG } from "../levels/arenaCatalog.js";
   // so a stray file dropped beside the contract can never enter the bundle.
   // Full contract: src/assets/howto/README.md
   const HOWTO_ART_FILES = import.meta.glob(
-    "./assets/howto/{drive,boost,ram,hud,cargo}.{webp,still.webp}",
+    "../assets/howto/{drive,boost,ram,hud,cargo}.{webp,still.webp}",
     { eager: true, query: "?url", import: "default" },
   );
 

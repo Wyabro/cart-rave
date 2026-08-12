@@ -170,7 +170,7 @@ describe("ONBOARD-SLIDES-1 — the deck cannot be skipped by the default action"
 // file stays exactly as dark as the shipped deck.
 describe("ONBOARD-ART-1 — the drop-in art rig", () => {
   it("discovers the art by token-constrained glob and hydrates at init, not per slide", () => {
-    expect(menu).toMatch(/import\.meta\.glob\(\s*["']\.\/assets\/howto\//);
+    expect(menu).toMatch(/import\.meta\.glob\(\s*["']\.\.\/assets\/howto\//);
     expect(menu).toMatch(/assets\/howto\/\{drive,boost,ram,hud,cargo\}\.\{webp,still\.webp\}/);
     expect(menu).toMatch(/howtoArt\.get/);
     expect(fnBody(menu, "initHowToScreen")).toMatch(/hydrateHowToArt\(\)/);
