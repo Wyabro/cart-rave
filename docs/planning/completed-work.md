@@ -13,6 +13,12 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 12, 2026 — PA-QUIET-1: one spoken line per game moment
+
+- *(Audio · taste)* **PA-QUIET-1** / **PA-QUIET-PT-1** — ✅ **CLOSED 08-12.** Wyatt playtest PASS on `npm run dev:local`. Same-fall flavor skip in `announcerDirectorOnFall`: `leader_down` / `critical_ko` do not fire when that fall already announced `first_spill`, a combo, `refund`, `double_spill`, or `aisle_wipeout`. Isolated leader / crit KOs still play. Busy-channel policy: only `high` queues while `_active`; medium/low still queue during the min-gap window. `last_call` is `critical` / no focus (priority 80, not interruptible) so "10 SECONDS" cuts a mid-line PA. Commits `e37bd59` + `a0ba621`.
+
+---
+
 ### August 12, 2026 — PLAYTEST-SEED-1: fail-closed playtest console seed
 
 - *(Tech Debt · process)* **PLAYTEST-SEED-1** — ✅ **CLOSED 08-12.** Agents closed player-visible cards with STATUS "Playtest owed:" prose and never wrote a BACKLOG `## Playtest owed` row, so the generated console stayed empty and Wyatt had to ask. Three layers: (1) `health:check` now fails `PLAYTEST_STEPLESS` (owed, no numbered steps) and `PLAYTEST_PARENT_UNSEEDED` (STATUS ✅ CLOSED still says playtest owed, no covering card). (2) AGENTS.md done-line requires the BACKLOG row + `npm run playtest:console`. (3) `post-merge` / `post-checkout` / `post-rewrite` rebuild the gitignored console after pull, because post-commit only runs on a local commit. Also seeded the missing CARGO-BAY-INSTANCE-PT-1/2/3 cards so the new gate stays green on today's tree.
