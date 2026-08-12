@@ -1,5 +1,13 @@
-import { describe, it, expect } from "vitest";
-import { pickTimerWinner, recordHit, clearLastHitBy, getLastHitBy } from "../src/gameState.js";
+import { describe, it, expect, beforeEach } from "vitest";
+import {
+  pickTimerWinner,
+  recordHit,
+  clearLastHitBy,
+  getLastHitBy,
+  syncRoundPhase,
+  setLocalCombo,
+  resetRoundToLobby,
+} from "../src/gameState.js";
 import { gameStore } from "../src/stores/gameStore.js";
 
 describe("clearLastHitBy (LASTHITBY-MUTATE-1)", () => {
@@ -47,5 +55,26 @@ describe("pickTimerWinner", () => {
     const scores = { 0: 5, 1: 5, 2: 0, 3: 0 };
     const winner = pickTimerWinner(scores);
     expect(winner).toBe(0);
+  });
+});
+
+describe("STORE-1 Lever A — store owns facade logic", () => {
+  beforeEach(() => {
+    resetRoundToLobby();
+  });
+
+  it("drops unused startRunning / startCountdown / endRound store methods", () => {
+    const state = gameStore.getState();
+    expect(state.startRunning).toBeUndefined();
+    expect(state.startCountdown).toBeUndefined();
+    expect(state.endRound).toBeUndefined();
+  });
+
+  it("clears leftover combo on syncRoundPhase countdown", () => {
+    setLocalCombo(2, 9_999_999);
+    expect(gameStore.getState().localComboTier).toBe(2);
+    syncRoundPhase("countdown");
+    expect(gameStore.getState().localComboTier).toBe(0);
+    expect(gameStore.getState().roundPhase).toBe("countdown");
   });
 });
