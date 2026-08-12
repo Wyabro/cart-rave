@@ -585,7 +585,7 @@ export const REQUIRED_VALIDATION = [
   "npm run qa — report results BY NUMBER (never hardcode stale totals); it self-heals BRIEFING + fails on doc/arch drift.",
   "npm run build when the change touches the client bundle.",
   "Pull cart-clash and confirm the change is in origin HEAD before saying 'done' — a local grep is not proof.",
-  "Behavior-changing work needs a human playtest on production after deploy.",
+  "Behavior-changing work needs a human playtest on production after deploy. Seed a BACKLOG ## Playtest owed row (Owed: Wyatt playtest — ID — check + <br>1. steps) and run npm run playtest:console before Wyatt's turn. STATUS prose is not a seed.",
   "Cross-module change? Read docs/reference/control-flow.md first — most edges are not imports.",
 ];
 
@@ -612,7 +612,7 @@ export const TESTING = {
   ],
   notes: [
     "WebGL-adjacent files (scene.js, cartRaveGltf.js, hud.js, sceneExtras.js, cartShatter.js) are gated by the visual-QA pipeline (shoot/compare/blackframes), not unit tests.",
-    "Behavior-changing work needs a human playtest on production after deploy before it counts as done.",
+    "Behavior-changing work needs a human playtest on production after deploy before it counts as done. Seed the BACKLOG Playtest owed row and run npm run playtest:console first.",
   ],
 };
 

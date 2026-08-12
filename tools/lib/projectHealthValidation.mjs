@@ -6,10 +6,11 @@
  * deterministically when docs/tools drift.
  */
 
-import { issueState, queueRowState, parseStatusReleasePhases, parseStatusCurrentFocus, parseStatusPlaytestQueue, parseStatusOpenIssues, parseStatusDoNots, extractSection, parseListItems, flattenBacklogRows, WORK_ID_RE } from "./projectHealth.mjs";
+import { issueState, queueRowState, parseStatusReleasePhases, parseStatusCurrentFocus, parseStatusPlaytestQueue, parseStatusOpenIssues, parseStatusDoNots, extractSection, parseListItems, flattenBacklogRows, extractWorkId, WORK_ID_RE } from "./projectHealth.mjs";
 import { extractBriefingDigest, briefingSourceDigest } from "./briefing.mjs";
 import { extractArchDigest } from "./archRender.mjs";
 import { computeBacklogGlance, renderBacklogGlanceBlock, extractBacklogGlanceBlock } from "./backlogGlance.mjs";
+import { buildPlaytestQueue } from "./playtestQueue.mjs";
 
 /** Canonical phase order (STATUS ### Release phases). */
 export const PHASE_ORDER = [
@@ -421,6 +422,84 @@ export function validateBacklogHygiene(backlogMd) {
   return findings;
 }
 
+const STATUS_PLAYTEST_OWED_RE =
+  /playtest\s+owed|owed:\s*wyatt\s+playtest|needs?\s+wyatt(?:'s)?\s+(?:multiplayer\s+)?playtest/i;
+
+/**
+ * True when `id` already has a seeded console card, or a child `ID-PT-N` /
+ * `PARENT-PT-N` (STORE-1-PT-1 keeps the trailing number; CONN-TRACK-LEAK-PT-1 drops it).
+ * @param {string} id
+ * @param {Set<string>} queueIds
+ */
+export function playtestCoveredBy(id, queueIds) {
+  if (!id || !queueIds) return false;
+  if (queueIds.has(id)) return true;
+  for (const q of queueIds) {
+    if (q.startsWith(`${id}-PT-`)) return true;
+  }
+  const stripped = id.replace(/-\d+$/, "");
+  if (stripped !== id) {
+    for (const q of queueIds) {
+      if (q.startsWith(`${stripped}-PT-`)) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Fail closed when a playtest is owed but the generated console cannot run it.
+ *
+ * PLAYTEST_STEPLESS — an owed card seeded with no numbered `<br>N.` steps (PERF-9CELL-1).
+ * PLAYTEST_PARENT_UNSEEDED — a ✅ CLOSED STATUS row that still says playtest is owed,
+ * but no BACKLOG `Owed: Wyatt playtest` card covers it (CARGO-BAY-INSTANCE-1).
+ *
+ * STATUS "Playtest owed:" prose is not a seed. The console only reads the exact owed
+ * phrase plus numbered steps.
+ *
+ * @param {string} statusMd
+ * @param {string} backlogMd
+ * @returns {HealthFinding[]}
+ */
+export function validatePlaytestSeed(statusMd, backlogMd) {
+  /** @type {HealthFinding[]} */
+  const findings = [];
+  const { cards } = buildPlaytestQueue({ statusMd: statusMd || "", backlogMd: backlogMd || "" });
+  const owed = (cards || []).filter((c) => c && c.source !== "system");
+  const queueIds = new Set(owed.map((c) => c.id));
+
+  for (const c of owed) {
+    if (!c.steps || c.steps.length === 0) {
+      findings.push({
+        code: "PLAYTEST_STEPLESS",
+        severity: "error",
+        message: `${c.id} is owed in the playtest console but has no numbered steps — add <br>1. / <br>2. to the BACKLOG ## Playtest owed Notes`,
+      });
+    }
+  }
+
+  const namedRe = new RegExp(WORK_ID_RE.source, "g");
+  for (const q of parseStatusPlaytestQueue(statusMd || "")) {
+    if (q.state !== "done") continue;
+    const blob = `${q.what || ""} ${q.status || ""}`;
+    if (!STATUS_PLAYTEST_OWED_RE.test(blob)) continue;
+    if (/\bwyatt\s+playtest\s+PASS\b/i.test(blob)) continue;
+
+    const named = [...String(q.status || "").matchAll(namedRe)].map((m) => m[1]);
+    const parent = extractWorkId(q.id) || extractWorkId(q.what);
+    const required = named.length ? named : parent ? [parent] : [];
+    for (const id of required) {
+      if (playtestCoveredBy(id, queueIds)) continue;
+      findings.push({
+        code: "PLAYTEST_PARENT_UNSEEDED",
+        severity: "error",
+        message: `${parent || id} says playtest is owed but ${id} is not a seeded console card — add a BACKLOG ## Playtest owed row: Owed: Wyatt playtest — ${id} — one-line check + <br>1. steps`,
+      });
+    }
+  }
+
+  return findings;
+}
+
 /**
  * Validate that Claude Code's local skills mirror matches the committed one.
  *
@@ -467,6 +546,7 @@ export function evaluateProjectHealth(input) {
     ...(arch?.liveDigest !== undefined ? validateArchitectureFreshness(arch.archJsonText ?? "", arch.liveDigest) : []),
     ...(input.skillsPlan !== undefined ? validateSkillsMirror(input.skillsPlan) : []),
     ...(input.backlogMd !== undefined ? validateBacklogHygiene(input.backlogMd) : []),
+    ...(input.backlogMd !== undefined ? validatePlaytestSeed(input.statusMd, input.backlogMd) : []),
   ];
   return {
     ok: findings.every((f) => f.severity !== "error"),

@@ -1,0 +1,7 @@
+#!/bin/sh
+# post-rewrite — refresh the gitignored playtest console after rebase / pull --rebase.
+# Installed via `npm run setup` (core.hooksPath). Non-fatal.
+# Escape hatch: SKIP_DOCS_HOOK=1
+[ -n "$SKIP_DOCS_HOOK" ] && exit 0
+node tools/playtest-console.mjs >/dev/null 2>&1 || echo "[post-rewrite] playtest-console refresh failed (non-fatal)"
+exit 0

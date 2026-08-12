@@ -1,0 +1,9 @@
+#!/bin/sh
+# post-checkout — refresh the gitignored playtest console after branch switch / clone.
+# $3 = 1 for a branch checkout, 0 for a file checkout. Skip file checkouts.
+# Installed via `npm run setup` (core.hooksPath). Non-fatal.
+# Escape hatch: SKIP_DOCS_HOOK=1
+[ -n "$SKIP_DOCS_HOOK" ] && exit 0
+[ "$3" = "0" ] && exit 0
+node tools/playtest-console.mjs >/dev/null 2>&1 || echo "[post-checkout] playtest-console refresh failed (non-fatal)"
+exit 0

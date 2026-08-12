@@ -762,6 +762,82 @@ describe("validateBacklogHygiene", () => {
   });
 });
 
+describe("validatePlaytestSeed", () => {
+  const errors = (findings) => findings.filter((f) => f.severity === "error").map((f) => f.code);
+
+  const statusQueue = (rows) => `# S
+
+### Release phases
+
+- ▶ Playtesting
+
+### Active queue
+
+| # | What | Status |
+|---|------|--------|
+${rows}
+`;
+
+  const backlogOwed = (rows) => `# B
+
+## Playtest owed
+
+| Pri | Item | Notes |
+|-----|------|-------|
+${rows}
+`;
+
+  it("flags an owed card with no numbered steps (PLAYTEST_STEPLESS)", async () => {
+    const { validatePlaytestSeed } = await import("../tools/lib/projectHealthValidation.mjs");
+    const status = statusQueue("| FOO-1 | thing | waiting |");
+    const backlog = backlogOwed("| Medium | FOO-PT-1 — look at it `[solo]` | **Owed: Wyatt playtest — FOO-PT-1 — just look at it.** |");
+    expect(errors(validatePlaytestSeed(status, backlog))).toContain("PLAYTEST_STEPLESS");
+  });
+
+  it("flags a closed STATUS parent that still says playtest owed with no seed (PLAYTEST_PARENT_UNSEEDED)", async () => {
+    const { validatePlaytestSeed } = await import("../tools/lib/projectHealthValidation.mjs");
+    const status = statusQueue(
+      "| CARGO-BAY-INSTANCE-1 | Per-bay InstancedMesh | ✅ CLOSED. Playtest owed: solo fill. |",
+    );
+    const backlog = backlogOwed("| Medium | OTHER-PT-1 — other `[solo]` | **Owed: Wyatt playtest — OTHER-PT-1 — other check.**<br>1. Do the other thing. |");
+    expect(errors(validatePlaytestSeed(status, backlog))).toContain("PLAYTEST_PARENT_UNSEEDED");
+  });
+
+  it("accepts a PARENT-PT-N child as cover for PARENT-1", async () => {
+    const { validatePlaytestSeed, playtestCoveredBy } = await import(
+      "../tools/lib/projectHealthValidation.mjs"
+    );
+    expect(playtestCoveredBy("CARGO-BAY-INSTANCE-1", new Set(["CARGO-BAY-INSTANCE-PT-1"]))).toBe(true);
+    expect(playtestCoveredBy("STORE-1", new Set(["STORE-1-PT-1"]))).toBe(true);
+    expect(playtestCoveredBy("CONN-TRACK-LEAK-1", new Set(["CONN-TRACK-LEAK-PT-1"]))).toBe(true);
+    expect(playtestCoveredBy("CARGO-BAY-INSTANCE-1", new Set(["OTHER-PT-1"]))).toBe(false);
+
+    const status = statusQueue(
+      "| CARGO-BAY-INSTANCE-1 | Per-bay InstancedMesh | ✅ CLOSED. Playtest owed: solo fill. |",
+    );
+    const backlog = backlogOwed(
+      "| Medium | CARGO-BAY-INSTANCE-PT-1 — cargo still fills `[solo]` | **Owed: Wyatt playtest — CARGO-BAY-INSTANCE-PT-1 — cargo still fills.**<br>1. Play solo. Watch the bays fill. |",
+    );
+    expect(validatePlaytestSeed(status, backlog)).toEqual([]);
+  });
+
+  it("skips a closed row that already has Wyatt playtest PASS", async () => {
+    const { validatePlaytestSeed } = await import("../tools/lib/projectHealthValidation.mjs");
+    const status = statusQueue(
+      "| BUNDLE-1 | split | ✅ CLOSED. Lever E playtested: BUNDLE-E-PT-1 Wyatt playtest PASS 6/6. |",
+    );
+    expect(validatePlaytestSeed(status, "# empty\n")).toEqual([]);
+  });
+
+  it("live STATUS + BACKLOG has no PLAYTEST_* errors", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { validatePlaytestSeed } = await import("../tools/lib/projectHealthValidation.mjs");
+    const status = readFileSync(new URL("../docs/STATUS.md", import.meta.url), "utf8");
+    const backlog = readFileSync(new URL("../docs/planning/BACKLOG.md", import.meta.url), "utf8");
+    expect(errors(validatePlaytestSeed(status, backlog))).toEqual([]);
+  });
+});
+
 describe("evaluateProjectHealth backlog wiring", () => {
   it("omitting backlogMd yields no BACKLOG_* finding", async () => {
     const { evaluateProjectHealth } = await import("../tools/lib/projectHealthValidation.mjs");

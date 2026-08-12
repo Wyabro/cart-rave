@@ -83,8 +83,11 @@ command string** — so `SKIP_GIT_GUARD=1 git add -A` is still blocked.
 ## The git hooks (separate mechanism)
 
 `tools/git-hooks/pre-commit` and `post-commit` regenerate `docs/BRIEFING.md` +
-`docs/ARCHITECTURE.json` and refresh the Command Center on every commit. They are **tracked in
-the repo** and installed by **`npm run setup`**, which sets `git config core.hooksPath
-tools/git-hooks` and also syncs `.claude/skills/` and builds the Command Center — the three
-local pieces a fresh clone is missing, one command, idempotent. It replaces any prior local
-`core.hooksPath` for this repo. Bypass both hooks with `SKIP_DOCS_HOOK=1`.
+`docs/ARCHITECTURE.json` and refresh the Command Center on every commit.
+`post-merge`, `post-checkout`, and `post-rewrite` rebuild the gitignored playtest
+console after pull / checkout / rebase so Wyatt's local queue matches the BACKLOG
+he just fetched. They are **tracked in the repo** and installed by **`npm run setup`**,
+which sets `git config core.hooksPath tools/git-hooks` and also syncs `.claude/skills/`
+and builds the Command Center — the three local pieces a fresh clone is missing, one
+command, idempotent. It replaces any prior local `core.hooksPath` for this repo.
+Bypass these hooks with `SKIP_DOCS_HOOK=1`.

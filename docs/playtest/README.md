@@ -34,12 +34,13 @@ Open **`.diag-captures/playtest-console.html`** (or Command Center → Playtest 
 | Your PASS/FAIL/notes | Browser `localStorage` key `cartClashPlaytestConsole_v3` |
 | Agent handoff | Report auto-copies on PASS / FAIL / SKIP (or tap **Copy report**) |
 
-**Agent contract:** when a change needs a human, write  
-`Owed: Wyatt playtest — CARD-ID — one-line check`  
-into STATUS or BACKLOG, then regenerate.
-**Ready means:** after regen, each owed card shows numbered steps in the console UI —
-not merely that an `Owed:` string exists in BACKLOG/STATUS.
-On close: `Wyatt playtest PASS` (and clear Owed).
+**Agent contract:** when a change needs a human, add a BACKLOG `## Playtest owed` row
+with `Owed: Wyatt playtest — CARD-ID — one-line check` and numbered `<br>1.` / `<br>2.`
+steps. Then run `npm run playtest:console` (or `npm run dashboard`). Confirm
+`.diag-captures/playtest-queue.json` lists that id with a non-empty `steps` array.
+STATUS "Playtest owed:" prose is **not** a seed. `health:check` fails a stepless or
+missing seed (`PLAYTEST_STEPLESS` / `PLAYTEST_PARENT_UNSEEDED`).
+On close: `Wyatt playtest PASS` (and delete the row).
 
 **Process that failed before (do not repeat):** dump 10+ needs-work items → one mega fix batch → ship → mixed host roles → performance feels random.
 

@@ -13,6 +13,12 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 12, 2026 — PLAYTEST-SEED-1: fail-closed playtest console seed
+
+- *(Tech Debt · process)* **PLAYTEST-SEED-1** — ✅ **CLOSED 08-12.** Agents closed player-visible cards with STATUS "Playtest owed:" prose and never wrote a BACKLOG `## Playtest owed` row, so the generated console stayed empty and Wyatt had to ask. Three layers: (1) `health:check` now fails `PLAYTEST_STEPLESS` (owed, no numbered steps) and `PLAYTEST_PARENT_UNSEEDED` (STATUS ✅ CLOSED still says playtest owed, no covering card). (2) AGENTS.md done-line requires the BACKLOG row + `npm run playtest:console`. (3) `post-merge` / `post-checkout` / `post-rewrite` rebuild the gitignored console after pull, because post-commit only runs on a local commit. Also seeded the missing CARGO-BAY-INSTANCE-PT-1/2/3 cards so the new gate stays green on today's tree.
+
+---
+
 ### August 12, 2026 — CONN-TRACK-LEAK-1: release platform-dead IP tracking before the connection cap
 
 - *(Engineering · correctness)* **CONN-TRACK-LEAK-1** — ✅ **CLOSED 08-12.** The zombie-prune path in `party/index.ts` deleted a conn from `#connections` without releasing its IP-cap count, and the ghost-exorcism path never dropped `#rateLimitWindows`. Five leaked counts on one IP then rejected the only connection that could trigger cleanup — a permanent lockout. Fix: `#forgetConnectionTracking()` consolidates the five teardown paths (onClose, silent reap, stale picker, ghost exorcism, pre-cap prune); `#prunePlatformDeadTracking()` runs before the cap decision and releases tracking for any conn the platform no longer lists (iterating `#connToIp`, not `#connections`). Test seam `setPlatformLiveIdsOverride` fakes a platform-dead socket; the deterministic test proves 5 stale counts → first live join accepted → 6th live join still 4029, and it fails without the fix. Deployed `5ae6f69b`; zero-404 clean; live cap probe PASS. Commit `9439cd2`. Nine deferred findings filed to BACKLOG (CONN-DEADCODE-1 … PARTY-ENVTYPE-1). Playtest owed: CONN-TRACK-LEAK-PT-1 (host-leave migration), CONN-TRACK-LEAK-PT-2 (ghost exorcism).

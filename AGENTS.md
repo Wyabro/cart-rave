@@ -62,7 +62,9 @@ Branch: **`cart-clash`**. Deploy map: [docs/guides/deploy-urls.md](docs/guides/d
 - **Timebox:** ~45 min or 3 failed approaches → STATUS findings (5 lines) before #4.
 - **Escalation:** timebox → findings → `.agents/skills/systematic-debugging` → hand off / ask Wyatt.
 - **Done:** `npm run qa` green **by number** + pushed + `verify:head` + briefing fresh + STATUS
-  at wave boundary. Behavior change → Wyatt playtest on production (console ready first).
+  at wave boundary. Behavior change → seed BACKLOG `## Playtest owed` (`Owed: Wyatt playtest —
+  ID — one-line check` + `<br>1.` steps) and run `npm run playtest:console` before Wyatt's turn.
+  STATUS "Playtest owed:" prose is not a seed. `health:check` fails a stepless or missing seed.
 - **Post-lever:** no notification-driven follow-ups, no baseline worktrees, no `states` gate
   unless the wave owns that gate. Outside-diff fails = one-line note + stop.
 
@@ -78,7 +80,8 @@ Branch: **`cart-clash`**. Deploy map: [docs/guides/deploy-urls.md](docs/guides/d
 - PowerShell: `Select-String`, not `grep`; single-line `-m` commits.
 - STATUS at **wave** boundaries only (not per lever). One `qa` per wave when possible.
 - No URL to Wyatt until the symbol is in the **deployed** bundle.
-- Playtest: one issue per card; non-empty numbered steps; deploy context truthful.
+- Playtest: one issue per card; non-empty numbered `<br>N.` steps; deploy context truthful.
+  Confirm `.diag-captures/playtest-queue.json` lists the id with `steps` before you hand him the console.
 - Budget: don't re-emit huge docs to move them; don't `grep -C` BACKLOG/STATUS.
 
 **Shared enforcement:** git hooks (`npm run setup`) regenerate BRIEFING/ARCHITECTURE; use

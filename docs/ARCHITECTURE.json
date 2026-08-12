@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-12T18:55:48.407Z",
-    "commit": "9439cd2"
+    "at": "2026-08-12T19:11:32.378Z",
+    "commit": "6423f5c"
   },
-  "source_digest": "b03a1185",
+  "source_digest": "1a4ab068",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -884,7 +884,7 @@
       {
         "id": "CARGO-BAY-INSTANCE-1",
         "what": "Per-bay InstancedMesh for cargo bays",
-        "status": "✅ CLOSED 08-12 (`9e86382`). 30 Mesh → per-model InstancedMesh. Draw calls ≤120 → ~24. Single-lever wave. Playtest owed: solo fill, multiplayer parity, spill/rebuild, screenshot.",
+        "status": "✅ CLOSED 08-12 (`9e86382`). 30 Mesh → per-model InstancedMesh. Draw calls ≤120 → ~24. Single-lever wave. Playtest owed: CARGO-BAY-INSTANCE-PT-1 (solo fill) · CARGO-BAY-INSTANCE-PT-2 (spill/rebuild) · CARGO-BAY-INSTANCE-PT-3 (MP parity).",
         "state": "done"
       },
       {
@@ -896,7 +896,7 @@
     ],
     "next_actions": [
       "No active engineering card — wait for Wyatt.",
-      "Playtest owed: STORE-1-PT-1 on `npm run dev:local` (console row). SHARD-PT-2 (skip, needs five humans). CARGO-BAY-INSTANCE-1 — solo fill, multiplayer parity, spill/rebuild, before/after screenshot. CONN-TRACK-LEAK-PT-1 (Friends host-leave migration) + CONN-TRACK-LEAK-PT-2 (same-clientId reconnect) — prod `5ae6f69b`."
+      "Playtest owed (console rows): STORE-1-PT-1 on `npm run dev:local`. SHARD-PT-2 (skip, needs five humans). CARGO-BAY-INSTANCE-PT-1 · PT-2 · PT-3. CONN-TRACK-LEAK-PT-1 + CONN-TRACK-LEAK-PT-2 — prod `5ae6f69b`."
     ],
     "open_issues": [
       {
@@ -1156,7 +1156,7 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Medium": 5,
+          "Medium": 8,
           "Low": 3
         },
         "rows": [
@@ -1206,6 +1206,24 @@
             "pri": "Medium",
             "item": "CONN-TRACK-LEAK-PT-2 — same-clientId reconnect keeps one seat `[1pc]`",
             "notes": "**Owed: Wyatt playtest — CONN-TRACK-LEAK-PT-2 — a hard refresh reclaims your seat instead of leaving a ghost.** CONN-TRACK-LEAK-1 (`9439cd2`, deployed `5ae6f69b`) refactored the server's ghost-exorcism teardown; this checks it live on prod.<br>1. Join a Friends room, seat, note your name and color.<br>2. Hard-refresh the tab.<br>3. FAIL if you land as a second human (old ghost seat still yours) or the room is hostless. PASS if you reclaim your seat and the lobby shows one human.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "CARGO-BAY-INSTANCE-PT-1 — solo cargo still fills in order `[solo]`",
+            "notes": "**Owed: Wyatt playtest — CARGO-BAY-INSTANCE-PT-1 — a solo cart's cargo bays still fill in order as you score.** Parent CARGO-BAY-INSTANCE-1 (`9e86382`) switched bays to InstancedMesh. Not a look card — this is fill order.<br>1. Solo on prod (hard-refresh). Play long enough for the bays to fill.<br>2. Watch the groceries appear in the same front-to-back order as before.<br>3. FAIL if bays stay empty, fill in a random order, or flicker every frame. PASS if they fill in order and stay put.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "CARGO-BAY-INSTANCE-PT-2 — spill and shatter still rebuild cargo `[solo]`",
+            "notes": "**Owed: Wyatt playtest — CARGO-BAY-INSTANCE-PT-2 — cargo hides on a spill and comes back after rebuild.** Same parent as PT-1; this is the hide/rebuild path, not fill order.<br>1. Solo on prod. Get some cargo in the bays.<br>2. Take a hit that spills, or shatter if you can.<br>3. FAIL if spilled groceries stay stuck in the bay, or a respawn/rebuild leaves the bay empty or doubled. PASS if cargo hides on the spill and the bay looks right after rebuild.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "CARGO-BAY-INSTANCE-PT-3 — other players see the same cargo `[2pc]`",
+            "notes": "**Owed: Wyatt playtest — CARGO-BAY-INSTANCE-PT-3 — the other player sees your cargo fill, not an empty bay.** Same parent; two machines.<br>1. Two browsers, same Friends room on prod. Both seat and start.<br>2. Score on one cart until its bays fill. Look at that cart from the other browser.<br>3. FAIL if the other player sees empty bays, a different fill, or missing models. PASS if both screens show the same groceries.",
             "ship1": null
           }
         ]
@@ -1458,7 +1476,7 @@
     ],
     "notes": [
       "WebGL-adjacent files (scene.js, cartRaveGltf.js, hud.js, sceneExtras.js, cartShatter.js) are gated by the visual-QA pipeline (shoot/compare/blackframes), not unit tests.",
-      "Behavior-changing work needs a human playtest on production after deploy before it counts as done."
+      "Behavior-changing work needs a human playtest on production after deploy before it counts as done. Seed the BACKLOG Playtest owed row and run npm run playtest:console first."
     ]
   },
   "build_deploy": {
@@ -1560,7 +1578,7 @@
       "npm run qa — report results BY NUMBER (never hardcode stale totals); it self-heals BRIEFING + fails on doc/arch drift.",
       "npm run build when the change touches the client bundle.",
       "Pull cart-clash and confirm the change is in origin HEAD before saying 'done' — a local grep is not proof.",
-      "Behavior-changing work needs a human playtest on production after deploy.",
+      "Behavior-changing work needs a human playtest on production after deploy. Seed a BACKLOG ## Playtest owed row (Owed: Wyatt playtest — ID — check + <br>1. steps) and run npm run playtest:console before Wyatt's turn. STATUS prose is not a seed.",
       "Cross-module change? Read docs/reference/control-flow.md first — most edges are not imports."
     ],
     "settled_decisions": [

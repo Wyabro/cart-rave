@@ -260,14 +260,16 @@ falsifiable against a diff: if you cannot point at the line that violates it, it
   design) and `buildFreshness` will not warn, because the bundle genuinely is live — it just
   predates the feature. On 08-04 this void'd a capture and a round of his play.
 - **Playtest console must be ready before Wyatt's turn.** Same failure shape as the URL rule
-  above. Writing `Owed: Wyatt playtest` is not enough. Before you tell him to play (after ship,
-  after closing PASSes, or when handing a FAIL retest): run `npm run playtest:console`, then
-  confirm each owed card seeded from STATUS/BACKLOG (system rows excepted) has a one-line goal,
-  **non-empty numbered `steps`**, and deploy context that matches reality (`DEPLOYED` +
-  SHA/Worker — never "unpushed" / "after ship" once it is live). A card that only links to a
-  plan doc is **not** ready — put the checklist in the BACKLOG Playtest-owed Notes as
-  `<br>1.` / `<br>2.` steps ([docs/playtest/README.md](docs/playtest/README.md)). Do not hand
-  him the console path until that check passes.
+  above. Writing `Owed: Wyatt playtest` in chat or STATUS prose is not a seed. Before you tell
+  him to play (after ship, after closing PASSes, or when handing a FAIL retest): add a BACKLOG
+  `## Playtest owed` row, run `npm run playtest:console`, then confirm `.diag-captures/playtest-queue.json`
+  lists each owed card (system rows excepted) with a one-line goal, **non-empty numbered `steps`**,
+  and deploy context that matches reality (`DEPLOYED` + SHA/Worker — never "unpushed" / "after
+  ship" once it is live). A card that only links to a plan doc is **not** ready — put the
+  checklist in the BACKLOG Playtest-owed Notes as `<br>1.` / `<br>2.` steps
+  ([docs/playtest/README.md](docs/playtest/README.md)). `health:check` fails
+  `PLAYTEST_STEPLESS` (owed, no steps) and `PLAYTEST_PARENT_UNSEEDED` (STATUS ✅ CLOSED still
+  says playtest owed, no covering card). Do not hand him the console path until that check passes.
 - **One issue per playtest card — his rule, 08-05.** A card id is one thing he can pass or fail on
   its own. A ship with four fixes seeds **four cards**, not one card with seven steps; numbered
   steps are the sub-steps of a single check, never a list of unrelated checks. If two steps could
@@ -369,6 +371,8 @@ because a full day was once lost grinding one task; the loop caps that at ~45 mi
   **fast-lane commits may defer the STATUS.md update to the next wave boundary**. Behavior
   changes additionally need Wyatt's playtest on production before they count, and it is not
   his turn until the regenerated console shows non-empty steps and accurate deploy context.
+  `health:check` now fails the wave (`PLAYTEST_STEPLESS` / `PLAYTEST_PARENT_UNSEEDED`) if
+  that seed is missing or stepless.
 
 ---
 
