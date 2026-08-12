@@ -528,7 +528,7 @@ export const CONFIG = {
     // ! Blacks stay genuinely black (Rule 3): raising an arena here may not lift its darkest
     // ! decile. Check the luma floors recorded in art-direction.md before tuning.
     arenaExposure: {
-      classicRecord: 0.4,
+      classicRecord: 0.42,
       backrooms: 0.4,
       zanzibar: 0.528,
       testArena: 0.4,
@@ -544,7 +544,7 @@ export const CONFIG = {
     // * (arena floor clampFloorEnv, sunglasses lens) — see the STATUS gotcha before tuning.
     environment: {
       intensity: 0.6, // unitless — global IBL multiplier (scene.environmentIntensity)
-      materialEnvMapIntensity: 0.4, // unitless — base reflectivity for owned-envMap materials only
+      materialEnvMapIntensity: 0.49, // unitless — base reflectivity for owned-envMap materials only
     },
 
     // * UnrealBloomPass tuning — see applyBloomSettings() in scene.js.
@@ -555,12 +555,12 @@ export const CONFIG = {
     bloomHalfRes: true,
     bloomHalfResStrengthMul: 1.2,
     bloom: {
-      strength: 0.34, // unitless — bloom composite intensity
-      radius: 0.34, // unitless — halo tightness
+      strength: 0.3, // unitless — bloom composite intensity
+      radius: 0.67, // unitless — halo tightness
       // * Lower threshold + wide knee: Rec.709 under-weights red/blue; magenta neon
       // * needs the knee or it never blooms while cyan does.
-      threshold: 0.76, // unitless — luminance cutoff (higher = emissive-only bloom)
-      smoothWidth: 0.14, // unitless — soft knee on the high-pass
+      threshold: 0.5, // unitless — luminance cutoff (higher = emissive-only bloom)
+      smoothWidth: 0.025, // unitless — soft knee on the high-pass
     },
     // * Middle-ground A/B — ?bloom=mid
     bloomMid: {
@@ -577,12 +577,11 @@ export const CONFIG = {
       smoothWidth: 0.05,
     },
 
-    // * Seeded into the pass in createComposer (scene.js), then re-gated per level by
-    // * applyLoadedLevelSideEffects — ART-FILTER-1 made the CRT a Storerooms-only device, so
-    // * these numbers only ever reach the screen there; every other arena is written 0.
+    // * Seeded into the pass in createComposer (scene.js), then applied to ALL arenas by
+    // * applyLoadedLevelSideEffects (ART-FILTER-2).
     // ! Tuning `vignette` below 0.5 lands on the shader's fade-out ramp (scene.js ArcadeFxShader),
-    // ! which exists so the gated-off arenas and a decaying impact pulse reach a true zero. If
-    // ! you want a subtler resting vignette, move the ramp's knee — do not just lower this.
+    // ! which exists so a decaying impact pulse reaches a true zero. If you want a subtler
+    // ! resting vignette, move the ramp's knee — do not just lower this.
     arcade: {
       aberration: 0.003,
       scanlineDensity: 1.8,

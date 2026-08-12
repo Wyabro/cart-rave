@@ -243,16 +243,13 @@ export function createLevelOrchestration(deps) {
     // * arenaExposure) — no global lock to ride. Same tone-map curve everywhere; only the
     // * exposure scalar moves, so no program-cache rebuild on arena swap.
     renderer.toneMappingExposure = resolveArenaExposure(resolved);
-    // * ART-FILTER-1: the CRT layer (aberration/scanlines/vignette) is a per-arena device,
-    // * not a global veneer — identity in The Storerooms, noise everywhere else. Must write
-    // * an explicit 0 rather than skip the write: the shader's own uniform defaults are
-    // * non-zero, and createComposer seeds all three from the global config at boot.
+    // * ART-FILTER-2: the CRT layer (aberration/scanlines/vignette) applies to ALL
+    // * arenas. VHS is still Storerooms-only (below). Seed uniforms from global config.
     if (arcadePass?.uniforms?.uAberration) {
       const arcadeCfg = CONFIG.postFx.arcade;
-      const arcadeOn = resolved === "backrooms";
-      arcadePass.uniforms.uAberration.value = arcadeOn ? arcadeCfg.aberration : 0;
-      arcadePass.uniforms.uScanlineDensity.value = arcadeOn ? arcadeCfg.scanlineDensity : 0;
-      arcadePass.uniforms.uVignette.value = arcadeOn ? arcadeCfg.vignette : 0;
+      arcadePass.uniforms.uAberration.value = arcadeCfg.aberration;
+      arcadePass.uniforms.uScanlineDensity.value = arcadeCfg.scanlineDensity;
+      arcadePass.uniforms.uVignette.value = arcadeCfg.vignette;
       // ! A pulse still live across an arena swap would restore the OLD arena's vignette/
       // ! aberration over the values just written (frameVisuals re-applies the captured base
       // ! every frame until it decays), resurrecting the CRT on Classic/Sundial. Clearing
