@@ -1425,6 +1425,7 @@ export function bootGameSystems(ctx) {
     endRound,
     scheduleLastCartStandingFinish,
     abortLastCartStandingFlourish,
+    onLocalKoConfirm,
     onLocalKillConfirm,
     onArenaKoFlash,
     getAllCartsRef: () => refs.allCartsRef,
