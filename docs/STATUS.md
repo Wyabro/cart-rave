@@ -33,6 +33,9 @@ external testers. Stay in this phase until Wyatt advances the marker.
 **PROBE-WARM-RT-1** (L1 instrument + L2 scratch-RT fix) deployed `0dcca0f`.
 Playtest card: PROBE-WARM-RT-PT-1 (solo, check `programs` count before/after first KO).
 
+**PERF-TIER-1** (Wave A: `high-lite` tier, Wave B: `discrete-mid` GPU detection) deployed `e8421dd` + `54cbc6e`.
+Playtest card: PERF-TIER-PT-1 (solo, verify high-lite boots + reflector absent).
+
 **Closed cards keep their narrative in their own docs, not here** — Sundial
 ([handover](./planning/art-pass-sundial-handover.md); read its "Traps that cost time" before any
 capture, and judge phase changes against a ~1.2% construction-noise floor, not zero), Fight Night

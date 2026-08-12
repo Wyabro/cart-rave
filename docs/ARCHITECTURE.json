@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-12T06:52:46.987Z",
-    "commit": "116568d"
+    "at": "2026-08-12T07:30:01.688Z",
+    "commit": "54cbc6e"
   },
-  "source_digest": "a2c87e02",
+  "source_digest": "a184e52e",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -977,7 +977,7 @@
           {
             "pri": "Medium",
             "item": "PERF-TIER-1 — `high-lite` tier rung",
-            "notes": "`DISCRETE_GPU_RE` puts a 1660 Ti in the same discrete→High bucket as a 4090; High→Medium cuts 4 knobs at once (DPR 2→1.25, reflector off, crowd, lasers). Blocked on HYGIENE-1's `--dpr` profiling — tier table may be tuned against an inverted ranking (512px reflector is DPR-invariant; full-screen cost ×4 at DPR 2). **Still open after TIER-DEFAULT-1 (closed 08-05):** that card deliberately declined NVIDIA/AMD model-number parsing (bottom-heavy taxonomy only — the classifier now separates entry-level discrete from full discrete, but does not split full discrete further), so a 1660 Ti still lands in the same discrete→High bucket as a 4090. This row is what closes that gap, once unblocked.",
+            "notes": "**Deployed `e8421dd` + `54cbc6e`.** Wave A: `high-lite` tier added (same personality as high minus reflector, DPR cap 1.5). Wave B: `discrete-mid` GPU class with narrow allow-list (GTX 1060/1070/1660, RTX 3050/4050, RX 5500–6600 non-XT, Arc A3xx/A5xx/A730) maps to `high-lite`. Conservative: 1080/2060/3060/4060/Arc A770 stay discrete/high. Auto-quality steps through high→high-lite→medium→low (MAX_STEPS 3). Awaiting playtest: PERF-TIER-PT-1.",
             "ship1": null
           },
           {
@@ -1119,7 +1119,7 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Medium": 2,
+          "Medium": 3,
           "Low": 2
         },
         "rows": [
@@ -1127,6 +1127,12 @@
             "pri": "Medium",
             "item": "PERF-9CELL-1 — Intel Low 9-cell PERF sweep `[solo]`",
             "notes": "⏸ **PARKED 08-05 with its parent PERF-PASS-1.** It came back **FAIL 08-05** with *\"idk what you are asking me to do here\"*, and that was the card's fault, not Wyatt's: it said \"run the handover's 9-cell matrix\" and left the actual protocol 300 lines deep in a 484-line doc, so the console showed him a 25-minute measurement sitting with no cells in it. **MOOT 08-06 — parent PERF-PASS-1 CLOSED with the bar unmet** (Wave 5 cells null/unproven, stadium kept). If it is ever reopened, the sweep is runnable off this row: **URL** `https://cart-rave.wyabro.workers.dev/?diag=1&preset=low&level=classicRecord&ablate=<token>`; **setup** Solo host, 3 NPCs, Cart Rave, entered *through the menu* (not a room link), Low tier, box cooled between cells; **per cell** play 60–90 s → **F8 mid-round** (`loopRound` is live, no podium needed) → `npm run captures:pull` → read `snapshot.perf.loopRound.meanMs`, discarding any cell where `straddledDemotion` is true. **Tokens in order:** `none` → `crowdcarts` → `crowd` → `pitlights` → `stadium` → `stagerig` → `billboard` → `bulbs` → `none`. **`none` runs FIRST and LAST**; if the two baselines differ by more than ±1.5 ms mean the box drifted and the whole sweep is void. **Never combine tokens** — the effects are not additive and combos destroy attribution. Full rationale, per-token expectations and the stills protocol: [perf-pass-1-handover.md](./perf-pass-1-handover.md#the-sweep--nine-cells-25-min-of-play-on-wyatts-intel-box).",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "PERF-TIER-PT-1 — high-lite tier boots + game runs `[solo]`",
+            "notes": "**Owed: Wyatt playtest — PERF-TIER-PT-1 — high-lite tier boots and performs correctly.**<br>1. Hard-refresh prod. Open dev console. Check `window.__cartRavePerf?.renderer?.info?.programs?.length` — game should boot with `high-lite` tier on a discrete-mid GPU, or `high` on 4090-class.<br>2. If on a 4090-class machine: add `?forcegpu=discrete-mid` to URL, hard-refresh. Quality tier should show `high-lite` in the menu.<br>3. Solo Cart Rave, 3 NPCs. Play a full round. Check: no reflector (mirror floor absent), DPR cap at 1.5 (not 2), postFx/lasers/crowd all present.<br>4. F8 mid-round. Check `snapshot.runtime.qualityTier` equals `high-lite`. Frame times should be stable (no sustained >20.5ms windows).<br>5. FAIL if reflector is visible on high-lite, or if quality tier shows wrong value, or if auto-quality demotes to medium within first minute on adequate hardware.",
             "ship1": null
           },
           {
