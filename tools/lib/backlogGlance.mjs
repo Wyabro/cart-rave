@@ -108,7 +108,7 @@ export function extractBacklogGlanceBlock(backlogMd) {
   const start = md.indexOf(GLANCE_BEGIN_MARKER);
   const end = md.indexOf(GLANCE_END_MARKER);
   if (start < 0 || end < 0 || end < start) return null;
-  return md.slice(start, end + GLANCE_END_MARKER.length);
+  return md.slice(start, end + GLANCE_END_MARKER.length).replace(/\r\n/g, "\n");
 }
 
 /**

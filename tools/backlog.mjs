@@ -34,7 +34,7 @@ const log = makeLogger("backlog");
 function main() {
   const args = parseArgs(process.argv.slice(2));
   const path = resolve("docs/planning/BACKLOG.md");
-  const md = readFileSync(path, "utf8");
+  const md = readFileSync(path, "utf8").replace(/\r\n/g, "\n");
 
   const glance = computeBacklogGlance(md);
   if (!glance.ok) {
