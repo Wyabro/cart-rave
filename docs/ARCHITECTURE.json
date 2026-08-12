@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-12T04:19:59.645Z",
-    "commit": "36bec6d"
+    "at": "2026-08-12T04:30:51.434Z",
+    "commit": "0dcca0f"
   },
-  "source_digest": "a1b65901",
+  "source_digest": "e3545d21",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -971,7 +971,7 @@
           {
             "pri": "Medium",
             "item": "PROBE-WARM-RT-1 — VFX program anchors may be holding the wrong program key",
-            "notes": "Instrument-first; **no behavior claim until measured**. `outputColorSpace` and `toneMapping` are both pushed into three's program cache key (`getProgramCacheKeyParameters`) and both switch on `renderer.getRenderTarget() === null` — `outputColorSpace` unconditionally, not just for `toneMapped` materials. `compileAsync` (`main.js:2664`) binds no RT, so the anchors compile the **default-framebuffer** variant; the `composer.render()` prime (`:2679`) builds correct RT-variant keys only for what it actually *draws*, and the anchors are `visible=false` at `y=-500` (`koHitmarkerFx.js:259`, `cartShatter.js:1062` — both comments say \"render skips them\"). If that holds, the anchors' stated job (next KO is a cache hit) is defeated and the first shatter/KO/water/ram spawn links synchronously mid-round. **Measure first:** `renderer.info.programs.length` across the first KO. Fix only if it climbs — bind any non-XR RT around the anchor compile (1×1 scratch is enough; only `=== null` is tested). Making the anchors visible does *not* work: they are off-camera and cull. Pairs with WARM-SOLO-1 — same symptom class, different mechanism (that one is new content added after the warm; this one is the right content under the wrong key). Source: `ryancampbell/kart-royale` `src/core/Prewarm.ts`. **W0.1 evidence 08-03 (cap-229 @ c418bd9):** after Cart Rave play-shader settled at materials=497, a mid-round `warmupCompile` at materials=505 + **6.5 s** longtask/`warmupSettle` poll fired ~8 s into running — late program link signature consistent with RT-variant miss. Still measure-first; not in PLAYTEST-BATCH-0803 scope.",
+            "notes": "**Deployed `0dcca0f` (L1 instrument + L2 scratch-RT fix).** Awaiting playtest: PROBE-WARM-RT-PT-1. Hypothesis: `renderer.compileAsync` binds no RT, so anchors compile under `renderer.outputColorSpace` (null-RT path). Composer later binds RTs using `ColorManagement.workingColorSpace` for `outputColorSpace` → cache miss on first KO → synchronous shader link. Fix: bind 1×1 scratch `WebGLRenderTarget` around anchor install + compileAsync, then restore original RT in finally. Instrument: `warmupSettle` event + F8 perf probe both carry `programs` count for baseline vs mid-round comparison.",
             "ship1": null
           },
           {
@@ -1125,7 +1125,7 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Medium": 1,
+          "Medium": 2,
           "Low": 2
         },
         "rows": [
@@ -1133,6 +1133,12 @@
             "pri": "Medium",
             "item": "PERF-9CELL-1 — Intel Low 9-cell PERF sweep `[solo]`",
             "notes": "⏸ **PARKED 08-05 with its parent PERF-PASS-1.** It came back **FAIL 08-05** with *\"idk what you are asking me to do here\"*, and that was the card's fault, not Wyatt's: it said \"run the handover's 9-cell matrix\" and left the actual protocol 300 lines deep in a 484-line doc, so the console showed him a 25-minute measurement sitting with no cells in it. **MOOT 08-06 — parent PERF-PASS-1 CLOSED with the bar unmet** (Wave 5 cells null/unproven, stadium kept). If it is ever reopened, the sweep is runnable off this row: **URL** `https://cart-rave.wyabro.workers.dev/?diag=1&preset=low&level=classicRecord&ablate=<token>`; **setup** Solo host, 3 NPCs, Cart Rave, entered *through the menu* (not a room link), Low tier, box cooled between cells; **per cell** play 60–90 s → **F8 mid-round** (`loopRound` is live, no podium needed) → `npm run captures:pull` → read `snapshot.perf.loopRound.meanMs`, discarding any cell where `straddledDemotion` is true. **Tokens in order:** `none` → `crowdcarts` → `crowd` → `pitlights` → `stadium` → `stagerig` → `billboard` → `bulbs` → `none`. **`none` runs FIRST and LAST**; if the two baselines differ by more than ±1.5 ms mean the box drifted and the whole sweep is void. **Never combine tokens** — the effects are not additive and combos destroy attribution. Full rationale, per-token expectations and the stills protocol: [perf-pass-1-handover.md](./perf-pass-1-handover.md#the-sweep--nine-cells-25-min-of-play-on-wyatts-intel-box).",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "PROBE-WARM-RT-PT-1 — first-KO program cache miss `[solo]`",
+            "notes": "**Owed: Wyatt playtest — PROBE-WARM-RT-PT-1 — first KO mid-round does not trigger synchronous shader link.**<br>1. Hard-refresh prod. F8 right after load. Note `warmupSettle.programs` (baseline).<br>2. Solo Cart Rave, 1 NPC. Drive straight into the NPC. Get a KO as the FIRST action — no wandering.<br>3. F8 mid-round immediately after the KO. Check `snapshot.perf.programs`.<br>4. PASS if programs equals baseline AND no `warmupCompile`/`warmupSettle` events in the mid-round log.<br>5. FAIL if programs climbed OR mid-round `warmupCompile` events fired (cache miss, fix didn't hold).",
             "ship1": null
           },
           {

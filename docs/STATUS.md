@@ -30,6 +30,9 @@ analytics gating are closed. Run 7 closed; NET-2 / NET-MIG-3 passed live; NET-PR
 (loss-on-drop residual accepted). The analytics DO has been reset, so the ring starts clean for
 external testers. Stay in this phase until Wyatt advances the marker.
 
+**PROBE-WARM-RT-1** (L1 instrument + L2 scratch-RT fix) deployed `0dcca0f`.
+Playtest card: PROBE-WARM-RT-PT-1 (solo, check `programs` count before/after first KO).
+
 **Closed cards keep their narrative in their own docs, not here** — Sundial
 ([handover](./planning/art-pass-sundial-handover.md); read its "Traps that cost time" before any
 capture, and judge phase changes against a ~1.2% construction-noise floor, not zero), Fight Night
