@@ -444,7 +444,7 @@ async function buildPool(scene, world) {
     for (const { group, hw, hl, rimY } of queuedBays) {
       // * Parentless = discarded (removeCargoBaysFromMesh) before models arrived.
       if (!group.parent) continue;
-      if (group.userData.cargoItems?.length) continue;
+      if (group.userData.cargoImSlots?.length) continue;
       populateCargoBay(group, hw, hl, rimY);
     }
   }
@@ -664,17 +664,15 @@ function populateCargoBay(group, hw, hl, rimY) {
     { u: -0.2, v: 0.3, layer: 2 },
   ];
 
-  /** @type {THREE.Mesh[]} Fill-order list consumed by {@link setCargoFill}. */
-  const cargoItems = [];
-  /** Per-item layer + horizontal half-extent for the separation pass below. */
-  const itemLayers = [];
-  const itemHoriz = [];
+  // * Step 1 — compute per-slot data (model, position, rotation, scale, footprint).
+  /** @type {{ gridIdx: number, modelIdx: number, pos: THREE.Vector3, rot: THREE.Euler, scale: number, horiz: number, layer: number }[]} */
+  const slotData = [];
 
   for (let i = 0; i < GRID.length; i += 1) {
-    const idx = indices[i % indices.length];
-    const def = MODEL_DEFS[idx];
+    const modelIdx = indices[i % indices.length];
+    const def = MODEL_DEFS[modelIdx];
     const scaleMul = groceryScaleFor(def.name).cargoMul;
-    const geo = loadedGeometries[idx];
+    const geo = loadedGeometries[modelIdx];
     if (!geo.boundingBox) geo.computeBoundingBox();
     if (!geo.boundingSphere) geo.computeBoundingSphere();
     const s = cargoScale * scaleMul;
@@ -686,10 +684,8 @@ function populateCargoBay(group, hw, hl, rimY) {
     const halfZ = Math.max(Math.abs(bb.min.z), Math.abs(bb.max.z)) * s;
     const horiz = Math.max(halfX, halfZ);
 
-    const mesh = new THREE.Mesh(geo, loadedMaterials[idx]);
-    mesh.scale.setScalar(s);
     // * Yaw free, pitch/roll tiny — reads as "tossed in" without wall-clipping diagonals.
-    mesh.rotation.set(
+    const rot = new THREE.Euler(
       (Math.random() - 0.5) * 0.4,
       Math.random() * Math.PI * 2,
       (Math.random() - 0.5) * 0.3,
@@ -708,51 +704,103 @@ function populateCargoBay(group, hw, hl, rimY) {
       slot.layer === 2 && Number.isFinite(rimY)
         ? Math.max(stackLift, Math.min(rimY - halfY * 0.35, stackLift + halfY * 2.2))
         : stackLift;
-    mesh.position.set(
-      slot.u * reachX + (Math.random() - 0.5) * 0.03,
-      halfY * 0.95 + layerLift + Math.random() * 0.015,
-      slot.v * reachZ + (Math.random() - 0.5) * 0.03,
-    );
-    group.add(mesh);
-    cargoItems.push(mesh);
-    itemLayers.push(slot.layer);
-    itemHoriz.push(horiz);
+
+    slotData.push({
+      gridIdx: i,
+      modelIdx,
+      pos: new THREE.Vector3(
+        slot.u * reachX + (Math.random() - 0.5) * 0.03,
+        halfY * 0.95 + layerLift + Math.random() * 0.015,
+        slot.v * reachZ + (Math.random() - 0.5) * 0.03,
+      ),
+      rot,
+      scale: s,
+      horiz,
+      layer: slot.layer,
+    });
   }
 
-  // * Same-layer separation: large items shrink the usable reach, which collapses
-  // * grid slots toward center and interpenetrates neighbors. A few relaxation
-  // * passes push overlapping same-layer pairs apart along XZ, clamped to the
-  // * walls. 0.72 leaves a light lean so the pile still reads as packed-in.
+  // * Step 2 — same-layer separation: large items shrink the usable reach, which
+  // * collapses grid slots toward center and interpenetrates neighbors. A few
+  // * relaxation passes push overlapping same-layer pairs apart along XZ, clamped
+  // * to the walls. 0.72 leaves a light lean so the pile still reads as packed-in.
   const clampToWalls = (value, horiz, half) => {
     const limit = Math.max(0, half - horiz);
     return Math.min(limit, Math.max(-limit, value));
   };
   for (let pass = 0; pass < 3; pass += 1) {
-    for (let a = 0; a < cargoItems.length; a += 1) {
-      for (let b = a + 1; b < cargoItems.length; b += 1) {
-        if (itemLayers[a] !== itemLayers[b]) continue;
-        const pa = cargoItems[a].position;
-        const pb = cargoItems[b].position;
+    for (let a = 0; a < slotData.length; a += 1) {
+      for (let b = a + 1; b < slotData.length; b += 1) {
+        if (slotData[a].layer !== slotData[b].layer) continue;
+        const pa = slotData[a].pos;
+        const pb = slotData[b].pos;
         const dx = pb.x - pa.x;
         const dz = pb.z - pa.z;
         const dist = Math.hypot(dx, dz);
-        const minDist = (itemHoriz[a] + itemHoriz[b]) * 0.72;
+        const minDist = (slotData[a].horiz + slotData[b].horiz) * 0.72;
         if (dist >= minDist) continue;
         const push = (minDist - dist) / 2;
         const nx = dist > 1e-4 ? dx / dist : 1;
         const nz = dist > 1e-4 ? dz / dist : 0;
-        pa.x = clampToWalls(pa.x - nx * push, itemHoriz[a], halfW);
-        pa.z = clampToWalls(pa.z - nz * push, itemHoriz[a], halfL);
-        pb.x = clampToWalls(pb.x + nx * push, itemHoriz[b], halfW);
-        pb.z = clampToWalls(pb.z + nz * push, itemHoriz[b], halfL);
+        pa.x = clampToWalls(pa.x - nx * push, slotData[a].horiz, halfW);
+        pa.z = clampToWalls(pa.z - nz * push, slotData[a].horiz, halfL);
+        pb.x = clampToWalls(pb.x + nx * push, slotData[b].horiz, halfW);
+        pb.z = clampToWalls(pb.z + nz * push, slotData[b].horiz, halfL);
       }
     }
   }
 
-  // * Living Cargo: expose the fill-order list and start at empty-cart fullness —
+  // * Step 3 — group slots by model index, sort each group by gridIdx for fill priority.
+  /** @type {Map<number, Array<{ gridIdx: number, pos: THREE.Vector3, rot: THREE.Euler, scale: number }>>} */
+  const byModel = new Map();
+  for (const s of slotData) {
+    let arr = byModel.get(s.modelIdx);
+    if (!arr) { arr = []; byModel.set(s.modelIdx, arr); }
+    arr.push({ gridIdx: s.gridIdx, pos: s.pos, rot: s.rot, scale: s.scale });
+  }
+
+  // * Step 4 — one InstancedMesh per model type present in this bay.
+  // * Instances within each IM are sorted by gridIdx (ascending) so that
+  // * InstancedMesh.count directly gates the fill-ordered reveal.
+  /** @type {{ im: THREE.InstancedMesh, gridIndices: number[] }[]} */
+  const cargoImSlots = [];
+  const _tmpMatrix = new THREE.Matrix4();
+  const _tmpPos = new THREE.Vector3();
+  const _tmpQuat = new THREE.Quaternion();
+  const _tmpScale = new THREE.Vector3();
+
+  for (const [modelIdx, modelSlots] of byModel) {
+    modelSlots.sort((a, b) => a.gridIdx - b.gridIdx);
+
+    const geo = loadedGeometries[modelIdx];
+    const mat = loadedMaterials[modelIdx];
+    const count = modelSlots.length;
+    const im = new THREE.InstancedMesh(geo, mat, count);
+    im.frustumCulled = false;
+
+    for (let i = 0; i < count; i += 1) {
+      const s = modelSlots[i];
+      _tmpPos.copy(s.pos);
+      _tmpQuat.setFromEuler(s.rot);
+      _tmpScale.setScalar(s.scale);
+      _tmpMatrix.compose(_tmpPos, _tmpQuat, _tmpScale);
+      im.setMatrixAt(i, _tmpMatrix);
+    }
+    im.count = 0; // start empty — fill level drives this
+    im.instanceMatrix.needsUpdate = true;
+
+    group.add(im);
+    cargoImSlots.push({
+      im,
+      gridIndices: modelSlots.map((s) => s.gridIdx),
+    });
+  }
+
+  // * Living Cargo: expose the per-model InstancedMesh map and start empty.
   // * cargoLoad.js drives per-frame fullness from the synced round scores.
-  group.userData.cargoItems = cargoItems;
-  setCargoFill(group, 0);
+  group.userData.cargoImSlots = cargoImSlots;
+  group.userData.cargoSlotCount = GRID.length;
+  setCargoFillCount(group, 0);
 }
 
 /**
@@ -763,16 +811,25 @@ function populateCargoBay(group, hw, hl, rimY) {
  * @param {number} count Exact visible grocery count (clamped to the bay's item list).
  */
 export function setCargoFillCount(cargoBay, count) {
-  const items = cargoBay?.userData?.cargoItems;
-  if (!items || items.length === 0) return;
+  const slots = cargoBay?.userData?.cargoImSlots;
+  if (!slots || slots.length === 0) return;
 
-  const visibleCount = Math.max(0, Math.min(items.length, Math.round(count)));
+  const totalSlots = /** @type {number} */ (cargoBay.userData.cargoSlotCount ?? 30);
+  const visibleCount = Math.max(0, Math.min(totalSlots, Math.round(count)));
 
   if (cargoBay.userData.cargoFillCount === visibleCount) return;
   cargoBay.userData.cargoFillCount = visibleCount;
 
-  for (let i = 0; i < items.length; i += 1) {
-    items[i].visible = i < visibleCount;
+  for (const { im, gridIndices } of slots) {
+    // * gridIndices is sorted ascending — count how many are < visibleCount.
+    let imCount = 0;
+    for (const gi of gridIndices) {
+      if (gi < visibleCount) imCount += 1;
+      else break;
+    }
+    if (im.count !== imCount) {
+      im.count = imCount;
+    }
   }
 }
 
@@ -785,7 +842,7 @@ export function setCargoFillCount(cargoBay, count) {
  */
 export function setCargoFill(cargoBay, fullness01) {
   const cargoCfg = CONFIG.cargo;
-  const itemsLen = cargoBay?.userData?.cargoItems?.length ?? 0;
+  const itemsLen = cargoBay?.userData?.cargoSlotCount ?? cargoBay?.userData?.cargoItems?.length ?? 0;
   const base = THREE.MathUtils.clamp(cargoCfg?.baseItems ?? 2, 0, itemsLen || 18);
   const max = THREE.MathUtils.clamp(cargoCfg?.maxItems ?? (itemsLen || 18), base, itemsLen || 18);
   const f = THREE.MathUtils.clamp(fullness01, 0, 1);
