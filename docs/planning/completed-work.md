@@ -15,7 +15,7 @@ Chronological record of shipped work, newest first.
 
 ### August 12, 2026 — STORE-MUSIC-1: two new Storerooms tracks
 
-- *(Audio · content)* **STORE-MUSIC-1** — ✅ **SHIPPED 08-12.** Replaced `public/sounds/storerooms.opus` with Wyatt's first Mixcraft export and added `storerooms2.opus`. Catalog playlist is `["storerooms.opus", "storerooms2.opus"]`. Encoded opus 96k VBR, loudnorm ≈−13.5 LUFS to match the other music. `normalize-sfx.mjs` now skips both files. Playtest owed: **STORE-MUSIC-PT-1**.
+- *(Audio · content)* **STORE-MUSIC-1** — ✅ **SHIPPED 08-12.** Replaced `public/sounds/storerooms.opus` with Wyatt's first Mixcraft export and added `storerooms2.opus`. Catalog playlist is `["storerooms.opus", "storerooms2.opus"]`. Encoded opus 96k VBR, loudnorm ≈−13.5 LUFS to match the other music. `normalize-sfx.mjs` now skips both files. Deployed `4f8b649f`; hashed assets 0×404; live `roomCodes-C4vOBfIj.js` carries `storerooms2.opus`. Playtest owed: **STORE-MUSIC-PT-1**.
 
 ---
 
