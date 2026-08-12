@@ -476,7 +476,7 @@ function dispatch(def, data, nowMs, opts = {}) {
       startAnnouncement(def, data, nowMs);
       return { type: "played" };
     }
-    return enqueue(def, data, nowMs);
+    return queueOrDrop(def, data, nowMs);
   }
 
   if (channelReady(nowMs, opts.bypassGap)) {
@@ -484,6 +484,21 @@ function dispatch(def, data, nowMs, opts = {}) {
     return { type: "played" };
   }
 
+  return enqueue(def, data, nowMs);
+}
+
+/**
+ * Busy-channel policy: only "high" commentary survives a busy channel by queuing.
+ * "medium"/"low" drop instead of building a backlog that drains back-to-back.
+ * Criticals/sequences interrupt before this point; the min-gap path still uses
+ * enqueue so a new moment during the taste gap can wait one gap and play.
+ * @param {AnnouncerEventDef} def
+ * @param {AnnouncerLineData} data
+ * @param {number} nowMs
+ * @returns {{ type: "queued", queueItem: QueueItem } | { type: "discarded" }}
+ */
+function queueOrDrop(def, data, nowMs) {
+  if (def.cls !== "high") return { type: "discarded" };
   return enqueue(def, data, nowMs);
 }
 

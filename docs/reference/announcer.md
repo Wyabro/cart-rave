@@ -60,9 +60,9 @@ detection needs no new netcode.
 | `comeback` | New leader was ≥3 points behind earlier | 48 | medium | once/round | SCOREBOARD |
 | `cleanup_aisle` | Self/environmental KO | 20 | low | 18 s, 40% chance, ≤2/round | SELF CHECKOUT |
 | `close_call` | Local player survives a huge hit *or* true near-miss (boosting opponent within range without contact) | 10 | ambient | 25 s, ≤2/round | SURVIVED |
-| `last_call` | 10 seconds remaining | 40 | low | once/round | 10 SECONDS |
+| `last_call` | 10 seconds remaining | 80 | critical (no focus) | once/round | 10 SECONDS — interrupts a busy channel |
 | `one_minute` / `thirty_seconds` | Intensity ramp time checks | medium/low | low | once/round | time-check sting + lines |
-| `critical_ko` / `leader_down` | Crit ram KO / leader KO (from KO reactor fields) | medium | medium | per-event cooldowns | kill-flavor callouts |
+| `critical_ko` / `leader_down` | Isolated crit ram KO / leader KO (skipped when the same fall already fired a streak line) | medium | medium | per-event cooldowns | kill-flavor callouts |
 | `challenge_complete` | Local challenge finished mid-match | medium | low | — | works with HUD unlock/challenge toast |
 | `new_host` | Host migration | medium | medium | — | "NEW HOST — {name} HAS THE WHEEL!" |
 | `cart_overflow` | Living Cargo: a cart's bay hits full score (`CONFIG.cargo.fullScore`) | 45 | medium | 20 s, ≤2/round | CART OVERFLOW |
@@ -94,14 +94,18 @@ See [living-store.md](./living-store.md). Full event table source of truth:
    and is *not* gated by the announcer toggle — the countdown is core game feedback,
    not commentary. A registered voice take **supersedes** the beep sting; the beeps
    remain the no-pack fallback.
-3. **`critical`** (sudden death, victory/defeat) interrupts the current announcement and
+3. **`critical`** (sudden death, victory/defeat, **last_call**) interrupts the current announcement and
    flushes the queue. **Interrupts silence the outgoing audio** (90 ms fade) — the old
-   line must not ring under the new one.
+   line must not ring under the new one. `last_call` has a callout and no `focus` (same
+   pattern as sudden death: do not mute the PA over a clock beat).
 4. Otherwise an incoming event interrupts only if its priority beats the active one by
-   **≥ 20** *and* the active event is marked interruptible; else it queues.
+   **≥ 20** *and* the active event is marked interruptible. If the channel is busy and
+   that check fails, only **high** events queue; medium/low drop. Events that arrive
+   during the min-gap window (channel free, taste gap pending) still queue.
 5. **Queue**: max 2 items, priority-ordered, per-event TTL (stale hype is discarded, not
    played late), duplicate event ids replaced with fresher data, lowest-priority evicted
-   when full.
+   when full. A busy channel only admits high events; medium/low can still sit here if
+   they arrived during the gap.
 6. **`ambient`** (close_call) plays only into silence; it is never queued.
 7. Per-event gates: cooldown, once-per-round, max-per-round, and chance (%), all reset at
    round start.

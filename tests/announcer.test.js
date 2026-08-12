@@ -112,8 +112,8 @@ describe("critical class flush", () => {
     advance(450);
     expect(manager.getAnnouncerDebugState().activeEventId).toBe("carnage");
 
-    manager.announce("new_leader", { leader: "P1" });
-    manager.announce("last_call");
+    manager.announce("new_host", { name: "P1" });
+    manager.announce("comeback", { leader: "P2" });
     expect(manager.getAnnouncerDebugState().queueLength).toBe(2);
 
     manager.announce("victory");
@@ -134,11 +134,11 @@ describe("queue: max 2 items + priority eviction", () => {
 
     manager.announce("double_spill"); // priority 62
     advance(450);
-    manager.announce("savage"); // priority 55
-    advance(450);
+    manager.announce("new_host", { name: "P1" }); // priority 55, high — queues while busy
+    advance(450); // keep the defeat+gap drain timeline aligned
     expect(manager.getAnnouncerDebugState().queueLength).toBe(2);
 
-    // aisle_wipeout (68) should evict savage (55, the lowest of the two queued).
+    // aisle_wipeout (68) should evict new_host (55, the lowest of the two queued).
     manager.announce("aisle_wipeout");
     advance(450);
     expect(manager.getAnnouncerDebugState().queueLength).toBe(2);
@@ -160,7 +160,9 @@ describe("queue: max 2 items + priority eviction", () => {
     advance(450);
     expect(manager.getAnnouncerDebugState().queueLength).toBe(2);
 
-    manager.announce("savage"); // 55 — lower than both queued (62, 60) -> discarded
+    // savage is medium, so a busy channel drops it (same queue-length result as
+    // the old eviction path — it never reaches enqueue).
+    manager.announce("savage"); // 55
     advance(450);
     expect(manager.getAnnouncerDebugState().queueLength).toBe(2);
     expect(manager.getAnnouncerDebugState().heldEventId).toBeNull();
@@ -191,16 +193,17 @@ describe("dedupe by event id in the queue", () => {
 describe("TTL expiry", () => {
   it("drops a queued item once its ttlMs has elapsed by the time the channel would drain it", () => {
     manager.announce("defeat"); // 1400ms, busy backdrop
-    manager.announce("last_call"); // ttlMs 1500
+    manager.announce("double_spill"); // high, kill-burst; ttlMs 2000
+    advance(450); // burst fires and enqueues at t=450; expires at 2450
     expect(manager.getAnnouncerDebugState().queueLength).toBe(1);
 
-    // defeat ends at 1400, drain fires at 1400 + MIN_GAP_MS — either way well past
-    // last_call's expiry at 1500 — so it should never play.
+    // defeat ends at 1400, drain fires at 1400 + MIN_GAP_MS (3200) — past
+    // double_spill's expiry at 2450 — so it should never play.
     advance(3300);
 
     expect(manager.getAnnouncerDebugState().queueLength).toBe(0);
     expect(manager.getAnnouncerDebugState().activeEventId).toBeNull();
-    expect(playedEventIds()).not.toContain("last_call");
+    expect(playedEventIds()).not.toContain("double_spill");
   });
 });
 
@@ -343,7 +346,10 @@ describe("comeback swallows new_leader", () => {
   });
 
   it("removes a queued new_leader instead of leaving both entries queued", () => {
-    manager.announce("defeat"); // busy backdrop
+    // new_leader is low — it drops while the channel is busy, but still queues
+    // during the min-gap window (a new moment after the last line ended).
+    manager.announce("new_host", { name: "P1" });
+    advance(1200); // natural end; gap now pending
     manager.announce("new_leader", { leader: "P1" });
     expect(manager.getAnnouncerDebugState().queueLength).toBe(1);
 
@@ -358,6 +364,45 @@ describe("comeback swallows new_leader", () => {
 
     manager.announce("comeback", { leader: "P2" });
     expect(playedEventIds()).toEqual(["new_leader", "comeback"]);
+  });
+});
+
+describe("busy-channel policy: only high queues while active", () => {
+  it("drops a medium event into a busy channel instead of queuing it", () => {
+    manager.announce("defeat");
+    manager.announce("cart_overflow"); // medium, non-kill-burst
+    expect(manager.getAnnouncerDebugState().queueLength).toBe(0);
+    expect(playedEventIds()).not.toContain("cart_overflow");
+  });
+
+  it("drops a low event into a busy channel instead of queuing it", () => {
+    manager.announce("defeat");
+    manager.announce("new_leader", { leader: "P1" }); // low
+    expect(manager.getAnnouncerDebugState().queueLength).toBe(0);
+  });
+
+  it("queues a high event into a busy channel", () => {
+    manager.announce("defeat");
+    manager.announce("new_host", { name: "P1" }); // high
+    expect(manager.getAnnouncerDebugState().queueLength).toBe(1);
+  });
+
+  it("queues a medium event that arrives during the min-gap window", () => {
+    manager.announce("new_leader", { leader: "P1" }); // plays
+    advance(1000); // natural end; gap now pending
+    manager.announce("cart_overflow"); // medium, new moment
+    expect(manager.getAnnouncerDebugState().queueLength).toBe(1);
+  });
+
+  it("last_call interrupts a busy non-interruptible line and plays", () => {
+    manager.announce("carnage");
+    advance(450);
+    expect(manager.getAnnouncerDebugState().activeEventId).toBe("carnage");
+
+    manager.announce("last_call");
+    expect(manager.getAnnouncerDebugState().activeEventId).toBe("last_call");
+    expect(manager.getAnnouncerDebugState().queueLength).toBe(0);
+    expect(playedEventIds()).toContain("last_call");
   });
 });
 
@@ -450,7 +495,7 @@ describe("recorded voice integration", () => {
 describe("resetAnnouncerRound", () => {
   it("clears the queue but leaves the currently-active announcement playing", () => {
     manager.announce("defeat");
-    manager.announce("new_leader", { leader: "P1" });
+    manager.announce("new_host", { name: "P1" });
     expect(manager.getAnnouncerDebugState().queueLength).toBe(1);
 
     manager.resetAnnouncerRound();
@@ -489,7 +534,7 @@ describe("misc", () => {
 
   it("stopAnnouncer hides the callout, clears the active channel, and empties the queue", () => {
     manager.announce("defeat");
-    manager.announce("new_leader", { leader: "P1" });
+    manager.announce("new_host", { name: "P1" });
     manager.stopAnnouncer();
 
     const state = manager.getAnnouncerDebugState();

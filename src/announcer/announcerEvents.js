@@ -510,14 +510,17 @@ export const ANNOUNCER_EVENTS = Object.freeze({
   }),
   last_call: Object.freeze({
     id: "last_call",
-    priority: 40,
-    cls: "low",
+    // * Clock interrupt (PA-QUIET-1): critical + no focus, same pattern as
+    // * sudden_death. Cuts a mid-line PA so "10 SECONDS" is never lost or late.
+    // * Priority 80 + interruptible false so a finale pileup cannot +20-cut it.
+    priority: 80,
+    cls: "critical",
     cooldownMs: 0,
     oncePerRound: true,
     maxPerRound: 0,
     chance: 1,
     ttlMs: 1500,
-    interruptible: true,
+    interruptible: false,
     durationMs: 1000,
     callout: Object.freeze({ kicker: "10 SECONDS", accent: "#ff3333", holdMs: 1500 }),
     voice: Object.freeze({ key: "last_call", variants: 2 }),
