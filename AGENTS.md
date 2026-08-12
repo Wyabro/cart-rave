@@ -111,10 +111,9 @@ backup. Claude is **demoted** (do not design process around it; cancel path).
 ## SELF-IMPROVING LOOP
 
 When Wyatt starts a message with `loop:`, run the fail-closed plan graph described in
-`.cursor/rules/self-improving-loop.mdc`: fixed plan-only DeepSeek maker, then one host-mediated
-`gpt-5.6-luna` review at high reasoning. The graph stops at Wyatt's exact `ack`; it does not start
-Sol, source apply, commit, push, deploy, or playtest. `ship it` remains separate deployment
-authorization.
+`.cursor/rules/self-improving-loop.mdc`: fixed plan-only DeepSeek maker, then one fixed read-only
+DeepSeek checker. The graph stops at Wyatt's exact `ack`; it does not start Sol, source apply,
+commit, push, deploy, or playtest. `ship it` remains separate deployment authorization.
 
 ## WHAT'S OFF-LIMITS
 

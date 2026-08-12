@@ -40,6 +40,7 @@ class DevGraphTests(unittest.TestCase):
         self.mock_git_output = self.git_output.start()
         self.mock_git_output.side_effect = self._git_result
         self.maker_commands: list[tuple[list[str], dict]] = []
+        self.checker_commands: list[tuple[list[str], dict]] = []
 
     def tearDown(self) -> None:
         self.git_output.stop()
@@ -79,6 +80,7 @@ class DevGraphTests(unittest.TestCase):
                 "run_id": maker_run_id,
                 "role": "maker",
                 "mode": mode,
+                "model": state["deepseek_model"],
                 "status": "completed",
                 "event": "completed",
                 "turn": 1,
@@ -86,6 +88,42 @@ class DevGraphTests(unittest.TestCase):
                 "artifacts": {
                     "run_state": f".agent/self-improving/runs/{maker_run_id}/run-state.json",
                     "run_result": f".agent/self-improving/runs/{maker_run_id}/run-result.md",
+                },
+            },
+        )
+
+    def _write_checker_artifacts(
+        self,
+        state: dict,
+        *,
+        mode: str = "checker",
+        tool_error_count: int = 0,
+        result: str | None = None,
+    ) -> None:
+        checker_run_id = graph._checker_run_id(state["run_id"])
+        artifacts = loop_safety.RunArtifacts(
+            self.root,
+            graph.MAKER_ARTIFACT_NAMESPACE,
+            checker_run_id,
+        )
+        artifacts.write_text(
+            "run-result.md",
+            result or f"# DeepSeek run {checker_run_id}\n\nPlan is scoped.\nAPPROVE\n",
+        )
+        artifacts.write_json(
+            "run-state.json",
+            {
+                "run_id": checker_run_id,
+                "role": "checker",
+                "mode": mode,
+                "model": state["deepseek_model"],
+                "status": "completed",
+                "event": "completed",
+                "turn": 1,
+                "tool_error_count": tool_error_count,
+                "artifacts": {
+                    "run_state": f".agent/self-improving/runs/{checker_run_id}/run-state.json",
+                    "run_result": f".agent/self-improving/runs/{checker_run_id}/run-result.md",
                 },
             },
         )
@@ -98,42 +136,25 @@ class DevGraphTests(unittest.TestCase):
 
         return fake_process
 
+    def _checker_process(self, state: dict, **artifact_kwargs: object):
+        def fake_process(command: list[str], **kwargs: object) -> SimpleNamespace:
+            self.checker_commands.append((command, kwargs))
+            self._write_checker_artifacts(state, **artifact_kwargs)
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+        return fake_process
+
     def _run_maker(self, state: dict, **artifact_kwargs: object) -> dict:
         with patch.object(graph.subprocess, "run", side_effect=self._maker_process(state, **artifact_kwargs)):
             return graph.run_maker(self.root, state["run_id"])
 
-    def _review_request(self, state: dict) -> dict:
-        artifacts = graph._artifacts(self.root, state["run_id"])
-        return json.loads(artifacts.path("review-request.json").read_text(encoding="utf-8"))
+    def _run_checker(self, state: dict, **artifact_kwargs: object) -> dict:
+        with patch.object(graph.subprocess, "run", side_effect=self._checker_process(state, **artifact_kwargs)):
+            return graph.run_checker(self.root, state["run_id"])
 
-    def _review(
-        self,
-        state: dict,
-        *,
-        verdict: str = "APPROVE",
-        findings: list[str] | None = None,
-    ) -> str:
-        request = self._review_request(state)
-        return json.dumps(
-            {
-                "schema_version": 1,
-                "card_id": state["card_id"],
-                "graph_run_id": state["run_id"],
-                "base_head": request["base_head"],
-                "baseline_sha256": request["baseline_sha256"],
-                "brief_sha256": request["brief_sha256"],
-                "maker_receipt_sha256": request["maker_receipt_sha256"],
-                "maker_run_id": request["maker_run_id"],
-                "maker_result_sha256": request["maker_result_sha256"],
-                "plan_sha256": request["plan_sha256"],
-                "review_request_id": request["review_request_id"],
-                "reviewer_id": request["reviewer"]["id"],
-                "reasoning_effort": request["reviewer"]["reasoning_effort"],
-                "reviewed_at": request["created_at"],
-                "verdict": verdict,
-                "findings": findings if findings is not None else [],
-            }
-        )
+    def _checker_request(self, state: dict) -> dict:
+        artifacts = graph._artifacts(self.root, state["run_id"])
+        return json.loads(artifacts.path("checker-request.json").read_text(encoding="utf-8"))
 
     def test_graph_definition_rejects_command_nodes(self) -> None:
         contract = json.loads((ROOT / ".agent" / "graphs" / "dev-graph.json").read_text())
@@ -160,64 +181,45 @@ class DevGraphTests(unittest.TestCase):
             self._start()
 
     def test_maker_receipt_binds_the_frozen_preflight_and_uses_fixed_argv(self) -> None:
-        state = self._start()
-        state = self._run_maker(state)
+        state = self._run_maker(self._start())
         receipt = json.loads(
             graph._artifacts(self.root, state["run_id"]).path("maker-receipt.json").read_text(encoding="utf-8")
         )
         command, kwargs = self.maker_commands[0]
 
-        self.assertEqual(state["node"], "await_review")
+        self.assertEqual(state["node"], "await_checker")
         self.assertEqual(receipt["graph_run_id"], state["run_id"])
-        self.assertEqual(receipt["brief_sha256"], state["artifacts"]["brief"]["sha256"])
-        self.assertEqual(receipt["baseline_sha256"], state["artifacts"]["baseline"]["sha256"])
+        self.assertEqual(receipt["model"], state["deepseek_model"])
         self.assertEqual(receipt["plan_sha256"], state["artifacts"]["plan"]["sha256"])
-        self.assertEqual(
-            state["artifacts"]["plan"]["sha256"],
-            graph._artifact_sha256(graph._artifacts(self.root, state["run_id"]).path("plan.md").read_bytes()),
-        )
-        self.assertEqual(
-            state["artifacts"]["maker"]["sha256"],
-            graph._artifact_sha256(
-                graph._artifacts(self.root, state["run_id"]).path("maker-receipt.json").read_bytes()
-            ),
-        )
-        request = self._review_request(state)
-        self.assertEqual(request["review_request_id"], graph._review_request_id(state["run_id"]))
-        self.assertEqual(request["plan_sha256"], receipt["plan_sha256"])
-        self.assertEqual(
-            state["artifacts"]["review_request"]["sha256"],
-            graph._artifact_sha256(
-                graph._artifacts(self.root, state["run_id"]).path("review-request.json").read_bytes()
-            ),
-        )
+        request = self._checker_request(state)
+        self.assertEqual(request["checker_request_id"], graph._checker_request_id(state["run_id"]))
+        self.assertEqual(request["checker"]["model"], state["deepseek_model"])
         self.assertEqual(
             command,
             graph._maker_command(self.root, graph._read_state(self.root, state["run_id"])),
         )
         self.assertFalse(kwargs["shell"])
         self.assertEqual(kwargs["timeout"], graph.MAKER_PROCESS_TIMEOUT_SECONDS)
+        self.assertEqual(kwargs["env"]["DEEPSEEK_MODEL"], state["deepseek_model"])
 
     def test_maker_checkpoint_mismatch_blocks_and_releases_the_lock(self) -> None:
-        state = self._start()
-        state = self._run_maker(state, mode="maker")
+        state = self._run_maker(self._start(), mode="maker")
 
         self.assertEqual(state["status"], "blocked")
         self.assertIn("fixed plan-only contract", state["failure"]["reason"])
         self.assertFalse(graph._lock_path(self.root).exists())
 
     def test_maker_tool_error_blocks_and_releases_the_lock(self) -> None:
-        state = self._start()
-        state = self._run_maker(state, tool_error_count=1)
+        state = self._run_maker(self._start(), tool_error_count=1)
 
         self.assertEqual(state["status"], "blocked")
         self.assertIn("fixed plan-only contract", state["failure"]["reason"])
         self.assertFalse(graph._lock_path(self.root).exists())
 
-    def test_review_request_write_failure_blocks_and_releases_the_lock(self) -> None:
+    def test_checker_request_write_failure_blocks_and_releases_the_lock(self) -> None:
         state = self._start()
 
-        with patch.object(graph, "_write_review_request", side_effect=graph.GraphError("request write failed")):
+        with patch.object(graph, "_write_checker_request", side_effect=graph.GraphError("request write failed")):
             state = self._run_maker(state)
 
         self.assertEqual(state["status"], "blocked")
@@ -239,80 +241,108 @@ class DevGraphTests(unittest.TestCase):
         self.assertIn("worktree baseline changed", state["failure"]["reason"])
         self.assertFalse(graph._lock_path(self.root).exists())
 
-    def test_replayed_luna_review_blocks_and_releases_the_lock(self) -> None:
+    def test_checker_receipt_is_bound_and_uses_fixed_read_only_argv(self) -> None:
         state = self._run_maker(self._start())
-        replay = self._review(state)
-        graph.fail_review(self.root, state["run_id"], "Discard the first synthetic review")
-        state = self._run_maker(self._start())
-
-        state = graph.submit_review(self.root, state["run_id"], replay)
-
-        self.assertEqual(state["status"], "blocked")
-        self.assertIn("does not bind", state["failure"]["reason"])
-        self.assertFalse(graph._lock_path(self.root).exists())
-
-    def test_expired_luna_review_blocks_and_releases_the_lock(self) -> None:
-        state = self._run_maker(self._start())
-        request = self._review_request(state)
-        deadline = graph._parse_utc_timestamp(request["deadline_at"], "deadline")
-
-        with patch.object(graph, "_now", return_value=deadline + timedelta(seconds=1)):
-            state = graph.submit_review(self.root, state["run_id"], self._review(state))
-
-        self.assertEqual(state["status"], "blocked")
-        self.assertIn("deadline expired", state["failure"]["reason"])
-        self.assertFalse(graph._lock_path(self.root).exists())
-
-    def test_out_of_window_luna_timestamp_blocks_and_releases_the_lock(self) -> None:
-        state = self._run_maker(self._start())
-        review = json.loads(self._review(state))
-        deadline = graph._parse_utc_timestamp(
-            self._review_request(state)["deadline_at"],
-            "deadline",
+        state = self._run_checker(state)
+        receipt = json.loads(
+            graph._artifacts(self.root, state["run_id"]).path("checker-receipt.json").read_text(encoding="utf-8")
         )
-        review["reviewed_at"] = (deadline + timedelta(seconds=1)).isoformat(timespec="seconds")
+        command, kwargs = self.checker_commands[0]
 
-        state = graph.submit_review(self.root, state["run_id"], json.dumps(review))
+        self.assertEqual(state["node"], "await_ack")
+        self.assertEqual(receipt["checker_run_id"], graph._checker_run_id(state["run_id"]))
+        self.assertEqual(receipt["checker_request_sha256"], state["artifacts"]["checker_request"]["sha256"])
+        self.assertEqual(receipt["model"], state["deepseek_model"])
+        self.assertEqual(receipt["verdict"], "APPROVE")
+        self.assertEqual(receipt["findings"], [])
+        self.assertEqual(command, graph._checker_command(self.root, graph._read_state(self.root, state["run_id"])))
+        self.assertFalse(kwargs["shell"])
+        self.assertEqual(kwargs["timeout"], graph.CHECKER_PROCESS_TIMEOUT_SECONDS)
+        self.assertEqual(kwargs["env"]["DEEPSEEK_MODEL"], state["deepseek_model"])
+
+    def test_checker_checkpoint_mismatch_blocks_and_releases_the_lock(self) -> None:
+        state = self._run_maker(self._start())
+        state = self._run_checker(state, mode="maker")
 
         self.assertEqual(state["status"], "blocked")
-        self.assertIn("outside the review request window", state["failure"]["reason"])
+        self.assertEqual(state["failure"]["stage"], "checker")
+        self.assertIn("fixed read-only contract", state["failure"]["reason"])
         self.assertFalse(graph._lock_path(self.root).exists())
 
-    def test_luna_failure_blocks_and_releases_the_lock(self) -> None:
+    def test_checker_invalid_final_decision_blocks_and_releases_the_lock(self) -> None:
         state = self._run_maker(self._start())
-
-        state = graph.fail_review(self.root, state["run_id"], "Luna session timed out")
+        checker_run_id = graph._checker_run_id(state["run_id"])
+        state = self._run_checker(
+            state,
+            result=f"# DeepSeek run {checker_run_id}\n\nThe plan looks good.\n",
+        )
 
         self.assertEqual(state["status"], "blocked")
-        self.assertEqual(state["failure"], {"stage": "review", "reason": "Luna session timed out"})
+        self.assertIn("invalid final decision", state["failure"]["reason"])
         self.assertFalse(graph._lock_path(self.root).exists())
 
-    def test_luna_rejection_is_terminal_and_releases_the_lock(self) -> None:
-        state = self._run_maker(self._start())
-
-        state = graph.submit_review(
+    def test_replayed_checker_result_blocks_and_releases_the_lock(self) -> None:
+        first = self._run_maker(self._start())
+        first_checker_run_id = graph._checker_run_id(first["run_id"])
+        first = self._run_checker(
+            first,
+            result=(
+                f"# DeepSeek run {first_checker_run_id}\n\n"
+                "REJECT: Do not reuse this checker result.\n"
+            ),
+        )
+        first_checker = loop_safety.RunArtifacts(
             self.root,
-            state["run_id"],
-            self._review(state, verdict="REJECT", findings=["The plan has no source seam."]),
+            graph.MAKER_ARTIFACT_NAMESPACE,
+            graph._checker_run_id(first["run_id"]),
+        )
+        replay_result = first_checker.path("run-result.md").read_text(encoding="utf-8")
+        state = self._run_maker(self._start())
+        state = self._run_checker(state, result=replay_result)
+
+        self.assertEqual(state["status"], "blocked")
+        self.assertIn("expected run identity", state["failure"]["reason"])
+        self.assertFalse(graph._lock_path(self.root).exists())
+
+    def test_checker_rejection_is_terminal_and_releases_the_lock(self) -> None:
+        state = self._run_maker(self._start())
+        checker_run_id = graph._checker_run_id(state["run_id"])
+        state = self._run_checker(
+            state,
+            result=(
+                f"# DeepSeek run {checker_run_id}\n\n"
+                "The plan is missing a source seam.\n"
+                "REJECT: Name the source seam and regression test.\n"
+            ),
         )
 
         self.assertEqual(state["status"], "rejected")
         self.assertFalse(graph._lock_path(self.root).exists())
 
-    def test_review_worktree_drift_blocks_and_releases_the_lock(self) -> None:
+    def test_checker_worktree_drift_blocks_and_releases_the_lock(self) -> None:
         state = self._run_maker(self._start())
         self.mock_git_output.side_effect = [self.head + "\n", " M src/main.js\n"]
 
-        state = graph.submit_review(self.root, state["run_id"], self._review(state))
+        state = self._run_checker(state)
 
         self.assertEqual(state["status"], "blocked")
-        self.assertEqual(state["failure"]["stage"], "review")
+        self.assertEqual(state["failure"]["stage"], "checker")
         self.assertIn("worktree baseline changed", state["failure"]["reason"])
         self.assertFalse(graph._lock_path(self.root).exists())
 
-    def test_ack_worktree_drift_blocks_and_releases_the_lock(self) -> None:
+    def test_checker_deadline_expiry_blocks_and_releases_the_lock(self) -> None:
         state = self._run_maker(self._start())
-        state = graph.submit_review(self.root, state["run_id"], self._review(state))
+        deadline = graph._parse_utc_timestamp(self._checker_request(state)["deadline_at"], "deadline")
+
+        with patch.object(graph, "_now", return_value=deadline + timedelta(seconds=1)):
+            state = self._run_checker(state)
+
+        self.assertEqual(state["status"], "blocked")
+        self.assertIn("deadline expired", state["failure"]["reason"])
+        self.assertFalse(graph._lock_path(self.root).exists())
+
+    def test_ack_worktree_drift_blocks_and_releases_the_lock(self) -> None:
+        state = self._run_checker(self._run_maker(self._start()))
         self.mock_git_output.side_effect = [self.head + "\n", " M src/main.js\n"]
 
         state = graph.acknowledge(self.root, state["run_id"], "ack DEV-GRAPH-2")
@@ -322,19 +352,11 @@ class DevGraphTests(unittest.TestCase):
         self.assertIn("worktree baseline changed", state["failure"]["reason"])
         self.assertFalse(graph._lock_path(self.root).exists())
 
-    def test_synthetic_approval_trace_requires_receipt_digest_then_exact_ack(self) -> None:
-        state = self._run_maker(self._start())
-        review = json.loads(self._review(state))
-        review["plan_sha256"] = "0" * 64
-
-        state = graph.submit_review(self.root, state["run_id"], json.dumps(review))
-
-        self.assertEqual(state["status"], "blocked")
-        self.assertFalse(graph._lock_path(self.root).exists())
-
-        state = self._run_maker(self._start())
-        state = graph.submit_review(self.root, state["run_id"], self._review(state))
+    def test_synthetic_approval_trace_requires_exact_ack(self) -> None:
+        state = self._run_checker(self._run_maker(self._start()))
         self.assertEqual(state["node"], "await_ack")
+        self.assertFalse(hasattr(graph, "submit_review"))
+        self.assertFalse(hasattr(graph, "fail_review"))
 
         with self.assertRaisesRegex(graph.GraphError, "exactly"):
             graph.acknowledge(self.root, state["run_id"], "okay")

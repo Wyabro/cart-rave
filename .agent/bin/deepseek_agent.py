@@ -62,6 +62,20 @@ def _save_run_result(artifacts: RunArtifacts, value: object, *, run_id: str) -> 
     )
 
 
+def _checker_final_verdict(value: object) -> str:
+    """Validate the terminal checker verdict before its checkpoint completes."""
+    lines = [line.strip() for line in str(value).splitlines() if line.strip()]
+    if not lines:
+        raise RuntimeError("checker did not return a final decision")
+    match = re.fullmatch(r"(APPROVE|REJECT|ESCALATE)(?::\s*(.*))?", lines[-1])
+    if not match:
+        raise RuntimeError("checker did not return a valid final decision")
+    verdict, reason = match.groups()
+    if verdict != "APPROVE" and not reason:
+        raise RuntimeError("checker rejection or escalation requires an actionable reason")
+    return verdict
+
+
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
@@ -77,6 +91,7 @@ def _write_checkpoint(
     event: str,
     turn: int,
     started_at: str,
+    model: str = MODEL,
     tool_error_count: int = 0,
     error: str | None = None,
 ) -> dict:
@@ -85,6 +100,7 @@ def _write_checkpoint(
         "run_id": run_id,
         "role": role,
         "mode": mode,
+        "model": model,
         "status": status,
         "event": event,
         "turn": turn,
@@ -490,15 +506,11 @@ def main() -> int:
             _emit("model_response", run_id, turn=turn, tool_calls=len(tool_calls))
             if not tool_calls:
                 text = message.get("content") or ""
-                if role == "maker":
+                if role in {"maker", "checker"}:
                     _save_run_result(artifacts, text, run_id=run_id)
                 if role == "checker":
-                    lines = [line.strip() for line in str(text).splitlines() if line.strip()]
-                    if not lines or not re.fullmatch(r"(?:APPROVE|REJECT|ESCALATE)(?::.*)?", lines[-1]):
-                        print(text)
-                        print("ESCALATE: checker did not return a valid final decision")
-                    else:
-                        print(text)
+                    _checker_final_verdict(text)
+                    print(text)
                 else:
                     print(text)
                 _write_checkpoint(

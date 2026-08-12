@@ -1,7 +1,7 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "name": "dev-plan-graph",
-  "description": "Fail-closed host-mediated plan, review, and acknowledgement flow.",
+  "description": "Fail-closed DeepSeek maker, checker, and human acknowledgement flow.",
   "nodes": {
     "preflight": {
       "kind": "deterministic",
@@ -13,17 +13,17 @@
     "await_maker": {
       "kind": "host",
       "events": {
-        "maker_complete": "await_review",
+        "maker_complete": "await_checker",
         "maker_fail": "blocked"
       }
     },
-    "await_review": {
+    "await_checker": {
       "kind": "host",
       "events": {
-        "review_approve": "await_ack",
-        "review_reject": "rejected",
-        "review_escalate": "escalated",
-        "review_fail": "blocked"
+        "checker_approve": "await_ack",
+        "checker_reject": "rejected",
+        "checker_escalate": "escalated",
+        "checker_fail": "blocked"
       }
     },
     "await_ack": {

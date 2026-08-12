@@ -1,13 +1,13 @@
 ---
-description: Run the fail-closed DeepSeek maker and Luna review graph for loop-prefixed tasks
+description: Run the fail-closed DeepSeek maker and checker graph for loop-prefixed tasks
 alwaysApply: true
 ---
 
 # Self-improving loop trigger
 
 When Wyatt's message begins with `loop:`, treat the remaining text as the immutable task brief.
-The graph owns plan evidence. The host owns Luna invocation and records its returned JSON through
-the graph CLI. No stage may edit source, commit, push, deploy, or claim a player playtest PASS.
+The graph owns plan and checker evidence. No stage may edit source, commit, push, deploy, or claim
+a player playtest PASS.
 
 1. Read `AGENTS.md`, `docs/BRIEFING.md`, and the top of `docs/STATUS.md`. Bind the one active
    valid card ID. If no card is active, or the brief names a different card, ask Wyatt to select or
@@ -18,25 +18,18 @@ the graph CLI. No stage may edit source, commit, push, deploy, or claim a player
    stop. Do not clean, stash, or retry.
 3. Run the fixed maker bridge once:
    `python .agent/bin/dev_graph.py run-maker --run-id <run-id>`.
-   Continue only when the returned state is `await_review` and contains matching `brief`,
-   `baseline`, `plan`, `maker`, and `review_request` artifacts. A blocked state is terminal.
-4. Spawn exactly one sequential Codex Luna sub-agent: model `gpt-5.6-luna`, reasoning `high`.
-   Give it the graph run directory's `brief.md`, `plan.md`, `maker-receipt.json`, and
-   `review-request.json`, plus relevant source. It is read-only: it writes no files and returns
-   one JSON object only, with no Markdown or prose.
-5. Luna's JSON must contain exactly `schema_version`, `card_id`, `graph_run_id`, `base_head`,
-   `baseline_sha256`, `brief_sha256`, `maker_receipt_sha256`, `maker_run_id`,
-   `maker_result_sha256`, `plan_sha256`, `review_request_id`, `reviewer_id`,
-   `reasoning_effort`, `reviewed_at`, `verdict`, and `findings`. Set `reviewed_at` to a UTC
-   timestamp inside the request's `created_at`–`deadline_at` window. Set
-   `reviewer_id="gpt-5.6-luna"`, `reasoning_effort="high"`, and use `APPROVE`, `REJECT`, or
-   `ESCALATE`. `REJECT` and `ESCALATE` require non-empty actionable findings. The host passes the
-   unmodified JSON to `python .agent/bin/dev_graph.py submit-review --run-id <run-id>` on standard
-   input. The graph, not Luna, writes `review.json`.
-6. If Luna is unavailable, times out, uses a forbidden write, or returns invalid JSON, run
-   `python .agent/bin/dev_graph.py fail-review --run-id <run-id> --reason <short-safe-reason>` and
-   stop. Do not retry Luna, reuse another run's review, or create a replacement review by hand.
-7. If the graph returns `await_ack`, show Wyatt the plan and review. Stop for the exact human
+   Continue only when the returned state is `await_checker` and contains matching `brief`,
+   `baseline`, `plan`, `maker`, and `checker_request` artifacts. A blocked state is terminal.
+4. Run exactly one fixed DeepSeek checker:
+   `python .agent/bin/dev_graph.py run-checker --run-id <run-id>`.
+   The graph invokes the runner as `--role checker` with a fixed read-only tool set and a graph-bound
+   run ID. It records `checker-receipt.json`, including the checker state/result digests and its
+   parsed `APPROVE`, `REJECT`, or `ESCALATE` verdict. Do not invoke a second model or submit a
+   replacement review by hand.
+5. If the checker fails, times out, has a tool error, returns an invalid final decision, or the
+   worktree/artifacts drift, the graph enters a terminal state and releases its lock. Do not retry
+   the checker or reuse another run's result.
+6. If the graph returns `await_ack`, show Wyatt the plan and checker receipt. Stop for the exact human
    acknowledgement `ack <card-id>`, then record it with
    `python .agent/bin/dev_graph.py ack --run-id <run-id> --text "ack <card-id>"`. The complete
    graph is terminal. Do not start Sol or an implementation maker run. Any later source apply is a

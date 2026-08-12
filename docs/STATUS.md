@@ -69,14 +69,14 @@ Live rows only. Shipped and closed cards live in
 
 | # | What | Status |
 |---|------|--------|
-| DEV-GRAPH-2 | Hardened maker and Luna reviewer graph | 🟡 **ACTIVE 08-12.** Wave 2 binds the host-mediated Luna review to the graph receipt and stops source apply after exact ACK. No live maker or reviewer stage has started. |
+| DEV-GRAPH-2 | Hardened DeepSeek maker and checker graph | 🟡 **ACTIVE 08-12.** Wave 3 adds one graph-run fixed, read-only DeepSeek checker. The graph still stops source apply after exact ACK. No live maker or checker stage has started. |
 | BUNDLE-1 | Menu/game code-split | ⚠️ **CLOSED PARTIAL 08-05 — perf goal NOT met. Deployed `f2f90fd2`.** Warm `menu-ready` −3% vs a −15% gate. Banked: a `size:check` byte gate, `main.js` 2,582 → 1,262 lines, −22.6% off the initial set (**cold** visits only). Lever E playtested: BUNDLE-E-PT-1 PASS 6/6. [bundle-1.md §0](./planning/bundle-1.md) |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 | CARGO-BAY-INSTANCE-1 | Per-bay InstancedMesh for cargo bays | ✅ **CLOSED 08-12** (`9e86382`). 30 Mesh → per-model InstancedMesh. Draw calls ≤120 → ~24. Single-lever wave. Playtest owed: solo fill, multiplayer parity, spill/rebuild, screenshot. |
 
 ### Next actions
 
-1. **DEV-GRAPH-2** — Wave 2 local implementation is ready for isolated end-to-end evidence. No live maker or reviewer stage has started.
+1. **DEV-GRAPH-2** — Wave 3 local implementation is ready for isolated all-DeepSeek evidence. No live maker or checker stage has started.
 2. **Playtest owed:** SHARD-PT-2 (skip, needs five humans). CARGO-BAY-INSTANCE-1 — solo fill, multiplayer parity, spill/rebuild, before/after screenshot.
 
 ## Open issues (top)

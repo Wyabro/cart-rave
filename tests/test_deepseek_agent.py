@@ -35,6 +35,21 @@ class DeepSeekAgentControlPlaneTests(unittest.TestCase):
         self.assertNotIn("run_command", {tool["function"]["name"] for tool in apply_tools})
         self.assertIn("write_file tool is unavailable by design", agent._system_prompt("maker", plan_only=True))
 
+    def test_checker_is_read_only_and_requires_an_actionable_terminal_verdict(self) -> None:
+        checker_tools = agent._tool_definitions_for("checker", plan_only=False)
+
+        self.assertNotIn("write_file", {tool["function"]["name"] for tool in checker_tools})
+        self.assertIn("final non-empty line MUST be exactly APPROVE", agent._system_prompt("checker"))
+        self.assertEqual(agent._checker_final_verdict("Review complete\nAPPROVE"), "APPROVE")
+        self.assertEqual(
+            agent._checker_final_verdict("REJECT: The plan has no source seam."),
+            "REJECT",
+        )
+        with self.assertRaisesRegex(RuntimeError, "actionable reason"):
+            agent._checker_final_verdict("ESCALATE")
+        with self.assertRaisesRegex(RuntimeError, "valid final decision"):
+            agent._checker_final_verdict("looks good")
+
     def test_plan_only_write_attempt_is_rejected_before_path_access(self) -> None:
         result = agent._execute_tool(
             "write_file",
@@ -77,6 +92,7 @@ class DeepSeekAgentControlPlaneTests(unittest.TestCase):
                 ".agent/self-improving/runs/run-123/run-result.md",
             )
             self.assertEqual(payload["tool_error_count"], 0)
+            self.assertEqual(payload["model"], agent.MODEL)
             self.assertEqual(list(root.rglob("*.tmp")), [])
 
     def test_run_result_carries_the_same_run_identity(self) -> None:

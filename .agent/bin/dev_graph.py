@@ -1,10 +1,11 @@
-"""Fail-closed, host-mediated planning graph for Cart Clash development cards."""
+"""Fail-closed DeepSeek planning graph for Cart Clash development cards."""
 
 from __future__ import annotations
 
 import argparse
 import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
@@ -30,12 +31,17 @@ MAKER_MAX_TURNS = 24
 MAKER_REQUEST_TIMEOUT_SECONDS = 90
 MAKER_RUN_TIMEOUT_SECONDS = 900
 MAKER_PROCESS_TIMEOUT_SECONDS = MAKER_RUN_TIMEOUT_SECONDS + 5
-REVIEWER_ID = "gpt-5.6-luna"
-REVIEWER_REASONING_EFFORT = "high"
-REVIEW_TIMEOUT_SECONDS = 900
+CHECKER_MAX_TURNS = 24
+CHECKER_REQUEST_TIMEOUT_SECONDS = 90
+CHECKER_RUN_TIMEOUT_SECONDS = 900
+CHECKER_PROCESS_TIMEOUT_SECONDS = CHECKER_RUN_TIMEOUT_SECONDS + 5
+CHECKER_ROLE = "checker"
+CHECKER_MODEL = os.environ.get("DEEPSEEK_MODEL", "deepseek-v4-flash")
+CHECKER_TIMEOUT_SECONDS = 900
 CARD_ID_RE = re.compile(r"^[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+$")
 RUN_ID_RE = re.compile(r"^[0-9a-f]{32}$")
 TERMINAL_KINDS = {"terminal"}
+GRAPH_SCHEMA_VERSION = 3
 
 
 class GraphError(RuntimeError):
@@ -48,6 +54,13 @@ def _now() -> datetime:
 
 def _utc_now() -> str:
     return _now().isoformat(timespec="seconds")
+
+
+def _deepseek_model() -> str:
+    model = os.environ.get("DEEPSEEK_MODEL", CHECKER_MODEL).strip()
+    if not model:
+        raise GraphError("DEEPSEEK_MODEL must be a non-empty model ID")
+    return model
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -83,7 +96,7 @@ def _validate_run_id(run_id: str) -> str:
 
 
 def _validate_graph(graph: dict[str, Any]) -> None:
-    if graph.get("schema_version") != 2:
+    if graph.get("schema_version") != GRAPH_SCHEMA_VERSION:
         raise GraphError("unsupported graph schema version")
     if not isinstance(graph.get("name"), str) or not graph["name"]:
         raise GraphError("graph name is required")
@@ -283,11 +296,11 @@ def _assert_preflight_matches(root: Path, state: dict[str, Any]) -> None:
         raise GraphError("worktree baseline changed during the graph run")
 
 
-def _review_request_id(graph_run_id: str) -> str:
-    return f"luna-{_validate_run_id(graph_run_id)}"
+def _checker_request_id(graph_run_id: str) -> str:
+    return f"checker-{_validate_run_id(graph_run_id)}"
 
 
-def _write_review_request(root: Path, state: dict[str, Any]) -> tuple[dict[str, Any], str]:
+def _write_checker_request(root: Path, state: dict[str, Any]) -> tuple[dict[str, Any], str]:
     artifacts = _artifacts(root, state["run_id"])
     maker = state["artifacts"].get("maker")
     plan = state["artifacts"].get("plan")
@@ -310,38 +323,38 @@ def _write_review_request(root: Path, state: dict[str, Any]) -> tuple[dict[str, 
         "maker_run_id": maker.get("run_id"),
         "maker_result_sha256": maker_result_sha256,
         "plan_sha256": plan.get("sha256"),
-        "review_request_id": _review_request_id(state["run_id"]),
-        "reviewer": {
-            "id": REVIEWER_ID,
-            "reasoning_effort": REVIEWER_REASONING_EFFORT,
+        "checker_request_id": _checker_request_id(state["run_id"]),
+        "checker": {
+            "model": state["deepseek_model"],
+            "role": CHECKER_ROLE,
             "read_only": True,
         },
         "created_at": created_at.isoformat(timespec="seconds"),
-        "deadline_at": (created_at + timedelta(seconds=REVIEW_TIMEOUT_SECONDS)).isoformat(
+        "deadline_at": (created_at + timedelta(seconds=CHECKER_TIMEOUT_SECONDS)).isoformat(
             timespec="seconds"
         ),
-        "timeout_seconds": REVIEW_TIMEOUT_SECONDS,
+        "timeout_seconds": CHECKER_TIMEOUT_SECONDS,
     }
-    artifacts.write_json("review-request.json", request)
-    return request, _artifact_sha256(artifacts.path("review-request.json").read_bytes())
+    artifacts.write_json("checker-request.json", request)
+    return request, _artifact_sha256(artifacts.path("checker-request.json").read_bytes())
 
 
-def _read_review_request(root: Path, state: dict[str, Any]) -> dict[str, Any]:
-    metadata = state["artifacts"].get("review_request")
+def _read_checker_request(root: Path, state: dict[str, Any]) -> dict[str, Any]:
+    metadata = state["artifacts"].get("checker_request")
     if not isinstance(metadata, dict):
-        raise GraphError("graph state has no review request")
-    if metadata.get("file") != "review-request.json":
-        raise GraphError("graph state has an invalid review request path")
+        raise GraphError("graph state has no checker request")
+    if metadata.get("file") != "checker-request.json":
+        raise GraphError("graph state has an invalid checker request path")
     artifacts = _artifacts(root, state["run_id"])
-    raw = artifacts.path("review-request.json").read_bytes()
+    raw = artifacts.path("checker-request.json").read_bytes()
     if _artifact_sha256(raw) != metadata.get("sha256"):
-        raise GraphError("review request artifact does not match graph state")
+        raise GraphError("checker request artifact does not match graph state")
     try:
         request = json.loads(raw.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise GraphError("review request is not valid UTF-8 JSON") from exc
+        raise GraphError("checker request is not valid UTF-8 JSON") from exc
     if not isinstance(request, dict):
-        raise GraphError("review request must be a JSON object")
+        raise GraphError("checker request must be a JSON object")
     expected_keys = {
         "schema_version",
         "card_id",
@@ -353,14 +366,14 @@ def _read_review_request(root: Path, state: dict[str, Any]) -> dict[str, Any]:
         "maker_run_id",
         "maker_result_sha256",
         "plan_sha256",
-        "review_request_id",
-        "reviewer",
+        "checker_request_id",
+        "checker",
         "created_at",
         "deadline_at",
         "timeout_seconds",
     }
     if set(request) != expected_keys or request["schema_version"] != 1:
-        raise GraphError("review request has an unsupported schema")
+        raise GraphError("checker request has an unsupported schema")
     maker = state["artifacts"].get("maker")
     plan = state["artifacts"].get("plan")
     baseline = state["artifacts"].get("baseline")
@@ -375,22 +388,22 @@ def _read_review_request(root: Path, state: dict[str, Any]) -> dict[str, Any]:
         "maker_run_id": maker.get("run_id") if isinstance(maker, dict) else None,
         "maker_result_sha256": maker.get("result_sha256") if isinstance(maker, dict) else None,
         "plan_sha256": plan.get("sha256") if isinstance(plan, dict) else None,
-        "review_request_id": _review_request_id(state["run_id"]),
+        "checker_request_id": _checker_request_id(state["run_id"]),
     }
     if any(request[key] != value for key, value in expected_values.items()):
-        raise GraphError("review request does not bind to the accepted maker receipt")
-    if request["reviewer"] != {
-        "id": REVIEWER_ID,
-        "reasoning_effort": REVIEWER_REASONING_EFFORT,
+        raise GraphError("checker request does not bind to the accepted maker receipt")
+    if request["checker"] != {
+        "model": state.get("deepseek_model"),
+        "role": CHECKER_ROLE,
         "read_only": True,
-    } or request["timeout_seconds"] != REVIEW_TIMEOUT_SECONDS:
-        raise GraphError("review request has an unsupported reviewer contract")
-    created_at = _parse_utc_timestamp(request["created_at"], "review request created_at")
-    deadline_at = _parse_utc_timestamp(request["deadline_at"], "review request deadline_at")
-    if deadline_at != created_at + timedelta(seconds=REVIEW_TIMEOUT_SECONDS):
-        raise GraphError("review request has an invalid deadline")
+    } or request["timeout_seconds"] != CHECKER_TIMEOUT_SECONDS:
+        raise GraphError("checker request has an unsupported checker contract")
+    created_at = _parse_utc_timestamp(request["created_at"], "checker request created_at")
+    deadline_at = _parse_utc_timestamp(request["deadline_at"], "checker request deadline_at")
+    if deadline_at != created_at + timedelta(seconds=CHECKER_TIMEOUT_SECONDS):
+        raise GraphError("checker request has an invalid deadline")
     if _now() > deadline_at:
-        raise GraphError("review request deadline expired")
+        raise GraphError("checker request deadline expired")
     return request
 
 
@@ -398,6 +411,7 @@ def start(root: Path, card_id: str, brief_content: str) -> dict[str, Any]:
     card_id = _validate_card_id(card_id)
     graph = _load_graph(root)
     brief = _artifact_bytes(brief_content)
+    deepseek_model = _deepseek_model()
     base_head, dirty = _clean_preflight(root)
     run_id = uuid4().hex
     _acquire_lock(root, run_id)
@@ -412,11 +426,12 @@ def start(root: Path, card_id: str, brief_content: str) -> dict[str, Any]:
         }
         artifacts.write_json("baseline.json", baseline)
         state = {
-            "schema_version": 2,
+            "schema_version": GRAPH_SCHEMA_VERSION,
             "graph_name": graph["name"],
             "run_id": run_id,
             "card_id": card_id,
             "base_head": base_head,
+            "deepseek_model": deepseek_model,
             "node": "preflight",
             "status": "running",
             "created_at": _utc_now(),
@@ -441,6 +456,19 @@ def start(root: Path, card_id: str, brief_content: str) -> dict[str, Any]:
 
 def _maker_run_id(graph_run_id: str) -> str:
     return f"maker-{_validate_run_id(graph_run_id)}"
+
+
+def _checker_run_id(graph_run_id: str) -> str:
+    return f"checker-{_validate_run_id(graph_run_id)}"
+
+
+def _agent_environment(state: dict[str, Any]) -> dict[str, str]:
+    model = state.get("deepseek_model")
+    if not isinstance(model, str) or not model:
+        raise GraphError("graph state has no DeepSeek model binding")
+    environment = os.environ.copy()
+    environment["DEEPSEEK_MODEL"] = model
+    return environment
 
 
 def _maker_command(root: Path, state: dict[str, Any]) -> list[str]:
@@ -472,6 +500,35 @@ def _maker_command(root: Path, state: dict[str, Any]) -> list[str]:
     ]
 
 
+def _checker_command(root: Path, state: dict[str, Any]) -> list[str]:
+    run_id = _validate_run_id(str(state["run_id"]))
+    run_dir = _run_dir(root, run_id)
+    prompt = "\n".join(
+        [
+            f"Read the immutable graph brief at {run_dir.joinpath('brief.md').relative_to(root).as_posix()}.",
+            f"Read the accepted maker plan at {run_dir.joinpath('plan.md').relative_to(root).as_posix()}.",
+            f"Read the maker receipt and checker request at {run_dir.joinpath('maker-receipt.json').relative_to(root).as_posix()} and {run_dir.joinpath('checker-request.json').relative_to(root).as_posix()}.",
+            f"Review the plan-only maker result for card {state['card_id']} against relevant current source.",
+            "Do not modify files. End with exactly APPROVE, REJECT: <actionable reason>, or ESCALATE: <reason requiring human judgment>.",
+        ]
+    )
+    return [
+        sys.executable,
+        str(root / ".agent" / "bin" / "deepseek_agent.py"),
+        "--role",
+        CHECKER_ROLE,
+        "--max-turns",
+        str(CHECKER_MAX_TURNS),
+        "--request-timeout-seconds",
+        str(CHECKER_REQUEST_TIMEOUT_SECONDS),
+        "--run-timeout-seconds",
+        str(CHECKER_RUN_TIMEOUT_SECONDS),
+        "--run-id",
+        _checker_run_id(run_id),
+        prompt,
+    ]
+
+
 def _read_maker_receipt_inputs(root: Path, state: dict[str, Any]) -> tuple[dict[str, Any], bytes, bytes]:
     graph_run_id = _validate_run_id(str(state["run_id"]))
     maker_run_id = _maker_run_id(graph_run_id)
@@ -496,6 +553,7 @@ def _read_maker_receipt_inputs(root: Path, state: dict[str, Any]) -> tuple[dict[
         runner_state.get("run_id") != maker_run_id
         or runner_state.get("role") != "maker"
         or runner_state.get("mode") != "plan-only"
+        or runner_state.get("model") != state.get("deepseek_model")
         or runner_state.get("status") != "completed"
         or runner_state.get("event") != "completed"
         or runner_state.get("artifacts") != expected_paths
@@ -547,6 +605,7 @@ def run_maker(root: Path, run_id: str) -> dict[str, Any]:
             errors="replace",
             text=True,
             timeout=MAKER_PROCESS_TIMEOUT_SECONDS,
+            env=_agent_environment(state),
             shell=False,
         )
         if completed.returncode != 0:
@@ -569,6 +628,7 @@ def run_maker(root: Path, run_id: str) -> dict[str, Any]:
             "plan_sha256": plan_sha256,
             "role": runner_state["role"],
             "mode": runner_state["mode"],
+            "model": runner_state["model"],
             "status": runner_state["status"],
             "tool_error_count": runner_state["tool_error_count"],
         }
@@ -580,11 +640,11 @@ def run_maker(root: Path, run_id: str) -> dict[str, Any]:
             "run_id": receipt["maker_run_id"],
             "result_sha256": receipt["maker_result_sha256"],
         }
-        review_request, review_request_sha256 = _write_review_request(root, state)
-        state["artifacts"]["review_request"] = {
-            "file": "review-request.json",
-            "sha256": review_request_sha256,
-            "request_id": review_request["review_request_id"],
+        checker_request, checker_request_sha256 = _write_checker_request(root, state)
+        state["artifacts"]["checker_request"] = {
+            "file": "checker-request.json",
+            "sha256": checker_request_sha256,
+            "request_id": checker_request["checker_request_id"],
         }
         _transition(root, graph, state, "maker_complete")
         _write_state(root, run_id, state)
@@ -593,114 +653,156 @@ def run_maker(root: Path, run_id: str) -> dict[str, Any]:
     return state
 
 
-def _block_review(root: Path, graph: dict[str, Any], state: dict[str, Any], reason: str) -> dict[str, Any]:
-    state["failure"] = {"stage": "review", "reason": reason}
-    _transition(root, graph, state, "review_fail")
+def _read_checker_receipt_inputs(
+    root: Path, state: dict[str, Any]
+) -> tuple[dict[str, Any], bytes, bytes]:
+    graph_run_id = _validate_run_id(str(state["run_id"]))
+    checker_run_id = _checker_run_id(graph_run_id)
+    checker_artifacts = RunArtifacts(root, MAKER_ARTIFACT_NAMESPACE, checker_run_id)
+    runner_state_path = checker_artifacts.path("run-state.json")
+    result_path = checker_artifacts.path("run-result.md")
+    runner_state_bytes = runner_state_path.read_bytes()
+    result_bytes = result_path.read_bytes()
+    if len(runner_state_bytes) > MAX_ARTIFACT_BYTES or len(result_bytes) > MAX_ARTIFACT_BYTES:
+        raise GraphError("checker artifact exceeds the graph size limit")
+    try:
+        runner_state = json.loads(runner_state_bytes.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise GraphError("checker run-state is not valid UTF-8 JSON") from exc
+    if not isinstance(runner_state, dict):
+        raise GraphError("checker run-state must be a JSON object")
+    expected_paths = {
+        "run_state": f".agent/self-improving/runs/{checker_run_id}/run-state.json",
+        "run_result": f".agent/self-improving/runs/{checker_run_id}/run-result.md",
+    }
+    if (
+        runner_state.get("run_id") != checker_run_id
+        or runner_state.get("role") != CHECKER_ROLE
+        or runner_state.get("mode") != CHECKER_ROLE
+        or runner_state.get("model") != state.get("deepseek_model")
+        or runner_state.get("status") != "completed"
+        or runner_state.get("event") != "completed"
+        or runner_state.get("artifacts") != expected_paths
+        or runner_state.get("tool_error_count") != 0
+    ):
+        raise GraphError("checker checkpoint does not satisfy the fixed read-only contract")
+    try:
+        result_text = result_bytes.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise GraphError("checker result is not valid UTF-8") from exc
+    result_lines = result_text.splitlines()
+    if not result_lines or result_lines[0] != f"# DeepSeek run {checker_run_id}":
+        raise GraphError("checker result does not carry the expected run identity")
+    if not "\n".join(result_lines[1:]).strip():
+        raise GraphError("checker result has no review content")
+    return runner_state, runner_state_bytes, result_bytes
+
+
+def _checker_verdict(result_bytes: bytes, checker_run_id: str) -> tuple[str, list[str]]:
+    try:
+        result_text = result_bytes.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise GraphError("checker result is not valid UTF-8") from exc
+    result_lines = result_text.splitlines()
+    if not result_lines or result_lines[0] != f"# DeepSeek run {checker_run_id}":
+        raise GraphError("checker result does not carry the expected run identity")
+    lines = [line.strip() for line in result_lines[1:] if line.strip()]
+    if not lines:
+        raise GraphError("checker result has no final decision")
+    match = re.fullmatch(r"(APPROVE|REJECT|ESCALATE)(?::\s*(.*))?", lines[-1])
+    if not match:
+        raise GraphError("checker result has an invalid final decision")
+    verdict, reason = match.groups()
+    if verdict != "APPROVE" and not reason:
+        raise GraphError("checker rejection or escalation requires an actionable reason")
+    return verdict, [reason] if reason else []
+
+
+def _block_checker(root: Path, graph: dict[str, Any], state: dict[str, Any], reason: str) -> dict[str, Any]:
+    state["failure"] = {"stage": "checker", "reason": reason}
+    _transition(root, graph, state, "checker_fail")
     _write_state(root, state["run_id"], state)
     _release_lock(root, state["run_id"])
     return state
 
 
-def submit_review(root: Path, run_id: str, content: str) -> dict[str, Any]:
+def run_checker(root: Path, run_id: str) -> dict[str, Any]:
     run_id = _validate_run_id(run_id)
     graph = _load_graph(root)
     state = _read_state(root, run_id)
-    if state["node"] != "await_review":
-        raise GraphError("a review is not expected at this graph node")
+    if state["node"] != "await_checker":
+        raise GraphError("a checker run is not expected at this graph node")
     _assert_lock_owner(root, run_id)
     try:
         _assert_preflight_matches(root, state)
-        request = _read_review_request(root, state)
-        artifact = _artifact_bytes(content)
-        review = json.loads(artifact.decode("utf-8"))
-    except (GraphError, UnicodeDecodeError, json.JSONDecodeError) as exc:
-        return _block_review(root, graph, state, str(exc))
-    if not isinstance(review, dict):
-        return _block_review(root, graph, state, "review artifact must be a JSON object")
-    expected_keys = {
-        "schema_version",
-        "card_id",
-        "graph_run_id",
-        "base_head",
-        "baseline_sha256",
-        "brief_sha256",
-        "maker_receipt_sha256",
-        "maker_run_id",
-        "maker_result_sha256",
-        "plan_sha256",
-        "review_request_id",
-        "reviewer_id",
-        "reasoning_effort",
-        "reviewed_at",
-        "verdict",
-        "findings",
-    }
-    if set(review) != expected_keys:
-        return _block_review(root, graph, state, "review artifact has missing or unsupported fields")
-    expected_values = {
-        "schema_version": 1,
-        "card_id": state["card_id"],
-        "graph_run_id": run_id,
-        "base_head": state["base_head"],
-        "baseline_sha256": request["baseline_sha256"],
-        "brief_sha256": request["brief_sha256"],
-        "maker_receipt_sha256": request["maker_receipt_sha256"],
-        "maker_run_id": request["maker_run_id"],
-        "maker_result_sha256": request["maker_result_sha256"],
-        "plan_sha256": request["plan_sha256"],
-        "review_request_id": request["review_request_id"],
-        "reviewer_id": REVIEWER_ID,
-        "reasoning_effort": REVIEWER_REASONING_EFFORT,
-    }
-    if any(review[key] != value for key, value in expected_values.items()):
-        return _block_review(root, graph, state, "review artifact does not bind to the graph receipt")
-    try:
-        reviewed_at = _parse_utc_timestamp(review["reviewed_at"], "reviewed_at")
-        created_at = _parse_utc_timestamp(request["created_at"], "review request created_at")
-        deadline_at = _parse_utc_timestamp(request["deadline_at"], "review request deadline_at")
-    except GraphError as exc:
-        return _block_review(root, graph, state, str(exc))
-    if reviewed_at < created_at or reviewed_at > deadline_at:
-        return _block_review(root, graph, state, "reviewed_at is outside the review request window")
-    if review["verdict"] not in {"APPROVE", "REJECT", "ESCALATE"}:
-        return _block_review(root, graph, state, "review verdict must be APPROVE, REJECT, or ESCALATE")
-    findings = review["findings"]
-    if not isinstance(findings, list) or any(
-        not isinstance(item, str) or not item.strip() for item in findings
-    ):
-        return _block_review(root, graph, state, "review findings must be non-empty strings")
-    if review["verdict"] != "APPROVE" and not findings:
-        return _block_review(root, graph, state, "rejected or escalated reviews must include findings")
-
-    artifacts = _artifacts(root, run_id)
-    artifacts.write_json("review.json", review)
-    state["artifacts"]["review"] = {
-        "file": "review.json",
-        "sha256": _artifact_sha256(artifacts.path("review.json").read_bytes()),
-    }
-    event = f"review_{review['verdict'].lower()}"
-    _transition(root, graph, state, event)
-    _write_state(root, run_id, state)
+        _read_checker_request(root, state)
+        checker_artifacts = RunArtifacts(
+            root,
+            MAKER_ARTIFACT_NAMESPACE,
+            _checker_run_id(run_id),
+        )
+        if checker_artifacts.run_dir.exists():
+            raise GraphError("checker artifact directory already exists for this graph run")
+        completed = subprocess.run(
+            _checker_command(root, state),
+            cwd=root,
+            capture_output=True,
+            check=False,
+            encoding="utf-8",
+            errors="replace",
+            text=True,
+            timeout=CHECKER_PROCESS_TIMEOUT_SECONDS,
+            env=_agent_environment(state),
+            shell=False,
+        )
+        if completed.returncode != 0:
+            raise GraphError(f"checker process failed with exit code {completed.returncode}")
+        runner_state, runner_state_bytes, result_bytes = _read_checker_receipt_inputs(root, state)
+        _assert_preflight_matches(root, state)
+        request = _read_checker_request(root, state)
+        reviewed_at = _now()
+        deadline_at = _parse_utc_timestamp(request["deadline_at"], "checker request deadline_at")
+        if reviewed_at > deadline_at:
+            raise GraphError("checker completed after the request deadline")
+        verdict, findings = _checker_verdict(result_bytes, runner_state["run_id"])
+        artifacts = _artifacts(root, run_id)
+        receipt = {
+            "schema_version": 1,
+            "card_id": state["card_id"],
+            "graph_run_id": run_id,
+            "base_head": state["base_head"],
+            "baseline_sha256": state["artifacts"]["baseline"]["sha256"],
+            "brief_sha256": state["artifacts"]["brief"]["sha256"],
+            "maker_receipt_sha256": request["maker_receipt_sha256"],
+            "maker_run_id": request["maker_run_id"],
+            "maker_result_sha256": request["maker_result_sha256"],
+            "plan_sha256": request["plan_sha256"],
+            "checker_request_sha256": state["artifacts"]["checker_request"]["sha256"],
+            "checker_run_id": runner_state["run_id"],
+            "checker_state_sha256": _artifact_sha256(runner_state_bytes),
+            "checker_result_sha256": _artifact_sha256(result_bytes),
+            "model": runner_state["model"],
+            "role": runner_state["role"],
+            "mode": runner_state["mode"],
+            "tool_error_count": runner_state["tool_error_count"],
+            "reviewed_at": reviewed_at.isoformat(timespec="seconds"),
+            "verdict": verdict,
+            "findings": findings,
+        }
+        artifacts.write_json("checker-receipt.json", receipt)
+        state["artifacts"]["checker"] = {
+            "file": "checker-receipt.json",
+            "sha256": _artifact_sha256(artifacts.path("checker-receipt.json").read_bytes()),
+            "run_id": receipt["checker_run_id"],
+            "result_sha256": receipt["checker_result_sha256"],
+        }
+        _transition(root, graph, state, f"checker_{verdict.lower()}")
+        _write_state(root, run_id, state)
+    except (GraphError, OSError, subprocess.TimeoutExpired) as exc:
+        return _block_checker(root, graph, state, str(exc))
     if state["status"] != "running":
         _release_lock(root, run_id)
     return state
-
-
-def fail_review(root: Path, run_id: str, reason: str) -> dict[str, Any]:
-    run_id = _validate_run_id(run_id)
-    graph = _load_graph(root)
-    state = _read_state(root, run_id)
-    if state["node"] != "await_review":
-        raise GraphError("a review failure is not expected at this graph node")
-    _assert_lock_owner(root, run_id)
-    failure_reason = reason.strip()
-    if not failure_reason or len(failure_reason.encode("utf-8")) > MAX_ARTIFACT_BYTES:
-        raise GraphError("review failure reason is required and must fit the artifact limit")
-    try:
-        _read_review_request(root, state)
-    except GraphError as exc:
-        failure_reason = f"{failure_reason}: {exc}"
-    return _block_review(root, graph, state, failure_reason)
 
 
 def _block_ack(root: Path, graph: dict[str, Any], state: dict[str, Any], reason: str) -> dict[str, Any]:
@@ -750,12 +852,8 @@ def main(argv: list[str] | None = None) -> int:
     maker_parser = subparsers.add_parser("run-maker")
     maker_parser.add_argument("--run-id", required=True)
 
-    review_parser = subparsers.add_parser("submit-review")
-    review_parser.add_argument("--run-id", required=True)
-
-    review_failure_parser = subparsers.add_parser("fail-review")
-    review_failure_parser.add_argument("--run-id", required=True)
-    review_failure_parser.add_argument("--reason", required=True)
+    checker_parser = subparsers.add_parser("run-checker")
+    checker_parser.add_argument("--run-id", required=True)
 
     ack_parser = subparsers.add_parser("ack")
     ack_parser.add_argument("--run-id", required=True)
@@ -771,10 +869,8 @@ def main(argv: list[str] | None = None) -> int:
             _print_state(start(root, args.card_id, _stdin()))
         elif args.command == "run-maker":
             _print_state(run_maker(root, args.run_id))
-        elif args.command == "submit-review":
-            _print_state(submit_review(root, args.run_id, _stdin()))
-        elif args.command == "fail-review":
-            _print_state(fail_review(root, args.run_id, args.reason))
+        elif args.command == "run-checker":
+            _print_state(run_checker(root, args.run_id))
         elif args.command == "ack":
             _print_state(acknowledge(root, args.run_id, args.text))
         elif args.command == "status":

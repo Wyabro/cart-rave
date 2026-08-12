@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-12T05:12:37.772Z",
-    "commit": "7264ea6"
+    "at": "2026-08-12T05:57:17.147Z",
+    "commit": "9802bbe"
   },
-  "source_digest": "73c0e4e8",
+  "source_digest": "5eef90d5",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -867,8 +867,8 @@
     "queue": [
       {
         "id": "DEV-GRAPH-2",
-        "what": "Hardened maker and Luna reviewer graph",
-        "status": "🟡 ACTIVE 08-12. Wave 2 binds the host-mediated Luna review to the graph receipt and stops source apply after exact ACK. No live maker or reviewer stage has started.",
+        "what": "Hardened DeepSeek maker and checker graph",
+        "status": "🟡 ACTIVE 08-12. Wave 3 adds one graph-run fixed, read-only DeepSeek checker. The graph still stops source apply after exact ACK. No live maker or checker stage has started.",
         "state": "waiting"
       },
       {
@@ -900,7 +900,7 @@
       }
     ],
     "next_actions": [
-      "DEV-GRAPH-2 — Wave 2 local implementation is ready for isolated end-to-end evidence. No live maker or reviewer stage has started.",
+      "DEV-GRAPH-2 — Wave 3 local implementation is ready for isolated all-DeepSeek evidence. No live maker or checker stage has started.",
       "Playtest owed: SHARD-PT-2 (skip, needs five humans). CARGO-BAY-INSTANCE-1 — solo fill, multiplayer parity, spill/rebuild, before/after screenshot."
     ],
     "open_issues": [
