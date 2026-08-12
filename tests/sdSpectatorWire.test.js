@@ -14,7 +14,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import * as P2P from "../src/netcode/p2p.js";
 import { __netcodeTestHooks as hooks, getIsHost } from "../src/netcode.js";
-import * as GameState from "../src/gameState.js";
+import * as GameState from "../src/stores/gameStore.js";
 import {
   encodeHostStateSnapshot,
   decodeHostStateSnapshot,

@@ -8,7 +8,7 @@ import {
   __netcodeTestHooks as hooks,
 } from "../src/netcode.js";
 import * as P2P from "../src/netcode/p2p.js";
-import * as GameState from "../src/gameState.js";
+import * as GameState from "../src/stores/gameStore.js";
 import { CONFIG } from "../src/config.js";
 import { runGameLoop, createGameLoopState } from "../src/gameLoop.js";
 

@@ -18,7 +18,7 @@ import {
 } from "./cartThemes.js";
 import * as ContactShadows from "./contactShadows.js";
 import * as Visuals from "./visuals.js";
-import * as GameState from "./gameState.js";
+import * as GameState from "./stores/gameStore.js";
 import * as Netcode from "./netcode.js";
 import {
   applyCartFrictionMode,

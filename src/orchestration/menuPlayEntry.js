@@ -2,7 +2,7 @@
 // Mechanical extract from main(); bootstrap hooks + initMenu / commitMenuHiddenForGame unchanged.
 
 import * as AudioManager from "../audioManager.js";
-import * as GameState from "../gameState.js";
+import * as GameState from "../stores/gameStore.js";
 import * as Input from "../input.js";
 import { ensureNetcode, getNetcode, requireNetcode } from "../netcode/load.js";
 import { resolveLevelMusic } from "../music/levelMusic.js";

@@ -8,13 +8,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // * Spy recordHit; keep the rest of the store real (no module-load side effects).
-vi.mock("../src/gameState.js", async (importActual) => {
+vi.mock("../src/stores/gameStore.js", async (importActual) => {
   const actual = await importActual();
   return { ...actual, recordHit: vi.fn() };
 });
 
 import { applyRammingImpulse } from "../src/simulation.js";
-import * as GameState from "../src/gameState.js";
+import * as GameState from "../src/stores/gameStore.js";
 
 /** Cart whose body reports the given LIVE (post-step) linvel — what the impulse now reads. */
 function ramCart(slotIndex, pos, liveLinvel) {

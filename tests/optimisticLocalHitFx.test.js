@@ -4,7 +4,7 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("../src/gameState.js", async (importActual) => {
+vi.mock("../src/stores/gameStore.js", async (importActual) => {
   const actual = await importActual();
   return {
     ...actual,

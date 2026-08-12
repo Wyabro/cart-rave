@@ -4,7 +4,7 @@ import * as THREE from "three";
 import { mark } from "./utils/perfSpans.js";
 import { RAPIER } from "./physics/rapierInstance.js";
 import { CONFIG } from "./config.js";
-import * as GameState from "./gameState.js";
+import * as GameState from "./stores/gameStore.js";
 import { queueHostCollisionEvent } from "./hostCollisionBatch.js";
 import { getNpcPersonality } from "./npcNames.js";
 import { getRoundClockNowMs } from "./roundClock.js";

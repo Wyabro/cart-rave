@@ -4,7 +4,7 @@ import {
   forceDirectiveForTest,
   getDirectiveIdsForTest,
 } from "../../directives/directiveEngine.js";
-import { getRoundState } from "../../gameState.js";
+import { getRoundState } from "../../stores/gameStore.js";
 import { commandFail, commandOk } from "../commandRegistry.js";
 
 /**

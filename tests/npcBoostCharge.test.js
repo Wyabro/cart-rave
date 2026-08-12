@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CONFIG } from "../src/config.js";
-import * as GameState from "../src/gameState.js";
+import * as GameState from "../src/stores/gameStore.js";
 import { cancelNpcBoostCharge, runFixedPhysicsStep } from "../src/simulation.js";
 
 function makeChargingNpc() {

@@ -4,7 +4,7 @@
 import * as Simulation from "../simulation.js";
 import * as Entities from "../entities.js";
 import * as Netcode from "../netcode.js";
-import * as GameState from "../gameState.js";
+import * as GameState from "../stores/gameStore.js";
 import * as HUD from "../hud.js";
 import * as Input from "../input.js";
 import * as AudioManager from "../audioManager.js";

@@ -75,7 +75,7 @@ Live rows only. Shipped and closed cards live in
 ### Next actions
 
 1. **No active engineering card** — wait for Wyatt.
-2. **Playtest owed:** SHARD-PT-2 (skip, needs five humans). CARGO-BAY-INSTANCE-1 — solo fill, multiplayer parity, spill/rebuild, before/after screenshot.
+2. **Playtest owed:** STORE-1 on `npm run dev:local` — solo KO → podium; quit mid-round; rematch scores 0; combo badge off during 3-2-1 after restart. SHARD-PT-2 (skip, needs five humans). CARGO-BAY-INSTANCE-1 — solo fill, multiplayer parity, spill/rebuild, before/after screenshot.
 
 ## Open issues (top)
 
@@ -124,6 +124,10 @@ the dev loop (dev probes lie in prod · edge propagation · frozen `rAF`), or a 
 - **Before any public / external-tester playtest: reset the analytics DO** so aggregates are not polluted by dev/harness traffic. Token-gated (SEC-TOKEN-1): `DELETE` with `Authorization: Bearer <ERROR_LOG_TOKEN>` on `/api/analytics` (never `?token=`).
 
 ## Last updated
+
+2026-08-12 (STORE-1) — Deleted `src/gameState.js`. Round-state commands live on
+`src/stores/gameStore.js`. Unused store lifecycle methods removed. Playtest owed on
+`npm run dev:local` (solo KO, quit, rematch, combo badge). Not pushed.
 
 2026-08-11 (NIGHT-SHIFT-CITY-1 closed for now) — Wyatt judged the local visual result
 unsuccessful and directed us to stop. The card is retired as an accepted temporary baseline,

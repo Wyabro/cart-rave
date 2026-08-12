@@ -4,7 +4,7 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("../src/gameState.js", async (importActual) => {
+vi.mock("../src/stores/gameStore.js", async (importActual) => {
   const actual = await importActual();
   return {
     ...actual,
@@ -18,7 +18,7 @@ vi.mock("../src/stores/challengeStore.js", () => ({
 }));
 
 import { applyRammingImpulse } from "../src/simulation.js";
-import * as GameState from "../src/gameState.js";
+import * as GameState from "../src/stores/gameStore.js";
 import { ChallengeTracker } from "../src/stores/challengeStore.js";
 
 function ramCart(slotIndex, pos, liveLinvel) {

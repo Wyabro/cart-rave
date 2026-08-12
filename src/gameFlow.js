@@ -1,7 +1,7 @@
 // gameFlow.js — host-authoritative fall/scoring, respawns, round transitions
 
 import { resetCartTransientState } from "./entities.js";
-import * as GameState from "./gameState.js";
+import * as GameState from "./stores/gameStore.js";
 import { mark } from "./utils/perfSpans.js";
 import { ChallengeTracker } from "./stores/challengeStore.js";
 import { UnlockTracker } from "./stores/unlockStore.js";
@@ -596,7 +596,7 @@ function topRoundScore(scores) {
 
 /**
  * True when at least two slots share the top score and that score is &gt; 0.
- * Mirrors {@link import("./gameState.js").isScoreTied} for pure inputs.
+ * Mirrors {@link import("./stores/gameStore.js").isScoreTied} for pure inputs.
  * @param {Record<number | string, number> | ArrayLike<number> | null | undefined} scores
  * @returns {boolean}
  */

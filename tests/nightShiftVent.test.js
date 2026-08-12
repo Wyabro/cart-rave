@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import * as GameState from "../src/gameState.js";
+import * as GameState from "../src/stores/gameStore.js";
 import { getNightShiftBlockoutHazards } from "../src/levels/rooftop.js";
 import {
   computeAcLauncherVelocity,

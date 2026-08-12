@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-12T08:38:22.398Z",
-    "commit": "1ce6428"
+    "at": "2026-08-12T18:14:23.121Z",
+    "commit": "54f15a9"
   },
-  "source_digest": "776ed57d",
+  "source_digest": "93d85172",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -543,12 +543,11 @@
     {
       "id": "state-stores",
       "name": "State stores",
-      "responsibility": "The six Zustand stores + the gameState facade + localStorage persistence. A setState anywhere fires subscribers elsewhere with zero syntactic link.",
+      "responsibility": "The six Zustand stores + localStorage persistence. A setState anywhere fires subscribers elsewhere with zero syntactic link.",
       "entry": [
         "src/stores/gameStore.js"
       ],
       "files": [
-        "src/gameState.js",
         "src/stores/audioStore.js",
         "src/stores/cartTuningStore.js",
         "src/stores/challengeStore.js",
@@ -557,7 +556,7 @@
         "src/stores/unlockStore.js",
         "src/utils/storage.js"
       ],
-      "file_count": 8,
+      "file_count": 7,
       "edges": [
         {
           "to": "diagnostics-observability",
@@ -572,7 +571,7 @@
       ],
       "notes": [
         "gameStore blast radius (grep `gameStore.subscribe`): analytics/gameplayAnalytics, announcer/announcerDirector, directives/directiveEngine, utils/gameplayDiagnostics — changing a gameStore field's meaning changes all four.",
-        "gameState.js is a facade over gameStore; the dual-import surface is tracked as STORE-1.",
+        "STORE-1 closed: src/gameState.js deleted; named command functions live on stores/gameStore.js.",
         "settingsStore / cartTuningStore are read via getState() only — no subscribers."
       ]
     },
@@ -796,11 +795,7 @@
     },
     {
       "path": "src/stores/gameStore.js",
-      "role": "The highest-blast-radius store: 4 subscribers (analytics, announcer, directives, diagnostics) react to every shape change, all keyed off roundPhase. The diagnostics one is ?diag-gated, so fewer run in an ordinary session; many more modules poll getState() instead."
-    },
-    {
-      "path": "src/gameState.js",
-      "role": "Facade over gameStore — the dual-import surface tracked as STORE-1; do not deepen the duplication."
+      "role": "The highest-blast-radius store: 4 subscribers (analytics, announcer, directives, diagnostics) react to every shape change, all keyed off roundPhase. Named command functions (addScore, syncRoundPhase, pickTimerWinner) live here after STORE-1. The diagnostics subscriber is ?diag-gated, so fewer run in an ordinary session; many more modules poll getState() instead."
     },
     {
       "path": "party/index.ts",
@@ -837,7 +832,7 @@
       "physics-simulation": "Host-authoritative — clients predict with the same world; the host owns NPCs + remote inputs. castRay exclude takes the object not .handle. Do not move collision logic server-side. Bot logic edits live here (no bots module).",
       "arenas-levels": "Change level swaps only through the LevelManagerDeps contract; add levels to LEVEL_IMPORTERS (not a barrel import). Arena content is data in arenaCatalog.js.",
       "rendering-and-postfx": "Preserve composer pass order (OutputPass before Arcade; toneMapping depends on it). Bloom's position varies by ?bloompipe — after OutputPass on the default display pipe, before it under hdr. Ablate + shoot/blackframes before large postFX changes. The look is governed by docs/reference/art-direction.md — per-arena exposure/bloom budgets, no global 'keep it dark' number; screen filters are Storerooms-only.",
-      "state-stores": "Treat a gameStore field's meaning as a public contract — its 4 subscribers (all keyed off roundPhase; the diagnostics one is ?diag-gated) are the blast radius, and more modules poll getState() on top. Do not deepen the gameState/gameStore dual import (STORE-1).",
+      "state-stores": "Treat a gameStore field's meaning as a public contract — its 4 subscribers (all keyed off roundPhase; the diagnostics one is ?diag-gated) are the blast radius, and more modules poll getState() on top. Import round-state commands from stores/gameStore.js only (STORE-1 closed).",
       "audio-music-announcer": "No loudnorm on loops; respect the per-bus loudness targets. Announcer voice assets are data-driven drop-ins. SD music low-pass is shared-Howler-bus surgery.",
       "ui-hud-menu": "index.html is canonical menu markup — never recreate cart-rave-menu.html. hud.js countdown display is presentational; gameplay unlock is gated on phase, not the banner.",
       "input-camera": "No lerp/slerp camera smoothing. Keyboard axis easing must match the analog stick deflection simulation.js reads.",
@@ -895,7 +890,7 @@
     ],
     "next_actions": [
       "No active engineering card — wait for Wyatt.",
-      "Playtest owed: SHARD-PT-2 (skip, needs five humans). CARGO-BAY-INSTANCE-1 — solo fill, multiplayer parity, spill/rebuild, before/after screenshot."
+      "Playtest owed: STORE-1 on `npm run dev:local` — solo KO → podium; quit mid-round; rematch scores 0; combo badge off during 3-2-1 after restart. SHARD-PT-2 (skip, needs five humans). CARGO-BAY-INSTANCE-1 — solo fill, multiplayer parity, spill/rebuild, before/after screenshot."
     ],
     "open_issues": [
       {
@@ -1141,14 +1136,14 @@
         "title": "Tech Debt",
         "counts": {
           "Low": 8,
-          "Medium": 5
+          "Medium": 4
         },
         "rows": [
           {
             "pri": "Low",
             "id": "ORGANIZE-1",
             "item": "Codebase organization pass — Wave 3",
-            "notes": "**Filed 08-10 from the root-organization wave.** Remaining items after Waves 1–2 (5 src moves, barrel, art previews): **(a)** Move remaining loose `src/` files into existing subdirs — `gameFlow.js`, `gameLoop.js`, `gameSession.js`, `gameState.js` → `src/orchestration/`; `frameVisuals.js`, `contactShadows.js`, `visuals.js` → `src/effects/`; `cart.js` → `src/physics/`. Each move needs two-direction import sweeps. **(b)** Split `src/effects.js` (138 KB) into `src/effects/` now that the barrel exists (`229b324`). **(c)** Organize `tests/` into subdirectories mirroring `src/` (~160 test files). **(d)** Consolidate ~80 loose baseline/comparison PNGs in `shots/` into feature-named folders. **(e)** Delete stale `.blend` scratch files from `art/` root. **Do not execute during stabilization — file only.**",
+            "notes": "**Filed 08-10 from the root-organization wave.** Remaining items after Waves 1–2 (5 src moves, barrel, art previews): **(a)** Move remaining loose `src/` files into existing subdirs — `gameFlow.js`, `gameLoop.js`, `gameSession.js` → `src/orchestration/`; `frameVisuals.js`, `contactShadows.js`, `visuals.js` → `src/effects/`; `cart.js` → `src/physics/`. Each move needs two-direction import sweeps. `gameState.js` was deleted by STORE-1. **(b)** Split `src/effects.js` (138 KB) into `src/effects/` now that the barrel exists (`229b324`). **(c)** Organize `tests/` into subdirectories mirroring `src/` (~160 test files). **(d)** Consolidate ~80 loose baseline/comparison PNGs in `shots/` into feature-named folders. **(e)** Delete stale `.blend` scratch files from `art/` root. **Do not execute during stabilization — file only.**",
             "ship1": null
           },
           {
@@ -1163,13 +1158,6 @@
             "id": "SHIP-1",
             "item": "V2 shipping checklist + final QA doc",
             "notes": "**Created 07-20** — [SHIP-1.md](./SHIP-1.md), living doc; row stays as pointer until ship.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "id": "STORE-1",
-            "item": "Collapse `gameState` facade dual import",
-            "notes": "",
             "ship1": null
           },
           {

@@ -7,7 +7,7 @@ import {
   syncRoundPhase,
   setLocalCombo,
   resetRoundToLobby,
-} from "../src/gameState.js";
+} from "../src/stores/gameStore.js";
 import { gameStore } from "../src/stores/gameStore.js";
 
 describe("clearLastHitBy (LASTHITBY-MUTATE-1)", () => {

@@ -82,7 +82,7 @@ Structural / product items after Ship. Full IDs: [BACKLOG.md § Tech Debt](./BAC
 | Persistent leaderboard | | Needs TRUST-1 |
 | Carve `main.js` composition seam | MAIN-1 | Prerequisite for BUNDLE-1 |
 | Directive modifiers without mutating CONFIG | DIR-1 | |
-| Collapse gameState / gameStore | STORE-1 | |
+| Collapse gameState / gameStore | STORE-1 | ✅ closed 08-12 — facade deleted; commands live on `stores/gameStore.js` |
 | Domain / Worker cutover | BRAND-1 | Deliberate ceremony — [brand.md](../brand.md) |
 
 ---

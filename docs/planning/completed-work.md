@@ -13,6 +13,12 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 12, 2026 — STORE-1: collapse gameState / gameStore
+
+- *(Tech Debt · Medium)* **STORE-1** — ✅ **CLOSED 08-12.** Deleted `src/gameState.js`. Named command functions (`addScore`, `syncRoundPhase`, `pickTimerWinner`, …) live on `src/stores/gameStore.js`. Unused store methods `startRunning` / `startCountdown` / `endRound` removed (zero callers; live path stays `roundLifecycle.startRunningAt`). One module, one import path. Call bodies unchanged. Lock: `tests/storeImportLock.test.js`. Commits: `54f15a9` (Lever A) + Lever B this commit.
+
+---
+
 ### August 12, 2026 — DEV-GRAPH-2 CLOSED LOCAL: all-DeepSeek plan graph
 
 - *(Tech Debt · Medium)* **DEV-GRAPH-2** — ✅ **CLOSED LOCAL 08-12.** Commits `7264ea6`,

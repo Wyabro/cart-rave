@@ -13,7 +13,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { CONFIG } from "../src/config.js";
 import { runFixedPhysicsStep } from "../src/simulation.js";
 import { resetCartTransientState } from "../src/entities.js";
-import * as GameState from "../src/gameState.js";
+import * as GameState from "../src/stores/gameStore.js";
 
 const SLOW = CONFIG.ramming.minSpeed * 0.2; // below qualification
 const FAST = CONFIG.ramming.minSpeed * 2.5; // well above qualification

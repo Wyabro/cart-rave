@@ -158,7 +158,7 @@ each cell links the subscribing file and anchors on its actual `subscribe` call:
 
 **Consequence:** changing what a `gameStore` field means silently changes announcer behavior,
 directive scheduling, and analytics. Those four are the blast radius of every `gameStore` shape
-change. `gameStore` / `gameState` dual-import surface is tracked as **STORE-1** in the backlog.
+change. Round-state commands import from `stores/gameStore.js` only (**STORE-1** closed).
 
 ---
 

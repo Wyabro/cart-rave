@@ -2,7 +2,7 @@
 
 import PartySocket from "partysocket";
 import * as THREE from "three";
-import * as GameState from "./gameState.js";
+import * as GameState from "./stores/gameStore.js";
 import { CART_COLORS, CONFIG, MSG, PALETTE, WORKER_PAGE_HOSTS, WORKER_PUBLIC_HOST } from "./config.js";
 import { loadPlayerCustomization, resolveServerColorPick } from "./customization.js";
 import { consumeHopRequest } from "./input.js";

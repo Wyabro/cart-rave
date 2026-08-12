@@ -132,7 +132,7 @@ const OUTCOMES = ["victory", "defeat"];
  *   - NO TIE AT THE TOP. A tie at expiry with a human tied enters Sudden Death
  *     (`gameFlow.js:526-546`) and the phase stays `running` — the cell would hang.
  *   - TOP SCORE > 0. `pickTimerWinner` returns `"draw"` at `topScore === 0`
- *     (`gameState.js:56`), which yields neither `results-victory` nor `results-defeat`.
+ *     (`stores/gameStore.js` `pickTimerWinner`), which yields neither `results-victory` nor `results-defeat`.
  *
  * The gap has to survive whatever the NPCs do in the 800 ms before expiry. At
  * `rewindRoundClock(800)` the round is deep inside `CONFIG.directives.quietFinaleMs`

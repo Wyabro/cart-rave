@@ -6,7 +6,7 @@ import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { buildCart } from "./cart.js";
 import * as Simulation from "./simulation.js";
-import * as GameState from "./gameState.js";
+import * as GameState from "./stores/gameStore.js";
 import { CONFIG } from "./config.js";
 import { clamp } from "./utils.js";
 import { getQualityKnobs } from "./utils/qualityTiers.js";

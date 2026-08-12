@@ -46,7 +46,7 @@ import {
   ensureNetcode,
   getNetcode,
 } from "./netcode/load.js";
-import * as GameState from "./gameState.js";
+import * as GameState from "./stores/gameStore.js";
 import { unlockStore } from "./stores/unlockStore.js";
 
 import * as AudioManager from "./audioManager.js";

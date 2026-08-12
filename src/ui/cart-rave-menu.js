@@ -31,7 +31,7 @@ import { togglePostFx, applyQualityTier } from "./graphicsToggles.js";
 import { setAllAudioMuted, setMusicGainValue, setSfxSliderVolume, setVoiceSliderVolume } from "./audioControls.js";
 import { playUiClick } from "../sfxSynth.js";
 import { AUDIO_VOLUME_MAX } from "../stores/audioStore.js";
-import { getRoundState } from "../gameState.js";
+import { getRoundState } from "../stores/gameStore.js";
 // * MENU-LOCK-HINT-1: browsing a locked arena must retarget the 3D preview without
 // * selecting it. Imported directly rather than routed through main.js — levelManager is
 // * already a shared module (gameFlow/netcode/main) and imports nothing from the menu.

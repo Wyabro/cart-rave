@@ -20,7 +20,7 @@ import {
 } from "../src/netcode.js";
 import { resetReconciliationState } from "../src/gameLoop.js";
 import { CONFIG } from "../src/config.js";
-import * as GameState from "../src/gameState.js";
+import * as GameState from "../src/stores/gameStore.js";
 import { MSG } from "../shared/protocol.js";
 import { encodeHostStateSnapshot, decodeHostStateSnapshot } from "../src/netcode/binary.js";
 

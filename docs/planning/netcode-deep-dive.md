@@ -245,7 +245,7 @@ Use alongside ROADMAP Phase 4 full-round smoke. Checkboxes for when you run it.
 | Client net + buffer + offset + promote | `src/netcode.js`, `src/netcode/p2p.js`, `src/netcode/binary.js` |
 | Round start / promote handlers | `src/main.js` |
 | Timer / SD / falls | `src/gameFlow.js`, `src/roundClock.js` |
-| Scores / lastHitBy | `src/stores/gameStore.js`, `src/gameState.js` |
+| Scores / lastHitBy | `src/stores/gameStore.js` |
 | KO build | `src/scoring/koEvent.js` |
 | Directives schedule | `src/directives/directiveEngine.js` |
 | Prediction / reconcile | `src/gameLoop.js` |

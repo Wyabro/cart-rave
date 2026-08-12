@@ -1,6 +1,6 @@
 // gameSession.js — connect → play → teardown → in-tab menu return
 
-import * as GameState from "./gameState.js";
+import * as GameState from "./stores/gameStore.js";
 import { getNetcode } from "./netcode/load.js";
 import { SESSION_KEYS, sessionRemove } from "./utils/storage.js";
 import { trackEvent, trackGlitchEvent } from "./analytics/analytics.js";

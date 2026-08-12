@@ -20,7 +20,7 @@ import {
   getPendingInputs,
   sendHostPresent,
 } from "../src/netcode.js";
-import * as GameState from "../src/gameState.js";
+import * as GameState from "../src/stores/gameStore.js";
 import { encodeHostStateSnapshot } from "../src/netcode/binary.js";
 import { CONFIG } from "../src/config.js";
 

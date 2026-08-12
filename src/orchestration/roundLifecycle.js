@@ -4,7 +4,7 @@
 
 import * as CameraMod from "../camera.js";
 import * as Netcode from "../netcode.js";
-import * as GameState from "../gameState.js";
+import * as GameState from "../stores/gameStore.js";
 import * as Entities from "../entities.js";
 import * as HUD from "../hud.js";
 import * as GroceryPool from "../effects/groceryPool.js";
