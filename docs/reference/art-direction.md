@@ -52,8 +52,9 @@ camera tricks, no oversized-detail miniature read.
 its own theme. The global `toneMappingExposure: 0.4` lock is retired. Blacks stay genuinely
 black; the punch comes from lit surfaces and emissive, not from flattening the low end.
 
-**Screen filters: Backrooms only.** The CRT/VHS arcade layer is a per-arena device, not a
-global veneer. It is identity in The Storerooms and noise everywhere else.
+**Screen filters: CRT on all arenas, VHS Storerooms only.** The CRT arcade layer
+(aberration/scanlines/vignette) applies to every arena. VHS is identity in The Storerooms
+only.
 
 **Frozen:** `CART_COLORS` and the `mesh.traverse()` material logic in
 [`src/config.js`](../../src/config.js) remain the "Original Rave" invariant per AGENTS.md.
@@ -133,8 +134,9 @@ and the Storerooms furniture builders for material variety.
 
 ## Per-arena look budget
 
-Current values. ART-EXPO-1 and ART-FILTER-1 closed 2026-08-06; the exposure and arcade rows
-below are their result, and the Rule 3 luma floors those values produce are recorded above.
+Current values. ART-EXPO-1 closed 2026-08-06; ART-FILTER-2 (unwrap arcade to all arenas)
+closed 2026-08-12. The exposure and arcade rows below are their result, and the Rule 3 luma
+floors those values produce are recorded above.
 
 | Knob | Where | Current |
 |---|---|---|
@@ -146,7 +148,7 @@ below are their result, and the Rule 3 luma floors those values produce are reco
 | Bloom — Sundial | `BLOOM_DISPLAY_SUNDIAL`, [`scene.js:109`](../../src/scene.js:109) | `0.25 / 0.67 / **0.68** / 0.025` — D-SUNDIAL-OQ5, split off NEON `93c3deb`; threshold is the only knob moved |
 | Bloom — Storerooms | `BLOOM_DISPLAY_STOREROOMS`, [`scene.js:73`](../../src/scene.js:73) | `0.62 / 0.4 / 0.62 / 0.1` |
 | Bloom — Test Drive | `BLOOM_DISPLAY_TESTDRIVE`, [`scene.js:121`](../../src/scene.js:121) | `0.2 / 0.5 / 0.7 / 0.05` |
-| Arcade (CRT) | [`config.js:573`](../../src/config.js:573) | aberration `0.003`, scanlines `1.8`, vignette `0.5` — **Storerooms only**, gated at level load like VHS |
+| Arcade (CRT) | [`config.js:573`](../../src/config.js:573) | aberration `0.003`, scanlines `1.8`, vignette `0.5` — **all arenas** (ART-FILTER-2) |
 | VHS | [`config.js:582`](../../src/config.js:582) | amount `0.3` — Storerooms only |
 | Fog — Cart Rave | [`config.js:593`](../../src/config.js:593) | `0x040112` @ `0.0065` |
 | Fog — Storerooms | [`config.js:596`](../../src/config.js:596) | `0x1a1510` @ `0.029` |
@@ -223,7 +225,7 @@ Two mechanical notes before adding placements:
 ## Falsifiable rules
 
 Rule 1 is checkable against source today and still fails on the carts. **Rule 2 passes as of
-2026-08-06 (ART-FILTER-1).** Rules 3–5 are procedures whose per-arena baselines were blocked on
+2026-08-12 (ART-FILTER-2).** Rules 3–5 are procedures whose per-arena baselines were blocked on
 ART-EXPO-1 / ART-FILTER-1 landing, because capturing them first would have baselined a look that
 was about to change. Rule 3's baselines are now recorded; 4 and 5 are still open.
 
@@ -421,7 +423,7 @@ second UV channel for the patterns work.
 
 ## Open cards
 
-- **ART-FILTER-1** — gate the arcade pass to The Storerooms at rest.
+- ~~**ART-FILTER-1** — gate the arcade pass to The Storerooms at rest.~~ Closed by ART-FILTER-2 (2026-08-12): arcade CRT unwrapped to all arenas.
 - **ART-EXPO-1** — retire the global exposure lock; per-arena budget.
 - **ART-MAT-1** — authored maps on the **carts** (the only Rule 1 failure). Largely absorbed by
   CART-MODEL-1, which authors against the contract above.
