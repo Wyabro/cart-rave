@@ -730,9 +730,24 @@ UI/UX row).
   retune of `p2pReconnectCooldownMs`/`p2pConnectingTimeoutMs`. Test in [netP2pDiag.test.js](../../tests/netP2pDiag.test.js).
 
 **H1 remaining (0 playtest-open):** GAMEPAD-LOBBY-1 closed PASS in the playtest export; HOLE-FRICTION-COMBINE-1
-PASS 08-07 (`519d905`) — see entry above. **H2 remaining (2):** CARGO-BAY-INSTANCE-1 (Wyatt stability
-call first), ARENA-BUMPER-HINT-1 (product call). **H3 remaining (1):** CAPTURE-RING-LIMIT-1 — see
+PASS 08-07 (`519d905`) — see entry above. **H2 remaining (1):** ARENA-BUMPER-HINT-1 (product call). **H3 remaining (1):** CAPTURE-RING-LIMIT-1 — see
 [BACKLOG.md](./BACKLOG.md).
+
+### August 12, 2026 — CARGO-BAY-INSTANCE-1 (per-bay InstancedMesh)
+
+- *(Engineering · Medium)* **CARGO-BAY-INSTANCE-1** — ✅ **CLOSED 08-12** (`9e86382`).
+  Replaced 30 individual `THREE.Mesh` per cargo bay (up to 120 draw calls for 4 carts) with
+  per-model `InstancedMesh` children — one IM per grocery model type present in each bay.
+  Instances within each IM are sorted by GRID index (fill-priority order) so that
+  `InstancedMesh.count` directly gates the Living Cargo fill-ordered reveal, replacing the
+  old `.visible`-toggle loop. Draw calls drop from ≤120 to ~24 (5× reduction) with zero
+  per-frame overhead (IMs are bay-local — no world-space matrix updates). `hideCargoBay`
+  and `removeCargoBaysFromMesh` work unchanged (`Group.visible` cascades, Group removal
+  cascades). The GRID fill pattern stability call was resolved by Wyatt as part of the
+  plan ack before implementation. Single-lever wave — `populateCargoBay` +
+  `setCargoFillCount` are coupled. Playtest owed: solo fill, multiplayer parity, spill
+  hide/rebuild, shatter/rebuild, before/after screenshot. Tested: QA green (169 files,
+  1885 tests).
 
 ### August 7, 2026 — Wave H1 (partial): desk-only correctness sweep, 3 commits (CONNSTATE-REFLIP-1, LASTHITBY-MUTATE-1, FREEZE-TELEMETRY-1)
 

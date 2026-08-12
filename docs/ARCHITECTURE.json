@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-12T00:51:00.399Z",
-    "commit": "d02a733"
+    "at": "2026-08-12T03:18:55.759Z",
+    "commit": "9e86382"
   },
-  "source_digest": "aac0dab6",
+  "source_digest": "08d86649",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -885,12 +885,18 @@
         "what": "Domain cutover",
         "status": "🧊 frozen ([brand.md](./brand.md))",
         "state": "locked"
+      },
+      {
+        "id": "CARGO-BAY-INSTANCE-1",
+        "what": "Per-bay InstancedMesh for cargo bays",
+        "status": "✅ CLOSED 08-12 (`9e86382`). 30 Mesh → per-model InstancedMesh. Draw calls ≤120 → ~24. Single-lever wave. Playtest owed: solo fill, multiplayer parity, spill/rebuild, screenshot.",
+        "state": "done"
       }
     ],
     "next_actions": [
       "No active card — wait for Wyatt to select the next card.",
       "DEV-GRAPH-2 — five clean plan-only runs now permit a new plan to connect the hardened maker and reviewer stages. Plan → Wyatt ack → apply; do not start those stages yet.",
-      "Playtest owed: SHARD-PT-2 (skip, needs five humans)."
+      "Playtest owed: SHARD-PT-2 (skip, needs five humans). CARGO-BAY-INSTANCE-1 — solo fill, multiplayer parity, spill/rebuild, before/after screenshot."
     ],
     "open_issues": [
       {
@@ -912,7 +918,7 @@
         "counts": {
           "Low": 5,
           "Partial": 1,
-          "Medium": 8
+          "Medium": 7
         },
         "rows": [
           {
@@ -991,12 +997,6 @@
             "pri": "Low",
             "item": "QP-ROTATE-PT-1 — Quickplay rotation live 2-browser check",
             "notes": "Reconfirm after **QP-ORDER-1** (sequential rotation). Live multi-client smoke only.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "CARGO-BAY-INSTANCE-1 — cargo bays render as up to 30 individually-toggled meshes per cart",
-            "notes": "**Filed 08-07 from the principal-engineering audit — fresh perf surface, not a PERF-PASS-1 reopen.** `GRID` is 15 floor + 10 mid + 5 crest = 30 slots, one `THREE.Mesh` each ([groceryPool.js:630-664](../../src/effects/groceryPool.js:630), [:688](../../src/effects/groceryPool.js:688)); fill level only toggles `.visible` ([:764-776](../../src/effects/groceryPool.js:764)) — each visible item is still its own draw call. 4 carts × up to 30 visible items = up to 120 draw calls every frame during play, on **every** quality tier including LOW (bays aren't tier-gated — core to the mechanic); roughly doubled on HIGH where the Classic vinyl Reflector re-renders the scene. **Fix:** one `InstancedMesh` per grocery model, driven by the existing `GRID` transforms, collapsing this to a handful of draws. **Caution before starting:** the `GRID` comments reference a recent tuning pass (\"Session-3 pass 3, Wyatt 07-30\") — confirm the visual fill pattern is considered stable before refactoring its rendering, or this fights concurrent design changes (see Block H open question). L effort — needs a breakdown.",
             "ship1": null
           }
         ]
