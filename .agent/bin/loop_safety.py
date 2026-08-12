@@ -34,7 +34,7 @@ def atomic_write_text(path: Path, value: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(f".{path.name}.{uuid4().hex}.tmp")
     try:
-        temporary.write_text(value, encoding="utf-8")
+        temporary.write_text(value, encoding="utf-8", newline="\n")
         for attempt in range(ATOMIC_REPLACE_ATTEMPTS):
             try:
                 os.replace(temporary, path)

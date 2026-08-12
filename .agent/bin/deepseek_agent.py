@@ -77,6 +77,7 @@ def _write_checkpoint(
     event: str,
     turn: int,
     started_at: str,
+    tool_error_count: int = 0,
     error: str | None = None,
 ) -> dict:
     artifact_root = artifacts.run_dir.relative_to(artifacts.root).as_posix()
@@ -87,6 +88,7 @@ def _write_checkpoint(
         "status": status,
         "event": event,
         "turn": turn,
+        "tool_error_count": tool_error_count,
         "started_at": started_at,
         "updated_at": _utc_now(),
         "artifacts": {
@@ -372,6 +374,10 @@ def main() -> int:
         type=int,
         default=RUN_TIMEOUT_SECONDS,
     )
+    parser.add_argument(
+        "--run-id",
+        help="host-defined run identity for a bound control-plane invocation",
+    )
     parser.add_argument("--run-state", default=str(RUN_STATE))
     parser.add_argument("prompt", nargs="+")
     args = parser.parse_args()
@@ -391,11 +397,12 @@ def main() -> int:
 
     plan_only = bool(args.plan_only)
     mode = "plan-only" if plan_only else role
-    run_id = _run_id()
+    run_id = args.run_id or _run_id()
     artifacts = _run_artifacts(run_id)
     state_path = Path(args.run_state).resolve()
     started_at = _utc_now()
     turn = 0
+    tool_error_count = 0
     deadline = time.monotonic() + args.run_timeout_seconds
     _write_checkpoint(
         state_path,
@@ -407,6 +414,7 @@ def main() -> int:
         event="started",
         turn=turn,
         started_at=started_at,
+        tool_error_count=tool_error_count,
     )
     _emit("started", run_id, role=role, mode=mode, max_turns=args.max_turns)
 
@@ -423,6 +431,7 @@ def main() -> int:
             event="missing_api_key",
             turn=turn,
             started_at=started_at,
+            tool_error_count=tool_error_count,
             error=error,
         )
         _emit("failed", run_id, error=error)
@@ -451,6 +460,7 @@ def main() -> int:
                 event="model_request",
                 turn=turn,
                 started_at=started_at,
+                tool_error_count=tool_error_count,
             )
             _emit("model_request", run_id, turn=turn, timeout_seconds=request_timeout)
             response = _call_model(
@@ -475,6 +485,7 @@ def main() -> int:
                 event="model_response",
                 turn=turn,
                 started_at=started_at,
+                tool_error_count=tool_error_count,
             )
             _emit("model_response", run_id, turn=turn, tool_calls=len(tool_calls))
             if not tool_calls:
@@ -500,6 +511,7 @@ def main() -> int:
                     event="completed",
                     turn=turn,
                     started_at=started_at,
+                    tool_error_count=tool_error_count,
                 )
                 _emit("completed", run_id, turn=turn)
                 return 0
@@ -518,6 +530,7 @@ def main() -> int:
                     event="tool_request",
                     turn=turn,
                     started_at=started_at,
+                    tool_error_count=tool_error_count,
                 )
                 _emit("tool_request", run_id, turn=turn, tool=name)
                 try:
@@ -526,6 +539,8 @@ def main() -> int:
                     result = f"tool_error: invalid JSON arguments: {exc}"
                 else:
                     result = _execute_tool(name, arguments, role, plan_only=plan_only)
+                if result.startswith("tool_error:"):
+                    tool_error_count += 1
                 messages.append(
                     {
                         "role": "tool",
@@ -543,6 +558,7 @@ def main() -> int:
                     event="tool_result",
                     turn=turn,
                     started_at=started_at,
+                    tool_error_count=tool_error_count,
                 )
                 _emit("tool_result", run_id, turn=turn, tool=name, error=result.startswith("tool_error:"))
         raise RuntimeError(f"DeepSeek reached the {args.max_turns}-turn bound before finishing")
@@ -558,6 +574,7 @@ def main() -> int:
             event="failed",
             turn=turn,
             started_at=started_at,
+            tool_error_count=tool_error_count,
             error=error,
         )
         _emit("failed", run_id, turn=turn, error=error)

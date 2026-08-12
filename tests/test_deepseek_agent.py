@@ -76,6 +76,7 @@ class DeepSeekAgentControlPlaneTests(unittest.TestCase):
                 payload["artifacts"]["run_result"],
                 ".agent/self-improving/runs/run-123/run-result.md",
             )
+            self.assertEqual(payload["tool_error_count"], 0)
             self.assertEqual(list(root.rglob("*.tmp")), [])
 
     def test_run_result_carries_the_same_run_identity(self) -> None:

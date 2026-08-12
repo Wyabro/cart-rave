@@ -1,19 +1,20 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "name": "dev-plan-graph",
   "description": "Fail-closed host-mediated plan, review, and acknowledgement flow.",
   "nodes": {
     "preflight": {
       "kind": "deterministic",
       "events": {
-        "preflight_pass": "await_plan",
+        "preflight_pass": "await_maker",
         "preflight_fail": "blocked"
       }
     },
-    "await_plan": {
+    "await_maker": {
       "kind": "host",
       "events": {
-        "submit_plan": "await_review"
+        "maker_complete": "await_review",
+        "maker_fail": "blocked"
       }
     },
     "await_review": {

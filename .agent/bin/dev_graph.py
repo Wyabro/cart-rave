@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import os
 import re
 import subprocess
 import sys
@@ -24,8 +23,13 @@ from loop_safety import LoopSafetyError, RunArtifacts
 ROOT = Path(__file__).resolve().parents[2]
 GRAPH_RELATIVE_PATH = Path(".agent/graphs/dev-graph.json")
 RUNTIME_RELATIVE_PATH = Path(".agent/runtime/dev-graph")
+MAKER_ARTIFACT_NAMESPACE = Path(".agent/self-improving/runs")
 LOCK_NAME = "active.lock"
 MAX_ARTIFACT_BYTES = 200_000
+MAKER_MAX_TURNS = 24
+MAKER_REQUEST_TIMEOUT_SECONDS = 90
+MAKER_RUN_TIMEOUT_SECONDS = 900
+MAKER_PROCESS_TIMEOUT_SECONDS = MAKER_RUN_TIMEOUT_SECONDS + 5
 CARD_ID_RE = re.compile(r"^[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+$")
 RUN_ID_RE = re.compile(r"^[0-9a-f]{32}$")
 TERMINAL_KINDS = {"terminal"}
@@ -72,7 +76,7 @@ def _validate_run_id(run_id: str) -> str:
 
 
 def _validate_graph(graph: dict[str, Any]) -> None:
-    if graph.get("schema_version") != 1:
+    if graph.get("schema_version") != 2:
         raise GraphError("unsupported graph schema version")
     if not isinstance(graph.get("name"), str) or not graph["name"]:
         raise GraphError("graph name is required")
@@ -131,14 +135,14 @@ def _git_output(root: Path, *arguments: str) -> str:
     return completed.stdout
 
 
-def _clean_base_head(root: Path) -> str:
+def _clean_preflight(root: Path) -> tuple[str, str]:
     base_head = _git_output(root, "rev-parse", "HEAD").strip()
     if not re.fullmatch(r"[0-9a-f]{40}", base_head):
         raise GraphError("git preflight did not return a full HEAD ID")
     dirty = _git_output(root, "status", "--porcelain=v1", "--untracked-files=all")
     if dirty.strip():
         raise GraphError("graph runs require a clean worktree")
-    return base_head
+    return base_head, dirty
 
 
 def _lock_path(root: Path) -> Path:
@@ -167,9 +171,11 @@ def _read_lock(root: Path) -> dict[str, Any]:
 def _acquire_lock(root: Path, run_id: str) -> None:
     path = _lock_path(root)
     path.parent.mkdir(parents=True, exist_ok=True)
-    payload = {"run_id": run_id, "pid": os.getpid(), "created_at": _utc_now()}
+    payload = {"schema_version": 2, "run_id": run_id, "created_at": _utc_now()}
     try:
-        descriptor = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        with path.open("x", encoding="utf-8") as handle:
+            json.dump(payload, handle, indent=2, sort_keys=True)
+            handle.write("\n")
     except FileExistsError as exc:
         try:
             existing = _read_lock(root)
@@ -177,46 +183,24 @@ def _acquire_lock(root: Path, run_id: str) -> None:
         except GraphError:
             existing_run = "invalid-lock"
         raise GraphError(f"an active graph lock exists for {existing_run}") from exc
-    try:
-        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
-            json.dump(payload, handle, indent=2, sort_keys=True)
-            handle.write("\n")
-    except Exception:
-        path.unlink(missing_ok=True)
-        raise
+
+
+def _assert_lock_owner(root: Path, run_id: str) -> None:
+    lock = _read_lock(root)
+    if set(lock) != {"schema_version", "run_id", "created_at"}:
+        raise GraphError("active graph lock has an unsupported shape")
+    if lock.get("schema_version") != 2 or lock.get("run_id") != run_id:
+        raise GraphError("active graph lock belongs to a different run")
+    if not isinstance(lock.get("created_at"), str) or not lock["created_at"]:
+        raise GraphError("active graph lock has no creation timestamp")
 
 
 def _release_lock(root: Path, run_id: str) -> None:
     path = _lock_path(root)
     if not path.exists():
         return
-    lock = _read_lock(root)
-    if lock.get("run_id") != run_id:
-        raise GraphError("active graph lock belongs to a different run")
+    _assert_lock_owner(root, run_id)
     path.unlink()
-
-
-def _pid_is_alive(pid: int) -> bool:
-    if pid <= 0:
-        return False
-    try:
-        os.kill(pid, 0)
-    except OSError:
-        return False
-    return True
-
-
-def recover_stale_lock(root: Path, run_id: str) -> None:
-    run_id = _validate_run_id(run_id)
-    lock = _read_lock(root)
-    if lock.get("run_id") != run_id:
-        raise GraphError("lock run ID does not match the requested recovery run")
-    pid = lock.get("pid")
-    if not isinstance(pid, int):
-        raise GraphError("lock has no valid process ID; inspect it before removal")
-    if _pid_is_alive(pid):
-        raise GraphError("lock owner is still running")
-    _lock_path(root).unlink()
 
 
 def _read_state(root: Path, run_id: str) -> dict[str, Any]:
@@ -264,15 +248,41 @@ def _artifact_sha256(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
 
 
-def start(root: Path, card_id: str) -> dict[str, Any]:
+def _json_bytes(value: dict[str, Any]) -> bytes:
+    return json.dumps(value, indent=2, sort_keys=True).encode("utf-8") + b"\n"
+
+
+def _assert_preflight_matches(root: Path, state: dict[str, Any]) -> None:
+    base_head = _git_output(root, "rev-parse", "HEAD").strip()
+    if base_head != state.get("base_head"):
+        raise GraphError("base HEAD changed during the maker run")
+    baseline = state.get("artifacts", {}).get("baseline")
+    if not isinstance(baseline, dict) or baseline.get("file") != "baseline.json":
+        raise GraphError("graph state has no valid baseline artifact")
+    dirty = _git_output(root, "status", "--porcelain=v1", "--untracked-files=all")
+    if _artifact_sha256(dirty.encode("utf-8")) != baseline.get("git_status_sha256"):
+        raise GraphError("worktree baseline changed during the maker run")
+
+
+def start(root: Path, card_id: str, brief_content: str) -> dict[str, Any]:
     card_id = _validate_card_id(card_id)
     graph = _load_graph(root)
-    base_head = _clean_base_head(root)
+    brief = _artifact_bytes(brief_content)
+    base_head, dirty = _clean_preflight(root)
     run_id = uuid4().hex
     _acquire_lock(root, run_id)
     try:
-        state = {
+        artifacts = _artifacts(root, run_id)
+        artifacts.write_text("brief.md", brief.decode("utf-8"))
+        baseline = {
             "schema_version": 1,
+            "base_head": base_head,
+            "git_status_porcelain_v1": dirty,
+            "git_status_sha256": _artifact_sha256(dirty.encode("utf-8")),
+        }
+        artifacts.write_json("baseline.json", baseline)
+        state = {
+            "schema_version": 2,
             "graph_name": graph["name"],
             "run_id": run_id,
             "card_id": card_id,
@@ -281,7 +291,14 @@ def start(root: Path, card_id: str) -> dict[str, Any]:
             "status": "running",
             "created_at": _utc_now(),
             "updated_at": _utc_now(),
-            "artifacts": {},
+            "artifacts": {
+                "brief": {"file": "brief.md", "sha256": _artifact_sha256(brief)},
+                "baseline": {
+                    "file": "baseline.json",
+                    "sha256": _artifact_sha256(_json_bytes(baseline)),
+                    "git_status_sha256": baseline["git_status_sha256"],
+                },
+            },
             "history": [],
         }
         _transition(root, graph, state, "preflight_pass")
@@ -292,18 +309,150 @@ def start(root: Path, card_id: str) -> dict[str, Any]:
         raise
 
 
-def submit_plan(root: Path, run_id: str, content: str) -> dict[str, Any]:
+def _maker_run_id(graph_run_id: str) -> str:
+    return f"maker-{_validate_run_id(graph_run_id)}"
+
+
+def _maker_command(root: Path, state: dict[str, Any]) -> list[str]:
+    run_id = _validate_run_id(str(state["run_id"]))
+    brief_path = _run_dir(root, run_id) / "brief.md"
+    brief_relative = brief_path.relative_to(root).as_posix()
+    prompt = "\n".join(
+        [
+            f"Read the immutable graph brief at {brief_relative}.",
+            f"Produce the plan-only maker result for card {state['card_id']}.",
+            "Do not modify files. Return only an implementation-ready plan and missing evidence.",
+        ]
+    )
+    return [
+        sys.executable,
+        str(root / ".agent" / "bin" / "deepseek_agent.py"),
+        "--role",
+        "maker",
+        "--plan-only",
+        "--max-turns",
+        str(MAKER_MAX_TURNS),
+        "--request-timeout-seconds",
+        str(MAKER_REQUEST_TIMEOUT_SECONDS),
+        "--run-timeout-seconds",
+        str(MAKER_RUN_TIMEOUT_SECONDS),
+        "--run-id",
+        _maker_run_id(run_id),
+        prompt,
+    ]
+
+
+def _read_maker_receipt_inputs(root: Path, state: dict[str, Any]) -> tuple[dict[str, Any], bytes, bytes]:
+    graph_run_id = _validate_run_id(str(state["run_id"]))
+    maker_run_id = _maker_run_id(graph_run_id)
+    maker_artifacts = RunArtifacts(root, MAKER_ARTIFACT_NAMESPACE, maker_run_id)
+    runner_state_path = maker_artifacts.path("run-state.json")
+    result_path = maker_artifacts.path("run-result.md")
+    runner_state_bytes = runner_state_path.read_bytes()
+    result_bytes = result_path.read_bytes()
+    if len(runner_state_bytes) > MAX_ARTIFACT_BYTES or len(result_bytes) > MAX_ARTIFACT_BYTES:
+        raise GraphError("maker artifact exceeds the graph size limit")
+    try:
+        runner_state = json.loads(runner_state_bytes.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise GraphError("maker run-state is not valid UTF-8 JSON") from exc
+    if not isinstance(runner_state, dict):
+        raise GraphError("maker run-state must be a JSON object")
+    expected_paths = {
+        "run_state": f".agent/self-improving/runs/{maker_run_id}/run-state.json",
+        "run_result": f".agent/self-improving/runs/{maker_run_id}/run-result.md",
+    }
+    if (
+        runner_state.get("run_id") != maker_run_id
+        or runner_state.get("role") != "maker"
+        or runner_state.get("mode") != "plan-only"
+        or runner_state.get("status") != "completed"
+        or runner_state.get("event") != "completed"
+        or runner_state.get("artifacts") != expected_paths
+        or runner_state.get("tool_error_count") != 0
+    ):
+        raise GraphError("maker checkpoint does not satisfy the fixed plan-only contract")
+    try:
+        result_text = result_bytes.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise GraphError("maker result is not valid UTF-8") from exc
+    result_lines = result_text.splitlines()
+    if not result_lines or result_lines[0] != f"# DeepSeek run {maker_run_id}":
+        raise GraphError("maker result does not carry the expected run identity")
+    if not "\n".join(result_lines[1:]).strip():
+        raise GraphError("maker result has no plan content")
+    return runner_state, runner_state_bytes, result_bytes
+
+
+def _block_maker(root: Path, graph: dict[str, Any], state: dict[str, Any], reason: str) -> dict[str, Any]:
+    state["failure"] = {"stage": "maker", "reason": reason}
+    _transition(root, graph, state, "maker_fail")
+    _write_state(root, state["run_id"], state)
+    _release_lock(root, state["run_id"])
+    return state
+
+
+def run_maker(root: Path, run_id: str) -> dict[str, Any]:
     run_id = _validate_run_id(run_id)
     graph = _load_graph(root)
     state = _read_state(root, run_id)
-    if state["node"] != "await_plan":
-        raise GraphError("a plan is not expected at this graph node")
-    artifact = _artifact_bytes(content)
-    digest = _artifact_sha256(artifact)
-    _artifacts(root, run_id).write_text("plan.md", artifact.decode("utf-8"))
-    state["artifacts"]["plan"] = {"file": "plan.md", "sha256": digest}
-    _transition(root, graph, state, "submit_plan")
-    _write_state(root, run_id, state)
+    if state["node"] != "await_maker":
+        raise GraphError("a maker run is not expected at this graph node")
+    _assert_lock_owner(root, run_id)
+    try:
+        _assert_preflight_matches(root, state)
+        maker_artifacts = RunArtifacts(
+            root,
+            MAKER_ARTIFACT_NAMESPACE,
+            _maker_run_id(run_id),
+        )
+        if maker_artifacts.run_dir.exists():
+            raise GraphError("maker artifact directory already exists for this graph run")
+        completed = subprocess.run(
+            _maker_command(root, state),
+            cwd=root,
+            capture_output=True,
+            check=False,
+            encoding="utf-8",
+            errors="replace",
+            text=True,
+            timeout=MAKER_PROCESS_TIMEOUT_SECONDS,
+            shell=False,
+        )
+        if completed.returncode != 0:
+            raise GraphError(f"maker process failed with exit code {completed.returncode}")
+        runner_state, runner_state_bytes, result_bytes = _read_maker_receipt_inputs(root, state)
+        _assert_preflight_matches(root, state)
+        artifacts = _artifacts(root, run_id)
+        artifacts.write_text("plan.md", result_bytes.decode("utf-8"))
+        plan_sha256 = _artifact_sha256(artifacts.path("plan.md").read_bytes())
+        receipt = {
+            "schema_version": 1,
+            "card_id": state["card_id"],
+            "graph_run_id": run_id,
+            "base_head": state["base_head"],
+            "baseline_sha256": state["artifacts"]["baseline"]["sha256"],
+            "brief_sha256": state["artifacts"]["brief"]["sha256"],
+            "maker_run_id": runner_state["run_id"],
+            "maker_state_sha256": _artifact_sha256(runner_state_bytes),
+            "maker_result_sha256": _artifact_sha256(result_bytes),
+            "plan_sha256": plan_sha256,
+            "role": runner_state["role"],
+            "mode": runner_state["mode"],
+            "status": runner_state["status"],
+            "tool_error_count": runner_state["tool_error_count"],
+        }
+        artifacts.write_json("maker-receipt.json", receipt)
+        state["artifacts"]["plan"] = {"file": "plan.md", "sha256": plan_sha256}
+        state["artifacts"]["maker"] = {
+            "file": "maker-receipt.json",
+            "sha256": _artifact_sha256(artifacts.path("maker-receipt.json").read_bytes()),
+            "run_id": receipt["maker_run_id"],
+        }
+        _transition(root, graph, state, "maker_complete")
+        _write_state(root, run_id, state)
+    except (GraphError, OSError, subprocess.TimeoutExpired) as exc:
+        return _block_maker(root, graph, state, str(exc))
     return state
 
 
@@ -313,6 +462,7 @@ def submit_review(root: Path, run_id: str, content: str) -> dict[str, Any]:
     state = _read_state(root, run_id)
     if state["node"] != "await_review":
         raise GraphError("a review is not expected at this graph node")
+    _assert_lock_owner(root, run_id)
     artifact = _artifact_bytes(content)
     try:
         review = json.loads(artifact.decode("utf-8"))
@@ -366,6 +516,7 @@ def acknowledge(root: Path, run_id: str, acknowledgement: str) -> dict[str, Any]
     state = _read_state(root, run_id)
     if state["node"] != "await_ack":
         raise GraphError("human acknowledgement is not expected at this graph node")
+    _assert_lock_owner(root, run_id)
     expected = f"ack {state['card_id']}"
     if acknowledgement.strip().casefold() != expected.casefold():
         raise GraphError(f"acknowledgement must be exactly: {expected}")
@@ -391,8 +542,8 @@ def main(argv: list[str] | None = None) -> int:
     start_parser = subparsers.add_parser("start")
     start_parser.add_argument("--card-id", required=True)
 
-    plan_parser = subparsers.add_parser("submit-plan")
-    plan_parser.add_argument("--run-id", required=True)
+    maker_parser = subparsers.add_parser("run-maker")
+    maker_parser.add_argument("--run-id", required=True)
 
     review_parser = subparsers.add_parser("submit-review")
     review_parser.add_argument("--run-id", required=True)
@@ -404,24 +555,19 @@ def main(argv: list[str] | None = None) -> int:
     status_parser = subparsers.add_parser("status")
     status_parser.add_argument("--run-id", required=True)
 
-    recover_parser = subparsers.add_parser("recover-stale-lock")
-    recover_parser.add_argument("--run-id", required=True)
-
     args = parser.parse_args(argv)
     root = args.root.resolve()
     try:
         if args.command == "start":
-            _print_state(start(root, args.card_id))
-        elif args.command == "submit-plan":
-            _print_state(submit_plan(root, args.run_id, _stdin()))
+            _print_state(start(root, args.card_id, _stdin()))
+        elif args.command == "run-maker":
+            _print_state(run_maker(root, args.run_id))
         elif args.command == "submit-review":
             _print_state(submit_review(root, args.run_id, _stdin()))
         elif args.command == "ack":
             _print_state(acknowledge(root, args.run_id, args.text))
         elif args.command == "status":
             _print_state(_read_state(root, _validate_run_id(args.run_id)))
-        elif args.command == "recover-stale-lock":
-            recover_stale_lock(root, args.run_id)
         return 0
     except GraphError as exc:
         print(f"dev-graph: {exc}", file=sys.stderr)

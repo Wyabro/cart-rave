@@ -30,6 +30,7 @@ class LoopSafetyTests(unittest.TestCase):
 
             self.assertNotEqual(first.run_dir, second.run_dir)
             self.assertEqual(first.path("state.json").read_text(encoding="utf-8"), '{\n  "run_id": "run-a"\n}\n')
+            self.assertEqual(first.path("state.json").read_bytes(), b'{\n  "run_id": "run-a"\n}\n')
             self.assertTrue(second.path("plan.md").is_file())
             self.assertEqual(list(root.rglob("*.tmp")), [])
 
