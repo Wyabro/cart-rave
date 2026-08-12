@@ -18,7 +18,8 @@ match the date first, then grep inside.
 
 | Date range | File |
 |---|---|
-| 2026-08-08 → present | **live** in [STATUS.md](../STATUS.md) (short current-session summary only) |
+| 2026-08-11 → present | **live** in [STATUS.md](../STATUS.md) (short current-session summary only) |
+| 2026-08-08 → 08-10 (CARGO-LATCH-1 · ANLX retro · CART-MODEL-1 · UI-FRAME-1 / ESC-PANEL-1 · PAD-MENU-1) | [status-log-2026-08-08-to-10.md](./status-log-2026-08-08-to-10.md) |
 | 2026-08-07 (ONBOARD-ART-1 rig · SPAWN-SUNDIAL-GAP-1 · BACKLOG-GATE-3 · Block H desk wave · PACE-KO-1 / COMBAT-READ-1) | [status-log-2026-08-07.md](./status-log-2026-08-07.md) |
 | 2026-08-05 (AGENT-OS-1 tooling · BUNDLE-E-PT-1 PASS · BUNDLE-1 CLOSED PARTIAL, deployed `f2f90fd2`) | [status-log-2026-08-05.md](./status-log-2026-08-05.md) |
 | 2026-08-04 (MAIN-1 CLOSED · FX-TIME-1 / SHADOW-ORDER-1 / ARCH-DRIFT-1 · HOST-TAB-1 lever E · playtest export close · HOST-TAB-1 local wave) | [status-log-2026-08-04.md](./status-log-2026-08-04.md) |
