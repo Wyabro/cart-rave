@@ -1,19 +1,21 @@
 # Cart Clash
 
-Neon-soaked **4-player shopping-cart physics brawler** — live at [cart-rave.wyabro.workers.dev](https://cart-rave.wyabro.workers.dev/).
-
-Post-jam development continues on the **`cart-clash`** branch toward **Version 2** (content, performance, full rebrand + new domain).
+Neon-soaked **4-player shopping-cart physics brawler** — live at [www.cartclash.lol](https://www.cartclash.lol/).
 
 **Naming:** Product is **Cart Clash**. Deploy host, Worker name, and some code IDs still say `cart-rave` until a deliberate cutover — see [docs/brand.md](./docs/brand.md).
 
-**Recent (July 2026):**
-- **Arenas**: Cart Rave (Classic Record), The Storerooms, and **Sundial Station** (level id `zanzibar`) — physics stability pass + July presentation elevation / flagship Sundial overhaul.
-- **HUD redesign**: Center-stage events, design tokens, icon system, sticker scoreboard, touch layout.
-- **Progression**: Lifetime unlocks for cart patterns (incl. Bolt), sunglasses, custom color, and levels — plus daily/weekly challenges and personal bests.
-- **Living Store**: Score-driven cargo bay (cart is the scoreboard) + mid-round PA **directives** (Flash Sale, Double Bag, Express Lane, Spill Bonus, Rush Hour). As-built: [docs/reference/living-store.md](./docs/reference/living-store.md).
-- **Feel & presentation**: Store PA announcer, production-value / feel passes, match-stat superlatives, charge glow.
-- **Perf foundations**: Boot/load pass, self-hosted fonts, half-res bloom, level prop LOD, Draco cart models.
-- **Stack**: Three.js r185 + Rapier3D + **partyserver** / PartySocket on Cloudflare Workers (Vite 8 + Wrangler 4; WebRTC P2P + Calls TURN). Full table: [docs/README.md § Tech stack](./docs/README.md#tech-stack) · [docs/reference/CREDITS.md](./docs/reference/CREDITS.md). Baseline gate: `npm run check` — status:size → typecheck → test → knip → briefing:check → arch:check → health:check (7 steps; see `check` in package.json).
+**Phase (Aug 2026):** Playtesting & stabilization. Run 7 closed; NET-2 / NET-MIG-3 passed live; NET-PRES-1 / NET-SD-1 landed; PERF-TIER-1 + PROBE-WARM-RT-1 passed on prod. Current health, blockers, and the next milestone: [docs/STATUS.md](./docs/STATUS.md).
+
+**Stack:** Three.js r185 + Rapier3D (standard + SIMD WASM) + **partyserver** / PartySocket on Cloudflare Workers (Vite 8 + Wrangler 4; WebRTC P2P + Calls TURN). Full table: [docs/README.md § Tech stack](./docs/README.md#tech-stack) · [docs/reference/CREDITS.md](./docs/reference/CREDITS.md). Gate: `npm run qa` — status:size → typecheck → test → knip → briefing:check → arch:check → health:check (see `check` in package.json).
+
+## Gameplay
+
+- **4-player shopping-cart physics sumo** — slam, boost-ram, and hop; knock carts off the edge or into voids/holes.
+- **Arenas:** Cart Rave (Classic Record), The Storerooms, Sundial Station.
+- **Living Store:** score-driven cargo bay (cart is the scoreboard) + mid-round PA directives (Flash Sale, Double Bag, Express Lane, Spill Bonus, Rush Hour).
+- **Progression:** lifetime unlocks for cart patterns, sunglasses, custom color, and levels.
+- **Modes:** Solo (private room + NPCs), Quickplay (public room), Friends (`?room=` link).
+- **Round length:** 2.5 minutes + Sudden Death on ties.
 
 ## Documentation
 
@@ -21,17 +23,24 @@ All project docs live in [`docs/`](./docs/):
 
 | Doc | Purpose |
 |-----|---------|
-| [docs/STATUS.md](./docs/STATUS.md) | **Read first** — production dashboard: health, blockers, current focus, next milestone |
+| [docs/BRIEFING.md](./docs/BRIEFING.md) | Generated cold-start briefing — phase, active item, do-nots |
+| [docs/STATUS.md](./docs/STATUS.md) | Session source of truth — health, focus, next milestone |
 | [docs/README.md](./docs/README.md) | Project overview, setup, controls, full doc index |
-| [docs/brand.md](./docs/brand.md) | **Naming freeze** (Cart Clash vs legacy cart-rave IDs) |
-| [docs/style-guide.md](./docs/style-guide.md) | **Writing standard** — brand voice, terminology, copy conventions |
-| [docs/planning/ROADMAP.md](./docs/planning/ROADMAP.md) | **Future** — phased plan (V2 blockers, future, stretch) |
-| [docs/planning/BACKLOG.md](./docs/planning/BACKLOG.md) | **Future** — every open item, categorized + prioritized |
-| [docs/planning/project-state.md](./docs/planning/project-state.md) | **Present** — architecture snapshot, known issues |
-| [docs/planning/completed-work.md](./docs/planning/completed-work.md) | **Past** — historical log of shipped work |
-| [docs/planning/production-passes.md](./docs/planning/production-passes.md) | **Past** — index of the July 2026 production passes |
-| [docs/guides/preview-dev.md](./docs/guides/preview-dev.md) | Local multiplayer dev workflow |
+| [docs/brand.md](./docs/brand.md) | Naming freeze — Cart Clash vs legacy cart-rave IDs |
+| [docs/style-guide.md](./docs/style-guide.md) | Writing standard — brand voice, terminology |
+| [docs/planning/ROADMAP.md](./docs/planning/ROADMAP.md) | Future — phased plan |
+| [docs/planning/BACKLOG.md](./docs/planning/BACKLOG.md) | Future — open items, categorized + prioritized |
+| [docs/planning/project-state.md](./docs/planning/project-state.md) | Present — architecture snapshot, known issues |
+| [docs/planning/completed-work.md](./docs/planning/completed-work.md) | Past — shipped work log |
 | [docs/reference/Game_Architecture.md](./docs/reference/Game_Architecture.md) | Consolidated architecture reference |
 | [docs/reference/CREDITS.md](./docs/reference/CREDITS.md) | Third-party libraries, fonts, and assets |
 
-Start with [docs/STATUS.md](./docs/STATUS.md) for where the project stands, [docs/README.md](./docs/README.md) for setup, and [docs/planning/ROADMAP.md](./docs/planning/ROADMAP.md) for what's next.
+Start with [docs/STATUS.md](./docs/STATUS.md) for where the project stands, [docs/README.md](./docs/README.md) for setup and controls, and [docs/planning/ROADMAP.md](./docs/planning/ROADMAP.md) for what's next.
+
+## Run locally
+
+```bash
+npm run dev:local   # Vite + local Wrangler worker → http://127.0.0.1:3000/
+```
+
+Deploy: `npm run ship` (Cloudflare prod) · `npm run ship:glitch` (Glitch festival copy, after prod is good). Lanes and post-deploy verification: [docs/guides/deploy-urls.md](./docs/guides/deploy-urls.md).

@@ -4,7 +4,7 @@
 
 **Pitch:** *Physics sumo… with shopping carts… on a spinning record.*
 
-**Status (July 2026):** Post-jam. Active development on the **`cart-clash`** branch toward **Version 2**. Five production passes (performance, UI/UX, gameplay/AI, VFX/audio) plus a stabilization pass are in tree alongside three elevated arenas, the HUD redesign, lifetime unlocks, and **Living Store** (cargo scoreboard + PA directives). Current health, blockers, and the next milestone: [STATUS.md](./STATUS.md). Open priorities: [ROADMAP.md](./planning/ROADMAP.md) + [BACKLOG.md](./planning/BACKLOG.md). Naming freeze: [brand.md](./brand.md).
+**Status (Aug 2026):** Playtesting & stabilization. Five production passes are in tree alongside three elevated arenas, the HUD redesign, lifetime unlocks, and **Living Store** (cargo scoreboard + PA directives). Current health, blockers, and the next milestone: [STATUS.md](./STATUS.md). Open priorities: [ROADMAP.md](./planning/ROADMAP.md) + [BACKLOG.md](./planning/BACKLOG.md). Naming freeze: [brand.md](./brand.md).
 
 ---
 
@@ -89,7 +89,7 @@ Versions are the `package.json` ranges. Full credits, licenses, and services: [r
 | Layer | Technology | Version |
 |-------|------------|---------|
 | 3D Rendering | Three.js (`three`) | `^0.185.1` |
-| Physics | Rapier3D (`@dimforge/rapier3d`, native WASM) | `^0.19.3` |
+| Physics | Rapier3D (`@dimforge/rapier3d` + `@dimforge/rapier3d-simd`, native WASM) | `^0.19.3` |
 | Build | Vite | `^8.1.4` |
 | State | Zustand (`zustand/vanilla`) | `^5.0.14` |
 | Audio | Howler.js (`howler`) | `^2.2.4` |
