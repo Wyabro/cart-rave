@@ -8,7 +8,7 @@ import json
 import re
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -30,6 +30,9 @@ MAKER_MAX_TURNS = 24
 MAKER_REQUEST_TIMEOUT_SECONDS = 90
 MAKER_RUN_TIMEOUT_SECONDS = 900
 MAKER_PROCESS_TIMEOUT_SECONDS = MAKER_RUN_TIMEOUT_SECONDS + 5
+REVIEWER_ID = "gpt-5.6-luna"
+REVIEWER_REASONING_EFFORT = "high"
+REVIEW_TIMEOUT_SECONDS = 900
 CARD_ID_RE = re.compile(r"^[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+$")
 RUN_ID_RE = re.compile(r"^[0-9a-f]{32}$")
 TERMINAL_KINDS = {"terminal"}
@@ -39,8 +42,12 @@ class GraphError(RuntimeError):
     """Raised when an invalid graph action must stop without mutation."""
 
 
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
 def _utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return _now().isoformat(timespec="seconds")
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -252,16 +259,139 @@ def _json_bytes(value: dict[str, Any]) -> bytes:
     return json.dumps(value, indent=2, sort_keys=True).encode("utf-8") + b"\n"
 
 
+def _parse_utc_timestamp(value: object, field: str) -> datetime:
+    if not isinstance(value, str) or not value:
+        raise GraphError(f"{field} must be a UTC timestamp")
+    try:
+        timestamp = datetime.fromisoformat(value)
+    except ValueError as exc:
+        raise GraphError(f"{field} must be a valid UTC timestamp") from exc
+    if timestamp.tzinfo is None:
+        raise GraphError(f"{field} must include a UTC offset")
+    return timestamp.astimezone(timezone.utc)
+
+
 def _assert_preflight_matches(root: Path, state: dict[str, Any]) -> None:
     base_head = _git_output(root, "rev-parse", "HEAD").strip()
     if base_head != state.get("base_head"):
-        raise GraphError("base HEAD changed during the maker run")
+        raise GraphError("base HEAD changed during the graph run")
     baseline = state.get("artifacts", {}).get("baseline")
     if not isinstance(baseline, dict) or baseline.get("file") != "baseline.json":
         raise GraphError("graph state has no valid baseline artifact")
     dirty = _git_output(root, "status", "--porcelain=v1", "--untracked-files=all")
     if _artifact_sha256(dirty.encode("utf-8")) != baseline.get("git_status_sha256"):
-        raise GraphError("worktree baseline changed during the maker run")
+        raise GraphError("worktree baseline changed during the graph run")
+
+
+def _review_request_id(graph_run_id: str) -> str:
+    return f"luna-{_validate_run_id(graph_run_id)}"
+
+
+def _write_review_request(root: Path, state: dict[str, Any]) -> tuple[dict[str, Any], str]:
+    artifacts = _artifacts(root, state["run_id"])
+    maker = state["artifacts"].get("maker")
+    plan = state["artifacts"].get("plan")
+    baseline = state["artifacts"].get("baseline")
+    brief = state["artifacts"].get("brief")
+    if not all(isinstance(value, dict) for value in (maker, plan, baseline, brief)):
+        raise GraphError("graph state has no complete maker receipt inputs")
+    maker_result_sha256 = maker.get("result_sha256")
+    if not isinstance(maker_result_sha256, str):
+        raise GraphError("maker receipt has no result digest")
+    created_at = _now()
+    request = {
+        "schema_version": 1,
+        "card_id": state["card_id"],
+        "graph_run_id": state["run_id"],
+        "base_head": state["base_head"],
+        "baseline_sha256": baseline.get("sha256"),
+        "brief_sha256": brief.get("sha256"),
+        "maker_receipt_sha256": maker.get("sha256"),
+        "maker_run_id": maker.get("run_id"),
+        "maker_result_sha256": maker_result_sha256,
+        "plan_sha256": plan.get("sha256"),
+        "review_request_id": _review_request_id(state["run_id"]),
+        "reviewer": {
+            "id": REVIEWER_ID,
+            "reasoning_effort": REVIEWER_REASONING_EFFORT,
+            "read_only": True,
+        },
+        "created_at": created_at.isoformat(timespec="seconds"),
+        "deadline_at": (created_at + timedelta(seconds=REVIEW_TIMEOUT_SECONDS)).isoformat(
+            timespec="seconds"
+        ),
+        "timeout_seconds": REVIEW_TIMEOUT_SECONDS,
+    }
+    artifacts.write_json("review-request.json", request)
+    return request, _artifact_sha256(artifacts.path("review-request.json").read_bytes())
+
+
+def _read_review_request(root: Path, state: dict[str, Any]) -> dict[str, Any]:
+    metadata = state["artifacts"].get("review_request")
+    if not isinstance(metadata, dict):
+        raise GraphError("graph state has no review request")
+    if metadata.get("file") != "review-request.json":
+        raise GraphError("graph state has an invalid review request path")
+    artifacts = _artifacts(root, state["run_id"])
+    raw = artifacts.path("review-request.json").read_bytes()
+    if _artifact_sha256(raw) != metadata.get("sha256"):
+        raise GraphError("review request artifact does not match graph state")
+    try:
+        request = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise GraphError("review request is not valid UTF-8 JSON") from exc
+    if not isinstance(request, dict):
+        raise GraphError("review request must be a JSON object")
+    expected_keys = {
+        "schema_version",
+        "card_id",
+        "graph_run_id",
+        "base_head",
+        "baseline_sha256",
+        "brief_sha256",
+        "maker_receipt_sha256",
+        "maker_run_id",
+        "maker_result_sha256",
+        "plan_sha256",
+        "review_request_id",
+        "reviewer",
+        "created_at",
+        "deadline_at",
+        "timeout_seconds",
+    }
+    if set(request) != expected_keys or request["schema_version"] != 1:
+        raise GraphError("review request has an unsupported schema")
+    maker = state["artifacts"].get("maker")
+    plan = state["artifacts"].get("plan")
+    baseline = state["artifacts"].get("baseline")
+    brief = state["artifacts"].get("brief")
+    expected_values = {
+        "card_id": state["card_id"],
+        "graph_run_id": state["run_id"],
+        "base_head": state["base_head"],
+        "baseline_sha256": baseline.get("sha256") if isinstance(baseline, dict) else None,
+        "brief_sha256": brief.get("sha256") if isinstance(brief, dict) else None,
+        "maker_receipt_sha256": maker.get("sha256") if isinstance(maker, dict) else None,
+        "maker_run_id": maker.get("run_id") if isinstance(maker, dict) else None,
+        "maker_result_sha256": maker.get("result_sha256") if isinstance(maker, dict) else None,
+        "plan_sha256": plan.get("sha256") if isinstance(plan, dict) else None,
+        "review_request_id": _review_request_id(state["run_id"]),
+    }
+    if any(request[key] != value for key, value in expected_values.items()):
+        raise GraphError("review request does not bind to the accepted maker receipt")
+    if request["reviewer"] != {
+        "id": REVIEWER_ID,
+        "reasoning_effort": REVIEWER_REASONING_EFFORT,
+        "read_only": True,
+    } or request["timeout_seconds"] != REVIEW_TIMEOUT_SECONDS:
+        raise GraphError("review request has an unsupported reviewer contract")
+    created_at = _parse_utc_timestamp(request["created_at"], "review request created_at")
+    deadline_at = _parse_utc_timestamp(request["deadline_at"], "review request deadline_at")
+    if deadline_at != created_at + timedelta(seconds=REVIEW_TIMEOUT_SECONDS):
+        raise GraphError("review request has an invalid deadline")
+    if _now() > deadline_at:
+        raise GraphError("review request deadline expired")
+    return request
 
 
 def start(root: Path, card_id: str, brief_content: str) -> dict[str, Any]:
@@ -448,11 +578,26 @@ def run_maker(root: Path, run_id: str) -> dict[str, Any]:
             "file": "maker-receipt.json",
             "sha256": _artifact_sha256(artifacts.path("maker-receipt.json").read_bytes()),
             "run_id": receipt["maker_run_id"],
+            "result_sha256": receipt["maker_result_sha256"],
+        }
+        review_request, review_request_sha256 = _write_review_request(root, state)
+        state["artifacts"]["review_request"] = {
+            "file": "review-request.json",
+            "sha256": review_request_sha256,
+            "request_id": review_request["review_request_id"],
         }
         _transition(root, graph, state, "maker_complete")
         _write_state(root, run_id, state)
     except (GraphError, OSError, subprocess.TimeoutExpired) as exc:
         return _block_maker(root, graph, state, str(exc))
+    return state
+
+
+def _block_review(root: Path, graph: dict[str, Any], state: dict[str, Any], reason: str) -> dict[str, Any]:
+    state["failure"] = {"stage": "review", "reason": reason}
+    _transition(root, graph, state, "review_fail")
+    _write_state(root, state["run_id"], state)
+    _release_lock(root, state["run_id"])
     return state
 
 
@@ -463,50 +608,106 @@ def submit_review(root: Path, run_id: str, content: str) -> dict[str, Any]:
     if state["node"] != "await_review":
         raise GraphError("a review is not expected at this graph node")
     _assert_lock_owner(root, run_id)
-    artifact = _artifact_bytes(content)
     try:
+        _assert_preflight_matches(root, state)
+        request = _read_review_request(root, state)
+        artifact = _artifact_bytes(content)
         review = json.loads(artifact.decode("utf-8"))
-    except json.JSONDecodeError as exc:
-        raise GraphError(f"review artifact is not valid JSON: {exc.msg}") from exc
+    except (GraphError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        return _block_review(root, graph, state, str(exc))
     if not isinstance(review, dict):
-        raise GraphError("review artifact must be a JSON object")
+        return _block_review(root, graph, state, "review artifact must be a JSON object")
     expected_keys = {
         "schema_version",
         "card_id",
         "graph_run_id",
+        "base_head",
+        "baseline_sha256",
+        "brief_sha256",
+        "maker_receipt_sha256",
+        "maker_run_id",
+        "maker_result_sha256",
         "plan_sha256",
+        "review_request_id",
+        "reviewer_id",
+        "reasoning_effort",
+        "reviewed_at",
         "verdict",
         "findings",
     }
     if set(review) != expected_keys:
-        raise GraphError("review artifact has missing or unsupported fields")
-    if review["schema_version"] != 1:
-        raise GraphError("unsupported review artifact schema version")
-    if review["card_id"] != state["card_id"] or review["graph_run_id"] != run_id:
-        raise GraphError("review artifact does not belong to this graph run")
-    plan = state["artifacts"].get("plan")
-    if not isinstance(plan, dict) or review["plan_sha256"] != plan.get("sha256"):
-        raise GraphError("review artifact does not bind to the accepted plan")
+        return _block_review(root, graph, state, "review artifact has missing or unsupported fields")
+    expected_values = {
+        "schema_version": 1,
+        "card_id": state["card_id"],
+        "graph_run_id": run_id,
+        "base_head": state["base_head"],
+        "baseline_sha256": request["baseline_sha256"],
+        "brief_sha256": request["brief_sha256"],
+        "maker_receipt_sha256": request["maker_receipt_sha256"],
+        "maker_run_id": request["maker_run_id"],
+        "maker_result_sha256": request["maker_result_sha256"],
+        "plan_sha256": request["plan_sha256"],
+        "review_request_id": request["review_request_id"],
+        "reviewer_id": REVIEWER_ID,
+        "reasoning_effort": REVIEWER_REASONING_EFFORT,
+    }
+    if any(review[key] != value for key, value in expected_values.items()):
+        return _block_review(root, graph, state, "review artifact does not bind to the graph receipt")
+    try:
+        reviewed_at = _parse_utc_timestamp(review["reviewed_at"], "reviewed_at")
+        created_at = _parse_utc_timestamp(request["created_at"], "review request created_at")
+        deadline_at = _parse_utc_timestamp(request["deadline_at"], "review request deadline_at")
+    except GraphError as exc:
+        return _block_review(root, graph, state, str(exc))
+    if reviewed_at < created_at or reviewed_at > deadline_at:
+        return _block_review(root, graph, state, "reviewed_at is outside the review request window")
     if review["verdict"] not in {"APPROVE", "REJECT", "ESCALATE"}:
-        raise GraphError("review verdict must be APPROVE, REJECT, or ESCALATE")
+        return _block_review(root, graph, state, "review verdict must be APPROVE, REJECT, or ESCALATE")
     findings = review["findings"]
-    if not isinstance(findings, list) or any(not isinstance(item, str) for item in findings):
-        raise GraphError("review findings must be a list of strings")
+    if not isinstance(findings, list) or any(
+        not isinstance(item, str) or not item.strip() for item in findings
+    ):
+        return _block_review(root, graph, state, "review findings must be non-empty strings")
     if review["verdict"] != "APPROVE" and not findings:
-        raise GraphError("rejected or escalated reviews must include findings")
+        return _block_review(root, graph, state, "rejected or escalated reviews must include findings")
 
-    _artifacts(root, run_id).write_json("review.json", review)
+    artifacts = _artifacts(root, run_id)
+    artifacts.write_json("review.json", review)
     state["artifacts"]["review"] = {
         "file": "review.json",
-        "sha256": _artifact_sha256(
-            json.dumps(review, indent=2, sort_keys=True).encode("utf-8") + b"\n"
-        ),
+        "sha256": _artifact_sha256(artifacts.path("review.json").read_bytes()),
     }
     event = f"review_{review['verdict'].lower()}"
     _transition(root, graph, state, event)
     _write_state(root, run_id, state)
     if state["status"] != "running":
         _release_lock(root, run_id)
+    return state
+
+
+def fail_review(root: Path, run_id: str, reason: str) -> dict[str, Any]:
+    run_id = _validate_run_id(run_id)
+    graph = _load_graph(root)
+    state = _read_state(root, run_id)
+    if state["node"] != "await_review":
+        raise GraphError("a review failure is not expected at this graph node")
+    _assert_lock_owner(root, run_id)
+    failure_reason = reason.strip()
+    if not failure_reason or len(failure_reason.encode("utf-8")) > MAX_ARTIFACT_BYTES:
+        raise GraphError("review failure reason is required and must fit the artifact limit")
+    try:
+        _read_review_request(root, state)
+    except GraphError as exc:
+        failure_reason = f"{failure_reason}: {exc}"
+    return _block_review(root, graph, state, failure_reason)
+
+
+def _block_ack(root: Path, graph: dict[str, Any], state: dict[str, Any], reason: str) -> dict[str, Any]:
+    state["failure"] = {"stage": "ack", "reason": reason}
+    _transition(root, graph, state, "ack_fail")
+    _write_state(root, state["run_id"], state)
+    _release_lock(root, state["run_id"])
     return state
 
 
@@ -517,6 +718,10 @@ def acknowledge(root: Path, run_id: str, acknowledgement: str) -> dict[str, Any]
     if state["node"] != "await_ack":
         raise GraphError("human acknowledgement is not expected at this graph node")
     _assert_lock_owner(root, run_id)
+    try:
+        _assert_preflight_matches(root, state)
+    except GraphError as exc:
+        return _block_ack(root, graph, state, str(exc))
     expected = f"ack {state['card_id']}"
     if acknowledgement.strip().casefold() != expected.casefold():
         raise GraphError(f"acknowledgement must be exactly: {expected}")
@@ -548,6 +753,10 @@ def main(argv: list[str] | None = None) -> int:
     review_parser = subparsers.add_parser("submit-review")
     review_parser.add_argument("--run-id", required=True)
 
+    review_failure_parser = subparsers.add_parser("fail-review")
+    review_failure_parser.add_argument("--run-id", required=True)
+    review_failure_parser.add_argument("--reason", required=True)
+
     ack_parser = subparsers.add_parser("ack")
     ack_parser.add_argument("--run-id", required=True)
     ack_parser.add_argument("--text", required=True)
@@ -564,6 +773,8 @@ def main(argv: list[str] | None = None) -> int:
             _print_state(run_maker(root, args.run_id))
         elif args.command == "submit-review":
             _print_state(submit_review(root, args.run_id, _stdin()))
+        elif args.command == "fail-review":
+            _print_state(fail_review(root, args.run_id, args.reason))
         elif args.command == "ack":
             _print_state(acknowledge(root, args.run_id, args.text))
         elif args.command == "status":

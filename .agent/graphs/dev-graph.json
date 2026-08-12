@@ -22,13 +22,15 @@
       "events": {
         "review_approve": "await_ack",
         "review_reject": "rejected",
-        "review_escalate": "escalated"
+        "review_escalate": "escalated",
+        "review_fail": "blocked"
       }
     },
     "await_ack": {
       "kind": "human",
       "events": {
-        "human_ack": "complete"
+        "human_ack": "complete",
+        "ack_fail": "blocked"
       }
     },
     "blocked": {

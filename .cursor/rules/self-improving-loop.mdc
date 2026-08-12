@@ -1,22 +1,45 @@
 ---
-description: Start the DeepSeek maker, Luna watcher, and Sol rewriter workflow for loop-prefixed tasks
+description: Run the fail-closed DeepSeek maker and Luna review graph for loop-prefixed tasks
 alwaysApply: true
 ---
 
 # Self-improving loop trigger
 
-When Wyatt's message begins with `loop:`, treat the remaining text as the task brief and run the saved self-improving workflow automatically. Do not ask Wyatt to repeat the setup or manually prepare the loop files.
+When Wyatt's message begins with `loop:`, treat the remaining text as the immutable task brief.
+The graph owns plan evidence. The host owns Luna invocation and records its returned JSON through
+the graph CLI. No stage may edit source, commit, push, deploy, or claim a player playtest PASS.
 
-1. Read `AGENTS.md`, `docs/BRIEFING.md`, the top of `docs/STATUS.md`, and the existing `.agent/self-improving/` files.
-2. If this is a new card, preserve the old prompt and log, then prepare a fresh `prompt.md` and `log.md` for the new card. Keep one card at a time and protect unrelated work.
-3. Make the first DeepSeek pass plan-only. Run the read-only planner through the existing Cursor proxy with model `deepseek-v4-flash`:
-   `python .agent/bin/deepseek_agent.py --role maker --plan-only --run-timeout-seconds 900 "$(Get-Content -Raw .agent/self-improving/prompt.md)"`
-   The runner atomically writes a latest pointer at `.agent/self-improving/run-state.json` and per-run artifacts under `.agent/self-improving/runs/<run_id>/`. Continue only when the pointer says `status=completed`, `mode=plan-only`, and its `artifacts.run_result` path is exactly `.agent/self-improving/runs/<run_id>/run-result.md`, which starts with that same `run_id`. A missing, failed, mismatched, or stale checkpoint is a hard stop; do not start Luna or Sol from older output.
-4. After the maker finishes, spawn one sequential Codex sub-agent for Luna with model `gpt-5.6-luna` and reasoning effort `high`. Give it the full brief: read `prompt.md`, the verified per-run `run-result.md` path from the checkpoint, `watcher.md`, `log.md`, and relevant source; inspect the maker result; write no source code; append no more than 12 blunt lines to `log.md` using GOAL, KEPT, WASTED, FAILED, and NEXT; return a short summary.
-5. After Luna finishes, spawn one sequential Codex sub-agent for Sol with model `gpt-5.6-sol` and reasoning effort `medium`. Give it the full brief: read `prompt.md`, `log.md`, and `rewriter.md`; apply the latest NEXT note; edit only `prompt.md` and `log.md`; keep the prompt change under 20%; return a short summary.
-6. Do not run Luna and Sol in parallel. They depend on the previous stage and share loop state. Inspect each sub-agent result and confirm its allowed file scope. If either sub-agent fails, preserve the checkpoint and stop instead of reusing an older prompt or log.
-7. Show Wyatt the resulting plan and stop for explicit `ack` before source edits. Do not commit, push, deploy, or delete files during the plan pass.
-8. After `ack`, continue the DeepSeek maker -> Luna -> Sol cycle for the approved card. Apply the repository's normal QA and one-lever-per-commit rules. Stop after implementation and evidence unless Wyatt says `ship it`.
-9. Treat `ship it` as separate deployment authorization. Run the required QA, push, deploy, and post-deploy checks only then. Never claim human playtest PASS without Wyatt's visual or playtest confirmation.
+1. Read `AGENTS.md`, `docs/BRIEFING.md`, and the top of `docs/STATUS.md`. Bind the one active
+   valid card ID. If no card is active, or the brief names a different card, ask Wyatt to select or
+   activate the correct card. Do not replace shared `prompt.md` or `log.md`.
+2. Start the graph with the complete task brief on standard input:
+   `python .agent/bin/dev_graph.py start --card-id <active-card-id>`.
+   Read the returned `run_id`. A dirty worktree, existing graph lock, or invalid start is a hard
+   stop. Do not clean, stash, or retry.
+3. Run the fixed maker bridge once:
+   `python .agent/bin/dev_graph.py run-maker --run-id <run-id>`.
+   Continue only when the returned state is `await_review` and contains matching `brief`,
+   `baseline`, `plan`, `maker`, and `review_request` artifacts. A blocked state is terminal.
+4. Spawn exactly one sequential Codex Luna sub-agent: model `gpt-5.6-luna`, reasoning `high`.
+   Give it the graph run directory's `brief.md`, `plan.md`, `maker-receipt.json`, and
+   `review-request.json`, plus relevant source. It is read-only: it writes no files and returns
+   one JSON object only, with no Markdown or prose.
+5. Luna's JSON must contain exactly `schema_version`, `card_id`, `graph_run_id`, `base_head`,
+   `baseline_sha256`, `brief_sha256`, `maker_receipt_sha256`, `maker_run_id`,
+   `maker_result_sha256`, `plan_sha256`, `review_request_id`, `reviewer_id`,
+   `reasoning_effort`, `reviewed_at`, `verdict`, and `findings`. Set `reviewed_at` to a UTC
+   timestamp inside the request's `created_at`–`deadline_at` window. Set
+   `reviewer_id="gpt-5.6-luna"`, `reasoning_effort="high"`, and use `APPROVE`, `REJECT`, or
+   `ESCALATE`. `REJECT` and `ESCALATE` require non-empty actionable findings. The host passes the
+   unmodified JSON to `python .agent/bin/dev_graph.py submit-review --run-id <run-id>` on standard
+   input. The graph, not Luna, writes `review.json`.
+6. If Luna is unavailable, times out, uses a forbidden write, or returns invalid JSON, run
+   `python .agent/bin/dev_graph.py fail-review --run-id <run-id> --reason <short-safe-reason>` and
+   stop. Do not retry Luna, reuse another run's review, or create a replacement review by hand.
+7. If the graph returns `await_ack`, show Wyatt the plan and review. Stop for the exact human
+   acknowledgement `ack <card-id>`, then record it with
+   `python .agent/bin/dev_graph.py ack --run-id <run-id> --text "ack <card-id>"`. The complete
+   graph is terminal. Do not start Sol or an implementation maker run. Any later source apply is a
+   separate normal repository action under the existing per-wave plan and ACK rules.
 
-If the DeepSeek proxy or key is unavailable, report the exact setup error and stop. Never print or request the API key in chat.
+`ship it` is separate deployment authorization. Never print or request the API key in chat.
