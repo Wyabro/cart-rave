@@ -75,7 +75,7 @@ Live rows only. Shipped and closed cards live in
 ### Next actions
 
 1. **No active engineering card** — wait for Wyatt.
-2. **Playtest owed:** STORE-1 on `npm run dev:local` — solo KO → podium; quit mid-round; rematch scores 0; combo badge off during 3-2-1 after restart. SHARD-PT-2 (skip, needs five humans). CARGO-BAY-INSTANCE-1 — solo fill, multiplayer parity, spill/rebuild, before/after screenshot.
+2. **Playtest owed:** **STORE-1-PT-1** on `npm run dev:local` (console row). SHARD-PT-2 (skip, needs five humans). CARGO-BAY-INSTANCE-1 — solo fill, multiplayer parity, spill/rebuild, before/after screenshot.
 
 ## Open issues (top)
 
