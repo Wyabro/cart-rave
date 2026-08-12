@@ -13,6 +13,13 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 12, 2026 — CUSTOMIZE-PERF-1 CLOSED: Customize screen performance pass
+
+- *(Engineering / Perf · Medium)* **CUSTOMIZE-PERF-1** — ✅ **CLOSED 08-12.** Empirical F8 measurement pass (`cap-353` through `cap-356`) on discrete RTX 4090 GPU confirmed sub-millisecond 3D preview render overhead (**0.3–0.5 ms** per frame), 0ms post-boot longtasks, zero frame drops, and stable memory (47.7 MB heap, 77 programs asynchronously compiled in 19 ms). Closed as *measured, healthy, no action needed*. Findings documented in [customize-perf-1-findings.md](./customize-perf-1-findings.md).
+
+---
+
+
 ### August 11, 2026 — LOOP-SAFETY-2 CLOSED LOCAL: fail-closed maker boundary
 
 - *(Tech Debt · Medium)* **LOOP-SAFETY-2** — ✅ **CLOSED LOCAL 08-11.** Commits `aa248cb`,
