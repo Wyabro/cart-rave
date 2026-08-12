@@ -56,7 +56,7 @@ export const ANNOUNCER_LINES = {
     ],
     leader_down: [
       "THE LEADER IS DOWN!",
-      "{attacker} TOPPLES THE TOP OF THE RECEIPT!",
+      "LEADER TOPPLED!",
       "{victim} JUST LOST THE LEAD — THE HARD WAY!",
     ],
     challenge_complete: [
@@ -79,10 +79,10 @@ export const ANNOUNCER_LINES = {
     comeback: [
       "WHAT A COMEBACK!",
       "{leader} CAME BACK FROM THE DEAD!",
-      "CLEARANCE-RACK COMEBACK!",
+      "NICE COMEBACK!",
     ],
     cleanup_aisle: [
-      "CLEAN-UP ON AISLE {aisle}!",
+      "CLEANUP ON AISLE 5!",
       "{victim} ATE THE FLOOR!",
       "SPILL ON AISLE {aisle}!",
     ],

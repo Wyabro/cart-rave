@@ -12,8 +12,8 @@ The supermarket tannoy hijacked by the rave's MC. Two voices fighting in one thr
 - **Base**: flat, polite retail PA cadence ("attention shoppers…").
 - **Break**: the MC keeps losing the professional mask on the hype words — FIRST SPILL,
   CARNAGE, SUDDEN DEATH get full arena-MC energy.
-- Retail words played straight are funnier than retail words played wacky. "CLEAN-UP IN
-  THE AISLE" lands best deadpan-urgent, like it's a real spill.
+- Retail words played straight are funnier than retail words played wacky. "CLEANUP ON
+  AISLE 5" lands best deadpan-urgent, like it's a real spill.
 - **Pace**: punchy. Most lines must land in ~1.0–1.5 s (the engine reserves the audio
   channel per event — `durationMs` in the event table). Directives get up to ~3 s.
 
@@ -46,13 +46,13 @@ audio can't say player names. The on-screen callout still shows the name.
 | `double_spill_01` | "DOUBLE SPILL!" | Fast, stacked. |
 | `double_spill_02` | "TWO CARTS DOWN!" | Clipped, urgent. |
 | `double_spill_03` | "BUY ONE, GET ONE!" | Retail deadpan — the joke sells itself. |
-| `aisle_wipeout_01` | "AISLE WIPEOUT!" | Biggest kill-line in the game. Full send. |
+| `aisle_wipeout_01` | "AISLE WIPEOUT!" | Rerecord. Biggest kill-line in the game. Full send. |
 | `aisle_wipeout_02` | "EVERYTHING MUST GO!" | Liquidation-sale mania. |
 | `refund_01` | "REFUND!" | One word, vicious glee. |
 | `refund_02` | "REVENGE SERVED COLD!" | Low, savoring it. |
 | `refund_03` | "PAYBACK!" | Sharp bark. |
 | `sudden_death_01` | "SUDDEN DEATH!" | The single most dramatic read in the pack. Space the words. |
-| `victory_01` | "VICTORY!" | Triumphant, held. |
+| `victory_01` | "VICTORY!" | More triumphant and celebratory. Hold the final word; avoid a sing-song rise-and-fall. |
 | `defeat_01` | "DEFEAT." | Flat, PA-polite. The politeness is the insult. |
 | `last_call_01` | "LAST CALL!" | Urgent tannoy. |
 | `last_call_02` | "TEN SECONDS! REGISTERS CLOSING!" | Rushed, breathless. |
@@ -62,9 +62,9 @@ audio can't say player names. The on-screen callout still shows the name.
 | `savage_02` | "OUT OF CONTROL!" | Half warning, half hype. |
 | `rampage_01` | "RAMPAGE!" | Rising energy — tier 1 of 3, leave headroom for savage/carnage. |
 | `rampage_02` | "SOMEBODY'S HEATING UP!" | Sly, noticing. |
-| `comeback_01` | "WHAT A COMEBACK!" | Genuine awe. |
+| `comeback_01` | "WHAT A COMEBACK!" | More enthusiasm and excitement. Genuine awe with a stronger lift. |
 
-*(plus)* `comeback_02` — "CLEARANCE-RACK COMEBACK!" — big grin, proud of the pun.
+*(plus)* `comeback_02` — "NICE COMEBACK!" — keep the same cadence as the old line; warm approval, no extra syllables.
 
 ### Tier 2 — scoreboard & time beats (12 takes)
 
@@ -73,7 +73,7 @@ audio can't say player names. The on-screen callout still shows the name.
 | `new_leader_01` | "NEW LEADER!" | Announcement bell energy. |
 | `new_leader_02` | "TOP OF THE RECEIPT!" | Deadpan retail. |
 | `leader_down_01` | "THE LEADER IS DOWN!" | Mock alarm. |
-| `leader_down_02` | "TOP OF THE RECEIPT — TOPPLED!" | Relish the alliteration. |
+| `leader_down_02` | "LEADER TOPPLED!" | Short, crisp, and victorious. |
 | `one_minute_01` | "ONE MINUTE ON THE CLOCK!" | Neutral PA, slight lean-in. |
 | `one_minute_02` | "SIXTY SECONDS OF SHOPPING LEFT!" | Cheery menace. |
 | `thirty_seconds_01` | "THIRTY SECONDS!" | Tighter than one_minute. |
@@ -91,17 +91,17 @@ one place clarity beats character; the mechanic must be understood in one hearin
 
 | File | Line |
 |---|---|
-| `directive_flash_sale_01/_02` | "FLASH SALE! RAMS HIT FIFTY PERCENT HARDER!" |
-| `directive_double_bag_01/_02` | "DOUBLE BAG! ALL POINTS DOUBLED!" |
-| `directive_express_lane_01/_02` | "EXPRESS LANE! BOOSTS CHARGE TWICE AS FAST!" |
-| `directive_spill_bonus_01/_02` | "SPILL BONUS! SPILL THEIR GROCERIES FOR A BONUS POINT!" |
-| `directive_rush_hour_01/_02` | "RUSH HOUR! EVERYBODY DRIVES FASTER!" |
+| `directive_flash_sale_01/_02` | "FLASH SALE!" | Headline only. Keep the rule in the on-screen subtitle. |
+| `directive_double_bag_01/_02` | "DOUBLE BAG!" | Headline only. Keep the rule in the on-screen subtitle. |
+| `directive_express_lane_01/_02` | "EXPRESS LANE!" | Headline only. Keep the rule in the on-screen subtitle. |
+| `directive_spill_bonus_01/_02` | "SPILL BONUS!" | Headline only. Keep the rule in the on-screen subtitle. |
+| `directive_rush_hour_01/_02` | "RUSH HOUR!" | Headline only. Keep the rule in the on-screen subtitle. |
 
 ### Tier 4 — flavor & ambient (11 takes)
 
 | File | Line | Direction |
 |---|---|---|
-| `cleanup_aisle_01` | "CLEAN-UP IN THE AISLE!" | Pure deadpan PA. The realest retail read. |
+| `cleanup_aisle_01` | "CLEANUP ON AISLE 5!" | Pure deadpan PA. The realest retail read. |
 | `cleanup_aisle_02` | "SOMEBODY ATE THE FLOOR!" | Barely-suppressed laugh. |
 | `cleanup_aisle_03` | "THAT ONE'S ON THE HOUSE!" | Dry. |
 | `cart_overflow_01` | "THAT CART IS OVERFLOWING!" | Alarmed stock-clerk. |

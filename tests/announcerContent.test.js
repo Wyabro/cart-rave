@@ -35,4 +35,17 @@ describe("announcer content contract", () => {
       ).toBeGreaterThan(0);
     }
   });
+
+  it("keeps the requested rerecord copy contract", () => {
+    expect(ANNOUNCER_LINES.en.comeback).toContain("NICE COMEBACK!");
+    expect(ANNOUNCER_LINES.en.leader_down).toContain("LEADER TOPPLED!");
+    expect(ANNOUNCER_LINES.en.cleanup_aisle).toContain("CLEANUP ON AISLE 5!");
+    expect(ANNOUNCER_LINES.en.directive_flash_sale).toEqual(["RAMS HIT 50% HARDER"]);
+    expect(ANNOUNCER_LINES.en.directive_double_bag).toEqual(["POINTS DOUBLED"]);
+    expect(ANNOUNCER_LINES.en.directive_express_lane).toEqual(["BOOSTS CHARGE 2X FASTER"]);
+    expect(ANNOUNCER_LINES.en.directive_spill_bonus).toEqual([
+      "SPILL A RIVAL'S GROCERIES +1 POINT",
+    ]);
+    expect(ANNOUNCER_LINES.en.directive_rush_hour).toEqual(["EVERYONE DRIVES FASTER"]);
+  });
 });
