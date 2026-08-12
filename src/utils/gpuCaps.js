@@ -42,7 +42,7 @@
 
 /** @typedef {"software" | "igpu-basic" | "igpu-modern" | "discrete-entry" | "discrete" | "unknown"} GpuClass */
 /** @typedef {{ rendererString: string, gpuClass: GpuClass }} GpuProbeResult */
-/** @typedef {"low" | "medium" | "high"} QualityTier */
+/** @typedef {"low" | "medium" | "high-lite" | "high"} QualityTier */
 
 /**
  * Ordered classification rules — **array order is the matching contract**, not a
@@ -228,7 +228,7 @@ const BASE_TIER_BY_CLASS = {
  * module for defaultTierForCaps), and that would be a cycle.
  * @type {ReadonlyArray<QualityTier>}
  */
-const TIER_ORDER = ["low", "medium", "high"];
+const TIER_ORDER = ["low", "medium", "high-lite", "high"];
 
 /**
  * TIER-DEFAULT-1 lever 5: above this many backing pixels — screen width times

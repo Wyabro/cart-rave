@@ -821,7 +821,7 @@ export function init(options = {}, hudContext = {}) {
   elements.lowQualityBtn.className = "esc-btn cc-btn cc-btn--ghost";
   syncQualityTierButtonState();
   elements.lowQualityBtn.addEventListener("click", () => {
-    const order = ["low", "medium", "high"];
+    const order = ["low", "medium", "high-lite", "high"];
     const current = _options.getQualityTier ? _options.getQualityTier() : getQualityTier();
     const next = order[(order.indexOf(current) + 1) % order.length];
     syncQualityTierButtonState(next);

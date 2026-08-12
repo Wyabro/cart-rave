@@ -43,20 +43,20 @@ describe("tickAutoQuality", () => {
       if (stepped) break;
     }
     expect(stepped).toBe(true);
-    // * Default tier is high (no touch, no persisted setting in tests) → first step lands on medium.
-    expect(getSessionQualityTierOverride()).toBe("medium");
+    // * Default tier is high (no touch, no persisted setting in tests) → first step lands on high-lite.
+    expect(getSessionQualityTierOverride()).toBe("high-lite");
   });
 
-  it("steps tiers twice then render scale twice on a chronically slow machine", () => {
+  it("steps tiers thrice then render scale twice on a chronically slow machine", () => {
     let now = 1000;
     let count = 0;
     for (let i = 0; i < 2000; i += 1) {
       if (tickAutoQuality(0.04, now)) count += 1;
       now += 40;
     }
-    // * high→medium→low tier steps, then the run-6 below-floor relief valve:
+    // * high→high-lite→medium→low tier steps, then the run-6 below-floor relief valve:
     // * renderScale ×0.85 → ×0.7, and nothing further.
-    expect(count).toBe(4);
+    expect(count).toBe(5);
     expect(getSessionQualityTierOverride()).toBe("low");
     expect(getSessionRenderScaleMul()).toBe(0.7);
   });
@@ -118,7 +118,7 @@ describe("tickAutoQuality", () => {
       if (stepped) break;
     }
     expect(stepped).toBe(true);
-    expect(getSessionQualityTierOverride()).toBe("medium");
+    expect(getSessionQualityTierOverride()).toBe("high-lite");
   });
 
   it("ATTRACT-JANK-1: a spike still demotes while it is CURRENT", () => {
@@ -177,13 +177,14 @@ describe("tickAutoQuality", () => {
       if (stepped) break;
     }
     expect(stepped).toBe(true);
-    expect(getSessionQualityTierOverride()).toBe("medium");
+    expect(getSessionQualityTierOverride()).toBe("high-lite");
   });
 });
 
 describe("stepDownQualityTier", () => {
-  it("walks high→medium→low→null", () => {
-    expect(stepDownQualityTier("high")).toBe("medium");
+  it("walks high→high-lite→medium→low→null", () => {
+    expect(stepDownQualityTier("high")).toBe("high-lite");
+    expect(stepDownQualityTier("high-lite")).toBe("medium");
     expect(stepDownQualityTier("medium")).toBe("low");
     expect(stepDownQualityTier("low")).toBe(null);
   });

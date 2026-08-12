@@ -6,7 +6,7 @@ import { defaultTierForCaps, migrateStoredTierIfNeeded, probeGpu } from "../util
 import { DEFAULT_SOLO, normalizeDifficulty } from "../aiDifficulty.js";
 
 /** @type {ReadonlyArray<string>} */
-const VALID_TIERS = ["low", "medium", "high"];
+const VALID_TIERS = ["low", "medium", "high-lite", "high"];
 
 /**
  * First-run tier default. Device-aware via the six-class GPU taxonomy in

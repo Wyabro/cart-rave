@@ -189,7 +189,7 @@ describe("defaultTierForCaps — lever 5 (4K backing-pixel guard)", () => {
 
 describe("defaultTierForCaps — lever 4 (reduced-motion demotes one rung)", () => {
   it("steps the base tier down one rung instead of hard-pinning low", () => {
-    expect(defaultTierForCaps({ gpuClass: "discrete", reducedMotion: true })).toBe("medium");
+    expect(defaultTierForCaps({ gpuClass: "discrete", reducedMotion: true })).toBe("high-lite");
     expect(defaultTierForCaps({ gpuClass: "igpu-modern", reducedMotion: true })).toBe("low");
     expect(defaultTierForCaps({ gpuClass: "discrete-entry", reducedMotion: true })).toBe("low");
     expect(defaultTierForCaps({ gpuClass: "unknown", reducedMotion: true })).toBe("low");

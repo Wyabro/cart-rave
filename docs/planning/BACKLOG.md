@@ -172,7 +172,7 @@ traffic; 7 is post-launch or parked. Priority ranks *inside* a block too (top fi
 3. **WARM-SOLO-1** — only on real weak-GPU telemetry.
 4. **PERF-WATCH-1** — auto-quality step-up path decision.
 5. **PERF-TIER-1** — `high-lite` rung (1660 Ti vs 4090 split).
-7. **NET-PERF-1** residual / **NET-PERF-3** — only if F8 still shows rubber-band / alloc pressure.
+6. **NET-PERF-1** residual / **NET-PERF-3** — only if F8 still shows rubber-band / alloc pressure.
 
 
 **Block 5 — SWEEP (cheap Lows; one commit each).** Schedule against a quiet window; items that need a look end with you in-game.

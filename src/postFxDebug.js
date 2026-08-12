@@ -534,7 +534,7 @@ export function initPostFxDebugGui(deps) {
   allFolders.push(qualityFolder);
   const qualityUi = { tier: getQualityTier() };
   qualityFolder.addBinding(qualityUi, "tier", {
-    options: { low: "low", medium: "medium", high: "high" },
+    options: { low: "low", medium: "medium", "high-lite": "high-lite", high: "high" },
     label: "tier (rebuilds)",
   }).on("change", (ev) => {
     applyQualityTier(ev.value);

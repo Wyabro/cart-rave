@@ -14,7 +14,7 @@
  * here otherwise). Type-only import, zero runtime edge.
  * @typedef {import("./gpuCaps.js").GpuClass} GpuClass
  */
-/** @typedef {"low" | "medium" | "high"} QualityTier */
+/** @typedef {"low" | "medium" | "high-lite" | "high"} QualityTier */
 
 /** Neutral default when a peer has not reported a score (legacy join). */
 export const DEFAULT_HOST_SCORE = 50;

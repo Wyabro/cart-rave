@@ -38,7 +38,7 @@ export const STORAGE_KEYS = {
   fxPass: "cartRaveFx",
   /** Legacy boolean quality flag — read once for migration to qualityTier. */
   lowQuality: "cartRaveLowQuality",
-  /** Graphics quality tier ("low" | "medium" | "high"). */
+  /** Graphics quality tier ("low" | "medium" | "high-lite" | "high"). */
   qualityTier: "cartRaveQualityTier",
   /**
    * One-shot stamp (TIER-DEFAULT-1 lever 2): once set, `migrateStoredTierIfNeeded`

@@ -117,6 +117,28 @@ export const QUALITY_KNOBS = {
     maxSubsteps: 4,
     ceilingSpots: 8,
   },
+  // * PERF-TIER-1: mid-range discrete tier (1660 Ti class). Same personality as high
+  // * but drops the DPR-invariant reflector (512px internal RT — costs the same at
+  // * DPR 1 and DPR 2, so it dominates budget on mid-range GPUs at 1080p) and caps
+  // * DPR at 1.5 instead of 2. Crowd, lasers, postFx, skyExtras all kept.
+  "high-lite": {
+    pixelRatioCap: 1.5,
+    renderScale: 1,
+    postFx: true,
+    fxaa: true,
+    composerBypass: false,
+    reflector: false,
+    crowdCount: Infinity,
+    crowdAnimate: true,
+    extrasLasers: true,
+    arenaFillLights: true,
+    skyExtras: true,
+    laserBudget: "full",
+    dustMul: 1,
+    streakCap: 80,
+    maxSubsteps: 4,
+    ceilingSpots: 8,
+  },
 };
 
 /**

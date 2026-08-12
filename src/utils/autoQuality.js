@@ -2,9 +2,9 @@
  * autoQuality.js — session frame-time watchdog.
  *
  * If p95 frame time stays above a threshold for several seconds, step quality
- * down ONE tier for this session (no localStorage write), re-arm, and allow a
- * second step (high→medium→low at most). User tier changes via setQualityTier
- * clear the session override and win.
+ * down ONE tier for this session (no localStorage write), re-arm, and allow
+ * up to three steps (high→high-lite→medium→low). User tier changes via
+ * setQualityTier clear the session override and win.
  *
  * The caller must react to a `true` return by re-applying quality live
  * (composer passes, pixel ratio, arena knobs) — the flag flip alone only
@@ -47,8 +47,8 @@ export const BAD_FRAME_MS = 20.5;
 /** consecutive bad 1s windows before step-down (was 3 — ~3s of stutter before relief) */
 const BAD_WINDOWS_NEEDED = 2;
 const WINDOW_MS = 1000;
-/** max automatic tier steps per session (high→medium→low) */
-const MAX_STEPS = 2;
+/** max automatic tier steps per session (high→high-lite→medium→low) */
+const MAX_STEPS = 3;
 /** ms of settle time after a step before sampling resumes */
 const COOLDOWN_MS = 4000;
 /**

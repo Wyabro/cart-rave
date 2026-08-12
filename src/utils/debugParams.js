@@ -41,7 +41,7 @@
  * Inspired by LAAS (fable5-world-demo) process tooling — process only, not their engine.
  */
 
-/** @typedef {"low" | "medium" | "high"} QualityTier */
+/** @typedef {"low" | "medium" | "high-lite" | "high"} QualityTier */
 
 /**
  * @typedef {object} DebugCam
@@ -188,7 +188,7 @@ function parseDebugParams(search) {
   /** @type {QualityTier | null} */
   let preset = null;
   const presetRaw = (params.get("preset") || "").trim().toLowerCase();
-  if (presetRaw === "low" || presetRaw === "medium" || presetRaw === "high") {
+  if (presetRaw === "low" || presetRaw === "medium" || presetRaw === "high-lite" || presetRaw === "high") {
     preset = presetRaw;
   }
 

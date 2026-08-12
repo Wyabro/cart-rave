@@ -1,5 +1,5 @@
 /**
- * qualityMode.js — graphics quality tier ("low" | "medium" | "high").
+ * qualityMode.js — graphics quality tier ("low" | "medium" | "high-lite" | "high").
  *
  * Kept separate from utils.js so config.js can read quality without a circular
  * import (utils.js imports CART_COLORS from config.js).
@@ -12,10 +12,10 @@
 
 import { settingsStore } from "../stores/settingsStore.js";
 
-/** @typedef {"low" | "medium" | "high"} QualityTier */
+/** @typedef {"low" | "medium" | "high-lite" | "high"} QualityTier */
 
 /** Ordered worst→best; used by the auto-quality watchdog to step down. */
-const QUALITY_TIER_ORDER = /** @type {QualityTier[]} */ (["low", "medium", "high"]);
+const QUALITY_TIER_ORDER = /** @type {QualityTier[]} */ (["low", "medium", "high-lite", "high"]);
 
 /** @type {boolean} */
 let menuPreviewVisualLod = false;
