@@ -436,6 +436,7 @@ export function bootGameSystems(ctx) {
   AudioManager.registerSfx("cartCrash2", [soundUrl("cart-crash-2.opus")], { pool: 4 });
   AudioManager.registerSfx("cartCrash3", [soundUrl("cart-crash-3.opus")], { pool: 4 });
   AudioManager.registerSfx("death", [soundUrl("Death.opus")], { pool: 3 });
+  AudioManager.registerSfx("explosionAdd", [soundUrl("explosion-add.opus")], { pool: 3 });
   AudioManager.registerSfx("boost", [soundUrl("Boost.opus")], { pool: 3 });
   AudioManager.registerSfx("hop", [soundUrl("Hop.opus")], { pool: 3 });
   AudioManager.registerSfx("floor", [soundUrl("Floor.opus")], { pool: 3 });

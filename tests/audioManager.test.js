@@ -119,6 +119,8 @@ import {
   duckMusic,
   setMusicLowPass,
   registerSfx,
+  playCartDeath,
+  getSfxPerVolume,
   registerAmbience,
   prefetchSfxByPrefix,
   prefetchSfxByPrefixAsync,
@@ -131,6 +133,24 @@ import {
   getAudioDebugState,
 } from "../src/audioManager.js";
 import { audioStore, AUDIO_VOLUME_MAX } from "../src/stores/audioStore.js";
+
+describe("cart death audio layer", () => {
+  it("plays the base death sound and explosion layer together", () => {
+    MockHowl.instances.length = 0;
+    registerSfx("death", ["Death.opus"], { pool: 3 });
+    registerSfx("explosionAdd", ["explosion-add.opus"], { pool: 3 });
+
+    const death = MockHowl.instances.at(-2);
+    const explosion = MockHowl.instances.at(-1);
+    playCartDeath();
+
+    expect(death.playCalls).toBe(1);
+    expect(explosion.playCalls).toBe(1);
+    expect(getSfxPerVolume("death")).toBeCloseTo(1);
+    expect(getSfxPerVolume("explosionAdd")).toBeCloseTo(0.7);
+    expect(explosion.opts.volume / death.opts.volume).toBeCloseTo(0.7);
+  });
+});
 
 /** Minimal AudioContext stub — only what initAudioManager touches. */
 function makeAudioContextStub() {

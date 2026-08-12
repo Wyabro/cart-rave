@@ -17,7 +17,7 @@ import { UnlockTracker } from "./stores/unlockStore.js";
 import { FREE_LEVEL } from "./unlockConfig.js";
 import { getCurrentLevelId } from "./levels/levelManager.js";
 import { clamp } from "./utils.js";
-import { playSfx } from "./audioManager.js";
+import { playCartDeath } from "./audioManager.js";
 import { recordDiagEvent } from "./utils/diagnostics.js";
 import {
   computeLocalHostCapabilityScore,
@@ -2023,7 +2023,7 @@ function processHostFallEvent(msg, cartsSnap) {
   // * kept repeating until the round-boundary sweep.
   if (slotIdx != null && slotIdx === localSlotIdx) {
     callbacks.stopChargeSfxForCart(getAllCarts()?.[slotIdx] ?? null);
-    playSfx("death");
+    playCartDeath();
   }
 }
 

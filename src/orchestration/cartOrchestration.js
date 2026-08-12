@@ -624,7 +624,7 @@ function scheduleRespawn(cart, now) {
   // * Charge SFX already stopped via gameFlow onCartOutOfPlay at fall start.
   if (cart === localCartForConnId()) {
     stopChargeSfxForCart(cart);
-    AudioManager.playSfx("death");
+    AudioManager.playCartDeath();
   }
 }
 

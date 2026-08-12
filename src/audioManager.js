@@ -80,6 +80,7 @@ const sfxRegistry = {};
 const _DEFAULT_SFX_VOLUMES = {
   cartCrash: 1.0,
   death: 1.0,
+  explosionAdd: 0.7,
   boost: 1.0,
   hop: 1.0,
   floor: 1.0,
@@ -916,6 +917,16 @@ export function playSfx(key, sprite, options = {}) {
   } catch {
     return null;
   }
+}
+
+/**
+ * Play the cart death sound and its supporting explosion layer together.
+ * @returns {number | null} Sound ID for the base death sound
+ */
+export function playCartDeath() {
+  const deathId = playSfx("death");
+  playSfx("explosionAdd");
+  return deathId;
 }
 
 /**
