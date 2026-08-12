@@ -801,6 +801,9 @@ function patchSafeCompileAsync(renderer) {
             totalMs: Math.round(totalMs),
             budgetMs: Math.round(maxWaitMs),
             parallelCompile: parallelCompileProbe,
+            // * PROBE-WARM-RT-1: baseline program count after warmup settle.
+            // * A climb after first KO (F8 mid-round) confirms RT-variant cache miss.
+            programs: renderer.info.programs?.length ?? 0,
           });
         }
         resolve(scene);

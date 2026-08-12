@@ -324,6 +324,12 @@ function registerProbes(deps) {
       visual: w.__cartRave?.stats ? safeCall(() => w.__cartRave.stats()) : null,
       // * Run-7 P0: Long Task observer counters (empty until installLongTaskProbe).
       longtask: safeCall(() => getLongTaskStats()) ?? null,
+      // * PROBE-WARM-RT-1: three.js GL program count. Compare warmupSettle baseline
+      // * to mid-round F8 after first KO — a climb confirms RT-variant cache miss.
+      programs: safeCall(() => {
+        const r = w.__cartRavePerf?.renderer;
+        return r?.info?.programs?.length ?? null;
+      }),
     };
   });
 

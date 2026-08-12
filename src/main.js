@@ -708,9 +708,9 @@ async function main() {
   if (getDebugParams().cam) applyDebugCameraPose(camera);
 
   if (import.meta.env.DEV) {
-    // * Dev-only perf probe (see createRenderer): scene/camera/composer for console-driven profiling.
+    // * Dev-only perf probe (see createRenderer): scene/camera/composer/renderer for console-driven profiling.
     const probe = /** @type {any} */ (window);
-    probe.__cartRavePerf = { ...probe.__cartRavePerf, scene, camera, composer };
+    probe.__cartRavePerf = { ...probe.__cartRavePerf, scene, camera, composer, renderer };
   }
 
   // * MENU-CART-1: owned CartPreview canvas in the holder (above the attract dim),

@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-12T03:18:55.759Z",
-    "commit": "9e86382"
+    "at": "2026-08-12T04:19:59.645Z",
+    "commit": "36bec6d"
   },
-  "source_digest": "08d86649",
+  "source_digest": "a1b65901",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -866,6 +866,12 @@
   "workstreams": {
     "queue": [
       {
+        "id": "DEV-GRAPH-2",
+        "what": "Hardened maker and Luna reviewer graph",
+        "status": "🟡 ACTIVE 08-12. Wave 0 paperwork. The graph has not started a maker or reviewer stage.",
+        "state": "waiting"
+      },
+      {
         "id": "BUNDLE-1",
         "what": "Menu/game code-split",
         "status": "⚠️ CLOSED PARTIAL 08-05 — perf goal NOT met. Deployed `f2f90fd2`. Warm `menu-ready` −3% vs a −15% gate. Banked: a `size:check` byte gate, `main.js` 2,582 → 1,262 lines, −22.6% off the initial set (cold visits only). Lever E playtested: BUNDLE-E-PT-1 PASS 6/6. [bundle-1.md §0](./planning/bundle-1.md)",
@@ -894,8 +900,7 @@
       }
     ],
     "next_actions": [
-      "No active card — wait for Wyatt to select the next card.",
-      "DEV-GRAPH-2 — five clean plan-only runs now permit a new plan to connect the hardened maker and reviewer stages. Plan → Wyatt ack → apply; do not start those stages yet.",
+      "DEV-GRAPH-2 — Wave 0 paperwork is active. The graph has not started the maker or reviewer stages.",
       "Playtest owed: SHARD-PT-2 (skip, needs five humans). CARGO-BAY-INSTANCE-1 — solo fill, multiplayer parity, spill/rebuild, before/after screenshot."
     ],
     "open_issues": [
@@ -1148,7 +1153,7 @@
         "title": "Tech Debt",
         "counts": {
           "Low": 8,
-          "Medium": 5
+          "Medium": 6
         },
         "rows": [
           {
@@ -1192,6 +1197,13 @@
             "item": "Worker validates host-asserted outcomes",
             "notes": "Prerequisite for trusted leaderboard. Builds on SRV-TEST-1 helpers. `[SHIP-1 D1]` *(was also an Engineering row — deduped 08-01)*",
             "ship1": "D1"
+          },
+          {
+            "pri": "Medium",
+            "id": "DEV-GRAPH-2",
+            "item": "Hardened maker and Luna reviewer graph",
+            "notes": "**ACTIVE 08-12.** Connect one fixed, plan-only DeepSeek maker run to a host-mediated Luna review through the fail-closed graph. Require bound, structured artifacts; stop at exact human ACK. No Sol rewrite, source apply, commit, deploy, or player playtest node.",
+            "ship1": null
           },
           {
             "pri": "Low",
