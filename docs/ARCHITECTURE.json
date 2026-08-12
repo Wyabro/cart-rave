@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-12T07:30:01.688Z",
-    "commit": "54cbc6e"
+    "at": "2026-08-12T07:42:53.338Z",
+    "commit": "b0ac58a"
   },
-  "source_digest": "a184e52e",
+  "source_digest": "56427a04",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -923,7 +923,7 @@
         "counts": {
           "Low": 5,
           "Partial": 1,
-          "Medium": 6
+          "Medium": 4
         },
         "rows": [
           {
@@ -964,20 +964,8 @@
           },
           {
             "pri": "Medium",
-            "item": "PROBE-WARM-RT-1 — VFX program anchors may be holding the wrong program key",
-            "notes": "**Deployed `0dcca0f` (L1 instrument + L2 scratch-RT fix).** Awaiting playtest: PROBE-WARM-RT-PT-1. Hypothesis: `renderer.compileAsync` binds no RT, so anchors compile under `renderer.outputColorSpace` (null-RT path). Composer later binds RTs using `ColorManagement.workingColorSpace` for `outputColorSpace` → cache miss on first KO → synchronous shader link. Fix: bind 1×1 scratch `WebGLRenderTarget` around anchor install + compileAsync, then restore original RT in finally. Instrument: `warmupSettle` event + F8 perf probe both carry `programs` count for baseline vs mid-round comparison.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
             "item": "PERF-WATCH-1 — auto-quality step-up path",
             "notes": "Watchdog demotion is irreversible per session (no step-up anywhere; DEV-only warn; 2 tier steps + 2 renderScale steps; attract render-cost and game frame-delta both judged against one 20.5ms bar). Decide after WARM-IGPU-1 P0b telemetry shows how often it bites.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "PERF-TIER-1 — `high-lite` tier rung",
-            "notes": "**Deployed `e8421dd` + `54cbc6e`.** Wave A: `high-lite` tier added (same personality as high minus reflector, DPR cap 1.5). Wave B: `discrete-mid` GPU class with narrow allow-list (GTX 1060/1070/1660, RTX 3050/4050, RX 5500–6600 non-XT, Arc A3xx/A5xx/A730) maps to `high-lite`. Conservative: 1080/2060/3060/4060/Arc A770 stay discrete/high. Auto-quality steps through high→high-lite→medium→low (MAX_STEPS 3). Awaiting playtest: PERF-TIER-PT-1.",
             "ship1": null
           },
           {
@@ -1132,13 +1120,13 @@
           {
             "pri": "Medium",
             "item": "PERF-TIER-PT-1 — high-lite tier boots + game runs `[solo]`",
-            "notes": "**Owed: Wyatt playtest — PERF-TIER-PT-1 — high-lite tier boots and performs correctly.**<br>1. Hard-refresh prod. Open dev console. Check `window.__cartRavePerf?.renderer?.info?.programs?.length` — game should boot with `high-lite` tier on a discrete-mid GPU, or `high` on 4090-class.<br>2. If on a 4090-class machine: add `?forcegpu=discrete-mid` to URL, hard-refresh. Quality tier should show `high-lite` in the menu.<br>3. Solo Cart Rave, 3 NPCs. Play a full round. Check: no reflector (mirror floor absent), DPR cap at 1.5 (not 2), postFx/lasers/crowd all present.<br>4. F8 mid-round. Check `snapshot.runtime.qualityTier` equals `high-lite`. Frame times should be stable (no sustained >20.5ms windows).<br>5. FAIL if reflector is visible on high-lite, or if quality tier shows wrong value, or if auto-quality demotes to medium within first minute on adequate hardware.",
+            "notes": "Wyatt playtest PASS 08-12 — high-lite boots correctly, reflector absent, quality menu shows 4 options, frame times stable.",
             "ship1": null
           },
           {
             "pri": "Medium",
             "item": "PROBE-WARM-RT-PT-1 — first-KO program cache miss `[solo]`",
-            "notes": "**Owed: Wyatt playtest — PROBE-WARM-RT-PT-1 — first KO mid-round does not trigger synchronous shader link.**<br>1. Hard-refresh prod. F8 right after load. Note `warmupSettle.programs` (baseline).<br>2. Solo Cart Rave, 1 NPC. Drive straight into the NPC. Get a KO as the FIRST action — no wandering.<br>3. F8 mid-round immediately after the KO. Check `snapshot.perf.programs`.<br>4. PASS if programs equals baseline AND no `warmupCompile`/`warmupSettle` events in the mid-round log.<br>5. FAIL if programs climbed OR mid-round `warmupCompile` events fired (cache miss, fix didn't hold).",
+            "notes": "Wyatt playtest PASS 08-12 — programs count stable across first KO, no mid-round warmupCompile events.",
             "ship1": null
           },
           {

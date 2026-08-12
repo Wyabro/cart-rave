@@ -13,6 +13,14 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 12, 2026 — PROBE-WARM-RT-1 + PERF-TIER-1 CLOSED: VFX program-anchor RT-variant cache miss + high-lite tier
+
+- *(Engineering / Perf · Medium)* **PROBE-WARM-RT-1** — ✅ **CLOSED 08-12.** Hypothesis confirmed: `renderer.compileAsync` bound no RT during VFX anchor warmup, so three.js built program cache keys with `renderer.outputColorSpace` (null-RT path). Composer later bound RTs → `ColorManagement.workingColorSpace` for `outputColorSpace` → cache miss on first KO → synchronous shader link mid-round. Fix (L2): bind 1×1 scratch `WebGLRenderTarget` around anchor install + compileAsync, restore original RT in finally. Instrument (L1): `warmupSettle` event + F8 perf probe both carry `programs` count for baseline vs mid-round comparison. Playtest PASS on prod `0dcca0f`: programs count stable across first KO, no mid-round `warmupCompile` events. Commits: `a4e59e2` + `0dcca0f`.
+
+- *(Engineering / Perf · Medium)* **PERF-TIER-1** — ✅ **CLOSED 08-12.** Added `high-lite` quality tier (same personality as `high` minus DPR-invariant reflector, DPR cap 1.5). Added `discrete-mid` GPU class with narrow allow-list (GTX 1060/1070/1660, RTX 3050/4050, RX 5500–6600 non-XT, Arc A3xx/A5xx/A730) mapping to `high-lite`. Conservative: 1080/2060/3060/4060/Arc A770 stay discrete/high. Auto-quality step chain: high→high-lite→medium→low (MAX_STEPS 3). Playtest PASS on prod `e8421dd` + `54cbc6e`: high-lite boots correctly, reflector absent, quality menu shows 4 options. Commits: `e8421dd` (Wave A) + `54cbc6e` (Wave B).
+
+---
+
 ### August 12, 2026 — CUSTOMIZE-PERF-1 CLOSED: Customize screen performance pass
 
 - *(Engineering / Perf · Medium)* **CUSTOMIZE-PERF-1** — ✅ **CLOSED 08-12.** Empirical F8 measurement pass (`cap-353` through `cap-356`) on discrete RTX 4090 GPU confirmed sub-millisecond 3D preview render overhead (**0.3–0.5 ms** per frame), 0ms post-boot longtasks, zero frame drops, and stable memory (47.7 MB heap, 77 programs asynchronously compiled in 19 ms). Closed as *measured, healthy, no action needed*. Findings documented in [customize-perf-1-findings.md](./customize-perf-1-findings.md).

@@ -30,11 +30,7 @@ analytics gating are closed. Run 7 closed; NET-2 / NET-MIG-3 passed live; NET-PR
 (loss-on-drop residual accepted). The analytics DO has been reset, so the ring starts clean for
 external testers. Stay in this phase until Wyatt advances the marker.
 
-**PROBE-WARM-RT-1** (L1 instrument + L2 scratch-RT fix) deployed `0dcca0f`.
-Playtest card: PROBE-WARM-RT-PT-1 (solo, check `programs` count before/after first KO).
-
-**PERF-TIER-1** (Wave A: `high-lite` tier, Wave B: `discrete-mid` GPU detection) deployed `e8421dd` + `54cbc6e`.
-Playtest card: PERF-TIER-PT-1 (solo, verify high-lite boots + reflector absent).
+**PROBE-WARM-RT-1** + **PERF-TIER-1** both PASS on prod 08-12. PROBE-WARM-RT-1: programs stable across first KO, no mid-round hitch. PERF-TIER-1: high-lite boots, reflector absent, quality menu shows 4 options.
 
 **Closed cards keep their narrative in their own docs, not here** — Sundial
 ([handover](./planning/art-pass-sundial-handover.md); read its "Traps that cost time" before any
