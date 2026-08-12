@@ -306,6 +306,7 @@ export function updateVisualsAndEffects(deps, frameCtx) {
 
     // * Local / host cart: fetch all four getters ONCE into the visual scratch; the
     // * cached values feed mesh sync and updateCartVisuals — no redundant Rapier allocations per frame.
+    if (!c.body) continue;
     readBodyStateIntoVisScratch(c);
     if (hitStopBlending) {
       _hitStopPos.copy(c.mesh.position);
