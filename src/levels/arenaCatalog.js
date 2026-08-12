@@ -56,7 +56,7 @@ export const ARENA_CATALOG = Object.freeze([
     displayName: "The Storerooms",
     menuTheme: "liminal",
     quickplay: true,
-    music: Object.freeze(["storerooms.opus"]),
+    music: Object.freeze(["storerooms.opus", "storerooms2.opus"]),
     ambience: Object.freeze({ bed: "backrooms_bed" }),
     unlock: Object.freeze({
       killsOnLevel: "zanzibar",

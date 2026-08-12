@@ -32,6 +32,8 @@ external testers. Stay in this phase until Wyatt advances the marker.
 
 **PROBE-WARM-RT-1** + **PERF-TIER-1** both PASS on prod 08-12. PROBE-WARM-RT-1: programs stable across first KO, no mid-round hitch. PERF-TIER-1: high-lite boots, reflector absent, quality menu shows 4 options.
 
+**STORE-MUSIC-1** shipped 08-12. Storerooms now has two new tracks. Playtest owed: **STORE-MUSIC-PT-1**.
+
 **Closed cards keep their narrative in their own docs, not here** — Sundial
 ([handover](./planning/art-pass-sundial-handover.md); read its "Traps that cost time" before any
 capture, and judge phase changes against a ~1.2% construction-noise floor, not zero), Fight Night
@@ -73,11 +75,12 @@ Live rows only. Shipped and closed cards live in
 | CARGO-BAY-INSTANCE-1 | Per-bay InstancedMesh for cargo bays | ✅ **CLOSED 08-12** (`9e86382`). 30 Mesh → per-model InstancedMesh. Draw calls ≤120 → ~24. Single-lever wave. Playtest owed: **CARGO-BAY-INSTANCE-PT-1** (solo fill) · **CARGO-BAY-INSTANCE-PT-2** (spill/rebuild) · **CARGO-BAY-INSTANCE-PT-3** (MP parity). |
 | CONN-TRACK-LEAK-1 | Release platform-dead IP tracking before the cap | ✅ **CLOSED 08-12** (`9439cd2`, deployed `5ae6f69b`). `#prunePlatformDeadTracking()` releases leaked IP counts before the cap decision; five teardown paths consolidated via `#forgetConnectionTracking()`. Playtest owed: CONN-TRACK-LEAK-PT-1 (host-leave migration), CONN-TRACK-LEAK-PT-2 (ghost exorcism). |
 | PA-QUIET-1 | Quiet the Store PA | ✅ **CLOSED 08-12.** Wyatt playtest PASS. Deployed `3044ab99`. Same-fall flavor skip + busy-channel drop + `last_call` interrupts. Commits `e37bd59` + `a0ba621`. |
+| STORE-MUSIC-1 | Storerooms two-track playlist | ✅ **CLOSED 08-12.** Replaced the old Storerooms track and added a second song. Playtest owed: **STORE-MUSIC-PT-1**. |
 
 ### Next actions
 
 1. **No active engineering card** — wait for Wyatt.
-2. **Playtest owed (console rows):** **STORE-1-PT-1** on `npm run dev:local`. SHARD-PT-2 (skip, needs five humans). **CARGO-BAY-INSTANCE-PT-1** · **PT-2** · **PT-3**. **CONN-TRACK-LEAK-PT-1** + **CONN-TRACK-LEAK-PT-2** — prod `5ae6f69b`.
+2. **Playtest owed (console rows):** **STORE-MUSIC-PT-1** on prod. **STORE-1-PT-1** on `npm run dev:local`. SHARD-PT-2 (skip, needs five humans). **CARGO-BAY-INSTANCE-PT-1** · **PT-2** · **PT-3**. **CONN-TRACK-LEAK-PT-1** + **CONN-TRACK-LEAK-PT-2** — prod `5ae6f69b`.
 
 ## Open issues (top)
 

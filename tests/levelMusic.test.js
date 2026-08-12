@@ -32,9 +32,9 @@ describe("LEVEL_MUSIC", () => {
     }
   });
 
-  it("keeps the intended assignments (Cart Rave 2, Storerooms 1, Sundial 2)", () => {
+  it("keeps the intended assignments (Cart Rave 2, Storerooms 2, Sundial 2)", () => {
     expect(LEVEL_MUSIC.classicRecord).toEqual(["music.opus", "song2.opus"]);
-    expect(LEVEL_MUSIC.backrooms).toEqual(["storerooms.opus"]);
+    expect(LEVEL_MUSIC.backrooms).toEqual(["storerooms.opus", "storerooms2.opus"]);
     expect(LEVEL_MUSIC.zanzibar).toEqual(["song3.opus", "song4.opus"]);
   });
 });

@@ -13,6 +13,12 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 12, 2026 — STORE-MUSIC-1: two new Storerooms tracks
+
+- *(Audio · content)* **STORE-MUSIC-1** — ✅ **SHIPPED 08-12.** Replaced `public/sounds/storerooms.opus` with Wyatt's first Mixcraft export and added `storerooms2.opus`. Catalog playlist is `["storerooms.opus", "storerooms2.opus"]`. Encoded opus 96k VBR, loudnorm ≈−13.5 LUFS to match the other music. `normalize-sfx.mjs` now skips both files. Playtest owed: **STORE-MUSIC-PT-1**.
+
+---
+
 ### August 12, 2026 — PA-QUIET-1: one spoken line per game moment
 
 - *(Audio · taste)* **PA-QUIET-1** / **PA-QUIET-PT-1** — ✅ **CLOSED 08-12.** Wyatt playtest PASS on `npm run dev:local`. Same-fall flavor skip in `announcerDirectorOnFall`: `leader_down` / `critical_ko` do not fire when that fall already announced `first_spill`, a combo, `refund`, `double_spill`, or `aisle_wipeout`. Isolated leader / crit KOs still play. Busy-channel policy: only `high` queues while `_active`; medium/low still queue during the min-gap window. `last_call` is `critical` / no focus (priority 80, not interruptible) so "10 SECONDS" cuts a mid-line PA. Commits `e37bd59` + `a0ba621`. Deployed `3044ab99`; hashed assets 0×404; live `gameBoot-UmoIS5tA.js` carries `last_call` `cls:critical` priority 80.
