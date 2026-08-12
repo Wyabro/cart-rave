@@ -2,7 +2,7 @@
 
 > Historical log. Past entries may still say "Cart Rave" / `next-level` — that is intentional. Living naming rules: [brand.md](../brand.md).
 
-**Last Updated:** August 11, 2026
+**Last Updated:** August 12, 2026
 
 > **This doc = the past** — the single home for historical/completed items. For what works
 > *today* see [project-state.md](./project-state.md); for forward plans see [ROADMAP.md](./ROADMAP.md).
@@ -10,6 +10,21 @@
 Chronological record of shipped work, newest first.
 
 > **Convention:** As items ship, move their completed writeup here (out of ROADMAP.md / project-state.md).
+
+---
+
+### August 12, 2026 — DEV-GRAPH-2 CLOSED LOCAL: all-DeepSeek plan graph
+
+- *(Tech Debt · Medium)* **DEV-GRAPH-2** — ✅ **CLOSED LOCAL 08-12.** Commits `7264ea6`,
+  `9802bbe`, and `116568d` bind one fixed plan-only DeepSeek maker and one fixed read-only
+  DeepSeek checker to the fail-closed graph. The first live isolated trace
+  `92e87f37b9684307bd9966d13a7918d3` bound `b3fc391`: maker completed in 11 turns with zero
+  tool errors; checker completed in 7 turns with zero tool errors and `APPROVE`; the exact
+  `ack DEV-GRAPH-2` reached `complete` and released the graph lock. Receipts bind the card,
+  HEAD, baseline, model, maker result, plan, checker request, and checker result SHA-256 digests.
+  Focused control-plane tests passed **30/30** and `npm run qa` passed all **7** gates before the
+  trace. No graph stage edited source, committed, pushed, deployed, or claimed a player playtest
+  PASS. This closure is local and unpushed; no deployment or player playtest was needed.
 
 ---
 

@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-12T07:42:53.338Z",
-    "commit": "b0ac58a"
+    "at": "2026-08-12T08:38:22.398Z",
+    "commit": "1ce6428"
   },
-  "source_digest": "56427a04",
+  "source_digest": "776ed57d",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -866,12 +866,6 @@
   "workstreams": {
     "queue": [
       {
-        "id": "DEV-GRAPH-2",
-        "what": "Hardened DeepSeek maker and checker graph",
-        "status": "🟡 ACTIVE 08-12. Wave 3 adds one graph-run fixed, read-only DeepSeek checker. The graph still stops source apply after exact ACK. No live maker or checker stage has started.",
-        "state": "waiting"
-      },
-      {
         "id": "BUNDLE-1",
         "what": "Menu/game code-split",
         "status": "⚠️ CLOSED PARTIAL 08-05 — perf goal NOT met. Deployed `f2f90fd2`. Warm `menu-ready` −3% vs a −15% gate. Banked: a `size:check` byte gate, `main.js` 2,582 → 1,262 lines, −22.6% off the initial set (cold visits only). Lever E playtested: BUNDLE-E-PT-1 PASS 6/6. [bundle-1.md §0](./planning/bundle-1.md)",
@@ -900,7 +894,7 @@
       }
     ],
     "next_actions": [
-      "DEV-GRAPH-2 — Wave 3 local implementation is ready for isolated all-DeepSeek evidence. No live maker or checker stage has started.",
+      "No active engineering card — wait for Wyatt.",
       "Playtest owed: SHARD-PT-2 (skip, needs five humans). CARGO-BAY-INSTANCE-1 — solo fill, multiplayer parity, spill/rebuild, before/after screenshot."
     ],
     "open_issues": [
@@ -1147,7 +1141,7 @@
         "title": "Tech Debt",
         "counts": {
           "Low": 8,
-          "Medium": 6
+          "Medium": 5
         },
         "rows": [
           {
@@ -1191,13 +1185,6 @@
             "item": "Worker validates host-asserted outcomes",
             "notes": "Prerequisite for trusted leaderboard. Builds on SRV-TEST-1 helpers. `[SHIP-1 D1]` *(was also an Engineering row — deduped 08-01)*",
             "ship1": "D1"
-          },
-          {
-            "pri": "Medium",
-            "id": "DEV-GRAPH-2",
-            "item": "Hardened maker and Luna reviewer graph",
-            "notes": "**ACTIVE 08-12.** Connect one fixed, plan-only DeepSeek maker run to a host-mediated Luna review through the fail-closed graph. Require bound, structured artifacts; stop at exact human ACK. No Sol rewrite, source apply, commit, deploy, or player playtest node.",
-            "ship1": null
           },
           {
             "pri": "Low",
