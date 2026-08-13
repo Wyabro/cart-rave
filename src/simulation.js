@@ -3180,18 +3180,25 @@ function classifyEnvironmentCollision(otherHandle, callbacks) {
 }
 
 function getEnvironmentImpact(cart, envType, impacts, state) {
-  const lv = state.linvel;
-  const pre = cart._preStepLinvel || lv;
+  const pre = cart._preStepLinvel;
 
   if (envType === "floor") {
-    const fallSpeed = -pre.y;
+    // * state.linvel is the pre-step snapshot (readRamStateInto) — the fall speed is
+    // * read off it, the same signal the floor-thud path always trusted.
+    const fallSpeed = -((pre ?? state.linvel).y);
     if (fallSpeed <= impacts.floorFallSpeedThreshold) return null;
     return Math.min(1.0, (fallSpeed - impacts.floorFallSpeedThreshold) / impacts.intensityRange);
   }
 
-  const dvX = lv.x - pre.x;
-  const dvZ = lv.z - pre.z;
-  const dvXZ = Math.hypot(dvX, dvZ);
+  // * ZAN-BOLLARD-PT-1: the edge clang is the Δv the impact produced in ONE substep.
+  // * state.linvel is the PRE-step snapshot, and the old code subtracted it from
+  // * itself — Δv was always 0, so edge impacts never fired (bollards, gnomon and
+  // * booth legs were all silent; ZAN-BOLLARD-CLASS-1's "matching booth legs" premise
+  // * assumed a path that was dead). processCollisionEvents drains after world.step,
+  // * so the body's live linvel is the post-impact velocity — that is the sample.
+  if (!pre) return null;
+  const live = cart.body.linvel();
+  const dvXZ = Math.hypot(live.x - pre.x, live.z - pre.z);
   if (dvXZ <= impacts.edgeDeltaVThreshold) return null;
   return Math.min(1.0, (dvXZ - impacts.edgeDeltaVThreshold) / impacts.intensityRange);
 }
@@ -3209,9 +3216,16 @@ function getEnvironmentContactPosition(envType, impacts, state, out) {
   const dist = Math.hypot(rp.x, rp.z);
   if (dist <= 1e-3) return out;
 
-  const scale = pitInnerRadius / dist;
-  out.x = rp.x * scale;
-  out.z = rp.z * scale;
+  // * ZAN-BOLLARD-PT-1: the outward projection to the pit ring is only correct for
+  // * contacts already AT the ring (the pit wall). It used to push every edge impact
+  // * there — booth legs, corner bollards and the gnomon are inboard posts, so their
+  // * sparks floated over the void instead of sitting on the thing that was hit.
+  // * Outboard overshoot (a cart past the ring, falling) still snaps back to the ring.
+  if (dist >= pitInnerRadius) {
+    const scale = pitInnerRadius / dist;
+    out.x = rp.x * scale;
+    out.z = rp.z * scale;
+  }
   return out;
 }
 
