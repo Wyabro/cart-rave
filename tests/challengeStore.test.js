@@ -80,4 +80,40 @@ describe("challengeStore active capacity and migration", () => {
     expect(challengeStore.getState().dailyChallenges[0]).toEqual({ id: "spill_15", progress: 15, isComplete: true });
     expect(challengeStore.getState().weeklyChallenges[0]).toEqual({ id: "spill_50", progress: 50, isComplete: true });
   });
+
+  it("rotates an expired daily set before crediting a record (CHAL-ROTATE-RECORD-1)", async () => {
+    vi.useFakeTimers();
+    try {
+      const t0 = Date.parse("2026-08-01T00:00:00Z");
+      vi.setSystemTime(t0);
+      const { challengeStore } = await loadChallengeStore({
+        dailyChallenges: [{ id: "spill_15", progress: 14, isComplete: false }],
+        weeklyChallenges: [],
+        lastDailyReset: t0,
+        lastWeeklyReset: t0,
+      });
+      // * A session that crosses the daily boundary mid-game: progress has been
+      // * building in-flight and the next record() lands after the reset stamp.
+      vi.setSystemTime(t0 + 2 * 24 * 60 * 60 * 1000);
+      challengeStore.getState().record("spill", 1);
+      const after = challengeStore.getState();
+      // * Rotation ran inside record() — the reset stamp advanced to now.
+      expect(after.lastDailyReset).toBe(t0 + 2 * 24 * 60 * 60 * 1000);
+      // * The fresh post-rotation set holds only the credited +1; the stale 14/15
+      // * progress is provably gone (a re-picked spill_15 starts fresh at 0).
+      expect(after.dailyChallenges.every((c) => c.progress <= 1)).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not rotate when no window has expired (CHAL-ROTATE-RECORD-1 no-op)", async () => {
+    const { challengeStore } = await loadChallengeStore();
+    const before = challengeStore.getState();
+    challengeStore.getState().record("spill", 1);
+    const after = challengeStore.getState();
+    expect(after.lastDailyReset).toBe(before.lastDailyReset);
+    expect(after.lastWeeklyReset).toBe(before.lastWeeklyReset);
+    expect(after.dailyChallenges.map((c) => c.id)).toEqual(before.dailyChallenges.map((c) => c.id));
+  });
 });

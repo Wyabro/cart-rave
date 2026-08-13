@@ -156,6 +156,10 @@ export const challengeStore = createStore((set, get) => ({
 
   record: (event, amount = 1) => {
     if (!event || !Number.isFinite(amount) || amount <= 0) return;
+    // * CHAL-ROTATE-RECORD-1: a session crossing the daily/weekly boundary mid-game must
+    // * rotate BEFORE crediting — otherwise SPILL/ROUND_*/KO land on the just-expired set
+    // * and that progress is discarded at the next rotation. No-op when nothing expired.
+    get().checkRotations();
     const state = get();
     let changed = false;
 
