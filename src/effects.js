@@ -18,7 +18,7 @@ import { applySceneAblation } from "./utils/debugParams.js";
 
 let crowdInstanceCount = 5000;
 const CROWD_SEARCHLIGHT_SPEEDS = [0.2, 0.35, 0.5, 0.25];
-const CROWD_SEARCHLIGHT_COLORS = [0xff00ff, 0x00ffff, 0xffff00, 0x00ff00];
+const CROWD_SEARCHLIGHT_COLORS = [0xff2bd6, 0x22e6ff, 0xffe53d, 0x2bff7a];
 
 /** Texture slots a disposed material owns; `material.dispose()` never touches these. */
 const DISPOSABLE_MAP_SLOTS = Object.freeze([
@@ -99,7 +99,7 @@ function disposeObject3D(root) {
 const SUN_LOBE_FLOOR = 0.35;
 
 const TRASH_POOL_SIZE = 52;
-const TRASH_NEON_COLORS = [0xff00ff, 0x00ffff, 0xffff00, 0xff3300];
+const TRASH_NEON_COLORS = [0xff2bd6, 0x22e6ff, 0xffe53d, 0xff3300];
 
 /** Supermarket debris tones for grocery spills: paper/receipt whites, produce
  * green/red/orange, and cardboard brown — reinforces the "cart dumps its
@@ -1022,7 +1022,7 @@ export function initCrowd(scene, cartColors, pitInnerRadius) {
       if (glowOuter > glowInner) {
         const crowdGlowGeo = new THREE.RingGeometry(glowInner, glowOuter, 96);
         crowdGlowMat = new THREE.MeshBasicMaterial({
-          color: 0xff00ff,
+          color: 0xff2bd6,
           transparent: true,
           opacity: 0.07,
           blending: THREE.AdditiveBlending,
@@ -1458,7 +1458,7 @@ export function initCrowd(scene, cartColors, pitInnerRadius) {
     // * This is what you see looking UP/OUT from the vinyl, not the pit shaft.
     // =====================================================================
     {
-      const RAVE_NEON = [0xff2bd6, 0x22e6ff, 0xffe53d, 0x39ff14, 0xff6600];
+      const RAVE_NEON = [0xff2bd6, 0x22e6ff, 0xffe53d, 0x39ff14, 0xff7a1a];
 
       // * Procedural panel texture for exterior cladding (cheap canvas, tiled).
       const panelCanvas = document.createElement("canvas");
@@ -2043,7 +2043,7 @@ export function updateCrowd(nowMs) {
     if (reactive.hasLeader || koT > 0) {
       crowdGlowMat.color.copy(reactive.accentColor);
     } else {
-      crowdGlowMat.color.setHex(0xff00ff);
+      crowdGlowMat.color.setHex(0xff2bd6);
     }
   }
 
@@ -2238,11 +2238,11 @@ export function spawnTrashBurst(position, intensity, type = "cart", opts = {}) {
     if (type === "floor") {
       const colors = isBackroomsFloor
         ? BACKROOMS_FLOOR_DUST_COLORS
-        : [0x551a8b, 0xff00ff, 0x333333];
+        : [0x551a8b, 0xff2bd6, 0x333333];
       const mat = /** @type {THREE.MeshBasicMaterial} */ (p.material);
       mat.color.setHex(colors[Math.floor(Math.random() * colors.length)]);
     } else if (type === "edge") {
-      const colors = [0xff00ff, 0x00ffff, 0xffffff];
+      const colors = [0xff2bd6, 0x22e6ff, 0xffffff];
       const mat = /** @type {THREE.MeshBasicMaterial} */ (p.material);
       mat.color.setHex(colors[Math.floor(Math.random() * colors.length)]);
     } else if (type === "grocery") {
@@ -2971,8 +2971,8 @@ export function initStage(scene, pitInnerRadius, cartColors) {
   });
   const stageSpeakerFaceMat = new THREE.MeshBasicMaterial({ color: 0x222222 });
   const stageFrameMat = new THREE.MeshBasicMaterial({ color: 0x0a0a1a });
-  const neonMagentaMat = new THREE.MeshBasicMaterial({ color: 0xff00ff });
-  const neonCyanMat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
+  const neonMagentaMat = new THREE.MeshBasicMaterial({ color: 0xff2bd6 });
+  const neonCyanMat = new THREE.MeshBasicMaterial({ color: 0x22e6ff });
   const stageLightPalette = Object.values(cartColors).map((entry) => entry.hex);
   stageLightEntries = [];
 
@@ -3181,7 +3181,7 @@ export function initLasers(scene, pitInnerRadius, cartColors) {
         33.2,
         Math.sin(angle) * skyLaserRadius,
       ),
-      color: i % 2 === 0 ? 0xff00ff : 0x00ffff,
+      color: i % 2 === 0 ? 0xff2bd6 : 0x22e6ff,
       radius: 0.18,
       length: 120,
       opacity: 0.45,
@@ -3272,9 +3272,9 @@ export function initBillboard(scene, pitInnerRadius) {
   const bbPoleMat = createPhysicalMaterial({
     color: 0x333344, metalness: 0.85, roughness: 0.3,
   });
-  const bbNeonCyanMat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
+  const bbNeonCyanMat = new THREE.MeshBasicMaterial({ color: 0x22e6ff });
   const bbNeonMagentaMat = new THREE.MeshBasicMaterial({
-    color: 0xff00ff,
+    color: 0xff2bd6,
     transparent: true,
     opacity: 0.4,
     blending: THREE.AdditiveBlending,
@@ -3341,10 +3341,10 @@ export function initBillboard(scene, pitInnerRadius) {
   bbSpine.position.y = 8.8;
   billboardGroup.add(bbSpine);
 
-  const bbLightL = new THREE.PointLight(0x00ffff, 2, 8);
+  const bbLightL = new THREE.PointLight(0x22e6ff, 2, 8);
   bbLightL.position.set(-7, -1, 0);
   billboardGroup.add(bbLightL);
-  const bbLightR = new THREE.PointLight(0xff00ff, 2, 8);
+  const bbLightR = new THREE.PointLight(0xff2bd6, 2, 8);
   bbLightR.position.set(7, -1, 0);
   billboardGroup.add(bbLightR);
   billboardLightEntries = [
@@ -3473,7 +3473,7 @@ export function updateBillboard(nowMs) {
     }
     bbSmallCtx.textAlign = "center";
     bbSmallCtx.textBaseline = "middle";
-    bbSmallCtx.shadowColor = "#ff00ff";
+    bbSmallCtx.shadowColor = "#ff2bd6";
     bbSmallCtx.shadowBlur = 8 + Math.sin(nowMs * 0.005) * 5;
     bbSmallCtx.fillStyle = `rgb(${r}, 255, 255)`;
     bbSmallCtx.fillText("CART RAVE", 128, 34);

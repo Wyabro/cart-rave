@@ -425,7 +425,7 @@ export const ANNOUNCER_EVENTS = Object.freeze({
     // * (4000→2800 in the 07-17 playtest pass — directives read as too long/distracting.)
     durationMs: 2800,
     focus: true,
-    callout: Object.freeze({ kicker: "RUSH HOUR", accent: "#ff6600", holdMs: 2800 }),
+    callout: Object.freeze({ kicker: "RUSH HOUR", accent: "#ff7a1a", holdMs: 2800 }),
     voice: Object.freeze({ key: "directive_rush_hour", variants: 2 }),
     sting: Object.freeze({ type: "proc", name: "newLeader" }),
   }),

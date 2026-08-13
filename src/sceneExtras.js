@@ -452,7 +452,7 @@ function createUfos(ctx) {
   const sharedBodyGeo = new THREE.SphereGeometry(1.5, 12, 6, 0, Math.PI * 2, 0, Math.PI * 0.5);
   const sharedDomeGeo = new THREE.SphereGeometry(0.7, 8, 6);
   const sharedRingGeo = new THREE.TorusGeometry(1.5, 0.15, 8, 24);
-  const ringColors = [0x00ff88, 0xff00ff];
+  const ringColors = [0x00ff88, 0xff2bd6];
 
   // * Two UFOs — enough motion without a flying-saucer parking lot.
   for (let i = 0; i < 2; i++) {
