@@ -169,6 +169,13 @@ progress event), **CHAL-ROTATE-RECORD-1** (no mid-session rotation) — plus 3 L
 High/Med; 2 Low (ZAN-BOLLARD-CLASS-1 · ZAN-REACTIVE-ALLOC-1). All 8 filed in BACKLOG
 (now 63 open rows). No code changes, no deploy.
 
+2026-08-13 (SHIP) — Deployed `cca8b31` to prod (CF / cartclash.lol + www, Version
+`9f1d2690`). Post-deploy per DEPLOY-STALE-HTML-1: `GET /` 200, all 25 hashed assets 0×404
+(after the mixed-state window — first poll caught stale HTML refs, re-polled the corrected
+set), and the deployed bundle carries the wave symbols (`0xff2bd6`, `cart-clash-base-draco`)
+with zero stale `cart-rave-base-draco` / `0xff6600`. Ships ART-LOW-SWEEP-1 (4 cards) +
+ART-PALETTE-1. **SHELF-RAIL-PT-1** and **ART-PALETTE-PT-1** are now prod-testable.
+
 2026-08-13 (ART-PALETTE-1) — The invariant unfreezer closed (`d78e2cf` + `3f0f49b`):
 `CART_COLORS` hexes moved from pure spectral (`0xff00ff`) to the 2D brand roster (`#ff2bd6` /
 `#22e6ff` / `#2bff7a` / `#ffe53d` / `#ff7a1a`), matching `PALETTES.classic.players`; dead
