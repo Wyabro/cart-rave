@@ -2,7 +2,7 @@
 
 > Historical log. Past entries may still say "Cart Rave" / `next-level` — that is intentional. Living naming rules: [brand.md](../brand.md).
 
-**Last Updated:** August 12, 2026
+**Last Updated:** August 13, 2026
 
 > **This doc = the past** — the single home for historical/completed items. For what works
 > *today* see [project-state.md](./project-state.md); for forward plans see [ROADMAP.md](./ROADMAP.md).
@@ -10,6 +10,20 @@
 Chronological record of shipped work, newest first.
 
 > **Convention:** As items ship, move their completed writeup here (out of ROADMAP.md / project-state.md).
+
+---
+
+### August 13, 2026 — Playtest export: 9 PASS, 0 FAIL, 3 SKIP
+
+- *(Playtest · Medium)* **CARGO-BAY-INSTANCE-PT-1** / **CARGO-BAY-INSTANCE-PT-2** — ✅ **CLOSED PASS 08-13.** Solo cargo filled in order, stayed put, hid correctly on spills, and rebuilt without empty or doubled bays. **CARGO-BAY-INSTANCE-PT-3** remains open for two-machine parity.
+- *(Playtest · Medium)* **CONN-TRACK-LEAK-PT-2** — ✅ **CLOSED PASS 08-13.** A same-clientId hard refresh reclaimed one seat without a ghost human or hostless room. **CONN-TRACK-LEAK-PT-1** remains open for two-machine host-leave migration.
+- *(Design / Gameplay · correctness)* **NPC-BOOTH-TARGET-PT-1** — ✅ **CLOSED PASS 08-13.** NPCs stayed on the floor while the player sat on a spawn booth, including after respawn and in Sudden Death.
+- *(Design / Gameplay · correctness)* **NPC-TYPE-DRAW-1** / **NPC-TYPE-DRAW-PT-1** / **NPC-TYPE-DRAW-PT-2** — ✅ **CLOSED PASS 08-13.** Solo and one-human Quickplay fielded three distinct NPC types; rematch kept the omitted type and hard-refresh rotated it. Implementation commits `ab416b3`, `43d26ba`, and `e3151aa`; deployed `7aa16db4`.
+- *(Audio · correctness)* **PA-COMBO-1** / **PA-COMBO-PT-1** — ✅ **CLOSED PASS 08-13.** Savage and Carnage coupon tiers spoke matching PA lines instead of staying on Rampage or going quiet. Implementation commits `bed77ab` and `ff8175b`; deployed `c0a15308`.
+- *(Tech Debt · regression)* **STORE-1-PT-1** — ✅ **CLOSED PASS 08-13.** Solo start, scoring, podium, quit-to-menu, restart, and rematch stayed clean after `src/gameState.js` was deleted.
+- *(Audio · content)* **STORE-MUSIC-PT-1** — ✅ **CLOSED PASS 08-13.** The Storerooms played both new songs without the old track, silence, or music from another arena.
+
+Three export cards remain open as SKIP: **CARGO-BAY-INSTANCE-PT-3**, **CONN-TRACK-LEAK-PT-1**, and **SHARD-PT-2**.
 
 ---
 
@@ -21,13 +35,13 @@ Chronological record of shipped work, newest first.
 
 ### August 13, 2026 — NPC-BOOTH-TARGET-1: skip booth-sitters in AI chase
 
-- *(Design / Gameplay · correctness)* **NPC-BOOTH-TARGET-1** — ✅ **DEPLOYED 08-13** `2fa4b2e4`. `findNearestHumanTarget` skips a human whose pose is on a spawn booth (height `> platformY - 0.5` AND XZ at/outside the spawn-ring inner lip). Height alone is not the test: Night Shift high roofs sit above that Y and stay chaseable. `pickAiTarget` then patrols. Tests: `tests/aiSpawnBoothTarget.test.js`. Hashed assets 0×404; live `gameBoot-DABEl-r1.js` carries `isOnSpawnBooth`. Playtest owed: **NPC-BOOTH-TARGET-PT-1**. Mid-gap failed-jump chase is a named residual, not this lever.
+- *(Design / Gameplay · correctness)* **NPC-BOOTH-TARGET-1** — ✅ **CLOSED PASS 08-13** on deployed `2fa4b2e4`. `findNearestHumanTarget` skips a human whose pose is on a spawn booth (height `> platformY - 0.5` AND XZ at/outside the spawn-ring inner lip). Height alone is not the test: Night Shift high roofs sit above that Y and stay chaseable. `pickAiTarget` then patrols. Tests: `tests/aiSpawnBoothTarget.test.js`. Hashed assets 0×404; live `gameBoot-DABEl-r1.js` carries `isOnSpawnBooth`. Mid-gap failed-jump chase is a named residual, not this lever.
 
 ---
 
 ### August 12, 2026 — STORE-MUSIC-1: two new Storerooms tracks
 
-- *(Audio · content)* **STORE-MUSIC-1** — ✅ **SHIPPED 08-12.** Replaced `public/sounds/storerooms.opus` with Wyatt's first Mixcraft export and added `storerooms2.opus`. Catalog playlist is `["storerooms.opus", "storerooms2.opus"]`. Encoded opus 96k VBR, loudnorm ≈−13.5 LUFS to match the other music. `normalize-sfx.mjs` now skips both files. Deployed `4f8b649f`; hashed assets 0×404; live `roomCodes-C4vOBfIj.js` carries `storerooms2.opus`. Playtest owed: **STORE-MUSIC-PT-1**.
+- *(Audio · content)* **STORE-MUSIC-1** — ✅ **CLOSED PASS 08-13.** Replaced `public/sounds/storerooms.opus` with Wyatt's first Mixcraft export and added `storerooms2.opus`. Catalog playlist is `["storerooms.opus", "storerooms2.opus"]`. Encoded opus 96k VBR, loudnorm ≈−13.5 LUFS to match the other music. `normalize-sfx.mjs` now skips both files. Deployed `4f8b649f`; hashed assets 0×404; live `roomCodes-C4vOBfIj.js` carries `storerooms2.opus`. Wyatt confirmed both new songs in the 08-13 playtest export.
 
 ---
 
@@ -45,7 +59,7 @@ Chronological record of shipped work, newest first.
 
 ### August 12, 2026 — CONN-TRACK-LEAK-1: release platform-dead IP tracking before the connection cap
 
-- *(Engineering · correctness)* **CONN-TRACK-LEAK-1** — ✅ **CLOSED 08-12.** The zombie-prune path in `party/index.ts` deleted a conn from `#connections` without releasing its IP-cap count, and the ghost-exorcism path never dropped `#rateLimitWindows`. Five leaked counts on one IP then rejected the only connection that could trigger cleanup — a permanent lockout. Fix: `#forgetConnectionTracking()` consolidates the five teardown paths (onClose, silent reap, stale picker, ghost exorcism, pre-cap prune); `#prunePlatformDeadTracking()` runs before the cap decision and releases tracking for any conn the platform no longer lists (iterating `#connToIp`, not `#connections`). Test seam `setPlatformLiveIdsOverride` fakes a platform-dead socket; the deterministic test proves 5 stale counts → first live join accepted → 6th live join still 4029, and it fails without the fix. Deployed `5ae6f69b`; zero-404 clean; live cap probe PASS. Commit `9439cd2`. Nine deferred findings filed to BACKLOG (CONN-DEADCODE-1 … PARTY-ENVTYPE-1). Playtest owed: CONN-TRACK-LEAK-PT-1 (host-leave migration), CONN-TRACK-LEAK-PT-2 (ghost exorcism).
+- *(Engineering · correctness)* **CONN-TRACK-LEAK-1** — ✅ **CLOSED 08-12.** The zombie-prune path in `party/index.ts` deleted a conn from `#connections` without releasing its IP-cap count, and the ghost-exorcism path never dropped `#rateLimitWindows`. Five leaked counts on one IP then rejected the only connection that could trigger cleanup — a permanent lockout. Fix: `#forgetConnectionTracking()` consolidates the five teardown paths (onClose, silent reap, stale picker, ghost exorcism, pre-cap prune); `#prunePlatformDeadTracking()` runs before the cap decision and releases tracking for any conn the platform no longer lists (iterating `#connToIp`, not `#connections`). Test seam `setPlatformLiveIdsOverride` fakes a platform-dead socket; the deterministic test proves 5 stale counts → first live join accepted → 6th live join still 4029, and it fails without the fix. Deployed `5ae6f69b`; zero-404 clean; live cap probe PASS. Commit `9439cd2`. Nine deferred findings filed to BACKLOG (CONN-DEADCODE-1 … PARTY-ENVTYPE-1). Wyatt PASSed same-clientId reconnect; **CONN-TRACK-LEAK-PT-1** remains open for host-leave migration.
 
 ---
 

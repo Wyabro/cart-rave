@@ -32,15 +32,9 @@ external testers. Stay in this phase until Wyatt advances the marker.
 
 **PROBE-WARM-RT-1** + **PERF-TIER-1** both PASS on prod 08-12. PROBE-WARM-RT-1: programs stable across first KO, no mid-round hitch. PERF-TIER-1: high-lite boots, reflector absent, quality menu shows 4 options.
 
-**STORE-MUSIC-1** shipped 08-12. Storerooms now has two new tracks. Playtest owed: **STORE-MUSIC-PT-1**.
-
 **MENU-MUSIC-2** / **MENU-MUSIC-PT-1** CLOSED 08-13. Wyatt playtest PASS on prod `11e5e48f`.
 
-**PA-COMBO-1** deployed `c0a15308`. Hashed assets 0×404. Live `gameBoot-ChoyxoHG.js` carries the combo queue set + `ttlMs:8e3`. Playtest owed: **PA-COMBO-PT-1** on prod after hard-refresh.
-
-**NPC-BOOTH-TARGET-1** deployed `2fa4b2e4`. Hashed assets 0×404. Live `gameBoot-DABEl-r1.js` carries `isOnSpawnBooth`. Playtest owed: **NPC-BOOTH-TARGET-PT-1** on prod after hard-refresh.
-
-**NPC-TYPE-DRAW-1** deployed `7aa16db4`. Hashed assets 0×404. Live `config-BXqpJcq-.js` carries `cartRaveSoloNpcOmit`. Playtest owed: **NPC-TYPE-DRAW-PT-1** · **NPC-TYPE-DRAW-PT-2** on prod after hard-refresh.
+**08-13 playtest export:** 9 PASS / 0 FAIL / 3 SKIP. Cargo solo fill + rebuild, same-clientId reconnect, booth-target AI, both NPC type draws, PA combo tiers, STORE-1 regression, and both Storerooms songs PASSed. Remaining deferred checks: **CARGO-BAY-INSTANCE-PT-3** · **CONN-TRACK-LEAK-PT-1** · **SHARD-PT-2**.
 
 **Closed cards keep their narrative in their own docs, not here** — Sundial
 ([handover](./planning/art-pass-sundial-handover.md); read its "Traps that cost time" before any
@@ -80,17 +74,15 @@ Live rows only. Shipped and closed cards live in
 |---|------|--------|
 | BUNDLE-1 | Menu/game code-split | ⚠️ **CLOSED PARTIAL 08-05 — perf goal NOT met. Deployed `f2f90fd2`.** Warm `menu-ready` −3% vs a −15% gate. Banked: a `size:check` byte gate, `main.js` 2,582 → 1,262 lines, −22.6% off the initial set (**cold** visits only). Lever E playtested: BUNDLE-E-PT-1 PASS 6/6. [bundle-1.md §0](./planning/bundle-1.md) |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
-| CARGO-BAY-INSTANCE-1 | Per-bay InstancedMesh for cargo bays | ✅ **CLOSED 08-12** (`9e86382`). 30 Mesh → per-model InstancedMesh. Draw calls ≤120 → ~24. Single-lever wave. Playtest owed: **CARGO-BAY-INSTANCE-PT-1** (solo fill) · **CARGO-BAY-INSTANCE-PT-2** (spill/rebuild) · **CARGO-BAY-INSTANCE-PT-3** (MP parity). |
-| CONN-TRACK-LEAK-1 | Release platform-dead IP tracking before the cap | ✅ **CLOSED 08-12** (`9439cd2`, deployed `5ae6f69b`). `#prunePlatformDeadTracking()` releases leaked IP counts before the cap decision; five teardown paths consolidated via `#forgetConnectionTracking()`. Playtest owed: CONN-TRACK-LEAK-PT-1 (host-leave migration), CONN-TRACK-LEAK-PT-2 (ghost exorcism). |
+| CARGO-BAY-INSTANCE-1 | Per-bay InstancedMesh for cargo bays | ✅ **CLOSED 08-12** (`9e86382`). 30 Mesh → per-model InstancedMesh. Draw calls ≤120 → ~24. Solo fill and spill/rebuild PASS 08-13; playtest owed: **CARGO-BAY-INSTANCE-PT-3** (MP parity). |
+| CONN-TRACK-LEAK-1 | Release platform-dead IP tracking before the cap | ✅ **CLOSED 08-12** (`9439cd2`, deployed `5ae6f69b`). `#prunePlatformDeadTracking()` releases leaked IP counts before the cap decision; five teardown paths consolidated via `#forgetConnectionTracking()`. Same-clientId reconnect PASS 08-13; playtest owed: **CONN-TRACK-LEAK-PT-1** (host-leave migration). |
 | PA-QUIET-1 | Quiet the Store PA | ✅ **CLOSED 08-12.** Wyatt playtest PASS. Deployed `3044ab99`. Same-fall flavor skip + busy-channel drop + `last_call` interrupts. Commits `e37bd59` + `a0ba621`. |
-| STORE-MUSIC-1 | Storerooms two-track playlist | ✅ **CLOSED 08-12.** Deployed `4f8b649f`. Replaced the old Storerooms track and added a second song. Playtest owed: **STORE-MUSIC-PT-1**. |
 | MENU-MUSIC-2 | Second main-menu song | ✅ **CLOSED 08-13.** Wyatt playtest PASS on prod `11e5e48f`. |
-| PA-COMBO-1 | Savage/carnage PA lines play | 🔧 **DEPLOYED 08-12** `c0a15308`. Playtest owed: **PA-COMBO-PT-1**. |
 
 ### Next actions
 
-1. **Playtest PA-COMBO-PT-1** on prod after hard-refresh.
-2. **Other playtest owed:** **STORE-MUSIC-PT-1** on prod `4f8b649f`. **STORE-1-PT-1** on `npm run dev:local`. SHARD-PT-2 (skip, needs five humans). **CARGO-BAY-INSTANCE-PT-1** · **PT-2** · **PT-3**. **CONN-TRACK-LEAK-PT-1** + **CONN-TRACK-LEAK-PT-2** — prod `5ae6f69b`.
+1. **Wait for Wyatt to name the next active card.**
+2. **Deferred playtests:** **CARGO-BAY-INSTANCE-PT-3** · **CONN-TRACK-LEAK-PT-1** · **SHARD-PT-2**.
 
 ## Open issues (top)
 
