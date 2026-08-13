@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-13T08:27:01.946Z",
-    "commit": "0333cb9"
+    "at": "2026-08-13T08:27:32.281Z",
+    "commit": "88abeb9"
   },
-  "source_digest": "753c04bc",
+  "source_digest": "f19960b7",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -935,7 +935,7 @@
       {
         "title": "Engineering",
         "counts": {
-          "Low": 14,
+          "Low": 13,
           "Partial": 1,
           "Medium": 4
         },
@@ -1040,12 +1040,6 @@
             "pri": "Low",
             "item": "PARTY-ENVTYPE-1 — untyped `Env` bindings",
             "notes": "`env: Record<string, any>` in Worker/DO. A typo in a binding name is a runtime 500. Add a typed interface.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "CHAL-PODIUM-DEDUPE-1 — podium round-event dedupe key only set when `startedAtMs > 0`",
-            "notes": "**Filed 08-13 from the challenge-stack audit.** `recordPodiumStats` (roundLifecycle.js:110-124) skips the `startedAtMs:winKey` dedupe latch when `startedAtMs` is falsy — a redelivered MSG.round on that theoretical edge would double-credit ROUND_*. Real rounds always set it; guard-depth nit.",
             "ship1": null
           },
           {

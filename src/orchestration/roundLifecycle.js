@@ -114,11 +114,12 @@ export function createRoundLifecycle(deps) {
         : typeof winnerSlotIndex === "number" && Number.isFinite(winnerSlotIndex)
           ? String(winnerSlotIndex)
           : "0";
-    if (startedAtMs > 0) {
-      const key = `${startedAtMs}:${winKey}`;
-      if (lastPodiumStatsRoundKey === key) return;
-      lastPodiumStatsRoundKey = key;
-    }
+    // * CHAL-PODIUM-DEDUPE-1: latch unconditionally — the theoretical startedAtMs === 0
+    // * edge must not re-credit ROUND_* on a redelivered MSG.round. Real rounds stamp a
+    // * unique startedAtMs, so the latch still separates rounds in practice.
+    const key = `${startedAtMs}:${winKey}`;
+    if (lastPodiumStatsRoundKey === key) return;
+    lastPodiumStatsRoundKey = key;
 
     /** @type {Record<number, number>} */
     const scores = {};

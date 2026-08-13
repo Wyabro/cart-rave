@@ -17,6 +17,7 @@ Chronological record of shipped work, newest first.
 
 - *(Engineering · Low)* **BINARY-F32NAME-1** — ✅ **CLOSED 08-13.** `encodeF32` (src/netcode/binary.js) returned values unchanged and was also used for the Float64 `tHost`; renamed to `toFiniteNumber` across the encoder (7 call sites). Not exported; no importers. Test comment updated to match.
 - *(Engineering · Low)* **CONSOLE-HI-1** — ✅ **CLOSED 08-13.** The `%cHI :D` console easter egg in src/main.js is now gated behind `import.meta.env.DEV` (dead-code-eliminated from the prod bundle; still prints in dev/vitest).
+- *(Engineering · Low)* **CHAL-PODIUM-DEDUPE-1** — ✅ **CLOSED 08-13.** `recordPodiumStats` (roundLifecycle.js) only set its `startedAtMs:winKey` dedupe latch when `startedAtMs > 0`, so a redelivered MSG.round on the theoretical 0-stamp edge could double-credit ROUND_* challenge events. The latch now arms unconditionally (real rounds stamp unique timestamps, so round separation is unchanged). Re-opened from the AUDIT-SWEEP-1 drop with the adversarial-review scope: latch-only, no cross-module contract change.
 
 ---
 
