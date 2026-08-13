@@ -2726,7 +2726,14 @@ import { ARENA_CATALOG } from "../levels/arenaCatalog.js";
 
   renderChallengesPanel();
   updateChallengesBadge();
-  challengeStore.subscribe(renderChallengesPanel);
+  // * CHAL-MENU-REBUILD-1: only rebuild the shelf while it is actually visible.
+  // * Progress events (KO/spill/combo) fire mid-round with the menu hidden; the
+  // * unconditional subscribe rebuilt the whole panel on every one of them.
+  // * openChallengesScreen() re-renders on open, so a hidden skip is never stale.
+  challengeStore.subscribe(() => {
+    if (challengesScreen?.getAttribute('aria-hidden') !== 'false') return;
+    renderChallengesPanel();
+  });
   wireAllMenuPressFeedback();
 
   // ─── Public API ───────────────────────────────────────────────────────────

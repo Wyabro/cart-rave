@@ -10,6 +10,9 @@ describe("CHALLENGE-EXPAND-1 menu seams", () => {
     expect(menu).toContain('sectionTitle.textContent = `${label} · ${items.length}`');
     expect(menu).toContain('challengeStore.getState().checkRotations();');
     expect(menu).toContain('challengesRestockTimerId = setInterval');
+    // * CHAL-MENU-REBUILD-1: the store subscribe must be gated on panel visibility —
+    // * the bare form rebuilds the hidden shelf on every mid-round progress event.
+    expect(menu).not.toContain('challengeStore.subscribe(renderChallengesPanel)');
   });
 
   it("gives the shelves their own desktop and mobile grid rules", () => {
