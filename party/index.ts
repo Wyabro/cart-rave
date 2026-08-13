@@ -243,17 +243,27 @@ export class CartRaveServer extends Server {
   }
 
   /**
-   * The set of connection ids the platform currently lists as live.
-   * Single funnel for pre-cap pruning — the test seam (getPlatformLiveIdsOverride)
-   * can fake a socket the platform dropped without onClose firing. Several other
-   * deliberate getConnections() call sites remain (reconcile, ready checks).
+   * CONN-SOURCETRUTH-1: the platform's live connection ids, raw from
+   * getConnections() with no override. Single implementation of "which sockets
+   * does the platform currently consider live" — every game-state path
+   * (reconcile, ready checks, countdown arm/cancel) funnels through here.
+   */
+  #liveConnIdSet(): Set<string> {
+    const ids = new Set<string>();
+    for (const c of this.getConnections()) ids.add(c.id);
+    return ids;
+  }
+
+  /**
+   * The set of connection ids the platform currently lists as live, honoring the
+   * test seam (getPlatformLiveIdsOverride) so a test can fake a socket the platform
+   * dropped without onClose firing. CONN-SOURCETRUTH-1: the override stays confined
+   * to this pre-cap-prune funnel — game-state paths use #liveConnIdSet directly.
    */
   #platformLiveConnIds(): Set<string> {
     const override = getPlatformLiveIdsOverride();
     if (override) return new Set(override);
-    const ids = new Set<string>();
-    for (const c of this.getConnections()) ids.add(c.id);
-    return ids;
+    return this.#liveConnIdSet();
   }
 
   /**
@@ -721,10 +731,7 @@ export class CartRaveServer extends Server {
       return;
     }
     if (!this.#slots) return;
-    const liveConnIds = new Set<string>();
-    for (const c of this.getConnections()) {
-      liveConnIds.add(c.id);
-    }
+    const liveConnIds = this.#liveConnIdSet();
     const humanSlots = this.#slots.filter(
       (s) => s.kind === "human" && s.connId && liveConnIds.has(s.connId),
     );
@@ -769,8 +776,7 @@ export class CartRaveServer extends Server {
       return;
     }
     if (!this.#slots) return;
-    const liveConnIds = new Set<string>();
-    for (const c of this.getConnections()) liveConnIds.add(c.id);
+    const liveConnIds = this.#liveConnIdSet();
     const humanSlots = this.#slots.filter(
       (s) => s.kind === "human" && s.connId && liveConnIds.has(s.connId),
     );
@@ -862,10 +868,7 @@ export class CartRaveServer extends Server {
       return;
     }
     if (!this.#slots) return;
-    const liveConnIds = new Set<string>();
-    for (const c of this.getConnections()) {
-      liveConnIds.add(c.id);
-    }
+    const liveConnIds = this.#liveConnIdSet();
     const humanSlots = this.#slots.filter(
       (s) => s.kind === "human" && s.connId && liveConnIds.has(s.connId)
     );
@@ -937,10 +940,7 @@ export class CartRaveServer extends Server {
       this.#clearPlayReadyWait();
       return;
     }
-    const liveConnIds = new Set<string>();
-    for (const c of this.getConnections()) {
-      liveConnIds.add(c.id);
-    }
+    const liveConnIds = this.#liveConnIdSet();
     const humanSlots = this.#slots.filter(
       (s) => s.kind === "human" && s.connId && liveConnIds.has(s.connId),
     );
@@ -1075,13 +1075,10 @@ export class CartRaveServer extends Server {
     this.#reapSilentConnections();
 
     // Reconcile: any slot marked "human" whose connId is not in the platform's live
-    // connection list is orphaned. Use room.getConnections() rather than #connections
-    // because WebSocket close events are not guaranteed to fire (tab crash, incognito
-    // close, network drop) and #connections can hold zombies.
-    const liveConnIds = new Set<string>();
-    for (const c of this.getConnections()) {
-      liveConnIds.add(c.id);
-    }
+    // connection list is orphaned. Use #liveConnIdSet (platform truth) rather than
+    // #connections because WebSocket close events are not guaranteed to fire (tab
+    // crash, incognito close, network drop) and #connections can hold zombies.
+    const liveConnIds = this.#liveConnIdSet();
     // The new connection itself is not yet in getConnections() during onConnect, so add it.
     liveConnIds.add(conn.id);
     this.#reconcileOrphanSlots(liveConnIds);
@@ -1490,10 +1487,7 @@ export class CartRaveServer extends Server {
         // On hard refresh, the old connection may not have been cleaned up
         // during onConnect (platform hadn't closed it yet). By the time the
         // player clicks Ready, the stale conn is gone from getConnections().
-        const liveConnIds = new Set<string>();
-        for (const c of this.getConnections()) {
-          liveConnIds.add(c.id);
-        }
+        const liveConnIds = this.#liveConnIdSet();
         for (const s of (this.#slots ?? [])) {
           if (s.kind === "human" && s.connId && !liveConnIds.has(s.connId)) {
             this.#convertHumanSlotToNpc(s.connId);

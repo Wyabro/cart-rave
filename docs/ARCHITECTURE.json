@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-13T09:44:45.892Z",
-    "commit": "1e87007"
+    "at": "2026-08-13T09:46:33.102Z",
+    "commit": "b502477"
   },
-  "source_digest": "34322ac5",
+  "source_digest": "59d908e2",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -905,7 +905,7 @@
       {
         "title": "Engineering",
         "counts": {
-          "Low": 6,
+          "Low": 5,
           "Partial": 1,
           "Medium": 4
         },
@@ -968,12 +968,6 @@
             "pri": "Low",
             "item": "QP-ROTATE-PT-1 — Quickplay rotation live 2-browser check",
             "notes": "Reconfirm after **QP-ORDER-1** (sequential rotation). Live multi-client smoke only.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "CONN-SOURCETRUTH-1 — two connection sources of truth",
-            "notes": "`#connections` vs `getConnections()` reconciled by hand in several paths. Consolidate.",
             "ship1": null
           }
         ]
