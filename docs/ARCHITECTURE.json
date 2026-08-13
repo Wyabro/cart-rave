@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-13T23:52:56.774Z",
-    "commit": "31bbaec"
+    "at": "2026-08-13T23:58:36.969Z",
+    "commit": "682891e"
   },
-  "source_digest": "d3717109",
+  "source_digest": "0aaa2400",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -879,7 +879,7 @@
       {
         "id": "RUMBLE-STRENGTH-1",
         "what": "Controller rumble Settings control",
-        "status": "🟡 local implementation ready — not shipped; QA 7/7 + build PASS; human target checks seeded as RUMBLE-STRENGTH-PT-1",
+        "status": "🟡 deployed `682891e` / Worker `82e8a360-b185-403a-8a66-2757f7aba40d`; QA 7/7 + build + live assets PASS; human target checks seeded as RUMBLE-STRENGTH-PT-1",
         "state": "waiting"
       },
       {
@@ -890,7 +890,7 @@
       }
     ],
     "next_actions": [
-      "RUMBLE-STRENGTH-1: wait for Wyatt's `ship it` before commit, push, and deploy.",
+      "RUMBLE-STRENGTH-PT-1: Wyatt production hardware test on Xbox, PS5 USB, and Steam Deck.",
       "Deferred playtests: CARGO-BAY-INSTANCE-PT-3 · CONN-TRACK-LEAK-PT-1 · SHARD-PT-2."
     ],
     "open_issues": [
@@ -1043,7 +1043,7 @@
           {
             "pri": "Low",
             "item": "RUMBLE-STRENGTH-PT-1 — controller rumble works on Xbox, PS5, and Steam Deck `[solo]`",
-            "notes": "**Owed: Wyatt playtest — RUMBLE-STRENGTH-PT-1 — Settings enables controller rumble, gives one short test pulse, and keeps gameplay feedback stronger than menu feedback.** **Unshipped:** use `npm run dev:local` until the next ship; then repeat on production after a hard refresh.<br>1. With an Xbox controller in Chrome, open Settings and enable controller rumble. PASS if it gives one short test pulse, says ON, and stays ON after reload; FAIL if it asks for HID permission or says ON without a pulse.<br>2. With the PS5 controller connected by USB, open Settings. If standard rumble is ready, enable it; if the permission state appears, approve only the PS5 picker. PASS if the test pulse, menu focus/confirm taps, and one hit or KO rumble work; FAIL if an unrelated device is offered, the state lies, or no gameplay rumble occurs.<br>3. In the Steam Deck browser, enable rumble and navigate the menu, then play one round. PASS if the Deck gets the same test/menu/gameplay pattern; FAIL if it is treated as unsupported while the browser exposes a standard actuator.<br>4. Turn rumble off, then use keyboard or mouse in the menu. PASS if controller rumble stops and phone/menu vibration does not occur; FAIL if a menu tap overrides a stronger hit or KO rumble.",
+            "notes": "**Owed: Wyatt playtest — RUMBLE-STRENGTH-PT-1 — Settings enables controller rumble, gives one short test pulse, and keeps gameplay feedback stronger than menu feedback.** **Deployed:** `682891e` / Worker `82e8a360-b185-403a-8a66-2757f7aba40d`; hard-refresh production first.<br>1. With an Xbox controller in Chrome, open Settings and enable controller rumble. PASS if it gives one short test pulse, says ON, and stays ON after reload; FAIL if it asks for HID permission or says ON without a pulse.<br>2. With the PS5 controller connected by USB, open Settings. If standard rumble is ready, enable it; if the permission state appears, approve only the PS5 picker. PASS if the test pulse, menu focus/confirm taps, and one hit or KO rumble work; FAIL if an unrelated device is offered, the state lies, or no gameplay rumble occurs.<br>3. In the Steam Deck browser, enable rumble and navigate the menu, then play one round. PASS if the Deck gets the same test/menu/gameplay pattern; FAIL if it is treated as unsupported while the browser exposes a standard actuator.<br>4. Turn rumble off, then use keyboard or mouse in the menu. PASS if controller rumble stops and phone/menu vibration does not occur; FAIL if a menu tap overrides a stronger hit or KO rumble.",
             "ship1": null
           },
           {
