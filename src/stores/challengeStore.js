@@ -11,6 +11,10 @@ export const CHALLENGE_POOL = [
   { id: 'combo_t3_10', type: 'weekly', title: 'Combo King', description: 'Reach CARNAGE 10 times', goal: 10, event: PROGRESSION_EVENTS.COMBO_T3 },
   { id: 'ko_void_3', type: 'daily', title: 'Void Sender', description: 'Knock 3 opponents into the void', goal: 3, event: PROGRESSION_EVENTS.KO_VOID },
   { id: 'last_standing_2', type: 'daily', title: 'Sole Survivor', description: 'Win 2 rounds as Last Cart Standing', goal: 2, event: PROGRESSION_EVENTS.LAST_STANDING },
+  { id: 'round_complete_3', type: 'daily', title: 'Clocked In', description: 'Finish 3 rounds', goal: 3, event: PROGRESSION_EVENTS.ROUND_COMPLETE },
+  { id: 'round_win_1', type: 'daily', title: 'Checkout Champion', description: 'Win 1 round', goal: 1, event: PROGRESSION_EVENTS.ROUND_WIN },
+  { id: 'combo_t3_2', type: 'daily', title: 'Bulk Damage', description: 'Reach CARNAGE 2 times', goal: 2, event: PROGRESSION_EVENTS.COMBO_T3 },
+  { id: 'round_scored_3', type: 'daily', title: 'Ring It Up', description: 'Score in 3 rounds', goal: 3, event: PROGRESSION_EVENTS.ROUND_SCORED },
   { id: 'ko_npc_20', type: 'weekly', title: 'Bot Buster', description: 'KO 20 NPC carts', goal: 20, event: PROGRESSION_EVENTS.KO_NPC },
   { id: 'untouchable_1', type: 'weekly', title: 'Untouchable', description: 'Win a round without spilling', goal: 1, event: PROGRESSION_EVENTS.UNTOUCHABLE },
   { id: 'sd_win_3', type: 'daily', title: 'Clutch Winner', description: 'Win 3 Sudden Death tiebreakers', goal: 3, event: PROGRESSION_EVENTS.SUDDEN_DEATH_WIN },
@@ -19,6 +23,8 @@ export const CHALLENGE_POOL = [
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * DAY_MS;
+
+export const CHALLENGE_ACTIVE_COUNTS = Object.freeze({ daily: 4, weekly: 2 });
 
 /**
  * Rotation windows, exported so UI can show a real "restocks in …" countdown off
@@ -36,28 +42,65 @@ function shuffleArray(arr) {
   return list;
 }
 
-function selectRandomChallenges(type, count) {
-  const pool = CHALLENGE_POOL.filter((c) => c.type === type);
-  const shuffled = shuffleArray(pool);
-  return shuffled.slice(0, count).map((item) => ({
-    id: item.id,
-    progress: 0,
-    isComplete: false,
-  }));
+function makeChallengeState(meta, progress = 0) {
+  const safeProgress = Math.min(meta.goal, Math.max(0, Number.isFinite(progress) ? progress : 0));
+  return {
+    id: meta.id,
+    progress: safeProgress,
+    isComplete: safeProgress >= meta.goal,
+  };
 }
 
-function loadPersistedState() {
-  const parsed = storageGetJson(STORAGE_KEYS.challenges, null);
-  if (parsed && Array.isArray(parsed.dailyChallenges) && Array.isArray(parsed.weeklyChallenges)) {
-    // Ensure all loaded challenge IDs are valid members of the current CHALLENGE_POOL
-    const allValid = [...parsed.dailyChallenges, ...parsed.weeklyChallenges].every(
-      (c) => c && CHALLENGE_POOL.some((p) => p.id === c.id)
-    );
-    if (allValid) {
-      return parsed;
-    }
+function selectRandomChallenges(type, count, excludedIds = []) {
+  const excluded = new Set(excludedIds);
+  const pool = CHALLENGE_POOL.filter((c) => c.type === type && !excluded.has(c.id));
+  if (pool.length < count) {
+    throw new Error(`Challenge pool cannot provide ${count} unique ${type} entries`);
   }
-  return null;
+  const shuffled = shuffleArray(pool);
+  return shuffled.slice(0, count).map((item) => makeChallengeState(item));
+}
+
+function normalizeChallengeList(list, type, count) {
+  const seen = new Set();
+  const normalized = [];
+  for (const entry of Array.isArray(list) ? list : []) {
+    if (!entry || typeof entry.id !== "string" || seen.has(entry.id)) continue;
+    const meta = CHALLENGE_POOL.find((item) => item.id === entry.id && item.type === type);
+    if (!meta) continue;
+    seen.add(meta.id);
+    const rawProgress = Number(entry.progress);
+    normalized.push(makeChallengeState(meta, Number.isFinite(rawProgress) ? rawProgress : 0));
+    if (normalized.length >= count) break;
+  }
+  return [
+    ...normalized,
+    ...selectRandomChallenges(type, count - normalized.length, [...seen]),
+  ];
+}
+
+function normalizeResetTimestamp(value, currentTime) {
+  const timestamp = Number(value);
+  if (!Number.isFinite(timestamp) || timestamp <= 0 || timestamp > currentTime) return currentTime;
+  return timestamp;
+}
+
+function loadPersistedState(currentTime) {
+  const parsed = storageGetJson(STORAGE_KEYS.challenges, null);
+  if (!parsed || !Array.isArray(parsed.dailyChallenges) || !Array.isArray(parsed.weeklyChallenges)) return null;
+  const state = {
+    dailyChallenges: normalizeChallengeList(parsed.dailyChallenges, "daily", CHALLENGE_ACTIVE_COUNTS.daily),
+    weeklyChallenges: normalizeChallengeList(parsed.weeklyChallenges, "weekly", CHALLENGE_ACTIVE_COUNTS.weekly),
+    lastDailyReset: normalizeResetTimestamp(parsed.lastDailyReset, currentTime),
+    lastWeeklyReset: normalizeResetTimestamp(parsed.lastWeeklyReset, currentTime),
+  };
+  const persisted = {
+    dailyChallenges: parsed.dailyChallenges,
+    weeklyChallenges: parsed.weeklyChallenges,
+    lastDailyReset: parsed.lastDailyReset,
+    lastWeeklyReset: parsed.lastWeeklyReset,
+  };
+  return { state, needsSave: JSON.stringify(persisted) !== JSON.stringify(state) };
 }
 
 function saveState(state) {
@@ -69,12 +112,13 @@ function saveState(state) {
   });
 }
 
-const initialPersisted = loadPersistedState();
 const now = Date.now();
+const loadedPersisted = loadPersistedState(now);
+const initialPersisted = loadedPersisted?.state || null;
 
 export const challengeStore = createStore((set, get) => ({
-  dailyChallenges: initialPersisted?.dailyChallenges || selectRandomChallenges('daily', 2),
-  weeklyChallenges: initialPersisted?.weeklyChallenges || selectRandomChallenges('weekly', 1),
+  dailyChallenges: initialPersisted?.dailyChallenges || selectRandomChallenges('daily', CHALLENGE_ACTIVE_COUNTS.daily),
+  weeklyChallenges: initialPersisted?.weeklyChallenges || selectRandomChallenges('weekly', CHALLENGE_ACTIVE_COUNTS.weekly),
   lastDailyReset: initialPersisted?.lastDailyReset || now,
   lastWeeklyReset: initialPersisted?.lastWeeklyReset || now,
 
@@ -83,19 +127,23 @@ export const challengeStore = createStore((set, get) => ({
     const currentTime = Date.now();
     let updated = false;
 
-    let dailyChallenges = [...state.dailyChallenges];
+    let dailyChallenges = normalizeChallengeList(state.dailyChallenges, 'daily', CHALLENGE_ACTIVE_COUNTS.daily);
     let lastDailyReset = state.lastDailyReset;
     if (!lastDailyReset || currentTime - lastDailyReset >= DAY_MS) {
-      dailyChallenges = selectRandomChallenges('daily', 2);
+      dailyChallenges = selectRandomChallenges('daily', CHALLENGE_ACTIVE_COUNTS.daily);
       lastDailyReset = currentTime;
       updated = true;
     }
 
-    let weeklyChallenges = [...state.weeklyChallenges];
+    let weeklyChallenges = normalizeChallengeList(state.weeklyChallenges, 'weekly', CHALLENGE_ACTIVE_COUNTS.weekly);
     let lastWeeklyReset = state.lastWeeklyReset;
     if (!lastWeeklyReset || currentTime - lastWeeklyReset >= WEEK_MS) {
-      weeklyChallenges = selectRandomChallenges('weekly', 1);
+      weeklyChallenges = selectRandomChallenges('weekly', CHALLENGE_ACTIVE_COUNTS.weekly);
       lastWeeklyReset = currentTime;
+      updated = true;
+    }
+
+    if (dailyChallenges.length !== state.dailyChallenges.length || weeklyChallenges.length !== state.weeklyChallenges.length) {
       updated = true;
     }
 
@@ -107,7 +155,7 @@ export const challengeStore = createStore((set, get) => ({
   },
 
   record: (event, amount = 1) => {
-    if (!event) return;
+    if (!event || !Number.isFinite(amount) || amount <= 0) return;
     const state = get();
     let changed = false;
 
@@ -116,7 +164,8 @@ export const challengeStore = createStore((set, get) => ({
         const meta = CHALLENGE_POOL.find((item) => item.id === ch.id);
         if (!meta || meta.event !== event || ch.isComplete) return ch;
 
-        const newProgress = Math.min(meta.goal, ch.progress + amount);
+        const currentProgress = Number.isFinite(ch.progress) ? ch.progress : 0;
+        const newProgress = Math.min(meta.goal, Math.max(0, currentProgress) + amount);
         const isComplete = newProgress >= meta.goal;
         if (newProgress !== ch.progress || isComplete !== ch.isComplete) {
           changed = true;
@@ -134,6 +183,8 @@ export const challengeStore = createStore((set, get) => ({
     }
   },
 }));
+
+if (loadedPersisted?.needsSave) saveState(challengeStore.getState());
 
 // Run initial check for expired rotations on module load
 challengeStore.getState().checkRotations();
