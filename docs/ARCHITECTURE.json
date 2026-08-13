@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-13T01:46:52.603Z",
-    "commit": "f04fdab"
+    "at": "2026-08-13T03:38:34.309Z",
+    "commit": "e3151aa"
   },
-  "source_digest": "8798b382",
+  "source_digest": "18890256",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1186,7 +1186,7 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Medium": 11,
+          "Medium": 13,
           "Low": 3
         },
         "rows": [
@@ -1272,6 +1272,18 @@
             "pri": "Medium",
             "item": "NPC-BOOTH-TARGET-PT-1 — NPCs do not self-KO chasing a booth sitter `[solo]`",
             "notes": "**Owed: Wyatt playtest — NPC-BOOTH-TARGET-PT-1 — NPCs stay on the floor while you sit on a spawn booth.** Parent NPC-BOOTH-TARGET-1. Prod after hard-refresh. Deployed `2fa4b2e4`.<br>1. Menu → Solo → play. Stay on your spawn booth. FAIL if an NPC drives off the floor or into the void toward you. PASS if they stay on the floor.<br>2. Jump off, die, respawn. Sit on the booth again. FAIL if NPCs chase you across the void before you land. PASS if they wait, then chase after you land.<br>3. Tie the score and enter Sudden Death. Sit on the booth. FAIL if the NPC self-KOs chasing you. PASS if it stays on the floor.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "NPC-TYPE-DRAW-PT-1 — solo NPCs are three types; omit rotates on refresh `[solo]`",
+            "notes": "**Owed: Wyatt playtest — NPC-TYPE-DRAW-PT-1 — solo never fields two of one type, and the omitted type changes only after a hard-refresh.** Parent NPC-TYPE-DRAW-1. Not on prod. Run `npm run dev:local`.<br>1. Menu → Solo → play. Look at the three NPC emblems. FAIL if two match. Note the missing type.<br>2. Rematch without refresh. FAIL if the missing type changed. PASS if the same trio returns.<br>3. Hard-refresh. Solo again. FAIL if the missing type is the same as step 1, or if two emblems match. PASS if the omitted type changed and the three types are still distinct.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "NPC-TYPE-DRAW-PT-2 — quickplay solo fields three distinct types `[solo]`",
+            "notes": "**Owed: Wyatt playtest — NPC-TYPE-DRAW-PT-2 — a one-human Quickplay room fields three different NPC types.** Parent NPC-TYPE-DRAW-1. Not on prod. Run `npm run dev:local`.<br>1. Menu → Quickplay. Sit and look at the three NPC emblems.<br>2. FAIL if two emblems match. PASS if you see three different types.",
             "ship1": null
           }
         ]

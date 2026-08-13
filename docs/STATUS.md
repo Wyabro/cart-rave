@@ -40,6 +40,8 @@ external testers. Stay in this phase until Wyatt advances the marker.
 
 **NPC-BOOTH-TARGET-1** deployed `2fa4b2e4`. Hashed assets 0×404. Live `gameBoot-DABEl-r1.js` carries `isOnSpawnBooth`. Playtest owed: **NPC-BOOTH-TARGET-PT-1** on prod after hard-refresh.
 
+**NPC-TYPE-DRAW-1** landed on `cart-clash` (not deployed). Solo omit rotates per page load. Server `#drawNpcName` skips types already on the field. Playtest owed: **NPC-TYPE-DRAW-PT-1** · **NPC-TYPE-DRAW-PT-2** on `npm run dev:local`.
+
 **Closed cards keep their narrative in their own docs, not here** — Sundial
 ([handover](./planning/art-pass-sundial-handover.md); read its "Traps that cost time" before any
 capture, and judge phase changes against a ~1.2% construction-noise floor, not zero), Fight Night

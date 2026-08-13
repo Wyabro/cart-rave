@@ -2,7 +2,6 @@
 // * Re-exported here so existing `./npcNames.js` importers keep working unchanged.
 export {
   NPC_NAME_POOL,
-  NPC_NAME_PERSONALITY,
   NPC_PERSONALITY_ORDER,
   drawNpcNamesByPersonality,
   rotateNpcPersonalityOrder,
