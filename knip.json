@@ -7,6 +7,5 @@
   "vite": {
     "config": "vite.config.js"
   },
-  "ignoreBinaries": ["taskkill"],
   "ignore": ["src/effects/index.js"]
 }
