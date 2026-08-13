@@ -137,6 +137,22 @@ the dev loop (dev probes lie in prod · edge propagation · frozen `rAF`), or a 
 
 ## Last updated
 
+2026-08-13 (ENG-LOW-SWEEP-1) — Nine Engineering Low sweep levers closed in one acked
+wave (`0333cb9` · `88abeb9` · `0155c61` · `3417a49` · `bd57fe4` · `df6a168` · `e8e7208` ·
+`6fc7be1` · `117da53` + wiring-test pin `6cea5ad`): BINARY-F32NAME-1 (encodeF32 →
+toFiniteNumber), CONSOLE-HI-1 (%cHI :D gated behind DEV), CHAL-PODIUM-DEDUPE-1 (stats latch
+now unconditional), ROUND-CLOCKDOMAIN-1 (pausedWallMs → hostHideCompMs), CONN-DEADCODE-1
+(#clamp + void no-ops + teardown returns removed — edits arrived in the working tree,
+verified 21/21 and committed as-is), CONN-SNAPSHOT-PURE-1 (no host repair inside snapshot),
+PARTY-ENVTYPE-1 (typed Env interface), CONN-SPAWN-SANITIZE-1 (hostSpawn carts sanitized,
++1 party-do test), ZAN-BOLLARD-CLASS-1 (bollards + gnomon classify as edge; source-wiring
+tests). QA green by number: status:size → typecheck → test (178 files / 1,955) → knip
+(1 pre-existing config hint) → briefing:check → arch:check → health:check. Prod build green.
+**ZAN-BOLLARD-PT-1** seeded (Sundial bollard/gnomon impact clang — solo, dev:local; browser
+smoke impossible this session — both browser paths down, so the visual check rides that card).
+Note: `package-lock.json` carries external uncommitted changes (@cloudflare/unenv-preset,
+@dimforge/rapier3d-compat) — left untouched.
+
 2026-08-13 (AUDIT-SWEEP-1) — Six audit-finding levers closed in one acked wave
 (`182a673` · `485dedf` · `00d8324` · `08ecbd5` · `cc45ba2` · `80cb60b`): NET-QUIT-RETRY-1
 (quit-to-menu cancels the pending socket retry), CHAL-MENU-REBUILD-1 (hidden panel no
