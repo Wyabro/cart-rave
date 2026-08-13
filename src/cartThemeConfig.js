@@ -87,6 +87,9 @@ export const SUNGLASSES_STYLES = Object.freeze([
   { id: "redMirror", label: "Red", color: 0xff1f3a, frameColor: 0xc52f49, gradient: Object.freeze(["#ffd23a", "#ff5a2e", "#ff1f3a", "#8f1290"]), metalness: 1.0, roughness: 0.02, clearcoat: 1.0, envMapIntensity: 1.5 },
   { id: "greenMirror", label: "Green", color: 0x19e07a, frameColor: 0x15966b, gradient: Object.freeze(["#f2ff6a", "#3aff9e", "#19e07a", "#0a7fa8"]), metalness: 1.0, roughness: 0.02, clearcoat: 1.0, envMapIntensity: 1.5 },
   { id: "purpleMirror", label: "Purple", color: 0x9b3cff, frameColor: 0x7245ad, gradient: Object.freeze(["#ff5ad6", "#b455ff", "#9b3cff", "#2a1e9e"]), metalness: 1.0, roughness: 0.02, clearcoat: 1.0, envMapIntensity: 1.5 },
+  { id: "obsidianMirror", label: "Obsidian", color: 0x5d6a78, frameColor: 0x1a2029, gradient: Object.freeze(["#effcff", "#5d6a78", "#151922", "#010204"]), metalness: 1.0, roughness: 0.02, clearcoat: 1.0, envMapIntensity: 1.5 },
+  { id: "hazardMirror", label: "Hazard", color: 0xbaff00, frameColor: 0x3a4a00, gradient: Object.freeze(["#f7ff4a", "#baff00", "#557a00", "#080c00"]), metalness: 1.0, roughness: 0.02, clearcoat: 1.0, envMapIntensity: 1.5 },
+  { id: "pearlMirror", label: "Pearl", color: 0xe8f5ff, frameColor: 0xf0e7ee, gradient: Object.freeze(["#ffffff", "#ffd8f3", "#bcefff", "#d8c9ff"]), metalness: 1.0, roughness: 0.02, clearcoat: 1.0, envMapIntensity: 1.5 },
 ]);
 
 /** Stable fallback when no sunglasses style is supplied to the GLTF material pipeline. */

@@ -31,7 +31,7 @@ describe("SHADES-MAT-1 — visor material contract", () => {
   });
 
   it("gives every style a solid frame colour", () => {
-    expect(SUNGLASSES_STYLES).toHaveLength(6);
+    expect(SUNGLASSES_STYLES).toHaveLength(9);
     expect(SUNGLASSES_STYLES.map((style) => style.label)).toEqual([
       "Silver",
       "Gold",
@@ -39,6 +39,9 @@ describe("SHADES-MAT-1 — visor material contract", () => {
       "Red",
       "Green",
       "Purple",
+      "Obsidian",
+      "Hazard",
+      "Pearl",
     ]);
     for (const style of SUNGLASSES_STYLES) {
       expect(style.frameColor, style.id).toEqual(expect.any(Number));

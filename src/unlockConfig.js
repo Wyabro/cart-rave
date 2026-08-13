@@ -83,6 +83,9 @@ export const SUNGLASSES_UNLOCKS = {
   redMirror: { event: PROGRESSION_EVENTS.SUDDEN_DEATH_WIN, goal: 3, hint: "3 Sudden Death wins" },
   greenMirror: { event: PROGRESSION_EVENTS.UNTOUCHABLE, goal: 1, hint: "Win without spilling" },
   purpleMirror: { event: PROGRESSION_EVENTS.KO_AGGRESSOR, goal: 5, hint: "5 Aggressor KOs" },
+  obsidianMirror: { event: PROGRESSION_EVENTS.ROUND_COMPLETE, goal: 10, hint: "Finish 10 rounds" },
+  hazardMirror: { event: PROGRESSION_EVENTS.ROUND_WIN, goal: 5, hint: "5 round wins" },
+  pearlMirror: { event: PROGRESSION_EVENTS.ROUND_SCORED, goal: 10, hint: "Score in 10 rounds" },
 };
 
 /** Custom hue slider unlock. */
