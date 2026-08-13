@@ -3196,11 +3196,14 @@ function getEnvironmentImpact(cart, envType, impacts, state) {
   // * booth legs were all silent; ZAN-BOLLARD-CLASS-1's "matching booth legs" premise
   // * assumed a path that was dead). processCollisionEvents drains after world.step,
   // * so the body's live linvel is the post-impact velocity — that is the sample.
+  // * The +4 cart solver iterations spread the impulse, so real impact Δv is
+  // * ~1.6–1.7 m/s at any approach speed — CONFIG.edgeDeltaVThreshold (0.75) and
+  // * edgeIntensityRange (6) are tuned to that measured floor.
   if (!pre) return null;
   const live = cart.body.linvel();
   const dvXZ = Math.hypot(live.x - pre.x, live.z - pre.z);
   if (dvXZ <= impacts.edgeDeltaVThreshold) return null;
-  return Math.min(1.0, (dvXZ - impacts.edgeDeltaVThreshold) / impacts.intensityRange);
+  return Math.min(1.0, (dvXZ - impacts.edgeDeltaVThreshold) / impacts.edgeIntensityRange);
 }
 
 function getEnvironmentContactPosition(envType, impacts, state, out) {

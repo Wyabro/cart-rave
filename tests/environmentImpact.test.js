@@ -91,8 +91,8 @@ describe("environment impact classification (ZAN-BOLLARD-PT-1)", () => {
     );
 
     expect(playEdgeImpact).toHaveBeenCalledTimes(1);
-    // * Δv = 6 → (6 − 2.5) / 15 ≈ 0.233
-    expect(playEdgeImpact.mock.calls[0][0]).toBeCloseTo(0.2333, 3);
+    // * Δv = 6 → (6 − 0.75) / 6 = 0.875
+    expect(playEdgeImpact.mock.calls[0][0]).toBeCloseTo(0.875, 3);
     expect(playFloorImpact).not.toHaveBeenCalled();
     // * Spark at the post, not floating over the pit (was projected to the ring).
     expect(spawnTrashBurst).toHaveBeenCalledTimes(1);
@@ -101,7 +101,7 @@ describe("environment impact classification (ZAN-BOLLARD-PT-1)", () => {
     expect(spawnTrashBurst.mock.calls[0][2]).toBe("edge");
   });
 
-  it("soft edge graze stays silent (Δv below the 2.5 m/s threshold)", () => {
+  it("soft edge graze stays silent (Δv below the 0.75 m/s threshold)", () => {
     const cart = makeCart({ x: 3, y: 0, z: 0 }, { x: 2.9, y: 0, z: 0 });
     const playEdgeImpact = vi.fn();
     const playFloorImpact = vi.fn();
@@ -109,6 +109,22 @@ describe("environment impact classification (ZAN-BOLLARD-PT-1)", () => {
     driveHostContact(cart, EDGE_HANDLE, makeCallbacks({ playEdgeImpact, playFloorImpact }));
 
     expect(playEdgeImpact).not.toHaveBeenCalled();
+    expect(playFloorImpact).not.toHaveBeenCalled();
+  });
+
+  it("measured real-impact Δv (1.6 m/s) fires an audible clang on the tuned curve", () => {
+    // * The real Rapier probe measured 1.6–1.7 m/s per-step Δv at first contact at
+    // * ANY approach speed (5–12 m/s) — the +4 solver iterations spread the impulse.
+    // * The old 2.5 threshold was unreachable; the tuned curve must make this fire.
+    const cart = makeCart({ x: 8, y: 0, z: 0 }, { x: 6.4, y: 0, z: 0 });
+    const playEdgeImpact = vi.fn();
+    const playFloorImpact = vi.fn();
+
+    driveHostContact(cart, EDGE_HANDLE, makeCallbacks({ playEdgeImpact, playFloorImpact }));
+
+    expect(playEdgeImpact).toHaveBeenCalledTimes(1);
+    // * Δv = 1.6 → (1.6 − 0.75) / 6 ≈ 0.142
+    expect(playEdgeImpact.mock.calls[0][0]).toBeCloseTo(0.1417, 3);
     expect(playFloorImpact).not.toHaveBeenCalled();
   });
 

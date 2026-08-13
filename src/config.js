@@ -319,8 +319,17 @@ const physics = {
 
   environmentImpacts: {
     floorFallSpeedThreshold: 3.0, // m/s — min downward pre-step speed for floor impact FX
-    edgeDeltaVThreshold: 2.5, // m/s — min horizontal Δv for wall/edge impact FX
-    intensityRange: 15.0, // m/s — divisor mapping excess speed/Δv to intensity 0–1
+    // * ZAN-BOLLARD-PT-1: measured with the real Rapier build — a cart slammed into a
+    // * bollard at 5–12 m/s produces only 1.6–1.7 m/s of per-step Δv at first contact
+    // * (the +4 cart solver iterations spread the impulse across substeps). The old
+    // * 2.5 threshold was unreachable, so edge clangs never fired for ANY surface
+    // * (bollards, gnomon, booth legs, pit wall). 0.75 sits above driving/turning
+    // * jitter (~0.3–0.5 m/s per step) and well below the measured impact Δv.
+    edgeDeltaVThreshold: 0.75, // m/s — min horizontal Δv for wall/edge impact FX
+    // * Edge Δv is solver-spread (small), so it needs its own shorter intensity ramp —
+    // * sharing the floor's 15 m/s range would cap every edge hit below 0.06 intensity.
+    edgeIntensityRange: 6.0, // m/s — divisor mapping excess edge Δv to intensity 0–1
+    intensityRange: 15.0, // m/s — divisor mapping excess floor fall speed to intensity 0–1
     minIntensity: 0.01, // unitless — ignore FX below this intensity
     contactYOffset: -0.4, // meters — floor contact point below cart origin
     pitRadiusOffset: 2, // meters — added to record radius for edge contact placement
