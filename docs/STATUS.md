@@ -78,11 +78,6 @@ Live rows only. Shipped and closed cards live in
 |---|------|--------|
 | BUNDLE-1 | Menu/game code-split | ⚠️ **CLOSED PARTIAL 08-05 — perf goal NOT met. Deployed `f2f90fd2`.** Warm `menu-ready` −3% vs a −15% gate. Banked: a `size:check` byte gate, `main.js` 2,582 → 1,262 lines, −22.6% off the initial set (**cold** visits only). Lever E playtested: BUNDLE-E-PT-1 PASS 6/6. [bundle-1.md §0](./planning/bundle-1.md) |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
-| CARGO-BAY-INSTANCE-1 | Per-bay InstancedMesh for cargo bays | ✅ **CLOSED 08-12** (`9e86382`). 30 Mesh → per-model InstancedMesh. Draw calls ≤120 → ~24. Solo fill and spill/rebuild PASS 08-13; playtest owed: **CARGO-BAY-INSTANCE-PT-3** (MP parity). |
-| CONN-TRACK-LEAK-1 | Release platform-dead IP tracking before the cap | ✅ **CLOSED 08-12** (`9439cd2`, deployed `5ae6f69b`). `#prunePlatformDeadTracking()` releases leaked IP counts before the cap decision; five teardown paths consolidated via `#forgetConnectionTracking()`. Same-clientId reconnect PASS 08-13; playtest owed: **CONN-TRACK-LEAK-PT-1** (host-leave migration). |
-| PA-QUIET-1 | Quiet the Store PA | ✅ **CLOSED 08-12.** Wyatt playtest PASS. Deployed `3044ab99`. Same-fall flavor skip + busy-channel drop + `last_call` interrupts. Commits `e37bd59` + `a0ba621`. |
-| MENU-MUSIC-2 | Second main-menu song | ✅ **CLOSED 08-13.** Wyatt playtest PASS on prod `11e5e48f`. |
-| RAPIER-MAJOR-1 | Rapier 0.19.3 → 0.20.0 | ✅ **CLOSED PASS 08-13.** Deployed `524bd4db`; PT-1 solo PASS and PT-2 live two-browser Friends PASS. |
 
 ### Next actions
 
@@ -177,17 +172,7 @@ High/Med; 2 Low (ZAN-BOLLARD-CLASS-1 · ZAN-REACTIVE-ALLOC-1). All 8 filed in BA
 2026-08-13 (MENU-MUSIC-PT-1) — Wyatt playtest PASS on prod `11e5e48f`.
 Parent MENU-MUSIC-2 closed.
 
-2026-08-12 (STORE-MUSIC-1) — Storerooms playlist is two new tracks. Playtest owed:
-**STORE-MUSIC-PT-1**.
-
-2026-08-12 (PLAYTEST-SEED-1) — Playtest seed is now fail-closed. `health:check` fails
-`PLAYTEST_STEPLESS` and `PLAYTEST_PARENT_UNSEEDED`. Pull/checkout/rebase refresh the
-gitignored console. CARGO-BAY-INSTANCE-PT-1/2/3 seeded. STATUS prose is not a seed.
-
-2026-08-12 (STORE-1) — Deleted `src/gameState.js`. Round-state commands live on
-`src/stores/gameStore.js`. Unused store lifecycle methods removed. Playtest owed on
-`npm run dev:local` (solo KO, quit, rematch, combo badge). Not pushed.
-
-Older session logs (2026-08-11 and earlier): [archive/README.md](./archive/README.md)
+Older session logs (2026-08-12 and earlier): [archive/README.md](./archive/README.md)
+([status-log-2026-08-12.md](./archive/status-log-2026-08-12.md)) ·
 ([status-log-2026-08-11.md](./archive/status-log-2026-08-11.md)) ·
 ([status-log-2026-08-08-to-10.md](./archive/status-log-2026-08-08-to-10.md)).
