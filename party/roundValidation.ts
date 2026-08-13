@@ -34,7 +34,7 @@ export type RoundState = {
    * host stamp — only successive host-domain deltas are accumulated (NET-CLK-2).
    * Reset on countdown entry, lobby, and countdown→running.
    */
-  pausedWallMs?: number;
+  hostHideCompMs?: number;
   /** Server stamped on every broadcast round payload clients may trust for stats. */
   validated: true;
 };
@@ -124,7 +124,7 @@ export function validateHostRound(
   let winnerSlotIndex: number | "draw" | null = prev.winnerSlotIndex;
   let endReason: "timer" | "lastStanding" | null = prev.endReason ?? null;
   let runningSinceServerMs = prev.runningSinceServerMs ?? 0;
-  let pausedWallMs = prev.pausedWallMs ?? 0;
+  let hostHideCompMs = prev.hostHideCompMs ?? 0;
 
   if (nextPhase === "countdown") {
     countdownStartedAtMs =
@@ -133,7 +133,7 @@ export function validateHostRound(
         : now;
     startedAtMs = 0;
     runningSinceServerMs = 0;
-    pausedWallMs = 0;
+    hostHideCompMs = 0;
     winnerSlotIndex = null;
     scores = { 0: 0, 1: 0, 2: 0, 3: 0 };
     endReason = null;
@@ -148,23 +148,23 @@ export function validateHostRound(
     // * Latch the server-clock round anchor on the countdown→running commit; carry it
     // * through mid-round running→running updates (Sudden Death flag flips, score syncs).
     // * Host-hide (ROUND-WEDGE-1): when the host advances startedAtMs (visibility
-    // * compensation), accumulate the host-domain delta into pausedWallMs for MAX only.
+    // * compensation), accumulate the host-domain delta into hostHideCompMs for MAX only.
     // * Do not touch runningSinceServerMs — MIN stays pure wall time since running commit.
     if (prev.phase !== "running") {
       runningSinceServerMs = now;
-      pausedWallMs = 0;
+      hostHideCompMs = 0;
     } else {
       runningSinceServerMs = prev.runningSinceServerMs || now;
       const prevStart = prev.startedAtMs;
       if (prevStart > 0 && startedAtMs > prevStart) {
         const hideDelta = startedAtMs - prevStart;
         if (Number.isFinite(hideDelta) && hideDelta > 0) {
-          pausedWallMs = (prev.pausedWallMs ?? 0) + hideDelta;
+          hostHideCompMs = (prev.hostHideCompMs ?? 0) + hideDelta;
         } else {
-          pausedWallMs = prev.pausedWallMs ?? 0;
+          hostHideCompMs = prev.hostHideCompMs ?? 0;
         }
       } else {
-        pausedWallMs = prev.pausedWallMs ?? 0;
+        hostHideCompMs = prev.hostHideCompMs ?? 0;
       }
     }
     winnerSlotIndex = null;
@@ -198,14 +198,18 @@ export function validateHostRound(
     // * forever. startedAtMs fallback covers rounds validated before the anchor
     // * field existed.
     // *
-    // * ROUND-WEDGE-1 MAX (non-SD only), reads prev.* only:
-    // *   reject when now - runningAnchor - pausedWallMs > ROUND_DURATION_MS + 15_000
-    // * MIN (no pause term):
+    // * ROUND-WEDGE-1 MAX (non-SD only), reads prev.* only.
+    // * Clock domains: `now` and `runningAnchor` are SERVER domain (Worker-stamped
+    // * runningSinceServerMs / startedAtMs); `hostHideCompMs` is a host-domain DELTA
+    // * (accumulated startedAtMs increases, ROUND-CLOCKDOMAIN-1) — a duration, so
+    // * subtracting it from a server-domain wall age is domain-safe.
+    // *   reject when now - runningAnchor - hostHideCompMs > ROUND_DURATION_MS + 15_000
+    // * MIN (no hide term):
     // *   reject when now - runningAnchor < MIN_RUNNING_BEFORE_PODIUM_MS
     const runningAnchor = prev.runningSinceServerMs || prev.startedAtMs;
-    const paused = prev.pausedWallMs ?? 0;
+    const hostHide = prev.hostHideCompMs ?? 0;
     if (!prev.startedAtMs || !runningAnchor || now - runningAnchor < MIN_RUNNING_BEFORE_PODIUM_MS) return null;
-    if (!prev.isSuddenDeath && now - runningAnchor - paused > ROUND_DURATION_MS + 15_000) return null;
+    if (!prev.isSuddenDeath && now - runningAnchor - hostHide > ROUND_DURATION_MS + 15_000) return null;
 
     const lastStanding =
       endReasonRaw === "lastStanding"
@@ -264,7 +268,7 @@ export function validateHostRound(
     startedAtMs = 0;
     countdownStartedAtMs = 0;
     runningSinceServerMs = 0;
-    pausedWallMs = 0;
+    hostHideCompMs = 0;
     winnerSlotIndex = null;
     scores = { 0: 0, 1: 0, 2: 0, 3: 0 };
     endReason = null;
@@ -281,7 +285,7 @@ export function validateHostRound(
     startedAtMs,
     countdownStartedAtMs,
     runningSinceServerMs,
-    pausedWallMs,
+    hostHideCompMs,
     scores,
     endReason,
     isSuddenDeath,
