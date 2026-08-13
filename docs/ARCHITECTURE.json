@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-13T03:38:34.309Z",
-    "commit": "e3151aa"
+    "at": "2026-08-13T03:44:02.427Z",
+    "commit": "b49f5ff"
   },
-  "source_digest": "18890256",
+  "source_digest": "e30882f9",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1277,13 +1277,13 @@
           {
             "pri": "Medium",
             "item": "NPC-TYPE-DRAW-PT-1 — solo NPCs are three types; omit rotates on refresh `[solo]`",
-            "notes": "**Owed: Wyatt playtest — NPC-TYPE-DRAW-PT-1 — solo never fields two of one type, and the omitted type changes only after a hard-refresh.** Parent NPC-TYPE-DRAW-1. Not on prod. Run `npm run dev:local`.<br>1. Menu → Solo → play. Look at the three NPC emblems. FAIL if two match. Note the missing type.<br>2. Rematch without refresh. FAIL if the missing type changed. PASS if the same trio returns.<br>3. Hard-refresh. Solo again. FAIL if the missing type is the same as step 1, or if two emblems match. PASS if the omitted type changed and the three types are still distinct.",
+            "notes": "**Owed: Wyatt playtest — NPC-TYPE-DRAW-PT-1 — solo never fields two of one type, and the omitted type changes only after a hard-refresh.** Parent NPC-TYPE-DRAW-1. Prod after hard-refresh. Deployed `7aa16db4`.<br>1. Menu → Solo → play. Look at the three NPC emblems. FAIL if two match. Note the missing type.<br>2. Rematch without refresh. FAIL if the missing type changed. PASS if the same trio returns.<br>3. Hard-refresh. Solo again. FAIL if the missing type is the same as step 1, or if two emblems match. PASS if the omitted type changed and the three types are still distinct.",
             "ship1": null
           },
           {
             "pri": "Medium",
             "item": "NPC-TYPE-DRAW-PT-2 — quickplay solo fields three distinct types `[solo]`",
-            "notes": "**Owed: Wyatt playtest — NPC-TYPE-DRAW-PT-2 — a one-human Quickplay room fields three different NPC types.** Parent NPC-TYPE-DRAW-1. Not on prod. Run `npm run dev:local`.<br>1. Menu → Quickplay. Sit and look at the three NPC emblems.<br>2. FAIL if two emblems match. PASS if you see three different types.",
+            "notes": "**Owed: Wyatt playtest — NPC-TYPE-DRAW-PT-2 — a one-human Quickplay room fields three different NPC types.** Parent NPC-TYPE-DRAW-1. Prod after hard-refresh. Deployed `7aa16db4`.<br>1. Menu → Quickplay. Sit and look at the three NPC emblems.<br>2. FAIL if two emblems match. PASS if you see three different types.",
             "ship1": null
           }
         ]
