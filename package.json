@@ -79,8 +79,8 @@
     "wrangler": "^4.110.0"
   },
   "dependencies": {
-    "@dimforge/rapier3d": "^0.19.3",
-    "@dimforge/rapier3d-simd": "^0.19.3",
+    "@dimforge/rapier3d": "^0.20.0",
+    "@dimforge/rapier3d-simd": "^0.20.0",
     "animejs": "^4.5.0",
     "howler": "^2.2.4",
     "nipplejs": "^1.0.4",

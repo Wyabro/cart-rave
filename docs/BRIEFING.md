@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-13 at commit `7aa8b8c` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `155a5bf1`
+> Generated 2026-08-13 at commit `cb17159` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `1940d956`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -16,12 +16,15 @@
 
 Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep and the analytics gating are closed. Run 7 closed; NET-2 / NET-MIG-3 passed live; NET-PRES-1 landed (loss-on-drop residual accepted). The analytics DO has been reset, so the ring starts clean for external testers. Stay in this phase until Wyatt advances the marker.
 
-## NO ACTIVE CARD
+## ACTIVE CARD
 
-Nothing named — wait for Wyatt to pick the next card in docs/STATUS.md
+Wyatt playtest RAPIER-MAJOR-PT-1 on `npm run dev:local` after hard-refresh
+
+Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 
 Self-directed queue (one at a time, within the declared phase):
 - **BUNDLE-1** Menu/game code-split — ⚠️ CLOSED PARTIAL 08-05 — perf goal NOT met. Deployed `f2f90fd2`. Warm `menu-ready` −3% vs a −15% gate.…
+- **RAPIER-MAJOR-1** Rapier 0.19.3 → 0.20.0 — 🔧 CODE LANDED. Both packages `0.20.0`. Playtest owed: RAPIER-MAJOR-PT-1 (dev) · RAPIER-MAJOR-PT-2 (after…
 
 ## Do not
 

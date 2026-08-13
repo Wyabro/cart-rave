@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-13T04:40:38.307Z",
-    "commit": "7aa8b8c"
+    "at": "2026-08-13T04:48:14.443Z",
+    "commit": "cb17159"
   },
-  "source_digest": "a323797c",
+  "source_digest": "8acd594b",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -904,10 +904,17 @@
         "what": "Second main-menu song",
         "status": "✅ CLOSED 08-13. Wyatt playtest PASS on prod `11e5e48f`.",
         "state": "done"
+      },
+      {
+        "id": "RAPIER-MAJOR-1",
+        "what": "Rapier 0.19.3 → 0.20.0",
+        "status": "🔧 CODE LANDED. Both packages `0.20.0`. Playtest owed: RAPIER-MAJOR-PT-1 (dev) · RAPIER-MAJOR-PT-2 (after ship).",
+        "state": "waiting"
       }
     ],
     "next_actions": [
-      "Wait for Wyatt to name the next active card.",
+      "Wyatt playtest RAPIER-MAJOR-PT-1 on `npm run dev:local` after hard-refresh.",
+      "Do not deploy until Wyatt says ship it.",
       "Deferred playtests: CARGO-BAY-INSTANCE-PT-3 · CONN-TRACK-LEAK-PT-1 · SHARD-PT-2."
     ],
     "open_issues": [
@@ -1050,7 +1057,7 @@
           {
             "pri": "Medium",
             "item": "RAPIER-MAJOR-1 — `@dimforge/rapier3d` 0.19 → 0.20",
-            "notes": "**Filed 08-12 from the dependency sweep.** `npm update` deliberately leaves it behind (caret range). Physics engine major — behavior-affecting: bump both `rapier3d` and `rapier3d-simd` together, run `npm run qa`, then a live multiplayer playtest (host-authoritative invariant untouched — same WASM stepping, verify no feel/KO regression). Watch Rapier 0.20 changelog for API breaks before starting.",
+            "notes": "**Code landed, playtest owed.** Both packages at `0.20.0` (wraps Rust 0.35). No knob retune. SIMD stays opt-in. Playtest: **RAPIER-MAJOR-PT-1** (solo, `npm run dev:local`) · **RAPIER-MAJOR-PT-2** (live MP, after ship). Do not close until both PASS.",
             "ship1": null
           },
           {
@@ -1180,7 +1187,7 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Medium": 5,
+          "Medium": 7,
           "Low": 2
         },
         "rows": [
@@ -1224,6 +1231,18 @@
             "pri": "Medium",
             "item": "CARGO-BAY-INSTANCE-PT-3 — other players see the same cargo `[2pc]`",
             "notes": "**Owed: Wyatt playtest — CARGO-BAY-INSTANCE-PT-3 — the other player sees your cargo fill, not an empty bay.** Same parent; two machines.<br>1. Two browsers, same Friends room on prod. Both seat and start.<br>2. Score on one cart until its bays fill. Look at that cart from the other browser.<br>3. FAIL if the other player sees empty bays, a different fill, or missing models. PASS if both screens show the same groceries.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "RAPIER-MAJOR-PT-1 — solo drive + hop + KO + pit still feel like 0.19 `[solo]`",
+            "notes": "**Owed: Wyatt playtest — RAPIER-MAJOR-PT-1 — solo drive, hop, KO, and pit feel like 0.19.** Not on prod. Run `npm run dev:local`. Parent RAPIER-MAJOR-1. Physics 0.20 wraps Rust 0.35 — same knobs, new solver.<br>1. Menu → Solo → Cart Rave. Spawn. Drive a lap. Hop on flat ground. Charge-boost.<br>2. Ram an NPC to KO. Watch bounce and respawn. Drive over the center hole. Spill groceries.<br>3. Hit a pit stave at speed. FAIL if you sink through, hop dies, air-hops return, or KO bounce is wrong. PASS if drive, hop, KO, and pit match 0.19.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "RAPIER-MAJOR-PT-2 — live host+joiner drive and KO `[2pc]`",
+            "notes": "**Owed: Wyatt playtest — RAPIER-MAJOR-PT-2 — joiner drive and a KO on the joiner still match the host.** Two browsers, Friends room. After ship + hard-refresh. Parent RAPIER-MAJOR-1.<br>1. Host and joiner both drive. FAIL if the joiner rubber-bands or cannot steer.<br>2. Host KOs the joiner. FAIL if the joiner does not shatter or respawn. PASS if both screens agree.",
             "ship1": null
           }
         ]
