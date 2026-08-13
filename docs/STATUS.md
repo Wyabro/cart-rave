@@ -34,7 +34,7 @@ external testers. Stay in this phase until Wyatt advances the marker.
 
 **STORE-MUSIC-1** shipped 08-12. Storerooms now has two new tracks. Playtest owed: **STORE-MUSIC-PT-1**.
 
-**MENU-MUSIC-2** coded 08-13. First-load always played `menu.opus` on `dev:local` because the DEV gate returned before the random start index was stored. Fix: store `startIdx` first. Playtest owed: **MENU-MUSIC-PT-1** on `npm run dev:local` after pull.
+**MENU-MUSIC-2** deployed 08-13 `11e5e48f`. Hashed assets 0×404. Live `index-BqCYkBNl.js` carries `menu2.opus`; live `audioManager-kbrnh4ap.js` carries `menuTrackIdx`. Playtest owed: **MENU-MUSIC-PT-1** on prod after hard-refresh.
 
 **PA-COMBO-1** deployed `c0a15308`. Hashed assets 0×404. Live `gameBoot-ChoyxoHG.js` carries the combo queue set + `ttlMs:8e3`. Playtest owed: **PA-COMBO-PT-1** on prod after hard-refresh.
 
@@ -82,13 +82,13 @@ Live rows only. Shipped and closed cards live in
 | CONN-TRACK-LEAK-1 | Release platform-dead IP tracking before the cap | ✅ **CLOSED 08-12** (`9439cd2`, deployed `5ae6f69b`). `#prunePlatformDeadTracking()` releases leaked IP counts before the cap decision; five teardown paths consolidated via `#forgetConnectionTracking()`. Playtest owed: CONN-TRACK-LEAK-PT-1 (host-leave migration), CONN-TRACK-LEAK-PT-2 (ghost exorcism). |
 | PA-QUIET-1 | Quiet the Store PA | ✅ **CLOSED 08-12.** Wyatt playtest PASS. Deployed `3044ab99`. Same-fall flavor skip + busy-channel drop + `last_call` interrupts. Commits `e37bd59` + `a0ba621`. |
 | STORE-MUSIC-1 | Storerooms two-track playlist | ✅ **CLOSED 08-12.** Deployed `4f8b649f`. Replaced the old Storerooms track and added a second song. Playtest owed: **STORE-MUSIC-PT-1**. |
-| MENU-MUSIC-2 | Second main-menu song | ✅ **CODE 08-13.** Two-song menu playlist, random first track. Playtest owed: **MENU-MUSIC-PT-1** on `npm run dev:local`. |
+| MENU-MUSIC-2 | Second main-menu song | ✅ **DEPLOYED 08-13** `11e5e48f`. Two-song menu playlist, random first track. Playtest owed: **MENU-MUSIC-PT-1** on prod after hard-refresh. |
 | PA-COMBO-1 | Savage/carnage PA lines play | 🔧 **DEPLOYED 08-12** `c0a15308`. Playtest owed: **PA-COMBO-PT-1**. |
 
 ### Next actions
 
 1. **Playtest PA-COMBO-PT-1** on prod after hard-refresh.
-2. **Other playtest owed:** **MENU-MUSIC-PT-1** on `npm run dev:local`. **STORE-MUSIC-PT-1** on prod `4f8b649f`. **STORE-1-PT-1** on `npm run dev:local`. SHARD-PT-2 (skip, needs five humans). **CARGO-BAY-INSTANCE-PT-1** · **PT-2** · **PT-3**. **CONN-TRACK-LEAK-PT-1** + **CONN-TRACK-LEAK-PT-2** — prod `5ae6f69b`.
+2. **Other playtest owed:** **MENU-MUSIC-PT-1** on prod `11e5e48f` after hard-refresh. **STORE-MUSIC-PT-1** on prod `4f8b649f`. **STORE-1-PT-1** on `npm run dev:local`. SHARD-PT-2 (skip, needs five humans). **CARGO-BAY-INSTANCE-PT-1** · **PT-2** · **PT-3**. **CONN-TRACK-LEAK-PT-1** + **CONN-TRACK-LEAK-PT-2** — prod `5ae6f69b`.
 
 ## Open issues (top)
 
@@ -138,9 +138,9 @@ the dev loop (dev probes lie in prod · edge propagation · frozen `rAF`), or a 
 
 ## Last updated
 
-2026-08-13 (MENU-MUSIC-2) — First-load on `dev:local` always started
-`menu.opus`. Cause: DEV gate returned before `startIdx` was stored. Playtest
-owed: **MENU-MUSIC-PT-1**.
+2026-08-13 (MENU-MUSIC-2) — Deployed `11e5e48f`. Hashed assets 0×404. Live
+`index-BqCYkBNl.js` carries `menu2.opus`. Playtest owed: **MENU-MUSIC-PT-1**
+on prod after hard-refresh.
 
 2026-08-12 (STORE-MUSIC-1) — Storerooms playlist is two new tracks. Playtest owed:
 **STORE-MUSIC-PT-1**.

@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-13T01:12:59.879Z",
-    "commit": "c358e1a"
+    "at": "2026-08-13T01:44:54.532Z",
+    "commit": "ffd0d79"
   },
-  "source_digest": "013d0e94",
+  "source_digest": "02f21547",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -908,7 +908,7 @@
       {
         "id": "MENU-MUSIC-2",
         "what": "Second main-menu song",
-        "status": "✅ CODE 08-13. Two-song menu playlist, random first track. Playtest owed: MENU-MUSIC-PT-1 on `npm run dev:local`.",
+        "status": "✅ DEPLOYED 08-13 `11e5e48f`. Two-song menu playlist, random first track. Playtest owed: MENU-MUSIC-PT-1 on prod after hard-refresh.",
         "state": "done"
       },
       {
@@ -920,7 +920,7 @@
     ],
     "next_actions": [
       "Playtest PA-COMBO-PT-1 on prod after hard-refresh.",
-      "Other playtest owed: MENU-MUSIC-PT-1 on `npm run dev:local`. STORE-MUSIC-PT-1 on prod `4f8b649f`. STORE-1-PT-1 on `npm run dev:local`. SHARD-PT-2 (skip, needs five humans). CARGO-BAY-INSTANCE-PT-1 · PT-2 · PT-3. CONN-TRACK-LEAK-PT-1 + CONN-TRACK-LEAK-PT-2 — prod `5ae6f69b`."
+      "Other playtest owed: MENU-MUSIC-PT-1 on prod `11e5e48f` after hard-refresh. STORE-MUSIC-PT-1 on prod `4f8b649f`. STORE-1-PT-1 on `npm run dev:local`. SHARD-PT-2 (skip, needs five humans). CARGO-BAY-INSTANCE-PT-1 · PT-2 · PT-3. CONN-TRACK-LEAK-PT-1 + CONN-TRACK-LEAK-PT-2 — prod `5ae6f69b`."
     ],
     "open_issues": [
       {
@@ -1265,7 +1265,7 @@
           {
             "pri": "Medium",
             "item": "MENU-MUSIC-PT-1 — menu plays both songs, never under the game `[solo]`",
-            "notes": "**Owed: Wyatt playtest — MENU-MUSIC-PT-1 — the menu plays one song at a time and dies when Solo starts.** Parent MENU-MUSIC-2. Not on prod. Run `npm run dev:local`.<br>1. Open the menu. One song starts.<br>2. Start Solo. Menu music stops. Arena music only.<br>3. Quit to menu. One menu song starts. FAIL if silence, both songs at once, or menu music under the game.",
+            "notes": "**Owed: Wyatt playtest — MENU-MUSIC-PT-1 — the menu plays one song at a time and dies when Solo starts.** Parent MENU-MUSIC-2. Prod after hard-refresh. Deployed `11e5e48f`.<br>1. Open the menu. One song starts.<br>2. Start Solo. Menu music stops. Arena music only.<br>3. Quit to menu. One menu song starts. FAIL if silence, both songs at once, or menu music under the game.",
             "ship1": null
           },
           {
