@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-13T06:57:58.557Z",
-    "commit": "bf30c7e"
+    "at": "2026-08-13T07:07:44.468Z",
+    "commit": "0a2acfd"
   },
-  "source_digest": "a7d023c0",
+  "source_digest": "3decc7b6",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -935,7 +935,7 @@
       {
         "title": "Engineering",
         "counts": {
-          "Low": 15,
+          "Low": 14,
           "Partial": 1,
           "Medium": 4
         },
@@ -1052,12 +1052,6 @@
             "pri": "Low",
             "item": "PARTY-ENVTYPE-1 — untyped `Env` bindings",
             "notes": "`env: Record<string, any>` in Worker/DO. A typo in a binding name is a runtime 500. Add a typed interface.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "DEPS-MAJOR-1 — tooling majors: `sharp` 0.35 + `@cloudflare/vitest-pool-workers` 0.21",
-            "notes": "**Filed 08-12 from the dependency sweep.** Dev-only, no player-visible behavior. `sharp` 0.34 → 0.35 also clears the libvips CVEs (`npm audit` high). vitest-pool-workers 0.18 → 0.21 pulls miniflare/wrangler/undici CVE fixes (2 high, 3 moderate today). TS 7 is owned by **TS-1** — not this card. Bump + `npm run qa`.",
             "ship1": null
           }
         ]

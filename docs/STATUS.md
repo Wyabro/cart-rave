@@ -38,6 +38,8 @@ external testers. Stay in this phase until Wyatt advances the marker.
 
 **RAPIER-MAJOR-1** / **RAPIER-MAJOR-PT-2** CLOSED 08-13. Wyatt PASS on prod after hard-refresh in a two-browser Friends room: host and joiner drove, the host KO'd the joiner, and both screens agreed. Deployed `524bd4db`; both packages `0.20.0` (Rust 0.35). Hashed assets 0×404. Live `rapierInstance-o_X8o-Pe.js` carries `cartRaveRapierSimd`.
 
+**DEPS-MAJOR-1** CLOSED 08-13. Direct `sharp@0.35.3` and `@cloudflare/vitest-pool-workers@0.21.2`; party-do 45/45, full QA, production build, and Wrangler dry-run PASS. No player-visible behavior and no deploy.
+
 **Closed cards keep their narrative in their own docs, not here** — Sundial
 ([handover](./planning/art-pass-sundial-handover.md); read its "Traps that cost time" before any
 capture, and judge phase changes against a ~1.2% construction-noise floor, not zero), Fight Night

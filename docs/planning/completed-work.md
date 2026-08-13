@@ -13,6 +13,12 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 13, 2026 — DEPS-MAJOR-1: tooling majors
+
+- *(Engineering · Low)* **DEPS-MAJOR-1** — ✅ **CLOSED 08-13.** Upgraded direct devDependencies to `sharp@0.35.3` and `@cloudflare/vitest-pool-workers@0.21.2`; the effective toolchain is Wrangler `4.122.0`, Miniflare `5.20260811.0-alpha`, Undici `7.29.0`, and Workerd `1.20260811.1`. Sharp compare smoke produced `meanAbs=0.000`; party-do passed 5 files / 45 tests; full QA, production build, and Wrangler dry-run passed. Audit findings fell from 9 to 4; the remaining Vite/PostCSS/nanoid findings are outside this card. No player-visible behavior and no deploy.
+
+---
+
 ### August 13, 2026 — RAPIER-MAJOR-1 / RAPIER-MAJOR-PT-2: live multiplayer PASS
 
 - *(Dependency / Playtest · Medium)* **RAPIER-MAJOR-1** / **RAPIER-MAJOR-PT-2** — ✅ **CLOSED PASS 08-13.** Wyatt PASSed the deployed `524bd4db` build after a hard refresh in a two-browser Friends room: host and joiner drove, the host KO'd the joiner, and both screens agreed on the result. The Rapier 0.19 → 0.20 bump had already passed the solo PT-1 check; this closes the parent after live multiplayer verification.
