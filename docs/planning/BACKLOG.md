@@ -72,10 +72,10 @@ way the Block table still can.)*
 | Department | Open | High | Medium | Low |
 |---|---:|---:|---:|---:|
 | [Engineering](#engineering) | 10 | 0 | 4 | 5 (+1 partial) |
-| [Art](#art) | 2 | 0 | 0 | 2 |
+| [Art](#art) | 1 | 0 | 0 | 1 |
 | [Audio](#audio) | 1 | 0 | 0 | 1 |
 | [Design / Gameplay](#design--gameplay) | 3 | 0 | 2 | 1 |
-| 🟢 [Playtest owed](#playtest-owed) | 7 | 0 | 3 | 4 |
+| 🟢 [Playtest owed](#playtest-owed) | 8 | 0 | 3 | 5 |
 | [UI / UX](#ui--ux) | 1 | 0 | 0 | 1 |
 | [Tech Debt](#tech-debt) | 11 | 0 | 4 | 7 |
 
@@ -185,7 +185,7 @@ traffic; 7 is post-launch or parked. Priority ranks *inside* a block too (top fi
 - **BRAND-1** — domain / rebrand ceremony (frozen until ship).
 - Trigger-gated / instrument-gated: **SHADOW-HAZARD-SEAM-1** (next arena) · **AQ-RING-CLEAR-1** (reserve) · **PERF-9CELL-1** (parked with closed parent).
 - Structure debt after multiplayer is proven: **DIR-1** · **GLTF-1** · **DUAL-1** · **TS-1** · **TOOL-1** · Vite chunk hint · **BACKLOG-GATE-2**.
-- Art/background/presentation Lows: **KO-DOOMED-1** · **ART-PALETTE-1** · sunglasses materials.
+- Art/background/presentation Lows: **KO-DOOMED-1** · sunglasses materials.
 - Taste-gated Design / Future Ideas rows — only on new evidence or explicit pull-forward.
 - **SHIP-1** living checklist row stays as the ship-doc pointer until ship.
 
@@ -212,7 +212,7 @@ traffic; 7 is post-launch or parked. Priority ranks *inside* a block too (top fi
 |-----|------|-------|
 
 | Low | KO-DOOMED-1 — local KO red edge pulse + shatter shockwave | Every local KO, including self-falls and environmental deaths, gets a medium red edge pulse and one centered expanding screen shockwave when the local cart shatters. Presentation-only: no text stamp, score, physics, camera timing, or attacker-side effect. |
-| Low | ART-PALETTE-1 — reconcile 3D and 2D neon | 3D is frozen on pure `CART_COLORS` (`0xff00ff`); 2D banned those hexes as off-brand and uses `#ff2bd6`. **The only card permitted to unfreeze the AGENTS.md invariant.** |
+
 
 ## Audio
 
@@ -316,6 +316,7 @@ remain open with their original steps. Detail: [completed-work.md](./completed-w
 | Medium | CARGO-BAY-INSTANCE-PT-3 — other players see the same cargo `[2pc]` | **Owed: Wyatt playtest — CARGO-BAY-INSTANCE-PT-3 — the other player sees your cargo fill, not an empty bay.** Same parent; two machines.<br>1. Two browsers, same Friends room on prod. Both seat and start.<br>2. Score on one cart until its bays fill. Look at that cart from the other browser.<br>3. FAIL if the other player sees empty bays, a different fill, or missing models. PASS if both screens show the same groceries. |
 | Low | LOD-DOORWAY-PT-1 — Storerooms wall doorways stay visible `[solo]` | **Owed: Wyatt playtest — LOD-DOORWAY-PT-1 — the wall doorways stay visible from the floor and when you drive up to them (were popping out at the wall).** LOD-DOORWAY-1 dropped the origin-anchored `far: 55` registration. Solo Storerooms on prod after hard-refresh.<br>1. From the floor, look across the pit at each wall doorway (two on the −Z wall, one on the −X wall). FAIL if any is missing from that view.<br>2. Drive at each doorway until you reach the wall.<br>3. FAIL if a doorway pops out as you get close, or if the round never completes. PASS if all three stay visible from the floor and at the wall. |
 | Low | SHELF-RAIL-PT-1 — Storerooms booth rails + shelf boards look right `[solo]` | **Owed: Wyatt playtest — SHELF-RAIL-PT-1 — the spawn-booth handrails read as matte painted steel (not shiny chrome), and the far shelf boards read as bolted sections.** SHELF-RAIL-1 cut the rail metalness 0.7→0.3 / roughness 0.45→0.72 and split each 114 m shelf board into bays with 4 cm seams. Solo Storerooms on `npm run dev` (or prod after next ship).<br>1. Look at the four spawn-booth platforms from the floor at round start. FAIL if the handrails gleam like chrome; PASS if they read matte metal like the room's other painted surfaces.<br>2. Drive to one perimeter wall and look at the shelf boards behind the products. FAIL if the boards look like one unbroken run; PASS if you can see bay seams (per-bay texture breaks) reading as bolted sections.<br>3. FAIL if the rails are brighter than every other surface in the room, or if anything looks broken. |
+| Low | ART-PALETTE-PT-1 — cart neon reads as brand magenta/cyan/green/yellow/orange `[solo]` | **Owed: Wyatt playtest — ART-PALETTE-PT-1 — carts glow brand neon (softer magenta/cyan/green/yellow/orange), not pure spectral, and the menu chip matches the in-game color.** ART-PALETTE-1 reconciled `CART_COLORS` with the 2D roster (`0xff2bd6`/`0x22e6ff`/`0x2bff7a`/`0xffe53d`/`0xff7a1a`) and swept arena neon stragglers. Solo on `npm run dev` (or prod after next ship), any arena + the customize screen.<br>1. Pick each of the five preset colors in customize; look at the menu chip and the in-game cart. FAIL if the chip color and the cart neon differ, or if any color reads pure spectral (raw #ff00ff etc.).<br>2. Emissive balance: pink and orange must not look dimmer than before, and yellow must not look hotter (it brightened ~40% — the old run-5 taming no longer applies). FAIL if any color looks blown out or dead.<br>3. Check the HUD "you" accent (ready button, score float, hitmarker) matches the cart's neon color.<br>4. Drag the custom-color hue slider. FAIL if a preset-adjacent custom hue snaps to a noticeably wrong-looking bloom. |
 
 ## UI / UX
 
@@ -421,4 +422,4 @@ CARGO-BAY-INSTANCE-PT-1, CARGO-BAY-INSTANCE-PT-2, CONN-TRACK-LEAK-1, CONN-TRACK-
 NPC-BOOTH-TARGET-PT-1, NPC-TYPE-DRAW-1, NPC-TYPE-DRAW-PT-1, NPC-TYPE-DRAW-PT-2,
 PA-COMBO-1, PA-COMBO-PT-1, STORE-1-PT-1, STORE-MUSIC-PT-1, RAPIER-MAJOR-1, RAPIER-MAJOR-PT-1,
 RAPIER-MAJOR-PT-2, NET-QUIT-RETRY-1, CHAL-MENU-REBUILD-1, CHAL-ROTATE-RECORD-1, CHAL-ROTATE-REPEAT-1,
-CHAL-DEAD-EXPORT-1, ZAN-REACTIVE-ALLOC-1, BINARY-F32NAME-1, CONSOLE-HI-1, CHAL-PODIUM-DEDUPE-1, ROUND-CLOCKDOMAIN-1, CONN-DEADCODE-1, CONN-SNAPSHOT-PURE-1, PARTY-ENVTYPE-1, CONN-SPAWN-SANITIZE-1, ZAN-BOLLARD-CLASS-1, SNAP-SPARSE-1, LOD-PITRING-1, CONN-SOURCETRUTH-1, VITE-CHUNKWARN-1, PERF-TIER-PT-1, PROBE-WARM-RT-PT-1, CHALLENGE-EXPAND-PT-1, LOD-PITRING-PT-1, MENU-MUSIC-2B-PT-1, ZAN-BOLLARD-PT-1, ANNOUNCER-RERECORD-1, LOD-DOORWAY-1, SWIRL-REVIVE-1, DEATHCAM-KILLER-1, CLAD-REPEAT-1, SHELF-RAIL-1, ART-LUMA-TOOL-1, ASSET-RENAME-1, MONETIZE-1.
+CHAL-DEAD-EXPORT-1, ZAN-REACTIVE-ALLOC-1, BINARY-F32NAME-1, CONSOLE-HI-1, CHAL-PODIUM-DEDUPE-1, ROUND-CLOCKDOMAIN-1, CONN-DEADCODE-1, CONN-SNAPSHOT-PURE-1, PARTY-ENVTYPE-1, CONN-SPAWN-SANITIZE-1, ZAN-BOLLARD-CLASS-1, SNAP-SPARSE-1, LOD-PITRING-1, CONN-SOURCETRUTH-1, VITE-CHUNKWARN-1, PERF-TIER-PT-1, PROBE-WARM-RT-PT-1, CHALLENGE-EXPAND-PT-1, LOD-PITRING-PT-1, MENU-MUSIC-2B-PT-1, ZAN-BOLLARD-PT-1, ANNOUNCER-RERECORD-1, LOD-DOORWAY-1, SWIRL-REVIVE-1, DEATHCAM-KILLER-1, CLAD-REPEAT-1, SHELF-RAIL-1, ART-LUMA-TOOL-1, ASSET-RENAME-1, ART-PALETTE-1.

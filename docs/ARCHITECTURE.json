@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-13T21:31:06.520Z",
-    "commit": "b4ae397"
+    "at": "2026-08-13T21:33:47.573Z",
+    "commit": "3f0f49b"
   },
-  "source_digest": "52a48630",
+  "source_digest": "c171c387",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -975,19 +975,13 @@
       {
         "title": "Art",
         "counts": {
-          "Low": 2
+          "Low": 1
         },
         "rows": [
           {
             "pri": "Low",
             "item": "KO-DOOMED-1 — local KO red edge pulse + shatter shockwave",
             "notes": "Every local KO, including self-falls and environmental deaths, gets a medium red edge pulse and one centered expanding screen shockwave when the local cart shatters. Presentation-only: no text stamp, score, physics, camera timing, or attacker-side effect.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "ART-PALETTE-1 — reconcile 3D and 2D neon",
-            "notes": "3D is frozen on pure `CART_COLORS` (`0xff00ff`); 2D banned those hexes as off-brand and uses `#ff2bd6`. **The only card permitted to unfreeze the AGENTS.md invariant.**",
             "ship1": null
           }
         ]
@@ -1037,7 +1031,7 @@
         "title": "Playtest owed",
         "counts": {
           "Medium": 3,
-          "Low": 4
+          "Low": 5
         },
         "rows": [
           {
@@ -1080,6 +1074,12 @@
             "pri": "Low",
             "item": "SHELF-RAIL-PT-1 — Storerooms booth rails + shelf boards look right `[solo]`",
             "notes": "**Owed: Wyatt playtest — SHELF-RAIL-PT-1 — the spawn-booth handrails read as matte painted steel (not shiny chrome), and the far shelf boards read as bolted sections.** SHELF-RAIL-1 cut the rail metalness 0.7→0.3 / roughness 0.45→0.72 and split each 114 m shelf board into bays with 4 cm seams. Solo Storerooms on `npm run dev` (or prod after next ship).<br>1. Look at the four spawn-booth platforms from the floor at round start. FAIL if the handrails gleam like chrome; PASS if they read matte metal like the room's other painted surfaces.<br>2. Drive to one perimeter wall and look at the shelf boards behind the products. FAIL if the boards look like one unbroken run; PASS if you can see bay seams (per-bay texture breaks) reading as bolted sections.<br>3. FAIL if the rails are brighter than every other surface in the room, or if anything looks broken.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "ART-PALETTE-PT-1 — cart neon reads as brand magenta/cyan/green/yellow/orange `[solo]`",
+            "notes": "**Owed: Wyatt playtest — ART-PALETTE-PT-1 — carts glow brand neon (softer magenta/cyan/green/yellow/orange), not pure spectral, and the menu chip matches the in-game color.** ART-PALETTE-1 reconciled `CART_COLORS` with the 2D roster (`0xff2bd6`/`0x22e6ff`/`0x2bff7a`/`0xffe53d`/`0xff7a1a`) and swept arena neon stragglers. Solo on `npm run dev` (or prod after next ship), any arena + the customize screen.<br>1. Pick each of the five preset colors in customize; look at the menu chip and the in-game cart. FAIL if the chip color and the cart neon differ, or if any color reads pure spectral (raw #ff00ff etc.).<br>2. Emissive balance: pink and orange must not look dimmer than before, and yellow must not look hotter (it brightened ~40% — the old run-5 taming no longer applies). FAIL if any color looks blown out or dead.<br>3. Check the HUD \"you\" accent (ready button, score float, hitmarker) matches the cart's neon color.<br>4. Drag the custom-color hue slider. FAIL if a preset-adjacent custom hue snaps to a noticeably wrong-looking bloom.",
             "ship1": null
           }
         ]

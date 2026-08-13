@@ -64,6 +64,32 @@ Chronological record of shipped work, newest first.
   0×404 check on the new `/models/` path is deferred to the next ship per Wyatt (no mid-wave
   deploy). Commit `8178a57`.
 
+### August 13, 2026 — ART-PALETTE-1: 3D cart neon reconciled to the 2D brand roster
+
+- *(Art · Low)* **ART-PALETTE-1** — ✅ **CLOSED 08-13.** `CART_COLORS` (src/config.js) was
+  frozen on pure spectral hexes (`0xff00ff` etc. — the "Original Rave" invariant) while the 2D
+  layer banned those as off-brand and used `#ff2bd6`. The palette is now **brand-aligned** to
+  the 2D roster (`PALETTES.classic.players` in cart-rave-menu.js, same order as `PALETTE`):
+  pink `0xff2bd6` · blue `0x22e6ff` · green `0x2bff7a` · yellow `0xffe53d` · neonOrange
+  `0xff7a1a`. The dead `css: "bg-*"` field (zero consumers repo-wide) was removed with it.
+  Invariant docs unfrozen: AGENTS.md, agent-manual.md, art-direction.md "Frozen" paragraph —
+  `CART_COLORS` is now the brand-aligned single source (pure spectral hexes banned as cart
+  neon); the `mesh.traverse()` material logic stays frozen. Arena neon stragglers using the
+  same banned hexes swept to brand equivalents (searchlight / trash / crowd glow / stage neon /
+  sky lasers / billboard / UFO rings / RUSH HOUR callout accent). Two exclusions kept: the
+  menu hue-picker rainbow gradient (intentional spectral ramp) and non-palette accents
+  (`0x39ff14`, `0xff3300`, whites/purples). New `tests/cartPaletteBrand.test.js` (4) pins the
+  hex values to the 2D roster so the palette cannot silently re-freeze to spectral.
+  **Emissive consequence (measured, adversarial-review catch):** `cartEmissiveIntensityForHex`
+  is luma-derived, so the shift is luma-honest but not neutral — yellow +39.7% (its run-5
+  taming gate no longer applies: luma 0.928→0.776 sits above the 0.85 gate), blue +22.7%,
+  green −2.6%, pink/orange unchanged (intensity capped). Stale comment in utils.js updated with
+  the real numbers. **Persisted customizations auto-migrate** — hex is recomputed from the
+  color id at load (`normalizeCustomization`), the stored `customHex` has zero readers. Playtest
+  owed: **ART-PALETTE-PT-1** (seeded — brand neon, chip-match, emissive balance incl. the
+  yellow/blue brightening, HUD accent, custom-hue snap). Commits `d78e2cf` (palette + docs +
+  test) · `3f0f49b` (straggler sweep).
+
 ### August 13, 2026 — SWIRL-REVIVE-1: close as no action needed
 
 - *(Design / Gameplay · Low)* **SWIRL-REVIVE-1** — ✅ **CLOSED 08-13.** The proposed turntable

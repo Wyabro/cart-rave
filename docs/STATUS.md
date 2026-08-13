@@ -169,6 +169,16 @@ progress event), **CHAL-ROTATE-RECORD-1** (no mid-session rotation) — plus 3 L
 High/Med; 2 Low (ZAN-BOLLARD-CLASS-1 · ZAN-REACTIVE-ALLOC-1). All 8 filed in BACKLOG
 (now 63 open rows). No code changes, no deploy.
 
+2026-08-13 (ART-PALETTE-1) — The invariant unfreezer closed (`d78e2cf` + `3f0f49b`):
+`CART_COLORS` hexes moved from pure spectral (`0xff00ff`) to the 2D brand roster (`#ff2bd6` /
+`#22e6ff` / `#2bff7a` / `#ffe53d` / `#ff7a1a`), matching `PALETTES.classic.players`; dead
+`css:` field removed; AGENTS.md / agent-manual / art-direction unfrozen (traverse logic stays
+frozen); arena neon stragglers swept (searchlight/trash/crowd/stage/laser/billboard/UFO/RUSH
+HOUR). **Emissive is luma-derived and shifts: yellow +39.7% (run-5 taming gate no longer
+applies), blue +22.7%, green −2.6%, pink/orange unchanged** — ART-PALETTE-PT-1 seeded with
+those exact checks. Stored customizations auto-migrate (hex recomputed from id at load).
+QA green by number (183 files); no deploy.
+
 2026-08-13 (ART-LOW-SWEEP-1) — Four Art Lows closed in one acked wave (`d0c23d0` docs+probe ·
 `3cec57a` · `bdf3df3` · `a6cbbaa` · `6cab3c5` · `8178a57`): CLAD-REPEAT-1 (per-deck UV scaling,
 one shared cladding material — texture cloning rejected in adversarial review for splitting the
