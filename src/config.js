@@ -7,7 +7,8 @@
  *   - CONFIG_VERSION     — bump when tuning values change materially (debug / diff aid)
  *   - CONFIG             — runtime settings (debug, net, camera, audio, scoring, physics)
  *   - CONFIG.physics     — grouped physics / arena / cart tuning (flat aliases on CONFIG.*)
- *   - CART_COLORS / PALETTE — immutable cart color palette ("Original Rave")
+ *   - CART_COLORS / PALETTE — cart color palette, brand-aligned (ART-PALETTE-1);
+ *     hex values match the 2D roster (PALETTES.classic.players in cart-rave-menu.js)
  *   - MSG                — wire-protocol message type strings
  *   - WORKER_PUBLIC_HOST — legacy workers.dev host (staging URL; fallback PartySocket host)
  *   - WORKER_PAGE_HOSTS — hostnames that serve this Worker (custom domain + workers.dev)
@@ -701,12 +702,15 @@ CONFIG.cart.spawnHeight =
   CONFIG.cart.size.y / 2 +
   0.05;
 
+// * ART-PALETTE-1: brand roster, in PALETTES.classic.players order. The `css: "bg-*"`
+// * field was dead (zero consumers repo-wide) and is removed. Pure spectral hexes
+// * (0xff00ff etc.) are banned as off-brand — see docs/reference/art-direction.md.
 export const CART_COLORS = {
-  pink:       { hex: 0xff00ff, css: "bg-pink" },
-  blue:       { hex: 0x00ffff, css: "bg-blue" },
-  green:      { hex: 0x00ff00, css: "bg-green" },
-  yellow:     { hex: 0xffff00, css: "bg-yellow" },
-  neonOrange: { hex: 0xff6600, css: "bg-neonOrange" },
+  pink:       { hex: 0xff2bd6 },
+  blue:       { hex: 0x22e6ff },
+  green:      { hex: 0x2bff7a },
+  yellow:     { hex: 0xffe53d },
+  neonOrange: { hex: 0xff7a1a },
 };
 
 export const PALETTE = Object.keys(CART_COLORS);

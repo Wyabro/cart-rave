@@ -56,9 +56,12 @@ black; the punch comes from lit surfaces and emissive, not from flattening the l
 (aberration/scanlines/vignette) applies to every arena. VHS is identity in The Storerooms
 only.
 
-**Frozen:** `CART_COLORS` and the `mesh.traverse()` material logic in
-[`src/config.js`](../../src/config.js) remain the "Original Rave" invariant per AGENTS.md.
-**This document does not authorize hex edits.** Only ART-PALETTE-1 may unfreeze them.
+**Palette (ART-PALETTE-1, 08-13):** `CART_COLORS` in [`src/config.js`](../../src/config.js) is
+**brand-aligned** — its hex values are the 2D roster (`PALETTES.classic.players` in
+`cart-rave-menu.js`, and the `--color-*` tokens in `tokens.css`). Pure spectral hexes
+(`0xff00ff`, `0x00ffff`, `0x00ff00`, `0xffff00`) are off-brand and must not reappear as cart
+neon. The `mesh.traverse()` material logic stays frozen. Arena neon may use brand-family hexes;
+anything not in the brand set is a per-arena art call, not a palette change.
 
 ### Per-arena moods diverge under one emotional umbrella
 

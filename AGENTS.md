@@ -40,7 +40,7 @@ Branch: **`cart-clash`**. Deploy map: [docs/guides/deploy-urls.md](docs/guides/d
 - **Host-authoritative** client Rapier; predicting clients never own the outcome.
 - **Server never simulates physics** (`party/index.ts`: lobby, signaling, TURN, host selection, lifecycle only).
 - **Realtime is P2P DataChannels** (`src/netcode/p2p.js`) — not WebSocket relay for transforms/input/spills/kill-feed.
-- **`CART_COLORS` + cart material traverse** in `src/config.js` are frozen (Original Rave).
+- **`CART_COLORS`** in `src/config.js` is the single source of truth for cart neon, **brand-aligned** to the 2D roster (`PALETTES.classic.players` in `cart-rave-menu.js`, ART-PALETTE-1 08-13) — pure spectral hexes are off-brand. The **cart material traverse** stays frozen.
 - **Rounds start only via `MSG.gameStart`.** Round length: `ROUND_DURATION_MS` in
   `shared/roundConstants.js` only (150s).
 - **No camera lerp/slerp.** **`index.html`** is menu markup (do not recreate `cart-rave-menu.html`).

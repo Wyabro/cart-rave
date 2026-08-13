@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-13T21:22:07.371Z",
-    "commit": "f869fae"
+    "at": "2026-08-13T21:31:06.520Z",
+    "commit": "b4ae397"
   },
-  "source_digest": "e755cd33",
+  "source_digest": "52a48630",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1027,8 +1027,8 @@
           },
           {
             "pri": "Low",
-            "item": "RUMBLE-STRENGTH-1 — Controller vibration strength *(pre-ship 07-19)*",
-            "notes": "",
+            "item": "RUMBLE-STRENGTH-1 — Enable controller rumble from Settings *(pre-ship 07-19)*",
+            "notes": "**Approved scope:** add a general `ENABLE CONTROLLER RUMBLE` Settings action. Use the standard Gamepad rumble API automatically when available; use a user-permission WebHID fallback for known HID profiles, starting with USB DualSense. Show honest unsupported status; preserve input and existing rumble. No adaptive triggers. **Files:** `src/haptics.js`, `src/ui/cart-rave-menu.js`, Settings markup/styles, haptics/report tests. **Asserts:** standard pads need no setup; button opens permission flow; supported DualSense rumbles on hit/KO; unsupported browser/device fails safely; input remains intact. **Risk:** WebHID is Chromium + secure-context + user-permission gated. **Playtest:** Chrome/USB DualSense enable + hit/KO; reload; standard controller; unsupported browser/device.",
             "ship1": null
           }
         ]
@@ -1383,7 +1383,7 @@
       "Host-authoritative client Rapier; predicting clients never own the outcome.",
       "Server never simulates physics (`party/index.ts`: lobby, signaling, TURN, host selection, lifecycle only).",
       "Realtime is P2P DataChannels (`src/netcode/p2p.js`) — not WebSocket relay for transforms/input/spills/kill-feed.",
-      "`CART_COLORS` + cart material traverse in `src/config.js` are frozen (Original Rave).",
+      "`CART_COLORS` in `src/config.js` is the single source of truth for cart neon, brand-aligned to the 2D roster (`PALETTES.classic.players` in `cart-rave-menu.js`, ART-PALETTE-1 08-13) — pure spectral hexes are off-brand. The cart material traverse stays frozen.",
       "Rounds start only via `MSG.gameStart`. Round length: `ROUND_DURATION_MS` in",
       "No camera lerp/slerp. `index.html` is menu markup (do not recreate `cart-rave-menu.html`).",
       "Null-guard all cart access. Host migration: oldest connection; clear buffers / re-init P2P.",
