@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-13T08:39:07.953Z",
-    "commit": "e8e7208"
+    "at": "2026-08-13T08:40:09.380Z",
+    "commit": "6fc7be1"
   },
-  "source_digest": "6ff48d5b",
+  "source_digest": "73081b8c",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -935,7 +935,7 @@
       {
         "title": "Engineering",
         "counts": {
-          "Low": 8,
+          "Low": 7,
           "Partial": 1,
           "Medium": 4
         },
@@ -1010,12 +1010,6 @@
             "pri": "Low",
             "item": "CONN-SOURCETRUTH-1 — two connection sources of truth",
             "notes": "`#connections` vs `getConnections()` reconciled by hand in several paths. Consolidate.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "ZAN-BOLLARD-CLASS-1 — Sundial bollards + gnomon classify as \"floor\", not \"edge\"",
-            "notes": "**Filed 08-13 from the Sundial audit.** Deck bollards and the gnomon ride `recordColliderHandles` → `classifyEnvironmentCollision` (simulation.js:3175) maps them to \"floor\" while booth legs are \"edge\" — contradicts the file's own convention. Near-zero impact (playFloorImpact ≈ playEdgeImpact); classification-only.",
             "ship1": null
           }
         ]
@@ -1140,7 +1134,7 @@
         "title": "Playtest owed",
         "counts": {
           "Medium": 6,
-          "Low": 3
+          "Low": 4
         },
         "rows": [
           {
@@ -1195,6 +1189,12 @@
             "pri": "Medium",
             "item": "CHALLENGE-EXPAND-PT-1 — six challenge entries and three new finishes `[solo]`",
             "notes": "**Owed: Wyatt playtest — CHALLENGE-EXPAND-PT-1 — the expanded challenge rotation and its three new sunglasses stay readable, persistent, and useful.** This work is not deployed; use `npm run dev:local`.<br>1. Open Challenges, complete one of the new daily goals, and confirm the progress card, completion toast, menu badge, analytics event, and results receipt update once.<br>2. Open Customize → Sunglasses, inspect all nine finishes, unlock and equip Obsidian, Hazard, and Pearl, then refresh and confirm the choices persist.<br>3. Check the challenge screen at desktop, portrait phone, and short landscape sizes: all four daily and two weekly cards are readable, completed states are clear, the list scrolls, and BACK/DONE remain reachable.<br>4. FAIL if a card is missing, progress resets, a finish is unavailable after its goal, or any layout clips/overlaps. PASS if all six challenges and nine finishes remain easy to use.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "ZAN-BOLLARD-PT-1 — Sundial bollard/gnomon impact clang `[solo]`",
+            "notes": "**Owed: Wyatt playtest — ZAN-BOLLARD-PT-1 — bumping a Sundial corner bollard or the center gnomon blade makes the wall-clang impact FX/sound (was silent).** ZAN-BOLLARD-CLASS-1 (classification-only) re-registered the deck bollards + gnomon as \"edge\" surfaces, matching booth legs. Not deployed; use `npm run dev:local`.<br>1. Sundial solo, drive into a corner bollard at speed — you should hear/see the impact clang, and the spark should appear at the post, not floating over the pit.<br>2. Do the same against the tall center gnomon blade.<br>3. FAIL if either post is silent, the spark is clearly in the wrong place, or the KO round never completes. PASS if both posts clang and the round plays normally.",
             "ship1": null
           }
         ]

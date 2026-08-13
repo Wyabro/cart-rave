@@ -71,11 +71,11 @@ way the Block table still can.)*
 <!-- BEGIN GENERATED counts — npm run backlog. Do not hand-edit. -->
 | Department | Open | High | Medium | Low |
 |---|---:|---:|---:|---:|
-| [Engineering](#engineering) | 13 | 0 | 4 | 8 (+1 partial) |
+| [Engineering](#engineering) | 12 | 0 | 4 | 7 (+1 partial) |
 | [Art](#art) | 6 | 0 | 0 | 6 |
 | [Audio](#audio) | 2 | 0 | 1 | 1 |
 | [Design / Gameplay](#design--gameplay) | 7 | 0 | 2 | 5 |
-| 🟢 [Playtest owed](#playtest-owed) | 9 | 0 | 6 | 3 |
+| 🟢 [Playtest owed](#playtest-owed) | 10 | 0 | 6 | 4 |
 | [Tech Debt](#tech-debt) | 12 | 0 | 4 | 8 |
 
 **49 open rows total.**
@@ -208,7 +208,6 @@ traffic; 7 is post-launch or parked. Priority ranks *inside* a block too (top fi
 | Low | QP-ROTATE-PT-1 — Quickplay rotation live 2-browser check | Reconfirm after **QP-ORDER-1** (sequential rotation). Live multi-client smoke only. |
 | Low | SNAP-SPARSE-1 — sparse cart slots emit a phantom cart at origin | `hostSendTick` leaves holes in the carts array; the encoder turns a hole into a zeroed cart. Add a session-scoped warning guard; a protocol-level present-bitmask is the real fix. |
 | Low | CONN-SOURCETRUTH-1 — two connection sources of truth | `#connections` vs `getConnections()` reconciled by hand in several paths. Consolidate. |
-| Low | ZAN-BOLLARD-CLASS-1 — Sundial bollards + gnomon classify as "floor", not "edge" | **Filed 08-13 from the Sundial audit.** Deck bollards and the gnomon ride `recordColliderHandles` → `classifyEnvironmentCollision` (simulation.js:3175) maps them to "floor" while booth legs are "edge" — contradicts the file's own convention. Near-zero impact (playFloorImpact ≈ playEdgeImpact); classification-only. |
 
 
 ## Art
@@ -332,6 +331,7 @@ remain open with their original steps. Detail: [completed-work.md](./completed-w
 | Medium | CARGO-BAY-INSTANCE-PT-3 — other players see the same cargo `[2pc]` | **Owed: Wyatt playtest — CARGO-BAY-INSTANCE-PT-3 — the other player sees your cargo fill, not an empty bay.** Same parent; two machines.<br>1. Two browsers, same Friends room on prod. Both seat and start.<br>2. Score on one cart until its bays fill. Look at that cart from the other browser.<br>3. FAIL if the other player sees empty bays, a different fill, or missing models. PASS if both screens show the same groceries. |
 | Low | MENU-MUSIC-2B-PT-1 — one menu song at a time, no overlap `[solo]` | **Owed: Wyatt playtest — MENU-MUSIC-2B-PT-1 — the menu plays one song at a time, never two on top of each other.** Regression fix for the two-song overlap (MENU-MUSIC-2 reverted the start-index write ordering). Prod after hard-refresh. Deployed `7de7f87`.<br>1. Load the menu on prod (hard-refresh first).<br>2. Click once anywhere so the first gesture starts the menu music.<br>3. Listen through the first song until it hands off to the second.<br>4. FAIL if two songs ever overlap, especially right after the click or during the handoff. PASS if exactly one song is audible the whole time. |
 | Medium | CHALLENGE-EXPAND-PT-1 — six challenge entries and three new finishes `[solo]` | **Owed: Wyatt playtest — CHALLENGE-EXPAND-PT-1 — the expanded challenge rotation and its three new sunglasses stay readable, persistent, and useful.** This work is not deployed; use `npm run dev:local`.<br>1. Open Challenges, complete one of the new daily goals, and confirm the progress card, completion toast, menu badge, analytics event, and results receipt update once.<br>2. Open Customize → Sunglasses, inspect all nine finishes, unlock and equip Obsidian, Hazard, and Pearl, then refresh and confirm the choices persist.<br>3. Check the challenge screen at desktop, portrait phone, and short landscape sizes: all four daily and two weekly cards are readable, completed states are clear, the list scrolls, and BACK/DONE remain reachable.<br>4. FAIL if a card is missing, progress resets, a finish is unavailable after its goal, or any layout clips/overlaps. PASS if all six challenges and nine finishes remain easy to use. |
+| Low | ZAN-BOLLARD-PT-1 — Sundial bollard/gnomon impact clang `[solo]` | **Owed: Wyatt playtest — ZAN-BOLLARD-PT-1 — bumping a Sundial corner bollard or the center gnomon blade makes the wall-clang impact FX/sound (was silent).** ZAN-BOLLARD-CLASS-1 (classification-only) re-registered the deck bollards + gnomon as "edge" surfaces, matching booth legs. Not deployed; use `npm run dev:local`.<br>1. Sundial solo, drive into a corner bollard at speed — you should hear/see the impact clang, and the spark should appear at the post, not floating over the pit.<br>2. Do the same against the tall center gnomon blade.<br>3. FAIL if either post is silent, the spark is clearly in the wrong place, or the KO round never completes. PASS if both posts clang and the round plays normally. |
 
 ## UI / UX
 
@@ -437,4 +437,4 @@ CARGO-BAY-INSTANCE-PT-1, CARGO-BAY-INSTANCE-PT-2, CONN-TRACK-LEAK-1, CONN-TRACK-
 NPC-BOOTH-TARGET-PT-1, NPC-TYPE-DRAW-1, NPC-TYPE-DRAW-PT-1, NPC-TYPE-DRAW-PT-2,
 PA-COMBO-1, PA-COMBO-PT-1, STORE-1-PT-1, STORE-MUSIC-PT-1, RAPIER-MAJOR-1, RAPIER-MAJOR-PT-1,
 RAPIER-MAJOR-PT-2, NET-QUIT-RETRY-1, CHAL-MENU-REBUILD-1, CHAL-ROTATE-RECORD-1, CHAL-ROTATE-REPEAT-1,
-CHAL-DEAD-EXPORT-1, ZAN-REACTIVE-ALLOC-1, BINARY-F32NAME-1, CONSOLE-HI-1, CHAL-PODIUM-DEDUPE-1, ROUND-CLOCKDOMAIN-1, CONN-DEADCODE-1, CONN-SNAPSHOT-PURE-1, PARTY-ENVTYPE-1, CONN-SPAWN-SANITIZE-1.
+CHAL-DEAD-EXPORT-1, ZAN-REACTIVE-ALLOC-1, BINARY-F32NAME-1, CONSOLE-HI-1, CHAL-PODIUM-DEDUPE-1, ROUND-CLOCKDOMAIN-1, CONN-DEADCODE-1, CONN-SNAPSHOT-PURE-1, PARTY-ENVTYPE-1, CONN-SPAWN-SANITIZE-1, ZAN-BOLLARD-CLASS-1.
