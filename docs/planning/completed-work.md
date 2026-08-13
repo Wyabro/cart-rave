@@ -23,6 +23,14 @@ Chronological record of shipped work, newest first.
 - *(Playtest · Medium)* **PROBE-WARM-RT-PT-1** — ✅ **CLOSED 08-13.** Wyatt playtest PASS 08-12 (row note; STATUS 08-12 log): programs count stable across first KO, no mid-round warmupCompile events. Parent PROBE-WARM-RT-1 already closed with it; the row was retired late (house-rule drift caught in the ENG-LOW-SWEEP-2 docs pass).
 - *(Backlog hygiene)* **BACKLOG-HYGIENE-2** — ✅ **DONE 08-13** (docs pass, part of ENG-LOW-SWEEP-2). Retired the three rows above; stripped stale Work-order prose (CHAL-PODIUM-DEDUPE-1 · ZAN-BOLLARD-CLASS-1 in Block 5, LOD-PITRING-1 in Block 7); seeded **LOD-PITRING-PT-1** (prod check for the pit-band visibility fix) and filed **LOD-DOORWAY-1** (same origin-anchor LOD defect on the Storerooms doorways, verified at LOD-PITRING-1 close). Glance box regenerated via `npm run backlog`. STATUS "Last updated" wave entry deferred — STATUS.md carried a pending uncommitted docs-archive change (closed-card rows + 08-12 status log consolidation) and was left untouched for its owner to commit.
 
+### August 13, 2026 — playtest export (08-13 second): 3 PASS, 1 FAIL, 3 SKIP
+
+- *(Playtest · Medium)* **CHALLENGE-EXPAND-PT-1** — ✅ **PASS 08-13 on prod `88b50a5`.** Six challenge entries + nine sunglasses finishes readable, persistent, useful; progress card, toast, badge, analytics, receipt all update once; responsive at desktop/portrait/short-landscape. Note filed as **CHAL-SHELF-FIT-1** (phone scroll → scale-to-fit polish, "not the end of the world"). Parent engineering row already closed.
+- *(Playtest · Low)* **LOD-PITRING-PT-1** — ✅ **PASS 08-13 on prod `88b50a5`.** Pit-band silhouettes stay visible driving the edge — LOD-PITRING-1's removal of the origin-anchored LOD confirmed live. Closed.
+- *(Playtest · Low)* **MENU-MUSIC-2B-PT-1** — ✅ **PASS 08-13 on prod `88b50a5`.** Exactly one menu song audible through the handoff; no overlap. Closed.
+- *(Playtest · Low)* **ZAN-BOLLARD-PT-1** — ❌ **FAIL 08-13 on prod `88b50a5`.** "i don't hear any sound when impacting them" — Sundial corner bollards + gnomon still silent despite the ZAN-BOLLARD-CLASS-1 edge reclassification. One fix only, retest after ship. (Investigation + fix tracked below.)
+- **SKIP (unchanged):** CARGO-BAY-INSTANCE-PT-3 · CONN-TRACK-LEAK-PT-1 (two-machine, deferred) · SHARD-PT-2 (launch-day traffic).
+
 ---
 
 ### August 13, 2026 — ENG-LOW-SWEEP-1: nine Engineering Low sweep levers

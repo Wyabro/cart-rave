@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-13T09:47:54.215Z",
-    "commit": "02c41c8"
+    "at": "2026-08-13T18:35:46.114Z",
+    "commit": "88b50a5"
   },
-  "source_digest": "3f9af6f2",
+  "source_digest": "f7ba8a30",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1041,7 +1041,7 @@
         "title": "Design / Gameplay",
         "counts": {
           "Medium": 2,
-          "Low": 5
+          "Low": 6
         },
         "rows": [
           {
@@ -1076,6 +1076,12 @@
           },
           {
             "pri": "Low",
+            "item": "CHAL-SHELF-FIT-1 — challenge shelf scrolls on phone instead of scaling to fit",
+            "notes": "**Filed 08-13 from CHALLENGE-EXPAND-PT-1's PASS note** (\"the challenge menu has a scroll on phone so it would be nice if it scaled to fit but it's not the end of the world if it doesn't\"). The four daily + two weekly cards fit desktop but overflow into a scroll on portrait phones; a scale-to-fit pass (reuse the responsive-scale migration patterns) would remove the scroll. Pure polish — no blocker.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
             "item": "MONETIZE-1 — Subtle monetization path",
             "notes": "Idea stage only.",
             "ship1": null
@@ -1091,8 +1097,8 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Medium": 4,
-          "Low": 5
+          "Medium": 3,
+          "Low": 3
         },
         "rows": [
           {
@@ -1114,12 +1120,6 @@
             "ship1": null
           },
           {
-            "pri": "Low",
-            "item": "LOD-PITRING-PT-1 — pit-band silhouettes stay visible driving the edge `[solo]`",
-            "notes": "**Owed: Wyatt playtest — LOD-PITRING-PT-1 — the pit-band silhouettes stay visible as you drive along the arena edge.** LOD-PITRING-1 removed the origin-anchored LOD that culled them exactly when the chase camera crossed the band; prod after hard-refresh.<br>1. Storerooms solo, drive a cart around the pit band (the gondola rows just past the floor edge).<br>2. Watch the gondolas/pallets/checkout lane as the chase camera crosses the band — they must stay rendered the whole time.<br>3. FAIL if the silhouettes pop out of existence when you get close to them (or anywhere). PASS if they stay visible the entire drive.",
-            "ship1": null
-          },
-          {
             "pri": "Medium",
             "item": "CONN-TRACK-LEAK-PT-1 — Friends host-leave migration still works `[2pc]`",
             "notes": "**Owed: Wyatt playtest — CONN-TRACK-LEAK-PT-1 — the host closing their tab hands the room to the survivor.** CONN-TRACK-LEAK-1 (`9439cd2`, deployed `5ae6f69b`) refactored the server's onClose teardown; this checks that path live on prod.<br>1. Two browsers, same Friends code, both seat.<br>2. Close the host's tab (do not use a LEAVE button).<br>3. FAIL if the survivor is stuck with no host or the round can never start. PASS if the survivor becomes host and can start the round.",
@@ -1129,18 +1129,6 @@
             "pri": "Medium",
             "item": "CARGO-BAY-INSTANCE-PT-3 — other players see the same cargo `[2pc]`",
             "notes": "**Owed: Wyatt playtest — CARGO-BAY-INSTANCE-PT-3 — the other player sees your cargo fill, not an empty bay.** Same parent; two machines.<br>1. Two browsers, same Friends room on prod. Both seat and start.<br>2. Score on one cart until its bays fill. Look at that cart from the other browser.<br>3. FAIL if the other player sees empty bays, a different fill, or missing models. PASS if both screens show the same groceries.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "MENU-MUSIC-2B-PT-1 — one menu song at a time, no overlap `[solo]`",
-            "notes": "**Owed: Wyatt playtest — MENU-MUSIC-2B-PT-1 — the menu plays one song at a time, never two on top of each other.** Regression fix for the two-song overlap (MENU-MUSIC-2 reverted the start-index write ordering). Prod after hard-refresh. Deployed `7de7f87`.<br>1. Load the menu on prod (hard-refresh first).<br>2. Click once anywhere so the first gesture starts the menu music.<br>3. Listen through the first song until it hands off to the second.<br>4. FAIL if two songs ever overlap, especially right after the click or during the handoff. PASS if exactly one song is audible the whole time.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "CHALLENGE-EXPAND-PT-1 — six challenge entries and three new finishes `[solo]`",
-            "notes": "**Owed: Wyatt playtest — CHALLENGE-EXPAND-PT-1 — the expanded challenge rotation and its three new sunglasses stay readable, persistent, and useful.** Deployed `4b63724`; prod after hard-refresh.<br>1. Open Challenges, complete one of the new daily goals, and confirm the progress card, completion toast, menu badge, analytics event, and results receipt update once.<br>2. Open Customize → Sunglasses, inspect all nine finishes, unlock and equip Obsidian, Hazard, and Pearl, then refresh and confirm the choices persist.<br>3. Check the challenge screen at desktop, portrait phone, and short landscape sizes: all four daily and two weekly cards are readable, completed states are clear, the list scrolls, and BACK/DONE remain reachable.<br>4. FAIL if a card is missing, progress resets, a finish is unavailable after its goal, or any layout clips/overlaps. PASS if all six challenges and nine finishes remain easy to use.",
             "ship1": null
           },
           {
