@@ -1074,7 +1074,7 @@ export function bootGameSystems(ctx) {
     setNameLabelUpdatePending: (val) => { nameLabelUpdatePending = val; },
     respawnLocalMidRoundJoinRef: sessionRefs.respawnLocalMidRoundJoinRef,
     getPlayCollisionRef: () => (intensity, opts) => AudioManager.playCartCrash(intensity, opts),
-    getSfx: () => ({ playFloorImpact: (i = 0.5) => AudioManager.playSfx("floor", undefined, { volume: 0.45 + Math.min(Math.max(i, 0), 1) * 0.55 }), playEdgeImpact: (i = 0.5) => AudioManager.playSfx("floor", undefined, { volume: 0.45 + Math.min(Math.max(i, 0), 1) * 0.55 }) }),
+    getSfx: () => ({ playFloorImpact: (i = 0.5) => AudioManager.playSfx("floor", undefined, { volume: 0.45 + Math.min(Math.max(i, 0), 1) * 0.55 }), playEdgeImpact: (i = 0.5) => AudioManager.playSfx("hop", undefined, { volume: 0.45 + Math.min(Math.max(i, 0), 1) * 0.55 }) }),
     getSpawnTrashBurstRef: () => refs.spawnTrashBurstRef,
     getTriggerLocalRamShake: () => triggerLocalRamShakeRef,
     getTriggerLocalHitTaken: () => triggerLocalHitTakenRef,

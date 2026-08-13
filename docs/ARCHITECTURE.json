@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-13T19:12:06.279Z",
-    "commit": "2161cb5"
+    "at": "2026-08-13T19:31:00.527Z",
+    "commit": "e938f98"
   },
-  "source_digest": "b13ada66",
+  "source_digest": "1c6474e7",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1019,16 +1019,9 @@
       {
         "title": "Audio",
         "counts": {
-          "Medium": 1,
           "Low": 1
         },
         "rows": [
-          {
-            "pri": "Medium",
-            "item": "ANNOUNCER-RERECORD-1 — Announcer re-records (Wyatt) `[SHIP-1 E3]`",
-            "notes": "Shorter directive takes + odd lines. Pipeline drop-in.",
-            "ship1": "E3"
-          },
           {
             "pri": "Low",
             "item": "HOWLER-UPGRADE-1 — Deeper Howler upgrade `[SHIP-1 E3]`",
@@ -1134,7 +1127,7 @@
           {
             "pri": "Low",
             "item": "ZAN-BOLLARD-PT-1 — Sundial bollard/gnomon impact clang `[solo]`",
-            "notes": "**Owed: Wyatt playtest — ZAN-BOLLARD-PT-1 — bumping a Sundial corner bollard or the center gnomon blade makes the wall-clang impact FX/sound (was silent).** ZAN-BOLLARD-CLASS-1 (classification-only) re-registered the deck bollards + gnomon as \"edge\" surfaces, matching booth legs. **FAIL 08-13 (silent) — still silent after fix 1. Root cause (fix 2, 08-13):** a real-Rapier probe measured the first-contact per-step Δv at 1.6–1.7 m/s at ANY approach speed (5–12 m/s) — the +4 cart solver iterations spread the impulse across substeps — so the old `edgeDeltaVThreshold: 2.5` was unreachable and the clang could never fire for ANY edge surface. Fix 1 (Δv sampling from post-step body velocity, was subtracting the snapshot from itself = always 0) landed first; fix 2 retuned the curve: `edgeDeltaVThreshold: 0.75` + new `edgeIntensityRange: 6` (floor curve untouched). Spark projection also fixed (inboard contacts stay at the post). Redeployed for retest; prod after hard-refresh.<br>1. Sundial solo, drive into a corner bollard at speed — you should hear/see the impact clang, and the spark should appear at the post, not floating over the pit.<br>2. Do the same against the tall center gnomon blade.<br>3. FAIL if either post is silent, the spark is clearly in the wrong place, or the KO round never completes. PASS if both posts clang and the round plays normally.",
+            "notes": "**Owed: Wyatt playtest — ZAN-BOLLARD-PT-1 — bumping a Sundial corner bollard or the center gnomon blade makes the wall-clang impact FX/sound (was silent).** ZAN-BOLLARD-CLASS-1 (classification-only) re-registered the deck bollards + gnomon as \"edge\" surfaces, matching booth legs. **FAIL 08-13 (silent) — three fixes. Fix 1:** the edge Δv subtracted the pre-step snapshot from itself (always 0) — now samples post-step body velocity. **Fix 2:** a real-Rapier probe measured 1.6–1.7 m/s per-step Δv at any approach speed (solver spreads the impulse), so the old 2.5 m/s threshold was unreachable — retuned to 0.75 threshold + `edgeIntensityRange: 6` (floor curve untouched). **Fix 3 (audibility):** the F8 capture (cap-362, build `e938f98`) proved the impacts fire at intensity 0.4–1.0 yet the sound was still inaudible — the edge clang played the \"floor\" sample, which is quiet in the mix (Floor.opus mean −23 dB vs Hop −13.8). `playEdgeImpact` now plays the proven-audible **hop** sample; both impact plays are diag-instrumented (`sim/impact_play` with the howler id) so the next capture shows whether playSfx returns an id or null. Spark projection fix included (inboard contacts stay at the post). Redeployed for retest; prod after hard-refresh.<br>1. Sundial solo, drive into a corner bollard at speed — you should hear/see the impact clang, and the spark should appear at the post, not floating over the pit.<br>2. Do the same against the tall center gnomon blade.<br>3. FAIL if either post is silent, the spark is clearly in the wrong place, or the KO round never completes. PASS if both posts clang and the round plays normally.",
             "ship1": null
           }
         ]
@@ -1340,7 +1333,7 @@
           },
           {
             "col0": "E3",
-            "item": "Announcer re-records · SD music low-pass · SFX slider · Howler upgrade"
+            "item": "Announcer re-records ✅ (CLOSED 08-13) · SD music low-pass · SFX slider · Howler upgrade"
           },
           {
             "col0": "E4",

@@ -17,6 +17,7 @@ import {
 } from "../directives/directiveEngine.js";
 import { armSpillBoost, spillCountForCart, stripLifeCargo } from "../cargoLoad.js";
 import { announcerDirectorOnFall } from "../announcer/announcerDirector.js";
+import { recordDiagEvent } from "../utils/diagnostics.js";
 import { MSG } from "../config.js";
 
 /** Host-away toast delay after tab hide (HOST-TAB-1). */
@@ -271,8 +272,21 @@ export function createLoopDeps(deps) {
       get recordColliderHandles() { return getRecordColliderHandles(); },
       get pitWallColliderHandle() { return getPitWallColliderHandle(); },
       get boothColliderHandles() { return getBoothColliderHandles(); },
-      playFloorImpact: (i = 0.5) => AudioManager.playSfx("floor", undefined, { volume: 0.45 + Math.min(Math.max(i, 0), 1) * 0.55 }),
-      playEdgeImpact: (i = 0.5) => AudioManager.playSfx("floor", undefined, { volume: 0.45 + Math.min(Math.max(i, 0), 1) * 0.55 }),
+      playFloorImpact: (i = 0.5) => {
+        const id = AudioManager.playSfx("floor", undefined, { volume: 0.45 + Math.min(Math.max(i, 0), 1) * 0.55 });
+        // * ZAN-BOLLARD-PT-1 diag (?diag only): did the impact sound actually play?
+        recordDiagEvent("sim", "impact_play", { key: "floor", id, intensity: i });
+        return id;
+      },
+      // * ZAN-BOLLARD-PT-1: the edge clang now uses the HOP sample, not "floor". The
+      // * floor thud is quiet in the mix (Floor.opus mean −23 dB vs Hop −13.8) and the
+      // * bollard/gnomon clang was inaudible; Hop.opus is the same impact family and
+      // * proven audible (jump takeoffs were never reported missing).
+      playEdgeImpact: (i = 0.5) => {
+        const id = AudioManager.playSfx("hop", undefined, { volume: 0.45 + Math.min(Math.max(i, 0), 1) * 0.55 });
+        recordDiagEvent("sim", "impact_play", { key: "hop", id, intensity: i });
+        return id;
+      },
       resolveCartForConn: (connId) => {
         const idx = Netcode.strictSlotIndexForConn(connId);
         return idx >= 0 ? getAllCartsRef()[idx] : null;
