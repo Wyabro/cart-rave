@@ -210,5 +210,4 @@ export const ChallengeTracker = {
     // * Lifetime cosmetic unlocks share the same event ids (permanent goals).
     UnlockTracker.recordEvent(event, amount);
   },
-  checkRotations: () => challengeStore.getState().checkRotations(),
 };
