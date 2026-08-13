@@ -321,8 +321,9 @@ sRGB bytes 0–255; `floor` = mean of the darkest decile):
 | The Storerooms (`backrooms`) | 1.36 | 83.98 | 64.84 | 3.9% |
 
 Shots: `--shot classic`, `--shot sundial`, `--level backrooms --cam "0,8,16,0,0.5,0"`. Reproduce
-the numbers with a darkest-decile mean over the capture; there is no committed tool for it yet
-(**ART-LUMA-TOOL-1** folds one into `npm run compare`).
+the numbers with `npm run compare` — its per-image luma line prints floor / median / mean /
+pure-black %, computed as Rec.709 luma on raw sRGB bytes (0.2126R + 0.7152G + 0.0722B, no
+linearization) with floor = darkest-decile mean (**ART-LUMA-TOOL-1**, 08-13).
 
 **Read the floor together with the black %.** Classic and Sundial sit at a floor of ~0 with a
 fifth of the frame already pure black, so the floor column has almost no headroom to register a

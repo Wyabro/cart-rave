@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-13T20:53:08.598Z",
-    "commit": "d59b318"
+    "at": "2026-08-13T21:05:56.370Z",
+    "commit": "d0c23d0"
   },
-  "source_digest": "118b54c4",
+  "source_digest": "8254a4cb",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -975,9 +975,15 @@
       {
         "title": "Art",
         "counts": {
-          "Low": 5
+          "Low": 6
         },
         "rows": [
+          {
+            "pri": "Low",
+            "item": "KO-DOOMED-1 — local KO red edge pulse + shatter shockwave",
+            "notes": "Every local KO, including self-falls and environmental deaths, gets a medium red edge pulse and one centered expanding screen shockwave when the local cart shatters. Presentation-only: no text stamp, score, physics, camera timing, or attacker-side effect.",
+            "ship1": null
+          },
           {
             "pri": "Low",
             "item": "CLAD-REPEAT-1 — stand cladding shares one repeat across three deck radii",
@@ -1028,7 +1034,7 @@
         "title": "Design / Gameplay",
         "counts": {
           "Medium": 2,
-          "Low": 5
+          "Low": 4
         },
         "rows": [
           {
@@ -1041,12 +1047,6 @@
             "pri": "Medium",
             "item": "CLUTCH-SLOMO-1 — Clutch slow-mo (Pass 5 deferral)",
             "notes": "Taste-gated.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "KO-DOOMED-1 — KO \"doomed\" presentational cue",
-            "notes": "Idea stage.",
             "ship1": null
           },
           {

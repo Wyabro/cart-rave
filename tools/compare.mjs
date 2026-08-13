@@ -1,12 +1,20 @@
 /**
- * compare.mjs — side-by-side PNG compare + mean absolute channel error.
+ * compare.mjs — side-by-side PNG compare + mean absolute channel error
+ * + Rec.709 luma / darkness statistics per image (ART-LUMA-TOOL-1).
  *
  * Usage:
  *   npm run compare -- --a shots/before.png --b shots/after.png --out shots/cmp.png
+ *
+ * The luma line guards art-direction.md Rule 3 ("blacks stay black"): floor is
+ * the mean of the darkest decile, plus median, mean, and pure-black %. Metric
+ * definition — Rec.709 luma on raw sRGB bytes (no linearization):
+ * 0.2126R + 0.7152G + 0.0722B. Importable for tests: main() only runs when
+ * executed directly.
  */
 
 import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 
 function parseArgs(argv) {
   /** @type {Record<string, string | boolean>} */
@@ -37,6 +45,55 @@ async function decodePng(path) {
 async function encodePng(width, height, rgba, outPath) {
   const sharp = (await import("sharp")).default;
   await sharp(Buffer.from(rgba), { raw: { width, height, channels: 4 } }).png().toFile(outPath);
+}
+
+/**
+ * Rec.709 luma + darkness statistics for a raw RGBA pixel buffer (sRGB bytes).
+ *
+ * Metric definition (matches art-direction.md Rule 3's scratchpad method):
+ * - luma = 0.2126R + 0.7152G + 0.0722B on raw bytes 0–255, no linearization
+ * - floor = mean of the darkest decile (N = max(1, floor(0.1 * count)))
+ * - median = 50th percentile of sorted luma (lower-middle for even counts)
+ * - mean = arithmetic mean of all luma
+ * - blackPct = % of pixels whose luma byte rounds to 0
+ *
+ * @param {Uint8ClampedArray} data RGBA bytes, row-major.
+ * @param {number} width
+ * @param {number} height
+ * @returns {{ floor: number, median: number, mean: number, blackPct: number }}
+ */
+export function computeLumaStats(data, width, height) {
+  const count = width * height;
+  const luma = new Float64Array(count);
+  let sum = 0;
+  let black = 0;
+  for (let i = 0; i < count; i += 1) {
+    const o = i * 4;
+    const r = data[o];
+    const g = data[o + 1];
+    const b = data[o + 2];
+    const y = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    luma[i] = y;
+    sum += y;
+    if (Math.round(y) === 0) black += 1;
+  }
+
+  const sorted = Float64Array.from(luma).sort();
+  const n = Math.max(1, Math.floor(count * 0.1));
+  let floorSum = 0;
+  for (let i = 0; i < n; i += 1) floorSum += sorted[i];
+
+  const mid = count >> 1;
+  const median = count % 2 === 0
+    ? (sorted[mid - 1] + sorted[mid]) / 2
+    : sorted[mid];
+
+  return {
+    floor: count > 0 ? floorSum / n : 0,
+    median,
+    mean: count > 0 ? sum / count : 0,
+    blackPct: count > 0 ? (100 * black) / count : 0,
+  };
 }
 
 async function main() {
@@ -106,6 +163,14 @@ async function main() {
   const meanAbs = pixels > 0 ? sumAbs / pixels : 0;
   const pctDiff = pixels > 0 ? (100 * differing) / pixels : 0;
 
+  // * Rule 3 luma guard (ART-LUMA-TOOL-1) — printed per input, pre-diff.
+  for (const [label, img] of [["a", a], ["b", b]]) {
+    const s = computeLumaStats(img.data, img.width, img.height);
+    console.log(
+      `[compare] luma ${label}: floor=${s.floor.toFixed(2)} median=${s.median.toFixed(2)} mean=${s.mean.toFixed(2)} black=${s.blackPct.toFixed(1)}%`,
+    );
+  }
+
   mkdirSync(dirname(outPath), { recursive: true });
   await encodePng(w * 3, h, side, outPath);
 
@@ -118,7 +183,11 @@ async function main() {
   }
 }
 
-main().catch((e) => {
-  console.error("[compare] FAILED:", e instanceof Error ? e.message : e);
-  process.exit(1);
-});
+// * Only run as a CLI; importing for tests must not execute main().
+const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+if (isMain) {
+  main().catch((e) => {
+    console.error("[compare] FAILED:", e instanceof Error ? e.message : e);
+    process.exit(1);
+  });
+}
