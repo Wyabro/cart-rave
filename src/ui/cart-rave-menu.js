@@ -1427,6 +1427,8 @@ import { ARENA_CATALOG } from "../levels/arenaCatalog.js";
 
   /** True once the player has opened the CHALLENGES screen this session. */
   let _challengesViewed = false;
+  /** @type {ReturnType<typeof setInterval> | null} */
+  let challengesRestockTimerId = null;
 
   /**
    * Badges the CHALLENGES menu button: "✓N" once N ≥ 1 are complete (a progress
@@ -1453,10 +1455,31 @@ import { ARENA_CATALOG } from "../levels/arenaCatalog.js";
     pill.classList.toggle("cr-cmd-new--done", completed >= 1);
   }
 
+  function stopChallengesRestockTimer() {
+    if (challengesRestockTimerId != null) {
+      clearInterval(challengesRestockTimerId);
+      challengesRestockTimerId = null;
+    }
+  }
+
+  function startChallengesRestockTimer() {
+    stopChallengesRestockTimer();
+    challengesRestockTimerId = setInterval(() => {
+      if (challengesScreen?.getAttribute('aria-hidden') !== 'false') {
+        stopChallengesRestockTimer();
+        return;
+      }
+      challengeStore.getState().checkRotations();
+      renderChallengesPanel();
+      updateChallengesBadge();
+    }, 60_000);
+  }
+
   function openChallengesScreen() {
     if (!challengesScreen) return;
     const phase = getRoundState().phase;
     if (phase === "running" || phase === "countdown") return;
+    challengeStore.getState().checkRotations();
     renderChallengesPanel();
     // * Viewing the screen retires the first-timer "NEW" cue (progress ✓N still shows).
     _challengesViewed = true;
@@ -1464,6 +1487,7 @@ import { ARENA_CATALOG } from "../levels/arenaCatalog.js";
     captureOverlayOpener();
     challengesScreen.style.display = 'flex';
     challengesScreen.setAttribute('aria-hidden', 'false');
+    startChallengesRestockTimer();
     challengesDoneBtn?.focus();
     const panel = challengesScreen.querySelector('.cr-challenges-panel');
     if (panel instanceof HTMLElement) {
@@ -1477,6 +1501,7 @@ import { ARENA_CATALOG } from "../levels/arenaCatalog.js";
 
   function closeChallengesScreen() {
     if (!challengesScreen) return;
+    stopChallengesRestockTimer();
     if (document.activeElement instanceof HTMLElement) {
       document.activeElement.blur();
     }
@@ -2618,14 +2643,9 @@ import { ARENA_CATALOG } from "../levels/arenaCatalog.js";
 
     const cState = challengeStore.getState();
     if (challengesKickerEl) challengesKickerEl.textContent = challengesKicker(cState);
-    const active = [
-      ...cState.dailyChallenges,
-      ...cState.weeklyChallenges,
-    ];
-
-    active.forEach((item) => {
+    function renderChallengeCard(item) {
       const meta = CHALLENGE_POOL.find((c) => c.id === item.id);
-      if (!meta) return;
+      if (!meta) return null;
 
       // * 7b: each challenge is a price tag (punch hole + tag nose via CSS).
       const card = document.createElement("div");
@@ -2677,8 +2697,31 @@ import { ARENA_CATALOG } from "../levels/arenaCatalog.js";
       card.appendChild(desc);
       card.appendChild(footer);
 
-      challengesListEl.appendChild(card);
-    });
+      return card;
+    }
+
+    for (const [type, label, items] of [
+      ["daily", "DAILY", cState.dailyChallenges],
+      ["weekly", "WEEKLY", cState.weeklyChallenges],
+    ]) {
+      const section = document.createElement("section");
+      section.className = "cr-chal-section";
+      section.dataset.challengeType = type;
+
+      const sectionTitle = document.createElement("h3");
+      sectionTitle.className = "cr-chal-section-title";
+      sectionTitle.textContent = `${label} · ${items.length}`;
+      section.appendChild(sectionTitle);
+
+      const sectionGrid = document.createElement("div");
+      sectionGrid.className = "cr-chal-section-grid";
+      for (const item of items) {
+        const card = renderChallengeCard(item);
+        if (card) sectionGrid.appendChild(card);
+      }
+      section.appendChild(sectionGrid);
+      challengesListEl.appendChild(section);
+    }
   }
 
   renderChallengesPanel();
@@ -2720,6 +2763,8 @@ import { ARENA_CATALOG } from "../levels/arenaCatalog.js";
         root.style.pointerEvents = '';
         root.removeAttribute('aria-hidden');
       }
+      challengeStore.getState().checkRotations();
+      renderChallengesPanel();
       updateChallengesBadge();
       wireAllMenuPressFeedback();
       playMenuEntrance();
@@ -2737,6 +2782,8 @@ import { ARENA_CATALOG } from "../levels/arenaCatalog.js";
         root.classList.remove('cr-menu-enter-pending');
       }
       setMenuEntrancePending(false);
+      challengeStore.getState().checkRotations();
+      renderChallengesPanel();
       updateChallengesBadge();
       wireAllMenuPressFeedback();
       startMenuAnimations();

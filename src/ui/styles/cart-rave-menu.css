@@ -2935,11 +2935,47 @@ html, body {
     radial-gradient(ellipse at 50% 55%, var(--color-bg-deep) 0%, var(--color-bg-black) 95%);
 }
 
-/* Cards keep their own height (3 active challenges = a 2 + 1 grid, and the
-   orphan must not stretch to fill the row). */
+/* Each cadence gets a named shelf so six active cards stay easy to scan. The
+   shelf grid remains two-up on desktop and collapses independently on phones. */
 .cr-challenges-grid {
   align-content: start;
   align-items: start;
+}
+
+.cr-chal-section {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.cr-chal-section-title {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.2em;
+  color: rgba(242, 237, 228, 0.58);
+}
+
+.cr-chal-section-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.5rem;
+  min-width: 0;
+}
+
+@media (max-width: 768px), (max-width: 1024px) and (pointer: coarse) {
+  .cr-chal-section-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: clamp(10px, 2.6vw, 16px);
+  }
+}
+
+@media (orientation: landscape) and (max-height: 600px) and (max-width: 1024px) {
+  .cr-chal-section-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
 }
 
 .cr-chal-card {
