@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-13T21:07:31.091Z",
-    "commit": "a79b964"
+    "at": "2026-08-13T21:14:33.852Z",
+    "commit": "8178a57"
   },
-  "source_digest": "668d6df3",
+  "source_digest": "3367b65b",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -975,7 +975,7 @@
       {
         "title": "Art",
         "counts": {
-          "Low": 6
+          "Low": 2
         },
         "rows": [
           {
@@ -986,32 +986,8 @@
           },
           {
             "pri": "Low",
-            "item": "CLAD-REPEAT-1 — stand cladding shares one repeat across three deck radii",
-            "notes": "**Was ART-PASS-CLASSIC-1 L4; dropped 08-01 and demoted, because the surface is barely visible.** The defect is real and measured: one `panelTex.repeat.set(24, 3)` (`effects.js:1441`) feeds one shared `cladMat` across three decks (`effects.js:1454`) whose r1 = 73/100/124 m and wallH = 12.2/10.6/9.8 m, so the authored 2:1 cart-silhouette motif renders **2.09×0.22 m on deck 0 and 3.55×0.18 m on deck 2** — 4.7× and 9.9× distorted, and inconsistent between rings. **Why it was dropped:** cladding sits at `deck.r1 + 0.55`, directly behind seating spanning r0→r1, so from every in-arena viewpoint tried the crowd and seats occlude it; a before/after GPU capture showed *zero* delta on the cladding itself (the 31% pixel diff was animated-crowd noise). A surface you cannot see does not earn a mid-table slot. Fix if ever picked up: per-deck material+texture clone like the seat loop (`effects.js:990`), `U = round(circumference / wallH)`, `V = 1` — the largest square tile each wall fits.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "SHELF-RAIL-1 — the booth rails are the shiniest thing in a dead room",
-            "notes": "**Filed 08-02**, split out of audit item 4 rather than folded in as a silent ride-along. `railMat` ([backroomsSupermarket.js:2948](../../src/levels/backroomsSupermarket.js:2948)) is the **booth** rails, a different surface from the shelf steel, and separately the lowest-roughness / highest-metalness pair in the file — so under the RoomEnvironment PMREM it reads as polished chrome in a room where nothing else is polished. Item 4's new `buildShelfSteelTexture()` is a natural donor, but the rails also want their own roughness call, and doing both in one commit would have made the item-4 capture ambiguous. Also parked here: **per-bay board segmentation** (break each 114 m shelf board into bays with a 4 cm gap so the run reads as bolted sections) — a geometry/merge change, not a material one, and the audit lists it under the same item.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "ART-LUMA-TOOL-1 — luma metric in `npm run compare`",
-            "notes": "Rule 3's luma floors were computed with a one-off scratchpad script because `tools/` is frozen during a game card. Fold a darkest-decile / median / mean luma readout into [compare.mjs](../../tools/compare.mjs) (it already decodes both PNGs via sharp) so drift is guardable by the committed tool. Baselines to reproduce are in [art-direction.md](../reference/art-direction.md) Rule 3.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
             "item": "ART-PALETTE-1 — reconcile 3D and 2D neon",
             "notes": "3D is frozen on pure `CART_COLORS` (`0xff00ff`); 2D banned those hexes as off-brand and uses `#ff2bd6`. **The only card permitted to unfreeze the AGENTS.md invariant.**",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "ASSET-RENAME-1 — Asset filename rebrand (`cart-rave-base*.glb` etc.)",
-            "notes": "Deliberate asset pass — [brand.md](../brand.md).",
             "ship1": null
           }
         ]
@@ -1034,7 +1010,7 @@
         "title": "Design / Gameplay",
         "counts": {
           "Medium": 2,
-          "Low": 3
+          "Low": 2
         },
         "rows": [
           {
@@ -1047,12 +1023,6 @@
             "pri": "Medium",
             "item": "CLUTCH-SLOMO-1 — Clutch slow-mo (Pass 5 deferral)",
             "notes": "Taste-gated.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "CHAL-SHELF-FIT-1 — challenge shelf scrolls on phone instead of scaling to fit",
-            "notes": "**Filed 08-13 from CHALLENGE-EXPAND-PT-1's PASS note** (\"the challenge menu has a scroll on phone so it would be nice if it scaled to fit but it's not the end of the world if it doesn't\"). The four daily + two weekly cards fit desktop but overflow into a scroll on portrait phones; a scale-to-fit pass (reuse the responsive-scale migration patterns) would remove the scroll. Pure polish — no blocker.",
             "ship1": null
           },
           {
@@ -1073,7 +1043,7 @@
         "title": "Playtest owed",
         "counts": {
           "Medium": 3,
-          "Low": 3
+          "Low": 4
         },
         "rows": [
           {
@@ -1110,6 +1080,26 @@
             "pri": "Low",
             "item": "LOD-DOORWAY-PT-1 — Storerooms wall doorways stay visible `[solo]`",
             "notes": "**Owed: Wyatt playtest — LOD-DOORWAY-PT-1 — the wall doorways stay visible from the floor and when you drive up to them (were popping out at the wall).** LOD-DOORWAY-1 dropped the origin-anchored `far: 55` registration. Solo Storerooms on prod after hard-refresh.<br>1. From the floor, look across the pit at each wall doorway (two on the −Z wall, one on the −X wall). FAIL if any is missing from that view.<br>2. Drive at each doorway until you reach the wall.<br>3. FAIL if a doorway pops out as you get close, or if the round never completes. PASS if all three stay visible from the floor and at the wall.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "SHELF-RAIL-PT-1 — Storerooms booth rails + shelf boards look right `[solo]`",
+            "notes": "**Owed: Wyatt playtest — SHELF-RAIL-PT-1 — the spawn-booth handrails read as matte painted steel (not shiny chrome), and the far shelf boards read as bolted sections.** SHELF-RAIL-1 cut the rail metalness 0.7→0.3 / roughness 0.45→0.72 and split each 114 m shelf board into bays with 4 cm seams. Solo Storerooms on `npm run dev` (or prod after next ship).<br>1. Look at the four spawn-booth platforms from the floor at round start. FAIL if the handrails gleam like chrome; PASS if they read matte metal like the room's other painted surfaces.<br>2. Drive to one perimeter wall and look at the shelf boards behind the products. FAIL if the boards look like one unbroken run; PASS if you can see bay seams (per-bay texture breaks) reading as bolted sections.<br>3. FAIL if the rails are brighter than every other surface in the room, or if anything looks broken.",
+            "ship1": null
+          }
+        ]
+      },
+      {
+        "title": "UI / UX",
+        "counts": {
+          "Low": 1
+        },
+        "rows": [
+          {
+            "pri": "Low",
+            "item": "CHAL-SHELF-FIT-1 — challenge shelf fits portrait phone without scrolling",
+            "notes": "Four daily and two weekly challenge cards, headings, and DONE/BACK controls must fit on one portrait-phone screen without scrolling while staying readable. Scope is portrait phones only; desktop layout and appearance must remain unchanged. No challenge data, rotation, progress, or interaction changes.",
             "ship1": null
           }
         ]

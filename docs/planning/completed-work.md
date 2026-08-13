@@ -13,6 +13,57 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 13, 2026 — ART-LOW-SWEEP-1: four Art Lows closed in one acked wave
+
+- *(Art · Low)* **CLAD-REPEAT-1** — ✅ **CLOSED 08-13.** The Classic stadium cladding shared one
+  `panelTex.repeat(24, 3)` / `cladMat` across three deck radii (73/100/124 m, wallH 12.2/10.6/9.8 m),
+  so the authored 2:1 cart-silhouette motif rendered 2.09×0.22 m on deck 0 but 3.55×0.18 m on deck 2
+  (4.7×/9.9× distorted, inconsistent between rings). Fixed by **per-deck UV scaling** on the
+  cladding cylinders (`src/effects.js`): each deck's UVs scale by `(cladR/refCladR, wallH/refWallH)`
+  against deck 0, so all three rings render the same world-space motif while ONE shared
+  texture+material survives — the stadium merge still collapses cladding to a single draw call
+  (texture/material cloning was rejected in adversarial review: it would have split the merged
+  draw into three). Deck 0 keeps identity scale (authored look unchanged). Verified: tile size
+  19.255×4.067 m on all three radii; `tests/cladRepeat.test.js` (4) locks the shape; `effectsDispose`
+  green. Commit `bdf3df3`.
+- *(Art · Low)* **SHELF-RAIL-1** — ✅ **CLOSED 08-13.** Two levers in `backroomsSupermarket.js`.
+  **(a) Material:** the booth spawn-platform handrails were the lowest-roughness/highest-metalness
+  pair in the file (0.45/0.7) → polished chrome in a room where nothing else is polished. The
+  BACKLOG row's suggested donor `buildShelfSteelTexture()` was stale (STORE-PT-1 replaced shelf
+  steel with painted wood), so rails now read as painted steel in the room's own frameMat language:
+  roughness 0.72, metalness 0.3. `tests/shelfRail.test.js` asserts the rails are no longer the
+  shiniest pair (source-assert shape, same as the STORE-WALL-SLIDE-1 friction check). Commit
+  `a6cbbaa`. **(b) Geometry:** each 114 m shelf board (previously one full-span box per level)
+  now splits into bays with 4 cm seam gaps, count derived from the upright rhythm
+  (`Math.round(boardLen / uprightStep)`), same `shelfWoodParts` bucket → still one merged
+  geometry, no draw-call regression. The per-bay UV restart is what reads as "bolted sections"
+  at distance (the 4 cm gap is sub-visual at 56 m). Commit `6cab3c5`. Visual confirmation owed on
+  **SHELF-RAIL-PT-1** (seeded).
+- *(Art · Low)* **ART-LUMA-TOOL-1** — ✅ **CLOSED 08-13.** Folded a Rec.709 luma / darkness
+  readout into `npm run compare` (`tools/compare.mjs`): per-image floor (darkest-decile mean),
+  median, mean, and pure-black %, printed as a luma line before the diff. Metric definition
+  written down in the tool + art-direction.md Rule 3 (luma on raw sRGB bytes, no linearization —
+  the scratchpad that produced the 08-06 baselines is gone, so the definition is now committed).
+  Pure `computeLumaStats` is exported and guarded `main()` (module importable by tests without
+  executing the CLI). `tests/compareLuma.test.js` (5) covers all-black, known-bytes, decile floor,
+  even-count median, and black-% semantics deterministically — no capture or GPU needed. Smoke:
+  `before-classic.png` reads floor 0.00 / median 6.57 / mean 19.76 / black 18.9%, consistent with
+  the documented pre-08-06 capture (the doc's "Classic 19.76 → 21.37" pre-vignette-removal number).
+  Commit `3cec57a`.
+- *(Art · Low)* **ASSET-RENAME-1** — ✅ **CLOSED 08-13.** Renamed the legacy fallback cart model
+  `public/models/cart-rave-base-draco.glb` → `public/models/cart-clash-base-draco.glb` (the
+  brand.md-sanctioned separate asset pass; primary `cartrave4-draco.glb` keeps its jam-tribute
+  name). All four code references updated: `RAVE_GLTF_PATH_DRACO` constant, `raveGltfUrlDraco`,
+  the **legacy-layout detection regex** (miss this and the fallback cart would rig with wrong
+  roles), and the console.warn string in the fallback chain. Doc mentions fixed: CREDITS.md model
+  list, brand.md freeze table row (now names `cart-clash-base*.glb`), and two dead
+  `compress:rave-gltf -- cart-rave-base` examples (the `art/models/cart-rave-base.glb` master
+  doesn't exist — only `cartrave4`) pointed at the real master. GLB-internal mesh-name comment
+  stays (mesh names inside the file are unchanged by a filename rename). Build verified: dist ships
+  `cart-clash-base-draco.glb`, zero `cart-rave-base` refs outside edit-forbidden archives. Live
+  0×404 check on the new `/models/` path is deferred to the next ship per Wyatt (no mid-wave
+  deploy). Commit `8178a57`.
+
 ### August 13, 2026 — SWIRL-REVIVE-1: close as no action needed
 
 - *(Design / Gameplay · Low)* **SWIRL-REVIVE-1** — ✅ **CLOSED 08-13.** The proposed turntable

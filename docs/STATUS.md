@@ -169,6 +169,18 @@ progress event), **CHAL-ROTATE-RECORD-1** (no mid-session rotation) — plus 3 L
 High/Med; 2 Low (ZAN-BOLLARD-CLASS-1 · ZAN-REACTIVE-ALLOC-1). All 8 filed in BACKLOG
 (now 63 open rows). No code changes, no deploy.
 
+2026-08-13 (ART-LOW-SWEEP-1) — Four Art Lows closed in one acked wave (`d0c23d0` docs+probe ·
+`3cec57a` · `bdf3df3` · `a6cbbaa` · `6cab3c5` · `8178a57`): CLAD-REPEAT-1 (per-deck UV scaling,
+one shared cladding material — texture cloning rejected in adversarial review for splitting the
+merged draw), SHELF-RAIL-1 (booth rails chrome 0.45/0.7 → painted steel 0.72/0.3; 114 m shelf
+boards split into bolted bay sections), ART-LUMA-TOOL-1 (Rec.709 luma floor/median/mean/black
+readout folded into `npm run compare` + unit tests), ASSET-RENAME-1
+(`cart-rave-base-draco.glb` → `cart-clash-base-draco.glb`, all refs + regex + dead doc examples).
+QA green by number: status:size → typecheck → test (182 files) → knip → briefing:check →
+arch:check → health:check. Prod build green; renamed model present in dist, zero stale refs.
+**SHELF-RAIL-PT-1 seeded** (Storerooms rails matte + shelf boards read bolted — solo). No deploy
+per Wyatt; the 0×404 check on the renamed `/models/cart-clash-base-draco.glb` rides the next ship.
+
 2026-08-13 (MENU-MUSIC-PT-1) — Wyatt playtest PASS on prod `11e5e48f`.
 Parent MENU-MUSIC-2 closed.
 
