@@ -51,6 +51,8 @@ export const STORAGE_KEYS = {
   sfxVolume: "cartRaveSfxVol",
   voiceVolume: "cartRaveVoiceVol",
   muted: "cartRaveMuted",
+  /** Controller rumble preference ("true" / "false"). */
+  controllerRumble: "cartRaveControllerRumble",
   /** Announcer toggles ("on"/"off"). */
   announcerVoice: "cartRaveAnnouncerVoice",
   announcerCallouts: "cartRaveAnnouncerCallouts",

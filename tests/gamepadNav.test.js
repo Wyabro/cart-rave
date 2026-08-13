@@ -10,6 +10,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { setInputMode } from "../src/input.js";
 
+const hapticRef = vi.hoisted(() => ({
+  hapticMenuConfirm: vi.fn(),
+  hapticMenuFocus: vi.fn(),
+}));
+
 // * Feed the nav loop a hand-built pad; the real input.js touches
 // * navigator.getGamepads + the controls panel DOM.
 const padRef = vi.hoisted(() => ({ pad: /** @type {any} */ (null) }));
@@ -17,11 +22,13 @@ vi.mock("../src/input.js", () => ({
   getActiveGamepad: () => padRef.pad,
   setInputMode: vi.fn(),
 }));
+vi.mock("../src/haptics.js", () => hapticRef);
 
 const BTN = { a: 0, b: 1, lb: 4, rb: 5, up: 12, down: 13, left: 14, right: 15 };
 
 function makePad(pressed = []) {
   return {
+    index: 4,
     buttons: Array.from({ length: 17 }, (_, i) => ({ pressed: pressed.includes(i), value: 0 })),
     axes: [0, 0],
   };
@@ -127,6 +134,8 @@ beforeEach(async () => {
   scheduled = [];
   padRef.pad = makePad();
   vi.mocked(setInputMode).mockClear();
+  hapticRef.hapticMenuConfirm.mockClear();
+  hapticRef.hapticMenuFocus.mockClear();
   vi.stubGlobal("requestAnimationFrame", (cb) => {
     scheduled.push(cb);
     return scheduled.length;
@@ -198,6 +207,25 @@ describe("modal scoping", () => {
     show("esc-overlay");
     press(BTN.down);
     expect(document.activeElement).toBe(document.getElementById("esc-resume"));
+  });
+});
+
+describe("controller-only menu feedback", () => {
+  it("gives a soft pulse when gamepad navigation focuses a menu control", () => {
+    press(BTN.down);
+    expect(hapticRef.hapticMenuFocus).toHaveBeenCalledWith(4);
+  });
+
+  it("gives a confirm pulse for an A-button click", () => {
+    press(BTN.down);
+    press(BTN.a);
+    expect(hapticRef.hapticMenuConfirm).toHaveBeenCalledWith(4);
+  });
+
+  it("does not create menu feedback from keyboard navigation", () => {
+    pressKey("ArrowDown");
+    expect(hapticRef.hapticMenuFocus).not.toHaveBeenCalled();
+    expect(hapticRef.hapticMenuConfirm).not.toHaveBeenCalled();
   });
 });
 

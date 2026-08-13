@@ -2942,6 +2942,19 @@ html, body {
   align-items: start;
 }
 
+.cr-settings-row-lbl small {
+  display: block;
+  margin-top: 0.35rem;
+  color: var(--color-muted);
+  font-size: 0.58rem;
+  letter-spacing: 0.1em;
+}
+
+.cr-settings-rumble:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
 .cr-chal-section {
   grid-column: 1 / -1;
   display: grid;

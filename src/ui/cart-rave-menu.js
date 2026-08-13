@@ -30,6 +30,14 @@ import { DEFAULT_SOLO, normalizeDifficulty } from "../aiDifficulty.js";
 import { togglePostFx, applyQualityTier } from "./graphicsToggles.js";
 import { setAllAudioMuted, setMusicGainValue, setSfxSliderVolume, setVoiceSliderVolume } from "./audioControls.js";
 import { playUiClick } from "../sfxSynth.js";
+import {
+  enableControllerRumble,
+  getControllerRumbleStatus,
+  isControllerRumbleEnabled,
+  onControllerRumbleStatusChange,
+  refreshControllerRumbleCapability,
+  setControllerRumbleEnabled,
+} from "../haptics.js";
 import { AUDIO_VOLUME_MAX } from "../stores/audioStore.js";
 import { getRoundState } from "../stores/gameStore.js";
 // * MENU-LOCK-HINT-1: browsing a locked arena must retarget the 3D preview without
@@ -330,6 +338,8 @@ import { ARENA_CATALOG } from "../levels/arenaCatalog.js";
     howtoMenuBtn?.querySelector(".cr-btn-label") ?? null
   );
   const settingsMuteBtn = $("cr-settings-mute-btn");
+  const settingsRumbleBtn = $("cr-settings-rumble-btn");
+  const settingsRumbleStatus = $("cr-settings-rumble-status");
   const settingsVolFill = $("cr-settings-vol-fill");
   const settingsVolVal = $("cr-settings-vol-val");
   const settingsSfxFill = $("cr-settings-sfx-fill");
@@ -1530,6 +1540,8 @@ import { ARENA_CATALOG } from "../levels/arenaCatalog.js";
     if (phase === "running" || phase === "countdown") return;
     syncSettingsAudioUi();
     updateSettingsControlsUI();
+    syncSettingsRumbleUi();
+    void refreshControllerRumbleCapability();
     captureOverlayOpener();
     settingsScreen.style.display = 'flex';
     settingsScreen.setAttribute('aria-hidden', 'false');
@@ -1635,6 +1647,28 @@ import { ARENA_CATALOG } from "../levels/arenaCatalog.js";
     }
   }
 
+  /** Keeps the Settings rumble control honest about the connected controller path. */
+  function syncSettingsRumbleUi(status = getControllerRumbleStatus()) {
+    if (!settingsRumbleBtn || !settingsRumbleStatus) return;
+    const enabled = status.enabled && isControllerRumbleEnabled();
+    const copy = {
+      standard: enabled ? ["ON", "STANDARD RUMBLE READY"] : ["ENABLE", "STANDARD RUMBLE READY"],
+      "hid-ready": enabled ? ["ON", "PS5 USB READY"] : ["ENABLE", "PS5 USB READY"],
+      "hid-permission": ["ENABLE", "PS5 USB — PERMISSION REQUIRED"],
+      disconnected: ["CONNECT", "CONNECT A CONTROLLER"],
+      unsupported: ["UNSUPPORTED", "RUMBLE UNSUPPORTED"],
+    }[status.kind];
+    const [label, detail] = copy;
+    const unavailable = status.kind === "disconnected" || status.kind === "unsupported";
+    const labelEl = settingsRumbleBtn.querySelector(".cr-btn-label");
+    if (labelEl) labelEl.textContent = label;
+    settingsRumbleStatus.textContent = detail;
+    settingsRumbleBtn.disabled = unavailable;
+    settingsRumbleBtn.setAttribute("aria-pressed", String(enabled));
+    settingsRumbleBtn.setAttribute("aria-label", unavailable ? detail : `${label} controller rumble`);
+    settingsRumbleBtn.classList.toggle("cr-btn--gfx-off", !enabled);
+  }
+
   /**
    * Renders the controls table inside the Settings overlay based on current input mode.
    * Mirrors the main-menu updateControlsPanelUI but targets #cr-settings-controls.
@@ -1731,6 +1765,7 @@ import { ARENA_CATALOG } from "../levels/arenaCatalog.js";
     settingsBackBtn?.addEventListener('click', closeSettingsScreen);
     wireMenuPressFeedback(settingsDoneBtn);
     wireMenuPressFeedback(settingsBackBtn);
+    wireMenuPressFeedback(settingsRumbleBtn);
     if (settingsMuteBtn) {
       settingsMuteBtn.addEventListener('click', () => {
         // * Toggle mute via the shared audio controls module.
@@ -1740,6 +1775,18 @@ import { ARENA_CATALOG } from "../levels/arenaCatalog.js";
         }
       });
     }
+    settingsRumbleBtn?.addEventListener("click", async () => {
+      if (isControllerRumbleEnabled()) {
+        setControllerRumbleEnabled(false);
+        return;
+      }
+      const result = await enableControllerRumble();
+      syncSettingsRumbleUi(result.status);
+    });
+    onControllerRumbleStatusChange((status) => {
+      if (settingsScreen?.style.display === "flex") syncSettingsRumbleUi(status);
+    });
+    void refreshControllerRumbleCapability();
     // * Proxy the volume track clicks so the position calculation works on each rect.
     // * All three rows share one handler; only the setter differs (music / SFX / voice).
     wireSettingsVolTrack(settingsVolTrackEl, setMusicGainValue);

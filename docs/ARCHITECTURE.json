@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-13T23:20:22.233Z",
-    "commit": "0934561"
+    "at": "2026-08-13T23:52:56.774Z",
+    "commit": "31bbaec"
   },
-  "source_digest": "cdf64164",
+  "source_digest": "d3717109",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -877,6 +877,12 @@
         ]
       },
       {
+        "id": "RUMBLE-STRENGTH-1",
+        "what": "Controller rumble Settings control",
+        "status": "🟡 local implementation ready — not shipped; QA 7/7 + build PASS; human target checks seeded as RUMBLE-STRENGTH-PT-1",
+        "state": "waiting"
+      },
+      {
         "id": "BRAND-1",
         "what": "Domain cutover",
         "status": "🧊 frozen ([brand.md](./brand.md))",
@@ -884,7 +890,7 @@
       }
     ],
     "next_actions": [
-      "No active card / wait for the next approved wave.",
+      "RUMBLE-STRENGTH-1: wait for Wyatt's `ship it` before commit, push, and deploy.",
       "Deferred playtests: CARGO-BAY-INSTANCE-PT-3 · CONN-TRACK-LEAK-PT-1 · SHARD-PT-2."
     ],
     "open_issues": [
@@ -1022,7 +1028,7 @@
           {
             "pri": "Low",
             "item": "RUMBLE-STRENGTH-1 — Enable controller rumble from Settings *(pre-ship 07-19)*",
-            "notes": "**Approved scope:** add a general `ENABLE CONTROLLER RUMBLE` Settings action. Use the standard Gamepad rumble API automatically when available; use a user-permission WebHID fallback for known HID profiles, starting with USB DualSense. Show honest unsupported status; preserve input and existing rumble. No adaptive triggers. **Files:** `src/haptics.js`, `src/ui/cart-rave-menu.js`, Settings markup/styles, haptics/report tests. **Asserts:** standard pads need no setup; button opens permission flow; supported DualSense rumbles on hit/KO; unsupported browser/device fails safely; input remains intact. **Risk:** WebHID is Chromium + secure-context + user-permission gated. **Playtest:** Chrome/USB DualSense enable + hit/KO; reload; standard controller; unsupported browser/device.",
+            "notes": "**Approved scope:** add a general `ENABLE CONTROLLER RUMBLE` Settings action. Xbox, PS5, and Steam Deck are first-class targets through standard Gamepad rumble; use a narrow, user-permission WebHID fallback only for USB DualSense `054c:0ce6` when that API exposes no actuator. Show connect, enable, on, and honest unsupported states; persist the setting; preserve gameplay rumble and input. Controller-only menu focus/confirm pulses are lower priority than gameplay rumble. No adaptive triggers or generic Xbox WebHID path. **Files:** `src/haptics.js`, `src/ui/gamepadNav.js`, `src/ui/cart-rave-menu.js`, Settings markup/styles, haptics/nav tests. **Asserts:** standard pads need no setup; the PS5 permission button causes a test pulse only after approval; all three targets retain hit/KO feedback; unsupported browser/device fails safely; keyboard/mouse menu use stays silent. **Risk:** WebHID is Chromium + secure-context + user-permission gated.",
             "ship1": null
           }
         ]
@@ -1030,10 +1036,16 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Low": 7,
+          "Low": 8,
           "Medium": 3
         },
         "rows": [
+          {
+            "pri": "Low",
+            "item": "RUMBLE-STRENGTH-PT-1 — controller rumble works on Xbox, PS5, and Steam Deck `[solo]`",
+            "notes": "**Owed: Wyatt playtest — RUMBLE-STRENGTH-PT-1 — Settings enables controller rumble, gives one short test pulse, and keeps gameplay feedback stronger than menu feedback.** **Unshipped:** use `npm run dev:local` until the next ship; then repeat on production after a hard refresh.<br>1. With an Xbox controller in Chrome, open Settings and enable controller rumble. PASS if it gives one short test pulse, says ON, and stays ON after reload; FAIL if it asks for HID permission or says ON without a pulse.<br>2. With the PS5 controller connected by USB, open Settings. If standard rumble is ready, enable it; if the permission state appears, approve only the PS5 picker. PASS if the test pulse, menu focus/confirm taps, and one hit or KO rumble work; FAIL if an unrelated device is offered, the state lies, or no gameplay rumble occurs.<br>3. In the Steam Deck browser, enable rumble and navigate the menu, then play one round. PASS if the Deck gets the same test/menu/gameplay pattern; FAIL if it is treated as unsupported while the browser exposes a standard actuator.<br>4. Turn rumble off, then use keyboard or mouse in the menu. PASS if controller rumble stops and phone/menu vibration does not occur; FAIL if a menu tap overrides a stronger hit or KO rumble.",
+            "ship1": null
+          },
           {
             "pri": "Low",
             "item": "KO-DOOMED-PT-1 — local KO edge pulse + shockwave `[solo]`",

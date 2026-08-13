@@ -40,6 +40,8 @@ external testers. Stay in this phase until Wyatt advances the marker.
 
 **DEPS-MAJOR-1** CLOSED 08-13. Direct `sharp@0.35.3` and `@cloudflare/vitest-pool-workers@0.21.2`; party-do 45/45, full QA, production build, and Wrangler dry-run PASS. No player-visible behavior and no deploy.
 
+**RUMBLE-STRENGTH-1** implementation is ready locally 08-13 — **not shipped**. Settings persists controller rumble; Xbox, PS5, and Steam Deck use the standard Gamepad path; USB DualSense `054c:0ce6` has a narrow permission fallback only when it lacks a standard actuator. QA 7/7 and build PASS. Human hardware checks are **RUMBLE-STRENGTH-PT-1** after ship.
+
 **Closed cards keep their narrative in their own docs, not here** — Sundial
 ([handover](./planning/art-pass-sundial-handover.md); read its "Traps that cost time" before any
 capture, and judge phase changes against a ~1.2% construction-noise floor, not zero), Fight Night
@@ -77,11 +79,12 @@ Live rows only. Shipped and closed cards live in
 | # | What | Status |
 |---|------|--------|
 | BUNDLE-1 | Menu/game code-split | ⚠️ **CLOSED PARTIAL 08-05 — perf goal NOT met. Deployed `f2f90fd2`.** Warm `menu-ready` −3% vs a −15% gate. Banked: a `size:check` byte gate, `main.js` 2,582 → 1,262 lines, −22.6% off the initial set (**cold** visits only). Lever E playtested: BUNDLE-E-PT-1 PASS 6/6. [bundle-1.md §0](./planning/bundle-1.md) |
+| RUMBLE-STRENGTH-1 | Controller rumble Settings control | 🟡 local implementation ready — **not shipped**; QA 7/7 + build PASS; human target checks seeded as RUMBLE-STRENGTH-PT-1 |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 
 ### Next actions
 
-1. **No active card / wait for the next approved wave.**
+1. **RUMBLE-STRENGTH-1:** wait for Wyatt's `ship it` before commit, push, and deploy.
 2. **Deferred playtests:** **CARGO-BAY-INSTANCE-PT-3** · **CONN-TRACK-LEAK-PT-1** · **SHARD-PT-2**.
 
 ## Open issues (top)

@@ -7,7 +7,15 @@
 // Firefox's hapticActuators[].pulse() spec variant was never handled.
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { hapticPulse } from "../src/haptics.js";
+import {
+  __TEST_ONLY__,
+  enableControllerRumble,
+  getControllerRumbleStatus,
+  hapticMenuConfirm,
+  hapticMenuFocus,
+  hapticPulse,
+  setControllerRumbleEnabled,
+} from "../src/haptics.js";
 
 /** Chrome-style pad: vibrationActuator.playEffect. */
 function chromePad(overrides = {}) {
@@ -29,6 +37,9 @@ function firefoxPad(overrides = {}) {
 
 beforeEach(() => {
   navigator.vibrate = vi.fn();
+  __TEST_ONLY__.reset();
+  setControllerRumbleEnabled(true);
+  Object.defineProperty(navigator, "hid", { configurable: true, value: undefined });
 });
 
 describe("hapticPulse gamepad rumble", () => {
@@ -102,5 +113,79 @@ describe("hapticPulse gamepad rumble", () => {
     navigator.getGamepads = undefined;
     expect(() => hapticPulse(1, 1, 100)).not.toThrow();
     expect(navigator.vibrate).toHaveBeenCalled();
+  });
+
+  it("keeps touch vibration but blocks controller rumble when Settings is off", () => {
+    const pad = chromePad();
+    navigator.getGamepads = () => [pad];
+    setControllerRumbleEnabled(false);
+
+    hapticPulse(0.8, 0.4, 100);
+
+    expect(pad.vibrationActuator.playEffect).not.toHaveBeenCalled();
+    expect(navigator.vibrate).toHaveBeenCalledWith(100);
+  });
+});
+
+describe("controller preference and device paths", () => {
+  it("reports a standard Xbox, PS5, or Steam Deck path and gives a test rumble", async () => {
+    const pad = chromePad();
+    navigator.getGamepads = () => [pad];
+    setControllerRumbleEnabled(false);
+
+    const result = await enableControllerRumble();
+
+    expect(result.ok).toBe(true);
+    expect(getControllerRumbleStatus()).toMatchObject({ kind: "standard", enabled: true, path: "standard" });
+    expect(pad.vibrationActuator.playEffect).toHaveBeenCalledWith("dual-rumble", {
+      duration: 90,
+      strongMagnitude: 0.45,
+      weakMagnitude: 0.7,
+    });
+  });
+
+  it("uses the Chrome WebHID permission path only for the known USB DualSense report", async () => {
+    const pad = {
+      connected: true,
+      index: 4,
+      id: "DualSense Wireless Controller (STANDARD GAMEPAD Vendor: 054c Product: 0ce6)",
+    };
+    const device = {
+      vendorId: 0x054c,
+      productId: 0x0ce6,
+      collections: [{ outputReports: [{ reportId: 0x02 }] }],
+      opened: false,
+      open: vi.fn(async () => { device.opened = true; }),
+      sendReport: vi.fn(async () => {}),
+    };
+    navigator.getGamepads = () => [pad];
+    Object.defineProperty(navigator, "hid", {
+      configurable: true,
+      value: { requestDevice: vi.fn(async () => [device]) },
+    });
+    setControllerRumbleEnabled(false);
+
+    const result = await enableControllerRumble();
+
+    expect(result.ok).toBe(true);
+    expect(navigator.hid.requestDevice).toHaveBeenCalledWith({
+      filters: [{ vendorId: 0x054c, productId: 0x0ce6 }],
+    });
+    expect(device.sendReport).toHaveBeenCalledWith(0x02, expect.any(Uint8Array));
+    expect(getControllerRumbleStatus()).toMatchObject({ kind: "hid-ready", enabled: true, path: "dualsense-hid" });
+  });
+
+  it("sends menu feedback only to the active gamepad and never to phone vibration", async () => {
+    const first = chromePad({ index: 0 });
+    const active = chromePad({ index: 4 });
+    navigator.getGamepads = () => [first, active];
+
+    hapticMenuFocus(4);
+    hapticMenuConfirm(4);
+    await Promise.resolve();
+
+    expect(first.vibrationActuator.playEffect).not.toHaveBeenCalled();
+    expect(active.vibrationActuator.playEffect).toHaveBeenCalled();
+    expect(navigator.vibrate).not.toHaveBeenCalled();
   });
 });

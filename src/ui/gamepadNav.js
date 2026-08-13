@@ -1,4 +1,5 @@
 import { getActiveGamepad, setInputMode } from "../input.js";
+import { hapticMenuConfirm, hapticMenuFocus } from "../haptics.js";
 
 let _navActive = true;
 let navIndex = 0;
@@ -86,7 +87,7 @@ function nudgeSlider(el, key) {
   el.dispatchEvent(new KeyboardEvent("keydown", { key, code: key, bubbles: true }));
 }
 
-function setFocus(targetEl, focusables) {
+function setFocus(targetEl, focusables, gamepadIndex = undefined) {
   if (!targetEl) return;
   // * Sweep document-wide, not just the current focusables — a ring left on a
   // * button behind a newly opened overlay is outside the scoped list.
@@ -100,6 +101,7 @@ function setFocus(targetEl, focusables) {
   navIndex = focusables.indexOf(targetEl);
   lastFocusedEl = targetEl;
   lastFocusedRow = targetEl.closest?.('[role="radiogroup"]') ?? null;
+  if (gamepadIndex != null) hapticMenuFocus(gamepadIndex);
 }
 
 /**
@@ -137,7 +139,7 @@ function restoreDeadFocusRing(focusables) {
   return focusables[idx] || null;
 }
 
-function navigateSpatial(dir, focusables) {
+function navigateSpatial(dir, focusables, gamepadIndex = undefined) {
   if (!focusables || focusables.length === 0) return;
 
   const currentEl = document.activeElement && focusables.includes(/** @type {HTMLElement} */ (document.activeElement))
@@ -185,13 +187,13 @@ function navigateSpatial(dir, focusables) {
   }
 
   if (bestCand) {
-    setFocus(bestCand, focusables);
+    setFocus(bestCand, focusables, gamepadIndex);
   } else {
     // Spatial search found no candidate in that direction -> fall back to linear 1D wrap
     const curIdx = focusables.indexOf(currentEl);
     const delta = (dir === "down" || dir === "right") ? 1 : -1;
     const nextIdx = (curIdx + delta + focusables.length) % focusables.length;
-    setFocus(focusables[nextIdx], focusables);
+    setFocus(focusables[nextIdx], focusables, gamepadIndex);
   }
 }
 
@@ -250,11 +252,13 @@ function updateNav() {
     const arenaPrev = /** @type {HTMLElement|null} */ (document.getElementById("cr-arena-prev"));
     const arenaNext = /** @type {HTMLElement|null} */ (document.getElementById("cr-arena-next"));
     if (lb && !prevDpad.lb && arenaPrev && isElementVisible(arenaPrev)) {
+      hapticMenuConfirm(gp.index);
       arenaPrev.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
       arenaPrev.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }));
       arenaPrev.click();
     }
     if (rb && !prevDpad.rb && arenaNext && isElementVisible(arenaNext)) {
+      hapticMenuConfirm(gp.index);
       arenaNext.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
       arenaNext.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }));
       arenaNext.click();
@@ -275,7 +279,7 @@ function updateNav() {
         // * idle frame, before any press — so the next press navigates instead
         // * of being consumed re-seeding. Only fires when the ring node is
         // * actually gone, never while focus sits on a live control.
-        setFocus(restored, focusables);
+        setFocus(restored, focusables, gp.index);
       } else if (
         (up && !prevDpad.up) || (down && !prevDpad.down) ||
         (left && !prevDpad.left) || (right && !prevDpad.right) ||
@@ -285,7 +289,7 @@ function updateNav() {
         // * Reclaim it only on an actual press — re-seizing every idle frame
         // * stole focus while a pad sat connected. The press is consumed as the
         // * reveal; navigation/confirm start from the next press.
-        setFocus(focusables[navIndex] || focusables[0], focusables);
+        setFocus(focusables[navIndex] || focusables[0], focusables, gp.index);
       }
     }
 
@@ -297,15 +301,15 @@ function updateNav() {
       const activeIsSlider = activeEl.getAttribute?.("role") === "slider"
         || (activeEl instanceof HTMLInputElement && activeEl.type === "range");
 
-      if (up && !prevDpad.up) navigateSpatial("up", focusables);
-      if (down && !prevDpad.down) navigateSpatial("down", focusables);
+      if (up && !prevDpad.up) navigateSpatial("up", focusables, gp.index);
+      if (down && !prevDpad.down) navigateSpatial("down", focusables, gp.index);
       if (left && !prevDpad.left) {
         if (activeIsSlider) nudgeSlider(activeEl, "ArrowLeft");
-        else navigateSpatial("left", focusables);
+        else navigateSpatial("left", focusables, gp.index);
       }
       if (right && !prevDpad.right) {
         if (activeIsSlider) nudgeSlider(activeEl, "ArrowRight");
-        else navigateSpatial("right", focusables);
+        else navigateSpatial("right", focusables, gp.index);
       }
 
       if (a && !prevDpad.a) {
@@ -317,6 +321,7 @@ function updateNav() {
           // * use d-pad left/right and would misread a synthetic pointer),
           // * then click.
           if (el.getAttribute("role") !== "slider" && !(el instanceof HTMLInputElement && el.type === "range")) {
+            hapticMenuConfirm(gp.index);
             el.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
             el.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }));
           }
@@ -331,6 +336,7 @@ function updateNav() {
     if (b && !prevDpad.b) {
       const activeClose = /** @type {HTMLElement|null} */ (scope.querySelector('.cr-overlay-back, .esc-btn--resume, [data-action="back"]'));
       if (activeClose && isElementVisible(activeClose)) {
+        hapticMenuConfirm(gp.index);
         activeClose.click();
       } else {
         window.dispatchEvent(new KeyboardEvent("keydown", { code: "Escape", key: "Escape", bubbles: true }));
