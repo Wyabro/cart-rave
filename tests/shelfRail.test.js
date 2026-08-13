@@ -56,3 +56,25 @@ describe("SHELF-RAIL-1 — booth rails read painted steel, not chrome", () => {
     expect(shinier.length).toBeLessThanOrEqual(2);
   });
 });
+
+describe("SHELF-RAIL-1 — shelf boards read as bolted bay sections", () => {
+  it("the 114 m board is split into bays with a 4 cm seam gap", () => {
+    const start = src.indexOf("const boardLen = WALL_SPAN - 10;");
+    expect(start).toBeGreaterThan(-1);
+    const block = src.slice(start, start + 700);
+    expect(block).toMatch(/const boardSeamGap = 0\.04;/);
+    expect(block).toMatch(/const bayCount = Math\.max\(2, Math\.round\(boardLen \/ uprightStep\)\);/);
+    expect(block).toMatch(/const bayLen = \(boardLen - boardSeamGap \* \(bayCount - 1\)\) \/ bayCount;/);
+    // * Bays iterate along the wall and each pushes into the SAME bucket.
+    expect(block).toMatch(/pushFadeBox\(shelfWoodParts, bsx, boardThickness, bsz, bpx, bpy, bpz, unitBox, shelfWoodBaseRgb, SHELF_UV_METERS\);/);
+  });
+
+  it("the bays still merge into one geometry (single bucket, no draw-call regression)", () => {
+    // * mergeAdd(shelfWoodParts, shelfWoodMat) must remain the only shelfWood merge
+    // * site, and it must use mergeGeometries (not per-bay meshes).
+    const mergeLine = src.match(/mergeAdd\(shelfWoodParts, shelfWoodMat\);/);
+    expect(mergeLine).not.toBeNull();
+    const mergeAddSrc = src.slice(src.indexOf("const mergeAdd = (parts, mat) => {"), src.indexOf("const mergeAdd = (parts, mat) => {") + 220);
+    expect(mergeAddSrc).toMatch(/BufferGeometryUtils\.mergeGeometries\(parts, false\)/);
+  });
+});

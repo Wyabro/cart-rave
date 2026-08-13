@@ -2262,11 +2262,22 @@ function buildWalls(scene, world, wallpaperTex) {
       }
 
       // Horizontal boards + faded product boxes per level.
+      // * SHELF-RAIL-1: each 114 m board reads as bolted sections — split into bays
+      // * with a 4 cm seam gap (sub-visual itself; the per-bay UV restart is what
+      // * reads at distance). Bay count tracks the upright rhythm so sections land
+      // * between posts. Same shelfWoodParts bucket → still one merged geometry.
+      const boardLen = WALL_SPAN - 10;
+      const boardSeamGap = 0.04;
+      const bayCount = Math.max(2, Math.round(boardLen / uprightStep));
+      const bayLen = (boardLen - boardSeamGap * (bayCount - 1)) / bayCount;
       for (let lvl = 0; lvl < shelfLevels; lvl += 1) {
         const boardY = 1.0 + lvl * levelGap;
-        const [bsx, bsz] = wDim(WALL_SPAN - 10, shelfDepth);
-        const [bpx, bpy, bpz] = toWorld(0, boardY, shelfCenterOut);
-        pushFadeBox(shelfWoodParts, bsx, boardThickness, bsz, bpx, bpy, bpz, unitBox, shelfWoodBaseRgb, SHELF_UV_METERS);
+        for (let b = 0; b < bayCount; b += 1) {
+          const along = -boardLen / 2 + b * (bayLen + boardSeamGap) + bayLen / 2;
+          const [bsx, bsz] = wDim(bayLen, shelfDepth);
+          const [bpx, bpy, bpz] = toWorld(along, boardY, shelfCenterOut);
+          pushFadeBox(shelfWoodParts, bsx, boardThickness, bsz, bpx, bpy, bpz, unitBox, shelfWoodBaseRgb, SHELF_UV_METERS);
+        }
 
         const boxY = boardY + boardThickness / 2 + boxH / 2;
         for (let a = -WALL_SPAN / 2 + 7; a <= WALL_SPAN / 2 - 7; a += SHELF_BOX_SPACING) {
