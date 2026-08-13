@@ -57,9 +57,8 @@ afterEach(() => {
 
 describe("priority interrupt rule", () => {
   it("interrupts the active announcement only when incoming.priority >= active.priority + 20 AND active.interruptible", () => {
-    // rampage (priority 50, medium, interruptible) becomes active via the kill-burst window.
+    // rampage (priority 50, medium, interruptible) plays immediately (combo left the kill-burst).
     manager.announce("rampage");
-    advance(450);
     expect(manager.getAnnouncerDebugState().activeEventId).toBe("rampage");
 
     // first_spill (priority 70) satisfies 70 >= 50 + 20 exactly -> interrupts.
@@ -304,7 +303,7 @@ describe("per-event gates", () => {
 
 describe("kill-burst merge window", () => {
   it("collects same-window arrivals and announces only the highest priority one", () => {
-    manager.announce("rampage"); // 50 — opens the 450ms hold
+    manager.announce("refund"); // 45 — opens the 450ms hold
     advance(100);
     manager.announce("first_spill"); // 70 — replaces the held survivor
     advance(100);
@@ -317,14 +316,33 @@ describe("kill-burst merge window", () => {
   });
 
   it("consumes cooldown/round gates for swallowed events even though they never play", () => {
-    manager.announce("rampage"); // cooldownMs 8000, opens hold at t=0
+    manager.announce("refund"); // cooldownMs 10000, opens hold at t=0
     advance(50);
     manager.announce("first_spill"); // wins the merge (survivor)
     advance(450); // fires; first_spill plays
 
-    // rampage was swallowed but its cooldown should already be stamped from t=0.
-    manager.announce("rampage");
+    // refund was swallowed but its cooldown should already be stamped from t=0.
+    manager.announce("refund");
     expect(manager.getAnnouncerDebugState().heldEventId).toBeNull(); // gated by cooldown, never opens a new hold
+  });
+});
+
+describe("announce() outcome (PA-COMBO-1)", () => {
+  it("returns played when the line wins the channel", () => {
+    expect(manager.announce("rampage")).toEqual({ type: "played" });
+  });
+
+  it("returns discarded when a medium combo line hits a busy channel", () => {
+    manager.announce("first_spill");
+    advance(450);
+    expect(manager.getAnnouncerDebugState().activeEventId).toBe("first_spill");
+
+    expect(manager.announce("savage")).toEqual({ type: "discarded" });
+    expect(manager.getAnnouncerDebugState().queueLength).toBe(0);
+  });
+
+  it("returns discarded on an unknown event id", () => {
+    expect(manager.announce("not_a_real_event")).toEqual({ type: "discarded" });
   });
 });
 

@@ -78,12 +78,18 @@ const POST_FOCUS_QUIET_MS = 800;
 const QUEUE_MAX = 2;
 /** Kill-burst merge / comeback-swallow-new_leader collection window. */
 const BURST_WINDOW_MS = 450;
-/** Event ids collected into a single announcement when they land within BURST_WINDOW_MS of each other. */
+/** Event ids collected into a single announcement when they land within BURST_WINDOW_MS of each other.
+ * Combo tier-ups are NOT in this set (PA-COMBO-1): they dispatch synchronously so
+ * announce() can return played/queued/discarded, and a dropped upgrade does not
+ * consume cooldown. Pileup still merges first_spill / double_spill / aisle_wipeout. */
 const KILL_BURST_IDS = new Set([
   "first_spill", "double_spill", "aisle_wipeout",
-  "rampage", "savage", "carnage",
   "refund", "cleanup_aisle",
 ]);
+
+/**
+ * @typedef {{ type: "played" } | { type: "queued", queueItem?: QueueItem } | { type: "discarded" }} AnnounceOutcome
+ */
 
 // === Module state ===
 
@@ -183,14 +189,15 @@ export function registerAnnouncerVoicePack(manifest) {
  * placement, and (eventually) playback.
  * @param {string} eventId
  * @param {AnnouncerLineData} [data]
- * @returns {void}
+ * @returns {AnnounceOutcome} played = won the channel now; queued = waiting (incl.
+ *   kill-burst hold); discarded = gated, dropped, or unknown id.
  */
 export function announce(eventId, data = {}) {
-  if (!_initialized || !_deps) return;
+  if (!_initialized || !_deps) return { type: "discarded" };
   const def = ANNOUNCER_EVENTS[eventId];
   if (!def) {
     warnMissingEventOnce(eventId);
-    return;
+    return { type: "discarded" };
   }
   // * Diagnostics: log every accepted announce request (channel "announcer") so a rig can
   // * assert the PA sequence (countdown_3→2→1→go, victory/defeat). No-op unless ?diag active.
@@ -199,21 +206,20 @@ export function announce(eventId, data = {}) {
 
   if (eventId === "comeback") {
     const bypassGap = handleComebackSwallow(nowMs);
-    if (!passGates(def, nowMs)) return;
-    dispatch(def, data, nowMs, { bypassGap });
-    return;
+    if (!passGates(def, nowMs)) return { type: "discarded" };
+    return dispatch(def, data, nowMs, { bypassGap });
   }
 
   if (KILL_BURST_IDS.has(eventId)) {
-    if (!passGates(def, nowMs)) return;
+    if (!passGates(def, nowMs)) return { type: "discarded" };
     // * Gates are consumed at collection time — a swallowed event still "counts as fired"
     // * even if a higher-priority sibling wins the merge window (rule 8).
     consumeGates(def, nowMs);
     collectBurst(def, data, nowMs);
-    return;
+    return { type: "queued" };
   }
 
-  if (!passGates(def, nowMs)) return;
+  if (!passGates(def, nowMs)) return { type: "discarded" };
 
   if (eventId === "new_leader") {
     const outcome = dispatch(def, data, nowMs, {});
@@ -224,10 +230,10 @@ export function announce(eventId, data = {}) {
     } else {
       _newLeaderTrack = null;
     }
-    return;
+    return outcome;
   }
 
-  dispatch(def, data, nowMs, {});
+  return dispatch(def, data, nowMs, {});
 }
 
 /**

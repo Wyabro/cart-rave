@@ -8,7 +8,9 @@ import { resetAnnouncerRound, stopAnnouncer } from "./announcerManager.js";
 
 /**
  * @typedef {object} AnnouncerDirectorDeps
- * @property {(eventId: string, data?: object) => void} announce
+ * @property {(eventId: string, data?: object) => { type: string } | void} announce
+ *   Returns played/queued/discarded from the manager. Void/unknown is treated as discarded
+ *   so a dropped combo line does not burn the tier (PA-COMBO-1).
  * @property {() => Array<object>} getNetSlots
  * @property {() => number} getLocalSlotIndex
  * @property {() => number | null} getRemainingRoundMs Milliseconds left in the round, or
@@ -125,6 +127,16 @@ function trackFallBurst(nowMs) {
 }
 
 /**
+ * True when the manager accepted the line (playing now or waiting). A discarded
+ * upgrade must not advance last-announced, or the next KO at that tier stays silent.
+ * @param {{ type: string } | void} outcome
+ * @returns {boolean}
+ */
+function isAnnounceAccepted(outcome) {
+  return outcome?.type === "played" || outcome?.type === "queued";
+}
+
+/**
  * Handles rampage/savage/carnage tier-up announcements for an attributed kill.
  * @param {number} attackerSlotIndex
  * @param {number} comboTier
@@ -134,13 +146,12 @@ function trackComboTierUp(attackerSlotIndex, comboTier) {
   if (comboTier <= 0) return false;
   const lastAnnounced = _comboLastAnnouncedTier[attackerSlotIndex] ?? 0;
   if (comboTier <= lastAnnounced) return false;
-  _comboLastAnnouncedTier[attackerSlotIndex] = comboTier;
   const eventId = TIER_EVENT_IDS[comboTier];
-  if (eventId) {
-    _deps.announce(eventId, { attacker: nameForSlot(attackerSlotIndex) });
-    return true;
-  }
-  return false;
+  if (!eventId) return false;
+  const outcome = _deps.announce(eventId, { attacker: nameForSlot(attackerSlotIndex) });
+  if (!isAnnounceAccepted(outcome)) return false;
+  _comboLastAnnouncedTier[attackerSlotIndex] = comboTier;
+  return true;
 }
 
 /**
@@ -187,8 +198,11 @@ export function announcerDirectorOnFall(fall) {
       _firstSpillFired = true;
       _deps.announce("first_spill", { attacker: nameForSlot(attackerSlotIndex) });
       streakThisFall = true;
+      // * First-spill owns this KO. Combo left the kill-burst (PA-COMBO-1), so
+      // * skip the tier-up here or RAMPAGE would start under FIRST SPILL.
+    } else if (trackComboTierUp(attackerSlotIndex, comboTier ?? 0)) {
+      streakThisFall = true;
     }
-    if (trackComboTierUp(attackerSlotIndex, comboTier ?? 0)) streakThisFall = true;
     if (trackRefund(attackerSlotIndex, victimSlotIndex)) streakThisFall = true;
     // * Same-fall flavor skip (PA-QUIET-1): one KO = one spoken line. Isolated
     // * leader_down / critical_ko still fire when this fall has no streak line.

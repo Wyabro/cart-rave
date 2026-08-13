@@ -33,7 +33,7 @@ beforeEach(async () => {
   vi.resetModules();
   vi.useFakeTimers({ now: 0, toFake: ["setTimeout", "clearTimeout", "Date", "performance"] });
 
-  announce = vi.fn();
+  announce = vi.fn(() => ({ type: "played" }));
   ({ gameStore, RoundPhase } = await import("../src/stores/gameStore.js"));
   director = await import("../src/announcer/announcerDirector.js");
 
@@ -86,5 +86,57 @@ describe("same-fall flavor skip", () => {
     vi.advanceTimersByTime(200);
     fall({ victimSlotIndex: 2, wasCritical: true });
     expect(announcedIds()).toEqual(["double_spill"]);
+  });
+});
+
+describe("combo tier-up last-announced (PA-COMBO-1)", () => {
+  it("skips combo on the first-spill KO — first_spill owns the line", () => {
+    fall({ comboTier: 1 });
+    expect(announcedIds()).toEqual(["first_spill"]);
+  });
+
+  it("does not re-announce rampage after a played tier-1 line", () => {
+    fall({ comboTier: 0 });
+    expect(announcedIds()).toEqual(["first_spill"]);
+
+    announce.mockClear();
+    vi.advanceTimersByTime(1500);
+    fall({ victimSlotIndex: 2, comboTier: 1 });
+    expect(announcedIds()).toEqual(["rampage"]);
+
+    announce.mockClear();
+    vi.advanceTimersByTime(1500);
+    fall({ victimSlotIndex: 3, comboTier: 1 });
+    expect(announcedIds()).toEqual([]);
+  });
+
+  it("retries savage when the first tier-2 announce was discarded", () => {
+    fall({ comboTier: 0 });
+    announce.mockClear();
+    vi.advanceTimersByTime(1500);
+
+    announce.mockImplementationOnce(() => ({ type: "discarded" }));
+    fall({ victimSlotIndex: 2, comboTier: 2 });
+    expect(announcedIds()).toEqual(["savage"]);
+
+    announce.mockClear();
+    vi.advanceTimersByTime(1500);
+    fall({ victimSlotIndex: 3, comboTier: 2 });
+    expect(announcedIds()).toEqual(["savage"]);
+  });
+
+  it("does not retry savage after a queued tier-2 line", () => {
+    fall({ comboTier: 0 });
+    announce.mockClear();
+    vi.advanceTimersByTime(1500);
+
+    announce.mockImplementationOnce(() => ({ type: "queued" }));
+    fall({ victimSlotIndex: 2, comboTier: 2 });
+    expect(announcedIds()).toEqual(["savage"]);
+
+    announce.mockClear();
+    vi.advanceTimersByTime(1500);
+    fall({ victimSlotIndex: 3, comboTier: 2 });
+    expect(announcedIds()).toEqual([]);
   });
 });
