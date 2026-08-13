@@ -15,7 +15,7 @@ Chronological record of shipped work, newest first.
 
 ### August 13, 2026 — MENU-MUSIC-2: second main-menu song
 
-- *(Audio · content)* **MENU-MUSIC-2** — ✅ **DEPLOYED 08-13** `11e5e48f`. Menu playlist is `menu.opus` + `menu2.opus`. Each menu start from a stopped state picks a random first track; `onend` plays the other and wraps. Encoded `menu2.opus` opus 96k VBR, loudnorm −13.5 LUFS. Only track 0 preloads; the next track warms after the current one starts. Bleed guards stop every menu Howl. First-load on `dev:local` always played `menu.opus` because the DEV gate returned before `startIdx` was stored — `playMenuMusic` now stores the index first. Hashed assets 0×404; live `index-BqCYkBNl.js` carries `menu2.opus`; live `audioManager-kbrnh4ap.js` carries `menuTrackIdx`. Playtest owed: **MENU-MUSIC-PT-1**.
+- *(Audio · content)* **MENU-MUSIC-2** / **MENU-MUSIC-PT-1** — ✅ **CLOSED 08-13.** Wyatt playtest PASS on prod `11e5e48f`. Menu playlist is `menu.opus` + `menu2.opus`. Each menu start from a stopped state picks a random first track; `onend` plays the other and wraps. Encoded `menu2.opus` opus 96k VBR, loudnorm −13.5 LUFS. Only track 0 preloads; the next track warms after the current one starts. Bleed guards stop every menu Howl. First-load on `dev:local` always played `menu.opus` because the DEV gate returned before `startIdx` was stored — `playMenuMusic` now stores the index first. Hashed assets 0×404; live `index-BqCYkBNl.js` carries `menu2.opus`; live `audioManager-kbrnh4ap.js` carries `menuTrackIdx`.
 
 ---
 
