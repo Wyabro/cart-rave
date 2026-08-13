@@ -13,6 +13,10 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 13, 2026 — ANNOUNCER-RERECORD-1: announcer re-records done
+
+- *(Audio · Medium)* **ANNOUNCER-RERECORD-1** — ✅ **CLOSED 08-13 on Wyatt's word** (`[SHIP-1 E3]`). Re-records are done: shorter directive takes + odd lines. Work shipped outside the repo; no code or asset change in this tree, so the closure is docs-only. The E3 slot for the Howler upgrade stays open as **HOWLER-UPGRADE-1**.
+
 ### August 13, 2026 — ENG-LOW-SWEEP-2: Block 5 sweep levers
 
 - *(Engineering · Low)* **SNAP-SPARSE-1** — ✅ **CLOSED 08-13.** `hostSendTick` (src/netcode.js) leaves holes in the positional `carts` array when a slot is vacant, and the binary encoder (`carts[i] || {}` in src/netcode/binary.js) turns each hole into a zeroed cart at the origin on every remote — a phantom cart riding the wire. Added a session guard: consecutive vacant ticks per (phase, slot) with a warn-once-per-phase `console.warn` + `recordDiagEvent("net", "sparse_cart_hole", { slotIndex, phase, consecutiveTicks, totalCarts })`. Guard only — the protocol-level present-bitmask stays out of scope (the phantom remains on the wire until that card). New tests in tests/hostSnapPump.test.js (5): warns once with slot index, no re-warn same phase, re-warn on phase change via the force flush path, silent on a dense array, reset-seam isolation (`resetSparseHoleStateForTest` + `hostSendTickForTest` hook). Full QA green by number; two load-flaky full-run failures (diagnostics drain timeout, friendsJoinFlow fake-timer STACK_TRACE_ERROR) confirmed green on re-run and in isolation.
