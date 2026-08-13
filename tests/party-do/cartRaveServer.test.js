@@ -793,5 +793,44 @@ describe("CartRaveServer DO harness", () => {
         seat.client.close();
       }
     });
+
+    it("sanitizes hostSpawn carts before storing and relaying (CONN-SPAWN-SANITIZE-1)", async () => {
+      const room = uniqueRoom("spawn-sanitize");
+      // * Seat the host as a human first — otherwise the joiner's connect hits the
+      // * existingHumans === 0 path, which resets #carts before hello.
+      const host = await connectAndSeat(room, {
+        name: "HOST", clientId: "cid-spawn-1", ip: "10.0.0.31",
+      });
+
+      host.client.sendJson({
+        type: MSG.hostSpawn,
+        seq: 3,
+        tHost: 1000,
+        carts: [
+          { p: [0, 0, 0], q: [0, 0, 0, 1] },
+          { p: [1, 0, 1] },
+          { p: "junk" },
+          { p: [2, 0, 2] },
+          { p: [3, 0, 3] }, // 5th valid entry — sliced off by the 4-slot cap
+        ],
+      });
+
+      // * The joiner's hello echoes #carts — the sanitized copy. JSON serializes the
+      // * dropped entry (an undefined array slot) as null on the wire.
+      const joiner = await connectAndSeat(room, {
+        name: "JOIN", clientId: "cid-spawn-2", ip: "10.0.0.32",
+      });
+      try {
+        expect(joiner.hello.carts).toEqual([
+          { p: [0, 0, 0], q: [0, 0, 0, 1] },
+          { p: [1, 0, 1] },
+          null,
+          { p: [2, 0, 2] },
+        ]);
+      } finally {
+        joiner.client.close();
+        host.client.close();
+      }
+    });
   });
 });

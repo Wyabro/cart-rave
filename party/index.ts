@@ -34,6 +34,9 @@ export interface Env {
 
 function getMonotonicNow() { return performance.timeOrigin + performance.now(); }
 
+/** Room shape is 4 slots; caps hostSpawn carts (CONN-SPAWN-SANITIZE-1). */
+const MAX_CARTS = 4;
+
 type SlotId = 0 | 1 | 2 | 3;
 
 type CartState = {
@@ -1661,18 +1664,23 @@ export class CartRaveServer extends Server {
         if (!carts || typeof carts !== "object") return;
         const seq = typeof data.seq === "number" && Number.isFinite(data.seq) ? data.seq : 0;
         const tHost = typeof data.tHost === "number" && Number.isFinite(data.tHost) ? data.tHost : 0;
-        // * Keep a copy for mid-round join hello snapshots when useful.
-        if (Array.isArray(carts)) {
-          this.#carts = carts as (CartState | undefined)[];
-          this.#lastSeq = Math.max(this.#lastSeq, seq);
-        }
+        // * CONN-SPAWN-SANITIZE-1: store + relay a sanitized copy — permissive but
+        // * bounded. Require a 3-float `p` per cart, cap at the 4-slot room shape,
+        // * drop junk entries (undefined entries = holes, which clients already
+        // * tolerate). Before this, a non-array carts payload was echoed verbatim.
+        const rawCarts = Array.isArray(carts) ? carts : [];
+        const sanitizedCarts = rawCarts.slice(0, MAX_CARTS).map((c) =>
+          c && Array.isArray(c.p) && c.p.length === 3 && c.p.every(Number.isFinite) ? c : undefined,
+        );
+        this.#carts = sanitizedCarts as (CartState | undefined)[];
+        this.#lastSeq = Math.max(this.#lastSeq, seq);
         this.#broadcastJson({
           v: PROTOCOL_VERSION,
           type: MSG.hostSpawn,
           serverNowMs: this.#serverNowMs(),
           seq,
           tHost,
-          carts,
+          carts: sanitizedCarts,
         });
         return;
       }
