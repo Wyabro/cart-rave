@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-13T08:30:35.421Z",
-    "commit": "bd57fe4"
+    "at": "2026-08-13T08:37:08.711Z",
+    "commit": "df6a168"
   },
-  "source_digest": "81078264",
+  "source_digest": "2f06383e",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -935,7 +935,7 @@
       {
         "title": "Engineering",
         "counts": {
-          "Low": 10,
+          "Low": 9,
           "Partial": 1,
           "Medium": 4
         },
@@ -1016,12 +1016,6 @@
             "pri": "Low",
             "item": "CONN-SOURCETRUTH-1 — two connection sources of truth",
             "notes": "`#connections` vs `getConnections()` reconciled by hand in several paths. Consolidate.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "PARTY-ENVTYPE-1 — untyped `Env` bindings",
-            "notes": "`env: Record<string, any>` in Worker/DO. A typo in a binding name is a runtime 500. Add a typed interface.",
             "ship1": null
           },
           {

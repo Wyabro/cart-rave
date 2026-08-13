@@ -1,5 +1,37 @@
 import { Server, routePartykitRequest, type Connection, type ConnectionContext } from "partyserver";
 
+/**
+ * Worker / DO bindings (PARTY-ENVTYPE-1). Typed so a binding-name typo is a
+ * compile error instead of a runtime 500. Optional to mirror the runtime guards
+ * (`if (!env.ERROR_LOG)` — bindings may be absent pre-deploy; CF_* may be unset).
+ */
+/** Minimal structural binding shapes — @cloudflare/workers-types is not a direct dep. */
+type EnvFetcher = {
+  fetch(input: Request | string | URL, init?: RequestInit): Promise<Response>;
+};
+
+type EnvDurableObjectNamespace = {
+  idFromName(name: string): unknown;
+  get(id: unknown): EnvFetcher;
+};
+
+export interface Env {
+  /** Static assets (prod Workers build, ASSETS binding). */
+  ASSETS?: EnvFetcher;
+  /** Crash-report SQLite DO (singleton "v1"). */
+  ERROR_LOG?: EnvDurableObjectNamespace;
+  /** Product analytics SQLite DO (singleton "v1"). */
+  ANALYTICS_LOG?: EnvDurableObjectNamespace;
+  /** F8 capture SQLite DO (singleton "v1"). */
+  CAPTURE_LOG?: EnvDurableObjectNamespace;
+  /** Admin token secret (SEC-TOKEN-1 — Authorization: Bearer only). */
+  ERROR_LOG_TOKEN?: string;
+  /** Cloudflare Calls TURN credentials (requestTurnCredentials). */
+  CF_ACCOUNT_ID?: string;
+  CF_CALLS_KEY_ID?: string;
+  CF_API_TOKEN?: string;
+}
+
 function getMonotonicNow() { return performance.timeOrigin + performance.now(); }
 
 type SlotId = 0 | 1 | 2 | 3;
@@ -143,8 +175,8 @@ export class CartRaveServer extends Server {
   readonly #ipConnectionCounts = new Map<string, number>();
   readonly #connToIp = new Map<string, string>();
 
-  env: Record<string, any>;
-  constructor(state: any, env: any) {
+  env: Env;
+  constructor(state: any, env: Env) {
     super(state, env);
     this.env = env;
   }
@@ -1708,7 +1740,7 @@ function beaconHeaders(request: Request): Record<string, string> {
 }
 
 export default {
-  async fetch(request: Request, env: Record<string, any>): Promise<Response> {
+  async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
     // * Client crash reports → persist into the ErrorLog SQLite DO (singleton
