@@ -17,7 +17,7 @@
  * Usage:
  *   node scripts/compress-rave-gltf.mjs [model] [--texture-size N] [--no-webp] [--no-resize]
  *   npm run compress:rave-gltf                 # defaults to the active model (cartrave4)
- *   npm run compress:rave-gltf -- cart-rave-base --texture-size 1024
+ *   npm run compress:rave-gltf -- cartrave4 --texture-size 1024
  *
  * Args:
  *   model            Base name (default: "cartrave4"). Reads art/models/<model>.glb,

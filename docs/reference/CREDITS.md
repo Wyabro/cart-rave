@@ -111,7 +111,7 @@ Bundled audio ships in a single `.opus` format under `public/sounds/` — Opus h
 
 ## 3D models & geometry
 
-**Cart body (first-party asset):** the playable cart uses project-owned GLBs (`cartrave4-draco.glb` + `cart-rave-base-draco.glb` under `public/models/`; masters under `art/models/`). Props include `groceries/` and `sunglasses-visor.glb`. Pattern masks sample a second UV channel — see [cart-pattern-reuv.md](../guides/cart-pattern-reuv.md). Compress with `npm run compress:rave-gltf`.
+**Cart body (first-party asset):** the playable cart uses project-owned GLBs (`cartrave4-draco.glb` + `cart-clash-base-draco.glb` under `public/models/`; masters under `art/models/`). Props include `groceries/` and `sunglasses-visor.glb`. Pattern masks sample a second UV channel — see [cart-pattern-reuv.md](../guides/cart-pattern-reuv.md). Compress with `npm run compress:rave-gltf`.
 
 **Arenas and most scene dressing** are **procedurally built in code** (`src/levels/arena.js`, `src/levels/`, `src/sceneExtras.js`, etc.) from Three.js primitives and custom mesh builders — not third-party marketplace packs.
 

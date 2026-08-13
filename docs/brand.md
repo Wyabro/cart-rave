@@ -22,7 +22,7 @@ This freezes product naming so "Cart Rave" / `next-level` thrash stops mid-V2. I
 | **PartySocket `party` id** | `cart-rave-server` | Must match server routing |
 | **localStorage keys** | `cartRave*` | Keep until a one-shot migration ships |
 | **Window boot bridge** | `__cartRave*` / `window.CartRave` | Keep; `window.CartClash` is an alias |
-| **Asset paths** | `cart-rave-base*.glb`, etc. | Filename renames are a separate asset pass |
+| **Asset paths** | `cart-clash-base*.glb` (was `cart-rave-base*.glb` — renamed 08-13 by ASSET-RENAME-1), `cartrave4*.glb` | Filename renames are a separate asset pass |
 | **Module filenames** | `cart-rave-menu.js`, `cartRaveGltf.js` | Code identifiers; rename only with a dedicated refactor |
 
 ---

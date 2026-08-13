@@ -54,7 +54,7 @@ import { publicUrl } from "./utils/publicUrl.js";
  */
 
 /** DRACO-compressed legacy model (fallback). Public path — resolve via {@link publicUrl}. */
-const RAVE_GLTF_PATH_DRACO = "models/cart-rave-base-draco.glb";
+const RAVE_GLTF_PATH_DRACO = "models/cart-clash-base-draco.glb";
 
 /** Primary segmented rave cart — DRACO + WebP. Public path — resolve via {@link publicUrl}. */
 const RAVE_GLTF_PATH = "models/cartrave4-draco.glb";
@@ -724,7 +724,7 @@ function detectRaveGltfLayout(scene, loadedUrl = null) {
   if (/cartrave4-draco\.glb(\?|#|$)/i.test(loadedUrl) || loadedUrl === RAVE_GLTF_PATH) {
     return "cartrave4";
   }
-  if (/cart-rave-base-draco\.glb(\?|#|$)/i.test(loadedUrl) || loadedUrl === RAVE_GLTF_PATH_DRACO) {
+  if (/cart-clash-base-draco\.glb(\?|#|$)/i.test(loadedUrl) || loadedUrl === RAVE_GLTF_PATH_DRACO) {
     return "legacy";
   }
 

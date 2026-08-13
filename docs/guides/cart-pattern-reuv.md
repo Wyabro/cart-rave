@@ -70,10 +70,10 @@ names the caster binding needs), and `prune` (strips the `uv1` channel, which no
 references because the pattern mask is injected at runtime). That is exactly why oriented patterns
 would otherwise vanish — so keep using this script, not raw `optimize`.
 
-Other models / smaller textures:
+Other models / smaller textures (base name = `art/models/<model>.glb` master):
 
 ```bash
-npm run compress:rave-gltf -- cart-rave-base --texture-size 1024
+npm run compress:rave-gltf -- cartrave4 --texture-size 1024
 ```
 
 The Draco decoder is served from `public/draco/gltf/` — no change needed.
