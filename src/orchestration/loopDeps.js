@@ -120,6 +120,7 @@ export function createLoopDeps(deps) {
       abortLastCartStandingFlourish,
       onLocalKoConfirm,
       onLocalKillConfirm,
+      onLocalDoomed,
       onArenaKoFlash,
       getAllCartsRef,
       getWorld,
@@ -215,6 +216,7 @@ export function createLoopDeps(deps) {
         Netcode.sendP2PEvent({ type: MSG.koConfirm, ...preview });
       },
       onLocalKillConfirm,
+      onLocalDoomed,
       onArenaKoFlash,
       onAnnouncerFall: announcerDirectorOnFall,
       getYouConnId: () => Netcode.getYouConnId(),

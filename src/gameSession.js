@@ -272,6 +272,7 @@ export function buildNetcodeGameBridge(getContext, session, onFirstHello = null)
     onLocalKillConfirm: (victimSlotIndex, comboTier, koEvent) => {
       getContext()?.onLocalKillConfirm?.(victimSlotIndex, comboTier, koEvent);
     },
+    onLocalDoomed: (koEvent) => getContext()?.onLocalDoomed?.(koEvent),
     onLocalKoConfirm: (victimSlotIndex) => {
       getContext()?.onLocalKoConfirm?.(victimSlotIndex);
     },

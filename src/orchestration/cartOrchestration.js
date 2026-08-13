@@ -463,6 +463,15 @@ function onLocalKillConfirm(victimSlotIndex, _comboTier, koEvent) {
 }
 
 /**
+ * Local-victim KO feedback — a HUD-only red edge pulse and center shockwave. It runs from the
+ * finalized KO Event, so rams, self-falls, and environmental falls follow the same path.
+ * @param {import("../scoring/koEvent.js").KOEvent} _koEvent
+ */
+function onLocalDoomed(_koEvent) {
+  getHud()?.showDoomedFeedback?.();
+}
+
+/**
  * Arena-wide KO light flash — every peer sees the club react (not just the scorer).
    * @param {import("../scoring/koEvent.js").KOEvent} koEvent
    */
@@ -1313,6 +1322,7 @@ function maybeTriggerNpcOpportunisticHop(nowMs, npc) {
     squashCartsOnImpact,
     onLocalKoConfirm,
     onLocalKillConfirm,
+    onLocalDoomed,
     onArenaKoFlash,
     triggerSpillNetcode,
     presentSpillBonusAward,

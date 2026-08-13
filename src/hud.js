@@ -197,6 +197,7 @@ const elements = {
   escMusicVol: null,
   escSfxVol: null,
   hitmarker: null,
+  doomedShockwave: null,
   edgeDanger: null,
   boost: null,
   boostFill: null,
@@ -2110,6 +2111,12 @@ export function init(options) {
   elements.hitmarker.innerHTML = svgIcon("burst", { size: "100%" });
   elements.root.appendChild(elements.hitmarker);
 
+  // * Local-victim KO shockwave — DOM so it works with post-FX off and on Low quality.
+  elements.doomedShockwave = document.createElement("div");
+  elements.doomedShockwave.className = "hud-doomed-shockwave";
+  elements.doomedShockwave.setAttribute("aria-hidden", "true");
+  elements.root.appendChild(elements.doomedShockwave);
+
   // * Edge-danger telegraph — DOM vignette when skidding near a kill edge (no post-FX).
   elements.edgeDanger = document.createElement("div");
   elements.edgeDanger.className = "hud-edge-danger";
@@ -2241,6 +2248,7 @@ export function init(options) {
     pickSelfDeathVerb: pickSelfDeathVerb,
     colorHexToCss: colorHexToCss,
     showKillConfirm,
+    showDoomedFeedback,
     showChallengeToast,
     showScoreFloat,
     setEdgeDanger,
@@ -2457,6 +2465,28 @@ export function showKillConfirm() {
   // * Force reflow so re-adding the class restarts the CSS animation.
   void el.offsetWidth;
   el.classList.add("hit");
+}
+
+/**
+ * Shows local-victim KO feedback without WebGL post-processing: a red edge pulse and a
+ * centered shockwave that fires with the cart shatter on every graphics quality setting.
+ */
+export function showDoomedFeedback() {
+  pulseHitDirection({
+    intensity: 0.7,
+    top: 1,
+    right: 1,
+    bottom: 1,
+    left: 1,
+    colorCss: "#ff3d4d",
+    durationMs: 420,
+  });
+  const el = elements.doomedShockwave;
+  if (!el) return;
+  el.classList.remove("is-active");
+  // * Force reflow so consecutive KOs restart the CSS feedback cleanly.
+  void el.offsetWidth;
+  el.classList.add("is-active");
 }
 
 /**
@@ -3059,6 +3089,7 @@ export function hideGameplayElements() {
   elements.toast?.classList.remove("active");
   // * Momentary KO FX that self-time via CSS/WAAPI — kill immediately on menu.
   elements.hitmarker?.classList.remove("hit");
+  elements.doomedShockwave?.classList.remove("is-active");
   if (elements.root) {
     for (const el of elements.root.querySelectorAll(".hud-score-float")) {
       if (el instanceof HTMLElement) cancelElementAnimations(el);

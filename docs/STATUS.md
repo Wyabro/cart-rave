@@ -132,74 +132,25 @@ the dev loop (dev probes lie in prod · edge propagation · frozen `rAF`), or a 
 
 ## Last updated
 
-2026-08-13 (ENG-LOW-SWEEP-1) — Nine Engineering Low sweep levers closed in one acked
-wave (`0333cb9` · `88abeb9` · `0155c61` · `3417a49` · `bd57fe4` · `df6a168` · `e8e7208` ·
-`6fc7be1` · `117da53` + wiring-test pin `6cea5ad`): BINARY-F32NAME-1 (encodeF32 →
-toFiniteNumber), CONSOLE-HI-1 (%cHI :D gated behind DEV), CHAL-PODIUM-DEDUPE-1 (stats latch
-now unconditional), ROUND-CLOCKDOMAIN-1 (pausedWallMs → hostHideCompMs), CONN-DEADCODE-1
-(#clamp + void no-ops + teardown returns removed — edits arrived in the working tree,
-verified 21/21 and committed as-is), CONN-SNAPSHOT-PURE-1 (no host repair inside snapshot),
-PARTY-ENVTYPE-1 (typed Env interface), CONN-SPAWN-SANITIZE-1 (hostSpawn carts sanitized,
-+1 party-do test), ZAN-BOLLARD-CLASS-1 (bollards + gnomon classify as edge; source-wiring
-tests). QA green by number: status:size → typecheck → test (178 files / 1,955) → knip
-(1 pre-existing config hint) → briefing:check → arch:check → health:check. Prod build green.
-**ZAN-BOLLARD-PT-1** seeded (Sundial bollard/gnomon impact clang — solo, dev:local; browser
-smoke impossible this session — both browser paths down, so the visual check rides that card).
-Note: external `package-lock.json` changes (@cloudflare/unenv-preset, @dimforge/rapier3d-compat)
-committed 08-13 per Wyatt.
+2026-08-13 (engineering + audit sweeps) — The ACKed Engineering Low and audit waves closed
+their scoped levers: network quit retry, snapshot/spawn safety, party typing, clock-domain,
+challenge rotation/menu work, and Sundial classification/reactive allocation. QA was green for
+both waves; the audit also filed the remaining deferred cards. `ZAN-BOLLARD-PT-1` is seeded for
+the visual check. Commits: `0333cb9` through `6cea5ad`, `182a673` through `80cb60b`.
 
-2026-08-13 (AUDIT-SWEEP-1) — Six audit-finding levers closed in one acked wave
-(`182a673` · `485dedf` · `00d8324` · `08ecbd5` · `cc45ba2` · `80cb60b`): NET-QUIT-RETRY-1
-(quit-to-menu cancels the pending socket retry), CHAL-MENU-REBUILD-1 (hidden panel no
-longer rebuilds per progress event), CHAL-ROTATE-RECORD-1 (record() rotates first),
-CHAL-ROTATE-REPEAT-1 (no immediate re-pick on rotation), CHAL-DEAD-EXPORT-1, and
-ZAN-REACTIVE-ALLOC-1. QA green by number; dev:local sweep passed (quickplay entry →
-MAIN MENU held through the retry window → challenges shelf DAILY · 4 / WEEKLY · 2).
-CHAL-PODIUM-DEDUPE-1 + ZAN-BOLLARD-CLASS-1 stayed open (dropped in adversarial review).
-BACKLOG now 57 open rows.
+2026-08-13 (art sweep + ship) — ART-LOW-SWEEP-1 and ART-PALETTE-1 updated arena assets and the
+five cart neon colors; their visual cards remain owed. `cca8b31` deployed as CF version
+`9f1d2690`; post-deploy HTML plus 25 hashed assets returned 0×404, and deployed symbols were
+present. Commits: `d0c23d0` through `8178a57`, `d78e2cf`, `3f0f49b`.
 
-2026-08-13 (AUDIT-1) — Read-only audit of `src/netcode.js` (4.3k lines, 47 commits since
-the 07-30 external review), the 08-13 challenge stack, and `src/levels/zanzibarPlatform.js`
-(Sundial). **netcode.js:** MSG server→client contract fully covered; authority, migration
-freeze, clock domains, seq gate, interp scratch all verified clean. One Med race filed —
-**NET-QUIT-RETRY-1** (pending reconnect timer survives quit-to-menu and re-joins the room).
-**Challenge stack:** 2 Med — **CHAL-MENU-REBUILD-1** (subscribe rebuilds hidden panel per
-progress event), **CHAL-ROTATE-RECORD-1** (no mid-session rotation) — plus 3 Low
-(CHAL-DEAD-EXPORT-1 · CHAL-ROTATE-REPEAT-1 · CHAL-PODIUM-DEDUPE-1). **Sundial:** no
-High/Med; 2 Low (ZAN-BOLLARD-CLASS-1 · ZAN-REACTIVE-ALLOC-1). All 8 filed in BACKLOG
-(now 63 open rows). No code changes, no deploy.
+2026-08-13 (MENU-MUSIC-PT-1) — Wyatt playtest PASS on prod `11e5e48f`; parent MENU-MUSIC-2
+closed.
 
-2026-08-13 (SHIP) — Deployed `cca8b31` to prod (CF / cartclash.lol + www, Version
-`9f1d2690`). Post-deploy per DEPLOY-STALE-HTML-1: `GET /` 200, all 25 hashed assets 0×404
-(after the mixed-state window — first poll caught stale HTML refs, re-polled the corrected
-set), and the deployed bundle carries the wave symbols (`0xff2bd6`, `cart-clash-base-draco`)
-with zero stale `cart-rave-base-draco` / `0xff6600`. Ships ART-LOW-SWEEP-1 (4 cards) +
-ART-PALETTE-1. **SHELF-RAIL-PT-1** and **ART-PALETTE-PT-1** are now prod-testable.
-
-2026-08-13 (ART-PALETTE-1) — The invariant unfreezer closed (`d78e2cf` + `3f0f49b`):
-`CART_COLORS` hexes moved from pure spectral (`0xff00ff`) to the 2D brand roster (`#ff2bd6` /
-`#22e6ff` / `#2bff7a` / `#ffe53d` / `#ff7a1a`), matching `PALETTES.classic.players`; dead
-`css:` field removed; AGENTS.md / agent-manual / art-direction unfrozen (traverse logic stays
-frozen); arena neon stragglers swept (searchlight/trash/crowd/stage/laser/billboard/UFO/RUSH
-HOUR). **Emissive is luma-derived and shifts: yellow +39.7% (run-5 taming gate no longer
-applies), blue +22.7%, green −2.6%, pink/orange unchanged** — ART-PALETTE-PT-1 seeded with
-those exact checks. Stored customizations auto-migrate (hex recomputed from id at load).
-QA green by number (183 files); no deploy.
-
-2026-08-13 (ART-LOW-SWEEP-1) — Four Art Lows closed in one acked wave (`d0c23d0` docs+probe ·
-`3cec57a` · `bdf3df3` · `a6cbbaa` · `6cab3c5` · `8178a57`): CLAD-REPEAT-1 (per-deck UV scaling,
-one shared cladding material — texture cloning rejected in adversarial review for splitting the
-merged draw), SHELF-RAIL-1 (booth rails chrome 0.45/0.7 → painted steel 0.72/0.3; 114 m shelf
-boards split into bolted bay sections), ART-LUMA-TOOL-1 (Rec.709 luma floor/median/mean/black
-readout folded into `npm run compare` + unit tests), ASSET-RENAME-1
-(`cart-rave-base-draco.glb` → `cart-clash-base-draco.glb`, all refs + regex + dead doc examples).
-QA green by number: status:size → typecheck → test (182 files) → knip → briefing:check →
-arch:check → health:check. Prod build green; renamed model present in dist, zero stale refs.
-**SHELF-RAIL-PT-1 seeded** (Storerooms rails matte + shelf boards read bolted — solo). No deploy
-per Wyatt; the 0×404 check on the renamed `/models/cart-clash-base-draco.glb` rides the next ship.
-
-2026-08-13 (MENU-MUSIC-PT-1) — Wyatt playtest PASS on prod `11e5e48f`.
-Parent MENU-MUSIC-2 closed.
+2026-08-13 (KO-DOOMED-1) — Every finalized local KO now gives a medium red edge pulse and one
+center shockwave with the cart shatter. The same local-victim reactor runs on host and non-host
+fall replay paths; attacker-only feedback stays unchanged. It is DOM HUD feedback, so Low quality
+and post-FX-off still show it. `KO-DOOMED-PT-1` is seeded for solo visual proof. Release
+maintenance also removed the stale Knip `taskkill` ignore so the required QA gate can pass.
 
 Older session logs (2026-08-12 and earlier): [archive/README.md](./archive/README.md)
 ([status-log-2026-08-12.md](./archive/status-log-2026-08-12.md)) ·

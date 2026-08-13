@@ -3,6 +3,7 @@ import {
   dispatchKOEvent,
   killFeedReactor,
   localKillConfirmReactor,
+  localDoomedReactor,
   arenaVfxReactor,
   announcerReactor,
   challengeReactor,
@@ -12,7 +13,7 @@ import {
 } from "../src/scoring/koReactors.js";
 
 function makeCtx(overrides = {}) {
-  const calls = { killFeed: [], announcer: [], localConfirm: [], challenge: [], arenaFlash: [] };
+  const calls = { killFeed: [], announcer: [], localConfirm: [], localDoomed: [], challenge: [], arenaFlash: [] };
   const ctx = {
     netSlots: [
       { name: "A", kind: "human" },
@@ -30,6 +31,7 @@ function makeCtx(overrides = {}) {
     },
     onAnnouncerFall: (fall) => calls.announcer.push(fall),
     onLocalKillConfirm: (victim, tier) => calls.localConfirm.push([victim, tier]),
+    onLocalDoomed: (event) => calls.localDoomed.push(event),
     onArenaKoFlash: (ev) => calls.arenaFlash.push(ev),
     recordChallenge: (id) => calls.challenge.push(id),
     ...overrides,
@@ -76,6 +78,29 @@ describe("localKillConfirmReactor", () => {
     const { ctx, calls } = makeCtx({ localSlotIndex: 1 });
     localKillConfirmReactor({ ...SELF, attackerSlotIndex: 1 }, ctx);
     expect(calls.localConfirm).toEqual([]); // isKill false -> no confirm
+  });
+});
+
+describe("localDoomedReactor", () => {
+  it("fires for a local victim after an attributed kill", () => {
+    const { ctx, calls } = makeCtx({ localSlotIndex: 3 });
+    localDoomedReactor(KILL, ctx);
+    expect(calls.localDoomed).toEqual([KILL]);
+  });
+
+  it("fires for a local self or environmental fall", () => {
+    const { ctx, calls } = makeCtx({ localSlotIndex: 3 });
+    localDoomedReactor(SELF, ctx);
+    expect(calls.localDoomed).toEqual([SELF]);
+  });
+
+  it("does not fire for the local attacker or a remote victim", () => {
+    const attacker = makeCtx({ localSlotIndex: 1 });
+    const spectator = makeCtx({ localSlotIndex: 0 });
+    localDoomedReactor(KILL, attacker.ctx);
+    localDoomedReactor(SELF, spectator.ctx);
+    expect(attacker.calls.localDoomed).toEqual([]);
+    expect(spectator.calls.localDoomed).toEqual([]);
   });
 });
 
@@ -208,6 +233,7 @@ describe("dispatchKOEvent", () => {
       matchStatsReactor,
       challengeReactor,
       localKillConfirmReactor,
+      localDoomedReactor,
       arenaVfxReactor,
       killFeedReactor,
       announcerReactor,
@@ -219,5 +245,11 @@ describe("dispatchKOEvent", () => {
     const { ctx, calls } = makeCtx({ localSlotIndex: 0 });
     dispatchKOEvent(SELF, ctx);
     expect(calls.arenaFlash).toHaveLength(1);
+  });
+
+  it("fires local-victim feedback on default dispatch for any local KO", () => {
+    const { ctx, calls } = makeCtx({ localSlotIndex: 3 });
+    dispatchKOEvent(SELF, ctx);
+    expect(calls.localDoomed).toEqual([SELF]);
   });
 });

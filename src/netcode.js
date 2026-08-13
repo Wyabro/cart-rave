@@ -376,6 +376,8 @@ let callbacks = {
   // * the void (host fires it from gameFlow; non-host from the falls[] replay path).
   // * The optional third arg is the full KO Event (reward breakdown for the score float).
   onLocalKillConfirm: (victimSlotIndex, comboTier, koEvent) => {},
+  // * Presentation-only hook — fired once when the LOCAL player is the finalized KO victim.
+  onLocalDoomed: (koEvent) => {},
   // * PACE-KO-1: host-confirmed at the shared fall rim; never changes score/death timing.
   onLocalKoConfirm: (victimSlotIndex) => {},
   // * Arena light flash — every fall on every peer (club reacts to the KO).
@@ -658,6 +660,7 @@ export function registerGameCallbacks(deps) {
       if (hud && hud.addKillFeedEntry) hud.addKillFeedEntry(actorName, actorColor, verb, targetName, targetColor, comboTier, comboMultiplier, actorSlotIndex, victimSlotIndex);
     },
     onLocalKillConfirm: (victimSlotIndex, comboTier, koEvent) => deps.onLocalKillConfirm?.(victimSlotIndex, comboTier, koEvent),
+    onLocalDoomed: (koEvent) => deps.onLocalDoomed?.(koEvent),
     onLocalKoConfirm: (victimSlotIndex) => deps.onLocalKoConfirm?.(victimSlotIndex),
     onArenaKoFlash: (koEvent) => deps.onArenaKoFlash?.(koEvent),
     onAnnouncerFall: (fall) => deps.onAnnouncerFall?.(fall),
@@ -1987,6 +1990,7 @@ function processHostFallEvent(msg, cartsSnap) {
     colorHexForSlot: callbacks.colorHexForSlot,
     onAnnouncerFall: callbacks.onAnnouncerFall,
     onLocalKillConfirm: callbacks.onLocalKillConfirm,
+    onLocalDoomed: callbacks.onLocalDoomed,
     onArenaKoFlash: callbacks.onArenaKoFlash,
     recordChallenge: ChallengeTracker.record,
     getLevelId: () => getCurrentLevelId(),

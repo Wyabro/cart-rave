@@ -20,6 +20,7 @@ import { PROGRESSION_EVENTS } from "../progression/eventIds.js";
  *   color (host returns a hex number; the client facade may return a css string — colorHexToCss handles both).
  * @property {(fall: { victimSlotIndex: number, attackerSlotIndex: number | null, comboTier: number, wasCritical?: boolean, victimWasLeader?: boolean }) => void} [onAnnouncerFall]
  * @property {(victimSlotIndex: number, comboTier: number, koEvent?: import('./koEvent.js').KOEvent) => void} [onLocalKillConfirm]
+ * @property {(koEvent: import('./koEvent.js').KOEvent) => void} [onLocalDoomed] Local-victim KO feedback.
  * @property {(koEvent: import('./koEvent.js').KOEvent) => void} [onArenaKoFlash] Arena light flash for any fall.
  * @property {(eventId: string, amount?: number) => void} [recordChallenge] Bumps a local challenge counter.
  * @property {() => string | null | undefined} [getLevelId] Current arena id for level-unlock KO tracking.
@@ -44,6 +45,18 @@ export function localKillConfirmReactor(koEvent, ctx) {
   if (koEvent.isKill && koEvent.attackerSlotIndex === ctx.localSlotIndex) {
     // * Full event rides along so the confirm can show the reward breakdown float.
     ctx.onLocalKillConfirm?.(koEvent.victimSlotIndex, koEvent.comboTier ?? 0, koEvent);
+  }
+}
+
+/**
+ * Local-victim KO feedback — fires for every finalized KO that eliminates the local player,
+ * including self and environmental falls. Presentation only.
+ * @param {import('./koEvent.js').KOEvent} koEvent
+ * @param {KOReactorCtx} ctx
+ */
+export function localDoomedReactor(koEvent, ctx) {
+  if (koEvent.victimSlotIndex === ctx.localSlotIndex) {
+    ctx.onLocalDoomed?.(koEvent);
   }
 }
 
@@ -160,11 +173,12 @@ export function diagnosticsReactor(koEvent, _ctx) {
   });
 }
 
-/** Default host-side reactor order: match stats → challenges → confirm → arena VFX → feed → PA → diag. */
+/** Default KO reactor order: match stats → challenges → attacker confirm → victim feedback → arena VFX → feed → PA → diag. */
 export const DEFAULT_KO_REACTORS = [
   matchStatsReactor,
   challengeReactor,
   localKillConfirmReactor,
+  localDoomedReactor,
   arenaVfxReactor,
   killFeedReactor,
   announcerReactor,
