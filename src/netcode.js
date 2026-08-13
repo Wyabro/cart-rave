@@ -2037,6 +2037,18 @@ function processHostFallEvent(msg, cartsSnap) {
 /** Last hostSendTick wall time — the frame rate-limit guard reads this. */
 let lastHostSendTickMs = 0;
 
+/**
+ * SNAP-SPARSE-1: host snapshots are positional — `carts[i]` maps to slot i, and a
+ * vacant slot (a hole) is encoded as a zeroed cart at the origin on every remote
+ * (binary.js reads `carts[i] || {}` and `numCarts` counts the sparse length).
+ * Track consecutive vacant ticks per (phase, slot) and warn once per phase so a
+ * hole is observable in logs / F8 without spamming at 40 Hz. The protocol-level
+ * fix (a present-bitmask) is deliberately out of scope — this guard exists to
+ * catch a hole when it happens, not to mask it.
+ */
+const sparseCartHoleConsecutiveTicks = new Map(); // `${phase}:${slot}` -> consecutive vacant ticks
+const sparseCartHoleWarned = new Set(); // `${phase}:${slot}` warned once this phase
+
 function stopHostSendLoop() {
   hostSendLoopArmed = false;
   lastHostSendTickMs = 0;
@@ -2216,15 +2228,36 @@ function hostSendTick(opts = {}) {
   hostSeq += 1;
   const carts = [];
 
+  const sendPhase = GameState.getRoundState().phase;
   for (let i = 0; i < allCarts.length; i++) {
     const c = allCarts[i];
     if (c) {
+      sparseCartHoleConsecutiveTicks.delete(`${sendPhase}:${i}`);
       const serialized = serializeCartToWire(c);
       if (serialized) {
         const slot = netSlots[i];
         const connId = slot?.connId;
         serialized.ackSeq = connId ? (hostLastProcessedInputSeq.get(connId) || 0) : 0;
         carts[i] = serialized;
+      }
+    } else {
+      // * SNAP-SPARSE-1: a hole in the carts array reaches the binary encoder as a
+      // * zeroed cart at the origin. Warn once per (phase, slot) and keep a
+      // * consecutive-tick count so the future bitmask card gets duration evidence.
+      const holeKey = `${sendPhase}:${i}`;
+      const ticks = (sparseCartHoleConsecutiveTicks.get(holeKey) || 0) + 1;
+      sparseCartHoleConsecutiveTicks.set(holeKey, ticks);
+      if (!sparseCartHoleWarned.has(holeKey)) {
+        sparseCartHoleWarned.add(holeKey);
+        console.warn(
+          `[netcode] SNAP-SPARSE-1: slot ${i} vacant during "${sendPhase}" — remotes see a phantom cart at the origin (${ticks} consecutive tick${ticks === 1 ? "" : "s"})`,
+        );
+        recordDiagEvent("net", "sparse_cart_hole", {
+          slotIndex: i,
+          phase: sendPhase,
+          consecutiveTicks: ticks,
+          totalCarts: allCarts.length,
+        });
       }
     }
   }
@@ -4019,6 +4052,13 @@ export const __netcodeTestHooks = {
     seenFallPresentationEids.clear();
     seenCollisionPresentationEids.clear();
     getAllCartsRefFn = null;
+    sparseCartHoleConsecutiveTicks.clear();
+    sparseCartHoleWarned.clear();
+  },
+  /** SNAP-SPARSE-1: targeted reset so a suite can drive holes without cross-case leakage. */
+  resetSparseHoleStateForTest: () => {
+    sparseCartHoleConsecutiveTicks.clear();
+    sparseCartHoleWarned.clear();
   },
   setPartySocketForTest: (socket) => { partySocket = socket; },
   /** HOST-SNAP-PUMP-1: arm/disarm + frame tick without a live game loop. */
@@ -4028,6 +4068,8 @@ export const __netcodeTestHooks = {
   startHostSendLoopForTest: () => startHostSendLoop(),
   stopHostSendLoopForTest: () => stopHostSendLoop(),
   tickHostSendFromFrameForTest: () => tickHostSendFromFrame(),
+  /** SNAP-SPARSE-1: direct hostSendTick (opts pass through) for force-flush coverage. */
+  hostSendTickForTest: (opts) => hostSendTick(opts),
   isHostSendLoopArmedForTest: () => hostSendLoopArmed,
   /** HOST-CAP-1 seams: join-time score + weak-host toast latch. */
   setLocalHostScoreForTest: (score) => {

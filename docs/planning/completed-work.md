@@ -13,6 +13,12 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 13, 2026 — ENG-LOW-SWEEP-2: Block 5 sweep levers
+
+- *(Engineering · Low)* **SNAP-SPARSE-1** — ✅ **CLOSED 08-13.** `hostSendTick` (src/netcode.js) leaves holes in the positional `carts` array when a slot is vacant, and the binary encoder (`carts[i] || {}` in src/netcode/binary.js) turns each hole into a zeroed cart at the origin on every remote — a phantom cart riding the wire. Added a session guard: consecutive vacant ticks per (phase, slot) with a warn-once-per-phase `console.warn` + `recordDiagEvent("net", "sparse_cart_hole", { slotIndex, phase, consecutiveTicks, totalCarts })`. Guard only — the protocol-level present-bitmask stays out of scope (the phantom remains on the wire until that card). New tests in tests/hostSnapPump.test.js (5): warns once with slot index, no re-warn same phase, re-warn on phase change via the force flush path, silent on a dense array, reset-seam isolation (`resetSparseHoleStateForTest` + `hostSendTickForTest` hook). Full QA green by number; two load-flaky full-run failures (diagnostics drain timeout, friendsJoinFlow fake-timer STACK_TRACE_ERROR) confirmed green on re-run and in isolation.
+
+---
+
 ### August 13, 2026 — ENG-LOW-SWEEP-1: nine Engineering Low sweep levers
 
 - *(Engineering · Low)* **BINARY-F32NAME-1** — ✅ **CLOSED 08-13.** `encodeF32` (src/netcode/binary.js) returned values unchanged and was also used for the Float64 `tHost`; renamed to `toFiniteNumber` across the encoder (7 call sites). Not exported; no importers. Test comment updated to match.

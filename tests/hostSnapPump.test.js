@@ -125,3 +125,87 @@ describe("HOST-SNAP-PUMP-1 frame-driven host send", () => {
   });
 });
 
+describe("SNAP-SPARSE-1 sparse-slot hole guard", () => {
+  /** @type {ReturnType<typeof vi.spyOn>} */
+  let sendSpy;
+  /** @type {ReturnType<typeof vi.spyOn>} */
+  let warnSpy;
+  let nowMs;
+
+  beforeEach(() => {
+    // * vi.spyOn returns the existing shared spy, so call histories accumulate across
+    // * describes unless wiped here (the config does not auto-clear mocks).
+    vi.clearAllMocks();
+    hooks.resetNetState();
+    hooks.resetSparseHoleStateForTest();
+    hooks.resetNetFlowStatsForTest();
+    nowMs = 1_000_000;
+    vi.spyOn(performance, "now").mockImplementation(() => nowMs);
+    sendSpy = vi.spyOn(P2P, "sendToAll").mockImplementation(() => {});
+    warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    hooks.setPartySocketForTest({ readyState: 1 });
+    hooks.setHostStateForTest({ isHost: true, youConnId: "host1", netSlots: [] });
+    GameState.setRoundPhase("running");
+  });
+
+  it("warns once when a vacant slot emits a phantom cart", () => {
+    hooks.setGetAllCartsForTest(() => [mockCart(), null, mockCart()]);
+    hooks.startHostSendLoopForTest();
+
+    tickHostSendFromFrame();
+    expect(sendSpy).toHaveBeenCalledTimes(1);
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    expect(warnSpy.mock.calls[0][0]).toContain("SNAP-SPARSE-1");
+    expect(warnSpy.mock.calls[0][0]).toContain("slot 1");
+  });
+
+  it("does not re-warn on later ticks in the same phase", () => {
+    hooks.setGetAllCartsForTest(() => [mockCart(), null, mockCart()]);
+    hooks.startHostSendLoopForTest();
+
+    tickHostSendFromFrame();
+    nowMs += 1000 / CONFIG.net.hostSendHz;
+    tickHostSendFromFrame();
+    nowMs += 1000 / CONFIG.net.hostSendHz;
+    tickHostSendFromFrame();
+
+    expect(sendSpy).toHaveBeenCalledTimes(3);
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("re-warns for the same slot once the phase key changes (force flush path)", () => {
+    hooks.setGetAllCartsForTest(() => [mockCart(), null, mockCart()]);
+    hooks.startHostSendLoopForTest();
+    tickHostSendFromFrame();
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+
+    // * force:true bypasses the running-only gate, so a round-end flush can carry a
+    // * different phase — the per-(phase, slot) key must re-warn there.
+    GameState.setRoundPhase("podium");
+    hooks.hostSendTickForTest({ force: true });
+    expect(warnSpy).toHaveBeenCalledTimes(2);
+    expect(warnSpy.mock.calls[1][0]).toContain("podium");
+  });
+
+  it("stays silent on a dense carts array", () => {
+    hooks.setGetAllCartsForTest(() => [mockCart(), mockCart(), mockCart(), mockCart()]);
+    hooks.startHostSendLoopForTest();
+
+    tickHostSendFromFrame();
+    expect(sendSpy).toHaveBeenCalledTimes(1);
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
+  it("resets with the hook between cases", () => {
+    hooks.setGetAllCartsForTest(() => [mockCart(), null]);
+    hooks.startHostSendLoopForTest();
+    tickHostSendFromFrame();
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+
+    hooks.resetSparseHoleStateForTest();
+    nowMs += 1000 / CONFIG.net.hostSendHz;
+    tickHostSendFromFrame();
+    expect(warnSpy).toHaveBeenCalledTimes(2);
+  });
+});
+

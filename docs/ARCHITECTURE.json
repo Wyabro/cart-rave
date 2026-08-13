@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-13T08:59:23.891Z",
-    "commit": "4b63724"
+    "at": "2026-08-13T09:42:04.719Z",
+    "commit": "bb7c762"
   },
-  "source_digest": "8c0d9a44",
+  "source_digest": "61f94992",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -881,36 +881,6 @@
         "what": "Domain cutover",
         "status": "🧊 frozen ([brand.md](./brand.md))",
         "state": "locked"
-      },
-      {
-        "id": "CARGO-BAY-INSTANCE-1",
-        "what": "Per-bay InstancedMesh for cargo bays",
-        "status": "✅ CLOSED 08-12 (`9e86382`). 30 Mesh → per-model InstancedMesh. Draw calls ≤120 → ~24. Solo fill and spill/rebuild PASS 08-13; playtest owed: CARGO-BAY-INSTANCE-PT-3 (MP parity).",
-        "state": "done"
-      },
-      {
-        "id": "CONN-TRACK-LEAK-1",
-        "what": "Release platform-dead IP tracking before the cap",
-        "status": "✅ CLOSED 08-12 (`9439cd2`, deployed `5ae6f69b`). `#prunePlatformDeadTracking()` releases leaked IP counts before the cap decision; five teardown paths consolidated via `#forgetConnectionTracking()`. Same-clientId reconnect PASS 08-13; playtest owed: CONN-TRACK-LEAK-PT-1 (host-leave migration).",
-        "state": "done"
-      },
-      {
-        "id": "PA-QUIET-1",
-        "what": "Quiet the Store PA",
-        "status": "✅ CLOSED 08-12. Wyatt playtest PASS. Deployed `3044ab99`. Same-fall flavor skip + busy-channel drop + `last_call` interrupts. Commits `e37bd59` + `a0ba621`.",
-        "state": "done"
-      },
-      {
-        "id": "MENU-MUSIC-2",
-        "what": "Second main-menu song",
-        "status": "✅ CLOSED 08-13. Wyatt playtest PASS on prod `11e5e48f`.",
-        "state": "done"
-      },
-      {
-        "id": "RAPIER-MAJOR-1",
-        "what": "Rapier 0.19.3 → 0.20.0",
-        "status": "✅ CLOSED PASS 08-13. Deployed `524bd4db`; PT-1 solo PASS and PT-2 live two-browser Friends PASS.",
-        "state": "done"
       }
     ],
     "next_actions": [
@@ -935,7 +905,7 @@
       {
         "title": "Engineering",
         "counts": {
-          "Low": 7,
+          "Low": 6,
           "Partial": 1,
           "Medium": 4
         },
@@ -998,12 +968,6 @@
             "pri": "Low",
             "item": "QP-ROTATE-PT-1 — Quickplay rotation live 2-browser check",
             "notes": "Reconfirm after **QP-ORDER-1** (sequential rotation). Live multi-client smoke only.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "SNAP-SPARSE-1 — sparse cart slots emit a phantom cart at origin",
-            "notes": "`hostSendTick` leaves holes in the carts array; the encoder turns a hole into a zeroed cart. Add a session-scoped warning guard; a protocol-level present-bitmask is the real fix.",
             "ship1": null
           },
           {
