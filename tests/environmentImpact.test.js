@@ -10,7 +10,8 @@ import { runFixedPhysicsStep } from "../src/simulation.js";
 
 const NOW = 1_000;
 const CART_HANDLE = 9_001;
-const EDGE_HANDLE = 9_101;
+const BOLLARD_HANDLE = 9_100;
+const BOOTH_HANDLE = 9_101;
 const FLOOR_HANDLE = 9_102;
 
 /**
@@ -52,7 +53,8 @@ function makeCallbacks({
   spawnTrashBurst = undefined,
 } = {}) {
   return {
-    boothColliderHandles: [EDGE_HANDLE],
+    boothColliderHandles: [BOOTH_HANDLE],
+    bollardColliderHandles: [BOLLARD_HANDLE],
     recordColliderHandles: [FLOOR_HANDLE],
     playEdgeImpact,
     playFloorImpact,
@@ -75,7 +77,7 @@ function driveHostContact(cart, otherHandle, callbacks) {
 }
 
 describe("environment impact classification (ZAN-BOLLARD-PT-1)", () => {
-  it("hard edge hit fires the edge clang with a velocity-delta intensity", () => {
+  it("hard bollard hit fires the clang with a velocity-delta intensity", () => {
     // * Capture reads 8 m/s; the impact (restitution 0.55 bounce) leaves ~2 m/s.
     // * Cart sits at a corner-bollard distance (34 m out) — the spark must stay on
     // * the post, not project out to the pit ring (~58 m).
@@ -86,7 +88,7 @@ describe("environment impact classification (ZAN-BOLLARD-PT-1)", () => {
 
     driveHostContact(
       cart,
-      EDGE_HANDLE,
+      BOLLARD_HANDLE,
       makeCallbacks({ playEdgeImpact, playFloorImpact, spawnTrashBurst }),
     );
 
@@ -101,12 +103,12 @@ describe("environment impact classification (ZAN-BOLLARD-PT-1)", () => {
     expect(spawnTrashBurst.mock.calls[0][2]).toBe("edge");
   });
 
-  it("soft edge graze stays silent (Δv below the 0.75 m/s threshold)", () => {
+  it("soft bollard graze stays silent (Δv below the 0.75 m/s threshold)", () => {
     const cart = makeCart({ x: 3, y: 0, z: 0 }, { x: 2.9, y: 0, z: 0 });
     const playEdgeImpact = vi.fn();
     const playFloorImpact = vi.fn();
 
-    driveHostContact(cart, EDGE_HANDLE, makeCallbacks({ playEdgeImpact, playFloorImpact }));
+    driveHostContact(cart, BOLLARD_HANDLE, makeCallbacks({ playEdgeImpact, playFloorImpact }));
 
     expect(playEdgeImpact).not.toHaveBeenCalled();
     expect(playFloorImpact).not.toHaveBeenCalled();
@@ -120,12 +122,32 @@ describe("environment impact classification (ZAN-BOLLARD-PT-1)", () => {
     const playEdgeImpact = vi.fn();
     const playFloorImpact = vi.fn();
 
-    driveHostContact(cart, EDGE_HANDLE, makeCallbacks({ playEdgeImpact, playFloorImpact }));
+    driveHostContact(cart, BOLLARD_HANDLE, makeCallbacks({ playEdgeImpact, playFloorImpact }));
 
     expect(playEdgeImpact).toHaveBeenCalledTimes(1);
     // * Δv = 1.6 → (1.6 − 0.75) / 6 ≈ 0.142
     expect(playEdgeImpact.mock.calls[0][0]).toBeCloseTo(0.1417, 3);
     expect(playFloorImpact).not.toHaveBeenCalled();
+  });
+
+  it("booth-leg contact keeps FX but never plays the clang sound", () => {
+    // * ZAN-BOLLARD-PT-1: only the posts (bollards + gnomon) clang. Booth legs and
+    // * the pit wall stay "edge": spark FX yes, metallic clang no.
+    const cart = makeCart({ x: 8, y: 0, z: 0 }, { x: 2, y: 0, z: 0 });
+    const playEdgeImpact = vi.fn();
+    const playFloorImpact = vi.fn();
+    const spawnTrashBurst = vi.fn();
+
+    driveHostContact(
+      cart,
+      BOOTH_HANDLE,
+      makeCallbacks({ playEdgeImpact, playFloorImpact, spawnTrashBurst }),
+    );
+
+    expect(playEdgeImpact).not.toHaveBeenCalled();
+    expect(playFloorImpact).not.toHaveBeenCalled();
+    expect(spawnTrashBurst).toHaveBeenCalledTimes(1);
+    expect(spawnTrashBurst.mock.calls[0][2]).toBe("edge");
   });
 
   it("floor contact still fires the floor impact from the pre-step fall speed", () => {

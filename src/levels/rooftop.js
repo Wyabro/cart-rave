@@ -353,6 +353,7 @@ export function initRooftop(scene, world, config) {
     recordColliderHandles,
     pitWallColliderHandle: edgeColliderHandles[0] ?? null,
     boothColliderHandles: edgeColliderHandles,
+    bollardColliderHandles: [],
     boothNeonMeshes: [],
     spindleLight: null,
     spindleLightColorPink: null,

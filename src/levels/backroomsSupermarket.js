@@ -4059,6 +4059,7 @@ export function initBackroomsSupermarket(scene, world, config, options = {}) {
     recordColliderHandles,
     pitWallColliderHandle,
     boothColliderHandles,
+    bollardColliderHandles: [],
     boothNeonMeshes,
     spindleLight,
     spindleLightColorPink,

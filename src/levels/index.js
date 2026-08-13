@@ -78,6 +78,7 @@ export function resolveLevelId(raw) {
  *   recordColliderHandles?: number[],
  *   pitWallColliderHandle?: number | null,
  *   boothColliderHandles?: number[],
+ *   bollardColliderHandles?: number[],
  *   boothNeonMeshes?: import("three").Mesh[],
  *   spindleLight?: import("three").PointLight | null,
  *   spindleLightColorPink?: import("three").Color | null,

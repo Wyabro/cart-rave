@@ -125,6 +125,7 @@ export function createLoopDeps(deps) {
       getWorld,
       getEventQueue,
       getBoothColliderHandles,
+      getBollardColliderHandles,
       getRecordColliderHandles,
       getPitWallColliderHandle,
       getAiAxis,
@@ -272,6 +273,7 @@ export function createLoopDeps(deps) {
       get recordColliderHandles() { return getRecordColliderHandles(); },
       get pitWallColliderHandle() { return getPitWallColliderHandle(); },
       get boothColliderHandles() { return getBoothColliderHandles(); },
+      get bollardColliderHandles() { return getBollardColliderHandles(); },
       playFloorImpact: (i = 0.5) => {
         const id = AudioManager.playSfx("floor", undefined, { volume: 0.45 + Math.min(Math.max(i, 0), 1) * 0.55 });
         // * ZAN-BOLLARD-PT-1 diag (?diag only): did the impact sound actually play?
@@ -309,6 +311,7 @@ export function createLoopDeps(deps) {
       get recordColliderHandles() { return getRecordColliderHandles(); },
       get pitWallColliderHandle() { return getPitWallColliderHandle(); },
       get boothColliderHandles() { return getBoothColliderHandles(); },
+      get bollardColliderHandles() { return getBollardColliderHandles(); },
       onSpill: (spillCart) => {
         const localSlot = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
         // * Non-host client only predicts tip-over spills for own local cart;

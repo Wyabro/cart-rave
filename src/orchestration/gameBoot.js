@@ -1438,6 +1438,7 @@ export function bootGameSystems(ctx) {
     getWorld: () => level.world,
     getEventQueue: () => level.eventQueue,
     getBoothColliderHandles: () => level.boothColliderHandles,
+    getBollardColliderHandles: () => level.bollardColliderHandles,
     getRecordColliderHandles: () => level.recordColliderHandles,
     getPitWallColliderHandle: () => level.pitWallColliderHandle,
     getAiAxis,

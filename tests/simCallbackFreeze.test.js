@@ -19,14 +19,15 @@ const BOOTH_HANDLE = 300;
  * through to it, so a test can mutate the store after a bundle was built — the exact pre/post
  * arena-load difference the frozen-spread bug hid.
  */
-function makeStore({ recordHandles, pitWallHandle, boothHandles }) {
-  const store = { recordHandles, pitWallHandle, boothHandles };
+function makeStore({ recordHandles, pitWallHandle, boothHandles, bollardHandles = [] }) {
+  const store = { recordHandles, pitWallHandle, boothHandles, bollardHandles };
   return {
     store,
     getters: {
       getRecordColliderHandles: () => store.recordHandles,
       getPitWallColliderHandle: () => store.pitWallHandle,
       getBoothColliderHandles: () => store.boothHandles,
+      getBollardColliderHandles: () => store.bollardHandles,
     },
   };
 }
@@ -43,6 +44,7 @@ function buildPhase(overrides = {}) {
     getRecordColliderHandles: () => [],
     getPitWallColliderHandle: () => undefined,
     getBoothColliderHandles: () => [],
+    getBollardColliderHandles: () => [],
     ...overrides,
   };
 }

@@ -108,6 +108,7 @@ export function createLevelOrchestration(deps) {
   let recordColliderHandles = [];
   let pitWallColliderHandle;
   let boothColliderHandles = [];
+  let bollardColliderHandles = [];
   let boothNeonMeshes = [];
   let spindleLight = null;
   let pitInnerRadius = CONFIG.record.innerRadius;
@@ -633,6 +634,7 @@ export function createLevelOrchestration(deps) {
       recordColliderHandles: ringHandles,
       pitWallColliderHandle,
       boothColliderHandles,
+      bollardColliderHandles,
       boothNeonMeshes,
       spindleLight,
       pitInnerRadius,
@@ -834,6 +836,7 @@ export function createLevelOrchestration(deps) {
     get recordColliderHandles() { return recordColliderHandles; },
     get pitWallColliderHandle() { return pitWallColliderHandle; },
     get boothColliderHandles() { return boothColliderHandles; },
+    get bollardColliderHandles() { return bollardColliderHandles; },
     get boothNeonMeshes() { return boothNeonMeshes; },
     get recordLabelMat() { return recordLabelMat; },
     get levelUpdate() { return levelUpdate; },

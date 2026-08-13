@@ -2410,7 +2410,7 @@ function buildSeascape(scene, circumR) {
  * @param {object} config
  * @param {number} circumR
  * @returns {{ group: THREE.Group, body: import("@dimforge/rapier3d").RigidBody,
- *   floorColliderHandles: number[], edgeHandles: number[], deckTex: THREE.CanvasTexture,
+ *   floorColliderHandles: number[], clangHandles: number[], deckTex: THREE.CanvasTexture,
  *   neonStripMeshes: THREE.Mesh[],
  *   neonYellowMat: THREE.Material, panelTex: THREE.CanvasTexture,
  *   panelNormalTex: THREE.Texture, blinkMat: THREE.Material,
@@ -3525,7 +3525,7 @@ function buildDeck(scene, world, config, circumR) {
   const floorColliderHandles = [];
   // * ZAN-BOLLARD-CLASS-1: vertical-post obstacles (corner bollards, gnomon blade)
   // * get their own handle list so the level can classify them "edge" like booth legs.
-  const edgeHandles = [];
+  const clangHandles = [];
 
   // * All-cuboid flat surfaces (see header): resting carts jitter on convex-hull faces
   // * but are rock-stable on cuboids (the spawn booths proved it), so the deck and the
@@ -3576,7 +3576,7 @@ function buildDeck(scene, world, config, circumR) {
         .setRestitution(0.55),
       body,
     );
-    edgeHandles.push(collider.handle);
+    clangHandles.push(collider.handle);
   }
 
   // * Gnomon blade collider (Wyatt's call, 08-02 — it shipped without one and carts drove
@@ -3622,7 +3622,7 @@ function buildDeck(scene, world, config, circumR) {
         .setRestitution(0.55),
       body,
     );
-    edgeHandles.push(collider.handle);
+    clangHandles.push(collider.handle);
   }
 
   // Per-frame deck animation: hologram choreography + bob, beacon blink, dusk breath.
@@ -3730,7 +3730,7 @@ function buildDeck(scene, world, config, circumR) {
   }
 
   return {
-    group, body, floorColliderHandles, edgeHandles, deckTex, neonStripMeshes,
+    group, body, floorColliderHandles, clangHandles, deckTex, neonStripMeshes,
     neonYellowMat, panelTex, panelNormalTex, blinkMat, update,
     ownedGeometries, ownedMaterials, ownedTextures,
   };
@@ -3964,6 +3964,7 @@ function buildZanzibarBooths(
  *   recordColliderHandles: number[],
  *   pitWallColliderHandle: number,
  *   boothColliderHandles: number[],
+ *   bollardColliderHandles: number[],
  *   boothNeonMeshes: THREE.Mesh[],
  *   spindleLight: THREE.PointLight,
  *   pitInnerRadius: number,
@@ -4041,9 +4042,11 @@ export function initZanzibarPlatform(scene, world, config) {
 
   const boothNeonMeshes = [...deck.neonStripMeshes];
   const boothColliderHandles = [];
-  // * ZAN-BOLLARD-CLASS-1: deck bollards + gnomon classify as "edge" (wall-clang FX),
-  // * matching booth legs — not the unregistered-handle "floor" default.
-  boothColliderHandles.push(...deck.edgeHandles);
+  // * ZAN-BOLLARD-PT-1: the deck posts (8 corner bollards + gnomon) are their OWN
+  // * class now — `bollardColliderHandles` → "clang" (the metallic impact sound).
+  // * Booth legs stay "edge" (FX only, no clang). ZAN-BOLLARD-CLASS-1 had lumped
+  // * them together; the clang went off on every vertical surface.
+  const bollardColliderHandles = [...deck.clangHandles];
   // blinkMat shared with the deck's beacon masts so all aviation lights blink together;
   // rails share the deck's caution-yellow perimeter material.
   const booths = buildZanzibarBooths(
@@ -4174,6 +4177,7 @@ export function initZanzibarPlatform(scene, world, config) {
     recordColliderHandles: deck.floorColliderHandles,
     pitWallColliderHandle,
     boothColliderHandles,
+    bollardColliderHandles,
     boothNeonMeshes,
     spindleLight,
     pitInnerRadius: PIT_INNER_RADIUS,

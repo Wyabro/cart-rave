@@ -133,6 +133,7 @@ export function initTestArena(scene, world, config) {
     recordCollider,
     pitWallColliderHandle: null,
     boothColliderHandles: [],
+    bollardColliderHandles: [],
     boothNeonMeshes: [],
     spindleLight: null,
     spindleLightColorPink: null,

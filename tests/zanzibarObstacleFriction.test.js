@@ -97,27 +97,29 @@ describe("SUNDIAL-OBSTACLE-SLIDE-1 — Sundial obstacles do not average friction
   });
 });
 
-describe("ZAN-BOLLARD-CLASS-1 — Sundial vertical posts classify as edge, not floor", () => {
-  // classifyEnvironmentCollision (simulation.js) maps boothColliderHandles to "edge" and
-  // everything else to "floor". The bollards + gnomon were unregistered → silent floor
-  // classification. Rapier is stubbed in unit tests, so this pins the WIRING as source
-  // assertions — the same approach the friction suite uses — and the feel lands on
-  // ZAN-BOLLARD-PT-1.
+describe("ZAN-BOLLARD-CLASS-1 / ZAN-BOLLARD-PT-1 — Sundial vertical posts", () => {
+  // classifyEnvironmentCollision (simulation.js) maps boothColliderHandles to "edge"
+  // (FX only) and bollardColliderHandles to "clang" (the metallic impact sound).
+  // ZAN-BOLLARD-CLASS-1 registered the bollards + gnomon as edge; ZAN-BOLLARD-PT-1
+  // split them into their own list so the clang fires ONLY on the posts, not on
+  // booth legs / the pit wall. Rapier is stubbed in unit tests, so this pins the
+  // WIRING as source assertions — the feel lands on ZAN-BOLLARD-PT-1.
 
-  it("declares edgeHandles and captures the bollard + gnomon collider handles", () => {
-    expect(src).toContain("const edgeHandles = [];");
+  it("declares clangHandles and captures the bollard + gnomon collider handles", () => {
+    expect(src).toContain("const clangHandles = [];");
     // Bollard loop + gnomon blade both push their created collider's handle.
-    expect(src.split("edgeHandles.push(collider.handle);").length - 1).toBe(2);
-    // The deck return carries edgeHandles out of buildDeck.
-    expect(src).toContain("group, body, floorColliderHandles, edgeHandles, deckTex,");
-    expect(src).toContain("floorColliderHandles: number[], edgeHandles: number[],");
+    expect(src.split("clangHandles.push(collider.handle);").length - 1).toBe(2);
+    // The deck return carries clangHandles out of buildDeck.
+    expect(src).toContain("group, body, floorColliderHandles, clangHandles, deckTex,");
+    expect(src).toContain("floorColliderHandles: number[], clangHandles: number[],");
   });
 
-  it("registers edgeHandles into boothColliderHandles — the classify 'edge' list", () => {
-    const registration = sliceBetween(
-      "const boothColliderHandles = [];",
-      "const booths = buildZanzibarBooths",
-    );
-    expect(registration).toContain("boothColliderHandles.push(...deck.edgeHandles);");
+  it("registers clangHandles into bollardColliderHandles, NOT boothColliderHandles", () => {
+    // ZAN-BOLLARD-PT-1: the posts get their own classify list (clang sound); the
+    // booth legs keep boothColliderHandles (edge FX only).
+    expect(src).toContain("const bollardColliderHandles = [...deck.clangHandles];");
+    expect(src).not.toContain("boothColliderHandles.push(...deck.clangHandles);");
+    // The level return carries bollardColliderHandles out.
+    expect(src).toContain("bollardColliderHandles,");
   });
 });

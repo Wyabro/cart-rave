@@ -3174,6 +3174,9 @@ function ensurePreStepLinvel(cart) {
 
 function classifyEnvironmentCollision(otherHandle, callbacks) {
   if (callbacks.recordColliderHandles?.includes(otherHandle)) return "floor";
+  // * ZAN-BOLLARD-PT-1: posts (Sundial bollards + gnomon) are their own class — the
+  // * metallic clang. Other verticals (pit wall, booth legs) stay "edge": FX only.
+  if (callbacks.bollardColliderHandles?.includes(otherHandle)) return "clang";
   if (otherHandle === callbacks.pitWallColliderHandle) return "edge";
   if (callbacks.boothColliderHandles?.includes(otherHandle)) return "edge";
   return "floor";
@@ -3359,8 +3362,13 @@ function processCollisionEvents(world, eventQueue, allCarts, callbacks, isHost, 
             if (callbacks.playFloorImpact) callbacks.playFloorImpact(intensity);
             if (callbacks.spawnTrashBurst) callbacks.spawnTrashBurst(contactPos, intensity, "floor");
           }
-        } else {
+        } else if (envType === "clang") {
+          // * ZAN-BOLLARD-PT-1: only the Sundial posts clang. Pit wall / booth legs
+          // * ("edge") keep the FX but stay silent — the metallic clang was going off
+          // * on every vertical surface.
           if (callbacks.playEdgeImpact) callbacks.playEdgeImpact(intensity);
+          if (callbacks.spawnTrashBurst) callbacks.spawnTrashBurst(contactPos, intensity, "edge");
+        } else {
           if (callbacks.spawnTrashBurst) callbacks.spawnTrashBurst(contactPos, intensity, "edge");
         }
         if (callbacks.onCartImpactSquash) {
