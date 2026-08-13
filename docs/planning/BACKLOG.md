@@ -72,9 +72,9 @@ way the Block table still can.)*
 | Department | Open | High | Medium | Low |
 |---|---:|---:|---:|---:|
 | [Engineering](#engineering) | 10 | 0 | 4 | 5 (+1 partial) |
-| [Art](#art) | 5 | 0 | 0 | 5 |
+| [Art](#art) | 6 | 0 | 0 | 6 |
 | [Audio](#audio) | 1 | 0 | 0 | 1 |
-| [Design / Gameplay](#design--gameplay) | 7 | 0 | 2 | 5 |
+| [Design / Gameplay](#design--gameplay) | 6 | 0 | 2 | 4 |
 | 🟢 [Playtest owed](#playtest-owed) | 6 | 0 | 3 | 3 |
 | [Tech Debt](#tech-debt) | 11 | 0 | 4 | 7 |
 
@@ -184,7 +184,7 @@ traffic; 7 is post-launch or parked. Priority ranks *inside* a block too (top fi
 - **BRAND-1** — domain / rebrand ceremony (frozen until ship).
 - Trigger-gated / instrument-gated: **SHADOW-HAZARD-SEAM-1** (next arena) · **AQ-RING-CLEAR-1** (reserve) · **PERF-9CELL-1** (parked with closed parent).
 - Structure debt after multiplayer is proven: **DIR-1** · **GLTF-1** · **DUAL-1** · **TS-1** · **TOOL-1** · Vite chunk hint · **BACKLOG-GATE-2**.
-- Art/background Lows: **CLAD-REPEAT-1** · **SHELF-RAIL-1** · **ART-PALETTE-1** · sunglasses materials · asset filename rebrand · **ART-LUMA-TOOL-1**.
+- Art/background/presentation Lows: **KO-DOOMED-1** · **CLAD-REPEAT-1** · **SHELF-RAIL-1** · **ART-PALETTE-1** · sunglasses materials · asset filename rebrand · **ART-LUMA-TOOL-1**.
 - Taste-gated Design / Future Ideas rows — only on new evidence or explicit pull-forward.
 - **SHIP-1** living checklist row stays as the ship-doc pointer until ship.
 
@@ -210,6 +210,7 @@ traffic; 7 is post-launch or parked. Priority ranks *inside* a block too (top fi
 | Pri | Item | Notes |
 |-----|------|-------|
 
+| Low | KO-DOOMED-1 — local KO red edge pulse + shatter shockwave | Every local KO, including self-falls and environmental deaths, gets a medium red edge pulse and one centered expanding screen shockwave when the local cart shatters. Presentation-only: no text stamp, score, physics, camera timing, or attacker-side effect. |
 | Low | CLAD-REPEAT-1 — stand cladding shares one repeat across three deck radii | **Was ART-PASS-CLASSIC-1 L4; dropped 08-01 and demoted, because the surface is barely visible.** The defect is real and measured: one `panelTex.repeat.set(24, 3)` (`effects.js:1441`) feeds one shared `cladMat` across three decks (`effects.js:1454`) whose r1 = 73/100/124 m and wallH = 12.2/10.6/9.8 m, so the authored 2:1 cart-silhouette motif renders **2.09×0.22 m on deck 0 and 3.55×0.18 m on deck 2** — 4.7× and 9.9× distorted, and inconsistent between rings. **Why it was dropped:** cladding sits at `deck.r1 + 0.55`, directly behind seating spanning r0→r1, so from every in-arena viewpoint tried the crowd and seats occlude it; a before/after GPU capture showed *zero* delta on the cladding itself (the 31% pixel diff was animated-crowd noise). A surface you cannot see does not earn a mid-table slot. Fix if ever picked up: per-deck material+texture clone like the seat loop (`effects.js:990`), `U = round(circumference / wallH)`, `V = 1` — the largest square tile each wall fits. |
 | Low | SHELF-RAIL-1 — the booth rails are the shiniest thing in a dead room | **Filed 08-02**, split out of audit item 4 rather than folded in as a silent ride-along. `railMat` ([backroomsSupermarket.js:2948](../../src/levels/backroomsSupermarket.js:2948)) is the **booth** rails, a different surface from the shelf steel, and separately the lowest-roughness / highest-metalness pair in the file — so under the RoomEnvironment PMREM it reads as polished chrome in a room where nothing else is polished. Item 4's new `buildShelfSteelTexture()` is a natural donor, but the rails also want their own roughness call, and doing both in one commit would have made the item-4 capture ambiguous. Also parked here: **per-bay board segmentation** (break each 114 m shelf board into bays with a 4 cm gap so the run reads as bolted sections) — a geometry/merge change, not a material one, and the audit lists it under the same item. |
 | Low | ART-LUMA-TOOL-1 — luma metric in `npm run compare` | Rule 3's luma floors were computed with a one-off scratchpad script because `tools/` is frozen during a game card. Fold a darkest-decile / median / mean luma readout into [compare.mjs](../../tools/compare.mjs) (it already decodes both PNGs via sharp) so drift is guardable by the committed tool. Baselines to reproduce are in [art-direction.md](../reference/art-direction.md) Rule 3. |
@@ -228,7 +229,6 @@ traffic; 7 is post-launch or parked. Priority ranks *inside* a block too (top fi
 |-----|------|-------|
 | Medium | TASTE-P4-1 — Taste-tuning follow-ups from Pass 4 | Only reopen with playtest evidence (D-GP4-1). |
 | Medium | CLUTCH-SLOMO-1 — Clutch slow-mo (Pass 5 deferral) | Taste-gated. |
-| Low | KO-DOOMED-1 — KO "doomed" presentational cue | Idea stage. |
 | Low | DEATHCAM-KILLER-1 — Death-cam "follow killer" revisit | Previously reverted. |
 | Low | CHAL-SHELF-FIT-1 — challenge shelf scrolls on phone instead of scaling to fit | **Filed 08-13 from CHALLENGE-EXPAND-PT-1's PASS note** ("the challenge menu has a scroll on phone so it would be nice if it scaled to fit but it's not the end of the world if it doesn't"). The four daily + two weekly cards fit desktop but overflow into a scroll on portrait phones; a scale-to-fit pass (reuse the responsive-scale migration patterns) would remove the scroll. Pure polish — no blocker. |
 | Low | MONETIZE-1 — Subtle monetization path | Idea stage only. |
