@@ -53,6 +53,14 @@ const _koColor = new THREE.Color(0xffffff);
 const _ambientA = DEFAULT_A.clone();
 const _ambientB = DEFAULT_B.clone();
 
+/**
+ * ZAN-REACTIVE-ALLOC-1: module scratch for the per-frame sample. Callers drain
+ * synchronously — `accentColor` already reuses the shared `_out` Color — so one
+ * reusable object is safe; the old shape allocated a fresh literal every frame.
+ * @type {{ accentColor: THREE.Color, intensityMul: number, koT: number, hasLeader: boolean }}
+ */
+const _reactiveScratch = { accentColor: _out, intensityMul: 1, koT: 0, hasLeader: false };
+
 /** @type {boolean} */
 let hasLeader = false;
 
@@ -161,10 +169,9 @@ export function sampleArenaReactive(timeMs, nowPerformance) {
     intensityMul = 1 + koStrength * koT * 1.35;
   }
 
-  return {
-    accentColor: _out,
-    intensityMul,
-    koT,
-    hasLeader: ARENA_LEADER_TINT_ENABLED && hasLeader,
-  };
+  _reactiveScratch.accentColor = _out;
+  _reactiveScratch.intensityMul = intensityMul;
+  _reactiveScratch.koT = koT;
+  _reactiveScratch.hasLeader = ARENA_LEADER_TINT_ENABLED && hasLeader;
+  return _reactiveScratch;
 }
