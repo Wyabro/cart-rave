@@ -226,7 +226,7 @@ traffic; 7 is post-launch or parked. Priority ranks *inside* a block too (top fi
 |-----|------|-------|
 | Medium | TASTE-P4-1 — Taste-tuning follow-ups from Pass 4 | Only reopen with playtest evidence (D-GP4-1). |
 | Medium | CLUTCH-SLOMO-1 — Clutch slow-mo (Pass 5 deferral) | Taste-gated. |
-| Low | RUMBLE-STRENGTH-1 — Controller vibration strength *(pre-ship 07-19)* | |
+| Low | RUMBLE-STRENGTH-1 — Enable controller rumble from Settings *(pre-ship 07-19)* | **Approved scope:** add a general `ENABLE CONTROLLER RUMBLE` Settings action. Use the standard Gamepad rumble API automatically when available; use a user-permission WebHID fallback for known HID profiles, starting with USB DualSense. Show honest unsupported status; preserve input and existing rumble. No adaptive triggers. **Files:** `src/haptics.js`, `src/ui/cart-rave-menu.js`, Settings markup/styles, haptics/report tests. **Asserts:** standard pads need no setup; button opens permission flow; supported DualSense rumbles on hit/KO; unsupported browser/device fails safely; input remains intact. **Risk:** WebHID is Chromium + secure-context + user-permission gated. **Playtest:** Chrome/USB DualSense enable + hit/KO; reload; standard controller; unsupported browser/device. |
 
 ## Playtest owed
 
