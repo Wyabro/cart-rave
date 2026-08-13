@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-13T21:14:33.852Z",
-    "commit": "8178a57"
+    "at": "2026-08-13T21:22:07.371Z",
+    "commit": "f869fae"
   },
-  "source_digest": "3367b65b",
+  "source_digest": "e755cd33",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1010,7 +1010,7 @@
         "title": "Design / Gameplay",
         "counts": {
           "Medium": 2,
-          "Low": 2
+          "Low": 1
         },
         "rows": [
           {
@@ -1023,12 +1023,6 @@
             "pri": "Medium",
             "item": "CLUTCH-SLOMO-1 — Clutch slow-mo (Pass 5 deferral)",
             "notes": "Taste-gated.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "MONETIZE-1 — Subtle monetization path",
-            "notes": "Idea stage only.",
             "ship1": null
           },
           {
