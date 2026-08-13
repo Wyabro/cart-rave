@@ -96,3 +96,28 @@ describe("SUNDIAL-OBSTACLE-SLIDE-1 — Sundial obstacles do not average friction
     expect(bollards).not.toContain("setRestitutionCombineRule");
   });
 });
+
+describe("ZAN-BOLLARD-CLASS-1 — Sundial vertical posts classify as edge, not floor", () => {
+  // classifyEnvironmentCollision (simulation.js) maps boothColliderHandles to "edge" and
+  // everything else to "floor". The bollards + gnomon were unregistered → silent floor
+  // classification. Rapier is stubbed in unit tests, so this pins the WIRING as source
+  // assertions — the same approach the friction suite uses — and the feel lands on
+  // ZAN-BOLLARD-PT-1.
+
+  it("declares edgeHandles and captures the bollard + gnomon collider handles", () => {
+    expect(src).toContain("const edgeHandles = [];");
+    // Bollard loop + gnomon blade both push their created collider's handle.
+    expect(src.split("edgeHandles.push(collider.handle);").length - 1).toBe(2);
+    // The deck return carries edgeHandles out of buildDeck.
+    expect(src).toContain("group, body, floorColliderHandles, edgeHandles, deckTex,");
+    expect(src).toContain("floorColliderHandles: number[], edgeHandles: number[],");
+  });
+
+  it("registers edgeHandles into boothColliderHandles — the classify 'edge' list", () => {
+    const registration = sliceBetween(
+      "const boothColliderHandles = [];",
+      "const booths = buildZanzibarBooths",
+    );
+    expect(registration).toContain("boothColliderHandles.push(...deck.edgeHandles);");
+  });
+});
