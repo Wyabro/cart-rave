@@ -13,6 +13,12 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 13, 2026 — RAPIER-MAJOR-PT-1: solo 0.20 feel PASS
+
+- *(Playtest · Medium)* **RAPIER-MAJOR-PT-1** — ✅ **CLOSED PASS 08-13** on `npm run dev:local`. Solo drive, hop, charge-boost, KO bounce, and pit-stave hits still felt like 0.19 after the `@dimforge/rapier3d` + `-simd` bump to `0.20.0` (Rust 0.35). No knob retune. Parent **RAPIER-MAJOR-1** stays open for **RAPIER-MAJOR-PT-2**. Deployed `524bd4db`. Hashed assets 0×404. Live `rapierInstance-o_X8o-Pe.js` carries `cartRaveRapierSimd`. Live WASM `rapier_wasm3d_bg-CCK6hj8V.wasm`.
+
+---
+
 ### August 13, 2026 — Playtest export: 9 PASS, 0 FAIL, 3 SKIP
 
 - *(Playtest · Medium)* **CARGO-BAY-INSTANCE-PT-1** / **CARGO-BAY-INSTANCE-PT-2** — ✅ **CLOSED PASS 08-13.** Solo cargo filled in order, stayed put, hid correctly on spills, and rebuilt without empty or doubled bays. **CARGO-BAY-INSTANCE-PT-3** remains open for two-machine parity.

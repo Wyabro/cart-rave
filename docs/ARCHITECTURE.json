@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-13T04:48:14.443Z",
-    "commit": "cb17159"
+    "at": "2026-08-13T05:00:26.838Z",
+    "commit": "7de7f87"
   },
-  "source_digest": "8acd594b",
+  "source_digest": "1d061490",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -908,13 +908,12 @@
       {
         "id": "RAPIER-MAJOR-1",
         "what": "Rapier 0.19.3 → 0.20.0",
-        "status": "🔧 CODE LANDED. Both packages `0.20.0`. Playtest owed: RAPIER-MAJOR-PT-1 (dev) · RAPIER-MAJOR-PT-2 (after ship).",
+        "status": "🔧 DEPLOYED `524bd4db`. PT-1 PASS. Playtest owed: RAPIER-MAJOR-PT-2 on prod after hard-refresh.",
         "state": "waiting"
       }
     ],
     "next_actions": [
-      "Wyatt playtest RAPIER-MAJOR-PT-1 on `npm run dev:local` after hard-refresh.",
-      "Do not deploy until Wyatt says ship it.",
+      "Wyatt playtest RAPIER-MAJOR-PT-2 on prod after hard-refresh. Two browsers, Friends room.",
       "Deferred playtests: CARGO-BAY-INSTANCE-PT-3 · CONN-TRACK-LEAK-PT-1 · SHARD-PT-2."
     ],
     "open_issues": [
@@ -1057,7 +1056,7 @@
           {
             "pri": "Medium",
             "item": "RAPIER-MAJOR-1 — `@dimforge/rapier3d` 0.19 → 0.20",
-            "notes": "**Code landed, playtest owed.** Both packages at `0.20.0` (wraps Rust 0.35). No knob retune. SIMD stays opt-in. Playtest: **RAPIER-MAJOR-PT-1** (solo, `npm run dev:local`) · **RAPIER-MAJOR-PT-2** (live MP, after ship). Do not close until both PASS.",
+            "notes": "**Deployed `524bd4db`.** Both packages at `0.20.0` (Rust 0.35). No knob retune. SIMD stays opt-in. **RAPIER-MAJOR-PT-1** PASS on `dev:local`. Playtest owed: **RAPIER-MAJOR-PT-2** (live MP on prod after hard-refresh). Do not close until PT-2 PASS.",
             "ship1": null
           },
           {
@@ -1187,7 +1186,7 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Medium": 7,
+          "Medium": 6,
           "Low": 2
         },
         "rows": [
@@ -1235,14 +1234,8 @@
           },
           {
             "pri": "Medium",
-            "item": "RAPIER-MAJOR-PT-1 — solo drive + hop + KO + pit still feel like 0.19 `[solo]`",
-            "notes": "**Owed: Wyatt playtest — RAPIER-MAJOR-PT-1 — solo drive, hop, KO, and pit feel like 0.19.** Not on prod. Run `npm run dev:local`. Parent RAPIER-MAJOR-1. Physics 0.20 wraps Rust 0.35 — same knobs, new solver.<br>1. Menu → Solo → Cart Rave. Spawn. Drive a lap. Hop on flat ground. Charge-boost.<br>2. Ram an NPC to KO. Watch bounce and respawn. Drive over the center hole. Spill groceries.<br>3. Hit a pit stave at speed. FAIL if you sink through, hop dies, air-hops return, or KO bounce is wrong. PASS if drive, hop, KO, and pit match 0.19.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
             "item": "RAPIER-MAJOR-PT-2 — live host+joiner drive and KO `[2pc]`",
-            "notes": "**Owed: Wyatt playtest — RAPIER-MAJOR-PT-2 — joiner drive and a KO on the joiner still match the host.** Two browsers, Friends room. After ship + hard-refresh. Parent RAPIER-MAJOR-1.<br>1. Host and joiner both drive. FAIL if the joiner rubber-bands or cannot steer.<br>2. Host KOs the joiner. FAIL if the joiner does not shatter or respawn. PASS if both screens agree.",
+            "notes": "**Owed: Wyatt playtest — RAPIER-MAJOR-PT-2 — joiner drive and a KO on the joiner still match the host.** Two browsers, Friends room. Prod after hard-refresh. Deployed `524bd4db`. Parent RAPIER-MAJOR-1.<br>1. Host and joiner both drive. FAIL if the joiner rubber-bands or cannot steer.<br>2. Host KOs the joiner. FAIL if the joiner does not shatter or respawn. PASS if both screens agree.",
             "ship1": null
           }
         ]

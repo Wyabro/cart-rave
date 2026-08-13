@@ -36,7 +36,7 @@ external testers. Stay in this phase until Wyatt advances the marker.
 
 **08-13 playtest export:** 9 PASS / 0 FAIL / 3 SKIP. Cargo solo fill + rebuild, same-clientId reconnect, booth-target AI, both NPC type draws, PA combo tiers, STORE-1 regression, and both Storerooms songs PASSed. Remaining deferred checks: **CARGO-BAY-INSTANCE-PT-3** · **CONN-TRACK-LEAK-PT-1** · **SHARD-PT-2**.
 
-**RAPIER-MAJOR-1** landed both packages at `0.20.0` (Rust 0.35). No knob retune. SIMD stays opt-in. Playtest owed: **RAPIER-MAJOR-PT-1** on `npm run dev:local`, then **RAPIER-MAJOR-PT-2** after ship. This reopens prior physics PASSes (PIT / hole / weeble / drive).
+**RAPIER-MAJOR-1** deployed `524bd4db`. Both packages `0.20.0` (Rust 0.35). **RAPIER-MAJOR-PT-1** PASS on `dev:local`. Playtest owed: **RAPIER-MAJOR-PT-2** on prod after hard-refresh. Hashed assets 0×404. Live `rapierInstance-o_X8o-Pe.js` carries `cartRaveRapierSimd`.
 
 **Closed cards keep their narrative in their own docs, not here** — Sundial
 ([handover](./planning/art-pass-sundial-handover.md); read its "Traps that cost time" before any
@@ -80,13 +80,12 @@ Live rows only. Shipped and closed cards live in
 | CONN-TRACK-LEAK-1 | Release platform-dead IP tracking before the cap | ✅ **CLOSED 08-12** (`9439cd2`, deployed `5ae6f69b`). `#prunePlatformDeadTracking()` releases leaked IP counts before the cap decision; five teardown paths consolidated via `#forgetConnectionTracking()`. Same-clientId reconnect PASS 08-13; playtest owed: **CONN-TRACK-LEAK-PT-1** (host-leave migration). |
 | PA-QUIET-1 | Quiet the Store PA | ✅ **CLOSED 08-12.** Wyatt playtest PASS. Deployed `3044ab99`. Same-fall flavor skip + busy-channel drop + `last_call` interrupts. Commits `e37bd59` + `a0ba621`. |
 | MENU-MUSIC-2 | Second main-menu song | ✅ **CLOSED 08-13.** Wyatt playtest PASS on prod `11e5e48f`. |
-| RAPIER-MAJOR-1 | Rapier 0.19.3 → 0.20.0 | 🔧 **CODE LANDED.** Both packages `0.20.0`. Playtest owed: **RAPIER-MAJOR-PT-1** (dev) · **RAPIER-MAJOR-PT-2** (after ship). |
+| RAPIER-MAJOR-1 | Rapier 0.19.3 → 0.20.0 | 🔧 **DEPLOYED `524bd4db`.** PT-1 PASS. Playtest owed: **RAPIER-MAJOR-PT-2** on prod after hard-refresh. |
 
 ### Next actions
 
-1. **Wyatt playtest RAPIER-MAJOR-PT-1** on `npm run dev:local` after hard-refresh.
-2. **Do not deploy** until Wyatt says **ship it**.
-3. **Deferred playtests:** **CARGO-BAY-INSTANCE-PT-3** · **CONN-TRACK-LEAK-PT-1** · **SHARD-PT-2**.
+1. **Wyatt playtest RAPIER-MAJOR-PT-2** on prod after hard-refresh. Two browsers, Friends room.
+2. **Deferred playtests:** **CARGO-BAY-INSTANCE-PT-3** · **CONN-TRACK-LEAK-PT-1** · **SHARD-PT-2**.
 
 ## Open issues (top)
 

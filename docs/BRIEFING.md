@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-13 at commit `cb17159` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `1940d956`
+> Generated 2026-08-13 at commit `7de7f87` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `1f8acbfb`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -18,13 +18,13 @@ Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep a
 
 ## ACTIVE CARD
 
-Wyatt playtest RAPIER-MAJOR-PT-1 on `npm run dev:local` after hard-refresh
+Wyatt playtest RAPIER-MAJOR-PT-2 on prod after hard-refresh. Two browsers, Friends room
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 
 Self-directed queue (one at a time, within the declared phase):
 - **BUNDLE-1** Menu/game code-split — ⚠️ CLOSED PARTIAL 08-05 — perf goal NOT met. Deployed `f2f90fd2`. Warm `menu-ready` −3% vs a −15% gate.…
-- **RAPIER-MAJOR-1** Rapier 0.19.3 → 0.20.0 — 🔧 CODE LANDED. Both packages `0.20.0`. Playtest owed: RAPIER-MAJOR-PT-1 (dev) · RAPIER-MAJOR-PT-2 (after…
+- **RAPIER-MAJOR-1** Rapier 0.19.3 → 0.20.0 — 🔧 DEPLOYED `524bd4db`. PT-1 PASS. Playtest owed: RAPIER-MAJOR-PT-2 on prod after hard-refresh.
 
 ## Do not
 
