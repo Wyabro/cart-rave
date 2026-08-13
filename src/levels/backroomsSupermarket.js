@@ -3350,8 +3350,11 @@ function buildBackroomsBooths(scene, world, config, boothColliderHandles) {
     transparent: true,
     depthWrite: false,
   });
+  // * SHELF-RAIL-1: rails were the shiniest pair in the file (0.45/0.7 → polished
+  // * chrome in a room where nothing else is). Painted steel matching the booth
+  // * fixture-frame language (frameMat 0.7/0.3) — still reads as metal, no chrome.
   const railMat = createPhysicalMaterial({
-    color: 0x6c6a62, roughness: 0.45, metalness: 0.7,
+    color: 0x6c6a62, roughness: 0.72, metalness: 0.3,
   });
   const boxMat = new THREE.MeshStandardMaterial({
     map: cardboardTex, color: 0xffffff, roughness: 0.92, metalness: 0.0,
