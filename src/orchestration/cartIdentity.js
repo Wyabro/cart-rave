@@ -12,7 +12,7 @@
 
 import { getNetcode } from "../netcode/load.js";
 import { resolveCartNeonCss, resolveCartNeonHex } from "../customization.js";
-import { NPC_NAME_POOL } from "../npcNames.js";
+import { drawNpcNamesByPersonality, rotateNpcPersonalityOrder } from "../npcNames.js";
 
 /** Numeric hex for cart materials, particles and shatter debris. */
 export function displayColorHexForSlot(slot) {
@@ -24,12 +24,12 @@ export function displayCssColorForSlot(slot) {
   return resolveCartNeonCss(slot, { youConnId: getNetcode()?.getYouConnId() ?? null });
 }
 
-/** Fisher-Yates shuffle of the NPC name pool, truncated to `count`. */
-export function shuffledClientNpcNames(count) {
-  const names = [...NPC_NAME_POOL];
-  for (let i = names.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [names[i], names[j]] = [names[j], names[i]];
-  }
-  return names.slice(0, count);
+/**
+ * Four names, one per personality, ordered [omitted, fielded1, fielded2, fielded3].
+ * netcode.js seats indices 1–3, so the omitted type never enters the solo field.
+ * @param {number} [omitIndex=0]
+ * @returns {string[]}
+ */
+export function shuffledClientNpcNames(omitIndex = 0) {
+  return drawNpcNamesByPersonality(rotateNpcPersonalityOrder(omitIndex));
 }

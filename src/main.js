@@ -123,7 +123,8 @@ applyDebugBootSideEffects();
   if (_dbgPreset) setSessionQualityTier(_dbgPreset);
 }
 import { installGlobalErrorReporting } from "./utils/errorReporter.js";
-import { storageGet } from "./utils/storage.js";
+import { STORAGE_KEYS, storageGet, storageSet } from "./utils/storage.js";
+import { NPC_PERSONALITY_ORDER } from "./npcNames.js";
 import { CONFIG } from "./config.js";
 import { startGamepadUiNav } from "./ui/gamepadNav.js";
 
@@ -142,7 +143,15 @@ const { flushPendingSessionBootstrap, markFirstHelloReceived } = createHelloBoot
 );
 const gameSession = createGameSessionController(() => sessionBridgeCtx.current);
 
-const initialNpcNames = shuffledClientNpcNames(4);
+function nextSoloNpcOmitIndex() {
+  const n = NPC_PERSONALITY_ORDER.length;
+  const parsed = Number.parseInt(storageGet(STORAGE_KEYS.soloNpcOmit, "0") ?? "0", 10);
+  const idx = Number.isFinite(parsed) ? ((parsed % n) + n) % n : 0;
+  storageSet(STORAGE_KEYS.soloNpcOmit, String(idx + 1));
+  return idx;
+}
+
+const initialNpcNames = shuffledClientNpcNames(nextSoloNpcOmitIndex());
 
 import { settingsStore } from "./stores/settingsStore.js";
 

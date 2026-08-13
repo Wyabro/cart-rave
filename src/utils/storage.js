@@ -62,6 +62,8 @@ export const STORAGE_KEYS = {
   glitchUserInstallId: "cartRaveGlitchUserInstallId",
   /** Glitch retention session_id for the current page session. */
   glitchSessionId: "cartRaveGlitchSessionId",
+  /** Solo NPC omit-type cursor (integer as string). Advances once per page load. */
+  soloNpcOmit: "cartRaveSoloNpcOmit",
 };
 
 /**
