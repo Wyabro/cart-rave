@@ -116,4 +116,43 @@ describe("challengeStore active capacity and migration", () => {
     expect(after.lastWeeklyReset).toBe(before.lastWeeklyReset);
     expect(after.dailyChallenges.map((c) => c.id)).toEqual(before.dailyChallenges.map((c) => c.id));
   });
+
+  it("never re-picks the outgoing sets on rotation (CHAL-ROTATE-REPEAT-1)", async () => {
+    vi.useFakeTimers();
+    try {
+      const t0 = Date.parse("2026-08-01T00:00:00Z");
+      vi.setSystemTime(t0);
+      const { challengeStore } = await loadChallengeStore();
+      const outgoingDaily = [
+        { id: "spill_15", progress: 0, isComplete: false },
+        { id: "combo_t2_5", progress: 0, isComplete: false },
+        { id: "ko_void_3", progress: 0, isComplete: false },
+        { id: "last_standing_2", progress: 0, isComplete: false },
+      ];
+      const outgoingWeekly = [
+        { id: "spill_50", progress: 0, isComplete: false },
+        { id: "combo_t3_10", progress: 0, isComplete: false },
+      ];
+      challengeStore.setState({
+        dailyChallenges: outgoingDaily,
+        weeklyChallenges: outgoingWeekly,
+        lastDailyReset: t0,
+        lastWeeklyReset: t0,
+      });
+      // * Past both windows (8 days > 7-day weekly period) — both shelves rotate.
+      vi.setSystemTime(t0 + 8 * 24 * 60 * 60 * 1000);
+      challengeStore.getState().checkRotations();
+      const after = challengeStore.getState();
+      expect(after.lastDailyReset).toBe(t0 + 8 * 24 * 60 * 60 * 1000);
+      expect(after.lastWeeklyReset).toBe(t0 + 8 * 24 * 60 * 60 * 1000);
+      for (const c of after.dailyChallenges) {
+        expect(outgoingDaily.some((p) => p.id === c.id)).toBe(false);
+      }
+      for (const c of after.weeklyChallenges) {
+        expect(outgoingWeekly.some((p) => p.id === c.id)).toBe(false);
+      }
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

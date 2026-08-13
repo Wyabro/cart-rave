@@ -130,7 +130,13 @@ export const challengeStore = createStore((set, get) => ({
     let dailyChallenges = normalizeChallengeList(state.dailyChallenges, 'daily', CHALLENGE_ACTIVE_COUNTS.daily);
     let lastDailyReset = state.lastDailyReset;
     if (!lastDailyReset || currentTime - lastDailyReset >= DAY_MS) {
-      dailyChallenges = selectRandomChallenges('daily', CHALLENGE_ACTIVE_COUNTS.daily);
+      // * CHAL-ROTATE-REPEAT-1: exclude the outgoing set so a just-rotated challenge
+      // * cannot re-pick immediately with its progress reset to 0.
+      dailyChallenges = selectRandomChallenges(
+        'daily',
+        CHALLENGE_ACTIVE_COUNTS.daily,
+        dailyChallenges.map((c) => c.id),
+      );
       lastDailyReset = currentTime;
       updated = true;
     }
@@ -138,7 +144,12 @@ export const challengeStore = createStore((set, get) => ({
     let weeklyChallenges = normalizeChallengeList(state.weeklyChallenges, 'weekly', CHALLENGE_ACTIVE_COUNTS.weekly);
     let lastWeeklyReset = state.lastWeeklyReset;
     if (!lastWeeklyReset || currentTime - lastWeeklyReset >= WEEK_MS) {
-      weeklyChallenges = selectRandomChallenges('weekly', CHALLENGE_ACTIVE_COUNTS.weekly);
+      // * CHAL-ROTATE-REPEAT-1: same exclusion for the weekly shelf.
+      weeklyChallenges = selectRandomChallenges(
+        'weekly',
+        CHALLENGE_ACTIVE_COUNTS.weekly,
+        weeklyChallenges.map((c) => c.id),
+      );
       lastWeeklyReset = currentTime;
       updated = true;
     }
