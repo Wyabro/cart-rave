@@ -446,6 +446,20 @@ describe("menu playlist rotation", () => {
     expect(tracks[0].isPlaying).toBe(true);
     expect(tracks[1].isPlaying).toBe(false);
   });
+
+  it("keeps startIdx when the DEV gate blocks playback (first-load original-song bug)", async () => {
+    vi.resetModules();
+    const am = await import("../src/audioManager.js");
+    MockHowl.instances.length = 0;
+    am.initAudioManager(makeAudioContextStub());
+    am.loadMenuPlaylist(["menu-a.opus", "menu-b.opus"]);
+    am.playMenuMusic(1);
+    const dbg = am.getAudioDebugState();
+    expect(dbg.menuTrackIdx).toBe(1);
+    expect(dbg.menuShouldPlay).toBe(true);
+    const tracks = MockHowl.instances.filter((h) => h.opts.menuTrack);
+    expect(tracks.every((t) => !t.isPlaying)).toBe(true);
+  });
 });
 
 // * Run-7 2e: host mid-round resume freezes from late announcer decode. Play-entry

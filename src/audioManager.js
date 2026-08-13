@@ -338,7 +338,7 @@ export function initAudioManager(audioContext, opts = {}) {
       && menu
       && !menu.playing()
     ) {
-      menu.play();
+      startMenuTrack(menu);
     }
   });
 }
@@ -396,8 +396,7 @@ function installPageVisibilityAudioGuard() {
       && !menu.playing()
     ) {
       try {
-        menu.volume(_isMuted ? 0 : _musicVol);
-        menu.play();
+        startMenuTrack(menu);
       } catch { /* ignore */ }
     }
     _resumeMenuOnVisible = false;
@@ -668,10 +667,9 @@ function materializeGamePlaylist(urls) {
  */
 export function playMenuMusic(startIdx) {
   if (gameMusicPlaying) return;
-  _menuMusicShouldPlay = true;
-  if (!menuMusicTracks.length) return;
-  if (!devMusicGate) return;
-  if (anyMenuHowlPlaying()) return;
+  // * Apply startIdx BEFORE any early return. The DEV autoplay gate used to
+  // * return here first, so boot always left the index at 0 (menu.opus). First
+  // * gesture then played track 0; later playMenuMusic(random) no-op'd.
   if (
     Number.isInteger(startIdx)
     && startIdx >= 0
@@ -679,6 +677,10 @@ export function playMenuMusic(startIdx) {
   ) {
     currentMenuTrackIdx = startIdx;
   }
+  _menuMusicShouldPlay = true;
+  if (!menuMusicTracks.length) return;
+  if (!devMusicGate) return;
+  if (anyMenuHowlPlaying()) return;
   if (_tabHidden) {
     _resumeMenuOnVisible = true;
     return;
@@ -958,6 +960,8 @@ export function getAudioDebugState() {
     sfxVol: Math.round(_sfxVol * 1000) / 1000,
     voiceVol: Math.round(_voiceVol * 1000) / 1000,
     gameMusicPlaying: isGameMusicPlaying(),
+    menuTrackIdx: currentMenuTrackIdx,
+    menuShouldPlay: _menuMusicShouldPlay,
     registeredSfxCount: Object.keys(sfxRegistry).length,
     waterSplashRegistered: Boolean(sfxRegistry.waterSplash),
     // * SD-MUSIC-LPF-1 / music-silence forensics: closed musicCtx + wrapped>0

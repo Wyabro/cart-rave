@@ -34,7 +34,7 @@ external testers. Stay in this phase until Wyatt advances the marker.
 
 **STORE-MUSIC-1** shipped 08-12. Storerooms now has two new tracks. Playtest owed: **STORE-MUSIC-PT-1**.
 
-**MENU-MUSIC-2** coded 08-13. Menu now has two songs with a random first track. Playtest owed: **MENU-MUSIC-PT-1** on `npm run dev:local`.
+**MENU-MUSIC-2** coded 08-13. First-load always played `menu.opus` on `dev:local` because the DEV gate returned before the random start index was stored. Fix: store `startIdx` first. Playtest owed: **MENU-MUSIC-PT-1** on `npm run dev:local` after pull.
 
 **PA-COMBO-1** deployed `c0a15308`. Hashed assets 0×404. Live `gameBoot-ChoyxoHG.js` carries the combo queue set + `ttlMs:8e3`. Playtest owed: **PA-COMBO-PT-1** on prod after hard-refresh.
 
@@ -138,8 +138,9 @@ the dev loop (dev probes lie in prod · edge propagation · frozen `rAF`), or a 
 
 ## Last updated
 
-2026-08-13 (MENU-MUSIC-2) — Menu playlist is two songs with a random first track.
-Playtest owed: **MENU-MUSIC-PT-1**.
+2026-08-13 (MENU-MUSIC-2) — First-load on `dev:local` always started
+`menu.opus`. Cause: DEV gate returned before `startIdx` was stored. Playtest
+owed: **MENU-MUSIC-PT-1**.
 
 2026-08-12 (STORE-MUSIC-1) — Storerooms playlist is two new tracks. Playtest owed:
 **STORE-MUSIC-PT-1**.
