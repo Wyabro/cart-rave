@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-13T08:40:09.380Z",
-    "commit": "6fc7be1"
+    "at": "2026-08-13T08:45:33.029Z",
+    "commit": "d233702"
   },
-  "source_digest": "73081b8c",
+  "source_digest": "fbe674e6",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1194,7 +1194,7 @@
           {
             "pri": "Low",
             "item": "ZAN-BOLLARD-PT-1 — Sundial bollard/gnomon impact clang `[solo]`",
-            "notes": "**Owed: Wyatt playtest — ZAN-BOLLARD-PT-1 — bumping a Sundial corner bollard or the center gnomon blade makes the wall-clang impact FX/sound (was silent).** ZAN-BOLLARD-CLASS-1 (classification-only) re-registered the deck bollards + gnomon as \"edge\" surfaces, matching booth legs. Not deployed; use `npm run dev:local`.<br>1. Sundial solo, drive into a corner bollard at speed — you should hear/see the impact clang, and the spark should appear at the post, not floating over the pit.<br>2. Do the same against the tall center gnomon blade.<br>3. FAIL if either post is silent, the spark is clearly in the wrong place, or the KO round never completes. PASS if both posts clang and the round plays normally.",
+            "notes": "**Owed: Wyatt playtest — ZAN-BOLLARD-PT-1 — bumping a Sundial corner bollard or the center gnomon blade makes the wall-clang impact FX/sound (was silent).** ZAN-BOLLARD-CLASS-1 (classification-only) re-registered the deck bollards + gnomon as \"edge\" surfaces, matching booth legs. Deployed with ENG-LOW-SWEEP-1; prod after hard-refresh.<br>1. Sundial solo, drive into a corner bollard at speed — you should hear/see the impact clang, and the spark should appear at the post, not floating over the pit.<br>2. Do the same against the tall center gnomon blade.<br>3. FAIL if either post is silent, the spark is clearly in the wrong place, or the KO round never completes. PASS if both posts clang and the round plays normally.",
             "ship1": null
           }
         ]
