@@ -128,8 +128,10 @@ import { NPC_PERSONALITY_ORDER } from "./npcNames.js";
 import { CONFIG } from "./config.js";
 import { startGamepadUiNav } from "./ui/gamepadNav.js";
 
-// eslint-disable-next-line no-console
-console.log("%cHI :D", "font-size:32px;color:#ff2bd6;font-weight:bold;text-shadow:0 0 10px #ff2bd6");
+if (import.meta.env.DEV) {
+  // eslint-disable-next-line no-console
+  console.log("%cHI :D", "font-size:32px;color:#ff2bd6;font-weight:bold;text-shadow:0 0 10px #ff2bd6");
+}
 
 // === SESSION BRIDGE & MODULE STATE ===
 

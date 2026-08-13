@@ -16,6 +16,7 @@ Chronological record of shipped work, newest first.
 ### August 13, 2026 — ENG-LOW-SWEEP-1: nine Engineering Low sweep levers
 
 - *(Engineering · Low)* **BINARY-F32NAME-1** — ✅ **CLOSED 08-13.** `encodeF32` (src/netcode/binary.js) returned values unchanged and was also used for the Float64 `tHost`; renamed to `toFiniteNumber` across the encoder (7 call sites). Not exported; no importers. Test comment updated to match.
+- *(Engineering · Low)* **CONSOLE-HI-1** — ✅ **CLOSED 08-13.** The `%cHI :D` console easter egg in src/main.js is now gated behind `import.meta.env.DEV` (dead-code-eliminated from the prod bundle; still prints in dev/vitest).
 
 ---
 
