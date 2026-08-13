@@ -667,9 +667,18 @@ function materializeGamePlaylist(urls) {
  */
 export function playMenuMusic(startIdx) {
   if (gameMusicPlaying) return;
-  // * Apply startIdx BEFORE any early return. The DEV autoplay gate used to
-  // * return here first, so boot always left the index at 0 (menu.opus). First
-  // * gesture then played track 0; later playMenuMusic(random) no-op'd.
+  _menuMusicShouldPlay = true;
+  if (!menuMusicTracks.length) return;
+  // * No-op while any menu track is already audible. This guard must run BEFORE
+  // * the startIdx write: currentMenuTrackIdx has to keep pointing at the Howl
+  // * that is actually playing. If a later playMenuMusic(random) moved the index
+  // * under a still-playing track, the warmed next track's onload would see
+  // * `i === currentMenuTrackIdx` and start a second song on top (two menu songs
+  // * overlapping).
+  if (anyMenuHowlPlaying()) return;
+  // * Apply startIdx before the DEV play gate: on DEV the gate blocks autostart
+  // * until the first gesture, but the random pick must be remembered so the
+  // * first gesture opens with it instead of always menu.opus (track 0).
   if (
     Number.isInteger(startIdx)
     && startIdx >= 0
@@ -677,10 +686,7 @@ export function playMenuMusic(startIdx) {
   ) {
     currentMenuTrackIdx = startIdx;
   }
-  _menuMusicShouldPlay = true;
-  if (!menuMusicTracks.length) return;
   if (!devMusicGate) return;
-  if (anyMenuHowlPlaying()) return;
   if (_tabHidden) {
     _resumeMenuOnVisible = true;
     return;

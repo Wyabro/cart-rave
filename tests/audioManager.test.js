@@ -447,6 +447,26 @@ describe("menu playlist rotation", () => {
     expect(tracks[1].isPlaying).toBe(false);
   });
 
+  it("a late playMenuMusic(random) cannot desync the index and start a second song", () => {
+    // * Track 0 starts; its warm load of track 1 is still in flight (real decode
+    // * is async — the mock defers it until emitLoad).
+    const tracks = menuPlaylistHowls();
+    tracks[1].deferLoad = true;
+    playMenuMusic(0);
+    expect(tracks[0].isPlaying).toBe(true);
+    expect(tracks[1].state()).toBe("loading");
+
+    // * A later first-gesture / boot-splash hook re-requests with a different
+    // * random index while track 0 is still audible. Must be a no-op that leaves
+    // * the index pointing at the audible track.
+    playMenuMusic(1);
+
+    // * Track 1 finishes decoding; it must NOT start because track 0 owns the bus.
+    tracks[1].emitLoad();
+    expect(tracks[0].isPlaying).toBe(true);
+    expect(tracks[1].isPlaying).toBe(false);
+  });
+
   it("keeps startIdx when the DEV gate blocks playback (first-load original-song bug)", async () => {
     vi.resetModules();
     const am = await import("../src/audioManager.js");
