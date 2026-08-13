@@ -137,6 +137,27 @@ the dev loop (dev probes lie in prod · edge propagation · frozen `rAF`), or a 
 
 ## Last updated
 
+2026-08-13 (AUDIT-SWEEP-1) — Six audit-finding levers closed in one acked wave
+(`182a673` · `485dedf` · `00d8324` · `08ecbd5` · `cc45ba2` · `80cb60b`): NET-QUIT-RETRY-1
+(quit-to-menu cancels the pending socket retry), CHAL-MENU-REBUILD-1 (hidden panel no
+longer rebuilds per progress event), CHAL-ROTATE-RECORD-1 (record() rotates first),
+CHAL-ROTATE-REPEAT-1 (no immediate re-pick on rotation), CHAL-DEAD-EXPORT-1, and
+ZAN-REACTIVE-ALLOC-1. QA green by number; dev:local sweep passed (quickplay entry →
+MAIN MENU held through the retry window → challenges shelf DAILY · 4 / WEEKLY · 2).
+CHAL-PODIUM-DEDUPE-1 + ZAN-BOLLARD-CLASS-1 stayed open (dropped in adversarial review).
+BACKLOG now 57 open rows.
+
+2026-08-13 (AUDIT-1) — Read-only audit of `src/netcode.js` (4.3k lines, 47 commits since
+the 07-30 external review), the 08-13 challenge stack, and `src/levels/zanzibarPlatform.js`
+(Sundial). **netcode.js:** MSG server→client contract fully covered; authority, migration
+freeze, clock domains, seq gate, interp scratch all verified clean. One Med race filed —
+**NET-QUIT-RETRY-1** (pending reconnect timer survives quit-to-menu and re-joins the room).
+**Challenge stack:** 2 Med — **CHAL-MENU-REBUILD-1** (subscribe rebuilds hidden panel per
+progress event), **CHAL-ROTATE-RECORD-1** (no mid-session rotation) — plus 3 Low
+(CHAL-DEAD-EXPORT-1 · CHAL-ROTATE-REPEAT-1 · CHAL-PODIUM-DEDUPE-1). **Sundial:** no
+High/Med; 2 Low (ZAN-BOLLARD-CLASS-1 · ZAN-REACTIVE-ALLOC-1). All 8 filed in BACKLOG
+(now 63 open rows). No code changes, no deploy.
+
 2026-08-13 (MENU-MUSIC-PT-1) — Wyatt playtest PASS on prod `11e5e48f`.
 Parent MENU-MUSIC-2 closed.
 

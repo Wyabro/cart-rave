@@ -13,6 +13,19 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 13, 2026 — AUDIT-SWEEP-1: six audit-finding levers closed
+
+- *(Engineering · Medium)* **NET-QUIT-RETRY-1** — ✅ **CLOSED 08-13.** Pending socket-retry timer (3–5 s backoff) survived quit-to-menu and re-joined the last room from the main menu. `scheduleNetcodeRetry`'s timeout now stores its handle in a module-scope `netcodeRetryTimer`; `disconnectPartySession()` clears it, `initNetcode` drops any stale pending timer on entry, and the callback re-checks `_suppressRetry`. Verified live in the dev sweep: quickplay session → ESC → MAIN MENU → menu held through the full retry window with no re-join. Commits `182a673`.
+- *(Engineering · Medium)* **CHAL-MENU-REBUILD-1** — ✅ **CLOSED 08-13.** `challengeStore.subscribe(renderChallengesPanel)` rebuilt the whole hidden shelf (innerHTML reset + 6 cards + pool lookups) on every mid-round progress event (KO/spill/combo). The subscribe callback now no-ops while the challenges screen is `aria-hidden`; `openChallengesScreen()` already re-renders on open. Seam test pins the gated shape. Commit `485dedf`.
+- *(Engineering · Medium)* **CHAL-ROTATE-RECORD-1** — ✅ **CLOSED 08-13.** `record()` credited the just-expired challenge set when a session crossed the daily/weekly boundary mid-game; that credit was discarded at the next rotation. `record()` now calls `checkRotations()` first (no-op when nothing expired). Two new tests: rotation-before-credit (fake timers cross a boundary, stale progress provably gone) and the no-op case. Commit `00d8324`.
+- *(Engineering · Low)* **CHAL-ROTATE-REPEAT-1** — ✅ **CLOSED 08-13.** Rotation could re-pick the just-rotated challenge ids with progress reset to 0. `checkRotations` now passes the outgoing daily/weekly ids as `excludedIds` to `selectRandomChallenges`. Test pins that neither shelf re-picks its outgoing set. Commit `08ecbd5`.
+- *(Engineering · Low)* **CHAL-DEAD-EXPORT-1** — ✅ **CLOSED 08-13.** Removed the never-called `ChallengeTracker.checkRotations` wrapper (all callers use `challengeStore.getState().checkRotations()` directly). Commit `cc45ba2`.
+- *(Engineering · Low)* **ZAN-REACTIVE-ALLOC-1** — ✅ **CLOSED 08-13.** `sampleArenaReactive` returned a fresh object literal per frame from Sundial's `deck.update` (6 call sites; all drain synchronously — `accentColor` already reused the shared `_out` Color). Now fills a module-scope `_reactiveScratch`. Commit `80cb60b`.
+
+Wave verification: full QA green by number (1,951 tests), dev:local browser sweep passed (quickplay entry → quit-to-menu held → challenges shelf `DAILY · 4` / `WEEKLY · 2` rendered). Dropped during the adversarial plan review: CHAL-PODIUM-DEDUPE-1 and ZAN-BOLLARD-CLASS-1 (both still open in BACKLOG — the "fix" shapes traded one theoretical edge for another / required a cross-module contract change for near-zero value).
+
+---
+
 ### August 13, 2026 — DEPS-MAJOR-1: tooling majors
 
 - *(Engineering · Low)* **DEPS-MAJOR-1** — ✅ **CLOSED 08-13.** Upgraded direct devDependencies to `sharp@0.35.3` and `@cloudflare/vitest-pool-workers@0.21.2`; the effective toolchain is Wrangler `4.122.0`, Miniflare `5.20260811.0-alpha`, Undici `7.29.0`, and Workerd `1.20260811.1`. Sharp compare smoke produced `meanAbs=0.000`; party-do passed 5 files / 45 tests; full QA, production build, and Wrangler dry-run passed. Audit findings fell from 9 to 4; the remaining Vite/PostCSS/nanoid findings are outside this card. No player-visible behavior and no deploy.
