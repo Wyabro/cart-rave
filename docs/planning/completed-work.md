@@ -15,7 +15,7 @@ Chronological record of shipped work, newest first.
 
 ### August 13, 2026 — NPC-BOOTH-TARGET-1: skip booth-sitters in AI chase
 
-- *(Design / Gameplay · correctness)* **NPC-BOOTH-TARGET-1** — ✅ **CLOSED LOCAL 08-13.** `findNearestHumanTarget` skips a human whose pose is on a spawn booth (height `> platformY - 0.5` AND XZ at/outside the spawn-ring inner lip). Height alone is not the test: Night Shift high roofs sit above that Y and stay chaseable. `pickAiTarget` then patrols. Tests: `tests/aiSpawnBoothTarget.test.js`. Playtest owed: **NPC-BOOTH-TARGET-PT-1**. Mid-gap failed-jump chase is a named residual, not this lever.
+- *(Design / Gameplay · correctness)* **NPC-BOOTH-TARGET-1** — ✅ **DEPLOYED 08-13** `2fa4b2e4`. `findNearestHumanTarget` skips a human whose pose is on a spawn booth (height `> platformY - 0.5` AND XZ at/outside the spawn-ring inner lip). Height alone is not the test: Night Shift high roofs sit above that Y and stay chaseable. `pickAiTarget` then patrols. Tests: `tests/aiSpawnBoothTarget.test.js`. Hashed assets 0×404; live `gameBoot-DABEl-r1.js` carries `isOnSpawnBooth`. Playtest owed: **NPC-BOOTH-TARGET-PT-1**. Mid-gap failed-jump chase is a named residual, not this lever.
 
 ---
 
