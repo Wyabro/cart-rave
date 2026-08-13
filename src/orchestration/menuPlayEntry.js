@@ -194,6 +194,12 @@ export function createMenuPlayEntry(deps) {
 
   // * Autoplay policy: unlock AudioContext on the first user gesture anywhere on the page.
   // * Registered early (before initMenu) with capture so it fires before other handlers.
+  function startMenuBed() {
+    const n = AudioManager.getMenuTrackCount();
+    const start = n > 1 ? Math.floor(Math.random() * n) : 0;
+    AudioManager.playMenuMusic(start);
+  }
+
   function unlockAudio() {
     if (didUnlockAudio) return;
     didUnlockAudio = true;
@@ -201,7 +207,7 @@ export function createMenuPlayEntry(deps) {
     if (ctx.state === "suspended") {
       void ctx.resume();
     }
-    if (getMenuVisible()) AudioManager.playMenuMusic();
+    if (getMenuVisible()) startMenuBed();
     if (!getMenuVisible()) AudioManager.playGameMusic();
   }
   window.addEventListener("pointerdown", unlockAudio, { capture: true, once: true });
@@ -355,7 +361,7 @@ export function createMenuPlayEntry(deps) {
     try { AudioManager.stopGameMusic(); } catch (e) {}
     preparedLevelMusicId = null;
     try { gameTeardownHooks.stopArenaAmbience(); } catch (e) {}
-    try { AudioManager.playMenuMusic(); } catch (e) {}
+    try { startMenuBed(); } catch (e) {}
     const wrap = document.getElementById("cr-root");
     if (wrap) {
       // * First presentation gets the full entrance cascade; same-session returns

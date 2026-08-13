@@ -13,6 +13,12 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 13, 2026 — MENU-MUSIC-2: second main-menu song
+
+- *(Audio · content)* **MENU-MUSIC-2** — ✅ **CODE 08-13.** Menu playlist is `menu.opus` + `menu2.opus`. Each menu start from a stopped state picks a random first track; `onend` plays the other and wraps. Encoded `menu2.opus` opus 96k VBR, loudnorm −13.5 LUFS. Only track 0 preloads; the next track warms after the current one starts. Bleed guards stop every menu Howl. Playtest owed: **MENU-MUSIC-PT-1**.
+
+---
+
 ### August 13, 2026 — NPC-BOOTH-TARGET-1: skip booth-sitters in AI chase
 
 - *(Design / Gameplay · correctness)* **NPC-BOOTH-TARGET-1** — ✅ **DEPLOYED 08-13** `2fa4b2e4`. `findNearestHumanTarget` skips a human whose pose is on a spawn booth (height `> platformY - 0.5` AND XZ at/outside the spawn-ring inner lip). Height alone is not the test: Night Shift high roofs sit above that Y and stay chaseable. `pickAiTarget` then patrols. Tests: `tests/aiSpawnBoothTarget.test.js`. Hashed assets 0×404; live `gameBoot-DABEl-r1.js` carries `isOnSpawnBooth`. Playtest owed: **NPC-BOOTH-TARGET-PT-1**. Mid-gap failed-jump chase is a named residual, not this lever.

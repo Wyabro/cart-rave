@@ -96,6 +96,7 @@ Fallbacks only (not shipped): system-ui, Archivo Black (CSS fallback for Bungee)
 | File | Type | Source | License / notes |
 |---|---|---|---|
 | `menu.opus` | Music | Created with [Suno](https://suno.com/) | Licensed to project author via Suno |
+| `menu2.opus` | Music | Created with [Suno](https://suno.com/) | Licensed to project author via Suno |
 | `music.opus` | Music | Created with Suno | Licensed to project author via Suno |
 | `song2.opus` | Music | Created with Suno | Licensed to project author via Suno |
 | `song3.opus` | Music | Created with Suno | Licensed to project author via Suno |

@@ -114,6 +114,8 @@ import {
   playGameMusic,
   stopGameMusic,
   loadMenuMusic,
+  loadMenuPlaylist,
+  getMenuTrackCount,
   playMenuMusic,
   stopMenuMusic,
   duckMusic,
@@ -194,7 +196,11 @@ function makeAudioContextStub() {
 
 /** The game-track Howls created by the most recent materialization. */
 function gameTracks() {
-  return MockHowl.instances.filter((h) => h.opts.onend);
+  return MockHowl.instances.filter((h) => h.opts.onend && !h.opts.menuTrack);
+}
+
+function menuPlaylistHowls() {
+  return MockHowl.instances.filter((h) => h.opts.menuTrack);
 }
 
 beforeAll(() => {
@@ -272,7 +278,7 @@ describe("gameplay playlist rotation", () => {
 // * stop the game bus to "win". Invariant: game owns the bus until stopGameMusic.
 describe("menu/game music exclusivity", () => {
   function menuTrack() {
-    return MockHowl.instances.find((h) => !h.opts.onend);
+    return MockHowl.instances.find((h) => h.opts.menuTrack);
   }
 
   beforeEach(() => {
@@ -364,6 +370,81 @@ describe("menu/game music exclusivity", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("menu playlist rotation", () => {
+  beforeEach(() => {
+    stopMenuMusic();
+    loadMenuPlaylist(["menu-a.opus", "menu-b.opus"]);
+  });
+
+  it("plays the requested start index first", () => {
+    playMenuMusic(1);
+    const tracks = menuPlaylistHowls();
+    expect(tracks).toHaveLength(2);
+    expect(getMenuTrackCount()).toBe(2);
+    expect(tracks[1].isPlaying).toBe(true);
+    expect(tracks[0].isPlaying).toBe(false);
+  });
+
+  it("warms the next track and advances when one ends", () => {
+    playMenuMusic(0);
+    const tracks = menuPlaylistHowls();
+    expect(tracks[0].isPlaying).toBe(true);
+    expect(tracks[1].loadCalls).toBe(1);
+
+    tracks[0].emitEnd();
+
+    expect(tracks[1].isPlaying).toBe(true);
+    expect(tracks[0].isPlaying).toBe(false);
+  });
+
+  it("wraps to the first track after the second ends", () => {
+    playMenuMusic(0);
+    const tracks = menuPlaylistHowls();
+
+    tracks[0].emitEnd();
+    tracks[1].emitEnd();
+
+    expect(tracks[0].isPlaying).toBe(true);
+  });
+
+  it("does not advance after stopMenuMusic", () => {
+    playMenuMusic(0);
+    const tracks = menuPlaylistHowls();
+    stopMenuMusic();
+
+    tracks[0].emitEnd();
+
+    expect(tracks.every((t) => !t.isPlaying)).toBe(true);
+  });
+
+  it("playGameMusic stops every menu track", () => {
+    playMenuMusic(0);
+    playGameMusic();
+
+    expect(menuPlaylistHowls().every((t) => !t.isPlaying)).toBe(true);
+    expect(gameTracks()[0].isPlaying).toBe(true);
+  });
+
+  it("a late play() on either menu track dies during game", () => {
+    playMenuMusic(0);
+    playGameMusic();
+
+    for (const t of menuPlaylistHowls()) {
+      t.emitLatePlay();
+      expect(t.isPlaying).toBe(false);
+    }
+    expect(gameTracks()[0].isPlaying).toBe(true);
+  });
+
+  it("playMenuMusic does not retarget while a menu track is already playing", () => {
+    playMenuMusic(0);
+    const tracks = menuPlaylistHowls();
+    playMenuMusic(1);
+    expect(tracks[0].isPlaying).toBe(true);
+    expect(tracks[1].isPlaying).toBe(false);
   });
 });
 

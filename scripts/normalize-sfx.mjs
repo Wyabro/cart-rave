@@ -3,7 +3,7 @@
  * Normalize all SFX files in public/sounds/ to a consistent perceived loudness
  * using FFmpeg's loudnorm filter (EBU R128).
  *
- * Music files (menu, music, song2–4, storerooms, storerooms2) are intentionally skipped.
+ * Music files (menu, menu2, music, song2–4, storerooms, storerooms2) are intentionally skipped.
  *
  * Usage:
  *   node scripts/normalize-sfx.mjs
@@ -25,6 +25,7 @@ const MUSIC_FILES = new Set([
   "song4.opus",
   "music.opus",
   "menu.opus",
+  "menu2.opus",
   "storerooms.opus",
   "storerooms2.opus",
 ]);

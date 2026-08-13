@@ -50,10 +50,30 @@ audioStore.subscribe((state) => {
 
 // === Howler instances ===
 
-/** @type {Howl | null} */
-let menuMusic = null;
+/** @type {Howl[]} */
+let menuMusicTracks = [];
+let currentMenuTrackIdx = 0;
 /** Whether the menu music was requested to play (set true by playMenuMusic, false by stopMenuMusic). */
 let _menuMusicShouldPlay = false;
+
+/** @returns {Howl | null} */
+function currentMenuHowl() {
+  return menuMusicTracks[currentMenuTrackIdx] ?? null;
+}
+
+/** @param {(howl: Howl) => void} fn */
+function forEachMenuHowl(fn) {
+  for (const h of menuMusicTracks) {
+    if (h) fn(h);
+  }
+}
+
+/** @returns {boolean} */
+function anyMenuHowlPlaying() {
+  return menuMusicTracks.some((h) => {
+    try { return Boolean(h.playing()); } catch { return false; }
+  });
+}
 /** @type {Howl[]} */
 let gameMusicTracks = [];
 /**
@@ -309,15 +329,16 @@ export function initAudioManager(audioContext, opts = {}) {
   // * was running (e.g. first page load), re-trigger play when the context resumes.
   // * Never revive menu over an active game playlist (late ctx.resume races after Solo).
   audioContext.addEventListener("statechange", () => {
+    const menu = currentMenuHowl();
     if (
       audioContext.state === "running"
       && !_tabHidden
       && _menuMusicShouldPlay
       && !gameMusicPlaying
-      && menuMusic
-      && !menuMusic.playing()
+      && menu
+      && !menu.playing()
     ) {
-      menuMusic.play();
+      menu.play();
     }
   });
 }
@@ -334,10 +355,12 @@ function installPageVisibilityAudioGuard() {
 
     if (_tabHidden) {
       // * Remember intent even if decode hadn't started playing yet.
-      _resumeMenuOnVisible = Boolean(_menuMusicShouldPlay && menuMusic);
-      if (menuMusic?.playing()) {
-        try { menuMusic.pause(); } catch { /* ignore */ }
-      }
+      _resumeMenuOnVisible = Boolean(_menuMusicShouldPlay && menuMusicTracks.length);
+      forEachMenuHowl((h) => {
+        if (h.playing()) {
+          try { h.pause(); } catch { /* ignore */ }
+        }
+      });
 
       const track = gameMusicTracks[currentGameTrackIdx];
       _resumeGameOnVisible = Boolean(gameMusicPlaying && track);
@@ -363,17 +386,18 @@ function installPageVisibilityAudioGuard() {
       listener?.setMasterVolume?.(_isMuted ? 0 : 1);
     } catch { /* ignore */ }
 
+    const menu = currentMenuHowl();
     if (
       _resumeMenuOnVisible
       && _menuMusicShouldPlay
       && !gameMusicPlaying
-      && menuMusic
+      && menu
       && devMusicGate
-      && !menuMusic.playing()
+      && !menu.playing()
     ) {
       try {
-        menuMusic.volume(_isMuted ? 0 : _musicVol);
-        menuMusic.play();
+        menu.volume(_isMuted ? 0 : _musicVol);
+        menu.play();
       } catch { /* ignore */ }
     }
     _resumeMenuOnVisible = false;
@@ -401,8 +425,11 @@ function applyAllVolumes() {
 
   // * Volume 0 while not the active music context — belt-and-suspenders against HTML5
   // * Howls that keep an element audibly "playing" after stop() in some browsers.
-  if (menuMusic) {
-    menuMusic.volume(_isMuted || !_menuMusicShouldPlay || gameMusicPlaying ? 0 : _musicVol);
+  for (let i = 0; i < menuMusicTracks.length; i += 1) {
+    const h = menuMusicTracks[i];
+    if (!h) continue;
+    const live = _menuMusicShouldPlay && !gameMusicPlaying && i === currentMenuTrackIdx;
+    h.volume(_isMuted || !live ? 0 : _musicVol);
   }
   for (const t of gameMusicTracks) {
     if (t) t.volume(_isMuted || !gameMusicPlaying ? 0 : _musicVol);
@@ -431,7 +458,8 @@ function activeMusicHowls() {
   const list = [];
   // * Menu track only while it is ALLOWED to play — the duck-release fade must never
   // * ramp a stopped menu Howl back up mid-game (run-6 bleed amplifier).
-  if (menuMusic && _menuMusicShouldPlay && !gameMusicPlaying) list.push(menuMusic);
+  const menu = currentMenuHowl();
+  if (menu && _menuMusicShouldPlay && !gameMusicPlaying) list.push(menu);
   const track = gameMusicTracks[currentGameTrackIdx];
   if (track) list.push(track);
   return list;
@@ -469,31 +497,38 @@ export function duckMusic(depth = 0.4, holdMs = 800) {
 // === Music ===
 
 /**
- * Load the looping menu music track (eager — menu should hear this as soon as
- * the shell is up; do not defer this for boot bandwidth savings).
- * @param {string | string[]} src URL(s) to the audio file in Opus format.
- *   Opus has universal browser support; no format fallback needed.
+ * Build the menu Howls. One-track loads keep native loop. Playlists advance on end.
+ * @param {(string | string[])[]} urls
+ * @param {{ loop: boolean }} opts
  */
-export function loadMenuMusic(src) {
-  if (menuMusic) menuMusic.unload();
-  menuMusic = new Howl({
-    src: Array.isArray(src) ? src : [src],
-    loop: true,
+function materializeMenuTracks(urls, opts) {
+  forEachMenuHowl((h) => {
+    try { h.unload(); } catch { /* ignore */ }
+  });
+  menuMusicTracks = [];
+  currentMenuTrackIdx = 0;
+  const loop = Boolean(opts.loop);
+  menuMusicTracks = urls.map((url, i) => new Howl({
+    src: Array.isArray(url) ? url : [url],
+    loop,
     volume: _isMuted ? 0 : _musicVol,
-    preload: true,
-    html5: true, // stream long tracks with HTML5 to save memory
+    // * Boot only fetches track 0. Later tracks warm after the current one starts.
+    preload: i === 0,
+    html5: true,
+    // * Test / helper tag — Howler stores unknown opts and ignores them.
+    menuTrack: true,
     onload: () => {
-      // * If play was requested before decode finished, start immediately.
-      // * Refuse if the game playlist owns the bus (late decode after Solo click).
+      const track = menuMusicTracks[i];
       if (
         _menuMusicShouldPlay
         && !gameMusicPlaying
         && devMusicGate
-        && menuMusic
-        && !menuMusic.playing()
+        && i === currentMenuTrackIdx
+        && track
+        && !track.playing()
       ) {
-        menuMusic.volume(_isMuted ? 0 : _musicVol);
-        menuMusic.play();
+        track.volume(_isMuted ? 0 : _musicVol);
+        track.play();
       }
     },
     onplay: () => {
@@ -501,13 +536,72 @@ export function loadMenuMusic(src) {
       // * AFTER stopMenuMusic() ran (Howler _playLock), reviving the menu track under
       // * the level playlist. If playback actually starts while the intent flags say
       // * "menu must be silent", kill it on the spot.
-      if ((!_menuMusicShouldPlay || gameMusicPlaying) && menuMusic) {
-        try { menuMusic.stop(); } catch { /* ignore */ }
-        try { menuMusic.volume(0); } catch { /* ignore */ }
+      const track = menuMusicTracks[i];
+      if ((!_menuMusicShouldPlay || gameMusicPlaying) && track) {
+        try { track.stop(); } catch { /* ignore */ }
+        try { track.volume(0); } catch { /* ignore */ }
       }
     },
-  });
-  wrapMusicElements(menuMusic);
+    onend: loop
+      ? undefined
+      : () => {
+        if (!_menuMusicShouldPlay || gameMusicPlaying) return;
+        advanceMenuTrack();
+      },
+  }));
+  for (const t of menuMusicTracks) wrapMusicElements(t);
+}
+
+/**
+ * Load one looping menu track (tests + any one-song caller).
+ * @param {string | string[]} src URL, or Howler format-fallback array.
+ */
+export function loadMenuMusic(src) {
+  materializeMenuTracks([src], { loop: true });
+}
+
+/**
+ * Load the menu playlist. First track preloads. The rest load when warmed.
+ * A string[] here is a playlist, not a Howler format-fallback list.
+ * @param {(string | string[])[]} urls
+ */
+export function loadMenuPlaylist(urls) {
+  materializeMenuTracks(Array.isArray(urls) ? urls.slice() : [], { loop: false });
+}
+
+/** @returns {number} */
+export function getMenuTrackCount() {
+  return menuMusicTracks.length;
+}
+
+/** @param {Howl | null | undefined} track */
+function startMenuTrack(track) {
+  if (!track) return;
+  if (track.state() === "unloaded") track.load();
+  track.volume(_isMuted ? 0 : _musicVol);
+  track.play();
+}
+
+function warmNextMenuTrack() {
+  if (menuMusicTracks.length < 2) return;
+  const next = menuMusicTracks[(currentMenuTrackIdx + 1) % menuMusicTracks.length];
+  if (next && next.state() === "unloaded") {
+    try { next.load(); } catch { /* ignore */ }
+  }
+}
+
+function advanceMenuTrack() {
+  if (!_menuMusicShouldPlay || gameMusicPlaying) return;
+  if (!menuMusicTracks.length) return;
+  const prev = currentMenuHowl();
+  if (prev) {
+    try { prev.stop(); } catch { /* ignore */ }
+    try { prev.volume(0); } catch { /* ignore */ }
+  }
+  currentMenuTrackIdx = (currentMenuTrackIdx + 1) % menuMusicTracks.length;
+  if (!_menuMusicShouldPlay || gameMusicPlaying) return;
+  startMenuTrack(currentMenuHowl());
+  warmNextMenuTrack();
 }
 
 /**
@@ -569,20 +663,28 @@ function materializeGamePlaylist(urls) {
  * Why no-op instead of stop-game: late boot-splash / first-gesture hooks
  * (`__cartRaveTryStartMenuMusic`) can fire after Solo has already started the
  * level playlist. Stealing would kill level music; ignoring keeps the level.
+ * @param {number} [startIdx] Used only when no menu Howl is playing.
  * @returns {void}
  */
-export function playMenuMusic() {
+export function playMenuMusic(startIdx) {
   if (gameMusicPlaying) return;
   _menuMusicShouldPlay = true;
-  if (!menuMusic) return;
+  if (!menuMusicTracks.length) return;
   if (!devMusicGate) return;
+  if (anyMenuHowlPlaying()) return;
+  if (
+    Number.isInteger(startIdx)
+    && startIdx >= 0
+    && startIdx < menuMusicTracks.length
+  ) {
+    currentMenuTrackIdx = startIdx;
+  }
   if (_tabHidden) {
     _resumeMenuOnVisible = true;
     return;
   }
-  menuMusic.volume(_isMuted ? 0 : _musicVol);
-  if (menuMusic.playing()) return;
-  menuMusic.play();
+  startMenuTrack(currentMenuHowl());
+  warmNextMenuTrack();
 }
 
 /**
@@ -593,11 +695,12 @@ export function playMenuMusic() {
 export function stopMenuMusic() {
   _menuMusicShouldPlay = false;
   _resumeMenuOnVisible = false;
-  if (!menuMusic) return;
-  try { menuMusic.stop(); } catch { /* ignore */ }
-  // * Howler html5:true occasionally leaves an Audio element audible after stop();
-  // * volume 0 makes that silent until playMenuMusic restores level.
-  try { menuMusic.volume(0); } catch { /* ignore */ }
+  forEachMenuHowl((h) => {
+    try { h.stop(); } catch { /* ignore */ }
+    // * Howler html5:true occasionally leaves an Audio element audible after stop();
+    // * volume 0 makes that silent until playMenuMusic restores level.
+    try { h.volume(0); } catch { /* ignore */ }
+  });
 }
 
 /** @returns {void} */

@@ -60,5 +60,8 @@ Existing tracks are ~96–105 kbps opus; encode new ones at `-b:a 96k` to match.
   (URL-only, `preload:false`, no fetch) → `playGameMusic`. Called at `commitMenuHiddenForGame`
   (every game-entry path: solo/testdrive/quickplay/refresh) and in the Quickplay
   arena-rotation `finally` (with `stopGameMusic` first so the new list starts at its track 0).
-- Menu music (`menu.opus`) is unchanged and separate. Music still auto-pauses on tab-hide
+- Menu music is a two-song playlist (`menu.opus`, `menu2.opus`) via
+  `loadMenuPlaylist`. Each menu start from a stopped state picks a random first
+  track; `onend` plays the other and wraps. Only track 0 preloads; the next
+  track warms after the current one starts. Music still auto-pauses on tab-hide
   and ducks under big moments (`duckMusic`); test drive gets no game music.

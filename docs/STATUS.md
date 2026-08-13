@@ -34,6 +34,8 @@ external testers. Stay in this phase until Wyatt advances the marker.
 
 **STORE-MUSIC-1** shipped 08-12. Storerooms now has two new tracks. Playtest owed: **STORE-MUSIC-PT-1**.
 
+**MENU-MUSIC-2** coded 08-13. Menu now has two songs with a random first track. Playtest owed: **MENU-MUSIC-PT-1** on `npm run dev:local`.
+
 **PA-COMBO-1** deployed `c0a15308`. Hashed assets 0×404. Live `gameBoot-ChoyxoHG.js` carries the combo queue set + `ttlMs:8e3`. Playtest owed: **PA-COMBO-PT-1** on prod after hard-refresh.
 
 **NPC-BOOTH-TARGET-1** deployed `2fa4b2e4`. Hashed assets 0×404. Live `gameBoot-DABEl-r1.js` carries `isOnSpawnBooth`. Playtest owed: **NPC-BOOTH-TARGET-PT-1** on prod after hard-refresh.
@@ -80,12 +82,13 @@ Live rows only. Shipped and closed cards live in
 | CONN-TRACK-LEAK-1 | Release platform-dead IP tracking before the cap | ✅ **CLOSED 08-12** (`9439cd2`, deployed `5ae6f69b`). `#prunePlatformDeadTracking()` releases leaked IP counts before the cap decision; five teardown paths consolidated via `#forgetConnectionTracking()`. Playtest owed: CONN-TRACK-LEAK-PT-1 (host-leave migration), CONN-TRACK-LEAK-PT-2 (ghost exorcism). |
 | PA-QUIET-1 | Quiet the Store PA | ✅ **CLOSED 08-12.** Wyatt playtest PASS. Deployed `3044ab99`. Same-fall flavor skip + busy-channel drop + `last_call` interrupts. Commits `e37bd59` + `a0ba621`. |
 | STORE-MUSIC-1 | Storerooms two-track playlist | ✅ **CLOSED 08-12.** Deployed `4f8b649f`. Replaced the old Storerooms track and added a second song. Playtest owed: **STORE-MUSIC-PT-1**. |
+| MENU-MUSIC-2 | Second main-menu song | ✅ **CODE 08-13.** Two-song menu playlist, random first track. Playtest owed: **MENU-MUSIC-PT-1** on `npm run dev:local`. |
 | PA-COMBO-1 | Savage/carnage PA lines play | 🔧 **DEPLOYED 08-12** `c0a15308`. Playtest owed: **PA-COMBO-PT-1**. |
 
 ### Next actions
 
 1. **Playtest PA-COMBO-PT-1** on prod after hard-refresh.
-2. **Other playtest owed:** **STORE-MUSIC-PT-1** on prod `4f8b649f`. **STORE-1-PT-1** on `npm run dev:local`. SHARD-PT-2 (skip, needs five humans). **CARGO-BAY-INSTANCE-PT-1** · **PT-2** · **PT-3**. **CONN-TRACK-LEAK-PT-1** + **CONN-TRACK-LEAK-PT-2** — prod `5ae6f69b`.
+2. **Other playtest owed:** **MENU-MUSIC-PT-1** on `npm run dev:local`. **STORE-MUSIC-PT-1** on prod `4f8b649f`. **STORE-1-PT-1** on `npm run dev:local`. SHARD-PT-2 (skip, needs five humans). **CARGO-BAY-INSTANCE-PT-1** · **PT-2** · **PT-3**. **CONN-TRACK-LEAK-PT-1** + **CONN-TRACK-LEAK-PT-2** — prod `5ae6f69b`.
 
 ## Open issues (top)
 
@@ -134,6 +137,9 @@ the dev loop (dev probes lie in prod · edge propagation · frozen `rAF`), or a 
 - **Before any public / external-tester playtest: reset the analytics DO** so aggregates are not polluted by dev/harness traffic. Token-gated (SEC-TOKEN-1): `DELETE` with `Authorization: Bearer <ERROR_LOG_TOKEN>` on `/api/analytics` (never `?token=`).
 
 ## Last updated
+
+2026-08-13 (MENU-MUSIC-2) — Menu playlist is two songs with a random first track.
+Playtest owed: **MENU-MUSIC-PT-1**.
 
 2026-08-12 (STORE-MUSIC-1) — Storerooms playlist is two new tracks. Playtest owed:
 **STORE-MUSIC-PT-1**.

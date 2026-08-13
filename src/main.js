@@ -454,10 +454,13 @@ async function main() {
   const soundUrl = (name) =>
     new URL(`sounds/${name}`, window.location.href).toString();
 
-  // * Menu music is eager (preload + play request) so it can start as soon as the menu is up.
-  // * Game playlist is URL-only until enter-play — avoids ~10 MB competing with menu.opus.
-  AudioManager.loadMenuMusic(soundUrl("menu.opus"));
-  if (gameRefs.menuVisible) AudioManager.playMenuMusic();
+  // * Menu playlist is eager (track 0 preloads). Game playlist stays URL-only
+  // * until enter-play so it does not compete with the first menu song.
+  const MENU_MUSIC_FILES = ["menu.opus", "menu2.opus"];
+  AudioManager.loadMenuPlaylist(MENU_MUSIC_FILES.map(soundUrl));
+  if (gameRefs.menuVisible) {
+    AudioManager.playMenuMusic(Math.floor(Math.random() * MENU_MUSIC_FILES.length));
+  }
   // * Menu HTML loads before main; first gesture calls this to start menu music
   // * once Howler is wired (see cart-rave-menu.js pointerdown bridge). Also
   // * invoked best-effort at boot-splash dismiss — the resume() only succeeds
@@ -472,7 +475,8 @@ async function main() {
       if (AudioManager.isGameMusicPlaying()) return;
       const ctx = audioListener.context;
       if (ctx.state === "suspended") ctx.resume().catch(() => {});
-      AudioManager.playMenuMusic();
+      const n = AudioManager.getMenuTrackCount();
+      AudioManager.playMenuMusic(n > 1 ? Math.floor(Math.random() * n) : 0);
     } catch {
       /* ignore */
     }
