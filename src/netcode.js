@@ -197,6 +197,13 @@ const seenCollisionPresentationEids = new Map();
 let skipNextPhysicsStep = false;
 
 let _suppressRetry = false;
+/**
+ * NET-QUIT-RETRY-1: pending socket-retry timer (scheduleNetcodeRetry inside
+ * initNetcode). Stored at module scope so disconnectPartySession() can cancel it —
+ * without this a quit-to-menu inside the backoff window re-joins the last room.
+ * @type {ReturnType<typeof setTimeout> | null}
+ */
+let netcodeRetryTimer = null;
 
 /** @type {(() => Array<object> | null) | null} */
 let getAllCartsRefFn = null;
@@ -2054,6 +2061,12 @@ function clearHostPresentRetry() {
  */
 export function disconnectPartySession() {
   _suppressRetry = true;
+  // * NET-QUIT-RETRY-1: a pending socket-retry timer must not fire after quit-to-menu —
+  // * it would re-open the last room and auto-join from the main menu.
+  if (netcodeRetryTimer != null) {
+    clearTimeout(netcodeRetryTimer);
+    netcodeRetryTimer = null;
+  }
   stopHostSendLoop();
   stopKeepaliveLoop();
   clearHostPresentRetry();
@@ -2759,6 +2772,12 @@ export function shouldMarkReconnecting({ suppressRetry, helloReceived }) {
 export function initNetcode(roomOverride) {
   if (typeof window === "undefined") return;
   _suppressRetry = false;
+  // * NET-QUIT-RETRY-1: a fresh init (play button, shard hop) owns the retry lifecycle —
+  // * drop any timer a prior session left pending.
+  if (netcodeRetryTimer != null) {
+    clearTimeout(netcodeRetryTimer);
+    netcodeRetryTimer = null;
+  }
   callbacks.setLocalColorPicked(false);
   resetClockState(partyClock);
   resetClockState(hostClock);
@@ -2913,8 +2932,12 @@ export function initNetcode(roomOverride) {
       : 400 + Math.random() * 600;
 
     netcodeRetryScheduled = true;
-    setTimeout(() => {
+    netcodeRetryTimer = setTimeout(() => {
+      netcodeRetryTimer = null;
       netcodeRetryScheduled = false;
+      // * NET-QUIT-RETRY-1: belt-and-braces — disconnectPartySession() clears the
+      // * handle; this gate catches any timer that fires after a teardown anyway.
+      if (_suppressRetry) return;
       if (partySocket) return;
       initNetcode(roomOverride);
     }, delay);

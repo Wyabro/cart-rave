@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-13T07:07:44.468Z",
-    "commit": "0a2acfd"
+    "at": "2026-08-13T07:36:16.822Z",
+    "commit": "1f78440"
   },
-  "source_digest": "3decc7b6",
+  "source_digest": "f7d578df",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -935,9 +935,9 @@
       {
         "title": "Engineering",
         "counts": {
-          "Low": 14,
+          "Low": 19,
           "Partial": 1,
-          "Medium": 4
+          "Medium": 7
         },
         "rows": [
           {
@@ -1052,6 +1052,54 @@
             "pri": "Low",
             "item": "PARTY-ENVTYPE-1 — untyped `Env` bindings",
             "notes": "`env: Record<string, any>` in Worker/DO. A typo in a binding name is a runtime 500. Add a typed interface.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "NET-QUIT-RETRY-1 — pending reconnect timer survives quit-to-menu, re-joins the room",
+            "notes": "**Filed 08-13 from the netcode audit.** `scheduleNetcodeRetry`'s timeout stores no timer handle and never re-checks `_suppressRetry`, so `disconnectPartySession()` cannot cancel it. Socket dies mid-match (3–5 s retry window), player quits → the pending timer fires `initNetcode`, hello arrives, `hideMenuRef()` runs — the game re-enters itself from the main menu. Fix: hold the timer id and `clearTimeout` it in `disconnectPartySession()`, and gate the callback on `_suppressRetry`.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "CHAL-MENU-REBUILD-1 — challenge panel rebuilds hidden DOM on every progress event",
+            "notes": "**Filed 08-13 from the challenge-stack audit.** `challengeStore.subscribe(renderChallengesPanel)` (cart-rave-menu.js:2729) is unconditional; every KO/spill/combo mid-round fires `set()` → `innerHTML=\"\"` + 6 cards + `CHALLENGE_POOL.find` per card on the main thread while the screen is `aria-hidden=true`. Fix: gate the subscribe callback on `challengesScreen.getAttribute('aria-hidden') === 'false'` (the 60s restock timer already uses that guard).",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "CHAL-ROTATE-RECORD-1 — challenge progress never rotates mid-session",
+            "notes": "**Filed 08-13 from the challenge-stack audit.** `record()` (challengeStore.js) reads state without `checkRotations()`; rotations only run at module load, menu open, or the 60s timer (visible screen only). A session crossing the daily or weekly boundary records SPILL/ROUND_*/KO against the just-expired set, and that credit is discarded at the next rotation. Fix: `checkRotations()` at the top of `record()` (no-op when nothing expired).",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "CHAL-DEAD-EXPORT-1 — dead `ChallengeTracker.checkRotations` export",
+            "notes": "**Filed 08-13 from the challenge-stack audit.** challengeStore.js wraps `challengeStore.getState().checkRotations()` but nothing imports it — all callers use the store directly. Delete, or route callers through it for a single seam.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "CHAL-ROTATE-REPEAT-1 — rotation can re-pick the same challenge ids",
+            "notes": "**Filed 08-13 from the challenge-stack audit.** `checkRotations` calls `selectRandomChallenges(type, count)` with no `excludedIds`, so the just-rotated set can be re-picked immediately with progress reset to 0. Pass the outgoing active ids as exclusions; within-list dedupe already holds.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "CHAL-PODIUM-DEDUPE-1 — podium round-event dedupe key only set when `startedAtMs > 0`",
+            "notes": "**Filed 08-13 from the challenge-stack audit.** `recordPodiumStats` (roundLifecycle.js:110-124) skips the `startedAtMs:winKey` dedupe latch when `startedAtMs` is falsy — a redelivered MSG.round on that theoretical edge would double-credit ROUND_*. Real rounds always set it; guard-depth nit.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "ZAN-BOLLARD-CLASS-1 — Sundial bollards + gnomon classify as \"floor\", not \"edge\"",
+            "notes": "**Filed 08-13 from the Sundial audit.** Deck bollards and the gnomon ride `recordColliderHandles` → `classifyEnvironmentCollision` (simulation.js:3175) maps them to \"floor\" while booth legs are \"edge\" — contradicts the file's own convention. Near-zero impact (playFloorImpact ≈ playEdgeImpact); classification-only.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "ZAN-REACTIVE-ALLOC-1 — `sampleArenaReactive` returns a fresh object per frame",
+            "notes": "**Filed 08-13 from the Sundial audit.** `arenaReactiveLights.sampleArenaReactive` (arenaReactiveLights.js:141) builds a fresh `{accentColor, intensityMul, koT, hasLeader}` literal per call; Sundial's `deck.update` calls it every frame → one short-lived object/frame (sub-noise GC; `accentColor` already reuses a shared `_out` Color). Convert to a module scratch object like the rest of the frame loop.",
             "ship1": null
           }
         ]
