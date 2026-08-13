@@ -117,6 +117,29 @@ describe("levelLod", () => {
     expect(src).not.toMatch(/registerLevelLodNode\(\s*pitDressing\.group\s*,/);
   });
 
+  // * LOD-DOORWAY-1: the Storerooms wall doorways (three doorGroups at ~56–61 m,
+  // * inside a group left at the origin) were registered at far:55 — measured from
+  // * the arena CENTRE, so they culled exactly when the chase camera reached a wall.
+  // * Per-child + far:55 would invert the look (doors sit outside 55 m of origin).
+  // * Leave them unregistered; these lock WHY.
+  it("an origin-anchored far:55 would cull the doorways exactly when the camera is at the wall", () => {
+    const doorwaysAtOrigin = fakeObj(0, 0);
+    registerLevelLodNode(doorwaysAtOrigin, { far: 55 });
+    updateLevelLod(fakeCamera(0, 0), 1000); // floor centre — looking across the pit
+    expect(doorwaysAtOrigin.visible).toBe(true);
+    updateLevelLod(fakeCamera(0, -55.5), 2000); // at the wall
+    expect(doorwaysAtOrigin.visible).toBe(false);
+  });
+
+  it("backroomsSupermarket registers no LOD node for the doorway dressing", () => {
+    const src = readFileSync(
+      new URL("../src/levels/backroomsSupermarket.js", import.meta.url),
+      "utf8",
+    );
+    expect(src).not.toMatch(/registerLevelLodNode\(\s*doorways\.group\s*,/);
+    expect(src).not.toMatch(/registerLevelLodNode\([^;]*doorways/);
+  });
+
   // * Sundial (zanzibarPlatform) registered ships, gulls and foam at far:95 and the gate was
   // * inert for all three. These three tests lock WHY, so nobody "fixes" it by copying the
   // * Storerooms per-child pattern — which cannot apply, because these are InstancedMeshes

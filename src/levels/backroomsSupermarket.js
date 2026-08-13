@@ -3846,7 +3846,13 @@ export function initBackroomsSupermarket(scene, world, config, options = {}) {
     // * exactly when the chase camera crossed the band (46.7 m) — the moment it is
     // * right next to a gondola. Per-side clusters would be 4 draw calls for a
     // * fogged background band; leaving it unregistered is one always-correct mesh.
-    registerLevelLodNode(doorways.group, { far: 55 });
+    // * LOD-DOORWAY-1: the three wall doorways are also NOT registered. Each
+    // * doorGroup carries world coords (~56–61 m out) inside a group left at the
+    // * origin, so a group-level far:55 measured camera-to-arena-CENTRE and culled
+    // * every doorway exactly when the chase camera reached a wall. Per-child +
+    // * far:55 would invert the look (the doors sit outside 55 m of origin, so
+    // * they would vanish from the floor). Three small clusters are cheaper
+    // * always-on than a wrong cull.
     // * Floor markings register PER MESH, not as the group. updateLevelLod measures
     // * getWorldPosition of the registered object, and these groups sit at the origin
     // * while every child carries world coords — so registering the group tested

@@ -72,10 +72,10 @@ way the Block table still can.)*
 | Department | Open | High | Medium | Low |
 |---|---:|---:|---:|---:|
 | [Engineering](#engineering) | 10 | 0 | 4 | 5 (+1 partial) |
-| [Art](#art) | 6 | 0 | 0 | 6 |
+| [Art](#art) | 5 | 0 | 0 | 5 |
 | [Audio](#audio) | 1 | 0 | 0 | 1 |
 | [Design / Gameplay](#design--gameplay) | 8 | 0 | 2 | 6 |
-| 🟢 [Playtest owed](#playtest-owed) | 5 | 0 | 3 | 2 |
+| 🟢 [Playtest owed](#playtest-owed) | 6 | 0 | 3 | 3 |
 | [Tech Debt](#tech-debt) | 11 | 0 | 4 | 7 |
 
 **41 open rows total.**
@@ -184,7 +184,7 @@ traffic; 7 is post-launch or parked. Priority ranks *inside* a block too (top fi
 - **BRAND-1** — domain / rebrand ceremony (frozen until ship).
 - Trigger-gated / instrument-gated: **SHADOW-HAZARD-SEAM-1** (next arena) · **AQ-RING-CLEAR-1** (reserve) · **PERF-9CELL-1** (parked with closed parent).
 - Structure debt after multiplayer is proven: **DIR-1** · **GLTF-1** · **DUAL-1** · **TS-1** · **TOOL-1** · Vite chunk hint · **BACKLOG-GATE-2**.
-- Art/background Lows: **CLAD-REPEAT-1** · **SHELF-RAIL-1** · **ART-PALETTE-1** · sunglasses materials · asset filename rebrand · **ART-LUMA-TOOL-1** · **LOD-DOORWAY-1**.
+- Art/background Lows: **CLAD-REPEAT-1** · **SHELF-RAIL-1** · **ART-PALETTE-1** · sunglasses materials · asset filename rebrand · **ART-LUMA-TOOL-1**.
 - Taste-gated Design / Future Ideas rows — only on new evidence or explicit pull-forward.
 - **SHIP-1** living checklist row stays as the ship-doc pointer until ship.
 
@@ -215,7 +215,6 @@ traffic; 7 is post-launch or parked. Priority ranks *inside* a block too (top fi
 | Low | ART-LUMA-TOOL-1 — luma metric in `npm run compare` | Rule 3's luma floors were computed with a one-off scratchpad script because `tools/` is frozen during a game card. Fold a darkest-decile / median / mean luma readout into [compare.mjs](../../tools/compare.mjs) (it already decodes both PNGs via sharp) so drift is guardable by the committed tool. Baselines to reproduce are in [art-direction.md](../reference/art-direction.md) Rule 3. |
 | Low | ART-PALETTE-1 — reconcile 3D and 2D neon | 3D is frozen on pure `CART_COLORS` (`0xff00ff`); 2D banned those hexes as off-brand and uses `#ff2bd6`. **The only card permitted to unfreeze the AGENTS.md invariant.** |
 | Low | ASSET-RENAME-1 — Asset filename rebrand (`cart-rave-base*.glb` etc.) | Deliberate asset pass — [brand.md](../brand.md). |
-| Low | LOD-DOORWAY-1 — doorway dressing culls when the camera reaches the wall | **Filed 08-13 from LOD-PITRING-1's close** (same defect class, verified at close time). `buildDoorways` ([backroomsSupermarket.js:2821](../../src/levels/backroomsSupermarket.js:2821)) keeps the group at the origin while every doorGroup child carries wall coords via `toWorld`, and `registerLevelLodNode(doorways.group, { far: 55 })` measures camera-to-arena-CENTRE — so the three doorways (on the walls at ~56 m) pop out of existence exactly when the chase camera drives up to the wall. Fix shape mirrors LOD-PITRING-1: per-child registration or no LOD (3 small meshes). |
 
 ## Audio
 
@@ -322,6 +321,7 @@ remain open with their original steps. Detail: [completed-work.md](./completed-w
 | Low | AQ-RING-CLEAR-1 — autoQuality clear sample ring on every window eval | **Reserve only** if Wave 2 entry grace still demotes on retest. Comment in autoQuality.js already notes the ring can poison up to 3 windows. Own commit if needed; not in main batch path. |
 | Medium | CONN-TRACK-LEAK-PT-1 — Friends host-leave migration still works `[2pc]` | **Owed: Wyatt playtest — CONN-TRACK-LEAK-PT-1 — the host closing their tab hands the room to the survivor.** CONN-TRACK-LEAK-1 (`9439cd2`, deployed `5ae6f69b`) refactored the server's onClose teardown; this checks that path live on prod.<br>1. Two browsers, same Friends code, both seat.<br>2. Close the host's tab (do not use a LEAVE button).<br>3. FAIL if the survivor is stuck with no host or the round can never start. PASS if the survivor becomes host and can start the round. |
 | Medium | CARGO-BAY-INSTANCE-PT-3 — other players see the same cargo `[2pc]` | **Owed: Wyatt playtest — CARGO-BAY-INSTANCE-PT-3 — the other player sees your cargo fill, not an empty bay.** Same parent; two machines.<br>1. Two browsers, same Friends room on prod. Both seat and start.<br>2. Score on one cart until its bays fill. Look at that cart from the other browser.<br>3. FAIL if the other player sees empty bays, a different fill, or missing models. PASS if both screens show the same groceries. |
+| Low | LOD-DOORWAY-PT-1 — Storerooms wall doorways stay visible `[solo]` | **Owed: Wyatt playtest — LOD-DOORWAY-PT-1 — the wall doorways stay visible from the floor and when you drive up to them (were popping out at the wall).** LOD-DOORWAY-1 dropped the origin-anchored `far: 55` registration. Solo Storerooms on prod after hard-refresh.<br>1. From the floor, look across the pit at each wall doorway (two on the −Z wall, one on the −X wall). FAIL if any is missing from that view.<br>2. Drive at each doorway until you reach the wall.<br>3. FAIL if a doorway pops out as you get close, or if the round never completes. PASS if all three stay visible from the floor and at the wall. |
 
 ## UI / UX
 
@@ -426,4 +426,4 @@ CARGO-BAY-INSTANCE-PT-1, CARGO-BAY-INSTANCE-PT-2, CONN-TRACK-LEAK-1, CONN-TRACK-
 NPC-BOOTH-TARGET-PT-1, NPC-TYPE-DRAW-1, NPC-TYPE-DRAW-PT-1, NPC-TYPE-DRAW-PT-2,
 PA-COMBO-1, PA-COMBO-PT-1, STORE-1-PT-1, STORE-MUSIC-PT-1, RAPIER-MAJOR-1, RAPIER-MAJOR-PT-1,
 RAPIER-MAJOR-PT-2, NET-QUIT-RETRY-1, CHAL-MENU-REBUILD-1, CHAL-ROTATE-RECORD-1, CHAL-ROTATE-REPEAT-1,
-CHAL-DEAD-EXPORT-1, ZAN-REACTIVE-ALLOC-1, BINARY-F32NAME-1, CONSOLE-HI-1, CHAL-PODIUM-DEDUPE-1, ROUND-CLOCKDOMAIN-1, CONN-DEADCODE-1, CONN-SNAPSHOT-PURE-1, PARTY-ENVTYPE-1, CONN-SPAWN-SANITIZE-1, ZAN-BOLLARD-CLASS-1, SNAP-SPARSE-1, LOD-PITRING-1, CONN-SOURCETRUTH-1, VITE-CHUNKWARN-1, PERF-TIER-PT-1, PROBE-WARM-RT-PT-1, CHALLENGE-EXPAND-PT-1, LOD-PITRING-PT-1, MENU-MUSIC-2B-PT-1, ZAN-BOLLARD-PT-1, ANNOUNCER-RERECORD-1.
+CHAL-DEAD-EXPORT-1, ZAN-REACTIVE-ALLOC-1, BINARY-F32NAME-1, CONSOLE-HI-1, CHAL-PODIUM-DEDUPE-1, ROUND-CLOCKDOMAIN-1, CONN-DEADCODE-1, CONN-SNAPSHOT-PURE-1, PARTY-ENVTYPE-1, CONN-SPAWN-SANITIZE-1, ZAN-BOLLARD-CLASS-1, SNAP-SPARSE-1, LOD-PITRING-1, CONN-SOURCETRUTH-1, VITE-CHUNKWARN-1, PERF-TIER-PT-1, PROBE-WARM-RT-PT-1, CHALLENGE-EXPAND-PT-1, LOD-PITRING-PT-1, MENU-MUSIC-2B-PT-1, ZAN-BOLLARD-PT-1, ANNOUNCER-RERECORD-1, LOD-DOORWAY-1.

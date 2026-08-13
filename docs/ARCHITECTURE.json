@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-13T20:08:54.205Z",
-    "commit": "340209b"
+    "at": "2026-08-13T20:14:35.087Z",
+    "commit": "04e9fd0"
   },
-  "source_digest": "26a9fe72",
+  "source_digest": "a02ca0e3",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -975,7 +975,7 @@
       {
         "title": "Art",
         "counts": {
-          "Low": 6
+          "Low": 5
         },
         "rows": [
           {
@@ -1006,12 +1006,6 @@
             "pri": "Low",
             "item": "ASSET-RENAME-1 — Asset filename rebrand (`cart-rave-base*.glb` etc.)",
             "notes": "Deliberate asset pass — [brand.md](../brand.md).",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "LOD-DOORWAY-1 — doorway dressing culls when the camera reaches the wall",
-            "notes": "**Filed 08-13 from LOD-PITRING-1's close** (same defect class, verified at close time). `buildDoorways` ([backroomsSupermarket.js:2821](../../src/levels/backroomsSupermarket.js:2821)) keeps the group at the origin while every doorGroup child carries wall coords via `toWorld`, and `registerLevelLodNode(doorways.group, { far: 55 })` measures camera-to-arena-CENTRE — so the three doorways (on the walls at ~56 m) pop out of existence exactly when the chase camera drives up to the wall. Fix shape mirrors LOD-PITRING-1: per-child registration or no LOD (3 small meshes).",
             "ship1": null
           }
         ]
@@ -1091,7 +1085,7 @@
         "title": "Playtest owed",
         "counts": {
           "Medium": 3,
-          "Low": 2
+          "Low": 3
         },
         "rows": [
           {
@@ -1122,6 +1116,12 @@
             "pri": "Medium",
             "item": "CARGO-BAY-INSTANCE-PT-3 — other players see the same cargo `[2pc]`",
             "notes": "**Owed: Wyatt playtest — CARGO-BAY-INSTANCE-PT-3 — the other player sees your cargo fill, not an empty bay.** Same parent; two machines.<br>1. Two browsers, same Friends room on prod. Both seat and start.<br>2. Score on one cart until its bays fill. Look at that cart from the other browser.<br>3. FAIL if the other player sees empty bays, a different fill, or missing models. PASS if both screens show the same groceries.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "LOD-DOORWAY-PT-1 — Storerooms wall doorways stay visible `[solo]`",
+            "notes": "**Owed: Wyatt playtest — LOD-DOORWAY-PT-1 — the wall doorways stay visible from the floor and when you drive up to them (were popping out at the wall).** LOD-DOORWAY-1 dropped the origin-anchored `far: 55` registration. Solo Storerooms on prod after hard-refresh.<br>1. From the floor, look across the pit at each wall doorway (two on the −Z wall, one on the −X wall). FAIL if any is missing from that view.<br>2. Drive at each doorway until you reach the wall.<br>3. FAIL if a doorway pops out as you get close, or if the round never completes. PASS if all three stay visible from the floor and at the wall.",
             "ship1": null
           }
         ]
