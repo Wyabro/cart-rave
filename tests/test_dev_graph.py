@@ -173,10 +173,24 @@ class DevGraphTests(unittest.TestCase):
 
     def test_logical_lock_survives_the_starter_process_lifetime(self) -> None:
         first = self._start()
-        lock = json.loads(graph._lock_path(self.root).read_text(encoding="utf-8"))
+        lock = json.loads(graph._lock_path(self.root, "DEV-GRAPH-2").read_text(encoding="utf-8"))
 
         self.assertEqual(lock["run_id"], first["run_id"])
         self.assertNotIn("pid", lock)
+        self.assertEqual(lock["card_id"], "DEV-GRAPH-2")
+        with self.assertRaisesRegex(graph.GraphError, first["run_id"]):
+            self._start()
+
+    def test_a_different_card_can_start_while_another_card_is_locked(self) -> None:
+        first = self._start()
+        second = graph.start(self.root, "OTHER-CARD-1", "# Second brief\n")
+
+        self.assertNotEqual(first["run_id"], second["run_id"])
+        self.assertEqual(second["card_id"], "OTHER-CARD-1")
+        self.assertTrue(graph._lock_path(self.root, "DEV-GRAPH-2").exists())
+        self.assertTrue(graph._lock_path(self.root, "OTHER-CARD-1").exists())
+
+        # * A second run for the SAME card still fails closed.
         with self.assertRaisesRegex(graph.GraphError, first["run_id"]):
             self._start()
 
@@ -207,14 +221,14 @@ class DevGraphTests(unittest.TestCase):
 
         self.assertEqual(state["status"], "blocked")
         self.assertIn("fixed plan-only contract", state["failure"]["reason"])
-        self.assertFalse(graph._lock_path(self.root).exists())
+        self.assertFalse(graph._lock_path(self.root, "DEV-GRAPH-2").exists())
 
     def test_maker_tool_error_blocks_and_releases_the_lock(self) -> None:
         state = self._run_maker(self._start(), tool_error_count=1)
 
         self.assertEqual(state["status"], "blocked")
         self.assertIn("fixed plan-only contract", state["failure"]["reason"])
-        self.assertFalse(graph._lock_path(self.root).exists())
+        self.assertFalse(graph._lock_path(self.root, "DEV-GRAPH-2").exists())
 
     def test_checker_request_write_failure_blocks_and_releases_the_lock(self) -> None:
         state = self._start()
@@ -224,7 +238,7 @@ class DevGraphTests(unittest.TestCase):
 
         self.assertEqual(state["status"], "blocked")
         self.assertEqual(state["failure"], {"stage": "maker", "reason": "request write failed"})
-        self.assertFalse(graph._lock_path(self.root).exists())
+        self.assertFalse(graph._lock_path(self.root, "DEV-GRAPH-2").exists())
 
     def test_maker_worktree_drift_blocks_and_releases_the_lock(self) -> None:
         state = self._start()
@@ -239,7 +253,7 @@ class DevGraphTests(unittest.TestCase):
 
         self.assertEqual(state["status"], "blocked")
         self.assertIn("worktree baseline changed", state["failure"]["reason"])
-        self.assertFalse(graph._lock_path(self.root).exists())
+        self.assertFalse(graph._lock_path(self.root, "DEV-GRAPH-2").exists())
 
     def test_checker_receipt_is_bound_and_uses_fixed_read_only_argv(self) -> None:
         state = self._run_maker(self._start())
@@ -267,7 +281,7 @@ class DevGraphTests(unittest.TestCase):
         self.assertEqual(state["status"], "blocked")
         self.assertEqual(state["failure"]["stage"], "checker")
         self.assertIn("fixed read-only contract", state["failure"]["reason"])
-        self.assertFalse(graph._lock_path(self.root).exists())
+        self.assertFalse(graph._lock_path(self.root, "DEV-GRAPH-2").exists())
 
     def test_checker_invalid_final_decision_blocks_and_releases_the_lock(self) -> None:
         state = self._run_maker(self._start())
@@ -279,7 +293,7 @@ class DevGraphTests(unittest.TestCase):
 
         self.assertEqual(state["status"], "blocked")
         self.assertIn("invalid final decision", state["failure"]["reason"])
-        self.assertFalse(graph._lock_path(self.root).exists())
+        self.assertFalse(graph._lock_path(self.root, "DEV-GRAPH-2").exists())
 
     def test_replayed_checker_result_blocks_and_releases_the_lock(self) -> None:
         first = self._run_maker(self._start())
@@ -302,7 +316,7 @@ class DevGraphTests(unittest.TestCase):
 
         self.assertEqual(state["status"], "blocked")
         self.assertIn("expected run identity", state["failure"]["reason"])
-        self.assertFalse(graph._lock_path(self.root).exists())
+        self.assertFalse(graph._lock_path(self.root, "DEV-GRAPH-2").exists())
 
     def test_checker_rejection_is_terminal_and_releases_the_lock(self) -> None:
         state = self._run_maker(self._start())
@@ -317,7 +331,7 @@ class DevGraphTests(unittest.TestCase):
         )
 
         self.assertEqual(state["status"], "rejected")
-        self.assertFalse(graph._lock_path(self.root).exists())
+        self.assertFalse(graph._lock_path(self.root, "DEV-GRAPH-2").exists())
 
     def test_checker_worktree_drift_blocks_and_releases_the_lock(self) -> None:
         state = self._run_maker(self._start())
@@ -328,7 +342,7 @@ class DevGraphTests(unittest.TestCase):
         self.assertEqual(state["status"], "blocked")
         self.assertEqual(state["failure"]["stage"], "checker")
         self.assertIn("worktree baseline changed", state["failure"]["reason"])
-        self.assertFalse(graph._lock_path(self.root).exists())
+        self.assertFalse(graph._lock_path(self.root, "DEV-GRAPH-2").exists())
 
     def test_checker_deadline_expiry_blocks_and_releases_the_lock(self) -> None:
         state = self._run_maker(self._start())
@@ -339,7 +353,7 @@ class DevGraphTests(unittest.TestCase):
 
         self.assertEqual(state["status"], "blocked")
         self.assertIn("deadline expired", state["failure"]["reason"])
-        self.assertFalse(graph._lock_path(self.root).exists())
+        self.assertFalse(graph._lock_path(self.root, "DEV-GRAPH-2").exists())
 
     def test_ack_worktree_drift_blocks_and_releases_the_lock(self) -> None:
         state = self._run_checker(self._run_maker(self._start()))
@@ -350,7 +364,7 @@ class DevGraphTests(unittest.TestCase):
         self.assertEqual(state["status"], "blocked")
         self.assertEqual(state["failure"]["stage"], "ack")
         self.assertIn("worktree baseline changed", state["failure"]["reason"])
-        self.assertFalse(graph._lock_path(self.root).exists())
+        self.assertFalse(graph._lock_path(self.root, "DEV-GRAPH-2").exists())
 
     def test_synthetic_approval_trace_requires_exact_ack(self) -> None:
         state = self._run_checker(self._run_maker(self._start()))
@@ -363,7 +377,7 @@ class DevGraphTests(unittest.TestCase):
 
         state = graph.acknowledge(self.root, state["run_id"], "ack DEV-GRAPH-2")
         self.assertEqual(state["status"], "complete")
-        self.assertFalse(graph._lock_path(self.root).exists())
+        self.assertFalse(graph._lock_path(self.root, "DEV-GRAPH-2").exists())
 
 
 if __name__ == "__main__":

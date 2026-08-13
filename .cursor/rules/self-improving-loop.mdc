@@ -9,13 +9,15 @@ When Wyatt's message begins with `loop:`, treat the remaining text as the immuta
 The graph owns plan and checker evidence. No stage may edit source, commit, push, deploy, or claim
 a player playtest PASS.
 
-1. Read `AGENTS.md`, `docs/BRIEFING.md`, and the top of `docs/STATUS.md`. Bind the one active
-   valid card ID. If no card is active, or the brief names a different card, ask Wyatt to select or
-   activate the correct card. Do not replace shared `prompt.md` or `log.md`.
+1. Read `AGENTS.md`, `docs/BRIEFING.md`, and the top of `docs/STATUS.md`. Bind the card ID named
+   in the brief — a plan-only loop may plan any open card and does not require it to be the
+   active card. Source apply stays a separate per-wave action under the normal active-card and
+   ack rules. Do not replace shared `prompt.md` or `log.md`.
 2. Start the graph with the complete task brief on standard input:
-   `python .agent/bin/dev_graph.py start --card-id <active-card-id>`.
-   Read the returned `run_id`. A dirty worktree, existing graph lock, or invalid start is a hard
-   stop. Do not clean, stash, or retry.
+   `python .agent/bin/dev_graph.py start --card-id <brief-card-id>`.
+   Read the returned `run_id`. A dirty worktree or invalid start is a hard stop. The lock is
+   per card: a second run for a DIFFERENT card can start while an earlier card's run is still
+   mid-graph; a second run for the SAME card fails closed. Do not clean, stash, or retry.
 3. Run the fixed maker bridge once:
    `python .agent/bin/dev_graph.py run-maker --run-id <run-id>`.
    Continue only when the returned state is `await_checker` and contains matching `brief`,

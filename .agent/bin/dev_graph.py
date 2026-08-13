@@ -25,7 +25,6 @@ ROOT = Path(__file__).resolve().parents[2]
 GRAPH_RELATIVE_PATH = Path(".agent/graphs/dev-graph.json")
 RUNTIME_RELATIVE_PATH = Path(".agent/runtime/dev-graph")
 MAKER_ARTIFACT_NAMESPACE = Path(".agent/self-improving/runs")
-LOCK_NAME = "active.lock"
 MAX_ARTIFACT_BYTES = 200_000
 MAKER_MAX_TURNS = 24
 MAKER_REQUEST_TIMEOUT_SECONDS = 90
@@ -165,8 +164,11 @@ def _clean_preflight(root: Path) -> tuple[str, str]:
     return base_head, dirty
 
 
-def _lock_path(root: Path) -> Path:
-    return _runtime_root(root) / LOCK_NAME
+def _lock_path(root: Path, card_id: str) -> Path:
+    # * One lock per card, not one global lock: a second card can start a plan run
+    # * while an earlier card's run is still mid-graph (awaiting maker, checker, or
+    # * human ack). A second run for the SAME card still fails closed.
+    return _runtime_root(root) / "locks" / f"{_validate_card_id(card_id)}.lock"
 
 
 def _run_dir(root: Path, run_id: str) -> Path:
@@ -184,42 +186,53 @@ def _state_path(root: Path, run_id: str) -> Path:
     return _artifacts(root, run_id).path("state.json")
 
 
-def _read_lock(root: Path) -> dict[str, Any]:
-    return _load_json(_lock_path(root))
+def _read_lock(root: Path, card_id: str) -> dict[str, Any]:
+    return _load_json(_lock_path(root, card_id))
 
 
-def _acquire_lock(root: Path, run_id: str) -> None:
-    path = _lock_path(root)
+def _acquire_lock(root: Path, run_id: str, card_id: str) -> None:
+    path = _lock_path(root, card_id)
     path.parent.mkdir(parents=True, exist_ok=True)
-    payload = {"schema_version": 2, "run_id": run_id, "created_at": _utc_now()}
+    payload = {
+        "schema_version": 3,
+        "run_id": run_id,
+        "card_id": card_id,
+        "created_at": _utc_now(),
+    }
     try:
         with path.open("x", encoding="utf-8") as handle:
             json.dump(payload, handle, indent=2, sort_keys=True)
             handle.write("\n")
     except FileExistsError as exc:
         try:
-            existing = _read_lock(root)
+            existing = _read_lock(root, card_id)
             existing_run = existing.get("run_id", "unknown")
         except GraphError:
             existing_run = "invalid-lock"
-        raise GraphError(f"an active graph lock exists for {existing_run}") from exc
+        raise GraphError(
+            f"an active graph lock exists for card {card_id} ({existing_run})"
+        ) from exc
 
 
-def _assert_lock_owner(root: Path, run_id: str) -> None:
-    lock = _read_lock(root)
-    if set(lock) != {"schema_version", "run_id", "created_at"}:
+def _assert_lock_owner(root: Path, run_id: str, card_id: str) -> None:
+    lock = _read_lock(root, card_id)
+    if set(lock) != {"schema_version", "run_id", "card_id", "created_at"}:
         raise GraphError("active graph lock has an unsupported shape")
-    if lock.get("schema_version") != 2 or lock.get("run_id") != run_id:
+    if (
+        lock.get("schema_version") != 3
+        or lock.get("run_id") != run_id
+        or lock.get("card_id") != card_id
+    ):
         raise GraphError("active graph lock belongs to a different run")
     if not isinstance(lock.get("created_at"), str) or not lock["created_at"]:
         raise GraphError("active graph lock has no creation timestamp")
 
 
-def _release_lock(root: Path, run_id: str) -> None:
-    path = _lock_path(root)
+def _release_lock(root: Path, run_id: str, card_id: str) -> None:
+    path = _lock_path(root, card_id)
     if not path.exists():
         return
-    _assert_lock_owner(root, run_id)
+    _assert_lock_owner(root, run_id, card_id)
     path.unlink()
 
 
@@ -414,7 +427,7 @@ def start(root: Path, card_id: str, brief_content: str) -> dict[str, Any]:
     deepseek_model = _deepseek_model()
     base_head, dirty = _clean_preflight(root)
     run_id = uuid4().hex
-    _acquire_lock(root, run_id)
+    _acquire_lock(root, run_id, card_id)
     try:
         artifacts = _artifacts(root, run_id)
         artifacts.write_text("brief.md", brief.decode("utf-8"))
@@ -450,7 +463,7 @@ def start(root: Path, card_id: str, brief_content: str) -> dict[str, Any]:
         _write_state(root, run_id, state)
         return state
     except Exception:
-        _release_lock(root, run_id)
+        _release_lock(root, run_id, card_id)
         raise
 
 
@@ -576,7 +589,7 @@ def _block_maker(root: Path, graph: dict[str, Any], state: dict[str, Any], reaso
     state["failure"] = {"stage": "maker", "reason": reason}
     _transition(root, graph, state, "maker_fail")
     _write_state(root, state["run_id"], state)
-    _release_lock(root, state["run_id"])
+    _release_lock(root, state["run_id"], state["card_id"])
     return state
 
 
@@ -586,7 +599,7 @@ def run_maker(root: Path, run_id: str) -> dict[str, Any]:
     state = _read_state(root, run_id)
     if state["node"] != "await_maker":
         raise GraphError("a maker run is not expected at this graph node")
-    _assert_lock_owner(root, run_id)
+    _assert_lock_owner(root, run_id, state["card_id"])
     try:
         _assert_preflight_matches(root, state)
         maker_artifacts = RunArtifacts(
@@ -722,7 +735,7 @@ def _block_checker(root: Path, graph: dict[str, Any], state: dict[str, Any], rea
     state["failure"] = {"stage": "checker", "reason": reason}
     _transition(root, graph, state, "checker_fail")
     _write_state(root, state["run_id"], state)
-    _release_lock(root, state["run_id"])
+    _release_lock(root, state["run_id"], state["card_id"])
     return state
 
 
@@ -732,7 +745,7 @@ def run_checker(root: Path, run_id: str) -> dict[str, Any]:
     state = _read_state(root, run_id)
     if state["node"] != "await_checker":
         raise GraphError("a checker run is not expected at this graph node")
-    _assert_lock_owner(root, run_id)
+    _assert_lock_owner(root, run_id, state["card_id"])
     try:
         _assert_preflight_matches(root, state)
         _read_checker_request(root, state)
@@ -801,7 +814,7 @@ def run_checker(root: Path, run_id: str) -> dict[str, Any]:
     except (GraphError, OSError, subprocess.TimeoutExpired) as exc:
         return _block_checker(root, graph, state, str(exc))
     if state["status"] != "running":
-        _release_lock(root, run_id)
+        _release_lock(root, run_id, state["card_id"])
     return state
 
 
@@ -809,7 +822,7 @@ def _block_ack(root: Path, graph: dict[str, Any], state: dict[str, Any], reason:
     state["failure"] = {"stage": "ack", "reason": reason}
     _transition(root, graph, state, "ack_fail")
     _write_state(root, state["run_id"], state)
-    _release_lock(root, state["run_id"])
+    _release_lock(root, state["run_id"], state["card_id"])
     return state
 
 
@@ -819,7 +832,7 @@ def acknowledge(root: Path, run_id: str, acknowledgement: str) -> dict[str, Any]
     state = _read_state(root, run_id)
     if state["node"] != "await_ack":
         raise GraphError("human acknowledgement is not expected at this graph node")
-    _assert_lock_owner(root, run_id)
+    _assert_lock_owner(root, run_id, state["card_id"])
     try:
         _assert_preflight_matches(root, state)
     except GraphError as exc:
@@ -829,7 +842,7 @@ def acknowledge(root: Path, run_id: str, acknowledgement: str) -> dict[str, Any]
         raise GraphError(f"acknowledgement must be exactly: {expected}")
     _transition(root, graph, state, "human_ack")
     _write_state(root, run_id, state)
-    _release_lock(root, run_id)
+    _release_lock(root, run_id, state["card_id"])
     return state
 
 
