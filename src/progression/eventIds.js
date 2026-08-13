@@ -10,4 +10,7 @@ export const PROGRESSION_EVENTS = Object.freeze({
   LAST_STANDING: "last_standing",
   SUDDEN_DEATH_WIN: "sd_win",
   UNTOUCHABLE: "untouchable",
+  ROUND_COMPLETE: "round_complete",
+  ROUND_WIN: "round_win",
+  ROUND_SCORED: "round_scored",
 });

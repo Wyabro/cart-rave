@@ -26,6 +26,7 @@ import {
 } from "../utils/podiumEndLatch.js";
 import { challengeStore, ChallengeTracker, CHALLENGE_POOL } from "../stores/challengeStore.js";
 import { PROGRESSION_EVENTS } from "../progression/eventIds.js";
+import { localRoundProgressionEvents } from "../progression/roundEvents.js";
 import {
   getMatchStats,
   resetMatchStats,
@@ -126,6 +127,15 @@ export function createRoundLifecycle(deps) {
       scores[i] = Number(raw ?? 0);
     }
 
+    const mySlotIdx = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
+    for (const event of localRoundProgressionEvents({
+      localSlotIndex: mySlotIdx,
+      winnerSlotIndex,
+      localScore: Number(scores[mySlotIdx] ?? 0),
+    })) {
+      ChallengeTracker.record(event);
+    }
+
     const matchHistory = getMatchHistory();
     matchHistory.push({
       endedAtMs: Date.now(),
@@ -149,7 +159,6 @@ export function createRoundLifecycle(deps) {
     }
 
     if (winnerSlotIndex !== "draw") {
-      const mySlotIdx = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
       if (mySlotIdx >= 0) {
         const stats = getPersonalStats();
         const myScore = Number(scores[mySlotIdx] ?? 0);
