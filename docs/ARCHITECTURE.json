@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-13T09:46:33.102Z",
-    "commit": "b502477"
+    "at": "2026-08-13T09:47:54.215Z",
+    "commit": "02c41c8"
   },
-  "source_digest": "59d908e2",
+  "source_digest": "3f9af6f2",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -975,7 +975,7 @@
       {
         "title": "Art",
         "counts": {
-          "Low": 5
+          "Low": 6
         },
         "rows": [
           {
@@ -1006,6 +1006,12 @@
             "pri": "Low",
             "item": "ASSET-RENAME-1 — Asset filename rebrand (`cart-rave-base*.glb` etc.)",
             "notes": "Deliberate asset pass — [brand.md](../brand.md).",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "LOD-DOORWAY-1 — doorway dressing culls when the camera reaches the wall",
+            "notes": "**Filed 08-13 from LOD-PITRING-1's close** (same defect class, verified at close time). `buildDoorways` ([backroomsSupermarket.js:2821](../../src/levels/backroomsSupermarket.js:2821)) keeps the group at the origin while every doorGroup child carries wall coords via `toWorld`, and `registerLevelLodNode(doorways.group, { far: 55 })` measures camera-to-arena-CENTRE — so the three doorways (on the walls at ~56 m) pop out of existence exactly when the chase camera drives up to the wall. Fix shape mirrors LOD-PITRING-1: per-child registration or no LOD (3 small meshes).",
             "ship1": null
           }
         ]
@@ -1085,26 +1091,14 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Medium": 6,
-          "Low": 4
+          "Medium": 4,
+          "Low": 5
         },
         "rows": [
           {
             "pri": "Medium",
             "item": "PERF-9CELL-1 — Intel Low 9-cell PERF sweep `[solo]`",
             "notes": "⏸ **PARKED 08-05 with its parent PERF-PASS-1.** It came back **FAIL 08-05** with *\"idk what you are asking me to do here\"*, and that was the card's fault, not Wyatt's: it said \"run the handover's 9-cell matrix\" and left the actual protocol 300 lines deep in a 484-line doc, so the console showed him a 25-minute measurement sitting with no cells in it. **MOOT 08-06 — parent PERF-PASS-1 CLOSED with the bar unmet** (Wave 5 cells null/unproven, stadium kept). If it is ever reopened, the sweep is runnable off this row: **URL** `https://cart-rave.wyabro.workers.dev/?diag=1&preset=low&level=classicRecord&ablate=<token>`; **setup** Solo host, 3 NPCs, Cart Rave, entered *through the menu* (not a room link), Low tier, box cooled between cells; **per cell** play 60–90 s → **F8 mid-round** (`loopRound` is live, no podium needed) → `npm run captures:pull` → read `snapshot.perf.loopRound.meanMs`, discarding any cell where `straddledDemotion` is true. **Tokens in order:** `none` → `crowdcarts` → `crowd` → `pitlights` → `stadium` → `stagerig` → `billboard` → `bulbs` → `none`. **`none` runs FIRST and LAST**; if the two baselines differ by more than ±1.5 ms mean the box drifted and the whole sweep is void. **Never combine tokens** — the effects are not additive and combos destroy attribution. Full rationale, per-token expectations and the stills protocol: [perf-pass-1-handover.md](./perf-pass-1-handover.md#the-sweep--nine-cells-25-min-of-play-on-wyatts-intel-box).",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "PERF-TIER-PT-1 — high-lite tier boots + game runs `[solo]`",
-            "notes": "Wyatt playtest PASS 08-12 — high-lite boots correctly, reflector absent, quality menu shows 4 options, frame times stable.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "PROBE-WARM-RT-PT-1 — first-KO program cache miss `[solo]`",
-            "notes": "Wyatt playtest PASS 08-12 — programs count stable across first KO, no mid-round warmupCompile events.",
             "ship1": null
           },
           {
@@ -1117,6 +1111,12 @@
             "pri": "Low",
             "item": "AQ-RING-CLEAR-1 — autoQuality clear sample ring on every window eval",
             "notes": "**Reserve only** if Wave 2 entry grace still demotes on retest. Comment in autoQuality.js already notes the ring can poison up to 3 windows. Own commit if needed; not in main batch path.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "LOD-PITRING-PT-1 — pit-band silhouettes stay visible driving the edge `[solo]`",
+            "notes": "**Owed: Wyatt playtest — LOD-PITRING-PT-1 — the pit-band silhouettes stay visible as you drive along the arena edge.** LOD-PITRING-1 removed the origin-anchored LOD that culled them exactly when the chase camera crossed the band; prod after hard-refresh.<br>1. Storerooms solo, drive a cart around the pit band (the gondola rows just past the floor edge).<br>2. Watch the gondolas/pallets/checkout lane as the chase camera crosses the band — they must stay rendered the whole time.<br>3. FAIL if the silhouettes pop out of existence when you get close to them (or anywhere). PASS if they stay visible the entire drive.",
             "ship1": null
           },
           {
@@ -1154,7 +1154,7 @@
       {
         "title": "Tech Debt",
         "counts": {
-          "Low": 8,
+          "Low": 7,
           "Medium": 4
         },
         "rows": [
@@ -1218,13 +1218,6 @@
             "pri": "Low",
             "id": "TOOL-1",
             "item": "Tooling residue",
-            "notes": "",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "id": "VITE-CHUNKWARN-1 — Vite 500 kB chunk-size hint",
-            "item": "Cosmetic.",
             "notes": "",
             "ship1": null
           },
