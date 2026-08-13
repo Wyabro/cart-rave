@@ -150,8 +150,8 @@ tests). QA green by number: status:size → typecheck → test (178 files / 1,95
 (1 pre-existing config hint) → briefing:check → arch:check → health:check. Prod build green.
 **ZAN-BOLLARD-PT-1** seeded (Sundial bollard/gnomon impact clang — solo, dev:local; browser
 smoke impossible this session — both browser paths down, so the visual check rides that card).
-Note: `package-lock.json` carries external uncommitted changes (@cloudflare/unenv-preset,
-@dimforge/rapier3d-compat) — left untouched.
+Note: external `package-lock.json` changes (@cloudflare/unenv-preset, @dimforge/rapier3d-compat)
+committed 08-13 per Wyatt.
 
 2026-08-13 (AUDIT-SWEEP-1) — Six audit-finding levers closed in one acked wave
 (`182a673` · `485dedf` · `00d8324` · `08ecbd5` · `cc45ba2` · `80cb60b`): NET-QUIT-RETRY-1
