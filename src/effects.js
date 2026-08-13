@@ -1510,6 +1510,16 @@ export function initCrowd(scene, cartColors, pitInnerRadius) {
         side: THREE.DoubleSide,
       });
 
+      // * CLAD-REPEAT-1: the authored 2:1 cart motif sits in panelTex at repeat(24, 3),
+      // * but the three decks differ in radius (73/100/124 m) and wall height
+      // * (12.2/10.6/9.8 m), so the shared repeat stretched the motif between rings
+      // * (~4.7× on deck 2 vs deck 0). Normalize per deck in UV space — deck 0 keeps
+      // * its authored look (identity), decks 1–2 scale to the same world-space motif
+      // * size — while ONE shared texture+material stays, so the stadium merge below
+      // * still collapses the cladding to a single draw call.
+      const refCladR = decks[0].r1 + 0.55;
+      const refWallH = Math.max(2.5, (decks[0].r1 - decks[0].r0) * CROWD_RAKE + 1.8);
+
       // * Exterior cladding cylinders — slightly proud of each deck outer radius so
       // * the bowl reads as a built coliseum wall from the field, not a thin lathe.
       for (let d = 0; d < decks.length; d += 1) {
@@ -1525,6 +1535,17 @@ export function initCrowd(scene, cartColors, pitInnerRadius) {
             bandThetaStart, bandThetaLength,
           )
           : new THREE.CylinderGeometry(cladR, cladR, wallH, 96, 1, true);
+        // * Scale UVs by (circumference, wall-height) ratio vs deck 0 so the shared
+        // * repeat renders a constant world-space motif on every ring.
+        const uvScaleX = cladR / refCladR;
+        const uvScaleY = wallH / refWallH;
+        if (d !== 0) {
+          const uv = cladGeo.attributes.uv;
+          for (let i = 0; i < uv.count; i += 1) {
+            uv.setXY(i, uv.getX(i) * uvScaleX, uv.getY(i) * uvScaleY);
+          }
+          uv.needsUpdate = true;
+        }
         const clad = new THREE.Mesh(cladGeo, cladMat);
         clad.position.y = wallY;
         stadiumGroup.add(clad);
