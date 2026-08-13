@@ -1043,6 +1043,25 @@ export function playCartDeath() {
 }
 
 /**
+ * ZAN-BOLLARD-PT-1 diag (?diag only — no-op cost otherwise): live state of an SFX
+ * key at the moment a play is attempted — howl load state, applied volume, and the
+ * Howler/context global gates. If a play returns an id but produces no sound, these
+ * fields say whether the sample loaded, whether Howler thinks it is running, and
+ * what the context state is.
+ * @param {string} key Registry key.
+ * @returns {{ howlState: string | null, howlVolume: number | null, howlerState: string | null, ctxState: string | null }}
+ */
+export function getSfxPlayDiagnostics(key) {
+  const sound = sfxRegistry[key];
+  return {
+    howlState: sound?.state?.() ?? null,
+    howlVolume: typeof sound?.volume === "function" ? sound.volume() : null,
+    howlerState: Howler?.state?.() ?? null,
+    ctxState: Howler?.ctx?.state ?? null,
+  };
+}
+
+/**
  * Wait until a Howl is loaded (or fails). Kicks load() when still unloaded.
  * @param {import("howler").Howl} sound
  * @returns {Promise<boolean>}

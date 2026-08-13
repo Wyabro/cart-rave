@@ -440,6 +440,11 @@ export function bootGameSystems(ctx) {
   AudioManager.registerSfx("boost", [soundUrl("Boost.opus")], { pool: 3 });
   AudioManager.registerSfx("hop", [soundUrl("Hop.opus")], { pool: 3 });
   AudioManager.registerSfx("floor", [soundUrl("Floor.opus")], { pool: 3 });
+  // * ZAN-BOLLARD-PT-1: dedicated edge-clang sample (Wyatt-supplied metal impact,
+  // * 56254__qk__metal_04.wav → clang.opus). The floor thud was inaudible in the mix
+  // * and the hop thump was a stopgap — the bollard/gnomon/booth clang now has its
+  // * own metallic voice.
+  AudioManager.registerSfx("clang", [soundUrl("clang.opus")], { pool: 3 });
   AudioManager.registerSfx("chargeUp", [soundUrl("Charge_up.opus")], { pool: 2, loop: true });
   AudioManager.registerSfx("countdown_3", [soundUrl("countdown_3.opus")], { pool: 1 });
   AudioManager.registerSfx("countdown_2", [soundUrl("countdown_2.opus")], { pool: 1 });
@@ -1074,7 +1079,7 @@ export function bootGameSystems(ctx) {
     setNameLabelUpdatePending: (val) => { nameLabelUpdatePending = val; },
     respawnLocalMidRoundJoinRef: sessionRefs.respawnLocalMidRoundJoinRef,
     getPlayCollisionRef: () => (intensity, opts) => AudioManager.playCartCrash(intensity, opts),
-    getSfx: () => ({ playFloorImpact: (i = 0.5) => AudioManager.playSfx("floor", undefined, { volume: 0.45 + Math.min(Math.max(i, 0), 1) * 0.55 }), playEdgeImpact: (i = 0.5) => AudioManager.playSfx("hop", undefined, { volume: 0.45 + Math.min(Math.max(i, 0), 1) * 0.55 }) }),
+    getSfx: () => ({ playFloorImpact: (i = 0.5) => AudioManager.playSfx("floor", undefined, { volume: 0.45 + Math.min(Math.max(i, 0), 1) * 0.55 }), playEdgeImpact: (i = 0.5) => AudioManager.playSfx("clang", undefined, { volume: 0.45 + Math.min(Math.max(i, 0), 1) * 0.55 }) }),
     getSpawnTrashBurstRef: () => refs.spawnTrashBurstRef,
     getTriggerLocalRamShake: () => triggerLocalRamShakeRef,
     getTriggerLocalHitTaken: () => triggerLocalHitTakenRef,

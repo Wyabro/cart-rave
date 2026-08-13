@@ -278,13 +278,18 @@ export function createLoopDeps(deps) {
         recordDiagEvent("sim", "impact_play", { key: "floor", id, intensity: i });
         return id;
       },
-      // * ZAN-BOLLARD-PT-1: the edge clang now uses the HOP sample, not "floor". The
-      // * floor thud is quiet in the mix (Floor.opus mean −23 dB vs Hop −13.8) and the
-      // * bollard/gnomon clang was inaudible; Hop.opus is the same impact family and
-      // * proven audible (jump takeoffs were never reported missing).
+      // * ZAN-BOLLARD-PT-1: the edge clang uses its own metallic sample (clang.opus,
+      // * Wyatt-supplied). The floor thud was inaudible in the mix and the hop thump
+      // * was a stopgap — the bollard/gnomon/booth clang now has a distinct voice.
       playEdgeImpact: (i = 0.5) => {
-        const id = AudioManager.playSfx("hop", undefined, { volume: 0.45 + Math.min(Math.max(i, 0), 1) * 0.55 });
-        recordDiagEvent("sim", "impact_play", { key: "hop", id, intensity: i });
+        const id = AudioManager.playSfx("clang", undefined, { volume: 0.45 + Math.min(Math.max(i, 0), 1) * 0.55 });
+        // * ZAN-BOLLARD-PT-1 diag (?diag only): play result + live howl/global state.
+        recordDiagEvent("sim", "impact_play", {
+          key: "clang",
+          id,
+          intensity: i,
+          ...AudioManager.getSfxPlayDiagnostics?.("clang"),
+        });
         return id;
       },
       resolveCartForConn: (connId) => {
