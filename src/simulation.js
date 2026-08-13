@@ -3337,6 +3337,18 @@ function processCollisionEvents(world, eventQueue, allCarts, callbacks, isHost, 
       }
 
       const intensity = getEnvironmentImpact(cart, envType, impacts, _ramStateA);
+      // * ZAN-BOLLARD-PT-1 diag (?diag only — no-op otherwise): what the impact path
+      // * actually sees for env contacts. Missing events = the collision event never
+      // * reaches the drain; envType wrong = classification; gated edge = Δv below
+      // * threshold; ungated = the impact fired and the sound path is the suspect.
+      recordDiagEvent("sim", "env_impact", {
+        envType,
+        gated: !(intensity != null && intensity > impacts.minIntensity),
+        intensity: intensity == null ? null : Math.round(intensity * 1000) / 1000,
+        otherHandle,
+        slot: cart.slotIndex ?? null,
+        started,
+      });
       if (intensity == null || intensity <= impacts.minIntensity) return;
 
       const contactPos = getEnvironmentContactPosition(envType, impacts, _ramStateA, _envContactPos);
