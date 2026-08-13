@@ -27,7 +27,7 @@ const MAX_CARTS = 4;
  * @param {number} [fallback=0]
  * @returns {number}
  */
-function encodeF32(v, fallback = 0) {
+function toFiniteNumber(v, fallback = 0) {
   return typeof v === "number" && Number.isFinite(v) ? v : fallback;
 }
 
@@ -78,33 +78,33 @@ export function encodeHostStateSnapshot(state) {
   view.setUint8(3, 0); // Padding
   
   view.setUint32(4, (Number(state.seq) || 0) >>> 0, true);
-  view.setFloat64(8, encodeF32(state.tHost, 0), true);
+  view.setFloat64(8, toFiniteNumber(state.tHost, 0), true);
   
   let offset = HEADER_BYTES;
   for (let i = 0; i < numCarts; i++) {
     const c = carts[i] || {};
     
     const p = c.p ?? [0, 0, 0];
-    view.setFloat32(offset, encodeF32(p[0]), true); offset += 4;
-    view.setFloat32(offset, encodeF32(p[1]), true); offset += 4;
-    view.setFloat32(offset, encodeF32(p[2]), true); offset += 4;
+    view.setFloat32(offset, toFiniteNumber(p[0]), true); offset += 4;
+    view.setFloat32(offset, toFiniteNumber(p[1]), true); offset += 4;
+    view.setFloat32(offset, toFiniteNumber(p[2]), true); offset += 4;
     
     const q = c.q ?? [0, 0, 0, 1];
-    view.setFloat32(offset, encodeF32(q[0]), true); offset += 4;
-    view.setFloat32(offset, encodeF32(q[1]), true); offset += 4;
-    view.setFloat32(offset, encodeF32(q[2]), true); offset += 4;
+    view.setFloat32(offset, toFiniteNumber(q[0]), true); offset += 4;
+    view.setFloat32(offset, toFiniteNumber(q[1]), true); offset += 4;
+    view.setFloat32(offset, toFiniteNumber(q[2]), true); offset += 4;
     // * Identity default only when w is missing/non-finite — never coerce 0 → 1.
-    view.setFloat32(offset, encodeF32(q[3], 1), true); offset += 4;
+    view.setFloat32(offset, toFiniteNumber(q[3], 1), true); offset += 4;
     
     const lv = c.lv ?? [0, 0, 0];
-    view.setFloat32(offset, encodeF32(lv[0]), true); offset += 4;
-    view.setFloat32(offset, encodeF32(lv[1]), true); offset += 4;
-    view.setFloat32(offset, encodeF32(lv[2]), true); offset += 4;
+    view.setFloat32(offset, toFiniteNumber(lv[0]), true); offset += 4;
+    view.setFloat32(offset, toFiniteNumber(lv[1]), true); offset += 4;
+    view.setFloat32(offset, toFiniteNumber(lv[2]), true); offset += 4;
     
     // * Yaw rate (av[1]) drives caster swivel / steer visuals on remote carts.
     // * Pitch (av[0]) and roll (av[2]) are near-zero under arcade physics.
     const av = c.av ?? [0, 0, 0];
-    view.setFloat32(offset, encodeF32(av[1]), true); offset += 4;
+    view.setFloat32(offset, toFiniteNumber(av[1]), true); offset += 4;
     
     view.setUint32(offset, (Number(c.ackSeq) || 0) >>> 0, true); offset += 4;
     

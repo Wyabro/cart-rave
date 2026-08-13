@@ -698,7 +698,7 @@ describe("Binary snapshot serialization", () => {
   });
 
   it("preserves quaternion w=0 (180° rotation) through encode/decode", () => {
-    // * `|| 1` would corrupt w=0 into identity; encodeF32 must keep legitimate zeros.
+    // * `|| 1` would corrupt w=0 into identity; toFiniteNumber must keep legitimate zeros.
     const original = {
       seq: 7,
       tHost: 1_000,

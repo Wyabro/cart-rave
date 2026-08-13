@@ -13,6 +13,12 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 13, 2026 — ENG-LOW-SWEEP-1: nine Engineering Low sweep levers
+
+- *(Engineering · Low)* **BINARY-F32NAME-1** — ✅ **CLOSED 08-13.** `encodeF32` (src/netcode/binary.js) returned values unchanged and was also used for the Float64 `tHost`; renamed to `toFiniteNumber` across the encoder (7 call sites). Not exported; no importers. Test comment updated to match.
+
+---
+
 ### August 13, 2026 — AUDIT-SWEEP-1: six audit-finding levers closed
 
 - *(Engineering · Medium)* **NET-QUIT-RETRY-1** — ✅ **CLOSED 08-13.** Pending socket-retry timer (3–5 s backoff) survived quit-to-menu and re-joined the last room from the main menu. `scheduleNetcodeRetry`'s timeout now stores its handle in a module-scope `netcodeRetryTimer`; `disconnectPartySession()` clears it, `initNetcode` drops any stale pending timer on entry, and the callback re-checks `_suppressRetry`. Verified live in the dev sweep: quickplay session → ESC → MAIN MENU → menu held through the full retry window with no re-join. Commits `182a673`.
