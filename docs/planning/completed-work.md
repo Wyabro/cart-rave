@@ -13,6 +13,12 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 13, 2026 — RAPIER-MAJOR-1 / RAPIER-MAJOR-PT-2: live multiplayer PASS
+
+- *(Dependency / Playtest · Medium)* **RAPIER-MAJOR-1** / **RAPIER-MAJOR-PT-2** — ✅ **CLOSED PASS 08-13.** Wyatt PASSed the deployed `524bd4db` build after a hard refresh in a two-browser Friends room: host and joiner drove, the host KO'd the joiner, and both screens agreed on the result. The Rapier 0.19 → 0.20 bump had already passed the solo PT-1 check; this closes the parent after live multiplayer verification.
+
+---
+
 ### August 13, 2026 — RAPIER-MAJOR-PT-1: solo 0.20 feel PASS
 
 - *(Playtest · Medium)* **RAPIER-MAJOR-PT-1** — ✅ **CLOSED PASS 08-13** on `npm run dev:local`. Solo drive, hop, charge-boost, KO bounce, and pit-stave hits still felt like 0.19 after the `@dimforge/rapier3d` + `-simd` bump to `0.20.0` (Rust 0.35). No knob retune. Parent **RAPIER-MAJOR-1** stays open for **RAPIER-MAJOR-PT-2**. Deployed `524bd4db`. Hashed assets 0×404. Live `rapierInstance-o_X8o-Pe.js` carries `cartRaveRapierSimd`. Live WASM `rapier_wasm3d_bg-CCK6hj8V.wasm`.

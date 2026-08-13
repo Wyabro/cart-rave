@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-13T06:23:07.955Z",
-    "commit": "dc04ff0"
+    "at": "2026-08-13T06:57:58.557Z",
+    "commit": "bf30c7e"
   },
-  "source_digest": "e9bf8cae",
+  "source_digest": "a7d023c0",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -909,12 +909,12 @@
       {
         "id": "RAPIER-MAJOR-1",
         "what": "Rapier 0.19.3 → 0.20.0",
-        "status": "🔧 DEPLOYED `524bd4db`. PT-1 PASS. Playtest owed: RAPIER-MAJOR-PT-2 on prod after hard-refresh.",
-        "state": "waiting"
+        "status": "✅ CLOSED PASS 08-13. Deployed `524bd4db`; PT-1 solo PASS and PT-2 live two-browser Friends PASS.",
+        "state": "done"
       }
     ],
     "next_actions": [
-      "Wyatt playtest RAPIER-MAJOR-PT-2 on prod after hard-refresh. Two browsers, Friends room.",
+      "No active card / wait for the next approved wave.",
       "Deferred playtests: CARGO-BAY-INSTANCE-PT-3 · CONN-TRACK-LEAK-PT-1 · SHARD-PT-2."
     ],
     "open_issues": [
@@ -937,7 +937,7 @@
         "counts": {
           "Low": 15,
           "Partial": 1,
-          "Medium": 5
+          "Medium": 4
         },
         "rows": [
           {
@@ -1052,12 +1052,6 @@
             "pri": "Low",
             "item": "PARTY-ENVTYPE-1 — untyped `Env` bindings",
             "notes": "`env: Record<string, any>` in Worker/DO. A typo in a binding name is a runtime 500. Add a typed interface.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "RAPIER-MAJOR-1 — `@dimforge/rapier3d` 0.19 → 0.20",
-            "notes": "**Deployed `524bd4db`.** Both packages at `0.20.0` (Rust 0.35). No knob retune. SIMD stays opt-in. **RAPIER-MAJOR-PT-1** PASS on `dev:local`. Playtest owed: **RAPIER-MAJOR-PT-2** (live MP on prod after hard-refresh). Do not close until PT-2 PASS.",
             "ship1": null
           },
           {
@@ -1187,7 +1181,7 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Medium": 7,
+          "Medium": 6,
           "Low": 3
         },
         "rows": [
@@ -1231,12 +1225,6 @@
             "pri": "Medium",
             "item": "CARGO-BAY-INSTANCE-PT-3 — other players see the same cargo `[2pc]`",
             "notes": "**Owed: Wyatt playtest — CARGO-BAY-INSTANCE-PT-3 — the other player sees your cargo fill, not an empty bay.** Same parent; two machines.<br>1. Two browsers, same Friends room on prod. Both seat and start.<br>2. Score on one cart until its bays fill. Look at that cart from the other browser.<br>3. FAIL if the other player sees empty bays, a different fill, or missing models. PASS if both screens show the same groceries.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "RAPIER-MAJOR-PT-2 — live host+joiner drive and KO `[2pc]`",
-            "notes": "**Owed: Wyatt playtest — RAPIER-MAJOR-PT-2 — joiner drive and a KO on the joiner still match the host.** Two browsers, Friends room. Prod after hard-refresh. Deployed `524bd4db`. Parent RAPIER-MAJOR-1.<br>1. Host and joiner both drive. FAIL if the joiner rubber-bands or cannot steer.<br>2. Host KOs the joiner. FAIL if the joiner does not shatter or respawn. PASS if both screens agree.",
             "ship1": null
           },
           {
