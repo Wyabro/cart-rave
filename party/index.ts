@@ -349,8 +349,10 @@ export class CartRaveServer extends Server {
   }
 
   #snapshot() {
+    // * CONN-SNAPSHOT-PURE-1: no host repair here. The sole caller (onConnect hello)
+    // * repairs #hostId immediately before building this payload — a repair inside
+    // * snapshot could broadcast host_migrated mid-hello.
     this.#ensureInitialized();
-    this.#ensureLiveHost();
     return {
       v: PROTOCOL_VERSION,
       roomId: this.name,
@@ -489,7 +491,7 @@ export class CartRaveServer extends Server {
     this.#hostId = plan.nextHostId;
     this.#lastSeq = -1;
     if (this.#hostId) {
-      // * FIX-MIG: disconnect repairs (onClose / silent reap / ghost / snapshot)
+      // * FIX-MIG: disconnect repairs (onClose / silent reap / ghost exorcism)
       // * used to omit reason, so clients skipped the toast while PA still fired.
       this.#broadcastJson({
         v: PROTOCOL_VERSION,
@@ -502,7 +504,7 @@ export class CartRaveServer extends Server {
     // * Host loss during countdown strands clients waiting on a game_start the dead
     // * host owned — clear the pending timer and reset to lobby so #checkAllReady
     // * can re-arm for the successor. Lives here (not just onClose) so the reap /
-    // * ghost-exorcism / snapshot repair paths get the same protection instead of
+    // * ghost-exorcism repair paths get the same protection instead of
     // * leaning on the client-side resumeCountdownAsNewHost fallback.
     // * Also drop rematch grace: a mid-grace host flip must not leave a stale
     // * 2s timer arming countdown against the new host's room shape.
@@ -1053,6 +1055,7 @@ export class CartRaveServer extends Server {
     // * Repair #hostId before we advertise it via hello. The newly joined conn
     // * is already in #connections and #joinOrder, so #pickNextHostId() will
     // * return it as a last resort if no older connection survives.
+    // * CONN-SNAPSHOT-PURE-1: this is the hello snapshot's only host-repair path.
     this.#ensureLiveHost();
 
     // * First-ever host assignment, or fallthrough when #ensureLiveHost found
