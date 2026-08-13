@@ -2417,7 +2417,22 @@ export function getEdgeVictimBias(x, z) {
   return hardEdgeVictimBias(x, z);
 }
 
-function findNearestHumanTarget(fromPos, allCarts, netSlots, slotIndex = 0) {
+/**
+ * True when a cart pose is on a spawn booth deck (height AND spawn-ring XZ).
+ * Height alone is not enough: Night Shift high roofs sit above platformY - 0.5.
+ *
+ * @param {{ x?: number, y?: number, z?: number } | null | undefined} pos
+ * @returns {boolean}
+ */
+export function isOnSpawnBooth(pos) {
+  if (!pos || pos.y <= CONFIG.booth.platformY - 0.5) return false;
+  const dist = Math.hypot(pos.x, pos.z);
+  const boothInnerR =
+    CONFIG.cart.spawnRingRadius - CONFIG.booth.platformDepth / 2 - 0.5;
+  return dist >= boothInnerR;
+}
+
+export function findNearestHumanTarget(fromPos, allCarts, netSlots, slotIndex = 0) {
   let nearestPos = null;
   let nearestWeightedD2 = Infinity;
   let nearestVel = null;
@@ -2449,6 +2464,7 @@ function findNearestHumanTarget(fromPos, allCarts, netSlots, slotIndex = 0) {
     if (!cart?.body || cart.respawnAtMs != null || cart.isSuddenDeathSpectator) continue;
     const hp = cart.body.translation();
     if (hp.y < fallYThreshold) continue;
+    if (isOnSpawnBooth(hp)) continue;
     const dx = hp.x - fromPos.x;
     const dz = hp.z - fromPos.z;
     let d2 = dx * dx + dz * dz;

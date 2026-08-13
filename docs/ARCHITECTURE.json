@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-13T00:23:47.843Z",
-    "commit": "5f8734e"
+    "at": "2026-08-13T00:37:36.950Z",
+    "commit": "dcb5515"
   },
-  "source_digest": "45939076",
+  "source_digest": "aba802fe",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1180,7 +1180,7 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Medium": 10,
+          "Medium": 11,
           "Low": 3
         },
         "rows": [
@@ -1260,6 +1260,12 @@
             "pri": "Medium",
             "item": "PA-COMBO-PT-1 — savage and carnage PA lines play on a chain `[solo]`",
             "notes": "**Owed: Wyatt playtest — PA-COMBO-PT-1 — a two-KO chain speaks SAVAGE, not only RAMPAGE.** Parent PA-COMBO-1. Prod after hard-refresh. Deployed `c0a15308`.<br>1. Menu → Solo → play. KO one cart. Hear first spill or rampage.<br>2. Inside 5 seconds, ram and KO a second cart. The coupon says SAVAGE. The PA says SAVAGE or OUT OF CONTROL.<br>3. Inside 5 seconds, KO a third. The coupon says CARNAGE. The PA says CARNAGE or TOTAL CARNAGE.<br>FAIL if the coupon hits SAVAGE or CARNAGE and the PA stays on RAMPAGE or stays quiet. FAIL if two quick KOs never leave RAMPAGE on the coupon. PASS if the PA name matches the coupon.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "NPC-BOOTH-TARGET-PT-1 — NPCs do not self-KO chasing a booth sitter `[solo]`",
+            "notes": "**Owed: Wyatt playtest — NPC-BOOTH-TARGET-PT-1 — NPCs stay on the floor while you sit on a spawn booth.** Parent NPC-BOOTH-TARGET-1. Not on prod until ship. After deploy, hard-refresh. Until then use `npm run dev:local`.<br>1. Menu → Solo → play. Stay on your spawn booth. FAIL if an NPC drives off the floor or into the void toward you. PASS if they stay on the floor.<br>2. Jump off, die, respawn. Sit on the booth again. FAIL if NPCs chase you across the void before you land. PASS if they wait, then chase after you land.<br>3. Tie the score and enter Sudden Death. Sit on the booth. FAIL if the NPC self-KOs chasing you. PASS if it stays on the floor.",
             "ship1": null
           }
         ]

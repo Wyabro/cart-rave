@@ -13,6 +13,12 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 13, 2026 — NPC-BOOTH-TARGET-1: skip booth-sitters in AI chase
+
+- *(Design / Gameplay · correctness)* **NPC-BOOTH-TARGET-1** — ✅ **CLOSED LOCAL 08-13.** `findNearestHumanTarget` skips a human whose pose is on a spawn booth (height `> platformY - 0.5` AND XZ at/outside the spawn-ring inner lip). Height alone is not the test: Night Shift high roofs sit above that Y and stay chaseable. `pickAiTarget` then patrols. Tests: `tests/aiSpawnBoothTarget.test.js`. Playtest owed: **NPC-BOOTH-TARGET-PT-1**. Mid-gap failed-jump chase is a named residual, not this lever.
+
+---
+
 ### August 12, 2026 — STORE-MUSIC-1: two new Storerooms tracks
 
 - *(Audio · content)* **STORE-MUSIC-1** — ✅ **SHIPPED 08-12.** Replaced `public/sounds/storerooms.opus` with Wyatt's first Mixcraft export and added `storerooms2.opus`. Catalog playlist is `["storerooms.opus", "storerooms2.opus"]`. Encoded opus 96k VBR, loudnorm ≈−13.5 LUFS to match the other music. `normalize-sfx.mjs` now skips both files. Deployed `4f8b649f`; hashed assets 0×404; live `roomCodes-C4vOBfIj.js` carries `storerooms2.opus`. Playtest owed: **STORE-MUSIC-PT-1**.

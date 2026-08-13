@@ -36,6 +36,8 @@ external testers. Stay in this phase until Wyatt advances the marker.
 
 **PA-COMBO-1** deployed `c0a15308`. Hashed assets 0×404. Live `gameBoot-ChoyxoHG.js` carries the combo queue set + `ttlMs:8e3`. Playtest owed: **PA-COMBO-PT-1** on prod after hard-refresh.
 
+**NPC-BOOTH-TARGET-1** landed 08-13. NPCs no longer chase a human who is still on a spawn booth. Playtest owed: **NPC-BOOTH-TARGET-PT-1** (after ship, or `npm run dev:local` now).
+
 **Closed cards keep their narrative in their own docs, not here** — Sundial
 ([handover](./planning/art-pass-sundial-handover.md); read its "Traps that cost time" before any
 capture, and judge phase changes against a ~1.2% construction-noise floor, not zero), Fight Night
