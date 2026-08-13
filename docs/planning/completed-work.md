@@ -13,6 +13,13 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 13, 2026 — SWIRL-REVIVE-1: close as no action needed
+
+- *(Design / Gameplay · Low)* **SWIRL-REVIVE-1** — ✅ **CLOSED 08-13.** The proposed turntable
+  swirl force was not needed after reviewing the behavior. Existing geometry recovery already
+  gives a wedged cart a small unstick impulse after 2 seconds and respawns it after 10 seconds
+  without a score penalty. No taste-gated physics prototype is warranted.
+
 ### August 13, 2026 — LOD-DOORWAY-1: drop origin-anchored doorway LOD
 
 - *(Art · Low)* **LOD-DOORWAY-1** — ✅ **CLOSED 08-13.** Storerooms wall doorways (`buildDoorways`) live in three `doorGroup`s whose meshes carry world coords (~56–61 m out) inside a group left at the origin. `registerLevelLodNode(doorways.group, { far: 55 })` measured camera-to-arena-CENTRE, so all three popped out exactly when the chase camera reached a wall. Deleted the registration (same lever as LOD-PITRING-1). Per-child + `far: 55` was rejected: the doors sit outside 55 m of origin, so that shape would hide them from the floor (the authored across-the-pit view). Two new tests in `tests/levelLod.test.js` lock WHY (origin + `far: 55` culls at the wall, stays visible at centre) and the source shape (no `doorways` LOD registration). Visual confirmation owed on **LOD-DOORWAY-PT-1**.
