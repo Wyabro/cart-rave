@@ -5,6 +5,7 @@ import {
   NPC_PERSONALITY_ORDER,
   drawNpcNamesByPersonality,
   rotateNpcPersonalityOrder,
+  takeNpcNameAvoidingPersonalities,
 } from "../shared/npcNames.js";
 import { PERSONALITY_META } from "../src/npcNames.js";
 
@@ -40,5 +41,27 @@ describe("rotateNpcPersonalityOrder", () => {
       "aggressor",
     ]);
     expect(rotateNpcPersonalityOrder(Number.NaN)[0]).toBe(NPC_PERSONALITY_ORDER[0]);
+  });
+});
+
+describe("takeNpcNameAvoidingPersonalities", () => {
+  it("skips in-use types and leaves other names on the deck", () => {
+    const aggressors = Object.entries(NPC_NAME_PERSONALITY)
+      .filter(([, type]) => type === "aggressor")
+      .map(([name]) => name);
+    const lurker = Object.entries(NPC_NAME_PERSONALITY).find(([, type]) => type === "lurker")[0];
+    const deck = [aggressors[1], lurker];
+    const picked = takeNpcNameAvoidingPersonalities(deck, [aggressors[0]]);
+    expect(picked).toBe(lurker);
+    expect(deck).toEqual([aggressors[1]]);
+  });
+
+  it("drops unavailable names from the deck", () => {
+    const aggressor = Object.entries(NPC_NAME_PERSONALITY).find(([, type]) => type === "aggressor")[0];
+    const lurker = Object.entries(NPC_NAME_PERSONALITY).find(([, type]) => type === "lurker")[0];
+    const deck = [aggressor, lurker];
+    const picked = takeNpcNameAvoidingPersonalities(deck, [aggressor]);
+    expect(picked).toBe(lurker);
+    expect(deck).toEqual([]);
   });
 });

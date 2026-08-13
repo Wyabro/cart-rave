@@ -132,6 +132,46 @@ export function drawNpcNamesByPersonality(order, rng = Math.random) {
   return names;
 }
 
+/**
+ * Take one unused name from `deck`. Prefer a personality not already present
+ * in `unavailableNames`. Wrong-type names stay in the deck. Used names drop.
+ * @param {string[]} deck
+ * @param {Iterable<string>} [unavailableNames]
+ * @returns {string | undefined}
+ */
+export function takeNpcNameAvoidingPersonalities(deck, unavailableNames) {
+  const unavailable = unavailableNames instanceof Set
+    ? unavailableNames
+    : new Set(unavailableNames ?? []);
+  const usedTypes = new Set();
+  for (const name of unavailable) {
+    const type = NPC_NAME_PERSONALITY[name];
+    if (type) usedTypes.add(type);
+  }
+  const missing = NPC_PERSONALITY_ORDER.filter((type) => !usedTypes.has(type));
+  const allowed = missing.length > 0 ? new Set(missing) : null;
+
+  const take = (allow) => {
+    const kept = [];
+    let picked;
+    while (deck.length > 0) {
+      const name = deck.shift();
+      if (unavailable.has(name)) continue;
+      if (!picked && (allow === null || allow.has(NPC_NAME_PERSONALITY[name]))) {
+        picked = name;
+        break;
+      }
+      kept.push(name);
+    }
+    for (let i = kept.length - 1; i >= 0; i -= 1) {
+      deck.unshift(kept[i]);
+    }
+    return picked;
+  };
+
+  return take(allowed) ?? take(null);
+}
+
 export const NPC_NAME_POOL = [
   "CartNapper",
   "WheelSnipe",

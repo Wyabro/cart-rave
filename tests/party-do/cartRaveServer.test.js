@@ -14,6 +14,7 @@ import {
   setReapOverrides,
 } from "../../party/constants.ts";
 import { MSG } from "../../shared/protocol.js";
+import { NPC_NAME_PERSONALITY } from "../../shared/npcNames.js";
 import { QUICKPLAY_ARENA_IDS } from "../../shared/arenaPool.js";
 import { COUNTDOWN_MS, FLYOVER_PREROLL_MS } from "../../shared/roundConstants.js";
 import { connectAndSeat, openPartyClient } from "./wsClient.js";
@@ -46,6 +47,18 @@ describe("CartRaveServer DO harness", () => {
     expect(hello.youConnId).toEqual(expect.any(String));
     expect(hello.hostId).toBe(hello.youConnId);
     expect(hello.v).toBe(2);
+
+    client.close();
+  });
+
+  it("starts a room with one NPC of each personality", async () => {
+    const room = uniqueRoom("npc-types");
+    const client = await openPartyClient(room, { ip: "10.0.0.11" });
+    const hello = await client.awaitType(MSG.hello);
+    const npcSlots = (hello.slots ?? []).filter((s) => s && s.kind === "npc");
+    expect(npcSlots).toHaveLength(4);
+    const types = npcSlots.map((s) => NPC_NAME_PERSONALITY[s.name]);
+    expect(new Set(types).size).toBe(4);
 
     client.close();
   });

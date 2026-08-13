@@ -64,7 +64,7 @@ import {
   listOrphanHumanConnIds,
   nextFreePaletteColor,
 } from './slotReconcile';
-import { NPC_NAME_POOL } from '../shared/npcNames.js';
+import { NPC_NAME_POOL, takeNpcNameAvoidingPersonalities } from '../shared/npcNames.js';
 import { QUICKPLAY_ARENA_IDS } from '../shared/arenaPool.js';
 import { isQuickplayRoom, nextQuickplayShard } from '../shared/roomCodes.js';
 import { assetCacheControlForPath } from '../shared/assetCache.js';
@@ -329,15 +329,12 @@ export class CartRaveServer extends Server {
     const unavailableNames = new Set([...activeNpcNames, ...excludedNames]);
 
     if (this.#npcNameDeck.length === 0) this.#shuffleNpcNames();
-    let attempts = 0;
-    while (attempts < NPC_NAME_POOL.length) {
-      if (this.#npcNameDeck.length === 0) this.#shuffleNpcNames();
-      const name = this.#npcNameDeck.shift();
-      if (name && !unavailableNames.has(name)) return name;
-      attempts += 1;
+    let name = takeNpcNameAvoidingPersonalities(this.#npcNameDeck, unavailableNames);
+    if (!name) {
+      this.#shuffleNpcNames();
+      name = takeNpcNameAvoidingPersonalities(this.#npcNameDeck, unavailableNames);
     }
-
-    return NPC_NAME_POOL.find((name) => !unavailableNames.has(name)) ?? "CartGoblin";
+    return name ?? NPC_NAME_POOL.find((entry) => !unavailableNames.has(entry)) ?? "CartGoblin";
   }
 
   #broadcastJson(payload: unknown, without?: Connection | Connection[]) {
