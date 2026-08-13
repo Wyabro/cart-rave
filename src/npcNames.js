@@ -1,6 +1,13 @@
 // * Canonical NPC name pool lives in shared/ (single source of truth for client + server).
 // * Re-exported here so existing `./npcNames.js` importers keep working unchanged.
-export { NPC_NAME_POOL } from "../shared/npcNames.js";
+export {
+  NPC_NAME_POOL,
+  NPC_NAME_PERSONALITY,
+  NPC_PERSONALITY_ORDER,
+  drawNpcNamesByPersonality,
+  rotateNpcPersonalityOrder,
+} from "../shared/npcNames.js";
+import { NPC_NAME_PERSONALITY } from "../shared/npcNames.js";
 import { CART_COLORS } from "./config.js";
 
 /**
@@ -75,82 +82,14 @@ const PERSONALITY_PROFILES = {
   },
 };
 
-const NAME_PERSONALITY_MAP = {
-  WheelSnipe: "aggressor",
-  CartNapper: "aggressor",
-  BuggyBrawler: "aggressor",
-  TrolleyTerror: "aggressor",
-  BumperDumper: "aggressor",
-  NitroNancy: "aggressor",
-  TurboTuesday: "aggressor",
-  FullSend: "aggressor",
-  NoBrakes: "aggressor",
-  CartGod: "aggressor",
-  ShelfShark: "aggressor",
-  CurbStomp: "aggressor",
-
-  AisleGoblin: "lurker",
-  AisleDrifter: "lurker",
-  CartJacker: "lurker",
-  GreaseGremlin: "lurker",
-  ParkingPal: "lurker",
-  RimRattler: "lurker",
-  RampRat: "lurker",
-  CartBlanche: "lurker",
-
-  CouponCrusher: "scavenger",
-  BagRattler: "scavenger",
-  ReceiptReaper: "scavenger",
-  SnackBandit: "scavenger",
-  CheckoutChamp: "scavenger",
-  BasketCase: "scavenger",
-  DentedDolly: "scavenger",
-
-  YeetCart: "chaotic",
-  WobbleBot: "chaotic",
-  PushNPray: "chaotic",
-  WobblesMcGee: "chaotic",
-  Spinout: "chaotic",
-  WipeOut: "chaotic",
-  SendIt: "chaotic",
-  SkidMark: "chaotic",
-  RollCage: "chaotic",
-  HotWheelz: "chaotic",
-  DriftWood: "chaotic",
-  LaneCrasher: "chaotic",
-  CartWheel: "chaotic",
-
-  // * Cart Clash flavor expansion (shared/npcNames.js) — same four personalities.
-  RamRaider: "aggressor",
-  BasketBruiser: "aggressor",
-  ClashCart: "aggressor",
-  CartKong: "aggressor",
-  PlowLord: "aggressor",
-  DoorBuster: "aggressor",
-  BulkBasher: "aggressor",
-  FreshBruise: "aggressor",
-  GridlockGus: "lurker",
-  BuggyBandit: "lurker",
-  KartelBoss: "lurker",
-  FreezerBurn: "lurker",
-  TotalRecall: "scavenger",
-  SpillSeeker: "scavenger",
-  PalletPusher: "scavenger",
-  RackAttack: "scavenger",
-  CrashRegister: "chaotic",
-  CleanupAisle5: "chaotic",
-  SelfCheckout: "chaotic",
-  BumperCrop: "chaotic",
-};
-
 /**
  * Resolves an NPC name or slot index to a personality profile.
  * @param {string|number|null|undefined} identifier
  * @returns {typeof PERSONALITY_PROFILES["aggressor"]}
  */
 export function getNpcPersonality(identifier) {
-  if (typeof identifier === "string" && NAME_PERSONALITY_MAP[identifier]) {
-    return PERSONALITY_PROFILES[NAME_PERSONALITY_MAP[identifier]];
+  if (typeof identifier === "string" && NPC_NAME_PERSONALITY[identifier]) {
+    return PERSONALITY_PROFILES[NPC_NAME_PERSONALITY[identifier]];
   }
   const profiles = [
     PERSONALITY_PROFILES.aggressor,
