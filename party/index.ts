@@ -149,12 +149,6 @@ export class CartRaveServer extends Server {
     this.env = env;
   }
 
-  #clamp(value: unknown, min: number, max: number) {
-    const n = typeof value === "number" ? value : Number(value);
-    if (!Number.isFinite(n)) return min;
-    return Math.max(min, Math.min(max, n));
-  }
-
   #safeStructuredClone<T>(value: T): T {
     try {
       // PartyKit runs on a modern runtime where structuredClone should exist.
@@ -932,12 +926,11 @@ export class CartRaveServer extends Server {
 
   #reconcileOrphanSlots(liveConnIds: Set<string>) {
     this.#ensureInitialized();
-    if (!this.#slots) return false;
+    if (!this.#slots) return;
     const orphans = listOrphanHumanConnIds(this.#slots, liveConnIds);
     for (const connId of orphans) {
       this.#convertHumanSlotToNpc(connId);
     }
-    return orphans.length > 0;
   }
 
   // * Removes connections that haven't sent a message in REAP_TIMEOUT_MS.
@@ -967,16 +960,13 @@ export class CartRaveServer extends Server {
       // * repair below, stranding the remaining seated humans in a hostless room
       // * (no physics authority, round can't progress) until someone new connects.
       if (reapedPicker) this.#ensureLiveHost();
-      return false;
+      return;
     }
 
-    let slotsChanged = false;
     for (const id of reapedIds) {
       const lastSeen = this.#lastSeenAtMs.get(id) ?? 0;
       const age = now - lastSeen;
       const wasHost = id === this.#hostId;
-      const slot = this.#slots?.find((s) => s.connId === id);
-      if (slot && slot.kind === "human") slotsChanged = true;
       const conn = this.#connections.get(id);
       if (conn) {
         try { conn.close(); } catch {}
@@ -1004,8 +994,6 @@ export class CartRaveServer extends Server {
     // * so the remaining all-ready lobby isn't stuck waiting forever.
     // * (#checkAllReady is a no-op outside the lobby phase / while armed.)
     this.#checkAllReady();
-
-    return slotsChanged;
   }
 
   onConnect(conn: Connection, ctx: ConnectionContext) {
@@ -1047,7 +1035,7 @@ export class CartRaveServer extends Server {
     // * by the time we compute orphan slots and build the hello snapshot.
     // * The new conn is already in #connections and lastSeenAtMs, so it's
     // * immune to reap and a valid host successor.
-    const reaped = this.#reapSilentConnections();
+    this.#reapSilentConnections();
 
     // Reconcile: any slot marked "human" whose connId is not in the platform's live
     // connection list is orphaned. Use room.getConnections() rather than #connections
@@ -1059,9 +1047,7 @@ export class CartRaveServer extends Server {
     }
     // The new connection itself is not yet in getConnections() during onConnect, so add it.
     liveConnIds.add(conn.id);
-    const reconciled = this.#reconcileOrphanSlots(liveConnIds);
-    void reaped;
-    void reconciled;
+    this.#reconcileOrphanSlots(liveConnIds);
 
     // * Platform-dead conns were already pruned pre-cap (#prunePlatformDeadTracking).
     // * Repair #hostId before we advertise it via hello. The newly joined conn
