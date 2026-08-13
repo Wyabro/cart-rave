@@ -95,6 +95,28 @@ describe("levelLod", () => {
     expect(src).toMatch(/for\s*\(const\s+\w+\s+of\s+uncanny\.group\.children\)/);
   });
 
+  // * LOD-PITRING-1: the Storerooms pit-ring dressing (band centre 46.7 m, merged into ONE
+  // * mesh inside a group left at the origin) was registered at far:48 — measured from the
+  // * arena CENTRE, so it culled the ring the moment the chase camera crossed the band:
+  // * standing beside a gondola hid the very thing being looked at. One merged mesh is
+  // * cheap enough to leave unregistered; these lock WHY, so nobody "fixes" it back.
+  it("an origin-anchored far:48 would cull the pit ring exactly when the camera is on it", () => {
+    const ringAtOrigin = fakeObj(0, 0); // merged mesh inside the origin group
+    registerLevelLodNode(ringAtOrigin, { far: 48 });
+    updateLevelLod(fakeCamera(46.7, 0), 1000); // at the band centre, next to a gondola
+    expect(ringAtOrigin.visible).toBe(true); // 46.7 < 48 — still just inside
+    updateLevelLod(fakeCamera(50, 0), 2000); // outer band edge — beside a gondola
+    expect(ringAtOrigin.visible).toBe(false); // culled exactly when it fills the view
+  });
+
+  it("backroomsSupermarket registers no LOD node for the pit-ring dressing group", () => {
+    const src = readFileSync(
+      new URL("../src/levels/backroomsSupermarket.js", import.meta.url),
+      "utf8",
+    );
+    expect(src).not.toMatch(/registerLevelLodNode\(\s*pitDressing\.group\s*,/);
+  });
+
   // * Sundial (zanzibarPlatform) registered ships, gulls and foam at far:95 and the gate was
   // * inert for all three. These three tests lock WHY, so nobody "fixes" it by copying the
   // * Storerooms per-child pattern — which cannot apply, because these are InstancedMeshes

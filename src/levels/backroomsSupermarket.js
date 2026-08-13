@@ -3840,7 +3840,12 @@ export function initBackroomsSupermarket(scene, world, config, options = {}) {
 
   // * Runtime distance LOD — atmosphere props only (no physics rebuild).
   if (!menuPreview) {
-    registerLevelLodNode(pitDressing.group, { far: 48 });
+    // * LOD-PITRING-1: the pit-ring dressing is NOT registered. It is one merged
+    // * mesh whose vertices carry world coords inside a group left at the origin, so
+    // * a group-level far:48 measured camera-to-arena-CENTRE and culled the ring
+    // * exactly when the chase camera crossed the band (46.7 m) — the moment it is
+    // * right next to a gondola. Per-side clusters would be 4 draw calls for a
+    // * fogged background band; leaving it unregistered is one always-correct mesh.
     registerLevelLodNode(doorways.group, { far: 55 });
     // * Floor markings register PER MESH, not as the group. updateLevelLod measures
     // * getWorldPosition of the registered object, and these groups sit at the origin
