@@ -15,8 +15,10 @@ describe("CHALLENGE-EXPAND-1 menu seams", () => {
     expect(menu).not.toContain('challengeStore.subscribe(renderChallengesPanel)');
   });
 
-  it("gives the shelves their own desktop and mobile grid rules", () => {
+  it("keeps normal phones one-column but packs narrow portrait shelves two-up", () => {
     expect(styles).toMatch(/\.cr-chal-section-grid\s*\{[^}]*grid-template-columns:\s*repeat\(2/);
     expect(styles).toMatch(/\.cr-chal-section-grid\s*\{\s*grid-template-columns:\s*minmax\(0, 1fr\)/);
+    expect(styles).toMatch(/@media \(max-width: 480px\) and \(orientation: portrait\)\s*\{[\s\S]*?\.cr-challenges-panel \.cr-chal-section-grid\s*\{[^}]*grid-template-columns:\s*repeat\(2/);
+    expect(styles).toMatch(/@media \(max-width: 480px\) and \(orientation: portrait\)\s*\{[\s\S]*?\.cr-challenges-panel \.cr-screen-actions\s*\{\s*grid-row:\s*3/);
   });
 });
