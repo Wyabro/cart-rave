@@ -52,9 +52,9 @@ detection needs no new netcode.
 | `first_spill` | First attributed KO of the round | 70 | high | once/round | FIRST BLOOD |
 | `double_spill` | 2 falls within 1.4 s | 62 | high | 6 s | TWO DOWN |
 | `aisle_wipeout` | 3+ falls within 1.4 s | 68 | high | 10 s | EVERYBODY DOWN |
-| `rampage` | Attacker reaches combo tier 1 | 50 | medium | 8 s | KILL STREAK |
-| `savage` | Combo tier 2 | 55 | medium | 8 s | KILL STREAK |
-| `carnage` | Combo tier 3 | 60 | high | 8 s | KILL STREAK |
+| `rampage` | Attacker reaches combo tier 1 | 50 | medium (queues on busy) | 8 s | COMBO |
+| `savage` | Combo tier 2 | 55 | medium (queues on busy) | 8 s | COMBO |
+| `carnage` | Combo tier 3 | 60 | high | 8 s | COMBO |
 | `refund` | KO of the player who last KO'd you | 45 | medium | 10 s | REVENGE |
 | `new_leader` | Sole score lead changes hands (suppressed in final 10 s) | 35 | low | 12 s | SCOREBOARD |
 | `comeback` | New leader was ≥3 points behind earlier | 48 | medium | once/round | SCOREBOARD |
@@ -100,18 +100,22 @@ See [living-store.md](./living-store.md). Full event table source of truth:
    pattern as sudden death: do not mute the PA over a clock beat).
 4. Otherwise an incoming event interrupts only if its priority beats the active one by
    **≥ 20** *and* the active event is marked interruptible. If the channel is busy and
-   that check fails, only **high** events queue; medium/low drop. Events that arrive
-   during the min-gap window (channel free, taste gap pending) still queue.
+   that check fails, only **high** events and **combo tier-ups** (`rampage` / `savage` /
+   `carnage`) queue; other medium/low drop. Events that arrive during the min-gap
+   window (channel free, taste gap pending) still queue.
 5. **Queue**: max 2 items, priority-ordered, per-event TTL (stale hype is discarded, not
    played late), duplicate event ids replaced with fresher data, lowest-priority evicted
-   when full. A busy channel only admits high events; medium/low can still sit here if
-   they arrived during the gap.
+   when full. A busy channel admits high events and combo tier-ups; other medium/low
+   can still sit here if they arrived during the gap. Combo TTL is 8 s so a queued
+   upgrade survives a long recorded take plus the 1.8 s gap.
 6. **`ambient`** (close_call) plays only into silence; it is never queued.
 7. Per-event gates: cooldown, once-per-round, max-per-round, and chance (%), all reset at
    round start.
-8. **Kill-burst merge**: kill-derived events landing within 450 ms are merged — only the
-   highest-priority one is voiced (an `aisle_wipeout` swallows the `double_spill` and
-   `rampage` from the same pile-up). Swallowed events still consume their cooldowns.
+8. **Kill-burst merge**: pileup/refund/self-fall events landing within 450 ms are merged —
+   only the highest-priority one is voiced (an `aisle_wipeout` swallows the `double_spill`
+   from the same pile-up). Combo tier-ups are **not** in this set (PA-COMBO-1): they
+   dispatch on their own so a dropped upgrade does not burn cooldown or last-announced
+   tier. Swallowed burst events still consume their cooldowns.
 9. **`comeback` swallows `new_leader`** fired for the same lead change.
 
 ## Settings & accessibility

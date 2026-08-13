@@ -159,8 +159,8 @@ describe("queue: max 2 items + priority eviction", () => {
     advance(450);
     expect(manager.getAnnouncerDebugState().queueLength).toBe(2);
 
-    // savage is medium, so a busy channel drops it (same queue-length result as
-    // the old eviction path — it never reaches enqueue).
+    // savage now queues on a busy channel (PA-COMBO-1), but the queue is already
+    // full with higher-priority items, so it still loses the eviction.
     manager.announce("savage"); // 55
     advance(450);
     expect(manager.getAnnouncerDebugState().queueLength).toBe(2);
@@ -332,13 +332,16 @@ describe("announce() outcome (PA-COMBO-1)", () => {
     expect(manager.announce("rampage")).toEqual({ type: "played" });
   });
 
-  it("returns discarded when a medium combo line hits a busy channel", () => {
-    manager.announce("first_spill");
-    advance(450);
-    expect(manager.getAnnouncerDebugState().activeEventId).toBe("first_spill");
+  it("queues savage while rampage is talking, then plays it after the gap", () => {
+    expect(manager.announce("rampage")).toEqual({ type: "played" });
+    const savage = manager.announce("savage");
+    expect(savage.type).toBe("queued");
+    expect(manager.getAnnouncerDebugState().activeEventId).toBe("rampage");
+    expect(manager.getAnnouncerDebugState().queueLength).toBe(1);
 
-    expect(manager.announce("savage")).toEqual({ type: "discarded" });
-    expect(manager.getAnnouncerDebugState().queueLength).toBe(0);
+    advance(1100 + 1800 + 50);
+    expect(manager.getAnnouncerDebugState().activeEventId).toBe("savage");
+    expect(playedEventIds()).toEqual(["rampage", "savage"]);
   });
 
   it("returns discarded on an unknown event id", () => {

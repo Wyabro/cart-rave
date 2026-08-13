@@ -493,9 +493,14 @@ function dispatch(def, data, nowMs, opts = {}) {
   return enqueue(def, data, nowMs);
 }
 
+/** Combo tier-ups queue on a busy channel (PA-COMBO-1). Other medium/low still drop. */
+const COMBO_TIER_IDS = new Set(["rampage", "savage", "carnage"]);
+
 /**
  * Busy-channel policy: only "high" commentary survives a busy channel by queuing.
  * "medium"/"low" drop instead of building a backlog that drains back-to-back.
+ * Combo tier-ups are the exception — an upgrade that lands while RAMPAGE is
+ * still talking must wait its turn, not vanish.
  * Criticals/sequences interrupt before this point; the min-gap path still uses
  * enqueue so a new moment during the taste gap can wait one gap and play.
  * @param {AnnouncerEventDef} def
@@ -504,7 +509,7 @@ function dispatch(def, data, nowMs, opts = {}) {
  * @returns {{ type: "queued", queueItem: QueueItem } | { type: "discarded" }}
  */
 function queueOrDrop(def, data, nowMs) {
-  if (def.cls !== "high") return { type: "discarded" };
+  if (def.cls !== "high" && !COMBO_TIER_IDS.has(def.id)) return { type: "discarded" };
   return enqueue(def, data, nowMs);
 }
 
