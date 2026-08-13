@@ -13,6 +13,16 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 13, 2026 — ZAN-BOLLARD-PT-1: PASS after five fixes
+
+- *(Playtest · Low)* **ZAN-BOLLARD-PT-1** — ✅ **PASS 08-13 on prod `fc0844fa`.** Sundial corner bollards + gnomon now clang audibly (metallic impact) and the sound fires only on the posts. The full chain, in order:
+  1. **Δv sampling** — `getEnvironmentImpact` subtracted the pre-step velocity snapshot from itself (always 0), so edge impacts never fired for any surface; now samples the post-step body velocity.
+  2. **Threshold retune** — a real-Rapier probe measured 1.6–1.7 m/s per-step Δv at any approach speed (the +4 solver iterations spread the impulse), making the old 2.5 m/s threshold unreachable; retuned to `edgeDeltaVThreshold: 0.75` + `edgeIntensityRange: 6` (floor curve untouched).
+  3. **Audible sample** — the edge path played the quiet floor thud (Floor.opus mean −23 dB); hop thump as a stopgap, then Wyatt-supplied `56254__qk__metal_04.wav` → `clang.opus` (48 kHz mono, peak −1.6 dB, 0.14 s).
+  4. **Trigger scoping** — the clang fired on the whole edge class (pit wall + booth legs + posts); the Sundial deck posts now own `bollardColliderHandles` → new `clang` classification (sound + spark), booth legs / pit wall stay `edge` = FX only.
+  5. **Spark placement** — inboard edge contacts no longer project to the pit ring; sparks sit on the post.
+  - F8 evidence along the way: cap-362 (`e938f98`) proved impacts fired at intensity 0.4–1.0 yet stayed inaudible; cap-363 (`abe96c8`) proved 123/123 `playSfx` calls returned valid Howler ids with the context running — the failure was the sample, not the path. Impact plays remain diag-instrumented (`sim/impact_play` with howlState/howlerState/ctxState). Commits: `2161cb5` · `c701ef6` · `abe96c8` · `ae0a347` · `340209b`.
+
 ### August 13, 2026 — ANNOUNCER-RERECORD-1: announcer re-records done
 
 - *(Audio · Medium)* **ANNOUNCER-RERECORD-1** — ✅ **CLOSED 08-13 on Wyatt's word** (`[SHIP-1 E3]`). Re-records are done: shorter directive takes + odd lines. Work shipped outside the repo; no code or asset change in this tree, so the closure is docs-only. The E3 slot for the Howler upgrade stays open as **HOWLER-UPGRADE-1**.
@@ -32,7 +42,7 @@ Chronological record of shipped work, newest first.
 - *(Playtest · Medium)* **CHALLENGE-EXPAND-PT-1** — ✅ **PASS 08-13 on prod `88b50a5`.** Six challenge entries + nine sunglasses finishes readable, persistent, useful; progress card, toast, badge, analytics, receipt all update once; responsive at desktop/portrait/short-landscape. Note filed as **CHAL-SHELF-FIT-1** (phone scroll → scale-to-fit polish, "not the end of the world"). Parent engineering row already closed.
 - *(Playtest · Low)* **LOD-PITRING-PT-1** — ✅ **PASS 08-13 on prod `88b50a5`.** Pit-band silhouettes stay visible driving the edge — LOD-PITRING-1's removal of the origin-anchored LOD confirmed live. Closed.
 - *(Playtest · Low)* **MENU-MUSIC-2B-PT-1** — ✅ **PASS 08-13 on prod `88b50a5`.** Exactly one menu song audible through the handoff; no overlap. Closed.
-- *(Playtest · Low)* **ZAN-BOLLARD-PT-1** — ❌ **FAIL 08-13 on prod `88b50a5`.** "i don't hear any sound when impacting them" — Sundial corner bollards + gnomon still silent despite the ZAN-BOLLARD-CLASS-1 edge reclassification. One fix only, retest after ship. (Investigation + fix tracked below.)
+- *(Playtest · Low)* **ZAN-BOLLARD-PT-1** — ❌ **FAIL 08-13 on prod `88b50a5`.** "i don't hear any sound when impacting them" — Sundial corner bollards + gnomon still silent despite the ZAN-BOLLARD-CLASS-1 edge reclassification. → ✅ **PASS 08-13 on prod `fc0844fa` after five fixes** (see the dedicated section below).
 - **SKIP (unchanged):** CARGO-BAY-INSTANCE-PT-3 · CONN-TRACK-LEAK-PT-1 (two-machine, deferred) · SHARD-PT-2 (launch-day traffic).
 
 ---
