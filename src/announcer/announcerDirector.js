@@ -133,7 +133,8 @@ function trackFallBurst(nowMs) {
  * @returns {boolean}
  */
 function isAnnounceAccepted(outcome) {
-  return outcome?.type === "played" || outcome?.type === "queued";
+  const type = outcome && outcome.type;
+  return type === "played" || type === "queued";
 }
 
 /**

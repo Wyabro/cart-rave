@@ -34,6 +34,8 @@ external testers. Stay in this phase until Wyatt advances the marker.
 
 **STORE-MUSIC-1** shipped 08-12. Storerooms now has two new tracks. Playtest owed: **STORE-MUSIC-PT-1**.
 
+**PA-COMBO-1** landed 08-12 (`ff8175b`). Savage/carnage no longer burn if the PA is busy. Playtest owed: **PA-COMBO-PT-1** on `npm run dev:local` (not prod).
+
 **Closed cards keep their narrative in their own docs, not here** — Sundial
 ([handover](./planning/art-pass-sundial-handover.md); read its "Traps that cost time" before any
 capture, and judge phase changes against a ~1.2% construction-noise floor, not zero), Fight Night
@@ -76,11 +78,12 @@ Live rows only. Shipped and closed cards live in
 | CONN-TRACK-LEAK-1 | Release platform-dead IP tracking before the cap | ✅ **CLOSED 08-12** (`9439cd2`, deployed `5ae6f69b`). `#prunePlatformDeadTracking()` releases leaked IP counts before the cap decision; five teardown paths consolidated via `#forgetConnectionTracking()`. Playtest owed: CONN-TRACK-LEAK-PT-1 (host-leave migration), CONN-TRACK-LEAK-PT-2 (ghost exorcism). |
 | PA-QUIET-1 | Quiet the Store PA | ✅ **CLOSED 08-12.** Wyatt playtest PASS. Deployed `3044ab99`. Same-fall flavor skip + busy-channel drop + `last_call` interrupts. Commits `e37bd59` + `a0ba621`. |
 | STORE-MUSIC-1 | Storerooms two-track playlist | ✅ **CLOSED 08-12.** Deployed `4f8b649f`. Replaced the old Storerooms track and added a second song. Playtest owed: **STORE-MUSIC-PT-1**. |
+| PA-COMBO-1 | Savage/carnage PA lines play | 🔧 **LANDED 08-12** (`bed77ab`+`ff8175b`). Not deployed. Playtest owed: **PA-COMBO-PT-1**. |
 
 ### Next actions
 
-1. **No active engineering card** — wait for Wyatt.
-2. **Playtest owed (console rows):** **STORE-MUSIC-PT-1** on prod `4f8b649f`. **STORE-1-PT-1** on `npm run dev:local`. SHARD-PT-2 (skip, needs five humans). **CARGO-BAY-INSTANCE-PT-1** · **PT-2** · **PT-3**. **CONN-TRACK-LEAK-PT-1** + **CONN-TRACK-LEAK-PT-2** — prod `5ae6f69b`.
+1. **Playtest PA-COMBO-PT-1** on `npm run dev:local` (not prod).
+2. **Other playtest owed:** **STORE-MUSIC-PT-1** on prod `4f8b649f`. **STORE-1-PT-1** on `npm run dev:local`. SHARD-PT-2 (skip, needs five humans). **CARGO-BAY-INSTANCE-PT-1** · **PT-2** · **PT-3**. **CONN-TRACK-LEAK-PT-1** + **CONN-TRACK-LEAK-PT-2** — prod `5ae6f69b`.
 
 ## Open issues (top)
 

@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-12T23:38:59.801Z",
-    "commit": "1d5b4b3"
+    "at": "2026-08-13T00:04:35.705Z",
+    "commit": "ff8175b"
   },
-  "source_digest": "14c64a68",
+  "source_digest": "6adb0147",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -904,11 +904,17 @@
         "what": "Storerooms two-track playlist",
         "status": "✅ CLOSED 08-12. Deployed `4f8b649f`. Replaced the old Storerooms track and added a second song. Playtest owed: STORE-MUSIC-PT-1.",
         "state": "done"
+      },
+      {
+        "id": "PA-COMBO-1",
+        "what": "Savage/carnage PA lines play",
+        "status": "🔧 LANDED 08-12 (`bed77ab`+`ff8175b`). Not deployed. Playtest owed: PA-COMBO-PT-1.",
+        "state": "waiting"
       }
     ],
     "next_actions": [
-      "No active engineering card — wait for Wyatt.",
-      "Playtest owed (console rows): STORE-MUSIC-PT-1 on prod `4f8b649f`. STORE-1-PT-1 on `npm run dev:local`. SHARD-PT-2 (skip, needs five humans). CARGO-BAY-INSTANCE-PT-1 · PT-2 · PT-3. CONN-TRACK-LEAK-PT-1 + CONN-TRACK-LEAK-PT-2 — prod `5ae6f69b`."
+      "Playtest PA-COMBO-PT-1 on `npm run dev:local` (not prod).",
+      "Other playtest owed: STORE-MUSIC-PT-1 on prod `4f8b649f`. STORE-1-PT-1 on `npm run dev:local`. SHARD-PT-2 (skip, needs five humans). CARGO-BAY-INSTANCE-PT-1 · PT-2 · PT-3. CONN-TRACK-LEAK-PT-1 + CONN-TRACK-LEAK-PT-2 — prod `5ae6f69b`."
     ],
     "open_issues": [
       {
@@ -1096,10 +1102,16 @@
       {
         "title": "Audio",
         "counts": {
-          "Medium": 1,
+          "Medium": 2,
           "Low": 1
         },
         "rows": [
+          {
+            "pri": "Medium",
+            "item": "PA-COMBO-1 — Savage/carnage PA lines actually play",
+            "notes": "Landed 08-12 (`ff8175b`). Dropped combo upgrades no longer burn the tier; combo lines queue on a busy channel. Playtest owed: **PA-COMBO-PT-1**.",
+            "ship1": null
+          },
           {
             "pri": "Medium",
             "item": "ANNOUNCER-RERECORD-1 — Announcer re-records (Wyatt) `[SHIP-1 E3]`",
@@ -1168,7 +1180,7 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Medium": 9,
+          "Medium": 10,
           "Low": 3
         },
         "rows": [
@@ -1242,6 +1254,12 @@
             "pri": "Medium",
             "item": "STORE-MUSIC-PT-1 — Storerooms plays the two new songs `[solo]`",
             "notes": "**Owed: Wyatt playtest — STORE-MUSIC-PT-1 — The Storerooms plays the two new songs, not the old one.** Parent STORE-MUSIC-1. Prod after hard-refresh.<br>1. Menu → Solo → The Storerooms. Start the round. Listen to the music.<br>2. Rematch, or wait for the next song.<br>3. FAIL if you hear the old Storerooms track, silence, or a Cart Rave / Sundial song. PASS if both new songs play.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "PA-COMBO-PT-1 — savage and carnage PA lines play on a chain `[solo]`",
+            "notes": "**Owed: Wyatt playtest — PA-COMBO-PT-1 — a two-KO chain speaks SAVAGE, not only RAMPAGE.** Not on prod. Run `npm run dev:local`. Parent PA-COMBO-1.<br>1. Menu → Solo → play. KO one cart. Hear first spill or rampage.<br>2. Inside 5 seconds, ram and KO a second cart. The coupon says SAVAGE. The PA says SAVAGE or OUT OF CONTROL.<br>3. Inside 5 seconds, KO a third. The coupon says CARNAGE. The PA says CARNAGE or TOTAL CARNAGE.<br>FAIL if the coupon hits SAVAGE or CARNAGE and the PA stays on RAMPAGE or stays quiet. FAIL if two quick KOs never leave RAMPAGE on the coupon. PASS if the PA name matches the coupon.",
             "ship1": null
           }
         ]
