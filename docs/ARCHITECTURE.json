@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-13T06:06:59.595Z",
-    "commit": "7b7df9a"
+    "at": "2026-08-13T06:23:07.955Z",
+    "commit": "dc04ff0"
   },
-  "source_digest": "927ae644",
+  "source_digest": "e9bf8cae",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1187,7 +1187,7 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Medium": 6,
+          "Medium": 7,
           "Low": 3
         },
         "rows": [
@@ -1243,6 +1243,12 @@
             "pri": "Low",
             "item": "MENU-MUSIC-2B-PT-1 — one menu song at a time, no overlap `[solo]`",
             "notes": "**Owed: Wyatt playtest — MENU-MUSIC-2B-PT-1 — the menu plays one song at a time, never two on top of each other.** Regression fix for the two-song overlap (MENU-MUSIC-2 reverted the start-index write ordering). Prod after hard-refresh. Deployed `7de7f87`.<br>1. Load the menu on prod (hard-refresh first).<br>2. Click once anywhere so the first gesture starts the menu music.<br>3. Listen through the first song until it hands off to the second.<br>4. FAIL if two songs ever overlap, especially right after the click or during the handoff. PASS if exactly one song is audible the whole time.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "CHALLENGE-EXPAND-PT-1 — six challenge entries and three new finishes `[solo]`",
+            "notes": "**Owed: Wyatt playtest — CHALLENGE-EXPAND-PT-1 — the expanded challenge rotation and its three new sunglasses stay readable, persistent, and useful.** This work is not deployed; use `npm run dev:local`.<br>1. Open Challenges, complete one of the new daily goals, and confirm the progress card, completion toast, menu badge, analytics event, and results receipt update once.<br>2. Open Customize → Sunglasses, inspect all nine finishes, unlock and equip Obsidian, Hazard, and Pearl, then refresh and confirm the choices persist.<br>3. Check the challenge screen at desktop, portrait phone, and short landscape sizes: all four daily and two weekly cards are readable, completed states are clear, the list scrolls, and BACK/DONE remain reachable.<br>4. FAIL if a card is missing, progress resets, a finish is unavailable after its goal, or any layout clips/overlaps. PASS if all six challenges and nine finishes remain easy to use.",
             "ship1": null
           }
         ]
