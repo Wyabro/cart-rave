@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-14T01:29:19.743Z",
-    "commit": "d5fc9a0"
+    "at": "2026-08-14T01:31:47.821Z",
+    "commit": "b01bd8a"
   },
-  "source_digest": "7160e3ff",
+  "source_digest": "9534be64",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1008,8 +1008,8 @@
         "rows": [
           {
             "pri": "Low",
-            "item": "KO-DOOMED-1 — local KO red edge pulse + shatter shockwave",
-            "notes": "Every local KO, including self-falls and environmental deaths, gets a medium red edge pulse and one centered expanding screen shockwave when the local cart shatters. Presentation-only: no text stamp, score, physics, camera timing, or attacker-side effect.",
+            "item": "CART-HUE-RED-1 — custom hue red reads as dark orange in-game `[solo]`",
+            "notes": "**Filed 08-13 from ART-PALETTE-PT-1 (Wyatt PASS with note).** The custom-color hue slider's red end renders as a dark-orange bloom in-game instead of red; the five preset `CART_COLORS` are unaffected. Art presentation pass only — the cart material traverse stays frozen.",
             "ship1": null
           }
         ]
@@ -1037,8 +1037,7 @@
       {
         "title": "Design / Gameplay",
         "counts": {
-          "Medium": 2,
-          "Low": 1
+          "Medium": 2
         },
         "rows": [
           {
@@ -1052,19 +1051,13 @@
             "item": "CLUTCH-SLOMO-1 — Clutch slow-mo (Pass 5 deferral)",
             "notes": "Taste-gated.",
             "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "RUMBLE-STRENGTH-1 — Enable controller rumble from Settings *(pre-ship 07-19)*",
-            "notes": "**Approved scope:** add a general `ENABLE CONTROLLER RUMBLE` Settings action. Xbox, PS5, and Steam Deck are first-class targets through standard Gamepad rumble; use a narrow, user-permission WebHID fallback only for USB DualSense `054c:0ce6` when that API exposes no actuator. Show connect, enable, on, and honest unsupported states; persist the setting; preserve gameplay rumble and input. Controller-only menu focus/confirm pulses are lower priority than gameplay rumble. No adaptive triggers or generic Xbox WebHID path. **Files:** `src/haptics.js`, `src/ui/gamepadNav.js`, `src/ui/cart-rave-menu.js`, Settings markup/styles, haptics/nav tests. **Asserts:** standard pads need no setup; the PS5 permission button causes a test pulse only after approval; all three targets retain hit/KO feedback; unsupported browser/device fails safely; keyboard/mouse menu use stays silent. **Risk:** WebHID is Chromium + secure-context + user-permission gated.",
-            "ship1": null
           }
         ]
       },
       {
         "title": "Playtest owed",
         "counts": {
-          "Low": 11,
+          "Low": 5,
           "Medium": 3
         },
         "rows": [
@@ -1082,26 +1075,8 @@
           },
           {
             "pri": "Low",
-            "item": "RUMBLE-STRENGTH-PT-1 — controller rumble works on Xbox, PS5, and Steam Deck `[solo]`",
-            "notes": "**Owed: Wyatt playtest — RUMBLE-STRENGTH-PT-1 — Settings enables controller rumble, gives one short test pulse, and keeps gameplay feedback stronger than menu feedback.** **Deployed:** `682891e` / Worker `82e8a360-b185-403a-8a66-2757f7aba40d`; hard-refresh production first.<br>1. With an Xbox controller in Chrome, open Settings and enable controller rumble. PASS if it gives one short test pulse, says ON, and stays ON after reload; FAIL if it asks for HID permission or says ON without a pulse.<br>2. With the PS5 controller connected by USB, open Settings. If standard rumble is ready, enable it; if the permission state appears, approve only the PS5 picker. PASS if the test pulse, menu focus/confirm taps, and one hit or KO rumble work; FAIL if an unrelated device is offered, the state lies, or no gameplay rumble occurs.<br>3. In the Steam Deck browser, enable rumble and navigate the menu, then play one round. PASS if the Deck gets the same test/menu/gameplay pattern; FAIL if it is treated as unsupported while the browser exposes a standard actuator.<br>4. Turn rumble off, then use keyboard or mouse in the menu. PASS if controller rumble stops and phone/menu vibration does not occur; FAIL if a menu tap overrides a stronger hit or KO rumble.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "GAMEPAD-NAV-REPEAT-PT-1 — held controller menu navigation `[solo]`",
-            "notes": "**Owed: Wyatt playtest — GAMEPAD-NAV-REPEAT-PT-1 — holding a D-pad or left-stick direction cycles menu controls without accidental diagonal skips or a rapid rumble buzz.** **Deployed:** `34518ca` / Worker `54ce3bb3-3cfd-4d2f-9ea3-c9e671f5c7db`; hard-refresh production first.<br>1. Connect an Xbox controller, PS5 USB controller, or Steam Deck. Open Settings and hold D-pad down (then the left stick down). PASS if focus moves once immediately, pauses about 0.3 s, then moves at a readable steady rate; FAIL if it only moves once, starts slowly, or skips two controls at once.<br>2. Hold the stick diagonally. PASS if each repeat moves one predictable direction only; FAIL if focus jitters, alternates, or double-steps.<br>3. Hold a direction, then open or close an overlay. PASS if focus starts in that layer and does not carry an immediate extra move across the layer change; FAIL if it jumps behind the overlay.<br>4. Focus a Settings or Customize slider and hold left or right. PASS if it makes one normal 5% nudge only; FAIL if it keeps changing the value.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
             "item": "KO-DOOMED-PT-1 — local KO edge pulse + shockwave `[solo]`",
             "notes": "**Owed: Wyatt playtest — KO-DOOMED-PT-1 — every local KO gives a medium red edge pulse and one centered shockwave when your cart shatters.** **Unshipped:** use `npm run dev:local` until the next ship; then repeat on production after a hard refresh.<br>1. Start a Solo round and deliberately fall off the arena, including the center hole where available. PASS if the red edge pulse and centered shockwave appear once with your cart shatter; FAIL if either is missing, repeats, or appears before the shatter.<br>2. Let an NPC ram you into the void. PASS if the same feedback appears once; FAIL if it only works for self-falls.<br>3. KO an NPC without falling yourself. FAIL if you get the red victim feedback; PASS if only the normal attacker KO feedback appears.<br>4. In Settings, set graphics quality Low or turn post-FX off if available. Repeat one local fall. FAIL if the feedback disappears.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "CHAL-SHELF-FIT-PT-1 — portrait challenge shelf shows six cards `[solo]`",
-            "notes": "**Owed: Wyatt playtest — CHAL-SHELF-FIT-PT-1 — the Challenges screen shows four Daily and two Weekly cards, their headings, BACK, and DONE together at 360 × 640 portrait.** **Unshipped:** use `npm run dev:local` until the next ship; then repeat on production after a hard refresh.<br>1. On a 360 × 640 portrait viewport, open Challenges. PASS if all six cards, DAILY and WEEKLY headings, BACK, and DONE are visible without scrolling.<br>2. Check the longest visible challenge name and a completed card if one is available. FAIL if any name, badge or DONE stamp, description, progress bar, or count is clipped or overlaps.<br>3. Open Challenges on desktop. PASS if the existing two-column desktop shelf appearance is unchanged.",
             "ship1": null
           },
           {
@@ -1133,50 +1108,19 @@
             "item": "CARGO-BAY-INSTANCE-PT-3 — other players see the same cargo `[2pc]`",
             "notes": "**Owed: Wyatt playtest — CARGO-BAY-INSTANCE-PT-3 — the other player sees your cargo fill, not an empty bay.** Same parent; two machines.<br>1. Two browsers, same Friends room on prod. Both seat and start.<br>2. Score on one cart until its bays fill. Look at that cart from the other browser.<br>3. FAIL if the other player sees empty bays, a different fill, or missing models. PASS if both screens show the same groceries.",
             "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "LOD-DOORWAY-PT-1 — Storerooms wall doorways stay visible `[solo]`",
-            "notes": "**Owed: Wyatt playtest — LOD-DOORWAY-PT-1 — the wall doorways stay visible from the floor and when you drive up to them (were popping out at the wall).** LOD-DOORWAY-1 dropped the origin-anchored `far: 55` registration. Solo Storerooms on prod after hard-refresh.<br>1. From the floor, look across the pit at each wall doorway (two on the −Z wall, one on the −X wall). FAIL if any is missing from that view.<br>2. Drive at each doorway until you reach the wall.<br>3. FAIL if a doorway pops out as you get close, or if the round never completes. PASS if all three stay visible from the floor and at the wall.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "SHELF-RAIL-PT-1 — Storerooms booth rails + shelf boards look right `[solo]`",
-            "notes": "**Owed: Wyatt playtest — SHELF-RAIL-PT-1 — the spawn-booth handrails read as matte painted steel (not shiny chrome), and the far shelf boards read as bolted sections.** SHELF-RAIL-1 cut the rail metalness 0.7→0.3 / roughness 0.45→0.72 and split each 114 m shelf board into bays with 4 cm seams. Solo Storerooms on `npm run dev` (or prod after next ship).<br>1. Look at the four spawn-booth platforms from the floor at round start. FAIL if the handrails gleam like chrome; PASS if they read matte metal like the room's other painted surfaces.<br>2. Drive to one perimeter wall and look at the shelf boards behind the products. FAIL if the boards look like one unbroken run; PASS if you can see bay seams (per-bay texture breaks) reading as bolted sections.<br>3. FAIL if the rails are brighter than every other surface in the room, or if anything looks broken.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "ART-PALETTE-PT-1 — cart neon reads as brand magenta/cyan/green/yellow/orange `[solo]`",
-            "notes": "**Owed: Wyatt playtest — ART-PALETTE-PT-1 — carts glow brand neon (softer magenta/cyan/green/yellow/orange), not pure spectral, and the menu chip matches the in-game color.** ART-PALETTE-1 reconciled `CART_COLORS` with the 2D roster (`0xff2bd6`/`0x22e6ff`/`0x2bff7a`/`0xffe53d`/`0xff7a1a`) and swept arena neon stragglers. Solo on `npm run dev` (or prod after next ship), any arena + the customize screen.<br>1. Pick each of the five preset colors in customize; look at the menu chip and the in-game cart. FAIL if the chip color and the cart neon differ, or if any color reads pure spectral (raw #ff00ff etc.).<br>2. Emissive balance: pink and orange must not look dimmer than before, and yellow must not look hotter (it brightened ~40% — the old run-5 taming no longer applies). FAIL if any color looks blown out or dead.<br>3. Check the HUD \"you\" accent (ready button, score float, hitmarker) matches the cart's neon color.<br>4. Drag the custom-color hue slider. FAIL if a preset-adjacent custom hue snaps to a noticeably wrong-looking bloom.",
-            "ship1": null
           }
         ]
       },
       {
         "title": "UI / UX",
         "counts": {
-          "Medium": 1,
-          "Low": 2
+          "Medium": 1
         },
         "rows": [
           {
             "pri": "Medium",
             "item": "ANIM-BUGS-1 — animations.js entrance + lifecycle bugs",
             "notes": "**Deployed** `d5fc9a0` / Worker `c319bb08-f87d-4ac6-be98-4771cd731c34`. Levers 1–6 on prod; QA 7/7; live root + 25 assets 0×404; animations chunk `animations-CoDgvy2n.js` carries pointer-capture + howto beat symbols. Human check: **ANIM-BUGS-PT-1**.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "CHAL-SHELF-FIT-1 — challenge shelf fits portrait phone without scrolling",
-            "notes": "Four daily and two weekly challenge cards, headings, and DONE/BACK controls must fit on one portrait-phone screen without scrolling while staying readable. Scope is portrait phones only; desktop layout and appearance must remain unchanged. No challenge data, rotation, progress, or interaction changes.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "GAMEPAD-NAV-REPEAT-1 — held controller menu navigation",
-            "notes": "**Approved scope:** controller D-pad or left stick moves once immediately, waits 300 ms, then repeats every 100 ms. Resolve one direction only: D-pad wins; stick uses its strongest entry axis with 0.55 enter / 0.35 release hysteresis. Reset held input when the nav scope changes, navigation becomes inactive, or the controller disconnects. Keep keyboard navigation, A/B/LB/RB, and left/right slider behavior unchanged; a held slider nudge remains one 5% step. Limit controller focus rumble to one pulse per 200 ms. **Files:** `src/ui/gamepadNav.js`, `src/haptics.js`, nav/haptics tests. **Asserts:** no diagonal double-step, no drift restart, no post-overlay repeat leak, no repeat burst after a stalled frame, and no rapid rumble buzz. **Risk:** browser gamepad reports vary by controller.",
             "ship1": null
           }
         ]

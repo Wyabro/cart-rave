@@ -55,6 +55,7 @@ export function resetSuddenDeathStalemateForTest() {
  * @property {() => boolean} isScoreTied
  * @property {(val: boolean) => void} setSuddenDeath
  * @property {(victimSlotIndex: number, comboTier: number, koEvent?: import("./scoring/koEvent.js").KOEvent) => void} [onLocalKillConfirm]
+ * @property {(koEvent: import("./scoring/koEvent.js").KOEvent) => void} [onLocalDoomed] Local-victim KO feedback (red edge pulse + shockwave) — fires for every finalized KO that eliminates the local player.
  * @property {(preview: { victimSlotIndex: number, attackerSlotIndex: number }) => void} [onKoConfirmPreview]
  * @property {(koEvent: import("./scoring/koEvent.js").KOEvent) => void} [onArenaKoFlash]
  * @property {() => string} [detectGameMode]
@@ -401,6 +402,7 @@ export function updateGameFlow(deps, context) {
               colorHexForSlot: deps.colorHexForSlot,
               onAnnouncerFall: deps.onAnnouncerFall,
               onLocalKillConfirm: deps.onLocalKillConfirm,
+              onLocalDoomed: deps.onLocalDoomed,
               onArenaKoFlash: deps.onArenaKoFlash,
               recordChallenge: ChallengeTracker.record,
               getLevelId: () => getCurrentLevelId(),

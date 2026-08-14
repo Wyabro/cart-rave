@@ -137,6 +137,7 @@ function makeSuddenDeathWorld() {
     triggerCartShatter: vi.fn(),
     getYouConnId: () => "you",
     queueHostFallEvent: vi.fn(),
+    onLocalDoomed: vi.fn(),
     onSpill: vi.fn(),
     onCartOutOfPlay: vi.fn(),
   };
@@ -232,6 +233,19 @@ describe("Sudden Death fall loop", () => {
     // * SD skips scheduleRespawn — leave-play hook is how charge SFX is stopped.
     expect(deps.scheduleRespawn).not.toHaveBeenCalled();
     expect(deps.onCartOutOfPlay).toHaveBeenCalledWith(carts[1]);
+  });
+
+  it("KO-DOOMED-PT-1: host KO fan-out carries the local-victim hook (doomed feedback fires on solo)", () => {
+    // * Regression: the host dispatch ctx used to omit onLocalDoomed, so
+    // * localDoomedReactor's ctx.onLocalDoomed?.() no-oped on every host KO — and
+    // * Solo is always host, so no red edge pulse / shockwave ever showed locally.
+    const { carts, deps } = makeSuddenDeathWorld();
+    carts[1].body._pos.y = -20; // a real fall → dispatchKOEvent runs on the host
+
+    runFrame(deps);
+
+    expect(dispatchKOEvent).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(dispatchKOEvent).mock.calls[0][1].onLocalDoomed).toBe(deps.onLocalDoomed);
   });
 
   it("NET-SD-1: sole score leader self-fall crowns the best standing trailer", () => {
