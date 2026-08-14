@@ -4,23 +4,48 @@
   <meta charset="UTF-8">
   <!-- viewport-fit=cover: env(safe-area-inset-*) is non-zero on notched phones (Pass 3.3). -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="description" content="Bump, boost, and blast your friends out of the arena. A free 4-player shopping-cart physics game in your browser — no install.">
+  <meta name="description" content="Free browser-based 3D physics arena brawler. Fight in shopping carts, boost rivals off the edge. Solo, Quickplay, or Friends — no install.">
   <meta name="theme-color" content="#0a0014">
   <title>Cart Clash - Shopping Cart Arena Brawler</title>
+  <!-- One public canonical site: the apex cartclash.lol. The same Worker also serves
+       www.cartclash.lol and cart-rave.wyabro.workers.dev, and Glitch ships a festival
+       copy — every twin consolidates here; none should index on its own. -->
+  <link rel="canonical" href="https://cartclash.lol/">
 
   <!-- Social link previews (invite links are the core sharing loop) -->
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Cart Clash">
   <meta property="og:title" content="Cart Clash - Shopping Cart Arena Brawler">
-  <meta property="og:description" content="Bump, boost, and blast your friends out of the arena. A free 4-player shopping-cart physics game in your browser — no install.">
+  <meta property="og:description" content="Free browser-based 3D physics arena brawler. Fight in shopping carts, boost rivals off the edge. Solo, Quickplay, or Friends — no install.">
   <meta property="og:url" content="https://cartclash.lol/">
-  <meta property="og:image" content="https://cartclash.lol/android-chrome-512x512.png">
-  <meta property="og:image:width" content="512">
-  <meta property="og:image:height" content="512">
-  <meta name="twitter:card" content="summary">
+  <meta property="og:image" content="https://cartclash.lol/brand/share-card.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Cart Clash — neon shopping-cart arena brawler, free to play in your browser">
+  <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Cart Clash - Shopping Cart Arena Brawler">
-  <meta name="twitter:description" content="Bump, boost, and blast your friends out of the arena. A free 4-player shopping-cart physics game in your browser — no install.">
-  <meta name="twitter:image" content="https://cartclash.lol/android-chrome-512x512.png">
+  <meta name="twitter:description" content="Free browser-based 3D physics arena brawler. Fight in shopping carts, boost rivals off the edge. Solo, Quickplay, or Friends — no install.">
+  <meta name="twitter:image" content="https://cartclash.lol/brand/share-card.png">
+  <!-- Structured data: VideoGame — factual only, no invented ratings/reviews. -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "VideoGame",
+    "name": "Cart Clash",
+    "url": "https://cartclash.lol/",
+    "image": "https://cartclash.lol/brand/share-card.png",
+    "description": "Free browser-based 3D physics arena brawler. Fight in shopping carts, boost rivals off the edge. Solo, Quickplay, or Friends — no install.",
+    "genre": ["Arena Brawler", "Physics"],
+    "gamePlatform": "Web Browser",
+    "playMode": ["SinglePlayer", "MultiPlayer"],
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD",
+      "availability": "https://schema.org/InStock"
+    }
+  }
+  </script>
   <link rel="icon" type="image/x-icon" href="/favicon.ico">
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">

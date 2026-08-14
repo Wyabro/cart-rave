@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-14T07:51:06.692Z",
-    "commit": "0fd9c64"
+    "at": "2026-08-14T08:18:44.595Z",
+    "commit": "f7751a0"
   },
-  "source_digest": "4e253d5d",
+  "source_digest": "e6dad155",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1036,7 +1036,7 @@
           {
             "pri": "Low",
             "item": "GAMEPAD-MENU-ROUTES-PT-1 — controller routes for desktop + handheld menus `[solo]`",
-            "notes": "**Owed: Wyatt playtest — GAMEPAD-MENU-ROUTES-PT-1 — controller menus have an obvious route to match setup, and pause opens on RESUME.** Parent **GAMEPAD-MENU-ROUTES-1**. Pushed but not yet deployed.<br>1. On desktop with a controller or a controller handheld, open the main menu. Use LB/RB to move between COMMANDS and MATCH SETUP; use the D-pad to reach arena and difficulty controls, then choose an arena and a difficulty.<br>2. Start a solo round, pause it, and confirm the focus ring is already on RESUME. Use D-pad and A to resume; use B from another pause button to resume without changing a main-menu setting.<br>3. FAIL if a bumper changes arena by itself, a setup control cannot be reached, focus goes behind an open overlay, or any phone/tablet touch behavior changes. PASS if the route is clear and both controller types work.",
+            "notes": "**Owed: Wyatt playtest — GAMEPAD-MENU-ROUTES-PT-1 — controller menus keep familiar arena bumpers, D-pad match setup access, and immediate pause RESUME focus.** Parent **GAMEPAD-MENU-ROUTES-1** is deployed; this retests the fix.<br>1. On desktop with a controller or a controller handheld, open the main menu. Use the D-pad to reach arena and difficulty controls. Use LB/RB to page the visible arena, then choose an arena and a difficulty.<br>2. Start a solo round, pause it, and confirm the focus ring is already on RESUME during the pause entrance. Use D-pad and A to resume; use B from another pause button to resume without changing a main-menu setting.<br>3. FAIL if a bumper does not page the visible arena, a setup control cannot be reached, focus goes behind an open overlay, or any phone/tablet touch behavior changes. PASS if the route is clear and both controller types work.",
             "ship1": null
           },
           {
@@ -1412,6 +1412,11 @@
       "Cross-module change? Read docs/reference/control-flow.md first — most edges are not imports."
     ],
     "settled_decisions": [
+      {
+        "id": "D-SEO-1",
+        "date": "08-14",
+        "text": "SEO pass — `rel=canonical` + og/twitter meta point at the apex cartclash.lol (www / workers.dev twins and the Glitch copy consolidate there, never index on their own); share card is a 1200×630 opaque composite of the title splat on brand bg (replaces the 512px icon; `summary_large_image` + `og:image:alt`); VideoGame JSON-LD (factual only); robots.txt + single-URL sitemap. Head-only + 2 new public files; zero gameplay/DOM change."
+      },
       {
         "id": "D-STORE-PILE-1",
         "date": "08-14, `0fd9c64`",

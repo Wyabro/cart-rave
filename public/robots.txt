@@ -1,0 +1,8 @@
+# Cart Clash — https://cartclash.lol/
+# The same Worker also serves www.cartclash.lol and cart-rave.wyabro.workers.dev
+# (and Glitch ships a festival copy); every page carries a rel=canonical to the
+# apex URL so crawlers consolidate there instead of indexing a twin host.
+User-agent: *
+Allow: /
+
+Sitemap: https://cartclash.lol/sitemap.xml
