@@ -1588,15 +1588,14 @@ async function scenarioFriendsLobby(browserHost, browserJoiner, baseUrl) {
  * deliberately ONE scenario: freeze/thaw, not migration (hostMigration already covers clean
  * departure).
  *
- * Freezes the HOST's page for real via CDP `Page.setWebLifecycleState({state:"frozen"})` — a
+ * Freezes the HOST's page for real via CDP `Debugger.pause` (re-acked 2026-08-14) — a
  * plain `document.hidden` toggle is not enough here: the HOST-TAB-1 pump keeps a genuinely
  * hidden host sending (MessageChannel, gameLoop.js), and this rig additionally runs
  * `?perfPump=1` + CDP focus emulation on every client, both designed to defeat throttling. A
- * frozen page cannot run its own hostAway timer either, so this cannot accidentally trigger a
- * migration — it is testing the freeze/thaw path, not the handoff path. If the lifecycle call
- * proves unreliable in this Chromium, the run records an INCONCLUSIVE and says so — no
- * CPU-throttle or in-page fallback ships silently (both are fake under focus emulation +
- * perfPump).
+ * paused page cannot run its own hostAway timer either, so this cannot accidentally trigger a
+ * migration — it is testing the freeze/thaw path, not the handoff path. If the pause never
+ * lands in this Chromium, the run records an INCONCLUSIVE and says so — no CPU-throttle or
+ * in-page fallback ships silently (both are fake under focus emulation + perfPump).
  */
 async function scenarioHostFreeze(browserHost, browserJoiner, baseUrl) {
   console.log("[scenario] hostFreeze — host tab freezes (throttled, not dead); joiner holds; host thaws, snapshots resume");
@@ -1626,7 +1625,7 @@ async function scenarioHostFreeze(browserHost, browserJoiner, baseUrl) {
   if (!host.cdp) {
     inconclusive(
       "host freeze lever available",
-      "no CDP session on the host client (see the focus-emulation warning above) — cannot drive Page.setWebLifecycleState",
+      "no CDP session on the host client (see the focus-emulation warning above) — cannot drive CDP Debugger.pause",
     );
     await joiner.context.close();
     await host.context.close();
@@ -1640,15 +1639,62 @@ async function scenarioHostFreeze(browserHost, browserJoiner, baseUrl) {
   const hostIdBefore = preState.hostId;
   const hostCartBefore = hostCartOf(preState);
 
-  // 3. Freeze the host tab for real.
-  console.log("[scenario] freezing host tab via CDP Page.setWebLifecycleState…");
+  // 3. Freeze the host tab for real — CDP Debugger.pause (HARNESS-FREEZE-1 amendment,
+  //    re-acked 2026-08-14: the original Page.setWebLifecycleState lever resolved without
+  //    throwing yet never silenced a page holding a live RTCPeerConnection, because
+  //    Chromium's page-freeze/bfcache eligibility excludes such pages. Debugger.pause is a
+  //    GENUINE JS halt — timers, rAF, and the MessageChannel pump all stop — validated live
+  //    in this Chromium (27 ticks in the 250ms resume window vs ~170 for the full pause).
+  //    No CPU-throttle or in-page fallback substitutes for it (both are fake under focus
+  //    emulation + perfPump).
+  console.log("[scenario] freezing host tab via CDP Debugger.pause…");
   try {
-    await host.cdp.send("Page.enable");
-    await host.cdp.send("Page.setWebLifecycleState", { state: "frozen" });
+    await host.cdp.send("Debugger.enable");
+    await host.cdp.send("Debugger.pause");
   } catch (e) {
     inconclusive(
-      "host freeze lever applied (CDP Page.setWebLifecycleState)",
-      `CDP call failed in this Chromium — ${e instanceof Error ? e.message : e}. Per HARNESS-FREEZE-1, no fallback lever ships silently; this needs a re-ack, not a workaround.`,
+      "host freeze lever applied (CDP Debugger.pause)",
+      `CDP call failed in this Chromium — ${e instanceof Error ? e.message : e}.`,
+    );
+    await joiner.context.close();
+    await host.context.close();
+    return;
+  }
+
+  // 3a. The pause lands at the next JS yield — the host can push 1–2 more snapshots before
+  //     the halt. Wait (bounded) for GENUINE silence from the joiner's viewpoint, then use
+  //     that seq as the freeze-window baseline so the in-flight sends can't read as a
+  //     non-stall.
+  let silenceSeq = preSnapSeq;
+  let silenceObserved = false;
+  {
+    const silenceDeadline = Date.now() + 5_000;
+    let last = preSnapSeq;
+    let quietSince = Date.now();
+    while (Date.now() < silenceDeadline) {
+      // eslint-disable-next-line no-await-in-loop
+      await sleep(250);
+      // eslint-disable-next-line no-await-in-loop
+      const s = await joiner.page.evaluate(() => window.__ccTest.getState());
+      const cur = s.latestSnapSeq ?? 0;
+      if (cur === last) {
+        if (Date.now() - quietSince >= 1_000) {
+          silenceObserved = true;
+          silenceSeq = cur;
+          break;
+        }
+      } else {
+        last = cur;
+        quietSince = Date.now();
+      }
+    }
+  }
+  if (!silenceObserved) {
+    // * Grace exhausted without a full quiet second — the halt never landed. Same evidence
+    // * discipline as the original amendment: ONE clear INCONCLUSIVE, no scored guesses.
+    inconclusive(
+      "CDP Debugger.pause achieved genuine host silence",
+      `host kept sending through a 5s post-pause grace window (baseline ${preSnapSeq}) — the halt never landed in this Chromium/Playwright build. The seq-stall, pose-hold, and both post-thaw gap-event checks have no real freeze to measure against and are skipped rather than scored pass/fail.`,
     );
     await joiner.context.close();
     await host.context.close();
@@ -1672,7 +1718,7 @@ async function scenarioHostFreeze(browserHost, browserJoiner, baseUrl) {
     // eslint-disable-next-line no-await-in-loop
     const s = await joiner.page.evaluate(() => window.__ccTest.getState());
     seqTrace.push(s.latestSnapSeq ?? 0);
-    if ((s.latestSnapSeq ?? 0) > preSnapSeq && stalled) {
+    if ((s.latestSnapSeq ?? 0) > silenceSeq && stalled) {
       stalled = false;
       seqAtStallBreak = s.latestSnapSeq ?? 0;
       msAtStallBreak = Date.now() - freezeStart;
@@ -1685,28 +1731,20 @@ async function scenarioHostFreeze(browserHost, browserJoiner, baseUrl) {
     // eslint-disable-next-line no-await-in-loop
     await sleep(250);
   }
-  console.log(`[diag] seq trace during freeze window (baseline ${preSnapSeq}): [${seqTrace.join(",")}]`);
+  console.log(`[diag] seq trace during freeze window (silence baseline ${silenceSeq}): [${seqTrace.join(",")}]`);
 
   if (!stalled) {
-    // * HARNESS-FREEZE-1 explicit amendment (measured live, not a boundary race — the trace
-    // * below shows steady ~40Hz sends across the WHOLE freeze window): CDP
-    // * Page.setWebLifecycleState({state:"frozen"}) can resolve without throwing yet still not
-    // * silence a page holding a live RTCPeerConnection — Chromium's page-freeze/bfcache
-    // * eligibility normally excludes pages with an active WebRTC connection, and the CDP
-    // * override did not force past that in this build. This is the exact "lever proves
-    // * unreliable" case the card calls out: record ONE clear INCONCLUSIVE for the whole
-    // * freeze-dependent portion and do NOT report pass/fail on evidence that was never
-    // * produced. No CPU-throttle or in-page fallback substitutes for it silently — this needs
-    // * a re-ack, not a workaround.
+    // * Even the genuine halt did not hold — record ONE clear INCONCLUSIVE rather than
+    // * scoring evidence that was never produced.
     inconclusive(
-      "CDP Page.setWebLifecycleState achieved genuine host silence",
-      `host kept sending through the whole ${FREEZE_MS}ms freeze window (seq advanced to ${seqAtStallBreak} at +${msAtStallBreak}ms; trace=[${seqTrace.join(",")}]) — the lifecycle freeze had no observable effect in this Chromium/Playwright build, most likely because the host page holds a live RTCPeerConnection. The seq-stall, pose-hold, and both post-thaw gap-event checks have no real freeze to measure against and are skipped rather than scored pass/fail.`,
+      "CDP Debugger.pause achieved genuine host silence",
+      `host kept sending through the whole ${FREEZE_MS}ms freeze window (seq advanced to ${seqAtStallBreak} at +${msAtStallBreak}ms; trace=[${seqTrace.join(",")}]) — the debugger pause had no observable effect in this Chromium/Playwright build. The seq-stall, pose-hold, and both post-thaw gap-event checks have no real freeze to measure against and are skipped rather than scored pass/fail.`,
     );
   } else {
     check(
       "snapshot seq stalls while host is frozen",
       stalled,
-      `seq stayed at ${preSnapSeq} for the full ${FREEZE_MS}ms freeze window`,
+      `seq stayed at ${silenceSeq} for the full ${FREEZE_MS}ms freeze window`,
     );
     // * Bounded settle, not a literal freeze — remotes are still rendered every frame off the
     // * snapshot buffer; when it runs dry they extrapolate from last-known velocity capped at
@@ -1722,7 +1760,11 @@ async function scenarioHostFreeze(browserHost, browserJoiner, baseUrl) {
 
   // 5. Thaw.
   console.log("[scenario] thawing host tab…");
-  await host.cdp.send("Page.setWebLifecycleState", { state: "active" });
+  try {
+    await host.cdp.send("Debugger.resume");
+  } catch (e) {
+    nlog(`[hostFreeze] Debugger.resume failed — ${e instanceof Error ? e.message : e}`);
+  }
 
   // 6. AFTER thaw: snapshots resume, and the gap events fire on the first send/arrival
   //    following the gap (noteHostSendTick / noteSnapshotArrival measure retrospectively —
@@ -1730,7 +1772,7 @@ async function scenarioHostFreeze(browserHost, browserJoiner, baseUrl) {
   //    so neither event could exist yet; they are producer, not during-freeze, evidence). Only
   //    meaningful when the freeze actually silenced the host — see the inconclusive above.
   if (stalled) {
-    const resumed = await waitForState(joiner.page, (s) => (s.latestSnapSeq ?? 0) > preSnapSeq + 2, {
+    const resumed = await waitForState(joiner.page, (s) => (s.latestSnapSeq ?? 0) > silenceSeq + 2, {
       timeout: 10_000,
       label: "joiner-snapshots-resume",
     }).catch(() => null);
