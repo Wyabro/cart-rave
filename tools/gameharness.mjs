@@ -307,9 +307,17 @@ async function scenarioUnlockFunnel(browser, baseUrl, tally) {
   // Persistence: the unlock must survive a full page reload (localStorage-backed progression —
   // the "did my progress save?" player question, previously never machine-checked).
   await page.reload({ waitUntil: "domcontentloaded", timeout: 60_000 });
-  await page.waitForFunction(() => Boolean(/** @type {any} */ (window).__ccDiag?.active), undefined, {
-    timeout: 60_000,
-  });
+  // * Hub install (__ccDiag.active) and probe registration (gameplayDiagnostics install) are
+  // * separate beats — snapshot("unlocks") returns null until the probe exists, so wait for
+  // * the probe, not just the hub.
+  await page.waitForFunction(
+    () => {
+      const d = /** @type {any} */ (window).__ccDiag;
+      return Boolean(d?.active && d.snapshot?.("unlocks"));
+    },
+    undefined,
+    { timeout: 60_000 },
+  );
   const persisted = await page.evaluate(
     () => /** @type {any} */ (window).__ccDiag.snapshot("unlocks").levels.backrooms.unlocked,
   );

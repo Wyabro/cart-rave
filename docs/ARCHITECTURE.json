@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-14T09:17:01.888Z",
-    "commit": "fe91388"
+    "at": "2026-08-14T17:09:18.934Z",
+    "commit": "2997f54"
   },
-  "source_digest": "66fb9646",
+  "source_digest": "7267a31c",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1324,7 +1324,7 @@
   "build_deploy": {
     "build": "npm run build (Vite → dist/)",
     "deploy": "npm run ship = vite build && npx wrangler deploy",
-    "dev": "npm run dev:local (Vite :3000 + Wrangler :8787; aliases dev:cart-clash / dev:next-level)",
+    "dev": "npm run dev:local (Vite :3000 + Wrangler :8899; aliases dev:cart-clash / dev:next-level)",
     "hosting": "Cloudflare Workers + Durable Objects (DO class CartRaveServer); the Worker serves the client from dist/ ASSETS and hosts the room — no separate static host, not the PartyKit hosted platform.",
     "branch": "cart-clash (active) → main (production mirror); CI runs qa + production build on push/PR."
   },
