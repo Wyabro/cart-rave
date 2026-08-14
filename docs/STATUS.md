@@ -29,12 +29,12 @@ report phase-exit eligibility; they must not move the marker.
 are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Analytics DO reset for
 external testers. Stay in this phase until Wyatt advances the marker.
 
-**Three deployed input regression checks await Wyatt retest (08-14):**
-**GAMEPAD-DIRECT-ENTRY-PT-1** · **GAMEPAD-MENU-ROUTES-PT-1** ·
-**PAUSE-CHARGE-SFX-PT-1**. Other solo owed cards: **STORE-PILE-PT-1** ·
-**SUNGLASSES-OBSIDIAN-PT-1** — see BACKLOG `## Playtest owed`. Deferred (two machines / launch day):
-**CARGO-BAY-INSTANCE-PT-3** · **CONN-TRACK-LEAK-PT-1** · **QP-ROTATE-PT-1** · **SHARD-PT-2**.
-Open agent picks live in [BACKLOG.md](./planning/BACKLOG.md) Work order Blocks 4–5 / 7.
+**STORE-PILE-PT-1 FAIL 08-14.** Bounce (17 m/s²) loses to drive (125 m/s²). Next lever:
+**STORE-PILE-2** — plan below, wait for ack. Residual from a PASS:
+**GAMEPAD-FRIENDS-SEATED-1**. Deferred (two machines / launch day):
+**DEEPSEC-1-PT-1** · **CARGO-BAY-INSTANCE-PT-3** · **CONN-TRACK-LEAK-PT-1** ·
+**QP-ROTATE-PT-1** · **SHARD-PT-2**. Open picks: [BACKLOG.md](./planning/BACKLOG.md)
+Blocks 1 / 4–5 / 7.
 
 **Closed cards keep their narrative in their own docs, not here** — Sundial
 ([handover](./planning/art-pass-sundial-handover.md); read its "Traps that cost time" before any
@@ -76,10 +76,10 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. **DEEPSEC-1 is on prod** (Worker `a1d270b5`). Hard-refresh, then run **DEEPSEC-1-PT-1** `[2pc]`. Token rotate stays on **DEEPSEC-2**.
-2. **Deferred playtests (need two machines or launch-day traffic):** **DEEPSEC-1-PT-1** · **CARGO-BAY-INSTANCE-PT-3** · **CONN-TRACK-LEAK-PT-1** · **QP-ROTATE-PT-1** · **SHARD-PT-2**.
-3. **SHIP-1 D-tier** — cut persistent leaderboard from launch, or schedule its own phase (Wyatt).
-4. Agent quiet-window picks: BACKLOG Block 4 (WARM-SOLO-1 · PERF-WATCH-1) or Block 5 Lows — plan → ack first.
+1. **STORE-PILE-2** — bounce must cancel inward velocity. Wait for plan ack, then one lever. Retest **STORE-PILE-PT-1**.
+2. **DEEPSEC-1 is on prod** (Worker `a1d270b5`). Hard-refresh, then run **DEEPSEC-1-PT-1** `[2pc]`. Token rotate stays on **DEEPSEC-2**.
+3. **Deferred playtests:** **CARGO-BAY-INSTANCE-PT-3** · **CONN-TRACK-LEAK-PT-1** · **QP-ROTATE-PT-1** · **SHARD-PT-2**.
+4. **SHIP-1 D-tier** — cut persistent leaderboard from launch, or schedule its own phase (Wyatt).
 
 ## Open issues (top)
 

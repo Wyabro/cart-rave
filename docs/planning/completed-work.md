@@ -13,6 +13,14 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 14, 2026 — playtest PASSes (5 cards)
+
+- *(Playtest)* **GAMEPAD-DIRECT-ENTRY-PT-1** — ✅ **PASS 08-14.** Pencil + room-code dialogs open and work with controller grid and physical keyboard. Residual (new card, do not reopen this id): **GAMEPAD-FRIENDS-SEATED-1** — controller is glitchy after seating in the Friends lobby.
+- *(Playtest)* **GAMEPAD-MENU-ROUTES-PT-1** — ✅ **PASS 08-14.** Pause menu is fully controllable with a controller.
+- *(Playtest)* **MOBILE-SCOREBOARD-PT-1** — ✅ **PASS 08-14.** Every mobile scoreboard chip keeps name or identifier, symbol or icon, and score.
+- *(Playtest)* **PAUSE-CHARGE-SFX-PT-1** — ✅ **PASS 08-14.** Pause stops charge-up audio; resume needs a fresh boost press.
+- *(Playtest)* **SUNGLASSES-OBSIDIAN-PT-1** — ✅ **PASS 08-14.** Obsidian reads as dark black glass, distinct from Silver.
+
 ### August 14, 2026 — DEEPSEC-1: DeepSec real issues + bugs (3 levers)
 
 - *(Engineering · High)* **DEEPSEC-1** — one card, three commits. Token rotate is **DEEPSEC-2**
@@ -40,7 +48,8 @@ Chronological record of shipped work, newest first.
   blocks keyboard/gamepad/touch boost while UI owns input, and requires a fresh boost press after
   resume. Focused tests: 85/85; typecheck passed; local browser confirmed the production DOM mount,
   pause RESUME focus, and pause-scoped navigation. Deployed in Worker version
-  `70bf742a-0b6c-4214-be27-4697d950fbcc`; human checks remain open in BACKLOG.
+  `70bf742a-0b6c-4214-be27-4697d950fbcc`. Wyatt PASS 08-14:
+  **GAMEPAD-DIRECT-ENTRY-PT-1** · **GAMEPAD-MENU-ROUTES-PT-1** · **PAUSE-CHARGE-SFX-PT-1**.
 - **GAMEPAD-TEXT-ENTRY-PT-1** is retired as superseded by the direct pencil/room-code retest; it
   did not receive a PASS.
 

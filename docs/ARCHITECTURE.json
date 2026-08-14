@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-14T23:40:30.730Z",
-    "commit": "9db3b17"
+    "at": "2026-08-14T23:46:44.369Z",
+    "commit": "b3ca563"
   },
-  "source_digest": "3c43662f",
+  "source_digest": "60705642",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -873,10 +873,10 @@
       }
     ],
     "next_actions": [
+      "STORE-PILE-2 — bounce must cancel inward velocity. Wait for plan ack, then one lever. Retest STORE-PILE-PT-1.",
       "DEEPSEC-1 is on prod (Worker `a1d270b5`). Hard-refresh, then run DEEPSEC-1-PT-1 `[2pc]`. Token rotate stays on DEEPSEC-2.",
-      "Deferred playtests (need two machines or launch-day traffic): DEEPSEC-1-PT-1 · CARGO-BAY-INSTANCE-PT-3 · CONN-TRACK-LEAK-PT-1 · QP-ROTATE-PT-1 · SHARD-PT-2.",
-      "SHIP-1 D-tier — cut persistent leaderboard from launch, or schedule its own phase (Wyatt).",
-      "Agent quiet-window picks: BACKLOG Block 4 (WARM-SOLO-1 · PERF-WATCH-1) or Block 5 Lows — plan → ack first."
+      "Deferred playtests: CARGO-BAY-INSTANCE-PT-3 · CONN-TRACK-LEAK-PT-1 · QP-ROTATE-PT-1 · SHARD-PT-2.",
+      "SHIP-1 D-tier — cut persistent leaderboard from launch, or schedule its own phase (Wyatt)."
     ],
     "open_issues": [
       {
@@ -896,9 +896,9 @@
       {
         "title": "Engineering",
         "counts": {
-          "Low": 5,
+          "Low": 6,
           "Partial": 1,
-          "Medium": 4
+          "Medium": 5
         },
         "rows": [
           {
@@ -960,6 +960,18 @@
             "item": "AQ-RING-CLEAR-1 — autoQuality clear sample ring on every window eval",
             "notes": "**Reserve only** if Wave 2 entry grace still demotes on retest. Comment in autoQuality.js already notes the ring can poison up to 3 windows. Own commit if needed; not in main batch path. Moved out of Playtest owed 08-14 (not a human check).",
             "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "STORE-PILE-2 — bounce must cancel inward velocity on the Storerooms pile",
+            "notes": "**Filed 08-14 from STORE-PILE-PT-1 FAIL.** Parent STORE-PILE-1 (`0fd9c64`) added tangent steer + a 17 m/s² outward accel. Drive is 125 m/s² (205 boosted), applied the same frame before the bounce, so net force stays into the hull and NPCs grind. One lever: `applyWallKeepOutBounce` must cancel the inward linvel component and add restitution, not only add a weaker accel. Sundial podium stays off (`wall` flag). Retest **STORE-PILE-PT-1**.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "GAMEPAD-FRIENDS-SEATED-1 — controller nav glitchy after seating in Friends lobby",
+            "notes": "**Filed 08-14 from GAMEPAD-DIRECT-ENTRY-PT-1 PASS note.** Name + room-code dialogs PASSed. After the Friends room loads / seats, the controller is glitchy and hard to use. Do not reopen GAMEPAD-LOBBY-1. New evidence only — reproduce on the seated Friends lobby before a lever.",
+            "ship1": null
           }
         ]
       },
@@ -1020,8 +1032,8 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Medium": 5,
-          "Low": 6
+          "Medium": 4,
+          "Low": 2
         },
         "rows": [
           {
@@ -1032,32 +1044,8 @@
           },
           {
             "pri": "Medium",
-            "item": "MOBILE-SCOREBOARD-PT-1 — mobile scoreboard identifies every player `[solo]`",
-            "notes": "**Owed: Wyatt playtest — MOBILE-SCOREBOARD-PT-1 — each mobile scoreboard chip keeps the player's name or identifier, symbol or icon, and score.** Regression fix is deployed in this release.<br>1. Hard-refresh production and run a solo round at 390×844 portrait, 667×375 landscape, 812×375 landscape, 900×390 landscape, and 1024×768 touch/portrait.<br>2. Inspect all four scoreboard chips at each size while scores update.<br>3. FAIL if any chip shows only a score/icon, clips the name or identifier, or overlaps the timer, controls, or stage. PASS if every chip keeps a readable name or identifier, symbol or icon, and score at all five sizes.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
             "item": "STORE-PILE-PT-1 — NPCs route around + bounce off the Storerooms furniture pile `[solo]`",
-            "notes": "**Owed: Wyatt playtest — STORE-PILE-PT-1 — NPC carts no longer routinely wedge against the center furniture pile in Storerooms.** Parent **STORE-PILE-1** (`0fd9c64`, deployed 08-14). Fix adds tangential go-around steering + a wall contact bounce; the automated rig (`tmp/pileprobe.mjs` + `?diag` npcs probe) is ready to measure instead.<br>1. Solo round on THE STOREROOMS (hard-refresh prod first). Play near the center furniture pile — park near it, then let the NPCs chase you across it.<br>2. Over a full round, watch the NPCs: chasing bots should curve around the pile from ~8 m out; a bot that does contact it (boost push, ram) should bounce back and keep moving.<br>3. FAIL if an NPC grinds the same face of the pile for 4+ seconds, or repeatedly drives straight into it head-on instead of steering around. PASS if contacts are brief and bots visibly route around.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "GAMEPAD-DIRECT-ENTRY-PT-1 — direct controller name + room-code entry `[solo]`",
-            "notes": "**Owed: Wyatt playtest — GAMEPAD-DIRECT-ENTRY-PT-1 — the visible pencil and room-code box open a usable text dialog without freezing the menu.** Parent **UI-INPUT-LIFECYCLE-1** is deployed in Worker version `70bf742a-0b6c-4214-be27-4697d950fbcc`.<br>1. On desktop with a controller, select the pencil, press A, type part of a name with the controller grid, then type more with a physical keyboard. Confirm, reopen, cancel with B, and verify focus returns to the pencil each time.<br>2. Select ROOM CODE and press A. Enter an invalid code, correct it without closing the dialog, then cancel. Reopen it and type with both the controller grid and a physical or Steam keyboard.<br>3. FAIL if either dialog stays invisible, the menu freezes, the first physical-keyboard character is lost after controller use, confirm or cancel fires twice, focus escapes behind the dialog, or the menu remains broken after close. PASS if both fields can be reopened and used normally.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "GAMEPAD-MENU-ROUTES-PT-1 — controller pause-menu navigation `[solo]`",
-            "notes": "**Owed: Wyatt playtest — GAMEPAD-MENU-ROUTES-PT-1 — the in-game pause menu is fully controllable with a controller.** Parent **UI-INPUT-LIFECYCLE-1** is deployed in Worker version `70bf742a-0b6c-4214-be27-4697d950fbcc`.<br>1. Start a solo round with a controller. Press START and confirm RESUME has the focus ring immediately.<br>2. Use D-pad or left stick to reach audio sliders, quality, RESTART ROUND, and MAIN MENU. Adjust one slider, then use A to resume. Pause again and use B to resume from another control.<br>3. FAIL if focus does not move, A or B does nothing, focus reaches gameplay or the main menu behind the pause screen, or resuming causes a boost/hop. PASS if every visible pause control is reachable and gameplay needs a fresh action press after resume.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "PAUSE-CHARGE-SFX-PT-1 — pause cancels charge-up audio `[solo]`",
-            "notes": "**Owed: Wyatt playtest — PAUSE-CHARGE-SFX-PT-1 — pausing never leaves the charge-up sound looping.** Parent **UI-INPUT-LIFECYCLE-1** is deployed in Worker version `70bf742a-0b6c-4214-be27-4697d950fbcc`.<br>1. Start a solo round. Hold boost until the charge-up sound is clear, then open the pause menu while charge is active.<br>2. Stay paused for five seconds, resume with A, release all controls, then perform one fresh boost press.<br>3. FAIL if charge-up repeats or continues while paused, continues after resume, or the resume press fires a boost. PASS if pause stops the old charge and only the fresh boost starts a new charge sound.",
+            "notes": "**FAIL 08-14 — Owed: Wyatt playtest — STORE-PILE-PT-1 — NPC carts no longer routinely wedge against the center furniture pile in Storerooms.** Parent **STORE-PILE-1** (`0fd9c64`) bounce (17 m/s²) loses to drive (125 m/s²). Next lever is **STORE-PILE-2**. Wyatt: they still drive into the pile and do not bounce off well.<br>1. Solo round on THE STOREROOMS (hard-refresh prod first). Play near the center furniture pile — park near it, then let the NPCs chase you across it.<br>2. Over a full round, watch the NPCs: chasing bots should curve around the pile from ~8 m out; a bot that does contact it (boost push, ram) should bounce back and keep moving.<br>3. FAIL if an NPC grinds the same face of the pile for 4+ seconds, or repeatedly drives straight into it head-on instead of steering around. PASS if contacts are brief and bots visibly route around.",
             "ship1": null
           },
           {
@@ -1082,12 +1070,6 @@
             "pri": "Low",
             "item": "SHARD-PT-2 — fifth human overflows to quickplay2 `[2pc]`",
             "notes": "**Owed: Wyatt playtest — SHARD-PT-2 — the 5th concurrent Quickplay human lands on quickplay2 instead of \"couldn't join\".** Launch-day / public-post check — needs five real humans (Wyatt deferred 08-05). Rig already 5/5; SHARD-PT-1 PASSed on prod `9c333d1`. Prefer analytics: any `quickplay_shard_assigned` with `hops > 0` or `shard !== quickplay` counts.<br>1. When five humans can join Quickplay at once (public post), watch the 5th seat.<br>2. FAIL if they get the dead-end couldn't-join toast with no hop. PASS if they seat on an overflow shard (or analytics shows hops greater than 0).<br>3. Skip / leave open until launch day — do not FAIL for lack of five people.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "SUNGLASSES-OBSIDIAN-PT-1 — Obsidian shades read dark, not silver `[solo]`",
-            "notes": "**Owed: Wyatt playtest — SUNGLASSES-OBSIDIAN-PT-1 — the Obsidian mirror finish reads as dark black glass, clearly distinct from the default Silver.** Parent **SUNGLASSES-OBSIDIAN-1** (`fe91388`, deployed 08-14) darkened the obsidian gradient core/mid (was near-white `#effcff`, nearly identical to Silver's `#f4f7ff`) to dark slate; menu chip swatch and in-game visor both derive from the same stops.<br>1. Hard-refresh production and open CUSTOMIZE → SUNGLASSES.<br>2. Select Obsidian and Silver in turn; compare the visor on the preview cart and the menu chips.<br>3. FAIL if Obsidian still reads bright/silver like the default. PASS if it reads as dark black glass with a subtle cool glint.",
             "ship1": null
           }
         ]
