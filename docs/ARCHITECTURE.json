@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-14T23:24:01.802Z",
-    "commit": "95ab825"
+    "at": "2026-08-14T23:40:30.730Z",
+    "commit": "9db3b17"
   },
-  "source_digest": "82179321",
+  "source_digest": "3c43662f",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -873,7 +873,7 @@
       }
     ],
     "next_actions": [
-      "DEEPSEC-1 landed (3 commits, not deployed). Playtest DEEPSEC-1-PT-1 `[2pc]` on `dev:local` or after ship. Token rotate stays on DEEPSEC-2.",
+      "DEEPSEC-1 is on prod (Worker `a1d270b5`). Hard-refresh, then run DEEPSEC-1-PT-1 `[2pc]`. Token rotate stays on DEEPSEC-2.",
       "Deferred playtests (need two machines or launch-day traffic): DEEPSEC-1-PT-1 · CARGO-BAY-INSTANCE-PT-3 · CONN-TRACK-LEAK-PT-1 · QP-ROTATE-PT-1 · SHARD-PT-2.",
       "SHIP-1 D-tier — cut persistent leaderboard from launch, or schedule its own phase (Wyatt).",
       "Agent quiet-window picks: BACKLOG Block 4 (WARM-SOLO-1 · PERF-WATCH-1) or Block 5 Lows — plan → ack first."
@@ -1027,7 +1027,7 @@
           {
             "pri": "Medium",
             "item": "DEEPSEC-1-PT-1 — stolen `_pk` / `hostScore` does not take host `[2pc]`",
-            "notes": "**Owed: Wyatt playtest — DEEPSEC-1-PT-1 — a second tab cannot steal host, and Quickplay `?diag=1` URL rewrite does not unlock scores.** Parent **DEEPSEC-1** (`736beda` / `191a3cf` / `95ab825`). Not deployed yet — use `npm run dev:local` until ship.<br>1. Two browsers, same Friends code, both seat. Play 30 s. Host refresh: the host reconnects as themselves or a clean migrate, never two hosts. Rematch starts.<br>2. Two browsers, Quickplay. First joiner is host. On the host with `?diag=1`, run `history.replaceState({}, '', '/?diag=1&room=KALE7')` then `__ccDiag.control.setScores({0:500,1:0,2:0,3:0})`. Scores on the other browser must not jump.<br>3. Friends `?diag=1`: host `setScores` still works. FAIL if Friends levers die, if Quickplay levers work after the rewrite, if refresh duplicates host, or if rematch cannot start.",
+            "notes": "**Owed: Wyatt playtest — DEEPSEC-1-PT-1 — a second tab cannot steal host, and Quickplay `?diag=1` URL rewrite does not unlock scores.** Parent **DEEPSEC-1** deployed Worker `a1d270b5-5db3-4a20-8b59-237d6ca79624` (`9db3b17`). Hard-refresh prod first.<br>1. Two browsers, same Friends code, both seat. Play 30 s. Host refresh: the host reconnects as themselves or a clean migrate, never two hosts. Rematch starts.<br>2. Two browsers, Quickplay. First joiner is host. On the host with `?diag=1`, run `history.replaceState({}, '', '/?diag=1&room=KALE7')` then `__ccDiag.control.setScores({0:500,1:0,2:0,3:0})`. Scores on the other browser must not jump.<br>3. Friends `?diag=1`: host `setScores` still works. FAIL if Friends levers die, if Quickplay levers work after the rewrite, if refresh duplicates host, or if rematch cannot start.",
             "ship1": null
           },
           {

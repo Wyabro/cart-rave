@@ -76,7 +76,7 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. **DEEPSEC-1 landed (3 commits, not deployed).** Playtest **DEEPSEC-1-PT-1** `[2pc]` on `dev:local` or after ship. Token rotate stays on **DEEPSEC-2**.
+1. **DEEPSEC-1 is on prod** (Worker `a1d270b5`). Hard-refresh, then run **DEEPSEC-1-PT-1** `[2pc]`. Token rotate stays on **DEEPSEC-2**.
 2. **Deferred playtests (need two machines or launch-day traffic):** **DEEPSEC-1-PT-1** · **CARGO-BAY-INSTANCE-PT-3** · **CONN-TRACK-LEAK-PT-1** · **QP-ROTATE-PT-1** · **SHARD-PT-2**.
 3. **SHIP-1 D-tier** — cut persistent leaderboard from launch, or schedule its own phase (Wyatt).
 4. Agent quiet-window picks: BACKLOG Block 4 (WARM-SOLO-1 · PERF-WATCH-1) or Block 5 Lows — plan → ack first.

@@ -26,6 +26,7 @@ Chronological record of shipped work, newest first.
   clamp; duration/`kos` caps; CF-only geo; invite `kale7` → `KALE7`; drop raw
   `__cartRaveSendErrorLog`.
 - Playtest owed: **DEEPSEC-1-PT-1** `[2pc]`. Residuals: **DEEPSEC-2**.
+- Deployed Worker `a1d270b5-5db3-4a20-8b59-237d6ca79624` (HEAD `9db3b17`). Live entry `index-CivyipM6.js`. `connectedRoom` confirmed in `netcode-hA18E3fv.js`.
 
 ### August 14, 2026 — UI-INPUT-LIFECYCLE-1: text entry + pause input regression audit
 

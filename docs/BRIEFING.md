@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-14 at commit `95ab825` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `8beabd55`
+> Generated 2026-08-14 at commit `9db3b17` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `69f677be`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -18,7 +18,7 @@ Playtesting and stabilization — Tier A drained; Tier B/C, security sweep, and 
 
 ## ACTIVE CARD
 
-DEEPSEC-1 landed (3 commits, not deployed). Playtest DEEPSEC-1-PT-1 `[2pc]` on `dev:local` or after ship. Token rotate stays on DEEPSEC-2
+DEEPSEC-1 is on prod (Worker `a1d270b5`). Hard-refresh, then run DEEPSEC-1-PT-1 `[2pc]`. Token rotate stays on DEEPSEC-2
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 
