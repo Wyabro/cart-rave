@@ -96,6 +96,7 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 [decision-log-2026-08.md](./archive/decision-log-2026-08.md), 07-11 → 07-23 in
 [decision-log-2026-07.md](./archive/decision-log-2026-07.md).
 
+- **D-LOCAL-PORT-8899** (08-14, `8cf335f`): Local worker port **8787 → 8899** — Windows HNS dynamic port exclusion **8751–8850** made 8787 unbindable (EACCES; workerd aborts with `std::terminate`, killing `npm run dev:local` / the battery). Single source: `LOCAL_WORKER_PORT` in `src/config.js`; wired through netcode dial, `dev:party*`, harness, launch.json, docs. Also **HARNESS-FREEZE-1 re-ack** (`2e30d8e`): freeze lever swapped to CDP `Debugger.pause` — the lifecycle freeze never silenced a live-RTC host (bfcache eligibility), pause is a genuine JS halt (validated 08-14). Battery **8/8 green**; dashboard green.
 - **D-SEO-1** (08-14): SEO pass — `rel=canonical` + og/twitter meta point at the apex cartclash.lol (www / workers.dev twins and the Glitch copy consolidate there, never index on their own); share card is a 1200×630 opaque composite of the title splat on brand bg (replaces the 512px icon; `summary_large_image` + `og:image:alt`); VideoGame JSON-LD (factual only); robots.txt + single-URL sitemap. Head-only + 2 new public files; zero gameplay/DOM change.
 - **D-STORE-PILE-1** (08-14, `0fd9c64`): Storerooms furniture-pile wedge — avoidance blends a tangential go-around term (the old radial-only repulsion provably produced zero lateral steer at every approach angle), plus a new wall keep-out bounce (`computeWallKeepOutBounce`) that shoves carts back off the pile, ramping with impact speed and freeing motionless carts. Sundial's drivable podium untouched (`wall` flag). 22 regression tests. Playtest owed: **STORE-PILE-PT-1**.
 - **D-ORGANIZE-1** (08-14): Codebase organization pass — safe same-system moves (`gameSession.js` → `orchestration/`, `visuals.js` → `effects/`), consolidated 7 cart files into `src/carts/`, and organized ~160 root test files in `tests/` into domain subdirectories. Effects split deferred to **EFFECTS-SPLIT-1**.
@@ -127,10 +128,13 @@ the dev loop (dev probes lie in prod · edge propagation · frozen `rAF`), or a 
 - Rapier `world.castRay(...)` reads `.handle` off the exclude args — pass Collider/RigidBody objects, never raw handles.
 - **`MSG.readyToggle` without a `ready` field is a TOGGLE** — programmatic ready must send `{ ready: true }`.
 - **Before any public / external-tester playtest: reset the analytics DO** so aggregates are not polluted by dev/harness traffic. Token-gated (SEC-TOKEN-1): `DELETE` with `Authorization: Bearer <ERROR_LOG_TOKEN>` on `/api/analytics` (never `?token=`).
+- **Windows HNS dynamic port exclusions can swallow the local worker port** (`netsh interface ipv4 show excludedportrange protocol=tcp`; common block 8751–8850 from Hyper-V/WSL even with no distro installed). Symptom: wrangler binds fine on other ports but 8787-era dev dies with `workerd std::terminate()` + a libuv assert in the parent — looks like a crash, is EACCES on the bind. Local worker port is now **8899** (`src/config.js` `LOCAL_WORKER_PORT`); if it ever goes EACCES again, re-check the exclusion table and move it there.
+- **hostFreeze's freeze lever is CDP `Debugger.pause`** (HARNESS-FREEZE-1 re-ack, `2e30d8e`) — `Page.setWebLifecycleState({state:"frozen"})` resolves but never silences a page holding a live RTCPeerConnection (bfcache eligibility), and perfPump/focus-emulation defeat CPU-throttle fallbacks. Pause = genuine JS halt; the scenario waits a bounded grace for silence (in-flight sends land first) before measuring the 3s window. If it ever goes INCONCLUSIVE again, the halt didn't land — that's an environment regression, not netcode.
 
 ## Last updated
 
-2026-08-14 (SEO-1) — Canonical/share-card meta for cartclash.lol + robots.txt/sitemap.
+2026-08-14 (LOCAL-PORT-8899) — Local worker port 8787→8899 (HNS exclusion 8751–8850) +
+HARNESS-FREEZE-1 re-ack (Debugger.pause lever); battery 8/8 green, dashboard green.
 BRIEFING regenerated from this file.
 
 Older session logs (2026-08-13 and earlier): [archive/README.md](./archive/README.md)
