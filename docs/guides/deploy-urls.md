@@ -43,9 +43,11 @@ Version defaults to `GLITCH_GAME_VERSION` in `src/analytics/glitchConfig.js`. Ov
 
 | Wyatt says | Agent runs |
 |------------|------------|
-| **ship it** | `npm run qa` then `npm run ship` (CF only) |
+| **ship it** | `npm run qa` then `npm run ship` (CF only) — **skip re-qa** if this session already reported QA green by number on the **same `git rev-parse HEAD`** and no source files changed since |
 | **ship glitch** | `npm run ship:glitch` (Glitch only) |
 | (daily test) | `npm run dev:local` — do **not** deploy to try a tweak |
+
+**Ship-it fast path:** Wyatt said **ship it** + QA already green this session on current HEAD + tree still clean at that SHA → run **`npm run ship` only**, then the post-ship poll below. Re-run full `npm run qa` if HEAD moved, files changed, or QA was never reported this session.
 
 ## Verify
 
