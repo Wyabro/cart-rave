@@ -13,6 +13,15 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 14, 2026 — ORGANIZE-1: codebase organization pass (3 levers)
+
+- *(Structure · Tech Debt)* **ORGANIZE-1** — ✅ **DONE 08-14** (codebase organization pass across 3 levers):
+  - **Lever A:** Moved `src/gameSession.js` → `src/orchestration/gameSession.js` and `src/visuals.js` → `src/effects/visuals.js`. Updated all internal & external call sites (`main.js`, `gameBoot.js`, `entities.js`, `chunkDeferImportEdges.test.js`, `netcode.test.js`, `netcodeDeferredCallbacks.test.js`, `control-flow.md`), `archMap.mjs`, and `bundle-budget.json`.
+  - **Lever B:** Consolidated the 7 `carts-and-customization` files into new directory `src/carts/` (`cart.js`, `cartPatternConfig.js`, `cartPatterns.js`, `cartRaveGltf.js`, `cartThemeConfig.js`, `cartThemes.js`, `customization.js`). Updated all 18 external consumers across `src/`, 8 spec files in `tests/`, `tools/lib/archMap.mjs` system ownership and IMPORTANT_FILES, and `docs/bundle-budget.json`.
+  - **Lever C:** Reorganized all ~160 root test files in `tests/` into subdirectories matching `src/` domains (`tests/orchestration/`, `tests/physics/`, `tests/netcode/`, `tests/effects/`, `tests/levels/`, `tests/scoring/`, `tests/carts/`, `tests/ui/`, `tests/stores/`, `tests/audio/`, `tests/tools/`, `tests/analytics/`, `tests/input/`, `tests/netcode-server/`, `tests/directives/`, `tests/diagnostics/`, `tests/misc/`). Updated all relative import, dynamic import, `readFileSync`, and `vi.mock` paths. Python harnesses remain at `tests/` root.
+  - Deferred large split of `src/effects.js` to dedicated card **EFFECTS-SPLIT-1** with full pre-planned extraction design in Appendix A of the ORGANIZE-1 plan.
+  - All 183 spec files / 2,007 tests passing, knip clean, arch fresh, health check clean, bundle budget green (0 B delta).
+
 ### August 14, 2026 — BACKLOG-HYGIENE-3: stale audit + card rehome
 
 - *(Playtest · Perf)* **PERF-9CELL-1** — ✅ **CLOSED MOOT 08-14** (row delete only). Declared

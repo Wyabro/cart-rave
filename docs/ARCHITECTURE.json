@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-14T02:17:33.336Z",
-    "commit": "1c015dc"
+    "at": "2026-08-14T02:25:54.207Z",
+    "commit": "8741105"
   },
-  "source_digest": "f41e9f0b",
+  "source_digest": "3a48e14e",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1054,9 +1054,9 @@
         "rows": [
           {
             "pri": "Low",
-            "id": "ORGANIZE-1",
-            "item": "Codebase organization pass — Wave 3",
-            "notes": "**Filed 08-10 from the root-organization wave.** Remaining items after Waves 1–2 (5 src moves, barrel, art previews): **(a)** Move remaining loose `src/` files into existing subdirs — `gameFlow.js`, `gameLoop.js`, `gameSession.js` → `src/orchestration/`; `frameVisuals.js`, `contactShadows.js`, `visuals.js` → `src/effects/`; `cart.js` → `src/physics/`. Each move needs two-direction import sweeps. `gameState.js` was deleted by STORE-1. **(b)** Split `src/effects.js` (138 KB) into `src/effects/` now that the barrel exists (`229b324`). **(c)** Organize `tests/` into subdirectories mirroring `src/` (~160 test files). **(d)** Consolidate ~80 loose baseline/comparison PNGs in `shots/` into feature-named folders. **(e)** Delete stale `.blend` scratch files from `art/` root. **Do not execute during stabilization — file only.**",
+            "id": "EFFECTS-SPLIT-1",
+            "item": "Split src/effects.js (140 KB) into submodules under src/effects/",
+            "notes": "**Filed 08-14 from ORGANIZE-1.** Detailed plan prepared in Appendix A of implementation plan: extract dust/debris/ambient particles, crowd visuals, ram-boost streaks, and static mesh helpers from `src/effects.js` into `src/effects/` while preserving external API and bundle size.",
             "ship1": null
           },
           {
@@ -1392,6 +1392,11 @@
       "Cross-module change? Read docs/reference/control-flow.md first — most edges are not imports."
     ],
     "settled_decisions": [
+      {
+        "id": "D-ORGANIZE-1",
+        "date": "08-14",
+        "text": "Codebase organization pass — safe same-system moves (`gameSession.js` → `orchestration/`, `visuals.js` → `effects/`), consolidated 7 cart files into `src/carts/`, and organized ~160 root test files in `tests/` into domain subdirectories. Effects split deferred to EFFECTS-SPLIT-1."
+      },
       {
         "id": "D-AGENT-OS-1",
         "date": "08-05",

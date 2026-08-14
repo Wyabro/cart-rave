@@ -182,7 +182,7 @@ traffic; 7 is post-launch or parked. Priority ranks *inside* a block too (top fi
 - **TRUST-1** → **LEADERBOARD-1** `[SHIP-1 D]` (only if Block 3 keeps D in scope).
 - **BRAND-1** — domain / rebrand ceremony (frozen until ship).
 - Trigger-gated: **SHADOW-HAZARD-SEAM-1** (next arena) · **AQ-RING-CLEAR-1** (reserve if autoQuality still demotes).
-- Structure debt after multiplayer is proven: **DIR-1** · **GLTF-1** · **DUAL-1** · **TS-1** · **TOOL-1** · **ORGANIZE-1** · **BACKLOG-GATE-2** · **PARTY-SERIALIZE-1** · **HOWLER-UPGRADE-1**.
+- Structure debt after multiplayer is proven: **DIR-1** · **GLTF-1** · **DUAL-1** · **TS-1** · **TOOL-1** · **EFFECTS-SPLIT-1** · **BACKLOG-GATE-2** · **PARTY-SERIALIZE-1** · **HOWLER-UPGRADE-1**.
 - Taste-gated Design: **TASTE-P4-1** · **CLUTCH-SLOMO-1** — only on new evidence or explicit pull-forward.
 - **SHIP-1** living checklist row stays as the ship-doc pointer until ship.
 
@@ -250,7 +250,7 @@ Priorities below are post-gate unless Wyatt pulls them forward.
 
 | Pri | ID | Item | Notes |
 |-----|----|------|-------|
-| Low | ORGANIZE-1 | Codebase organization pass — Wave 3 | **Filed 08-10 from the root-organization wave.** Remaining items after Waves 1–2 (5 src moves, barrel, art previews): **(a)** Move remaining loose `src/` files into existing subdirs — `gameFlow.js`, `gameLoop.js`, `gameSession.js` → `src/orchestration/`; `frameVisuals.js`, `contactShadows.js`, `visuals.js` → `src/effects/`; `cart.js` → `src/physics/`. Each move needs two-direction import sweeps. `gameState.js` was deleted by STORE-1. **(b)** Split `src/effects.js` (138 KB) into `src/effects/` now that the barrel exists (`229b324`). **(c)** Organize `tests/` into subdirectories mirroring `src/` (~160 test files). **(d)** Consolidate ~80 loose baseline/comparison PNGs in `shots/` into feature-named folders. **(e)** Delete stale `.blend` scratch files from `art/` root. **Do not execute during stabilization — file only.** |
+| Low | EFFECTS-SPLIT-1 | Split src/effects.js (140 KB) into submodules under src/effects/ | **Filed 08-14 from ORGANIZE-1.** Detailed plan prepared in Appendix A of implementation plan: extract dust/debris/ambient particles, crowd visuals, ram-boost streaks, and static mesh helpers from `src/effects.js` into `src/effects/` while preserving external API and bundle size. |
 | Medium | SHADOW-HAZARD-SEAM-1 | Pre-build contact-shadow hazard API | **Filed 08-04** when MAIN-1 cut the infeasible C2 hoist. Player bug closed by SHADOW-ORDER-1 (`6560552` — explicit hazards at cluster create). Seam remains: `setContactShadowHazards` still runs after `loadLevel` (`applyLoadedLevelSideEffects`); `levelHazards` is **output** of the builder, so “hoist before builder returns” is circular. Closing generically needs static/pre-build hazard data (or keep the per-cluster explicit-passing pattern). **Not** a MAIN-1 lever — level-module design. Trigger: next arena that grounds outboard props during construction without an explicit hazards override. |
 | Medium | SHIP-1 | V2 shipping checklist + final QA doc | **Created 07-20** — [SHIP-1.md](./SHIP-1.md), living doc; row stays as pointer until ship. |
 | Medium | DIR-1 | Directive modifiers without mutating `CONFIG` | |
@@ -344,4 +344,4 @@ RAPIER-MAJOR-PT-2, NET-QUIT-RETRY-1, CHAL-MENU-REBUILD-1, CHAL-ROTATE-RECORD-1, 
 CHAL-DEAD-EXPORT-1, ZAN-REACTIVE-ALLOC-1, BINARY-F32NAME-1, CONSOLE-HI-1, CHAL-PODIUM-DEDUPE-1, ROUND-CLOCKDOMAIN-1, CONN-DEADCODE-1, CONN-SNAPSHOT-PURE-1, PARTY-ENVTYPE-1, CONN-SPAWN-SANITIZE-1, ZAN-BOLLARD-CLASS-1, SNAP-SPARSE-1, LOD-PITRING-1, CONN-SOURCETRUTH-1, VITE-CHUNKWARN-1, PERF-TIER-PT-1, PROBE-WARM-RT-PT-1, CHALLENGE-EXPAND-PT-1, LOD-PITRING-PT-1, MENU-MUSIC-2B-PT-1, ZAN-BOLLARD-PT-1, ANNOUNCER-RERECORD-1, LOD-DOORWAY-1, SWIRL-REVIVE-1, DEATHCAM-KILLER-1, CLAD-REPEAT-1, SHELF-RAIL-1, ART-LUMA-TOOL-1, ASSET-RENAME-1, ART-PALETTE-1.
 ART-PALETTE-PT-1, CHAL-SHELF-FIT-1, CHAL-SHELF-FIT-PT-1, GAMEPAD-NAV-REPEAT-1, GAMEPAD-NAV-REPEAT-PT-1, KO-DOOMED-1, LOD-DOORWAY-PT-1, RUMBLE-STRENGTH-1, RUMBLE-STRENGTH-PT-1, SHELF-RAIL-PT-1.
 ANIM-BUGS-1, ANIM-BUGS-PT-1, BOOST-SFX-RESPAWN-1, BOOST-SFX-RESPAWN-PT-1, KO-DOOMED-PT-1,
-PERF-9CELL-1.
+PERF-9CELL-1, ORGANIZE-1.
