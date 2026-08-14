@@ -2589,13 +2589,6 @@ function requestTurnCredentialsAndOpenPeers() {
   });
 }
 
-/**
- * Applies a server host-migration: re-points authority to the new host, tears down and
- * re-inits P2P, clears prediction/input state, bumps the snapshot epoch, and arms the
- * non-host freeze. Extracted from the WebSocket message dispatcher so the handoff is
- * unit-testable without a live socket (see tests/hostMigration.test.js).
- * @param {{ hostId?: unknown, reason?: unknown }} msg
- */
 function isPlausibleTHost(tHost) {
   if (typeof tHost !== "number" || !Number.isFinite(tHost) || tHost <= 0 || tHost > MAX_THOST_ABS_MS) {
     return false;
