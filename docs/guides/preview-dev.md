@@ -14,7 +14,7 @@ npm run dev:local
 
 Aliases: `npm run dev:cart-clash` · `npm run dev:next-level` (deprecated name, same script).
 
-Then open **http://127.0.0.1:3000/** to play. The client automatically connects to the local worker running on **port 8787** (see local environment detection in `src/netcode.js`).
+Then open **http://127.0.0.1:3000/** to play. The client automatically connects to the local worker running on **port 8899** (see local environment detection in `src/netcode.js`).
 
 ### Two-Terminal Alternative
 

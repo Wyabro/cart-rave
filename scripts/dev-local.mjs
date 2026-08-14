@@ -25,7 +25,7 @@ function prebundleViteDeps() {
 console.log(`
 Cart Clash — local multiplayer
   Client (Vite):     http://127.0.0.1:3000/
-  Worker (Wrangler): http://127.0.0.1:8787  (ws://127.0.0.1:8787/parties/main/<room>)
+  Worker (Wrangler): http://127.0.0.1:8899  (ws://127.0.0.1:8899/parties/main/<room>)
 
 Open the client URL, pick a mode, and play. Ctrl+C stops both processes.
 `);

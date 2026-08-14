@@ -719,6 +719,14 @@ export { MSG } from '../shared/protocol.js';
 
 export const WORKER_PUBLIC_HOST = "cart-rave.wyabro.workers.dev";
 
+/**
+ * Local dev worker port (wrangler dev). NOT 8787: Windows Hyper-V/HNS dynamic
+ * port exclusions cover 8751–8850 on some machines (bind fails EACCES and
+ * workerd aborts) — keep this outside that range. Keep in sync with
+ * package.json dev:party* and tools/lib/harness.mjs WORKER_PORT.
+ */
+export const LOCAL_WORKER_PORT = 8899;
+
 /** Hostnames that serve this Worker. PartySocket uses the page host when on these (same-origin WS). */
 export const WORKER_PAGE_HOSTS = Object.freeze([
   WORKER_PUBLIC_HOST,

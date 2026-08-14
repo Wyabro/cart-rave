@@ -17,7 +17,7 @@ replace it (headless can't judge feel, and see the SwiftShader caveat below).
 ## Run it
 
 ```bash
-# Terminal 1 — persistent dev stack (Vite :3000 + Wrangler :8787)
+# Terminal 1 — persistent dev stack (Vite :3000 + Wrangler :8899)
 npm run dev:local
 
 # Terminal 2 — run the rig against it (fast, no start/stop churn)

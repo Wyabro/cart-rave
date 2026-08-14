@@ -613,7 +613,7 @@ export const TESTING = {
 export const BUILD_DEPLOY = {
   build: "npm run build (Vite → dist/)",
   deploy: "npm run ship = vite build && npx wrangler deploy",
-  dev: "npm run dev:local (Vite :3000 + Wrangler :8787; aliases dev:cart-clash / dev:next-level)",
+  dev: "npm run dev:local (Vite :3000 + Wrangler :8899; aliases dev:cart-clash / dev:next-level)",
   hosting: "Cloudflare Workers + Durable Objects (DO class CartRaveServer); the Worker serves the client from dist/ ASSETS and hosts the room — no separate static host, not the PartyKit hosted platform.",
   branch: "cart-clash (active) → main (production mirror); CI runs qa + production build on push/PR.",
 };

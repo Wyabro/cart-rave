@@ -18,7 +18,7 @@ Worker name stays **`cart-rave`**. One `npm run ship` updates **both** hosts:
 | **https://cartclash.lol/** | Same Worker (apex) |
 | **https://cart-rave.wyabro.workers.dev/** | Same build — agent/bookmark twin, **not** a separate staging env |
 
-Rooms / signaling use the **page host** when it is in `WORKER_PAGE_HOSTS` (`src/config.js`). Local uses `:8787`.
+Rooms / signaling use the **page host** when it is in `WORKER_PAGE_HOSTS` (`src/config.js`). Local uses `:8899` (src/config.js LOCAL_WORKER_PORT).
 
 Post-ship (DEPLOY-STALE-HTML-1): **`npx wrangler deploy` exit 0 = published.** Verify is a
 separate wait — do **not** redeploy because verify timed out. Run the poll below (or repeat it).

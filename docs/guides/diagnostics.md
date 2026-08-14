@@ -22,7 +22,7 @@ toolkit feels like one thing.
 ## Run it
 
 ```bash
-# Terminal 1 — persistent dev stack (Vite :3000 + Wrangler :8787)
+# Terminal 1 — persistent dev stack (Vite :3000 + Wrangler :8899)
 npm run dev:local
 
 # Terminal 2 — run the gameplay rig against it

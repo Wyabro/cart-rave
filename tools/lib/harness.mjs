@@ -28,7 +28,7 @@ import { setTimeout as sleep } from "node:timers/promises";
 export { sleep };
 
 export const CLIENT_PORT = 3000; // Vite (vite.config.js server.port)
-export const WORKER_PORT = 8787; // Wrangler dev default; client dials hostname:8787 (netcode.js)
+export const WORKER_PORT = 8899; // local wrangler dev port; client dials hostname:8899 (src/config.js LOCAL_WORKER_PORT) — NOT 8787: Windows Hyper-V/HNS exclusions cover 8751–8850
 
 /**
  * Parse `--flag` / `--flag value` argv into a record. A bare flag is `true`.
@@ -151,7 +151,7 @@ export async function waitForPort(port, deadlineMs) {
 }
 
 /**
- * Auto-start `npm run dev:local` (Vite :3000 + Wrangler :8787) unless --url points at a
+ * Auto-start `npm run dev:local` (Vite :3000 + Wrangler :8899) unless --url points at a
  * running stack. Returns the child process (kill it in your finally) or null when attaching.
  * @param {Record<string, string | boolean>} args
  * @param {(...a: unknown[]) => void} [log]
@@ -162,8 +162,8 @@ export async function maybeStartDevStack(args, log = makeLogger("harness")) {
 
   // * Pre-scan the ports BEFORE spawning. Blind-starting dev:local onto occupied ports is
   // * how a run dies mid-flight: waitForPort/preflight pass against the OTHER process, our
-  // * own wrangler then loses the :8787 bind and exits non-zero, and dev-local.mjs kills
-  // * Vite along with it (seen live 2026-07-16 — another agent session's stack held :8787).
+  // * own wrangler then loses the :8899 bind and exits non-zero, and dev-local.mjs kills
+  // * Vite along with it (seen live 2026-07-16 — another agent session's stack held :8899).
   const clientHeld = await probePort(CLIENT_PORT);
   const workerHeld = await probePort(WORKER_PORT);
   if (clientHeld && workerHeld) {
@@ -181,7 +181,7 @@ export async function maybeStartDevStack(args, log = makeLogger("harness")) {
   }
 
   const isWin = process.platform === "win32";
-  log("starting dev:local (Vite :3000 + Wrangler :8787)…");
+  log("starting dev:local (Vite :3000 + Wrangler :8899)…");
   // * Windows npm needs a shell; Node 24 deprecates args-array + shell:true (DEP0190),
   // * so the shell form gets one literal command string (no interpolated input).
   const child = isWin
@@ -242,8 +242,8 @@ export function killDevStack(child) {
  * scenario failure), pointing at the fix.
  *
  * A DEPLOYED target is a different topology and must not be probed as if it were the dev
- * stack: Vite-on-3000 + wrangler-on-8787 is a local-only split, and on a Worker the client
- * and the party endpoint are the SAME origin. Dialling `<host>:8787` against a public
+ * stack: Vite-on-3000 + wrangler-on-8899 is a local-only split, and on a Worker the client
+ * and the party endpoint are the SAME origin. Dialling `<host>:8899` against a public
  * hostname fails on connect and would abort the run before a single capture — so the split
  * check is gated to local hosts and a deployed origin gets a same-origin pair instead.
  *
