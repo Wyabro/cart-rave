@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-14T00:35:26.614Z",
-    "commit": "34518ca"
+    "at": "2026-08-14T00:58:29.511Z",
+    "commit": "7f53666"
   },
-  "source_digest": "61d63800",
+  "source_digest": "a313e012",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1002,7 +1002,7 @@
       {
         "title": "Audio",
         "counts": {
-          "Low": 1
+          "Low": 2
         },
         "rows": [
           {
@@ -1010,6 +1010,12 @@
             "item": "HOWLER-UPGRADE-1 — Deeper Howler upgrade `[SHIP-1 E3]`",
             "notes": "Spatial, pooling, volume groups.",
             "ship1": "E3"
+          },
+          {
+            "pri": "Low",
+            "item": "BOOST-SFX-NONHOST-1 — Non-host charge SFX cut by host nitro `b` bit",
+            "notes": "**Filed 08-13 from the BOOST-SFX-RESPAWN-1 review.** On non-host seats, `applySnapshotToCartBody` (netcode.js) stops the local charge + chargeUp SFX when a host snapshot's lingering nitro-window `b` bit lands while the client is mid-charge (host release can beat the client's after a hitch). Symptom is distinct from the respawn cut: charge sound dies AND the charge cancels (boost won't fire at release). Fix would gate the `b` authority cut against the client's own charge window. Not reproduced yet — verify on a non-host seat before fixing.",
+            "ship1": null
           }
         ]
       },
@@ -1043,10 +1049,16 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Low": 9,
+          "Low": 10,
           "Medium": 3
         },
         "rows": [
+          {
+            "pri": "Low",
+            "item": "BOOST-SFX-RESPAWN-PT-1 — charge-up sound survives other carts' respawns `[solo]`",
+            "notes": "**Owed: Wyatt playtest — BOOST-SFX-RESPAWN-PT-1 — the boost charge-up sound keeps playing until release, even when an NPC respawns mid-charge.** **Unshipped:** use `npm run dev:local` until the next ship; then repeat on production after a hard refresh.<br>1. Start a Solo round with 3 NPCs. Hold BOOST to charge and, while holding, ram an NPC off the arena. PASS if the charge-up sound keeps playing through the NPC's respawn (~1 s later) until you release; FAIL if the sound cuts out early while the bar is still filling.<br>2. Release at full charge. PASS if the BOOST sound fires on release; FAIL if the boost fires with no charge-up sound, or the charge sound restarts.",
+            "ship1": null
+          },
           {
             "pri": "Low",
             "item": "RUMBLE-STRENGTH-PT-1 — controller rumble works on Xbox, PS5, and Steam Deck `[solo]`",

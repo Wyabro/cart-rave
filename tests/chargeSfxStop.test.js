@@ -1,10 +1,16 @@
 // @vitest-environment happy-dom
-// chargeSfxStop.test.js — stopAllSfx nuclear path for orphaned chargeUp loops
-// + doRespawn / resetCartTransientState harden (stop before nulling id).
+// chargeSfxStop.test.js — chargeUp loop cleanup contracts.
+// Per-cart cleanup stops by id (resetCartTransientState / doRespawn must NOT sweep
+// every instance — chargeUp is played by the local cart AND NPCs, and a respawn of
+// one cart must not silence another cart's live charge). The no-arg stopAllSfx
+// (Howl.stop()) is a utility + the round-boundary/rematch orphan killer only.
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const stopMock = vi.fn();
+// * Unique ids per play so per-cart instance isolation is decidable in assertions.
+// * mock-prefixed so the hoisted vi.mock factory may reference it.
+const mockNextSfxId = { value: 1 };
 vi.mock("howler", () => ({
   Howl: class {
     constructor() {
@@ -12,7 +18,7 @@ vi.mock("howler", () => ({
     }
     state() { return this._state; }
     load() {}
-    play() { return 42; }
+    play() { return mockNextSfxId.value++; }
     stop(...args) { stopMock(...args); }
     volume() { return 1; }
     fade() {}
@@ -76,6 +82,7 @@ function makeCart(overrides = {}) {
 describe("chargeUp stop helpers", () => {
   beforeEach(() => {
     stopMock.mockClear();
+    mockNextSfxId.value = 1;
     registerSfx("chargeUp", ["data:audio/wav;base64,AA=="], { pool: 2, loop: true });
   });
 
@@ -101,11 +108,21 @@ describe("chargeUp stop helpers", () => {
     expect(cart.isChargingBoost).toBe(false);
   });
 
-  it("doRespawn nuclear-stops chargeUp even when id already orphaned (null)", () => {
-    playSfx("chargeUp"); // orphan — no cart holds the id
-    const cart = makeCart({ chargeUpSfxId: null, isChargingBoost: false });
-    doRespawn(cart);
-    // stop() with no args = stopAllSfx
-    expect(stopMock).toHaveBeenCalledWith();
+  it("doRespawn stops only the respawning cart's tracked loop; other live loops survive", () => {
+    const idRespawned = playSfx("chargeUp"); // cart A's loop
+    const idOther = playSfx("chargeUp"); // cart B's loop — must survive
+    const cartA = makeCart({ chargeUpSfxId: idRespawned, isChargingBoost: true });
+    const cartB = makeCart({ chargeUpSfxId: idOther, isChargingBoost: true });
+
+    doRespawn(cartA);
+
+    // * Cart A's own loop is stopped by id via resetCartTransientState.
+    expect(stopMock).toHaveBeenCalledWith(idRespawned);
+    // * No no-arg (stopAll) sweep — a global cut here would silence cart B's live
+    // * charge (and any NPC's) mid-charge on an unrelated respawn (the reported bug).
+    expect(stopMock).not.toHaveBeenCalledWith();
+    // * Cart B's loop is untouched.
+    expect(stopMock).not.toHaveBeenCalledWith(idOther);
+    expect(cartB.chargeUpSfxId).toBe(idOther);
   });
 });

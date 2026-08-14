@@ -688,10 +688,13 @@ export function destroyCarts(options = {}) {
 export function doRespawn(cart, callbacks) {
   if (!cart?.body) return;
 
-  // * Nuclear: any prior path that nulled chargeUpSfxId without stopSfx left a
-  // * loop:true Howl playing with no handle. Only the local cart ever plays chargeUp,
-  // * so killing every instance on respawn is correct.
-  stopAllSfx("chargeUp");
+  // * Charge-up SFX cleanup is PER-CART: the respawning cart's own loop (if any) is
+  // * stopped by id in resetCartTransientState below. chargeUp is played by the local
+  // * cart AND NPCs (startNpcChargeSfx), so a global sweep here would cut other carts'
+  // * live charge loops mid-charge — a respawn of any cart must not silence a charging
+  // * player. Do NOT null chargeUpSfxId without stopSfx("chargeUp", id) first; the only
+  // * no-handle orphan killers are the round-boundary sweep (stopAllChargeSfx) and the
+  // * rematchResetWorld nuclear below.
 
   // * Tear down any active shatter + explosion VFX (host fall or non-host replay).
   // * Rebuilds the cart visual mesh into the existing root so camera / labels keep
