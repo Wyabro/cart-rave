@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-14T00:23:10.009Z",
-    "commit": "62fe443"
+    "at": "2026-08-14T00:35:26.614Z",
+    "commit": "34518ca"
   },
-  "source_digest": "ee241af9",
+  "source_digest": "61d63800",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -879,7 +879,7 @@
       {
         "id": "GAMEPAD-NAV-REPEAT-1",
         "what": "Held controller menu navigation",
-        "status": "🟡 local ready; focused tests 52/52 + QA 7/7 PASS; ship pending",
+        "status": "🟡 deployed `34518ca` / Worker `54ce3bb3-3cfd-4d2f-9ea3-c9e671f5c7db`; QA 7/7 + build + live assets PASS; human check seeded as GAMEPAD-NAV-REPEAT-PT-1",
         "state": "waiting"
       },
       {
@@ -896,7 +896,7 @@
       }
     ],
     "next_actions": [
-      "GAMEPAD-NAV-REPEAT-1: wait for Wyatt's explicit ship authorization.",
+      "GAMEPAD-NAV-REPEAT-PT-1: Wyatt production hardware test on Xbox, PS5 USB, or Steam Deck.",
       "RUMBLE-STRENGTH-PT-1: Wyatt production hardware test on Xbox, PS5 USB, and Steam Deck.",
       "Deferred playtests: CARGO-BAY-INSTANCE-PT-3 · CONN-TRACK-LEAK-PT-1 · SHARD-PT-2."
     ],
@@ -1056,7 +1056,7 @@
           {
             "pri": "Low",
             "item": "GAMEPAD-NAV-REPEAT-PT-1 — held controller menu navigation `[solo]`",
-            "notes": "**Owed: Wyatt playtest — GAMEPAD-NAV-REPEAT-PT-1 — holding a D-pad or left-stick direction cycles menu controls without accidental diagonal skips or a rapid rumble buzz.** **Unshipped:** use `npm run dev:local` until the next ship; then repeat on production after a hard refresh.<br>1. Connect an Xbox controller, PS5 USB controller, or Steam Deck. Open Settings and hold D-pad down (then the left stick down). PASS if focus moves once immediately, pauses about 0.3 s, then moves at a readable steady rate; FAIL if it only moves once, starts slowly, or skips two controls at once.<br>2. Hold the stick diagonally. PASS if each repeat moves one predictable direction only; FAIL if focus jitters, alternates, or double-steps.<br>3. Hold a direction, then open or close an overlay. PASS if focus starts in that layer and does not carry an immediate extra move across the layer change; FAIL if it jumps behind the overlay.<br>4. Focus a Settings or Customize slider and hold left or right. PASS if it makes one normal 5% nudge only; FAIL if it keeps changing the value.",
+            "notes": "**Owed: Wyatt playtest — GAMEPAD-NAV-REPEAT-PT-1 — holding a D-pad or left-stick direction cycles menu controls without accidental diagonal skips or a rapid rumble buzz.** **Deployed:** `34518ca` / Worker `54ce3bb3-3cfd-4d2f-9ea3-c9e671f5c7db`; hard-refresh production first.<br>1. Connect an Xbox controller, PS5 USB controller, or Steam Deck. Open Settings and hold D-pad down (then the left stick down). PASS if focus moves once immediately, pauses about 0.3 s, then moves at a readable steady rate; FAIL if it only moves once, starts slowly, or skips two controls at once.<br>2. Hold the stick diagonally. PASS if each repeat moves one predictable direction only; FAIL if focus jitters, alternates, or double-steps.<br>3. Hold a direction, then open or close an overlay. PASS if focus starts in that layer and does not carry an immediate extra move across the layer change; FAIL if it jumps behind the overlay.<br>4. Focus a Settings or Customize slider and hold left or right. PASS if it makes one normal 5% nudge only; FAIL if it keeps changing the value.",
             "ship1": null
           },
           {
