@@ -153,9 +153,10 @@ beforeEach(async () => {
   // * from inline display — the overlays' actual open/closed contract — so
   // * tests never depend on layout. (Zero rects also mean navigateSpatial
   // * always takes its linear DOM-order wrap fallback: down/right = +1.)
-  Element.prototype.checkVisibility = function () {
+  Element.prototype.checkVisibility = function ({ checkOpacity = false } = {}) {
     for (let el = this; el; el = el.parentElement) {
       if (el.style && el.style.display === "none") return false;
+      if (checkOpacity && el.style && el.style.opacity === "0") return false;
     }
     return true;
   };
@@ -214,9 +215,11 @@ describe("modal scoping", () => {
 
   it("paints the controller ring on pause's pre-focused RESUME button", () => {
     show("esc-overlay");
-    document.getElementById("esc-resume").focus();
+    const resume = document.getElementById("esc-resume");
+    resume.style.opacity = "0"; // Real pause entrance state before its fade completes.
+    resume.focus();
     frame();
-    expect(document.getElementById("esc-resume").classList.contains("gamepad-focused")).toBe(true);
+    expect(resume.classList.contains("gamepad-focused")).toBe(true);
   });
 });
 
@@ -310,6 +313,7 @@ describe("B button", () => {
 
   it("clicks RESUME on the pause overlay (old .cr-esc-resume selector was dead)", () => {
     show("esc-overlay");
+    document.getElementById("esc-resume").style.opacity = "0";
     const resumeSpy = clickSpy("esc-resume");
     press(BTN.b);
     expect(resumeSpy).toHaveBeenCalledTimes(1);
@@ -453,8 +457,8 @@ describe("focus re-yank", () => {
     expect(document.activeElement).toBe(document.getElementById("customize-btn"));
     document.getElementById("hud-note").focus();
     idleFrames(3);
-    press(BTN.down); // reclaim CUSTOMIZE, then move once → PLAY
-    expect(document.activeElement).toBe(document.getElementById("play-btn"));
+    press(BTN.down); // reclaim CUSTOMIZE, then move once → arena pager
+    expect(document.activeElement).toBe(document.getElementById("cr-arena-prev"));
   });
 
   it("resets stale navIndex when the scope layer changes", () => {
@@ -472,46 +476,40 @@ describe("focus re-yank", () => {
 // * order worked. These pin the keyboard path onto the same engine the gamepad tests above
 // * already cover (scoping, seed-on-first-press, focus re-yank), so only the
 // * keyboard-specific wiring (gating, preventDefault, typing targets) needs its own cases.
-describe("LB/RB main-menu panel routing", () => {
-  it("RB moves from commands to match setup without clicking an arena pager", () => {
+describe("LB/RB arena paging", () => {
+  it("RB advances the visible arena pager without moving main-menu focus", () => {
     const prevSpy = clickSpy("cr-arena-prev");
     const nextSpy = clickSpy("cr-arena-next");
     press(BTN.rb);
-    expect(document.activeElement).toBe(document.getElementById("cr-arena-prev"));
+    expect(document.activeElement).toBe(document.body);
     expect(prevSpy).not.toHaveBeenCalled();
-    expect(nextSpy).not.toHaveBeenCalled();
+    expect(nextSpy).toHaveBeenCalledTimes(1);
   });
 
-  it("LB moves from match setup back to the first command", () => {
-    press(BTN.rb);
+  it("LB pages back through the visible arena pager", () => {
+    const prevSpy = clickSpy("cr-arena-prev");
     press(BTN.lb);
-    expect(document.activeElement).toBe(document.getElementById("play-btn"));
+    expect(prevSpy).toHaveBeenCalledTimes(1);
   });
 
-  it("d-pad operates controls inside the selected setup panel", () => {
-    press(BTN.rb);
-    press(BTN.right);
-    expect(document.activeElement).toBe(document.getElementById("cr-arena-next"));
+  it("D-pad reaches setup controls through the normal main-menu ring", () => {
+    press(BTN.down);
+    press(BTN.down);
+    expect(document.activeElement).toBe(document.getElementById("cr-arena-prev"));
   });
 
-  it("RB reaches the visible PROFILE / FRIENDS controller panel", () => {
-    document.getElementById("cr-gamepad-profile").style.display = "grid";
-    press(BTN.rb);
-    press(BTN.rb);
-    expect(document.activeElement).toBe(document.getElementById("cr-gamepad-name"));
-  });
-
-  it("held bumper switches one panel only (rising edge)", () => {
-    padRef.pad = makePad([BTN.lb]);
+  it("held bumper pages one arena only (rising edge)", () => {
+    const nextSpy = clickSpy("cr-arena-next");
+    padRef.pad = makePad([BTN.rb]);
     frame();
-    padRef.pad = makePad([BTN.lb]);
+    padRef.pad = makePad([BTN.rb]);
     frame();
     padRef.pad = makePad();
     frame();
-    expect(document.activeElement).toBe(document.getElementById("cr-arena-prev"));
+    expect(nextSpy).toHaveBeenCalledTimes(1);
   });
 
-  it("does not switch panels while an overlay owns the nav scope", () => {
+  it("does not page arenas while an overlay owns the nav scope", () => {
     show("cr-settings-screen");
     const prevSpy = clickSpy("cr-arena-prev");
     const nextSpy = clickSpy("cr-arena-next");
@@ -521,7 +519,7 @@ describe("LB/RB main-menu panel routing", () => {
     expect(nextSpy).not.toHaveBeenCalled();
   });
 
-  it("does not switch when match setup is hidden (Quickplay)", () => {
+  it("does not page when match setup is hidden (Quickplay)", () => {
     // * A1: polyfill only sees inline display:none — wrap.hidden = true would NOT hide.
     document.getElementById("cr-context-arena").style.display = "none";
     document.getElementById("cr-diff-row").style.display = "none";
@@ -541,12 +539,6 @@ describe("LB/RB main-menu panel routing", () => {
     expect(setInputMode).toHaveBeenCalledWith("gamepad");
   });
 
-  it("switches to the focused panel instead of retaining the old ring", () => {
-    press(BTN.down); // → CUSTOMIZE
-    expect(document.activeElement).toBe(document.getElementById("customize-btn"));
-    press(BTN.rb);
-    expect(document.activeElement).toBe(document.getElementById("cr-arena-prev"));
-  });
 });
 
 describe("keyboard arrow-key navigation", () => {

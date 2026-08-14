@@ -30,18 +30,6 @@ const OVERLAY_SCOPE_SELECTORS = [
 
 let lastScope = /** @type {HTMLElement|Document|null} */ (null);
 
-// * The desktop menu has two separate jobs: choose a mode on the left, then
-// * configure that mode on the right. A geometric search across both columns
-// * made the controller route depend on viewport shape. Keep those jobs as
-// * explicit panels instead. The PROFILE panel opens a modal controller keyboard;
-// * native inputs stay outside the pad ring for keyboard/mouse ownership.
-const MAIN_MENU_GROUPS = Object.freeze([
-  Object.freeze({ id: "commands", selector: "#cr-commandlist .cr-cmd" }),
-  Object.freeze({ id: "setup", selector: "#cr-context-arena .cr-arena-page, #cr-diff-row .cr-diff-btn" }),
-  Object.freeze({ id: "profile", selector: "#cr-gamepad-profile button" }),
-]);
-let mainMenuGroupIndex = 0;
-
 // * A held menu direction acts once immediately, then repeats after a short
 // * pause. Never catch up after a stalled frame: one rAF tick may move focus
 // * only once.
@@ -130,15 +118,16 @@ function getNavScope() {
   return document;
 }
 
-function isElementVisible(el) {
+/** @param {HTMLElement} el @param {{ ignoreOpacity?: boolean }} [options] */
+function isElementVisible(el, { ignoreOpacity = false } = {}) {
   if (el.disabled) return false;
   if (typeof el.checkVisibility === "function") {
-    return el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true });
+    return el.checkVisibility({ checkOpacity: !ignoreOpacity, checkVisibilityCSS: true });
   }
   const rect = el.getBoundingClientRect();
   if (rect.width === 0 || rect.height === 0) return false;
   const style = window.getComputedStyle(el);
-  return style.display !== "none" && style.visibility !== "hidden" && style.opacity !== "0";
+  return style.display !== "none" && style.visibility !== "hidden" && (ignoreOpacity || style.opacity !== "0");
 }
 
 /**
@@ -162,62 +151,10 @@ function isNavReachable(el) {
  */
 function getFocusables(scope) {
   const elements = /** @type {HTMLElement[]} */ (Array.from(scope.querySelectorAll('button, a, [role="button"], [role="slider"], input, select, textarea')));
-  return elements.filter((el) => isElementVisible(el) && isNavReachable(el));
-}
-
-/**
- * Returns only visible main-menu panels. `#cr-context-arena` and the difficulty
- * row are mode-dependent, so the setup panel disappears cleanly for Quickplay
- * and the other menu commands.
- * @returns {Array<{ id: string, focusables: HTMLElement[] }>}
- */
-function getMainMenuGroups() {
-  return MAIN_MENU_GROUPS
-    .map((group) => ({
-      id: group.id,
-      focusables: /** @type {HTMLElement[]} */ (Array.from(document.querySelectorAll(group.selector)))
-        .filter((el) => isElementVisible(/** @type {HTMLElement} */ (el))),
-    }))
-    .filter((group) => group.focusables.length > 0);
-}
-
-/** @param {Array<{ id: string, focusables: HTMLElement[] }>} groups */
-function syncMainMenuGroupToFocus(groups) {
-  const active = /** @type {HTMLElement|null} */ (document.activeElement);
-  const focusedIndex = groups.findIndex((group) => !!active && group.focusables.includes(active));
-  if (focusedIndex >= 0) mainMenuGroupIndex = focusedIndex;
-  if (mainMenuGroupIndex >= groups.length) mainMenuGroupIndex = 0;
-}
-
-/**
- * Main-menu controller navigation owns an authored panel at a time. Overlay
- * navigation remains a local spatial ring, and keyboard arrows retain their
- * existing all-control path.
- * @param {HTMLElement|Document} scope
- * @returns {HTMLElement[]}
- */
-function getGamepadFocusables(scope) {
-  if (scope !== document) return getFocusables(scope);
-  const groups = getMainMenuGroups();
-  if (groups.length === 0) return getFocusables(scope);
-  syncMainMenuGroupToFocus(groups);
-  return groups[mainMenuGroupIndex].focusables;
-}
-
-/**
- * @param {-1|1} delta
- * @param {number} gamepadIndex
- * @param {number} now
- * @returns {boolean} True when a panel switch occurred.
- */
-function switchMainMenuGroup(delta, gamepadIndex, now) {
-  const groups = getMainMenuGroups();
-  if (groups.length < 2) return false;
-  syncMainMenuGroupToFocus(groups);
-  mainMenuGroupIndex = (mainMenuGroupIndex + delta + groups.length) % groups.length;
-  const next = groups[mainMenuGroupIndex].focusables;
-  setFocus(next[0], next, gamepadIndex, now);
-  return true;
+  const pauseResume = scope instanceof HTMLElement && scope.id === "esc-overlay"
+    ? /** @type {HTMLElement|null} */ (scope.querySelector(".esc-btn--resume"))
+    : null;
+  return elements.filter((el) => isElementVisible(el, { ignoreOpacity: el === pauseResume }) && isNavReachable(el));
 }
 
 /**
@@ -384,7 +321,6 @@ function updateNav(now = performance.now()) {
     // * meaningless in the new one. Overlays focus their primary button on
     // * open, so the adopt branch below re-derives the right index.
     navIndex = 0;
-    mainMenuGroupIndex = 0;
     lastScope = scope;
     resetDirectionRepeat();
 
@@ -402,16 +338,27 @@ function updateNav(now = performance.now()) {
 
   const directionEvent = consumeDirectionEvent(direction, now);
 
-  // * Main-menu panels replace the old global arena bumper shortcut. A player
-  // * can now reach the live arena/difficulty controls from any mode without a
-  // * geometry-dependent jump. Overlays never receive this switch, so their
-  // * bumper presses cannot move focus behind the topmost layer.
+  // * LB/RB keep the established arena pager contract. The normal D-pad ring
+  // * still reaches setup controls; overlays never page menu controls behind
+  // * their active layer.
   if (scope === document && !isTypingTarget(document.activeElement)) {
-    if (lb && !prevDpad.lb) switchMainMenuGroup(-1, gp.index, now);
-    if (rb && !prevDpad.rb) switchMainMenuGroup(1, gp.index, now);
+    const arenaPrev = /** @type {HTMLElement|null} */ (document.getElementById("cr-arena-prev"));
+    const arenaNext = /** @type {HTMLElement|null} */ (document.getElementById("cr-arena-next"));
+    if (lb && !prevDpad.lb && arenaPrev && isElementVisible(arenaPrev)) {
+      hapticMenuConfirm(gp.index);
+      arenaPrev.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+      arenaPrev.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }));
+      arenaPrev.click();
+    }
+    if (rb && !prevDpad.rb && arenaNext && isElementVisible(arenaNext)) {
+      hapticMenuConfirm(gp.index);
+      arenaNext.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+      arenaNext.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }));
+      arenaNext.click();
+    }
   }
 
-  const focusables = getGamepadFocusables(scope);
+  const focusables = getFocusables(scope);
   if (focusables.length > 0) {
     let activeEl = /** @type {HTMLElement|null} */ (document.activeElement);
     let focusInScope = !!activeEl && focusables.includes(activeEl);
@@ -487,7 +434,9 @@ function updateNav(now = performance.now()) {
     // * click an invisible overlay back button).
     if (b && !prevDpad.b) {
       const activeClose = /** @type {HTMLElement|null} */ (scope.querySelector('.cr-overlay-back, .esc-btn--resume, [data-action="back"]'));
-      if (activeClose && isElementVisible(activeClose)) {
+      const isPauseResume = scope instanceof HTMLElement && scope.id === "esc-overlay"
+        && activeClose?.classList.contains("esc-btn--resume");
+      if (activeClose && isElementVisible(activeClose, { ignoreOpacity: isPauseResume })) {
         hapticMenuConfirm(gp.index);
         activeClose.click();
       } else {
