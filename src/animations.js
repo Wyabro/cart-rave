@@ -77,7 +77,7 @@ function shouldAnimate(options = {}) {
 }
 
 /**
- * @param {Element | null | undefined} element
+ * @param {unknown} element
  * @returns {element is HTMLElement}
  */
 function isAnimatableElement(element) {
@@ -170,18 +170,25 @@ export function cancelAnimationsIn(root) {
 }
 
 /**
- * @param {HTMLElement | HTMLElement[] | NodeListOf<HTMLElement> | ArrayLike<HTMLElement> | null | undefined} target
+ * @param {unknown} target
  * @returns {HTMLElement[]}
  */
 function collectAnimatableElements(target) {
   if (isAnimatableElement(target)) return [target];
-  if (!target || typeof /** @type {any} */ (target).length !== "number") return [];
-  /** @type {HTMLElement[]} */
-  const out = [];
-  for (const el of /** @type {ArrayLike<HTMLElement>} */ (target)) {
-    if (isAnimatableElement(el)) out.push(el);
+  if (Array.isArray(target)) {
+    return target.filter(isAnimatableElement);
   }
-  return out;
+  if (target && typeof target === "object" && "length" in target) {
+    const list = /** @type {ArrayLike<unknown>} */ (target);
+    /** @type {HTMLElement[]} */
+    const out = [];
+    for (let i = 0; i < list.length; i++) {
+      const el = list[i];
+      if (isAnimatableElement(el)) out.push(el);
+    }
+    return out;
+  }
+  return [];
 }
 
 /**
