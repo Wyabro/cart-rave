@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-14T08:27:15.437Z",
-    "commit": "8802b9c"
+    "at": "2026-08-14T08:55:17.325Z",
+    "commit": "125d162"
   },
-  "source_digest": "877874df",
+  "source_digest": "ef105c08",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1017,10 +1017,16 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Medium": 3,
+          "Medium": 4,
           "Low": 4
         },
         "rows": [
+          {
+            "pri": "Medium",
+            "item": "MOBILE-SCOREBOARD-PT-1 — mobile scoreboard identifies every player `[solo]`",
+            "notes": "**Owed: Wyatt playtest — MOBILE-SCOREBOARD-PT-1 — each mobile scoreboard chip keeps the player's name or identifier, symbol or icon, and score.** Regression fix is deployed in this release.<br>1. Hard-refresh production and run a solo round at 390×844 portrait, 667×375 landscape, 812×375 landscape, 900×390 landscape, and 1024×768 touch/portrait.<br>2. Inspect all four scoreboard chips at each size while scores update.<br>3. FAIL if any chip shows only a score/icon, clips the name or identifier, or overlaps the timer, controls, or stage. PASS if every chip keeps a readable name or identifier, symbol or icon, and score at all five sizes.",
+            "ship1": null
+          },
           {
             "pri": "Medium",
             "item": "STORE-PILE-PT-1 — NPCs route around + bounce off the Storerooms furniture pile `[solo]`",

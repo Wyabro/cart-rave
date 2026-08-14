@@ -1963,18 +1963,77 @@
     2px 2px 0 var(--color-ink-deep),
     0 0 14px var(--glow-magenta-16);
 }
-/* Touch chips drop the player name so four boxes fit across a phone. That was
-   UNCONDITIONAL, though, so a 1200×528 landscape tablet — where all four names measure at
-   natural width with room to spare — also printed a bare icon, number and barcode, and
-   nothing on screen said whose score was whose. Hide it only where the width genuinely
-   cannot carry it; the badge stays hidden either way. */
-#hud.hud-touch .hud-scoreLabel,
-#hud.hud-touch .hud-scoreBadge {
-  display: none !important;
-}
-@media (min-width: 1025px) {
+/* Do not suppress the existing personality badge on touch. hud.js shows it
+   only for NPC rows; human rows keep their slot glyph. Every chip therefore
+   retains its icon, player identifier, and score. */
+/* UI-SCALE-P2-MEDIA-1 accidentally moved this working threshold 900 → 1025.
+   Restore the wide-touch rule without changing the desktop scoreboard. */
+@media (min-width: 900px) {
   #hud.hud-touch .hud-scoreLabel {
     display: block !important;
+  }
+}
+/* Narrow touch and short landscape need a compact two-line chip: identity mark
+   + score first, then a full-width readable name stub. A one-line row leaves
+   no name budget once four chips share the short-landscape standings lane.
+   This deliberately crosses the 900px breakpoint: 900×390 still has only a
+   46vw lane, and the old one-line rule cut labels to 21–55px there. */
+@media (max-width: 899px), (orientation: landscape) and (max-height: 600px) {
+  #hud.hud-touch .hud-scores {
+    gap: 6px;
+  }
+  #hud.hud-touch .hud-scoreBox {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.25rem;
+    padding: 0.375rem 0.5rem;
+  }
+  #hud.hud-touch .hud-scoreSlot {
+    order: 0;
+  }
+  #hud.hud-touch .hud-scoreValueWrap {
+    order: 1;
+  }
+  #hud.hud-touch .hud-scoreLabel {
+    display: block !important;
+    order: 2;
+    flex: 1 0 100%;
+    width: 100%;
+    max-width: 100%;
+    font-size: clamp(0.5625rem, 1.8vw, 0.6875rem);
+    line-height: 1;
+    letter-spacing: 0;
+    text-align: center;
+  }
+}
+/* Short landscape has just one top-row lane between the timer and utility
+   buttons. Keep its intentional 46vw ceiling after the later touch base rule
+   so score names cannot grow into either neighbour. */
+@media (orientation: landscape) and (max-height: 600px) {
+  #hud.hud-touch .hud-region-standings {
+    max-width: 46vw;
+  }
+}
+/* Portrait has vertical room but no wider top-row lane: four named chips would
+   overlap the timer. Dock the existing chip strip above the joystick/actions;
+   the 164px floor clears the 124px control zone plus its 14px edge and 16px air. */
+@media (orientation: portrait) and (max-width: 899px) {
+  #hud.hud-touch .hud-region-standings {
+    top: auto;
+    bottom: calc(clamp(164px, 39vmin, 200px) + env(safe-area-inset-bottom, 0px));
+    left: max(var(--hud-pad), env(safe-area-inset-left, 0px));
+    right: max(var(--hud-pad), env(safe-area-inset-right, 0px));
+    max-width: none;
+  }
+  #hud.hud-touch .hud-scores {
+    width: 100%;
+  }
+  #hud.hud-touch .hud-scoreBox {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+  #hud.hud-touch .hud-scoreLabel {
+    font-size: clamp(0.625rem, 2.5vw, 0.75rem);
   }
 }
 /* UI-SCALE-1 residual: score chips were micro-type on phone. */
