@@ -13,6 +13,49 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 13, 2026 — playtest export: 6 PASS / 1 FAIL / 3 SKIP
+
+- *(Playtest · Art)* **ART-PALETTE-PT-1** — ✅ **PASS 08-13 on `npm run dev`.** All five preset
+  carts glow brand neon (`0xff2bd6`/`0x22e6ff`/`0x2bff7a`/`0xffe53d`/`0xff7a1a`), menu chip
+  matches the in-game cart, HUD "you" accent matches, emissive balance holds (pink/orange not
+  dimmer, yellow not hotter), no pure-spectral reads. Wyatt note: colors read a touch pastel vs
+  his preference ("i don't hate how they look"), and the custom-hue red renders as a dark orange
+  in-game — passed anyway; the hue-red read is a different mechanism and is filed fresh as
+  **CART-HUE-RED-1**, not a residual on this card. Parent **ART-PALETTE-1** already closed.
+- *(Playtest · UI)* **CHAL-SHELF-FIT-PT-1** — ✅ **PASS 08-13 on `npm run dev:local`.** All six
+  challenge cards plus DAILY/WEEKLY headings, BACK, and DONE fit at 360 × 640 portrait without
+  scrolling; nothing clipped or overlapping; desktop two-column shelf unchanged. Parent
+  **CHAL-SHELF-FIT-1** closes with it.
+- *(Playtest · UI)* **GAMEPAD-NAV-REPEAT-PT-1** — ✅ **PASS 08-13 on prod** (deployed
+  `34518ca` / Worker `54ce3bb3-3cfd-4d2f-9ea3-c9e671f5c7db`). Held D-pad/stick moves once
+  immediately, pauses ~0.3 s, then repeats at a steady readable rate; diagonals resolve one
+  direction; no cross-overlay repeat carry; sliders single-step 5%; no rapid rumble buzz. Parent
+  **GAMEPAD-NAV-REPEAT-1** closes with it.
+- *(Playtest · Engineering)* **LOD-DOORWAY-PT-1** — ✅ **PASS 08-13 on prod.** All three Storerooms
+  wall doorways visible from the floor and at the wall; no pop-out on approach; round completes.
+  Parent **LOD-DOORWAY-1** already closed.
+- *(Playtest · Engineering)* **RUMBLE-STRENGTH-PT-1** — ✅ **PASS 08-13 on prod** (deployed
+  `682891e` / Worker `82e8a360-b185-403a-8a66-2757f7aba40d`). Settings test pulse + ON persists
+  across reload; Xbox/PS5/Steam Deck standard gamepad path works; gameplay feedback stronger than
+  menu; off stops controller and menu vibration. Parent **RUMBLE-STRENGTH-1** closes with it.
+- *(Playtest · Art)* **SHELF-RAIL-PT-1** — ✅ **PASS 08-13 on `npm run dev`.** Booth handrails read
+  matte painted steel (no chrome gleam), shelf boards show bay seams reading as bolted sections;
+  rails not brighter than the room. Parent **SHELF-RAIL-1** already closed.
+
+### August 13, 2026 — KO-DOOMED-PT-1 FAIL → host fan-out wiring fix
+
+- *(Playtest · Art)* **KO-DOOMED-PT-1** — ❌ **FAIL 08-13**: *"i don't see any visible difference
+  in local KO's"*. Root cause: the host KO fan-out (`dispatchKOEvent` in `gameFlow.js`) omitted
+  `onLocalDoomed` from its reactor ctx, so `localDoomedReactor`'s `ctx.onLocalDoomed?.()` no-oped
+  on every host KO — and Solo is always host, so the red edge pulse + shockwave never fired
+  locally. The non-host falls[] replay path (`netcode.js`) already passed the hook; the DOM
+  feedback itself (`showDoomedFeedback` → `pulseHitDirection` + `.hud-doomed-shockwave.is-active`)
+  was never the problem. **Fix (`910ca37`):** `onLocalDoomed: deps.onLocalDoomed` added to the
+  host dispatch ctx, plus the `GameFlowDeps` typedef property; regression test
+  (`gameFlowSuddenDeath.test.js`) asserts the host fan-out carries the hook. Focused tests
+  45/45. Retest owed on `npm run dev:local` (unshipped), then on prod after the next ship.
+  Engineering row **KO-DOOMED-1** closes with the fix.
+
 ### August 13, 2026 — ART-LOW-SWEEP-1: four Art Lows closed in one acked wave
 
 - *(Art · Low)* **CLAD-REPEAT-1** — ✅ **CLOSED 08-13.** The Classic stadium cladding shared one

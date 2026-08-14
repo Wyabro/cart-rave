@@ -36,6 +36,8 @@ external testers. Stay in this phase until Wyatt advances the marker.
 
 **08-13 playtest export:** 9 PASS / 0 FAIL / 3 SKIP. Cargo solo fill + rebuild, same-clientId reconnect, booth-target AI, both NPC type draws, PA combo tiers, STORE-1 regression, and both Storerooms songs PASSed. Remaining deferred checks: **CARGO-BAY-INSTANCE-PT-3** · **CONN-TRACK-LEAK-PT-1** · **SHARD-PT-2**.
 
+**08-13 playtest export (2nd):** 6 PASS / 1 FAIL / 3 SKIP. PASSes closed: **ART-PALETTE-PT-1 · CHAL-SHELF-FIT-PT-1 · GAMEPAD-NAV-REPEAT-PT-1 · LOD-DOORWAY-PT-1 · RUMBLE-STRENGTH-PT-1 · SHELF-RAIL-PT-1**; parents **GAMEPAD-NAV-REPEAT-1 · RUMBLE-STRENGTH-1 · CHAL-SHELF-FIT-1** closed with them. **KO-DOOMED-PT-1 FAILed** — "i don't see any visible difference in local KO's". Root cause: the host KO fan-out in `gameFlow.js` dropped `onLocalDoomed` from the reactor ctx (Solo is always host, so `localDoomedReactor` no-oped); the DOM feedback itself was never the problem. Fixed in `910ca37`; retest owed on `npm run dev:local`. ART-PALETTE-PT-1's custom-hue-red note filed as **CART-HUE-RED-1**. **CARGO-BAY-INSTANCE-PT-3 · CONN-TRACK-LEAK-PT-1 · SHARD-PT-2** remain deferred.
+
 **RAPIER-MAJOR-1** / **RAPIER-MAJOR-PT-2** CLOSED 08-13. Wyatt PASS on prod after hard-refresh in a two-browser Friends room: host and joiner drove, the host KO'd the joiner, and both screens agreed. Deployed `524bd4db`; both packages `0.20.0` (Rust 0.35). Hashed assets 0×404. Live `rapierInstance-o_X8o-Pe.js` carries `cartRaveRapierSimd`.
 
 **DEPS-MAJOR-1** CLOSED 08-13. Direct `sharp@0.35.3` and `@cloudflare/vitest-pool-workers@0.21.2`; party-do 45/45, full QA, production build, and Wrangler dry-run PASS. No player-visible behavior and no deploy.
@@ -85,16 +87,13 @@ Live rows only. Shipped and closed cards live in
 | # | What | Status |
 |---|------|--------|
 | BUNDLE-1 | Menu/game code-split | ⚠️ **CLOSED PARTIAL 08-05 — perf goal NOT met. Deployed `f2f90fd2`.** Warm `menu-ready` −3% vs a −15% gate. Banked: a `size:check` byte gate, `main.js` 2,582 → 1,262 lines, −22.6% off the initial set (**cold** visits only). Lever E playtested: BUNDLE-E-PT-1 PASS 6/6. [bundle-1.md §0](./planning/bundle-1.md) |
-| GAMEPAD-NAV-REPEAT-1 | Held controller menu navigation | 🟡 deployed `34518ca` / Worker `54ce3bb3-3cfd-4d2f-9ea3-c9e671f5c7db`; QA 7/7 + build + live assets PASS; human check seeded as GAMEPAD-NAV-REPEAT-PT-1 |
-| RUMBLE-STRENGTH-1 | Controller rumble Settings control | 🟡 deployed `682891e` / Worker `82e8a360-b185-403a-8a66-2757f7aba40d`; QA 7/7 + build + live assets PASS; human target checks seeded as RUMBLE-STRENGTH-PT-1 |
 | ANIM-BUGS-1 | animations.js entrance + lifecycle | 🟡 deployed `d5fc9a0` / Worker `c319bb08-f87d-4ac6-be98-4771cd731c34`; QA 7/7 + live assets PASS; human check seeded as ANIM-BUGS-PT-1 |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 
 ### Next actions
 
 1. **ANIM-BUGS-PT-1:** Wyatt production playtest (hard-refresh first) — menu stagger, dismiss, press, cart pulse.
-2. **GAMEPAD-NAV-REPEAT-PT-1:** Wyatt production hardware test on Xbox, PS5 USB, or Steam Deck.
-3. **RUMBLE-STRENGTH-PT-1:** Wyatt production hardware test on Xbox, PS5 USB, and Steam Deck.
+2. **KO-DOOMED-PT-1 retest:** `npm run dev:local` — local KO red edge pulse + shockwave (fixed `910ca37`), then after the next ship on prod.
 
 ## Open issues (top)
 
@@ -143,6 +142,15 @@ the dev loop (dev probes lie in prod · edge propagation · frozen `rAF`), or a 
 - **Before any public / external-tester playtest: reset the analytics DO** so aggregates are not polluted by dev/harness traffic. Token-gated (SEC-TOKEN-1): `DELETE` with `Authorization: Bearer <ERROR_LOG_TOKEN>` on `/api/analytics` (never `?token=`).
 
 ## Last updated
+
+2026-08-13 (playtest export: 6 PASS / 1 FAIL / 3 SKIP) — Closed the six PASS cards
+**ART-PALETTE-PT-1 · CHAL-SHELF-FIT-PT-1 · GAMEPAD-NAV-REPEAT-PT-1 · LOD-DOORWAY-PT-1 ·
+RUMBLE-STRENGTH-PT-1 · SHELF-RAIL-PT-1** with parents **GAMEPAD-NAV-REPEAT-1 ·
+RUMBLE-STRENGTH-1 · CHAL-SHELF-FIT-1**; ART-PALETTE-PT-1's custom-hue-red note filed as
+**CART-HUE-RED-1**. **KO-DOOMED-PT-1 FAILed** ("i don't see any visible difference in local
+KO's") — root cause was the host KO fan-out dropping `onLocalDoomed` from the reactor ctx in
+`gameFlow.js` (Solo is always host); fixed in `910ca37` with a wiring regression test; retest
+owed on `npm run dev:local`. Commit `910ca37`.
 
 2026-08-13 (engineering + audit sweeps) — The ACKed Engineering Low and audit waves closed
 their scoped levers: network quit retry, snapshot/spawn safety, party typing, clock-domain,

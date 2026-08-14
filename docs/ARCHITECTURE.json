@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-14T01:31:47.821Z",
-    "commit": "b01bd8a"
+    "at": "2026-08-14T01:32:36.015Z",
+    "commit": "910ca37"
   },
-  "source_digest": "9534be64",
+  "source_digest": "7a0d5958",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -877,18 +877,6 @@
         ]
       },
       {
-        "id": "GAMEPAD-NAV-REPEAT-1",
-        "what": "Held controller menu navigation",
-        "status": "🟡 deployed `34518ca` / Worker `54ce3bb3-3cfd-4d2f-9ea3-c9e671f5c7db`; QA 7/7 + build + live assets PASS; human check seeded as GAMEPAD-NAV-REPEAT-PT-1",
-        "state": "waiting"
-      },
-      {
-        "id": "RUMBLE-STRENGTH-1",
-        "what": "Controller rumble Settings control",
-        "status": "🟡 deployed `682891e` / Worker `82e8a360-b185-403a-8a66-2757f7aba40d`; QA 7/7 + build + live assets PASS; human target checks seeded as RUMBLE-STRENGTH-PT-1",
-        "state": "waiting"
-      },
-      {
         "id": "ANIM-BUGS-1",
         "what": "animations.js entrance + lifecycle",
         "status": "🟡 deployed `d5fc9a0` / Worker `c319bb08-f87d-4ac6-be98-4771cd731c34`; QA 7/7 + live assets PASS; human check seeded as ANIM-BUGS-PT-1",
@@ -912,8 +900,7 @@
     ],
     "next_actions": [
       "ANIM-BUGS-PT-1: Wyatt production playtest (hard-refresh first) — menu stagger, dismiss, press, cart pulse.",
-      "GAMEPAD-NAV-REPEAT-PT-1: Wyatt production hardware test on Xbox, PS5 USB, or Steam Deck.",
-      "RUMBLE-STRENGTH-PT-1: Wyatt production hardware test on Xbox, PS5 USB, and Steam Deck."
+      "KO-DOOMED-PT-1 retest: `npm run dev:local` — local KO red edge pulse + shockwave (fixed `910ca37`), then after the next ship on prod."
     ],
     "open_issues": [
       {
