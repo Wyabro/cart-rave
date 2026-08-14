@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-14T22:26:31.589Z",
-    "commit": "5d46129"
+    "at": "2026-08-14T22:30:21.903Z",
+    "commit": "a0a221a"
   },
-  "source_digest": "eda74223",
+  "source_digest": "e7015948",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -873,10 +873,10 @@
       }
     ],
     "next_actions": [
-      "Deferred playtests (need two machines or launch-day traffic): CARGO-BAY-INSTANCE-PT-3 (cargo sync, 2pc) · CONN-TRACK-LEAK-PT-1 (host-leave migration, 2pc) · QP-ROTATE-PT-1 (Quickplay rematch catalog order, 2pc) · SHARD-PT-2 (5th human overflow, launch day). All solo-checkable cards are closed.",
+      "After UI-INPUT-LIFECYCLE-1 ships: retest direct text entry, pause controller navigation, and pause charge audio as three independent BACKLOG cards.",
+      "Deferred playtests (need two machines or launch-day traffic): CARGO-BAY-INSTANCE-PT-3 (cargo sync, 2pc) · CONN-TRACK-LEAK-PT-1 (host-leave migration, 2pc) · QP-ROTATE-PT-1 (Quickplay rematch catalog order, 2pc) · SHARD-PT-2 (5th human overflow, launch day).",
       "SHIP-1 D-tier — cut persistent leaderboard from launch, or schedule its own phase (Wyatt).",
-      "Agent quiet-window picks: BACKLOG Block 4 (WARM-SOLO-1 · PERF-WATCH-1) or Block 5 Lows — plan → ack first.",
-      "STORE-PILE-PT-1 — solo Storerooms check of STORE-PILE-1 (`0fd9c64`): NPCs route around / bounce off the center furniture pile."
+      "Agent quiet-window picks: BACKLOG Block 4 (WARM-SOLO-1 · PERF-WATCH-1) or Block 5 Lows — plan → ack first."
     ],
     "open_issues": [
       {
@@ -1038,20 +1038,20 @@
           },
           {
             "pri": "Low",
-            "item": "GAMEPAD-TEXT-ENTRY-PT-1 — controller name + Friend Code entry `[solo]`",
-            "notes": "**Owed: Wyatt playtest — GAMEPAD-TEXT-ENTRY-PT-1 — controller text entry works without a native browser keyboard.** Parent **GAMEPAD-TEXT-ENTRY-1** is deployed; this retests its discoverable D-pad launch route.<br>1. On desktop with a controller and on Steam Deck, use the D-pad through the main command flow to reach CHANGE NAME and ENTER FRIEND CODE. Choose CHANGE NAME, type a new name with D-pad and A, then START to confirm.<br>2. Open ENTER FRIEND CODE. Enter a valid mixed-case Friend Code; confirm it becomes uppercase and joins. Repeat with an invalid code; correct it in the open keyboard, then cancel once.<br>3. FAIL if the controller-only launch controls cannot be reached, the browser's native text box opens, text cannot be corrected, cancel changes the name or room, controls reach behind the keyboard, or phone/tablet touch behavior changes. PASS if both controller routes are clear and reliable.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
             "item": "GAMEPAD-DIRECT-ENTRY-PT-1 — direct controller name + room-code entry `[solo]`",
-            "notes": "**Owed: Wyatt playtest — GAMEPAD-DIRECT-ENTRY-PT-1 — the visible pencil and room-code box open a usable controller text dialog.** Parent **GAMEPAD-DIRECT-ENTRY-1** removes the duplicate lower-left controls after the earlier route failed.<br>1. On desktop with a controller, select the visible pencil by the cart name, press A, and enter a name with the D-pad and A. Press B once and confirm the dialog closes and focus returns to the pencil. Reopen it and confirm the name.<br>2. Select the visible ROOM CODE field, press A, and enter a code. Confirm the dialog accepts controller-grid input and a physical or Steam keyboard can type in the focused text field. Press B once and confirm focus returns to ROOM CODE.<br>3. At 1280×800 and on Steam Deck, FAIL if either duplicate lower-left button appears, the dialog does not appear, input freezes, B does not close it, focus reaches behind it, or phone/tablet touch behavior changes. PASS if both real controls are clear and reliable.",
+            "notes": "**Owed: Wyatt playtest — GAMEPAD-DIRECT-ENTRY-PT-1 — the visible pencil and room-code box open a usable text dialog without freezing the menu.** Parent **UI-INPUT-LIFECYCLE-1** is pushed but not yet deployed; use `npm run dev` until it ships.<br>1. On desktop with a controller, select the pencil, press A, type part of a name with the controller grid, then type more with a physical keyboard. Confirm, reopen, cancel with B, and verify focus returns to the pencil each time.<br>2. Select ROOM CODE and press A. Enter an invalid code, correct it without closing the dialog, then cancel. Reopen it and type with both the controller grid and a physical or Steam keyboard.<br>3. FAIL if either dialog stays invisible, the menu freezes, the first physical-keyboard character is lost after controller use, confirm or cancel fires twice, focus escapes behind the dialog, or the menu remains broken after close. PASS if both fields can be reopened and used normally.",
             "ship1": null
           },
           {
             "pri": "Low",
-            "item": "GAMEPAD-MENU-ROUTES-PT-1 — controller routes for desktop + handheld menus `[solo]`",
-            "notes": "**Owed: Wyatt playtest — GAMEPAD-MENU-ROUTES-PT-1 — controller menus keep familiar arena bumpers, D-pad match setup access, and immediate pause RESUME focus.** Parent **GAMEPAD-MENU-ROUTES-1** is deployed; this retests the fix.<br>1. On desktop with a controller or a controller handheld, open the main menu. Use the D-pad to reach arena and difficulty controls. Use LB/RB to page the visible arena, then choose an arena and a difficulty.<br>2. Start a solo round, pause it, and confirm the focus ring is already on RESUME during the pause entrance. Use D-pad and A to resume; use B from another pause button to resume without changing a main-menu setting.<br>3. FAIL if a bumper does not page the visible arena, a setup control cannot be reached, focus goes behind an open overlay, or any phone/tablet touch behavior changes. PASS if the route is clear and both controller types work.",
+            "item": "GAMEPAD-MENU-ROUTES-PT-1 — controller pause-menu navigation `[solo]`",
+            "notes": "**Owed: Wyatt playtest — GAMEPAD-MENU-ROUTES-PT-1 — the in-game pause menu is fully controllable with a controller.** Parent **UI-INPUT-LIFECYCLE-1** is pushed but not yet deployed; use `npm run dev` until it ships.<br>1. Start a solo round with a controller. Press START and confirm RESUME has the focus ring immediately.<br>2. Use D-pad or left stick to reach audio sliders, quality, RESTART ROUND, and MAIN MENU. Adjust one slider, then use A to resume. Pause again and use B to resume from another control.<br>3. FAIL if focus does not move, A or B does nothing, focus reaches gameplay or the main menu behind the pause screen, or resuming causes a boost/hop. PASS if every visible pause control is reachable and gameplay needs a fresh action press after resume.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "PAUSE-CHARGE-SFX-PT-1 — pause cancels charge-up audio `[solo]`",
+            "notes": "**Owed: Wyatt playtest — PAUSE-CHARGE-SFX-PT-1 — pausing never leaves the charge-up sound looping.** Parent **UI-INPUT-LIFECYCLE-1** is pushed but not yet deployed; use `npm run dev` until it ships.<br>1. Start a solo round. Hold boost until the charge-up sound is clear, then open the pause menu while charge is active.<br>2. Stay paused for five seconds, resume with A, release all controls, then perform one fresh boost press.<br>3. FAIL if charge-up repeats or continues while paused, continues after resume, or the resume press fires a boost. PASS if pause stops the old charge and only the fresh boost starts a new charge sound.",
             "ship1": null
           },
           {

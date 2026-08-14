@@ -13,6 +13,21 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 14, 2026 — UI-INPUT-LIFECYCLE-1: text entry + pause input regression audit
+
+- *(UI / Input · Low)* **UI-INPUT-LIFECYCLE-1** — root-cause audit and desk work complete.
+  The controller text dialog was mounted inside hidden `#cr-customize-screen`; the dialog became
+  its own active navigation scope while its ancestor kept it invisible. It now mounts at the page
+  root, keeps one draft when switching between controller and physical/Steam keyboard input, and
+  returns focus to the pencil or room-code field on confirm or cancel.
+- Solo pause previously skipped the game-loop frame that enabled menu navigation and suppressed
+  gameplay input. Pause now changes both owners synchronously, cancels frozen charge state by mode,
+  blocks keyboard/gamepad/touch boost while UI owns input, and requires a fresh boost press after
+  resume. Focused tests: 85/85; typecheck passed; local browser confirmed the production DOM mount,
+  pause RESUME focus, and pause-scoped navigation. Human checks remain open in BACKLOG.
+- **GAMEPAD-TEXT-ENTRY-PT-1** is retired as superseded by the direct pencil/room-code retest; it
+  did not receive a PASS.
+
 ### August 14, 2026 — GAMEPAD-DIRECT-ENTRY-1: direct controller text entry
 
 - *(UI · Low)* **GAMEPAD-DIRECT-ENTRY-1** — replaces the duplicate lower-left controller

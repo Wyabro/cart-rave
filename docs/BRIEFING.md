@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-14 at commit `590ea6d` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `d2d4ead6`
+> Generated 2026-08-14 at commit `a0a221a` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `0be68e12`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -18,7 +18,7 @@ Playtesting and stabilization — Tier A drained; Tier B/C, security sweep, and 
 
 ## ACTIVE CARD
 
-Deferred playtests (need two machines or launch-day traffic): CARGO-BAY-INSTANCE-PT-3 (cargo sync, 2pc) · CONN-TRACK-LEAK-PT-1 (host-leave migration, 2pc) · QP-ROTATE-PT-1 (Quickplay rematch catalog order, 2pc) · SHARD-PT-2 (5th human overflow, launch day). All solo-checkable cards are closed
+After UI-INPUT-LIFECYCLE-1 ships: retest direct text entry, pause controller navigation, and pause charge audio as three independent BACKLOG cards
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 
