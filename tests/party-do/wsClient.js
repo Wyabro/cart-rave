@@ -12,8 +12,11 @@ import { exports } from "cloudflare:workers";
  * @param {{ ip?: string }} [opts]
  */
 export function partyWsUrl(room, opts = {}) {
-  void opts;
-  return `http://example.com/parties/cart-rave-server/${encodeURIComponent(room)}`;
+  const path = `http://example.com/parties/cart-rave-server/${encodeURIComponent(room)}`;
+  if (typeof opts.pk === "string" && opts.pk) {
+    return `${path}?_pk=${encodeURIComponent(opts.pk)}`;
+  }
+  return path;
 }
 
 /**
@@ -23,7 +26,7 @@ export function partyWsUrl(room, opts = {}) {
  */
 export async function openPartyClient(room, opts = {}) {
   const ip = opts.ip ?? `test-${Math.random().toString(16).slice(2)}`;
-  const response = await exports.default.fetch(partyWsUrl(room), {
+  const response = await exports.default.fetch(partyWsUrl(room, opts), {
     headers: {
       Upgrade: "websocket",
       "cf-connecting-ip": ip,

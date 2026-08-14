@@ -159,7 +159,10 @@ export function validateHostRound(
       if (prevStart > 0 && startedAtMs > prevStart) {
         const hideDelta = startedAtMs - prevStart;
         if (Number.isFinite(hideDelta) && hideDelta > 0) {
-          hostHideCompMs = (prev.hostHideCompMs ?? 0) + hideDelta;
+          hostHideCompMs = Math.min(
+            ROUND_DURATION_MS,
+            (prev.hostHideCompMs ?? 0) + hideDelta,
+          );
         } else {
           hostHideCompMs = prev.hostHideCompMs ?? 0;
         }
@@ -237,12 +240,11 @@ export function validateHostRound(
       // * (e.g. sole survivor in a pure-SD eliminator where nobody scored beforehand).
       // * Timer/null rounds with zero scores remain a draw — no scorer, no winner.
       if (lastStanding) {
-        const w = typeof winnerRaw === "number" ? winnerRaw : Number(winnerRaw);
-        if (Number.isInteger(w) && w >= 0 && w <= 3) {
-          winnerSlotIndex = w;
+        // * Require a real integer slot — Number(null)/Number("")/Number(false) is 0
+        // * and would crown slot 0. Missing slot → draw, not slot 0.
+        if (typeof winnerRaw === "number" && Number.isInteger(winnerRaw) && winnerRaw >= 0 && winnerRaw <= 3) {
+          winnerSlotIndex = winnerRaw;
         } else {
-          // * Host did not name a slot (sent "draw" or null) — allow draw for this
-          // * unusual case rather than blocking the round from ending.
           winnerSlotIndex = "draw";
         }
       } else {
@@ -252,8 +254,10 @@ export function validateHostRound(
         endReason = null;
       }
     } else {
-      const w = typeof winnerRaw === "number" ? winnerRaw : Number(winnerRaw);
-      if (!Number.isInteger(w) || w < 0 || w > 3) return null;
+      if (typeof winnerRaw !== "number" || !Number.isInteger(winnerRaw) || winnerRaw < 0 || winnerRaw > 3) {
+        return null;
+      }
+      const w = winnerRaw;
       if (!lastStanding && (scores[w] ?? 0) < maxScore) {
         return null;
       }

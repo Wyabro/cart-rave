@@ -7,6 +7,36 @@
 /** @type {readonly string[]} */
 export const QUICKPLAY_ARENA_IDS = ["classicRecord", "backrooms", "zanzibar"];
 
+/** Production arenas a host may latch on friends / quickplay rooms. */
+export const MULTIPLAYER_LEVEL_IDS = Object.freeze([
+  "classicRecord",
+  "backrooms",
+  "zanzibar",
+  "rooftop",
+]);
+
+/**
+ * Whether a room is testdrive/solo (dev arena allowed).
+ * @param {unknown} roomName
+ * @returns {boolean}
+ */
+export function isDevOnlyRoomName(roomName) {
+  const n = String(roomName || "").toLowerCase();
+  return n.startsWith("testdrive") || n.startsWith("solo");
+}
+
+/**
+ * Host-asserted levelId allowlist. Rejects prototype keys and testArena in MP.
+ * @param {unknown} levelId
+ * @param {unknown} roomName
+ * @returns {boolean}
+ */
+export function isAllowedHostLevelId(levelId, roomName) {
+  if (typeof levelId !== "string" || levelId.length === 0) return false;
+  if (MULTIPLAYER_LEVEL_IDS.includes(levelId)) return true;
+  return levelId === "testArena" && isDevOnlyRoomName(roomName);
+}
+
 /**
  * Next arena in catalog order for Quickplay rematch rotation.
  *

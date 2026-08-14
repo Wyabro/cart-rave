@@ -261,6 +261,19 @@ describe("validateHostRound — host-hide MAX cushion (ROUND-WEDGE-1)", () => {
     });
   }
 
+  it("clamps accumulated hostHideCompMs to ROUND_DURATION_MS", () => {
+    const prev = runningPrev({
+      hostHideCompMs: ROUND_DURATION_MS - 1_000,
+      startedAtMs: hostStart + 10_000,
+    });
+    const out = validateHostRound(
+      prev,
+      { phase: "running", startedAtMs: hostStart + 10_000 + 50_000, scores },
+      serverStart + 30_000,
+    );
+    expect(out?.hostHideCompMs).toBe(ROUND_DURATION_MS);
+  });
+
   it("accumulates host-domain startedAtMs increases into hostHideCompMs on running→running", () => {
     const hideMs = 60_000;
     const out = validateHostRound(
@@ -415,7 +428,7 @@ describe("validateHostRound — winner verification", () => {
 
   it("rejects an out-of-range or non-integer winner slot", () => {
     const prev = prevRunning({ 0: 5, 1: 3, 2: 0, 3: 0 });
-    for (const bad of [-1, 4, 7, 1.5]) {
+    for (const bad of [-1, 4, 7, 1.5, null, "", false]) {
       expect(
         validateHostRound(prev, { phase: "podium", winnerSlotIndex: bad, endReason: "timer" }, now),
       ).toBeNull();

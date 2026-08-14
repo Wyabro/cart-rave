@@ -357,21 +357,21 @@ describe("CartRaveServer DO harness", () => {
     joiner.client.close();
   }, 10_000);
 
-  it("rebalances to a clearly stronger returning human during a live round", async () => {
+  it("does not let a high-score joiner steal host via hostPresent", async () => {
     const room = uniqueRoom("host-present");
     const host = await connectAndSeat(room, {
       name: "HOST",
       color: "pink",
       clientId: "cid-present-host",
       ip: "10.0.0.15",
-      hostScore: 100,
+      hostScore: 40,
     });
     const joiner = await connectAndSeat(room, {
       name: "JOIN",
       color: "green",
       clientId: "cid-present-join",
       ip: "10.0.0.16",
-      hostScore: 80,
+      hostScore: 100,
     });
 
     host.client.sendJson({
@@ -407,12 +407,11 @@ describe("CartRaveServer DO harness", () => {
       clientId: "cid-present-host",
       hostScore: 40,
     });
-    const migratePromise = joiner.client.awaitMessage(
-      (m) => m.type === MSG.hostMigrated && m.reason === "host_return",
-    );
     joiner.client.sendJson({ type: MSG.hostPresent });
-    const migrated = await migratePromise;
-    expect(migrated.hostId).toBe(joiner.youConnId);
+    await sleep(50);
+    expect(
+      joiner.client.messages.filter((m) => m.type === MSG.hostMigrated && m.hostId === joiner.youConnId),
+    ).toHaveLength(0);
 
     host.client.close();
     joiner.client.close();
@@ -455,7 +454,7 @@ describe("CartRaveServer DO harness", () => {
       // * Host keeps the socket open but sends nothing — do NOT close() (that is onClose).
       const migratePromise = joiner.client.awaitMessage(
         (m) => m.type === MSG.hostMigrated && m.hostId === joiner.youConnId,
-        1000,
+        1500,
       );
 
       await sleep(250);
@@ -831,6 +830,127 @@ describe("CartRaveServer DO harness", () => {
         joiner.client.close();
         host.client.close();
       }
+    });
+  });
+
+  describe("DEEPSEC-1 identity + host pick + allowlists", () => {
+    it("rejects a second socket that reuses a live connection id", async () => {
+      const room = uniqueRoom("pk-spoof");
+      const host = await connectAndSeat(room, {
+        name: "HOST",
+        clientId: "cid-pk-host",
+        ip: "10.0.4.1",
+      });
+      const spoof = await openPartyClient(room, {
+        ip: "10.0.4.2",
+        pk: host.youConnId,
+      });
+      const closeCode = await spoof.awaitClose(2000);
+      expect(closeCode).toBe(4030);
+      expect(spoof.messages.some((m) => m.type === "hello")).toBe(false);
+
+      const tClient = 4242;
+      host.client.sendJson({ type: MSG.keepalive, tClient });
+      const ack = await host.client.awaitMessage(
+        (m) => m.type === MSG.keepalive && m.tClient === tClient,
+      );
+      expect(ack.serverNowMs).toEqual(expect.any(Number));
+      expect(
+        host.client.messages.filter((m) => m.type === MSG.hostMigrated && m.hostId !== host.youConnId),
+      ).toHaveLength(0);
+
+      host.client.close();
+      spoof.close();
+    });
+
+    it("does not migrate host on join hostScore:100", async () => {
+      const room = uniqueRoom("score-join");
+      const host = await connectAndSeat(room, {
+        name: "HOST",
+        clientId: "cid-score-host",
+        ip: "10.0.4.3",
+        hostScore: 40,
+      });
+      const joiner = await connectAndSeat(room, {
+        name: "JOIN",
+        clientId: "cid-score-join",
+        ip: "10.0.4.4",
+        hostScore: 100,
+      });
+      await sleep(50);
+      const stolen = joiner.client.messages.filter(
+        (m) => m.type === MSG.hostMigrated && m.hostId === joiner.youConnId,
+      );
+      expect(stolen).toHaveLength(0);
+      expect(host.hello.hostId).toBe(host.youConnId);
+      host.client.close();
+      joiner.client.close();
+    });
+
+    it("does not let a non-host sdpOffer reach the host", async () => {
+      const room = uniqueRoom("sdp-acl");
+      const host = await connectAndSeat(room, {
+        name: "HOST",
+        clientId: "cid-sdp-host",
+        ip: "10.0.4.5",
+      });
+      const joiner = await connectAndSeat(room, {
+        name: "JOIN",
+        clientId: "cid-sdp-join",
+        ip: "10.0.4.6",
+      });
+      joiner.client.sendJson({
+        type: MSG.sdpOffer,
+        targetConnId: host.youConnId,
+        sdp: { type: "offer", sdp: "v=0" },
+      });
+      await sleep(50);
+      expect(host.client.messages.some((m) => m.type === MSG.sdpOffer)).toBe(false);
+      host.client.close();
+      joiner.client.close();
+    });
+
+    it("does not latch constructor or testArena levelId on a friends room", async () => {
+      const room = uniqueRoom("level-acl");
+      const host = await connectAndSeat(room, {
+        name: "HOST",
+        clientId: "cid-lvl-host",
+        ip: "10.0.4.7",
+      });
+      const before = host.hello.levelId;
+      host.client.sendJson({
+        type: MSG.hostRound,
+        levelId: "constructor",
+        round: {
+          phase: "countdown",
+          countdownStartedAtMs: 1000,
+          startedAtMs: 0,
+          winnerSlotIndex: null,
+          scores: { 0: 0, 1: 0, 2: 0, 3: 0 },
+        },
+      });
+      const counted = await host.client.awaitMessage(
+        (m) => m.type === MSG.round && m.round?.phase === "countdown",
+      );
+      expect(counted.levelId).toBe(before);
+      expect(counted.levelId).not.toBe("constructor");
+
+      host.client.sendJson({
+        type: MSG.hostRound,
+        levelId: "testArena",
+        round: {
+          phase: "running",
+          countdownStartedAtMs: 1000,
+          startedAtMs: 2000,
+          winnerSlotIndex: null,
+          scores: { 0: 0, 1: 0, 2: 0, 3: 0 },
+        },
+      });
+      const running = await host.client.awaitMessage(
+        (m) => m.type === MSG.round && m.round?.phase === "running",
+      );
+      expect(running.levelId).not.toBe("testArena");
+      host.client.close();
     });
   });
 });

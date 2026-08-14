@@ -82,12 +82,7 @@ import {
 } from './constants';
 import { COUNTDOWN_ABORT_GRACE_MS, isContinuousModeRoom, seatReadyState } from '../shared/readiness.js';
 import { validateHostRound, type RoundState } from './roundValidation';
-import {
-  pickNextHostId,
-  pickPreferredHostId,
-  pickPreferredHostIdExcluding,
-  shouldMigrateToPreferredHost,
-} from './hostSelection';
+import { pickNextHostId } from './hostSelection';
 import { advanceRateLimit } from './rateLimit';
 import {
   listSilentConnectionsToReap,
@@ -100,7 +95,7 @@ import {
   nextFreePaletteColor,
 } from './slotReconcile';
 import { NPC_NAME_POOL, takeNpcNameAvoidingPersonalities } from '../shared/npcNames.js';
-import { QUICKPLAY_ARENA_IDS } from '../shared/arenaPool.js';
+import { isAllowedHostLevelId, QUICKPLAY_ARENA_IDS } from '../shared/arenaPool.js';
 import { isQuickplayRoom, nextQuickplayShard } from '../shared/roomCodes.js';
 import { assetCacheControlForPath } from '../shared/assetCache.js';
 import {
@@ -243,6 +238,24 @@ export class CartRaveServer extends Server {
   }
 
   /**
+   * Only CLOSING (2) / CLOSED (3) count as dead. Unknown or CONNECTING is live
+   * so a missing readyState cannot overwrite a seated host.
+   */
+  #isSocketOpen(conn: Connection): boolean {
+    const rs = conn.readyState;
+    return rs !== 2 && rs !== 3;
+  }
+
+  /** True only when this socket object still owns the tracked id. */
+  #ownsConnection(connection: Connection): boolean {
+    return this.#connections.get(connection.id) === connection;
+  }
+
+  #isHostConnection(connection: Connection): boolean {
+    return this.#ownsConnection(connection) && connection.id === this.#hostId;
+  }
+
+  /**
    * CONN-SOURCETRUTH-1: the platform's live connection ids, raw from
    * getConnections() with no override. Single implementation of "which sockets
    * does the platform currently consider live" — every game-state path
@@ -378,8 +391,24 @@ export class CartRaveServer extends Server {
 
   #broadcastJson(payload: unknown, without?: Connection | Connection[]) {
     const msg = JSON.stringify(payload);
-    const withoutIds = without ? (Array.isArray(without) ? without.map((c) => c.id) : [without.id]) : undefined;
+    const withoutIds = without
+      ? (Array.isArray(without) ? without.map((c) => c.id) : [without.id])
+      : undefined;
     this.broadcast(msg, withoutIds);
+    // * After a ?_pk= collision, partyserver's map holds the spoof under the
+    // * same id. Also send to our tracked socket when it is a different object.
+    const skip = new Set(withoutIds ?? []);
+    const platformById = new Map<string, Connection>();
+    for (const c of this.getConnections()) platformById.set(c.id, c);
+    for (const [id, conn] of this.#connections) {
+      if (skip.has(id)) continue;
+      if (platformById.get(id) === conn) continue;
+      try {
+        conn.send(msg);
+      } catch {
+        /* socket already closing */
+      }
+    }
   }
 
   #sendJson(conn: Connection, payload: unknown) {
@@ -416,36 +445,6 @@ export class CartRaveServer extends Server {
     return pickNextHostId(this.#joinOrder, new Set(this.#connections.keys()), this.#slots);
   }
 
-  /**
-   * NH-HIT lever 3 / HOST-ROLE-1: in lobby only, migrate host to a clearly
-   * stronger peer when one has seated. Not a ban on weak hosts — alone they
-   * keep authority; ties stay on the first joiner (margin gate).
-   */
-  #maybeRebalanceHostForQuality() {
-    if (this.#round.phase !== "lobby") return;
-    // * Don't yank host mid-countdown arming; rematch grace is still lobby and OK.
-    if (this.#countdownArmed) return;
-    const live = new Set(this.#connections.keys());
-    const preferred = pickPreferredHostId(
-      this.#joinOrder,
-      live,
-      this.#slots,
-      this.#hostScores,
-    );
-    if (!shouldMigrateToPreferredHost(this.#hostId, preferred, this.#hostScores)) {
-      return;
-    }
-    this.#hostId = preferred;
-    this.#lastSeq = -1;
-    this.#broadcastJson({
-      v: PROTOCOL_VERSION,
-      type: MSG.hostMigrated,
-      serverNowMs: this.#serverNowMs(),
-      hostId: this.#hostId,
-      reason: "host_quality",
-    });
-  }
-
   #handleHostAway(connId: string, now: number) {
     if (connId !== this.#hostId) return;
     if (this.#round.phase !== "running" && this.#round.phase !== "countdown") return;
@@ -460,13 +459,8 @@ export class CartRaveServer extends Server {
     ).length ?? 0;
     if (liveHumanCount < 2) return;
 
-    const nextHostId = pickPreferredHostIdExcluding(
-      this.#joinOrder,
-      live,
-      this.#slots,
-      this.#hostScores,
-      this.#hostId,
-    );
+    live.delete(connId);
+    const nextHostId = pickNextHostId(this.#joinOrder, live, this.#slots);
     if (!nextHostId) return;
 
     this.#migrateMidRoundHost(nextHostId, "host_afk", now);
@@ -474,6 +468,8 @@ export class CartRaveServer extends Server {
 
   #handleHostPresent(connId: string, now: number) {
     if (this.#round.phase !== "running" && this.#round.phase !== "countdown") return;
+    // * Only a parked (away) host may return. A high hostScore joiner cannot steal.
+    if (!this.#awayHostIds.has(connId)) return;
     const live = new Set(this.#connections.keys());
     const senderIsLiveHuman = this.#slots?.some(
       (slot) => slot.kind === "human" && slot.connId === connId && live.has(connId),
@@ -483,19 +479,8 @@ export class CartRaveServer extends Server {
     if (now - this.#lastMidRoundHostMigrationAtMs < HOST_MIGRATION_COOLDOWN_MS) {
       return;
     }
-
-    const eligibleLive = new Set(
-      [...live].filter((id) => !this.#awayHostIds.has(id)),
-    );
-    const preferred = pickPreferredHostId(
-      this.#joinOrder,
-      eligibleLive,
-      this.#slots,
-      this.#hostScores,
-    );
-    if (!preferred) return;
-    if (!shouldMigrateToPreferredHost(this.#hostId, preferred, this.#hostScores)) return;
-    this.#migrateMidRoundHost(preferred, "host_return", now);
+    if (this.#hostId === connId) return;
+    this.#migrateMidRoundHost(connId, "host_return", now);
   }
 
   #migrateMidRoundHost(nextHostId: string, reason: "host_afk" | "host_return", now: number) {
@@ -1039,6 +1024,17 @@ export class CartRaveServer extends Server {
     // * the only connection that could trigger cleanup — a permanent lockout.
     this.#prunePlatformDeadTracking();
 
+    // * DEEPSEC-1: partyserver takes connection.id from client ?_pk=. Refuse to
+    // * displace a still-open socket. Close the new one before any tracking.
+    const prior = this.#connections.get(conn.id);
+    if (prior && prior !== conn && this.#isSocketOpen(prior)) {
+      conn.close(4030, "id in use");
+      return;
+    }
+    if (prior && prior !== conn) {
+      this.#forgetConnectionTracking(conn.id);
+    }
+
     // Security: Enforce connection rate limit per IP
     const ip = ctx.request.headers.get("cf-connecting-ip") || "unknown";
     const currentConnections = this.#ipConnectionCounts.get(ip) ?? 0;
@@ -1079,7 +1075,6 @@ export class CartRaveServer extends Server {
     // #connections because WebSocket close events are not guaranteed to fire (tab
     // crash, incognito close, network drop) and #connections can hold zombies.
     const liveConnIds = this.#liveConnIdSet();
-    // The new connection itself is not yet in getConnections() during onConnect, so add it.
     liveConnIds.add(conn.id);
     this.#reconcileOrphanSlots(liveConnIds);
 
@@ -1129,6 +1124,11 @@ export class CartRaveServer extends Server {
   }
 
   onClose(conn: Connection) {
+    const tracked = this.#connections.get(conn.id);
+    // * Spoof close: a different socket still owns this id and is open.
+    // * Server close() of the owner may pass a new wrapper — if the tracked
+    // * socket is already closing, treat this as a real departure.
+    if (tracked && tracked !== conn && this.#isSocketOpen(tracked)) return;
     this.#forgetConnectionTracking(conn.id);
     if (this.#pendingPickers.has(conn.id)) {
       this.#pendingPickers.delete(conn.id);
@@ -1197,6 +1197,8 @@ export class CartRaveServer extends Server {
       console.warn("[cart-rave] dropping oversized WS message", type, message.length);
       return;
     }
+
+    if (!this.#ownsConnection(connection)) return;
 
     if (!this.#checkRateLimit(connection.id)) {
       connection.close(4028, "Rate limit exceeded");
@@ -1399,7 +1401,7 @@ export class CartRaveServer extends Server {
             });
           }
           // * HOST-ROLE-1: after seating, prefer a clearly stronger peer as host.
-          this.#maybeRebalanceHostForQuality();
+          // * DEEPSEC-1: client hostScore no longer steals host on join.
           // * Publish zeroed mid-round seat score (see #assignHumanToSlot) so hello
           // * snapshots and peers don't keep showing the replaced NPC's points.
           if (this.#round.phase === "running" || this.#round.phase === "countdown") {
@@ -1506,7 +1508,7 @@ export class CartRaveServer extends Server {
       }
 
       if (type === MSG.playAgain) {
-        if (connection.id !== this.#hostId) return;
+        if (!this.#isHostConnection(connection)) return;
         this.#clearCountdownTimer();
         this.#clearRematchGrace();
         this.#round = this.#freshRoundLobby();
@@ -1522,8 +1524,6 @@ export class CartRaveServer extends Server {
           }
         }
         this.#clearPlayReadyWait();
-        // * HOST-ROLE-1: re-evaluate host quality before the next countdown.
-        this.#maybeRebalanceHostForQuality();
         this.#broadcastJson({
           v: PROTOCOL_VERSION,
           type: MSG.slots,
@@ -1571,8 +1571,9 @@ export class CartRaveServer extends Server {
       }
 
       if (type === MSG.sdpOffer) {
+        if (!this.#isHostConnection(connection)) return;
         const targetConnId = data?.targetConnId;
-        if (typeof targetConnId === 'string') {
+        if (typeof targetConnId === 'string' && targetConnId !== connection.id) {
           const targetConn = this.#connections.get(targetConnId);
           if (targetConn) {
             this.#sendJson(targetConn, {
@@ -1586,43 +1587,29 @@ export class CartRaveServer extends Server {
         return;
       }
 
-      if (type === MSG.sdpAnswer) {
+      if (type === MSG.sdpAnswer || type === MSG.iceCandidate) {
+        if (!this.#ownsConnection(connection)) return;
         const targetConnId = data?.targetConnId;
-        if (typeof targetConnId === 'string') {
-          const targetConn = this.#connections.get(targetConnId);
-          if (targetConn) {
-            this.#sendJson(targetConn, {
-              v: PROTOCOL_VERSION,
-              type: MSG.sdpAnswer,
-              fromConnId: connection.id,
-              sdp: data.sdp
-            });
-          }
-        }
-        return;
-      }
-
-      if (type === MSG.iceCandidate) {
-        const targetConnId = data?.targetConnId;
-        if (typeof targetConnId === 'string') {
-          const targetConn = this.#connections.get(targetConnId);
-          if (targetConn) {
-            this.#sendJson(targetConn, {
-              v: PROTOCOL_VERSION,
-              type: MSG.iceCandidate,
-              fromConnId: connection.id,
-              candidate: data.candidate
-            });
-          }
-        }
+        if (typeof targetConnId !== 'string') return;
+        const targetConn = this.#connections.get(targetConnId);
+        if (!targetConn) return;
+        const senderIsHost = this.#isHostConnection(connection);
+        const targetIsHost = targetConnId === this.#hostId;
+        if (!senderIsHost && !targetIsHost) return;
+        this.#sendJson(targetConn, {
+          v: PROTOCOL_VERSION,
+          type,
+          fromConnId: connection.id,
+          ...(type === MSG.sdpAnswer ? { sdp: data.sdp } : { candidate: data.candidate }),
+        });
         return;
       }
 
       if (type === MSG.hostRound) {
         // Security: host-only; server validates transitions and podium results.
-        if (connection.id !== this.#hostId) return;
+        if (!this.#isHostConnection(connection)) return;
         const levelId = typeof data?.levelId === "string" ? data.levelId.trim() : typeof data?.round?.levelId === "string" ? data.round.levelId.trim() : "";
-        if (levelId) {
+        if (levelId && isAllowedHostLevelId(levelId, this.name)) {
           this.#currentLevelId = levelId;
         }
         // * Top-level beside levelId — not inside round / roundValidation.
@@ -1653,7 +1640,7 @@ export class CartRaveServer extends Server {
 
       if (type === MSG.hostSpawn) {
         // * Reliable spawn/rematch poses — host-only, rebroadcast to the room.
-        if (connection.id !== this.#hostId) return;
+        if (!this.#isHostConnection(connection)) return;
         const carts = data?.carts;
         if (!carts || typeof carts !== "object") return;
         const seq = typeof data.seq === "number" && Number.isFinite(data.seq) ? data.seq : 0;

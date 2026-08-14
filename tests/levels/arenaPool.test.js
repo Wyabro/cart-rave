@@ -4,8 +4,24 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   QUICKPLAY_ARENA_IDS,
+  isAllowedHostLevelId,
   nextQuickplayArenaId,
 } from "../../shared/arenaPool.js";
+
+describe("isAllowedHostLevelId", () => {
+  it("accepts production arenas and rooftop in any room", () => {
+    expect(isAllowedHostLevelId("classicRecord", "KALE7")).toBe(true);
+    expect(isAllowedHostLevelId("rooftop", "quickplay")).toBe(true);
+  });
+
+  it("rejects prototype keys and testArena in friends/quickplay", () => {
+    expect(isAllowedHostLevelId("constructor", "KALE7")).toBe(false);
+    expect(isAllowedHostLevelId("__proto__", "quickplay")).toBe(false);
+    expect(isAllowedHostLevelId("testArena", "KALE7")).toBe(false);
+    expect(isAllowedHostLevelId("testArena", "testdrive1")).toBe(true);
+    expect(isAllowedHostLevelId("testArena", "soloabc")).toBe(true);
+  });
+});
 
 describe("nextQuickplayArenaId", () => {
   it("advances classicRecord → backrooms → zanzibar → classicRecord", () => {

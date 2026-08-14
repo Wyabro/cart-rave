@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-14T22:36:47.255Z",
-    "commit": "209c7d4"
+    "at": "2026-08-14T23:12:34.847Z",
+    "commit": "01bd2a8"
   },
-  "source_digest": "8edf7ec2",
+  "source_digest": "5edae219",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -896,11 +896,18 @@
       {
         "title": "Engineering",
         "counts": {
+          "High": 1,
           "Low": 5,
           "Partial": 1,
           "Medium": 4
         },
         "rows": [
+          {
+            "pri": "High",
+            "item": "DEEPSEC-1 — bind conn identity, stop hostScore steal, latch diag room, allowlists",
+            "notes": "**Acked 08-14.** Wave of 3 levers. Lever 1 (this commit): refuse live `?_pk=` overwrite, identity-bound host/signaling, no join/`hostPresent` score steal, `hostAway` → oldest remaining, `levelId` allowlist, `winnerSlotIndex`/`hostHideCompMs` guards. Levers 2–3 follow. Token rotate is **DEEPSEC-2**, not this card.",
+            "ship1": null
+          },
           {
             "pri": "Low",
             "item": "MOTION-A11Y-1 — `prefers-reduced-motion` doesn't actually reduce any motion",
@@ -1089,10 +1096,17 @@
       {
         "title": "Tech Debt",
         "counts": {
-          "Low": 7,
-          "Medium": 4
+          "Medium": 5,
+          "Low": 7
         },
         "rows": [
+          {
+            "pri": "Medium",
+            "id": "DEEPSEC-2",
+            "item": "Parked DeepSec residuals (token + DO limiters)",
+            "notes": "**Filed 08-14 with DEEPSEC-1.** Do not implement in the DEEPSEC-1 wave. Wyatt ops before public post: rotate `ERROR_LOG_TOKEN` if prod is still `69420` (`wrangler secret put ERROR_LOG_TOKEN`, update `.env.local`, confirm old token is 403). Then: sliding-window beacon + count analytics events not batches; cross-room WS connect budget and admin fail lockout in a Durable Object (not a Worker isolate `Map`); TURN mint budget that does not break 2pc on one NAT (room-cached credential); DataChannel receive rate cap after measuring 4p traffic; friends-code entropy (product change); non-host unlock corroboration (do not drop non-host unlocks). Known noise, do not reopen without new evidence: open POST beacon auth · Glitch `VITE_` token · latent `svgIcon` XSS · CI action SHA pins · pull-tool `--url` / path traversal · solo `Math.random` rooms. Do not duplicate TRUST-1.",
+            "ship1": null
+          },
           {
             "pri": "Low",
             "id": "EFFECTS-SPLIT-1",
