@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-14T01:26:26.003Z",
-    "commit": "51f33b0"
+    "at": "2026-08-14T01:29:19.743Z",
+    "commit": "d5fc9a0"
   },
-  "source_digest": "b053abdf",
+  "source_digest": "7160e3ff",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -891,7 +891,7 @@
       {
         "id": "ANIM-BUGS-1",
         "what": "animations.js entrance + lifecycle",
-        "status": "🟡 code on `cart-clash` (`51f33b0`); QA 7/7; unshipped; human check seeded as ANIM-BUGS-PT-1",
+        "status": "🟡 deployed `d5fc9a0` / Worker `c319bb08-f87d-4ac6-be98-4771cd731c34`; QA 7/7 + live assets PASS; human check seeded as ANIM-BUGS-PT-1",
         "state": "waiting",
         "touches_systems": [
           {
@@ -911,7 +911,7 @@
       }
     ],
     "next_actions": [
-      "ANIM-BUGS-PT-1: Wyatt check on `npm run dev:local` (menu stagger, dismiss, press, cart pulse), then ship when ready.",
+      "ANIM-BUGS-PT-1: Wyatt production playtest (hard-refresh first) — menu stagger, dismiss, press, cart pulse.",
       "GAMEPAD-NAV-REPEAT-PT-1: Wyatt production hardware test on Xbox, PS5 USB, or Steam Deck.",
       "RUMBLE-STRENGTH-PT-1: Wyatt production hardware test on Xbox, PS5 USB, and Steam Deck."
     ],
@@ -1071,7 +1071,7 @@
           {
             "pri": "Low",
             "item": "ANIM-BUGS-PT-1 — menu entrance + animation lifecycle `[solo]`",
-            "notes": "**Owed: Wyatt playtest — ANIM-BUGS-PT-1 — menu title/commands stagger in, dismiss/press/fade stay safe, and cart scale returns after boost/impact.** **Unshipped:** use `npm run dev:local` until the next ship; then repeat on production after a hard refresh.<br>1. Hard-refresh the menu. PASS if CART/CLASH title words and command rows stagger in; FAIL if they stay blank then pop late with no stagger.<br>2. Open/close Settings twice fast and Esc twice fast; interrupt Esc controls during fade-in. PASS if overlays hide cleanly and buttons stay clickable; FAIL if a panel sticks or a control ignores clicks afterward.<br>3. Mouse and touch: press a menu command, drag off, release. PASS if scale returns to rest; FAIL if it stays small. Repeat on one HUD wired button if available.<br>4. With howtoSeen cleared (or a fresh profile), confirm HOW TO PLAY attracts; leave and return to menu. PASS if attract can run again; FAIL if it never restarts.<br>5. In a Solo round, boost then collide (or spam boost). PASS if cart scale ends at normal size; FAIL if it stays swollen or squashed.",
+            "notes": "**Owed: Wyatt playtest — ANIM-BUGS-PT-1 — menu title/commands stagger in, dismiss/press/fade stay safe, and cart scale returns after boost/impact.** **Deployed:** `d5fc9a0` / Worker `c319bb08-f87d-4ac6-be98-4771cd731c34`; hard-refresh production first.<br>1. Hard-refresh the menu. PASS if CART/CLASH title words and command rows stagger in; FAIL if they stay blank then pop late with no stagger.<br>2. Open/close Settings twice fast and Esc twice fast; interrupt Esc controls during fade-in. PASS if overlays hide cleanly and buttons stay clickable; FAIL if a panel sticks or a control ignores clicks afterward.<br>3. Mouse and touch: press a menu command, drag off, release. PASS if scale returns to rest; FAIL if it stays small. Repeat on one HUD wired button if available.<br>4. With howtoSeen cleared (or a fresh profile), confirm HOW TO PLAY attracts; leave and return to menu. PASS if attract can run again; FAIL if it never restarts.<br>5. In a Solo round, boost then collide (or spam boost). PASS if cart scale ends at normal size; FAIL if it stays swollen or squashed.",
             "ship1": null
           },
           {
@@ -1164,7 +1164,7 @@
           {
             "pri": "Medium",
             "item": "ANIM-BUGS-1 — animations.js entrance + lifecycle bugs",
-            "notes": "**Levers 1–6 landed** on `cart-clash` (HEAD includes `51f33b0`); QA 7/7. Multi-target menu enter + stagger, dismiss settle, fadeIn pointer cleanup, pointer capture (shared + menu), HOW TO attract clear on cancel, cart pulse snap + dead joystick delete. Human check: **ANIM-BUGS-PT-1**. Unshipped until Wyatt says ship it.",
+            "notes": "**Deployed** `d5fc9a0` / Worker `c319bb08-f87d-4ac6-be98-4771cd731c34`. Levers 1–6 on prod; QA 7/7; live root + 25 assets 0×404; animations chunk `animations-CoDgvy2n.js` carries pointer-capture + howto beat symbols. Human check: **ANIM-BUGS-PT-1**.",
             "ship1": null
           },
           {
