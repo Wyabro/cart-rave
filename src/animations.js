@@ -17,7 +17,6 @@ export { createTimeline, stagger };
 const DEFAULT_EASE_SNAP = "outExpo";
 const DEFAULT_EASE_BOUNCE = "outBack(1.35)";
 const DEFAULT_EASE_FADE = "inOutQuad";
-const DEFAULT_EASE_SPRING = "outBack(1.5)";
 
 /** Touch button glow presets — flash peaks then CSS classes hold steady glow. */
 const TOUCH_GLOW = {
@@ -37,9 +36,6 @@ const TOUCH_GLOW = {
 
 /** @type {WeakMap<Element, Set<JSAnimation>>} */
 const activeByElement = new WeakMap();
-
-/** @type {WeakMap<Element, JSAnimation>} */
-const pulseByElement = new WeakMap();
 
 /** @type {WeakMap<Element, JSAnimation>} */
 const howToAttractByElement = new WeakMap();
@@ -144,8 +140,6 @@ export function cancelElementAnimations(element) {
     clearHowToAttractState(element);
   }
 
-  stopTouchPulse(element);
-
   const bucket = activeByElement.get(element);
   if (!bucket) return;
 
@@ -163,26 +157,6 @@ export function cancelElementAnimations(element) {
 
   bucket.clear();
   activeByElement.delete(element);
-}
-
-/**
- * Stops a looping touch pulse on an element.
- * @param {Element | null | undefined} element
- */
-function stopTouchPulse(element) {
-  if (!(element instanceof Element)) return;
-
-  const pulse = pulseByElement.get(element);
-  if (!pulse) return;
-
-  try {
-    pulse.cancel();
-  } catch {
-    // Pulse may already be finished.
-  }
-
-  pulseByElement.delete(element);
-  activeByElement.get(element)?.delete(pulse);
 }
 
 /**
@@ -668,148 +642,6 @@ export function animateTouchControlRelease(element, options = {}) {
 }
 
 /**
- * Joystick knob squish when the user first touches the stick.
- * @param {HTMLElement | null | undefined} knobEl
- * @param {AnimationOptions} [options]
- * @returns {JSAnimation | null}
- */
-function animateJoystickEngage(knobEl, options = {}) {
-  if (!knobEl) return null;
-
-  const duration = options.duration ?? 80;
-
-  if (!shouldAnimate({ touchOnly: true, ...options })) {
-    knobEl.style.setProperty("--knob-scale", "0.9");
-    knobEl.style.setProperty("--knob-bright", "1.15");
-    return null;
-  }
-
-  stopTouchPulse(knobEl);
-
-  return runTouchAnimation(
-    knobEl,
-    {
-      "--knob-scale": [1, 0.9],
-      "--knob-bright": [1, 1.18],
-      duration,
-      ease: DEFAULT_EASE_SNAP,
-    },
-    { force: true },
-  );
-}
-
-/**
- * Returns the joystick knob to center with spring easing and resets squish.
- * @param {HTMLElement | null | undefined} knobEl
- * @param {number} fromX Current knob X offset in px.
- * @param {number} fromY Current knob Y offset in px.
- * @param {AnimationOptions} [options]
- * @returns {JSAnimation | null}
- */
-function animateJoystickRelease(knobEl, fromX, fromY, options = {}) {
-  if (!knobEl) return null;
-
-  // * Rubber-band recenter snap.
-  const duration = options.duration ?? 140;
-  const ease = options.ease ?? "outBack(1.7)";
-
-  stopTouchPulse(knobEl);
-
-  if (!shouldAnimate({ touchOnly: true, ...options })) {
-    knobEl.style.setProperty("--knob-x", "0px");
-    knobEl.style.setProperty("--knob-y", "0px");
-    knobEl.style.setProperty("--knob-scale", "1");
-    knobEl.style.setProperty("--knob-bright", "1");
-    return null;
-  }
-
-  cancelElementAnimations(knobEl);
-
-  return runTouchAnimation(
-    knobEl,
-    {
-      "--knob-x": [`${fromX.toFixed(1)}px`, "0px"],
-      "--knob-y": [`${fromY.toFixed(1)}px`, "0px"],
-      "--knob-scale": [0.9, 1],
-      "--knob-bright": [1.15, 1],
-      duration,
-      ease,
-      onComplete: () => {
-        if (!knobEl.isConnected) return;
-        knobEl.style.setProperty("--knob-x", "0px");
-        knobEl.style.setProperty("--knob-y", "0px");
-        knobEl.style.removeProperty("--knob-scale");
-        knobEl.style.removeProperty("--knob-bright");
-      },
-    },
-    { force: true },
-  );
-}
-
-/**
- * Starts or updates a subtle pulse on the joystick while input is active.
- * @param {HTMLElement | null | undefined} knobEl
- * @param {HTMLElement | null | undefined} ringEl
- * @param {boolean} active Whether the stick is deflected past the deadzone.
- * @param {number} [intensity=0] Input magnitude 0–1 for pulse strength.
- */
-function setJoystickActivePulse(knobEl, ringEl, active, intensity = 0) {
-  if (!knobEl && !ringEl) return;
-
-  const mag = clampPulseIntensity(intensity);
-
-  if (!active || mag <= 0) {
-    stopTouchPulse(knobEl);
-    stopTouchPulse(ringEl);
-    if (knobEl?.isConnected) {
-      knobEl.style.removeProperty("--knob-bright");
-    }
-    if (ringEl?.isConnected) {
-      ringEl.style.removeProperty("--ring-pulse");
-      ringEl.style.opacity = "";
-    }
-    return;
-  }
-
-  if (!shouldAnimate({ touchOnly: true })) return;
-
-  const brightPeak = 1 + mag * 0.14;
-  const ringPeak = 0.88 + mag * 0.12;
-
-  if (!pulseByElement.has(knobEl)) {
-    const knobPulse = animate(knobEl, {
-      "--knob-bright": [1.04, brightPeak, 1.04],
-      duration: 420 + (1 - mag) * 180,
-      loop: true,
-      ease: "inOutSine",
-    });
-    pulseByElement.set(knobEl, knobPulse);
-    trackAnimation(knobEl, knobPulse);
-  }
-
-  if (ringEl && !pulseByElement.has(ringEl)) {
-    const ringPulse = animate(ringEl, {
-      opacity: [0.82, ringPeak, 0.82],
-      "--ring-pulse": [1, 1 + mag * 0.04, 1],
-      duration: 480 + (1 - mag) * 160,
-      loop: true,
-      ease: "inOutSine",
-    });
-    pulseByElement.set(ringEl, ringPulse);
-    trackAnimation(ringEl, ringPulse);
-  }
-}
-
-/**
- * @param {number} value
- * @returns {number}
- */
-function clampPulseIntensity(value) {
-  if (!Number.isFinite(value)) return 0;
-  return Math.max(0, Math.min(1, value));
-}
-
-/**
  * Counts a numeric display up to targetValue (e.g. stats, scores).
  * @param {HTMLElement | null | undefined} element
  * @param {number} targetValue
@@ -1050,12 +882,6 @@ export function scheduleKillFeedExit(row, visibleMs = 4000) {
 }
 
 /**
- * Quick scale pulse on a cart mesh when nitro activates.
- * @param {import('three').Object3D | null | undefined} mesh
- * @param {AnimationOptions & { scalePeak?: number }} [options]
- * @returns {JSAnimation | null}
- */
-/**
  * Cancels any in-flight cart scale tween (boost pulse / impact squash) and snaps
  * the mesh back to its canonical base scale. animejs cancel() skips onComplete,
  * so without this an interrupted tween leaves mesh.scale frozen mid-pulse —
@@ -1079,15 +905,29 @@ export function resetCartPulseScale(mesh) {
   if (typeof base === "number" && base > 0) mesh.scale.setScalar(base);
 }
 
-export function animateCartBoostPulse(mesh, options = {}) {
-  if (!mesh?.isObject3D) return null;
+/**
+ * @param {import('three').Object3D} mesh
+ * @returns {number}
+ */
+function resolveCartBaseScale(mesh) {
+  const stored = mesh.userData.baseScale;
+  if (typeof stored === "number" && Number.isFinite(stored) && stored > 0) {
+    return stored;
+  }
+  const current = mesh.scale.x;
+  if (typeof current === "number" && Number.isFinite(current) && current > 0) {
+    mesh.userData.baseScale = current;
+    return current;
+  }
+  return 1;
+}
 
-  const duration = options.duration ?? 220;
-  const ease = options.ease ?? DEFAULT_EASE_BOUNCE;
-  const scalePeak = options.scalePeak ?? 1.055;
-
-  if (!shouldAnimate(options)) return null;
-
+/**
+ * Cancel in-flight cart scale tween and snap to base before a replacement starts.
+ * @param {import('three').Object3D} mesh
+ * @returns {number} Canonical base scale for the new tween.
+ */
+function cancelCartPulseForRestart(mesh) {
   const existing = cartPulseByMesh.get(mesh);
   if (existing) {
     try {
@@ -1097,8 +937,27 @@ export function animateCartBoostPulse(mesh, options = {}) {
     }
     cartPulseByMesh.delete(mesh);
   }
+  const base = resolveCartBaseScale(mesh);
+  mesh.scale.setScalar(base);
+  return base;
+}
 
-  const base = mesh.userData.baseScale ?? mesh.scale.x;
+/**
+ * Quick scale pulse on a cart mesh when nitro activates.
+ * @param {import('three').Object3D | null | undefined} mesh
+ * @param {AnimationOptions & { scalePeak?: number }} [options]
+ * @returns {JSAnimation | null}
+ */
+export function animateCartBoostPulse(mesh, options = {}) {
+  if (!mesh?.isObject3D) return null;
+
+  const duration = options.duration ?? 220;
+  const ease = options.ease ?? DEFAULT_EASE_BOUNCE;
+  const scalePeak = options.scalePeak ?? 1.055;
+
+  if (!shouldAnimate(options)) return null;
+
+  const base = cancelCartPulseForRestart(mesh);
   const peak = base * scalePeak;
 
   const animation = animate(mesh.scale, {
@@ -1135,17 +994,7 @@ export function animateCartImpactSquash(mesh, intensity = 0.5, options = {}) {
 
   if (!shouldAnimate(options)) return null;
 
-  const existing = cartPulseByMesh.get(mesh);
-  if (existing) {
-    try {
-      existing.cancel();
-    } catch {
-      // Animation may already be finished.
-    }
-    cartPulseByMesh.delete(mesh);
-  }
-
-  const base = mesh.userData.baseScale ?? mesh.scale.x;
+  const base = cancelCartPulseForRestart(mesh);
   const i = Math.min(Math.max(intensity, 0), 1.2);
   const squash = base * (1 - 0.16 * i);
   const bulge = base * (1 + 0.1 * i);
