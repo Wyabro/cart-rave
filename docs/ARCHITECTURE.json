@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-14T23:12:34.847Z",
-    "commit": "01bd2a8"
+    "at": "2026-08-14T23:24:01.802Z",
+    "commit": "95ab825"
   },
-  "source_digest": "5edae219",
+  "source_digest": "82179321",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -873,8 +873,8 @@
       }
     ],
     "next_actions": [
-      "UI-INPUT-LIFECYCLE-1 is deployed: retest direct text entry, pause controller navigation, and pause charge audio as three independent BACKLOG cards.",
-      "Deferred playtests (need two machines or launch-day traffic): CARGO-BAY-INSTANCE-PT-3 (cargo sync, 2pc) · CONN-TRACK-LEAK-PT-1 (host-leave migration, 2pc) · QP-ROTATE-PT-1 (Quickplay rematch catalog order, 2pc) · SHARD-PT-2 (5th human overflow, launch day).",
+      "DEEPSEC-1 landed (3 commits, not deployed). Playtest DEEPSEC-1-PT-1 `[2pc]` on `dev:local` or after ship. Token rotate stays on DEEPSEC-2.",
+      "Deferred playtests (need two machines or launch-day traffic): DEEPSEC-1-PT-1 · CARGO-BAY-INSTANCE-PT-3 · CONN-TRACK-LEAK-PT-1 · QP-ROTATE-PT-1 · SHARD-PT-2.",
       "SHIP-1 D-tier — cut persistent leaderboard from launch, or schedule its own phase (Wyatt).",
       "Agent quiet-window picks: BACKLOG Block 4 (WARM-SOLO-1 · PERF-WATCH-1) or Block 5 Lows — plan → ack first."
     ],
@@ -896,18 +896,11 @@
       {
         "title": "Engineering",
         "counts": {
-          "High": 1,
           "Low": 5,
           "Partial": 1,
           "Medium": 4
         },
         "rows": [
-          {
-            "pri": "High",
-            "item": "DEEPSEC-1 — bind conn identity, stop hostScore steal, latch diag room, allowlists",
-            "notes": "**Acked 08-14.** Wave of 3 levers. Lever 1 (this commit): refuse live `?_pk=` overwrite, identity-bound host/signaling, no join/`hostPresent` score steal, `hostAway` → oldest remaining, `levelId` allowlist, `winnerSlotIndex`/`hostHideCompMs` guards. Levers 2–3 follow. Token rotate is **DEEPSEC-2**, not this card.",
-            "ship1": null
-          },
           {
             "pri": "Low",
             "item": "MOTION-A11Y-1 — `prefers-reduced-motion` doesn't actually reduce any motion",
@@ -1027,10 +1020,16 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Medium": 4,
+          "Medium": 5,
           "Low": 6
         },
         "rows": [
+          {
+            "pri": "Medium",
+            "item": "DEEPSEC-1-PT-1 — stolen `_pk` / `hostScore` does not take host `[2pc]`",
+            "notes": "**Owed: Wyatt playtest — DEEPSEC-1-PT-1 — a second tab cannot steal host, and Quickplay `?diag=1` URL rewrite does not unlock scores.** Parent **DEEPSEC-1** (`736beda` / `191a3cf` / `95ab825`). Not deployed yet — use `npm run dev:local` until ship.<br>1. Two browsers, same Friends code, both seat. Play 30 s. Host refresh: the host reconnects as themselves or a clean migrate, never two hosts. Rematch starts.<br>2. Two browsers, Quickplay. First joiner is host. On the host with `?diag=1`, run `history.replaceState({}, '', '/?diag=1&room=KALE7')` then `__ccDiag.control.setScores({0:500,1:0,2:0,3:0})`. Scores on the other browser must not jump.<br>3. Friends `?diag=1`: host `setScores` still works. FAIL if Friends levers die, if Quickplay levers work after the rewrite, if refresh duplicates host, or if rematch cannot start.",
+            "ship1": null
+          },
           {
             "pri": "Medium",
             "item": "MOBILE-SCOREBOARD-PT-1 — mobile scoreboard identifies every player `[solo]`",

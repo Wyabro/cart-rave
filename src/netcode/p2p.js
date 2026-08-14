@@ -68,6 +68,7 @@ let sessionGeneration = 0;
  * @param {object} params
  * @param {string} [params.localId]
  * @param {boolean} params.host
+ * @param {string | null} [params.hostId]
  * @param {function} params.sendSignal
  * @param {function} params.onInput
  * @param {function} params.onState

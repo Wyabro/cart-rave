@@ -13,6 +13,20 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 14, 2026 — DEEPSEC-1: DeepSec real issues + bugs (3 levers)
+
+- *(Engineering · High)* **DEEPSEC-1** — one card, three commits. Token rotate is **DEEPSEC-2**
+  (parked; Wyatt later).
+- Lever 1 (`736beda`): refuse a live `?_pk=` overwrite; host/signaling gates require the
+  tracked socket object; join/`hostPresent` cannot steal via `hostScore`; `hostAway` promotes
+  oldest remaining; `levelId` allowlist; `winnerSlotIndex`/`hostHideCompMs` guards.
+- Lever 2 (`191a3cf`): latch `connectedRoom` for SEC-DIAG-1; integer `slotId`; `tHost` jump
+  bound; ICE queue cap 64; `Object.hasOwn` on level ids.
+- Lever 3 (`95ab825`): DO admin gate on public `/parties/<log>/…` tails; valid analytics JSON
+  clamp; duration/`kos` caps; CF-only geo; invite `kale7` → `KALE7`; drop raw
+  `__cartRaveSendErrorLog`.
+- Playtest owed: **DEEPSEC-1-PT-1** `[2pc]`. Residuals: **DEEPSEC-2**.
+
 ### August 14, 2026 — UI-INPUT-LIFECYCLE-1: text entry + pause input regression audit
 
 - *(UI / Input · Low)* **UI-INPUT-LIFECYCLE-1** — root-cause audit and desk work complete.

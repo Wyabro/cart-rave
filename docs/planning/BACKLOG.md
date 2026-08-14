@@ -59,8 +59,8 @@ way the Block table still can.)*
 | Block | State | Next action |
 |-------|-------|-------------|
 | **1** — NOW (player-facing correctness) | ✅ clear | No High open rows (RAPIER-MAJOR cluster closed 08-13) |
-| **2** — PRE-SHIP (before public post) | 🟡 queued | **DEEPSEC-1** (levers 1–3) |
-| **3** — WYATT LANE (blocked on you) | 👤 ongoing | SHIP-1 D-tier · **CARGO-BAY-INSTANCE-PT-3** · **CONN-TRACK-LEAK-PT-1** · **QP-ROTATE-PT-1** (all need 2 machines) |
+| **2** — PRE-SHIP (before public post) | ✅ clear | NPC-BOOST cluster closed 08-11 |
+| **3** — WYATT LANE (blocked on you) | 👤 ongoing | SHIP-1 D-tier · **DEEPSEC-1-PT-1** · **CARGO-BAY-INSTANCE-PT-3** · **CONN-TRACK-LEAK-PT-1** · **QP-ROTATE-PT-1** (all need 2 machines) |
 | **4** — PERF RESIDUAL (measure-first) | 🟡 queued | WARM-SOLO-1 · PERF-WATCH-1 · NET-PERF-1 / NET-PERF-3 |
 | **5** — SWEEP (cheap Lows) | 🟡 queued | MOTION-A11Y-1 · COUNTDOWN-QUICKPLAY-1 · COUNTDOWN-LEAK-1 · CART-HUE-RED-1 · BOOST-SFX-NONHOST-1 |
 | **6** — LAUNCH DAY | ⏳ waiting | **SHARD-PT-2** — 5th concurrent human → `quickplay2` |
@@ -71,11 +71,11 @@ way the Block table still can.)*
 <!-- BEGIN GENERATED counts — npm run backlog. Do not hand-edit. -->
 | Department | Open | High | Medium | Low |
 |---|---:|---:|---:|---:|
-| [Engineering](#engineering) | 11 | 1 | 4 | 5 (+1 partial) |
+| [Engineering](#engineering) | 10 | 0 | 4 | 5 (+1 partial) |
 | [Art](#art) | 1 | 0 | 0 | 1 |
 | [Audio](#audio) | 2 | 0 | 0 | 2 |
 | [Design / Gameplay](#design--gameplay) | 2 | 0 | 2 | 0 |
-| 🟢 [Playtest owed](#playtest-owed) | 10 | 0 | 4 | 6 |
+| 🟢 [Playtest owed](#playtest-owed) | 11 | 0 | 5 | 6 |
 | [Tech Debt](#tech-debt) | 12 | 0 | 5 | 7 |
 
 **38 open rows total.**
@@ -158,11 +158,11 @@ traffic; 7 is post-launch or parked. Priority ranks *inside* a block too (top fi
 
 **Block 1 — NOW (player-facing correctness / High).** ✅ clear — no High open rows.
 
-**Block 2 — PRE-SHIP (should land before the public post).**
-1. **DEEPSEC-1** — bind socket identity, stop hostScore steal, signaling ACL, levelId/podium guards (lever 1); client latch + wire sanitizers (lever 2); DO admin auth + beacon JSON + invite/dedupe (lever 3). Token rotate is **DEEPSEC-2**.
+**Block 2 — PRE-SHIP (should land before the public post).** ✅ clear.
 
 **Block 3 — WYATT LANE (off the agent queue until you unblock).**
 - **SHIP-1 D-tier** — cut persistent leaderboard from launch, or schedule its own phase. Decide once.
+- **DEEPSEC-1-PT-1** — stolen `_pk` / `hostScore` / Quickplay diag rewrite `[2pc]`.
 - **CARGO-BAY-INSTANCE-PT-3** — other player sees your cargo fill `[2pc]`.
 - **CONN-TRACK-LEAK-PT-1** — Friends host-leave migration `[2pc]`.
 - **QP-ROTATE-PT-1** — Quickplay rematch advances catalog order `[2pc]`.
@@ -194,7 +194,6 @@ traffic; 7 is post-launch or parked. Priority ranks *inside* a block too (top fi
 
 | Pri | Item | Notes |
 |-----|------|-------|
-| High | DEEPSEC-1 — bind conn identity, stop hostScore steal, latch diag room, allowlists | **Acked 08-14.** Wave of 3 levers. Lever 1 (this commit): refuse live `?_pk=` overwrite, identity-bound host/signaling, no join/`hostPresent` score steal, `hostAway` → oldest remaining, `levelId` allowlist, `winnerSlotIndex`/`hostHideCompMs` guards. Levers 2–3 follow. Token rotate is **DEEPSEC-2**, not this card. |
 | Low | MOTION-A11Y-1 — `prefers-reduced-motion` doesn't actually reduce any motion | **Filed 08-05, spun out of TIER-DEFAULT-1's lever 4.** The OS accessibility flag was, until TIER-DEFAULT-1 closed, silently forcing the graphics quality tier to Low (cap-287/288: the same Intel box booted Low with Windows animations on and Medium with them off). TIER-DEFAULT-1 fixed the *tier* side (reduced-motion now demotes one rung inside `defaultTierForCaps()` — [gpuCaps.js](../../src/utils/gpuCaps.js) — instead of hard-pinning Low), but that was always an interim: reduced-motion should reduce **motion**, not graphics fidelity. Nothing currently reads the flag for motion at all. Candidates once picked up: attract-camera spin/drift, cart-impact screen shake, KO/win screen flash, any continuous idle animation loop. Needs a definition-of-done pass (which motions, how much) before it's a code card. |
 | Low | COUNTDOWN-QUICKPLAY-1 — empty quickplay countdown connect-wait edge case | In empty quickplay games, countdown either waits for player connection before starting or skips part of it. Documented from F8 captures (184–196); parked in backlog per Wyatt (07-22). |
 | 🟡 Partial | NET-PERF-1 — reconcile rewind-replay cost | Caps shipped; residual if retest still rubber-bands. |
@@ -242,6 +241,7 @@ traffic. Closed PASS archaeology lives only in completed-work — do not restack
 
 | Pri | Item | Notes |
 |-----|------|-------|
+| Medium | DEEPSEC-1-PT-1 — stolen `_pk` / `hostScore` does not take host `[2pc]` | **Owed: Wyatt playtest — DEEPSEC-1-PT-1 — a second tab cannot steal host, and Quickplay `?diag=1` URL rewrite does not unlock scores.** Parent **DEEPSEC-1** (`736beda` / `191a3cf` / `95ab825`). Not deployed yet — use `npm run dev:local` until ship.<br>1. Two browsers, same Friends code, both seat. Play 30 s. Host refresh: the host reconnects as themselves or a clean migrate, never two hosts. Rematch starts.<br>2. Two browsers, Quickplay. First joiner is host. On the host with `?diag=1`, run `history.replaceState({}, '', '/?diag=1&room=KALE7')` then `__ccDiag.control.setScores({0:500,1:0,2:0,3:0})`. Scores on the other browser must not jump.<br>3. Friends `?diag=1`: host `setScores` still works. FAIL if Friends levers die, if Quickplay levers work after the rewrite, if refresh duplicates host, or if rematch cannot start. |
 | Medium | MOBILE-SCOREBOARD-PT-1 — mobile scoreboard identifies every player `[solo]` | **Owed: Wyatt playtest — MOBILE-SCOREBOARD-PT-1 — each mobile scoreboard chip keeps the player's name or identifier, symbol or icon, and score.** Regression fix is deployed in this release.<br>1. Hard-refresh production and run a solo round at 390×844 portrait, 667×375 landscape, 812×375 landscape, 900×390 landscape, and 1024×768 touch/portrait.<br>2. Inspect all four scoreboard chips at each size while scores update.<br>3. FAIL if any chip shows only a score/icon, clips the name or identifier, or overlaps the timer, controls, or stage. PASS if every chip keeps a readable name or identifier, symbol or icon, and score at all five sizes. |
 | Medium | STORE-PILE-PT-1 — NPCs route around + bounce off the Storerooms furniture pile `[solo]` | **Owed: Wyatt playtest — STORE-PILE-PT-1 — NPC carts no longer routinely wedge against the center furniture pile in Storerooms.** Parent **STORE-PILE-1** (`0fd9c64`, deployed 08-14). Fix adds tangential go-around steering + a wall contact bounce; the automated rig (`tmp/pileprobe.mjs` + `?diag` npcs probe) is ready to measure instead.<br>1. Solo round on THE STOREROOMS (hard-refresh prod first). Play near the center furniture pile — park near it, then let the NPCs chase you across it.<br>2. Over a full round, watch the NPCs: chasing bots should curve around the pile from ~8 m out; a bot that does contact it (boost push, ram) should bounce back and keep moving.<br>3. FAIL if an NPC grinds the same face of the pile for 4+ seconds, or repeatedly drives straight into it head-on instead of steering around. PASS if contacts are brief and bots visibly route around. |
 | Low | GAMEPAD-DIRECT-ENTRY-PT-1 — direct controller name + room-code entry `[solo]` | **Owed: Wyatt playtest — GAMEPAD-DIRECT-ENTRY-PT-1 — the visible pencil and room-code box open a usable text dialog without freezing the menu.** Parent **UI-INPUT-LIFECYCLE-1** is deployed in Worker version `70bf742a-0b6c-4214-be27-4697d950fbcc`.<br>1. On desktop with a controller, select the pencil, press A, type part of a name with the controller grid, then type more with a physical keyboard. Confirm, reopen, cancel with B, and verify focus returns to the pencil each time.<br>2. Select ROOM CODE and press A. Enter an invalid code, correct it without closing the dialog, then cancel. Reopen it and type with both the controller grid and a physical or Steam keyboard.<br>3. FAIL if either dialog stays invisible, the menu freezes, the first physical-keyboard character is lost after controller use, confirm or cancel fires twice, focus escapes behind the dialog, or the menu remains broken after close. PASS if both fields can be reopened and used normally. |
@@ -304,7 +304,7 @@ this list, so an unlisted closure stays a silent hole from the moment it closes.
 documentation wildcard, not a real lock:** the gate's id matcher reads it as the literal token
 `NET-CLK`, so a specific `NET-CLK-2` would not actually collide with it.
 
-NPC-BOOTH-TARGET-1, NIGHT-SHIFT-BLOCKOUT-1, NIGHT-SHIFT-CITY-1, CART-MODEL-1, SHADES-MAT-1, MENU-CART-1, FRIENDS-JOIN-LAYOUT-1, FRIENDS-LEVEL-1, FRIENDS-LEVEL-PT-1, ONBOARD-ATTRACT-1,
+DEEPSEC-1, NPC-BOOTH-TARGET-1, NIGHT-SHIFT-BLOCKOUT-1, NIGHT-SHIFT-CITY-1, CART-MODEL-1, SHADES-MAT-1, MENU-CART-1, FRIENDS-JOIN-LAYOUT-1, FRIENDS-LEVEL-1, FRIENDS-LEVEL-PT-1, ONBOARD-ATTRACT-1,
 ONBOARD-ART-1,
 ONBOARD-SLIDES-1, ONBOARD-SLIDES-PT-1, ONBOARD-SLIDES-PT-2, ONBOARD-SLIDES-PT-3,
 RESULTS-1, RESULTS-PT-1, ART-FILTER-1, ART-FILTER-PT-1, ART-FILTER-PT-2, ART-EXPO-1,
