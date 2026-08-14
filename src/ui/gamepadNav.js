@@ -29,6 +29,18 @@ const OVERLAY_SCOPE_SELECTORS = [
 
 let lastScope = /** @type {HTMLElement|Document|null} */ (null);
 
+// * The desktop menu has two separate jobs: choose a mode on the left, then
+// * configure that mode on the right. A geometric search across both columns
+// * made the controller route depend on viewport shape. Keep those jobs as
+// * explicit panels instead. Text entry is intentionally not here yet: its
+// * controller keyboard belongs to GAMEPAD-TEXT-ENTRY-1, and native inputs must
+// * not be focused by a pad before that exists.
+const MAIN_MENU_GROUPS = Object.freeze([
+  Object.freeze({ id: "commands", selector: "#cr-commandlist .cr-cmd" }),
+  Object.freeze({ id: "setup", selector: "#cr-context-arena .cr-arena-page, #cr-diff-row .cr-diff-btn" }),
+]);
+let mainMenuGroupIndex = 0;
+
 // * A held menu direction acts once immediately, then repeats after a short
 // * pause. Never catch up after a stalled frame: one rAF tick may move focus
 // * only once.
@@ -150,6 +162,61 @@ function isNavReachable(el) {
 function getFocusables(scope) {
   const elements = /** @type {HTMLElement[]} */ (Array.from(scope.querySelectorAll('button, a, [role="button"], [role="slider"], input, select, textarea')));
   return elements.filter((el) => isElementVisible(el) && isNavReachable(el));
+}
+
+/**
+ * Returns only visible main-menu panels. `#cr-context-arena` and the difficulty
+ * row are mode-dependent, so the setup panel disappears cleanly for Quickplay
+ * and the other menu commands.
+ * @returns {Array<{ id: string, focusables: HTMLElement[] }>}
+ */
+function getMainMenuGroups() {
+  return MAIN_MENU_GROUPS
+    .map((group) => ({
+      id: group.id,
+      focusables: /** @type {HTMLElement[]} */ (Array.from(document.querySelectorAll(group.selector)))
+        .filter((el) => isElementVisible(/** @type {HTMLElement} */ (el))),
+    }))
+    .filter((group) => group.focusables.length > 0);
+}
+
+/** @param {Array<{ id: string, focusables: HTMLElement[] }>} groups */
+function syncMainMenuGroupToFocus(groups) {
+  const active = /** @type {HTMLElement|null} */ (document.activeElement);
+  const focusedIndex = groups.findIndex((group) => !!active && group.focusables.includes(active));
+  if (focusedIndex >= 0) mainMenuGroupIndex = focusedIndex;
+  if (mainMenuGroupIndex >= groups.length) mainMenuGroupIndex = 0;
+}
+
+/**
+ * Main-menu controller navigation owns an authored panel at a time. Overlay
+ * navigation remains a local spatial ring, and keyboard arrows retain their
+ * existing all-control path.
+ * @param {HTMLElement|Document} scope
+ * @returns {HTMLElement[]}
+ */
+function getGamepadFocusables(scope) {
+  if (scope !== document) return getFocusables(scope);
+  const groups = getMainMenuGroups();
+  if (groups.length === 0) return getFocusables(scope);
+  syncMainMenuGroupToFocus(groups);
+  return groups[mainMenuGroupIndex].focusables;
+}
+
+/**
+ * @param {-1|1} delta
+ * @param {number} gamepadIndex
+ * @param {number} now
+ * @returns {boolean} True when a panel switch occurred.
+ */
+function switchMainMenuGroup(delta, gamepadIndex, now) {
+  const groups = getMainMenuGroups();
+  if (groups.length < 2) return false;
+  syncMainMenuGroupToFocus(groups);
+  mainMenuGroupIndex = (mainMenuGroupIndex + delta + groups.length) % groups.length;
+  const next = groups[mainMenuGroupIndex].focusables;
+  setFocus(next[0], next, gamepadIndex, now);
+  return true;
 }
 
 /**
@@ -313,37 +380,37 @@ function updateNav(now = performance.now()) {
     // * meaningless in the new one. Overlays focus their primary button on
     // * open, so the adopt branch below re-derives the right index.
     navIndex = 0;
+    mainMenuGroupIndex = 0;
     lastScope = scope;
     resetDirectionRepeat();
+
+    // * Pause explicitly focuses RESUME on open. Paint the same controller ring
+    // * on that real focus target immediately, before the player has to press a
+    // * direction. Other overlays keep their established first-press behavior.
+    if (scope !== document) {
+      const scopeFocusables = getFocusables(scope);
+      const active = /** @type {HTMLElement|null} */ (document.activeElement);
+      if (active && scopeFocusables.includes(active)) {
+        setFocus(active, scopeFocusables, gp.index, now);
+      }
+    }
   }
 
   const directionEvent = consumeDirectionEvent(direction, now);
 
-  // * ARENA-BUMPER-HINT-1: LB/RB → arena pager (same handlers as mouse/keyboard).
-  // * Document scope only (overlays must not page the menu behind them). Visibility
-  // * via isElementVisible beats attribute-only checks — matches real CSS [hidden]
-  // * + author display rules. pointerdown/up before click matches A-button squash.
+  // * Main-menu panels replace the old global arena bumper shortcut. A player
+  // * can now reach the live arena/difficulty controls from any mode without a
+  // * geometry-dependent jump. Overlays never receive this switch, so their
+  // * bumper presses cannot move focus behind the topmost layer.
   if (scope === document && !isTypingTarget(document.activeElement)) {
-    const arenaPrev = /** @type {HTMLElement|null} */ (document.getElementById("cr-arena-prev"));
-    const arenaNext = /** @type {HTMLElement|null} */ (document.getElementById("cr-arena-next"));
-    if (lb && !prevDpad.lb && arenaPrev && isElementVisible(arenaPrev)) {
-      hapticMenuConfirm(gp.index);
-      arenaPrev.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
-      arenaPrev.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }));
-      arenaPrev.click();
-    }
-    if (rb && !prevDpad.rb && arenaNext && isElementVisible(arenaNext)) {
-      hapticMenuConfirm(gp.index);
-      arenaNext.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
-      arenaNext.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }));
-      arenaNext.click();
-    }
+    if (lb && !prevDpad.lb) switchMainMenuGroup(-1, gp.index, now);
+    if (rb && !prevDpad.rb) switchMainMenuGroup(1, gp.index, now);
   }
 
-  const focusables = getFocusables(scope);
+  const focusables = getGamepadFocusables(scope);
   if (focusables.length > 0) {
-    const activeEl = /** @type {HTMLElement|null} */ (document.activeElement);
-    const focusInScope = !!activeEl && focusables.includes(activeEl);
+    let activeEl = /** @type {HTMLElement|null} */ (document.activeElement);
+    let focusInScope = !!activeEl && focusables.includes(activeEl);
     if (focusInScope && activeEl) {
       navIndex = focusables.indexOf(activeEl);
     } else {
@@ -359,11 +426,14 @@ function updateNav(now = performance.now()) {
         directionEvent === "initial" ||
         (a && !prevDpad.a)
       ) {
-        // * Focus lives outside the nav set (name input mid-edit, or nothing).
-        // * Reclaim it only on an actual press — re-seizing every idle frame
-        // * stole focus while a pad sat connected. The press is consumed as the
-        // * reveal; navigation/confirm start from the next press.
+        // * Reclaim only on an actual press — re-seizing every idle frame still
+        // * steals mouse/keyboard focus. On the desktop main menu, however, the
+        // * first controller press also performs its requested move/select so it
+        // * does not feel like a dead focus-seed press.
         setFocus(focusables[navIndex] || focusables[0], focusables, gp.index, now);
+        activeEl = /** @type {HTMLElement|null} */ (document.activeElement);
+        focusInScope = !!activeEl && focusables.includes(activeEl);
+        if (scope !== document) focusInScope = false;
       }
     }
 

@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-14T02:25:54.207Z",
-    "commit": "8741105"
+    "at": "2026-08-14T03:25:05.484Z",
+    "commit": "ea567c4"
   },
-  "source_digest": "3a48e14e",
+  "source_digest": "874fdd77",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1015,10 +1015,16 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Medium": 2,
-          "Low": 2
+          "Low": 3,
+          "Medium": 2
         },
         "rows": [
+          {
+            "pri": "Low",
+            "item": "GAMEPAD-MENU-ROUTES-PT-1 — controller routes for desktop + handheld menus `[solo]`",
+            "notes": "**Owed: Wyatt playtest — GAMEPAD-MENU-ROUTES-PT-1 — controller menus have an obvious route to match setup, and pause opens on RESUME.** Parent **GAMEPAD-MENU-ROUTES-1**. Pushed but not yet deployed.<br>1. On desktop with a controller or a controller handheld, open the main menu. Use LB/RB to move between COMMANDS and MATCH SETUP; use the D-pad to reach arena and difficulty controls, then choose an arena and a difficulty.<br>2. Start a solo round, pause it, and confirm the focus ring is already on RESUME. Use D-pad and A to resume; use B from another pause button to resume without changing a main-menu setting.<br>3. FAIL if a bumper changes arena by itself, a setup control cannot be reached, focus goes behind an open overlay, or any phone/tablet touch behavior changes. PASS if the route is clear and both controller types work.",
+            "ship1": null
+          },
           {
             "pri": "Medium",
             "item": "CARGO-BAY-INSTANCE-PT-3 — other players see the same cargo `[2pc]`",

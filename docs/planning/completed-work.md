@@ -13,6 +13,17 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 14, 2026 — GAMEPAD-MENU-ROUTES-1: controller menu routes
+
+- *(UI · Low)* **GAMEPAD-MENU-ROUTES-1** — desk work complete 08-14; **Wyatt production
+  playtest owed** in BACKLOG. Desktop and controller handheld main menus now use authored
+  COMMANDS / MATCH SETUP controller panels: LB/RB changes panel, D-pad works inside it, and
+  the retired global bumper shortcut no longer changes arena by itself. The pause overlay keeps
+  its existing RESUME default focus and now paints the controller focus ring immediately. Phone
+  and tablet touch behavior is unchanged. Native controller text entry is intentionally deferred
+  to **GAMEPAD-TEXT-ENTRY-1**. Tests: focused 46/46; QA 183 files / 2,009 tests passed outside
+  the sandbox (Wrangler needs its normal user-profile log path). Not deployed or committed.
+
 ### August 14, 2026 — ORGANIZE-1: codebase organization pass (3 levers)
 
 - *(Structure · Tech Debt)* **ORGANIZE-1** — ✅ **DONE 08-14** (codebase organization pass across 3 levers):

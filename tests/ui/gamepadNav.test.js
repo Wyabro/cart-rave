@@ -40,21 +40,27 @@ function makePad(pressed = [], axes = [0, 0]) {
 // * container that must stay out of the ring. The color row + range mirror the
 // * customize screen (chips rebuilt via innerHTML on selection; hue is a bare
 // * input[type=range], nudged by d-pad left/right).
-// * Arena pager mirrors index.html SOLO context. Happy-dom's isElementVisible
+// * Command and setup panels mirror index.html. Happy-dom's isElementVisible
 // * polyfill only walks inline style.display === "none" — it ignores the
 // * `hidden` attribute and stylesheets. For non-SOLO tests set
 // * #cr-context-arena style.display = "none" (same open/closed contract as overlays).
 const FIXTURE = `
 <div id="cr-root">
-  <button id="play-btn">PLAY</button>
+  <nav id="cr-commandlist">
+    <button class="cr-cmd" id="play-btn">PLAY</button>
+    <button class="cr-cmd" id="customize-btn">CUSTOMIZE</button>
+  </nav>
   <div class="cr-join" id="cr-join">
     <input class="cr-join-input" id="cr-join-code" type="text" name="room-code" placeholder="ROOM CODE" />
     <button class="cr-join-go" id="cr-join-go" type="button">GO</button>
   </div>
-  <button id="customize-btn">CUSTOMIZE</button>
   <div id="cr-context-arena">
     <button class="cr-arena-page" id="cr-arena-prev" type="button" aria-label="Previous arena">◂</button>
     <button class="cr-arena-page" id="cr-arena-next" type="button" aria-label="Next arena">▸</button>
+  </div>
+  <div id="cr-diff-row">
+    <button class="cr-diff-btn" id="cr-diff-easy" type="button">EASY</button>
+    <button class="cr-diff-btn" id="cr-diff-hard" type="button">HARD</button>
   </div>
   <div id="hud-note" tabindex="0"></div>
   <input id="cr-name-input" style="display:none" />
@@ -113,16 +119,6 @@ function clickSpy(id) {
   const spy = vi.fn();
   document.getElementById(id).addEventListener("click", spy);
   return spy;
-}
-
-/** pointerdown → pointerup → click order (A-button / bumper squash path). */
-function pressFeedbackSpies(id) {
-  const el = document.getElementById(id);
-  const order = [];
-  el.addEventListener("pointerdown", () => order.push("pointerdown"));
-  el.addEventListener("pointerup", () => order.push("pointerup"));
-  el.addEventListener("click", () => order.push("click"));
-  return order;
 }
 
 function pressKey(code) {
@@ -202,7 +198,7 @@ describe("modal scoping", () => {
 
   it("falls back to the whole document when no overlay is open", () => {
     press(BTN.down);
-    expect(document.activeElement).toBe(document.getElementById("play-btn"));
+    expect(document.activeElement).toBe(document.getElementById("customize-btn"));
   });
 
   it("topmost layer wins when multiple overlays are open", () => {
@@ -210,6 +206,13 @@ describe("modal scoping", () => {
     show("esc-overlay");
     press(BTN.down);
     expect(document.activeElement).toBe(document.getElementById("esc-resume"));
+  });
+
+  it("paints the controller ring on pause's pre-focused RESUME button", () => {
+    show("esc-overlay");
+    document.getElementById("esc-resume").focus();
+    frame();
+    expect(document.getElementById("esc-resume").classList.contains("gamepad-focused")).toBe(true);
   });
 });
 
@@ -320,7 +323,6 @@ describe("B button", () => {
 
 describe("join row + text inputs are not nav stops", () => {
   it("d-pad down past FRIENDS lands on CUSTOMIZE, never GO or the join input", () => {
-    press(BTN.down); // seed → PLAY
     press(BTN.down); // → CUSTOMIZE (join row skipped)
     expect(document.activeElement).toBe(document.getElementById("customize-btn"));
     expect(document.getElementById("cr-join-go").classList.contains("gamepad-focused")).toBe(false);
@@ -337,7 +339,6 @@ describe("join row + text inputs are not nav stops", () => {
   it("a visible text input is not a nav stop either", () => {
     const input = document.getElementById("cr-name-input");
     input.style.display = "";
-    press(BTN.down); // seed → PLAY
     press(BTN.down); // → CUSTOMIZE (name input skipped)
     expect(document.activeElement).toBe(document.getElementById("customize-btn"));
   });
@@ -412,12 +413,12 @@ describe("ring re-seed after the focused node is rebuilt away", () => {
   });
 
   it("does not re-seed when focus left the ring but the node is still connected", () => {
-    press(BTN.down); // seed → PLAY (ring on play-btn)
+    press(BTN.down); // → CUSTOMIZE (ring on customize-btn)
     document.body.focus(); // mouse click on empty chrome
     idleFrames(3);
     // * The ring stays visual but focus is not stolen back from the root.
-    expect(document.getElementById("play-btn").classList.contains("gamepad-focused")).toBe(true);
-    expect(document.activeElement).not.toBe(document.getElementById("play-btn"));
+    expect(document.getElementById("customize-btn").classList.contains("gamepad-focused")).toBe(true);
+    expect(document.activeElement).not.toBe(document.getElementById("customize-btn"));
   });
 });
 
@@ -437,31 +438,29 @@ describe("focus re-yank", () => {
     expect(document.activeElement).toBe(input);
   });
 
-  it("a press after lost focus seeds focus and is consumed (no navigation)", () => {
+  it("a press after lost focus performs its requested main-menu move", () => {
     document.getElementById("hud-note").focus();
     press(BTN.down);
-    expect(document.activeElement).toBe(document.getElementById("play-btn"));
+    expect(document.activeElement).toBe(document.getElementById("customize-btn"));
   });
 
   it("restores the remembered navIndex within the same scope", () => {
-    press(BTN.down); // seed → PLAY
     press(BTN.down); // → CUSTOMIZE
     expect(document.activeElement).toBe(document.getElementById("customize-btn"));
     document.getElementById("hud-note").focus();
     idleFrames(3);
-    press(BTN.down); // reclaim → CUSTOMIZE again, not PLAY
-    expect(document.activeElement).toBe(document.getElementById("customize-btn"));
+    press(BTN.down); // reclaim CUSTOMIZE, then move once → PLAY
+    expect(document.activeElement).toBe(document.getElementById("play-btn"));
   });
 
   it("resets stale navIndex when the scope layer changes", () => {
-    press(BTN.down);
     press(BTN.down); // menu navIndex now 1 (CUSTOMIZE)
     show("cr-settings-screen");
     press(BTN.down); // scope change → seed from index 0 inside settings
     expect(document.activeElement).toBe(document.getElementById("cr-settings-back"));
     hide("cr-settings-screen");
-    press(BTN.down); // back to document scope, seed from index 0
-    expect(document.activeElement).toBe(document.getElementById("play-btn"));
+    press(BTN.down); // back to document scope uses commands panel
+    expect(document.activeElement).toBe(document.getElementById("customize-btn"));
   });
 });
 
@@ -469,37 +468,39 @@ describe("focus re-yank", () => {
 // * order worked. These pin the keyboard path onto the same engine the gamepad tests above
 // * already cover (scoping, seed-on-first-press, focus re-yank), so only the
 // * keyboard-specific wiring (gating, preventDefault, typing targets) needs its own cases.
-// * ARENA-BUMPER-HINT-1: menu hint advertises LB/RB arena; wire rising-edge to pager buttons.
-describe("LB/RB arena paging", () => {
-  it("LB edge fires pointerdown/up/click on #cr-arena-prev when pager is visible", () => {
-    const order = pressFeedbackSpies("cr-arena-prev");
+describe("LB/RB main-menu panel routing", () => {
+  it("RB moves from commands to match setup without clicking an arena pager", () => {
+    const prevSpy = clickSpy("cr-arena-prev");
     const nextSpy = clickSpy("cr-arena-next");
-    press(BTN.lb);
-    expect(order).toEqual(["pointerdown", "pointerup", "click"]);
+    press(BTN.rb);
+    expect(document.activeElement).toBe(document.getElementById("cr-arena-prev"));
+    expect(prevSpy).not.toHaveBeenCalled();
     expect(nextSpy).not.toHaveBeenCalled();
   });
 
-  it("RB edge fires pointerdown/up/click on #cr-arena-next when pager is visible", () => {
-    const order = pressFeedbackSpies("cr-arena-next");
-    const prevSpy = clickSpy("cr-arena-prev");
+  it("LB moves from match setup back to the first command", () => {
     press(BTN.rb);
-    expect(order).toEqual(["pointerdown", "pointerup", "click"]);
-    expect(prevSpy).not.toHaveBeenCalled();
+    press(BTN.lb);
+    expect(document.activeElement).toBe(document.getElementById("play-btn"));
   });
 
-  it("held bumper pages once only (rising edge)", () => {
-    const prevSpy = clickSpy("cr-arena-prev");
-    // * 3-frame: press → hold → release (not the 2-frame press() helper).
+  it("d-pad operates controls inside the selected setup panel", () => {
+    press(BTN.rb);
+    press(BTN.right);
+    expect(document.activeElement).toBe(document.getElementById("cr-arena-next"));
+  });
+
+  it("held bumper switches one panel only (rising edge)", () => {
     padRef.pad = makePad([BTN.lb]);
     frame();
     padRef.pad = makePad([BTN.lb]);
     frame();
     padRef.pad = makePad();
     frame();
-    expect(prevSpy).toHaveBeenCalledTimes(1);
+    expect(document.activeElement).toBe(document.getElementById("cr-arena-prev"));
   });
 
-  it("does not page arena while an overlay owns the nav scope", () => {
+  it("does not switch panels while an overlay owns the nav scope", () => {
     show("cr-settings-screen");
     const prevSpy = clickSpy("cr-arena-prev");
     const nextSpy = clickSpy("cr-arena-next");
@@ -509,15 +510,14 @@ describe("LB/RB arena paging", () => {
     expect(nextSpy).not.toHaveBeenCalled();
   });
 
-  it("does not page when the arena context is hidden (non-SOLO)", () => {
+  it("does not switch when match setup is hidden (Quickplay)", () => {
     // * A1: polyfill only sees inline display:none — wrap.hidden = true would NOT hide.
     document.getElementById("cr-context-arena").style.display = "none";
-    const prevSpy = clickSpy("cr-arena-prev");
-    const nextSpy = clickSpy("cr-arena-next");
+    document.getElementById("cr-diff-row").style.display = "none";
+    const active = document.activeElement;
     press(BTN.lb);
     press(BTN.rb);
-    expect(prevSpy).not.toHaveBeenCalled();
-    expect(nextSpy).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(active);
   });
 
   it("LB alone flips input mode to gamepad from the nav loop", () => {
@@ -530,11 +530,11 @@ describe("LB/RB arena paging", () => {
     expect(setInputMode).toHaveBeenCalledWith("gamepad");
   });
 
-  it("does not steal focus from the current nav ring when paging", () => {
-    press(BTN.down); // seed → PLAY
-    expect(document.activeElement).toBe(document.getElementById("play-btn"));
+  it("switches to the focused panel instead of retaining the old ring", () => {
+    press(BTN.down); // → CUSTOMIZE
+    expect(document.activeElement).toBe(document.getElementById("customize-btn"));
     press(BTN.rb);
-    expect(document.activeElement).toBe(document.getElementById("play-btn"));
+    expect(document.activeElement).toBe(document.getElementById("cr-arena-prev"));
   });
 });
 
@@ -580,7 +580,7 @@ describe("keyboard arrow-key navigation", () => {
 
   it("gamepad presses and keyboard presses share the same navIndex/focus state", () => {
     pressKey("ArrowDown"); // seed → PLAY
-    press(BTN.down); // gamepad continues the same sequence → CUSTOMIZE
+    press(BTN.down); // gamepad continues commands panel → CUSTOMIZE
     expect(document.activeElement).toBe(document.getElementById("customize-btn"));
   });
 });

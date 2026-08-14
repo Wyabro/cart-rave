@@ -2298,7 +2298,7 @@ import { ARENA_CATALOG } from "../levels/arenaCatalog.js";
     const cap = (t) => `<span class="cr-key">${t}</span>`;
     if (keysEl) {
       keysEl.innerHTML = mode === "gamepad"
-        ? `<span class="cr-hint-item">D-PAD&nbsp; NAVIGATE</span><span class="cr-hint-item">${cap("Ⓐ")}&nbsp; SELECT</span><span class="cr-hint-item">LB / RB&nbsp; ARENA</span>`
+        ? `<span class="cr-hint-item">D-PAD&nbsp; NAVIGATE</span><span class="cr-hint-item">${cap("Ⓐ")}&nbsp; SELECT</span><span class="cr-hint-item">LB / RB&nbsp; PANEL</span><span class="cr-hint-item">${cap("Ⓑ")}&nbsp; BACK</span>`
         : `<span class="cr-hint-item">${cap("W")}${cap("S")}&nbsp; NAVIGATE</span><span class="cr-hint-item">${cap("↵")}&nbsp; SELECT</span><span class="cr-hint-item">${cap("◂")}${cap("▸")}&nbsp; ARENA</span><span class="cr-hint-item">${cap("M")}&nbsp; MUTE</span>`;
       measureHintBar();
     }
