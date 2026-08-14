@@ -30,6 +30,7 @@ are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Analyt
 external testers. Stay in this phase until Wyatt advances the marker.
 
 **All solo-checkable playtest cards are closed (08-13).** Deferred (two machines / launch day):
+**STORE-PILE-PT-1** is the new solo owed card (08-14) — see BACKLOG `## Playtest owed`.
 **CARGO-BAY-INSTANCE-PT-3** · **CONN-TRACK-LEAK-PT-1** · **QP-ROTATE-PT-1** · **SHARD-PT-2**.
 Open agent picks live in [BACKLOG.md](./planning/BACKLOG.md) Work order Blocks 4–5 / 7.
 
@@ -76,6 +77,7 @@ Live rows only. Shipped and closed cards live in
 1. **Deferred playtests (need two machines or launch-day traffic):** **CARGO-BAY-INSTANCE-PT-3** (cargo sync, 2pc) · **CONN-TRACK-LEAK-PT-1** (host-leave migration, 2pc) · **QP-ROTATE-PT-1** (Quickplay rematch catalog order, 2pc) · **SHARD-PT-2** (5th human overflow, launch day). All solo-checkable cards are closed.
 2. **SHIP-1 D-tier** — cut persistent leaderboard from launch, or schedule its own phase (Wyatt).
 3. Agent quiet-window picks: BACKLOG Block 4 (WARM-SOLO-1 · PERF-WATCH-1) or Block 5 Lows — plan → ack first.
+4. **STORE-PILE-PT-1** — solo Storerooms check of STORE-PILE-1 (`0fd9c64`): NPCs route around / bounce off the center furniture pile.
 
 ## Open issues (top)
 
@@ -93,6 +95,7 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 [decision-log-2026-08.md](./archive/decision-log-2026-08.md), 07-11 → 07-23 in
 [decision-log-2026-07.md](./archive/decision-log-2026-07.md).
 
+- **D-STORE-PILE-1** (08-14, `0fd9c64`): Storerooms furniture-pile wedge — avoidance blends a tangential go-around term (the old radial-only repulsion provably produced zero lateral steer at every approach angle), plus a new wall keep-out bounce (`computeWallKeepOutBounce`) that shoves carts back off the pile, ramping with impact speed and freeing motionless carts. Sundial's drivable podium untouched (`wall` flag). 22 regression tests. Playtest owed: **STORE-PILE-PT-1**.
 - **D-ORGANIZE-1** (08-14): Codebase organization pass — safe same-system moves (`gameSession.js` → `orchestration/`, `visuals.js` → `effects/`), consolidated 7 cart files into `src/carts/`, and organized ~160 root test files in `tests/` into domain subdirectories. Effects split deferred to **EFFECTS-SPLIT-1**.
 - **D-AGENT-OS-1** (08-05): Slim always-on `AGENTS.md` (~1.6k tok; depth → `docs/reference/agent-manual.md`). **Grok + Codex equal** heavy-lift defaults; Cursor IDE/backup; Claude demoted. Shared authority = AGENTS + git hooks + `verify:head` (not Claude PreToolUse). David Ondrej skills cherry-picked user-level (Grok+Codex).
 - **D-BUNDLE-1-CLOSE** (08-05): BUNDLE-1 PARTIAL — bytes moved, warm menu-ready did not. **Warm cache ⇒ byte cuts are near-worthless; measure parse-vs-construction first.** Supersedes D-PERF-3.

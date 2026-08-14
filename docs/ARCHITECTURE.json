@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-14T06:35:47.936Z",
-    "commit": "f132db2"
+    "at": "2026-08-14T07:51:06.692Z",
+    "commit": "0fd9c64"
   },
-  "source_digest": "924267f0",
+  "source_digest": "4e253d5d",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -872,7 +872,8 @@
     "next_actions": [
       "Deferred playtests (need two machines or launch-day traffic): CARGO-BAY-INSTANCE-PT-3 (cargo sync, 2pc) · CONN-TRACK-LEAK-PT-1 (host-leave migration, 2pc) · QP-ROTATE-PT-1 (Quickplay rematch catalog order, 2pc) · SHARD-PT-2 (5th human overflow, launch day). All solo-checkable cards are closed.",
       "SHIP-1 D-tier — cut persistent leaderboard from launch, or schedule its own phase (Wyatt).",
-      "Agent quiet-window picks: BACKLOG Block 4 (WARM-SOLO-1 · PERF-WATCH-1) or Block 5 Lows — plan → ack first."
+      "Agent quiet-window picks: BACKLOG Block 4 (WARM-SOLO-1 · PERF-WATCH-1) or Block 5 Lows — plan → ack first.",
+      "STORE-PILE-PT-1 — solo Storerooms check of STORE-PILE-1 (`0fd9c64`): NPCs route around / bounce off the center furniture pile."
     ],
     "open_issues": [
       {
@@ -1016,10 +1017,16 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Low": 4,
-          "Medium": 2
+          "Medium": 3,
+          "Low": 4
         },
         "rows": [
+          {
+            "pri": "Medium",
+            "item": "STORE-PILE-PT-1 — NPCs route around + bounce off the Storerooms furniture pile `[solo]`",
+            "notes": "**Owed: Wyatt playtest — STORE-PILE-PT-1 — NPC carts no longer routinely wedge against the center furniture pile in Storerooms.** Parent **STORE-PILE-1** (`0fd9c64`, deployed 08-14). Fix adds tangential go-around steering + a wall contact bounce; the automated rig (`tmp/pileprobe.mjs` + `?diag` npcs probe) is ready to measure instead.<br>1. Solo round on THE STOREROOMS (hard-refresh prod first). Play near the center furniture pile — park near it, then let the NPCs chase you across it.<br>2. Over a full round, watch the NPCs: chasing bots should curve around the pile from ~8 m out; a bot that does contact it (boost push, ram) should bounce back and keep moving.<br>3. FAIL if an NPC grinds the same face of the pile for 4+ seconds, or repeatedly drives straight into it head-on instead of steering around. PASS if contacts are brief and bots visibly route around.",
+            "ship1": null
+          },
           {
             "pri": "Low",
             "item": "GAMEPAD-TEXT-ENTRY-PT-1 — controller name + Friend Code entry `[solo]`",
@@ -1405,6 +1412,11 @@
       "Cross-module change? Read docs/reference/control-flow.md first — most edges are not imports."
     ],
     "settled_decisions": [
+      {
+        "id": "D-STORE-PILE-1",
+        "date": "08-14, `0fd9c64`",
+        "text": "Storerooms furniture-pile wedge — avoidance blends a tangential go-around term (the old radial-only repulsion provably produced zero lateral steer at every approach angle), plus a new wall keep-out bounce (`computeWallKeepOutBounce`) that shoves carts back off the pile, ramping with impact speed and freeing motionless carts. Sundial's drivable podium untouched (`wall` flag). 22 regression tests. Playtest owed: STORE-PILE-PT-1."
+      },
       {
         "id": "D-ORGANIZE-1",
         "date": "08-14",
