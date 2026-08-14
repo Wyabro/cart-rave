@@ -4,23 +4,24 @@
 > this file after 2 days of inactivity — don't keep long-lived notes here.
 
 ## Current task
-Apply the acknowledged CARGO-LATCH-1 shift-aware cargo latch.
+08-13 playtest export wave (2nd): closed 6 PASS cards, fixed KO-DOOMED-PT-1 FAIL. DONE — pushed as `910ca37` + `1705e4a`.
 
 ## Open files
-- `src/cargoLoad.js`
-- `src/orchestration/roundLifecycle.js`
-- `src/orchestration/gameBoot.js`
-- `tests/cargoLoad.test.js`
+- `src/gameFlow.js` — host KO dispatch ctx (KO-DOOMED-PT-1 fix)
+- `tests/gameFlowSuddenDeath.test.js` — onLocalDoomed wiring regression test
+- `docs/planning/BACKLOG.md` — 10 rows closed, CART-HUE-RED-1 seeded
+- `docs/STATUS.md` / `docs/planning/completed-work.md` — wave records
 
 ## Active hypotheses
-- Static evidence confirmed the cargo latch mistook pause or host tab-return compensation for a new round; the shift-aware helper now covers both paths.
+- KO-DOOMED-PT-1 FAIL root cause: host KO fan-out in `gameFlow.js` dropped `onLocalDoomed` from the reactor ctx (Solo is always host) — confirmed by code trace + regression test; non-host netcode path already had the hook.
 
 ## Checkpoints
-- [x] DeepSeek audit verified both compensation call sites.
-- [x] Approved helper and both call-site wires implemented.
-- [x] Focused cargo tests pass: 32/32.
-- [x] Full `npm run qa` passes all 7 gates.
-- [ ] Production playtest after explicit ship authorization.
+- [x] 6 PASS cards closed (rows deleted, do-not-reopen list, completed-work, STATUS queue trimmed)
+- [x] KO-DOOMED-PT-1 fixed (`910ca37`) — one-line ctx + typedef; regression test added
+- [x] Console regenerated: 6 ids gone, KO-DOOMED-PT-1 retained with 4 steps
+- [x] Full `npm run qa` green (183 files / 2007 tests; all 7 gates) on merged tree
+- [x] Pushed; `verify:head` in sync (`1705e4a`)
+- [ ] Wyatt retest KO-DOOMED-PT-1 on `npm run dev:local` (unshipped), then prod after next ship
 
 ## Next step
-Wait for explicit `ship it` before deployment; then playtest solo pause and host tab-return.
+KO-DOOMED-PT-1 retest owed on `npm run dev:local` (feature unshipped). ANIM-BUGS-PT-1 is the next ACTIVE CARD (prod). No deploy without `ship it`.
