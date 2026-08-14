@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-14T01:38:28.857Z",
-    "commit": "a79222c"
+    "at": "2026-08-14T01:43:35.371Z",
+    "commit": "328009a"
   },
-  "source_digest": "2b367b49",
+  "source_digest": "206dec83",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -877,21 +877,6 @@
         ]
       },
       {
-        "id": "ANIM-BUGS-1",
-        "what": "animations.js entrance + lifecycle",
-        "status": "🟡 deployed `d5fc9a0` / Worker `c319bb08-f87d-4ac6-be98-4771cd731c34`; QA 7/7 + live assets PASS; human check seeded as ANIM-BUGS-PT-1",
-        "state": "waiting",
-        "touches_systems": [
-          {
-            "id": "ui-hud-menu",
-            "name": "UI, HUD & menu",
-            "files": [
-              "src/animations.js"
-            ]
-          }
-        ]
-      },
-      {
         "id": "BRAND-1",
         "what": "Domain cutover",
         "status": "🧊 frozen ([brand.md](./brand.md))",
@@ -899,8 +884,7 @@
       }
     ],
     "next_actions": [
-      "ANIM-BUGS-PT-1: Wyatt production playtest (hard-refresh first) — menu stagger, dismiss, press, cart pulse.",
-      "KO-DOOMED-PT-1 retest: production hard-refresh — local KO red edge pulse + shockwave (fixed `910ca37`, shipped `a79222c`)."
+      "Deferred playtests (need two machines or launch-day traffic): CARGO-BAY-INSTANCE-PT-3 (cargo sync, 2pc) · CONN-TRACK-LEAK-PT-1 (host-leave migration, 2pc) · SHARD-PT-2 (5th human overflow, launch day). All solo-checkable cards are closed."
     ],
     "open_issues": [
       {
@@ -1044,28 +1028,10 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Low": 5,
-          "Medium": 3
+          "Medium": 3,
+          "Low": 2
         },
         "rows": [
-          {
-            "pri": "Low",
-            "item": "ANIM-BUGS-PT-1 — menu entrance + animation lifecycle `[solo]`",
-            "notes": "**Owed: Wyatt playtest — ANIM-BUGS-PT-1 — menu title/commands stagger in, dismiss/press/fade stay safe, and cart scale returns after boost/impact.** **Deployed:** `d5fc9a0` / Worker `c319bb08-f87d-4ac6-be98-4771cd731c34`; hard-refresh production first.<br>1. Hard-refresh the menu. PASS if CART/CLASH title words and command rows stagger in; FAIL if they stay blank then pop late with no stagger.<br>2. Open/close Settings twice fast and Esc twice fast; interrupt Esc controls during fade-in. PASS if overlays hide cleanly and buttons stay clickable; FAIL if a panel sticks or a control ignores clicks afterward.<br>3. Mouse and touch: press a menu command, drag off, release. PASS if scale returns to rest; FAIL if it stays small. Repeat on one HUD wired button if available.<br>4. With howtoSeen cleared (or a fresh profile), confirm HOW TO PLAY attracts; leave and return to menu. PASS if attract can run again; FAIL if it never restarts.<br>5. In a Solo round, boost then collide (or spam boost). PASS if cart scale ends at normal size; FAIL if it stays swollen or squashed.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "BOOST-SFX-RESPAWN-PT-1 — charge-up sound survives other carts' respawns `[solo]`",
-            "notes": "**Owed: Wyatt playtest — BOOST-SFX-RESPAWN-PT-1 — the boost charge-up sound keeps playing until release, even when an NPC respawns mid-charge.** **Deployed:** `ef6e7c4` / Worker `32b9807a-c6d4-41b8-af69-15d89c40366c`; hard-refresh production first.<br>1. Start a Solo round with 3 NPCs. Hold BOOST to charge and, while holding, ram an NPC off the arena. PASS if the charge-up sound keeps playing through the NPC's respawn (~1 s later) until you release; FAIL if the sound cuts out early while the bar is still filling.<br>2. Release at full charge. PASS if the BOOST sound fires on release; FAIL if the boost fires with no charge-up sound, or the charge sound restarts.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "KO-DOOMED-PT-1 — local KO edge pulse + shockwave `[solo]`",
-            "notes": "**Owed: Wyatt playtest — KO-DOOMED-PT-1 — every local KO gives a medium red edge pulse and one centered shockwave when your cart shatters.** **Deployed:** `a79222c` / Worker version `0ccc160a`; hard-refresh production first.<br>1. Start a Solo round and deliberately fall off the arena, including the center hole where available. PASS if the red edge pulse and centered shockwave appear once with your cart shatter; FAIL if either is missing, repeats, or appears before the shatter.<br>2. Let an NPC ram you into the void. PASS if the same feedback appears once; FAIL if it only works for self-falls.<br>3. KO an NPC without falling yourself. FAIL if you get the red victim feedback; PASS if only the normal attacker KO feedback appears.<br>4. In Settings, set graphics quality Low or turn post-FX off if available. Repeat one local fall. FAIL if the feedback disappears.",
-            "ship1": null
-          },
           {
             "pri": "Medium",
             "item": "PERF-9CELL-1 — Intel Low 9-cell PERF sweep `[solo]`",
@@ -1094,20 +1060,6 @@
             "pri": "Medium",
             "item": "CARGO-BAY-INSTANCE-PT-3 — other players see the same cargo `[2pc]`",
             "notes": "**Owed: Wyatt playtest — CARGO-BAY-INSTANCE-PT-3 — the other player sees your cargo fill, not an empty bay.** Same parent; two machines.<br>1. Two browsers, same Friends room on prod. Both seat and start.<br>2. Score on one cart until its bays fill. Look at that cart from the other browser.<br>3. FAIL if the other player sees empty bays, a different fill, or missing models. PASS if both screens show the same groceries.",
-            "ship1": null
-          }
-        ]
-      },
-      {
-        "title": "UI / UX",
-        "counts": {
-          "Medium": 1
-        },
-        "rows": [
-          {
-            "pri": "Medium",
-            "item": "ANIM-BUGS-1 — animations.js entrance + lifecycle bugs",
-            "notes": "**Deployed** `d5fc9a0` / Worker `c319bb08-f87d-4ac6-be98-4771cd731c34`. Levers 1–6 on prod; QA 7/7; live root + 25 assets 0×404; animations chunk `animations-CoDgvy2n.js` carries pointer-capture + howto beat symbols. Human check: **ANIM-BUGS-PT-1**.",
             "ship1": null
           }
         ]

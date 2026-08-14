@@ -13,6 +13,23 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 13, 2026 — playtest export (3rd): 3 PASS / 0 FAIL / 3 SKIP
+
+- *(Playtest · UI)* **ANIM-BUGS-PT-1** — ✅ **PASS 08-13 on prod** (deployed `d5fc9a0` /
+  Worker `c319bb08-f87d-4ac6-be98-4771cd731c34`). Menu title/commands stagger in, fast
+  open/close of Settings and Esc hides overlays cleanly with buttons staying clickable,
+  press-drag-off-release restores cart scale, HOW TO PLAY attract restarts, and boost/collide
+  leaves the cart at normal scale. Parent **ANIM-BUGS-1** closes with it.
+- *(Playtest · Audio)* **BOOST-SFX-RESPAWN-PT-1** — ✅ **PASS 08-13 on prod** (deployed
+  `ef6e7c4` / Worker `32b9807a-c6d4-41b8-af69-15d89c40366c`). Charge-up sound survives an NPC
+  respawn mid-charge and the BOOST fires on release with the charge sound intact. Parent
+  **BOOST-SFX-RESPAWN-1** already closed.
+- *(Playtest · Art)* **KO-DOOMED-PT-1** — ✅ **PASS 08-13 on prod** (deployed `a79222c` / Worker
+  version `0ccc160a`). Every local KO gives one red edge pulse + centered shockwave exactly with
+  the cart shatter — self-falls, center hole, and NPC rams; attacker-only KOs show no victim
+  feedback; feedback survives Low quality / post-FX off. **This closes the loop on the `910ca37`
+  host fan-out fix** (the FAIL that shipped with it now passes live).
+
 ### August 13, 2026 — playtest export: 6 PASS / 1 FAIL / 3 SKIP
 
 - *(Playtest · Art)* **ART-PALETTE-PT-1** — ✅ **PASS 08-13 on `npm run dev`.** All five preset
