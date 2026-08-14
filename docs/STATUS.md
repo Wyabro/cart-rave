@@ -46,6 +46,8 @@ external testers. Stay in this phase until Wyatt advances the marker.
 
 **BOOST-SFX-RESPAWN-1** deployed 08-13 — source commit `ef6e7c4`, Worker `32b9807a-c6d4-41b8-af69-15d89c40366c`. Charge-up SFX is no longer swept by other carts' respawns: `doRespawn` stopped calling `stopAllSfx("chargeUp")`, which cut the local player's live charge loop whenever any NPC/remote cart respawned (NPCs have played chargeUp since 08-10). Respawn cleanup is per-cart by id (`resetCartTransientState`); round-boundary sweep + rematch nuclear remain. Contract test rewritten with unique-Howler-id mock (red→green), QA 7/7, build, remote-HEAD, live root + 25 referenced assets + entities chunk (0×404, byte-identical) PASS. Owed check: **BOOST-SFX-RESPAWN-PT-1**. Non-host follow-up filed: **BOOST-SFX-NONHOST-1**.
 
+**ANIM-BUGS-1** code landed 08-13 — six levers on `cart-clash` (typecheck fix `51f33b0`). Menu multi-target stagger enter, dismiss settle on cancel, fadeIn pointer-events restore, pointer capture on shared + menu press, HOW TO attract map clear on cancel, cart pulse snap on interrupt + dead joystick helper delete. QA 7/7. Unshipped; human check seeded as **ANIM-BUGS-PT-1** (`npm run dev:local` until ship).
+
 **Closed cards keep their narrative in their own docs, not here** — Sundial
 ([handover](./planning/art-pass-sundial-handover.md); read its "Traps that cost time" before any
 capture, and judge phase changes against a ~1.2% construction-noise floor, not zero), Fight Night
@@ -85,13 +87,14 @@ Live rows only. Shipped and closed cards live in
 | BUNDLE-1 | Menu/game code-split | ⚠️ **CLOSED PARTIAL 08-05 — perf goal NOT met. Deployed `f2f90fd2`.** Warm `menu-ready` −3% vs a −15% gate. Banked: a `size:check` byte gate, `main.js` 2,582 → 1,262 lines, −22.6% off the initial set (**cold** visits only). Lever E playtested: BUNDLE-E-PT-1 PASS 6/6. [bundle-1.md §0](./planning/bundle-1.md) |
 | GAMEPAD-NAV-REPEAT-1 | Held controller menu navigation | 🟡 deployed `34518ca` / Worker `54ce3bb3-3cfd-4d2f-9ea3-c9e671f5c7db`; QA 7/7 + build + live assets PASS; human check seeded as GAMEPAD-NAV-REPEAT-PT-1 |
 | RUMBLE-STRENGTH-1 | Controller rumble Settings control | 🟡 deployed `682891e` / Worker `82e8a360-b185-403a-8a66-2757f7aba40d`; QA 7/7 + build + live assets PASS; human target checks seeded as RUMBLE-STRENGTH-PT-1 |
+| ANIM-BUGS-1 | animations.js entrance + lifecycle | 🟡 code on `cart-clash` (`51f33b0`); QA 7/7; unshipped; human check seeded as ANIM-BUGS-PT-1 |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 
 ### Next actions
 
-1. **GAMEPAD-NAV-REPEAT-PT-1:** Wyatt production hardware test on Xbox, PS5 USB, or Steam Deck.
-2. **RUMBLE-STRENGTH-PT-1:** Wyatt production hardware test on Xbox, PS5 USB, and Steam Deck.
-3. **Deferred playtests:** **CARGO-BAY-INSTANCE-PT-3** · **CONN-TRACK-LEAK-PT-1** · **SHARD-PT-2**.
+1. **ANIM-BUGS-PT-1:** Wyatt check on `npm run dev:local` (menu stagger, dismiss, press, cart pulse), then ship when ready.
+2. **GAMEPAD-NAV-REPEAT-PT-1:** Wyatt production hardware test on Xbox, PS5 USB, or Steam Deck.
+3. **RUMBLE-STRENGTH-PT-1:** Wyatt production hardware test on Xbox, PS5 USB, and Steam Deck.
 
 ## Open issues (top)
 
