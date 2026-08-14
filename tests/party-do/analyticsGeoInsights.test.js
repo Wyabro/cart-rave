@@ -29,7 +29,7 @@ describe("Wave A — geo + session insights", () => {
       "/api/analytics",
       batch([{ name: "session_start", mode: "solo", t: 1 }]),
       "1.2.3.4",
-      { "x-cc-country": "US", "x-cc-region": "UT" },
+      { "cf-ipcountry": "US", "cf-region-code": "UT" },
     );
     expect(res.status).toBe(204);
 
@@ -47,7 +47,7 @@ describe("Wave A — geo + session insights", () => {
   });
 
   it("marks returning=1 on a second session_start for the same clientId", async () => {
-    const geo = { "x-cc-country": "US", "x-cc-region": "CA" };
+    const geo = { "cf-ipcountry": "US", "cf-region-code": "CA" };
     expect(
       (await postBeacon("/api/analytics", batch([{ name: "session_start", t: 1 }], "c-ret"), "5.5.5.5", geo))
         .status,
@@ -75,7 +75,7 @@ describe("Wave A — geo + session insights", () => {
         { name: "session_end", durationMs: 30_000, t: 2 },
       ]),
       "9.9.9.9",
-      { "x-cc-country": "CA" },
+      { "cf-ipcountry": "CA" },
     );
     expect(res.status).toBe(204);
     const s = await summaryFromAnalytics();
@@ -87,7 +87,7 @@ describe("Wave A — geo + session insights", () => {
       "/api/analytics",
       batch([{ name: "session_start", country: "XX", region: "FAKE", t: 1 }]),
       "8.8.8.8",
-      { "x-cc-country": "GB", "x-cc-region": "ENG" },
+      { "cf-ipcountry": "GB", "cf-region-code": "ENG" },
     );
     expect(res.status).toBe(204);
     const { rows } = await listFrom("ANALYTICS_LOG", "events", 1);

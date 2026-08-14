@@ -97,6 +97,13 @@ describe("SEC-ROUTE-1 exact route matching", () => {
       expect(res.status).toBe(404);
     });
 
+    it("does not dump analytics via the public party namespace", async () => {
+      const res = await requestPath("/parties/analytics-log/v1/summary");
+      expect(res.status).not.toBe(200);
+      const text = await res.text();
+      expect(text).not.toMatch(/byCountry|events/);
+    });
+
     it("does not 500 on the near-miss API paths this card newly lets through", async () => {
       for (const path of ["/api/errorsfoo", "/api/errors/", "/x/api/errors"]) {
         expect((await requestPath(path)).status).not.toBe(500);

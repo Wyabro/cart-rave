@@ -61,7 +61,7 @@ function resolvedPartyRoomFromUrlFallback() {
 /** @type {string | null} Valid ?room= on first paint for friend-invite deferred menu. */
 let pendingInviteRoomFromUrl = null;
 
-function getPendingInviteRoomFromUrl() {
+export function getPendingInviteRoomFromUrl() {
   return pendingInviteRoomFromUrl;
 }
 
@@ -76,14 +76,14 @@ export function captureInviteRoomForDeferredMenu() {
   if (typeof window === "undefined") return false;
   const params = new URLSearchParams(window.location.search || "");
   const raw = (params.get("room") || "").trim();
-  const isValid = /^[A-Za-z0-9]{2,16}$/.test(raw);
-  if (!isValid) return false;
+  const code = normalizeRoomCode(raw);
+  if (!code) return false;
   // * Reserved names are not friend invites. QUICKPLAY-SHARD-1 replaced a hand-rolled check
   // * (exact `quickplay` + two prefixes) with the shared helper, which prefix-matches the whole
   // * reserved family case-insensitively — so `?room=quickplay3` is no longer mistaken for an
   // * invite and offered as a JOIN LOBBY button into a public shard.
-  if (isReservedRoomName(raw)) return false;
-  pendingInviteRoomFromUrl = raw;
+  if (isReservedRoomName(code)) return false;
+  pendingInviteRoomFromUrl = code;
   return true;
 }
 

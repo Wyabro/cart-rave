@@ -129,7 +129,7 @@ describe("the four call sites route through the predicate", () => {
   it("invite capture refuses the reserved family instead of hand-rolling it", () => {
     // * Otherwise `?room=quickplay3` is offered to the player as a friend invite.
     const src = read("../../src/orchestration/menuPlayEntry.js");
-    expect(src).toMatch(/if \(isReservedRoomName\(raw\)\) return false;/);
+    expect(src).toMatch(/if \(isReservedRoomName\(code\)\) return false;/);
     expect(src).not.toMatch(/raw === "quickplay"/);
   });
 

@@ -55,3 +55,33 @@ export function requireAdminToken(
   }
   return null;
 }
+
+/**
+ * Last path segment — `/parties/analytics-log/v1/summary` and `https://do/summary`
+ * both resolve to `summary`.
+ */
+export function logRouteTail(pathname: string): string {
+  const trimmed = pathname.replace(/\/+$/, "");
+  const i = trimmed.lastIndexOf("/");
+  return i >= 0 ? trimmed.slice(i + 1) : trimmed;
+}
+
+export function isLogAdminRoute(pathname: string): boolean {
+  const tail = logRouteTail(pathname);
+  return tail === "list" || tail === "get" || tail === "summary" || tail === "clear";
+}
+
+/**
+ * Gate public `/parties/<log-do>/...` admin tails. Worker stub fetches use
+ * `https://do/list` and stay Worker-gated (SEC-TOKEN-1).
+ */
+export function denyLogAdminIfConfigured(
+  request: Request,
+  expected: string | undefined,
+): Response | null {
+  const path = new URL(request.url).pathname;
+  if (!path.includes("/parties/")) return null;
+  if (!isLogAdminRoute(path)) return null;
+  if (!expected) return null;
+  return requireAdminToken(request, expected);
+}

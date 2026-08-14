@@ -1,10 +1,14 @@
 // adminAuth.test.js — SEC-TOKEN-1 pure helpers (Bearer extract + timing-safe equal + gate).
 
+import { readFileSync } from "node:fs";
 import { describe, it, expect } from "vitest";
 import {
   bearerToken,
   timingSafeEqualString,
   requireAdminToken,
+  denyLogAdminIfConfigured,
+  isLogAdminRoute,
+  logRouteTail,
 } from "../../party/adminAuth.ts";
 
 function req(headers = {}) {
@@ -51,5 +55,31 @@ describe("requireAdminToken", () => {
 
   it("returns null when Bearer matches (ok to proceed)", () => {
     expect(requireAdminToken(req({ Authorization: "Bearer secret" }), "secret")).toBeNull();
+  });
+});
+
+describe("log admin route tails", () => {
+  it("maps party paths and internal DO paths to the same tail", () => {
+    expect(logRouteTail("/parties/analytics-log/v1/summary")).toBe("summary");
+    expect(logRouteTail("https://do/list")).toBe("list");
+    expect(isLogAdminRoute("/parties/capture-log/v1/clear")).toBe(true);
+    expect(isLogAdminRoute("/ingest")).toBe(false);
+  });
+
+  it("denyLogAdminIfConfigured allows Worker-internal /list even when a secret exists", () => {
+    const r = new Request("https://do/list");
+    expect(denyLogAdminIfConfigured(r, "secret")).toBeNull();
+  });
+
+  it("denyLogAdminIfConfigured forbids a public summary without Bearer when set", () => {
+    const r = new Request("https://example.test/parties/analytics-log/v1/summary");
+    expect(denyLogAdminIfConfigured(r, "secret")?.status).toBe(403);
+  });
+});
+
+describe("errorReporter global", () => {
+  it("does not assign window.__cartRaveSendErrorLog", () => {
+    const src = readFileSync(new URL("../../src/utils/errorReporter.js", import.meta.url), "utf8");
+    expect(src).not.toMatch(/__cartRaveSendErrorLog\s*=/);
   });
 });

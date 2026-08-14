@@ -1707,7 +1707,7 @@ function beaconHeaders(request: Request): Record<string, string> {
   };
   // * Production Workers expose request.cf; tests may set inbound headers instead.
   const cf = (request as Request & { cf?: { country?: string; regionCode?: string } }).cf;
-  const countryRaw = cf?.country || request.headers.get("cf-ipcountry") || request.headers.get("x-cc-country") || "";
+  const countryRaw = cf?.country || request.headers.get("cf-ipcountry") || "";
   const country = String(countryRaw)
     .toUpperCase()
     .replace(/[^A-Z]/g, "")
@@ -1716,8 +1716,7 @@ function beaconHeaders(request: Request): Record<string, string> {
   if (country && country !== "XX" && country !== "T1") {
     headers["x-cc-country"] = country;
   }
-  const regionRaw =
-    cf?.regionCode || request.headers.get("cf-region-code") || request.headers.get("x-cc-region") || "";
+  const regionRaw = cf?.regionCode || request.headers.get("cf-region-code") || "";
   const region = String(regionRaw)
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, "")

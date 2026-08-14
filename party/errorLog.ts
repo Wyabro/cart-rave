@@ -14,6 +14,7 @@
 // minimal structural type for ctx.storage.sql so it needs no `cloudflare:workers`
 // ambient types (this repo types its Worker through partyserver, not workers-types).
 
+import { denyLogAdminIfConfigured } from "./adminAuth";
 import { type BeaconBucket, UNKNOWN_IP, checkBeaconLimit } from "./beaconLimit";
 import { clampStr as clamp, jsonResponse } from "./logUtil";
 
@@ -48,12 +49,14 @@ type ErrorPayload = {
 
 export class ErrorLog {
   #ctx: DoState;
+  #env: { ERROR_LOG_TOKEN?: string };
   #ready = false;
   /** SEC-BEACON-1: per-IP beacon budget defending this DO's ring. */
   readonly #beaconIps = new Map<string, BeaconBucket>();
 
-  constructor(ctx: DoState, _env: unknown) {
+  constructor(ctx: DoState, env: { ERROR_LOG_TOKEN?: string }) {
     this.#ctx = ctx;
+    this.#env = env;
   }
 
   #ensureSchema(): void {
@@ -115,6 +118,8 @@ export class ErrorLog {
   // (party/index.ts), which owns auth for the public /api/errors route.
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
+    const denied = denyLogAdminIfConfigured(request, this.#env.ERROR_LOG_TOKEN);
+    if (denied) return denied;
     if (request.method === "POST" && url.pathname === "/store") {
       // * SEC-BEACON-1: cap before the INSERT, or a flood prunes real reports out
       // * of the ring. index.ts forwards the caller IP; unknown IPs are exempt.

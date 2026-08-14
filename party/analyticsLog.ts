@@ -12,7 +12,8 @@
 import { MIN_MATCH_DURATION_MS } from "../shared/analyticsConstants.js";
 import { ANALYTICS_MAX_PER_WINDOW } from "./constants";
 import { type BeaconBucket, UNKNOWN_IP, checkBeaconLimit } from "./beaconLimit";
-import { clampStrOrNull as clampStr, jsonResponse } from "./logUtil";
+import { denyLogAdminIfConfigured } from "./adminAuth";
+import { clampJsonObject, clampStrOrNull as clampStr, jsonResponse } from "./logUtil";
 
 /** Ring-buffer cap — oldest rows pruned past this so the DO can't grow unbounded. */
 const MAX_ROWS = 20_000;
@@ -56,14 +57,27 @@ function asIntOrNull(v: unknown): number | null {
   return typeof v === "number" && Number.isFinite(v) ? Math.round(v) : null;
 }
 
+const MAX_DURATION_MS = 30 * 60 * 1000;
+const MAX_KOS = 1000;
+
+function clampDurationMs(v: unknown): number | null {
+  const n = asIntOrNull(v);
+  if (n == null) return null;
+  return Math.max(0, Math.min(MAX_DURATION_MS, n));
+}
+
+type LogEnv = { ERROR_LOG_TOKEN?: string };
+
 export class AnalyticsLog {
   #ctx: DoState;
+  #env: LogEnv;
   #ready = false;
   /** SEC-BEACON-1: per-IP beacon budget defending this DO's ring. */
   readonly #beaconIps = new Map<string, BeaconBucket>();
 
-  constructor(ctx: DoState, _env: unknown) {
+  constructor(ctx: DoState, env: LogEnv) {
     this.#ctx = ctx;
+    this.#env = env;
   }
 
   #ensureSchema(): void {
@@ -144,9 +158,17 @@ export class AnalyticsLog {
         clampStr(e.phase, CAP.str),
         clampStr(e.reason, CAP.str),
         clampStr(e.result, CAP.str),
-        asIntOrNull(e.durationMs),
+        clampDurationMs(e.durationMs),
         asIntOrNull(e.t),
-        clampStr(propsObj, CAP.props),
+        clampJsonObject(
+          {
+            ...propsObj,
+            ...(typeof propsObj.kos === "number" && Number.isFinite(propsObj.kos)
+              ? { kos: Math.max(0, Math.min(MAX_KOS, Math.round(propsObj.kos))) }
+              : {}),
+          },
+          CAP.props,
+        ),
       );
       stored += 1;
     }
@@ -277,6 +299,8 @@ export class AnalyticsLog {
   // (party/index.ts), which owns auth for the public /api/analytics routes.
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
+    const denied = denyLogAdminIfConfigured(request, this.#env.ERROR_LOG_TOKEN);
+    if (denied) return denied;
     if (request.method === "POST" && url.pathname === "/ingest") {
       // * SEC-BEACON-1: cap before the INSERT so a flood can't prune the ring.
       // * CAPTURE-RING-LIMIT-1: analytics POSTs run their own tighter per-IP budget

@@ -60,6 +60,15 @@ const MAX_REPORTS_PER_SESSION = 20;
 /** Same message+context is reported at most once per window. */
 const DEDUPE_WINDOW_MS = 60000;
 
+function fnv1a36(s) {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i += 1) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0).toString(36);
+}
+
 let reportsSent = 0;
 /** @type {Map<string, number>} message key → last sent timestamp */
 const recentReports = new Map();
@@ -75,7 +84,10 @@ const recentReports = new Map();
 export function sendErrorLogLimited(error, context = {}) {
   if (reportsSent >= MAX_REPORTS_PER_SESSION) return;
   const message = error instanceof Error ? error.message : String(error ?? "");
-  const key = `${context.context ?? ""}:${message}`.slice(0, 300);
+  const prefix = `${context.context ?? ""}:${message}`;
+  const key = prefix.length <= 300
+    ? prefix
+    : `${prefix.slice(0, 300)}#${fnv1a36(message)}`;
   const now = Date.now();
   const lastSent = recentReports.get(key);
   if (lastSent != null && now - lastSent < DEDUPE_WINDOW_MS) return;
@@ -115,8 +127,4 @@ export function installGlobalErrorReporting() {
   });
 }
 
-// * Expose globally so boot-time inline scripts in index.html can also forward
-// * errors after the module graph has loaded.
-if (typeof window !== "undefined") {
-  window.__cartRaveSendErrorLog = sendErrorLog;
-}
+

@@ -41,7 +41,6 @@ declare global {
     __cartRaveShedBootSplash?: () => void;
     __cartRaveTryStartMenuMusic?: () => void;
     __cartRaveCustomizationStorageSync?: boolean;
-    __cartRaveSendErrorLog?: (error: Error) => void;
     __cartRaveMainReady?: boolean;
     /**
      * Visual QA harness (URL ?harness=1 / shoot tools). See src/utils/visualHarness.js.

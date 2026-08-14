@@ -22,6 +22,19 @@ vi.mock("../../src/bootstrap.js", async (importOriginal) => ({
 const indexHtml = readFileSync(resolve(process.cwd(), "index.html"), "utf8");
 const menuCss = readFileSync(resolve(process.cwd(), "src/ui/styles/cart-rave-menu.css"), "utf8");
 
+import {
+  captureInviteRoomForDeferredMenu,
+  getPendingInviteRoomFromUrl,
+} from "../../src/orchestration/menuPlayEntry.js";
+
+describe("DEEPSEC-1 invite case fold", () => {
+  it("latches kale7 as KALE7", () => {
+    window.history.replaceState({}, "", "/?room=kale7");
+    expect(captureInviteRoomForDeferredMenu()).toBe(true);
+    expect(getPendingInviteRoomFromUrl()).toBe("KALE7");
+  });
+});
+
 describe("the invite screen is gone", () => {
   it("index.html no longer ships #cr-friends-screen or its controls", () => {
     for (const id of [

@@ -22,3 +22,36 @@ export function clampStrOrNull(v: unknown, max: number): string | null {
   const s = typeof v === "string" ? v : JSON.stringify(v);
   return s.length > max ? s.slice(0, max) : s;
 }
+
+const PROPS_PRIORITY = ["kos", "country", "region", "returning"] as const;
+
+/**
+ * JSON-encode an object in at most `max` chars. Never slices mid-string.
+ * Keeps priority keys first.
+ */
+export function clampJsonObject(obj: Record<string, unknown>, max: number): string {
+  const raw = JSON.stringify(obj);
+  if (raw.length <= max) return raw;
+  const kept: Record<string, unknown> = {};
+  for (const k of PROPS_PRIORITY) {
+    if (k in obj) kept[k] = obj[k];
+  }
+  let s = JSON.stringify(kept);
+  if (s.length > max) {
+    for (const k of [...Object.keys(kept)].reverse()) {
+      delete kept[k];
+      s = JSON.stringify(kept);
+      if (s.length <= max) return s;
+    }
+    return "{}";
+  }
+  for (const [k, v] of Object.entries(obj)) {
+    if (k in kept) continue;
+    const next = { ...kept, [k]: v };
+    const ns = JSON.stringify(next);
+    if (ns.length > max) continue;
+    kept[k] = v;
+    s = ns;
+  }
+  return s;
+}

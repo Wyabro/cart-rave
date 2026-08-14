@@ -7,6 +7,7 @@
 // Singleton instance "v1". Ring-buffered. Internal-only HTTP surface — party/index.ts
 // owns public auth.
 
+import { denyLogAdminIfConfigured } from "./adminAuth";
 import { type BeaconBucket, UNKNOWN_IP, checkBeaconLimit } from "./beaconLimit";
 import { clampStr as clamp, jsonResponse } from "./logUtil";
 
@@ -52,12 +53,14 @@ type StorePayload = {
 
 export class CaptureLog {
   #ctx: DoState;
+  #env: { ERROR_LOG_TOKEN?: string };
   #ready = false;
   /** SEC-BEACON-1: per-IP beacon budget defending this DO's ring. */
   readonly #beaconIps = new Map<string, BeaconBucket>();
 
-  constructor(ctx: DoState, _env: unknown) {
+  constructor(ctx: DoState, env: { ERROR_LOG_TOKEN?: string }) {
     this.#ctx = ctx;
+    this.#env = env;
   }
 
   #ensureSchema(): void {
@@ -163,6 +166,8 @@ export class CaptureLog {
 
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
+    const denied = denyLogAdminIfConfigured(request, this.#env.ERROR_LOG_TOKEN);
+    if (denied) return denied;
     if (request.method === "POST" && url.pathname === "/store") {
       // * SEC-BEACON-1: cap before the INSERT — this ring is only 80 rows deep, so
       // * an unchecked flood erases a whole playtest's F8 bundles.
