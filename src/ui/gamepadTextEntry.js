@@ -88,4 +88,22 @@ export function initGamepadTextEntry() {
     const action = actionButton?.dataset.gamepadKeyboardAction;
     if (action) runAction(action);
   });
+  overlay.addEventListener("keydown", (event) => {
+    if (!activeEntry || event.target === value || event.ctrlKey || event.metaKey || event.altKey) return;
+    if (event.key === "Enter") { event.preventDefault(); runAction("submit"); return; }
+    if (event.key === "Escape") { event.preventDefault(); runAction("cancel"); return; }
+    if (event.key === "Backspace") {
+      event.preventDefault();
+      activeEntry.value = activeEntry.value.slice(0, -1);
+      renderValue();
+      value.focus();
+      return;
+    }
+    if (event.key.length === 1 && activeEntry.value.length < activeEntry.maxLength) {
+      event.preventDefault();
+      activeEntry.value += event.key;
+      renderValue();
+      value.focus();
+    }
+  });
 }

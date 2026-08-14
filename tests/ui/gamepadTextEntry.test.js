@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 import { initGamepadTextEntry, openGamepadTextEntry } from "../../src/ui/gamepadTextEntry.js";
 
 const FIXTURE = `
@@ -22,6 +23,14 @@ function click(selector) {
 }
 
 describe("gamepad text entry", () => {
+  it("is mounted outside every screen that can hide it", () => {
+    const page = document.createElement("template");
+    page.innerHTML = readFileSync("index.html", "utf8");
+    const dialog = page.content.querySelector("#cr-gamepad-text-entry");
+    expect(dialog).not.toBeNull();
+    expect(dialog.closest("#cr-customize-screen")).toBeNull();
+  });
+
   it("renders a controller keyboard and commits normalized text", () => {
     const received = [];
     openGamepadTextEntry({ title: "FRIEND CODE", value: "ab", maxLength: 4, normalize: (v) => v.toUpperCase(), onSubmit: (v) => { received.push(v); return true; } });
@@ -62,5 +71,15 @@ describe("gamepad text entry", () => {
     expect(received).toEqual(["DeckName"]);
     expect(document.getElementById("cr-gamepad-text-entry").style.display).toBe("none");
     expect(document.activeElement).toBe(launcher);
+  });
+
+  it("keeps the draft and first typed character when switching from controller keys", () => {
+    openGamepadTextEntry({ title: "NAME", value: "A", maxLength: 12, onSubmit: () => true });
+    click('[data-gamepad-keyboard-key="B"]');
+    const gridKey = /** @type {HTMLElement} */ (document.querySelector('[data-gamepad-keyboard-key="C"]'));
+    gridKey.focus();
+    gridKey.dispatchEvent(new KeyboardEvent("keydown", { key: "z", bubbles: true, cancelable: true }));
+    expect(document.getElementById("cr-gamepad-text-value").value).toBe("ABz");
+    expect(document.activeElement).toBe(document.getElementById("cr-gamepad-text-value"));
   });
 });
