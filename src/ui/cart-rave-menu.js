@@ -2489,34 +2489,58 @@ import { ARENA_CATALOG } from "../levels/arenaCatalog.js";
     if (!btn || menuPressWired.has(btn)) return;
     menuPressWired.add(btn);
 
-    const target = getMenuPressTarget(btn);
+    const host = /** @type {HTMLElement} */ (btn);
+    const target = getMenuPressTarget(host);
     let pressed = false;
+    /** @type {number | null} */
+    let capturedPointerId = null;
+
+    const releaseCapture = () => {
+      if (capturedPointerId == null) return;
+      try {
+        if (host.hasPointerCapture?.(capturedPointerId)) {
+          host.releasePointerCapture(capturedPointerId);
+        }
+      } catch {
+        // Capture may already be released.
+      }
+      capturedPointerId = null;
+    };
 
     const onPress = (e) => {
       const pe = /** @type {PointerEvent} */ (e);
       if (pe.pointerType === "mouse" && pe.button !== 0) return;
       pressed = true;
+      try {
+        host.setPointerCapture(pe.pointerId);
+        capturedPointerId = pe.pointerId;
+      } catch {
+        capturedPointerId = null;
+      }
       animateButtonPress(target, { duration: 70, scale: 0.94 });
     };
 
     const onRelease = () => {
       if (!pressed) return;
       pressed = false;
+      releaseCapture();
       animateButtonRelease(target, { duration: 130 });
     };
 
-    btn.addEventListener("pointerdown", onPress);
-    btn.addEventListener("pointerup", onRelease);
-    btn.addEventListener("pointercancel", onRelease);
-    btn.addEventListener("pointerleave", (e) => {
+    host.addEventListener("pointerdown", onPress);
+    host.addEventListener("pointerup", onRelease);
+    host.addEventListener("pointercancel", onRelease);
+    // * Capture on the outer button (not the inner anime target) so off-element
+    // * release still springs back. Leave is fallback if capture fails.
+    host.addEventListener("pointerleave", (e) => {
       const pe = /** @type {PointerEvent} */ (e);
-      if (pressed && pe.pointerType === "mouse") onRelease();
+      if (pressed && pe.pointerType === "mouse" && capturedPointerId == null) onRelease();
     });
 
     // * MENU-CMD-FEEL-1: command rows select on mouseenter — anime hover-scale is only
     // * jiggle and fights the yellow selection chrome. Press scale still runs above.
-    if (!(btn instanceof HTMLElement && btn.classList.contains("cr-cmd"))) {
-      wireHoverFeedback(/** @type {HTMLElement} */ (btn), { getTarget: getMenuPressTarget });
+    if (!(host instanceof HTMLElement && host.classList.contains("cr-cmd"))) {
+      wireHoverFeedback(host, { getTarget: getMenuPressTarget });
     }
   }
 

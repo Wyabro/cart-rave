@@ -1542,11 +1542,31 @@ export function wireButtonPressFeedback(btn, options = {}) {
   const getTarget = options.getTarget ?? ((el) => el);
   const pressScale = options.scale ?? 0.94;
   let pressed = false;
+  /** @type {number | null} */
+  let capturedPointerId = null;
+
+  const releaseCapture = () => {
+    if (capturedPointerId == null) return;
+    try {
+      if (btn.hasPointerCapture?.(capturedPointerId)) {
+        btn.releasePointerCapture(capturedPointerId);
+      }
+    } catch {
+      // Capture may already be released.
+    }
+    capturedPointerId = null;
+  };
 
   const onPress = (e) => {
     if (btn.disabled) return;
     if (e.pointerType === "mouse" && e.button !== 0) return;
     pressed = true;
+    try {
+      btn.setPointerCapture(e.pointerId);
+      capturedPointerId = e.pointerId;
+    } catch {
+      capturedPointerId = null;
+    }
     const target = getTarget(btn);
     if (target) animateButtonPress(target, { duration: 70, scale: pressScale, force: true });
   };
@@ -1554,6 +1574,7 @@ export function wireButtonPressFeedback(btn, options = {}) {
   const onRelease = () => {
     if (!pressed) return;
     pressed = false;
+    releaseCapture();
     const target = getTarget(btn);
     if (target) animateButtonRelease(target, { duration: 120, force: true });
   };
@@ -1561,8 +1582,9 @@ export function wireButtonPressFeedback(btn, options = {}) {
   btn.addEventListener("pointerdown", onPress);
   btn.addEventListener("pointerup", onRelease);
   btn.addEventListener("pointercancel", onRelease);
+  // * Capture normally delivers pointerup off-element; leave is fallback if capture fails.
   btn.addEventListener("pointerleave", (e) => {
-    if (pressed && e.pointerType === "mouse") onRelease();
+    if (pressed && e.pointerType === "mouse" && capturedPointerId == null) onRelease();
   });
 }
 
