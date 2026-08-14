@@ -723,6 +723,11 @@
           <p class="cr-join-error" id="cr-join-error" role="alert" hidden>BAD CODE — TRY AGAIN</p>
         </div>
 
+        <div class="cr-gamepad-profile" id="cr-gamepad-profile" aria-label="Profile and Friends">
+          <button class="cr-gamepad-profile-btn" id="cr-gamepad-name" type="button">CHANGE NAME</button>
+          <button class="cr-gamepad-profile-btn" id="cr-gamepad-room" type="button">ENTER FRIEND CODE</button>
+        </div>
+
         <!-- Desktop menu cart holder — CartPreview owns a transparent canvas here
              (same path as Customize), above the attract dim. -->
         <div class="cr-menu-cart" id="cr-menu-cart-holder" aria-hidden="true" hidden></div>
@@ -845,6 +850,21 @@
         <span class="cr-screen-hint-item"><kbd>◂ ▸</kbd> PICK</span>
         <span class="cr-screen-hint-item" data-hint-kb><kbd>ESC</kbd> BACK</span>
         <span class="cr-screen-hint-item" data-hint-pad><kbd>Ⓑ</kbd> BACK</span>
+      </div>
+    </div>
+
+    <div class="cr-gamepad-keyboard" id="cr-gamepad-text-entry" style="display:none" role="dialog" aria-modal="true" aria-labelledby="cr-gamepad-text-title">
+      <div class="cr-gamepad-keyboard-card">
+        <div class="cr-gamepad-keyboard-title" id="cr-gamepad-text-title">TEXT ENTRY</div>
+        <div class="cr-gamepad-keyboard-value" id="cr-gamepad-text-value" aria-live="polite"></div>
+        <p class="cr-gamepad-keyboard-error" id="cr-gamepad-text-error" aria-live="assertive" hidden></p>
+        <div class="cr-gamepad-keyboard-keys" id="cr-gamepad-text-keys"></div>
+        <div class="cr-gamepad-keyboard-actions">
+          <button type="button" data-gamepad-keyboard-action="backspace">Ⓒ DELETE</button>
+          <button type="button" data-gamepad-keyboard-action="clear">Ⓨ CLEAR</button>
+          <button type="button" data-gamepad-keyboard-action="submit">START CONFIRM</button>
+          <button type="button" class="cr-overlay-back" data-gamepad-keyboard-action="cancel">Ⓑ CANCEL</button>
+        </div>
       </div>
     </div>
   </div>

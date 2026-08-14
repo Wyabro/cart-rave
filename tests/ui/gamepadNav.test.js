@@ -62,6 +62,10 @@ const FIXTURE = `
     <button class="cr-diff-btn" id="cr-diff-easy" type="button">EASY</button>
     <button class="cr-diff-btn" id="cr-diff-hard" type="button">HARD</button>
   </div>
+  <div id="cr-gamepad-profile" style="display:none">
+    <button id="cr-gamepad-name" type="button">CHANGE NAME</button>
+    <button id="cr-gamepad-room" type="button">ENTER FRIEND CODE</button>
+  </div>
   <div id="hud-note" tabindex="0"></div>
   <input id="cr-name-input" style="display:none" />
 </div>
@@ -488,6 +492,13 @@ describe("LB/RB main-menu panel routing", () => {
     press(BTN.rb);
     press(BTN.right);
     expect(document.activeElement).toBe(document.getElementById("cr-arena-next"));
+  });
+
+  it("RB reaches the visible PROFILE / FRIENDS controller panel", () => {
+    document.getElementById("cr-gamepad-profile").style.display = "grid";
+    press(BTN.rb);
+    press(BTN.rb);
+    expect(document.activeElement).toBe(document.getElementById("cr-gamepad-name"));
   });
 
   it("held bumper switches one panel only (rising edge)", () => {

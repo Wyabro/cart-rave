@@ -548,20 +548,22 @@ export function createMenuPlayEntry(deps) {
       const clearJoinError = () => {
         if (joinError) joinError.hidden = true;
       };
-      const showJoinError = () => {
+      const showJoinError = (focusInput = true) => {
         // * A silent no-op on a bad code reads as a broken button.
         if (joinError) joinError.hidden = false;
-        joinInput?.focus();
-        joinInput?.select();
+        if (focusInput) {
+          joinInput?.focus();
+          joinInput?.select();
+        }
       };
 
-      const submitJoinCode = () => {
+      const submitJoinCode = ({ focusInvalid = true } = {}) => {
         clearJoinError();
         // * 1. One validation funnel: uppercases, and refuses names reserved for a mode.
         const code = normalizeRoomCode(joinInput?.value ?? "");
         if (!code) {
-          showJoinError();
-          return;
+          showJoinError(focusInvalid);
+          return false;
         }
         // * 2. The URL must carry the room — Netcode.detectGameMode() derives the mode from it,
         // * and a bare URL resolves to "quickplay", so CHECKOUT LINE would never open.
@@ -575,8 +577,8 @@ export function createMenuPlayEntry(deps) {
         // * assigning by hand, so validation has one path; if it disagrees with the
         // * validator, fail visibly instead of dispatching a join that cannot work.
         if (!captureInviteRoomForDeferredMenu()) {
-          showJoinError();
-          return;
+          showJoinError(focusInvalid);
+          return false;
         }
         setJoinedViaTypedCode(true);
         if (joinInput) joinInput.value = "";
@@ -586,9 +588,10 @@ export function createMenuPlayEntry(deps) {
           location: "typed_code",
         });
         window.dispatchEvent(new CustomEvent("cartrave:menu", { detail: { action: "joinroom" } }));
+        return true;
       };
 
-      joinGo?.addEventListener("click", submitJoinCode);
+      joinGo?.addEventListener("click", () => submitJoinCode());
       joinInput?.addEventListener("input", clearJoinError);
       joinInput?.addEventListener("keydown", (e) => {
         if (e.key !== "Enter") return;
@@ -597,6 +600,11 @@ export function createMenuPlayEntry(deps) {
         e.preventDefault();
         e.stopPropagation();
         submitJoinCode();
+      });
+      window.addEventListener("cartrave:gamepad-room-code", (event) => {
+        const detail = /** @type {{ code?: string, accepted?: boolean }} */ (event.detail ?? {});
+        if (joinInput) joinInput.value = detail.code ?? "";
+        detail.accepted = submitJoinCode({ focusInvalid: false });
       });
     }
 

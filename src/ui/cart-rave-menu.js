@@ -80,6 +80,7 @@ import { FREE_LEVEL, LEVEL_UNLOCKS } from "../unlockConfig.js";
 import { challengeStore, CHALLENGE_POOL, CHALLENGE_ROTATION_MS } from "../stores/challengeStore.js";
 import { NPC_NAME_POOL } from "../npcNames.js";
 import { ARENA_CATALOG } from "../levels/arenaCatalog.js";
+import { initGamepadTextEntry, openGamepadTextEntry } from "./gamepadTextEntry.js";
 
 (function () {
   'use strict';
@@ -1990,11 +1991,33 @@ import { ARENA_CATALOG } from "../levels/arenaCatalog.js";
     nameDisplay.style.display = '';
   }
 
+  function commitGamepadName(value) {
+    const nextName = value.trim().slice(0, CONFIG.nameMaxLength);
+    if (!nextName) return false;
+    state.name = nextName;
+    storageSet(STORAGE_KEYS.username, state.name);
+    nameText.textContent = state.name;
+    return true;
+  }
+
   nameDisplay.addEventListener('click', startNameEdit);
   $("cr-name-edit")?.addEventListener('click', startNameEdit);
   nameInput.addEventListener('blur', finishNameEdit);
   nameInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') finishNameEdit();
+  });
+  $("cr-gamepad-name")?.addEventListener("click", () => {
+    openGamepadTextEntry({ title: "CHANGE NAME", value: state.name, maxLength: CONFIG.nameMaxLength, onSubmit: commitGamepadName });
+  });
+  $("cr-gamepad-room")?.addEventListener("click", () => {
+    openGamepadTextEntry({
+      title: "ENTER FRIEND CODE", value: "", maxLength: 16, normalize: (value) => value.trim().toUpperCase(),
+      onSubmit: (code) => {
+        const detail = { code, accepted: false };
+        window.dispatchEvent(new CustomEvent("cartrave:gamepad-room-code", { detail }));
+        return detail.accepted;
+      },
+    });
   });
   rerollBtn.addEventListener('click', () => {
     state.name = rollHandle();
@@ -2291,6 +2314,7 @@ import { ARENA_CATALOG } from "../levels/arenaCatalog.js";
 
   function updateHintBar() {
     const mode = getInputMode();
+    root.classList.toggle("is-gamepad-input", mode === "gamepad");
     const deviceEl = $("cr-hint-device");
     const keysEl = $("cr-hint-keys");
     const metaEl = $("cr-hint-meta");
@@ -2364,6 +2388,7 @@ import { ARENA_CATALOG } from "../levels/arenaCatalog.js";
     updateArenaPager();
     setMenuSelection(0, { silent: true });
     updateHintBar();
+    initGamepadTextEntry();
     updateScreenHints();
     onInputModeChange(() => {
       updateHintBar();

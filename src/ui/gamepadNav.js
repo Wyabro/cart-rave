@@ -4,7 +4,7 @@ import { hapticMenuConfirm, hapticMenuFocus } from "../haptics.js";
 let _navActive = true;
 let navIndex = 0;
 let prevDpad = {
-  up: false, down: false, left: false, right: false, a: false, b: false, lb: false, rb: false,
+  up: false, down: false, left: false, right: false, a: false, b: false, x: false, y: false, start: false, lb: false, rb: false,
 };
 
 // * The last node the ring actually focused, plus the radiogroup row it lived
@@ -25,6 +25,7 @@ const OVERLAY_SCOPE_SELECTORS = [
   "#cr-challenges-screen",
   "#cr-settings-screen",
   "#cr-customize-screen",
+  "#cr-gamepad-text-entry",
 ];
 
 let lastScope = /** @type {HTMLElement|Document|null} */ (null);
@@ -32,12 +33,12 @@ let lastScope = /** @type {HTMLElement|Document|null} */ (null);
 // * The desktop menu has two separate jobs: choose a mode on the left, then
 // * configure that mode on the right. A geometric search across both columns
 // * made the controller route depend on viewport shape. Keep those jobs as
-// * explicit panels instead. Text entry is intentionally not here yet: its
-// * controller keyboard belongs to GAMEPAD-TEXT-ENTRY-1, and native inputs must
-// * not be focused by a pad before that exists.
+// * explicit panels instead. The PROFILE panel opens a modal controller keyboard;
+// * native inputs stay outside the pad ring for keyboard/mouse ownership.
 const MAIN_MENU_GROUPS = Object.freeze([
   Object.freeze({ id: "commands", selector: "#cr-commandlist .cr-cmd" }),
   Object.freeze({ id: "setup", selector: "#cr-context-arena .cr-arena-page, #cr-diff-row .cr-diff-btn" }),
+  Object.freeze({ id: "profile", selector: "#cr-gamepad-profile button" }),
 ]);
 let mainMenuGroupIndex = 0;
 
@@ -365,12 +366,15 @@ function updateNav(now = performance.now()) {
   const direction = resolveMenuDirection(isPressed, lx, ly);
   const a = isPressed(0);
   const b = isPressed(1);
+  const x = isPressed(2);
+  const y = isPressed(3);
+  const start = isPressed(9);
   // * Standard Gamepad: buttons[4]/[5] = LB / RB. Unused in-match (boost/hop are
   // * triggers + face). Menu hint advertises them for arena paging (ARENA-BUMPER-HINT-1).
   const lb = isPressed(4);
   const rb = isPressed(5);
 
-  if (direction || a || b || lb || rb) {
+  if (direction || a || b || x || y || start || lb || rb) {
     setInputMode("gamepad");
   }
 
@@ -490,9 +494,19 @@ function updateNav(now = performance.now()) {
         window.dispatchEvent(new KeyboardEvent("keydown", { code: "Escape", key: "Escape", bubbles: true }));
       }
     }
+
+    if (scope instanceof HTMLElement && scope.id === "cr-gamepad-text-entry") {
+      const action = x && !prevDpad.x ? "backspace"
+        : y && !prevDpad.y ? "clear"
+        : start && !prevDpad.start ? "submit"
+        : null;
+      if (action) {
+        /** @type {HTMLElement|null} */ (scope.querySelector(`[data-gamepad-keyboard-action="${action}"]`))?.click();
+      }
+    }
   }
 
-  prevDpad = { up: direction === "up", down: direction === "down", left: direction === "left", right: direction === "right", a, b, lb, rb };
+  prevDpad = { up: direction === "up", down: direction === "down", left: direction === "left", right: direction === "right", a, b, x, y, start, lb, rb };
   requestAnimationFrame(updateNav);
 }
 

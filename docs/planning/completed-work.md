@@ -13,6 +13,16 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 14, 2026 — GAMEPAD-TEXT-ENTRY-1: controller text entry
+
+- *(UI · Low)* **GAMEPAD-TEXT-ENTRY-1** — desk work complete 08-14; **Wyatt production
+  playtest owed** in BACKLOG. Website controller users now reach a PROFILE / FRIENDS panel
+  through LB/RB and use an in-game keyboard for cart names and Friend Codes: D-pad + A type,
+  X deletes, Y clears, B cancels, and START confirms. Name storage and Friend Code validation /
+  join stay in their existing owners; rejected codes keep the overlay open. Native browser inputs
+  remain keyboard/mouse-only, and phone/tablet touch behavior is unchanged. Tests: focused 59/59;
+  production build passed. Not deployed or committed.
+
 ### August 14, 2026 — GAMEPAD-MENU-ROUTES-1: controller menu routes
 
 - *(UI · Low)* **GAMEPAD-MENU-ROUTES-1** — desk work complete 08-14; **Wyatt production

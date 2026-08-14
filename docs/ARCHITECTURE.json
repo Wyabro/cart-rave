@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-14T03:25:05.484Z",
-    "commit": "ea567c4"
+    "at": "2026-08-14T06:35:47.936Z",
+    "commit": "f132db2"
   },
-  "source_digest": "874fdd77",
+  "source_digest": "924267f0",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -468,6 +468,7 @@
         "src/ui/cartPreviewGltf.js",
         "src/ui/centerStage.js",
         "src/ui/gamepadNav.js",
+        "src/ui/gamepadTextEntry.js",
         "src/ui/graphicsToggles.js",
         "src/ui/icons.js",
         "src/ui/loadingScreen.css",
@@ -488,7 +489,7 @@
         "src/ui/styles/tokens.css",
         "src/utils/edgeDanger.js"
       ],
-      "file_count": 29,
+      "file_count": 30,
       "edges": [
         {
           "to": "boot-and-orchestration",
@@ -1015,10 +1016,16 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Low": 3,
+          "Low": 4,
           "Medium": 2
         },
         "rows": [
+          {
+            "pri": "Low",
+            "item": "GAMEPAD-TEXT-ENTRY-PT-1 — controller name + Friend Code entry `[solo]`",
+            "notes": "**Owed: Wyatt playtest — GAMEPAD-TEXT-ENTRY-PT-1 — controller text entry works without a native browser keyboard.** Parent **GAMEPAD-TEXT-ENTRY-1**. Pushed but not yet deployed.<br>1. On desktop with a controller and on Steam Deck, use LB/RB to reach PROFILE / FRIENDS. Choose CHANGE NAME, type a new name with D-pad and A, then START to confirm.<br>2. Open ENTER FRIEND CODE. Enter a valid mixed-case Friend Code; confirm it becomes uppercase and joins. Repeat with an invalid code; correct it in the open keyboard, then cancel once.<br>3. FAIL if the browser's native text box opens, text cannot be corrected, cancel changes the name or room, controls reach behind the keyboard, or phone/tablet touch behavior changes. PASS if both controller routes are clear and reliable.",
+            "ship1": null
+          },
           {
             "pri": "Low",
             "item": "GAMEPAD-MENU-ROUTES-PT-1 — controller routes for desktop + handheld menus `[solo]`",
