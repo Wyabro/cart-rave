@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-14T08:18:44.595Z",
-    "commit": "f7751a0"
+    "at": "2026-08-14T08:27:15.437Z",
+    "commit": "8802b9c"
   },
-  "source_digest": "e6dad155",
+  "source_digest": "877874df",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1030,7 +1030,7 @@
           {
             "pri": "Low",
             "item": "GAMEPAD-TEXT-ENTRY-PT-1 — controller name + Friend Code entry `[solo]`",
-            "notes": "**Owed: Wyatt playtest — GAMEPAD-TEXT-ENTRY-PT-1 — controller text entry works without a native browser keyboard.** Parent **GAMEPAD-TEXT-ENTRY-1**. Pushed but not yet deployed.<br>1. On desktop with a controller and on Steam Deck, use LB/RB to reach PROFILE / FRIENDS. Choose CHANGE NAME, type a new name with D-pad and A, then START to confirm.<br>2. Open ENTER FRIEND CODE. Enter a valid mixed-case Friend Code; confirm it becomes uppercase and joins. Repeat with an invalid code; correct it in the open keyboard, then cancel once.<br>3. FAIL if the browser's native text box opens, text cannot be corrected, cancel changes the name or room, controls reach behind the keyboard, or phone/tablet touch behavior changes. PASS if both controller routes are clear and reliable.",
+            "notes": "**Owed: Wyatt playtest — GAMEPAD-TEXT-ENTRY-PT-1 — controller text entry works without a native browser keyboard.** Parent **GAMEPAD-TEXT-ENTRY-1** is deployed; this retests its discoverable D-pad launch route.<br>1. On desktop with a controller and on Steam Deck, use the D-pad through the main command flow to reach CHANGE NAME and ENTER FRIEND CODE. Choose CHANGE NAME, type a new name with D-pad and A, then START to confirm.<br>2. Open ENTER FRIEND CODE. Enter a valid mixed-case Friend Code; confirm it becomes uppercase and joins. Repeat with an invalid code; correct it in the open keyboard, then cancel once.<br>3. FAIL if the controller-only launch controls cannot be reached, the browser's native text box opens, text cannot be corrected, cancel changes the name or room, controls reach behind the keyboard, or phone/tablet touch behavior changes. PASS if both controller routes are clear and reliable.",
             "ship1": null
           },
           {

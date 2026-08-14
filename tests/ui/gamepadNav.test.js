@@ -49,6 +49,10 @@ const FIXTURE = `
   <nav id="cr-commandlist">
     <button class="cr-cmd" id="play-btn">PLAY</button>
     <button class="cr-cmd" id="customize-btn">CUSTOMIZE</button>
+    <div id="cr-gamepad-profile" style="display:none">
+      <button id="cr-gamepad-name" type="button">CHANGE NAME</button>
+      <button id="cr-gamepad-room" type="button">ENTER FRIEND CODE</button>
+    </div>
   </nav>
   <div class="cr-join" id="cr-join">
     <input class="cr-join-input" id="cr-join-code" type="text" name="room-code" placeholder="ROOM CODE" />
@@ -61,10 +65,6 @@ const FIXTURE = `
   <div id="cr-diff-row">
     <button class="cr-diff-btn" id="cr-diff-easy" type="button">EASY</button>
     <button class="cr-diff-btn" id="cr-diff-hard" type="button">HARD</button>
-  </div>
-  <div id="cr-gamepad-profile" style="display:none">
-    <button id="cr-gamepad-name" type="button">CHANGE NAME</button>
-    <button id="cr-gamepad-room" type="button">ENTER FRIEND CODE</button>
   </div>
   <div id="hud-note" tabindex="0"></div>
   <input id="cr-name-input" style="display:none" />
@@ -496,6 +496,13 @@ describe("LB/RB arena paging", () => {
     press(BTN.down);
     press(BTN.down);
     expect(document.activeElement).toBe(document.getElementById("cr-arena-prev"));
+  });
+
+  it("D-pad reaches the visible profile controls before match setup", () => {
+    document.getElementById("cr-gamepad-profile").style.display = "grid";
+    press(BTN.down);
+    press(BTN.down);
+    expect(document.activeElement).toBe(document.getElementById("cr-gamepad-name"));
   });
 
   it("held bumper pages one arena only (rising edge)", () => {
