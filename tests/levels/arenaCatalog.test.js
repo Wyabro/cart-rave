@@ -55,6 +55,8 @@ describe("resolveLevelId", () => {
     expect(resolveLevelId("typo-arena")).toBe(FREE_LEVEL);
     expect(resolveLevelId(null)).toBe(FREE_LEVEL);
     expect(resolveLevelId(undefined)).toBe(FREE_LEVEL);
+    expect(resolveLevelId("constructor")).toBe(FREE_LEVEL);
+    expect(resolveLevelId("__proto__")).toBe(FREE_LEVEL);
   });
 });
 

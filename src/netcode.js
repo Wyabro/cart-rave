@@ -81,6 +81,12 @@ function getCartSnap(carts, slotIndex) {
 let partySocket = null;
 let youConnId = null;
 let hostId = null;
+/** Room actually passed to PartySocket. SEC-DIAG-1 must not re-read the URL. */
+let connectedRoom = null;
+/** Last accepted host-domain snapshot stamp. 0 = no sample yet. */
+let lastAcceptedTHost = 0;
+const MAX_THOST_ABS_MS = 1e12;
+const MAX_THOST_JUMP_MS = 5000;
 /** @type {"ok" | "reconnecting"} Coarse socket health surfaced to the HUD. */
 let connectionState = "ok";
 let isHost = false;
@@ -1191,7 +1197,7 @@ export function resolvedPartyRoomFromUrl() {
 
 /** @returns {"quickplay" | "solo" | "testdrive" | "friends"} */
 export function detectGameMode() {
-  const room = resolvedPartyRoomFromUrl();
+  const room = connectedRoom || resolvedPartyRoomFromUrl();
   if (room.toLowerCase().startsWith("testdrive")) return "testdrive";
   if (room.toLowerCase().startsWith("solo")) return "solo";
   // * QUICKPLAY-SHARD-1: every public shard is quickplay, not just shard 1. This one line is
@@ -2098,6 +2104,8 @@ export function disconnectPartySession() {
     partySocket = null;
   }
 
+  connectedRoom = null;
+  lastAcceptedTHost = 0;
   youConnId = null;
   hostId = null;
   isHost = false;
@@ -2588,6 +2596,16 @@ function requestTurnCredentialsAndOpenPeers() {
  * unit-testable without a live socket (see tests/hostMigration.test.js).
  * @param {{ hostId?: unknown, reason?: unknown }} msg
  */
+function isPlausibleTHost(tHost) {
+  if (typeof tHost !== "number" || !Number.isFinite(tHost) || tHost <= 0 || tHost > MAX_THOST_ABS_MS) {
+    return false;
+  }
+  if (lastAcceptedTHost > 0 && Math.abs(tHost - lastAcceptedTHost) > MAX_THOST_JUMP_MS) {
+    return false;
+  }
+  return true;
+}
+
 function applyHostMigration(msg) {
   // * Capture before reassignment — bare host_migrated (no reason) on a real A→B
   // * handoff is still a disconnect: FIX-MIG-PT-1 FAIL when a warm DO was still on
@@ -2604,6 +2622,7 @@ function applyHostMigration(msg) {
     P2P.initP2P({
       localId: youConnId,
       host: nextIsHost,
+      hostId,
       sendSignal: (m) => {
         if (partySocket && partySocket.readyState === WebSocket.OPEN) {
           partySocket.send(JSON.stringify(m));
@@ -2654,6 +2673,8 @@ function applyHostMigration(msg) {
     setRemoteBodiesEnabledForMigration(true);
   }
   hostEpoch += 1;
+  lastAcceptedTHost = 0;
+  resetClockState(hostClock);
   // * NET-RING-1: host migration bumps the epoch — ring counters restart too.
   resetNetRingCounters();
   netStateBuffer = [];
@@ -2952,6 +2973,7 @@ export function initNetcode(roomOverride) {
     const r = String(roomOverride).trim();
     if (/^[A-Za-z0-9]{2,16}$/.test(r)) resolvedRoom = r;
   }
+  connectedRoom = resolvedRoom;
   partySocket = new PartySocket({
     host: partyHostFromWindowLocation(),
     party: "cart-rave-server",
@@ -3125,6 +3147,7 @@ export function initNetcode(roomOverride) {
         P2P.initP2P({
           localId: youConnId,
           host: Boolean(hostId && youConnId && hostId === youConnId),
+          hostId,
           sendSignal: (m) => {
             if (partySocket && partySocket.readyState === WebSocket.OPEN) {
               partySocket.send(JSON.stringify(m));
@@ -4028,6 +4051,8 @@ export const __netcodeTestHooks = {
     clearHostPresentRetry();
     stopHostSendLoop();
     partySocket = null;
+    connectedRoom = null;
+    lastAcceptedTHost = 0;
     netStateBuffer = [];
     lastCartsCache = null;
     lastCartsCacheIsSpawn = false;
@@ -4102,6 +4127,10 @@ export const __netcodeTestHooks = {
   applyHostMigration: (msg) => applyHostMigration(msg),
   getHostEpoch: () => hostEpoch,
   setHostIdForTest: (id) => { hostId = id; },
+  setConnectedRoomForTest: (room) => { connectedRoom = room; },
+  getConnectedRoomForTest: () => connectedRoom,
+  setLastAcceptedTHostForTest: (t) => { lastAcceptedTHost = t; },
+  isPlausibleTHostForTest: (t) => isPlausibleTHost(t),
   // * Signaling-flow validation: set host authority state, then call the exact helper
   // * the slots handler uses so tests can assert the host opens offers to the right peers.
   setHostStateForTest: ({ isHost: h, youConnId: y, netSlots: s }) => {
@@ -4337,7 +4366,9 @@ function handleRemoteP2PMessage(data) {
 
 function handleRemoteSpill(msg) {
   const carts = getAllCarts();
-  const cart = carts?.[msg.slotId];
+  const idx = Number(msg.slotId);
+  if (!Number.isInteger(idx) || idx < 0 || !carts || idx >= carts.length) return;
+  const cart = carts[idx];
   // * Do NOT early return if cart.hasSpilled is true.
   // * The host sends this exactly once. If snap.s arrived first, we still need the VFX.
   // * We only set hasSpilled if it wasn't already, to avoid stepping on respawn logic.
@@ -4349,7 +4380,7 @@ function handleRemoteSpill(msg) {
   callbacks.armSpillBoost(cart);
 
   callbacks.triggerGrocerySpill(
-    String(msg.slotId),
+    String(idx),
     msg.pos,
     msg.quat,
     msg.vel,
@@ -4369,9 +4400,12 @@ function handleRemoteHostState(state) {
     // * ~1.7e12 offset sample and buffer a permanent time-0 "before" snapshot. The
     // * old `state.serverNowMs` fallback was dead compat: hostTransform is binary-only
     // * now and the decoder never emits that field.
-    const tHostValid = typeof state.tHost === "number" && state.tHost > 0;
+    const tHostValid = isPlausibleTHost(state.tHost);
     const hostTime = tHostValid ? state.tHost : getMonotonicNow() - hostClock.offsetMs;
-    if (tHostValid) updateHostClockOffset(hostTime);
+    if (tHostValid) {
+      lastAcceptedTHost = state.tHost;
+      updateHostClockOffset(hostTime);
+    }
     // * Pass tHost so gap/silence stats are host-domain (2e non-host arrival honesty).
     noteSnapshotArrival(tHostValid ? hostTime : 0);
     const seq = typeof state.seq === "number" ? state.seq : -1;

@@ -57,7 +57,7 @@ export function prefetchLevelChunks() {
  * @returns {"classicRecord" | "backrooms" | "zanzibar" | "rooftop" | "testArena"}
  */
 export function resolveLevelId(raw) {
-  if (raw && ARENA_BY_ID[raw]) {
+  if (raw && Object.hasOwn(ARENA_BY_ID, raw)) {
     return /** @type {"classicRecord" | "backrooms" | "zanzibar" | "rooftop" | "testArena"} */ (raw);
   }
   return DEFAULT_LEVEL_ID;
@@ -100,7 +100,9 @@ export async function loadLevel(levelId, scene, world, config, options = {}) {
   const onProgress = options.onProgress;
   onProgress?.(20, "Fetching level…");
 
-  const importer = LEVEL_IMPORTERS[resolved] ?? LEVEL_IMPORTERS[DEFAULT_LEVEL_ID];
+  const importer = Object.hasOwn(LEVEL_IMPORTERS, resolved)
+    ? LEVEL_IMPORTERS[resolved]
+    : LEVEL_IMPORTERS[DEFAULT_LEVEL_ID];
   const initFn = await importer();
 
   // * Per-level overrides (radius, booth gap, spawn ring, and spawn angle).

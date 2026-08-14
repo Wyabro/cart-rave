@@ -13,6 +13,7 @@ import { pickNextHostId } from "../../party/hostSelection.ts";
 import * as P2P from "../../src/netcode/p2p.js";
 import {
   __netcodeTestHooks as hooks,
+  detectGameMode,
   getIsHost,
   getHostId,
   getHostMigrationFreezeUntilMs,
@@ -102,6 +103,30 @@ describe("host presence retry", () => {
     expect(sent).toHaveLength(1);
     vi.advanceTimersByTime(1);
     expect(sent.map(({ type }) => type)).toEqual(["host_present", "host_present"]);
+  });
+});
+
+describe("DEEPSEC-1 room latch + tHost bounds", () => {
+  afterEach(() => {
+    hooks.resetNetState();
+    window.history.replaceState({}, "", "/");
+  });
+
+  it("detectGameMode keeps the latched room after a URL rewrite", () => {
+    hooks.setConnectedRoomForTest("quickplay");
+    window.history.replaceState({}, "", "/?diag=1&room=KALE7");
+    expect(detectGameMode()).toBe("quickplay");
+  });
+
+  it("rejects 1e300 tHost and resets the clock on migration", () => {
+    expect(hooks.isPlausibleTHostForTest(1e300)).toBe(false);
+    hooks.setLastAcceptedTHostForTest(1_000);
+    expect(hooks.isPlausibleTHostForTest(1_000 + 4_000)).toBe(true);
+    expect(hooks.isPlausibleTHostForTest(1_000 + 6_000)).toBe(false);
+    hooks.updateServerClockOffset(5_000, 6_000);
+    expect(hooks.getHostClockOffset()).not.toBe(0);
+    hooks.applyHostMigration({ hostId: "b" });
+    expect(hooks.getHostClockOffset()).toBe(0);
   });
 });
 

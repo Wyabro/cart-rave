@@ -109,6 +109,45 @@ describe("host is the offerer (createOffer is now reachable)", () => {
   });
 });
 
+describe("DEEPSEC-1 signaling ACL + ICE cap", () => {
+  it("non-host drops an sdp_offer that is not from the seated host", async () => {
+    const sent = [];
+    P2P.initP2P({
+      host: false,
+      hostId: "hostA",
+      sendSignal: (m) => sent.push(m),
+      onInput: () => {},
+      onState: () => {},
+    });
+    await P2P.handleSignalingMessage({
+      type: MSG.sdpOffer,
+      fromConnId: "stranger",
+      sdp: { type: "offer", sdp: "O" },
+    });
+    expect(createdPCs).toHaveLength(0);
+    expect(sent).toHaveLength(0);
+  });
+
+  it("caps pending ICE per peer at 64", async () => {
+    P2P.initP2P({
+      host: false,
+      hostId: "hostA",
+      sendSignal: () => {},
+      onInput: () => {},
+      onState: () => {},
+    });
+    const cand = { candidate: "candidate:1 1 udp 1 1.2.3.4 1234 typ host", sdpMid: "0" };
+    for (let i = 0; i < 80; i += 1) {
+      await P2P.handleSignalingMessage({
+        type: MSG.iceCandidate,
+        fromConnId: "hostA",
+        candidate: cand,
+      });
+    }
+    expect(P2P.getPendingIceCountForTest("hostA")).toBe(64);
+  });
+});
+
 describe("non-host answers and opens the channel", () => {
   it("client answers an incoming offer, wires ondatachannel, opens, and routes a binary snapshot", async () => {
     const states = [];

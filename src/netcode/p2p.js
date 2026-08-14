@@ -6,6 +6,10 @@ import { devLog } from "../utils/devLog.js";
 const ICE_DISCONNECT_GRACE_MS = 5000;
 
 let isHost = false;
+/** Seated host conn id — inbound offers from anyone else are dropped. */
+let p2pHostId = null;
+const MAX_PENDING_ICE_PER_PEER = 64;
+const MAX_PENDING_ICE_PEERS = 8;
 const peerConnections = new Map();
 const dataChannels = new Map();
 /** @type {Map<string, RTCIceCandidateInit[]>} ICE candidates that arrived before setRemoteDescription. */
@@ -68,8 +72,9 @@ let sessionGeneration = 0;
  * @param {function} params.onInput
  * @param {function} params.onState
  */
-export function initP2P({ localId, host, sendSignal, onInput, onState }) {
+export function initP2P({ localId, host, hostId = null, sendSignal, onInput, onState }) {
   isHost = host;
+  p2pHostId = typeof hostId === "string" && hostId ? hostId : null;
   signalingSend = sendSignal;
   onInputCallback = onInput;
   onStateCallback = onState;
@@ -329,9 +334,11 @@ function bufferIceCandidate(connId, candidate) {
   if (!init) return;
   let queue = pendingIceCandidates.get(connId);
   if (!queue) {
+    if (pendingIceCandidates.size >= MAX_PENDING_ICE_PEERS) return;
     queue = [];
     pendingIceCandidates.set(connId, queue);
   }
+  if (queue.length >= MAX_PENDING_ICE_PER_PEER) return;
   queue.push(init);
 }
 
@@ -350,9 +357,11 @@ async function enqueueOrAddIceCandidate(pc, connId, candidate) {
   if (!pc.remoteDescription) {
     let queue = pendingIceCandidates.get(connId);
     if (!queue) {
+      if (pendingIceCandidates.size >= MAX_PENDING_ICE_PEERS) return;
       queue = [];
       pendingIceCandidates.set(connId, queue);
     }
+    if (queue.length >= MAX_PENDING_ICE_PER_PEER) return;
     queue.push(init);
     return;
   }
@@ -435,6 +444,7 @@ async function handleSignalingMessageInner(msg) {
 
   // * Host is always the offerer — inbound offers are illegitimate (stale demoted host).
   if (msg.type === MSG.sdpOffer && isHost) return;
+  if (msg.type === MSG.sdpOffer && p2pHostId && fromConnId !== p2pHostId) return;
 
   let pc = peerConnections.get(fromConnId);
 
@@ -672,6 +682,7 @@ export function closeAllConnections() {
   dataChannels.clear();
   pendingIceCandidates.clear();
   signalingChains.clear();
+  p2pHostId = null;
   pendingInputPayload = null;
   pendingInputTarget = null;
   // * Leave iceServers as-is (credentials still valid); settle any in-flight wait
@@ -695,6 +706,10 @@ export function prunePeers(liveConnIds) {
 }
 
 /** @returns {number} Grace period used for ICE "disconnected" before teardown (ms). */
+export function getPendingIceCountForTest(connId) {
+  return pendingIceCandidates.get(connId)?.length ?? 0;
+}
+
 export function getIceDisconnectGraceMs() {
   return ICE_DISCONNECT_GRACE_MS;
 }
