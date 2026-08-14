@@ -2,7 +2,7 @@
 
 > Historical log. Past entries may still say "Cart Rave" / `next-level` — that is intentional. Living naming rules: [brand.md](../brand.md).
 
-**Last Updated:** August 13, 2026
+**Last Updated:** August 14, 2026
 
 > **This doc = the past** — the single home for historical/completed items. For what works
 > *today* see [project-state.md](./project-state.md); for forward plans see [ROADMAP.md](./ROADMAP.md).
@@ -12,6 +12,23 @@ Chronological record of shipped work, newest first.
 > **Convention:** As items ship, move their completed writeup here (out of ROADMAP.md / project-state.md).
 
 ---
+
+### August 14, 2026 — BACKLOG-HYGIENE-3: stale audit + card rehome
+
+- *(Playtest · Perf)* **PERF-9CELL-1** — ✅ **CLOSED MOOT 08-14** (row delete only). Declared
+  moot with parent **PERF-PASS-1** on 08-06 ([completed-work entry](#august-6-2026--perf-pass-1-low-end-perf-program-closed--bar-not-met-deliberate-close));
+  the Playtest-owed row never left. Protocol stays in
+  [perf-pass-1-handover.md](./perf-pass-1-handover.md). Do not reopen without new evidence.
+- *(Backlog hygiene)* **BACKLOG-HYGIENE-3** — ✅ **DONE 08-14** (docs pass). Stripped ~90 lines of
+  closed-PASS archaeology from `## Playtest owed`; deleted empty `## UI / UX`; moved
+  **AQ-RING-CLEAR-1** → Engineering (reserve lever, not a human check); moved **QP-ROTATE-PT-1**
+  → Playtest owed with seeded steps; refreshed Work-order Blocks 1–7 for post-08-13 state;
+  fixed Art table blank row. Glance box regenerated via `npm run backlog`.
+- *(Status hygiene)* **STATUS-TRIM** — ✅ **DONE 08-14** (docs pass). Archived 08-13 session log +
+  closed Current-focus ship archaeology (~4.2k → ~2.7k tokens). Dropped CLOSED-PARTIAL
+  **BUNDLE-1** from Active queue (it was still feeding BRIEFING's self-directed queue via `⚠️`).
+  Next actions add **QP-ROTATE-PT-1**. BRIEFING regenerated from STATUS. **AGENTS.md** audited —
+  no session archaeology; standing rules only; left unchanged.
 
 ### August 13, 2026 — playtest export (3rd): 3 PASS / 0 FAIL / 3 SKIP
 

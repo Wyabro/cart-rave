@@ -18,7 +18,8 @@ match the date first, then grep inside.
 
 | Date range | File |
 |---|---|
-| 2026-08-13 → present | **live** in [STATUS.md](../STATUS.md) (short current-session summary only) |
+| 2026-08-14 → present | **live** in [STATUS.md](../STATUS.md) (short current-session summary only) |
+| 2026-08-13 (playtest exports 2–3 · KO-DOOMED · RAPIER/DEPS · art/eng sweeps · MENU-MUSIC) | [status-log-2026-08-13.md](./status-log-2026-08-13.md) |
 | 2026-08-12 (STORE-MUSIC-1 · PLAYTEST-SEED-1 · STORE-1) | [status-log-2026-08-12.md](./status-log-2026-08-12.md) |
 | 2026-08-11 (NIGHT-SHIFT-CITY-1 · NPC-BOOST-2-PT-1) | [status-log-2026-08-11.md](./status-log-2026-08-11.md) |
 | 2026-08-08 → 08-10 (CARGO-LATCH-1 · ANLX retro · CART-MODEL-1 · UI-FRAME-1 / ESC-PANEL-1 · PAD-MENU-1) | [status-log-2026-08-08-to-10.md](./status-log-2026-08-08-to-10.md) |

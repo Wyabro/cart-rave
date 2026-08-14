@@ -25,30 +25,13 @@ report phase-exit eligibility; they must not move the marker.
 
 ## Current focus
 
-**Playtesting and stabilization.** Tier A drained; Tier B/C, the security sweep and the
-analytics gating are closed. Run 7 closed; NET-2 / NET-MIG-3 passed live; NET-PRES-1 landed
-(loss-on-drop residual accepted). The analytics DO has been reset, so the ring starts clean for
+**Playtesting and stabilization.** Tier A drained; Tier B/C, security sweep, and analytics gating
+are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Analytics DO reset for
 external testers. Stay in this phase until Wyatt advances the marker.
 
-**PROBE-WARM-RT-1** + **PERF-TIER-1** both PASS on prod 08-12. PROBE-WARM-RT-1: programs stable across first KO, no mid-round hitch. PERF-TIER-1: high-lite boots, reflector absent, quality menu shows 4 options.
-
-**MENU-MUSIC-2** / **MENU-MUSIC-PT-1** CLOSED 08-13. Wyatt playtest PASS on prod `11e5e48f`.
-
-**08-13 playtest export:** 9 PASS / 0 FAIL / 3 SKIP. Cargo solo fill + rebuild, same-clientId reconnect, booth-target AI, both NPC type draws, PA combo tiers, STORE-1 regression, and both Storerooms songs PASSed. Remaining deferred checks: **CARGO-BAY-INSTANCE-PT-3** · **CONN-TRACK-LEAK-PT-1** · **SHARD-PT-2**.
-
-**08-13 playtest exports (2nd + 3rd):** 9 PASS / 1 FAIL since the last export. Six PASS cards + parents closed (ART-PALETTE-PT-1 · CHAL-SHELF-FIT-PT-1 · GAMEPAD-NAV-REPEAT-PT-1 · LOD-DOORWAY-PT-1 · RUMBLE-STRENGTH-PT-1 · SHELF-RAIL-PT-1, with GAMEPAD-NAV-REPEAT-1 · RUMBLE-STRENGTH-1 · CHAL-SHELF-FIT-1), then ANIM-BUGS-PT-1 · BOOST-SFX-RESPAWN-PT-1 · KO-DOOMED-PT-1 PASS on prod (ANIM-BUGS-1 closes). The one FAIL — KO-DOOMED-PT-1, no visible local-KO feedback — was the host KO fan-out dropping `onLocalDoomed` from the reactor ctx in `gameFlow.js` (Solo is always host); fixed `910ca37`, shipped `a79222c`, PASS on prod. CART-HUE-RED-1 filed from ART-PALETTE-PT-1's note. **All solo-checkable playtest cards are closed.** Deferred: **CARGO-BAY-INSTANCE-PT-3 · CONN-TRACK-LEAK-PT-1 · SHARD-PT-2** (two-machine / launch-day).
-
-**RAPIER-MAJOR-1** / **RAPIER-MAJOR-PT-2** CLOSED 08-13. Wyatt PASS on prod after hard-refresh in a two-browser Friends room: host and joiner drove, the host KO'd the joiner, and both screens agreed. Deployed `524bd4db`; both packages `0.20.0` (Rust 0.35). Hashed assets 0×404. Live `rapierInstance-o_X8o-Pe.js` carries `cartRaveRapierSimd`.
-
-**DEPS-MAJOR-1** CLOSED 08-13. Direct `sharp@0.35.3` and `@cloudflare/vitest-pool-workers@0.21.2`; party-do 45/45, full QA, production build, and Wrangler dry-run PASS. No player-visible behavior and no deploy.
-
-**RUMBLE-STRENGTH-1** deployed 08-13 — source commit `682891e`, Worker `82e8a360-b185-403a-8a66-2757f7aba40d`. Settings persists controller rumble; Xbox, PS5, and Steam Deck use the standard Gamepad path; USB DualSense `054c:0ce6` has a narrow permission fallback only when it lacks a standard actuator. QA 7/7, build, remote-HEAD, and live root/manifest/53 referenced assets (0×404) PASS. Human hardware checks are **RUMBLE-STRENGTH-PT-1** on production.
-
-**GAMEPAD-NAV-REPEAT-1** deployed 08-13 — source commit `34518ca`, Worker `54ce3bb3-3cfd-4d2f-9ea3-c9e671f5c7db`. Held D-pad/left-stick menu navigation acts immediately, waits 300 ms, then repeats every 100 ms; it resolves one direction, filters stick drift, resets across scope/input changes, keeps horizontal sliders single-step, and limits focus rumble to 200 ms. Focused tests 52/52, typecheck, QA 7/7, build, remote-HEAD, live root, and 25 referenced assets (0×404) PASS. Human production check is **GAMEPAD-NAV-REPEAT-PT-1**.
-
-**BOOST-SFX-RESPAWN-1** deployed 08-13 — source commit `ef6e7c4`, Worker `32b9807a-c6d4-41b8-af69-15d89c40366c`. Charge-up SFX is no longer swept by other carts' respawns: `doRespawn` stopped calling `stopAllSfx("chargeUp")`, which cut the local player's live charge loop whenever any NPC/remote cart respawned (NPCs have played chargeUp since 08-10). Respawn cleanup is per-cart by id (`resetCartTransientState`); round-boundary sweep + rematch nuclear remain. Contract test rewritten with unique-Howler-id mock (red→green), QA 7/7, build, remote-HEAD, live root + 25 referenced assets + entities chunk (0×404, byte-identical) PASS. Owed check: **BOOST-SFX-RESPAWN-PT-1**. Non-host follow-up filed: **BOOST-SFX-NONHOST-1**.
-
-**ANIM-BUGS-1** deployed 08-13 — source commit `d5fc9a0`, Worker `c319bb08-f87d-4ac6-be98-4771cd731c34`. Six levers: multi-target menu stagger enter, dismiss settle on cancel, fadeIn pointer-events restore, pointer capture on shared + menu press, HOW TO attract map clear on cancel, cart pulse snap on interrupt + dead joystick helper delete. QA 7/7; live root + 25 assets 0×404; `animations-CoDgvy2n.js` verified. Owed check: **ANIM-BUGS-PT-1**.
+**All solo-checkable playtest cards are closed (08-13).** Deferred (two machines / launch day):
+**CARGO-BAY-INSTANCE-PT-3** · **CONN-TRACK-LEAK-PT-1** · **QP-ROTATE-PT-1** · **SHARD-PT-2**.
+Open agent picks live in [BACKLOG.md](./planning/BACKLOG.md) Work order Blocks 4–5 / 7.
 
 **Closed cards keep their narrative in their own docs, not here** — Sundial
 ([handover](./planning/art-pass-sundial-handover.md); read its "Traps that cost time" before any
@@ -86,12 +69,13 @@ Live rows only. Shipped and closed cards live in
 
 | # | What | Status |
 |---|------|--------|
-| BUNDLE-1 | Menu/game code-split | ⚠️ **CLOSED PARTIAL 08-05 — perf goal NOT met. Deployed `f2f90fd2`.** Warm `menu-ready` −3% vs a −15% gate. Banked: a `size:check` byte gate, `main.js` 2,582 → 1,262 lines, −22.6% off the initial set (**cold** visits only). Lever E playtested: BUNDLE-E-PT-1 PASS 6/6. [bundle-1.md §0](./planning/bundle-1.md) |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 
 ### Next actions
 
-1. **Deferred playtests (need two machines or launch-day traffic):** **CARGO-BAY-INSTANCE-PT-3** (cargo sync, 2pc) · **CONN-TRACK-LEAK-PT-1** (host-leave migration, 2pc) · **SHARD-PT-2** (5th human overflow, launch day). All solo-checkable cards are closed.
+1. **Deferred playtests (need two machines or launch-day traffic):** **CARGO-BAY-INSTANCE-PT-3** (cargo sync, 2pc) · **CONN-TRACK-LEAK-PT-1** (host-leave migration, 2pc) · **QP-ROTATE-PT-1** (Quickplay rematch catalog order, 2pc) · **SHARD-PT-2** (5th human overflow, launch day). All solo-checkable cards are closed.
+2. **SHIP-1 D-tier** — cut persistent leaderboard from launch, or schedule its own phase (Wyatt).
+3. Agent quiet-window picks: BACKLOG Block 4 (WARM-SOLO-1 · PERF-WATCH-1) or Block 5 Lows — plan → ack first.
 
 ## Open issues (top)
 
@@ -100,7 +84,6 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 
 | ID | Issue | Status |
 |----|--------|--------|
-
 | WARM-SOLO-1 | Solo post-`carts-ready` stall (WARM-IGPU residual) | 📋 telemetry-gated — [warm-igpu-1.md](./planning/warm-igpu-1.md) |
 | BRAND-1 | Domain / Worker cutover | 🧊 frozen until deliberate cutover ([brand.md](./brand.md)) |
 
@@ -141,36 +124,12 @@ the dev loop (dev probes lie in prod · edge propagation · frozen `rAF`), or a 
 
 ## Last updated
 
-2026-08-13 (ship + playtest exports 2–3) — **SHIPPED** `a79222c` (Worker version
-`0ccc160a-dc65-4daf-94ca-6da9ff294451`); post-deploy root + 25 assets 0×404, live bundle carries
-`onLocalDoomed`. Export 2 closed six PASS cards + parents (GAMEPAD-NAV-REPEAT-1 ·
-RUMBLE-STRENGTH-1 · CHAL-SHELF-FIT-1), filed CART-HUE-RED-1, and fixed KO-DOOMED-PT-1
-(`910ca37` — host fan-out dropped `onLocalDoomed`; Solo is always host). Export 3:
-ANIM-BUGS-PT-1 · BOOST-SFX-RESPAWN-PT-1 · KO-DOOMED-PT-1 PASS on prod (ANIM-BUGS-1 closes; fix
-loop closed). All solo-checkable playtest cards closed; deferred: CARGO-BAY-INSTANCE-PT-3 ·
-CONN-TRACK-LEAK-PT-1 · SHARD-PT-2.
+2026-08-14 (STATUS-TRIM / BACKLOG-HYGIENE-3) — Archived 08-13 session log + closed Current-focus
+ship archaeology. Active queue drops CLOSED-PARTIAL BUNDLE-1 (lives in completed-work). Next
+actions add QP-ROTATE-PT-1. BRIEFING regenerated from this file.
 
-2026-08-13 (engineering + audit sweeps) — The ACKed Engineering Low and audit waves closed
-their scoped levers: network quit retry, snapshot/spawn safety, party typing, clock-domain,
-challenge rotation/menu work, and Sundial classification/reactive allocation. QA was green for
-both waves; the audit also filed the remaining deferred cards. `ZAN-BOLLARD-PT-1` is seeded for
-the visual check. Commits: `0333cb9` through `6cea5ad`, `182a673` through `80cb60b`.
-
-2026-08-13 (art sweep + ship) — ART-LOW-SWEEP-1 and ART-PALETTE-1 updated arena assets and the
-five cart neon colors; their visual cards remain owed. `cca8b31` deployed as CF version
-`9f1d2690`; post-deploy HTML plus 25 hashed assets returned 0×404, and deployed symbols were
-present. Commits: `d0c23d0` through `8178a57`, `d78e2cf`, `3f0f49b`.
-
-2026-08-13 (MENU-MUSIC-PT-1) — Wyatt playtest PASS on prod `11e5e48f`; parent MENU-MUSIC-2
-closed.
-
-2026-08-13 (KO-DOOMED-1) — Every finalized local KO now gives a medium red edge pulse and one
-center shockwave with the cart shatter. The same local-victim reactor runs on host and non-host
-fall replay paths; attacker-only feedback stays unchanged. It is DOM HUD feedback, so Low quality
-and post-FX-off still show it. `KO-DOOMED-PT-1` is seeded for solo visual proof. Release
-maintenance also removed the stale Knip `taskkill` ignore so the required QA gate can pass.
-
-Older session logs (2026-08-12 and earlier): [archive/README.md](./archive/README.md)
+Older session logs (2026-08-13 and earlier): [archive/README.md](./archive/README.md)
+([status-log-2026-08-13.md](./archive/status-log-2026-08-13.md)) ·
 ([status-log-2026-08-12.md](./archive/status-log-2026-08-12.md)) ·
 ([status-log-2026-08-11.md](./archive/status-log-2026-08-11.md)) ·
 ([status-log-2026-08-08-to-10.md](./archive/status-log-2026-08-08-to-10.md)).

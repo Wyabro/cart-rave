@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-14 at commit `328009a` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `852e7acf`
+> Generated 2026-08-14 at commit `590ea6d` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `d2d4ead6`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -14,16 +14,13 @@
 
 ## Mission
 
-Playtesting and stabilization — Tier A drained; Tier B/C, the security sweep and the analytics gating are closed. Run 7 closed; NET-2 / NET-MIG-3 passed live; NET-PRES-1 landed (loss-on-drop residual accepted). The analytics DO has been reset, so the ring starts clean for external testers. Stay in this phase until Wyatt advances the marker.
+Playtesting and stabilization — Tier A drained; Tier B/C, security sweep, and analytics gating are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Analytics DO reset for external testers. Stay in this phase until Wyatt advances the marker.
 
 ## ACTIVE CARD
 
-Deferred playtests (need two machines or launch-day traffic): CARGO-BAY-INSTANCE-PT-3 (cargo sync, 2pc) · CONN-TRACK-LEAK-PT-1 (host-leave migration, 2pc) · SHARD-PT-2 (5th human overflow, launch day). All solo-checkable cards are closed
+Deferred playtests (need two machines or launch-day traffic): CARGO-BAY-INSTANCE-PT-3 (cargo sync, 2pc) · CONN-TRACK-LEAK-PT-1 (host-leave migration, 2pc) · QP-ROTATE-PT-1 (Quickplay rematch catalog order, 2pc) · SHARD-PT-2 (5th human overflow, launch day). All solo-checkable cards are closed
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
-
-Self-directed queue (one at a time, within the declared phase):
-- **BUNDLE-1** Menu/game code-split — ⚠️ CLOSED PARTIAL 08-05 — perf goal NOT met. Deployed `f2f90fd2`. Warm `menu-ready` −3% vs a −15% gate.…
 
 ## Do not
 
