@@ -192,6 +192,21 @@ export function cancelAnimationsIn(root) {
 }
 
 /**
+ * @param {HTMLElement | HTMLElement[] | NodeListOf<HTMLElement> | ArrayLike<HTMLElement> | null | undefined} target
+ * @returns {HTMLElement[]}
+ */
+function collectAnimatableElements(target) {
+  if (isAnimatableElement(target)) return [target];
+  if (!target || typeof /** @type {any} */ (target).length !== "number") return [];
+  /** @type {HTMLElement[]} */
+  const out = [];
+  for (const el of /** @type {ArrayLike<HTMLElement>} */ (target)) {
+    if (isAnimatableElement(el)) out.push(el);
+  }
+  return out;
+}
+
+/**
  * @param {HTMLElement} element
  * @param {Record<string, unknown>} params
  * @param {AnimationOptions} [options]
@@ -203,6 +218,26 @@ function runAnimation(element, params, options = {}) {
 
   const animation = animate(element, params);
   return trackAnimation(element, animation);
+}
+
+/**
+ * Multi-target animate so anime.js `stagger()` delays keep real indices.
+ * Tracks the same JSAnimation on each target for cancel/removal cleanup.
+ * @param {HTMLElement[]} elements
+ * @param {Record<string, unknown>} params
+ * @param {AnimationOptions} [options]
+ * @returns {JSAnimation | null}
+ */
+function runAnimationOnElements(elements, params, options = {}) {
+  if (!elements.length) return null;
+  if (!shouldAnimate(options)) return null;
+  if (elements.length === 1) return runAnimation(elements[0], params, { ...options, force: true });
+
+  const animation = animate(elements, params);
+  for (const el of elements) {
+    trackAnimation(el, animation);
+  }
+  return animation;
 }
 
 /**
@@ -362,24 +397,20 @@ export function animateMenuCardEnter(element, options = {}) {
   const y = options.y ?? 22;
   const fromOpacity = options.fromOpacity ?? 0;
 
-  const target = /** @type {any} */ (element);
+  const elements = collectAnimatableElements(element);
+  if (!elements.length) return null;
+
   if (!shouldAnimate(options)) {
-    if (target.style) {
-      target.style.opacity = String(1);
-      target.style.transform = "translateY(0) scale(1)";
-    } else if (target.length) {
-      for (const el of target) {
-        if (el.style) {
-          el.style.opacity = String(1);
-          el.style.transform = "translateY(0) scale(1)";
-        }
-      }
+    for (const el of elements) {
+      el.style.opacity = String(1);
+      el.style.transform = "translateY(0) scale(1)";
     }
     return null;
   }
 
-  return runAnimation(
-    target,
+  // * One animate() over the list so stagger(delay) keeps real target indices.
+  return runAnimationOnElements(
+    elements,
     {
       opacity: [fromOpacity, 1],
       y: [y, 0],
@@ -388,7 +419,7 @@ export function animateMenuCardEnter(element, options = {}) {
       ease,
       delay,
     },
-    options,
+    { ...options, force: true },
   );
 }
 

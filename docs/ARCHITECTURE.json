@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-14T01:02:40.373Z",
-    "commit": "ef6e7c4"
+    "at": "2026-08-14T01:21:34.204Z",
+    "commit": "9061ad4"
   },
-  "source_digest": "d729f4c3",
+  "source_digest": "3a6ec8ca",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1136,9 +1136,16 @@
       {
         "title": "UI / UX",
         "counts": {
+          "Medium": 1,
           "Low": 2
         },
         "rows": [
+          {
+            "pri": "Medium",
+            "item": "ANIM-BUGS-1 — animations.js entrance + lifecycle bugs",
+            "notes": "**Acked plan.** Six levers in one wave: (1) `animateMenuCardEnter` multi-target + real `stagger` indices, (2) dismiss `settled`/`then`/timeout finish, (3) `fadeIn` pointer-events cleanup only, (4) pointer capture in `wireButtonPressFeedback` + menu `wireMenuPressFeedback`, (5) clear HOW TO attract map on cancel, (6) cart pulse snap on interrupt + delete dead joystick helpers. **Files:** `src/animations.js`, `src/ui/cart-rave-menu.js` (press only). Behavior change → playtest seed.",
+            "ship1": null
+          },
           {
             "pri": "Low",
             "item": "CHAL-SHELF-FIT-1 — challenge shelf fits portrait phone without scrolling",
