@@ -531,11 +531,16 @@ export function animateMenuDismiss(element, options = {}) {
   const ease = options.ease ?? "inBack(1.7)";
 
   return new Promise((resolve) => {
+    let settled = false;
     const finish = () => {
+      if (settled) return;
+      settled = true;
       // * Reopened while animating out? Release the guard and leave it shown; a fresh
       // * dismiss (or another double-close) is now responsible for hiding.
+      // * abortIf is re-checked here so cancel/timeout paths honor a reopen too.
       if (dismissingContainers.has(container) && options.abortIf?.()) {
         dismissingContainers.delete(container);
+        clearPanelStyles();
       } else {
         hideNow();
       }
@@ -564,7 +569,15 @@ export function animateMenuDismiss(element, options = {}) {
       { force: true },
     );
 
-    if (!anim) finish();
+    if (!anim) {
+      finish();
+      return;
+    }
+
+    // * cancel()/revert() skip onComplete — then() + timeout still settle once
+    // * (same hidden-tab pattern as crossfadeElement).
+    anim.then?.(finish);
+    window.setTimeout(finish, duration + 600);
   });
 }
 
