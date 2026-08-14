@@ -29,7 +29,7 @@ report phase-exit eligibility; they must not move the marker.
 are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Analytics DO reset for
 external testers. Stay in this phase until Wyatt advances the marker.
 
-**Three local input regression checks await shipment and Wyatt retest (08-14):**
+**Three deployed input regression checks await Wyatt retest (08-14):**
 **GAMEPAD-DIRECT-ENTRY-PT-1** · **GAMEPAD-MENU-ROUTES-PT-1** ·
 **PAUSE-CHARGE-SFX-PT-1**. Other solo owed cards: **STORE-PILE-PT-1** ·
 **SUNGLASSES-OBSIDIAN-PT-1** — see BACKLOG `## Playtest owed`. Deferred (two machines / launch day):
@@ -76,7 +76,7 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. **After UI-INPUT-LIFECYCLE-1 ships:** retest direct text entry, pause controller navigation, and pause charge audio as three independent BACKLOG cards.
+1. **UI-INPUT-LIFECYCLE-1 is deployed:** retest direct text entry, pause controller navigation, and pause charge audio as three independent BACKLOG cards.
 2. **Deferred playtests (need two machines or launch-day traffic):** **CARGO-BAY-INSTANCE-PT-3** (cargo sync, 2pc) · **CONN-TRACK-LEAK-PT-1** (host-leave migration, 2pc) · **QP-ROTATE-PT-1** (Quickplay rematch catalog order, 2pc) · **SHARD-PT-2** (5th human overflow, launch day).
 3. **SHIP-1 D-tier** — cut persistent leaderboard from launch, or schedule its own phase (Wyatt).
 4. Agent quiet-window picks: BACKLOG Block 4 (WARM-SOLO-1 · PERF-WATCH-1) or Block 5 Lows — plan → ack first.

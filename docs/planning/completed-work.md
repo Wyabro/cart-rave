@@ -24,7 +24,8 @@ Chronological record of shipped work, newest first.
   gameplay input. Pause now changes both owners synchronously, cancels frozen charge state by mode,
   blocks keyboard/gamepad/touch boost while UI owns input, and requires a fresh boost press after
   resume. Focused tests: 85/85; typecheck passed; local browser confirmed the production DOM mount,
-  pause RESUME focus, and pause-scoped navigation. Human checks remain open in BACKLOG.
+  pause RESUME focus, and pause-scoped navigation. Deployed in Worker version
+  `70bf742a-0b6c-4214-be27-4697d950fbcc`; human checks remain open in BACKLOG.
 - **GAMEPAD-TEXT-ENTRY-PT-1** is retired as superseded by the direct pencil/room-code retest; it
   did not receive a PASS.
 

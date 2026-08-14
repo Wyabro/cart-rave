@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-14T22:30:21.903Z",
-    "commit": "a0a221a"
+    "at": "2026-08-14T22:36:47.255Z",
+    "commit": "209c7d4"
   },
-  "source_digest": "e7015948",
+  "source_digest": "8edf7ec2",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -873,7 +873,7 @@
       }
     ],
     "next_actions": [
-      "After UI-INPUT-LIFECYCLE-1 ships: retest direct text entry, pause controller navigation, and pause charge audio as three independent BACKLOG cards.",
+      "UI-INPUT-LIFECYCLE-1 is deployed: retest direct text entry, pause controller navigation, and pause charge audio as three independent BACKLOG cards.",
       "Deferred playtests (need two machines or launch-day traffic): CARGO-BAY-INSTANCE-PT-3 (cargo sync, 2pc) · CONN-TRACK-LEAK-PT-1 (host-leave migration, 2pc) · QP-ROTATE-PT-1 (Quickplay rematch catalog order, 2pc) · SHARD-PT-2 (5th human overflow, launch day).",
       "SHIP-1 D-tier — cut persistent leaderboard from launch, or schedule its own phase (Wyatt).",
       "Agent quiet-window picks: BACKLOG Block 4 (WARM-SOLO-1 · PERF-WATCH-1) or Block 5 Lows — plan → ack first."
@@ -1039,19 +1039,19 @@
           {
             "pri": "Low",
             "item": "GAMEPAD-DIRECT-ENTRY-PT-1 — direct controller name + room-code entry `[solo]`",
-            "notes": "**Owed: Wyatt playtest — GAMEPAD-DIRECT-ENTRY-PT-1 — the visible pencil and room-code box open a usable text dialog without freezing the menu.** Parent **UI-INPUT-LIFECYCLE-1** is pushed but not yet deployed; use `npm run dev` until it ships.<br>1. On desktop with a controller, select the pencil, press A, type part of a name with the controller grid, then type more with a physical keyboard. Confirm, reopen, cancel with B, and verify focus returns to the pencil each time.<br>2. Select ROOM CODE and press A. Enter an invalid code, correct it without closing the dialog, then cancel. Reopen it and type with both the controller grid and a physical or Steam keyboard.<br>3. FAIL if either dialog stays invisible, the menu freezes, the first physical-keyboard character is lost after controller use, confirm or cancel fires twice, focus escapes behind the dialog, or the menu remains broken after close. PASS if both fields can be reopened and used normally.",
+            "notes": "**Owed: Wyatt playtest — GAMEPAD-DIRECT-ENTRY-PT-1 — the visible pencil and room-code box open a usable text dialog without freezing the menu.** Parent **UI-INPUT-LIFECYCLE-1** is deployed in Worker version `70bf742a-0b6c-4214-be27-4697d950fbcc`.<br>1. On desktop with a controller, select the pencil, press A, type part of a name with the controller grid, then type more with a physical keyboard. Confirm, reopen, cancel with B, and verify focus returns to the pencil each time.<br>2. Select ROOM CODE and press A. Enter an invalid code, correct it without closing the dialog, then cancel. Reopen it and type with both the controller grid and a physical or Steam keyboard.<br>3. FAIL if either dialog stays invisible, the menu freezes, the first physical-keyboard character is lost after controller use, confirm or cancel fires twice, focus escapes behind the dialog, or the menu remains broken after close. PASS if both fields can be reopened and used normally.",
             "ship1": null
           },
           {
             "pri": "Low",
             "item": "GAMEPAD-MENU-ROUTES-PT-1 — controller pause-menu navigation `[solo]`",
-            "notes": "**Owed: Wyatt playtest — GAMEPAD-MENU-ROUTES-PT-1 — the in-game pause menu is fully controllable with a controller.** Parent **UI-INPUT-LIFECYCLE-1** is pushed but not yet deployed; use `npm run dev` until it ships.<br>1. Start a solo round with a controller. Press START and confirm RESUME has the focus ring immediately.<br>2. Use D-pad or left stick to reach audio sliders, quality, RESTART ROUND, and MAIN MENU. Adjust one slider, then use A to resume. Pause again and use B to resume from another control.<br>3. FAIL if focus does not move, A or B does nothing, focus reaches gameplay or the main menu behind the pause screen, or resuming causes a boost/hop. PASS if every visible pause control is reachable and gameplay needs a fresh action press after resume.",
+            "notes": "**Owed: Wyatt playtest — GAMEPAD-MENU-ROUTES-PT-1 — the in-game pause menu is fully controllable with a controller.** Parent **UI-INPUT-LIFECYCLE-1** is deployed in Worker version `70bf742a-0b6c-4214-be27-4697d950fbcc`.<br>1. Start a solo round with a controller. Press START and confirm RESUME has the focus ring immediately.<br>2. Use D-pad or left stick to reach audio sliders, quality, RESTART ROUND, and MAIN MENU. Adjust one slider, then use A to resume. Pause again and use B to resume from another control.<br>3. FAIL if focus does not move, A or B does nothing, focus reaches gameplay or the main menu behind the pause screen, or resuming causes a boost/hop. PASS if every visible pause control is reachable and gameplay needs a fresh action press after resume.",
             "ship1": null
           },
           {
             "pri": "Low",
             "item": "PAUSE-CHARGE-SFX-PT-1 — pause cancels charge-up audio `[solo]`",
-            "notes": "**Owed: Wyatt playtest — PAUSE-CHARGE-SFX-PT-1 — pausing never leaves the charge-up sound looping.** Parent **UI-INPUT-LIFECYCLE-1** is pushed but not yet deployed; use `npm run dev` until it ships.<br>1. Start a solo round. Hold boost until the charge-up sound is clear, then open the pause menu while charge is active.<br>2. Stay paused for five seconds, resume with A, release all controls, then perform one fresh boost press.<br>3. FAIL if charge-up repeats or continues while paused, continues after resume, or the resume press fires a boost. PASS if pause stops the old charge and only the fresh boost starts a new charge sound.",
+            "notes": "**Owed: Wyatt playtest — PAUSE-CHARGE-SFX-PT-1 — pausing never leaves the charge-up sound looping.** Parent **UI-INPUT-LIFECYCLE-1** is deployed in Worker version `70bf742a-0b6c-4214-be27-4697d950fbcc`.<br>1. Start a solo round. Hold boost until the charge-up sound is clear, then open the pause menu while charge is active.<br>2. Stay paused for five seconds, resume with A, release all controls, then perform one fresh boost press.<br>3. FAIL if charge-up repeats or continues while paused, continues after resume, or the resume press fires a boost. PASS if pause stops the old charge and only the fresh boost starts a new charge sound.",
             "ship1": null
           },
           {
