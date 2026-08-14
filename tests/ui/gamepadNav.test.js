@@ -9,6 +9,7 @@
 // the main menu, and used the dead `.cr-esc-resume` selector on pause).
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { setInputMode } from "../../src/input.js";
+import { initGamepadTextEntry, openGamepadTextEntry } from "../../src/ui/gamepadTextEntry.js";
 
 const hapticRef = vi.hoisted(() => ({
   hapticMenuConfirm: vi.fn(),
@@ -49,13 +50,10 @@ const FIXTURE = `
   <nav id="cr-commandlist">
     <button class="cr-cmd" id="play-btn">PLAY</button>
     <button class="cr-cmd" id="customize-btn">CUSTOMIZE</button>
-    <div id="cr-gamepad-profile" style="display:none">
-      <button id="cr-gamepad-name" type="button">CHANGE NAME</button>
-      <button id="cr-gamepad-room" type="button">ENTER FRIEND CODE</button>
-    </div>
   </nav>
+  <button id="cr-name-edit" data-gamepad-entry="name" type="button">EDIT NAME</button>
   <div class="cr-join" id="cr-join">
-    <input class="cr-join-input" id="cr-join-code" type="text" name="room-code" placeholder="ROOM CODE" />
+    <input class="cr-join-input" id="cr-join-code" data-gamepad-entry="room" type="text" name="room-code" placeholder="ROOM CODE" />
     <button class="cr-join-go" id="cr-join-go" type="button">GO</button>
   </div>
   <div id="cr-context-arena">
@@ -84,6 +82,14 @@ const FIXTURE = `
 <div id="esc-overlay" style="display:none">
   <button class="esc-btn esc-btn--resume" id="esc-resume">RESUME</button>
   <button id="esc-quit">QUIT</button>
+</div>
+<div id="cr-gamepad-text-entry" style="display:none">
+  <div id="cr-gamepad-text-title"></div><input id="cr-gamepad-text-value" type="text" />
+  <p id="cr-gamepad-text-error" hidden></p><div id="cr-gamepad-text-keys"></div>
+  <button data-gamepad-keyboard-action="backspace">DELETE</button>
+  <button data-gamepad-keyboard-action="clear">CLEAR</button>
+  <button data-gamepad-keyboard-action="submit">CONFIRM</button>
+  <button data-gamepad-keyboard-action="cancel">CANCEL</button>
 </div>
 `;
 
@@ -162,6 +168,7 @@ beforeEach(async () => {
   };
 
   document.body.innerHTML = FIXTURE;
+  initGamepadTextEntry();
 
   // * Module holds top-level nav state (navIndex, prevDpad, lastScope) and
   // * self-schedules rAF — fresh module per test, stepped manually via frame().
@@ -329,15 +336,15 @@ describe("B button", () => {
   });
 });
 
-describe("join row + text inputs are not nav stops", () => {
-  it("d-pad down past FRIENDS lands on CUSTOMIZE, never GO or the join input", () => {
+describe("direct-entry targets", () => {
+  it("keeps GO out of the ring while the marked room field remains a controller target", () => {
     press(BTN.down); // → CUSTOMIZE (join row skipped)
     expect(document.activeElement).toBe(document.getElementById("customize-btn"));
     expect(document.getElementById("cr-join-go").classList.contains("gamepad-focused")).toBe(false);
     expect(document.getElementById("cr-join-code").classList.contains("gamepad-focused")).toBe(false);
   });
 
-  it("keyboard arrows skip the join row exactly like the gamepad", () => {
+  it("keyboard arrows still skip GO", () => {
     pressKey("ArrowDown");
     pressKey("ArrowDown");
     expect(document.activeElement).toBe(document.getElementById("customize-btn"));
@@ -349,6 +356,29 @@ describe("join row + text inputs are not nav stops", () => {
     input.style.display = "";
     press(BTN.down); // → CUSTOMIZE (name input skipped)
     expect(document.activeElement).toBe(document.getElementById("customize-btn"));
+  });
+
+  it("A opens the real-input dialog from the selected room-code field", () => {
+    const room = document.getElementById("cr-join-code");
+    const normalClick = clickSpy("cr-join-code");
+    room.addEventListener("cartrave:gamepad-activate", (event) => {
+      event.preventDefault();
+      openGamepadTextEntry({ title: "FRIEND CODE", value: "", maxLength: 16, onSubmit: () => true });
+    });
+    room.focus();
+    press(BTN.a);
+    const dialog = document.getElementById("cr-gamepad-text-entry");
+    const value = document.getElementById("cr-gamepad-text-value");
+    expect(dialog.style.display).toBe("flex");
+    expect(value.tagName).toBe("INPUT");
+    expect(document.activeElement).toBe(value);
+    expect(normalClick).not.toHaveBeenCalled();
+    press(BTN.down);
+    press(BTN.a);
+    expect(value.value).toBe("Q");
+    press(BTN.b);
+    expect(dialog.style.display).toBe("none");
+    expect(document.activeElement).toBe(room);
   });
 });
 
@@ -457,8 +487,8 @@ describe("focus re-yank", () => {
     expect(document.activeElement).toBe(document.getElementById("customize-btn"));
     document.getElementById("hud-note").focus();
     idleFrames(3);
-    press(BTN.down); // reclaim CUSTOMIZE, then move once → arena pager
-    expect(document.activeElement).toBe(document.getElementById("cr-arena-prev"));
+    press(BTN.down); // reclaim CUSTOMIZE, then move once → visible name pencil
+    expect(document.activeElement).toBe(document.getElementById("cr-name-edit"));
   });
 
   it("resets stale navIndex when the scope layer changes", () => {
@@ -495,14 +525,15 @@ describe("LB/RB arena paging", () => {
   it("D-pad reaches setup controls through the normal main-menu ring", () => {
     press(BTN.down);
     press(BTN.down);
+    press(BTN.down);
+    press(BTN.down);
     expect(document.activeElement).toBe(document.getElementById("cr-arena-prev"));
   });
 
-  it("D-pad reaches the visible profile controls before match setup", () => {
-    document.getElementById("cr-gamepad-profile").style.display = "grid";
+  it("D-pad reaches the visible name pencil before match setup", () => {
     press(BTN.down);
     press(BTN.down);
-    expect(document.activeElement).toBe(document.getElementById("cr-gamepad-name"));
+    expect(document.activeElement).toBe(document.getElementById("cr-name-edit"));
   });
 
   it("held bumper pages one arena only (rising edge)", () => {

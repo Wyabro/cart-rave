@@ -140,6 +140,7 @@ function isElementVisible(el, { ignoreOpacity = false } = {}) {
  * @param {HTMLElement} el
  */
 function isNavReachable(el) {
+  if (el.dataset?.gamepadEntry) return true;
   if (el.closest?.(".cr-join")) return false;
   if (el.tagName === "TEXTAREA") return false;
   if (el instanceof HTMLInputElement && el.type !== "range") return false;
@@ -424,7 +425,8 @@ function updateNav(now = performance.now()) {
             el.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
             el.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }));
           }
-          el.click();
+          const gamepadActivation = new CustomEvent("cartrave:gamepad-activate", { bubbles: true, cancelable: true });
+          if (el.dispatchEvent(gamepadActivation)) el.click();
         }
       }
     }
@@ -433,7 +435,7 @@ function updateNav(now = performance.now()) {
     // * within scope and skip hidden matches (document scope would otherwise
     // * click an invisible overlay back button).
     if (b && !prevDpad.b) {
-      const activeClose = /** @type {HTMLElement|null} */ (scope.querySelector('.cr-overlay-back, .esc-btn--resume, [data-action="back"]'));
+      const activeClose = /** @type {HTMLElement|null} */ (scope.querySelector('.cr-overlay-back, .esc-btn--resume, [data-action="back"], [data-gamepad-keyboard-action="cancel"]'));
       const isPauseResume = scope instanceof HTMLElement && scope.id === "esc-overlay"
         && activeClose?.classList.contains("esc-btn--resume");
       if (activeClose && isElementVisible(activeClose, { ignoreOpacity: isPauseResume })) {

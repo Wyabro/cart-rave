@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-14T18:04:44.013Z",
-    "commit": "8cf335f"
+    "at": "2026-08-14T19:47:31.099Z",
+    "commit": "508c516"
   },
-  "source_digest": "fa766fb1",
+  "source_digest": "7c539999",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1020,7 +1020,7 @@
         "title": "Playtest owed",
         "counts": {
           "Medium": 4,
-          "Low": 5
+          "Low": 6
         },
         "rows": [
           {
@@ -1039,6 +1039,12 @@
             "pri": "Low",
             "item": "GAMEPAD-TEXT-ENTRY-PT-1 — controller name + Friend Code entry `[solo]`",
             "notes": "**Owed: Wyatt playtest — GAMEPAD-TEXT-ENTRY-PT-1 — controller text entry works without a native browser keyboard.** Parent **GAMEPAD-TEXT-ENTRY-1** is deployed; this retests its discoverable D-pad launch route.<br>1. On desktop with a controller and on Steam Deck, use the D-pad through the main command flow to reach CHANGE NAME and ENTER FRIEND CODE. Choose CHANGE NAME, type a new name with D-pad and A, then START to confirm.<br>2. Open ENTER FRIEND CODE. Enter a valid mixed-case Friend Code; confirm it becomes uppercase and joins. Repeat with an invalid code; correct it in the open keyboard, then cancel once.<br>3. FAIL if the controller-only launch controls cannot be reached, the browser's native text box opens, text cannot be corrected, cancel changes the name or room, controls reach behind the keyboard, or phone/tablet touch behavior changes. PASS if both controller routes are clear and reliable.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "GAMEPAD-DIRECT-ENTRY-PT-1 — direct controller name + room-code entry `[solo]`",
+            "notes": "**Owed: Wyatt playtest — GAMEPAD-DIRECT-ENTRY-PT-1 — the visible pencil and room-code box open a usable controller text dialog.** Parent **GAMEPAD-DIRECT-ENTRY-1** removes the duplicate lower-left controls after the earlier route failed.<br>1. On desktop with a controller, select the visible pencil by the cart name, press A, and enter a name with the D-pad and A. Press B once and confirm the dialog closes and focus returns to the pencil. Reopen it and confirm the name.<br>2. Select the visible ROOM CODE field, press A, and enter a code. Confirm the dialog accepts controller-grid input and a physical or Steam keyboard can type in the focused text field. Press B once and confirm focus returns to ROOM CODE.<br>3. At 1280×800 and on Steam Deck, FAIL if either duplicate lower-left button appears, the dialog does not appear, input freezes, B does not close it, focus reaches behind it, or phone/tablet touch behavior changes. PASS if both real controls are clear and reliable.",
             "ship1": null
           },
           {

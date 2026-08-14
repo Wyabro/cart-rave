@@ -2000,16 +2000,11 @@ import { initGamepadTextEntry, openGamepadTextEntry } from "./gamepadTextEntry.j
     return true;
   }
 
-  nameDisplay.addEventListener('click', startNameEdit);
-  $("cr-name-edit")?.addEventListener('click', startNameEdit);
-  nameInput.addEventListener('blur', finishNameEdit);
-  nameInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') finishNameEdit();
-  });
-  $("cr-gamepad-name")?.addEventListener("click", () => {
+  function openGamepadNameEntry() {
     openGamepadTextEntry({ title: "CHANGE NAME", value: state.name, maxLength: CONFIG.nameMaxLength, onSubmit: commitGamepadName });
-  });
-  $("cr-gamepad-room")?.addEventListener("click", () => {
+  }
+
+  function openGamepadRoomEntry() {
     openGamepadTextEntry({
       title: "ENTER FRIEND CODE", value: "", maxLength: 16, normalize: (value) => value.trim().toUpperCase(),
       onSubmit: (code) => {
@@ -2018,6 +2013,21 @@ import { initGamepadTextEntry, openGamepadTextEntry } from "./gamepadTextEntry.j
         return detail.accepted;
       },
     });
+  }
+
+  nameDisplay.addEventListener('click', startNameEdit);
+  $("cr-name-edit")?.addEventListener('click', startNameEdit);
+  $("cr-name-edit")?.addEventListener("cartrave:gamepad-activate", (event) => {
+    event.preventDefault();
+    openGamepadNameEntry();
+  });
+  nameInput.addEventListener('blur', finishNameEdit);
+  nameInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') finishNameEdit();
+  });
+  $("cr-join-code")?.addEventListener("cartrave:gamepad-activate", (event) => {
+    event.preventDefault();
+    openGamepadRoomEntry();
   });
   rerollBtn.addEventListener('click', () => {
     state.name = rollHandle();

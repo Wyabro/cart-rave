@@ -4,7 +4,7 @@ import { initGamepadTextEntry, openGamepadTextEntry } from "../../src/ui/gamepad
 
 const FIXTURE = `
 <div id="cr-gamepad-text-entry" style="display:none">
-  <div id="cr-gamepad-text-title"></div><div id="cr-gamepad-text-value"></div>
+  <div id="cr-gamepad-text-title"></div><input id="cr-gamepad-text-value" type="text" />
   <p id="cr-gamepad-text-error" hidden></p><div id="cr-gamepad-text-keys"></div>
   <button data-gamepad-keyboard-action="backspace">DELETE</button>
   <button data-gamepad-keyboard-action="clear">CLEAR</button>
@@ -36,7 +36,7 @@ describe("gamepad text entry", () => {
     openGamepadTextEntry({ title: "NAME", value: "A", maxLength: 2, onSubmit: submit });
     click('[data-gamepad-keyboard-key="B"]');
     click('[data-gamepad-keyboard-key="C"]');
-    expect(document.getElementById("cr-gamepad-text-value").textContent).toBe("AB");
+    expect(document.getElementById("cr-gamepad-text-value").value).toBe("AB");
     click('[data-gamepad-keyboard-action="cancel"]');
     expect(document.getElementById("cr-gamepad-text-entry").style.display).toBe("none");
   });
@@ -46,5 +46,21 @@ describe("gamepad text entry", () => {
     click('[data-gamepad-keyboard-action="submit"]');
     expect(document.getElementById("cr-gamepad-text-entry").style.display).toBe("flex");
     expect(document.getElementById("cr-gamepad-text-error").hidden).toBe(false);
+  });
+
+  it("uses the focused real input for a physical or Steam keyboard", () => {
+    const received = [];
+    const launcher = document.createElement("button");
+    document.body.append(launcher);
+    launcher.focus();
+    openGamepadTextEntry({ title: "NAME", value: "", maxLength: 12, onSubmit: (value) => { received.push(value); return true; } });
+    const value = /** @type {HTMLInputElement} */ (document.getElementById("cr-gamepad-text-value"));
+    expect(document.activeElement).toBe(value);
+    value.value = "DeckName";
+    value.dispatchEvent(new Event("input", { bubbles: true }));
+    value.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+    expect(received).toEqual(["DeckName"]);
+    expect(document.getElementById("cr-gamepad-text-entry").style.display).toBe("none");
+    expect(document.activeElement).toBe(launcher);
   });
 });

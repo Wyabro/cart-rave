@@ -1,12 +1,13 @@
 const KEY_ROWS = ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM0123456789"];
 
-/** @type {{ title: string, value: string, maxLength: number, normalize?: (value: string) => string, onSubmit: (value: string) => boolean }|null} */
+/** @type {{ title: string, value: string, maxLength: number, normalize?: (value: string) => string, onSubmit: (value: string) => boolean, returnFocus: HTMLElement|null }|null} */
 let activeEntry = null;
 
 function elements() {
   return {
     overlay: /** @type {HTMLElement|null} */ (document.getElementById("cr-gamepad-text-entry")),
-    title: document.getElementById("cr-gamepad-text-title"), value: document.getElementById("cr-gamepad-text-value"),
+    title: document.getElementById("cr-gamepad-text-title"),
+    value: /** @type {HTMLInputElement|null} */ (document.getElementById("cr-gamepad-text-value")),
     error: document.getElementById("cr-gamepad-text-error"), keys: document.getElementById("cr-gamepad-text-keys"),
   };
 }
@@ -14,14 +15,16 @@ function elements() {
 function renderValue() {
   if (!activeEntry) return;
   const { value, error } = elements();
-  if (value) value.textContent = activeEntry.value || "_";
+  if (value) value.value = activeEntry.value;
   if (error) error.hidden = true;
 }
 
 function close() {
   const { overlay } = elements();
+  const returnFocus = activeEntry?.returnFocus;
   if (overlay) overlay.style.display = "none";
   activeEntry = null;
+  if (returnFocus?.isConnected) returnFocus.focus();
 }
 
 function runAction(action) {
@@ -40,10 +43,15 @@ function runAction(action) {
 
 /** @param {{ title: string, value: string, maxLength: number, normalize?: (value: string) => string, onSubmit: (value: string) => boolean }} entry */
 export function openGamepadTextEntry(entry) {
-  const { overlay, title, keys } = elements();
-  if (!overlay || !title || !keys) return;
-  activeEntry = { ...entry };
+  const { overlay, title, value, keys } = elements();
+  if (!overlay || !title || !value || !keys) return;
+  const focused = document.activeElement;
+  activeEntry = {
+    ...entry,
+    returnFocus: focused instanceof HTMLElement ? focused : null,
+  };
   title.textContent = entry.title;
+  value.maxLength = entry.maxLength;
   keys.replaceChildren(...KEY_ROWS.map((row) => {
     const rowEl = document.createElement("div");
     rowEl.className = "cr-gamepad-keyboard-row";
@@ -55,12 +63,21 @@ export function openGamepadTextEntry(entry) {
     return rowEl;
   }));
   renderValue(); overlay.style.display = "flex";
-  /** @type {HTMLElement|null} */ (keys.querySelector("button"))?.focus();
+  value.focus();
+  value.select();
 }
 
 export function initGamepadTextEntry() {
-  const { overlay, keys } = elements();
-  if (!overlay || !keys) return;
+  const { overlay, value, keys } = elements();
+  if (!overlay || !value || !keys) return;
+  value.addEventListener("input", () => {
+    if (!activeEntry) return;
+    activeEntry.value = value.value.slice(0, activeEntry.maxLength);
+  });
+  value.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") { event.preventDefault(); runAction("submit"); }
+    if (event.key === "Escape") { event.preventDefault(); runAction("cancel"); }
+  });
   keys.addEventListener("click", (event) => {
     const keyButton = /** @type {HTMLElement|null} */ (event.target instanceof Element ? event.target.closest("[data-gamepad-keyboard-key]") : null);
     const key = keyButton?.dataset.gamepadKeyboardKey;

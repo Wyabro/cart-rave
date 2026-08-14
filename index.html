@@ -708,10 +708,6 @@
           <button class="cr-btn cr-cmd" data-action="settings" data-cmd="settings" type="button">
             <span class="cr-btn-inner"><span class="cr-btn-label">SETTINGS</span></span>
           </button>
-          <div class="cr-gamepad-profile" id="cr-gamepad-profile" aria-label="Profile and Friends">
-            <button class="cr-gamepad-profile-btn" id="cr-gamepad-name" type="button">CHANGE NAME</button>
-            <button class="cr-gamepad-profile-btn" id="cr-gamepad-room" type="button">ENTER FRIEND CODE</button>
-          </div>
         </nav>
       </div>
 
@@ -726,7 +722,7 @@
               <span id="cr-name-text"></span>
             </div>
             <input class="cr-name-input" id="cr-name-input" name="username" autocomplete="username" style="display:none" maxlength="12" aria-label="Your cart name" />
-            <button class="cr-plate-btn" id="cr-name-edit" type="button" title="Rename cart" aria-label="Rename cart">✎</button>
+            <button class="cr-plate-btn" id="cr-name-edit" data-gamepad-entry="name" type="button" title="Rename cart" aria-label="Rename cart">✎</button>
             <button class="cr-reroll cr-plate-btn" id="cr-reroll" title="Re-roll handle" aria-label="Re-roll username">⟲</button>
           </div>
           <div class="cr-stats" id="cr-stats-local">
@@ -743,7 +739,7 @@
         <!-- Join by spoken code. Deliberately outside #cr-commandlist: W/S selection
              walks only that list's .cr-cmd buttons, never this text field. -->
         <div class="cr-join" id="cr-join">
-          <input class="cr-join-input" id="cr-join-code" type="text" name="room-code"
+          <input class="cr-join-input" id="cr-join-code" data-gamepad-entry="room" type="text" name="room-code"
                  maxlength="16" placeholder="ROOM CODE" aria-label="Room code"
                  autocomplete="off" autocapitalize="characters" spellcheck="false" />
           <button class="cr-join-go" id="cr-join-go" type="button">
@@ -880,7 +876,7 @@
     <div class="cr-gamepad-keyboard" id="cr-gamepad-text-entry" style="display:none" role="dialog" aria-modal="true" aria-labelledby="cr-gamepad-text-title">
       <div class="cr-gamepad-keyboard-card">
         <div class="cr-gamepad-keyboard-title" id="cr-gamepad-text-title">TEXT ENTRY</div>
-        <div class="cr-gamepad-keyboard-value" id="cr-gamepad-text-value" aria-live="polite"></div>
+        <input class="cr-gamepad-keyboard-value" id="cr-gamepad-text-value" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Text entry" />
         <p class="cr-gamepad-keyboard-error" id="cr-gamepad-text-error" aria-live="assertive" hidden></p>
         <div class="cr-gamepad-keyboard-keys" id="cr-gamepad-text-keys"></div>
         <div class="cr-gamepad-keyboard-actions">

@@ -13,6 +13,15 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 14, 2026 — GAMEPAD-DIRECT-ENTRY-1: direct controller text entry
+
+- *(UI · Low)* **GAMEPAD-DIRECT-ENTRY-1** — replaces the duplicate lower-left controller
+  buttons with the visible cart-name pencil and ROOM CODE field. Controller A opens a dialog with
+  a real focused input for Steam or a physical keyboard, plus the controller key grid. B closes
+  the dialog and returns focus to its source control. Mouse, keyboard, and touch keep their
+  normal routes. Tests: focused 49/49. **Wyatt production playtest owed** in BACKLOG as
+  **GAMEPAD-DIRECT-ENTRY-PT-1**. Not deployed or committed.
+
 ### August 14, 2026 — GAMEPAD-TEXT-ENTRY-1: controller text entry
 
 - *(UI · Low)* **GAMEPAD-TEXT-ENTRY-1** — desk work complete 08-14; **Wyatt production
