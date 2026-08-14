@@ -19,8 +19,9 @@ Chronological record of shipped work, newest first.
   buttons with the visible cart-name pencil and ROOM CODE field. Controller A opens a dialog with
   a real focused input for Steam or a physical keyboard, plus the controller key grid. B closes
   the dialog and returns focus to its source control. Mouse, keyboard, and touch keep their
-  normal routes. Tests: focused 49/49. **Wyatt production playtest owed** in BACKLOG as
-  **GAMEPAD-DIRECT-ENTRY-PT-1**. Not deployed or committed.
+  normal routes. Tests: focused 49/49. Deployed 08-14 as Worker version
+  `87c1b9c7-753f-41e5-b85d-e3c5b82258f6`. **Wyatt production playtest owed** in BACKLOG as
+  **GAMEPAD-DIRECT-ENTRY-PT-1**.
 
 ### August 14, 2026 — GAMEPAD-TEXT-ENTRY-1: controller text entry
 
