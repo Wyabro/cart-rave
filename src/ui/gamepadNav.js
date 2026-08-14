@@ -1,4 +1,4 @@
-import { getActiveGamepad, setInputMode } from "../input.js";
+import { getActiveGamepad, setInputMode, setUiMode } from "../input.js";
 import { hapticMenuConfirm, hapticMenuFocus } from "../haptics.js";
 
 let _navActive = true;
@@ -19,13 +19,13 @@ let lastFocusedRow = /** @type {HTMLElement|null} */ (null);
 // * check closeActiveOverlay() in cart-rave-menu.js also relies on. Keep this
 // * list in sync when adding an overlay, or a pad will reach buttons under it.
 const OVERLAY_SCOPE_SELECTORS = [
+  "#cr-gamepad-text-entry",
   "#esc-overlay",
   "#results-overlay",
   "#cr-howto-screen",
   "#cr-challenges-screen",
   "#cr-settings-screen",
   "#cr-customize-screen",
-  "#cr-gamepad-text-entry",
 ];
 
 let lastScope = /** @type {HTMLElement|Document|null} */ (null);
@@ -113,7 +113,7 @@ function consumeDirectionEvent(direction, now) {
 function getNavScope() {
   for (const sel of OVERLAY_SCOPE_SELECTORS) {
     const el = /** @type {HTMLElement|null} */ (document.querySelector(sel));
-    if (el && el.style.display === "flex") return el;
+    if (el && el.style.display === "flex" && isElementVisible(el, { ignoreOpacity: true })) return el;
   }
   return document;
 }
@@ -538,6 +538,12 @@ export function setGamepadNavActive(active) {
     lastFocusedEl = null;
     lastFocusedRow = null;
   }
+}
+
+/** Keep gameplay-input suppression and menu navigation on the same UI transition. */
+export function setGamepadUiActive(active) {
+  setUiMode(active);
+  setGamepadNavActive(active);
 }
 
 /** Test-only: undoes {@link startGamepadUiNav}'s keydown listener so resetModules-based

@@ -27,6 +27,7 @@ let _onMute = null;
 let _onHop = null;
 let _onBoost = null;
 let _isUiMode = false;
+let suppressGamepadBoostUntilRelease = false;
 
 /** @type {'keyboard'|'gamepad'|'touch'} */
 let currentInputMode = "keyboard";
@@ -196,6 +197,9 @@ export function setUiMode(enabled) {
   if (enabled) {
     gamepadAxis = { forward: 0, turn: 0 };
     gamepadBoostHeld = false;
+    localNitroHeld = false;
+    suppressGamepadBoostUntilRelease = false;
+    resetTouchControls();
     keyboardForwardEased = 0;
     keyboardTurnEased = 0;
   } else if (transitioningFromUi) {
@@ -217,9 +221,7 @@ export function setUiMode(enabled) {
         menu: isPressed(9),
         mute: isPressed(8) || isPressed(11),
       };
-      if (boostPressed) {
-        gamepadBoostHeld = true;
-      }
+      suppressGamepadBoostUntilRelease = Boolean(boostPressed);
     }
   }
 }
@@ -312,7 +314,10 @@ function pollGamepad() {
 
   // Boost (LT or A)
   const boostPressed = isPressed(6) || isPressed(0);
-  if (boostPressed && !gamepadBoostHeld) {
+  if (suppressGamepadBoostUntilRelease) {
+    gamepadBoostHeld = false;
+    if (!boostPressed) suppressGamepadBoostUntilRelease = false;
+  } else if (boostPressed && !gamepadBoostHeld) {
     gamepadBoostHeld = true;
     _onBoost?.();
   } else if (!boostPressed && gamepadBoostHeld) {
@@ -331,6 +336,11 @@ function pollGamepad() {
   currBtnStates.mute = mutePressed;
 
   prevBtnStates = currBtnStates;
+}
+
+/** Test-only: runs one gamepad sample without advancing the animation loop. */
+export function __pollGamepadForTest() {
+  pollGamepad();
 }
 
 function gamepadLoop() {
@@ -421,6 +431,7 @@ export function setupInput(canvas, onEscape, onMute, onHop, onBoost) {
     if (e.code === "ShiftLeft" || e.code === "ShiftRight") {
       if (e.repeat) return;
       e.preventDefault();
+      if (_isUiMode) return;
       localNitroHeld = true;
       onBoost?.();
       return;
@@ -469,7 +480,7 @@ export function setupInput(canvas, onEscape, onMute, onHop, onBoost) {
     // * Must match getAxis().boostHeld — sampleLocalInputForTick / non-host prediction
     // * used to omit gamepadBoostHeld, so LT/A started charge SFX once then never held
     // * boostHeld (bar stuck, charge cancelled or orphaned loop) (NH-BOOST).
-    isNitroHeld: () => localNitroHeld || isBoostHeld() || gamepadBoostHeld,
+    isNitroHeld: () => !_isUiMode && (localNitroHeld || isBoostHeld() || gamepadBoostHeld),
   };
 }
 
@@ -478,6 +489,9 @@ export function setupInput(canvas, onEscape, onMute, onHop, onBoost) {
  * @returns {{ forward: number, turn: number, boostHeld: boolean }} Each axis in [-1, 1].
  */
 export function getAxis() {
+  if (_isUiMode) {
+    return { forward: 0, turn: 0, boostHeld: false };
+  }
   const targetForward =
     (keys.has("KeyW") || keys.has("ArrowUp") ? 1 : 0) +
     (keys.has("KeyS") || keys.has("ArrowDown") ? -1 : 0);

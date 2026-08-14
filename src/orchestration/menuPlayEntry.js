@@ -22,7 +22,7 @@ import {
   withModeEntryLoading,
 } from "../ui/loadingScreen.js";
 import { startMenuAttract, stopMenuAttract } from "../ui/menuAttract.js";
-import { setGamepadNavActive } from "../ui/gamepadNav.js";
+import { setGamepadUiActive } from "../ui/gamepadNav.js";
 import { syncAllAudioUi } from "../ui/audioControls.js";
 import { resolveServerColorPick } from "../carts/customization.js";
 import {
@@ -339,7 +339,7 @@ export function createMenuPlayEntry(deps) {
     // * would show "check the code" to the next room's host (FRIENDS-JOIN-1).
     setJoinedViaTypedCode(false);
     removePodiumSkipListeners();
-    setGamepadNavActive(true);
+    setGamepadUiActive(true);
     startMenuAttract();
     syncAllAudioUi();
     // * Always dismiss boot splash first — solo/quickplay paths return early below.
@@ -648,7 +648,7 @@ export function createMenuPlayEntry(deps) {
     window.CartRave?.hide?.();
     setMenuVisible(false);
     stopMenuAttract();
-    setGamepadNavActive(false);
+    setGamepadUiActive(false);
     revealGameCanvas();
     const isTestDrive = (getNetcode()?.detectGameMode?.() ?? "solo") === "testdrive";
     const labelRenderer = getLabelRenderer();

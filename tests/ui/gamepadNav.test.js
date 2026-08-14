@@ -8,7 +8,7 @@
 // clicks hidden back buttons (old query hit the invisible customize back on
 // the main menu, and used the dead `.cr-esc-resume` selector on pause).
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { setInputMode } from "../../src/input.js";
+import { setInputMode, setUiMode } from "../../src/input.js";
 import { initGamepadTextEntry, openGamepadTextEntry } from "../../src/ui/gamepadTextEntry.js";
 
 const hapticRef = vi.hoisted(() => ({
@@ -22,6 +22,7 @@ const padRef = vi.hoisted(() => ({ pad: /** @type {any} */ (null) }));
 vi.mock("../../src/input.js", () => ({
   getActiveGamepad: () => padRef.pad,
   setInputMode: vi.fn(),
+  setUiMode: vi.fn(),
 }));
 vi.mock("../../src/haptics.js", () => hapticRef);
 
@@ -337,6 +338,23 @@ describe("B button", () => {
 });
 
 describe("direct-entry targets", () => {
+  it("A opens the real-input dialog from the selected pencil", () => {
+    const pencil = document.getElementById("cr-name-edit");
+    const normalClick = clickSpy("cr-name-edit");
+    pencil.addEventListener("cartrave:gamepad-activate", (event) => {
+      event.preventDefault();
+      openGamepadTextEntry({ title: "CHANGE NAME", value: "Cart", maxLength: 12, onSubmit: () => true });
+    });
+    pencil.focus();
+    press(BTN.a);
+    expect(document.getElementById("cr-gamepad-text-entry").style.display).toBe("flex");
+    expect(document.activeElement).toBe(document.getElementById("cr-gamepad-text-value"));
+    expect(normalClick).not.toHaveBeenCalled();
+    press(BTN.b);
+    expect(document.getElementById("cr-gamepad-text-entry").style.display).toBe("none");
+    expect(document.activeElement).toBe(pencil);
+  });
+
   it("keeps GO out of the ring while the marked room field remains a controller target", () => {
     press(BTN.down); // → CUSTOMIZE (join row skipped)
     expect(document.activeElement).toBe(document.getElementById("customize-btn"));
@@ -580,6 +598,19 @@ describe("LB/RB arena paging", () => {
 });
 
 describe("keyboard arrow-key navigation", () => {
+  it("changes gameplay suppression and navigation together", () => {
+    navModule.setGamepadUiActive(false);
+    expect(setUiMode).toHaveBeenCalledWith(false);
+    const inactive = new KeyboardEvent("keydown", { code: "ArrowDown", bubbles: true, cancelable: true });
+    window.dispatchEvent(inactive);
+    expect(inactive.defaultPrevented).toBe(false);
+
+    navModule.setGamepadUiActive(true);
+    expect(setUiMode).toHaveBeenLastCalledWith(true);
+    pressKey("ArrowDown");
+    expect(document.activeElement).toBe(document.getElementById("play-btn"));
+  });
+
   it("ArrowDown seeds focus, a second ArrowDown navigates to the next control", () => {
     pressKey("ArrowDown");
     expect(document.activeElement).toBe(document.getElementById("play-btn"));

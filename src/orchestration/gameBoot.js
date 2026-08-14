@@ -66,7 +66,8 @@ import {
   dismissAllLoadingOverlays,
   whenModeEntryHidden,
 } from "../ui/loadingScreen.js";
-import { setGamepadNavActive } from "../ui/gamepadNav.js";
+import { setGamepadUiActive } from "../ui/gamepadNav.js";
+import { applyPauseInputLifecycle } from "./pauseInputLifecycle.js";
 import {
   cancelMenuPreviewTimers,
   finalizeArenaForPlayEntry,
@@ -136,7 +137,6 @@ import { getQualityKnobs } from "../utils/qualityTiers.js";
 import { getQualityTier } from "../utils/qualityMode.js";
 import { LEVEL_STORAGE_KEY, resolveLevelId } from "../levels/index.js";
 import { storageGet } from "../utils/storage.js";
-import { setUiMode as setGamepadUiMode } from "../input.js";
 import { CART_COLORS, CONFIG, MSG, PALETTE } from "../config.js";
 import { isTouchDevice } from "../utils.js";
 
@@ -528,6 +528,14 @@ export function bootGameSystems(ctx) {
     getLocalCart: () => localCartForConnId(),
     getBoostChargeCfg: () => CONFIG.cart.ramBoost.boostCharge,
     onEscOverlayChange: (open) => {
+      applyPauseInputLifecycle({
+        open,
+        mode: Netcode.detectGameMode(),
+        localCart: localCartForConnId(),
+        setUiActive: setGamepadUiActive,
+        stopChargeSfxForCart,
+        stopAllChargeSfx,
+      });
       if (open) {
         Input.setTouchControlsVisible(false);
       } else {
@@ -1503,8 +1511,7 @@ export function bootGameSystems(ctx) {
       }
     }
     const isUiActive = refs.menuVisible || HUD.isEscOverlayVisible() || GameState.getRoundState().phase === "podium" || GameState.getRoundState().phase === "lobby";
-    setGamepadUiMode(isUiActive);
-    setGamepadNavActive(isUiActive);
+    setGamepadUiActive(isUiActive);
     const { now, loopState } = frameCtx;
     const dt = applySlowMoToDt(gameCtx.getSlowMoDeps(), frameCtx.dt);
 

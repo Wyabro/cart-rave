@@ -16,7 +16,7 @@
 // 07-21: halved from the original 0.14s/0.09s — full ramp read as "too controller-y".
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { setupInput, getAxis, setUiMode, __resetInputAxisEaseForTest } from "../../src/input.js";
+import { setupInput, getAxis, setUiMode, __pollGamepadForTest, __resetInputAxisEaseForTest } from "../../src/input.js";
 
 const ATTACK_S = 0.07;
 const RELEASE_S = 0.05;
@@ -65,6 +65,7 @@ describe("input.js getAxis", () => {
     keyup("KeyA");
     keyup("KeyD");
     setUiMode(false);
+    Reflect.deleteProperty(navigator, "getGamepads");
     vi.restoreAllMocks();
   });
 
@@ -78,6 +79,48 @@ describe("input.js getAxis", () => {
       setUiMode(true);
       expect(tick().forward).toBe(0);
       expect(tick().turn).toBe(0);
+    });
+
+    it("suppresses held boost while UI-active and requires a fresh keyboard press", () => {
+      const onBoost = vi.fn();
+      const input = setupInput(null, undefined, undefined, undefined, onBoost);
+      keydown("ShiftLeft");
+      expect(input.isNitroHeld()).toBe(true);
+      setUiMode(true);
+      expect(getAxis().boostHeld).toBe(false);
+      expect(input.isNitroHeld()).toBe(false);
+
+      keydown("ShiftLeft");
+      expect(input.isNitroHeld()).toBe(false);
+      setUiMode(false);
+      expect(input.isNitroHeld()).toBe(false);
+      keyup("ShiftLeft");
+      keydown("ShiftLeft");
+      expect(input.isNitroHeld()).toBe(true);
+    });
+
+    it("does not turn the A press used to resume into a boost", () => {
+      let pressed = true;
+      Object.defineProperty(navigator, "getGamepads", { configurable: true, value: () => ([{
+        index: 0,
+        axes: [0, 0],
+        buttons: Array.from({ length: 17 }, (_, index) => ({ pressed: index === 0 && pressed, value: 0 })),
+      }]) });
+      const onBoost = vi.fn();
+      setupInput(null, undefined, undefined, undefined, onBoost);
+
+      setUiMode(true);
+      setUiMode(false);
+      __pollGamepadForTest();
+      expect(onBoost).not.toHaveBeenCalled();
+      expect(getAxis().boostHeld).toBe(false);
+
+      pressed = false;
+      __pollGamepadForTest();
+      pressed = true;
+      __pollGamepadForTest();
+      expect(onBoost).toHaveBeenCalledOnce();
+      expect(getAxis().boostHeld).toBe(true);
     });
 
     it("resumes ramping the held key once UI-active clears (does not jump to full)", () => {

@@ -614,8 +614,8 @@ function startNpcChargeSfx(cart) {
 }
 
 /**
- * Round-boundary sweep: stops any looping charge-up SFX on every cart. Charging
- * through the running→podium transition otherwise leaks the loop forever —
+ * Frozen-world / round-boundary sweep: stops any looping charge-up SFX on every cart.
+ * Charging through a solo pause or running→podium transition otherwise leaks the loop —
  * run BEFORE any transient reset (resetCartTransientState already stops by id, but
  * the sweep is what catches no-handle orphans).
  */
@@ -623,8 +623,8 @@ function stopAllChargeSfx() {
   for (const cart of getAllCartsRef() || []) stopChargeSfxForCart(cart);
   // * No-handle orphan killer: any missed stop path leaves chargeUp looping forever
   // * (NET-1 rematch + mid-round cancel when localCart identity is briefly wrong).
-  // * Round-boundary ONLY — do not call this mid-round; a global sweep would cut
-  // * other carts' live charge loops (the doRespawn regression this replaces).
+  // * Frozen-world / round-boundary ONLY — do not call this during an online mid-round
+  // * pause; a global sweep would cut other carts' live charge loops.
   AudioManager.stopAllSfx?.("chargeUp");
 }
 
