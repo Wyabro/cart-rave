@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-14T01:58:16.584Z",
-    "commit": "590ea6d"
+    "at": "2026-08-14T02:09:14.173Z",
+    "commit": "5e53a11"
   },
-  "source_digest": "08b82e28",
+  "source_digest": "eff506ba",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -54,11 +54,11 @@
       "files": [
         "src/bootstrap.js",
         "src/config.js",
-        "src/gameSession.js",
         "src/main.js",
         "src/orchestration/cartIdentity.js",
         "src/orchestration/cartOrchestration.js",
         "src/orchestration/gameBoot.js",
+        "src/orchestration/gameSession.js",
         "src/orchestration/gameTeardownHooks.js",
         "src/orchestration/levelOrchestration.js",
         "src/orchestration/loopDeps.js",
@@ -390,8 +390,8 @@
         "src/effects/groceryPool.js",
         "src/effects/index.js",
         "src/effects/koHitmarkerFx.js",
-        "src/effects/waterDeathFx.js",
-        "src/visuals.js"
+        "src/effects/visuals.js",
+        "src/effects/waterDeathFx.js"
       ],
       "file_count": 9,
       "edges": [
@@ -755,7 +755,7 @@
       "role": "Entry point + render loop + system wiring; one ~5.3k-line main() closure holding ~84 unexported inner functions (they escape via callbacks/deps bundles, not exports)."
     },
     {
-      "path": "src/gameSession.js",
+      "path": "src/orchestration/gameSession.js",
       "role": "buildNetcodeGameBridge — authors the netcode callbacks bundle; the map from callbacks.* name → real main.js impl."
     },
     {

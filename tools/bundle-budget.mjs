@@ -104,11 +104,15 @@ export function analyzeInitialSet(html, sizeByFile, modulesByFile) {
   const refs = [];
   for (const m of html.matchAll(/<script\b[^>]*\btype=["']module["'][^>]*>/gi)) {
     const src = /\bsrc=["']([^"']+)["']/i.exec(m[0]);
-    if (src) refs.push({ file: normalize(src[1]), kind: "entry" });
+    if (src && !/^https?:\/\//i.test(src[1]) && !src[1].startsWith("//")) {
+      refs.push({ file: normalize(src[1]), kind: "entry" });
+    }
   }
   for (const m of html.matchAll(/<link\b[^>]*\brel=["']modulepreload["'][^>]*>/gi)) {
     const href = /\bhref=["']([^"']+)["']/i.exec(m[0]);
-    if (href) refs.push({ file: normalize(href[1]), kind: "preload" });
+    if (href && !/^https?:\/\//i.test(href[1]) && !href[1].startsWith("//")) {
+      refs.push({ file: normalize(href[1]), kind: "preload" });
+    }
   }
 
   const seen = new Set();

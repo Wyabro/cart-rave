@@ -252,7 +252,7 @@ describe("WARM-IGPU-1 Lever A — arena-rotation warm gates play-ready", () => {
 
 describe("netcode game bridge wires session play ready (cap-63)", () => {
   it("forwards isSessionPlayReady from context (was missing → hold always true)", async () => {
-    const { buildNetcodeGameBridge } = await import("../src/gameSession.js");
+    const { buildNetcodeGameBridge } = await import("../src/orchestration/gameSession.js");
     let ready = false;
     const bridge = buildNetcodeGameBridge(
       () => ({
@@ -268,7 +268,7 @@ describe("netcode game bridge wires session play ready (cap-63)", () => {
   });
 
   it("fails closed when context is null (hold engages)", async () => {
-    const { buildNetcodeGameBridge } = await import("../src/gameSession.js");
+    const { buildNetcodeGameBridge } = await import("../src/orchestration/gameSession.js");
     const bridge = buildNetcodeGameBridge(() => null, { returnToMenu: () => {} });
     expect(bridge.isSessionPlayReady()).toBe(false);
     expect(bridge.hasPendingNonHostCountdownApply()).toBe(false);

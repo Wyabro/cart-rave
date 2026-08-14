@@ -22,7 +22,7 @@
  */
 import { describe, it, expect } from "vitest";
 import * as Netcode from "../src/netcode.js";
-import { buildNetcodeGameBridge } from "../src/gameSession.js";
+import { buildNetcodeGameBridge } from "../src/orchestration/gameSession.js";
 
 const KEYS = Netcode.DEFERRED_GAME_CALLBACK_KEYS;
 const RENAMES = Netcode.GAME_CALLBACK_RENAMES;

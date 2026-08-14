@@ -17,7 +17,7 @@ import {
   disposeCartThemeResources,
 } from "./cartThemes.js";
 import * as ContactShadows from "./contactShadows.js";
-import * as Visuals from "./visuals.js";
+import * as Visuals from "./effects/visuals.js";
 import * as GameState from "./stores/gameStore.js";
 import * as Netcode from "./netcode.js";
 import {

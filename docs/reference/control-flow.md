@@ -41,25 +41,25 @@ netcode is `callbacks.foo(…)`. The stubs are replaced exactly once at startup:
 
 ```
 src/main.js       bootstrapNetcodeEntryFromUrl(…)
-  → src/gameSession.js  Netcode.registerGameCallbacks(buildNetcodeGameBridge(…))
+  → src/orchestration/gameSession.js  Netcode.registerGameCallbacks(buildNetcodeGameBridge(…))
   → src/netcode.js  registerGameCallbacks(deps)
     → registerCallbacks({ … })  — merges over the defaults
 ```
 
 Anchors: [`bootstrapNetcodeEntryFromUrl`](../../src/main.js) →
-[`export function bootstrapNetcodeEntryFromUrl`](../../src/gameSession.js) →
+[`export function bootstrapNetcodeEntryFromUrl`](../../src/orchestration/gameSession.js) →
 [`export function registerGameCallbacks`](../../src/netcode.js).
 
-The bundle itself is built by [`buildNetcodeGameBridge`](../../src/gameSession.js) in
-`src/gameSession.js` — that function is the real seam, and it is the right place to look when you
+The bundle itself is built by [`buildNetcodeGameBridge`](../../src/orchestration/gameSession.js) in
+`src/orchestration/gameSession.js` — that function is the real seam, and it is the right place to look when you
 need to know which orchestration implementation backs a given `callbacks.*` name.
 
 **`sessionBridgeCtx` is written once** via
-[`buildSessionBridgeContext`](../../src/gameSession.js) in
+[`buildSessionBridgeContext`](../../src/orchestration/gameSession.js) in
 [`sessionBridgeCtx.current = buildSessionBridgeContext({`](../../src/orchestration/gameBoot.js) — that factory
 merges the former two write sites (netcode/gameplay bridge + teardown patch). Teardown keys
 arrive as deps; they are not owned by `gameSession.js`. Runtime input/trigger rebinding lives in
-[`wireNetcodeRuntimeRefs`](../../src/gameSession.js) (called from main via a thin local packer).
+[`wireNetcodeRuntimeRefs`](../../src/orchestration/gameSession.js) (called from main via a thin local packer).
 
 Until MAIN-1 finishes extracting domains, do not invent a third write path around the factory.
 
@@ -197,7 +197,7 @@ change. Round-state commands import from `stores/gameStore.js` only (**STORE-1**
 1. **Direct import?** Grep the symbol. ~563 static imports resolve normally — most utility code is
    honestly wired and needs nothing special.
 2. **Nothing found, and it's a netcode hook?** Look in `buildNetcodeGameBridge`
-   ([src/gameSession.js](../../src/gameSession.js)), then the `callbacks` literal in `netcode.js`.
+   ([src/orchestration/gameSession.js](../../src/orchestration/gameSession.js)), then the `callbacks` literal in `netcode.js`.
 3. **Nothing found, and it's frame/physics/level?** It's a `deps.*` property — read the JSDoc
    `@typedef` on the consumer (`GameLoopState`/`PhysicsStepDeps` in `gameLoop.js`,
    `LevelManagerDeps` in `levelManager.js`), then the call site in `main.js`.

@@ -1,11 +1,11 @@
 // gameSession.js — connect → play → teardown → in-tab menu return
 
-import * as GameState from "./stores/gameStore.js";
-import { getNetcode } from "./netcode/load.js";
-import { SESSION_KEYS, sessionRemove } from "./utils/storage.js";
-import { trackEvent, trackGlitchEvent } from "./analytics/analytics.js";
-import { invalidateActivePlayEntry } from "./bootstrap.js";
-import { menuReturnHref } from "./utils/captureUpload.js";
+import * as GameState from "../stores/gameStore.js";
+import { getNetcode } from "../netcode/load.js";
+import { SESSION_KEYS, sessionRemove } from "../utils/storage.js";
+import { trackEvent, trackGlitchEvent } from "../analytics/analytics.js";
+import { invalidateActivePlayEntry } from "../bootstrap.js";
+import { menuReturnHref } from "../utils/captureUpload.js";
 
 /**
  * Mutable callback refs shared between main(), netcode, and the game loop.
@@ -217,7 +217,7 @@ export function wireNetcodeRuntimeRefs(deps) {
 }
 
 /**
- * Builds the callback bundle consumed by {@link import("./netcode.js").registerGameCallbacks}.
+ * Builds the callback bundle consumed by {@link import("../netcode.js").registerGameCallbacks}.
  *
  * @param {() => object | null} getContext Live main/session context (null before main() wires handlers).
  * @param {{ returnToMenu: (opts?: object) => void }} session

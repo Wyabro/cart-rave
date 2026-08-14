@@ -55,7 +55,7 @@ export const SYSTEMS = [
     responsibility:
       "The wiring spine: main.js boots the game, builds the callbacks/deps bundles that connect every other system, and owns the render loop entry. gameSession authors the netcode bridge.",
     entry: ["src/main.js"],
-    members: ["src/main.js", "src/bootstrap.js", "src/gameSession.js", "src/orchestration/", "src/config.js", "src/utils.js"],
+    members: ["src/main.js", "src/bootstrap.js", "src/orchestration/", "src/config.js", "src/utils.js"],
     notes: [
       "src/main.js is the composition root — ~1,264 lines after MAIN-1's carve (08-04) and BUNDLE-1 Lever B, down from ~2,582. `async function main()` (from :283) still spans most of the file, but it now holds composition wiring rather than domain logic: the ~84 inner functions moved into src/orchestration/ (gameBoot, menuPlayEntry, levelOrchestration, cartOrchestration, roundLifecycle, loopDeps, …). What is left inside still escapes ONLY via the callbacks/deps bundles.",
       "buildNetcodeGameBridge (gameSession.js) is the authoring site for the netcode callbacks seam — the real place to learn which main.js impl backs a callbacks.* name.",
@@ -263,7 +263,6 @@ export const SYSTEMS = [
       "src/effects/index.js",
       "src/cartShatter.js",
       "src/cargoLoad.js",
-      "src/visuals.js",
     ],
     notes: [
       "MP-FX-1 (SHIP-1 A3): non-host players miss some gameplay VFX — audit host-local vs replicated effects.",
@@ -469,7 +468,7 @@ export const SYSTEMS = [
  */
 export const IMPORTANT_FILES = [
   { path: "src/main.js", role: "Entry point + render loop + system wiring; one ~5.3k-line main() closure holding ~84 unexported inner functions (they escape via callbacks/deps bundles, not exports)." },
-  { path: "src/gameSession.js", role: "buildNetcodeGameBridge — authors the netcode callbacks bundle; the map from callbacks.* name → real main.js impl." },
+  { path: "src/orchestration/gameSession.js", role: "buildNetcodeGameBridge — authors the netcode callbacks bundle; the map from callbacks.* name → real main.js impl." },
   { path: "src/netcode.js", role: "Client netcode: the module-scope `callbacks` stub object, the MSG.* mirror dispatch, prediction + host maintain." },
   { path: "src/netcode/p2p.js", role: "WebRTC peers/DataChannels, ICE grace, TURN wait — the gameplay plane. hostTransform/clientInput/spill only." },
   { path: "src/netcode/binary.js", role: "Host snapshot encode/decode, bounds-checked. 40Hz binary transforms + JSON kill-feed tail." },

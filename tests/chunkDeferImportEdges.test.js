@@ -25,7 +25,7 @@ const STATIC_GLTF_IMPORT =
 const EAGER_MUST_NOT_STATIC_NETCODE = [
   "src/main.js",
   "src/bootstrap.js",
-  "src/gameSession.js",
+  "src/orchestration/gameSession.js",
   "src/orchestration/menuPlayEntry.js",
   "src/orchestration/cartIdentity.js",
   "src/ui/cart-rave-menu.js",

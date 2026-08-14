@@ -1,7 +1,7 @@
 // visuals.js — cart visual updates + misc visual helpers
 
 import * as THREE from "three";
-import { resetCartVisualState as _resetCartVisualState } from "./cart.js";
+import { resetCartVisualState as _resetCartVisualState } from "../cart.js";
 
 export { _resetCartVisualState as resetCartVisualState };
 

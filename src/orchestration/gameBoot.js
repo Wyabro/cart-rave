@@ -101,7 +101,7 @@ import {
   getActiveDirective,
   getDirectiveWireState,
 } from "../directives/directiveEngine.js";
-import { buildSessionBridgeContext, wireNetcodeRuntimeRefs } from "../gameSession.js";
+import { buildSessionBridgeContext, wireNetcodeRuntimeRefs } from "./gameSession.js";
 import {
   buildCartMaterialCache,
   createCartOrchestration,
