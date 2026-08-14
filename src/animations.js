@@ -140,6 +140,10 @@ function trackAnimation(element, animation) {
 export function cancelElementAnimations(element) {
   if (!(element instanceof Element)) return;
 
+  if (howToAttractByElement.has(element)) {
+    clearHowToAttractState(element);
+  }
+
   stopTouchPulse(element);
 
   const bucket = activeByElement.get(element);
@@ -275,9 +279,13 @@ export function animateHowToAttract(element) {
   return animation;
 }
 
-/** @param {HTMLElement | null | undefined} element */
-export function stopHowToAttract(element) {
-  if (!element) return;
+/**
+ * Stops HOW TO attract and clears its map entry + CSS var.
+ * Used by stopHowToAttract and cancelElementAnimations so a cancel can restart.
+ * @param {Element | null | undefined} element
+ */
+function clearHowToAttractState(element) {
+  if (!(element instanceof Element)) return;
   const animation = howToAttractByElement.get(element);
   if (animation) {
     try {
@@ -292,7 +300,15 @@ export function stopHowToAttract(element) {
     activeByElement.get(element)?.delete(animation);
     howToAttractByElement.delete(element);
   }
-  element.style.removeProperty("--cr-howto-beat");
+  if (element instanceof HTMLElement) {
+    element.style.removeProperty("--cr-howto-beat");
+  }
+}
+
+/** @param {HTMLElement | null | undefined} element */
+export function stopHowToAttract(element) {
+  if (!element) return;
+  clearHowToAttractState(element);
 }
 
 /**
