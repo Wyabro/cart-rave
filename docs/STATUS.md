@@ -36,7 +36,7 @@ external testers. Stay in this phase until Wyatt advances the marker.
 
 **08-13 playtest export:** 9 PASS / 0 FAIL / 3 SKIP. Cargo solo fill + rebuild, same-clientId reconnect, booth-target AI, both NPC type draws, PA combo tiers, STORE-1 regression, and both Storerooms songs PASSed. Remaining deferred checks: **CARGO-BAY-INSTANCE-PT-3** · **CONN-TRACK-LEAK-PT-1** · **SHARD-PT-2**.
 
-**08-13 playtest export (2nd):** 6 PASS / 1 FAIL / 3 SKIP. PASSes closed: **ART-PALETTE-PT-1 · CHAL-SHELF-FIT-PT-1 · GAMEPAD-NAV-REPEAT-PT-1 · LOD-DOORWAY-PT-1 · RUMBLE-STRENGTH-PT-1 · SHELF-RAIL-PT-1**; parents **GAMEPAD-NAV-REPEAT-1 · RUMBLE-STRENGTH-1 · CHAL-SHELF-FIT-1** closed with them. **KO-DOOMED-PT-1 FAILed** — "i don't see any visible difference in local KO's". Root cause: the host KO fan-out in `gameFlow.js` dropped `onLocalDoomed` from the reactor ctx (Solo is always host, so `localDoomedReactor` no-oped); the DOM feedback itself was never the problem. Fixed in `910ca37`; retest owed on `npm run dev:local`. ART-PALETTE-PT-1's custom-hue-red note filed as **CART-HUE-RED-1**. **CARGO-BAY-INSTANCE-PT-3 · CONN-TRACK-LEAK-PT-1 · SHARD-PT-2** remain deferred.
+**08-13 playtest export (2nd):** 6 PASS / 1 FAIL / 3 SKIP. PASSes closed: **ART-PALETTE-PT-1 · CHAL-SHELF-FIT-PT-1 · GAMEPAD-NAV-REPEAT-PT-1 · LOD-DOORWAY-PT-1 · RUMBLE-STRENGTH-PT-1 · SHELF-RAIL-PT-1**; parents **GAMEPAD-NAV-REPEAT-1 · RUMBLE-STRENGTH-1 · CHAL-SHELF-FIT-1** closed with them. **KO-DOOMED-PT-1 FAILed** — "i don't see any visible difference in local KO's". Root cause: the host KO fan-out in `gameFlow.js` dropped `onLocalDoomed` from the reactor ctx (Solo is always host, so `localDoomedReactor` no-oped); the DOM feedback itself was never the problem. Fixed in `910ca37`, shipped `a79222c` (Worker version `0ccc160a`); retest owed on prod after a hard refresh. ART-PALETTE-PT-1's custom-hue-red note filed as **CART-HUE-RED-1**. **CARGO-BAY-INSTANCE-PT-3 · CONN-TRACK-LEAK-PT-1 · SHARD-PT-2** remain deferred.
 
 **RAPIER-MAJOR-1** / **RAPIER-MAJOR-PT-2** CLOSED 08-13. Wyatt PASS on prod after hard-refresh in a two-browser Friends room: host and joiner drove, the host KO'd the joiner, and both screens agreed. Deployed `524bd4db`; both packages `0.20.0` (Rust 0.35). Hashed assets 0×404. Live `rapierInstance-o_X8o-Pe.js` carries `cartRaveRapierSimd`.
 
@@ -93,7 +93,7 @@ Live rows only. Shipped and closed cards live in
 ### Next actions
 
 1. **ANIM-BUGS-PT-1:** Wyatt production playtest (hard-refresh first) — menu stagger, dismiss, press, cart pulse.
-2. **KO-DOOMED-PT-1 retest:** `npm run dev:local` — local KO red edge pulse + shockwave (fixed `910ca37`), then after the next ship on prod.
+2. **KO-DOOMED-PT-1 retest:** production hard-refresh — local KO red edge pulse + shockwave (fixed `910ca37`, shipped `a79222c`).
 
 ## Open issues (top)
 
@@ -142,6 +142,11 @@ the dev loop (dev probes lie in prod · edge propagation · frozen `rAF`), or a 
 - **Before any public / external-tester playtest: reset the analytics DO** so aggregates are not polluted by dev/harness traffic. Token-gated (SEC-TOKEN-1): `DELETE` with `Authorization: Bearer <ERROR_LOG_TOKEN>` on `/api/analytics` (never `?token=`).
 
 ## Last updated
+
+2026-08-13 (ship) — **SHIPPED** `a79222c` (CF Worker version `0ccc160a-dc65-4daf-94ca-6da9ff294451`).
+Post-deploy: root + 25 hashed assets 0×404; live chunk-manifest maps `gameBoot` →
+`gameBoot-BLVQ_99A.js` (matches local dist); live bundle carries `onLocalDoomed`
+(KO-DOOMED-PT-1 fix). KO-DOOMED-PT-1 retest is now a prod hard-refresh check.
 
 2026-08-13 (playtest export: 6 PASS / 1 FAIL / 3 SKIP) — Closed the six PASS cards
 **ART-PALETTE-PT-1 · CHAL-SHELF-FIT-PT-1 · GAMEPAD-NAV-REPEAT-PT-1 · LOD-DOORWAY-PT-1 ·

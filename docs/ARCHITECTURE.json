@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-14T01:32:36.015Z",
-    "commit": "910ca37"
+    "at": "2026-08-14T01:38:28.857Z",
+    "commit": "a79222c"
   },
-  "source_digest": "7a0d5958",
+  "source_digest": "2b367b49",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -900,7 +900,7 @@
     ],
     "next_actions": [
       "ANIM-BUGS-PT-1: Wyatt production playtest (hard-refresh first) — menu stagger, dismiss, press, cart pulse.",
-      "KO-DOOMED-PT-1 retest: `npm run dev:local` — local KO red edge pulse + shockwave (fixed `910ca37`), then after the next ship on prod."
+      "KO-DOOMED-PT-1 retest: production hard-refresh — local KO red edge pulse + shockwave (fixed `910ca37`, shipped `a79222c`)."
     ],
     "open_issues": [
       {
@@ -1063,7 +1063,7 @@
           {
             "pri": "Low",
             "item": "KO-DOOMED-PT-1 — local KO edge pulse + shockwave `[solo]`",
-            "notes": "**Owed: Wyatt playtest — KO-DOOMED-PT-1 — every local KO gives a medium red edge pulse and one centered shockwave when your cart shatters.** **Unshipped:** use `npm run dev:local` until the next ship; then repeat on production after a hard refresh.<br>1. Start a Solo round and deliberately fall off the arena, including the center hole where available. PASS if the red edge pulse and centered shockwave appear once with your cart shatter; FAIL if either is missing, repeats, or appears before the shatter.<br>2. Let an NPC ram you into the void. PASS if the same feedback appears once; FAIL if it only works for self-falls.<br>3. KO an NPC without falling yourself. FAIL if you get the red victim feedback; PASS if only the normal attacker KO feedback appears.<br>4. In Settings, set graphics quality Low or turn post-FX off if available. Repeat one local fall. FAIL if the feedback disappears.",
+            "notes": "**Owed: Wyatt playtest — KO-DOOMED-PT-1 — every local KO gives a medium red edge pulse and one centered shockwave when your cart shatters.** **Deployed:** `a79222c` / Worker version `0ccc160a`; hard-refresh production first.<br>1. Start a Solo round and deliberately fall off the arena, including the center hole where available. PASS if the red edge pulse and centered shockwave appear once with your cart shatter; FAIL if either is missing, repeats, or appears before the shatter.<br>2. Let an NPC ram you into the void. PASS if the same feedback appears once; FAIL if it only works for self-falls.<br>3. KO an NPC without falling yourself. FAIL if you get the red victim feedback; PASS if only the normal attacker KO feedback appears.<br>4. In Settings, set graphics quality Low or turn post-FX off if available. Repeat one local fall. FAIL if the feedback disappears.",
             "ship1": null
           },
           {
