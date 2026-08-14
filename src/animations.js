@@ -858,18 +858,28 @@ export function fadeIn(element, duration = 220, options = {}) {
 
   element.style.pointerEvents = "none";
 
+  const clearPointerEvents = () => {
+    if (element.isConnected) element.style.pointerEvents = "";
+  };
+
   const animation = runAnimation(
     element,
     {
       opacity: [from, to],
       duration,
       ease,
-      onComplete: () => {
-        if (element.isConnected) element.style.pointerEvents = "";
-      },
+      onComplete: clearPointerEvents,
     },
     options,
   );
+
+  // * cancel()/revert() skip onComplete — restore clicks so a cancelled fade-in
+  // * cannot leave the control permanently non-interactive. fadeOut keeps none.
+  if (animation) {
+    animation.then?.(clearPointerEvents).catch?.(clearPointerEvents);
+  } else {
+    clearPointerEvents();
+  }
 
   return animation;
 }
