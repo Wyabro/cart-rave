@@ -29,6 +29,81 @@ const OVERLAY_SCOPE_SELECTORS = [
 
 let lastScope = /** @type {HTMLElement|Document|null} */ (null);
 
+// * A held menu direction acts once immediately, then repeats after a short
+// * pause. Never catch up after a stalled frame: one rAF tick may move focus
+// * only once.
+const DIRECTION_REPEAT_DELAY_MS = 300;
+const DIRECTION_REPEAT_INTERVAL_MS = 100;
+const STICK_ENTER_THRESHOLD = 0.55;
+const STICK_RELEASE_THRESHOLD = 0.35;
+let heldDirection = /** @type {"up"|"down"|"left"|"right"|null} */ (null);
+let stickDirection = /** @type {"up"|"down"|"left"|"right"|null} */ (null);
+let nextDirectionRepeatAt = 0;
+let lastFocusHapticAt = -Infinity;
+const FOCUS_HAPTIC_INTERVAL_MS = 200;
+
+function resetDirectionRepeat() {
+  heldDirection = null;
+  stickDirection = null;
+  nextDirectionRepeatAt = 0;
+}
+
+/** @param {"up"|"down"|"left"|"right"} direction @param {number} lx @param {number} ly */
+function stickDirectionMagnitude(direction, lx, ly) {
+  if (direction === "up") return -ly;
+  if (direction === "down") return ly;
+  if (direction === "left") return -lx;
+  return lx;
+}
+
+/**
+ * Resolve exactly one menu direction. D-pad wins over the stick. A stick uses
+ * its strongest axis on entry, then stays on that axis until it crosses the
+ * lower release threshold so light drift cannot restart repeat timing.
+ * @param {(button: number) => boolean} isPressed
+ * @param {number} lx
+ * @param {number} ly
+ * @returns {"up"|"down"|"left"|"right"|null}
+ */
+function resolveMenuDirection(isPressed, lx, ly) {
+  if (isPressed(12)) { stickDirection = null; return "up"; }
+  if (isPressed(13)) { stickDirection = null; return "down"; }
+  if (isPressed(14)) { stickDirection = null; return "left"; }
+  if (isPressed(15)) { stickDirection = null; return "right"; }
+
+  if (stickDirection && stickDirectionMagnitude(stickDirection, lx, ly) >= STICK_RELEASE_THRESHOLD) {
+    return stickDirection;
+  }
+  stickDirection = null;
+
+  const x = Math.abs(lx);
+  const y = Math.abs(ly);
+  if (Math.max(x, y) < STICK_ENTER_THRESHOLD) return null;
+  stickDirection = x >= y ? (lx < 0 ? "left" : "right") : (ly < 0 ? "up" : "down");
+  return stickDirection;
+}
+
+/**
+ * @param {"up"|"down"|"left"|"right"|null} direction
+ * @param {number} now
+ * @returns {"initial"|"repeat"|null}
+ */
+function consumeDirectionEvent(direction, now) {
+  if (!direction) {
+    heldDirection = null;
+    nextDirectionRepeatAt = 0;
+    return null;
+  }
+  if (direction !== heldDirection) {
+    heldDirection = direction;
+    nextDirectionRepeatAt = now + DIRECTION_REPEAT_DELAY_MS;
+    return "initial";
+  }
+  if (now < nextDirectionRepeatAt) return null;
+  nextDirectionRepeatAt = now + DIRECTION_REPEAT_INTERVAL_MS;
+  return "repeat";
+}
+
 /**
  * The container gamepad nav may reach: the topmost open overlay, or the
  * whole document when none is open (main menu / HUD).
@@ -87,7 +162,7 @@ function nudgeSlider(el, key) {
   el.dispatchEvent(new KeyboardEvent("keydown", { key, code: key, bubbles: true }));
 }
 
-function setFocus(targetEl, focusables, gamepadIndex = undefined) {
+function setFocus(targetEl, focusables, gamepadIndex = undefined, hapticNow = performance.now()) {
   if (!targetEl) return;
   // * Sweep document-wide, not just the current focusables — a ring left on a
   // * button behind a newly opened overlay is outside the scoped list.
@@ -101,7 +176,12 @@ function setFocus(targetEl, focusables, gamepadIndex = undefined) {
   navIndex = focusables.indexOf(targetEl);
   lastFocusedEl = targetEl;
   lastFocusedRow = targetEl.closest?.('[role="radiogroup"]') ?? null;
-  if (gamepadIndex != null) hapticMenuFocus(gamepadIndex);
+  if (gamepadIndex != null) {
+    if (hapticNow - lastFocusHapticAt >= FOCUS_HAPTIC_INTERVAL_MS) {
+      lastFocusHapticAt = hapticNow;
+      hapticMenuFocus(gamepadIndex);
+    }
+  }
 }
 
 /**
@@ -139,7 +219,7 @@ function restoreDeadFocusRing(focusables) {
   return focusables[idx] || null;
 }
 
-function navigateSpatial(dir, focusables, gamepadIndex = undefined) {
+function navigateSpatial(dir, focusables, gamepadIndex = undefined, hapticNow = performance.now()) {
   if (!focusables || focusables.length === 0) return;
 
   const currentEl = document.activeElement && focusables.includes(/** @type {HTMLElement} */ (document.activeElement))
@@ -187,24 +267,26 @@ function navigateSpatial(dir, focusables, gamepadIndex = undefined) {
   }
 
   if (bestCand) {
-    setFocus(bestCand, focusables, gamepadIndex);
+    setFocus(bestCand, focusables, gamepadIndex, hapticNow);
   } else {
     // Spatial search found no candidate in that direction -> fall back to linear 1D wrap
     const curIdx = focusables.indexOf(currentEl);
     const delta = (dir === "down" || dir === "right") ? 1 : -1;
     const nextIdx = (curIdx + delta + focusables.length) % focusables.length;
-    setFocus(focusables[nextIdx], focusables, gamepadIndex);
+    setFocus(focusables[nextIdx], focusables, gamepadIndex, hapticNow);
   }
 }
 
-function updateNav() {
+function updateNav(now = performance.now()) {
   if (!_navActive) {
+    resetDirectionRepeat();
     requestAnimationFrame(updateNav);
     return;
   }
 
   const gp = getActiveGamepad();
   if (!gp) {
+    resetDirectionRepeat();
     requestAnimationFrame(updateNav);
     return;
   }
@@ -213,17 +295,7 @@ function updateNav() {
 
   const lx = gp.axes[0] || 0;
   const ly = gp.axes[1] || 0;
-  const threshold = 0.55;
-
-  const stickUp = ly < -threshold;
-  const stickDown = ly > threshold;
-  const stickLeft = lx < -threshold;
-  const stickRight = lx > threshold;
-
-  const up = isPressed(12) || stickUp;
-  const down = isPressed(13) || stickDown;
-  const left = isPressed(14) || stickLeft;
-  const right = isPressed(15) || stickRight;
+  const direction = resolveMenuDirection(isPressed, lx, ly);
   const a = isPressed(0);
   const b = isPressed(1);
   // * Standard Gamepad: buttons[4]/[5] = LB / RB. Unused in-match (boost/hop are
@@ -231,7 +303,7 @@ function updateNav() {
   const lb = isPressed(4);
   const rb = isPressed(5);
 
-  if (up || down || left || right || a || b || lb || rb) {
+  if (direction || a || b || lb || rb) {
     setInputMode("gamepad");
   }
 
@@ -242,7 +314,10 @@ function updateNav() {
     // * open, so the adopt branch below re-derives the right index.
     navIndex = 0;
     lastScope = scope;
+    resetDirectionRepeat();
   }
+
+  const directionEvent = consumeDirectionEvent(direction, now);
 
   // * ARENA-BUMPER-HINT-1: LB/RB → arena pager (same handlers as mouse/keyboard).
   // * Document scope only (overlays must not page the menu behind them). Visibility
@@ -279,17 +354,16 @@ function updateNav() {
         // * idle frame, before any press — so the next press navigates instead
         // * of being consumed re-seeding. Only fires when the ring node is
         // * actually gone, never while focus sits on a live control.
-        setFocus(restored, focusables, gp.index);
+        setFocus(restored, focusables, gp.index, now);
       } else if (
-        (up && !prevDpad.up) || (down && !prevDpad.down) ||
-        (left && !prevDpad.left) || (right && !prevDpad.right) ||
+        directionEvent === "initial" ||
         (a && !prevDpad.a)
       ) {
         // * Focus lives outside the nav set (name input mid-edit, or nothing).
         // * Reclaim it only on an actual press — re-seizing every idle frame
         // * stole focus while a pad sat connected. The press is consumed as the
         // * reveal; navigation/confirm start from the next press.
-        setFocus(focusables[navIndex] || focusables[0], focusables, gp.index);
+        setFocus(focusables[navIndex] || focusables[0], focusables, gp.index, now);
       }
     }
 
@@ -301,15 +375,19 @@ function updateNav() {
       const activeIsSlider = activeEl.getAttribute?.("role") === "slider"
         || (activeEl instanceof HTMLInputElement && activeEl.type === "range");
 
-      if (up && !prevDpad.up) navigateSpatial("up", focusables, gp.index);
-      if (down && !prevDpad.down) navigateSpatial("down", focusables, gp.index);
-      if (left && !prevDpad.left) {
-        if (activeIsSlider) nudgeSlider(activeEl, "ArrowLeft");
-        else navigateSpatial("left", focusables, gp.index);
-      }
-      if (right && !prevDpad.right) {
-        if (activeIsSlider) nudgeSlider(activeEl, "ArrowRight");
-        else navigateSpatial("right", focusables, gp.index);
+      // * Sliders accept one 5% left/right nudge per new press. Their hold
+      // * behavior stays unchanged; other directions repeat through the ring.
+      const sliderHorizontal = activeIsSlider && (direction === "left" || direction === "right");
+      if (directionEvent && (directionEvent === "initial" || !sliderHorizontal)) {
+        if (direction === "up" || direction === "down") {
+          navigateSpatial(direction, focusables, gp.index, now);
+        } else if (direction === "left") {
+          if (activeIsSlider) nudgeSlider(activeEl, "ArrowLeft");
+          else navigateSpatial("left", focusables, gp.index, now);
+        } else if (direction === "right") {
+          if (activeIsSlider) nudgeSlider(activeEl, "ArrowRight");
+          else navigateSpatial("right", focusables, gp.index, now);
+        }
       }
 
       if (a && !prevDpad.a) {
@@ -344,7 +422,7 @@ function updateNav() {
     }
   }
 
-  prevDpad = { up, down, left, right, a, b, lb, rb };
+  prevDpad = { up: direction === "up", down: direction === "down", left: direction === "left", right: direction === "right", a, b, lb, rb };
   requestAnimationFrame(updateNav);
 }
 
@@ -419,6 +497,7 @@ export function startGamepadUiNav() {
 
 export function setGamepadNavActive(active) {
   _navActive = active;
+  resetDirectionRepeat();
   if (!active) {
     document.querySelectorAll('.gamepad-focused').forEach(el => el.classList.remove('gamepad-focused'));
     lastFocusedEl = null;

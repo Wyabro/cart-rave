@@ -42,6 +42,8 @@ external testers. Stay in this phase until Wyatt advances the marker.
 
 **RUMBLE-STRENGTH-1** deployed 08-13 — source commit `682891e`, Worker `82e8a360-b185-403a-8a66-2757f7aba40d`. Settings persists controller rumble; Xbox, PS5, and Steam Deck use the standard Gamepad path; USB DualSense `054c:0ce6` has a narrow permission fallback only when it lacks a standard actuator. QA 7/7, build, remote-HEAD, and live root/manifest/53 referenced assets (0×404) PASS. Human hardware checks are **RUMBLE-STRENGTH-PT-1** on production.
 
+**GAMEPAD-NAV-REPEAT-1** is ready locally 08-13. Held D-pad/left-stick menu navigation now acts immediately, waits 300 ms, then repeats every 100 ms; it resolves one direction, filters stick drift, resets across scope/input changes, keeps horizontal sliders single-step, and limits focus rumble to 200 ms. Focused tests 52/52, typecheck, and QA 7/7 PASS; ship authorization remains.
+
 **Closed cards keep their narrative in their own docs, not here** — Sundial
 ([handover](./planning/art-pass-sundial-handover.md); read its "Traps that cost time" before any
 capture, and judge phase changes against a ~1.2% construction-noise floor, not zero), Fight Night
@@ -79,13 +81,15 @@ Live rows only. Shipped and closed cards live in
 | # | What | Status |
 |---|------|--------|
 | BUNDLE-1 | Menu/game code-split | ⚠️ **CLOSED PARTIAL 08-05 — perf goal NOT met. Deployed `f2f90fd2`.** Warm `menu-ready` −3% vs a −15% gate. Banked: a `size:check` byte gate, `main.js` 2,582 → 1,262 lines, −22.6% off the initial set (**cold** visits only). Lever E playtested: BUNDLE-E-PT-1 PASS 6/6. [bundle-1.md §0](./planning/bundle-1.md) |
+| GAMEPAD-NAV-REPEAT-1 | Held controller menu navigation | 🟡 local ready; focused tests 52/52 + QA 7/7 PASS; ship pending |
 | RUMBLE-STRENGTH-1 | Controller rumble Settings control | 🟡 deployed `682891e` / Worker `82e8a360-b185-403a-8a66-2757f7aba40d`; QA 7/7 + build + live assets PASS; human target checks seeded as RUMBLE-STRENGTH-PT-1 |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 
 ### Next actions
 
-1. **RUMBLE-STRENGTH-PT-1:** Wyatt production hardware test on Xbox, PS5 USB, and Steam Deck.
-2. **Deferred playtests:** **CARGO-BAY-INSTANCE-PT-3** · **CONN-TRACK-LEAK-PT-1** · **SHARD-PT-2**.
+1. **GAMEPAD-NAV-REPEAT-1:** wait for Wyatt's explicit ship authorization.
+2. **RUMBLE-STRENGTH-PT-1:** Wyatt production hardware test on Xbox, PS5 USB, and Steam Deck.
+3. **Deferred playtests:** **CARGO-BAY-INSTANCE-PT-3** · **CONN-TRACK-LEAK-PT-1** · **SHARD-PT-2**.
 
 ## Open issues (top)
 

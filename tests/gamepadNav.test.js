@@ -26,11 +26,11 @@ vi.mock("../src/haptics.js", () => hapticRef);
 
 const BTN = { a: 0, b: 1, lb: 4, rb: 5, up: 12, down: 13, left: 14, right: 15 };
 
-function makePad(pressed = []) {
+function makePad(pressed = [], axes = [0, 0]) {
   return {
     index: 4,
     buttons: Array.from({ length: 17 }, (_, i) => ({ pressed: pressed.includes(i), value: 0 })),
-    axes: [0, 0],
+    axes,
   };
 }
 
@@ -78,12 +78,14 @@ const FIXTURE = `
 `;
 
 let scheduled = [];
+let frameNow = 0;
 
 // Runs exactly one updateNav tick (the loop re-schedules itself each frame).
-function frame() {
+function frame(elapsedMs = 16) {
+  frameNow += elapsedMs;
   const cbs = scheduled;
   scheduled = [];
-  for (const cb of cbs) cb(performance.now());
+  for (const cb of cbs) cb(frameNow);
 }
 
 // Rising edge + release so the next press edges again.
@@ -132,6 +134,7 @@ let navModule;
 
 beforeEach(async () => {
   scheduled = [];
+  frameNow = 0;
   padRef.pad = makePad();
   vi.mocked(setInputMode).mockClear();
   hapticRef.hapticMenuConfirm.mockClear();
@@ -229,6 +232,65 @@ describe("controller-only menu feedback", () => {
   });
 });
 
+describe("held controller menu navigation", () => {
+  it("moves immediately, waits 300 ms, then repeats every 100 ms", () => {
+    show("cr-settings-screen");
+    press(BTN.down); // seed → BACK
+    padRef.pad = makePad([BTN.down]);
+    frame();
+    expect(document.activeElement).toBe(document.getElementById("cr-settings-done"));
+    frame(299);
+    expect(document.activeElement).toBe(document.getElementById("cr-settings-done"));
+    frame(1);
+    expect(document.activeElement).toBe(document.getElementById("cr-settings-back"));
+    frame(100);
+    expect(document.activeElement).toBe(document.getElementById("cr-settings-done"));
+  });
+
+  it("resolves a diagonal stick to one strongest-axis move", () => {
+    show("cr-settings-screen");
+    press(BTN.down); // seed → BACK
+    padRef.pad = makePad([], [0.9, 0.8]);
+    frame();
+    expect(document.activeElement).toBe(document.getElementById("cr-settings-done"));
+    expect(hapticRef.hapticMenuFocus).toHaveBeenCalledTimes(1);
+  });
+
+  it("limits held-focus haptics to one pulse every 200 ms", () => {
+    show("cr-settings-screen");
+    press(BTN.down); // seed → BACK
+    hapticRef.hapticMenuFocus.mockClear();
+    padRef.pad = makePad([BTN.down]);
+    frame(); // → DONE; focus pulse is within 200 ms of the seed pulse
+    frame(300); // → BACK; pulse is allowed after the interval
+    expect(hapticRef.hapticMenuFocus).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps a held stick direction through the drift band", () => {
+    show("cr-settings-screen");
+    press(BTN.down); // seed → BACK
+    padRef.pad = makePad([], [0.6, 0]);
+    frame();
+    expect(document.activeElement).toBe(document.getElementById("cr-settings-done"));
+    padRef.pad = makePad([], [0.4, 0]); // below enter, above release
+    frame(299);
+    expect(document.activeElement).toBe(document.getElementById("cr-settings-done"));
+    frame(1);
+    expect(document.activeElement).toBe(document.getElementById("cr-settings-back"));
+  });
+
+  it("resets the hold when an overlay becomes the active nav scope", () => {
+    press(BTN.down); // seed → PLAY
+    padRef.pad = makePad([BTN.down]);
+    frame(); // → CUSTOMIZE
+    show("cr-settings-screen");
+    frame();
+    expect(document.activeElement).toBe(document.getElementById("cr-settings-back"));
+    frame(299);
+    expect(document.activeElement).toBe(document.getElementById("cr-settings-back"));
+  });
+});
+
 describe("B button", () => {
   it("clicks the open overlay's own back button, not another layer's", () => {
     show("cr-settings-screen");
@@ -294,6 +356,22 @@ describe("range sliders stay in the ring and nudge on left/right", () => {
     press(BTN.right);
     press(BTN.left);
     expect(keys).toEqual(["ArrowRight", "ArrowLeft"]);
+    expect(document.activeElement).toBe(document.getElementById("hue-slider"));
+  });
+
+  it("does not repeat a held left/right slider nudge", () => {
+    show("cr-customize-screen");
+    press(BTN.down); // seed → BACK
+    press(BTN.down); // → chip-0
+    press(BTN.down); // → chip-1
+    press(BTN.down); // → hue-slider
+    const keys = [];
+    document.getElementById("hue-slider").addEventListener("keydown", (e) => keys.push(e.key));
+    padRef.pad = makePad([BTN.right]);
+    frame();
+    frame(300);
+    frame(100);
+    expect(keys).toEqual(["ArrowRight"]);
     expect(document.activeElement).toBe(document.getElementById("hue-slider"));
   });
 });
