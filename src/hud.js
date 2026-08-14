@@ -15,7 +15,7 @@ import { claimStage, resetStage, STAGE_PRIORITY } from "./ui/centerStage.js";
 import { svgIcon } from "./ui/icons.js";
 import { updateBoostRing } from "./touchControls.js";
 import { clamp, clampInt } from "./utils.js";
-import { resolveCartNeonCss } from "./customization.js";
+import { resolveCartNeonCss } from "./carts/customization.js";
 import { playTimerTick } from "./sfxSynth.js";
 import {
   getConnectionState,

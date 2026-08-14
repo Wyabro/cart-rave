@@ -16,10 +16,10 @@ import {
   resolveCartNeonHex,
   resolveCartPatternForSlot,
   resolveCartSunglassesStyleForSlot,
-} from "../src/customization.js";
+} from "../src/carts/customization.js";
 import { CART_COLORS, PALETTE } from "../src/config.js";
-import { DEFAULT_CART_PATTERN } from "../src/cartPatternConfig.js";
-import { DEFAULT_SUNGLASSES_STYLE } from "../src/cartThemeConfig.js";
+import { DEFAULT_CART_PATTERN } from "../src/carts/cartPatternConfig.js";
+import { DEFAULT_SUNGLASSES_STYLE } from "../src/carts/cartThemeConfig.js";
 
 beforeEach(() => {
   localStorage.clear();

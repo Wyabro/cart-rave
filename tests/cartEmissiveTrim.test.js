@@ -6,8 +6,8 @@ import {
   applyRaveGltfLeaderGlow,
   buildRaveGltfMaterialCache,
   setEmissiveTrimMul,
-} from "../src/cartRaveGltf.js";
-import { applyThemeColorToCache } from "../src/cartThemes.js";
+} from "../src/carts/cartRaveGltf.js";
+import { applyThemeColorToCache } from "../src/carts/cartThemes.js";
 
 // FIX-EMISSIVE — a cart with no pattern must render its trim dimmer, and STAY dimmer.
 //
@@ -163,7 +163,7 @@ describe("FIX-EMISSIVE — classic carts carry a dimmer trim", () => {
 
   it("9. keeps the patterned valley lift independent from the shared cart base", () => {
     const patterns = readFileSync(
-      new URL("../src/cartPatterns.js", import.meta.url),
+      new URL("../src/carts/cartPatterns.js", import.meta.url),
       "utf8",
     );
     expect(patterns).toContain("const PATTERN_OVERLAY_TINT_SCALE = 0.38;");

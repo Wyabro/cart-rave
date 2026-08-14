@@ -6,27 +6,27 @@
  */
 
 import * as THREE from "three";
-import { buildCart } from "../cart.js";
-import { applyCartPattern } from "../cartPatterns.js";
+import { buildCart } from "../carts/cart.js";
+import { applyCartPattern } from "../carts/cartPatterns.js";
 import {
   resetRaveGltfCartVisualState,
   setEmissiveTrimMul,
   updateRaveGltfCartVisuals,
-} from "../cartRaveGltf.js";
-import { DEFAULT_CART_PATTERN, normalizePatternId } from "../cartPatternConfig.js";
+} from "../carts/cartRaveGltf.js";
+import { DEFAULT_CART_PATTERN, normalizePatternId } from "../carts/cartPatternConfig.js";
 import {
   DEFAULT_CART_THEME,
   DEFAULT_SUNGLASSES_STYLE,
   getCartTheme,
   normalizeThemeId,
   resolveSunglassesStyle,
-} from "../cartThemeConfig.js";
+} from "../carts/cartThemeConfig.js";
 import {
   applyCartTheme,
   applyThemeColorToCache,
   buildCartThemeMaterialCache,
   disposeCartThemeResources,
-} from "../cartThemes.js";
+} from "../carts/cartThemes.js";
 import { applyRendererColorGrading, setupSceneEnvironment } from "../scene.js";
 import { getQualityKnobs } from "../utils/qualityTiers.js";
 import {
@@ -152,7 +152,7 @@ export class CartPreview {
     /** @type {THREE.Group | null} */
     this.cartGroup = null;
 
-    /** @type {import("../cartThemes.js").CartThemeMaterialCache | null} */
+    /** @type {import("../carts/cartThemes.js").CartThemeMaterialCache | null} */
     this._materialCache = null;
 
     /** @type {THREE.Group | null} */
@@ -876,7 +876,7 @@ export class CartPreview {
   }
 
   /**
-   * @returns {import("../cartThemeConfig.js").CartThemeDef}
+   * @returns {import("../carts/cartThemeConfig.js").CartThemeDef}
    */
   getCurrentTheme() {
     return getCartTheme(this._themeId);

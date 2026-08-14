@@ -1,8 +1,8 @@
 import * as THREE from "three";
 import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { resetRaveGltfCartVisualState, updateRaveGltfCartVisuals } from "./cartRaveGltf.js";
-import { createPhysicalMaterial, getMaterialEnvMapIntensity } from "./scene.js";
-import { cartEmissiveIntensityForHex, clamp, emissiveRefHexForNeonHex, lerpAngle } from "./utils.js";
+import { createPhysicalMaterial, getMaterialEnvMapIntensity } from "../scene.js";
+import { cartEmissiveIntensityForHex, clamp, emissiveRefHexForNeonHex, lerpAngle } from "../utils.js";
 
 // * Basket (cart-local units, ~classic proportions). Front = -Z, back = +Z.
 const BASKET_LENGTH = 2.1;

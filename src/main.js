@@ -24,7 +24,7 @@ import { startBlackFrameMonitor } from "./utils/blackFrameMonitor.js";
 import {
   loadPlayerCustomization,
   wireCustomizationStorageSync,
-} from "./customization.js";
+} from "./carts/customization.js";
 import "./ui/cart-rave-menu.js";
 import "./ui/styles/tokens.css";
 import "./ui/styles/stickers.css";
@@ -383,7 +383,7 @@ async function main() {
   const startGlbPrefetch = () => {
     const glbPrefetchT0 = performance.now();
     markBootPhase("glb-prefetch-start");
-    void import("./cartRaveGltf.js")
+    void import("./carts/cartRaveGltf.js")
       .then((m) => m.prefetchRaveGltf())
       .then(() => {
         noteBootMilestone(75);

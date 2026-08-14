@@ -10,7 +10,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const effectsSrc = readFileSync(new URL("../src/effects.js", import.meta.url), "utf8");
-const cartSrc = readFileSync(new URL("../src/cart.js", import.meta.url), "utf8");
+const cartSrc = readFileSync(new URL("../src/carts/cart.js", import.meta.url), "utf8");
 
 /** Body of `function disposeObject3D(...)` up to the next top-level declaration. */
 function disposeObject3DSource() {

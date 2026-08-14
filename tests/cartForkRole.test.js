@@ -17,7 +17,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 
-const src = readFileSync(new URL("../src/cartRaveGltf.js", import.meta.url), "utf8");
+const src = readFileSync(new URL("../src/carts/cartRaveGltf.js", import.meta.url), "utf8");
 
 /**
  * Read one entry out of the cartrave4 role table (the block is a frozen object literal).

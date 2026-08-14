@@ -9,7 +9,7 @@ import * as HUD from "../hud.js";
 import * as Input from "../input.js";
 import * as AudioManager from "../audioManager.js";
 import * as GroceryPool from "../effects/groceryPool.js";
-import { updateCartVisuals } from "../cart.js";
+import { updateCartVisuals } from "../carts/cart.js";
 import { triggerCartShatter } from "../cartShatter.js";
 import {
   getDirectiveKoRewardMultiplier,

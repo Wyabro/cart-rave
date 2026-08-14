@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-14T02:09:14.173Z",
-    "commit": "5e53a11"
+    "at": "2026-08-14T02:17:33.336Z",
+    "commit": "1c015dc"
   },
-  "source_digest": "eff506ba",
+  "source_digest": "f41e9f0b",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -346,16 +346,16 @@
       "name": "Carts & customization",
       "responsibility": "Cart entity + the rave GLB rig, cosmetic pattern/theme tables, and the customization flow that applies them.",
       "entry": [
-        "src/cart.js"
+        "src/carts/cart.js"
       ],
       "files": [
-        "src/cart.js",
-        "src/cartPatternConfig.js",
-        "src/cartPatterns.js",
-        "src/cartRaveGltf.js",
-        "src/cartThemeConfig.js",
-        "src/cartThemes.js",
-        "src/customization.js"
+        "src/carts/cart.js",
+        "src/carts/cartPatternConfig.js",
+        "src/carts/cartPatterns.js",
+        "src/carts/cartRaveGltf.js",
+        "src/carts/cartThemeConfig.js",
+        "src/carts/cartThemes.js",
+        "src/carts/customization.js"
       ],
       "file_count": 7,
       "edges": [
@@ -783,7 +783,7 @@
       "role": "LEVEL_IMPORTERS dynamic id→import() table, a loader NOT a barrel — the only way the four level modules are reached."
     },
     {
-      "path": "src/cartRaveGltf.js",
+      "path": "src/carts/cartRaveGltf.js",
       "role": "userData state-machine hub (raveGltfPartRole/cartVisual/deathState/followState) — grep the userData key, there are no call edges."
     },
     {

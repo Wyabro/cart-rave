@@ -13,7 +13,7 @@ import { markBootPhase } from "./utils/bootTimeline.js";
 
 /** @returns {Promise<unknown>} */
 function prefetchRaveGltf() {
-  return import("./cartRaveGltf.js").then((m) => m.prefetchRaveGltf());
+  return import("./carts/cartRaveGltf.js").then((m) => m.prefetchRaveGltf());
 }
 
 /** @type {import("./bootstrap.js").BootstrapDeps | null} */

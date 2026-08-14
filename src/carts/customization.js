@@ -25,7 +25,7 @@
  * is silently ignored on load (never re-written), so old payloads migrate cleanly.
  */
 
-import { CART_COLORS, PALETTE } from "./config.js";
+import { CART_COLORS, PALETTE } from "../config.js";
 import { DEFAULT_CART_PATTERN, normalizePatternId } from "./cartPatternConfig.js";
 import {
   DEFAULT_CART_THEME,
@@ -33,8 +33,8 @@ import {
   SUNGLASSES_STYLES,
 } from "./cartThemeConfig.js";
 
-import { STORAGE_KEYS, storageGetJson, storageSetJson } from "./utils/storage.js";
-import { clampCustomizationToUnlocks } from "./stores/unlockStore.js";
+import { STORAGE_KEYS, storageGetJson, storageSetJson } from "../utils/storage.js";
+import { clampCustomizationToUnlocks } from "../stores/unlockStore.js";
 
 /** Re-exported for existing importers — the key itself lives in utils/storage.js. */
 export const CUSTOMIZE_STORAGE_KEY = STORAGE_KEYS.customization;

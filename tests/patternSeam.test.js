@@ -17,7 +17,7 @@
 
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { CART_PATTERN_IDS, CART_PATTERNS } from "../src/cartPatternConfig.js";
+import { CART_PATTERN_IDS, CART_PATTERNS } from "../src/carts/cartPatternConfig.js";
 import { PATTERN_UNLOCKS } from "../src/unlockConfig.js";
 
 const MASTER_GLB = new URL("../art/models/cartrave4.glb", import.meta.url);

@@ -24,7 +24,7 @@ import {
 import { startMenuAttract, stopMenuAttract } from "../ui/menuAttract.js";
 import { setGamepadNavActive } from "../ui/gamepadNav.js";
 import { syncAllAudioUi } from "../ui/audioControls.js";
-import { resolveServerColorPick } from "../customization.js";
+import { resolveServerColorPick } from "../carts/customization.js";
 import {
   generateRoomCode,
   isQuickplayRoom,

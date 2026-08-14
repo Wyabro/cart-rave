@@ -15,7 +15,7 @@ import * as THREE from "three";
 import {
   cartEmissiveIntensityForHex,
   emissiveRefHexForNeonHex,
-} from "./utils.js";
+} from "../utils.js";
 import {
   normalizePatternId,
 } from "./cartPatternConfig.js";

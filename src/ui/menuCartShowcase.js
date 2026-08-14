@@ -7,7 +7,7 @@
  * before Customize opens so PMREM never crosses WebGL contexts.
  */
 
-import { loadPlayerCustomization } from "../customization.js";
+import { loadPlayerCustomization } from "../carts/customization.js";
 import { recordDiagEvent } from "../utils/diagnostics.js";
 import { getQualityTier } from "../utils/qualityMode.js";
 // * CHUNK-DEFER-1 L1b: CartPreview pulls cart.js + cartRaveGltf — load only on mount.

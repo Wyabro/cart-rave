@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SUNGLASSES_STYLES } from "../src/cartThemeConfig.js";
+import { SUNGLASSES_STYLES } from "../src/carts/cartThemeConfig.js";
 import { PROGRESSION_EVENTS } from "../src/progression/eventIds.js";
 import { SUNGLASSES_UNLOCKS } from "../src/unlockConfig.js";
 

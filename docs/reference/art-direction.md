@@ -116,7 +116,7 @@ files. The real inventory:
 | **Cart Rave** | Vinyl floor — albedo + normal + roughness, with groove lands/valleys, 36 hairline radial play-wear scratches, dust and fingerprint blotches ([`arena.js:180`](../../src/levels/arena.js:180)). Pit wall — albedo + normal + roughness plated panels ([`arena.js:33`](../../src/levels/arena.js:33)). Booths — metal + grille albedo ([`arena.js:320`](../../src/levels/arena.js:320)). |
 | **The Storerooms** | ~9 builders — carpet, wallpaper, ceiling, concrete, prop-surface (carton/cardboard), furniture (wood/fabric/metal/plastic) — plus wet-floor, tape, and arrow canvases ([`backroomsSupermarket.js:150`](../../src/levels/backroomsSupermarket.js:150)–`596`). |
 | **Sundial Station** | ~12 builders — deck albedo + deck roughness (plate seams, bolt rings, rust streaks, 46 traffic-wear scuff arcs, hazard band), water normal, foam, panel, vent grille, hazard stripe, hologlyphs ([`zanzibarPlatform.js:144`](../../src/levels/zanzibarPlatform.js:144)+). |
-| **The carts** | **None.** Zero maps on any slot ([`cart.js:118`](../../src/cart.js:118)–`152`). |
+| **The carts** | **None.** Zero maps on any slot ([`cart.js:118`](../../src/carts/cart.js:118)–`152`). |
 
 So "preserve what we've established" holds further than a first read suggests. The arenas
 already speak this material language — the vinyl's play wear and the deck's traffic scuffs are
@@ -169,7 +169,7 @@ against; it does not wait on ART-MAT-1, which is the separate runtime card that 
 the shipped game.
 
 **Slots and their required maps.** Current cart materials are at
-[`cart.js:118`](../../src/cart.js:118)–`152`, all `createPhysicalMaterial` with no maps of any
+[`cart.js:118`](../../src/carts/cart.js:118)–`152`, all `createPhysicalMaterial` with no maps of any
 kind:
 
 | Slot | Current | Required maps |
@@ -253,7 +253,7 @@ principle: a prop that carries the arena's theme is a hero surface however small
 ribs, truss, stage clutter). Exempt surfaces must not be given dummy maps to satisfy the rule.
 
 **Status today: every arena surface on the allowlist PASSES. The carts FAIL** — no maps on any
-slot ([`cart.js:118`](../../src/cart.js:118)). The rule is not a texturing backlog for the
+slot ([`cart.js:118`](../../src/carts/cart.js:118)). The rule is not a texturing backlog for the
 arenas; it is a floor that the arenas already clear and the carts do not. Automatable later as
 a static check over the allowlist.
 

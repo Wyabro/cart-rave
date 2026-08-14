@@ -1,21 +1,21 @@
 import * as THREE from "three";
 import { RAPIER } from "./physics/rapierInstance.js";
-import { buildCart } from "./cart.js";
-import { normalizeThemeId } from "./cartThemeConfig.js";
+import { buildCart } from "./carts/cart.js";
+import { normalizeThemeId } from "./carts/cartThemeConfig.js";
 import {
   createRaveGltfCartInstance,
   disposeRaveGltfInstance,
   isRaveGltfSourceReady,
   prepareRaveGltfCart,
   setEmissiveTrimMul,
-} from "./cartRaveGltf.js";
+} from "./carts/cartRaveGltf.js";
 import { CONFIG, computeSpawnAngleForSlot } from "./config.js";
-import { resolveCartThemeForSlot, resolveCartSunglassesStyleForSlot } from "./customization.js";
+import { resolveCartThemeForSlot, resolveCartSunglassesStyleForSlot } from "./carts/customization.js";
 import {
   applyCartTheme,
   buildCartThemeMaterialCache,
   disposeCartThemeResources,
-} from "./cartThemes.js";
+} from "./carts/cartThemes.js";
 import * as ContactShadows from "./contactShadows.js";
 import * as Visuals from "./effects/visuals.js";
 import * as GameState from "./stores/gameStore.js";
@@ -30,7 +30,7 @@ import {
   clearCargoOverflowForSlot,
 } from "./cargoLoad.js";
 import { cleanupShatter } from "./cartShatter.js";
-import { applyCartPattern } from "./cartPatterns.js";
+import { applyCartPattern } from "./carts/cartPatterns.js";
 import * as GroceryPool from "./effects/groceryPool.js";
 import { stopSfx, stopAllSfx } from "./audioManager.js";
 

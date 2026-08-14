@@ -4,7 +4,7 @@
 
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import { buildCart } from "./cart.js";
+import { buildCart } from "./carts/cart.js";
 import * as Simulation from "./simulation.js";
 import * as GameState from "./stores/gameStore.js";
 import { CONFIG } from "./config.js";

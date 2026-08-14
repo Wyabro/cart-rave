@@ -5,8 +5,8 @@
 
 import { describe, expect, it } from "vitest";
 import * as THREE from "three";
-import { splitRaveGltfVisorGeometry } from "../src/cartRaveGltf.js";
-import { SUNGLASSES_STYLES } from "../src/cartThemeConfig.js";
+import { splitRaveGltfVisorGeometry } from "../src/carts/cartRaveGltf.js";
+import { SUNGLASSES_STYLES } from "../src/carts/cartThemeConfig.js";
 
 describe("SHADES-MAT-1 — visor material contract", () => {
   it("routes lens-facing triangles into material group 1", () => {

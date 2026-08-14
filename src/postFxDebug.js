@@ -9,7 +9,7 @@ import {
   CUSTOMIZE_STORAGE_KEY,
   invalidateCustomizationCache,
   loadPlayerCustomization,
-} from "./customization.js";
+} from "./carts/customization.js";
 import { raveGltfTuning } from "./stores/cartTuningStore.js";
 import { wireRaveGltfCartDebugTweakpane } from "./raveGltfCartTweakpane.js";
 import { wireGameplayTunePane } from "./gameplayTunePane.js";

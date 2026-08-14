@@ -16,11 +16,11 @@ function readSrc(rel) {
 
 /** Static import line of netcode.js (not netcode/load, not comments). */
 const STATIC_NETCODE_IMPORT =
-  /^\s*import\b[^;]*from\s+["'](?:\.\.\/)*netcode\.js["']/m;
+  /^\s*import\b[^;]*from\s+["'][^"']*\/netcode\.js["']/m;
 
 /** Static import of cartRaveGltf.js */
 const STATIC_GLTF_IMPORT =
-  /^\s*import\b[^;]*from\s+["'](?:\.\.\/)*cartRaveGltf\.js["']/m;
+  /^\s*import\b[^;]*from\s+["'][^"']*\/cartRaveGltf\.js["']/m;
 
 const EAGER_MUST_NOT_STATIC_NETCODE = [
   "src/main.js",

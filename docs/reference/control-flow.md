@@ -170,9 +170,9 @@ change. Round-state commands import from `stores/gameStore.js` only (**STORE-1**
   ~3,000-line level modules are reachable **only** through this table. `src/levels/index.js` is a
   loader, not a barrel.
 - **Three.js behavior is data-driven.** ~313 `userData` references and ~40 `.traverse()` calls.
-  Keys like [`raveGltfPartRole`](../../src/cartRaveGltf.js), `userData.cartVisual`,
+  Keys like [`raveGltfPartRole`](../../src/carts/cartRaveGltf.js), `userData.cartVisual`,
   `userData.deathState`, `userData.cameraMode`, `userData.followState` are state machines keyed off
-  scene-graph annotations — concentrated in [src/cartRaveGltf.js](../../src/cartRaveGltf.js). No
+  scene-graph annotations — concentrated in [src/carts/cartRaveGltf.js](../../src/carts/cartRaveGltf.js). No
   call edges exist to find; grep the `userData` key instead.
 - **DOM custom events** — a small seam, 4 names only: `cartrave:menu`, `cartrave:level-changed`,
   `cartrave:customization-changed`, `cartrave:round-started` (~13 sites; dispatched from

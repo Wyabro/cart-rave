@@ -27,20 +27,20 @@ import {
   resolveCartPatternForSlot,
   resolveCartSunglassesStyleForSlot,
   resolveCartThemeForSlot,
-} from "../customization.js";
+} from "../carts/customization.js";
 // * BUNDLE-1 Lever E: the three slot-identity helpers moved to the leaf module
 // * cartIdentity.js so main.js can import them WITHOUT pulling this module's heavy
 // * graph (simulation/entities/hud/effects) onto the eager side of the gameBoot split.
 // * Other consumers (gameBoot, roundLifecycle) import them from cartIdentity.js directly —
 // * no re-export here, so there is exactly one definition site.
 import { displayColorHexForSlot, displayCssColorForSlot } from "./cartIdentity.js";
-import { applyCartPattern } from "../cartPatterns.js";
-import { setEmissiveTrimMul } from "../cartRaveGltf.js";
-import { getCartTheme } from "../cartThemeConfig.js";
+import { applyCartPattern } from "../carts/cartPatterns.js";
+import { setEmissiveTrimMul } from "../carts/cartRaveGltf.js";
+import { getCartTheme } from "../carts/cartThemeConfig.js";
 import {
   applyThemeColorToCache,
   buildCartThemeMaterialCache,
-} from "../cartThemes.js";
+} from "../carts/cartThemes.js";
 import { svgIcon } from "../ui/icons.js";
 import {
   getActiveAiDifficulty,

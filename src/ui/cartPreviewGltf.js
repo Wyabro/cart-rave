@@ -2,7 +2,7 @@
  * cartPreviewGltf.js — Menu preview adapter for the shared rave GLTF cart (`cartRaveGltf.js`).
  */
 
-import { DEFAULT_CART_THEME, normalizeThemeId } from "../cartThemeConfig.js";
+import { DEFAULT_CART_THEME, normalizeThemeId } from "../carts/cartThemeConfig.js";
 import { cartEmissiveIntensityForHex, emissiveRefHexForNeonHex } from "../utils.js";
 import {
   createRaveGltfCartInstance,
@@ -10,9 +10,9 @@ import {
   isRaveGltfSourceReady,
   prefetchRaveGltf,
   prepareRaveGltfCart,
-} from "../cartRaveGltf.js";
+} from "../carts/cartRaveGltf.js";
 
-/** @typedef {import("../cartThemes.js").CartThemeMaterialCache} CartThemeMaterialCache */
+/** @typedef {import("../carts/cartThemes.js").CartThemeMaterialCache} CartThemeMaterialCache */
 
 export function prefetchPreviewCartGltf(themeId = DEFAULT_CART_THEME) {
   if (normalizeThemeId(themeId) !== "rave") return Promise.resolve(null);

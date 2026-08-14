@@ -9,9 +9,9 @@
  */
 
 import * as THREE from "three";
-import { createPhysicalMaterial, getMaterialEnvMapIntensity } from "./scene.js";
+import { createPhysicalMaterial, getMaterialEnvMapIntensity } from "../scene.js";
 import { getCartTheme, normalizeThemeId } from "./cartThemeConfig.js";
-import { cartEmissiveIntensityForHex, emissiveRefHexForNeonHex } from "./utils.js";
+import { cartEmissiveIntensityForHex, emissiveRefHexForNeonHex } from "../utils.js";
 import {
   applyRaveGltfColorToCache,
   applyRaveGltfLeaderGlow,

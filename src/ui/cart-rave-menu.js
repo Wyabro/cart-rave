@@ -8,7 +8,7 @@ import {
   loadPlayerCustomization,
   normalizeHue,
   savePlayerCustomization,
-} from "../customization.js";
+} from "../carts/customization.js";
 import {
   CART_PATTERN_IDS,
   CART_PATTERNS,
@@ -16,12 +16,12 @@ import {
   makePatternMiniCartSvg,
   normalizePatternId,
   patternSvgParts,
-} from "../cartPatternConfig.js";
+} from "../carts/cartPatternConfig.js";
 import {
   DEFAULT_CART_THEME,
   DEFAULT_SUNGLASSES_STYLE,
   SUNGLASSES_STYLES,
-} from "../cartThemeConfig.js";
+} from "../carts/cartThemeConfig.js";
 // * CHUNK-DEFER-1 L1b: CartPreview + cartPreviewGltf pull cartRaveGltf — dynamic only.
 import { isTouchDevice } from "../utils.js";
 import { getQualityTier } from "../utils/qualityMode.js";

@@ -19,13 +19,13 @@
 
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { getSharedDracoLoader } from "./loaders/sharedDracoLoader.js";
+import { getSharedDracoLoader } from "../loaders/sharedDracoLoader.js";
 import { applyCartPattern } from "./cartPatterns.js";
 import { CART_THEMES, resolveSunglassesStyle } from "./cartThemeConfig.js";
-import { createPhysicalMaterial, getMaterialEnvMapIntensity } from "./scene.js";
-import { cartEmissiveIntensityForHex, emissiveRefHexForNeonHex, lerpAngle } from "./utils.js";
-import { raveGltfTuning, cartTuningStore } from "./stores/cartTuningStore.js";
-import { publicUrl } from "./utils/publicUrl.js";
+import { createPhysicalMaterial, getMaterialEnvMapIntensity } from "../scene.js";
+import { cartEmissiveIntensityForHex, emissiveRefHexForNeonHex, lerpAngle } from "../utils.js";
+import { raveGltfTuning, cartTuningStore } from "../stores/cartTuningStore.js";
+import { publicUrl } from "../utils/publicUrl.js";
 
 /** @typedef {import("./cartThemes.js").CartThemeMaterialCache} CartThemeMaterialCache */
 /** @typedef {import("./cartThemeConfig.js").SunglassesStyleDef} SunglassesStyleDef */

@@ -24,8 +24,8 @@
  * See also: `isDevUnlockAll()` in `src/stores/unlockStore.js`, `.cursorrules`.
  */
 
-import { DEFAULT_CART_PATTERN } from "./cartPatternConfig.js";
-import { DEFAULT_SUNGLASSES_STYLE } from "./cartThemeConfig.js";
+import { DEFAULT_CART_PATTERN } from "./carts/cartPatternConfig.js";
+import { DEFAULT_SUNGLASSES_STYLE } from "./carts/cartThemeConfig.js";
 import { ARENA_CATALOG } from "./levels/arenaCatalog.js";
 import { PROGRESSION_EVENTS } from "./progression/eventIds.js";
 

@@ -11,7 +11,7 @@
 // gameplay/render module here — a static edge would silently re-eager the graph.
 
 import { getNetcode } from "../netcode/load.js";
-import { resolveCartNeonCss, resolveCartNeonHex } from "../customization.js";
+import { resolveCartNeonCss, resolveCartNeonHex } from "../carts/customization.js";
 import { drawNpcNamesByPersonality, rotateNpcPersonalityOrder } from "../npcNames.js";
 
 /** Numeric hex for cart materials, particles and shatter debris. */

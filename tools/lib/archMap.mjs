@@ -232,15 +232,9 @@ export const SYSTEMS = [
     name: "Carts & customization",
     responsibility:
       "Cart entity + the rave GLB rig, cosmetic pattern/theme tables, and the customization flow that applies them.",
-    entry: ["src/cart.js"],
+    entry: ["src/carts/cart.js"],
     members: [
-      "src/cart.js",
-      "src/cartRaveGltf.js",
-      "src/cartPatternConfig.js",
-      "src/cartPatterns.js",
-      "src/cartThemeConfig.js",
-      "src/cartThemes.js",
-      "src/customization.js",
+      "src/carts/",
     ],
     notes: [
       "cartRaveGltf.js is the userData state-machine hub — raveGltfPartRole/cartVisual/deathState/followState keys drive behavior with no call edges (grep the userData key, not a caller).",
@@ -475,7 +469,7 @@ export const IMPORTANT_FILES = [
   { path: "src/simulation.js", role: "Host Rapier physics + the single drainCollisionEvents callback; bot decision logic lives here too." },
   { path: "src/levels/levelManager.js", role: "Level preview + hot-swap; driven by the LevelManagerDeps typedef contract — read the typedef before touching swaps." },
   { path: "src/levels/index.js", role: "LEVEL_IMPORTERS dynamic id→import() table, a loader NOT a barrel — the only way the four level modules are reached." },
-  { path: "src/cartRaveGltf.js", role: "userData state-machine hub (raveGltfPartRole/cartVisual/deathState/followState) — grep the userData key, there are no call edges." },
+  { path: "src/carts/cartRaveGltf.js", role: "userData state-machine hub (raveGltfPartRole/cartVisual/deathState/followState) — grep the userData key, there are no call edges." },
   { path: "src/config.js", role: "CART_COLORS (invariant, do not modify) + the CONFIG knob table incl. CONFIG.round.durationMs (imports ROUND_DURATION_MS)." },
   { path: "src/hud.js", role: "In-game HUD; updateStatus() owns the countdown beat display (COUNTDOWN-SYNC-1). No unit tests — visual-QA gated." },
   { path: "src/stores/gameStore.js", role: "The highest-blast-radius store: 4 subscribers (analytics, announcer, directives, diagnostics) react to every shape change, all keyed off roundPhase. Named command functions (addScore, syncRoundPhase, pickTimerWinner) live here after STORE-1. The diagnostics subscriber is ?diag-gated, so fewer run in an ordinary session; many more modules poll getState() instead." },
