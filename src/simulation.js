@@ -825,6 +825,9 @@ function applyArcadeControls(cart, axis, dtFixed, nowMs, callbacks) {
     applySquareHoleLipAssist(cart, dtFixed, nowMs);
   }
   rereadLinvelIntoScratch(cart);
+  // * Solid un-climbable obstacles (Storerooms furniture pile) shove pressing carts back out.
+  applyWallKeepOutBounce(cart, dtFixed);
+  rereadLinvelIntoScratch(cart);
   applyGeometryUnstick(cart, dtFixed, nowMs);
 
   // * Pitch/roll angular clamp intentionally off — V1 tipping must stay free near the hole lip.
@@ -963,6 +966,89 @@ function applySquareHoleSuction(cart, dtFixed, nowMs) {
       cart.suctionCreditStampMs = nowMs;
     }
   }
+}
+
+// * Wall keep-out bounce (Storerooms furniture pile). Rapier's contact solver alone cannot
+// * free a cart pressing into the hull: the drive force keeps feeding into the contact, and
+// * applyGeometryUnstick only arms after 2s under 1.2 m/s AND under 0.45m of travel, so a cart
+// * sawing the face at 2-3 m/s never qualifies for it. This adds a directed outward shove that
+// * scales with how hard the cart is driving in, so a fast crash bounces off (still funny) and
+// * a slow wedge is walked back out instead of trapping the cart. Symmetric across humans and
+// * NPCs — asymmetric physics reads as cheating. Only `wall` zones (un-climbable) qualify, so
+// * Sundial's drivable podium is untouched.
+const WALL_BOUNCE_PAD = 0.9; // m outside the keep-out radius counted as pressing contact
+const WALL_BOUNCE_PEAK_ACCEL = 17; // m/s² outward at full penetration, for a stationary wedge
+const WALL_BOUNCE_RESTITUTION_GAIN = 1.7; // extra outward m/s² per m/s of inward drive (depth-scaled)
+const WALL_BOUNCE_MAX_Y = 1.6; // m — above this a cart is ON the pile, not wedged against it
+
+/**
+ * * Pure bounce solve for a point pressing into a `wall` circular keep-out. Returns the
+ * outward push acceleration (m/s²) and unit direction away from the obstacle, plus
+ * penetration depth (0 at the pad's outer edge → 1 at the keep-out radius), or null when
+ * the point is clear of every wall zone. Exported for tests; the impulse application lives
+ * in {@link applyWallKeepOutBounce}.
+ *
+ * @param {number} px
+ * @param {number} pz
+ * @param {number} vx Planar velocity X (drives the bounce-back term).
+ * @param {number} vz Planar velocity Z.
+ * @returns {{ outX: number, outZ: number, accel: number, depth: number } | null}
+ */
+export function computeWallKeepOutBounce(px, pz, vx, vz) {
+  const zones = (_levelHazards ?? _octagonHazards)?.circularKeepOuts;
+  if (!zones?.length) return null;
+
+  let best = null;
+  let bestDepth = 0;
+  for (let i = 0; i < zones.length; i += 1) {
+    const ko = zones[i];
+    if (!ko.wall) continue;
+    const dx = px - ko.x;
+    const dz = pz - ko.z;
+    const dist = Math.hypot(dx, dz);
+    const depth = clamp((ko.radius + WALL_BOUNCE_PAD - dist) / WALL_BOUNCE_PAD, 0, 1);
+    if (depth <= 0 || depth <= bestDepth) continue;
+    const len = dist || 1;
+    bestDepth = depth;
+    best = dist > 1e-6
+      ? { outX: dx / len, outZ: dz / len, depth }
+      : { outX: 1, outZ: 0, depth };
+  }
+  if (!best) return null;
+
+  const inward = -(vx * best.outX + vz * best.outZ); // + = still driving into the obstacle
+  let accel = best.depth * WALL_BOUNCE_PEAK_ACCEL;
+  if (inward > 0) accel += inward * WALL_BOUNCE_RESTITUTION_GAIN * best.depth;
+
+  return { outX: best.outX, outZ: best.outZ, accel, depth: best.depth };
+}
+
+/**
+ * * Storerooms furniture-pile bounce — see the WALL_BOUNCE_* block. Reads pos + linvel from
+ * the module scratch cache (populated by the caller). Runs wherever the cart's physics is
+ * simulated (host: all carts; client: its predicted local cart) so prediction stays consistent.
+ *
+ * @param {object} cart
+ * @param {number} dtFixed
+ */
+function applyWallKeepOutBounce(cart, dtFixed) {
+  if (!cart?.body || cart.respawnAtMs != null || !dtFixed) return;
+
+  const pos = _scratchPos;
+  // * A cart launched onto the pile top is inside the radius but not wedged — leave it be.
+  if (pos.y > WALL_BOUNCE_MAX_Y) return;
+
+  const lv = _scratchLinvel;
+  const b = computeWallKeepOutBounce(pos.x, pos.z, lv.x, lv.z);
+  if (!b) return;
+
+  const mass = getBodyMass(cart.body);
+  const mag = b.accel * mass * dtFixed;
+  _impulse.x = b.outX * mag;
+  _impulse.y = 0;
+  _impulse.z = b.outZ * mag;
+  cart.body.applyImpulse(_impulse, true);
+  cart.body.wakeUp();
 }
 
 /**
@@ -1367,7 +1453,10 @@ const AI_CAUTIOUS_MS = 8000;
  *   avoidMargin: number,
  *   influenceBand: number,
  *   suctionBand?: number,
- *   circularKeepOuts?: { x: number, z: number, radius: number, margin?: number, solid?: boolean }[],
+ *   circularKeepOuts?: {
+ *     x: number, z: number, radius: number, margin?: number,
+ *     solid?: boolean, wall?: boolean,
+ *   }[],
  *   acLaunchers?: readonly object[],
  * } | null}
  */
@@ -1470,7 +1559,10 @@ function applyLevelAcLauncher(cart, nowMs) {
  * @type {{
  *   arenaHalf?: number,
  *   circumRadius?: number,
- *   circularKeepOuts?: { x: number, z: number, radius: number, margin?: number, solid?: boolean }[],
+ *   circularKeepOuts?: {
+ *     x: number, z: number, radius: number, margin?: number,
+ *     solid?: boolean, wall?: boolean,
+ *   }[],
  * } | null}
  */
 let _octagonHazards = null;
@@ -1797,18 +1889,35 @@ function pushPointOutOfCircularKeepOuts(x, z, extraMargin = 0) {
   return { x: px, z: pz };
 }
 
+// * Wall keep-outs (Storerooms furniture pile) steer tangentially from further out than the
+// * radial band: a tangent curves the approach without braking it, so engaging early is
+// * cheap. Radial-only repulsion cannot route around an obstacle at all — aimed at the
+// * center it is exactly anti-parallel to the heading, so it yields zero lateral steer and
+// * the bot just drives in, flips, and re-approaches (playtest 2026-08-14).
+const WALL_TANGENT_REACH_MUL = 2.2; // × margin beyond the keep-out edge where the tangent engages
+const WALL_TANGENT_GAIN = 2.1; // tangent weight at a fully head-on approach
+
 /**
  * Blends repulsion away from circular keep-out zones into a planar heading.
+ *
+ * Zones flagged `wall` (un-climbable obstacles) also get a tangential term so the heading
+ * curves *around* them. The tangent is weighted by how head-on the approach is, which is
+ * exactly where the radial term degenerates, and it picks the side that stays closer to the
+ * chase target so the bot takes the short way round.
  *
  * @param {number} px
  * @param {number} pz
  * @param {THREE.Vector3} dir
+ * @param {number} [targetX] Chase target X, biasing which way to round a wall zone.
+ * @param {number} [targetZ] Chase target Z.
  */
-function applyCircularKeepOutAvoidance(px, pz, dir) {
+export function applyCircularKeepOutAvoidance(px, pz, dir, targetX, targetZ) {
   const zones = (_levelHazards ?? _octagonHazards)?.circularKeepOuts;
   if (!zones?.length) return;
   let rx = 0;
   let rz = 0;
+  let tx = 0;
+  let tz = 0;
   for (let i = 0; i < zones.length; i += 1) {
     const ko = zones[i];
     const dx = px - ko.x;
@@ -1816,16 +1925,34 @@ function applyCircularKeepOutAvoidance(px, pz, dir) {
     const dist = Math.hypot(dx, dz);
     const edge = ko.radius + (ko.margin ?? 1.5);
     const band = ko.margin ?? 1.5;
-    if (dist >= edge + band) continue;
     const len = dist || 1;
+    const outX = dx / len;
+    const outZ = dz / len;
+
+    if (ko.wall) {
+      const reach = edge + band * WALL_TANGENT_REACH_MUL;
+      if (dist < reach) {
+        // * headOn: 1 when driving straight at the center, 0 when already tangent or leaving.
+        const headOn = clamp(-(dir.x * outX + dir.z * outZ), 0, 1);
+        if (headOn > 0) {
+          const esc = circularKeepOutTangentEscape(px, pz, ko, targetX, targetZ);
+          const proximity = clamp((reach - dist) / (reach - ko.radius || 1), 0, 1);
+          const w = headOn * proximity * WALL_TANGENT_GAIN;
+          tx += esc.x * w;
+          tz += esc.z * w;
+        }
+      }
+    }
+
+    if (dist >= edge + band) continue;
     const strength = clamp((edge + band - dist) / band, 0, 2.4);
-    rx += (dx / len) * strength;
-    rz += (dz / len) * strength;
+    rx += outX * strength;
+    rz += outZ * strength;
   }
-  if (rx === 0 && rz === 0) return;
-  dir.x += rx * 1.6;
-  dir.z += rz * 1.6;
-  if (dir.lengthSq() < 1e-6) dir.set(rx, 0, rz);
+  if (rx === 0 && rz === 0 && tx === 0 && tz === 0) return;
+  dir.x += rx * 1.6 + tx;
+  dir.z += rz * 1.6 + tz;
+  if (dir.lengthSq() < 1e-6) dir.set(rx + tx, 0, rz + tz);
   dir.normalize();
 }
 
@@ -3002,7 +3129,7 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
   if (_levelHazards) {
     // * Backrooms: square-void keep-out zones + circular furniture avoidance.
     applySquareHoleAvoidance(p.x, p.z, lv, toTarget, cart.aiTarget.x, cart.aiTarget.z);
-    applyCircularKeepOutAvoidance(p.x, p.z, toTarget);
+    applyCircularKeepOutAvoidance(p.x, p.z, toTarget, cart.aiTarget.x, cart.aiTarget.z);
   } else if (_octagonHazards) {
     // * Open octagon: steer away from the outer kill rim always, and around the center
     // * podium keep-out UNLESS this bot is actively contesting a camper on the high ground.

@@ -269,9 +269,15 @@ function registerProbes(deps) {
       // * NPC identity is net-slot kind — cart.isNpc is never set on live carts
       // * (gameLoop resolveNpcCarts, netharness hostMigration, diagnostics.md).
       if (!c || slots[i]?.kind !== "npc") continue;
+      const pos = safeCall(() => c.body?.translation()) ?? null;
+      const vel = safeCall(() => c.body?.linvel()) ?? null;
       npcs.push({
         slot: i,
         name: slots[i]?.name ?? null,
+        // * Position + planar speed make obstacle-wedging measurable from a harness
+        // * (e.g. time spent inside the Storerooms furniture-pile footprint).
+        pos: pos ? { x: round2(pos.x), y: round2(pos.y), z: round2(pos.z) } : null,
+        speed: vel ? round2(Math.hypot(vel.x, vel.z)) : null,
         target: c.aiTarget ? { x: round2(c.aiTarget.x), z: round2(c.aiTarget.z) } : null,
         paused: typeof c.aiPauseUntilMs === "number" && c.aiPauseUntilMs > now,
         reversing: typeof c.aiReverseUntilMs === "number" && c.aiReverseUntilMs > now,

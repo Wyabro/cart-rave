@@ -4105,7 +4105,10 @@ export function initBackroomsSupermarket(scene, world, config, options = {}) {
       // * solid: center furniture is a hard obstacle, not a void — the AI-2 wedge
       // * fix (reverse-off + tangent escape) keys off this semantic, and the
       // * backrooms no-reverse gate already excludes it structurally.
-      circularKeepOuts: [{ x: 0, z: 0, radius: 3.4, margin: 1.7, solid: true }],
+      // * wall: the hull sides rise ~74° from the floor, so unlike Sundial's drivable
+      // * podium this is un-climbable geometry. Bots steer around it tangentially and
+      // * carts that press into it get shoved back out (simulation.js wall keep-out).
+      circularKeepOuts: [{ x: 0, z: 0, radius: 3.4, margin: 1.7, solid: true, wall: true }],
     },
     update: (timeMs) => {
       spotlightUpdateFn(timeMs);
