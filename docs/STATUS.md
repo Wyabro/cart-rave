@@ -30,7 +30,8 @@ are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Analyt
 external testers. Stay in this phase until Wyatt advances the marker.
 
 **All solo-checkable playtest cards are closed (08-13).** Deferred (two machines / launch day):
-**STORE-PILE-PT-1** is the new solo owed card (08-14) — see BACKLOG `## Playtest owed`.
+**STORE-PILE-PT-1** · **SUNGLASSES-OBSIDIAN-PT-1** (new solo owed card, 08-14 — obsidian
+shades darkened, `fe91388`) — see BACKLOG `## Playtest owed`.
 **CARGO-BAY-INSTANCE-PT-3** · **CONN-TRACK-LEAK-PT-1** · **QP-ROTATE-PT-1** · **SHARD-PT-2**.
 Open agent picks live in [BACKLOG.md](./planning/BACKLOG.md) Work order Blocks 4–5 / 7.
 
