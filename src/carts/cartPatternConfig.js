@@ -3,22 +3,80 @@
  * Shared by customization persistence, menu UI, and cartPatterns.js wireframe masks.
  */
 
+import { CART_COLORS } from "../config.js";
+
 /** @typedef {typeof CART_PATTERN_IDS[number]} CartPatternId */
 
 /** Ordered list of selectable pattern ids (classic = no mask). */
-export const CART_PATTERN_IDS = ["classic", "stripes", "checker", "dots", "waves", "bolt"];
+export const CART_PATTERN_IDS = [
+  "classic", "stripes", "checker", "dots", "waves", "bolt", "honeycomb", "diamond", "cubes",
+];
 
 export const DEFAULT_CART_PATTERN = "classic";
+
+/** @type {ReadonlyArray<CartPatternId>} */
+const MULTICOLOR_PATTERN_IDS = Object.freeze(["honeycomb", "diamond", "cubes"]);
+const MULTICOLOR_PATTERN_SET = new Set(MULTICOLOR_PATTERN_IDS);
 
 /** @type {Record<CartPatternId, { label: string, description: string }>} */
 export const CART_PATTERNS = {
   classic: { label: "Classic", description: "Solid neon grid" },
   stripes: { label: "Stripes", description: "Diagonal dark stripes" },
   checker: { label: "Checker", description: "Dark checker mask" },
-  dots: { label: "Dots", description: "Polka voids" },
+  // * Keep this historical id: existing saved Dots selections now load as Maze.
+  dots: { label: "Maze", description: "Intricate dark maze lines" },
   waves: { label: "Waves", description: "Ripple bands" },
   bolt: { label: "Bolt", description: "Electric chevron zigzag" },
+  honeycomb: { label: "Honeycomb", description: "Multicolor interlocking hexes" },
+  diamond: { label: "Diamond Weave", description: "Multicolor nested diamonds" },
+  cubes: { label: "Isometric Cubes", description: "Multicolor cube tessellation" },
 };
+
+const CART_COLOR_HEXES = Object.values(CART_COLORS).map(({ hex }) => hex);
+const MULTICOLOR_OFFSETS = {
+  honeycomb: [1, 2],
+  diamond: [2, 3],
+  cubes: [3, 4],
+};
+
+/** @param {number} hex @returns {number} */
+function cleanHex(hex) {
+  return Number.isFinite(hex) ? Math.floor(hex) & 0xffffff : 0xff2bd6;
+}
+
+/** @param {number} hex @returns {[number, number, number]} */
+function rgb(hex) {
+  const n = cleanHex(hex);
+  return [(n >> 16) & 0xff, (n >> 8) & 0xff, n & 0xff];
+}
+
+/** @param {number} a @param {number} b @param {number} amount @returns {number} */
+function blendHex(a, b, amount) {
+  const [ar, ag, ab] = rgb(a);
+  const [br, bg, bb] = rgb(b);
+  const t = Math.max(0, Math.min(1, amount));
+  return (
+    (Math.round(ar + (br - ar) * t) << 16)
+    | (Math.round(ag + (bg - ag) * t) << 8)
+    | Math.round(ab + (bb - ab) * t)
+  ) >>> 0;
+}
+
+/** @param {number} hex @returns {number} */
+function nearestCartColorIndex(hex) {
+  const [r, g, b] = rgb(hex);
+  let bestIndex = 0;
+  let bestDistance = Infinity;
+  for (let i = 0; i < CART_COLOR_HEXES.length; i += 1) {
+    const [cr, cg, cb] = rgb(CART_COLOR_HEXES[i]);
+    const distance = (r - cr) ** 2 + (g - cg) ** 2 + (b - cb) ** 2;
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      bestIndex = i;
+    }
+  }
+  return bestIndex;
+}
 
 /**
  * @param {unknown} value
@@ -29,6 +87,51 @@ export function normalizePatternId(value) {
     return /** @type {CartPatternId} */ (value);
   }
   return DEFAULT_CART_PATTERN;
+}
+
+/**
+ * Whether a pattern uses the selected-color-led multicolor shader path.
+ * @param {string} patternId
+ * @returns {boolean}
+ */
+export function isMulticolorPattern(patternId) {
+  return MULTICOLOR_PATTERN_SET.has(normalizePatternId(patternId));
+}
+
+/**
+ * Selected cart neon plus two brand-aligned accents for a multicolor pattern.
+ * The base remains dominant; accents are blended toward different CART_COLORS entries.
+ * @param {string} patternId
+ * @param {number} neonHex
+ * @returns {[number, number, number]}
+ */
+export function getPatternAccentHexes(patternId, neonHex) {
+  const id = normalizePatternId(patternId);
+  const base = cleanHex(neonHex);
+  if (!isMulticolorPattern(id)) return [base, base, base];
+
+  const [firstOffset, secondOffset] = MULTICOLOR_OFFSETS[id];
+  const nearest = nearestCartColorIndex(base);
+  const firstAnchor = CART_COLOR_HEXES[(nearest + firstOffset) % CART_COLOR_HEXES.length];
+  const secondAnchor = CART_COLOR_HEXES[(nearest + secondOffset) % CART_COLOR_HEXES.length];
+  return [base, blendHex(base, firstAnchor, 0.9), blendHex(base, secondAnchor, 0.9)];
+}
+
+/** @param {number} hex @returns {string} */
+function cssHex(hex) {
+  return `#${cleanHex(hex).toString(16).padStart(6, "0")}`;
+}
+
+/** @param {string} value @returns {number} */
+function hexFromCss(value) {
+  const match = /^#?([0-9a-f]{6})$/i.exec(value || "");
+  return match ? Number.parseInt(match[1], 16) : 0xff2bd6;
+}
+
+/** @param {string} patternId @param {string} colorCss @returns {[string, string, string]} */
+function getPatternAccentCss(patternId, colorCss) {
+  const [base, accentA, accentB] = getPatternAccentHexes(patternId, hexFromCss(colorCss));
+  return [cssHex(base), cssHex(accentA), cssHex(accentB)];
 }
 
 /**
@@ -54,9 +157,9 @@ function patternMaskTileSvg(patternId, patternUid) {
         <rect x="7" y="7" width="7" height="7" fill="black"/>
       </pattern>`;
     case "dots":
-      return `<pattern id="${uid}-tile" width="16" height="16" patternUnits="userSpaceOnUse">
-        <rect width="16" height="16" fill="white"/>
-        <circle cx="8" cy="8" r="6.5" fill="black"/>
+      return `<pattern id="${uid}-tile" width="32" height="32" patternUnits="userSpaceOnUse">
+        <rect width="32" height="32" fill="white"/>
+        <path d="M0 7 H17 V0 M32 25 H15 V32 M7 0 V17 H0 M25 32 V15 H32" fill="none" stroke="black" stroke-width="5" stroke-linecap="square"/>
       </pattern>`;
     case "waves":
       return `<pattern id="${uid}-tile" width="24" height="16" patternUnits="userSpaceOnUse">
@@ -74,6 +177,48 @@ function patternMaskTileSvg(patternId, patternUid) {
     default:
       return "";
   }
+}
+
+/**
+ * SVG tile for multicolor patterns. Its line families mirror the runtime mask.
+ * @param {CartPatternId} patternId
+ * @param {string} patternUid
+ * @param {[string, string, string]} colors
+ * @returns {string}
+ */
+function multicolorTileSvg(patternId, patternUid, colors) {
+  const [base, accentA, accentB] = colors;
+  const uid = patternUid || "pat";
+  switch (patternId) {
+    case "honeycomb":
+      return `<pattern id="${uid}-tile" width="30" height="26" patternUnits="userSpaceOnUse">
+        <path d="M7 0 H22 L30 6.5 V19.5 L22 26 H7 L0 19.5 V6.5 Z" fill="none" stroke="${base}" stroke-width="3"/>
+        <path d="M7 0 L15 6.5 L7 13 M22 0 L15 6.5 L22 13" fill="none" stroke="${accentA}" stroke-width="2.2"/>
+        <path d="M0 19.5 L7 13 L15 19.5 L22 13 L30 19.5" fill="none" stroke="${accentB}" stroke-width="2.2"/>
+      </pattern>`;
+    case "diamond":
+      return `<pattern id="${uid}-tile" width="28" height="28" patternUnits="userSpaceOnUse">
+        <path d="M14 0 L28 14 L14 28 L0 14 Z" fill="none" stroke="${base}" stroke-width="3"/>
+        <path d="M14 5 L23 14 L14 23 L5 14 Z" fill="none" stroke="${accentA}" stroke-width="2.3"/>
+        <path d="M14 9 L19 14 L14 19 L9 14 Z" fill="none" stroke="${accentB}" stroke-width="2"/>
+      </pattern>`;
+    case "cubes":
+      return `<pattern id="${uid}-tile" width="30" height="26" patternUnits="userSpaceOnUse">
+        <path d="M15 0 L30 8 L30 18 L15 26 L0 18 L0 8 Z" fill="none" stroke="${base}" stroke-width="2.8" stroke-linejoin="round"/>
+        <path d="M15 0 V13 L0 8 M15 13 L30 8" fill="none" stroke="${accentA}" stroke-width="2.4" stroke-linejoin="round"/>
+        <path d="M15 13 V26 M15 13 L0 18 M15 13 L30 18" fill="none" stroke="${accentB}" stroke-width="2.4" stroke-linejoin="round"/>
+      </pattern>`;
+    default:
+      return "";
+  }
+}
+
+/** @param {string} uid @param {string} basketPath @param {string[]} gridLines @returns {string} */
+function basketWireClipSvg(uid, basketPath, gridLines) {
+  return `<clipPath id="${uid}-wire">
+    <path d="${basketPath}" fill="none" stroke="white" stroke-width="7" stroke-linejoin="round"/>
+    ${gridLines.map((d) => `<path d="${d}" fill="none" stroke="white" stroke-width="3" stroke-linecap="round"/>`).join("")}
+  </clipPath>`;
 }
 
 /**
@@ -99,6 +244,18 @@ export function patternSvgParts(patternId, colorCss, patternUid) {
     "M120 50 L120 120",
     "M158 50 L162 120",
   ];
+
+  if (isMulticolorPattern(id)) {
+    const colors = getPatternAccentCss(id, colorCss);
+    const tile = multicolorTileSvg(id, uid, colors);
+    return {
+      defs: `${tile}${basketWireClipSvg(uid, basketPath, gridLines)}`,
+      overlay: `<g clip-path="url(#${uid}-wire)">
+        <rect x="44" y="50" width="156" height="70" fill="${colors[0]}"/>
+        <rect x="44" y="50" width="156" height="70" fill="url(#${uid}-tile)"/>
+      </g>`,
+    };
+  }
 
   return {
     defs: `${tile}
@@ -133,6 +290,18 @@ export function makePatternMiniCartSvg(patternId, colorCss) {
       ${grid.map((d) => `<path d="${d}" stroke="${c}" stroke-width="1.2" stroke-linecap="round"/>`).join("")}
       <circle cx="16" cy="30" r="3.5" fill="none" stroke="${c}" stroke-width="2"/>
       <circle cx="34" cy="30" r="3.5" fill="none" stroke="${c}" stroke-width="2"/>
+    </svg>`;
+  }
+
+  if (isMulticolorPattern(id)) {
+    const colors = getPatternAccentCss(id, c);
+    const tile = multicolorTileSvg(id, uid, colors);
+    const clip = `<clipPath id="${uid}-wire"><path d="${basket}" fill="none" stroke="white" stroke-width="2" stroke-linejoin="round"/>${grid.map((d) => `<path d="${d}" fill="none" stroke="white" stroke-width="1.2" stroke-linecap="round"/>`).join("")}</clipPath>`;
+    return `<svg viewBox="0 0 44 36" width="32" height="26" style="overflow:visible;">
+      <defs>${tile}${clip}</defs>
+      <path d="M2 6 L10 6 L14 20" fill="none" stroke="${c}" stroke-width="2" stroke-linecap="round"/>
+      <g clip-path="url(#${uid}-wire)"><rect x="10" y="10" width="30" height="14" fill="${colors[0]}"/><rect x="10" y="10" width="30" height="14" fill="url(#${uid}-tile)"/></g>
+      <circle cx="16" cy="30" r="3.5" fill="none" stroke="${c}" stroke-width="2"/><circle cx="34" cy="30" r="3.5" fill="none" stroke="${c}" stroke-width="2"/>
     </svg>`;
   }
 

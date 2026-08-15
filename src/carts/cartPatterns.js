@@ -17,6 +17,8 @@ import {
   emissiveRefHexForNeonHex,
 } from "../utils.js";
 import {
+  getPatternAccentHexes,
+  isMulticolorPattern,
   normalizePatternId,
 } from "./cartPatternConfig.js";
 
@@ -31,7 +33,7 @@ const MASK_REPEAT = 3;
 // * Per-pattern tiling override. Geometric patterns want a dense repeat; "bolt" is a hero motif
 // * (one dramatic forking strike), so it tiles far fewer times — big and few, not small and many.
 /** @type {Partial<Record<string, number>>} */
-const PATTERN_REPEAT = { bolt: 1.35 };
+const PATTERN_REPEAT = { bolt: 1.35, honeycomb: 2.2, diamond: 2, cubes: 1.7 };
 
 /** @param {string} id @returns {number} */
 function repeatForPattern(id) {
@@ -75,7 +77,8 @@ function mulberry32(seed) {
 }
 
 /**
- * Grayscale mask: white = full neon glow, black = pattern valley (tinted darker region).
+ * Monochrome masks are grayscale (white = full neon glow, black = darker valley).
+ * Multicolor masks encode their three accent line families in RGB on a black background.
  * @param {CartPatternId} patternId
  * @returns {HTMLCanvasElement}
  */
@@ -122,15 +125,26 @@ function renderPatternMaskCanvas(patternId) {
       break;
     }
     case "dots": {
-      // * Big bold dots on a 16px grid (128 = 8×16 → seamless). r7 ≈ 60% coverage.
-      ctx.fillStyle = dark;
-      const step = 16;
-      const r = 7;
-      for (let y = step / 2; y < size; y += step) {
-        for (let x = step / 2; x < size; x += step) {
+      // * Historical `dots` id now renders a Grecian maze, preserving saved choices.
+      ctx.strokeStyle = dark;
+      ctx.lineWidth = 7;
+      ctx.lineCap = "square";
+      for (let y = -32; y < size + 32; y += 32) {
+        for (let x = -32; x < size + 32; x += 32) {
           ctx.beginPath();
-          ctx.arc(x, y, r, 0, Math.PI * 2);
-          ctx.fill();
+          ctx.moveTo(x, y + 8);
+          ctx.lineTo(x + 18, y + 8);
+          ctx.lineTo(x + 18, y);
+          ctx.moveTo(x + 32, y + 24);
+          ctx.lineTo(x + 14, y + 24);
+          ctx.lineTo(x + 14, y + 32);
+          ctx.moveTo(x + 8, y);
+          ctx.lineTo(x + 8, y + 18);
+          ctx.lineTo(x, y + 18);
+          ctx.moveTo(x + 24, y + 32);
+          ctx.lineTo(x + 24, y + 14);
+          ctx.lineTo(x + 32, y + 14);
+          ctx.stroke();
         }
       }
       break;
@@ -218,6 +232,80 @@ function renderPatternMaskCanvas(patternId) {
       trace(main, 6, glow);
       break;
     }
+    case "honeycomb": {
+      ctx.fillStyle = "#000000";
+      ctx.fillRect(0, 0, size, size);
+      ctx.lineWidth = 5;
+      const colors = ["#ff0000", "#00ff00", "#0000ff"];
+      const side = 16;
+      const halfH = 14;
+      let row = 0;
+      for (let y = -halfH; y < size + halfH; y += halfH * 2, row += 1) {
+        let col = 0;
+        for (let x = -side; x < size + side; x += side * 1.5, col += 1) {
+          const cx = x + (row % 2 ? side * 0.75 : 0);
+          ctx.strokeStyle = colors[(row + col) % colors.length];
+          ctx.beginPath();
+          ctx.moveTo(cx - side, y);
+          ctx.lineTo(cx - side / 2, y - halfH);
+          ctx.lineTo(cx + side / 2, y - halfH);
+          ctx.lineTo(cx + side, y);
+          ctx.lineTo(cx + side / 2, y + halfH);
+          ctx.lineTo(cx - side / 2, y + halfH);
+          ctx.closePath();
+          ctx.stroke();
+        }
+      }
+      break;
+    }
+    case "diamond": {
+      ctx.fillStyle = "#000000";
+      ctx.fillRect(0, 0, size, size);
+      const colors = ["#ff0000", "#00ff00", "#0000ff"];
+      for (let y = -28; y < size + 28; y += 28) {
+        for (let x = -28; x < size + 28; x += 28) {
+          const cx = x + 14;
+          const cy = y + 14;
+          for (let ring = 0; ring < 3; ring += 1) {
+            const radius = 12 - ring * 4;
+            ctx.strokeStyle = colors[ring];
+            ctx.lineWidth = ring === 0 ? 4 : 3;
+            ctx.beginPath();
+            ctx.moveTo(cx, cy - radius);
+            ctx.lineTo(cx + radius, cy);
+            ctx.lineTo(cx, cy + radius);
+            ctx.lineTo(cx - radius, cy);
+            ctx.closePath();
+            ctx.stroke();
+          }
+        }
+      }
+      break;
+    }
+    case "cubes": {
+      ctx.fillStyle = "#000000";
+      ctx.fillRect(0, 0, size, size);
+      const colors = ["#ff0000", "#00ff00", "#0000ff"];
+      for (let y = -26; y < size + 26; y += 26) {
+        for (let x = -30; x < size + 30; x += 30) {
+          const cx = x + 15;
+          const cy = y + 13;
+          const trace = (color, points) => {
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 4;
+            ctx.lineJoin = "round";
+            ctx.beginPath();
+            ctx.moveTo(points[0][0], points[0][1]);
+            for (let i = 1; i < points.length; i += 1) ctx.lineTo(points[i][0], points[i][1]);
+            ctx.stroke();
+          };
+          trace(colors[0], [[cx, cy - 13], [cx + 15, cy - 5], [cx + 15, cy + 5], [cx, cy + 13], [cx - 15, cy + 5], [cx - 15, cy - 5], [cx, cy - 13]]);
+          trace(colors[1], [[cx, cy - 13], [cx, cy], [cx - 15, cy - 5], [cx, cy]]);
+          trace(colors[2], [[cx, cy], [cx + 15, cy - 5], [cx, cy + 13], [cx, cy], [cx - 15, cy + 5]]);
+        }
+      }
+      break;
+    }
     default:
       break;
   }
@@ -273,8 +361,15 @@ function ensureFramePatternInjection(mat, useUv1 = false) {
     uPatternMask: { value: null },
     uPatternRepeat: { value: MASK_REPEAT },
     uPatternStrength: { value: 0 },
+    uPatternMulticolor: { value: 0 },
     uPatternTint: { value: new THREE.Color(1, 1, 1) },
     uPatternEmissive: { value: new THREE.Color(0, 0, 0) },
+    uPatternAccentA: { value: new THREE.Color(1, 1, 1) },
+    uPatternAccentB: { value: new THREE.Color(1, 1, 1) },
+    uPatternAccentC: { value: new THREE.Color(1, 1, 1) },
+    uPatternAccentEmissiveA: { value: new THREE.Color(0, 0, 0) },
+    uPatternAccentEmissiveB: { value: new THREE.Color(0, 0, 0) },
+    uPatternAccentEmissiveC: { value: new THREE.Color(0, 0, 0) },
   };
   ud.cartPatternUniforms = uniforms;
   ud.cartPatternEnabled = false;
@@ -287,8 +382,15 @@ function ensureFramePatternInjection(mat, useUv1 = false) {
     shader.uniforms.uPatternMask = uniforms.uPatternMask;
     shader.uniforms.uPatternRepeat = uniforms.uPatternRepeat;
     shader.uniforms.uPatternStrength = uniforms.uPatternStrength;
+    shader.uniforms.uPatternMulticolor = uniforms.uPatternMulticolor;
     shader.uniforms.uPatternTint = uniforms.uPatternTint;
     shader.uniforms.uPatternEmissive = uniforms.uPatternEmissive;
+    shader.uniforms.uPatternAccentA = uniforms.uPatternAccentA;
+    shader.uniforms.uPatternAccentB = uniforms.uPatternAccentB;
+    shader.uniforms.uPatternAccentC = uniforms.uPatternAccentC;
+    shader.uniforms.uPatternAccentEmissiveA = uniforms.uPatternAccentEmissiveA;
+    shader.uniforms.uPatternAccentEmissiveB = uniforms.uPatternAccentEmissiveB;
+    shader.uniforms.uPatternAccentEmissiveC = uniforms.uPatternAccentEmissiveC;
 
     // * Route mask sampling through the chosen UV channel. `uv` is declared in three's vertex
     // * prefix; the second channel (`uv1`) is NOT declared unless a map uses it (our body maps
@@ -313,27 +415,52 @@ function ensureFramePatternInjection(mat, useUv1 = false) {
           "uniform sampler2D uPatternMask;",
           "uniform float uPatternRepeat;",
           "uniform float uPatternStrength;",
+          "uniform float uPatternMulticolor;",
           "uniform vec3 uPatternTint;",
           "uniform vec3 uPatternEmissive;",
+          "uniform vec3 uPatternAccentA;",
+          "uniform vec3 uPatternAccentB;",
+          "uniform vec3 uPatternAccentC;",
+          "uniform vec3 uPatternAccentEmissiveA;",
+          "uniform vec3 uPatternAccentEmissiveB;",
+          "uniform vec3 uPatternAccentEmissiveC;",
           "varying vec2 vCartPatternUv;",
           "",
         ].join("\n"),
       )
-      // * valley = dark mask region × strength; tint diffuse toward the darker overlay colour.
+      // * Monochrome patterns retain darker valleys. RGB textures route their three line
+      // * families through brand-aligned accent uniforms without a shader-program swap.
       .replace(
         "#include <color_fragment>",
         [
           "#include <color_fragment>",
-          "\tfloat cartPatternValley = ( 1.0 - texture2D( uPatternMask, vCartPatternUv * uPatternRepeat ).r ) * uPatternStrength;",
-          "\tdiffuseColor.rgb = mix( diffuseColor.rgb, uPatternTint, cartPatternValley );",
+          "\tvec3 cartPatternSample = texture2D( uPatternMask, vCartPatternUv * uPatternRepeat ).rgb;",
+          "\tif ( uPatternMulticolor > 0.5 ) {",
+          "\t\tvec3 cartPatternWeights = cartPatternSample * uPatternStrength;",
+          "\t\tfloat cartPatternWeight = min( cartPatternWeights.r + cartPatternWeights.g + cartPatternWeights.b, 1.0 );",
+          "\t\tvec3 cartPatternAccent = ( cartPatternWeights.r * uPatternAccentA + cartPatternWeights.g * uPatternAccentB + cartPatternWeights.b * uPatternAccentC ) / max( cartPatternWeight, 0.0001 );",
+          "\t\tdiffuseColor.rgb = mix( diffuseColor.rgb, cartPatternAccent, cartPatternWeight );",
+          "\t} else {",
+          "\t\tfloat cartPatternValley = ( 1.0 - cartPatternSample.r ) * uPatternStrength;",
+          "\t\tdiffuseColor.rgb = mix( diffuseColor.rgb, uPatternTint, cartPatternValley );",
+          "\t}",
         ].join("\n"),
       )
-      // * Dim wire bloom inside valleys toward the overlay's (dimmer) emissive radiance.
+      // * Dim monochrome valleys, or use the same RGB classification for multicolor emissive.
       .replace(
         "#include <emissivemap_fragment>",
         [
           "#include <emissivemap_fragment>",
-          "\ttotalEmissiveRadiance = mix( totalEmissiveRadiance, uPatternEmissive, cartPatternValley );",
+          "\tvec3 cartPatternSampleEmissive = texture2D( uPatternMask, vCartPatternUv * uPatternRepeat ).rgb;",
+          "\tif ( uPatternMulticolor > 0.5 ) {",
+          "\t\tvec3 cartPatternEmissiveWeights = cartPatternSampleEmissive * uPatternStrength;",
+          "\t\tfloat cartPatternEmissiveWeight = min( cartPatternEmissiveWeights.r + cartPatternEmissiveWeights.g + cartPatternEmissiveWeights.b, 1.0 );",
+          "\t\tvec3 cartPatternAccentEmissive = ( cartPatternEmissiveWeights.r * uPatternAccentEmissiveA + cartPatternEmissiveWeights.g * uPatternAccentEmissiveB + cartPatternEmissiveWeights.b * uPatternAccentEmissiveC ) / max( cartPatternEmissiveWeight, 0.0001 );",
+          "\t\ttotalEmissiveRadiance = mix( totalEmissiveRadiance, cartPatternAccentEmissive, cartPatternEmissiveWeight );",
+          "\t} else {",
+          "\t\tfloat cartPatternValleyEmissive = ( 1.0 - cartPatternSampleEmissive.r ) * uPatternStrength;",
+          "\t\ttotalEmissiveRadiance = mix( totalEmissiveRadiance, uPatternEmissive, cartPatternValleyEmissive );",
+          "\t}",
         ].join("\n"),
       );
   };
@@ -372,6 +499,7 @@ function applyPatternToFrameMaterial(mat, patternId, neonHex, useUv1 = false) {
     uniforms.uPatternMask.value = getPatternMaskTexture(id);
     uniforms.uPatternRepeat.value = repeatForPattern(id);
     uniforms.uPatternStrength.value = PATTERN_OVERLAY_OPACITY;
+    uniforms.uPatternMulticolor.value = isMulticolorPattern(id) ? 1 : 0;
 
     // * Linear-space neon; diffuse tint + emissive radiance mirror the retired overlay material.
     _patternColor.setHex(hex).convertSRGBToLinear();
@@ -384,8 +512,34 @@ function applyPatternToFrameMaterial(mat, patternId, neonHex, useUv1 = false) {
     /** @type {THREE.Color} */ (uniforms.uPatternEmissive.value)
       .copy(_patternColor)
       .multiplyScalar(PATTERN_OVERLAY_TINT_SCALE * emissiveIntensity);
+
+    if (isMulticolorPattern(id)) {
+      const accents = getPatternAccentHexes(id, hex);
+      const accentUniforms = [
+        uniforms.uPatternAccentA,
+        uniforms.uPatternAccentB,
+        uniforms.uPatternAccentC,
+      ];
+      const accentEmissiveUniforms = [
+        uniforms.uPatternAccentEmissiveA,
+        uniforms.uPatternAccentEmissiveB,
+        uniforms.uPatternAccentEmissiveC,
+      ];
+      for (let i = 0; i < accents.length; i += 1) {
+        _patternColor.setHex(accents[i]).convertSRGBToLinear();
+        /** @type {THREE.Color} */ (accentUniforms[i].value).copy(_patternColor);
+        const accentIntensity = cartEmissiveIntensityForHex(
+          emissiveRefHexForNeonHex(accents[i]),
+          PATTERN_OVERLAY_EMISSIVE_BOOST,
+        );
+        /** @type {THREE.Color} */ (accentEmissiveUniforms[i].value)
+          .copy(_patternColor)
+          .multiplyScalar(accentIntensity);
+      }
+    }
   } else {
     uniforms.uPatternStrength.value = 0;
+    uniforms.uPatternMulticolor.value = 0;
   }
 
   if (ud.cartPatternEnabled !== enabled) {

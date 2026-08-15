@@ -18,7 +18,7 @@ import {
   resolveCartSunglassesStyleForSlot,
 } from "../../src/carts/customization.js";
 import { CART_COLORS, PALETTE } from "../../src/config.js";
-import { DEFAULT_CART_PATTERN } from "../../src/carts/cartPatternConfig.js";
+import { CART_PATTERN_IDS, DEFAULT_CART_PATTERN } from "../../src/carts/cartPatternConfig.js";
 import { DEFAULT_SUNGLASSES_STYLE } from "../../src/carts/cartThemeConfig.js";
 
 beforeEach(() => {
@@ -134,6 +134,22 @@ describe("resolveCartPatternForSlot", () => {
     const result = resolveCartPatternForSlot(slot, { youConnId: "me" });
     expect(typeof result).toBe("string");
     expect(result).not.toBe("stripes");
+  });
+
+  it("keeps NPC pattern rolls peer-stable and makes every pattern reachable", () => {
+    const results = new Set();
+    for (let i = 0; i < 256; i += 1) {
+      const slot = { kind: "npc", name: `BOT_PATTERN_${i}` };
+      const first = resolveCartPatternForSlot(slot, { youConnId: "me" });
+      expect(resolveCartPatternForSlot(slot, { youConnId: "me" })).toBe(first);
+      results.add(first);
+    }
+    expect(results).toEqual(new Set(CART_PATTERN_IDS));
+  });
+
+  it("keeps the historical dots id when Maze is selected and reloaded", () => {
+    savePlayerCustomization({ pattern: "dots" });
+    expect(loadPlayerCustomization().pattern).toBe("dots");
   });
 });
 

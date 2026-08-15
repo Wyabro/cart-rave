@@ -424,7 +424,12 @@ function npcLookSeed(slot) {
  * from the slot-name seed keeps all peers in agreement.
  * @type {ReadonlyArray<CartPatternId>}
  */
-const NPC_PATTERN_POOL = Object.freeze(["classic", "classic", "stripes", "checker", "dots", "waves", "bolt"]);
+// * Three Classic entries keep the old ~29% plain-cart chance (3/11 = 27%) while every
+// * decorated pattern is reachable. The fixed order is part of the peer-stable name roll.
+const NPC_PATTERN_POOL = Object.freeze([
+  "classic", "classic", "classic",
+  "stripes", "checker", "dots", "waves", "bolt", "honeycomb", "diamond", "cubes",
+]);
 
 /**
  * Pattern id for a cart mesh — local human uses saved pattern; NPCs draw a stable

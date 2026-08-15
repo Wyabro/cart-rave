@@ -17,8 +17,14 @@
 
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { CART_PATTERN_IDS, CART_PATTERNS } from "../../src/carts/cartPatternConfig.js";
+import {
+  CART_PATTERN_IDS,
+  CART_PATTERNS,
+  getPatternAccentHexes,
+  isMulticolorPattern,
+} from "../../src/carts/cartPatternConfig.js";
 import { PATTERN_UNLOCKS } from "../../src/unlockConfig.js";
+import { CART_COLORS } from "../../src/config.js";
 
 const MASTER_GLB = new URL("../../art/models/cartrave4.glb", import.meta.url);
 const DRACO_GLB = new URL("../../public/models/cartrave4-draco.glb", import.meta.url);
@@ -85,9 +91,39 @@ describe("pattern seam — registry coherence", () => {
     expect(new Set(Object.keys(PATTERN_UNLOCKS))).toEqual(new Set(CART_PATTERN_IDS));
   });
 
-  it("4. the classic default is always selectable and free", () => {
-    expect(CART_PATTERN_IDS[0]).toBe("classic");
-    expect(CART_PATTERNS.classic).toBeTruthy();
-    expect(PATTERN_UNLOCKS.classic.free).toBe(true);
+  it("4. keeps the nine player-facing patterns in their approved order", () => {
+    expect(CART_PATTERN_IDS).toEqual([
+      "classic", "stripes", "checker", "dots", "waves", "bolt", "honeycomb", "diamond", "cubes",
+    ]);
+    expect(CART_PATTERNS.dots.label).toBe("Maze");
+  });
+
+  it("5. grants the first three patterns and preserves the six earned goals", () => {
+    expect(CART_PATTERN_IDS.filter((id) => PATTERN_UNLOCKS[id].free)).toEqual([
+      "classic", "stripes", "checker",
+    ]);
+    expect(PATTERN_UNLOCKS.dots).toMatchObject({ event: "combo_t2", goal: 8 });
+    expect(PATTERN_UNLOCKS.waves).toMatchObject({ event: "combo_t3", goal: 5 });
+    expect(PATTERN_UNLOCKS.bolt).toMatchObject({ event: "last_standing", goal: 3 });
+    expect(PATTERN_UNLOCKS.honeycomb).toMatchObject({ event: "ko_void", goal: 10 });
+    expect(PATTERN_UNLOCKS.diamond).toMatchObject({ event: "ko_npc", goal: 15 });
+    expect(PATTERN_UNLOCKS.cubes).toMatchObject({ event: "ko_void", goal: 50 });
+  });
+
+  it("6. derives distinct brand-aligned accents only for multicolor patterns", () => {
+    const [base, accentA, accentB] = getPatternAccentHexes("cubes", CART_COLORS.pink.hex);
+    expect(base).toBe(CART_COLORS.pink.hex);
+    expect(new Set([base, accentA, accentB]).size).toBe(3);
+    expect(isMulticolorPattern("honeycomb")).toBe(true);
+    expect(isMulticolorPattern("diamond")).toBe(true);
+    expect(isMulticolorPattern("cubes")).toBe(true);
+    expect(isMulticolorPattern("dots")).toBe(false);
+  });
+
+  it("7. keeps multicolor patterns in the existing one-material shader path", () => {
+    const source = readFileSync(new URL("../../src/carts/cartPatterns.js", import.meta.url), "utf8");
+    expect(source).toContain("uPatternMulticolor");
+    expect(source).toContain("getPatternAccentHexes");
+    expect(source).toContain('const PATTERN_CACHE_KEY_ON = "cartPattern:1";');
   });
 });

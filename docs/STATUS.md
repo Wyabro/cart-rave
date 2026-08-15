@@ -36,8 +36,10 @@ external testers. Stay in this phase until Wyatt advances the marker.
 GAMEPAD-LOBBY-1. Deferred launch day: **SHARD-PT-2**. **STOREROOMS-NPC-SELFKO-2**
 landed (`d680928` · `928df0d`) — PT-1 vortex · PT-2 outer pit. New evidence
 **WARM-QP-ROTATE-1** (cap-364). **MENU-CMD-SKEW-1** landed (`19437ed`) —
-PT-1 menu labels upright. Open picks: [BACKLOG.md](./planning/BACKLOG.md)
-Blocks 4–5 / 7.
+PT-1 menu labels upright. **PATTERNS-UI-2 landed 08-15:** nine cart patterns;
+three free, saved `dots` now reads Maze, last three multicolor. **PATTERNS-UI-2-PT-1** is
+local-ready; production waits for `ship it`. Open picks:
+[BACKLOG.md](./planning/BACKLOG.md) Blocks 4–5 / 7.
 
 **Closed cards keep their narrative in their own docs, not here** — Sundial
 ([handover](./planning/art-pass-sundial-handover.md); read its "Traps that cost time" before any
@@ -79,10 +81,11 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. **MENU-CMD-SKEW-PT-1** — main menu labels upright on prod (hard-refresh).
-2. **STOREROOMS-NPC-SELFKO-PT-1 / PT-2** — Solo Storerooms on prod (hard-refresh). Worker `cc79e3b7`.
-3. **WARM-QP-ROTATE-1** — adopt room arena after hello, under the overlay, full forPlay warm. Do not delay countdown.
-4. **SHARD-PT-2** stays launch day (5 humans).
+1. **PATTERNS-UI-2-PT-1** — local: nine patterns, locks, multicolor cart/preview, NPC rolls, controller path. Production after `ship it`.
+2. **MENU-CMD-SKEW-PT-1** — main menu labels upright on prod (hard-refresh).
+3. **STOREROOMS-NPC-SELFKO-PT-1 / PT-2** — Solo Storerooms on prod (hard-refresh). Worker `cc79e3b7`.
+4. **WARM-QP-ROTATE-1** — adopt room arena after hello, under the overlay, full forPlay warm. Do not delay countdown.
+5. **SHARD-PT-2** stays launch day (5 humans).
 
 ## Open issues (top)
 

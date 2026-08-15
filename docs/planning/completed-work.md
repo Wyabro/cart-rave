@@ -13,6 +13,17 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 15, 2026 — PATTERNS-UI-2: nine cart patterns, save-safe Maze, and multicolor linework
+
+- *(Art / UI · Medium)* **PATTERNS-UI-2** — ✅ **CODE LANDED 08-15.** The pattern shelf now has
+  Classic / Stripes / Checker free; Maze preserves the historical `dots` persistence ID; Waves and
+  Bolt retain their goals; Honeycomb needs 10 KOs, Diamond Weave 15 NPC KOs, and Isometric Cubes
+  50 KOs. The final three use selected-color-led accents from `CART_COLORS` through the existing
+  one-material shader path; cart material traverse and net protocol stay unchanged. NPC selection
+  is name-seeded and peer-stable: 3× Classic plus each decorated pattern once. QA: 7/7, 190 files /
+  2,112 tests. Local rendered checks covered all nine, actual locks, Pink/Blue multicolor, and the
+  phone grid. **PATTERNS-UI-2-PT-1 owed**: local now; production after `ship it`.
+
 ### August 15, 2026 — BOOST-SFX-NONHOST-1: host convert plays the boost whoosh
 
 - *(Audio · Low)* **BOOST-SFX-NONHOST-1** — ✅ **DONE 08-15** (`93ec6fa`) + ✅ **PASS 08-15**
