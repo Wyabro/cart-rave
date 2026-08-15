@@ -272,6 +272,24 @@ describe("friends lobby scoping", () => {
     expect(document.getElementById("lobby-ready").classList.contains("gamepad-focused")).toBe(false);
     expect(document.getElementById("lobby-leave").classList.contains("gamepad-focused")).toBe(false);
   });
+
+  it("keeps hold-repeat when the game loop re-asserts UI-active every frame", () => {
+    show("hud-lobby");
+    press(BTN.down); // seed → COPY
+    padRef.pad = makePad([BTN.down]);
+    navModule.setGamepadUiActive(true);
+    frame();
+    expect(document.activeElement).toBe(document.getElementById("lobby-ready"));
+    navModule.setGamepadUiActive(true);
+    frame(299);
+    expect(document.activeElement).toBe(document.getElementById("lobby-ready"));
+    navModule.setGamepadUiActive(true);
+    frame(1);
+    expect(document.activeElement).toBe(document.getElementById("lobby-leave"));
+    navModule.setGamepadUiActive(true);
+    frame(100);
+    expect(document.activeElement).toBe(document.getElementById("lobby-copy"));
+  });
 });
 
 describe("controller-only menu feedback", () => {
@@ -345,6 +363,21 @@ describe("held controller menu navigation", () => {
     padRef.pad = makePad([BTN.down]);
     frame(); // → CUSTOMIZE
     show("cr-settings-screen");
+    frame();
+    expect(document.activeElement).toBe(document.getElementById("cr-settings-back"));
+    frame(299);
+    expect(document.activeElement).toBe(document.getElementById("cr-settings-back"));
+  });
+
+  it("resets the hold on a real UI-active off then on", () => {
+    show("cr-settings-screen");
+    press(BTN.down); // seed → BACK
+    padRef.pad = makePad([BTN.down]);
+    frame();
+    expect(document.activeElement).toBe(document.getElementById("cr-settings-done"));
+    navModule.setGamepadUiActive(false);
+    navModule.setGamepadUiActive(true);
+    padRef.pad = makePad([BTN.down]);
     frame();
     expect(document.activeElement).toBe(document.getElementById("cr-settings-back"));
     frame(299);

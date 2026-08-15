@@ -547,9 +547,14 @@ export function startGamepadUiNav() {
 }
 
 export function setGamepadNavActive(active) {
-  _navActive = active;
+  const next = !!active;
+  // * gameBoot onFrame calls setGamepadUiActive(true) every lobby/pause frame.
+  // * Resetting hold on a no-op "still on" made every tick an initial move, so
+  // * the ring toured at frame rate and wrapped to COPY.
+  if (_navActive === next) return;
+  _navActive = next;
   resetDirectionRepeat();
-  if (!active) {
+  if (!next) {
     document.querySelectorAll('.gamepad-focused').forEach(el => el.classList.remove('gamepad-focused'));
     lastFocusedEl = null;
     lastFocusedRow = null;
