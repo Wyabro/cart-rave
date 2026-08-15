@@ -13,6 +13,35 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 15, 2026 — BOOST-SFX-NONHOST-1: host convert plays the boost whoosh
+
+- *(Audio · Low)* **BOOST-SFX-NONHOST-1** — ✅ **DONE 08-15** (code). Non-host
+  `applySnapshotToCartBody` now fires existing `onRemoteBoostStart` once when a
+  rising-edge host `snap.b` converts a live charge. Keep-alive snaps and an
+  already-released charge stay silent. Charge-cancel + window latch unchanged.
+  Three unit tests in `tests/netcode/netcode.test.js`. Whoosh volume is 0.45
+  (remote path). Playtest owed: **BOOST-SFX-NONHOST-PT-1**.
+
+### August 15, 2026 — CONN-TOASTS-1: friends join/leave toasts + PT-1 PASS
+
+- *(Feature · Medium)* **CONN-TOASTS-1** — ✅ **DONE 08-15** (3 commits) + ✅ **PASS 08-15**
+  on prod (Worker `be519fa4`). Green **"X joined"** / red **"X left"** toasts in the friends
+  lobby and mid-match, host and non-host alike.
+  - Client policy (`adff7b7` + `b1b448f`): `diffHumanSlots` (human `connId` membership diff over
+    `MSG.slots`) + `filterConnectionEvents` (self-skip, single-broadcast same-name coalesce for
+    ghost-exorcism swaps, 5s opposite-kind blip cooldown per name, LRU-capped) — pure + unit-tested
+    (16 tests). Friends-only gate + hello-received gate (pre-hello broadcasts can't burst toasts on
+    a fresh joiner). Solo untouched by construction (never opens a socket).
+  - Server lever (`adff7b7`): the silent-reap pass now broadcasts the slot conversion it already
+    performed (`reapedIds.length > 0`) — previously a dropped-tab player stayed a ghost human
+    with no leave signal until an unrelated broadcast. party-do test via `setPlatformLiveIdsOverride`.
+  - One shared surface: `window.CartRave.showConnectionToast` → `#cr-conn-toasts` stack
+    (cap 3 visible + FIFO pending, bottom-centre lift + 56px above the single-slot toast,
+    z 26500, portal-green/alert-red, results-overlay + reduced-motion rules).
+  - **PT-1 PASS 08-15 on prod:** join/leave toasts in lobby + mid-match; reap drop-out toast;
+    reconnect blip ≤1 toast; host-drop migration toast + red "Host left"; stack clear of
+    ready button / hint row; solo silent.
+
 ### August 15, 2026 — playtest PASSes (4 cards)
 
 - *(Playtest · Medium)* **DEEPSEC-1-PT-1** — ✅ **PASS 08-15** on prod. Stolen `_pk` /
