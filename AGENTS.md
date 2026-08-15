@@ -1,8 +1,7 @@
 # AGENTS.md — Cart Clash
 
-**Canonical always-on rules** (~2k tokens). If any other doc disagrees with this file about
-how the stack works, **this file and the code win**. Deep process, stack tables, playtest
-authoring, and enforcement internals: [docs/reference/agent-manual.md](docs/reference/agent-manual.md)
+**Canonical always-on rules.** If any other doc disagrees about how the stack works,
+**this file and the code win**. Depth: [docs/reference/agent-manual.md](docs/reference/agent-manual.md)
 (**read when** needed — do not load every session).
 
 **Product:** Cart Clash (legacy host/IDs may still say `cart-rave` — [docs/brand.md](docs/brand.md)).
@@ -52,71 +51,52 @@ Branch: **`cart-clash`**. Deploy map: [docs/guides/deploy-urls.md](docs/guides/d
 - **Plan → Wyatt ack → apply, per WAVE.** One plan (goal · files · asserts · risks · playtest
   checklist), one ack, then levers. **ACTIVE CARD names the card — not permission to edit.**
 - **One lever per commit**; mid-wave abort if a lever fails. One card at a time; ideas → BACKLOG.
-- **Closing a BACKLOG card:** delete its row + writeup to `completed-work.md` + add its ID to
-  BACKLOG's closed do-not-reopen list, same session — skip the third step and `health:check`'s
-  reopen gate goes blind for that ID forever. Full house rules: BACKLOG.md's own header.
 - **Fast lane** (all must hold): one file · stated symptom only · no new file/dep/CONFIG/?flag ·
   not invariants · not `main.js` / `party/` / `src/netcode*` / physics / player-visible.
   Still needs one-line intent + go + `npm run qa` + commit. Grows past that → full wave plan.
 - **Game-card freeze:** no commits to `tools/`, `.claude/hooks/`, `.agents/`, or CC styling.
-- **Timebox:** ~45 min or 3 failed approaches → STATUS findings (5 lines) before #4.
-- **Escalation:** timebox → findings → `.agents/skills/systematic-debugging` → hand off / ask Wyatt.
-- **Done:** `npm run qa` green **by number** + pushed + `verify:head` + briefing fresh + STATUS
-  at wave boundary. Behavior change → seed BACKLOG `## Playtest owed` (`Owed: Wyatt playtest —
-  ID — one-line check` + `<br>1.` steps) and run `npm run playtest:console` before Wyatt's turn.
-  STATUS "Playtest owed:" prose is not a seed. `health:check` fails a stepless or missing seed.
+- **Timebox:** ~45 min or 3 failed approaches → STATUS findings (5 lines) →
+  `.agents/skills/systematic-debugging` → hand off / ask Wyatt.
+- **Done** (only definition): `npm run qa` green **by number** + pushed to `origin/cart-clash` +
+  `verify:head` + briefing fresh + STATUS at wave boundary. Behavior change → seed BACKLOG
+  `## Playtest owed` and run `npm run playtest:console`. Confirm
+  `.diag-captures/playtest-queue.json` lists the id with `steps` before you hand him the console.
+  Close / seed format: [BACKLOG.md](docs/planning/BACKLOG.md) header.
 - **Post-lever:** no notification-driven follow-ups, no baseline worktrees, no `states` gate
   unless the wave owns that gate. Outside-diff fails = one-line note + stop.
 
-## Standing rules
+## SHIP PROOF
 
-- Verify before you speak; **code wins** over stale claims.
-- Never "done"/"verified" without pull + HEAD check. **Post-deploy (DEPLOY-STALE-HTML-1 process A):**
-  poll `GET /` + every hashed asset it references until **0×404** (window can be ~45 s; mixed
-  HTML/asset state is real), *then* fetch a symbol + `Select-String`. Do not share the live URL or
-  start prod playtest inside a dirty window. **Do not deploy near a public post.**
-- **Unpushed** until on `origin/cart-clash`. Report gates by number. No `git add -A`.
+- Code wins over stale claims. Never "done"/"verified" without the **Done** definition above.
 - Ship only on explicit **"ship it"**. Behavior change → production playtest.
-- PowerShell: `Select-String`, not `grep`; single-line `-m` commits.
-- STATUS at **wave** boundaries only (not per lever). One `qa` per wave when possible.
-- No URL to Wyatt until the symbol is in the **deployed** bundle.
-- Playtest: one issue per card; non-empty numbered `<br>N.` steps; deploy context truthful.
-  Confirm `.diag-captures/playtest-queue.json` lists the id with `steps` before you hand him the console.
-- Budget: don't re-emit huge docs to move them; don't `grep -C` BACKLOG/STATUS.
+- No live URL and no prod playtest until the post-ship poll is clean (0×404 + symbol in the
+  deployed bundle). Poll steps: [docs/guides/deploy-urls.md](docs/guides/deploy-urls.md).
+  Do not deploy near a public post.
+- No `git add -A`. Report gates by number. STATUS at wave boundaries only. One `qa` per wave
+  when possible.
+- Playtest: one issue per card.
 
 **Shared enforcement:** git hooks (`npm run setup`) regenerate BRIEFING/ARCHITECTURE; use
-`npm run verify:head`. Claude PreToolUse hooks in `.claude/hooks/` are **optional leftover**
-for that runtime only — process authority is this file + git hooks, not Claude.
+`npm run verify:head`. Claude PreToolUse hooks are optional leftover — process authority is
+this file + git hooks, not Claude.
 
-## Gates & commands (short)
+## Gates & commands
 
 - **`npm run qa`** = `check` in package.json (read-only): status:size → typecheck → test → knip →
   briefing:check → arch:check → health:check.
-- **Dev:** `npm run dev:local` · **Ship it:** `npm run ship` (CF / cartclash.lol) · **Ship glitch:** `npm run ship:glitch` (after prod is good) · **Build:** `npm run build`
-- Full command catalog + stack detail: [agent-manual.md § STACK](docs/reference/agent-manual.md)
+- **Dev:** `npm run dev:local` · **Ship it:** `npm run ship` · **Ship glitch:** `npm run ship:glitch`
+  (after prod is good) · **Build:** `npm run build`
+- Full catalog: [agent-manual.md § STACK](docs/reference/agent-manual.md)
 
 ## MODEL / TOOL ROUTING
 
-No single “main driver” yet. **Grok and Codex are equal heavy-lift defaults.** Cursor is IDE /
-backup. Claude is **demoted** (do not design process around it; cancel path).
-
-- **Grok** — equal primary: implementation, investigation, docs.
-- **Codex** — equal primary: implementation, investigation, mechanical depth.
-- **Cursor** — IDE surface + backup refactors.
-- **Qwen / others** — secondary heavy lift when chosen.
-- **Claude** — demoted / cancel path; only if Wyatt explicitly opens it.
-- **Pointers** (`GROK.md`, `CLAUDE.md`, `GEMINI.md`, `.cursorrules`) are thin extras only —
-  never restate stack/invariants/gates there.
-- **Skills:** repo source `.agents/skills/` → `npm run skills:sync` fans out. User-level skills
-  (including third-party) live under each runtime’s `skills/`; do not vendor huge packs into
-  `.agents/skills/`. Details: [agent-manual.md § routing](docs/reference/agent-manual.md).
-
-## SELF-IMPROVING LOOP
-
-When Wyatt starts a message with `loop:`, run the fail-closed plan graph described in
-`.cursor/rules/self-improving-loop.mdc`: fixed plan-only DeepSeek maker, then one fixed read-only
-DeepSeek checker. The graph stops at Wyatt's exact `ack`; it does not start Sol, source apply,
-commit, push, deploy, or playtest. `ship it` remains separate deployment authorization.
+- **Routing / skills:** Grok and Codex are equal primaries. Cursor is IDE / backup. Claude is
+  demoted. Depth: [agent-manual.md § MODEL / TOOL ROUTING](docs/reference/agent-manual.md).
+  Pointers (`GROK.md`, `CLAUDE.md`, `GEMINI.md`, `.cursorrules`) stay thin.
+- **`loop:`:** [`.cursor/rules/self-improving-loop.mdc`](.cursor/rules/self-improving-loop.mdc).
+  The graph stops at Wyatt's `ack`. `ship it` stays separate.
+- **Windows / commits / token budget:** [agent-manual.md § STANDING BEHAVIORAL RULES](docs/reference/agent-manual.md)
+  (`Select-String`, single-line `-m`, do not re-emit huge docs, do not `grep -C` BACKLOG/STATUS).
 
 ## WHAT'S OFF-LIMITS
 
@@ -124,4 +104,4 @@ commit, push, deploy, or playtest. `ship it` remains separate deployment authori
 - Do not hand-edit `docs/BRIEFING.md` (edit STATUS → `npm run briefing`).
 - Do not recreate deleted menu/partykit files; no open-world WebGPU engine ports.
 - Diff quality: delete old paths in the same commit; no speculative knobs; no stopgaps —
-  full list in [agent-manual.md § principles](docs/reference/agent-manual.md).
+  [agent-manual.md § principles](docs/reference/agent-manual.md).
