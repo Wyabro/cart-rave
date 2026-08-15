@@ -15,12 +15,13 @@ Chronological record of shipped work, newest first.
 
 ### August 15, 2026 — PATTERNS-UI-4: medium scale for Maze, Honeycomb, and Cubes
 
-- *(Art / UI · Medium)* **PATTERNS-UI-4** — ✅ **CODE READY 08-15.** `PATTERNS-UI-3-PT-1`
+- *(Art / UI · Medium)* **PATTERNS-UI-4** — ✅ **DEPLOYED 08-15.** `PATTERNS-UI-3-PT-1`
   confirmed the scale regression: Diamond Weave was right at repeat 1.25, while Maze, Honeycomb,
   and Isometric Cubes were too large at repeat 1. Those three now use repeat 1.5 (six cells across
   one UV width); Diamond, tile geometry, accents, seam periods, unlocks, NPC rolls, UV1, and
   network data are unchanged. Local rendered Pink / Blue review passed. QA 7/7 (190 files / 2,114
-  tests). **PATTERNS-UI-4-PT-1 owed** locally, then on production after `ship it`.
+  tests). Deployed Worker `d3164390-409f-4981-887f-992abd12be58`; production asset verification
+  passed. **PATTERNS-UI-4-PT-1 owed** on production.
 
 ### August 15, 2026 — PATTERNS-UI-3: readable Maze and seamless multicolor tiles
 
