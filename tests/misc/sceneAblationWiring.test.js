@@ -20,7 +20,7 @@ const mainSrc = read("../../src/orchestration/gameBoot.js");
 function applyRaveExtrasQualityBody() {
   const start = effectsSrc.indexOf("export function applyRaveExtrasQuality(");
   expect(start).toBeGreaterThan(-1);
-  const end = effectsSrc.indexOf("\nconst _crowdReactiveColor", start);
+  const end = effectsSrc.indexOf("\nexport function initEffects(", start);
   expect(end).toBeGreaterThan(start);
   return effectsSrc.slice(start, end);
 }

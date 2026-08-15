@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-15T02:53:53.878Z",
-    "commit": "fc3e674"
+    "at": "2026-08-15T02:59:39.058Z",
+    "commit": "5f3c99e"
   },
-  "source_digest": "86385f36",
+  "source_digest": "af4b48c2",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -388,6 +388,7 @@
         "src/cartShatter.js",
         "src/effects.js",
         "src/effects/ambientParticles.js",
+        "src/effects/crowd.js",
         "src/effects/groceryDefinitions.js",
         "src/effects/groceryPool.js",
         "src/effects/index.js",
@@ -397,7 +398,7 @@
         "src/effects/visuals.js",
         "src/effects/waterDeathFx.js"
       ],
-      "file_count": 12,
+      "file_count": 13,
       "edges": [
         {
           "to": "rendering-and-postfx",
@@ -1327,22 +1328,16 @@
     "execution_loop": [
       "Plan → Wyatt ack → apply, per WAVE. One plan (goal · files · asserts · risks · playtest",
       "One lever per commit; mid-wave abort if a lever fails. One card at a time; ideas → BACKLOG.",
-      "Closing a BACKLOG card: delete its row + writeup to `completed-work.md` + add its ID to",
       "Fast lane (all must hold): one file · stated symptom only · no new file/dep/CONFIG/?flag ·",
       "Game-card freeze: no commits to `tools/`, `.claude/hooks/`, `.agents/`, or CC styling.",
-      "Timebox: ~45 min or 3 failed approaches → STATUS findings (5 lines) before #4.",
-      "Escalation: timebox → findings → `.agents/skills/systematic-debugging` → hand off / ask Wyatt.",
-      "Done: `npm run qa` green by number + pushed + `verify:head` + briefing fresh + STATUS",
+      "Timebox: ~45 min or 3 failed approaches → STATUS findings (5 lines) →",
+      "Done (only definition): `npm run qa` green by number + pushed to `origin/cart-clash` +",
       "Post-lever: no notification-driven follow-ups, no baseline worktrees, no `states` gate"
     ],
     "routing": [
-      "Grok — equal primary: implementation, investigation, docs.",
-      "Codex — equal primary: implementation, investigation, mechanical depth.",
-      "Cursor — IDE surface + backup refactors.",
-      "Qwen / others — secondary heavy lift when chosen.",
-      "Claude — demoted / cancel path; only if Wyatt explicitly opens it.",
-      "Pointers (`GROK.md`, `CLAUDE.md`, `GEMINI.md`, `.cursorrules`) are thin extras only —",
-      "Skills: repo source `.agents/skills/` → `npm run skills:sync` fans out. User-level skills"
+      "Routing / skills: Grok and Codex are equal primaries. Cursor is IDE / backup. Claude is",
+      "`loop:`: `.cursor/rules/self-improving-loop.mdc`.",
+      "Windows / commits / token budget: agent-manual.md § STANDING BEHAVIORAL RULES"
     ]
   },
   "do_not_break": {
@@ -1412,6 +1407,11 @@
       "Cross-module change? Read docs/reference/control-flow.md first — most edges are not imports."
     ],
     "settled_decisions": [
+      {
+        "id": "D-AGENT-OS-2",
+        "date": "08-15",
+        "text": "Slim `AGENTS.md` (plan B). Keep invariants + ack/lever/freeze/fast-lane. Define done/ship/playtest once. Routing, `loop:`, and post-ship poll become pointers (manual § routing, `self-improving-loop.mdc`, `deploy-urls.md`). Not a 40–60 line cut."
+      },
       {
         "id": "D-LOCAL-PORT-8899",
         "date": "08-14, `8cf335f`",

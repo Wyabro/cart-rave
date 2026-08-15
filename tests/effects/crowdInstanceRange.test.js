@@ -12,9 +12,9 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import * as THREE from "three";
 
-const effectsSrc = readFileSync(new URL("../../src/effects.js", import.meta.url), "utf8");
+const effectsSrc = readFileSync(new URL("../../src/effects/crowd.js", import.meta.url), "utf8");
 
-/** Source of `effects.js` between two top-level markers (exclusive of the end marker). */
+/** Source of `crowd.js` between two top-level markers (exclusive of the end marker). */
 function sourceBetween(startMarker, endMarker) {
   const start = effectsSrc.indexOf(startMarker);
   expect(start).toBeGreaterThan(-1);
@@ -23,8 +23,8 @@ function sourceBetween(startMarker, endMarker) {
   return effectsSrc.slice(start, end);
 }
 
-const initCrowdBody = sourceBetween("export function initCrowd(", "export function setRaveExtrasVisible(");
-const updateCrowdBody = sourceBetween("export function updateCrowd(", "export function initEffects(");
+const initCrowdBody = sourceBetween("export function initCrowd(", "function applyCrowdBudget(");
+const updateCrowdBody = sourceBetween("export function updateCrowd(", "export { crowdLayers");
 
 describe("three r185 instance buffer API", () => {
   it("exposes DynamicDrawUsage and the update-range surface", () => {

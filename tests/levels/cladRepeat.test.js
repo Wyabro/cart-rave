@@ -10,7 +10,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const effectsSrc = readFileSync(new URL("../../src/effects.js", import.meta.url), "utf8");
+const effectsSrc = readFileSync(new URL("../../src/effects/crowd.js", import.meta.url), "utf8");
 
 /** Body of the cladding UV-scale block up to the mesh creation that follows. */
 function cladUvScaleSource() {
