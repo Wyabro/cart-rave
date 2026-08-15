@@ -80,7 +80,9 @@ let lastPlayEntryWarm = false;
  * @property {() => Promise<void> | null | undefined} [getLevelRebuildPromise]
  * @property {() => boolean} [getMenuPreviewNeedsFinalize]
  * @property {() => boolean} [getPreviewNeedsFullRebuild]
- * @property {(levelId?: string | null, onProgress?: (pct: number, label: string) => void) => Promise<void>} rebuildLevelIfNeeded
+ * @property {() => string | null | undefined} [getRoomLevelId] Authoritative room arena
+ *   after hello. Play-entry adopts this before carts/warm when it differs from loaded.
+ * @property {(levelId?: string | null, onProgress?: (pct: number, label: string) => void, opts?: { skipWarm?: boolean }) => Promise<void>} rebuildLevelIfNeeded
  * @property {() => void} finalizeArenaForPlay
  * @property {() => Promise<void>} ensureRapierPhysics
  * @property {(levelIdOverride?: string) => Promise<void>} bootstrapWorldCore
@@ -116,6 +118,22 @@ function requireDeps() {
 function resolveSelectedLevelId(levelId) {
   if (levelId != null) return resolveLevelId(levelId);
   return resolveLevelId(storageGet(LEVEL_STORAGE_KEY));
+}
+
+/**
+ * Room arena the play-entry should load, or null when no swap is needed.
+ * @param {string | null | undefined} loadedId Currently loaded arena
+ * @param {string | null | undefined} roomId Hello/round room latch
+ * @returns {string | null}
+ */
+export function resolvePlayEntryLevelId(loadedId, roomId) {
+  const room = typeof roomId === "string" ? roomId.trim() : "";
+  if (!room) return null;
+  const resolved = resolveLevelId(room);
+  if (resolved !== room) return null;
+  const loaded = typeof loadedId === "string" ? loadedId.trim() : "";
+  if (resolved === loaded) return null;
+  return resolved;
 }
 
 /**
@@ -244,6 +262,7 @@ export function resetWorldBootstrapForTest() {
   worldBootstrapGen = 0;
   worldBootstrapTarget = null;
   idleWorldWarmSuppressed = false;
+  lastPlayEntryWarm = false;
 }
 
 /**
@@ -313,6 +332,20 @@ export async function ensureSessionCartsReady() {
       }
       if (d.getAllCartsRef()?.length) return d.getAllCartsRef();
       await ensureWorldBootstrapped();
+      // * WARM-QP-ROTATE-1: hello already latched the room arena, but play-entry warmed
+      // * the local menu pick. Swap under the still-up overlay BEFORE carts/shader warm.
+      // * Force a full forPlay compile after a mismatch — lastPlayEntryWarm would keep
+      // * the short 1.5s budget from the wrong arena and dump play-full onto the canvas.
+      const roomLevel = d.getRoomLevelId?.() ?? getNetcode()?.getAuthoritativeRoomLevelId?.() ?? null;
+      const adoptId = resolvePlayEntryLevelId(d.getLoadedLevelId?.(), roomLevel);
+      if (adoptId) {
+        lastPlayEntryWarm = false;
+        markBootPhase("play-arena-adopt", {
+          from: d.getLoadedLevelId?.() ?? null,
+          to: adoptId,
+        });
+        await d.rebuildLevelIfNeeded(adoptId, undefined, { skipWarm: true });
+      }
       await prefetchRaveGltf().catch((err) => {
         console.warn(
           "[bootstrap] Rave GLTF prefetch failed — rave carts will use procedural fallback.",
@@ -363,6 +396,7 @@ export async function ensureSessionCartsReady() {
 export function resetSessionCartBootstrap() {
   sessionCartBootstrapPromise = null;
   lastSuccessfulHelloGen = null;
+  lastPlayEntryWarm = false;
 }
 
 export function getLastSuccessfulHelloGen() {

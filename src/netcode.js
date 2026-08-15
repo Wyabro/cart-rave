@@ -3773,6 +3773,11 @@ export function getActiveRoomAiDifficulty() {
   );
 }
 
+/** Room-authoritative arena id from hello/round. Null before the first hello. */
+export function getAuthoritativeRoomLevelId() {
+  return authoritativeRoomLevelId;
+}
+
 export function sendHostRound() {
   if (!partySocket || !isHost) return;
   const state = GameState.getRoundState();
@@ -4146,7 +4151,7 @@ export const __netcodeTestHooks = {
   setAuthoritativeRoomLevelForTest: (id) => {
     authoritativeRoomLevelId = id == null ? null : id;
   },
-  getAuthoritativeRoomLevelForTest: () => authoritativeRoomLevelId,
+  getAuthoritativeRoomLevelForTest: () => getAuthoritativeRoomLevelId(),
   isFriendsHostHello: (mode, msgHostId, msgYouConnId) => isFriendsHostHello(mode, msgHostId, msgYouConnId),
   /** Cap-61 unit seam: countdown hold predicate (hello + MSG.round). */
   shouldHoldNonHostCountdownPhase: (newPhase, clientIsHost) =>

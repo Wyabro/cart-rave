@@ -772,7 +772,8 @@ export function bootGameSystems(ctx) {
     getLevelRebuildPromise,
     getMenuPreviewNeedsFinalize,
     getPreviewNeedsFullRebuild,
-    rebuildLevelIfNeeded: (levelId, onProgress) => rebuildLevelIfNeeded(levelId, onProgress),
+    getRoomLevelId: () => Netcode.getAuthoritativeRoomLevelId?.() ?? null,
+    rebuildLevelIfNeeded: (levelId, onProgress, opts) => rebuildLevelIfNeeded(levelId, onProgress, opts),
     finalizeArenaForPlay: finalizeArenaForPlayEntry,
     consumeRaveJuiceJustBuilt,
     warmupBeforeRoundStart: (opts) =>

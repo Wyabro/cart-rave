@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-15T04:20:30.626Z",
-    "commit": "42c176e"
+    "at": "2026-08-15T04:37:28.204Z",
+    "commit": "2872590"
   },
-  "source_digest": "f812056d",
+  "source_digest": "25999a37",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -880,8 +880,7 @@
       }
     ],
     "next_actions": [
-      "Wait — no named game card. Four PASSes closed 08-15.",
-      "New evidence WARM-QP-ROTATE-1 (cap-364) — Intel non-host Quickplay rotate stall. Pick after ack.",
+      "WARM-QP-ROTATE-1 — adopt room arena after hello, under the overlay, full forPlay warm. Do not delay countdown.",
       "SHARD-PT-2 stays launch day (5 humans).",
       "SHIP-1 D-tier — cut persistent leaderboard from launch, or schedule its own phase (Wyatt)."
     ],
@@ -1033,9 +1032,16 @@
       {
         "title": "Playtest owed",
         "counts": {
+          "Medium": 1,
           "Low": 1
         },
         "rows": [
+          {
+            "pri": "Medium",
+            "item": "WARM-QP-ROTATE-PT-1 — non-host Quickplay overlay covers first room arena `[2pc]`",
+            "notes": "**Owed: Wyatt playtest — WARM-QP-ROTATE-PT-1 — the overlay stays up until Storerooms is ready; the canvas does not freeze.** Parent **WARM-QP-ROTATE-1**. Use the Intel (or any Low) machine as non-host. A long overlay is not a FAIL.<br>1. Friends round on Sundial. Then both join the same Quickplay room on prod. Hard-refresh first.<br>2. Watch the non-host. Note whether the loading overlay stays up through the arena swap.<br>3. FAIL if the overlay drops and the canvas freezes, or the Intel non-host hears only countdown 1 then GO. PASS if the overlay covers the wait and both hear 3-2-1.",
+            "ship1": null
+          },
           {
             "pri": "Low",
             "item": "SHARD-PT-2 — fifth human overflows to quickplay2 `[2pc]`",

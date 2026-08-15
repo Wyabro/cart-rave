@@ -75,10 +75,9 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. Wait — no named game card. Four PASSes closed 08-15.
-2. New evidence **WARM-QP-ROTATE-1** (cap-364) — Intel non-host Quickplay rotate stall. Pick after ack.
-3. **SHARD-PT-2** stays launch day (5 humans).
-4. **SHIP-1 D-tier** — cut persistent leaderboard from launch, or schedule its own phase (Wyatt).
+1. **WARM-QP-ROTATE-1** — adopt room arena after hello, under the overlay, full forPlay warm. Do not delay countdown.
+2. **SHARD-PT-2** stays launch day (5 humans).
+3. **SHIP-1 D-tier** — cut persistent leaderboard from launch, or schedule its own phase (Wyatt).
 
 ## Open issues (top)
 

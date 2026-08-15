@@ -270,9 +270,11 @@ export async function swapLoadedLevel(levelId, opts = {}) {
  * Play-entry rebuild: ensures arena matches menu selection at full quality.
  * @param {string | null | undefined} [levelId]
  * @param {(pct: number, label: string) => void} [onProgress]
+ * @param {{ skipWarm?: boolean }} [opts] `skipWarm` — caller will compile after carts exist
+ *   (WARM-QP-ROTATE-1). Default warms arena programs immediately.
  * @returns {Promise<void>}
  */
-export async function rebuildLevelIfNeeded(levelId, onProgress) {
+export async function rebuildLevelIfNeeded(levelId, onProgress, opts = {}) {
   const d = requireDeps();
   if (!canSafelyRebuildLevel()) return;
   if (levelRebuildPromise) return levelRebuildPromise;
@@ -311,7 +313,8 @@ export async function rebuildLevelIfNeeded(levelId, onProgress) {
       }
       await swapPromise;
       // * Play entry runs behind the loading overlay — full warm (arena + VFX anchors).
-      if (d.warmupAfterLevelSwap) await d.warmupAfterLevelSwap({ forPlay: true });
+      // * WARM-QP-ROTATE-1: skip when carts are about to spawn; one forPlay warm covers both.
+      if (!opts.skipWarm && d.warmupAfterLevelSwap) await d.warmupAfterLevelSwap({ forPlay: true });
       await yieldForPaint();
       isSwappingLevel = false;
     } else if (menuPreviewNeedsFinalize) {
@@ -320,7 +323,7 @@ export async function rebuildLevelIfNeeded(levelId, onProgress) {
       previewMode = false;
       menuPreviewNeedsFinalize = false;
       d.finalizeArenaForPlay();
-      if (d.warmupAfterLevelSwap) await d.warmupAfterLevelSwap({ forPlay: true });
+      if (!opts.skipWarm && d.warmupAfterLevelSwap) await d.warmupAfterLevelSwap({ forPlay: true });
     }
   })().catch((err) => {
     isSwappingLevel = false;
