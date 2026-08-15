@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-15T07:57:43.380Z",
-    "commit": "928df0d"
+    "at": "2026-08-15T08:16:27.899Z",
+    "commit": "524b96a"
   },
-  "source_digest": "47a8b35f",
+  "source_digest": "7d4b2a5f",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -880,7 +880,7 @@
       }
     ],
     "next_actions": [
-      "STOREROOMS-NPC-SELFKO-PT-1 / PT-2 — Solo Storerooms after push (`npm run dev` until ship).",
+      "STOREROOMS-NPC-SELFKO-PT-1 / PT-2 — Solo Storerooms on prod (hard-refresh). Worker `cc79e3b7`.",
       "WARM-QP-ROTATE-1 — adopt room arena after hello, under the overlay, full forPlay warm. Do not delay countdown.",
       "SHARD-PT-2 stays launch day (5 humans)."
     ],
@@ -1039,13 +1039,13 @@
           {
             "pri": "Medium",
             "item": "STOREROOMS-NPC-SELFKO-PT-1 — Storerooms NPCs survive vortex rings `[solo]`",
-            "notes": "**Owed: Wyatt playtest — STOREROOMS-NPC-SELFKO-PT-1 — NPCs peel off a vortex before the pull commits, and still hunt the gutters.** Parent **STOREROOMS-NPC-SELFKO-2**. Pushed but not yet deployed — use `npm run dev` until ship.<br>1. Solo Storerooms, Medium, one full round.<br>2. Watch NPCs near the four vortex rings.<br>3. FAIL if two or more unforced vortex drops in one round, or they refuse the gutters.",
+            "notes": "**Owed: Wyatt playtest — STOREROOMS-NPC-SELFKO-PT-1 — NPCs peel off a vortex before the pull commits, and still hunt the gutters.** Parent **STOREROOMS-NPC-SELFKO-2**. Prod Worker `cc79e3b7` (`524b96a`). Hard-refresh first.<br>1. Solo Storerooms, Medium, one full round.<br>2. Watch NPCs near the four vortex rings.<br>3. FAIL if two or more unforced vortex drops in one round, or they refuse the gutters.",
             "ship1": null
           },
           {
             "pri": "Medium",
             "item": "STOREROOMS-NPC-SELFKO-PT-2 — Storerooms NPCs stay off the outer pit `[solo]`",
-            "notes": "**Owed: Wyatt playtest — STOREROOMS-NPC-SELFKO-PT-2 — NPCs do not drive themselves off the outer floor with no ram.** Parent **STOREROOMS-NPC-SELFKO-2**. Pushed but not yet deployed — use `npm run dev` until ship.<br>1. Solo Storerooms, Medium, one full round.<br>2. Watch the outer floor edge.<br>3. FAIL if an NPC drives itself off the pit with no ram.",
+            "notes": "**Owed: Wyatt playtest — STOREROOMS-NPC-SELFKO-PT-2 — NPCs do not drive themselves off the outer floor with no ram.** Parent **STOREROOMS-NPC-SELFKO-2**. Prod Worker `cc79e3b7` (`524b96a`). Hard-refresh first.<br>1. Solo Storerooms, Medium, one full round.<br>2. Watch the outer floor edge.<br>3. FAIL if an NPC drives itself off the pit with no ram.",
             "ship1": null
           },
           {

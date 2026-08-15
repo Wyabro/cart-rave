@@ -78,7 +78,7 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. **STOREROOMS-NPC-SELFKO-PT-1 / PT-2** — Solo Storerooms after push (`npm run dev` until ship).
+1. **STOREROOMS-NPC-SELFKO-PT-1 / PT-2** — Solo Storerooms on prod (hard-refresh). Worker `cc79e3b7`.
 2. **WARM-QP-ROTATE-1** — adopt room arena after hello, under the overlay, full forPlay warm. Do not delay countdown.
 3. **SHARD-PT-2** stays launch day (5 humans).
 
