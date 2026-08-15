@@ -30,9 +30,8 @@ are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Analyt
 external testers. Stay in this phase until Wyatt advances the marker.
 
 **STORE-PILE-PT-1 PASS 08-14.** Residual from the same export:
-**GAMEPAD-FRIENDS-SEATED-PT-1 FAIL.** Lever 2 landed: `setGamepadNavActive`
-no-ops when already on, so the lobby loop cannot reset hold every frame.
-Unshipped — retest **GAMEPAD-FRIENDS-SEATED-PT-1** after "ship it".
+**GAMEPAD-FRIENDS-SEATED-PT-1 FAIL** then lever 2 on prod (Worker `ef2a7550`,
+`747e67d`). Hard-refresh, then retest **GAMEPAD-FRIENDS-SEATED-PT-1**.
 Do not reopen GAMEPAD-LOBBY-1.
 Deferred (two machines / launch day): **DEEPSEC-1-PT-1** · **CARGO-BAY-INSTANCE-PT-3** ·
 **CONN-TRACK-LEAK-PT-1** · **QP-ROTATE-PT-1** · **SHARD-PT-2**. Open picks:
@@ -78,7 +77,7 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. **GAMEPAD-FRIENDS-SEATED-1** — lever 2 landed. Say **ship it** to deploy, then retest GAMEPAD-FRIENDS-SEATED-PT-1 `[solo]`.
+1. **GAMEPAD-FRIENDS-SEATED-PT-1** `[solo]` — hard-refresh prod, seat in FRIENDS with a pad.
 2. **DEEPSEC-1 is on prod** (Worker `a1d270b5`). Hard-refresh, then run **DEEPSEC-1-PT-1** `[2pc]`. Token rotate stays on **DEEPSEC-2**.
 3. **Deferred playtests:** **CARGO-BAY-INSTANCE-PT-3** · **CONN-TRACK-LEAK-PT-1** · **QP-ROTATE-PT-1** · **SHARD-PT-2**.
 4. **SHIP-1 D-tier** — cut persistent leaderboard from launch, or schedule its own phase (Wyatt).

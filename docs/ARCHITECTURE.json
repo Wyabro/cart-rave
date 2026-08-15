@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-15T01:43:01.818Z",
-    "commit": "06bf662"
+    "at": "2026-08-15T01:45:44.893Z",
+    "commit": "747e67d"
   },
-  "source_digest": "80fc1ccb",
+  "source_digest": "8143c1d6",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -873,7 +873,7 @@
       }
     ],
     "next_actions": [
-      "GAMEPAD-FRIENDS-SEATED-1 — lever 2 landed. Say ship it to deploy, then retest GAMEPAD-FRIENDS-SEATED-PT-1 `[solo]`.",
+      "GAMEPAD-FRIENDS-SEATED-PT-1 `[solo]` — hard-refresh prod, seat in FRIENDS with a pad.",
       "DEEPSEC-1 is on prod (Worker `a1d270b5`). Hard-refresh, then run DEEPSEC-1-PT-1 `[2pc]`. Token rotate stays on DEEPSEC-2.",
       "Deferred playtests: CARGO-BAY-INSTANCE-PT-3 · CONN-TRACK-LEAK-PT-1 · QP-ROTATE-PT-1 · SHARD-PT-2.",
       "SHIP-1 D-tier — cut persistent leaderboard from launch, or schedule its own phase (Wyatt)."
@@ -1033,7 +1033,7 @@
           {
             "pri": "Low",
             "item": "GAMEPAD-FRIENDS-SEATED-PT-1 — pad moves one Friends-lobby control per press `[solo]`",
-            "notes": "**Owed: Wyatt playtest — GAMEPAD-FRIENDS-SEATED-PT-1 — each pad press moves one seated-lobby control, and focus never lands on mute.** Parent **GAMEPAD-FRIENDS-SEATED-1** (`6ed010e`, Worker `f192d499`). Hard-refresh prod first. Hold-stick tour inside the lobby is a note, not FAIL.<br>1. Hard-refresh prod. Open FRIENDS. Seat with a controller.<br>2. Use D-pad, then left stick, to move among COPY, difficulty (host only), READY, and LEAVE. Stop on READY. Press A. Press B and confirm you did not jump to mute or the main menu.<br>3. FAIL if focus hops to mute, audio, or the menu behind the lobby, or if one press skips more than one lobby control. PASS if each press moves one lobby control.",
+            "notes": "**Owed: Wyatt playtest — GAMEPAD-FRIENDS-SEATED-PT-1 — each pad press moves one seated-lobby control, and focus never lands on mute.** Parent **GAMEPAD-FRIENDS-SEATED-1** (`747e67d`, Worker `ef2a7550`). Retest after lever 2. Hard-refresh prod first. Hold-stick tour inside the lobby is a note, not FAIL.<br>1. Hard-refresh prod. Open FRIENDS. Seat with a controller.<br>2. Use D-pad, then left stick, to move among COPY, difficulty (host only), READY, and LEAVE. Stop on READY. Press A. Press B and confirm you did not jump to mute or the main menu.<br>3. FAIL if focus hops to mute, audio, or the menu behind the lobby, or if one press skips more than one lobby control. PASS if each press moves one lobby control.",
             "ship1": null
           },
           {
