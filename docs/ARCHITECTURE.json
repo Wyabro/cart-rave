@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-15T04:37:28.204Z",
-    "commit": "2872590"
+    "at": "2026-08-15T05:16:16.658Z",
+    "commit": "4e5ded3"
   },
-  "source_digest": "25999a37",
+  "source_digest": "7b90ed81",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -880,6 +880,7 @@
       }
     ],
     "next_actions": [
+      "CONN-TOASTS-1 — friends join/leave toasts shipped; playtest owed (BACKLOG `## Playtest owed`).",
       "WARM-QP-ROTATE-1 — adopt room arena after hello, under the overlay, full forPlay warm. Do not delay countdown.",
       "SHARD-PT-2 stays launch day (5 humans).",
       "SHIP-1 D-tier — cut persistent leaderboard from launch, or schedule its own phase (Wyatt)."
@@ -1032,10 +1033,16 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Medium": 1,
+          "Medium": 2,
           "Low": 1
         },
         "rows": [
+          {
+            "pri": "Medium",
+            "item": "CONN-TOASTS-1 — friends join/leave toasts, lobby + in-match `[2pc]`",
+            "notes": "**Owed: Wyatt playtest — CONN-TOASTS-1 — green \"X joined\" / red \"X left\" toasts in the friends lobby and during matches; stacked without HUD overlap; no reconnect spam.** Playtest queue steps:<br>1. Friends room: B joins → host sees green \"B joined\"; B leaves → red \"B left\"; B kills the tab mid-match → \"B left\" again within ~5–25s (reap broadcast).<br>2. B rejoins quickly → no left/joined spam (≤1 toast; blip cooldown).<br>3. Host drops mid-match → migration toast plus red \"Host left\".<br>4. Two rapid joins → both toast, stacked clear of the ready button / lobby hint row.<br>5. Solo quickplay/testdrive: no connection toasts.",
+            "ship1": null
+          },
           {
             "pri": "Medium",
             "item": "WARM-QP-ROTATE-PT-1 — non-host Quickplay overlay covers first room arena `[2pc]`",
@@ -1391,6 +1398,11 @@
       "Cross-module change? Read docs/reference/control-flow.md first — most edges are not imports."
     ],
     "settled_decisions": [
+      {
+        "id": "D-CONN-TOASTS-1",
+        "date": "08-15",
+        "text": "Friends join/leave toasts, lobby + in-match — client-side diff of human `connId` membership in the existing `MSG.slots` handler (host and non-host alike; solo never opens a socket so it is untouched by construction). Policy pure + unit-tested: self-skip, single-broadcast same-name coalesce (ghost-exorcism seat swap), 5s opposite-kind blip cooldown per name. One shared stacked toast surface (`#cr-conn-toasts`, bottom-centre, z 26500, lift + 56px above the single-slot toast), cap 3 visible + FIFO pending. Server lever: the silent-reap pass now broadcasts the slot conversion it already performed (`reapedIds.length > 0`) — previously clients kept a ghost human and no leave toast until an unrelated broadcast. Playtest owed: CONN-TOASTS-1."
+      },
       {
         "id": "D-AGENT-OS-2",
         "date": "08-15",

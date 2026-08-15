@@ -484,6 +484,61 @@ describe("CartRaveServer DO harness", () => {
         /* server may already have closed it */
       }
     });
+
+    it("reaps a platform-dead non-host and broadcasts the slot conversion", async () => {
+      // * CONN-TOASTS-1: reap exists because onClose never fires (crash / platform
+      // * drop), so the slot conversion was previously published to no one — every
+      // * client kept a ghost human and no leave toast fired until an unrelated
+      // * broadcast. setPlatformLiveIdsOverride fakes the platform dropping GHOST
+      // * without onClose; the reap pass must broadcast MSG.slots with the slot
+      // * converted to NPC.
+      const room = uniqueRoom("reap-broadcast");
+
+      const host = await connectAndSeat(room, {
+        name: "HOST",
+        color: "pink",
+        clientId: "cid-reap-host",
+        ip: "10.0.5.1",
+        hostScore: 90,
+      });
+      const ghost = await connectAndSeat(room, {
+        name: "GHOST",
+        color: "green",
+        clientId: "cid-reap-ghost",
+        ip: "10.0.5.2",
+        hostScore: 40,
+      });
+      expect(host.hello.hostId).toBe(host.youConnId);
+
+      // * GHOST leaves the platform live set while the server still tracks it.
+      setPlatformLiveIdsOverride(new Set([host.youConnId]));
+
+      const slotsPromise = host.client.awaitMessage(
+        (m) =>
+          m.type === MSG.slots &&
+          Array.isArray(m.slots) &&
+          !m.slots.some((s) => s && s.connId === ghost.youConnId) &&
+          m.slots.some((s) => s && s.kind === "human" && s.connId === host.youConnId),
+        1500,
+      );
+
+      await sleep(250);
+      host.client.sendJson({ type: MSG.keepalive, tClient: 1 });
+
+      const slotsAfter = await slotsPromise;
+      const humans = slotsAfter.slots.filter((s) => s && s.kind === "human");
+      expect(humans).toHaveLength(1);
+      expect(humans[0].connId).toBe(host.youConnId);
+      const npcSlot = slotsAfter.slots.find((s) => s && s.kind === "npc");
+      expect(npcSlot).toBeTruthy();
+
+      ghost.client.close();
+      try {
+        host.client.close();
+      } catch {
+        /* server may already have closed it */
+      }
+    });
   });
 
   it("exorcises ghost host on same clientId rejoin and repairs host (4010)", async () => {

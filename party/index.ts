@@ -1003,6 +1003,20 @@ export class CartRaveServer extends Server {
       }
     }
 
+    // * CONN-TOASTS-1: publish the conversion. Reap exists precisely because
+    // * onClose never fired for these conns (crash / network drop), so no slots
+    // * broadcast follows the close — without this every client keeps a ghost
+    // * human (frozen cart + stale roster) and no leave toast until an unrelated
+    // * broadcast. The conversion already happened above; this only publishes it.
+    if (reapedIds.length > 0) {
+      this.#broadcastJson({
+        v: PROTOCOL_VERSION,
+        type: MSG.slots,
+        serverNowMs: this.#serverNowMs(),
+        slots: this.#slots,
+      });
+    }
+
     // * Cancel any armed countdown if the departed human(s) broke the all-ready
     // * condition. Must run before #ensureLiveHost so the check sees the final
     // * post-reap slot state.
