@@ -2,7 +2,7 @@
 
 > Historical log. Past entries may still say "Cart Rave" / `next-level` — that is intentional. Living naming rules: [brand.md](../brand.md).
 
-**Last Updated:** August 14, 2026
+**Last Updated:** August 15, 2026
 
 > **This doc = the past** — the single home for historical/completed items. For what works
 > *today* see [project-state.md](./project-state.md); for forward plans see [ROADMAP.md](./ROADMAP.md).
@@ -12,6 +12,15 @@ Chronological record of shipped work, newest first.
 > **Convention:** As items ship, move their completed writeup here (out of ROADMAP.md / project-state.md).
 
 ---
+
+### August 15, 2026 — GAMEPAD-FRIENDS-SEATED-1 + PT-1 PASS
+
+- *(Engineering · Low)* **GAMEPAD-FRIENDS-SEATED-1** — seated Friends lobby pad nav. Lever 1
+  (`6ed010e`): a shown `.hud-lobby` is the nav scope (mute stays out; first Down seeds).
+  Lever 2 (`747e67d`): `setGamepadNavActive` no-ops when already on, so the lobby
+  `onFrame` loop cannot reset hold every tick. Deployed Worker `ef2a7550`.
+- *(Playtest · Low)* **GAMEPAD-FRIENDS-SEATED-PT-1** — ✅ **PASS 08-15** on prod after lever 2.
+  Each pad press moves one lobby control. Do not reopen GAMEPAD-LOBBY-1.
 
 ### August 14, 2026 — STORE-PILE-2: cart-extent pad + this-frame drive-strip
 

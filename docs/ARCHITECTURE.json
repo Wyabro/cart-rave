@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-15T01:45:44.893Z",
-    "commit": "747e67d"
+    "at": "2026-08-15T02:25:39.854Z",
+    "commit": "e55d0a8"
   },
-  "source_digest": "8143c1d6",
+  "source_digest": "6f9a0ec4",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -873,7 +873,6 @@
       }
     ],
     "next_actions": [
-      "GAMEPAD-FRIENDS-SEATED-PT-1 `[solo]` — hard-refresh prod, seat in FRIENDS with a pad.",
       "DEEPSEC-1 is on prod (Worker `a1d270b5`). Hard-refresh, then run DEEPSEC-1-PT-1 `[2pc]`. Token rotate stays on DEEPSEC-2.",
       "Deferred playtests: CARGO-BAY-INSTANCE-PT-3 · CONN-TRACK-LEAK-PT-1 · QP-ROTATE-PT-1 · SHARD-PT-2.",
       "SHIP-1 D-tier — cut persistent leaderboard from launch, or schedule its own phase (Wyatt)."
@@ -896,7 +895,7 @@
       {
         "title": "Engineering",
         "counts": {
-          "Low": 6,
+          "Low": 5,
           "Partial": 1,
           "Medium": 4
         },
@@ -960,12 +959,6 @@
             "item": "AQ-RING-CLEAR-1 — autoQuality clear sample ring on every window eval",
             "notes": "**Reserve only** if Wave 2 entry grace still demotes on retest. Comment in autoQuality.js already notes the ring can poison up to 3 windows. Own commit if needed; not in main batch path. Moved out of Playtest owed 08-14 (not a human check).",
             "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "GAMEPAD-FRIENDS-SEATED-1 — controller nav glitchy after seating in Friends lobby",
-            "notes": "**Filed 08-14 from GAMEPAD-DIRECT-ENTRY-PT-1 PASS note.** Name + room-code dialogs PASSed. After the Friends room loads / seats, the controller is glitchy and hard to use. Do not reopen GAMEPAD-LOBBY-1. New evidence only — reproduce on the seated Friends lobby before a lever.",
-            "ship1": null
           }
         ]
       },
@@ -1026,16 +1019,10 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Low": 3,
-          "Medium": 3
+          "Medium": 3,
+          "Low": 2
         },
         "rows": [
-          {
-            "pri": "Low",
-            "item": "GAMEPAD-FRIENDS-SEATED-PT-1 — pad moves one Friends-lobby control per press `[solo]`",
-            "notes": "**Owed: Wyatt playtest — GAMEPAD-FRIENDS-SEATED-PT-1 — each pad press moves one seated-lobby control, and focus never lands on mute.** Parent **GAMEPAD-FRIENDS-SEATED-1** (`747e67d`, Worker `ef2a7550`). Retest after lever 2. Hard-refresh prod first. Hold-stick tour inside the lobby is a note, not FAIL.<br>1. Hard-refresh prod. Open FRIENDS. Seat with a controller.<br>2. Use D-pad, then left stick, to move among COPY, difficulty (host only), READY, and LEAVE. Stop on READY. Press A. Press B and confirm you did not jump to mute or the main menu.<br>3. FAIL if focus hops to mute, audio, or the menu behind the lobby, or if one press skips more than one lobby control. PASS if each press moves one lobby control.",
-            "ship1": null
-          },
           {
             "pri": "Medium",
             "item": "DEEPSEC-1-PT-1 — stolen `_pk` / `hostScore` does not take host `[2pc]`",
