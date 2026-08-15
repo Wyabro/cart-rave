@@ -33,8 +33,10 @@ external testers. Stay in this phase until Wyatt advances the marker.
 **CONN-TRACK-LEAK-PT-1** · **QP-ROTATE-PT-1** · **CONN-TOASTS-1** ·
 **BOOST-SFX-NONHOST-PT-1**. **GAMEPAD-FRIENDS-SEATED-PT-1 PASS 08-15**
 (Worker `ef2a7550`, `747e67d`). **STORE-PILE-PT-1 PASS 08-14.** Do not reopen
-GAMEPAD-LOBBY-1. Deferred launch day: **SHARD-PT-2**. New evidence **WARM-QP-ROTATE-1**
-(cap-364). Open picks: [BACKLOG.md](./planning/BACKLOG.md) Blocks 4–5 / 7.
+GAMEPAD-LOBBY-1. Deferred launch day: **SHARD-PT-2**. **STOREROOMS-NPC-SELFKO-2**
+landed (`d680928` · `928df0d`) — PT-1 vortex · PT-2 outer pit. New evidence
+**WARM-QP-ROTATE-1** (cap-364). Open picks: [BACKLOG.md](./planning/BACKLOG.md)
+Blocks 4–5 / 7.
 
 **Closed cards keep their narrative in their own docs, not here** — Sundial
 ([handover](./planning/art-pass-sundial-handover.md); read its "Traps that cost time" before any
@@ -76,9 +78,9 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. **WARM-QP-ROTATE-1** — adopt room arena after hello, under the overlay, full forPlay warm. Do not delay countdown.
-2. **SHARD-PT-2** stays launch day (5 humans).
-3. **SHIP-1 D-tier** — cut persistent leaderboard from launch, or schedule its own phase (Wyatt).
+1. **STOREROOMS-NPC-SELFKO-PT-1 / PT-2** — Solo Storerooms after push (`npm run dev` until ship).
+2. **WARM-QP-ROTATE-1** — adopt room arena after hello, under the overlay, full forPlay warm. Do not delay countdown.
+3. **SHARD-PT-2** stays launch day (5 humans).
 
 ## Open issues (top)
 

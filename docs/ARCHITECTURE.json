@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-15T07:55:13.740Z",
-    "commit": "d680928"
+    "at": "2026-08-15T07:57:43.380Z",
+    "commit": "928df0d"
   },
-  "source_digest": "130793ac",
+  "source_digest": "47a8b35f",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -880,9 +880,9 @@
       }
     ],
     "next_actions": [
+      "STOREROOMS-NPC-SELFKO-PT-1 / PT-2 — Solo Storerooms after push (`npm run dev` until ship).",
       "WARM-QP-ROTATE-1 — adopt room arena after hello, under the overlay, full forPlay warm. Do not delay countdown.",
-      "SHARD-PT-2 stays launch day (5 humans).",
-      "SHIP-1 D-tier — cut persistent leaderboard from launch, or schedule its own phase (Wyatt)."
+      "SHARD-PT-2 stays launch day (5 humans)."
     ],
     "open_issues": [
       {
@@ -1012,7 +1012,7 @@
           {
             "pri": "Medium",
             "item": "STOREROOMS-NPC-SELFKO-2 — Storerooms NPC unforced vortex / outer-edge self-KOs",
-            "notes": "New evidence 08-15. Residual after AI-ARENA-SELFKO-1. L1 vortex keep-out + TTE (`d680928`). L2 outer rim. Playtest owed after push.",
+            "notes": "New evidence 08-15. Residual after AI-ARENA-SELFKO-1. L1 `d680928` · L2 `928df0d`. PT: STOREROOMS-NPC-SELFKO-PT-1 · PT-2.",
             "ship1": null
           },
           {
@@ -1032,10 +1032,22 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Medium": 1,
+          "Medium": 3,
           "Low": 1
         },
         "rows": [
+          {
+            "pri": "Medium",
+            "item": "STOREROOMS-NPC-SELFKO-PT-1 — Storerooms NPCs survive vortex rings `[solo]`",
+            "notes": "**Owed: Wyatt playtest — STOREROOMS-NPC-SELFKO-PT-1 — NPCs peel off a vortex before the pull commits, and still hunt the gutters.** Parent **STOREROOMS-NPC-SELFKO-2**. Pushed but not yet deployed — use `npm run dev` until ship.<br>1. Solo Storerooms, Medium, one full round.<br>2. Watch NPCs near the four vortex rings.<br>3. FAIL if two or more unforced vortex drops in one round, or they refuse the gutters.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "STOREROOMS-NPC-SELFKO-PT-2 — Storerooms NPCs stay off the outer pit `[solo]`",
+            "notes": "**Owed: Wyatt playtest — STOREROOMS-NPC-SELFKO-PT-2 — NPCs do not drive themselves off the outer floor with no ram.** Parent **STOREROOMS-NPC-SELFKO-2**. Pushed but not yet deployed — use `npm run dev` until ship.<br>1. Solo Storerooms, Medium, one full round.<br>2. Watch the outer floor edge.<br>3. FAIL if an NPC drives itself off the pit with no ram.",
+            "ship1": null
+          },
           {
             "pri": "Medium",
             "item": "WARM-QP-ROTATE-PT-1 — non-host Quickplay overlay covers first room arena `[2pc]`",
