@@ -2413,13 +2413,83 @@ function isAiCautiousPhase(allCarts, netSlots) {
   return false;
 }
 
+const BACKROOMS_OUTER_RIM_BAND = 2.4;
+const BACKROOMS_OUTER_RIM_TTE_S = 0.55;
+
+/**
+ * Unit XZ pointing at the nearest square-floor edge (the outward death axis).
+ *
+ * @param {number} px
+ * @param {number} pz
+ * @returns {{ x: number, z: number }}
+ */
+function squareFloorOutwardAxis(px, pz) {
+  const ax = Math.abs(px);
+  const az = Math.abs(pz);
+  if (ax > az) return { x: px >= 0 ? 1 : -1, z: 0 };
+  if (az > ax) return { x: 0, z: pz >= 0 ? 1 : -1 };
+  const s = Math.SQRT1_2;
+  return { x: (px >= 0 ? s : -s), z: (pz >= 0 ? s : -s) };
+}
+
+/**
+ * Storerooms outer-pit avoidance strength: thin static band + Classic-style TTE panic.
+ * Exported for tests (STOREROOMS-NPC-SELFKO-2 L2).
+ *
+ * @param {number} px
+ * @param {number} pz
+ * @param {number} lvx
+ * @param {number} lvz
+ * @param {number} arenaHalf
+ * @param {number} [band=BACKROOMS_OUTER_RIM_BAND]
+ * @returns {number}
+ */
+export function computeBackroomsOuterRimStrength(
+  px, pz, lvx, lvz, arenaHalf, band = BACKROOMS_OUTER_RIM_BAND,
+) {
+  const cheb = Math.max(Math.abs(px), Math.abs(pz));
+  const gap = arenaHalf - cheb;
+  let strength = gap < band ? clamp((band - gap) / band, 0, 1) : 0;
+  const axis = squareFloorOutwardAxis(px, pz);
+  const outwardSpeed = lvx * axis.x + lvz * axis.z;
+  if (outwardSpeed > 0.5) {
+    const tte = gap / outwardSpeed;
+    strength = Math.max(
+      strength,
+      clamp((BACKROOMS_OUTER_RIM_TTE_S - tte) / BACKROOMS_OUTER_RIM_TTE_S, 0, 1) * 1.6,
+    );
+  }
+  return strength;
+}
+
+/**
+ * Steers a Storerooms NPC heading inward when it is about to leave the square floor.
+ *
+ * @param {number} px
+ * @param {number} pz
+ * @param {{ x: number, z: number }} lv
+ * @param {THREE.Vector3} dir
+ */
+function applyBackroomsOuterRimAvoidance(px, pz, lv, dir) {
+  const arenaHalf = _levelHazards.arenaHalf ?? 34;
+  const strength = computeBackroomsOuterRimStrength(px, pz, lv.x, lv.z, arenaHalf);
+  if (strength <= 0) return;
+  const axis = squareFloorOutwardAxis(px, pz);
+  dir.x -= axis.x * strength * 1.1;
+  dir.z -= axis.z * strength * 1.1;
+  if (dir.lengthSq() < 1e-6) dir.set(-axis.x, 0, -axis.z);
+  dir.normalize();
+}
+
 /**
  * * Clamps a patrol / chase target for Backrooms — square arena bounds + void keep-out only.
  * Does not use the Classic vinyl annulus (that capped outer reach at ~23 m).
  */
-function clampBackroomsAiTarget(x, z, cautious, opts = {}) {
+export function clampBackroomsAiTarget(x, z, cautious, opts = {}) {
   const arenaHalf = _levelHazards.arenaHalf ?? 34;
-  const edgeInset = cautious ? 3.2 : 1.2;
+  // * STOREROOMS-NPC-SELFKO-2 L2: non-cautious inset past the 1.25 m outward
+  // * chamfer + cart nose so chase targets cannot sit on the dump ramp.
+  const edgeInset = cautious ? 3.2 : 2.8;
   const maxCoord = arenaHalf - edgeInset;
   let outX = clamp(x, -maxCoord, maxCoord);
   let outZ = clamp(z, -maxCoord, maxCoord);
@@ -2446,7 +2516,7 @@ function pickBackroomsCornerPatrolTarget(cautious, slotIndex = 0) {
   const holeCenter = _levelHazards.holeCenter ?? 18;
   const holeOuter = holeCenter + _levelHazards.half;
   const gutterMin = holeOuter + (cautious ? 0.55 : 0.1);
-  const gutterMax = arenaHalf - (cautious ? 2.2 : 0.8);
+  const gutterMax = arenaHalf - (cautious ? 3.2 : 2.6);
   const corners = [
     [1, 1], [-1, 1], [1, -1], [-1, -1],
   ];
@@ -3139,6 +3209,9 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
       const { cheb } = nearestSquareHole(p.x, p.z);
       const keepOut = squareHoleKeepOutRadius(0);
       nearHazard = cheb < keepOut + 3.0;
+      // * STOREROOMS-NPC-SELFKO-2 L2: the surrounding pit is also a death edge.
+      const rimCheb = Math.max(Math.abs(p.x), Math.abs(p.z));
+      if (rimCheb > _levelHazards.arenaHalf - 3.5) nearHazard = true;
       // * The center furniture is a SOLID circular keep-out, not a death void — a bot
       // * wedged against it SHOULD reverse off (Wyatt: "reverse if touching it for >1s").
       // * So it is deliberately excluded from the no-reverse gate here; only the corner
@@ -3196,6 +3269,7 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
   if (_levelHazards) {
     // * Backrooms: square-void keep-out zones + circular furniture avoidance.
     applySquareHoleAvoidance(p.x, p.z, lv, toTarget, cart.aiTarget.x, cart.aiTarget.z);
+    applyBackroomsOuterRimAvoidance(p.x, p.z, lv, toTarget);
     applyCircularKeepOutAvoidance(p.x, p.z, toTarget, cart.aiTarget.x, cart.aiTarget.z);
   } else if (_octagonHazards) {
     // * Open octagon: steer away from the outer kill rim always, and around the center
@@ -3233,6 +3307,13 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
         inAvoidanceBand = true;
         escapeKeepOut = ko;
       }
+    }
+    // * STOREROOMS-NPC-SELFKO-2 L2: oscillating on the outer pit must flee inward.
+    const rimCheb = Math.max(Math.abs(p.x), Math.abs(p.z));
+    if (rimCheb > _levelHazards.arenaHalf - BACKROOMS_OUTER_RIM_BAND) {
+      inAvoidanceBand = true;
+      escapeMode = "inward";
+      escapeKeepOut = null;
     }
   } else if (_octagonHazards) {
     // * Sundial octagon: the outer rim is the only kill edge, so a wedged/oscillating bot

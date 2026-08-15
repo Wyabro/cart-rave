@@ -1,10 +1,13 @@
 // @vitest-environment happy-dom
 // squareHoleNpcSafety.test.js — STOREROOMS-NPC-SELFKO-2 L1 vortex keep-out + TTE recovery.
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterEach } from "vitest";
 import {
   computeSquareHoleTtePanic,
   shouldNpcPanicReverseSquareHole,
+  computeBackroomsOuterRimStrength,
+  clampBackroomsAiTarget,
+  setLevelHazards,
 } from "../../src/simulation.js";
 import { STOREROOMS_NPC_AVOID_MARGIN } from "../../src/levels/backroomsSupermarket.js";
 
@@ -75,5 +78,45 @@ describe("shouldNpcPanicReverseSquareHole", () => {
       towardHole: 0.9,
       insideZone: false,
     })).toBe(false);
+  });
+});
+
+const ARENA_HALF = 38;
+
+function registerStorerooms() {
+  setLevelHazards({
+    arenaHalf: ARENA_HALF,
+    half: HALF,
+    avoidMargin: STOREROOMS_NPC_AVOID_MARGIN,
+    influenceBand: 2.0,
+    squareHoles: [{ x: 20, z: 20 }],
+  });
+}
+
+describe("Storerooms NPC outer rim (STOREROOMS-NPC-SELFKO-2 L2)", () => {
+  afterEach(() => setLevelHazards(null));
+
+  it("clamps chase targets off the outward chamfer (|x|,|z| ≤ 35.2)", () => {
+    registerStorerooms();
+    const c = clampBackroomsAiTarget(40, 0, false);
+    expect(Math.abs(c.x)).toBeLessThanOrEqual(35.2);
+    expect(Math.abs(c.z)).toBeLessThanOrEqual(35.2);
+    const corner = clampBackroomsAiTarget(40, 40, false);
+    expect(Math.abs(corner.x)).toBeLessThanOrEqual(35.2);
+    expect(Math.abs(corner.z)).toBeLessThanOrEqual(35.2);
+  });
+
+  it("rim strength is 0 at mid-floor", () => {
+    expect(computeBackroomsOuterRimStrength(0, 0, 0, 0, ARENA_HALF)).toBe(0);
+    expect(computeBackroomsOuterRimStrength(10, 8, 20, 0, ARENA_HALF)).toBe(0);
+  });
+
+  it("fast outward run near 36 m reaches panic", () => {
+    // * gap = 38 − 36 = 2 m; 15 m/s outward → tte 0.133 s ≪ 0.55.
+    const strength = computeBackroomsOuterRimStrength(36, 0, 15, 0, ARENA_HALF);
+    expect(strength).toBeGreaterThanOrEqual(1.0);
+    expect(strength).toBeLessThanOrEqual(1.6);
+    const idle = computeBackroomsOuterRimStrength(36, 0, 0, 0, ARENA_HALF);
+    expect(strength).toBeGreaterThan(idle);
   });
 });

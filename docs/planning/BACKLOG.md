@@ -220,7 +220,7 @@ traffic; 7 is post-launch or parked. Priority ranks *inside* a block too (top fi
 
 | Pri | Item | Notes |
 |-----|------|-------|
-| Medium | STOREROOMS-NPC-SELFKO-2 — Storerooms NPC unforced vortex / outer-edge self-KOs | New evidence 08-15. Residual after AI-ARENA-SELFKO-1. L1 vortex keep-out + TTE recovery. L2 outer rim pending. |
+| Medium | STOREROOMS-NPC-SELFKO-2 — Storerooms NPC unforced vortex / outer-edge self-KOs | New evidence 08-15. Residual after AI-ARENA-SELFKO-1. L1 vortex keep-out + TTE (`d680928`). L2 outer rim. Playtest owed after push. |
 | Medium | TASTE-P4-1 — Taste-tuning follow-ups from Pass 4 | Only reopen with playtest evidence (D-GP4-1). |
 | Medium | CLUTCH-SLOMO-1 — Clutch slow-mo (Pass 5 deferral) | Taste-gated. |
 
