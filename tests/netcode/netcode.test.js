@@ -12,6 +12,7 @@ import {
   prunePendingInputs,
   getLatestSnap,
   applyCartState,
+  applySnapshotToCartBody,
   registerGameCallbacks,
   resetClientPredictionState,
   serializeCartToWire,
@@ -992,6 +993,66 @@ describe("applyCartState bounds validation", () => {
     expect(cart.netPos).toEqual([20, 21, 22]);
     expect(cart.netQuat).toEqual([0, 1, 0, 0]);
     expect(cart._lastNetLinvel).toEqual({ x: 7, y: 8, z: 9 });
+  });
+});
+
+describe("applySnapshotToCartBody local boost whoosh (BOOST-SFX-NONHOST-1)", () => {
+  function boostSnap(overrides = {}) {
+    return {
+      p: [0, 0, 0],
+      q: [0, 0, 0, 1],
+      lv: [0, 0, 0],
+      av: [0, 0, 0],
+      b: true,
+      ...overrides,
+    };
+  }
+
+  function chargingCart() {
+    const cart = mockCart();
+    cart.isChargingBoost = true;
+    cart.boostChargeStartedAtMs = 1000;
+    cart._localHostBoostLatched = false;
+    cart.ramBoostActiveUntilMs = 0;
+    return cart;
+  }
+
+  it("plays whoosh once when a rising-edge snap.b converts a live charge", () => {
+    const onRemoteBoostStart = vi.fn();
+    const stopChargeSfxForCart = vi.fn();
+    registerGameCallbacks({ onRemoteBoostStart, stopChargeSfxForCart });
+    const cart = chargingCart();
+
+    applySnapshotToCartBody(cart, boostSnap());
+
+    expect(stopChargeSfxForCart).toHaveBeenCalledTimes(1);
+    expect(onRemoteBoostStart).toHaveBeenCalledTimes(1);
+    expect(onRemoteBoostStart).toHaveBeenCalledWith(cart, { charged: true });
+    expect(cart.isChargingBoost).toBe(false);
+    expect(cart._localHostBoostLatched).toBe(true);
+  });
+
+  it("does not play whoosh again on a keep-alive snap.b", () => {
+    const onRemoteBoostStart = vi.fn();
+    registerGameCallbacks({ onRemoteBoostStart });
+    const cart = chargingCart();
+
+    applySnapshotToCartBody(cart, boostSnap());
+    applySnapshotToCartBody(cart, boostSnap());
+
+    expect(onRemoteBoostStart).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not play whoosh when the charge already released", () => {
+    const onRemoteBoostStart = vi.fn();
+    registerGameCallbacks({ onRemoteBoostStart });
+    const cart = chargingCart();
+    cart.isChargingBoost = false;
+
+    applySnapshotToCartBody(cart, boostSnap());
+
+    expect(onRemoteBoostStart).not.toHaveBeenCalled();
+    expect(cart._localHostBoostLatched).toBe(true);
   });
 });
 

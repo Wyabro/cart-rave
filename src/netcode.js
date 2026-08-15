@@ -1375,10 +1375,17 @@ export function applySnapshotToCartBody(cart, snap) {
   // * time and client fire time diverged (bar/SFX/trails "sometimes" only).
   const nowBoostMs = performance.now();
   if (snap.b) {
+    // * Rising-edge host convert (BOOST-SFX-NONHOST-1): local onBoostRelease never
+    // * ran, so the whoosh would stay silent. Play it once via the existing remote
+    // * boost callback. Later keep-alives and an already-released charge stay quiet.
+    const convertingCharge = Boolean(cart.isChargingBoost) && !cart._localHostBoostLatched;
     if (cart.isChargingBoost) {
       callbacks.stopChargeSfxForCart?.(cart);
       cart.isChargingBoost = false;
       cart.boostChargeStartedAtMs = 0;
+    }
+    if (convertingCharge) {
+      callbacks.onRemoteBoostStart?.(cart, { charged: true });
     }
     const rb = CONFIG.cart?.ramBoost;
     const keepAliveMs = 280;
