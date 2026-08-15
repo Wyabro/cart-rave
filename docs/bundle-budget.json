@@ -1,13 +1,13 @@
 {
   "_doc": "Committed byte budget for the INITIAL DOWNLOAD SET (entry module + all modulepreloads) of dist/index.html. Keys are hash-stripped chunk names. gzip is a stable proxy only — Cloudflare serves brotli, so it is NOT wire bytes. Regenerate with `npm run size:update`. Tool + gate rules: tools/bundle-budget.mjs.",
   "_membership": "`deferredModules` is the membership gate: any of these appearing in the initial set is a re-eagering and fails. `entryFamily` is the entry chunk plus the shared chunks rolldown split out of it — compared as one total, so a rename/re-split is not a regression.",
-  "generatedAt": "2026-08-14T02:10:38.557Z",
+  "generatedAt": "2026-08-15T03:04:03.736Z",
   "toleranceFraction": 0.02,
   "toleranceFloorBytes": 20000,
   "initialSet": {
     "count": 23,
-    "raw": 1095562,
-    "gzip": 315845
+    "raw": 1100404,
+    "gzip": 317356
   },
   "entryFamily": {
     "keys": [
@@ -23,61 +23,61 @@
       "rendererInfo",
       "roomCodes"
     ],
-    "raw": 238634,
-    "gzip": 81458
+    "raw": 242249,
+    "gzip": 82558
   },
   "chunks": {
     "three": {
       "raw": 688957,
       "gzip": 174890
     },
-    "roomCodes": {
-      "raw": 89456,
-      "gzip": 28782
-    },
     "index": {
-      "raw": 89336,
-      "gzip": 29724
+      "raw": 92683,
+      "gzip": 30710
+    },
+    "roomCodes": {
+      "raw": 89701,
+      "gzip": 28880
     },
     "animejs": {
       "raw": 48372,
       "gzip": 18003
     },
     "errorReporter": {
-      "raw": 41518,
-      "gzip": 15549
+      "raw": 42745,
+      "gzip": 15954
     },
     "howler": {
       "raw": 35984,
       "gzip": 9550
     },
     "config": {
-      "raw": 22783,
-      "gzip": 8898
+      "raw": 22800,
+      "gzip": 8910
     },
     "scene": {
       "raw": 17795,
-      "gzip": 6796
+      "gzip": 6799
     },
     "animations": {
       "raw": 11804,
       "gzip": 3550
     },
     "audioManager": {
-      "raw": 11297,
-      "gzip": 4238
+      "raw": 11303,
+      "gzip": 4239
     },
     "bootstrap": {
       "raw": 11251,
-      "gzip": 4494
+      "gzip": 4495
     },
     "cartThemeConfig": {
       "raw": 6557,
-      "gzip": 2030
+      "gzip": 2032
     },
     "diagnostics": {
       "raw": 6044,
-      "gzip": 2939
+      "gzip": 2941
     },
     "gameStore": {
       "raw": 5165,
@@ -89,7 +89,7 @@
     },
     "utils": {
       "raw": 1207,
-      "gzip": 598
+      "gzip": 599
     },
     "captureUpload": {
       "raw": 1074,
@@ -177,10 +177,10 @@
     "src/announcer/announcerVoiceKeys.js",
     "src/audioSetup.js",
     "src/cargoLoad.js",
+    "src/cartShatter.js",
     "src/carts/cart.js",
     "src/carts/cartPatterns.js",
     "src/carts/cartRaveGltf.js",
-    "src/cartShatter.js",
     "src/carts/cartThemes.js",
     "src/contactShadows.js",
     "src/dev/commandRegistry.js",
@@ -188,8 +188,15 @@
     "src/directives/directiveEngine.js",
     "src/directives/directives.js",
     "src/effects.js",
+    "src/effects/ambientParticles.js",
+    "src/effects/billboard.js",
+    "src/effects/crowd.js",
     "src/effects/groceryDefinitions.js",
     "src/effects/groceryPool.js",
+    "src/effects/lasers.js",
+    "src/effects/meshHelpers.js",
+    "src/effects/ramBoostStreaks.js",
+    "src/effects/stage.js",
     "src/effects/visuals.js",
     "src/effects/waterDeathFx.js",
     "src/entities.js",
@@ -218,6 +225,7 @@
     "src/orchestration/gameBoot.js",
     "src/orchestration/levelOrchestration.js",
     "src/orchestration/loopDeps.js",
+    "src/orchestration/pauseInputLifecycle.js",
     "src/orchestration/roundLifecycle.js",
     "src/progression/roundEvents.js",
     "src/sceneExtras.js",
