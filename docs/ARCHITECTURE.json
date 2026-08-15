@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-15T19:05:02.491Z",
-    "commit": "43a0c0b"
+    "at": "2026-08-15T19:21:40.746Z",
+    "commit": "bf9682c"
   },
-  "source_digest": "6f0258d8",
+  "source_digest": "d7b804d0",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -880,7 +880,7 @@
       }
     ],
     "next_actions": [
-      "PATTERNS-UI-3-PT-1 — local: Maze scale plus Honeycomb / Diamond / Cubes coverage. Production after `ship it`.",
+      "PATTERNS-UI-3-PT-1 — production: hard-refresh and test Maze, Honeycomb, Diamond, and Cubes.",
       "MENU-CMD-SKEW-PT-1 — main menu labels upright on prod (hard-refresh).",
       "STOREROOMS-NPC-SELFKO-PT-1 / PT-2 — Solo Storerooms on prod (hard-refresh). Worker `cc79e3b7`.",
       "WARM-QP-ROTATE-1 — adopt room arena after hello, under the overlay, full forPlay warm. Do not delay countdown.",
@@ -1071,7 +1071,7 @@
           {
             "pri": "Medium",
             "item": "PATTERNS-UI-3-PT-1 — readable seamless cart patterns `[solo]`",
-            "notes": "**Pushed but not yet deployed — use `npm run dev`, or ship only on `ship it`.** **Owed: Wyatt playtest — PATTERNS-UI-3-PT-1 — Maze reads as a maze, the multicolor tiles cover cleanly, and Cubes reads as an isometric lattice.** Parent **PATTERNS-UI-3**.<br>1. In local dev, open CUSTOMIZE → PATTERN and select Pink.<br>2. Select Maze. PASS if roughly four large orthogonal turns span the cart and it no longer reads as diagonal noise.<br>3. Select Honeycomb, Diamond Weave, and Isometric Cubes. Rotate through front, side, and rear views. PASS if repeated edges connect cleanly and Cubes shows staggered hexes split into three cube faces. FAIL on orange scribble or rectangular loops.<br>4. Repeat steps 2–3 with Blue, then start a solo round. PASS if the pattern stays stable while moving and after a KO rebuild.<br>5. After `ship it`, hard-refresh production and repeat steps 1–4.",
+            "notes": "**Deployed Worker `3f4b71bc-78f6-4add-8f05-4d2db7675755`. Owed: Wyatt playtest — PATTERNS-UI-3-PT-1 — Maze reads as a maze, the multicolor tiles cover cleanly, and Cubes reads as an isometric lattice.** Parent **PATTERNS-UI-3**.<br>1. Hard-refresh production, open CUSTOMIZE → PATTERN, and select Pink.<br>2. Select Maze. PASS if roughly four large orthogonal turns span the cart and it no longer reads as diagonal noise.<br>3. Select Honeycomb, Diamond Weave, and Isometric Cubes. Rotate through front, side, and rear views. PASS if repeated edges connect cleanly and Cubes shows staggered hexes split into three cube faces. FAIL on orange scribble or rectangular loops.<br>4. Repeat steps 2–3 with Blue, then start a solo round. PASS if the pattern stays stable while moving and after a KO rebuild.",
             "ship1": null
           }
         ]

@@ -21,8 +21,9 @@ Chronological record of shipped work, newest first.
   square grid. The replacement uses 32/64px seam-safe periods, four large Maze turns, and a
   staggered cube lattice with one colour per edge direction. `uv1`, unlocks, save IDs, NPC rolls,
   network data, and the one-material shader path are unchanged. Build + local Pink/Blue rendered
-  review passed; QA 7/7 (190 files / 2,114 tests). **PATTERNS-UI-3-PT-1 owed** locally, then on
-  production after `ship it`.
+  review passed; QA 7/7 (190 files / 2,114 tests). Deployed Worker
+  `3f4b71bc-78f6-4add-8f05-4d2db7675755`; production asset verification passed. **PATTERNS-UI-3-PT-1
+  owed** on production.
 
 ### August 15, 2026 — PATTERNS-UI-2: nine cart patterns, save-safe Maze, and multicolor linework
 
