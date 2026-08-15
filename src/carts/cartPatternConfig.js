@@ -157,9 +157,9 @@ function patternMaskTileSvg(patternId, patternUid) {
         <rect x="7" y="7" width="7" height="7" fill="black"/>
       </pattern>`;
     case "dots":
-      return `<pattern id="${uid}-tile" width="32" height="32" patternUnits="userSpaceOnUse">
-        <rect width="32" height="32" fill="white"/>
-        <path d="M0 7 H17 V0 M32 25 H15 V32 M7 0 V17 H0 M25 32 V15 H32" fill="none" stroke="black" stroke-width="5" stroke-linecap="square"/>
+      return `<pattern id="${uid}-tile" width="64" height="64" patternUnits="userSpaceOnUse">
+        <rect width="64" height="64" fill="white"/>
+        <path d="M16 0 V16 H32 M32 16 H48 V32 M0 48 H16 V64 M48 32 V48 H64" fill="none" stroke="black" stroke-width="7" stroke-linecap="square" stroke-linejoin="miter"/>
       </pattern>`;
     case "waves":
       return `<pattern id="${uid}-tile" width="24" height="16" patternUnits="userSpaceOnUse">
@@ -191,22 +191,22 @@ function multicolorTileSvg(patternId, patternUid, colors) {
   const uid = patternUid || "pat";
   switch (patternId) {
     case "honeycomb":
-      return `<pattern id="${uid}-tile" width="30" height="26" patternUnits="userSpaceOnUse">
-        <path d="M7 0 H22 L30 6.5 V19.5 L22 26 H7 L0 19.5 V6.5 Z" fill="none" stroke="${base}" stroke-width="3"/>
-        <path d="M7 0 L15 6.5 L7 13 M22 0 L15 6.5 L22 13" fill="none" stroke="${accentA}" stroke-width="2.2"/>
-        <path d="M0 19.5 L7 13 L15 19.5 L22 13 L30 19.5" fill="none" stroke="${accentB}" stroke-width="2.2"/>
+      return `<pattern id="${uid}-tile" width="32" height="64" patternUnits="userSpaceOnUse">
+        <path d="M0 -21.3 L16 -10.7 M0 21.3 L-16 10.7 M16 21.3 L32 10.7 M16 42.7 L0 53.3" fill="none" stroke="${base}" stroke-width="3" stroke-linecap="round"/>
+        <path d="M16 -10.7 V10.7 M-16 -10.7 V10.7 M32 -10.7 V10.7 M0 21.3 V42.7" fill="none" stroke="${accentA}" stroke-width="3" stroke-linecap="round"/>
+        <path d="M16 10.7 L0 21.3 M-16 10.7 L0 21.3 M32 10.7 L16 21.3 M0 42.7 L16 53.3" fill="none" stroke="${accentB}" stroke-width="3" stroke-linecap="round"/>
       </pattern>`;
     case "diamond":
-      return `<pattern id="${uid}-tile" width="28" height="28" patternUnits="userSpaceOnUse">
-        <path d="M14 0 L28 14 L14 28 L0 14 Z" fill="none" stroke="${base}" stroke-width="3"/>
-        <path d="M14 5 L23 14 L14 23 L5 14 Z" fill="none" stroke="${accentA}" stroke-width="2.3"/>
-        <path d="M14 9 L19 14 L14 19 L9 14 Z" fill="none" stroke="${accentB}" stroke-width="2"/>
+      return `<pattern id="${uid}-tile" width="32" height="32" patternUnits="userSpaceOnUse">
+        <path d="M16 2 L30 16 L16 30 L2 16 Z" fill="none" stroke="${base}" stroke-width="3.5"/>
+        <path d="M16 7 L25 16 L16 25 L7 16 Z" fill="none" stroke="${accentA}" stroke-width="2.8"/>
+        <path d="M16 12 L20 16 L16 20 L12 16 Z" fill="none" stroke="${accentB}" stroke-width="2.2"/>
       </pattern>`;
     case "cubes":
-      return `<pattern id="${uid}-tile" width="30" height="26" patternUnits="userSpaceOnUse">
-        <path d="M15 0 L30 8 L30 18 L15 26 L0 18 L0 8 Z" fill="none" stroke="${base}" stroke-width="2.8" stroke-linejoin="round"/>
-        <path d="M15 0 V13 L0 8 M15 13 L30 8" fill="none" stroke="${accentA}" stroke-width="2.4" stroke-linejoin="round"/>
-        <path d="M15 13 V26 M15 13 L0 18 M15 13 L30 18" fill="none" stroke="${accentB}" stroke-width="2.4" stroke-linejoin="round"/>
+      return `<pattern id="${uid}-tile" width="32" height="32" patternUnits="userSpaceOnUse">
+        <path d="M16 0 L32 8 M16 32 L0 24 M16 16 L32 24" fill="none" stroke="${base}" stroke-width="3" stroke-linecap="round"/>
+        <path d="M32 8 V24 M0 8 V24 M16 16 V0" fill="none" stroke="${accentA}" stroke-width="3" stroke-linecap="round"/>
+        <path d="M32 24 L16 32 M0 8 L16 0 M16 16 L0 24" fill="none" stroke="${accentB}" stroke-width="3" stroke-linecap="round"/>
       </pattern>`;
     default:
       return "";

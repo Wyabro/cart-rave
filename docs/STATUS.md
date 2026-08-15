@@ -36,9 +36,8 @@ external testers. Stay in this phase until Wyatt advances the marker.
 GAMEPAD-LOBBY-1. Deferred launch day: **SHARD-PT-2**. **STOREROOMS-NPC-SELFKO-2**
 landed (`d680928` · `928df0d`) — PT-1 vortex · PT-2 outer pit. New evidence
 **WARM-QP-ROTATE-1** (cap-364). **MENU-CMD-SKEW-1** landed (`19437ed`) —
-PT-1 menu labels upright. **PATTERNS-UI-2 landed 08-15:** nine cart patterns;
-three free, saved `dots` now reads Maze, last three multicolor. **PATTERNS-UI-2-PT-1** is
-production-ready after Worker `50e663ec`; Wyatt's human check remains. Open picks:
+PT-1 menu labels upright. **PATTERNS-UI-3 code-ready 08-15:** UI-2 PT-1 FAIL. Larger Maze;
+seam-safe RGB tiles; staggered Cubes. PT-1 local only. Open picks:
 [BACKLOG.md](./planning/BACKLOG.md) Blocks 4–5 / 7.
 
 **Closed cards keep their narrative in their own docs, not here** — Sundial
@@ -81,7 +80,7 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. **PATTERNS-UI-2-PT-1** — production: nine patterns, locks, multicolor cart/preview, NPC rolls, controller path.
+1. **PATTERNS-UI-3-PT-1** — local: Maze scale plus Honeycomb / Diamond / Cubes coverage. Production after `ship it`.
 2. **MENU-CMD-SKEW-PT-1** — main menu labels upright on prod (hard-refresh).
 3. **STOREROOMS-NPC-SELFKO-PT-1 / PT-2** — Solo Storerooms on prod (hard-refresh). Worker `cc79e3b7`.
 4. **WARM-QP-ROTATE-1** — adopt room arena after hello, under the overlay, full forPlay warm. Do not delay countdown.

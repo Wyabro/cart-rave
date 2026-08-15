@@ -25,6 +25,7 @@ import {
 } from "../../src/carts/cartPatternConfig.js";
 import { PATTERN_UNLOCKS } from "../../src/unlockConfig.js";
 import { CART_COLORS } from "../../src/config.js";
+import { PATTERN_MASK_LAYOUTS, PATTERN_MASK_SIZE } from "../../src/carts/cartPatterns.js";
 
 const MASTER_GLB = new URL("../../art/models/cartrave4.glb", import.meta.url);
 const DRACO_GLB = new URL("../../public/models/cartrave4-draco.glb", import.meta.url);
@@ -125,5 +126,28 @@ describe("pattern seam — registry coherence", () => {
     expect(source).toContain("uPatternMulticolor");
     expect(source).toContain("getPatternAccentHexes");
     expect(source).toContain('const PATTERN_CACHE_KEY_ON = "cartPattern:1";');
+  });
+
+  it("8. keeps the corrected art tiles large and phase-aligned at every texture edge", () => {
+    expect(PATTERN_MASK_LAYOUTS.dots.repeat).toBe(1);
+    expect(PATTERN_MASK_LAYOUTS.honeycomb.repeat).toBe(1);
+    expect(PATTERN_MASK_LAYOUTS.diamond.repeat).toBe(1.25);
+    expect(PATTERN_MASK_LAYOUTS.cubes.repeat).toBe(1);
+
+    for (const layout of Object.values(PATTERN_MASK_LAYOUTS)) {
+      expect(PATTERN_MASK_SIZE % layout.periodX).toBe(0);
+      expect(PATTERN_MASK_SIZE % layout.periodY).toBe(0);
+      expect(layout.cell).toBeGreaterThanOrEqual(32);
+    }
+  });
+
+  it("9. builds Cubes from one colour-owned edge family per isometric direction", () => {
+    const source = readFileSync(new URL("../../src/carts/cartPatterns.js", import.meta.url), "utf8");
+    expect(source).toContain("const center = [cx, cy];");
+    expect(source).toContain("const offsetX = Math.abs(row) % 2 === 1 ? halfWidth : 0;");
+    expect(source).toContain("trace(colors[1], center, points[0]);");
+    expect(source).toContain("trace(colors[0], center, points[2]);");
+    expect(source).toContain("trace(colors[2], center, points[4]);");
+    expect(source).not.toContain("for (let x = -30; x < size + 30; x += 30)");
   });
 });

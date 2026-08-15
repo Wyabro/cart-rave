@@ -13,6 +13,17 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 15, 2026 — PATTERNS-UI-3: readable Maze and seamless multicolor tiles
+
+- *(Art / UI · Medium)* **PATTERNS-UI-3** — ✅ **CODE READY 08-15.** Wyatt's production screenshots
+  made the root cause measurable: Maze showed 12 cells per UV width; Honeycomb / Diamond / Cubes
+  used 24–30px periods that did not divide the 128px texture; Cubes also overlaid RGB strokes on a
+  square grid. The replacement uses 32/64px seam-safe periods, four large Maze turns, and a
+  staggered cube lattice with one colour per edge direction. `uv1`, unlocks, save IDs, NPC rolls,
+  network data, and the one-material shader path are unchanged. Build + local Pink/Blue rendered
+  review passed; QA 7/7 (190 files / 2,114 tests). **PATTERNS-UI-3-PT-1 owed** locally, then on
+  production after `ship it`.
+
 ### August 15, 2026 — PATTERNS-UI-2: nine cart patterns, save-safe Maze, and multicolor linework
 
 - *(Art / UI · Medium)* **PATTERNS-UI-2** — ✅ **CODE LANDED 08-15.** The pattern shelf now has
@@ -22,7 +33,9 @@ Chronological record of shipped work, newest first.
   one-material shader path; cart material traverse and net protocol stay unchanged. NPC selection
   is name-seeded and peer-stable: 3× Classic plus each decorated pattern once. QA: 7/7, 190 files /
   2,112 tests. Local rendered checks covered all nine, actual locks, Pink/Blue multicolor, and the
-  phone grid. Deployed Worker `50e663ec`; **PATTERNS-UI-2-PT-1 owed** for Wyatt's production check.
+  phone grid. Deployed Worker `50e663ec`; **PATTERNS-UI-2-PT-1 FAIL 08-15** — Maze was too dense,
+  multicolor tiles broke at their repeat edges, and Cubes read as scribble. Superseded by
+  **PATTERNS-UI-3**.
 
 ### August 15, 2026 — BOOST-SFX-NONHOST-1: host convert plays the boost whoosh
 

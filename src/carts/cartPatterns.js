@@ -27,17 +27,24 @@ import {
 /** @type {Map<CartPatternId, THREE.CanvasTexture>} */
 const maskTextureCache = new Map();
 
-const MASK_SIZE = 128;
+export const PATTERN_MASK_SIZE = 128;
 const MASK_REPEAT = 3;
 
-// * Per-pattern tiling override. Geometric patterns want a dense repeat; "bolt" is a hero motif
-// * (one dramatic forking strike), so it tiles far fewer times — big and few, not small and many.
-/** @type {Partial<Record<string, number>>} */
-const PATTERN_REPEAT = { bolt: 1.35, honeycomb: 2.2, diamond: 2, cubes: 1.7 };
+// * Tile periods divide PATTERN_MASK_SIZE exactly. That is the seam contract: the generated
+// * geometry reaches the opposite texture edge in the same phase before RepeatWrapping samples it.
+export const PATTERN_MASK_LAYOUTS = Object.freeze({
+  dots: Object.freeze({ repeat: 1, periodX: 64, periodY: 64, cell: 32 }),
+  honeycomb: Object.freeze({ repeat: 1, periodX: 32, periodY: 64, cell: 32 }),
+  diamond: Object.freeze({ repeat: 1.25, periodX: 32, periodY: 32, cell: 32 }),
+  cubes: Object.freeze({ repeat: 1, periodX: 32, periodY: 32, cell: 32 }),
+});
+
+// * Bolt is a hero motif (one dramatic forking strike), so it also tiles far fewer times.
+const PATTERN_REPEAT = { bolt: 1.35 };
 
 /** @param {string} id @returns {number} */
 function repeatForPattern(id) {
-  return PATTERN_REPEAT[id] ?? MASK_REPEAT;
+  return PATTERN_MASK_LAYOUTS[id]?.repeat ?? PATTERN_REPEAT[id] ?? MASK_REPEAT;
 }
 
 // * Overlay tuning — pattern valleys read as darker tinted neon; wire bloom stays full.
@@ -83,7 +90,7 @@ function mulberry32(seed) {
  * @returns {HTMLCanvasElement}
  */
 function renderPatternMaskCanvas(patternId) {
-  const size = MASK_SIZE;
+  const size = PATTERN_MASK_SIZE;
   const canvas = document.createElement("canvas");
   canvas.width = size;
   canvas.height = size;
@@ -125,25 +132,30 @@ function renderPatternMaskCanvas(patternId) {
       break;
     }
     case "dots": {
-      // * Historical `dots` id now renders a Grecian maze, preserving saved choices.
+      // * Historical `dots` id now renders a large Truchet maze, preserving saved choices.
+      // * The alternating L turns connect across every 32px cell boundary and repeat after
+      // * 64px on both axes. Four readable turns span one UV width instead of the previous 12.
       ctx.strokeStyle = dark;
-      ctx.lineWidth = 7;
+      ctx.lineWidth = 8;
       ctx.lineCap = "square";
-      for (let y = -32; y < size + 32; y += 32) {
-        for (let x = -32; x < size + 32; x += 32) {
+      ctx.lineJoin = "miter";
+      const cell = PATTERN_MASK_LAYOUTS.dots.cell;
+      for (let row = 0; row < size / cell; row += 1) {
+        for (let col = 0; col < size / cell; col += 1) {
+          const x = col * cell;
+          const y = row * cell;
+          const midX = x + cell / 2;
+          const midY = y + cell / 2;
           ctx.beginPath();
-          ctx.moveTo(x, y + 8);
-          ctx.lineTo(x + 18, y + 8);
-          ctx.lineTo(x + 18, y);
-          ctx.moveTo(x + 32, y + 24);
-          ctx.lineTo(x + 14, y + 24);
-          ctx.lineTo(x + 14, y + 32);
-          ctx.moveTo(x + 8, y);
-          ctx.lineTo(x + 8, y + 18);
-          ctx.lineTo(x, y + 18);
-          ctx.moveTo(x + 24, y + 32);
-          ctx.lineTo(x + 24, y + 14);
-          ctx.lineTo(x + 32, y + 14);
+          if ((row + col) % 2 === 0) {
+            ctx.moveTo(midX, y);
+            ctx.lineTo(midX, midY);
+            ctx.lineTo(x + cell, midY);
+          } else {
+            ctx.moveTo(x, midY);
+            ctx.lineTo(midX, midY);
+            ctx.lineTo(midX, y + cell);
+          }
           ctx.stroke();
         }
       }
@@ -235,25 +247,42 @@ function renderPatternMaskCanvas(patternId) {
     case "honeycomb": {
       ctx.fillStyle = "#000000";
       ctx.fillRect(0, 0, size, size);
-      ctx.lineWidth = 5;
       const colors = ["#ff0000", "#00ff00", "#0000ff"];
-      const side = 16;
-      const halfH = 14;
-      let row = 0;
-      for (let y = -halfH; y < size + halfH; y += halfH * 2, row += 1) {
-        let col = 0;
-        for (let x = -side; x < size + side; x += side * 1.5, col += 1) {
-          const cx = x + (row % 2 ? side * 0.75 : 0);
-          ctx.strokeStyle = colors[(row + col) % colors.length];
-          ctx.beginPath();
-          ctx.moveTo(cx - side, y);
-          ctx.lineTo(cx - side / 2, y - halfH);
-          ctx.lineTo(cx + side / 2, y - halfH);
-          ctx.lineTo(cx + side, y);
-          ctx.lineTo(cx + side / 2, y + halfH);
-          ctx.lineTo(cx - side / 2, y + halfH);
-          ctx.closePath();
-          ctx.stroke();
+      const hexWidth = PATTERN_MASK_LAYOUTS.honeycomb.cell;
+      const rowStep = PATTERN_MASK_LAYOUTS.honeycomb.cell;
+      const halfWidth = hexWidth / 2;
+      const halfHeight = rowStep * 2 / 3;
+      const quarterHeight = halfHeight / 2;
+      const trace = (color, a, b) => {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 4;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(a[0], a[1]);
+        ctx.lineTo(b[0], b[1]);
+        ctx.stroke();
+      };
+      // * The 32×64 stagger repeats exactly into 128. Shared edges use the same colour family,
+      // * so neighbouring cells reinforce instead of mixing into broken yellow/pink fragments.
+      for (let row = -2; row <= size / rowStep + 2; row += 1) {
+        const cy = row * rowStep;
+        const offsetX = Math.abs(row) % 2 === 1 ? halfWidth : 0;
+        for (let col = -2; col <= size / hexWidth + 2; col += 1) {
+          const cx = col * hexWidth + offsetX;
+          const points = [
+            [cx, cy - halfHeight],
+            [cx + halfWidth, cy - quarterHeight],
+            [cx + halfWidth, cy + quarterHeight],
+            [cx, cy + halfHeight],
+            [cx - halfWidth, cy + quarterHeight],
+            [cx - halfWidth, cy - quarterHeight],
+          ];
+          trace(colors[0], points[0], points[1]);
+          trace(colors[1], points[1], points[2]);
+          trace(colors[2], points[2], points[3]);
+          trace(colors[0], points[3], points[4]);
+          trace(colors[1], points[4], points[5]);
+          trace(colors[2], points[5], points[0]);
         }
       }
       break;
@@ -262,14 +291,15 @@ function renderPatternMaskCanvas(patternId) {
       ctx.fillStyle = "#000000";
       ctx.fillRect(0, 0, size, size);
       const colors = ["#ff0000", "#00ff00", "#0000ff"];
-      for (let y = -28; y < size + 28; y += 28) {
-        for (let x = -28; x < size + 28; x += 28) {
-          const cx = x + 14;
-          const cy = y + 14;
+      const step = PATTERN_MASK_LAYOUTS.diamond.cell;
+      for (let y = 0; y < size; y += step) {
+        for (let x = 0; x < size; x += step) {
+          const cx = x + step / 2;
+          const cy = y + step / 2;
           for (let ring = 0; ring < 3; ring += 1) {
-            const radius = 12 - ring * 4;
+            const radius = [14, 9, 4][ring];
             ctx.strokeStyle = colors[ring];
-            ctx.lineWidth = ring === 0 ? 4 : 3;
+            ctx.lineWidth = [4, 3, 2.5][ring];
             ctx.beginPath();
             ctx.moveTo(cx, cy - radius);
             ctx.lineTo(cx + radius, cy);
@@ -286,22 +316,46 @@ function renderPatternMaskCanvas(patternId) {
       ctx.fillStyle = "#000000";
       ctx.fillRect(0, 0, size, size);
       const colors = ["#ff0000", "#00ff00", "#0000ff"];
-      for (let y = -26; y < size + 26; y += 26) {
-        for (let x = -30; x < size + 30; x += 30) {
-          const cx = x + 15;
-          const cy = y + 13;
-          const trace = (color, points) => {
-            ctx.strokeStyle = color;
-            ctx.lineWidth = 4;
-            ctx.lineJoin = "round";
-            ctx.beginPath();
-            ctx.moveTo(points[0][0], points[0][1]);
-            for (let i = 1; i < points.length; i += 1) ctx.lineTo(points[i][0], points[i][1]);
-            ctx.stroke();
-          };
-          trace(colors[0], [[cx, cy - 13], [cx + 15, cy - 5], [cx + 15, cy + 5], [cx, cy + 13], [cx - 15, cy + 5], [cx - 15, cy - 5], [cx, cy - 13]]);
-          trace(colors[1], [[cx, cy - 13], [cx, cy], [cx - 15, cy - 5], [cx, cy]]);
-          trace(colors[2], [[cx, cy], [cx + 15, cy - 5], [cx, cy + 13], [cx, cy], [cx - 15, cy + 5]]);
+      const cubeStep = PATTERN_MASK_LAYOUTS.cubes.cell;
+      const halfWidth = cubeStep / 2;
+      const halfHeight = cubeStep * 2 / 3;
+      const quarterHeight = halfHeight / 2;
+      const trace = (color, a, b) => {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 3.5;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.beginPath();
+        ctx.moveTo(a[0], a[1]);
+        ctx.lineTo(b[0], b[1]);
+        ctx.stroke();
+      };
+      // * One continuous staggered isometric lattice. Each edge direction owns one colour and
+      // * shared edges never receive a competing stroke; the centre Y divides each hex into the
+      // * three rhombi that create the cube read.
+      for (let row = -2; row <= size / cubeStep + 2; row += 1) {
+        const cy = row * cubeStep;
+        const offsetX = Math.abs(row) % 2 === 1 ? halfWidth : 0;
+        for (let col = -2; col <= size / cubeStep + 2; col += 1) {
+          const cx = col * cubeStep + offsetX;
+          const points = [
+            [cx, cy - halfHeight],
+            [cx + halfWidth, cy - quarterHeight],
+            [cx + halfWidth, cy + quarterHeight],
+            [cx, cy + halfHeight],
+            [cx - halfWidth, cy + quarterHeight],
+            [cx - halfWidth, cy - quarterHeight],
+          ];
+          const center = [cx, cy];
+          trace(colors[0], points[0], points[1]);
+          trace(colors[1], points[1], points[2]);
+          trace(colors[2], points[2], points[3]);
+          trace(colors[0], points[3], points[4]);
+          trace(colors[1], points[4], points[5]);
+          trace(colors[2], points[5], points[0]);
+          trace(colors[1], center, points[0]);
+          trace(colors[0], center, points[2]);
+          trace(colors[2], center, points[4]);
         }
       }
       break;
