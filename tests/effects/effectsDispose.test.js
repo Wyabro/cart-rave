@@ -9,16 +9,14 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const effectsSrc = readFileSync(new URL("../../src/effects.js", import.meta.url), "utf8");
+const effectsSrc = readFileSync(new URL("../../src/effects/meshHelpers.js", import.meta.url), "utf8");
 const cartSrc = readFileSync(new URL("../../src/carts/cart.js", import.meta.url), "utf8");
 
-/** Body of `function disposeObject3D(...)` up to the next top-level declaration. */
+/** Body of `function disposeObject3D(...)` to the end of the module. */
 function disposeObject3DSource() {
   const start = effectsSrc.indexOf("function disposeObject3D(");
   expect(start).toBeGreaterThan(-1);
-  const end = effectsSrc.indexOf("\n/** @typedef", start);
-  expect(end).toBeGreaterThan(start);
-  return effectsSrc.slice(start, end);
+  return effectsSrc.slice(start);
 }
 
 describe("effects disposeObject3D", () => {
