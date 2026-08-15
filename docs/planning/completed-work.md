@@ -23,7 +23,13 @@ Chronological record of shipped work, newest first.
   podium stays off (`wall` flag). Tests: 15/15 bounce + 12/12 furniture wedge.
   Probe (`tmp/pileprobe.mjs`, 2×45 s): 0 wedged, 0 stuck, longest 0.2 s.
   Deployed Worker `2ce6e459-b28d-4e0b-b431-31bf781a2daa`; live `gameBoot-BoLl-eD6.js`
-  carries `resolveWallKeepOutDeltaV`. **Wyatt retest owed:** **STORE-PILE-PT-1**.
+  carries `resolveWallKeepOutDeltaV`. **STORE-PILE-PT-1** Wyatt PASS 08-14.
+
+### August 14, 2026 — STORE-PILE-PT-1 PASS
+
+- *(Playtest · Medium)* **STORE-PILE-PT-1** — ✅ **PASS 08-14** on prod after STORE-PILE-2
+  (`f92f918`, Worker `2ce6e459`). NPC contacts on the Storerooms pile are brief; bots
+  route around.
 
 ### August 14, 2026 — playtest PASSes (5 cards)
 

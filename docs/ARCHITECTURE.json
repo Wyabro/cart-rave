@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-15T00:15:42.716Z",
-    "commit": "f92f918"
+    "at": "2026-08-15T00:22:18.735Z",
+    "commit": "8c2e3f8"
   },
-  "source_digest": "809c3f99",
+  "source_digest": "49363b48",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -873,7 +873,7 @@
       }
     ],
     "next_actions": [
-      "STORE-PILE-PT-1 — STORE-PILE-2 is on prod. Hard-refresh, then retest the same card.",
+      "GAMEPAD-FRIENDS-SEATED-1 — controller nav after seating in Friends lobby. Plan → ack before a lever.",
       "DEEPSEC-1 is on prod (Worker `a1d270b5`). Hard-refresh, then run DEEPSEC-1-PT-1 `[2pc]`. Token rotate stays on DEEPSEC-2.",
       "Deferred playtests: CARGO-BAY-INSTANCE-PT-3 · CONN-TRACK-LEAK-PT-1 · QP-ROTATE-PT-1 · SHARD-PT-2.",
       "SHIP-1 D-tier — cut persistent leaderboard from launch, or schedule its own phase (Wyatt)."
@@ -1026,7 +1026,7 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Medium": 4,
+          "Medium": 3,
           "Low": 2
         },
         "rows": [
@@ -1034,12 +1034,6 @@
             "pri": "Medium",
             "item": "DEEPSEC-1-PT-1 — stolen `_pk` / `hostScore` does not take host `[2pc]`",
             "notes": "**Owed: Wyatt playtest — DEEPSEC-1-PT-1 — a second tab cannot steal host, and Quickplay `?diag=1` URL rewrite does not unlock scores.** Parent **DEEPSEC-1** deployed Worker `a1d270b5-5db3-4a20-8b59-237d6ca79624` (`9db3b17`). Hard-refresh prod first.<br>1. Two browsers, same Friends code, both seat. Play 30 s. Host refresh: the host reconnects as themselves or a clean migrate, never two hosts. Rematch starts.<br>2. Two browsers, Quickplay. First joiner is host. On the host with `?diag=1`, run `history.replaceState({}, '', '/?diag=1&room=KALE7')` then `__ccDiag.control.setScores({0:500,1:0,2:0,3:0})`. Scores on the other browser must not jump.<br>3. Friends `?diag=1`: host `setScores` still works. FAIL if Friends levers die, if Quickplay levers work after the rewrite, if refresh duplicates host, or if rematch cannot start.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "STORE-PILE-PT-1 — NPCs route around + bounce off the Storerooms furniture pile `[solo]`",
-            "notes": "**Owed: Wyatt playtest — STORE-PILE-PT-1 — NPC carts no longer routinely wedge against the center furniture pile in Storerooms.** **STORE-PILE-2** is on prod (Worker `2ce6e459-b28d-4e0b-b431-31bf781a2daa`, `f92f918`). Hard-refresh first. Live `gameBoot-BoLl-eD6.js` carries `resolveWallKeepOutDeltaV`. Probe 0 wedged, longest 0.2s.<br>1. Solo round on THE STOREROOMS (hard-refresh prod first). Play near the center furniture pile — park near it, then let the NPCs chase you across it.<br>2. Over a full round, watch the NPCs: chasing bots should curve around the pile from ~8 m out; a bot that does contact it (boost push, ram) should bounce back and keep moving.<br>3. FAIL if an NPC grinds the same face of the pile for 4+ seconds, or repeatedly drives straight into it head-on instead of steering around. PASS if contacts are brief and bots visibly route around.",
             "ship1": null
           },
           {
@@ -1435,7 +1429,7 @@
       {
         "id": "D-STORE-PILE-2",
         "date": "08-14",
-        "text": "Head-on pile contact never entered STORE-PILE-1's 0.9 m origin pad (nose-on origin ~4.45 m vs pad end 4.3 m). Pad is now cart `hz + 0.3` press; apply strips this-frame inward drive only, walk-out 17 m/s², Δv cap 4 m/s. Probe: 0 wedged / longest 0.2 s. Retest STORE-PILE-PT-1."
+        "text": "Head-on pile contact never entered STORE-PILE-1's 0.9 m origin pad (nose-on origin ~4.45 m vs pad end 4.3 m). Pad is now cart `hz + 0.3` press; apply strips this-frame inward drive only, walk-out 17 m/s², Δv cap 4 m/s. Probe: 0 wedged / longest 0.2 s. STORE-PILE-PT-1 Wyatt PASS 08-14."
       },
       {
         "id": "D-STORE-PILE-1",
