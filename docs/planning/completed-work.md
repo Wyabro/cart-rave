@@ -22,7 +22,7 @@ Chronological record of shipped work, newest first.
   one-material shader path; cart material traverse and net protocol stay unchanged. NPC selection
   is name-seeded and peer-stable: 3× Classic plus each decorated pattern once. QA: 7/7, 190 files /
   2,112 tests. Local rendered checks covered all nine, actual locks, Pink/Blue multicolor, and the
-  phone grid. **PATTERNS-UI-2-PT-1 owed**: local now; production after `ship it`.
+  phone grid. Deployed Worker `50e663ec`; **PATTERNS-UI-2-PT-1 owed** for Wyatt's production check.
 
 ### August 15, 2026 — BOOST-SFX-NONHOST-1: host convert plays the boost whoosh
 

@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-15T10:12:21.922Z",
-    "commit": "0f90051"
+    "at": "2026-08-15T18:39:12.278Z",
+    "commit": "4d96faf"
   },
-  "source_digest": "649c30aa",
+  "source_digest": "9282c17b",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -880,7 +880,7 @@
       }
     ],
     "next_actions": [
-      "PATTERNS-UI-2-PT-1 — local: nine patterns, locks, multicolor cart/preview, NPC rolls, controller path. Production after `ship it`.",
+      "PATTERNS-UI-2-PT-1 — production: nine patterns, locks, multicolor cart/preview, NPC rolls, controller path.",
       "MENU-CMD-SKEW-PT-1 — main menu labels upright on prod (hard-refresh).",
       "STOREROOMS-NPC-SELFKO-PT-1 / PT-2 — Solo Storerooms on prod (hard-refresh). Worker `cc79e3b7`.",
       "WARM-QP-ROTATE-1 — adopt room arena after hello, under the overlay, full forPlay warm. Do not delay countdown.",
@@ -1071,7 +1071,7 @@
           {
             "pri": "Medium",
             "item": "PATTERNS-UI-2-PT-1 — nine cart patterns and unlocks `[solo]`",
-            "notes": "**Pushed but not yet deployed — use `npm run dev`, or ship only on `ship it`.** **Owed: Wyatt playtest — PATTERNS-UI-2-PT-1 — free basics, earned detail, distinct multicolor pattern art, and NPC variety all read cleanly.** Parent **PATTERNS-UI-2**.<br>1. In local dev, open CUSTOMIZE → PATTERN. PASS if the nine chips fit 3×3; Classic, Stripes, and Checker select; the other six show their listed locks with `?devUnlocks=off`.<br>2. Select Maze, Honeycomb, Diamond Weave, and Isometric Cubes; cycle Pink and Blue. PASS if chip, preview, and live cart agree. FAIL if the linework shimmers, merges, or loses player colour.<br>3. Start a solo round. PASS if the selected pattern survives spawn and KO rebuild, and NPCs show varied deterministic patterns.<br>4. With a controller, navigate all nine chips and select one. PASS if focus and selection work; touch pattern selection stays unchanged.<br>5. After `ship it`, hard-refresh production and repeat steps 1–4.",
+            "notes": "**Deployed Worker `50e663ec` — hard-refresh production first.** **Owed: Wyatt playtest — PATTERNS-UI-2-PT-1 — free basics, earned detail, distinct multicolor pattern art, and NPC variety all read cleanly.** Parent **PATTERNS-UI-2**.<br>1. Hard-refresh production and open CUSTOMIZE → PATTERN. PASS if the nine chips fit 3×3; Classic, Stripes, and Checker select; the other six show their listed locks with `?devUnlocks=off`.<br>2. Select Maze, Honeycomb, Diamond Weave, and Isometric Cubes; cycle Pink and Blue. PASS if chip, preview, and live cart agree. FAIL if the linework shimmers, merges, or loses player colour.<br>3. Start a solo round. PASS if the selected pattern survives spawn and KO rebuild, and NPCs show varied deterministic patterns.<br>4. With a controller, navigate all nine chips and select one. PASS if focus and selection work; touch pattern selection stays unchanged.<br>5. Repeat steps 1–4 after any cache-clearing deploy.",
             "ship1": null
           }
         ]
