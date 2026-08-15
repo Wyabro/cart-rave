@@ -35,7 +35,8 @@ external testers. Stay in this phase until Wyatt advances the marker.
 (Worker `ef2a7550`, `747e67d`). **STORE-PILE-PT-1 PASS 08-14.** Do not reopen
 GAMEPAD-LOBBY-1. Deferred launch day: **SHARD-PT-2**. **STOREROOMS-NPC-SELFKO-2**
 landed (`d680928` · `928df0d`) — PT-1 vortex · PT-2 outer pit. New evidence
-**WARM-QP-ROTATE-1** (cap-364). Open picks: [BACKLOG.md](./planning/BACKLOG.md)
+**WARM-QP-ROTATE-1** (cap-364). **MENU-CMD-SKEW-1** landed (`19437ed`) —
+PT-1 menu labels upright. Open picks: [BACKLOG.md](./planning/BACKLOG.md)
 Blocks 4–5 / 7.
 
 **Closed cards keep their narrative in their own docs, not here** — Sundial
@@ -78,9 +79,10 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. **STOREROOMS-NPC-SELFKO-PT-1 / PT-2** — Solo Storerooms on prod (hard-refresh). Worker `cc79e3b7`.
-2. **WARM-QP-ROTATE-1** — adopt room arena after hello, under the overlay, full forPlay warm. Do not delay countdown.
-3. **SHARD-PT-2** stays launch day (5 humans).
+1. **MENU-CMD-SKEW-PT-1** — main menu labels upright on prod (hard-refresh).
+2. **STOREROOMS-NPC-SELFKO-PT-1 / PT-2** — Solo Storerooms on prod (hard-refresh). Worker `cc79e3b7`.
+3. **WARM-QP-ROTATE-1** — adopt room arena after hello, under the overlay, full forPlay warm. Do not delay countdown.
+4. **SHARD-PT-2** stays launch day (5 humans).
 
 ## Open issues (top)
 
@@ -98,6 +100,7 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 [decision-log-2026-08.md](./archive/decision-log-2026-08.md), 07-11 → 07-23 in
 [decision-log-2026-07.md](./archive/decision-log-2026-07.md).
 
+- **D-MENU-CMD-SKEW-1** (08-15): Menu entrance wrote `translateY`/`scale` on `.cr-cmd` and wiped `skewX(-8deg)`; leftover label `skewX(8deg)` leaned SOLO–SETTINGS left. Entrance now `fadeIn` only. Playtest owed: **MENU-CMD-SKEW-PT-1**.
 - **D-CONN-TOASTS-1** (08-15): Friends join/leave toasts, lobby + in-match — client-side diff of human `connId` membership in the existing `MSG.slots` handler (host and non-host alike; solo never opens a socket so it is untouched by construction). Policy pure + unit-tested: self-skip, single-broadcast same-name coalesce (ghost-exorcism seat swap), 5s opposite-kind blip cooldown per name. One shared stacked toast surface (`#cr-conn-toasts`, bottom-centre, z 26500, lift + 56px above the single-slot toast), cap 3 visible + FIFO pending. Server lever: the silent-reap pass now broadcasts the slot conversion it already performed (`reapedIds.length > 0`) — previously clients kept a ghost human and no leave toast until an unrelated broadcast. Playtest owed: **CONN-TOASTS-1**.
 - **D-AGENT-OS-2** (08-15): Slim `AGENTS.md` (plan B). Keep invariants + ack/lever/freeze/fast-lane. Define done/ship/playtest once. Routing, `loop:`, and post-ship poll become pointers (manual § routing, `self-improving-loop.mdc`, `deploy-urls.md`). Not a 40–60 line cut.
 - **D-EFFECTS-SPLIT-1** (08-15): `src/effects.js` (3,484 lines) split into `src/effects/` domain modules (`meshHelpers` · `ambientParticles` · `ramBoostStreaks` · `crowd` · `stage` · `lasers` · `billboard`) behind a ~200-line composition root + explicit 20-function re-export barrel. Cross-cutting `setRaveExtrasVisible`/`applyRaveExtrasQuality` stay in `effects.js` (PERF-PASS-1 ablation guard preserved); `sceneRef` per-module; all new modules stay deferred (bundle 0 B delta). No behavior change; no playtest owed.
