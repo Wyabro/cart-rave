@@ -22,7 +22,8 @@ Chronological record of shipped work, newest first.
   17 m/s² walk-out, capped at 4 m/s so a ram cannot throw into a corner void. Sundial
   podium stays off (`wall` flag). Tests: 15/15 bounce + 12/12 furniture wedge.
   Probe (`tmp/pileprobe.mjs`, 2×45 s): 0 wedged, 0 stuck, longest 0.2 s.
-  **Wyatt retest owed:** **STORE-PILE-PT-1**.
+  Deployed Worker `2ce6e459-b28d-4e0b-b431-31bf781a2daa`; live `gameBoot-BoLl-eD6.js`
+  carries `resolveWallKeepOutDeltaV`. **Wyatt retest owed:** **STORE-PILE-PT-1**.
 
 ### August 14, 2026 — playtest PASSes (5 cards)
 
