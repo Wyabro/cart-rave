@@ -49,6 +49,11 @@ const HOLE_DEPTH = 26; // meters — shaft depth; bottoms out exactly at the PIT
 // * the void (simulation.js applySquareHoleSuction). Also drives the danger-ring decal radius
 // * and the NPC keep-out margins in aiHazards below. (playtest 2026-07-15)
 const HOLE_SUCTION_BAND = 2.6;
+// * STOREROOMS-NPC-SELFKO-2 L1: keep-out must sit past suction or bots self-feed the vortex.
+// * half + NPC_AVOID_MARGIN (7.25) > half + suctionBand (6.85). Exported so the safety
+// * test locks the live numbers instead of a fixture copy.
+export const STOREROOMS_NPC_AVOID_MARGIN = 3.0;
+export const STOREROOMS_NPC_INFLUENCE_BAND = 2.0;
 // * Per-level fall KO depth (restored on dispose). Deep enough for a dramatic ~1.2s drop
 // * down a shaft, still well inside scoring's 2.5s kill-attribution window.
 const FALL_Y_THRESHOLD = -18;
@@ -4093,11 +4098,11 @@ export function initBackroomsSupermarket(scene, world, config, options = {}) {
       half: HOLE_HALF,
       holeCenter: HOLE_CENTER,
       arenaHalf: ARENA_HALF,
-      // * avoidMargin + influenceBand widened to clear the suctionBand: bots must steer away
-      // * BEFORE the pull grabs them (else they self-feed). Reach = half + avoidMargin +
-      // * influenceBand = 8.25m > band outer edge (half + suctionBand = 6.85m). (2026-07-15)
-      avoidMargin: 2.4, // * keep-out radius — routing/targets stay outside the suction band
-      influenceBand: 1.6, // * steer nudge starts beyond the band so the grab never surprises a bot
+      // * STOREROOMS-NPC-SELFKO-2 L1: keep-out past suction so routing cannot place a
+      // * target inside the pull. Reach = half + avoidMargin + influenceBand = 9.25 m
+      // * vs suction outer edge half + suctionBand = 6.85 m.
+      avoidMargin: STOREROOMS_NPC_AVOID_MARGIN,
+      influenceBand: STOREROOMS_NPC_INFLUENCE_BAND,
       // * Inward-pull band width (meters) outside the floor lip. Consumed by simulation.js
       // * applySquareHoleSuction; makes the four voids dangerous by proximity, not just contact.
       suctionBand: HOLE_SUCTION_BAND,

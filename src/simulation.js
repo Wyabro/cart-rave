@@ -2035,32 +2035,62 @@ export function circularKeepOutTangentEscape(px, pz, zone, targetX, targetZ) {
   return { x: tx, z: tz };
 }
 
+const SQUARE_HOLE_TTE_WINDOW_S = 0.45;
+const SQUARE_HOLE_PANIC_REVERSE_TTE_S = 0.32;
+
 /**
- * Blends a repulsion away from nearby square voids into an NPC's heading direction so it
- * steers around the holes instead of driving straight in. Mutates and re-normalizes `dir`.
+ * Time-to-physical-lip panic for a Storerooms square void. 0 when not diving.
+ * Exported for tests (STOREROOMS-NPC-SELFKO-2).
  *
- * @param {number} px Cart world X.
- * @param {number} pz Cart world Z.
- * @param {THREE.Vector3} dir Normalized planar heading (modified in place).
- * @param {number} [targetX] Optional chase X for tangent routing around voids.
- * @param {number} [targetZ] Optional chase Z for tangent routing around voids.
+ * @param {number} cheb Chebyshev distance from the hole center.
+ * @param {number} towardHoleSpeed Speed toward the hole (m/s). ≤ 0.5 → 0.
+ * @param {number} half Physical void half-extent (the floor lip).
+ * @returns {number} 0..1.6
  */
+export function computeSquareHoleTtePanic(cheb, towardHoleSpeed, half) {
+  if (towardHoleSpeed <= 0.5) return 0;
+  const gap = cheb - half;
+  if (gap <= 0) return 1.6;
+  const tte = gap / towardHoleSpeed;
+  return clamp((SQUARE_HOLE_TTE_WINDOW_S - tte) / SQUARE_HOLE_TTE_WINDOW_S, 0, 1) * 1.6;
+}
+
 /**
- * * Steers an NPC heading away from Storerooms/Backrooms square corner voids.
- * * AI-ARENA-SELFKO-1 L2: radial is from-hole (not Chebyshev speed). Gutter stays
- * * mostly tangent; small radial only when diving into the hole. Lip radial raised
- * * so bots peel off the void instead of full-sending.
+ * True when a Storerooms NPC should panic-reverse off a square void. Position lip
+ * check or short time-to-physical-lip while diving. Exported for tests.
  *
- * @param {number} px Cart world X.
- * @param {number} pz Cart world Z.
- * @param {{ x: number, z: number }} lv Planar linear velocity.
- * @param {THREE.Vector3} dir Normalized planar heading (modified in place).
- * @param {number} [targetX]
- * @param {number} [targetZ]
+ * @param {{
+ *   cheb: number,
+ *   half: number,
+ *   keepOut: number,
+ *   speed: number,
+ *   towardHole: number,
+ *   insideZone: boolean,
+ * }} opts
+ * @returns {boolean}
+ */
+export function shouldNpcPanicReverseSquareHole(opts) {
+  const speed = opts.speed;
+  if (speed <= 1.0) return false;
+  if (opts.insideZone) return true;
+  const diving = opts.towardHole > 0.45;
+  if (!diving) return false;
+  if (opts.cheb < opts.keepOut + 0.22) return true;
+  const approachSpeed = speed * opts.towardHole;
+  if (approachSpeed <= 0.5) return false;
+  const gap = opts.cheb - opts.half;
+  const tte = gap <= 0 ? 0 : gap / approachSpeed;
+  return tte < SQUARE_HOLE_PANIC_REVERSE_TTE_S;
+}
+
+/**
+ * Steers an NPC heading away from Storerooms square corner voids.
+ * Static radial + Classic-style TTE panic to the physical lip (max, not sum).
  */
 function applySquareHoleAvoidance(px, pz, lv, dir, targetX, targetZ) {
   const holes = _levelHazards.squareHoles;
-  const edge = _levelHazards.half + _levelHazards.avoidMargin;
+  const half = _levelHazards.half;
+  const edge = half + _levelHazards.avoidMargin;
   const band = _levelHazards.influenceBand;
   let rx = 0;
   let rz = 0;
@@ -2068,13 +2098,14 @@ function applySquareHoleAvoidance(px, pz, lv, dir, targetX, targetZ) {
     const dx = px - holes[i].x;
     const dz = pz - holes[i].z;
     const cheb = Math.max(Math.abs(dx), Math.abs(dz));
-    if (cheb >= edge + band) continue;
-    const strength = clamp((edge + band - cheb) / band, 0, 2.2);
     const len = Math.hypot(dx, dz) || 1;
     // * Radial from hole → cart (outward). Diving = velocity toward hole = −(lv · radial).
     const radialX = dx / len;
     const radialZ = dz / len;
     const towardHoleSpeed = -(lv.x * radialX + lv.z * radialZ);
+    const panic = computeSquareHoleTtePanic(cheb, towardHoleSpeed, half);
+    if (cheb >= edge + band && panic <= 0) continue;
+    const strength = cheb < edge + band ? clamp((edge + band - cheb) / band, 0, 2.2) : 0;
     const movingTowardHole = towardHoleSpeed > 0.5;
     // * Gutter: tangent-first; light radial only when diving (avoids "scared of whole corner").
     // * Inside lip: stronger peel-off so unforced void dives drop.
@@ -2082,9 +2113,11 @@ function applySquareHoleAvoidance(px, pz, lv, dir, targetX, targetZ) {
     const radialScale = inGutterBand
       ? (movingTowardHole ? 0.15 : 0)
       : 0.60;
-    if (radialScale > 0) {
-      rx += radialX * strength * radialScale;
-      rz += radialZ * strength * radialScale;
+    // * STOREROOMS-NPC-SELFKO-2 L1: TTE panic maxes with the static radial (not sum).
+    const radialMag = Math.max(radialScale > 0 ? strength * radialScale : 0, panic);
+    if (radialMag > 0) {
+      rx += radialX * radialMag;
+      rz += radialZ * radialMag;
     }
 
     // * Near the lip, bias tangent toward the chase target.
@@ -2390,9 +2423,11 @@ function clampBackroomsAiTarget(x, z, cautious, opts = {}) {
   const maxCoord = arenaHalf - edgeInset;
   let outX = clamp(x, -maxCoord, maxCoord);
   let outZ = clamp(z, -maxCoord, maxCoord);
+  // * STOREROOMS-NPC-SELFKO-2 L1: never a negative extra — that placed chase /
+  // * gutter targets inside the suction band.
   const holeExtra = opts.cornerPatrol
-    ? (cautious ? 0.1 : -0.12)
-    : (cautious ? 0.3 : -0.05);
+    ? (cautious ? 0.1 : 0.05)
+    : (cautious ? 0.3 : 0.15);
   const pushed = pushPointOutOfSquareHoles(outX, outZ, holeExtra);
   outX = pushed.x;
   outZ = pushed.z;
@@ -2979,19 +3014,26 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
 
     const lv = _scratchLinvel;
     const speed = Math.hypot(lv.x, lv.z);
-    // * Panic reverse only on the lip while actively sliding in — not idle in gutters.
-    if (cheb < lip + 0.22 && speed > 1.0) {
-      const toHoleX = hole.x - p.x;
-      const toHoleZ = hole.z - p.z;
-      const toHoleLen = Math.hypot(toHoleX, toHoleZ) || 1;
-      const towardHole = (lv.x * toHoleX + lv.z * toHoleZ) / (speed * toHoleLen);
-      if (towardHole > 0.45 || isInsideSquareHoleZone(p.x, p.z, -0.08)) {
-        cart.aiReverseUntilMs = now + (420 + Math.random() * 280);
-        const escape = gutterWaypointAroundHole(hole, targetX, targetZ, false);
-        cart.aiTarget.x = escape.x;
-        cart.aiTarget.z = escape.z;
-        cart._aiWorkingTarget = null;
-      }
+    const toHoleX = hole.x - p.x;
+    const toHoleZ = hole.z - p.z;
+    const toHoleLen = Math.hypot(toHoleX, toHoleZ) || 1;
+    const towardHole = speed > 1e-3
+      ? (lv.x * toHoleX + lv.z * toHoleZ) / (speed * toHoleLen)
+      : 0;
+    // * STOREROOMS-NPC-SELFKO-2 L1: also reverse on short TTE, not only lip + 0.22.
+    if (shouldNpcPanicReverseSquareHole({
+      cheb,
+      half: _levelHazards.half,
+      keepOut: lip,
+      speed,
+      towardHole,
+      insideZone: isInsideSquareHoleZone(p.x, p.z, -0.08),
+    })) {
+      cart.aiReverseUntilMs = now + (420 + Math.random() * 280);
+      const escape = gutterWaypointAroundHole(hole, targetX, targetZ, false);
+      cart.aiTarget.x = escape.x;
+      cart.aiTarget.z = escape.z;
+      cart._aiWorkingTarget = null;
     }
   }
 
