@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-15T05:30:25.904Z",
-    "commit": "e943036"
+    "at": "2026-08-15T07:42:26.733Z",
+    "commit": "93ec6fa"
   },
-  "source_digest": "21b92932",
+  "source_digest": "f6441cff",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -881,8 +881,8 @@
     ],
     "next_actions": [
       "WARM-QP-ROTATE-1 — adopt room arena after hello, under the overlay, full forPlay warm. Do not delay countdown.",
-      "BOOST-SFX-NONHOST-PT-1 — non-host whoosh on host convert (after ship).",
-      "SHARD-PT-2 stays launch day (5 humans)."
+      "SHARD-PT-2 stays launch day (5 humans).",
+      "SHIP-1 D-tier — cut persistent leaderboard from launch, or schedule its own phase (Wyatt)."
     ],
     "open_issues": [
       {
@@ -1026,16 +1026,10 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Low": 2,
-          "Medium": 1
+          "Medium": 1,
+          "Low": 1
         },
         "rows": [
-          {
-            "pri": "Low",
-            "item": "BOOST-SFX-NONHOST-PT-1 — non-host boost whoosh when host `b` converts a live charge `[2pc]`",
-            "notes": "**Owed: Wyatt playtest — BOOST-SFX-NONHOST-PT-1 — the boost whoosh plays when a non-host fire is confirmed by the host.** Parent **BOOST-SFX-NONHOST-1**. Join as non-host. Hard-refresh first. Code is pushed; play on prod after ship.<br>1. Charge, then release. Hear the whoosh every fire.<br>2. If you can hitch mid-charge, hear the whoosh when the cart still boosts.<br>3. FAIL if a fire is silent. PASS if every fire whooshes and other SFX still play.",
-            "ship1": null
-          },
           {
             "pri": "Medium",
             "item": "WARM-QP-ROTATE-PT-1 — non-host Quickplay overlay covers first room arena `[2pc]`",

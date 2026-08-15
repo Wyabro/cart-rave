@@ -15,12 +15,14 @@ Chronological record of shipped work, newest first.
 
 ### August 15, 2026 — BOOST-SFX-NONHOST-1: host convert plays the boost whoosh
 
-- *(Audio · Low)* **BOOST-SFX-NONHOST-1** — ✅ **DONE 08-15** (code). Non-host
-  `applySnapshotToCartBody` now fires existing `onRemoteBoostStart` once when a
-  rising-edge host `snap.b` converts a live charge. Keep-alive snaps and an
-  already-released charge stay silent. Charge-cancel + window latch unchanged.
-  Three unit tests in `tests/netcode/netcode.test.js`. Whoosh volume is 0.45
-  (remote path). Playtest owed: **BOOST-SFX-NONHOST-PT-1**.
+- *(Audio · Low)* **BOOST-SFX-NONHOST-1** — ✅ **DONE 08-15** (`93ec6fa`) + ✅ **PASS 08-15**
+  on prod (Worker `5d72f4a1`). Non-host `applySnapshotToCartBody` fires existing
+  `onRemoteBoostStart` once when a rising-edge host `snap.b` converts a live charge.
+  Keep-alive snaps and an already-released charge stay silent. Charge-cancel +
+  window latch unchanged. Whoosh volume is 0.45 (remote path).
+- *(Playtest · Audio)* **BOOST-SFX-NONHOST-PT-1** — ✅ **PASS 08-15 on prod**
+  (deployed `93ec6fa` / Worker `5d72f4a1`). Non-host boost whoosh plays when the
+  host confirms the fire. Parent **BOOST-SFX-NONHOST-1** closes with it.
 
 ### August 15, 2026 — CONN-TOASTS-1: friends join/leave toasts + PT-1 PASS
 

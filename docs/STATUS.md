@@ -30,11 +30,11 @@ are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Analyt
 external testers. Stay in this phase until Wyatt advances the marker.
 
 **08-15 playtest PASSes:** **DEEPSEC-1-PT-1** · **CARGO-BAY-INSTANCE-PT-3** ·
-**CONN-TRACK-LEAK-PT-1** · **QP-ROTATE-PT-1** · **CONN-TOASTS-1**. **GAMEPAD-FRIENDS-SEATED-PT-1 PASS 08-15**
+**CONN-TRACK-LEAK-PT-1** · **QP-ROTATE-PT-1** · **CONN-TOASTS-1** ·
+**BOOST-SFX-NONHOST-PT-1**. **GAMEPAD-FRIENDS-SEATED-PT-1 PASS 08-15**
 (Worker `ef2a7550`, `747e67d`). **STORE-PILE-PT-1 PASS 08-14.** Do not reopen
 GAMEPAD-LOBBY-1. Deferred launch day: **SHARD-PT-2**. New evidence **WARM-QP-ROTATE-1**
-(cap-364). **BOOST-SFX-NONHOST-1** coded 08-15 — playtest owed
-**BOOST-SFX-NONHOST-PT-1**. Open picks: [BACKLOG.md](./planning/BACKLOG.md) Blocks 4–5 / 7.
+(cap-364). Open picks: [BACKLOG.md](./planning/BACKLOG.md) Blocks 4–5 / 7.
 
 **Closed cards keep their narrative in their own docs, not here** — Sundial
 ([handover](./planning/art-pass-sundial-handover.md); read its "Traps that cost time" before any
@@ -77,8 +77,8 @@ Live rows only. Shipped and closed cards live in
 ### Next actions
 
 1. **WARM-QP-ROTATE-1** — adopt room arena after hello, under the overlay, full forPlay warm. Do not delay countdown.
-2. **BOOST-SFX-NONHOST-PT-1** — non-host whoosh on host convert (after ship).
-3. **SHARD-PT-2** stays launch day (5 humans).
+2. **SHARD-PT-2** stays launch day (5 humans).
+3. **SHIP-1 D-tier** — cut persistent leaderboard from launch, or schedule its own phase (Wyatt).
 
 ## Open issues (top)
 
@@ -136,6 +136,10 @@ the dev loop (dev probes lie in prod · edge propagation · frozen `rAF`), or a 
 - **hostFreeze's freeze lever is CDP `Debugger.pause`** (HARNESS-FREEZE-1 re-ack, `2e30d8e`) — `Page.setWebLifecycleState({state:"frozen"})` resolves but never silences a page holding a live RTCPeerConnection (bfcache eligibility), and perfPump/focus-emulation defeat CPU-throttle fallbacks. Pause = genuine JS halt; the scenario waits a bounded grace for silence (in-flight sends land first) before measuring the 3s window. If it ever goes INCONCLUSIVE again, the halt didn't land — that's an environment regression, not netcode.
 
 ## Last updated
+
+2026-08-15 (BOOST-SFX-NONHOST-PT-1) — Wyatt PASS on prod Worker `5d72f4a1` / `93ec6fa`.
+Non-host boost whoosh plays when host `snap.b` converts a live charge. Parent
+**BOOST-SFX-NONHOST-1** closed. BRIEFING regenerated from this file.
 
 2026-08-15 (CONN-TOASTS-1) — Friends join/leave toasts (lobby + in-match): client-side
 `MSG.slots` human-connId diff + blip cooldown; reap pass now broadcasts the slot conversion
