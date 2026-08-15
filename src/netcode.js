@@ -226,6 +226,13 @@ let netSlots = [];
 /** SLOTS-JSON-1: fingerprint of last applied slots (not JSON.stringify). */
 let lastSlotsFingerprint = "";
 let lastSlotsServerMs = 0;
+/**
+ * CONN-TOASTS-1: name → last emitted connection event, for the reconnect-blip
+ * cooldown in {@link filterConnectionEvents}. Keyed by name (slots carry no
+ * clientId); bounded inside the filter.
+ * @type {Map<string, {kind: "joined" | "left", atMs: number}>}
+ */
+const recentConnectionEvents = new Map();
 
 let pendingHostFallEvents = [];
 
@@ -257,6 +264,88 @@ export function slotsFingerprint(slots) {
       + `:${s.isPlayReady ? 1 : 0}`;
   }
   return out;
+}
+
+/**
+ * CONN-TOASTS-1: reconnect-blip suppression window (ms) — an opposite-kind
+ * event for the same name inside this window reads as one story, not two toasts.
+ */
+export const CONN_TOAST_COOLDOWN_MS = 5000;
+
+/**
+ * CONN-TOASTS-1 — human membership diff over two MSG.slots payloads.
+ * Events fire only on connId presence changes; cosmetics, ready state, and
+ * NPC swaps produce none. The name is captured from the slot that carried it
+ * (the leaving slot's name is the last one other players saw).
+ * @param {Array<object> | null | undefined} prevSlots
+ * @param {Array<object> | null | undefined} nextSlots
+ * @returns {{ joined: Array<{connId: string, name: string}>, left: Array<{connId: string, name: string}> }}
+ */
+export function diffHumanSlots(prevSlots, nextSlots) {
+  const joined = [];
+  const left = [];
+  const prev = new Map();
+  for (const s of prevSlots ?? []) {
+    if (s && s.kind === "human" && typeof s.connId === "string") prev.set(s.connId, s.name ?? "");
+  }
+  const next = new Map();
+  for (const s of nextSlots ?? []) {
+    if (s && s.kind === "human" && typeof s.connId === "string") next.set(s.connId, s.name ?? "");
+  }
+  for (const [connId, name] of next) {
+    if (!prev.has(connId)) joined.push({ connId, name });
+  }
+  for (const [connId, name] of prev) {
+    if (!next.has(connId)) left.push({ connId, name });
+  }
+  return { joined, left };
+}
+
+/**
+ * CONN-TOASTS-1 — presentation policy over a slots diff, kept pure for tests.
+ * 1. Self events (youConnId) never toast — the local player already knows.
+ * 2. A name present in BOTH sets of one diff (ghost-exorcism seat swap under
+ *    one broadcast) nets to zero — the roster never visibly emptied.
+ * 3. Opposite-kind events for the same name inside COOLDOWN are suppressed —
+ *    join→leave and leave→join blips are one story, not two toasts.
+ * Mutates `recent` with the events it actually emits (LRU-capped).
+ *
+ * @param {{ joined: Array<{connId: string, name: string}>, left: Array<{connId: string, name: string}> }} diff
+ * @param {object} opts
+ * @param {string | null | undefined} opts.youConnId
+ * @param {Map<string, {kind: "joined" | "left", atMs: number}>} opts.recent
+ * @param {number} opts.nowMs
+ * @param {number} [opts.cooldownMs]
+ * @returns {Array<{kind: "joined" | "left", name: string}>} events to present
+ */
+export function filterConnectionEvents(diff, opts) {
+  const { youConnId, recent, nowMs, cooldownMs = CONN_TOAST_COOLDOWN_MS } = opts;
+  const nameOf = (e) => e.name || "Player";
+  const joinedNames = new Set(diff.joined.map(nameOf));
+  const both = new Set(diff.left.filter((e) => joinedNames.has(nameOf(e))).map(nameOf));
+  const events = [];
+  const emit = (kind, e) => {
+    if (e.connId === youConnId || both.has(nameOf(e))) return;
+    const prev = recent.get(nameOf(e));
+    if (prev && prev.kind !== kind && nowMs - prev.atMs < cooldownMs) return;
+    recent.set(nameOf(e), { kind, atMs: nowMs });
+    // * Bound the map so a long session of name churn cannot grow it forever.
+    if (recent.size > 24) {
+      let oldestKey = /** @type {string | null} */ (null);
+      let oldestAtMs = Infinity;
+      for (const [k, v] of recent) {
+        if (v.atMs < oldestAtMs) {
+          oldestAtMs = v.atMs;
+          oldestKey = k;
+        }
+      }
+      if (oldestKey !== null) recent.delete(oldestKey);
+    }
+    events.push({ kind, name: nameOf(e) });
+  };
+  for (const e of diff.joined) emit("joined", e);
+  for (const e of diff.left) emit("left", e);
+  return events;
 }
 
 export function queueHostFallEvent(eventData) {
@@ -343,6 +432,8 @@ let callbacks = {
   getOnHostMigratedHandler: () => null,
   onCountdownCancelled: () => {},
   onJoinRejected: () => {},
+  // CONN-TOASTS-1: presentation of join/leave events (friends lobby + in-match).
+  onPlayerConnectionEvents: (events) => {},
 
   // Menu & HUD
   hideMenuRef: () => {},
@@ -617,6 +708,7 @@ export function registerGameCallbacks(deps) {
     getOnHostMigratedHandler: () => deps.getOnHostMigratedHandler?.(),
     onCountdownCancelled: () => deps.onCountdownCancelled?.(),
     onJoinRejected: () => deps.onJoinRejected?.(),
+    onPlayerConnectionEvents: (events) => deps.onPlayerConnectionEvents?.(events),
     hideMenuRef: () => deps.invokeHideMenu(),
     updateCartMaterialsFromSlots: (slots) => deps.updateCartMaterialsFromSlots(slots),
     updateHudColorsFromSlots: (slots) => deps.updateHudColorsFromSlots(slots),
@@ -3329,6 +3421,9 @@ export function initNetcode(roomOverride) {
           youConnId && netSlots.some((s) => s && s.connId === youConnId),
         );
 
+        // * CONN-TOASTS-1: capture the pre-replace roster for the join/leave diff
+        // * (the emit below must compare against what the roster was, not itself).
+        const prevSlotsForDiff = netSlots;
         netSlots = merged;
 
         const nowHasSlot = Boolean(
@@ -3340,6 +3435,24 @@ export function initNetcode(roomOverride) {
             .catch((err) => {
               console.error("[netcode] ensureSessionReady failed during slot sync:", err);
             });
+        }
+
+        // * CONN-TOASTS-1: join/leave toasts — friends only, and only after hello
+        // * (pre-hello broadcasts, e.g. a reap pass inside onConnect, would diff
+        // * against an empty baseline and burst "X joined" on a fresh joiner).
+        // * Presentation-only; never throws into the net path.
+        if (helloReceivedThisSession && callbacks.detectGameMode?.() === "friends") {
+          try {
+            const connDiff = diffHumanSlots(prevSlotsForDiff, netSlots);
+            const connEvents = filterConnectionEvents(connDiff, {
+              youConnId,
+              recent: recentConnectionEvents,
+              nowMs: getMonotonicNow(),
+            });
+            if (connEvents.length > 0) callbacks.onPlayerConnectionEvents?.(connEvents);
+          } catch {
+            // * Presentation-only.
+          }
         }
 
         // * Host is the WebRTC offerer: open a DataChannel to every (new) human peer.
@@ -4064,6 +4177,7 @@ export const __netcodeTestHooks = {
     netSlots = [];
     lastSlotsFingerprint = "";
     lastSlotsServerMs = 0;
+    recentConnectionEvents.clear();
     peerReconnectNotBeforeMs.clear();
     peerReconnectAttemptCountByConnId.clear();
     resetClockState(partyClock);

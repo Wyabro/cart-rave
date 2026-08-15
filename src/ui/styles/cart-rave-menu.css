@@ -3355,10 +3355,113 @@ html, body {
   transform: translateX(-50%) translateY(0);
 }
 
+/* ── CONN-TOASTS-1: player connection toasts (friends lobby + in-match) ────────
+   ONE shared stacked surface, bottom-centre like the single-slot toast but
+   offset 56px above it (lift + 56px) so the two never stack. Same z band as
+   .cr-unlock-toast (26500) — band table: hud.css, next to `#hud`. */
+#cr-conn-toasts {
+  position: fixed;
+  left: 50%;
+  bottom: max(64px, env(safe-area-inset-bottom, 0px) + 48px);
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  z-index: 26500;
+  pointer-events: none;
+}
+
+#cr-conn-toasts.cr-conn-toasts--lifted {
+  bottom: max(calc(var(--cr-toast-lift, 88px) + 56px), env(safe-area-inset-bottom, 0px) + 72px);
+}
+
+#cr-conn-toasts .cr-conn-toast {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--color-ink);
+  color: var(--color-sticker-white);
+  font-family: var(--ui, "Russo One", sans-serif);
+  font-size: 0.8125rem;
+  letter-spacing: 0.04em;
+  box-shadow: var(--slab-shadow);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+#cr-conn-toasts .cr-conn-toast::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+#cr-conn-toasts .cr-conn-toast.is-joined::before {
+  background: var(--color-portal);
+}
+
+#cr-conn-toasts .cr-conn-toast.is-left::before {
+  background: var(--color-alert);
+}
+
+#cr-conn-toasts .cr-conn-toast-label {
+  font-family: var(--hud-ui, var(--ui, "Russo One", sans-serif));
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+}
+
+#cr-conn-toasts .cr-conn-toast.is-joined .cr-conn-toast-label {
+  color: var(--color-portal);
+}
+
+#cr-conn-toasts .cr-conn-toast.is-left .cr-conn-toast-label {
+  color: var(--color-alert);
+}
+
+#cr-conn-toasts .cr-conn-toast.is-in {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+#cr-conn-toasts .cr-conn-toast.is-out {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+/* RESULTS-CONN-TOASTS-1: mirror the single-slot toast's results-overlay lift
+   (see RESULTS-UNLOCK-TOAST-1 above) plus this stack's 56px offset. */
+#results-overlay[style*="display: flex"] ~ #cr-conn-toasts {
+  bottom: max(calc(34vh + 9rem + 56px), env(safe-area-inset-bottom, 0px) + 72px);
+}
+
+@media (pointer: coarse), (max-width: 900px) {
+  #results-overlay[style*="display: flex"] ~ #cr-conn-toasts {
+    bottom: max(10.5rem, env(safe-area-inset-bottom, 0px) + 8.5rem);
+  }
+}
+
+@media (max-height: 640px) and (min-width: 769px) and (pointer: fine) and (orientation: portrait),
+       (max-height: 640px) and (min-height: 521px) and (min-width: 769px) and (pointer: fine) {
+  #results-overlay[style*="display: flex"] ~ #cr-conn-toasts {
+    bottom: max(9.5rem, env(safe-area-inset-bottom, 0px) + 7.5rem);
+  }
+}
+
 /* === REDUCED MOTION ===
    JS-driven menu entrances are guarded centrally in animations.js; these guards
    cover the CSS ambient loops so motion-sensitive players get a still menu. */
 @media (prefers-reduced-motion: reduce) {
+  #cr-conn-toasts .cr-conn-toast {
+    transition: none;
+    opacity: 1;
+    transform: none;
+  }
   .cr-pulse,
   .cr-cart-preview-loading .cr-cart-preview-canvas {
     animation: none !important;

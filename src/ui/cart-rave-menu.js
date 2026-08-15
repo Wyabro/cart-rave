@@ -657,6 +657,74 @@ import { initGamepadTextEntry, openGamepadTextEntry } from "./gamepadTextEntry.j
     }, durationMs);
   }
 
+  // ─── Connection toasts (CONN-TOASTS-1) ────────────────────────────────────
+  /** CONN-TOASTS-1: max connection toasts visible at once (the rest wait FIFO). */
+  const CONN_TOAST_MAX_VISIBLE = 3;
+  /** CONN-TOASTS-1: how long a connection toast stays on screen. */
+  const CONN_TOAST_DURATION_MS = 3500;
+  /** CONN-TOASTS-1: exit animation length before the item is removed. */
+  const CONN_TOAST_EXIT_MS = 300;
+  /** CONN-TOASTS-1: FIFO of pending connection toasts. */
+  let connToastQueue = [];
+  /** CONN-TOASTS-1: items currently mounted (including the exit fade). */
+  let connToastVisibleCount = 0;
+
+  /**
+   * CONN-TOASTS-1 — ONE shared player-connection toast stack for the friends
+   * lobby and in-match play. Same bottom-centre language as showUnlockToast and
+   * the same measured strip lift, offset 56px above the single-slot toast so the
+   * two surfaces never stack. Up to 3 visible; excess events wait FIFO and show
+   * as the oldest dismisses — nothing is dropped.
+   * @param {"joined" | "left"} kind
+   * @param {string} name
+   */
+  function presentConnectionToast(kind, name) {
+    connToastQueue.push({ kind, name });
+    pumpConnectionToasts();
+  }
+
+  function pumpConnectionToasts() {
+    while (connToastQueue.length > 0 && connToastVisibleCount < CONN_TOAST_MAX_VISIBLE) {
+      const { kind, name } = connToastQueue.shift();
+      let stack = document.getElementById('cr-conn-toasts');
+      if (!stack) {
+        stack = document.createElement('div');
+        stack.id = 'cr-conn-toasts';
+        stack.setAttribute('aria-live', 'polite');
+        document.body.appendChild(stack);
+      }
+      const item = document.createElement('div');
+      item.className = `cr-conn-toast is-${kind}`;
+      const label = document.createElement('span');
+      label.className = 'cr-conn-toast-label';
+      label.textContent = kind === 'joined' ? 'JOINED' : 'LEFT';
+      const who = document.createElement('span');
+      who.className = 'cr-conn-toast-name';
+      who.textContent = name;
+      item.appendChild(label);
+      item.appendChild(who);
+      stack.appendChild(item);
+      connToastVisibleCount += 1;
+      // * Same measured lift as the single-slot toast — the CSS offsets this
+      // * stack above it. One forced layout read per toast, like showUnlockToast.
+      const lift = measureBottomStripLift();
+      stack.classList.toggle('cr-conn-toasts--lifted', lift > 0);
+      if (lift > 0) stack.style.setProperty('--cr-toast-lift', `${Math.round(lift)}px`);
+      else stack.style.removeProperty('--cr-toast-lift');
+      // * Next frame so the entrance transition has a from-state.
+      requestAnimationFrame(() => item.classList.add('is-in'));
+      window.setTimeout(() => {
+        item.classList.remove('is-in');
+        item.classList.add('is-out');
+        window.setTimeout(() => {
+          item.remove();
+          connToastVisibleCount -= 1;
+          pumpConnectionToasts();
+        }, CONN_TOAST_EXIT_MS);
+      }, CONN_TOAST_DURATION_MS);
+    }
+  }
+
   // ─── Custom color (hue-only neon; persisted via customization.js) ───────
   function getActiveColorCss() {
     if (state.colorMode === 'custom') return hueToNeonCss(state.customHue);
@@ -2909,6 +2977,15 @@ import { initGamepadTextEntry, openGamepadTextEntry } from "./gamepadTextEntry.j
     /** Menu toast for session-flow messaging (failed joins, disconnect returns). */
     showToast(message, durationMs = 5000) {
       showUnlockToast(message, durationMs);
+    },
+    /**
+     * CONN-TOASTS-1: stacked player connection toasts — one shared surface for
+     * the friends lobby and in-match play (netcode → gameSession → here).
+     * @param {"joined" | "left"} kind
+     * @param {string} name
+     */
+    showConnectionToast(kind, name) {
+      presentConnectionToast(kind, name);
     },
     playEntrance() {
       playMenuEntrance();

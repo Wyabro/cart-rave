@@ -335,6 +335,13 @@ export function buildNetcodeGameBridge(getContext, session, onFirstHello = null)
     isShatterAnimating: (cart, nowMs) => getContext()?.isShatterAnimating?.(cart, nowMs) ?? false,
     dispatchKOEvent: (koEvent, ctx) => getContext()?.dispatchKOEvent?.(koEvent, ctx),
     announce: (key, opts) => getContext()?.announce?.(key, opts),
+    // * CONN-TOASTS-1: join/leave events → the menu's shared connection-toast
+    // * stack (same bridge pattern as showToast, which lives on window.CartRave).
+    onPlayerConnectionEvents: (events) => {
+      for (const e of events) {
+        window.CartRave?.showConnectionToast?.(e.kind, e.name);
+      }
+    },
     applyRemoteDirective: (data) => getContext()?.applyRemoteDirective?.(data),
     clearDirectiveOnHostMigration: () => getContext()?.clearDirectiveOnHostMigration?.(),
     getDirectiveWireState: () => getContext()?.getDirectiveWireState?.() ?? null,
