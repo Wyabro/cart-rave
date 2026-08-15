@@ -106,6 +106,15 @@ describe("ONBOARD-ATTRACT-1 — first-run guidance never takes over the menu", (
     expect(methodBody(menu, "hide")).toMatch(/clearHowToAttract\(\)/);
   });
 
+  it("does not let menu entrance wipe command-row skew", () => {
+    // * animateMenuCardEnter writes translateY/scale on the row and leaves the
+    // * label's counter-skew, so SOLO…SETTINGS lean left. fadeIn is opacity-only.
+    const body = fnBody(menu, "playMenuEntrance");
+    expect(body).not.toMatch(/animateMenuCardEnter\(\s*cmdRows/);
+    expect(body).toMatch(/removeProperty\("transform"\)/);
+    expect(body).toMatch(/fadeIn\(\s*row/);
+  });
+
   it("uses a tracked smooth loop while reduced motion keeps only the static glow", () => {
     const start = fnBody(animations, "animateHowToAttract");
     expect(start).toMatch(/--cr-howto-beat/);

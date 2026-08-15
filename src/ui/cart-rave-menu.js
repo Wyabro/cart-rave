@@ -58,6 +58,7 @@ import {
   animateMenuReveal,
   animateRerollSpin,
   animateTogglePop,
+  fadeIn,
   stagger,
   stopHowToAttract,
   wireButtonPressFeedback,
@@ -2700,7 +2701,16 @@ import { initGamepadTextEntry, openGamepadTextEntry } from "./gamepadTextEntry.j
     t += 90;
     const cmdRows = Array.from(document.querySelectorAll(".cr-commandlist .cr-cmd")).filter((el) => el instanceof HTMLElement);
     if (cmdRows.length > 0) {
-      animateMenuCardEnter(cmdRows, { delay: stagger(40, { start: t }), duration: 300, y: 16 });
+      // * Opacity only. animateMenuCardEnter writes translateY/scale inline and
+      // * wipes the row's skewX(-8deg); the label's skewX(8deg) then slants the
+      // * text left. Same rule as pauseOverlay action slabs.
+      cmdRows.forEach((row, i) => {
+        row.style.removeProperty("transform");
+        window.setTimeout(() => {
+          if (token !== menuEntranceToken) return;
+          fadeIn(row, 300, { ease: "outQuad" });
+        }, t + i * 40);
+      });
     }
 
     t += 40 * cmdRows.length + 20;
