@@ -33,10 +33,10 @@ const MASK_REPEAT = 3;
 // * Tile periods divide PATTERN_MASK_SIZE exactly. That is the seam contract: the generated
 // * geometry reaches the opposite texture edge in the same phase before RepeatWrapping samples it.
 export const PATTERN_MASK_LAYOUTS = Object.freeze({
-  dots: Object.freeze({ repeat: 1, periodX: 64, periodY: 64, cell: 32 }),
-  honeycomb: Object.freeze({ repeat: 1, periodX: 32, periodY: 64, cell: 32 }),
+  dots: Object.freeze({ repeat: 1.5, periodX: 64, periodY: 64, cell: 32 }),
+  honeycomb: Object.freeze({ repeat: 1.5, periodX: 32, periodY: 64, cell: 32 }),
   diamond: Object.freeze({ repeat: 1.25, periodX: 32, periodY: 32, cell: 32 }),
-  cubes: Object.freeze({ repeat: 1, periodX: 32, periodY: 32, cell: 32 }),
+  cubes: Object.freeze({ repeat: 1.5, periodX: 32, periodY: 32, cell: 32 }),
 });
 
 // * Bolt is a hero motif (one dramatic forking strike), so it also tiles far fewer times.
@@ -134,7 +134,7 @@ function renderPatternMaskCanvas(patternId) {
     case "dots": {
       // * Historical `dots` id now renders a large Truchet maze, preserving saved choices.
       // * The alternating L turns connect across every 32px cell boundary and repeat after
-      // * 64px on both axes. Four readable turns span one UV width instead of the previous 12.
+      // * 64px on both axes. Six readable turns span one UV width instead of the previous 12.
       ctx.strokeStyle = dark;
       ctx.lineWidth = 8;
       ctx.lineCap = "square";

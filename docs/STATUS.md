@@ -36,8 +36,9 @@ external testers. Stay in this phase until Wyatt advances the marker.
 GAMEPAD-LOBBY-1. Deferred launch day: **SHARD-PT-2**. **STOREROOMS-NPC-SELFKO-2**
 landed (`d680928` · `928df0d`) — PT-1 vortex · PT-2 outer pit. New evidence
 **WARM-QP-ROTATE-1** (cap-364). **MENU-CMD-SKEW-1** landed (`19437ed`) —
-PT-1 menu labels upright. **PATTERNS-UI-3 deployed 08-15:** UI-2 PT-1 FAIL. Larger Maze;
-seam-safe RGB tiles; staggered Cubes. Production PT-1 is owed. Open picks:
+PT-1 menu labels upright. **PATTERNS-UI-3-PT-1 FAIL 08-15:** Diamond is good; Maze,
+Honeycomb, and Cubes are too large. **PATTERNS-UI-4:** their repeat is now 1.5; Diamond remains
+1.25. QA 7/7 is green; production PT-1 is owed. Open picks:
 [BACKLOG.md](./planning/BACKLOG.md) Blocks 4–5 / 7.
 
 **Closed cards keep their narrative in their own docs, not here** — Sundial
@@ -80,7 +81,7 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. **PATTERNS-UI-3-PT-1** — production: hard-refresh and test Maze, Honeycomb, Diamond, and Cubes.
+1. **PATTERNS-UI-4-PT-1** — local: hard-refresh and test the medium Maze, Honeycomb, and Cubes scale. Production after `ship it`.
 2. **MENU-CMD-SKEW-PT-1** — main menu labels upright on prod (hard-refresh).
 3. **STOREROOMS-NPC-SELFKO-PT-1 / PT-2** — Solo Storerooms on prod (hard-refresh). Worker `cc79e3b7`.
 4. **WARM-QP-ROTATE-1** — adopt room arena after hello, under the overlay, full forPlay warm. Do not delay countdown.

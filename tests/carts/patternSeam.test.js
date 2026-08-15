@@ -129,10 +129,10 @@ describe("pattern seam — registry coherence", () => {
   });
 
   it("8. keeps the corrected art tiles large and phase-aligned at every texture edge", () => {
-    expect(PATTERN_MASK_LAYOUTS.dots.repeat).toBe(1);
-    expect(PATTERN_MASK_LAYOUTS.honeycomb.repeat).toBe(1);
+    expect(PATTERN_MASK_LAYOUTS.dots.repeat).toBe(1.5);
+    expect(PATTERN_MASK_LAYOUTS.honeycomb.repeat).toBe(1.5);
     expect(PATTERN_MASK_LAYOUTS.diamond.repeat).toBe(1.25);
-    expect(PATTERN_MASK_LAYOUTS.cubes.repeat).toBe(1);
+    expect(PATTERN_MASK_LAYOUTS.cubes.repeat).toBe(1.5);
 
     for (const layout of Object.values(PATTERN_MASK_LAYOUTS)) {
       expect(PATTERN_MASK_SIZE % layout.periodX).toBe(0);

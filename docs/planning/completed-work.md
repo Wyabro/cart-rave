@@ -13,6 +13,15 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 15, 2026 — PATTERNS-UI-4: medium scale for Maze, Honeycomb, and Cubes
+
+- *(Art / UI · Medium)* **PATTERNS-UI-4** — ✅ **CODE READY 08-15.** `PATTERNS-UI-3-PT-1`
+  confirmed the scale regression: Diamond Weave was right at repeat 1.25, while Maze, Honeycomb,
+  and Isometric Cubes were too large at repeat 1. Those three now use repeat 1.5 (six cells across
+  one UV width); Diamond, tile geometry, accents, seam periods, unlocks, NPC rolls, UV1, and
+  network data are unchanged. Local rendered Pink / Blue review passed. QA 7/7 (190 files / 2,114
+  tests). **PATTERNS-UI-4-PT-1 owed** locally, then on production after `ship it`.
+
 ### August 15, 2026 — PATTERNS-UI-3: readable Maze and seamless multicolor tiles
 
 - *(Art / UI · Medium)* **PATTERNS-UI-3** — ✅ **CODE READY 08-15.** Wyatt's production screenshots
@@ -22,8 +31,9 @@ Chronological record of shipped work, newest first.
   staggered cube lattice with one colour per edge direction. `uv1`, unlocks, save IDs, NPC rolls,
   network data, and the one-material shader path are unchanged. Build + local Pink/Blue rendered
   review passed; QA 7/7 (190 files / 2,114 tests). Deployed Worker
-  `3f4b71bc-78f6-4add-8f05-4d2db7675755`; production asset verification passed. **PATTERNS-UI-3-PT-1
-  owed** on production.
+  `3f4b71bc-78f6-4add-8f05-4d2db7675755`; production asset verification passed.
+  **PATTERNS-UI-3-PT-1 FAIL 08-15:** Diamond was right, but Maze, Honeycomb, and Cubes were too
+  large. Superseded by **PATTERNS-UI-4**.
 
 ### August 15, 2026 — PATTERNS-UI-2: nine cart patterns, save-safe Maze, and multicolor linework
 
