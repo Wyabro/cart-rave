@@ -84,6 +84,14 @@ const FIXTURE = `
   <button class="esc-btn esc-btn--resume" id="esc-resume">RESUME</button>
   <button id="esc-quit">QUIT</button>
 </div>
+<div id="hud">
+  <button class="hud-mute-btn" id="hud-mute" type="button">MUTE</button>
+</div>
+<div class="hud-lobby" id="hud-lobby" style="display:none">
+  <button class="hud-lobby-copy" id="lobby-copy" type="button">COPY</button>
+  <button class="hud-lobby-btn hud-lobby-btn--ready" id="lobby-ready" type="button">READY</button>
+  <button class="hud-lobby-btn" id="lobby-leave" type="button">LEAVE</button>
+</div>
 <div id="cr-gamepad-text-entry" style="display:none">
   <div id="cr-gamepad-text-title"></div><input id="cr-gamepad-text-value" type="text" />
   <p id="cr-gamepad-text-error" hidden></p><div id="cr-gamepad-text-keys"></div>
@@ -228,6 +236,41 @@ describe("modal scoping", () => {
     resume.focus();
     frame();
     expect(resume.classList.contains("gamepad-focused")).toBe(true);
+  });
+});
+
+describe("friends lobby scoping", () => {
+  // * happy-dom checkVisibility ignores [hidden]. Show the lobby with inline
+  // * display (same helper as overlays). Do not flip only the hidden attribute.
+  it("keeps Down inside a shown .hud-lobby", () => {
+    show("hud-lobby");
+    press(BTN.down);
+    press(BTN.down);
+    press(BTN.down);
+    press(BTN.down);
+    const active = document.activeElement;
+    expect(active && active.closest(".hud-lobby")).toBeTruthy();
+    expect(document.getElementById("play-btn").classList.contains("gamepad-focused")).toBe(false);
+  });
+
+  it("never focuses a mute button outside the lobby", () => {
+    show("hud-lobby");
+    press(BTN.down);
+    press(BTN.down);
+    press(BTN.down);
+    press(BTN.down);
+    press(BTN.down);
+    expect(document.getElementById("hud-mute").classList.contains("gamepad-focused")).toBe(false);
+    expect(document.activeElement).not.toBe(document.getElementById("hud-mute"));
+  });
+
+  it("first Down from no focus only seeds one lobby control", () => {
+    show("hud-lobby");
+    expect(document.activeElement).toBe(document.body);
+    press(BTN.down);
+    expect(document.activeElement).toBe(document.getElementById("lobby-copy"));
+    expect(document.getElementById("lobby-ready").classList.contains("gamepad-focused")).toBe(false);
+    expect(document.getElementById("lobby-leave").classList.contains("gamepad-focused")).toBe(false);
   });
 });
 

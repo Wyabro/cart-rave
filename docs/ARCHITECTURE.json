@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-15T00:22:18.735Z",
-    "commit": "8c2e3f8"
+    "at": "2026-08-15T00:57:59.479Z",
+    "commit": "18ce5f0"
   },
-  "source_digest": "49363b48",
+  "source_digest": "df8b87ae",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -873,7 +873,7 @@
       }
     ],
     "next_actions": [
-      "GAMEPAD-FRIENDS-SEATED-1 — controller nav after seating in Friends lobby. Plan → ack before a lever.",
+      "GAMEPAD-FRIENDS-SEATED-1 — lever landed. Say ship it to deploy, then seed GAMEPAD-FRIENDS-SEATED-PT-1 `[solo]`.",
       "DEEPSEC-1 is on prod (Worker `a1d270b5`). Hard-refresh, then run DEEPSEC-1-PT-1 `[2pc]`. Token rotate stays on DEEPSEC-2.",
       "Deferred playtests: CARGO-BAY-INSTANCE-PT-3 · CONN-TRACK-LEAK-PT-1 · QP-ROTATE-PT-1 · SHARD-PT-2.",
       "SHIP-1 D-tier — cut persistent leaderboard from launch, or schedule its own phase (Wyatt)."

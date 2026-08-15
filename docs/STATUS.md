@@ -30,7 +30,9 @@ are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Analyt
 external testers. Stay in this phase until Wyatt advances the marker.
 
 **STORE-PILE-PT-1 PASS 08-14.** Residual from the same export:
-**GAMEPAD-FRIENDS-SEATED-1** — controller is glitchy after seating in Friends lobby.
+**GAMEPAD-FRIENDS-SEATED-1** — lever landed. Visible `.hud-lobby` is the pad
+nav scope (first Down seeds one control; mute stays out). Unshipped — seed
+**GAMEPAD-FRIENDS-SEATED-PT-1** after "ship it". Do not reopen GAMEPAD-LOBBY-1.
 Deferred (two machines / launch day): **DEEPSEC-1-PT-1** · **CARGO-BAY-INSTANCE-PT-3** ·
 **CONN-TRACK-LEAK-PT-1** · **QP-ROTATE-PT-1** · **SHARD-PT-2**. Open picks:
 [BACKLOG.md](./planning/BACKLOG.md) Blocks 4–5 / 7.
@@ -75,7 +77,7 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. **GAMEPAD-FRIENDS-SEATED-1** — controller nav after seating in Friends lobby. Plan → ack before a lever.
+1. **GAMEPAD-FRIENDS-SEATED-1** — lever landed. Say **ship it** to deploy, then seed GAMEPAD-FRIENDS-SEATED-PT-1 `[solo]`.
 2. **DEEPSEC-1 is on prod** (Worker `a1d270b5`). Hard-refresh, then run **DEEPSEC-1-PT-1** `[2pc]`. Token rotate stays on **DEEPSEC-2**.
 3. **Deferred playtests:** **CARGO-BAY-INSTANCE-PT-3** · **CONN-TRACK-LEAK-PT-1** · **QP-ROTATE-PT-1** · **SHARD-PT-2**.
 4. **SHIP-1 D-tier** — cut persistent leaderboard from launch, or schedule its own phase (Wyatt).

@@ -14,14 +14,16 @@ let lastFocusedEl = /** @type {HTMLElement|null} */ (null);
 let lastFocusedRow = /** @type {HTMLElement|null} */ (null);
 
 // * Overlay containers that scope gamepad nav while open, topmost z-order
-// * first (esc 26000 > results 25000 > menu screens 1002 > 1001). They all
-// * share the same open contract — inline style.display === "flex" — the
-// * check closeActiveOverlay() in cart-rave-menu.js also relies on. Keep this
-// * list in sync when adding an overlay, or a pad will reach buttons under it.
+// * first (esc 26000 > results 25000 > lobby 24000 > menu screens 1002 > 1001).
+// * Menu overlays share inline style.display === "flex" — the same contract
+// * closeActiveOverlay() in cart-rave-menu.js uses. The Friends lobby uses the
+// * hidden attribute + CSS display:grid instead. Keep this list in sync when
+// * adding an overlay, or a pad will reach buttons under it.
 const OVERLAY_SCOPE_SELECTORS = [
   "#cr-gamepad-text-entry",
   "#esc-overlay",
   "#results-overlay",
+  ".hud-lobby",
   "#cr-howto-screen",
   "#cr-challenges-screen",
   "#cr-settings-screen",
@@ -106,6 +108,20 @@ function consumeDirectionEvent(direction, now) {
 }
 
 /**
+ * @param {HTMLElement|null} el
+ * @returns {el is HTMLElement}
+ */
+function isOverlayScopeOpen(el) {
+  if (!el) return false;
+  // * Lobby is shown by clearing [hidden] (CSS display:grid). Menu overlays
+  // * stay on the flex contract. Do not require flex here or the lobby never
+  // * becomes a scope and mute / menu buttons stay in the ring.
+  const lobbyOpen = el.classList.contains("hud-lobby") && !el.hidden;
+  const menuOpen = !el.classList.contains("hud-lobby") && el.style.display === "flex";
+  return (lobbyOpen || menuOpen) && isElementVisible(el, { ignoreOpacity: true });
+}
+
+/**
  * The container gamepad nav may reach: the topmost open overlay, or the
  * whole document when none is open (main menu / HUD).
  * @returns {HTMLElement|Document}
@@ -113,7 +129,7 @@ function consumeDirectionEvent(direction, now) {
 function getNavScope() {
   for (const sel of OVERLAY_SCOPE_SELECTORS) {
     const el = /** @type {HTMLElement|null} */ (document.querySelector(sel));
-    if (el && el.style.display === "flex" && isElementVisible(el, { ignoreOpacity: true })) return el;
+    if (isOverlayScopeOpen(el)) return el;
   }
   return document;
 }
