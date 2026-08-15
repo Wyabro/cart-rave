@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-14T23:46:44.369Z",
-    "commit": "b3ca563"
+    "at": "2026-08-15T00:02:45.655Z",
+    "commit": "b863c56"
   },
-  "source_digest": "60705642",
+  "source_digest": "4cf26b19",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -873,7 +873,7 @@
       }
     ],
     "next_actions": [
-      "STORE-PILE-2 — bounce must cancel inward velocity. Wait for plan ack, then one lever. Retest STORE-PILE-PT-1.",
+      "STORE-PILE-PT-1 — retest after STORE-PILE-2 ships. Same card id. Hard-refresh prod first.",
       "DEEPSEC-1 is on prod (Worker `a1d270b5`). Hard-refresh, then run DEEPSEC-1-PT-1 `[2pc]`. Token rotate stays on DEEPSEC-2.",
       "Deferred playtests: CARGO-BAY-INSTANCE-PT-3 · CONN-TRACK-LEAK-PT-1 · QP-ROTATE-PT-1 · SHARD-PT-2.",
       "SHIP-1 D-tier — cut persistent leaderboard from launch, or schedule its own phase (Wyatt)."
@@ -898,7 +898,7 @@
         "counts": {
           "Low": 6,
           "Partial": 1,
-          "Medium": 5
+          "Medium": 4
         },
         "rows": [
           {
@@ -959,12 +959,6 @@
             "pri": "Low",
             "item": "AQ-RING-CLEAR-1 — autoQuality clear sample ring on every window eval",
             "notes": "**Reserve only** if Wave 2 entry grace still demotes on retest. Comment in autoQuality.js already notes the ring can poison up to 3 windows. Own commit if needed; not in main batch path. Moved out of Playtest owed 08-14 (not a human check).",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "STORE-PILE-2 — bounce must cancel inward velocity on the Storerooms pile",
-            "notes": "**Filed 08-14 from STORE-PILE-PT-1 FAIL.** Parent STORE-PILE-1 (`0fd9c64`) added tangent steer + a 17 m/s² outward accel. Drive is 125 m/s² (205 boosted), applied the same frame before the bounce, so net force stays into the hull and NPCs grind. One lever: `applyWallKeepOutBounce` must cancel the inward linvel component and add restitution, not only add a weaker accel. Sundial podium stays off (`wall` flag). Retest **STORE-PILE-PT-1**.",
             "ship1": null
           },
           {
@@ -1045,7 +1039,7 @@
           {
             "pri": "Medium",
             "item": "STORE-PILE-PT-1 — NPCs route around + bounce off the Storerooms furniture pile `[solo]`",
-            "notes": "**FAIL 08-14 — Owed: Wyatt playtest — STORE-PILE-PT-1 — NPC carts no longer routinely wedge against the center furniture pile in Storerooms.** Parent **STORE-PILE-1** (`0fd9c64`) bounce (17 m/s²) loses to drive (125 m/s²). Next lever is **STORE-PILE-2**. Wyatt: they still drive into the pile and do not bounce off well.<br>1. Solo round on THE STOREROOMS (hard-refresh prod first). Play near the center furniture pile — park near it, then let the NPCs chase you across it.<br>2. Over a full round, watch the NPCs: chasing bots should curve around the pile from ~8 m out; a bot that does contact it (boost push, ram) should bounce back and keep moving.<br>3. FAIL if an NPC grinds the same face of the pile for 4+ seconds, or repeatedly drives straight into it head-on instead of steering around. PASS if contacts are brief and bots visibly route around.",
+            "notes": "**Owed: Wyatt playtest — STORE-PILE-PT-1 — NPC carts no longer routinely wedge against the center furniture pile in Storerooms.** Retest after **STORE-PILE-2** (cart-extent pad + this-frame drive-strip; probe 0 wedged, longest 0.2s). FAIL 08-14 was STORE-PILE-1 bounce missing head-on contact.<br>1. Solo round on THE STOREROOMS (hard-refresh prod first). Play near the center furniture pile — park near it, then let the NPCs chase you across it.<br>2. Over a full round, watch the NPCs: chasing bots should curve around the pile from ~8 m out; a bot that does contact it (boost push, ram) should bounce back and keep moving.<br>3. FAIL if an NPC grinds the same face of the pile for 4+ seconds, or repeatedly drives straight into it head-on instead of steering around. PASS if contacts are brief and bots visibly route around.",
             "ship1": null
           },
           {
@@ -1437,6 +1431,11 @@
         "id": "D-SEO-1",
         "date": "08-14",
         "text": "SEO pass — `rel=canonical` + og/twitter meta point at the apex cartclash.lol (www / workers.dev twins and the Glitch copy consolidate there, never index on their own); share card is a 1200×630 opaque composite of the title splat on brand bg (replaces the 512px icon; `summary_large_image` + `og:image:alt`); VideoGame JSON-LD (factual only); robots.txt + single-URL sitemap. Head-only + 2 new public files; zero gameplay/DOM change."
+      },
+      {
+        "id": "D-STORE-PILE-2",
+        "date": "08-14",
+        "text": "Head-on pile contact never entered STORE-PILE-1's 0.9 m origin pad (nose-on origin ~4.45 m vs pad end 4.3 m). Pad is now cart `hz + 0.3` press; apply strips this-frame inward drive only, walk-out 17 m/s², Δv cap 4 m/s. Probe: 0 wedged / longest 0.2 s. Retest STORE-PILE-PT-1."
       },
       {
         "id": "D-STORE-PILE-1",

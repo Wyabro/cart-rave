@@ -13,6 +13,17 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 14, 2026 — STORE-PILE-2: cart-extent pad + this-frame drive-strip
+
+- *(Engineering · Medium)* **STORE-PILE-2** — desk work complete 08-14. STORE-PILE-1's
+  0.9 m origin pad ended at 4.3 m; a nose-on cart origin sits at ~4.45 m, so bounce
+  returned null on the FAIL case. Depth now uses hull surface vs cart `hz + 0.3` press.
+  Apply strips only this frame's inward drive increment (boostedAccel × dt), plus the
+  17 m/s² walk-out, capped at 4 m/s so a ram cannot throw into a corner void. Sundial
+  podium stays off (`wall` flag). Tests: 15/15 bounce + 12/12 furniture wedge.
+  Probe (`tmp/pileprobe.mjs`, 2×45 s): 0 wedged, 0 stuck, longest 0.2 s.
+  **Wyatt retest owed:** **STORE-PILE-PT-1**.
+
 ### August 14, 2026 — playtest PASSes (5 cards)
 
 - *(Playtest)* **GAMEPAD-DIRECT-ENTRY-PT-1** — ✅ **PASS 08-14.** Pencil + room-code dialogs open and work with controller grid and physical keyboard. Residual (new card, do not reopen this id): **GAMEPAD-FRIENDS-SEATED-1** — controller is glitchy after seating in the Friends lobby.

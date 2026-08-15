@@ -969,35 +969,41 @@ function applySquareHoleSuction(cart, dtFixed, nowMs) {
 }
 
 // * Wall keep-out bounce (Storerooms furniture pile). Rapier's contact solver alone cannot
-// * free a cart pressing into the hull: the drive force keeps feeding into the contact, and
+// * free a cart pressing into the hull: arcade drive re-feeds the contact every tick, and
 // * applyGeometryUnstick only arms after 2s under 1.2 m/s AND under 0.45m of travel, so a cart
-// * sawing the face at 2-3 m/s never qualifies for it. This adds a directed outward shove that
-// * scales with how hard the cart is driving in, so a fast crash bounces off (still funny) and
-// * a slow wedge is walked back out instead of trapping the cart. Symmetric across humans and
-// * NPCs — asymmetric physics reads as cheating. Only `wall` zones (un-climbable) qualify, so
-// * Sundial's drivable podium is untouched.
-const WALL_BOUNCE_PAD = 0.9; // m outside the keep-out radius counted as pressing contact
+// * sawing the face at 2-3 m/s never qualifies. STORE-PILE-1's 0.9m origin pad missed
+// * head-on contact (body origin sits ~hz outside the hull). Depth is now measured from the
+// * hull surface to the cart's forward half-extent. Drive-strip removes only this frame's
+// * inward drive increment — not a full linvel reflect, which would throw into the corner
+// * voids. Symmetric across humans and NPCs. Only `wall` zones qualify, so Sundial's
+// * drivable podium is untouched.
+const WALL_BOUNCE_PRESS = 0.3; // m extra press beyond cart hz where the pad still counts
 const WALL_BOUNCE_PEAK_ACCEL = 17; // m/s² outward at full penetration, for a stationary wedge
-const WALL_BOUNCE_RESTITUTION_GAIN = 1.7; // extra outward m/s² per m/s of inward drive (depth-scaled)
+const WALL_BOUNCE_MAX_DV = 4; // m/s outward cap per step — stops a hole-feeding launch
 const WALL_BOUNCE_MAX_Y = 1.6; // m — above this a cart is ON the pile, not wedged against it
 
+/** Pad reach from the keep-out surface: cart forward half-extent + press. */
+function wallBounceReach() {
+  return CONFIG.cart.size.z / 2 + WALL_BOUNCE_PRESS;
+}
+
 /**
- * * Pure bounce solve for a point pressing into a `wall` circular keep-out. Returns the
- * outward push acceleration (m/s²) and unit direction away from the obstacle, plus
- * penetration depth (0 at the pad's outer edge → 1 at the keep-out radius), or null when
- * the point is clear of every wall zone. Exported for tests; the impulse application lives
- * in {@link applyWallKeepOutBounce}.
+ * * Pure bounce solve for a body origin near a `wall` circular keep-out. Depth is 0 when
+ * the origin is `reach` metres outside the keep-out radius (nose just short of the hull)
+ * and 1 at the keep-out surface. Walk-out accel does not depend on speed — drive-strip
+ * lives in {@link resolveWallKeepOutDeltaV}. Exported for tests.
  *
  * @param {number} px
  * @param {number} pz
- * @param {number} vx Planar velocity X (drives the bounce-back term).
- * @param {number} vz Planar velocity Z.
+ * @param {number} [_vx] unused; kept so call sites and tests stay stable
+ * @param {number} [_vz] unused
  * @returns {{ outX: number, outZ: number, accel: number, depth: number } | null}
  */
-export function computeWallKeepOutBounce(px, pz, vx, vz) {
+export function computeWallKeepOutBounce(px, pz, _vx, _vz) {
   const zones = (_levelHazards ?? _octagonHazards)?.circularKeepOuts;
   if (!zones?.length) return null;
 
+  const reach = wallBounceReach();
   let best = null;
   let bestDepth = 0;
   for (let i = 0; i < zones.length; i += 1) {
@@ -1006,7 +1012,8 @@ export function computeWallKeepOutBounce(px, pz, vx, vz) {
     const dx = px - ko.x;
     const dz = pz - ko.z;
     const dist = Math.hypot(dx, dz);
-    const depth = clamp((ko.radius + WALL_BOUNCE_PAD - dist) / WALL_BOUNCE_PAD, 0, 1);
+    const surfaceGap = dist - ko.radius;
+    const depth = clamp((reach - surfaceGap) / reach, 0, 1);
     if (depth <= 0 || depth <= bestDepth) continue;
     const len = dist || 1;
     bestDepth = depth;
@@ -1016,11 +1023,27 @@ export function computeWallKeepOutBounce(px, pz, vx, vz) {
   }
   if (!best) return null;
 
-  const inward = -(vx * best.outX + vz * best.outZ); // + = still driving into the obstacle
-  let accel = best.depth * WALL_BOUNCE_PEAK_ACCEL;
-  if (inward > 0) accel += inward * WALL_BOUNCE_RESTITUTION_GAIN * best.depth;
+  return { outX: best.outX, outZ: best.outZ, accel: best.depth * WALL_BOUNCE_PEAK_ACCEL, depth: best.depth };
+}
 
-  return { outX: best.outX, outZ: best.outZ, accel, depth: best.depth };
+/**
+ * * Outward planar Δv for one physics step. Walk-out accel plus (when still driving in)
+ * this frame's inward drive increment, capped so a ram cannot launch into a void.
+ *
+ * @param {number} vx
+ * @param {number} vz
+ * @param {{ outX: number, outZ: number, depth: number, accel: number }} bounce
+ * @param {number} dtFixed
+ * @returns {{ dvx: number, dvz: number }}
+ */
+export function resolveWallKeepOutDeltaV(vx, vz, bounce, dtFixed) {
+  if (!bounce || !dtFixed) return { dvx: 0, dvz: 0 };
+  const inward = -(vx * bounce.outX + vz * bounce.outZ);
+  const maxStrip = (CONFIG.cart.ramBoost?.boostedAccel ?? CONFIG.driving.accel) * dtFixed;
+  let outwardDv = bounce.accel * dtFixed;
+  if (inward > 0) outwardDv += Math.min(inward, maxStrip);
+  outwardDv = Math.min(outwardDv, WALL_BOUNCE_MAX_DV);
+  return { dvx: bounce.outX * outwardDv, dvz: bounce.outZ * outwardDv };
 }
 
 /**
@@ -1042,11 +1065,13 @@ function applyWallKeepOutBounce(cart, dtFixed) {
   const b = computeWallKeepOutBounce(pos.x, pos.z, lv.x, lv.z);
   if (!b) return;
 
+  const d = resolveWallKeepOutDeltaV(lv.x, lv.z, b, dtFixed);
+  if (d.dvx === 0 && d.dvz === 0) return;
+
   const mass = getBodyMass(cart.body);
-  const mag = b.accel * mass * dtFixed;
-  _impulse.x = b.outX * mag;
+  _impulse.x = d.dvx * mass;
   _impulse.y = 0;
-  _impulse.z = b.outZ * mag;
+  _impulse.z = d.dvz * mass;
   cart.body.applyImpulse(_impulse, true);
   cart.body.wakeUp();
 }
