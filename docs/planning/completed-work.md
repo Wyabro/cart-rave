@@ -13,6 +13,22 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 15, 2026 — playtest PASSes (4 cards)
+
+- *(Playtest · Medium)* **DEEPSEC-1-PT-1** — ✅ **PASS 08-15** on prod. Stolen `_pk` /
+  `hostScore` does not take host. Quickplay `?diag=1` URL rewrite does not unlock scores.
+  Friends host `setScores` still works. Parent **DEEPSEC-1** (Worker `a1d270b5`). Token
+  rotate stays on **DEEPSEC-2**.
+- *(Playtest · Medium)* **CARGO-BAY-INSTANCE-PT-3** — ✅ **PASS 08-15** on prod. Other
+  players see the same cargo fill, not an empty bay.
+- *(Playtest · Medium)* **CONN-TRACK-LEAK-PT-1** — ✅ **PASS 08-15** on prod. Host tab
+  close hands the Friends room to the survivor. Parent **CONN-TRACK-LEAK-1** (`9439cd2`).
+- *(Playtest · Low)* **QP-ROTATE-PT-1** — ✅ **PASS 08-15** on prod. Quickplay rematch
+  advances the next unlocked catalog entry on both clients. Parent **QP-ORDER-1**.
+- Residual (new card, do not reopen **NET-2** or **WARM-IGPU-1**): **WARM-QP-ROTATE-1** —
+  Intel non-host Quickplay first rotation stalled 11.4s (cap-364). **SHARD-PT-2** stays
+  launch day (SKIP 08-15, not a fail).
+
 ### August 15, 2026 — EFFECTS-SPLIT-1: src/effects.js split into domain modules
 
 - *(Structure · Tech Debt)* **EFFECTS-SPLIT-1** — ✅ **DONE 08-15** (6 levers, one commit each).

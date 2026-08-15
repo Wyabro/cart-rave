@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-15T03:15:21.226Z",
-    "commit": "2022073"
+    "at": "2026-08-15T04:20:30.626Z",
+    "commit": "42c176e"
   },
-  "source_digest": "e992967a",
+  "source_digest": "f812056d",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -880,8 +880,9 @@
       }
     ],
     "next_actions": [
-      "DEEPSEC-1 is on prod (Worker `a1d270b5`). Hard-refresh, then run DEEPSEC-1-PT-1 `[2pc]`. Token rotate stays on DEEPSEC-2.",
-      "Deferred playtests: CARGO-BAY-INSTANCE-PT-3 · CONN-TRACK-LEAK-PT-1 · QP-ROTATE-PT-1 · SHARD-PT-2.",
+      "Wait — no named game card. Four PASSes closed 08-15.",
+      "New evidence WARM-QP-ROTATE-1 (cap-364) — Intel non-host Quickplay rotate stall. Pick after ack.",
+      "SHARD-PT-2 stays launch day (5 humans).",
       "SHIP-1 D-tier — cut persistent leaderboard from launch, or schedule its own phase (Wyatt)."
     ],
     "open_issues": [
@@ -904,7 +905,7 @@
         "counts": {
           "Low": 5,
           "Partial": 1,
-          "Medium": 4
+          "Medium": 5
         },
         "rows": [
           {
@@ -935,6 +936,12 @@
             "pri": "Low",
             "item": "COUNTDOWN-LEAK-1 — Countdown timer survives menu return *(pre-ship 07-19)*",
             "notes": "Stale countdown UI on main menu.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "WARM-QP-ROTATE-1 — non-host Quickplay first rotation stalls on iGPU",
+            "notes": "**Filed 08-15 from Wyatt playtest + cap-364** (Intel UHD, `igpu-basic`, Low, `cartclash.lol/?diag=1&room=quickplay`, non-host). Do not reopen **NET-2** (PASS ~3s driveable) or **WARM-IGPU-1** (closed 07-30; its plan already said live two-client rotation was unverified). Distinct from **WARM-SOLO-1** (solo, no rotation). Timeline: `play-entry` quickplay at t=556051 while Sundial is still warm; hello latches Storerooms (`backrooms`); rotation deferred while menu is up; `carts-ready` at 557076; `rotation_started` at 557085; then a 15.1s longframe (spans ~150ms attributed), a 3.15s `warm.compilePoll`, and a 6.0s `warm.render.default.play-full`; `rotation_finished` at 567472 (11.4s after play-entry). Heard `countdown_1` then `go` — missed 3 and 2. **Work from this capture**, not speculation.",
             "ship1": null
           },
           {
@@ -1026,34 +1033,9 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Medium": 3,
-          "Low": 2
+          "Low": 1
         },
         "rows": [
-          {
-            "pri": "Medium",
-            "item": "DEEPSEC-1-PT-1 — stolen `_pk` / `hostScore` does not take host `[2pc]`",
-            "notes": "**Owed: Wyatt playtest — DEEPSEC-1-PT-1 — a second tab cannot steal host, and Quickplay `?diag=1` URL rewrite does not unlock scores.** Parent **DEEPSEC-1** deployed Worker `a1d270b5-5db3-4a20-8b59-237d6ca79624` (`9db3b17`). Hard-refresh prod first.<br>1. Two browsers, same Friends code, both seat. Play 30 s. Host refresh: the host reconnects as themselves or a clean migrate, never two hosts. Rematch starts.<br>2. Two browsers, Quickplay. First joiner is host. On the host with `?diag=1`, run `history.replaceState({}, '', '/?diag=1&room=KALE7')` then `__ccDiag.control.setScores({0:500,1:0,2:0,3:0})`. Scores on the other browser must not jump.<br>3. Friends `?diag=1`: host `setScores` still works. FAIL if Friends levers die, if Quickplay levers work after the rewrite, if refresh duplicates host, or if rematch cannot start.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "CARGO-BAY-INSTANCE-PT-3 — other players see the same cargo `[2pc]`",
-            "notes": "**Owed: Wyatt playtest — CARGO-BAY-INSTANCE-PT-3 — the other player sees your cargo fill, not an empty bay.** Same parent; two machines.<br>1. Two browsers, same Friends room on prod. Both seat and start.<br>2. Score on one cart until its bays fill. Look at that cart from the other browser.<br>3. FAIL if the other player sees empty bays, a different fill, or missing models. PASS if both screens show the same groceries.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "CONN-TRACK-LEAK-PT-1 — Friends host-leave migration still works `[2pc]`",
-            "notes": "**Owed: Wyatt playtest — CONN-TRACK-LEAK-PT-1 — the host closing their tab hands the room to the survivor.** CONN-TRACK-LEAK-1 (`9439cd2`, deployed `5ae6f69b`) refactored the server's onClose teardown; this checks that path live on prod.<br>1. Two browsers, same Friends code, both seat.<br>2. Close the host's tab (do not use a LEAVE button).<br>3. FAIL if the survivor is stuck with no host or the round can never start. PASS if the survivor becomes host and can start the round.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "QP-ROTATE-PT-1 — Quickplay rematch advances catalog order `[2pc]`",
-            "notes": "**Owed: Wyatt playtest — QP-ROTATE-PT-1 — after a Quickplay rematch the next arena is the next unlocked catalog entry, not a random other.** Parent **QP-ORDER-1** closed 08-02; this is the live multi-client smoke. Moved from Engineering 08-14.<br>1. Two browsers join the same Quickplay room on prod. Play a round to the results screen.<br>2. Rematch. Note which arena loads.<br>3. FAIL if rematch picks a random other arena instead of the next unlocked catalog entry (wrap at end). PASS if both clients land on the same next arena in catalog order.",
-            "ship1": null
-          },
           {
             "pri": "Low",
             "item": "SHARD-PT-2 — fifth human overflows to quickplay2 `[2pc]`",
