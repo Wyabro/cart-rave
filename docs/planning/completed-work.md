@@ -13,6 +13,31 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 15, 2026 — EFFECTS-SPLIT-1: src/effects.js split into domain modules
+
+- *(Structure · Tech Debt)* **EFFECTS-SPLIT-1** — ✅ **DONE 08-15** (6 levers, one commit each).
+  The 3,484-line `src/effects.js` (140 KB) became a ~200-line composition root + public barrel;
+  all implementation moved to domain modules under `src/effects/`:
+  - `meshHelpers.js` — `disposeObject3D` + disposable map slots
+  - `ambientParticles.js` — ambient dust + trash debris (shared `currentEffectStyle` kept them together)
+  - `ramBoostStreaks.js` — nitro afterimage streak pool + shader + program warmup
+  - `crowd.js` — instanced crowd layers, stadium, searchlights, glow; exports the state live bindings
+    (`crowdLayers` / `crowdCarts` / `crowdGlow` / `stadiumGroup` / searchlight + point-light entries) and
+    `applyCrowdBudget` that the composition root reads
+  - `stage.js` / `lasers.js` / `billboard.js` — arena dressing; `stageGroup` / `laserEntries` /
+    `billboardGroup` / `billboardLightEntries` are exported live bindings; `lasers.js` imports
+    `stageGroup` from `stage.js` (beams anchor to the stage)
+  - `effects.js` keeps `initEffects` (composition: streak pool → trash pool → ambient style, order
+    load-bearing), `setRaveExtrasVisible` / `applyRaveExtrasQuality` (cross-module dressing
+    visibility/quality — kept in one place to preserve the PERF-PASS-1 ablation wiring guard), and
+    explicit re-exports of the exact 20-function public API (no `export *`, knip clean).
+  - `sceneRef` split per module (each captures its own at init) — no shared mutable state.
+  - Source-anchored tests re-pointed: `effectsDispose` → `meshHelpers.js`, `crowdInstanceRange` +
+    `cladRepeat` → `crowd.js`, `sceneAblationWiring` end-marker → `initEffects`.
+  - Verifed: typecheck clean, 2070/2070 tests, knip clean, bundle budget 0 B delta (all new modules
+    stay deferred — membership unchanged), build green, arena render smoke (drawCalls 7547,
+    programs 52, no page errors). `docs/bundle-budget.json` regenerated via `size:update`.
+
 ### August 15, 2026 — GAMEPAD-FRIENDS-SEATED-1 + PT-1 PASS
 
 - *(Engineering · Low)* **GAMEPAD-FRIENDS-SEATED-1** — seated Friends lobby pad nav. Lever 1
