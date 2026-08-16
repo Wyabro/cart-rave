@@ -297,6 +297,14 @@ function beginPodiumPresentation() {
     return;
   }
   podiumCameraKey = key;
+  // * SD-WIN-CREDIT-1: endRound() is the latch's only writer and runs host-only,
+  // * capturing the flag before it clears the live one. Non-hosts reach the podium
+  // * via the MSG.round phase watcher while their mirrored isSuddenDeath is still
+  // * true (the payload's false applies only after onEnterPodium fires) — capture
+  // * it here or guest SD wins never credit the Clutch Winner daily / redMirror.
+  if (!Netcode.getIsHost()) {
+    lastRoundEndedInSuddenDeath = GameState.getRoundState().isSuddenDeath;
+  }
   podiumPhaseEnteredAtMs = performance.now();
   podiumConfettiFiredKey = null;
   // * Any-input skip: fresh presses (not held-from-gameplay inputs) jump straight
