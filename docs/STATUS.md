@@ -41,7 +41,8 @@ external testers. Stay in this phase until Wyatt advances the marker.
 day: **SHARD-PT-2**. New evidence **WARM-QP-ROTATE-1** (cap-364).
 **08-16 audit:** both Highs landed — **INPUT-LOCK-1** (playtest owed
 **INPUT-LOCK-PT-1** · **INPUT-LOCK-PT-2**) and **SD-WIN-CREDIT-1** (playtest owed
-**SD-WIN-CREDIT-PT-1**).
+**SD-WIN-CREDIT-PT-1**). Medium **SD-SCORE-STALE-1** landed (playtest owed
+**SD-SCORE-STALE-PT-1**).
 
 **Closed cards keep their narrative in their own docs, not here** — Sundial
 ([handover](./planning/art-pass-sundial-handover.md); read its "Traps that cost time" before any
@@ -101,6 +102,7 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 [decision-log-2026-08.md](./archive/decision-log-2026-08.md), 07-11 → 07-23 in
 [decision-log-2026-07.md](./archive/decision-log-2026-07.md).
 
+- **D-SD-SCORE-STALE-1** (08-16): SD-winning KO broadcasts + stats missed the final point — `addScore` fired the SD win callback (→ `endRound`) **before** `set()` committed, so `recordPodiumStats` and the podium `host_round` (the only SD-end broadcast; per-KO send skipped) carried pre-KO scores; guests froze on "3 pts (TIEBREAK)". Fix: commit before callback. Companion: announcer leader branch gated on `!isSuddenDeath` (the commit now lands while phase=running and would otherwise fire a stray `new_leader`/`comeback` line — also closes the pre-existing suppressed-KO SD exposure). Two levers, tests for both. Playtest owed: **SD-SCORE-STALE-PT-1**.
 - **D-MENU-CMD-SKEW-1** (08-15): Menu entrance wrote `translateY`/`scale` on `.cr-cmd` and wiped `skewX(-8deg)`; leftover label `skewX(8deg)` leaned SOLO–SETTINGS left. Entrance now `fadeIn` only. **MENU-CMD-SKEW-PT-1** Wyatt PASS 08-16.
 - **D-CONN-TOASTS-1** (08-15): Friends join/leave toasts, lobby + in-match — client-side diff of human `connId` membership in the existing `MSG.slots` handler (host and non-host alike; solo never opens a socket so it is untouched by construction). Policy pure + unit-tested: self-skip, single-broadcast same-name coalesce (ghost-exorcism seat swap), 5s opposite-kind blip cooldown per name. One shared stacked toast surface (`#cr-conn-toasts`, bottom-centre, z 26500, lift + 56px above the single-slot toast), cap 3 visible + FIFO pending. Server lever: the silent-reap pass now broadcasts the slot conversion it already performed (`reapedIds.length > 0`) — previously clients kept a ghost human and no leave toast until an unrelated broadcast. Playtest owed: **CONN-TOASTS-1**.
 - **D-AGENT-OS-2** (08-15): Slim `AGENTS.md` (plan B). Keep invariants + ack/lever/freeze/fast-lane. Define done/ship/playtest once. Routing, `loop:`, and post-ship poll become pointers (manual § routing, `self-improving-loop.mdc`, `deploy-urls.md`). Not a 40–60 line cut.
