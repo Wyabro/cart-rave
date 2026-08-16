@@ -574,8 +574,10 @@ function applyArcadeControls(cart, axis, dtFixed, nowMs, callbacks) {
   // * Non-host reconcile replays older nitro:false frames which cancel charge; keydown
   // * only fires once, so the bar stayed dead until re-press (NH-BOOST retest). Host
   // * remotes already re-arm via rising-edge drain → triggerRamBoost.
+  // * chargeLocked: countdown/lobby/podium (INPUT-LOCK-1) — do not start or release.
   if (
     chargeCfg?.enabled
+    && !axis.chargeLocked
     && axis.boostHeld
     && !cart.isChargingBoost
     && typeof callbacks?.triggerRamBoost === "function"
@@ -590,7 +592,7 @@ function applyArcadeControls(cart, axis, dtFixed, nowMs, callbacks) {
   // *   1. Early release > 100ms — proportional burst (tap = small dash, hold = big boom).
   // *   2. Early release <= 100ms — silent cancel (no boost, just stop SFX).
   // *   3. Full charge ≥ boostChargeTimeMs — max burst auto-release (existing behavior).
-  if (chargeCfg?.enabled && cart.isChargingBoost) {
+  if (chargeCfg?.enabled && cart.isChargingBoost && !axis.chargeLocked) {
     const chargeElapsedMs = nowMs - cart.boostChargeStartedAtMs;
     // * Reconcile replays older nitro:false samples that would cancel a live hold and
     // * reset charge progress (inconsistent fire). Only honor release/cancel on live ticks;
@@ -3907,6 +3909,9 @@ export function runFixedPhysicsStep({
   }
 
   // 1. Local player
+  // * INPUT-LOCK-1: one phase gate for host/solo sampled input. Prediction
+  // * (localInputOverride) stays ungated — that path only runs while running.
+  const canDrive = GameState.getRoundState().phase === "running";
   if (localCart && !localCart.isSuddenDeathSpectator) {
     let axis;
     if (localInputOverride) {
@@ -3922,12 +3927,20 @@ export function runFixedPhysicsStep({
       axis = getAxis();
       // * Driving input is locked outside the running phase so carts cannot be
       // * throttle/turn/nitro-driven during countdown, lobby, or podium. Hop is
-      // * gated separately in main.js input handlers. Remote inputs are only
-      // * received during running (host ignores client_input otherwise).
-      const canDrive = GameState.getRoundState().phase === "running";
+      // * gated separately in main.js input handlers. Host still *receives*
+      // * client_input outside running; apply is gated here (drain is lever B).
       if (!canDrive) {
         axis.forward = 0;
         axis.turn = 0;
+        axis.boostHeld = false;
+        axis.chargeLocked = true;
+        // * Silent-cancel a leaked charge so GO cannot inherit elapsed time
+        // * and auto-release. Do not stamp cooldown (cancelNpcBoostCharge would).
+        if (localCart.isChargingBoost) {
+          localCart.isChargingBoost = false;
+          localCart.boostChargeStartedAtMs = 0;
+          callbacks?.onBoostCancel?.(localCart);
+        }
       }
     }
     // * Populate scratch once for this cart; applyArcadeControls + its sub-helpers all
@@ -3940,7 +3953,7 @@ export function runFixedPhysicsStep({
   // 2. Remote players (host only)
   // * resolveCartForConn is injected by the caller (main.js) so this module stays
   // * free of netSlots / connId knowledge. Skip spectator carts.
-  if (isHost && remoteInputs && callbacks.resolveCartForConn) {
+  if (isHost && canDrive && remoteInputs && callbacks.resolveCartForConn) {
     for (const [connId, input] of remoteInputs.entries()) {
       const remoteCart = callbacks.resolveCartForConn(connId);
       if (!remoteCart || remoteCart.isSuddenDeathSpectator) continue;
@@ -3966,10 +3979,9 @@ export function runFixedPhysicsStep({
       // * getAiAxis may call pickAiTarget → findNearestHumanTarget/isAiCautiousPhase,
       // * which iterate OTHER carts via their own .translation() calls — those do not
       // * touch _scratchPos, so this NPC's cached state survives the AI decision pass.
+      if (!canDrive) continue;
       readBodyStateIntoScratch(npc);
-      const canDrive = GameState.getRoundState().phase === "running";
-      const aiAxis = canDrive ? getAiAxis(now, npc) : { forward: 0, turn: 0 };
-      applyArcadeControls(npc, aiAxis, dt, now, callbacks);
+      applyArcadeControls(npc, getAiAxis(now, npc), dt, now, callbacks);
     }
   }
 

@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-16T07:23:42.191Z",
-    "commit": "c4f46bc8"
+    "at": "2026-08-16T23:15:20.037Z",
+    "commit": "018f5723"
   },
-  "source_digest": "b69c8db0",
+  "source_digest": "3c9e9a70",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -880,17 +880,24 @@
       }
     ],
     "next_actions": [
-      "PATTERNS-FOIL-1 L1 — human foil on six earned patterns.",
-      "MENU-CMD-SKEW-PT-1 — main menu labels upright on prod (hard-refresh).",
-      "STOREROOMS-NPC-SELFKO-PT-1 / PT-2 — Solo Storerooms on prod (hard-refresh). Worker `cc79e3b7`.",
-      "WARM-QP-ROTATE-1 — adopt room arena after hello, under the overlay, full forPlay warm. Do not delay countdown.",
-      "SHARD-PT-2 stays launch day (5 humans)."
+      "INPUT-LOCK-1 — pre-GO boost + stale remote inputs. Plan → ack before apply.",
+      "SD-WIN-CREDIT-1 — guests get zero Sudden Death win credit online."
     ],
     "open_issues": [
       {
-        "id": "WARM-SOLO-1",
-        "issue": "Solo post-`carts-ready` stall (WARM-IGPU residual)",
-        "status": "📋 telemetry-gated — [warm-igpu-1.md](./planning/warm-igpu-1.md)"
+        "id": "INPUT-LOCK-1",
+        "issue": "Pre-GO input lock: host boost mid-countdown + stale remote input",
+        "status": "❌ Block 1 High — 08-16 audit"
+      },
+      {
+        "id": "SD-WIN-CREDIT-1",
+        "issue": "Guests get zero Sudden Death win credit online",
+        "status": "❌ Block 1 High — 08-16 audit"
+      },
+      {
+        "id": "LAST-STANDING-DEAD-1",
+        "issue": "Last Cart Standing never fires",
+        "status": "👤 revive-vs-delete — Wyatt call"
       },
       {
         "id": "BRAND-1",
@@ -904,39 +911,64 @@
       {
         "title": "Engineering",
         "counts": {
-          "Low": 5,
+          "High": 2,
+          "Medium": 12,
           "Partial": 1,
-          "Medium": 5
+          "Low": 14
         },
         "rows": [
           {
-            "pri": "Low",
-            "item": "MOTION-A11Y-1 — `prefers-reduced-motion` doesn't actually reduce any motion",
-            "notes": "**Filed 08-05, spun out of TIER-DEFAULT-1's lever 4.** The OS accessibility flag was, until TIER-DEFAULT-1 closed, silently forcing the graphics quality tier to Low (cap-287/288: the same Intel box booted Low with Windows animations on and Medium with them off). TIER-DEFAULT-1 fixed the *tier* side (reduced-motion now demotes one rung inside `defaultTierForCaps()` — [gpuCaps.js](../../src/utils/gpuCaps.js) — instead of hard-pinning Low), but that was always an interim: reduced-motion should reduce **motion**, not graphics fidelity. Nothing currently reads the flag for motion at all. Candidates once picked up: attract-camera spin/drift, cart-impact screen shake, KO/win screen flash, any continuous idle animation loop. Needs a definition-of-done pass (which motions, how much) before it's a code card.",
+            "pri": "High",
+            "item": "INPUT-LOCK-1 — pre-GO input lock has three disagreeing gates: host can charge boost during countdown; stale remote inputs drive carts through the next countdown",
+            "notes": "**Filed 08-16 from the gameplay bug audit (read-only, adversarially reviewed).** The \"input locked outside running\" contract is enforced in three layers that disagree. (a) `runFixedPhysicsStep`'s countdown gate zeroes only `forward`/`turn` while its own comment claims nitro is locked too — `axis.boostHeld` passes through ([simulation.js](../../src/simulation.js) ~3926-3931), `getAxis()` is phase-ungated ([input.js](../../src/input.js) ~491-522), and `triggerRamBoost` has no phase check — so the host (and solo) can hold boost from \"3\", auto-release a full 28-impulse burst mid-countdown, and have a second full burst ready at GO. Non-hosts can't (their input path only runs while running) — host-only first-hit advantage in MP. (b) The host's remote-input branch applies `throttle/steer/nitro` with **no phase gate** (simulation.js ~3943-3958), and `remoteInputsByConnId` is never cleared at round boundaries (only session reset / host promote / migration / init; `resetClientPredictionState` doesn't touch it) — a non-host holding W (or boost) at round end has that stale input drive their cart off the booth during the next 3-2-1 on the host sim: free head start or free self-KO, every rematch, no mod needed; stale `nitro:true` also pre-charges their cart through the same gap. One fix point: gate all three axes + the remote branch on `phase === \"running\"`, and clear the remote map at round boundaries. Not a reopen of COUNTDOWN-QUICKPLAY-1 / COUNTDOWN-LEAK-1 (different mechanisms).",
             "ship1": null
           },
           {
-            "pri": "Low",
-            "item": "COUNTDOWN-QUICKPLAY-1 — empty quickplay countdown connect-wait edge case",
-            "notes": "In empty quickplay games, countdown either waits for player connection before starting or skips part of it. Documented from F8 captures (184–196); parked in backlog per Wyatt (07-22).",
+            "pri": "High",
+            "item": "SD-WIN-CREDIT-1 — guests get zero Sudden Death win credit online (Clutch Winner daily + redMirror unlock are host-only)",
+            "notes": "**Filed 08-16 from the gameplay bug audit (adversarially reviewed).** `SUDDEN_DEATH_WIN` has exactly one record site ([roundLifecycle.js](../../src/orchestration/roundLifecycle.js) ~433), gated on `lastRoundEndedInSuddenDeath` — written only inside host-only `endRound()` (~926). Non-hosts reach the podium via the `MSG.round` phase watcher (`onEnterPodium`), which never sets the flag, and the host clears `isSuddenDeath` before broadcasting, so guests can't self-derive it either. Result: the Clutch Winner daily (`sd_win_3`) and the redMirror shades (goal 3 SD wins, [unlockConfig.js](../../src/unlockConfig.js) ~86) never progress when a guest wins SD — 3 of 4 players in every online match. Solo is unaffected (the local player runs host logic). Fix needs something the host broadcasts at podium (an SD flag or endReason keying) so clients can credit. Not a reopen of NET-SD-1 (that was suppress-kill winner selection).",
             "ship1": null
           },
           {
-            "pri": "🟡 Partial",
-            "item": "NET-PERF-1 — reconcile rewind-replay cost",
-            "notes": "Caps shipped; residual if retest still rubber-bands.",
+            "pri": "Medium",
+            "item": "SD-SCORE-STALE-1 — SD-winning KO broadcasts + records scores missing the final point",
+            "notes": "**Filed 08-16 from the gameplay bug audit (adversarially reviewed).** `addScore` fires the SD win callback **before** `set()` commits the score ([gameStore.js](../../src/stores/gameStore.js) ~49-59); `endRound` runs inside the callback and the podium `host_round` is the only podium broadcast (the per-KO send is skipped when SD resolves) — so it carries pre-KO scores ([roundLifecycle.js](../../src/orchestration/roundLifecycle.js) ~946-952, [netcode.js](../../src/netcode.js) `sendHostRound`). Host UI self-corrects next frame (live store), but guests' scores arrive only via round sync: an SD won 4-3 shows \"wins — 3 pts (TIEBREAK)\" on every client but the host for the whole podium. Match history, `totalPoints`, and best-score PBs miss the final KO's points everywhere; exact-threshold score challenges can miss credit. Fix: commit the score before firing the callback (or broadcast after the set). Not a reopen of NET-SD-1.",
             "ship1": null
           },
           {
-            "pri": "Low",
-            "item": "NET-PERF-3 — p2p per-message buffer copy",
-            "notes": "Only batch if F8 shows alloc pressure after NET-PERF-1.",
+            "pri": "Medium",
+            "item": "THOST-CEILING-1 — `MAX_THOST_ABS_MS` (1e12) rejects every real tHost (epoch ms ≈1.79e12): host-clock subsystem is dead code in production",
+            "notes": "**Filed 08-16 from the gameplay bug audit (adversarially reviewed).** The host stamps snapshots with `getMonotonicNow()` = `timeOrigin + performance.now()` — Unix-epoch ms, ~1.79e12 in 2026 ([netcode.js](../../src/netcode.js) ~2385, ~3686) — while the plausibility gate rejects `tHost > 1e12` (1e12 ≈ Sep 2001; netcode.js ~88, ~2691-2699). Every legitimate snapshot fails, so `updateHostClockOffset` never runs: interpolation timestamps fall back to local arrival time (jitter-coupled micro-rubber-band), `getSnapshotSilenceMs` uses the wall fallback (client hitches misread as host silence → false replay-skip/hold), the 5s jump guard is dead, and `applyHostSpawnSnapshot` mixes host-domain and local-domain stamps in one buffer. No test pins epoch-scale rejection (only 1e300 and 5000 are tested), so it's a units slip, not intent. One-constant fix + a jump-guard sanity pass; verify with F8 `via: \"tHost\"` after. Not a reopen of Run 7 / NET-PRES-1 — distinct defect that also explains why run-7 2e never showed `via:\"tHost\"`.",
             "ship1": null
           },
           {
-            "pri": "Low",
-            "item": "COUNTDOWN-LEAK-1 — Countdown timer survives menu return *(pre-ship 07-19)*",
-            "notes": "Stale countdown UI on main menu.",
+            "pri": "Medium",
+            "item": "NPC-ABORT-BURST-1 — NPC charge-abort release burst bypasses every self-KO safety gate",
+            "notes": "**Filed 08-16 from the gameplay bug audit (adversarially reviewed).** All other NPC boost paths check `npcBoostPathIsUnsafe`, but when `canContinueNpcChargedAttack` flips false (target fell / path became unsafe mid-charge), the wrapper leaves `boostHeld` unset and the human early-release branch fires the full burst along the heading that was just declared unsafe ([cartOrchestration.js](../../src/orchestration/cartOrchestration.js) ~814-830, [simulation.js](../../src/simulation.js) ~603-631). NPCs still occasionally ram themselves into voids and can hand a free SD win. **New path, not a reopen of the closed STOREROOMS-NPC-SELFKO fixes** (those covered instant/escape/hold paths; this is the abort path). The NPC-BOOST-2 design deliberately chose abort→burst over silent cancel — the gap is that it skips the edge/void checks. Fix: wire the already-written-but-dead `cancelNpcBoostCharge` (`simulation.js` ~601-602 has no producer of `boostCancel`) or safety-check the abort burst.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "ZOMBIE-HOST-PICK-1 — host-away / host-repair pick successors from zombie-tolerant `#connections`",
+            "notes": "**Filed 08-16 from the gameplay bug audit (adversarially reviewed).** `#handleHostAway` and `#ensureLiveHost` pass `#connections.keys()` to host selection ([party/index.ts](../../../party/index.ts) ~456, ~512-519), but the file's own invariant (~264-268) says game-state paths must use `#liveConnIdSet()` because `#connections` holds zombies until the 20s reaper. A crashed tab that kept its slot can be promoted host mid-round → no authority, no snapshots, frozen round for up to ~25s until the reaper purges and repair runs. Sibling card: ZOMBIE-ROOM-RESET-1.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "GAMEPAD-FREEZE-1 — frozen gamepad input keeps driving a hidden host's cart",
+            "notes": "**Filed 08-16 from the gameplay bug audit (adversarially reviewed).** Gamepad polling is rAF-bound (stops when hidden), the `blur` handler clears keys/touch/boost flags but nothing gamepad, and there is no `visibilitychange` input reset ([input.js](../../src/input.js) ~346-352, ~471-476). The hidden-host MessageChannel pump ([gameLoop.js](../../src/gameLoop.js) ~788-809) steps physics but never polls the pad — a host who alt-tabs holding stick-forward + boost has their cart drive off and auto-release full bursts for up to the 10s host-away window. Solo is equally affected.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "SD-SPECTATOR-CHARGE-1 — eliminated SD spectator can start a phantom charge; charge-up SFX loops up to the 45s cap",
+            "notes": "**Filed 08-16 from the gameplay bug audit (adversarially reviewed).** The local boost handlers gate only on menu + `phase === \"running\"` ([main.js](../../src/main.js) ~570-576, ~583-591) — SD overtime is still \"running\" for eliminated players. `triggerRamBoost` starts the charge plus the looping charge-up SFX, but the sim skips spectator carts, so it can never release or cancel; nothing stops the loop until `endRound`'s `stopAllChargeSfx()`. Get KO'd in SD, hold boost while watching → whine loops for up to 45s. Audio-only, no outcome effect; fix is a spectator gate in the handlers (or in `triggerRamBoost`).",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "LAST-STANDING-DEAD-1 — Last Cart Standing is dead end-to-end: flourish unreachable, verdict + Sole Survivor challenge + server `lastStanding` branch never fire",
+            "notes": "**Filed 08-16 from the gameplay bug audit (adversarially reviewed).** Traced every SD resolution branch: ram-kill with one tied survivor, self-fall with one survivor, leader-self-fall fallback, and simultaneous wipeout all call `addScore` synchronously, which ends the round before the live-phase re-check can ever see `aliveOnArena === 1` — `scheduleLastCartStandingFinish` is effectively unreachable (stuck-respawn is instant via `doRespawn`, and disconnects convert to NPC, so no lone-survivor window exists). On top of that, `endRound`'s SD branch overwrites `endReason:\"lastStanding\"` with `\"timer\"` (roundLifecycle.js ~927-945; the `else if` that sets it is dead code — every slot-passing caller runs during SD). Dead as a result: the \"LAST CART STANDING\" verdict text (~518-521), the `LAST_STANDING` / Sole Survivor challenge (~429-431), and the server's `lastStanding` validation branch ([roundValidation.ts](../../../party/roundValidation.ts) ~217-242). **Blocked on Wyatt: revive-vs-delete call before this is actionable** — revive the flourish path (and fix the overwrite) or delete the feature end-to-end. Not a reopen of NET-SD-1.",
             "ship1": null
           },
           {
@@ -968,6 +1000,90 @@
             "item": "LEADERBOARD-1 — Persistent leaderboard / player stats `[SHIP-1 D2]`",
             "notes": "Needs TRUST-1.",
             "ship1": "D2"
+          },
+          {
+            "pri": "🟡 Partial",
+            "item": "NET-PERF-1 — reconcile rewind-replay cost",
+            "notes": "Caps shipped; residual if retest still rubber-bands.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "MIG-KO-DROP-1 — KO presentation lost when migration lands inside the ≤25ms fall→tick window",
+            "notes": "**Filed 08-16 from the gameplay bug audit (adversarially reviewed).** `falls[]` rides only the unreliable 40Hz snapshot tail; after migration, clients reject the old host's in-flight snapshot by source ([netcode.js](../../src/netcode.js) ~2378-2399, ~4449-4452) — that KO gets no feed row, shatter, or announcer call. **Score is safe** (per-KO synchronous `sendHostRound` + server monotonic clamp killed the audit's original \"KO undone\" half — the host would have to die mid-frame). Not a reopen of NET-PRES-1 (double-fan dedupe, different thing).",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "SPILL-DOUBLE-VFX-1 — non-host's own tip-over spill renders twice",
+            "notes": "**Filed 08-16 from the gameplay bug audit (adversarially reviewed).** Prediction fires the local spill VFX immediately; the host's `MSG.spill` confirmation then replays unconditionally on every client with no eid/dedupe key ([netcode.js](../../src/netcode.js) ~4486-4509) — double debris burst ~1 RTT apart and up to 2× groceries from the 66-slot pool on the victim's screen. Presentation only; scoring is host-gated and idempotent.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "PODIUM-DOUBLE-CREDIT-1 — rejected-then-redecided podium double-credits ROUND_COMPLETE / cross-credits ROUND_WIN on host",
+            "notes": "**Filed 08-16 from the gameplay bug audit (adversarially reviewed).** `recordPodiumStats` runs before `sendHostRound` ([roundLifecycle.js](../../src/orchestration/roundLifecycle.js) ~946 vs ~952); the server-reject rollback restores UI but not stats/challenge credit, and the dedupe key `${startedAtMs}:${winner}` passes when the retry legitimately ends with a different winner → `ROUND_COMPLETE` twice, `ROUND_WIN` to both winners, two matchHistory entries. Rare (needs server reject + winner change inside the ~150ms retry window). Guests immune (`r.validated` gating).",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "KEYUP-STUCK-1 — keyup landing on a focused text input is swallowed → stuck movement key",
+            "notes": "**Filed 08-16 from the gameplay bug audit (adversarially reviewed).** `onKeyUp` early-returns on `e.target.tagName === \"INPUT\"` before `keys.delete(e.code)` ([input.js](../../src/input.js) ~455-456) — a movement key pressed during play and released while the join-code/name field has focus stays in the `keys` Set; the cart drives itself next round until re-press or blur.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "HOST-PRESENT-ORDER-1 — `host_present` deletes the away flag before the cooldown gate; host-return reclaim dead in its own 5s window",
+            "notes": "**Filed 08-16 from the gameplay bug audit (adversarially reviewed).** [party/index.ts](../../../party/index.ts) ~478-483 consumes `#awayHostIds` before the cooldown check, so the client's 5s retry (`netcode.js` ~2877-2883) finds nothing to reclaim — a host returning within 5s of an away-migration (the common quick tab-switch) can never get the role back. Symmetric: `host_away` sent inside the cooldown is never retried (one-shot timer), so a starved hidden host keeps authority. Role-quality only; no corruption.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "ZOMBIE-ROOM-RESET-1 — `onConnect`'s empty-room phase reset runs before the reap pass that invalidates its input",
+            "notes": "**Filed 08-16 from the gameplay bug audit (adversarially reviewed).** The nuke-stale-state decision reads human slots at party/index.ts ~1064-1072, but reap + orphan reconcile run after it (~1085-1093) — in an all-zombie room (every `onClose` lost), the lone new joiner is promoted host of a stale `running` round whose `startedAtMs` is long expired → odd immediate end / SD entry on join. Self-resolving but a broken first experience; sibling of ZOMBIE-HOST-PICK-1.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "DEMOTE-COUNTDOWN-1 — demoted host keeps armed countdown timers; `startRunningAt` lacks an isHost guard",
+            "notes": "**Filed 08-16 from the gameplay bug audit (adversarially reviewed).** `applyHostMigration` never invalidates the old host's `roundCountdownTimeoutId`, and unlike `startCountdown` / `resumeCountdownAsNewHost`, `startRunningAt` ([roundLifecycle.js](../../src/orchestration/roundLifecycle.js) ~758) has no `isHost` check — a demoted client can locally flip itself to running ~a clock-skew early. Defused by the next authoritative `host_round`; cosmetic flicker only.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "SPECTATOR-ANNOUNCER-1 — spectators get no announcer silencing at a decided podium",
+            "notes": "**Filed 08-16 from the gameplay bug audit (adversarially reviewed).** Only the draw branch calls `stopAnnouncer()` ([roundLifecycle.js](../../src/orchestration/roundLifecycle.js) ~311-341); a spectator with an in-flight \"10 SECONDS\" / `new_leader` callout keeps it playing across the podium transition (~2-4s, bounded). Spectators only.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "RD-COUNTER-1 — guests' \"RD n\" counter stalls on rounds the server doesn't stamp `validated`",
+            "notes": "**Filed 08-16 from the gameplay bug audit (adversarially reviewed).** The HUD round label reads `matchHistory.length` ([hud.js](../../src/hud.js) ~795), but guests' history only grows on server-validated podiums ([netcode.js](../../src/netcode.js) ~3589) — any round that fails validation shows \"RD 1\" again on all clients but the host. Rare-cosmetic.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "MOTION-A11Y-1 — `prefers-reduced-motion` doesn't actually reduce any motion",
+            "notes": "**Filed 08-05, spun out of TIER-DEFAULT-1's lever 4.** The OS accessibility flag was, until TIER-DEFAULT-1 closed, silently forcing the graphics quality tier to Low (cap-287/288: the same Intel box booted Low with Windows animations on and Medium with them off). TIER-DEFAULT-1 fixed the *tier* side (reduced-motion now demotes one rung inside `defaultTierForCaps()` — [gpuCaps.js](../../src/utils/gpuCaps.js) — instead of hard-pinning Low), but that was always an interim: reduced-motion should reduce **motion**, not graphics fidelity. Nothing currently reads the flag for motion at all. Candidates once picked up: attract-camera spin/drift, cart-impact screen shake, KO/win screen flash, any continuous idle animation loop. Needs a definition-of-done pass (which motions, how much) before it's a code card.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "COUNTDOWN-QUICKPLAY-1 — empty quickplay countdown connect-wait edge case",
+            "notes": "In empty quickplay games, countdown either waits for player connection before starting or skips part of it. Documented from F8 captures (184–196); parked in backlog per Wyatt (07-22).",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "NET-PERF-3 — p2p per-message buffer copy",
+            "notes": "Only batch if F8 shows alloc pressure after NET-PERF-1.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "COUNTDOWN-LEAK-1 — Countdown timer survives menu return *(pre-ship 07-19)*",
+            "notes": "Stale countdown UI on main menu.",
+            "ship1": null
           },
           {
             "pri": "Low",
@@ -1008,15 +1124,10 @@
       {
         "title": "Design / Gameplay",
         "counts": {
-          "Medium": 3
+          "Medium": 2,
+          "Low": 1
         },
         "rows": [
-          {
-            "pri": "Medium",
-            "item": "STOREROOMS-NPC-SELFKO-2 — Storerooms NPC unforced vortex / outer-edge self-KOs",
-            "notes": "New evidence 08-15. Residual after AI-ARENA-SELFKO-1. L1 `d680928` · L2 `928df0d`. PT: STOREROOMS-NPC-SELFKO-PT-1 · PT-2.",
-            "ship1": null
-          },
           {
             "pri": "Medium",
             "item": "TASTE-P4-1 — Taste-tuning follow-ups from Pass 4",
@@ -1028,47 +1139,22 @@
             "item": "CLUTCH-SLOMO-1 — Clutch slow-mo (Pass 5 deferral)",
             "notes": "Taste-gated.",
             "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "SPILL-RAM-CREDIT-1 — does a solid knockback ram count as a \"spill\"?",
+            "notes": "**Filed 08-16 from the gameplay bug audit (adversarially reviewed, flagged needs-definition).** [simulation.js](../../src/simulation.js) ~1439-1443 records the SPILL progression event + a match-stat spill on every qualifying knockback ram (500ms re-qualify against an upright victim), not on actual spill events — sustained contact on a tanky cart logs several \"spills\" per engagement before any groceries fly, inflating `spill_15` / `spill_50` progress and the receipt's SPILLS CAUSED vs their \"Cause N opponent spills\" descriptions. Needs a definition of done first (like MOTION-A11Y-1): either a solid ram is intended to count (close this card) or the record gates on real spill events.",
+            "ship1": null
           }
         ]
       },
       {
         "title": "Playtest owed",
         "counts": {
-          "Low": 3,
-          "Medium": 5,
-          "High": 1
+          "Medium": 1,
+          "Low": 1
         },
         "rows": [
-          {
-            "pri": "Low",
-            "item": "NAME-NPC-VARIETY-PT-1 — expanded NPC names fit the roster `[solo]`",
-            "notes": "**Deployed Worker `b82ca48f-4a64-4b43-a87d-c0ff055da569`.** **Owed: Wyatt playtest — NAME-NPC-VARIETY-PT-1 — NPC names feel varied and belong in Cart Clash.** Parent **NAME-VARIETY-1**. Hard-refresh first.<br>1. Start Solo three times, reloading between rounds.<br>2. Read the three NPC names in each roster and during play.<br>3. FAIL if a roster repeats a name, a name is hard to read, or a name feels grim or outside the retail-cartoon tone. Random repeats between separate page loads are allowed.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "NAME-PLAYER-VARIETY-PT-1 — player defaults and rerolls feel varied `[solo]`",
-            "notes": "**Deployed Worker `b82ca48f-4a64-4b43-a87d-c0ff055da569`.** **Owed: Wyatt playtest — NAME-PLAYER-VARIETY-PT-1 — first-run and rerolled player names stay readable, playful, and less repetitive.** Parent **NAME-VARIETY-1**. Hard-refresh first.<br>1. Click the name reroll button 20 times.<br>2. Scan for repeated shapes, awkward combinations, overflow, or names outside the retail-brawl tone.<br>3. Open one private window to sample a fresh default name. FAIL if the name is unreadable, grim, or collides with an NPC name.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "MENU-CMD-SKEW-PT-1 — main menu labels sit upright `[solo]`",
-            "notes": "**Owed: Wyatt playtest — MENU-CMD-SKEW-PT-1 — SOLO through SETTINGS letters stand upright.** Parent **MENU-CMD-SKEW-1**. Hard-refresh first.<br>1. Open the main menu on prod.<br>2. Look at SOLO, QUICKPLAY, FRIENDS, CUSTOMIZE, CHALLENGES, HOW TO PLAY, and SETTINGS.<br>3. FAIL if the letters lean left. PASS if the letters stand upright. The yellow selected bar may stay a slight slant.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "STOREROOMS-NPC-SELFKO-PT-1 — Storerooms NPCs survive vortex rings `[solo]`",
-            "notes": "**Owed: Wyatt playtest — STOREROOMS-NPC-SELFKO-PT-1 — NPCs peel off a vortex before the pull commits, and still hunt the gutters.** Parent **STOREROOMS-NPC-SELFKO-2**. Prod Worker `cc79e3b7` (`524b96a`). Hard-refresh first.<br>1. Solo Storerooms, Medium, one full round.<br>2. Watch NPCs near the four vortex rings.<br>3. FAIL if two or more unforced vortex drops in one round, or they refuse the gutters.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "STOREROOMS-NPC-SELFKO-PT-2 — Storerooms NPCs stay off the outer pit `[solo]`",
-            "notes": "**Owed: Wyatt playtest — STOREROOMS-NPC-SELFKO-PT-2 — NPCs do not drive themselves off the outer floor with no ram.** Parent **STOREROOMS-NPC-SELFKO-2**. Prod Worker `cc79e3b7` (`524b96a`). Hard-refresh first.<br>1. Solo Storerooms, Medium, one full round.<br>2. Watch the outer floor edge.<br>3. FAIL if an NPC drives itself off the pit with no ram.",
-            "ship1": null
-          },
           {
             "pri": "Medium",
             "item": "WARM-QP-ROTATE-PT-1 — non-host Quickplay overlay covers first room arena `[2pc]`",
@@ -1079,18 +1165,6 @@
             "pri": "Low",
             "item": "SHARD-PT-2 — fifth human overflows to quickplay2 `[2pc]`",
             "notes": "**Owed: Wyatt playtest — SHARD-PT-2 — the 5th concurrent Quickplay human lands on quickplay2 instead of \"couldn't join\".** Launch-day / public-post check — needs five real humans (Wyatt deferred 08-05). Rig already 5/5; SHARD-PT-1 PASSed on prod `9c333d1`. Prefer analytics: any `quickplay_shard_assigned` with `hops > 0` or `shard !== quickplay` counts.<br>1. When five humans can join Quickplay at once (public post), watch the 5th seat.<br>2. FAIL if they get the dead-end couldn't-join toast with no hop. PASS if they seat on an overflow shard (or analytics shows hops greater than 0).<br>3. Skip / leave open until launch day — do not FAIL for lack of five people.",
-            "ship1": null
-          },
-          {
-            "pri": "High",
-            "item": "PATTERNS-FOIL-PT-1 — earned patterns show foil, Honeycomb and Diamond stay lit `[solo]`",
-            "notes": "**Deployed Worker `1cdbcdb9` (`c4f46bc`).** **Owed: Wyatt playtest — PATTERNS-FOIL-PT-1 — foil slides on earned patterns; Honeycomb and Diamond interiors stay neon; the chip says Cubes.** Parent **PATTERNS-FOIL-1**. Hard-refresh https://www.cartclash.lol/ first.<br>1. Open CUSTOMIZE → PATTERN. Pick Pink. Confirm the chip says Cubes, not Isometric Cubes.<br>2. Spin Maze, Waves, Bolt, and Cubes. PASS if a spectral sheen moves on the cart. FAIL if Classic, Stripes, or Checker flash foil.<br>3. Select Honeycomb, then Diamond Weave. PASS if the interiors stay neon. FAIL if they go black.<br>4. Start Solo with Cubes. PASS if foil survives a KO and the cart is not a rainbow lamp.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "PATTERNS-UI-5-PT-1 — prismatic Cubes is distinct from Honeycomb `[solo]`",
-            "notes": "**Parked 08-16 — PATTERNS-FOIL-1 is the active card.** Cubes-vs-Honeycomb now rides the grating. **Deployed Worker `ae965403-9279-4776-9b4e-55f4955b7259`; live assets verified. Owed: Wyatt playtest — PATTERNS-UI-5-PT-1 — Isometric Cubes is smaller, visibly faceted, and immediately distinct from Honeycomb; Diamond Weave stays unchanged.** Parent **PATTERNS-UI-5**. **PATTERNS-UI-4-PT-1 FAIL 08-15:** Maze, Honeycomb, and Diamond passed; Cubes was still too close to Honeycomb.<br>1. Hard-refresh production, open CUSTOMIZE → PATTERN, and select Pink.<br>2. Select Isometric Cubes. PASS if seven compact repeats span one texture width, each cube shows three tinted faces plus a bright top glint, and it does not read as Honeycomb.<br>3. Switch between Honeycomb and Isometric Cubes from front, side, and rear views. PASS if they are immediately distinct. Select Diamond Weave. PASS if it is unchanged.<br>4. Repeat steps 2–3 with Blue, then start a solo round. PASS if Cubes stays stable while moving and after a KO rebuild.",
             "ship1": null
           }
         ]
@@ -1439,7 +1513,7 @@
       {
         "id": "D-MENU-CMD-SKEW-1",
         "date": "08-15",
-        "text": "Menu entrance wrote `translateY`/`scale` on `.cr-cmd` and wiped `skewX(-8deg)`; leftover label `skewX(8deg)` leaned SOLO–SETTINGS left. Entrance now `fadeIn` only. Playtest owed: MENU-CMD-SKEW-PT-1."
+        "text": "Menu entrance wrote `translateY`/`scale` on `.cr-cmd` and wiped `skewX(-8deg)`; leftover label `skewX(8deg)` leaned SOLO–SETTINGS left. Entrance now `fadeIn` only. MENU-CMD-SKEW-PT-1 Wyatt PASS 08-16."
       },
       {
         "id": "D-CONN-TOASTS-1",
