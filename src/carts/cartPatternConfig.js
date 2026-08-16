@@ -137,6 +137,32 @@ export function getFoilGroove(patternId) {
   return FOIL_GROOVES[id] ?? null;
 }
 
+/** Visible-band fold. Raw `pitchNm × |q·T|` lands in IR under the preview key light. */
+export const FOIL_LAMBDA_MIN_NM = 380;
+export const FOIL_LAMBDA_SPAN_NM = 340;
+/** Groove-plane Gaussian width. 0.045 hit 0.05% of preview samples (invisible). */
+export const FOIL_SIGMA = 0.28;
+
+/**
+ * View-dependent foil weight for one sample (no spectral RGB).
+ * Mirrors the L1 grating chunk so tests can lock preview visibility.
+ * @param {{ qAcross: number, qAlong: number, front: boolean, pitchNm: number }} sample
+ * @returns {{ lambda: number, weight: number }}
+ */
+export function sampleFoilLobe(sample) {
+  const pitchNm = Number.isFinite(sample.pitchNm) ? sample.pitchNm : 1180;
+  const folded = Math.abs(sample.qAcross) * (pitchNm / 1000);
+  const frac = folded - Math.floor(folded);
+  const lambda = FOIL_LAMBDA_MIN_NM + FOIL_LAMBDA_SPAN_NM * frac;
+  const along = sample.qAlong / FOIL_SIGMA;
+  const density = Math.exp(-0.5 * along * along);
+  const front = sample.front ? 1 : 0;
+  return {
+    lambda,
+    weight: density * front,
+  };
+}
+
 /**
  * Selected cart neon plus two brand-aligned accents for a multicolor pattern.
  * The base remains dominant; accents are blended toward different CART_COLORS entries.

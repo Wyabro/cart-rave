@@ -22,10 +22,12 @@ import {
   CART_PATTERNS,
   FOIL_GROOVES,
   FOIL_PATTERN_IDS,
+  FOIL_SIGMA,
   getFoilGroove,
   getPatternAccentHexes,
   isFoilPattern,
   isMulticolorPattern,
+  sampleFoilLobe,
 } from "../../src/carts/cartPatternConfig.js";
 import { PATTERN_UNLOCKS } from "../../src/unlockConfig.js";
 import { CART_COLORS } from "../../src/config.js";
@@ -184,7 +186,8 @@ describe("pattern seam — registry coherence", () => {
     expect(FOIL_VERTEX_GLSL).toContain("mat3( modelMatrix ) * vec3( uFoilGroove.x, 0.0, uFoilGroove.y )");
     expect(FOIL_VERTEX_GLSL).not.toContain("dFdx");
     expect(FOIL_EMISSIVE_GLSL).toContain("uFoilStrength");
-    expect(FOIL_EMISSIVE_GLSL).toContain("uFoilPitch * abs( dot( foilQ, foilT ) )");
+    expect(FOIL_EMISSIVE_GLSL).toContain("fract( foilQAcross * ( uFoilPitch / 1000.0 ) )");
+    expect(FOIL_EMISSIVE_GLSL).toContain(` / ${FOIL_SIGMA.toFixed(2)}`);
     expect(FOIL_EMISSIVE_GLSL).toContain("380.0");
     expect(FOIL_EMISSIVE_GLSL).toContain("720.0");
     expect(FOIL_EMISSIVE_GLSL).toContain("USE_EMISSIVEMAP");
@@ -209,5 +212,70 @@ describe("pattern seam — registry coherence", () => {
 
     const preview = readFileSync(new URL("../../src/ui/cartPreview.js", import.meta.url), "utf8");
     expect(preview).toContain("allowFoil: true");
+  });
+
+  it("12. keeps the calibrated L1 lobe visible under the customize preview key light", () => {
+    const norm = (v) => {
+      const length = Math.hypot(v[0], v[1], v[2]) || 1;
+      return [v[0] / length, v[1] / length, v[2] / length];
+    };
+    const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    const cross = (a, b) => [
+      a[1] * b[2] - a[2] * b[1],
+      a[2] * b[0] - a[0] * b[2],
+      a[0] * b[1] - a[1] * b[0],
+    ];
+    const rotY = (v, yaw) => {
+      const c = Math.cos(yaw);
+      const s = Math.sin(yaw);
+      return [v[0] * c + v[2] * s, v[1], -v[0] * s + v[2] * c];
+    };
+
+    const wi = norm([0.35, 0.85, 0.4]);
+    const elev = 0.2;
+    const azimuth = 0.85;
+    const cam = [
+      Math.sin(azimuth) * Math.cos(elev),
+      Math.sin(elev),
+      Math.cos(azimuth) * Math.cos(elev),
+    ];
+    const groove = FOIL_GROOVES.cubes;
+    const axis0 = [Math.cos(groove.angle), 0, Math.sin(groove.angle)];
+    const faces = [
+      [0, 0, 1], [0, 0, -1], [1, 0, 0], [-1, 0, 0], [0, 1, 0],
+      [0.7, 0.2, 0.68], [0.4, 0.5, 0.77],
+    ];
+
+    let hits = 0;
+    let samples = 0;
+    for (let yaw = 0; yaw < Math.PI * 2; yaw += 0.05) {
+      const axis = rotY(axis0, yaw);
+      for (const face of faces) {
+        const normal = norm(rotY(face, yaw));
+        const wo = norm([
+          cam[0] * 8 - normal[0] * 0.6,
+          cam[1] * 8 - normal[1] * 0.6,
+          cam[2] * 8 - normal[2] * 0.6,
+        ]);
+        const q = [wi[0] + wo[0], wi[1] + wo[1], wi[2] + wo[2]];
+        let tangent = cross(normal, axis);
+        const tangentLen = Math.hypot(tangent[0], tangent[1], tangent[2]);
+        tangent = tangentLen > 1e-4
+          ? [tangent[0] / tangentLen, tangent[1] / tangentLen, tangent[2] / tangentLen]
+          : [0, 0, 1];
+        const grooveDir = norm(cross(normal, tangent));
+        const { weight } = sampleFoilLobe({
+          qAcross: dot(q, tangent),
+          qAlong: dot(q, grooveDir),
+          front: dot(normal, wi) > 0 && dot(normal, wo) > 0,
+          pitchNm: groove.pitchNm,
+        });
+        samples += 1;
+        if (weight > 0.05) hits += 1;
+      }
+    }
+
+    expect(samples).toBeGreaterThan(0);
+    expect(hits / samples).toBeGreaterThan(0.1);
   });
 });

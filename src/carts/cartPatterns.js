@@ -18,6 +18,9 @@ import {
   emissiveRefHexForNeonHex,
 } from "../utils.js";
 import {
+  FOIL_LAMBDA_MIN_NM,
+  FOIL_LAMBDA_SPAN_NM,
+  FOIL_SIGMA,
   getFoilGroove,
   getPatternAccentHexes,
   isFoilPattern,
@@ -85,10 +88,10 @@ export const FOIL_EMISSIVE_GLSL = [
   "\t\tvec3 foilWo = normalize( cameraPosition - vCartWorldPos );",
   "\t\tvec3 foilWi = normalize( uFoilLightDir );",
   "\t\tvec3 foilQ = foilWi + foilWo;",
-  "\t\tfloat foilLambda = uFoilPitch * abs( dot( foilQ, foilT ) );",
-  "\t\tfloat foilInBand = smoothstep( 380.0, 420.0, foilLambda ) * ( 1.0 - smoothstep( 680.0, 720.0, foilLambda ) );",
+  "\t\tfloat foilQAcross = abs( dot( foilQ, foilT ) );",
+  `\t\tfloat foilLambda = ${FOIL_LAMBDA_MIN_NM.toFixed(1)} + ${FOIL_LAMBDA_SPAN_NM.toFixed(1)} * fract( foilQAcross * ( uFoilPitch / 1000.0 ) );`,
   "\t\tvec3 foilG = normalize( cross( foilN, foilT ) );",
-  "\t\tfloat foilAlong = dot( foilQ, foilG ) / 0.045;",
+  `\t\tfloat foilAlong = dot( foilQ, foilG ) / ${FOIL_SIGMA.toFixed(2)};`,
   "\t\tfloat foilDensity = exp( -0.5 * foilAlong * foilAlong );",
   "\t\tfloat foilFront = step( 0.0, dot( foilN, foilWi ) ) * step( 0.0, dot( foilN, foilWo ) );",
   "\t\tfloat foilBody = ( 1.0 - foilWire ) * uFoilMask * uFoilStrength;",
@@ -98,7 +101,7 @@ export const FOIL_EMISSIVE_GLSL = [
   "\t\t\tsmoothstep( 380.0, 440.0, foilLambda ) * ( 1.0 - smoothstep( 490.0, 560.0, foilLambda ) )",
   "\t\t);",
   "\t\tvec3 foilRgb = foilSpectral * ( 0.35 + 0.65 * uFoilNeon );",
-  "\t\ttotalEmissiveRadiance += foilRgb * foilDensity * foilInBand * foilFront * foilBody * uFoilGain;",
+  "\t\ttotalEmissiveRadiance += foilRgb * foilDensity * foilFront * foilBody * uFoilGain;",
   "\t}",
 ].join("\n");
 
