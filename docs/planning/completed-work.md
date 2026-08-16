@@ -27,13 +27,14 @@ Chronological record of shipped work, newest first.
 
 ### August 15, 2026 — PATTERNS-UI-5: prismatic Isometric Cubes
 
-- *(Art / UI · Medium)* **PATTERNS-UI-5** — ✅ **CODE READY 08-15.** `PATTERNS-UI-4-PT-1`
+- *(Art / UI · Medium)* **PATTERNS-UI-5** — ✅ **DEPLOYED 08-15.** `PATTERNS-UI-4-PT-1`
   confirmed the remaining read problem: Maze, Honeycomb, and Diamond Weave were good, but Cubes
   still read as Honeycomb. Cubes now repeats at 1.75, with seven compact repeats across one UV
   width. Each cube has three tinted rhombus faces, RGB-owned edges, and one static top-face glint.
   Diamond, Honeycomb, Maze, pattern IDs, goals, NPC rolls, UV1, material count, and network data
   are unchanged. Local rendered Pink / Blue review passed. Focused checks: 9/9. QA 7/7 (191 files /
-  2,117 tests). **PATTERNS-UI-5-PT-1 owed** on production.
+  2,117 tests). Deployed Worker `ae965403-9279-4776-9b4e-55f4955b7259`; public HTML assets,
+  dynamic chunks, and both Cube markers verified. **PATTERNS-UI-5-PT-1 owed** on production.
 
 ### August 15, 2026 — PATTERNS-UI-4: medium scale for Maze, Honeycomb, and Cubes
 

@@ -37,8 +37,8 @@ GAMEPAD-LOBBY-1. Deferred launch day: **SHARD-PT-2**. **STOREROOMS-NPC-SELFKO-2*
 landed (`d680928` · `928df0d`) — PT-1 vortex · PT-2 outer pit. New evidence
 **WARM-QP-ROTATE-1** (cap-364). **MENU-CMD-SKEW-1** landed (`19437ed`) —
 PT-1 menu labels upright. **PATTERNS-UI-4-PT-1 FAIL 08-15:** Maze, Honeycomb, and Diamond are
-good; Cubes reads like Honeycomb. **PATTERNS-UI-5:** Cubes now repeats at 1.75 with prismatic
-faces; Diamond unchanged. **NAME-VARIETY-1 landed:** 70 NPC
+good; Cubes reads like Honeycomb. **PATTERNS-UI-5:** Cubes 1.75 prismatic; Diamond unchanged.
+Worker `ae965403` live. **NAME-VARIETY-1 landed:** 70 NPC
 names, 50 fixed player names, and 380 rerolls; two tone checks are owed after deployment.
 
 **Closed cards keep their narrative in their own docs, not here** — Sundial
