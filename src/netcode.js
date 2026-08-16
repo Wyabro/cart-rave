@@ -874,6 +874,16 @@ export function getRemoteInputsByConnId() {
 }
 
 /**
+ * Drops host-side remote axes, jitter queues, and nitro latches.
+ * Call at every host round start so last-round hold cannot drive the next GO.
+ */
+export function clearHostRemoteInputs() {
+  remoteInputsByConnId.clear();
+  remoteInputQueuesByConnId.clear();
+  remoteNitroLatchedByConnId.clear();
+}
+
+/**
  * Clears client prediction / reconciliation state so a new host epoch or rematch
  * cannot leave the seq gate permanently closed or replay stale inputs.
  */
@@ -4288,6 +4298,7 @@ export const __netcodeTestHooks = {
   drainRemoteInputJitterBuffers: () => drainRemoteInputJitterBuffers(),
   getHostLastProcessedInputSeq: (connId) => hostLastProcessedInputSeq.get(connId) || 0,
   getRemoteInputQueueLength: (connId) => remoteInputQueuesByConnId.get(connId)?.length ?? 0,
+  getRemoteNitroLatched: (connId) => remoteNitroLatchedByConnId.get(connId),
   getInputCounters: () => ({ ...__dbgInputCounters }),
   /** Push synthetic pending prediction frames (non-host history). */
   /** 2e: host-domain snap gap / silence unit tests. */
@@ -4373,6 +4384,15 @@ function handleRemoteClientInput(input, fromConnId, seq) {
 function drainRemoteInputJitterBuffers() {
   if (!isHost) return;
   if (netTestOn) __dbgInputCounters.drainCalls += 1;
+  // * INPUT-LOCK-1: lobby/countdown/podium must not start remote charges or hops,
+  // * and must not refresh the applied map. Drop ready-or-not frames so a
+  // * leftover nitro:true cannot fire on the first running drain.
+  if (GameState.getRoundState().phase !== "running") {
+    for (const queue of remoteInputQueuesByConnId.values()) {
+      if (queue) queue.length = 0;
+    }
+    return;
+  }
   const now = performance.now();
   const delay = CONFIG.net.inputJitterBufferMs ?? 40;
   const allCarts = getAllCarts();

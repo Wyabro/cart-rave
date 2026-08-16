@@ -759,6 +759,8 @@ function startRunningAt(startedAtMs) {
   setIsNewPersonalBest(false);
   cancelLastCartStandingFinish();
   GameState.setRoundEndReason(null);
+  // * INPUT-LOCK-1: cap-200 late host skips startCountdown — still drop stale remotes.
+  Netcode.clearHostRemoteInputs();
   syncRoundPhase("running");
   refreshHiddenHostLifecycle();
   gameCtx.slowMo.active = false;
@@ -780,6 +782,8 @@ function clearRoundCountdownTimeout() {
 function startCountdown(startsAtLocalMs = getRoundClockNowMs() + CONFIG.round.countdownMs) {
   if (!Netcode.getIsHost()) return;
   if (GameState.getRoundState().phase === "running") return;
+  // * INPUT-LOCK-1: last-round W/boost must not sit in the applied map through 3-2-1.
+  Netcode.clearHostRemoteInputs();
   setIsNewPersonalBest(false);
   cancelLastCartStandingFinish();
   GameState.setRoundEndReason(null);

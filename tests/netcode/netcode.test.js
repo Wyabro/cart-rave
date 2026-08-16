@@ -15,6 +15,9 @@ import {
   applySnapshotToCartBody,
   registerGameCallbacks,
   resetClientPredictionState,
+  clearHostRemoteInputs,
+  getRemoteInputsByConnId,
+  setRefs,
   serializeCartToWire,
   slotsFingerprint,
   shouldMarkReconnecting,
@@ -291,11 +294,16 @@ describe("host input jitter ackSeq (apply, not receive)", () => {
 
   beforeEach(() => {
     hooks.resetNetState();
+    GameState.setRoundPhase("running");
     hooks.setHostStateForTest({
       isHost: true,
       youConnId: "host",
       netSlots: humanSlots("peerA", "peerB", "peerC"),
     });
+  });
+
+  afterEach(() => {
+    GameState.resetRoundToLobby();
   });
 
   it("does not advance ackSeq until the jitter buffer drains the frame", () => {
@@ -381,6 +389,94 @@ describe("host input jitter ackSeq (apply, not receive)", () => {
       9,
     );
     expect(hooks.getRemoteInputQueueLength("alive")).toBe(1);
+  });
+});
+
+describe("INPUT-LOCK-1 host remote clear + drain gate", () => {
+  function humanSlots(...connIds) {
+    return connIds.map((connId, i) => ({
+      slotId: i,
+      kind: "human",
+      connId,
+      name: `P${i + 1}`,
+      color: "pink",
+      isReady: true,
+    }));
+  }
+
+  beforeEach(() => {
+    hooks.resetNetState();
+    hooks.setHostStateForTest({
+      isHost: true,
+      youConnId: "host",
+      netSlots: humanSlots("peerA"),
+    });
+  });
+
+  afterEach(() => {
+    GameState.resetRoundToLobby();
+    setRefs({ triggerRamBoostRef: null, getAllCartsRef: () => null });
+  });
+
+  it("clearHostRemoteInputs empties map, queue, and nitro latch", async () => {
+    GameState.setRoundPhase("running");
+    hooks.handleRemoteClientInput(
+      { throttle: 1, steer: 0, nitro: true, hop: false },
+      "peerA",
+      4,
+    );
+    const delay = CONFIG.net.inputJitterBufferMs ?? 40;
+    await new Promise((r) => setTimeout(r, delay + 20));
+    hooks.drainRemoteInputJitterBuffers();
+    expect(getRemoteInputsByConnId().get("peerA")).toMatchObject({
+      throttle: 1,
+      nitro: true,
+    });
+    expect(hooks.getRemoteNitroLatched("peerA")).toBe(true);
+
+    clearHostRemoteInputs();
+    expect(getRemoteInputsByConnId().size).toBe(0);
+    expect(hooks.getRemoteInputQueueLength("peerA")).toBe(0);
+    expect(hooks.getRemoteNitroLatched("peerA")).toBeUndefined();
+  });
+
+  it("does not fire remote nitro or write the map during countdown", async () => {
+    GameState.setRoundPhase("countdown");
+    const triggerRamBoost = vi.fn();
+    const cart = { isChargingBoost: false };
+    setRefs({
+      triggerRamBoostRef: triggerRamBoost,
+      getAllCartsRef: () => [cart],
+    });
+    hooks.handleRemoteClientInput(
+      { throttle: 1, steer: 0, nitro: true, hop: false },
+      "peerA",
+      8,
+    );
+    const delay = CONFIG.net.inputJitterBufferMs ?? 40;
+    await new Promise((r) => setTimeout(r, delay + 20));
+    hooks.drainRemoteInputJitterBuffers();
+    expect(triggerRamBoost).not.toHaveBeenCalled();
+    expect(getRemoteInputsByConnId().size).toBe(0);
+    expect(hooks.getRemoteInputQueueLength("peerA")).toBe(0);
+  });
+
+  it("startCountdown and startRunningAt both call clearHostRemoteInputs", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { fileURLToPath } = await import("node:url");
+    const { dirname, join } = await import("node:path");
+    const here = dirname(fileURLToPath(import.meta.url));
+    const src = readFileSync(join(here, "../../src/orchestration/roundLifecycle.js"), "utf8");
+    const startRunning = src.slice(
+      src.indexOf("function startRunningAt"),
+      src.indexOf("function clearRoundCountdownTimeout"),
+    );
+    const startCount = src.slice(
+      src.indexOf("function startCountdown"),
+      src.indexOf("function resumeCountdownAsNewHost"),
+    );
+    expect(startRunning).toMatch(/Netcode\.clearHostRemoteInputs\(\)/);
+    expect(startCount).toMatch(/Netcode\.clearHostRemoteInputs\(\)/);
   });
 });
 

@@ -2,7 +2,7 @@
 
 > Historical log. Past entries may still say "Cart Rave" / `next-level` — that is intentional. Living naming rules: [brand.md](../brand.md).
 
-**Last Updated:** August 15, 2026
+**Last Updated:** August 16, 2026
 
 > **This doc = the past** — the single home for historical/completed items. For what works
 > *today* see [project-state.md](./project-state.md); for forward plans see [ROADMAP.md](./ROADMAP.md).
@@ -13,6 +13,55 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 16, 2026 — INPUT-LOCK-1: pre-GO input lock
+
+- *(Engineering · High)* **INPUT-LOCK-1** — ✅ **DONE 08-16** (`73289a96` + this commit). Countdown/lobby/podium now zero local `boostHeld`, skip remote and NPC apply, and silent-cancel a leaked local charge. Host remotes clear at `startCountdown` and `startRunningAt`. Drain drops leftover nitro/hop outside `running`. Playtest owed: **INPUT-LOCK-PT-1** (host/solo boost) · **INPUT-LOCK-PT-2** (guest rematch lurch). Not a reopen of COUNTDOWN-QUICKPLAY-1 / COUNTDOWN-LEAK-1.
+
+### August 16, 2026 — PATTERNS-FOIL-1: foil on earned patterns
+
+- *(Playtest · High)* **PATTERNS-FOIL-PT-1** — ✅ **PASS 08-16** on prod (Worker
+  `1cdbcdb9`, `c4f46bc`). Chip says Cubes. Maze, Waves, Bolt, and Cubes show a
+  sliding sheen. Classic, Stripes, and Checker stay matte. Honeycomb and Diamond
+  interiors stay neon. Solo KO keeps foil. Parent **PATTERNS-FOIL-1** closes
+  with it.
+- *(Art · High)* **PATTERNS-FOIL-1** — ✅ **DONE 08-16** (`6eed859e` · `b1a8a63b`
+  · `a870e027` · `5a553bcb` · `c4f46bc8`) + ✅ **PASS 08-16**. One-order human
+  foil on earned patterns. Whole CartFrame tint. Per-face groove axes. Honeycomb
+  interiors stay lit. Classic / Stripes / Checker stay matte.
+
+### August 16, 2026 — playtest PASSes (6 cards)
+
+- *(Playtest · Medium)* **MENU-CMD-SKEW-PT-1** — ✅ **PASS 08-16** on prod. SOLO through
+  SETTINGS letters stand upright. The yellow selected bar may stay a slight slant. Parent
+  **MENU-CMD-SKEW-1** (`19437ed`) closes with it.
+- *(Playtest · Low)* **NAME-NPC-VARIETY-PT-1** — ✅ **PASS 08-16** on prod (Worker
+  `b82ca48f-4a64-4b43-a87d-c0ff055da569`). Expanded NPC names fit the roster. Parent
+  **NAME-VARIETY-1** already closed.
+- *(Playtest · Low)* **NAME-PLAYER-VARIETY-PT-1** — ✅ **PASS 08-16** on prod (Worker
+  `b82ca48f-4a64-4b43-a87d-c0ff055da569`). Player defaults and rerolls feel varied. Parent
+  **NAME-VARIETY-1** already closed.
+- *(Playtest · Medium)* **PATTERNS-UI-5-PT-1** — ✅ **PASS 08-16** on prod (Worker
+  `ae965403-9279-4776-9b4e-55f4955b7259`). Prismatic Cubes is distinct from Honeycomb.
+  Diamond Weave is unchanged. Parent **PATTERNS-UI-5** closes with it.
+- *(Playtest · Medium)* **STOREROOMS-NPC-SELFKO-PT-1** — ✅ **PASS 08-16** on prod (Worker
+  `cc79e3b7`, `524b96a`). Storerooms NPCs peel off vortex rings and still hunt the gutters.
+- *(Playtest · Medium)* **STOREROOMS-NPC-SELFKO-PT-2** — ✅ **PASS 08-16** on prod (Worker
+  `cc79e3b7`, `524b96a`). Storerooms NPCs stay off the outer pit with no ram. Parent
+  **STOREROOMS-NPC-SELFKO-2** (`d680928` · `928df0d`) closes with both PTs.
+
+### August 16, 2026 — MENU-CMD-SKEW-1: menu labels stay upright
+
+- *(UI · Medium)* **MENU-CMD-SKEW-1** — ✅ **DONE 08-15** (`19437ed`) + ✅ **PASS 08-16**.
+  Menu entrance wrote `translateY` / `scale` on `.cr-cmd` and wiped `skewX(-8deg)`. Leftover
+  label `skewX(8deg)` leaned SOLO–SETTINGS left. Entrance is now `fadeIn` only.
+
+### August 16, 2026 — STOREROOMS-NPC-SELFKO-2: vortex + outer-pit self-KO
+
+- *(Design / Gameplay · Medium)* **STOREROOMS-NPC-SELFKO-2** — ✅ **DONE 08-15**
+  (`d680928` · `928df0d`) + ✅ **PASS 08-16** on prod (Worker `cc79e3b7`). Residual after
+  AI-ARENA-SELFKO-1. L1 raises vortex keep-out past suction and adds TTE panic. L2 keeps NPC
+  targets off the outer chamfer and adds TTE rim steer. PT-1 vortex + PT-2 outer pit both PASS.
+
 ### August 15, 2026 — NAME-VARIETY-1: expanded NPC and player names
 
 - *(Design / Gameplay · Medium)* **NAME-VARIETY-1** — ✅ **CODE LANDED 08-15.** The canonical
@@ -22,8 +71,8 @@ Chronological record of shipped work, newest first.
   generator adds five retail-brawl prefixes and five suffixes, growing from 210 to 380 unique
   combinations. NPC and player pools remain disjoint; KO-friendly tone and existing selection
   behavior are unchanged. Focused checks: 8/8. QA: 7/7, 191 files / 2,117 tests. Deployed Worker
-  `b82ca48f-4a64-4b43-a87d-c0ff055da569`; live asset poll passed with 28/28 references. Human checks:
-  **NAME-NPC-VARIETY-PT-1** and **NAME-PLAYER-VARIETY-PT-1** after deployment.
+  `b82ca48f-4a64-4b43-a87d-c0ff055da569`; live asset poll passed with 28/28 references.
+  **NAME-NPC-VARIETY-PT-1** and **NAME-PLAYER-VARIETY-PT-1** Wyatt PASS 08-16.
 
 ### August 15, 2026 — PATTERNS-UI-5: prismatic Isometric Cubes
 
@@ -34,7 +83,7 @@ Chronological record of shipped work, newest first.
   Diamond, Honeycomb, Maze, pattern IDs, goals, NPC rolls, UV1, material count, and network data
   are unchanged. Local rendered Pink / Blue review passed. Focused checks: 9/9. QA 7/7 (191 files /
   2,117 tests). Deployed Worker `ae965403-9279-4776-9b4e-55f4955b7259`; public HTML assets,
-  dynamic chunks, and both Cube markers verified. **PATTERNS-UI-5-PT-1 owed** on production.
+  dynamic chunks, and both Cube markers verified. **PATTERNS-UI-5-PT-1** Wyatt PASS 08-16.
 
 ### August 15, 2026 — PATTERNS-UI-4: medium scale for Maze, Honeycomb, and Cubes
 

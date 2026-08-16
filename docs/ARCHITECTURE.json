@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-16T23:15:20.037Z",
-    "commit": "018f5723"
+    "at": "2026-08-16T23:18:54.608Z",
+    "commit": "73289a96"
   },
-  "source_digest": "3c9e9a70",
+  "source_digest": "16650594",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -880,15 +880,10 @@
       }
     ],
     "next_actions": [
-      "INPUT-LOCK-1 — pre-GO boost + stale remote inputs. Plan → ack before apply.",
-      "SD-WIN-CREDIT-1 — guests get zero Sudden Death win credit online."
+      "SD-WIN-CREDIT-1 — guests get zero Sudden Death win credit online.",
+      "Playtest INPUT-LOCK-PT-1 · INPUT-LOCK-PT-2 after ship."
     ],
     "open_issues": [
-      {
-        "id": "INPUT-LOCK-1",
-        "issue": "Pre-GO input lock: host boost mid-countdown + stale remote input",
-        "status": "❌ Block 1 High — 08-16 audit"
-      },
       {
         "id": "SD-WIN-CREDIT-1",
         "issue": "Guests get zero Sudden Death win credit online",
@@ -911,18 +906,12 @@
       {
         "title": "Engineering",
         "counts": {
-          "High": 2,
+          "High": 1,
           "Medium": 12,
           "Partial": 1,
           "Low": 14
         },
         "rows": [
-          {
-            "pri": "High",
-            "item": "INPUT-LOCK-1 — pre-GO input lock has three disagreeing gates: host can charge boost during countdown; stale remote inputs drive carts through the next countdown",
-            "notes": "**Filed 08-16 from the gameplay bug audit (read-only, adversarially reviewed).** The \"input locked outside running\" contract is enforced in three layers that disagree. (a) `runFixedPhysicsStep`'s countdown gate zeroes only `forward`/`turn` while its own comment claims nitro is locked too — `axis.boostHeld` passes through ([simulation.js](../../src/simulation.js) ~3926-3931), `getAxis()` is phase-ungated ([input.js](../../src/input.js) ~491-522), and `triggerRamBoost` has no phase check — so the host (and solo) can hold boost from \"3\", auto-release a full 28-impulse burst mid-countdown, and have a second full burst ready at GO. Non-hosts can't (their input path only runs while running) — host-only first-hit advantage in MP. (b) The host's remote-input branch applies `throttle/steer/nitro` with **no phase gate** (simulation.js ~3943-3958), and `remoteInputsByConnId` is never cleared at round boundaries (only session reset / host promote / migration / init; `resetClientPredictionState` doesn't touch it) — a non-host holding W (or boost) at round end has that stale input drive their cart off the booth during the next 3-2-1 on the host sim: free head start or free self-KO, every rematch, no mod needed; stale `nitro:true` also pre-charges their cart through the same gap. One fix point: gate all three axes + the remote branch on `phase === \"running\"`, and clear the remote map at round boundaries. Not a reopen of COUNTDOWN-QUICKPLAY-1 / COUNTDOWN-LEAK-1 (different mechanisms).",
-            "ship1": null
-          },
           {
             "pri": "High",
             "item": "SD-WIN-CREDIT-1 — guests get zero Sudden Death win credit online (Clutch Winner daily + redMirror unlock are host-only)",
@@ -1151,10 +1140,23 @@
       {
         "title": "Playtest owed",
         "counts": {
+          "High": 2,
           "Medium": 1,
           "Low": 1
         },
         "rows": [
+          {
+            "pri": "High",
+            "item": "INPUT-LOCK-PT-1 — host/solo boost stays off through 3-2-1",
+            "notes": "**Owed: Wyatt playtest — INPUT-LOCK-PT-1 — carts sit still through 3-2-1; boost does not charge or fire before GO.** Parent **INPUT-LOCK-1** (`73289a96` apply gate + this commit). Solo or host, one machine.<br>1. Start a round. From the \"3\" digit, hold boost.<br>2. FAIL if the charge bar fills, a burst fires before GO, or a full burst is ready at GO.<br>3. PASS if the cart stays still, no charge, and boost starts a new charge only after GO.",
+            "ship1": null
+          },
+          {
+            "pri": "High",
+            "item": "INPUT-LOCK-PT-2 — rematch guest does not lurch from last-round W `[2pc]`",
+            "notes": "**Owed: Wyatt playtest — INPUT-LOCK-PT-2 — a guest who released W on the podium stays still through the next 3-2-1 and at GO.** Parent **INPUT-LOCK-1**. You host.<br>1. Play a round. Guest holds W until the round ends, then releases on the podium. Do not hold W during the next 3-2-1.<br>2. FAIL if that cart rolls or boost-charges during countdown, or lurches at GO with no key held.<br>3. PASS if it stays on the booth and stays still at GO until the guest presses W again.",
+            "ship1": null
+          },
           {
             "pri": "Medium",
             "item": "WARM-QP-ROTATE-PT-1 — non-host Quickplay overlay covers first room arena `[2pc]`",
