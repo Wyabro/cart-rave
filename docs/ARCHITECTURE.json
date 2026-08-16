@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-16T00:09:26.727Z",
-    "commit": "1b832cb"
+    "at": "2026-08-16T00:14:44.972Z",
+    "commit": "e5760ba"
   },
-  "source_digest": "09899ac1",
+  "source_digest": "56eddcba",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1008,15 +1008,9 @@
       {
         "title": "Design / Gameplay",
         "counts": {
-          "Medium": 4
+          "Medium": 3
         },
         "rows": [
-          {
-            "pri": "Medium",
-            "item": "NAME-VARIETY-1 — expand NPC and player-name variety",
-            "notes": "**Approved 08-15 (Approach A).** Add 10 personality-mapped NPC names, 10 fixed first-run player names, and 10 reroll word parts (5 prefixes + 5 suffixes). Keep NPC/player pools distinct, preserve the four NPC personality types, and keep the Cart Clash retail-chaos / KO-friendly tone. Verification: pool integrity + deterministic generator coverage + `npm run qa`. Owed after landing: separate NPC-name and player-name playtests.",
-            "ship1": null
-          },
           {
             "pri": "Medium",
             "item": "STOREROOMS-NPC-SELFKO-2 — Storerooms NPC unforced vortex / outer-edge self-KOs",
@@ -1040,10 +1034,22 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Medium": 5,
-          "Low": 1
+          "Low": 3,
+          "Medium": 5
         },
         "rows": [
+          {
+            "pri": "Low",
+            "item": "NAME-NPC-VARIETY-PT-1 — expanded NPC names fit the roster `[solo]`",
+            "notes": "***Pushed but not yet deployed.*** **Owed: Wyatt playtest — NAME-NPC-VARIETY-PT-1 — NPC names feel varied and belong in Cart Clash.** Parent **NAME-VARIETY-1**.<br>1. After ship, hard-refresh production and start Solo three times, reloading between rounds.<br>2. Read the three NPC names in each roster and during play.<br>3. FAIL if a roster repeats a name, a name is hard to read, or a name feels grim or outside the retail-cartoon tone. Random repeats between separate page loads are allowed.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "NAME-PLAYER-VARIETY-PT-1 — player defaults and rerolls feel varied `[solo]`",
+            "notes": "***Pushed but not yet deployed.*** **Owed: Wyatt playtest — NAME-PLAYER-VARIETY-PT-1 — first-run and rerolled player names stay readable, playful, and less repetitive.** Parent **NAME-VARIETY-1**.<br>1. After ship, hard-refresh production and click the name reroll button 20 times.<br>2. Scan for repeated shapes, awkward combinations, overflow, or names outside the retail-brawl tone.<br>3. Open one private window to sample a fresh default name. FAIL if the name is unreadable, grim, or collides with an NPC name.",
+            "ship1": null
+          },
           {
             "pri": "Medium",
             "item": "MENU-CMD-SKEW-PT-1 — main menu labels sit upright `[solo]`",

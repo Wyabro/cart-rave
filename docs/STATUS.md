@@ -38,8 +38,8 @@ landed (`d680928` · `928df0d`) — PT-1 vortex · PT-2 outer pit. New evidence
 **WARM-QP-ROTATE-1** (cap-364). **MENU-CMD-SKEW-1** landed (`19437ed`) —
 PT-1 menu labels upright. **PATTERNS-UI-3-PT-1 FAIL 08-15:** Diamond is good; Maze,
 Honeycomb, and Cubes are too large. **PATTERNS-UI-4:** their repeat is now 1.5; Diamond remains
-1.25. Deployed Worker `d3164390`; production PT-1 is owed. Open picks:
-[BACKLOG.md](./planning/BACKLOG.md) Blocks 4–5 / 7.
+1.25. Deployed Worker `d3164390`; production PT-1 is owed. **NAME-VARIETY-1 landed:** 70 NPC
+names, 50 fixed player names, and 380 rerolls; two tone checks are owed after deployment.
 
 **Closed cards keep their narrative in their own docs, not here** — Sundial
 ([handover](./planning/art-pass-sundial-handover.md); read its "Traps that cost time" before any

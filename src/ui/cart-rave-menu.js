@@ -166,9 +166,9 @@ import { initGamepadTextEntry, openGamepadTextEntry } from "./gamepadTextEntry.j
 
   const HANDLE_PARTS = [
     // * Flavor leans Cart Clash (arena brawl) with a few rave holdovers that still fit.
-    ["CART", "BASS", "NEON", "TROLLEY", "WHEEL", "CLASH", "RAM", "SLAM", "KICK", "BOOM", "ZAP", "TURBO", "CRASH", "STROBE"],
+    ["CART", "BASS", "NEON", "TROLLEY", "WHEEL", "CLASH", "RAM", "SLAM", "KICK", "BOOM", "ZAP", "TURBO", "CRASH", "STROBE", "AISLE", "BULK", "DEAL", "RACK", "RECEIPT"],
     // * Style guide §2/§8: player copy never says "kill" — keep this list KO-friendly.
-    ["LORD", "QUEEN", "BRUISER", "RIDER", "GOBLIN", "WIZARD", "DEMON", "DADDY", "NINJA", "WRECK", "BEAST", "PRINCE", "MENACE", "TANK", "CHAMP"],
+    ["LORD", "QUEEN", "BRUISER", "RIDER", "GOBLIN", "WIZARD", "DEMON", "DADDY", "NINJA", "WRECK", "BEAST", "PRINCE", "MENACE", "TANK", "CHAMP", "BANDIT", "BRAWLER", "JOCKEY", "REBEL", "ROCKET"],
   ];
   const rollHandle = () => {
     const a = HANDLE_PARTS[0][Math.floor(Math.random() * HANDLE_PARTS[0].length)];
@@ -217,6 +217,18 @@ import { initGamepadTextEntry, openGamepadTextEntry } from "./gamepadTextEntry.j
     "HeavyCart",
     "LotWarrior",
     "CartHavoc",
+    // * NAME-VARIETY-1: more first-run defaults in the same retail-brawl voice.
+    "AisleAce",
+    "CartJockey",
+    "BulkBrawler",
+    "ReceiptRiot",
+    "CheckoutKO",
+    "RimRebel",
+    "TrolleyBoss",
+    "ShelfStorm",
+    "BargainBash",
+    "CartComet",
+    "CartCaptain",
   ];
 
   // * Keep player names distinct from the in-game NPC pool — sourced from the shared

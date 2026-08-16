@@ -13,6 +13,17 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 15, 2026 — NAME-VARIETY-1: expanded NPC and player names
+
+- *(Design / Gameplay · Medium)* **NAME-VARIETY-1** — ✅ **CODE LANDED 08-15.** The canonical
+  NPC pool grows from 60 to 70 names: 10 additions are mapped across all four personalities,
+  weighted toward the smaller lurker and scavenger buckets. The first-run player pool is now
+  exactly 50 names after Wyatt extended the approved 10 additions with `CartCaptain`. The reroll
+  generator adds five retail-brawl prefixes and five suffixes, growing from 210 to 380 unique
+  combinations. NPC and player pools remain disjoint; KO-friendly tone and existing selection
+  behavior are unchanged. Focused checks: 8/8. QA: 7/7, 191 files / 2,117 tests. Human checks:
+  **NAME-NPC-VARIETY-PT-1** and **NAME-PLAYER-VARIETY-PT-1** after deployment.
+
 ### August 15, 2026 — PATTERNS-UI-4: medium scale for Maze, Honeycomb, and Cubes
 
 - *(Art / UI · Medium)* **PATTERNS-UI-4** — ✅ **DEPLOYED 08-15.** `PATTERNS-UI-3-PT-1`
