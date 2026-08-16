@@ -9,7 +9,7 @@
  * 4. `applyCartPattern(mesh, patternId, neonHex, opts)` injects a mask sampler into the CartFrame's
  *    own MeshPhysicalMaterial (via `onBeforeCompile`) so pattern "valleys" read as darker
  *    tinted neon while the base wireframe keeps full emissive bloom — no second draw pass.
- *    Human foil (`opts.allowFoil`) adds a 1-order grating lobe on body panels only.
+ *    Human foil (`opts.allowFoil`) tints the CartFrame with a 1-order grating lobe.
  */
 
 import * as THREE from "three";
@@ -69,19 +69,12 @@ const PATTERN_OVERLAY_OPACITY = 0.95;
 const PATTERN_CACHE_KEY_ON = "cartPattern:1";
 const PATTERN_CACHE_KEY_OFF = "cartPattern:0";
 
-// * PATTERNS-FOIL-1 L1 — one order, no Bessel. Peak sits just above Classic bloom
-// * threshold 0.5 so the lobe blooms in-game and still reads in the bloom-less preview.
-const FOIL_GAIN = 0.55;
+// * PATTERNS-FOIL-1 — luminance-preserving hue mix. Do not add HDR on wires (bloom bomb).
+const FOIL_GAIN = 0.75;
 const FOIL_LIGHT_DIR = new THREE.Vector3(0.35, 0.85, 0.4).normalize();
 
 /** Injected after emissivemap so tests can lock the grating contract. */
 export const FOIL_EMISSIVE_GLSL = [
-  "#ifdef USE_EMISSIVEMAP",
-  "\tvec3 foilWireSample = texture2D( emissiveMap, vEmissiveMapUv ).rgb;",
-  "\tfloat foilWire = max( foilWireSample.r, max( foilWireSample.g, foilWireSample.b ) );",
-  "#else",
-  "\tfloat foilWire = 1.0;",
-  "#endif",
   "\tif ( uFoilStrength > 0.0 ) {",
   "\t\tvec3 foilN = normalize( vFoilN ) * ( gl_FrontFacing ? 1.0 : -1.0 );",
   "\t\tvec3 foilT = normalize( vFoilT );",
@@ -94,14 +87,18 @@ export const FOIL_EMISSIVE_GLSL = [
   `\t\tfloat foilAlong = dot( foilQ, foilG ) / ${FOIL_SIGMA.toFixed(2)};`,
   "\t\tfloat foilDensity = exp( -0.5 * foilAlong * foilAlong );",
   "\t\tfloat foilFront = step( 0.0, dot( foilN, foilWi ) ) * step( 0.0, dot( foilN, foilWo ) );",
-  "\t\tfloat foilBody = ( 1.0 - foilWire ) * uFoilMask * uFoilStrength;",
+  "\t\tfloat foilW = foilDensity * foilFront * uFoilMask * uFoilStrength;",
   "\t\tvec3 foilSpectral = vec3(",
   "\t\t\tsmoothstep( 500.0, 600.0, foilLambda ) * ( 1.0 - smoothstep( 650.0, 720.0, foilLambda ) ),",
   "\t\t\tsmoothstep( 450.0, 530.0, foilLambda ) * ( 1.0 - smoothstep( 580.0, 650.0, foilLambda ) ),",
   "\t\t\tsmoothstep( 380.0, 440.0, foilLambda ) * ( 1.0 - smoothstep( 490.0, 560.0, foilLambda ) )",
   "\t\t);",
   "\t\tvec3 foilRgb = foilSpectral * ( 0.35 + 0.65 * uFoilNeon );",
-  "\t\ttotalEmissiveRadiance += foilRgb * foilDensity * foilFront * foilBody * uFoilGain;",
+  "\t\tvec3 foilHue = foilRgb / max( max( foilRgb.r, foilRgb.g ), max( foilRgb.b, 0.0001 ) );",
+  "\t\tfloat foilEmissiveLum = max( max( totalEmissiveRadiance.r, totalEmissiveRadiance.g ), totalEmissiveRadiance.b );",
+  "\t\tfloat foilDiffuseLum = max( max( diffuseColor.r, diffuseColor.g ), max( diffuseColor.b, 0.08 ) );",
+  "\t\ttotalEmissiveRadiance = mix( totalEmissiveRadiance, foilHue * foilEmissiveLum, foilW * uFoilGain );",
+  "\t\tdiffuseColor.rgb = mix( diffuseColor.rgb, foilHue * foilDiffuseLum, foilW * uFoilGain );",
   "\t}",
 ].join("\n");
 

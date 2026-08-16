@@ -190,9 +190,11 @@ describe("pattern seam — registry coherence", () => {
     expect(FOIL_EMISSIVE_GLSL).toContain(` / ${FOIL_SIGMA.toFixed(2)}`);
     expect(FOIL_EMISSIVE_GLSL).toContain("380.0");
     expect(FOIL_EMISSIVE_GLSL).toContain("720.0");
-    expect(FOIL_EMISSIVE_GLSL).toContain("USE_EMISSIVEMAP");
-    expect(FOIL_EMISSIVE_GLSL).toContain("1.0 - foilWire");
-    expect(FOIL_EMISSIVE_GLSL).toContain("totalEmissiveRadiance +=");
+    expect(FOIL_EMISSIVE_GLSL).toContain("foilHue * foilEmissiveLum");
+    expect(FOIL_EMISSIVE_GLSL).toContain("mix( totalEmissiveRadiance");
+    expect(FOIL_EMISSIVE_GLSL).toContain("mix( diffuseColor.rgb");
+    expect(FOIL_EMISSIVE_GLSL).not.toContain("1.0 - foilWire");
+    expect(FOIL_EMISSIVE_GLSL).not.toContain("totalEmissiveRadiance +=");
     expect(FOIL_EMISSIVE_GLSL).not.toContain("for (");
 
     const patterns = readFileSync(new URL("../../src/carts/cartPatterns.js", import.meta.url), "utf8");
