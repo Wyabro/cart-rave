@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-16T23:52:03.725Z",
-    "commit": "6e8085a1"
+    "at": "2026-08-16T23:59:22.858Z",
+    "commit": "f28e8d8d"
   },
-  "source_digest": "287e47f2",
+  "source_digest": "3b255d6d",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -900,17 +900,11 @@
       {
         "title": "Engineering",
         "counts": {
-          "Medium": 12,
+          "Medium": 11,
           "Partial": 1,
           "Low": 14
         },
         "rows": [
-          {
-            "pri": "Medium",
-            "item": "SD-SCORE-STALE-1 — SD-winning KO broadcasts + records scores missing the final point",
-            "notes": "**Filed 08-16 from the gameplay bug audit (adversarially reviewed).** `addScore` fires the SD win callback **before** `set()` commits the score ([gameStore.js](../../src/stores/gameStore.js) ~49-59); `endRound` runs inside the callback and the podium `host_round` is the only podium broadcast (the per-KO send is skipped when SD resolves) — so it carries pre-KO scores ([roundLifecycle.js](../../src/orchestration/roundLifecycle.js) ~946-952, [netcode.js](../../src/netcode.js) `sendHostRound`). Host UI self-corrects next frame (live store), but guests' scores arrive only via round sync: an SD won 4-3 shows \"wins — 3 pts (TIEBREAK)\" on every client but the host for the whole podium. Match history, `totalPoints`, and best-score PBs miss the final KO's points everywhere; exact-threshold score challenges can miss credit. Fix: commit the score before firing the callback (or broadcast after the set). Not a reopen of NET-SD-1.",
-            "ship1": null
-          },
           {
             "pri": "Medium",
             "item": "THOST-CEILING-1 — `MAX_THOST_ABS_MS` (1e12) rejects every real tHost (epoch ms ≈1.79e12): host-clock subsystem is dead code in production",
@@ -1128,7 +1122,7 @@
         "title": "Playtest owed",
         "counts": {
           "High": 3,
-          "Medium": 1,
+          "Medium": 2,
           "Low": 1
         },
         "rows": [
@@ -1148,6 +1142,12 @@
             "pri": "High",
             "item": "SD-WIN-CREDIT-PT-1 — guest Sudden Death win credits Clutch Winner + redMirror `[2pc]`",
             "notes": "**Owed: Wyatt playtest — SD-WIN-CREDIT-PT-1 — the guest who wins Sudden Death gets SD credit on their own machine.** Parent **SD-WIN-CREDIT-1** (`6e8085a1`). You host.<br>1. Friends match, 2 machines, hard-refresh both. Tie the score at the timer so the round enters Sudden Death.<br>2. The **guest** lands the winning SD KO. On the guest machine, check challenges: Clutch Winner daily +1 (and redMirror unlock toast if it was the 3rd SD win).<br>3. FAIL if the guest's Clutch Winner count does not move after an SD win. Also verify: guest wins a normal (non-SD) round → no SD progress; the host's own SD credit is unchanged.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "SD-SCORE-STALE-PT-1 — SD-win verdict + stats show the final point on non-hosts `[2pc]`",
+            "notes": "**Owed: Wyatt playtest — SD-SCORE-STALE-PT-1 — the guest's podium shows the SD winner's final score and stats include the winning point.** Parent **SD-SCORE-STALE-1** (commit-before-callback + announcer SD gate). You host.<br>1. Friends match, 2 machines, hard-refresh both. Tie the score at the timer so the round enters Sudden Death (e.g. 3–3).<br>2. The **guest** lands the winning SD KO. On the guest screen the verdict must read the winner's full score (e.g. \"4 pts\") with NO \"(TIEBREAK)\" suffix, and the finalScores panel must match the host.<br>3. On BOTH machines: matchHistory + totalPoints include the winning point. The host must NOT play a stray \"new leader\"/\"comeback\" announcer line at the SD end.<br>4. One non-SD round sanity check: verdict + stats unchanged.<br>5. FAIL if the guest shows the pre-KO score or a TIEBREAK verdict after an SD-winning KO.",
             "ship1": null
           },
           {
@@ -1505,6 +1505,11 @@
       "Cross-module change? Read docs/reference/control-flow.md first — most edges are not imports."
     ],
     "settled_decisions": [
+      {
+        "id": "D-SD-SCORE-STALE-1",
+        "date": "08-16",
+        "text": "SD-winning KO broadcasts + stats missed the final point — `addScore` fired the SD win callback (→ `endRound`) before `set()` committed, so `recordPodiumStats` and the podium `host_round` (the only SD-end broadcast; per-KO send skipped) carried pre-KO scores; guests froze on \"3 pts (TIEBREAK)\". Fix: commit before callback. Companion: announcer leader branch gated on `!isSuddenDeath` (the commit now lands while phase=running and would otherwise fire a stray `new_leader`/`comeback` line — also closes the pre-existing suppressed-KO SD exposure). Two levers, tests for both. Playtest owed: SD-SCORE-STALE-PT-1."
+      },
       {
         "id": "D-MENU-CMD-SKEW-1",
         "date": "08-15",

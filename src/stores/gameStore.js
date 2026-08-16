@@ -51,12 +51,21 @@ export const gameStore = createStore((set, get) => ({
       updates.lastScoringHitAt = currentHits;
 
       if (state.isSuddenDeath && state.suddenDeathWinCallback && !suppressSuddenDeathWin) {
-        state.suddenDeathWinCallback(slotIndex);
         endedSuddenDeath = true;
       }
     }
 
+    // * SD-SCORE-STALE-1: commit BEFORE the SD win callback. endRound (wired as
+    // * suddenDeathWinCallback) reads getRoundScores()/getRoundState().scores for
+    // * podium stats and the host_round broadcast — the winning point must already
+    // * be visible, or guests see pre-KO scores and stats miss the final point.
+    // * Invariant: subscribers must not throw or mutate store state between this
+    // * commit and the callback (verified safe today — all four are read-only w.r.t.
+    // * scoring); the callback must always run once the win is flagged.
     set(updates);
+    if (endedSuddenDeath) {
+      state.suddenDeathWinCallback(slotIndex);
+    }
     return endedSuddenDeath;
   },
 
