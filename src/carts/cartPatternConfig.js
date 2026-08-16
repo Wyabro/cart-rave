@@ -105,17 +105,26 @@ export const FOIL_PATTERN_IDS = Object.freeze([
 const FOIL_PATTERN_SET = new Set(FOIL_PATTERN_IDS);
 
 /**
- * Object-space groove about Y (radians) and pitch (nm).
- * Angle and pitch pairs are unique so each earned pattern flashes on a different lobe.
- * @type {Readonly<Record<string, { readonly angle: number, readonly pitchNm: number }>>}
+ * @param {number} primary
+ * @param {number} step
+ * @returns {readonly [number, number, number]}
+ */
+function foilTriple(primary, step) {
+  return Object.freeze([primary, primary + step, primary + 2 * step]);
+}
+
+/**
+ * Object-space groove angles about Y (radians) and pitch (nm).
+ * Multicolor RGB selects among the three axes. Mono blends axis 0 and axis 1 (90°).
+ * @type {Readonly<Record<string, { readonly angles: readonly [number, number, number], readonly pitchNm: number }>>}
  */
 export const FOIL_GROOVES = Object.freeze({
-  dots: Object.freeze({ angle: 0, pitchNm: 1400 }),
-  waves: Object.freeze({ angle: 1.2, pitchNm: 1100 }),
-  bolt: Object.freeze({ angle: Math.PI / 2, pitchNm: 900 }),
-  honeycomb: Object.freeze({ angle: Math.PI / 6, pitchNm: 1250 }),
-  diamond: Object.freeze({ angle: Math.PI / 4, pitchNm: 1050 }),
-  cubes: Object.freeze({ angle: (2 * Math.PI) / 3, pitchNm: 1180 }),
+  dots: Object.freeze({ angles: foilTriple(0, Math.PI / 2), pitchNm: 1400 }),
+  waves: Object.freeze({ angles: foilTriple(1.2, Math.PI / 2), pitchNm: 1100 }),
+  bolt: Object.freeze({ angles: foilTriple(Math.PI / 2, Math.PI / 2), pitchNm: 900 }),
+  honeycomb: Object.freeze({ angles: foilTriple(Math.PI / 6, Math.PI / 3), pitchNm: 1250 }),
+  diamond: Object.freeze({ angles: foilTriple(Math.PI / 4, Math.PI / 3), pitchNm: 1050 }),
+  cubes: Object.freeze({ angles: foilTriple((2 * Math.PI) / 3, Math.PI / 3), pitchNm: 1180 }),
 });
 
 /**
@@ -130,7 +139,7 @@ export function isFoilPattern(patternId) {
 /**
  * Groove field for a foil pattern, or null when the id stays dry.
  * @param {string} patternId
- * @returns {{ angle: number, pitchNm: number } | null}
+ * @returns {{ angles: readonly [number, number, number], pitchNm: number } | null}
  */
 export function getFoilGroove(patternId) {
   const id = normalizePatternId(patternId);

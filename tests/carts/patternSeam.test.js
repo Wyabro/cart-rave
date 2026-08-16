@@ -176,15 +176,21 @@ describe("pattern seam — registry coherence", () => {
       expect(isFoilPattern(id)).toBe(true);
       const groove = getFoilGroove(id);
       expect(groove).toEqual(FOIL_GROOVES[id]);
-      return `${groove.angle}:${groove.pitchNm}`;
+      expect(groove.angles).toHaveLength(3);
+      return `${groove.angles.map((angle) => angle.toFixed(4)).join(",")}:${groove.pitchNm}`;
     });
     expect(new Set(keys).size).toBe(FOIL_PATTERN_IDS.length);
+    expect(FOIL_GROOVES.cubes.angles.join(",")).not.toBe(FOIL_GROOVES.honeycomb.angles.join(","));
+    expect(FOIL_GROOVES.cubes.angles.join(",")).not.toBe(FOIL_GROOVES.diamond.angles.join(","));
   });
 
   it("11. keeps the L1 foil contract in the injected chunks and human-only apply path", () => {
     expect(FOIL_VERTEX_GLSL).toContain("modelMatrix * vec4( transformed, 1.0 )");
-    expect(FOIL_VERTEX_GLSL).toContain("mat3( modelMatrix ) * vec3( uFoilGroove.x, 0.0, uFoilGroove.y )");
+    expect(FOIL_VERTEX_GLSL).toContain("uFoilGroove0.x, 0.0, uFoilGroove0.y");
+    expect(FOIL_VERTEX_GLSL).toContain("uFoilGroove1.x, 0.0, uFoilGroove1.y");
+    expect(FOIL_VERTEX_GLSL).toContain("uFoilGroove2.x, 0.0, uFoilGroove2.y");
     expect(FOIL_VERTEX_GLSL).not.toContain("dFdx");
+    expect(FOIL_EMISSIVE_GLSL).toContain("foilMaskW.r * vFoilT0");
     expect(FOIL_EMISSIVE_GLSL).toContain("uFoilStrength");
     expect(FOIL_EMISSIVE_GLSL).toContain("fract( foilQAcross * ( uFoilPitch / 1000.0 ) )");
     expect(FOIL_EMISSIVE_GLSL).toContain(` / ${FOIL_SIGMA.toFixed(2)}`);
@@ -242,7 +248,7 @@ describe("pattern seam — registry coherence", () => {
       Math.cos(azimuth) * Math.cos(elev),
     ];
     const groove = FOIL_GROOVES.cubes;
-    const axis0 = [Math.cos(groove.angle), 0, Math.sin(groove.angle)];
+    const axis0 = [Math.cos(groove.angles[0]), 0, Math.sin(groove.angles[0])];
     const faces = [
       [0, 0, 1], [0, 0, -1], [1, 0, 0], [-1, 0, 0], [0, 1, 0],
       [0.7, 0.2, 0.68], [0.4, 0.5, 0.77],

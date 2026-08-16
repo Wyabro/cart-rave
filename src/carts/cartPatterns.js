@@ -77,7 +77,12 @@ const FOIL_LIGHT_DIR = new THREE.Vector3(0.35, 0.85, 0.4).normalize();
 export const FOIL_EMISSIVE_GLSL = [
   "\tif ( uFoilStrength > 0.0 ) {",
   "\t\tvec3 foilN = normalize( vFoilN ) * ( gl_FrontFacing ? 1.0 : -1.0 );",
-  "\t\tvec3 foilT = normalize( vFoilT );",
+  "\t\tvec3 foilMaskW = uPatternMulticolor > 0.5",
+  "\t\t\t? cartPatternSampleEmissive",
+  "\t\t\t: vec3( 1.0 - cartPatternSampleEmissive.r, cartPatternSampleEmissive.r, 0.0 );",
+  "\t\tfloat foilMaskSum = max( foilMaskW.r + foilMaskW.g + foilMaskW.b, 0.0001 );",
+  "\t\tfoilMaskW /= foilMaskSum;",
+  "\t\tvec3 foilT = normalize( foilMaskW.r * vFoilT0 + foilMaskW.g * vFoilT1 + foilMaskW.b * vFoilT2 );",
   "\t\tvec3 foilWo = normalize( cameraPosition - vCartWorldPos );",
   "\t\tvec3 foilWi = normalize( uFoilLightDir );",
   "\t\tvec3 foilQ = foilWi + foilWo;",
@@ -102,14 +107,20 @@ export const FOIL_EMISSIVE_GLSL = [
   "\t}",
 ].join("\n");
 
-/** Object-space groove axis → world T / N. No screen derivatives. */
+/** Object-space groove axes → world T0..T2 / N. No screen derivatives. */
 export const FOIL_VERTEX_GLSL = [
   "\tvCartWorldPos = ( modelMatrix * vec4( transformed, 1.0 ) ).xyz;",
-  "\tvec3 foilAxisWorld = normalize( mat3( modelMatrix ) * vec3( uFoilGroove.x, 0.0, uFoilGroove.y ) );",
   "\tvec3 foilN = normalize( mat3( modelMatrix ) * objectNormal );",
-  "\tvec3 foilT = cross( foilN, foilAxisWorld );",
-  "\tfloat foilTLen = length( foilT );",
-  "\tvFoilT = foilTLen > 1e-4 ? foilT / foilTLen : normalize( mat3( modelMatrix ) * vec3( 0.0, 0.0, 1.0 ) );",
+  "\tvec3 foilFallbackT = normalize( mat3( modelMatrix ) * vec3( 0.0, 0.0, 1.0 ) );",
+  "\tvec3 foilAxis0 = normalize( mat3( modelMatrix ) * vec3( uFoilGroove0.x, 0.0, uFoilGroove0.y ) );",
+  "\tvec3 foilAxis1 = normalize( mat3( modelMatrix ) * vec3( uFoilGroove1.x, 0.0, uFoilGroove1.y ) );",
+  "\tvec3 foilAxis2 = normalize( mat3( modelMatrix ) * vec3( uFoilGroove2.x, 0.0, uFoilGroove2.y ) );",
+  "\tvec3 foilT0 = cross( foilN, foilAxis0 );",
+  "\tvec3 foilT1 = cross( foilN, foilAxis1 );",
+  "\tvec3 foilT2 = cross( foilN, foilAxis2 );",
+  "\tvFoilT0 = length( foilT0 ) > 1e-4 ? normalize( foilT0 ) : foilFallbackT;",
+  "\tvFoilT1 = length( foilT1 ) > 1e-4 ? normalize( foilT1 ) : foilFallbackT;",
+  "\tvFoilT2 = length( foilT2 ) > 1e-4 ? normalize( foilT2 ) : foilFallbackT;",
   "\tvFoilN = foilN;",
 ].join("\n");
 
@@ -490,7 +501,9 @@ function ensureFramePatternInjection(mat, useUv1 = false) {
     uFoilMask: { value: 1 },
     uFoilPitch: { value: 1180 },
     uFoilGain: { value: FOIL_GAIN },
-    uFoilGroove: { value: new THREE.Vector2(1, 0) },
+    uFoilGroove0: { value: new THREE.Vector2(1, 0) },
+    uFoilGroove1: { value: new THREE.Vector2(0, 1) },
+    uFoilGroove2: { value: new THREE.Vector2(-1, 0) },
     uFoilLightDir: { value: FOIL_LIGHT_DIR.clone() },
     uFoilNeon: { value: new THREE.Color(1, 1, 1) },
   };
@@ -518,7 +531,9 @@ function ensureFramePatternInjection(mat, useUv1 = false) {
     shader.uniforms.uFoilMask = uniforms.uFoilMask;
     shader.uniforms.uFoilPitch = uniforms.uFoilPitch;
     shader.uniforms.uFoilGain = uniforms.uFoilGain;
-    shader.uniforms.uFoilGroove = uniforms.uFoilGroove;
+    shader.uniforms.uFoilGroove0 = uniforms.uFoilGroove0;
+    shader.uniforms.uFoilGroove1 = uniforms.uFoilGroove1;
+    shader.uniforms.uFoilGroove2 = uniforms.uFoilGroove2;
     shader.uniforms.uFoilLightDir = uniforms.uFoilLightDir;
     shader.uniforms.uFoilNeon = uniforms.uFoilNeon;
 
@@ -528,9 +543,13 @@ function ensureFramePatternInjection(mat, useUv1 = false) {
     // * `in vec2 uv1;` for GLSL3. The geometry must carry a `uv1` attribute (TEXCOORD_1).
     const patternUvAttr = useUv1 ? "uv1" : "uv";
     const foilVertexPars = [
-      "uniform vec2 uFoilGroove;",
+      "uniform vec2 uFoilGroove0;",
+      "uniform vec2 uFoilGroove1;",
+      "uniform vec2 uFoilGroove2;",
       "varying vec3 vCartWorldPos;",
-      "varying vec3 vFoilT;",
+      "varying vec3 vFoilT0;",
+      "varying vec3 vFoilT1;",
+      "varying vec3 vFoilT2;",
       "varying vec3 vFoilN;",
     ].join("\n");
     const vertexCommon = useUv1
@@ -568,12 +587,16 @@ function ensureFramePatternInjection(mat, useUv1 = false) {
           "uniform float uFoilMask;",
           "uniform float uFoilPitch;",
           "uniform float uFoilGain;",
-          "uniform vec2 uFoilGroove;",
+          "uniform vec2 uFoilGroove0;",
+          "uniform vec2 uFoilGroove1;",
+          "uniform vec2 uFoilGroove2;",
           "uniform vec3 uFoilLightDir;",
           "uniform vec3 uFoilNeon;",
           "varying vec2 vCartPatternUv;",
           "varying vec3 vCartWorldPos;",
-          "varying vec3 vFoilT;",
+          "varying vec3 vFoilT0;",
+          "varying vec3 vFoilT1;",
+          "varying vec3 vFoilT2;",
           "varying vec3 vFoilN;",
           "",
         ].join("\n"),
@@ -701,8 +724,11 @@ function applyPatternToFrameMaterial(mat, patternId, neonHex, useUv1 = false, al
     uniforms.uFoilMask.value = 1;
     uniforms.uFoilPitch.value = groove.pitchNm;
     uniforms.uFoilGain.value = FOIL_GAIN;
-    /** @type {THREE.Vector2} */ (uniforms.uFoilGroove.value)
-      .set(Math.cos(groove.angle), Math.sin(groove.angle));
+    const grooveUniforms = [uniforms.uFoilGroove0, uniforms.uFoilGroove1, uniforms.uFoilGroove2];
+    for (let i = 0; i < 3; i += 1) {
+      const angle = groove.angles[i];
+      /** @type {THREE.Vector2} */ (grooveUniforms[i].value).set(Math.cos(angle), Math.sin(angle));
+    }
     /** @type {THREE.Vector3} */ (uniforms.uFoilLightDir.value).copy(FOIL_LIGHT_DIR);
   } else {
     uniforms.uFoilStrength.value = 0;
