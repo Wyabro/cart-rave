@@ -13,6 +13,10 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 16, 2026 — SD-WIN-CREDIT-1: guest Sudden Death win credit
+
+- *(Engineering · High)* **SD-WIN-CREDIT-1** — ✅ **DONE 08-16** (`6e8085a1`). Non-hosts now latch their mirrored `isSuddenDeath` on first podium entry (`beginPodiumPresentation`), before the `MSG.round` payload applies its `false` — guest SD wins credit `SUDDEN_DEATH_WIN` (Clutch Winner daily `sd_win_3` + redMirror unlock) exactly like the host. Host/solo path untouched; no protocol or `party/` change — the already-relayed flag's pre-clear value is captured, and the apply ordering it depends on is pinned by `tests/orchestration/sdWinCredit.test.js`. Stalemate-timer SD wins now credit on guests too (host parity, intended). Playtest owed: **SD-WIN-CREDIT-PT-1**. Not a reopen of NET-SD-1.
+
 ### August 16, 2026 — INPUT-LOCK-1: pre-GO input lock
 
 - *(Engineering · High)* **INPUT-LOCK-1** — ✅ **DONE 08-16** (`73289a96` + this commit). Countdown/lobby/podium now zero local `boostHeld`, skip remote and NPC apply, and silent-cancel a leaked local charge. Host remotes clear at `startCountdown` and `startRunningAt`. Drain drops leftover nitro/hop outside `running`. Playtest owed: **INPUT-LOCK-PT-1** (host/solo boost) · **INPUT-LOCK-PT-2** (guest rematch lurch). Not a reopen of COUNTDOWN-QUICKPLAY-1 / COUNTDOWN-LEAK-1.

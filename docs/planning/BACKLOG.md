@@ -58,7 +58,7 @@ way the Block table still can.)*
 
 | Block | State | Next action |
 |-------|-------|-------------|
-| **1** — NOW (player-facing correctness) | 🟡 queued | **SD-WIN-CREDIT-1** |
+| **1** — NOW (player-facing correctness) | ✅ drained | 08-16 audit Highs landed — **INPUT-LOCK-1** · **SD-WIN-CREDIT-1** — playtests owed |
 | **2** — PRE-SHIP (before public post) | 🟡 queued | 08-16 audit Mediums: **SD-SCORE-STALE-1** · **THOST-CEILING-1** · NPC-ABORT-BURST-1 · ZOMBIE-HOST-PICK-1 · GAMEPAD-FREEZE-1 · SD-SPECTATOR-CHARGE-1 |
 | **3** — WYATT LANE (blocked on you) | 👤 ongoing | **LAST-STANDING-DEAD-1** (revive-vs-delete call) · SHIP-1 D-tier · **WARM-QP-ROTATE-PT-1** (after ship) |
 | **4** — PERF RESIDUAL (measure-first) | 🟡 queued | **WARM-QP-ROTATE-1** · WARM-SOLO-1 · PERF-WATCH-1 · NET-PERF-1 / NET-PERF-3 |
@@ -71,11 +71,11 @@ way the Block table still can.)*
 <!-- BEGIN GENERATED counts — npm run backlog. Do not hand-edit. -->
 | Department | Open | High | Medium | Low |
 |---|---:|---:|---:|---:|
-| [Engineering](#engineering) | 28 | 1 | 12 | 14 (+1 partial) |
+| [Engineering](#engineering) | 27 | 0 | 12 | 14 (+1 partial) |
 | [Art](#art) | 1 | 0 | 0 | 1 |
 | [Audio](#audio) | 1 | 0 | 0 | 1 |
 | [Design / Gameplay](#design--gameplay) | 3 | 0 | 2 | 1 |
-| 🟢 [Playtest owed](#playtest-owed) | 4 | 2 | 1 | 1 |
+| 🟢 [Playtest owed](#playtest-owed) | 5 | 3 | 1 | 1 |
 | [Tech Debt](#tech-debt) | 11 | 0 | 5 | 6 |
 
 **48 open rows total.**
@@ -156,7 +156,8 @@ When a card closes: **delete its line here** the same session its department row
 traffic; 7 is post-launch or parked. Priority ranks *inside* a block too (top first).
 
 **Block 1 — NOW (player-facing correctness / High).**
-1. **SD-WIN-CREDIT-1** — guests get zero Sudden Death win credit online (Clutch Winner / redMirror host-only).
+Drained 08-16 — Highs **INPUT-LOCK-1** · **SD-WIN-CREDIT-1** landed; playtests owed
+(see `## Playtest owed`).
 
 **Block 2 — PRE-SHIP (should land before the public post).** 08-16 audit Mediums, top first:
 1. **SD-SCORE-STALE-1** — every SD-won round shows stale winner scores on non-hosts + stats miss the final point.
@@ -202,7 +203,6 @@ Rows follow work-order rank: High (Block 1) → Medium (Block 2, then Wyatt-bloc
 
 | Pri | Item | Notes |
 |-----|------|-------|
-| High | SD-WIN-CREDIT-1 — guests get zero Sudden Death win credit online (Clutch Winner daily + redMirror unlock are host-only) | **Filed 08-16 from the gameplay bug audit (adversarially reviewed).** `SUDDEN_DEATH_WIN` has exactly one record site ([roundLifecycle.js](../../src/orchestration/roundLifecycle.js) ~433), gated on `lastRoundEndedInSuddenDeath` — written only inside host-only `endRound()` (~926). Non-hosts reach the podium via the `MSG.round` phase watcher (`onEnterPodium`), which never sets the flag, and the host clears `isSuddenDeath` before broadcasting, so guests can't self-derive it either. Result: the Clutch Winner daily (`sd_win_3`) and the redMirror shades (goal 3 SD wins, [unlockConfig.js](../../src/unlockConfig.js) ~86) never progress when a guest wins SD — 3 of 4 players in every online match. Solo is unaffected (the local player runs host logic). Fix needs something the host broadcasts at podium (an SD flag or endReason keying) so clients can credit. Not a reopen of NET-SD-1 (that was suppress-kill winner selection). |
 | Medium | SD-SCORE-STALE-1 — SD-winning KO broadcasts + records scores missing the final point | **Filed 08-16 from the gameplay bug audit (adversarially reviewed).** `addScore` fires the SD win callback **before** `set()` commits the score ([gameStore.js](../../src/stores/gameStore.js) ~49-59); `endRound` runs inside the callback and the podium `host_round` is the only podium broadcast (the per-KO send is skipped when SD resolves) — so it carries pre-KO scores ([roundLifecycle.js](../../src/orchestration/roundLifecycle.js) ~946-952, [netcode.js](../../src/netcode.js) `sendHostRound`). Host UI self-corrects next frame (live store), but guests' scores arrive only via round sync: an SD won 4-3 shows "wins — 3 pts (TIEBREAK)" on every client but the host for the whole podium. Match history, `totalPoints`, and best-score PBs miss the final KO's points everywhere; exact-threshold score challenges can miss credit. Fix: commit the score before firing the callback (or broadcast after the set). Not a reopen of NET-SD-1. |
 | Medium | THOST-CEILING-1 — `MAX_THOST_ABS_MS` (1e12) rejects every real tHost (epoch ms ≈1.79e12): host-clock subsystem is dead code in production | **Filed 08-16 from the gameplay bug audit (adversarially reviewed).** The host stamps snapshots with `getMonotonicNow()` = `timeOrigin + performance.now()` — Unix-epoch ms, ~1.79e12 in 2026 ([netcode.js](../../src/netcode.js) ~2385, ~3686) — while the plausibility gate rejects `tHost > 1e12` (1e12 ≈ Sep 2001; netcode.js ~88, ~2691-2699). Every legitimate snapshot fails, so `updateHostClockOffset` never runs: interpolation timestamps fall back to local arrival time (jitter-coupled micro-rubber-band), `getSnapshotSilenceMs` uses the wall fallback (client hitches misread as host silence → false replay-skip/hold), the 5s jump guard is dead, and `applyHostSpawnSnapshot` mixes host-domain and local-domain stamps in one buffer. No test pins epoch-scale rejection (only 1e300 and 5000 are tested), so it's a units slip, not intent. One-constant fix + a jump-guard sanity pass; verify with F8 `via: "tHost"` after. Not a reopen of Run 7 / NET-PRES-1 — distinct defect that also explains why run-7 2e never showed `via:"tHost"`. |
 | Medium | NPC-ABORT-BURST-1 — NPC charge-abort release burst bypasses every self-KO safety gate | **Filed 08-16 from the gameplay bug audit (adversarially reviewed).** All other NPC boost paths check `npcBoostPathIsUnsafe`, but when `canContinueNpcChargedAttack` flips false (target fell / path became unsafe mid-charge), the wrapper leaves `boostHeld` unset and the human early-release branch fires the full burst along the heading that was just declared unsafe ([cartOrchestration.js](../../src/orchestration/cartOrchestration.js) ~814-830, [simulation.js](../../src/simulation.js) ~603-631). NPCs still occasionally ram themselves into voids and can hand a free SD win. **New path, not a reopen of the closed STOREROOMS-NPC-SELFKO fixes** (those covered instant/escape/hold paths; this is the abort path). The NPC-BOOST-2 design deliberately chose abort→burst over silent cancel — the gap is that it skips the edge/void checks. Fix: wire the already-written-but-dead `cancelNpcBoostCharge` (`simulation.js` ~601-602 has no producer of `boostCancel`) or safety-check the abort burst. |
@@ -269,6 +269,7 @@ completed-work — do not restack it here.
 |-----|------|-------|
 | High | INPUT-LOCK-PT-1 — host/solo boost stays off through 3-2-1 | **Owed: Wyatt playtest — INPUT-LOCK-PT-1 — carts sit still through 3-2-1; boost does not charge or fire before GO.** Parent **INPUT-LOCK-1** (`73289a96` apply gate + this commit). Solo or host, one machine.<br>1. Start a round. From the "3" digit, hold boost.<br>2. FAIL if the charge bar fills, a burst fires before GO, or a full burst is ready at GO.<br>3. PASS if the cart stays still, no charge, and boost starts a new charge only after GO. |
 | High | INPUT-LOCK-PT-2 — rematch guest does not lurch from last-round W `[2pc]` | **Owed: Wyatt playtest — INPUT-LOCK-PT-2 — a guest who released W on the podium stays still through the next 3-2-1 and at GO.** Parent **INPUT-LOCK-1**. You host.<br>1. Play a round. Guest holds W until the round ends, then releases on the podium. Do not hold W during the next 3-2-1.<br>2. FAIL if that cart rolls or boost-charges during countdown, or lurches at GO with no key held.<br>3. PASS if it stays on the booth and stays still at GO until the guest presses W again. |
+| High | SD-WIN-CREDIT-PT-1 — guest Sudden Death win credits Clutch Winner + redMirror `[2pc]` | **Owed: Wyatt playtest — SD-WIN-CREDIT-PT-1 — the guest who wins Sudden Death gets SD credit on their own machine.** Parent **SD-WIN-CREDIT-1** (`6e8085a1`). You host.<br>1. Friends match, 2 machines, hard-refresh both. Tie the score at the timer so the round enters Sudden Death.<br>2. The **guest** lands the winning SD KO. On the guest machine, check challenges: Clutch Winner daily +1 (and redMirror unlock toast if it was the 3rd SD win).<br>3. FAIL if the guest's Clutch Winner count does not move after an SD win. Also verify: guest wins a normal (non-SD) round → no SD progress; the host's own SD credit is unchanged. |
 | Medium | WARM-QP-ROTATE-PT-1 — non-host Quickplay overlay covers first room arena `[2pc]` | **Owed: Wyatt playtest — WARM-QP-ROTATE-PT-1 — the overlay stays up until Storerooms is ready; the canvas does not freeze.** Parent **WARM-QP-ROTATE-1**. Use the Intel (or any Low) machine as non-host. A long overlay is not a FAIL.<br>1. Friends round on Sundial. Then both join the same Quickplay room on prod. Hard-refresh first.<br>2. Watch the non-host. Note whether the loading overlay stays up through the arena swap.<br>3. FAIL if the overlay drops and the canvas freezes, or the Intel non-host hears only countdown 1 then GO. PASS if the overlay covers the wait and both hear 3-2-1. |
 | Low | SHARD-PT-2 — fifth human overflows to quickplay2 `[2pc]` | **Owed: Wyatt playtest — SHARD-PT-2 — the 5th concurrent Quickplay human lands on quickplay2 instead of "couldn't join".** Launch-day / public-post check — needs five real humans (Wyatt deferred 08-05). Rig already 5/5; SHARD-PT-1 PASSed on prod `9c333d1`. Prefer analytics: any `quickplay_shard_assigned` with `hops > 0` or `shard !== quickplay` counts.<br>1. When five humans can join Quickplay at once (public post), watch the 5th seat.<br>2. FAIL if they get the dead-end couldn't-join toast with no hop. PASS if they seat on an overflow shard (or analytics shows hops greater than 0).<br>3. Skip / leave open until launch day — do not FAIL for lack of five people. |
 
@@ -382,4 +383,4 @@ DEEPSEC-1-PT-1, CARGO-BAY-INSTANCE-PT-3, CONN-TRACK-LEAK-PT-1, QP-ROTATE-PT-1, C
 NAME-VARIETY-1, NAME-NPC-VARIETY-PT-1, NAME-PLAYER-VARIETY-PT-1, MENU-CMD-SKEW-1,
 MENU-CMD-SKEW-PT-1, PATTERNS-UI-5, PATTERNS-UI-5-PT-1, STOREROOMS-NPC-SELFKO-2,
 STOREROOMS-NPC-SELFKO-PT-1, STOREROOMS-NPC-SELFKO-PT-2, PATTERNS-FOIL-1, PATTERNS-FOIL-PT-1,
-INPUT-LOCK-1.
+INPUT-LOCK-1, SD-WIN-CREDIT-1.

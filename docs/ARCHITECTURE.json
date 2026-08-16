@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-16T23:18:54.608Z",
-    "commit": "73289a96"
+    "at": "2026-08-16T23:52:03.725Z",
+    "commit": "6e8085a1"
   },
-  "source_digest": "16650594",
+  "source_digest": "287e47f2",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -880,15 +880,9 @@
       }
     ],
     "next_actions": [
-      "SD-WIN-CREDIT-1 — guests get zero Sudden Death win credit online.",
-      "Playtest INPUT-LOCK-PT-1 · INPUT-LOCK-PT-2 after ship."
+      "Playtest INPUT-LOCK-PT-1 · INPUT-LOCK-PT-2 · SD-WIN-CREDIT-PT-1 after ship."
     ],
     "open_issues": [
-      {
-        "id": "SD-WIN-CREDIT-1",
-        "issue": "Guests get zero Sudden Death win credit online",
-        "status": "❌ Block 1 High — 08-16 audit"
-      },
       {
         "id": "LAST-STANDING-DEAD-1",
         "issue": "Last Cart Standing never fires",
@@ -906,18 +900,11 @@
       {
         "title": "Engineering",
         "counts": {
-          "High": 1,
           "Medium": 12,
           "Partial": 1,
           "Low": 14
         },
         "rows": [
-          {
-            "pri": "High",
-            "item": "SD-WIN-CREDIT-1 — guests get zero Sudden Death win credit online (Clutch Winner daily + redMirror unlock are host-only)",
-            "notes": "**Filed 08-16 from the gameplay bug audit (adversarially reviewed).** `SUDDEN_DEATH_WIN` has exactly one record site ([roundLifecycle.js](../../src/orchestration/roundLifecycle.js) ~433), gated on `lastRoundEndedInSuddenDeath` — written only inside host-only `endRound()` (~926). Non-hosts reach the podium via the `MSG.round` phase watcher (`onEnterPodium`), which never sets the flag, and the host clears `isSuddenDeath` before broadcasting, so guests can't self-derive it either. Result: the Clutch Winner daily (`sd_win_3`) and the redMirror shades (goal 3 SD wins, [unlockConfig.js](../../src/unlockConfig.js) ~86) never progress when a guest wins SD — 3 of 4 players in every online match. Solo is unaffected (the local player runs host logic). Fix needs something the host broadcasts at podium (an SD flag or endReason keying) so clients can credit. Not a reopen of NET-SD-1 (that was suppress-kill winner selection).",
-            "ship1": null
-          },
           {
             "pri": "Medium",
             "item": "SD-SCORE-STALE-1 — SD-winning KO broadcasts + records scores missing the final point",
@@ -1140,7 +1127,7 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "High": 2,
+          "High": 3,
           "Medium": 1,
           "Low": 1
         },
@@ -1155,6 +1142,12 @@
             "pri": "High",
             "item": "INPUT-LOCK-PT-2 — rematch guest does not lurch from last-round W `[2pc]`",
             "notes": "**Owed: Wyatt playtest — INPUT-LOCK-PT-2 — a guest who released W on the podium stays still through the next 3-2-1 and at GO.** Parent **INPUT-LOCK-1**. You host.<br>1. Play a round. Guest holds W until the round ends, then releases on the podium. Do not hold W during the next 3-2-1.<br>2. FAIL if that cart rolls or boost-charges during countdown, or lurches at GO with no key held.<br>3. PASS if it stays on the booth and stays still at GO until the guest presses W again.",
+            "ship1": null
+          },
+          {
+            "pri": "High",
+            "item": "SD-WIN-CREDIT-PT-1 — guest Sudden Death win credits Clutch Winner + redMirror `[2pc]`",
+            "notes": "**Owed: Wyatt playtest — SD-WIN-CREDIT-PT-1 — the guest who wins Sudden Death gets SD credit on their own machine.** Parent **SD-WIN-CREDIT-1** (`6e8085a1`). You host.<br>1. Friends match, 2 machines, hard-refresh both. Tie the score at the timer so the round enters Sudden Death.<br>2. The **guest** lands the winning SD KO. On the guest machine, check challenges: Clutch Winner daily +1 (and redMirror unlock toast if it was the 3rd SD win).<br>3. FAIL if the guest's Clutch Winner count does not move after an SD win. Also verify: guest wins a normal (non-SD) round → no SD progress; the host's own SD credit is unchanged.",
             "ship1": null
           },
           {

@@ -39,8 +39,9 @@ external testers. Stay in this phase until Wyatt advances the marker.
 **GAMEPAD-FRIENDS-SEATED-PT-1 PASS 08-15** (Worker `ef2a7550`, `747e67d`).
 **STORE-PILE-PT-1 PASS 08-14.** Do not reopen GAMEPAD-LOBBY-1. Deferred launch
 day: **SHARD-PT-2**. New evidence **WARM-QP-ROTATE-1** (cap-364).
-**08-16 audit:** High **SD-WIN-CREDIT-1** still open. **INPUT-LOCK-1** code landed;
-playtest owed **INPUT-LOCK-PT-1** · **INPUT-LOCK-PT-2**.
+**08-16 audit:** both Highs landed — **INPUT-LOCK-1** (playtest owed
+**INPUT-LOCK-PT-1** · **INPUT-LOCK-PT-2**) and **SD-WIN-CREDIT-1** (playtest owed
+**SD-WIN-CREDIT-PT-1**).
 
 **Closed cards keep their narrative in their own docs, not here** — Sundial
 ([handover](./planning/art-pass-sundial-handover.md); read its "Traps that cost time" before any
@@ -82,8 +83,7 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. **SD-WIN-CREDIT-1** — guests get zero Sudden Death win credit online.
-2. Playtest **INPUT-LOCK-PT-1** · **INPUT-LOCK-PT-2** after ship.
+1. Playtest **INPUT-LOCK-PT-1** · **INPUT-LOCK-PT-2** · **SD-WIN-CREDIT-PT-1** after ship.
 
 ## Open issues (top)
 
@@ -92,7 +92,6 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 
 | ID | Issue | Status |
 |----|--------|--------|
-| SD-WIN-CREDIT-1 | Guests get zero Sudden Death win credit online | ❌ Block 1 High — 08-16 audit |
 | LAST-STANDING-DEAD-1 | Last Cart Standing never fires | 👤 revive-vs-delete — Wyatt call |
 | BRAND-1 | Domain / Worker cutover | 🧊 frozen until deliberate cutover ([brand.md](./brand.md)) |
 
