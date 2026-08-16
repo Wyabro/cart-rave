@@ -243,8 +243,10 @@ export function createCartOrchestration(deps) {
       const theme = getCartTheme(themeId);
       if (theme.patternPolicy !== "disable") {
         const patternId = resolveCartPatternForSlot(slot, { youConnId });
-        applyCartPattern(cart.mesh, patternId, finalHex);
+        const allowFoil = slot.kind === "human";
+        applyCartPattern(cart.mesh, patternId, finalHex, { allowFoil });
         cart.cartPatternId = patternId;
+        cart.cartFoilAllowed = allowFoil;
         // * FIX-EMISSIVE — THE live match path. Carts are built by prepareRaveGltfCart with no
         // * patternId, so they are all born "classic"; this is where the real pattern is known.
         // * Without this line every match cart stays trimmed and patterned carts never return

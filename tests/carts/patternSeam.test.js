@@ -20,12 +20,21 @@ import { describe, expect, it } from "vitest";
 import {
   CART_PATTERN_IDS,
   CART_PATTERNS,
+  FOIL_GROOVES,
+  FOIL_PATTERN_IDS,
+  getFoilGroove,
   getPatternAccentHexes,
+  isFoilPattern,
   isMulticolorPattern,
 } from "../../src/carts/cartPatternConfig.js";
 import { PATTERN_UNLOCKS } from "../../src/unlockConfig.js";
 import { CART_COLORS } from "../../src/config.js";
-import { PATTERN_MASK_LAYOUTS, PATTERN_MASK_SIZE } from "../../src/carts/cartPatterns.js";
+import {
+  FOIL_EMISSIVE_GLSL,
+  FOIL_VERTEX_GLSL,
+  PATTERN_MASK_LAYOUTS,
+  PATTERN_MASK_SIZE,
+} from "../../src/carts/cartPatterns.js";
 
 const MASTER_GLB = new URL("../../art/models/cartrave4.glb", import.meta.url);
 const DRACO_GLB = new URL("../../public/models/cartrave4-draco.glb", import.meta.url);
@@ -153,5 +162,52 @@ describe("pattern seam — registry coherence", () => {
     expect(source).toContain("trace(colors[0], center, points[2]);");
     expect(source).toContain("trace(colors[2], center, points[4]);");
     expect(source).not.toContain("for (let x = -30; x < size + 30; x += 30)");
+  });
+
+  it("10. grants foil only to the six earned patterns with unique groove fields", () => {
+    expect(FOIL_PATTERN_IDS).toEqual(["dots", "waves", "bolt", "honeycomb", "diamond", "cubes"]);
+    expect(isFoilPattern("classic")).toBe(false);
+    expect(isFoilPattern("stripes")).toBe(false);
+    expect(isFoilPattern("checker")).toBe(false);
+    expect(getFoilGroove("classic")).toBeNull();
+    const keys = FOIL_PATTERN_IDS.map((id) => {
+      expect(isFoilPattern(id)).toBe(true);
+      const groove = getFoilGroove(id);
+      expect(groove).toEqual(FOIL_GROOVES[id]);
+      return `${groove.angle}:${groove.pitchNm}`;
+    });
+    expect(new Set(keys).size).toBe(FOIL_PATTERN_IDS.length);
+  });
+
+  it("11. keeps the L1 foil contract in the injected chunks and human-only apply path", () => {
+    expect(FOIL_VERTEX_GLSL).toContain("modelMatrix * vec4( transformed, 1.0 )");
+    expect(FOIL_VERTEX_GLSL).toContain("mat3( modelMatrix ) * vec3( uFoilGroove.x, 0.0, uFoilGroove.y )");
+    expect(FOIL_VERTEX_GLSL).not.toContain("dFdx");
+    expect(FOIL_EMISSIVE_GLSL).toContain("uFoilStrength");
+    expect(FOIL_EMISSIVE_GLSL).toContain("uFoilPitch * abs( dot( foilQ, foilT ) )");
+    expect(FOIL_EMISSIVE_GLSL).toContain("380.0");
+    expect(FOIL_EMISSIVE_GLSL).toContain("720.0");
+    expect(FOIL_EMISSIVE_GLSL).toContain("USE_EMISSIVEMAP");
+    expect(FOIL_EMISSIVE_GLSL).toContain("1.0 - foilWire");
+    expect(FOIL_EMISSIVE_GLSL).toContain("totalEmissiveRadiance +=");
+    expect(FOIL_EMISSIVE_GLSL).not.toContain("for (");
+
+    const patterns = readFileSync(new URL("../../src/carts/cartPatterns.js", import.meta.url), "utf8");
+    expect(patterns).toContain("FOIL_EMISSIVE_GLSL");
+    expect(patterns).toContain("allowFoil && isFoilPattern(id)");
+    expect(patterns).toContain('const PATTERN_CACHE_KEY_ON = "cartPattern:1";');
+
+    const orchestration = readFileSync(
+      new URL("../../src/orchestration/cartOrchestration.js", import.meta.url),
+      "utf8",
+    );
+    expect(orchestration).toContain("const allowFoil = slot.kind === \"human\"");
+    expect(orchestration).toContain("cart.cartFoilAllowed = allowFoil");
+
+    const entities = readFileSync(new URL("../../src/entities.js", import.meta.url), "utf8");
+    expect(entities).toContain("allowFoil: cart.cartFoilAllowed === true");
+
+    const preview = readFileSync(new URL("../../src/ui/cartPreview.js", import.meta.url), "utf8");
+    expect(preview).toContain("allowFoil: true");
   });
 });

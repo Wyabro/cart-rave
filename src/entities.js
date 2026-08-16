@@ -264,7 +264,9 @@ function rebuildCartVisualsIntoRoot(cart, scene) {
   // * cache (set in updateCartMaterialsFromSlots) is the only carrier. Without
   // * this, patterns vanished after the first KO (playtest 2026-07-15).
   if (cart.cartPatternId && cart.cartPatternId !== "classic") {
-    applyCartPattern(cart.mesh, cart.cartPatternId, cart.cartColor);
+    applyCartPattern(cart.mesh, cart.cartPatternId, cart.cartColor, {
+      allowFoil: cart.cartFoilAllowed === true,
+    });
   }
   // * FIX-EMISSIVE — unconditional, unlike the pattern re-apply above: the fresh build was born
   // * "classic" (prepareRaveGltfCart takes no patternId here), so a patterned cart must be

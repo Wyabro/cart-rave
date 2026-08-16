@@ -651,12 +651,12 @@ export class CartPreview {
 
     const cart = buildCart(this._neonHex);
     applyCartTheme(cart, this._themeId, this._neonHex);
-    applyCartPattern(cart, this._patternId, this._neonHex);
+    applyCartPattern(cart, this._patternId, this._neonHex, { allowFoil: true });
 
     const theme = getCartTheme(this._themeId);
     if (theme.patternPolicy === "disable") {
       // * Pattern is baked into the CartFrame material — clear to "classic" to disable it.
-      applyCartPattern(cart, "classic", this._neonHex);
+      applyCartPattern(cart, "classic", this._neonHex, { allowFoil: true });
     }
 
     centerCartGroup(cart);
@@ -806,7 +806,7 @@ export class CartPreview {
       applyThemeColorToCache(this._materialCache, this._themeId, this._neonHex);
     }
     if (this.cartGroup) {
-      applyCartPattern(this.cartGroup, this._patternId, this._neonHex);
+      applyCartPattern(this.cartGroup, this._patternId, this._neonHex, { allowFoil: true });
     }
   }
 
@@ -849,7 +849,7 @@ export class CartPreview {
   setPattern(patternId) {
     this._patternId = normalizePatternId(patternId);
     if (this._gltfReady && this.cartGroup) {
-      applyCartPattern(this.cartGroup, this._patternId, this._neonHex);
+      applyCartPattern(this.cartGroup, this._patternId, this._neonHex, { allowFoil: true });
     }
   }
 

@@ -6,9 +6,10 @@
  * 2. `loadPlayerCustomization().pattern` is read when spawning or recoloring carts.
  * 3. `resolveCartPatternForSlot()` picks the pattern id (local human → saved; remote humans →
  *    server-synced `slot.patternId`; NPCs → name-seeded pool pick — NET-LOOK-ACC-1).
- * 4. `applyCartPattern(mesh, patternId, neonHex)` injects a mask sampler into the CartFrame's
+ * 4. `applyCartPattern(mesh, patternId, neonHex, opts)` injects a mask sampler into the CartFrame's
  *    own MeshPhysicalMaterial (via `onBeforeCompile`) so pattern "valleys" read as darker
  *    tinted neon while the base wireframe keeps full emissive bloom — no second draw pass.
+ *    Human foil (`opts.allowFoil`) adds a 1-order grating lobe on body panels only.
  */
 
 import * as THREE from "three";
@@ -17,7 +18,9 @@ import {
   emissiveRefHexForNeonHex,
 } from "../utils.js";
 import {
+  getFoilGroove,
   getPatternAccentHexes,
+  isFoilPattern,
   isMulticolorPattern,
   normalizePatternId,
 } from "./cartPatternConfig.js";
@@ -62,6 +65,53 @@ const PATTERN_OVERLAY_OPACITY = 0.95;
 // * key and differ only by the uPatternMask texture uniform (no recompile on pattern swap).
 const PATTERN_CACHE_KEY_ON = "cartPattern:1";
 const PATTERN_CACHE_KEY_OFF = "cartPattern:0";
+
+// * PATTERNS-FOIL-1 L1 — one order, no Bessel. Peak sits just above Classic bloom
+// * threshold 0.5 so the lobe blooms in-game and still reads in the bloom-less preview.
+const FOIL_GAIN = 0.55;
+const FOIL_LIGHT_DIR = new THREE.Vector3(0.35, 0.85, 0.4).normalize();
+
+/** Injected after emissivemap so tests can lock the grating contract. */
+export const FOIL_EMISSIVE_GLSL = [
+  "#ifdef USE_EMISSIVEMAP",
+  "\tvec3 foilWireSample = texture2D( emissiveMap, vEmissiveMapUv ).rgb;",
+  "\tfloat foilWire = max( foilWireSample.r, max( foilWireSample.g, foilWireSample.b ) );",
+  "#else",
+  "\tfloat foilWire = 1.0;",
+  "#endif",
+  "\tif ( uFoilStrength > 0.0 ) {",
+  "\t\tvec3 foilN = normalize( vFoilN ) * ( gl_FrontFacing ? 1.0 : -1.0 );",
+  "\t\tvec3 foilT = normalize( vFoilT );",
+  "\t\tvec3 foilWo = normalize( cameraPosition - vCartWorldPos );",
+  "\t\tvec3 foilWi = normalize( uFoilLightDir );",
+  "\t\tvec3 foilQ = foilWi + foilWo;",
+  "\t\tfloat foilLambda = uFoilPitch * abs( dot( foilQ, foilT ) );",
+  "\t\tfloat foilInBand = smoothstep( 380.0, 420.0, foilLambda ) * ( 1.0 - smoothstep( 680.0, 720.0, foilLambda ) );",
+  "\t\tvec3 foilG = normalize( cross( foilN, foilT ) );",
+  "\t\tfloat foilAlong = dot( foilQ, foilG ) / 0.045;",
+  "\t\tfloat foilDensity = exp( -0.5 * foilAlong * foilAlong );",
+  "\t\tfloat foilFront = step( 0.0, dot( foilN, foilWi ) ) * step( 0.0, dot( foilN, foilWo ) );",
+  "\t\tfloat foilBody = ( 1.0 - foilWire ) * uFoilMask * uFoilStrength;",
+  "\t\tvec3 foilSpectral = vec3(",
+  "\t\t\tsmoothstep( 500.0, 600.0, foilLambda ) * ( 1.0 - smoothstep( 650.0, 720.0, foilLambda ) ),",
+  "\t\t\tsmoothstep( 450.0, 530.0, foilLambda ) * ( 1.0 - smoothstep( 580.0, 650.0, foilLambda ) ),",
+  "\t\t\tsmoothstep( 380.0, 440.0, foilLambda ) * ( 1.0 - smoothstep( 490.0, 560.0, foilLambda ) )",
+  "\t\t);",
+  "\t\tvec3 foilRgb = foilSpectral * ( 0.35 + 0.65 * uFoilNeon );",
+  "\t\ttotalEmissiveRadiance += foilRgb * foilDensity * foilInBand * foilFront * foilBody * uFoilGain;",
+  "\t}",
+].join("\n");
+
+/** Object-space groove axis → world T / N. No screen derivatives. */
+export const FOIL_VERTEX_GLSL = [
+  "\tvCartWorldPos = ( modelMatrix * vec4( transformed, 1.0 ) ).xyz;",
+  "\tvec3 foilAxisWorld = normalize( mat3( modelMatrix ) * vec3( uFoilGroove.x, 0.0, uFoilGroove.y ) );",
+  "\tvec3 foilN = normalize( mat3( modelMatrix ) * objectNormal );",
+  "\tvec3 foilT = cross( foilN, foilAxisWorld );",
+  "\tfloat foilTLen = length( foilT );",
+  "\tvFoilT = foilTLen > 1e-4 ? foilT / foilTLen : normalize( mat3( modelMatrix ) * vec3( 0.0, 0.0, 1.0 ) );",
+  "\tvFoilN = foilN;",
+].join("\n");
 
 /** @type {THREE.Color} */
 const _patternColor = new THREE.Color();
@@ -436,6 +486,13 @@ function ensureFramePatternInjection(mat, useUv1 = false) {
     uPatternAccentEmissiveA: { value: new THREE.Color(0, 0, 0) },
     uPatternAccentEmissiveB: { value: new THREE.Color(0, 0, 0) },
     uPatternAccentEmissiveC: { value: new THREE.Color(0, 0, 0) },
+    uFoilStrength: { value: 0 },
+    uFoilMask: { value: 1 },
+    uFoilPitch: { value: 1180 },
+    uFoilGain: { value: FOIL_GAIN },
+    uFoilGroove: { value: new THREE.Vector2(1, 0) },
+    uFoilLightDir: { value: FOIL_LIGHT_DIR.clone() },
+    uFoilNeon: { value: new THREE.Color(1, 1, 1) },
   };
   ud.cartPatternUniforms = uniforms;
   ud.cartPatternEnabled = false;
@@ -457,20 +514,37 @@ function ensureFramePatternInjection(mat, useUv1 = false) {
     shader.uniforms.uPatternAccentEmissiveA = uniforms.uPatternAccentEmissiveA;
     shader.uniforms.uPatternAccentEmissiveB = uniforms.uPatternAccentEmissiveB;
     shader.uniforms.uPatternAccentEmissiveC = uniforms.uPatternAccentEmissiveC;
+    shader.uniforms.uFoilStrength = uniforms.uFoilStrength;
+    shader.uniforms.uFoilMask = uniforms.uFoilMask;
+    shader.uniforms.uFoilPitch = uniforms.uFoilPitch;
+    shader.uniforms.uFoilGain = uniforms.uFoilGain;
+    shader.uniforms.uFoilGroove = uniforms.uFoilGroove;
+    shader.uniforms.uFoilLightDir = uniforms.uFoilLightDir;
+    shader.uniforms.uFoilNeon = uniforms.uFoilNeon;
 
     // * Route mask sampling through the chosen UV channel. `uv` is declared in three's vertex
     // * prefix; the second channel (`uv1`) is NOT declared unless a map uses it (our body maps
     // * only use `uv`), so we declare `attribute vec2 uv1;` ourselves — three rewrites it to
     // * `in vec2 uv1;` for GLSL3. The geometry must carry a `uv1` attribute (TEXCOORD_1).
     const patternUvAttr = useUv1 ? "uv1" : "uv";
+    const foilVertexPars = [
+      "uniform vec2 uFoilGroove;",
+      "varying vec3 vCartWorldPos;",
+      "varying vec3 vFoilT;",
+      "varying vec3 vFoilN;",
+    ].join("\n");
     const vertexCommon = useUv1
-      ? "#include <common>\nattribute vec2 uv1;\nvarying vec2 vCartPatternUv;"
-      : "#include <common>\nvarying vec2 vCartPatternUv;";
+      ? `#include <common>\nattribute vec2 uv1;\nvarying vec2 vCartPatternUv;\n${foilVertexPars}`
+      : `#include <common>\nvarying vec2 vCartPatternUv;\n${foilVertexPars}`;
     shader.vertexShader = shader.vertexShader
       .replace("#include <common>", vertexCommon)
       .replace(
         "#include <uv_vertex>",
         `#include <uv_vertex>\n\tvCartPatternUv = ${patternUvAttr};`,
+      )
+      .replace(
+        "#include <worldpos_vertex>",
+        `#include <worldpos_vertex>\n${FOIL_VERTEX_GLSL}`,
       );
 
     shader.fragmentShader = shader.fragmentShader
@@ -490,7 +564,17 @@ function ensureFramePatternInjection(mat, useUv1 = false) {
           "uniform vec3 uPatternAccentEmissiveA;",
           "uniform vec3 uPatternAccentEmissiveB;",
           "uniform vec3 uPatternAccentEmissiveC;",
+          "uniform float uFoilStrength;",
+          "uniform float uFoilMask;",
+          "uniform float uFoilPitch;",
+          "uniform float uFoilGain;",
+          "uniform vec2 uFoilGroove;",
+          "uniform vec3 uFoilLightDir;",
+          "uniform vec3 uFoilNeon;",
           "varying vec2 vCartPatternUv;",
+          "varying vec3 vCartWorldPos;",
+          "varying vec3 vFoilT;",
+          "varying vec3 vFoilN;",
           "",
         ].join("\n"),
       )
@@ -527,6 +611,7 @@ function ensureFramePatternInjection(mat, useUv1 = false) {
           "\t\tfloat cartPatternValleyEmissive = ( 1.0 - cartPatternSampleEmissive.r ) * uPatternStrength;",
           "\t\ttotalEmissiveRadiance = mix( totalEmissiveRadiance, uPatternEmissive, cartPatternValleyEmissive );",
           "\t}",
+          FOIL_EMISSIVE_GLSL,
         ].join("\n"),
       );
   };
@@ -553,8 +638,9 @@ function ensureFramePatternInjection(mat, useUv1 = false) {
  * @param {CartPatternId} patternId
  * @param {number} neonHex
  * @param {boolean} [useUv1] Sample the mask from the clean `uv1` channel (see injection docs).
+ * @param {boolean} [allowFoil] Human carts only. NPCs keep the printed pattern dry.
  */
-function applyPatternToFrameMaterial(mat, patternId, neonHex, useUv1 = false) {
+function applyPatternToFrameMaterial(mat, patternId, neonHex, useUv1 = false, allowFoil = false) {
   const uniforms = ensureFramePatternInjection(mat, useUv1);
   const id = normalizePatternId(patternId);
   const enabled = id !== "classic";
@@ -569,6 +655,7 @@ function applyPatternToFrameMaterial(mat, patternId, neonHex, useUv1 = false) {
 
     // * Linear-space neon; diffuse tint + emissive radiance mirror the retired overlay material.
     _patternColor.setHex(hex).convertSRGBToLinear();
+    /** @type {THREE.Color} */ (uniforms.uFoilNeon.value).copy(_patternColor);
     /** @type {THREE.Color} */ (uniforms.uPatternTint.value)
       .copy(_patternColor)
       .multiplyScalar(PATTERN_OVERLAY_TINT_SCALE);
@@ -608,6 +695,19 @@ function applyPatternToFrameMaterial(mat, patternId, neonHex, useUv1 = false) {
     uniforms.uPatternMulticolor.value = 0;
   }
 
+  const groove = allowFoil && isFoilPattern(id) ? getFoilGroove(id) : null;
+  if (groove) {
+    uniforms.uFoilStrength.value = 1;
+    uniforms.uFoilMask.value = 1;
+    uniforms.uFoilPitch.value = groove.pitchNm;
+    uniforms.uFoilGain.value = FOIL_GAIN;
+    /** @type {THREE.Vector2} */ (uniforms.uFoilGroove.value)
+      .set(Math.cos(groove.angle), Math.sin(groove.angle));
+    /** @type {THREE.Vector3} */ (uniforms.uFoilLightDir.value).copy(FOIL_LIGHT_DIR);
+  } else {
+    uniforms.uFoilStrength.value = 0;
+  }
+
   if (ud.cartPatternEnabled !== enabled) {
     ud.cartPatternEnabled = enabled;
     // * Program cache key changed (classic ↔ patterned) — force a recompile.
@@ -643,8 +743,9 @@ function removeLegacyPatternMeshes(root) {
  * @param {THREE.Object3D | null | undefined} root
  * @param {CartPatternId | string} patternId
  * @param {number} [neonHex] Cart neon hex for the valley tint (independent of base glow).
+ * @param {{ allowFoil?: boolean }} [opts] `allowFoil` is human-only (menu + human slots).
  */
-export function applyCartPattern(root, patternId, neonHex) {
+export function applyCartPattern(root, patternId, neonHex, opts) {
   if (!root) return;
 
   removeLegacyPatternMeshes(root);
@@ -659,5 +760,11 @@ export function applyCartPattern(root, patternId, neonHex) {
   // * meshes with only TEXCOORD_0 (procedural CartFrame, current GLB) fall back to `uv`.
   const useUv1 = !!(/** @type {THREE.Mesh} */ (frameMesh).geometry?.getAttribute?.("uv1"));
 
-  applyPatternToFrameMaterial(mat, normalizePatternId(patternId), neonHex ?? 0xffffff, useUv1);
+  applyPatternToFrameMaterial(
+    mat,
+    normalizePatternId(patternId),
+    neonHex ?? 0xffffff,
+    useUv1,
+    opts?.allowFoil === true,
+  );
 }

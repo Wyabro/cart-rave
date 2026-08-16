@@ -98,6 +98,45 @@ export function isMulticolorPattern(patternId) {
   return MULTICOLOR_PATTERN_SET.has(normalizePatternId(patternId));
 }
 
+/** Earned patterns that carry view-dependent foil. Classic / Stripes / Checker stay dry. */
+export const FOIL_PATTERN_IDS = Object.freeze([
+  "dots", "waves", "bolt", "honeycomb", "diamond", "cubes",
+]);
+const FOIL_PATTERN_SET = new Set(FOIL_PATTERN_IDS);
+
+/**
+ * Object-space groove about Y (radians) and pitch (nm).
+ * Angle and pitch pairs are unique so each earned pattern flashes on a different lobe.
+ * @type {Readonly<Record<string, { readonly angle: number, readonly pitchNm: number }>>}
+ */
+export const FOIL_GROOVES = Object.freeze({
+  dots: Object.freeze({ angle: 0, pitchNm: 1400 }),
+  waves: Object.freeze({ angle: 1.2, pitchNm: 1100 }),
+  bolt: Object.freeze({ angle: Math.PI / 2, pitchNm: 900 }),
+  honeycomb: Object.freeze({ angle: Math.PI / 6, pitchNm: 1250 }),
+  diamond: Object.freeze({ angle: Math.PI / 4, pitchNm: 1050 }),
+  cubes: Object.freeze({ angle: (2 * Math.PI) / 3, pitchNm: 1180 }),
+});
+
+/**
+ * Whether a pattern may receive the foil lobe (id only — callers still gate humans).
+ * @param {string} patternId
+ * @returns {boolean}
+ */
+export function isFoilPattern(patternId) {
+  return FOIL_PATTERN_SET.has(normalizePatternId(patternId));
+}
+
+/**
+ * Groove field for a foil pattern, or null when the id stays dry.
+ * @param {string} patternId
+ * @returns {{ angle: number, pitchNm: number } | null}
+ */
+export function getFoilGroove(patternId) {
+  const id = normalizePatternId(patternId);
+  return FOIL_GROOVES[id] ?? null;
+}
+
 /**
  * Selected cart neon plus two brand-aligned accents for a multicolor pattern.
  * The base remains dominant; accents are blended toward different CART_COLORS entries.

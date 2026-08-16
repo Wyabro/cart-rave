@@ -38,7 +38,7 @@ landed (`d680928` · `928df0d`) — PT-1 vortex · PT-2 outer pit. New evidence
 **WARM-QP-ROTATE-1** (cap-364). **MENU-CMD-SKEW-1** landed (`19437ed`) —
 PT-1 menu labels upright. **PATTERNS-UI-4-PT-1 FAIL 08-15:** Maze, Honeycomb, and Diamond are
 good; Cubes reads like Honeycomb. **PATTERNS-UI-5:** Cubes 1.75 prismatic; Diamond unchanged.
-Worker `ae965403` live. **NAME-VARIETY-1 landed:** 70 NPC
+Worker `ae965403` live. **PATTERNS-FOIL-1** active. **NAME-VARIETY-1 landed:** 70 NPC
 names, 50 fixed player names, and 380 rerolls; two tone checks are owed after deployment.
 
 **Closed cards keep their narrative in their own docs, not here** — Sundial
@@ -81,7 +81,7 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. **PATTERNS-UI-5-PT-1** — production: hard-refresh and confirm prismatic Cubes is distinct from Honeycomb; Diamond stays unchanged.
+1. **PATTERNS-FOIL-1** L1 — human foil on six earned patterns.
 2. **MENU-CMD-SKEW-PT-1** — main menu labels upright on prod (hard-refresh).
 3. **STOREROOMS-NPC-SELFKO-PT-1 / PT-2** — Solo Storerooms on prod (hard-refresh). Worker `cc79e3b7`.
 4. **WARM-QP-ROTATE-1** — adopt room arena after hello, under the overlay, full forPlay warm. Do not delay countdown.
