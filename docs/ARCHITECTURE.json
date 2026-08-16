@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-16T00:14:44.972Z",
-    "commit": "e5760ba"
+    "at": "2026-08-16T02:03:14.914Z",
+    "commit": "f850db9"
   },
-  "source_digest": "56eddcba",
+  "source_digest": "fb391fef",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1041,13 +1041,13 @@
           {
             "pri": "Low",
             "item": "NAME-NPC-VARIETY-PT-1 — expanded NPC names fit the roster `[solo]`",
-            "notes": "***Pushed but not yet deployed.*** **Owed: Wyatt playtest — NAME-NPC-VARIETY-PT-1 — NPC names feel varied and belong in Cart Clash.** Parent **NAME-VARIETY-1**.<br>1. After ship, hard-refresh production and start Solo three times, reloading between rounds.<br>2. Read the three NPC names in each roster and during play.<br>3. FAIL if a roster repeats a name, a name is hard to read, or a name feels grim or outside the retail-cartoon tone. Random repeats between separate page loads are allowed.",
+            "notes": "**Deployed Worker `b82ca48f-4a64-4b43-a87d-c0ff055da569`.** **Owed: Wyatt playtest — NAME-NPC-VARIETY-PT-1 — NPC names feel varied and belong in Cart Clash.** Parent **NAME-VARIETY-1**. Hard-refresh first.<br>1. Start Solo three times, reloading between rounds.<br>2. Read the three NPC names in each roster and during play.<br>3. FAIL if a roster repeats a name, a name is hard to read, or a name feels grim or outside the retail-cartoon tone. Random repeats between separate page loads are allowed.",
             "ship1": null
           },
           {
             "pri": "Low",
             "item": "NAME-PLAYER-VARIETY-PT-1 — player defaults and rerolls feel varied `[solo]`",
-            "notes": "***Pushed but not yet deployed.*** **Owed: Wyatt playtest — NAME-PLAYER-VARIETY-PT-1 — first-run and rerolled player names stay readable, playful, and less repetitive.** Parent **NAME-VARIETY-1**.<br>1. After ship, hard-refresh production and click the name reroll button 20 times.<br>2. Scan for repeated shapes, awkward combinations, overflow, or names outside the retail-brawl tone.<br>3. Open one private window to sample a fresh default name. FAIL if the name is unreadable, grim, or collides with an NPC name.",
+            "notes": "**Deployed Worker `b82ca48f-4a64-4b43-a87d-c0ff055da569`.** **Owed: Wyatt playtest — NAME-PLAYER-VARIETY-PT-1 — first-run and rerolled player names stay readable, playful, and less repetitive.** Parent **NAME-VARIETY-1**. Hard-refresh first.<br>1. Click the name reroll button 20 times.<br>2. Scan for repeated shapes, awkward combinations, overflow, or names outside the retail-brawl tone.<br>3. Open one private window to sample a fresh default name. FAIL if the name is unreadable, grim, or collides with an NPC name.",
             "ship1": null
           },
           {

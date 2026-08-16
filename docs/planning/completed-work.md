@@ -21,7 +21,8 @@ Chronological record of shipped work, newest first.
   exactly 50 names after Wyatt extended the approved 10 additions with `CartCaptain`. The reroll
   generator adds five retail-brawl prefixes and five suffixes, growing from 210 to 380 unique
   combinations. NPC and player pools remain disjoint; KO-friendly tone and existing selection
-  behavior are unchanged. Focused checks: 8/8. QA: 7/7, 191 files / 2,117 tests. Human checks:
+  behavior are unchanged. Focused checks: 8/8. QA: 7/7, 191 files / 2,117 tests. Deployed Worker
+  `b82ca48f-4a64-4b43-a87d-c0ff055da569`; live asset poll passed with 28/28 references. Human checks:
   **NAME-NPC-VARIETY-PT-1** and **NAME-PLAYER-VARIETY-PT-1** after deployment.
 
 ### August 15, 2026 — PATTERNS-UI-4: medium scale for Maze, Honeycomb, and Cubes
