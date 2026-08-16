@@ -108,6 +108,7 @@ describe("pattern seam — registry coherence", () => {
       "classic", "stripes", "checker", "dots", "waves", "bolt", "honeycomb", "diamond", "cubes",
     ]);
     expect(CART_PATTERNS.dots.label).toBe("Maze");
+    expect(CART_PATTERNS.cubes.label).toBe("Cubes");
   });
 
   it("5. grants the first three patterns and preserves the six earned goals", () => {
@@ -190,7 +191,9 @@ describe("pattern seam — registry coherence", () => {
     expect(FOIL_VERTEX_GLSL).toContain("uFoilGroove1.x, 0.0, uFoilGroove1.y");
     expect(FOIL_VERTEX_GLSL).toContain("uFoilGroove2.x, 0.0, uFoilGroove2.y");
     expect(FOIL_VERTEX_GLSL).not.toContain("dFdx");
-    expect(FOIL_EMISSIVE_GLSL).toContain("foilMaskW.r * vFoilT0");
+    expect(FOIL_EMISSIVE_GLSL).toContain("foilMaskN.r * vFoilT0");
+    expect(FOIL_EMISSIVE_GLSL).toContain("foilMaskSum < 0.0001");
+    expect(FOIL_EMISSIVE_GLSL).toContain("normalize( vFoilT0 )");
     expect(FOIL_EMISSIVE_GLSL).toContain("uFoilStrength");
     expect(FOIL_EMISSIVE_GLSL).toContain("fract( foilQAcross * ( uFoilPitch / 1000.0 ) )");
     expect(FOIL_EMISSIVE_GLSL).toContain(` / ${FOIL_SIGMA.toFixed(2)}`);

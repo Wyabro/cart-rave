@@ -29,7 +29,7 @@ export const CART_PATTERNS = {
   bolt: { label: "Bolt", description: "Electric chevron zigzag" },
   honeycomb: { label: "Honeycomb", description: "Multicolor interlocking hexes" },
   diamond: { label: "Diamond Weave", description: "Multicolor nested diamonds" },
-  cubes: { label: "Isometric Cubes", description: "Prismatic glossy cube tessellation" },
+  cubes: { label: "Cubes", description: "Prismatic glossy cube tessellation" },
 };
 
 const CART_COLOR_HEXES = Object.values(CART_COLORS).map(({ hex }) => hex);
