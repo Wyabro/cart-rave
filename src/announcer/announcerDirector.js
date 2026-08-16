@@ -351,7 +351,17 @@ function handleStoreChange(state, prevState) {
     }
   }
 
-  if (state.roundPhase === RoundPhase.RUNNING && state.roundScores !== prevState.roundScores) {
+  // * SD-SCORE-STALE-1: the SD-winning score commits while phase is still RUNNING
+  // * (addScore commits before firing the SD win callback). Without the SD gate,
+  // * evaluateLeaderChange would announce a stray new_leader/comeback line exactly
+  // * as the podium verdict appears (getRemainingRoundMs() is null in SD, so the
+  // * finale gate can't suppress it). Leader calls during SD are noise anyway; the
+  // * gate also closes the pre-existing suppressed-KO SD exposure.
+  if (
+    state.roundPhase === RoundPhase.RUNNING
+    && !state.isSuddenDeath
+    && state.roundScores !== prevState.roundScores
+  ) {
     evaluateLeaderChange();
   }
 }

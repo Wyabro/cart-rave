@@ -140,3 +140,31 @@ describe("combo tier-up last-announced (PA-COMBO-1)", () => {
     expect(announcedIds()).toEqual([]);
   });
 });
+
+describe("leader-change gating during Sudden Death (SD-SCORE-STALE-1)", () => {
+  it("announces new_leader on a running-phase score commit when NOT in SD", () => {
+    // * Scores commit while phase is running (addScore commits before the SD win
+    // * callback) — a fresh sole leader at 2 vs 1/1/1 must fire the line.
+    gameStore.setState({ roundScores: { 0: 2, 1: 1, 2: 1, 3: 1 } });
+    expect(announcedIds()).toEqual(["new_leader"]);
+  });
+
+  it("stays silent on score commits while isSuddenDeath is set", () => {
+    gameStore.setState({ isSuddenDeath: true });
+    // * The SD-winning commit makes the winner the new sole leader — without the
+    // * !isSuddenDeath gate this fires a stray line exactly at the podium verdict.
+    gameStore.setState({ roundScores: { 0: 4, 1: 3, 2: 3, 3: 0 } });
+    expect(announcedIds()).toEqual([]);
+  });
+
+  it("stays silent when SD resolves straight from a tied top (no prior leader)", () => {
+    // * Tie means evaluateLeaderChange never latched a sole leader, so the first
+    // * SD score would announce one — the gate must suppress it.
+    gameStore.setState({ roundScores: { 0: 3, 1: 3, 2: 0, 3: 0 } });
+    expect(announcedIds()).toEqual([]);
+
+    gameStore.setState({ isSuddenDeath: true });
+    gameStore.setState({ roundScores: { 0: 4, 1: 3, 2: 0, 3: 0 } });
+    expect(announcedIds()).toEqual([]);
+  });
+});
