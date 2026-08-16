@@ -36,7 +36,7 @@ export const PATTERN_MASK_LAYOUTS = Object.freeze({
   dots: Object.freeze({ repeat: 1.5, periodX: 64, periodY: 64, cell: 32 }),
   honeycomb: Object.freeze({ repeat: 1.5, periodX: 32, periodY: 64, cell: 32 }),
   diamond: Object.freeze({ repeat: 1.25, periodX: 32, periodY: 32, cell: 32 }),
-  cubes: Object.freeze({ repeat: 1.5, periodX: 32, periodY: 32, cell: 32 }),
+  cubes: Object.freeze({ repeat: 1.75, periodX: 32, periodY: 32, cell: 32 }),
 });
 
 // * Bolt is a hero motif (one dramatic forking strike), so it also tiles far fewer times.
@@ -316,10 +316,19 @@ function renderPatternMaskCanvas(patternId) {
       ctx.fillStyle = "#000000";
       ctx.fillRect(0, 0, size, size);
       const colors = ["#ff0000", "#00ff00", "#0000ff"];
+      const faceColors = ["#550000", "#004d00", "#000047"];
       const cubeStep = PATTERN_MASK_LAYOUTS.cubes.cell;
       const halfWidth = cubeStep / 2;
       const halfHeight = cubeStep * 2 / 3;
       const quarterHeight = halfHeight / 2;
+      const fillFace = (color, face) => {
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(face[0][0], face[0][1]);
+        for (let index = 1; index < face.length; index += 1) ctx.lineTo(face[index][0], face[index][1]);
+        ctx.closePath();
+        ctx.fill();
+      };
       const trace = (color, a, b) => {
         ctx.strokeStyle = color;
         ctx.lineWidth = 3.5;
@@ -330,9 +339,8 @@ function renderPatternMaskCanvas(patternId) {
         ctx.lineTo(b[0], b[1]);
         ctx.stroke();
       };
-      // * One continuous staggered isometric lattice. Each edge direction owns one colour and
-      // * shared edges never receive a competing stroke; the centre Y divides each hex into the
-      // * three rhombi that create the cube read.
+      // * Compact prismatic cubes: three tinted rhombi create distinct faces, while one bright
+      // * glint on the top face gives a stable reflected-light read without a second material.
       for (let row = -2; row <= size / cubeStep + 2; row += 1) {
         const cy = row * cubeStep;
         const offsetX = Math.abs(row) % 2 === 1 ? halfWidth : 0;
@@ -347,6 +355,9 @@ function renderPatternMaskCanvas(patternId) {
             [cx - halfWidth, cy - quarterHeight],
           ];
           const center = [cx, cy];
+          fillFace(faceColors[0], [points[0], points[1], center, points[5]]);
+          fillFace(faceColors[1], [points[1], points[2], points[3], center]);
+          fillFace(faceColors[2], [center, points[3], points[4], points[5]]);
           trace(colors[0], points[0], points[1]);
           trace(colors[1], points[1], points[2]);
           trace(colors[2], points[2], points[3]);
@@ -356,6 +367,7 @@ function renderPatternMaskCanvas(patternId) {
           trace(colors[1], center, points[0]);
           trace(colors[0], center, points[2]);
           trace(colors[2], center, points[4]);
+          trace("#666666", [cx - halfWidth * 0.42, cy - quarterHeight * 0.58], [cx + halfWidth * 0.2, cy - halfHeight * 0.56]);
         }
       }
       break;

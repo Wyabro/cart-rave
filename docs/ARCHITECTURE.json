@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-16T02:03:14.914Z",
-    "commit": "f850db9"
+    "at": "2026-08-16T02:07:21.552Z",
+    "commit": "4232306"
   },
-  "source_digest": "fb391fef",
+  "source_digest": "f907dffa",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -880,7 +880,7 @@
       }
     ],
     "next_actions": [
-      "PATTERNS-UI-4-PT-1 — production: hard-refresh and test the medium Maze, Honeycomb, and Cubes scale.",
+      "PATTERNS-UI-5-PT-1 — production: hard-refresh and confirm prismatic Cubes is distinct from Honeycomb; Diamond stays unchanged.",
       "MENU-CMD-SKEW-PT-1 — main menu labels upright on prod (hard-refresh).",
       "STOREROOMS-NPC-SELFKO-PT-1 / PT-2 — Solo Storerooms on prod (hard-refresh). Worker `cc79e3b7`.",
       "WARM-QP-ROTATE-1 — adopt room arena after hello, under the overlay, full forPlay warm. Do not delay countdown.",
@@ -1082,8 +1082,8 @@
           },
           {
             "pri": "Medium",
-            "item": "PATTERNS-UI-4-PT-1 — medium readable cart pattern scale `[solo]`",
-            "notes": "**Deployed Worker `d3164390-409f-4981-887f-992abd12be58`. Owed: Wyatt playtest — PATTERNS-UI-4-PT-1 — Diamond stays unchanged, while Maze, Honeycomb, and Cubes are smaller than UI-3 but remain readable and seamless.** Parent **PATTERNS-UI-4**. **PATTERNS-UI-3-PT-1 FAIL 08-15:** Diamond passed; the other three were too large.<br>1. Hard-refresh production, open CUSTOMIZE → PATTERN, and select Pink.<br>2. Select Maze. PASS if six smaller turns span the cart texture and it still reads as a maze.<br>3. Select Honeycomb and Isometric Cubes. Rotate through front, side, and rear views. PASS if their repeated edges connect cleanly and Cubes still shows three cube faces. Select Diamond Weave. PASS if it is unchanged.<br>4. Repeat steps 2–3 with Blue, then start a solo round. PASS if every pattern stays stable while moving and after a KO rebuild.",
+            "item": "PATTERNS-UI-5-PT-1 — prismatic Cubes is distinct from Honeycomb `[solo]`",
+            "notes": "**Owed: Wyatt playtest — PATTERNS-UI-5-PT-1 — Isometric Cubes is smaller, visibly faceted, and immediately distinct from Honeycomb; Diamond Weave stays unchanged.** Parent **PATTERNS-UI-5**. **PATTERNS-UI-4-PT-1 FAIL 08-15:** Maze, Honeycomb, and Diamond passed; Cubes was still too close to Honeycomb.<br>1. Hard-refresh production, open CUSTOMIZE → PATTERN, and select Pink.<br>2. Select Isometric Cubes. PASS if seven compact repeats span one texture width, each cube shows three tinted faces plus a bright top glint, and it does not read as Honeycomb.<br>3. Switch between Honeycomb and Isometric Cubes from front, side, and rear views. PASS if they are immediately distinct. Select Diamond Weave. PASS if it is unchanged.<br>4. Repeat steps 2–3 with Blue, then start a solo round. PASS if Cubes stays stable while moving and after a KO rebuild.",
             "ship1": null
           }
         ]

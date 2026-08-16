@@ -36,9 +36,9 @@ external testers. Stay in this phase until Wyatt advances the marker.
 GAMEPAD-LOBBY-1. Deferred launch day: **SHARD-PT-2**. **STOREROOMS-NPC-SELFKO-2**
 landed (`d680928` · `928df0d`) — PT-1 vortex · PT-2 outer pit. New evidence
 **WARM-QP-ROTATE-1** (cap-364). **MENU-CMD-SKEW-1** landed (`19437ed`) —
-PT-1 menu labels upright. **PATTERNS-UI-3-PT-1 FAIL 08-15:** Diamond is good; Maze,
-Honeycomb, and Cubes are too large. **PATTERNS-UI-4:** their repeat is now 1.5; Diamond remains
-1.25. Deployed Worker `d3164390`; production PT-1 is owed. **NAME-VARIETY-1 landed:** 70 NPC
+PT-1 menu labels upright. **PATTERNS-UI-4-PT-1 FAIL 08-15:** Maze, Honeycomb, and Diamond are
+good; Cubes reads like Honeycomb. **PATTERNS-UI-5:** Cubes now repeats at 1.75 with prismatic
+faces; Diamond unchanged. **NAME-VARIETY-1 landed:** 70 NPC
 names, 50 fixed player names, and 380 rerolls; two tone checks are owed after deployment.
 
 **Closed cards keep their narrative in their own docs, not here** — Sundial
@@ -81,7 +81,7 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. **PATTERNS-UI-4-PT-1** — production: hard-refresh and test the medium Maze, Honeycomb, and Cubes scale.
+1. **PATTERNS-UI-5-PT-1** — production: hard-refresh and confirm prismatic Cubes is distinct from Honeycomb; Diamond stays unchanged.
 2. **MENU-CMD-SKEW-PT-1** — main menu labels upright on prod (hard-refresh).
 3. **STOREROOMS-NPC-SELFKO-PT-1 / PT-2** — Solo Storerooms on prod (hard-refresh). Worker `cc79e3b7`.
 4. **WARM-QP-ROTATE-1** — adopt room arena after hello, under the overlay, full forPlay warm. Do not delay countdown.

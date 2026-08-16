@@ -29,7 +29,7 @@ export const CART_PATTERNS = {
   bolt: { label: "Bolt", description: "Electric chevron zigzag" },
   honeycomb: { label: "Honeycomb", description: "Multicolor interlocking hexes" },
   diamond: { label: "Diamond Weave", description: "Multicolor nested diamonds" },
-  cubes: { label: "Isometric Cubes", description: "Multicolor cube tessellation" },
+  cubes: { label: "Isometric Cubes", description: "Prismatic glossy cube tessellation" },
 };
 
 const CART_COLOR_HEXES = Object.values(CART_COLORS).map(({ hex }) => hex);
@@ -204,9 +204,13 @@ function multicolorTileSvg(patternId, patternUid, colors) {
       </pattern>`;
     case "cubes":
       return `<pattern id="${uid}-tile" width="32" height="32" patternUnits="userSpaceOnUse">
+        <path d="M16 0 L32 8 L16 16 L0 8 Z" fill="${base}" fill-opacity="0.34"/>
+        <path d="M32 8 L32 24 L16 32 L16 16 Z" fill="${accentA}" fill-opacity="0.3"/>
+        <path d="M0 8 L16 16 L16 32 L0 24 Z" fill="${accentB}" fill-opacity="0.28"/>
         <path d="M16 0 L32 8 M16 32 L0 24 M16 16 L32 24" fill="none" stroke="${base}" stroke-width="3" stroke-linecap="round"/>
         <path d="M32 8 V24 M0 8 V24 M16 16 V0" fill="none" stroke="${accentA}" stroke-width="3" stroke-linecap="round"/>
         <path d="M32 24 L16 32 M0 8 L16 0 M16 16 L0 24" fill="none" stroke="${accentB}" stroke-width="3" stroke-linecap="round"/>
+        <path d="M9 6 L19 3" fill="none" stroke="white" stroke-opacity="0.8" stroke-width="1.3" stroke-linecap="round"/>
       </pattern>`;
     default:
       return "";

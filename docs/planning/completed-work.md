@@ -25,6 +25,16 @@ Chronological record of shipped work, newest first.
   `b82ca48f-4a64-4b43-a87d-c0ff055da569`; live asset poll passed with 28/28 references. Human checks:
   **NAME-NPC-VARIETY-PT-1** and **NAME-PLAYER-VARIETY-PT-1** after deployment.
 
+### August 15, 2026 — PATTERNS-UI-5: prismatic Isometric Cubes
+
+- *(Art / UI · Medium)* **PATTERNS-UI-5** — ✅ **CODE READY 08-15.** `PATTERNS-UI-4-PT-1`
+  confirmed the remaining read problem: Maze, Honeycomb, and Diamond Weave were good, but Cubes
+  still read as Honeycomb. Cubes now repeats at 1.75, with seven compact repeats across one UV
+  width. Each cube has three tinted rhombus faces, RGB-owned edges, and one static top-face glint.
+  Diamond, Honeycomb, Maze, pattern IDs, goals, NPC rolls, UV1, material count, and network data
+  are unchanged. Local rendered Pink / Blue review passed. Focused checks: 9/9. QA 7/7 (191 files /
+  2,117 tests). **PATTERNS-UI-5-PT-1 owed** on production.
+
 ### August 15, 2026 — PATTERNS-UI-4: medium scale for Maze, Honeycomb, and Cubes
 
 - *(Art / UI · Medium)* **PATTERNS-UI-4** — ✅ **DEPLOYED 08-15.** `PATTERNS-UI-3-PT-1`
@@ -33,7 +43,8 @@ Chronological record of shipped work, newest first.
   one UV width); Diamond, tile geometry, accents, seam periods, unlocks, NPC rolls, UV1, and
   network data are unchanged. Local rendered Pink / Blue review passed. QA 7/7 (190 files / 2,114
   tests). Deployed Worker `d3164390-409f-4981-887f-992abd12be58`; production asset verification
-  passed. **PATTERNS-UI-4-PT-1 owed** on production.
+  passed. **PATTERNS-UI-4-PT-1 FAIL 08-15:** Maze, Honeycomb, and Diamond passed, but Cubes still
+  read like Honeycomb. Superseded by **PATTERNS-UI-5**.
 
 ### August 15, 2026 — PATTERNS-UI-3: readable Maze and seamless multicolor tiles
 

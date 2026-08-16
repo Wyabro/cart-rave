@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-15 at commit `0582dca` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `68a096f6`
+> Generated 2026-08-16 at commit `4232306` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `7151d03f`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -18,7 +18,7 @@ Playtesting and stabilization — Tier A drained; Tier B/C, security sweep, and 
 
 ## ACTIVE CARD
 
-PATTERNS-UI-4-PT-1 — production: hard-refresh and test the medium Maze, Honeycomb, and Cubes scale
+PATTERNS-UI-5-PT-1 — production: hard-refresh and confirm prismatic Cubes is distinct from Honeycomb; Diamond stays unchanged
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 

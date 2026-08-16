@@ -132,7 +132,7 @@ describe("pattern seam — registry coherence", () => {
     expect(PATTERN_MASK_LAYOUTS.dots.repeat).toBe(1.5);
     expect(PATTERN_MASK_LAYOUTS.honeycomb.repeat).toBe(1.5);
     expect(PATTERN_MASK_LAYOUTS.diamond.repeat).toBe(1.25);
-    expect(PATTERN_MASK_LAYOUTS.cubes.repeat).toBe(1.5);
+    expect(PATTERN_MASK_LAYOUTS.cubes.repeat).toBe(1.75);
 
     for (const layout of Object.values(PATTERN_MASK_LAYOUTS)) {
       expect(PATTERN_MASK_SIZE % layout.periodX).toBe(0);
@@ -141,8 +141,12 @@ describe("pattern seam — registry coherence", () => {
     }
   });
 
-  it("9. builds Cubes from one colour-owned edge family per isometric direction", () => {
+  it("9. builds smaller prismatic Cubes from colour-owned faces, edges, and glints", () => {
     const source = readFileSync(new URL("../../src/carts/cartPatterns.js", import.meta.url), "utf8");
+    expect(source).toContain('const faceColors = ["#550000", "#004d00", "#000047"];');
+    expect(source).toContain("const fillFace = (color, face) => {");
+    expect(source).toContain("fillFace(faceColors[0], [points[0], points[1], center, points[5]]);");
+    expect(source).toContain('trace("#666666",');
     expect(source).toContain("const center = [cx, cy];");
     expect(source).toContain("const offsetX = Math.abs(row) % 2 === 1 ? halfWidth : 0;");
     expect(source).toContain("trace(colors[1], center, points[0]);");
