@@ -491,13 +491,10 @@ describe("live-doc canaries (real docs/ vs parsers)", () => {
     expect(parseAgentsSection(md, "## MODEL / TOOL ROUTING").length).toBeGreaterThan(0);
   });
 
-  it("BACKLOG.md guardrail table + at least one [SHIP-1 X] tag still parse", () => {
-    const md = read("docs/planning/BACKLOG.md");
-    expect(parseBacklogNotTechDebt(md).length).toBeGreaterThan(0);
-    const tagged = parseBacklogSections(md)
-      .flatMap((s) => s.rows)
-      .some((r) => extractShip1Tag(`${r.item ?? ""} ${r.notes ?? ""}`));
-    expect(tagged).toBe(true);
+  it("BACKLOG.md guardrail table still parses", () => {
+    // * SHIP-1 row tags are gone (closed 08-17). extractShip1Tag is pinned
+    // * on fixtures below; do not require a live BACKLOG row to carry one.
+    expect(parseBacklogNotTechDebt(read("docs/planning/BACKLOG.md")).length).toBeGreaterThan(0);
   });
 
   it("SHIP-1.md tiers parse into A–E with rows", () => {
