@@ -13,6 +13,19 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 17, 2026 — KO-CENTER-RING-1 / CUSTOMIZE-SVG-FLASH-1 landed
+
+- *(Engineering · Medium)* **KO-CENTER-RING-1** — ✅ **DONE 08-17**. Deleted the centered
+  `.hud-doomed-shockwave` DOM node and CSS. `showDoomedFeedback` still fires the red
+  edge pulse (`pulseHitDirection`). Hitmarker on a scored KO stays. Do not reopen
+  **KO-DOOMED-1** / **KO-DOOMED-PT-1** (fan-out wiring) or **NET-PRES-1** (event dedupe).
+  Playtest owed: **KO-CENTER-RING-PT-1** on `npm run dev` until ship.
+- *(Engineering · Medium)* **CUSTOMIZE-SVG-FLASH-1** — ✅ **DONE 08-17**.
+  `renderCustomizePreview` returns without `makeCartSVG` unless Customize is actually
+  open. Close persists first, then hides, then disposes so `customization-changed`
+  cannot paint the legacy SVG during dismiss. SVG stays as the chunk-load / WebGL-fail
+  fallback. Playtest owed: **CUSTOMIZE-SVG-FLASH-PT-1** on `npm run dev` until ship.
+
 ### August 17, 2026 — SHIP-1 BACKLOG row closed
 
 - *(Tech Debt · Medium)* **SHIP-1** — ✅ **CLOSED 08-17 on Wyatt's word**. The BACKLOG pointer row is gone. [SHIP-1.md](./SHIP-1.md) stays as the finish-line doc. This is not a V2 ship. BRAND-1, RC gates, and owed playtests stay on their own rows. Docs-only close; no game code in this commit.

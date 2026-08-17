@@ -30,6 +30,8 @@ are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Analyt
 external testers. Stay in this phase until Wyatt advances the marker.
 
 Live PT: **COUNTDOWN-HOST-STAMP-PT-1** on `npm run dev` until ship. Landed 08-17 —
+**KO-CENTER-RING-1** (PT owed: **KO-CENTER-RING-PT-1**) ·
+**CUSTOMIZE-SVG-FLASH-1** (PT owed: **CUSTOMIZE-SVG-FLASH-PT-1**) ·
 **FRIENDS-LOBBY-ORDER-1** (PT owed: **FRIENDS-LOBBY-ORDER-PT-1**). Deferred launch day:
 **SHARD-PT-2**. Closed 08-17 — **CART-HUE-CUBES-PT-1** `[solo]` · **CART-HUE-RED-PT-1**
 `[solo]` · **LAST-STANDING-DEAD-PT-1** · **NPC-ABORT-BURST-PT-1** ·
@@ -80,7 +82,9 @@ Live rows only. Shipped and closed cards live in
 ### Next actions
 
 1. Playtest **COUNTDOWN-HOST-STAMP-PT-1** on `npm run dev` until ship.
-2. Playtest **FRIENDS-LOBBY-ORDER-PT-1** after VERIFY_OK (or `npm run dev`).
+2. Playtest **KO-CENTER-RING-PT-1** on `npm run dev` until ship.
+3. Playtest **CUSTOMIZE-SVG-FLASH-PT-1** on `npm run dev` until ship.
+4. Playtest **FRIENDS-LOBBY-ORDER-PT-1** after VERIFY_OK (or `npm run dev`).
    Deferred: **SHARD-PT-2** (launch day).
 
 ## Open issues (top)
