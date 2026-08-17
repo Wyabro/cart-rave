@@ -38,6 +38,17 @@ describe("planHostRearm", () => {
     });
   });
 
+  it("skips a joinOrder human that is not in the live set", () => {
+    // * ZOMBIE-HOST-PICK-1: b is seated and older than c, but platform-dead.
+    expect(
+      planHostRearm("a", new Set(["c"]), ["a", "b", "c"], slotsHuman("a", "b", "c"), "running"),
+    ).toEqual({
+      hostWasDead: true,
+      nextHostId: "c",
+      resetCountdownToLobby: false,
+    });
+  });
+
   it("returns null successor when no live human remains", () => {
     expect(
       planHostRearm("a", new Set(), ["a"], slotsHuman("a"), "lobby"),

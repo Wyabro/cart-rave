@@ -357,6 +357,126 @@ describe("CartRaveServer DO harness", () => {
     joiner.client.close();
   }, 10_000);
 
+  it("does not promote a platform-dead peer on host_away", async () => {
+    // * ZOMBIE-HOST-PICK-1: B stays in #connections (socket open, no onClose)
+    // * but is dropped from the platform live set. Host-away must pick C.
+    const room = uniqueRoom("zombie-host-pick");
+    const host = await connectAndSeat(room, {
+      name: "HOST",
+      color: "pink",
+      clientId: "cid-zhp-host",
+      ip: "10.0.8.1",
+      hostScore: 100,
+    });
+    const zombie = await connectAndSeat(room, {
+      name: "ZOMBIE",
+      color: "green",
+      clientId: "cid-zhp-zombie",
+      ip: "10.0.8.2",
+      hostScore: 80,
+    });
+    const live = await connectAndSeat(room, {
+      name: "LIVE",
+      color: "blue",
+      clientId: "cid-zhp-live",
+      ip: "10.0.8.3",
+      hostScore: 60,
+    });
+
+    host.client.sendJson({
+      type: MSG.hostRound,
+      round: {
+        phase: "countdown",
+        countdownStartedAtMs: 1000,
+        startedAtMs: 0,
+        winnerSlotIndex: null,
+        scores: { 0: 0, 1: 0, 2: 0, 3: 0 },
+      },
+    });
+    await live.client.awaitMessage((m) => m.type === MSG.round && m.round?.phase === "countdown");
+    host.client.sendJson({
+      type: MSG.hostRound,
+      round: {
+        phase: "running",
+        countdownStartedAtMs: 1000,
+        startedAtMs: 2000,
+        winnerSlotIndex: null,
+        scores: { 0: 0, 1: 0, 2: 0, 3: 0 },
+      },
+    });
+    await live.client.awaitMessage((m) => m.type === MSG.round && m.round?.phase === "running");
+
+    setPlatformLiveIdsOverride(new Set([host.youConnId, live.youConnId]));
+
+    const migratePromise = live.client.awaitMessage(
+      (m) => m.type === MSG.hostMigrated && m.reason === "host_afk",
+    );
+    host.client.sendJson({ type: MSG.hostAway });
+    const migrated = await migratePromise;
+    expect(migrated.hostId).toBe(live.youConnId);
+    expect(migrated.hostId).not.toBe(zombie.youConnId);
+
+    host.client.close();
+    zombie.client.close();
+    live.client.close();
+  });
+
+  it("does not migrate host_away to a sole platform-dead peer", async () => {
+    // * ZOMBIE-HOST-PICK-1: A away + B platform-dead → liveHumanCount 1 → no migrate.
+    const room = uniqueRoom("zombie-host-hold");
+    const host = await connectAndSeat(room, {
+      name: "HOST",
+      color: "pink",
+      clientId: "cid-zhh-host",
+      ip: "10.0.8.4",
+      hostScore: 100,
+    });
+    const zombie = await connectAndSeat(room, {
+      name: "ZOMBIE",
+      color: "green",
+      clientId: "cid-zhh-zombie",
+      ip: "10.0.8.5",
+      hostScore: 80,
+    });
+
+    host.client.sendJson({
+      type: MSG.hostRound,
+      round: {
+        phase: "countdown",
+        countdownStartedAtMs: 1000,
+        startedAtMs: 0,
+        winnerSlotIndex: null,
+        scores: { 0: 0, 1: 0, 2: 0, 3: 0 },
+      },
+    });
+    await zombie.client.awaitMessage((m) => m.type === MSG.round && m.round?.phase === "countdown");
+    host.client.sendJson({
+      type: MSG.hostRound,
+      round: {
+        phase: "running",
+        countdownStartedAtMs: 1000,
+        startedAtMs: 2000,
+        winnerSlotIndex: null,
+        scores: { 0: 0, 1: 0, 2: 0, 3: 0 },
+      },
+    });
+    await zombie.client.awaitMessage((m) => m.type === MSG.round && m.round?.phase === "running");
+
+    setPlatformLiveIdsOverride(new Set([host.youConnId]));
+
+    host.client.sendJson({ type: MSG.hostAway });
+    await sleep(80);
+    expect(
+      zombie.client.messages.filter((m) => m.type === MSG.hostMigrated && m.reason === "host_afk"),
+    ).toHaveLength(0);
+    expect(
+      host.client.messages.filter((m) => m.type === MSG.hostMigrated && m.reason === "host_afk"),
+    ).toHaveLength(0);
+
+    host.client.close();
+    zombie.client.close();
+  });
+
   it("does not let a high-score joiner steal host via hostPresent", async () => {
     const room = uniqueRoom("host-present");
     const host = await connectAndSeat(room, {

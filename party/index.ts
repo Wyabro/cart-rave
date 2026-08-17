@@ -270,8 +270,9 @@ export class CartRaveServer extends Server {
   /**
    * The set of connection ids the platform currently lists as live, honoring the
    * test seam (getPlatformLiveIdsOverride) so a test can fake a socket the platform
-   * dropped without onClose firing. CONN-SOURCETRUTH-1: the override stays confined
-   * to this pre-cap-prune funnel — game-state paths use #liveConnIdSet directly.
+   * dropped without onClose firing. CONN-SOURCETRUTH-1: ready / reconcile /
+   * countdown stay on #liveConnIdSet. Host-pick and pre-cap prune consume this
+   * helper — both must skip a socket the platform already dropped.
    */
   #platformLiveConnIds(): Set<string> {
     const override = getPlatformLiveIdsOverride();
@@ -453,7 +454,7 @@ export class CartRaveServer extends Server {
       return;
     }
 
-    const live = new Set(this.#connections.keys());
+    const live = this.#platformLiveConnIds();
     const liveHumanCount = this.#slots?.filter(
       (slot) => slot.kind === "human" && slot.connId && live.has(slot.connId),
     ).length ?? 0;
@@ -504,15 +505,15 @@ export class CartRaveServer extends Server {
     this.#hostScores.set(connId, score);
   }
 
-  // * Repairs #hostId if it points at a connection that no longer exists in
-  // * #connections (e.g. onClose never fired for the host due to crash/network
-  // * drop). Must be called after any operation that may have removed the host
-  // * from #connections, and before hostId is surfaced to clients.
-  // * Decision plan is pure (./hostRearm); side effects stay here.
+  // * Repairs #hostId if it points at a connection that is gone from the
+  // * platform live set (onClose missed, crash, network drop) — including a
+  // * host that is still in #connections until the 20s reaper. Must run before
+  // * hostId is surfaced to clients. Decision plan is pure (./hostRearm);
+  // * side effects stay here.
   #ensureLiveHost() {
     const plan = planHostRearm(
       this.#hostId,
-      new Set(this.#connections.keys()),
+      this.#platformLiveConnIds(),
       this.#joinOrder,
       this.#slots,
       this.#round.phase,

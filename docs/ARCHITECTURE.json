@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-17T01:14:57.701Z",
-    "commit": "fe6aa59f"
+    "at": "2026-08-17T01:39:37.604Z",
+    "commit": "14c3e23c"
   },
-  "source_digest": "3c1638f8",
+  "source_digest": "2729093e",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -880,7 +880,7 @@
       }
     ],
     "next_actions": [
-      "Playtest INPUT-LOCK-PT-1 · INPUT-LOCK-PT-2 · SD-WIN-CREDIT-PT-1 · THOST-CEILING-PT-1 after ship."
+      "Playtest THOST-CEILING-PT-1 · ZOMBIE-HOST-PICK-PT-1 after ship. Deferred: SHARD-PT-2 (launch day) · WARM-QP-ROTATE-PT-1."
     ],
     "open_issues": [
       {
@@ -900,7 +900,7 @@
       {
         "title": "Engineering",
         "counts": {
-          "Medium": 10,
+          "Medium": 9,
           "Partial": 1,
           "Low": 14
         },
@@ -909,12 +909,6 @@
             "pri": "Medium",
             "item": "NPC-ABORT-BURST-1 — NPC charge-abort release burst bypasses every self-KO safety gate",
             "notes": "**Filed 08-16 from the gameplay bug audit (adversarially reviewed).** All other NPC boost paths check `npcBoostPathIsUnsafe`, but when `canContinueNpcChargedAttack` flips false (target fell / path became unsafe mid-charge), the wrapper leaves `boostHeld` unset and the human early-release branch fires the full burst along the heading that was just declared unsafe ([cartOrchestration.js](../../src/orchestration/cartOrchestration.js) ~814-830, [simulation.js](../../src/simulation.js) ~603-631). NPCs still occasionally ram themselves into voids and can hand a free SD win. **New path, not a reopen of the closed STOREROOMS-NPC-SELFKO fixes** (those covered instant/escape/hold paths; this is the abort path). The NPC-BOOST-2 design deliberately chose abort→burst over silent cancel — the gap is that it skips the edge/void checks. Fix: wire the already-written-but-dead `cancelNpcBoostCharge` (`simulation.js` ~601-602 has no producer of `boostCancel`) or safety-check the abort burst.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "ZOMBIE-HOST-PICK-1 — host-away / host-repair pick successors from zombie-tolerant `#connections`",
-            "notes": "**Filed 08-16 from the gameplay bug audit (adversarially reviewed).** `#handleHostAway` and `#ensureLiveHost` pass `#connections.keys()` to host selection ([party/index.ts](../../../party/index.ts) ~456, ~512-519), but the file's own invariant (~264-268) says game-state paths must use `#liveConnIdSet()` because `#connections` holds zombies until the 20s reaper. A crashed tab that kept its slot can be promoted host mid-round → no authority, no snapshots, frozen round for up to ~25s until the reaper purges and repair runs. Sibling card: ZOMBIE-ROOM-RESET-1.",
             "ship1": null
           },
           {
@@ -1115,33 +1109,14 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "High": 3,
           "Medium": 3,
           "Low": 1
         },
         "rows": [
           {
-            "pri": "High",
-            "item": "INPUT-LOCK-PT-1 — host/solo boost stays off through 3-2-1",
-            "notes": "**Owed: Wyatt playtest — INPUT-LOCK-PT-1 — carts sit still through 3-2-1; boost does not charge or fire before GO.** Parent **INPUT-LOCK-1** (`73289a96` apply gate + this commit). Solo or host, one machine.<br>1. Start a round. From the \"3\" digit, hold boost.<br>2. FAIL if the charge bar fills, a burst fires before GO, or a full burst is ready at GO.<br>3. PASS if the cart stays still, no charge, and boost starts a new charge only after GO.",
-            "ship1": null
-          },
-          {
-            "pri": "High",
-            "item": "INPUT-LOCK-PT-2 — rematch guest does not lurch from last-round W `[2pc]`",
-            "notes": "**Owed: Wyatt playtest — INPUT-LOCK-PT-2 — a guest who released W on the podium stays still through the next 3-2-1 and at GO.** Parent **INPUT-LOCK-1**. You host.<br>1. Play a round. Guest holds W until the round ends, then releases on the podium. Do not hold W during the next 3-2-1.<br>2. FAIL if that cart rolls or boost-charges during countdown, or lurches at GO with no key held.<br>3. PASS if it stays on the booth and stays still at GO until the guest presses W again.",
-            "ship1": null
-          },
-          {
-            "pri": "High",
-            "item": "SD-WIN-CREDIT-PT-1 — guest Sudden Death win credits Clutch Winner + redMirror `[2pc]`",
-            "notes": "**Owed: Wyatt playtest — SD-WIN-CREDIT-PT-1 — the guest who wins Sudden Death gets SD credit on their own machine.** Parent **SD-WIN-CREDIT-1** (`6e8085a1`). You host.<br>1. Friends match, 2 machines, hard-refresh both. Tie the score at the timer so the round enters Sudden Death.<br>2. The **guest** lands the winning SD KO. On the guest machine, check challenges: Clutch Winner daily +1 (and redMirror unlock toast if it was the 3rd SD win).<br>3. FAIL if the guest's Clutch Winner count does not move after an SD win. Also verify: guest wins a normal (non-SD) round → no SD progress; the host's own SD credit is unchanged.",
-            "ship1": null
-          },
-          {
             "pri": "Medium",
-            "item": "SD-SCORE-STALE-PT-1 — SD-win verdict + stats show the final point on non-hosts `[2pc]`",
-            "notes": "**Owed: Wyatt playtest — SD-SCORE-STALE-PT-1 — the guest's podium shows the SD winner's final score and stats include the winning point.** Parent **SD-SCORE-STALE-1** (commit-before-callback + announcer SD gate). You host.<br>1. Friends match, 2 machines, hard-refresh both. Tie the score at the timer so the round enters Sudden Death (e.g. 3–3).<br>2. The **guest** lands the winning SD KO. On the guest screen the verdict must read the winner's full score (e.g. \"4 pts\") with NO \"(TIEBREAK)\" suffix, and the finalScores panel must match the host.<br>3. On BOTH machines: matchHistory + totalPoints include the winning point. The host must NOT play a stray \"new leader\"/\"comeback\" announcer line at the SD end.<br>4. One non-SD round sanity check: verdict + stats unchanged.<br>5. FAIL if the guest shows the pre-KO score or a TIEBREAK verdict after an SD-winning KO.",
+            "item": "ZOMBIE-HOST-PICK-PT-1 — host-away still hands the live peer the room `[2pc]`",
+            "notes": "**Owed: Wyatt playtest — ZOMBIE-HOST-PICK-PT-1 — host-away still hands the live peer the room.** Parent **ZOMBIE-HOST-PICK-1**. You host. DO tests prove the platform-dead case; this is the live-path regression.<br>1. Friends match, 2 machines, hard-refresh both. Play until GO.<br>2. Hide the host window for about 10 s (do not kill the tab).<br>3. FAIL if the guest never becomes host, or both carts freeze after the hide. PASS if the guest becomes host and both carts keep moving.",
             "ship1": null
           },
           {
@@ -1506,6 +1481,11 @@
     ],
     "settled_decisions": [
       {
+        "id": "D-ZOMBIE-HOST-PICK-1",
+        "date": "08-16",
+        "text": "host-away / host-repair pick from `#platformLiveConnIds()`, not `#connections.keys()`. Platform-dead peers cannot become host. Silent-open zombies still wait for the 20 s reaper. Playtest ZOMBIE-HOST-PICK-PT-1 (2pc host-away regression)."
+      },
+      {
         "id": "D-THOST-CEILING-1",
         "date": "08-16",
         "text": "`tHost` gate is `|tHost − now| ≤ 60s` (replaces DEEPSEC-1's `1e12` abs cap). Playtest THOST-CEILING-PT-1."
@@ -1513,7 +1493,7 @@
       {
         "id": "D-SD-SCORE-STALE-1",
         "date": "08-16",
-        "text": "`addScore` now commits before the SD-win callback so podium `host_round` carries the final point. Announcer leader lines skip SD. Playtest SD-SCORE-STALE-PT-1."
+        "text": "`addScore` now commits before the SD-win callback so podium `host_round` carries the final point. Announcer leader lines skip SD. SD-SCORE-STALE-PT-1 Wyatt PASS 08-16."
       },
       {
         "id": "D-MENU-CMD-SKEW-1",

@@ -29,21 +29,19 @@ report phase-exit eligibility; they must not move the marker.
 are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Analytics DO reset for
 external testers. Stay in this phase until Wyatt advances the marker.
 
-**08-16 playtest PASSes:** **PATTERNS-FOIL-PT-1** · **MENU-CMD-SKEW-PT-1** ·
-**NAME-NPC-VARIETY-PT-1** · **NAME-PLAYER-VARIETY-PT-1** · **PATTERNS-UI-5-PT-1** ·
-**STOREROOMS-NPC-SELFKO-PT-1** · **STOREROOMS-NPC-SELFKO-PT-2**. Parents
-**PATTERNS-FOIL-1** · **MENU-CMD-SKEW-1** · **NAME-VARIETY-1** · **PATTERNS-UI-5** ·
-**STOREROOMS-NPC-SELFKO-2** closed. **08-15 playtest PASSes:**
+**08-16 playtest PASSes:** **INPUT-LOCK-PT-1** · **INPUT-LOCK-PT-2** ·
+**SD-SCORE-STALE-PT-1** · **SD-WIN-CREDIT-PT-1** · **PATTERNS-FOIL-PT-1** ·
+**MENU-CMD-SKEW-PT-1** · **NAME-NPC-VARIETY-PT-1** · **NAME-PLAYER-VARIETY-PT-1** ·
+**PATTERNS-UI-5-PT-1** · **STOREROOMS-NPC-SELFKO-PT-1** ·
+**STOREROOMS-NPC-SELFKO-PT-2**. Parents **INPUT-LOCK-1** · **SD-SCORE-STALE-1** ·
+**SD-WIN-CREDIT-1** · **PATTERNS-FOIL-1** · **MENU-CMD-SKEW-1** · **NAME-VARIETY-1** ·
+**PATTERNS-UI-5** · **STOREROOMS-NPC-SELFKO-2** closed. **08-15 playtest PASSes:**
 **DEEPSEC-1-PT-1** · **CARGO-BAY-INSTANCE-PT-3** · **CONN-TRACK-LEAK-PT-1** ·
 **QP-ROTATE-PT-1** · **CONN-TOASTS-1** · **BOOST-SFX-NONHOST-PT-1**.
 **GAMEPAD-FRIENDS-SEATED-PT-1 PASS 08-15** (Worker `ef2a7550`, `747e67d`).
 **STORE-PILE-PT-1 PASS 08-14.** Do not reopen GAMEPAD-LOBBY-1. Deferred launch
-day: **SHARD-PT-2**. New evidence **WARM-QP-ROTATE-1** (cap-364).
-**08-16 audit:** both Highs landed — **INPUT-LOCK-1** (playtest owed
-**INPUT-LOCK-PT-1** · **INPUT-LOCK-PT-2**) and **SD-WIN-CREDIT-1** (playtest owed
-**SD-WIN-CREDIT-PT-1**). Medium **SD-SCORE-STALE-1** landed (playtest owed
-**SD-SCORE-STALE-PT-1**). Medium **THOST-CEILING-1** landed (playtest owed
-**THOST-CEILING-PT-1**).
+day: **SHARD-PT-2**. New evidence **WARM-QP-ROTATE-1** (cap-364). Medium
+**THOST-CEILING-1** landed (playtest owed **THOST-CEILING-PT-1**).
 
 **Closed cards keep their narrative in their own docs, not here** — Sundial
 ([handover](./planning/art-pass-sundial-handover.md); read its "Traps that cost time" before any
@@ -85,7 +83,7 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. Playtest **INPUT-LOCK-PT-1** · **INPUT-LOCK-PT-2** · **SD-WIN-CREDIT-PT-1** · **THOST-CEILING-PT-1** after ship.
+1. Playtest **THOST-CEILING-PT-1** · **ZOMBIE-HOST-PICK-PT-1** after ship. Deferred: **SHARD-PT-2** (launch day) · **WARM-QP-ROTATE-PT-1**.
 
 ## Open issues (top)
 
@@ -103,8 +101,9 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 [decision-log-2026-08.md](./archive/decision-log-2026-08.md), 07-11 → 07-23 in
 [decision-log-2026-07.md](./archive/decision-log-2026-07.md).
 
+- **D-ZOMBIE-HOST-PICK-1** (08-16): host-away / host-repair pick from `#platformLiveConnIds()`, not `#connections.keys()`. Platform-dead peers cannot become host. Silent-open zombies still wait for the 20 s reaper. Playtest **ZOMBIE-HOST-PICK-PT-1** (2pc host-away regression).
 - **D-THOST-CEILING-1** (08-16): `tHost` gate is `|tHost − now| ≤ 60s` (replaces DEEPSEC-1's `1e12` abs cap). Playtest **THOST-CEILING-PT-1**.
-- **D-SD-SCORE-STALE-1** (08-16): `addScore` now commits before the SD-win callback so podium `host_round` carries the final point. Announcer leader lines skip SD. Playtest **SD-SCORE-STALE-PT-1**.
+- **D-SD-SCORE-STALE-1** (08-16): `addScore` now commits before the SD-win callback so podium `host_round` carries the final point. Announcer leader lines skip SD. **SD-SCORE-STALE-PT-1** Wyatt PASS 08-16.
 - **D-MENU-CMD-SKEW-1** (08-15): Menu entrance wrote `translateY`/`scale` on `.cr-cmd` and wiped `skewX(-8deg)`; leftover label `skewX(8deg)` leaned SOLO–SETTINGS left. Entrance now `fadeIn` only. **MENU-CMD-SKEW-PT-1** Wyatt PASS 08-16.
 - **D-CONN-TOASTS-1** (08-15): Friends join/leave toasts from `MSG.slots` human-connId diff + reap broadcast. **CONN-TOASTS-1** Wyatt PASS 08-15.
 - **D-AGENT-OS-2** (08-15): Slim `AGENTS.md` (plan B). Keep invariants + ack/lever/freeze/fast-lane. Define done/ship/playtest once. Routing, `loop:`, and post-ship poll become pointers (manual § routing, `self-improving-loop.mdc`, `deploy-urls.md`). Not a 40–60 line cut.
@@ -146,6 +145,13 @@ the dev loop (dev probes lie in prod · edge propagation · frozen `rAF`), or a 
 - **hostFreeze's freeze lever is CDP `Debugger.pause`** (HARNESS-FREEZE-1 re-ack, `2e30d8e`) — `Page.setWebLifecycleState({state:"frozen"})` resolves but never silences a page holding a live RTCPeerConnection (bfcache eligibility), and perfPump/focus-emulation defeat CPU-throttle fallbacks. Pause = genuine JS halt; the scenario waits a bounded grace for silence (in-flight sends land first) before measuring the 3s window. If it ever goes INCONCLUSIVE again, the halt didn't land — that's an environment regression, not netcode.
 
 ## Last updated
+
+2026-08-16 (ZOMBIE-HOST-PICK-1) — host-away / host-repair skip platform-dead
+ids. Playtest **ZOMBIE-HOST-PICK-PT-1**.
+
+2026-08-16 (INPUT-LOCK-PT-1 · INPUT-LOCK-PT-2 · SD-SCORE-STALE-PT-1 ·
+SD-WIN-CREDIT-PT-1) — Wyatt PASS on prod HEAD `fe6aa59f`. Parents
+**INPUT-LOCK-1** · **SD-SCORE-STALE-1** · **SD-WIN-CREDIT-1** closed.
 
 2026-08-16 (THOST-CEILING-1) — `tHost` gate `|tHost − now| ≤ 60s`. Playtest **THOST-CEILING-PT-1**.
 

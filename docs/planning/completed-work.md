@@ -13,17 +13,41 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 16, 2026 — ZOMBIE-HOST-PICK-1: skip platform-dead host successors
+
+- *(Engineering · Medium)* **ZOMBIE-HOST-PICK-1** — ✅ **DONE 08-16**. `#handleHostAway` and `#ensureLiveHost` now pick from `#platformLiveConnIds()` instead of `#connections.keys()`. A platform-dead peer (gone from `getConnections()`, still in `#connections` until the 20 s reaper) cannot become host; a 2-human room with one platform-dead peer does not migrate to the corpse. Silent-open sockets still wait for the reaper. Playtest owed: **ZOMBIE-HOST-PICK-PT-1** (2pc host-away regression; DO tests prove the zombie case). Sibling **ZOMBIE-ROOM-RESET-1** untouched. Not a reopen of NET-MIG-3 / CONN-TRACK-LEAK-1.
+
+### August 16, 2026 — playtest PASSes (INPUT-LOCK / SD)
+
+- *(Playtest · High)* **INPUT-LOCK-PT-1** — ✅ **PASS 08-16** on prod (HEAD
+  `fe6aa59f`). Host/solo cart stays still through 3-2-1. Boost does not charge
+  or fire before GO. Parent **INPUT-LOCK-1** closes with it.
+- *(Playtest · High)* **INPUT-LOCK-PT-2** — ✅ **PASS 08-16** on prod (HEAD
+  `fe6aa59f`). Guest who released W on the podium stays still through the next
+  3-2-1 and at GO. Parent **INPUT-LOCK-1** closes with it.
+- *(Playtest · Medium)* **SD-SCORE-STALE-PT-1** — ✅ **PASS 08-16** on prod (HEAD
+  `fe6aa59f`). Guest SD-win verdict shows the winner's full score with no
+  `(TIEBREAK)` suffix. finalScores + matchHistory + totalPoints include the
+  winning point. Parent **SD-SCORE-STALE-1** closes with it.
+- *(Playtest · High)* **SD-WIN-CREDIT-PT-1** — ✅ **PASS 08-16** on prod (HEAD
+  `fe6aa59f`). Guest Sudden Death win credits Clutch Winner on the guest
+  machine. Parent **SD-WIN-CREDIT-1** closes with it.
+
 ### August 16, 2026 — THOST-CEILING-1: host-clock tHost window
 
 - *(Engineering · Medium)* **THOST-CEILING-1** — ✅ **DONE 08-16**. `isPlausibleTHost` now accepts stamps within 60 s of local round-clock now and rejects `1e300` / toy `1000`. Dropped the `1e12` abs cap (Sep 2001) that rejected every 2026 epoch `tHost`, and dropped the sticky 5 s `lastAcceptedTHost` jump. Live snapshots sample `updateHostClockOffset` again. Playtest owed: **THOST-CEILING-PT-1**. Not a reopen of Run 7 / NET-PRES-1 / DEEPSEC-1.
 
 ### August 16, 2026 — SD-WIN-CREDIT-1: guest Sudden Death win credit
 
-- *(Engineering · High)* **SD-WIN-CREDIT-1** — ✅ **DONE 08-16** (`6e8085a1`). Non-hosts now latch their mirrored `isSuddenDeath` on first podium entry (`beginPodiumPresentation`), before the `MSG.round` payload applies its `false` — guest SD wins credit `SUDDEN_DEATH_WIN` (Clutch Winner daily `sd_win_3` + redMirror unlock) exactly like the host. Host/solo path untouched; no protocol or `party/` change — the already-relayed flag's pre-clear value is captured, and the apply ordering it depends on is pinned by `tests/orchestration/sdWinCredit.test.js`. Stalemate-timer SD wins now credit on guests too (host parity, intended). Playtest owed: **SD-WIN-CREDIT-PT-1**. Not a reopen of NET-SD-1.
+- *(Engineering · High)* **SD-WIN-CREDIT-1** — ✅ **DONE 08-16** (`6e8085a1`) + ✅ **PASS 08-16**. Non-hosts now latch their mirrored `isSuddenDeath` on first podium entry (`beginPodiumPresentation`), before the `MSG.round` payload applies its `false` — guest SD wins credit `SUDDEN_DEATH_WIN` (Clutch Winner daily `sd_win_3` + redMirror unlock) exactly like the host. Host/solo path untouched; no protocol or `party/` change — the already-relayed flag's pre-clear value is captured, and the apply ordering it depends on is pinned by `tests/orchestration/sdWinCredit.test.js`. Stalemate-timer SD wins now credit on guests too (host parity, intended). **SD-WIN-CREDIT-PT-1** Wyatt PASS 08-16. Not a reopen of NET-SD-1.
 
 ### August 16, 2026 — INPUT-LOCK-1: pre-GO input lock
 
-- *(Engineering · High)* **INPUT-LOCK-1** — ✅ **DONE 08-16** (`73289a96` + this commit). Countdown/lobby/podium now zero local `boostHeld`, skip remote and NPC apply, and silent-cancel a leaked local charge. Host remotes clear at `startCountdown` and `startRunningAt`. Drain drops leftover nitro/hop outside `running`. Playtest owed: **INPUT-LOCK-PT-1** (host/solo boost) · **INPUT-LOCK-PT-2** (guest rematch lurch). Not a reopen of COUNTDOWN-QUICKPLAY-1 / COUNTDOWN-LEAK-1.
+- *(Engineering · High)* **INPUT-LOCK-1** — ✅ **DONE 08-16** (`73289a96` · `a91ab2cf`) + ✅ **PASS 08-16**. Countdown/lobby/podium now zero local `boostHeld`, skip remote and NPC apply, and silent-cancel a leaked local charge. Host remotes clear at `startCountdown` and `startRunningAt`. Drain drops leftover nitro/hop outside `running`. **INPUT-LOCK-PT-1** · **INPUT-LOCK-PT-2** Wyatt PASS 08-16. Not a reopen of COUNTDOWN-QUICKPLAY-1 / COUNTDOWN-LEAK-1.
+
+### August 16, 2026 — SD-SCORE-STALE-1: SD podium score + stats
+
+- *(Engineering · Medium)* **SD-SCORE-STALE-1** — ✅ **DONE 08-16** (`f9e8e42c` · `630234f7`) + ✅ **PASS 08-16**. `addScore` commits the SD-winning point before the win callback so podium `host_round` carries the final score. Announcer leader/comeback lines skip Sudden Death. **SD-SCORE-STALE-PT-1** Wyatt PASS 08-16. Not a reopen of NET-SD-1.
 
 ### August 16, 2026 — PATTERNS-FOIL-1: foil on earned patterns
 
