@@ -78,8 +78,8 @@ Structural / product items after Ship. Full IDs: [BACKLOG.md § Tech Debt](./BAC
 
 | Task | ID | Notes |
 |------|-----|-------|
-| Deeper server-authoritative logic | TRUST-1 | Prerequisite for trusted leaderboard |
-| Persistent leaderboard | | Needs TRUST-1 |
+| Deeper server-authoritative logic | TRUST-1 | **Cut 08-17.** New ID if pulled later. |
+| Persistent leaderboard | LEADERBOARD-1 | **Cut 08-17.** New ID if pulled later. |
 | Carve `main.js` composition seam | MAIN-1 | Prerequisite for BUNDLE-1 |
 | Directive modifiers without mutating CONFIG | DIR-1 | |
 | Collapse gameState / gameStore | STORE-1 | ✅ closed 08-12 — facade deleted; commands live on `stores/gameStore.js` |

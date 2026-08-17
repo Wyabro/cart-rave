@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-17T19:02:22.403Z",
-    "commit": "2a5430ca"
+    "at": "2026-08-17T19:07:33.938Z",
+    "commit": "824e3aaf"
   },
-  "source_digest": "ae8c2620",
+  "source_digest": "ae1b579a",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -892,7 +892,7 @@
       {
         "title": "Engineering",
         "counts": {
-          "Medium": 7,
+          "Medium": 6,
           "Partial": 1,
           "Low": 14
         },
@@ -932,12 +932,6 @@
             "item": "PARTY-SERIALIZE-1 — `structuredClone` → flat serializer in `party/index.ts`",
             "notes": "Only after profiling shows it matters.",
             "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "LEADERBOARD-1 — Persistent leaderboard / player stats `[SHIP-1 D2]`",
-            "notes": "Needs TRUST-1.",
-            "ship1": "D2"
           },
           {
             "pri": "🟡 Partial",
@@ -1075,7 +1069,7 @@
       {
         "title": "Tech Debt",
         "counts": {
-          "Medium": 5,
+          "Medium": 4,
           "Low": 10
         },
         "rows": [
@@ -1106,13 +1100,6 @@
             "item": "Directive modifiers without mutating `CONFIG`",
             "notes": "",
             "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "id": "TRUST-1",
-            "item": "Worker validates host-asserted outcomes",
-            "notes": "Prerequisite for trusted leaderboard. Builds on SRV-TEST-1 helpers. `[SHIP-1 D1]` *(was also an Engineering row — deduped 08-01)*",
-            "ship1": "D1"
           },
           {
             "pri": "Low",
@@ -1275,15 +1262,15 @@
       },
       {
         "tier": "D",
-        "title": "Trust & leaderboard (biggest lift; builds on A5a's tested helpers)",
+        "title": "Trust & leaderboard (cut from V2)",
         "rows": [
           {
             "col0": "D1",
-            "item": "TRUST-1 — DO validates host-asserted outcomes (round timing, score plausibility, participant verification) instead of trusting the host client blindly"
+            "item": "TRUST-1 — DO validates host-asserted outcomes — **cut 08-17** on Wyatt's word. Never built. Closed."
           },
           {
             "col0": "D2",
-            "item": "Persistent leaderboard / player stats on TRUST-1 (SQLite DO, same infra as analytics)"
+            "item": "Persistent leaderboard / player stats — **cut 08-17** on Wyatt's word. Never built. Closed as LEADERBOARD-1."
           }
         ]
       },

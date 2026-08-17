@@ -70,12 +70,14 @@ opportunistically when touched — no dedicated refactor pass.
 | C2 | CARGO-VIS-1 — basket fill + overflow look (full bay; pile overflows the rim at boss/full) |
 | C3 | PATTERNS tab in customize UI — unblocked by C1 |
 
-## Tier D — Trust & leaderboard (biggest lift; builds on A5a's tested helpers)
+## Tier D — Trust & leaderboard (cut from V2)
+
+Wyatt 08-17: cut from launch. Not a ship-gate item. Later work needs new IDs.
 
 | # | Item |
 |---|------|
-| D1 | TRUST-1 — DO validates host-asserted outcomes (round timing, score plausibility, participant verification) instead of trusting the host client blindly |
-| D2 | Persistent leaderboard / player stats on TRUST-1 (SQLite DO, same infra as analytics) |
+| D1 | TRUST-1 — DO validates host-asserted outcomes — **cut 08-17** on Wyatt's word. Never built. Closed. |
+| D2 | Persistent leaderboard / player stats — **cut 08-17** on Wyatt's word. Never built. Closed as LEADERBOARD-1. |
 
 ## Tier E — Look, audio, presentation (final coat)
 
@@ -92,6 +94,7 @@ MAIN-1 (✅ closed 08-04) → ~~BUNDLE-1~~ (✅ closed partial 08-05) → ~~CHUN
 restore 08-08) → ~~CHUNK-DEFER-1~~ (✅ human path matrix PASS 08-09),
 ~~STORE-1~~ (✅ closed 08-12), DIR-1, GLTF-1, DUAL-1, TS-1, TOOL-1, monetization,
 WebGPU VFX, economy/XP — see [BACKLOG.md](./BACKLOG.md) Tech Debt + Future Ideas.
+**TRUST-1** / **LEADERBOARD-1** cut 08-17; a later board needs a new ID.
 Backlog rows not tagged `[SHIP-1 Tier X]` and not listed above default to post-launch
 unless Wyatt pulls them forward.
 

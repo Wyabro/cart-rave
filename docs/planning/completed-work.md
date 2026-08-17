@@ -13,6 +13,11 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 17, 2026 — TRUST-1 / LEADERBOARD-1 cut from V2
+
+- *(Tech Debt · Medium)* **TRUST-1** — ✅ **CLOSED 08-17 on Wyatt's word** (`[SHIP-1 D1]`). Never built. Worker still does not validate host-asserted outcomes. Cut from the V2 ship gate with **LEADERBOARD-1**. Host-authoritative Rapier stays. A later validation pass needs a new ID, not a reopen. Docs-only close; no game code in this commit.
+- *(Engineering · Medium)* **LEADERBOARD-1** — ✅ **CLOSED 08-17 on Wyatt's word** (`[SHIP-1 D2]`). Never built. No persistent leaderboard or player-stats store. Session scores, podium, Challenges, and match history stay. A later board needs a new ID, not a reopen.
+
 ### August 17, 2026 — CART-HUE-CUBES-1 / CART-HUE-CUBES-PT-1
 
 - *(Art · Low)* **CART-HUE-CUBES-1** — ✅ **DONE 08-17** (`9cd253e5`). Cubes filled faces

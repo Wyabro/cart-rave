@@ -248,7 +248,7 @@ Item IDs and “do not modernize” table: [BACKLOG.md § Tech Debt](../planning
 - **MAIN-1** — carve `main.js` composition seam (enables **BUNDLE-1** menu/game split)
 - **DIR-1** — Living Store modifiers without mutating `CONFIG`
 - **STORE-1** — collapse `gameState` / `gameStore` dual import surface — closed 08-12
-- **TRUST-1** — Worker validates host-asserted outcomes (for leaderboards; keep host Rapier)
+- **TRUST-1** — cut 08-17 with **LEADERBOARD-1**. New ID if a later host-outcome check is pulled. Host Rapier stays.
 - **GLTF-1** — drop legacy cart GLTF layout once cartrave4-only
 - **BRAND-1** — domain / Worker cutover ceremony ([brand.md](../brand.md))
 - **TS-1** — TypeScript on hot paths / TS 7 (deferred)
