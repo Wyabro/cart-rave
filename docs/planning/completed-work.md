@@ -13,6 +13,10 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 16, 2026 — LAST-STANDING-DEAD-1: delete Last Cart Standing
+
+- *(Engineering · Medium)* **LAST-STANDING-DEAD-1** — ✅ **DONE 08-16**. Wyatt delete call. Flourish / `LAST CART STANDING` verdict / Sole Survivor daily are gone. Sudden Death stays first-to-score (`endReason: "timer"`). Bolt pattern retargets to 8 Sudden Death wins (not 3 — that pair is redMirror / Clutch Winner). Server still accepts `endReason: "lastStanding"` from old tabs; non-max winner is now rejected; 0-0 lastStanding is a draw. `LAST_STANDING` event id stays inert. Playtest owed: **LAST-STANDING-DEAD-PT-1**. Not a reopen of NET-SD-1.
+
 ### August 16, 2026 — NPC-ABORT-BURST-1: cancel unsafe NPC charge-abort burst
 
 - *(Engineering · Medium)* **NPC-ABORT-BURST-1** — ✅ **DONE 08-16**. Host NPC charge abort hard-cancels (`axis.boostCancel` → `cancelNpcBoostCharge`) unless the locked target is live on the floor and the cart-yaw runway is clear. Close-range abort on open floor still early-releases (NPC-BOOST-2). Not a reopen of STOREROOMS-NPC-SELFKO. Playtest owed: **NPC-ABORT-BURST-PT-1**.

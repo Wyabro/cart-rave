@@ -72,8 +72,8 @@ detection needs no new netcode.
 | `victory` / `defeat` | Podium, local perspective | 100 | critical | once/match | none (results overlay owns it) |
 
 **Match Point** is a HUD status (≤15s + top-two within 1 point), not a separate PA event —
-`last_call` still owns the 10-second urgency beat. **Last Cart Standing** stays on the results
-overlay title + victory announcement rather than double-announcing at podium.
+`last_call` still owns the 10-second urgency beat. Last Cart Standing is deleted
+(LAST-STANDING-DEAD-1) — Sudden Death podium is a normal pts / TIEBREAK verdict.
 
 **Living Store PA:** cargo moments fire from `src/cargoLoad.js`; directive starts fire from
 `src/directives/directiveEngine.js`. Directive events use `focus: true` so non-critical callouts

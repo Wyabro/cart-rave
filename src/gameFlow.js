@@ -44,8 +44,6 @@ export function resetSuddenDeathStalemateForTest() {
  * @property {(nowMs: number, npc: object) => void} maybeTriggerNpcOpportunisticRamBoost
  * @property {(nowMs: number, npc: object) => void} [maybeTriggerNpcOpportunisticHop]
  * @property {() => void} endRound
- * @property {(slotIndex: number) => void} [scheduleLastCartStandingFinish]
- * @property {() => void} [abortLastCartStandingFlourish]
  * @property {(slot: object | null | undefined) => number} colorHexForSlot
  * @property {object | null | undefined} hud
  * @property {() => void} sendHostRound
@@ -458,32 +456,19 @@ export function updateGameFlow(deps, context) {
         }
       }
 
-      // * Live phase re-check: a Sudden Death win above ends the round mid-frame; the
-      // * winner would otherwise read as a sole survivor here and flip the podium's
-      // * endReason to "lastStanding" (wrong title + spurious slow-mo + extra host_round).
       if (!isTestDrive && deps.getRoundState().phase === "running") {
-        // * Last-cart-standing: sole cart not mid-fall/respawn wins after a flourish delay.
-        // * Skip spectator carts (frozen during Sudden Death) — only tied carts count.
+        // * Count carts still on the arena (skip SD spectators + mid-fall/respawn).
+        // * LAST-STANDING-DEAD-1: sole-survivor flourish is deleted. This count only
+        // * feeds the simultaneous-wipeout hang guard below.
         let aliveOnArena = 0;
-        let soleSurvivorSlot = -1;
         for (let si = 0; si < allCarts.length; si += 1) {
           const c = allCarts[si];
           if (!c?.body || c.respawnAtMs !== null || c.isSuddenDeathSpectator) continue;
           const pos = c.body.translation();
           if (pos.y < deps.CONFIG.fall.yThreshold) continue;
           aliveOnArena += 1;
-          soleSurvivorSlot = si;
         }
-        // * Last-cart-standing flourish is SD-only: timed-round respawn is 1s while the
-        // * flourish is 3s, so victims return and abort the flourish every time (AGENTS).
-        // * Scheduling mid-timed-round only spams host_round + slow-mo for nothing.
-        if (
-          aliveOnArena === 1
-          && soleSurvivorSlot >= 0
-          && deps.getRoundState().isSuddenDeath
-        ) {
-          deps.scheduleLastCartStandingFinish?.(soleSurvivorSlot);
-        } else if (aliveOnArena === 0 && deps.getRoundState().isSuddenDeath) {
+        if (aliveOnArena === 0 && deps.getRoundState().isSuddenDeath) {
           // * Simultaneous Sudden Death wipeout: the last tied carts all crossed the
           // * fall line on the SAME frame with no attacker credited, so no addScore
           // * ran and every tied cart is now a spectator. SD has no timeout, so the
@@ -493,7 +478,6 @@ export function updateGameFlow(deps, context) {
           // * the arena (aliveOnArena >= 1) so this won't re-fire.
           // * NET-SD-1: if scores are already untied (sole leader wiped themselves with
           // * nobody else up), re-seating would loop forever — crown second place instead.
-          deps.abortLastCartStandingFlourish?.();
           const sdScores = deps.getRoundScores();
           if (!suddenDeathResolvedThisFrame && !scoresAreTiedAtTop(sdScores)) {
             const fallbackSlot = pickSuddenDeathFallbackWinner(
@@ -517,8 +501,6 @@ export function updateGameFlow(deps, context) {
             );
             deps.sendHostRound();
           }
-        } else {
-          deps.abortLastCartStandingFlourish?.();
         }
       }
     }

@@ -50,7 +50,6 @@ import { displayCssColorForSlot } from "./cartIdentity.js";
 import { getPersonalStats, savePersonalStats } from "../ui/menuStats.js";
 import { STORAGE_KEYS, storageGet, storageSet } from "../utils/storage.js";
 
-const LAST_CART_STANDING_FLOURISH_MS = 3000;
 const PODIUM_SKIP_GRACE_MS = 450;
 
 /**
@@ -434,9 +433,6 @@ function updateResultsOverlay() {
     const challengeRoundKey = `${roundState.startedAtMs}:${roundState.winnerSlotIndex}`;
     if (isLocalWinner && podiumChallengesRecordedKey !== challengeRoundKey) {
       podiumChallengesRecordedKey = challengeRoundKey;
-      if (roundState.endReason === "lastStanding") {
-        ChallengeTracker.record(PROGRESSION_EVENTS.LAST_STANDING);
-      }
       if (lastRoundEndedInSuddenDeath) {
         ChallengeTracker.record(PROGRESSION_EVENTS.SUDDEN_DEATH_WIN);
       }
@@ -523,11 +519,7 @@ function updateResultsOverlay() {
           if (Number(scores[ti] ?? 0) === maxScore) tiedAtTop += 1;
         }
         const tieSuffix = tiedAtTop > 1 ? " (TIEBREAK)" : "";
-        if (roundState.endReason === "lastStanding") {
-          verdict.textContent = `${slotDisplayName(idx)} wins — LAST CART STANDING`;
-        } else {
-          verdict.textContent = `${slotDisplayName(idx)} wins — ${score} pts${tieSuffix}`;
-        }
+        verdict.textContent = `${slotDisplayName(idx)} wins — ${score} pts${tieSuffix}`;
         title.style.setProperty("--title-glow", displayCssColorForSlot(Netcode.getNetSlots()[idx]));
       } else {
         verdict.textContent = "ROUND COMPLETE";
@@ -538,7 +530,7 @@ function updateResultsOverlay() {
     finalScores.replaceChildren();
     /** @type {Array<{ row: HTMLElement, valEl: HTMLElement, score: number, isWinner: boolean, badge: HTMLElement | null, format?: (n: number) => string }>} */
     const scoreRows = [];
-    // * Winner pinned first explicitly — under lastStanding/Sudden Death they can
+    // * Winner pinned first explicitly — under Sudden Death they can
     // * hold a lower score than a fallen rival, so score-desc alone isn't enough.
     const rankedSlots = [0, 1, 2, 3].sort((a, b) => {
       const aWin = winnerIdx !== "draw" && winnerIdx === a;
@@ -891,34 +883,7 @@ function cancelLastCartStandingFinish() {
   gameCtx.slowMo.active = false;
 }
 
-function abortLastCartStandingFlourish() {
-  const hadFlourish = GameState.getRoundState().endReason === "lastStanding";
-  cancelLastCartStandingFinish();
-  if (hadFlourish && Netcode.getIsHost()) {
-    GameState.setRoundEndReason(null);
-    Netcode.sendHostRound();
-  }
-}
-
-function scheduleLastCartStandingFinish(soleSurvivorSlot) {
-  if (!Netcode.getIsHost()) return;
-  if (roundPodiumTimeoutId != null) return;
-  if (!gameCtx.slowMo.active) {
-    gameCtx.slowMo.active = true;
-    gameCtx.slowMo.startMs = performance.now();
-  }
-  if (GameState.getRoundState().endReason !== "lastStanding") {
-    GameState.setRoundEndReason("lastStanding");
-    Netcode.sendHostRound();
-  }
-  roundPodiumTimeoutId = setTimeout(() => {
-    roundPodiumTimeoutId = null;
-    if (GameState.getRoundState().phase !== "running") return;
-    endRound(soleSurvivorSlot);
-  }, LAST_CART_STANDING_FLOURISH_MS);
-}
-
-function endRound(lastStandingWinnerSlot = null) {
+function endRound(scoringSlot = null) {
   if (GameState.getRoundState().phase !== "running") return;
   // * ROUND-WEDGE-1 Phase B: after a server podium reject, gameFlow would re-enter
   // * here every frame. Latch is send-counted + time-gated retry (see podiumEndLatch).
@@ -941,15 +906,12 @@ function endRound(lastStandingWinnerSlot = null) {
     // * run-6 stalemate timeout: nobody forced a KO, resolve by the standard
     // * most-recent-scoring-hit tiebreak instead of hanging forever.
     GameState.setRoundEndReason("timer");
-    const sdWinner = lastStandingWinnerSlot != null && Number.isFinite(lastStandingWinnerSlot)
-      ? lastStandingWinnerSlot
+    const sdWinner = scoringSlot != null && Number.isFinite(scoringSlot)
+      ? scoringSlot
       : GameState.pickTimerWinner(GameState.getRoundScores());
     GameState.setRoundWinnerSlotIndex(sdWinner);
     GameState.setSuddenDeath(false);
     cleanupSuddenDeathState(getAllCartsRef() || []);
-  } else if (lastStandingWinnerSlot != null && Number.isFinite(lastStandingWinnerSlot)) {
-    GameState.setRoundEndReason("lastStanding");
-    GameState.setRoundWinnerSlotIndex(lastStandingWinnerSlot);
   } else {
     GameState.setRoundEndReason("timer");
     const scores = GameState.getRoundScores();
@@ -1178,8 +1140,6 @@ function onHostPlayAgainClick() {
     resumeCountdownAsNewHost,
     ensureSuddenDeathStateAsNewHost,
     cancelLastCartStandingFinish,
-    abortLastCartStandingFlourish,
-    scheduleLastCartStandingFinish,
     endRound,
     clearAutoContinuePodiumTimeout,
     currentPodiumAutoContinueKey,

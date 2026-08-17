@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-17T02:04:29.056Z",
-    "commit": "fcdde64b"
+    "at": "2026-08-17T02:22:29.968Z",
+    "commit": "0e6c0c9e"
   },
-  "source_digest": "30a4aa13",
+  "source_digest": "1b508020",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -880,14 +880,9 @@
       }
     ],
     "next_actions": [
-      "Playtest THOST-CEILING-PT-1 · ZOMBIE-HOST-PICK-PT-1 · GAMEPAD-FREEZE-PT-1 ([pad]) after ship. NPC-ABORT-BURST-PT-1 on `npm run dev` until ship. Deferred: SHARD-PT-2 (launch day) · WARM-QP-ROTATE-PT-1."
+      "Playtest THOST-CEILING-PT-1 · ZOMBIE-HOST-PICK-PT-1 · GAMEPAD-FREEZE-PT-1 ([pad]) after ship. NPC-ABORT-BURST-PT-1 · LAST-STANDING-DEAD-PT-1 on `npm run dev` until ship. Deferred: SHARD-PT-2 (launch day) · WARM-QP-ROTATE-PT-1."
     ],
     "open_issues": [
-      {
-        "id": "LAST-STANDING-DEAD-1",
-        "issue": "Last Cart Standing never fires",
-        "status": "👤 revive-vs-delete — Wyatt call"
-      },
       {
         "id": "BRAND-1",
         "issue": "Domain / Worker cutover",
@@ -900,7 +895,7 @@
       {
         "title": "Engineering",
         "counts": {
-          "Medium": 9,
+          "Medium": 8,
           "Partial": 1,
           "Low": 14
         },
@@ -921,12 +916,6 @@
             "pri": "Medium",
             "item": "SD-SPECTATOR-CHARGE-1 — eliminated SD spectator can start a phantom charge; charge-up SFX loops up to the 45s cap",
             "notes": "**Filed 08-16 from the gameplay bug audit (adversarially reviewed).** The local boost handlers gate only on menu + `phase === \"running\"` ([main.js](../../src/main.js) ~570-576, ~583-591) — SD overtime is still \"running\" for eliminated players. `triggerRamBoost` starts the charge plus the looping charge-up SFX, but the sim skips spectator carts, so it can never release or cancel; nothing stops the loop until `endRound`'s `stopAllChargeSfx()`. Get KO'd in SD, hold boost while watching → whine loops for up to 45s. Audio-only, no outcome effect; fix is a spectator gate in the handlers (or in `triggerRamBoost`).",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "LAST-STANDING-DEAD-1 — Last Cart Standing is dead end-to-end: flourish unreachable, verdict + Sole Survivor challenge + server `lastStanding` branch never fire",
-            "notes": "**Filed 08-16 from the gameplay bug audit (adversarially reviewed).** Traced every SD resolution branch: ram-kill with one tied survivor, self-fall with one survivor, leader-self-fall fallback, and simultaneous wipeout all call `addScore` synchronously, which ends the round before the live-phase re-check can ever see `aliveOnArena === 1` — `scheduleLastCartStandingFinish` is effectively unreachable (stuck-respawn is instant via `doRespawn`, and disconnects convert to NPC, so no lone-survivor window exists). On top of that, `endRound`'s SD branch overwrites `endReason:\"lastStanding\"` with `\"timer\"` (roundLifecycle.js ~927-945; the `else if` that sets it is dead code — every slot-passing caller runs during SD). Dead as a result: the \"LAST CART STANDING\" verdict text (~518-521), the `LAST_STANDING` / Sole Survivor challenge (~429-431), and the server's `lastStanding` validation branch ([roundValidation.ts](../../../party/roundValidation.ts) ~217-242). **Blocked on Wyatt: revive-vs-delete call before this is actionable** — revive the flourish path (and fix the overwrite) or delete the feature end-to-end. Not a reopen of NET-SD-1.",
             "ship1": null
           },
           {
@@ -1109,10 +1098,16 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Medium": 5,
+          "Medium": 6,
           "Low": 1
         },
         "rows": [
+          {
+            "pri": "Medium",
+            "item": "LAST-STANDING-DEAD-PT-1 — Last Cart Standing is gone; bolt is 8 SD wins",
+            "notes": "**Owed: Wyatt playtest — LAST-STANDING-DEAD-PT-1 — Sudden Death podium is a normal pts / TIEBREAK win; Sole Survivor is gone; bolt hint is 8 Sudden Death wins.** Parent **LAST-STANDING-DEAD-1**. Solo. Hard-refresh. Pushed but not yet deployed — `npm run dev` until ship.<br>1. Solo. Force Sudden Death (tie the 150s clock).<br>2. KO the last tied rival. FAIL if 3s slow-mo plays or the verdict says LAST CART STANDING. PASS if the podium is a normal SD win (pts / TIEBREAK).<br>3. Open Challenges. FAIL if Sole Survivor is still listed. PASS if Clutch Winner still exists and Sole Survivor is gone.<br>4. Open Patterns. FAIL if bolt still says Last Cart Standing or unlocks from 3 SD wins. PASS if the hint is 8 Sudden Death wins and bolt stays locked below 8.",
+            "ship1": null
+          },
           {
             "pri": "Medium",
             "item": "NPC-ABORT-BURST-PT-1 — unsafe NPC charge-abort does not burst into a void",
@@ -1492,6 +1487,11 @@
       "Cross-module change? Read docs/reference/control-flow.md first — most edges are not imports."
     ],
     "settled_decisions": [
+      {
+        "id": "D-LAST-STANDING-DEAD-1",
+        "date": "08-16",
+        "text": "delete Last Cart Standing. Bolt → 8 SD wins. lastStanding wire accepted; non-max rejected. Playtest LAST-STANDING-DEAD-PT-1."
+      },
       {
         "id": "D-NPC-ABORT-BURST-1",
         "date": "08-16",

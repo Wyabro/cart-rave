@@ -123,8 +123,6 @@ function makeSuddenDeathWorld() {
     maybeTriggerNpcOpportunisticRamBoost: vi.fn(),
     maybeTriggerNpcOpportunisticHop: vi.fn(),
     endRound: vi.fn(),
-    scheduleLastCartStandingFinish: vi.fn(),
-    abortLastCartStandingFlourish: vi.fn(),
     colorHexForSlot: () => 0xffffff,
     hud: null,
     sendHostRound: vi.fn(),

@@ -447,20 +447,39 @@ describe("validateHostRound — winner verification", () => {
     expect(out).toBeNull();
   });
 
-  // * Documented trust boundary: on a lastStanding finish the server does NOT require the
-  // * claimed winner to hold the max score — the last cart standing wins even if it scored
-  // * fewer points. A compromised host can therefore crown any slot in a lastStanding round.
-  // * This is intentional for a casual party game; pinning it here so the decision is explicit.
-  it("trusts the host's winner pick on a lastStanding finish (non-max slot allowed)", () => {
+  // * LAST-STANDING-DEAD-1: lastStanding is still a valid endReason string (old tabs)
+  // * but uses the same max-score rule as timer. The old non-max trust hole is gone.
+  it("rejects a lastStanding winner that does not hold the max score", () => {
     const prev = prevRunning({ 0: 5, 1: 3, 2: 0, 3: 0 });
     const out = validateHostRound(
       prev,
       { phase: "podium", winnerSlotIndex: 2, endReason: "lastStanding" },
       now,
     );
+    expect(out).toBeNull();
+  });
+
+  it("accepts a lastStanding winner that holds the max score", () => {
+    const prev = prevRunning({ 0: 5, 1: 3, 2: 0, 3: 0 });
+    const out = validateHostRound(
+      prev,
+      { phase: "podium", winnerSlotIndex: 0, endReason: "lastStanding" },
+      now,
+    );
     expect(out).not.toBeNull();
-    expect(out.winnerSlotIndex).toBe(2); // slot 2 scored 0 yet is accepted
+    expect(out.winnerSlotIndex).toBe(0);
     expect(out.endReason).toBe("lastStanding");
+  });
+
+  it("records a 0-0 lastStanding finish as a draw", () => {
+    const prev = prevRunning({ 0: 0, 1: 0, 2: 0, 3: 0 });
+    const out = validateHostRound(
+      prev,
+      { phase: "podium", winnerSlotIndex: 2, endReason: "lastStanding" },
+      now,
+    );
+    expect(out).not.toBeNull();
+    expect(out.winnerSlotIndex).toBe("draw");
   });
 });
 

@@ -99,8 +99,6 @@ function makeTimedWorld(scores) {
     maybeTriggerNpcOpportunisticRamBoost: vi.fn(),
     maybeTriggerNpcOpportunisticHop: vi.fn(),
     endRound: vi.fn(() => { roundState.phase = "podium"; }),
-    scheduleLastCartStandingFinish: vi.fn(),
-    abortLastCartStandingFlourish: vi.fn(),
     colorHexForSlot: () => 0xffffff,
     hud: null,
     sendHostRound: vi.fn(),

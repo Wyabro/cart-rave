@@ -69,7 +69,7 @@ export const PATTERN_UNLOCKS = {
   // * combo_t2 fires at comboTier 2 = SAVAGE (config.js combos table), not RAMPAGE.
   dots: { event: PROGRESSION_EVENTS.COMBO_T2, goal: 8, hint: "Reach SAVAGE 8 times" },
   waves: { event: PROGRESSION_EVENTS.COMBO_T3, goal: 5, hint: "Reach CARNAGE 5 times" },
-  bolt: { event: PROGRESSION_EVENTS.LAST_STANDING, goal: 3, hint: "3 Last Cart Standing wins" },
+  bolt: { event: PROGRESSION_EVENTS.SUDDEN_DEATH_WIN, goal: 8, hint: "8 Sudden Death wins" },
   honeycomb: { event: PROGRESSION_EVENTS.KO_VOID, goal: 10, hint: "10 KOs" },
   diamond: { event: PROGRESSION_EVENTS.KO_NPC, goal: 15, hint: "15 NPC KOs" },
   cubes: { event: PROGRESSION_EVENTS.KO_VOID, goal: 50, hint: "50 KOs" },

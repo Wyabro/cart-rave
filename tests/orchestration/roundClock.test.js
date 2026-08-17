@@ -117,8 +117,6 @@ describe("updateGameFlow round timer (injected roundNowMs)", () => {
       maybeTriggerNpcOpportunisticRamBoost: vi.fn(),
       maybeTriggerNpcOpportunisticHop: vi.fn(),
       endRound,
-      scheduleLastCartStandingFinish: vi.fn(),
-      abortLastCartStandingFlourish: vi.fn(),
       colorHexForSlot: () => 0xffffff,
       hud: null,
       sendHostRound: vi.fn(),

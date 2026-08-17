@@ -10,7 +10,6 @@ export const CHALLENGE_POOL = [
   { id: 'combo_t2_5', type: 'daily', title: 'Double Impact', description: 'Reach SAVAGE 5 times', goal: 5, event: PROGRESSION_EVENTS.COMBO_T2 },
   { id: 'combo_t3_10', type: 'weekly', title: 'Combo King', description: 'Reach CARNAGE 10 times', goal: 10, event: PROGRESSION_EVENTS.COMBO_T3 },
   { id: 'ko_void_3', type: 'daily', title: 'Void Sender', description: 'Knock 3 opponents into the void', goal: 3, event: PROGRESSION_EVENTS.KO_VOID },
-  { id: 'last_standing_2', type: 'daily', title: 'Sole Survivor', description: 'Win 2 rounds as Last Cart Standing', goal: 2, event: PROGRESSION_EVENTS.LAST_STANDING },
   { id: 'round_complete_3', type: 'daily', title: 'Clocked In', description: 'Finish 3 rounds', goal: 3, event: PROGRESSION_EVENTS.ROUND_COMPLETE },
   { id: 'round_win_1', type: 'daily', title: 'Checkout Champion', description: 'Win 1 round', goal: 1, event: PROGRESSION_EVENTS.ROUND_WIN },
   { id: 'combo_t3_2', type: 'daily', title: 'Bulk Damage', description: 'Reach CARNAGE 2 times', goal: 2, event: PROGRESSION_EVENTS.COMBO_T3 },

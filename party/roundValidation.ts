@@ -236,20 +236,9 @@ export function validateHostRound(
         // * Host claimed draw but at least one slot has points — reject.
         return null;
       }
-      // * lastStanding with zero scores: the host-authoritative winner slot is preserved
-      // * (e.g. sole survivor in a pure-SD eliminator where nobody scored beforehand).
-      // * Timer/null rounds with zero scores remain a draw — no scorer, no winner.
-      if (lastStanding) {
-        // * Require a real integer slot — Number(null)/Number("")/Number(false) is 0
-        // * and would crown slot 0. Missing slot → draw, not slot 0.
-        if (typeof winnerRaw === "number" && Number.isInteger(winnerRaw) && winnerRaw >= 0 && winnerRaw <= 3) {
-          winnerSlotIndex = winnerRaw;
-        } else {
-          winnerSlotIndex = "draw";
-        }
-      } else {
-        winnerSlotIndex = "draw";
-      }
+      // * LAST-STANDING-DEAD-1: lastStanding no longer crowns a host-picked slot
+      // * at 0-0. Zero scores are a draw, same as timer.
+      winnerSlotIndex = "draw";
       if (endReason !== "timer" && endReason !== "lastStanding") {
         endReason = null;
       }
@@ -258,7 +247,9 @@ export function validateHostRound(
         return null;
       }
       const w = winnerRaw;
-      if (!lastStanding && (scores[w] ?? 0) < maxScore) {
+      // * LAST-STANDING-DEAD-1: lastStanding uses the same max-score rule as timer.
+      // * The string is still accepted (old tabs); the non-max trust hole is gone.
+      if ((scores[w] ?? 0) < maxScore) {
         return null;
       }
       winnerSlotIndex = w;

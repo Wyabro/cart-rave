@@ -50,6 +50,7 @@ describe("challengeStore active capacity and migration", () => {
         { id: "spill_50", progress: 10, isComplete: false },
         { id: "ko_void_3", progress: 99, isComplete: false },
         { id: "last_standing_2", progress: "bad", isComplete: true },
+        { id: "round_win_1", progress: "bad", isComplete: true },
       ],
       weeklyChallenges: [{ id: "combo_t3_10", progress: 99, isComplete: false }],
       lastDailyReset: Date.now() + 100000,
@@ -60,8 +61,9 @@ describe("challengeStore active capacity and migration", () => {
     expect(state.dailyChallenges.find((c) => c.id === "ko_void_3")).toEqual({
       id: "ko_void_3", progress: 3, isComplete: true,
     });
-    expect(state.dailyChallenges.find((c) => c.id === "last_standing_2")).toEqual({
-      id: "last_standing_2", progress: 0, isComplete: false,
+    expect(state.dailyChallenges.some((c) => c.id === "last_standing_2")).toBe(false);
+    expect(state.dailyChallenges.find((c) => c.id === "round_win_1")).toEqual({
+      id: "round_win_1", progress: 0, isComplete: false,
     });
     expect(state.weeklyChallenges.find((c) => c.id === "combo_t3_10")).toEqual({
       id: "combo_t3_10", progress: 10, isComplete: true,
@@ -127,7 +129,7 @@ describe("challengeStore active capacity and migration", () => {
         { id: "spill_15", progress: 0, isComplete: false },
         { id: "combo_t2_5", progress: 0, isComplete: false },
         { id: "ko_void_3", progress: 0, isComplete: false },
-        { id: "last_standing_2", progress: 0, isComplete: false },
+        { id: "round_win_1", progress: 0, isComplete: false },
       ];
       const outgoingWeekly = [
         { id: "spill_50", progress: 0, isComplete: false },
