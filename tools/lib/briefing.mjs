@@ -57,7 +57,7 @@ export const BRIEFING_READ_ORDER =
   `**Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → \`npm run dashboard\` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.`;
 
 export const BRIEFING_BEFORE_TOUCH =
-  `**Before you touch code:** (1) Plan → Wyatt ack → apply, acked **per wave** — one plan covering every lever plus its playtest checklist, one ack, then one commit per lever. BRIEFING's ACTIVE CARD names the card, not permission to edit. (2) **Look up** the files you are touching in [docs/ARCHITECTURE.json](./ARCHITECTURE.json) — \`Select-String -Path docs/ARCHITECTURE.json -Pattern <filename> -Context 4,12\`. Never read it whole; it is ~30,000 tokens. (3) During a game card, do not commit to \`tools/\` · \`.claude/hooks/\` · \`.agents/\` — file it to BACKLOG instead.`;
+  `**Before you touch code:** (1) Assess and state the lane by blast radius: **Routine** proceeds after stated intent; **Standard** and **Critical** require Wyatt ack. Escalate before continuing if scope or risk grows. BRIEFING's ACTIVE CARD names the card, not the lane or permission to edit. (2) **Look up** the files you are touching in [docs/ARCHITECTURE.json](./ARCHITECTURE.json) — \`Select-String -Path docs/ARCHITECTURE.json -Pattern <filename> -Context 4,12\`. Never read it whole; it is ~30,000 tokens. (3) During a game card, do not commit to \`tools/\` · \`.claude/hooks/\` · \`.agents/\` — file it to BACKLOG instead.`;
 
 /**
  * Digest input for static header/template lines (no git metadata, no Source digest line).
@@ -139,7 +139,7 @@ export function renderBriefingBody(statusMd) {
     `${now.text}${now.expect ? `\nPass looks like: ${now.expect}` : ""}`,
   ];
   if (now.kind === "queue" || now.kind === "plan") {
-    lines.push(``, `Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.`);
+    lines.push(``, `Assess and state the lane before editing. This heading names the card; it is **not** a lane assessment or permission to edit.`);
   }
   if (active.length === 0 && agentActionable.length > 0) {
     lines.push(``, `Self-directed queue (one at a time, within the declared phase):`, ...agentActionable.map(row));

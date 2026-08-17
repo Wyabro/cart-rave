@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-17T18:29:51.086Z",
-    "commit": "ebf103a0"
+    "at": "2026-08-17T18:38:29.026Z",
+    "commit": "7dd3966d"
   },
-  "source_digest": "e7943a5a",
+  "source_digest": "f49e0ff4",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1417,12 +1417,14 @@
       "npm run dashboard — observed evidence (git HEAD, gates, captures) when you can run npm."
     ],
     "execution_loop": [
-      "Plan → Wyatt ack → apply, per WAVE. One plan (goal · files · asserts · risks · playtest",
-      "One lever per commit; mid-wave abort if a lever fails. One card at a time; ideas → BACKLOG.",
-      "Fast lane (all must hold): one file · stated symptom only · no new file, dependency, `CONFIG` key, or URL query flag ·",
+      "Agents assess and state the lane before editing. Wyatt does not classify work for them.",
+      "Routine: reversible, localized, non-player-visible work that does not touch an architecture",
+      "Standard: localized player-visible behavior or a coherent multi-file change without Critical",
+      "Critical: physics, netcode, architecture invariants, shared production infrastructure,",
+      "Commit coherent changes. Do not split one behavior into ceremonial levers. Abort the wave if",
       "Game-card freeze: no commits to `tools/`, `.claude/hooks/`, `.agents/`, or Command Center styling.",
       "Timebox: ~45 min or 3 failed approaches → STATUS findings (5 lines) →",
-      "Done (only definition): `npm run qa` green by number + pushed to `origin/cart-clash` +",
+      "Done: Routine has focused checks green; Standard has focused checks plus `npm run qa` green",
       "Post-lever: no notification-driven follow-ups, no baseline worktrees, no `npm run states` gate"
     ],
     "routing": [
@@ -1450,7 +1452,7 @@
       "Diff quality: delete old paths in the same commit; no speculative knobs; no stopgaps —"
     ],
     "do_nots": [
-      "AGENTS.md applies in full and is not summarised here — plan → ack → apply per wave · one card at a time · `tools/` · `.claude/hooks/` · `.agents/` frozen during a game card · ship only on \"ship it\" · never `git add -A` · the ▶ phase marker is Wyatt's. Read it before editing; this list carries only the project-specific prohibitions below.",
+      "AGENTS.md applies in full and is not summarised here — agent states Routine / Standard / Critical before editing · Standard and Critical require ack · one card at a time · `tools/` · `.claude/hooks/` · `.agents/` frozen during a game card · ship only on \"ship it\" · never `git add -A` · the ▶ phase marker is Wyatt's. Read it before editing; this list carries only the project-specific prohibitions below.",
       "Do not re-open closed evidence (Run 7 · NET-1 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 · HUD-MENU-1 · CAM-1 · RC-1 A/B/C · P6 · parked NH-HIT / NH-SMOOTH), nor anything under Verified healthy / non-issues in project-state.md §5, without new evidence.",
       "Do not re-try the reverted host-countdown gate (`c8df8fd`) — the lever is pre-warming the room's arena programs before the countdown, not delaying the countdown.",
       "No silent pure-black WebGL frames as an accepted \"look\". Solo polish before deep multiplayer features; prefer quality-preserving perf fixes and measure before/after."
@@ -1499,6 +1501,11 @@
       "Cross-module change? Read docs/reference/control-flow.md first — most edges are not imports."
     ],
     "settled_decisions": [
+      {
+        "id": "D-WORK-LANES-1",
+        "date": "08-17",
+        "text": "agents self-classify Routine / Standard / Critical by blast radius and state the lane before editing. Routine proceeds after intent with focused checks; Standard and Critical require ack and one wave-boundary QA; Critical adds adversarial review and risk-specific proof. Scope growth escalates the lane."
+      },
       {
         "id": "D-SPILL-RAM-CREDIT-1",
         "date": "08-17",

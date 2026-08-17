@@ -24,10 +24,11 @@ History: [docs/archive/](docs/archive/README.md), not STATUS.
 
 ```text
 You are working on Cart Clash (repo cart-rave, branch cart-clash). Read docs/BRIEFING.md,
-then AGENTS.md, then the top of docs/STATUS.md. Plan → Wyatt ack → apply before any edit.
-Ack is per WAVE. One card at a time. Do not touch tools/, .claude/hooks/, or .agents/
-during a game card. Gates: npm run qa — report by number. Ship only on "ship it"; never
-git add -A. Never claim "done" without pulling cart-clash and verifying HEAD.
+then AGENTS.md, then the top of docs/STATUS.md. Assess and state the work lane before editing:
+Routine proceeds after stated intent; Standard and Critical require Wyatt ack. One card at a
+time. Do not touch tools/, .claude/hooks/, or .agents/ during a game card. Match gates to the
+lane and report by number. Ship only on "ship it"; never git add -A. Never claim "done"
+without pulling cart-clash and verifying HEAD.
 ```
 
 Cart Clash: browser **4-player shopping-cart physics sumo**. Production:
@@ -49,19 +50,32 @@ Branch: **`cart-clash`**. Deploy map: [docs/guides/deploy-urls.md](docs/guides/d
 
 ## HOW WORK IS EXECUTED
 
-- **Plan → Wyatt ack → apply, per WAVE.** One plan (goal · files · asserts · risks · playtest
-  checklist), one ack, then levers. **ACTIVE CARD names the card — not permission to edit.**
-- **One lever per commit**; mid-wave abort if a lever fails. One card at a time; ideas → BACKLOG.
-  Game levers use `CARD-ID: imperative summary`; documentation commits use `docs:`, and
-  architecture-manifest maintenance uses `arch:`.
-- **Fast lane** (all must hold): one file · stated symptom only · no new file, dependency, `CONFIG` key, or URL query flag ·
-  not invariants · not `main.js` / `party/` / `src/netcode*` / physics / player-visible.
-  Still needs one-line intent + go + `npm run qa` + commit. Grows past that → full wave plan.
+- **Agents assess and state the lane before editing.** Wyatt does not classify work for them.
+  Choose by blast radius, not estimated effort; uncertainty selects the higher lane. If scope or
+  risk grows, stop and move up before continuing. **ACTIVE CARD names the card, not the lane or
+  permission to edit.**
+- **Routine:** reversible, localized, non-player-visible work that does not touch an architecture
+  invariant, `main.js`, `party/`, `src/netcode*`, or physics and adds no dependency, `CONFIG` key,
+  or URL flag. State intent, then proceed without ack. Run focused checks; full `npm run qa` is
+  optional unless the focused contract cannot be isolated.
+- **Standard:** localized player-visible behavior or a coherent multi-file change without Critical
+  risk. Give a brief plan (goal · files · asserts · risks · playtest when applicable), get one Wyatt
+  ack, run focused checks while working, then one `npm run qa` at the wave boundary.
+- **Critical:** physics, netcode, architecture invariants, shared production infrastructure,
+  destructive work, or release execution. Give a full plan plus adversarial review, get Wyatt ack,
+  and run broad risk-specific proof in addition to `npm run qa` (build, battery, playtest, or live
+  verification as applicable). `ship it` remains separate authorization.
+- **Commit coherent changes.** Do not split one behavior into ceremonial levers. Abort the wave if
+  an asserted lever fails. One card at a time; ideas → BACKLOG. Game commits use
+  `CARD-ID: imperative summary`; documentation commits use `docs:`, and architecture-manifest
+  maintenance uses `arch:`.
 - **Game-card freeze:** no commits to `tools/`, `.claude/hooks/`, `.agents/`, or Command Center styling.
 - **Timebox:** ~45 min or 3 failed approaches → STATUS findings (5 lines) →
   `.agents/skills/systematic-debugging` → hand off / ask Wyatt.
-- **Done** (only definition): `npm run qa` green **by number** + pushed to `origin/cart-clash` +
-  `verify:head` + briefing fresh + STATUS at wave boundary. Behavior change → seed BACKLOG
+- **Done:** Routine has focused checks green; Standard has focused checks plus `npm run qa` green
+  **by number**; Critical also has its risk-specific proof. Any committed change must be pushed to
+  `origin/cart-clash` with `verify:head`, briefing fresh, and STATUS updated at its wave boundary.
+  Behavior change → seed BACKLOG
   `## Playtest owed` and run `npm run playtest:console`. Confirm
   `.diag-captures/playtest-queue.json` lists the id with `steps` before you hand him the console.
   Close / seed format: [BACKLOG.md](docs/planning/BACKLOG.md) header.
@@ -75,8 +89,8 @@ Branch: **`cart-clash`**. Deploy map: [docs/guides/deploy-urls.md](docs/guides/d
 - No live URL and no prod playtest until the post-ship poll finds zero 404 responses and the
   expected symbol in the deployed bundle. Poll steps: [docs/guides/deploy-urls.md](docs/guides/deploy-urls.md).
   Do not deploy near a public post.
-- No `git add -A`. Report gates by number. STATUS at wave boundaries only. One `qa` per wave
-  when possible.
+- No `git add -A`. Report gates by number. STATUS at wave boundaries only. One `qa` per Standard
+  or Critical wave when possible; Routine uses focused checks.
 - Playtest: one issue per card.
 
 **Shared enforcement:** git hooks (`npm run setup`) regenerate BRIEFING/ARCHITECTURE; use

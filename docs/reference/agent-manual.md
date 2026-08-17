@@ -50,13 +50,12 @@ fresh web chats), paste this verbatim to start a session:
 
 ```text
 You are working on Cart Clash (repo cart-rave, branch cart-clash). Read docs/BRIEFING.md,
-then AGENTS.md, then the top of docs/STATUS.md, and follow them. Plan → Wyatt ack → apply
-before any edit (ACTIVE CARD names the card, not permission to code). Ack is per WAVE: one
-plan covering every lever in the wave plus its playtest checklist, one ack, then execute —
-one commit per lever, stopping if a lever fails its asserts. One card at a time. Do not touch
-tools/ or .claude/hooks/ during a game card. Gates: npm run qa — report results by number.
-Ship only on Wyatt's explicit "ship it"; never git add -A. Never claim "done" without pulling
-cart-clash and verifying HEAD.
+then AGENTS.md, then the top of docs/STATUS.md, and follow them. Assess and state the lane
+before editing: Routine proceeds after stated intent; Standard and Critical require Wyatt ack.
+ACTIVE CARD names the card, not the lane or permission to code. One card at a time. Do not
+touch tools/ or .claude/hooks/ during a game card. Match gates to the lane and report results
+by number. Ship only on Wyatt's explicit "ship it"; never git add -A. Never claim "done"
+without pulling cart-clash and verifying HEAD.
 ```
 
 **History lives in [docs/archive/](docs/archive/README.md), not in STATUS.md.** STATUS.md
@@ -235,7 +234,8 @@ falsifiable against a diff: if you cannot point at the line that violates it, it
   is actually in HEAD.** The remote is authoritative; a local grep is not. Post-deploy, fetch
   the deployed asset and `Select-String` for the new code — local grep alone has produced
   false positives.
-- **Report gate results by number.** Prefer `npm run qa` before claiming done. Also run
+- **Report gate results by number.** Use focused checks for Routine and `npm run qa` once for
+  Standard or Critical before claiming done. Also run
   `npm run build` when the change touches the client bundle. State the actual numbers you
   saw (test count drifts; do not hardcode stale totals).
 - **No unpushed claims.** If you changed something locally, call it **"unpushed"** until it
@@ -248,8 +248,9 @@ falsifiable against a diff: if you cannot point at the line that violates it, it
 - **PowerShell environment:** `Select-String`, not `grep`; single-line commit messages
   (`-m "…"`). `room.getConnections()` returns an **iterator** — use spread or `for…of`,
   never `.map().join()`.
-- **Diff before apply.** Same as HOW WORK step 0: plan → Wyatt ack → apply, acked **per wave**.
-  No exception for "the card was obvious" or "BRIEFING said ACTIVE CARD."
+- **Diff before apply.** Same as HOW WORK step 0: assess and state the lane first. Routine may
+  proceed after intent; Standard and Critical require Wyatt ack. BRIEFING's ACTIVE CARD is never
+  a lane assessment or permission.
 - **Update `docs/STATUS.md` at wave boundaries, not per lever** (focus / next / gotchas /
   decisions). One STATUS edit per wave, not one per commit — a docs-only commit between every
   lever is how 137 of 374 commits in a fortnight came to touch nothing but `docs/`.
@@ -283,8 +284,9 @@ falsifiable against a diff: if you cannot point at the line that violates it, it
   Concretely: **move files with shell commands, never re-emit a document you already have**
   (relocating a 350-line plan by retyping it was this session's single largest spend); **never
   `grep -C` `BACKLOG.md`/`STATUS.md`** — their rows are essay-length single lines, so "a little
-  context" is thousands of tokens (use line-ranged reads); **one docs commit and one `npm run qa`
-  per wave**, not per finding — each docs commit drags a briefing + arch regeneration behind it.
+  context" is thousands of tokens (use line-ranged reads); **one docs commit per wave and one
+  `npm run qa` per Standard or Critical wave**, not per finding — each docs commit drags a
+  briefing + arch regeneration behind it.
 
 ### Enforcement
 
@@ -309,31 +311,25 @@ Details: [docs/guides/hook-enforcement.md](docs/guides/hook-enforcement.md).
 The same loop in every tool — Cursor, Antigravity, Grok, Claude, terminal. This exists
 because a full day was once lost grinding one task; the loop caps that at ~45 minutes.
 
-- **0. Plan → ack → apply, and the unit of ack is a WAVE.** Before any multi-file or
-  behavior-changing work: write one plan covering **every lever in the wave** (goal · files ·
-  asserts · risks), ending with the **playtest checklist** — what Wyatt should look at when it
-  lands, written *before* the work rather than reconstructed after. Wyatt acks the wave once;
-  then execute the levers straight through. BRIEFING's **ACTIVE CARD** names the card — it is
-  **not** permission to code. Reading the card and starting to edit is a process bug.
-  - **Ack granularity ≠ commit granularity.** Still **one lever per commit**, gates green
-    before each. Only the approval round-trip batches, because ~36 of them across a six-wave
-    pass is the difference between an afternoon and two days.
-  - **Mid-wave abort.** If a lever fails its asserts, or Wyatt stops the wave, the wave stops
-    there. The remaining levers need a fresh ack or an explicit "continue" — a wave ack is not
-    a blank cheque.
-- **The fast lane: one file, nothing player-visible → skip the wave doc, keep the ack.**
-  The wave loop above is correct for a six-lever pass and crushing for a one-line fix; without a
-  smaller gear, a small fix costs what a big one costs. **Qualification is mechanical, not a
-  judgement call** — all of these must hold: **one file** · fixes only the stated symptom ·
-  **no new file** · no new
-  dependency · **no new `CONFIG` key or URL flag** · touches nothing in ARCHITECTURE INVARIANTS.
-  Any one of these disqualifies it outright: `main.js` · `party/` · `src/netcode*` · Rapier /
-  physics · **any player-visible behaviour change**. What the fast lane still costs: a **one-line
-  intent to Wyatt** ("fix X in Y, assert Z") → his go → apply → `npm run qa` green by number →
-  one commit → push → `verify:head`. **The ack is not what gets skipped** — the wave *document*,
-  the playtest checklist, and the per-lever STATUS edit are. **If a fast-lane change grows past
-  its qualification mid-flight, stop and write the wave plan** — finishing it in the fast lane is
-  the exact moment an hour becomes a day.
+- **0. Assess and state the lane before editing.** The agent owns this decision; Wyatt does not
+  need to classify the task. Choose by blast radius, not time estimate. Uncertainty selects the
+  higher lane. BRIEFING's **ACTIVE CARD** names the card, not the lane or permission to code.
+  - **Routine:** reversible, localized, non-player-visible; no architecture invariant,
+    `main.js`, `party/`, `src/netcode*`, physics, dependency, `CONFIG` key, or URL flag. State
+    intent and proceed without ack. Run focused checks. Full `npm run qa` is optional unless no
+    focused check can cover the changed contract.
+  - **Standard:** localized player-visible behavior or a coherent multi-file change without
+    Critical risk. Write a brief wave plan (goal · files · asserts · risks · playtest when
+    applicable), get one Wyatt ack, run focused checks, then run `npm run qa` once at the wave
+    boundary.
+  - **Critical:** physics, netcode, architecture invariants, shared production infrastructure,
+    destructive work, or release execution. Write the full plan, adversarially review it, get
+    Wyatt ack, and add the relevant build, battery, playtest, or live proof to `npm run qa`.
+    `ship it` remains separate authorization.
+  - **Escalate before continuing.** If scope or risk grows beyond the stated lane, stop, state
+    the new lane, and obtain any newly required ack. A prior ack is not a blank cheque.
+  - **Commit coherent changes.** Do not split one behavior into ceremonial levers. If a lever
+    fails its asserts or Wyatt stops the wave, stop the wave.
 - **One card at a time.** Exactly one active item. New ideas go to
   [BACKLOG.md](docs/planning/BACKLOG.md) — recording an idea ≠ changing priorities.
 - **Reachability gate — a target number is not a card.** Before a card whose done-condition is a
@@ -367,9 +363,11 @@ because a full day was once lost grinding one task; the loop caps that at ~45 mi
   the procedure is `.agents/skills/systematic-debugging/SKILL.md`, which every tool can read) →
   (4) hand off per MODEL / TOOL ROUTING below, or ask Wyatt. Handing off with a findings
   write-up is a success, not a failure.
-- **Definition of done:** gates green **by number** + pushed + pulled-and-verified in
-  `origin/cart-clash` HEAD + `npm run briefing` fresh + STATUS.md updated — except that
-  **fast-lane commits may defer the STATUS.md update to the next wave boundary**. Behavior
+- **Definition of done:** Routine has focused checks green; Standard has focused checks plus
+  `npm run qa` green **by number**; Critical also has its risk-specific proof. Any committed
+  change is pushed + pulled-and-verified in `origin/cart-clash` HEAD + `npm run briefing` fresh
+  + STATUS.md updated at the wave boundary. Routine may defer its STATUS entry to the next
+  Standard or Critical boundary. Behavior
   changes additionally need Wyatt's playtest on production before they count, and it is not
   his turn until the regenerated console shows non-empty steps and accurate deploy context.
   `health:check` now fails the wave (`PLAYTEST_STEPLESS` / `PLAYTEST_PARENT_UNSEEDED`) if
