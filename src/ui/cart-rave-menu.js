@@ -1132,6 +1132,14 @@ import { initGamepadTextEntry, openGamepadTextEntry } from "./gamepadTextEntry.j
     });
   }
 
+  function isCustomizeScreenOpen() {
+    return Boolean(
+      customizeScreen
+      && customizeScreen.style.display === "flex"
+      && customizeScreen.getAttribute("aria-hidden") !== "true",
+    );
+  }
+
   function renderCustomizePreview() {
     if (!customizeCartHolder) return;
     const color = getActiveColorCss();
@@ -1143,6 +1151,9 @@ import { initGamepadTextEntry, openGamepadTextEntry } from "./gamepadTextEntry.j
       syncCartPreviewLook();
       return;
     }
+    // * CUSTOMIZE-SVG-FLASH-1: never paint the legacy SVG during DONE/apply close.
+    // * Chunk-load + WebGL-fail still use SVG while the screen is actually open.
+    if (!isCustomizeScreenOpen()) return;
     customizeCartHolder.innerHTML = makeCartSVG(color, state.pattern);
     currentCustomizeCartSvg = customizeCartHolder.querySelector('svg');
   }
@@ -1170,13 +1181,15 @@ import { initGamepadTextEntry, openGamepadTextEntry } from "./gamepadTextEntry.j
     // * The desktop menu cart borrows the game renderer. Release that scene before
     // * opening this opaque, owned-canvas preview so PMREM textures never cross contexts.
     window.CartRave?.setMenuCartPreviewSuspended?.(true);
+    // * Mark open before mount so the SVG fallback may paint only while this
+    // * screen is actually shown (CUSTOMIZE-SVG-FLASH-1 close guard).
+    customizeScreen.style.display = 'flex';
+    customizeScreen.setAttribute('aria-hidden', 'false');
     mountCartPreview();
     renderCustomizePreview();
     buildColorChips();
     buildPatternChips();
     buildSunglassesChips();
-    customizeScreen.style.display = 'flex';
-    customizeScreen.setAttribute('aria-hidden', 'false');
     customizeDoneBtn?.focus();
     const panel = customizeScreen.querySelector('.cr-customize-panel');
     if (panel instanceof HTMLElement) {
@@ -1197,8 +1210,9 @@ import { initGamepadTextEntry, openGamepadTextEntry } from "./gamepadTextEntry.j
       document.activeElement.blur();
     }
 
-    disposeCartPreview();
-    // * Persist final customization state when leaving Customize.
+    // * Persist first so customization-changed syncs the still-live 3D preview.
+    // * CUSTOMIZE-SVG-FLASH-1: hide before dispose so the save listener cannot
+    // * paint makeCartSVG into the holder during the dismiss.
     saveCustomization({
       colorMode: state.colorMode === 'custom' ? 'custom' : 'preset',
       color: state.colorMode === 'custom'
@@ -1209,6 +1223,7 @@ import { initGamepadTextEntry, openGamepadTextEntry } from "./gamepadTextEntry.j
       sunglassesStyle: state.sunglassesStyle,
     });
     customizeScreen.setAttribute('aria-hidden', 'true');
+    disposeCartPreview();
     const panel = customizeScreen.querySelector('.cr-customize-panel');
     animateMenuDismiss(panel instanceof HTMLElement ? panel : null, {
       container: customizeScreen,
