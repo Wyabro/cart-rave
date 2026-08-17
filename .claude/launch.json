@@ -5,7 +5,7 @@
       "name": "dev-local",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev:local"],
-      "port": 3000
+      "port": 4000
     },
     {
       "name": "party",
@@ -16,20 +16,20 @@
     {
       "name": "vite",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--", "--no-open", "--port", "3210", "--strictPort"],
-      "port": 3210
+      "runtimeArgs": ["run", "dev", "--", "--no-open", "--port", "4100", "--strictPort"],
+      "port": 4100
     },
     {
       "name": "vite-alt",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--", "--no-open", "--port", "3211", "--strictPort"],
-      "port": 3211
+      "runtimeArgs": ["run", "dev", "--", "--no-open", "--port", "4101", "--strictPort"],
+      "port": 4101
     },
     {
       "name": "vite-perf",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--", "--no-open", "--port", "3212", "--strictPort"],
-      "port": 3212
+      "runtimeArgs": ["run", "dev", "--", "--no-open", "--port", "4102", "--strictPort"],
+      "port": 4102
     },
     {
       "name": "preview",

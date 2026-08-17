@@ -142,7 +142,7 @@ npm run dev:local
 
 (`dev:cart-clash` and legacy `dev:next-level` are aliases.)
 
-Open **http://127.0.0.1:3000/**. See [preview-dev.md](./guides/preview-dev.md) for the full preview workflow.
+Open **http://127.0.0.1:4000/**. See [preview-dev.md](./guides/preview-dev.md) for the full preview workflow.
 
 ### Two-terminal alternative
 
@@ -196,7 +196,7 @@ Lanes: [deploy-urls.md](./guides/deploy-urls.md).
 
 | Script | Purpose |
 |--------|---------|
-| `npm run dev` | Vite dev server (port 3000) |
+| `npm run dev` | Vite dev server (port 4000) |
 | `npm run dev:local` | Vite + local Wrangler worker (preferred daily) |
 | `npm run dev:party` | Local wrangler worker (Durable Object) |
 | `npm run build` | Production build to `dist/` |

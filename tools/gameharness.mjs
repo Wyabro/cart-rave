@@ -13,7 +13,7 @@
  *
  * Usage:
  *   node tools/gameharness.mjs                                  # auto-starts dev:local, headless
- *   node tools/gameharness.mjs --url http://127.0.0.1:3000/     # attach to a running dev stack
+ *   node tools/gameharness.mjs --url http://127.0.0.1:4000/     # attach to a running dev stack
  *   node tools/gameharness.mjs --scenario roundflow             # one scenario (default: all)
  *     scenarios: roundflow | unlockFunnel | arenas | soak
  *   node tools/gameharness.mjs --scenario soak --soakCycles 5   # deeper leak soak

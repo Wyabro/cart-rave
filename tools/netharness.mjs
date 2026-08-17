@@ -10,7 +10,7 @@
  * Usage:
  *   node tools/netharness.mjs                 # auto-starts `npm run dev:local`, headless
  *   node tools/netharness.mjs --headed        # visible browser (debug / if headless WebRTC flaky)
- *   node tools/netharness.mjs --url http://127.0.0.1:3000/   # reuse already-running dev stack
+ *   node tools/netharness.mjs --url http://127.0.0.1:4000/   # reuse already-running dev stack
  *   node tools/netharness.mjs --scenario spawnlock           # (default) mid-round joiner drives
  *   node tools/netharness.mjs --scenario hostReload          # mid-round host tab reload (A6b)
  *   node tools/netharness.mjs --scenario teardownRejoin      # menu-return teardown BEFORE join (07-17 freeze)

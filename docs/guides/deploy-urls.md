@@ -4,7 +4,7 @@ Three lanes. Do not invent a second Cloudflare “prod.”
 
 | Lane | Job | Command |
 |------|-----|---------|
-| **Local** | Daily test | `npm run dev:local` → `http://127.0.0.1:3000/` |
+| **Local** | Daily test | `npm run dev:local` → `http://127.0.0.1:4000/` |
 | **Cloudflare** | Public prod | **“ship it”** → `npm run ship` |
 | **Glitch** | Festival copy of public | **“ship glitch”** → `npm run ship:glitch` (only after prod is good) |
 

@@ -172,7 +172,10 @@ export default defineConfig(({ mode }) => ({
   },
 
   server: {
-    port: 3000,
+    // * NOT 3000: Windows Hyper-V/HNS dynamic exclusions currently cover 2958–3057
+    // * (bind fails EACCES). Same class as LOCAL_WORKER_PORT 8787→8899. Keep in
+    // * sync with tools/lib/harness.mjs CLIENT_PORT.
+    port: 4000,
     host: "127.0.0.1",
     open: true,
     // * Pre-transform entry files so first load is less likely to reset mid-flight.

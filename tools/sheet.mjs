@@ -14,7 +14,7 @@
  *   npm run sheet -- --viewports 1920x1080,390x844
  *   npm run sheet -- --arenas classicRecord,zanzibar
  *   npm run sheet -- --reduced-motion               # add an RM twin for every viewport
- *   npm run sheet -- --url http://127.0.0.1:3000/   # attach to a running dev stack
+ *   npm run sheet -- --url http://127.0.0.1:4000/   # attach to a running dev stack
  *
  * Flags take `--flag value` (the shared parseArgs convention); `--flag=value` also works.
  *

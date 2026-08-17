@@ -7,7 +7,7 @@
  * child = INCONCLUSIVE (does not fail the sweep).
  *
  *   npm run battery
- *   npm run battery -- --url http://127.0.0.1:3000/
+ *   npm run battery -- --url http://127.0.0.1:4000/
  *   npm run battery -- --only gameharness
  *   npm run battery -- --skip hostMigration
  *   npm run battery -- --visual

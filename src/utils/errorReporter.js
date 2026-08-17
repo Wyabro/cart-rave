@@ -28,7 +28,7 @@ function sendErrorLog(error, context = {}) {
     const body = JSON.stringify(payload);
     const endpoint = "/api/log-error";
 
-    // * DEV is served by Vite (:3000); the Worker's /api/log-error route only exists on
+    // * DEV is served by Vite (:4000); the Worker's /api/log-error route only exists on
     // * the wrangler origin, so a relative POST 404s — and during a hot per-frame error
     // * loop that 404 floods the console (masking the real stack). The full error is
     // * already in DevTools in dev, so skip the network hop. Prod is same-origin with the

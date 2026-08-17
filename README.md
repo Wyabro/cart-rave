@@ -40,7 +40,7 @@ Start with [docs/STATUS.md](./docs/STATUS.md) for where the project stands, [doc
 ## Run locally
 
 ```bash
-npm run dev:local   # Vite + local Wrangler worker → http://127.0.0.1:3000/
+npm run dev:local   # Vite + local Wrangler worker → http://127.0.0.1:4000/
 ```
 
 Deploy: `npm run ship` (Cloudflare prod) · `npm run ship:glitch` (Glitch festival copy, after prod is good). Lanes and post-deploy verification: [docs/guides/deploy-urls.md](./docs/guides/deploy-urls.md).

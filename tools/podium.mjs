@@ -16,7 +16,7 @@
  *   npm run podium -- --viewports 1025x600 --touch
  *   npm run podium -- --outcomes victory
  *   npm run podium -- --reduced-motion               # + 2 RM victory cells
- *   npm run podium -- --url http://127.0.0.1:3000/   # attach to a running dev stack
+ *   npm run podium -- --url http://127.0.0.1:4000/   # attach to a running dev stack
  *
  * WHY A SIBLING TOOL AND NOT `sheet --podium`: four of `captureCell`'s eight checks invert
  * the moment the round ends. `snapshot("round").remainingMs` is `null` outside RUNNING

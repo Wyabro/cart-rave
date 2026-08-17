@@ -39,7 +39,7 @@ must never gate CI or offline work.
 
 ```bash
 npm run battery                                   # auto-starts dev:local, runs every rig
-npm run battery -- --url http://127.0.0.1:3000/   # attach to a running stack (faster)
+npm run battery -- --url http://127.0.0.1:4000/   # attach to a running stack (faster)
 npm run battery -- --only gameharness             # one rig · --skip soak,hostMigration drops steps
 npm run battery -- --visual --qa                  # opt-in: black-frame battery + typecheck/tests/knip
 ```
@@ -70,7 +70,7 @@ way; the battery prints INCONCLUSIVE and does **not** fail the sweep, so red = r
 Failed scenarios also auto-drop a bug-capture bundle (JSON + screenshot) in `.diag-captures/`.
 
 Stack handling (all rigs, via `maybeStartDevStack`): a **full** running stack
-(:3000 + :8899 both answering) is attached to automatically — no flag needed; **half** a
+(:4000 + :8899 both answering) is attached to automatically — no flag needed; **half** a
 stack (one port held — usually a zombie `workerd` or another session's server) is a fast
 exit 2 with the fix, because blind-starting `dev:local` onto a held port loses the bind
 race and `dev-local.mjs` then kills the whole stack mid-run (kill-on-child-exit is

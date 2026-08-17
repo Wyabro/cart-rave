@@ -57,7 +57,7 @@
  * Usage:
  *   npm run states
  *   npm run states -- --screens menu,customize          # subset
- *   npm run states -- --url http://127.0.0.1:3000/      # attach to a running dev stack
+ *   npm run states -- --url http://127.0.0.1:4000/      # attach to a running dev stack
  *   npm run states -- --headed
  */
 

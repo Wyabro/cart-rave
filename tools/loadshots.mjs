@@ -47,7 +47,7 @@
  *   npm run loadshots -- --surface mode
  *   npm run loadshots -- --surface boot
  *   npm run loadshots -- --arenas zanzibar
- *   npm run loadshots -- --url http://127.0.0.1:3000/   # attach to a running dev stack
+ *   npm run loadshots -- --url http://127.0.0.1:4000/   # attach to a running dev stack
  *   npm run loadshots -- --headed
  *
  * EXIT CONTRACT (CheckTally, harness.mjs:529-534): 0 when every cell latched, held, proved

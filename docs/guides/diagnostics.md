@@ -22,13 +22,13 @@ toolkit feels like one thing.
 ## Run it
 
 ```bash
-# Terminal 1 — persistent dev stack (Vite :3000 + Wrangler :8899)
+# Terminal 1 — persistent dev stack (Vite :4000 + Wrangler :8899)
 npm run dev:local
 
 # Terminal 2 — run the gameplay rig against it
-npm run gameharness -- --url http://127.0.0.1:3000/
+npm run gameharness -- --url http://127.0.0.1:4000/
 # or a single scenario:
-node tools/gameharness.mjs --url http://127.0.0.1:3000/ --scenario roundflow
+node tools/gameharness.mjs --url http://127.0.0.1:4000/ --scenario roundflow
 ```
 
 Flags: `--url <base>` (attach to a running stack; omit to auto-start `dev:local`),
@@ -142,7 +142,7 @@ own source chokepoints (`koReactors` diagnostics reactor / `announcerManager.ann
   (20 s reap) case still needs the manual plan — Playwright can't kill a socket without
   closing the page.
   ```bash
-  npm run netharness -- --url http://127.0.0.1:3000/ --scenario hostMigration
+  npm run netharness -- --url http://127.0.0.1:4000/ --scenario hostMigration
   ```
 - **hostReload** (2-client, in `netharness`) — mid-round **host tab reload** (A6b): same
   bring-up as hostMigration, then `page.reload()` on the host (not context close). Asserts
@@ -150,7 +150,7 @@ own source chokepoints (`koReactors` diagnostics reactor / `announcerManager.ann
   (sole-host invariant), `menuVisible === false` / `axisWired === true` (07-17 menu-over-
   game race), the rejoined client drives, and zero sim errors on both clients.
   ```bash
-  npm run netharness -- --url http://127.0.0.1:3000/ --scenario hostReload
+  npm run netharness -- --url http://127.0.0.1:4000/ --scenario hostReload
   ```
 - **mpIntegration** (2-client, in `netharness`) — the netcode↔gameplay seam: host starts a
   match, a second client joins mid-round, and the rig asserts INVARIANTS (not exact timing):
@@ -160,7 +160,7 @@ own source chokepoints (`koReactors` diagnostics reactor / `announcerManager.ann
   loser→`defeat`), the quickplay rematch returns both to a fresh round with reset scores, and
   neither client logs a sim error. Run it with:
   ```bash
-  npm run netharness -- --url http://127.0.0.1:3000/ --scenario mpIntegration
+  npm run netharness -- --url http://127.0.0.1:4000/ --scenario mpIntegration
   ```
   (`npm run netharness` alone still runs only `spawnlock`, unchanged.)
 

@@ -27,7 +27,7 @@ import { setTimeout as sleep } from "node:timers/promises";
 
 export { sleep };
 
-export const CLIENT_PORT = 3000; // Vite (vite.config.js server.port)
+export const CLIENT_PORT = 4000; // Vite (vite.config.js server.port) — NOT 3000: Windows Hyper-V/HNS exclusions cover 2958–3057 (EACCES)
 export const WORKER_PORT = 8899; // local wrangler dev port; client dials hostname:8899 (src/config.js LOCAL_WORKER_PORT) — NOT 8787: Windows Hyper-V/HNS exclusions cover 8751–8850
 
 /**
@@ -151,7 +151,7 @@ export async function waitForPort(port, deadlineMs) {
 }
 
 /**
- * Auto-start `npm run dev:local` (Vite :3000 + Wrangler :8899) unless --url points at a
+ * Auto-start `npm run dev:local` (Vite :4000 + Wrangler :8899) unless --url points at a
  * running stack. Returns the child process (kill it in your finally) or null when attaching.
  * @param {Record<string, string | boolean>} args
  * @param {(...a: unknown[]) => void} [log]
@@ -176,12 +176,12 @@ export async function maybeStartDevStack(args, log = makeLogger("harness")) {
       `Half a dev stack is already running — ${held} is in use but its partner is not. ` +
         "Starting dev:local now would lose the port race and the whole stack would die mid-run. " +
         "Fix: kill the stray process (PowerShell: Get-Process workerd | Stop-Process -Force; " +
-        "or stop the other Vite), or attach to a FULL running stack with --url http://127.0.0.1:3000/",
+        "or stop the other Vite), or attach to a FULL running stack with --url http://127.0.0.1:4000/",
     );
   }
 
   const isWin = process.platform === "win32";
-  log("starting dev:local (Vite :3000 + Wrangler :8899)…");
+  log("starting dev:local (Vite :4000 + Wrangler :8899)…");
   // * Windows npm needs a shell; Node 24 deprecates args-array + shell:true (DEP0190),
   // * so the shell form gets one literal command string (no interpolated input).
   const child = isWin
@@ -206,7 +206,7 @@ export async function maybeStartDevStack(args, log = makeLogger("harness")) {
     child.kill();
     throw new Error(
       `dev stack failed to come up (client:${CLIENT_PORT}=${clientUp} worker:${WORKER_PORT}=${workerUp}). ` +
-        "Try running `npm run dev:local` manually and re-run with --url http://127.0.0.1:3000/",
+        "Try running `npm run dev:local` manually and re-run with --url http://127.0.0.1:4000/",
     );
   }
   log("dev stack ready");
@@ -242,12 +242,12 @@ export function killDevStack(child) {
  * scenario failure), pointing at the fix.
  *
  * A DEPLOYED target is a different topology and must not be probed as if it were the dev
- * stack: Vite-on-3000 + wrangler-on-8899 is a local-only split, and on a Worker the client
+ * stack: Vite-on-4000 + wrangler-on-8899 is a local-only split, and on a Worker the client
  * and the party endpoint are the SAME origin. Dialling `<host>:8899` against a public
  * hostname fails on connect and would abort the run before a single capture — so the split
  * check is gated to local hosts and a deployed origin gets a same-origin pair instead.
  *
- * @param {string} baseUrl The client URL the rig will drive (e.g. http://127.0.0.1:3000/).
+ * @param {string} baseUrl The client URL the rig will drive (e.g. http://127.0.0.1:4000/).
  * @param {(...a: unknown[]) => void} [log]
  */
 export async function preflightStack(baseUrl, log = makeLogger("harness")) {
