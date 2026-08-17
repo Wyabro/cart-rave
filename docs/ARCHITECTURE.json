@@ -2,8 +2,8 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-17T04:05:04.633Z",
-    "commit": "15fd1eb0"
+    "at": "2026-08-17T04:07:54.512Z",
+    "commit": "04e76437"
   },
   "source_digest": "0af156ae",
   "project": {
