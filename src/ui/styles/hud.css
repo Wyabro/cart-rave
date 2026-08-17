@@ -1673,32 +1673,6 @@
   100% { opacity: 0; transform: translate(-50%, -50%) rotate(8deg) scale(0.98); }
 }
 
-/* ── Doomed — local-victim feedback. DOM-only so it remains visible with post-FX off. ── */
-#hud .hud-doomed-shockwave {
-  position: fixed;
-  left: 50%;
-  top: 50%;
-  width: clamp(8rem, 26vmin, 16rem);
-  aspect-ratio: 1;
-  transform: translate(-50%, -50%) scale(0.22);
-  border: clamp(2px, 0.45vmin, 4px) solid color-mix(in oklab, var(--color-alert), white 14%);
-  border-radius: 50%;
-  box-shadow:
-    0 0 0 clamp(2px, 0.45vmin, 4px) color-mix(in oklab, var(--color-alert), transparent 55%),
-    0 0 clamp(12px, 3vmin, 32px) color-mix(in oklab, var(--color-alert), transparent 28%);
-  opacity: 0;
-  pointer-events: none;
-  z-index: 20039;
-}
-#hud .hud-doomed-shockwave.is-active {
-  animation: hudDoomedShockwave 420ms cubic-bezier(0.12, 0.75, 0.2, 1) forwards;
-}
-@keyframes hudDoomedShockwave {
-  0%   { opacity: 0.95; transform: translate(-50%, -50%) scale(0.22); }
-  45%  { opacity: 0.7; transform: translate(-50%, -50%) scale(0.78); }
-  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.45); }
-}
-
 /* ── Boost gauge (keyboard/gamepad) — a chunky sticker capsule with a bolt,
       not an ability bar. Color state IS the information. ── */
 /* Boost = the cart handle (mock 6a): a 360px ink slab carrying the word, the
@@ -2187,20 +2161,11 @@
   #hud .hud-hitmarker.hit {
     animation: hudHitmarkReduced 300ms ease-out forwards;
   }
-  /* Doomed feedback stays visible, but does not expand. */
-  #hud .hud-doomed-shockwave.is-active {
-    animation: hudDoomedShockwaveReduced 300ms ease-out forwards;
-  }
 }
 @keyframes hudHitmarkReduced {
   0%   { opacity: 1; transform: translate(-50%, -50%) rotate(8deg) scale(1); }
   70%  { opacity: 1; transform: translate(-50%, -50%) rotate(8deg) scale(1); }
   100% { opacity: 0; transform: translate(-50%, -50%) rotate(8deg) scale(1); }
-}
-@keyframes hudDoomedShockwaveReduced {
-  0%   { opacity: 0.9; transform: translate(-50%, -50%) scale(1); }
-  70%  { opacity: 0.9; transform: translate(-50%, -50%) scale(1); }
-  100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
 }
 
 /* Engines without paint-order on HTML text paint the full centered stroke OVER
