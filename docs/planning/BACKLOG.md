@@ -83,7 +83,7 @@ way the Block table still can.)*
 construction; edit the department tables below and regenerate, never this block by hand.)*
 Everything in **Playtest owed** has landed — those rows wait on deployment or Wyatt's eyes, not
 more engineering. Open owed checks: **COUNTDOWN-HOST-STAMP-PT-1**
-(`npm run dev` until ship) · **CART-HUE-CUBES-PT-1** (`npm run dev` until ship) ·
+(`npm run dev` until ship) · **CART-HUE-CUBES-PT-1** (prod) ·
 **SHARD-PT-2** (launch day). Closed PASS history lives only in
 [completed-work.md](./completed-work.md).
 
@@ -260,7 +260,7 @@ completed-work — do not restack it here.
 | Pri | Item | Notes |
 |-----|------|-------|
 | Medium | COUNTDOWN-HOST-STAMP-PT-1 — first non-host 3-2-1 is even; 3 does not hang then slam 2+1 `[2pc]` | **Owed: Wyatt playtest — COUNTDOWN-HOST-STAMP-PT-1 — first non-host 3-2-1 is even; 3 does not hang then slam 2+1.** Parent **COUNTDOWN-HOST-STAMP-1**. You are not host. Hard-refresh. Pushed but not yet deployed — `npm run dev` until ship.<br>1. Two PCs. Friends or Quickplay. You are not host. First match.<br>2. FAIL if 3 hangs, then 2 and 1 slam. PASS if 3-2-1-GO is about 1 s each.<br>3. Rematch in the same room. FAIL if that countdown hangs or slams. PASS if it stays even.<br>4. Host screen: FAIL if host 3-2-1 changed. |
-| Low | CART-HUE-CUBES-PT-1 — Cubes on custom red stays red `[solo]` | **Owed: Wyatt playtest — CART-HUE-CUBES-PT-1 — Cubes on the custom hue far-red end stays in the red family, not orange.** Parent **CART-HUE-CUBES-1**. Solo. Hard-refresh. `npm run dev` until ship. DEV unlocks all arenas.<br>1. Solo, Sundial Station. Customize → CUSTOM → hue slider to the far red end. Apply Cubes.<br>2. Enter the match. FAIL if the cart reads orange. PASS if the cube faces stay red (darker / cooler red is OK).<br>3. Classic on that same red still reads red (CART-HUE-RED-PT-1 already PASSed).<br>4. Repeat step 2 on The Storerooms and Cart Rave. FAIL if any arena reads orange. Pink Cubes may shift cooler; it must not go yellow/orange. |
+| Low | CART-HUE-CUBES-PT-1 — Cubes on custom red stays red `[solo]` | **Owed: Wyatt playtest — CART-HUE-CUBES-PT-1 — Cubes on the custom hue far-red end stays in the red family, not orange.** Parent **CART-HUE-CUBES-1**. Solo. Hard-refresh. On prod (`9cd253e5`). DEV unlocks all arenas.<br>1. Solo, Sundial Station. Customize → CUSTOM → hue slider to the far red end. Apply Cubes.<br>2. Enter the match. FAIL if the cart reads orange. PASS if the cube faces stay red (darker / cooler red is OK).<br>3. Classic on that same red still reads red (CART-HUE-RED-PT-1 already PASSed).<br>4. Repeat step 2 on The Storerooms and Cart Rave. FAIL if any arena reads orange. Pink Cubes may shift cooler; it must not go yellow/orange. |
 | Low | SHARD-PT-2 — fifth human overflows to quickplay2 `[2pc]` | **Owed: Wyatt playtest — SHARD-PT-2 — the 5th concurrent Quickplay human lands on quickplay2 instead of "couldn't join".** Launch-day / public-post check — needs five real humans (Wyatt deferred 08-05). Rig already 5/5; SHARD-PT-1 PASSed on prod `9c333d1`. Prefer analytics: any `quickplay_shard_assigned` with `hops > 0` or `shard !== quickplay` counts.<br>1. When five humans can join Quickplay at once (public post), watch the 5th seat.<br>2. FAIL if they get the dead-end couldn't-join toast with no hop. PASS if they seat on an overflow shard (or analytics shows hops greater than 0).<br>3. Skip / leave open until launch day — do not FAIL for lack of five people. |
 
 ## Tech Debt

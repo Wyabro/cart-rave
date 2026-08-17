@@ -30,7 +30,7 @@ are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Analyt
 external testers. Stay in this phase until Wyatt advances the marker.
 
 Live PT: **COUNTDOWN-HOST-STAMP-PT-1** on `npm run dev` until ship.
-**CART-HUE-CUBES-PT-1** `[solo]` on `npm run dev` until ship (Cubes on custom red). Deferred
+**CART-HUE-CUBES-PT-1** `[solo]` on prod (`9cd253e5`). Deferred
 launch day: **SHARD-PT-2**. Closed 08-17 — **CART-HUE-RED-PT-1** `[solo]` ·
 **LAST-STANDING-DEAD-PT-1** · **NPC-ABORT-BURST-PT-1** · **REMOTE-INPUT-STALE-PT-1** `[2pc]` ·
 **SPILL-RAM-CREDIT-PT-1** `[2pc]` (parents close with them —
@@ -78,8 +78,7 @@ Live rows only. Shipped and closed cards live in
 ### Next actions
 
 1. Playtest **COUNTDOWN-HOST-STAMP-PT-1** on `npm run dev` until ship.
-   **CART-HUE-CUBES-PT-1** `[solo]` on `npm run dev` until ship. Deferred: **SHARD-PT-2**
-   (launch day).
+   **CART-HUE-CUBES-PT-1** `[solo]` on prod. Deferred: **SHARD-PT-2** (launch day).
 
 ## Open issues (top)
 
@@ -123,6 +122,9 @@ or a suspected blocker (TS 7 · `cartrave4` UVs).
 - Local worker port is **8899** (`LOCAL_WORKER_PORT` in `src/config.js`). If it goes EACCES, re-check Windows HNS exclusions and move the port there.
 
 ## Last updated
+
+2026-08-17 (ship CART-HUE-CUBES-1) — prod `9cd253e5` / Worker `62cb3310`. VERIFY_OK
++ symbol `honeycomb:[1,2],diamond:[2,3]`. Playtest **CART-HUE-CUBES-PT-1** on prod.
 
 2026-08-17 (CART-HUE-CUBES-1) — Cubes faces stay in the selected neon family. Custom
 red no longer hops to yellow/green. Playtest owed: **CART-HUE-CUBES-PT-1**.

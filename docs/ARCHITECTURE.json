@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-17T18:51:13.604Z",
-    "commit": "30920e8a"
+    "at": "2026-08-17T18:55:22.893Z",
+    "commit": "9cd253e5"
   },
-  "source_digest": "36f4f7d3",
+  "source_digest": "9bc3c2d9",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1067,7 +1067,7 @@
           {
             "pri": "Low",
             "item": "CART-HUE-CUBES-PT-1 — Cubes on custom red stays red `[solo]`",
-            "notes": "**Owed: Wyatt playtest — CART-HUE-CUBES-PT-1 — Cubes on the custom hue far-red end stays in the red family, not orange.** Parent **CART-HUE-CUBES-1**. Solo. Hard-refresh. `npm run dev` until ship. DEV unlocks all arenas.<br>1. Solo, Sundial Station. Customize → CUSTOM → hue slider to the far red end. Apply Cubes.<br>2. Enter the match. FAIL if the cart reads orange. PASS if the cube faces stay red (darker / cooler red is OK).<br>3. Classic on that same red still reads red (CART-HUE-RED-PT-1 already PASSed).<br>4. Repeat step 2 on The Storerooms and Cart Rave. FAIL if any arena reads orange. Pink Cubes may shift cooler; it must not go yellow/orange.",
+            "notes": "**Owed: Wyatt playtest — CART-HUE-CUBES-PT-1 — Cubes on the custom hue far-red end stays in the red family, not orange.** Parent **CART-HUE-CUBES-1**. Solo. Hard-refresh. On prod (`9cd253e5`). DEV unlocks all arenas.<br>1. Solo, Sundial Station. Customize → CUSTOM → hue slider to the far red end. Apply Cubes.<br>2. Enter the match. FAIL if the cart reads orange. PASS if the cube faces stay red (darker / cooler red is OK).<br>3. Classic on that same red still reads red (CART-HUE-RED-PT-1 already PASSed).<br>4. Repeat step 2 on The Storerooms and Cart Rave. FAIL if any arena reads orange. Pink Cubes may shift cooler; it must not go yellow/orange.",
             "ship1": null
           },
           {
