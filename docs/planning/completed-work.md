@@ -19,12 +19,12 @@ Chronological record of shipped work, newest first.
   `.hud-doomed-shockwave` DOM node and CSS. `showDoomedFeedback` still fires the red
   edge pulse (`pulseHitDirection`). Hitmarker on a scored KO stays. Do not reopen
   **KO-DOOMED-1** / **KO-DOOMED-PT-1** (fan-out wiring) or **NET-PRES-1** (event dedupe).
-  Playtest owed: **KO-CENTER-RING-PT-1** on `npm run dev` until ship.
+  Playtest owed: **KO-CENTER-RING-PT-1** on prod (VERIFY_OK `7896b9f4` / Worker `80cd5375`).
 - *(Engineering · Medium)* **CUSTOMIZE-SVG-FLASH-1** — ✅ **DONE 08-17**.
   `renderCustomizePreview` returns without `makeCartSVG` unless Customize is actually
   open. Close persists first, then hides, then disposes so `customization-changed`
   cannot paint the legacy SVG during dismiss. SVG stays as the chunk-load / WebGL-fail
-  fallback. Playtest owed: **CUSTOMIZE-SVG-FLASH-PT-1** on `npm run dev` until ship.
+  fallback. Playtest owed: **CUSTOMIZE-SVG-FLASH-PT-1** on prod (VERIFY_OK `7896b9f4` / Worker `80cd5375`).
 
 ### August 17, 2026 — SHIP-1 BACKLOG row closed
 

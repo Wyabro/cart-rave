@@ -29,10 +29,10 @@ report phase-exit eligibility; they must not move the marker.
 are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Analytics DO reset for
 external testers. Stay in this phase until Wyatt advances the marker.
 
-Live PT: **COUNTDOWN-HOST-STAMP-PT-1** on `npm run dev` until ship. Landed 08-17 —
-**KO-CENTER-RING-1** (PT owed: **KO-CENTER-RING-PT-1**) ·
-**CUSTOMIZE-SVG-FLASH-1** (PT owed: **CUSTOMIZE-SVG-FLASH-PT-1**) ·
-**FRIENDS-LOBBY-ORDER-1** (PT owed: **FRIENDS-LOBBY-ORDER-PT-1**). Deferred launch day:
+Live PT on prod (VERIFY_OK `7896b9f4` / Worker `80cd5375`): **COUNTDOWN-HOST-STAMP-PT-1** ·
+**KO-CENTER-RING-PT-1** · **CUSTOMIZE-SVG-FLASH-PT-1** · **FRIENDS-LOBBY-ORDER-PT-1**.
+Landed 08-17 — **KO-CENTER-RING-1** · **CUSTOMIZE-SVG-FLASH-1** ·
+**FRIENDS-LOBBY-ORDER-1**. Deferred launch day:
 **SHARD-PT-2**. Closed 08-17 — **CART-HUE-CUBES-PT-1** `[solo]` · **CART-HUE-RED-PT-1**
 `[solo]` · **LAST-STANDING-DEAD-PT-1** · **NPC-ABORT-BURST-PT-1** ·
 **REMOTE-INPUT-STALE-PT-1** `[2pc]` · **SPILL-RAM-CREDIT-PT-1** `[2pc]` (parents close with
@@ -81,10 +81,10 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. Playtest **COUNTDOWN-HOST-STAMP-PT-1** on `npm run dev` until ship.
-2. Playtest **KO-CENTER-RING-PT-1** on `npm run dev` until ship.
-3. Playtest **CUSTOMIZE-SVG-FLASH-PT-1** on `npm run dev` until ship.
-4. Playtest **FRIENDS-LOBBY-ORDER-PT-1** after VERIFY_OK (or `npm run dev`).
+1. Playtest **KO-CENTER-RING-PT-1** on prod (hard-refresh).
+2. Playtest **CUSTOMIZE-SVG-FLASH-PT-1** on prod (hard-refresh).
+3. Playtest **COUNTDOWN-HOST-STAMP-PT-1** on prod (2pc, you are not host).
+4. Playtest **FRIENDS-LOBBY-ORDER-PT-1** on prod (2pc).
    Deferred: **SHARD-PT-2** (launch day).
 
 ## Open issues (top)

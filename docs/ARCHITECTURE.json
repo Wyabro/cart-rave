@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-17T21:15:31.147Z",
-    "commit": "2bf0df51"
+    "at": "2026-08-17T21:35:54.467Z",
+    "commit": "7896b9f4"
   },
-  "source_digest": "33fd0ed4",
+  "source_digest": "b789ea7e",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -878,10 +878,10 @@
       }
     ],
     "next_actions": [
-      "Playtest COUNTDOWN-HOST-STAMP-PT-1 on `npm run dev` until ship.",
-      "Playtest KO-CENTER-RING-PT-1 on `npm run dev` until ship.",
-      "Playtest CUSTOMIZE-SVG-FLASH-PT-1 on `npm run dev` until ship.",
-      "Playtest FRIENDS-LOBBY-ORDER-PT-1 after VERIFY_OK (or `npm run dev`)."
+      "Playtest KO-CENTER-RING-PT-1 on prod (hard-refresh).",
+      "Playtest CUSTOMIZE-SVG-FLASH-PT-1 on prod (hard-refresh).",
+      "Playtest COUNTDOWN-HOST-STAMP-PT-1 on prod (2pc, you are not host).",
+      "Playtest FRIENDS-LOBBY-ORDER-PT-1 on prod (2pc)."
     ],
     "open_issues": [
       {
@@ -1077,25 +1077,25 @@
           {
             "pri": "Medium",
             "item": "COUNTDOWN-HOST-STAMP-PT-1 — first non-host 3-2-1 is even; 3 does not hang then slam 2+1 `[2pc]`",
-            "notes": "**Owed: Wyatt playtest — COUNTDOWN-HOST-STAMP-PT-1 — first non-host 3-2-1 is even; 3 does not hang then slam 2+1.** Parent **COUNTDOWN-HOST-STAMP-1**. You are not host. Hard-refresh. Pushed but not yet deployed — `npm run dev` until ship.<br>1. Two PCs. Friends or Quickplay. You are not host. First match.<br>2. FAIL if 3 hangs, then 2 and 1 slam. PASS if 3-2-1-GO is about 1 s each.<br>3. Rematch in the same room. FAIL if that countdown hangs or slams. PASS if it stays even.<br>4. Host screen: FAIL if host 3-2-1 changed.",
+            "notes": "**Owed: Wyatt playtest — COUNTDOWN-HOST-STAMP-PT-1 — first non-host 3-2-1 is even; 3 does not hang then slam 2+1.** Parent **COUNTDOWN-HOST-STAMP-1**. You are not host. Hard-refresh. On prod (VERIFY_OK `7896b9f4`).<br>1. Two PCs. Friends or Quickplay. You are not host. First match.<br>2. FAIL if 3 hangs, then 2 and 1 slam. PASS if 3-2-1-GO is about 1 s each.<br>3. Rematch in the same room. FAIL if that countdown hangs or slams. PASS if it stays even.<br>4. Host screen: FAIL if host 3-2-1 changed.",
             "ship1": null
           },
           {
             "pri": "Medium",
             "item": "KO-CENTER-RING-PT-1 — when you get KO'd, only the red edge pulse flashes `[solo]`",
-            "notes": "**Owed: Wyatt playtest — KO-CENTER-RING-PT-1 — when you get KO'd, the only flash is the red edge pulse; no centered expanding ring.** Parent **KO-CENTER-RING-1**. Pushed but not yet deployed — `npm run dev` until ship.<br>1. Solo or Quickplay. Get KO'd by a ram or a hazard (fall off the edge works).<br>2. FAIL if a centered circle/ring expands from mid-screen. PASS if only the red edge pulse flashes.<br>3. In the same match, KO an opponent — FAIL if the center hitmarker is gone. PASS if it still shows.",
+            "notes": "**Owed: Wyatt playtest — KO-CENTER-RING-PT-1 — when you get KO'd, the only flash is the red edge pulse; no centered expanding ring.** Parent **KO-CENTER-RING-1**. On prod (VERIFY_OK `7896b9f4`). Hard-refresh.<br>1. Solo or Quickplay. Get KO'd by a ram or a hazard (fall off the edge works).<br>2. FAIL if a centered circle/ring expands from mid-screen. PASS if only the red edge pulse flashes.<br>3. In the same match, KO an opponent — FAIL if the center hitmarker is gone. PASS if it still shows.",
             "ship1": null
           },
           {
             "pri": "Medium",
             "item": "CUSTOMIZE-SVG-FLASH-PT-1 — DONE/apply does not flash the legacy cart SVG `[solo]`",
-            "notes": "**Owed: Wyatt playtest — CUSTOMIZE-SVG-FLASH-PT-1 — DONE and apply do not flash the old cart drawing.** Parent **CUSTOMIZE-SVG-FLASH-1**. Pushed but not yet deployed — `npm run dev` until ship.<br>1. Menu. Open Customize. Pick a color. Press DONE.<br>2. FAIL if a flat cartoon cart drawing flashes while the screen closes. PASS if the 3D cart stays or the screen just closes.<br>3. Open Customize again. Change color. Stay on the screen. FAIL if the 3D cart turns into that flat drawing. PASS if the 3D cart updates in place.",
+            "notes": "**Owed: Wyatt playtest — CUSTOMIZE-SVG-FLASH-PT-1 — DONE and apply do not flash the old cart drawing.** Parent **CUSTOMIZE-SVG-FLASH-1**. On prod (VERIFY_OK `7896b9f4`). Hard-refresh.<br>1. Menu. Open Customize. Pick a color. Press DONE.<br>2. FAIL if a flat cartoon cart drawing flashes while the screen closes. PASS if the 3D cart stays or the screen just closes.<br>3. Open Customize again. Change color. Stay on the screen. FAIL if the 3D cart turns into that flat drawing. PASS if the 3D cart updates in place.",
             "ship1": null
           },
           {
             "pri": "Medium",
             "item": "FRIENDS-LOBBY-ORDER-PT-1 — Friends CHECKOUT LINE lists humans first, first-connect first `[2pc]`",
-            "notes": "**Owed: Wyatt playtest — FRIENDS-LOBBY-ORDER-PT-1 — Friends CHECKOUT LINE lists humans first, first-connect first.** Parent **FRIENDS-LOBBY-ORDER-1**. Playtest on prod after VERIFY_OK, or `npm run dev` until then.<br>1. Two PCs. Friends room. Host picks a cart color that is not the seat-0 bot color (or confirm host is not seat 0).<br>2. Guest joins. Both screens: FAIL if a bot sits above a human. PASS if humans are at the top, host above guest, bots under.<br>3. FAIL if a human's color or seat mark no longer matches their cart. PASS if color and mark still match the cart.<br>4. Not a FAIL: the small score list at 3-2-1 may still show seat order.",
+            "notes": "**Owed: Wyatt playtest — FRIENDS-LOBBY-ORDER-PT-1 — Friends CHECKOUT LINE lists humans first, first-connect first.** Parent **FRIENDS-LOBBY-ORDER-1**. On prod (VERIFY_OK `7896b9f4`). Hard-refresh.<br>1. Two PCs. Friends room. Host picks a cart color that is not the seat-0 bot color (or confirm host is not seat 0).<br>2. Guest joins. Both screens: FAIL if a bot sits above a human. PASS if humans are at the top, host above guest, bots under.<br>3. FAIL if a human's color or seat mark no longer matches their cart. PASS if color and mark still match the cart.<br>4. Not a FAIL: the small score list at 3-2-1 may still show seat order.",
             "ship1": null
           },
           {
