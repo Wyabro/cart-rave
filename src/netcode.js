@@ -675,6 +675,23 @@ function shouldHoldNonHostCountdownPhase(newPhase, clientIsHost) {
 }
 
 /**
+ * COUNTDOWN-HOST-STAMP-1: skip a host-domain countdown stamp while the host
+ * clock is unlocked. HUD `adjustedNow()` subtracts `hostClock.offsetMs`, which
+ * is 0 until the first running snap. Applying host `countdownStartedAtMs` then
+ * hangs 3 (~1.8 s timeOrigin skew) and slams 2+1. Keep the gameStart local stamp.
+ * Rematch already has samples from the prior running phase. Abort `0` still applies.
+ * @param {unknown} ms
+ * @param {boolean} [clientIsHost=isHost] Hello must pass helloIsHost — module
+ *   isHost is not updated until setAuthorityMode later in that handler.
+ */
+function applyIncomingCountdownStartedAtMs(ms, clientIsHost) {
+  const asHost = typeof clientIsHost === "boolean" ? clientIsHost : isHost;
+  if (typeof ms !== "number" || !Number.isFinite(ms)) return;
+  if (ms > 0 && !asHost && hostClock.samples === 0) return;
+  GameState.setRoundCountdownStartedAtMs(ms);
+}
+
+/**
  * FRIENDS-LEVEL-1: true when this hello is arriving for a client who will become
  * the Friends-mode host of this room. hostId/youConnId module vars are not yet
  * assigned at this point in the hello handler (that happens after adopt calls) —
@@ -3273,7 +3290,7 @@ export function initNetcode(roomOverride) {
           GameState.setRoundPhase(helloPhase);
         }
         GameState.setRoundStartedAtMs(msg.round.startedAtMs ?? state.startedAtMs);
-        GameState.setRoundCountdownStartedAtMs(msg.round.countdownStartedAtMs ?? state.countdownStartedAtMs);
+        applyIncomingCountdownStartedAtMs(msg.round.countdownStartedAtMs, helloIsHost);
         GameState.setRoundWinnerSlotIndex(msg.round.winnerSlotIndex ?? state.winnerSlotIndex);
         if (msg.round.scores && typeof msg.round.scores === "object") {
           GameState.setRoundScores(msg.round.scores);
@@ -3632,7 +3649,7 @@ export function initNetcode(roomOverride) {
           GameState.setRoundPhase(r.phase ?? state.phase);
         }
         GameState.setRoundStartedAtMs(r.startedAtMs ?? state.startedAtMs);
-        GameState.setRoundCountdownStartedAtMs(r.countdownStartedAtMs ?? state.countdownStartedAtMs);
+        applyIncomingCountdownStartedAtMs(r.countdownStartedAtMs, isHost);
         GameState.setRoundWinnerSlotIndex(r.winnerSlotIndex ?? null);
         if (r.endReason === "timer" || r.endReason === "lastStanding" || r.endReason == null) {
           GameState.setRoundEndReason(r.endReason ?? null);
@@ -4283,6 +4300,10 @@ export const __netcodeTestHooks = {
   /** Cap-61 unit seam: countdown hold predicate (hello + MSG.round). */
   shouldHoldNonHostCountdownPhase: (newPhase, clientIsHost) =>
     shouldHoldNonHostCountdownPhase(newPhase, clientIsHost),
+  /** COUNTDOWN-HOST-STAMP-1: skip host countdown stamp while host clock is unlocked. */
+  applyIncomingCountdownStartedAtMs: (ms, clientIsHost) =>
+    applyIncomingCountdownStartedAtMs(ms, clientIsHost),
+  getHostClockSamplesForTest: () => hostClock.samples,
   setIsSessionPlayReadyForTest: (fn) => {
     registerCallbacks({ isSessionPlayReady: typeof fn === "function" ? fn : () => true });
   },

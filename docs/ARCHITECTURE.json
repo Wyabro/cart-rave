@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-17T04:13:42.062Z",
-    "commit": "e5f40ee0"
+    "at": "2026-08-17T04:34:19.825Z",
+    "commit": "beca58b1"
   },
-  "source_digest": "1a2d0c35",
+  "source_digest": "6c37a0ff",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -880,7 +880,7 @@
       }
     ],
     "next_actions": [
-      "Playtest NPC-ABORT-BURST-PT-1 · LAST-STANDING-DEAD-PT-1 on `npm run dev` until ship. REMOTE-INPUT-STALE-PT-1 after ship (`[2pc]`, no `?perfPump` on the non-host). Deferred: SHARD-PT-2 (launch day). New engineering: COUNTDOWN-HOST-STAMP-1."
+      "Playtest NPC-ABORT-BURST-PT-1 · LAST-STANDING-DEAD-PT-1 · COUNTDOWN-HOST-STAMP-PT-1 on `npm run dev` until ship. REMOTE-INPUT-STALE-PT-1 after ship (`[2pc]`, no `?perfPump` on the non-host). Deferred: SHARD-PT-2 (launch day)."
     ],
     "open_issues": [
       {
@@ -909,7 +909,7 @@
           {
             "pri": "Medium",
             "item": "COUNTDOWN-HOST-STAMP-1 — first non-host 3-2-1 hangs on 3 then slams 2+1 `[2pc]`",
-            "notes": "**Filed 08-16 from THOST-CEILING-PT-1 F8s (cap-367 · cap-368).** Not a THOST fail: guest `snapGapMaxMs` was 57 / 31. HUD digits use host-clock offset. First countdown still has `hostClock.samples === 0`. `host_round` then overwrites the `gameStart` local start with a host-domain `countdownStartedAtMs`. Guest timeOrigin is ~1.8 s behind → announcer `3` at +10 ms, `2` at +2.9 s, `1` at +3.5 s. Same-session rematch (cap-369) is spaced right once the offset is locked. Candidate lever: do not apply `host_round` / hello `countdownStartedAtMs` while `hostClock.samples === 0`. Do not add `tHost` to `host_round` on the first lever (needs a Worker deploy). Mid-join during countdown is out of that lever. Not a reopen of COUNTDOWN-SYNC-1 / COUNTDOWN-QUICKPLAY-1 / THOST-CEILING-1.",
+            "notes": "**Landed 08-16** — skip `host_round` / hello `countdownStartedAtMs` while `hostClock.samples === 0` (keep `gameStart` local stamp). Host and rematch (`samples > 0`) still apply. Abort `0` still applies. No `tHost` on `host_round`. Mid-join during countdown is out of this lever. Playtest owed: **COUNTDOWN-HOST-STAMP-PT-1**. Not a reopen of COUNTDOWN-SYNC-1 / COUNTDOWN-QUICKPLAY-1 / THOST-CEILING-1.",
             "ship1": null
           },
           {
@@ -1098,10 +1098,16 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Medium": 3,
+          "Medium": 4,
           "Low": 1
         },
         "rows": [
+          {
+            "pri": "Medium",
+            "item": "COUNTDOWN-HOST-STAMP-PT-1 — first non-host 3-2-1 is even; 3 does not hang then slam 2+1 `[2pc]`",
+            "notes": "**Owed: Wyatt playtest — COUNTDOWN-HOST-STAMP-PT-1 — first non-host 3-2-1 is even; 3 does not hang then slam 2+1.** Parent **COUNTDOWN-HOST-STAMP-1**. You are not host. Hard-refresh. Pushed but not yet deployed — `npm run dev` until ship.<br>1. Two PCs. Friends or Quickplay. You are not host. First match.<br>2. FAIL if 3 hangs, then 2 and 1 slam. PASS if 3-2-1-GO is about 1 s each.<br>3. Rematch in the same room. FAIL if that countdown hangs or slams. PASS if it stays even.<br>4. Host screen: FAIL if host 3-2-1 changed.",
+            "ship1": null
+          },
           {
             "pri": "Medium",
             "item": "LAST-STANDING-DEAD-PT-1 — Last Cart Standing is gone; bolt is 5 SD wins",

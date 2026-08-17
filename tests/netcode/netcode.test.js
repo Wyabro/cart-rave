@@ -201,6 +201,39 @@ describe("rewind and replay input buffering", () => {
   });
 });
 
+describe("COUNTDOWN-HOST-STAMP-1 — skip host countdown stamp until clock lock", () => {
+  beforeEach(() => {
+    hooks.resetNetState();
+    hooks.setAuthorityModeForTest(false);
+    GameState.resetRoundToLobby();
+    GameState.setRoundCountdownStartedAtMs(1000);
+  });
+
+  it("does not overwrite a local stamp while hostClock.samples === 0", () => {
+    expect(hooks.getHostClockSamplesForTest()).toBe(0);
+    hooks.applyIncomingCountdownStartedAtMs(999_000, false);
+    expect(GameState.getRoundState().countdownStartedAtMs).toBe(1000);
+  });
+
+  it("applies the stamp once the host clock has samples (rematch)", () => {
+    const nowMs = 50_000;
+    hooks.updateServerClockOffset(nowMs - 100, nowMs);
+    expect(hooks.getHostClockSamplesForTest()).toBe(1);
+    hooks.applyIncomingCountdownStartedAtMs(999_000, false);
+    expect(GameState.getRoundState().countdownStartedAtMs).toBe(999_000);
+  });
+
+  it("applies the stamp for the host even when samples === 0", () => {
+    hooks.applyIncomingCountdownStartedAtMs(888_000, true);
+    expect(GameState.getRoundState().countdownStartedAtMs).toBe(888_000);
+  });
+
+  it("applies an abort 0 while samples === 0", () => {
+    hooks.applyIncomingCountdownStartedAtMs(0, false);
+    expect(GameState.getRoundState().countdownStartedAtMs).toBe(0);
+  });
+});
+
 describe("non-host countdown hold (cap-59/61/63)", () => {
   beforeEach(() => {
     hooks.resetNetState();

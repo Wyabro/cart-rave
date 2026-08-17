@@ -39,8 +39,7 @@ external testers. Stay in this phase until Wyatt advances the marker.
 **NAME-VARIETY-1** · **PATTERNS-UI-5** · **STOREROOMS-NPC-SELFKO-2** closed.
 **ZOMBIE-HOST-PICK-1** already closed. Do not reopen GAMEPAD-LOBBY-1.
 Deferred launch day: **SHARD-PT-2**. Parent **WARM-QP-ROTATE-1** stays (cap-364).
-**THOST-CEILING-PT-1** Wyatt PASS 08-16 (caps 367 / 368). First-countdown hang
-filed as **COUNTDOWN-HOST-STAMP-1**. Medium **NPC-ABORT-BURST-1** landed (PT owed).
+**THOST-CEILING-PT-1** Wyatt PASS 08-16 (caps 367 / 368). **COUNTDOWN-HOST-STAMP-1** landed (PT owed). Medium **NPC-ABORT-BURST-1** landed (PT owed).
 08-15 and earlier PASSes: [completed-work.md](./planning/completed-work.md).
 
 **Closed cards keep their narrative in their own docs, not here** — Sundial
@@ -83,7 +82,7 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. Playtest **NPC-ABORT-BURST-PT-1** · **LAST-STANDING-DEAD-PT-1** on `npm run dev` until ship. **REMOTE-INPUT-STALE-PT-1** after ship (`[2pc]`, no `?perfPump` on the non-host). Deferred: **SHARD-PT-2** (launch day). New engineering: **COUNTDOWN-HOST-STAMP-1**.
+1. Playtest **NPC-ABORT-BURST-PT-1** · **LAST-STANDING-DEAD-PT-1** · **COUNTDOWN-HOST-STAMP-PT-1** on `npm run dev` until ship. **REMOTE-INPUT-STALE-PT-1** after ship (`[2pc]`, no `?perfPump` on the non-host). Deferred: **SHARD-PT-2** (launch day).
 
 ## Open issues (top)
 
