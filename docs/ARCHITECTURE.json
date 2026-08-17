@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-17T01:39:37.604Z",
-    "commit": "14c3e23c"
+    "at": "2026-08-17T01:52:41.237Z",
+    "commit": "9935f10d"
   },
-  "source_digest": "2729093e",
+  "source_digest": "ae270886",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -880,7 +880,7 @@
       }
     ],
     "next_actions": [
-      "Playtest THOST-CEILING-PT-1 · ZOMBIE-HOST-PICK-PT-1 after ship. Deferred: SHARD-PT-2 (launch day) · WARM-QP-ROTATE-PT-1."
+      "Playtest THOST-CEILING-PT-1 · ZOMBIE-HOST-PICK-PT-1 · GAMEPAD-FREEZE-PT-1 ([pad]) after ship. Deferred: SHARD-PT-2 (launch day) · WARM-QP-ROTATE-PT-1."
     ],
     "open_issues": [
       {
@@ -900,7 +900,7 @@
       {
         "title": "Engineering",
         "counts": {
-          "Medium": 9,
+          "Medium": 10,
           "Partial": 1,
           "Low": 14
         },
@@ -914,7 +914,13 @@
           {
             "pri": "Medium",
             "item": "GAMEPAD-FREEZE-1 — frozen gamepad input keeps driving a hidden host's cart",
-            "notes": "**Filed 08-16 from the gameplay bug audit (adversarially reviewed).** Gamepad polling is rAF-bound (stops when hidden), the `blur` handler clears keys/touch/boost flags but nothing gamepad, and there is no `visibilitychange` input reset ([input.js](../../src/input.js) ~346-352, ~471-476). The hidden-host MessageChannel pump ([gameLoop.js](../../src/gameLoop.js) ~788-809) steps physics but never polls the pad — a host who alt-tabs holding stick-forward + boost has their cart drive off and auto-release full bursts for up to the 10s host-away window. Solo is equally affected.",
+            "notes": "**Landed 08-16 (`9935f10d`)** — `resetHeldInput()` on `blur` + `visibilitychange→hidden` drops keys / nitro / pending hop / touch and the previously-frozen gamepad axis + boost; a boost still physically held on return is suppressed until release (edge re-priming mirrors `setUiMode(false)`). Playtest owed: **GAMEPAD-FREEZE-PT-1**. Filed 08-16 from the gameplay bug audit: gamepad polling is rAF-bound (stops when hidden), the `blur` handler cleared keys/touch/boost but nothing gamepad, and there was no `visibilitychange` reset — the hidden-host pump ([gameLoop.js](../../src/gameLoop.js) ~788-809) kept stepping physics off the frozen pad ([input.js](../../src/input.js) ~346-352, ~471-476). Solo equally affected.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "REMOTE-INPUT-STALE-1 — hidden non-host's last input keeps driving on the host sim",
+            "notes": "**Filed 08-16 during the GAMEPAD-FREEZE-1 adversarial review.** Host-side remote-input persistence, not client-side freeze: `drainRemoteInputJitterBuffers` ([netcode.js](../../src/netcode.js) ~4399-4448) keeps the last applied continuous input while the sender's queue is empty, and `remoteInputsByConnId` is pruned only by conn liveness ([netcode.js](../../src/netcode.js) ~3486-3487), never by input age. A hidden non-host stops sending; the host applies their last throttle/steer/nitro every tick until they return or disconnect — affects keyboard/touch equally (not gamepad-specific; GAMEPAD-FREEZE-1 fixed only the host/solo side). Fix shape: host-side input-age timeout → zero stale remote input.",
             "ship1": null
           },
           {
@@ -1109,7 +1115,7 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Medium": 3,
+          "Medium": 4,
           "Low": 1
         },
         "rows": [
@@ -1123,6 +1129,12 @@
             "pri": "Medium",
             "item": "THOST-CEILING-PT-1 — non-host host-clock uses real snapshot tHost `[2pc]`",
             "notes": "**Owed: Wyatt playtest — THOST-CEILING-PT-1 — a hitch on the guest does not stretch snapshot gaps to hitch length.** Parent **THOST-CEILING-1**. You host. Guest F8.<br>1. Friends match, 2 machines, hard-refresh both. Guest is non-host. Play ~20 s after GO.<br>2. On the guest, hitch once (open DevTools or drag the window for ~1 s), then F8 and pull.<br>3. FAIL if guest `flow.snapGapMaxMs` is near the hitch length (hundreds of ms+) while the host kept sending. PASS if guest snap gaps stay near host cadence (~25–100 ms) after the hitch.<br>4. Guest F8 `countdown.hostClockOffsetMs` after GO may be small (10–80 ms). FAIL only if carts rubber-band on the hitch while the host stayed smooth.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "GAMEPAD-FREEZE-PT-1 — hidden tab no longer drives the host cart `[pad]`",
+            "notes": "**Owed: Wyatt playtest — GAMEPAD-FREEZE-PT-1 — a pad left held while the tab is hidden does not drive the cart or auto-release a burst.** Parent **GAMEPAD-FREEZE-1**. Controller required. Stay under the ~10 s host-away window on step 2 (hide ≤5 s) so migration doesn't muddy the result.<br>1. Quickplay (host) with the controller: hold stick-forward + boost, alt-tab away for ~3-5 s, tab back.<br>2. FAIL if the cart drove off / burst while hidden, or a fresh charge fires from the still-held button on return. PASS if the cart is where you left it, and releasing + re-pressing boost works immediately.<br>3. Solo with the controller: same hold + alt-tab + return — cart motionless, no burst.<br>4. Sanity: stick drives, boost charges/fires, hop fires, START still opens pause.",
             "ship1": null
           },
           {
@@ -1481,9 +1493,14 @@
     ],
     "settled_decisions": [
       {
+        "id": "D-GAMEPAD-FREEZE-1",
+        "date": "08-16, `9935f10d`",
+        "text": "`blur` + tab-hide now reset all held input incl. the previously-frozen gamepad axis/boost; held boost is suppressed until release on return. Playtest GAMEPAD-FREEZE-PT-1."
+      },
+      {
         "id": "D-ZOMBIE-HOST-PICK-1",
         "date": "08-16",
-        "text": "host-away / host-repair pick from `#platformLiveConnIds()`, not `#connections.keys()`. Platform-dead peers cannot become host. Silent-open zombies still wait for the 20 s reaper. Playtest ZOMBIE-HOST-PICK-PT-1 (2pc host-away regression)."
+        "text": "host-away / host-repair pick from `#platformLiveConnIds()`, not `#connections.keys()` — platform-dead peers cannot become host. Playtest ZOMBIE-HOST-PICK-PT-1 (2pc host-away regression)."
       },
       {
         "id": "D-THOST-CEILING-1",

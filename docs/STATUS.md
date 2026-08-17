@@ -35,13 +35,10 @@ external testers. Stay in this phase until Wyatt advances the marker.
 **PATTERNS-UI-5-PT-1** · **STOREROOMS-NPC-SELFKO-PT-1** ·
 **STOREROOMS-NPC-SELFKO-PT-2**. Parents **INPUT-LOCK-1** · **SD-SCORE-STALE-1** ·
 **SD-WIN-CREDIT-1** · **PATTERNS-FOIL-1** · **MENU-CMD-SKEW-1** · **NAME-VARIETY-1** ·
-**PATTERNS-UI-5** · **STOREROOMS-NPC-SELFKO-2** closed. **08-15 playtest PASSes:**
-**DEEPSEC-1-PT-1** · **CARGO-BAY-INSTANCE-PT-3** · **CONN-TRACK-LEAK-PT-1** ·
-**QP-ROTATE-PT-1** · **CONN-TOASTS-1** · **BOOST-SFX-NONHOST-PT-1**.
-**GAMEPAD-FRIENDS-SEATED-PT-1 PASS 08-15** (Worker `ef2a7550`, `747e67d`).
-**STORE-PILE-PT-1 PASS 08-14.** Do not reopen GAMEPAD-LOBBY-1. Deferred launch
-day: **SHARD-PT-2**. New evidence **WARM-QP-ROTATE-1** (cap-364). Medium
-**THOST-CEILING-1** landed (playtest owed **THOST-CEILING-PT-1**).
+**PATTERNS-UI-5** · **STOREROOMS-NPC-SELFKO-2** closed. Do not reopen GAMEPAD-LOBBY-1.
+Deferred launch day: **SHARD-PT-2**. New evidence **WARM-QP-ROTATE-1** (cap-364).
+Medium **THOST-CEILING-1** landed (playtest owed **THOST-CEILING-PT-1**).
+08-15 and earlier PASSes: [completed-work.md](./planning/completed-work.md).
 
 **Closed cards keep their narrative in their own docs, not here** — Sundial
 ([handover](./planning/art-pass-sundial-handover.md); read its "Traps that cost time" before any
@@ -83,7 +80,7 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. Playtest **THOST-CEILING-PT-1** · **ZOMBIE-HOST-PICK-PT-1** after ship. Deferred: **SHARD-PT-2** (launch day) · **WARM-QP-ROTATE-PT-1**.
+1. Playtest **THOST-CEILING-PT-1** · **ZOMBIE-HOST-PICK-PT-1** · **GAMEPAD-FREEZE-PT-1** ([pad]) after ship. Deferred: **SHARD-PT-2** (launch day) · **WARM-QP-ROTATE-PT-1**.
 
 ## Open issues (top)
 
@@ -101,7 +98,8 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 [decision-log-2026-08.md](./archive/decision-log-2026-08.md), 07-11 → 07-23 in
 [decision-log-2026-07.md](./archive/decision-log-2026-07.md).
 
-- **D-ZOMBIE-HOST-PICK-1** (08-16): host-away / host-repair pick from `#platformLiveConnIds()`, not `#connections.keys()`. Platform-dead peers cannot become host. Silent-open zombies still wait for the 20 s reaper. Playtest **ZOMBIE-HOST-PICK-PT-1** (2pc host-away regression).
+- **D-GAMEPAD-FREEZE-1** (08-16, `9935f10d`): `blur` + tab-hide now reset all held input incl. the previously-frozen gamepad axis/boost; held boost is suppressed until release on return. Playtest **GAMEPAD-FREEZE-PT-1**.
+- **D-ZOMBIE-HOST-PICK-1** (08-16): host-away / host-repair pick from `#platformLiveConnIds()`, not `#connections.keys()` — platform-dead peers cannot become host. Playtest **ZOMBIE-HOST-PICK-PT-1** (2pc host-away regression).
 - **D-THOST-CEILING-1** (08-16): `tHost` gate is `|tHost − now| ≤ 60s` (replaces DEEPSEC-1's `1e12` abs cap). Playtest **THOST-CEILING-PT-1**.
 - **D-SD-SCORE-STALE-1** (08-16): `addScore` now commits before the SD-win callback so podium `host_round` carries the final point. Announcer leader lines skip SD. **SD-SCORE-STALE-PT-1** Wyatt PASS 08-16.
 - **D-MENU-CMD-SKEW-1** (08-15): Menu entrance wrote `translateY`/`scale` on `.cr-cmd` and wiped `skewX(-8deg)`; leftover label `skewX(8deg)` leaned SOLO–SETTINGS left. Entrance now `fadeIn` only. **MENU-CMD-SKEW-PT-1** Wyatt PASS 08-16.
@@ -146,8 +144,9 @@ the dev loop (dev probes lie in prod · edge propagation · frozen `rAF`), or a 
 
 ## Last updated
 
-2026-08-16 (ZOMBIE-HOST-PICK-1) — host-away / host-repair skip platform-dead
-ids. Playtest **ZOMBIE-HOST-PICK-PT-1**.
+2026-08-16 (GAMEPAD-FREEZE-1) — held gamepad input resets on blur / tab-hide (`9935f10d`); playtest **GAMEPAD-FREEZE-PT-1** owed.
+
+2026-08-16 (ZOMBIE-HOST-PICK-1) — host-away / host-repair skip platform-dead ids. Playtest **ZOMBIE-HOST-PICK-PT-1**.
 
 2026-08-16 (INPUT-LOCK-PT-1 · INPUT-LOCK-PT-2 · SD-SCORE-STALE-PT-1 ·
 SD-WIN-CREDIT-PT-1) — Wyatt PASS on prod HEAD `fe6aa59f`. Parents
@@ -158,11 +157,7 @@ SD-WIN-CREDIT-PT-1) — Wyatt PASS on prod HEAD `fe6aa59f`. Parents
 2026-08-16 (PATTERNS-FOIL-PT-1) — Wyatt PASS on prod Worker `1cdbcdb9` (`c4f46bc`).
 Parent **PATTERNS-FOIL-1** closed.
 
-2026-08-15 (BOOST-SFX-NONHOST-PT-1) — Wyatt PASS on prod Worker `5d72f4a1` / `93ec6fa`.
-Non-host boost whoosh plays when host `snap.b` converts a live charge. Parent
-**BOOST-SFX-NONHOST-1** closed. BRIEFING regenerated from this file.
-
-2026-08-15 (CONN-TOASTS-1) — **PASS 08-15** on Worker `be519fa4`.
+2026-08-15 (BOOST-SFX-NONHOST-PT-1) — Wyatt PASS on prod Worker `5d72f4a1` / `93ec6fa`. Parent **BOOST-SFX-NONHOST-1** closed.
 
 Older session logs (2026-08-13 and earlier): [archive/README.md](./archive/README.md)
 ([status-log-2026-08-13.md](./archive/status-log-2026-08-13.md)) ·
