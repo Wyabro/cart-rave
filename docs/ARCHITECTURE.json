@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-17T04:50:30.948Z",
-    "commit": "7f8671ad"
+    "at": "2026-08-17T18:04:02.117Z",
+    "commit": "76cbe304"
   },
-  "source_digest": "3bfaa52b",
+  "source_digest": "e2c621b3",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1413,11 +1413,11 @@
     "execution_loop": [
       "Plan → Wyatt ack → apply, per WAVE. One plan (goal · files · asserts · risks · playtest",
       "One lever per commit; mid-wave abort if a lever fails. One card at a time; ideas → BACKLOG.",
-      "Fast lane (all must hold): one file · stated symptom only · no new file/dep/CONFIG/?flag ·",
-      "Game-card freeze: no commits to `tools/`, `.claude/hooks/`, `.agents/`, or CC styling.",
+      "Fast lane (all must hold): one file · stated symptom only · no new file, dependency, `CONFIG` key, or URL query flag ·",
+      "Game-card freeze: no commits to `tools/`, `.claude/hooks/`, `.agents/`, or Command Center styling.",
       "Timebox: ~45 min or 3 failed approaches → STATUS findings (5 lines) →",
       "Done (only definition): `npm run qa` green by number + pushed to `origin/cart-clash` +",
-      "Post-lever: no notification-driven follow-ups, no baseline worktrees, no `states` gate"
+      "Post-lever: no notification-driven follow-ups, no baseline worktrees, no `npm run states` gate"
     ],
     "routing": [
       "Routing / skills: Grok and Codex are equal primaries. Cursor is IDE / backup. Claude is",
@@ -1430,7 +1430,8 @@
       "Host-authoritative client Rapier; predicting clients never own the outcome.",
       "Server never simulates physics (`party/index.ts`: lobby, signaling, TURN, host selection, lifecycle only).",
       "Realtime is P2P DataChannels (`src/netcode/p2p.js`) — not WebSocket relay for transforms/input/spills/kill-feed.",
-      "`CART_COLORS` in `src/config.js` is the single source of truth for cart neon, brand-aligned to the 2D roster (`PALETTES.classic.players` in `cart-rave-menu.js`, ART-PALETTE-1 08-13) — pure spectral hexes are off-brand. The cart material traverse stays frozen.",
+      "`CART_COLORS` in `src/config.js` is the single source of truth for cart neon; keep it brand-aligned to the 2D roster — art-direction palette rule.",
+      "The cart material traverse stays frozen.",
       "Rounds start only via `MSG.gameStart`. Round length: `ROUND_DURATION_MS` in",
       "No camera lerp/slerp. `index.html` is menu markup (do not recreate `cart-rave-menu.html`).",
       "Null-guard all cart access. Host migration: oldest connection; clear buffers / re-init P2P.",

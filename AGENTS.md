@@ -39,7 +39,8 @@ Branch: **`cart-clash`**. Deploy map: [docs/guides/deploy-urls.md](docs/guides/d
 - **Host-authoritative** client Rapier; predicting clients never own the outcome.
 - **Server never simulates physics** (`party/index.ts`: lobby, signaling, TURN, host selection, lifecycle only).
 - **Realtime is P2P DataChannels** (`src/netcode/p2p.js`) — not WebSocket relay for transforms/input/spills/kill-feed.
-- **`CART_COLORS`** in `src/config.js` is the single source of truth for cart neon, **brand-aligned** to the 2D roster (`PALETTES.classic.players` in `cart-rave-menu.js`, ART-PALETTE-1 08-13) — pure spectral hexes are off-brand. The **cart material traverse** stays frozen.
+- **`CART_COLORS`** in `src/config.js` is the single source of truth for cart neon; keep it brand-aligned to the 2D roster — [art-direction palette rule](docs/reference/art-direction.md).
+- **The cart material traverse stays frozen.**
 - **Rounds start only via `MSG.gameStart`.** Round length: `ROUND_DURATION_MS` in
   `shared/roundConstants.js` only (150s).
 - **No camera lerp/slerp.** **`index.html`** is menu markup (do not recreate `cart-rave-menu.html`).
@@ -51,10 +52,12 @@ Branch: **`cart-clash`**. Deploy map: [docs/guides/deploy-urls.md](docs/guides/d
 - **Plan → Wyatt ack → apply, per WAVE.** One plan (goal · files · asserts · risks · playtest
   checklist), one ack, then levers. **ACTIVE CARD names the card — not permission to edit.**
 - **One lever per commit**; mid-wave abort if a lever fails. One card at a time; ideas → BACKLOG.
-- **Fast lane** (all must hold): one file · stated symptom only · no new file/dep/CONFIG/?flag ·
+  Game levers use `CARD-ID: imperative summary`; documentation commits use `docs:`, and
+  architecture-manifest maintenance uses `arch:`.
+- **Fast lane** (all must hold): one file · stated symptom only · no new file, dependency, `CONFIG` key, or URL query flag ·
   not invariants · not `main.js` / `party/` / `src/netcode*` / physics / player-visible.
   Still needs one-line intent + go + `npm run qa` + commit. Grows past that → full wave plan.
-- **Game-card freeze:** no commits to `tools/`, `.claude/hooks/`, `.agents/`, or CC styling.
+- **Game-card freeze:** no commits to `tools/`, `.claude/hooks/`, `.agents/`, or Command Center styling.
 - **Timebox:** ~45 min or 3 failed approaches → STATUS findings (5 lines) →
   `.agents/skills/systematic-debugging` → hand off / ask Wyatt.
 - **Done** (only definition): `npm run qa` green **by number** + pushed to `origin/cart-clash` +
@@ -62,15 +65,15 @@ Branch: **`cart-clash`**. Deploy map: [docs/guides/deploy-urls.md](docs/guides/d
   `## Playtest owed` and run `npm run playtest:console`. Confirm
   `.diag-captures/playtest-queue.json` lists the id with `steps` before you hand him the console.
   Close / seed format: [BACKLOG.md](docs/planning/BACKLOG.md) header.
-- **Post-lever:** no notification-driven follow-ups, no baseline worktrees, no `states` gate
+- **Post-lever:** no notification-driven follow-ups, no baseline worktrees, no `npm run states` gate
   unless the wave owns that gate. Outside-diff fails = one-line note + stop.
 
 ## SHIP PROOF
 
 - Code wins over stale claims. Never "done"/"verified" without the **Done** definition above.
 - Ship only on explicit **"ship it"**. Behavior change → production playtest.
-- No live URL and no prod playtest until the post-ship poll is clean (0×404 + symbol in the
-  deployed bundle). Poll steps: [docs/guides/deploy-urls.md](docs/guides/deploy-urls.md).
+- No live URL and no prod playtest until the post-ship poll finds zero 404 responses and the
+  expected symbol in the deployed bundle. Poll steps: [docs/guides/deploy-urls.md](docs/guides/deploy-urls.md).
   Do not deploy near a public post.
 - No `git add -A`. Report gates by number. STATUS at wave boundaries only. One `qa` per wave
   when possible.
