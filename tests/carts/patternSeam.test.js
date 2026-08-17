@@ -117,7 +117,7 @@ describe("pattern seam — registry coherence", () => {
     ]);
     expect(PATTERN_UNLOCKS.dots).toMatchObject({ event: "combo_t2", goal: 8 });
     expect(PATTERN_UNLOCKS.waves).toMatchObject({ event: "combo_t3", goal: 5 });
-    expect(PATTERN_UNLOCKS.bolt).toMatchObject({ event: "sd_win", goal: 8 });
+    expect(PATTERN_UNLOCKS.bolt).toMatchObject({ event: "sd_win", goal: 5 });
     expect(PATTERN_UNLOCKS.honeycomb).toMatchObject({ event: "ko_void", goal: 10 });
     expect(PATTERN_UNLOCKS.diamond).toMatchObject({ event: "ko_npc", goal: 15 });
     expect(PATTERN_UNLOCKS.cubes).toMatchObject({ event: "ko_void", goal: 50 });

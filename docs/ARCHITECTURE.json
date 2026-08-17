@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-17T02:22:29.968Z",
-    "commit": "0e6c0c9e"
+    "at": "2026-08-17T02:42:56.177Z",
+    "commit": "f81ed805"
   },
-  "source_digest": "1b508020",
+  "source_digest": "977e1420",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1104,8 +1104,8 @@
         "rows": [
           {
             "pri": "Medium",
-            "item": "LAST-STANDING-DEAD-PT-1 — Last Cart Standing is gone; bolt is 8 SD wins",
-            "notes": "**Owed: Wyatt playtest — LAST-STANDING-DEAD-PT-1 — Sudden Death podium is a normal pts / TIEBREAK win; Sole Survivor is gone; bolt hint is 8 Sudden Death wins.** Parent **LAST-STANDING-DEAD-1**. Solo. Hard-refresh. Pushed but not yet deployed — `npm run dev` until ship.<br>1. Solo. Force Sudden Death (tie the 150s clock).<br>2. KO the last tied rival. FAIL if 3s slow-mo plays or the verdict says LAST CART STANDING. PASS if the podium is a normal SD win (pts / TIEBREAK).<br>3. Open Challenges. FAIL if Sole Survivor is still listed. PASS if Clutch Winner still exists and Sole Survivor is gone.<br>4. Open Patterns. FAIL if bolt still says Last Cart Standing or unlocks from 3 SD wins. PASS if the hint is 8 Sudden Death wins and bolt stays locked below 8.",
+            "item": "LAST-STANDING-DEAD-PT-1 — Last Cart Standing is gone; bolt is 5 SD wins",
+            "notes": "**Owed: Wyatt playtest — LAST-STANDING-DEAD-PT-1 — Sudden Death podium is a normal pts / TIEBREAK win; Sole Survivor is gone; bolt hint is 5 Sudden Death wins.** Parent **LAST-STANDING-DEAD-1**. Solo. Hard-refresh. Pushed but not yet deployed — `npm run dev` until ship.<br>1. Solo. Force Sudden Death (tie the 150s clock).<br>2. KO the last tied rival. FAIL if 3s slow-mo plays or the verdict says LAST CART STANDING. PASS if the podium is a normal SD win (pts / TIEBREAK).<br>3. Open Challenges. FAIL if Sole Survivor is still listed. PASS if Clutch Winner still exists and Sole Survivor is gone.<br>4. Open Patterns. FAIL if bolt still says Last Cart Standing or unlocks from 3 SD wins. PASS if the hint is 5 Sudden Death wins and bolt stays locked below 5.",
             "ship1": null
           },
           {
@@ -1490,7 +1490,7 @@
       {
         "id": "D-LAST-STANDING-DEAD-1",
         "date": "08-16",
-        "text": "delete Last Cart Standing. Bolt → 8 SD wins. lastStanding wire accepted; non-max rejected. Playtest LAST-STANDING-DEAD-PT-1."
+        "text": "delete Last Cart Standing. Bolt → 5 SD wins. lastStanding wire accepted; non-max rejected. Playtest LAST-STANDING-DEAD-PT-1."
       },
       {
         "id": "D-NPC-ABORT-BURST-1",
