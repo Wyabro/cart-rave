@@ -480,6 +480,118 @@ describe("INPUT-LOCK-1 host remote clear + drain gate", () => {
   });
 });
 
+describe("REMOTE-INPUT-STALE-1 host input-age timeout", () => {
+  /** INPUT-SEAT-1: stale tests must seed a live human slot for the peer connId. */
+  function humanSlots(...connIds) {
+    return connIds.map((connId, i) => ({
+      slotId: i,
+      kind: "human",
+      connId,
+      name: `P${i + 1}`,
+      color: "pink",
+      isReady: true,
+    }));
+  }
+
+  const STALE_MS = 80;
+  let prevStale;
+
+  beforeEach(() => {
+    hooks.resetNetState();
+    GameState.setRoundPhase("running");
+    hooks.setHostStateForTest({
+      isHost: true,
+      youConnId: "host",
+      netSlots: humanSlots("peerA"),
+    });
+    prevStale = CONFIG.net.remoteInputStaleMs;
+    CONFIG.net.remoteInputStaleMs = STALE_MS;
+  });
+
+  afterEach(() => {
+    CONFIG.net.remoteInputStaleMs = prevStale;
+    GameState.resetRoundToLobby();
+    setRefs({ triggerRamBoostRef: null, getAllCartsRef: () => null });
+  });
+
+  async function applyFrame(input, seq) {
+    hooks.handleRemoteClientInput(input, "peerA", seq);
+    const delay = CONFIG.net.inputJitterBufferMs ?? 40;
+    await new Promise((r) => setTimeout(r, delay + 20));
+    hooks.drainRemoteInputJitterBuffers();
+  }
+
+  it("near-miss — applied entry is not zeroed inside the threshold", async () => {
+    await applyFrame({ throttle: 1, steer: -0.5, nitro: false, hop: false }, 1);
+    expect(getRemoteInputsByConnId().get("peerA")).toMatchObject({
+      throttle: 1,
+      steer: -0.5,
+      nitro: false,
+    });
+
+    await new Promise((r) => setTimeout(r, Math.floor(STALE_MS * 0.6)));
+    hooks.drainRemoteInputJitterBuffers();
+    expect(getRemoteInputsByConnId().get("peerA")).toMatchObject({
+      throttle: 1,
+      steer: -0.5,
+      nitro: false,
+    });
+  });
+
+  it("stale-zero — empty queue past threshold zeros axes and keeps the latch", async () => {
+    const triggerRamBoost = vi.fn();
+    setRefs({
+      triggerRamBoostRef: triggerRamBoost,
+      getAllCartsRef: () => [{}],
+    });
+    await applyFrame({ throttle: 1, steer: 0.25, nitro: true, hop: false }, 2);
+    expect(getRemoteInputsByConnId().get("peerA")).toMatchObject({
+      throttle: 1,
+      steer: 0.25,
+      nitro: true,
+    });
+    expect(hooks.getRemoteNitroLatched("peerA")).toBe(true);
+    const ackBefore = hooks.getHostLastProcessedInputSeq("peerA");
+
+    await new Promise((r) => setTimeout(r, STALE_MS + 20));
+    hooks.drainRemoteInputJitterBuffers();
+    expect(getRemoteInputsByConnId().get("peerA")).toMatchObject({
+      throttle: 0,
+      steer: 0,
+      nitro: false,
+    });
+    expect(hooks.getRemoteNitroLatched("peerA")).toBe(true);
+    expect(hooks.getHostLastProcessedInputSeq("peerA")).toBe(ackBefore);
+  });
+
+  it("re-arm — fresh frame after stale-zero restores axes; drain edge does not re-fire", async () => {
+    const triggerRamBoost = vi.fn();
+    setRefs({
+      triggerRamBoostRef: triggerRamBoost,
+      getAllCartsRef: () => [{}],
+    });
+    await applyFrame({ throttle: 1, steer: 0, nitro: true, hop: false }, 3);
+    expect(triggerRamBoost).toHaveBeenCalledOnce();
+
+    await new Promise((r) => setTimeout(r, STALE_MS + 20));
+    hooks.drainRemoteInputJitterBuffers();
+    expect(getRemoteInputsByConnId().get("peerA")).toMatchObject({
+      throttle: 0,
+      steer: 0,
+      nitro: false,
+    });
+    expect(hooks.getRemoteNitroLatched("peerA")).toBe(true);
+
+    await applyFrame({ throttle: 0.4, steer: 0.8, nitro: true, hop: false }, 4);
+    expect(getRemoteInputsByConnId().get("peerA")).toMatchObject({
+      throttle: 0.4,
+      steer: 0.8,
+      nitro: true,
+    });
+    expect(triggerRamBoost).toHaveBeenCalledOnce();
+  });
+});
+
 describe("SLOTS-JSON-1 slotsFingerprint", () => {
   const base = {
     slotId: 0,

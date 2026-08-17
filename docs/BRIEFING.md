@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-17 at commit `0e6c0c9e` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `970e54dd`
+> Generated 2026-08-17 at commit `20fd80b3` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `aec5d024`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -18,7 +18,7 @@ Playtesting and stabilization — Tier A drained; Tier B/C, security sweep, and 
 
 ## ACTIVE CARD
 
-Playtest THOST-CEILING-PT-1 · ZOMBIE-HOST-PICK-PT-1 · GAMEPAD-FREEZE-PT-1 ([pad]) after ship. NPC-ABORT-BURST-PT-1 · LAST-STANDING-DEAD-PT-1 on `npm run dev` until ship. Deferred: SHARD-PT-2 (launch day) · WARM-QP-ROTATE-PT-1
+Playtest THOST-CEILING-PT-1 · ZOMBIE-HOST-PICK-PT-1 · GAMEPAD-FREEZE-PT-1 ([pad]) after ship. NPC-ABORT-BURST-PT-1 · LAST-STANDING-DEAD-PT-1 on `npm run dev` until ship. REMOTE-INPUT-STALE-PT-1 after ship (`[2pc]`, no `?perfPump` on the non-host). Deferred: SHARD-PT-2 (launch day) · WARM-QP-ROTATE-PT-1
 
 Plan → Wyatt ack → apply. This heading names the card; it is **not** permission to edit.
 

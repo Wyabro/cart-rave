@@ -415,6 +415,10 @@ export const CONFIG = {
     // * ackSeq in host snapshots advances only when a frame is *applied* after this
     // * delay (not on wire receive) so client prediction does not prune unapplied inputs.
     inputJitterBufferMs: 40,
+    // * Host apply-silence before a remote's last input is treated as released
+    // * (REMOTE-INPUT-STALE-1). 300 ms leaves ~260 ms after the 40 ms jitter delay.
+    // * A live ~60 Hz peer never trips this; a hidden or dead sender does.
+    remoteInputStaleMs: 300,
     // * Max queued remote input frames per peer (drop oldest when exceeded).
     inputJitterQueueMax: 24,
     // * Non-host prediction history cap (physics-rate samples). ~400 ms at 60 Hz.

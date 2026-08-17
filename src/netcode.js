@@ -869,7 +869,7 @@ export function getConnectionState() { return connectionState; }
 /**
  * Returns the host-side remote input map after draining the jitter buffer.
  * Simulation should call this once per physics substep (gameLoop already does).
- * @returns {Map<string, { throttle: number, steer: number, nitro: boolean }>}
+ * @returns {Map<string, { throttle: number, steer: number, nitro: boolean, lastAppliedMs?: number }>}
  */
 export function getRemoteInputsByConnId() {
   drainRemoteInputJitterBuffers();
@@ -4449,10 +4449,33 @@ function drainRemoteInputJitterBuffers() {
         throttle: lastThrottle,
         steer: lastSteer,
         nitro: nitroHeld,
+        lastAppliedMs: now,
       });
       remoteNitroLatchedByConnId.set(connId, nitroHeld);
     }
-    // * No ready frames yet — keep last applied continuous input (map already holds it).
+    // * No ready frames yet — keep last applied continuous input (map already holds it)
+    // * unless the apply-silence sweep below zeros it.
+  }
+
+  // * REMOTE-INPUT-STALE-1: a hidden/dead peer stops sending; empty-queue persistence
+  // * would otherwise drive the last throttle/steer/nitro forever. Zero in place so
+  // * applyArcadeControls still runs (release edge / coast). Do not touch the nitro
+  // * latch — clearing it re-arms the drain rising edge and double-boosts on return.
+  // * Do not touch hostLastProcessedInputSeq — ackSeq advances only on applied frames.
+  // * Skip conns that still have queued frames (late packet sitting in the jitter delay).
+  const staleMs = CONFIG.net.remoteInputStaleMs ?? 300;
+  for (const [connId, entry] of remoteInputsByConnId) {
+    if (!entry) continue;
+    const pending = remoteInputQueuesByConnId.get(connId);
+    if (pending && pending.length > 0) continue;
+    const appliedAt = entry.lastAppliedMs;
+    if (Number.isFinite(appliedAt) && now - appliedAt <= staleMs) continue;
+    remoteInputsByConnId.set(connId, {
+      throttle: 0,
+      steer: 0,
+      nitro: false,
+      lastAppliedMs: now,
+    });
   }
 }
 

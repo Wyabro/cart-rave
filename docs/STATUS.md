@@ -80,7 +80,7 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. Playtest **THOST-CEILING-PT-1** · **ZOMBIE-HOST-PICK-PT-1** · **GAMEPAD-FREEZE-PT-1** ([pad]) after ship. **NPC-ABORT-BURST-PT-1** · **LAST-STANDING-DEAD-PT-1** on `npm run dev` until ship. Deferred: **SHARD-PT-2** (launch day) · **WARM-QP-ROTATE-PT-1**.
+1. Playtest **THOST-CEILING-PT-1** · **ZOMBIE-HOST-PICK-PT-1** · **GAMEPAD-FREEZE-PT-1** ([pad]) after ship. **NPC-ABORT-BURST-PT-1** · **LAST-STANDING-DEAD-PT-1** on `npm run dev` until ship. **REMOTE-INPUT-STALE-PT-1** after ship (`[2pc]`, no `?perfPump` on the non-host). Deferred: **SHARD-PT-2** (launch day) · **WARM-QP-ROTATE-PT-1**.
 
 ## Open issues (top)
 
@@ -97,6 +97,7 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 [decision-log-2026-08.md](./archive/decision-log-2026-08.md), 07-11 → 07-23 in
 [decision-log-2026-07.md](./archive/decision-log-2026-07.md).
 
+- **D-REMOTE-INPUT-STALE-1** (08-17): host zeros stale remote input after `remoteInputStaleMs` (300) of apply-silence; nitro latch kept; ackSeq untouched. Playtest **REMOTE-INPUT-STALE-PT-1**.
 - **D-LAST-STANDING-DEAD-1** (08-16): delete Last Cart Standing. Bolt → 5 SD wins. lastStanding wire accepted; non-max rejected. Playtest **LAST-STANDING-DEAD-PT-1**.
 - **D-NPC-ABORT-BURST-1** (08-16): abort hard-cancels unless the locked target is live on the floor and cart-yaw runway is clear. Open-floor close ram still bursts. Playtest **NPC-ABORT-BURST-PT-1**.
 - **D-GAMEPAD-FREEZE-1** (08-16, `9935f10d`): `blur` + tab-hide now reset all held input incl. the previously-frozen gamepad axis/boost; held boost is suppressed until release on return. Playtest **GAMEPAD-FREEZE-PT-1**.
@@ -145,23 +146,10 @@ the dev loop (dev probes lie in prod · edge propagation · frozen `rAF`), or a 
 
 ## Last updated
 
-2026-08-16 (NPC-ABORT-BURST-1 · GAMEPAD-FREEZE-1) — NPC abort-burst cancel; pad input resets on hide. PT: **NPC-ABORT-BURST-PT-1** (`npm run dev` until ship) · **GAMEPAD-FREEZE-PT-1**.
+2026-08-17 (REMOTE-INPUT-STALE-1) — host zeros stale remote input after 300 ms apply-silence. PT: **REMOTE-INPUT-STALE-PT-1** (`[2pc]`, after ship).
 
-2026-08-16 (ZOMBIE-HOST-PICK-1) — host-away / host-repair skip platform-dead ids. Playtest **ZOMBIE-HOST-PICK-PT-1**.
+2026-08-16 (NPC-ABORT-BURST-1 · GAMEPAD-FREEZE-1 · ZOMBIE-HOST-PICK-1 · THOST-CEILING-1) — landed; PT owed. Closed PASS: INPUT-LOCK-1 · SD-SCORE-STALE-1 · SD-WIN-CREDIT-1 · PATTERNS-FOIL-1.
 
-2026-08-16 (INPUT-LOCK-PT-1 · INPUT-LOCK-PT-2 · SD-SCORE-STALE-PT-1 ·
-SD-WIN-CREDIT-PT-1) — Wyatt PASS on prod HEAD `fe6aa59f`. Parents
-**INPUT-LOCK-1** · **SD-SCORE-STALE-1** · **SD-WIN-CREDIT-1** closed.
-
-2026-08-16 (THOST-CEILING-1) — `tHost` gate `|tHost − now| ≤ 60s`. Playtest **THOST-CEILING-PT-1**.
-
-2026-08-16 (PATTERNS-FOIL-PT-1) — Wyatt PASS on prod Worker `1cdbcdb9` (`c4f46bc`).
-Parent **PATTERNS-FOIL-1** closed.
-
-2026-08-15 (BOOST-SFX-NONHOST-PT-1) — Wyatt PASS on prod Worker `5d72f4a1` / `93ec6fa`. Parent **BOOST-SFX-NONHOST-1** closed.
-
-Older session logs (2026-08-13 and earlier): [archive/README.md](./archive/README.md)
-([status-log-2026-08-13.md](./archive/status-log-2026-08-13.md)) ·
-([status-log-2026-08-12.md](./archive/status-log-2026-08-12.md)) ·
-([status-log-2026-08-11.md](./archive/status-log-2026-08-11.md)) ·
-([status-log-2026-08-08-to-10.md](./archive/status-log-2026-08-08-to-10.md)).
+Older session logs (2026-08-15 and earlier): [archive/README.md](./archive/README.md)
+([status-log-2026-08-15.md](./archive/status-log-2026-08-15.md)) ·
+([status-log-2026-08-13.md](./archive/status-log-2026-08-13.md)).

@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-17T02:42:56.177Z",
-    "commit": "f81ed805"
+    "at": "2026-08-17T02:54:09.991Z",
+    "commit": "20fd80b3"
   },
-  "source_digest": "977e1420",
+  "source_digest": "d372c973",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -880,7 +880,7 @@
       }
     ],
     "next_actions": [
-      "Playtest THOST-CEILING-PT-1 · ZOMBIE-HOST-PICK-PT-1 · GAMEPAD-FREEZE-PT-1 ([pad]) after ship. NPC-ABORT-BURST-PT-1 · LAST-STANDING-DEAD-PT-1 on `npm run dev` until ship. Deferred: SHARD-PT-2 (launch day) · WARM-QP-ROTATE-PT-1."
+      "Playtest THOST-CEILING-PT-1 · ZOMBIE-HOST-PICK-PT-1 · GAMEPAD-FREEZE-PT-1 ([pad]) after ship. NPC-ABORT-BURST-PT-1 · LAST-STANDING-DEAD-PT-1 on `npm run dev` until ship. REMOTE-INPUT-STALE-PT-1 after ship (`[2pc]`, no `?perfPump` on the non-host). Deferred: SHARD-PT-2 (launch day) · WARM-QP-ROTATE-PT-1."
     ],
     "open_issues": [
       {
@@ -909,7 +909,7 @@
           {
             "pri": "Medium",
             "item": "REMOTE-INPUT-STALE-1 — hidden non-host's last input keeps driving on the host sim",
-            "notes": "**Filed 08-16 during the GAMEPAD-FREEZE-1 adversarial review.** Host-side remote-input persistence, not client-side freeze: `drainRemoteInputJitterBuffers` ([netcode.js](../../src/netcode.js) ~4399-4448) keeps the last applied continuous input while the sender's queue is empty, and `remoteInputsByConnId` is pruned only by conn liveness ([netcode.js](../../src/netcode.js) ~3486-3487), never by input age. A hidden non-host stops sending; the host applies their last throttle/steer/nitro every tick until they return or disconnect — affects keyboard/touch equally (not gamepad-specific; GAMEPAD-FREEZE-1 fixed only the host/solo side). Fix shape: host-side input-age timeout → zero stale remote input.",
+            "notes": "**Landed 08-17** — host drain stamps `lastAppliedMs` and zeros `{throttle,steer,nitro}` after `CONFIG.net.remoteInputStaleMs` (300) of apply-silence; latch kept so a held-boost return cannot double-charge from the drain edge. Playtest owed: **REMOTE-INPUT-STALE-PT-1**.",
             "ship1": null
           },
           {
@@ -1098,7 +1098,7 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Medium": 6,
+          "Medium": 7,
           "Low": 1
         },
         "rows": [
@@ -1130,6 +1130,12 @@
             "pri": "Medium",
             "item": "GAMEPAD-FREEZE-PT-1 — hidden tab no longer drives the host cart `[pad]`",
             "notes": "**Owed: Wyatt playtest — GAMEPAD-FREEZE-PT-1 — a pad left held while the tab is hidden does not drive the cart or auto-release a burst.** Parent **GAMEPAD-FREEZE-1**. Controller required. Stay under the ~10 s host-away window on step 2 (hide ≤5 s) so migration doesn't muddy the result.<br>1. Quickplay (host) with the controller: hold stick-forward + boost, alt-tab away for ~3-5 s, tab back.<br>2. FAIL if the cart drove off / burst while hidden, or a fresh charge fires from the still-held button on return. PASS if the cart is where you left it, and releasing + re-pressing boost works immediately.<br>3. Solo with the controller: same hold + alt-tab + return — cart motionless, no burst.<br>4. Sanity: stick drives, boost charges/fires, hop fires, START still opens pause.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "REMOTE-INPUT-STALE-PT-1 — hidden non-host cart coasts on the host `[2pc]`",
+            "notes": "**Owed: Wyatt playtest — REMOTE-INPUT-STALE-PT-1 — a hidden non-host stops driving on the host after a short silence.** Parent **REMOTE-INPUT-STALE-1**. You host. Non-host URL: `?diag=1&room=quickplay` — no `?perfPump` on the non-host.<br>1. 2pc Quickplay. Non-host holds throttle+steer in a loop, then hides the tab for 2–3 s.<br>2. FAIL if the host still sees that cart drive the loop after ~0.5 s. PASS if it stops steering and coasts in a straight line (it will not halt in 1 s).<br>3. Restore the tab. PASS if it is drivable at once, with no ghost drive. A snap equal to the coast distance is OK.<br>4. Hide mid-charge. PASS if the host sees at most one burst at staleness and no stuck charge SFX. Return still holding boost: FAIL if two bursts or a second drain-edge charge. PASS if at most one new charge bar.<br>5. Host drives through the same window. FAIL if a healthy focused peer hitch-zeros.",
             "ship1": null
           },
           {
@@ -1487,6 +1493,11 @@
       "Cross-module change? Read docs/reference/control-flow.md first — most edges are not imports."
     ],
     "settled_decisions": [
+      {
+        "id": "D-REMOTE-INPUT-STALE-1",
+        "date": "08-17",
+        "text": "host zeros stale remote input after `remoteInputStaleMs` (300) of apply-silence; nitro latch kept; ackSeq untouched. Playtest REMOTE-INPUT-STALE-PT-1."
+      },
       {
         "id": "D-LAST-STANDING-DEAD-1",
         "date": "08-16",
