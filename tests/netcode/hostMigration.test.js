@@ -24,6 +24,7 @@ import {
 import * as GameState from "../../src/stores/gameStore.js";
 import { encodeHostStateSnapshot } from "../../src/netcode/binary.js";
 import { CONFIG } from "../../src/config.js";
+import { getRoundClockNowMs } from "../../src/roundClock.js";
 
 // --- Server: promote-oldest selection --------------------------------------------------
 
@@ -120,13 +121,24 @@ describe("DEEPSEC-1 room latch + tHost bounds", () => {
 
   it("rejects 1e300 tHost and resets the clock on migration", () => {
     expect(hooks.isPlausibleTHostForTest(1e300)).toBe(false);
-    hooks.setLastAcceptedTHostForTest(1_000);
-    expect(hooks.isPlausibleTHostForTest(1_000 + 4_000)).toBe(true);
-    expect(hooks.isPlausibleTHostForTest(1_000 + 6_000)).toBe(false);
+    expect(hooks.isPlausibleTHostForTest(1_000)).toBe(false);
+    const now = getRoundClockNowMs();
+    expect(hooks.isPlausibleTHostForTest(now + 8_000)).toBe(true);
+    expect(hooks.isPlausibleTHostForTest(now + 120_000)).toBe(false);
     hooks.updateServerClockOffset(5_000, 6_000);
     expect(hooks.getHostClockOffset()).not.toBe(0);
     hooks.applyHostMigration({ hostId: "b" });
     expect(hooks.getHostClockOffset()).toBe(0);
+  });
+
+  it("samples host clock from an epoch-scale snapshot tHost (THOST-CEILING-1)", () => {
+    hooks.resetNetState();
+    hooks.setHostStateForTest({ isHost: false, youConnId: "c1", netSlots: [] });
+    const tHost = getRoundClockNowMs() - 40;
+    const carts = [{ p: [1, 0, 0], q: [0, 0, 0, 1], lv: [0, 0, 0], av: [0, 0, 0] }];
+    hooks.dispatchP2P(encodeHostStateSnapshot({ seq: 1, tHost, carts }), null);
+    expect(hooks.getHostClockOffset()).toBeGreaterThan(0);
+    expect(Math.abs(hooks.getHostClockOffset() - 40)).toBeLessThan(25);
   });
 });
 

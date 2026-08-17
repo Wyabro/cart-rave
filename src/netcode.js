@@ -83,10 +83,13 @@ let youConnId = null;
 let hostId = null;
 /** Room actually passed to PartySocket. SEC-DIAG-1 must not re-read the URL. */
 let connectedRoom = null;
-/** Last accepted host-domain snapshot stamp. 0 = no sample yet. */
-let lastAcceptedTHost = 0;
-const MAX_THOST_ABS_MS = 1e12;
-const MAX_THOST_JUMP_MS = 5000;
+/**
+ * Max |tHost − local round-clock now| for a decoded snapshot stamp.
+ * Honest epoch stamps sit near local now (skew / one-way delay). 1e300 and
+ * 1e15 poison values do not. 60s covers run-6 host freezes (5–7s) without
+ * the old 1e12 abs cap (Sep 2001) that rejected every 2026 tHost.
+ */
+const MAX_THOST_SKEW_MS = 60_000;
 /** @type {"ok" | "reconnecting"} Coarse socket health surfaced to the HUD. */
 let connectionState = "ok";
 let isHost = false;
@@ -2214,7 +2217,6 @@ export function disconnectPartySession() {
   }
 
   connectedRoom = null;
-  lastAcceptedTHost = 0;
   youConnId = null;
   hostId = null;
   isHost = false;
@@ -2699,13 +2701,10 @@ function requestTurnCredentialsAndOpenPeers() {
 }
 
 function isPlausibleTHost(tHost) {
-  if (typeof tHost !== "number" || !Number.isFinite(tHost) || tHost <= 0 || tHost > MAX_THOST_ABS_MS) {
+  if (typeof tHost !== "number" || !Number.isFinite(tHost) || tHost <= 0) {
     return false;
   }
-  if (lastAcceptedTHost > 0 && Math.abs(tHost - lastAcceptedTHost) > MAX_THOST_JUMP_MS) {
-    return false;
-  }
-  return true;
+  return Math.abs(tHost - getMonotonicNow()) <= MAX_THOST_SKEW_MS;
 }
 
 function applyHostMigration(msg) {
@@ -2775,7 +2774,6 @@ function applyHostMigration(msg) {
     setRemoteBodiesEnabledForMigration(true);
   }
   hostEpoch += 1;
-  lastAcceptedTHost = 0;
   resetClockState(hostClock);
   // * NET-RING-1: host migration bumps the epoch — ring counters restart too.
   resetNetRingCounters();
@@ -4180,7 +4178,6 @@ export const __netcodeTestHooks = {
     stopHostSendLoop();
     partySocket = null;
     connectedRoom = null;
-    lastAcceptedTHost = 0;
     netStateBuffer = [];
     lastCartsCache = null;
     lastCartsCacheIsSpawn = false;
@@ -4258,7 +4255,6 @@ export const __netcodeTestHooks = {
   setHostIdForTest: (id) => { hostId = id; },
   setConnectedRoomForTest: (room) => { connectedRoom = room; },
   getConnectedRoomForTest: () => connectedRoom,
-  setLastAcceptedTHostForTest: (t) => { lastAcceptedTHost = t; },
   isPlausibleTHostForTest: (t) => isPlausibleTHost(t),
   // * Signaling-flow validation: set host authority state, then call the exact helper
   // * the slots handler uses so tests can assert the host opens offers to the right peers.
@@ -4534,15 +4530,14 @@ function handleRemoteHostState(state) {
     lastCartsCacheIsSpawn = false;
   }
   if (!isHost) {
-    // * Guard tHost > 0 like applyHostSpawnSnapshot does — a malformed binary header
-    // * decodes Float64 fields to 0 (getSafeFloat64), which would feed a garbage
-    // * ~1.7e12 offset sample and buffer a permanent time-0 "before" snapshot. The
-    // * old `state.serverNowMs` fallback was dead compat: hostTransform is binary-only
-    // * now and the decoder never emits that field.
+    // * Guard tHost to a 60s window around local now (THOST-CEILING-1). A malformed
+    // * binary header decodes Float64 to 0 (getSafeFloat64), which must not feed a
+    // * garbage offset sample. The old 1e12 abs cap rejected every real epoch tHost.
+    // * The old `state.serverNowMs` fallback was dead compat: hostTransform is
+    // * binary-only now and the decoder never emits that field.
     const tHostValid = isPlausibleTHost(state.tHost);
     const hostTime = tHostValid ? state.tHost : getMonotonicNow() - hostClock.offsetMs;
     if (tHostValid) {
-      lastAcceptedTHost = state.tHost;
       updateHostClockOffset(hostTime);
     }
     // * Pass tHost so gap/silence stats are host-domain (2e non-host arrival honesty).

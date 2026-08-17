@@ -59,7 +59,7 @@ way the Block table still can.)*
 | Block | State | Next action |
 |-------|-------|-------------|
 | **1** — NOW (player-facing correctness) | ✅ drained | 08-16 audit Highs landed — **INPUT-LOCK-1** · **SD-WIN-CREDIT-1** — playtests owed |
-| **2** — PRE-SHIP (before public post) | 🟡 queued | 08-16 audit Mediums: **THOST-CEILING-1** · NPC-ABORT-BURST-1 · ZOMBIE-HOST-PICK-1 · GAMEPAD-FREEZE-1 · SD-SPECTATOR-CHARGE-1 (SD-SCORE-STALE-1 landed — PT owed) |
+| **2** — PRE-SHIP (before public post) | 🟡 queued | 08-16 audit Mediums: NPC-ABORT-BURST-1 · ZOMBIE-HOST-PICK-1 · GAMEPAD-FREEZE-1 · SD-SPECTATOR-CHARGE-1 (SD-SCORE-STALE-1 · THOST-CEILING-1 landed — PT owed) |
 | **3** — WYATT LANE (blocked on you) | 👤 ongoing | **LAST-STANDING-DEAD-1** (revive-vs-delete call) · SHIP-1 D-tier · **WARM-QP-ROTATE-PT-1** (after ship) |
 | **4** — PERF RESIDUAL (measure-first) | 🟡 queued | **WARM-QP-ROTATE-1** · WARM-SOLO-1 · PERF-WATCH-1 · NET-PERF-1 / NET-PERF-3 |
 | **5** — SWEEP (cheap Lows) | 🟡 queued | MOTION-A11Y-1 · COUNTDOWN-QUICKPLAY-1 · COUNTDOWN-LEAK-1 · CART-HUE-RED-1 · MIG-KO-DROP-1 · 08-16 audit Lows |
@@ -71,11 +71,11 @@ way the Block table still can.)*
 <!-- BEGIN GENERATED counts — npm run backlog. Do not hand-edit. -->
 | Department | Open | High | Medium | Low |
 |---|---:|---:|---:|---:|
-| [Engineering](#engineering) | 26 | 0 | 11 | 14 (+1 partial) |
+| [Engineering](#engineering) | 25 | 0 | 10 | 14 (+1 partial) |
 | [Art](#art) | 1 | 0 | 0 | 1 |
 | [Audio](#audio) | 1 | 0 | 0 | 1 |
 | [Design / Gameplay](#design--gameplay) | 3 | 0 | 2 | 1 |
-| 🟢 [Playtest owed](#playtest-owed) | 6 | 3 | 2 | 1 |
+| 🟢 [Playtest owed](#playtest-owed) | 7 | 3 | 3 | 1 |
 | [Tech Debt](#tech-debt) | 11 | 0 | 5 | 6 |
 
 **48 open rows total.**
@@ -162,11 +162,12 @@ Drained 08-16 — Highs **INPUT-LOCK-1** · **SD-WIN-CREDIT-1** landed; playtest
 **Block 2 — PRE-SHIP (should land before the public post).** 08-16 audit Mediums, top first.
 Landed 08-16 — **SD-SCORE-STALE-1** (SD podium scores + stats missed the final point); playtest owed
 (see `## Playtest owed`).
-1. **THOST-CEILING-1** — host-clock subsystem dead in production (one-constant fix).
-2. **NPC-ABORT-BURST-1** — NPC charge-abort burst bypasses self-KO safety gates.
-3. **ZOMBIE-HOST-PICK-1** — zombie connections eligible for migration host pick.
-4. **GAMEPAD-FREEZE-1** — frozen gamepad input drives a hidden host's cart.
-5. **SD-SPECTATOR-CHARGE-1** — SD spectator phantom charge loops SFX up to 45s.
+Landed 08-16 — **THOST-CEILING-1** (host-clock `tHost` window); playtest owed
+(see `## Playtest owed`).
+1. **NPC-ABORT-BURST-1** — NPC charge-abort burst bypasses self-KO safety gates.
+2. **ZOMBIE-HOST-PICK-1** — zombie connections eligible for migration host pick.
+3. **GAMEPAD-FREEZE-1** — frozen gamepad input drives a hidden host's cart.
+4. **SD-SPECTATOR-CHARGE-1** — SD spectator phantom charge loops SFX up to 45s.
 
 **Block 3 — WYATT LANE (off the agent queue until you unblock).**
 - **LAST-STANDING-DEAD-1** — Last Cart Standing is dead end-to-end; needs your revive-vs-delete call before it is actionable.
@@ -204,7 +205,6 @@ Rows follow work-order rank: High (Block 1) → Medium (Block 2, then Wyatt-bloc
 
 | Pri | Item | Notes |
 |-----|------|-------|
-| Medium | THOST-CEILING-1 — `MAX_THOST_ABS_MS` (1e12) rejects every real tHost (epoch ms ≈1.79e12): host-clock subsystem is dead code in production | **Filed 08-16 from the gameplay bug audit (adversarially reviewed).** The host stamps snapshots with `getMonotonicNow()` = `timeOrigin + performance.now()` — Unix-epoch ms, ~1.79e12 in 2026 ([netcode.js](../../src/netcode.js) ~2385, ~3686) — while the plausibility gate rejects `tHost > 1e12` (1e12 ≈ Sep 2001; netcode.js ~88, ~2691-2699). Every legitimate snapshot fails, so `updateHostClockOffset` never runs: interpolation timestamps fall back to local arrival time (jitter-coupled micro-rubber-band), `getSnapshotSilenceMs` uses the wall fallback (client hitches misread as host silence → false replay-skip/hold), the 5s jump guard is dead, and `applyHostSpawnSnapshot` mixes host-domain and local-domain stamps in one buffer. No test pins epoch-scale rejection (only 1e300 and 5000 are tested), so it's a units slip, not intent. One-constant fix + a jump-guard sanity pass; verify with F8 `via: "tHost"` after. Not a reopen of Run 7 / NET-PRES-1 — distinct defect that also explains why run-7 2e never showed `via:"tHost"`. |
 | Medium | NPC-ABORT-BURST-1 — NPC charge-abort release burst bypasses every self-KO safety gate | **Filed 08-16 from the gameplay bug audit (adversarially reviewed).** All other NPC boost paths check `npcBoostPathIsUnsafe`, but when `canContinueNpcChargedAttack` flips false (target fell / path became unsafe mid-charge), the wrapper leaves `boostHeld` unset and the human early-release branch fires the full burst along the heading that was just declared unsafe ([cartOrchestration.js](../../src/orchestration/cartOrchestration.js) ~814-830, [simulation.js](../../src/simulation.js) ~603-631). NPCs still occasionally ram themselves into voids and can hand a free SD win. **New path, not a reopen of the closed STOREROOMS-NPC-SELFKO fixes** (those covered instant/escape/hold paths; this is the abort path). The NPC-BOOST-2 design deliberately chose abort→burst over silent cancel — the gap is that it skips the edge/void checks. Fix: wire the already-written-but-dead `cancelNpcBoostCharge` (`simulation.js` ~601-602 has no producer of `boostCancel`) or safety-check the abort burst. |
 | Medium | ZOMBIE-HOST-PICK-1 — host-away / host-repair pick successors from zombie-tolerant `#connections` | **Filed 08-16 from the gameplay bug audit (adversarially reviewed).** `#handleHostAway` and `#ensureLiveHost` pass `#connections.keys()` to host selection ([party/index.ts](../../../party/index.ts) ~456, ~512-519), but the file's own invariant (~264-268) says game-state paths must use `#liveConnIdSet()` because `#connections` holds zombies until the 20s reaper. A crashed tab that kept its slot can be promoted host mid-round → no authority, no snapshots, frozen round for up to ~25s until the reaper purges and repair runs. Sibling card: ZOMBIE-ROOM-RESET-1. |
 | Medium | GAMEPAD-FREEZE-1 — frozen gamepad input keeps driving a hidden host's cart | **Filed 08-16 from the gameplay bug audit (adversarially reviewed).** Gamepad polling is rAF-bound (stops when hidden), the `blur` handler clears keys/touch/boost flags but nothing gamepad, and there is no `visibilitychange` input reset ([input.js](../../src/input.js) ~346-352, ~471-476). The hidden-host MessageChannel pump ([gameLoop.js](../../src/gameLoop.js) ~788-809) steps physics but never polls the pad — a host who alt-tabs holding stick-forward + boost has their cart drive off and auto-release full bursts for up to the 10s host-away window. Solo is equally affected. |
@@ -271,6 +271,7 @@ completed-work — do not restack it here.
 | High | INPUT-LOCK-PT-2 — rematch guest does not lurch from last-round W `[2pc]` | **Owed: Wyatt playtest — INPUT-LOCK-PT-2 — a guest who released W on the podium stays still through the next 3-2-1 and at GO.** Parent **INPUT-LOCK-1**. You host.<br>1. Play a round. Guest holds W until the round ends, then releases on the podium. Do not hold W during the next 3-2-1.<br>2. FAIL if that cart rolls or boost-charges during countdown, or lurches at GO with no key held.<br>3. PASS if it stays on the booth and stays still at GO until the guest presses W again. |
 | High | SD-WIN-CREDIT-PT-1 — guest Sudden Death win credits Clutch Winner + redMirror `[2pc]` | **Owed: Wyatt playtest — SD-WIN-CREDIT-PT-1 — the guest who wins Sudden Death gets SD credit on their own machine.** Parent **SD-WIN-CREDIT-1** (`6e8085a1`). You host.<br>1. Friends match, 2 machines, hard-refresh both. Tie the score at the timer so the round enters Sudden Death.<br>2. The **guest** lands the winning SD KO. On the guest machine, check challenges: Clutch Winner daily +1 (and redMirror unlock toast if it was the 3rd SD win).<br>3. FAIL if the guest's Clutch Winner count does not move after an SD win. Also verify: guest wins a normal (non-SD) round → no SD progress; the host's own SD credit is unchanged. |
 | Medium | SD-SCORE-STALE-PT-1 — SD-win verdict + stats show the final point on non-hosts `[2pc]` | **Owed: Wyatt playtest — SD-SCORE-STALE-PT-1 — the guest's podium shows the SD winner's final score and stats include the winning point.** Parent **SD-SCORE-STALE-1** (commit-before-callback + announcer SD gate). You host.<br>1. Friends match, 2 machines, hard-refresh both. Tie the score at the timer so the round enters Sudden Death (e.g. 3–3).<br>2. The **guest** lands the winning SD KO. On the guest screen the verdict must read the winner's full score (e.g. "4 pts") with NO "(TIEBREAK)" suffix, and the finalScores panel must match the host.<br>3. On BOTH machines: matchHistory + totalPoints include the winning point. The host must NOT play a stray "new leader"/"comeback" announcer line at the SD end.<br>4. One non-SD round sanity check: verdict + stats unchanged.<br>5. FAIL if the guest shows the pre-KO score or a TIEBREAK verdict after an SD-winning KO. |
+| Medium | THOST-CEILING-PT-1 — non-host host-clock uses real snapshot tHost `[2pc]` | **Owed: Wyatt playtest — THOST-CEILING-PT-1 — a hitch on the guest does not stretch snapshot gaps to hitch length.** Parent **THOST-CEILING-1**. You host. Guest F8.<br>1. Friends match, 2 machines, hard-refresh both. Guest is non-host. Play ~20 s after GO.<br>2. On the guest, hitch once (open DevTools or drag the window for ~1 s), then F8 and pull.<br>3. FAIL if guest `flow.snapGapMaxMs` is near the hitch length (hundreds of ms+) while the host kept sending. PASS if guest snap gaps stay near host cadence (~25–100 ms) after the hitch.<br>4. Guest F8 `countdown.hostClockOffsetMs` after GO may be small (10–80 ms). FAIL only if carts rubber-band on the hitch while the host stayed smooth. |
 | Medium | WARM-QP-ROTATE-PT-1 — non-host Quickplay overlay covers first room arena `[2pc]` | **Owed: Wyatt playtest — WARM-QP-ROTATE-PT-1 — the overlay stays up until Storerooms is ready; the canvas does not freeze.** Parent **WARM-QP-ROTATE-1**. Use the Intel (or any Low) machine as non-host. A long overlay is not a FAIL.<br>1. Friends round on Sundial. Then both join the same Quickplay room on prod. Hard-refresh first.<br>2. Watch the non-host. Note whether the loading overlay stays up through the arena swap.<br>3. FAIL if the overlay drops and the canvas freezes, or the Intel non-host hears only countdown 1 then GO. PASS if the overlay covers the wait and both hear 3-2-1. |
 | Low | SHARD-PT-2 — fifth human overflows to quickplay2 `[2pc]` | **Owed: Wyatt playtest — SHARD-PT-2 — the 5th concurrent Quickplay human lands on quickplay2 instead of "couldn't join".** Launch-day / public-post check — needs five real humans (Wyatt deferred 08-05). Rig already 5/5; SHARD-PT-1 PASSed on prod `9c333d1`. Prefer analytics: any `quickplay_shard_assigned` with `hops > 0` or `shard !== quickplay` counts.<br>1. When five humans can join Quickplay at once (public post), watch the 5th seat.<br>2. FAIL if they get the dead-end couldn't-join toast with no hop. PASS if they seat on an overflow shard (or analytics shows hops greater than 0).<br>3. Skip / leave open until launch day — do not FAIL for lack of five people. |
 
@@ -384,4 +385,4 @@ DEEPSEC-1-PT-1, CARGO-BAY-INSTANCE-PT-3, CONN-TRACK-LEAK-PT-1, QP-ROTATE-PT-1, C
 NAME-VARIETY-1, NAME-NPC-VARIETY-PT-1, NAME-PLAYER-VARIETY-PT-1, MENU-CMD-SKEW-1,
 MENU-CMD-SKEW-PT-1, PATTERNS-UI-5, PATTERNS-UI-5-PT-1, STOREROOMS-NPC-SELFKO-2,
 STOREROOMS-NPC-SELFKO-PT-1, STOREROOMS-NPC-SELFKO-PT-2, PATTERNS-FOIL-1, PATTERNS-FOIL-PT-1,
-INPUT-LOCK-1, SD-WIN-CREDIT-1.
+INPUT-LOCK-1, SD-WIN-CREDIT-1, THOST-CEILING-1.

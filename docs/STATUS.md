@@ -42,7 +42,8 @@ day: **SHARD-PT-2**. New evidence **WARM-QP-ROTATE-1** (cap-364).
 **08-16 audit:** both Highs landed — **INPUT-LOCK-1** (playtest owed
 **INPUT-LOCK-PT-1** · **INPUT-LOCK-PT-2**) and **SD-WIN-CREDIT-1** (playtest owed
 **SD-WIN-CREDIT-PT-1**). Medium **SD-SCORE-STALE-1** landed (playtest owed
-**SD-SCORE-STALE-PT-1**).
+**SD-SCORE-STALE-PT-1**). Medium **THOST-CEILING-1** landed (playtest owed
+**THOST-CEILING-PT-1**).
 
 **Closed cards keep their narrative in their own docs, not here** — Sundial
 ([handover](./planning/art-pass-sundial-handover.md); read its "Traps that cost time" before any
@@ -84,7 +85,7 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. Playtest **INPUT-LOCK-PT-1** · **INPUT-LOCK-PT-2** · **SD-WIN-CREDIT-PT-1** after ship.
+1. Playtest **INPUT-LOCK-PT-1** · **INPUT-LOCK-PT-2** · **SD-WIN-CREDIT-PT-1** · **THOST-CEILING-PT-1** after ship.
 
 ## Open issues (top)
 
@@ -102,9 +103,10 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 [decision-log-2026-08.md](./archive/decision-log-2026-08.md), 07-11 → 07-23 in
 [decision-log-2026-07.md](./archive/decision-log-2026-07.md).
 
-- **D-SD-SCORE-STALE-1** (08-16): SD-winning KO broadcasts + stats missed the final point — `addScore` fired the SD win callback (→ `endRound`) **before** `set()` committed, so `recordPodiumStats` and the podium `host_round` (the only SD-end broadcast; per-KO send skipped) carried pre-KO scores; guests froze on "3 pts (TIEBREAK)". Fix: commit before callback. Companion: announcer leader branch gated on `!isSuddenDeath` (the commit now lands while phase=running and would otherwise fire a stray `new_leader`/`comeback` line — also closes the pre-existing suppressed-KO SD exposure). Two levers, tests for both. Playtest owed: **SD-SCORE-STALE-PT-1**.
+- **D-THOST-CEILING-1** (08-16): `tHost` gate is `|tHost − now| ≤ 60s` (replaces DEEPSEC-1's `1e12` abs cap). Playtest **THOST-CEILING-PT-1**.
+- **D-SD-SCORE-STALE-1** (08-16): `addScore` now commits before the SD-win callback so podium `host_round` carries the final point. Announcer leader lines skip SD. Playtest **SD-SCORE-STALE-PT-1**.
 - **D-MENU-CMD-SKEW-1** (08-15): Menu entrance wrote `translateY`/`scale` on `.cr-cmd` and wiped `skewX(-8deg)`; leftover label `skewX(8deg)` leaned SOLO–SETTINGS left. Entrance now `fadeIn` only. **MENU-CMD-SKEW-PT-1** Wyatt PASS 08-16.
-- **D-CONN-TOASTS-1** (08-15): Friends join/leave toasts, lobby + in-match — client-side diff of human `connId` membership in the existing `MSG.slots` handler (host and non-host alike; solo never opens a socket so it is untouched by construction). Policy pure + unit-tested: self-skip, single-broadcast same-name coalesce (ghost-exorcism seat swap), 5s opposite-kind blip cooldown per name. One shared stacked toast surface (`#cr-conn-toasts`, bottom-centre, z 26500, lift + 56px above the single-slot toast), cap 3 visible + FIFO pending. Server lever: the silent-reap pass now broadcasts the slot conversion it already performed (`reapedIds.length > 0`) — previously clients kept a ghost human and no leave toast until an unrelated broadcast. Playtest owed: **CONN-TOASTS-1**.
+- **D-CONN-TOASTS-1** (08-15): Friends join/leave toasts from `MSG.slots` human-connId diff + reap broadcast. **CONN-TOASTS-1** Wyatt PASS 08-15.
 - **D-AGENT-OS-2** (08-15): Slim `AGENTS.md` (plan B). Keep invariants + ack/lever/freeze/fast-lane. Define done/ship/playtest once. Routing, `loop:`, and post-ship poll become pointers (manual § routing, `self-improving-loop.mdc`, `deploy-urls.md`). Not a 40–60 line cut.
 - **D-EFFECTS-SPLIT-1** (08-15): `src/effects.js` (3,484 lines) split into `src/effects/` domain modules (`meshHelpers` · `ambientParticles` · `ramBoostStreaks` · `crowd` · `stage` · `lasers` · `billboard`) behind a ~200-line composition root + explicit 20-function re-export barrel. Cross-cutting `setRaveExtrasVisible`/`applyRaveExtrasQuality` stay in `effects.js` (PERF-PASS-1 ablation guard preserved); `sceneRef` per-module; all new modules stay deferred (bundle 0 B delta). No behavior change; no playtest owed.
 - **D-LOCAL-PORT-8899** (08-14, `8cf335f`): Local worker port **8787 → 8899** — Windows HNS dynamic port exclusion **8751–8850** made 8787 unbindable (EACCES; workerd aborts with `std::terminate`, killing `npm run dev:local` / the battery). Single source: `LOCAL_WORKER_PORT` in `src/config.js`; wired through netcode dial, `dev:party*`, harness, launch.json, docs. Also **HARNESS-FREEZE-1 re-ack** (`2e30d8e`): freeze lever swapped to CDP `Debugger.pause` — the lifecycle freeze never silenced a live-RTC host (bfcache eligibility), pause is a genuine JS halt (validated 08-14). Battery **8/8 green**; dashboard green.
@@ -145,6 +147,8 @@ the dev loop (dev probes lie in prod · edge propagation · frozen `rAF`), or a 
 
 ## Last updated
 
+2026-08-16 (THOST-CEILING-1) — `tHost` gate `|tHost − now| ≤ 60s`. Playtest **THOST-CEILING-PT-1**.
+
 2026-08-16 (PATTERNS-FOIL-PT-1) — Wyatt PASS on prod Worker `1cdbcdb9` (`c4f46bc`).
 Parent **PATTERNS-FOIL-1** closed.
 
@@ -152,11 +156,7 @@ Parent **PATTERNS-FOIL-1** closed.
 Non-host boost whoosh plays when host `snap.b` converts a live charge. Parent
 **BOOST-SFX-NONHOST-1** closed. BRIEFING regenerated from this file.
 
-2026-08-15 (CONN-TOASTS-1) — Friends join/leave toasts (lobby + in-match): client-side
-`MSG.slots` human-connId diff + blip cooldown; reap pass now broadcasts the slot conversion
-(ghost rosters + drop-out toasts); one shared stacked toast surface (green joined / red left).
-qa 8/8 green; deployed Worker `be519fa4`; **CONN-TOASTS-1 PASS 08-15**. BRIEFING regenerated
-from this file.
+2026-08-15 (CONN-TOASTS-1) — **PASS 08-15** on Worker `be519fa4`.
 
 Older session logs (2026-08-13 and earlier): [archive/README.md](./archive/README.md)
 ([status-log-2026-08-13.md](./archive/status-log-2026-08-13.md)) ·

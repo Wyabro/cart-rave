@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-16T23:59:22.858Z",
-    "commit": "f28e8d8d"
+    "at": "2026-08-17T00:55:41.581Z",
+    "commit": "ae9391be"
   },
-  "source_digest": "3b255d6d",
+  "source_digest": "3c1638f8",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -880,7 +880,7 @@
       }
     ],
     "next_actions": [
-      "Playtest INPUT-LOCK-PT-1 · INPUT-LOCK-PT-2 · SD-WIN-CREDIT-PT-1 after ship."
+      "Playtest INPUT-LOCK-PT-1 · INPUT-LOCK-PT-2 · SD-WIN-CREDIT-PT-1 · THOST-CEILING-PT-1 after ship."
     ],
     "open_issues": [
       {
@@ -900,17 +900,11 @@
       {
         "title": "Engineering",
         "counts": {
-          "Medium": 11,
+          "Medium": 10,
           "Partial": 1,
           "Low": 14
         },
         "rows": [
-          {
-            "pri": "Medium",
-            "item": "THOST-CEILING-1 — `MAX_THOST_ABS_MS` (1e12) rejects every real tHost (epoch ms ≈1.79e12): host-clock subsystem is dead code in production",
-            "notes": "**Filed 08-16 from the gameplay bug audit (adversarially reviewed).** The host stamps snapshots with `getMonotonicNow()` = `timeOrigin + performance.now()` — Unix-epoch ms, ~1.79e12 in 2026 ([netcode.js](../../src/netcode.js) ~2385, ~3686) — while the plausibility gate rejects `tHost > 1e12` (1e12 ≈ Sep 2001; netcode.js ~88, ~2691-2699). Every legitimate snapshot fails, so `updateHostClockOffset` never runs: interpolation timestamps fall back to local arrival time (jitter-coupled micro-rubber-band), `getSnapshotSilenceMs` uses the wall fallback (client hitches misread as host silence → false replay-skip/hold), the 5s jump guard is dead, and `applyHostSpawnSnapshot` mixes host-domain and local-domain stamps in one buffer. No test pins epoch-scale rejection (only 1e300 and 5000 are tested), so it's a units slip, not intent. One-constant fix + a jump-guard sanity pass; verify with F8 `via: \"tHost\"` after. Not a reopen of Run 7 / NET-PRES-1 — distinct defect that also explains why run-7 2e never showed `via:\"tHost\"`.",
-            "ship1": null
-          },
           {
             "pri": "Medium",
             "item": "NPC-ABORT-BURST-1 — NPC charge-abort release burst bypasses every self-KO safety gate",
@@ -1122,7 +1116,7 @@
         "title": "Playtest owed",
         "counts": {
           "High": 3,
-          "Medium": 2,
+          "Medium": 3,
           "Low": 1
         },
         "rows": [
@@ -1148,6 +1142,12 @@
             "pri": "Medium",
             "item": "SD-SCORE-STALE-PT-1 — SD-win verdict + stats show the final point on non-hosts `[2pc]`",
             "notes": "**Owed: Wyatt playtest — SD-SCORE-STALE-PT-1 — the guest's podium shows the SD winner's final score and stats include the winning point.** Parent **SD-SCORE-STALE-1** (commit-before-callback + announcer SD gate). You host.<br>1. Friends match, 2 machines, hard-refresh both. Tie the score at the timer so the round enters Sudden Death (e.g. 3–3).<br>2. The **guest** lands the winning SD KO. On the guest screen the verdict must read the winner's full score (e.g. \"4 pts\") with NO \"(TIEBREAK)\" suffix, and the finalScores panel must match the host.<br>3. On BOTH machines: matchHistory + totalPoints include the winning point. The host must NOT play a stray \"new leader\"/\"comeback\" announcer line at the SD end.<br>4. One non-SD round sanity check: verdict + stats unchanged.<br>5. FAIL if the guest shows the pre-KO score or a TIEBREAK verdict after an SD-winning KO.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "THOST-CEILING-PT-1 — non-host host-clock uses real snapshot tHost `[2pc]`",
+            "notes": "**Owed: Wyatt playtest — THOST-CEILING-PT-1 — a hitch on the guest does not stretch snapshot gaps to hitch length.** Parent **THOST-CEILING-1**. You host. Guest F8.<br>1. Friends match, 2 machines, hard-refresh both. Guest is non-host. Play ~20 s after GO.<br>2. On the guest, hitch once (open DevTools or drag the window for ~1 s), then F8 and pull.<br>3. FAIL if guest `flow.snapGapMaxMs` is near the hitch length (hundreds of ms+) while the host kept sending. PASS if guest snap gaps stay near host cadence (~25–100 ms) after the hitch.<br>4. Guest F8 `countdown.hostClockOffsetMs` after GO may be small (10–80 ms). FAIL only if carts rubber-band on the hitch while the host stayed smooth.",
             "ship1": null
           },
           {
@@ -1506,9 +1506,14 @@
     ],
     "settled_decisions": [
       {
+        "id": "D-THOST-CEILING-1",
+        "date": "08-16",
+        "text": "`tHost` gate is `|tHost − now| ≤ 60s` (replaces DEEPSEC-1's `1e12` abs cap). Playtest THOST-CEILING-PT-1."
+      },
+      {
         "id": "D-SD-SCORE-STALE-1",
         "date": "08-16",
-        "text": "SD-winning KO broadcasts + stats missed the final point — `addScore` fired the SD win callback (→ `endRound`) before `set()` committed, so `recordPodiumStats` and the podium `host_round` (the only SD-end broadcast; per-KO send skipped) carried pre-KO scores; guests froze on \"3 pts (TIEBREAK)\". Fix: commit before callback. Companion: announcer leader branch gated on `!isSuddenDeath` (the commit now lands while phase=running and would otherwise fire a stray `new_leader`/`comeback` line — also closes the pre-existing suppressed-KO SD exposure). Two levers, tests for both. Playtest owed: SD-SCORE-STALE-PT-1."
+        "text": "`addScore` now commits before the SD-win callback so podium `host_round` carries the final point. Announcer leader lines skip SD. Playtest SD-SCORE-STALE-PT-1."
       },
       {
         "id": "D-MENU-CMD-SKEW-1",
@@ -1518,7 +1523,7 @@
       {
         "id": "D-CONN-TOASTS-1",
         "date": "08-15",
-        "text": "Friends join/leave toasts, lobby + in-match — client-side diff of human `connId` membership in the existing `MSG.slots` handler (host and non-host alike; solo never opens a socket so it is untouched by construction). Policy pure + unit-tested: self-skip, single-broadcast same-name coalesce (ghost-exorcism seat swap), 5s opposite-kind blip cooldown per name. One shared stacked toast surface (`#cr-conn-toasts`, bottom-centre, z 26500, lift + 56px above the single-slot toast), cap 3 visible + FIFO pending. Server lever: the silent-reap pass now broadcasts the slot conversion it already performed (`reapedIds.length > 0`) — previously clients kept a ghost human and no leave toast until an unrelated broadcast. Playtest owed: CONN-TOASTS-1."
+        "text": "Friends join/leave toasts from `MSG.slots` human-connId diff + reap broadcast. CONN-TOASTS-1 Wyatt PASS 08-15."
       },
       {
         "id": "D-AGENT-OS-2",

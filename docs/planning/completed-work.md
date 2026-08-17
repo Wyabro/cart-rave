@@ -13,6 +13,10 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 16, 2026 — THOST-CEILING-1: host-clock tHost window
+
+- *(Engineering · Medium)* **THOST-CEILING-1** — ✅ **DONE 08-16**. `isPlausibleTHost` now accepts stamps within 60 s of local round-clock now and rejects `1e300` / toy `1000`. Dropped the `1e12` abs cap (Sep 2001) that rejected every 2026 epoch `tHost`, and dropped the sticky 5 s `lastAcceptedTHost` jump. Live snapshots sample `updateHostClockOffset` again. Playtest owed: **THOST-CEILING-PT-1**. Not a reopen of Run 7 / NET-PRES-1 / DEEPSEC-1.
+
 ### August 16, 2026 — SD-WIN-CREDIT-1: guest Sudden Death win credit
 
 - *(Engineering · High)* **SD-WIN-CREDIT-1** — ✅ **DONE 08-16** (`6e8085a1`). Non-hosts now latch their mirrored `isSuddenDeath` on first podium entry (`beginPodiumPresentation`), before the `MSG.round` payload applies its `false` — guest SD wins credit `SUDDEN_DEATH_WIN` (Clutch Winner daily `sd_win_3` + redMirror unlock) exactly like the host. Host/solo path untouched; no protocol or `party/` change — the already-relayed flag's pre-clear value is captured, and the apply ordering it depends on is pinned by `tests/orchestration/sdWinCredit.test.js`. Stalemate-timer SD wins now credit on guests too (host parity, intended). Playtest owed: **SD-WIN-CREDIT-PT-1**. Not a reopen of NET-SD-1.
