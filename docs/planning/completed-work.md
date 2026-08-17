@@ -13,6 +13,24 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 16, 2026 — playtest PASSes (GAMEPAD-FREEZE / ZOMBIE-HOST-PICK / WARM-QP-ROTATE)
+
+- *(Playtest · Medium)* **GAMEPAD-FREEZE-PT-1** — ✅ **PASS 08-16** on prod (HEAD
+  `fcdde64b`). Hidden-tab pad hold does not drive the host cart or fire a burst
+  on return. Solo path also stays still. Parent **GAMEPAD-FREEZE-1** closes with it.
+- *(Engineering · Medium)* **GAMEPAD-FREEZE-1** — ✅ **DONE 08-16** (`9935f10d`) +
+  ✅ **PASS 08-16**. `resetHeldInput()` on `blur` + `visibilitychange→hidden`
+  drops keys / nitro / pending hop / touch and the previously-frozen gamepad
+  axis + boost. A boost still physically held on return is suppressed until
+  release. **GAMEPAD-FREEZE-PT-1** Wyatt PASS 08-16.
+- *(Playtest · Medium)* **ZOMBIE-HOST-PICK-PT-1** — ✅ **PASS 08-16** on prod
+  (HEAD `fcdde64b`). Host-away still hands the live peer the room; guest becomes
+  host and both carts keep moving. Parent **ZOMBIE-HOST-PICK-1** already closed.
+- *(Playtest · Medium)* **WARM-QP-ROTATE-PT-1** — ✅ **PASS 08-16** on prod (HEAD
+  `fcdde64b`). Non-host Quickplay overlay stays up through the first-room arena
+  swap; canvas does not freeze. Parent **WARM-QP-ROTATE-1** stays open (cap-364
+  stall). A later Friends-match countdown skip ("1" then GO) is not this card.
+
 ### August 16, 2026 — LAST-STANDING-DEAD-1: delete Last Cart Standing
 
 - *(Engineering · Medium)* **LAST-STANDING-DEAD-1** — ✅ **DONE 08-16**. Wyatt delete call. Flourish / `LAST CART STANDING` verdict / Sole Survivor daily are gone. Sudden Death stays first-to-score (`endReason: "timer"`). Bolt pattern retargets to 5 Sudden Death wins (not 3 — that pair is redMirror / Clutch Winner). Server still accepts `endReason: "lastStanding"` from old tabs; non-max winner is now rejected; 0-0 lastStanding is a draw. `LAST_STANDING` event id stays inert. Playtest owed: **LAST-STANDING-DEAD-PT-1**. Not a reopen of NET-SD-1.
@@ -23,7 +41,7 @@ Chronological record of shipped work, newest first.
 
 ### August 16, 2026 — ZOMBIE-HOST-PICK-1: skip platform-dead host successors
 
-- *(Engineering · Medium)* **ZOMBIE-HOST-PICK-1** — ✅ **DONE 08-16**. `#handleHostAway` and `#ensureLiveHost` now pick from `#platformLiveConnIds()` instead of `#connections.keys()`. A platform-dead peer (gone from `getConnections()`, still in `#connections` until the 20 s reaper) cannot become host; a 2-human room with one platform-dead peer does not migrate to the corpse. Silent-open sockets still wait for the reaper. Playtest owed: **ZOMBIE-HOST-PICK-PT-1** (2pc host-away regression; DO tests prove the zombie case). Sibling **ZOMBIE-ROOM-RESET-1** untouched. Not a reopen of NET-MIG-3 / CONN-TRACK-LEAK-1.
+- *(Engineering · Medium)* **ZOMBIE-HOST-PICK-1** — ✅ **DONE 08-16**. `#handleHostAway` and `#ensureLiveHost` now pick from `#platformLiveConnIds()` instead of `#connections.keys()`. A platform-dead peer (gone from `getConnections()`, still in `#connections` until the 20 s reaper) cannot become host; a 2-human room with one platform-dead peer does not migrate to the corpse. Silent-open sockets still wait for the reaper. **ZOMBIE-HOST-PICK-PT-1** Wyatt PASS 08-16 (2pc host-away regression; DO tests prove the zombie case). Sibling **ZOMBIE-ROOM-RESET-1** untouched. Not a reopen of NET-MIG-3 / CONN-TRACK-LEAK-1.
 
 ### August 16, 2026 — playtest PASSes (INPUT-LOCK / SD)
 
