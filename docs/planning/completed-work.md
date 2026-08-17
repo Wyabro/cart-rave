@@ -13,6 +13,16 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 16, 2026 — record CB-SEAM-1 (shipped 08-05)
+
+- *(Engineering · Low)* **CB-SEAM-1** — ✅ **CLOSED 08-05** (`0a527d12`). Extended
+  BUNDLE-1 Lever E's 12 deferred keys to the full netcode `callbacks` table:
+  `GAME_CALLBACK_RENAMES` / `GAME_CALLBACK_COMPOSED_BRIDGE_KEYS` plus
+  `tests/netcode/netcodeDeferredCallbacks.test.js` assert every literal key has a
+  matching bridge function. Also stripped unused `getMenuVisible`. Residual:
+  adapter-body wiring is not proven (open **CB-SEAM-2**). Never a BACKLOG row —
+  recorded 08-16 so a grep of closed IDs does not miss it.
+
 ### August 16, 2026 — THOST-CEILING-PT-1 PASS; file COUNTDOWN-HOST-STAMP-1
 
 - *(Playtest · Medium)* **THOST-CEILING-PT-1** — ✅ **PASS 08-16** on prod (HEAD

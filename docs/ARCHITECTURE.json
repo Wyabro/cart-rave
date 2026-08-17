@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-17T04:07:54.512Z",
-    "commit": "04e76437"
+    "at": "2026-08-17T04:13:42.062Z",
+    "commit": "e5f40ee0"
   },
-  "source_digest": "0af156ae",
+  "source_digest": "1a2d0c35",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1132,7 +1132,7 @@
         "title": "Tech Debt",
         "counts": {
           "Medium": 5,
-          "Low": 6
+          "Low": 10
         },
         "rows": [
           {
@@ -1169,6 +1169,34 @@
             "item": "Worker validates host-asserted outcomes",
             "notes": "Prerequisite for trusted leaderboard. Builds on SRV-TEST-1 helpers. `[SHIP-1 D1]` *(was also an Engineering row — deduped 08-01)*",
             "ship1": "D1"
+          },
+          {
+            "pri": "Low",
+            "id": "CB-SEAM-2",
+            "item": "Assert renamed adapter bodies call the mapped deps key",
+            "notes": "**Filed 08-16 from the fragile-system audit.** CB-SEAM-1 (`0a527d12`) asserts every literal key has a bridge function (same name or `GAME_CALLBACK_RENAMES`). It does not prove `registerGameCallbacks` actually calls that mapped `deps` key — `onHopLandRef` could call the wrong name and still pass. Silent no-op. Extend `tests/netcode/netcodeDeferredCallbacks.test.js` (or a sibling) so each renamed adapter invokes the mapped dep. Do not reopen CB-SEAM-1.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "id": "BUNDLE-KEY-1",
+            "item": "Assert remaining lazily-loaded orchestration bundle keys",
+            "notes": "**Filed 08-16 from the fragile-system audit.** BUNDLE-1 Levers C–E put gameBoot / menuPlayEntry / levelOrchestration / netcode+cartOrchestration behind dynamic imports. CB-SEAM-1 plus `DEFERRED_GAME_CALLBACK_KEYS` cover the netcode table only. A missing key on the rest of those bundles is still a silent no-op. Inventory the live context/deps objects those loaders supply and assert each key on both sides. Not a reopen of BUNDLE-1.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "id": "LATE-BIND-1",
+            "item": "Lint/test late-bound wrappers (`() => fn()`)",
+            "notes": "**Filed 08-16 from the fragile-system audit.** FIX-BOOST (`39939e0`) froze the HUD boost meter because `createCartOrchestration` assigns `localCartForConnId` after `HUD.init`; a by-value capture kept the stub. The HUD site now wraps; the class remains. Add a lint or test that consumers of late-bound `let` stubs get wrappers, not the binding. FIX-BOOST and SIM-CALLBACK-FREEZE-1 stay closed.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "id": "COMPOSER-ORDER-1",
+            "item": "Pin composer pass order and Low `composerBypass`",
+            "notes": "**Filed 08-16 from the fragile-system audit.** Pass order is load-bearing: toneMapping no-ops without OutputPass; Arcade follows OutputPass; bloom vs OutputPass depends on `?bloompipe`. Low-tier `composerBypass` skips the stack and tone-maps on the renderer — a pass-order test that ignores that path is a false green. Pin both against `scene.js` / `qualityTiers.js` / the frame-loop branch. Ablate + blackframes stay required before a postFX rewrite; that is not this card.",
+            "ship1": null
           },
           {
             "pri": "Low",
