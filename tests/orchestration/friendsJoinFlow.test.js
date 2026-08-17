@@ -26,6 +26,7 @@ import {
   captureInviteRoomForDeferredMenu,
   getPendingInviteRoomFromUrl,
 } from "../../src/orchestration/menuPlayEntry.js";
+import { __netcodeTestHooks } from "../../src/netcode.js";
 
 describe("DEEPSEC-1 invite case fold", () => {
   it("latches kale7 as KALE7", () => {
@@ -201,5 +202,23 @@ describe("stranded-in-an-empty-room banner", () => {
     const scoreBox = document.querySelector(".hud-scoreBox");
     expect(scoreBox?.style.getPropertyValue("--hud-glow")).toBe("#ff7a22");
     expect(scoreBox?.querySelector(".hud-scoreSlot")?.style.color).toBe("#ff7a22");
+  });
+
+  it("lists humans first in joinOrder, even when a bot holds seat 0", () => {
+    __netcodeTestHooks.setJoinOrderForTest(["later", "first"]);
+    const slots = [
+      { slotId: 0, kind: "npc", connId: null, name: "BOT0" },
+      { slotId: 1, kind: "human", connId: "first", name: "FIRST", isReady: false },
+      { slotId: 2, kind: "npc", connId: null, name: "BOT2" },
+      { slotId: 3, kind: "human", connId: "later", name: "LATER", isReady: false },
+    ];
+    pump(slots, "later");
+
+    const names = [...document.querySelectorAll(".hud-lobby-slot .hud-lobby-name")]
+      .map((el) => el.textContent);
+    expect(names).toEqual(["LATER", "FIRST", "BOT0", "BOT2"]);
+    const firstLaneGlyph = document.querySelector(".hud-lobby-slot .hud-lobby-slotGlyph");
+    expect(firstLaneGlyph?.dataset.slot).toBe("3");
+    __netcodeTestHooks.setJoinOrderForTest([]);
   });
 });

@@ -436,10 +436,24 @@ export class CartRaveServer extends Server {
       serverNowMs: this.#serverNowMs(),
       hostId: this.#hostId,
       slots: this.#slots,
+      // * FRIENDS-LOBBY-ORDER-1: display-only connect order. Copy so clients
+      // * cannot share the live #joinOrder array.
+      joinOrder: [...this.#joinOrder],
       round: this.#round,
       carts: this.#safeStructuredClone(this.#carts),
       seq: this.#lastSeq,
     };
+  }
+
+  /** Every MSG.slots broadcast — seats plus connect order. One helper so a site cannot omit joinOrder. */
+  #broadcastSlots() {
+    this.#broadcastJson({
+      v: PROTOCOL_VERSION,
+      type: MSG.slots,
+      serverNowMs: this.#serverNowMs(),
+      slots: this.#slots,
+      joinOrder: [...this.#joinOrder],
+    });
   }
 
   #pickNextHostId(): string | null {
@@ -1010,12 +1024,7 @@ export class CartRaveServer extends Server {
     // * human (frozen cart + stale roster) and no leave toast until an unrelated
     // * broadcast. The conversion already happened above; this only publishes it.
     if (reapedIds.length > 0) {
-      this.#broadcastJson({
-        v: PROTOCOL_VERSION,
-        type: MSG.slots,
-        serverNowMs: this.#serverNowMs(),
-        slots: this.#slots,
-      });
+      this.#broadcastSlots();
     }
 
     // * Cancel any armed countdown if the departed human(s) broke the all-ready
@@ -1124,12 +1133,7 @@ export class CartRaveServer extends Server {
     this.#sendJson(conn, helloPayload);
 
     // Broadcast current slot mapping so all clients stay consistent.
-    this.#broadcastJson({
-      v: PROTOCOL_VERSION,
-      type: MSG.slots,
-      serverNowMs: this.#serverNowMs(),
-      slots: this.#slots,
-    });
+    this.#broadcastSlots();
 
     // After cleaning up a disconnected player's slot, re-evaluate ready state.
     // Handles the refresh race: new conn readied up while old conn was still alive,
@@ -1173,12 +1177,7 @@ export class CartRaveServer extends Server {
       });
     }
 
-    this.#broadcastJson({
-      v: PROTOCOL_VERSION,
-      type: MSG.slots,
-      serverNowMs: this.#serverNowMs(),
-      slots: this.#slots,
-    });
+    this.#broadcastSlots();
 
     // * Unconditional (not just wasHost): a departing non-host may have been the
     // * only un-ready human, leaving the rest stuck showing READY! forever.
@@ -1320,12 +1319,7 @@ export class CartRaveServer extends Server {
         }
 
         if (slotsDirty) {
-          this.#broadcastJson({
-            v: PROTOCOL_VERSION,
-            type: MSG.slots,
-            serverNowMs: this.#serverNowMs(),
-            slots: this.#slots,
-          });
+          this.#broadcastSlots();
         }
 
         if (ghostHumanExorcised) {
@@ -1424,12 +1418,7 @@ export class CartRaveServer extends Server {
           }
         }
 
-        this.#broadcastJson({
-          v: PROTOCOL_VERSION,
-          type: MSG.slots,
-          serverNowMs: this.#serverNowMs(),
-          slots: this.#slots,
-        });
+        this.#broadcastSlots();
         // * Continuous-mode (quickplay) seats isReady:true, so the client's
         // * maybeAutoReadyLobby no-ops (already ready) and never sends readyToggle.
         // * COUNTDOWN-ARM-1: #checkAllReady no longer arms on seat alone — it starts
@@ -1473,12 +1462,7 @@ export class CartRaveServer extends Server {
           changed = true;
         }
         if (!changed) return;
-        this.#broadcastJson({
-          v: PROTOCOL_VERSION,
-          type: MSG.slots,
-          serverNowMs: this.#serverNowMs(),
-          slots: this.#slots,
-        });
+        this.#broadcastSlots();
         return;
       }
 
@@ -1511,12 +1495,7 @@ export class CartRaveServer extends Server {
           }
         }
 
-        this.#broadcastJson({
-          v: PROTOCOL_VERSION,
-          type: MSG.slots,
-          serverNowMs: this.#serverNowMs(),
-          slots: this.#slots,
-        });
+        this.#broadcastSlots();
         this.#cancelCountdownIfNeeded();
         this.#checkAllReady();
         return;
@@ -1539,12 +1518,7 @@ export class CartRaveServer extends Server {
           }
         }
         this.#clearPlayReadyWait();
-        this.#broadcastJson({
-          v: PROTOCOL_VERSION,
-          type: MSG.slots,
-          serverNowMs: this.#serverNowMs(),
-          slots: this.#slots,
-        });
+        this.#broadcastSlots();
         this.#broadcastRound();
         // * 2s grace before arming countdown — kills the lobby-flash→instant-3-2-1
         // * feel; humans can still unready or leave during the window.

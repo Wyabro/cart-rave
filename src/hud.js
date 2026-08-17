@@ -22,10 +22,12 @@ import {
   getHostId,
   getHostClockOffsetMs,
   getNetSlots,
+  getJoinOrder,
   resolvedPartyRoomFromUrl,
   getActiveRoomAiDifficulty,
   hostSetRoomAiDifficulty,
 } from "./netcode.js";
+import { orderLobbyRosterRows } from "./ui/lobbyRosterOrder.js";
 import { normalizeDifficulty, DEFAULT_SOLO } from "./aiDifficulty.js";
 import { getRoundClockNowMs, getRoundRemainingMs } from "./roundClock.js";
 import { ROUND_DURATION_MS } from "../shared/roundConstants.js";
@@ -1410,7 +1412,7 @@ function updateLobbyScreen(roundPhase, netSlots, youConnId, menuVisible) {
     elements.readyBtn.style.display = "none";
   }
 
-  const rows = buildRosterRows(netSlots, null, true);
+  const rows = orderLobbyRosterRows(buildRosterRows(netSlots, null, true), getJoinOrder());
   const hostId = getHostId();
   let humans = 0;
   let readyHumans = 0;
@@ -1419,7 +1421,8 @@ function updateLobbyScreen(roundPhase, netSlots, youConnId, menuVisible) {
     const cell = elements.lobbySlots[i];
     const row = rows[i];
     if (!cell || !row) continue;
-    const slot = netSlots?.[i] ?? null;
+    const seat = row.slotIndex;
+    const slot = netSlots?.[seat] ?? null;
     const isEmpty = row.kind !== "human" && row.kind !== "npc";
     const isLocal = Boolean(row.connId && youConnId && row.connId === youConnId);
     if (row.kind === "human") {
@@ -1448,11 +1451,11 @@ function updateLobbyScreen(roundPhase, netSlots, youConnId, menuVisible) {
 
     // * Slot identity mark beside the emblem for humans only — same resolver
     // * as the scoreboard, so seat shape is consistent before and during the
-    // * round.
-    const lobbySlotMark = row.kind === "human" ? slotGlyphForIndex(i) : null;
+    // * round. Display lane i is not the seat (FRIENDS-LOBBY-ORDER-1).
+    const lobbySlotMark = row.kind === "human" ? slotGlyphForIndex(seat) : null;
     if (lobbySlotMark) {
-      if (cell.slotGlyph.dataset.slot !== String(i)) {
-        cell.slotGlyph.dataset.slot = String(i);
+      if (cell.slotGlyph.dataset.slot !== String(seat)) {
+        cell.slotGlyph.dataset.slot = String(seat);
         cell.slotGlyph.innerHTML = svgIcon(lobbySlotMark.icon, { label: lobbySlotMark.label });
         cell.slotGlyph.title = lobbySlotMark.label.charAt(0) + lobbySlotMark.label.slice(1).toLowerCase();
       }

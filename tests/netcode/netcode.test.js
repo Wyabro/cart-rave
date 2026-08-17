@@ -21,6 +21,8 @@ import {
   serializeCartToWire,
   slotsFingerprint,
   shouldMarkReconnecting,
+  getJoinOrder,
+  disconnectPartySession,
 } from "../../src/netcode.js";
 import { resetReconciliationState } from "../../src/gameLoop.js";
 import { CONFIG } from "../../src/config.js";
@@ -666,6 +668,35 @@ describe("SLOTS-JSON-1 slotsFingerprint", () => {
     const a = slotsFingerprint([base]);
     expect(slotsFingerprint([{ ...base, patternId: "stripes" }])).not.toBe(a);
     expect(slotsFingerprint([{ ...base, sunglassesStyle: "goldMirror" }])).not.toBe(a);
+  });
+
+  it("does not include joinOrder (display-only sibling field)", () => {
+    const a = slotsFingerprint([base]);
+    expect(slotsFingerprint([{ ...base, joinOrder: ["x"] }])).toBe(a);
+  });
+});
+
+describe("FRIENDS-LOBBY-ORDER-1 joinOrder wire", () => {
+  afterEach(() => {
+    hooks.resetNetState();
+  });
+
+  it("hello-missing clears; slots-missing keeps the last list", () => {
+    hooks.adoptJoinOrderFromWireForTest(["a", "b"]);
+    expect(getJoinOrder()).toEqual(["a", "b"]);
+    hooks.adoptJoinOrderFromWireForTest(undefined);
+    expect(getJoinOrder()).toEqual(["a", "b"]);
+    hooks.adoptJoinOrderFromWireForTest(["b", 2, "a", "a"], { missing: "clear" });
+    expect(getJoinOrder()).toEqual(["b", "a"]);
+    hooks.adoptJoinOrderFromWireForTest(undefined, { missing: "clear" });
+    expect(getJoinOrder()).toEqual([]);
+  });
+
+  it("disconnectPartySession clears joinOrder", () => {
+    hooks.setJoinOrderForTest(["stay"]);
+    expect(getJoinOrder()).toEqual(["stay"]);
+    disconnectPartySession();
+    expect(getJoinOrder()).toEqual([]);
   });
 });
 

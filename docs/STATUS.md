@@ -29,7 +29,8 @@ report phase-exit eligibility; they must not move the marker.
 are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Analytics DO reset for
 external testers. Stay in this phase until Wyatt advances the marker.
 
-Live PT: **COUNTDOWN-HOST-STAMP-PT-1** on `npm run dev` until ship. Deferred launch day:
+Live PT: **COUNTDOWN-HOST-STAMP-PT-1** on `npm run dev` until ship. Landed 08-17 —
+**FRIENDS-LOBBY-ORDER-1** (PT owed: **FRIENDS-LOBBY-ORDER-PT-1**). Deferred launch day:
 **SHARD-PT-2**. Closed 08-17 — **CART-HUE-CUBES-PT-1** `[solo]` · **CART-HUE-RED-PT-1**
 `[solo]` · **LAST-STANDING-DEAD-PT-1** · **NPC-ABORT-BURST-PT-1** ·
 **REMOTE-INPUT-STALE-PT-1** `[2pc]` · **SPILL-RAM-CREDIT-PT-1** `[2pc]` (parents close with
@@ -78,8 +79,9 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. Playtest **COUNTDOWN-HOST-STAMP-PT-1** on `npm run dev` until ship. Deferred:
-   **SHARD-PT-2** (launch day).
+1. Playtest **COUNTDOWN-HOST-STAMP-PT-1** on `npm run dev` until ship.
+2. Playtest **FRIENDS-LOBBY-ORDER-PT-1** after VERIFY_OK (or `npm run dev`).
+   Deferred: **SHARD-PT-2** (launch day).
 
 ## Open issues (top)
 

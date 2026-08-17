@@ -47,8 +47,35 @@ describe("CartRaveServer DO harness", () => {
     expect(hello.youConnId).toEqual(expect.any(String));
     expect(hello.hostId).toBe(hello.youConnId);
     expect(hello.v).toBe(2);
+    expect(hello.joinOrder).toEqual([hello.youConnId]);
 
     client.close();
+  });
+
+  it("hello and slots carry joinOrder in connect order", async () => {
+    const room = uniqueRoom("join-order");
+    const first = await connectAndSeat(room, {
+      name: "FIRST",
+      color: "pink",
+      ip: "10.0.3.1",
+    });
+    const later = await connectAndSeat(room, {
+      name: "LATER",
+      color: "blue",
+      ip: "10.0.3.2",
+    });
+
+    expect(first.hello.joinOrder).toEqual([first.youConnId]);
+    expect(later.hello.joinOrder).toEqual([first.youConnId, later.youConnId]);
+
+    const seatedSlots = later.client.messages
+      .filter((m) => m.type === MSG.slots)
+      .reverse()
+      .find((m) => (m.slots ?? []).filter((s) => s && s.kind === "human").length === 2);
+    expect(seatedSlots?.joinOrder).toEqual([first.youConnId, later.youConnId]);
+
+    first.client.close();
+    later.client.close();
   });
 
   it("starts a room with one NPC of each personality", async () => {

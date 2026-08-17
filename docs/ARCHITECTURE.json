@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-17T19:12:00.179Z",
-    "commit": "a0f60e8f"
+    "at": "2026-08-17T20:53:28.532Z",
+    "commit": "662bc7be"
   },
-  "source_digest": "2e85eedd",
+  "source_digest": "84f5d21f",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -481,6 +481,7 @@
         "src/ui/icons.js",
         "src/ui/loadingScreen.css",
         "src/ui/loadingScreen.js",
+        "src/ui/lobbyRosterOrder.js",
         "src/ui/menuAttract.js",
         "src/ui/menuCartShowcase.js",
         "src/ui/menuStats.js",
@@ -497,7 +498,7 @@
         "src/ui/styles/tokens.css",
         "src/utils/edgeDanger.js"
       ],
-      "file_count": 30,
+      "file_count": 31,
       "edges": [
         {
           "to": "boot-and-orchestration",
@@ -877,7 +878,8 @@
       }
     ],
     "next_actions": [
-      "Playtest COUNTDOWN-HOST-STAMP-PT-1 on `npm run dev` until ship. Deferred:"
+      "Playtest COUNTDOWN-HOST-STAMP-PT-1 on `npm run dev` until ship.",
+      "Playtest FRIENDS-LOBBY-ORDER-PT-1 after VERIFY_OK (or `npm run dev`)."
     ],
     "open_issues": [
       {
@@ -892,7 +894,7 @@
       {
         "title": "Engineering",
         "counts": {
-          "Medium": 6,
+          "Medium": 7,
           "Partial": 1,
           "Low": 14
         },
@@ -901,6 +903,12 @@
             "pri": "Medium",
             "item": "COUNTDOWN-HOST-STAMP-1 — first non-host 3-2-1 hangs on 3 then slams 2+1 `[2pc]`",
             "notes": "**Landed 08-16** — skip `host_round` / hello `countdownStartedAtMs` while `hostClock.samples === 0` (keep `gameStart` local stamp). Host and rematch (`samples > 0`) still apply. Abort `0` still applies. No `tHost` on `host_round`. Mid-join during countdown is out of this lever. Playtest owed: **COUNTDOWN-HOST-STAMP-PT-1**. Not a reopen of COUNTDOWN-SYNC-1 / COUNTDOWN-QUICKPLAY-1 / THOST-CEILING-1.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "FRIENDS-LOBBY-ORDER-1 — Friends lobby lists bots above later humans `[2pc]`",
+            "notes": "**Landed 08-17** — `joinOrder` on hello + every `MSG.slots`; CHECKOUT LINE sorts humans first in that order. Seats unchanged. Playtest owed: **FRIENDS-LOBBY-ORDER-PT-1**. Not a reopen of FRIENDS-JOIN-LAYOUT-1.",
             "ship1": null
           },
           {
@@ -1048,7 +1056,7 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Medium": 1,
+          "Medium": 2,
           "Low": 1
         },
         "rows": [
@@ -1056,6 +1064,12 @@
             "pri": "Medium",
             "item": "COUNTDOWN-HOST-STAMP-PT-1 — first non-host 3-2-1 is even; 3 does not hang then slam 2+1 `[2pc]`",
             "notes": "**Owed: Wyatt playtest — COUNTDOWN-HOST-STAMP-PT-1 — first non-host 3-2-1 is even; 3 does not hang then slam 2+1.** Parent **COUNTDOWN-HOST-STAMP-1**. You are not host. Hard-refresh. Pushed but not yet deployed — `npm run dev` until ship.<br>1. Two PCs. Friends or Quickplay. You are not host. First match.<br>2. FAIL if 3 hangs, then 2 and 1 slam. PASS if 3-2-1-GO is about 1 s each.<br>3. Rematch in the same room. FAIL if that countdown hangs or slams. PASS if it stays even.<br>4. Host screen: FAIL if host 3-2-1 changed.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "FRIENDS-LOBBY-ORDER-PT-1 — Friends CHECKOUT LINE lists humans first, first-connect first `[2pc]`",
+            "notes": "**Owed: Wyatt playtest — FRIENDS-LOBBY-ORDER-PT-1 — Friends CHECKOUT LINE lists humans first, first-connect first.** Parent **FRIENDS-LOBBY-ORDER-1**. Playtest on prod after VERIFY_OK, or `npm run dev` until then.<br>1. Two PCs. Friends room. Host picks a cart color that is not the seat-0 bot color (or confirm host is not seat 0).<br>2. Guest joins. Both screens: FAIL if a bot sits above a human. PASS if humans are at the top, host above guest, bots under.<br>3. FAIL if a human's color or seat mark no longer matches their cart. PASS if color and mark still match the cart.<br>4. Not a FAIL: the small score list at 3-2-1 may still show seat order.",
             "ship1": null
           },
           {

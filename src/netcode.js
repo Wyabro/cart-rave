@@ -231,6 +231,12 @@ let netSlots = [];
 let lastSlotsFingerprint = "";
 let lastSlotsServerMs = 0;
 /**
+ * FRIENDS-LOBBY-ORDER-1: server `#joinOrder` (oldest first). Display-only.
+ * Hello replaces it. MSG.slots replaces it only when the field is an array.
+ * @type {string[]}
+ */
+let netJoinOrder = [];
+/**
  * CONN-TOASTS-1: name → last emitted connection event, for the reconnect-blip
  * cooldown in {@link filterConnectionEvents}. Keyed by name (slots carry no
  * clientId); bounded inside the filter.
@@ -867,6 +873,38 @@ export function getYouConnId() { return youConnId; }
 export function getIsHost() { return isHost; }
 export function getHostId() { return hostId; }
 export function getNetSlots() { return netSlots; }
+/** FRIENDS-LOBBY-ORDER-1: connect-order connIds, oldest first. Empty until hello. */
+export function getJoinOrder() { return netJoinOrder; }
+
+/**
+ * Keep string ids only. First hit wins if the wire repeats an id.
+ * @param {unknown} raw
+ * @returns {string[]}
+ */
+function sanitizeJoinOrder(raw) {
+  if (!Array.isArray(raw)) return [];
+  const out = [];
+  const seen = new Set();
+  for (const id of raw) {
+    if (typeof id !== "string" || !id || seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+  }
+  return out;
+}
+
+/**
+ * Hello: missing field → []. Slots: missing field leaves the last good list.
+ * @param {unknown} raw
+ * @param {{ missing?: "clear" | "keep" }} [opts]
+ */
+function adoptJoinOrderFromWire(raw, opts = {}) {
+  if (Array.isArray(raw)) {
+    netJoinOrder = sanitizeJoinOrder(raw);
+    return;
+  }
+  if (opts.missing === "clear") netJoinOrder = [];
+}
 
 /**
  * COUNTDOWN-ABORT-1 forensics: whenever a countdown tears down to lobby, record WHY (which
@@ -2263,6 +2301,7 @@ export function disconnectPartySession() {
   skipNextPhysicsStep = false;
 
   netSlots = [];
+  netJoinOrder = [];
   lastSlotsFingerprint = "";
   lastSlotsServerMs = 0;
   netStateBuffer = [];
@@ -3283,6 +3322,7 @@ export function initNetcode(roomOverride) {
       }
 
       if (Array.isArray(msg.slots)) netSlots = msg.slots;
+      adoptJoinOrderFromWire(msg.joinOrder, { missing: "clear" });
       if (msg.round && typeof msg.round === "object") {
         const state = GameState.getRoundState();
         // * Cap-61: hello used to stamp countdown before carts-ready (hold only lived
@@ -3391,6 +3431,10 @@ export function initNetcode(roomOverride) {
     if (type === MSG.slots) {
       const serverMs = typeof msg.serverNowMs === "number" ? msg.serverNowMs : 0;
       if (serverMs < lastSlotsServerMs) return;
+      // * FRIENDS-LOBBY-ORDER-1: apply joinOrder before the fingerprint early-return.
+      // * onConnect can broadcast seats that did not change; same-ms + same fp
+      // * must not drop a connect-order update. Missing field keeps the last list.
+      adoptJoinOrderFromWire(msg.joinOrder);
       // * Server owns slot colors: it guarantees every slot holds a distinct preset
       // * color (displacing NPCs on human color-pick), so clients accept slots verbatim
       // * instead of re-deriving colors locally. This matches the MSG.hello path and
@@ -4210,6 +4254,7 @@ export const __netcodeTestHooks = {
     localHostScore = 50;
     weakHostWarnedThisHostship = false;
     netSlots = [];
+    netJoinOrder = [];
     lastSlotsFingerprint = "";
     lastSlotsServerMs = 0;
     recentConnectionEvents.clear();
@@ -4284,6 +4329,11 @@ export const __netcodeTestHooks = {
     if (y !== undefined) youConnId = y;
     if (s !== undefined) netSlots = s;
   },
+  /** FRIENDS-LOBBY-ORDER-1: HUD tests set connect order without a live socket. */
+  setJoinOrderForTest: (ids) => {
+    netJoinOrder = sanitizeJoinOrder(ids);
+  },
+  adoptJoinOrderFromWireForTest: (raw, opts) => adoptJoinOrderFromWire(raw, opts),
   /** DIFF-FRIENDS-1: stamp / read room AI latch without a live hello. */
   setAuthoritativeRoomAiDifficultyForTest: (d) => {
     if (d == null) {
