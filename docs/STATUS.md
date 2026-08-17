@@ -6,7 +6,7 @@ cold-start read order lives once, in [AGENTS.md](../AGENTS.md); do not restate i
 
 History is not kept in this file. Closed work → [completed-work.md](./planning/completed-work.md).
 Session logs → [archive/README.md](./archive/README.md). Decisions in full →
-[archive/decision-log-2026-07.md](./archive/decision-log-2026-07.md).
+[archive/decision-log-2026-08-03-to-16.md](./archive/decision-log-2026-08-03-to-16.md).
 
 ## Phase
 
@@ -29,18 +29,11 @@ report phase-exit eligibility; they must not move the marker.
 are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Analytics DO reset for
 external testers. Stay in this phase until Wyatt advances the marker.
 
-**08-16 playtest PASSes:** **GAMEPAD-FREEZE-PT-1** · **ZOMBIE-HOST-PICK-PT-1** ·
-**WARM-QP-ROTATE-PT-1** · **INPUT-LOCK-PT-1** · **INPUT-LOCK-PT-2** ·
-**SD-SCORE-STALE-PT-1** · **SD-WIN-CREDIT-PT-1** · **PATTERNS-FOIL-PT-1** ·
-**MENU-CMD-SKEW-PT-1** · **NAME-NPC-VARIETY-PT-1** · **NAME-PLAYER-VARIETY-PT-1** ·
-**PATTERNS-UI-5-PT-1** · **STOREROOMS-NPC-SELFKO-PT-1** ·
-**STOREROOMS-NPC-SELFKO-PT-2**. Parents **GAMEPAD-FREEZE-1** · **INPUT-LOCK-1** ·
-**SD-SCORE-STALE-1** · **SD-WIN-CREDIT-1** · **PATTERNS-FOIL-1** · **MENU-CMD-SKEW-1** ·
-**NAME-VARIETY-1** · **PATTERNS-UI-5** · **STOREROOMS-NPC-SELFKO-2** closed.
-**ZOMBIE-HOST-PICK-1** already closed. Do not reopen GAMEPAD-LOBBY-1.
-Deferred launch day: **SHARD-PT-2**. Parent **WARM-QP-ROTATE-1** stays (cap-364).
-**THOST-CEILING-PT-1** Wyatt PASS 08-16 (caps 367 / 368). **COUNTDOWN-HOST-STAMP-1** landed (PT owed). Medium **NPC-ABORT-BURST-1** landed (PT owed).
-08-15 and earlier PASSes: [completed-work.md](./planning/completed-work.md).
+Live PT: **NPC-ABORT-BURST-PT-1** · **LAST-STANDING-DEAD-PT-1** · **COUNTDOWN-HOST-STAMP-PT-1**
+on `npm run dev` until ship. **REMOTE-INPUT-STALE-PT-1** after ship (`[2pc]`, no `?perfPump` on
+the non-host). Parent **WARM-QP-ROTATE-1** stays (cap-364). Deferred launch day: **SHARD-PT-2**.
+Closed PASSes and parents: [completed-work.md](./planning/completed-work.md). Do not reopen
+GAMEPAD-LOBBY-1.
 
 **Closed cards keep their narrative in their own docs, not here** — Sundial
 ([handover](./planning/art-pass-sundial-handover.md); read its "Traps that cost time" before any
@@ -95,64 +88,41 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 
 ## Decision index
 
-**One line each, newest first.** Full text: 07-31 → 08-02 in
-[decision-log-2026-08.md](./archive/decision-log-2026-08.md), 07-11 → 07-23 in
+**One line each, newest first.** In-flight only. Closed 08-03 → 08-16:
+[decision-log-2026-08-03-to-16.md](./archive/decision-log-2026-08-03-to-16.md). Full text 07-31
+→ 08-02: [decision-log-2026-08.md](./archive/decision-log-2026-08.md). 07-11 → 07-23:
 [decision-log-2026-07.md](./archive/decision-log-2026-07.md).
 
 - **D-COUNTDOWN-HOST-STAMP-1** (08-16): first non-host 3-2-1 adopts `host_round` start while `hostClock.samples === 0` (caps 367 / 368). Not a THOST-CEILING fail. Candidate: skip that stamp until the host clock has samples.
 - **D-REMOTE-INPUT-STALE-1** (08-17): host zeros stale remote input after `remoteInputStaleMs` (300) of apply-silence; nitro latch kept; ackSeq untouched. Playtest **REMOTE-INPUT-STALE-PT-1**.
 - **D-LAST-STANDING-DEAD-1** (08-16): delete Last Cart Standing. Bolt → 5 SD wins. lastStanding wire accepted; non-max rejected. Playtest **LAST-STANDING-DEAD-PT-1**.
 - **D-NPC-ABORT-BURST-1** (08-16): abort hard-cancels unless the locked target is live on the floor and cart-yaw runway is clear. Open-floor close ram still bursts. Playtest **NPC-ABORT-BURST-PT-1**.
-- **D-GAMEPAD-FREEZE-1** (08-16, `9935f10d`): `blur` + tab-hide now reset all held input incl. the previously-frozen gamepad axis/boost; held boost is suppressed until release on return. **GAMEPAD-FREEZE-PT-1** Wyatt PASS 08-16.
-- **D-ZOMBIE-HOST-PICK-1** (08-16): host-away / host-repair pick from `#platformLiveConnIds()`, not `#connections.keys()` — platform-dead peers cannot become host. **ZOMBIE-HOST-PICK-PT-1** Wyatt PASS 08-16.
-- **D-THOST-CEILING-1** (08-16): `tHost` gate is `|tHost − now| ≤ 60s` (replaces DEEPSEC-1's `1e12` abs cap). **THOST-CEILING-PT-1** Wyatt PASS 08-16.
-- **D-SD-SCORE-STALE-1** (08-16): `addScore` now commits before the SD-win callback so podium `host_round` carries the final point. Announcer leader lines skip SD. **SD-SCORE-STALE-PT-1** Wyatt PASS 08-16.
-- **D-MENU-CMD-SKEW-1** (08-15): Menu entrance wrote `translateY`/`scale` on `.cr-cmd` and wiped `skewX(-8deg)`; leftover label `skewX(8deg)` leaned SOLO–SETTINGS left. Entrance now `fadeIn` only. **MENU-CMD-SKEW-PT-1** Wyatt PASS 08-16.
-- **D-CONN-TOASTS-1** (08-15): Friends join/leave toasts from `MSG.slots` human-connId diff + reap broadcast. **CONN-TOASTS-1** Wyatt PASS 08-15.
-- **D-AGENT-OS-2** (08-15): Slim `AGENTS.md` (plan B). Keep invariants + ack/lever/freeze/fast-lane. Define done/ship/playtest once. Routing, `loop:`, and post-ship poll become pointers (manual § routing, `self-improving-loop.mdc`, `deploy-urls.md`). Not a 40–60 line cut.
-- **D-EFFECTS-SPLIT-1** (08-15): `src/effects.js` split into domain modules behind a composition root. No behavior change; no playtest owed.
-- **D-LOCAL-PORT-8899** (08-14, `8cf335f`): Local worker port **8787 → 8899** — Windows HNS dynamic port exclusion **8751–8850** made 8787 unbindable (EACCES; workerd aborts with `std::terminate`, killing `npm run dev:local` / the battery). Single source: `LOCAL_WORKER_PORT` in `src/config.js`; wired through netcode dial, `dev:party*`, harness, launch.json, docs. Also **HARNESS-FREEZE-1 re-ack** (`2e30d8e`): freeze lever swapped to CDP `Debugger.pause` — the lifecycle freeze never silenced a live-RTC host (bfcache eligibility), pause is a genuine JS halt (validated 08-14). Battery **8/8 green**; dashboard green.
-- **D-SEO-1** (08-14): SEO pass — `rel=canonical` + og/twitter meta point at the apex cartclash.lol (www / workers.dev twins and the Glitch copy consolidate there, never index on their own); share card is a 1200×630 opaque composite of the title splat on brand bg (replaces the 512px icon; `summary_large_image` + `og:image:alt`); VideoGame JSON-LD (factual only); robots.txt + single-URL sitemap. Head-only + 2 new public files; zero gameplay/DOM change.
-- **D-STORE-PILE-2** (08-14): Head-on pile contact never entered STORE-PILE-1's 0.9 m origin pad (nose-on origin ~4.45 m vs pad end 4.3 m). Pad is now cart `hz + 0.3` press; apply strips this-frame inward drive only, walk-out 17 m/s², Δv cap 4 m/s. Probe: 0 wedged / longest 0.2 s. **STORE-PILE-PT-1** Wyatt PASS 08-14.
-- **D-STORE-PILE-1** (08-14, `0fd9c64`): Storerooms furniture-pile wedge — avoidance blends a tangential go-around term (the old radial-only repulsion provably produced zero lateral steer at every approach angle), plus a new wall keep-out bounce (`computeWallKeepOutBounce`) that shoves carts back off the pile, ramping with impact speed and freeing motionless carts. Sundial's drivable podium untouched (`wall` flag). 22 regression tests. Playtest owed: **STORE-PILE-PT-1**.
-- **D-ORGANIZE-1** (08-14): Codebase organization pass — safe same-system moves (`gameSession.js` → `orchestration/`, `visuals.js` → `effects/`), consolidated 7 cart files into `src/carts/`, and organized ~160 root test files in `tests/` into domain subdirectories. Effects split deferred to **EFFECTS-SPLIT-1**.
-- **D-AGENT-OS-1** (08-05): Slim always-on `AGENTS.md` (~1.6k tok; depth → `docs/reference/agent-manual.md`). **Grok + Codex equal** heavy-lift defaults; Cursor IDE/backup; Claude demoted. Shared authority = AGENTS + git hooks + `verify:head` (not Claude PreToolUse). David Ondrej skills cherry-picked user-level (Grok+Codex).
-- **D-BUNDLE-1-CLOSE** (08-05): BUNDLE-1 PARTIAL — bytes moved, warm menu-ready did not. **Warm cache ⇒ byte cuts are near-worthless; measure parse-vs-construction first.** Supersedes D-PERF-3.
-- **D-SUNDIAL-OQ8** (08-02): Stylise — keep the 9.93° sun key *and* the 1.87° disc; judge sun-facing vs anti-sun **vertical** surfaces, never whole-deck frame mean.
-- **D-SUNDIAL-OQ6** (08-02): Low is a shipping look — every lever ships its Low path in the same commit.
-- **D-SUNDIAL-OQ5** (08-02, `93c3deb`): Sundial gets its own bloom threshold 0.68; that knob only, Classic untouched.
-- **D-ROUND-WEDGE-1-A** (08-01): Host-hide MAX cushion = server `pausedWallMs` (non-SD); MIN stays wall-only.
-- **D-BOOT-PERF-1** (07-31): Idle warm is not sticky-first-wins — a mid-flight picker bumps gen.
-- **D-HOST-CAP-1** (07-31): Weak-host toast = local host + join-time `score < 50`, once per hostship.
-- **D-ANLX-BULK-1** (07-31): Product metrics require `duration_ms >= MIN_MATCH_DURATION_MS` (3000), non-null.
 
 ## Gotchas (append-only)
 
 The hot set — what a current session is likely to hit. Deep-domain and narrow entries live in
 **[reference/gotchas.md](./reference/gotchas.md)** — grep it *before* debugging physics
 (combine rules · `castRay` filters · no RNG seed), audio (Howler `_playLock` · volume buses),
-the dev loop (dev probes lie in prod · edge propagation · frozen `rAF`), or a suspected blocker
-(TS 7 · `cartrave4` UVs). Several of those cost a session each to learn the first time.
+the dev loop (dev probes lie in prod · edge propagation · frozen `rAF` · HNS ports · hostFreeze),
+or a suspected blocker (TS 7 · `cartrave4` UVs).
 
 - Hidden-tab rAF freezes the loop unless `?perfPump` (DEV) is set — shoot tools should pass it.
-- **Level animation IS capturable** — SHOOT-ANIM-1 closed (`6b27283`); free-running it lands on a random phase, so pin one with `--t <ms>` and compare two. Judge against the arena's null floor, not zero: **Sundial ~1.2%, Classic ~15.9%** (construction randomness, not animation). Rave **dressing** is still frozen — SHOOT-ANIM-2.
+- **Level animation IS capturable** — SHOOT-ANIM-1 closed (`6b27283`); pin with `--t <ms>` and compare two. Judge against the arena's null floor, not zero: **Sundial ~1.2%, Classic ~15.9%**. Rave **dressing** is still frozen — SHOOT-ANIM-2.
 - Diagnostics globals namespace is `__cc*` (`__ccTest` / `__ccDiag` / `__ccLoopDbg`).
-- **F8 uploads were silently size-capped until `e7e64e4`** (`keepalive: true` → Chrome's ~64 KiB body limit, rejection swallowed into a `console.warn`). Measured 08-04 over the 251-capture ring: max body **54,786 chars ≈ 65,179 wire bytes, 357 under 65,536** — clipped exactly at the ceiling. `?diag` was also dropped by quit-to-menu, killing F8 for the rest of the session. **Any ring pulled before that commit under-represents the heaviest KO/announcer-dense frames — the ones a hitch hunt wants — and it holds zero `pt-main-1` bundles**, so the MAIN-1 hitch reports have no server-side evidence yet.
-- **The in-app Browser pane does not composite while hidden**, so rAF never fires there: loaders sit at 4% forever and live HUD checks stall. Not a game bug — verify rendered behavior on prod or in tests.
-- **`window.__cartRavePerf.scene` is DEV-ONLY** (`main.js:664-667`) — in prod it does not exist, so scene-graph probes silently return empty and read as "not built". `import("/src/…")` likewise only resolves against the dev server. It does **not** always give a duplicate module instance, though: under Vite dev, importing the **same resolved URL** the app imported returns the **same** instance with shared state — verified 08-02 by firing `triggerArenaKoFlash` from a probe-side import and watching the app's own materials react. A duplicate is what you get from a *different* specifier for the same file. **Verify prod visually** (screenshot + build stamp), not by scene introspection.
+- **The in-app Browser pane does not composite while hidden**, so rAF never fires there: loaders sit at 4% forever. Verify rendered behavior on prod or in tests.
 - A round that ends with **no scores is a legitimate draw** → neither `victory` nor `defeat`.
-- Rapier `world.castRay(...)` reads `.handle` off the exclude args — pass Collider/RigidBody objects, never raw handles.
 - **`MSG.readyToggle` without a `ready` field is a TOGGLE** — programmatic ready must send `{ ready: true }`.
-- **Before any public / external-tester playtest: reset the analytics DO** so aggregates are not polluted by dev/harness traffic. Token-gated (SEC-TOKEN-1): `DELETE` with `Authorization: Bearer <ERROR_LOG_TOKEN>` on `/api/analytics` (never `?token=`).
-- **Windows HNS dynamic port exclusions can swallow the local worker port** (`netsh interface ipv4 show excludedportrange protocol=tcp`; common block 8751–8850 from Hyper-V/WSL even with no distro installed). Symptom: wrangler binds fine on other ports but 8787-era dev dies with `workerd std::terminate()` + a libuv assert in the parent — looks like a crash, is EACCES on the bind. Local worker port is now **8899** (`src/config.js` `LOCAL_WORKER_PORT`); if it ever goes EACCES again, re-check the exclusion table and move it there.
-- **hostFreeze's freeze lever is CDP `Debugger.pause`** (HARNESS-FREEZE-1 re-ack, `2e30d8e`) — `Page.setWebLifecycleState({state:"frozen"})` resolves but never silences a page holding a live RTCPeerConnection (bfcache eligibility), and perfPump/focus-emulation defeat CPU-throttle fallbacks. Pause = genuine JS halt; the scenario waits a bounded grace for silence (in-flight sends land first) before measuring the 3s window. If it ever goes INCONCLUSIVE again, the halt didn't land — that's an environment regression, not netcode.
+- **Before any public / external-tester playtest: reset the analytics DO.** Token-gated: `DELETE` with `Authorization: Bearer <ERROR_LOG_TOKEN>` on `/api/analytics` (never `?token=`).
+- Local worker port is **8899** (`LOCAL_WORKER_PORT` in `src/config.js`). If it goes EACCES, re-check Windows HNS exclusions and move the port there.
 
 ## Last updated
 
-2026-08-16 (THOST-CEILING-PT-1) — Wyatt PASS (caps 367 / 368 snap gaps). Filed **COUNTDOWN-HOST-STAMP-1** for the first-countdown hang.
+2026-08-16 (STATUS trim) — archived 08-16 PASS dump + closed Decision index to
+[status-log-2026-08-16.md](./archive/status-log-2026-08-16.md) and
+[decision-log-2026-08-03-to-16.md](./archive/decision-log-2026-08-03-to-16.md). Live PT:
+**NPC-ABORT-BURST-PT-1** · **LAST-STANDING-DEAD-PT-1** · **COUNTDOWN-HOST-STAMP-PT-1** on
+`npm run dev` until ship; **REMOTE-INPUT-STALE-PT-1** after ship.
 
-2026-08-16 (NPC-ABORT-BURST-1 · GAMEPAD-FREEZE-1 · ZOMBIE-HOST-PICK-1 · THOST-CEILING-1) — landed; PT owed. Closed PASS: INPUT-LOCK-1 · SD-SCORE-STALE-1 · SD-WIN-CREDIT-1 · PATTERNS-FOIL-1.
-
-Older session logs (2026-08-15 and earlier): [archive/README.md](./archive/README.md)
-([status-log-2026-08-15.md](./archive/status-log-2026-08-15.md)) ·
-([status-log-2026-08-13.md](./archive/status-log-2026-08-13.md)).
+Older session logs (2026-08-16 detail and earlier): [archive/README.md](./archive/README.md)
+([status-log-2026-08-16.md](./archive/status-log-2026-08-16.md)) ·
+([status-log-2026-08-15.md](./archive/status-log-2026-08-15.md)).

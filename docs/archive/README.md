@@ -19,6 +19,7 @@ match the date first, then grep inside.
 | Date range | File |
 |---|---|
 | 2026-08-16 → present | **live** in [STATUS.md](../STATUS.md) (short current-session summary only) |
+| 2026-08-16 (THOST-CEILING PASS · NPC-ABORT land · 08-16 PASSes) | [status-log-2026-08-16.md](./status-log-2026-08-16.md) |
 | 2026-08-15 (BOOST-SFX-NONHOST-PT-1 PASS) | [status-log-2026-08-15.md](./status-log-2026-08-15.md) |
 | 2026-08-13 (playtest exports 2–3 · KO-DOOMED · RAPIER/DEPS · art/eng sweeps · MENU-MUSIC) | [status-log-2026-08-13.md](./status-log-2026-08-13.md) |
 | 2026-08-12 (STORE-MUSIC-1 · PLAYTEST-SEED-1 · STORE-1) | [status-log-2026-08-12.md](./status-log-2026-08-12.md) |
@@ -46,6 +47,7 @@ match the date first, then grep inside.
 
 | Scope | File |
 |---|---|
+| 2026-08-03 → 08-16 one-liners (closed) | [decision-log-2026-08-03-to-16.md](./decision-log-2026-08-03-to-16.md) |
 | 2026-07-31 → 08-02 full-text decision entries | [decision-log-2026-08.md](./decision-log-2026-08.md) |
 | 2026-07-11 → 07-23 full-text decision entries | [decision-log-2026-07.md](./decision-log-2026-07.md) |
 

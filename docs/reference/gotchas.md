@@ -78,7 +78,9 @@ Loudness targets and the loudnorm start-ramp trap are documented where they belo
 
 - **Dev-only probes lie in production.** `__cartRavePerf.scene`, `import("/src/…")` and friends
   do not exist in a built bundle, so a probe that "returns nothing" on prod is telling you about
-  the probe, not the game. Verify prod changes **visually**, or through something that ships.
+  the probe, not the game. Under Vite dev, importing the **same resolved URL** the app imported
+  returns the **same** instance with shared state; a duplicate is a *different* specifier.
+  Verify prod visually (screenshot + build stamp), not by scene introspection.
 - **Judge performance on a production build, never `npm run dev`.** Dev-server timings include
   transform and module-graph cost that no player pays.
 - **A deploy is not instantly live everywhere** — edge propagation is roughly 30 s per PoP.
@@ -91,6 +93,18 @@ Loudness targets and the loudnorm start-ramp trap are documented where they belo
 - **A hidden or non-compositing tab freezes `rAF`** (and with it the boot sequence, so a round
   will not start). Dev tooling passes `?perfPump`. This bites automated browser checks hardest:
   layout reads can come back frozen and stale rather than absent, which looks like a CSS bug.
+- **hostFreeze's freeze lever is CDP `Debugger.pause`** (HARNESS-FREEZE-1 re-ack, `2e30d8e`) —
+  `Page.setWebLifecycleState({state:"frozen"})` resolves but never silences a page holding a
+  live RTCPeerConnection (bfcache eligibility), and perfPump/focus-emulation defeat CPU-throttle
+  fallbacks. Pause = genuine JS halt; the scenario waits a bounded grace for silence before
+  measuring the 3s window. If it ever goes INCONCLUSIVE again, the halt didn't land — that's an
+  environment regression, not netcode.
+- **Windows HNS dynamic port exclusions can swallow the local worker port**
+  (`netsh interface ipv4 show excludedportrange protocol=tcp`; common block 8751–8850 from
+  Hyper-V/WSL even with no distro installed). Symptom: wrangler binds fine on other ports but
+  8787-era dev died with `workerd std::terminate()` + a libuv assert — looks like a crash, is
+  EACCES on the bind. Local worker port is now **8899** (`src/config.js` `LOCAL_WORKER_PORT`);
+  if it ever goes EACCES again, re-check the exclusion table and move it there.
 - **Stale `workerd` processes survive a killed dev server** and hold the port; kill them before
   blaming a config change. Worktrees and the Vite cache have the same shape of trap — a stale
   cache serves the previous branch's modules.
@@ -108,6 +122,13 @@ Loudness targets and the loudnorm start-ramp trap are documented where they belo
 
 ## Evidence / deployed assets
 
+- **F8 uploads were silently size-capped until `e7e64e4`** (`keepalive: true` → Chrome's ~64 KiB
+  body limit, rejection swallowed into a `console.warn`). Measured 08-04 over the 251-capture
+  ring: max body **54,786 chars ≈ 65,179 wire bytes, 357 under 65,536** — clipped exactly at the
+  ceiling. `?diag` was also dropped by quit-to-menu, killing F8 for the rest of the session.
+  **Any ring pulled before that commit under-represents the heaviest KO/announcer-dense frames —
+  the ones a hitch hunt wants — and it holds zero `pt-main-1` bundles**, so the MAIN-1 hitch
+  reports have no server-side evidence yet.
 - **Minification breaks naive greps of deployed assets** — `0.505` becomes `.505`, hex seeds
   become decimal. Check the local `dist/` chunk with the same pattern before concluding anything
   about prod.
