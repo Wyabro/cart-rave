@@ -34,7 +34,8 @@ Live PT: **COUNTDOWN-HOST-STAMP-PT-1** on `npm run dev` until ship. Deferred lau
 `[solo]` · **LAST-STANDING-DEAD-PT-1** · **NPC-ABORT-BURST-PT-1** ·
 **REMOTE-INPUT-STALE-PT-1** `[2pc]` · **SPILL-RAM-CREDIT-PT-1** `[2pc]` (parents close with
 them — [completed-work.md](./planning/completed-work.md)). **TRUST-1** · **LEADERBOARD-1**
-cut from V2 (SHIP-1 D-tier; Block 3 drained). Parent **WARM-QP-ROTATE-1** stays
+cut from V2 (SHIP-1 D-tier; Block 3 drained). **SHIP-1** BACKLOG row closed
+(file stays). Parent **WARM-QP-ROTATE-1** stays
 (cap-364). Do not reopen GAMEPAD-LOBBY-1.
 
 **Closed cards keep their narrative in their own docs, not here** — Sundial

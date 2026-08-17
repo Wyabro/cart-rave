@@ -2,6 +2,7 @@
 
 **What is this?** The finish line, written down: what must be true to ship V2, and the
 **tier ordering** for the remaining backlog on the way there. A living doc — no deadline.
+The BACKLOG pointer row closed 08-17 on Wyatt's word. This file stays. V2 is not shipped.
 **Why does it exist?** So stabilization has an exit condition and the polish loop terminates
 by construction instead of by exhaustion.
 **Who should read it?** Anyone picking work or judging "are we done?".

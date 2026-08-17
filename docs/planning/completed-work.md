@@ -13,6 +13,10 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 17, 2026 — SHIP-1 BACKLOG row closed
+
+- *(Tech Debt · Medium)* **SHIP-1** — ✅ **CLOSED 08-17 on Wyatt's word**. The BACKLOG pointer row is gone. [SHIP-1.md](./SHIP-1.md) stays as the finish-line doc. This is not a V2 ship. BRAND-1, RC gates, and owed playtests stay on their own rows. Docs-only close; no game code in this commit.
+
 ### August 17, 2026 — TRUST-1 / LEADERBOARD-1 cut from V2
 
 - *(Tech Debt · Medium)* **TRUST-1** — ✅ **CLOSED 08-17 on Wyatt's word** (`[SHIP-1 D1]`). Never built. Worker still does not validate host-asserted outcomes. Cut from the V2 ship gate with **LEADERBOARD-1**. Host-authoritative Rapier stays. A later validation pass needs a new ID, not a reopen. Docs-only close; no game code in this commit.
