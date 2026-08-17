@@ -226,6 +226,53 @@ export function setUiMode(enabled) {
   }
 }
 
+/**
+ * Drops all held gamepad state — axis, boost hold, and one-shot button edges.
+ * Called on window blur and tab hide so a pad left held while the tab is hidden
+ * can't keep driving the cart through the hidden-host physics pump (GAMEPAD-FREEZE-1):
+ * pollGamepad() is rAF-bound, so a hidden tab freezes the last sampled state and
+ * getAxis() would keep feeding it to the sim. Mirrors the setUiMode(false) exit:
+ * prevBtnStates is re-derived from the live pad and a boost still physically held is
+ * suppressed until release, so returning to the tab doesn't re-fire a fresh
+ * charge/burst from a button pressed before the hide.
+ */
+export function resetGamepadInput() {
+  gamepadAxis = { forward: 0, turn: 0 };
+  gamepadBoostHeld = false;
+  const gp = getActiveGamepad();
+  if (gp) {
+    const isPressed = (idx) => {
+      const btn = gp.buttons[idx];
+      return btn && (btn.value > 0.5 || btn.pressed);
+    };
+    const boostPressed = isPressed(6) || isPressed(0);
+    prevBtnStates = {
+      boost: boostPressed,
+      hop: isPressed(7) || isPressed(1),
+      menu: isPressed(9),
+      mute: isPressed(8) || isPressed(11),
+    };
+    suppressGamepadBoostUntilRelease = Boolean(boostPressed);
+  } else {
+    prevBtnStates = {};
+    suppressGamepadBoostUntilRelease = false;
+  }
+}
+
+/**
+ * Drops every held input (keyboard keys, nitro, pending hop, touch, gamepad).
+ * Blur has always cleared the keyboard/touch side; gamepad was the gap, and
+ * tab-hide never reset anything — the hidden-host pump kept stepping physics off
+ * the frozen pad state (GAMEPAD-FREEZE-1).
+ */
+function resetHeldInput() {
+  keys.clear();
+  localNitroHeld = false;
+  hopRequested = false;
+  resetTouchControls();
+  resetGamepadInput();
+}
+
 // * Guarded for non-browser contexts (vitest imports this module transitively via netcode.js).
 if (typeof window !== "undefined") {
   window.addEventListener("gamepadconnected", (e) => {
@@ -469,11 +516,20 @@ export function setupInput(canvas, onEscape, onMute, onHop, onBoost) {
   window.addEventListener("keyup", onKeyUp, { passive: false });
 
   window.addEventListener("blur", () => {
-    keys.clear();
-    localNitroHeld = false;
-    hopRequested = false;
-    resetTouchControls();
+    resetHeldInput();
   });
+
+  // * Tab-hide is the same reset as blur. Gamepad polling is rAF-bound, so a hidden
+  // * tab freezes the last sampled pad state; without this reset, the hidden-host
+  // * MessageChannel pump keeps stepping physics off a stuck axis/boost and the cart
+  // * drives off and auto-releases bursts for up to the host-away window
+  // * (GAMEPAD-FREEZE-1). Runs in the same visibilitychange dispatch as gameLoop's
+  // * pump switch — before any MessageChannel macrotask can step the sim.
+  if (typeof document !== "undefined") {
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) resetHeldInput();
+    });
+  }
 
   return {
     getAxis,

@@ -196,3 +196,116 @@ describe("input.js getAxis", () => {
     });
   });
 });
+
+// GAMEPAD-FREEZE-1: a pad left held while the tab is hidden must not keep driving the
+// cart through the hidden-host physics pump. pollGamepad() is rAF-bound, so a hidden
+// tab freezes the last sampled axis/boost; blur + visibilitychange→hidden now reset it.
+describe("GAMEPAD-FREEZE-1: blur / tab-hide reset of frozen gamepad input", () => {
+  function mockPad({ axes, boost, hop, menu }) {
+    const pad = {
+      index: 0,
+      axes,
+      buttons: Array.from({ length: 17 }, (_, i) => ({
+        pressed: (i === 6 && boost) || (i === 7 && hop) || (i === 9 && menu),
+        value: 0,
+      })),
+    };
+    Object.defineProperty(navigator, "getGamepads", { configurable: true, value: () => [pad] });
+    return pad;
+  }
+
+  beforeEach(() => {
+    mockPad({ axes: [0, 0], boost: false, hop: false, menu: false });
+    __resetInputAxisEaseForTest();
+    __pollGamepadForTest(); // baseline: pad connected, nothing held
+  });
+
+  afterEach(() => {
+    Reflect.deleteProperty(navigator, "getGamepads");
+    // * Restore the real hidden getter so a leaked mock can't poison later tests
+    // * (accumulated visibilitychange listeners would keep resetting input).
+    Reflect.deleteProperty(document, "hidden");
+    __resetInputAxisEaseForTest();
+  });
+
+  it("blur clears a frozen pad axis + boost, suppressing the still-held boost", () => {
+    mockPad({ axes: [0, -1], boost: true, hop: false, menu: false }); // stick forward + LT
+    const onBoost = vi.fn();
+    setupInput(null, undefined, undefined, undefined, onBoost);
+    __pollGamepadForTest();
+    expect(onBoost).toHaveBeenCalledOnce();
+    expect(getAxis()).toEqual({ forward: 1, turn: 0, boostHeld: true });
+
+    window.dispatchEvent(new Event("blur"));
+    expect(getAxis()).toEqual({ forward: 0, turn: 0, boostHeld: false });
+
+    // * Still physically held: suppressed — no fresh charge, no re-fire.
+    __pollGamepadForTest();
+    expect(getAxis().boostHeld).toBe(false);
+    expect(onBoost).toHaveBeenCalledOnce();
+  });
+
+  it("release + fresh press after blur fires boost exactly once more", () => {
+    mockPad({ axes: [0, -1], boost: true, hop: false, menu: false });
+    const onBoost = vi.fn();
+    setupInput(null, undefined, undefined, undefined, onBoost);
+    __pollGamepadForTest();
+    window.dispatchEvent(new Event("blur"));
+
+    mockPad({ axes: [0, -1], boost: false, hop: false, menu: false }); // released
+    __pollGamepadForTest();
+    expect(getAxis().boostHeld).toBe(false);
+
+    mockPad({ axes: [0, -1], boost: true, hop: false, menu: false }); // fresh press
+    __pollGamepadForTest();
+    expect(onBoost).toHaveBeenCalledTimes(2);
+    expect(getAxis().boostHeld).toBe(true);
+  });
+
+  it("tab-hide (visibilitychange → hidden) clears the frozen pad state", () => {
+    mockPad({ axes: [0, -1], boost: true, hop: false, menu: false });
+    setupInput(null, undefined, undefined, undefined, undefined);
+    __pollGamepadForTest();
+    expect(getAxis().boostHeld).toBe(true);
+
+    Object.defineProperty(document, "hidden", { configurable: true, value: true });
+    document.dispatchEvent(new Event("visibilitychange"));
+    expect(getAxis()).toEqual({ forward: 0, turn: 0, boostHeld: false });
+  });
+
+  it("re-primes one-shot edges across blur: held RT does not re-fire or get lost", () => {
+    const onHop = vi.fn();
+    setupInput(null, undefined, undefined, onHop, undefined);
+    mockPad({ axes: [0, 0], boost: false, hop: true, menu: false });
+    __pollGamepadForTest();
+    expect(onHop).toHaveBeenCalledOnce(); // original press
+
+    window.dispatchEvent(new Event("blur"));
+    __pollGamepadForTest(); // still held — edge consumed by re-primed prevBtnStates
+    expect(onHop).toHaveBeenCalledOnce();
+
+    mockPad({ axes: [0, 0], boost: false, hop: false, menu: false }); // released while away
+    __pollGamepadForTest();
+    expect(onHop).toHaveBeenCalledOnce();
+
+    mockPad({ axes: [0, 0], boost: false, hop: true, menu: false }); // fresh press
+    __pollGamepadForTest();
+    expect(onHop).toHaveBeenCalledTimes(2);
+  });
+
+  it("re-primes the menu edge across blur: held START at hide does not re-open pause", () => {
+    const onEscape = vi.fn();
+    setupInput(null, onEscape, undefined, undefined, undefined);
+    mockPad({ axes: [0, 0], boost: false, hop: false, menu: true });
+    __pollGamepadForTest();
+    expect(onEscape).toHaveBeenCalledOnce();
+
+    window.dispatchEvent(new Event("blur"));
+    __pollGamepadForTest(); // still held
+    expect(onEscape).toHaveBeenCalledOnce();
+
+    mockPad({ axes: [0, 0], boost: false, hop: false, menu: false }); // released
+    __pollGamepadForTest();
+    expect(onEscape).toHaveBeenCalledOnce();
+  });
+});
