@@ -39,8 +39,9 @@ external testers. Stay in this phase until Wyatt advances the marker.
 **NAME-VARIETY-1** · **PATTERNS-UI-5** · **STOREROOMS-NPC-SELFKO-2** closed.
 **ZOMBIE-HOST-PICK-1** already closed. Do not reopen GAMEPAD-LOBBY-1.
 Deferred launch day: **SHARD-PT-2**. Parent **WARM-QP-ROTATE-1** stays (cap-364).
-**THOST-CEILING-PT-1** FAIL 08-16 (retest after fix). Medium **NPC-ABORT-BURST-1**
-landed (PT owed). 08-15 and earlier PASSes: [completed-work.md](./planning/completed-work.md).
+**THOST-CEILING-PT-1** Wyatt PASS 08-16 (caps 367 / 368). First-countdown hang
+filed as **COUNTDOWN-HOST-STAMP-1**. Medium **NPC-ABORT-BURST-1** landed (PT owed).
+08-15 and earlier PASSes: [completed-work.md](./planning/completed-work.md).
 
 **Closed cards keep their narrative in their own docs, not here** — Sundial
 ([handover](./planning/art-pass-sundial-handover.md); read its "Traps that cost time" before any
@@ -82,7 +83,7 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. Fix + retest **THOST-CEILING-PT-1** (FAIL 08-16). Playtest **NPC-ABORT-BURST-PT-1** · **LAST-STANDING-DEAD-PT-1** on `npm run dev` until ship. **REMOTE-INPUT-STALE-PT-1** after ship (`[2pc]`, no `?perfPump` on the non-host). Deferred: **SHARD-PT-2** (launch day).
+1. Playtest **NPC-ABORT-BURST-PT-1** · **LAST-STANDING-DEAD-PT-1** on `npm run dev` until ship. **REMOTE-INPUT-STALE-PT-1** after ship (`[2pc]`, no `?perfPump` on the non-host). Deferred: **SHARD-PT-2** (launch day). New engineering: **COUNTDOWN-HOST-STAMP-1**.
 
 ## Open issues (top)
 
@@ -99,12 +100,13 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 [decision-log-2026-08.md](./archive/decision-log-2026-08.md), 07-11 → 07-23 in
 [decision-log-2026-07.md](./archive/decision-log-2026-07.md).
 
+- **D-COUNTDOWN-HOST-STAMP-1** (08-16): first non-host 3-2-1 adopts `host_round` start while `hostClock.samples === 0` (caps 367 / 368). Not a THOST-CEILING fail. Candidate: skip that stamp until the host clock has samples.
 - **D-REMOTE-INPUT-STALE-1** (08-17): host zeros stale remote input after `remoteInputStaleMs` (300) of apply-silence; nitro latch kept; ackSeq untouched. Playtest **REMOTE-INPUT-STALE-PT-1**.
 - **D-LAST-STANDING-DEAD-1** (08-16): delete Last Cart Standing. Bolt → 5 SD wins. lastStanding wire accepted; non-max rejected. Playtest **LAST-STANDING-DEAD-PT-1**.
 - **D-NPC-ABORT-BURST-1** (08-16): abort hard-cancels unless the locked target is live on the floor and cart-yaw runway is clear. Open-floor close ram still bursts. Playtest **NPC-ABORT-BURST-PT-1**.
 - **D-GAMEPAD-FREEZE-1** (08-16, `9935f10d`): `blur` + tab-hide now reset all held input incl. the previously-frozen gamepad axis/boost; held boost is suppressed until release on return. **GAMEPAD-FREEZE-PT-1** Wyatt PASS 08-16.
 - **D-ZOMBIE-HOST-PICK-1** (08-16): host-away / host-repair pick from `#platformLiveConnIds()`, not `#connections.keys()` — platform-dead peers cannot become host. **ZOMBIE-HOST-PICK-PT-1** Wyatt PASS 08-16.
-- **D-THOST-CEILING-1** (08-16): `tHost` gate is `|tHost − now| ≤ 60s` (replaces DEEPSEC-1's `1e12` abs cap). Playtest **THOST-CEILING-PT-1**.
+- **D-THOST-CEILING-1** (08-16): `tHost` gate is `|tHost − now| ≤ 60s` (replaces DEEPSEC-1's `1e12` abs cap). **THOST-CEILING-PT-1** Wyatt PASS 08-16.
 - **D-SD-SCORE-STALE-1** (08-16): `addScore` now commits before the SD-win callback so podium `host_round` carries the final point. Announcer leader lines skip SD. **SD-SCORE-STALE-PT-1** Wyatt PASS 08-16.
 - **D-MENU-CMD-SKEW-1** (08-15): Menu entrance wrote `translateY`/`scale` on `.cr-cmd` and wiped `skewX(-8deg)`; leftover label `skewX(8deg)` leaned SOLO–SETTINGS left. Entrance now `fadeIn` only. **MENU-CMD-SKEW-PT-1** Wyatt PASS 08-16.
 - **D-CONN-TOASTS-1** (08-15): Friends join/leave toasts from `MSG.slots` human-connId diff + reap broadcast. **CONN-TOASTS-1** Wyatt PASS 08-15.
@@ -148,7 +150,7 @@ the dev loop (dev probes lie in prod · edge propagation · frozen `rAF`), or a 
 
 ## Last updated
 
-2026-08-16 (playtest close) — **GAMEPAD-FREEZE-PT-1** · **ZOMBIE-HOST-PICK-PT-1** · **WARM-QP-ROTATE-PT-1** Wyatt PASS. **THOST-CEILING-PT-1** FAIL (retest).
+2026-08-16 (THOST-CEILING-PT-1) — Wyatt PASS (caps 367 / 368 snap gaps). Filed **COUNTDOWN-HOST-STAMP-1** for the first-countdown hang.
 
 2026-08-16 (NPC-ABORT-BURST-1 · GAMEPAD-FREEZE-1 · ZOMBIE-HOST-PICK-1 · THOST-CEILING-1) — landed; PT owed. Closed PASS: INPUT-LOCK-1 · SD-SCORE-STALE-1 · SD-WIN-CREDIT-1 · PATTERNS-FOIL-1.
 

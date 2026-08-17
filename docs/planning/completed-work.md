@@ -13,6 +13,15 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 16, 2026 — THOST-CEILING-PT-1 PASS; file COUNTDOWN-HOST-STAMP-1
+
+- *(Playtest · Medium)* **THOST-CEILING-PT-1** — ✅ **PASS 08-16** on prod (HEAD
+  `d0022037`, caps 367 / 368). Guest hitch does not stretch snapshot gaps:
+  `snapGapMaxMs` 57 / 31, `snapGapsOver100` 0. Offset after GO ≈ −1.8 s is
+  machine timeOrigin skew, not a hitch. Parent **THOST-CEILING-1** closes with
+  it. First-countdown hang (cap-367 / 368 `3` at +10 ms, `2` at +2.9 s) is
+  **COUNTDOWN-HOST-STAMP-1**, not this card.
+
 ### August 16, 2026 — playtest PASSes (GAMEPAD-FREEZE / ZOMBIE-HOST-PICK / WARM-QP-ROTATE)
 
 - *(Playtest · Medium)* **GAMEPAD-FREEZE-PT-1** — ✅ **PASS 08-16** on prod (HEAD
@@ -61,7 +70,7 @@ Chronological record of shipped work, newest first.
 
 ### August 16, 2026 — THOST-CEILING-1: host-clock tHost window
 
-- *(Engineering · Medium)* **THOST-CEILING-1** — ✅ **DONE 08-16**. `isPlausibleTHost` now accepts stamps within 60 s of local round-clock now and rejects `1e300` / toy `1000`. Dropped the `1e12` abs cap (Sep 2001) that rejected every 2026 epoch `tHost`, and dropped the sticky 5 s `lastAcceptedTHost` jump. Live snapshots sample `updateHostClockOffset` again. Playtest owed: **THOST-CEILING-PT-1**. Not a reopen of Run 7 / NET-PRES-1 / DEEPSEC-1.
+- *(Engineering · Medium)* **THOST-CEILING-1** — ✅ **DONE 08-16**. `isPlausibleTHost` now accepts stamps within 60 s of local round-clock now and rejects `1e300` / toy `1000`. Dropped the `1e12` abs cap (Sep 2001) that rejected every 2026 epoch `tHost`, and dropped the sticky 5 s `lastAcceptedTHost` jump. Live snapshots sample `updateHostClockOffset` again. **THOST-CEILING-PT-1** Wyatt PASS 08-16 (caps 367 / 368). Not a reopen of Run 7 / NET-PRES-1 / DEEPSEC-1.
 
 ### August 16, 2026 — SD-WIN-CREDIT-1: guest Sudden Death win credit
 
