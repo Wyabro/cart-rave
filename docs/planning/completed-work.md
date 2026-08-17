@@ -2,7 +2,7 @@
 
 > Historical log. Past entries may still say "Cart Rave" / `next-level` — that is intentional. Living naming rules: [brand.md](../brand.md).
 
-**Last Updated:** August 16, 2026
+**Last Updated:** August 17, 2026
 
 > **This doc = the past** — the single home for historical/completed items. For what works
 > *today* see [project-state.md](./project-state.md); for forward plans see [ROADMAP.md](./ROADMAP.md).
@@ -12,6 +12,10 @@ Chronological record of shipped work, newest first.
 > **Convention:** As items ship, move their completed writeup here (out of ROADMAP.md / project-state.md).
 
 ---
+
+### August 17, 2026 — HOWLER-UPGRADE-1: pooling + buses done; spatial deferred
+
+- *(Audio · Low)* **HOWLER-UPGRADE-1** — ✅ **CLOSED 08-17 on Wyatt's word** (`[SHIP-1 E3]`). Howler is already `^2.2.4` (no bump). Explicit pools on all 16 SFX and SFX/VOICE/MUSIC buses (VOICE-BUS-1 playtested) already shipped. The leftover half was spatial playback. Wyatt deferred that half as taste-gated so the signed-off mix stays untouched this close to ship. Docs-only close; no audio code in this commit. A later spatial pass needs a new ID, not a reopen.
 
 ### August 16, 2026 — record CB-SEAM-1 (shipped 08-05)
 

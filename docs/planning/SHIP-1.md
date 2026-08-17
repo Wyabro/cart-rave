@@ -83,7 +83,7 @@ opportunistically when touched — no dedicated refactor pass.
 |---|------|
 | E1 | RESULTS-1 results-screen redesign · UI-FRAME-1 ✅ (absorbed by the Fight Night redesign) · ESC scoring panel ✅ (absorbed by the 7f pause re-layout — the scoring chart now lives on HOW TO PLAY AISLE 7) |
 | E2 | Bloom sign-offs (Classic/Sundial) · defeat-screen art call · sunglasses materials — judged against [art-direction.md](../reference/art-direction.md) (per-arena budgets via ART-EXPO-1 / ART-FILTER-1), not a global keep-it-dark rule |
-| E3 | Announcer re-records ✅ (CLOSED 08-13) · SD music low-pass · SFX slider · Howler upgrade |
+| E3 | Announcer re-records ✅ (CLOSED 08-13) · SD music low-pass · SFX slider · Howler upgrade ✅ (CLOSED 08-17 — pooling + buses shipped; spatial deferred, taste-gated) |
 | E4 | ~~First-run controls card~~ — **absorbed 08-05 into ONBOARD-SLIDES-1** (ONBOARD-1 retired as a row). Solo is still the tutorial; a one-shot controls reminder is a fresh card only if slides leave a gap. |
 
 ## Post-launch (unchanged from BACKLOG)

@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-17T04:39:38.922Z",
-    "commit": "38d9f19a"
+    "at": "2026-08-17T04:43:32.745Z",
+    "commit": "b1d21c8c"
   },
-  "source_digest": "0d22ede8",
+  "source_digest": "cf76768b",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1051,20 +1051,6 @@
         ]
       },
       {
-        "title": "Audio",
-        "counts": {
-          "Low": 1
-        },
-        "rows": [
-          {
-            "pri": "Low",
-            "item": "HOWLER-UPGRADE-1 — Deeper Howler upgrade `[SHIP-1 E3]`",
-            "notes": "Spatial, pooling, volume groups.",
-            "ship1": "E3"
-          }
-        ]
-      },
-      {
         "title": "Design / Gameplay",
         "counts": {
           "Medium": 2,
@@ -1359,7 +1345,7 @@
           },
           {
             "col0": "E3",
-            "item": "Announcer re-records ✅ (CLOSED 08-13) · SD music low-pass · SFX slider · Howler upgrade"
+            "item": "Announcer re-records ✅ (CLOSED 08-13) · SD music low-pass · SFX slider · Howler upgrade ✅ (CLOSED 08-17 — pooling + buses shipped; spatial deferred, taste-gated)"
           },
           {
             "col0": "E4",
@@ -1499,6 +1485,11 @@
       "Cross-module change? Read docs/reference/control-flow.md first — most edges are not imports."
     ],
     "settled_decisions": [
+      {
+        "id": "D-HOWLER-UPGRADE-1",
+        "date": "08-17",
+        "text": "pooling + volume buses already shipped. Spatial deferred, taste-gated. Card closed. New ID if playtest asks for 3D SFX."
+      },
       {
         "id": "D-COUNTDOWN-HOST-STAMP-1",
         "date": "08-16",
