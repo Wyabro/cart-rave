@@ -66,7 +66,8 @@ The custom-hue red-end snap (`CUSTOM_NEON_RED_HEX = 0xff2233` in
 [`customization.js`](../../src/carts/customization.js)) is the single sanctioned non-roster
 cart-neon exception (CART-HUE-RED-1). Spectral `0xff0000` through the 0.72 body tint plus ACES
 OutputPass drops the blue channel and reads brick / dark-orange on Cart Rave, Storerooms, and
-Sundial. The swatch follows the snap.
+Sundial. The swatch follows the snap. Cubes paints filled faces, so its accents stay in that
+neon family — they must not hop toward `neonOrange` / yellow.
 
 ### Per-arena moods diverge under one emotional umbrella
 

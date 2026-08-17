@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-17T18:38:29.026Z",
-    "commit": "7dd3966d"
+    "at": "2026-08-17T18:51:13.604Z",
+    "commit": "30920e8a"
   },
-  "source_digest": "f49e0ff4",
+  "source_digest": "36f4f7d3",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -877,7 +877,7 @@
       }
     ],
     "next_actions": [
-      "Playtest NPC-ABORT-BURST-PT-1 · LAST-STANDING-DEAD-PT-1 · COUNTDOWN-HOST-STAMP-PT-1 on `npm run dev` until ship. SPILL-RAM-CREDIT-PT-1 `[2pc]`, no `?perfPump` on the non-host. CART-HUE-RED-PT-1 `[solo]` on `npm run dev` until ship. REMOTE-INPUT-STALE-PT-1 after ship (`[2pc]`, no `?perfPump` on the non-host). Deferred: SHARD-PT-2 (launch day)."
+      "Playtest COUNTDOWN-HOST-STAMP-PT-1 on `npm run dev` until ship."
     ],
     "open_issues": [
       {
@@ -892,17 +892,11 @@
       {
         "title": "Engineering",
         "counts": {
-          "Medium": 8,
+          "Medium": 7,
           "Partial": 1,
           "Low": 14
         },
         "rows": [
-          {
-            "pri": "Medium",
-            "item": "REMOTE-INPUT-STALE-1 — hidden non-host's last input keeps driving on the host sim",
-            "notes": "**Landed 08-17** — host drain stamps `lastAppliedMs` and zeros `{throttle,steer,nitro}` after `CONFIG.net.remoteInputStaleMs` (300) of apply-silence; latch kept so a held-boost return cannot double-charge from the drain edge. Playtest owed: **REMOTE-INPUT-STALE-PT-1**.",
-            "ship1": null
-          },
           {
             "pri": "Medium",
             "item": "COUNTDOWN-HOST-STAMP-1 — first non-host 3-2-1 hangs on 3 then slams 2+1 `[2pc]`",
@@ -1038,24 +1032,9 @@
         ]
       },
       {
-        "title": "Art",
-        "counts": {
-          "Low": 1
-        },
-        "rows": [
-          {
-            "pri": "Low",
-            "item": "CART-HUE-RED-1 — custom hue red reads as dark orange in-game `[solo]`",
-            "notes": "**Lever A landed 08-17** — red-end snap `0xff0000` → `0xff2233` (ACES + 0.72 body tint dropped blue on all three arenas; mask was healthy). Playtest owed: **CART-HUE-RED-PT-1**. Art presentation only — cart material traverse stays frozen.",
-            "ship1": null
-          }
-        ]
-      },
-      {
         "title": "Design / Gameplay",
         "counts": {
-          "Medium": 2,
-          "Low": 1
+          "Medium": 2
         },
         "rows": [
           {
@@ -1069,20 +1048,14 @@
             "item": "CLUTCH-SLOMO-1 — Clutch slow-mo (Pass 5 deferral)",
             "notes": "Taste-gated.",
             "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "SPILL-RAM-CREDIT-1 — does a solid knockback ram count as a \"spill\"?",
-            "notes": "**Landed 08-17** — SPILL credit is a real spill (tip-over / massive-ram / void fall) attributed to the recent rammer via `lastHitBy` + `hitWindowMs`. Rams on upright victims count for nothing. Playtest owed: **SPILL-RAM-CREDIT-PT-1**.",
-            "ship1": null
           }
         ]
       },
       {
         "title": "Playtest owed",
         "counts": {
-          "Medium": 4,
-          "Low": 3
+          "Medium": 1,
+          "Low": 2
         },
         "rows": [
           {
@@ -1092,39 +1065,15 @@
             "ship1": null
           },
           {
-            "pri": "Medium",
-            "item": "LAST-STANDING-DEAD-PT-1 — Last Cart Standing is gone; bolt is 5 SD wins",
-            "notes": "**Owed: Wyatt playtest — LAST-STANDING-DEAD-PT-1 — Sudden Death podium is a normal pts / TIEBREAK win; Sole Survivor is gone; bolt hint is 5 Sudden Death wins.** Parent **LAST-STANDING-DEAD-1**. Solo. Hard-refresh. Pushed but not yet deployed — `npm run dev` until ship.<br>1. Solo. Force Sudden Death (tie the 150s clock).<br>2. KO the last tied rival. FAIL if 3s slow-mo plays or the verdict says LAST CART STANDING. PASS if the podium is a normal SD win (pts / TIEBREAK).<br>3. Open Challenges. FAIL if Sole Survivor is still listed. PASS if Clutch Winner still exists and Sole Survivor is gone.<br>4. Open Patterns. FAIL if bolt still says Last Cart Standing or unlocks from 3 SD wins. PASS if the hint is 5 Sudden Death wins and bolt stays locked below 5.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "NPC-ABORT-BURST-PT-1 — unsafe NPC charge-abort does not burst into a void",
-            "notes": "**Owed: Wyatt playtest — NPC-ABORT-BURST-PT-1 — an NPC that drops a charge at a hole does not burst into it; a close-range open-floor charge still rams.** Parent **NPC-ABORT-BURST-1**. Solo. Storerooms. Hard-refresh. Pushed but not yet deployed — `npm run dev` until ship.<br>1. Stand so a hole sits on the NPC's charge line. Bait the telegraph, then step off the line while you stay up. FAIL if the NPC bursts into the void.<br>2. On open floor, let an NPC charge you inside ~3 m. PASS if it still bursts.<br>3. FAIL if a human tap-release or full-charge feel changed.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "REMOTE-INPUT-STALE-PT-1 — hidden non-host cart coasts on the host `[2pc]`",
-            "notes": "**Owed: Wyatt playtest — REMOTE-INPUT-STALE-PT-1 — a hidden non-host stops driving on the host after a short silence.** Parent **REMOTE-INPUT-STALE-1**. You host. Non-host URL: `?diag=1&room=quickplay` — no `?perfPump` on the non-host.<br>1. 2pc Quickplay. Non-host holds throttle+steer in a loop, then hides the tab for 2–3 s.<br>2. FAIL if the host still sees that cart drive the loop after ~0.5 s. PASS if it stops steering and coasts in a straight line (it will not halt in 1 s).<br>3. Restore the tab. PASS if it is drivable at once, with no ghost drive. A snap equal to the coast distance is OK.<br>4. Hide mid-charge. PASS if the host sees at most one burst at staleness and no stuck charge SFX. Return still holding boost: FAIL if two bursts or a second drain-edge charge. PASS if at most one new charge bar.<br>5. Host drives through the same window. FAIL if a healthy focused peer hitch-zeros.",
+            "pri": "Low",
+            "item": "CART-HUE-CUBES-PT-1 — Cubes on custom red stays red `[solo]`",
+            "notes": "**Owed: Wyatt playtest — CART-HUE-CUBES-PT-1 — Cubes on the custom hue far-red end stays in the red family, not orange.** Parent **CART-HUE-CUBES-1**. Solo. Hard-refresh. `npm run dev` until ship. DEV unlocks all arenas.<br>1. Solo, Sundial Station. Customize → CUSTOM → hue slider to the far red end. Apply Cubes.<br>2. Enter the match. FAIL if the cart reads orange. PASS if the cube faces stay red (darker / cooler red is OK).<br>3. Classic on that same red still reads red (CART-HUE-RED-PT-1 already PASSed).<br>4. Repeat step 2 on The Storerooms and Cart Rave. FAIL if any arena reads orange. Pink Cubes may shift cooler; it must not go yellow/orange.",
             "ship1": null
           },
           {
             "pri": "Low",
             "item": "SHARD-PT-2 — fifth human overflows to quickplay2 `[2pc]`",
             "notes": "**Owed: Wyatt playtest — SHARD-PT-2 — the 5th concurrent Quickplay human lands on quickplay2 instead of \"couldn't join\".** Launch-day / public-post check — needs five real humans (Wyatt deferred 08-05). Rig already 5/5; SHARD-PT-1 PASSed on prod `9c333d1`. Prefer analytics: any `quickplay_shard_assigned` with `hops > 0` or `shard !== quickplay` counts.<br>1. When five humans can join Quickplay at once (public post), watch the 5th seat.<br>2. FAIL if they get the dead-end couldn't-join toast with no hop. PASS if they seat on an overflow shard (or analytics shows hops greater than 0).<br>3. Skip / leave open until launch day — do not FAIL for lack of five people.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "SPILL-RAM-CREDIT-PT-1 — rams count once, at the spill `[2pc]`",
-            "notes": "**Owed: Wyatt playtest — SPILL-RAM-CREDIT-PT-1 — Spill Master ticks when groceries fly, not per ram.** Parent **SPILL-RAM-CREDIT-1**. You are not host. Hard-refresh. Pushed but not yet deployed — `npm run dev` until ship. No `?perfPump` on the non-host.<br>1. Two PCs. Friends or Quickplay. You ram the host cart until groceries fly. FAIL if Spill Master ticks per ram. PASS if it ticks +1 exactly on the spill.<br>2. Sustained rams on a loaded/tanky upright cart. FAIL if ticks arrive before groceries fly. PASS if nothing ticks until the spill.<br>3. Self-tip with no contact. FAIL if you get a tick. PASS if you get none.<br>4. Solo `npm run dev`. Ram an NPC until groceries fly. PASS if you get a tick on the spill and the receipt SPILLS CAUSED matches.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "CART-HUE-RED-PT-1 — custom hue red matches the menu swatch `[solo]`",
-            "notes": "**Owed: Wyatt playtest — CART-HUE-RED-PT-1 — the custom hue slider's far red end reads red in-game, not dark orange.** Parent **CART-HUE-RED-1**. Solo. Hard-refresh. `npm run dev` until ship. DEV unlocks all arenas.<br>1. Solo, Sundial Station. Customize → CUSTOM → hue slider to the far red end.<br>2. Enter the match. FAIL if the cart reads dark orange. PASS if it matches the menu swatch's red.<br>3. Sweep a few degrees either side of 0 — the 14/15° seam is expected (red → orange). FAIL if it reads orange → orange.<br>4. Repeat on The Storerooms and Cart Rave. FAIL if any arena reads dark orange. Pink preset unchanged. HUD \"you\" accent must stay legible (it will not match the cart).",
             "ship1": null
           }
         ]

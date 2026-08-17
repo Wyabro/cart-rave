@@ -33,10 +33,10 @@ export const CART_PATTERNS = {
 };
 
 const CART_COLOR_HEXES = Object.values(CART_COLORS).map(({ hex }) => hex);
+/** Stroke patterns only. Cubes paints filled faces and keeps its own family accents. */
 const MULTICOLOR_OFFSETS = {
   honeycomb: [1, 2],
   diamond: [2, 3],
-  cubes: [3, 4],
 };
 
 /** @param {number} hex @returns {number} */
@@ -76,6 +76,71 @@ function nearestCartColorIndex(hex) {
     }
   }
   return bestIndex;
+}
+
+/** @param {number} hex @returns {[number, number, number]} h 0–360, s/l 0–1 */
+function rgbToHsl(hex) {
+  const [r8, g8, b8] = rgb(hex);
+  const r = r8 / 255;
+  const g = g8 / 255;
+  const b = b8 / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  const d = max - min;
+  if (d < 1e-6) return [0, 0, l];
+  const s = d / (1 - Math.abs(2 * l - 1));
+  let h = 0;
+  if (max === r) h = ((g - b) / d) % 6;
+  else if (max === g) h = (b - r) / d + 2;
+  else h = (r - g) / d + 4;
+  h *= 60;
+  if (h < 0) h += 360;
+  return [h, s, l];
+}
+
+/** @param {number} h 0–360 @param {number} s 0–1 @param {number} l 0–1 @returns {number} */
+function hslToHex(h, s, l) {
+  const hue = ((h % 360) + 360) % 360;
+  const sat = Math.max(0, Math.min(1, s));
+  const light = Math.max(0, Math.min(1, l));
+  const c = (1 - Math.abs(2 * light - 1)) * sat;
+  const x = c * (1 - Math.abs(((hue / 60) % 2) - 1));
+  const m = light - c / 2;
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  if (hue < 60) { r = c; g = x; }
+  else if (hue < 120) { r = x; g = c; }
+  else if (hue < 180) { g = c; b = x; }
+  else if (hue < 240) { g = x; b = c; }
+  else if (hue < 300) { r = x; b = c; }
+  else { r = c; b = x; }
+  return (
+    (Math.round((r + m) * 255) << 16)
+    | (Math.round((g + m) * 255) << 8)
+    | Math.round((b + m) * 255)
+  ) >>> 0;
+}
+
+/**
+ * Cubes fills whole faces. A 0.9 hop to other CART_COLORS replaces the selected neon.
+ * Custom red's nearest roster color is neonOrange, so those hops land on yellow/green
+ * and the cart reads orange (CART-HUE-RED-1). Keep faces in the selected family:
+ * base, cooler hue, RGB-scaled shade (HSL lightness zeros green/blue on red and
+ * re-opens the ACES brick-orange trap).
+ * @param {number} base
+ * @returns {[number, number, number]}
+ */
+function cubesFamilyAccents(base) {
+  const [h, s, l] = rgbToHsl(base);
+  const [r, g, b] = rgb(base);
+  const shade = (
+    (Math.round(r * 0.62) << 16)
+    | (Math.round(g * 0.62) << 8)
+    | Math.round(b * 0.62)
+  ) >>> 0;
+  return [base, hslToHex(h - 22, s, l), shade];
 }
 
 /**
@@ -173,8 +238,9 @@ export function sampleFoilLobe(sample) {
 }
 
 /**
- * Selected cart neon plus two brand-aligned accents for a multicolor pattern.
- * The base remains dominant; accents are blended toward different CART_COLORS entries.
+ * Selected cart neon plus two accents for a multicolor pattern.
+ * Honeycomb / diamond stay stroke-led: accents hop toward other CART_COLORS.
+ * Cubes paints filled faces, so its accents stay in the selected neon family.
  * @param {string} patternId
  * @param {number} neonHex
  * @returns {[number, number, number]}
@@ -183,6 +249,7 @@ export function getPatternAccentHexes(patternId, neonHex) {
   const id = normalizePatternId(patternId);
   const base = cleanHex(neonHex);
   if (!isMulticolorPattern(id)) return [base, base, base];
+  if (id === "cubes") return cubesFamilyAccents(base);
 
   const [firstOffset, secondOffset] = MULTICOLOR_OFFSETS[id];
   const nearest = nearestCartColorIndex(base);

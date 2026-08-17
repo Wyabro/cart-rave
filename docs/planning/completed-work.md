@@ -13,6 +13,42 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 17, 2026 — playtest PASSes (CART-HUE-RED / LAST-STANDING-DEAD / NPC-ABORT-BURST / REMOTE-INPUT-STALE / SPILL-RAM-CREDIT)
+
+- *(Playtest · Medium)* **LAST-STANDING-DEAD-PT-1** — ✅ **PASS 08-17** on `npm run dev`
+  (HEAD `30920e8a`; pushed, not yet deployed). SD podium is a normal pts / TIEBREAK win —
+  no 3s slow-mo, no LAST CART STANDING verdict. Sole Survivor is gone from Challenges
+  (Clutch Winner still there); bolt hint reads 5 Sudden Death wins and stays locked below 5.
+  Parent **LAST-STANDING-DEAD-1** (`20fd80b3`) closes with it.
+- *(Playtest · Medium)* **NPC-ABORT-BURST-PT-1** — ✅ **PASS 08-17** on `npm run dev`
+  (HEAD `30920e8a`). An NPC that drops a charge at a hole does not burst into it; a
+  close-range open-floor charge still rams; human tap-release / full-charge feel unchanged.
+  Parent **NPC-ABORT-BURST-1** (`0e6c0c9e`) closes with it.
+- *(Engineering · Medium)* **REMOTE-INPUT-STALE-1** — ✅ **DONE 08-17** (`d0022037`). Host
+  drain stamps `lastAppliedMs` and zeros `{throttle,steer,nitro}` after
+  `CONFIG.net.remoteInputStaleMs` (300) of apply-silence; latch kept so a held-boost return
+  cannot double-charge from the drain edge.
+- *(Playtest · Medium)* **REMOTE-INPUT-STALE-PT-1** — ✅ **PASS 08-17** on `npm run dev`
+  (HEAD `30920e8a`). Hidden non-host coasts straight on the host after ~0.5s silence;
+  restores drivable at once with no ghost drive; mid-charge hide yields at most one burst
+  and no stuck charge SFX; host through the same window does not hitch. Parent
+  **REMOTE-INPUT-STALE-1** closes with it.
+- *(Design / Gameplay · Low)* **SPILL-RAM-CREDIT-1** — ✅ **DONE 08-17** (`76cbe304`). SPILL
+  credit is a real spill (tip-over / massive-ram / void fall) attributed to the recent
+  rammer via `lastHitBy` + `hitWindowMs`; rams on upright victims count for nothing.
+- *(Playtest · Low)* **SPILL-RAM-CREDIT-PT-1** — ✅ **PASS 08-17** on `npm run dev`
+  (HEAD `30920e8a`). Spill Master ticks +1 exactly on the spill, nothing on sustained
+  upright rams or self-tip; solo NPC ram credits on the spill and the receipt
+  SPILLS CAUSED matches. Parent **SPILL-RAM-CREDIT-1** closes with it.
+- *(Art · Low)* **CART-HUE-RED-1** — ✅ **DONE 08-17** (`7dd3966d`). Red-end snap
+  `0xff0000` → `0xff2233` (ACES + 0.72 body tint dropped blue on all three arenas; mask
+  was healthy). Art presentation only — cart material traverse stays frozen.
+- *(Playtest · Low)* **CART-HUE-RED-PT-1** — ✅ **PASS 08-17** on `npm run dev`
+  (HEAD `30920e8a`). Custom hue far red reads red in-game on Sundial Station, The
+  Storerooms, and Cart Rave, matching the menu swatch; the 14/15° seam reads red →
+  orange as expected; pink preset and HUD "you" accent unchanged. Parent
+  **CART-HUE-RED-1** closes with it.
+
 ### August 17, 2026 — HOWLER-UPGRADE-1: pooling + buses done; spatial deferred
 
 - *(Audio · Low)* **HOWLER-UPGRADE-1** — ✅ **CLOSED 08-17 on Wyatt's word** (`[SHIP-1 E3]`). Howler is already `^2.2.4` (no bump). Explicit pools on all 16 SFX and SFX/VOICE/MUSIC buses (VOICE-BUS-1 playtested) already shipped. The leftover half was spatial playback. Wyatt deferred that half as taste-gated so the signed-off mix stays untouched this close to ship. Docs-only close; no audio code in this commit. A later spatial pass needs a new ID, not a reopen.

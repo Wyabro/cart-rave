@@ -133,6 +133,44 @@ describe("pattern seam — registry coherence", () => {
     expect(isMulticolorPattern("dots")).toBe(false);
   });
 
+  it("6b. keeps Cubes faces in the custom-red family (not orange/yellow hops)", () => {
+    // * CART-HUE-RED-1 residual: cubes used to nearest-snap 0xff2233 onto neonOrange,
+    // * then hop 90% toward yellow/green. Filled faces made the cart read orange.
+    const CUSTOM_RED = 0xff2233;
+    const accents = getPatternAccentHexes("cubes", CUSTOM_RED);
+    expect(accents[0]).toBe(CUSTOM_RED);
+    expect(new Set(accents).size).toBe(3);
+
+    const hueOf = (hex) => {
+      const r = ((hex >> 16) & 255) / 255;
+      const g = ((hex >> 8) & 255) / 255;
+      const b = (hex & 255) / 255;
+      const max = Math.max(r, g, b);
+      const min = Math.min(r, g, b);
+      const d = max - min;
+      if (d < 1e-6) return 0;
+      let h = 0;
+      if (max === r) h = ((g - b) / d) % 6;
+      else if (max === g) h = (b - r) / d + 2;
+      else h = (r - g) / d + 4;
+      h *= 60;
+      if (h < 0) h += 360;
+      return h;
+    };
+    const hueDist = (a, b) => Math.min(Math.abs(a - b), 360 - Math.abs(a - b));
+    const baseHue = hueOf(CUSTOM_RED);
+    for (const hex of accents) {
+      expect(hueDist(hueOf(hex), baseHue)).toBeLessThan(30);
+      expect(hueDist(hueOf(hex), hueOf(CART_COLORS.neonOrange.hex))).toBeGreaterThan(20);
+      expect(hueDist(hueOf(hex), hueOf(CART_COLORS.yellow.hex))).toBeGreaterThan(20);
+      const r = (hex >> 16) & 255;
+      const g = (hex >> 8) & 255;
+      const b = hex & 255;
+      expect(r).toBeGreaterThan(g);
+      expect(b).toBeGreaterThan(0);
+    }
+  });
+
   it("7. keeps multicolor patterns in the existing one-material shader path", () => {
     const source = readFileSync(new URL("../../src/carts/cartPatterns.js", import.meta.url), "utf8");
     expect(source).toContain("uPatternMulticolor");

@@ -29,13 +29,13 @@ report phase-exit eligibility; they must not move the marker.
 are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Analytics DO reset for
 external testers. Stay in this phase until Wyatt advances the marker.
 
-Live PT: **NPC-ABORT-BURST-PT-1** · **LAST-STANDING-DEAD-PT-1** · **COUNTDOWN-HOST-STAMP-PT-1**
-on `npm run dev` until ship. **SPILL-RAM-CREDIT-PT-1** `[2pc]` on `npm run dev` until ship
-(no `?perfPump` on the non-host). **CART-HUE-RED-PT-1** `[solo]` on `npm run dev` until ship
-(Lever A `0xff2233` landed 08-17). **REMOTE-INPUT-STALE-PT-1** after ship (`[2pc]`, no `?perfPump` on
-the non-host). Parent **WARM-QP-ROTATE-1** stays (cap-364). Deferred launch day: **SHARD-PT-2**.
-Closed PASSes and parents: [completed-work.md](./planning/completed-work.md). Do not reopen
-GAMEPAD-LOBBY-1.
+Live PT: **COUNTDOWN-HOST-STAMP-PT-1** on `npm run dev` until ship.
+**CART-HUE-CUBES-PT-1** `[solo]` on `npm run dev` until ship (Cubes on custom red). Deferred
+launch day: **SHARD-PT-2**. Closed 08-17 — **CART-HUE-RED-PT-1** `[solo]` ·
+**LAST-STANDING-DEAD-PT-1** · **NPC-ABORT-BURST-PT-1** · **REMOTE-INPUT-STALE-PT-1** `[2pc]` ·
+**SPILL-RAM-CREDIT-PT-1** `[2pc]` (parents close with them —
+[completed-work.md](./planning/completed-work.md)). Parent **WARM-QP-ROTATE-1** stays
+(cap-364). Do not reopen GAMEPAD-LOBBY-1.
 
 **Closed cards keep their narrative in their own docs, not here** — Sundial
 ([handover](./planning/art-pass-sundial-handover.md); read its "Traps that cost time" before any
@@ -77,7 +77,9 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. Playtest **NPC-ABORT-BURST-PT-1** · **LAST-STANDING-DEAD-PT-1** · **COUNTDOWN-HOST-STAMP-PT-1** on `npm run dev` until ship. **SPILL-RAM-CREDIT-PT-1** `[2pc]`, no `?perfPump` on the non-host. **CART-HUE-RED-PT-1** `[solo]` on `npm run dev` until ship. **REMOTE-INPUT-STALE-PT-1** after ship (`[2pc]`, no `?perfPump` on the non-host). Deferred: **SHARD-PT-2** (launch day).
+1. Playtest **COUNTDOWN-HOST-STAMP-PT-1** on `npm run dev` until ship.
+   **CART-HUE-CUBES-PT-1** `[solo]` on `npm run dev` until ship. Deferred: **SHARD-PT-2**
+   (launch day).
 
 ## Open issues (top)
 
@@ -121,6 +123,14 @@ or a suspected blocker (TS 7 · `cartrave4` UVs).
 - Local worker port is **8899** (`LOCAL_WORKER_PORT` in `src/config.js`). If it goes EACCES, re-check Windows HNS exclusions and move the port there.
 
 ## Last updated
+
+2026-08-17 (CART-HUE-CUBES-1) — Cubes faces stay in the selected neon family. Custom
+red no longer hops to yellow/green. Playtest owed: **CART-HUE-CUBES-PT-1**.
+
+2026-08-17 (playtest closes) — **CART-HUE-RED-PT-1** · **LAST-STANDING-DEAD-PT-1** ·
+**NPC-ABORT-BURST-PT-1** · **REMOTE-INPUT-STALE-PT-1** · **SPILL-RAM-CREDIT-PT-1** Wyatt
+PASS 08-17 (on `npm run dev`); parents close. Live PT: **COUNTDOWN-HOST-STAMP-PT-1**;
+**SHARD-PT-2** launch day.
 
 2026-08-17 (D-WORK-LANES-1) — replaced fast / full-wave handling with agent-assessed
 Routine / Standard / Critical lanes. Routine needs no ack or full QA; Standard and Critical
