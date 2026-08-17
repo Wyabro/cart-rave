@@ -39,6 +39,7 @@ import { getRoundClockNowMs } from "../roundClock.js";
 import { ROUND_DURATION_MS } from "../../shared/roundConstants.js";
 import { DIRECTIVES } from "./directives.js";
 import { grantLifeCargoForSlot } from "../cargoLoad.js";
+import { resolveRecentRammer } from "../scoring/spillCredit.js";
 
 /**
  * @typedef {object} DirectiveEngineDeps
@@ -318,13 +319,14 @@ export function onHostSpill(victimSlotIndex) {
   const state = gameStore.getState();
   if (state.roundPhase !== RoundPhase.RUNNING || state.isSuddenDeath) return;
 
-  const hit = deps.getLastHitBy().get(victimSlotIndex);
-  const hitWindowMs = CONFIG.scoring?.hitWindowMs ?? 3000;
   // * Hit stamps use getRoundClockNowMs (gameStore.recordHit); compare in the same domain.
-  if (!hit || getRoundClockNowMs() - hit.timestamp > hitWindowMs) return;
-  if (hit.attackerSlotIndex === victimSlotIndex) return;
-
-  const attackerSlotIndex = hit.attackerSlotIndex;
+  const attackerSlotIndex = resolveRecentRammer(
+    deps.getLastHitBy(),
+    victimSlotIndex,
+    getRoundClockNowMs(),
+    CONFIG.scoring?.hitWindowMs ?? 3000,
+  );
+  if (attackerSlotIndex == null) return;
   deps.addScore(attackerSlotIndex, points);
   grantLifeCargoForSlot(deps.getAllCarts?.() ?? null, attackerSlotIndex, points);
   // * Score path is host-authoritative; fan presentation after the award so a failed

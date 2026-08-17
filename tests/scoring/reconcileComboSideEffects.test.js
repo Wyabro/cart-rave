@@ -20,6 +20,8 @@ vi.mock("../../src/stores/challengeStore.js", () => ({
 import { applyRammingImpulse } from "../../src/simulation.js";
 import * as GameState from "../../src/stores/gameStore.js";
 import { ChallengeTracker } from "../../src/stores/challengeStore.js";
+import { creditLocalSpillCause } from "../../src/scoring/spillCredit.js";
+import { getMatchStats, resetMatchStats } from "../../src/scoring/matchStats.js";
 
 function ramCart(slotIndex, pos, liveLinvel) {
   return {
@@ -48,6 +50,7 @@ beforeEach(() => {
   vi.mocked(GameState.recordHit).mockClear();
   vi.mocked(GameState.setLocalCombo).mockClear();
   vi.mocked(ChallengeTracker.record).mockClear();
+  resetMatchStats();
 });
 
 describe("applyRammingImpulse — reconcile replay side effects", () => {
@@ -69,7 +72,31 @@ describe("applyRammingImpulse — reconcile replay side effects", () => {
     expect(rammer.comboTier).toBe(2);
     expect(GameState.setLocalCombo).toHaveBeenCalled();
     expect(ChallengeTracker.record).toHaveBeenCalledWith("combo_t2");
+    expect(ChallengeTracker.record).not.toHaveBeenCalledWith("spill");
+  });
+
+  it("three qualifying rams on an upright victim record 0 SPILL; credit helper ticks once", () => {
+    const rammer = ramCart(0, SHOVER_POS, { x: 0, y: 0, z: -8 });
+    const victim = ramCart(1, VICTIM_POS, { x: 0, y: 0, z: 0 });
+
+    for (let i = 0; i < 3; i += 1) {
+      applyRammingImpulse(
+        rammer,
+        victim,
+        stateOf(SHOVER_POS),
+        stateOf(VICTIM_POS),
+        { localCart: rammer },
+        false,
+        1000 + i,
+      );
+    }
+
+    expect(ChallengeTracker.record).not.toHaveBeenCalledWith("spill");
+    expect(getMatchStats().localSpills).toBe(0);
+
+    creditLocalSpillCause();
     expect(ChallengeTracker.record).toHaveBeenCalledWith("spill");
+    expect(getMatchStats().localSpills).toBe(1);
   });
 
   it("isReconcileReplay suppresses combo increment and challenge records", () => {

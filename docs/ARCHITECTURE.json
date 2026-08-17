@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-17T04:43:32.745Z",
-    "commit": "b1d21c8c"
+    "at": "2026-08-17T04:50:30.948Z",
+    "commit": "7f8671ad"
   },
-  "source_digest": "cf76768b",
+  "source_digest": "3bfaa52b",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -597,9 +597,10 @@
         "src/scoring/koEvent.js",
         "src/scoring/koReactors.js",
         "src/scoring/matchStats.js",
+        "src/scoring/spillCredit.js",
         "src/unlockConfig.js"
       ],
-      "file_count": 6,
+      "file_count": 7,
       "edges": [
         {
           "to": "state-stores",
@@ -876,7 +877,7 @@
       }
     ],
     "next_actions": [
-      "Playtest NPC-ABORT-BURST-PT-1 · LAST-STANDING-DEAD-PT-1 · COUNTDOWN-HOST-STAMP-PT-1 on `npm run dev` until ship. REMOTE-INPUT-STALE-PT-1 after ship (`[2pc]`, no `?perfPump` on the non-host). Deferred: SHARD-PT-2 (launch day)."
+      "Playtest NPC-ABORT-BURST-PT-1 · LAST-STANDING-DEAD-PT-1 · COUNTDOWN-HOST-STAMP-PT-1 on `npm run dev` until ship. SPILL-RAM-CREDIT-PT-1 `[2pc]`, no `?perfPump` on the non-host. REMOTE-INPUT-STALE-PT-1 after ship (`[2pc]`, no `?perfPump` on the non-host). Deferred: SHARD-PT-2 (launch day)."
     ],
     "open_issues": [
       {
@@ -1072,7 +1073,7 @@
           {
             "pri": "Low",
             "item": "SPILL-RAM-CREDIT-1 — does a solid knockback ram count as a \"spill\"?",
-            "notes": "**Filed 08-16 from the gameplay bug audit (adversarially reviewed, flagged needs-definition).** [simulation.js](../../src/simulation.js) ~1439-1443 records the SPILL progression event + a match-stat spill on every qualifying knockback ram (500ms re-qualify against an upright victim), not on actual spill events — sustained contact on a tanky cart logs several \"spills\" per engagement before any groceries fly, inflating `spill_15` / `spill_50` progress and the receipt's SPILLS CAUSED vs their \"Cause N opponent spills\" descriptions. Needs a definition of done first (like MOTION-A11Y-1): either a solid ram is intended to count (close this card) or the record gates on real spill events.",
+            "notes": "**Landed 08-17** — SPILL credit is a real spill (tip-over / massive-ram / void fall) attributed to the recent rammer via `lastHitBy` + `hitWindowMs`. Rams on upright victims count for nothing. Playtest owed: **SPILL-RAM-CREDIT-PT-1**.",
             "ship1": null
           }
         ]
@@ -1081,7 +1082,7 @@
         "title": "Playtest owed",
         "counts": {
           "Medium": 4,
-          "Low": 1
+          "Low": 2
         },
         "rows": [
           {
@@ -1112,6 +1113,12 @@
             "pri": "Low",
             "item": "SHARD-PT-2 — fifth human overflows to quickplay2 `[2pc]`",
             "notes": "**Owed: Wyatt playtest — SHARD-PT-2 — the 5th concurrent Quickplay human lands on quickplay2 instead of \"couldn't join\".** Launch-day / public-post check — needs five real humans (Wyatt deferred 08-05). Rig already 5/5; SHARD-PT-1 PASSed on prod `9c333d1`. Prefer analytics: any `quickplay_shard_assigned` with `hops > 0` or `shard !== quickplay` counts.<br>1. When five humans can join Quickplay at once (public post), watch the 5th seat.<br>2. FAIL if they get the dead-end couldn't-join toast with no hop. PASS if they seat on an overflow shard (or analytics shows hops greater than 0).<br>3. Skip / leave open until launch day — do not FAIL for lack of five people.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "SPILL-RAM-CREDIT-PT-1 — rams count once, at the spill `[2pc]`",
+            "notes": "**Owed: Wyatt playtest — SPILL-RAM-CREDIT-PT-1 — Spill Master ticks when groceries fly, not per ram.** Parent **SPILL-RAM-CREDIT-1**. You are not host. Hard-refresh. Pushed but not yet deployed — `npm run dev` until ship. No `?perfPump` on the non-host.<br>1. Two PCs. Friends or Quickplay. You ram the host cart until groceries fly. FAIL if Spill Master ticks per ram. PASS if it ticks +1 exactly on the spill.<br>2. Sustained rams on a loaded/tanky upright cart. FAIL if ticks arrive before groceries fly. PASS if nothing ticks until the spill.<br>3. Self-tip with no contact. FAIL if you get a tick. PASS if you get none.<br>4. Solo `npm run dev`. Ram an NPC until groceries fly. PASS if you get a tick on the spill and the receipt SPILLS CAUSED matches.",
             "ship1": null
           }
         ]
@@ -1485,6 +1492,11 @@
       "Cross-module change? Read docs/reference/control-flow.md first — most edges are not imports."
     ],
     "settled_decisions": [
+      {
+        "id": "D-SPILL-RAM-CREDIT-1",
+        "date": "08-17",
+        "text": "SPILL credit = real spill (tip-over / massive-ram / void fall) attributed to `lastHitBy` + 3s window. Rams on upright victims count 0. Playtest SPILL-RAM-CREDIT-PT-1."
+      },
       {
         "id": "D-HOWLER-UPGRADE-1",
         "date": "08-17",

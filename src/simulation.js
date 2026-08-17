@@ -10,7 +10,6 @@ import { getNpcPersonality } from "./npcNames.js";
 import { getRoundClockNowMs } from "./roundClock.js";
 import { ChallengeTracker } from "./stores/challengeStore.js";
 import { PROGRESSION_EVENTS } from "./progression/eventIds.js";
-import { recordLocalSpillForMatchStats } from "./scoring/matchStats.js";
 import {
   computeSoloRubberband,
   SOLO_RUBBERBAND_NEUTRAL,
@@ -1419,7 +1418,8 @@ export function applyRammingImpulse(rammer, victim, rammerState, victimState, ca
   // * head-on still credits the KO via recordHit above, but does NOT inflate the combo streak.
   // * isReconcileReplay: client prediction already applied combo/challenges on the live
   // * path; replaying pending inputs must not re-increment tiers or double-count
-  // * combo_t2/t3/spill challenges (non-host reconcile at ~40 Hz).
+  // * combo_t2/t3 challenges (non-host reconcile at ~40 Hz). SPILL credit is spill-time
+  // * only (SPILL-RAM-CREDIT-1), not ram-time.
   if (
     !callbacks?.isReconcileReplay
     && (isHost || callbacks?.localCart === rammer)
@@ -1438,10 +1438,6 @@ export function applyRammingImpulse(rammer, victim, rammerState, victimState, ca
       GameState.setLocalCombo(rammer.comboTier, rammer.comboExpiryMs);
       if (rammer.comboTier === 2) ChallengeTracker.record(PROGRESSION_EVENTS.COMBO_T2);
       if (rammer.comboTier === 3) ChallengeTracker.record(PROGRESSION_EVENTS.COMBO_T3);
-      if (!victim.hasSpilled) {
-        ChallengeTracker.record(PROGRESSION_EVENTS.SPILL);
-        recordLocalSpillForMatchStats();
-      }
     }
   }
 

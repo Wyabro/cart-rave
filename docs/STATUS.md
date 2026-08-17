@@ -30,7 +30,8 @@ are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Analyt
 external testers. Stay in this phase until Wyatt advances the marker.
 
 Live PT: **NPC-ABORT-BURST-PT-1** · **LAST-STANDING-DEAD-PT-1** · **COUNTDOWN-HOST-STAMP-PT-1**
-on `npm run dev` until ship. **REMOTE-INPUT-STALE-PT-1** after ship (`[2pc]`, no `?perfPump` on
+on `npm run dev` until ship. **SPILL-RAM-CREDIT-PT-1** `[2pc]` on `npm run dev` until ship
+(no `?perfPump` on the non-host). **REMOTE-INPUT-STALE-PT-1** after ship (`[2pc]`, no `?perfPump` on
 the non-host). Parent **WARM-QP-ROTATE-1** stays (cap-364). Deferred launch day: **SHARD-PT-2**.
 Closed PASSes and parents: [completed-work.md](./planning/completed-work.md). Do not reopen
 GAMEPAD-LOBBY-1.
@@ -75,7 +76,7 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. Playtest **NPC-ABORT-BURST-PT-1** · **LAST-STANDING-DEAD-PT-1** · **COUNTDOWN-HOST-STAMP-PT-1** on `npm run dev` until ship. **REMOTE-INPUT-STALE-PT-1** after ship (`[2pc]`, no `?perfPump` on the non-host). Deferred: **SHARD-PT-2** (launch day).
+1. Playtest **NPC-ABORT-BURST-PT-1** · **LAST-STANDING-DEAD-PT-1** · **COUNTDOWN-HOST-STAMP-PT-1** on `npm run dev` until ship. **SPILL-RAM-CREDIT-PT-1** `[2pc]`, no `?perfPump` on the non-host. **REMOTE-INPUT-STALE-PT-1** after ship (`[2pc]`, no `?perfPump` on the non-host). Deferred: **SHARD-PT-2** (launch day).
 
 ## Open issues (top)
 
@@ -93,6 +94,7 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 → 08-02: [decision-log-2026-08.md](./archive/decision-log-2026-08.md). 07-11 → 07-23:
 [decision-log-2026-07.md](./archive/decision-log-2026-07.md).
 
+- **D-SPILL-RAM-CREDIT-1** (08-17): SPILL credit = real spill (tip-over / massive-ram / void fall) attributed to `lastHitBy` + 3s window. Rams on upright victims count 0. Playtest **SPILL-RAM-CREDIT-PT-1**.
 - **D-HOWLER-UPGRADE-1** (08-17): pooling + volume buses already shipped. Spatial deferred, taste-gated. Card closed. New ID if playtest asks for 3D SFX.
 - **D-COUNTDOWN-HOST-STAMP-1** (08-16): first non-host 3-2-1 adopts `host_round` start while `hostClock.samples === 0` (caps 367 / 368). Not a THOST-CEILING fail. Candidate: skip that stamp until the host clock has samples.
 - **D-REMOTE-INPUT-STALE-1** (08-17): host zeros stale remote input after `remoteInputStaleMs` (300) of apply-silence; nitro latch kept; ackSeq untouched. Playtest **REMOTE-INPUT-STALE-PT-1**.

@@ -12,6 +12,7 @@ import * as P2P from "./netcode/p2p.js";
 import { encodeHostStateSnapshot, decodeHostStateSnapshot } from "./netcode/binary.js";
 import { stampTailEventIds, markPresentationEid } from "./netcode/presentationDedupe.js";
 import { rebuildKOEvent } from "./scoring/koEvent.js";
+import { shouldCreditLocalSpill } from "./scoring/spillCredit.js";
 import { ChallengeTracker } from "./stores/challengeStore.js";
 import { UnlockTracker } from "./stores/unlockStore.js";
 import { FREE_LEVEL } from "./unlockConfig.js";
@@ -480,6 +481,8 @@ let callbacks = {
   onLocalDoomed: (koEvent) => {},
   // * PACE-KO-1: host-confirmed at the shared fall rim; never changes score/death timing.
   onLocalKoConfirm: (victimSlotIndex) => {},
+  // * SPILL-RAM-CREDIT-1: local player caused a rival spill (host stamps attackerSlotIndex).
+  onLocalSpillCredit: () => {},
   // * Arena light flash — every fall on every peer (club reacts to the KO).
   onArenaKoFlash: (koEvent) => {},
   // * Presentation-only observer hook for the announcer director — fired for EVERY fall
@@ -780,6 +783,7 @@ export function registerGameCallbacks(deps) {
     onLocalKillConfirm: (victimSlotIndex, comboTier, koEvent) => deps.onLocalKillConfirm?.(victimSlotIndex, comboTier, koEvent),
     onLocalDoomed: (koEvent) => deps.onLocalDoomed?.(koEvent),
     onLocalKoConfirm: (victimSlotIndex) => deps.onLocalKoConfirm?.(victimSlotIndex),
+    onLocalSpillCredit: () => deps.onLocalSpillCredit?.(),
     onArenaKoFlash: (koEvent) => deps.onArenaKoFlash?.(koEvent),
     onAnnouncerFall: (fall) => deps.onAnnouncerFall?.(fall),
     onSpillBonusPresentation: (msg) => deps.onSpillBonusPresentation?.(msg),
@@ -4566,6 +4570,10 @@ function handleRemoteSpill(msg) {
     typeof msg.count === "number" && msg.count > 0 ? msg.count : 6,
     cart?.cargoBay ?? null,
   );
+  const localSlot = strictSlotIndexForConn(youConnId);
+  if (shouldCreditLocalSpill(msg.attackerSlotIndex, localSlot)) {
+    callbacks.onLocalSpillCredit?.();
+  }
 }
 
 function handleRemoteHostState(state) {

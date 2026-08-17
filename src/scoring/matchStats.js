@@ -51,9 +51,8 @@ export function resetMatchStats() {
 }
 
 /**
- * Records one spill the local player forced out of a rival. Called from the same
- * simulation site that feeds the SPILL progression event, so the receipt counts
- * exactly what the challenges count.
+ * Records one spill the local player forced out of a rival. Called from
+ * `creditLocalSpillCause` so the receipt counts exactly what the challenges count.
  * @returns {void}
  */
 export function recordLocalSpillForMatchStats() {

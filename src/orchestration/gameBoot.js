@@ -49,6 +49,7 @@ import { AUDIO_VOLUME_DEFAULT, AUDIO_VOLUME_MAX } from "../stores/audioStore.js"
 import { CHALLENGE_POOL, challengeStore } from "../stores/challengeStore.js";
 import { onUnlockGranted } from "../stores/unlockStore.js";
 import { resetMatchStats, setMatchStatsLocalSlot } from "../scoring/matchStats.js";
+import { creditLocalSpillCause } from "../scoring/spillCredit.js";
 import { STAGE_PRIORITY } from "../ui/centerStage.js";
 import {
   getIsMuted,
@@ -1113,6 +1114,7 @@ export function bootGameSystems(ctx) {
     getSceneRef: () => scene,
     getHud: () => refs.hud,
     onLocalKoConfirm,
+    onLocalSpillCredit: creditLocalSpillCause,
     onLocalKillConfirm,
     onLocalDoomed,
     onArenaKoFlash,

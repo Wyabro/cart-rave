@@ -26,7 +26,8 @@ export const MSG = {
   // Host <-> client (WebRTC DataChannel gameplay plane)
   // hostTransform: 40Hz binary host snapshot (transforms + collision/fall tails).
   // clientInput: non-host input sent to the host at physics rate.
-  // spill: one-shot host->client grocery-spill VFX event.
+  // spill: one-shot host->client grocery-spill VFX event. attackerSlotIndex (number | null)
+  // is host-stamped recent rammer for progression (SPILL-RAM-CREDIT-1); older hosts omit it.
   // koConfirm: one-shot host->attacker early KO confirmation; scoring/death still ride falls[].
   // directive: one-shot host->client Living Store directive start (id + window).
   // spillBonus: presentation-only Spill Bonus award (feed/float); score rides host_round.

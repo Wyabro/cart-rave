@@ -58,6 +58,12 @@ import {
 } from "../bootstrap.js";
 import { clamp } from "../utils.js";
 import { createCart } from "../entities.js";
+import { getRoundClockNowMs } from "../roundClock.js";
+import {
+  creditLocalSpillCause,
+  resolveRecentRammer,
+  shouldCreditLocalSpill,
+} from "../scoring/spillCredit.js";
 
 /** Escapes player-provided text for the innerHTML-based nametag markup. */
 function escapeHtml(text) {
@@ -642,8 +648,14 @@ function onArenaKoFlash(koEvent) {
 
 function triggerSpillNetcode(slotIndex, pos, quat, vel, cargoBay, count) {
   if (!Netcode.getIsHost()) return;
-  // Send over WebRTC DataChannel instead of WebSocket
-  // The host broadcasts this to all non-host peers
+  // * Host-computed rammer for progression. Clients never derive lastHitBy. Host does
+  // * not receive its own sendToAll, so local credit runs here when the attacker is us.
+  const attackerSlotIndex = resolveRecentRammer(
+    GameState.getLastHitBy(),
+    slotIndex,
+    getRoundClockNowMs(),
+    CONFIG.scoring?.hitWindowMs ?? 3000,
+  );
   Netcode.sendP2PEvent({
     type: MSG.spill,
     slotId: slotIndex,
@@ -652,7 +664,12 @@ function triggerSpillNetcode(slotIndex, pos, quat, vel, cargoBay, count) {
     vel,
     cargoBay: !!cargoBay,
     count,
+    attackerSlotIndex,
   });
+  const localSlot = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
+  if (shouldCreditLocalSpill(attackerSlotIndex, localSlot)) {
+    creditLocalSpillCause();
+  }
 }
 
 /**

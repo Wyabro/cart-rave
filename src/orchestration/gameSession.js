@@ -276,6 +276,7 @@ export function buildNetcodeGameBridge(getContext, session, onFirstHello = null)
     onLocalKoConfirm: (victimSlotIndex) => {
       getContext()?.onLocalKoConfirm?.(victimSlotIndex);
     },
+    onLocalSpillCredit: () => getContext()?.onLocalSpillCredit?.(),
     onArenaKoFlash: (koEvent) => getContext()?.onArenaKoFlash?.(koEvent),
     onAnnouncerFall: (fall) => getContext()?.onAnnouncerFall?.(fall),
     onSpillBonusPresentation: (msg) => getContext()?.onSpillBonusPresentation?.(msg),
