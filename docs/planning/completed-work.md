@@ -13,6 +13,17 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 17, 2026 — CART-HUE-CUBES-1 / CART-HUE-CUBES-PT-1
+
+- *(Art · Low)* **CART-HUE-CUBES-1** — ✅ **DONE 08-17** (`9cd253e5`). Cubes filled faces
+  no longer hop 90% toward other `CART_COLORS`. Custom red's nearest roster color was
+  `neonOrange`, so two faces became yellow/green and the cart read orange. Faces now stay
+  in the selected neon family (cooler hue + RGB-scaled shade). Art presentation only —
+  cart material traverse stays frozen.
+- *(Playtest · Low)* **CART-HUE-CUBES-PT-1** — ✅ **PASS 08-17** on prod (`9cd253e5`).
+  Cubes on the custom hue far-red end stays in the red family, not orange. Parent
+  **CART-HUE-CUBES-1** closes with it.
+
 ### August 17, 2026 — playtest PASSes (CART-HUE-RED / LAST-STANDING-DEAD / NPC-ABORT-BURST / REMOTE-INPUT-STALE / SPILL-RAM-CREDIT)
 
 - *(Playtest · Medium)* **LAST-STANDING-DEAD-PT-1** — ✅ **PASS 08-17** on `npm run dev`

@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-17T18:55:22.893Z",
-    "commit": "9cd253e5"
+    "at": "2026-08-17T19:02:22.403Z",
+    "commit": "2a5430ca"
   },
-  "source_digest": "9bc3c2d9",
+  "source_digest": "ae8c2620",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -877,7 +877,7 @@
       }
     ],
     "next_actions": [
-      "Playtest COUNTDOWN-HOST-STAMP-PT-1 on `npm run dev` until ship."
+      "Playtest COUNTDOWN-HOST-STAMP-PT-1 on `npm run dev` until ship. Deferred:"
     ],
     "open_issues": [
       {
@@ -1055,19 +1055,13 @@
         "title": "Playtest owed",
         "counts": {
           "Medium": 1,
-          "Low": 2
+          "Low": 1
         },
         "rows": [
           {
             "pri": "Medium",
             "item": "COUNTDOWN-HOST-STAMP-PT-1 — first non-host 3-2-1 is even; 3 does not hang then slam 2+1 `[2pc]`",
             "notes": "**Owed: Wyatt playtest — COUNTDOWN-HOST-STAMP-PT-1 — first non-host 3-2-1 is even; 3 does not hang then slam 2+1.** Parent **COUNTDOWN-HOST-STAMP-1**. You are not host. Hard-refresh. Pushed but not yet deployed — `npm run dev` until ship.<br>1. Two PCs. Friends or Quickplay. You are not host. First match.<br>2. FAIL if 3 hangs, then 2 and 1 slam. PASS if 3-2-1-GO is about 1 s each.<br>3. Rematch in the same room. FAIL if that countdown hangs or slams. PASS if it stays even.<br>4. Host screen: FAIL if host 3-2-1 changed.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "CART-HUE-CUBES-PT-1 — Cubes on custom red stays red `[solo]`",
-            "notes": "**Owed: Wyatt playtest — CART-HUE-CUBES-PT-1 — Cubes on the custom hue far-red end stays in the red family, not orange.** Parent **CART-HUE-CUBES-1**. Solo. Hard-refresh. On prod (`9cd253e5`). DEV unlocks all arenas.<br>1. Solo, Sundial Station. Customize → CUSTOM → hue slider to the far red end. Apply Cubes.<br>2. Enter the match. FAIL if the cart reads orange. PASS if the cube faces stay red (darker / cooler red is OK).<br>3. Classic on that same red still reads red (CART-HUE-RED-PT-1 already PASSed).<br>4. Repeat step 2 on The Storerooms and Cart Rave. FAIL if any arena reads orange. Pink Cubes may shift cooler; it must not go yellow/orange.",
             "ship1": null
           },
           {
