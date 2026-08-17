@@ -174,36 +174,3 @@ export function lerpAngle(a, b, t) {
   const delta = ((((b - a) % (Math.PI * 2)) + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
   return a + delta * t;
 }
-
-/**
- * Converts a 24-bit RGB number to a CSS hex color string.
- * @param {number} rgb
- * @returns {string}
- */
-function cssHexFromRgbNumber(rgb) {
-  if (!Number.isFinite(rgb)) return "#888888";
-  const hex = Math.floor(rgb).toString(16).padStart(6, "0");
-  return `#${hex}`;
-}
-
-/**
- * Returns a CSS hex color for a netcode slot object.
- * @param {{ color?: string | number } | null | undefined} slot
- * @returns {string}
- */
-function getColorForSlot(slot) {
-  if (!slot || !slot.color) return "#888888";
-  return cssHexFromRgbNumber(CART_COLORS[slot.color]?.hex ?? 0x888888);
-}
-
-/**
- * Returns a Three.js hex color for a netcode slot object.
- * @param {{ color?: string | number } | null | undefined} slot
- * @returns {number}
- */
-function colorHexForSlot(slot) {
-  if (!slot) return 0x888888;
-  const c = slot.color;
-  if (typeof c === "number") return c;
-  return CART_COLORS[c]?.hex ?? 0x888888;
-}

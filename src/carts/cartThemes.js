@@ -45,7 +45,9 @@ const CHROME_ENV_SCALE = 1.35;
 function forEachMaterial(material, add) {
   if (!material) return;
   if (Array.isArray(material)) {
-    material.forEach((m) => m && add(m));
+    material.forEach((m) => {
+      if (m) add(m);
+    });
     return;
   }
   add(material);

@@ -46,11 +46,9 @@ let bbLastRedraw = 0;
 /**
  * Builds the arena billboard opposite the stage.
  * @param {THREE.Scene} scene
- * @param {number} pitInnerRadius
  */
-export function initBillboard(scene, pitInnerRadius) {
+export function initBillboard(scene) {
   const bbAngle = Math.PI;
-  const bbRadius = pitInnerRadius + 25;
 
   const bbSmallCanvas = document.createElement("canvas");
   bbSmallCanvas.width = 256;

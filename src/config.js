@@ -4,7 +4,6 @@
  * Last tuned: 2026-06-22
  *
  * Main sections:
- *   - CONFIG_VERSION     — bump when tuning values change materially (debug / diff aid)
  *   - CONFIG             — runtime settings (debug, net, camera, audio, scoring, physics)
  *   - CONFIG.physics     — grouped physics / arena / cart tuning (flat aliases on CONFIG.*)
  *   - CART_COLORS / PALETTE — cart color palette, brand-aligned (ART-PALETTE-1);
@@ -19,9 +18,6 @@
 import { getQualityTier } from "./utils/qualityMode.js";
 import { QUALITY_KNOBS } from "./utils/qualityTiers.js";
 import { COUNTDOWN_MS, ROUND_DURATION_MS } from "../shared/roundConstants.js";
-
-/** @type {string} Bump when physics or net tuning changes materially. */
-const CONFIG_VERSION = "2026.07.09";
 
 const physics = {
   gravity: -24, // m/s² — world Y acceleration

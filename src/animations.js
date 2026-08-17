@@ -93,7 +93,9 @@ function ensureRemovalObserver() {
       for (const node of mutation.removedNodes) {
         if (node instanceof Element) {
           cancelElementAnimations(node);
-          node.querySelectorAll("*").forEach((child) => cancelElementAnimations(child));
+          node.querySelectorAll("*").forEach((child) => {
+            cancelElementAnimations(child);
+          });
         }
       }
     }
@@ -166,7 +168,9 @@ export function cancelElementAnimations(element) {
 export function cancelAnimationsIn(root) {
   if (!(root instanceof Element)) return;
   cancelElementAnimations(root);
-  root.querySelectorAll("*").forEach((child) => cancelElementAnimations(child));
+  root.querySelectorAll("*").forEach((child) => {
+    cancelElementAnimations(child);
+  });
 }
 
 /**

@@ -40,8 +40,9 @@ export function parseCommandLine(line) {
   if (!source) return [];
   const tokens = [];
   const tokenPattern = /"([^"\\]*(?:\\.[^"\\]*)*)"|'([^'\\]*(?:\\.[^'\\]*)*)'|(\S+)/g;
-  let match;
-  while ((match = tokenPattern.exec(source))) {
+  while (true) {
+    const match = tokenPattern.exec(source);
+    if (!match) break;
     const token = match[1] ?? match[2] ?? match[3] ?? "";
     tokens.push(token.replace(/\\(["'\\])/g, "$1"));
   }

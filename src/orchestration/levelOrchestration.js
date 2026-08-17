@@ -347,7 +347,7 @@ export function createLevelOrchestration(deps) {
     }
 
     if (wantRaveExtras && includeJuice && !raveJuiceInitialized) {
-      Effects.initBillboard(scene, pitInnerRadius);
+      Effects.initBillboard(scene);
       Effects.initLasers(scene, pitInnerRadius, CART_COLORS);
       raveJuiceInitialized = true;
       // * FV-LOAD-1b: menu attract builds includeJuice:false, so the first play entry

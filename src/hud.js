@@ -65,6 +65,30 @@ function hostGlyphEligible() {
   return mode !== "solo" && mode !== "testdrive";
 }
 
+// * Inline host antenna before the host's name — no "HOST" label, zero extra width.
+function makeHostGlyph() {
+  const glyph = document.createElement("span");
+  glyph.className = "hud-feed-host";
+  glyph.innerHTML = svgIcon("host", { label: "Host" });
+  return glyph;
+}
+
+// * Slot identity mark — the colorblind secondary channel. Inline before the
+// * name (never inside it: the name spans ellipsize on phones), tinted by the
+// * name's color. Kept small and flush — the row's rigid width is the phone
+// * feed's scarce resource (KILLFEED-PHONE-1).
+function makeSlotGlyph(slotIndex, colorVar) {
+  if (slotIndex == null) return null;
+  const info = slotGlyphForIndex(slotIndex);
+  if (!info) return null;
+  const glyph = document.createElement("span");
+  glyph.className = "hud-feed-slot";
+  glyph.innerHTML = svgIcon(info.icon, { label: info.label });
+  glyph.style.color = `var(${colorVar})`;
+  glyph.title = info.label.charAt(0) + info.label.slice(1).toLowerCase();
+  return glyph;
+}
+
 /**
  * Applies HUD score-box glow from resolveCartNeonCss (synced lookHex for all humans).
  *
@@ -2950,29 +2974,6 @@ export function addKillFeedEntry(actorName, actorColor, verb, targetName, target
   icon.innerHTML = svgIcon(actorName ? "burst" : "dizzy");
   icon.style.color = actorName ? "var(--c)" : "var(--c2)";
 
-  // * Inline host antenna before the host's name — no "HOST" label, zero extra width.
-  const makeHostGlyph = () => {
-    const glyph = document.createElement("span");
-    glyph.className = "hud-feed-host";
-    glyph.innerHTML = svgIcon("host", { label: "Host" });
-    return glyph;
-  };
-
-  // * Slot identity mark — the colorblind secondary channel. Inline before the
-  // * name (never inside it: the name spans ellipsize on phones), tinted by the
-  // * name's color. Kept small and flush — the row's rigid width is the phone
-  // * feed's scarce resource (KILLFEED-PHONE-1).
-  const makeSlotGlyph = (slotIndex, colorVar) => {
-    if (slotIndex == null) return null;
-    const info = slotGlyphForIndex(slotIndex);
-    if (!info) return null;
-    const glyph = document.createElement("span");
-    glyph.className = "hud-feed-slot";
-    glyph.innerHTML = svgIcon(info.icon, { label: info.label });
-    glyph.style.color = `var(${colorVar})`;
-    glyph.title = info.label.charAt(0) + info.label.slice(1).toLowerCase();
-    return glyph;
-  };
   const actorSlot = makeSlotGlyph(actorSlotIndex, "--c");
   const victimSlot = makeSlotGlyph(victimSlotIndex, "--c2");
 

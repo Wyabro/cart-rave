@@ -50,7 +50,7 @@ export function disposeObject3D(root) {
 
   root.traverse((child) => {
     if (child.material) disposeMaterial(child.material);
-    const isShared = Boolean(child.userData && child.userData.isSharedGeometry);
+    const isShared = Boolean(child.userData?.isSharedGeometry);
     if (!isShared && child.geometry && typeof child.geometry.dispose === "function") {
       child.geometry.dispose();
     }

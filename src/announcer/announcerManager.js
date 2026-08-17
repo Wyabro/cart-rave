@@ -172,7 +172,7 @@ export function setAnnouncerPresenter(presenter) {
  * @returns {void}
  */
 export function registerAnnouncerVoicePack(manifest) {
-  if (!manifest || !manifest.locale || !Array.isArray(manifest.availableKeys)) return;
+  if (!manifest?.locale || !Array.isArray(manifest.availableKeys)) return;
   let set = _voicePacks.get(manifest.locale);
   if (!set) {
     set = new Set();
