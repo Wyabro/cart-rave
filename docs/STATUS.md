@@ -31,8 +31,9 @@ external testers. Stay in this phase until Wyatt advances the marker.
 
 Live PT on prod (VERIFY_OK `7896b9f4` / Worker `80cd5375`): **COUNTDOWN-HOST-STAMP-PT-1** ·
 **KO-CENTER-RING-PT-1** · **CUSTOMIZE-SVG-FLASH-PT-1** · **FRIENDS-LOBBY-ORDER-PT-1**.
+**SD-SPECTATOR-CHARGE-PT-1** is pushed, not on prod until ship (`npm run dev` now).
 Landed 08-17 — **KO-CENTER-RING-1** · **CUSTOMIZE-SVG-FLASH-1** ·
-**FRIENDS-LOBBY-ORDER-1**. Deferred launch day:
+**FRIENDS-LOBBY-ORDER-1** · **SD-SPECTATOR-CHARGE-1**. Deferred launch day:
 **SHARD-PT-2**. Closed 08-17 — **CART-HUE-CUBES-PT-1** `[solo]` · **CART-HUE-RED-PT-1**
 `[solo]` · **LAST-STANDING-DEAD-PT-1** · **NPC-ABORT-BURST-PT-1** ·
 **REMOTE-INPUT-STALE-PT-1** `[2pc]` · **SPILL-RAM-CREDIT-PT-1** `[2pc]` (parents close with
@@ -85,6 +86,7 @@ Live rows only. Shipped and closed cards live in
 2. Playtest **CUSTOMIZE-SVG-FLASH-PT-1** on prod (hard-refresh).
 3. Playtest **COUNTDOWN-HOST-STAMP-PT-1** on prod (2pc, you are not host).
 4. Playtest **FRIENDS-LOBBY-ORDER-PT-1** on prod (2pc).
+5. Playtest **SD-SPECTATOR-CHARGE-PT-1** after ship, or on `npm run dev` now.
    Deferred: **SHARD-PT-2** (launch day).
 
 ## Open issues (top)

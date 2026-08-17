@@ -965,6 +965,10 @@ function getAiAxis(now, cart) {
  */
 function triggerRamBoost(cart, nowMs, opts = {}) {
   if (!cart?.body) return;
+  // * SD-SPECTATOR-CHARGE-1: parked SD spectators are inert — the sim never
+  // * reaches their release/cancel, so a charge started here would loop
+  // * chargeUp SFX until endRound's stopAllChargeSfx().
+  if (cart.isSuddenDeathSpectator) return;
   const rb = CONFIG.cart.ramBoost;
   if (!rb.enabled) return;
   if (nowMs <= cart.ramBoostActiveUntilMs) return;

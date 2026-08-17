@@ -13,6 +13,25 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 17, 2026 — SD-SPECTATOR-CHARGE-1 landed
+
+- *(Engineering · Medium)* **SD-SPECTATOR-CHARGE-1** — ✅ **DONE 08-17**. `triggerRamBoost`
+  returns when `cart.isSuddenDeathSpectator` is set. A parked Sudden Death spectator
+  can no longer start a charge (keyboard / touch / gamepad / sim re-arm / remote-nitro
+  latch). The sim still skips flagged carts, so release/cancel never run; this gate
+  stops the phantom start that looped `chargeUp` until `endRound`. Mid-charge-on-fall
+  was already stopped by `onCartOutOfPlay`. Playtest owed: **SD-SPECTATOR-CHARGE-PT-1**
+  (not on prod until ship).
+
+### August 17, 2026 — COUNTDOWN-QUICKPLAY-1 closed
+
+- *(Engineering · Low)* **COUNTDOWN-QUICKPLAY-1** — ✅ **CLOSED 08-17** (no code change).
+  Empty quickplay countdown connect-wait edge case resolved by **COUNTDOWN-ARM-1** (`e08e5f5` · 07-22):
+  the play-ready gate (`isPlayReady` + `clientPlayReady`) structurally prevents countdown arming
+  before client warm. Party DO test `"does not arm game_start on seat alone in continuous mode; arms after clientPlayReady"`
+  covers the exact 1-human continuous-mode scenario. Original F8 captures (184–196) pre-date the fix.
+  Not a reopen of COUNTDOWN-SYNC-1 / COUNTDOWN-HOST-STAMP-1.
+
 ### August 17, 2026 — KO-CENTER-RING-1 / CUSTOMIZE-SVG-FLASH-1 landed
 
 - *(Engineering · Medium)* **KO-CENTER-RING-1** — ✅ **DONE 08-17**. Deleted the centered

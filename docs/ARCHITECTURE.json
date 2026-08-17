@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-17T21:35:54.467Z",
-    "commit": "7896b9f4"
+    "at": "2026-08-17T22:07:20.895Z",
+    "commit": "2db2fdcc"
   },
-  "source_digest": "b789ea7e",
+  "source_digest": "9f768aa5",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -881,7 +881,8 @@
       "Playtest KO-CENTER-RING-PT-1 on prod (hard-refresh).",
       "Playtest CUSTOMIZE-SVG-FLASH-PT-1 on prod (hard-refresh).",
       "Playtest COUNTDOWN-HOST-STAMP-PT-1 on prod (2pc, you are not host).",
-      "Playtest FRIENDS-LOBBY-ORDER-PT-1 on prod (2pc)."
+      "Playtest FRIENDS-LOBBY-ORDER-PT-1 on prod (2pc).",
+      "Playtest SD-SPECTATOR-CHARGE-PT-1 after ship, or on `npm run dev` now."
     ],
     "open_issues": [
       {
@@ -898,7 +899,7 @@
         "counts": {
           "Medium": 9,
           "Partial": 1,
-          "Low": 14
+          "Low": 13
         },
         "rows": [
           {
@@ -928,7 +929,7 @@
           {
             "pri": "Medium",
             "item": "SD-SPECTATOR-CHARGE-1 — eliminated SD spectator can start a phantom charge; charge-up SFX loops up to the 45s cap",
-            "notes": "**Filed 08-16 from the gameplay bug audit (adversarially reviewed).** The local boost handlers gate only on menu + `phase === \"running\"` ([main.js](../../src/main.js) ~570-576, ~583-591) — SD overtime is still \"running\" for eliminated players. `triggerRamBoost` starts the charge plus the looping charge-up SFX, but the sim skips spectator carts, so it can never release or cancel; nothing stops the loop until `endRound`'s `stopAllChargeSfx()`. Get KO'd in SD, hold boost while watching → whine loops for up to 45s. Audio-only, no outcome effect; fix is a spectator gate in the handlers (or in `triggerRamBoost`).",
+            "notes": "**Landed 08-17** — `triggerRamBoost` returns when `cart.isSuddenDeathSpectator` is set. Keyboard / touch / gamepad / sim re-arm / remote-nitro latch all share that choke. Sim still skips flagged carts; mid-charge-on-fall is already stopped by `onCartOutOfPlay`. Playtest owed: **SD-SPECTATOR-CHARGE-PT-1**.",
             "ship1": null
           },
           {
@@ -1023,12 +1024,6 @@
           },
           {
             "pri": "Low",
-            "item": "COUNTDOWN-QUICKPLAY-1 — empty quickplay countdown connect-wait edge case",
-            "notes": "In empty quickplay games, countdown either waits for player connection before starting or skips part of it. Documented from F8 captures (184–196); parked in backlog per Wyatt (07-22).",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
             "item": "NET-PERF-3 — p2p per-message buffer copy",
             "notes": "Only batch if F8 shows alloc pressure after NET-PERF-1.",
             "ship1": null
@@ -1070,10 +1065,16 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Medium": 4,
+          "Medium": 5,
           "Low": 1
         },
         "rows": [
+          {
+            "pri": "Medium",
+            "item": "SD-SPECTATOR-CHARGE-PT-1 — parked SD spectator boost stays silent; no charge bar `[solo]`",
+            "notes": "**Owed: Wyatt playtest — SD-SPECTATOR-CHARGE-PT-1 — after you are knocked out in overtime, boost stays silent.** Parent **SD-SPECTATOR-CHARGE-1**. Pushed, not yet on prod — `npm run dev` or wait for ship. Hard-refresh after ship.<br>1. Solo. Play until overtime. Get knocked out so you are only watching.<br>2. Press and hold boost. FAIL if the charge-up whine starts or the charge bar fills. PASS if it stays silent and the bar stays idle.<br>3. Rematch or a new live round. While you are still driving, press boost. FAIL if charge does not start. PASS if it charges and releases as usual.",
+            "ship1": null
+          },
           {
             "pri": "Medium",
             "item": "COUNTDOWN-HOST-STAMP-PT-1 — first non-host 3-2-1 is even; 3 does not hang then slam 2+1 `[2pc]`",
