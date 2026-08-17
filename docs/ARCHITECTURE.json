@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-17T01:52:41.237Z",
-    "commit": "9935f10d"
+    "at": "2026-08-17T02:04:29.056Z",
+    "commit": "fcdde64b"
   },
-  "source_digest": "ae270886",
+  "source_digest": "30a4aa13",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -880,7 +880,7 @@
       }
     ],
     "next_actions": [
-      "Playtest THOST-CEILING-PT-1 · ZOMBIE-HOST-PICK-PT-1 · GAMEPAD-FREEZE-PT-1 ([pad]) after ship. Deferred: SHARD-PT-2 (launch day) · WARM-QP-ROTATE-PT-1."
+      "Playtest THOST-CEILING-PT-1 · ZOMBIE-HOST-PICK-PT-1 · GAMEPAD-FREEZE-PT-1 ([pad]) after ship. NPC-ABORT-BURST-PT-1 on `npm run dev` until ship. Deferred: SHARD-PT-2 (launch day) · WARM-QP-ROTATE-PT-1."
     ],
     "open_issues": [
       {
@@ -900,17 +900,11 @@
       {
         "title": "Engineering",
         "counts": {
-          "Medium": 10,
+          "Medium": 9,
           "Partial": 1,
           "Low": 14
         },
         "rows": [
-          {
-            "pri": "Medium",
-            "item": "NPC-ABORT-BURST-1 — NPC charge-abort release burst bypasses every self-KO safety gate",
-            "notes": "**Filed 08-16 from the gameplay bug audit (adversarially reviewed).** All other NPC boost paths check `npcBoostPathIsUnsafe`, but when `canContinueNpcChargedAttack` flips false (target fell / path became unsafe mid-charge), the wrapper leaves `boostHeld` unset and the human early-release branch fires the full burst along the heading that was just declared unsafe ([cartOrchestration.js](../../src/orchestration/cartOrchestration.js) ~814-830, [simulation.js](../../src/simulation.js) ~603-631). NPCs still occasionally ram themselves into voids and can hand a free SD win. **New path, not a reopen of the closed STOREROOMS-NPC-SELFKO fixes** (those covered instant/escape/hold paths; this is the abort path). The NPC-BOOST-2 design deliberately chose abort→burst over silent cancel — the gap is that it skips the edge/void checks. Fix: wire the already-written-but-dead `cancelNpcBoostCharge` (`simulation.js` ~601-602 has no producer of `boostCancel`) or safety-check the abort burst.",
-            "ship1": null
-          },
           {
             "pri": "Medium",
             "item": "GAMEPAD-FREEZE-1 — frozen gamepad input keeps driving a hidden host's cart",
@@ -1115,10 +1109,16 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Medium": 4,
+          "Medium": 5,
           "Low": 1
         },
         "rows": [
+          {
+            "pri": "Medium",
+            "item": "NPC-ABORT-BURST-PT-1 — unsafe NPC charge-abort does not burst into a void",
+            "notes": "**Owed: Wyatt playtest — NPC-ABORT-BURST-PT-1 — an NPC that drops a charge at a hole does not burst into it; a close-range open-floor charge still rams.** Parent **NPC-ABORT-BURST-1**. Solo. Storerooms. Hard-refresh. Pushed but not yet deployed — `npm run dev` until ship.<br>1. Stand so a hole sits on the NPC's charge line. Bait the telegraph, then step off the line while you stay up. FAIL if the NPC bursts into the void.<br>2. On open floor, let an NPC charge you inside ~3 m. PASS if it still bursts.<br>3. FAIL if a human tap-release or full-charge feel changed.",
+            "ship1": null
+          },
           {
             "pri": "Medium",
             "item": "ZOMBIE-HOST-PICK-PT-1 — host-away still hands the live peer the room `[2pc]`",
@@ -1493,6 +1493,11 @@
     ],
     "settled_decisions": [
       {
+        "id": "D-NPC-ABORT-BURST-1",
+        "date": "08-16",
+        "text": "abort hard-cancels unless the locked target is live on the floor and cart-yaw runway is clear. Open-floor close ram still bursts. Playtest NPC-ABORT-BURST-PT-1."
+      },
+      {
         "id": "D-GAMEPAD-FREEZE-1",
         "date": "08-16, `9935f10d`",
         "text": "`blur` + tab-hide now reset all held input incl. the previously-frozen gamepad axis/boost; held boost is suppressed until release on return. Playtest GAMEPAD-FREEZE-PT-1."
@@ -1530,7 +1535,7 @@
       {
         "id": "D-EFFECTS-SPLIT-1",
         "date": "08-15",
-        "text": "`src/effects.js` (3,484 lines) split into `src/effects/` domain modules (`meshHelpers` · `ambientParticles` · `ramBoostStreaks` · `crowd` · `stage` · `lasers` · `billboard`) behind a ~200-line composition root + explicit 20-function re-export barrel. Cross-cutting `setRaveExtrasVisible`/`applyRaveExtrasQuality` stay in `effects.js` (PERF-PASS-1 ablation guard preserved); `sceneRef` per-module; all new modules stay deferred (bundle 0 B delta). No behavior change; no playtest owed."
+        "text": "`src/effects.js` split into domain modules behind a composition root. No behavior change; no playtest owed."
       },
       {
         "id": "D-LOCAL-PORT-8899",

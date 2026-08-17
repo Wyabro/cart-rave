@@ -59,7 +59,7 @@ way the Block table still can.)*
 | Block | State | Next action |
 |-------|-------|-------------|
 | **1** — NOW (player-facing correctness) | ✅ drained | 08-16 Highs **INPUT-LOCK-1** · **SD-WIN-CREDIT-1** closed (Wyatt PASS) |
-| **2** — PRE-SHIP (before public post) | 🟡 queued | 08-16 audit Mediums: NPC-ABORT-BURST-1 · GAMEPAD-FREEZE-1 · SD-SPECTATOR-CHARGE-1 (**SD-SCORE-STALE-1** Wyatt PASS; **THOST-CEILING-1** PT owed; **ZOMBIE-HOST-PICK-1** landed) |
+| **2** — PRE-SHIP (before public post) | 🟡 queued | 08-16 audit Mediums: GAMEPAD-FREEZE-1 · SD-SPECTATOR-CHARGE-1 · REMOTE-INPUT-STALE-1 (**NPC-ABORT-BURST-1** landed, PT owed; **SD-SCORE-STALE-1** Wyatt PASS; **THOST-CEILING-1** PT owed; **ZOMBIE-HOST-PICK-1** landed) |
 | **3** — WYATT LANE (blocked on you) | 👤 ongoing | **LAST-STANDING-DEAD-1** (revive-vs-delete call) · SHIP-1 D-tier · **WARM-QP-ROTATE-PT-1** (after ship) |
 | **4** — PERF RESIDUAL (measure-first) | 🟡 queued | **WARM-QP-ROTATE-1** · WARM-SOLO-1 · PERF-WATCH-1 · NET-PERF-1 / NET-PERF-3 |
 | **5** — SWEEP (cheap Lows) | 🟡 queued | MOTION-A11Y-1 · COUNTDOWN-QUICKPLAY-1 · COUNTDOWN-LEAK-1 · CART-HUE-RED-1 · MIG-KO-DROP-1 · 08-16 audit Lows |
@@ -71,11 +71,11 @@ way the Block table still can.)*
 <!-- BEGIN GENERATED counts — npm run backlog. Do not hand-edit. -->
 | Department | Open | High | Medium | Low |
 |---|---:|---:|---:|---:|
-| [Engineering](#engineering) | 25 | 0 | 10 | 14 (+1 partial) |
+| [Engineering](#engineering) | 24 | 0 | 9 | 14 (+1 partial) |
 | [Art](#art) | 1 | 0 | 0 | 1 |
 | [Audio](#audio) | 1 | 0 | 0 | 1 |
 | [Design / Gameplay](#design--gameplay) | 3 | 0 | 2 | 1 |
-| 🟢 [Playtest owed](#playtest-owed) | 5 | 0 | 4 | 1 |
+| 🟢 [Playtest owed](#playtest-owed) | 6 | 0 | 5 | 1 |
 | [Tech Debt](#tech-debt) | 11 | 0 | 5 | 6 |
 
 **46 open rows total.**
@@ -166,9 +166,10 @@ Landed 08-16 — **ZOMBIE-HOST-PICK-1** (platform-dead ids skipped on host-away 
 (see `## Playtest owed`).
 Landed 08-16 — **GAMEPAD-FREEZE-1** (held gamepad input resets on blur / tab-hide); playtest owed
 (see `## Playtest owed`).
-1. **NPC-ABORT-BURST-1** — NPC charge-abort burst bypasses self-KO safety gates.
-2. **REMOTE-INPUT-STALE-1** — hidden non-host's last input keeps driving on the host sim.
-3. **SD-SPECTATOR-CHARGE-1** — SD spectator phantom charge loops SFX up to 45s.
+Landed 08-16 — **NPC-ABORT-BURST-1** (unsafe NPC charge-abort hard-cancels); playtest owed
+(see `## Playtest owed`).
+1. **REMOTE-INPUT-STALE-1** — hidden non-host's last input keeps driving on the host sim.
+2. **SD-SPECTATOR-CHARGE-1** — SD spectator phantom charge loops SFX up to 45s.
 
 **Block 3 — WYATT LANE (off the agent queue until you unblock).**
 - **LAST-STANDING-DEAD-1** — Last Cart Standing is dead end-to-end; needs your revive-vs-delete call before it is actionable.
@@ -206,7 +207,6 @@ Rows follow work-order rank: High (Block 1) → Medium (Block 2, then Wyatt-bloc
 
 | Pri | Item | Notes |
 |-----|------|-------|
-| Medium | NPC-ABORT-BURST-1 — NPC charge-abort release burst bypasses every self-KO safety gate | **Filed 08-16 from the gameplay bug audit (adversarially reviewed).** All other NPC boost paths check `npcBoostPathIsUnsafe`, but when `canContinueNpcChargedAttack` flips false (target fell / path became unsafe mid-charge), the wrapper leaves `boostHeld` unset and the human early-release branch fires the full burst along the heading that was just declared unsafe ([cartOrchestration.js](../../src/orchestration/cartOrchestration.js) ~814-830, [simulation.js](../../src/simulation.js) ~603-631). NPCs still occasionally ram themselves into voids and can hand a free SD win. **New path, not a reopen of the closed STOREROOMS-NPC-SELFKO fixes** (those covered instant/escape/hold paths; this is the abort path). The NPC-BOOST-2 design deliberately chose abort→burst over silent cancel — the gap is that it skips the edge/void checks. Fix: wire the already-written-but-dead `cancelNpcBoostCharge` (`simulation.js` ~601-602 has no producer of `boostCancel`) or safety-check the abort burst. |
 | Medium | GAMEPAD-FREEZE-1 — frozen gamepad input keeps driving a hidden host's cart | **Landed 08-16 (`9935f10d`)** — `resetHeldInput()` on `blur` + `visibilitychange→hidden` drops keys / nitro / pending hop / touch and the previously-frozen gamepad axis + boost; a boost still physically held on return is suppressed until release (edge re-priming mirrors `setUiMode(false)`). Playtest owed: **GAMEPAD-FREEZE-PT-1**. Filed 08-16 from the gameplay bug audit: gamepad polling is rAF-bound (stops when hidden), the `blur` handler cleared keys/touch/boost but nothing gamepad, and there was no `visibilitychange` reset — the hidden-host pump ([gameLoop.js](../../src/gameLoop.js) ~788-809) kept stepping physics off the frozen pad ([input.js](../../src/input.js) ~346-352, ~471-476). Solo equally affected. |
 | Medium | REMOTE-INPUT-STALE-1 — hidden non-host's last input keeps driving on the host sim | **Filed 08-16 during the GAMEPAD-FREEZE-1 adversarial review.** Host-side remote-input persistence, not client-side freeze: `drainRemoteInputJitterBuffers` ([netcode.js](../../src/netcode.js) ~4399-4448) keeps the last applied continuous input while the sender's queue is empty, and `remoteInputsByConnId` is pruned only by conn liveness ([netcode.js](../../src/netcode.js) ~3486-3487), never by input age. A hidden non-host stops sending; the host applies their last throttle/steer/nitro every tick until they return or disconnect — affects keyboard/touch equally (not gamepad-specific; GAMEPAD-FREEZE-1 fixed only the host/solo side). Fix shape: host-side input-age timeout → zero stale remote input. |
 | Medium | SD-SPECTATOR-CHARGE-1 — eliminated SD spectator can start a phantom charge; charge-up SFX loops up to the 45s cap | **Filed 08-16 from the gameplay bug audit (adversarially reviewed).** The local boost handlers gate only on menu + `phase === "running"` ([main.js](../../src/main.js) ~570-576, ~583-591) — SD overtime is still "running" for eliminated players. `triggerRamBoost` starts the charge plus the looping charge-up SFX, but the sim skips spectator carts, so it can never release or cancel; nothing stops the loop until `endRound`'s `stopAllChargeSfx()`. Get KO'd in SD, hold boost while watching → whine loops for up to 45s. Audio-only, no outcome effect; fix is a spectator gate in the handlers (or in `triggerRamBoost`). |
@@ -268,6 +268,7 @@ completed-work — do not restack it here.
 
 | Pri | Item | Notes |
 |-----|------|-------|
+| Medium | NPC-ABORT-BURST-PT-1 — unsafe NPC charge-abort does not burst into a void | **Owed: Wyatt playtest — NPC-ABORT-BURST-PT-1 — an NPC that drops a charge at a hole does not burst into it; a close-range open-floor charge still rams.** Parent **NPC-ABORT-BURST-1**. Solo. Storerooms. Hard-refresh. Pushed but not yet deployed — `npm run dev` until ship.<br>1. Stand so a hole sits on the NPC's charge line. Bait the telegraph, then step off the line while you stay up. FAIL if the NPC bursts into the void.<br>2. On open floor, let an NPC charge you inside ~3 m. PASS if it still bursts.<br>3. FAIL if a human tap-release or full-charge feel changed. |
 | Medium | ZOMBIE-HOST-PICK-PT-1 — host-away still hands the live peer the room `[2pc]` | **Owed: Wyatt playtest — ZOMBIE-HOST-PICK-PT-1 — host-away still hands the live peer the room.** Parent **ZOMBIE-HOST-PICK-1**. You host. DO tests prove the platform-dead case; this is the live-path regression.<br>1. Friends match, 2 machines, hard-refresh both. Play until GO.<br>2. Hide the host window for about 10 s (do not kill the tab).<br>3. FAIL if the guest never becomes host, or both carts freeze after the hide. PASS if the guest becomes host and both carts keep moving. |
 | Medium | THOST-CEILING-PT-1 — non-host host-clock uses real snapshot tHost `[2pc]` | **Owed: Wyatt playtest — THOST-CEILING-PT-1 — a hitch on the guest does not stretch snapshot gaps to hitch length.** Parent **THOST-CEILING-1**. You host. Guest F8.<br>1. Friends match, 2 machines, hard-refresh both. Guest is non-host. Play ~20 s after GO.<br>2. On the guest, hitch once (open DevTools or drag the window for ~1 s), then F8 and pull.<br>3. FAIL if guest `flow.snapGapMaxMs` is near the hitch length (hundreds of ms+) while the host kept sending. PASS if guest snap gaps stay near host cadence (~25–100 ms) after the hitch.<br>4. Guest F8 `countdown.hostClockOffsetMs` after GO may be small (10–80 ms). FAIL only if carts rubber-band on the hitch while the host stayed smooth. |
 | Medium | GAMEPAD-FREEZE-PT-1 — hidden tab no longer drives the host cart `[pad]` | **Owed: Wyatt playtest — GAMEPAD-FREEZE-PT-1 — a pad left held while the tab is hidden does not drive the cart or auto-release a burst.** Parent **GAMEPAD-FREEZE-1**. Controller required. Stay under the ~10 s host-away window on step 2 (hide ≤5 s) so migration doesn't muddy the result.<br>1. Quickplay (host) with the controller: hold stick-forward + boost, alt-tab away for ~3-5 s, tab back.<br>2. FAIL if the cart drove off / burst while hidden, or a fresh charge fires from the still-held button on return. PASS if the cart is where you left it, and releasing + re-pressing boost works immediately.<br>3. Solo with the controller: same hold + alt-tab + return — cart motionless, no burst.<br>4. Sanity: stick drives, boost charges/fires, hop fires, START still opens pause. |
@@ -385,4 +386,5 @@ NAME-VARIETY-1, NAME-NPC-VARIETY-PT-1, NAME-PLAYER-VARIETY-PT-1, MENU-CMD-SKEW-1
 MENU-CMD-SKEW-PT-1, PATTERNS-UI-5, PATTERNS-UI-5-PT-1, STOREROOMS-NPC-SELFKO-2,
 STOREROOMS-NPC-SELFKO-PT-1, STOREROOMS-NPC-SELFKO-PT-2, PATTERNS-FOIL-1, PATTERNS-FOIL-PT-1,
 INPUT-LOCK-1, INPUT-LOCK-PT-1, INPUT-LOCK-PT-2, SD-WIN-CREDIT-1, SD-WIN-CREDIT-PT-1,
-SD-SCORE-STALE-1, SD-SCORE-STALE-PT-1, THOST-CEILING-1, ZOMBIE-HOST-PICK-1.
+SD-SCORE-STALE-1, SD-SCORE-STALE-PT-1, THOST-CEILING-1, ZOMBIE-HOST-PICK-1,
+NPC-ABORT-BURST-1.

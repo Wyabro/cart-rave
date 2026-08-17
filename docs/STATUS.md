@@ -37,7 +37,7 @@ external testers. Stay in this phase until Wyatt advances the marker.
 **SD-WIN-CREDIT-1** · **PATTERNS-FOIL-1** · **MENU-CMD-SKEW-1** · **NAME-VARIETY-1** ·
 **PATTERNS-UI-5** · **STOREROOMS-NPC-SELFKO-2** closed. Do not reopen GAMEPAD-LOBBY-1.
 Deferred launch day: **SHARD-PT-2**. New evidence **WARM-QP-ROTATE-1** (cap-364).
-Medium **THOST-CEILING-1** landed (playtest owed **THOST-CEILING-PT-1**).
+Medium **THOST-CEILING-1** · **NPC-ABORT-BURST-1** landed (PT owed).
 08-15 and earlier PASSes: [completed-work.md](./planning/completed-work.md).
 
 **Closed cards keep their narrative in their own docs, not here** — Sundial
@@ -80,7 +80,7 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. Playtest **THOST-CEILING-PT-1** · **ZOMBIE-HOST-PICK-PT-1** · **GAMEPAD-FREEZE-PT-1** ([pad]) after ship. Deferred: **SHARD-PT-2** (launch day) · **WARM-QP-ROTATE-PT-1**.
+1. Playtest **THOST-CEILING-PT-1** · **ZOMBIE-HOST-PICK-PT-1** · **GAMEPAD-FREEZE-PT-1** ([pad]) after ship. **NPC-ABORT-BURST-PT-1** on `npm run dev` until ship. Deferred: **SHARD-PT-2** (launch day) · **WARM-QP-ROTATE-PT-1**.
 
 ## Open issues (top)
 
@@ -98,6 +98,7 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 [decision-log-2026-08.md](./archive/decision-log-2026-08.md), 07-11 → 07-23 in
 [decision-log-2026-07.md](./archive/decision-log-2026-07.md).
 
+- **D-NPC-ABORT-BURST-1** (08-16): abort hard-cancels unless the locked target is live on the floor and cart-yaw runway is clear. Open-floor close ram still bursts. Playtest **NPC-ABORT-BURST-PT-1**.
 - **D-GAMEPAD-FREEZE-1** (08-16, `9935f10d`): `blur` + tab-hide now reset all held input incl. the previously-frozen gamepad axis/boost; held boost is suppressed until release on return. Playtest **GAMEPAD-FREEZE-PT-1**.
 - **D-ZOMBIE-HOST-PICK-1** (08-16): host-away / host-repair pick from `#platformLiveConnIds()`, not `#connections.keys()` — platform-dead peers cannot become host. Playtest **ZOMBIE-HOST-PICK-PT-1** (2pc host-away regression).
 - **D-THOST-CEILING-1** (08-16): `tHost` gate is `|tHost − now| ≤ 60s` (replaces DEEPSEC-1's `1e12` abs cap). Playtest **THOST-CEILING-PT-1**.
@@ -105,7 +106,7 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 - **D-MENU-CMD-SKEW-1** (08-15): Menu entrance wrote `translateY`/`scale` on `.cr-cmd` and wiped `skewX(-8deg)`; leftover label `skewX(8deg)` leaned SOLO–SETTINGS left. Entrance now `fadeIn` only. **MENU-CMD-SKEW-PT-1** Wyatt PASS 08-16.
 - **D-CONN-TOASTS-1** (08-15): Friends join/leave toasts from `MSG.slots` human-connId diff + reap broadcast. **CONN-TOASTS-1** Wyatt PASS 08-15.
 - **D-AGENT-OS-2** (08-15): Slim `AGENTS.md` (plan B). Keep invariants + ack/lever/freeze/fast-lane. Define done/ship/playtest once. Routing, `loop:`, and post-ship poll become pointers (manual § routing, `self-improving-loop.mdc`, `deploy-urls.md`). Not a 40–60 line cut.
-- **D-EFFECTS-SPLIT-1** (08-15): `src/effects.js` (3,484 lines) split into `src/effects/` domain modules (`meshHelpers` · `ambientParticles` · `ramBoostStreaks` · `crowd` · `stage` · `lasers` · `billboard`) behind a ~200-line composition root + explicit 20-function re-export barrel. Cross-cutting `setRaveExtrasVisible`/`applyRaveExtrasQuality` stay in `effects.js` (PERF-PASS-1 ablation guard preserved); `sceneRef` per-module; all new modules stay deferred (bundle 0 B delta). No behavior change; no playtest owed.
+- **D-EFFECTS-SPLIT-1** (08-15): `src/effects.js` split into domain modules behind a composition root. No behavior change; no playtest owed.
 - **D-LOCAL-PORT-8899** (08-14, `8cf335f`): Local worker port **8787 → 8899** — Windows HNS dynamic port exclusion **8751–8850** made 8787 unbindable (EACCES; workerd aborts with `std::terminate`, killing `npm run dev:local` / the battery). Single source: `LOCAL_WORKER_PORT` in `src/config.js`; wired through netcode dial, `dev:party*`, harness, launch.json, docs. Also **HARNESS-FREEZE-1 re-ack** (`2e30d8e`): freeze lever swapped to CDP `Debugger.pause` — the lifecycle freeze never silenced a live-RTC host (bfcache eligibility), pause is a genuine JS halt (validated 08-14). Battery **8/8 green**; dashboard green.
 - **D-SEO-1** (08-14): SEO pass — `rel=canonical` + og/twitter meta point at the apex cartclash.lol (www / workers.dev twins and the Glitch copy consolidate there, never index on their own); share card is a 1200×630 opaque composite of the title splat on brand bg (replaces the 512px icon; `summary_large_image` + `og:image:alt`); VideoGame JSON-LD (factual only); robots.txt + single-URL sitemap. Head-only + 2 new public files; zero gameplay/DOM change.
 - **D-STORE-PILE-2** (08-14): Head-on pile contact never entered STORE-PILE-1's 0.9 m origin pad (nose-on origin ~4.45 m vs pad end 4.3 m). Pad is now cart `hz + 0.3` press; apply strips this-frame inward drive only, walk-out 17 m/s², Δv cap 4 m/s. Probe: 0 wedged / longest 0.2 s. **STORE-PILE-PT-1** Wyatt PASS 08-14.
@@ -144,7 +145,7 @@ the dev loop (dev probes lie in prod · edge propagation · frozen `rAF`), or a 
 
 ## Last updated
 
-2026-08-16 (GAMEPAD-FREEZE-1) — held gamepad input resets on blur / tab-hide (`9935f10d`); playtest **GAMEPAD-FREEZE-PT-1** owed.
+2026-08-16 (NPC-ABORT-BURST-1 · GAMEPAD-FREEZE-1) — NPC abort-burst cancel; pad input resets on hide. PT: **NPC-ABORT-BURST-PT-1** (`npm run dev` until ship) · **GAMEPAD-FREEZE-PT-1**.
 
 2026-08-16 (ZOMBIE-HOST-PICK-1) — host-away / host-repair skip platform-dead ids. Playtest **ZOMBIE-HOST-PICK-PT-1**.
 

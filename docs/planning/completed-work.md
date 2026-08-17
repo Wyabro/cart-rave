@@ -13,6 +13,10 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 16, 2026 — NPC-ABORT-BURST-1: cancel unsafe NPC charge-abort burst
+
+- *(Engineering · Medium)* **NPC-ABORT-BURST-1** — ✅ **DONE 08-16**. Host NPC charge abort hard-cancels (`axis.boostCancel` → `cancelNpcBoostCharge`) unless the locked target is live on the floor and the cart-yaw runway is clear. Close-range abort on open floor still early-releases (NPC-BOOST-2). Not a reopen of STOREROOMS-NPC-SELFKO. Playtest owed: **NPC-ABORT-BURST-PT-1**.
+
 ### August 16, 2026 — ZOMBIE-HOST-PICK-1: skip platform-dead host successors
 
 - *(Engineering · Medium)* **ZOMBIE-HOST-PICK-1** — ✅ **DONE 08-16**. `#handleHostAway` and `#ensureLiveHost` now pick from `#platformLiveConnIds()` instead of `#connections.keys()`. A platform-dead peer (gone from `getConnections()`, still in `#connections` until the 20 s reaper) cannot become host; a 2-human room with one platform-dead peer does not migrate to the corpse. Silent-open sockets still wait for the reaper. Playtest owed: **ZOMBIE-HOST-PICK-PT-1** (2pc host-away regression; DO tests prove the zombie case). Sibling **ZOMBIE-ROOM-RESET-1** untouched. Not a reopen of NET-MIG-3 / CONN-TRACK-LEAK-1.

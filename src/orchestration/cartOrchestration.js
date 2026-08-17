@@ -106,6 +106,106 @@ function testDriveSpawnForSlot(_slotIndex, config) {
   return { x: 0, y, z: 0 };
 }
 
+const _npcChargeFwd = new THREE.Vector3();
+const _npcChargeRight = new THREE.Vector3();
+
+/**
+ * Returns a conservative target point for the dangerous opening of an NPC boost.
+ * The cart keeps steering after this point, but six metres was too short to stop an
+ * escape/recovery boost from entering a death rim before the AI could turn back.
+ */
+function npcBoostRunwayEndpoint(from, to) {
+  const dx = to.x - from.x;
+  const dz = to.z - from.z;
+  const distance = Math.hypot(dx, dz);
+  if (distance < 1e-6) return null;
+  // * About 0.7 s at boosted top speed: long enough to cover the launch danger,
+  // * short enough that an inward attack on the 26.4 m Classic floor remains valid.
+  const runwayM = Math.max(12, Math.min(20, CONFIG.cart.ramBoost.boostedMaxSpeed * 0.7));
+  const runDistance = Math.max(distance, runwayM);
+  return {
+    x: from.x + (dx / distance) * runDistance,
+    z: from.z + (dz / distance) * runDistance,
+  };
+}
+
+function npcBoostPathIsUnsafe(from, to) {
+  const runwayEnd = npcBoostRunwayEndpoint(from, to);
+  if (!runwayEnd) return true;
+  if (Simulation.findBlockingSquareHole(from.x, from.z, runwayEnd.x, runwayEnd.z, 0.6)) return true;
+
+  if (CONFIG.record.centerHole?.enabled !== false) {
+    const holeLip = CONFIG.record.innerRadius + (CONFIG.record.physics?.holeClearance ?? 0.45);
+    const minClear = holeLip + 1.5;
+    const abX = runwayEnd.x - from.x;
+    const abZ = runwayEnd.z - from.z;
+    const abLenSq = abX * abX + abZ * abZ;
+    if (abLenSq > 1e-8) {
+      const t = clamp((-from.x * abX - from.z * abZ) / abLenSq, 0, 1);
+      if (Math.hypot(from.x + t * abX, from.z + t * abZ) < minClear) return true;
+    } else if (Math.hypot(from.x, from.z) < minClear) {
+      return true;
+    }
+  }
+
+  return Boolean(
+    Simulation.boostSegmentExitsClassicDisc?.(from.x, from.z, runwayEnd.x, runwayEnd.z, 1.25)
+    || Simulation.boostSegmentExitsOctagon?.(from.x, from.z, runwayEnd.x, runwayEnd.z, 1.25),
+  );
+}
+
+function npcChargeTarget(npc, carts) {
+  const targetIndex = npc.npcBoostChargeTargetSlotIndex;
+  return Number.isInteger(targetIndex) ? carts?.[targetIndex] ?? null : null;
+}
+
+function npcChargeTargetIsLiveOnFloor(target) {
+  if (!target?.body || target.respawnAtMs != null || target.isSuddenDeathSpectator) return false;
+  return target.body.translation().y >= CONFIG.fall.yThreshold;
+}
+
+function canContinueNpcChargedAttack(npc, carts) {
+  const target = npcChargeTarget(npc, carts);
+  if (!npcChargeTargetIsLiveOnFloor(target) || !npc?.body) return false;
+  const p = npc.body.translation();
+  const op = target.body.translation();
+  const dist = Math.hypot(op.x - p.x, op.z - p.z);
+  const ncfg = CONFIG.cart.ramBoost.npc;
+  if (dist < ncfg.minTargetDistance || dist > ncfg.maxTargetDistance) return false;
+  if (Simulation.getEdgeVictimBias(p.x, p.z) >= (ncfg.finisherEdgeBiasMin ?? 0.35)) return false;
+  return !npcBoostPathIsUnsafe(p, op);
+}
+
+function npcAbortBurstIsAllowed(npc, carts) {
+  if (!npc?.body) return false;
+  if (!npcChargeTargetIsLiveOnFloor(npcChargeTarget(npc, carts))) return false;
+  const p = npc.body.translation();
+  const ncfg = CONFIG.cart.ramBoost.npc;
+  if (Simulation.getEdgeVictimBias(p.x, p.z) >= (ncfg.finisherEdgeBiasMin ?? 0.35)) return false;
+  // * Burst impulse uses body yaw (`_forward`), not steer dir or last target XZ.
+  const yaw = Simulation.yawFromQuaternion(npc.body.rotation());
+  Simulation.setForwardRightFromYaw(yaw, _npcChargeFwd, _npcChargeRight);
+  if (_npcChargeFwd.lengthSq() < 1e-8) return false;
+  const headingEnd = { x: p.x + _npcChargeFwd.x, z: p.z + _npcChargeFwd.z };
+  return !npcBoostPathIsUnsafe(p, headingEnd);
+}
+
+/**
+ * Host NPC charge overlay for getAiAxis.
+ * Keep holding while the locked target is still a legal ram; abort-burst only for a
+ * live floor target whose cart-yaw runway is clear; otherwise hard-cancel.
+ *
+ * @param {object} npc
+ * @param {object[]|null|undefined} carts
+ * @returns {{ boostHeld: boolean, boostCancel?: boolean } | null}
+ */
+export function resolveNpcChargeHold(npc, carts) {
+  if (!npc?.isChargingBoost || npc.npcBoostChargeTargetSlotIndex == null) return null;
+  if (canContinueNpcChargedAttack(npc, carts)) return { boostHeld: true };
+  if (npcAbortBurstIsAllowed(npc, carts)) return { boostHeld: false };
+  return { boostHeld: false, boostCancel: true };
+}
+
 /**
  * Cart spawn/teardown, name labels, boost/hop/ram, NPC opportunistic helpers, juice/FX.
  * Owns juice mutable state + nameLabels + allCarts; syncs allCartsRef via deps.
@@ -817,15 +917,11 @@ function getAiAxis(now, cart) {
   // * Latch room difficulty once for the host brain (Quickplay → medium; Solo/Friends → store).
   Netcode.ensureHostAiDifficultyLatched(Netcode.detectGameMode());
   const axis = Simulation.getAiAxis(now, cart, allCarts, Netcode.getNetSlots());
-  if (!cart.isChargingBoost || cart.npcBoostChargeTargetSlotIndex == null) return axis;
-
-  // * NPC-BOOST-2: when the charge can no longer continue (target too close,
-  // * edge danger, path unsafe), do NOT cancel. Leave boostHeld unset —
-  // * applyArcadeControls sees a human-style release and fires a proportional
-  // * burst instead of a full-power auto-release or a silent cancel.
-  if (canContinueNpcChargedAttack(cart)) {
-    axis.boostHeld = true;
-  }
+  // * NPC-ABORT-BURST-1: unsafe abort must set boostCancel (producer for
+  // * cancelNpcBoostCharge). Close-range abort on a live floor target still
+  // * early-releases when the cart-yaw runway is clear.
+  const hold = resolveNpcChargeHold(cart, allCarts);
+  if (hold) Object.assign(axis, hold);
   return axis;
 }
 
@@ -1056,51 +1152,6 @@ function npcBoostCooldownMs() {
   return GameState.getRoundState()?.isSuddenDeath ? rb.cooldownSec * 500 : rb.cooldownSec * 1000;
 }
 
-/**
- * Returns a conservative target point for the dangerous opening of an NPC boost.
- * The cart keeps steering after this point, but six metres was too short to stop an
- * escape/recovery boost from entering a death rim before the AI could turn back.
- */
-function npcBoostRunwayEndpoint(from, to) {
-  const dx = to.x - from.x;
-  const dz = to.z - from.z;
-  const distance = Math.hypot(dx, dz);
-  if (distance < 1e-6) return null;
-  // * About 0.7 s at boosted top speed: long enough to cover the launch danger,
-  // * short enough that an inward attack on the 26.4 m Classic floor remains valid.
-  const runwayM = Math.max(12, Math.min(20, CONFIG.cart.ramBoost.boostedMaxSpeed * 0.7));
-  const runDistance = Math.max(distance, runwayM);
-  return {
-    x: from.x + (dx / distance) * runDistance,
-    z: from.z + (dz / distance) * runDistance,
-  };
-}
-
-function npcBoostPathIsUnsafe(from, to) {
-  const runwayEnd = npcBoostRunwayEndpoint(from, to);
-  if (!runwayEnd) return true;
-  if (Simulation.findBlockingSquareHole(from.x, from.z, runwayEnd.x, runwayEnd.z, 0.6)) return true;
-
-  if (CONFIG.record.centerHole?.enabled !== false) {
-    const holeLip = CONFIG.record.innerRadius + (CONFIG.record.physics?.holeClearance ?? 0.45);
-    const minClear = holeLip + 1.5;
-    const abX = runwayEnd.x - from.x;
-    const abZ = runwayEnd.z - from.z;
-    const abLenSq = abX * abX + abZ * abZ;
-    if (abLenSq > 1e-8) {
-      const t = clamp((-from.x * abX - from.z * abZ) / abLenSq, 0, 1);
-      if (Math.hypot(from.x + t * abX, from.z + t * abZ) < minClear) return true;
-    } else if (Math.hypot(from.x, from.z) < minClear) {
-      return true;
-    }
-  }
-
-  return Boolean(
-    Simulation.boostSegmentExitsClassicDisc?.(from.x, from.z, runwayEnd.x, runwayEnd.z, 1.25)
-    || Simulation.boostSegmentExitsOctagon?.(from.x, from.z, runwayEnd.x, runwayEnd.z, 1.25),
-  );
-}
-
 function npcAimAngleDeg(npc, targetPos) {
   const p = npc.body.translation();
   const yaw = Simulation.yawFromQuaternion(npc.body.rotation());
@@ -1110,23 +1161,6 @@ function npcAimAngleDeg(npc, targetPos) {
   ramBoostToTargetXZ.normalize();
   ramBoostForwardXZ.normalize();
   return Math.acos(clamp(ramBoostForwardXZ.dot(ramBoostToTargetXZ), -1, 1)) * (180 / Math.PI);
-}
-
-function canContinueNpcChargedAttack(npc) {
-  const targetIndex = npc.npcBoostChargeTargetSlotIndex;
-  const target = Number.isInteger(targetIndex) ? allCarts[targetIndex] : null;
-  if (!target?.body || target.respawnAtMs != null || target.isSuddenDeathSpectator) return false;
-  const p = npc.body.translation();
-  const op = target.body.translation();
-  const dist = Math.hypot(op.x - p.x, op.z - p.z);
-  const ncfg = CONFIG.cart.ramBoost.npc;
-  if (
-    op.y < CONFIG.fall.yThreshold
-    || dist < ncfg.minTargetDistance
-    || dist > ncfg.maxTargetDistance
-  ) return false;
-  if (Simulation.getEdgeVictimBias(p.x, p.z) >= (ncfg.finisherEdgeBiasMin ?? 0.35)) return false;
-  return !npcBoostPathIsUnsafe(p, op);
 }
 
 /**
