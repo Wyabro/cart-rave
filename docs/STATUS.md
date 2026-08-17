@@ -31,7 +31,8 @@ external testers. Stay in this phase until Wyatt advances the marker.
 
 Live PT: **NPC-ABORT-BURST-PT-1** · **LAST-STANDING-DEAD-PT-1** · **COUNTDOWN-HOST-STAMP-PT-1**
 on `npm run dev` until ship. **SPILL-RAM-CREDIT-PT-1** `[2pc]` on `npm run dev` until ship
-(no `?perfPump` on the non-host). **REMOTE-INPUT-STALE-PT-1** after ship (`[2pc]`, no `?perfPump` on
+(no `?perfPump` on the non-host). **CART-HUE-RED-PT-1** `[solo]` on `npm run dev` until ship
+(Lever A `0xff2233` landed 08-17). **REMOTE-INPUT-STALE-PT-1** after ship (`[2pc]`, no `?perfPump` on
 the non-host). Parent **WARM-QP-ROTATE-1** stays (cap-364). Deferred launch day: **SHARD-PT-2**.
 Closed PASSes and parents: [completed-work.md](./planning/completed-work.md). Do not reopen
 GAMEPAD-LOBBY-1.
@@ -76,7 +77,7 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. Playtest **NPC-ABORT-BURST-PT-1** · **LAST-STANDING-DEAD-PT-1** · **COUNTDOWN-HOST-STAMP-PT-1** on `npm run dev` until ship. **SPILL-RAM-CREDIT-PT-1** `[2pc]`, no `?perfPump` on the non-host. **REMOTE-INPUT-STALE-PT-1** after ship (`[2pc]`, no `?perfPump` on the non-host). Deferred: **SHARD-PT-2** (launch day).
+1. Playtest **NPC-ABORT-BURST-PT-1** · **LAST-STANDING-DEAD-PT-1** · **COUNTDOWN-HOST-STAMP-PT-1** on `npm run dev` until ship. **SPILL-RAM-CREDIT-PT-1** `[2pc]`, no `?perfPump` on the non-host. **CART-HUE-RED-PT-1** `[solo]` on `npm run dev` until ship. **REMOTE-INPUT-STALE-PT-1** after ship (`[2pc]`, no `?perfPump` on the non-host). Deferred: **SHARD-PT-2** (launch day).
 
 ## Open issues (top)
 

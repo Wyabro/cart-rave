@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-17T18:04:02.117Z",
-    "commit": "76cbe304"
+    "at": "2026-08-17T18:29:51.086Z",
+    "commit": "ebf103a0"
   },
-  "source_digest": "e2c621b3",
+  "source_digest": "e7943a5a",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -877,7 +877,7 @@
       }
     ],
     "next_actions": [
-      "Playtest NPC-ABORT-BURST-PT-1 · LAST-STANDING-DEAD-PT-1 · COUNTDOWN-HOST-STAMP-PT-1 on `npm run dev` until ship. SPILL-RAM-CREDIT-PT-1 `[2pc]`, no `?perfPump` on the non-host. REMOTE-INPUT-STALE-PT-1 after ship (`[2pc]`, no `?perfPump` on the non-host). Deferred: SHARD-PT-2 (launch day)."
+      "Playtest NPC-ABORT-BURST-PT-1 · LAST-STANDING-DEAD-PT-1 · COUNTDOWN-HOST-STAMP-PT-1 on `npm run dev` until ship. SPILL-RAM-CREDIT-PT-1 `[2pc]`, no `?perfPump` on the non-host. CART-HUE-RED-PT-1 `[solo]` on `npm run dev` until ship. REMOTE-INPUT-STALE-PT-1 after ship (`[2pc]`, no `?perfPump` on the non-host). Deferred: SHARD-PT-2 (launch day)."
     ],
     "open_issues": [
       {
@@ -1046,7 +1046,7 @@
           {
             "pri": "Low",
             "item": "CART-HUE-RED-1 — custom hue red reads as dark orange in-game `[solo]`",
-            "notes": "**Filed 08-13 from ART-PALETTE-PT-1 (Wyatt PASS with note).** The custom-color hue slider's red end renders as a dark-orange bloom in-game instead of red; the five preset `CART_COLORS` are unaffected. Art presentation pass only — the cart material traverse stays frozen.",
+            "notes": "**Lever A landed 08-17** — red-end snap `0xff0000` → `0xff2233` (ACES + 0.72 body tint dropped blue on all three arenas; mask was healthy). Playtest owed: **CART-HUE-RED-PT-1**. Art presentation only — cart material traverse stays frozen.",
             "ship1": null
           }
         ]
@@ -1082,7 +1082,7 @@
         "title": "Playtest owed",
         "counts": {
           "Medium": 4,
-          "Low": 2
+          "Low": 3
         },
         "rows": [
           {
@@ -1119,6 +1119,12 @@
             "pri": "Low",
             "item": "SPILL-RAM-CREDIT-PT-1 — rams count once, at the spill `[2pc]`",
             "notes": "**Owed: Wyatt playtest — SPILL-RAM-CREDIT-PT-1 — Spill Master ticks when groceries fly, not per ram.** Parent **SPILL-RAM-CREDIT-1**. You are not host. Hard-refresh. Pushed but not yet deployed — `npm run dev` until ship. No `?perfPump` on the non-host.<br>1. Two PCs. Friends or Quickplay. You ram the host cart until groceries fly. FAIL if Spill Master ticks per ram. PASS if it ticks +1 exactly on the spill.<br>2. Sustained rams on a loaded/tanky upright cart. FAIL if ticks arrive before groceries fly. PASS if nothing ticks until the spill.<br>3. Self-tip with no contact. FAIL if you get a tick. PASS if you get none.<br>4. Solo `npm run dev`. Ram an NPC until groceries fly. PASS if you get a tick on the spill and the receipt SPILLS CAUSED matches.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "CART-HUE-RED-PT-1 — custom hue red matches the menu swatch `[solo]`",
+            "notes": "**Owed: Wyatt playtest — CART-HUE-RED-PT-1 — the custom hue slider's far red end reads red in-game, not dark orange.** Parent **CART-HUE-RED-1**. Solo. Hard-refresh. `npm run dev` until ship. DEV unlocks all arenas.<br>1. Solo, Sundial Station. Customize → CUSTOM → hue slider to the far red end.<br>2. Enter the match. FAIL if the cart reads dark orange. PASS if it matches the menu swatch's red.<br>3. Sweep a few degrees either side of 0 — the 14/15° seam is expected (red → orange). FAIL if it reads orange → orange.<br>4. Repeat on The Storerooms and Cart Rave. FAIL if any arena reads dark orange. Pink preset unchanged. HUD \"you\" accent must stay legible (it will not match the cart).",
             "ship1": null
           }
         ]

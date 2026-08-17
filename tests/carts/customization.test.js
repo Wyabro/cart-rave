@@ -13,6 +13,7 @@ import {
   loadPlayerCustomization,
   invalidateCustomizationCache,
   CUSTOM_COLOR_ID,
+  hueToNeonCss,
   resolveCartNeonHex,
   resolveCartPatternForSlot,
   resolveCartSunglassesStyleForSlot,
@@ -179,5 +180,42 @@ describe("resolveCartSunglassesStyleForSlot", () => {
     const slot = { kind: "npc", name: "BOT_A", sunglassesStyle: "goldMirror" };
     const result = resolveCartSunglassesStyleForSlot(slot, { youConnId: "me" });
     expect(typeof result).toBe("string");
+  });
+});
+
+describe("CART-HUE-RED-1 custom red snap", () => {
+  const SNAP = "#ff2233";
+  // * RAVE_GLTF_BODY_TINT_SCALE in cartRaveGltf.js — spectral 0xff0000 * 0.72 is #b80000 (b=0).
+  const BODY_TINT_SCALE = 0.72;
+
+  function cssToRgb(css) {
+    const n = parseInt(css.slice(1), 16);
+    return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+  }
+
+  it("snaps hue 0 and 360 to the crimson end", () => {
+    expect(hueToNeonCss(0)).toBe(SNAP);
+    expect(hueToNeonCss(360)).toBe(SNAP);
+  });
+
+  it("snaps 14° and leaves 15° on the HSL ramp", () => {
+    expect(hueToNeonCss(14)).toBe(SNAP);
+    expect(hueToNeonCss(15)).not.toBe(SNAP);
+  });
+
+  it("uses a non-spectral snap (g > 0.1, b > 0.15)", () => {
+    const { g, b } = cssToRgb(hueToNeonCss(0));
+    expect(g / 255).toBeGreaterThan(0.1);
+    expect(b / 255).toBeGreaterThan(0.15);
+  });
+
+  it("keeps blue after the 0.72 body tint that zeroed spectral red", () => {
+    const { r, g, b } = cssToRgb(hueToNeonCss(0));
+    const tintedB = Math.round(b * BODY_TINT_SCALE);
+    const tintedG = Math.round(g * BODY_TINT_SCALE);
+    const tintedR = Math.round(r * BODY_TINT_SCALE);
+    expect(tintedB).toBeGreaterThan(0);
+    expect(tintedR).toBeGreaterThan(tintedG);
+    expect(tintedR).toBeGreaterThan(tintedB);
   });
 });

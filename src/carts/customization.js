@@ -43,9 +43,13 @@ export const CUSTOM_COLOR_ID = "custom";
 /** Fixed neon HSL — full saturation, mid lightness for intense spectral neons. */
 const CUSTOM_NEON_SAT = 100;
 const CUSTOM_NEON_LIGHT = 50;
-/** Pure spectral red — not in CART_COLORS but snapped for warm custom hues. */
-const CUSTOM_NEON_RED_HEX = 0xff0000;
-/** Degrees from 0°/360° that map to CUSTOM_NEON_RED_HEX (HSL 100/50 skews orange by ~15°). */
+/**
+ * Brand-family crimson for the custom-hue red end (CART-HUE-RED-1).
+ * Spectral 0xff0000 through the 0.72 body tint + ACES OutputPass drops blue
+ * and reads brick / dark-orange on all three arenas. Not a lighting add.
+ */
+const CUSTOM_NEON_RED_HEX = 0xff2233;
+/** Degrees from 0°/360° that map to CUSTOM_NEON_RED_HEX (HSL 100/50 is orange by ~15°). */
 const CUSTOM_RED_SNAP_DEG = 14;
 const DEFAULT_PRESET_COLOR = PALETTE[0];
 
@@ -148,7 +152,7 @@ function hueAngularDistance(hue, center) {
 
 /**
  * Converts a custom hue to vivid in-game neon hex (HSL 100%, 50%).
- * Snaps warm hues near 0° to pure red (palette has no red preset — only neonOrange).
+ * Snaps warm hues near 0° to CUSTOM_NEON_RED_HEX (no red roster preset — only neonOrange).
  * Snaps to exact CART_COLORS when on a preset angle. Bloom is balanced separately
  * via emissiveRefHexForNeonHex() in utils.js (nearest-preset intensity reference).
  *

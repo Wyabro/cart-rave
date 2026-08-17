@@ -123,7 +123,8 @@ export function emissiveRefHexForNeonHex(hex) {
   for (const id of PALETTE) {
     if (CART_COLORS[id].hex === hex) return hex;
   }
-  if (hex === 0xff0000) return 0xff0000;
+  // * Must match CUSTOM_NEON_RED_HEX in customization.js. Own luma, not neonOrange's 2.0 cap.
+  if (hex === 0xff2233) return 0xff2233;
   const presetId = nearestPresetForHue(hexToHue(hex));
   return CART_COLORS[presetId]?.hex ?? hex;
 }
