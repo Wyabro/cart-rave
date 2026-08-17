@@ -67,6 +67,9 @@ __pycache__/
 /art/*.blend
 !/art/cartrave4.blend
 
+# Local DeepSec scan workspace (findings, node_modules, project data)
+.deepsec/
+
 # Local scratch (keep on disk; do not commit)
 tmp/
 .codex/
