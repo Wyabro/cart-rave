@@ -13,6 +13,21 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 17, 2026 — playtest PASSes (COUNTDOWN-HOST-STAMP / CUSTOMIZE-SVG-FLASH / FRIENDS-LOBBY-ORDER)
+
+- *(Playtest · Medium)* **COUNTDOWN-HOST-STAMP-PT-1** — ✅ **PASS 08-17** on prod
+  (VERIFY_OK `7896b9f4`). First non-host 3-2-1 stays even (~1 s each); 3 does not
+  hang then slam 2+1; rematch in the same room stays even; host 3-2-1 unchanged.
+  Parent **COUNTDOWN-HOST-STAMP-1** closes with it.
+- *(Playtest · Medium)* **CUSTOMIZE-SVG-FLASH-PT-1** — ✅ **PASS 08-17** on prod
+  (VERIFY_OK `7896b9f4`). DONE and apply do not flash the old cart drawing: no flat
+  cartoon cart flashes on open or close; the 3D cart updates in place on color change.
+  Parent **CUSTOMIZE-SVG-FLASH-1** closes with it.
+- *(Playtest · Medium)* **FRIENDS-LOBBY-ORDER-PT-1** — ✅ **PASS 08-17** on prod
+  (VERIFY_OK `7896b9f4`). Friends CHECKOUT LINE lists humans first, first-connect
+  first (host above guest), bots under; human color and seat mark still match the
+  cart. Parent **FRIENDS-LOBBY-ORDER-1** closes with it.
+
 ### August 17, 2026 — KO-CENTER-RING-PT-1 PASS
 
 - *(Playtest · Medium)* **KO-CENTER-RING-PT-1** — ✅ **PASS 08-17** on prod (VERIFY_OK

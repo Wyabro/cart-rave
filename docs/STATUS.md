@@ -29,14 +29,15 @@ report phase-exit eligibility; they must not move the marker.
 are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Analytics DO reset for
 external testers. Stay in this phase until Wyatt advances the marker.
 
-Live PT on prod (VERIFY_OK `748ea991` / Worker `4c34277c`): **COUNTDOWN-HOST-STAMP-PT-1** ·
-**CUSTOMIZE-SVG-FLASH-PT-1** · **FRIENDS-LOBBY-ORDER-PT-1**.
-Filed 08-17 — **CUSTOMIZE-SPAM-1** (cap-370). Landed 08-17 — **CUSTOMIZE-SVG-FLASH-1** ·
-**FRIENDS-LOBBY-ORDER-1** · **MIG-KO-DROP-1**. Deferred launch day:
-**SHARD-PT-2**. Closed 08-17 — **CART-HUE-CUBES-PT-1** `[solo]` · **CART-HUE-RED-PT-1**
-`[solo]` · **LAST-STANDING-DEAD-PT-1** · **NPC-ABORT-BURST-PT-1** ·
+Live PT on prod (VERIFY_OK `748ea991` / Worker `4c34277c`): **CUSTOMIZE-SPAM-PT-1**
+(after ship or `npm run dev`). Landed 08-17 — **CUSTOMIZE-SPAM-1** (keep-alive; PT
+**CUSTOMIZE-SPAM-PT-1**) · **MIG-KO-DROP-1**. Deferred launch day:
+**SHARD-PT-2**. Closed 08-17 — **CART-HUE-CUBES-PT-1** `[solo]` · **CART-HUE-RED-PT-1`
+`[solo]` · **LAST-STANDING-DEAD-PT-1** · **NPC-ABORT-BURST-PT-1` ·
 **REMOTE-INPUT-STALE-PT-1** `[2pc]` · **SPILL-RAM-CREDIT-PT-1** `[2pc]` ·
-**SD-SPECTATOR-CHARGE-PT-1** `[solo]` · **KO-CENTER-RING-PT-1** `[solo]` (parents close with them —
+**SD-SPECTATOR-CHARGE-PT-1** `[solo]` · **KO-CENTER-RING-PT-1** `[solo]` ·
+**COUNTDOWN-HOST-STAMP-PT-1** `[2pc]` · **CUSTOMIZE-SVG-FLASH-PT-1** `[solo]` ·
+**FRIENDS-LOBBY-ORDER-PT-1** `[2pc]` (parents close with them —
 [completed-work.md](./planning/completed-work.md)). **TRUST-1** · **LEADERBOARD-1**
 cut from V2 (SHIP-1 D-tier; Block 3 drained). **SHIP-1** BACKLOG row closed
 (file stays). Parent **WARM-QP-ROTATE-1** stays
@@ -82,9 +83,7 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. Retest **CUSTOMIZE-SVG-FLASH-PT-1** after ship (or `npm run dev`).
-2. Playtest **COUNTDOWN-HOST-STAMP-PT-1** on prod (2pc, you are not host).
-3. Playtest **FRIENDS-LOBBY-ORDER-PT-1** on prod (2pc).
+1. Playtest **CUSTOMIZE-SPAM-PT-1** after ship (or `npm run dev`, `?diag=1`).
    Deferred: **SHARD-PT-2** (launch day).
 
 ## Open issues (top)
@@ -130,23 +129,18 @@ or a suspected blocker (TS 7 · `cartrave4` UVs).
 
 ## Last updated
 
-2026-08-17 (CUSTOMIZE-SPAM-1) — filed from cap-370. Rapid Customize remounts the
-menu cart 10× in 54 s, longtasks to 1714 ms, then `gpucontextlost` at t=43.9 s
-with no restore. Do not reopen ATTRACT-JANK-1 / CUSTOMIZE-PERF-1.
+2026-08-17 (CUSTOMIZE-SPAM-1) — keep-alive pause/resume landed. Open/close no
+longer creates or destroys a preview context. Real dispose is menu-exit only.
+Playtest **CUSTOMIZE-SPAM-PT-1** (after ship or `npm run dev`). Do not reopen
+ATTRACT-JANK-1 / CUSTOMIZE-PERF-1.
 
-2026-08-17 (CUSTOMIZE-SVG-FLASH-PT-1) — open no longer paints the cartoon SVG
-as a load placeholder. Holder stays empty until 3D is ready; SVG only if
-CartPreview load/init throws. Retest **CUSTOMIZE-SVG-FLASH-PT-1** after ship.
-
-2026-08-17 (playtest PASSes) — **KO-CENTER-RING-PT-1** PASS on prod (`7896b9f4`);
-**SD-SPECTATOR-CHARGE-PT-1** PASS on `npm run dev`. Parents close. Live PT:
-CUSTOMIZE-SVG-FLASH (retest) · COUNTDOWN-HOST-STAMP · FRIENDS-LOBBY-ORDER + SHARD-PT-2.
+2026-08-17 (playtest PASSes) — **COUNTDOWN-HOST-STAMP-PT-1** · **CUSTOMIZE-SVG-FLASH-PT-1** ·
+**FRIENDS-LOBBY-ORDER-PT-1** · **KO-CENTER-RING-PT-1** Wyatt PASS on prod (`7896b9f4`);
+**SD-SPECTATOR-CHARGE-PT-1** · **CART-HUE-RED-PT-1** · **LAST-STANDING-DEAD-PT-1** ·
+**NPC-ABORT-BURST-PT-1** · **REMOTE-INPUT-STALE-PT-1** · **SPILL-RAM-CREDIT-PT-1**
+Wyatt PASS on `npm run dev`. Parents close. Deferred: **SHARD-PT-2**.
 
 2026-08-17 (CART-HUE-CUBES) — shipped prod `9cd253e5`; Wyatt PASS; parent closes.
-
-2026-08-17 (playtest closes) — **CART-HUE-RED-PT-1** · **LAST-STANDING-DEAD-PT-1** ·
-**NPC-ABORT-BURST-PT-1** · **REMOTE-INPUT-STALE-PT-1** · **SPILL-RAM-CREDIT-PT-1** Wyatt
-PASS 08-17 (on `npm run dev`); parents close.
 
 2026-08-17 (D-WORK-LANES-1) — replaced fast / full-wave handling with agent-assessed
 Routine / Standard / Critical lanes. Routine needs no ack or full QA; Standard and Critical

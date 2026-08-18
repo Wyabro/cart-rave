@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-18T04:53:55.975Z",
-    "commit": "07f50356"
+    "at": "2026-08-18T05:19:34.162Z",
+    "commit": "f1289cb3"
   },
-  "source_digest": "ca4d5d7e",
+  "source_digest": "d3a41d37",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -878,9 +878,7 @@
       }
     ],
     "next_actions": [
-      "Retest CUSTOMIZE-SVG-FLASH-PT-1 after ship (or `npm run dev`).",
-      "Playtest COUNTDOWN-HOST-STAMP-PT-1 on prod (2pc, you are not host).",
-      "Playtest FRIENDS-LOBBY-ORDER-PT-1 on prod (2pc)."
+      "Playtest CUSTOMIZE-SPAM-PT-1 after ship (or `npm run dev`, `?diag=1`)."
     ],
     "open_issues": [
       {
@@ -895,33 +893,15 @@
       {
         "title": "Engineering",
         "counts": {
-          "Medium": 8,
+          "Medium": 5,
           "Partial": 1,
           "Low": 12
         },
         "rows": [
           {
             "pri": "Medium",
-            "item": "COUNTDOWN-HOST-STAMP-1 — first non-host 3-2-1 hangs on 3 then slams 2+1 `[2pc]`",
-            "notes": "**Landed 08-16** — skip `host_round` / hello `countdownStartedAtMs` while `hostClock.samples === 0` (keep `gameStart` local stamp). Host and rematch (`samples > 0`) still apply. Abort `0` still applies. No `tHost` on `host_round`. Mid-join during countdown is out of this lever. Playtest owed: **COUNTDOWN-HOST-STAMP-PT-1**. Not a reopen of COUNTDOWN-SYNC-1 / COUNTDOWN-QUICKPLAY-1 / THOST-CEILING-1.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
             "item": "CUSTOMIZE-SPAM-1 — rapid Customize open/close remounts WebGL and kills attract `[solo]`",
-            "notes": "**Filed 08-17 from cap-370** (RTX 4090, High, `cartclash.lol/?diag=1`, lobby, prod `748ea991`). Do not reopen **ATTRACT-JANK-1** (reduced-motion cadence) or **CUSTOMIZE-PERF-1** (steady-state 0.3 ms). Distinct from **CUSTOMIZE-SVG-FLASH-1** (cartoon SVG). Timeline: 10 `menuCartMount` in 54 s; longtask after almost every remount (max 1714 ms); `gpucontextlost` on the main attract canvas at t=43921; no `gpucontextrestored` by F8 at t=54515. Attract loop still ticks (`attractWindow` cheap, `attractCut` continues) but the game GL is dead. Each open disposes the menu cart and creates a Customize WebGL+PMREM; each close disposes that and remounts the menu cart. `mountCartPreview` also nulls the in-flight promise, so a stacked import can create a second Customize context. **Work from this capture.** Candidate: debounce menu-cart remount until Customize has stayed closed; add a generation token so in-flight mounts cannot stack.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "CUSTOMIZE-SVG-FLASH-1 — DONE/apply flashes the legacy cart SVG `[solo]`",
-            "notes": "**Landed 08-17; open-path follow-up 08-17.** Close already hides before dispose. Open no longer paints `makeCartSVG` as a chunk-load placeholder — holder stays empty until 3D is ready; SVG only if CartPreview load/init throws. Playtest owed: **CUSTOMIZE-SVG-FLASH-PT-1** (retest after ship).",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "FRIENDS-LOBBY-ORDER-1 — Friends lobby lists bots above later humans `[2pc]`",
-            "notes": "**Landed 08-17** — `joinOrder` on hello + every `MSG.slots`; CHECKOUT LINE sorts humans first in that order. Seats unchanged. Playtest owed: **FRIENDS-LOBBY-ORDER-PT-1**. Not a reopen of FRIENDS-JOIN-LAYOUT-1.",
+            "notes": "**Landed 08-17** — keep-alive pause/resume; one Customize context per menu session; generation token blocks stacked imports; `release()` on menu-exit. Do not reopen **ATTRACT-JANK-1** or **CUSTOMIZE-PERF-1**. Distinct from **CUSTOMIZE-SVG-FLASH-1**. Playtest owed: **CUSTOMIZE-SPAM-PT-1**.",
             "ship1": null
           },
           {
@@ -1051,26 +1031,14 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Medium": 3,
+          "Medium": 1,
           "Low": 1
         },
         "rows": [
           {
             "pri": "Medium",
-            "item": "COUNTDOWN-HOST-STAMP-PT-1 — first non-host 3-2-1 is even; 3 does not hang then slam 2+1 `[2pc]`",
-            "notes": "**Owed: Wyatt playtest — COUNTDOWN-HOST-STAMP-PT-1 — first non-host 3-2-1 is even; 3 does not hang then slam 2+1.** Parent **COUNTDOWN-HOST-STAMP-1**. You are not host. Hard-refresh. On prod (VERIFY_OK `7896b9f4`).<br>1. Two PCs. Friends or Quickplay. You are not host. First match.<br>2. FAIL if 3 hangs, then 2 and 1 slam. PASS if 3-2-1-GO is about 1 s each.<br>3. Rematch in the same room. FAIL if that countdown hangs or slams. PASS if it stays even.<br>4. Host screen: FAIL if host 3-2-1 changed.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "CUSTOMIZE-SVG-FLASH-PT-1 — DONE/apply does not flash the legacy cart SVG `[solo]`",
-            "notes": "**Owed: Wyatt playtest — CUSTOMIZE-SVG-FLASH-PT-1 — DONE and apply do not flash the old cart drawing.** Parent **CUSTOMIZE-SVG-FLASH-1**. FAIL 08-17: SVG flashed on open (close was clean). Retest after next ship. Hard-refresh.<br>1. Menu. Open Customize. Pick a color. Press DONE.<br>2. FAIL if a flat cartoon cart drawing flashes while the screen opens or closes. PASS if the 3D cart stays or the holder stays empty until the 3D cart appears.<br>3. Open Customize again. Change color. Stay on the screen. FAIL if the 3D cart turns into that flat drawing. PASS if the 3D cart updates in place.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "FRIENDS-LOBBY-ORDER-PT-1 — Friends CHECKOUT LINE lists humans first, first-connect first `[2pc]`",
-            "notes": "**Owed: Wyatt playtest — FRIENDS-LOBBY-ORDER-PT-1 — Friends CHECKOUT LINE lists humans first, first-connect first.** Parent **FRIENDS-LOBBY-ORDER-1**. On prod (VERIFY_OK `7896b9f4`). Hard-refresh.<br>1. Two PCs. Friends room. Host picks a cart color that is not the seat-0 bot color (or confirm host is not seat 0).<br>2. Guest joins. Both screens: FAIL if a bot sits above a human. PASS if humans are at the top, host above guest, bots under.<br>3. FAIL if a human's color or seat mark no longer matches their cart. PASS if color and mark still match the cart.<br>4. Not a FAIL: the small score list at 3-2-1 may still show seat order.",
+            "item": "CUSTOMIZE-SPAM-PT-1 — spam Customize open/close does not kill the menu cart `[solo]`",
+            "notes": "**Owed: Wyatt playtest — CUSTOMIZE-SPAM-PT-1 — spam Customize open/close does not freeze or black the menu.** Parent **CUSTOMIZE-SPAM-1**. After ship, or `npm run dev`. Hard-refresh. Use `?diag=1`.<br>1. Menu. Open and close Customize at least 10 times in about one minute.<br>2. FAIL if the 3D menu cart or the arena behind the menu goes black and stays black. PASS if both stay live.<br>3. Open Customize once more. Change color. Press DONE. FAIL if the menu cart is gone or the cartoon drawing flashes. PASS if the 3D cart comes back.",
             "ship1": null
           },
           {

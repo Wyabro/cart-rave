@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-18 at commit `3d66d8a9` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `03f6feb1`
+> Generated 2026-08-18 at commit `f1289cb3` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `1abb7a84`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -18,7 +18,7 @@ Playtesting and stabilization — Tier A drained; Tier B/C, security sweep, and 
 
 ## ACTIVE CARD
 
-Retest CUSTOMIZE-SVG-FLASH-PT-1 after ship (or `npm run dev`)
+Playtest CUSTOMIZE-SPAM-PT-1 after ship (or `npm run dev`, `?diag=1`)
 
 Assess and state the lane before editing. This heading names the card; it is **not** a lane assessment or permission to edit.
 
