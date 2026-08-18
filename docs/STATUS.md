@@ -31,12 +31,13 @@ external testers. Stay in this phase until Wyatt advances the marker.
 
 Active: **PERF-CLASSIC-IGPU-1** wave B (instrument). No look change.
 `?diag` F8 `loopRound` now splits visMs into `visSync` / `visFx` / `visHud` /
-`visRender` / `visOther`. Landed 08-18 Block 5 Lows: **KEYUP-STUCK-1** ·
-**SPECTATOR-ANNOUNCER-1** · **RD-COUNTER-1**. Playtest owed on
-`npm run dev`: **KEYUP-STUCK-PT-1** · **SPECTATOR-ANNOUNCER-PT-1** ·
-**RD-COUNTER-PT-1**. Closed 08-18 — **CUSTOMIZE-SPAM-PT-1** (prod
-`a41987e7`) · **WARM-CLASSIC-JUICE-PT-1** (`951ea15d` / `npm run dev`).
-Deferred: **SHARD-PT-2**. Do not reopen GAMEPAD-LOBBY-1 or **PERF-PASS-1**.
+`visRender` / `visOther`. Landed 08-18 Block 5 Lows on prod `e3886b5f`
+(VERIFY_OK): **KEYUP-STUCK-1** · **SPECTATOR-ANNOUNCER-1** ·
+**RD-COUNTER-1**. Playtest owed on prod: **KEYUP-STUCK-PT-1** ·
+**SPECTATOR-ANNOUNCER-PT-1** · **RD-COUNTER-PT-1**. Closed 08-18 —
+**CUSTOMIZE-SPAM-PT-1** (prod `a41987e7`) · **WARM-CLASSIC-JUICE-PT-1**
+(`951ea15d` / `npm run dev`). Deferred: **SHARD-PT-2**. Do not reopen
+GAMEPAD-LOBBY-1 or **PERF-PASS-1**.
 
 **Closed cards keep their narrative in their own docs, not here** — Sundial
 ([handover](./planning/art-pass-sundial-handover.md); read its "Traps that cost time" before any
@@ -79,7 +80,7 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. Wyatt F8 Friends Classic Low on **prod** `437fd1e3` (VERIFY_OK). URL: `https://www.cartclash.lol/?diag=1`. Read `loopRound.visRenderMeanMs` / `visSyncMeanMs` / `visFxMeanMs` / `visHudMeanMs` / `visOtherMeanMs`. Match cap-371: rsm 0.7, `straddledDemotion: false`.
+1. Wyatt F8 Friends Classic Low on **prod** `e3886b5f` (VERIFY_OK). URL: `https://www.cartclash.lol/?diag=1`. Read `loopRound.visRenderMeanMs` / `visSyncMeanMs` / `visFxMeanMs` / `visHudMeanMs` / `visOtherMeanMs`. Match cap-371: rsm 0.7, `straddledDemotion: false`.
 2. Deferred: **SHARD-PT-2** (launch day).
 
 ## Open issues (top)
@@ -131,8 +132,9 @@ or a suspected blocker (TS 7 · `cartrave4` UVs).
 
 ## Last updated
 
-2026-08-18 (ship) — **PERF-CLASSIC-IGPU-1** wave B on prod `437fd1e3`
-(VERIFY_OK, Worker `396197b7`). Wyatt F8 Friends Classic Low next.
+2026-08-18 (ship) — Block 5 Lows + vis buckets on prod `e3886b5f`
+(VERIFY_OK, Worker `95e4fba7`). Playtest owed: KEYUP / SPECTATOR / RD.
+Wyatt F8 Friends Classic Low next.
 
 2026-08-18 (PERF-CLASSIC-IGPU-1 wave B) — vis buckets on F8 `loopRound`. No
 look change. Wyatt F8 Friends Classic Low next.

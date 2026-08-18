@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-18T06:21:14.851Z",
-    "commit": "e648189c"
+    "at": "2026-08-18T06:36:11.009Z",
+    "commit": "e3886b5f"
   },
-  "source_digest": "4a75945f",
+  "source_digest": "bd28a583",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -884,7 +884,7 @@
       }
     ],
     "next_actions": [
-      "Wyatt F8 Friends Classic Low on prod `437fd1e3` (VERIFY_OK). URL: `https://www.cartclash.lol/?diag=1`. Read `loopRound.visRenderMeanMs` / `visSyncMeanMs` / `visFxMeanMs` / `visHudMeanMs` / `visOtherMeanMs`. Match cap-371: rsm 0.7, `straddledDemotion: false`.",
+      "Wyatt F8 Friends Classic Low on prod `e3886b5f` (VERIFY_OK). URL: `https://www.cartclash.lol/?diag=1`. Read `loopRound.visRenderMeanMs` / `visSyncMeanMs` / `visFxMeanMs` / `visHudMeanMs` / `visOtherMeanMs`. Match cap-371: rsm 0.7, `straddledDemotion: false`.",
       "Deferred: SHARD-PT-2 (launch day)."
     ],
     "open_issues": [
@@ -1020,19 +1020,19 @@
           {
             "pri": "Low",
             "item": "RD-COUNTER-PT-1 — guest RD n matches the host after an unvalidated podium",
-            "notes": "**Owed: Wyatt playtest — RD-COUNTER-PT-1 — host and guest show the same RD n on rematch.** Pushed, not yet deployed — `npm run dev` until ship.<br>1. Friends, 2 players. Play a round. Note RD on both screens (should be RD 1).<br>2. Play again. Both must show RD 2.<br>3. FAIL if the guest stays on RD 1. PASS if both increment together. Mid-round join reading low is accepted.",
+            "notes": "**Owed: Wyatt playtest — RD-COUNTER-PT-1 — host and guest show the same RD n on rematch.** On prod `e3886b5f` (VERIFY_OK). Hard-refresh first.<br>1. Friends, 2 players. Play a round. Note RD on both screens (should be RD 1).<br>2. Play again. Both must show RD 2.<br>3. FAIL if the guest stays on RD 1. PASS if both increment together. Mid-round join reading low is accepted.",
             "ship1": null
           },
           {
             "pri": "Low",
             "item": "SPECTATOR-ANNOUNCER-PT-1 — decided podium silences in-flight PA",
-            "notes": "**Owed: Wyatt playtest — SPECTATOR-ANNOUNCER-PT-1 — a decided podium cuts an in-flight last-10s / new-leader line, then plays victory.** Pushed, not yet deployed — `npm run dev` until ship.<br>1. Solo. Let the last-10s callout start, then win the round.<br>2. FAIL if the leftover line plays over the winner cam. PASS if it cuts and victory plays.<br>3. Optional: as a spectator in Friends, leftover must stay silent (no victory/defeat for that seat).",
+            "notes": "**Owed: Wyatt playtest — SPECTATOR-ANNOUNCER-PT-1 — a decided podium cuts an in-flight last-10s / new-leader line, then plays victory.** On prod `e3886b5f` (VERIFY_OK). Hard-refresh first.<br>1. Solo. Let the last-10s callout start, then win the round.<br>2. FAIL if the leftover line plays over the winner cam. PASS if it cuts and victory plays.<br>3. Optional: as a spectator in Friends, leftover must stay silent (no victory/defeat for that seat).",
             "ship1": null
           },
           {
             "pri": "Low",
             "item": "KEYUP-STUCK-PT-1 — keyup over a focused text field does not stick the cart",
-            "notes": "**Owed: Wyatt playtest — KEYUP-STUCK-PT-1 — hold WASD or Shift, focus a text field, release; the cart must stop.** Pushed, not yet deployed — `npm run dev` until ship.<br>1. Start a solo round. Hold W (or hold Shift to charge).<br>2. Open the menu (ESC) and click the name field or join-code field without releasing the key.<br>3. Release the key while that field is focused, then close the menu or start the next round.<br>4. FAIL if the cart keeps driving or boost stays held. PASS if motion and boost stop.",
+            "notes": "**Owed: Wyatt playtest — KEYUP-STUCK-PT-1 — hold WASD or Shift, focus a text field, release; the cart must stop.** On prod `e3886b5f` (VERIFY_OK). Hard-refresh first.<br>1. Start a solo round. Hold W (or hold Shift to charge).<br>2. Open the menu (ESC) and click the name field or join-code field without releasing the key.<br>3. Release the key while that field is focused, then close the menu or start the next round.<br>4. FAIL if the cart keeps driving or boost stays held. PASS if motion and boost stop.",
             "ship1": null
           },
           {

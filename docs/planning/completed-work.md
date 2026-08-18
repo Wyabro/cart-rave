@@ -15,7 +15,7 @@ Chronological record of shipped work, newest first.
 
 ### August 18, 2026 — RD-COUNTER-1
 
-- *(Engineering · Low)* **RD-COUNTER-1** — ✅ **DONE 08-18**. HUD `RD n` now
+- *(Engineering · Low)* **RD-COUNTER-1** — ✅ **DONE 08-18** (prod `e3886b5f`). HUD `RD n` now
   increments once per distinct running `startedAtMs` (not `matchHistory.length`).
   Drops the `getMatchHistoryLength` thread through `hud.js` / `frameVisuals.js` /
   `loopDeps.js` / `gameBoot.js`. Host and guests stay in sync after an
@@ -24,7 +24,7 @@ Chronological record of shipped work, newest first.
 
 ### August 18, 2026 — SPECTATOR-ANNOUNCER-1
 
-- *(Engineering · Low)* **SPECTATOR-ANNOUNCER-1** — ✅ **DONE 08-18**.
+- *(Engineering · Low)* **SPECTATOR-ANNOUNCER-1** — ✅ **DONE 08-18** (prod `e3886b5f`).
   `stopAnnouncer()` now runs once on every podium entry (inside the
   `lastPodiumCelebratedRound` gate, before the winner/draw split). In-flight
   "10 SECONDS" / `new_leader` no longer carry over the winner cam for
@@ -33,7 +33,7 @@ Chronological record of shipped work, newest first.
 
 ### August 18, 2026 — KEYUP-STUCK-1
 
-- *(Engineering · Low)* **KEYUP-STUCK-1** — ✅ **DONE 08-18**. `onKeyUp` now
+- *(Engineering · Low)* **KEYUP-STUCK-1** — ✅ **DONE 08-18** (prod `e3886b5f`). `onKeyUp` now
   clears `keys` / `localNitroHeld` before the INPUT guard; only `preventDefault`
   stays gated. A WASD or Shift release over the name / join-code / hue field no
   longer sticks the cart. Playtest owed: **KEYUP-STUCK-PT-1**.
