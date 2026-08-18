@@ -83,7 +83,7 @@ way the Block table still can.)*
 construction; edit the department tables below and regenerate, never this block by hand.)*
 Everything in **Playtest owed** has landed — those rows wait on deployment or Wyatt's eyes, not
 more engineering. Open owed checks: **CUSTOMIZE-SPAM-PT-1**
-(after ship or `npm run dev`) ·
+(prod) ·
 **SHARD-PT-2** (launch day). Closed PASS history lives only in
 [completed-work.md](./completed-work.md).
 
@@ -256,7 +256,7 @@ completed-work — do not restack it here.
 
 | Pri | Item | Notes |
 |-----|------|-------|
-| Medium | CUSTOMIZE-SPAM-PT-1 — spam Customize open/close does not kill the menu cart `[solo]` | **Owed: Wyatt playtest — CUSTOMIZE-SPAM-PT-1 — spam Customize open/close does not freeze or black the menu.** Parent **CUSTOMIZE-SPAM-1**. After ship, or `npm run dev`. Hard-refresh. Use `?diag=1`.<br>1. Menu. Open and close Customize at least 10 times in about one minute.<br>2. FAIL if the 3D menu cart or the arena behind the menu goes black and stays black. PASS if both stay live.<br>3. Open Customize once more. Change color. Press DONE. FAIL if the menu cart is gone or the cartoon drawing flashes. PASS if the 3D cart comes back. |
+| Medium | CUSTOMIZE-SPAM-PT-1 — spam Customize open/close does not kill the menu cart `[solo]` | **Owed: Wyatt playtest — CUSTOMIZE-SPAM-PT-1 — spam Customize open/close does not freeze or black the menu.** Parent **CUSTOMIZE-SPAM-1**. On prod (VERIFY_OK `a41987e7`). Hard-refresh. Use `?diag=1`.<br>1. Menu. Open and close Customize at least 10 times in about one minute.<br>2. FAIL if the 3D menu cart or the arena behind the menu goes black and stays black. PASS if both stay live.<br>3. Open Customize once more. Change color. Press DONE. FAIL if the menu cart is gone or the cartoon drawing flashes. PASS if the 3D cart comes back. |
 | Low | SHARD-PT-2 — fifth human overflows to quickplay2 `[2pc]` | **Owed: Wyatt playtest — SHARD-PT-2 — the 5th concurrent Quickplay human lands on quickplay2 instead of "couldn't join".** Launch-day / public-post check — needs five real humans (Wyatt deferred 08-05). Rig already 5/5; SHARD-PT-1 PASSed on prod `9c333d1`. Prefer analytics: any `quickplay_shard_assigned` with `hops > 0` or `shard !== quickplay` counts.<br>1. When five humans can join Quickplay at once (public post), watch the 5th seat.<br>2. FAIL if they get the dead-end couldn't-join toast with no hop. PASS if they seat on an overflow shard (or analytics shows hops greater than 0).<br>3. Skip / leave open until launch day — do not FAIL for lack of five people. |
 
 ## Tech Debt

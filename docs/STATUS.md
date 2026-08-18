@@ -29,8 +29,8 @@ report phase-exit eligibility; they must not move the marker.
 are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Analytics DO reset for
 external testers. Stay in this phase until Wyatt advances the marker.
 
-Live PT on prod (VERIFY_OK `748ea991` / Worker `4c34277c`): **CUSTOMIZE-SPAM-PT-1**
-(after ship or `npm run dev`). Landed 08-17 — **CUSTOMIZE-SPAM-1** (keep-alive; PT
+Live PT on prod (VERIFY_OK `a41987e7` / Worker `5a4d6ec7`): **CUSTOMIZE-SPAM-PT-1**.
+Landed 08-17 — **CUSTOMIZE-SPAM-1** (keep-alive; PT
 **CUSTOMIZE-SPAM-PT-1**) · **MIG-KO-DROP-1**. Deferred launch day:
 **SHARD-PT-2**. Closed 08-17 — **CART-HUE-CUBES-PT-1** `[solo]` · **CART-HUE-RED-PT-1`
 `[solo]` · **LAST-STANDING-DEAD-PT-1** · **NPC-ABORT-BURST-PT-1` ·
@@ -83,7 +83,7 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. Playtest **CUSTOMIZE-SPAM-PT-1** after ship (or `npm run dev`, `?diag=1`).
+1. Playtest **CUSTOMIZE-SPAM-PT-1** on prod (`?diag=1`). Hard-refresh.
    Deferred: **SHARD-PT-2** (launch day).
 
 ## Open issues (top)
@@ -129,10 +129,9 @@ or a suspected blocker (TS 7 · `cartrave4` UVs).
 
 ## Last updated
 
-2026-08-17 (CUSTOMIZE-SPAM-1) — keep-alive pause/resume landed. Open/close no
-longer creates or destroys a preview context. Real dispose is menu-exit only.
-Playtest **CUSTOMIZE-SPAM-PT-1** (after ship or `npm run dev`). Do not reopen
-ATTRACT-JANK-1 / CUSTOMIZE-PERF-1.
+2026-08-17 (CUSTOMIZE-SPAM-1) — keep-alive pause/resume shipped. VERIFY_OK
+`a41987e7` / Worker `5a4d6ec7`. Playtest **CUSTOMIZE-SPAM-PT-1** on prod. Do
+not reopen ATTRACT-JANK-1 / CUSTOMIZE-PERF-1.
 
 2026-08-17 (playtest PASSes) — **COUNTDOWN-HOST-STAMP-PT-1** · **CUSTOMIZE-SVG-FLASH-PT-1** ·
 **FRIENDS-LOBBY-ORDER-PT-1** · **KO-CENTER-RING-PT-1** Wyatt PASS on prod (`7896b9f4`);

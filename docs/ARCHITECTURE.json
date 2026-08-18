@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-18T05:19:34.162Z",
-    "commit": "f1289cb3"
+    "at": "2026-08-18T05:28:45.664Z",
+    "commit": "a41987e7"
   },
-  "source_digest": "d3a41d37",
+  "source_digest": "0f87c795",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -878,7 +878,7 @@
       }
     ],
     "next_actions": [
-      "Playtest CUSTOMIZE-SPAM-PT-1 after ship (or `npm run dev`, `?diag=1`)."
+      "Playtest CUSTOMIZE-SPAM-PT-1 on prod (`?diag=1`). Hard-refresh."
     ],
     "open_issues": [
       {
@@ -1038,7 +1038,7 @@
           {
             "pri": "Medium",
             "item": "CUSTOMIZE-SPAM-PT-1 — spam Customize open/close does not kill the menu cart `[solo]`",
-            "notes": "**Owed: Wyatt playtest — CUSTOMIZE-SPAM-PT-1 — spam Customize open/close does not freeze or black the menu.** Parent **CUSTOMIZE-SPAM-1**. After ship, or `npm run dev`. Hard-refresh. Use `?diag=1`.<br>1. Menu. Open and close Customize at least 10 times in about one minute.<br>2. FAIL if the 3D menu cart or the arena behind the menu goes black and stays black. PASS if both stay live.<br>3. Open Customize once more. Change color. Press DONE. FAIL if the menu cart is gone or the cartoon drawing flashes. PASS if the 3D cart comes back.",
+            "notes": "**Owed: Wyatt playtest — CUSTOMIZE-SPAM-PT-1 — spam Customize open/close does not freeze or black the menu.** Parent **CUSTOMIZE-SPAM-1**. On prod (VERIFY_OK `a41987e7`). Hard-refresh. Use `?diag=1`.<br>1. Menu. Open and close Customize at least 10 times in about one minute.<br>2. FAIL if the 3D menu cart or the arena behind the menu goes black and stays black. PASS if both stay live.<br>3. Open Customize once more. Change color. Press DONE. FAIL if the menu cart is gone or the cartoon drawing flashes. PASS if the 3D cart comes back.",
             "ship1": null
           },
           {
