@@ -728,15 +728,21 @@ async function main() {
     probe.__cartRavePerf = { ...probe.__cartRavePerf, scene, camera, composer, renderer };
   }
 
-  // * MENU-CART-1: owned CartPreview canvas in the holder (above the attract dim),
-  // * same init/grade path as Customize. Suspend before Customize opens so the
-  // * two previews never hold PMREM on different WebGL contexts at once.
+  // * MENU-CART-1 / CUSTOMIZE-SPAM-1: owned CartPreview canvas in the holder
+  // * (above the attract dim), same init/grade path as Customize. Each preview
+  // * owns its renderer and its PMREM. Do not share GPU objects across contexts.
+  // * Do not create or destroy a context on Customize toggle. Real dispose is
+  // * menu-exit only (`releaseMenuCartPreview`). Peak after first Customize open:
+  // * attract + paused menu cart + Customize preview until menu-exit.
   const menuCartShowcase = createMenuCartShowcase({
     getMenuVisible: () => gameRefs.menuVisible,
   });
   if (window.CartRave) {
     window.CartRave.setMenuCartPreviewSuspended = (suspended) => {
       menuCartShowcase.setSuspended(suspended);
+    };
+    window.CartRave.releaseMenuCartPreview = () => {
+      menuCartShowcase.release();
     };
   }
 

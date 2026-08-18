@@ -1039,6 +1039,7 @@ export class CartPreview {
   resume() {
     if (!this._paused || this._disposed) return;
     this._paused = false;
+    this._syncCanvasLayout();
     this._lastFrameTime = performance.now();
     if (this._rafId == null) {
       this._rafId = requestAnimationFrame(this._tick);

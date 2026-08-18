@@ -25,6 +25,7 @@ import {
 // * CHUNK-DEFER-1 L1b: CartPreview + cartPreviewGltf pull cartRaveGltf — dynamic only.
 import { isTouchDevice } from "../utils.js";
 import { getQualityTier } from "../utils/qualityMode.js";
+import { recordDiagEvent } from "../utils/diagnostics.js";
 import { settingsStore } from "../stores/settingsStore.js";
 import { DEFAULT_SOLO, normalizeDifficulty } from "../aiDifficulty.js";
 import { togglePostFx, applyQualityTier } from "./graphicsToggles.js";
@@ -368,6 +369,8 @@ import { initGamepadTextEntry, openGamepadTextEntry } from "./gamepadTextEntry.j
   let cartPreview = null;
   /** @type {Promise<void> | null} */
   let cartPreviewMountPromise = null;
+  /** Bumps on real dispose so a stale import() cannot create a second context. */
+  let cartPreviewMountGen = 0;
   /** True only after CartPreview chunk/init throws. SVG fallback is gated on this. */
   let cartPreviewFailed = false;
   let customHueSliderWired = false;
@@ -1066,12 +1069,15 @@ import { initGamepadTextEntry, openGamepadTextEntry } from "./gamepadTextEntry.j
       // * Theme is always "rave" now — setTheme is kept solely to trigger the rebuild.
       cartPreview.setSunglassesStyle(state.sunglassesStyle, { rebuild: false });
       cartPreview.setTheme(DEFAULT_CART_THEME);
+    } else {
+      cartPreview.setSunglassesStyle(state.sunglassesStyle);
     }
     cartPreview.setPattern(state.pattern);
   }
 
   /** Tears down the 3D preview and releases WebGL resources. */
   function disposeCartPreview() {
+    cartPreviewMountGen += 1;
     cartPreviewMountPromise = null;
     cartPreviewFailed = false;
     if (!cartPreview) return;
@@ -1083,26 +1089,37 @@ import { initGamepadTextEntry, openGamepadTextEntry } from "./gamepadTextEntry.j
 
   /**
    * Mounts the rotating 3D cart inside `#cr-customize-cart-holder`.
-   * Disposes any existing instance first so rapid open/close cannot stack previews.
+   * Reuses the live instance on reopen (CUSTOMIZE-SPAM-1). First create only.
    * CHUNK-DEFER-1 L1b: CartPreview module loads on demand. Holder stays empty
    * until 3D is ready (CUSTOMIZE-SVG-FLASH-PT-1). SVG only if load/init fails.
    */
   function mountCartPreview() {
     if (!customizeCartHolder) return;
-    disposeCartPreview();
+    if (cartPreview) {
+      cartPreview.resume();
+      syncCartPreviewLook(false);
+      return;
+    }
+    if (cartPreviewMountPromise) return;
+    const gen = ++cartPreviewMountGen;
     customizeCartHolder.innerHTML = '';
     const holder = customizeCartHolder;
     cartPreviewMountPromise = import("./cartPreview.js")
       .then(({ CartPreview }) => {
-        if (cartPreviewMountPromise == null || !holder.isConnected) return;
+        if (gen !== cartPreviewMountGen) return;
+        if (!holder.isConnected) return;
         if (holder !== customizeCartHolder) return;
+        if (cartPreview) return;
         holder.innerHTML = '';
         cartPreview = new CartPreview();
         cartPreview.init(holder);
+        recordDiagEvent("attract", "customizePreviewMount", { tier: getQualityTier() });
         syncCartPreviewLook(true);
+        if (!isCustomizeScreenOpen()) cartPreview.pause();
       })
       .catch((err) => {
         console.warn("[menu] CartPreview load failed — SVG fallback stays:", err);
+        if (gen !== cartPreviewMountGen) return;
         if (cartPreview) {
           cartPreview.dispose();
           cartPreview = null;
@@ -1111,7 +1128,7 @@ import { initGamepadTextEntry, openGamepadTextEntry } from "./gamepadTextEntry.j
         if (isCustomizeScreenOpen()) renderCustomizePreview();
       })
       .finally(() => {
-        cartPreviewMountPromise = null;
+        if (gen === cartPreviewMountGen) cartPreviewMountPromise = null;
       });
   }
 
@@ -1187,8 +1204,8 @@ import { initGamepadTextEntry, openGamepadTextEntry } from "./gamepadTextEntry.j
     captureOverlayOpener();
     wireCustomHueSlider();
     updateCustomHueUi();
-    // * The desktop menu cart borrows the game renderer. Release that scene before
-    // * opening this opaque, owned-canvas preview so PMREM textures never cross contexts.
+    // * Pause the menu cart. Do not dispose it — each preview keeps its context
+    // * for the menu session (CUSTOMIZE-SPAM-1).
     window.CartRave?.setMenuCartPreviewSuspended?.(true);
     // * Mark open before mount so fail-only SVG may paint only while this
     // * screen is actually shown (CUSTOMIZE-SVG-FLASH-1 close guard).
@@ -1210,7 +1227,11 @@ import { initGamepadTextEntry, openGamepadTextEntry } from "./gamepadTextEntry.j
     }
   }
 
-  function closeCustomizeScreen() {
+  /**
+   * @param {{ release?: boolean }} [opts] `release: true` tears down both previews
+   * (menu-exit). Default is keep-alive: pause Customize, resume the menu cart.
+   */
+  function closeCustomizeScreen({ release = false } = {}) {
     if (!customizeScreen) return;
 
     // * Blur the focused element before hiding the panel to prevent
@@ -1220,7 +1241,7 @@ import { initGamepadTextEntry, openGamepadTextEntry } from "./gamepadTextEntry.j
     }
 
     // * Persist first so customization-changed syncs the still-live 3D preview.
-    // * CUSTOMIZE-SVG-FLASH-1: hide before dispose so the save listener cannot
+    // * CUSTOMIZE-SVG-FLASH-1: hide before teardown so the save listener cannot
     // * paint makeCartSVG into the holder during the dismiss.
     saveCustomization({
       colorMode: state.colorMode === 'custom' ? 'custom' : 'preset',
@@ -1232,14 +1253,21 @@ import { initGamepadTextEntry, openGamepadTextEntry } from "./gamepadTextEntry.j
       sunglassesStyle: state.sunglassesStyle,
     });
     customizeScreen.setAttribute('aria-hidden', 'true');
-    disposeCartPreview();
+    if (release) {
+      disposeCartPreview();
+      window.CartRave?.releaseMenuCartPreview?.();
+    } else {
+      cartPreview?.pause();
+    }
     const panel = customizeScreen.querySelector('.cr-customize-panel');
     animateMenuDismiss(panel instanceof HTMLElement ? panel : null, {
       container: customizeScreen,
       abortIf: () => customizeScreen.getAttribute('aria-hidden') === 'false',
     });
     applyPalette();
-    window.CartRave?.setMenuCartPreviewSuspended?.(false);
+    if (!release) {
+      window.CartRave?.setMenuCartPreviewSuspended?.(false);
+    }
     restoreOverlayFocus();
   }
 
@@ -1252,8 +1280,8 @@ import { initGamepadTextEntry, openGamepadTextEntry } from "./gamepadTextEntry.j
         switchCustomizeTab(tab.dataset.tab || 'body');
       });
     });
-    customizeDoneBtn?.addEventListener('click', closeCustomizeScreen);
-    customizeBackBtn?.addEventListener('click', closeCustomizeScreen);
+    customizeDoneBtn?.addEventListener('click', () => closeCustomizeScreen());
+    customizeBackBtn?.addEventListener('click', () => closeCustomizeScreen());
     document.querySelectorAll('.cr-btn[data-action="customize"]').forEach((btn) => {
       wireMenuPressFeedback(btn);
     });
@@ -2815,7 +2843,7 @@ import { initGamepadTextEntry, openGamepadTextEntry } from "./gamepadTextEntry.j
     applyPalette();
   });
   window.addEventListener('cartrave:round-started', () => {
-    closeCustomizeScreen();
+    closeCustomizeScreen({ release: true });
     closeHowToScreen({ userDismissed: true });
     closeChallengesScreen();
     closeSettingsScreen();
@@ -2972,10 +3000,11 @@ import { initGamepadTextEntry, openGamepadTextEntry } from "./gamepadTextEntry.j
     hide() {
       stopMenuLoopsAndTimers();
       clearHowToAttract();
-      closeCustomizeScreen();
+      closeCustomizeScreen({ release: true });
       closeHowToScreen();
       closeChallengesScreen();
       closeSettingsScreen();
+      window.CartRave?.releaseMenuCartPreview?.();
       window.CartRave?.setMenuCartPreviewSuspended?.(true);
       if (root) root.style.display = 'none';
     },

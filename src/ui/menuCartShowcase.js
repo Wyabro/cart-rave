@@ -2,9 +2,11 @@
  * menuCartShowcase.js — desktop menu cart as an owned CartPreview canvas.
  *
  * Sits in the #cr-menu-cart-holder above the attract dim layer, using the same
- * init path as Customize. Borrowing the game canvas (initExternal under the dim)
- * could never match Customize grade without a box or a hole. Suspend/dispose
- * before Customize opens so PMREM never crosses WebGL contexts.
+ * init path as Customize. Each preview owns its renderer and its PMREM. Do not
+ * share GPU objects across contexts. Do not create or destroy a context on
+ * Customize toggle — pause/resume instead. Real dispose is menu-exit only
+ * (`release()`). Peak while Customize has been opened once: attract + this
+ * paused preview + the Customize preview (three contexts) until menu-exit.
  */
 
 import { loadPlayerCustomization } from "../carts/customization.js";
@@ -71,7 +73,9 @@ export function createMenuCartShowcase({ getMenuVisible }) {
     const startMs = nowMs;
     mountPromise = import("./cartPreview.js")
       .then(({ CartPreview }) => {
-        if (!hasEligibleViewport() || preview) return;
+        if (preview) return;
+        if (!(holder instanceof HTMLElement)) return;
+        if (!getMenuVisible() || window.innerWidth <= 1024 || getQualityTier() === "low") return;
         preview = new CartPreview();
         // * Set fields before init starts its one GLTF load, avoiding a second
         // * short-lived clone when the saved mirror style is not the default.
@@ -81,6 +85,10 @@ export function createMenuCartShowcase({ getMenuVisible }) {
         preview.setHeroPose();
         mountedAtMs = startMs;
         recordDiagEvent("attract", "menuCartMount", { tier: getQualityTier() });
+        if (suspended) {
+          preview.pause();
+          hide();
+        }
       })
       .catch((err) => {
         console.warn("[menuCartShowcase] CartPreview load failed:", err);
@@ -96,6 +104,7 @@ export function createMenuCartShowcase({ getMenuVisible }) {
    * @param {number} nowMs
    */
   function render(nowMs) {
+    if (suspended) return;
     if (!hasEligibleViewport()) {
       disposePreview();
       hide();
@@ -117,9 +126,24 @@ export function createMenuCartShowcase({ getMenuVisible }) {
   function setSuspended(next) {
     suspended = Boolean(next);
     if (suspended) {
-      disposePreview();
+      preview?.pause();
       hide();
+      return;
     }
+    if (preview) {
+      if (!hasEligibleViewport()) {
+        disposePreview();
+        hide();
+        return;
+      }
+      preview.resume();
+    }
+  }
+
+  function release() {
+    disposePreview();
+    hide();
+    suspended = true;
   }
 
   const onCustomizationChanged = (event) => {
@@ -131,6 +155,7 @@ export function createMenuCartShowcase({ getMenuVisible }) {
   return {
     render,
     setSuspended,
+    release,
     dispose() {
       window.removeEventListener("cartrave:customization-changed", onCustomizationChanged);
       disposePreview();

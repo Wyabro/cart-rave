@@ -29,6 +29,8 @@ vi.mock("../../src/ui/cartPreview.js", () => ({
       this.applyShowroomFeint = vi.fn(() => false);
       this.resetShowroomFeint = vi.fn();
       this.renderExternal = vi.fn();
+      this.pause = vi.fn();
+      this.resume = vi.fn();
       this.dispose = vi.fn();
       state.instances.push(this);
     }
@@ -79,7 +81,7 @@ describe("menu cart showcase", () => {
     expect(document.getElementById("cr-menu-cart-holder").hidden).toBe(true);
   });
 
-  it("disposes the owned canvas when suspended for Customize", async () => {
+  it("pauses the owned canvas when suspended for Customize", async () => {
     const showcase = showcaseModule.createMenuCartShowcase({
       getMenuVisible: () => true,
     });
@@ -89,6 +91,39 @@ describe("menu cart showcase", () => {
     });
     const preview = state.instances[0];
     showcase.setSuspended(true);
+    expect(preview.pause).toHaveBeenCalledTimes(1);
+    expect(preview.dispose).not.toHaveBeenCalled();
+    expect(document.getElementById("cr-menu-cart-holder").hidden).toBe(true);
+  });
+
+  it("resumes the same instance when unsuspended", async () => {
+    const showcase = showcaseModule.createMenuCartShowcase({
+      getMenuVisible: () => true,
+    });
+    showcase.render(100);
+    await vi.waitFor(() => {
+      expect(state.instances.length).toBe(1);
+    });
+    const preview = state.instances[0];
+    showcase.setSuspended(true);
+    showcase.render(200);
+    expect(preview.dispose).not.toHaveBeenCalled();
+    showcase.setSuspended(false);
+    expect(preview.resume).toHaveBeenCalledTimes(1);
+    expect(state.instances.length).toBe(1);
+    expect(preview.dispose).not.toHaveBeenCalled();
+  });
+
+  it("release() disposes the owned canvas", async () => {
+    const showcase = showcaseModule.createMenuCartShowcase({
+      getMenuVisible: () => true,
+    });
+    showcase.render(100);
+    await vi.waitFor(() => {
+      expect(state.instances.length).toBe(1);
+    });
+    const preview = state.instances[0];
+    showcase.release();
     expect(preview.dispose).toHaveBeenCalledTimes(1);
     expect(document.getElementById("cr-menu-cart-holder").hidden).toBe(true);
   });
