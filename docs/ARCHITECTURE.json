@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-18T05:52:59.996Z",
-    "commit": "47bc4d89"
+    "at": "2026-08-18T05:59:14.064Z",
+    "commit": "951ea15d"
   },
-  "source_digest": "c6902da0",
+  "source_digest": "e6b4eeb0",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -871,12 +871,6 @@
   "workstreams": {
     "queue": [
       {
-        "id": "WARM-CLASSIC-JUICE-1",
-        "what": "Pre-warm Classic play programs before carts",
-        "status": "🔧 in progress (cap-371)",
-        "state": "waiting"
-      },
-      {
         "id": "BRAND-1",
         "what": "Domain cutover",
         "status": "🧊 frozen ([brand.md](./brand.md))",
@@ -884,8 +878,8 @@
       }
     ],
     "next_actions": [
-      "Land WARM-CLASSIC-JUICE-1. Then playtest Friends join to a Classic room",
-      "Playtest CUSTOMIZE-SPAM-PT-1 on prod (`?diag=1`). Hard-refresh."
+      "Deferred: SHARD-PT-2 (launch day).",
+      "Next queued (not active): PERF-CLASSIC-IGPU-1 — Classic ~30 fps on Intel UHD."
     ],
     "open_issues": [
       {
@@ -900,23 +894,11 @@
       {
         "title": "Engineering",
         "counts": {
-          "Medium": 6,
+          "Medium": 4,
           "Partial": 1,
           "Low": 12
         },
         "rows": [
-          {
-            "pri": "Medium",
-            "item": "CUSTOMIZE-SPAM-1 — rapid Customize open/close remounts WebGL and kills attract `[solo]`",
-            "notes": "**Landed 08-17** — keep-alive pause/resume; one Customize context per menu session; generation token blocks stacked imports; `release()` on menu-exit. Do not reopen **ATTRACT-JANK-1** or **CUSTOMIZE-PERF-1**. Distinct from **CUSTOMIZE-SVG-FLASH-1**. Playtest owed: **CUSTOMIZE-SPAM-PT-1**.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "WARM-CLASSIC-JUICE-1 — Friends/QP join to Classic freezes the overlay ~10 s on iGPU",
-            "notes": "**Filed 08-18 from cap-371** (Intel UHD, Low, `?diag=1&room=ROLL2`, Friends non-host). **WARM-QP-ROTATE-1** adopt already ran (`play-arena-adopt` zanzibar→classicRecord). Residual: first Classic play compile is 451 materials / 3.1 s + 2.8 s flyover poll after carts spawn; Low still `initLasers` then hides them. Lever: warm adopted arena (no flyover) before carts, consume `juiceFresh`, skip laser init when `laserBudget === \"off\"`. Do not reopen **WARM-QP-ROTATE-1** or **WARM-IGPU-1**. Distinct from **WARM-SOLO-1** (countdown first-draw) and **PERF-CLASSIC-IGPU-1** (sustained 30 fps). Playtest owed: **WARM-CLASSIC-JUICE-PT-1**.",
-            "ship1": null
-          },
           {
             "pri": "Medium",
             "item": "PERF-CLASSIC-IGPU-1 — Classic holds ~30 fps on Intel UHD after rsm 0.7",
@@ -1044,22 +1026,9 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Medium": 2,
           "Low": 1
         },
         "rows": [
-          {
-            "pri": "Medium",
-            "item": "WARM-CLASSIC-JUICE-PT-1 — Friends join to Classic does not freeze the overlay `[2pc]`",
-            "notes": "**Owed: Wyatt playtest — WARM-CLASSIC-JUICE-PT-1 — Friends join to a Classic room does not freeze the overlay ~10 s.** Parent **WARM-CLASSIC-JUICE-1**. Not on prod yet — `npm run dev` or wait for deploy. Intel UHD / Low. Use `?diag=1`.<br>1. Host: Friends room, pick CART RAVE (Classic). Guest: join the code on the Intel box.<br>2. FAIL if the loading overlay locks for many seconds (page dead, meter stuck). PASS if the overlay keeps painting and CHECKOUT LINE appears without a ~10 s freeze.<br>3. Ready up. FAIL if 3-2-1 skips digits. PASS if countdown is even. Low Classic still has no lasers; billboard stays.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "CUSTOMIZE-SPAM-PT-1 — spam Customize open/close does not kill the menu cart `[solo]`",
-            "notes": "**Owed: Wyatt playtest — CUSTOMIZE-SPAM-PT-1 — spam Customize open/close does not freeze or black the menu.** Parent **CUSTOMIZE-SPAM-1**. On prod (VERIFY_OK `a41987e7`). Hard-refresh. Use `?diag=1`.<br>1. Menu. Open and close Customize at least 10 times in about one minute.<br>2. FAIL if the 3D menu cart or the arena behind the menu goes black and stays black. PASS if both stay live.<br>3. Open Customize once more. Change color. Press DONE. FAIL if the menu cart is gone or the cartoon drawing flashes. PASS if the 3D cart comes back.",
-            "ship1": null
-          },
           {
             "pri": "Low",
             "item": "SHARD-PT-2 — fifth human overflows to quickplay2 `[2pc]`",

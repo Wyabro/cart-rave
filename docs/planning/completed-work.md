@@ -13,6 +13,28 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 18, 2026 — playtest PASSes (CUSTOMIZE-SPAM / WARM-CLASSIC-JUICE)
+
+- *(Playtest · Medium)* **CUSTOMIZE-SPAM-PT-1** — ✅ **PASS 08-18** on prod
+  (VERIFY_OK `a41987e7`). Spam Customize open/close (10+ in about one minute)
+  does not black the menu cart or the arena. DONE after a color change returns
+  the 3D cart; no cartoon SVG flash. Parent **CUSTOMIZE-SPAM-1** closes with it.
+  Do not reopen **ATTRACT-JANK-1** or **CUSTOMIZE-PERF-1**.
+- *(Engineering · Medium)* **CUSTOMIZE-SPAM-1** — ✅ **DONE 08-17** (`a41987e7`)
+  + ✅ **PASS 08-18**. Keep-alive pause/resume; one Customize context per menu
+  session; generation token blocks stacked imports; `release()` on menu-exit.
+- *(Playtest · Medium)* **WARM-CLASSIC-JUICE-PT-1** — ✅ **PASS 08-18** on
+  `npm run dev` (HEAD `951ea15d`; pushed, not yet deployed). Friends join to
+  CART RAVE on Intel UHD / Low: overlay keeps painting, CHECKOUT LINE appears
+  without a ~10 s freeze; 3-2-1 stays even; Low has no lasers; billboard stays.
+  Parent **WARM-CLASSIC-JUICE-1** closes with it.
+- *(Engineering · Medium)* **WARM-CLASSIC-JUICE-1** — ✅ **DONE 08-18**
+  (`951ea15d`) + ✅ **PASS 08-18**. Adopt warms the room arena (no flyover)
+  under the overlay; consume `juiceFresh` so the post-cart warm uses the short
+  budget; skip `initLasers` when `laserBudget === "off"`. Do not reopen
+  **WARM-QP-ROTATE-1**. Distinct from **PERF-CLASSIC-IGPU-1** (sustained 30 fps)
+  and **WARM-SOLO-1** (countdown first-draw).
+
 ### August 18, 2026 — WARM-QP-ROTATE-1 closed
 
 - *(Engineering · Medium)* **WARM-QP-ROTATE-1** — ✅ **CLOSED 08-18** (no new code).

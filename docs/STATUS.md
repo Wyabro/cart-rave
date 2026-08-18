@@ -29,11 +29,10 @@ report phase-exit eligibility; they must not move the marker.
 are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Analytics DO reset for
 external testers. Stay in this phase until Wyatt advances the marker.
 
-Active card: **WARM-CLASSIC-JUICE-1** (cap-371 Friends Classic join freeze).
-Live PT still owed: **CUSTOMIZE-SPAM-PT-1** on prod (VERIFY_OK `a41987e7` /
-Worker `5a4d6ec7`). Deferred launch day: **SHARD-PT-2**. **WARM-QP-ROTATE-1**
-closed 08-18 (adopt + PT-1; residual is this card). Do not reopen
-GAMEPAD-LOBBY-1.
+No live implementation card. Closed 08-18 — **CUSTOMIZE-SPAM-PT-1** (prod
+`a41987e7`) · **WARM-CLASSIC-JUICE-PT-1** (`951ea15d` / `npm run dev`);
+parents close. Deferred launch day: **SHARD-PT-2**. Next queued perf residual:
+**PERF-CLASSIC-IGPU-1**. Do not reopen GAMEPAD-LOBBY-1.
 
 **Closed cards keep their narrative in their own docs, not here** — Sundial
 ([handover](./planning/art-pass-sundial-handover.md); read its "Traps that cost time" before any
@@ -71,15 +70,12 @@ Live rows only. Shipped and closed cards live in
 
 | # | What | Status |
 |---|------|--------|
-| WARM-CLASSIC-JUICE-1 | Pre-warm Classic play programs before carts | 🔧 in progress (cap-371) |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 
 ### Next actions
 
-1. Land **WARM-CLASSIC-JUICE-1**. Then playtest Friends join to a Classic room
-   on the Intel box (`?diag=1`). Overlay must not freeze ~10 s.
-2. Playtest **CUSTOMIZE-SPAM-PT-1** on prod (`?diag=1`). Hard-refresh.
-   Deferred: **SHARD-PT-2** (launch day).
+1. Deferred: **SHARD-PT-2** (launch day).
+2. Next queued (not active): **PERF-CLASSIC-IGPU-1** — Classic ~30 fps on Intel UHD.
 
 ## Open issues (top)
 
@@ -127,9 +123,9 @@ or a suspected blocker (TS 7 · `cartrave4` UVs).
 
 ## Last updated
 
-2026-08-18 (WARM-CLASSIC-JUICE-1) — cap-371: close **WARM-QP-ROTATE-1**; file
-and implement **WARM-CLASSIC-JUICE-1**. **PERF-CLASSIC-IGPU-1** queued (not
-this wave). CUSTOMIZE-SPAM-PT-1 still owed.
+2026-08-18 (playtest PASSes) — **CUSTOMIZE-SPAM-PT-1** Wyatt PASS on prod
+(`a41987e7`); **WARM-CLASSIC-JUICE-PT-1** Wyatt PASS on `npm run dev`
+(`951ea15d`). Parents close. Deferred: **SHARD-PT-2**.
 
 2026-08-17 (playtest PASSes) — **COUNTDOWN-HOST-STAMP-PT-1** · **CUSTOMIZE-SVG-FLASH-PT-1** ·
 **FRIENDS-LOBBY-ORDER-PT-1** · **KO-CENTER-RING-PT-1** Wyatt PASS on prod (`7896b9f4`);
