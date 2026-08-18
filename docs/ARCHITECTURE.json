@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-18T06:11:57.415Z",
-    "commit": "5f3b0636"
+    "at": "2026-08-18T06:15:20.939Z",
+    "commit": "437fd1e3"
   },
-  "source_digest": "4abf1176",
+  "source_digest": "25bfe1dc",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -884,7 +884,7 @@
       }
     ],
     "next_actions": [
-      "Wyatt F8 Friends Classic Low on Intel UHD (`?diag=1`). Read `loopRound.visRenderMeanMs` / `visSyncMeanMs` / `visFxMeanMs` / `visHudMeanMs` / `visOtherMeanMs`. Match cap-371: rsm 0.7, `straddledDemotion: false`.",
+      "Wyatt F8 Friends Classic Low on prod `437fd1e3` (VERIFY_OK). URL: `https://www.cartclash.lol/?diag=1`. Read `loopRound.visRenderMeanMs` / `visSyncMeanMs` / `visFxMeanMs` / `visHudMeanMs` / `visOtherMeanMs`. Match cap-371: rsm 0.7, `straddledDemotion: false`.",
       "Deferred: SHARD-PT-2 (launch day)."
     ],
     "open_issues": [

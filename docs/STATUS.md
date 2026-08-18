@@ -76,7 +76,7 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. Wyatt F8 Friends Classic Low on Intel UHD (`?diag=1`). Read `loopRound.visRenderMeanMs` / `visSyncMeanMs` / `visFxMeanMs` / `visHudMeanMs` / `visOtherMeanMs`. Match cap-371: rsm 0.7, `straddledDemotion: false`.
+1. Wyatt F8 Friends Classic Low on **prod** `437fd1e3` (VERIFY_OK). URL: `https://www.cartclash.lol/?diag=1`. Read `loopRound.visRenderMeanMs` / `visSyncMeanMs` / `visFxMeanMs` / `visHudMeanMs` / `visOtherMeanMs`. Match cap-371: rsm 0.7, `straddledDemotion: false`.
 2. Deferred: **SHARD-PT-2** (launch day).
 
 ## Open issues (top)
@@ -127,6 +127,9 @@ or a suspected blocker (TS 7 · `cartrave4` UVs).
 - Local worker port is **8899** (`LOCAL_WORKER_PORT` in `src/config.js`). If it goes EACCES, re-check Windows HNS exclusions and move the port there.
 
 ## Last updated
+
+2026-08-18 (ship) — **PERF-CLASSIC-IGPU-1** wave B on prod `437fd1e3`
+(VERIFY_OK, Worker `396197b7`). Wyatt F8 Friends Classic Low next.
 
 2026-08-18 (PERF-CLASSIC-IGPU-1 wave B) — vis buckets on F8 `loopRound`. No
 look change. Wyatt F8 Friends Classic Low next.
