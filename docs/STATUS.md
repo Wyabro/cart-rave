@@ -30,13 +30,13 @@ are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Analyt
 external testers. Stay in this phase until Wyatt advances the marker.
 
 Live PT on prod (VERIFY_OK `748ea991` / Worker `4c34277c`): **COUNTDOWN-HOST-STAMP-PT-1** ·
-**KO-CENTER-RING-PT-1** · **CUSTOMIZE-SVG-FLASH-PT-1** · **FRIENDS-LOBBY-ORDER-PT-1**.
-Landed 08-17 — **KO-CENTER-RING-1** · **CUSTOMIZE-SVG-FLASH-1** ·
-**FRIENDS-LOBBY-ORDER-1** · **SD-SPECTATOR-CHARGE-1** · **MIG-KO-DROP-1**. Deferred launch day:
+**CUSTOMIZE-SVG-FLASH-PT-1** · **FRIENDS-LOBBY-ORDER-PT-1**.
+Landed 08-17 — **CUSTOMIZE-SVG-FLASH-1** ·
+**FRIENDS-LOBBY-ORDER-1** · **MIG-KO-DROP-1**. Deferred launch day:
 **SHARD-PT-2**. Closed 08-17 — **CART-HUE-CUBES-PT-1** `[solo]` · **CART-HUE-RED-PT-1**
 `[solo]` · **LAST-STANDING-DEAD-PT-1** · **NPC-ABORT-BURST-PT-1** ·
 **REMOTE-INPUT-STALE-PT-1** `[2pc]` · **SPILL-RAM-CREDIT-PT-1** `[2pc]` ·
-**SD-SPECTATOR-CHARGE-PT-1** `[solo]` (parents close with them —
+**SD-SPECTATOR-CHARGE-PT-1** `[solo]` · **KO-CENTER-RING-PT-1** `[solo]` (parents close with them —
 [completed-work.md](./planning/completed-work.md)). **TRUST-1** · **LEADERBOARD-1**
 cut from V2 (SHIP-1 D-tier; Block 3 drained). **SHIP-1** BACKLOG row closed
 (file stays). Parent **WARM-QP-ROTATE-1** stays
@@ -82,10 +82,9 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. Playtest **KO-CENTER-RING-PT-1** on prod (hard-refresh).
-2. Playtest **CUSTOMIZE-SVG-FLASH-PT-1** on prod (hard-refresh).
-3. Playtest **COUNTDOWN-HOST-STAMP-PT-1** on prod (2pc, you are not host).
-4. Playtest **FRIENDS-LOBBY-ORDER-PT-1** on prod (2pc).
+1. Fix **CUSTOMIZE-SVG-FLASH-PT-1** (FAIL: SVG flashes on Customize open).
+2. Playtest **COUNTDOWN-HOST-STAMP-PT-1** on prod (2pc, you are not host).
+3. Playtest **FRIENDS-LOBBY-ORDER-PT-1** on prod (2pc).
    Deferred: **SHARD-PT-2** (launch day).
 
 ## Open issues (top)
@@ -130,6 +129,11 @@ or a suspected blocker (TS 7 · `cartrave4` UVs).
 - Local worker port is **8899** (`LOCAL_WORKER_PORT` in `src/config.js`). If it goes EACCES, re-check Windows HNS exclusions and move the port there.
 
 ## Last updated
+
+2026-08-17 (KO-CENTER-RING-PT-1) — Wyatt PASS on prod (VERIFY_OK `7896b9f4`).
+Local KO shows only the red edge pulse; opponent hitmarker still shows. Parent
+**KO-CENTER-RING-1** closes. Live PT: CUSTOMIZE-SVG-FLASH (FAIL — SVG on open) ·
+COUNTDOWN-HOST-STAMP · FRIENDS-LOBBY-ORDER (prod) + SHARD-PT-2 (launch day).
 
 2026-08-17 (SD-SPECTATOR-CHARGE-PT-1) — Wyatt PASS on `npm run dev` (HEAD `57d2f0f9`)
 via an automated solo rig: SD-spectator boost hold stays silent (meter idle, never

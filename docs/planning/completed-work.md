@@ -13,6 +13,13 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 17, 2026 — KO-CENTER-RING-PT-1 PASS
+
+- *(Playtest · Medium)* **KO-CENTER-RING-PT-1** — ✅ **PASS 08-17** on prod (VERIFY_OK
+  `7896b9f4`). Local KO shows only the red edge pulse; no centered expanding ring.
+  Opponent KO still shows the center hitmarker. Parent **KO-CENTER-RING-1**
+  (`c935eba9`) closes with it.
+
 ### August 17, 2026 — MIG-KO-DROP-1 landed
 
 - *(Engineering · Low)* **MIG-KO-DROP-1** — ✅ **DONE 08-17**. `queueHostFallEvent`
@@ -60,7 +67,7 @@ Chronological record of shipped work, newest first.
   `.hud-doomed-shockwave` DOM node and CSS. `showDoomedFeedback` still fires the red
   edge pulse (`pulseHitDirection`). Hitmarker on a scored KO stays. Do not reopen
   **KO-DOOMED-1** / **KO-DOOMED-PT-1** (fan-out wiring) or **NET-PRES-1** (event dedupe).
-  Playtest owed: **KO-CENTER-RING-PT-1** on prod (VERIFY_OK `7896b9f4` / Worker `80cd5375`).
+  Playtest **KO-CENTER-RING-PT-1** PASS 08-17 — parent closes.
 - *(Engineering · Medium)* **CUSTOMIZE-SVG-FLASH-1** — ✅ **DONE 08-17**.
   `renderCustomizePreview` returns without `makeCartSVG` unless Customize is actually
   open. Close persists first, then hides, then disposes so `customization-changed`
