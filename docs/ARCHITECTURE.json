@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-18T18:00:37.123Z",
-    "commit": "3f467334"
+    "at": "2026-08-18T18:04:36.160Z",
+    "commit": "88fc72f4"
   },
-  "source_digest": "d1e01013",
+  "source_digest": "10202c98",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1014,37 +1014,13 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Low": 6
+          "Low": 2
         },
         "rows": [
           {
             "pri": "Low",
             "item": "MENU-ARROW-PT-1 — WASD and arrows move around the main menu `[solo]`",
             "notes": "**Owed: Wyatt playtest — MENU-ARROW-PT-1 — WASD and arrows move around the whole main menu; arrows leave the room-code box.** Hard-refresh first.<br>1. On the main menu, press WASD and the arrow keys. Focus should move to SOLO / QUICKPLAY, arena ◂▸, name, and the room-code box.<br>2. Land on the room-code box. Type OATS3. Those letters must type. Then press an arrow key.<br>3. FAIL if WASD only walks the yellow list, if arrows cannot reach the other controls, or if an arrow cannot leave the room-code box. PASS if focus moves around the menu and arrows leave the box.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "RD-COUNTER-PT-1 — guest RD n matches the host after an unvalidated podium",
-            "notes": "**Owed: Wyatt playtest — RD-COUNTER-PT-1 — host and guest show the same RD n on rematch.** On prod `e3886b5f` (VERIFY_OK). Hard-refresh first.<br>1. Friends, 2 players. Play a round. Note RD on both screens (should be RD 1).<br>2. Play again. Both must show RD 2.<br>3. FAIL if the guest stays on RD 1. PASS if both increment together. Mid-round join reading low is accepted.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "SPECTATOR-ANNOUNCER-PT-1 — decided podium silences in-flight PA",
-            "notes": "**Owed: Wyatt playtest — SPECTATOR-ANNOUNCER-PT-1 — a decided podium cuts an in-flight last-10s / new-leader line, then plays victory.** On prod `e3886b5f` (VERIFY_OK). Hard-refresh first.<br>1. Solo. Let the last-10s callout start, then win the round.<br>2. FAIL if the leftover line plays over the winner cam. PASS if it cuts and victory plays.<br>3. Optional: as a spectator in Friends, leftover must stay silent (no victory/defeat for that seat).",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "PERF-WATCH-PT-1 — scale recovers after a 60 fps lock",
-            "notes": "**Owed: Wyatt playtest — PERF-WATCH-PT-1 — after rsm 0.7, a held 60 fps lock steps scale back toward 1 with no oscillation.** Not on prod yet — `npm run dev` + `?diag=1`. Intel UHD host, Friends Classic.<br>1. Play until F8 `runtime.renderScaleMul` is 0.7 (or match cap-371).<br>2. Hold a ~60 fps lock for ~12s. Watch rsm and `qualityStepUp` on the diag ring.<br>3. FAIL if rsm stays 0.7 after a solid lock, if rsm ping-pongs, or if a scale-up hitch rubber-bands a guest.<br>4. PASS if rsm walks 0.7 → 0.85 → 1, tier stays low, and peers stay smooth.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "KEYUP-STUCK-PT-1 — keyup over a focused text field does not stick the cart",
-            "notes": "**Owed: Wyatt playtest — KEYUP-STUCK-PT-1 — hold WASD or Shift, focus a text field, release; the cart must stop.** On prod `e3886b5f` (VERIFY_OK). Hard-refresh first.<br>1. Start a solo round. Hold W (or hold Shift to charge).<br>2. Open the menu (ESC) and click the name field or join-code field without releasing the key.<br>3. Release the key while that field is focused, then close the menu or start the next round.<br>4. FAIL if the cart keeps driving or boost stays held. PASS if motion and boost stop.",
             "ship1": null
           },
           {

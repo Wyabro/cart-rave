@@ -34,10 +34,10 @@ Active: **PERF-CLASSIC-IGPU-1** wave B (instrument). No look change.
 `visRender` / `visOther`. Landed 08-18 Block 5 Lows on prod `e3886b5f`
 (VERIFY_OK): **KEYUP-STUCK-1** · **SPECTATOR-ANNOUNCER-1** ·
 **RD-COUNTER-1**. Landed **MENU-ARROW-1** on prod `fbec1bf5` (VERIFY_OK).
-Playtest owed: **MENU-ARROW-PT-1**. Playtest owed on prod: **KEYUP-STUCK-PT-1** ·
-**SPECTATOR-ANNOUNCER-PT-1** · **RD-COUNTER-PT-1**. Playtest owed on
-`npm run dev`: **PERF-WATCH-PT-1**. **PERF-WATCH-1** wave 1 landed
-(scale-up only); wave 2 stays open. Closed 08-18 —
+Playtest owed: **MENU-ARROW-PT-1**. Closed 08-18 — **KEYUP-STUCK-PT-1** ·
+**SPECTATOR-ANNOUNCER-PT-1** · **RD-COUNTER-PT-1** (all prod `e3886b5f`) ·
+**PERF-WATCH-PT-1** (`npm run dev`, `3f467334`). **PERF-WATCH-1** wave 1
+landed (scale-up only); wave 2 stays open. Closed 08-18 —
 **CUSTOMIZE-SPAM-PT-1** (prod `a41987e7`) · **WARM-CLASSIC-JUICE-PT-1**
 (`951ea15d` / `npm run dev`). Deferred: **SHARD-PT-2**. Do not reopen
 GAMEPAD-LOBBY-1 or **PERF-PASS-1**.
@@ -137,9 +137,14 @@ or a suspected blocker (TS 7 · `cartrave4` UVs).
 
 ## Last updated
 
+2026-08-18 (playtest PASSes + MENU-ARROW-1) — **MENU-ARROW-1** landed prod
+`fbec1bf5` (VERIFY_OK); owed **MENU-ARROW-PT-1**. Playtest PASSes —
+**KEYUP-STUCK-PT-1** · **SPECTATOR-ANNOUNCER-PT-1** · **RD-COUNTER-PT-1**
+(prod `e3886b5f`) · **PERF-WATCH-PT-1** (`npm run dev`, `3f467334`).
+Parents close. Deferred: **SHARD-PT-2**.
+
 2026-08-18 (ship) — Block 5 Lows + vis buckets on prod `e3886b5f`
-(VERIFY_OK, Worker `95e4fba7`). Playtest owed: KEYUP / SPECTATOR / RD.
-Wyatt F8 Friends Classic Low next.
+(VERIFY_OK, Worker `95e4fba7`). Wyatt F8 Friends Classic Low next.
 
 2026-08-18 (PERF-CLASSIC-IGPU-1 wave B) — vis buckets on F8 `loopRound`. No
 look change. Wyatt F8 Friends Classic Low next.

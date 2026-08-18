@@ -13,6 +13,25 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 18, 2026 — playtest PASSes (KEYUP-STUCK / PERF-WATCH / RD-COUNTER / SPECTATOR-ANNOUNCER)
+
+- *(Playtest · Low)* **KEYUP-STUCK-PT-1** — ✅ **PASS 08-18** on prod
+  (VERIFY_OK `e3886b5f`). Hold W or Shift, focus the name / join-code field,
+  release; the cart stops — motion and boost both stop. Parent
+  **KEYUP-STUCK-1** closes with it.
+- *(Playtest · Low)* **RD-COUNTER-PT-1** — ✅ **PASS 08-18** on prod
+  (VERIFY_OK `e3886b5f`). Host and guest both show RD 2 on the rematch; the
+  guest no longer stays on RD 1. Parent **RD-COUNTER-1** closes with it.
+- *(Playtest · Low)* **SPECTATOR-ANNOUNCER-PT-1** — ✅ **PASS 08-18** on prod
+  (VERIFY_OK `e3886b5f`). A decided podium cuts an in-flight last-10s line,
+  then plays victory; no leftover line over the winner cam. Parent
+  **SPECTATOR-ANNOUNCER-1** closes with it.
+- *(Playtest · Medium)* **PERF-WATCH-PT-1** — ✅ **PASS 08-18** on `npm run
+  dev` (HEAD `3f467334`; pushed, not yet deployed). After rsm 0.7, a held
+  60 fps lock walks rsm 0.7 → 0.85 → 1 with no ping-pong and no scale-up
+  hitch rubber-banding a guest. Closes **PERF-WATCH-1** wave 1 (scale-up);
+  wave 2 (tier-up) stays open.
+
 ### August 18, 2026 — RD-COUNTER-1
 
 - *(Engineering · Low)* **RD-COUNTER-1** — ✅ **DONE 08-18** (prod `e3886b5f`). HUD `RD n` now
