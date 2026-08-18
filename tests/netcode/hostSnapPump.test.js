@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getHostSendTimer,
   getNetFlowStats,
+  queueHostFallEvent,
   tickHostSendFromFrame,
   __netcodeTestHooks as hooks,
 } from "../../src/netcode.js";
@@ -11,6 +12,8 @@ import * as P2P from "../../src/netcode/p2p.js";
 import * as GameState from "../../src/stores/gameStore.js";
 import { CONFIG } from "../../src/config.js";
 import { runGameLoop, createGameLoopState } from "../../src/gameLoop.js";
+import { decodeHostStateSnapshot } from "../../src/netcode/binary.js";
+import { MSG } from "../../shared/protocol.js";
 
 /** Minimal cart body so serializeCartToWire succeeds. */
 function mockCart() {
@@ -206,6 +209,84 @@ describe("SNAP-SPARSE-1 sparse-slot hole guard", () => {
     nowMs += 1000 / CONFIG.net.hostSendHz;
     tickHostSendFromFrame();
     expect(warnSpy).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("MIG-KO-DROP-1 force-flush on queueHostFallEvent", () => {
+  /** @type {ReturnType<typeof vi.spyOn>} */
+  let sendSpy;
+  let nowMs;
+
+  function fallPayload() {
+    return {
+      slotId: 1,
+      victimSlotIndex: 1,
+      attackerSlotIndex: 0,
+      verb: "YEETED",
+    };
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    hooks.resetNetState();
+    hooks.resetNetFlowStatsForTest();
+    nowMs = 1_000_000;
+    vi.spyOn(performance, "now").mockImplementation(() => nowMs);
+    sendSpy = vi.spyOn(P2P, "sendToAll").mockImplementation(() => {});
+    hooks.setPartySocketForTest({ readyState: 1 });
+    hooks.setHostStateForTest({ isHost: true, youConnId: "host1", netSlots: [] });
+    hooks.setGetAllCartsForTest(() => [mockCart(), mockCart()]);
+    GameState.setRoundPhase("running");
+  });
+
+  it("flushes a running-phase fall on the queue call", () => {
+    hooks.startHostSendLoopForTest();
+    queueHostFallEvent(fallPayload());
+    expect(sendSpy).toHaveBeenCalledTimes(1);
+    const decoded = decodeHostStateSnapshot(sendSpy.mock.calls[0][0]);
+    expect(decoded.falls).toHaveLength(1);
+    expect(decoded.falls[0].slotId).toBe(1);
+  });
+
+  it("does not carry the same fall on the next scheduled tick", () => {
+    hooks.startHostSendLoopForTest();
+    queueHostFallEvent(fallPayload());
+    expect(sendSpy).toHaveBeenCalledTimes(1);
+
+    nowMs += 1000 / CONFIG.net.hostSendHz;
+    tickHostSendFromFrame();
+    expect(sendSpy).toHaveBeenCalledTimes(2);
+    const decoded = decodeHostStateSnapshot(sendSpy.mock.calls[1][0]);
+    expect(decoded.falls).toEqual([]);
+  });
+
+  it("still force-flushes after the round leaves running", () => {
+    hooks.startHostSendLoopForTest();
+    GameState.setRoundPhase("podium");
+    queueHostFallEvent(fallPayload());
+    expect(sendSpy).toHaveBeenCalledTimes(1);
+    const decoded = decodeHostStateSnapshot(sendSpy.mock.calls[0][0]);
+    expect(decoded.falls).toHaveLength(1);
+  });
+
+  it("no-ops when the send loop is disarmed", () => {
+    queueHostFallEvent(fallPayload());
+    expect(sendSpy).not.toHaveBeenCalled();
+  });
+
+  it("still rejects an old-host snapshot that carries a fall", () => {
+    hooks.setHostIdForTest("newHost");
+    hooks.setHostStateForTest({ isHost: false, youConnId: "me", netSlots: [] });
+    const before = getNetFlowStats().ring.ringRejectsStaleSource;
+    hooks.dispatchP2P({
+      type: MSG.hostTransform,
+      seq: 99,
+      tHost: nowMs,
+      carts: [{ p: [0, 0, 0], q: [0, 0, 0, 1], lv: [0, 0, 0], av: [0, 0, 0] }],
+      falls: [fallPayload()],
+    }, "oldHost");
+    expect(getNetFlowStats().ring.ringRejectsStaleSource).toBe(before + 1);
+    expect(hooks.getBufferLength()).toBe(0);
   });
 });
 

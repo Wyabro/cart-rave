@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-17T22:07:20.895Z",
-    "commit": "2db2fdcc"
+    "at": "2026-08-18T00:46:48.364Z",
+    "commit": "57d2f0f9"
   },
-  "source_digest": "9f768aa5",
+  "source_digest": "af686487",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -881,8 +881,7 @@
       "Playtest KO-CENTER-RING-PT-1 on prod (hard-refresh).",
       "Playtest CUSTOMIZE-SVG-FLASH-PT-1 on prod (hard-refresh).",
       "Playtest COUNTDOWN-HOST-STAMP-PT-1 on prod (2pc, you are not host).",
-      "Playtest FRIENDS-LOBBY-ORDER-PT-1 on prod (2pc).",
-      "Playtest SD-SPECTATOR-CHARGE-PT-1 after ship, or on `npm run dev` now."
+      "Playtest FRIENDS-LOBBY-ORDER-PT-1 on prod (2pc)."
     ],
     "open_issues": [
       {
@@ -899,7 +898,7 @@
         "counts": {
           "Medium": 9,
           "Partial": 1,
-          "Low": 13
+          "Low": 12
         },
         "rows": [
           {
@@ -929,7 +928,7 @@
           {
             "pri": "Medium",
             "item": "SD-SPECTATOR-CHARGE-1 — eliminated SD spectator can start a phantom charge; charge-up SFX loops up to the 45s cap",
-            "notes": "**Landed 08-17** — `triggerRamBoost` returns when `cart.isSuddenDeathSpectator` is set. Keyboard / touch / gamepad / sim re-arm / remote-nitro latch all share that choke. Sim still skips flagged carts; mid-charge-on-fall is already stopped by `onCartOutOfPlay`. Playtest owed: **SD-SPECTATOR-CHARGE-PT-1**.",
+            "notes": "**Landed 08-17** — `triggerRamBoost` returns when `cart.isSuddenDeathSpectator` is set. Keyboard / touch / gamepad / sim re-arm / remote-nitro latch all share that choke. Sim still skips flagged carts; mid-charge-on-fall is already stopped by `onCartOutOfPlay`. Playtest **SD-SPECTATOR-CHARGE-PT-1** PASS 08-17 (automated solo rig + Wyatt) — row closes.",
             "ship1": null
           },
           {
@@ -960,12 +959,6 @@
             "pri": "🟡 Partial",
             "item": "NET-PERF-1 — reconcile rewind-replay cost",
             "notes": "Caps shipped; residual if retest still rubber-bands.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "MIG-KO-DROP-1 — KO presentation lost when migration lands inside the ≤25ms fall→tick window",
-            "notes": "**Filed 08-16 from the gameplay bug audit (adversarially reviewed).** `falls[]` rides only the unreliable 40Hz snapshot tail; after migration, clients reject the old host's in-flight snapshot by source ([netcode.js](../../src/netcode.js) ~2378-2399, ~4449-4452) — that KO gets no feed row, shatter, or announcer call. **Score is safe** (per-KO synchronous `sendHostRound` + server monotonic clamp killed the audit's original \"KO undone\" half — the host would have to die mid-frame). Not a reopen of NET-PRES-1 (double-fan dedupe, different thing).",
             "ship1": null
           },
           {
@@ -1065,16 +1058,10 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Medium": 5,
+          "Medium": 4,
           "Low": 1
         },
         "rows": [
-          {
-            "pri": "Medium",
-            "item": "SD-SPECTATOR-CHARGE-PT-1 — parked SD spectator boost stays silent; no charge bar `[solo]`",
-            "notes": "**Owed: Wyatt playtest — SD-SPECTATOR-CHARGE-PT-1 — after you are knocked out in overtime, boost stays silent.** Parent **SD-SPECTATOR-CHARGE-1**. Pushed, not yet on prod — `npm run dev` or wait for ship. Hard-refresh after ship.<br>1. Solo. Play until overtime. Get knocked out so you are only watching.<br>2. Press and hold boost. FAIL if the charge-up whine starts or the charge bar fills. PASS if it stays silent and the bar stays idle.<br>3. Rematch or a new live round. While you are still driving, press boost. FAIL if charge does not start. PASS if it charges and releases as usual.",
-            "ship1": null
-          },
           {
             "pri": "Medium",
             "item": "COUNTDOWN-HOST-STAMP-PT-1 — first non-host 3-2-1 is even; 3 does not hang then slam 2+1 `[2pc]`",

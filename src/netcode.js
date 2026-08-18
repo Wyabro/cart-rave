@@ -365,14 +365,12 @@ export function queueHostFallEvent(eventData) {
   // * of a later hosted room.
   if (!hostSendLoopArmed) return;
   pendingHostFallEvents.push(eventData);
-  if (GameState.getRoundState().phase !== "running") {
-    // * The ROUND-ENDING KO: gameFlow queues the fall after addScore→endRound has
-    // * already flipped the phase, and the scheduled tick early-returns outside
-    // * "running" — so non-hosts historically never saw the winning KO's feed and
-    // * shatter. Flush it immediately with one forced snapshot (same payload shape,
-    // * same falls[] tail; clients replay falls regardless of phase).
-    hostSendTick({ force: true });
-  }
+  // * MIG-KO-DROP-1: flush on every queue, not only podium. Mid-round falls used
+  // * to wait for the next 40 Hz tick (≤25 ms). A host drop in that window cleared
+  // * pendingHostFallEvents and the KO never left the old host. Same payload as
+  // * the scheduled tick; force:true also bypasses the running-phase gate so the
+  // * winning KO still ships after endRound flips the phase.
+  hostSendTick({ force: true });
 }
 
 function drainHostFallBatch() {
@@ -2378,8 +2376,9 @@ export function serializeCartToWire(c) {
 
 /**
  * One 40Hz host snapshot: serialize carts, drain collision/fall batches, encode,
- * broadcast. `force` skips the running-phase gate for the single round-end flush
- * (see queueHostFallEvent) — everything else is identical to a scheduled tick.
+ * broadcast. `force` skips the running-phase gate and the 25 ms rate floor so a
+ * queued fall ships in the same call (see queueHostFallEvent). Everything else
+ * is identical to a scheduled tick.
  * @param {{ force?: boolean }} [opts]
  */
 function hostSendTick(opts = {}) {
@@ -2400,7 +2399,7 @@ function hostSendTick(opts = {}) {
   // * Rate limit at hostSendHz (40 → 25ms). Frame path (rAF or hidden MessageChannel pump)
   // * can fire every ~8–16ms; without a full-period floor we overshoot the wire rate.
   // * Also absorbs post-hitch burst recovery (was half-period for setInterval coalesce).
-  // * force:true round-end flush bypasses.
+  // * force:true KO flush bypasses.
   const sendNowMs = performance.now();
   const minGapMs = 1000 / CONFIG.net.hostSendHz;
   if (!opts.force && lastHostSendTickMs > 0 && sendNowMs - lastHostSendTickMs < minGapMs) return;

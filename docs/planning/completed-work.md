@@ -13,6 +13,28 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 17, 2026 — MIG-KO-DROP-1 landed
+
+- *(Engineering · Low)* **MIG-KO-DROP-1** — ✅ **DONE 08-17**. `queueHostFallEvent`
+  force-flushes the host snapshot on every queue (mid-round and podium). Mid-round
+  falls no longer sit in `pendingHostFallEvents` for up to 25 ms, so a host drop
+  in that window cannot eat the KO feed / shatter / announcer. Score was already
+  safe via per-KO `sendHostRound`. Source reject of old-host in-flight snapshots
+  stays. Not a reopen of **NET-PRES-1** (eid dedupe; loss-on-drop residual still
+  accepted). No playtest row — unit tests are the proof.
+
+### August 17, 2026 — SD-SPECTATOR-CHARGE-PT-1 PASS
+
+- *(Playtest · Medium)* **SD-SPECTATOR-CHARGE-PT-1** — ✅ **PASS 08-17** on `npm run dev`
+  (HEAD `57d2f0f9`; pushed, not yet deployed). Automated solo rig (headless Chromium,
+  `?room=solo&diag=1&nettest=1&perfPump=1`) + Wyatt PASS. In Sudden Death with the local
+  cart knocked out (fell off the Sundial rim mid-SD in a 3-way top tie), holding boost
+  kept the HUD boost meter idle — `data-state` stayed `ready`, never `charging`/`charged` —
+  across an 11-sample 2.6 s hold, with the spectator flag and spectator camera engaged
+  throughout. Live-round regression: boost still charged (meter `charging`) and
+  auto-released with a burst (speed 22.9 → 25.7 m/s) + cooldown. 0 error/assert diag
+  events across the run. Parent **SD-SPECTATOR-CHARGE-1** closes with it.
+
 ### August 17, 2026 — SD-SPECTATOR-CHARGE-1 landed
 
 - *(Engineering · Medium)* **SD-SPECTATOR-CHARGE-1** — ✅ **DONE 08-17**. `triggerRamBoost`
@@ -20,8 +42,8 @@ Chronological record of shipped work, newest first.
   can no longer start a charge (keyboard / touch / gamepad / sim re-arm / remote-nitro
   latch). The sim still skips flagged carts, so release/cancel never run; this gate
   stops the phantom start that looped `chargeUp` until `endRound`. Mid-charge-on-fall
-  was already stopped by `onCartOutOfPlay`. Playtest owed: **SD-SPECTATOR-CHARGE-PT-1**
-  (not on prod until ship).
+  was already stopped by `onCartOutOfPlay`. Playtest **SD-SPECTATOR-CHARGE-PT-1**
+  PASS 08-17 (see above) — parent closes.
 
 ### August 17, 2026 — COUNTDOWN-QUICKPLAY-1 closed
 
