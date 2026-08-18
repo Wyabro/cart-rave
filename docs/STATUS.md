@@ -82,7 +82,7 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. Fix **CUSTOMIZE-SVG-FLASH-PT-1** (FAIL: SVG flashes on Customize open).
+1. Retest **CUSTOMIZE-SVG-FLASH-PT-1** after ship (or `npm run dev`).
 2. Playtest **COUNTDOWN-HOST-STAMP-PT-1** on prod (2pc, you are not host).
 3. Playtest **FRIENDS-LOBBY-ORDER-PT-1** on prod (2pc).
    Deferred: **SHARD-PT-2** (launch day).
@@ -130,30 +130,19 @@ or a suspected blocker (TS 7 · `cartrave4` UVs).
 
 ## Last updated
 
-2026-08-17 (KO-CENTER-RING-PT-1) — Wyatt PASS on prod (VERIFY_OK `7896b9f4`).
-Local KO shows only the red edge pulse; opponent hitmarker still shows. Parent
-**KO-CENTER-RING-1** closes. Live PT: CUSTOMIZE-SVG-FLASH (FAIL — SVG on open) ·
-COUNTDOWN-HOST-STAMP · FRIENDS-LOBBY-ORDER (prod) + SHARD-PT-2 (launch day).
+2026-08-17 (CUSTOMIZE-SVG-FLASH-PT-1) — open no longer paints the cartoon SVG
+as a load placeholder. Holder stays empty until 3D is ready; SVG only if
+CartPreview load/init throws. Retest **CUSTOMIZE-SVG-FLASH-PT-1** after ship.
 
-2026-08-17 (SD-SPECTATOR-CHARGE-PT-1) — Wyatt PASS on `npm run dev` (HEAD `57d2f0f9`)
-via an automated solo rig: SD-spectator boost hold stays silent (meter idle, never
-charging), live-round boost still charges and auto-releases. Parent **SD-SPECTATOR-CHARGE-1**
-closes. Playtest owed now: KO-CENTER-RING / CUSTOMIZE-SVG-FLASH / COUNTDOWN-HOST-STAMP /
-FRIENDS-LOBBY-ORDER (prod) + SHARD-PT-2 (launch day).
+2026-08-17 (playtest PASSes) — **KO-CENTER-RING-PT-1** PASS on prod (`7896b9f4`);
+**SD-SPECTATOR-CHARGE-PT-1** PASS on `npm run dev`. Parents close. Live PT:
+CUSTOMIZE-SVG-FLASH (retest) · COUNTDOWN-HOST-STAMP · FRIENDS-LOBBY-ORDER + SHARD-PT-2.
 
-2026-08-17 (CART-HUE-CUBES-PT-1) — Wyatt PASS on prod `9cd253e5`. Parent
-**CART-HUE-CUBES-1** closes.
-
-2026-08-17 (ship CART-HUE-CUBES-1) — prod `9cd253e5` / Worker `62cb3310`. VERIFY_OK
-+ symbol `honeycomb:[1,2],diamond:[2,3]`.
-
-2026-08-17 (CART-HUE-CUBES-1) — Cubes faces stay in the selected neon family. Custom
-red no longer hops to yellow/green. Playtest owed: **CART-HUE-CUBES-PT-1**.
+2026-08-17 (CART-HUE-CUBES) — shipped prod `9cd253e5`; Wyatt PASS; parent closes.
 
 2026-08-17 (playtest closes) — **CART-HUE-RED-PT-1** · **LAST-STANDING-DEAD-PT-1** ·
 **NPC-ABORT-BURST-PT-1** · **REMOTE-INPUT-STALE-PT-1** · **SPILL-RAM-CREDIT-PT-1** Wyatt
-PASS 08-17 (on `npm run dev`); parents close. Live PT: **COUNTDOWN-HOST-STAMP-PT-1**;
-**SHARD-PT-2** launch day.
+PASS 08-17 (on `npm run dev`); parents close.
 
 2026-08-17 (D-WORK-LANES-1) — replaced fast / full-wave handling with agent-assessed
 Routine / Standard / Critical lanes. Routine needs no ack or full QA; Standard and Critical

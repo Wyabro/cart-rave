@@ -71,8 +71,9 @@ Chronological record of shipped work, newest first.
 - *(Engineering · Medium)* **CUSTOMIZE-SVG-FLASH-1** — ✅ **DONE 08-17**.
   `renderCustomizePreview` returns without `makeCartSVG` unless Customize is actually
   open. Close persists first, then hides, then disposes so `customization-changed`
-  cannot paint the legacy SVG during dismiss. SVG stays as the chunk-load / WebGL-fail
-  fallback. Playtest owed: **CUSTOMIZE-SVG-FLASH-PT-1** on prod (VERIFY_OK `7896b9f4` / Worker `80cd5375`).
+  cannot paint the legacy SVG during dismiss. Open-path follow-up (PT FAIL 08-17):
+  holder stays empty while CartPreview loads; SVG only if load/init throws.
+  Playtest owed: **CUSTOMIZE-SVG-FLASH-PT-1** retest after ship.
 
 ### August 17, 2026 — SHIP-1 BACKLOG row closed
 

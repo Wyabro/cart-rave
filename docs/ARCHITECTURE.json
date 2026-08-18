@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-18T04:47:24.323Z",
-    "commit": "ba4d6f85"
+    "at": "2026-08-18T04:48:49.994Z",
+    "commit": "3d66d8a9"
   },
-  "source_digest": "2caa0fbe",
+  "source_digest": "f5826bdb",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -878,7 +878,7 @@
       }
     ],
     "next_actions": [
-      "Fix CUSTOMIZE-SVG-FLASH-PT-1 (FAIL: SVG flashes on Customize open).",
+      "Retest CUSTOMIZE-SVG-FLASH-PT-1 after ship (or `npm run dev`).",
       "Playtest COUNTDOWN-HOST-STAMP-PT-1 on prod (2pc, you are not host).",
       "Playtest FRIENDS-LOBBY-ORDER-PT-1 on prod (2pc)."
     ],
@@ -909,7 +909,7 @@
           {
             "pri": "Medium",
             "item": "CUSTOMIZE-SVG-FLASH-1 — DONE/apply flashes the legacy cart SVG `[solo]`",
-            "notes": "**Landed 08-17** — `renderCustomizePreview` never writes `makeCartSVG` unless Customize is actually open; close persists, then hides, then disposes so `customization-changed` cannot paint the legacy SVG on dismiss. SVG stays as chunk-load / WebGL-fail fallback. Playtest owed: **CUSTOMIZE-SVG-FLASH-PT-1**.",
+            "notes": "**Landed 08-17; open-path follow-up 08-17.** Close already hides before dispose. Open no longer paints `makeCartSVG` as a chunk-load placeholder — holder stays empty until 3D is ready; SVG only if CartPreview load/init throws. Playtest owed: **CUSTOMIZE-SVG-FLASH-PT-1** (retest after ship).",
             "ship1": null
           },
           {
@@ -1058,7 +1058,7 @@
           {
             "pri": "Medium",
             "item": "CUSTOMIZE-SVG-FLASH-PT-1 — DONE/apply does not flash the legacy cart SVG `[solo]`",
-            "notes": "**Owed: Wyatt playtest — CUSTOMIZE-SVG-FLASH-PT-1 — DONE and apply do not flash the old cart drawing.** Parent **CUSTOMIZE-SVG-FLASH-1**. On prod (VERIFY_OK `7896b9f4`). Hard-refresh.<br>1. Menu. Open Customize. Pick a color. Press DONE.<br>2. FAIL if a flat cartoon cart drawing flashes while the screen closes. PASS if the 3D cart stays or the screen just closes.<br>3. Open Customize again. Change color. Stay on the screen. FAIL if the 3D cart turns into that flat drawing. PASS if the 3D cart updates in place.",
+            "notes": "**Owed: Wyatt playtest — CUSTOMIZE-SVG-FLASH-PT-1 — DONE and apply do not flash the old cart drawing.** Parent **CUSTOMIZE-SVG-FLASH-1**. FAIL 08-17: SVG flashed on open (close was clean). Retest after next ship. Hard-refresh.<br>1. Menu. Open Customize. Pick a color. Press DONE.<br>2. FAIL if a flat cartoon cart drawing flashes while the screen opens or closes. PASS if the 3D cart stays or the holder stays empty until the 3D cart appears.<br>3. Open Customize again. Change color. Stay on the screen. FAIL if the 3D cart turns into that flat drawing. PASS if the 3D cart updates in place.",
             "ship1": null
           },
           {

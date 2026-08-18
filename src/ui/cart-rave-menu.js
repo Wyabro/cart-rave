@@ -368,6 +368,8 @@ import { initGamepadTextEntry, openGamepadTextEntry } from "./gamepadTextEntry.j
   let cartPreview = null;
   /** @type {Promise<void> | null} */
   let cartPreviewMountPromise = null;
+  /** True only after CartPreview chunk/init throws. SVG fallback is gated on this. */
+  let cartPreviewFailed = false;
   let customHueSliderWired = false;
   // NOTE: Quickplay and Friends support touch controls on mobile (see main.js updateTouchControlsVisibility).
 
@@ -1071,6 +1073,7 @@ import { initGamepadTextEntry, openGamepadTextEntry } from "./gamepadTextEntry.j
   /** Tears down the 3D preview and releases WebGL resources. */
   function disposeCartPreview() {
     cartPreviewMountPromise = null;
+    cartPreviewFailed = false;
     if (!cartPreview) return;
     cartPreview.dispose();
     cartPreview = null;
@@ -1081,14 +1084,13 @@ import { initGamepadTextEntry, openGamepadTextEntry } from "./gamepadTextEntry.j
   /**
    * Mounts the rotating 3D cart inside `#cr-customize-cart-holder`.
    * Disposes any existing instance first so rapid open/close cannot stack previews.
-   * CHUNK-DEFER-1 L1b: CartPreview module loads on demand (placeholder SVG until ready).
+   * CHUNK-DEFER-1 L1b: CartPreview module loads on demand. Holder stays empty
+   * until 3D is ready (CUSTOMIZE-SVG-FLASH-PT-1). SVG only if load/init fails.
    */
   function mountCartPreview() {
     if (!customizeCartHolder) return;
     disposeCartPreview();
     customizeCartHolder.innerHTML = '';
-    // * SVG fallback while the deferred preview chunk loads.
-    renderCustomizePreview();
     const holder = customizeCartHolder;
     cartPreviewMountPromise = import("./cartPreview.js")
       .then(({ CartPreview }) => {
@@ -1101,6 +1103,12 @@ import { initGamepadTextEntry, openGamepadTextEntry } from "./gamepadTextEntry.j
       })
       .catch((err) => {
         console.warn("[menu] CartPreview load failed — SVG fallback stays:", err);
+        if (cartPreview) {
+          cartPreview.dispose();
+          cartPreview = null;
+        }
+        cartPreviewFailed = true;
+        if (isCustomizeScreenOpen()) renderCustomizePreview();
       })
       .finally(() => {
         cartPreviewMountPromise = null;
@@ -1146,14 +1154,15 @@ import { initGamepadTextEntry, openGamepadTextEntry } from "./gamepadTextEntry.j
     if (customizeCartShadow) {
       customizeCartShadow.style.background = `radial-gradient(ellipse, ${color}66, transparent 70%)`;
     }
-    // * 3D preview owns the holder while customize screen is open; SVG is fallback only.
+    // * 3D preview owns the holder while customize screen is open; SVG is fail-only.
     if (cartPreview) {
       syncCartPreviewLook();
       return;
     }
     // * CUSTOMIZE-SVG-FLASH-1: never paint the legacy SVG during DONE/apply close.
-    // * Chunk-load + WebGL-fail still use SVG while the screen is actually open.
+    // * CUSTOMIZE-SVG-FLASH-PT-1: never paint it as a chunk-load placeholder either.
     if (!isCustomizeScreenOpen()) return;
+    if (!cartPreviewFailed) return;
     customizeCartHolder.innerHTML = makeCartSVG(color, state.pattern);
     currentCustomizeCartSvg = customizeCartHolder.querySelector('svg');
   }
@@ -1181,7 +1190,7 @@ import { initGamepadTextEntry, openGamepadTextEntry } from "./gamepadTextEntry.j
     // * The desktop menu cart borrows the game renderer. Release that scene before
     // * opening this opaque, owned-canvas preview so PMREM textures never cross contexts.
     window.CartRave?.setMenuCartPreviewSuspended?.(true);
-    // * Mark open before mount so the SVG fallback may paint only while this
+    // * Mark open before mount so fail-only SVG may paint only while this
     // * screen is actually shown (CUSTOMIZE-SVG-FLASH-1 close guard).
     customizeScreen.style.display = 'flex';
     customizeScreen.setAttribute('aria-hidden', 'false');
