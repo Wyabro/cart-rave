@@ -15,6 +15,10 @@
  * MIN_SPAN_MS (a 1ms call is not a freeze suspect). Timebase is performance.now(), the
  * same domain as rAF timestamps and PerformanceEntry.startTime, so overlap math lines up
  * with the loop's `now`/`gapStart` and longTasksForGap(). Guard-safe, zero imports.
+ *
+ * `timeLoopMs(key, fn)` is a different instrument: it adds every duration onto
+ * `window.__ccLoopDbg[key]` so F8 `loopRound` can mean-split visMs. No-op when
+ * the dbg object is missing (ordinary play).
  */
 
 /** Spans shorter than this aren't freeze suspects — don't spend a ring slot on them. */
@@ -46,6 +50,30 @@ export function mark(name, fn) {
       ring.push({ n: name, d: Math.round(d * 10) / 10, end: t1 });
       if (ring.length > RING) ring.shift();
     }
+  }
+}
+
+/**
+ * PERF-CLASSIC-IGPU-1: accumulate a named vis bucket on `__ccLoopDbg`.
+ * Ordinary play has no dbg object, so this is one property read and no
+ * `performance.now()`. Unlike {@link mark}, every duration is added — the
+ * F8 `loopRound` means need 2–8 ms slices, not the 4 ms freeze floor.
+ *
+ * @template T
+ * @param {string} key  Counter on `__ccLoopDbg` (`visSyncMs` / `visFxMs` / `visHudMs` / `visRenderMs`).
+ * @param {() => T} fn
+ * @returns {T}
+ */
+export function timeLoopMs(key, fn) {
+  const d = typeof window !== "undefined" ? window.__ccLoopDbg : null;
+  if (!d || typeof performance === "undefined" || typeof performance.now !== "function") {
+    return fn();
+  }
+  const t0 = performance.now();
+  try {
+    return fn();
+  } finally {
+    d[key] = (d[key] || 0) + (performance.now() - t0);
   }
 }
 

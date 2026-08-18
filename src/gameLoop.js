@@ -869,6 +869,7 @@ export function runGameLoop(loopState, callbacks) {
           window.__ccLoopDbg || {
             frames: 0, resumeZeroed: 0, chronicSlow: 0, maxDt: 0, lastDt: 0, over33: 0, over66: 0,
             timed: 0, sumMs: 0, over16: 0, simMs: 0, visMs: 0,
+            visSyncMs: 0, visFxMs: 0, visHudMs: 0, visRenderMs: 0,
           };
         d.frames += 1;
         d.lastDt = dt;
@@ -952,9 +953,11 @@ export function runGameLoop(loopState, callbacks) {
 
       const frameCtx = { now, dt, loopState };
       // * PERF-PASS-1: main-thread split. `simMs` = gameflow + physics, `visMs` = mesh sync,
-      // * effects, HUD and render submit. Read as cpuMean = (simMs + visMs) / timed against
-      // * mean = sumMs / timed; the remainder is present-wait plus any main-thread work outside
-      // * these two calls — it is NOT a GPU timer, which is why nothing here is named gpu*.
+      // * effects, HUD and render submit. PERF-CLASSIC-IGPU-1 splits visMs further inside
+      // * updateVisualsAndEffects (visSync / visFx / visHud / visRender). Read as
+      // * cpuMean = (simMs + visMs) / timed against mean = sumMs / timed; the remainder is
+      // * present-wait plus any main-thread work outside these two calls — it is NOT a
+      // * GPU timer, which is why nothing here is named gpu*.
       // * Gated on `d` (null unless ?diag / ?nettest) so ordinary play pays no performance.now(),
       // * and on the same `!isResume` as `timed` — a resume frame still runs both callbacks, so
       // * timing it while excluding it from the denominator would inflate the CPU mean.

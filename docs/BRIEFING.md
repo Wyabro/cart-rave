@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-18 at commit `951ea15d` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `a8653e6d`
+> Generated 2026-08-18 at commit `5f3b0636` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `0ebb6bfb`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -18,9 +18,12 @@ Playtesting and stabilization — Tier A drained; Tier B/C, security sweep, and 
 
 ## ACTIVE CARD
 
-Deferred: SHARD-PT-2 (launch day)
+Wyatt F8 Friends Classic Low on Intel UHD (`?diag=1`). Read `loopRound.visRenderMeanMs` / `visSyncMeanMs` / `visFxMeanMs` / `visHudMeanMs` / `visOtherMeanMs`. Match cap-371: rsm 0.7, `straddledDemotion: false`
 
 Assess and state the lane before editing. This heading names the card; it is **not** a lane assessment or permission to edit.
+
+Self-directed queue (one at a time, within the declared phase):
+- **PERF-CLASSIC-IGPU-1** Classic vis split — wave B instrument — 🟡 Wyatt F8 Friends Classic Low
 
 ## Do not
 

@@ -87,16 +87,30 @@ describe("DIAG-TIER-1 — gameplayDiagnostics runtime quality fields", () => {
 // differencing, because getting it wrong produces a plausible number rather than an error.
 
 /** Advance the cumulative loop counters as `frames` frames each costing `msPerFrame`. */
-function advanceLoop({ frames, msPerFrame, simShare = 0.5, visShare = 0.25 }) {
+function advanceLoop({
+  frames,
+  msPerFrame,
+  simShare = 0.5,
+  visShare = 0.25,
+  visSyncShare = 0,
+  visFxShare = 0,
+  visHudShare = 0,
+  visRenderShare = 0,
+}) {
   const d = (window.__ccLoopDbg = window.__ccLoopDbg || {
     frames: 0, resumeZeroed: 0, chronicSlow: 0, maxDt: 0, lastDt: 0, over33: 0, over66: 0,
     timed: 0, sumMs: 0, over16: 0, simMs: 0, visMs: 0,
+    visSyncMs: 0, visFxMs: 0, visHudMs: 0, visRenderMs: 0,
   });
   d.frames += frames;
   d.timed += frames;
   d.sumMs += frames * msPerFrame;
   d.simMs += frames * msPerFrame * simShare;
   d.visMs += frames * msPerFrame * visShare;
+  d.visSyncMs = (d.visSyncMs || 0) + frames * msPerFrame * visSyncShare;
+  d.visFxMs = (d.visFxMs || 0) + frames * msPerFrame * visFxShare;
+  d.visHudMs = (d.visHudMs || 0) + frames * msPerFrame * visHudShare;
+  d.visRenderMs = (d.visRenderMs || 0) + frames * msPerFrame * visRenderShare;
   if (msPerFrame > 16.7) d.over16 += frames;
   if (msPerFrame > 33) d.over33 += frames;
   if (msPerFrame > 66) d.over66 += frames;
@@ -114,6 +128,7 @@ describe("PERF-PASS-1 — per-round frame-time windows", () => {
     window.__ccLoopDbg = {
       frames: 0, resumeZeroed: 0, chronicSlow: 0, maxDt: 0, lastDt: 0, over33: 0, over66: 0,
       timed: 0, sumMs: 0, over16: 0, simMs: 0, visMs: 0,
+      visSyncMs: 0, visFxMs: 0, visHudMs: 0, visRenderMs: 0,
     };
     gameStore.setState({ roundPhase: RoundPhase.LOBBY });
   });
@@ -176,6 +191,29 @@ describe("PERF-PASS-1 — per-round frame-time windows", () => {
     expect(r.cpuMeanMs).toBeCloseTo(15, 3);
     // 20ms frame, 15ms on the main thread — the rest is present-wait, not a GPU timer.
     expect(r.unaccountedMeanMs).toBeCloseTo(5, 3);
+  });
+
+  it("splits visMs into the four PERF-CLASSIC-IGPU-1 buckets", () => {
+    gameStore.setState({ roundPhase: RoundPhase.RUNNING });
+    advanceLoop({
+      frames: 500,
+      msPerFrame: 20,
+      simShare: 0.25,
+      visShare: 0.5,
+      visSyncShare: 0.15,
+      visFxShare: 0.05,
+      visHudShare: 0.05,
+      visRenderShare: 0.2,
+    });
+    gameStore.setState({ roundPhase: RoundPhase.PODIUM });
+
+    const r = perf().rounds[0];
+    expect(r.visMeanMs).toBeCloseTo(10, 3);
+    expect(r.visSyncMeanMs).toBeCloseTo(3, 3);
+    expect(r.visFxMeanMs).toBeCloseTo(1, 3);
+    expect(r.visHudMeanMs).toBeCloseTo(1, 3);
+    expect(r.visRenderMeanMs).toBeCloseTo(4, 3);
+    expect(r.visOtherMeanMs).toBeCloseTo(1, 3);
   });
 
   it("passes only when the mean is inside 16.7ms", () => {

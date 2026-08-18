@@ -29,10 +29,11 @@ report phase-exit eligibility; they must not move the marker.
 are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Analytics DO reset for
 external testers. Stay in this phase until Wyatt advances the marker.
 
-No live implementation card. Closed 08-18 — **CUSTOMIZE-SPAM-PT-1** (prod
-`a41987e7`) · **WARM-CLASSIC-JUICE-PT-1** (`951ea15d` / `npm run dev`);
-parents close. Deferred launch day: **SHARD-PT-2**. Next queued perf residual:
-**PERF-CLASSIC-IGPU-1**. Do not reopen GAMEPAD-LOBBY-1.
+Active: **PERF-CLASSIC-IGPU-1** wave B (instrument). No look change.
+`?diag` F8 `loopRound` now splits visMs into `visSync` / `visFx` / `visHud` /
+`visRender` / `visOther`. Closed 08-18 — **CUSTOMIZE-SPAM-PT-1** (prod
+`a41987e7`) · **WARM-CLASSIC-JUICE-PT-1** (`951ea15d` / `npm run dev`).
+Deferred: **SHARD-PT-2**. Do not reopen GAMEPAD-LOBBY-1 or **PERF-PASS-1**.
 
 **Closed cards keep their narrative in their own docs, not here** — Sundial
 ([handover](./planning/art-pass-sundial-handover.md); read its "Traps that cost time" before any
@@ -59,7 +60,7 @@ Standing prohibitions — fed into [BRIEFING.md](./BRIEFING.md) and the Command 
 - [x] **NET-MIG-3** host-migration ghost feel — Wyatt PASS + live deploy verified
 - [x] **NET-PRES-1** fall/collision event-id dedupe — code landed; loss-on-drop residual accepted
 - [x] **NET-SD-1** sole-leader SD self-fall / untied wipeout — crowns fallback winner
-- [ ] Stabilization residual named by Wyatt (or explicit "no active card / wait")
+- [x] Stabilization residual named by Wyatt — **PERF-CLASSIC-IGPU-1** (ack B, 08-18)
 - [ ] Phase exit only on Wyatt instruction → Release candidate
 
 ### Active queue (strict — one card at a time)
@@ -70,12 +71,13 @@ Live rows only. Shipped and closed cards live in
 
 | # | What | Status |
 |---|------|--------|
+| PERF-CLASSIC-IGPU-1 | Classic vis split — wave B instrument | 🟡 Wyatt F8 Friends Classic Low |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 
 ### Next actions
 
-1. Deferred: **SHARD-PT-2** (launch day).
-2. Next queued (not active): **PERF-CLASSIC-IGPU-1** — Classic ~30 fps on Intel UHD.
+1. Wyatt F8 Friends Classic Low on Intel UHD (`?diag=1`). Read `loopRound.visRenderMeanMs` / `visSyncMeanMs` / `visFxMeanMs` / `visHudMeanMs` / `visOtherMeanMs`. Match cap-371: rsm 0.7, `straddledDemotion: false`.
+2. Deferred: **SHARD-PT-2** (launch day).
 
 ## Open issues (top)
 
@@ -93,6 +95,9 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 → 08-02: [decision-log-2026-08.md](./archive/decision-log-2026-08.md). 07-11 → 07-23:
 [decision-log-2026-07.md](./archive/decision-log-2026-07.md).
 
+- **D-PERF-CLASSIC-IGPU-1** (08-18): wave B = name the +7.5 ms vis gap. No
+  `recordbody` ship until a clean cell. 60 fps bar is not this card. Wyatt F8
+  Friends Classic Low after the instrument lands.
 - **D-WARM-QP-ROTATE-1** (08-18): parent closed. Adopt + **WARM-QP-ROTATE-PT-1**
   cover first-room swap. cap-364 is pre-fix. Residual compile after adopt →
   **WARM-CLASSIC-JUICE-1**. Mid-session QP rotate needs a new ID if it stalls.
@@ -122,6 +127,9 @@ or a suspected blocker (TS 7 · `cartrave4` UVs).
 - Local worker port is **8899** (`LOCAL_WORKER_PORT` in `src/config.js`). If it goes EACCES, re-check Windows HNS exclusions and move the port there.
 
 ## Last updated
+
+2026-08-18 (PERF-CLASSIC-IGPU-1 wave B) — vis buckets on F8 `loopRound`. No
+look change. Wyatt F8 Friends Classic Low next.
 
 2026-08-18 (playtest PASSes) — **CUSTOMIZE-SPAM-PT-1** Wyatt PASS on prod
 (`a41987e7`); **WARM-CLASSIC-JUICE-PT-1** Wyatt PASS on `npm run dev`

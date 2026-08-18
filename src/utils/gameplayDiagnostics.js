@@ -426,6 +426,10 @@ function loopCountersSnapshot() {
     over66: d.over66 || 0,
     simMs: d.simMs || 0,
     visMs: d.visMs || 0,
+    visSyncMs: d.visSyncMs || 0,
+    visFxMs: d.visFxMs || 0,
+    visHudMs: d.visHudMs || 0,
+    visRenderMs: d.visRenderMs || 0,
   };
 }
 
@@ -445,6 +449,10 @@ function summarizePerfWindow(open) {
   const sumMs = end.sumMs - s.sumMs;
   const simMs = end.simMs - s.simMs;
   const visMs = end.visMs - s.visMs;
+  const visSyncMs = end.visSyncMs - s.visSyncMs;
+  const visFxMs = end.visFxMs - s.visFxMs;
+  const visHudMs = end.visHudMs - s.visHudMs;
+  const visRenderMs = end.visRenderMs - s.visRenderMs;
   const meanMs = sumMs / timed;
   const cpuMeanMs = (simMs + visMs) / timed;
   const tier1 = safeCall(() => getQualityTier()) ?? null;
@@ -465,6 +473,13 @@ function summarizePerfWindow(open) {
     cpuMeanMs: roundTo(cpuMeanMs),
     simMeanMs: roundTo(simMs / timed),
     visMeanMs: roundTo(visMs / timed),
+    // * PERF-CLASSIC-IGPU-1: visMs split. Same ?diag gate as simMs/visMs. visOther
+    // * is the unwrapped remainder inside onVisualUpdate (FOV punch, arcade juice).
+    visSyncMeanMs: roundTo(visSyncMs / timed),
+    visFxMeanMs: roundTo(visFxMs / timed),
+    visHudMeanMs: roundTo(visHudMs / timed),
+    visRenderMeanMs: roundTo(visRenderMs / timed),
+    visOtherMeanMs: roundTo((visMs - visSyncMs - visFxMs - visHudMs - visRenderMs) / timed),
     // * NOT a GPU timer — a subtraction. Holds present/vsync wait, browser compositing, and any
     // * main-thread work outside onFrame/onVisualUpdate. Naming it gpu* would launder a residual
     // * into a measurement, which is exactly run-4's "GC metronome" error.

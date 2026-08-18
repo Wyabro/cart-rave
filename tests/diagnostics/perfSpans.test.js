@@ -1,5 +1,6 @@
+// @vitest-environment happy-dom
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { mark, spansOverlapping, _resetSpans } from "../../src/utils/perfSpans.js";
+import { mark, spansOverlapping, timeLoopMs, _resetSpans } from "../../src/utils/perfSpans.js";
 
 /**
  * perfSpans records named durations for freeze attribution. Timing is driven by
@@ -62,5 +63,35 @@ describe("perfSpans", () => {
       { n: "b", d: 30 },
       { n: "c", d: 12 },
     ]);
+  });
+
+  it("timeLoopMs no-ops the now() pair when __ccLoopDbg is missing", () => {
+    delete window.__ccLoopDbg;
+    nowQueue = [0, 10];
+    const out = timeLoopMs("visRenderMs", () => 7);
+    expect(out).toBe(7);
+    expect(window.__ccLoopDbg).toBeUndefined();
+    expect(nowQueue).toEqual([0, 10]);
+  });
+
+  it("timeLoopMs adds every duration, including sub-4ms slices", () => {
+    window.__ccLoopDbg = { frames: 0, resumeZeroed: 0, maxDt: 0, lastDt: 0, visRenderMs: 0 };
+    nowQueue = [0, 2.5];
+    timeLoopMs("visRenderMs", () => {});
+    expect(window.__ccLoopDbg.visRenderMs).toBe(2.5);
+    nowQueue = [10, 13];
+    timeLoopMs("visRenderMs", () => {});
+    expect(window.__ccLoopDbg.visRenderMs).toBe(5.5);
+    delete window.__ccLoopDbg;
+  });
+
+  it("timeLoopMs times and re-throws when fn throws", () => {
+    window.__ccLoopDbg = { frames: 0, resumeZeroed: 0, maxDt: 0, lastDt: 0, visSyncMs: 0 };
+    nowQueue = [0, 6];
+    expect(() => timeLoopMs("visSyncMs", () => {
+      throw new Error("boom");
+    })).toThrow("boom");
+    expect(window.__ccLoopDbg.visSyncMs).toBe(6);
+    delete window.__ccLoopDbg;
   });
 });

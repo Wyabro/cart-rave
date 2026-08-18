@@ -21,7 +21,7 @@ import { tickAutoQuality } from "./utils/autoQuality.js";
 import { tickBlackFrameMonitor } from "./utils/blackFrameMonitor.js";
 import { frameBudgetAllow } from "./utils/frameBudget.js";
 import { isComposerBypassActive } from "./scene.js";
-import { mark } from "./utils/perfSpans.js";
+import { mark, timeLoopMs } from "./utils/perfSpans.js";
 import { resetRendererInfoFrame } from "./utils/rendererInfo.js";
 
 
@@ -200,35 +200,39 @@ export function updateVisualsAndEffects(deps, frameCtx) {
   const netSlotsForFrame = deps.getNetSlots();
   const roundState = deps.getRoundState();
 
-  // * Session auto-quality: tiered step-down on sustained bad frame times (no localStorage).
-  // * A step-down must be applied live (composer passes, pixel ratio, arena knobs) —
-  // * the tier flip alone only affects per-frame readers.
-  if (!deps.isMenuVisible?.()) {
-    if (tickAutoQuality(dt, now, "game")) {
-      deps.onAutoQualityStepDown?.();
+  // * PERF-CLASSIC-IGPU-1: four ?diag vis buckets. Ordinary play skips the now()
+  // * pair. F8 loopRound.vis*MeanMs names which slice owns Classic's extra vis ms.
+  timeLoopMs("visFxMs", () => {
+    // * Session auto-quality: tiered step-down on sustained bad frame times (no localStorage).
+    // * A step-down must be applied live (composer passes, pixel ratio, arena knobs) —
+    // * the tier flip alone only affects per-frame readers.
+    if (!deps.isMenuVisible?.()) {
+      if (tickAutoQuality(dt, now, "game")) {
+        deps.onAutoQualityStepDown?.();
+      }
     }
-  }
 
-  if (roundState.phase === "running") {
-    Effects.tickRamBoostStreakSpawners(allCarts, now, dt);
-  }
+    if (roundState.phase === "running") {
+      Effects.tickRamBoostStreakSpawners(allCarts, now, dt);
+    }
 
-  Effects.updateRamBoostStreaks(now);
+    Effects.updateRamBoostStreaks(now);
 
-  GroceryPool.update(dt, now);
+    GroceryPool.update(dt, now);
 
-  // * Living Cargo — sync cargo-bay fullness (the cart IS the scoreboard), post-spill
-  // * restock, top-heavy fullness state, and cargo announcer moments from round scores.
-  // * Context rides a module scratch object (house convention — no per-frame literal).
-  _cargoCtx.localSlotIndex = localSlotIndexThisFrame;
-  _cargoCtx.netSlots = netSlotsForFrame;
-  _cargoCtx.roundPhase = roundState.phase;
-  updateCargoLoad(allCarts, now, _cargoCtx);
+    // * Living Cargo — sync cargo-bay fullness (the cart IS the scoreboard), post-spill
+    // * restock, top-heavy fullness state, and cargo announcer moments from round scores.
+    // * Context rides a module scratch object (house convention — no per-frame literal).
+    _cargoCtx.localSlotIndex = localSlotIndexThisFrame;
+    _cargoCtx.netSlots = netSlotsForFrame;
+    _cargoCtx.roundPhase = roundState.phase;
+    updateCargoLoad(allCarts, now, _cargoCtx);
 
-  // * The Living Store — host schedules/fires PA directives; every peer ticks expiry.
-  updateDirectiveEngine(now);
-  // * Directive countdown chip under the round timer (hides itself when none active).
-  deps.HUD?.setHudDirective?.(getActiveDirective(), now);
+    // * The Living Store — host schedules/fires PA directives; every peer ticks expiry.
+    updateDirectiveEngine(now);
+    // * Directive countdown chip under the round timer (hides itself when none active).
+    deps.HUD?.setHudDirective?.(getActiveDirective(), now);
+  });
 
   const usePhysicsInterp = physicsAlpha != null;
   const visualOffset = deps.CONFIG.cart.visualOffset;
@@ -246,6 +250,7 @@ export function updateVisualsAndEffects(deps, frameCtx) {
   );
 
   // Sync render meshes from physics (or from net targets for remote non-host carts).
+  timeLoopMs("visSyncMs", () => {
   const localSlotIndexForFrame = localSlotIndexThisFrame;
   for (let slotIndex = 0; slotIndex < allCarts.length; slotIndex += 1) {
     const c = allCarts[slotIndex];
@@ -485,7 +490,9 @@ export function updateVisualsAndEffects(deps, frameCtx) {
       }
     }
   }
+  });
 
+  timeLoopMs("visHudMs", () => {
   deps.HUD.update({
     youConnId: deps.getYouConnId(),
     netSlots: netSlotsForFrame,
@@ -508,7 +515,9 @@ export function updateVisualsAndEffects(deps, frameCtx) {
   if (frameBudgetAllow("ambient", now)) {
     Effects.updateAmbientParticles(dt, now);
   }
+  });
 
+  timeLoopMs("visRenderMs", () => {
   // * Shake amplitudes are tuned in px (CONFIG.ramming.fx.shakePixelScale); convert to
   // * radians against viewport height so perceived amplitude matches the old DOM shake.
   const shakeUntil = deps.getShakeUntil();
@@ -560,6 +569,7 @@ export function updateVisualsAndEffects(deps, frameCtx) {
   tickBlackFrameMonitor();
   deps.labelRenderer.render(deps.scene, deps.camera);
   if (shakeApplied) deps.camera.quaternion.copy(_preShakeQuat);
+  });
 
   // * FPS meter is a dev-only overlay — production players never see it.
   const fpsState = import.meta.env.DEV ? deps.fpsState : null;
