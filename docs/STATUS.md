@@ -29,7 +29,7 @@ report phase-exit eligibility; they must not move the marker.
 are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Analytics DO reset for
 external testers. Stay in this phase until Wyatt advances the marker.
 
-Live PT on prod (VERIFY_OK `7896b9f4` / Worker `80cd5375`): **COUNTDOWN-HOST-STAMP-PT-1** ·
+Live PT on prod (VERIFY_OK `748ea991` / Worker `4c34277c`): **COUNTDOWN-HOST-STAMP-PT-1** ·
 **KO-CENTER-RING-PT-1** · **CUSTOMIZE-SVG-FLASH-PT-1** · **FRIENDS-LOBBY-ORDER-PT-1**.
 Landed 08-17 — **KO-CENTER-RING-1** · **CUSTOMIZE-SVG-FLASH-1** ·
 **FRIENDS-LOBBY-ORDER-1** · **SD-SPECTATOR-CHARGE-1** · **MIG-KO-DROP-1**. Deferred launch day:
