@@ -71,9 +71,9 @@ way the Block table still can.)*
 <!-- BEGIN GENERATED counts — npm run backlog. Do not hand-edit. -->
 | Department | Open | High | Medium | Low |
 |---|---:|---:|---:|---:|
-| [Engineering](#engineering) | 16 | 0 | 4 | 11 (+1 partial) |
+| [Engineering](#engineering) | 15 | 0 | 4 | 10 (+1 partial) |
 | [Design / Gameplay](#design--gameplay) | 2 | 0 | 2 | 0 |
-| 🟢 [Playtest owed](#playtest-owed) | 2 | 0 | 0 | 2 |
+| 🟢 [Playtest owed](#playtest-owed) | 3 | 0 | 0 | 3 |
 | [Tech Debt](#tech-debt) | 13 | 0 | 3 | 10 |
 
 **33 open rows total.**
@@ -185,7 +185,8 @@ Landed 08-17 — **CART-HUE-CUBES-1** (Cubes faces stay in the selected neon fam
 Landed 08-17 — **SPILL-RAM-CREDIT-1** (spill credit is a real spill, not a ram); Wyatt PASS 08-17.
 1. **MOTION-A11Y-1** — needs definition of done first (which motions, how much).
 2. **COUNTDOWN-LEAK-1** (**COUNTDOWN-QUICKPLAY-1** closed 08-17 as resolved by COUNTDOWN-ARM-1).
-3. 08-16 audit Lows, top first: **SPILL-DOUBLE-VFX-1** · **PODIUM-DOUBLE-CREDIT-1** · **HOST-PRESENT-ORDER-1** · **ZOMBIE-ROOM-RESET-1** · **DEMOTE-COUNTDOWN-1** · **SPECTATOR-ANNOUNCER-1** · **RD-COUNTER-1**.
+3. 08-16 audit Lows, top first: **SPILL-DOUBLE-VFX-1** · **PODIUM-DOUBLE-CREDIT-1** · **HOST-PRESENT-ORDER-1** · **ZOMBIE-ROOM-RESET-1** · **DEMOTE-COUNTDOWN-1** · **RD-COUNTER-1**.
+Landed 08-18 — **SPECTATOR-ANNOUNCER-1** (stop in-flight PA on every podium).
 Landed 08-18 — **KEYUP-STUCK-1** (keyup over INPUT still releases hold).
 Landed 08-17 — **MIG-KO-DROP-1** (mid-round fall force-flushes on queue).
 
@@ -216,7 +217,6 @@ Rows follow work-order rank: High (Block 1) → Medium (Block 2, then Wyatt-bloc
 | Low | HOST-PRESENT-ORDER-1 — `host_present` deletes the away flag before the cooldown gate; host-return reclaim dead in its own 5s window | **Filed 08-16 from the gameplay bug audit (adversarially reviewed).** [party/index.ts](../../../party/index.ts) ~478-483 consumes `#awayHostIds` before the cooldown check, so the client's 5s retry (`netcode.js` ~2877-2883) finds nothing to reclaim — a host returning within 5s of an away-migration (the common quick tab-switch) can never get the role back. Symmetric: `host_away` sent inside the cooldown is never retried (one-shot timer), so a starved hidden host keeps authority. Role-quality only; no corruption. |
 | Low | ZOMBIE-ROOM-RESET-1 — `onConnect`'s empty-room phase reset runs before the reap pass that invalidates its input | **Filed 08-16 from the gameplay bug audit (adversarially reviewed).** The nuke-stale-state decision reads human slots at party/index.ts ~1064-1072, but reap + orphan reconcile run after it (~1085-1093) — in an all-zombie room (every `onClose` lost), the lone new joiner is promoted host of a stale `running` round whose `startedAtMs` is long expired → odd immediate end / SD entry on join. Self-resolving but a broken first experience; sibling of ZOMBIE-HOST-PICK-1. |
 | Low | DEMOTE-COUNTDOWN-1 — demoted host keeps armed countdown timers; `startRunningAt` lacks an isHost guard | **Filed 08-16 from the gameplay bug audit (adversarially reviewed).** `applyHostMigration` never invalidates the old host's `roundCountdownTimeoutId`, and unlike `startCountdown` / `resumeCountdownAsNewHost`, `startRunningAt` ([roundLifecycle.js](../../src/orchestration/roundLifecycle.js) ~758) has no `isHost` check — a demoted client can locally flip itself to running ~a clock-skew early. Defused by the next authoritative `host_round`; cosmetic flicker only. |
-| Low | SPECTATOR-ANNOUNCER-1 — spectators get no announcer silencing at a decided podium | **Filed 08-16 from the gameplay bug audit (adversarially reviewed).** Only the draw branch calls `stopAnnouncer()` ([roundLifecycle.js](../../src/orchestration/roundLifecycle.js) ~311-341); a spectator with an in-flight "10 SECONDS" / `new_leader` callout keeps it playing across the podium transition (~2-4s, bounded). Spectators only. |
 | Low | RD-COUNTER-1 — guests' "RD n" counter stalls on rounds the server doesn't stamp `validated` | **Filed 08-16 from the gameplay bug audit (adversarially reviewed).** The HUD round label reads `matchHistory.length` ([hud.js](../../src/hud.js) ~795), but guests' history only grows on server-validated podiums ([netcode.js](../../src/netcode.js) ~3589) — any round that fails validation shows "RD 1" again on all clients but the host. Rare-cosmetic. |
 | Low | MOTION-A11Y-1 — `prefers-reduced-motion` doesn't actually reduce any motion | **Filed 08-05, spun out of TIER-DEFAULT-1's lever 4.** The OS accessibility flag was, until TIER-DEFAULT-1 closed, silently forcing the graphics quality tier to Low (cap-287/288: the same Intel box booted Low with Windows animations on and Medium with them off). TIER-DEFAULT-1 fixed the *tier* side (reduced-motion now demotes one rung inside `defaultTierForCaps()` — [gpuCaps.js](../../src/utils/gpuCaps.js) — instead of hard-pinning Low), but that was always an interim: reduced-motion should reduce **motion**, not graphics fidelity. Nothing currently reads the flag for motion at all. Candidates once picked up: attract-camera spin/drift, cart-impact screen shake, KO/win screen flash, any continuous idle animation loop. Needs a definition-of-done pass (which motions, how much) before it's a code card. |
 | Low | NET-PERF-3 — p2p per-message buffer copy | Only batch if F8 shows alloc pressure after NET-PERF-1. |
@@ -254,6 +254,7 @@ completed-work — do not restack it here.
 
 | Pri | Item | Notes |
 |-----|------|-------|
+| Low | SPECTATOR-ANNOUNCER-PT-1 — decided podium silences in-flight PA | **Owed: Wyatt playtest — SPECTATOR-ANNOUNCER-PT-1 — a decided podium cuts an in-flight last-10s / new-leader line, then plays victory.** Pushed, not yet deployed — `npm run dev` until ship.<br>1. Solo. Let the last-10s callout start, then win the round.<br>2. FAIL if the leftover line plays over the winner cam. PASS if it cuts and victory plays.<br>3. Optional: as a spectator in Friends, leftover must stay silent (no victory/defeat for that seat). |
 | Low | KEYUP-STUCK-PT-1 — keyup over a focused text field does not stick the cart | **Owed: Wyatt playtest — KEYUP-STUCK-PT-1 — hold WASD or Shift, focus a text field, release; the cart must stop.** Pushed, not yet deployed — `npm run dev` until ship.<br>1. Start a solo round. Hold W (or hold Shift to charge).<br>2. Open the menu (ESC) and click the name field or join-code field without releasing the key.<br>3. Release the key while that field is focused, then close the menu or start the next round.<br>4. FAIL if the cart keeps driving or boost stays held. PASS if motion and boost stop. |
 | Low | SHARD-PT-2 — fifth human overflows to quickplay2 `[2pc]` | **Owed: Wyatt playtest — SHARD-PT-2 — the 5th concurrent Quickplay human lands on quickplay2 instead of "couldn't join".** Launch-day / public-post check — needs five real humans (Wyatt deferred 08-05). Rig already 5/5; SHARD-PT-1 PASSed on prod `9c333d1`. Prefer analytics: any `quickplay_shard_assigned` with `hops > 0` or `shard !== quickplay` counts.<br>1. When five humans can join Quickplay at once (public post), watch the 5th seat.<br>2. FAIL if they get the dead-end couldn't-join toast with no hop. PASS if they seat on an overflow shard (or analytics shows hops greater than 0).<br>3. Skip / leave open until launch day — do not FAIL for lack of five people. |
 
@@ -380,4 +381,4 @@ KO-CENTER-RING-1, KO-CENTER-RING-PT-1, SD-SPECTATOR-CHARGE-1, SD-SPECTATOR-CHARG
 COUNTDOWN-HOST-STAMP-1, COUNTDOWN-HOST-STAMP-PT-1, CUSTOMIZE-SVG-FLASH-1, CUSTOMIZE-SVG-FLASH-PT-1,
 FRIENDS-LOBBY-ORDER-1, FRIENDS-LOBBY-ORDER-PT-1,
 CUSTOMIZE-SPAM-1, CUSTOMIZE-SPAM-PT-1, WARM-CLASSIC-JUICE-1, WARM-CLASSIC-JUICE-PT-1,
-KEYUP-STUCK-1.
+KEYUP-STUCK-1, SPECTATOR-ANNOUNCER-1.

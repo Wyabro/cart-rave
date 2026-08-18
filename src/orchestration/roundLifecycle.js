@@ -317,6 +317,13 @@ function beginPodiumPresentation() {
   // * a celebrated cart; a second burst fires when the results panel lands.
   if (lastPodiumCelebratedRound !== rs.startedAtMs) {
     lastPodiumCelebratedRound = rs.startedAtMs;
+    // * SPECTATOR-ANNOUNCER-1: hard-silence in-flight callouts ("10 SECONDS" /
+    // * new_leader) for everyone on podium entry. Draw already did this so the
+    // * podium opened clean; extend to decided podiums (winner / loser / spectator).
+    // * Must stay inside this once-per-round gate and before the winner/draw
+    // * split — the function re-runs every podium frame, and victory/defeat fire
+    // * after this stop. stopAnnouncer does not reset _firedOnce / cooldowns.
+    stopAnnouncer();
     const celebrationWinner = rs.winnerSlotIndex;
     if (celebrationWinner !== "draw" && typeof celebrationWinner === "number") {
       const mySlotIdx = Netcode.strictSlotIndexForConn(Netcode.getYouConnId());
@@ -339,12 +346,6 @@ function beginPodiumPresentation() {
         SfxSynth.playCrowdCheer(1);
         ArenaAmbience.bumpCrowdExcitement(1);
       }
-    } else {
-      // * Draw: no victory/defeat VO fires, so nothing interrupts an in-flight
-      // * callout ("10 SECONDS" / "SCOREBOARD" can hold ~2s over the podium cam).
-      // * Hard-silence so the podium opens clean; lobby entry would do this later
-      // * anyway (announcerDirector phase watcher).
-      stopAnnouncer();
     }
   }
 }

@@ -13,6 +13,15 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 18, 2026 — SPECTATOR-ANNOUNCER-1
+
+- *(Engineering · Low)* **SPECTATOR-ANNOUNCER-1** — ✅ **DONE 08-18**.
+  `stopAnnouncer()` now runs once on every podium entry (inside the
+  `lastPodiumCelebratedRound` gate, before the winner/draw split). In-flight
+  "10 SECONDS" / `new_leader` no longer carry over the winner cam for
+  spectators. Victory/defeat still fire after the stop. Playtest owed:
+  **SPECTATOR-ANNOUNCER-PT-1**.
+
 ### August 18, 2026 — KEYUP-STUCK-1
 
 - *(Engineering · Low)* **KEYUP-STUCK-1** — ✅ **DONE 08-18**. `onKeyUp` now
