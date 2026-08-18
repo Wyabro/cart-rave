@@ -31,7 +31,7 @@ external testers. Stay in this phase until Wyatt advances the marker.
 
 Live PT on prod (VERIFY_OK `748ea991` / Worker `4c34277c`): **COUNTDOWN-HOST-STAMP-PT-1** ·
 **CUSTOMIZE-SVG-FLASH-PT-1** · **FRIENDS-LOBBY-ORDER-PT-1**.
-Landed 08-17 — **CUSTOMIZE-SVG-FLASH-1** ·
+Filed 08-17 — **CUSTOMIZE-SPAM-1** (cap-370). Landed 08-17 — **CUSTOMIZE-SVG-FLASH-1** ·
 **FRIENDS-LOBBY-ORDER-1** · **MIG-KO-DROP-1**. Deferred launch day:
 **SHARD-PT-2**. Closed 08-17 — **CART-HUE-CUBES-PT-1** `[solo]` · **CART-HUE-RED-PT-1**
 `[solo]` · **LAST-STANDING-DEAD-PT-1** · **NPC-ABORT-BURST-PT-1** ·
@@ -129,6 +129,10 @@ or a suspected blocker (TS 7 · `cartrave4` UVs).
 - Local worker port is **8899** (`LOCAL_WORKER_PORT` in `src/config.js`). If it goes EACCES, re-check Windows HNS exclusions and move the port there.
 
 ## Last updated
+
+2026-08-17 (CUSTOMIZE-SPAM-1) — filed from cap-370. Rapid Customize remounts the
+menu cart 10× in 54 s, longtasks to 1714 ms, then `gpucontextlost` at t=43.9 s
+with no restore. Do not reopen ATTRACT-JANK-1 / CUSTOMIZE-PERF-1.
 
 2026-08-17 (CUSTOMIZE-SVG-FLASH-PT-1) — open no longer paints the cartoon SVG
 as a load placeholder. Holder stays empty until 3D is ready; SVG only if

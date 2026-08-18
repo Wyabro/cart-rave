@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-18T04:48:49.994Z",
-    "commit": "3d66d8a9"
+    "at": "2026-08-18T04:53:55.975Z",
+    "commit": "07f50356"
   },
-  "source_digest": "f5826bdb",
+  "source_digest": "ca4d5d7e",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -895,7 +895,7 @@
       {
         "title": "Engineering",
         "counts": {
-          "Medium": 7,
+          "Medium": 8,
           "Partial": 1,
           "Low": 12
         },
@@ -904,6 +904,12 @@
             "pri": "Medium",
             "item": "COUNTDOWN-HOST-STAMP-1 — first non-host 3-2-1 hangs on 3 then slams 2+1 `[2pc]`",
             "notes": "**Landed 08-16** — skip `host_round` / hello `countdownStartedAtMs` while `hostClock.samples === 0` (keep `gameStart` local stamp). Host and rematch (`samples > 0`) still apply. Abort `0` still applies. No `tHost` on `host_round`. Mid-join during countdown is out of this lever. Playtest owed: **COUNTDOWN-HOST-STAMP-PT-1**. Not a reopen of COUNTDOWN-SYNC-1 / COUNTDOWN-QUICKPLAY-1 / THOST-CEILING-1.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "CUSTOMIZE-SPAM-1 — rapid Customize open/close remounts WebGL and kills attract `[solo]`",
+            "notes": "**Filed 08-17 from cap-370** (RTX 4090, High, `cartclash.lol/?diag=1`, lobby, prod `748ea991`). Do not reopen **ATTRACT-JANK-1** (reduced-motion cadence) or **CUSTOMIZE-PERF-1** (steady-state 0.3 ms). Distinct from **CUSTOMIZE-SVG-FLASH-1** (cartoon SVG). Timeline: 10 `menuCartMount` in 54 s; longtask after almost every remount (max 1714 ms); `gpucontextlost` on the main attract canvas at t=43921; no `gpucontextrestored` by F8 at t=54515. Attract loop still ticks (`attractWindow` cheap, `attractCut` continues) but the game GL is dead. Each open disposes the menu cart and creates a Customize WebGL+PMREM; each close disposes that and remounts the menu cart. `mountCartPreview` also nulls the in-flight promise, so a stacked import can create a second Customize context. **Work from this capture.** Candidate: debounce menu-cart remount until Customize has stayed closed; add a generation token so in-flight mounts cannot stack.",
             "ship1": null
           },
           {
