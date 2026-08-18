@@ -3,8 +3,11 @@
  *
  * If p95 frame time stays above a threshold for several seconds, step quality
  * down ONE tier for this session (no localStorage write), re-arm, and allow
- * up to three steps (high→high-lite→medium→low). User tier changes via
- * setQualityTier clear the session override and win.
+ * up to three steps (high→high-lite→medium→low). Below the LOW floor, further
+ * relief is session render-scale (1 → 0.85 → 0.7). PERF-WATCH-1 wave 1 restores
+ * scale only (0.7 → 0.85 → 1) after sustained good game pacing. Tier step-up
+ * is wave 2. User tier changes via setQualityTier clear the session override
+ * and win.
  *
  * The caller must react to a `true` return by re-applying quality live
  * (composer passes, pixel ratio, arena knobs) — the flag flip alone only
@@ -16,8 +19,11 @@ import { recordDiagEvent } from "./diagnostics.js";
 import { getQualityTier, setSessionQualityTier, stepDownQualityTier } from "./qualityMode.js";
 import {
   canStepDownSessionRenderScale,
+  canStepUpSessionRenderScale,
   getSessionRenderScaleMul,
+  peekStepUpSessionRenderScale,
   stepDownSessionRenderScale,
+  stepUpSessionRenderScale,
 } from "./qualityTiers.js";
 
 const SAMPLE_CAP = 90;
@@ -29,8 +35,9 @@ const SAMPLE_CAP = 90;
  * cap-287: the menu was in reduced motion at 1.25fps, so the 20-sample minimum took
  * ~16s to fill and the watchdog demoted at t=44.6s on p95 24.7 — carried by a single
  * 97.8ms boot-tail frame from t=28.4s — while every window in the preceding 15s
- * measured under 9ms. That demotion is irreversible for the session and follows the
- * player into the round, so a stale menu sample costs real in-game render scale.
+ * measured under 9ms. That demotion follows the player into the round, so a stale
+ * menu sample costs real in-game render scale. Wave 1 can restore scale; it does
+ * not undo a tier demotion.
  *
  * 4s, not 2s: the 20-sample minimum below is documented as covering a 10fps machine
  * (~2s of frames) and those are exactly the machines that must still be able to
@@ -44,13 +51,22 @@ const SAMPLE_MAX_AGE_MS = 4000;
  * SAME number the watchdog demotes on — a second literal would drift silently.
  */
 export const BAD_FRAME_MS = 20.5;
+/**
+ * ms — holding a 60 Hz lock. Game `dt` is rAF interval, not GPU busy time, so a
+ * healthy 60 fps lock is ~16.7ms. 12ms would never fire on 60 Hz.
+ */
+export const GOOD_FRAME_MS = 17;
 /** consecutive bad 1s windows before step-down (was 3 — ~3s of stutter before relief) */
 const BAD_WINDOWS_NEEDED = 2;
+/** consecutive good 1s game windows before a scale step-up */
+export const GOOD_WINDOWS_NEEDED = 8;
 const WINDOW_MS = 1000;
 /** max automatic tier steps per session (high→high-lite→medium→low) */
 const MAX_STEPS = 3;
 /** ms of settle time after a step before sampling resumes */
 const COOLDOWN_MS = 4000;
+/** a down inside this window after a scale-up locks the pre-up scale as the ceiling */
+export const RATCHET_WINDOW_MS = 30_000;
 /**
  * FV-LOAD-1b: after mode-entry overlay lifts, keep sampling off this long so the
  * freeze shoulder (20.5–250 ms frames) cannot demote the session. Cap-229 demoted
@@ -64,6 +80,7 @@ const samples = [];
 /** @type {number[]} */
 const sampleTimes = [];
 let badWindows = 0;
+let goodWindows = 0;
 let windowStartMs = 0;
 let stepsApplied = 0;
 let cooldownUntilMs = 0;
@@ -73,46 +90,54 @@ let entryOverlayActive = false;
 let entryGraceUntilMs = 0;
 /** Clear the sample ring once when grace expires (not every tick). */
 let clearSamplesWhenGraceEnds = false;
+/** Software-GL session floor — scene.js arms this; tick never steps scale up. */
+let softwareFloorActive = false;
+/**
+ * After a failed scale-up (up then down inside RATCHET_WINDOW_MS), no step-up may
+ * pass this mul. null = no lock.
+ * @type {number | null}
+ */
+let ratchetScaleCeiling = null;
+/**
+ * Most recent scale-up, for the 30s ratchet.
+ * @type {{ tMs: number, fromScale: number } | null}
+ */
+let lastScaleUp = null;
 
 /**
- * WARM-IGPU-1 Phase 0b: every step-down this session, oldest first. A demotion is
- * IRREVERSIBLE for the session (there is no step-up path) and until now was reported
- * only by a DEV-gated console.warn — so in production a player could spend a whole
- * session on LOW because of a few shader-compile stalls and no signal ever left the
- * machine. Read by the analytics layer at session_end.
- * @type {Array<{ from: string, to: string, source: string, p95: number, tMs: number }>}
+ * PERF-WATCH-1: every auto step this session, oldest first. Wave 1 restores
+ * render scale after sustained good game pacing; tier stays one-way. Read by
+ * the analytics layer at session_end (`steps` = downs, `stepUps` = ups).
+ * @type {Array<{ from: string, to: string, source: string, p95: number, tMs: number, dir: "up"|"down", ratchetLocked?: boolean }>}
  */
 const stepLog = [];
 
-/** @returns {ReadonlyArray<{ from: string, to: string, source: string, p95: number, tMs: number }>} */
+/** @returns {ReadonlyArray<{ from: string, to: string, source: string, p95: number, tMs: number, dir?: "up"|"down", ratchetLocked?: boolean }>} */
 export function getAutoQualityStepLog() {
   return stepLog;
 }
 
 /**
- * Feed one frame's delta (seconds) from the main loop.
- * @param {number} dtSec
- * @param {number} [nowMs]
- * @param {string} [source] Which feed produced this sample — "game" (frame delta) or
- *   "attract" (menu render cost). The two measure DIFFERENT quantities against one
- *   threshold (see main.js onRenderCost); recording it is how we tell a menu-side
- *   demotion from a real in-round one without guessing.
- * @returns {boolean} true if this call applied a session step-down (caller should re-apply quality live)
+ * Arm the software-GL floor so the watchdog cannot raise render scale.
+ * scene.js calls this when createRenderer classifies the live context as software.
+ * @param {boolean} active
+ * @returns {void}
  */
+export function setAutoQualitySoftwareFloor(active) {
+  softwareFloorActive = active === true;
+}
+
 /**
  * Mode-entry overlay just appeared — suppress demotion for the whole load window.
  * Also clears the sample ring so menu-attract cost cannot poison the first in-round
- * windows (same ring is never cleared between evals — autoQuality.js:126-128).
+ * windows.
  * @returns {void}
  */
 export function noteModeEntryShown() {
   entryOverlayActive = true;
   entryGraceUntilMs = 0;
   clearSamplesWhenGraceEnds = false;
-  samples.length = 0;
-  sampleTimes.length = 0;
-  badWindows = 0;
-  windowStartMs = 0;
+  clearSampleRing();
 }
 
 /**
@@ -141,9 +166,105 @@ function clearSampleRing() {
   samples.length = 0;
   sampleTimes.length = 0;
   badWindows = 0;
+  goodWindows = 0;
   windowStartMs = 0;
 }
 
+function canDownFrom(currentTier) {
+  const atFloor = currentTier === "low";
+  if (atFloor) return canStepDownSessionRenderScale();
+  return stepsApplied < MAX_STEPS && stepDownQualityTier(currentTier) != null;
+}
+
+function canScaleUp(source) {
+  if (source !== "game") return false;
+  if (softwareFloorActive) return false;
+  if (!canStepUpSessionRenderScale()) return false;
+  const next = peekStepUpSessionRenderScale();
+  if (!(next > 0)) return false;
+  if (ratchetScaleCeiling != null && next > ratchetScaleCeiling) return false;
+  return true;
+}
+
+/**
+ * @param {{
+ *   dir: "up"|"down",
+ *   from: string,
+ *   to: string,
+ *   stepDesc: string,
+ *   source: string,
+ *   p95: number,
+ *   nowMs: number,
+ *   ratchetLocked?: boolean,
+ * }} step
+ * @returns {true}
+ */
+function commitStep(step) {
+  clearSampleRing();
+  cooldownUntilMs = step.nowMs + COOLDOWN_MS;
+  const p95 = Math.round(step.p95 * 10) / 10;
+  const renderScale = getSessionRenderScaleMul();
+  const type = step.dir === "up" ? "qualityStepUp" : "qualityStepDown";
+  recordDiagEvent("perf", type, {
+    from: step.from,
+    to: step.to,
+    step: step.stepDesc,
+    source: step.source,
+    p95,
+    stepsApplied,
+    renderScale,
+    dir: step.dir,
+  });
+  if (stepLog.length < 16) {
+    /** @type {{ from: string, to: string, source: string, p95: number, tMs: number, dir: "up"|"down", ratchetLocked?: boolean }} */
+    const entry = {
+      from: step.from,
+      to: step.to,
+      source: step.source,
+      p95,
+      tMs: Math.round(step.nowMs),
+      dir: step.dir,
+    };
+    if (step.ratchetLocked) entry.ratchetLocked = true;
+    stepLog.push(entry);
+  }
+  if (import.meta.env.DEV) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[autoQuality] session step-${step.dir} ${step.stepDesc} (p95≈${step.p95.toFixed(1)}ms, source=${step.source})`,
+    );
+  }
+  return true;
+}
+
+function ratchetAfterDown(nowMs, from, to) {
+  if (!lastScaleUp) return false;
+  const dtMs = nowMs - lastScaleUp.tMs;
+  if (dtMs > RATCHET_WINDOW_MS) {
+    lastScaleUp = null;
+    return false;
+  }
+  ratchetScaleCeiling = lastScaleUp.fromScale;
+  recordDiagEvent("perf", "qualityStepRatchet", {
+    from,
+    to,
+    dtMs: Math.round(dtMs),
+    ceiling: ratchetScaleCeiling,
+  });
+  lastScaleUp = null;
+  return true;
+}
+
+/**
+ * Feed one frame's delta (seconds) from the main loop.
+ * @param {number} dtSec
+ * @param {number} [nowMs]
+ * @param {string} [source] Which feed produced this sample — "game" (frame delta) or
+ *   "attract" (menu render cost). The two measure DIFFERENT quantities against one
+ *   threshold (see main.js onRenderCost); recording it is how we tell a menu-side
+ *   demotion from a real in-round one without guessing.
+ * @returns {boolean} true if this call applied a session step (caller should re-apply quality live)
+ */
 export function tickAutoQuality(dtSec, nowMs = performance.now(), source = "game") {
   // * An explicit ?preset= is a QA pin (tools/perf-profile.mjs measures fixed tiers;
   // * visual-QA shots must be reproducible) — the watchdog shares the same session
@@ -165,10 +286,11 @@ export function tickAutoQuality(dtSec, nowMs = performance.now(), source = "game
   // * sub-native render-scale steps instead of tier steps (an Intel UHD host still
   // * dropped ~30% of frames >33ms at LOW/0.75×, and a hitching host is every peer's
   // * rubber-banding). Tier steps stay capped at MAX_STEPS; scale steps cap in
-  // * qualityTiers (1 → 0.85 → 0.7).
-  const atFloor = currentTier === "low";
-  if (!atFloor && stepsApplied >= MAX_STEPS) return false;
-  if (atFloor && !canStepDownSessionRenderScale()) return false;
+  // * qualityTiers (1 → 0.85 → 0.7). Wave 1 also samples at the scale floor so a
+  // * recovered machine can step scale back up.
+  const canDown = canDownFrom(currentTier);
+  const canUp = canScaleUp(source);
+  if (!canDown && !canUp) return false;
 
   const dtMs = (Number(dtSec) || 0) * 1000;
   if (!(dtMs > 0) || dtMs > 250) return false;
@@ -205,55 +327,56 @@ export function tickAutoQuality(dtSec, nowMs = performance.now(), source = "game
   } else {
     badWindows = Math.max(0, badWindows - 1);
   }
-
-  if (badWindows < BAD_WINDOWS_NEEDED) return false;
-
-  let stepDesc;
-  if (atFloor) {
-    if (!stepDownSessionRenderScale()) return false;
-    stepDesc = `low renderScale ×${getSessionRenderScaleMul()}`;
-  } else {
-    const nextTier = stepDownQualityTier(currentTier);
-    if (!nextTier) return false;
-    setSessionQualityTier(nextTier);
-    stepsApplied += 1;
-    stepDesc = `${currentTier}→${nextTier}`;
+  // * Attract must not build step-up progress — menu cost is not in-game headroom.
+  if (p95 > GOOD_FRAME_MS) {
+    goodWindows = 0;
+  } else if (source === "game") {
+    goodWindows += 1;
   }
-  badWindows = 0;
-  samples.length = 0;
-  sampleTimes.length = 0;
-  windowStartMs = 0;
-  cooldownUntilMs = nowMs + COOLDOWN_MS;
-  // * Phase 0b: land the demotion in the diag ring so an F8 capture shows WHEN it fired
-  // * (menu attract vs mid-round) and on what evidence. The sample buffer is NOT cleared
-  // * between windows, so one bad second can poison up to 3 evaluated windows — `p95` plus
-  // * `source` is what separates "this machine is genuinely slow" from "a shader compile
-  // * stall demoted the session".
-  recordDiagEvent("perf", "qualityStepDown", {
-    from: currentTier,
-    to: atFloor ? currentTier : getQualityTier(),
-    step: stepDesc,
-    source,
-    p95: Math.round(p95 * 10) / 10,
-    stepsApplied,
-    renderScale: getSessionRenderScaleMul(),
-  });
-  if (stepLog.length < 16) {
-    stepLog.push({
+
+  const atFloor = currentTier === "low";
+  if (canDown && badWindows >= BAD_WINDOWS_NEEDED) {
+    let stepDesc;
+    if (atFloor) {
+      if (!stepDownSessionRenderScale()) return false;
+      stepDesc = `low renderScale ×${getSessionRenderScaleMul()}`;
+    } else {
+      const nextTier = stepDownQualityTier(currentTier);
+      if (!nextTier) return false;
+      setSessionQualityTier(nextTier);
+      stepsApplied += 1;
+      stepDesc = `${currentTier}→${nextTier}`;
+    }
+    const to = atFloor ? currentTier : getQualityTier();
+    const ratchetLocked = ratchetAfterDown(nowMs, currentTier, to);
+    return commitStep({
+      dir: "down",
       from: currentTier,
-      to: atFloor ? currentTier : getQualityTier(),
+      to,
+      stepDesc,
       source,
-      p95: Math.round(p95 * 10) / 10,
-      tMs: Math.round(nowMs),
+      p95,
+      nowMs,
+      ratchetLocked,
     });
   }
-  if (import.meta.env.DEV) {
-    // eslint-disable-next-line no-console
-    console.warn(
-      `[autoQuality] session step-down ${stepDesc} (p95≈${p95.toFixed(1)}ms over ${BAD_WINDOWS_NEEDED}s, source=${source})`,
-    );
+
+  if (canUp && goodWindows >= GOOD_WINDOWS_NEEDED) {
+    const fromScale = getSessionRenderScaleMul();
+    if (!stepUpSessionRenderScale()) return false;
+    lastScaleUp = { tMs: nowMs, fromScale };
+    return commitStep({
+      dir: "up",
+      from: currentTier,
+      to: currentTier,
+      stepDesc: `low renderScale ×${getSessionRenderScaleMul()}`,
+      source,
+      p95,
+      nowMs,
+    });
   }
-  return true;
+
+  return false;
 }
 
 /** Test/reset helper. */
@@ -261,6 +384,7 @@ export function resetAutoQualityForTests() {
   samples.length = 0;
   sampleTimes.length = 0;
   badWindows = 0;
+  goodWindows = 0;
   windowStartMs = 0;
   stepsApplied = 0;
   cooldownUntilMs = 0;
@@ -268,4 +392,7 @@ export function resetAutoQualityForTests() {
   entryOverlayActive = false;
   entryGraceUntilMs = 0;
   clearSamplesWhenGraceEnds = false;
+  softwareFloorActive = false;
+  ratchetScaleCeiling = null;
+  lastScaleUp = null;
 }

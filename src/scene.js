@@ -11,6 +11,7 @@ import { FXAAShader } from "three/examples/jsm/shaders/FXAAShader.js";
 import { CONFIG } from "./config.js";
 import { QUALITY_KNOBS, getQualityKnobs, effectivePixelRatio } from "./utils/qualityTiers.js";
 import { setSessionQualityTier } from "./utils/qualityMode.js";
+import { setAutoQualitySoftwareFloor } from "./utils/autoQuality.js";
 import { classifyGpuRendererString, probeGpu, readRendererString } from "./utils/gpuCaps.js";
 import { recordDiagEvent } from "./utils/diagnostics.js";
 import { mark } from "./utils/perfSpans.js";
@@ -952,6 +953,7 @@ export function createRenderer(canvas) {
     softwareRendererActive = true;
     softwareRendererName = rendererString;
     setSessionQualityTier("low");
+    setAutoQualitySoftwareFloor(true);
     console.warn(
       `[CartRave] Software WebGL detected ("${rendererString}") — forcing LOW quality for this session. `
         + "Enable hardware acceleration for the full experience.",

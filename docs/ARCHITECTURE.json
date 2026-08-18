@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-18T06:36:11.009Z",
-    "commit": "e3886b5f"
+    "at": "2026-08-18T07:14:27.171Z",
+    "commit": "85a59f23"
   },
-  "source_digest": "bd28a583",
+  "source_digest": "e98d29d9",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -920,7 +920,7 @@
           {
             "pri": "Medium",
             "item": "PERF-WATCH-1 — auto-quality step-up path",
-            "notes": "Watchdog demotion is irreversible per session (no step-up anywhere; DEV-only warn; 2 tier steps + 2 renderScale steps; attract render-cost and game frame-delta both judged against one 20.5ms bar). Decide after WARM-IGPU-1 P0b telemetry shows how often it bites.",
+            "notes": "Wave 1 landed (scale-up only). 17ms / 8-window / 30s ratchet. Wave 2 (tier-up) stays open. Playtest: **PERF-WATCH-PT-1**.",
             "ship1": null
           },
           {
@@ -1014,7 +1014,7 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Low": 4
+          "Low": 5
         },
         "rows": [
           {
@@ -1027,6 +1027,12 @@
             "pri": "Low",
             "item": "SPECTATOR-ANNOUNCER-PT-1 — decided podium silences in-flight PA",
             "notes": "**Owed: Wyatt playtest — SPECTATOR-ANNOUNCER-PT-1 — a decided podium cuts an in-flight last-10s / new-leader line, then plays victory.** On prod `e3886b5f` (VERIFY_OK). Hard-refresh first.<br>1. Solo. Let the last-10s callout start, then win the round.<br>2. FAIL if the leftover line plays over the winner cam. PASS if it cuts and victory plays.<br>3. Optional: as a spectator in Friends, leftover must stay silent (no victory/defeat for that seat).",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "PERF-WATCH-PT-1 — scale recovers after a 60 fps lock",
+            "notes": "**Owed: Wyatt playtest — PERF-WATCH-PT-1 — after rsm 0.7, a held 60 fps lock steps scale back toward 1 with no oscillation.** Not on prod yet — `npm run dev` + `?diag=1`. Intel UHD host, Friends Classic.<br>1. Play until F8 `runtime.renderScaleMul` is 0.7 (or match cap-371).<br>2. Hold a ~60 fps lock for ~12s. Watch rsm and `qualityStepUp` on the diag ring.<br>3. FAIL if rsm stays 0.7 after a solid lock, if rsm ping-pongs, or if a scale-up hitch rubber-bands a guest.<br>4. PASS if rsm walks 0.7 → 0.85 → 1, tier stays low, and peers stay smooth.",
             "ship1": null
           },
           {
@@ -1401,6 +1407,11 @@
       "Cross-module change? Read docs/reference/control-flow.md first — most edges are not imports."
     ],
     "settled_decisions": [
+      {
+        "id": "D-PERF-WATCH-1",
+        "date": "08-18",
+        "text": "wave 1 = scale-up only (17ms / 8 windows /"
+      },
       {
         "id": "D-PERF-CLASSIC-IGPU-1",
         "date": "08-18",

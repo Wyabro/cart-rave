@@ -231,6 +231,29 @@ export function stepDownSessionRenderScale() {
   return true;
 }
 
+/** @returns {boolean} whether a render-scale step-up remains (mul is below 1) */
+export function canStepUpSessionRenderScale() {
+  return RENDER_SCALE_MUL_STEPS.indexOf(sessionRenderScaleMul) > 0;
+}
+
+/**
+ * Next mul if we stepped up, or null at 1.
+ * @returns {number | null}
+ */
+export function peekStepUpSessionRenderScale() {
+  const idx = RENDER_SCALE_MUL_STEPS.indexOf(sessionRenderScaleMul);
+  const next = RENDER_SCALE_MUL_STEPS[idx - 1];
+  return next > 0 ? next : null;
+}
+
+/** @returns {boolean} true if a step was applied (caller must re-apply pixel ratio live) */
+export function stepUpSessionRenderScale() {
+  const next = peekStepUpSessionRenderScale();
+  if (!(next > 0)) return false;
+  sessionRenderScaleMul = next;
+  return true;
+}
+
 /** Test/reset helper. */
 export function resetSessionRenderScaleForTests() {
   sessionRenderScaleMul = 1;

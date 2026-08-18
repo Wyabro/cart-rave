@@ -34,7 +34,9 @@ Active: **PERF-CLASSIC-IGPU-1** wave B (instrument). No look change.
 `visRender` / `visOther`. Landed 08-18 Block 5 Lows on prod `e3886b5f`
 (VERIFY_OK): **KEYUP-STUCK-1** · **SPECTATOR-ANNOUNCER-1** ·
 **RD-COUNTER-1**. Playtest owed on prod: **KEYUP-STUCK-PT-1** ·
-**SPECTATOR-ANNOUNCER-PT-1** · **RD-COUNTER-PT-1**. Closed 08-18 —
+**SPECTATOR-ANNOUNCER-PT-1** · **RD-COUNTER-PT-1**. Playtest owed on
+`npm run dev`: **PERF-WATCH-PT-1**. **PERF-WATCH-1** wave 1 landed
+(scale-up only); wave 2 stays open. Closed 08-18 —
 **CUSTOMIZE-SPAM-PT-1** (prod `a41987e7`) · **WARM-CLASSIC-JUICE-PT-1**
 (`951ea15d` / `npm run dev`). Deferred: **SHARD-PT-2**. Do not reopen
 GAMEPAD-LOBBY-1 or **PERF-PASS-1**.
@@ -99,6 +101,8 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 → 08-02: [decision-log-2026-08.md](./archive/decision-log-2026-08.md). 07-11 → 07-23:
 [decision-log-2026-07.md](./archive/decision-log-2026-07.md).
 
+- **D-PERF-WATCH-1** (08-18): wave 1 = scale-up only (17ms / 8 windows /
+  30s ratchet). No mid-round Low → Medium. Wave 2 is a separate ack.
 - **D-PERF-CLASSIC-IGPU-1** (08-18): wave B = name the +7.5 ms vis gap. No
   `recordbody` ship until a clean cell. 60 fps bar is not this card. Wyatt F8
   Friends Classic Low after the instrument lands.

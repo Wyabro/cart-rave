@@ -86,21 +86,28 @@ export function installGameplayAnalytics(deps) {
           mode: mode(),
         });
       }
-      // * WARM-IGPU-1 Phase 0b: the tier a session ENDED on, plus every auto step-down.
-      // * `tier` at session_start is the stored preference; the watchdog can silently
-      // * demote it (irreversibly — there is no step-up path) and nothing reported that.
-      // * `steps` > 0 with `firstStepSource: "attract"` means players are being demoted
-      // * by menu shader-compile stalls before gameplay is ever measured.
-      const steps = getAutoQualityStepLog();
+      // * WARM-IGPU-1 Phase 0b + PERF-WATCH-1: the tier a session ENDED on, plus every
+      // * auto step. `steps` stays the demotion count (dir !== "up", missing dir = down).
+      // * `stepUps` is additive. `firstStep*` is the first log entry (always a down —
+      // * scale starts at 1). `steps` > 0 with `firstStepSource: "attract"` means
+      // * players were demoted by menu shader-compile stalls before gameplay.
+      const log = getAutoQualityStepLog();
+      let stepDowns = 0;
+      let stepUps = 0;
+      for (const entry of log) {
+        if (entry.dir === "up") stepUps += 1;
+        else stepDowns += 1;
+      }
       const durationMs = Math.round(performance.now());
       trackEvent("session_end", {
         durationMs,
         matches: matchesThisSession,
         tier: safeCall(() => getQualityTier()) ?? null,
-        steps: steps.length,
-        firstStepSource: steps[0]?.source ?? null,
-        firstStepAtMs: steps[0]?.tMs ?? null,
-        firstStepP95: steps[0]?.p95 ?? null,
+        steps: stepDowns,
+        stepUps,
+        firstStepSource: log[0]?.source ?? null,
+        firstStepAtMs: log[0]?.tMs ?? null,
+        firstStepP95: log[0]?.p95 ?? null,
       });
       trackGlitchEvent("engagement", "session_end", {
         durationMs,

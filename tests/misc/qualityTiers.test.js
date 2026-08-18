@@ -1,8 +1,14 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   QUALITY_KNOBS,
+  canStepDownSessionRenderScale,
+  canStepUpSessionRenderScale,
   effectivePixelRatio,
+  getSessionRenderScaleMul,
+  peekStepUpSessionRenderScale,
   resetSessionRenderScaleForTests,
+  stepDownSessionRenderScale,
+  stepUpSessionRenderScale,
 } from "../../src/utils/qualityTiers.js";
 
 describe("QUALITY_KNOBS potato scaling", () => {
@@ -85,5 +91,33 @@ describe("effectivePixelRatio software long-edge cap", () => {
   it("uses the larger edge (portrait windows cap on height)", () => {
     const pr = effectivePixelRatio(720, 1600, true, QUALITY_KNOBS.low);
     expect(pr).toBeCloseTo(720 / 1600, 5);
+  });
+});
+
+describe("session render-scale step-up", () => {
+  beforeEach(() => {
+    resetSessionRenderScaleForTests();
+  });
+
+  it("walks 1 → 0.85 → 0.7 and back", () => {
+    expect(canStepUpSessionRenderScale()).toBe(false);
+    expect(peekStepUpSessionRenderScale()).toBe(null);
+    expect(stepUpSessionRenderScale()).toBe(false);
+
+    expect(canStepDownSessionRenderScale()).toBe(true);
+    expect(stepDownSessionRenderScale()).toBe(true);
+    expect(getSessionRenderScaleMul()).toBe(0.85);
+    expect(peekStepUpSessionRenderScale()).toBe(1);
+
+    expect(stepDownSessionRenderScale()).toBe(true);
+    expect(getSessionRenderScaleMul()).toBe(0.7);
+    expect(canStepDownSessionRenderScale()).toBe(false);
+    expect(peekStepUpSessionRenderScale()).toBe(0.85);
+
+    expect(stepUpSessionRenderScale()).toBe(true);
+    expect(getSessionRenderScaleMul()).toBe(0.85);
+    expect(stepUpSessionRenderScale()).toBe(true);
+    expect(getSessionRenderScaleMul()).toBe(1);
+    expect(stepUpSessionRenderScale()).toBe(false);
   });
 });
