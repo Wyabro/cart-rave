@@ -33,7 +33,8 @@ Active: **PERF-CLASSIC-IGPU-1** wave B (instrument). No look change.
 `?diag` F8 `loopRound` now splits visMs into `visSync` / `visFx` / `visHud` /
 `visRender` / `visOther`. Landed 08-18 Block 5 Lows on prod `e3886b5f`
 (VERIFY_OK): **KEYUP-STUCK-1** · **SPECTATOR-ANNOUNCER-1** ·
-**RD-COUNTER-1**. Playtest owed on prod: **KEYUP-STUCK-PT-1** ·
+**RD-COUNTER-1**. Landed **MENU-ARROW-1** (WASD/arrows move menu focus).
+Playtest owed: **MENU-ARROW-PT-1**. Playtest owed on prod: **KEYUP-STUCK-PT-1** ·
 **SPECTATOR-ANNOUNCER-PT-1** · **RD-COUNTER-PT-1**. Playtest owed on
 `npm run dev`: **PERF-WATCH-PT-1**. **PERF-WATCH-1** wave 1 landed
 (scale-up only); wave 2 stays open. Closed 08-18 —

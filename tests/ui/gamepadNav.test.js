@@ -710,18 +710,32 @@ describe("keyboard arrow-key navigation", () => {
     expect(evt.defaultPrevented).toBe(false);
   });
 
-  it("leaves a focused text input alone (typing, not navigating)", () => {
-    const input = document.getElementById("cr-name-input");
-    input.style.display = "";
+  it("Arrow keys leave the room-code field instead of trapping focus", () => {
+    const input = document.getElementById("cr-join-code");
     input.focus();
-    const evt = new KeyboardEvent("keydown", { code: "ArrowLeft", bubbles: true, cancelable: true });
+    pressKey("ArrowDown");
+    expect(document.activeElement).not.toBe(input);
+    expect(document.activeElement).toBeTruthy();
+  });
+
+  it("WASD types in the room-code field and does not navigate", () => {
+    const input = document.getElementById("cr-join-code");
+    input.focus();
+    const evt = new KeyboardEvent("keydown", { code: "KeyS", key: "s", bubbles: true, cancelable: true });
     window.dispatchEvent(evt);
     expect(document.activeElement).toBe(input);
     expect(evt.defaultPrevented).toBe(false);
   });
 
-  it("non-arrow keys are ignored (no preventDefault, e.g. typed letters elsewhere)", () => {
-    const evt = new KeyboardEvent("keydown", { code: "KeyW", bubbles: true, cancelable: true });
+  it("WASD navigates the same ring as arrows when not typing", () => {
+    pressKey("KeyS");
+    expect(document.activeElement).toBe(document.getElementById("play-btn"));
+    pressKey("KeyS");
+    expect(document.activeElement).toBe(document.getElementById("customize-btn"));
+  });
+
+  it("non-movement letters are ignored (no preventDefault)", () => {
+    const evt = new KeyboardEvent("keydown", { code: "KeyM", bubbles: true, cancelable: true });
     window.dispatchEvent(evt);
     expect(evt.defaultPrevented).toBe(false);
   });

@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-18T07:14:27.171Z",
-    "commit": "85a59f23"
+    "at": "2026-08-18T18:00:37.123Z",
+    "commit": "3f467334"
   },
-  "source_digest": "e98d29d9",
+  "source_digest": "d1e01013",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1014,9 +1014,15 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Low": 5
+          "Low": 6
         },
         "rows": [
+          {
+            "pri": "Low",
+            "item": "MENU-ARROW-PT-1 — WASD and arrows move around the main menu `[solo]`",
+            "notes": "**Owed: Wyatt playtest — MENU-ARROW-PT-1 — WASD and arrows move around the whole main menu; arrows leave the room-code box.** Hard-refresh first.<br>1. On the main menu, press WASD and the arrow keys. Focus should move to SOLO / QUICKPLAY, arena ◂▸, name, and the room-code box.<br>2. Land on the room-code box. Type OATS3. Those letters must type. Then press an arrow key.<br>3. FAIL if WASD only walks the yellow list, if arrows cannot reach the other controls, or if an arrow cannot leave the room-code box. PASS if focus moves around the menu and arrows leave the box.",
+            "ship1": null
+          },
           {
             "pri": "Low",
             "item": "RD-COUNTER-PT-1 — guest RD n matches the host after an unvalidated podium",

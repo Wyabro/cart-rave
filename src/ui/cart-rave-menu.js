@@ -2369,11 +2369,6 @@ import { initGamepadTextEntry, openGamepadTextEntry } from "./gamepadTextEntry.j
       });
   }
 
-  function arenaContextShown() {
-    const arenaWrap = $("cr-context-arena");
-    return !!arenaWrap && !arenaWrap.hidden;
-  }
-
   function pageArena(dir) {
     if (!levelRow) return;
     const btns = Array.from(levelRow.querySelectorAll(".cr-level-btn"));
@@ -2466,7 +2461,7 @@ import { initGamepadTextEntry, openGamepadTextEntry } from "./gamepadTextEntry.j
     if (keysEl) {
       keysEl.innerHTML = mode === "gamepad"
         ? `<span class="cr-hint-item">D-PAD&nbsp; NAVIGATE</span><span class="cr-hint-item">${cap("Ⓐ")}&nbsp; SELECT</span><span class="cr-hint-item">LB / RB&nbsp; PANEL</span><span class="cr-hint-item">${cap("Ⓑ")}&nbsp; BACK</span>`
-        : `<span class="cr-hint-item">${cap("W")}${cap("S")}&nbsp; NAVIGATE</span><span class="cr-hint-item">${cap("↵")}&nbsp; SELECT</span><span class="cr-hint-item">${cap("◂")}${cap("▸")}&nbsp; ARENA</span><span class="cr-hint-item">${cap("M")}&nbsp; MUTE</span>`;
+        : `<span class="cr-hint-item">WASD / ARROWS&nbsp; NAVIGATE</span><span class="cr-hint-item">${cap("↵")}&nbsp; SELECT</span><span class="cr-hint-item">${cap("M")}&nbsp; MUTE</span>`;
       measureHintBar();
     }
     if (metaEl) {
@@ -2496,26 +2491,23 @@ import { initGamepadTextEntry, openGamepadTextEntry } from "./gamepadTextEntry.j
 
   function onMenuNavKeydown(e) {
     if (!menuVisible() || isMenuOverlayOpen()) return;
-    // * Any focused text field owns its own keystrokes. W/S move the command selection
-    // * and M toggles mute, so without this a room code like OATS3 or MILK2 would walk
-    // * the menu and mute the game while being typed (FRIENDS-JOIN-1). Generalised from
-    // * the single nameInput check so the next field added does not have to remember.
+    // * Any focused text field owns its own keystrokes. Letters must type a
+    // * room code like OATS3 or MILK2 (FRIENDS-JOIN-1). Arrows still leave the
+    // * field via gamepadNav.
     const focused = document.activeElement;
     if (focused === nameInput) return;
     if (focused instanceof HTMLInputElement || focused instanceof HTMLTextAreaElement) return;
     if (focused instanceof HTMLElement && focused.isContentEditable) return;
+    // * MENU-ARROW-1: WASD and arrows belong to gamepadNav spatial focus.
+    // * This handler only owns Enter (and leaves typing fields alone).
     switch (e.key) {
-      case "w": case "W": case "ArrowUp":
-        e.preventDefault(); setMenuSelection(cmdIndex - 1); break;
-      case "s": case "S": case "ArrowDown":
-        e.preventDefault(); setMenuSelection(cmdIndex + 1); break;
       case "Enter":
-        if (cmdButtons.includes(document.activeElement)) break; // native click handles it
-        e.preventDefault(); activateMenuSelection(); break;
-      case "ArrowLeft":
-        if (arenaContextShown()) { e.preventDefault(); pageArena(-1); } break;
-      case "ArrowRight":
-        if (arenaContextShown()) { e.preventDefault(); pageArena(1); } break;
+        // * A focused button (arena pager, name pencil, GO) owns Enter. Stealing
+        // * it for the yellow command list made ◂/▸ + Enter start SOLO.
+        if (focused instanceof HTMLElement && focused.matches("button, a, [role='button']")) break;
+        e.preventDefault();
+        activateMenuSelection();
+        break;
       default: break;
     }
   }

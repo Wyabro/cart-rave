@@ -147,12 +147,11 @@ function isElementVisible(el, { ignoreOpacity = false } = {}) {
 }
 
 /**
- * Whether a control belongs in the pad/keyboard nav ring. Text-typing controls
- * are out — a pad cannot type into them, and the W/S command list already skips
- * the whole `#cr-join` row (it is deliberately not `.cr-cmd`). Without this the
- * FRIENDS ↓ fall would land on the room-code field / GO button and the ring
- * would disagree with the yellow command selection. Range sliders stay in so
- * d-pad left/right can nudge them like the role="slider" tracks.
+ * Whether a control belongs in the pad/keyboard nav ring. Bare text inputs
+ * are out — a pad cannot type into them. The room-code field opts back in via
+ * `data-gamepad-entry` so the ring can reach it; GO stays out so FRIENDS ↓
+ * does not land on a second join control. Range sliders stay in so d-pad
+ * left/right can nudge them like the role="slider" tracks.
  * @param {HTMLElement} el
  */
 function isNavReachable(el) {
@@ -484,20 +483,20 @@ function isTypingTarget(el) {
 }
 
 const ARROW_DIRS = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right" };
+const WASD_DIRS = { KeyW: "up", KeyA: "left", KeyS: "down", KeyD: "right" };
 
 /**
- * INPUT-KB-1: keyboard had no menu/overlay navigation at all beyond native Tab order (no
- * arrow-key movement, unlike the gamepad's full D-pad/stick spatial nav below). Reuses the
- * exact same scope/focus/spatial-nav engine as the gamepad poll loop, gated on the same
- * `_navActive` flag main.js already drives from `isUiActive` — so arrow keys navigate
- * menus while a menu is open and steer the cart otherwise, exactly like the gamepad split.
+ * INPUT-KB-1 / MENU-ARROW-1: keyboard menu movement uses the same spatial ring
+ * as the gamepad D-pad. Arrows always move focus, including out of a text
+ * field (the room-code box used to trap them). WASD move focus only when the
+ * player is not typing — a code like OATS3 or MILK2 must still type (FRIENDS-JOIN-1).
  * @param {KeyboardEvent} e
  */
 function onKeyboardNav(e) {
   if (!_navActive) return;
-  const dir = ARROW_DIRS[e.code];
+  const typing = isTypingTarget(document.activeElement);
+  const dir = ARROW_DIRS[e.code] || (!typing ? WASD_DIRS[e.code] : undefined);
   if (!dir) return;
-  if (isTypingTarget(document.activeElement)) return;
 
   const scope = getNavScope();
   if (scope !== lastScope) {
@@ -510,10 +509,13 @@ function onKeyboardNav(e) {
   const activeEl = /** @type {HTMLElement|null} */ (document.activeElement);
   const focusInScope = !!activeEl && focusables.includes(activeEl);
 
-  // * A focused slider already handles real arrow keys itself (unlike the gamepad path,
-  // * which must synthesize a keydown since a pad has no native key semantics) — leave it
-  // * alone rather than risk double-stepping its value.
-  if (focusInScope && activeEl?.getAttribute?.("role") === "slider" && (dir === "left" || dir === "right")) {
+  // * A focused slider already handles real arrow keys itself (unlike the gamepad
+  // * path, which synthesizes a keydown). Range inputs have no role, so match
+  // * them the same way the pad poll does — otherwise that synthetic ArrowLeft
+  // * would also leave the track.
+  const activeIsSlider = activeEl?.getAttribute?.("role") === "slider"
+    || (activeEl instanceof HTMLInputElement && activeEl.type === "range");
+  if (focusInScope && activeIsSlider && (dir === "left" || dir === "right")) {
     return;
   }
 
