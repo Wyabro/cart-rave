@@ -656,8 +656,10 @@ function triggerSpillNetcode(slotIndex, pos, quat, vel, cargoBay, count) {
     getRoundClockNowMs(),
     CONFIG.scoring?.hitWindowMs ?? 3000,
   );
+  const hostSeq = typeof Netcode.getHostSeq === "function" ? Netcode.getHostSeq() : 0;
   Netcode.sendP2PEvent({
     type: MSG.spill,
+    eid: `s${hostSeq}.${slotIndex}`,
     slotId: slotIndex,
     pos,
     quat,

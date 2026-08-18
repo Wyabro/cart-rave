@@ -71,9 +71,9 @@ way the Block table still can.)*
 <!-- BEGIN GENERATED counts — npm run backlog. Do not hand-edit. -->
 | Department | Open | High | Medium | Low |
 |---|---:|---:|---:|---:|
-| [Engineering](#engineering) | 14 | 0 | 4 | 9 (+1 partial) |
+| [Engineering](#engineering) | 13 | 0 | 4 | 8 (+1 partial) |
 | [Design / Gameplay](#design--gameplay) | 2 | 0 | 2 | 0 |
-| 🟢 [Playtest owed](#playtest-owed) | 2 | 0 | 0 | 2 |
+| 🟢 [Playtest owed](#playtest-owed) | 3 | 0 | 0 | 3 |
 | [Tech Debt](#tech-debt) | 13 | 0 | 3 | 10 |
 
 **31 open rows total.**
@@ -185,7 +185,8 @@ Landed 08-17 — **CART-HUE-CUBES-1** (Cubes faces stay in the selected neon fam
 Landed 08-17 — **SPILL-RAM-CREDIT-1** (spill credit is a real spill, not a ram); Wyatt PASS 08-17.
 1. **MOTION-A11Y-1** — needs definition of done first (which motions, how much).
 2. **COUNTDOWN-LEAK-1** (**COUNTDOWN-QUICKPLAY-1** closed 08-17 as resolved by COUNTDOWN-ARM-1).
-3. 08-16 audit Lows, top first: **SPILL-DOUBLE-VFX-1** · **PODIUM-DOUBLE-CREDIT-1** · **HOST-PRESENT-ORDER-1** · **ZOMBIE-ROOM-RESET-1** · **DEMOTE-COUNTDOWN-1**.
+3. 08-16 audit Lows, top first: **PODIUM-DOUBLE-CREDIT-1** · **HOST-PRESENT-ORDER-1** · **ZOMBIE-ROOM-RESET-1** · **DEMOTE-COUNTDOWN-1**.
+Landed 08-18 — **SPILL-DOUBLE-VFX-1** (non-host tip spill dedupe).
 Landed 08-18 — **RD-COUNTER-1** (RD latches on running startedAtMs).
 Landed 08-18 — **SPECTATOR-ANNOUNCER-1** (stop in-flight PA on every podium).
 Landed 08-18 — **KEYUP-STUCK-1** (keyup over INPUT still releases hold).
@@ -213,7 +214,6 @@ Rows follow work-order rank: High (Block 1) → Medium (Block 2, then Wyatt-bloc
 | Medium | PERF-WATCH-1 — auto-quality step-up path | Wave 1 landed (scale-up only). 17ms / 8-window / 30s ratchet. Wave 2 (tier-up) stays open. Playtest: **PERF-WATCH-PT-1**. |
 | Medium | PARTY-SERIALIZE-1 — `structuredClone` → flat serializer in `party/index.ts` | Only after profiling shows it matters. |
 | 🟡 Partial | NET-PERF-1 — reconcile rewind-replay cost | Caps shipped; residual if retest still rubber-bands. |
-| Low | SPILL-DOUBLE-VFX-1 — non-host's own tip-over spill renders twice | **Filed 08-16 from the gameplay bug audit (adversarially reviewed).** Prediction fires the local spill VFX immediately; the host's `MSG.spill` confirmation then replays unconditionally on every client with no eid/dedupe key ([netcode.js](../../src/netcode.js) ~4486-4509) — double debris burst ~1 RTT apart and up to 2× groceries from the 66-slot pool on the victim's screen. Presentation only; scoring is host-gated and idempotent. |
 | Low | PODIUM-DOUBLE-CREDIT-1 — rejected-then-redecided podium double-credits ROUND_COMPLETE / cross-credits ROUND_WIN on host | **Filed 08-16 from the gameplay bug audit (adversarially reviewed).** `recordPodiumStats` runs before `sendHostRound` ([roundLifecycle.js](../../src/orchestration/roundLifecycle.js) ~946 vs ~952); the server-reject rollback restores UI but not stats/challenge credit, and the dedupe key `${startedAtMs}:${winner}` passes when the retry legitimately ends with a different winner → `ROUND_COMPLETE` twice, `ROUND_WIN` to both winners, two matchHistory entries. Rare (needs server reject + winner change inside the ~150ms retry window). Guests immune (`r.validated` gating). |
 | Low | HOST-PRESENT-ORDER-1 — `host_present` deletes the away flag before the cooldown gate; host-return reclaim dead in its own 5s window | **Filed 08-16 from the gameplay bug audit (adversarially reviewed).** [party/index.ts](../../../party/index.ts) ~478-483 consumes `#awayHostIds` before the cooldown check, so the client's 5s retry (`netcode.js` ~2877-2883) finds nothing to reclaim — a host returning within 5s of an away-migration (the common quick tab-switch) can never get the role back. Symmetric: `host_away` sent inside the cooldown is never retried (one-shot timer), so a starved hidden host keeps authority. Role-quality only; no corruption. |
 | Low | ZOMBIE-ROOM-RESET-1 — `onConnect`'s empty-room phase reset runs before the reap pass that invalidates its input | **Filed 08-16 from the gameplay bug audit (adversarially reviewed).** The nuke-stale-state decision reads human slots at party/index.ts ~1064-1072, but reap + orphan reconcile run after it (~1085-1093) — in an all-zombie room (every `onClose` lost), the lone new joiner is promoted host of a stale `running` round whose `startedAtMs` is long expired → odd immediate end / SD entry on join. Self-resolving but a broken first experience; sibling of ZOMBIE-HOST-PICK-1. |
@@ -255,6 +255,7 @@ completed-work — do not restack it here.
 | Pri | Item | Notes |
 |-----|------|-------|
 | Low | MENU-ARROW-PT-1 — WASD and arrows move around the main menu `[solo]` | **Owed: Wyatt playtest — MENU-ARROW-PT-1 — WASD and arrows move around the whole main menu; arrows leave the room-code box.** Hard-refresh first.<br>1. On the main menu, press WASD and the arrow keys. Focus should move to SOLO / QUICKPLAY, arena ◂▸, name, and the room-code box.<br>2. Land on the room-code box. Type OATS3. Those letters must type. Then press an arrow key.<br>3. FAIL if WASD only walks the yellow list, if arrows cannot reach the other controls, or if an arrow cannot leave the room-code box. PASS if focus moves around the menu and arrows leave the box. |
+| Low | SPILL-DOUBLE-VFX-PT-1 — non-host tip-over spill VFX renders once `[2pc]` | **Owed: Wyatt playtest — SPILL-DOUBLE-VFX-PT-1 — non-host own tip-over spill triggers grocery particles and clatter sound exactly once.** Hard-refresh first.<br>1. Join a Friends or Quickplay match with two devices/windows.<br>2. On the non-host machine, drive and tip the cart over on the arena floor (hold steer/reverse near edge or obstacle until tipped).<br>3. Watch the non-host screen at the moment of spill.<br>4. FAIL if a second grocery burst or clatter sound plays ~100-300ms after the first burst. PASS if the spill debris burst and clatter sound trigger cleanly once. |
 | Low | SHARD-PT-2 — fifth human overflows to quickplay2 `[2pc]` | **Owed: Wyatt playtest — SHARD-PT-2 — the 5th concurrent Quickplay human lands on quickplay2 instead of "couldn't join".** Launch-day / public-post check — needs five real humans (Wyatt deferred 08-05). Rig already 5/5; SHARD-PT-1 PASSed on prod `9c333d1`. Prefer analytics: any `quickplay_shard_assigned` with `hops > 0` or `shard !== quickplay` counts.<br>1. When five humans can join Quickplay at once (public post), watch the 5th seat.<br>2. FAIL if they get the dead-end couldn't-join toast with no hop. PASS if they seat on an overflow shard (or analytics shows hops greater than 0).<br>3. Skip / leave open until launch day — do not FAIL for lack of five people. |
 
 ## Tech Debt
@@ -380,4 +381,4 @@ KO-CENTER-RING-1, KO-CENTER-RING-PT-1, SD-SPECTATOR-CHARGE-1, SD-SPECTATOR-CHARG
 COUNTDOWN-HOST-STAMP-1, COUNTDOWN-HOST-STAMP-PT-1, CUSTOMIZE-SVG-FLASH-1, CUSTOMIZE-SVG-FLASH-PT-1,
 FRIENDS-LOBBY-ORDER-1, FRIENDS-LOBBY-ORDER-PT-1,
 CUSTOMIZE-SPAM-1, CUSTOMIZE-SPAM-PT-1, WARM-CLASSIC-JUICE-1, WARM-CLASSIC-JUICE-PT-1,
-KEYUP-STUCK-1, SPECTATOR-ANNOUNCER-1, RD-COUNTER-1.
+KEYUP-STUCK-1, SPECTATOR-ANNOUNCER-1, RD-COUNTER-1, SPILL-DOUBLE-VFX-1.

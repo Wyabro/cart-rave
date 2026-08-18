@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-18T18:04:36.160Z",
-    "commit": "88fc72f4"
+    "at": "2026-08-18T18:37:49.372Z",
+    "commit": "5a4b7260"
   },
-  "source_digest": "10202c98",
+  "source_digest": "f6db1245",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -902,7 +902,7 @@
         "counts": {
           "Medium": 4,
           "Partial": 1,
-          "Low": 9
+          "Low": 8
         },
         "rows": [
           {
@@ -933,12 +933,6 @@
             "pri": "🟡 Partial",
             "item": "NET-PERF-1 — reconcile rewind-replay cost",
             "notes": "Caps shipped; residual if retest still rubber-bands.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "SPILL-DOUBLE-VFX-1 — non-host's own tip-over spill renders twice",
-            "notes": "**Filed 08-16 from the gameplay bug audit (adversarially reviewed).** Prediction fires the local spill VFX immediately; the host's `MSG.spill` confirmation then replays unconditionally on every client with no eid/dedupe key ([netcode.js](../../src/netcode.js) ~4486-4509) — double debris burst ~1 RTT apart and up to 2× groceries from the 66-slot pool on the victim's screen. Presentation only; scoring is host-gated and idempotent.",
             "ship1": null
           },
           {
@@ -1014,13 +1008,19 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Low": 2
+          "Low": 3
         },
         "rows": [
           {
             "pri": "Low",
             "item": "MENU-ARROW-PT-1 — WASD and arrows move around the main menu `[solo]`",
             "notes": "**Owed: Wyatt playtest — MENU-ARROW-PT-1 — WASD and arrows move around the whole main menu; arrows leave the room-code box.** Hard-refresh first.<br>1. On the main menu, press WASD and the arrow keys. Focus should move to SOLO / QUICKPLAY, arena ◂▸, name, and the room-code box.<br>2. Land on the room-code box. Type OATS3. Those letters must type. Then press an arrow key.<br>3. FAIL if WASD only walks the yellow list, if arrows cannot reach the other controls, or if an arrow cannot leave the room-code box. PASS if focus moves around the menu and arrows leave the box.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "SPILL-DOUBLE-VFX-PT-1 — non-host tip-over spill VFX renders once `[2pc]`",
+            "notes": "**Owed: Wyatt playtest — SPILL-DOUBLE-VFX-PT-1 — non-host own tip-over spill triggers grocery particles and clatter sound exactly once.** Hard-refresh first.<br>1. Join a Friends or Quickplay match with two devices/windows.<br>2. On the non-host machine, drive and tip the cart over on the arena floor (hold steer/reverse near edge or obstacle until tipped).<br>3. Watch the non-host screen at the moment of spill.<br>4. FAIL if a second grocery burst or clatter sound plays ~100-300ms after the first burst. PASS if the spill debris burst and clatter sound trigger cleanly once.",
             "ship1": null
           },
           {

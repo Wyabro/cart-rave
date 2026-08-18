@@ -13,6 +13,20 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 18, 2026 — SPILL-DOUBLE-VFX-1
+
+- *(Engineering · Low)* **SPILL-DOUBLE-VFX-1** — ✅ **DONE 08-18**. Non-host client
+  prediction of local tip-over / big-impact spills (`clientSimCallbacks.onSpill`)
+  now records an optimistic spill timestamp (`noteOptimisticSpill`). When the
+  host's authoritative `MSG.spill` arrives, `handleRemoteSpill` consumes the
+  optimistic record and skips calling `triggerGrocerySpill` a second time while
+  keeping state cleanup (`hideCargoBay`, `stripLifeCargo`, `armSpillBoost`)
+  intact. Unpredicted spills (e.g. upright fall) and remote cart spills continue
+  to trigger `triggerGrocerySpill` normally on wire arrival. `MSG.spill` payloads
+  carry a stamped `eid` (`s${hostSeq}.${slotIndex}`) deduplicated via
+  `markPresentationEid` to drop duplicate network packets. Playtest owed:
+  **SPILL-DOUBLE-VFX-PT-1**.
+
 ### August 18, 2026 — playtest PASSes (KEYUP-STUCK / PERF-WATCH / RD-COUNTER / SPECTATOR-ANNOUNCER)
 
 - *(Playtest · Low)* **KEYUP-STUCK-PT-1** — ✅ **PASS 08-18** on prod

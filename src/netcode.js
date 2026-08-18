@@ -203,6 +203,11 @@ const recentHostFallByVictim = new Map();
 const seenFallPresentationEids = new Map();
 /** @type {Map<string, number>} NET-PRES-1 collision eid → last-seen ms */
 const seenCollisionPresentationEids = new Map();
+/** @type {Map<string, number>} NET-PRES-1 / SPILL-DOUBLE-VFX-1 spill eid → last-seen ms */
+const seenSpillPresentationEids = new Map();
+/** @type {Map<number, number>} SPILL-DOUBLE-VFX-1 optimistic local spill slot → performance.now() */
+const recentOptimisticSpillBySlot = new Map();
+const SPILL_OPTIMISTIC_DEDUPE_MS = 2500;
 
 let skipNextPhysicsStep = false;
 
@@ -2036,6 +2041,38 @@ export function noteOptimisticCollisionFx(slotA, slotB, rammerSlot) {
   }
 }
 
+/**
+ * Records an optimistic local spill presentation timestamp for a slot (SPILL-DOUBLE-VFX-1).
+ * @param {number} slotIndex
+ */
+export function noteOptimisticSpill(slotIndex) {
+  if (typeof slotIndex !== "number" || !Number.isInteger(slotIndex)) return;
+  recentOptimisticSpillBySlot.set(slotIndex, performance.now());
+  if (recentOptimisticSpillBySlot.size > 8) {
+    const now = performance.now();
+    for (const [k, t] of recentOptimisticSpillBySlot) {
+      if (now - t > SPILL_OPTIMISTIC_DEDUPE_MS) recentOptimisticSpillBySlot.delete(k);
+    }
+  }
+}
+
+/**
+ * Clears an optimistic spill marker on cart respawn / reset (SPILL-DOUBLE-VFX-1).
+ * @param {number} slotIndex
+ */
+export function clearOptimisticSpillForSlot(slotIndex) {
+  if (typeof slotIndex !== "number" || !Number.isInteger(slotIndex)) return;
+  recentOptimisticSpillBySlot.delete(slotIndex);
+}
+
+/**
+ * Returns current hostSeq for stamping event presentation IDs (SPILL-DOUBLE-VFX-1).
+ * @returns {number}
+ */
+export function getHostSeq() {
+  return hostSeq;
+}
+
 function replayHostCollisionFx(msg, callbacks) {
   const intensity = typeof msg.intensity === "number" ? msg.intensity : 0;
   const mp = msg.midpoint;
@@ -2296,6 +2333,8 @@ export function disconnectPartySession() {
   recentHostCollisionFxByPair.clear();
   seenFallPresentationEids.clear();
   seenCollisionPresentationEids.clear();
+  seenSpillPresentationEids.clear();
+  recentOptimisticSpillBySlot.clear();
   skipNextPhysicsStep = false;
 
   netSlots = [];
@@ -2839,9 +2878,11 @@ function applyHostMigration(msg) {
   netStateBuffer = [];
   recentHostFallByVictim.clear();
   recentHostCollisionFxByPair.clear();
-  // * New host resets hostSeq — clear eid sets so f1.0 from the new host is not a false dup.
+  // * New host resets hostSeq — clear eid sets so f1.0 / s1.0 from the new host is not a false dup.
   seenFallPresentationEids.clear();
   seenCollisionPresentationEids.clear();
+  seenSpillPresentationEids.clear();
+  recentOptimisticSpillBySlot.clear();
   // * Host migration is no longer silent — every client gets the PA callout
   // * and the HUD host glyph moves to the new host's chip on the next frame.
   const newHostSlot = Array.isArray(netSlots)
@@ -4271,6 +4312,8 @@ export const __netcodeTestHooks = {
     recentHostCollisionFxByPair.clear();
     seenFallPresentationEids.clear();
     seenCollisionPresentationEids.clear();
+    seenSpillPresentationEids.clear();
+    recentOptimisticSpillBySlot.clear();
     getAllCartsRefFn = null;
     sparseCartHoleConsecutiveTicks.clear();
     sparseCartHoleWarned.clear();
@@ -4601,6 +4644,13 @@ function handleRemoteSpill(msg) {
   const idx = Number(msg.slotId);
   if (!Number.isInteger(idx) || idx < 0 || !carts || idx >= carts.length) return;
   const cart = carts[idx];
+
+  // * SPILL-DOUBLE-VFX-1 / NET-PRES-1: drop duplicate wire spill packets by eid.
+  const nowFx = performance.now();
+  if (typeof msg.eid === "string" && msg.eid.length > 0) {
+    if (markPresentationEid(seenSpillPresentationEids, msg.eid, nowFx)) return;
+  }
+
   // * Do NOT early return if cart.hasSpilled is true.
   // * The host sends this exactly once. If snap.s arrived first, we still need the VFX.
   // * We only set hasSpilled if it wasn't already, to avoid stepping on respawn logic.
@@ -4611,15 +4661,26 @@ function handleRemoteSpill(msg) {
   callbacks.stripLifeCargo(cart);
   callbacks.armSpillBoost(cart);
 
-  callbacks.triggerGrocerySpill(
-    String(idx),
-    msg.pos,
-    msg.quat,
-    msg.vel,
-    typeof msg.count === "number" && msg.count > 0 ? msg.count : 6,
-    cart?.cargoBay ?? null,
-  );
   const localSlot = strictSlotIndexForConn(youConnId);
+  const isLocalVictim = idx === localSlot;
+  const optimisticTime = isLocalVictim ? recentOptimisticSpillBySlot.get(idx) : null;
+  const alreadyOptimisticallySpilled = optimisticTime != null && (nowFx - optimisticTime < SPILL_OPTIMISTIC_DEDUPE_MS);
+
+  if (alreadyOptimisticallySpilled) {
+    // * SPILL-DOUBLE-VFX-1: local prediction already fired GroceryPool.triggerSpill ~1 RTT
+    // * ago. Consume the optimistic token and skip re-triggering grocery physics/VFX/SFX.
+    recentOptimisticSpillBySlot.delete(idx);
+  } else {
+    callbacks.triggerGrocerySpill(
+      String(idx),
+      msg.pos,
+      msg.quat,
+      msg.vel,
+      typeof msg.count === "number" && msg.count > 0 ? msg.count : 6,
+      cart?.cargoBay ?? null,
+    );
+  }
+
   if (shouldCreditLocalSpill(msg.attackerSlotIndex, localSlot)) {
     callbacks.onLocalSpillCredit?.();
   }

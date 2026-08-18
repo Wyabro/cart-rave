@@ -231,6 +231,7 @@ export function createLoopDeps(deps) {
       },
       onCartRespawn: (slotIndex) => {
         GroceryPool.releaseByCartId(String(slotIndex));
+        Netcode.clearOptimisticSpillForSlot?.(slotIndex);
       },
       getWorld,
       getBoothColliderHandles,
@@ -313,6 +314,7 @@ export function createLoopDeps(deps) {
         // * Non-host client only predicts tip-over spills for own local cart;
         // * remote cart & NPC spills are driven authoritatively by host MSG.spill broadcast.
         if (spillCart?.slotIndex !== localSlot) return;
+        Netcode.noteOptimisticSpill?.(spillCart.slotIndex);
         hostSimCallbacks.onSpill(spillCart);
       },
     };
