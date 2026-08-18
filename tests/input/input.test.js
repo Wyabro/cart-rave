@@ -197,6 +197,53 @@ describe("input.js getAxis", () => {
   });
 });
 
+function keyupOnInput(code) {
+  const input = document.createElement("input");
+  document.body.appendChild(input);
+  input.dispatchEvent(new KeyboardEvent("keyup", { code, bubbles: true, cancelable: true }));
+  input.remove();
+}
+
+// KEYUP-STUCK-1: a movement / Shift key released while an INPUT is focused must
+// still clear keys / localNitroHeld. preventDefault stays gated on INPUT.
+describe("KEYUP-STUCK-1: keyup over a focused INPUT still releases hold state", () => {
+  beforeEach(() => {
+    mockNowMs = 0;
+    vi.spyOn(performance, "now").mockImplementation(() => mockNowMs);
+    __resetInputAxisEaseForTest();
+    setupInput(null, undefined, undefined, undefined, undefined);
+    setUiMode(false);
+    tick(0);
+  });
+
+  afterEach(() => {
+    keyup("KeyW");
+    keyup("ShiftLeft");
+    setUiMode(false);
+    vi.restoreAllMocks();
+  });
+
+  it("releases a held movement key when keyup targets an INPUT", () => {
+    keydown("KeyW");
+    settle(300);
+    expect(tick().forward).toBe(1);
+
+    keyupOnInput("KeyW");
+    expect(settle(RELEASE_S * 1000 + 20).forward).toBe(0);
+  });
+
+  it("clears nitro hold when Shift keyup targets an INPUT", () => {
+    const onBoost = vi.fn();
+    const input = setupInput(null, undefined, undefined, undefined, onBoost);
+    keydown("ShiftLeft");
+    expect(input.isNitroHeld()).toBe(true);
+
+    keyupOnInput("ShiftLeft");
+    expect(input.isNitroHeld()).toBe(false);
+    expect(getAxis().boostHeld).toBe(false);
+  });
+});
+
 // GAMEPAD-FREEZE-1: a pad left held while the tab is hidden must not keep driving the
 // cart through the hidden-host physics pump. pollGamepad() is rAF-bound, so a hidden
 // tab freezes the last sampled axis/boost; blur + visibilitychange→hidden now reset it.

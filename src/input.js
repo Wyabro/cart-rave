@@ -500,13 +500,14 @@ export function setupInput(canvas, onEscape, onMute, onHop, onBoost) {
   }
 
   function onKeyUp(e) {
-    if (e.target.tagName === "INPUT") return;
-    if (e.code === "ShiftLeft" || e.code === "ShiftRight") {
-      e.preventDefault();
-      localNitroHeld = false;
-    }
-    if (movementCodes.has(e.code)) e.preventDefault();
+    // * KEYUP-STUCK-1: a key pressed in play and released over a focused INPUT
+    // * (join-code / name / hue slider) must still drop hold state. Gate only
+    // * preventDefault — typing in those fields still needs the key.
+    if (e.code === "ShiftLeft" || e.code === "ShiftRight") localNitroHeld = false;
     keys.delete(e.code);
+    if (e.target.tagName === "INPUT") return;
+    if (e.code === "ShiftLeft" || e.code === "ShiftRight") e.preventDefault();
+    if (movementCodes.has(e.code)) e.preventDefault();
   }
 
   // * Window-only: key events on the focused canvas bubble to window anyway.

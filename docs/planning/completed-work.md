@@ -13,6 +13,13 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 18, 2026 — KEYUP-STUCK-1
+
+- *(Engineering · Low)* **KEYUP-STUCK-1** — ✅ **DONE 08-18**. `onKeyUp` now
+  clears `keys` / `localNitroHeld` before the INPUT guard; only `preventDefault`
+  stays gated. A WASD or Shift release over the name / join-code / hue field no
+  longer sticks the cart. Playtest owed: **KEYUP-STUCK-PT-1**.
+
 ### August 18, 2026 — playtest PASSes (CUSTOMIZE-SPAM / WARM-CLASSIC-JUICE)
 
 - *(Playtest · Medium)* **CUSTOMIZE-SPAM-PT-1** — ✅ **PASS 08-18** on prod
