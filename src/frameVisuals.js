@@ -163,7 +163,6 @@ function syncCartMeshFromPhysics(cart, alpha, visualOffset) {
  * @property {object | null | undefined} leaderHum
  * @property {object} HUD
  * @property {() => string | null} getYouConnId
- * @property {() => number} getMatchHistoryLength
  * @property {() => void} updateResultsOverlay
  * @property {() => void} positionNameLabels
  * @property {import("three/examples/jsm/postprocessing/EffectComposer.js").EffectComposer} composer
@@ -497,7 +496,6 @@ export function updateVisualsAndEffects(deps, frameCtx) {
     youConnId: deps.getYouConnId(),
     netSlots: netSlotsForFrame,
     roundState,
-    matchHistoryLength: deps.getMatchHistoryLength(),
     menuVisible: deps.isMenuVisible(),
   });
   // * Decay directional hit vignette (armed by triggerLocalHitTaken on rams).

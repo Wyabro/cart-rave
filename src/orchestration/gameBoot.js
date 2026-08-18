@@ -1420,7 +1420,6 @@ export function bootGameSystems(ctx) {
     isMenuVisible: () => refs.menuVisible,
     getHud: () => refs.hud,
     leaderHum: refs.leaderHum,
-    getMatchHistoryLength: () => (matchHistory ? matchHistory.length : 0),
     updateResultsOverlay,
     positionNameLabels,
     composer,

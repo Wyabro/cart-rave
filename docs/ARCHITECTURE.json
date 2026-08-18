@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-18T06:19:45.668Z",
-    "commit": "77a19eb8"
+    "at": "2026-08-18T06:21:14.851Z",
+    "commit": "e648189c"
   },
-  "source_digest": "da261ab7",
+  "source_digest": "4a75945f",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -902,7 +902,7 @@
         "counts": {
           "Medium": 4,
           "Partial": 1,
-          "Low": 10
+          "Low": 9
         },
         "rows": [
           {
@@ -967,12 +967,6 @@
           },
           {
             "pri": "Low",
-            "item": "RD-COUNTER-1 — guests' \"RD n\" counter stalls on rounds the server doesn't stamp `validated`",
-            "notes": "**Filed 08-16 from the gameplay bug audit (adversarially reviewed).** The HUD round label reads `matchHistory.length` ([hud.js](../../src/hud.js) ~795), but guests' history only grows on server-validated podiums ([netcode.js](../../src/netcode.js) ~3589) — any round that fails validation shows \"RD 1\" again on all clients but the host. Rare-cosmetic.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
             "item": "MOTION-A11Y-1 — `prefers-reduced-motion` doesn't actually reduce any motion",
             "notes": "**Filed 08-05, spun out of TIER-DEFAULT-1's lever 4.** The OS accessibility flag was, until TIER-DEFAULT-1 closed, silently forcing the graphics quality tier to Low (cap-287/288: the same Intel box booted Low with Windows animations on and Medium with them off). TIER-DEFAULT-1 fixed the *tier* side (reduced-motion now demotes one rung inside `defaultTierForCaps()` — [gpuCaps.js](../../src/utils/gpuCaps.js) — instead of hard-pinning Low), but that was always an interim: reduced-motion should reduce **motion**, not graphics fidelity. Nothing currently reads the flag for motion at all. Candidates once picked up: attract-camera spin/drift, cart-impact screen shake, KO/win screen flash, any continuous idle animation loop. Needs a definition-of-done pass (which motions, how much) before it's a code card.",
             "ship1": null
@@ -1020,9 +1014,15 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Low": 3
+          "Low": 4
         },
         "rows": [
+          {
+            "pri": "Low",
+            "item": "RD-COUNTER-PT-1 — guest RD n matches the host after an unvalidated podium",
+            "notes": "**Owed: Wyatt playtest — RD-COUNTER-PT-1 — host and guest show the same RD n on rematch.** Pushed, not yet deployed — `npm run dev` until ship.<br>1. Friends, 2 players. Play a round. Note RD on both screens (should be RD 1).<br>2. Play again. Both must show RD 2.<br>3. FAIL if the guest stays on RD 1. PASS if both increment together. Mid-round join reading low is accepted.",
+            "ship1": null
+          },
           {
             "pri": "Low",
             "item": "SPECTATOR-ANNOUNCER-PT-1 — decided podium silences in-flight PA",

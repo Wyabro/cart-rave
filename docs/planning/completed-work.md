@@ -13,6 +13,15 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 18, 2026 — RD-COUNTER-1
+
+- *(Engineering · Low)* **RD-COUNTER-1** — ✅ **DONE 08-18**. HUD `RD n` now
+  increments once per distinct running `startedAtMs` (not `matchHistory.length`).
+  Drops the `getMatchHistoryLength` thread through `hud.js` / `frameVisuals.js` /
+  `loopDeps.js` / `gameBoot.js`. Host and guests stay in sync after an
+  unvalidated podium. Mid-round join still reads low (same as today). Playtest
+  owed: **RD-COUNTER-PT-1**.
+
 ### August 18, 2026 — SPECTATOR-ANNOUNCER-1
 
 - *(Engineering · Low)* **SPECTATOR-ANNOUNCER-1** — ✅ **DONE 08-18**.

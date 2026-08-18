@@ -238,6 +238,10 @@ let _goUntilMs = 0;
 let _goSoundPlayed = false;
 /** Previous round phase; used to detect countdown → running transition. */
 let _prevRoundPhase = null;
+/** Session-lifetime RD label. Increments once per distinct running `startedAtMs`. */
+let _observedRoundCount = 0;
+/** `startedAtMs` already counted into `_observedRoundCount`. */
+let _countedRoundStartedAtMs = 0;
 /** Last rendered countdown digit; drives pulse animation only when the number changes. */
 let _lastCountdownN = null;
 /** Generation bumped every fresh countdown entry — guards a deferred catch-up beat
@@ -775,9 +779,8 @@ function updateStatus(roundState) {
 /**
  * Updates the round timer display and progress bar.
  * @param {object} roundState
- * @param {number} matchHistoryLength
  */
-function updateTimer(roundState, matchHistoryLength) {
+function updateTimer(roundState) {
   if (_options.detectGameMode?.() === "testdrive") {
     setHudDisplay(elements.timer, "none", "timer");
     if (elements.timerNum) elements.timerNum.textContent = "";
@@ -817,8 +820,16 @@ function updateTimer(roundState, matchHistoryLength) {
     setHudDisplay(elements.timer, "flex", "timer");
     if (elements.timerNum) elements.timerNum.textContent = text;
     if (elements.timerRd) {
-      const currentRound = Math.max(1, matchHistoryLength + 1);
-      elements.timerRd.textContent = `RD ${currentRound}`;
+      // * RD-COUNTER-1: guests only grow matchHistory on server-validated
+      // * podiums, so the old length+1 label stalled after an unvalidated
+      // * round. Count each distinct running startedAtMs instead — same
+      // * increment for host and guests, even if HUD missed countdown
+      // * (ESC, or a guest held off countdown then applied running).
+      if (roundStartedAtMs && roundStartedAtMs !== _countedRoundStartedAtMs) {
+        _countedRoundStartedAtMs = roundStartedAtMs;
+        _observedRoundCount += 1;
+      }
+      elements.timerRd.textContent = `RD ${Math.max(1, _observedRoundCount)}`;
     }
     if (elements.timerFill) {
       const pct = clamp(remainingMs / totalRoundMs, 0, 1) * 100;
@@ -1580,6 +1591,8 @@ export function init(options) {
   _lastCountdownN = null;
   _lastBannerKey = null;
   _prevRoundPhase = null;
+  _observedRoundCount = 0;
+  _countedRoundStartedAtMs = 0;
   if (_countdownCatchupTimeoutId != null) {
     clearTimeout(_countdownCatchupTimeoutId);
     _countdownCatchupTimeoutId = null;
@@ -2290,14 +2303,12 @@ export function init(options) {
  * @param {string|null} params.youConnId
  * @param {Array<object>|null} params.netSlots
  * @param {object} params.roundState
- * @param {number} params.matchHistoryLength
  * @param {boolean} params.menuVisible
  */
 export function update({
   youConnId,
   netSlots,
   roundState,
-  matchHistoryLength,
   menuVisible
 }) {
   const roundPhase = roundState?.phase;
@@ -2333,7 +2344,7 @@ export function update({
   if (elements.feed) elements.feed.style.display = "";
 
   updateStatus(roundState);
-  updateTimer(roundState, matchHistoryLength);
+  updateTimer(roundState);
   updateScores(roundState, netSlots, youConnId);
   updateReadyButton(roundPhase, netSlots, youConnId, menuVisible);
   // * After updateScores/updateReadyButton — it mirrors their computed state and,
