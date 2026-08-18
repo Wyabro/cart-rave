@@ -29,19 +29,11 @@ report phase-exit eligibility; they must not move the marker.
 are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Analytics DO reset for
 external testers. Stay in this phase until Wyatt advances the marker.
 
-Live PT on prod (VERIFY_OK `a41987e7` / Worker `5a4d6ec7`): **CUSTOMIZE-SPAM-PT-1**.
-Landed 08-17 — **CUSTOMIZE-SPAM-1** (keep-alive; PT
-**CUSTOMIZE-SPAM-PT-1**) · **MIG-KO-DROP-1**. Deferred launch day:
-**SHARD-PT-2**. Closed 08-17 — **CART-HUE-CUBES-PT-1** `[solo]` · **CART-HUE-RED-PT-1`
-`[solo]` · **LAST-STANDING-DEAD-PT-1** · **NPC-ABORT-BURST-PT-1` ·
-**REMOTE-INPUT-STALE-PT-1** `[2pc]` · **SPILL-RAM-CREDIT-PT-1** `[2pc]` ·
-**SD-SPECTATOR-CHARGE-PT-1** `[solo]` · **KO-CENTER-RING-PT-1** `[solo]` ·
-**COUNTDOWN-HOST-STAMP-PT-1** `[2pc]` · **CUSTOMIZE-SVG-FLASH-PT-1** `[solo]` ·
-**FRIENDS-LOBBY-ORDER-PT-1** `[2pc]` (parents close with them —
-[completed-work.md](./planning/completed-work.md)). **TRUST-1** · **LEADERBOARD-1**
-cut from V2 (SHIP-1 D-tier; Block 3 drained). **SHIP-1** BACKLOG row closed
-(file stays). Parent **WARM-QP-ROTATE-1** stays
-(cap-364). Do not reopen GAMEPAD-LOBBY-1.
+Active card: **WARM-CLASSIC-JUICE-1** (cap-371 Friends Classic join freeze).
+Live PT still owed: **CUSTOMIZE-SPAM-PT-1** on prod (VERIFY_OK `a41987e7` /
+Worker `5a4d6ec7`). Deferred launch day: **SHARD-PT-2**. **WARM-QP-ROTATE-1**
+closed 08-18 (adopt + PT-1; residual is this card). Do not reopen
+GAMEPAD-LOBBY-1.
 
 **Closed cards keep their narrative in their own docs, not here** — Sundial
 ([handover](./planning/art-pass-sundial-handover.md); read its "Traps that cost time" before any
@@ -79,11 +71,14 @@ Live rows only. Shipped and closed cards live in
 
 | # | What | Status |
 |---|------|--------|
+| WARM-CLASSIC-JUICE-1 | Pre-warm Classic play programs before carts | 🔧 in progress (cap-371) |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 
 ### Next actions
 
-1. Playtest **CUSTOMIZE-SPAM-PT-1** on prod (`?diag=1`). Hard-refresh.
+1. Land **WARM-CLASSIC-JUICE-1**. Then playtest Friends join to a Classic room
+   on the Intel box (`?diag=1`). Overlay must not freeze ~10 s.
+2. Playtest **CUSTOMIZE-SPAM-PT-1** on prod (`?diag=1`). Hard-refresh.
    Deferred: **SHARD-PT-2** (launch day).
 
 ## Open issues (top)
@@ -102,6 +97,9 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 → 08-02: [decision-log-2026-08.md](./archive/decision-log-2026-08.md). 07-11 → 07-23:
 [decision-log-2026-07.md](./archive/decision-log-2026-07.md).
 
+- **D-WARM-QP-ROTATE-1** (08-18): parent closed. Adopt + **WARM-QP-ROTATE-PT-1**
+  cover first-room swap. cap-364 is pre-fix. Residual compile after adopt →
+  **WARM-CLASSIC-JUICE-1**. Mid-session QP rotate needs a new ID if it stalls.
 - **D-WORK-LANES-1** (08-17): agents self-classify Routine / Standard / Critical by blast radius and state the lane before editing. Routine proceeds after intent with focused checks; Standard and Critical require ack and one wave-boundary QA; Critical adds adversarial review and risk-specific proof. Scope growth escalates the lane.
 - **D-SPILL-RAM-CREDIT-1** (08-17): SPILL credit = real spill (tip-over / massive-ram / void fall) attributed to `lastHitBy` + 3s window. Rams on upright victims count 0. Playtest **SPILL-RAM-CREDIT-PT-1**.
 - **D-HOWLER-UPGRADE-1** (08-17): pooling + volume buses already shipped. Spatial deferred, taste-gated. Card closed. New ID if playtest asks for 3D SFX.
@@ -129,9 +127,9 @@ or a suspected blocker (TS 7 · `cartrave4` UVs).
 
 ## Last updated
 
-2026-08-17 (CUSTOMIZE-SPAM-1) — keep-alive pause/resume shipped. VERIFY_OK
-`a41987e7` / Worker `5a4d6ec7`. Playtest **CUSTOMIZE-SPAM-PT-1** on prod. Do
-not reopen ATTRACT-JANK-1 / CUSTOMIZE-PERF-1.
+2026-08-18 (WARM-CLASSIC-JUICE-1) — cap-371: close **WARM-QP-ROTATE-1**; file
+and implement **WARM-CLASSIC-JUICE-1**. **PERF-CLASSIC-IGPU-1** queued (not
+this wave). CUSTOMIZE-SPAM-PT-1 still owed.
 
 2026-08-17 (playtest PASSes) — **COUNTDOWN-HOST-STAMP-PT-1** · **CUSTOMIZE-SVG-FLASH-PT-1** ·
 **FRIENDS-LOBBY-ORDER-PT-1** · **KO-CENTER-RING-PT-1** Wyatt PASS on prod (`7896b9f4`);

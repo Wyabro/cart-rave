@@ -82,7 +82,7 @@ let lastPlayEntryWarm = false;
  * @property {() => boolean} [getPreviewNeedsFullRebuild]
  * @property {() => string | null | undefined} [getRoomLevelId] Authoritative room arena
  *   after hello. Play-entry adopts this before carts/warm when it differs from loaded.
- * @property {(levelId?: string | null, onProgress?: (pct: number, label: string) => void, opts?: { skipWarm?: boolean }) => Promise<void>} rebuildLevelIfNeeded
+ * @property {(levelId?: string | null, onProgress?: (pct: number, label: string) => void, opts?: { skipWarm?: boolean, skipFlyover?: boolean }) => Promise<void>} rebuildLevelIfNeeded
  * @property {() => void} finalizeArenaForPlay
  * @property {() => Promise<void>} ensureRapierPhysics
  * @property {(levelIdOverride?: string) => Promise<void>} bootstrapWorldCore
@@ -334,8 +334,9 @@ export async function ensureSessionCartsReady() {
       await ensureWorldBootstrapped();
       // * WARM-QP-ROTATE-1: hello already latched the room arena, but play-entry warmed
       // * the local menu pick. Swap under the still-up overlay BEFORE carts/shader warm.
-      // * Force a full forPlay compile after a mismatch — lastPlayEntryWarm would keep
-      // * the short 1.5s budget from the wrong arena and dump play-full onto the canvas.
+      // * WARM-CLASSIC-JUICE-1: warm the adopted arena (no flyover) so juice/arena
+      // * programs link before carts spawn. Consume juiceFresh here — the post-cart
+      // * warm then uses the short budget + flyover instead of a second full 451 compile.
       const roomLevel = d.getRoomLevelId?.() ?? getNetcode()?.getAuthoritativeRoomLevelId?.() ?? null;
       const adoptId = resolvePlayEntryLevelId(d.getLoadedLevelId?.(), roomLevel);
       if (adoptId) {
@@ -344,7 +345,11 @@ export async function ensureSessionCartsReady() {
           from: d.getLoadedLevelId?.() ?? null,
           to: adoptId,
         });
-        await d.rebuildLevelIfNeeded(adoptId, undefined, { skipWarm: true });
+        await d.rebuildLevelIfNeeded(adoptId, undefined, { skipFlyover: true });
+        if (d.getLoadedLevelId?.() === adoptId) {
+          if (typeof d.consumeRaveJuiceJustBuilt === "function") d.consumeRaveJuiceJustBuilt();
+          lastPlayEntryWarm = true;
+        }
       }
       await prefetchRaveGltf().catch((err) => {
         console.warn(

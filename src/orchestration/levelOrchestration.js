@@ -348,7 +348,11 @@ export function createLevelOrchestration(deps) {
 
     if (wantRaveExtras && includeJuice && !raveJuiceInitialized) {
       Effects.initBillboard(scene);
-      Effects.initLasers(scene, pitInnerRadius, CART_COLORS);
+      // * WARM-CLASSIC-JUICE-1: Low sets laserBudget "off" and then hides every
+      // * laser mesh. Building them here still costs init + compile on iGPU.
+      if (getQualityKnobs().laserBudget !== "off") {
+        Effects.initLasers(scene, pitInnerRadius, CART_COLORS);
+      }
       raveJuiceInitialized = true;
       // * FV-LOAD-1b: menu attract builds includeJuice:false, so the first play entry
       // * first-builds billboard/lasers/crowd programs. Warm path must NOT use the
@@ -411,6 +415,9 @@ export function createLevelOrchestration(deps) {
     }
   }
 
+  /**
+   * @param {{ forPlay?: boolean, warm?: boolean, juiceFresh?: boolean, skipFlyover?: boolean, maxWaitMs?: number }} [opts]
+   */
   async function warmupActiveSceneShaders(opts = {}) {
     const forPlay = opts.forPlay !== false;
     const juiceFresh = opts.juiceFresh === true;
@@ -556,7 +563,9 @@ export function createLevelOrchestration(deps) {
       // * geometry) was stalling the countdown itself, not just an ordinary slow frame.
       // * Prime it here too, hidden behind the loading overlay, then restore the camera
       // * exactly as it was — this must never leak into the visible frame.
-      if (forPlay) {
+      // * WARM-CLASSIC-JUICE-1: adopt warms the arena with skipFlyover so this pass
+      // * runs once, after carts exist, instead of twice (empty floor + full floor).
+      if (forPlay && opts.skipFlyover !== true) {
         const pose = CameraMod.getCinematicCountdownWarmupPose(deps.resolveCinematicCountdownOverrides());
         const savedPos = camera.position.clone();
         const savedQuat = camera.quaternion.clone();

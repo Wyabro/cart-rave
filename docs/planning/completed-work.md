@@ -2,7 +2,7 @@
 
 > Historical log. Past entries may still say "Cart Rave" / `next-level` — that is intentional. Living naming rules: [brand.md](../brand.md).
 
-**Last Updated:** August 17, 2026
+**Last Updated:** August 18, 2026
 
 > **This doc = the past** — the single home for historical/completed items. For what works
 > *today* see [project-state.md](./project-state.md); for forward plans see [ROADMAP.md](./ROADMAP.md).
@@ -12,6 +12,16 @@ Chronological record of shipped work, newest first.
 > **Convention:** As items ship, move their completed writeup here (out of ROADMAP.md / project-state.md).
 
 ---
+
+### August 18, 2026 — WARM-QP-ROTATE-1 closed
+
+- *(Engineering · Medium)* **WARM-QP-ROTATE-1** — ✅ **CLOSED 08-18** (no new code).
+  Lever already shipped (`4e5ded3c`): play-entry adopts the room arena after hello,
+  under the overlay, before carts. **WARM-QP-ROTATE-PT-1** Wyatt PASS 08-16 (first-room
+  swap; canvas does not freeze). cap-364 is pre-fix. cap-371 confirms adopt
+  (`play-arena-adopt` zanzibar→classicRecord, `rotation_skipped already_loaded`).
+  Residual after adopt is **WARM-CLASSIC-JUICE-1** (Classic 451-material compile).
+  A mid-session Quickplay rotate stall needs a new ID — do not reopen this card.
 
 ### August 17, 2026 — playtest PASSes (COUNTDOWN-HOST-STAMP / CUSTOMIZE-SVG-FLASH / FRIENDS-LOBBY-ORDER)
 

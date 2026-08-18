@@ -65,9 +65,10 @@ let menuLevelDebounceId = null;
  * @property {(runSwap: () => Promise<void>, opts?: { fade?: boolean }) => Promise<void>} [maskMenuPreviewSwap]
  *   Wraps menu-time scene mutation in an attract-hold + shader warm-up (plus a canvas
  *   cross-fade when `fade` is true) so the arena picker never freezes the menu.
- * @property {(opts?: { forPlay?: boolean }) => Promise<void>} [warmupAfterLevelSwap]
+ * @property {(opts?: { forPlay?: boolean, skipFlyover?: boolean }) => Promise<void>} [warmupAfterLevelSwap]
  *   Warm-compiles the freshly swapped scene before attract/gameplay renders it.
  *   `forPlay: false` = menu-light (skip reinstalling VFX anchors).
+ *   `skipFlyover: true` = arena programs only (WARM-CLASSIC-JUICE-1 adopt).
  */
 
 /**
@@ -270,8 +271,9 @@ export async function swapLoadedLevel(levelId, opts = {}) {
  * Play-entry rebuild: ensures arena matches menu selection at full quality.
  * @param {string | null | undefined} [levelId]
  * @param {(pct: number, label: string) => void} [onProgress]
- * @param {{ skipWarm?: boolean }} [opts] `skipWarm` — caller will compile after carts exist
- *   (WARM-QP-ROTATE-1). Default warms arena programs immediately.
+ * @param {{ skipWarm?: boolean, skipFlyover?: boolean }} [opts]
+ *   `skipWarm` — caller will compile after carts exist.
+ *   `skipFlyover` — warm arena programs only; countdown flyover waits for the cart warm.
  * @returns {Promise<void>}
  */
 export async function rebuildLevelIfNeeded(levelId, onProgress, opts = {}) {
@@ -312,9 +314,15 @@ export async function rebuildLevelIfNeeded(levelId, onProgress, opts = {}) {
         runSwap();
       }
       await swapPromise;
-      // * Play entry runs behind the loading overlay — full warm (arena + VFX anchors).
-      // * WARM-QP-ROTATE-1: skip when carts are about to spawn; one forPlay warm covers both.
-      if (!opts.skipWarm && d.warmupAfterLevelSwap) await d.warmupAfterLevelSwap({ forPlay: true });
+      // * Play entry runs behind the loading overlay — warm arena + VFX anchors.
+      // * WARM-CLASSIC-JUICE-1: adopt passes skipFlyover so the post-cart warm owns
+      // * the countdown camera compile (carts are in the scene by then).
+      if (!opts.skipWarm && d.warmupAfterLevelSwap) {
+        await d.warmupAfterLevelSwap({
+          forPlay: true,
+          skipFlyover: opts.skipFlyover === true,
+        });
+      }
       await yieldForPaint();
       isSwappingLevel = false;
     } else if (menuPreviewNeedsFinalize) {
@@ -323,7 +331,12 @@ export async function rebuildLevelIfNeeded(levelId, onProgress, opts = {}) {
       previewMode = false;
       menuPreviewNeedsFinalize = false;
       d.finalizeArenaForPlay();
-      if (!opts.skipWarm && d.warmupAfterLevelSwap) await d.warmupAfterLevelSwap({ forPlay: true });
+      if (!opts.skipWarm && d.warmupAfterLevelSwap) {
+        await d.warmupAfterLevelSwap({
+          forPlay: true,
+          skipFlyover: opts.skipFlyover === true,
+        });
+      }
     }
   })().catch((err) => {
     isSwappingLevel = false;
