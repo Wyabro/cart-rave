@@ -29,6 +29,12 @@ export interface Env {
   /** Cloudflare Calls TURN credentials (requestTurnCredentials). */
   CF_ACCOUNT_ID?: string;
   CF_CALLS_KEY_ID?: string;
+  /**
+   * Account API token used to mint Calls TURN tokens. SEC-TOKEN-2: scope it to
+   * Cloudflare Calls permissions ONLY (least privilege) — it is one code path
+   * away from arbitrary Cloudflare API calls. Never set an account-wide token
+   * here. Set via `wrangler secret put CF_API_TOKEN`, not in any committed file.
+   */
   CF_API_TOKEN?: string;
 }
 
@@ -120,6 +126,25 @@ const PALETTE = ["pink", "blue", "green", "yellow", "neonOrange"] as const;
 // * JSON tail (host-authored, client-replayed) — there is no server relay for them, so the
 // * server-side validators/whitelist that once guarded those relays have been removed.
 // * Rate-limit / reap / picker thresholds live in ./constants (shared with pure helpers).
+//
+// * STATE-CONTRACT-1 (ephemeral, do not hibernate): this DO keeps ALL room state in
+// * memory — #slots / #round / #carts / #readyConnIds / host & join-order maps — plus
+// * every timer (countdown arm, rematch grace, countdown-abort grace, play-ready wait)
+// * as setTimeout. Nothing is persisted to SQLite (the v1 `new_sqlite_classes` backend
+// * is unused here; the log DOs own SQLite). This is deliberate:
+// *   - partyserver Server defaults to `hibernate: false` (InMemoryConnectionManager),
+// *     so live sockets keep the DO Active and in-memory state is safe while connected.
+// *   - Rooms are ephemeral: players reconnect fresh and re-establish state via
+// *     host_round; a DO eviction just resets an empty/finished room to lobby.
+// *   - Clients anchor on MSG.gameStart's absolute `startsAtMs`, so a lost server
+// *     countdown timer self-heals via authoritative round broadcasts.
+// * THEREFORE: do NOT flip `hibernate: true` or convert these setTimeout timers to
+// * setAlarm without first persisting the full state machine — hibernation clears
+// * in-memory state AND drops all setTimeout work (DO gotcha). The tradeoff is cost:
+// * an open room stays billed (never zero-compute while sockets are up); acceptable
+// * for a 4-player game, but the ceiling if concurrency grows. The singleton log DOs
+// * (ErrorLog / AnalyticsLog / CaptureLog) are the throughput bottleneck (~1K req/s
+// * each), not the per-room instances.
 
 export class CartRaveServer extends Server {
   readonly #connections = new Map<string, Connection>();
