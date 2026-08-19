@@ -2,7 +2,7 @@
 
 > Historical log. Past entries may still say "Cart Rave" / `next-level` — that is intentional. Living naming rules: [brand.md](../brand.md).
 
-**Last Updated:** August 18, 2026
+**Last Updated:** August 19, 2026
 
 > **This doc = the past** — the single home for historical/completed items. For what works
 > *today* see [project-state.md](./project-state.md); for forward plans see [ROADMAP.md](./ROADMAP.md).
@@ -12,6 +12,21 @@ Chronological record of shipped work, newest first.
 > **Convention:** As items ship, move their completed writeup here (out of ROADMAP.md / project-state.md).
 
 ---
+
+### August 19, 2026 — playtest PASSes (BOOT-TBT / MENU-ARROW / PODIUM-DOUBLE-CREDIT)
+
+- *(Playtest · Low)* **BOOT-TBT-PT-1** — ✅ **PASS 08-19** on prod
+  (VERIFY_OK `c3aecffe`). Classic menu stays live after boot yields.
+  Arena arrows swap Classic away and back. Solo starts and the floor
+  looks normal. Parent **BOOT-TBT-1** closes with it.
+- *(Playtest · Low)* **MENU-ARROW-PT-1** — ✅ **PASS 08-19**. WASD and
+  arrows move focus around the whole main menu (SOLO / QUICKPLAY, arena
+  ◂▸, name, room-code). Arrows leave the room-code box after typing.
+  Parent **MENU-ARROW-1** closes with it (prod `fbec1bf5`).
+- *(Playtest · Low)* **PODIUM-DOUBLE-CREDIT-PT-1** — ✅ **PASS 08-19** on
+  prod (`0211a408`). Host YOUR STATS played/wins tick once per MP
+  round. Recent matches shows one row. Parent
+  **PODIUM-DOUBLE-CREDIT-1** closes with it.
 
 ### August 18, 2026 — COUNTDOWN-LEAK-1 closed
 

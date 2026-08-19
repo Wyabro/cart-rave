@@ -29,22 +29,18 @@ report phase-exit eligibility; they must not move the marker.
 are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Analytics DO reset for
 external testers. Stay in this phase until Wyatt advances the marker.
 
-Active: **BOOT-TBT-1** on prod `c3aecffe` (VERIFY_OK). PERF-CLASSIC-IGPU-1
-wave B CLOSED — cap-372 names the gap: **render ≈ 90% of vis**. Next lever is
-the Classic render path (`recordbody` gated on a clean cell). No look change.
-Landed 08-18 Block 5 Lows on prod `e3886b5f` (VERIFY_OK): **KEYUP-STUCK-1** ·
-**SPECTATOR-ANNOUNCER-1** · **RD-COUNTER-1**. Landed **MENU-ARROW-1** on prod
-`fbec1bf5` (VERIFY_OK) · **SPILL-DOUBLE-VFX-1** · **PODIUM-DOUBLE-CREDIT-1**
-(prod `0211a408`). Closed 08-18 — **COUNTDOWN-LEAK-1** (pin test; no game-code
-change) on prod `c3aecffe` (VERIFY_OK).
-Playtest owed: **BOOT-TBT-PT-1** · **MENU-ARROW-PT-1** ·
-**SPILL-DOUBLE-VFX-PT-1** · **PODIUM-DOUBLE-CREDIT-PT-1**. Closed 08-18 —
-**KEYUP-STUCK-PT-1** · **SPECTATOR-ANNOUNCER-PT-1** · **RD-COUNTER-PT-1** (all
-prod `e3886b5f`) · **PERF-WATCH-PT-1** (`npm run dev`, `3f467334`).
-**PERF-WATCH-1** wave 1 landed (scale-up only); wave 2 stays open. Closed 08-18 —
-**CUSTOMIZE-SPAM-PT-1** (prod `a41987e7`) · **WARM-CLASSIC-JUICE-PT-1**
-(`951ea15d` / `npm run dev`). Deferred: **SHARD-PT-2**. Do not reopen
-GAMEPAD-LOBBY-1 or **PERF-PASS-1**.
+Active: **SPILL-DOUBLE-VFX-PT-1** (owed; SKIP 08-19, still open).
+PERF-CLASSIC-IGPU-1 wave B CLOSED — cap-372 names the gap: **render ≈ 90% of
+vis**. Next lever is the Classic render path (`recordbody` gated on a clean
+cell). No look change. Closed 08-19 playtest PASSes — **BOOT-TBT-PT-1**
+(prod `c3aecffe`) · **MENU-ARROW-PT-1** · **PODIUM-DOUBLE-CREDIT-PT-1**
+(prod `0211a408`). Parents close. Playtest owed: **SPILL-DOUBLE-VFX-PT-1**.
+Deferred: **SHARD-PT-2**. Closed 08-18 — **KEYUP-STUCK-PT-1** ·
+**SPECTATOR-ANNOUNCER-PT-1** · **RD-COUNTER-PT-1** (all prod `e3886b5f`) ·
+**PERF-WATCH-PT-1** (`npm run dev`, `3f467334`) · **CUSTOMIZE-SPAM-PT-1**
+(prod `a41987e7`) · **WARM-CLASSIC-JUICE-PT-1** (`951ea15d` / `npm run
+dev`). **PERF-WATCH-1** wave 1 landed (scale-up only); wave 2 stays open.
+Do not reopen GAMEPAD-LOBBY-1 or **PERF-PASS-1**.
 
 **Closed cards keep their narrative in their own docs, not here** — Sundial
 ([handover](./planning/art-pass-sundial-handover.md); read its "Traps that cost time" before any
@@ -86,8 +82,8 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. **BOOT-TBT-PT-1** — Classic still loads after `initArena` yields (menu,
-   preview swap, Solo entry).
+1. **SPILL-DOUBLE-VFX-PT-1** — non-host tip-over spill VFX once (SKIP
+   08-19; still owed).
 2. Deferred: **SHARD-PT-2** (launch day). Classic render-path lever is a
    new card if pursued (`recordbody`, clean cell).
 
@@ -109,7 +105,7 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 
 - **D-BOOT-TBT-1** (08-18): yield Classic `initArena` between measured
   slabs; `loadLevel` awaits `initFn`. No Rapier pre-warm. Prod wasm already
-  `zstd`. Playtest **BOOT-TBT-PT-1**.
+  `zstd`. **BOOT-TBT-PT-1** Wyatt PASS 08-19 (prod `c3aecffe`).
 - **D-PERF-WATCH-1** (08-18): wave 1 = scale-up only (17ms / 8 windows /
   30s ratchet). No mid-round Low → Medium. Wave 2 is a separate ack.
 - **D-PERF-CLASSIC-IGPU-1** (08-18): wave B = name the +7.5 ms vis gap. No
@@ -145,6 +141,11 @@ or a suspected blocker (TS 7 · `cartrave4` UVs).
 - Local worker port is **8899** (`LOCAL_WORKER_PORT` in `src/config.js`). If it goes EACCES, re-check Windows HNS exclusions and move the port there.
 
 ## Last updated
+
+2026-08-19 (playtest PASSes) — **BOOT-TBT-PT-1** Wyatt PASS on prod
+(`c3aecffe`); **MENU-ARROW-PT-1** Wyatt PASS; **PODIUM-DOUBLE-CREDIT-PT-1**
+Wyatt PASS on prod (`0211a408`). Parents close. Still owed:
+**SPILL-DOUBLE-VFX-PT-1** (SKIP 08-19). Deferred: **SHARD-PT-2**.
 
 2026-08-18 (BOOT-TBT-1) — Classic `initArena` is async and yields between
 record floor / dress / booths / pit wall / pit detail. `loadLevel` awaits

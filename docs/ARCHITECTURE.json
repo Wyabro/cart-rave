@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-19T02:41:41.707Z",
-    "commit": "c3aecffe"
+    "at": "2026-08-19T05:37:11.397Z",
+    "commit": "42a3ce73"
   },
-  "source_digest": "14f5ac36",
+  "source_digest": "17b3b89c",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -878,7 +878,7 @@
       }
     ],
     "next_actions": [
-      "BOOT-TBT-PT-1 — Classic still loads after `initArena` yields (menu,",
+      "SPILL-DOUBLE-VFX-PT-1 — non-host tip-over spill VFX once (SKIP",
       "Deferred: SHARD-PT-2 (launch day). Classic render-path lever is a"
     ],
     "open_issues": [
@@ -990,27 +990,9 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Low": 5
+          "Low": 2
         },
         "rows": [
-          {
-            "pri": "Low",
-            "item": "BOOT-TBT-PT-1 — Classic still loads after boot yields `[solo]`",
-            "notes": "**Owed: Wyatt playtest — BOOT-TBT-PT-1 — Classic menu stays live, preview swaps, and Solo still starts.** Hard-refresh first (prod `c3aecffe`).<br>1. Sit on the main menu with Classic selected. After a few seconds the buttons must still click. FAIL if the menu freezes for several seconds.<br>2. Use the arena arrows: Classic to another arena, then back to Classic. FAIL if the floor stays black or the swap never finishes.<br>3. Press SOLO on Classic. FAIL if the overlay hangs or the record never appears. PASS if the round starts and the floor looks normal.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "PODIUM-DOUBLE-CREDIT-PT-1 — host YOUR STATS tick once per MP round `[2pc]`",
-            "notes": "**Owed: Wyatt playtest — PODIUM-DOUBLE-CREDIT-PT-1 — finish a Quickplay or Friends round as host; played/wins tick once.** Hard-refresh first (prod `c3aecffe`).<br>1. Host a Friends or Quickplay match and finish one full round.<br>2. On the host machine, open YOUR STATS and Recent matches.<br>3. FAIL if played or wins went up by two, or if Recent matches shows two rows for this one round. PASS if played/wins tick exactly once and Recent matches shows one entry.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "MENU-ARROW-PT-1 — WASD and arrows move around the main menu `[solo]`",
-            "notes": "**Owed: Wyatt playtest — MENU-ARROW-PT-1 — WASD and arrows move around the whole main menu; arrows leave the room-code box.** Hard-refresh first.<br>1. On the main menu, press WASD and the arrow keys. Focus should move to SOLO / QUICKPLAY, arena ◂▸, name, and the room-code box.<br>2. Land on the room-code box. Type OATS3. Those letters must type. Then press an arrow key.<br>3. FAIL if WASD only walks the yellow list, if arrows cannot reach the other controls, or if an arrow cannot leave the room-code box. PASS if focus moves around the menu and arrows leave the box.",
-            "ship1": null
-          },
           {
             "pri": "Low",
             "item": "SPILL-DOUBLE-VFX-PT-1 — non-host tip-over spill VFX renders once `[2pc]`",
