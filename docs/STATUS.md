@@ -35,7 +35,8 @@ the Classic render path (`recordbody` gated on a clean cell). No look change.
 Landed 08-18 Block 5 Lows on prod `e3886b5f` (VERIFY_OK): **KEYUP-STUCK-1** ·
 **SPECTATOR-ANNOUNCER-1** · **RD-COUNTER-1**. Landed **MENU-ARROW-1** on prod
 `fbec1bf5` (VERIFY_OK) · **SPILL-DOUBLE-VFX-1** · **PODIUM-DOUBLE-CREDIT-1**
-(prod `0211a408`).
+(prod `0211a408`). Closed 08-18 — **COUNTDOWN-LEAK-1** (pin test; no game-code
+change; BUNDLE-1 Lever D teardown already covered menu-return countdown UI).
 Playtest owed: **BOOT-TBT-PT-1** · **MENU-ARROW-PT-1** ·
 **SPILL-DOUBLE-VFX-PT-1** · **PODIUM-DOUBLE-CREDIT-PT-1**. Closed 08-18 —
 **KEYUP-STUCK-PT-1** · **SPECTATOR-ANNOUNCER-PT-1** · **RD-COUNTER-PT-1** (all

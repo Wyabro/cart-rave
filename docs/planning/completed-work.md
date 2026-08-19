@@ -13,6 +13,15 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 18, 2026 — COUNTDOWN-LEAK-1 closed
+
+- *(Engineering · Low)* **COUNTDOWN-LEAK-1** — ✅ **CLOSED 08-18** (no game-code change).
+  Stale countdown UI on menu return, filed 07-19. Resolved by **BUNDLE-1 Lever D** teardown
+  (`hideGameplayElements` hides `.hud-status` / `.hud-arena-splash` / `.hud-timer`, clears
+  `_countdownCatchupTimeoutId`, bumps `_countdownGeneration`; `initMenu` is the call site).
+  Regression pin: `tests/ui/hudCountdownTeardown.test.js` (leaf hide + pending GO catch-up).
+  Not a reopen of COUNTDOWN-QUICKPLAY-1 / COUNTDOWN-HOST-STAMP-1 / INPUT-LOCK-1 / THOST-CEILING-1.
+
 ### August 18, 2026 — BOOT-TBT-1: yield Classic initArena
 
 - *(Engineering · Medium)* **BOOT-TBT-1** — ✅ **DONE 08-18**. Classic
