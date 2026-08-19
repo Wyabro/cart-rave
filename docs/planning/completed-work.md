@@ -13,6 +13,21 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 18, 2026 — PODIUM-DOUBLE-CREDIT-1
+
+- *(Engineering · Low)* **PODIUM-DOUBLE-CREDIT-1** — ✅ **DONE 08-18**. Host
+  `endRound` no longer writes lifetime stats / `ROUND_*` / matchHistory in
+  quickplay or friends. Those modes credit only from a server-validated
+  `MSG.round` podium echo. The host is already on podium when that echo
+  arrives, so credit uses `shouldCreditPodiumFromRoundMsg` in
+  `roundEvents.js` plus the `podiumEndLatch` send count (this client
+  actually ended the round). A
+  reject + 150ms retry that picks a different winner now credits the final
+  winner once. Solo / testdrive keep immediate credit. Residual: overlay
+  `SUDDEN_DEATH_WIN` / `UNTOUCHABLE` still follow the optimistic winner if
+  the results panel paints before a late reject. Playtest owed:
+  **PODIUM-DOUBLE-CREDIT-PT-1**.
+
 ### August 18, 2026 — SPILL-DOUBLE-VFX-1
 
 - *(Engineering · Low)* **SPILL-DOUBLE-VFX-1** — ✅ **DONE 08-18**. Non-host client

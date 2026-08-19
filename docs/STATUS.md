@@ -34,8 +34,10 @@ Active: **PERF-CLASSIC-IGPU-1** wave B (instrument). No look change.
 `visRender` / `visOther`. Landed 08-18 Block 5 Lows on prod `e3886b5f`
 (VERIFY_OK): **KEYUP-STUCK-1** · **SPECTATOR-ANNOUNCER-1** ·
 **RD-COUNTER-1**. Landed **MENU-ARROW-1** on prod `fbec1bf5` (VERIFY_OK) ·
-**SPILL-DOUBLE-VFX-1** (non-host tip spill dedupe). Playtest owed:
-**MENU-ARROW-PT-1** · **SPILL-DOUBLE-VFX-PT-1**. Closed 08-18 —
+**SPILL-DOUBLE-VFX-1** (non-host tip spill dedupe). Landed
+**PODIUM-DOUBLE-CREDIT-1** (host podium stats wait for validated echo).
+Playtest owed: **MENU-ARROW-PT-1** · **SPILL-DOUBLE-VFX-PT-1** ·
+**PODIUM-DOUBLE-CREDIT-PT-1**. Closed 08-18 —
 **KEYUP-STUCK-PT-1** · **SPECTATOR-ANNOUNCER-PT-1** · **RD-COUNTER-PT-1** (all
 prod `e3886b5f`) · **PERF-WATCH-PT-1** (`npm run dev`, `3f467334`).
 **PERF-WATCH-1** wave 1 landed (scale-up only); wave 2 stays open. Closed 08-18 —

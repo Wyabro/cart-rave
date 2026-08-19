@@ -918,7 +918,14 @@ function endRound(scoringSlot = null) {
     const scores = GameState.getRoundScores();
     GameState.setRoundWinnerSlotIndex(GameState.pickTimerWinner(scores));
   }
-  recordPodiumStats(/** @type {any} */ (GameState.getRoundState().winnerSlotIndex), GameState.getRoundScores());
+  // * PODIUM-DOUBLE-CREDIT-1: quickplay/friends wait for the validated MSG.round
+  // * echo. Optimistic credit here survived a server reject and double-counted
+  // * when the 150ms retry picked a different winner. Solo/testdrive have no
+  // * server echo, so they keep the immediate write.
+  const mode = detectGameMode();
+  if (mode !== "quickplay" && mode !== "friends") {
+    recordPodiumStats(/** @type {any} */ (GameState.getRoundState().winnerSlotIndex), GameState.getRoundScores());
+  }
   HUD.clearFeed();
   syncRoundPhase("podium");
   beginPodiumPresentation();

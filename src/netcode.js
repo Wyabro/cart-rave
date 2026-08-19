@@ -30,6 +30,11 @@ import { HOST_MIGRATION_COOLDOWN_MS } from "../shared/protocol.js";
 import { MAX_QUICKPLAY_SHARDS, isQuickplayRoom } from "../shared/roomCodes.js";
 
 import { getRoundClockNowMs } from "./roundClock.js";
+import { getPodiumEndLatchState } from "./utils/podiumEndLatch.js";
+import {
+  hostEndedPodiumRound,
+  shouldCreditPodiumFromRoundMsg,
+} from "./progression/roundEvents.js";
 import { devLog } from "./utils/devLog.js";
 import {
   DEFAULT_SOLO,
@@ -3696,16 +3701,23 @@ export function initNetcode(roomOverride) {
           }
           callbacks.onEnterPodium?.();
           callbacks.setPendingMidRoundJoinRespawnConnId(null);
-          // * Lifetime YOUR STATS (wins/played/points) for non-hosts: only count
-          // * server-validated podium rounds. Do NOT early-return the whole MSG.round
-          // * handler when unvalidated — that skipped phase clocks/apply (NH-STATS).
-          if (!isHost && r.validated === true) {
-            const w = r.winnerSlotIndex;
-            const winnerSlotIndex =
-              w === "draw" ? "draw" : Number.isFinite(w) ? w : 0;
-            const src = r.scores && typeof r.scores === "object" ? r.scores : GameState.getRoundState().scores;
-            callbacks.recordPodiumStats(winnerSlotIndex, src);
-          }
+        }
+        // * PODIUM-DOUBLE-CREDIT-1: host endRound already flipped local phase to
+        // * podium before sendHostRound, so the accepted echo is podium→podium.
+        // * Guests still require running→podium. Do NOT early-return the handler
+        // * when unvalidated — that skipped phase clocks/apply (NH-STATS).
+        if (shouldCreditPodiumFromRoundMsg({
+          isHost,
+          prevPhase,
+          newPhase,
+          validated: r.validated === true,
+          hostEndedThisRound: hostEndedPodiumRound(getPodiumEndLatchState(), r.startedAtMs),
+        })) {
+          const w = r.winnerSlotIndex;
+          const winnerSlotIndex =
+            w === "draw" ? "draw" : Number.isFinite(w) ? w : 0;
+          const src = r.scores && typeof r.scores === "object" ? r.scores : GameState.getRoundState().scores;
+          callbacks.recordPodiumStats(winnerSlotIndex, src);
         }
         // * Non-host clients receive MSG.round to learn the countdown→running transition.
         // * The host calls endCinematicCountdown() directly in startRunningAt() (main.js),
