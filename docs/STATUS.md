@@ -29,7 +29,10 @@ report phase-exit eligibility; they must not move the marker.
 are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Analytics DO reset for
 external testers. Stay in this phase until Wyatt advances the marker.
 
-Active: **PERF-CLASSIC-IGPU-1** wave B (instrument). No look change.
+Active: **PERF-CLASSIC-IGPU-1** wave B (instrument) CLOSED — cap-372 names the
+gap: **render ≈ 90% of vis** (`visRenderMeanMs` 9.09 of `visMeanMs` 10.09;
+sync/fx/hud/other ≈ 1.0 ms combined). Next lever is the Classic render path
+(`recordbody` gated on a clean cell), not sync/fx/hud. No look change.
 `?diag` F8 `loopRound` now splits visMs into `visSync` / `visFx` / `visHud` /
 `visRender` / `visOther`. Landed 08-18 Block 5 Lows on prod `e3886b5f`
 (VERIFY_OK): **KEYUP-STUCK-1** · **SPECTATOR-ANNOUNCER-1** ·
@@ -81,12 +84,14 @@ Live rows only. Shipped and closed cards live in
 
 | # | What | Status |
 |---|------|--------|
-| PERF-CLASSIC-IGPU-1 | Classic vis split — wave B instrument | 🟡 Wyatt F8 Friends Classic Low |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 
 ### Next actions
 
-1. Wyatt F8 Friends Classic Low on **prod** `e3886b5f` (VERIFY_OK). URL: `https://www.cartclash.lol/?diag=1`. Read `loopRound.visRenderMeanMs` / `visSyncMeanMs` / `visFxMeanMs` / `visHudMeanMs` / `visOtherMeanMs`. Match cap-371: rsm 0.7, `straddledDemotion: false`.
+1. **PERF-CLASSIC-IGPU-1** wave B closed — gap named (render ≈ 90% of vis,
+   cap-372). Next lever: Classic render path (`recordbody` still gated on a
+   clean cell; 60 fps bar not this card). Seed BACKLOG if the render lever
+   becomes a card.
 2. Deferred: **SHARD-PT-2** (launch day).
 
 ## Open issues (top)
@@ -108,8 +113,9 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 - **D-PERF-WATCH-1** (08-18): wave 1 = scale-up only (17ms / 8 windows /
   30s ratchet). No mid-round Low → Medium. Wave 2 is a separate ack.
 - **D-PERF-CLASSIC-IGPU-1** (08-18): wave B = name the +7.5 ms vis gap. No
-  `recordbody` ship until a clean cell. 60 fps bar is not this card. Wyatt F8
-  Friends Classic Low after the instrument lands.
+  `recordbody` ship until a clean cell. 60 fps bar is not this card. **CLOSED
+  on cap-372**: vis gap is render (visRenderMeanMs 9.09 of visMeanMs 10.09 ≈
+  90%; sync/fx/hud/other ≈ 1.0 ms total). Render-gated lever has a clean cell.
 - **D-WARM-QP-ROTATE-1** (08-18): parent closed. Adopt + **WARM-QP-ROTATE-PT-1**
   cover first-room swap. cap-364 is pre-fix. Residual compile after adopt →
   **WARM-CLASSIC-JUICE-1**. Mid-session QP rotate needs a new ID if it stalls.
@@ -139,6 +145,12 @@ or a suspected blocker (TS 7 · `cartrave4` UVs).
 - Local worker port is **8899** (`LOCAL_WORKER_PORT` in `src/config.js`). If it goes EACCES, re-check Windows HNS exclusions and move the port there.
 
 ## Last updated
+
+2026-08-18 (PERF-CLASSIC-IGPU-1 wave B close) — cap-372 (build `0211a408`,
+Friends Classic Low, non-host, Intel UHD) names the +7.5 ms vis gap: **render
+≈ 90% of vis** (`visRenderMeanMs` 9.09 of `visMeanMs` 10.09; sync 0.41 / fx
+0.13 / hud 0.40 / other 0.05). Round `meanMs` 20.98 (fps 47.67), `pass:
+false`. `recordbody` render lever now has a clean cell. Card closes.
 
 2026-08-18 (playtest PASSes + MENU-ARROW-1) — **MENU-ARROW-1** landed prod
 `fbec1bf5` (VERIFY_OK); owed **MENU-ARROW-PT-1**. Playtest PASSes —

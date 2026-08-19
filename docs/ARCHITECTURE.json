@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-19T00:45:51.659Z",
-    "commit": "0211a408"
+    "at": "2026-08-19T01:03:50.853Z",
+    "commit": "e80a0292"
   },
-  "source_digest": "d4d7686f",
+  "source_digest": "bedeadcf",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -871,12 +871,6 @@
   "workstreams": {
     "queue": [
       {
-        "id": "PERF-CLASSIC-IGPU-1",
-        "what": "Classic vis split — wave B instrument",
-        "status": "🟡 Wyatt F8 Friends Classic Low",
-        "state": "waiting"
-      },
-      {
         "id": "BRAND-1",
         "what": "Domain cutover",
         "status": "🧊 frozen ([brand.md](./brand.md))",
@@ -884,7 +878,7 @@
       }
     ],
     "next_actions": [
-      "Wyatt F8 Friends Classic Low on prod `e3886b5f` (VERIFY_OK). URL: `https://www.cartclash.lol/?diag=1`. Read `loopRound.visRenderMeanMs` / `visSyncMeanMs` / `visFxMeanMs` / `visHudMeanMs` / `visOtherMeanMs`. Match cap-371: rsm 0.7, `straddledDemotion: false`.",
+      "PERF-CLASSIC-IGPU-1 wave B closed — gap named (render ≈ 90% of vis,",
       "Deferred: SHARD-PT-2 (launch day)."
     ],
     "open_issues": [
@@ -906,9 +900,9 @@
         },
         "rows": [
           {
-            "pri": "Medium",
-            "item": "PERF-CLASSIC-IGPU-1 — Classic holds ~30 fps on Intel UHD after rsm 0.7",
-            "notes": "**Filed 08-18 from cap-371.** Friends Classic 33.8 fps vs Sundial 51–55; fewer draws (285 vs 310), +316k tris, +7.5 ms vis / +11.5 ms cpu. GPU wait almost same (unacc 7.3 vs 6.3). Wave B instrument: F8 `loopRound.visRenderMeanMs` / `visSyncMeanMs` / `visFxMeanMs` / `visHudMeanMs` / `visOtherMeanMs`. Do not ship `recordbody` until a clean cell. Do not reopen **PERF-PASS-1**. Wyatt sign-off on any look change.",
+            "pri": "~~Medium~~",
+            "item": "~~PERF-CLASSIC-IGPU-1 — Classic holds ~30 fps on Intel UHD after rsm 0.7~~",
+            "notes": "~~**Filed 08-18 from cap-371.** Friends Classic 33.8 fps vs Sundial 51–55; fewer draws (285 vs 310), +316k tris, +7.5 ms vis / +11.5 ms cpu. GPU wait almost same (unacc 7.3 vs 6.3). Wave B instrument: F8 `loopRound.visRenderMeanMs` / `visSyncMeanMs` / `visFxMeanMs` / `visHudMeanMs` / `visOtherMeanMs`. Do not ship `recordbody` until a clean cell. Do not reopen **PERF-PASS-1**. Wyatt sign-off on any look change.~~ **CLOSED 08-18 (wave B).** cap-372 names the gap: **render ≈ 90% of vis** — `visRenderMeanMs` 9.09 of `visMeanMs` 10.09; sync 0.41 / fx 0.13 / hud 0.40 / other 0.05 ≈ 1.0 ms total. Round `meanMs` 20.98 (fps 47.67), `pass: false`. The `recordbody` render lever is gated on a clean cell, not sync/fx/hud. Do not reopen **PERF-PASS-1**. A Classic render-path lever, if pursued, is a separate card.",
             "ship1": null
           },
           {

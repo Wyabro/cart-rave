@@ -13,6 +13,20 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 18, 2026 — PERF-CLASSIC-IGPU-1 wave B closed (gap named)
+
+- *(Engineering · Medium)* **PERF-CLASSIC-IGPU-1** — ✅ **CLOSED 08-18** (wave B
+  instrument). cap-372 (build `0211a408`, Friends Classic Low, non-host, Intel
+  UHD) names the +7.5 ms vis gap: **render ≈ 90% of vis**. `loopRound`
+  buckets: `visRenderMeanMs` 9.09 of `visMeanMs` 10.09; `visSyncMeanMs` 0.41,
+  `visFxMeanMs` 0.13, `visHudMeanMs` 0.40, `visOtherMeanMs` 0.05 (≈ 1.0 ms
+  combined). Round `meanMs` 20.98 (fps 47.67), `over33` 560, `pass: false`;
+  `callsMean` 243, `trianglesMean` 716k, 94 textures, 125 programs. The render
+  lever (`recordbody`) is now gated on a clean cell — not sync/fx/hud, which
+  are noise. No look change; 60 fps bar not this card. Do not reopen
+  **PERF-PASS-1**. The Classic render-path lever itself stays a separate
+  card if pursued.
+
 ### August 18, 2026 — PODIUM-DOUBLE-CREDIT-1
 
 - *(Engineering · Low)* **PODIUM-DOUBLE-CREDIT-1** — ✅ **DONE 08-18**. Host

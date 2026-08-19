@@ -61,7 +61,7 @@ way the Block table still can.)*
 | **1** — NOW (player-facing correctness) | ✅ drained | 08-16 Highs **INPUT-LOCK-1** · **SD-WIN-CREDIT-1** closed (Wyatt PASS) |
 | **2** — PRE-SHIP (before public post) | ✅ drained | 08-18 **CUSTOMIZE-SPAM-1** · **CUSTOMIZE-SPAM-PT-1** Wyatt PASS |
 | **3** — WYATT LANE (blocked on you) | ✅ drained | 08-17 **TRUST-1** · **LEADERBOARD-1** cut from V2 |
-| **4** — PERF RESIDUAL (measure-first) | 🟡 queued | **PERF-CLASSIC-IGPU-1** · WARM-SOLO-1 · PERF-WATCH-1 · NET-PERF-1 / NET-PERF-3 |
+| **4** — PERF RESIDUAL (measure-first) | 🟡 queued | **PERF-CLASSIC-IGPU-1** CLOSED 08-18 (gap named: render ≈ 90% of vis) · WARM-SOLO-1 · PERF-WATCH-1 · NET-PERF-1 / NET-PERF-3 |
 | **5** — SWEEP (cheap Lows) | 🟡 queued | MOTION-A11Y-1 · COUNTDOWN-LEAK-1 · 08-16 audit Lows |
 | **6** — LAUNCH DAY | ⏳ waiting | **SHARD-PT-2** — 5th concurrent human → `quickplay2` |
 | **7** — LATER (post-launch / parked) | 🧊 parked | **DEEPSEC-2** · BRAND-1 · Tech Debt · taste-gated Design · AQ-RING-CLEAR-1 |
@@ -174,10 +174,10 @@ Landed 08-17 — **SD-SPECTATOR-CHARGE-1** (gate ram-boost charge for SD spectat
 
 **Block 4 — PERF RESIDUAL (measure-first / instrument; not a reopen of PERF-PASS-1).**
 Landed 08-18 — **WARM-CLASSIC-JUICE-1** (Classic join overlay freeze); Wyatt PASS 08-18.
-1. **PERF-CLASSIC-IGPU-1** — Classic ~30 fps on Intel UHD; not triangles (PERF-PASS-1).
-2. **WARM-SOLO-1** — only on real weak-GPU telemetry.
-3. **PERF-WATCH-1** — auto-quality step-up path decision.
-4. **NET-PERF-1** residual / **NET-PERF-3** — only if F8 still shows rubber-band / alloc pressure.
+Closed 08-18 — **PERF-CLASSIC-IGPU-1** (wave B instrument; cap-372 names the gap: render ≈ 90% of vis).
+1. **WARM-SOLO-1** — only on real weak-GPU telemetry.
+2. **PERF-WATCH-1** — auto-quality step-up path decision.
+3. **NET-PERF-1** residual / **NET-PERF-3** — only if F8 still shows rubber-band / alloc pressure.
 
 **Block 5 — SWEEP (cheap Lows; one commit each).** Quiet-window picks; browser-gated items need you in-game.
 Landed 08-17 — **CART-HUE-RED-1** (red-end snap `0xff2233`); Wyatt PASS 08-17.
@@ -210,7 +210,7 @@ Rows follow work-order rank: High (Block 1) → Medium (Block 2, then Wyatt-bloc
 
 | Pri | Item | Notes |
 |-----|------|-------|
-| Medium | PERF-CLASSIC-IGPU-1 — Classic holds ~30 fps on Intel UHD after rsm 0.7 | **Filed 08-18 from cap-371.** Friends Classic 33.8 fps vs Sundial 51–55; fewer draws (285 vs 310), +316k tris, +7.5 ms vis / +11.5 ms cpu. GPU wait almost same (unacc 7.3 vs 6.3). Wave B instrument: F8 `loopRound.visRenderMeanMs` / `visSyncMeanMs` / `visFxMeanMs` / `visHudMeanMs` / `visOtherMeanMs`. Do not ship `recordbody` until a clean cell. Do not reopen **PERF-PASS-1**. Wyatt sign-off on any look change. |
+| ~~Medium~~ | ~~PERF-CLASSIC-IGPU-1 — Classic holds ~30 fps on Intel UHD after rsm 0.7~~ | ~~**Filed 08-18 from cap-371.** Friends Classic 33.8 fps vs Sundial 51–55; fewer draws (285 vs 310), +316k tris, +7.5 ms vis / +11.5 ms cpu. GPU wait almost same (unacc 7.3 vs 6.3). Wave B instrument: F8 `loopRound.visRenderMeanMs` / `visSyncMeanMs` / `visFxMeanMs` / `visHudMeanMs` / `visOtherMeanMs`. Do not ship `recordbody` until a clean cell. Do not reopen **PERF-PASS-1**. Wyatt sign-off on any look change.~~ **CLOSED 08-18 (wave B).** cap-372 names the gap: **render ≈ 90% of vis** — `visRenderMeanMs` 9.09 of `visMeanMs` 10.09; sync 0.41 / fx 0.13 / hud 0.40 / other 0.05 ≈ 1.0 ms total. Round `meanMs` 20.98 (fps 47.67), `pass: false`. The `recordbody` render lever is gated on a clean cell, not sync/fx/hud. Do not reopen **PERF-PASS-1**. A Classic render-path lever, if pursued, is a separate card. |
 | Medium | WARM-SOLO-1 — solo post-`carts-ready` stall (WARM-IGPU-1 residual) | Laptop A cap-206 (**solo**) took a 6.4s longtask ~1.9s after `carts-ready`, inside the countdown. WARM-IGPU-1's Lever A does **not** cover it: arena rotation is quickplay-only, and solo's flyover warm already runs inside `ensureSessionCartsReady`. Proxy evidence says the residual is driver-side first-draw cost (a 13.1s menu-warm frame carried only 235ms of attributed span time), so raising budgets will not help. Candidate mechanism worth checking first: scene content added *after* the warm pass (CSS2D nametags, cargo bays — CARGO-RACE-1's self-heal adds 18–30 meshes per cart, announcer/VFX) introduces new materials whose programs link at the first live countdown draw. **Work only on real telemetry** (`warmupSettle` / longframe spans from a weak-GPU playtester), never on speculation — no iGPU hardware available to reproduce. |
 | Medium | PERF-WATCH-1 — auto-quality step-up path | Wave 1 landed (scale-up only). 17ms / 8-window / 30s ratchet. Wave 2 (tier-up) stays open. Playtest: **PERF-WATCH-PT-1**. |
 | Medium | PARTY-SERIALIZE-1 — `structuredClone` → flat serializer in `party/index.ts` | Only after profiling shows it matters. |
