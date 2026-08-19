@@ -122,3 +122,7 @@ this file + git hooks, not Claude.
 - Do not recreate deleted menu/partykit files; no open-world WebGPU engine ports.
 - Diff quality: delete old paths in the same commit; no speculative knobs; no stopgaps —
   [agent-manual.md § principles](docs/reference/agent-manual.md).
+
+# Agent Rules <!-- tessl-managed -->
+
+@.tessl/RULES.md follow the [instructions](.tessl/RULES.md)

@@ -29,7 +29,14 @@ report phase-exit eligibility; they must not move the marker.
 are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Analytics DO reset for
 external testers. Stay in this phase until Wyatt advances the marker.
 
-Active: none. Closed 08-19 playtest PASSes — **BOOT-TBT-PT-1**
+Active: **FEEDBACK-1** landed (08-19) — the podium match receipt prints a
+`TELL US HOW WE DID` survey line to the player feedback form. Kept out of the
+pad ring by a new `data-nav-skip` opt-out in `gamepadNav.js`, because
+PODIUM-FOCUS-1 requires every pad-reachable podium target to be safe to mash and
+this one leaves the page. Playtest owed: **FEEDBACK-PT-1**. Not deployed.
+Filed **MENU-SHORTWIN-1** — measured, pre-existing: the menu command list
+already sits under the hint bar below ~618px viewport height (−12px slack at
+1280x600). Closed 08-19 playtest PASSes — **BOOT-TBT-PT-1**
 (prod `c3aecffe`) · **MENU-ARROW-PT-1** · **PODIUM-DOUBLE-CREDIT-PT-1**
 (prod `0211a408`) · **SPILL-DOUBLE-VFX-PT-1**. Parents close. Deferred:
 **SHARD-PT-2**. PERF-CLASSIC-IGPU-1 wave B CLOSED — cap-372 names the gap:
@@ -81,7 +88,9 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. Wait for Wyatt to name the next card. Deferred: **SHARD-PT-2**
+1. **FEEDBACK-PT-1** — one Solo round to the podium; the receipt's survey line
+   prints last and opens the form in a new tab (`npm run dev`, not deployed).
+2. Wait for Wyatt to name the next card. Deferred: **SHARD-PT-2**
    (launch day). Classic render-path lever is a new card if pursued
    (`recordbody`, clean cell).
 

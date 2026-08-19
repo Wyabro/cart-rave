@@ -13,3 +13,5 @@ primaries; Cursor is IDE/backup). Use this runtime only if Wyatt explicitly open
 - Escape hatches: `CART_CLASH_SKIP_HOOKS=1`, `SKIP_GIT_GUARD=1`, `SKIP_PATH_GUARD=1`,
   `SKIP_STOP_GUARD=1` (env on the Claude process, not in command strings).
 - Windows + PowerShell: `Select-String`, not `grep`.
+
+@AGENTS.md
