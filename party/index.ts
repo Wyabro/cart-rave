@@ -514,11 +514,10 @@ export class CartRaveServer extends Server {
     const senderIsLiveHuman = this.#slots?.some(
       (slot) => slot.kind === "human" && slot.connId === connId && live.has(connId),
     );
-    if (!senderIsLiveHuman) return;
-    this.#awayHostIds.delete(connId);
     if (now - this.#lastMidRoundHostMigrationAtMs < HOST_MIGRATION_COOLDOWN_MS) {
       return;
     }
+    this.#awayHostIds.delete(connId);
     if (this.#hostId === connId) return;
     this.#migrateMidRoundHost(connId, "host_return", now);
   }
