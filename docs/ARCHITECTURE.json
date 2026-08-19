@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-19T05:37:11.397Z",
-    "commit": "42a3ce73"
+    "at": "2026-08-19T06:25:24.895Z",
+    "commit": "8eeb9d6f"
   },
-  "source_digest": "17b3b89c",
+  "source_digest": "6868efe4",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -878,8 +878,7 @@
       }
     ],
     "next_actions": [
-      "SPILL-DOUBLE-VFX-PT-1 — non-host tip-over spill VFX once (SKIP",
-      "Deferred: SHARD-PT-2 (launch day). Classic render-path lever is a"
+      "Wait for Wyatt to name the next card. Deferred: SHARD-PT-2"
     ],
     "open_issues": [
       {
@@ -990,15 +989,9 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Low": 2
+          "Low": 1
         },
         "rows": [
-          {
-            "pri": "Low",
-            "item": "SPILL-DOUBLE-VFX-PT-1 — non-host tip-over spill VFX renders once `[2pc]`",
-            "notes": "**Owed: Wyatt playtest — SPILL-DOUBLE-VFX-PT-1 — non-host own tip-over spill triggers grocery particles and clatter sound exactly once.** Hard-refresh first.<br>1. Join a Friends or Quickplay match with two devices/windows.<br>2. On the non-host machine, drive and tip the cart over on the arena floor (hold steer/reverse near edge or obstacle until tipped).<br>3. Watch the non-host screen at the moment of spill.<br>4. FAIL if a second grocery burst or clatter sound plays ~100-300ms after the first burst. PASS if the spill debris burst and clatter sound trigger cleanly once.",
-            "ship1": null
-          },
           {
             "pri": "Low",
             "item": "SHARD-PT-2 — fifth human overflows to quickplay2 `[2pc]`",

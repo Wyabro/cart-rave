@@ -13,6 +13,13 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 19, 2026 — playtest PASS (SPILL-DOUBLE-VFX)
+
+- *(Playtest · Low)* **SPILL-DOUBLE-VFX-PT-1** — ✅ **PASS 08-19**.
+  Non-host own tip-over spill fires grocery particles and clatter once.
+  No second burst ~100–300 ms later. Parent **SPILL-DOUBLE-VFX-1**
+  closes with it.
+
 ### August 19, 2026 — playtest PASSes (BOOT-TBT / MENU-ARROW / PODIUM-DOUBLE-CREDIT)
 
 - *(Playtest · Low)* **BOOT-TBT-PT-1** — ✅ **PASS 08-19** on prod

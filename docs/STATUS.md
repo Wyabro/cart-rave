@@ -29,18 +29,17 @@ report phase-exit eligibility; they must not move the marker.
 are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Analytics DO reset for
 external testers. Stay in this phase until Wyatt advances the marker.
 
-Active: **SPILL-DOUBLE-VFX-PT-1** (owed; SKIP 08-19, still open).
-PERF-CLASSIC-IGPU-1 wave B CLOSED — cap-372 names the gap: **render ≈ 90% of
-vis**. Next lever is the Classic render path (`recordbody` gated on a clean
-cell). No look change. Closed 08-19 playtest PASSes — **BOOT-TBT-PT-1**
+Active: none. Closed 08-19 playtest PASSes — **BOOT-TBT-PT-1**
 (prod `c3aecffe`) · **MENU-ARROW-PT-1** · **PODIUM-DOUBLE-CREDIT-PT-1**
-(prod `0211a408`). Parents close. Playtest owed: **SPILL-DOUBLE-VFX-PT-1**.
-Deferred: **SHARD-PT-2**. Closed 08-18 — **KEYUP-STUCK-PT-1** ·
-**SPECTATOR-ANNOUNCER-PT-1** · **RD-COUNTER-PT-1** (all prod `e3886b5f`) ·
-**PERF-WATCH-PT-1** (`npm run dev`, `3f467334`) · **CUSTOMIZE-SPAM-PT-1**
-(prod `a41987e7`) · **WARM-CLASSIC-JUICE-PT-1** (`951ea15d` / `npm run
-dev`). **PERF-WATCH-1** wave 1 landed (scale-up only); wave 2 stays open.
-Do not reopen GAMEPAD-LOBBY-1 or **PERF-PASS-1**.
+(prod `0211a408`) · **SPILL-DOUBLE-VFX-PT-1**. Parents close. Deferred:
+**SHARD-PT-2**. PERF-CLASSIC-IGPU-1 wave B CLOSED — cap-372 names the gap:
+**render ≈ 90% of vis**. Next lever is the Classic render path
+(`recordbody` gated on a clean cell). No look change. Closed 08-18 —
+**KEYUP-STUCK-PT-1** · **SPECTATOR-ANNOUNCER-PT-1** · **RD-COUNTER-PT-1**
+(all prod `e3886b5f`) · **PERF-WATCH-PT-1** (`npm run dev`, `3f467334`) ·
+**CUSTOMIZE-SPAM-PT-1** (prod `a41987e7`) · **WARM-CLASSIC-JUICE-PT-1**
+(`951ea15d` / `npm run dev`). **PERF-WATCH-1** wave 1 landed (scale-up
+only); wave 2 stays open. Do not reopen GAMEPAD-LOBBY-1 or **PERF-PASS-1**.
 
 **Closed cards keep their narrative in their own docs, not here** — Sundial
 ([handover](./planning/art-pass-sundial-handover.md); read its "Traps that cost time" before any
@@ -82,10 +81,9 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. **SPILL-DOUBLE-VFX-PT-1** — non-host tip-over spill VFX once (SKIP
-   08-19; still owed).
-2. Deferred: **SHARD-PT-2** (launch day). Classic render-path lever is a
-   new card if pursued (`recordbody`, clean cell).
+1. Wait for Wyatt to name the next card. Deferred: **SHARD-PT-2**
+   (launch day). Classic render-path lever is a new card if pursued
+   (`recordbody`, clean cell).
 
 ## Open issues (top)
 
@@ -142,10 +140,14 @@ or a suspected blocker (TS 7 · `cartrave4` UVs).
 
 ## Last updated
 
+2026-08-19 (playtest PASS) — **SPILL-DOUBLE-VFX-PT-1** Wyatt PASS.
+Non-host tip-over spill VFX + clatter fire once. Parent
+**SPILL-DOUBLE-VFX-1** closes with it. Deferred: **SHARD-PT-2**.
+
 2026-08-19 (playtest PASSes) — **BOOT-TBT-PT-1** Wyatt PASS on prod
 (`c3aecffe`); **MENU-ARROW-PT-1** Wyatt PASS; **PODIUM-DOUBLE-CREDIT-PT-1**
-Wyatt PASS on prod (`0211a408`). Parents close. Still owed:
-**SPILL-DOUBLE-VFX-PT-1** (SKIP 08-19). Deferred: **SHARD-PT-2**.
+Wyatt PASS on prod (`0211a408`). Parents close. **SPILL-DOUBLE-VFX-PT-1**
+closed later the same day. Deferred: **SHARD-PT-2**.
 
 2026-08-18 (BOOT-TBT-1) — Classic `initArena` is async and yields between
 record floor / dress / booths / pit wall / pit detail. `loadLevel` awaits
