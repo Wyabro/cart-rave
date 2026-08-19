@@ -35,7 +35,7 @@ Active: **PERF-CLASSIC-IGPU-1** wave B (instrument). No look change.
 (VERIFY_OK): **KEYUP-STUCK-1** · **SPECTATOR-ANNOUNCER-1** ·
 **RD-COUNTER-1**. Landed **MENU-ARROW-1** on prod `fbec1bf5` (VERIFY_OK) ·
 **SPILL-DOUBLE-VFX-1** (non-host tip spill dedupe). Landed
-**PODIUM-DOUBLE-CREDIT-1** (host podium stats wait for validated echo).
+**PODIUM-DOUBLE-CREDIT-1** on prod `0211a408` (VERIFY_OK).
 Playtest owed: **MENU-ARROW-PT-1** · **SPILL-DOUBLE-VFX-PT-1** ·
 **PODIUM-DOUBLE-CREDIT-PT-1**. Closed 08-18 —
 **KEYUP-STUCK-PT-1** · **SPECTATOR-ANNOUNCER-PT-1** · **RD-COUNTER-PT-1** (all
