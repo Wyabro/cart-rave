@@ -13,6 +13,25 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 19, 2026 — playtest PASS (FEEDBACK)
+
+- *(Playtest · Low)* **FEEDBACK-PT-1** — ✅ **PASS 08-19**.
+  Podium MATCH RECEIPT prints the survey line last, below THANK YOU FOR
+  SHOPPING. Click opens the feedback form in a new tab; the game tab
+  stays on the podium. Pad skip is machine-covered. Parent
+  **FEEDBACK-1** closes with it (`7daf3e38`, `npm run dev`).
+
+### August 19, 2026 — FEEDBACK-1: podium receipt survey line
+
+- *(Engineering · Low)* **FEEDBACK-1** — ✅ **DONE 08-19**. The podium
+  match receipt appends a `LEAVE FEEDBACK ↗` survey line
+  (`roundLifecycle.js`) after THANK YOU FOR SHOPPING. The link opens
+  the player form in a new tab (`target=_blank`, `rel=noopener`).
+  `data-nav-skip` keeps it out of the pad ring because PODIUM-FOCUS-1
+  requires every pad-reachable podium target to be safe to mash, and
+  this one leaves the page. Playtest **FEEDBACK-PT-1** PASSed the same
+  day.
+
 ### August 19, 2026 — playtest PASS (SPILL-DOUBLE-VFX)
 
 - *(Playtest · Low)* **SPILL-DOUBLE-VFX-PT-1** — ✅ **PASS 08-19**.

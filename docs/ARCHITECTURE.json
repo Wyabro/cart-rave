@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-19T07:08:10.424Z",
-    "commit": "63ed156d"
+    "at": "2026-08-19T18:42:46.688Z",
+    "commit": "8edb34df"
   },
-  "source_digest": "c499ff51",
+  "source_digest": "322956ef",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -878,7 +878,6 @@
       }
     ],
     "next_actions": [
-      "FEEDBACK-PT-1 — one Solo round to the podium; the receipt's survey line",
       "Wait for Wyatt to name the next card. Deferred: SHARD-PT-2"
     ],
     "open_issues": [
@@ -996,15 +995,9 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Low": 2
+          "Low": 1
         },
         "rows": [
-          {
-            "pri": "Low",
-            "item": "FEEDBACK-PT-1 — the match receipt prints a working survey line `[solo]`",
-            "notes": "**Owed: Wyatt playtest — FEEDBACK-PT-1 — the podium receipt ends with TELL US HOW WE DID and it opens the feedback form in a new tab.** Pad exclusion is machine-covered (`tests/orchestration/podiumFocus.test.js`), so this card is only the human read. *Pushed but not yet deployed* — use `npm run dev`.<br>1. Play one Solo round through to the podium.<br>2. Look at the bottom of the MATCH RECEIPT, below THANK YOU FOR SHOPPING. The survey line must be there, and must print last as the slip feeds out.<br>3. Click it. PASS if the feedback form opens in a NEW tab and the game tab stays on the podium. FAIL if nothing opens, if the game tab navigates away, or if the line is missing or prints above the receipt total.",
-            "ship1": null
-          },
           {
             "pri": "Low",
             "item": "SHARD-PT-2 — fifth human overflows to quickplay2 `[2pc]`",
