@@ -324,6 +324,35 @@
   margin-top: 2px;
 }
 
+/* Survey line at the end of the slip. Quiet by design — it must never read as a
+   peer of PLAY AGAIN. It does NOT take the foot's 0.5625rem, though: the foot is
+   decorative and this is the panel's only interactive text, so it sits on the
+   data rows' scale and carries padding for a real hit area. */
+#results-overlay .results-receipt-feedback {
+  display: block;
+  margin-top: 4px;
+  padding: 5px 0 3px;
+  text-align: center;
+  font-family: var(--results-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.14em;
+  color: var(--color-yellow, #ffe53d);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+#results-overlay .results-receipt-feedback:hover,
+#results-overlay .results-receipt-feedback:focus-visible {
+  color: var(--color-cyan);
+}
+
+/* Touch: the slip is finger-driven here, so give the line a usable band. */
+@media (pointer: coarse) {
+  #results-overlay .results-receipt-feedback {
+    padding: 10px 0 8px;
+  }
+}
+
 #results-overlay .results-receipt-line {
   display: flex;
   align-items: baseline;

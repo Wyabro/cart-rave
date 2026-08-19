@@ -151,11 +151,15 @@ function isElementVisible(el, { ignoreOpacity = false } = {}) {
  * are out — a pad cannot type into them. The room-code field opts back in via
  * `data-gamepad-entry` so the ring can reach it; GO stays out so FRIENDS ↓
  * does not land on a second join control. Range sliders stay in so d-pad
- * left/right can nudge them like the role="slider" tracks.
+ * left/right can nudge them like the role="slider" tracks. `data-nav-skip` is
+ * the inverse of `data-gamepad-entry`: a control that must stay out of the ring
+ * because activating it leaves the page (the receipt's survey link — a pad
+ * mashing A on the podium must never background the tab).
  * @param {HTMLElement} el
  */
 function isNavReachable(el) {
   if (el.dataset?.gamepadEntry) return true;
+  if (el.dataset?.navSkip) return false;
   if (el.closest?.(".cr-join")) return false;
   if (el.tagName === "TEXTAREA") return false;
   if (el instanceof HTMLInputElement && el.type !== "range") return false;

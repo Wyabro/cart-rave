@@ -27,9 +27,16 @@ function makePad(pressed = []) {
 
 // * Mirrors initResultsOverlay's action row (resultsOverlay.js): the rematch
 // * button + MAIN MENU, with the same classes/attrs gamepadNav scopes to.
+// * The receipt's survey link is included, and deliberately placed BEFORE the
+// * action row as it is in the real panel (resultsBody = final, receipt,
+// * actions). Without `data-nav-skip` it would be focusables[0] and take the
+// * pad's first-press seed away from PLAY AGAIN.
 const FIXTURE = `
 <div id="results-overlay" style="display:none">
   <div class="results-panel">
+    <div class="results-receipt">
+      <a id="results-feedback" class="results-receipt-feedback" href="https://example.invalid/feedback" target="_blank" rel="noopener noreferrer" data-nav-skip="1">TELL US HOW WE DID ↗</a>
+    </div>
     <div class="results-actions">
       <button id="results-play-again" type="button" class="results-btn cc-btn cc-btn--primary" data-gamepad-focusable="true">PLAY AGAIN</button>
       <button id="results-main-menu" type="button" class="results-btn results-btn--ghost cc-btn cc-btn--ghost" data-gamepad-focusable="true">MAIN MENU</button>
@@ -193,5 +200,39 @@ describe("podium gamepad behavior", () => {
     press(BTN.a);
     expect(playAgainSpy).toHaveBeenCalledTimes(1);
     expect(mainMenuSpy).not.toHaveBeenCalled();
+  });
+});
+
+// The survey link is the only podium control whose activation leaves the page:
+// a new tab backgrounds the game, which freezes rAF and can migrate the host off
+// a returning player. PODIUM-FOCUS-1's guarantee is that mashing A on the podium
+// is always safe, so this control must stay out of the ring entirely.
+describe("podium survey link stays out of the pad ring", () => {
+  it("first-press seed lands on PLAY AGAIN even though the link is earlier in the DOM", () => {
+    showResultsOverlay();
+    applyPlayAgainState(true);
+    press(BTN.down);
+    expect(document.activeElement).toBe(get("results-play-again"));
+    expect(get("results-feedback").classList.contains("gamepad-focused")).toBe(false);
+  });
+
+  it("no amount of pad navigation focuses or activates it", () => {
+    showResultsOverlay();
+    applyPlayAgainState(true);
+    const feedbackSpy = clickSpy("results-feedback");
+    for (let i = 0; i < 6; i++) {
+      press(BTN.down);
+      expect(document.activeElement).not.toBe(get("results-feedback"));
+      press(BTN.a);
+    }
+    expect(feedbackSpy).not.toHaveBeenCalled();
+  });
+
+  it("dropping data-nav-skip would steal the seed — proves the attribute is what protects it", () => {
+    showResultsOverlay();
+    applyPlayAgainState(true);
+    get("results-feedback").removeAttribute("data-nav-skip");
+    press(BTN.down);
+    expect(document.activeElement).toBe(get("results-feedback"));
   });
 });

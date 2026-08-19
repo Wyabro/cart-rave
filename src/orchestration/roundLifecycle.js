@@ -52,6 +52,10 @@ import { STORAGE_KEYS, storageGet, storageSet } from "../utils/storage.js";
 
 const PODIUM_SKIP_GRACE_MS = 450;
 
+/** Player feedback form, printed as the match receipt's survey line. */
+const FEEDBACK_FORM_URL =
+  "https://docs.google.com/forms/d/e/1FAIpQLScCBY5nd6mS0yyWWfL9M48qod-bV1p3RTu7_L0pCcgHyt6yFA/viewform";
+
 /**
  * Per-arena fly-over sizing. Pure — safe to call before createRoundLifecycle.
  * @returns {{ radius: number, height: number } | undefined}
@@ -732,6 +736,19 @@ function updateResultsOverlay() {
       foot.textContent = "THANK YOU FOR SHOPPING";
       receipt.appendChild(foot);
       receiptLines.push(foot);
+
+      // ! `data-nav-skip` is load-bearing: PODIUM-FOCUS-1 requires every
+      // ! pad-reachable podium target to be safe to mash, and this one leaves
+      // ! the page (backgrounding a host mid-rematch).
+      const feedback = document.createElement("a");
+      feedback.className = "results-receipt-feedback";
+      feedback.href = FEEDBACK_FORM_URL;
+      feedback.target = "_blank";
+      feedback.rel = "noopener noreferrer";
+      feedback.dataset.navSkip = "1";
+      feedback.textContent = "LEAVE FEEDBACK ↗";
+      receipt.appendChild(feedback);
+      receiptLines.push(feedback);
     }
 
     animateResultsPodiumShow({
