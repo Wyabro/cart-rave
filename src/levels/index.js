@@ -143,7 +143,7 @@ export async function loadLevel(levelId, scene, world, config, options = {}) {
   const menuPreview = options.menuPreview === true;
   if (menuPreview) setMenuPreviewVisualLod(true);
   try {
-    result = initFn(scene, world, config, options);
+    result = await initFn(scene, world, config, options);
   } catch (err) {
     restoreOverrides();
     throw err;

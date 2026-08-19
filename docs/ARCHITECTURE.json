@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-19T01:03:50.853Z",
-    "commit": "e80a0292"
+    "at": "2026-08-19T01:23:29.850Z",
+    "commit": "bbbf2320"
   },
-  "source_digest": "bedeadcf",
+  "source_digest": "0c2013eb",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -878,8 +878,8 @@
       }
     ],
     "next_actions": [
-      "PERF-CLASSIC-IGPU-1 wave B closed — gap named (render ≈ 90% of vis,",
-      "Deferred: SHARD-PT-2 (launch day)."
+      "BOOT-TBT-PT-1 — Classic still loads after `initArena` yields (menu,",
+      "Deferred: SHARD-PT-2 (launch day). Classic render-path lever is a"
     ],
     "open_issues": [
       {
@@ -996,9 +996,15 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Low": 4
+          "Low": 5
         },
         "rows": [
+          {
+            "pri": "Low",
+            "item": "BOOT-TBT-PT-1 — Classic still loads after boot yields `[solo]`",
+            "notes": "**Owed: Wyatt playtest — BOOT-TBT-PT-1 — Classic menu stays live, preview swaps, and Solo still starts.** Hard-refresh first.<br>1. Sit on the main menu with Classic selected. After a few seconds the buttons must still click. FAIL if the menu freezes for several seconds.<br>2. Use the arena arrows: Classic to another arena, then back to Classic. FAIL if the floor stays black or the swap never finishes.<br>3. Press SOLO on Classic. FAIL if the overlay hangs or the record never appears. PASS if the round starts and the floor looks normal.",
+            "ship1": null
+          },
           {
             "pri": "Low",
             "item": "PODIUM-DOUBLE-CREDIT-PT-1 — host YOUR STATS tick once per MP round `[2pc]`",
@@ -1383,6 +1389,11 @@
       "Cross-module change? Read docs/reference/control-flow.md first — most edges are not imports."
     ],
     "settled_decisions": [
+      {
+        "id": "D-BOOT-TBT-1",
+        "date": "08-18",
+        "text": "yield Classic `initArena` between measured"
+      },
       {
         "id": "D-PERF-WATCH-1",
         "date": "08-18",

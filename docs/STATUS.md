@@ -29,18 +29,15 @@ report phase-exit eligibility; they must not move the marker.
 are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Analytics DO reset for
 external testers. Stay in this phase until Wyatt advances the marker.
 
-Active: **PERF-CLASSIC-IGPU-1** wave B (instrument) CLOSED — cap-372 names the
-gap: **render ≈ 90% of vis** (`visRenderMeanMs` 9.09 of `visMeanMs` 10.09;
-sync/fx/hud/other ≈ 1.0 ms combined). Next lever is the Classic render path
-(`recordbody` gated on a clean cell), not sync/fx/hud. No look change.
-`?diag` F8 `loopRound` now splits visMs into `visSync` / `visFx` / `visHud` /
-`visRender` / `visOther`. Landed 08-18 Block 5 Lows on prod `e3886b5f`
-(VERIFY_OK): **KEYUP-STUCK-1** · **SPECTATOR-ANNOUNCER-1** ·
-**RD-COUNTER-1**. Landed **MENU-ARROW-1** on prod `fbec1bf5` (VERIFY_OK) ·
-**SPILL-DOUBLE-VFX-1** (non-host tip spill dedupe). Landed
-**PODIUM-DOUBLE-CREDIT-1** on prod `0211a408` (VERIFY_OK).
-Playtest owed: **MENU-ARROW-PT-1** · **SPILL-DOUBLE-VFX-PT-1** ·
-**PODIUM-DOUBLE-CREDIT-PT-1**. Closed 08-18 —
+Active: **BOOT-TBT-1** shipped (Classic `initArena` yields). PERF-CLASSIC-IGPU-1
+wave B CLOSED — cap-372 names the gap: **render ≈ 90% of vis**. Next lever is
+the Classic render path (`recordbody` gated on a clean cell). No look change.
+Landed 08-18 Block 5 Lows on prod `e3886b5f` (VERIFY_OK): **KEYUP-STUCK-1** ·
+**SPECTATOR-ANNOUNCER-1** · **RD-COUNTER-1**. Landed **MENU-ARROW-1** on prod
+`fbec1bf5` (VERIFY_OK) · **SPILL-DOUBLE-VFX-1** · **PODIUM-DOUBLE-CREDIT-1**
+(prod `0211a408`).
+Playtest owed: **BOOT-TBT-PT-1** · **MENU-ARROW-PT-1** ·
+**SPILL-DOUBLE-VFX-PT-1** · **PODIUM-DOUBLE-CREDIT-PT-1**. Closed 08-18 —
 **KEYUP-STUCK-PT-1** · **SPECTATOR-ANNOUNCER-PT-1** · **RD-COUNTER-PT-1** (all
 prod `e3886b5f`) · **PERF-WATCH-PT-1** (`npm run dev`, `3f467334`).
 **PERF-WATCH-1** wave 1 landed (scale-up only); wave 2 stays open. Closed 08-18 —
@@ -88,11 +85,10 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. **PERF-CLASSIC-IGPU-1** wave B closed — gap named (render ≈ 90% of vis,
-   cap-372). Next lever: Classic render path (`recordbody` still gated on a
-   clean cell; 60 fps bar not this card). Seed BACKLOG if the render lever
-   becomes a card.
-2. Deferred: **SHARD-PT-2** (launch day).
+1. **BOOT-TBT-PT-1** — Classic still loads after `initArena` yields (menu,
+   preview swap, Solo entry).
+2. Deferred: **SHARD-PT-2** (launch day). Classic render-path lever is a
+   new card if pursued (`recordbody`, clean cell).
 
 ## Open issues (top)
 
@@ -110,6 +106,9 @@ Full categorized backlog: [planning/BACKLOG.md](./planning/BACKLOG.md). Closed I
 → 08-02: [decision-log-2026-08.md](./archive/decision-log-2026-08.md). 07-11 → 07-23:
 [decision-log-2026-07.md](./archive/decision-log-2026-07.md).
 
+- **D-BOOT-TBT-1** (08-18): yield Classic `initArena` between measured
+  slabs; `loadLevel` awaits `initFn`. No Rapier pre-warm. Prod wasm already
+  `zstd`. Playtest **BOOT-TBT-PT-1**.
 - **D-PERF-WATCH-1** (08-18): wave 1 = scale-up only (17ms / 8 windows /
   30s ratchet). No mid-round Low → Medium. Wave 2 is a separate ack.
 - **D-PERF-CLASSIC-IGPU-1** (08-18): wave B = name the +7.5 ms vis gap. No
@@ -146,11 +145,11 @@ or a suspected blocker (TS 7 · `cartrave4` UVs).
 
 ## Last updated
 
-2026-08-18 (PERF-CLASSIC-IGPU-1 wave B close) — cap-372 (build `0211a408`,
-Friends Classic Low, non-host, Intel UHD) names the +7.5 ms vis gap: **render
-≈ 90% of vis** (`visRenderMeanMs` 9.09 of `visMeanMs` 10.09; sync 0.41 / fx
-0.13 / hud 0.40 / other 0.05). Round `meanMs` 20.98 (fps 47.67), `pass:
-false`. `recordbody` render lever now has a clean cell. Card closes.
+2026-08-18 (BOOT-TBT-1) — Classic `initArena` is async and yields between
+record floor / dress / booths / pit wall / pit detail. `loadLevel` awaits
+`initFn` so preview LOD stays on. Lab: work 57 ms, no hull slab >3 ms;
+chunk import still dominates `commitLevelLoad`. Prod Rapier wasm is `zstd`.
+Playtest **BOOT-TBT-PT-1**.
 
 2026-08-18 (playtest PASSes + MENU-ARROW-1) — **MENU-ARROW-1** landed prod
 `fbec1bf5` (VERIFY_OK); owed **MENU-ARROW-PT-1**. Playtest PASSes —

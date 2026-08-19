@@ -12,6 +12,13 @@ import { mergeStaticMeshesByMaterial } from "../utils/mergeStaticMeshes.js";
 import { installCheapMirrorPass } from "../utils/cheapMirror.js";
 import { getDebugParams, applySceneAblation } from "../utils/debugParams.js";
 import { getQualityKnobs } from "../utils/qualityTiers.js";
+import { yieldForPaint } from "../ui/loadingScreen.js";
+
+/** DEV + `?perf=1` — same gate as `commitLevelLoad` / `loadLevel`. */
+function isArenaPerfOn() {
+  return import.meta.env.DEV && typeof location !== "undefined"
+    && /(?:^|[?&])perf=1(?:&|$)/.test(location.search || "");
+}
 
 // * Play-time Reflector RT. Was 1024² (Pass 2 isolation: Reflector ≈ 60% of Classic High
 // * GPU). 512² is a 4× bandwidth cut; cart/booth silhouettes still read on the vinyl at
@@ -1556,7 +1563,7 @@ function buildBooths(scene, world, config, boothNeonMeshes, boothColliderHandles
  * @param {THREE.Scene} scene Root Three.js scene.
  * @param {import("@dimforge/rapier3d").World} world Active Rapier physics world.
  * @param {object} config Full game CONFIG (record, booth, debug sections).
- * @returns {{
+ * @returns {Promise<{
  *   recordMesh: THREE.Mesh,
  *   recordColliderHandles: number[],
  *   pitWallColliderHandle: number,
@@ -1567,9 +1574,9 @@ function buildBooths(scene, world, config, boothNeonMeshes, boothColliderHandles
  *   pitInnerRadius: number,
  *   applyQualityTier: (knobs: import("../utils/qualityTiers.js").QualityKnobs) => void,
  *   dispose: () => void,
- * }}
+ * }>}
  */
-export function initArena(scene, world, config, options = {}) {
+export async function initArena(scene, world, config, options = {}) {
   // * Classic Record uses a deep death threshold: the knockout shaft is a straight
   // * vertical drop (walls give a live cart nothing to rest or drive on), so carts
   // * fall long and dramatic — ricocheting off the shaft walls — before the KO
@@ -1583,6 +1590,23 @@ export function initArena(scene, world, config, options = {}) {
   const visualRecordThickness = VISUAL_RECORD_THICKNESS;
   const boothNeonMeshes = [];
   const boothColliderHandles = [];
+
+  const perfOn = isArenaPerfOn();
+  const pnow = () => (typeof performance !== "undefined" ? performance.now() : 0);
+  /** @type {Record<string, number>} */
+  const perfPhase = {};
+  let pMark = pnow();
+  const lap = (name) => {
+    if (!perfOn) return;
+    const t = pnow();
+    perfPhase[name] = +(t - pMark).toFixed(1);
+    pMark = t;
+  };
+
+  // * BOOT-TBT-1: one rAF between the measured slabs so Classic init is not one
+  // * long task. Hull loops are cheap (2–3 ms here); do not yield inside them.
+  await yieldForPaint();
+  pMark = pnow();
 
   // --- Record platform (visual rotates; physics ring collider stays world-fixed) ---
   const visualRecordY = -0.46;
@@ -1789,6 +1813,9 @@ export function initArena(scene, world, config, options = {}) {
   recordSolidFloor.renderOrder = 0;
   recordSolidFloor.userData.isRecordSolidFloor = true;
   recordMesh.add(recordSolidFloor);
+  lap("recordFloor");
+  await yieldForPaint();
+  pMark = pnow();
 
   function upgradeRecordReflector() {
     if (!recordReflector) return;
@@ -2092,6 +2119,10 @@ export function initArena(scene, world, config, options = {}) {
   innerEdgeMesh.rotation.x = Math.PI / 2;
   scene.add(innerEdgeMesh);
 
+  lap("recordDress");
+  await yieldForPaint();
+  pMark = pnow();
+
   const recordBody = world.createRigidBody(
     RAPIER.RigidBodyDesc.kinematicVelocityBased().setTranslation(0, config.record.y, 0),
   );
@@ -2171,8 +2202,13 @@ export function initArena(scene, world, config, options = {}) {
     scene.add(debugMesh);
   }
 
+  lap("recordColliders");
+
   // DJ spawn booths (4x, N/S/E/W)
   const boothBuild = buildBooths(scene, world, config, boothNeonMeshes, boothColliderHandles);
+  lap("booths");
+  await yieldForPaint();
+  pMark = pnow();
 
   const pitInnerRadius = (config.record.radius + 2) * 1.30 * 1.20;
 
@@ -2247,6 +2283,9 @@ export function initArena(scene, world, config, options = {}) {
   const pitWall = new THREE.Mesh(pitWallGeo, pitWallMat);
   pitWall.position.y = pitWallCenterY;
   scene.add(pitWall);
+  lap("pitWall");
+  await yieldForPaint();
+  pMark = pnow();
 
   // * Structural detail in the lit throat (top ~45m) — ribs, ring beams, service
   // * pipes. Local Y: rim is at +pitWallDepth/2 on the centered cylinder mesh.
@@ -2518,6 +2557,10 @@ export function initArena(scene, world, config, options = {}) {
   // * Top cap sits below the drain throat (-61.5) so the solid cylinder never
   // * overlaps the funnel interior; it's the final bounce for corpses that fall
   // * through the throat.
+  lap("pitDetail");
+  await yieldForPaint();
+  pMark = pnow();
+
   const pitWallPhysicsTopY = -64;
   const pitWallPhysicsBottomY = pitWallCenterY - pitWallDepth / 2;
   const pitWallPhysicsHalfHeight = (pitWallPhysicsTopY - pitWallPhysicsBottomY) / 2;
@@ -2668,6 +2711,7 @@ export function initArena(scene, world, config, options = {}) {
   // * out through the visual wall.
   // * Deliberately pitInnerRadius, NOT pitColliderRadius: this bounce is a look, not a
   // * physics contact, and the surface it should kiss is the mesh the player can see.
+  lap("pitColliders");
   setShatterEnvironment({ wallR: pitInnerRadius, topY: shaftWallTopY });
 
   const sceneRoots = [
@@ -2900,6 +2944,12 @@ export function initArena(scene, world, config, options = {}) {
     }
   }
   applyQualityTier(getQualityKnobs());
+  lap("qualityTier");
+  if (perfOn) {
+    const total = +Object.values(perfPhase).reduce((a, b) => a + b, 0).toFixed(1);
+    // eslint-disable-next-line no-console
+    console.log(`[perf] initArena total=${total}ms ${JSON.stringify(perfPhase)}`);
+  }
 
   return {
     applyQualityTier,

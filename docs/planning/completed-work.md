@@ -13,6 +13,17 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 18, 2026 — BOOT-TBT-1: yield Classic initArena
+
+- *(Engineering · Medium)* **BOOT-TBT-1** — ✅ **DONE 08-18**. Classic
+  `initArena` is async. `loadLevel` awaits `initFn` so menu-preview LOD
+  stays on across yields. Yields sit between measured slabs (record floor,
+  dress, booths, pit wall, pit detail), not inside cheap hull loops. Lab
+  Playwright: work 57 ms, no slab over 19 ms; `commitLevelLoad` is still
+  mostly the first chunk import. Prod Rapier wasm already has
+  `Content-Encoding: zstd`. Dropped: Rapier pre-warm at `idle-shader`
+  (no-op), wasm compress scripts. Playtest owed: **BOOT-TBT-PT-1**.
+
 ### August 18, 2026 — PERF-CLASSIC-IGPU-1 wave B closed (gap named)
 
 - *(Engineering · Medium)* **PERF-CLASSIC-IGPU-1** — ✅ **CLOSED 08-18** (wave B

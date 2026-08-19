@@ -68,7 +68,7 @@ describe("scene ablation — effects.js call site", () => {
 describe("scene ablation — arena.js pit lights", () => {
   /** The `applySceneAblation({...})` call inside initArena, whole. */
   function arenaAblationCall() {
-    const initAt = arenaSrc.indexOf("export function initArena(");
+    const initAt = arenaSrc.search(/export async function initArena\(/);
     const callAt = arenaSrc.indexOf("applySceneAblation({", initAt);
     expect(initAt).toBeGreaterThan(-1);
     expect(callAt).toBeGreaterThan(initAt);
