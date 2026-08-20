@@ -101,7 +101,7 @@ Live rows only. Shipped and closed cards live in
 | CART-POP-1 | carts pop off the floor in normal driving | Classic PASS; Sundial trimesh landed, not shipped; Storerooms remain |
 | FRIENDS-ROTATE-1 | Friends rematch rotates arenas, synced | queued |
 | ONBOARD-JUMP-1 | HOW TO PLAY matches jump+boost | queued |
-| ONBOARD-WEBP-1 | HOW TO PLAY WebP playback + fallback | implemented locally; not committed or deployed; 🅿️ **ONBOARD-WEBP-PT-1** seeded |
+| ONBOARD-WEBP-1 | HOW TO PLAY WebP playback + fallback | deployed `51df06af` / Worker `819ad9ca`; 🅿️ **ONBOARD-WEBP-PT-1** owed |
 | MENU-CART-FOLLOW-1 | subtle menu-cart cursor parallax | queued |
 | SHARE-CARD-1 | update OG/social share image | queued |
 | QP-PLAYING-PT-1 | QUICKPLAY live playing count | ⏳ playtest owed (prod after ship) |
@@ -172,8 +172,8 @@ or a suspected blocker (TS 7 · `cartrave4` UVs).
 2026-08-20 (**ONBOARD-WEBP-1**) — HOW TO PLAY motion now mounts only on a
 visible slide, verifies frame progress, and switches to its paired still if
 motion is frozen or fails. Local browser fallback passed all five art slides.
-Not committed or deployed. **ONBOARD-WEBP-PT-1** needs the brother's F8
-machine after ship.
+Deployed commit `51df06af`, Worker `819ad9ca-ce02-46d0-aff4-c1523921e8cb`.
+**ONBOARD-WEBP-PT-1** needs the brother's F8 machine.
 
 2026-08-20 (CART-POP-1 Sundial) — Classic PASS Wave I (`5360f482`); do not
 retouch Classic. Sundial overlapping cuboids → one octagon trimesh per
