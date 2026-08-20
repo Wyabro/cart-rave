@@ -179,15 +179,12 @@ or a suspected blocker (TS 7 · `cartrave4` UVs).
 **CART-POP-1** Wave A. Instrument shared contact behavior and capture a cause
 before changing a physics lever.
 
-2026-08-20 (CART-POP-1 Wave C/D read) — cap-387/388 rule out control code and restitution.
-Wave D has 20 local Cart Rave rises from radius 5.43–21.29 m. Sixteen span adjacent wedges, but four
-single-floor supports produce the highest mean rise (`+5.42`) and peaks `−8.64 → +2.41` / `−6.91 → +1.91`.
-Wedge seams are not required. Candidate: free pitch/roll or another cart-vs-single-floor solver interaction;
-Wave E must record pre/post solver up-dot and angular velocity before a physics change.
+2026-08-20 (CART-POP-1 Wave C/D) — controls, restitution, and wedge seams are not sufficient causes;
+single-floor supports produce the highest rises. Wave E/F follows the remaining solver path.
 
-2026-08-20 (CART-POP-1 Wave E/F) — Caps 389–391: tilt/spin can amplify pops (`+15.67`, `+16.06`),
-but upright/no-pre-spin still hits `+11.01`. Wave F contact trace deployed (Worker `93b260a5`; marker verified).
-No physics setting changed.
+2026-08-20 (CART-POP-1 Wave E/F) — Caps 389–393: tilt/spin can amplify pops, but upright/no-spin
+events still reach `−8.718 → +1.43` on one flat-floor contact at the round-cuboid lower front corner;
+normal impulse only. Wave F deployed (Worker `93b260a5`). No physics setting changed.
 
 2026-08-19 (playtest blockers filed) — BACKLOG Block 1 reopened with 9
 Highs. Start **NET-LAG-1**. Do not playtest until the block drains.

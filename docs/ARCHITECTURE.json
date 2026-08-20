@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-20T18:40:42.730Z",
-    "commit": "1056a9f4"
+    "at": "2026-08-20T18:42:11.615Z",
+    "commit": "a279a86c"
   },
-  "source_digest": "70d4fbce",
+  "source_digest": "72924c86",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -959,7 +959,7 @@
           {
             "pri": "High",
             "item": "CART-POP-1 — carts pop off the floor in normal driving",
-            "notes": "**Wave F diagnostic deployed 08-20.** Wave D cap-388 shows wedge seams are not required: four single-floor supports have the highest mean rise (+5.42), peak `−8.64 → +2.41`. Wave C rules out control code and restitution. Wave E: tilt/spin can amplify solver rises (`+15.67`, `+16.06`), but upright/no-pre-spin still reaches `+11.01`; it is not sufficient as root cause. Wave F records real contact points, subshapes, separation, and solver impulses. **CART-POP-PT-1 remains FAIL/open.** Reproduce ordinary Cart Rave driving and F8 before a physics change. Lane: **Critical**.",
+            "notes": "**Wave F caps 392–393 pulled 08-20.** Controls, restitution, wedge seams, and pitch/roll are not sufficient causes. Upright/no-spin carts reach `−8.718 → +1.43` at one flat-floor contact on the round-cuboid lower front corner; tangent impulse, solver friction, and solver restitution are zero. Candidate: support is lost before the normal rebound. **CART-POP-PT-1 remains FAIL/open.** Isolate the support-loss source before a physics change. Lane: **Critical**.",
             "ship1": null
           },
           {
