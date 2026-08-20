@@ -859,8 +859,17 @@ describe("CartRaveServer DO harness", () => {
     joiner.client.close();
   });
 
+  // * PLAYREADY-RESET-FLAKE-1: 400/280/120 wall-clock sandwich flakes when
+  // * connectAndSeat takes >120 ms under full party-do / qa load. Product reset
+  // * (#schedulePlayReadyWait({ reset: true })) is unchanged. Inequalities:
+  // *   burn + join < CEILING  or gameStart is already in the buffer
+  // *   tJoin + CEILING - SLACK > t0 + CEILING  (burn is 1200, SLACK is 200)
+  // *   tJoin + CEILING - SLACK < tJoin + CEILING
   it("resets playReady timeout when a new human seats mid-wait", async () => {
-    setPlayReadyTimeoutOverride(400);
+    const CEILING_MS = 2000;
+    const JOIN_BUDGET_MS = 800;
+    const SLACK_MS = 200;
+    setPlayReadyTimeoutOverride(CEILING_MS);
     try {
       const room = uniqueContinuousRoom("reset");
       const host = await connectAndSeat(room, {
@@ -870,12 +879,14 @@ describe("CartRaveServer DO harness", () => {
         ip: "10.0.3.5",
         hostScore: 90,
       });
-      expect(host.client.messages.some((m) => m.type === MSG.gameStart)).toBe(false);
+      const t0 = Date.now();
+      const hasStart = () => host.client.messages.some((m) => m.type === MSG.gameStart);
+      expect(hasStart()).toBe(false);
 
-      // * Burn most of the first ceiling — joiner seating must reset it.
-      await sleep(280);
-      expect(host.client.messages.some((m) => m.type === MSG.gameStart)).toBe(false);
+      await sleep(CEILING_MS - JOIN_BUDGET_MS);
+      expect(hasStart()).toBe(false);
 
+      const tJoinStart = Date.now();
       const joiner = await connectAndSeat(room, {
         name: "QP-R2",
         color: "blue",
@@ -883,13 +894,21 @@ describe("CartRaveServer DO harness", () => {
         ip: "10.0.3.6",
         hostScore: 40,
       });
-      expect(host.client.messages.some((m) => m.type === MSG.gameStart)).toBe(false);
+      const tJoin = Date.now();
+      const elapsed = tJoin - t0;
+      const joinMs = tJoin - tJoinStart;
+      if (hasStart()) {
+        throw new Error(
+          `gameStart fired during join (elapsed=${elapsed}ms join=${joinMs}ms ceiling=${CEILING_MS}ms); first ceiling won the race`,
+        );
+      }
 
-      // * Old deadline would fire soon; reset means still no arm after a short wait.
-      await sleep(200);
-      expect(host.client.messages.some((m) => m.type === MSG.gameStart)).toBe(false);
+      const proveUntil = tJoin + CEILING_MS - SLACK_MS;
+      const waitMs = proveUntil - Date.now();
+      if (waitMs > 0) await sleep(waitMs);
+      expect(hasStart()).toBe(false);
 
-      const start = await host.client.awaitType(MSG.gameStart, 3000);
+      const start = await host.client.awaitType(MSG.gameStart, SLACK_MS + 1000);
       expect(start.startsAtMs).toEqual(expect.any(Number));
 
       host.client.close();
@@ -897,7 +916,7 @@ describe("CartRaveServer DO harness", () => {
     } finally {
       setPlayReadyTimeoutOverride(null);
     }
-  });
+  }, 30_000);
 
   // * QUICKPLAY-SHARD-1. Quickplay was one global DO — four slots, so four humans WORLDWIDE,
   // * and the fifth was closed 4004 with a dead-end toast. A full PUBLIC shard now names the

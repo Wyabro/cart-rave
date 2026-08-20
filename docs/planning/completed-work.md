@@ -2,7 +2,7 @@
 
 > Historical log. Past entries may still say "Cart Rave" / `next-level` — that is intentional. Living naming rules: [brand.md](../brand.md).
 
-**Last Updated:** August 19, 2026
+**Last Updated:** August 20, 2026
 
 > **This doc = the past** — the single home for historical/completed items. For what works
 > *today* see [project-state.md](./project-state.md); for forward plans see [ROADMAP.md](./ROADMAP.md).
@@ -12,6 +12,16 @@ Chronological record of shipped work, newest first.
 > **Convention:** As items ship, move their completed writeup here (out of ROADMAP.md / project-state.md).
 
 ---
+
+### August 20, 2026 — PLAYREADY-RESET-FLAKE-1: playReady-reset test load-tolerant
+
+- *(Engineering · Low)* **PLAYREADY-RESET-FLAKE-1** — ✅ **DONE 08-20**.
+  `resets playReady timeout when a new human seats mid-wait` flaked under
+  full qa / party-do load: 400 ms ceiling, 280 ms burn, 120 ms join budget.
+  Not a production playReady bug. Test now uses 2000 ms ceiling, 800 ms
+  join budget, and proves reset by waiting until `tJoin + ceiling - 200 ms`
+  (past the original deadline, before the new one). Fail only if
+  `gameStart` arrives during join. `it(..., 30_000)`. qa 208/208 · 2266.
 
 ### August 19, 2026 — QP-PLAYING-1: live Quickplay count on the menu
 

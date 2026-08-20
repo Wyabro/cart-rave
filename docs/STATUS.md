@@ -30,8 +30,8 @@ are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Analyt
 external testers. Stay in this phase until Wyatt advances the marker.
 
 **QP-PLAYING-1** landed 08-19 — QUICKPLAY pill `N PLAYING NOW`
-(`GET /api/playing`). Playtest **QP-PLAYING-PT-1**. Filed
-**PLAYREADY-RESET-FLAKE-1**.
+(`GET /api/playing`). Playtest **QP-PLAYING-PT-1**. Closed 08-20 —
+**PLAYREADY-RESET-FLAKE-1** (playReady-reset test load-tolerant).
 
 **FEEDBACK-1** closed 08-19 — the podium match receipt prints a
 `LEAVE FEEDBACK ↗` survey line (`data-nav-skip`, new tab). Wyatt PASS
@@ -93,8 +93,7 @@ Live rows only. Shipped and closed cards live in
 ### Next actions
 
 1. Playtest **QP-PLAYING-PT-1** on prod after ship. Deferred:
-   **SHARD-PT-2** (launch day). Harness flake filed:
-   **PLAYREADY-RESET-FLAKE-1**.
+   **SHARD-PT-2** (launch day).
 
 ## Open issues (top)
 

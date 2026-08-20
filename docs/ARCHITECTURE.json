@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-20T04:04:04.670Z",
-    "commit": "40a0066e"
+    "at": "2026-08-20T04:44:20.933Z",
+    "commit": "2064f8bc"
   },
-  "source_digest": "ca0cb8cc",
+  "source_digest": "368c3f15",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -902,7 +902,7 @@
         "counts": {
           "Medium": 4,
           "Partial": 1,
-          "Low": 8
+          "Low": 7
         },
         "rows": [
           {
@@ -933,12 +933,6 @@
             "pri": "🟡 Partial",
             "item": "NET-PERF-1 — reconcile rewind-replay cost",
             "notes": "Caps shipped; residual if retest still rubber-bands.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "PLAYREADY-RESET-FLAKE-1 — party-do `resets playReady timeout when a new human seats mid-wait` flakes under suite load",
-            "notes": "**Filed 08-19 during QP-PLAYING-1 qa.** `tests/party-do/cartRaveServer.test.js` sets the playReady ceiling to 400 ms, sleeps 280 ms, then `connectAndSeat`s a second human and asserts `gameStart` has not fired. Under full `npm run qa` / full party-do file load, that join can take >120 ms so the first ceiling fires during seat and the assert sees `gameStart`. Passes in isolation (`vitest -t \"resets playReady timeout\"`). Not a production playReady bug. Do not \"fix\" by widening sleeps unless the test still proves the reset; prefer a deterministic clock or an event wait.",
             "ship1": null
           },
           {
