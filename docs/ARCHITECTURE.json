@@ -2,15 +2,15 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-20T18:13:44.474Z",
-    "commit": "76ed285e"
+    "at": "2026-08-20T18:21:34.167Z",
+    "commit": "28a9a33c"
   },
-  "source_digest": "11df878a",
+  "source_digest": "f8af192d",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
     "production_url": "https://www.cartclash.lol/",
-    "mission": "Playtesting and stabilization — External playtest is gated on BACKLOG Block 1 (9 Highs). NET-LAG-1-PT-1 is parked by Wyatt (08-20). CART-POP-1 Wave E is active (Critical; trace orientation across the single-floor solver contact). Do not alter physics before the pre/post solver up-dot and angular velocity identify the ejection mechanism. Tier A drained; Tier B/C, security sweep, and analytics gating are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Stay in this phase until Wyatt advances the marker.",
+    "mission": "Playtesting and stabilization — External playtest is gated on BACKLOG Block 1 (9 Highs). NET-LAG-1-PT-1 is parked by Wyatt (08-20). CART-POP-1 Wave E is deployed (Critical; trace orientation across the single-floor solver contact). Do not alter physics before the pre/post solver up-dot and angular velocity identify the ejection mechanism. Tier A drained; Tier B/C, security sweep, and analytics gating are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Stay in this phase until Wyatt advances the marker.",
     "phase": "Playtesting & stabilization — stabilize after Run 7; prove residuals; no auto-advance to RC",
     "phases": [
       {
@@ -881,7 +881,7 @@
       {
         "id": "CART-POP-1",
         "what": "carts pop off the floor in normal driving",
-        "status": "Wave E active; orientation solver trace",
+        "status": "Wave E deployed; orientation solver trace",
         "state": "waiting"
       },
       {
@@ -934,7 +934,7 @@
       }
     ],
     "next_actions": [
-      "Deploy CART-POP-1 Wave E orientation trace. Reproduce ordinary Cart Rave driving with",
+      "Reproduce CART-POP-1 Wave E orientation trace. Use ordinary Cart Rave driving with",
       "NET-LAG-1-PT-1 `[2pc]` is parked by Wyatt. Drain BACKLOG Block 1 in work-order order. Do not start an external"
     ],
     "open_issues": [
@@ -965,7 +965,7 @@
           {
             "pri": "High",
             "item": "CART-POP-1 — carts pop off the floor in normal driving",
-            "notes": "**Wave E diagnostic active 08-20 (Wyatt ack).** Wave D cap-388 shows wedge seams are not required: four single-floor supports have the highest mean rise (+5.42), peak `−8.64 → +2.41`. Wave C rules out control code and restitution. Candidate is free pitch/roll or another cart-vs-single-floor solver interaction. The new `?diag=1` trace adds pre/post solver up-dot and pitch-roll angular speed; it changes no physics setting. **CART-POP-PT-1 remains FAIL/open.** Reproduce ordinary Cart Rave driving and F8 before a physics change. Lane: **Critical**.",
+            "notes": "**Wave E diagnostic deployed 08-20.** Wave D cap-388 shows wedge seams are not required: four single-floor supports have the highest mean rise (+5.42), peak `−8.64 → +2.41`. Wave C rules out control code and restitution. Candidate is free pitch/roll or another cart-vs-single-floor solver interaction. The new `?diag=1` trace adds pre/post solver up-dot and pitch-roll angular speed; it changes no physics setting. **CART-POP-PT-1 remains FAIL/open.** Reproduce ordinary Cart Rave driving and F8 before a physics change. Lane: **Critical**.",
             "ship1": null
           },
           {
@@ -1102,7 +1102,7 @@
           {
             "pri": "Low",
             "item": "SPAWN-BACKROOMS-PT-2 — Storerooms carts start one booth-width closer to center `[1pc]`",
-            "notes": "**Owed: Wyatt playtest — SPAWN-BACKROOMS-PT-2 — Storerooms carts start one booth-width closer to center, still on their decks.** Parent **SPAWN-BACKROOMS-2**. Pushed but not yet deployed — use `npm run dev` until ship.<br>1. Open The Storerooms. Start a round. Do not drive yet.<br>2. FAIL if a cart hangs in the air, sits off its deck, or if a deck sits near the pit wall with only a thin strip of carpet behind it.<br>3. PASS if all four carts sit on their decks, clearly inboard on the carpet, with about one booth-width of extra floor behind them, and the four booths still face center on the cardinals.<br>4. Drive off a deck and fall into a void. FAIL if you respawn in the air or on the floor instead of on that same inward deck.<br>5. Fail the card if Classic Record or Sundial Station spawn positions moved.",
+            "notes": "**Owed: Wyatt playtest — SPAWN-BACKROOMS-PT-2 — Storerooms carts start one booth-width closer to center, still on their decks.** Parent **SPAWN-BACKROOMS-2**. Deployed 08-20.<br>1. Open The Storerooms. Start a round. Do not drive yet.<br>2. FAIL if a cart hangs in the air, sits off its deck, or if a deck sits near the pit wall with only a thin strip of carpet behind it.<br>3. PASS if all four carts sit on their decks, clearly inboard on the carpet, with about one booth-width of extra floor behind them, and the four booths still face center on the cardinals.<br>4. Drive off a deck and fall into a void. FAIL if you respawn in the air or on the floor instead of on that same inward deck.<br>5. Fail the card if Classic Record or Sundial Station spawn positions moved.",
             "ship1": null
           },
           {
