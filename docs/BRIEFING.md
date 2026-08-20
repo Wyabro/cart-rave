@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-20 at commit `ba84d916` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `d81320c0`
+> Generated 2026-08-20 at commit `1056a9f4` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `8038f186`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -24,7 +24,6 @@ Assess and state the lane before editing. This heading names the card; it is **n
 
 Self-directed queue (one at a time, within the declared phase):
 - **CART-POP-1** carts pop off the floor in normal driving — Wave F deployed; contact-point solver trace
-- **SPAWN-BACKROOMS-2** Storerooms spawns one spawn-width out (ring 38.15) — direction corrected; ⏳ SPAWN-BACKROOMS-PT-2 `[1pc]`
 - **FRIENDS-ROTATE-1** Friends rematch rotates arenas, synced — queued
 - **ONBOARD-JUMP-1** HOW TO PLAY matches jump+boost — queued
 - **ONBOARD-WEBP-1** HOW TO PLAY WebP playback + fallback — queued

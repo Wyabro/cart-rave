@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-20T18:33:29.897Z",
-    "commit": "ba84d916"
+    "at": "2026-08-20T18:40:42.730Z",
+    "commit": "1056a9f4"
   },
-  "source_digest": "f15dc335",
+  "source_digest": "70d4fbce",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -885,12 +885,6 @@
         "state": "waiting"
       },
       {
-        "id": "SPAWN-BACKROOMS-2",
-        "what": "Storerooms spawns one spawn-width out (ring 38.15)",
-        "status": "direction corrected; ⏳ SPAWN-BACKROOMS-PT-2 `[1pc]`",
-        "state": "waiting"
-      },
-      {
         "id": "FRIENDS-ROTATE-1",
         "what": "Friends rematch rotates arenas, synced",
         "status": "queued",
@@ -1096,15 +1090,9 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Low": 6
+          "Low": 5
         },
         "rows": [
-          {
-            "pri": "Low",
-            "item": "SPAWN-BACKROOMS-PT-2 — Storerooms decks sit near the pit edge `[1pc]`",
-            "notes": "**Owed: Wyatt playtest — SPAWN-BACKROOMS-PT-2 — Storerooms spawn decks sit near the pit edge, two booth-widths out from the inward try.** Parent **SPAWN-BACKROOMS-2**. Direction corrected 08-20 (ring 38.15). Use `npm run dev` until this commit ships.<br>1. Open The Storerooms. Start a round. Do not drive yet.<br>2. FAIL if the decks still sit inboard with a wide band of carpet behind them, or if a cart hangs in the air / off its deck.<br>3. PASS if all four carts sit on their decks near the pit wall, facing center on the cardinals, with the extra floor now toward the middle of the room.<br>4. Drive off a deck and fall. FAIL if you respawn in the air or on the floor instead of on that same outer deck.<br>5. Fail the card if Classic Record or Sundial Station spawn positions moved.",
-            "ship1": null
-          },
           {
             "pri": "Low",
             "item": "CART-POP-PT-1 — normal driving stays planted across all arenas `[1pc]`",
