@@ -163,6 +163,15 @@ describe("CART-POP-1 contact probe", () => {
           maxSolverRestitution: 0.175,
         }],
         recordContactDetailOverflow: 0,
+        supportTimeline: [{
+          t: 1000,
+          y: 0.4,
+          radius: 5,
+          vy: -0.5,
+          recordPairs: 1,
+          supportPairs: 1,
+          supportPoints: 1,
+        }],
         maxRestitution: 0.175,
         maxImpulse: 18.5,
         hop: false,
@@ -185,6 +194,37 @@ describe("CART-POP-1 contact probe", () => {
     cart.vel.y = 1;
     step(cart, makeWorld(), 1048);
     expect(popEvents()).toHaveLength(2);
+  });
+
+  it("caps the pre-solver support timeline and snapshots it at the rise", () => {
+    installDiagnostics({ flags: { enabled: true } });
+    const cart = makeCart();
+    const floor = { handle: 42 };
+    const manifold = {
+      normal: (out) => Object.assign(out, { x: 0, y: -1, z: 0 }),
+      numContacts: () => 1,
+      contactImpulse: () => 2,
+    };
+    const world = makeWorld(floor, manifold);
+    for (let i = 0; i < 65; i += 1) {
+      cart.vel.y = 0;
+      step(cart, world, 1000 + i, { recordColliderHandles: [42] });
+    }
+    world.step = () => { cart.vel.y = 1; };
+    cart.vel.y = -0.5;
+    step(cart, world, 1100, { recordColliderHandles: [42] });
+
+    const timeline = popEvents()[0].supportTimeline;
+    expect(timeline).toHaveLength(60);
+    expect(timeline.at(-1)).toEqual({
+      t: 1100,
+      y: 0,
+      radius: 0,
+      vy: -0.5,
+      recordPairs: 1,
+      supportPairs: 1,
+      supportPoints: 1,
+    });
   });
 
   it("caps per-record contact detail while preserving the aggregate count", () => {

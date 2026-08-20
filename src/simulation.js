@@ -3923,12 +3923,62 @@ function samplePitProbe(allCarts, nowMs) {
 const CART_POP_PROBE_RISE_VY = 0.75;
 const CART_POP_PROBE_RESET_VY = 0.25;
 const CART_POP_PROBE_RECORD_DETAIL_CAP = 8;
-/** @type {WeakMap<object, { rising: boolean }>} */
+const CART_POP_PROBE_TIMELINE_CAP = 60;
+/** @type {WeakMap<object, { rising: boolean, supportTimeline?: object[] }>} */
 let _cartPopProbeState = new WeakMap();
 
 /** Test seam — drops per-cart rising latches between cases. */
 export function __resetCartPopProbeForTest() {
   _cartPopProbeState = new WeakMap();
+}
+
+/**
+ * Records the last pre-solver floor-support frames. It runs only with diagnostics active;
+ * the later rise event snapshots this bounded history so we can find the frame support vanishes.
+ *
+ * @param {object} world
+ * @param {object[]} allCarts
+ * @param {number} nowMs
+ * @param {object} callbacks
+ */
+function sampleCartPopSupportTimeline(world, allCarts, nowMs, callbacks) {
+  if (typeof window === "undefined" || !window.__ccDiagActive) return;
+  if (!world?.contactPairsWith || !world?.contactPair) return;
+
+  for (const cart of allCarts || []) {
+    if (!cart?.body || !cart.collider) continue;
+    let recordPairs = 0;
+    let supportPairs = 0;
+    let supportPoints = 0;
+    world.contactPairsWith(cart.collider, (other) => {
+      if (!other || !callbacks.recordColliderHandles?.includes(other.handle)) return;
+      recordPairs += 1;
+      world.contactPair(cart.collider, other, (manifold) => {
+        const contacts = manifold.numContacts?.() ?? 0;
+        const normalY = Math.abs(manifold.normal(_cartPopProbeNormal)?.y ?? 0);
+        if (normalY >= 0.7 && contacts > 0) {
+          supportPairs += 1;
+          supportPoints += contacts;
+        }
+      });
+    });
+
+    const state = _cartPopProbeState.get(cart) || { rising: false };
+    const timeline = state.supportTimeline || (state.supportTimeline = []);
+    const pos = cart.body.translation();
+    const lv = cart.body.linvel();
+    timeline.push({
+      t: Math.round(nowMs),
+      y: round3(pos.y),
+      radius: round3(Math.hypot(pos.x, pos.z)),
+      vy: round3(lv.y),
+      recordPairs,
+      supportPairs,
+      supportPoints,
+    });
+    if (timeline.length > CART_POP_PROBE_TIMELINE_CAP) timeline.shift();
+    _cartPopProbeState.set(cart, state);
+  }
 }
 
 /**
@@ -4071,6 +4121,7 @@ function sampleCartPopProbe(world, allCarts, nowMs) {
       unclassifiedStaticContacts,
       recordContactDetails,
       recordContactDetailOverflow,
+      supportTimeline: state.supportTimeline?.map((sample) => ({ ...sample })) || [],
       maxSupportNormalY: round3(maxSupportNormalY),
       maxRestitution: round3(maxRestitution),
       maxImpulse: round3(maxImpulse),
@@ -4270,6 +4321,7 @@ export function runFixedPhysicsStep({
         preWorldOrientation.upDot = upDotFromRotation(rotation);
         preWorldOrientation.pitchRollSpeed = pitchRollSpeed(angvel);
       }
+      sampleCartPopSupportTimeline(world, allCarts, now, callbacks);
     }
     // * Named span so a KO-adjacent host freeze can be attributed to (or ruled out of)
     // * the Rapier step vs shatter VFX / PA audio (perfSpans → longframe.spans).
