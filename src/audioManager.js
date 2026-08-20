@@ -531,12 +531,15 @@ function materializeMenuTracks(urls, opts) {
       }
     },
     onplay: () => {
-      // * Terminal bleed guard (run-6): an HTML5 Howl's play() promise can resolve
-      // * AFTER stopMenuMusic() ran (Howler _playLock), reviving the menu track under
-      // * the level playlist. If playback actually starts while the intent flags say
-      // * "menu must be silent", kill it on the spot.
+      // * Terminal bleed guard (run-6 + MENU-MUSIC-2C): an HTML5 Howl's play()
+      // * promise can resolve AFTER stopMenuMusic() ran (Howler _playLock), or a
+      // * stale queued play() can start the non-current playlist track. Kill it
+      // * if the menu must be silent OR this Howl is not the live index.
       const track = menuMusicTracks[i];
-      if ((!_menuMusicShouldPlay || gameMusicPlaying) && track) {
+      if (
+        track
+        && (!_menuMusicShouldPlay || gameMusicPlaying || i !== currentMenuTrackIdx)
+      ) {
         try { track.stop(); } catch { /* ignore */ }
         try { track.volume(0); } catch { /* ignore */ }
       }
@@ -573,9 +576,23 @@ export function getMenuTrackCount() {
   return menuMusicTracks.length;
 }
 
+/** @param {Howl} howl */
+function menuHowlHasQueuedPlay(howl) {
+  const queue = /** @type {{ event?: string }[] | undefined} */ (/** @type {any} */ (howl)._queue);
+  return Array.isArray(queue) && queue.some((task) => task?.event === "play");
+}
+
 /** @param {Howl | null | undefined} track */
 function startMenuTrack(track) {
   if (!track) return;
+  try {
+    if (track.playing()) return;
+  } catch { /* ignore */ }
+  // * Howler html5: play() while loading queues a Sound and leaves playing()
+  // * false. A second play() without an id then allocates another Sound
+  // * (_inactiveSound) — same file, two elements. Skip if a play is in flight.
+  const howl = /** @type {any} */ (track);
+  if (howl._playLock || menuHowlHasQueuedPlay(track)) return;
   if (track.state() === "unloaded") track.load();
   track.volume(_isMuted ? 0 : _musicVol);
   track.play();
@@ -662,25 +679,28 @@ function materializeGamePlaylist(urls) {
  * Why no-op instead of stop-game: late boot-splash / first-gesture hooks
  * (`__cartRaveTryStartMenuMusic`) can fire after Solo has already started the
  * level playlist. Stealing would kill level music; ignoring keeps the level.
- * @param {number} [startIdx] Used only when no menu Howl is playing.
+ * @param {number} [startIdx] Used only on the first request after a stop.
  * @returns {void}
  */
 export function playMenuMusic(startIdx) {
   if (gameMusicPlaying) return;
+  // * MENU-MUSIC-2C: freeze the first pick for this menu session. Boot + splash
+  // * + first-gesture all call playMenuMusic(random) while the first Howl is
+  // * still loading (playing() is false). A later startIdx used to retarget and
+  // * queue a second song on top of the first.
+  const alreadyRequested = _menuMusicShouldPlay;
   _menuMusicShouldPlay = true;
   if (!menuMusicTracks.length) return;
   // * No-op while any menu track is already audible. This guard must run BEFORE
   // * the startIdx write: currentMenuTrackIdx has to keep pointing at the Howl
-  // * that is actually playing. If a later playMenuMusic(random) moved the index
-  // * under a still-playing track, the warmed next track's onload would see
-  // * `i === currentMenuTrackIdx` and start a second song on top (two menu songs
-  // * overlapping).
+  // * that is actually playing.
   if (anyMenuHowlPlaying()) return;
   // * Apply startIdx before the DEV play gate: on DEV the gate blocks autostart
   // * until the first gesture, but the random pick must be remembered so the
   // * first gesture opens with it instead of always menu.opus (track 0).
   if (
-    Number.isInteger(startIdx)
+    !alreadyRequested
+    && Number.isInteger(startIdx)
     && startIdx >= 0
     && startIdx < menuMusicTracks.length
   ) {

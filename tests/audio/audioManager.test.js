@@ -25,6 +25,10 @@ vi.mock("howler", () => {
       this.playCalls = 0;
       this.fadeCalls = [];
       this.isPlaying = false;
+      /** Howler private: true while an html5 play() promise is in flight. */
+      this._playLock = false;
+      /** @type {Array<{ event: string, action: () => void }>} */
+      this._queue = [];
       /** @type {Record<string, Array<() => void>>} */
       this._once = {};
       /** When true, load() stays "loading" until emitLoad() (async warm tests). */
@@ -51,7 +55,12 @@ vi.mock("howler", () => {
     /** Complete a deferred load() — mirrors Howler async decode. */
     emitLoad() {
       this._state = "loaded";
+      this.opts.onload?.call(this);
       this._emitOnce("load");
+      const queued = this._queue.splice(0, this._queue.length);
+      for (const task of queued) {
+        if (task.event === "play") task.action();
+      }
     }
     emitLoadError() {
       this._emitOnce("loaderror");
@@ -63,10 +72,12 @@ vi.mock("howler", () => {
     }
     play() {
       this.playCalls += 1;
-      // * Howler 2.2.4 semantics: play() on a never-loaded Howl queues the action
-      // * until 'load' fires — which never happens unless load() is called. Model
-      // * that as a silent no-op.
-      if (this._state !== "loaded") return null;
+      // * Howler 2.2.4: play() while not loaded queues until load. playing() stays
+      // * false. A second play() without an id would allocate another Sound.
+      if (this._state !== "loaded") {
+        this._queue.push({ event: "play", action: () => this.play() });
+        return null;
+      }
       this.isPlaying = true;
       this.opts.onplay?.call(this);
       return 1;
@@ -467,6 +478,43 @@ describe("menu playlist rotation", () => {
     expect(tracks[1].isPlaying).toBe(false);
   });
 
+  it("a second playMenuMusic(random) while the first track is still loading starts only one song", () => {
+    // * MENU-MUSIC-2C: boot + initMenu both call playMenuMusic(random) before
+    // * Howler reports playing(). The first play() is queued; a later startIdx
+    // * must not retarget or queue the other track.
+    const tracks = menuPlaylistHowls();
+    tracks[0].deferLoad = true;
+    tracks[0]._state = "unloaded";
+    tracks[0].isPlaying = false;
+    tracks[0]._queue.length = 0;
+
+    playMenuMusic(0);
+    expect(tracks[0].state()).toBe("loading");
+    expect(tracks[0].isPlaying).toBe(false);
+    expect(tracks[0]._queue.some((t) => t.event === "play")).toBe(true);
+    const playsAfterFirst = tracks[0].playCalls;
+
+    playMenuMusic(1);
+    expect(getAudioDebugState().menuTrackIdx).toBe(0);
+    expect(tracks[0].playCalls).toBe(playsAfterFirst);
+    expect(tracks[1].isPlaying).toBe(false);
+
+    tracks[0].emitLoad();
+    expect(tracks[0].isPlaying).toBe(true);
+    expect(tracks[1].isPlaying).toBe(false);
+  });
+
+  it("onplay stops a non-current menu Howl while the menu still owns the bus", () => {
+    playMenuMusic(0);
+    const tracks = menuPlaylistHowls();
+    expect(tracks[0].isPlaying).toBe(true);
+
+    tracks[1].emitLatePlay();
+
+    expect(tracks[1].isPlaying).toBe(false);
+    expect(tracks[0].isPlaying).toBe(true);
+  });
+
   it("keeps startIdx when the DEV gate blocks playback (first-load original-song bug)", async () => {
     vi.resetModules();
     const am = await import("../../src/audioManager.js");
@@ -479,6 +527,14 @@ describe("menu playlist rotation", () => {
     expect(dbg.menuShouldPlay).toBe(true);
     const tracks = MockHowl.instances.filter((h) => h.opts.menuTrack);
     expect(tracks.every((t) => !t.isPlaying)).toBe(true);
+
+    // * First gesture unlocks the gate and re-calls playMenuMusic with a new
+    // * random. Must start the stored index, not retarget.
+    window.dispatchEvent(new Event("pointerdown"));
+    am.playMenuMusic(0);
+    expect(am.getAudioDebugState().menuTrackIdx).toBe(1);
+    expect(tracks[1].isPlaying).toBe(true);
+    expect(tracks[0].isPlaying).toBe(false);
   });
 });
 

@@ -27,7 +27,9 @@ report phase-exit eligibility; they must not move the marker.
 
 **Playtesting and stabilization.** External playtest is gated on BACKLOG Block 1
 (9 Highs). **NET-LAG-1-PT-1** is parked by Wyatt (08-20). **CART-POP-1** Wave
-A is active (Critical; instrument and measure shared physics before a lever).
+B candidate is ready (Critical; shared cart restitution cap; deploy + human retest owed).
+**MENU-MUSIC-2C** shipped 08-20 — first menu-song pick stays until stop.
+Playtest owed: **MENU-MUSIC-2C-PT-1**.
 Tier A drained; Tier B/C, security sweep, and analytics gating are closed. Run 7
 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Stay in this phase until
 Wyatt advances the marker.
@@ -94,7 +96,7 @@ Live rows only. Shipped and closed cards live in
 | # | What | Status |
 |---|------|--------|
 | NET-LAG-1 | Friends/QP lag + rubber-band (F8 both machines) | wave 1 landed; 🅿️ **NET-LAG-1-PT-1** `[2pc]` parked by Wyatt 08-20 |
-| CART-POP-1 | carts pop off the floor in normal driving | Wave A active (Critical; shared-physics measurement) |
+| CART-POP-1 | carts pop off the floor in normal driving | Wave B candidate ready (shared restitution cap; deploy + human retest) |
 | SPAWN-BACKROOMS-2 | Storerooms spawns one spawn-width inward | queued |
 | FRIENDS-ROTATE-1 | Friends rematch rotates arenas, synced | queued |
 | ONBOARD-JUMP-1 | HOW TO PLAY matches jump+boost | queued |
@@ -106,8 +108,8 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. Measure **CART-POP-1** with `?diag=1`: open-floor straight + full-lock,
-   Classic / Storerooms / Sundial. Do not tune before attribution.
+1. Deploy and human-test **CART-POP-1-PT-1**: ordinary driving stays planted on
+   Cart Rave / Storerooms / Sundial; rams and obstacle hits still have lift.
 2. **NET-LAG-1-PT-1** `[2pc]` is parked by Wyatt. Drain BACKLOG Block 1 in work-order order. Do not start an external
    playtest until it drains. Deferred: **SHARD-PT-2** (launch day).
 
@@ -166,6 +168,11 @@ or a suspected blocker (TS 7 · `cartrave4` UVs).
 
 ## Last updated
 
+2026-08-20 (**MENU-MUSIC-2C**) — freeze the first menu playlist pick
+until `stopMenuMusic`; skip a second `play()` on a locked or queued Howl;
+`onplay` stops a non-current menu track. Playtest owed:
+**MENU-MUSIC-2C-PT-1**.
+
 2026-08-20 (**NPC-SELFKO-3** closed) — Wyatt bar: under 10 NPC self-KOs /
 150 s on all three arenas. Soak: Cart Rave 1, Storerooms 6, Sundial 3
 (was 30). `7384dc27`. **NPC-SELFKO-3-PT-1** closed on the same bar.
@@ -173,6 +180,11 @@ or a suspected blocker (TS 7 · `cartrave4` UVs).
 2026-08-20 (Wyatt lane change) — parked **NET-LAG-1-PT-1** `[2pc]`; start
 **CART-POP-1** Wave A. Instrument shared contact behavior and capture a cause
 before changing a physics lever.
+
+2026-08-20 (CART-POP-1 Wave B) — three production captures confirmed ordinary
+floor rebounds: pre-step `vy -8.72` became `+1.57` in one step on Cart Rave / Storerooms.
+The shared cart 0.30 plus floor 0.05 averaged to 0.175; candidate uses restitution Min so
+the authored 0.05 floor value wins. QA/build green; **CART-POP-PT-1** owed after deploy.
 
 2026-08-19 (playtest blockers filed) — BACKLOG Block 1 reopened with 9
 Highs. Start **NET-LAG-1**. Do not playtest until the block drains.
