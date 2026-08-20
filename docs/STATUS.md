@@ -39,9 +39,9 @@ timer cleared via a new `onHostDemoted` callback. Playtest owed: **DEMOTE-COUNTD
 **QP-PLAYING-1** landed 08-19 — QUICKPLAY pill `N PLAYING NOW`
 (`GET /api/playing`). Playtest **QP-PLAYING-PT-1**. Closed 08-20 —
 **PLAYREADY-RESET-FLAKE-1** (playReady-reset test load-tolerant).
-**FRIENDS-ROTATE-1** landed 08-20 — Friends rematch rotates the QP
-pool in place; `playAgain` waits for `clientPlayReady`. Playtest
-**FRIENDS-ROTATE-PT-1** `[2pc]`.
+**FRIENDS-ROTATE-1** shipped 08-20 prod `1a740c79` (Worker
+`f50de02d`). Playtest **FRIENDS-ROTATE-PT-1** `[2pc]` on prod
+(hard-refresh).
 
 **FEEDBACK-1** closed 08-19 — the podium match receipt prints a
 `LEAVE FEEDBACK ↗` survey line (`data-nav-skip`, new tab). Wyatt PASS
