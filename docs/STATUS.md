@@ -106,7 +106,7 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. Deploy and human-test **CART-POP-1-PT-1**: ordinary driving stays planted on
+1. Deploy and human-test **CART-POP-PT-1**: ordinary driving stays planted on
    Cart Rave / Storerooms / Sundial; rams and obstacle hits still have lift.
 2. **NET-LAG-1-PT-1** `[2pc]` is parked by Wyatt. Drain BACKLOG Block 1 in work-order order. Do not start an external
    playtest until it drains. Deferred: **SHARD-PT-2** (launch day).

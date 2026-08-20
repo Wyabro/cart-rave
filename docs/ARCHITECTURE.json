@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-20T08:37:51.140Z",
-    "commit": "d9404f1e"
+    "at": "2026-08-20T08:51:47.730Z",
+    "commit": "1586e40e"
   },
-  "source_digest": "cd6931ab",
+  "source_digest": "e999387e",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -934,7 +934,7 @@
       }
     ],
     "next_actions": [
-      "Deploy and human-test CART-POP-1-PT-1: ordinary driving stays planted on",
+      "Deploy and human-test CART-POP-PT-1: ordinary driving stays planted on",
       "NET-LAG-1-PT-1 `[2pc]` is parked by Wyatt. Drain BACKLOG Block 1 in work-order order. Do not start an external"
     ],
     "open_issues": [
