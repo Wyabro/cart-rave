@@ -16,6 +16,7 @@ import {
   BEACON_MAX_TRACKED_IPS,
   BEACON_WINDOW_MS,
 } from './constants';
+import { listQuickplayShardNames } from "../shared/roomCodes.js";
 
 /** Stand-in when cf-connecting-ip is absent — local dev, harnesses, odd proxies. */
 export const UNKNOWN_IP = 'unknown';
@@ -125,4 +126,77 @@ export function checkBeaconLimit(
     pruneBeaconBuckets(map, now, Math.floor(maxEntries * 0.9), windowMs);
   }
   return allowed;
+}
+
+// ── QP-PLAYING-1: GET /api/playing ──────────────────────────────────────────
+// Same per-IP bucket machinery as the POST beacons. Isolate Map; skip when
+// cf-connecting-ip is absent. Sums every public shard — leftover overflow is real.
+
+/** Generous enough for an 8s menu poll + a second tab. */
+export const PLAYING_MAX_PER_WINDOW = 30;
+
+export const PLAYING_CACHE_MAX_AGE_S = 8;
+
+type PlayingCountNamespace = {
+  idFromName(name: string): unknown;
+  get(id: unknown): { playingCount(): Promise<number> };
+};
+
+let playingShardNamesOverride: string[] | null = null;
+
+/** Test-only. Pass null to restore the public Quickplay list. */
+export function setPlayingShardNamesOverride(names: string[] | null): void {
+  playingShardNamesOverride = names;
+}
+
+function playingShardNames(): string[] {
+  return playingShardNamesOverride ?? listQuickplayShardNames();
+}
+
+function clampPlayingCount(n: unknown): number {
+  if (typeof n !== "number" || !Number.isFinite(n)) return 0;
+  const i = Math.floor(n);
+  return i > 0 ? i : 0;
+}
+
+/**
+ * Sum live seated humans across every public Quickplay shard.
+ * One shard throw becomes 0 for that shard; the rest still count.
+ */
+export async function sumQuickplayPlaying(
+  ns: PlayingCountNamespace,
+): Promise<number> {
+  const counts = await Promise.all(
+    playingShardNames().map(async (name) => {
+      try {
+        return clampPlayingCount(await ns.get(ns.idFromName(name)).playingCount());
+      } catch {
+        return 0;
+      }
+    }),
+  );
+  return counts.reduce((a, b) => a + b, 0);
+}
+
+const playingBuckets = new Map<string, BeaconBucket>();
+
+/**
+ * Best-effort per-IP cap on GET /api/playing. Caller skips this when
+ * cf-connecting-ip is absent (local / harness) so unknown IPs never lock out.
+ */
+export function allowPlayingCount(ip: string, now: number): boolean {
+  pruneBeaconBuckets(playingBuckets, now, BEACON_MAX_TRACKED_IPS, BEACON_WINDOW_MS);
+  const { allowed, nextBucket } = advanceBeaconLimit(
+    playingBuckets.get(ip),
+    now,
+    PLAYING_MAX_PER_WINDOW,
+    BEACON_WINDOW_MS,
+  );
+  playingBuckets.set(ip, nextBucket);
+  return allowed;
+}
+
+/** Test seam — the isolate Map outlives a single test. */
+export function resetPlayingCountLimitForTests() {
+  playingBuckets.clear();
 }

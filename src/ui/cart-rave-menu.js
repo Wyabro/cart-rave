@@ -49,6 +49,12 @@ import { setInputMode, updateControlsPanelUI, getInputMode, onInputModeChange } 
 import { readBuildInfo } from "../utils/buildInfo.js";
 import { trackGlitchEvent } from "../analytics/analytics.js";
 import {
+  PLAYING_COUNT_PATH,
+  PLAYING_COUNT_POLL_MS,
+  applyPlayingNowPill,
+  parsePlayingCount,
+} from "./playingNow.js";
+import {
   animateButtonPress,
   animateButtonRelease,
   animateColorChipSelect,
@@ -1573,6 +1579,9 @@ import { initGamepadTextEntry, openGamepadTextEntry } from "./gamepadTextEntry.j
   let _challengesViewed = false;
   /** @type {ReturnType<typeof setInterval> | null} */
   let challengesRestockTimerId = null;
+  let playingNowTimerId = null;
+  let playingNowInFlight = false;
+  let playingNowVisibilityWired = false;
 
   /**
    * Badges the CHALLENGES menu button: "✓N" once N ≥ 1 are complete (a progress
@@ -2603,6 +2612,7 @@ import { initGamepadTextEntry, openGamepadTextEntry } from "./gamepadTextEntry.j
       clearInterval(statsIntervalId);
       statsIntervalId = null;
     }
+    stopPlayingNowPoll();
     clearMenuEntranceTimeout();
   };
   const stopMenuLoopsAndTimers = () => {
@@ -2616,6 +2626,66 @@ import { initGamepadTextEntry, openGamepadTextEntry } from "./gamepadTextEntry.j
       lastBeat = performance.now();
       animFrameId = requestAnimationFrame(animLoop);
     }
+    startPlayingNowPoll();
+  }
+
+  function playingNowEl() {
+    return document.getElementById("cr-cmd-playing");
+  }
+
+  function hidePlayingNowPill() {
+    applyPlayingNowPill(playingNowEl(), 0);
+  }
+
+  async function tickPlayingNow() {
+    if (playingNowInFlight || menuHidden || document.hidden) return;
+    const el = playingNowEl();
+    if (!(el instanceof HTMLElement)) return;
+    playingNowInFlight = true;
+    try {
+      const res = await fetch(PLAYING_COUNT_PATH, { method: "GET" });
+      if (!res.ok) {
+        hidePlayingNowPill();
+        return;
+      }
+      applyPlayingNowPill(el, parsePlayingCount(await res.json()));
+    } catch {
+      hidePlayingNowPill();
+    } finally {
+      playingNowInFlight = false;
+    }
+  }
+
+  function onPlayingNowVisibility() {
+    if (document.hidden) {
+      if (playingNowTimerId != null) {
+        clearInterval(playingNowTimerId);
+        playingNowTimerId = null;
+      }
+      return;
+    }
+    if (!menuHidden) startPlayingNowPoll();
+  }
+
+  function startPlayingNowPoll() {
+    if (typeof document !== "undefined" && !playingNowVisibilityWired) {
+      document.addEventListener("visibilitychange", onPlayingNowVisibility);
+      playingNowVisibilityWired = true;
+    }
+    if (playingNowTimerId != null) return;
+    void tickPlayingNow();
+    playingNowTimerId = setInterval(() => {
+      void tickPlayingNow();
+    }, PLAYING_COUNT_POLL_MS);
+  }
+
+  function stopPlayingNowPoll() {
+    if (playingNowTimerId != null) {
+      clearInterval(playingNowTimerId);
+      playingNowTimerId = null;
+    }
+    playingNowInFlight = false;
+    hidePlayingNowPill();
   }
 
   // ─── Menu motion (Anime.js) ───────────────────────────────────────────────

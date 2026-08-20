@@ -13,6 +13,17 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 19, 2026 — QP-PLAYING-1: live Quickplay count on the menu
+
+- *(Engineering · Medium)* **QP-PLAYING-1** — ✅ **DONE 08-19**. Main menu
+  QUICKPLAY row shows an always-visible `N PLAYING NOW` pill (CHALLENGES
+  `NEW` pattern). **N** is live seated humans across all public Quickplay
+  shards (`GET /api/playing`). Hide at 0 or on fetch fail. `ONLINE` stays
+  as the selected qualifier. Poll ~8 s while the menu is shown. Walks
+  every shard (no early-stop: leftover overflow auto-rejoin is real).
+  Playtest **QP-PLAYING-PT-1**. Filed **PLAYREADY-RESET-FLAKE-1** from
+  an outside-diff party-do timing flake during qa.
+
 ### August 19, 2026 — playtest PASS (FEEDBACK)
 
 - *(Playtest · Low)* **FEEDBACK-PT-1** — ✅ **PASS 08-19**.

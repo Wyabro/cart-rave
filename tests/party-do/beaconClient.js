@@ -57,6 +57,11 @@ export function requestPath(path, init) {
   return exports.default.fetch(`http://example.com${path}`, init);
 }
 
+/** Room-server stub — QP-PLAYING-1 RPC. */
+export function cartRaveStub(room) {
+  return env.CartRaveServer.get(env.CartRaveServer.idFromName(room));
+}
+
 /**
  * Read rows back from a log DO's internal /list.
  * @returns {Promise<{ count: number, rows: Record<string, unknown>[] }>}

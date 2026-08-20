@@ -29,6 +29,10 @@ report phase-exit eligibility; they must not move the marker.
 are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Analytics DO reset for
 external testers. Stay in this phase until Wyatt advances the marker.
 
+**QP-PLAYING-1** landed 08-19 — QUICKPLAY pill `N PLAYING NOW`
+(`GET /api/playing`). Playtest **QP-PLAYING-PT-1**. Filed
+**PLAYREADY-RESET-FLAKE-1**.
+
 **FEEDBACK-1** closed 08-19 — the podium match receipt prints a
 `LEAVE FEEDBACK ↗` survey line (`data-nav-skip`, new tab). Wyatt PASS
 **FEEDBACK-PT-1** (`npm run dev`). Not deployed. Filed
@@ -83,13 +87,14 @@ Live rows only. Shipped and closed cards live in
 
 | # | What | Status |
 |---|------|--------|
+| QP-PLAYING-PT-1 | QUICKPLAY live playing count | ⏳ playtest owed (prod after ship) |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 
 ### Next actions
 
-1. Wait for Wyatt to name the next card. Deferred: **SHARD-PT-2**
-   (launch day). Classic render-path lever is a new card if pursued
-   (`recordbody`, clean cell).
+1. Playtest **QP-PLAYING-PT-1** on prod after ship. Deferred:
+   **SHARD-PT-2** (launch day). Harness flake filed:
+   **PLAYREADY-RESET-FLAKE-1**.
 
 ## Open issues (top)
 

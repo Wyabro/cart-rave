@@ -1,5 +1,5 @@
 /// <reference path="./env.d.ts" />
-// SEC-ROUTE-1 — the four public /api/* routes match EXACTLY, not by substring.
+// SEC-ROUTE-1 — the five public /api/* routes match EXACTLY, not by substring.
 //
 // Before this, `url.pathname.includes("/api/errors")` swallowed any path CONTAINING
 // the string — /x/api/errors, /assets/api/errors.js, /parties/…/x/api/errors — ahead
@@ -15,8 +15,13 @@
 // No cf-connecting-ip anywhere in this file: unknown IPs are exempt from the
 // SEC-BEACON-1 cap by design, so a hot limiter from a sibling test cannot flake these.
 
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { setPlayingShardNamesOverride } from "../../party/beaconLimit.ts";
 import { clearAllLogs, postBeacon, requestPath } from "./beaconClient.js";
+
+beforeAll(() => {
+  setPlayingShardNamesOverride([]);
+});
 
 /** Reached the errors/token-gated handler: 503 "read endpoint disabled" or 403 forbidden. */
 async function isTokenGateFingerprint(res) {
@@ -51,6 +56,24 @@ describe("SEC-ROUTE-1 exact route matching", () => {
       const res = await postBeacon("/prefix/api/captures", capture("HIJACK"), null);
       const hitHandler = res.status === 200 && (await res.clone().json().catch(() => ({}))).ok === true;
       expect(hitHandler).toBe(false);
+    });
+  });
+
+  describe("/api/playing", () => {
+    it("still handles the exact path", async () => {
+      const res = await requestPath("/api/playing");
+      expect(res.status).toBe(200);
+      expect((await res.json()).n).toEqual(expect.any(Number));
+    });
+
+    it("no longer swallows a path that merely contains it", async () => {
+      const res = await requestPath("/x/api/playing");
+      expect(res.status).not.toBe(200);
+    });
+
+    it("does not reach it for a trailing slash or suffix", async () => {
+      expect((await requestPath("/api/playing/")).status).not.toBe(200);
+      expect((await requestPath("/api/playingfoo")).status).not.toBe(200);
     });
   });
 

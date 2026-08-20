@@ -144,6 +144,24 @@ export function nextQuickplayShard(room) {
 }
 
 /**
+ * Every public Quickplay shard name, fill order. Occupancy is not prefix-dense
+ * (overflow auto-rejoin), so QP-PLAYING-1 sums this whole list.
+ *
+ * @returns {string[]}
+ */
+export function listQuickplayShardNames() {
+  const names = ["quickplay"];
+  let room = "quickplay";
+  for (;;) {
+    const next = nextQuickplayShard(room);
+    if (!next) break;
+    names.push(next);
+    room = next;
+  }
+  return names;
+}
+
+/**
  * Whether a room name is reserved for a built-in mode.
  * @param {unknown} raw
  * @returns {boolean}

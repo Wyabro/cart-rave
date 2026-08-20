@@ -24,6 +24,10 @@ export interface Env {
   ANALYTICS_LOG?: EnvDurableObjectNamespace;
   /** F8 capture SQLite DO (singleton "v1"). */
   CAPTURE_LOG?: EnvDurableObjectNamespace;
+  /** Per-room lobby / signaling DO (PartyKit). QP-PLAYING-1 reads playingCount(). */
+  CartRaveServer?: EnvDurableObjectNamespace & {
+    get(id: unknown): EnvFetcher & { playingCount(): Promise<number> };
+  };
   /** Admin token secret (SEC-TOKEN-1 — Authorization: Bearer only). */
   ERROR_LOG_TOKEN?: string;
   /** Cloudflare Calls TURN credentials (requestTurnCredentials). */
@@ -103,6 +107,11 @@ import {
 import { NPC_NAME_POOL, takeNpcNameAvoidingPersonalities } from '../shared/npcNames.js';
 import { isAllowedHostLevelId, QUICKPLAY_ARENA_IDS } from '../shared/arenaPool.js';
 import { isQuickplayRoom, nextQuickplayShard } from '../shared/roomCodes.js';
+import {
+  PLAYING_CACHE_MAX_AGE_S,
+  allowPlayingCount,
+  sumQuickplayPlaying,
+} from './beaconLimit';
 import { assetCacheControlForPath } from '../shared/assetCache.js';
 import {
   classifyWsMessagePostParse,
@@ -269,6 +278,21 @@ export class CartRaveServer extends Server {
   #isSocketOpen(conn: Connection): boolean {
     const rs = conn.readyState;
     return rs !== 2 && rs !== 3;
+  }
+
+  /**
+   * QP-PLAYING-1. Live seated humans only. Reads our maps so RPC works
+   * without PartyKit Server.fetch() init. Null slots → 0 (do not init a lobby).
+   */
+  playingCount(): number {
+    if (!this.#slots) return 0;
+    let n = 0;
+    for (const slot of this.#slots) {
+      if (slot.kind !== "human" || !slot.connId) continue;
+      const conn = this.#connections.get(slot.connId);
+      if (conn && this.#isSocketOpen(conn)) n += 1;
+    }
+    return n;
   }
 
   /** True only when this socket object still owns the tracked id. */
@@ -1747,7 +1771,7 @@ export default {
     // * Client crash reports → persist into the ErrorLog SQLite DO (singleton
     // * instance "v1"). Bounded, queryable; replaces the old console.log-and-drop.
     //
-    // * SEC-ROUTE-1: all four /api/* routes below match EXACTLY, not by prefix or
+    // * SEC-ROUTE-1: all five /api/* routes below match EXACTLY, not by prefix or
     // * substring. They have no sub-paths — options ride the query string
     // * (?id=, ?limit=, ?view=) and admin auth is Authorization: Bearer only
     // * (SEC-TOKEN-1 — never ?token=). Pathname `===` is the tightest correct rule.
@@ -1755,6 +1779,26 @@ export default {
     // * /x/api/errors) before the /parties/ check and before ASSETS. Do not loosen
     // * these back; `startsWith` at the isParty check below is different — that one
     // * really is a prefix route with sub-paths beneath it.
+    if (url.pathname === "/api/playing") {
+      if (request.method !== "GET") return new Response(null, { status: 405 });
+      const ip = request.headers.get("cf-connecting-ip");
+      if (ip && !allowPlayingCount(ip, Date.now())) {
+        return new Response(null, { status: 429 });
+      }
+      let n = 0;
+      try {
+        if (env.CartRaveServer) n = await sumQuickplayPlaying(env.CartRaveServer);
+      } catch {
+        n = 0;
+      }
+      return new Response(JSON.stringify({ n }), {
+        status: 200,
+        headers: {
+          "content-type": "application/json",
+          "cache-control": `public, max-age=${PLAYING_CACHE_MAX_AGE_S}`,
+        },
+      });
+    }
     if (url.pathname === "/api/log-error") {
       if (request.method !== "POST") return new Response(null, { status: 405 });
       try {

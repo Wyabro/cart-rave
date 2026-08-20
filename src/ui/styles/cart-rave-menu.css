@@ -3632,10 +3632,18 @@ html, body {
   font-family: var(--ui); font-weight: 800; font-size: 10px; letter-spacing: 0.1em;
   padding: 3px 8px; border-radius: 3px;
 }
+.cr-cmd-playing {
+  transform: skewX(8deg);
+  background: var(--color-magenta); color: var(--color-ink);
+  font-family: var(--ui); font-weight: 800; font-size: 10px; letter-spacing: 0.1em;
+  padding: 3px 8px; border-radius: 3px;
+  white-space: nowrap;
+}
 /* Same pill carries the ✓N progress count once a challenge completes — portal
    green is the completion voice everywhere else (7b's REDEEMED stamp). */
 .cr-cmd-new--done { background: var(--color-portal); }
-.cr-cmd-new[hidden] { display: none; }
+.cr-cmd-new[hidden],
+.cr-cmd-playing[hidden] { display: none; }
 
 /* ═══ JOIN by spoken code (FRIENDS-JOIN-1 / FRIENDS-JOIN-LAYOUT-1) ═════════
    Lives below the cart-name plate and outside #cr-commandlist, so W/S walks
