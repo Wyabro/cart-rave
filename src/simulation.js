@@ -3946,6 +3946,7 @@ function sampleCartPopProbe(world, allCarts, nowMs) {
     let maxRestitution = 0;
     let maxImpulse = 0;
     let cartContact = false;
+    const contactClasses = { floor: 0, edge: 0, clang: 0 };
     world.contactPairsWith(cart.collider, (other) => {
       if (!other) return;
       if (cartHandles.has(other.handle)) {
@@ -3953,6 +3954,8 @@ function sampleCartPopProbe(world, allCarts, nowMs) {
         return;
       }
       staticContacts += 1;
+      const contactClass = classifyEnvironmentCollision(other.handle, _collisionCallbacks);
+      contactClasses[contactClass] = (contactClasses[contactClass] || 0) + 1;
       world.contactPair(cart.collider, other, (manifold) => {
         const normalY = Math.abs(manifold.normal(_cartPopProbeNormal)?.y ?? 0);
         if (normalY >= 0.7) supportContacts += 1;
@@ -3966,13 +3969,17 @@ function sampleCartPopProbe(world, allCarts, nowMs) {
     });
 
     const pos = cart.body.translation();
+    const preVy = cart._preStepLinvel?.y ?? lv.y;
     recordDiagEvent("cart_pop", "rise", {
       slot: cart.slotIndex ?? null,
       y: round3(pos.y),
+      preVy: round3(preVy),
       vy: round3(lv.y),
+      deltaVy: round3(lv.y - preVy),
       planarSpeed: round3(Math.hypot(lv.x, lv.z)),
       staticContacts,
       supportContacts,
+      contactClasses,
       maxSupportNormalY: round3(maxSupportNormalY),
       maxRestitution: round3(maxRestitution),
       maxImpulse: round3(maxImpulse),

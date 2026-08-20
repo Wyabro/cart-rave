@@ -88,7 +88,7 @@ describe("CART-POP-1 contact probe", () => {
   it("captures a single upward episode with shared contact material", () => {
     installDiagnostics({ flags: { enabled: true } });
     const cart = makeCart(2);
-    cart.vel = { x: 5, y: 1, z: 12 };
+    cart.vel = { x: 5, y: -0.5, z: 12 };
     const floor = { handle: 42 };
     const manifold = {
       normal: (out) => Object.assign(out, { x: 0, y: -1, z: 0 }),
@@ -97,16 +97,21 @@ describe("CART-POP-1 contact probe", () => {
       contactImpulse: () => 18.5,
     };
 
-    step(cart, makeWorld(floor, manifold));
+    const world = makeWorld(floor, manifold);
+    world.step = () => { cart.vel.y = 1; };
+    step(cart, world);
 
     expect(popEvents()).toEqual([
       expect.objectContaining({
         type: "rise",
         slot: 2,
+        preVy: -0.5,
         vy: 1,
+        deltaVy: 1.5,
         planarSpeed: 13,
         staticContacts: 1,
         supportContacts: 1,
+        contactClasses: { floor: 1, edge: 0, clang: 0 },
         maxRestitution: 0.175,
         maxImpulse: 18.5,
         hop: false,
