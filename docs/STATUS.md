@@ -26,9 +26,10 @@ report phase-exit eligibility; they must not move the marker.
 ## Current focus
 
 **Playtesting and stabilization.** External playtest is gated on BACKLOG Block 1
-(9 Highs). Start **NET-LAG-1**. Tier A drained; Tier B/C, security sweep, and
-analytics gating are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1
-closed. Stay in this phase until Wyatt advances the marker.
+(9 Highs). **NET-LAG-1** wave 1 landed (non-host display pose copies the
+body). Playtest **NET-LAG-1-PT-1**. Tier A drained; Tier B/C, security sweep,
+and analytics gating are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 ·
+NET-SD-1 closed. Stay in this phase until Wyatt advances the marker.
 
 **DEMOTE-COUNTDOWN-1** shipped 08-19 — `startRunningAt` isHost guard + demoted host's countdown
 timer cleared via a new `onHostDemoted` callback. Playtest owed: **DEMOTE-COUNTDOWN-PT-1** (2pc).
@@ -91,7 +92,7 @@ Live rows only. Shipped and closed cards live in
 
 | # | What | Status |
 |---|------|--------|
-| NET-LAG-1 | Friends/QP lag + rubber-band (F8 both machines) | ▶ pick next (Critical; measure first) |
+| NET-LAG-1 | Friends/QP lag + rubber-band (F8 both machines) | wave 1 landed (copy display pose); ⏳ **NET-LAG-1-PT-1** `[2pc]` |
 | CART-POP-1 | carts pop off the floor in normal driving | queued (Critical; measure first) |
 | NPC-SELFKO-3 | NPC self-KOs on all three arenas | queued (measure then tune) |
 | SPAWN-BACKROOMS-2 | Storerooms spawns one spawn-width inward | queued |
@@ -105,8 +106,8 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. Pick **NET-LAG-1**. Correlate the two-machine F8 captures before any
-   netcode change. Lane: Critical (ack before edits).
+1. Playtest **NET-LAG-1-PT-1** `[2pc]` (Friends, `?diag=1`, F8 both).
+   PASS = non-host cart has no 1 m trail. Vibration = FAIL, stop.
 2. Drain BACKLOG Block 1 in work-order order. Do not start an external
    playtest until it drains. Deferred: **SHARD-PT-2** (launch day).
 

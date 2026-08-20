@@ -1674,8 +1674,8 @@ export function bootGameSystems(ctx) {
       if (!inHitStop) {
         let playerPos = localCart.body.translation();
         let playerRot = localCart.body.rotation();
-        // * NH-SMOOTH v3: non-host only — follow the display pose (low-passed mesh) so the
-        // * camera does not re-broadcast 40Hz body hard-snaps. frameVisuals only *updates*
+        // * NET-LAG-1: non-host only — follow `_displayPos` (copy of the physics mesh)
+        // * so camera and mesh stay on the same pose (CAM-1). frameVisuals only *updates*
         // * `_displayPos` for non-host local; if we still read it after host promote (or
         // * any stale flag), the camera freezes while the body drives on (cart moves,
         // * view stuck). Host always tracks the live body (+ optional reconcile offset).

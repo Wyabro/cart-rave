@@ -437,7 +437,9 @@ export const CONFIG = {
     // * frameVisuals applies to the mesh (and main.js feeds to the follow camera) while
     // * decaying it at the rates below. Run-4 "laggy-rubberbandy" fix.
     // * NH-SMOOTH: v1 prev-pose+rates, v2 soft debt — both failed live (cap-82/83).
-    // * v3: display-pose low-pass for non-host local mesh+camera (frameVisuals / main).
+    // * v3: display-pose low-pass (parked). NET-LAG-1: non-host local mesh+camera
+    // * copy the physics pose; displayPosRate / displayRotRate are unused. Restore
+    // * only on a vibration FAIL — do not re-add a catch-up distance gate.
     // * Physics hard-snap unchanged. Legacy offset knobs remain for metrics / fallback.
     prediction: {
       // * Visual positional correction decay (1/s). Higher = snappier settle to host truth.
@@ -452,7 +454,8 @@ export const CONFIG = {
       reconcileYawMaxRadPs: 4,
       // * NH-SMOOTH v2: max meters of ease debt one snapshot may add (rest shows immediately).
       reconcileVisAddCapM: 0.45,
-      // * NH-SMOOTH v3: display pose chase rates (1/s) toward physics mesh pose.
+      // * Unused after NET-LAG-1 (copy path). Kept so a vibration FAIL can restore
+      // * v3 lerp without a new key. Do not read these in frameVisuals.
       displayPosRate: 14,
       displayRotRate: 12,
       // * Hard visual teleport when display lags body by more than this (m), or a single

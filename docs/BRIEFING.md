@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-20 at commit `ae7b8ff3` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `86897f5d`
+> Generated 2026-08-20 at commit `52aafa5d` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `78d35b49`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -14,14 +14,25 @@
 
 ## Mission
 
-Playtesting and stabilization — External playtest is gated on BACKLOG Block 1 (9 Highs). Start NET-LAG-1. Tier A drained; Tier B/C, security sweep, and analytics gating are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Stay in this phase until Wyatt advances the marker.
+Playtesting and stabilization — External playtest is gated on BACKLOG Block 1 (9 Highs). NET-LAG-1 wave 1 landed (non-host display pose copies the body). Playtest NET-LAG-1-PT-1. Tier A drained; Tier B/C, security sweep, and analytics gating are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Stay in this phase until Wyatt advances the marker.
 
 ## ACTIVE CARD
 
-NET-LAG-1 — Friends/QP lag + rubber-band (F8 both machines)
-Pass looks like: ▶ pick next (Critical; measure first)
+Playtest NET-LAG-1-PT-1 `[2pc]` (Friends, `?diag=1`, F8 both)
 
 Assess and state the lane before editing. This heading names the card; it is **not** a lane assessment or permission to edit.
+
+Self-directed queue (one at a time, within the declared phase):
+- **NET-LAG-1** Friends/QP lag + rubber-band (F8 both machines) — wave 1 landed (copy display pose); ⏳ NET-LAG-1-PT-1 `[2pc]`
+- **CART-POP-1** carts pop off the floor in normal driving — queued (Critical; measure first)
+- **NPC-SELFKO-3** NPC self-KOs on all three arenas — queued (measure then tune)
+- **SPAWN-BACKROOMS-2** Storerooms spawns one spawn-width inward — queued
+- **FRIENDS-ROTATE-1** Friends rematch rotates arenas, synced — queued
+- **ONBOARD-JUMP-1** HOW TO PLAY matches jump+boost — queued
+- **ONBOARD-WEBP-1** HOW TO PLAY WebP playback + fallback — queued
+- **MENU-CART-FOLLOW-1** subtle menu-cart cursor parallax — queued
+- **SHARE-CARD-1** update OG/social share image — queued
+- **QP-PLAYING-PT-1** QUICKPLAY live playing count — ⏳ playtest owed (prod after ship)
 
 ## Do not
 

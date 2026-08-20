@@ -23,6 +23,7 @@ import { frameBudgetAllow } from "./utils/frameBudget.js";
 import { isComposerBypassActive } from "./scene.js";
 import { mark, timeLoopMs } from "./utils/perfSpans.js";
 import { resetRendererInfoFrame } from "./utils/rendererInfo.js";
+import { applyDisplayPoseFollow } from "./netcode/displayPoseFollow.js";
 
 
 /** Last round phase seen by results overlay — used to hide overlay once when leaving podium. */
@@ -333,40 +334,19 @@ export function updateVisualsAndEffects(deps, frameCtx) {
       _hitStopQuat.slerp(c.mesh.quaternion, blendAlpha);
       c.mesh.quaternion.copy(_hitStopQuat);
     }
-    // * NH-SMOOTH v3 (cap-83 fail on v2): non-host local mesh no longer rides body+offset
-    // * (40Hz hard snaps still read as jank even with soft debt — and a 3.5s snap gap /
-    // * 14m err makes offset-easing irrelevant). Display pose low-passes toward the
-    // * physics mesh pose; hard-snaps only past maxCorrectionM. Camera reads the same
-    // * display pose (main.js). Physics body + reconcile metrics unchanged.
-    // * v1/v2 offset path kept for F8 debt metrics but is NOT applied to the mesh when
-    // * display chase is active (always, for non-host local).
+    // * NET-LAG-1: non-host local mesh+camera copy the physics pose. v3's display
+    // * low-pass (displayPosRate 14) trailed ~v/rate meters on a clean wire
+    // * (cap-373: 1.63 m xz, errLast 1 mm). Camera still reads `_displayPos` (CAM-1).
+    // * Physics body + reconcile metrics unchanged. v1/v2 offset is drained so it
+    // * cannot re-enter via the host-promote camera fallback.
     if (!deps.isHost() && slotIndex === localSlotIndexForFrame) {
-      const pcfg = deps.CONFIG.net?.prediction;
-      const maxSnapM = pcfg?.maxCorrectionM ?? 6;
-      const posRate = pcfg?.displayPosRate ?? 14;
-      const rotRate = pcfg?.displayRotRate ?? 12;
       if (!c._displayPos) c._displayPos = new THREE.Vector3();
       if (!c._displayQuat) c._displayQuat = new THREE.Quaternion();
-      if (!c._displayReady) {
-        c._displayPos.copy(c.mesh.position);
-        c._displayQuat.copy(c.mesh.quaternion);
-        c._displayReady = true;
-      } else {
-        const dist = c._displayPos.distanceTo(c.mesh.position);
-        if (dist >= maxSnapM) {
-          c._displayPos.copy(c.mesh.position);
-          c._displayQuat.copy(c.mesh.quaternion);
-        } else {
-          const pa = 1 - Math.exp(-posRate * dt);
-          const ra = 1 - Math.exp(-rotRate * dt);
-          c._displayPos.lerp(c.mesh.position, pa);
-          c._displayQuat.slerp(c.mesh.quaternion, ra);
-        }
-      }
+      applyDisplayPoseFollow(c._displayPos, c._displayQuat, c.mesh.position, c.mesh.quaternion);
+      c._displayReady = true;
       c.mesh.position.copy(c._displayPos);
       c.mesh.quaternion.copy(c._displayQuat);
       bodyY = c._displayPos.y - visualOffset;
-      // * Drain leftover v1/v2 offset so it cannot re-enter via camera fallback.
       const ro = c._reconcileVisOffset;
       if (ro) { ro.x = 0; ro.y = 0; ro.z = 0; ro.yaw = 0; }
     }

@@ -2,15 +2,15 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-20T05:23:39.069Z",
-    "commit": "ae7b8ff3"
+    "at": "2026-08-20T06:09:14.856Z",
+    "commit": "52aafa5d"
   },
-  "source_digest": "96280178",
+  "source_digest": "251580cc",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
     "production_url": "https://www.cartclash.lol/",
-    "mission": "Playtesting and stabilization — External playtest is gated on BACKLOG Block 1 (9 Highs). Start NET-LAG-1. Tier A drained; Tier B/C, security sweep, and analytics gating are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Stay in this phase until Wyatt advances the marker.",
+    "mission": "Playtesting and stabilization — External playtest is gated on BACKLOG Block 1 (9 Highs). NET-LAG-1 wave 1 landed (non-host display pose copies the body). Playtest NET-LAG-1-PT-1. Tier A drained; Tier B/C, security sweep, and analytics gating are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Stay in this phase until Wyatt advances the marker.",
     "phase": "Playtesting & stabilization — stabilize after Run 7; prove residuals; no auto-advance to RC",
     "phases": [
       {
@@ -193,6 +193,7 @@
         "src/hostCollisionBatch.js",
         "src/netcode.js",
         "src/netcode/binary.js",
+        "src/netcode/displayPoseFollow.js",
         "src/netcode/load.js",
         "src/netcode/p2p.js",
         "src/netcode/p2pLimits.js",
@@ -200,7 +201,7 @@
         "src/utils/hostCapability.js",
         "src/utils/reconcileReplay.js"
       ],
-      "file_count": 9,
+      "file_count": 10,
       "edges": [
         {
           "to": "networking-server",
@@ -874,8 +875,8 @@
       {
         "id": "NET-LAG-1",
         "what": "Friends/QP lag + rubber-band (F8 both machines)",
-        "status": "▶ pick next (Critical; measure first)",
-        "state": "active"
+        "status": "wave 1 landed (copy display pose); ⏳ NET-LAG-1-PT-1 `[2pc]`",
+        "state": "waiting"
       },
       {
         "id": "CART-POP-1",
@@ -939,7 +940,7 @@
       }
     ],
     "next_actions": [
-      "Pick NET-LAG-1. Correlate the two-machine F8 captures before any",
+      "Playtest NET-LAG-1-PT-1 `[2pc]` (Friends, `?diag=1`, F8 both).",
       "Drain BACKLOG Block 1 in work-order order. Do not start an external"
     ],
     "open_issues": [
@@ -964,7 +965,7 @@
           {
             "pri": "High",
             "item": "NET-LAG-1 — Friends/QP lag + rubber-band before playtest",
-            "notes": "**Filed 08-19 from pre-playtest multiplayer.** Noticeable lag and rubber-banding in Friends, possibly Quickplay too. F8 captures on both machines. **Measure first** — correlate the captures and name the cause (transport, snapshot timing, interpolation/reconciliation, host perf, packet loss/jitter) before any netcode retune. Sibling **NET-PERF-1** (rewind-replay residual): absorb into it only if evidence points there; do not duplicate that lever. Do not reopen **NET-1** · **NET-2** · **NET-MIG-3**. Lane when picked: **Critical**.",
+            "notes": "**Wave 1 landed 08-20.** Cause: NH-SMOOTH v3 display low-pass (`displayPosRate` 14) trailed ~1.6 m on a clean wire (cap-373/374 vs host 375, room `SAGO6`). Lever: non-host local mesh+camera **copy** the physics pose. Transport / host send / rewind-replay not this wave. **Owed: NET-LAG-1-PT-1.** Do not restore lerp or add a catch-up distance gate on a vibration FAIL without a new ack. Do not reopen **NET-1** · **NET-2** · **NET-MIG-3**.",
             "ship1": null
           },
           {
@@ -1113,9 +1114,15 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Low": 3
+          "Low": 4
         },
         "rows": [
+          {
+            "pri": "Low",
+            "item": "NET-LAG-1-PT-1 — non-host own cart has no 1 m trail `[2pc]`",
+            "notes": "**Owed: Wyatt playtest — NET-LAG-1-PT-1 — on the non-host, your cart stays under you while you drive.** Parent **NET-LAG-1**. Prod after ship, or `npm run dev:local` with `?diag=1` on both machines. Remaining input delay (~120 ms) is out of this check — do not FAIL for that if the trail is gone.<br>1. Friends match, two machines, `?diag=1`. Non-host drives for a full round.<br>2. FAIL if your cart trails about a meter behind where you are steering, or if it shakes or ticks many times a second.<br>3. PASS if the non-host cart stays under you (no rubber-band trail) and the host still feels tight.<br>4. Press F8 on both machines at the end.",
+            "ship1": null
+          },
           {
             "pri": "Low",
             "item": "QP-PLAYING-PT-1 — menu pill matches public Quickplay humans `[1pc]`",
