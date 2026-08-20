@@ -147,6 +147,15 @@ describe("createCartCollider / env wiring canaries", () => {
     expect(createBlock).not.toContain("setFrictionCombineRule");
   });
 
+  it("uses Min restitution on the shared cart collider so quiet floors stay quiet", () => {
+    const createStart = entitiesSrc.indexOf("function createCartCollider");
+    const createEnd = entitiesSrc.indexOf("function buildCartVisualMesh", createStart);
+    const createBlock = entitiesSrc.slice(createStart, createEnd);
+    expect(createBlock).toContain(
+      "setRestitutionCombineRule(RAPIER.CoefficientCombineRule.Min)",
+    );
+  });
+
   it("resetCartTransientState restores normal mode", () => {
     expect(entitiesSrc).toContain('applyCartFrictionMode(cart, "normal")');
   });

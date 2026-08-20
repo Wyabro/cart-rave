@@ -46,9 +46,10 @@ gotcha here starts biting again, move it back rather than duplicating it.
     0.40/0.45 rather than the documented 0.50/0.60. The card passed playtest **at the real
     values**, so the feel is signed off and only the prose is wrong — filed as
     `RAPIER-DEFAULT-MAX-1`.
-  - **The two axes are independent and easy to confuse.** Sundial's deck needs
-    `RestitutionCombineRule.Min` to hold a *lower* value (0.05 under the cart's 0.3); Classic's
-    walls take no restitution rule because they want the bounce.
+  - **The two axes are independent and easy to confuse.** The shared cart collider uses
+    `RestitutionCombineRule.Min`: a 0.05 floor stays 0.05 instead of averaging with the cart's
+    0.3. Cart-to-cart contacts still use 0.3; Classic's walls take no local restitution rule and
+    can return up to that 0.3 cart cap.
 - **`world.castRay*` exclusion filters want the Collider/RigidBody OBJECT, never `.handle`.**
   Rapier unwraps the handle internally
   (`filterExcludeCollider ? filterExcludeCollider.handle : null`). Passing a handle silently

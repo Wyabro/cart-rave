@@ -151,6 +151,11 @@ function createCartCollider(world, body) {
     .setTranslation(0, colliderLocalY, 0)
     .setFriction(CONFIG.cart.friction)
     .setRestitution(CONFIG.cart.restitution)
+    // * CART-POP-1 — a cart's 0.30 must not average a quiet 0.05 floor up to
+    // * 0.175 and turn normal landings into a rebound. Min keeps every floor's
+    // * authored low value, while cart-to-cart contacts retain 0.30 and walls
+    // * can still return up to the cart's 0.30 cap.
+    .setRestitutionCombineRule(RAPIER.CoefficientCombineRule.Min)
     .setCollisionGroups(CART_COLLISION_GROUPS);
   if (typeof colliderDesc.setActiveEvents === "function") {
     colliderDesc.setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS);
