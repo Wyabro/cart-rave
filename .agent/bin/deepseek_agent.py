@@ -307,6 +307,7 @@ def _call_model(
         "tools": tools,
         "tool_choice": "auto",
         "stream": False,
+        "max_tokens": 4096,
     }
     request = Request(
         ENDPOINT,
@@ -573,6 +574,11 @@ def main() -> int:
                     tool_error_count=tool_error_count,
                 )
                 _emit("tool_result", run_id, turn=turn, tool=name, error=result.startswith("tool_error:"))
+            # Some backends (e.g. Qwen3 chat templates) require a user query after
+            # tool results before the model will continue; give the next call one.
+            messages.append(
+                {"role": "user", "content": "Continue. Review the tool results and decide the next action."}
+            )
         raise RuntimeError(f"DeepSeek reached the {args.max_turns}-turn bound before finishing")
     except (RuntimeError, TimeoutError) as exc:
         error = str(exc)
