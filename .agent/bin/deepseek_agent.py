@@ -35,8 +35,8 @@ MAX_TURNS = 24
 MAX_TOOL_OUTPUT = 30_000
 MAX_FILE_OUTPUT = 80_000
 MAX_COMMAND_SECONDS = MAX_READ_ONLY_COMMAND_SECONDS
-MODEL_REQUEST_TIMEOUT_SECONDS = 90
-RUN_TIMEOUT_SECONDS = 900
+MODEL_REQUEST_TIMEOUT_SECONDS = 300
+RUN_TIMEOUT_SECONDS = 1800
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -291,7 +291,7 @@ def _system_prompt(role: str, *, plan_only: bool = False) -> str:
         return common + "\nYou are read-only. Inspect the diff and relevant files, and run safe checks when useful. Do not use write_file. Your final non-empty line MUST be exactly APPROVE, REJECT: <actionable reason>, or ESCALATE: <reason requiring human judgment>."
     if plan_only:
         return common + "\nYou are the plan-only maker. Diagnose the task and produce an implementation-ready plan. Do not modify files, stage, commit, push, deploy, or delete anything. The write_file tool is unavailable by design. Return the plan and state missing evidence."
-    return common + "\nYou are the maker. Diagnose the task, make the requested change in this isolated worktree, and verify it with safe commands. Do not stop at a proposed patch: apply the change with write_file, then inspect the result."
+    return common + "\nYou are the maker. This run is PRE-AUTHORIZED for the stated task by the operator: the repo's active-card / ack / lane language does not block you — apply the stated change. Diagnose, make the requested change in this isolated worktree, and verify it with safe commands. Do not stop at a proposed patch: apply the change with write_file, then inspect the result."
 
 
 def _call_model(
@@ -307,7 +307,7 @@ def _call_model(
         "tools": tools,
         "tool_choice": "auto",
         "stream": False,
-        "max_tokens": 4096,
+        "max_tokens": 16384,
     }
     request = Request(
         ENDPOINT,
