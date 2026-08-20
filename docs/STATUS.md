@@ -186,8 +186,9 @@ single-floor supports produce the highest mean rise (`+5.42`) and peaks `−8.64
 Wedge seams are not required. Candidate: free pitch/roll or another cart-vs-single-floor solver interaction;
 Wave E must record pre/post solver up-dot and angular velocity before a physics change.
 
-2026-08-20 (CART-POP-1 Wave E) — Deployed diagnostic-only pre/post solver up-dot and pitch-roll
-angular-speed trace (Worker `84bf45ee`; 28 assets and marker verified). No physics setting changed.
+2026-08-20 (CART-POP-1 Wave E) — Deployed orientation trace (Worker `84bf45ee`; marker verified).
+Caps 389–391: tilt/spin can amplify pops (`+15.67`, `+16.06`), but upright/no-pre-spin still hits `+11.01`.
+No physics setting changed.
 
 2026-08-19 (playtest blockers filed) — BACKLOG Block 1 reopened with 9
 Highs. Start **NET-LAG-1**. Do not playtest until the block drains.
