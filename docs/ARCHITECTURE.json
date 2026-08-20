@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-20T19:05:52.871Z",
-    "commit": "2041a750"
+    "at": "2026-08-20T19:48:59.225Z",
+    "commit": "a7bc3372"
   },
-  "source_digest": "3147ab4b",
+  "source_digest": "fd0261cf",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -965,7 +965,7 @@
           {
             "pri": "High",
             "item": "FRIENDS-ROTATE-1 — Friends rematch rotates to the next arena",
-            "notes": "**Filed 08-19.** After a Friends match finishes and the group continues/rematches, auto-rotate to the next arena instead of repeating the same one. Level choice must stay synced for every player in the lobby. Analog of **QP-ORDER-1** (do not reopen). Distinct from **FRIENDS-LEVEL-1** (host pick wins at join).",
+            "notes": "**Landed 08-20.** Friends rematch now calls the QP in-place rotation; `playAgain` waits for `clientPlayReady` in Friends rooms too (first-match GO unchanged). Analog of **QP-ORDER-1** (do not reopen). Distinct from **FRIENDS-LEVEL-1** (host pick wins at join). **Owed: FRIENDS-ROTATE-PT-1.**",
             "ship1": null
           },
           {
@@ -1090,7 +1090,7 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Low": 5
+          "Low": 6
         },
         "rows": [
           {
@@ -1121,6 +1121,12 @@
             "pri": "Low",
             "item": "DEMOTE-COUNTDOWN-PT-1 — demoted host's countdown must not flip early `[2pc]`",
             "notes": "**Owed: Wyatt playtest — DEMOTE-COUNTDOWN-PT-1 — after a host migration during the countdown, the old host's screen must not start the round early.** Parent **DEMOTE-COUNTDOWN-1**. Prod after ship (hard-refresh).<br>1. On prod, open two clients in one room and start a round so the 3-2-1 countdown is running.<br>2. While counting down, force a host migration (e.g. close/tab the host so the other client takes over).<br>3. FAIL if the old host's screen flips to RUNNING before the countdown finishes, or the round start looks clock-skewed.<br>4. PASS if the countdown completes normally and the round starts at the right moment on both screens.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "FRIENDS-ROTATE-PT-1 — Friends rematch rotates arenas in sync `[2pc]`",
+            "notes": "**Owed: Wyatt playtest — FRIENDS-ROTATE-PT-1 — after a Friends match, PLAY AGAIN lands every client on the same next arena.** Parent **FRIENDS-ROTATE-1**. `npm run dev` with `?diag=1` on both machines (or prod after ship).<br>1. Friends room, two machines, F8 both. Play a match, then PLAY AGAIN.<br>2. FAIL if the two clients load different arenas, or if GO starts while the swap is still running, or if rotation plus warmup stays hidden more than about 10s.<br>3. PLAY AGAIN again. PASS if both wrap the same way (classicRecord → backrooms → zanzibar → classicRecord) and `arena/rotation_finished` target matches on both.<br>4. One Quickplay rematch on the same build. FAIL if QP rotation regresses.<br>5. Press F8 on both machines after the Friends wrap.",
             "ship1": null
           }
         ]

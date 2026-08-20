@@ -1063,13 +1063,16 @@ function handleSoloPauseOverlay(open) {
 
 function onHostPlayAgainClick() {
   if (!Netcode.getIsHost()) return;
-  // * Re-entrancy guard (quickplay): a double-fire (button + auto-continue race, or
-  // * a fast double-click) would adopt+broadcast a SECOND next arena while its
+  const mode = detectGameMode();
+  // * Re-entrancy guard (quickplay + friends): both modes auto-continue
+  // * (maybeScheduleAutoContinuePodium) and can double-fire click + auto-continue.
+  // * A suppressed second call must not adopt+broadcast a SECOND next arena while
   // * rotateLoadedArenaInPlace no-ops on the in-flight flag — host on arena A,
   // * everyone else on arena B. Checked BEFORE the world-reset side effects below:
   // * the suppressed call must not re-run rematchResetWorld mid-collider-rebuild
   // * (it would broadcast spawn poses computed against the outgoing arena's ring).
-  if (detectGameMode() === "quickplay" && getArenaRotationInFlight()) return;
+  const rotatesArena = mode === "quickplay" || mode === "friends";
+  if (rotatesArena && getArenaRotationInFlight()) return;
   cancelLastCartStandingFinish();
   autoContinuePodiumKey = currentPodiumAutoContinueKey();
   clearAutoContinuePodiumTimeout();
@@ -1080,16 +1083,18 @@ function onHostPlayAgainClick() {
   GameState.setRoundEndReason(null);
   Netcode.resetClientPredictionState();
   stopAllChargeSfx();
-  // * NET-1 S1 (caps 98–102): quickplay rematch used to rematchResetWorld() HERE
-  // * (old arena ring) then rotate async and rematchResetWorld again. Non-hosts got a
-  // * wrong host_spawn, a multi-second snap gap during the swap, and sometimes sat
-  // * on void coords at GO. Skip the pre-rotation broadcast; rotateLoadedArenaInPlace
-  // * re-seats + broadcasts after refreshCartSpawnPositions on the NEW ring.
-  const isQuickplayRematch = detectGameMode() === "quickplay";
-  if (!isQuickplayRematch) {
+  // * NET-1 S1 (caps 98–102): rematch used to rematchResetWorld() HERE (old arena
+  // * ring) then rotate async and rematchResetWorld again — wrong host_spawn, snap
+  // * gap, void coords at GO. Skip the pre-rotation broadcast for rotating modes;
+  // * rotateLoadedArenaInPlace re-seats + broadcasts after refreshCartSpawnPositions
+  // * on the NEW ring.
+  // * Do NOT "fix" onReturnToLobby (gameBoot.js): it still runs an old-ring
+  // * rematchResetWorld on phase→lobby mid-rotation. Transient — the rotation's
+  // * post-swap seat overwrites it before GO (GO waits on clientPlayReady).
+  if (!rotatesArena) {
     Entities.rematchResetWorld();
   }
-  if (detectGameMode() === "solo" || detectGameMode() === "testdrive") {
+  if (mode === "solo" || mode === "testdrive") {
     // * RESTART is reachable mid-round from the pause menu, where the round is
     // * still phase==="running" (solo pause only freezes the clock, never changes
     // * phase). startCountdown() bails out on phase==="running" to block
@@ -1103,15 +1108,19 @@ function onHostPlayAgainClick() {
     startCountdown(getRoundClockNowMs() + CONFIG.round.countdownMs);
     return;
   }
-  // * Quickplay arena rotation (D-STAB-2 seam / QP-ORDER-1): advance to the next
-  // * catalog arena at the rematch boundary. Latch it BEFORE sendHostRound below so
-  // * the round broadcast carries the new levelId (server latches + rebroadcasts;
-  // * non-host clients rotate via onLevelIdChanged). Friends lobbies keep the host's
-  // * deliberate arena choice.
-  if (isQuickplayRematch) {
+  // * Arena rotation (D-STAB-2 seam / QP-ORDER-1, extended to Friends rematch by
+  // * FRIENDS-ROTATE-1): advance to the next catalog arena at the rematch boundary.
+  // * Latch BEFORE sendHostRound so the round broadcast carries the new levelId
+  // * (server latches + rebroadcasts; non-host clients rotate via onLevelIdChanged
+  // * → drainPendingArenaRotation). Friends share the quickplay pool + order
+  // * (catalog order, wrap); difficulty stays on the host's latched room value —
+  // * only quickplay re-adopts its fixed "medium".
+  if (rotatesArena) {
     const nextArenaId = pickNextQuickplayArenaId();
     Netcode.adoptRoomLevelAsHost(nextArenaId);
-    Netcode.adoptRoomAiDifficultyAsHost("quickplay");
+    if (mode === "quickplay") {
+      Netcode.adoptRoomAiDifficultyAsHost("quickplay");
+    }
     void rotateLoadedArenaInPlace(nextArenaId);
   }
   syncRoundPhase("lobby");

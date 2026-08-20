@@ -77,3 +77,38 @@ describe("nextQuickplayArenaId", () => {
     expect(src).not.toMatch(/Math\.random\(\)\s*\*\s*pool\.length/);
   });
 });
+
+describe("FRIENDS-ROTATE-1 rematch seam (source-read pins)", () => {
+  const roundSrc = readFileSync(
+    new URL("../../src/orchestration/roundLifecycle.js", import.meta.url),
+    "utf8",
+  );
+
+  it("guards in-flight rotation for quickplay and friends before side effects", () => {
+    expect(roundSrc).toMatch(/mode === "quickplay" \|\| mode === "friends"/);
+    expect(roundSrc).toMatch(/rotatesArena && getArenaRotationInFlight\(\)/);
+    expect(roundSrc).not.toMatch(/quickplay" && getArenaRotationInFlight/);
+  });
+
+  it("rotatesArena rematch picks the next catalog arena with no Math.random", () => {
+    expect(roundSrc).toMatch(
+      /if \(rotatesArena\) \{[\s\S]*pickNextQuickplayArenaId\(\)[\s\S]*adoptRoomLevelAsHost/,
+    );
+    const seam = roundSrc.slice(
+      roundSrc.indexOf("function onHostPlayAgainClick"),
+      roundSrc.indexOf("function clearPodiumRoundTimeout"),
+    );
+    expect(seam).not.toMatch(/Math\.random\(/);
+  });
+
+  it("skips pre-rotation rematchResetWorld when rotatesArena", () => {
+    const seam = roundSrc.slice(
+      roundSrc.indexOf("function onHostPlayAgainClick"),
+      roundSrc.indexOf("function clearPodiumRoundTimeout"),
+    );
+    expect(seam).toMatch(/if \(!rotatesArena\) \{\s*Entities\.rematchResetWorld\(\);/);
+    expect(seam.indexOf("if (!rotatesArena)")).toBeLessThan(
+      seam.indexOf("Entities.rematchResetWorld"),
+    );
+  });
+});

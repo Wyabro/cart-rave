@@ -743,6 +743,12 @@ export function createLevelOrchestration(deps) {
     await rotateLoadedArenaInPlace(next);
   }
 
+  /**
+   * Next arena for rematch rotation. Shared by Quickplay (QP-ORDER-1) and Friends
+   * rematch (FRIENDS-ROTATE-1): both advance the quickplay catalog pool in order,
+   * wrapping. Name kept from the quickplay origin — the pool and order ARE the
+   * quickplay rotation by design.
+   */
   function pickNextQuickplayArenaId() {
     return nextQuickplayArenaId(getCurrentLevelId());
   }

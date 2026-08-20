@@ -201,6 +201,10 @@ export class CartRaveServer extends Server {
   #countdownAbortGraceHandle: ReturnType<typeof setTimeout> | null = null;
   // * COUNTDOWN-ARM-1: continuous lobby ceiling waiting for clientPlayReady.
   #playReadyWaitHandle: ReturnType<typeof setTimeout> | null = null;
+  // * FRIENDS-ROTATE-1: playAgain also waits for clientPlayReady in Friends rooms
+  // * (continuous mode already waits). First-match Friends GO is unchanged.
+  // * Cleared only in #armGameStart so an unready abort still waits on re-ready.
+  #rematchAwaitPlayReady = false;
   #npcNameDeck: string[] = [];
 
   // Security: Rate limiting state
@@ -770,12 +774,19 @@ export class CartRaveServer extends Server {
   // *
   // * Do not inspect isPlayReady here. Abort is COUNTDOWN-ABORT-1 / isReady-only.
   // * A clientPlayReady bit must never cancel an armed countdown.
+  #hasPendingGameStartArm(): boolean {
+    return this.#countdownTimerHandle !== null
+      || this.#countdownArmed
+      || this.#rematchGraceTimerHandle !== null
+      || this.#playReadyWaitHandle !== null;
+  }
+
+  #shouldAwaitPlayReady(): boolean {
+    return this.#isContinuousMode() || this.#rematchAwaitPlayReady;
+  }
+
   #cancelCountdownIfNeeded() {
-    if (
-      this.#countdownTimerHandle === null
-      && !this.#countdownArmed
-      && this.#rematchGraceTimerHandle === null
-    ) {
+    if (!this.#hasPendingGameStartArm()) {
       return;
     }
     if (!this.#slots) return;
@@ -816,11 +827,7 @@ export class CartRaveServer extends Server {
 
   /** Grace expired: abort the armed countdown only if a live human is STILL unready. */
   #reevaluateCountdownAfterGrace() {
-    if (
-      this.#countdownTimerHandle === null
-      && !this.#countdownArmed
-      && this.#rematchGraceTimerHandle === null
-    ) {
+    if (!this.#hasPendingGameStartArm()) {
       return;
     }
     if (!this.#slots) return;
@@ -836,11 +843,7 @@ export class CartRaveServer extends Server {
   // * Also drops rematch grace so unready mid-breathe doesn't still auto-arm.
   #abortArmedCountdown() {
     this.#clearCountdownAbortGrace();
-    if (
-      this.#countdownTimerHandle === null
-      && !this.#countdownArmed
-      && this.#rematchGraceTimerHandle === null
-    ) {
+    if (!this.#hasPendingGameStartArm()) {
       return;
     }
     const hadArmedCountdown =
@@ -927,7 +930,9 @@ export class CartRaveServer extends Server {
     if (!humanSlots.every((s) => s.isReady)) return;
 
     // * COUNTDOWN-ARM-1: continuous mode also needs clientPlayReady (or the 12s ceiling).
-    if (this.#isContinuousMode() && !humanSlots.every((s) => s.isPlayReady)) {
+    // * FRIENDS-ROTATE-1: rematch (playAgain) uses the same wait in Friends rooms so
+    // * GO cannot arm mid-arena-swap. First-match Friends GO does not set the flag.
+    if (this.#shouldAwaitPlayReady() && !humanSlots.every((s) => s.isPlayReady)) {
       this.#schedulePlayReadyWait({ reset: false });
       return;
     }
@@ -945,6 +950,7 @@ export class CartRaveServer extends Server {
       return;
     }
     this.#clearPlayReadyWait();
+    this.#rematchAwaitPlayReady = false;
     const startsAtMs = this.#serverNowMs() + FLYOVER_PREROLL_MS + COUNTDOWN_MS;
     this.#countdownArmed = true;
     this.#broadcastJson({
@@ -967,11 +973,13 @@ export class CartRaveServer extends Server {
   }
 
   /**
-   * Continuous lobby: start/reset the PLAY_READY_TIMEOUT_MS ceiling while waiting
-   * for clientPlayReady. `reset: true` on new seat so a late joiner gets a full 12s.
+   * Start/reset the PLAY_READY_TIMEOUT_MS ceiling while waiting for clientPlayReady.
+   * Continuous lobby always waits. Friends waits only after playAgain
+   * (`#rematchAwaitPlayReady`). `reset: true` on new seat so a late joiner gets a
+   * full 12s.
    */
   #schedulePlayReadyWait(opts: { reset: boolean }) {
-    if (!this.#isContinuousMode()) {
+    if (!this.#shouldAwaitPlayReady()) {
       this.#clearPlayReadyWait();
       return;
     }
@@ -1005,6 +1013,16 @@ export class CartRaveServer extends Server {
     this.#playReadyWaitHandle = setTimeout(() => {
       this.#playReadyWaitHandle = null;
       // * Timeout A: arm a fresh full COUNTDOWN_MS window; Cap-200 handles stragglers.
+      // * FRIENDS-ROTATE-1: Friends can unready during this wait (QP cannot). Re-check
+      // * isReady before arm. Do not start a second 12s wait from the timeout.
+      if (this.#round.phase !== "lobby") return;
+      if (this.#countdownTimerHandle !== null || this.#rematchGraceTimerHandle !== null) return;
+      if (!this.#slots) return;
+      const liveConnIds = this.#liveConnIdSet();
+      const humans = this.#slots.filter(
+        (s) => s.kind === "human" && s.connId && liveConnIds.has(s.connId),
+      );
+      if (humans.length === 0 || !humans.every((s) => s.isReady)) return;
       this.#armGameStart();
     }, getPlayReadyTimeoutMs());
   }
@@ -1558,6 +1576,8 @@ export class CartRaveServer extends Server {
         this.#carts = [];
         // * Host-initiated rematch: auto-ready all humans so the next countdown can start.
         // * COUNTDOWN-ARM-1: clear playReady so clients re-signal (usually instant — carts warm).
+        // * FRIENDS-ROTATE-1: hold GO on clientPlayReady in Friends too (arena rotation).
+        this.#rematchAwaitPlayReady = true;
         for (const slot of (this.#slots ?? [])) {
           if (slot.kind === "human") {
             slot.isReady = true;

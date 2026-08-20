@@ -805,6 +805,117 @@ describe("CartRaveServer DO harness", () => {
     client.close();
   });
 
+  function gameStartCount(client) {
+    return client.messages.filter((m) => m.type === MSG.gameStart).length;
+  }
+
+  function awaitNthGameStart(client, n, timeoutMs = 3000) {
+    return client.awaitMessage(
+      (m) => m.type === MSG.gameStart && gameStartCount(client) >= n,
+      timeoutMs,
+    );
+  }
+
+  it("friends first-match GO still arms on readyToggle without clientPlayReady", async () => {
+    const room = uniqueRoom("friends-first-go");
+    const host = await connectAndSeat(room, {
+      name: "FR1",
+      color: "blue",
+      clientId: "cid-fr-first-h",
+      ip: "10.0.5.1",
+    });
+    const joiner = await connectAndSeat(room, {
+      name: "FR2",
+      color: "pink",
+      clientId: "cid-fr-first-j",
+      ip: "10.0.5.2",
+    });
+
+    host.client.sendJson({ type: MSG.readyToggle, ready: true });
+    joiner.client.sendJson({ type: MSG.readyToggle, ready: true });
+    const start = await host.client.awaitType(MSG.gameStart, 3000);
+    expect(start.startsAtMs).toEqual(expect.any(Number));
+    expect(gameStartCount(host.client)).toBe(1);
+
+    host.client.close();
+    joiner.client.close();
+  });
+
+  it("friends rematch waits for both clientPlayReady after playAgain", async () => {
+    // * FRIENDS-ROTATE-1: playAgain auto-readies humans but must not arm GO until
+    // * every live human signals warm (arena rotation is in flight on the client).
+    const room = uniqueRoom("friends-rotate-rematch");
+    const host = await connectAndSeat(room, {
+      name: "FRH",
+      color: "blue",
+      clientId: "cid-fr-rot-h",
+      ip: "10.0.5.3",
+    });
+    const joiner = await connectAndSeat(room, {
+      name: "FRJ",
+      color: "pink",
+      clientId: "cid-fr-rot-j",
+      ip: "10.0.5.4",
+    });
+
+    host.client.sendJson({ type: MSG.playAgain });
+    await sleep(2200);
+    expect(gameStartCount(host.client)).toBe(0);
+
+    host.client.sendJson({ type: MSG.clientPlayReady });
+    await sleep(150);
+    expect(gameStartCount(host.client)).toBe(0);
+
+    const startPromise = awaitNthGameStart(host.client, 1);
+    joiner.client.sendJson({ type: MSG.clientPlayReady });
+    const start = await startPromise;
+    expect(start.startsAtMs).toEqual(expect.any(Number));
+
+    host.client.close();
+    joiner.client.close();
+  }, 10_000);
+
+  it("friends rematch playReady wait does not arm if a human unreadies", async () => {
+    setPlayReadyTimeoutOverride(400);
+    try {
+      const room = uniqueRoom("friends-rotate-unready");
+      const host = await connectAndSeat(room, {
+        name: "FRU-H",
+        color: "blue",
+        clientId: "cid-fr-unr-h",
+        ip: "10.0.5.5",
+      });
+      const joiner = await connectAndSeat(room, {
+        name: "FRU-J",
+        color: "pink",
+        clientId: "cid-fr-unr-j",
+        ip: "10.0.5.6",
+      });
+
+      host.client.sendJson({ type: MSG.playAgain });
+      await sleep(2200);
+      expect(gameStartCount(host.client)).toBe(0);
+
+      joiner.client.sendJson({ type: MSG.readyToggle, ready: false });
+      await sleep(600);
+      expect(gameStartCount(host.client)).toBe(0);
+
+      joiner.client.sendJson({ type: MSG.readyToggle, ready: true });
+      await sleep(150);
+      expect(gameStartCount(host.client)).toBe(0);
+
+      host.client.sendJson({ type: MSG.clientPlayReady });
+      joiner.client.sendJson({ type: MSG.clientPlayReady });
+      const start = await awaitNthGameStart(host.client, 1, 3000);
+      expect(start.startsAtMs).toEqual(expect.any(Number));
+
+      host.client.close();
+      joiner.client.close();
+    } finally {
+      setPlayReadyTimeoutOverride(null);
+    }
+  }, 15_000);
+
   it("arms game_start after playReady timeout when clientPlayReady never arrives", async () => {
     setPlayReadyTimeoutOverride(250);
     try {
