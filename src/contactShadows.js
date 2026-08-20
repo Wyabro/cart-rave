@@ -74,8 +74,8 @@ export function yawFromQuaternion(quat) {
 /**
  * Support distance of (x, z) on an octagon whose **flats are normal to the k·45°
  * directions** — the orientation every octagon arena in this game actually builds
- * (`zanzibarPlatform.getZanzibarFloorColliderSpec` lays the deck out as four cuboids at
- * `yaw = k·π/4`, and `octPath` / `buildOctHullVertices` put the vertices at 22.5° + k·45°).
+ * (`zanzibarPlatform.getZanzibarFloorColliderSpec` lays one octagon trimesh whose
+ * vertices sit at 22.5° + k·45°, matching `octPath` / `buildOctHullVertices`).
  * A point is on the deck when this is ≤ the deck apothem.
  *
  * Deliberately identical to `simulation.js`'s `octagonEdgeDistance()`: the AI bounds and

@@ -63,11 +63,11 @@ describe("SUNDIAL-OBSTACLE-SLIDE-1 — Sundial obstacles do not average friction
     }
   });
 
-  it("leaves the deck cuboids on the default Average rule", () => {
+  it("leaves the deck trimesh on the default Average rule", () => {
     // Floor canary. DECK_FRICTION is tuned as a FELT value against the cart's 1.1 — the whole
     // point of Average on a driveable surface. If this ever acquires Min, someone has run a
     // "make Sundial consistent" sweep, which is exactly the move that would sand off the grip.
-    const deck = sliceBetween("const addRectCollider = (rect) =>", "spec.deckRects.forEach");
+    const deck = sliceBetween("const addTrimeshCollider = (mesh) =>", "addTrimeshCollider(spec.deckTrimesh)");
     expect(deck).not.toContain("setFrictionCombineRule");
   });
 

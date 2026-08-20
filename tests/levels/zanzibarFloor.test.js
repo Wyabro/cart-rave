@@ -1,45 +1,36 @@
+import { readFileSync } from "node:fs";
 import { describe, it, expect } from "vitest";
 import { getZanzibarFloorColliderSpec } from "../../src/levels/zanzibarPlatform.js";
 
-// Sundial Station floor invariants (2026-07-09 feedback round):
+// Sundial Station floor invariants (CART-POP-1):
 //
-// 1. FLAT SURFACES ARE CUBOIDS, NOT HULLS. Resting carts (roundCuboid colliders)
-//    visibly jitter on large convex-hull faces but sit rock-solid on cuboids — observed
-//    directly in play (spawn booths = cuboids = stable; the old hull deck = jitter).
-//    The deck and podium crown are each four rotated cuboids whose union is EXACTLY the
-//    visual octagon; every top face shares one plane with identical +y normals.
+// 1. FLATS ARE ONE TRIMESH EACH, NOT OVERLAPPING CUBOIDS AND NOT A HULL.
+//    Four overlapping cuboids launched a supported cart at ~24 m/s (tilted nY 0.919).
+//    Convex hulls jitter at rest (2026-07-09). Classic used one annulus trimesh with
+//    FIX_INTERNAL_EDGES; Sundial uses one octagon prism with the same flag.
 //
-// 2. THE RAMP HULL IS NEVER COPLANAR WITH A CUBOID. Hull faces exactly coplanar with
+// 2. THE RAMP HULL IS NEVER COPLANAR WITH A FLAT. Hull faces exactly coplanar with
 //    another collider flip contact ownership frame-to-frame (the Storerooms CHAMFER_TUCK
 //    lesson), so the podium ramp hull is tucked below the cap plane at its crest and
 //    below the deck plane at its base.
 
 const DECK_THICKNESS = 0.6; // keep in sync with zanzibarPlatform.js
 const PODIUM_HEIGHT = 0.5;
+const PODIUM_TOP_R = 6.6;
+const PODIUM_CAP_THICKNESS = 0.12;
 const MIN_TUCK = 0.01; // meters — minimum separation from any shared plane
 
 const circumR = 31.7 / Math.cos(Math.PI / 8); // enlarged deck (apothem 31.7)
 const APOTHEM = 31.7;
+const VERTEX_OFFSET = Math.PI / 8;
 const spec = getZanzibarFloorColliderSpec(circumR);
+const src = readFileSync(new URL("../../src/levels/zanzibarPlatform.js", import.meta.url), "utf8");
 
 /** Point-in-octagon test (flats normal to the k·45° directions, apothem A). */
 function insideOctagon(x, z, A) {
   const ax = Math.abs(x);
   const az = Math.abs(z);
   return Math.max(ax, az, (ax + az) * Math.SQRT1_2) <= A;
-}
-
-/** Point covered by one rotated rectangle from the spec. */
-function insideRect(x, z, rect) {
-  const cos = Math.cos(rect.yaw);
-  const sin = Math.sin(rect.yaw);
-  const lx = x * cos + z * sin;
-  const lz = -x * sin + z * cos;
-  return Math.abs(lx) <= rect.halfLength && Math.abs(lz) <= rect.halfWidth;
-}
-
-function coveredBy(rects, x, z) {
-  return rects.some((r) => insideRect(x, z, r));
 }
 
 /** Y values of a hull's vertex array (Float32Array of xyz triples). */
@@ -49,46 +40,70 @@ function hullYs(hull) {
   return out;
 }
 
-describe("Sundial Station cuboid deck decomposition", () => {
-  it("uses four rectangles rotated 45° apart for deck and podium caps", () => {
-    for (const rects of [spec.deckRects, spec.podiumCaps]) {
-      expect(rects.length).toBe(4);
-      const yaws = rects.map((r) => r.yaw).sort((a, b) => a - b);
-      for (let k = 0; k < 4; k += 1) {
-        expect(yaws[k]).toBeCloseTo(k * (Math.PI / 4), 9);
-      }
+function topRing(mesh) {
+  const out = [];
+  for (let i = 0; i < mesh.sides; i += 1) {
+    out.push({
+      x: mesh.vertices[i * 3],
+      y: mesh.vertices[i * 3 + 1],
+      z: mesh.vertices[i * 3 + 2],
+    });
+  }
+  return out;
+}
+
+describe("Sundial Station octagon deck trimesh", () => {
+  it("builds one 8-side prism for the deck, not four cuboids", () => {
+    expect(spec.deckTrimesh.sides).toBe(8);
+    expect(spec.deckTrimesh.vertices.length).toBe(8 * 2 * 3);
+    expect(spec.deckTrimesh.indices.length).toBe((6 + 6 + 8 * 2) * 3);
+    expect(spec.deckRects).toBeUndefined();
+    expect(spec.podiumCaps).toBeUndefined();
+  });
+
+  it("places the deck top at y=0 with the tuned thickness", () => {
+    expect(spec.deckTrimesh.yTop).toBeCloseTo(0, 9);
+    expect(spec.deckTrimesh.yBottom).toBeCloseTo(-DECK_THICKNESS, 9);
+    for (const v of topRing(spec.deckTrimesh)) {
+      expect(v.y).toBeCloseTo(0, 9);
     }
   });
 
-  it("deck rect union covers exactly the visual octagon (no gaps, no overhang)", () => {
-    const eps = 0.02; // skip points within 2 cm of the boundary (numeric edge)
-    let checked = 0;
-    for (let x = -circumR; x <= circumR; x += 0.37) {
-      for (let z = -circumR; z <= circumR; z += 0.37) {
-        const inOct = insideOctagon(x, z, APOTHEM - eps);
-        const outOct = !insideOctagon(x, z, APOTHEM + eps);
-        const covered = coveredBy(spec.deckRects, x, z);
-        if (inOct) {
-          expect(covered, `visible deck must be supported at (${x.toFixed(2)}, ${z.toFixed(2)})`).toBe(true);
-        } else if (outOct) {
-          expect(covered, `no invisible support past the kill edge at (${x.toFixed(2)}, ${z.toFixed(2)})`).toBe(false);
-        }
-        checked += 1;
-      }
-    }
-    expect(checked).toBeGreaterThan(30000);
+  it("places deck vertices on the visual octagon (no gaps, no overhang)", () => {
+    const verts = topRing(spec.deckTrimesh);
+    expect(verts.length).toBe(8);
+    verts.forEach((v, i) => {
+      const a = VERTEX_OFFSET + i * (Math.PI / 4);
+      expect(v.x).toBeCloseTo(Math.cos(a) * circumR, 5);
+      expect(v.z).toBeCloseTo(Math.sin(a) * circumR, 5);
+      expect(insideOctagon(v.x, v.z, APOTHEM + 1e-6)).toBe(true);
+      expect(Math.hypot(v.x, v.z)).toBeCloseTo(circumR, 5);
+    });
   });
 
-  it("all deck cuboid tops are coplanar at y=0 with the tuned thickness", () => {
-    for (const r of spec.deckRects) {
-      expect(r.centerY + r.halfHeight).toBeCloseTo(0, 9);
-      expect(r.halfHeight * 2).toBeCloseTo(DECK_THICKNESS, 9);
-    }
+  it("uses a FIX_INTERNAL_EDGES trimesh for the deck and podium cap", () => {
+    const floor = src.slice(
+      src.indexOf("CART-POP-1: one octagon trimesh per flat"),
+      src.indexOf("Drivable ramp ring"),
+    );
+    expect(floor).toContain("ColliderDesc.trimesh");
+    expect(floor).toContain("TriMeshFlags.FIX_INTERNAL_EDGES");
+    expect(floor).not.toContain("ColliderDesc.convexHull");
+    expect(floor).not.toContain("ColliderDesc.cuboid");
+    expect(src).toContain("addTrimeshCollider(spec.deckTrimesh)");
+    expect(src).toContain("addTrimeshCollider(spec.podiumCapTrimesh)");
   });
+});
 
-  it("all podium cap tops are coplanar at the podium height", () => {
-    for (const r of spec.podiumCaps) {
-      expect(r.centerY + r.halfHeight).toBeCloseTo(PODIUM_HEIGHT, 9);
+describe("Sundial Station podium cap trimesh", () => {
+  it("places the cap top at the podium height", () => {
+    expect(spec.podiumCapTrimesh.sides).toBe(8);
+    expect(spec.podiumCapTrimesh.yTop).toBeCloseTo(PODIUM_HEIGHT, 9);
+    expect(spec.podiumCapTrimesh.yBottom).toBeCloseTo(PODIUM_HEIGHT - PODIUM_CAP_THICKNESS, 9);
+    expect(spec.podiumCapTrimesh.circumR).toBeCloseTo(PODIUM_TOP_R, 9);
+    for (const v of topRing(spec.podiumCapTrimesh)) {
+      expect(v.y).toBeCloseTo(PODIUM_HEIGHT, 9);
+      expect(Math.hypot(v.x, v.z)).toBeCloseTo(PODIUM_TOP_R, 5);
     }
   });
 });

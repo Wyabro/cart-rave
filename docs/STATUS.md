@@ -26,9 +26,9 @@ report phase-exit eligibility; they must not move the marker.
 ## Current focus
 
 **Playtesting and stabilization.** External playtest is gated on BACKLOG Block 1
-(9 Highs). **NET-LAG-1-PT-1** is parked by Wyatt (08-20). **CART-POP-1** Wave I live. Wyatt PASS Classic (Cart Rave). Sundial
-and Storerooms still pop — overlapping floor colliders. New window
-owns those two. Do not retouch Classic.
+(9 Highs). **NET-LAG-1-PT-1** is parked by Wyatt (08-20). **CART-POP-1** Sundial
+floor is one octagon trimesh per flat (`FIX_INTERNAL_EDGES`). Not shipped.
+Storerooms still pop — multiple floor colliders. Do not retouch Classic.
 Tier A drained; Tier B/C, security sweep, and analytics gating are closed. Run 7
 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Stay in this phase until
 Wyatt advances the marker.
@@ -98,7 +98,7 @@ Live rows only. Shipped and closed cards live in
 | # | What | Status |
 |---|------|--------|
 | NET-LAG-1 | Friends/QP lag + rubber-band (F8 both machines) | wave 1 landed; 🅿️ **NET-LAG-1-PT-1** `[2pc]` parked by Wyatt 08-20 |
-| CART-POP-1 | carts pop off the floor in normal driving | Classic PASS; Sundial + Storerooms remain |
+| CART-POP-1 | carts pop off the floor in normal driving | Classic PASS; Sundial trimesh landed, not shipped; Storerooms remain |
 | FRIENDS-ROTATE-1 | Friends rematch rotates arenas, synced | queued |
 | ONBOARD-JUMP-1 | HOW TO PLAY matches jump+boost | queued |
 | ONBOARD-WEBP-1 | HOW TO PLAY WebP playback + fallback | queued |
@@ -109,8 +109,8 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. New window: **CART-POP-1** Sundial then Storerooms. Classic is
-   closed. Do not tune physics. Pattern: one floor surface, no overlap.
+1. **CART-POP-1** Sundial trimesh landed. Wait for "ship it". Then
+   Storerooms. Do not retouch Classic. Do not tune physics.
 2. **NET-LAG-1-PT-1** `[2pc]` is parked by Wyatt. Drain BACKLOG Block 1 in work-order order. Do not start an external
    playtest until it drains. Deferred: **SHARD-PT-2** (launch day).
 
@@ -169,76 +169,29 @@ or a suspected blocker (TS 7 · `cartrave4` UVs).
 
 ## Last updated
 
-2026-08-20 (**ONBOARD-JUMP-1**) — swapped gamepad jump/boost bindings
-to match HOW TO PLAY: boost = RT/B, hop = A/LT (was LT/A boost, RT/B
-hop). Main menu, Settings, and pause CONTROLS charts updated; HOWTO
-chips were already correct. Playtest **ONBOARD-JUMP-PT-1** seeded.
+2026-08-20 (CART-POP-1 Sundial) — Classic PASS Wave I (`5360f482`); do not
+retouch Classic. Sundial overlapping cuboids → one octagon trimesh per
+flat with `FIX_INTERNAL_EDGES`. Isolated r=26 24 m/s: cuboids
+`preVy=0 dvy=4.367 nY=0.919`; trimesh `pops=0`. Not shipped. Storerooms
+next. **CART-POP-PT-1** stays open.
 
-2026-08-20 (**MENU-MUSIC-2C-PT-1**) — Wyatt PASS on prod `98f21261`
-(VERIFY_OK `index-W2GptIT9.js`). One menu song on title boot. Parent
-**MENU-MUSIC-2C** closes with it.
+2026-08-20 (**ONBOARD-JUMP-1**) — gamepad boost = RT/B, hop = A/LT.
+Playtest **ONBOARD-JUMP-PT-1** seeded.
 
-2026-08-20 (**NPC-SELFKO-3** closed) — Wyatt bar: under 10 NPC self-KOs /
-150 s on all three arenas. Soak: Cart Rave 1, Storerooms 6, Sundial 3
-(was 30). `7384dc27`. **NPC-SELFKO-3-PT-1** closed on the same bar.
+2026-08-20 (**MENU-MUSIC-2C-PT-1**) — Wyatt PASS on prod `98f21261`.
+Parent **MENU-MUSIC-2C** closes with it.
 
-2026-08-20 (Wyatt lane change) — parked **NET-LAG-1-PT-1** `[2pc]`; start
-**CART-POP-1** Wave A. Instrument shared contact behavior and capture a cause
-before changing a physics lever.
+2026-08-20 (**NPC-SELFKO-3** closed) — under 10 self-KOs / 150 s. Soak
+1 / 6 / 3. `7384dc27`. **NPC-SELFKO-3-PT-1** closed on the same bar.
 
-2026-08-20 (CART-POP-1 Wave C/D) — controls, restitution, and wedge seams are not sufficient causes;
-single-floor supports produce the highest rises. Wave E/F follows the remaining solver path.
-
-2026-08-20 (CART-POP-PT-1 Classic) — Wyatt PASS Cart Rave on Wave I
-(`5360f482`). **CART-POP-PT-1** stays open until Sundial and Storerooms
-also stay planted. Do not reopen Classic hulls.
+2026-08-20 (Wyatt lane) — parked **NET-LAG-1-PT-1** `[2pc]`.
 
 2026-08-19 (playtest blockers filed) — BACKLOG Block 1 reopened with 9
 Highs. Start **NET-LAG-1**. Do not playtest until the block drains.
 
-2026-08-19 (playtest PASS) — **FEEDBACK-PT-1** Wyatt PASS
-(`npm run dev`, `7daf3e38`). Survey line prints last on the MATCH
-RECEIPT and opens the form in a new tab. Parent **FEEDBACK-1** closes
-with it. Deferred: **SHARD-PT-2**.
-
-2026-08-19 (playtest PASS) — **SPILL-DOUBLE-VFX-PT-1** Wyatt PASS.
-Non-host tip-over spill VFX + clatter fire once. Parent
-**SPILL-DOUBLE-VFX-1** closes with it. Deferred: **SHARD-PT-2**.
-
-2026-08-19 (playtest PASSes) — **BOOT-TBT-PT-1** Wyatt PASS on prod
-(`c3aecffe`); **MENU-ARROW-PT-1** Wyatt PASS; **PODIUM-DOUBLE-CREDIT-PT-1**
-Wyatt PASS on prod (`0211a408`). Parents close. **SPILL-DOUBLE-VFX-PT-1**
-closed later the same day. Deferred: **SHARD-PT-2**.
-
-2026-08-18 (BOOT-TBT-1) — Classic `initArena` is async and yields between
-record floor / dress / booths / pit wall / pit detail. `loadLevel` awaits
-`initFn` so preview LOD stays on. Lab: work 57 ms, no hull slab >3 ms;
-chunk import still dominates `commitLevelLoad`. Prod Rapier wasm is `zstd`.
-Playtest **BOOT-TBT-PT-1**.
-
-2026-08-18 (playtest PASSes + MENU-ARROW-1) — **MENU-ARROW-1** landed prod
-`fbec1bf5` (VERIFY_OK); owed **MENU-ARROW-PT-1**. Playtest PASSes —
-**KEYUP-STUCK-PT-1** · **SPECTATOR-ANNOUNCER-PT-1** · **RD-COUNTER-PT-1**
-(prod `e3886b5f`) · **PERF-WATCH-PT-1** (`npm run dev`, `3f467334`).
+2026-08-19 (playtest PASSes) — **FEEDBACK-PT-1** · **SPILL-DOUBLE-VFX-PT-1**
+· **BOOT-TBT-PT-1** · **MENU-ARROW-PT-1** · **PODIUM-DOUBLE-CREDIT-PT-1**.
 Parents close. Deferred: **SHARD-PT-2**.
-
-2026-08-18 (ship) — Block 5 Lows + vis buckets on prod `e3886b5f`
-(VERIFY_OK, Worker `95e4fba7`). Wyatt F8 Friends Classic Low next.
-
-2026-08-18 (PERF-CLASSIC-IGPU-1 wave B) — vis buckets on F8 `loopRound`. No
-look change. Wyatt F8 Friends Classic Low next.
-
-2026-08-18 (playtest PASSes) — **CUSTOMIZE-SPAM-PT-1** Wyatt PASS on prod
-(`a41987e7`); **WARM-CLASSIC-JUICE-PT-1** Wyatt PASS on `npm run dev`
-(`951ea15d`). Parents close. Deferred: **SHARD-PT-2**.
-
-2026-08-17 (playtest PASSes) — **COUNTDOWN-HOST-STAMP-PT-1** · **CUSTOMIZE-SVG-FLASH-PT-1** ·
-**FRIENDS-LOBBY-ORDER-PT-1** · **KO-CENTER-RING-PT-1** Wyatt PASS on prod (`7896b9f4`);
-**SD-SPECTATOR-CHARGE-PT-1** · **CART-HUE-RED-PT-1** · **LAST-STANDING-DEAD-PT-1** ·
-**NPC-ABORT-BURST-PT-1** · **REMOTE-INPUT-STALE-PT-1** · **SPILL-RAM-CREDIT-PT-1**
-Wyatt PASS on `npm run dev`. Parents close. Deferred: **SHARD-PT-2**.
-
-2026-08-17 (CART-HUE-CUBES) — shipped prod `9cd253e5`; Wyatt PASS; parent closes.
 
 2026-08-17 (D-WORK-LANES-1) — replaced fast / full-wave handling with agent-assessed
 Routine / Standard / Critical lanes. Routine needs no ack or full QA; Standard and Critical

@@ -8,19 +8,13 @@
 //   Sundial Station = OPEN octagon — no walls, no holes. Every one of the eight edges is a
 //                     kill zone, and a low drivable center podium adds verticality.
 //
-// Physics philosophy (July 1 collider overhaul rules): primitives only, no trimesh.
-//   Deck   = FOUR overlapping cuboids whose union is exactly the regular octagon (each
-//            rotated 45° from the last, half-length = apothem, half-width = apothem·tan 22.5°).
-//            NOT a convex hull: resting carts (roundCuboid) visibly jitter on large
-//            convex-hull faces while sitting rock-solid on the cuboid spawn booths —
-//            observed directly in the 2026-07-09 feedback round. All four tops are
-//            coplanar at y=0 with identical +y normals, so their manifolds agree.
-//   Podium = four thin rotated cuboid CAPS (flat, stable top surface) over ONE convex
-//            hull for the drivable ramp ring. The hull crest is tucked below the cap
-//            plane and its base below the deck plane (PODIUM_CREST_TUCK / PODIUM_TUCK) —
-//            hulls sharing an exact coplanar plane with another collider cause
-//            contact-manifold flip-flop; same class of bug The Storerooms avoids with
-//            CHAMFER_TUCK.
+// Physics philosophy:
+//   Deck + podium caps = ONE octagon-prism trimesh each, FIX_INTERNAL_EDGES (CART-POP-1).
+//            The previous four overlapping cuboids per flat were coplanar double solids.
+//            A supported cart on a 24 m/s circle took a tilted manifold (nY 0.919) and
+//            rose +4 vy. Convex hulls jitter at rest (2026-07-09); do not go back to a hull.
+//   Podium ramp = ONE convex hull, tucked below the cap plane and the deck plane
+//            (PODIUM_CREST_TUCK / PODIUM_TUCK) so it is never coplanar with a flat.
 //   Corner bollards = 8 cylinder colliders. Booths = 4 cuboids.
 //   Floor colliders use RestitutionCombineRule.Min so the deck's tuned 0.05 restitution
 //   wins over the cart's 0.3 (Rapier's default Average produced a phantom ~0.175 bounce).
@@ -67,11 +61,11 @@ const PODIUM_TUCK = 0.02;
 // * Hologram base hover above the podium. Raised 2.85 → 3.75 (run-4 playtest): carts kept
 // * driving through the dial plate on podium contests — keep the lowest band clear of cart tops.
 const HOLO_HOVER_Y = 3.75;
-// * The ramp hull's crest sits this far below the flat cap cuboids' top plane, so carts
-// * parked on the podium rest on stable cuboid faces, never on the hull. The 2 cm step
-// * at the crest is far below the cart's 8 cm roundCuboid radius (never catches).
+// * The ramp hull's crest sits this far below the flat cap trimesh top plane, so carts
+// * parked on the podium rest on the cap, never on the hull. The 2 cm step at the crest
+// * is far below the cart's 8 cm roundCuboid radius (never catches).
 const PODIUM_CREST_TUCK = 0.02;
-const PODIUM_CAP_THICKNESS = 0.12; // meters — thin flat cuboid caps on the podium crown
+const PODIUM_CAP_THICKNESS = 0.12; // meters — thin flat cap plate on the podium crown
 
 // * Standing gnomon blade — the piece that makes "this arena is a sundial" legible. The dial
 // * face and the SUN_AZIMUTH datum bar are what it reads against; before this there was only
@@ -1360,37 +1354,81 @@ function buildOctHullVertices(circumR, yTop, yBottom, topCircumR = circumR) {
 }
 
 /**
+ * One octagon-prism trimesh: top, bottom, eight outer walls.
+ * No internal radial faces. Shared with the CART-POP-1 Sundial repro.
+ *
+ * Top winding is (0, i+1, i): increasing angle in XZ gives a -Y cross product, so
+ * this order is +Y. Wrong winding with ORIENTED drops a cart through the floor.
+ *
+ * @param {number} circumR Circumradius in meters.
+ * @param {number} yTop Top-face Y in body space.
+ * @param {number} yBottom Bottom-face Y in body space.
+ * @returns {{
+ *   vertices: Float32Array,
+ *   indices: Uint32Array,
+ *   circumR: number,
+ *   yTop: number,
+ *   yBottom: number,
+ *   sides: number,
+ * }}
+ */
+export function buildOctagonPrismTrimesh(circumR, yTop, yBottom) {
+  const n = OCT_SIDES;
+  const vertices = new Float32Array(n * 2 * 3);
+  for (let i = 0; i < n; i += 1) {
+    const a = VERTEX_OFFSET + i * (Math.PI / 4);
+    const c = Math.cos(a) * circumR;
+    const s = Math.sin(a) * circumR;
+    vertices[i * 3 + 0] = c;
+    vertices[i * 3 + 1] = yTop;
+    vertices[i * 3 + 2] = s;
+    vertices[(n + i) * 3 + 0] = c;
+    vertices[(n + i) * 3 + 1] = yBottom;
+    vertices[(n + i) * 3 + 2] = s;
+  }
+  const indices = [];
+  const quad = (a, b, c, d) => {
+    indices.push(a, b, c, a, c, d);
+  };
+  for (let i = 1; i < n - 1; i += 1) {
+    indices.push(0, i + 1, i);
+    indices.push(n, n + i, n + i + 1);
+  }
+  for (let i = 0; i < n; i += 1) {
+    const j = (i + 1) % n;
+    quad(i, j, n + j, n + i);
+  }
+  return {
+    vertices,
+    indices: new Uint32Array(indices),
+    circumR,
+    yTop,
+    yBottom,
+    sides: n,
+  };
+}
+
+/**
  * Full floor-collider layout for a given deck circumradius. Exported for the floor
  * regression test (tests/zanzibarFloor.test.js).
  *
- * Deck + podium caps: a regular octagon with apothem A (flats normal to the k·45°
- * directions) is EXACTLY the union of four rectangles rotated 45° apart, each with
- * half-length A and half-width A·tan(22.5°) — so four overlapping cuboids give a
- * jitter-free all-cuboid floor whose union matches the visual octagon with zero gaps
- * and zero overhang. The podium ramp stays a convex hull, tucked below both planes it
- * meets (see PODIUM_TUCK / PODIUM_CREST_TUCK).
+ * Deck + podium caps: one octagon-prism trimesh each (CART-POP-1). The previous four
+ * overlapping cuboids per flat launched supported carts at speed. The podium ramp
+ * stays a convex hull, tucked below both planes it meets (PODIUM_TUCK / PODIUM_CREST_TUCK).
  *
  * @param {number} circumR Deck circumradius in meters.
  * @returns {{
- *   deckRects: { yaw: number, halfLength: number, halfWidth: number, halfHeight: number, centerY: number }[],
- *   podiumCaps: { yaw: number, halfLength: number, halfWidth: number, halfHeight: number, centerY: number }[],
+ *   deckTrimesh: ReturnType<typeof buildOctagonPrismTrimesh>,
+ *   podiumCapTrimesh: ReturnType<typeof buildOctagonPrismTrimesh>,
  *   podiumHull: Float32Array,
  * }}
  */
 export function getZanzibarFloorColliderSpec(circumR) {
-  const tanHalf = Math.tan(HALF_ANGLE);
-  /** Four rotated rectangles whose union is the octagon of the given apothem. */
-  const octRects = (apothem, topY, halfHeight) =>
-    [0, 1, 2, 3].map((k) => ({
-      yaw: k * (Math.PI / 4),
-      halfLength: apothem,
-      halfWidth: apothem * tanHalf,
-      halfHeight,
-      centerY: topY - halfHeight,
-    }));
   return {
-    deckRects: octRects(circumR * COS_HALF, 0, DECK_THICKNESS / 2),
-    podiumCaps: octRects(PODIUM_TOP_R * COS_HALF, PODIUM_HEIGHT, PODIUM_CAP_THICKNESS / 2),
+    deckTrimesh: buildOctagonPrismTrimesh(circumR, 0, -DECK_THICKNESS),
+    podiumCapTrimesh: buildOctagonPrismTrimesh(
+      PODIUM_TOP_R, PODIUM_HEIGHT, PODIUM_HEIGHT - PODIUM_CAP_THICKNESS,
+    ),
     podiumHull: buildOctHullVertices(
       PODIUM_BASE_R, PODIUM_HEIGHT - PODIUM_CREST_TUCK, -PODIUM_TUCK, PODIUM_TOP_R,
     ),
@@ -2925,7 +2963,7 @@ function buildDeck(scene, world, config, circumR) {
     neonStripMeshes.push(underGlow);
   }
   // * Crown ring: eight straight segments, not a 32-segment torus. The podium crown is an
-  // * octagon (podiumCaps = octRects(PODIUM_TOP_R * COS_HALF)), so a round ring on it
+  // * octagon (podiumCapTrimesh circumradius PODIUM_TOP_R), so a round ring on it
   // * overhung the crown's flats by PODIUM_TOP_R * 0.18 * (1 - cos 22.5°) everywhere except
   // * the vertices. This is the sanctioned direction for the fix — round things become
   // * octagonal, never the reverse — and it is emissive, so unlike the painted half of this
@@ -3527,18 +3565,16 @@ function buildDeck(scene, world, config, circumR) {
   // * get their own handle list so the level can classify them "edge" like booth legs.
   const clangHandles = [];
 
-  // * All-cuboid flat surfaces (see header): resting carts jitter on convex-hull faces
-  // * but are rock-stable on cuboids (the spawn booths proved it), so the deck and the
-  // * podium crown are rotated cuboids whose union is the exact visual octagon.
+  // * CART-POP-1: one octagon trimesh per flat with FIX_INTERNAL_EDGES. The previous
+  // * four overlapping cuboids per flat were coplanar double solids; a supported cart
+  // * at ~24 m/s took a tilted manifold (nY 0.919) and rose +4 vy.
   // * RestitutionCombineRule.Min keeps the deck's tuned 0.05 restitution over the
   // * cart's 0.3 (default Average yielded an unintended ~0.175 bounce).
   const spec = getZanzibarFloorColliderSpec(circumR);
-  const addRectCollider = (rect) => {
-    const half = rect.yaw / 2;
+  const floorFlags = RAPIER.TriMeshFlags.FIX_INTERNAL_EDGES | RAPIER.TriMeshFlags.ORIENTED;
+  const addTrimeshCollider = (mesh) => {
     const collider = world.createCollider(
-      RAPIER.ColliderDesc.cuboid(rect.halfLength, rect.halfHeight, rect.halfWidth)
-        .setTranslation(0, rect.centerY, 0)
-        .setRotation({ x: 0, y: Math.sin(half), z: 0, w: Math.cos(half) })
+      RAPIER.ColliderDesc.trimesh(mesh.vertices, mesh.indices, floorFlags)
         .setFriction(DECK_FRICTION)
         .setRestitution(config.record.restitution)
         .setRestitutionCombineRule(RAPIER.CoefficientCombineRule.Min),
@@ -3546,11 +3582,11 @@ function buildDeck(scene, world, config, circumR) {
     );
     floorColliderHandles.push(collider.handle);
   };
-  spec.deckRects.forEach(addRectCollider);
-  spec.podiumCaps.forEach(addRectCollider);
+  addTrimeshCollider(spec.deckTrimesh);
+  addTrimeshCollider(spec.podiumCapTrimesh);
 
   // * Drivable ramp ring — the one remaining hull, tucked below the cap plane at its
-  // * crest and below the deck plane at its base so it is never coplanar with a cuboid.
+  // * crest and below the deck plane at its base so it is never coplanar with a flat.
   const podiumCollider = world.createCollider(
     RAPIER.ColliderDesc.convexHull(spec.podiumHull)
       .setFriction(DECK_FRICTION)
@@ -3565,7 +3601,7 @@ function buildDeck(scene, world, config, circumR) {
   // * 1.1 (CONFIG.cart.friction), so this 0.3 has been behaving like 0.7 since it was written.
   // * Min makes the written number the felt number; the 0.3 itself is unchanged and untuned.
   // * Restitution stays ruleless on purpose — that is a separate axis and this card is slide.
-  // * The FLOORS in this file deliberately keep Average (deck rects, ramp hull, booth slabs) —
+  // * The FLOORS in this file deliberately keep Average (deck trimesh, ramp hull, booth slabs) —
   // * see tests/zanzibarObstacleFriction.test.js, which fails if a sweep ever "unifies" them.
   for (const p of bollardPositions) {
     const collider = world.createCollider(
@@ -3584,8 +3620,8 @@ function buildDeck(scene, world, config, circumR) {
   // * UNCONDITIONAL, never behind `lowQ`. The blade is on both tiers, and more importantly
   // * physics must be identical across quality tiers or the host and a predicting client
   // * step different worlds.
-  // * ONE ROTATED CUBOID, per this file's header rule — primitives only, and the ramp is the
-  // * single documented hull exception. A convex hull of the true taper would put an 8.5 mm
+  // * ONE ROTATED CUBOID — the ramp is the documented hull exception. A convex hull of the
+  // * true taper would put an 8.5 mm
   // * feature at the tip, which is numerical trouble in exchange for fidelity on a part of the
   // * blade nothing ever touches.
   // * The section is matched to the blade at GNOMON_COLLIDER_MATCH_Y above its base, where a

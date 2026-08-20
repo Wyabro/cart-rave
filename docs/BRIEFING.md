@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-20 at commit `6911ee4a` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `ba19c38e`
+> Generated 2026-08-20 at commit `95f43356` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `4e0c6b83`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -14,16 +14,16 @@
 
 ## Mission
 
-Playtesting and stabilization — External playtest is gated on BACKLOG Block 1 (9 Highs). NET-LAG-1-PT-1 is parked by Wyatt (08-20). CART-POP-1 Wave I live. Wyatt PASS Classic (Cart Rave). Sundial and Storerooms still pop — overlapping floor colliders. New window owns those two. Do not retouch Classic. Tier A drained; Tier B/C, security sweep, and analytics gating are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Stay in this phase until Wyatt advances the marker.
+Playtesting and stabilization — External playtest is gated on BACKLOG Block 1 (9 Highs). NET-LAG-1-PT-1 is parked by Wyatt (08-20). CART-POP-1 Sundial floor is one octagon trimesh per flat (`FIX_INTERNAL_EDGES`). Not shipped. Storerooms still pop — multiple floor colliders. Do not retouch Classic. Tier A drained; Tier B/C, security sweep, and analytics gating are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Stay in this phase until Wyatt advances the marker.
 
 ## ACTIVE CARD
 
-New window: CART-POP-1 Sundial then Storerooms. Classic is
+CART-POP-1 Sundial trimesh landed. Wait for "ship it". Then
 
 Assess and state the lane before editing. This heading names the card; it is **not** a lane assessment or permission to edit.
 
 Self-directed queue (one at a time, within the declared phase):
-- **CART-POP-1** carts pop off the floor in normal driving — Classic PASS; Sundial + Storerooms remain
+- **CART-POP-1** carts pop off the floor in normal driving — Classic PASS; Sundial trimesh landed, not shipped; Storerooms remain
 - **FRIENDS-ROTATE-1** Friends rematch rotates arenas, synced — queued
 - **ONBOARD-JUMP-1** HOW TO PLAY matches jump+boost — queued
 - **ONBOARD-WEBP-1** HOW TO PLAY WebP playback + fallback — queued

@@ -5,8 +5,8 @@ import { octagonEdgeDistance } from "../../src/contactShadows.js";
 // lever 13a).
 //
 // Sundial's deck is a regular octagon with its FLATS normal to the k·45° directions and its
-// VERTICES at 22.5° + k·45° — getZanzibarFloorColliderSpec lays it out as four cuboids at
-// yaw = k·π/4, and octPath / buildOctHullVertices agree.
+// VERTICES at 22.5° + k·45° — getZanzibarFloorColliderSpec is one octagon trimesh
+// with that vertex ring, and octPath / buildOctHullVertices agree.
 //
 // isOnSolidPlaySurface used to test the support pair (cos22.5, sin22.5), which describes the
 // octagon rotated 22.5° from that. It therefore accepted points 2.61 m out over open water
