@@ -1842,11 +1842,11 @@ import { initGamepadTextEntry, openGamepadTextEntry } from "./gamepadTextEntry.j
           <span class="cr-settings-ctl-lbl">Steer</span>
         </div>
         <div class="cr-settings-ctl-row">
-          <span class="cr-settings-ctl-key" style="--kc:${cBoost}"><kbd>A</kbd><kbd>LT</kbd></span>
+          <span class="cr-settings-ctl-key" style="--kc:${cBoost}"><kbd>RT</kbd><kbd>B</kbd></span>
           <span class="cr-settings-ctl-lbl">Boost</span>
         </div>
         <div class="cr-settings-ctl-row">
-          <span class="cr-settings-ctl-key" style="--kc:${cHop}"><kbd>B</kbd><kbd>RT</kbd></span>
+          <span class="cr-settings-ctl-key" style="--kc:${cHop}"><kbd>A</kbd><kbd>LT</kbd></span>
           <span class="cr-settings-ctl-lbl">Hop</span>
         </div>
         <div class="cr-settings-ctl-row">

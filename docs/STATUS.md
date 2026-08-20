@@ -169,6 +169,11 @@ or a suspected blocker (TS 7 · `cartrave4` UVs).
 
 ## Last updated
 
+2026-08-20 (**ONBOARD-JUMP-1**) — swapped gamepad jump/boost bindings
+to match HOW TO PLAY: boost = RT/B, hop = A/LT (was LT/A boost, RT/B
+hop). Main menu, Settings, and pause CONTROLS charts updated; HOWTO
+chips were already correct. Playtest **ONBOARD-JUMP-PT-1** seeded.
+
 2026-08-20 (**MENU-MUSIC-2C-PT-1**) — Wyatt PASS on prod `98f21261`
 (VERIFY_OK `index-W2GptIT9.js`). One menu song on title boot. Parent
 **MENU-MUSIC-2C** closes with it.

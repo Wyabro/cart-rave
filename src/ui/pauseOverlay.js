@@ -642,7 +642,7 @@ export function init(options = {}, hudContext = {}) {
   // * Key splits, casing and wording track the SETTINGS chart row for row — a
   // * player who reads the keys there and then pauses must see one chart. The
   // * gamepad mapping mirrors updateSettingsControlsUI (input.js button indices
-  // * 0/6/7/8/9: A/LT boost, B/RT hop, SELECT mute, START menu).
+  // * 1/6/7/8/9: RT/B boost, A/LT hop, SELECT mute, START menu).
   /** @type {Record<'keyboard'|'gamepad'|'touch', Array<[string[], string, boolean, string]>>} */
   const escControlsChart = {
     keyboard: [
@@ -654,8 +654,8 @@ export function init(options = {}, hudContext = {}) {
     ],
     gamepad: [
       [["L-STICK", "D-PAD"], "MOVE", false, "move"],
-      [["A", "LT"], "BOOST", false, "boost"],
-      [["B", "RT"], "HOP", false, "hop"],
+      [["RT", "B"], "BOOST", false, "boost"],
+      [["A", "LT"], "HOP", false, "hop"],
       [["SELECT"], "MUTE", true, "mute"],
       [["START"], "MENU", true, "menu"],
     ],

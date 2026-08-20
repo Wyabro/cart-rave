@@ -66,7 +66,7 @@ describe("pause overlay CONTROLS card input-mode chart (PAUSE-CTRL-CHART-1)", ()
     expect(tagOf(refs)).toBe("GAMEPAD");
     expect(labels(refs)).toEqual(["MOVE", "BOOST", "HOP", "MUTE", "MENU"]);
     const caps = keyCaps(refs);
-    // * Analog mapping mirrors the Settings chart (input.js buttons 0/6/7/8/9).
+    // * Analog mapping mirrors the Settings chart (input.js buttons 1/6/7/8/9).
     expect(caps).toContain("L-STICK");
     expect(caps).toContain("D-PAD");
     expect(caps).toContain("A");

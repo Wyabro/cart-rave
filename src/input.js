@@ -97,11 +97,11 @@ export function updateControlsPanelUI(mode = currentInputMode, palette = null) {
         <span class="cr-ctl-lbl">Steer / Nav</span>
       </div>
       <div class="cr-ctl-row">
-        <span class="cr-ctl-keys" id="ctl-shift" style="--kc: ${cBoost}"><kbd>A</kbd><kbd>LT</kbd></span>
+        <span class="cr-ctl-keys" id="ctl-shift" style="--kc: ${cBoost}"><kbd>RT</kbd><kbd>B</kbd></span>
         <span class="cr-ctl-lbl">Tap fire · Hold charge</span>
       </div>
       <div class="cr-ctl-row">
-        <span class="cr-ctl-keys" id="ctl-space" style="--kc: ${cHop}"><kbd>B</kbd><kbd>RT</kbd></span>
+        <span class="cr-ctl-keys" id="ctl-space" style="--kc: ${cHop}"><kbd>A</kbd><kbd>LT</kbd></span>
         <span class="cr-ctl-lbl">Hop</span>
       </div>
       <div class="cr-ctl-row">
@@ -213,8 +213,8 @@ export function setUiMode(enabled) {
         const btn = gp.buttons[idx];
         return btn && (btn.value > 0.5 || btn.pressed);
       };
-      const boostPressed = isPressed(6) || isPressed(0);
-      const hopPressed = isPressed(7) || isPressed(1);
+      const boostPressed = isPressed(7) || isPressed(1);
+      const hopPressed = isPressed(6) || isPressed(0);
       prevBtnStates = {
         boost: boostPressed,
         hop: hopPressed,
@@ -245,10 +245,10 @@ export function resetGamepadInput() {
       const btn = gp.buttons[idx];
       return btn && (btn.value > 0.5 || btn.pressed);
     };
-    const boostPressed = isPressed(6) || isPressed(0);
+    const boostPressed = isPressed(7) || isPressed(1);
     prevBtnStates = {
       boost: boostPressed,
-      hop: isPressed(7) || isPressed(1),
+      hop: isPressed(6) || isPressed(0),
       menu: isPressed(9),
       mute: isPressed(8) || isPressed(11),
     };
@@ -349,8 +349,8 @@ function pollGamepad() {
     gamepadBoostHeld = false;
     // Still update prevBtnStates so we don't double-fire when exiting UI mode
     const currBtnStates = {};
-    currBtnStates.boost = isPressed(6) || isPressed(0);
-    currBtnStates.hop = isPressed(7) || isPressed(1);
+    currBtnStates.boost = isPressed(7) || isPressed(1);
+    currBtnStates.hop = isPressed(6) || isPressed(0);
     currBtnStates.menu = menuPressed;
     currBtnStates.mute = mutePressed;
     prevBtnStates = currBtnStates;
@@ -359,8 +359,8 @@ function pollGamepad() {
 
   const currBtnStates = {};
 
-  // Boost (LT or A)
-  const boostPressed = isPressed(6) || isPressed(0);
+  // Boost (RT or B)
+  const boostPressed = isPressed(7) || isPressed(1);
   if (suppressGamepadBoostUntilRelease) {
     gamepadBoostHeld = false;
     if (!boostPressed) suppressGamepadBoostUntilRelease = false;
@@ -372,8 +372,8 @@ function pollGamepad() {
   }
   currBtnStates.boost = boostPressed;
 
-  // Hop (RT or B - One-shot)
-  const hopPressed = isPressed(7) || isPressed(1);
+  // Hop (LT or A - One-shot)
+  const hopPressed = isPressed(6) || isPressed(0);
   if (hopPressed && !prevBtnStates.hop) {
     _onHop?.();
   }

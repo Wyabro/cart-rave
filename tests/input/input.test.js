@@ -99,12 +99,12 @@ describe("input.js getAxis", () => {
       expect(input.isNitroHeld()).toBe(true);
     });
 
-    it("does not turn the A press used to resume into a boost", () => {
+    it("does not turn the B press used to back out into a boost", () => {
       let pressed = true;
       Object.defineProperty(navigator, "getGamepads", { configurable: true, value: () => ([{
         index: 0,
         axes: [0, 0],
-        buttons: Array.from({ length: 17 }, (_, index) => ({ pressed: index === 0 && pressed, value: 0 })),
+        buttons: Array.from({ length: 17 }, (_, index) => ({ pressed: index === 1 && pressed, value: 0 })),
       }]) });
       const onBoost = vi.fn();
       setupInput(null, undefined, undefined, undefined, onBoost);
@@ -253,7 +253,7 @@ describe("GAMEPAD-FREEZE-1: blur / tab-hide reset of frozen gamepad input", () =
       index: 0,
       axes,
       buttons: Array.from({ length: 17 }, (_, i) => ({
-        pressed: (i === 6 && boost) || (i === 7 && hop) || (i === 9 && menu),
+        pressed: (i === 7 && boost) || (i === 6 && hop) || (i === 9 && menu),
         value: 0,
       })),
     };
@@ -276,7 +276,7 @@ describe("GAMEPAD-FREEZE-1: blur / tab-hide reset of frozen gamepad input", () =
   });
 
   it("blur clears a frozen pad axis + boost, suppressing the still-held boost", () => {
-    mockPad({ axes: [0, -1], boost: true, hop: false, menu: false }); // stick forward + LT
+    mockPad({ axes: [0, -1], boost: true, hop: false, menu: false }); // stick forward + RT
     const onBoost = vi.fn();
     setupInput(null, undefined, undefined, undefined, onBoost);
     __pollGamepadForTest();
@@ -320,7 +320,7 @@ describe("GAMEPAD-FREEZE-1: blur / tab-hide reset of frozen gamepad input", () =
     expect(getAxis()).toEqual({ forward: 0, turn: 0, boostHeld: false });
   });
 
-  it("re-primes one-shot edges across blur: held RT does not re-fire or get lost", () => {
+  it("re-primes one-shot edges across blur: held LT does not re-fire or get lost", () => {
     const onHop = vi.fn();
     setupInput(null, undefined, undefined, onHop, undefined);
     mockPad({ axes: [0, 0], boost: false, hop: true, menu: false });
