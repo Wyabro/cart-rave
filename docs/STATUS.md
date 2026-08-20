@@ -27,7 +27,7 @@ report phase-exit eligibility; they must not move the marker.
 
 **Playtesting and stabilization.** External playtest is gated on BACKLOG Block 1
 (9 Highs). **NET-LAG-1-PT-1** is parked by Wyatt (08-20). **CART-POP-1** Wave
-B candidate is ready (Critical; shared cart restitution cap; deploy + human retest owed).
+C is active (Critical; Wave B restitution cap failed on production; attribute the solver boundary).
 Tier A drained; Tier B/C, security sweep, and analytics gating are closed. Run 7
 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Stay in this phase until
 Wyatt advances the marker.
@@ -94,7 +94,7 @@ Live rows only. Shipped and closed cards live in
 | # | What | Status |
 |---|------|--------|
 | NET-LAG-1 | Friends/QP lag + rubber-band (F8 both machines) | wave 1 landed; 🅿️ **NET-LAG-1-PT-1** `[2pc]` parked by Wyatt 08-20 |
-| CART-POP-1 | carts pop off the floor in normal driving | Wave B candidate ready (shared restitution cap; deploy + human retest) |
+| CART-POP-1 | carts pop off the floor in normal driving | Wave C active (Wave B Min failed; solver-boundary measurement) |
 | SPAWN-BACKROOMS-2 | Storerooms spawns one spawn-width inward | queued |
 | FRIENDS-ROTATE-1 | Friends rematch rotates arenas, synced | queued |
 | ONBOARD-JUMP-1 | HOW TO PLAY matches jump+boost | queued |
@@ -106,8 +106,8 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. Deploy and human-test **CART-POP-PT-1**: ordinary driving stays planted on
-   Cart Rave / Storerooms / Sundial; rams and obstacle hits still have lift.
+1. Deploy **CART-POP-1** Wave C diagnostic capture. Reproduce ordinary Cart Rave driving
+   with `?diag=1` and F8; do not change another physics lever before the solver boundary is clear.
 2. **NET-LAG-1-PT-1** `[2pc]` is parked by Wyatt. Drain BACKLOG Block 1 in work-order order. Do not start an external
    playtest until it drains. Deferred: **SHARD-PT-2** (launch day).
 
@@ -182,6 +182,12 @@ before changing a physics lever.
 floor rebounds: pre-step `vy -8.72` became `+1.57` in one step on Cart Rave / Storerooms.
 The shared cart 0.30 plus floor 0.05 averaged to 0.175; candidate uses restitution Min so
 the authored 0.05 floor value wins. QA/build green; **CART-POP-PT-1** owed after deploy.
+
+2026-08-20 (CART-POP-1 Wave B FAIL → Wave C) — Wyatt reports Cart Rave unchanged or worse.
+Live cap-386 confirms effective restitution is 0.05 yet records 73 unexpected, floor-only rises;
+71 begin in the physics step, with a peak `deltaVy +15.41`. Restitution is ruled out as the main
+cause. Next capture separates post-control/pre-solver velocity from solver delta and counts
+known record-floor versus unclassified static contacts. No further physics lever before that trace.
 
 2026-08-19 (playtest blockers filed) — BACKLOG Block 1 reopened with 9
 Highs. Start **NET-LAG-1**. Do not playtest until the block drains.

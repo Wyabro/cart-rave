@@ -3946,6 +3946,8 @@ function sampleCartPopProbe(world, allCarts, nowMs) {
     let maxRestitution = 0;
     let maxImpulse = 0;
     let cartContact = false;
+    let recordContacts = 0;
+    let unclassifiedStaticContacts = 0;
     const contactClasses = { floor: 0, edge: 0, clang: 0 };
     world.contactPairsWith(cart.collider, (other) => {
       if (!other) return;
@@ -3955,6 +3957,13 @@ function sampleCartPopProbe(world, allCarts, nowMs) {
       }
       staticContacts += 1;
       const contactClass = classifyEnvironmentCollision(other.handle, _collisionCallbacks);
+      if (_collisionCallbacks.recordColliderHandles?.includes(other.handle)) {
+        recordContacts += 1;
+      } else if (contactClass === "floor") {
+        // classifyEnvironmentCollision intentionally defaults unknown static geometry to
+        // floor for FX. Keep that fallback separate in the pop trace.
+        unclassifiedStaticContacts += 1;
+      }
       contactClasses[contactClass] = (contactClasses[contactClass] || 0) + 1;
       world.contactPair(cart.collider, other, (manifold) => {
         const normalY = Math.abs(manifold.normal(_cartPopProbeNormal)?.y ?? 0);
@@ -3970,16 +3979,21 @@ function sampleCartPopProbe(world, allCarts, nowMs) {
 
     const pos = cart.body.translation();
     const preVy = cart._preStepLinvel?.y ?? lv.y;
+    const preWorldVy = cart._preWorldLinvel?.y ?? preVy;
     recordDiagEvent("cart_pop", "rise", {
       slot: cart.slotIndex ?? null,
       y: round3(pos.y),
       preVy: round3(preVy),
+      preWorldVy: round3(preWorldVy),
       vy: round3(lv.y),
       deltaVy: round3(lv.y - preVy),
+      worldDeltaVy: round3(lv.y - preWorldVy),
       planarSpeed: round3(Math.hypot(lv.x, lv.z)),
       staticContacts,
       supportContacts,
       contactClasses,
+      recordContacts,
+      unclassifiedStaticContacts,
       maxSupportNormalY: round3(maxSupportNormalY),
       maxRestitution: round3(maxRestitution),
       maxImpulse: round3(maxImpulse),
@@ -4159,6 +4173,19 @@ export function runFixedPhysicsStep({
 
   // 6. Step world
   if (world && eventQueue) {
+    // * CART-POP-1 Wave C — preserve the post-control, pre-solver velocity only
+    // * for a live diagnostic capture. This separates control/ram impulses from
+    // * the contact solver's contribution to an upward episode.
+    if (typeof window !== "undefined" && window.__ccDiagActive) {
+      for (const cart of allCarts || []) {
+        if (!cart?.body) continue;
+        const lv = cart.body.linvel();
+        const preWorld = cart._preWorldLinvel || (cart._preWorldLinvel = { x: 0, y: 0, z: 0 });
+        preWorld.x = lv.x;
+        preWorld.y = lv.y;
+        preWorld.z = lv.z;
+      }
+    }
     // * Named span so a KO-adjacent host freeze can be attributed to (or ruled out of)
     // * the Rapier step vs shatter VFX / PA audio (perfSpans → longframe.spans).
     mark("physics.step", () => world.step(eventQueue));
