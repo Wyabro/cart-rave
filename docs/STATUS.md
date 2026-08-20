@@ -96,7 +96,7 @@ Live rows only. Shipped and closed cards live in
 |---|------|--------|
 | NET-LAG-1 | Friends/QP lag + rubber-band (F8 both machines) | wave 1 landed; 🅿️ **NET-LAG-1-PT-1** `[2pc]` parked by Wyatt 08-20 |
 | CART-POP-1 | carts pop off the floor in normal driving | Wave E deployed; orientation solver trace |
-| SPAWN-BACKROOMS-2 | Storerooms spawns one spawn-width inward | landed; ⏳ **SPAWN-BACKROOMS-PT-2** `[1pc]` |
+| SPAWN-BACKROOMS-2 | Storerooms spawns one spawn-width out (ring 38.15) | direction corrected; ⏳ **SPAWN-BACKROOMS-PT-2** `[1pc]` |
 | FRIENDS-ROTATE-1 | Friends rematch rotates arenas, synced | queued |
 | ONBOARD-JUMP-1 | HOW TO PLAY matches jump+boost | queued |
 | ONBOARD-WEBP-1 | HOW TO PLAY WebP playback + fallback | queued |

@@ -26,8 +26,8 @@ import { getQualityKnobs } from "../utils/qualityTiers.js";
 // ===== Tunable layout constants =====
 
 // * Floor: large worn-carpet play surface centered on the origin. The spawn booths
-// * (SPAWN-BACKROOMS-2 ring 24.15m) sit ~13.9m inboard of the floor edge, leaving
-// * a landing apron behind each booth instead of a blind drop.
+// * (SPAWN-BACKROOMS-2 ring 38.15m) sit on the floor lip; the back of each deck
+// * hangs over the pit.
 const ARENA_HALF = 38; // meters — floor half-extent (full square = 76 x 76)
 const FLOOR_TOP_Y = 0; // meters — flat playing-surface height
 const FLOOR_FRICTION = 0.55; // unitless — lower than Classic record; high friction catches trimesh seams
@@ -811,11 +811,11 @@ function smooth01(t) {
  * @returns {number}
  */
 function getTrafficWearFactor(x, z) {
-  // Booth approach lanes run along both axes (booths sit on ±X/±Z at ~24.15m).
+  // Booth approach lanes run along both axes (booths sit on ±X/±Z at ~38.15m).
   const lane = (along, across) => {
-    if (along < 7 || along > 24.5) return 0;
+    if (along < 7 || along > 38.5) return 0;
     const width = 1 - smooth01((across - 1.1) / 1.5);
-    const ends = Math.min(smooth01((along - 7) / 3), smooth01((24.5 - along) / 3));
+    const ends = Math.min(smooth01((along - 7) / 3), smooth01((38.5 - along) / 3));
     return width * ends;
   };
   let wear = Math.max(lane(Math.abs(x), Math.abs(z)), lane(Math.abs(z), Math.abs(x)));

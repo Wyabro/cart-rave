@@ -83,10 +83,10 @@ const physics = {
     spawnHeight: 1.077, // meters — overridden below from booth geometry
     spawnRingRadiusByLevel: {
       rooftop: 42, // meters — diagonal decks near square roof corners
-      // * SPAWN-BACKROOMS-2: formula ring (26.4 + gap 2.25 + depth/2 2.5 = 31.15)
-      // * minus platformWidth 7.0. Wins over gapDistanceByLevel.backrooms for
-      // * Storerooms booth + cart placement (negative gap is not a valid inset).
-      backrooms: 24.15,
+      // * SPAWN-BACKROOMS-2: formula ring 31.15 + platformWidth 7.0 = 38.15.
+      // * First land went inward (24.15); playtest: two spawn-widths the other
+      // * way (24.15 + 14). Wins over gapDistanceByLevel.backrooms for placement.
+      backrooms: 38.15,
     },
     spawnAngleOffset: 0, // radians — live per-level offset, restored by loadLevel()
     spawnAngleOffsetByLevel: { rooftop: Math.PI / 4 }, // Night Shift uses diagonal corner spawns

@@ -13,16 +13,16 @@ Chronological record of shipped work, newest first.
 
 ---
 
-### August 20, 2026 — SPAWN-BACKROOMS-2: Storerooms spawn ring inset 7 m
+### August 20, 2026 — SPAWN-BACKROOMS-2: Storerooms spawn ring +7 m out
 
-- *(Engineering · High)* **SPAWN-BACKROOMS-2** — ✅ **DONE 08-20**. Storerooms
-  carts and decks move inward one booth-width. Lever:
-  `cart.spawnRingRadiusByLevel.backrooms = 24.15` (formula 31.15 −
-  `platformWidth` 7.0). `buildBackroomsBooths` reads the live spawn ring
-  so decks stay under the carts. `gapDistanceByLevel.backrooms` stays
-  2.25 (a negative gap is not a valid inset). Wear-lane end 31.5 → 24.5.
-  Classic / Sundial unchanged. Playtest **SPAWN-BACKROOMS-PT-2**. Do not
-  reopen **SPAWN-BACKROOMS-1**.
+- *(Engineering · High)* **SPAWN-BACKROOMS-2** — ✅ **DONE 08-20**, direction
+  corrected the same day. First land (`28a9a33c`) inset the ring to 24.15
+  (wrong way). Playtest: two spawn-widths the other direction. Live lever:
+  `cart.spawnRingRadiusByLevel.backrooms = 38.15` (formula 31.15 +
+  `platformWidth` 7.0). `buildBackroomsBooths` reads the live spawn ring.
+  Wear-lane end 38.5. Decks sit on the floor lip; the back hangs over the
+  pit. Classic / Sundial unchanged. Playtest **SPAWN-BACKROOMS-PT-2**. Do
+  not reopen **SPAWN-BACKROOMS-1**.
 
 ---
 

@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-20T18:21:34.167Z",
-    "commit": "28a9a33c"
+    "at": "2026-08-20T18:24:00.409Z",
+    "commit": "f845b74b"
   },
-  "source_digest": "f8af192d",
+  "source_digest": "a31a5816",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -886,8 +886,8 @@
       },
       {
         "id": "SPAWN-BACKROOMS-2",
-        "what": "Storerooms spawns one spawn-width inward",
-        "status": "landed; ⏳ SPAWN-BACKROOMS-PT-2 `[1pc]`",
+        "what": "Storerooms spawns one spawn-width out (ring 38.15)",
+        "status": "direction corrected; ⏳ SPAWN-BACKROOMS-PT-2 `[1pc]`",
         "state": "waiting"
       },
       {
@@ -1101,8 +1101,8 @@
         "rows": [
           {
             "pri": "Low",
-            "item": "SPAWN-BACKROOMS-PT-2 — Storerooms carts start one booth-width closer to center `[1pc]`",
-            "notes": "**Owed: Wyatt playtest — SPAWN-BACKROOMS-PT-2 — Storerooms carts start one booth-width closer to center, still on their decks.** Parent **SPAWN-BACKROOMS-2**. Deployed 08-20.<br>1. Open The Storerooms. Start a round. Do not drive yet.<br>2. FAIL if a cart hangs in the air, sits off its deck, or if a deck sits near the pit wall with only a thin strip of carpet behind it.<br>3. PASS if all four carts sit on their decks, clearly inboard on the carpet, with about one booth-width of extra floor behind them, and the four booths still face center on the cardinals.<br>4. Drive off a deck and fall into a void. FAIL if you respawn in the air or on the floor instead of on that same inward deck.<br>5. Fail the card if Classic Record or Sundial Station spawn positions moved.",
+            "item": "SPAWN-BACKROOMS-PT-2 — Storerooms decks sit near the pit edge `[1pc]`",
+            "notes": "**Owed: Wyatt playtest — SPAWN-BACKROOMS-PT-2 — Storerooms spawn decks sit near the pit edge, two booth-widths out from the inward try.** Parent **SPAWN-BACKROOMS-2**. Direction corrected 08-20 (ring 38.15). Use `npm run dev` until this commit ships.<br>1. Open The Storerooms. Start a round. Do not drive yet.<br>2. FAIL if the decks still sit inboard with a wide band of carpet behind them, or if a cart hangs in the air / off its deck.<br>3. PASS if all four carts sit on their decks near the pit wall, facing center on the cardinals, with the extra floor now toward the middle of the room.<br>4. Drive off a deck and fall. FAIL if you respawn in the air or on the floor instead of on that same outer deck.<br>5. Fail the card if Classic Record or Sundial Station spawn positions moved.",
             "ship1": null
           },
           {

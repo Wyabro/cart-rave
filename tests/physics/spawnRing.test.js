@@ -2,8 +2,8 @@
 //
 // Classic / Sundial booths and the spawn ring stay matched because every booth
 // builder and computeSpawnRingRadius read config.booth.gapDistance live at build
-// time. Storerooms (SPAWN-BACKROOMS-2) uses spawnRingRadiusByLevel so the inset
-// cannot go through a negative gap; buildBackroomsBooths reads the live ring.
+// time. Storerooms (SPAWN-BACKROOMS-2) uses spawnRingRadiusByLevel so a +7 m
+// outboard move cannot go through gapDistance; buildBackroomsBooths reads the live ring.
 
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
@@ -28,16 +28,16 @@ function ringFor(levelId) {
 }
 
 describe("spawn ring per-level overrides", () => {
-  it("insets Storerooms spawns one booth-width via the ring override", () => {
+  it("pushes Storerooms spawns one booth-width out via the ring override", () => {
     expect(CONFIG.booth.gapDistanceByLevel.backrooms).toBeCloseTo(2.25, 6);
-    expect(CONFIG.cart.spawnRingRadiusByLevel.backrooms).toBeCloseTo(24.15, 6);
+    expect(CONFIG.cart.spawnRingRadiusByLevel.backrooms).toBeCloseTo(38.15, 6);
     expect(CONFIG.booth.platformWidth).toBeCloseTo(7, 6);
 
     const formulaWithStoreroomsGap =
       CONFIG.record.radius + 2.25 + CONFIG.booth.rampLength + CONFIG.booth.platformDepth / 2;
     expect(formulaWithStoreroomsGap).toBeCloseTo(31.15, 6);
-    expect(ringFor("backrooms")).toBeCloseTo(formulaWithStoreroomsGap - 7, 6);
-    expect(ringFor("backrooms")).toBeCloseTo(24.15, 6);
+    expect(ringFor("backrooms")).toBeCloseTo(formulaWithStoreroomsGap + 7, 6);
+    expect(ringFor("backrooms")).toBeCloseTo(38.15, 6);
   });
 
   it("leaves Classic Record on the base ring", () => {
@@ -92,8 +92,8 @@ describe("spawn ring per-level overrides", () => {
     expect(src).not.toMatch(
       /boothCenterDist\s*=\s*arenaR\s*\+\s*B\.gapDistance\s*\+\s*B\.rampLength/,
     );
-    expect(src).toMatch(/along > 24\.5/);
-    expect(src).not.toMatch(/along > 31\.5/);
+    expect(src).toMatch(/along > 38\.5/);
+    expect(src).not.toMatch(/along > 24\.5/);
   });
 
   it("uses the shared spawn-angle helper for initial carts and later refreshes", () => {
