@@ -31,11 +31,12 @@ function makeCart(slotIndex = 0) {
   return cart;
 }
 
-function makeWorld(other = null, manifold = null) {
+function makeWorld(others = [], manifold = null) {
+  const contactOthers = Array.isArray(others) ? others : others ? [others] : [];
   return {
     step: () => {},
     contactPairsWith: (_collider, visit) => {
-      if (other) visit(other);
+      contactOthers.forEach(visit);
     },
     contactPair: (_cartCollider, _other, visit) => {
       if (manifold) visit(manifold);
@@ -45,7 +46,7 @@ function makeWorld(other = null, manifold = null) {
 
 const eventQueue = { drainCollisionEvents: () => {} };
 
-function step(cart, world, now = 1000) {
+function step(cart, world, now = 1000, callbacks = {}) {
   runFixedPhysicsStep({
     world,
     eventQueue,
@@ -56,7 +57,7 @@ function step(cart, world, now = 1000) {
     dt: 1 / 60,
     now,
     isHost: true,
-    callbacks: {},
+    callbacks,
   });
 }
 
@@ -88,6 +89,7 @@ describe("CART-POP-1 contact probe", () => {
   it("captures a single upward episode with shared contact material", () => {
     installDiagnostics({ flags: { enabled: true } });
     const cart = makeCart(2);
+    cart.pos = { x: 3, y: 0.4, z: 4 };
     cart.vel = { x: 5, y: -0.5, z: 12 };
     const floor = { handle: 42 };
     const manifold = {
@@ -99,12 +101,17 @@ describe("CART-POP-1 contact probe", () => {
 
     const world = makeWorld(floor, manifold);
     world.step = () => { cart.vel.y = 1; };
-    step(cart, world);
+    step(cart, world, 1000, { recordColliderHandles: [42] });
 
     expect(popEvents()).toEqual([
       expect.objectContaining({
         type: "rise",
         slot: 2,
+        x: 3,
+        y: 0.4,
+        z: 4,
+        radius: 5,
+        theta: 0.927,
         preVy: -0.5,
         preWorldVy: -0.5,
         vy: 1,
@@ -114,8 +121,10 @@ describe("CART-POP-1 contact probe", () => {
         staticContacts: 1,
         supportContacts: 1,
         contactClasses: { floor: 1, edge: 0, clang: 0 },
-        recordContacts: 0,
-        unclassifiedStaticContacts: 1,
+        recordContacts: 1,
+        unclassifiedStaticContacts: 0,
+        recordContactDetails: [{ handle: 42, index: 0, normalY: 1, contacts: 1, maxImpulse: 18.5 }],
+        recordContactDetailOverflow: 0,
         maxRestitution: 0.175,
         maxImpulse: 18.5,
         hop: false,
@@ -138,5 +147,33 @@ describe("CART-POP-1 contact probe", () => {
     cart.vel.y = 1;
     step(cart, makeWorld(), 1048);
     expect(popEvents()).toHaveLength(2);
+  });
+
+  it("caps per-record contact detail while preserving the aggregate count", () => {
+    installDiagnostics({ flags: { enabled: true } });
+    const cart = makeCart();
+    const floors = Array.from({ length: 10 }, (_unused, index) => ({ handle: index + 1 }));
+    const manifold = {
+      normal: (out) => Object.assign(out, { x: 0, y: -1, z: 0 }),
+      restitution: () => 0.05,
+      numContacts: () => 1,
+      contactImpulse: () => 2,
+    };
+    const world = makeWorld(floors, manifold);
+    world.step = () => { cart.vel.y = 1; };
+
+    step(cart, world, 1000, { recordColliderHandles: floors.map((floor) => floor.handle) });
+
+    expect(popEvents()).toEqual([
+      expect.objectContaining({
+        recordContacts: 10,
+        recordContactDetails: expect.arrayContaining([
+          { handle: 1, index: 0, normalY: 1, contacts: 1, maxImpulse: 2 },
+          { handle: 8, index: 7, normalY: 1, contacts: 1, maxImpulse: 2 },
+        ]),
+        recordContactDetailOverflow: 2,
+      }),
+    ]);
+    expect(popEvents()[0].recordContactDetails).toHaveLength(8);
   });
 });

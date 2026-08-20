@@ -27,9 +27,8 @@ report phase-exit eligibility; they must not move the marker.
 
 **Playtesting and stabilization.** External playtest is gated on BACKLOG Block 1
 (9 Highs). **NET-LAG-1-PT-1** is parked by Wyatt (08-20). **CART-POP-1** Wave
-C capture is read (Critical; Wave B restitution cap failed on production; the fault is in
-Cart Rave record-floor contact solving, not control code). Do not alter floor geometry before
-a contact-location trace confirms the specific surface seam.
+D is active (Critical; trace Cart Rave record-floor contact location and identity). It changes
+diagnostics only; do not alter floor geometry before the capture identifies a specific surface seam.
 Tier A drained; Tier B/C, security sweep, and analytics gating are closed. Run 7
 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Stay in this phase until
 Wyatt advances the marker.
@@ -96,7 +95,7 @@ Live rows only. Shipped and closed cards live in
 | # | What | Status |
 |---|------|--------|
 | NET-LAG-1 | Friends/QP lag + rubber-band (F8 both machines) | wave 1 landed; 🅿️ **NET-LAG-1-PT-1** `[2pc]` parked by Wyatt 08-20 |
-| CART-POP-1 | carts pop off the floor in normal driving | Wave C read; Cart Rave record-floor solver trace needed |
+| CART-POP-1 | carts pop off the floor in normal driving | Wave D active; Cart Rave contact-location trace |
 | SPAWN-BACKROOMS-2 | Storerooms spawns one spawn-width inward | queued |
 | FRIENDS-ROTATE-1 | Friends rematch rotates arenas, synced | queued |
 | ONBOARD-JUMP-1 | HOW TO PLAY matches jump+boost | queued |
@@ -108,9 +107,9 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. Plan **CART-POP-1** Wave D contact-location trace: record radial position and individual
-   record-floor contact handles/manifold data. Wave C cap-387 puts the upward impulse inside
-   `world.step`; do not alter floor geometry before the responsible contact surface is clear.
+1. Deploy **CART-POP-1** Wave D diagnostic capture. Reproduce ordinary Cart Rave driving with
+   `?diag=1` and F8; it records position plus up to eight record-floor contact handles/manifolds.
+   Do not alter floor geometry before the responsible contact surface is clear.
 2. **NET-LAG-1-PT-1** `[2pc]` is parked by Wyatt. Drain BACKLOG Block 1 in work-order order. Do not start an external
    playtest until it drains. Deferred: **SHARD-PT-2** (launch day).
 
@@ -186,6 +185,10 @@ before changing a physics lever.
 pre-solver `vy` in 132/133 samples. Local rises `0 → +4.40` and `−8.43 → +1.35` occur inside
 `world.step` with two to four floor contacts. Candidate: inner-ring convex wedge seams; Wave D
 must log radius and collider handle before a geometry change.
+
+2026-08-20 (CART-POP-1 Wave D) — Acked diagnostic-only trace: each rising episode now records
+position/radius plus up to eight record-floor handle/index/manifold summaries and an overflow count.
+No physics coefficient, collider, or solver setting changed. Focused probe: 4/4; typecheck green.
 
 2026-08-19 (playtest blockers filed) — BACKLOG Block 1 reopened with 9
 Highs. Start **NET-LAG-1**. Do not playtest until the block drains.

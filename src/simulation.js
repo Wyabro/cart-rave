@@ -3905,6 +3905,7 @@ function samplePitProbe(allCarts, nowMs) {
 
 const CART_POP_PROBE_RISE_VY = 0.75;
 const CART_POP_PROBE_RESET_VY = 0.25;
+const CART_POP_PROBE_RECORD_DETAIL_CAP = 8;
 /** @type {WeakMap<object, { rising: boolean }>} */
 let _cartPopProbeState = new WeakMap();
 
@@ -3948,6 +3949,8 @@ function sampleCartPopProbe(world, allCarts, nowMs) {
     let cartContact = false;
     let recordContacts = 0;
     let unclassifiedStaticContacts = 0;
+    let recordContactDetailOverflow = 0;
+    const recordContactDetails = [];
     const contactClasses = { floor: 0, edge: 0, clang: 0 };
     world.contactPairsWith(cart.collider, (other) => {
       if (!other) return;
@@ -3957,7 +3960,8 @@ function sampleCartPopProbe(world, allCarts, nowMs) {
       }
       staticContacts += 1;
       const contactClass = classifyEnvironmentCollision(other.handle, _collisionCallbacks);
-      if (_collisionCallbacks.recordColliderHandles?.includes(other.handle)) {
+      const recordIndex = _collisionCallbacks.recordColliderHandles?.indexOf(other.handle) ?? -1;
+      if (recordIndex >= 0) {
         recordContacts += 1;
       } else if (contactClass === "floor") {
         // classifyEnvironmentCollision intentionally defaults unknown static geometry to
@@ -3971,18 +3975,38 @@ function sampleCartPopProbe(world, allCarts, nowMs) {
         maxSupportNormalY = Math.max(maxSupportNormalY, normalY);
         maxRestitution = Math.max(maxRestitution, manifold.restitution?.() ?? 0);
         const count = manifold.numContacts?.() ?? 0;
+        let contactMaxImpulse = 0;
         for (let i = 0; i < count; i += 1) {
-          maxImpulse = Math.max(maxImpulse, manifold.contactImpulse?.(i) ?? 0);
+          contactMaxImpulse = Math.max(contactMaxImpulse, manifold.contactImpulse?.(i) ?? 0);
+        }
+        maxImpulse = Math.max(maxImpulse, contactMaxImpulse);
+        if (recordIndex >= 0) {
+          if (recordContactDetails.length < CART_POP_PROBE_RECORD_DETAIL_CAP) {
+            recordContactDetails.push({
+              handle: other.handle,
+              index: recordIndex,
+              normalY: round3(normalY),
+              contacts: count,
+              maxImpulse: round3(contactMaxImpulse),
+            });
+          } else {
+            recordContactDetailOverflow += 1;
+          }
         }
       });
     });
 
     const pos = cart.body.translation();
+    const radius = Math.hypot(pos.x, pos.z);
     const preVy = cart._preStepLinvel?.y ?? lv.y;
     const preWorldVy = cart._preWorldLinvel?.y ?? preVy;
     recordDiagEvent("cart_pop", "rise", {
       slot: cart.slotIndex ?? null,
+      x: round3(pos.x),
       y: round3(pos.y),
+      z: round3(pos.z),
+      radius: round3(radius),
+      theta: round3(Math.atan2(pos.z, pos.x)),
       preVy: round3(preVy),
       preWorldVy: round3(preWorldVy),
       vy: round3(lv.y),
@@ -3994,6 +4018,8 @@ function sampleCartPopProbe(world, allCarts, nowMs) {
       contactClasses,
       recordContacts,
       unclassifiedStaticContacts,
+      recordContactDetails,
+      recordContactDetailOverflow,
       maxSupportNormalY: round3(maxSupportNormalY),
       maxRestitution: round3(maxRestitution),
       maxImpulse: round3(maxImpulse),
