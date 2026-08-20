@@ -25,9 +25,10 @@ report phase-exit eligibility; they must not move the marker.
 
 ## Current focus
 
-**Playtesting and stabilization.** Tier A drained; Tier B/C, security sweep, and analytics gating
-are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Analytics DO reset for
-external testers. Stay in this phase until Wyatt advances the marker.
+**Playtesting and stabilization.** External playtest is gated on BACKLOG Block 1
+(9 Highs). Start **NET-LAG-1**. Tier A drained; Tier B/C, security sweep, and
+analytics gating are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1
+closed. Stay in this phase until Wyatt advances the marker.
 
 **DEMOTE-COUNTDOWN-1** shipped 08-19 — `startRunningAt` isHost guard + demoted host's countdown
 timer cleared via a new `onHostDemoted` callback. Playtest owed: **DEMOTE-COUNTDOWN-PT-1** (2pc).
@@ -90,13 +91,24 @@ Live rows only. Shipped and closed cards live in
 
 | # | What | Status |
 |---|------|--------|
+| NET-LAG-1 | Friends/QP lag + rubber-band (F8 both machines) | ▶ pick next (Critical; measure first) |
+| CART-POP-1 | carts pop off the floor in normal driving | queued (Critical; measure first) |
+| NPC-SELFKO-3 | NPC self-KOs on all three arenas | queued (measure then tune) |
+| SPAWN-BACKROOMS-2 | Storerooms spawns one spawn-width inward | queued |
+| FRIENDS-ROTATE-1 | Friends rematch rotates arenas, synced | queued |
+| ONBOARD-JUMP-1 | HOW TO PLAY matches jump+boost | queued |
+| ONBOARD-WEBP-1 | HOW TO PLAY WebP playback + fallback | queued |
+| MENU-CART-FOLLOW-1 | subtle menu-cart cursor parallax | queued |
+| SHARE-CARD-1 | update OG/social share image | queued |
 | QP-PLAYING-PT-1 | QUICKPLAY live playing count | ⏳ playtest owed (prod after ship) |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 
 ### Next actions
 
-1. Playtest **QP-PLAYING-PT-1** on prod after ship. Deferred:
-   **SHARD-PT-2** (launch day).
+1. Pick **NET-LAG-1**. Correlate the two-machine F8 captures before any
+   netcode change. Lane: Critical (ack before edits).
+2. Drain BACKLOG Block 1 in work-order order. Do not start an external
+   playtest until it drains. Deferred: **SHARD-PT-2** (launch day).
 
 ## Open issues (top)
 
@@ -152,6 +164,9 @@ or a suspected blocker (TS 7 · `cartrave4` UVs).
 - Local worker port is **8899** (`LOCAL_WORKER_PORT` in `src/config.js`). If it goes EACCES, re-check Windows HNS exclusions and move the port there.
 
 ## Last updated
+
+2026-08-19 (playtest blockers filed) — BACKLOG Block 1 reopened with 9
+Highs. Start **NET-LAG-1**. Do not playtest until the block drains.
 
 2026-08-19 (playtest PASS) — **FEEDBACK-PT-1** Wyatt PASS
 (`npm run dev`, `7daf3e38`). Survey line prints last on the MATCH

@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-20 at commit `40a0066e` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `c3263afd`
+> Generated 2026-08-20 at commit `ae7b8ff3` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `86897f5d`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -14,16 +14,14 @@
 
 ## Mission
 
-Playtesting and stabilization — Tier A drained; Tier B/C, security sweep, and analytics gating are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Analytics DO reset for external testers. Stay in this phase until Wyatt advances the marker.
+Playtesting and stabilization — External playtest is gated on BACKLOG Block 1 (9 Highs). Start NET-LAG-1. Tier A drained; Tier B/C, security sweep, and analytics gating are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Stay in this phase until Wyatt advances the marker.
 
 ## ACTIVE CARD
 
-Playtest QP-PLAYING-PT-1 on prod after ship. Deferred:
+NET-LAG-1 — Friends/QP lag + rubber-band (F8 both machines)
+Pass looks like: ▶ pick next (Critical; measure first)
 
 Assess and state the lane before editing. This heading names the card; it is **not** a lane assessment or permission to edit.
-
-Self-directed queue (one at a time, within the declared phase):
-- **QP-PLAYING-PT-1** QUICKPLAY live playing count — ⏳ playtest owed (prod after ship)
 
 ## Do not
 
