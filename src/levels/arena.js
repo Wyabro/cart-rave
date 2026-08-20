@@ -626,102 +626,6 @@ function buildRecordRingGeometry({
   return geo;
 }
 
-/**
- * * Procedural record physics mesh: annular floor with beveled outer rim and a chamfered
- * * inner hole. Visual hole stays at innerRadius; physics flat surface ends at
- * * playInnerR (= innerRadius + holeClearance), then chamferWidth slopes inward to
- * * chamferInnerR before the open void. Must stay aligned with getRecordFloorInnerR()
- * * in simulation.js (floorInnerR = innerRadius).
- */
-function buildRecordPhysicsGeometry({
-  outerRadius,
-  innerRadius,
-  thickness,
-  chamferWidth = 0.35,
-  holeClearance = 0.45,
-  outerBevel = 0.12,
-  segments = 72,
-}) {
-  const positions = [];
-  const indices = [];
-  const halfT = thickness / 2;
-  const topY = halfT;
-  const bottomY = -halfT;
-  const outerTopR = outerRadius - outerBevel;
-
-  // * Flat playing surface ends slightly beyond the visual hole (holeClearance).
-  // * The chamfer ramp then slopes inward/down over chamferWidth before the open void.
-  const playInnerR = innerRadius + Math.max(holeClearance, 0);
-  const chamferInnerR = Math.max(innerRadius, playInnerR - Math.max(chamferWidth, 0));
-
-  const pushVertex = (x, y, z) => {
-    positions.push(x, y, z);
-    return positions.length / 3 - 1;
-  };
-  const pushTri = (a, b, c) => {
-    indices.push(a, b, c);
-  };
-  const addQuad = (i0, i1, i2, i3) => {
-    pushTri(i0, i1, i2);
-    pushTri(i0, i2, i3);
-  };
-
-  let prevOt = null;
-  let prevPi = null;
-  let prevCi = null;
-  let prevOb = null;
-  let prevOr = null;
-
-  for (let i = 0; i < segments; i += 1) {
-    const t0 = (i / segments) * Math.PI * 2;
-    const t1 = ((i + 1) / segments) * Math.PI * 2;
-    const cos0 = Math.cos(t0);
-    const sin0 = Math.sin(t0);
-    const cos1 = Math.cos(t1);
-    const sin1 = Math.sin(t1);
-
-    // * Reuse seam vertices from the previous segment instead of duplicating radial edges.
-    const ot0 = prevOt ?? pushVertex(outerTopR * cos0, topY, outerTopR * sin0);
-    const pi0 = prevPi ?? pushVertex(playInnerR * cos0, topY, playInnerR * sin0);
-    const ci0 = prevCi ?? pushVertex(chamferInnerR * cos0, bottomY, chamferInnerR * sin0);
-    const ob0 = prevOb ?? pushVertex(outerRadius * cos0, bottomY, outerRadius * sin0);
-    const or0 = prevOr ?? pushVertex(outerRadius * cos0, topY, outerRadius * sin0);
-
-    const ot1 = pushVertex(outerTopR * cos1, topY, outerTopR * sin1);
-    const pi1 = pushVertex(playInnerR * cos1, topY, playInnerR * sin1);
-    const ci1 = pushVertex(chamferInnerR * cos1, bottomY, chamferInnerR * sin1);
-    const ob1 = pushVertex(outerRadius * cos1, bottomY, outerRadius * sin1);
-    const or1 = pushVertex(outerRadius * cos1, topY, outerRadius * sin1);
-
-    // Top playing surface — flat annulus up to the chamfer start.
-    addQuad(ot0, ot1, pi1, pi0);
-
-    // Inner hole chamfer — gentle inward slope instead of a vertical drop at the rim.
-    addQuad(pi0, pi1, ci1, ci0);
-
-    // Underside substrate ring; open void begins at chamferInnerR.
-    addQuad(ob0, ob1, ci1, ci0);
-
-    // Outer top bevel — matches the visual record's softened outer edge.
-    addQuad(or0, or1, ot1, ot0);
-
-    // Outer rim wall.
-    addQuad(ot0, ot1, ob1, ob0);
-
-    prevOt = ot1;
-    prevPi = pi1;
-    prevCi = ci1;
-    prevOb = ob1;
-    prevOr = or1;
-  }
-
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
-  geo.setIndex(indices);
-  geo.computeVertexNormals();
-  return geo;
-}
-
 function buildRecordSurfaceGrooves(parentMesh, config, visualRecordThickness) {
   const surf = config.record.surface;
   const th = visualRecordThickness;
@@ -1556,49 +1460,77 @@ function buildBooths(scene, world, config, boothNeonMeshes, boothColliderHandles
   };
 }
 
-/** Classic record floor is 16 convex-hull wedges. Shared with the CART-POP-1 repro. */
-export const CLASSIC_RECORD_SEGMENT_COUNT = 16;
+/** Classic record floor ring tessellation. Shared with the CART-POP-1 repro. */
+export const CLASSIC_RECORD_RING_SEGMENTS = 72;
 
 /**
- * Trapezoidal-prism vertices and per-segment yaws for the Classic record ring.
- * Adjacent side faces meet at ±halfAngle with authored zero overlap.
+ * One thick annulus trimesh: top, bottom, inner hole wall, outer rim.
+ * No radial side faces between segments — those faces on the old 16 hulls
+ * launched supported carts at speed (CART-POP-1 cap-394).
  *
  * @param {{ radius: number, innerRadius: number, thickness: number, y: number, friction: number, restitution: number }} record
  * @returns {{
- *   nSegments: number,
  *   vertices: Float32Array,
- *   yaws: number[],
+ *   indices: Uint32Array,
  *   centerY: number,
  *   halfHeight: number,
  *   friction: number,
  *   restitution: number,
+ *   segments: number,
+ *   innerRadius: number,
+ *   outerRadius: number,
  * }}
  */
 export function getClassicRecordColliderSpec(record) {
-  const nSegments = CLASSIC_RECORD_SEGMENT_COUNT;
+  const segments = CLASSIC_RECORD_RING_SEGMENTS;
   const R_out = record.radius;
   const R_in = record.innerRadius;
   const halfT = record.thickness / 2;
-  const halfAngle = Math.PI / nSegments;
-  const zIn = R_in * Math.tan(halfAngle);
-  const zOut = R_out * Math.tan(halfAngle);
+  const vertices = new Float32Array(segments * 4 * 3);
+  let w = 0;
+  for (let i = 0; i < segments; i += 1) {
+    const angle = (i / segments) * Math.PI * 2;
+    const c = Math.cos(angle);
+    const s = Math.sin(angle);
+    vertices[w++] = R_in * c;
+    vertices[w++] = halfT;
+    vertices[w++] = R_in * s;
+    vertices[w++] = R_out * c;
+    vertices[w++] = halfT;
+    vertices[w++] = R_out * s;
+    vertices[w++] = R_in * c;
+    vertices[w++] = -halfT;
+    vertices[w++] = R_in * s;
+    vertices[w++] = R_out * c;
+    vertices[w++] = -halfT;
+    vertices[w++] = R_out * s;
+  }
+  const indices = [];
+  const IT = 0;
+  const OT = 1;
+  const IB = 2;
+  const OB = 3;
+  const vert = (i, k) => ((i % segments) * 4 + k);
+  const quad = (a, b, c, d) => {
+    indices.push(a, b, c, a, c, d);
+  };
+  for (let i = 0; i < segments; i += 1) {
+    const n = i + 1;
+    quad(vert(i, IT), vert(n, IT), vert(n, OT), vert(i, OT));
+    quad(vert(i, IB), vert(i, OB), vert(n, OB), vert(n, IB));
+    quad(vert(i, IT), vert(i, IB), vert(n, IB), vert(n, IT));
+    quad(vert(i, OT), vert(n, OT), vert(n, OB), vert(i, OB));
+  }
   return {
-    nSegments,
-    vertices: new Float32Array([
-      R_in, halfT, -zIn,
-      R_in, halfT, zIn,
-      R_out, halfT, -zOut,
-      R_out, halfT, zOut,
-      R_in, -halfT, -zIn,
-      R_in, -halfT, zIn,
-      R_out, -halfT, -zOut,
-      R_out, -halfT, zOut,
-    ]),
-    yaws: Array.from({ length: nSegments }, (_, i) => (i / nSegments) * Math.PI * 2),
+    vertices,
+    indices: new Uint32Array(indices),
     centerY: record.y,
     halfHeight: halfT,
     friction: record.friction,
     restitution: record.restitution,
+    segments,
+    innerRadius: R_in,
+    outerRadius: R_out,
   };
 }
 
@@ -2172,39 +2104,26 @@ export async function initArena(scene, world, config, options = {}) {
   const recordBody = world.createRigidBody(
     RAPIER.RigidBodyDesc.kinematicVelocityBased().setTranslation(0, config.record.y, 0),
   );
+  const yAxis = new THREE.Vector3(0, 1, 0);
 
-  // * Build visual debug geometry (wireframe only, lazy allocated if debug enabled).
-  const recordPhysics = config.record.physics || {};
+  // * CART-POP-1: one annulus trimesh with FIX_INTERNAL_EDGES. The previous 16
+  // * convex-hull wedges shared radial side faces; a supported cart at ~24 m/s
+  // * took a tilted manifold (nY 0.80–0.89) and rose +4 vy (cap-394).
+  const spec = getClassicRecordColliderSpec(config.record);
+  const floorFlags = RAPIER.TriMeshFlags.FIX_INTERNAL_EDGES | RAPIER.TriMeshFlags.ORIENTED;
+  const floorDesc = RAPIER.ColliderDesc.trimesh(spec.vertices, spec.indices, floorFlags)
+    .setFriction(spec.friction)
+    .setRestitution(spec.restitution);
+  const floorCollider = world.createCollider(floorDesc, recordBody);
+  /** @type {number[]} */
+  const recordColliderHandles = [floorCollider.handle];
+
   let recordPhysicsGeo = null;
   if (config.debug.arenaTrimesh) {
-    recordPhysicsGeo = buildRecordPhysicsGeometry({
-      outerRadius: config.record.radius,
-      innerRadius: config.record.innerRadius,
-      thickness: config.record.thickness,
-      chamferWidth: recordPhysics.chamferWidth ?? 0.35,
-      holeClearance: recordPhysics.holeClearance ?? 0.45,
-      outerBevel: recordPhysics.outerBevel ?? 0.12,
-      segments: recordPhysics.segments ?? 72,
-    });
-  }
-
-  // --- PRIMITIVE RING COLLIDER (Fixes Trimesh Bounce & Overlap Tunneling) ---
-  const spec = getClassicRecordColliderSpec(config.record);
-
-  const yAxis = new THREE.Vector3(0, 1, 0);
-  /** @type {number[]} */
-  const recordColliderHandles = [];
-
-  for (let i = 0; i < spec.nSegments; i++) {
-    const quat = new THREE.Quaternion().setFromAxisAngle(yAxis, spec.yaws[i]);
-
-    const segmentDesc = RAPIER.ColliderDesc.convexHull(spec.vertices)
-      .setRotation({ x: quat.x, y: quat.y, z: quat.z, w: quat.w })
-      .setFriction(spec.friction)
-      .setRestitution(spec.restitution);
-
-    const segmentCollider = world.createCollider(segmentDesc, recordBody);
-    recordColliderHandles.push(segmentCollider.handle);
+    recordPhysicsGeo = new THREE.BufferGeometry();
+    recordPhysicsGeo.setAttribute("position", new THREE.Float32BufferAttribute(spec.vertices, 3));
+    recordPhysicsGeo.setIndex(Array.from(spec.indices));
+    recordPhysicsGeo.computeVertexNormals();
   }
 
   let debugMesh = null;

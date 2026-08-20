@@ -26,9 +26,9 @@ report phase-exit eligibility; they must not move the marker.
 ## Current focus
 
 **Playtesting and stabilization.** External playtest is gated on BACKLOG Block 1
-(9 Highs). **NET-LAG-1-PT-1** is parked by Wyatt (08-20). **CART-POP-1** Wave
-H is live (Worker `94f97bea`, VERIFY_OK `index-DNHgq9AI.js`). F8 gzip
-uploads. Do not alter physics. Next: prod F8, then a supported +10 from preVy≈0.
+(9 Highs). **NET-LAG-1-PT-1** is parked by Wyatt (08-20). **CART-POP-1** Wave I landed — Classic floor is one annulus trimesh
+with `FIX_INTERNAL_EDGES` (no radial hull faces). Not shipped. Playtest
+**CART-POP-PT-1** after ship.
 Tier A drained; Tier B/C, security sweep, and analytics gating are closed. Run 7
 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Stay in this phase until
 Wyatt advances the marker.
@@ -98,7 +98,7 @@ Live rows only. Shipped and closed cards live in
 | # | What | Status |
 |---|------|--------|
 | NET-LAG-1 | Friends/QP lag + rubber-band (F8 both machines) | wave 1 landed; 🅿️ **NET-LAG-1-PT-1** `[2pc]` parked by Wyatt 08-20 |
-| CART-POP-1 | carts pop off the floor in normal driving | Wave H live; prod F8 next |
+| CART-POP-1 | carts pop off the floor in normal driving | Wave I: Classic annulus trimesh; ship next |
 | FRIENDS-ROTATE-1 | Friends rematch rotates arenas, synced | queued |
 | ONBOARD-JUMP-1 | HOW TO PLAY matches jump+boost | queued |
 | ONBOARD-WEBP-1 | HOW TO PLAY WebP playback + fallback | queued |
@@ -109,8 +109,8 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. Hard-refresh production with `?diag=1`, drive Cart Rave, press F8.
-   Confirm the capture uploads. Do not change physics values.
+1. Ship **CART-POP-1** Wave I, then **CART-POP-PT-1** on Classic: drive
+   normally ~30 s, F8. FAIL if a cart pops off the flat floor without a ram.
 2. **NET-LAG-1-PT-1** `[2pc]` is parked by Wyatt. Drain BACKLOG Block 1 in work-order order. Do not start an external
    playtest until it drains. Deferred: **SHARD-PT-2** (launch day).
 
@@ -184,11 +184,10 @@ before changing a physics lever.
 2026-08-20 (CART-POP-1 Wave C/D) — controls, restitution, and wedge seams are not sufficient causes;
 single-floor supports produce the highest rises. Wave E/F follows the remaining solver path.
 
-2026-08-20 (CART-POP-1 Wave H live) — Worker `94f97bea` (VERIFY_OK
-`index-DNHgq9AI.js`, 28 refs, `gzip-base64` + `handleIndex` in live
-chunks). Event 1686 is Classic segments 11–12. Isolated wedges do not
-pop at rest. F8 gzip uploads. No physics values changed.
-**CART-POP-PT-1 remains FAIL/open.** Hard-refresh `?diag=1` and F8.
+2026-08-20 (CART-POP-1 Wave I) — Classic 16 hull wedges → one annulus
+trimesh with `FIX_INTERNAL_EDGES`. Isolated 24 m/s drive: `dvy 0.021`.
+Rest stays planted. Hole still open. Friction/restitution unchanged.
+**CART-POP-PT-1** owed after ship.
 
 2026-08-19 (playtest blockers filed) — BACKLOG Block 1 reopened with 9
 Highs. Start **NET-LAG-1**. Do not playtest until the block drains.
