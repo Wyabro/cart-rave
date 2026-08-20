@@ -35,6 +35,19 @@ export const ANALYTICS_MAX_PER_WINDOW = 5;
 /** Sliding window length for open-beacon rate limiting. */
 export const BEACON_WINDOW_MS = 60_000;
 
+/**
+ * Raw POST /api/captures body cap (chars). Wave G support timelines made uncompressed
+ * F8 bundles 1.6–2.9 MB; the client now gzip-base64s the inner JSON so the HTTP
+ * envelope stays under this cap. Hostile uncompressed floods still drop here.
+ */
+export const CAPTURE_REQUEST_MAX_CHARS = 350_000;
+
+/**
+ * Decompressed capture JSON stored in the CaptureLog DO. Gzip bomb guard: a 200 KB
+ * POST cannot expand past this. 4 MB holds a full Wave G F8 with 170 pop timelines.
+ */
+export const CAPTURE_STORE_MAX_CHARS = 4_000_000;
+
 /** Max distinct IPs a log DO tracks before it starts evicting cold buckets. */
 export const BEACON_MAX_TRACKED_IPS = 5_000;
 

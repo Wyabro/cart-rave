@@ -3839,6 +3839,40 @@ function roundPoint3(point) {
 }
 
 /**
+ * Rapier collider handles JSON.stringify as denormals. Integers stay as-is for tests.
+ * @param {unknown} handle
+ * @returns {{ handleIndex: number|null, handleGen: number|null }}
+ */
+function colliderHandleParts(handle) {
+  if (typeof handle !== "number" || Number.isNaN(handle)) {
+    return { handleIndex: null, handleGen: null };
+  }
+  if (Number.isInteger(handle) && handle >= 0 && handle <= 0xffffffff) {
+    return { handleIndex: handle, handleGen: 0 };
+  }
+  const bits = new Float64Array(1);
+  bits[0] = handle;
+  const u32 = new Uint32Array(bits.buffer);
+  return { handleIndex: u32[0] >>> 0, handleGen: u32[1] >>> 0 };
+}
+
+/**
+ * Pose/shape identity that survives JSON. Serialized `.handle` values do not.
+ * @param {object} collider
+ */
+function colliderPoseIdentity(collider) {
+  const translation = collider?.translation?.();
+  const rotation = collider?.rotation?.();
+  return {
+    shapeType: collider?.shapeType?.() ?? null,
+    tx: translation ? round3(translation.x) : null,
+    ty: translation ? round3(translation.y) : null,
+    tz: translation ? round3(translation.z) : null,
+    yaw: rotation ? round3(yawFromQuaternion(rotation)) : null,
+  };
+}
+
+/**
  * Samples every cart's radial excursion into the pit, once per fixed step AFTER
  * `world.step`. One `pit`/`fall` event is emitted per episode, at the KO — not per
  * contact, and not after the KO: tracking through the shatter + respawn delay would let
@@ -4066,9 +4100,16 @@ function sampleCartPopProbe(world, allCarts, nowMs) {
               maxSolverFriction = Math.max(maxSolverFriction, manifold.solverContactFriction?.(i) ?? 0);
               maxSolverRestitution = Math.max(maxSolverRestitution, manifold.solverContactRestitution?.(i) ?? 0);
             }
+            const handleParts = colliderHandleParts(other.handle);
+            const pose = colliderPoseIdentity(other);
             recordContactDetails.push({
-              handle: other.handle,
+              handleIndex: handleParts.handleIndex,
+              handleGen: handleParts.handleGen,
               index: recordIndex,
+              ...pose,
+              fid1: strongestContact >= 0 ? manifold.contactFid1?.(strongestContact) ?? null : null,
+              fid2: strongestContact >= 0 ? manifold.contactFid2?.(strongestContact) ?? null : null,
+              solverPoint: solverContacts > 0 ? roundPoint3(manifold.solverContactPoint?.(0)) : null,
               normalY: round3(normalY),
               contacts: count,
               maxImpulse: round3(contactMaxImpulse),
@@ -4110,6 +4151,10 @@ function sampleCartPopProbe(world, allCarts, nowMs) {
       pitchRollSpeed: round3(pitchRollSpeed(angvel)),
       preVy: round3(preVy),
       preWorldVy: round3(preWorldVy),
+      preWorldPlanarSpeed: round3(Math.hypot(
+        cart._preWorldLinvel?.x ?? 0,
+        cart._preWorldLinvel?.z ?? 0,
+      )),
       vy: round3(lv.y),
       deltaVy: round3(lv.y - preVy),
       worldDeltaVy: round3(lv.y - preWorldVy),

@@ -9,17 +9,18 @@
 
 import { denyLogAdminIfConfigured } from "./adminAuth";
 import { type BeaconBucket, UNKNOWN_IP, checkBeaconLimit } from "./beaconLimit";
+import { CAPTURE_STORE_MAX_CHARS } from "./constants";
 import { clampStr as clamp, jsonResponse } from "./logUtil";
 
 /**
- * Ring-buffer cap — full bundles are ~5–40 KB; keep the last N.
+ * Ring-buffer cap — F8 bundles are ~5–40 KB, or up to ~2.5 MB with CART-POP timelines.
  * 400 ≈ 13 min of capture depth at the accepted beacon rate (CAPTURE-RING-LIMIT-1:
  * the old 80 rows cycled in ~2.7 min, so a focused capture run evicted itself).
  */
 const MAX_ROWS = 400;
 
 /** Hard ceiling on stored JSON body (chars). Hostile / runaway clients get dropped. */
-const MAX_BODY_CHARS = 350_000;
+const MAX_BODY_CHARS = CAPTURE_STORE_MAX_CHARS;
 
 /** Metadata field caps. */
 const CAP = { label: 80, phase: 40, build: 80, gpu: 160, tier: 16, ua: 300, url: 600 };

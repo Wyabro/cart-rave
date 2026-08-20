@@ -44,6 +44,15 @@ export interface Env {
 
 function getMonotonicNow() { return performance.timeOrigin + performance.now(); }
 
+/** Decode a client gzip-base64 F8 body so Wave G timelines fit the request cap. */
+async function gunzipBase64Utf8(b64: string): Promise<string> {
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
+  return new Response(stream).text();
+}
+
 /** Room shape is 4 slots; caps hostSpawn carts (CONN-SPAWN-SANITIZE-1). */
 const MAX_CARTS = 4;
 
@@ -84,6 +93,8 @@ import { COUNTDOWN_MS, FLYOVER_PREROLL_MS } from '../shared/roundConstants.js';
 import { requireAdminToken } from './adminAuth';
 import { UNKNOWN_IP } from './beaconLimit';
 import {
+  CAPTURE_REQUEST_MAX_CHARS,
+  CAPTURE_STORE_MAX_CHARS,
   IP_CONNECTION_CAP,
   getPlatformLiveIdsOverride,
   getPlayReadyTimeoutMs,
@@ -1876,8 +1887,8 @@ export default {
       if (request.method === "POST") {
         try {
           const body = await request.text();
-          // * Full F8 bundles are typically 5–40 KB; hard-cap well above that.
-          if (body.length > 0 && body.length <= 350_000 && env.CAPTURE_LOG) {
+          // * Raw envelope cap. Wave G timelines are gzip-base64 inside this envelope.
+          if (body.length > 0 && body.length <= CAPTURE_REQUEST_MAX_CHARS && env.CAPTURE_LOG) {
             let parsed: Record<string, unknown> = {};
             try {
               parsed = JSON.parse(body) as Record<string, unknown>;
@@ -1887,18 +1898,35 @@ export default {
                 headers: { "content-type": "application/json" },
               });
             }
-            // * Accept either a wrapped { label, body } envelope or a raw capture bundle
-            // * (body = the whole JSON). Extract light metadata for the list index.
-            const isWrapped = parsed && typeof parsed.body === "string";
-            const bundle = isWrapped
-              ? (() => {
-                  try {
-                    return JSON.parse(String(parsed.body)) as Record<string, unknown>;
-                  } catch {
-                    return null;
-                  }
-                })()
-              : parsed;
+            // * Accept gzip-base64, a wrapped { label, body } envelope, or a raw bundle.
+            let bundleJson: string | null = null;
+            if (parsed.encoding === "gzip-base64" && typeof parsed.body === "string") {
+              try {
+                bundleJson = await gunzipBase64Utf8(parsed.body);
+              } catch {
+                return new Response(JSON.stringify({ ok: false, error: "bad_gzip" }), {
+                  status: 400,
+                  headers: { "content-type": "application/json" },
+                });
+              }
+            } else if (typeof parsed.body === "string") {
+              bundleJson = parsed.body;
+            } else {
+              bundleJson = body;
+            }
+            if (!bundleJson || bundleJson.length > CAPTURE_STORE_MAX_CHARS) {
+              return new Response(JSON.stringify({ ok: false, error: "rejected" }), {
+                status: 400,
+                headers: { "content-type": "application/json" },
+              });
+            }
+            const bundle = (() => {
+              try {
+                return JSON.parse(bundleJson) as Record<string, unknown>;
+              } catch {
+                return null;
+              }
+            })();
             const snap = (bundle?.snapshot ?? null) as Record<string, unknown> | null;
             const runtime = (snap?.runtime ?? null) as Record<string, unknown> | null;
             const net = (snap?.net ?? null) as Record<string, unknown> | null;
@@ -1908,13 +1936,13 @@ export default {
               (typeof bundle?.build === "string" ? bundle.build : "") ||
               "";
             const storeBody = JSON.stringify({
-              label: isWrapped ? parsed.label : (parsed.label ?? null),
+              label: parsed.label ?? bundle?.label ?? null,
               phase: bundle?.phase ?? null,
               build: buildSha,
               isHost: net?.isHost ?? null,
               qualityTier: runtime?.qualityTier ?? null,
               gpu: runtime?.gpuRenderer ?? runtime?.gpuClass ?? null,
-              body: isWrapped ? parsed.body : body,
+              body: bundleJson,
               userAgent: request.headers.get("user-agent") || "",
               url: typeof parsed.url === "string" ? parsed.url : url.origin,
               clientTs: typeof parsed.clientTs === "number" ? parsed.clientTs : Date.now(),

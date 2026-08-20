@@ -16,6 +16,12 @@ export function logStub(binding) {
   return ns.get(ns.idFromName("v1"));
 }
 
+/** Read one stored F8 bundle back from CaptureLog. */
+export async function getCapture(id) {
+  const res = await logStub("CAPTURE_LOG").fetch(`https://do/get?id=${id}`);
+  return { status: res.status, row: await res.json() };
+}
+
 /**
  * Reset every log DO — SQLite ring AND the in-memory beacon limiter, which
  * /clear resets together. Required in beforeEach: the "v1" singletons outlive

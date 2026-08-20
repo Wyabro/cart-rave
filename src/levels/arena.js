@@ -1556,6 +1556,52 @@ function buildBooths(scene, world, config, boothNeonMeshes, boothColliderHandles
   };
 }
 
+/** Classic record floor is 16 convex-hull wedges. Shared with the CART-POP-1 repro. */
+export const CLASSIC_RECORD_SEGMENT_COUNT = 16;
+
+/**
+ * Trapezoidal-prism vertices and per-segment yaws for the Classic record ring.
+ * Adjacent side faces meet at ±halfAngle with authored zero overlap.
+ *
+ * @param {{ radius: number, innerRadius: number, thickness: number, y: number, friction: number, restitution: number }} record
+ * @returns {{
+ *   nSegments: number,
+ *   vertices: Float32Array,
+ *   yaws: number[],
+ *   centerY: number,
+ *   halfHeight: number,
+ *   friction: number,
+ *   restitution: number,
+ * }}
+ */
+export function getClassicRecordColliderSpec(record) {
+  const nSegments = CLASSIC_RECORD_SEGMENT_COUNT;
+  const R_out = record.radius;
+  const R_in = record.innerRadius;
+  const halfT = record.thickness / 2;
+  const halfAngle = Math.PI / nSegments;
+  const zIn = R_in * Math.tan(halfAngle);
+  const zOut = R_out * Math.tan(halfAngle);
+  return {
+    nSegments,
+    vertices: new Float32Array([
+      R_in, halfT, -zIn,
+      R_in, halfT, zIn,
+      R_out, halfT, -zOut,
+      R_out, halfT, zOut,
+      R_in, -halfT, -zIn,
+      R_in, -halfT, zIn,
+      R_out, -halfT, -zOut,
+      R_out, -halfT, zOut,
+    ]),
+    yaws: Array.from({ length: nSegments }, (_, i) => (i / nSegments) * Math.PI * 2),
+    centerY: record.y,
+    halfHeight: halfT,
+    friction: record.friction,
+    restitution: record.restitution,
+  };
+}
+
 /**
  * Builds the dancefloor record (visual + physics), center pit wall, and four spawn booths.
  * Adds all meshes to the scene and registers Rapier colliders on the supplied world.
@@ -2143,45 +2189,19 @@ export async function initArena(scene, world, config, options = {}) {
   }
 
   // --- PRIMITIVE RING COLLIDER (Fixes Trimesh Bounce & Overlap Tunneling) ---
-  const N_SEGMENTS = 16;
-  const R_out = config.record.radius;
-  const R_in = config.record.innerRadius;
-  const halfT = config.record.thickness / 2;
-
-  // * Exact tangent widths so segments touch edge-to-edge with zero overlap.
-  const halfAngle = Math.PI / N_SEGMENTS;
-  const zIn = R_in * Math.tan(halfAngle);
-  const zOut = R_out * Math.tan(halfAngle);
-  const topY = halfT;
-  const botY = -halfT;
-
-  // * 8 vertices of a trapezoidal prism, centered radially (no translation needed).
-  // * Vertices already encode R_in → R_out; rotation around origin places them in the ring.
-  const vertices = new Float32Array([
-    // Top face
-    R_in, topY, -zIn,
-    R_in, topY,  zIn,
-    R_out, topY, -zOut,
-    R_out, topY,  zOut,
-    // Bottom face
-    R_in, botY, -zIn,
-    R_in, botY,  zIn,
-    R_out, botY, -zOut,
-    R_out, botY,  zOut,
-  ]);
+  const spec = getClassicRecordColliderSpec(config.record);
 
   const yAxis = new THREE.Vector3(0, 1, 0);
   /** @type {number[]} */
   const recordColliderHandles = [];
 
-  for (let i = 0; i < N_SEGMENTS; i++) {
-    const angle = (i / N_SEGMENTS) * Math.PI * 2;
-    const quat = new THREE.Quaternion().setFromAxisAngle(yAxis, angle);
+  for (let i = 0; i < spec.nSegments; i++) {
+    const quat = new THREE.Quaternion().setFromAxisAngle(yAxis, spec.yaws[i]);
 
-    const segmentDesc = RAPIER.ColliderDesc.convexHull(vertices)
+    const segmentDesc = RAPIER.ColliderDesc.convexHull(spec.vertices)
       .setRotation({ x: quat.x, y: quat.y, z: quat.z, w: quat.w })
-      .setFriction(config.record.friction)
-      .setRestitution(config.record.restitution);
+      .setFriction(spec.friction)
+      .setRestitution(spec.restitution);
 
     const segmentCollider = world.createCollider(segmentDesc, recordBody);
     recordColliderHandles.push(segmentCollider.handle);

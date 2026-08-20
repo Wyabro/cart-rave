@@ -2,6 +2,8 @@
 // diagnostics.test.js — the __ccDiag core: zero-cost when inactive, probe registry, and the
 // bounded event ring buffer. Deterministic (no browser, no rAF) — the module is a pure hub.
 
+import { Buffer } from "node:buffer";
+import { gunzipSync } from "node:zlib";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   installDiagnostics,
@@ -360,10 +362,16 @@ describe("diagnostics — active (?diag)", () => {
      * own event `type` and select only its own upload — deterministic regardless of timing.
      * @param {string} type
      */
+    const bundleFromEnvelope = (envelope) => {
+      if (envelope?.encoding === "gzip-base64") {
+        return JSON.parse(gunzipSync(Buffer.from(envelope.body, "base64")).toString("utf8"));
+      }
+      return JSON.parse(envelope.body);
+    };
     const postsFor = (type) =>
       posts.filter((p) => {
         try {
-          return JSON.parse(p.envelope.body)?.reason === `assert/${type}`;
+          return bundleFromEnvelope(p.envelope)?.reason === `assert/${type}`;
         } catch {
           return false;
         }
@@ -376,8 +384,8 @@ describe("diagnostics — active (?diag)", () => {
       const mine = postsFor("upload-probe");
       expect(mine).toHaveLength(1);
       expect(mine[0].url).toContain("/api/captures");
-      // * The bundle travels as a JSON string in `body` — same envelope shape as F8.
-      const sent = JSON.parse(mine[0].envelope.body);
+      expect(mine[0].envelope.encoding).toBe("gzip-base64");
+      const sent = bundleFromEnvelope(mine[0].envelope);
       expect(sent.scenario).toBe("auto");
       expect(sent.snapshot.round).toEqual({ phase: "podium" });
     });

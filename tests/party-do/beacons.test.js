@@ -12,7 +12,7 @@
 
 import { beforeEach, describe, expect, it } from "vitest";
 import { ANALYTICS_MAX_PER_WINDOW, BEACON_MAX_PER_WINDOW } from "../../party/constants.ts";
-import { clearAllLogs, listFrom, postBeacon } from "./beaconClient.js";
+import { clearAllLogs, getCapture, listFrom, postBeacon } from "./beaconClient.js";
 
 const CAP = BEACON_MAX_PER_WINDOW;
 
@@ -103,6 +103,36 @@ describe("SEC-BEACON-1 open beacon rate limit", () => {
     }
     const { count } = await listFrom("ERROR_LOG", "errors");
     expect(count).toBe(CAP + 10);
+  });
+
+  it("accepts a gzip-base64 F8 envelope whose JSON exceeds the request cap", async () => {
+    const bulky = {
+      phase: "running",
+      events: Array.from({ length: 120 }, (_unused, i) => ({
+        ch: "cart_pop",
+        seq: i,
+        supportTimeline: Array.from({ length: 60 }, () => ({
+          t: 1, y: 0.375, radius: 15.8, vy: 0, recordPairs: 3, supportPairs: 1, supportPoints: 5,
+        })),
+      })),
+    };
+    const json = JSON.stringify(bulky);
+    expect(json.length).toBeGreaterThan(350_000);
+    const bytes = new Uint8Array(
+      await new Response(new Blob([json]).stream().pipeThrough(new CompressionStream("gzip"))).arrayBuffer(),
+    );
+    let binary = "";
+    for (let i = 0; i < bytes.length; i += 1) binary += String.fromCharCode(bytes[i]);
+    const res = await postBeacon(
+      "/api/captures",
+      { label: "GZIP-WAVE-G", encoding: "gzip-base64", body: btoa(binary) },
+      null,
+    );
+    expect(res.status).toBe(200);
+    const { id } = await res.json();
+    const { status, row } = await getCapture(id);
+    expect(status).toBe(200);
+    expect(JSON.parse(String(row.body)).events).toHaveLength(120);
   });
 
   it("leaves the normal path unchanged", async () => {

@@ -145,8 +145,9 @@ describe("CART-POP-1 contact probe", () => {
         contactClasses: { floor: 1, edge: 0, clang: 0 },
         recordContacts: 1,
         unclassifiedStaticContacts: 0,
-        recordContactDetails: [{
-          handle: 42,
+        recordContactDetails: [expect.objectContaining({
+          handleIndex: 42,
+          handleGen: 0,
           index: 0,
           normalY: 1,
           contacts: 1,
@@ -161,7 +162,7 @@ describe("CART-POP-1 contact probe", () => {
           solverContacts: 2,
           maxSolverFriction: 0.9,
           maxSolverRestitution: 0.175,
-        }],
+        })],
         recordContactDetailOverflow: 0,
         supportTimeline: [{
           t: 1000,
@@ -246,12 +247,47 @@ describe("CART-POP-1 contact probe", () => {
       expect.objectContaining({
         recordContacts: 10,
         recordContactDetails: expect.arrayContaining([
-          expect.objectContaining({ handle: 1, index: 0, normalY: 1, contacts: 1, maxImpulse: 2 }),
-          expect.objectContaining({ handle: 8, index: 7, normalY: 1, contacts: 1, maxImpulse: 2 }),
+          expect.objectContaining({ handleIndex: 1, index: 0, normalY: 1, contacts: 1, maxImpulse: 2 }),
+          expect.objectContaining({ handleIndex: 8, index: 7, normalY: 1, contacts: 1, maxImpulse: 2 }),
         ]),
         recordContactDetailOverflow: 2,
       }),
     ]);
     expect(popEvents()[0].recordContactDetails).toHaveLength(8);
+  });
+
+  it("decodes Rapier denormal handles into index and generation", () => {
+    installDiagnostics({ flags: { enabled: true } });
+    const cart = makeCart();
+    const bits = new Float64Array(new Uint32Array([106, 246]).buffer)[0];
+    const floor = {
+      handle: bits,
+      shapeType: () => 7,
+      translation: () => ({ x: 0, y: -0.3, z: 0 }),
+      rotation: () => ({ x: 0, y: 1, z: 0, w: 0 }),
+    };
+    const manifold = {
+      normal: (out) => Object.assign(out, { x: 0, y: -1, z: 0 }),
+      numContacts: () => 1,
+      contactImpulse: () => 2,
+      contactFid1: () => 4,
+      contactFid2: () => 8,
+      numSolverContacts: () => 1,
+      solverContactPoint: () => ({ x: -1.16, y: 0, z: 15.83 }),
+    };
+    const world = makeWorld(floor, manifold);
+    world.step = () => { cart.vel.y = 1; };
+    step(cart, world, 1000, { recordColliderHandles: [bits] });
+    expect(popEvents()[0].recordContactDetails[0]).toEqual(expect.objectContaining({
+      handleIndex: 106,
+      handleGen: 246,
+      index: 0,
+      shapeType: 7,
+      ty: -0.3,
+      yaw: expect.any(Number),
+      fid1: 4,
+      fid2: 8,
+      solverPoint: { x: -1.16, y: 0, z: 15.83 },
+    }));
   });
 });

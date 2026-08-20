@@ -1,5 +1,15 @@
+import { gunzipSync } from "node:zlib";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { deriveDefaultLabel, menuReturnHref, uploadCaptureBundle } from "../../src/utils/captureUpload.js";
+
+function readUploadedBundle(init) {
+  const envelope = JSON.parse(init.body);
+  if (envelope.encoding === "gzip-base64") {
+    const json = gunzipSync(Buffer.from(envelope.body, "base64")).toString("utf8");
+    return { envelope, bundle: JSON.parse(json) };
+  }
+  return { envelope, bundle: JSON.parse(envelope.body) };
+}
 
 describe("deriveDefaultLabel", () => {
   it("builds phase-role-tier", () => {
@@ -40,10 +50,35 @@ describe("uploadCaptureBundle", () => {
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe("/api/captures");
     expect(init.method).toBe("POST");
-    const body = JSON.parse(init.body);
-    expect(body.label).toBe("run7-A-host");
-    expect(typeof body.body).toBe("string");
-    expect(JSON.parse(body.body).phase).toBe("lobby");
+    const { envelope, bundle } = readUploadedBundle(init);
+    expect(envelope.label).toBe("run7-A-host");
+    expect(envelope.encoding).toBe("gzip-base64");
+    expect(bundle.phase).toBe("lobby");
+  });
+
+  it("gzip envelope stays under the Worker request cap for a 2.5 MB timeline bundle", async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ ok: true, id: 9 }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    const bulky = {
+      phase: "running",
+      events: Array.from({ length: 170 }, (_unused, i) => ({
+        ch: "cart_pop",
+        seq: i,
+        supportTimeline: Array.from({ length: 60 }, (_s, t) => ({
+          t, y: 0.375, radius: 15.8, vy: 0, recordPairs: 3, supportPairs: 1, supportPoints: 5,
+        })),
+      })),
+    };
+    await uploadCaptureBundle(bulky, { label: "wave-g" });
+    const raw = fetchMock.mock.calls[0][1].body;
+    expect(raw.length).toBeLessThan(350_000);
+    const { envelope, bundle } = readUploadedBundle(fetchMock.mock.calls[0][1]);
+    expect(envelope.encoding).toBe("gzip-base64");
+    expect(bundle.events).toHaveLength(170);
+    expect(bundle.events[0].supportTimeline).toHaveLength(60);
   });
 
   it("surfaces http failures", async () => {

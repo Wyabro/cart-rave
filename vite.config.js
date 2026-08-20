@@ -134,6 +134,7 @@ export default defineConfig(({ mode }) => ({
       "**/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.*",
       // * Workers-pool suite — owned by vitest.config.js projects → party-do.
       "tests/party-do/**",
+      "tests/rapier-live/**",
     ],
   },
 

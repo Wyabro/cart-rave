@@ -13,6 +13,32 @@ const ENDPOINT = "/api/captures";
  * @param {{ label?: string }} [opts]
  * @returns {Promise<{ ok: boolean, id?: number, error?: string }>}
  */
+/**
+ * Gzip UTF-8 text to standard base64. Returns null when CompressionStream is missing.
+ * @param {string} text
+ * @returns {Promise<string|null>}
+ */
+export async function gzipUtf8ToBase64(text) {
+  if (typeof CompressionStream !== "function") return null;
+  try {
+    const stream = new Blob([text]).stream().pipeThrough(new CompressionStream("gzip"));
+    const bytes = new Uint8Array(await new Response(stream).arrayBuffer());
+    return bytesToBase64(bytes);
+  } catch {
+    return null;
+  }
+}
+
+/** @param {Uint8Array} bytes */
+function bytesToBase64(bytes) {
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
 export async function uploadCaptureBundle(bundle, opts = {}) {
   if (!bundle || typeof bundle !== "object") {
     return { ok: false, error: "no_bundle" };
@@ -21,12 +47,22 @@ export async function uploadCaptureBundle(bundle, opts = {}) {
     (typeof opts.label === "string" && opts.label.trim()) ||
     deriveDefaultLabel(bundle);
 
-  const envelope = {
-    label,
-    clientTs: Date.now(),
-    url: typeof location !== "undefined" ? location.href : "",
-    body: JSON.stringify(bundle),
-  };
+  const json = JSON.stringify(bundle);
+  const gzipBody = await gzipUtf8ToBase64(json);
+  const envelope = gzipBody
+    ? {
+      label,
+      clientTs: Date.now(),
+      url: typeof location !== "undefined" ? location.href : "",
+      encoding: "gzip-base64",
+      body: gzipBody,
+    }
+    : {
+      label,
+      clientTs: Date.now(),
+      url: typeof location !== "undefined" ? location.href : "",
+      body: json,
+    };
 
   try {
     const res = await fetch(ENDPOINT, {
