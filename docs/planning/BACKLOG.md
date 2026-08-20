@@ -58,7 +58,7 @@ way the Block table still can.)*
 
 | Block | State | Next action |
 |-------|-------|-------------|
-| **1** — NOW (player-facing correctness) | 🟡 active | **CART-POP-1** Wave I annulus trimesh · **CART-POP-PT-1** FAIL / remains open · **NET-LAG-1-PT-1** `[2pc]` parked by Wyatt · 8 playtest blockers |
+| **1** — NOW (player-facing correctness) | 🟡 active | **CART-POP-1** Wave I live on Classic · **CART-POP-PT-1** owed · Sundial/Storerooms still open · **NET-LAG-1-PT-1** parked |
 | **2** — PRE-SHIP (before public post) | ✅ drained | 08-18 **CUSTOMIZE-SPAM-1** · **CUSTOMIZE-SPAM-PT-1** Wyatt PASS |
 | **3** — WYATT LANE (blocked on you) | ✅ drained | 08-17 **TRUST-1** · **LEADERBOARD-1** cut from V2 |
 | **4** — PERF RESIDUAL (measure-first) | 🟡 queued | **PERF-CLASSIC-IGPU-1** CLOSED 08-18 (gap named: render ≈ 90% of vis) · WARM-SOLO-1 · PERF-WATCH-1 · NET-PERF-1 / NET-PERF-3 |
@@ -219,7 +219,7 @@ Rows follow work-order rank: High (Block 1) → Medium (Block 2, then Wyatt-bloc
 | Pri | Item | Notes |
 |-----|------|-------|
 | High | NET-LAG-1 — Friends/QP lag + rubber-band before playtest | **Wave 1 landed 08-20.** Cause: NH-SMOOTH v3 display low-pass (`displayPosRate` 14) trailed ~1.6 m on a clean wire (cap-373/374 vs host 375, room `SAGO6`). Lever: non-host local mesh+camera **copy** the physics pose. Transport / host send / rewind-replay not this wave. **Owed: NET-LAG-1-PT-1, parked by Wyatt 08-20.** Do not restore lerp or add a catch-up distance gate on a vibration FAIL without a new ack. Do not reopen **NET-1** · **NET-2** · **NET-MIG-3**. |
-| High | CART-POP-1 — carts pop off the floor in normal driving | **Wave I 08-20.** Classic floor is one annulus trimesh (`FIX_INTERNAL_EDGES`), not 16 hull wedges. Isolated proof: rest planted; 24 m/s tangent drive `dvy 0.021`; hole open. Cap-394 first ejections were seam hits at ~24 m/s on radial hull faces. Friction/restitution/CCD/solver unchanged. **CART-POP-PT-1** owed after ship. Sundial/Storerooms still use multi-collider floors. Lane: **Critical**. |
+| High | CART-POP-1 — carts pop off the floor in normal driving | **Wave I live 08-20** Worker `5360f482` (VERIFY_OK `index-C_E0eHJg.js`). Classic = one annulus trimesh (`FIX_INTERNAL_EDGES`). Isolated 24 m/s drive `dvy 0.021`. **CART-POP-PT-1** owed on Classic. Sundial still has 4 overlapping deck cuboids; Storerooms still has multiple floor colliders. Same first-ejection pattern in Wave G caps. Lane: **Critical**. |
 | High | FRIENDS-ROTATE-1 — Friends rematch rotates to the next arena | **Landed 08-20.** Friends rematch now calls the QP in-place rotation; `playAgain` waits for `clientPlayReady` in Friends rooms too (first-match GO unchanged). Analog of **QP-ORDER-1** (do not reopen). Distinct from **FRIENDS-LEVEL-1** (host pick wins at join). **Owed: FRIENDS-ROTATE-PT-1.** |
 | High | ONBOARD-WEBP-1 — HOW TO PLAY animated WebPs fail on some PCs | **Filed 08-19.** Animated HOW TO PLAY WebPs did not animate on Wyatt's brother's PC (F8 capture on that machine). Investigate browser/GPU/load/render. Add a graceful fallback if animated WebP playback cannot be relied on. Distinct from reduced-motion `still.webp` (ONBOARD-ART-1). Do not reopen **ONBOARD-SLIDES-1**. |
 | High | MENU-CART-FOLLOW-1 — menu cart preview follows the cursor slightly | **Filed 08-19.** Main-menu cart preview should lightly follow cursor movement: small rotation/parallax, then ease back to rest when the pointer leaves. Subtle and polished — not aggressive tracking. Do not reopen **MENU-CART-1**. |
