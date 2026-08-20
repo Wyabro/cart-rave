@@ -27,7 +27,7 @@ report phase-exit eligibility; they must not move the marker.
 
 **Playtesting and stabilization.** External playtest is gated on BACKLOG Block 1
 (9 Highs). **NET-LAG-1-PT-1** is parked by Wyatt (08-20). **CART-POP-1** Wave
-F is active (Critical; trace single-floor solver contact points and impulses). Do not alter
+F is deployed (Critical; trace single-floor solver contact points and impulses). Do not alter
 physics before the contact geometry identifies the ejection mechanism.
 Tier A drained; Tier B/C, security sweep, and analytics gating are closed. Run 7
 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Stay in this phase until
@@ -95,7 +95,7 @@ Live rows only. Shipped and closed cards live in
 | # | What | Status |
 |---|------|--------|
 | NET-LAG-1 | Friends/QP lag + rubber-band (F8 both machines) | wave 1 landed; 🅿️ **NET-LAG-1-PT-1** `[2pc]` parked by Wyatt 08-20 |
-| CART-POP-1 | carts pop off the floor in normal driving | Wave F active; contact-point solver trace |
+| CART-POP-1 | carts pop off the floor in normal driving | Wave F deployed; contact-point solver trace |
 | SPAWN-BACKROOMS-2 | Storerooms spawns one spawn-width out (ring 38.15) | direction corrected; ⏳ **SPAWN-BACKROOMS-PT-2** `[1pc]` |
 | FRIENDS-ROTATE-1 | Friends rematch rotates arenas, synced | queued |
 | ONBOARD-JUMP-1 | HOW TO PLAY matches jump+boost | queued |
@@ -107,7 +107,7 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. Deploy **CART-POP-1** Wave F contact trace. Reproduce ordinary Cart Rave driving with
+1. Reproduce **CART-POP-1** Wave F contact trace. Use ordinary Cart Rave driving with
    `?diag=1` and F8; do not alter pitch/roll, friction, restitution, or floor geometry before the
    ejection mechanism is clear.
 2. **NET-LAG-1-PT-1** `[2pc]` is parked by Wyatt. Drain BACKLOG Block 1 in work-order order. Do not start an external
@@ -187,7 +187,7 @@ Wedge seams are not required. Candidate: free pitch/roll or another cart-vs-sing
 Wave E must record pre/post solver up-dot and angular velocity before a physics change.
 
 2026-08-20 (CART-POP-1 Wave E/F) — Caps 389–391: tilt/spin can amplify pops (`+15.67`, `+16.06`),
-but upright/no-pre-spin still hits `+11.01`. Wave F traces single-floor contact points and impulses.
+but upright/no-pre-spin still hits `+11.01`. Wave F contact trace deployed (Worker `93b260a5`; marker verified).
 No physics setting changed.
 
 2026-08-19 (playtest blockers filed) — BACKLOG Block 1 reopened with 9
