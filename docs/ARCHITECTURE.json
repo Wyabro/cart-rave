@@ -2,15 +2,15 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-20T18:51:24.417Z",
-    "commit": "a1b362dc"
+    "at": "2026-08-20T19:05:52.871Z",
+    "commit": "2041a750"
   },
-  "source_digest": "3a2a82d6",
+  "source_digest": "3147ab4b",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
     "production_url": "https://www.cartclash.lol/",
-    "mission": "Playtesting and stabilization — External playtest is gated on BACKLOG Block 1 (9 Highs). NET-LAG-1-PT-1 is parked by Wyatt (08-20). CART-POP-1 Wave G is active (Critical; trace the support-loss boundary before the single-floor rebound). Do not alter physics before the support-loss source identifies the ejection mechanism. Tier A drained; Tier B/C, security sweep, and analytics gating are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Stay in this phase until Wyatt advances the marker.",
+    "mission": "Playtesting and stabilization — External playtest is gated on BACKLOG Block 1 (9 Highs). NET-LAG-1-PT-1 is parked by Wyatt (08-20). CART-POP-1 Wave G is deployed (Critical; pull the next F8 support timeline before the single-floor rebound). Do not alter physics before the support-loss source identifies the ejection mechanism. Tier A drained; Tier B/C, security sweep, and analytics gating are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Stay in this phase until Wyatt advances the marker.",
     "phase": "Playtesting & stabilization — stabilize after Run 7; prove residuals; no auto-advance to RC",
     "phases": [
       {
@@ -881,7 +881,7 @@
       {
         "id": "CART-POP-1",
         "what": "carts pop off the floor in normal driving",
-        "status": "Wave G active; support-loss timeline",
+        "status": "Wave G deployed; pull support timeline",
         "state": "waiting"
       },
       {
@@ -928,7 +928,7 @@
       }
     ],
     "next_actions": [
-      "Deploy CART-POP-1 Wave G support timeline. Reproduce ordinary Cart Rave driving with",
+      "Pull CART-POP-1 Wave G support timeline. Reproduce ordinary Cart Rave driving with",
       "NET-LAG-1-PT-1 `[2pc]` is parked by Wyatt. Drain BACKLOG Block 1 in work-order order. Do not start an external"
     ],
     "open_issues": [
@@ -959,7 +959,7 @@
           {
             "pri": "High",
             "item": "CART-POP-1 — carts pop off the floor in normal driving",
-            "notes": "**Wave G diagnostic active 08-20 (Wyatt ack).** Wave F caps 392–393: controls, restitution, wedge seams, and pitch/roll are not sufficient causes. Upright/no-spin carts reach `−8.718 → +1.43` at one flat-floor contact on the round-cuboid lower front corner; tangent impulse, solver friction, and solver restitution are zero. Wave G records the last 60 pre-solver support frames before each rise. **CART-POP-PT-1 remains FAIL/open.** Isolate the support-loss source before a physics change. Lane: **Critical**.",
+            "notes": "**Wave G deployed 08-20.** Wave F caps 392–393: controls, restitution, wedge seams, and pitch/roll are not sufficient causes. Upright/no-spin carts reach `−8.718 → +1.43` at one flat-floor contact on the round-cuboid lower front corner; tangent impulse, solver friction, and solver restitution are zero. Wave G records the last 60 pre-solver support frames before each rise; Worker `39124619` is live with the entry, 28 referenced assets, and lazy chunk marker verified. **CART-POP-PT-1 remains FAIL/open.** Pull a new F8 capture; isolate the support-loss source before a physics change. Lane: **Critical**.",
             "ship1": null
           },
           {
