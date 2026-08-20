@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-20 at commit `8b524c94` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `a722d212`
+> Generated 2026-08-20 at commit `d13564b7` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `9b03382f`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -14,16 +14,16 @@
 
 ## Mission
 
-Playtesting and stabilization — External playtest is gated on BACKLOG Block 1 (9 Highs). NET-LAG-1-PT-1 is parked by Wyatt (08-20). CART-POP-1 Wave C is active (Critical; Wave B restitution cap failed on production; attribute the solver boundary). Tier A drained; Tier B/C, security sweep, and analytics gating are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Stay in this phase until Wyatt advances the marker.
+Playtesting and stabilization — External playtest is gated on BACKLOG Block 1 (9 Highs). NET-LAG-1-PT-1 is parked by Wyatt (08-20). CART-POP-1 Wave C capture is read (Critical; Wave B restitution cap failed on production; the fault is in Cart Rave record-floor contact solving, not control code). Do not alter floor geometry before a contact-location trace confirms the specific surface seam. Tier A drained; Tier B/C, security sweep, and analytics gating are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Stay in this phase until Wyatt advances the marker.
 
 ## ACTIVE CARD
 
-Deploy CART-POP-1 Wave C diagnostic capture. Reproduce ordinary Cart Rave driving
+Plan CART-POP-1 Wave D contact-location trace: record radial position and individual
 
 Assess and state the lane before editing. This heading names the card; it is **not** a lane assessment or permission to edit.
 
 Self-directed queue (one at a time, within the declared phase):
-- **CART-POP-1** carts pop off the floor in normal driving — Wave C active (Wave B Min failed; solver-boundary measurement)
+- **CART-POP-1** carts pop off the floor in normal driving — Wave C read; Cart Rave record-floor solver trace needed
 - **SPAWN-BACKROOMS-2** Storerooms spawns one spawn-width inward — queued
 - **FRIENDS-ROTATE-1** Friends rematch rotates arenas, synced — queued
 - **ONBOARD-JUMP-1** HOW TO PLAY matches jump+boost — queued

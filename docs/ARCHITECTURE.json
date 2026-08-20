@@ -2,15 +2,15 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-20T09:02:08.809Z",
-    "commit": "1a0c392d"
+    "at": "2026-08-20T17:19:13.371Z",
+    "commit": "d13564b7"
   },
-  "source_digest": "65587008",
+  "source_digest": "04229fcc",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
     "production_url": "https://www.cartclash.lol/",
-    "mission": "Playtesting and stabilization — External playtest is gated on BACKLOG Block 1 (9 Highs). NET-LAG-1-PT-1 is parked by Wyatt (08-20). CART-POP-1 Wave C is active (Critical; Wave B restitution cap failed on production; attribute the solver boundary). Tier A drained; Tier B/C, security sweep, and analytics gating are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Stay in this phase until Wyatt advances the marker.",
+    "mission": "Playtesting and stabilization — External playtest is gated on BACKLOG Block 1 (9 Highs). NET-LAG-1-PT-1 is parked by Wyatt (08-20). CART-POP-1 Wave C capture is read (Critical; Wave B restitution cap failed on production; the fault is in Cart Rave record-floor contact solving, not control code). Do not alter floor geometry before a contact-location trace confirms the specific surface seam. Tier A drained; Tier B/C, security sweep, and analytics gating are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Stay in this phase until Wyatt advances the marker.",
     "phase": "Playtesting & stabilization — stabilize after Run 7; prove residuals; no auto-advance to RC",
     "phases": [
       {
@@ -881,7 +881,7 @@
       {
         "id": "CART-POP-1",
         "what": "carts pop off the floor in normal driving",
-        "status": "Wave C active (Wave B Min failed; solver-boundary measurement)",
+        "status": "Wave C read; Cart Rave record-floor solver trace needed",
         "state": "waiting"
       },
       {
@@ -934,7 +934,7 @@
       }
     ],
     "next_actions": [
-      "Deploy CART-POP-1 Wave C diagnostic capture. Reproduce ordinary Cart Rave driving",
+      "Plan CART-POP-1 Wave D contact-location trace: record radial position and individual",
       "NET-LAG-1-PT-1 `[2pc]` is parked by Wyatt. Drain BACKLOG Block 1 in work-order order. Do not start an external"
     ],
     "open_issues": [
@@ -965,7 +965,7 @@
           {
             "pri": "High",
             "item": "CART-POP-1 — carts pop off the floor in normal driving",
-            "notes": "**Wave B FAIL → Wave C diagnostic 08-20.** Production cap-386 verifies the shared Min lever landed (effective restitution 0.05) but ordinary Cart Rave driving is unchanged or worse: 73 unexpected rises, all floor-only; 71 start in the solver step; peak `deltaVy +15.41`. Restitution is ruled out as the main cause. Next probe separates post-control/pre-solver `vy` from solver `deltaVy` and counts known record-floor versus unclassified static contacts. **CART-POP-PT-1 remains FAIL/open.** Do not tune another coefficient before that trace. Lane: **Critical**.",
+            "notes": "**Wave C read 08-20.** Production cap-387 (`1a0c392d`, Cart Rave) has 133 unexpected rise samples, 28 on Wyatt's local cart. All are known record-floor contacts; none are unclassified static geometry. In 132/133, post-control and pre-solver `vy` match; `world.step` creates the upward change. Local peaks: `0 → +4.40` and `−8.43 → +1.35`, with two to four record-floor contacts. Candidate is the 16 convex record wedges near the inner ring, but no radial position or individual handle is captured yet. **CART-POP-PT-1 remains FAIL/open.** Wave D must trace location and per-contact identity before a floor change. Lane: **Critical**.",
             "ship1": null
           },
           {
