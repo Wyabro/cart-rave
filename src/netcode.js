@@ -448,6 +448,7 @@ let callbacks = {
   markFirstHelloReceived: (slots) => {},
   getOnGameStartHandler: () => null,
   getOnHostMigratedHandler: () => null,
+  onHostDemoted: () => {},
   onCountdownCancelled: () => {},
   onJoinRejected: () => {},
   // CONN-TOASTS-1: presentation of join/leave events (friends lobby + in-match).
@@ -743,6 +744,7 @@ export function registerGameCallbacks(deps) {
     markFirstHelloReceived: () => deps.markFirstHelloReceived(),
     getOnGameStartHandler: () => deps.getOnGameStartHandler(),
     getOnHostMigratedHandler: () => deps.getOnHostMigratedHandler?.(),
+    onHostDemoted: () => deps.onHostDemoted?.(),
     onCountdownCancelled: () => deps.onCountdownCancelled?.(),
     onJoinRejected: () => deps.onJoinRejected?.(),
     onPlayerConnectionEvents: (events) => deps.onPlayerConnectionEvents?.(events),
@@ -2818,6 +2820,12 @@ function applyHostMigration(msg) {
   hostId = typeof msg.hostId === "string" ? msg.hostId : null;
   const nextIsHost = Boolean(hostId && youConnId && hostId === youConnId);
   clearHostPresentRetry();
+  // * DEMOTE-COUNTDOWN-1: the demoted old host must not keep an armed countdown
+  // * timer — a stale tick would locally flip it to running ~a clock-skew early.
+  // * roundLifecycle clears its timer through this callback.
+  if (previousHostId && previousHostId === youConnId && !nextIsHost) {
+    callbacks.onHostDemoted?.();
+  }
 
   P2P.closeAllConnections();
   peerReconnectNotBeforeMs.clear();

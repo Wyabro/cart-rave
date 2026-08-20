@@ -1058,6 +1058,7 @@ export function bootGameSystems(ctx) {
     markFirstHelloReceived,
     getOnGameStartHandler: () => onGameStartHandler,
     getOnHostMigratedHandler: () => onHostMigratedHandler,
+    onHostDemoted: () => { clearRoundCountdownTimeout(); },
     onCountdownCancelled: () => { onCountdownCancelledRef?.(); },
     endCinematicCountdown: () => { CameraMod.endCinematicCountdown(camera); },
     // * Cap-59: netcode holds host_round countdown phase until carts/shaders ready.

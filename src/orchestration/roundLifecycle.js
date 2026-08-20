@@ -774,6 +774,10 @@ function updateResultsOverlay() {
 }
 
 function startRunningAt(startedAtMs) {
+  // * DEMOTE-COUNTDOWN-1: a demoted client must not locally flip itself to
+  // * running ~a clock-skew early (startCountdown/resumeCountdownAsNewHost
+  // * already guard with isHost; this entry point did not).
+  if (!Netcode.getIsHost()) return;
   setIsNewPersonalBest(false);
   cancelLastCartStandingFinish();
   GameState.setRoundEndReason(null);
