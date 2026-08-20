@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-20T04:44:20.933Z",
-    "commit": "2064f8bc"
+    "at": "2026-08-20T05:17:19.327Z",
+    "commit": "6e5fbbdc"
   },
-  "source_digest": "368c3f15",
+  "source_digest": "ade457d0",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1002,7 +1002,7 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Low": 2
+          "Low": 3
         },
         "rows": [
           {
@@ -1015,6 +1015,12 @@
             "pri": "Low",
             "item": "SHARD-PT-2 — fifth human overflows to quickplay2 `[2pc]`",
             "notes": "**Owed: Wyatt playtest — SHARD-PT-2 — the 5th concurrent Quickplay human lands on quickplay2 instead of \"couldn't join\".** Launch-day / public-post check — needs five real humans (Wyatt deferred 08-05). Rig already 5/5; SHARD-PT-1 PASSed on prod `9c333d1`. Prefer analytics: any `quickplay_shard_assigned` with `hops > 0` or `shard !== quickplay` counts.<br>1. When five humans can join Quickplay at once (public post), watch the 5th seat.<br>2. FAIL if they get the dead-end couldn't-join toast with no hop. PASS if they seat on an overflow shard (or analytics shows hops greater than 0).<br>3. Skip / leave open until launch day — do not FAIL for lack of five people.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "DEMOTE-COUNTDOWN-PT-1 — demoted host's countdown must not flip early `[2pc]`",
+            "notes": "**Owed: Wyatt playtest — DEMOTE-COUNTDOWN-PT-1 — after a host migration during the countdown, the old host's screen must not start the round early.** Parent **DEMOTE-COUNTDOWN-1**. Prod after ship (hard-refresh).<br>1. On prod, open two clients in one room and start a round so the 3-2-1 countdown is running.<br>2. While counting down, force a host migration (e.g. close/tab the host so the other client takes over).<br>3. FAIL if the old host's screen flips to RUNNING before the countdown finishes, or the round start looks clock-skewed.<br>4. PASS if the countdown completes normally and the round starts at the right moment on both screens.",
             "ship1": null
           }
         ]

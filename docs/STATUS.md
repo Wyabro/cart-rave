@@ -29,6 +29,9 @@ report phase-exit eligibility; they must not move the marker.
 are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Analytics DO reset for
 external testers. Stay in this phase until Wyatt advances the marker.
 
+**DEMOTE-COUNTDOWN-1** shipped 08-19 — `startRunningAt` isHost guard + demoted host's countdown
+timer cleared via a new `onHostDemoted` callback. Playtest owed: **DEMOTE-COUNTDOWN-PT-1** (2pc).
+
 **QP-PLAYING-1** landed 08-19 — QUICKPLAY pill `N PLAYING NOW`
 (`GET /api/playing`). Playtest **QP-PLAYING-PT-1**. Closed 08-20 —
 **PLAYREADY-RESET-FLAKE-1** (playReady-reset test load-tolerant).
