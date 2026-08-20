@@ -5,6 +5,8 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
   computeOctagonRimStrength,
+  octagonSecondsToEdge,
+  octagonOutwardAxis,
   boostSegmentExitsClassicDisc,
   boostSegmentExitsOctagon,
   isOctagonArenaActive,
@@ -63,6 +65,27 @@ describe("computeOctagonRimStrength (Sundial TTE)", () => {
     const inward = computeOctagonRimStrength(px, pz, -20, 0, APOTHEM, BAND);
     const idle = computeOctagonRimStrength(px, pz, 0, 0, APOTHEM, BAND);
     expect(inward).toBeCloseTo(idle, 5);
+  });
+
+  it("NPC-SELFKO-3: TTE panics outside the 5.25 m static band at maxSpeed", () => {
+    // * Sundial soak: TTE gated on the band never fired until 0.22 s from the lip.
+    // * 8.4 m from apothem 26.4, outward 23.5 m/s → tte ≈ 0.36 s < 0.55.
+    const px = 18;
+    const pz = 0;
+    expect(px).toBeLessThan(APOTHEM - BAND);
+    const idle = computeOctagonRimStrength(px, pz, 0, 0, APOTHEM, BAND);
+    expect(idle).toBe(0);
+    const diving = computeOctagonRimStrength(px, pz, 23.5, 0, APOTHEM, BAND);
+    expect(diving).toBeGreaterThan(0.4);
+    expect(octagonSecondsToEdge(px, pz, 23.5, 0, APOTHEM)).toBeCloseTo(8.4 / 23.5, 3);
+  });
+});
+
+describe("octagonOutwardAxis", () => {
+  it("points at the +X flat on the axis and the diagonal flat in a corner", () => {
+    expect(octagonOutwardAxis(20, 0)).toEqual({ x: 1, z: 0 });
+    expect(octagonOutwardAxis(20, 20).x).toBeCloseTo(Math.SQRT1_2, 8);
+    expect(octagonOutwardAxis(20, 20).z).toBeCloseTo(Math.SQRT1_2, 8);
   });
 });
 

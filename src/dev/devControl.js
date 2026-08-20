@@ -96,6 +96,30 @@ export function createDevControl(deps) {
     /**
      * @param {Record<number, number>} scores
      */
+    /**
+     * Place the local host cart on the floor at XZ. NPC-SELFKO-3 soak hold points.
+     * Leaves Y so a booth drop still lands. Zeros planar velocity.
+     *
+     * @param {number} x
+     * @param {number} z
+     */
+    setLocalCartXZ(x, z) {
+      const blocked = requireHostRunningRound();
+      if (blocked) return blocked;
+      const px = Number(x);
+      const pz = Number(z);
+      if (!Number.isFinite(px) || !Number.isFinite(pz)) {
+        return commandFail("bad-args", "x and z must be finite numbers.");
+      }
+      const idx = deps.getLocalSlotIndex(deps.getYouConnId());
+      const cart = deps.getAllCarts?.()?.[idx];
+      if (!cart?.body) return commandFail("unknown", "Local cart body missing.");
+      const p = cart.body.translation();
+      cart.body.setTranslation({ x: px, y: p.y, z: pz }, true);
+      cart.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
+      return commandOk(`Local cart placed at ${px}, ${pz}.`);
+    },
+
     setScores(scores) {
       const blocked = requireHostRunningRound();
       if (blocked) return blocked;

@@ -1,4 +1,7 @@
-import { describe, it, expect } from "vitest";
+// @vitest-environment happy-dom
+import { beforeEach, describe, expect, it } from "vitest";
+import { installDiagnostics, __resetDiagnosticsForTest } from "../../src/utils/diagnostics.js";
+import { snapshotSelfKoTally, __resetSelfKoTallyForTest } from "../../src/utils/diagnostics.js";
 import {
   dispatchKOEvent,
   killFeedReactor,
@@ -251,5 +254,40 @@ describe("dispatchKOEvent", () => {
     const { ctx, calls } = makeCtx({ localSlotIndex: 3 });
     dispatchKOEvent(SELF, ctx);
     expect(calls.localDoomed).toEqual([SELF]);
+  });
+});
+
+describe("diagnosticsReactor NPC-SELFKO-3", () => {
+  beforeEach(() => {
+    __resetDiagnosticsForTest();
+    __resetSelfKoTallyForTest();
+  });
+
+  it("records zone and personality and bumps the selfKo tally", () => {
+    installDiagnostics({ flags: { enabled: true } });
+    const { ctx } = makeCtx({ getLevelId: () => "classicRecord" });
+    diagnosticsReactor({
+      ...SELF,
+      victimKind: "npc",
+      victimAiName: "aggressor",
+      cause: "self",
+      zone: "center_hole",
+      isSuddenDeath: false,
+      fallX: 0.2,
+      fallZ: -0.1,
+    }, ctx);
+    const events = window.__ccDiag.events();
+    const ko = events.find((e) => e.ch === "ko");
+    expect(ko).toMatchObject({
+      type: "fall",
+      victimKind: "npc",
+      victimAiName: "aggressor",
+      cause: "self",
+      zone: "center_hole",
+    });
+    const snap = snapshotSelfKoTally();
+    expect(snap.npcSelf).toBe(1);
+    expect(snap.byZone.center_hole).toBe(1);
+    expect(snap.levelId).toBe("classicRecord");
   });
 });

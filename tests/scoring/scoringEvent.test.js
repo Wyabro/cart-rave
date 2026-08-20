@@ -46,8 +46,38 @@ describe("buildKOEvent", () => {
     expect(e.isKill).toBe(false);
     expect(e.attackerSlotIndex).toBe(null);
     expect(e.cause).toBe("self");
+    expect(e.zone).toBe("outer_edge");
     expect(e.reward.total).toBe(0);
     expect(e.verb).toBe("FELL OFF");
+  });
+
+  it("sets zone on a self-fall without changing cause from self", () => {
+    const hole = buildKOEvent(makeDeps(), 2, CENTER, NOW);
+    expect(hole.cause).toBe("self");
+    expect(hole.zone).toBe("center_hole");
+    expect(hole.isKill).toBe(false);
+
+    const solid = buildKOEvent(makeDeps({
+      CONFIG: {
+        scoring: { hitWindowMs: 2500 },
+        record: { innerRadius: 5, centerHole: { enabled: false } },
+        combo: { decayMs: 5000, tiers: { 0: { multiplier: 1.0 } } },
+      },
+    }), 2, CENTER, NOW);
+    expect(solid.cause).toBe("self");
+    expect(solid.zone).toBe("outer_edge");
+
+    const voidDeps = makeDeps({
+      CONFIG: {
+        scoring: { hitWindowMs: 2500 },
+        record: { innerRadius: 5, centerHole: { enabled: false } },
+        combo: { decayMs: 5000, tiers: { 0: { multiplier: 1.0 } } },
+      },
+      classifyKillZone: (p) => (Math.abs(p.x) > 15 && Math.abs(p.z) > 15 ? "corner_void" : null),
+    });
+    const voidFall = buildKOEvent(voidDeps, 2, { x: 20, y: -20, z: -20 }, NOW);
+    expect(voidFall.cause).toBe("self");
+    expect(voidFall.zone).toBe("corner_void");
   });
 
   it("treats a hit older than the window as a self fall", () => {
@@ -67,6 +97,7 @@ describe("buildKOEvent", () => {
     expect(e.isKill).toBe(true);
     expect(e.attackerSlotIndex).toBe(1);
     expect(e.cause).toBe("outer_edge");
+    expect(e.zone).toBe("outer_edge");
     expect(e.reward).toMatchObject({ base: 1, critical: 0, leader: 0, multiplier: 1, total: 1 });
     expect(e.verb).toBe("RAMMED");
   });
@@ -152,6 +183,7 @@ describe("buildKOEvent", () => {
     });
     const inVoid = buildKOEvent(deps, 2, { x: 20, y: -20, z: -20 }, NOW);
     expect(inVoid.cause).toBe("corner_void");
+    expect(inVoid.zone).toBe("corner_void");
     expect(inVoid.reward.base).toBe(2);
     expect(inVoid.reward.total).toBe(2);
 
@@ -301,6 +333,7 @@ describe("rebuildKOEvent (non-host replay)", () => {
     expect(e.isKill).toBe(false);
     expect(e.attackerSlotIndex).toBe(null);
     expect(e.cause).toBe("self");
+    expect(e.zone).toBe("outer_edge");
     expect(e.verb).toBe("SUDDEN DEATH");
   });
 

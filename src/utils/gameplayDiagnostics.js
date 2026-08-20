@@ -21,7 +21,7 @@
  */
 
 import { Howler } from "howler";
-import { registerDiagProbe, recordDiagEvent } from "./diagnostics.js";
+import { registerDiagProbe, recordDiagEvent, resetSelfKoTally, snapshotSelfKoTally } from "./diagnostics.js";
 import { getLongTaskStats } from "./longTaskProbe.js";
 import { getSessionRenderScaleMul } from "./qualityTiers.js";
 import { readBootTimeline } from "./bootTimeline.js";
@@ -289,6 +289,9 @@ function registerProbes(deps) {
     // * Non-host still returns count + slot/name so the probe is not empty mid-round.
     return { count: npcs.length, npcs, hostSim };
   });
+
+  // * NPC-SELFKO-3: running self-KO counts. Snapshot at podium; do not mine the event ring.
+  registerDiagProbe("selfKo", () => snapshotSelfKoTally());
 
   registerDiagProbe("unlocks", () => {
     /** @type {Record<string, unknown>} */
@@ -611,8 +614,11 @@ function wireStoreEvents(deps) {
       }
       // * PERF-PASS-1: the frame-time window is exactly the RUNNING span. Opened/closed here
       // * rather than on a timer so countdown and podium frames can never enter the mean.
-      if (state.roundPhase === RoundPhase.RUNNING) openPerfRoundWindow(deps);
-      else if (prevPhase === RoundPhase.RUNNING) closePerfRoundWindow();
+      if (state.roundPhase === RoundPhase.RUNNING) {
+        openPerfRoundWindow(deps);
+        // * NPC-SELFKO-3: one tally per live round. The 512-event ring can drop `ko` rows.
+        resetSelfKoTally({ levelId: deps.getLevelId?.() ?? null });
+      } else if (prevPhase === RoundPhase.RUNNING) closePerfRoundWindow();
       prevPhase = state.roundPhase;
     }
     if (state.isSuddenDeath && !prevSuddenDeath) {

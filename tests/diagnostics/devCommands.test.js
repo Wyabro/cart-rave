@@ -159,6 +159,33 @@ describe("shared developer control", () => {
     expect(setRoundScores).not.toHaveBeenCalled();
   });
 
+  it("places the local cart at an XZ hold and zeros planar speed", () => {
+    const setTranslation = vi.fn();
+    const setLinvel = vi.fn();
+    const control = createDevControl(roundLeverDeps({
+      getGameMode: () => "solo",
+      getAllCarts: () => [{
+        body: {
+          translation: () => ({ x: 40, y: 2.1, z: 0 }),
+          setTranslation,
+          setLinvel,
+        },
+      }],
+    }));
+    expect(control.setLocalCartXZ(15, 0)).toEqual(expect.objectContaining({ ok: true }));
+    expect(setTranslation).toHaveBeenCalledWith({ x: 15, y: 2.1, z: 0 }, true);
+    expect(setLinvel).toHaveBeenCalledWith({ x: 0, y: 0, z: 0 }, true);
+  });
+
+  it("refuses setLocalCartXZ without a local body", () => {
+    const control = createDevControl(roundLeverDeps({
+      getGameMode: () => "solo",
+      getAllCarts: () => [],
+    }));
+    expect(control.setLocalCartXZ(15, 0))
+      .toEqual(expect.objectContaining({ ok: false, reason: "unknown" }));
+  });
+
   // * SEC-DIAG-1. devControl attaches in PRODUCTION under ?diag=1 (main.js) so round-end MP bugs
   // * can be reproduced live, which let a quickplay HOST set their own score. The gate is a
   // * conjunction — prod AND public quickplay — and both halves need pinning: gating on the room

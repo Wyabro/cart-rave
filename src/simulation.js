@@ -87,6 +87,7 @@ const _holeOverhangState = {
   dirZ: 0,
 };
 const _envContactPos = { x: 0, y: 0, z: 0 };
+const _cartPopProbeNormal = { x: 0, y: 0, z: 0 };
 
 // * Per-cart physics state scratch — populated once at the top of each per-cart
 // * control pass in runFixedPhysicsStep, then read by every downstream helper
@@ -2285,17 +2286,15 @@ function routeClassicHoleTarget(fx, fz, tx, tz) {
  */
 export function computeOctagonRimStrength(px, pz, lvx, lvz, apothem, band = OCTAGON_RIM_BAND) {
   const edgeDist = octagonEdgeDistance(px, pz);
-  if (edgeDist <= apothem - band) return 0;
-  // * Static band (position-only), same shape as pre-SELFKO Sundial.
-  let strength = clamp((edgeDist - (apothem - band)) / band, 0, 1.5);
-  // * Classic outer-rim TTE panic: only when moving outward fast enough.
-  const dist = Math.hypot(px, pz) || 1;
-  const rx = px / dist;
-  const rz = pz / dist;
-  const outwardSpeed = lvx * rx + lvz * rz;
-  if (outwardSpeed > 0.5) {
-    const gap = apothem - edgeDist;
-    const tte = gap / outwardSpeed;
+  // * Static lip band (position-only). TTE is NOT gated on this band — Classic outer
+  // * rim panics at 0.55 s (~13 m at maxSpeed). NPC-SELFKO-3 soak: Sundial 30 unforced
+  // * NPC falls / 150 s because TTE only ran inside 5.25 m (0.22 s at 23.5 m/s).
+  let strength = 0;
+  if (edgeDist > apothem - band) {
+    strength = clamp((edgeDist - (apothem - band)) / band, 0, 1.5);
+  }
+  const tte = octagonSecondsToEdge(px, pz, lvx, lvz, apothem);
+  if (tte < 0.55) {
     strength = Math.max(strength, clamp((0.55 - tte) / 0.55, 0, 1) * 1.6);
   }
   return strength;
@@ -2316,12 +2315,13 @@ function applyOctagonRimAvoidance(px, pz, lv, dir) {
   if (!_octagonHazards) return;
   const apothem = _octagonHazards.arenaHalf ?? CONFIG.record.radius;
   // * AI-3 band 5.25 + gain 1.26; SELFKO-1 adds speed-aware TTE via computeOctagonRimStrength.
+  // * NPC-SELFKO-3: push along the true octagon-flat normal, not −position.
   const strength = computeOctagonRimStrength(px, pz, lv.x, lv.z, apothem);
   if (strength <= 0) return;
-  const dist = Math.hypot(px, pz) || 1;
-  dir.x += (-px / dist) * strength * 1.26;
-  dir.z += (-pz / dist) * strength * 1.26;
-  if (dir.lengthSq() < 1e-6) dir.set(-px / dist, 0, -pz / dist);
+  const axis = octagonOutwardAxis(px, pz);
+  dir.x += -axis.x * strength * 1.26;
+  dir.z += -axis.z * strength * 1.26;
+  if (dir.lengthSq() < 1e-6) dir.set(-axis.x, 0, -axis.z);
   dir.normalize();
 }
 
@@ -2558,6 +2558,46 @@ function octagonEdgeDistance(x, z) {
   const ax = Math.abs(x);
   const az = Math.abs(z);
   return Math.max(ax, az, (ax + az) * Math.SQRT1_2);
+}
+
+/**
+ * Unit XZ pointing at the nearest octagon death flat (the outward death axis).
+ * Exported for tests (NPC-SELFKO-3).
+ *
+ * @param {number} px
+ * @param {number} pz
+ * @returns {{ x: number, z: number }}
+ */
+export function octagonOutwardAxis(px, pz) {
+  const ax = Math.abs(px);
+  const az = Math.abs(pz);
+  const diag = (ax + az) * Math.SQRT1_2;
+  if (diag >= ax && diag >= az) {
+    const s = Math.SQRT1_2;
+    return { x: px >= 0 ? s : -s, z: pz >= 0 ? s : -s };
+  }
+  if (ax >= az) return { x: px >= 0 ? 1 : -1, z: 0 };
+  return { x: 0, z: pz >= 0 ? 1 : -1 };
+}
+
+/**
+ * Seconds to the octagon lip along the current outward-flat velocity.
+ * Infinity when not diving at the rim. Exported for tests (NPC-SELFKO-3).
+ *
+ * @param {number} px
+ * @param {number} pz
+ * @param {number} lvx
+ * @param {number} lvz
+ * @param {number} apothem
+ * @returns {number}
+ */
+export function octagonSecondsToEdge(px, pz, lvx, lvz, apothem) {
+  const axis = octagonOutwardAxis(px, pz);
+  const outwardSpeed = lvx * axis.x + lvz * axis.z;
+  if (outwardSpeed <= 0.5) return Infinity;
+  const gap = apothem - octagonEdgeDistance(px, pz);
+  if (gap <= 0) return 0;
+  return gap / outwardSpeed;
 }
 
 /**
@@ -3434,6 +3474,17 @@ export function getAiAxis(now, cart, allCarts, netSlots) {
         forward = -0.85;
       }
     }
+  } else if (_octagonHazards) {
+    // * NPC-SELFKO-3: Classic time-to-death brake on the octagon. Wander/patrol bots
+    // * held forward 1.0 off the flats (soak: 30 unforced NPC falls / 150 s).
+    const apothem = _octagonHazards.arenaHalf ?? CONFIG.record.radius;
+    const secondsToEdge = octagonSecondsToEdge(p.x, p.z, lv.x, lv.z, apothem);
+    if (secondsToEdge < 0.8) {
+      forward *= clamp(secondsToEdge / 0.8, 0.3, 1);
+    }
+    if (secondsToEdge < 0.38 && Math.abs(yawDiff) > 1.05) {
+      forward = -0.85;
+    }
   }
   return { forward, turn };
 }
@@ -3847,6 +3898,95 @@ function samplePitProbe(allCarts, nowMs) {
   }
 }
 
+// ── CART-POP-1 measurement probe ───────────────────────────────────────────
+// * Diagnostic-only post-step attribution for the cross-arena floor-pop report.
+// * It records a rising episode once, with the live Rapier manifold material and
+// * support data. Normal play pays only the `?diag` property read.
+
+const CART_POP_PROBE_RISE_VY = 0.75;
+const CART_POP_PROBE_RESET_VY = 0.25;
+/** @type {WeakMap<object, { rising: boolean }>} */
+let _cartPopProbeState = new WeakMap();
+
+/** Test seam — drops per-cart rising latches between cases. */
+export function __resetCartPopProbeForTest() {
+  _cartPopProbeState = new WeakMap();
+}
+
+/**
+ * @param {object} world
+ * @param {object[]} allCarts
+ * @param {number} nowMs
+ */
+function sampleCartPopProbe(world, allCarts, nowMs) {
+  if (typeof window === "undefined" || !window.__ccDiagActive) {
+    _cartPopProbeState = new WeakMap();
+    return;
+  }
+  if (!world?.contactPairsWith || !world?.contactPair) return;
+
+  const cartHandles = new Set();
+  for (const candidate of allCarts || []) {
+    if (candidate?.collider?.handle != null) cartHandles.add(candidate.collider.handle);
+  }
+
+  for (const cart of allCarts || []) {
+    if (!cart?.body || !cart.collider) continue;
+    const lv = cart.body.linvel();
+    const state = _cartPopProbeState.get(cart) || { rising: false };
+    if (lv.y <= CART_POP_PROBE_RESET_VY) state.rising = false;
+    if (state.rising || lv.y < CART_POP_PROBE_RISE_VY) {
+      _cartPopProbeState.set(cart, state);
+      continue;
+    }
+
+    let staticContacts = 0;
+    let supportContacts = 0;
+    let maxSupportNormalY = 0;
+    let maxRestitution = 0;
+    let maxImpulse = 0;
+    let cartContact = false;
+    world.contactPairsWith(cart.collider, (other) => {
+      if (!other) return;
+      if (cartHandles.has(other.handle)) {
+        cartContact = true;
+        return;
+      }
+      staticContacts += 1;
+      world.contactPair(cart.collider, other, (manifold) => {
+        const normalY = Math.abs(manifold.normal(_cartPopProbeNormal)?.y ?? 0);
+        if (normalY >= 0.7) supportContacts += 1;
+        maxSupportNormalY = Math.max(maxSupportNormalY, normalY);
+        maxRestitution = Math.max(maxRestitution, manifold.restitution?.() ?? 0);
+        const count = manifold.numContacts?.() ?? 0;
+        for (let i = 0; i < count; i += 1) {
+          maxImpulse = Math.max(maxImpulse, manifold.contactImpulse?.(i) ?? 0);
+        }
+      });
+    });
+
+    const pos = cart.body.translation();
+    recordDiagEvent("cart_pop", "rise", {
+      slot: cart.slotIndex ?? null,
+      y: round3(pos.y),
+      vy: round3(lv.y),
+      planarSpeed: round3(Math.hypot(lv.x, lv.z)),
+      staticContacts,
+      supportContacts,
+      maxSupportNormalY: round3(maxSupportNormalY),
+      maxRestitution: round3(maxRestitution),
+      maxImpulse: round3(maxImpulse),
+      cartContact,
+      hop: Boolean(cart.hopAwaitingLand || cart.hopAirborne),
+      ram: Boolean(cart.pendingRam),
+      respawning: cart.respawnAtMs != null,
+      t: Math.round(nowMs),
+    });
+    state.rising = true;
+    _cartPopProbeState.set(cart, state);
+  }
+}
+
 /**
  * Runs one fixed-timestep physics update: controls, pending rams, world step, and collisions.
  *
@@ -4021,5 +4161,6 @@ export function runFixedPhysicsStep({
     // * PIT-PT-1 probe (temporary, ?diag only) — post-step pose, so it sees where the
     // * solver actually left the cart rather than where control application read it.
     samplePitProbe(allCarts, now);
+    sampleCartPopProbe(world, allCarts, now);
   }
 }

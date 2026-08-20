@@ -8,7 +8,7 @@
 // paths once the wire shape is unified. Match stats are the exception — a pure counter module.
 
 import { recordKoForMatchStats } from "./matchStats.js";
-import { recordDiagEvent } from "../utils/diagnostics.js";
+import { recordDiagEvent, noteSelfKo } from "../utils/diagnostics.js";
 import { PROGRESSION_EVENTS } from "../progression/eventIds.js";
 
 /**
@@ -156,21 +156,27 @@ export function matchStatsReactor(koEvent, ctx) {
  * with attribution, so an automated rig can assert "cart A KO'd cart B" without scraping the
  * kill feed. Pure no-op unless ?diag installed the hub (see utils/diagnostics.js).
  * @param {import('./koEvent.js').KOEvent} koEvent
- * @param {KOReactorCtx} _ctx
+ * @param {KOReactorCtx} [ctx]
  */
-export function diagnosticsReactor(koEvent, _ctx) {
-  recordDiagEvent("ko", koEvent.isKill ? "kill" : "fall", {
+export function diagnosticsReactor(koEvent, ctx) {
+  const seq = recordDiagEvent("ko", koEvent.isKill ? "kill" : "fall", {
     victim: koEvent.victimSlotIndex,
     attacker: koEvent.attackerSlotIndex ?? null,
     verb: koEvent.verb ?? null,
     comboTier: koEvent.comboTier ?? 0,
     critical: Boolean(koEvent.wasCritical),
     victimKind: koEvent.victimKind ?? null,
+    victimAiName: koEvent.victimAiName ?? null,
+    cause: koEvent.cause ?? null,
+    zone: koEvent.zone ?? null,
+    isSuddenDeath: Boolean(koEvent.isSuddenDeath),
     // * Fall location (XZ, decimeter precision) — lets soak rigs classify center-hole
     // * vs outer-rim self-falls without positional polling (bot-suicide triage 2026-07-16).
     fx: koEvent.fallX ?? null,
     fz: koEvent.fallZ ?? null,
   });
+  // * recordDiagEvent returns 0 when ?diag is off — skip the tally on prod.
+  if (seq) noteSelfKo(koEvent, { levelId: ctx?.getLevelId?.() ?? null });
 }
 
 /** Default KO reactor order: match stats → challenges → attacker confirm → victim feedback → arena VFX → feed → PA → diag. */

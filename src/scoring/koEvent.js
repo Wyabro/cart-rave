@@ -64,7 +64,29 @@ const SELF_DEATH_VERB_FALLBACK = "FELL OFF";
  * @property {string} verb Kill-feed verb (host-picked so every client renders the same word).
  * @property {number} [fallX] Victim X at the fall (decimeter precision) — diagnostics only.
  * @property {number} [fallZ] Victim Z at the fall (decimeter precision) — diagnostics only.
+ * @property {"center_hole" | "corner_void" | "outer_edge"} [zone] Floor-exit bucket, independent
+ *   of ram credit. Unattributed falls keep `cause: "self"` and still set `zone` (NPC-SELFKO-3).
  */
+
+/**
+ * Where the body left the floor. Independent of ram credit.
+ * Unattributed falls keep `cause: "self"` and still use this bucket (NPC-SELFKO-3).
+ *
+ * @param {KOEventDeps} deps
+ * @param {{ x: number, y?: number, z: number }} classifyPos
+ * @returns {"center_hole" | "corner_void" | "outer_edge"}
+ */
+function classifyKoZone(deps, classifyPos) {
+  const distOriginXZ = Math.hypot(classifyPos.x, classifyPos.z);
+  const holeEnabled = deps.CONFIG.record?.centerHole?.enabled !== false;
+  const inner = deps.CONFIG.record?.innerRadius;
+  const isCenterHole = holeEnabled && Number.isFinite(inner) && distOriginXZ < inner + 2;
+  if (isCenterHole) return "center_hole";
+  if (deps.classifyKillZone?.({ x: classifyPos.x, y: classifyPos.y ?? 0, z: classifyPos.z }) === "corner_void") {
+    return "corner_void";
+  }
+  return "outer_edge";
+}
 
 /**
  * Builds the KO Event for a cart that fell below the kill plane. Host-authoritative — call on
@@ -118,6 +140,9 @@ export function buildKOEvent(deps, slotIndex, p, nowMs, options = {}) {
 
   // * No qualifying recent ram — self/environmental fall: no attribution, no points.
   // * Evaluates creditTimeMs (captured at platform rim entry) against hit.timestamp.
+  // * Kill-zone uses classifyPos (rim entry) so a 30 m shaft drift cannot rebucket the fall.
+  const zone = classifyKoZone(deps, classifyPos);
+
   if (!hit || (creditTimeMs - hit.timestamp > hitWindowMs)) {
     const verb = deps.hud?.pickSelfDeathVerb ? deps.hud.pickSelfDeathVerb() : SELF_DEATH_VERB_FALLBACK;
     return {
@@ -125,6 +150,7 @@ export function buildKOEvent(deps, slotIndex, p, nowMs, options = {}) {
       attackerSlotIndex: null,
       isKill: false,
       cause: "self",
+      zone,
       wasCritical: false,
       victimWasLeader,
       victimKind,
@@ -142,19 +168,7 @@ export function buildKOEvent(deps, slotIndex, p, nowMs, options = {}) {
     };
   }
 
-  // * Center-hole bonus only applies on levels that actually have a hole. Solid-floor levels
-  // * (Backrooms, Zanzibar, Test Arena) set centerHole.enabled = false — without this gate a
-  // * near-origin edge fall on a small platform would wrongly score the +2 center bonus.
-  // * Kill-zone classification uses classifyPos (captured at rim entry) to prevent 30m shaft drift misclassification.
-  const distOriginXZ = Math.hypot(classifyPos.x, classifyPos.z);
-  const holeEnabled = deps.CONFIG.record?.centerHole?.enabled !== false;
-  const isCenterHole = holeEnabled && distOriginXZ < deps.CONFIG.record.innerRadius + 2;
-
-  // * Per-arena signature kill zone (Storerooms corner voids) — same 2× template as the
-  // * Classic center hole, classified by the active level's hazard data.
-  const isCornerVoid = !isCenterHole && deps.classifyKillZone?.(classifyPos) === "corner_void";
-
-  const rewardBase = isCenterHole || isCornerVoid ? 2 : 1;
+  const rewardBase = zone === "center_hole" || zone === "corner_void" ? 2 : 1;
   const rewardCritical = hit.wasCritical ? 1 : 0;
   const rewardLeader = victimWasLeader ? 1 : 0;
   // * Sundial high ground: the crediting ram was delivered from the podium.
@@ -191,7 +205,8 @@ export function buildKOEvent(deps, slotIndex, p, nowMs, options = {}) {
     victimSlotIndex: slotIndex,
     attackerSlotIndex: hit.attackerSlotIndex,
     isKill: true,
-    cause: isCenterHole ? "center_hole" : (isCornerVoid ? "corner_void" : "outer_edge"),
+    cause: zone,
+    zone,
     wasCritical: Boolean(hit.wasCritical),
     victimWasLeader,
     victimKind,
@@ -248,7 +263,7 @@ export function buildKOConfirmPreview(deps, victimSlotIndex, creditTimeMs) {
  * default. Scores still arrive via the round sync, not `reward.total`. Derived fields
  * (victim classification) are recomputed from this client's own slot/cart state.
  *
- * @param {{ slotId?: number, victimSlotIndex?: number, attackerSlot?: number | null, attackerSlotIndex?: number | null, verb?: string, comboTier?: number, comboMultiplier?: number, cause?: string, wasCritical?: boolean, victimWasLeader?: boolean, isFinalBlow?: boolean, isSuddenDeath?: boolean, reward?: { base: number, critical: number, leader: number, multiplier: number, total: number } }} msg
+ * @param {{ slotId?: number, victimSlotIndex?: number, attackerSlot?: number | null, attackerSlotIndex?: number | null, verb?: string, comboTier?: number, comboMultiplier?: number, cause?: string, zone?: string, wasCritical?: boolean, victimWasLeader?: boolean, isFinalBlow?: boolean, isSuddenDeath?: boolean, reward?: { base: number, critical: number, leader: number, multiplier: number, total: number } }} msg
  * @param {{ getNetSlots?: () => Array<object>, getAllCarts?: () => Array<object> }} deps
  * @returns {KOEvent}
  */
@@ -267,6 +282,13 @@ export function rebuildKOEvent(msg, deps) {
   const cause = /** @type {KOEvent["cause"]} */ (
     wireCause ?? (isKill ? "outer_edge" : "self")
   );
+  const wireZone = typeof msg.zone === "string" ? msg.zone : null;
+  const zone = /** @type {NonNullable<KOEvent["zone"]>} */ (
+    wireZone
+    ?? (cause === "center_hole" || cause === "corner_void" || cause === "outer_edge"
+      ? cause
+      : "outer_edge")
+  );
   const wireReward = msg.reward && typeof msg.reward.total === "number" ? msg.reward : null;
 
   return {
@@ -274,6 +296,7 @@ export function rebuildKOEvent(msg, deps) {
     attackerSlotIndex,
     isKill,
     cause,
+    zone,
     wasCritical: Boolean(msg.wasCritical),
     victimWasLeader: Boolean(msg.victimWasLeader),
     victimKind: netSlots[victimSlotIndex]?.kind ?? null,

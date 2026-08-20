@@ -43,6 +43,7 @@
 
 import { readBuildInfo } from "./buildInfo.js";
 import { getCachedFreshness } from "./buildFreshness.js";
+import { getActiveAiDifficulty } from "../aiDifficulty.js";
 
 /** Max events retained in the ring buffer (oldest dropped first). */
 const EVENT_BUFFER_MAX = 512;
@@ -391,6 +392,7 @@ export function registerDiagProbe(ns, snapshotFn) {
  *   rewinding the round-start stamp so only `remainMs` remains (the Force-Sudden-Death trick).
  * @property {(level: string, n: number) => { ok: boolean, message: string, reason?: string }} [grantKos] Credit N KOs on a level (unlock funnel).
  * @property {(scores: Record<number, number>) => { ok: boolean, message: string, reason?: string }} [setScores] Replace all slot scores on the host.
+ * @property {(x: number, z: number) => { ok: boolean, message: string, reason?: string }} [setLocalCartXZ] Place the local host cart at floor XZ (NPC-SELFKO-3 soak holds).
  * @property {() => { ok: boolean, message: string, reason?: string }} [forceSuddenDeath] Arm the natural timed-round Sudden Death path.
  */
 
@@ -572,4 +574,103 @@ export function __resetDiagnosticsForTest() {
     delete (/** @type {any} */ (window).__ccDiag);
     delete (/** @type {any} */ (window).__ccDiagActive);
   }
+  tally = emptySelfKoTally();
+}
+
+const SELFKO_SAMPLE_MAX = 24;
+const SELFKO_ZONES = Object.freeze(["center_hole", "corner_void", "outer_edge"]);
+const SELFKO_PERSONALITIES = Object.freeze(["aggressor", "lurker", "scavenger", "chaotic"]);
+
+function emptySelfKoTally() {
+  return {
+    levelId: null,
+    difficulty: null,
+    npcSelf: 0,
+    npcKilled: 0,
+    npcDeaths: 0,
+    humanSelf: 0,
+    byZone: { center_hole: 0, corner_void: 0, outer_edge: 0, other: 0 },
+    byPersonality: { aggressor: 0, lurker: 0, scavenger: 0, chaotic: 0, other: 0 },
+    byPhase: { running: 0, suddenDeath: 0 },
+    sample: [],
+  };
+}
+
+let tally = emptySelfKoTally();
+
+/**
+ * Zero NPC self-KO counts at round start (`RUNNING`). NPC-SELFKO-3.
+ *
+ * @param {{ levelId?: string | null }} [meta]
+ */
+export function resetSelfKoTally(meta = {}) {
+  tally = emptySelfKoTally();
+  tally.levelId = meta.levelId ?? null;
+  tally.difficulty = getActiveAiDifficulty();
+}
+
+/**
+ * Record one finalized KO into the running tally. No-op when diag is off.
+ *
+ * @param {object} koEvent
+ * @param {{ levelId?: string | null }} [meta]
+ */
+export function noteSelfKo(koEvent, meta = {}) {
+  if (!active || !koEvent) return;
+  if (tally.levelId == null && meta.levelId != null) tally.levelId = meta.levelId;
+  if (tally.difficulty == null) tally.difficulty = getActiveAiDifficulty();
+
+  const kind = koEvent.victimKind ?? null;
+  const isNpc = kind === "npc";
+  const isSelf = !koEvent.isKill && koEvent.attackerSlotIndex == null;
+
+  if (isNpc) {
+    tally.npcDeaths += 1;
+    if (koEvent.isKill) tally.npcKilled += 1;
+  }
+  if (kind === "human" && isSelf) tally.humanSelf += 1;
+  if (!isNpc || !isSelf) return;
+
+  tally.npcSelf += 1;
+  const zone = koEvent.zone;
+  if (zone && SELFKO_ZONES.includes(zone)) tally.byZone[zone] += 1;
+  else tally.byZone.other += 1;
+
+  const name = koEvent.victimAiName;
+  if (name && SELFKO_PERSONALITIES.includes(name)) tally.byPersonality[name] += 1;
+  else tally.byPersonality.other += 1;
+
+  if (koEvent.isSuddenDeath) tally.byPhase.suddenDeath += 1;
+  else tally.byPhase.running += 1;
+
+  tally.sample.push({
+    victim: koEvent.victimSlotIndex,
+    zone: zone ?? null,
+    personality: name ?? null,
+    isSd: Boolean(koEvent.isSuddenDeath),
+    fx: koEvent.fallX ?? null,
+    fz: koEvent.fallZ ?? null,
+  });
+  if (tally.sample.length > SELFKO_SAMPLE_MAX) tally.sample.shift();
+}
+
+/** @returns {object} */
+export function snapshotSelfKoTally() {
+  return {
+    levelId: tally.levelId,
+    difficulty: tally.difficulty,
+    npcSelf: tally.npcSelf,
+    npcKilled: tally.npcKilled,
+    npcDeaths: tally.npcDeaths,
+    humanSelf: tally.humanSelf,
+    byZone: { ...tally.byZone },
+    byPersonality: { ...tally.byPersonality },
+    byPhase: { ...tally.byPhase },
+    sample: tally.sample.slice(),
+  };
+}
+
+/** Test-only: drop in-flight counts. */
+export function __resetSelfKoTallyForTest() {
+  tally = emptySelfKoTally();
 }
