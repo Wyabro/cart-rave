@@ -95,7 +95,6 @@ Live rows only. Shipped and closed cards live in
 |---|------|--------|
 | NET-LAG-1 | Friends/QP lag + rubber-band (F8 both machines) | wave 1 landed; 🅿️ **NET-LAG-1-PT-1** `[2pc]` parked by Wyatt 08-20 |
 | CART-POP-1 | carts pop off the floor in normal driving | Wave A active (Critical; shared-physics measurement) |
-| NPC-SELFKO-3 | NPC self-KOs on all three arenas | Sundial lever landed (30→3); Storerooms residual |
 | SPAWN-BACKROOMS-2 | Storerooms spawns one spawn-width inward | queued |
 | FRIENDS-ROTATE-1 | Friends rematch rotates arenas, synced | queued |
 | ONBOARD-JUMP-1 | HOW TO PLAY matches jump+boost | queued |
@@ -167,10 +166,9 @@ or a suspected blocker (TS 7 · `cartrave4` UVs).
 
 ## Last updated
 
-2026-08-20 (**NPC-SELFKO-3** Sundial) — measure n=1 Medium: Cart Rave 1/6 self,
-Storerooms 6/6 (void 3 / pit 3), Sundial 30/33 outer rim. Aggressor 0. Lever:
-ungate octagon TTE + Classic brake (not personality). Re-soak Sundial 30→3.
-Storerooms residual. Playtest **NPC-SELFKO-3-PT-1**.
+2026-08-20 (**NPC-SELFKO-3** closed) — Wyatt bar: under 10 NPC self-KOs /
+150 s on all three arenas. Soak: Cart Rave 1, Storerooms 6, Sundial 3
+(was 30). `7384dc27`. **NPC-SELFKO-3-PT-1** closed on the same bar.
 
 2026-08-20 (Wyatt lane change) — parked **NET-LAG-1-PT-1** `[2pc]`; start
 **CART-POP-1** Wave A. Instrument shared contact behavior and capture a cause

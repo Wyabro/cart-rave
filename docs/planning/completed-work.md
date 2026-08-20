@@ -13,6 +13,18 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 20, 2026 — NPC-SELFKO-3: under-10 self-KO bar on all three arenas
+
+- *(Design / Gameplay · High)* **NPC-SELFKO-3** — ✅ **DONE 08-20**. Wyatt set
+  done at under 10 NPC self-KOs per 150 s solo round, all three arenas,
+  no hunt-weight cut. Measure n=1 Medium: Cart Rave 1, Storerooms 6,
+  Sundial 30. Cause: octagon TTE was band-gated at 5.25 m. Lever (`7384dc27`):
+  ungated TTE along the octagon-flat normal + Classic throttle brake.
+  Re-soak Sundial 30→3. Final: **1 / 6 / 3**. Aggressor 0. Do not reopen
+  **AI-ARENA-SELFKO-1** or **STOREROOMS-NPC-SELFKO-2**.
+- *(Playtest · Low)* **NPC-SELFKO-3-PT-1** — ✅ **CLOSED 08-20** on Wyatt's
+  soak bar (under 10 / round). Not a live round PASS.
+
 ### August 20, 2026 — PLAYREADY-RESET-FLAKE-1: playReady-reset test load-tolerant
 
 - *(Engineering · Low)* **PLAYREADY-RESET-FLAKE-1** — ✅ **DONE 08-20**.

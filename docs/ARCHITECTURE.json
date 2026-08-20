@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-20T07:53:33.091Z",
-    "commit": "7c4c20cc"
+    "at": "2026-08-20T08:00:07.505Z",
+    "commit": "7384dc27"
   },
-  "source_digest": "bb0fcb57",
+  "source_digest": "d7e5ff9e",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -885,12 +885,6 @@
         "state": "waiting"
       },
       {
-        "id": "NPC-SELFKO-3",
-        "what": "NPC self-KOs on all three arenas",
-        "status": "Sundial lever landed (30→3); Storerooms residual",
-        "state": "waiting"
-      },
-      {
         "id": "SPAWN-BACKROOMS-2",
         "what": "Storerooms spawns one spawn-width inward",
         "status": "queued",
@@ -1081,16 +1075,10 @@
       {
         "title": "Design / Gameplay",
         "counts": {
-          "High": 2,
+          "High": 1,
           "Medium": 2
         },
         "rows": [
-          {
-            "pri": "High",
-            "item": "NPC-SELFKO-3 — measure and reduce NPC self-KOs on all three arenas",
-            "notes": "**Filed 08-19.** Measure n=1 Medium 08-20: Cart Rave 1/6 (`center_hole`), Storerooms 6/6 (void 3 / pit 3), Sundial 30/33 (`outer_edge`). Aggressor 0 on every arena — do not cut hunt weight. **Sundial lever landed:** octagon TTE was band-gated at 5.25 m (0.22 s at maxSpeed); Classic rim TTE is ungated. Ungated TTE + Classic throttle brake. Re-soak 30→3. **Residual: Storerooms.** New evidence — do not blindly retune **AI-ARENA-SELFKO-1** / **STOREROOMS-NPC-SELFKO-2** numbers. Playtest **NPC-SELFKO-3-PT-1**.",
-            "ship1": null
-          },
           {
             "pri": "High",
             "item": "ONBOARD-JUMP-1 — HOW TO PLAY matches jump+boost",
@@ -1114,15 +1102,9 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Low": 5
+          "Low": 4
         },
         "rows": [
-          {
-            "pri": "Low",
-            "item": "NPC-SELFKO-3-PT-1 — Sundial NPCs hunt and stay on the deck `[1pc]`",
-            "notes": "**Owed: Wyatt playtest — NPC-SELFKO-3-PT-1 — Sundial bots still hunt and do not farm the outer pit.** Parent **NPC-SELFKO-3**. Code landed, not deployed — `npm run dev`.<br>1. Solo Sundial Station, Medium bots, one full round.<br>2. FAIL if NPCs constantly drive themselves off the octagon with no ram, or if they refuse to chase you.<br>3. PASS if they still ram and unforced NPC falls are rare enough not to steal the round.<br>4. Storerooms self-KOs are a residual of this card, not this PT.",
-            "ship1": null
-          },
           {
             "pri": "Low",
             "item": "NET-LAG-1-PT-1 — non-host own cart has no 1 m trail `[2pc]`",
