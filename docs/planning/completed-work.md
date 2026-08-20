@@ -13,6 +13,19 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 20, 2026 — MENU-MUSIC-2C: one menu song on title boot
+
+- *(Audio · Standard)* **MENU-MUSIC-2C** — ✅ **DONE 08-20**. Boot and
+  first-gesture re-rolled `playMenuMusic(random)` while the first Howl
+  was still loading, so both menu songs queued. Lever (`98f21261`):
+  freeze the first pick until `stopMenuMusic`; skip a second `play()`
+  on a locked or queued Howl; `onplay` stops a non-current menu track.
+  Deployed Worker `115de4ee`; live `audioManager-ijINR0B3.js` carries
+  `_playLock`. Do not reopen **MENU-MUSIC-2** or **MENU-MUSIC-2B-PT-1**.
+- *(Playtest · Low)* **MENU-MUSIC-2C-PT-1** — ✅ **PASS 08-20** on prod
+  `98f21261` (VERIFY_OK `index-W2GptIT9.js`). One menu song on title
+  boot; the other song after the first ends. Parent closes with it.
+
 ### August 20, 2026 — NPC-SELFKO-3: under-10 self-KO bar on all three arenas
 
 - *(Design / Gameplay · High)* **NPC-SELFKO-3** — ✅ **DONE 08-20**. Wyatt set

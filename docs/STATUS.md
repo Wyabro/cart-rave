@@ -28,8 +28,6 @@ report phase-exit eligibility; they must not move the marker.
 **Playtesting and stabilization.** External playtest is gated on BACKLOG Block 1
 (9 Highs). **NET-LAG-1-PT-1** is parked by Wyatt (08-20). **CART-POP-1** Wave
 B candidate is ready (Critical; shared cart restitution cap; deploy + human retest owed).
-**MENU-MUSIC-2C** shipped 08-20 — first menu-song pick stays until stop.
-Playtest owed: **MENU-MUSIC-2C-PT-1**.
 Tier A drained; Tier B/C, security sweep, and analytics gating are closed. Run 7
 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Stay in this phase until
 Wyatt advances the marker.
@@ -168,10 +166,9 @@ or a suspected blocker (TS 7 · `cartrave4` UVs).
 
 ## Last updated
 
-2026-08-20 (**MENU-MUSIC-2C**) — freeze the first menu playlist pick
-until `stopMenuMusic`; skip a second `play()` on a locked or queued Howl;
-`onplay` stops a non-current menu track. Playtest owed:
-**MENU-MUSIC-2C-PT-1**.
+2026-08-20 (**MENU-MUSIC-2C-PT-1**) — Wyatt PASS on prod `98f21261`
+(VERIFY_OK `index-W2GptIT9.js`). One menu song on title boot. Parent
+**MENU-MUSIC-2C** closes with it.
 
 2026-08-20 (**NPC-SELFKO-3** closed) — Wyatt bar: under 10 NPC self-KOs /
 150 s on all three arenas. Soak: Cart Rave 1, Storerooms 6, Sundial 3

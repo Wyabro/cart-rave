@@ -2,15 +2,15 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-20T08:34:02.533Z",
-    "commit": "b678c377"
+    "at": "2026-08-20T08:37:51.140Z",
+    "commit": "d9404f1e"
   },
-  "source_digest": "73a19259",
+  "source_digest": "cd6931ab",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
     "production_url": "https://www.cartclash.lol/",
-    "mission": "Playtesting and stabilization — External playtest is gated on BACKLOG Block 1 (9 Highs). NET-LAG-1-PT-1 is parked by Wyatt (08-20). CART-POP-1 Wave B candidate is ready (Critical; shared cart restitution cap; deploy + human retest owed). MENU-MUSIC-2C shipped 08-20 — first menu-song pick stays until stop. Playtest owed: MENU-MUSIC-2C-PT-1. Tier A drained; Tier B/C, security sweep, and analytics gating are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Stay in this phase until Wyatt advances the marker.",
+    "mission": "Playtesting and stabilization — External playtest is gated on BACKLOG Block 1 (9 Highs). NET-LAG-1-PT-1 is parked by Wyatt (08-20). CART-POP-1 Wave B candidate is ready (Critical; shared cart restitution cap; deploy + human retest owed). Tier A drained; Tier B/C, security sweep, and analytics gating are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Stay in this phase until Wyatt advances the marker.",
     "phase": "Playtesting & stabilization — stabilize after Run 7; prove residuals; no auto-advance to RC",
     "phases": [
       {
@@ -1102,7 +1102,7 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Low": 6
+          "Low": 5
         },
         "rows": [
           {
@@ -1133,12 +1133,6 @@
             "pri": "Low",
             "item": "DEMOTE-COUNTDOWN-PT-1 — demoted host's countdown must not flip early `[2pc]`",
             "notes": "**Owed: Wyatt playtest — DEMOTE-COUNTDOWN-PT-1 — after a host migration during the countdown, the old host's screen must not start the round early.** Parent **DEMOTE-COUNTDOWN-1**. Prod after ship (hard-refresh).<br>1. On prod, open two clients in one room and start a round so the 3-2-1 countdown is running.<br>2. While counting down, force a host migration (e.g. close/tab the host so the other client takes over).<br>3. FAIL if the old host's screen flips to RUNNING before the countdown finishes, or the round start looks clock-skewed.<br>4. PASS if the countdown completes normally and the round starts at the right moment on both screens.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "MENU-MUSIC-2C-PT-1 — one menu song on title boot `[1pc]`",
-            "notes": "**Owed: Wyatt playtest — MENU-MUSIC-2C-PT-1 — cold boot into the main menu plays exactly one song.** Parent **MENU-MUSIC-2C**. Prod after ship (hard-refresh).<br>1. Hard-refresh the title screen on prod (`https://www.cartclash.lol/`). Wait until the splash is gone.<br>2. FAIL if you hear both menu songs at once, or one song stacked on itself.<br>3. PASS if you hear one song, then the other after the first ends.<br>4. Quit a match back to the menu and listen again. Same FAIL/PASS.",
             "ship1": null
           }
         ]
