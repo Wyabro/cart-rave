@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-20T18:07:44.389Z",
-    "commit": "4ebb73d2"
+    "at": "2026-08-20T18:13:44.474Z",
+    "commit": "76ed285e"
   },
-  "source_digest": "ae003300",
+  "source_digest": "11df878a",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -887,7 +887,7 @@
       {
         "id": "SPAWN-BACKROOMS-2",
         "what": "Storerooms spawns one spawn-width inward",
-        "status": "queued",
+        "status": "landed; ⏳ SPAWN-BACKROOMS-PT-2 `[1pc]`",
         "state": "waiting"
       },
       {
@@ -950,7 +950,7 @@
       {
         "title": "Engineering",
         "counts": {
-          "High": 7,
+          "High": 6,
           "Medium": 4,
           "Partial": 1,
           "Low": 7
@@ -966,12 +966,6 @@
             "pri": "High",
             "item": "CART-POP-1 — carts pop off the floor in normal driving",
             "notes": "**Wave E diagnostic active 08-20 (Wyatt ack).** Wave D cap-388 shows wedge seams are not required: four single-floor supports have the highest mean rise (+5.42), peak `−8.64 → +2.41`. Wave C rules out control code and restitution. Candidate is free pitch/roll or another cart-vs-single-floor solver interaction. The new `?diag=1` trace adds pre/post solver up-dot and pitch-roll angular speed; it changes no physics setting. **CART-POP-PT-1 remains FAIL/open.** Reproduce ordinary Cart Rave driving and F8 before a physics change. Lane: **Critical**.",
-            "ship1": null
-          },
-          {
-            "pri": "High",
-            "item": "SPAWN-BACKROOMS-2 — Storerooms player spawns one spawn-width inward",
-            "notes": "**Filed 08-19.** Move each player spawn on Storerooms (`backrooms`) inward by roughly one spawn-width so round start has more safe room. Preserve current spawn layout and spacing. Not a reopen of **SPAWN-BACKROOMS-1** (`gapDistance` 2.25 moved booths and the spawn ring together). Do not blindly bump `gapDistance` if that also moves booths.",
             "ship1": null
           },
           {
@@ -1102,9 +1096,15 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Low": 5
+          "Low": 6
         },
         "rows": [
+          {
+            "pri": "Low",
+            "item": "SPAWN-BACKROOMS-PT-2 — Storerooms carts start one booth-width closer to center `[1pc]`",
+            "notes": "**Owed: Wyatt playtest — SPAWN-BACKROOMS-PT-2 — Storerooms carts start one booth-width closer to center, still on their decks.** Parent **SPAWN-BACKROOMS-2**. Pushed but not yet deployed — use `npm run dev` until ship.<br>1. Open The Storerooms. Start a round. Do not drive yet.<br>2. FAIL if a cart hangs in the air, sits off its deck, or if a deck sits near the pit wall with only a thin strip of carpet behind it.<br>3. PASS if all four carts sit on their decks, clearly inboard on the carpet, with about one booth-width of extra floor behind them, and the four booths still face center on the cardinals.<br>4. Drive off a deck and fall into a void. FAIL if you respawn in the air or on the floor instead of on that same inward deck.<br>5. Fail the card if Classic Record or Sundial Station spawn positions moved.",
+            "ship1": null
+          },
           {
             "pri": "Low",
             "item": "CART-POP-PT-1 — normal driving stays planted across all arenas `[1pc]`",

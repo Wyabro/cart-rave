@@ -26,7 +26,7 @@ import { getQualityKnobs } from "../utils/qualityTiers.js";
 // ===== Tunable layout constants =====
 
 // * Floor: large worn-carpet play surface centered on the origin. The spawn booths
-// * (fixed at CONFIG-derived radius ≈ 30.4m) sit ~7.6m inboard of the floor edge, leaving
+// * (SPAWN-BACKROOMS-2 ring 24.15m) sit ~13.9m inboard of the floor edge, leaving
 // * a landing apron behind each booth instead of a blind drop.
 const ARENA_HALF = 38; // meters — floor half-extent (full square = 76 x 76)
 const FLOOR_TOP_Y = 0; // meters — flat playing-surface height
@@ -811,11 +811,11 @@ function smooth01(t) {
  * @returns {number}
  */
 function getTrafficWearFactor(x, z) {
-  // Booth approach lanes run along both axes (booths sit on ±X/±Z at ~30.4m).
+  // Booth approach lanes run along both axes (booths sit on ±X/±Z at ~24.15m).
   const lane = (along, across) => {
-    if (along < 7 || along > 31.5) return 0;
+    if (along < 7 || along > 24.5) return 0;
     const width = 1 - smooth01((across - 1.1) / 1.5);
-    const ends = Math.min(smooth01((along - 7) / 3), smooth01((31.5 - along) / 3));
+    const ends = Math.min(smooth01((along - 7) / 3), smooth01((24.5 - along) / 3));
     return width * ends;
   };
   let wear = Math.max(lane(Math.abs(x), Math.abs(z)), lane(Math.abs(z), Math.abs(x)));
@@ -3339,8 +3339,10 @@ function buildBoothStripeTexture() {
 
 function buildBackroomsBooths(scene, world, config, boothColliderHandles) {
   const B = config.booth;
-  const arenaR = config.record.radius;
-  const boothCenterDist = arenaR + B.gapDistance + B.rampLength + B.platformDepth / 2;
+  // * Night Shift pattern: decks follow the live spawn ring so a
+  // * spawnRingRadiusByLevel override cannot strand carts off the slab
+  // * (SPAWN-BACKROOMS-2). loadLevel applies the override before init.
+  const boothCenterDist = config.cart.spawnRingRadius;
   const angles = [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2];
 
   const group = new THREE.Group();

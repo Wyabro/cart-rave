@@ -71,9 +71,9 @@ way the Block table still can.)*
 <!-- BEGIN GENERATED counts — npm run backlog. Do not hand-edit. -->
 | Department | Open | High | Medium | Low |
 |---|---:|---:|---:|---:|
-| [Engineering](#engineering) | 19 | 7 | 4 | 7 (+1 partial) |
+| [Engineering](#engineering) | 18 | 6 | 4 | 7 (+1 partial) |
 | [Design / Gameplay](#design--gameplay) | 3 | 1 | 2 | 0 |
-| 🟢 [Playtest owed](#playtest-owed) | 5 | 0 | 0 | 5 |
+| 🟢 [Playtest owed](#playtest-owed) | 6 | 0 | 0 | 6 |
 | [Tech Debt](#tech-debt) | 13 | 0 | 3 | 10 |
 
 **40 open rows total.**
@@ -155,12 +155,11 @@ traffic; 7 is post-launch or parked. Priority ranks *inside* a block too (top fi
 **Block 1 — NOW (player-facing correctness / High).** Playtest blockers; do not start an external playtest until this block drains. One card at a time, top first.
 1. **NET-LAG-1** — Friends/QP lag + rubber-band (F8 both machines; measure first).
 2. **CART-POP-1** — carts pop off the floor in normal driving (shared physics).
-3. **SPAWN-BACKROOMS-2** — Storerooms spawns one spawn-width inward.
-4. **FRIENDS-ROTATE-1** — Friends rematch rotates arenas, synced.
-5. **ONBOARD-JUMP-1** — HOW TO PLAY matches jump+boost.
-6. **ONBOARD-WEBP-1** — HOW TO PLAY WebP playback + fallback.
-7. **MENU-CART-FOLLOW-1** — subtle menu-cart cursor parallax.
-8. **SHARE-CARD-1** — update OG/social share image.
+3. **FRIENDS-ROTATE-1** — Friends rematch rotates arenas, synced.
+4. **ONBOARD-JUMP-1** — HOW TO PLAY matches jump+boost.
+5. **ONBOARD-WEBP-1** — HOW TO PLAY WebP playback + fallback.
+6. **MENU-CART-FOLLOW-1** — subtle menu-cart cursor parallax.
+7. **SHARE-CARD-1** — update OG/social share image.
 
 **Block 2 — PRE-SHIP (should land before the public post).** 08-16 audit Mediums, top first.
 Landed 08-18 — **CUSTOMIZE-SPAM-1** (Customize spam remount); Wyatt PASS 08-18.
@@ -221,7 +220,6 @@ Rows follow work-order rank: High (Block 1) → Medium (Block 2, then Wyatt-bloc
 |-----|------|-------|
 | High | NET-LAG-1 — Friends/QP lag + rubber-band before playtest | **Wave 1 landed 08-20.** Cause: NH-SMOOTH v3 display low-pass (`displayPosRate` 14) trailed ~1.6 m on a clean wire (cap-373/374 vs host 375, room `SAGO6`). Lever: non-host local mesh+camera **copy** the physics pose. Transport / host send / rewind-replay not this wave. **Owed: NET-LAG-1-PT-1, parked by Wyatt 08-20.** Do not restore lerp or add a catch-up distance gate on a vibration FAIL without a new ack. Do not reopen **NET-1** · **NET-2** · **NET-MIG-3**. |
 | High | CART-POP-1 — carts pop off the floor in normal driving | **Wave E diagnostic active 08-20 (Wyatt ack).** Wave D cap-388 shows wedge seams are not required: four single-floor supports have the highest mean rise (+5.42), peak `−8.64 → +2.41`. Wave C rules out control code and restitution. Candidate is free pitch/roll or another cart-vs-single-floor solver interaction. The new `?diag=1` trace adds pre/post solver up-dot and pitch-roll angular speed; it changes no physics setting. **CART-POP-PT-1 remains FAIL/open.** Reproduce ordinary Cart Rave driving and F8 before a physics change. Lane: **Critical**. |
-| High | SPAWN-BACKROOMS-2 — Storerooms player spawns one spawn-width inward | **Filed 08-19.** Move each player spawn on Storerooms (`backrooms`) inward by roughly one spawn-width so round start has more safe room. Preserve current spawn layout and spacing. Not a reopen of **SPAWN-BACKROOMS-1** (`gapDistance` 2.25 moved booths and the spawn ring together). Do not blindly bump `gapDistance` if that also moves booths. |
 | High | FRIENDS-ROTATE-1 — Friends rematch rotates to the next arena | **Filed 08-19.** After a Friends match finishes and the group continues/rematches, auto-rotate to the next arena instead of repeating the same one. Level choice must stay synced for every player in the lobby. Analog of **QP-ORDER-1** (do not reopen). Distinct from **FRIENDS-LEVEL-1** (host pick wins at join). |
 | High | ONBOARD-WEBP-1 — HOW TO PLAY animated WebPs fail on some PCs | **Filed 08-19.** Animated HOW TO PLAY WebPs did not animate on Wyatt's brother's PC (F8 capture on that machine). Investigate browser/GPU/load/render. Add a graceful fallback if animated WebP playback cannot be relied on. Distinct from reduced-motion `still.webp` (ONBOARD-ART-1). Do not reopen **ONBOARD-SLIDES-1**. |
 | High | MENU-CART-FOLLOW-1 — menu cart preview follows the cursor slightly | **Filed 08-19.** Main-menu cart preview should lightly follow cursor movement: small rotation/parallax, then ease back to rest when the pointer leaves. Subtle and polished — not aggressive tracking. Do not reopen **MENU-CART-1**. |
@@ -271,6 +269,7 @@ completed-work — do not restack it here.
 
 | Pri | Item | Notes |
 |-----|------|-------|
+| Low | SPAWN-BACKROOMS-PT-2 — Storerooms carts start one booth-width closer to center `[1pc]` | **Owed: Wyatt playtest — SPAWN-BACKROOMS-PT-2 — Storerooms carts start one booth-width closer to center, still on their decks.** Parent **SPAWN-BACKROOMS-2**. Pushed but not yet deployed — use `npm run dev` until ship.<br>1. Open The Storerooms. Start a round. Do not drive yet.<br>2. FAIL if a cart hangs in the air, sits off its deck, or if a deck sits near the pit wall with only a thin strip of carpet behind it.<br>3. PASS if all four carts sit on their decks, clearly inboard on the carpet, with about one booth-width of extra floor behind them, and the four booths still face center on the cardinals.<br>4. Drive off a deck and fall into a void. FAIL if you respawn in the air or on the floor instead of on that same inward deck.<br>5. Fail the card if Classic Record or Sundial Station spawn positions moved. |
 | Low | CART-POP-PT-1 — normal driving stays planted across all arenas `[1pc]` | **Owed: Wyatt playtest — CART-POP-PT-1 — normal driving stays planted across all arenas.** **Wyatt FAIL 08-20 — Cart Rave seemed unchanged or worse; cap-386 pulled.** Parent **CART-POP-1**. Remains open until a root-cause fix ships.<br>1. On production with `?diag=1`, drive normally for about 30 seconds on each arena; include straight runs and full-lock turns, without hop or boost.<br>2. FAIL if a cart pops or bounces off the flat floor without a ram, obstacle hit, or edge contact.<br>3. PASS if ordinary driving stays planted on all three arenas while rams and obstacle hits still have visible lift.<br>4. Press F8 once after each arena. |
 | Low | NET-LAG-1-PT-1 — non-host own cart has no 1 m trail `[2pc]` | **Owed: Wyatt playtest — NET-LAG-1-PT-1 — on the non-host, your cart stays under you while you drive.** Parent **NET-LAG-1**. Prod after ship, or `npm run dev:local` with `?diag=1` on both machines. Remaining input delay (~120 ms) is out of this check — do not FAIL for that if the trail is gone.<br>1. Friends match, two machines, `?diag=1`. Non-host drives for a full round.<br>2. FAIL if your cart trails about a meter behind where you are steering, or if it shakes or ticks many times a second.<br>3. PASS if the non-host cart stays under you (no rubber-band trail) and the host still feels tight.<br>4. Press F8 on both machines at the end. |
 | Low | QP-PLAYING-PT-1 — menu pill matches public Quickplay humans `[1pc]` | **Owed: Wyatt playtest — QP-PLAYING-PT-1 — QUICKPLAY shows a live playing count.** Parent **QP-PLAYING-1**. Prod after ship (hard-refresh).<br>1. Open the main menu on prod (`https://www.cartclash.lol/`).<br>2. FAIL if the pill shows `0 PLAYING NOW`, or if QUICKPLAY does not start a game.<br>3. PASS if the pill is hidden when public Quickplay is empty, or the number matches humans in public Quickplay. |
@@ -344,7 +343,7 @@ MENU-HINT-1, DIAG-DOC-1, ANLX-VIEW-1, ANLX-ATTRACT-1, ANLX-BULK-1, MP-FX-1, AREN
 SRV-TEST-1, HYGIENE-1, SKYBOX-1, SEC-BEACON-1, SEC-UNLOCK-1, SEC-ROUTE-1, SEC-TOKEN-1,
 CARGO-RACE-1, CARGO-VIS-1, CARGO-WT-1, CARGO-HUD-1, CARGO-HUD-1a, SHEET-1, AI-DIFF-1,
 HIT-FEEL-1, ARENA-BAL-1, INPUT-KB-1, SOLO-DIFF-1, LOD-UNCANNY-1, FX-TEXDISPOSE-1,
-PIT-DEPTH-1, PIT-COL-INSET-1, SPAWN-BACKROOMS-1, CAM-OPEN-1, UNLOCK-ORDER-1,
+PIT-DEPTH-1, PIT-COL-INSET-1, SPAWN-BACKROOMS-1, SPAWN-BACKROOMS-2, CAM-OPEN-1, UNLOCK-ORDER-1,
 CC-TOKEN-1, CC-STRIPE-1, CC-LABEL-1, CC-ICON-1, MENU-MUSIC-VOL-1, MENU-LOCK-HINT-1,
 GIT-INDEX-1, GIT-INDEX-2, ART-PASS-1, ART-PASS-CLASSIC-1, NET-SIM-1, PRE-PODIUM-1,
 FIGHT-VERIFY-1, ROUND-WEDGE-1, SHOOT-ANIM-1, SHOOT-ANIM-2, FX-TIME-1, HOOK-INDEX-1,

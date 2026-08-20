@@ -13,6 +13,19 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 20, 2026 — SPAWN-BACKROOMS-2: Storerooms spawn ring inset 7 m
+
+- *(Engineering · High)* **SPAWN-BACKROOMS-2** — ✅ **DONE 08-20**. Storerooms
+  carts and decks move inward one booth-width. Lever:
+  `cart.spawnRingRadiusByLevel.backrooms = 24.15` (formula 31.15 −
+  `platformWidth` 7.0). `buildBackroomsBooths` reads the live spawn ring
+  so decks stay under the carts. `gapDistanceByLevel.backrooms` stays
+  2.25 (a negative gap is not a valid inset). Wear-lane end 31.5 → 24.5.
+  Classic / Sundial unchanged. Playtest **SPAWN-BACKROOMS-PT-2**. Do not
+  reopen **SPAWN-BACKROOMS-1**.
+
+---
+
 ### August 20, 2026 — MENU-MUSIC-2C: one menu song on title boot
 
 - *(Audio · Standard)* **MENU-MUSIC-2C** — ✅ **DONE 08-20**. Boot and

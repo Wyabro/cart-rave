@@ -81,7 +81,13 @@ const physics = {
   cart: {
     size: { x: 1.31, y: 1.35, z: 2.26 }, // meters — collider half-extents basis
     spawnHeight: 1.077, // meters — overridden below from booth geometry
-    spawnRingRadiusByLevel: { rooftop: 42 }, // meters — diagonal decks near square roof corners
+    spawnRingRadiusByLevel: {
+      rooftop: 42, // meters — diagonal decks near square roof corners
+      // * SPAWN-BACKROOMS-2: formula ring (26.4 + gap 2.25 + depth/2 2.5 = 31.15)
+      // * minus platformWidth 7.0. Wins over gapDistanceByLevel.backrooms for
+      // * Storerooms booth + cart placement (negative gap is not a valid inset).
+      backrooms: 24.15,
+    },
     spawnAngleOffset: 0, // radians — live per-level offset, restored by loadLevel()
     spawnAngleOffsetByLevel: { rooftop: Math.PI / 4 }, // Night Shift uses diagonal corner spawns
     friction: 1.1, // unitless — Mongoose-style grip
@@ -358,9 +364,10 @@ const physics = {
     // * as record.radiusByLevel. This one knob moves the booths AND the spawn ring
     // * together, because every booth builder and computeSpawnRingRadius read
     // * booth.gapDistance live at build time — so they cannot drift apart and strand a
-    // * cart spawning off its deck. Storerooms and Sundial sit +0.75m further out
-    // * (SPAWN-BACKROOMS-1 / SPAWN-SUNDIAL-1: spawns were close enough to the edge that
-    // * an opening scramble could put a cart over it). Classic keeps the base 1.5.
+    // * cart spawning off its deck. Sundial sits further out (SPAWN-SUNDIAL-GAP-1:
+    // * 3.75). Storerooms keeps 2.25 as a safety net if the ring override is
+    // * deleted; spawnRingRadiusByLevel.backrooms wins for placement
+    // * (SPAWN-BACKROOMS-2). Classic keeps the base 1.5.
     gapDistanceByLevel: { backrooms: 2.25, zanzibar: 3.75 },
     railHeight: 1.8, // meters
     railThickness: 0.12, // meters

@@ -1,9 +1,9 @@
-// spawnRing.test.js — SPAWN-BACKROOMS-1 / SPAWN-SUNDIAL-1 spawn-ring override.
+// spawnRing.test.js — SPAWN-BACKROOMS-1 / SPAWN-BACKROOMS-2 / SPAWN-SUNDIAL-1 spawn-ring override.
 //
-// The booths and the spawn ring are matched only because every booth builder and
-// computeSpawnRingRadius read config.booth.gapDistance live at build time. These
-// cases pin that shared-input property, and that loadLevel recomputes the cached
-// ring when the gap moves on its own (Storerooms overrides no radius).
+// Classic / Sundial booths and the spawn ring stay matched because every booth
+// builder and computeSpawnRingRadius read config.booth.gapDistance live at build
+// time. Storerooms (SPAWN-BACKROOMS-2) uses spawnRingRadiusByLevel so the inset
+// cannot go through a negative gap; buildBackroomsBooths reads the live ring.
 
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
@@ -28,14 +28,16 @@ function ringFor(levelId) {
 }
 
 describe("spawn ring per-level overrides", () => {
-  it("pushes Storerooms and Sundial spawns further out", () => {
+  it("insets Storerooms spawns one booth-width via the ring override", () => {
     expect(CONFIG.booth.gapDistanceByLevel.backrooms).toBeCloseTo(2.25, 6);
-    // SPAWN-SUNDIAL-GAP-1: widened from 2.25 to 3.75 so carts can't wedge
-    // between booth legs and the platform edge.
-    expect(CONFIG.booth.gapDistanceByLevel.zanzibar).toBeCloseTo(3.75, 6);
+    expect(CONFIG.cart.spawnRingRadiusByLevel.backrooms).toBeCloseTo(24.15, 6);
+    expect(CONFIG.booth.platformWidth).toBeCloseTo(7, 6);
 
-    const base = computeSpawnRingRadius(CONFIG);
-    expect(ringFor("backrooms")).toBeCloseTo(base + 0.75, 6);
+    const formulaWithStoreroomsGap =
+      CONFIG.record.radius + 2.25 + CONFIG.booth.rampLength + CONFIG.booth.platformDepth / 2;
+    expect(formulaWithStoreroomsGap).toBeCloseTo(31.15, 6);
+    expect(ringFor("backrooms")).toBeCloseTo(formulaWithStoreroomsGap - 7, 6);
+    expect(ringFor("backrooms")).toBeCloseTo(24.15, 6);
   });
 
   it("leaves Classic Record on the base ring", () => {
@@ -63,6 +65,9 @@ describe("spawn ring per-level overrides", () => {
 
   it("stacks the gap override on top of Sundial's radius override", () => {
     // * Sundial overrides BOTH. The two must compose, not shadow each other.
+    // SPAWN-SUNDIAL-GAP-1: widened from 2.25 to 3.75 so carts can't wedge
+    // between booth legs and the platform edge.
+    expect(CONFIG.booth.gapDistanceByLevel.zanzibar).toBeCloseTo(3.75, 6);
     expect(CONFIG.record.radiusByLevel.zanzibar).toBeCloseTo(31.7, 6);
     const expected =
       31.7 + 3.75 + CONFIG.booth.rampLength + CONFIG.booth.platformDepth / 2;
@@ -76,6 +81,19 @@ describe("spawn ring per-level overrides", () => {
     expect(src).toMatch(/overrideRadius\s*!=\s*null\s*\|\|\s*overrideGap\s*!=\s*null/);
     expect(src).toMatch(/config\.booth\.gapDistance\s*=\s*overrideGap/);
     expect(src).toMatch(/config\.cart\.spawnRingRadius\s*=\s*overrideSpawnRing/);
+  });
+
+  it("places Storerooms booths on the live spawn ring, not the gap formula", () => {
+    const src = readFileSync(
+      new URL("../../src/levels/backroomsSupermarket.js", import.meta.url),
+      "utf8",
+    );
+    expect(src).toMatch(/boothCenterDist\s*=\s*config\.cart\.spawnRingRadius/);
+    expect(src).not.toMatch(
+      /boothCenterDist\s*=\s*arenaR\s*\+\s*B\.gapDistance\s*\+\s*B\.rampLength/,
+    );
+    expect(src).toMatch(/along > 24\.5/);
+    expect(src).not.toMatch(/along > 31\.5/);
   });
 
   it("uses the shared spawn-angle helper for initial carts and later refreshes", () => {
