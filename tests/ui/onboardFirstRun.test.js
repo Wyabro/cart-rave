@@ -192,18 +192,18 @@ describe("ONBOARD-ART-1 — the drop-in art rig", () => {
     expect(body).not.toBe("");
     // * The miss path must skip the slot untouched — writing data-art there would turn
     // * the CSS gate back into today's all-or-nothing switch.
-    expect(body).toMatch(/if \(!art\) continue;/);
+    expect(body).toMatch(/if \(!art\s*\|\|\s*!\(art\.motion\s*\|\|\s*art\.still\)\) continue;/);
     expect(body).toMatch(/dataset\.art\s*=\s*["']1["']/);
   });
 
   it("swaps to the still when reduced motion is on and one exists, else falls back", () => {
-    const body = fnBody(menu, "hydrateHowToArt");
+    const body = fnBody(menu, "startHowToArtForSlide");
     expect(body).toMatch(/prefers-reduced-motion:\s*reduce/);
     expect(body).toMatch(/art\.still/);
-    // * A still-only slot (no motion file) must still resolve to something, or the
-    // * reduced-motion pick of `undefined` would create the one broken state promised
-    // * impossible: an <img> with no src.
-    expect(body).toMatch(/art\.motion\s*\?\?\s*art\.still/);
+    // * The playback helper owns still-only and missing-still behavior now; integration
+    // * must pass both URLs rather than collapsing them before the verdict window.
+    expect(body).toMatch(/motionUrl:\s*art\.motion/);
+    expect(body).toMatch(/stillUrl:\s*art\.still/);
   });
 
   it("gates every art rule on the data-art attribute", () => {
@@ -221,5 +221,29 @@ describe("ONBOARD-ART-1 — the drop-in art rig", () => {
     // * trap AND lose to the rekeyed desktop rule on specificity, which on a phone
     // * squeezed an art slide into `286px 0px` columns (copy column invisible).
     expect(css).not.toMatch(/cr-howto-slide-media\)/);
+  });
+});
+
+describe("ONBOARD-WEBP-1 — visible playback and fallback integration", () => {
+  it("routes visible slides through the bounded playback controller", () => {
+    expect(menu).toMatch(/import\s*\{\s*startHowToArtPlayback\s*\}\s*from\s*["']\.\/howToArtPlayback\.js["']/);
+    expect(fnBody(menu, "showHowToSlide")).toMatch(/startHowToArtForSlide\(shown\)/);
+    expect(fnBody(menu, "closeHowToScreen")).toMatch(/stopHowToArtPlayback\(\)/);
+  });
+
+  it("reserves resolved art layout without mounting hidden images", () => {
+    const body = fnBody(menu, "hydrateHowToArt");
+    expect(body).toMatch(/art\.motion\s*\|\|\s*art\.still/);
+    expect(body).toMatch(/dataset\.art\s*=\s*["']1["']/);
+    expect(body).not.toMatch(/createElement\(["']img["']\)/);
+    expect(body).not.toMatch(/append\(img\)/);
+  });
+
+  it("records one bounded verdict with the existing diagnostics seam", () => {
+    const body = fnBody(menu, "startHowToArtForSlide");
+    expect(body).toMatch(/startHowToArtPlayback\(/);
+    expect(body).toMatch(/recordDiagEvent\(["']ui["']\s*,\s*["']howto_art["']/);
+    expect(body).toMatch(/status:\s*verdict\.status/);
+    expect(body).toMatch(/reason:\s*verdict\.reason/);
   });
 });

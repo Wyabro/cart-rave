@@ -54,6 +54,7 @@ import {
   applyPlayingNowPill,
   parsePlayingCount,
 } from "./playingNow.js";
+import { startHowToArtPlayback } from "./howToArtPlayback.js";
 import {
   animateButtonPress,
   animateButtonRelease,
@@ -1384,6 +1385,8 @@ import { initGamepadTextEntry, openGamepadTextEntry } from "./gamepadTextEntry.j
   /** @type {HTMLElement[]} */
   let howtoDots = [];
   let howtoSlideIndex = 0;
+  /** Stops the visible slide's short playback check and removes its image. */
+  let stopHowToArtPlayback = () => {};
 
   // ONBOARD-ART-1 — drop-in art. Every `<token>.webp` in src/assets/howto/ turns its
   // slot on at build time (glob = real detection, not a hand-maintained list);
@@ -1430,8 +1433,9 @@ import { initGamepadTextEntry, openGamepadTextEntry } from "./gamepadTextEntry.j
     if (howtoNextBtn instanceof HTMLButtonElement) howtoNextBtn.disabled = last;
     const label = howtoDoneBtn?.querySelector(".cr-screen-btn-label");
     if (label) label.textContent = last ? "LET'S ROLL" : "NEXT ▸";
+    const shown = howtoSlides[clamped];
+    if (shown) startHowToArtForSlide(shown);
     if (opts?.animate !== false) {
-      const shown = howtoSlides[clamped];
       if (shown) animateMenuReveal(shown, { duration: 200, y: 8, ease: "outQuad" });
     }
   }
@@ -1482,6 +1486,8 @@ import { initGamepadTextEntry, openGamepadTextEntry } from "./gamepadTextEntry.j
    */
   function closeHowToScreen(opts) {
     if (!howtoScreen) return;
+    stopHowToArtPlayback();
+    stopHowToArtPlayback = () => {};
     if (document.activeElement instanceof HTMLElement) {
       document.activeElement.blur();
     }
@@ -1497,32 +1503,58 @@ import { initGamepadTextEntry, openGamepadTextEntry } from "./gamepadTextEntry.j
   }
 
   /**
-   * Hydrates the HOW TO PLAY art slots from the drop-in directory. Runs once at
-   * initHowToScreen(), NOT per slide — the two-column layout has to be stable
-   * before the overlay is ever shown so nothing reflows under animateMenuReveal.
-   * A slot with no file behind its token keeps no data-art and stays CSS-hidden:
-   * that is the "no empty frame, no broken-image icon, ever" guarantee.
+   * Reserves HOW TO PLAY art layout from the drop-in directory. Runs once at init,
+   * before the overlay is shown, so the later visible-slide mount cannot reflow the
+   * deck under animateMenuReveal. Images themselves are deliberately not created
+   * here: ONBOARD-WEBP-1 starts and checks only the slide a player can see.
    */
   function hydrateHowToArt() {
     if (!howtoScreen) return;
-    const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
     for (const slot of howtoScreen.querySelectorAll(".cr-howto-slide-media[data-media]")) {
       const art = howtoArt.get(slot.dataset.media);
-      if (!art) continue;
-      const src = reducedMotion && art.still ? art.still : (art.motion ?? art.still);
-      if (!src) continue;
-      const img = document.createElement("img");
-      img.src = src;
-      // Decorative by contract: the slot is aria-hidden, and AISLE 4's chip row is
-      // the accessible equivalent of the HUD callouts.
-      img.alt = "";
-      img.decoding = "async";
-      // lazy inside a display:none overlay means nothing fetches during menu boot.
-      img.loading = "lazy";
-      img.draggable = false;
-      slot.append(img);
+      if (!art || !(art.motion || art.still)) continue;
       slot.dataset.art = "1";
     }
+  }
+
+  /**
+   * Mount and verify only the art on the visible HOW TO PLAY slide. A hidden-tab
+   * or hidden-overlay check would misclassify browser throttling as frozen media,
+   * so those states never start a verdict window.
+   * @param {HTMLElement} slide
+   */
+  function startHowToArtForSlide(slide) {
+    stopHowToArtPlayback();
+    stopHowToArtPlayback = () => {};
+    if (!howtoScreen || howtoScreen.getAttribute("aria-hidden") !== "false") return;
+    if (document.visibilityState === "hidden") return;
+    const slot = slide.querySelector(".cr-howto-slide-media[data-media]");
+    if (!(slot instanceof HTMLElement)) return;
+    const token = slot.dataset.media;
+    const art = howtoArt.get(token);
+    if (!art || !(art.motion || art.still)) return;
+
+    stopHowToArtPlayback = startHowToArtPlayback({
+      slot,
+      token,
+      motionUrl: art.motion,
+      stillUrl: art.still,
+      reducedMotion: matchMedia("(prefers-reduced-motion: reduce)").matches,
+      isVisible: () => (
+        document.visibilityState !== "hidden"
+        && howtoScreen.getAttribute("aria-hidden") === "false"
+        && !slide.hidden
+      ),
+      onVerdict: (verdict) => {
+        recordDiagEvent("ui", "howto_art", {
+          token,
+          status: verdict.status,
+          reason: verdict.reason,
+          samples: verdict.samples,
+          elapsedMs: verdict.elapsedMs,
+        });
+      },
+    });
   }
 
   function initHowToScreen() {

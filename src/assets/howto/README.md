@@ -15,14 +15,17 @@ deck: single column of text + chips, no empty frame.
 | `hud` | AISLE 4 — READ THE HUD | 16:9, uncropped, HUD is the subject |
 | `cargo` | AISLE 6 — THE LIVING STORE | 16:10, cropped, HUD out of frame |
 
-- `<token>.webp` (animated) turns that slot on.
+- `<token>.webp` (animated) turns that slot on. It is mounted only when its slide is
+  visible, so playback does not begin behind the closed HOW TO PLAY overlay.
 - `<token>.still.webp` (optional) is shown instead when the visitor has
-  `prefers-reduced-motion: reduce`. Absent is fine — the animated file is used as-is.
+  `prefers-reduced-motion: reduce`, or when the visible animated image fails to load
+  or advance. Absent is fine — the animated file remains the only available image;
+  a frozen decoder still leaves its readable frame in place.
 - No file → the slot renders nothing. There is no broken-image state and no 404, ever:
   the rig only sets `data-art` when a file resolved behind the token, and CSS hides
   every slot without it.
-- **Corrupt is not missing.** A real but broken `<token>.webp` DOES render a broken-image
-  glyph inside the framed box. Fix: delete the file — the slot turns back off.
+- A motion load error swaps to the paired still. If neither file loads, the slot
+  collapses back to the text-only deck instead of showing a broken-image glyph.
 - Budget: keep each file under ~400 KB. These are committed binaries on every clone and
   every cold visit.
 
@@ -32,8 +35,11 @@ deck: single column of text + chips, no empty frame.
   **build time** — that is what makes detection real rather than a hand-maintained list,
   and it is why this folder lives under `src/assets/` instead of `public/`. Only the
   five tokens above are ever bundled; any other file dropped here is ignored.
-- `hydrateHowToArt()` runs once at menu init: matching slot gets an `<img>` and
-  `data-art="1"`, which is the only attribute CSS keys on.
+- `hydrateHowToArt()` runs once at menu init and sets `data-art="1"` for resolved
+  slots, which stabilizes layout without mounting hidden images.
+- `startHowToArtForSlide()` mounts only the visible slide. A bounded 16x10 canvas
+  sample checks five frames over about 700 ms; the first changed frame keeps motion,
+  while no change selects the still. Paging or closing cancels the check.
 
 ## AISLE 4's callouts — the one step that is not a drop-in
 

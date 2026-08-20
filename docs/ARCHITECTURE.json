@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-20T21:39:48.730Z",
-    "commit": "95f43356"
+    "at": "2026-08-20T21:55:00.414Z",
+    "commit": "84a84f78"
   },
-  "source_digest": "1aa254fc",
+  "source_digest": "7befa236",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -479,6 +479,7 @@
         "src/ui/gamepadNav.js",
         "src/ui/gamepadTextEntry.js",
         "src/ui/graphicsToggles.js",
+        "src/ui/howToArtPlayback.js",
         "src/ui/icons.js",
         "src/ui/loadingScreen.css",
         "src/ui/loadingScreen.js",
@@ -500,7 +501,7 @@
         "src/ui/styles/tokens.css",
         "src/utils/edgeDanger.js"
       ],
-      "file_count": 32,
+      "file_count": 33,
       "edges": [
         {
           "to": "boot-and-orchestration",
@@ -899,7 +900,7 @@
       {
         "id": "ONBOARD-WEBP-1",
         "what": "HOW TO PLAY WebP playback + fallback",
-        "status": "queued",
+        "status": "implemented locally; not committed or deployed; 🅿️ ONBOARD-WEBP-PT-1 seeded",
         "state": "waiting"
       },
       {
@@ -971,7 +972,7 @@
           {
             "pri": "High",
             "item": "ONBOARD-WEBP-1 — HOW TO PLAY animated WebPs fail on some PCs",
-            "notes": "**Filed 08-19.** Animated HOW TO PLAY WebPs did not animate on Wyatt's brother's PC (F8 capture on that machine). Investigate browser/GPU/load/render. Add a graceful fallback if animated WebP playback cannot be relied on. Distinct from reduced-motion `still.webp` (ONBOARD-ART-1). Do not reopen **ONBOARD-SLIDES-1**.",
+            "notes": "**Implemented locally 08-20; not committed or deployed.** The source files are valid infinite WebPs; the old F8 report was static despite Windows animation effects being on. Motion now mounts only on the visible slide and samples five tiny frames over ~700 ms. A frame change keeps motion; no change, a load error, or a sample error uses the paired still. Navigation and hidden tabs do not produce a verdict. Local in-app-browser repro fell back cleanly on all five art slides. **Owed: ONBOARD-WEBP-PT-1 on the brother's F8 machine.** Distinct from reduced-motion `still.webp` (ONBOARD-ART-1). Do not reopen **ONBOARD-SLIDES-1**.",
             "ship1": null
           },
           {
@@ -1090,7 +1091,7 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Low": 7
+          "Low": 8
         },
         "rows": [
           {
@@ -1133,6 +1134,12 @@
             "pri": "Low",
             "item": "ONBOARD-JUMP-PT-1 — gamepad jump/boost match HOW TO PLAY `[1pc]`",
             "notes": "**Owed: Wyatt playtest — ONBOARD-JUMP-PT-1 — A hops and RT boosts, and every chart says so.** Parent **ONBOARD-JUMP-1**. Not deployed — `npm run dev` with a gamepad (or prod after ship).<br>1. Open HOW TO PLAY and land on AISLE 1 — chips read RT BOOST / A HOP.<br>2. Start a round. Press A — the cart hops. Hold RT — the cart boosts/charges.<br>3. FAIL if A boosts or RT hops, or if any chart (HOW TO PLAY, Settings, pause CONTROLS, main menu) disagrees with what the pad does.<br>4. Pause mid-round and check the CONTROLS card; check Settings > CONTROLS — RT/B boost, A/LT hop.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "ONBOARD-WEBP-PT-1 — HOW TO PLAY media moves or falls back cleanly `[1pc]`",
+            "notes": "**Owed: Wyatt playtest — ONBOARD-WEBP-PT-1 — the HOW TO PLAY pictures move when supported and stay clean when they cannot.** Parent **ONBOARD-WEBP-1**. Not deployed — use the brother's F8 machine after this card ships, hard-refresh with `?diag=1`.<br>1. Open HOW TO PLAY. Page through DRIVE, BOOST, RAM THEM OUT, READ THE HUD, and THE LIVING STORE.<br>2. FAIL if any picture is blank, broken, jumps in size, or locks the menu. A clean still picture is an acceptable fallback when motion cannot play.<br>3. PASS if each picture either moves or changes to a clean matching still within about a second; the teaching text and controls stay readable.<br>4. Press F8 after the five picture slides.",
             "ship1": null
           }
         ]

@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-20 at commit `95f43356` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `4e0c6b83`
+> Generated 2026-08-20 at commit `84a84f78` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `5b269fb0`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -26,7 +26,7 @@ Self-directed queue (one at a time, within the declared phase):
 - **CART-POP-1** carts pop off the floor in normal driving — Classic PASS; Sundial trimesh landed, not shipped; Storerooms remain
 - **FRIENDS-ROTATE-1** Friends rematch rotates arenas, synced — queued
 - **ONBOARD-JUMP-1** HOW TO PLAY matches jump+boost — queued
-- **ONBOARD-WEBP-1** HOW TO PLAY WebP playback + fallback — queued
+- **ONBOARD-WEBP-1** HOW TO PLAY WebP playback + fallback — implemented locally; not committed or deployed; 🅿️ ONBOARD-WEBP-PT-1 seeded
 - **MENU-CART-FOLLOW-1** subtle menu-cart cursor parallax — queued
 - **SHARE-CARD-1** update OG/social share image — queued
 - **QP-PLAYING-PT-1** QUICKPLAY live playing count — ⏳ playtest owed (prod after ship)
