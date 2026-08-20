@@ -88,6 +88,17 @@ const _holeOverhangState = {
 };
 const _envContactPos = { x: 0, y: 0, z: 0 };
 const _cartPopProbeNormal = { x: 0, y: 0, z: 0 };
+const _cartPopProbeZeroAngularVelocity = { x: 0, y: 0, z: 0 };
+
+/** @param {{ x: number, y: number, z: number, w: number }} rotation @returns {number} */
+function upDotFromRotation(rotation) {
+  return 1 - 2 * (rotation.x * rotation.x + rotation.z * rotation.z);
+}
+
+/** @param {{ x: number, y: number, z: number }} angvel @returns {number} */
+function pitchRollSpeed(angvel) {
+  return Math.hypot(angvel.x, angvel.z);
+}
 
 // * Per-cart physics state scratch — populated once at the top of each per-cart
 // * control pass in runFixedPhysicsStep, then read by every downstream helper
@@ -3998,8 +4009,11 @@ function sampleCartPopProbe(world, allCarts, nowMs) {
 
     const pos = cart.body.translation();
     const radius = Math.hypot(pos.x, pos.z);
+    const rotation = cart.body.rotation();
+    const angvel = cart.body.angvel?.() || _cartPopProbeZeroAngularVelocity;
     const preVy = cart._preStepLinvel?.y ?? lv.y;
     const preWorldVy = cart._preWorldLinvel?.y ?? preVy;
+    const preWorldOrientation = cart._preWorldOrientation;
     recordDiagEvent("cart_pop", "rise", {
       slot: cart.slotIndex ?? null,
       x: round3(pos.x),
@@ -4007,6 +4021,10 @@ function sampleCartPopProbe(world, allCarts, nowMs) {
       z: round3(pos.z),
       radius: round3(radius),
       theta: round3(Math.atan2(pos.z, pos.x)),
+      preWorldUpDot: round3(preWorldOrientation?.upDot ?? upDotFromRotation(rotation)),
+      upDot: round3(upDotFromRotation(rotation)),
+      preWorldPitchRollSpeed: round3(preWorldOrientation?.pitchRollSpeed ?? pitchRollSpeed(angvel)),
+      pitchRollSpeed: round3(pitchRollSpeed(angvel)),
       preVy: round3(preVy),
       preWorldVy: round3(preWorldVy),
       vy: round3(lv.y),
@@ -4206,10 +4224,18 @@ export function runFixedPhysicsStep({
       for (const cart of allCarts || []) {
         if (!cart?.body) continue;
         const lv = cart.body.linvel();
+        const rotation = cart.body.rotation();
+        const angvel = cart.body.angvel?.() || _cartPopProbeZeroAngularVelocity;
         const preWorld = cart._preWorldLinvel || (cart._preWorldLinvel = { x: 0, y: 0, z: 0 });
         preWorld.x = lv.x;
         preWorld.y = lv.y;
         preWorld.z = lv.z;
+        const preWorldOrientation = cart._preWorldOrientation || (cart._preWorldOrientation = {
+          upDot: 1,
+          pitchRollSpeed: 0,
+        });
+        preWorldOrientation.upDot = upDotFromRotation(rotation);
+        preWorldOrientation.pitchRollSpeed = pitchRollSpeed(angvel);
       }
     }
     // * Named span so a KO-adjacent host freeze can be attributed to (or ruled out of)

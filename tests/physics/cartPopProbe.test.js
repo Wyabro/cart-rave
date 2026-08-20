@@ -16,10 +16,12 @@ function makeCart(slotIndex = 0) {
     slotIndex,
     pos: { x: 0, y: 0, z: 0 },
     vel: { x: 0, y: 0, z: 0 },
+    angvel: { x: 0, y: 0, z: 0 },
     quat: { x: 0, y: 0, z: 0, w: 1 },
     body: {
       translation: () => ({ ...cart.pos }),
       linvel: () => ({ ...cart.vel }),
+      angvel: () => ({ ...cart.angvel }),
       rotation: () => ({ ...cart.quat }),
       applyImpulse: () => {},
     },
@@ -91,6 +93,8 @@ describe("CART-POP-1 contact probe", () => {
     const cart = makeCart(2);
     cart.pos = { x: 3, y: 0.4, z: 4 };
     cart.vel = { x: 5, y: -0.5, z: 12 };
+    cart.quat = { x: 0.5, y: 0, z: 0, w: Math.sqrt(0.75) };
+    cart.angvel = { x: 3, y: 5, z: 4 };
     const floor = { handle: 42 };
     const manifold = {
       normal: (out) => Object.assign(out, { x: 0, y: -1, z: 0 }),
@@ -100,7 +104,11 @@ describe("CART-POP-1 contact probe", () => {
     };
 
     const world = makeWorld(floor, manifold);
-    world.step = () => { cart.vel.y = 1; };
+    world.step = () => {
+      cart.vel.y = 1;
+      cart.quat = { x: 0, y: 0, z: 0, w: 1 };
+      cart.angvel = { x: 1, y: 3, z: 2 };
+    };
     step(cart, world, 1000, { recordColliderHandles: [42] });
 
     expect(popEvents()).toEqual([
@@ -112,6 +120,10 @@ describe("CART-POP-1 contact probe", () => {
         z: 4,
         radius: 5,
         theta: 0.927,
+        preWorldUpDot: 0.5,
+        upDot: 1,
+        preWorldPitchRollSpeed: 5,
+        pitchRollSpeed: 2.236,
         preVy: -0.5,
         preWorldVy: -0.5,
         vy: 1,

@@ -27,8 +27,8 @@ report phase-exit eligibility; they must not move the marker.
 
 **Playtesting and stabilization.** External playtest is gated on BACKLOG Block 1
 (9 Highs). **NET-LAG-1-PT-1** is parked by Wyatt (08-20). **CART-POP-1** Wave
-D is read (Critical; Cart Rave wedges are not the required cause). Do not alter physics before an
-orientation/angular-velocity trace confirms why a single flat-floor contact ejects a cart.
+E is active (Critical; trace orientation across the single-floor solver contact). Do not alter
+physics before the pre/post solver up-dot and angular velocity identify the ejection mechanism.
 Tier A drained; Tier B/C, security sweep, and analytics gating are closed. Run 7
 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Stay in this phase until
 Wyatt advances the marker.
@@ -95,7 +95,7 @@ Live rows only. Shipped and closed cards live in
 | # | What | Status |
 |---|------|--------|
 | NET-LAG-1 | Friends/QP lag + rubber-band (F8 both machines) | wave 1 landed; 🅿️ **NET-LAG-1-PT-1** `[2pc]` parked by Wyatt 08-20 |
-| CART-POP-1 | carts pop off the floor in normal driving | Wave D read; orientation trace needed |
+| CART-POP-1 | carts pop off the floor in normal driving | Wave E active; orientation solver trace |
 | SPAWN-BACKROOMS-2 | Storerooms spawns one spawn-width inward | queued |
 | FRIENDS-ROTATE-1 | Friends rematch rotates arenas, synced | queued |
 | ONBOARD-JUMP-1 | HOW TO PLAY matches jump+boost | queued |
@@ -107,9 +107,9 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. Plan **CART-POP-1** Wave E orientation trace: record pre/post solver up-dot and angular velocity
-   for the single-floor-contact rises. Do not alter pitch/roll, friction, restitution, or floor geometry
-   before the ejection mechanism is clear.
+1. Deploy **CART-POP-1** Wave E orientation trace. Reproduce ordinary Cart Rave driving with
+   `?diag=1` and F8; do not alter pitch/roll, friction, restitution, or floor geometry before the
+   ejection mechanism is clear.
 2. **NET-LAG-1-PT-1** `[2pc]` is parked by Wyatt. Drain BACKLOG Block 1 in work-order order. Do not start an external
    playtest until it drains. Deferred: **SHARD-PT-2** (launch day).
 
@@ -185,6 +185,9 @@ Wave D has 20 local Cart Rave rises from radius 5.43–21.29 m. Sixteen span adj
 single-floor supports produce the highest mean rise (`+5.42`) and peaks `−8.64 → +2.41` / `−6.91 → +1.91`.
 Wedge seams are not required. Candidate: free pitch/roll or another cart-vs-single-floor solver interaction;
 Wave E must record pre/post solver up-dot and angular velocity before a physics change.
+
+2026-08-20 (CART-POP-1 Wave E) — Acked diagnostic-only trace adds pre/post solver up-dot and
+pitch-roll angular speed to each rise. No physics setting changed. Focused probe: 4/4; typecheck green.
 
 2026-08-19 (playtest blockers filed) — BACKLOG Block 1 reopened with 9
 Highs. Start **NET-LAG-1**. Do not playtest until the block drains.
