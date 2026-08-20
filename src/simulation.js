@@ -3832,6 +3832,12 @@ function round3(v) {
   return Math.round(v * 1000) / 1000;
 }
 
+/** @param {{ x: number, y: number, z: number } | null | undefined} point */
+function roundPoint3(point) {
+  if (!point) return null;
+  return { x: round3(point.x), y: round3(point.y), z: round3(point.z) };
+}
+
 /**
  * Samples every cart's radial excursion into the pit, once per fixed step AFTER
  * `world.step`. One `pit`/`fall` event is emitted per episode, at the KO — not per
@@ -3980,25 +3986,52 @@ function sampleCartPopProbe(world, allCarts, nowMs) {
         unclassifiedStaticContacts += 1;
       }
       contactClasses[contactClass] = (contactClasses[contactClass] || 0) + 1;
-      world.contactPair(cart.collider, other, (manifold) => {
+      world.contactPair(cart.collider, other, (manifold, flipped = false) => {
         const normalY = Math.abs(manifold.normal(_cartPopProbeNormal)?.y ?? 0);
         if (normalY >= 0.7) supportContacts += 1;
         maxSupportNormalY = Math.max(maxSupportNormalY, normalY);
         maxRestitution = Math.max(maxRestitution, manifold.restitution?.() ?? 0);
         const count = manifold.numContacts?.() ?? 0;
         let contactMaxImpulse = 0;
+        let strongestContact = -1;
+        let maxTangentImpulse = 0;
         for (let i = 0; i < count; i += 1) {
-          contactMaxImpulse = Math.max(contactMaxImpulse, manifold.contactImpulse?.(i) ?? 0);
+          const impulse = manifold.contactImpulse?.(i) ?? 0;
+          if (impulse > contactMaxImpulse) strongestContact = i;
+          contactMaxImpulse = Math.max(contactMaxImpulse, impulse);
+          maxTangentImpulse = Math.max(
+            maxTangentImpulse,
+            Math.hypot(manifold.contactTangentImpulseX?.(i) ?? 0, manifold.contactTangentImpulseY?.(i) ?? 0),
+          );
         }
         maxImpulse = Math.max(maxImpulse, contactMaxImpulse);
         if (recordIndex >= 0) {
           if (recordContactDetails.length < CART_POP_PROBE_RECORD_DETAIL_CAP) {
+            const point1 = strongestContact >= 0 ? manifold.localContactPoint1?.(strongestContact) : null;
+            const point2 = strongestContact >= 0 ? manifold.localContactPoint2?.(strongestContact) : null;
+            const solverContacts = manifold.numSolverContacts?.() ?? 0;
+            let maxSolverFriction = 0;
+            let maxSolverRestitution = 0;
+            for (let i = 0; i < solverContacts; i += 1) {
+              maxSolverFriction = Math.max(maxSolverFriction, manifold.solverContactFriction?.(i) ?? 0);
+              maxSolverRestitution = Math.max(maxSolverRestitution, manifold.solverContactRestitution?.(i) ?? 0);
+            }
             recordContactDetails.push({
               handle: other.handle,
               index: recordIndex,
               normalY: round3(normalY),
               contacts: count,
               maxImpulse: round3(contactMaxImpulse),
+              strongestContact,
+              cartSubshape: flipped ? manifold.subshape2?.() ?? null : manifold.subshape1?.() ?? null,
+              surfaceSubshape: flipped ? manifold.subshape1?.() ?? null : manifold.subshape2?.() ?? null,
+              cartPoint: roundPoint3(flipped ? point2 : point1),
+              surfacePoint: roundPoint3(flipped ? point1 : point2),
+              contactDistance: strongestContact >= 0 ? round3(manifold.contactDist?.(strongestContact) ?? 0) : null,
+              maxTangentImpulse: round3(maxTangentImpulse),
+              solverContacts,
+              maxSolverFriction: round3(maxSolverFriction),
+              maxSolverRestitution: round3(maxSolverRestitution),
             });
           } else {
             recordContactDetailOverflow += 1;
