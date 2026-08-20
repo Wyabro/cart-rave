@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-20 at commit `b0b5b739` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `93cf85a8`
+> Generated 2026-08-20 at commit `b4ba0125` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `5c375147`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -14,16 +14,16 @@
 
 ## Mission
 
-Playtesting and stabilization — External playtest is gated on BACKLOG Block 1 (9 Highs). NET-LAG-1-PT-1 is parked by Wyatt (08-20). CART-POP-1 Wave D is active (Critical; trace Cart Rave record-floor contact location and identity). It changes diagnostics only; do not alter floor geometry before the capture identifies a specific surface seam. Tier A drained; Tier B/C, security sweep, and analytics gating are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Stay in this phase until Wyatt advances the marker.
+Playtesting and stabilization — External playtest is gated on BACKLOG Block 1 (9 Highs). NET-LAG-1-PT-1 is parked by Wyatt (08-20). CART-POP-1 Wave D is deployed (Critical; capture Cart Rave record-floor contact location and identity). It changes diagnostics only; do not alter floor geometry before the capture identifies a specific surface seam. Tier A drained; Tier B/C, security sweep, and analytics gating are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Stay in this phase until Wyatt advances the marker.
 
 ## ACTIVE CARD
 
-Deploy CART-POP-1 Wave D diagnostic capture. Reproduce ordinary Cart Rave driving with
+Reproduce ordinary Cart Rave driving on production with `?diag=1` and F8. Wave D records
 
 Assess and state the lane before editing. This heading names the card; it is **not** a lane assessment or permission to edit.
 
 Self-directed queue (one at a time, within the declared phase):
-- **CART-POP-1** carts pop off the floor in normal driving — Wave D active; Cart Rave contact-location trace
+- **CART-POP-1** carts pop off the floor in normal driving — Wave D deployed; Cart Rave F8 contact-location trace
 - **SPAWN-BACKROOMS-2** Storerooms spawns one spawn-width inward — queued
 - **FRIENDS-ROTATE-1** Friends rematch rotates arenas, synced — queued
 - **ONBOARD-JUMP-1** HOW TO PLAY matches jump+boost — queued
