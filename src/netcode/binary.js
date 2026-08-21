@@ -145,6 +145,16 @@ const DECODE_RING_SIZE = 96;
 /** @type {Array<{snap: any, cartPool: any[]}>} */
 const _decodeRing = [];
 let _decodeRingIdx = 0;
+// * RING-ALIAS-1: monotonic decode generation, stamped on every decoded snapshot so
+// * consumers can prove a retained reference is still inside the recycle window.
+let _decodeGen = 0;
+
+/** Head decode generation — increments once per decoded snapshot. */
+export function getDecodeRingHeadGen() {
+  return _decodeGen;
+}
+
+export { DECODE_RING_SIZE };
 
 function nextDecodeRingEntry() {
   let entry = _decodeRing[_decodeRingIdx];
@@ -178,6 +188,7 @@ function nextDecodeRingEntry() {
         falls: [],
         dir: null,
         attr: null,
+        decodeGen: 0,
       },
       cartPool,
     };
@@ -312,5 +323,8 @@ export function decodeHostStateSnapshot(buffer) {
   snap.falls = falls;
   snap.dir = dir;
   snap.attr = attr;
+  // * RING-ALIAS-1: generation stamp — consumers flush retained snapshots whose gen has
+  // * fallen DECODE_RING_SIZE behind the head (see netcode.js pruneAliasedDecodedSnapshots).
+  snap.decodeGen = ++_decodeGen;
   return snap;
 }

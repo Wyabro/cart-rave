@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-21T09:21:43.607Z",
-    "commit": "dfef6709"
+    "at": "2026-08-21T09:35:41.858Z",
+    "commit": "009be096"
   },
-  "source_digest": "bf009362",
+  "source_digest": "0f03401a",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1037,7 +1037,7 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Low": 6
+          "Low": 7
         },
         "rows": [
           {
@@ -1074,6 +1074,12 @@
             "pri": "Low",
             "item": "CID-AUTH-PT-1 — refresh mid-lobby keeps your seat `[2pc]`",
             "notes": "**Owed: Wyatt playtest — CID-AUTH-PT-1 — refreshing the page mid-lobby re-seats you as the same player instead of dropping you to NPC.** Parent **CLIENT-ID-AUTH-1** (clientId hijack guard). Prod after ship, or `npm run dev:local` with two machines.<br>1. Two clients in one Friends room, both seated and ready.<br>2. Hard-refresh the HOST's page mid-lobby; let it rejoin.<br>3. FAIL if the refreshed client comes back as an NPC cart, loses its name/color, or the room strands hostless.<br>4. PASS if it re-seats under the same name with a human slot and the other client never sees a ghost. Press F8 at the end.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "RING-ALIAS-PT-1 — tab-away round trip shows no remote pops `[2pc]`",
+            "notes": "**Owed: Wyatt playtest — RING-ALIAS-PT-1 — hiding the non-host tab for ~10s mid-round then returning causes no visual pops or teleports on remote carts (RING-ALIAS-1 decode-ring generation guard).** Pushed but not yet deployed — `npm run dev:local` on both machines, or ship first.<br>1. Friends match, two machines; non-host drives mid-round.<br>2. Hide the non-host's tab for ~10 seconds, then return and keep driving.<br>3. FAIL if remote carts pop/teleport on return beyond a single brief catch-up snap, or the F8 shows `ringAliasFlushes` climbing during normal (non-hidden) play.<br>4. Press F8 on both machines at round end.",
             "ship1": null
           }
         ]

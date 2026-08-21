@@ -1154,6 +1154,32 @@ describe("binary snapshot dispatch (end-to-end into the buffer)", () => {
     hooks.dispatchP2P(encodeHostStateSnapshot({ seq: 9, tHost: 1000, carts: snap(1, 0, 0) }), "host-A");
     expect(hooks.getBufferLength()).toBe(1);
   });
+
+  it("RING-ALIAS-1: reject-slot burn cannot hand interp a mutated snapshot", () => {
+    // * Every decode consumes one slot of the 96-entry ring in binary.js — including
+    // * decodes whose snapshot the buffer then REJECTS (dup/ooo seq, stale source).
+    // * Ring slack over the 64-entry buffer cap is only 32 slots, so a reject storm
+    // * (e.g. post-migration stale-source burst) wraps the ring onto live entries.
+    const cap = CONFIG.net.stateBufferMaxSize;
+    for (let i = 1; i <= cap; i += 1) {
+      hooks.dispatchP2P(encodeHostStateSnapshot({ seq: i, tHost: 1000 + i * 25, carts: snap(i, 0, 0) }), null);
+    }
+    expect(hooks.getBufferLength()).toBe(cap);
+    const frozen = hooks
+      .getBufferEntriesForTest()
+      .map((entry) => JSON.parse(JSON.stringify(entry.carts)));
+    // Burn 40 (> 96 − 64) ring slots with frames the buffer rejects by seq.
+    for (let i = 0; i < 40; i += 1) {
+      hooks.dispatchP2P(encodeHostStateSnapshot({ seq: 1, tHost: 5000, carts: snap(999, 0, 0) }), null);
+    }
+    // First interp read after the storm must flush aliased entries, never observe them.
+    hooks.findSnapshotPair(1100);
+    const live = hooks.getBufferEntriesForTest();
+    expect(live.length).toBeLessThan(cap);
+    for (let i = 0; i < live.length; i += 1) {
+      expect(live[i].carts).toEqual(frozen[frozen.length - live.length + i]);
+    }
+  });
 });
 
 describe("applyCartState bounds validation", () => {
