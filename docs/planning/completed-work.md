@@ -13,6 +13,23 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 21, 2026 — MENU-CART-FOLLOW-1: subtle menu-cart cursor parallax
+
+- *(Engineering · Standard)* **MENU-CART-FOLLOW-1** — ✅ **DONE 08-20**.
+  Desktop Medium/High main-menu preview maps the full-menu mouse position to at
+  most ±5° yaw / ±2° lean, follows in about 180 ms, and returns in about 350
+  ms. One presentation-pose compositor lets the showroom fake ram own the pose
+  and restores cursor life after it. Touch, mobile, Low, reduced motion,
+  suspension, blur, and release reset it; Customize is unchanged. Shipped
+  `de3cbdca`; vertical direction corrected in `ba5a62b7`, Worker
+  `79cc4526-d2df-44a3-918c-8f676299d1b7`; live asset proof passed. Focused
+  13/13, build, and full QA were green. Do not reopen **MENU-CART-1**.
+- *(Playtest · Low)* **MENU-CART-FOLLOW-PT-1** — ✅ **PASS 08-21** on prod.
+  Wyatt confirmed the corrected vertical cursor direction and accepted the
+  subtle menu-cart follow. Parent closes with it.
+
+---
+
 ### August 21, 2026 — SHARE-CARD-1: OG share card is the arena lockup
 
 - *(Engineering · Standard)* **SHARE-CARD-1** — ✅ **DONE 08-21**. Wyatt's
@@ -21,8 +38,10 @@ Chronological record of shipped work, newest first.
   the Discord 400×210 crop. `og:image` / `twitter:image` / JSON-LD point at
   `/brand/share-card.png?v=2`. Shipped `dfda0c21` Worker
   `d4738242-4c4b-409e-ad1a-925c524f3309`; VERIFY_OK `index-ChsJZIRL.js`,
-  live PNG 1,137,264 bytes. Not a reopen of SEO-1. **Owed:
-  SHARE-CARD-PT-1** (Discord unfurl on prod).
+  live PNG 1,137,264 bytes. Not a reopen of SEO-1.
+- *(Playtest · Low)* **SHARE-CARD-PT-1** — ✅ **PASS 08-21** on prod
+  `dfda0c21` (Worker `d4738242`). Wyatt PASS Discord unfurl: neon arena
+  lockup, CART / CLASH readable, four carts. Parent closes with it.
 
 ---
 

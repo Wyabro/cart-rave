@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-21T05:48:31.915Z",
-    "commit": "dfda0c21"
+    "at": "2026-08-21T06:32:43.496Z",
+    "commit": "18744951"
   },
-  "source_digest": "c4fe9d51",
+  "source_digest": "64fe29a8",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -898,18 +898,6 @@
         "state": "waiting"
       },
       {
-        "id": "MENU-CART-FOLLOW-1",
-        "what": "subtle menu-cart cursor parallax",
-        "status": "deployed `ba5a62b7` / Worker `79cc4526`; live asset proof passed · 🅿️ MENU-CART-FOLLOW-PT-1 owed",
-        "state": "waiting"
-      },
-      {
-        "id": "SHARE-CARD-PT-1",
-        "what": "invite-link OG preview is the arena lockup",
-        "status": "⏳ playtest owed (prod `dfda0c21` / Worker `d4738242`)",
-        "state": "waiting"
-      },
-      {
         "id": "QP-PLAYING-PT-1",
         "what": "QUICKPLAY live playing count",
         "status": "⏳ playtest owed (prod after ship)",
@@ -938,7 +926,7 @@
       {
         "title": "Engineering",
         "counts": {
-          "High": 4,
+          "High": 3,
           "Medium": 4,
           "Partial": 1,
           "Low": 7
@@ -960,12 +948,6 @@
             "pri": "High",
             "item": "ONBOARD-WEBP-1 — HOW TO PLAY animated WebPs fail on some PCs",
             "notes": "**Landed and deployed 08-20** in commit `51df06af` (Worker `819ad9ca-ce02-46d0-aff4-c1523921e8cb`). The source files are valid infinite WebPs; the old F8 report was static despite Windows animation effects being on. Motion now mounts only on the visible slide and samples five tiny frames over ~700 ms. A frame change keeps motion; no change, a load error, or a sample error uses the paired still. Navigation and hidden tabs do not produce a verdict. Local in-app-browser repro fell back cleanly on all five art slides. **Owed: ONBOARD-WEBP-PT-1 on the brother's F8 machine.** Distinct from reduced-motion `still.webp` (ONBOARD-ART-1). Do not reopen **ONBOARD-SLIDES-1**.",
-            "ship1": null
-          },
-          {
-            "pri": "High",
-            "item": "MENU-CART-FOLLOW-1 — menu cart preview follows the cursor slightly",
-            "notes": "**Landed and deployed 08-20** in `de3cbdca`; vertical direction corrected in `ba5a62b7` (Worker `79cc4526-d2df-44a3-918c-8f676299d1b7`; VERIFY_OK `index-BlUL-a0f.js` / `cartPreview-C8wWRAJu.js`). Desktop Medium/High main-menu preview maps the full-menu mouse position to at most ±5° yaw / ±2° lean, follows in ~180 ms, and returns in ~350 ms. One presentation-pose compositor blends cursor life out for the fake ram and back in on recovery; reduced motion, touch, mobile, Low, suspend, blur, and release reset it. Customize stays untouched. **PT-1 found and this deployment corrected vertical movement.** **Owed: MENU-CART-FOLLOW-PT-1.** Do not reopen **MENU-CART-1**.",
             "ship1": null
           },
           {
@@ -1072,7 +1054,7 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Low": 9
+          "Low": 7
         },
         "rows": [
           {
@@ -1115,18 +1097,6 @@
             "pri": "Low",
             "item": "ONBOARD-WEBP-PT-1 — HOW TO PLAY media moves or falls back cleanly `[1pc]`",
             "notes": "**Owed: Wyatt playtest — ONBOARD-WEBP-PT-1 — the HOW TO PLAY pictures move when supported and stay clean when they cannot.** Parent **ONBOARD-WEBP-1**. Prod `https://www.cartclash.lol/` after a hard-refresh with `?diag=1`.<br>1. Open HOW TO PLAY. Page through DRIVE, BOOST, RAM THEM OUT, READ THE HUD, and THE LIVING STORE.<br>2. FAIL if any picture is blank, broken, jumps in size, or locks the menu. A clean still picture is an acceptable fallback when motion cannot play.<br>3. PASS if each picture either moves or changes to a clean matching still within about a second; the teaching text and controls stay readable.<br>4. Press F8 after the five picture slides.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "MENU-CART-FOLLOW-PT-1 — menu cart cursor life is subtle and isolated `[1pc]`",
-            "notes": "**Owed: Wyatt playtest — MENU-CART-FOLLOW-PT-1 — the desktop menu cart lightly follows the cursor without fighting its fake ram.** Parent **MENU-CART-FOLLOW-1**. Deployed: hard-refresh `https://www.cartclash.lol/`.<br>1. At desktop Medium/High quality, move the mouse from the centre to each menu corner. FAIL if the cart chases, snaps, translates, or rotates more than a subtle lean; PASS if it lightly turns toward the cursor. Confirm up and down now move in the expected vertical direction.<br>2. Leave the menu and Alt-Tab out/in. FAIL if a stale tilted pose returns; PASS if the cart settles smoothly to the hero pose.<br>3. Wait through one fake ram. FAIL if cursor motion and the feint jitter or snap; PASS if the ram owns the pose and the cursor life returns smoothly.<br>4. Open and close Customize. FAIL if its preview tracks the cursor, or if the menu cart resumes tilted; PASS if Customize is unchanged and the menu cart rests on return.<br>5. Enable reduced motion, set Low, and use a ≤1024 px viewport. FAIL if the effect or cart appears; PASS if the cart is static/absent as before.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "SHARE-CARD-PT-1 — invite link shows the new arena lockup `[1pc]`",
-            "notes": "**Owed: Wyatt playtest — SHARE-CARD-PT-1 — paste cartclash.lol and read CART CLASH on the preview.** Parent **SHARE-CARD-1**. Prod `dfda0c21` Worker `d4738242` (hard-refresh / new Discord message).<br>1. Paste `https://cartclash.lol/` into Discord (a new message, not an old unfurl).<br>2. FAIL if the preview is the old blank orange splat, or if CART / CLASH is unreadable at embed size.<br>3. PASS if the preview is the neon arena lockup with CART CLASH and the four carts.",
             "ship1": null
           }
         ]
