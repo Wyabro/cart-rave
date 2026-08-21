@@ -16,10 +16,9 @@ describe("glitchConfig", () => {
     expect(GLITCH_BUILD_TYPE).toBe("playtest");
   });
 
-  it("loads the Aegis Store bridge once from the canonical URL", () => {
+  it("leaves Aegis injection to Glitch for iframe HTML entry", () => {
     const html = readFileSync(new URL("../../index.html", import.meta.url), "utf8");
     const matches = html.match(/https:\/\/api\.glitch\.fun\/js\/aegis-bridge\.js/g) || [];
-    expect(matches).toHaveLength(1);
-    expect(html).toContain('src="https://api.glitch.fun/js/aegis-bridge.js"');
+    expect(matches).toHaveLength(0);
   });
 });

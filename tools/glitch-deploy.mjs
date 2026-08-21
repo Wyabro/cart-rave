@@ -141,13 +141,30 @@ async function zipDistContents(zipPath) {
 }
 
 async function putPart(url, buffer) {
-  const res = await fetch(url, { method: "PUT", body: buffer });
-  if (!res.ok) {
-    throw new Error(`part PUT HTTP ${res.status}`);
+  const body = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
+  let lastErr = null;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const res = await fetch(url, {
+        method: "PUT",
+        body,
+        headers: { "Content-Length": String(body.byteLength) },
+      });
+      if (!res.ok) {
+        throw new Error(`part PUT HTTP ${res.status}`);
+      }
+      const etag = res.headers.get("etag") || res.headers.get("ETag");
+      if (!etag) throw new Error("part PUT missing ETag");
+      return etag;
+    } catch (err) {
+      lastErr = err;
+      const cause = err?.cause;
+      const detail = cause?.code || cause?.message || err?.message || err;
+      console.log(`retry ${attempt}/3 (${detail})`);
+      if (attempt < 3) await new Promise((r) => setTimeout(r, 1000 * attempt));
+    }
   }
-  const etag = res.headers.get("etag") || res.headers.get("ETag");
-  if (!etag) throw new Error("part PUT missing ETag");
-  return etag;
+  throw lastErr;
 }
 
 async function main() {
