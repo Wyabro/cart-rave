@@ -97,14 +97,14 @@ Live rows only. Shipped and closed cards live in
 | # | What | Status |
 |---|------|--------|
 | NET-LAG-1 | Friends/QP lag + rubber-band (F8 both machines) | wave 1 landed; 🅿️ **NET-LAG-1-PT-1** `[2pc]` parked by Wyatt 08-20 |
-| ONBOARD-WEBP-1 | HOW TO PLAY WebP playback + fallback | loop remount landed; 🅿️ **ONBOARD-WEBP-PT-1** retest after ship |
+| ONBOARD-WEBP-1 | HOW TO PLAY WebP playback + fallback | shipped `ae7d7a81` Worker `2a5af903`; 🅿️ **ONBOARD-WEBP-PT-1** retest on prod |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 
 ### Next actions
 
-1. **ONBOARD-WEBP-1** loop remount is landed. **ONBOARD-WEBP-PT-1**
-   retest after ship. **NET-LAG-1-PT-1** `[2pc]` is parked. Closed
-   08-21 PASSes: **ONBOARD-JUMP-PT-1** · **QP-PLAYING-PT-1** ·
+1. **ONBOARD-WEBP-PT-1** retest on prod `ae7d7a81` (hard-refresh).
+   **NET-LAG-1-PT-1** `[2pc]` is parked. Closed 08-21 PASSes:
+   **ONBOARD-JUMP-PT-1** · **QP-PLAYING-PT-1** ·
    **FRIENDS-ROTATE-PT-1**. Do not start an external playtest until
    Block 1 drains. Deferred: **SHARD-PT-2** (launch day).
 
@@ -162,6 +162,12 @@ or a suspected blocker (TS 7 · `cartrave4` UVs).
 - Local worker port is **8899** (`LOCAL_WORKER_PORT` in `src/config.js`). If it goes EACCES, re-check Windows HNS exclusions and move the port there.
 
 ## Last updated
+
+2026-08-21 (**ONBOARD-WEBP-1** ship) — prod `ae7d7a81` Worker
+`2a5af903-73f2-4278-96e6-2b658fbeeade`. VERIFY_OK
+`index-Im349Dd2.js` (attempt 1, 28 refs, 0×404). Live entry has
+`replaceWith` + `frame-change`. **ONBOARD-WEBP-PT-1** retest
+(hard-refresh).
 
 2026-08-21 (**ONBOARD-WEBP-1** loop) — after a frame-change verdict,
 replace the sampled HOW TO PLAY `<img>` with a never-sampled copy.
