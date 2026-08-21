@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-21T20:32:48.728Z",
-    "commit": "101600b1"
+    "at": "2026-08-21T20:39:40.874Z",
+    "commit": "c4e7f082"
   },
-  "source_digest": "0d6e7a6a",
+  "source_digest": "c56d554c",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -889,7 +889,7 @@
       {
         "id": "AUDIO-RAM-IMPACT-1",
         "what": "ram crash SFX inaudible in mix (external playtest)",
-        "status": "landed 08-21 (`crashVolumeFloor` 0.45, curve ×1.0); 🅿️ AUDIO-RAM-IMPACT-PT-1 `[1pc]`",
+        "status": "shipped `c4e7f082` Worker `290904fb`; 🅿️ AUDIO-RAM-IMPACT-PT-1 `[1pc]` on prod",
         "state": "waiting"
       },
       {
@@ -1069,7 +1069,7 @@
           {
             "pri": "Low",
             "item": "AUDIO-RAM-IMPACT-PT-1 — ram impacts are clearly audible `[1pc]`",
-            "notes": "**Owed: Wyatt playtest — AUDIO-RAM-IMPACT-PT-1 — cart-vs-cart rams make a clearly audible crash at default volume sliders.** Parent **AUDIO-RAM-IMPACT-1** (`crashVolumeFloor` 0.25→0.45, curve ×0.7→×1.0; cap-362/363 proved the path fired but sat at ~0.24 effective gain). `npm run dev:local` at default sliders; `gameplayTunePane` exposes `ramming.fx.crashVolumeFloor` live if trimming is needed.<br>1. Start a round (solo vs NPCs fine) and ram other carts at several speeds, including at least one boost ram.<br>2. FAIL if any ram has no audible crash over the music, or if soft taps are loud enough to annoy.<br>3. PASS if every ram reads audibly at defaults and full-speed/boost rams hit harder than taps.<br>4. Press F8 after a few rams.",
+            "notes": "**Owed: Wyatt playtest — AUDIO-RAM-IMPACT-PT-1 — cart-vs-cart rams make a clearly audible crash at default volume sliders.** Parent **AUDIO-RAM-IMPACT-1** (`crashVolumeFloor` 0.25→0.45, curve ×0.7→×1.0; cap-362/363 proved the path fired but sat at ~0.24 effective gain). Prod `c4e7f082` (Worker `290904fb`, hard-refresh; VERIFY_OK + `crashVolumeFloor??.45` symbol in live `audioManager-D8oTJVq6.js`). `gameplayTunePane` exposes `ramming.fx.crashVolumeFloor` live if trimming is needed.<br>1. Start a round (solo vs NPCs fine) and ram other carts at several speeds, including at least one boost ram.<br>2. FAIL if any ram has no audible crash over the music, or if soft taps are loud enough to annoy.<br>3. PASS if every ram reads audibly at defaults and full-speed/boost rams hit harder than taps.<br>4. Press F8 after a few rams.",
             "ship1": null
           },
           {
