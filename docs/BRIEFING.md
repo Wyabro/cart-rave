@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-21 at commit `e9916ac7` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `f4369dd4`
+> Generated 2026-08-21 at commit `27a1b2c4` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `cb298ab5`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -18,12 +18,12 @@ Playtesting and stabilization — External playtest is gated on BACKLOG Block 1.
 
 ## ACTIVE CARD
 
-ONBOARD-WEBP-1 is the next code card in Block 1 (PT FAIL: clips
+ONBOARD-WEBP-1 loop remount is landed. ONBOARD-WEBP-PT-1
 
 Assess and state the lane before editing. This heading names the card; it is **not** a lane assessment or permission to edit.
 
 Self-directed queue (one at a time, within the declared phase):
-- **ONBOARD-WEBP-1** HOW TO PLAY WebP playback + fallback — PT FAIL 08-21 (plays once, then freezes); 🅿️ ONBOARD-WEBP-PT-1 retest after loop fix
+- **ONBOARD-WEBP-1** HOW TO PLAY WebP playback + fallback — loop remount landed; 🅿️ ONBOARD-WEBP-PT-1 retest after ship
 
 ## Do not
 

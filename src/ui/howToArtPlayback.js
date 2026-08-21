@@ -85,6 +85,7 @@ export function startHowToArtPlayback({
   let timerId = null;
   let samples = 0;
   let firstHash = null;
+  let displayed = img;
   const startedAt = now();
 
   const finish = (status, reason) => {
@@ -127,7 +128,7 @@ export function startHowToArtPlayback({
     finish("fallback", stillUrl ? "reduced-motion" : "reduced-motion-no-still");
     return () => {
       stopped = true;
-      img.remove();
+      displayed.remove();
     };
   }
 
@@ -136,7 +137,7 @@ export function startHowToArtPlayback({
     finish("fallback", "still-only");
     return () => {
       stopped = true;
-      img.remove();
+      displayed.remove();
     };
   }
 
@@ -156,6 +157,16 @@ export function startHowToArtPlayback({
       if (firstHash == null) {
         firstHash = hash;
       } else if (hash !== firstHash) {
+        // Chromium stops looping an infinite WebP after drawImage sampling
+        // (ONBOARD-WEBP-PT-1 FAIL 08-21: one 2.8s play, then a static last
+        // frame). Swap in a never-sampled copy so the file can loop.
+        const fresh = img.ownerDocument.createElement("img");
+        fresh.alt = "";
+        fresh.decoding = "async";
+        fresh.draggable = false;
+        fresh.src = motionUrl;
+        displayed.replaceWith(fresh);
+        displayed = fresh;
         finish("playing", "frame-change");
         return;
       }
@@ -182,6 +193,6 @@ export function startHowToArtPlayback({
     if (timerId != null) cancelSchedule(timerId);
     img.removeEventListener("load", onLoad);
     img.removeEventListener("error", onError);
-    img.remove();
+    displayed.remove();
   };
 }

@@ -64,7 +64,11 @@ describe("HOW TO PLAY animated WebP playback", () => {
     run.timer.runNext();
     run.timer.runNext();
 
-    expect(run.img.src).toContain("/drive.webp");
+    const live = run.slot.querySelector("img");
+    expect(live).not.toBe(run.img);
+    expect(live.src).toContain("/drive.webp");
+    expect(live.isConnected).toBe(true);
+    expect(run.img.isConnected).toBe(false);
     expect(run.onVerdict).toHaveBeenCalledWith(expect.objectContaining({
       token: "drive",
       status: "playing",
@@ -72,6 +76,9 @@ describe("HOW TO PLAY animated WebP playback", () => {
       samples: 3,
     }));
     expect(run.callout.isConnected).toBe(true);
+
+    run.stop();
+    expect(run.slot.querySelector("img")).toBeNull();
   });
 
   it("swaps frozen motion to the paired still after five unchanged samples", () => {

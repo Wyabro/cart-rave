@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-21T06:49:45.134Z",
-    "commit": "e9916ac7"
+    "at": "2026-08-21T06:50:26.995Z",
+    "commit": "27a1b2c4"
   },
-  "source_digest": "66fc682e",
+  "source_digest": "e1bc616e",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -882,7 +882,7 @@
       {
         "id": "ONBOARD-WEBP-1",
         "what": "HOW TO PLAY WebP playback + fallback",
-        "status": "PT FAIL 08-21 (plays once, then freezes); 🅿️ ONBOARD-WEBP-PT-1 retest after loop fix",
+        "status": "loop remount landed; 🅿️ ONBOARD-WEBP-PT-1 retest after ship",
         "state": "waiting"
       },
       {
@@ -893,7 +893,7 @@
       }
     ],
     "next_actions": [
-      "ONBOARD-WEBP-1 is the next code card in Block 1 (PT FAIL: clips"
+      "ONBOARD-WEBP-1 loop remount is landed. ONBOARD-WEBP-PT-1"
     ],
     "open_issues": [
       {
@@ -923,7 +923,7 @@
           {
             "pri": "High",
             "item": "ONBOARD-WEBP-1 — HOW TO PLAY animated WebPs fail on some PCs",
-            "notes": "**Landed 08-20** `51df06af` (Worker `819ad9ca`). Files are valid infinite WebPs (`loop_count=0`, ~2.8s). Visible-slide mount + 5-frame canvas sample. **PT FAIL 08-21:** each clip plays once, then freezes; it must loop while the slide is open. **Owed: ONBOARD-WEBP-PT-1 retest after the loop fix ships.** Distinct from reduced-motion `still.webp` (ONBOARD-ART-1). Do not reopen **ONBOARD-SLIDES-1**.",
+            "notes": "**Loop lever 08-21.** Files are valid infinite WebPs (`loop_count=0`, ~2.8s). **PT FAIL 08-21:** each clip plays once, then freezes. Cause: Chromium stops looping an `<img>` WebP after canvas `drawImage` sampling. Lever: after a frame-change verdict, replace the sampled node with a never-sampled copy. Load-error / reduced-motion still swap stays. **Owed: ONBOARD-WEBP-PT-1 retest after ship.** Distinct from reduced-motion `still.webp` (ONBOARD-ART-1). Do not reopen **ONBOARD-SLIDES-1**.",
             "ship1": null
           },
           {

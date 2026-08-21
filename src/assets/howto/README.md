@@ -38,8 +38,10 @@ deck: single column of text + chips, no empty frame.
 - `hydrateHowToArt()` runs once at menu init and sets `data-art="1"` for resolved
   slots, which stabilizes layout without mounting hidden images.
 - `startHowToArtForSlide()` mounts only the visible slide. A bounded 16x10 canvas
-  sample checks five frames over about 700 ms; the first changed frame keeps motion,
-  while no change selects the still. Paging or closing cancels the check.
+  sample checks five frames over about 700 ms; the first changed frame keeps motion
+  by swapping in a never-sampled copy (Chromium stops looping a WebP after
+  `drawImage`), while no change selects the still. Paging or closing cancels the
+  check.
 
 ## AISLE 4's callouts — the one step that is not a drop-in
 
