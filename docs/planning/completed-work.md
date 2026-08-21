@@ -2,7 +2,7 @@
 
 > Historical log. Past entries may still say "Cart Rave" / `next-level` — that is intentional. Living naming rules: [brand.md](../brand.md).
 
-**Last Updated:** August 20, 2026
+**Last Updated:** August 21, 2026
 
 > **This doc = the past** — the single home for historical/completed items. For what works
 > *today* see [project-state.md](./project-state.md); for forward plans see [ROADMAP.md](./ROADMAP.md).
@@ -10,6 +10,26 @@
 Chronological record of shipped work, newest first.
 
 > **Convention:** As items ship, move their completed writeup here (out of ROADMAP.md / project-state.md).
+
+---
+
+### August 21, 2026 — CART-POP-1: floors stay planted on all three arenas
+
+- *(Engineering · Critical)* **CART-POP-1** — ✅ **DONE 08-21**. Carts popped
+  off the flat floor in ordinary driving. Cause: multiple floor colliders
+  with internal seam faces. Lever: one floor surface, `FIX_INTERNAL_EDGES`,
+  no restitution/friction/CCD/solver tune. Classic annulus trimesh
+  (`6fa4a60a`, Wave I Worker `5360f482`). Sundial octagon trimesh
+  (`84a84f78`, prod `bb29c13b` Worker `3f3e5fbd`). Storerooms hole-cut
+  trimesh (`9051a0ce`, Worker `dfa5a26d`, VERIFY_OK `index-BhgEDdEM.js`,
+  live `backroomsSupermarket-veaqmbrG.js` has `FIX_INTERNAL_EDGES`).
+  Isolated Rapier: 9-cuboid r16@24 pops=1; trimesh r16@24 pops=0, rest
+  planted, four holes open. Chamfer hulls and fall containment kept.
+  Do not retouch Classic or Sundial floors. Do not resurrect the old
+  visual-grid trimesh.
+- *(Playtest · Low)* **CART-POP-PT-1** — ✅ **PASS 08-21** Storerooms on
+  prod `9051a0ce` (hard-refresh). Wyatt PASS Classic 08-20 and Sundial
+  08-20. Parent closes with it.
 
 ---
 

@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-21 at commit `9051a0ce` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `2072be71`
+> Generated 2026-08-21 at commit `eed27ef6` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `6982b538`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -14,16 +14,15 @@
 
 ## Mission
 
-Playtesting and stabilization — External playtest is gated on BACKLOG Block 1 (9 Highs). NET-LAG-1-PT-1 is parked by Wyatt (08-20). CART-POP-1 Sundial shipped prod `bb29c13b` (Worker `3f3e5fbd`). Wyatt PASS Sundial. Storerooms shipped prod `9051a0ce` (Worker `dfa5a26d`, VERIFY_OK `index-BhgEDdEM.js`, live `backroomsSupermarket-veaqmbrG.js` has `FIX_INTERNAL_EDGES`). CART-POP-PT-1 open until Storerooms F8 PASS. Do not retouch Classic or Sundial floors. Tier A drained; Tier B/C, security sweep, and analytics gating are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Stay in this phase until Wyatt advances the marker.
+Playtesting and stabilization — External playtest is gated on BACKLOG Block 1. NET-LAG-1-PT-1 is parked by Wyatt (08-20). CART-POP-1 closed 08-21 — Wyatt PASS Storerooms F8 on prod `9051a0ce` (Worker `dfa5a26d`). Classic and Sundial already PASS. Do not retouch those floors. Do not reopen CART-POP-1 without new evidence. Tier A drained; Tier B/C, security sweep, and analytics gating are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Stay in this phase until Wyatt advances the marker.
 
 ## ACTIVE CARD
 
-CART-POP-PT-1 Storerooms F8 on prod `9051a0ce` (hard-refresh,
+ONBOARD-JUMP-1 is the next code card in Block 1. NET-LAG-1-PT-1
 
 Assess and state the lane before editing. This heading names the card; it is **not** a lane assessment or permission to edit.
 
 Self-directed queue (one at a time, within the declared phase):
-- **CART-POP-1** carts pop off the floor in normal driving — Classic + Sundial PASS; Storerooms shipped, PT owed
 - **FRIENDS-ROTATE-1** Friends rematch rotates arenas, synced — queued
 - **ONBOARD-JUMP-1** HOW TO PLAY matches jump+boost — queued
 - **ONBOARD-WEBP-1** HOW TO PLAY WebP playback + fallback — deployed `51df06af` / Worker `819ad9ca`; 🅿️ ONBOARD-WEBP-PT-1 owed

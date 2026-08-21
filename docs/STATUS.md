@@ -25,15 +25,13 @@ report phase-exit eligibility; they must not move the marker.
 
 ## Current focus
 
-**Playtesting and stabilization.** External playtest is gated on BACKLOG Block 1
-(9 Highs). **NET-LAG-1-PT-1** is parked by Wyatt (08-20). **CART-POP-1** Sundial
-shipped prod `bb29c13b` (Worker `3f3e5fbd`). Wyatt PASS Sundial. Storerooms
-shipped prod `9051a0ce` (Worker `dfa5a26d`, VERIFY_OK `index-BhgEDdEM.js`,
-live `backroomsSupermarket-veaqmbrG.js` has `FIX_INTERNAL_EDGES`).
-**CART-POP-PT-1** open until Storerooms F8 PASS. Do not retouch Classic or Sundial floors.
-Tier A drained; Tier B/C, security sweep, and analytics gating are closed. Run 7
-· NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Stay in this phase until
-Wyatt advances the marker.
+**Playtesting and stabilization.** External playtest is gated on BACKLOG Block 1.
+**NET-LAG-1-PT-1** is parked by Wyatt (08-20). **CART-POP-1** closed
+08-21 — Wyatt PASS Storerooms F8 on prod `9051a0ce` (Worker `dfa5a26d`).
+Classic and Sundial already PASS. Do not retouch those floors. Do not reopen
+**CART-POP-1** without new evidence. Tier A drained; Tier B/C, security sweep,
+and analytics gating are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 ·
+NET-SD-1 closed. Stay in this phase until Wyatt advances the marker.
 
 **DEMOTE-COUNTDOWN-1** shipped 08-19 — `startRunningAt` isHost guard + demoted host's countdown
 timer cleared via a new `onHostDemoted` callback. Playtest owed: **DEMOTE-COUNTDOWN-PT-1** (2pc).
@@ -100,7 +98,6 @@ Live rows only. Shipped and closed cards live in
 | # | What | Status |
 |---|------|--------|
 | NET-LAG-1 | Friends/QP lag + rubber-band (F8 both machines) | wave 1 landed; 🅿️ **NET-LAG-1-PT-1** `[2pc]` parked by Wyatt 08-20 |
-| CART-POP-1 | carts pop off the floor in normal driving | Classic + Sundial PASS; Storerooms shipped, PT owed |
 | FRIENDS-ROTATE-1 | Friends rematch rotates arenas, synced | queued |
 | ONBOARD-JUMP-1 | HOW TO PLAY matches jump+boost | queued |
 | ONBOARD-WEBP-1 | HOW TO PLAY WebP playback + fallback | deployed `51df06af` / Worker `819ad9ca`; 🅿️ **ONBOARD-WEBP-PT-1** owed |
@@ -111,10 +108,10 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. **CART-POP-PT-1** Storerooms F8 on prod `9051a0ce` (hard-refresh,
-   `?diag=1`). Do not retouch Classic or Sundial floors. Do not tune physics.
-2. **NET-LAG-1-PT-1** `[2pc]` is parked by Wyatt. Drain BACKLOG Block 1 in work-order order. Do not start an external
-   playtest until it drains. Deferred: **SHARD-PT-2** (launch day).
+1. **ONBOARD-JUMP-1** is the next code card in Block 1. **NET-LAG-1-PT-1**
+   `[2pc]` is parked. **FRIENDS-ROTATE-PT-1** and **ONBOARD-WEBP-PT-1** stay
+   owed. Do not start an external playtest until Block 1 drains.
+   Deferred: **SHARD-PT-2** (launch day).
 
 ## Open issues (top)
 
@@ -171,9 +168,12 @@ or a suspected blocker (TS 7 · `cartrave4` UVs).
 
 ## Last updated
 
+2026-08-21 (**CART-POP-PT-1** PASS) — Wyatt PASS Storerooms F8 on prod
+`9051a0ce` (Worker `dfa5a26d`). Parent **CART-POP-1** closes. Do not reopen.
+
 2026-08-21 (CART-POP-1 Storerooms ship) — prod `9051a0ce` Worker `dfa5a26d`.
 VERIFY_OK `index-BhgEDdEM.js`, live `backroomsSupermarket-veaqmbrG.js` has
-`FIX_INTERNAL_EDGES`. **CART-POP-PT-1** Storerooms F8 on prod (hard-refresh).
+`FIX_INTERNAL_EDGES`.
 
 2026-08-20 (CART-POP-1 Storerooms floor) — one hole-cut trimesh with
 `FIX_INTERNAL_EDGES`. Isolated Rapier: 9-cuboid r16@24 pops=1; trimesh
