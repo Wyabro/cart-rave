@@ -13,6 +13,29 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 21, 2026 — playtest PASS (jump, Quickplay pill, Friends rotate)
+
+- *(Playtest · Low)* **ONBOARD-JUMP-PT-1** — ✅ **PASS 08-21**. Gamepad A hops
+  and RT boosts. HOW TO PLAY, Settings, pause CONTROLS, and the main menu
+  charts match. Parent **ONBOARD-JUMP-1** closes with it.
+- *(Engineering · High)* **ONBOARD-JUMP-1** — ✅ **DONE 08-20**. Gamepad
+  boost = RT/B, hop = A/LT. HOW TO PLAY AISLE 1 chips and the other
+  control charts match live input. Wyatt PASS **ONBOARD-JUMP-PT-1**.
+  Do not reopen **ONBOARD-SLIDES-1**.
+- *(Playtest · Low)* **QP-PLAYING-PT-1** — ✅ **PASS 08-21** on prod.
+  QUICKPLAY pill matches public Quickplay humans (hidden when empty).
+  Parent **QP-PLAYING-1** already closed 08-19.
+- *(Playtest · Low)* **FRIENDS-ROTATE-PT-1** — ✅ **PASS 08-21** on prod
+  `1a740c79` (Worker `f50de02d`). Friends PLAY AGAIN lands every client
+  on the same next arena; wrap order matches; QP rotation did not
+  regress. Parent **FRIENDS-ROTATE-1** closes with it.
+- *(Engineering · High)* **FRIENDS-ROTATE-1** — ✅ **DONE 08-20**. Friends
+  rematch calls the QP in-place rotation; `playAgain` waits for
+  `clientPlayReady` in Friends rooms too. Analog of **QP-ORDER-1**.
+  Distinct from **FRIENDS-LEVEL-1**. Wyatt PASS **FRIENDS-ROTATE-PT-1**.
+
+---
+
 ### August 21, 2026 — MENU-CART-FOLLOW-1: subtle menu-cart cursor parallax
 
 - *(Engineering · Standard)* **MENU-CART-FOLLOW-1** — ✅ **DONE 08-20**.

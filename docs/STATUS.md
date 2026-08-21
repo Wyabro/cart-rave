@@ -37,11 +37,10 @@ NET-SD-1 closed. Stay in this phase until Wyatt advances the marker.
 timer cleared via a new `onHostDemoted` callback. Playtest owed: **DEMOTE-COUNTDOWN-PT-1** (2pc).
 
 **QP-PLAYING-1** landed 08-19 — QUICKPLAY pill `N PLAYING NOW`
-(`GET /api/playing`). Playtest **QP-PLAYING-PT-1**. Closed 08-20 —
-**PLAYREADY-RESET-FLAKE-1** (playReady-reset test load-tolerant).
-**FRIENDS-ROTATE-1** shipped 08-20 prod `1a740c79` (Worker
-`f50de02d`). Playtest **FRIENDS-ROTATE-PT-1** `[2pc]` on prod
-(hard-refresh).
+(`GET /api/playing`). Wyatt PASS **QP-PLAYING-PT-1** 08-21.
+Closed 08-20 — **PLAYREADY-RESET-FLAKE-1** (playReady-reset test
+load-tolerant). **FRIENDS-ROTATE-1** shipped 08-20 prod `1a740c79`
+(Worker `f50de02d`). Wyatt PASS **FRIENDS-ROTATE-PT-1** 08-21.
 
 **FEEDBACK-1** closed 08-19 — the podium match receipt prints a
 `LEAVE FEEDBACK ↗` survey line (`data-nav-skip`, new tab). Wyatt PASS
@@ -98,18 +97,16 @@ Live rows only. Shipped and closed cards live in
 | # | What | Status |
 |---|------|--------|
 | NET-LAG-1 | Friends/QP lag + rubber-band (F8 both machines) | wave 1 landed; 🅿️ **NET-LAG-1-PT-1** `[2pc]` parked by Wyatt 08-20 |
-| FRIENDS-ROTATE-1 | Friends rematch rotates arenas, synced | queued |
-| ONBOARD-JUMP-1 | HOW TO PLAY matches jump+boost | queued |
-| ONBOARD-WEBP-1 | HOW TO PLAY WebP playback + fallback | deployed `51df06af` / Worker `819ad9ca`; 🅿️ **ONBOARD-WEBP-PT-1** owed |
-| QP-PLAYING-PT-1 | QUICKPLAY live playing count | ⏳ playtest owed (prod after ship) |
+| ONBOARD-WEBP-1 | HOW TO PLAY WebP playback + fallback | PT FAIL 08-21 (plays once, then freezes); 🅿️ **ONBOARD-WEBP-PT-1** retest after loop fix |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 
 ### Next actions
 
-1. **ONBOARD-JUMP-1** is the next code card in Block 1. **NET-LAG-1-PT-1**
-   `[2pc]` is parked. **FRIENDS-ROTATE-PT-1** and **ONBOARD-WEBP-PT-1** stay
-   owed. Do not start an external playtest until Block 1 drains.
-   Deferred: **SHARD-PT-2** (launch day).
+1. **ONBOARD-WEBP-1** is the next code card in Block 1 (PT FAIL: clips
+   must loop). **NET-LAG-1-PT-1** `[2pc]` is parked. Closed 08-21
+   PASSes: **ONBOARD-JUMP-PT-1** · **QP-PLAYING-PT-1** ·
+   **FRIENDS-ROTATE-PT-1**. Do not start an external playtest until
+   Block 1 drains. Deferred: **SHARD-PT-2** (launch day).
 
 ## Open issues (top)
 
@@ -165,6 +162,11 @@ or a suspected blocker (TS 7 · `cartrave4` UVs).
 - Local worker port is **8899** (`LOCAL_WORKER_PORT` in `src/config.js`). If it goes EACCES, re-check Windows HNS exclusions and move the port there.
 
 ## Last updated
+
+2026-08-21 (playtest PASSes) — **ONBOARD-JUMP-PT-1** ·
+**QP-PLAYING-PT-1** · **FRIENDS-ROTATE-PT-1**. Parents
+**ONBOARD-JUMP-1** and **FRIENDS-ROTATE-1** close.
+**ONBOARD-WEBP-PT-1** FAIL: clips play once then freeze; must loop.
 
 2026-08-21 (**CART-POP-PT-1** PASS) — Wyatt PASS Storerooms F8 on prod
 `9051a0ce` (Worker `dfa5a26d`). Parent **CART-POP-1** closes. Do not reopen.

@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-21T06:32:43.496Z",
-    "commit": "18744951"
+    "at": "2026-08-21T06:49:45.134Z",
+    "commit": "e9916ac7"
   },
-  "source_digest": "64fe29a8",
+  "source_digest": "66fc682e",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -880,27 +880,9 @@
         "state": "locked"
       },
       {
-        "id": "FRIENDS-ROTATE-1",
-        "what": "Friends rematch rotates arenas, synced",
-        "status": "queued",
-        "state": "waiting"
-      },
-      {
-        "id": "ONBOARD-JUMP-1",
-        "what": "HOW TO PLAY matches jump+boost",
-        "status": "queued",
-        "state": "waiting"
-      },
-      {
         "id": "ONBOARD-WEBP-1",
         "what": "HOW TO PLAY WebP playback + fallback",
-        "status": "deployed `51df06af` / Worker `819ad9ca`; 🅿️ ONBOARD-WEBP-PT-1 owed",
-        "state": "waiting"
-      },
-      {
-        "id": "QP-PLAYING-PT-1",
-        "what": "QUICKPLAY live playing count",
-        "status": "⏳ playtest owed (prod after ship)",
+        "status": "PT FAIL 08-21 (plays once, then freezes); 🅿️ ONBOARD-WEBP-PT-1 retest after loop fix",
         "state": "waiting"
       },
       {
@@ -911,7 +893,7 @@
       }
     ],
     "next_actions": [
-      "ONBOARD-JUMP-1 is the next code card in Block 1. NET-LAG-1-PT-1"
+      "ONBOARD-WEBP-1 is the next code card in Block 1 (PT FAIL: clips"
     ],
     "open_issues": [
       {
@@ -926,7 +908,7 @@
       {
         "title": "Engineering",
         "counts": {
-          "High": 3,
+          "High": 2,
           "Medium": 4,
           "Partial": 1,
           "Low": 7
@@ -940,14 +922,8 @@
           },
           {
             "pri": "High",
-            "item": "FRIENDS-ROTATE-1 — Friends rematch rotates to the next arena",
-            "notes": "**Landed 08-20.** Friends rematch now calls the QP in-place rotation; `playAgain` waits for `clientPlayReady` in Friends rooms too (first-match GO unchanged). Analog of **QP-ORDER-1** (do not reopen). Distinct from **FRIENDS-LEVEL-1** (host pick wins at join). **Owed: FRIENDS-ROTATE-PT-1.**",
-            "ship1": null
-          },
-          {
-            "pri": "High",
             "item": "ONBOARD-WEBP-1 — HOW TO PLAY animated WebPs fail on some PCs",
-            "notes": "**Landed and deployed 08-20** in commit `51df06af` (Worker `819ad9ca-ce02-46d0-aff4-c1523921e8cb`). The source files are valid infinite WebPs; the old F8 report was static despite Windows animation effects being on. Motion now mounts only on the visible slide and samples five tiny frames over ~700 ms. A frame change keeps motion; no change, a load error, or a sample error uses the paired still. Navigation and hidden tabs do not produce a verdict. Local in-app-browser repro fell back cleanly on all five art slides. **Owed: ONBOARD-WEBP-PT-1 on the brother's F8 machine.** Distinct from reduced-motion `still.webp` (ONBOARD-ART-1). Do not reopen **ONBOARD-SLIDES-1**.",
+            "notes": "**Landed 08-20** `51df06af` (Worker `819ad9ca`). Files are valid infinite WebPs (`loop_count=0`, ~2.8s). Visible-slide mount + 5-frame canvas sample. **PT FAIL 08-21:** each clip plays once, then freezes; it must loop while the slide is open. **Owed: ONBOARD-WEBP-PT-1 retest after the loop fix ships.** Distinct from reduced-motion `still.webp` (ONBOARD-ART-1). Do not reopen **ONBOARD-SLIDES-1**.",
             "ship1": null
           },
           {
@@ -1027,16 +1003,9 @@
       {
         "title": "Design / Gameplay",
         "counts": {
-          "High": 1,
           "Medium": 2
         },
         "rows": [
-          {
-            "pri": "High",
-            "item": "ONBOARD-JUMP-1 — HOW TO PLAY matches jump+boost",
-            "notes": "**Filed 08-19.** Live input now fires jump + boost together. HOW TO PLAY still teaches them as separate (`HOWTO_CONTROLS`: SHIFT=BOOST, SPACE=HOP; AISLE 2 is BOOST-only). Update instructions and any control graphics/text so keyboard, gamepad, and touch match the live scheme. Do not reopen **ONBOARD-SLIDES-1**.",
-            "ship1": null
-          },
           {
             "pri": "Medium",
             "item": "TASTE-P4-1 — Taste-tuning follow-ups from Pass 4",
@@ -1054,19 +1023,13 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Low": 7
+          "Low": 4
         },
         "rows": [
           {
             "pri": "Low",
             "item": "NET-LAG-1-PT-1 — non-host own cart has no 1 m trail `[2pc]`",
             "notes": "**Owed: Wyatt playtest — NET-LAG-1-PT-1 — on the non-host, your cart stays under you while you drive.** Parent **NET-LAG-1**. Prod after ship, or `npm run dev:local` with `?diag=1` on both machines. Remaining input delay (~120 ms) is out of this check — do not FAIL for that if the trail is gone.<br>1. Friends match, two machines, `?diag=1`. Non-host drives for a full round.<br>2. FAIL if your cart trails about a meter behind where you are steering, or if it shakes or ticks many times a second.<br>3. PASS if the non-host cart stays under you (no rubber-band trail) and the host still feels tight.<br>4. Press F8 on both machines at the end.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "QP-PLAYING-PT-1 — menu pill matches public Quickplay humans `[1pc]`",
-            "notes": "**Owed: Wyatt playtest — QP-PLAYING-PT-1 — QUICKPLAY shows a live playing count.** Parent **QP-PLAYING-1**. Prod after ship (hard-refresh).<br>1. Open the main menu on prod (`https://www.cartclash.lol/`).<br>2. FAIL if the pill shows `0 PLAYING NOW`, or if QUICKPLAY does not start a game.<br>3. PASS if the pill is hidden when public Quickplay is empty, or the number matches humans in public Quickplay.",
             "ship1": null
           },
           {
@@ -1083,20 +1046,8 @@
           },
           {
             "pri": "Low",
-            "item": "FRIENDS-ROTATE-PT-1 — Friends rematch rotates arenas in sync `[2pc]`",
-            "notes": "**Owed: Wyatt playtest — FRIENDS-ROTATE-PT-1 — after a Friends match, PLAY AGAIN lands every client on the same next arena.** Parent **FRIENDS-ROTATE-1**. Prod `1a740c79` (hard-refresh) with `?diag=1` on both machines.<br>1. Friends room, two machines, F8 both. Play a match, then PLAY AGAIN.<br>2. FAIL if the two clients load different arenas, or if GO starts while the swap is still running, or if rotation plus warmup stays hidden more than about 10s.<br>3. PLAY AGAIN again. PASS if both wrap the same way (classicRecord → backrooms → zanzibar → classicRecord) and `arena/rotation_finished` target matches on both.<br>4. One Quickplay rematch on the same build. FAIL if QP rotation regresses.<br>5. Press F8 on both machines after the Friends wrap.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "ONBOARD-JUMP-PT-1 — gamepad jump/boost match HOW TO PLAY `[1pc]`",
-            "notes": "**Owed: Wyatt playtest — ONBOARD-JUMP-PT-1 — A hops and RT boosts, and every chart says so.** Parent **ONBOARD-JUMP-1**. Not deployed — `npm run dev` with a gamepad (or prod after ship).<br>1. Open HOW TO PLAY and land on AISLE 1 — chips read RT BOOST / A HOP.<br>2. Start a round. Press A — the cart hops. Hold RT — the cart boosts/charges.<br>3. FAIL if A boosts or RT hops, or if any chart (HOW TO PLAY, Settings, pause CONTROLS, main menu) disagrees with what the pad does.<br>4. Pause mid-round and check the CONTROLS card; check Settings > CONTROLS — RT/B boost, A/LT hop.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
             "item": "ONBOARD-WEBP-PT-1 — HOW TO PLAY media moves or falls back cleanly `[1pc]`",
-            "notes": "**Owed: Wyatt playtest — ONBOARD-WEBP-PT-1 — the HOW TO PLAY pictures move when supported and stay clean when they cannot.** Parent **ONBOARD-WEBP-1**. Prod `https://www.cartclash.lol/` after a hard-refresh with `?diag=1`.<br>1. Open HOW TO PLAY. Page through DRIVE, BOOST, RAM THEM OUT, READ THE HUD, and THE LIVING STORE.<br>2. FAIL if any picture is blank, broken, jumps in size, or locks the menu. A clean still picture is an acceptable fallback when motion cannot play.<br>3. PASS if each picture either moves or changes to a clean matching still within about a second; the teaching text and controls stay readable.<br>4. Press F8 after the five picture slides.",
+            "notes": "**Owed: Wyatt playtest — ONBOARD-WEBP-PT-1 — the HOW TO PLAY pictures loop when supported and stay clean when they cannot.** Parent **ONBOARD-WEBP-1**. **FAIL 08-21** on prod: each clip plays once (~2.8s) then freezes. Retest after the remount loop fix, hard-refresh `https://www.cartclash.lol/` with `?diag=1`.<br>1. Open HOW TO PLAY. Page through DRIVE, BOOST, RAM THEM OUT, READ THE HUD, and THE LIVING STORE.<br>2. FAIL if any picture is blank, broken, jumps in size, locks the menu, or plays once and then freezes. A clean still picture is an acceptable fallback only when motion cannot play at all.<br>3. PASS if each picture loops for as long as the slide stays open, or changes to a clean matching still within about a second; the teaching text and controls stay readable.<br>4. Press F8 after the five picture slides.",
             "ship1": null
           }
         ]
