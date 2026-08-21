@@ -163,9 +163,11 @@ or a suspected blocker (TS 7 · `cartrave4` UVs).
 
 ## Last updated
 
-2026-08-21 (**SEC-GZIP-1**) — POST `/api/captures` stream-decompresses
-gzip-base64 and aborts at `CAPTURE_STORE_MAX_CHARS`. A ~260KB bomb
-no longer expands into Worker memory.
+2026-08-21 (**SEC-GZIP-1** ship) — prod `1330a3b9` Worker
+`92f699e7-ef0f-4699-ad0e-a6b98961f797`. VERIFY_OK
+`index-BaluwR9J.js` (attempt 1, 28 refs, 0×404). Worker bundle has
+`gunzip_too_large` / `GunzipCapError`. POST `/api/captures` aborts
+gzip-base64 at `CAPTURE_STORE_MAX_CHARS`.
 
 2026-08-21 (**ONBOARD-WEBP-1** ship) — prod `ae7d7a81` Worker
 `2a5af903-73f2-4278-96e6-2b658fbeeade`. VERIFY_OK
