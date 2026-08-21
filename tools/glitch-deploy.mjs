@@ -3,10 +3,13 @@
  * tools/glitch-deploy.mjs — Glitch multipart deploy (CI / trusted machine only).
  *
  * Env:
- *   GLITCH_DEPLOY_TOKEN  required — gl_deploy_* token (never commit)
- *   GLITCH_VERSION       optional — default GLITCH_GAME_VERSION from glitchConfig.js
- *   GLITCH_BUILD_TYPE    optional — production|playtest|demo (default from glitchConfig)
- *   GLITCH_ACTIVATE      optional — "1" to PUT status ready after processing starts
+ *   GLITCH_DEPLOY_TOKEN      required — gl_deploy_* token (never commit)
+ *   GLITCH_VERSION           optional — default GLITCH_GAME_VERSION from glitchConfig.js
+ *   GLITCH_BUILD_TYPE        optional — production|playtest|demo (default from glitchConfig)
+ *   GLITCH_RESUME_BUILD_ID   optional — skip upload; poll this GameBuild id until ready/failed
+ *
+ * New builds self-activate when ProcessGameDeploymentJob finishes.
+ * Do not PUT status "ready" while status is processing (HTTP 400).
  *
  * Usage:
  *   npm run build
@@ -31,7 +34,7 @@ const PART_SIZE = 5 * 1024 * 1024; // 5 MiB minimum (except last)
 const token = String(process.env.GLITCH_DEPLOY_TOKEN || "").trim();
 const version = String(process.env.GLITCH_VERSION || GLITCH_GAME_VERSION).slice(0, 20);
 const buildType = String(process.env.GLITCH_BUILD_TYPE || GLITCH_BUILD_TYPE);
-const activate = process.env.GLITCH_ACTIVATE === "1" || process.env.GLITCH_ACTIVATE === "true";
+const resumeBuildId = String(process.env.GLITCH_RESUME_BUILD_ID || "").trim();
 
 if (!token) {
   console.error("[glitch:deploy] Set GLITCH_DEPLOY_TOKEN (gl_deploy_*) — never commit it.");
@@ -41,7 +44,7 @@ if (!["production", "playtest", "demo"].includes(buildType)) {
   console.error("[glitch:deploy] GLITCH_BUILD_TYPE must be production|playtest|demo");
   process.exit(1);
 }
-if (!existsSync(join(DIST, "index.html"))) {
+if (!resumeBuildId && !existsSync(join(DIST, "index.html"))) {
   console.error("[glitch:deploy] dist/index.html missing — run npm run build first.");
   process.exit(1);
 }
@@ -63,12 +66,58 @@ async function api(path, body, method = "POST") {
     json = { raw: text };
   }
   if (!res.ok) {
-    const err = new Error(`HTTP ${res.status} ${path}: ${text.slice(0, 400)}`);
+    const hint =
+      res.status === 400 ? "keep polling this build id — do not activate while processing" :
+      res.status === 403 ? "use a gl_deploy_* token or admin JWT, not a title token" :
+      res.status === 404 ? "check title id / build id / file_path from initiate" :
+      res.status === 409 ? "refresh deployments; retry the last confirmed step only if safe" :
+      res.status === 422 ? "send required fields with exact enum values" :
+      res.status === 500 ? "complete parts must be ascending PartNumber with exact ETags" :
+      "";
+    const err = new Error(`HTTP ${res.status} ${path}: ${text.slice(0, 400)}${hint ? ` (${hint})` : ""}`);
     err.status = res.status;
     err.json = json;
     throw err;
   }
   return json;
+}
+
+function formatFailure(row) {
+  return JSON.stringify({
+    id: row?.id,
+    status: row?.status,
+    error_code: row?.error_code ?? null,
+    failure_stage: row?.failure_stage ?? null,
+    retryable: row?.retryable ?? null,
+    error_message: row?.error_message ?? row?.error_log ?? null,
+    remediation: row?.remediation ?? null,
+  });
+}
+
+async function waitForBuild(buildId) {
+  console.log("[glitch:deploy] persist build id", buildId);
+  for (let i = 0; i < 60; i++) {
+    if (i > 0) await new Promise((r) => setTimeout(r, 5000));
+    const list = await api("/deployments", undefined, "GET");
+    const rows = list.data || list;
+    const row = Array.isArray(rows) ? rows.find((b) => b.id === buildId) : null;
+    if (!row) {
+      console.log(`[glitch:deploy] poll ${i + 1}: build ${buildId} not in list yet`);
+      continue;
+    }
+    const status = row.status;
+    const stage = row.processing_stage ? ` stage=${row.processing_stage}` : "";
+    console.log(`[glitch:deploy] poll ${i + 1}: ${status}${stage}`);
+    if (status === "ready") {
+      console.log("[glitch:deploy] ready", row.cdn_url || "(no cdn_url)");
+      return row;
+    }
+    if (status === "failed" || status === "inactive") {
+      console.error("[glitch:deploy] terminal:", formatFailure(row));
+      process.exit(1);
+    }
+  }
+  throw new Error(`timed out waiting for build ${buildId} — resume with GLITCH_RESUME_BUILD_ID=${buildId}`);
 }
 
 async function zipDistContents(zipPath) {
@@ -102,6 +151,11 @@ async function putPart(url, buffer) {
 }
 
 async function main() {
+  if (resumeBuildId) {
+    await waitForBuild(resumeBuildId);
+    return;
+  }
+
   const tmp = await mkdtemp(join(tmpdir(), "cc-glitch-"));
   const zipPath = join(tmp, "cart-clash.zip");
   try {
@@ -164,55 +218,16 @@ async function main() {
       build_type: buildType,
       deployment_type: "iframe",
       entry_point: "index.html",
-      custom_variables: {
-        engine: "vite",
-        host: "cloudflare-workers-external",
-        channel: buildType,
-      },
     });
     const buildId = build.id || build.data?.id;
+    if (!buildId) throw new Error("confirm returned no build id");
     console.log("[glitch:deploy] build", JSON.stringify({
       id: buildId,
       version: build.version || build.data?.version,
       status: build.status || build.data?.status,
       cdn_url: build.cdn_url || build.data?.cdn_url,
     }));
-
-    if (activate && buildId) {
-      // Wait briefly for processing; poll list then activate.
-      for (let i = 0; i < 24; i++) {
-        await new Promise((r) => setTimeout(r, 5000));
-        const list = await api("/deployments", undefined, "GET");
-        const rows = list.data || list;
-        const row = Array.isArray(rows) ? rows.find((b) => b.id === buildId) : null;
-        const status = row?.status || build.status;
-        console.log(`[glitch:deploy] status poll ${i + 1}: ${status}`);
-        if (status === "failed") {
-          console.error("[glitch:deploy] processing failed:", row?.error_log || "(no log)");
-          process.exit(1);
-        }
-        if (status === "ready" || status === "processing" || status === "uploading") {
-          if (status === "ready") break;
-          if (status === "processing" && i >= 2) {
-            // Attempt activate once processing has begun (some titles allow ready from processing).
-            try {
-              const updated = await api(`/deployments/${buildId}/status`, { status: "ready" }, "PUT");
-              console.log("[glitch:deploy] activated:", updated.status || updated);
-              break;
-            } catch (e) {
-              if (e.status === 409) {
-                console.log("[glitch:deploy] activate 409 — still processing, wait…");
-                continue;
-              }
-              throw e;
-            }
-          }
-        }
-      }
-    } else {
-      console.log("[glitch:deploy] skipped activate (set GLITCH_ACTIVATE=1 to publish).");
-      console.log("[glitch:deploy] Next: Glitch Deploy page → set build status to ready.");
-    }
+    await waitForBuild(buildId);
   } finally {
     await rm(tmp, { recursive: true, force: true });
   }

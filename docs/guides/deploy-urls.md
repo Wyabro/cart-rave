@@ -33,9 +33,10 @@ Static festival CDN. Multiplayer still talks to **public** CF (`cartclash.lol`).
 ```powershell
 npm run build
 $env:GLITCH_DEPLOY_TOKEN = "gl_deploy_..."   # shell only — never commit
-$env:GLITCH_ACTIVATE = "1"
 npm run ship:glitch
 ```
+
+Poll the returned build id until `ready`. Do not PUT `{ "status": "ready" }` while the job is `processing`. Interrupted wait: `$env:GLITCH_RESUME_BUILD_ID = "<id>"; npm run ship:glitch` (still needs the deploy token; skips re-upload).
 
 Version defaults to `GLITCH_GAME_VERSION` in `src/analytics/glitchConfig.js`. Override with `GLITCH_VERSION` if needed.
 
