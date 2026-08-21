@@ -5,6 +5,7 @@
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
+  RATE_LIMIT_MAX_PER_SEC,
   REAP_THROTTLE_MS,
   REAP_TIMEOUT_MS,
   getReapThrottleMs,
@@ -153,6 +154,23 @@ describe("CartRaveServer DO harness", () => {
       (m) => m.type === MSG.keepalive && m.tClient === tClient,
     );
     expect(ack.serverNowMs).toEqual(expect.any(Number));
+
+    client.close();
+  });
+
+  it("counts frames against the rate limit before JSON.parse", async () => {
+    const room = uniqueRoom("ws-rate-preparse");
+    const client = await openPartyClient(room, { ip: "10.0.8.1" });
+    await client.awaitType(MSG.hello);
+
+    // * Invalid JSON used to return before the counter, so one IP could pay
+    // * WS_ABSOLUTE_MAX parse cost unbounded. Fill the window with garbage,
+    // * then a legal keepalive must be the frame that trips 4028.
+    for (let i = 0; i < RATE_LIMIT_MAX_PER_SEC; i += 1) {
+      client.socket.send("not-json");
+    }
+    client.sendJson({ type: MSG.keepalive, tClient: 1 });
+    expect(await client.awaitClose()).toBe(4028);
 
     client.close();
   });

@@ -1303,6 +1303,15 @@ export class CartRaveServer extends Server {
       return;
     }
 
+    // * Count the frame before JSON.parse. Invalid JSON and post-parse drops
+    // * used to return without incrementing, so one IP could pay
+    // * WS_ABSOLUTE_MAX parse cost unbounded (5 conns × 128 KiB ≈ 64 MB/s).
+    if (!this.#ownsConnection(connection)) return;
+    if (!this.#checkRateLimit(connection.id)) {
+      connection.close(4028, "Rate limit exceeded");
+      return;
+    }
+
     let data: any;
     try {
       data = JSON.parse(message);
@@ -1313,13 +1322,6 @@ export class CartRaveServer extends Server {
     const type = data?.type;
     if (classifyWsMessagePostParse(message.length, type) === "drop") {
       console.warn("[cart-rave] dropping oversized WS message", type, message.length);
-      return;
-    }
-
-    if (!this.#ownsConnection(connection)) return;
-
-    if (!this.#checkRateLimit(connection.id)) {
-      connection.close(4028, "Rate limit exceeded");
       return;
     }
 
