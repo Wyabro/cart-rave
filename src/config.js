@@ -258,7 +258,9 @@ const physics = {
       hitDirDisplayBias: 0.3, // unitless — displayI = bias + sqrt(intensity) * scale
       hitDirDisplayScale: 0.62, // unitless — was 0.46 + sqrt * 0.79 (too loud on soft hits)
       // * Crash SFX volume floor (not an intensity gate — SFX still fires when fxIntensity > 0).
-      crashVolumeFloor: 0.25, // unitless — playCartCrash volume max(floor, floor + intensity * 0.7)
+      // * AUDIO-RAM-IMPACT-1: raised 0.25→0.45; cap-362/363 proved the path but rams sat at
+      // * ~0.24 effective gain under default sliders — inaudible against music.
+      crashVolumeFloor: 0.45, // unitless — playCartCrash volume max(floor, floor + intensity * 1.0)
     },
   },
 

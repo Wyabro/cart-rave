@@ -72,9 +72,9 @@ way the Block table still can.)*
 | Department | Open | High | Medium | Low |
 |---|---:|---:|---:|---:|
 | [Engineering](#engineering) | 14 | 2 | 4 | 7 (+1 partial) |
-| [Audio](#audio) | 2 | 1 | 1 | 0 |
+| [Audio](#audio) | 1 | 0 | 1 | 0 |
 | [Design / Gameplay](#design--gameplay) | 3 | 0 | 3 | 0 |
-| 🟢 [Playtest owed](#playtest-owed) | 7 | 0 | 0 | 7 |
+| 🟢 [Playtest owed](#playtest-owed) | 8 | 0 | 0 | 8 |
 | [Tech Debt](#tech-debt) | 14 | 0 | 3 | 11 |
 
 **40 open rows total.**
@@ -242,8 +242,10 @@ Rows follow work-order rank: High (Block 1) → Medium (Block 2, then Wyatt-bloc
 
 | Pri | Item | Notes |
 |-----|------|-------|
-| High | AUDIO-RAM-IMPACT-1 — cart-vs-cart ram has no (or inaudible) impact sound | **Filed 08-21 from external playtest feedback.** Playtester quit early and named this the #1 improvement: the game is about ramming but ramming is silent. Check the impact-SFX trigger path first, then level on the SFX bus (HOWLER buses shipped HOWLER-UPGRADE-1). Rule out AUDIO-MIX-BALANCE-1 as the actual cause before adding assets. Playtest owed once landed. Do not reopen **AUDIO-MASTER-1** / **VOICE-BUS-1**. |
-| Medium | AUDIO-MIX-BALANCE-1 — default music level drowns SFX/announcer | **Filed 08-21 from the same external playtest:** music "too loud compared to the rest of the game"; default should be lower. Scope: in-round music-vs-SFX default balance only. Distinct from AUDIO-RAM-IMPACT-1 (missing impact layer). Do not reopen **MENU-MUSIC-VOL-1** / **SD-MUSIC-LPF-1** / **STORE-MUSIC-1**. |
+| Medium | AUDIO-MIX-BALANCE-1 — default music level drowns SFX/announcer | **Filed 08-21 from external playtest:** music "too loud compared to the rest of the game"; default should be lower. Scope: in-round music-vs-SFX default balance only. Distinct from AUDIO-RAM-IMPACT-1 (missing impact layer). Do not reopen **MENU-MUSIC-VOL-1** / **SD-MUSIC-LPF-1** / **STORE-MUSIC-1**. |
+
+**AUDIO-RAM-IMPACT-1** landed 08-21 (`crashVolumeFloor` 0.25→0.45 + curve ×0.7→×1.0) — owed
+**AUDIO-RAM-IMPACT-PT-1** below.
 
 ## Design / Gameplay
 
@@ -267,6 +269,7 @@ completed-work — do not restack it here.
 
 | Pri | Item | Notes |
 |-----|------|-------|
+| Low | AUDIO-RAM-IMPACT-PT-1 — ram impacts are clearly audible `[1pc]` | **Owed: Wyatt playtest — AUDIO-RAM-IMPACT-PT-1 — cart-vs-cart rams make a clearly audible crash at default volume sliders.** Parent **AUDIO-RAM-IMPACT-1** (`crashVolumeFloor` 0.25→0.45, curve ×0.7→×1.0; cap-362/363 proved the path fired but sat at ~0.24 effective gain). `npm run dev:local` at default sliders; `gameplayTunePane` exposes `ramming.fx.crashVolumeFloor` live if trimming is needed.<br>1. Start a round (solo vs NPCs fine) and ram other carts at several speeds, including at least one boost ram.<br>2. FAIL if any ram has no audible crash over the music, or if soft taps are loud enough to annoy.<br>3. PASS if every ram reads audibly at defaults and full-speed/boost rams hit harder than taps.<br>4. Press F8 after a few rams. |
 | Low | NET-LAG-1-PT-1 — non-host own cart has no 1 m trail `[2pc]` | **Owed: Wyatt playtest — NET-LAG-1-PT-1 — on the non-host, your cart stays under you while you drive.** Parent **NET-LAG-1**. Prod after ship, or `npm run dev:local` with `?diag=1` on both machines. Remaining input delay (~120 ms) is out of this check — do not FAIL for that if the trail is gone.<br>1. Friends match, two machines, `?diag=1`. Non-host drives for a full round.<br>2. FAIL if your cart trails about a meter behind where you are steering, or if it shakes or ticks many times a second.<br>3. PASS if the non-host cart stays under you (no rubber-band trail) and the host still feels tight.<br>4. Press F8 on both machines at the end. |
 | Low | SHARD-PT-2 — fifth human overflows to quickplay2 `[2pc]` | **Owed: Wyatt playtest — SHARD-PT-2 — the 5th concurrent Quickplay human lands on quickplay2 instead of "couldn't join".** Launch-day / public-post check — needs five real humans (Wyatt deferred 08-05). Rig already 5/5; SHARD-PT-1 PASSed on prod `9c333d1`. Prefer analytics: any `quickplay_shard_assigned` with `hops > 0` or `shard !== quickplay` counts.<br>1. When five humans can join Quickplay at once (public post), watch the 5th seat.<br>2. FAIL if they get the dead-end couldn't-join toast with no hop. PASS if they seat on an overflow shard (or analytics shows hops greater than 0).<br>3. Skip / leave open until launch day — do not FAIL for lack of five people. |
 | Low | DEMOTE-COUNTDOWN-PT-1 — demoted host's countdown must not flip early `[2pc]` | **Owed: Wyatt playtest — DEMOTE-COUNTDOWN-PT-1 — after a host migration during the countdown, the old host's screen must not start the round early.** Parent **DEMOTE-COUNTDOWN-1**. Prod after ship (hard-refresh).<br>1. On prod, open two clients in one room and start a round so the 3-2-1 countdown is running.<br>2. While counting down, force a host migration (e.g. close/tab the host so the other client takes over).<br>3. FAIL if the old host's screen flips to RUNNING before the countdown finishes, or the round start looks clock-skewed.<br>4. PASS if the countdown completes normally and the round starts at the right moment on both screens. |

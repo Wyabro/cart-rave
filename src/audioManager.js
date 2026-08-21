@@ -1269,8 +1269,10 @@ export function playCartCrash(intensity = 1, opts = {}) {
   const isBoosting = Boolean(opts.isBoosting);
   const rate = (isBoosting ? 0.72 : 0.82) + Math.random() * 0.43;
   // * Volume floor (HIT-FEEL-1) — not an intensity gate; soft hits still play, just quieter.
-  const floor = CONFIG.ramming?.fx?.crashVolumeFloor ?? 0.22;
-  const volume = Math.max(floor, Math.min(1, floor + (intensity ?? 1) * 0.7));
+  // * AUDIO-RAM-IMPACT-1 — floor 0.25→0.45 and curve ×0.7→×1.0: cap-362/363 showed valid ids
+  // * but ~0.24 effective gain at defaults; rams were silent in the mix.
+  const floor = CONFIG.ramming?.fx?.crashVolumeFloor ?? 0.45;
+  const volume = Math.max(floor, Math.min(1, floor + (intensity ?? 1) * 1.0));
   // * HIT-SFX-VAR-1 — random selection from 3 crash variants.
   const keys = ["cartCrash", "cartCrash2", "cartCrash3"];
   const key = keys[Math.floor(Math.random() * keys.length)];
