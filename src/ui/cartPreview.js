@@ -66,10 +66,25 @@ const SHOWROOM_FEINT_RAM_MS = 400;
 const SHOWROOM_FEINT_RECOVER_MS = 900;
 const ZOOM_TRANSITION_MS = 240;
 
+// * MENU-CART-FOLLOW-1 — menu pointer offsets are presentation-only. The menu
+// * maps pointer position to normalized [-1, 1] targets; CartPreview owns the
+// * damping and composes them with the showroom feint in one pose writer.
+const POINTER_MAX_YAW = THREE.MathUtils.degToRad(5);
+const POINTER_MAX_LEAN = THREE.MathUtils.degToRad(2);
+// * 90% response in ~180ms / ~350ms: t90 = tau * ln(10).
+const POINTER_FOLLOW_TAU_SEC = 0.18 / Math.LN10;
+const POINTER_RETURN_TAU_SEC = 0.35 / Math.LN10;
+
 /** @param {number} t @returns {number} */
 function easeInOutCubic(t) {
   const x = THREE.MathUtils.clamp(t, 0, 1);
   return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+}
+
+/** @param {number} current @param {number} target @param {number} dtSec @param {number} tauSec */
+function dampTo(current, target, dtSec, tauSec) {
+  const alpha = 1 - Math.exp(-Math.max(dtSec, 0) / Math.max(tauSec, 0.0001));
+  return THREE.MathUtils.lerp(current, target, alpha);
 }
 
 /**
@@ -230,6 +245,18 @@ export class CartPreview {
     this._showroomAnimating = false;
     this._showroomCameraPush = 0;
     this._showroomLastCameraPush = 0;
+
+    /** Normalized menu-pointer target translated into presentation offsets. */
+    this._pointerTargetYaw = 0;
+    this._pointerTargetLean = 0;
+    this._pointerYaw = 0;
+    this._pointerLean = 0;
+    this._pointerActive = false;
+
+    /** Feint samples compose with pointer offsets instead of racing them. */
+    this._showroomYawOffset = 0;
+    this._showroomLean = 0;
+    this._showroomFeintWeight = 0;
   }
 
   /**
@@ -392,9 +419,75 @@ export class CartPreview {
 
   /** @private */
   _applySpinRotation() {
-    if (this.cartGroup) {
-      this.cartGroup.rotation.y = this._spinY;
+    this._applyPresentationPose();
+  }
+
+  /**
+   * Applies the one authoritative presentation pose for the preview cart.
+   * The fake ram owns the pose at full feint weight; its prep/recovery blend
+   * cursor life out and back in so neither animation can snap the other.
+   * @private
+   */
+  _applyPresentationPose() {
+    if (!this.cartGroup) return;
+    const pointerWeight = 1 - this._showroomFeintWeight;
+    this.cartGroup.position.copy(this._showroomRestPosition);
+    this.cartGroup.rotation.set(
+      this._showroomLean + this._pointerLean * pointerWeight,
+      this._spinY + this._showroomYawOffset + this._pointerYaw * pointerWeight,
+      this._showroomLean * 0.18,
+    );
+  }
+
+  /**
+   * Sets the normalized pointer target for an opted-in presentation surface.
+   * Customize never calls this API, so its preview keeps the exact old pose.
+   * @param {number} normalizedX
+   * @param {number} normalizedY
+   */
+  setPointerParallax(normalizedX, normalizedY) {
+    if (prefersReducedMotion()) {
+      this.resetPointerParallax({ immediate: true });
+      return;
     }
+    const x = THREE.MathUtils.clamp(Number(normalizedX) || 0, -1, 1);
+    const y = THREE.MathUtils.clamp(Number(normalizedY) || 0, -1, 1);
+    this._pointerTargetYaw = x * POINTER_MAX_YAW;
+    this._pointerTargetLean = -y * POINTER_MAX_LEAN;
+    this._pointerActive = true;
+  }
+
+  /**
+   * Clears the menu pointer target. Immediate resets cover hidden/suspended
+   * surfaces; normal leaves use the deliberately slower return damping.
+   * @param {{ immediate?: boolean }} [options]
+   */
+  resetPointerParallax({ immediate = false } = {}) {
+    this._pointerTargetYaw = 0;
+    this._pointerTargetLean = 0;
+    this._pointerActive = false;
+    if (!immediate) return;
+    this._pointerYaw = 0;
+    this._pointerLean = 0;
+    this._applyPresentationPose();
+  }
+
+  /** @param {number} dtSec @private */
+  _advancePointerParallax(dtSec) {
+    if (prefersReducedMotion()) {
+      this.resetPointerParallax({ immediate: true });
+      return;
+    }
+    const tau = this._pointerActive ? POINTER_FOLLOW_TAU_SEC : POINTER_RETURN_TAU_SEC;
+    this._pointerYaw = dampTo(this._pointerYaw, this._pointerTargetYaw, dtSec, tau);
+    this._pointerLean = dampTo(this._pointerLean, this._pointerTargetLean, dtSec, tau);
+    if (!this._pointerActive
+      && Math.abs(this._pointerYaw) < 0.00001
+      && Math.abs(this._pointerLean) < 0.00001) {
+      this._pointerYaw = 0;
+      this._pointerLean = 0;
+    }
+    this._applyPresentationPose();
   }
 
   /**
@@ -511,21 +604,25 @@ export class CartPreview {
     let cameraPush = 0;
     let lean = 0;
     let yawOffset = 0;
+    let feintWeight = 0;
     if (phaseMs < prepEndMs) {
       const p = easeInOutCubic((phaseMs - SHOWROOM_FEINT_START_MS) / SHOWROOM_FEINT_PREP_MS);
       cameraPush = -0.018 * p;
       lean = 0.055 * p;
       yawOffset = -0.05 * p;
+      feintWeight = p;
     } else if (phaseMs < ramEndMs) {
       const p = easeInOutCubic((phaseMs - prepEndMs) / SHOWROOM_FEINT_RAM_MS);
       cameraPush = THREE.MathUtils.lerp(-0.018, 0.085, p);
       lean = THREE.MathUtils.lerp(0.055, -0.105, p);
       yawOffset = THREE.MathUtils.lerp(-0.05, 0.075, p);
+      feintWeight = 1;
     } else {
       const p = easeInOutCubic((phaseMs - ramEndMs) / SHOWROOM_FEINT_RECOVER_MS);
       cameraPush = THREE.MathUtils.lerp(0.085, 0, p);
       lean = THREE.MathUtils.lerp(-0.105, 0, p);
       yawOffset = THREE.MathUtils.lerp(0.075, 0, p);
+      feintWeight = 1 - p;
     }
 
     const yaw = this._spinY + yawOffset;
@@ -533,8 +630,10 @@ export class CartPreview {
     // * `cartGroup.position` is the GLTF centering transform (see centerCartGroup),
     // * not a presentation parent. Keep it exact and sell the surge as a small camera
     // * push, otherwise the origin-framed preview throws the whole cart offscreen.
-    this.cartGroup.position.copy(this._showroomRestPosition);
-    this.cartGroup.rotation.set(lean, yaw, lean * 0.18);
+    this._showroomYawOffset = yawOffset;
+    this._showroomLean = lean;
+    this._showroomFeintWeight = feintWeight;
+    this._applyPresentationPose();
     this._showroomCameraPush = cameraPush;
 
     const dtSec = this._showroomLastMs > 0
@@ -561,8 +660,10 @@ export class CartPreview {
   /** Restores the exact hero pose and releases presentation-only wheel/caster state. */
   resetShowroomFeint() {
     if (!this.cartGroup || !this._showroomAnimating) return;
-    this.cartGroup.position.copy(this._showroomRestPosition);
-    this.cartGroup.rotation.set(0, this._spinY, 0);
+    this._showroomYawOffset = 0;
+    this._showroomLean = 0;
+    this._showroomFeintWeight = 0;
+    this._applyPresentationPose();
     if (this._usesRaveGltf) resetRaveGltfCartVisualState(this.cartGroup);
     this._showroomLastMs = 0;
     this._showroomCameraPush = 0;
@@ -579,6 +680,9 @@ export class CartPreview {
     this._showroomCameraPush = 0;
     this._showroomLastCameraPush = 0;
     this._showroomAnimating = false;
+    this._showroomYawOffset = 0;
+    this._showroomLean = 0;
+    this._showroomFeintWeight = 0;
   }
 
   /**
@@ -1075,6 +1179,7 @@ export class CartPreview {
     }
 
     this._advanceZoomTransition(dt * 1000);
+    this._advancePointerParallax(dt);
 
     if (this.renderer && this.scene && this.camera) {
       this.renderer.render(this.scene, this.camera);

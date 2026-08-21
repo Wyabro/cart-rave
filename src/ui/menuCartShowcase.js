@@ -17,6 +17,11 @@ import { getQualityTier } from "../utils/qualityMode.js";
 const MIN_WIDTH_PX = 240;
 const MIN_HEIGHT_PX = 180;
 
+/** @param {number} value */
+function clampPointerAxis(value) {
+  return Math.min(Math.max(value, -1), 1);
+}
+
 /**
  * @param {{ getMenuVisible: () => boolean }} deps
  */
@@ -29,8 +34,70 @@ export function createMenuCartShowcase({ getMenuVisible }) {
   let mountedAtMs = 0;
   let feintActive = false;
   const holder = document.getElementById("cr-menu-cart-holder");
+  const menuRoot = document.getElementById("cr-root");
+  let pointerRect = null;
+  let pointerActive = false;
+  let pointerX = 0;
+  let pointerY = 0;
+
+  function resetPointer({ immediate = false } = {}) {
+    pointerActive = false;
+    pointerX = 0;
+    pointerY = 0;
+    preview?.resetPointerParallax({ immediate });
+  }
+
+  function pointerEligible() {
+    return !suspended
+      && getMenuVisible()
+      && window.innerWidth > 1024
+      && getQualityTier() !== "low"
+      && !(window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true);
+  }
+
+  /** @param {PointerEvent} event */
+  function onPointerMove(event) {
+    // * Cursor parallax is mouse/pen affordance only. A synthetic test event
+    // * often has no pointerType, so only the explicit touch type is excluded.
+    if (event.pointerType === "touch") return;
+    if (!pointerEligible() || !(menuRoot instanceof HTMLElement)) {
+      resetPointer({ immediate: true });
+      return;
+    }
+    pointerRect ??= menuRoot.getBoundingClientRect();
+    if (pointerRect.width <= 0 || pointerRect.height <= 0) return;
+    pointerX = clampPointerAxis(((event.clientX - pointerRect.left) / pointerRect.width) * 2 - 1);
+    pointerY = clampPointerAxis(((event.clientY - pointerRect.top) / pointerRect.height) * 2 - 1);
+    pointerActive = true;
+    preview?.setPointerParallax(pointerX, pointerY);
+  }
+
+  function onPointerLeave() {
+    // * A visible leave returns slowly by design. Hidden/suspended paths use
+    // * immediate reset instead so a stale pose cannot reappear on resume.
+    resetPointer();
+  }
+
+  function onWindowBlur() {
+    resetPointer({ immediate: true });
+  }
+
+  function onVisibilityChange() {
+    if (document.visibilityState === "hidden") resetPointer({ immediate: true });
+  }
+
+  function onResize() {
+    pointerRect = null;
+  }
+
+  menuRoot?.addEventListener("pointermove", onPointerMove, { passive: true });
+  menuRoot?.addEventListener("pointerleave", onPointerLeave);
+  window.addEventListener("blur", onWindowBlur);
+  window.addEventListener("resize", onResize);
+  document.addEventListener("visibilitychange", onVisibilityChange);
 
   function disposePreview() {
+    resetPointer({ immediate: true });
     if (feintActive) {
       recordDiagEvent("attract", "menuCartFeintEnd", { reason: "unmounted" });
       feintActive = false;
@@ -83,6 +150,7 @@ export function createMenuCartShowcase({ getMenuVisible }) {
         // * Owned canvas above the attract dim — same grade path as Customize.
         preview.init(holder);
         preview.setHeroPose();
+        if (pointerActive) preview.setPointerParallax(pointerX, pointerY);
         mountedAtMs = startMs;
         recordDiagEvent("attract", "menuCartMount", { tier: getQualityTier() });
         if (suspended) {
@@ -112,6 +180,7 @@ export function createMenuCartShowcase({ getMenuVisible }) {
     }
     mount(nowMs);
     const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true;
+    if (reducedMotion) resetPointer({ immediate: true });
     const nextFeintActive = reducedMotion ? false : preview?.applyShowroomFeint(nowMs - mountedAtMs) === true;
     if (reducedMotion) preview?.resetShowroomFeint();
     if (nextFeintActive && !feintActive) {
@@ -126,6 +195,7 @@ export function createMenuCartShowcase({ getMenuVisible }) {
   function setSuspended(next) {
     suspended = Boolean(next);
     if (suspended) {
+      resetPointer({ immediate: true });
       preview?.pause();
       hide();
       return;
@@ -141,6 +211,7 @@ export function createMenuCartShowcase({ getMenuVisible }) {
   }
 
   function release() {
+    resetPointer({ immediate: true });
     disposePreview();
     hide();
     suspended = true;
@@ -157,6 +228,11 @@ export function createMenuCartShowcase({ getMenuVisible }) {
     setSuspended,
     release,
     dispose() {
+      menuRoot?.removeEventListener("pointermove", onPointerMove);
+      menuRoot?.removeEventListener("pointerleave", onPointerLeave);
+      window.removeEventListener("blur", onWindowBlur);
+      window.removeEventListener("resize", onResize);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("cartrave:customization-changed", onCustomizationChanged);
       disposePreview();
       hide();
