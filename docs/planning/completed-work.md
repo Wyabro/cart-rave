@@ -13,6 +13,17 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 21, 2026 — SHARE-CARD-1: OG share card is the arena lockup
+
+- *(Engineering · Standard)* **SHARE-CARD-1** — ✅ **DONE 08-21**. Wyatt's
+  2168×725 arena PNG, center-cropped to opaque 1200×630
+  `public/brand/share-card.png`. CART / CLASH and all four carts stay in
+  the Discord 400×210 crop. `og:image` / `twitter:image` / JSON-LD point at
+  `/brand/share-card.png?v=2`. Not a reopen of SEO-1. **Owed:
+  SHARE-CARD-PT-1** after ship (Discord unfurl).
+
+---
+
 ### August 21, 2026 — CART-POP-1: floors stay planted on all three arenas
 
 - *(Engineering · Critical)* **CART-POP-1** — ✅ **DONE 08-21**. Carts popped

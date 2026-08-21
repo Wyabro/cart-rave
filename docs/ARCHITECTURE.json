@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-21T03:36:02.038Z",
-    "commit": "ba5a62b7"
+    "at": "2026-08-21T03:54:29.368Z",
+    "commit": "3c8c2ded"
   },
-  "source_digest": "405051bf",
+  "source_digest": "75efc2d9",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -904,9 +904,9 @@
         "state": "waiting"
       },
       {
-        "id": "SHARE-CARD-1",
-        "what": "update OG/social share image",
-        "status": "queued",
+        "id": "SHARE-CARD-PT-1",
+        "what": "invite-link OG preview is the arena lockup",
+        "status": "⏳ playtest owed (prod after ship)",
         "state": "waiting"
       },
       {
@@ -938,7 +938,7 @@
       {
         "title": "Engineering",
         "counts": {
-          "High": 5,
+          "High": 4,
           "Medium": 4,
           "Partial": 1,
           "Low": 7
@@ -966,12 +966,6 @@
             "pri": "High",
             "item": "MENU-CART-FOLLOW-1 — menu cart preview follows the cursor slightly",
             "notes": "**Landed and deployed 08-20** in `de3cbdca`; vertical direction corrected in `ba5a62b7` (Worker `79cc4526-d2df-44a3-918c-8f676299d1b7`; VERIFY_OK `index-BlUL-a0f.js` / `cartPreview-C8wWRAJu.js`). Desktop Medium/High main-menu preview maps the full-menu mouse position to at most ±5° yaw / ±2° lean, follows in ~180 ms, and returns in ~350 ms. One presentation-pose compositor blends cursor life out for the fake ram and back in on recovery; reduced motion, touch, mobile, Low, suspend, blur, and release reset it. Customize stays untouched. **PT-1 found and this deployment corrected vertical movement.** **Owed: MENU-CART-FOLLOW-PT-1.** Do not reopen **MENU-CART-1**.",
-            "ship1": null
-          },
-          {
-            "pri": "High",
-            "item": "SHARE-CARD-1 — update OG/social share image",
-            "notes": "**Filed 08-19.** Replace `public/brand/share-card.png` with current Cart Clash branding. Point `og:image` / `twitter:image` / JSON-LD at the new asset. Check crop and readability at 1200×630 share-card sizes. Not a reopen of SEO-1.",
             "ship1": null
           },
           {
@@ -1078,7 +1072,7 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Low": 8
+          "Low": 9
         },
         "rows": [
           {
@@ -1127,6 +1121,12 @@
             "pri": "Low",
             "item": "MENU-CART-FOLLOW-PT-1 — menu cart cursor life is subtle and isolated `[1pc]`",
             "notes": "**Owed: Wyatt playtest — MENU-CART-FOLLOW-PT-1 — the desktop menu cart lightly follows the cursor without fighting its fake ram.** Parent **MENU-CART-FOLLOW-1**. Deployed: hard-refresh `https://www.cartclash.lol/`.<br>1. At desktop Medium/High quality, move the mouse from the centre to each menu corner. FAIL if the cart chases, snaps, translates, or rotates more than a subtle lean; PASS if it lightly turns toward the cursor. Confirm up and down now move in the expected vertical direction.<br>2. Leave the menu and Alt-Tab out/in. FAIL if a stale tilted pose returns; PASS if the cart settles smoothly to the hero pose.<br>3. Wait through one fake ram. FAIL if cursor motion and the feint jitter or snap; PASS if the ram owns the pose and the cursor life returns smoothly.<br>4. Open and close Customize. FAIL if its preview tracks the cursor, or if the menu cart resumes tilted; PASS if Customize is unchanged and the menu cart rests on return.<br>5. Enable reduced motion, set Low, and use a ≤1024 px viewport. FAIL if the effect or cart appears; PASS if the cart is static/absent as before.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "SHARE-CARD-PT-1 — invite link shows the new arena lockup `[1pc]`",
+            "notes": "**Owed: Wyatt playtest — SHARE-CARD-PT-1 — paste cartclash.lol after ship and read CART CLASH on the preview.** Parent **SHARE-CARD-1**. Prod after ship.<br>1. After ship, paste `https://cartclash.lol/` into Discord.<br>2. FAIL if the preview is the old blank orange splat, or if CART / CLASH is unreadable at embed size.<br>3. PASS if the preview is the neon arena lockup with CART CLASH and the four carts.",
             "ship1": null
           }
         ]
