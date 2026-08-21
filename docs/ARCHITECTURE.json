@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-21T08:19:10.197Z",
-    "commit": "72c1d6c6"
+    "at": "2026-08-21T08:32:42.420Z",
+    "commit": "90036e9d"
   },
-  "source_digest": "ccaa4e80",
+  "source_digest": "4e9f5ed1",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -88,7 +88,7 @@
       "notes": [
         "src/main.js is the composition root — ~1,275 lines after MAIN-1's carve (08-04) and BUNDLE-1 Lever B, down from ~2,582. `async function main()` still spans most of the file, but it now holds composition wiring rather than domain logic: the old inner functions moved into src/orchestration/ (gameBoot, menuPlayEntry, levelOrchestration, cartOrchestration, roundLifecycle, loopDeps, …). What is left inside still escapes ONLY via the callbacks/deps bundles.",
         "buildNetcodeGameBridge (gameSession.js) is the authoring site for the netcode callbacks seam — the real place to learn which main.js impl backs a callbacks.* name.",
-        "config.js owns CART_COLORS + the CONFIG knob table (an invariant surface — do not modify CART_COLORS or the material traverse logic)."
+        "config.js re-exports CART_COLORS/PALETTE from shared/palette.js (invariant surface — do not modify the palette values or the material traverse logic) and owns the CONFIG knob table."
       ]
     },
     {
@@ -240,9 +240,10 @@
         "party/index.ts",
         "party/rateLimit.ts",
         "party/roundValidation.ts",
-        "party/slotReconcile.ts"
+        "party/slotReconcile.ts",
+        "party/turnCache.ts"
       ],
-      "file_count": 8,
+      "file_count": 9,
       "edges": [
         {
           "to": "networking-client",
@@ -258,7 +259,7 @@
       "notes": [
         "The server NEVER simulates physics (invariant). CartRaveServer.onMessage (index.ts, ~500-line method) is a flat if(type===MSG.x) chain with bodies inlined.",
         "room.getConnections() returns an iterator — spread or for…of, never .map().join().",
-        "Pure helpers (hostSelection, roundValidation, rateLimit, connectionReaper, hostRearm, slotReconcile) + party/constants.ts thresholds are unit-tested; A5b DO harness lives in tests/party-do/ (Workers Vitest pool)."
+        "Pure helpers (hostSelection, roundValidation, rateLimit, connectionReaper, hostRearm, slotReconcile, turnCache) + party/constants.ts thresholds are unit-tested; A5b DO harness lives in tests/party-do/ (Workers Vitest pool)."
       ]
     },
     {
@@ -683,7 +684,7 @@
     {
       "id": "shared-protocol",
       "name": "Shared protocol",
-      "responsibility": "The client↔server single-source contract: MSG keys, round constants, readiness semantics, arena pool, WS message limits, NPC names — the only code both planes import.",
+      "responsibility": "The client↔server single-source contract: MSG keys, round constants, readiness semantics, arena pool, WS message limits, NPC names, cart palette — the only code both planes import.",
       "entry": [
         "shared/protocol.js"
       ],
@@ -692,6 +693,7 @@
         "shared/arenaPool.js",
         "shared/assetCache.js",
         "shared/npcNames.js",
+        "shared/palette.js",
         "shared/protocol.js",
         "shared/readiness.js",
         "shared/roomCodes.js",
@@ -699,7 +701,7 @@
         "shared/wsMessageLimits.js",
         "src/npcNames.js"
       ],
-      "file_count": 10,
+      "file_count": 11,
       "edges": [
         {
           "to": "networking-client",
@@ -714,6 +716,7 @@
       ],
       "notes": [
         "ROUND_DURATION_MS lives in shared/roundConstants.js (150_000); both config.js and roundValidation.ts import it — do not re-introduce a hardcoded duplicate.",
+        "CART_COLORS/PALETTE live in shared/palette.js (roster derived from the hex map); config.js re-exports them, party/index.ts imports PALETTE for colorPick validation — do not hardcode the roster server-side (party/index.ts copy removed 08-21).",
         "MIN_MATCH_DURATION_MS lives in shared/analyticsConstants.js — product match floor for analyticsLog #summary + gameplayAnalytics match_ended skip (ANLX-BULK-1).",
         "src/npcNames.js is a re-export shim over shared/npcNames.js.",
         "MSG.readyToggle without a `ready` field is a TOGGLE — programmatic ready must send { ready: true } (readiness.js is the idempotent SET, D-READY-1)."
@@ -804,7 +807,7 @@
     },
     {
       "path": "src/config.js",
-      "role": "CART_COLORS (invariant, do not modify) + the CONFIG knob table incl. CONFIG.round.durationMs (imports ROUND_DURATION_MS)."
+      "role": "CART_COLORS/PALETTE re-export from shared/palette.js (invariant, do not modify) + the CONFIG knob table incl. CONFIG.round.durationMs (imports ROUND_DURATION_MS)."
     },
     {
       "path": "src/hud.js",
@@ -834,6 +837,7 @@
     "Names are long + domain-prefixed (updateRaveGltfCasterRollPivot, disposeSceneExtras) — only ~5% of exports collide on a bare name; grep the full symbol.",
     "PowerShell environment: Select-String not grep; single-line commit messages; git add surgically (never -A — concurrent agent sessions).",
     "Round length single-sourced as ROUND_DURATION_MS in shared/roundConstants.js — never hardcode 150000.",
+    "Cart palette single-sourced as CART_COLORS/PALETTE in shared/palette.js — never hardcode the roster (party/index.ts colorPick validation reads the same file as the client).",
     "Diagnostics globals live under the __cc* namespace (__ccTest / __ccDiag / __ccLoopDbg).",
     "Storage/Worker/cartRave* IDs are naming-frozen until a deliberate brand cutover (brand.md); UI copy says Cart Clash."
   ],
@@ -1349,7 +1353,7 @@
       "Host-authoritative client Rapier; predicting clients never own the outcome.",
       "Server never simulates physics (`party/index.ts`: lobby, signaling, TURN, host selection, lifecycle only).",
       "Realtime is P2P DataChannels (`src/netcode/p2p.js`) — not WebSocket relay for transforms/input/spills/kill-feed.",
-      "`CART_COLORS` in `src/config.js` is the single source of truth for cart neon; keep it brand-aligned to the 2D roster — art-direction palette rule.",
+      "`CART_COLORS` / `PALETTE` in `shared/palette.js` (re-exported from `src/config.js`, imported by `party/index.ts`) are the single source of truth for cart neon; keep them brand-aligned to the 2D roster — art-direction palette rule.",
       "The cart material traverse stays frozen.",
       "Rounds start only via `MSG.gameStart`. Round length: `ROUND_DURATION_MS` in",
       "No camera lerp/slerp. `index.html` is menu markup (do not recreate `cart-rave-menu.html`).",

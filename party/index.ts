@@ -81,6 +81,7 @@ type Slot = {
 
 import { HOST_MIGRATION_COOLDOWN_MS, MSG } from '../shared/protocol.js';
 import { COUNTDOWN_MS, FLYOVER_PREROLL_MS } from '../shared/roundConstants.js';
+const PALETTE = ["pink", "blue", "green", "yellow", "neonOrange"] as const;
 import { requireAdminToken } from './adminAuth';
 import { GunzipCapError, gunzipBase64Utf8 } from './gunzip';
 import { UNKNOWN_IP } from './beaconLimit';
@@ -97,6 +98,7 @@ import { COUNTDOWN_ABORT_GRACE_MS, isContinuousModeRoom, seatReadyState } from '
 import { validateHostRound, type RoundState } from './roundValidation';
 import { pickNextHostId } from './hostSelection';
 import { advanceRateLimit } from './rateLimit';
+import { TURN_FAIL_RETRY_MS, TURN_TOKEN_TTL_MS, extractCacheableServers, isTurnCacheFresh, type TurnCache } from './turnCache';
 import {
   listSilentConnectionsToReap,
   listStalePendingPickers,
@@ -132,7 +134,6 @@ export { AnalyticsLog } from './analyticsLog';
 export { CaptureLog } from './captureLog';
 
 const PROTOCOL_VERSION = 2;
-const PALETTE = ["pink", "blue", "green", "yellow", "neonOrange"] as const;
 
 // * Host collision/fall events travel in the WebRTC binary snapshot's collisions[]/falls[]
 // * JSON tail (host-authored, client-replayed) — there is no server relay for them, so the
@@ -187,6 +188,16 @@ export class CartRaveServer extends Server {
   readonly #pendingPickerAtMs = new Map<string, number>();
   readonly #pendingNames = new Map<string, string>();
   readonly #rateLimitWindows = new Map<string, { count: number; windowStart: number }>();
+  // * TURN-CACHE-1: per-room mint-once for CF Calls TURN credentials. One token
+  // * is valid for TURN_TOKEN_TTL_MS and shared by every client in the room —
+  // * requests inside the fresh window are served from cache with no API call.
+  // * #turnMintInFlight dedupes concurrent mints; #turnMintRetryAtMs damps
+  // * refetch after a failed mint. Wall-clock (Date.now), NOT #serverNowMs
+  // * monotonic: CF token expiry is wall-clock. Ephemeral like all room state —
+  // * a DO eviction drops the cache and the next request mints fresh.
+  #turnCache: TurnCache | null = null;
+  #turnMintInFlight: Promise<unknown[]> | null = null;
+  #turnMintRetryAtMs = 0;
   // * Per-connection last-activity timestamp. A missing entry is intentionally
   // * treated as epoch (0) so that connections already present at reaper-deploy
   // * time (no prior lastSeenAtMs ever set) are reap-eligible on the first pass.
@@ -739,6 +750,30 @@ export class CartRaveServer extends Server {
     );
     this.#rateLimitWindows.set(connId, nextBucket);
     return allowed;
+  }
+
+  /**
+   * TURN-CACHE-1: the single live CF Calls mint path. Writes the room cache on
+   * success only — a failed mint must not poison it (an empty servers[] cached
+   * for 2h would block every future mint). Expiry is wall-clock (Date.now),
+   * NOT #serverNowMs monotonic: CF's ttl counts from its own clock.
+   */
+  async #mintTurnCredentials(env: Env, callsApiUrl: string): Promise<unknown[]> {
+    const response = await fetch(callsApiUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${env.CF_API_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ ttl: 7200 }) // 2 hours
+    });
+    const resBody: unknown = await response.json();
+    // * Throws on every failure shape (non-ok status, error envelope, empty
+    // * list) so the caller's catch/backoff path runs and no empty servers[]
+    // * gets latched into the cache for the full TTL.
+    const servers = extractCacheableServers(response.ok, resBody);
+    this.#turnCache = { servers, expiresAtMs: Date.now() + TURN_TOKEN_TTL_MS };
+    return servers;
   }
 
   /** @returns true if at least one stale pending picker was removed. */
@@ -1608,25 +1643,57 @@ export class CartRaveServer extends Server {
           console.error('[cart-rave] Missing Cloudflare credentials in environment bindings.');
           return;
         }
-        const callsApiUrl = `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/calls/turn_keys/${env.CF_CALLS_KEY_ID}/tokens`;
-        try {
-          const response = await fetch(callsApiUrl, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${env.CF_API_TOKEN}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ ttl: 7200 }) // 2 hours
-          });
-          const resBody: any = await response.json();
+        // * TURN-CACHE-1: reuse the room's minted token across its whole validity
+        // * window instead of minting per request. A connected client can spam
+        // * request_turn_credentials at the message rate limit; without this every
+        // * one fired a live CF Calls API call with the account token (flood →
+        // * CF throttle → TURN dead for real players mid-match). One token is
+        // * shared by every client in the room — the credential is per Calls key,
+        // * not per peer — and the mint body is unchanged (ttl: 7200).
+        const cached = this.#turnCache;
+        if (cached && isTurnCacheFresh(cached, Date.now())) {
           this.#sendJson(connection, {
             v: PROTOCOL_VERSION,
             type: MSG.turnCredentials,
-            servers: resBody?.servers || []
+            servers: cached.servers,
           });
-        } catch (e) {
-          console.error('[cart-rave] TURN minting failed:', e);
+          return;
         }
+        // * Failure backoff: after a mint error, refuse another live fetch for
+        // * TURN_FAIL_RETRY_MS so an error storm cannot hammer the account token.
+        // * Requests inside the window still get servers: [] so the client's
+        // * ICE wait settles immediately on its STUN-only fallback instead of
+        // * burning the full turnCredentialsTimeoutMs on silence.
+        if (Date.now() < this.#turnMintRetryAtMs) {
+          this.#sendJson(connection, {
+            v: PROTOCOL_VERSION,
+            type: MSG.turnCredentials,
+            servers: [],
+          });
+          return;
+        }
+        const callsApiUrl = `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/calls/turn_keys/${env.CF_CALLS_KEY_ID}/tokens`;
+        // * In-flight dedupe: concurrent requests (e.g. a burst at the message
+        // * rate limit) await the same mint promise instead of firing N parallel
+        // * fetches; a failed mint resolves to [] so every waiter gets the same
+        // * STUN-only fallback the client already applies to an empty servers[].
+        if (!this.#turnMintInFlight) {
+          this.#turnMintInFlight = this.#mintTurnCredentials(env, callsApiUrl).catch(
+            (err) => {
+              console.error('[cart-rave] TURN minting failed:', err);
+              this.#turnMintRetryAtMs = Date.now() + TURN_FAIL_RETRY_MS;
+              return [] as unknown[];
+            },
+          ).finally(() => {
+            this.#turnMintInFlight = null;
+          });
+        }
+        const servers = await this.#turnMintInFlight;
+        this.#sendJson(connection, {
+          v: PROTOCOL_VERSION,
+          type: MSG.turnCredentials,
+          servers,
+        });
         return;
       }
 
