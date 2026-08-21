@@ -33,11 +33,13 @@ Classic and Sundial already PASS. Do not retouch those floors. Do not reopen
 and analytics gating are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 ·
 NET-SD-1 closed. Stay in this phase until Wyatt advances the marker.
 
-**MENU-CART-FOLLOW-1** is implemented locally: desktop Medium/High menu-cart
-pointer yaw/lean composes with the showroom feint, and returns safely on leave,
-blur, suspension, release, Low, touch, or reduced motion. Focused 11/11,
-build, and full QA are green. It is uncommitted and unshipped; playtest
-**MENU-CART-FOLLOW-PT-1** is seeded.
+**MENU-CART-FOLLOW-1** shipped 08-20 in `de3cbdca` (Worker
+`c28a585a-7ad7-424c-8d08-4e2060e7742b`; VERIFY_OK
+`index-Bf1l9Pph.js` / `cartPreview-DFpDtf1Q.js`). Desktop Medium/High
+menu-cart pointer yaw/lean composes with the showroom feint, and returns safely
+on leave, blur, suspension, release, Low, touch, or reduced motion. Focused
+13/13, build, and full QA are green. Playtest **MENU-CART-FOLLOW-PT-1** is
+seeded.
 
 **DEMOTE-COUNTDOWN-1** shipped 08-19 — `startRunningAt` isHost guard + demoted host's countdown
 timer cleared via a new `onHostDemoted` callback. Playtest owed: **DEMOTE-COUNTDOWN-PT-1** (2pc).
@@ -107,7 +109,7 @@ Live rows only. Shipped and closed cards live in
 | FRIENDS-ROTATE-1 | Friends rematch rotates arenas, synced | queued |
 | ONBOARD-JUMP-1 | HOW TO PLAY matches jump+boost | queued |
 | ONBOARD-WEBP-1 | HOW TO PLAY WebP playback + fallback | deployed `51df06af` / Worker `819ad9ca`; 🅿️ **ONBOARD-WEBP-PT-1** owed |
-| MENU-CART-FOLLOW-1 | subtle menu-cart cursor parallax | local Standard wave green; uncommitted · 🅿️ MENU-CART-FOLLOW-PT-1 owed |
+| MENU-CART-FOLLOW-1 | subtle menu-cart cursor parallax | deployed `de3cbdca` / Worker `c28a585a`; 🅿️ MENU-CART-FOLLOW-PT-1 owed |
 | SHARE-CARD-1 | update OG/social share image | queued |
 | QP-PLAYING-PT-1 | QUICKPLAY live playing count | ⏳ playtest owed (prod after ship) |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |

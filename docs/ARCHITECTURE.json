@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-21T03:01:53.305Z",
-    "commit": "fb82e8d7"
+    "at": "2026-08-21T03:16:28.998Z",
+    "commit": "de3cbdca"
   },
-  "source_digest": "ee284094",
+  "source_digest": "fdd97505",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -900,7 +900,7 @@
       {
         "id": "MENU-CART-FOLLOW-1",
         "what": "subtle menu-cart cursor parallax",
-        "status": "local Standard wave green; uncommitted · 🅿️ MENU-CART-FOLLOW-PT-1 owed",
+        "status": "deployed `de3cbdca` / Worker `c28a585a`; 🅿️ MENU-CART-FOLLOW-PT-1 owed",
         "state": "waiting"
       },
       {
@@ -965,7 +965,7 @@
           {
             "pri": "High",
             "item": "MENU-CART-FOLLOW-1 — menu cart preview follows the cursor slightly",
-            "notes": "**Implemented locally 08-20 (uncommitted).** Desktop Medium/High main-menu preview maps the full-menu mouse position to at most ±5° yaw / ±2° lean, follows in ~180 ms, and returns in ~350 ms. One presentation-pose compositor blends cursor life out for the fake ram and back in on recovery; reduced motion, touch, mobile, Low, suspend, blur, and release reset it. Customize stays untouched. Focused tests 11/11 plus typecheck/build pass. **Owed: MENU-CART-FOLLOW-PT-1.** Do not reopen **MENU-CART-1**.",
+            "notes": "**Landed and deployed 08-20** in `de3cbdca` (Worker `c28a585a-7ad7-424c-8d08-4e2060e7742b`; VERIFY_OK `index-Bf1l9Pph.js` / `cartPreview-DFpDtf1Q.js`). Desktop Medium/High main-menu preview maps the full-menu mouse position to at most ±5° yaw / ±2° lean, follows in ~180 ms, and returns in ~350 ms. One presentation-pose compositor blends cursor life out for the fake ram and back in on recovery; reduced motion, touch, mobile, Low, suspend, blur, and release reset it. Customize stays untouched. Focused tests 13/13 plus typecheck/build and full QA pass. **Owed: MENU-CART-FOLLOW-PT-1.** Do not reopen **MENU-CART-1**.",
             "ship1": null
           },
           {
