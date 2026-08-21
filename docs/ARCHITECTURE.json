@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-21T08:32:42.420Z",
-    "commit": "90036e9d"
+    "at": "2026-08-21T08:45:40.274Z",
+    "commit": "ab054ad9"
   },
-  "source_digest": "4e9f5ed1",
+  "source_digest": "6b8fddda",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1029,7 +1029,7 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Low": 4
+          "Low": 5
         },
         "rows": [
           {
@@ -1055,6 +1055,12 @@
             "item": "ONBOARD-WEBP-PT-1 — HOW TO PLAY media moves or falls back cleanly `[1pc]`",
             "notes": "**Owed: Wyatt playtest — ONBOARD-WEBP-PT-1 — the HOW TO PLAY pictures loop when supported and stay clean when they cannot.** Parent **ONBOARD-WEBP-1**. Prod `ae7d7a81` (Worker `2a5af903`, hard-refresh) with `?diag=1`. **FAIL 08-21** before this ship: each clip played once (~2.8s) then froze.<br>1. Open HOW TO PLAY. Page through DRIVE, BOOST, RAM THEM OUT, READ THE HUD, and THE LIVING STORE.<br>2. FAIL if any picture is blank, broken, jumps in size, locks the menu, or plays once and then freezes. A clean still picture is an acceptable fallback only when motion cannot play at all.<br>3. PASS if each picture loops for as long as the slide stays open, or changes to a clean matching still within about a second; the teaching text and controls stay readable.<br>4. Press F8 after the five picture slides.",
             "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "SNAP-FINITE-PT-1 — snapshot finite guard changes nothing visible `[2pc]`",
+            "notes": "**Owed: Wyatt playtest — SNAP-FINITE-PT-1 — normal netplay is unchanged after every snapshot body write got a NaN guard (SNAP-FINITE-1).** Pushed but not yet deployed — `npm run dev:local` on both machines, or ship first.<br>1. Friends match, two machines. Drive, boost, ram, and hop for a full round on the non-host.<br>2. FAIL if any cart freezes in place, teleports to origin, ghosts through the floor, or remote carts stutter where they did not before.<br>3. PASS if remote carts track smoothly and collisions feel identical to pre-guard play.<br>4. Press F8 on both machines at round end.",
+            "ship1": null
           }
         ]
       },
@@ -1062,7 +1068,7 @@
         "title": "Tech Debt",
         "counts": {
           "Medium": 3,
-          "Low": 10
+          "Low": 11
         },
         "rows": [
           {
@@ -1147,6 +1153,13 @@
             "id": "BRAND-1",
             "item": "Brand / domain cutover ceremony",
             "notes": "Frozen — [brand.md](../brand.md).",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "id": "QUAT-NORM-1",
+            "item": "Snapshot quaternion guard ignores zero-norm quats",
+            "notes": "**Filed 08-21 with SNAP-FINITE-1.** `isFiniteQuat` (netcode.js) rejects NaN/Infinity but a hostile all-zeros `[0,0,0,0]` quat passes and reaches `setRotation` — Rapier may normalize to garbage or misbehave. Extend the guard (or normalize) when any snapshot quat evidence of abuse shows up; do not reopen SNAP-FINITE-1.",
             "ship1": null
           },
           {

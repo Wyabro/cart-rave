@@ -615,16 +615,18 @@ export function runPhysicsStep(loopState, deps, context) {
       // * Cart may exist without a live Rapier body mid-teardown / pre-bootstrap.
       if (fallbackCart?.body && localSnap) {
         const { p, q, lv, av } = localSnap;
-        if (Array.isArray(p) && p.length === 3) {
+        // * Finite-guarded like every snapshot body write (netcode.isFiniteVec3/Quat) —
+        // * one NaN component would poison the Rapier body permanently.
+        if (deps.netcode?.isFiniteVec3(p)) {
           fallbackCart.body.setTranslation({ x: p[0], y: p[1], z: p[2] }, true);
         }
-        if (Array.isArray(q) && q.length === 4) {
+        if (deps.netcode?.isFiniteQuat(q)) {
           fallbackCart.body.setRotation({ x: q[0], y: q[1], z: q[2], w: q[3] }, true);
         }
-        if (Array.isArray(lv) && lv.length === 3) {
+        if (deps.netcode?.isFiniteVec3(lv)) {
           fallbackCart.body.setLinvel({ x: lv[0], y: lv[1], z: lv[2] }, true);
         }
-        if (Array.isArray(av) && av.length === 3) {
+        if (deps.netcode?.isFiniteVec3(av)) {
           fallbackCart.body.setAngvel({ x: av[0], y: av[1], z: av[2] }, true);
         }
       }

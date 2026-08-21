@@ -1436,19 +1436,46 @@ function findSnapshotPair(targetServerNowMs) {
   return _snapshotPairScratch;
 }
 
+/**
+ * Shape + finiteness guard for snapshot vectors before they reach Rapier bodies.
+ * A single NaN/Infinity component would poison the body permanently (ghost cart,
+ * phantom collisions), so every snapshot body write must pass through these.
+ *
+ * @param {unknown} v Candidate vector array.
+ * @param {number} len Expected component count (3 for vec3, 4 for quat).
+ * @returns {boolean} True when `v` is an array of exactly `len` finite numbers.
+ */
+function isFiniteTuple(v, len) {
+  if (!Array.isArray(v) || v.length !== len) return false;
+  for (let i = 0; i < len; i += 1) {
+    if (!Number.isFinite(v[i])) return false;
+  }
+  return true;
+}
+
+/** @param {unknown} v Candidate [x, y, z]. */
+export function isFiniteVec3(v) {
+  return isFiniteTuple(v, 3);
+}
+
+/** @param {unknown} q Candidate [x, y, z, w] quaternion. */
+export function isFiniteQuat(q) {
+  return isFiniteTuple(q, 4);
+}
+
 export function applySnapshotToCartBody(cart, snap) {
   if (!cart?.body || !snap) return;
   const { p, q, lv, av } = snap;
-  if (Array.isArray(p) && p.length === 3) {
+  if (isFiniteVec3(p)) {
     cart.body.setTranslation({ x: p[0], y: p[1], z: p[2] }, true);
   }
-  if (Array.isArray(q) && q.length === 4) {
+  if (isFiniteQuat(q)) {
     cart.body.setRotation({ x: q[0], y: q[1], z: q[2], w: q[3] }, true);
   }
-  if (Array.isArray(lv) && lv.length === 3) {
+  if (isFiniteVec3(lv)) {
     cart.body.setLinvel({ x: lv[0], y: lv[1], z: lv[2] }, true);
   }
-  if (Array.isArray(av) && av.length === 3) {
+  if (isFiniteVec3(av)) {
     cart.body.setAngvel({ x: av[0], y: av[1], z: av[2] }, true);
   }
 
@@ -1647,39 +1674,39 @@ export function applyCartState(cart, snap, options = {}) {
   const { p, q, lv, av } = snap;
 
   if (interpolate) {
-    if (Array.isArray(p) && p.length === 3 && cart._netTargetPos) {
+    if (isFiniteVec3(p) && cart._netTargetPos) {
       cart._netTargetPos.set(p[0], p[1], p[2]);
     }
-    if (Array.isArray(q) && q.length === 4 && cart._netTargetQuat) {
+    if (isFiniteQuat(q) && cart._netTargetQuat) {
       cart._netTargetQuat.set(q[0], q[1], q[2], q[3]);
     }
   } else {
     if (cart.body) {
-      if (Array.isArray(p) && p.length === 3 && Number.isFinite(p[0]) && Number.isFinite(p[1]) && Number.isFinite(p[2])) {
+      if (isFiniteVec3(p)) {
         cart.body.setTranslation({ x: p[0], y: p[1], z: p[2] }, true);
       }
-      if (Array.isArray(q) && q.length === 4 && Number.isFinite(q[0]) && Number.isFinite(q[1]) && Number.isFinite(q[2]) && Number.isFinite(q[3])) {
+      if (isFiniteQuat(q)) {
         cart.body.setRotation({ x: q[0], y: q[1], z: q[2], w: q[3] }, true);
       }
-      if (Array.isArray(lv) && lv.length === 3 && Number.isFinite(lv[0]) && Number.isFinite(lv[1]) && Number.isFinite(lv[2])) {
+      if (isFiniteVec3(lv)) {
         cart.body.setLinvel({ x: lv[0], y: lv[1], z: lv[2] }, true);
       }
     }
     // * Keep interpolation targets in lockstep with direct body snaps.
-    if (Array.isArray(p) && p.length === 3 && Number.isFinite(p[0]) && Number.isFinite(p[1]) && Number.isFinite(p[2]) && cart._netTargetPos) {
+    if (isFiniteVec3(p) && cart._netTargetPos) {
       cart._netTargetPos.set(p[0], p[1], p[2]);
     }
-    if (Array.isArray(q) && q.length === 4 && Number.isFinite(q[0]) && Number.isFinite(q[1]) && Number.isFinite(q[2]) && Number.isFinite(q[3]) && cart._netTargetQuat) {
+    if (isFiniteQuat(q) && cart._netTargetQuat) {
       cart._netTargetQuat.set(q[0], q[1], q[2], q[3]);
     }
   }
 
-  if (Array.isArray(lv) && lv.length === 3 && Number.isFinite(lv[0]) && Number.isFinite(lv[1]) && Number.isFinite(lv[2]) && cart._lastNetLinvel) {
+  if (isFiniteVec3(lv) && cart._lastNetLinvel) {
     cart._lastNetLinvel.x = lv[0];
     cart._lastNetLinvel.y = lv[1];
     cart._lastNetLinvel.z = lv[2];
   }
-  if (Array.isArray(av) && av.length === 3 && Number.isFinite(av[0]) && Number.isFinite(av[1]) && Number.isFinite(av[2])) {
+  if (isFiniteVec3(av)) {
     // * Cache for remote visual present (frameVisuals) — mirrors _lastNetLinvel.
     if (cart._lastNetAngvel) {
       cart._lastNetAngvel.x = av[0];
