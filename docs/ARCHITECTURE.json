@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-21T08:45:40.274Z",
-    "commit": "ab054ad9"
+    "at": "2026-08-21T09:21:43.607Z",
+    "commit": "dfef6709"
   },
-  "source_digest": "6b8fddda",
+  "source_digest": "bf009362",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -233,6 +233,7 @@
         "party/index.ts"
       ],
       "files": [
+        "party/clientIdAuth.ts",
         "party/connectionReaper.ts",
         "party/constants.ts",
         "party/hostRearm.ts",
@@ -243,7 +244,7 @@
         "party/slotReconcile.ts",
         "party/turnCache.ts"
       ],
-      "file_count": 9,
+      "file_count": 10,
       "edges": [
         {
           "to": "networking-client",
@@ -259,7 +260,7 @@
       "notes": [
         "The server NEVER simulates physics (invariant). CartRaveServer.onMessage (index.ts, ~500-line method) is a flat if(type===MSG.x) chain with bodies inlined.",
         "room.getConnections() returns an iterator — spread or for…of, never .map().join().",
-        "Pure helpers (hostSelection, roundValidation, rateLimit, connectionReaper, hostRearm, slotReconcile, turnCache) + party/constants.ts thresholds are unit-tested; A5b DO harness lives in tests/party-do/ (Workers Vitest pool)."
+        "Pure helpers (clientIdAuth, hostSelection, roundValidation, rateLimit, connectionReaper, hostRearm, slotReconcile, turnCache) + party/constants.ts thresholds are unit-tested; A5b DO harness lives in tests/party-do/ (Workers Vitest pool)."
       ]
     },
     {
@@ -892,6 +893,12 @@
         "state": "waiting"
       },
       {
+        "id": "CLIENT-ID-AUTH-1",
+        "what": "clientId claim hijack guard (session-token proof of ownership)",
+        "status": "landed 08-21, uncommitted — qa green (2379 tests) + DO-harness hijack tests; 🅿️ CID-AUTH-PT-1 `[2pc]`; commit/ship pending Wyatt",
+        "state": "waiting"
+      },
+      {
         "id": "BRAND-1",
         "what": "Domain cutover",
         "status": "🧊 frozen ([brand.md](./brand.md))",
@@ -899,7 +906,8 @@
       }
     ],
     "next_actions": [
-      "ONBOARD-WEBP-PT-1 retest on prod `ae7d7a81` (hard-refresh)."
+      "ONBOARD-WEBP-PT-1 retest on prod `ae7d7a81` (hard-refresh).",
+      "CLIENT-ID-AUTH-1 — review + commit the wave (party/index.ts,"
     ],
     "open_issues": [
       {
@@ -1029,7 +1037,7 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Low": 5
+          "Low": 6
         },
         "rows": [
           {
@@ -1060,6 +1068,12 @@
             "pri": "Low",
             "item": "SNAP-FINITE-PT-1 — snapshot finite guard changes nothing visible `[2pc]`",
             "notes": "**Owed: Wyatt playtest — SNAP-FINITE-PT-1 — normal netplay is unchanged after every snapshot body write got a NaN guard (SNAP-FINITE-1).** Pushed but not yet deployed — `npm run dev:local` on both machines, or ship first.<br>1. Friends match, two machines. Drive, boost, ram, and hop for a full round on the non-host.<br>2. FAIL if any cart freezes in place, teleports to origin, ghosts through the floor, or remote carts stutter where they did not before.<br>3. PASS if remote carts track smoothly and collisions feel identical to pre-guard play.<br>4. Press F8 on both machines at round end.",
+            "ship1": null
+          },
+          {
+            "pri": "Low",
+            "item": "CID-AUTH-PT-1 — refresh mid-lobby keeps your seat `[2pc]`",
+            "notes": "**Owed: Wyatt playtest — CID-AUTH-PT-1 — refreshing the page mid-lobby re-seats you as the same player instead of dropping you to NPC.** Parent **CLIENT-ID-AUTH-1** (clientId hijack guard). Prod after ship, or `npm run dev:local` with two machines.<br>1. Two clients in one Friends room, both seated and ready.<br>2. Hard-refresh the HOST's page mid-lobby; let it rejoin.<br>3. FAIL if the refreshed client comes back as an NPC cart, loses its name/color, or the room strands hostless.<br>4. PASS if it re-seats under the same name with a human slot and the other client never sees a ghost. Press F8 at the end.",
             "ship1": null
           }
         ]

@@ -156,6 +156,7 @@ export const SYSTEMS = [
     members: [
       "party/index.ts",
       "party/constants.ts",
+      "party/clientIdAuth.ts",
       "party/hostSelection.ts",
       "party/roundValidation.ts",
       "party/rateLimit.ts",
@@ -167,7 +168,7 @@ export const SYSTEMS = [
     notes: [
       "The server NEVER simulates physics (invariant). CartRaveServer.onMessage (index.ts, ~500-line method) is a flat if(type===MSG.x) chain with bodies inlined.",
       "room.getConnections() returns an iterator — spread or for…of, never .map().join().",
-      "Pure helpers (hostSelection, roundValidation, rateLimit, connectionReaper, hostRearm, slotReconcile, turnCache) + party/constants.ts thresholds are unit-tested; A5b DO harness lives in tests/party-do/ (Workers Vitest pool).",
+      "Pure helpers (clientIdAuth, hostSelection, roundValidation, rateLimit, connectionReaper, hostRearm, slotReconcile, turnCache) + party/constants.ts thresholds are unit-tested; A5b DO harness lives in tests/party-do/ (Workers Vitest pool).",
     ],
     edges: [
       { to: "networking-client", via: "msg-wire", detail: "server broadcasts MSG.gameStart / hostSpawn / lobby + relays SDP/ICE back to clients over the WebSocket." },

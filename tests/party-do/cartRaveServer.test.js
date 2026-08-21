@@ -738,12 +738,17 @@ describe("CartRaveServer DO harness", () => {
     );
 
     // * Third WS, same clientId as host — race-free ghost path (no close+reopen).
+    // * CLIENT-ID-AUTH-1: the rejoin must present the minted session token, exactly
+    // * like the real client (netcode.js persists it and resends with MSG.join).
+    const mint = host.client.messages.find((m) => m.type === MSG.sessionToken);
+    expect(mint && typeof mint.sessionToken).toBe("string");
     const replacement = await openPartyClient(room, { ip: "10.0.2.3" });
     await replacement.awaitType(MSG.hello);
     replacement.sendJson({
       type: MSG.join,
       name: "HOST2",
       clientId: "cid-ghost-host",
+      sessionToken: mint.sessionToken,
       hostScore: 90,
     });
 

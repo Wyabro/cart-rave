@@ -9,7 +9,12 @@ import { consumeHopRequest } from "./input.js";
 import { clearHostCollisionBatch, drainHostCollisionBatch } from "./hostCollisionBatch.js";
 import { settingsStore } from "./stores/settingsStore.js";
 import * as P2P from "./netcode/p2p.js";
-import { encodeHostStateSnapshot, decodeHostStateSnapshot } from "./netcode/binary.js";
+import {
+  DECODE_RING_SIZE,
+  decodeHostStateSnapshot,
+  encodeHostStateSnapshot,
+  getDecodeRingHeadGen,
+} from "./netcode/binary.js";
 import { stampTailEventIds, markPresentationEid } from "./netcode/presentationDedupe.js";
 import { rebuildKOEvent } from "./scoring/koEvent.js";
 import { shouldCreditLocalSpill } from "./scoring/spillCredit.js";
@@ -1013,6 +1018,9 @@ const netFlowStats = {
   ringRejectsDupSeq: 0,
   ringRejectsOooSeq: 0,
   ringRejectsNonFinite: 0,
+  // * RING-ALIAS-1: buffered snapshots flushed because their decode-ring entry was
+  // * recycled before consumption. Nonzero = the ring-slack invariant was violated.
+  ringAliasFlushes: 0,
 };
 
 function resetNetFlowStats() {
@@ -1045,6 +1053,7 @@ function resetNetRingCounters() {
   netFlowStats.ringRejectsDupSeq = 0;
   netFlowStats.ringRejectsOooSeq = 0;
   netFlowStats.ringRejectsNonFinite = 0;
+  netFlowStats.ringAliasFlushes = 0;
 }
 
 /**
@@ -1418,7 +1427,29 @@ function pruneConsumedSnapshots(beforeIndex) {
   if (beforeIndex > 0) netStateBuffer.splice(0, beforeIndex);
 }
 
+/**
+ * RING-ALIAS-1: flush buffered snapshots whose decode-ring entry has been recycled.
+ * binary.js recycles its 96-entry ring in arrival order; slack over the 64-entry buffer
+ * cap assumes every non-retained decode is rare. A reject storm (dup/ooo seq, stale
+ * source — each burns a ring slot without buffering) can wrap the ring onto live
+ * entries. Gens are monotonic along the buffer, so a front walk suffices.
+ */
+function pruneAliasedDecodedSnapshots() {
+  const headGen = getDecodeRingHeadGen();
+  let flushed = 0;
+  while (
+    netStateBuffer.length > 0
+    && Number.isFinite(netStateBuffer[0].decodeGen)
+    && headGen - netStateBuffer[0].decodeGen >= DECODE_RING_SIZE
+  ) {
+    netStateBuffer.shift();
+    flushed += 1;
+  }
+  if (flushed > 0) netFlowStats.ringAliasFlushes += flushed;
+}
+
 function findSnapshotPair(targetServerNowMs) {
+  pruneAliasedDecodedSnapshots();
   let afterIndex = -1;
   for (let i = 0; i < netStateBuffer.length; i += 1) {
     const e = netStateBuffer[i];
@@ -2007,8 +2038,9 @@ export function signalPlayReadyNow() {
  * @param {number} seq Monotonic sequence number from the host.
  * @param {Array<object>|Record<string, object>} carts Per-slot transform snapshot (array preferred).
  * @param {number} epoch Host epoch (increments on host migration).
+ * @param {number} [decodeGen] Decode-ring generation (binary path only; JSON snaps omit it).
  */
-function bufferAuthoritativeState(serverNowMs, seq, carts, epoch) {
+function bufferAuthoritativeState(serverNowMs, seq, carts, epoch, decodeGen) {
   // * Host snapshots now travel over unordered/unreliable WebRTC while MSG.hostMigrated
   // * travels over the WebSocket — there is no cross-transport ordering guarantee. A
   // * stale pre-migration snapshot is instead rejected at the source in handleP2PMessage
@@ -2027,7 +2059,7 @@ function bufferAuthoritativeState(serverNowMs, seq, carts, epoch) {
     return;
   }
 
-  netStateBuffer.push({ serverNowMs, seq, carts, epoch });
+  netStateBuffer.push({ serverNowMs, seq, carts, epoch, decodeGen });
   while (netStateBuffer.length > CONFIG.net.stateBufferMaxSize) netStateBuffer.shift();
   // * NET-MIG-3: first accepted post-migration snapshot ends freeze + re-enables remotes.
   clearHostMigrationFirstSnapWait();
@@ -3093,6 +3125,10 @@ export function initNetcode(roomOverride) {
       // ignore
     }
   }
+  // * CLIENT-ID-AUTH-1: per-clientId secret minted by the room server on first join.
+  // * Proves ownership of clientId on reconnect; without it the server refuses to
+  // * exorcise a live session with the same clientId. Empty until first mint.
+  let sessionToken = localStorage.getItem("cartRaveSessionToken") || "";
   const modeAtConnect = callbacks.detectGameMode();
   if (partySocket) {
     stopKeepaliveLoop();
@@ -3300,7 +3336,7 @@ export function initNetcode(roomOverride) {
     localHostScore = hostScore;
     weakHostWarnedThisHostship = false;
     devLog("[netcode] Sending MSG.join", { name: savedUsername, clientId, hostScore });
-    partySocket?.send(JSON.stringify({ type: MSG.join, name: savedUsername, clientId, hostScore }));
+    partySocket?.send(JSON.stringify({ type: MSG.join, name: savedUsername, clientId, sessionToken, hostScore }));
     didSendJoin = true;
     sendColorPick(resolveServerColorPick());
     startKeepaliveLoop();
@@ -3323,6 +3359,20 @@ export function initNetcode(roomOverride) {
 
     if (type === MSG.keepalive) {
       // * Server keepalive ack only carries party time for offset; no other work.
+      return;
+    }
+
+    if (type === MSG.sessionToken) {
+      // * CLIENT-ID-AUTH-1: persist the minted proof-of-ownership secret so the next
+      // * join from this browser can claim its clientId (and exorcise its own ghost).
+      if (typeof msg.sessionToken === "string" && msg.sessionToken) {
+        sessionToken = msg.sessionToken;
+        try {
+          localStorage.setItem("cartRaveSessionToken", sessionToken);
+        } catch {
+          // ignore
+        }
+      }
       return;
     }
 
@@ -4389,6 +4439,8 @@ export const __netcodeTestHooks = {
   maybeWarnWeakHostForTest: () => maybeWarnWeakHost(),
   setAuthorityModeForTest: (nextIsHost) => setAuthorityMode(nextIsHost),
   getBufferLength: () => netStateBuffer.length,
+  /** RING-ALIAS-1: read-only buffer view so tests can assert entry contents/aliasing. */
+  getBufferEntriesForTest: () => netStateBuffer,
   findSnapshotPair: (t) => findSnapshotPair(t),
   pruneConsumedSnapshots: (beforeIndex) => pruneConsumedSnapshots(beforeIndex),
   updateServerClockOffset: (serverNowMs, nowMs) => updateHostClockOffset(serverNowMs, nowMs),
@@ -4752,7 +4804,7 @@ function handleRemoteHostState(state) {
     // * Pass tHost so gap/silence stats are host-domain (2e non-host arrival honesty).
     noteSnapshotArrival(tHostValid ? hostTime : 0);
     const seq = typeof state.seq === "number" ? state.seq : -1;
-    bufferAuthoritativeState(hostTime, seq, state.carts, hostEpoch);
+    bufferAuthoritativeState(hostTime, seq, state.carts, hostEpoch, state.decodeGen);
     // * Kill-credit / combo ages for host promotion (NET-MIG-1). Mirror host truth
     // * every snapshot: the host omits `attr` once all hit windows/combos close, so
     // * absent means EMPTY — holding the last non-empty value would resurrect
@@ -4787,5 +4839,6 @@ export function prunePendingInputs(ackSeq) {
 }
 
 export function getLatestSnap() {
+  pruneAliasedDecodedSnapshots();
   return netStateBuffer.length > 0 ? netStateBuffer[netStateBuffer.length - 1] : null;
 }

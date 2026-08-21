@@ -96,6 +96,7 @@ import {
 } from './constants';
 import { COUNTDOWN_ABORT_GRACE_MS, isContinuousModeRoom, seatReadyState } from '../shared/readiness.js';
 import { validateHostRound, type RoundState } from './roundValidation';
+import { ClientIdTokenRegistry } from './clientIdAuth';
 import { pickNextHostId } from './hostSelection';
 import { advanceRateLimit } from './rateLimit';
 import { TURN_FAIL_RETRY_MS, TURN_TOKEN_TTL_MS, extractCacheableServers, isTurnCacheFresh, type TurnCache } from './turnCache';
@@ -163,6 +164,10 @@ export class CartRaveServer extends Server {
   readonly #connections = new Map<string, Connection>();
   readonly #joinOrder: string[] = [];
   readonly #connClientId = new Map<string, string>();
+  // * CLIENT-ID-AUTH-1: proof-of-ownership tokens for clientId claims. Without this,
+  // * any join naming a victim's clientId exorcised them (closed their socket,
+  // * NPC'd their slot) and could inherit host ahead of oldest-connection order.
+  readonly #clientIdTokens = new ClientIdTokenRegistry();
   /** NH-HIT lever 3: client-reported host capability 0–100 (join hostScore). */
   readonly #hostScores = new Map<string, number>();
   readonly #awayHostIds = new Set<string>();
@@ -1347,7 +1352,9 @@ export class CartRaveServer extends Server {
       if (type === MSG.join) {
         // Optional client metadata; server already assigned a slot on connect.
         const name = typeof data?.name === "string" ? data.name.trim() : "";
-        const clientId = typeof data?.clientId === "string" ? data.clientId.trim() : "";
+        // * CLIENT-ID-AUTH-1: reset to "" when the session-token claim fails, so the
+        // * exorcism block below never runs for an unverified identity.
+        let clientId = typeof data?.clientId === "string" ? data.clientId.trim() : "";
         // * NH-HIT lever 3: host capability score for lobby rebalance.
         this.#setHostScoreFromPayload(connection.id, data);
         if (name) {
@@ -1357,6 +1364,27 @@ export class CartRaveServer extends Server {
           }
           const slot = this.#slots?.find((s) => s.connId === connection.id);
           if (slot) slot.name = name.slice(0, 24);
+        }
+
+        if (clientId) {
+          // * CLIENT-ID-AUTH-1: only a verified owner (or first-ever claimer) may
+          // * bind this clientId and exorcise its ghost. A wrong/missing token is
+          // * an unrelated identity: no exorcism, no binding — the victim's socket
+          // * and slot are untouched.
+          const presentedToken = typeof data?.sessionToken === "string" ? data.sessionToken : "";
+          const verdict = this.#clientIdTokens.claim(clientId, presentedToken, () =>
+            crypto.randomUUID()
+          );
+          if (verdict.action === "mint") {
+            this.#sendJson(connection, {
+              v: PROTOCOL_VERSION,
+              type: MSG.sessionToken,
+              serverNowMs: this.#serverNowMs(),
+              sessionToken: verdict.token,
+            });
+          } else if (verdict.action === "unverified") {
+            clientId = "";
+          }
         }
 
         let ghostHumanExorcised = false;

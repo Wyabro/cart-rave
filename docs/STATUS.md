@@ -98,6 +98,7 @@ Live rows only. Shipped and closed cards live in
 |---|------|--------|
 | NET-LAG-1 | Friends/QP lag + rubber-band (F8 both machines) | wave 1 landed; 🅿️ **NET-LAG-1-PT-1** `[2pc]` parked by Wyatt 08-20 |
 | ONBOARD-WEBP-1 | HOW TO PLAY WebP playback + fallback | shipped `ae7d7a81` Worker `2a5af903`; 🅿️ **ONBOARD-WEBP-PT-1** retest on prod |
+| CLIENT-ID-AUTH-1 | clientId claim hijack guard (session-token proof of ownership) | landed 08-21, **uncommitted** — qa green (2379 tests) + DO-harness hijack tests; 🅿️ **CID-AUTH-PT-1** `[2pc]`; commit/ship pending Wyatt |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 
 ### Next actions
@@ -107,6 +108,9 @@ Live rows only. Shipped and closed cards live in
    **ONBOARD-JUMP-PT-1** · **QP-PLAYING-PT-1** ·
    **FRIENDS-ROTATE-PT-1**. Do not start an external playtest until
    Block 1 drains. Deferred: **SHARD-PT-2** (launch day).
+2. **CLIENT-ID-AUTH-1** — review + commit the wave (party/index.ts,
+   party/clientIdAuth.ts, shared/protocol.js, src/netcode.js, archMap,
+   tests). Playtest owed: **CID-AUTH-PT-1**.
 
 ## Open issues (top)
 

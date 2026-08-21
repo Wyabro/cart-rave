@@ -53,6 +53,9 @@ export const MSG = {
   // * menu. Null/absent — friends rooms, harness rooms, or a chain that hit the shard cap —
   // * means "no hop", i.e. the original behaviour: toast and back to the menu.
   joinRejected: "join_rejected",
+  // * CLIENT-ID-AUTH-1: server → client, delivers the minted session token proving
+  // * ownership of the clientId sent in MSG.join (gates ghost exorcism).
+  sessionToken: "session_token",
   gameStart: "game_start",
   countdownCancel: "countdown_cancel",
 
