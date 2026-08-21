@@ -35,7 +35,7 @@ const FLOOR_FRICTION = 0.55; // unitless — lower than Classic record; high fri
 const FLOOR_GRID_CELLS_PLAY = 84;
 /**
  * Menu-preview floor grid — ~½ the cells → ~¼ the vertices/faces. Physics uses
- * fixed cuboid slices (not this grid), so preview LOD only affects visuals.
+ * one hole-cut trimesh (not this grid), so preview LOD only affects visuals.
  */
 const FLOOR_GRID_CELLS_PREVIEW = 44;
 const CARPET_TILE_M = 3.0; // meters — carpet texture world repeat (2×2 carpet tiles per repeat)
@@ -908,7 +908,7 @@ function getHoleApproachScuff(x, z) {
 }
 
 /**
- * Builds the square floor visual mesh (physics uses separate cuboid slices).
+ * Builds the square floor visual mesh (physics uses one hole-cut trimesh).
  * Square corner voids have inward-sloping chamfer lips; the perimeter has an
  * outward-sloping drop-off. Open void vertices are omitted so the mesh matches kill zones.
  *
@@ -1003,17 +1003,19 @@ function buildFloorGeometry(cells = FLOOR_GRID_CELLS_PLAY) {
 
 // ===== Floor physics layout (shared by collider construction and tests) =====
 
-// * Hull tops meet the flat floor slices this far below their top faces — a step small
+// * Hull tops meet the flat floor this far below its top face — a step small
 // * enough to never catch a cart, large enough to avoid coplanar-face contact jitter.
 const CHAMFER_TUCK = 0.02;
+/** Flat-floor prism thickness. Same occupancy as the old 9 cuboid slices (half 0.3). */
+const FLOOR_COLLIDER_THICKNESS = 0.6;
 
 /**
- * The 9 flat floor slices as axis-aligned rects (half-extents + centers). The flat floor
- * stops where the sloped chamfer lips begin; the lips are covered by the convex-hull
- * prisms from buildChamferColliders(). Derived from the SAME constants the visual mesh
- * uses (single source of truth) — the original bug here was hand-written INNER/OUTER/EDGE
- * numbers that excluded the chamfer bands entirely, leaving visually-solid sloped carpet
- * with no collider.
+ * The 9 flat floor slices as axis-aligned rects (half-extents + centers). These are the
+ * 2D union of the one floor trimesh, not separate colliders. The flat floor stops where
+ * the sloped chamfer lips begin; the lips are covered by the convex-hull prisms from
+ * buildChamferColliders(). Derived from the SAME constants the visual mesh uses (single
+ * source of truth) — the original bug here was hand-written INNER/OUTER/EDGE numbers that
+ * excluded the chamfer bands entirely, leaving visually-solid sloped carpet with no collider.
  *
  * @returns {Array<{ hx: number, hz: number, px: number, pz: number }>}
  */
@@ -1037,6 +1039,125 @@ function computeFloorSliceRects() {
     { hx: stripHX, hz: INNER, px: -stripPX, pz: 0 },
     { hx: stripHX, hz: (EDGE - OUTER) / 2, px: -stripPX, pz: -((OUTER + EDGE) / 2) },
   ];
+}
+
+/**
+ * One floor-prism trimesh: top, bottom, outer walls, four square hole walls.
+ * No internal seam faces between the old 9 slices. Shared with the CART-POP-1
+ * Storerooms repro (duplicate the vertex order there; do not import this file).
+ *
+ * Top winding is (BL, TL, TR, BR) so the Y-up cross product is +Y. Wrong winding
+ * with ORIENTED drops a cart through the floor.
+ *
+ * @returns {{
+ *   vertices: Float32Array,
+ *   indices: Uint32Array,
+ *   yTop: number,
+ *   yBottom: number,
+ *   edge: number,
+ *   holeHalf: number,
+ *   holeCenters: Array<{ x: number, z: number }>,
+ *   sliceCount: number,
+ * }}
+ */
+function buildStoreroomsFloorTrimesh() {
+  const yTop = 0;
+  const yBot = -FLOOR_COLLIDER_THICKNESS;
+  const rects = computeFloorSliceRects();
+  const verts = [];
+  const indexOf = new Map();
+  const add = (x, y, z) => {
+    const key = `${x.toFixed(7)},${y.toFixed(7)},${z.toFixed(7)}`;
+    const existing = indexOf.get(key);
+    if (existing !== undefined) return existing;
+    const i = verts.length / 3;
+    verts.push(x, y, z);
+    indexOf.set(key, i);
+    return i;
+  };
+  const indices = [];
+  const quad = (a, b, c, d) => {
+    indices.push(a, b, c, a, c, d);
+  };
+
+  for (const r of rects) {
+    const x0 = r.px - r.hx;
+    const x1 = r.px + r.hx;
+    const z0 = r.pz - r.hz;
+    const z1 = r.pz + r.hz;
+    const tBL = add(x0, yTop, z0);
+    const tTL = add(x0, yTop, z1);
+    const tTR = add(x1, yTop, z1);
+    const tBR = add(x1, yTop, z0);
+    quad(tBL, tTL, tTR, tBR);
+    const bBL = add(x0, yBot, z0);
+    const bTL = add(x0, yBot, z1);
+    const bTR = add(x1, yBot, z1);
+    const bBR = add(x1, yBot, z0);
+    quad(bBL, bBR, bTR, bTL);
+  }
+
+  const edge = ARENA_HALF - OUTER_CHAMFER_W;
+  const outer = [
+    [edge, edge],
+    [-edge, edge],
+    [-edge, -edge],
+    [edge, -edge],
+  ];
+  for (let i = 0; i < 4; i += 1) {
+    const j = (i + 1) % 4;
+    const t0 = add(outer[i][0], yTop, outer[i][1]);
+    const t1 = add(outer[j][0], yTop, outer[j][1]);
+    const b1 = add(outer[j][0], yBot, outer[j][1]);
+    const b0 = add(outer[i][0], yBot, outer[i][1]);
+    quad(t0, t1, b1, b0);
+  }
+
+  const holeHalf = HOLE_HALF + HOLE_CHAMFER_W;
+  for (const h of HOLE_CENTERS) {
+    const ring = [
+      [h.x + holeHalf, h.z + holeHalf],
+      [h.x + holeHalf, h.z - holeHalf],
+      [h.x - holeHalf, h.z - holeHalf],
+      [h.x - holeHalf, h.z + holeHalf],
+    ];
+    for (let i = 0; i < 4; i += 1) {
+      const j = (i + 1) % 4;
+      const t0 = add(ring[i][0], yTop, ring[i][1]);
+      const t1 = add(ring[j][0], yTop, ring[j][1]);
+      const b1 = add(ring[j][0], yBot, ring[j][1]);
+      const b0 = add(ring[i][0], yBot, ring[i][1]);
+      quad(t0, t1, b1, b0);
+    }
+  }
+
+  return {
+    vertices: new Float32Array(verts),
+    indices: new Uint32Array(indices),
+    yTop,
+    yBottom: yBot,
+    edge,
+    holeHalf,
+    holeCenters: HOLE_CENTERS.map((h) => ({ x: h.x, z: h.z })),
+    sliceCount: rects.length,
+  };
+}
+
+/**
+ * Full flat-floor collider layout. Exported for the floor regression test.
+ * Chamfer hulls and pit walls stay separate — they are sloped lips and pits.
+ *
+ * @returns {ReturnType<typeof buildStoreroomsFloorTrimesh> & {
+ *   friction: number,
+ *   thickness: number,
+ * }}
+ */
+export function getBackroomsFloorColliderSpec() {
+  return {
+    ...buildStoreroomsFloorTrimesh(),
+    friction: FLOOR_FRICTION,
+    thickness: FLOOR_COLLIDER_THICKNESS,
+  };
 }
 
 /**
@@ -1081,16 +1202,16 @@ export function computeFloorPhysicsY(x, z) {
  * square void (sloping down into the shaft) and per arena edge (sloping down toward the
  * pit). The 45° mitered ends tile exactly with their neighbours (same tangent-fit-hull
  * idea as the Classic Record ring collider), and the up-slope edge meets the flat floor
- * cuboids 2cm below their tops — a step small enough to never catch a cart, avoiding both
- * historical failure modes here (trimesh internal-edge bounce, roundCuboid shrink gaps).
+ * 2cm below its top — a step small enough to never catch a cart, avoiding both historical
+ * failure modes here (visual-grid trimesh bounce/tunnel, roundCuboid shrink gaps).
  *
  * @param {import("@dimforge/rapier3d").World} world
- * @param {number} friction Matches the flat floor slices.
- * @param {number} restitution Matches the flat floor slices.
+ * @param {number} friction Matches the flat floor.
+ * @param {number} restitution Matches the flat floor.
  * @returns {object[]} Rigid bodies to remove on dispose.
  */
 function buildChamferColliders(world, friction, restitution) {
-  const TUCK = CHAMFER_TUCK; // meters — hull top sits this far below the flat cuboid tops
+  const TUCK = CHAMFER_TUCK; // meters — hull top sits this far below the flat floor top
   const PRISM_H = 0.5; // meters — prism thickness, extruded straight down
 
   const body = world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(0, 0, 0));
@@ -3741,7 +3862,7 @@ export function initBackroomsSupermarket(scene, world, config, options = {}) {
   // * Thick, musty warm fog — oppressive haze that swallows far walls and pit depth.
   scene.fog = new THREE.FogExp2(backroomsFog.color, backroomsFog.density);
 
-  // ===== Floor visual (grid LOD) + cuboid physics (always full precision) =====
+  // ===== Floor visual (grid LOD) + trimesh physics (always full precision) =====
   const floorGeo = buildFloorGeometry(floorCells);
   const carpetTex = buildCarpetTexture();
   carpetTex.repeat.set(1, 1); // UVs already scaled in geometry by CARPET_TILE_M
@@ -3766,30 +3887,22 @@ export function initBackroomsSupermarket(scene, world, config, options = {}) {
   floorMesh.receiveShadow = false;
   scene.add(floorMesh);
 
-  // --- 9-CUBOID SLICE COLLIDER (Fixes Trimesh Bounce & Tunneling) ---
+  // * CART-POP-1: one floor trimesh with FIX_INTERNAL_EDGES. The previous 9
+  // * abutting cuboids shared internal seam faces; a supported cart at ~24 m/s
+  // * took a tilted manifold (nY 0.961) and rose +0.84 vy. Do not resurrect the
+  // * old visual-grid trimesh (bounce / tunnel). Chamfer hulls stay separate.
   const floorBody = world.createRigidBody(
-    // Body placed at -0.3 so top surface of 0.6-thick colliders is exactly at Y=0
-    RAPIER.RigidBodyDesc.fixed().setTranslation(0, -0.3, 0),
+    RAPIER.RigidBodyDesc.fixed().setTranslation(0, 0, 0),
   );
-
-  const T_HALF = 0.3; // 0.6m thickness
-  const floorColliders = [];
-
-  // * Slice layout lives in computeFloorSliceRects() (shared with tests); the sloped
-  // * chamfer bands the slices stop short of are covered by buildChamferColliders().
-  // * REVERTED long ago: roundCuboid shrunk the flat top surface by 0.15m, creating gaps
-  // * between the floor pieces and causing carts to snag on seams — keep plain cuboids.
-  for (const r of computeFloorSliceRects()) {
-    const desc = RAPIER.ColliderDesc.cuboid(r.hx, T_HALF, r.hz)
-      .setTranslation(r.px, 0, r.pz) // Local Y is 0 because body is at -0.3
+  const floorSpec = getBackroomsFloorColliderSpec();
+  const floorFlags = RAPIER.TriMeshFlags.FIX_INTERNAL_EDGES | RAPIER.TriMeshFlags.ORIENTED;
+  const recordCollider = world.createCollider(
+    RAPIER.ColliderDesc.trimesh(floorSpec.vertices, floorSpec.indices, floorFlags)
       .setFriction(FLOOR_FRICTION)
-      .setRestitution(config.record.restitution);
-    floorColliders.push(world.createCollider(desc, floorBody));
-  }
-
-  // Return handles array (main.js will normalize this for simulation.js)
-  const recordCollider = floorColliders[0]; // Backward compat
-  const recordColliderHandles = floorColliders.map(c => c.handle);
+      .setRestitution(config.record.restitution),
+    floorBody,
+  );
+  const recordColliderHandles = [recordCollider.handle];
 
   // Sloped chamfer-lip colliders (the bands the flat slices deliberately stop short of)
   // + Cart Rave-style fall containment (shaft ricochet walls, pit backstop cap).

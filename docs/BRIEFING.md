@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-20 at commit `bb29c13b` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `75ceb869`
+> Generated 2026-08-21 at commit `cf2b1daf` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `5806fdaa`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -14,16 +14,16 @@
 
 ## Mission
 
-Playtesting and stabilization — External playtest is gated on BACKLOG Block 1 (9 Highs). NET-LAG-1-PT-1 is parked by Wyatt (08-20). CART-POP-1 Sundial shipped prod `bb29c13b` (Worker `3f3e5fbd`, VERIFY_OK `index-DPVRIrNw.js`). Wyatt PASS Sundial. Storerooms still pop — new window. Do not retouch Classic. Tier A drained; Tier B/C, security sweep, and analytics gating are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Stay in this phase until Wyatt advances the marker.
+Playtesting and stabilization — External playtest is gated on BACKLOG Block 1 (9 Highs). NET-LAG-1-PT-1 is parked by Wyatt (08-20). CART-POP-1 Sundial shipped prod `bb29c13b` (Worker `3f3e5fbd`, VERIFY_OK `index-DPVRIrNw.js`). Wyatt PASS Sundial. Storerooms floor collider landed (one hole-cut trimesh); CART-POP-PT-1 open until Storerooms F8 PASS. Do not retouch Classic or Sundial floors. Tier A drained; Tier B/C, security sweep, and analytics gating are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Stay in this phase until Wyatt advances the marker.
 
 ## ACTIVE CARD
 
-CART-POP-1 Storerooms in a new window. Do not retouch Classic
+CART-POP-1 Storerooms floor collider landed. Wait for ship it
 
 Assess and state the lane before editing. This heading names the card; it is **not** a lane assessment or permission to edit.
 
 Self-directed queue (one at a time, within the declared phase):
-- **CART-POP-1** carts pop off the floor in normal driving — Classic + Sundial PASS; Storerooms remain (new window)
+- **CART-POP-1** carts pop off the floor in normal driving — Classic + Sundial PASS; Storerooms code landed, PT owed
 - **FRIENDS-ROTATE-1** Friends rematch rotates arenas, synced — queued
 - **ONBOARD-JUMP-1** HOW TO PLAY matches jump+boost — queued
 - **ONBOARD-WEBP-1** HOW TO PLAY WebP playback + fallback — deployed `51df06af` / Worker `819ad9ca`; 🅿️ ONBOARD-WEBP-PT-1 owed

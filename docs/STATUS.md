@@ -28,7 +28,8 @@ report phase-exit eligibility; they must not move the marker.
 **Playtesting and stabilization.** External playtest is gated on BACKLOG Block 1
 (9 Highs). **NET-LAG-1-PT-1** is parked by Wyatt (08-20). **CART-POP-1** Sundial
 shipped prod `bb29c13b` (Worker `3f3e5fbd`, VERIFY_OK `index-DPVRIrNw.js`).
-Wyatt PASS Sundial. Storerooms still pop — new window. Do not retouch Classic.
+Wyatt PASS Sundial. Storerooms floor collider landed (one hole-cut trimesh);
+**CART-POP-PT-1** open until Storerooms F8 PASS. Do not retouch Classic or Sundial floors.
 Tier A drained; Tier B/C, security sweep, and analytics gating are closed. Run 7
 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Stay in this phase until
 Wyatt advances the marker.
@@ -98,7 +99,7 @@ Live rows only. Shipped and closed cards live in
 | # | What | Status |
 |---|------|--------|
 | NET-LAG-1 | Friends/QP lag + rubber-band (F8 both machines) | wave 1 landed; 🅿️ **NET-LAG-1-PT-1** `[2pc]` parked by Wyatt 08-20 |
-| CART-POP-1 | carts pop off the floor in normal driving | Classic + Sundial PASS; Storerooms remain (new window) |
+| CART-POP-1 | carts pop off the floor in normal driving | Classic + Sundial PASS; Storerooms code landed, PT owed |
 | FRIENDS-ROTATE-1 | Friends rematch rotates arenas, synced | queued |
 | ONBOARD-JUMP-1 | HOW TO PLAY matches jump+boost | queued |
 | ONBOARD-WEBP-1 | HOW TO PLAY WebP playback + fallback | deployed `51df06af` / Worker `819ad9ca`; 🅿️ **ONBOARD-WEBP-PT-1** owed |
@@ -109,7 +110,8 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. **CART-POP-1** Storerooms in a new window. Do not retouch Classic
+1. **CART-POP-1** Storerooms floor collider landed. Wait for **ship it**.
+   Then **CART-POP-PT-1** Storerooms F8 on prod. Do not retouch Classic
    or Sundial floors. Do not tune physics.
 2. **NET-LAG-1-PT-1** `[2pc]` is parked by Wyatt. Drain BACKLOG Block 1 in work-order order. Do not start an external
    playtest until it drains. Deferred: **SHARD-PT-2** (launch day).
@@ -169,10 +171,14 @@ or a suspected blocker (TS 7 · `cartrave4` UVs).
 
 ## Last updated
 
+2026-08-20 (CART-POP-1 Storerooms floor) — one hole-cut trimesh with
+`FIX_INTERNAL_EDGES`. Isolated Rapier: 9-cuboid r16@24 pops=1; trimesh
+r16@24 pops=0, rest planted, four holes open. Wait for **ship it**.
+**CART-POP-PT-1** stays open until Storerooms F8 PASS.
+
 2026-08-20 (CART-POP-1 Sundial ship) — prod `bb29c13b` Worker `3f3e5fbd`.
 VERIFY_OK `index-DPVRIrNw.js`, live `zanzibarPlatform-NhN7tGeb.js` has
-`FIX_INTERNAL_EDGES`. Wyatt PASS Sundial. Storerooms in a new window.
-**CART-POP-PT-1** stays open until Storerooms.
+`FIX_INTERNAL_EDGES`. Wyatt PASS Sundial.
 
 2026-08-20 (**ONBOARD-WEBP-1**) — HOW TO PLAY motion now mounts only on a
 visible slide, verifies frame progress, and switches to its paired still if
@@ -181,15 +187,9 @@ Deployed commit `51df06af`, Worker `819ad9ca-ce02-46d0-aff4-c1523921e8cb`.
 **ONBOARD-WEBP-PT-1** needs the brother's F8 machine.
 
 2026-08-20 (**ONBOARD-JUMP-1**) — gamepad boost = RT/B, hop = A/LT.
-Playtest **ONBOARD-JUMP-PT-1** seeded.
-
-2026-08-20 (**MENU-MUSIC-2C-PT-1**) — Wyatt PASS on prod `98f21261`.
-Parent **MENU-MUSIC-2C** closes with it.
-
-2026-08-20 (**NPC-SELFKO-3** closed) — under 10 self-KOs / 150 s. Soak
-1 / 6 / 3. `7384dc27`. **NPC-SELFKO-3-PT-1** closed on the same bar.
-
-2026-08-20 (Wyatt lane) — parked **NET-LAG-1-PT-1** `[2pc]`.
+Playtest **ONBOARD-JUMP-PT-1** seeded. **MENU-MUSIC-2C-PT-1** Wyatt PASS
+prod `98f21261`. **NPC-SELFKO-3** closed (`7384dc27`). Parked
+**NET-LAG-1-PT-1** `[2pc]`.
 
 2026-08-19 (playtest blockers filed) — BACKLOG Block 1 reopened with 9
 Highs. Start **NET-LAG-1**. Do not playtest until the block drains.

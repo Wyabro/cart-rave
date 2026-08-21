@@ -2,15 +2,15 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-20T23:23:40.825Z",
-    "commit": "bb29c13b"
+    "at": "2026-08-21T00:47:56.124Z",
+    "commit": "cf2b1daf"
   },
-  "source_digest": "144a98ee",
+  "source_digest": "ce2761ce",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
     "production_url": "https://www.cartclash.lol/",
-    "mission": "Playtesting and stabilization — External playtest is gated on BACKLOG Block 1 (9 Highs). NET-LAG-1-PT-1 is parked by Wyatt (08-20). CART-POP-1 Sundial shipped prod `bb29c13b` (Worker `3f3e5fbd`, VERIFY_OK `index-DPVRIrNw.js`). Wyatt PASS Sundial. Storerooms still pop — new window. Do not retouch Classic. Tier A drained; Tier B/C, security sweep, and analytics gating are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Stay in this phase until Wyatt advances the marker.",
+    "mission": "Playtesting and stabilization — External playtest is gated on BACKLOG Block 1 (9 Highs). NET-LAG-1-PT-1 is parked by Wyatt (08-20). CART-POP-1 Sundial shipped prod `bb29c13b` (Worker `3f3e5fbd`, VERIFY_OK `index-DPVRIrNw.js`). Wyatt PASS Sundial. Storerooms floor collider landed (one hole-cut trimesh); CART-POP-PT-1 open until Storerooms F8 PASS. Do not retouch Classic or Sundial floors. Tier A drained; Tier B/C, security sweep, and analytics gating are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Stay in this phase until Wyatt advances the marker.",
     "phase": "Playtesting & stabilization — stabilize after Run 7; prove residuals; no auto-advance to RC",
     "phases": [
       {
@@ -882,7 +882,7 @@
       {
         "id": "CART-POP-1",
         "what": "carts pop off the floor in normal driving",
-        "status": "Classic + Sundial PASS; Storerooms remain (new window)",
+        "status": "Classic + Sundial PASS; Storerooms code landed, PT owed",
         "state": "waiting"
       },
       {
@@ -929,7 +929,7 @@
       }
     ],
     "next_actions": [
-      "CART-POP-1 Storerooms in a new window. Do not retouch Classic",
+      "CART-POP-1 Storerooms floor collider landed. Wait for ship it.",
       "NET-LAG-1-PT-1 `[2pc]` is parked by Wyatt. Drain BACKLOG Block 1 in work-order order. Do not start an external"
     ],
     "open_issues": [
@@ -960,7 +960,7 @@
           {
             "pri": "High",
             "item": "CART-POP-1 — carts pop off the floor in normal driving",
-            "notes": "**Classic PASS 08-20** Wave I Worker `5360f482`. **Sundial PASS 08-20** prod `bb29c13b` Worker `3f3e5fbd` (VERIFY_OK `index-DPVRIrNw.js`). Do not retouch Classic or Sundial floors. **Storerooms (new window):** `backroomsSupermarket.js` multiple floor colliders. Same first-ejection: supported, `preVy≈0`, tilted manifold, ~24 m/s. Pattern: one floor surface, no overlap, no radial internals. No restitution/friction/CCD/solver tune. **CART-POP-PT-1** open until Storerooms PASS. Lane: **Critical**.",
+            "notes": "**Classic PASS 08-20** Wave I Worker `5360f482`. **Sundial PASS 08-20** prod `bb29c13b` Worker `3f3e5fbd`. Do not retouch Classic or Sundial floors. **Storerooms code landed 08-20:** one hole-cut trimesh + `FIX_INTERNAL_EDGES` in `backroomsSupermarket.js`. Isolated Rapier: 9-cuboid r16@24 pops=1; trimesh r16@24 pops=0, rest planted, four holes open. Chamfer hulls and fall containment kept. No restitution/friction/CCD/solver tune. **CART-POP-PT-1** open until Storerooms F8 PASS. Lane: **Critical**.",
             "ship1": null
           },
           {
@@ -1097,7 +1097,7 @@
           {
             "pri": "Low",
             "item": "CART-POP-PT-1 — normal driving stays planted across all arenas `[1pc]`",
-            "notes": "**Owed: Wyatt playtest — CART-POP-PT-1 — Storerooms stay planted.** **Wyatt PASS 08-20 Classic** (Wave I `5360f482`) **and Sundial** (prod `bb29c13b`). Parent **CART-POP-1**. Still FAIL until Storerooms PASS.<br>1. On production with `?diag=1`, drive ~30 s on Storerooms; straight runs and full-lock turns, no hop or boost.<br>2. FAIL if a cart pops off the flat floor without a ram, obstacle hit, or edge contact.<br>3. PASS if ordinary driving stays planted on Storerooms while rams and hits still have visible lift.<br>4. Press F8 once after the arena.",
+            "notes": "**Owed: Wyatt playtest — CART-POP-PT-1 — Storerooms stay planted.** **Wyatt PASS 08-20 Classic** (Wave I `5360f482`) **and Sundial** (prod `bb29c13b`). Parent **CART-POP-1**. Storerooms floor collider landed; still FAIL until Storerooms F8 PASS on prod after **ship it**.<br>1. On production with `?diag=1`, drive ~30 s on Storerooms; straight runs and full-lock turns, no hop or boost.<br>2. FAIL if a cart pops off the flat floor without a ram, obstacle hit, or edge contact.<br>3. PASS if ordinary driving stays planted on Storerooms while rams and hits still have visible lift.<br>4. Press F8 once after the arena.",
             "ship1": null
           },
           {
