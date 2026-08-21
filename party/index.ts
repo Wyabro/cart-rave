@@ -81,7 +81,7 @@ type Slot = {
 
 import { HOST_MIGRATION_COOLDOWN_MS, MSG } from '../shared/protocol.js';
 import { COUNTDOWN_MS, FLYOVER_PREROLL_MS } from '../shared/roundConstants.js';
-const PALETTE = ["pink", "blue", "green", "yellow", "neonOrange"] as const;
+import { PALETTE } from '../shared/palette.js';
 import { requireAdminToken } from './adminAuth';
 import { GunzipCapError, gunzipBase64Utf8 } from './gunzip';
 import { UNKNOWN_IP } from './beaconLimit';

@@ -400,7 +400,7 @@ function drainHostFallBatch() {
  */
 export function declashNpcSlotColors(slots) {
   if (!Array.isArray(slots) || slots.length === 0) return slots;
-  const palette = PALETTE || ["pink", "blue", "green", "yellow", "neonOrange"];
+  const palette = PALETTE;
   const humanPresetColors = new Set();
   const humanLookHexes = new Set();
 

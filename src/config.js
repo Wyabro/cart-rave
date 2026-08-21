@@ -6,8 +6,9 @@
  * Main sections:
  *   - CONFIG             — runtime settings (debug, net, camera, audio, scoring, physics)
  *   - CONFIG.physics     — grouped physics / arena / cart tuning (flat aliases on CONFIG.*)
- *   - CART_COLORS / PALETTE — cart color palette, brand-aligned (ART-PALETTE-1);
- *     hex values match the 2D roster (PALETTES.classic.players in cart-rave-menu.js)
+ *   - CART_COLORS / PALETTE — re-exported from shared/palette.js (the single
+ *     source, ART-PALETTE-1); hex values match the 2D roster (PALETTES.classic.players
+ *     in cart-rave-menu.js)
  *   - MSG                — wire-protocol message type strings
  *   - WORKER_PUBLIC_HOST — legacy workers.dev host (staging URL; fallback PartySocket host)
  *   - WORKER_PAGE_HOSTS — hostnames that serve this Worker (custom domain + workers.dev)
@@ -18,6 +19,7 @@
 import { getQualityTier } from "./utils/qualityMode.js";
 import { QUALITY_KNOBS } from "./utils/qualityTiers.js";
 import { COUNTDOWN_MS, ROUND_DURATION_MS } from "../shared/roundConstants.js";
+export { CART_COLORS, PALETTE } from "../shared/palette.js";
 
 const physics = {
   gravity: -24, // m/s² — world Y acceleration
@@ -711,19 +713,6 @@ CONFIG.cart.spawnHeight =
   CONFIG.booth.platformThickness / 2 +
   CONFIG.cart.size.y / 2 +
   0.05;
-
-// * ART-PALETTE-1: brand roster, in PALETTES.classic.players order. The `css: "bg-*"`
-// * field was dead (zero consumers repo-wide) and is removed. Pure spectral hexes
-// * (0xff00ff etc.) are banned as off-brand — see docs/reference/art-direction.md.
-export const CART_COLORS = {
-  pink:       { hex: 0xff2bd6 },
-  blue:       { hex: 0x22e6ff },
-  green:      { hex: 0x2bff7a },
-  yellow:     { hex: 0xffe53d },
-  neonOrange: { hex: 0xff7a1a },
-};
-
-export const PALETTE = Object.keys(CART_COLORS);
 
 export { MSG } from '../shared/protocol.js';
 

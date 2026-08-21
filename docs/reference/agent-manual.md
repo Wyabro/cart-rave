@@ -161,10 +161,12 @@ toward Version 2.
   host, `P2P.sendToPeer(hostId, …)` from clients. Do **not** route these back through the
   WebSocket. The WebSocket carries only lobby, signaling, and round-lifecycle messages;
   kill-feed falls/collisions ride the P2P snapshot tail.
-- **Color logic uses `CART_COLORS` in `src/config.js`.** The palette hexes are **brand-aligned**
-  (ART-PALETTE-1, 08-13) — they must match the 2D roster `PALETTES.classic.players` in
-  `cart-rave-menu.js` (pink / blue / green / yellow / neonOrange; pure spectral hexes are
-  off-brand). The `mesh.traverse()` material logic stays frozen.
+- **Color logic uses `CART_COLORS` / `PALETTE` from `shared/palette.js`** (re-exported by
+  `src/config.js`; the server imports the same roster for colorPick validation — never hardcode
+  it). The palette hexes are **brand-aligned** (ART-PALETTE-1, 08-13) — they must match the 2D
+  roster `PALETTES.classic.players` in `cart-rave-menu.js` (pink / blue / green / yellow /
+  neonOrange; pure spectral hexes are off-brand). The `mesh.traverse()` material logic stays
+  frozen.
 - **Rounds start only via `MSG.gameStart`.** No tick-level auto-starts in `update()`.
 - **Win condition:** 150 seconds (timer) or Sudden Death / last-standing paths. Round length
   is **single-sourced** as `ROUND_DURATION_MS` in `shared/roundConstants.js` (`150_000`);

@@ -59,7 +59,7 @@ export const SYSTEMS = [
     notes: [
       "src/main.js is the composition root — ~1,275 lines after MAIN-1's carve (08-04) and BUNDLE-1 Lever B, down from ~2,582. `async function main()` still spans most of the file, but it now holds composition wiring rather than domain logic: the old inner functions moved into src/orchestration/ (gameBoot, menuPlayEntry, levelOrchestration, cartOrchestration, roundLifecycle, loopDeps, …). What is left inside still escapes ONLY via the callbacks/deps bundles.",
       "buildNetcodeGameBridge (gameSession.js) is the authoring site for the netcode callbacks seam — the real place to learn which main.js impl backs a callbacks.* name.",
-      "config.js owns CART_COLORS + the CONFIG knob table (an invariant surface — do not modify CART_COLORS or the material traverse logic).",
+      "config.js re-exports CART_COLORS/PALETTE from shared/palette.js (invariant surface — do not modify the palette values or the material traverse logic) and owns the CONFIG knob table.",
     ],
     edges: [
       { to: "networking-client", via: "callbacks-object", detail: "main.js `Netcode.registerGameCallbacks(buildNetcodeGameBridge(…))` merges ~40 real impls over netcode.js's default stub `callbacks` object." },
@@ -162,11 +162,12 @@ export const SYSTEMS = [
       "party/connectionReaper.ts",
       "party/hostRearm.ts",
       "party/slotReconcile.ts",
+      "party/turnCache.ts",
     ],
     notes: [
       "The server NEVER simulates physics (invariant). CartRaveServer.onMessage (index.ts, ~500-line method) is a flat if(type===MSG.x) chain with bodies inlined.",
       "room.getConnections() returns an iterator — spread or for…of, never .map().join().",
-      "Pure helpers (hostSelection, roundValidation, rateLimit, connectionReaper, hostRearm, slotReconcile) + party/constants.ts thresholds are unit-tested; A5b DO harness lives in tests/party-do/ (Workers Vitest pool).",
+      "Pure helpers (hostSelection, roundValidation, rateLimit, connectionReaper, hostRearm, slotReconcile, turnCache) + party/constants.ts thresholds are unit-tested; A5b DO harness lives in tests/party-do/ (Workers Vitest pool).",
     ],
     edges: [
       { to: "networking-client", via: "msg-wire", detail: "server broadcasts MSG.gameStart / hostSpawn / lobby + relays SDP/ICE back to clients over the WebSocket." },
@@ -414,11 +415,12 @@ export const SYSTEMS = [
     id: "shared-protocol",
     name: "Shared protocol",
     responsibility:
-      "The client↔server single-source contract: MSG keys, round constants, readiness semantics, arena pool, WS message limits, NPC names — the only code both planes import.",
+      "The client↔server single-source contract: MSG keys, round constants, readiness semantics, arena pool, WS message limits, NPC names, cart palette — the only code both planes import.",
     entry: ["shared/protocol.js"],
     members: ["shared/", "src/npcNames.js"],
     notes: [
       "ROUND_DURATION_MS lives in shared/roundConstants.js (150_000); both config.js and roundValidation.ts import it — do not re-introduce a hardcoded duplicate.",
+      "CART_COLORS/PALETTE live in shared/palette.js (roster derived from the hex map); config.js re-exports them, party/index.ts imports PALETTE for colorPick validation — do not hardcode the roster server-side (party/index.ts copy removed 08-21).",
       "MIN_MATCH_DURATION_MS lives in shared/analyticsConstants.js — product match floor for analyticsLog #summary + gameplayAnalytics match_ended skip (ANLX-BULK-1).",
       "src/npcNames.js is a re-export shim over shared/npcNames.js.",
       "MSG.readyToggle without a `ready` field is a TOGGLE — programmatic ready must send { ready: true } (readiness.js is the idempotent SET, D-READY-1).",
@@ -472,7 +474,7 @@ export const IMPORTANT_FILES = [
   { path: "src/levels/levelManager.js", role: "Level preview + hot-swap; driven by the LevelManagerDeps typedef contract — read the typedef before touching swaps." },
   { path: "src/levels/index.js", role: "LEVEL_IMPORTERS dynamic id→import() table, a loader NOT a barrel — the only way the four level modules are reached." },
   { path: "src/carts/cartRaveGltf.js", role: "userData state-machine hub (raveGltfPartRole/cartVisual/deathState/followState) — grep the userData key, there are no call edges." },
-  { path: "src/config.js", role: "CART_COLORS (invariant, do not modify) + the CONFIG knob table incl. CONFIG.round.durationMs (imports ROUND_DURATION_MS)." },
+  { path: "src/config.js", role: "CART_COLORS/PALETTE re-export from shared/palette.js (invariant, do not modify) + the CONFIG knob table incl. CONFIG.round.durationMs (imports ROUND_DURATION_MS)." },
   { path: "src/hud.js", role: "In-game HUD; updateStatus() owns the countdown beat display (COUNTDOWN-SYNC-1). No unit tests — visual-QA gated." },
   { path: "src/stores/gameStore.js", role: "The highest-blast-radius store: 4 subscribers (analytics, announcer, directives, diagnostics) react to every shape change, all keyed off roundPhase. Named command functions (addScore, syncRoundPhase, pickTimerWinner) live here after STORE-1. The diagnostics subscriber is ?diag-gated, so fewer run in an ordinary session; many more modules poll getState() instead." },
   { path: "party/index.ts", role: "partyserver Durable Object CartRaveServer; onMessage flat MSG.* chain (~801). Relay/room state only — never physics. Pure helpers unit-tested (A5a); DO harness in tests/party-do/ (A5b)." },
@@ -522,6 +524,7 @@ export const CONVENTIONS = [
   "Names are long + domain-prefixed (updateRaveGltfCasterRollPivot, disposeSceneExtras) — only ~5% of exports collide on a bare name; grep the full symbol.",
   "PowerShell environment: Select-String not grep; single-line commit messages; git add surgically (never -A — concurrent agent sessions).",
   "Round length single-sourced as ROUND_DURATION_MS in shared/roundConstants.js — never hardcode 150000.",
+  "Cart palette single-sourced as CART_COLORS/PALETTE in shared/palette.js — never hardcode the roster (party/index.ts colorPick validation reads the same file as the client).",
   "Diagnostics globals live under the __cc* namespace (__ccTest / __ccDiag / __ccLoopDbg).",
   "Storage/Worker/cartRave* IDs are naming-frozen until a deliberate brand cutover (brand.md); UI copy says Cart Clash.",
 ];
