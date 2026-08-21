@@ -35,7 +35,7 @@ describe("CartPreview showroom feint", () => {
     const pointerYaw = preview.cartGroup.rotation.y;
     const pointerLean = preview.cartGroup.rotation.x;
     expect(pointerYaw).toBeGreaterThan(Math.PI + 0.37);
-    expect(pointerLean).toBeGreaterThan(0);
+    expect(pointerLean).toBeLessThan(0);
 
     // * At preparation start, feint weight is zero: the live cursor pose stays exact.
     preview.applyShowroomFeint(10400);
@@ -59,7 +59,7 @@ describe("CartPreview showroom feint", () => {
     preview._advancePointerParallax(1);
 
     expect(preview.cartGroup.rotation.y - (Math.PI + 0.37)).toBeCloseTo(THREE.MathUtils.degToRad(5));
-    expect(preview.cartGroup.rotation.x).toBeCloseTo(THREE.MathUtils.degToRad(2));
+    expect(preview.cartGroup.rotation.x).toBeCloseTo(-THREE.MathUtils.degToRad(2));
 
     preview.resetPointerParallax();
     preview._advancePointerParallax(2);
@@ -80,6 +80,6 @@ describe("CartPreview showroom feint", () => {
     preview._applySpinRotation();
 
     expect(preview.cartGroup.rotation.y).toBeCloseTo(Math.PI + 0.37 - THREE.MathUtils.degToRad(5));
-    expect(preview.cartGroup.rotation.x).toBeCloseTo(-THREE.MathUtils.degToRad(2));
+    expect(preview.cartGroup.rotation.x).toBeCloseTo(THREE.MathUtils.degToRad(2));
   });
 });

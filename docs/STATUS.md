@@ -38,8 +38,9 @@ NET-SD-1 closed. Stay in this phase until Wyatt advances the marker.
 `index-Bf1l9Pph.js` / `cartPreview-DFpDtf1Q.js`). Desktop Medium/High
 menu-cart pointer yaw/lean composes with the showroom feint, and returns safely
 on leave, blur, suspension, release, Low, touch, or reduced motion. Focused
-13/13, build, and full QA are green. Playtest **MENU-CART-FOLLOW-PT-1** is
-seeded.
+13/13, build, and full QA are green. **MENU-CART-FOLLOW-PT-1** found the
+vertical direction reversed on prod; its one-line sign correction is local,
+uncommitted, and QA-green. The human playtest remains open.
 
 **DEMOTE-COUNTDOWN-1** shipped 08-19 — `startRunningAt` isHost guard + demoted host's countdown
 timer cleared via a new `onHostDemoted` callback. Playtest owed: **DEMOTE-COUNTDOWN-PT-1** (2pc).
@@ -109,7 +110,7 @@ Live rows only. Shipped and closed cards live in
 | FRIENDS-ROTATE-1 | Friends rematch rotates arenas, synced | queued |
 | ONBOARD-JUMP-1 | HOW TO PLAY matches jump+boost | queued |
 | ONBOARD-WEBP-1 | HOW TO PLAY WebP playback + fallback | deployed `51df06af` / Worker `819ad9ca`; 🅿️ **ONBOARD-WEBP-PT-1** owed |
-| MENU-CART-FOLLOW-1 | subtle menu-cart cursor parallax | deployed `de3cbdca` / Worker `c28a585a`; 🅿️ MENU-CART-FOLLOW-PT-1 owed |
+| MENU-CART-FOLLOW-1 | subtle menu-cart cursor parallax | deployed `de3cbdca` / Worker `c28a585a`; vertical-sign correction local + QA green · 🅿️ MENU-CART-FOLLOW-PT-1 owed |
 | SHARE-CARD-1 | update OG/social share image | queued |
 | QP-PLAYING-PT-1 | QUICKPLAY live playing count | ⏳ playtest owed (prod after ship) |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |

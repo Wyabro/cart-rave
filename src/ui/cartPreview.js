@@ -453,7 +453,7 @@ export class CartPreview {
     const x = THREE.MathUtils.clamp(Number(normalizedX) || 0, -1, 1);
     const y = THREE.MathUtils.clamp(Number(normalizedY) || 0, -1, 1);
     this._pointerTargetYaw = x * POINTER_MAX_YAW;
-    this._pointerTargetLean = -y * POINTER_MAX_LEAN;
+    this._pointerTargetLean = y * POINTER_MAX_LEAN;
     this._pointerActive = true;
   }
 
