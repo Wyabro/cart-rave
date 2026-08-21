@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-21T03:54:29.368Z",
-    "commit": "3c8c2ded"
+    "at": "2026-08-21T05:48:31.915Z",
+    "commit": "dfda0c21"
   },
-  "source_digest": "75efc2d9",
+  "source_digest": "c4fe9d51",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -906,7 +906,7 @@
       {
         "id": "SHARE-CARD-PT-1",
         "what": "invite-link OG preview is the arena lockup",
-        "status": "⏳ playtest owed (prod after ship)",
+        "status": "⏳ playtest owed (prod `dfda0c21` / Worker `d4738242`)",
         "state": "waiting"
       },
       {
@@ -1126,7 +1126,7 @@
           {
             "pri": "Low",
             "item": "SHARE-CARD-PT-1 — invite link shows the new arena lockup `[1pc]`",
-            "notes": "**Owed: Wyatt playtest — SHARE-CARD-PT-1 — paste cartclash.lol after ship and read CART CLASH on the preview.** Parent **SHARE-CARD-1**. Prod after ship.<br>1. After ship, paste `https://cartclash.lol/` into Discord.<br>2. FAIL if the preview is the old blank orange splat, or if CART / CLASH is unreadable at embed size.<br>3. PASS if the preview is the neon arena lockup with CART CLASH and the four carts.",
+            "notes": "**Owed: Wyatt playtest — SHARE-CARD-PT-1 — paste cartclash.lol and read CART CLASH on the preview.** Parent **SHARE-CARD-1**. Prod `dfda0c21` Worker `d4738242` (hard-refresh / new Discord message).<br>1. Paste `https://cartclash.lol/` into Discord (a new message, not an old unfurl).<br>2. FAIL if the preview is the old blank orange splat, or if CART / CLASH is unreadable at embed size.<br>3. PASS if the preview is the neon arena lockup with CART CLASH and the four carts.",
             "ship1": null
           }
         ]

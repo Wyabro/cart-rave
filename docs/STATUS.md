@@ -33,9 +33,11 @@ Classic and Sundial already PASS. Do not retouch those floors. Do not reopen
 and analytics gating are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 ·
 NET-SD-1 closed. Stay in this phase until Wyatt advances the marker.
 
-**SHARE-CARD-1** landed 08-21 — Wyatt's arena PNG cropped to opaque 1200×630
-`public/brand/share-card.png`; meta/JSON-LD point at `?v=2`. Playtest
-**SHARE-CARD-PT-1** after ship (Discord unfurl). Do not reopen **SEO-1**.
+**SHARE-CARD-1** shipped 08-21 `dfda0c21` (Worker
+`d4738242-4c4b-409e-ad1a-925c524f3309`; VERIFY_OK `index-ChsJZIRL.js`,
+live `/brand/share-card.png?v=2` 1,137,264 bytes). Playtest
+**SHARE-CARD-PT-1** on prod (paste `https://cartclash.lol/` in Discord).
+Do not reopen **SEO-1**.
 
 **MENU-CART-FOLLOW-1** shipped 08-20 in `de3cbdca`; vertical direction was
 corrected in `ba5a62b7` (Worker `79cc4526-d2df-44a3-918c-8f676299d1b7`;
@@ -114,7 +116,7 @@ Live rows only. Shipped and closed cards live in
 | ONBOARD-JUMP-1 | HOW TO PLAY matches jump+boost | queued |
 | ONBOARD-WEBP-1 | HOW TO PLAY WebP playback + fallback | deployed `51df06af` / Worker `819ad9ca`; 🅿️ **ONBOARD-WEBP-PT-1** owed |
 | MENU-CART-FOLLOW-1 | subtle menu-cart cursor parallax | deployed `ba5a62b7` / Worker `79cc4526`; live asset proof passed · 🅿️ MENU-CART-FOLLOW-PT-1 owed |
-| SHARE-CARD-PT-1 | invite-link OG preview is the arena lockup | ⏳ playtest owed (prod after ship) |
+| SHARE-CARD-PT-1 | invite-link OG preview is the arena lockup | ⏳ playtest owed (prod `dfda0c21` / Worker `d4738242`) |
 | QP-PLAYING-PT-1 | QUICKPLAY live playing count | ⏳ playtest owed (prod after ship) |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 

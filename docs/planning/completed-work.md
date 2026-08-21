@@ -19,8 +19,10 @@ Chronological record of shipped work, newest first.
   2168×725 arena PNG, center-cropped to opaque 1200×630
   `public/brand/share-card.png`. CART / CLASH and all four carts stay in
   the Discord 400×210 crop. `og:image` / `twitter:image` / JSON-LD point at
-  `/brand/share-card.png?v=2`. Not a reopen of SEO-1. **Owed:
-  SHARE-CARD-PT-1** after ship (Discord unfurl).
+  `/brand/share-card.png?v=2`. Shipped `dfda0c21` Worker
+  `d4738242-4c4b-409e-ad1a-925c524f3309`; VERIFY_OK `index-ChsJZIRL.js`,
+  live PNG 1,137,264 bytes. Not a reopen of SEO-1. **Owed:
+  SHARE-CARD-PT-1** (Discord unfurl on prod).
 
 ---
 
