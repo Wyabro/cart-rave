@@ -135,6 +135,35 @@ describe("SEC-BEACON-1 open beacon rate limit", () => {
     expect(JSON.parse(String(row.body)).events).toHaveLength(120);
   });
 
+  it("rejects a gzip bomb before store and does not 500", async () => {
+    const zeros = new Uint8Array(8_000_000);
+    const bytes = new Uint8Array(
+      await new Response(new Blob([zeros]).stream().pipeThrough(new CompressionStream("gzip"))).arrayBuffer(),
+    );
+    let binary = "";
+    for (let i = 0; i < bytes.length; i += 1) binary += String.fromCharCode(bytes[i]);
+    const res = await postBeacon(
+      "/api/captures",
+      { label: "GZIP-BOMB", encoding: "gzip-base64", body: btoa(binary) },
+      null,
+    );
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ ok: false, error: "rejected" });
+    const { count, rows } = await listFrom("CAPTURE_LOG", "captures");
+    expect(count).toBe(0);
+    expect(rows.some((r) => r.label === "GZIP-BOMB")).toBe(false);
+  });
+
+  it("returns bad_gzip for a corrupt gzip-base64 body", async () => {
+    const res = await postBeacon(
+      "/api/captures",
+      { label: "BAD-GZIP", encoding: "gzip-base64", body: btoa("not-gzip") },
+      null,
+    );
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ ok: false, error: "bad_gzip" });
+  });
+
   it("leaves the normal path unchanged", async () => {
     const cap = await postBeacon("/api/captures", capture("F8"), "10.9.9.6");
     expect(cap.status).toBe(200);

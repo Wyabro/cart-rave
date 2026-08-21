@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-21T07:16:03.535Z",
-    "commit": "ae7d7a81"
+    "at": "2026-08-21T08:19:10.197Z",
+    "commit": "72c1d6c6"
   },
-  "source_digest": "de02c1f0",
+  "source_digest": "ccaa4e80",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -635,6 +635,7 @@
         "party/beaconLimit.ts",
         "party/captureLog.ts",
         "party/errorLog.ts",
+        "party/gunzip.ts",
         "party/logUtil.ts",
         "src/analytics/analytics.js",
         "src/analytics/gameplayAnalytics.js",
@@ -657,7 +658,7 @@
         "src/utils/publicUrl.js",
         "src/utils/rendererInfo.js"
       ],
-      "file_count": 26,
+      "file_count": 27,
       "edges": [
         {
           "to": "state-stores",
@@ -673,6 +674,7 @@
       "notes": [
         "Diagnostics globals namespace is __cc* (__ccTest / __ccDiag / __ccLoopDbg). F8 (or auto on error+assert) captures a bug bundle.",
         "adminAuth.ts is SEC-TOKEN-1 — Authorization: Bearer only for /api/errors|captures|analytics admin reads; never ?token=. requireAdminToken → Response | null (null = ok).",
+        "gunzip.ts is SEC-GZIP-1 — stream-decompress gzip-base64 F8 bodies and abort at CAPTURE_STORE_MAX_CHARS so a ~260KB bomb cannot expand into Worker memory.",
         "beaconLimit.ts is the SEC-BEACON-1 per-IP cap on the three open POST beacons. Enforced INSIDE each log DO (before the INSERT) because the harm is ring eviction; the budget is per-DO, not shared. index.ts forwards cf-connecting-ip inward and propagates the DO's 429 outward — /api/log-error and /api/analytics otherwise always return 204 and the cap would be invisible.",
         "gameplayDiagnostics subscribes to gameStore/challengeStore/unlockStore — a reader, not a mutator.",
         "perfSpans attributes per-call-site render cost (warm.render.default.play-full named the PERF-WARM owner)."

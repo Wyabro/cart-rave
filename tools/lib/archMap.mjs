@@ -392,6 +392,7 @@ export const SYSTEMS = [
       "party/errorLog.ts",
       "party/analyticsLog.ts",
       "party/captureLog.ts",
+      "party/gunzip.ts",
       "party/logUtil.ts",
       "party/beaconLimit.ts",
       "party/adminAuth.ts",
@@ -399,6 +400,7 @@ export const SYSTEMS = [
     notes: [
       "Diagnostics globals namespace is __cc* (__ccTest / __ccDiag / __ccLoopDbg). F8 (or auto on error+assert) captures a bug bundle.",
       "adminAuth.ts is SEC-TOKEN-1 — Authorization: Bearer only for /api/errors|captures|analytics admin reads; never ?token=. requireAdminToken → Response | null (null = ok).",
+      "gunzip.ts is SEC-GZIP-1 — stream-decompress gzip-base64 F8 bodies and abort at CAPTURE_STORE_MAX_CHARS so a ~260KB bomb cannot expand into Worker memory.",
       "beaconLimit.ts is the SEC-BEACON-1 per-IP cap on the three open POST beacons. Enforced INSIDE each log DO (before the INSERT) because the harm is ring eviction; the budget is per-DO, not shared. index.ts forwards cf-connecting-ip inward and propagates the DO's 429 outward — /api/log-error and /api/analytics otherwise always return 204 and the cap would be invisible.",
       "gameplayDiagnostics subscribes to gameStore/challengeStore/unlockStore — a reader, not a mutator.",
       "perfSpans attributes per-call-site render cost (warm.render.default.play-full named the PERF-WARM owner).",

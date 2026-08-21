@@ -163,6 +163,10 @@ or a suspected blocker (TS 7 · `cartrave4` UVs).
 
 ## Last updated
 
+2026-08-21 (**SEC-GZIP-1**) — POST `/api/captures` stream-decompresses
+gzip-base64 and aborts at `CAPTURE_STORE_MAX_CHARS`. A ~260KB bomb
+no longer expands into Worker memory.
+
 2026-08-21 (**ONBOARD-WEBP-1** ship) — prod `ae7d7a81` Worker
 `2a5af903-73f2-4278-96e6-2b658fbeeade`. VERIFY_OK
 `index-Im349Dd2.js` (attempt 1, 28 refs, 0×404). Live entry has

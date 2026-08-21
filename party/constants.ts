@@ -43,8 +43,9 @@ export const BEACON_WINDOW_MS = 60_000;
 export const CAPTURE_REQUEST_MAX_CHARS = 350_000;
 
 /**
- * Decompressed capture JSON stored in the CaptureLog DO. Gzip bomb guard: a 200 KB
- * POST cannot expand past this. 4 MB holds a full Wave G F8 with 170 pop timelines.
+ * Decompressed capture JSON stored in the CaptureLog DO. Gzip bomb guard:
+ * `gunzipBase64Utf8` aborts at this many decompressed bytes so a ~260 KB POST
+ * cannot expand into Worker memory. 4 MB holds a full Wave G F8 with 170 pop timelines.
  */
 export const CAPTURE_STORE_MAX_CHARS = 4_000_000;
 

@@ -44,15 +44,6 @@ export interface Env {
 
 function getMonotonicNow() { return performance.timeOrigin + performance.now(); }
 
-/** Decode a client gzip-base64 F8 body so Wave G timelines fit the request cap. */
-async function gunzipBase64Utf8(b64: string): Promise<string> {
-  const binary = atob(b64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
-  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
-  return new Response(stream).text();
-}
-
 /** Room shape is 4 slots; caps hostSpawn carts (CONN-SPAWN-SANITIZE-1). */
 const MAX_CARTS = 4;
 
@@ -91,6 +82,7 @@ type Slot = {
 import { HOST_MIGRATION_COOLDOWN_MS, MSG } from '../shared/protocol.js';
 import { COUNTDOWN_MS, FLYOVER_PREROLL_MS } from '../shared/roundConstants.js';
 import { requireAdminToken } from './adminAuth';
+import { GunzipCapError, gunzipBase64Utf8 } from './gunzip';
 import { UNKNOWN_IP } from './beaconLimit';
 import {
   CAPTURE_REQUEST_MAX_CHARS,
@@ -1902,12 +1894,16 @@ export default {
             let bundleJson: string | null = null;
             if (parsed.encoding === "gzip-base64" && typeof parsed.body === "string") {
               try {
-                bundleJson = await gunzipBase64Utf8(parsed.body);
-              } catch {
-                return new Response(JSON.stringify({ ok: false, error: "bad_gzip" }), {
-                  status: 400,
-                  headers: { "content-type": "application/json" },
-                });
+                bundleJson = await gunzipBase64Utf8(parsed.body, CAPTURE_STORE_MAX_CHARS);
+              } catch (err) {
+                if (err instanceof GunzipCapError) {
+                  bundleJson = null;
+                } else {
+                  return new Response(JSON.stringify({ ok: false, error: "bad_gzip" }), {
+                    status: 400,
+                    headers: { "content-type": "application/json" },
+                  });
+                }
               }
             } else if (typeof parsed.body === "string") {
               bundleJson = parsed.body;
