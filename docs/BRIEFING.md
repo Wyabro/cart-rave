@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-21 at commit `080e33d7` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `358959b2`
+> Generated 2026-08-21 at commit `ba5a62b7` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `f14c8707`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -26,7 +26,7 @@ Self-directed queue (one at a time, within the declared phase):
 - **FRIENDS-ROTATE-1** Friends rematch rotates arenas, synced — queued
 - **ONBOARD-JUMP-1** HOW TO PLAY matches jump+boost — queued
 - **ONBOARD-WEBP-1** HOW TO PLAY WebP playback + fallback — deployed `51df06af` / Worker `819ad9ca`; 🅿️ ONBOARD-WEBP-PT-1 owed
-- **MENU-CART-FOLLOW-1** subtle menu-cart cursor parallax — deployed `de3cbdca` / Worker `c28a585a`; vertical-sign correction local + QA green · 🅿️…
+- **MENU-CART-FOLLOW-1** subtle menu-cart cursor parallax — deployed `ba5a62b7` / Worker `79cc4526`; live asset proof passed · 🅿️ MENU-CART-FOLLOW-PT-1 owed
 - **SHARE-CARD-1** update OG/social share image — queued
 - **QP-PLAYING-PT-1** QUICKPLAY live playing count — ⏳ playtest owed (prod after ship)
 
