@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-21T09:42:28.749Z",
-    "commit": "e5ca329b"
+    "at": "2026-08-21T20:00:03.582Z",
+    "commit": "c04206b1"
   },
-  "source_digest": "08c204d0",
+  "source_digest": "4ad4dfb4",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1015,11 +1015,38 @@
         ]
       },
       {
-        "title": "Design / Gameplay",
+        "title": "Audio",
         "counts": {
-          "Medium": 2
+          "High": 1,
+          "Medium": 1
         },
         "rows": [
+          {
+            "pri": "High",
+            "item": "AUDIO-RAM-IMPACT-1 — cart-vs-cart ram has no (or inaudible) impact sound",
+            "notes": "**Filed 08-21 from external playtest feedback.** Playtester quit early and named this the #1 improvement: the game is about ramming but ramming is silent. Check the impact-SFX trigger path first, then level on the SFX bus (HOWLER buses shipped HOWLER-UPGRADE-1). Rule out AUDIO-MIX-BALANCE-1 as the actual cause before adding assets. Playtest owed once landed. Do not reopen **AUDIO-MASTER-1** / **VOICE-BUS-1**.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "AUDIO-MIX-BALANCE-1 — default music level drowns SFX/announcer",
+            "notes": "**Filed 08-21 from the same external playtest:** music \"too loud compared to the rest of the game\"; default should be lower. Scope: in-round music-vs-SFX default balance only. Distinct from AUDIO-RAM-IMPACT-1 (missing impact layer). Do not reopen **MENU-MUSIC-VOL-1** / **SD-MUSIC-LPF-1** / **STORE-MUSIC-1**.",
+            "ship1": null
+          }
+        ]
+      },
+      {
+        "title": "Design / Gameplay",
+        "counts": {
+          "Medium": 3
+        },
+        "rows": [
+          {
+            "pri": "Medium",
+            "item": "CAM-COMFORT-1 — camera too close/fast; playtester motion sickness",
+            "notes": "**Filed 08-21 from external playtest feedback:** tester could only play a few minutes before motion sickness; suspects camera proximity/speed. First pass is evidence + definition-of-done (which camera constants — distance, follow rate, FOV/shake — and how much), mirroring MOTION-A11Y-1's gate; it becomes a code card after that. Distinct from MOTION-A11Y-1 (`prefers-reduced-motion`) and NET-LAG-1's camera-pose work (do not restore lerp per that card). Needs a comfort playtest to confirm any lever.",
+            "ship1": null
+          },
           {
             "pri": "Medium",
             "item": "TASTE-P4-1 — Taste-tuning follow-ups from Pass 4",
