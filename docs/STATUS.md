@@ -98,19 +98,18 @@ Live rows only. Shipped and closed cards live in
 |---|------|--------|
 | NET-LAG-1 | Friends/QP lag + rubber-band (F8 both machines) | wave 1 landed; 🅿️ **NET-LAG-1-PT-1** `[2pc]` parked by Wyatt 08-20 |
 | ONBOARD-WEBP-1 | HOW TO PLAY WebP playback + fallback | shipped `ae7d7a81` Worker `2a5af903`; 🅿️ **ONBOARD-WEBP-PT-1** retest on prod |
-| CLIENT-ID-AUTH-1 | clientId claim hijack guard (session-token proof of ownership) | landed 08-21, **uncommitted** — qa green (2379 tests) + DO-harness hijack tests; 🅿️ **CID-AUTH-PT-1** `[2pc]`; commit/ship pending Wyatt |
+| CLIENT-ID-AUTH-1 | clientId claim hijack guard (session-token proof of ownership) | shipped `e5ca329b` Worker `c789f236`; 🅿️ **CID-AUTH-PT-1** `[2pc]` |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 
 ### Next actions
 
-1. **ONBOARD-WEBP-PT-1** retest on prod `ae7d7a81` (hard-refresh).
+1. **ONBOARD-WEBP-PT-1** retest on prod `e5ca329b` (hard-refresh).
    **NET-LAG-1-PT-1** `[2pc]` is parked. Closed 08-21 PASSes:
    **ONBOARD-JUMP-PT-1** · **QP-PLAYING-PT-1** ·
    **FRIENDS-ROTATE-PT-1**. Do not start an external playtest until
    Block 1 drains. Deferred: **SHARD-PT-2** (launch day).
-2. **CLIENT-ID-AUTH-1** — review + commit the wave (party/index.ts,
-   party/clientIdAuth.ts, shared/protocol.js, src/netcode.js, archMap,
-   tests). Playtest owed: **CID-AUTH-PT-1**.
+2. Same prod, two machines: **CID-AUTH-PT-1** · **SNAP-FINITE-PT-1** ·
+   **RING-ALIAS-PT-1**. Console: `npm run dashboard`.
 
 ## Open issues (top)
 
@@ -167,6 +166,14 @@ or a suspected blocker (TS 7 · `cartrave4` UVs).
 
 ## Last updated
 
+2026-08-21 (stack ship) — prod `e5ca329b` Worker
+`c789f236-3738-4167-9aed-c228a9971547`. VERIFY_OK
+`index--wS40sKE.js` (attempt 2, 28 refs, 0×404). Live netcode has
+`cartRaveSessionToken` / `ringAliasFlushes` / `isFiniteVec3`. Worker
+bundle has `session_token` / `Rate limit exceeded` / `isTurnCacheFresh`.
+Covers TURN-CACHE-1 · ART-PALETTE-1 · SNAP-FINITE-1 · SEC-WS-PARSE-1 ·
+CLIENT-ID-AUTH-1 · RING-ALIAS-1.
+
 2026-08-21 (**SEC-GZIP-1** ship) — prod `1330a3b9` Worker
 `92f699e7-ef0f-4699-ad0e-a6b98961f797`. VERIFY_OK
 `index-BaluwR9J.js` (attempt 1, 28 refs, 0×404). Worker bundle has
@@ -174,27 +181,16 @@ or a suspected blocker (TS 7 · `cartrave4` UVs).
 gzip-base64 at `CAPTURE_STORE_MAX_CHARS`.
 
 2026-08-21 (**ONBOARD-WEBP-1** ship) — prod `ae7d7a81` Worker
-`2a5af903-73f2-4278-96e6-2b658fbeeade`. VERIFY_OK
-`index-Im349Dd2.js` (attempt 1, 28 refs, 0×404). Live entry has
-`replaceWith` + `frame-change`. **ONBOARD-WEBP-PT-1** retest
-(hard-refresh).
-
-2026-08-21 (**ONBOARD-WEBP-1** loop) — after a frame-change verdict,
-replace the sampled HOW TO PLAY `<img>` with a never-sampled copy.
-Chromium stops looping an infinite WebP after canvas `drawImage`.
-**ONBOARD-WEBP-PT-1** retest after ship.
+`2a5af903`. VERIFY_OK `index-Im349Dd2.js`. Loop remount after
+canvas `drawImage` freeze. **ONBOARD-WEBP-PT-1** retest on
+`e5ca329b` (hard-refresh). FAIL 08-21: clips played once then froze.
 
 2026-08-21 (playtest PASSes) — **ONBOARD-JUMP-PT-1** ·
 **QP-PLAYING-PT-1** · **FRIENDS-ROTATE-PT-1**. Parents
 **ONBOARD-JUMP-1** and **FRIENDS-ROTATE-1** close.
-**ONBOARD-WEBP-PT-1** FAIL: clips play once then freeze; must loop.
 
-2026-08-21 (**CART-POP-PT-1** PASS) — Wyatt PASS Storerooms F8 on prod
-`9051a0ce` (Worker `dfa5a26d`). Parent **CART-POP-1** closes. Do not reopen.
-
-2026-08-21 (CART-POP-1 Storerooms ship) — prod `9051a0ce` Worker `dfa5a26d`.
-VERIFY_OK `index-BhgEDdEM.js`, live `backroomsSupermarket-veaqmbrG.js` has
-`FIX_INTERNAL_EDGES`.
+2026-08-21 (**CART-POP-1**) — Wyatt PASS Storerooms F8 on prod
+`9051a0ce` (Worker `dfa5a26d`). Parent closes. Do not reopen.
 
 2026-08-20 (CART-POP-1 Storerooms floor) — one hole-cut trimesh with
 `FIX_INTERNAL_EDGES`. Isolated Rapier: 9-cuboid r16@24 pops=1; trimesh
