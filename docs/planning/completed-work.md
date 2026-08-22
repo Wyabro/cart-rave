@@ -13,6 +13,17 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 21, 2026 — CAM-COMFORT-1 (REVERTED — Wyatt reject)
+
+- *(Design/Gameplay · Medium)* **CAM-COMFORT-1** — ❌ **REVERTED 08-21 pre-playtest
+  pre-deploy.** Motion-comfort pass landed as `f40f129b`: FOV punches halved (ram
+  8→4°, KO 9→5°, GO 10→5°), shake scale 6.2→4px, FOV punch gated on
+  `prefers-reduced-motion`. Wyatt rejected the approach before playtesting; full
+  revert in `a926a05d`. No prod exposure. Do not re-file the same lever set without
+  a fresh DoD pass.
+
+---
+
 ### August 21, 2026 — AUDIO-RAM-IMPACT-1 (ram SFX audible + soft contact taps)
 
 - *(Audio · High)* **AUDIO-RAM-IMPACT-1** — ✅ **CLOSED 08-21** — Wyatt
