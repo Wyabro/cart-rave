@@ -97,7 +97,7 @@ Live rows only. Shipped and closed cards live in
 | # | What | Status |
 |---|------|--------|
 | NET-LAG-1 | Friends/QP lag + rubber-band (F8 both machines) | wave 1 landed; 🅿️ **NET-LAG-1-PT-1** `[2pc]` parked by Wyatt 08-20 |
-| AUDIO-RAM-IMPACT-1 | ram crash SFX inaudible + soft taps silent (external playtest) | both rounds shipped — `c4e7f082`/`290904fb` then `0644094f` Worker `67778a9f`; 🅿️ **AUDIO-RAM-IMPACT-PT-1** `[1pc]` on prod |
+| AUDIO-RAM-IMPACT-1 | ram crash SFX inaudible + soft taps silent (external playtest) | ✅ CLOSED 08-21 — Wyatt PT PASS on prod `67778a9f` (both rounds: `c4e7f082` + `0644094f`) |
 | ONBOARD-WEBP-1 | HOW TO PLAY WebP playback + fallback | shipped `ae7d7a81` Worker `2a5af903`; 🅿️ **ONBOARD-WEBP-PT-1** retest on prod |
 | CLIENT-ID-AUTH-1 | clientId claim hijack guard (session-token proof of ownership) | shipped `e5ca329b` Worker `c789f236`; 🅿️ **CID-AUTH-PT-1** `[2pc]` |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |

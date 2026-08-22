@@ -13,6 +13,28 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### August 21, 2026 — AUDIO-RAM-IMPACT-1 (ram SFX audible + soft contact taps)
+
+- *(Audio · High)* **AUDIO-RAM-IMPACT-1** — ✅ **CLOSED 08-21** — Wyatt
+  **AUDIO-RAM-IMPACT-PT-1 PASS** on prod Worker `67778a9f` (commit `0644094f`).
+  External playtester: rams silent, "#1 thing to improve." Root cause was two
+  layers. **Loudness:** cap-362/363 had already proven the path fired valid ids,
+  but effective gain sat at ~0.24 under default sliders (`crashVolumeFloor`
+  0.25 + ×0.7 curve). Fix round 1 (`c4e7f082`/Worker `290904fb`): floor → 0.45,
+  curve → ×1.0 (`src/config.js`, `src/audioManager.js playCartCrash`).
+  **Missing soft layer:** every crash SFX sat behind the *scoring* gate
+  (`getRammingQualificationScore`: minSpeed 0.6 m/s + alignment cone), so
+  sub-threshold bumps never reached sound at all — "softer taps don't trigger."
+  Fix round 2 (`0644094f`): unqualified cart-cart touches fire
+  `playSoftContact(closing01)` → `playContactTap()` on a 250 ms per-pair
+  cooldown, contact-start + sustained grind, host or local-involved pairs only;
+  reconcile replay nulls it (`src/simulation.js`, `src/audioManager.js`,
+  `src/orchestration/loopDeps.js`, `src/gameLoop.js`). No credit, no knockback.
+  Gates: typecheck ✓ · test 222 files / 2384 ✓ · knip/briefing/arch/health ✓ ·
+  VERIFY_OK zero-404 + symbols in live bundle both deploys. Tests:
+  `tests/physics/softContactTap.test.js`. Do not reopen **AUDIO-MASTER-1** /
+  **VOICE-BUS-1**.
+
 ### August 21, 2026 — playtest PASS (jump, Quickplay pill, Friends rotate)
 
 - *(Playtest · Low)* **ONBOARD-JUMP-PT-1** — ✅ **PASS 08-21**. Gamepad A hops
