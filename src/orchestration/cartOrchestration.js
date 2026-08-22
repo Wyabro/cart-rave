@@ -240,9 +240,8 @@ export function createCartOrchestration(deps) {
   let shakeUntil = 0;
   let shakeIntensity = 0;
   let fovPunchUntil = 0;
-  // * Punch amplitude in degrees — CAM-COMFORT-1 halved the base 8° (motion comfort);
-  // * kill confirms still hit harder via requestFovPunch.
-  let fovPunchDeg = 4;
+  // * Punch amplitude in degrees — ram hits use the base 8°, kill confirms hit harder.
+  let fovPunchDeg = 8;
   // * Kill-confirm white flash + radial shockwave on the arcade pass (uFlash / uShock).
   // * Slightly longer than a pure white pop so the expanding Shadertoy-style ring can read.
   const killFlash = { until: 0, durationMs: 200, strength: 0 };
@@ -411,8 +410,7 @@ function triggerLocalRamShake(intensity, isBoosting = false) {
   triggerImpactPulse(clampedI * 0.7);
   hapticPulse(clampedI * 0.7, clampedI * 0.4, 60 + clampedI * 60);
   if (clampedI >= 0.45 && isBoosting) {
-    // * CAM-COMFORT-1: halved from 8° for motion comfort.
-    armFovPunch(4, 100);
+    armFovPunch(8, 100);
   }
 }
 // * Victim-side ram feedback — shake/post-FX from shakeMinIntensity; directional DOM
@@ -538,8 +536,7 @@ function playLocalKoConfirmFeedback() {
     hitStop.until = Math.max(hitStop.until, nowMs + 80);
     hitStop.blendUntil = hitStop.until + 120;
   }
-  // * CAM-COMFORT-1: halved from 9°.
-  armFovPunch(5, 180);
+  armFovPunch(9, 180);
   killFlash.strength = 0.45;
   killFlash.until = performance.now() + killFlash.durationMs;
   triggerImpactPulse(0.4);

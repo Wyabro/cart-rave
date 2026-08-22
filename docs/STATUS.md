@@ -26,11 +26,6 @@ report phase-exit eligibility; they must not move the marker.
 ## Current focus
 
 **Playtesting and stabilization.** External playtest is gated on BACKLOG Block 1.
-**CAM-COMFORT-1** shipped 08-21 — motion-comfort pass: FOV punches halved
-(ram 8→4°, KO 9→5°, GO 10→5°), shake scale 6.2→4px, and the FOV punch now
-honors `prefers-reduced-motion` like shake already did. Follow rate/distance
-untouched by design. Playtest owed: **COMFORT-PT-1** (`npm run dev:local`,
-reduced-motion on + off).
 **AUDIO-MIX-BALANCE-1** shipped 08-21 — in-game music bus ×0.4
 (`CONFIG.audio.gameMusicGain`; menu music unchanged), music slider default
 35→50 so all three default to 50. Playtest owed:

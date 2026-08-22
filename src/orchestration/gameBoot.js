@@ -519,8 +519,7 @@ export function bootGameSystems(ctx) {
     getCountdownMs: () => CONFIG.round.countdownMs,
     // * GO! moment — camera punch-in + whoosh as the countdown orbit hands back to follow.
     onGoMoment: () => {
-      // * CAM-COMFORT-1: halved from 10°.
-      armFovPunch(5, 220);
+      armFovPunch(10, 220);
       SfxSynth.playGoWhoosh();
     },
     getLevelId: () => getCurrentLevelId(),

@@ -579,11 +579,9 @@ export function updateVisualsAndEffects(deps, frameCtx) {
   if (deps.canvas.style.transform) deps.canvas.style.transform = "";
 
   const fovPunchUntil = deps.getFovPunchUntil();
-  // * CAM-COMFORT-1: FOV punch is motion too — reduced-motion users skip it (the shake
-  // * gate above already does). The else-branch still pins baseFov, so nothing drifts.
-  if (!_reducedMotionQuery?.matches && roundState.phase === "running" && performance.now() < fovPunchUntil) {
+  if (roundState.phase === "running" && performance.now() < fovPunchUntil) {
     const t = (fovPunchUntil - performance.now()) / 200;
-    const punchDeg = deps.getFovPunchDeg?.() ?? 4;
+    const punchDeg = deps.getFovPunchDeg?.() ?? 8;
     const targetFov = (deps.camera.userData.baseFov || 55) - (punchDeg * t);
     if (deps.camera.fov !== targetFov) deps.camera.fov = targetFov;
     deps.camera.updateProjectionMatrix();

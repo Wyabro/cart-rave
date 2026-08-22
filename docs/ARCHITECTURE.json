@@ -2,15 +2,15 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-22T01:11:37.063Z",
-    "commit": "2ee645d6"
+    "at": "2026-08-22T00:53:21.139Z",
+    "commit": "390d43e9"
   },
-  "source_digest": "047212cc",
+  "source_digest": "9ef2747b",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
     "production_url": "https://www.cartclash.lol/",
-    "mission": "Playtesting and stabilization — External playtest is gated on BACKLOG Block 1. CAM-COMFORT-1 shipped 08-21 — motion-comfort pass: FOV punches halved (ram 8→4°, KO 9→5°, GO 10→5°), shake scale 6.2→4px, and the FOV punch now honors `prefers-reduced-motion` like shake already did. Follow rate/distance untouched by design. Playtest owed: COMFORT-PT-1 (`npm run dev:local`, reduced-motion on + off). AUDIO-MIX-BALANCE-1 shipped 08-21 — in-game music bus ×0.4 (`CONFIG.audio.gameMusicGain`; menu music unchanged), music slider default 35→50 so all three default to 50. Playtest owed: AUDIO-MIX-BALANCE-PT-1 (`npm run dev:local`, fresh profile). NET-LAG-1-PT-1 is parked by Wyatt (08-20). CART-POP-1 closed 08-21 — Wyatt PASS Storerooms F8 on prod `9051a0ce` (Worker `dfa5a26d`). Classic and Sundial already PASS. Do not retouch those floors. Do not reopen CART-POP-1 without new evidence. Tier A drained; Tier B/C, security sweep, and analytics gating are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Stay in this phase until Wyatt advances the marker.",
+    "mission": "Playtesting and stabilization — External playtest is gated on BACKLOG Block 1. AUDIO-MIX-BALANCE-1 shipped 08-21 — in-game music bus ×0.4 (`CONFIG.audio.gameMusicGain`; menu music unchanged), music slider default 35→50 so all three default to 50. Playtest owed: AUDIO-MIX-BALANCE-PT-1 (`npm run dev:local`, fresh profile). NET-LAG-1-PT-1 is parked by Wyatt (08-20). CART-POP-1 closed 08-21 — Wyatt PASS Storerooms F8 on prod `9051a0ce` (Worker `dfa5a26d`). Classic and Sundial already PASS. Do not retouch those floors. Do not reopen CART-POP-1 without new evidence. Tier A drained; Tier B/C, security sweep, and analytics gating are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Stay in this phase until Wyatt advances the marker.",
     "phase": "Playtesting & stabilization — stabilize after Run 7; prove residuals; no auto-advance to RC",
     "phases": [
       {
@@ -1049,7 +1049,7 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Low": 9
+          "Low": 8
         },
         "rows": [
           {
@@ -1098,12 +1098,6 @@
             "pri": "Low",
             "item": "RING-ALIAS-PT-1 — tab-away round trip shows no remote pops `[2pc]`",
             "notes": "**Owed: Wyatt playtest — RING-ALIAS-PT-1 — hiding the non-host tab for ~10s mid-round then returning causes no visual pops or teleports on remote carts (RING-ALIAS-1 decode-ring generation guard).** Prod `e5ca329b` (Worker `c789f236`, hard-refresh).<br>1. Friends match, two machines; non-host drives mid-round.<br>2. Hide the non-host's tab for ~10 seconds, then return and keep driving.<br>3. FAIL if remote carts pop/teleport on return beyond a single brief catch-up snap, or the F8 shows `ringAliasFlushes` climbing during normal (non-hidden) play.<br>4. Press F8 on both machines at round end.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "COMFORT-PT-1 — softer hit/GO feedback, reduced-motion kills FOV punch `[1pc]`",
-            "notes": "**Owed: Wyatt playtest — COMFORT-PT-1 — camera comfort pass: hits read gentler but still land, and reduced-motion now silences the FOV punch as well as shake (CAM-COMFORT-1).** Pushed but **not yet deployed** — use `npm run dev:local`. FOV punches halved (ram 8→4°, KO 9→5°, GO 10→5°), shake scale 6.2→4px.<br>1. With OS reduced-motion OFF, play a solo round. Take normal rams, a boost ram, and score a KO; note the GO! moment.<br>2. FAIL if hits feel like nothing happened or juice reads dead. PASS if punch/shake are visibly gentler than before but still communicate impact.<br>3. Turn ON reduced-motion (Windows Settings → Accessibility → Visual effects), reload, replay a round. FAIL if any FOV zoom-punch or screen shake fires on hits/KO/GO. PASS if both stay off while flash, hitmarker, and vignette cues still show.<br>4. Press F8 at round end.",
             "ship1": null
           }
         ]
