@@ -1280,6 +1280,20 @@ export function playCartCrash(intensity = 1, opts = {}) {
 }
 
 /**
+ * * Play a quiet contact tap for an unqualified cart-cart touch (AUDIO-RAM-IMPACT-1).
+ * * Sub-threshold bumps previously produced no sound at all — the crash sat behind the scoring
+ * * gate. Taps reuse the crash pool at low volume with a lighter (higher) rate so a bump reads
+ * * as plastic-on-plastic, not a mini-slam. @param {number} [speed01] Closing speed normalized
+ * * against CONFIG.ramming.minSpeed (0..1). @returns {number | null} Sound ID
+ */
+export function playContactTap(speed01 = 0.5) {
+  const keys = ["cartCrash", "cartCrash2", "cartCrash3"];
+  const key = keys[Math.floor(Math.random() * keys.length)];
+  const volume = Math.min(1, Math.max(0.12, 0.12 + 0.22 * speed01));
+  return playSfx(key, undefined, { rate: 1.05 + Math.random() * 0.25, volume });
+}
+
+/**
  * Stop a specific playing instance of a registered SFX by its sound ID.
  * Used to cut the charge-up loop when an Auto-Charge Boost releases early or is interrupted.
  * @param {string} key Registry key

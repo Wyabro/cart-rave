@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-21 at commit `c4e7f082` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `3e062b46`
+> Generated 2026-08-22 at commit `1a0e68b9` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `ab9a4005`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -23,7 +23,7 @@ ONBOARD-WEBP-PT-1 retest on prod `e5ca329b` (hard-refresh)
 Assess and state the lane before editing. This heading names the card; it is **not** a lane assessment or permission to edit.
 
 Self-directed queue (one at a time, within the declared phase):
-- **AUDIO-RAM-IMPACT-1** ram crash SFX inaudible in mix (external playtest) — shipped `c4e7f082` Worker `290904fb`; 🅿️ AUDIO-RAM-IMPACT-PT-1 `[1pc]` on prod
+- **AUDIO-RAM-IMPACT-1** ram crash SFX inaudible + soft taps silent (external playtest) — round 1 shipped `c4e7f082` Worker `290904fb`; round 2 (soft contact taps) landed, 🅿️ AUDIO-RAM-IMPACT-PT-1…
 - **ONBOARD-WEBP-1** HOW TO PLAY WebP playback + fallback — shipped `ae7d7a81` Worker `2a5af903`; 🅿️ ONBOARD-WEBP-PT-1 retest on prod
 - **CLIENT-ID-AUTH-1** clientId claim hijack guard (session-token proof of ownership) — shipped `e5ca329b` Worker `c789f236`; 🅿️ CID-AUTH-PT-1 `[2pc]`
 

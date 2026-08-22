@@ -3578,7 +3578,7 @@ function getEnvironmentContactPosition(envType, impacts, state, out) {
  * ever qualifying (the playtest "hits do nothing" / unattributed-fall report; a 100 s
  * 3-NPC soak produced 6 falls and ZERO attributed rams). Pairs in this map are re-offered
  * to {@link resolveCartRamCollision} each substep, on a per-pair cooldown.
- * @type {Map<string, { a: object, b: object, lastRamAtMs: number }>}
+ * @type {Map<string, { a: object, b: object, lastRamAtMs: number, lastSoftTapAtMs?: number }>}
  */
 const _activeCartContacts = new Map();
 
@@ -3586,6 +3586,56 @@ const _activeCartContacts = new Map();
  *  substeps) must land and separate the pair before the same sustained contact may fire
  *  again, or a single hard ram held in contact would machine-gun impulses. */
 const RAM_SUSTAINED_REQUALIFY_MS = 500;
+
+// * AUDIO-RAM-IMPACT-1 — soft contact taps. Every crash SFX sat behind the SCORING gate
+// * (minSpeed + alignment cone), so sub-threshold bumps were resolved silently by raw contact
+// * response and rams felt mute exactly when carts "just bump". Mirror of hop-land's
+// * fires-even-below-threshold rule: an unqualified touch fires a quiet tap via
+// * callbacks.playSoftContact(closing01). No credit, no knockback, no particles.
+const SOFT_TAP_COOLDOWN_MS = 250;
+const SOFT_TAP_MIN_CLOSING = 1e-4;
+
+/**
+ * * Planar closing speed (m/s) between two carts along their center-line, clamped ≥ 0.
+ * @param {{ body: object }} a
+ * @param {{ body: object }} b
+ * @returns {number}
+ */
+function planarClosingSpeedBetween(a, b) {
+  const va = a.body.linvel();
+  const vb = b.body.linvel();
+  const pa = a.body.translation();
+  const pb = b.body.translation();
+  const dx = pb.x - pa.x;
+  const dz = pb.z - pa.z;
+  const lenSq = dx * dx + dz * dz;
+  if (lenSq < 1e-6) return 0;
+  const inv = 1 / Math.sqrt(lenSq);
+  const rel = (vb.x - va.x) * (dx * inv) + (vb.z - va.z) * (dz * inv);
+  return Math.max(0, -rel);
+}
+
+/**
+ * * Fire the soft contact tap for an unqualified cart-cart touch, cooldown-guarded per pair.
+ * * Host hears every pair; a non-host only hears pairs involving its own cart (remote-vs-remote
+ * * taps arrive via nothing today — acceptable: those are far away and out of ram range).
+ * @param {object} a
+ * @param {object} b
+ * @param {object | null | undefined} callbacks
+ * @param {boolean} isHost
+ * @param {number} nowMs
+ * @param {{ a: object, b: object, lastRamAtMs: number, lastSoftTapAtMs?: number }} rec
+ *        Live _activeCartContacts record for this pair
+ */
+function fireSoftContactTap(a, b, callbacks, isHost, nowMs, rec) {
+  if (!callbacks?.playSoftContact) return;
+  if (!(isHost || callbacks.localCart === a || callbacks.localCart === b)) return;
+  if (nowMs - (rec.lastSoftTapAtMs || 0) < SOFT_TAP_COOLDOWN_MS) return;
+  const closing = planarClosingSpeedBetween(a, b);
+  if (closing <= SOFT_TAP_MIN_CLOSING) return;
+  rec.lastSoftTapAtMs = nowMs;
+  callbacks.playSoftContact(Math.min(closing / CONFIG.ramming.minSpeed, 1));
+}
 
 /** * Max planar separation (m) for a tracked contact pair before it is dropped as stale.
  * Two carts in physical contact keep their body origins within one full cart length
@@ -3644,6 +3694,9 @@ function processCollisionEvents(world, eventQueue, allCarts, callbacks, isHost, 
             nowMs,
           );
           rec.lastRamAtMs = nowMs; // this touch fired — cooldown before any sustained re-fire
+        } else {
+          // * AUDIO-RAM-IMPACT-1 — unqualified touch: quiet tap instead of silence.
+          fireSoftContactTap(c1, c2, callbacks, isHost, nowMs, rec);
         }
       }
     } else if (c1 || c2) {
@@ -3760,6 +3813,9 @@ function processCollisionEvents(world, eventQueue, allCarts, callbacks, isHost, 
     if (ram) {
       applyRammingImpulse(ram.rammer, ram.victim, ram.rammerState, ram.victimState, callbacks, isHost, nowMs);
       rec.lastRamAtMs = nowMs;
+    } else if (nowMs - (rec.lastSoftTapAtMs || 0) >= SOFT_TAP_COOLDOWN_MS) {
+      // * AUDIO-RAM-IMPACT-1 — sustained grind re-taps on its own cooldown.
+      fireSoftContactTap(a, b, callbacks, isHost, nowMs, rec);
     }
   }
 }

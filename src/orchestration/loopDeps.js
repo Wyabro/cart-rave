@@ -241,6 +241,8 @@ export function createLoopDeps(deps) {
       getAxis: Input.getAxis,
       getAiAxis,
       playCollision: (intensity, opts) => AudioManager.playCartCrash(intensity, opts),
+      // * AUDIO-RAM-IMPACT-1 — sub-threshold bumps still thud (quiet, lighter rate).
+      playSoftContact: (closing01) => AudioManager.playContactTap(closing01),
       spawnTrashBurst: getSpawnTrashBurstRef(),
       onLocalRamImpact: triggerLocalRamShake,
       onLocalHitTaken: triggerLocalHitTaken,

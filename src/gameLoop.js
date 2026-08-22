@@ -540,6 +540,7 @@ export function runPhysicsStep(loopState, deps, context) {
                 // * / spill challenge progress on every reconcile.
                 isReconcileReplay: true,
                 playCollision: null,
+                playSoftContact: null,
                 spawnTrashBurst: null,
                 onLocalRamImpact: null,
                 onLocalHitTaken: null,
