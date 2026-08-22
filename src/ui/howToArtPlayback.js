@@ -164,7 +164,9 @@ export function startHowToArtPlayback({
         fresh.alt = "";
         fresh.decoding = "async";
         fresh.draggable = false;
-        fresh.src = motionUrl;
+        const freshUrl = new URL(motionUrl, img.ownerDocument.baseURI);
+        freshUrl.searchParams.set("onboardLoop", String(Date.now()));
+        fresh.src = freshUrl.href;
         displayed.replaceWith(fresh);
         displayed = fresh;
         finish("playing", "frame-change");

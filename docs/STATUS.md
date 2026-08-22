@@ -28,8 +28,8 @@ report phase-exit eligibility; they must not move the marker.
 **Playtesting and stabilization.** External playtest is gated on BACKLOG Block 1.
 **AUDIO-MIX-BALANCE-1** shipped 08-21 — in-game music bus ×0.4
 (`CONFIG.audio.gameMusicGain`; menu music unchanged), music slider default
-35→50 so all three default to 50. Playtest owed:
-**AUDIO-MIX-BALANCE-PT-1** (`npm run dev:local`, fresh profile).
+35→50 so all three default to 50. Wyatt PASS **AUDIO-MIX-BALANCE-PT-1**
+08-22 in local dev with a fresh profile.
 **NET-LAG-1-PT-1** is parked by Wyatt (08-20). **CART-POP-1** closed
 08-21 — Wyatt PASS Storerooms F8 on prod `9051a0ce` (Worker `dfa5a26d`).
 Classic and Sundial already PASS. Do not retouch those floors. Do not reopen
@@ -38,7 +38,7 @@ and analytics gating are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 ·
 NET-SD-1 closed. Stay in this phase until Wyatt advances the marker.
 
 **DEMOTE-COUNTDOWN-1** shipped 08-19 — `startRunningAt` isHost guard + demoted host's countdown
-timer cleared via a new `onHostDemoted` callback. Playtest owed: **DEMOTE-COUNTDOWN-PT-1** (2pc).
+timer cleared via a new `onHostDemoted` callback. Wyatt PASS **DEMOTE-COUNTDOWN-PT-1** 08-22.
 
 **QP-PLAYING-1** landed 08-19 — QUICKPLAY pill `N PLAYING NOW`
 (`GET /api/playing`). Wyatt PASS **QP-PLAYING-PT-1** 08-21.
@@ -103,7 +103,7 @@ Live rows only. Shipped and closed cards live in
 | NET-LAG-1 | Friends/QP lag + rubber-band (F8 both machines) | wave 1 landed; 🅿️ **NET-LAG-1-PT-1** `[2pc]` parked by Wyatt 08-20 |
 | AUDIO-RAM-IMPACT-1 | ram crash SFX inaudible + soft taps silent (external playtest) | ✅ CLOSED 08-21 — Wyatt PT PASS on prod `67778a9f` (both rounds: `c4e7f082` + `0644094f`) |
 | ONBOARD-WEBP-1 | HOW TO PLAY WebP playback + fallback | shipped `ae7d7a81` Worker `2a5af903`; 🅿️ **ONBOARD-WEBP-PT-1** retest on prod |
-| CLIENT-ID-AUTH-1 | clientId claim hijack guard (session-token proof of ownership) | shipped `e5ca329b` Worker `c789f236`; 🅿️ **CID-AUTH-PT-1** `[2pc]` |
+| CLIENT-ID-AUTH-1 | clientId claim hijack guard (session-token proof of ownership) | shipped `e5ca329b` Worker `c789f236`; Wyatt PASS **CID-AUTH-PT-1** 08-22 |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 
 ### Next actions
@@ -113,8 +113,7 @@ Live rows only. Shipped and closed cards live in
    **ONBOARD-JUMP-PT-1** · **QP-PLAYING-PT-1** ·
    **FRIENDS-ROTATE-PT-1**. Do not start an external playtest until
    Block 1 drains. Deferred: **SHARD-PT-2** (launch day).
-2. Same prod, two machines: **CID-AUTH-PT-1** · **SNAP-FINITE-PT-1** ·
-   **RING-ALIAS-PT-1**. Console: `npm run dashboard`.
+2. Same prod, two machines: **SNAP-FINITE-PT-1**. Console: `npm run dashboard`.
 
 ## Open issues (top)
 

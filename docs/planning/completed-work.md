@@ -2,7 +2,7 @@
 
 > Historical log. Past entries may still say "Cart Rave" / `next-level` — that is intentional. Living naming rules: [brand.md](../brand.md).
 
-**Last Updated:** August 21, 2026
+**Last Updated:** August 22, 2026
 
 > **This doc = the past** — the single home for historical/completed items. For what works
 > *today* see [project-state.md](./project-state.md); for forward plans see [ROADMAP.md](./ROADMAP.md).
@@ -10,6 +10,23 @@
 Chronological record of shipped work, newest first.
 
 > **Convention:** As items ship, move their completed writeup here (out of ROADMAP.md / project-state.md).
+
+---
+
+### August 22, 2026 — playtest PASSes (audio, auth, countdown, ring alias)
+
+- *(Playtest · Low)* **AUDIO-MIX-BALANCE-PT-1** — ✅ **PASS 08-22** in local dev with a
+  fresh profile. With all sliders at 50, in-round music stayed below SFX and the announcer;
+  menu music stayed unchanged. Parent **AUDIO-MIX-BALANCE-1** closes.
+- *(Playtest · Low)* **CID-AUTH-PT-1** — ✅ **PASS 08-22** on prod `e5ca329b` (Worker
+  `c789f236`). A host refresh during the lobby retained the same human seat, name, and color;
+  no ghost or hostless room appeared. Parent **CLIENT-ID-AUTH-1** closes.
+- *(Playtest · Low)* **DEMOTE-COUNTDOWN-PT-1** — ✅ **PASS 08-22** on prod after ship.
+  Host migration during the countdown did not start the old host's round early, and both
+  screens started at the right moment. Parent **DEMOTE-COUNTDOWN-1** closes.
+- *(Playtest · Low)* **RING-ALIAS-PT-1** — ✅ **PASS 08-22** on prod `e5ca329b` (Worker
+  `c789f236`). A hidden non-host tab returned without remote pops or teleports during normal
+  play. Parent **RING-ALIAS-1** closes.
 
 ---
 

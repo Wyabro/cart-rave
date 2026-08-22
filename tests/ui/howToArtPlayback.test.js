@@ -66,7 +66,7 @@ describe("HOW TO PLAY animated WebP playback", () => {
 
     const live = run.slot.querySelector("img");
     expect(live).not.toBe(run.img);
-    expect(live.src).toContain("/drive.webp");
+    expect(live.src).toMatch(/\/drive\.webp\?onboardLoop=\d+$/);
     expect(live.isConnected).toBe(true);
     expect(run.img.isConnected).toBe(false);
     expect(run.onVerdict).toHaveBeenCalledWith(expect.objectContaining({
