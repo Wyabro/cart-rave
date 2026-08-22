@@ -39,6 +39,15 @@ let _voiceVol = howlerVol(_initialAudio.voiceVolume);
 let _musicVol = howlerVol(_initialAudio.musicVolume);
 let _isMuted = _initialAudio.isMuted;
 
+// * AUDIO-MIX-BALANCE-1: in-game music sits under SFX/announcer — authored multiplier
+// * on the music-slider gain, applied only to gameMusicTracks (menu keeps full value).
+const GAME_MUSIC_GAIN = Math.max(0, Math.min(1, CONFIG.audio?.gameMusicGain ?? 1));
+
+/** Final Howler volume for an in-game music track. */
+function gameMusicVol() {
+  return _isMuted ? 0 : Math.min(1, _musicVol * GAME_MUSIC_GAIN);
+}
+
 // Subscribe to store updates for reactive volume adjustments
 audioStore.subscribe((state) => {
   _musicVol = howlerVol(state.musicVolume);
@@ -431,7 +440,7 @@ function applyAllVolumes() {
     h.volume(_isMuted || !live ? 0 : _musicVol);
   }
   for (const t of gameMusicTracks) {
-    if (t) t.volume(_isMuted || !gameMusicPlaying ? 0 : _musicVol);
+    if (t) t.volume(gameMusicPlaying ? gameMusicVol() : 0);
   }
   applySfxVolumes();
   applyAmbienceVolumes();
@@ -476,18 +485,22 @@ function activeMusicHowls() {
  */
 export function duckMusic(depth = 0.4, holdMs = 800) {
   if (_isMuted) return;
-  const target = Math.max(0, Math.min(1, depth)) * _musicVol;
+  // * Per-howl full level: game tracks sit at the authored in-game gain, menu at
+  // * the raw slider value (AUDIO-MIX-BALANCE-1).
+  const trackIdx = currentGameTrackIdx;
+  const fullFor = (h) => (h === gameMusicTracks[trackIdx] ? gameMusicVol() : _musicVol);
   for (const h of activeMusicHowls()) {
     try {
       const current = /** @type {number} */ (h.volume());
+      const target = Math.max(0, Math.min(1, depth)) * fullFor(h);
       if (current > target) h.fade(current, target, 120);
     } catch { /* track may be mid-load */ }
   }
   if (_duckTimer) clearTimeout(_duckTimer);
   _duckTimer = setTimeout(() => {
     _duckTimer = null;
-    const full = _isMuted ? 0 : _musicVol;
     for (const h of activeMusicHowls()) {
+      const full = _isMuted ? 0 : fullFor(h);
       try { h.fade(/** @type {number} */ (h.volume()), full, 450); } catch { /* ignore */ }
     }
   }, holdMs);
@@ -642,7 +655,7 @@ function materializeGamePlaylist(urls) {
   }
   gameMusicTracks = urls.map((url, i) => new Howl({
     src: Array.isArray(url) ? url : [url],
-    volume: _isMuted ? 0 : _musicVol,
+    volume: _isMuted ? 0 : Math.min(1, _musicVol * GAME_MUSIC_GAIN),
     // * Only the first track preloads when the playlist materializes (enter play).
     // * Later tracks are loaded on demand via ensureTrackLoaded() — Howler never
     // * calls load() itself for preload:false Howls, so .play() on them queues forever.
@@ -750,7 +763,7 @@ export function playGameMusic() {
     return;
   }
   const track = gameMusicTracks[currentGameTrackIdx];
-  if (track) track.volume(_isMuted ? 0 : _musicVol);
+  if (track) track.volume(gameMusicVol());
   startGameTrack(track);
 }
 

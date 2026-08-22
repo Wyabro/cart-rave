@@ -4,10 +4,10 @@ import { STORAGE_KEYS, storageGet, storageSet } from "../utils/storage.js";
 
 export const AUDIO_VOLUME_MAX = 1.15;
 export const AUDIO_VOLUME_DEFAULT = 0.5 * AUDIO_VOLUME_MAX;
-// * Music defaults lower than SFX: music is a sustained bed while SFX/announcer are
-// * transient, so equal defaults read as "music is louder than everything" (07-17
-// * playtest). Only affects players who never touched the slider — saved settings win.
-const MUSIC_VOLUME_DEFAULT = 0.35 * AUDIO_VOLUME_MAX;
+// * AUDIO-MIX-BALANCE-1: music defaults equal to SFX/voice — the under-balance now
+// * lives in the authored in-game gain (CONFIG.audio.gameMusicGain), not the slider
+// * default. Only affects players who never touched the slider — saved settings win.
+const MUSIC_VOLUME_DEFAULT = AUDIO_VOLUME_DEFAULT;
 
 /** Volumes persist as integer percentages (0–100) of AUDIO_VOLUME_MAX. */
 function loadVolumePct(key) {

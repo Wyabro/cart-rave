@@ -72,9 +72,8 @@ way the Block table still can.)*
 | Department | Open | High | Medium | Low |
 |---|---:|---:|---:|---:|
 | [Engineering](#engineering) | 14 | 2 | 4 | 7 (+1 partial) |
-| [Audio](#audio) | 1 | 0 | 1 | 0 |
 | [Design / Gameplay](#design--gameplay) | 3 | 0 | 3 | 0 |
-| 🟢 [Playtest owed](#playtest-owed) | 7 | 0 | 0 | 7 |
+| 🟢 [Playtest owed](#playtest-owed) | 8 | 0 | 0 | 8 |
 | [Tech Debt](#tech-debt) | 14 | 0 | 3 | 11 |
 
 **39 open rows total.**
@@ -242,7 +241,6 @@ Rows follow work-order rank: High (Block 1) → Medium (Block 2, then Wyatt-bloc
 
 | Pri | Item | Notes |
 |-----|------|-------|
-| Medium | AUDIO-MIX-BALANCE-1 — default music level drowns SFX/announcer | **Filed 08-21 from external playtest:** music "too loud compared to the rest of the game"; default should be lower. Scope: in-round music-vs-SFX default balance only. Distinct from AUDIO-RAM-IMPACT-1 (missing impact layer). Do not reopen **MENU-MUSIC-VOL-1** / **SD-MUSIC-LPF-1** / **STORE-MUSIC-1**. |
 
 **AUDIO-RAM-IMPACT-1 closed 08-21 — Wyatt PT PASS on prod `67778a9f`**
 (`crashVolumeFloor` 0.45 + curve ×1.0, plus soft contact taps for sub-minSpeed
@@ -276,6 +274,7 @@ completed-work — do not restack it here.
 | Low | ONBOARD-WEBP-PT-1 — HOW TO PLAY media moves or falls back cleanly `[1pc]` | **Owed: Wyatt playtest — ONBOARD-WEBP-PT-1 — the HOW TO PLAY pictures loop when supported and stay clean when they cannot.** Parent **ONBOARD-WEBP-1**. Prod `e5ca329b` (Worker `c789f236`, hard-refresh) with `?diag=1`. **FAIL 08-21** on `ae7d7a81`: each clip played once (~2.8s) then froze.<br>1. Open HOW TO PLAY. Page through DRIVE, BOOST, RAM THEM OUT, READ THE HUD, and THE LIVING STORE.<br>2. FAIL if any picture is blank, broken, jumps in size, locks the menu, or plays once and then freezes. A clean still picture is an acceptable fallback only when motion cannot play at all.<br>3. PASS if each picture loops for as long as the slide stays open, or changes to a clean matching still within about a second; the teaching text and controls stay readable.<br>4. Press F8 after the five picture slides. |
 | Low | SNAP-FINITE-PT-1 — snapshot finite guard changes nothing visible `[2pc]` | **Owed: Wyatt playtest — SNAP-FINITE-PT-1 — normal netplay is unchanged after every snapshot body write got a NaN guard (SNAP-FINITE-1).** Prod `e5ca329b` (Worker `c789f236`, hard-refresh).<br>1. Friends match, two machines. Drive, boost, ram, and hop for a full round on the non-host.<br>2. FAIL if any cart freezes in place, teleports to origin, ghosts through the floor, or remote carts stutter where they did not before.<br>3. PASS if remote carts track smoothly and collisions feel identical to pre-guard play.<br>4. Press F8 on both machines at round end. |
 | Low | CID-AUTH-PT-1 — refresh mid-lobby keeps your seat `[2pc]` | **Owed: Wyatt playtest — CID-AUTH-PT-1 — refreshing the page mid-lobby re-seats you as the same player instead of dropping you to NPC.** Parent **CLIENT-ID-AUTH-1** (clientId hijack guard). Prod `e5ca329b` (Worker `c789f236`, hard-refresh).<br>1. Two clients in one Friends room, both seated and ready.<br>2. Hard-refresh the HOST's page mid-lobby; let it rejoin.<br>3. FAIL if the refreshed client comes back as an NPC cart, loses its name/color, or the room strands hostless.<br>4. PASS if it re-seats under the same name with a human slot and the other client never sees a ghost. Press F8 at the end. |
+| Low | AUDIO-MIX-BALANCE-PT-1 — in-round music sits under SFX/announcer at defaults `[1pc]` | **Owed: Wyatt playtest — AUDIO-MIX-BALANCE-PT-1 — with all three volume sliders untouched at 50, in-game music no longer drowns SFX or the announcer (AUDIO-MIX-BALANCE-1).** Pushed but **not yet deployed** — use `npm run dev:local`. Your tested mix was music 20 / others 50; the in-game music bus is now scaled ×0.4 so slider-50 sounds like old slider-20. Menu music is unchanged.<br>1. Clear `cartRaveVolume*` keys from localStorage (or use a fresh profile) so defaults apply — all three sliders should read 50.<br>2. Play a solo round. Listen during driving, rams/crashes, an announcer call, and a KO duck.<br>3. FAIL if music still buries crashes/announcer, or if it now sounds quieter than your tested music-at-20 mix.<br>4. Back at the menu, confirm menu music did NOT drop (it keeps the full slider value).<br>5. Press F8 at round end. |
 | Low | RING-ALIAS-PT-1 — tab-away round trip shows no remote pops `[2pc]` | **Owed: Wyatt playtest — RING-ALIAS-PT-1 — hiding the non-host tab for ~10s mid-round then returning causes no visual pops or teleports on remote carts (RING-ALIAS-1 decode-ring generation guard).** Prod `e5ca329b` (Worker `c789f236`, hard-refresh).<br>1. Friends match, two machines; non-host drives mid-round.<br>2. Hide the non-host's tab for ~10 seconds, then return and keep driving.<br>3. FAIL if remote carts pop/teleport on return beyond a single brief catch-up snap, or the F8 shows `ringAliasFlushes` climbing during normal (non-hidden) play.<br>4. Press F8 on both machines at round end. |
 
 ## Tech Debt

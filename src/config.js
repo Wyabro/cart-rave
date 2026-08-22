@@ -507,7 +507,10 @@ export const CONFIG = {
   },
 
   audio: {
-    musicVolume: 0.1725, // unitless gain — in-game music (master gain applied separately)
+    // * AUDIO-MIX-BALANCE-1: multiplier on the music-slider Howler gain for IN-GAME
+    // * tracks only (menu music stays at full slider value). 0.4 = the old slider-20
+    // * loudness now lands at the 50 default, so all three sliders ship at 50.
+    gameMusicGain: 0.4,
   },
 
   scoring: {
