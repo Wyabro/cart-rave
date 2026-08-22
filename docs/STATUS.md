@@ -102,13 +102,13 @@ Live rows only. Shipped and closed cards live in
 |---|------|--------|
 | NET-LAG-1 | Friends/QP lag + rubber-band (F8 both machines) | wave 1 landed; 🅿️ **NET-LAG-1-PT-1** `[2pc]` parked by Wyatt 08-20 |
 | AUDIO-RAM-IMPACT-1 | ram crash SFX inaudible + soft taps silent (external playtest) | ✅ CLOSED 08-21 — Wyatt PT PASS on prod `67778a9f` (both rounds: `c4e7f082` + `0644094f`) |
-| ONBOARD-WEBP-1 | HOW TO PLAY WebP playback + fallback | shipped `ae7d7a81` Worker `2a5af903`; 🅿️ **ONBOARD-WEBP-PT-1** retest on prod |
+| ONBOARD-WEBP-1 | HOW TO PLAY WebP playback + fallback | shipped `310a5f86` Worker `503680cd-0e3e-46de-80e8-a4d74e90fc8c`; 🅿️ **ONBOARD-WEBP-PT-1** retest on prod |
 | CLIENT-ID-AUTH-1 | clientId claim hijack guard (session-token proof of ownership) | shipped `e5ca329b` Worker `c789f236`; Wyatt PASS **CID-AUTH-PT-1** 08-22 |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 
 ### Next actions
 
-1. **ONBOARD-WEBP-PT-1** retest on prod `e5ca329b` (hard-refresh).
+1. **ONBOARD-WEBP-PT-1** retest on prod `310a5f86` (Worker `503680cd-0e3e-46de-80e8-a4d74e90fc8c`, hard-refresh).
    **NET-LAG-1-PT-1** `[2pc]` is parked. Closed 08-21 PASSes:
    **ONBOARD-JUMP-PT-1** · **QP-PLAYING-PT-1** ·
    **FRIENDS-ROTATE-PT-1**. Do not start an external playtest until
@@ -184,10 +184,11 @@ CLIENT-ID-AUTH-1 · RING-ALIAS-1.
 `gunzip_too_large` / `GunzipCapError`. POST `/api/captures` aborts
 gzip-base64 at `CAPTURE_STORE_MAX_CHARS`.
 
-2026-08-21 (**ONBOARD-WEBP-1** ship) — prod `ae7d7a81` Worker
-`2a5af903`. VERIFY_OK `index-Im349Dd2.js`. Loop remount after
-canvas `drawImage` freeze. **ONBOARD-WEBP-PT-1** retest on
-`e5ca329b` (hard-refresh). FAIL 08-21: clips played once then froze.
+2026-08-22 (**ONBOARD-WEBP-1** ship) — prod `310a5f86` Worker
+`503680cd-0e3e-46de-80e8-a4d74e90fc8c`. VERIFY_OK `index-Be8iEYJL.js`,
+28 refs, 0×404; live entry contains `onboardLoop`. **ONBOARD-WEBP-PT-1**
+retest on the deployed build (hard-refresh). FAIL 08-21: clips played once
+then froze; same-URL remounts could reuse the frozen decoder.
 
 2026-08-21 (playtest PASSes) — **ONBOARD-JUMP-PT-1** ·
 **QP-PLAYING-PT-1** · **FRIENDS-ROTATE-PT-1**. Parents
