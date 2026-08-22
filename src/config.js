@@ -251,7 +251,8 @@ const physics = {
       // * HIT-FEEL-1 Round 2: normals often land ~0.1–0.35; old 0.38 gate muted most of them.
       shakeMinIntensity: 0.20, // unitless — min intensity for local ram screen shake / pulse / rumble
       shakeBoostMinIntensity: 0.12, // unitless — lower shake threshold during nitro rams
-      shakePixelScale: 6.2, // px — screen shake amplitude scale
+      // * CAM-COMFORT-1: reduced from 6.2px — impact still reads, less nausea.
+      shakePixelScale: 4.0, // px — screen shake amplitude scale
       // * Directional hit vignette (DOM) — lower than shake so everyday rams still cue.
       // * HIT-FEEL-1 Round 1: raised floor + softer display remap so love-taps don't scream.
       hitDirMinIntensity: 0.14, // unitless — min collision intensity for hit-from vignette
