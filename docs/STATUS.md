@@ -102,13 +102,13 @@ Live rows only. Shipped and closed cards live in
 |---|------|--------|
 | NET-LAG-1 | Friends/QP lag + rubber-band (F8 both machines) | wave 1 landed; 🅿️ **NET-LAG-1-PT-1** `[2pc]` parked by Wyatt 08-20 |
 | AUDIO-RAM-IMPACT-1 | ram crash SFX inaudible + soft taps silent (external playtest) | ✅ CLOSED 08-21 — Wyatt PT PASS on prod `67778a9f` (both rounds: `c4e7f082` + `0644094f`) |
-| ONBOARD-WEBP-1 | HOW TO PLAY WebP playback + fallback | wave 3: canvas `ImageDecoder` loop (no `<img>` WebP). 🅿️ **ONBOARD-WEBP-PT-1** after ship |
+| ONBOARD-WEBP-1 | HOW TO PLAY WebP playback + fallback | shipped `14658bf8` Worker `e14acbd4`; 🅿️ **ONBOARD-WEBP-PT-1** on prod |
 | CLIENT-ID-AUTH-1 | clientId claim hijack guard (session-token proof of ownership) | shipped `e5ca329b` Worker `c789f236`; Wyatt PASS **CID-AUTH-PT-1** 08-22 |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 
 ### Next actions
 
-1. **ONBOARD-WEBP-PT-1** after this wave ships (hard-refresh). Prior prod `310a5f86` still FAILs.
+1. **ONBOARD-WEBP-PT-1** on prod `14658bf8` (Worker `e14acbd4`, hard-refresh).
    **NET-LAG-1-PT-1** `[2pc]` is parked. Closed 08-21 PASSes:
    **ONBOARD-JUMP-PT-1** · **QP-PLAYING-PT-1** ·
    **FRIENDS-ROTATE-PT-1**. Do not start an external playtest until
@@ -184,10 +184,15 @@ CLIENT-ID-AUTH-1 · RING-ALIAS-1.
 `gunzip_too_large` / `GunzipCapError`. POST `/api/captures` aborts
 gzip-base64 at `CAPTURE_STORE_MAX_CHARS`.
 
+2026-08-23 (**ONBOARD-WEBP-1** ship) — prod `14658bf8` Worker
+`e14acbd4-ce40-4e70-a349-06e5c40dd8f0`. VERIFY_OK `index-DiFdiFls.js`,
+28 refs, 0×404; live entry contains `decoder-loop`. **ONBOARD-WEBP-PT-1**
+on the deployed build (hard-refresh).
+
 2026-08-23 (**ONBOARD-WEBP-1** wave 3) — PT still FAIL on prod `310a5f86`
 (play once ~2.8s, then freeze). Query remount did not isolate the decoder.
 Lever: canvas `ImageDecoder` loop in `howToArtPlayback.js`. Files are
-loop=0 / 2.8s. **ONBOARD-WEBP-PT-1** after ship.
+loop=0 / 2.8s.
 
 2026-08-22 (**ONBOARD-WEBP-1** ship) — prod `310a5f86` Worker
 `503680cd-0e3e-46de-80e8-a4d74e90fc8c`. VERIFY_OK `index-Be8iEYJL.js`,
