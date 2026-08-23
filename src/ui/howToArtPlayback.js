@@ -1,39 +1,13 @@
-const FRAME_CHECK_INTERVAL_MS = 175;
-const FRAME_CHECK_LIMIT = 5;
-const SAMPLE_WIDTH = 16;
-const SAMPLE_HEIGHT = 10;
+const MOTION_TYPE = "image/webp";
+const MIN_FRAME_MS = 16;
+const HIDDEN_POLL_MS = 200;
 
 /**
- * Downsample the full image before hashing it. Five 16x10 readbacks are enough to
- * distinguish the authored 83-100ms HOW TO PLAY frames without keeping a full-size
- * canvas or running a permanent animation observer.
- * @param {HTMLImageElement} img
- * @returns {() => string}
- */
-function createFrameSampler(img) {
-  const canvas = img.ownerDocument.createElement("canvas");
-  canvas.width = SAMPLE_WIDTH;
-  canvas.height = SAMPLE_HEIGHT;
-  const context = canvas.getContext("2d", { willReadFrequently: true });
-  if (!context) throw new Error("2d canvas unavailable");
-
-  return () => {
-    context.clearRect(0, 0, SAMPLE_WIDTH, SAMPLE_HEIGHT);
-    context.drawImage(img, 0, 0, SAMPLE_WIDTH, SAMPLE_HEIGHT);
-    const pixels = context.getImageData(0, 0, SAMPLE_WIDTH, SAMPLE_HEIGHT).data;
-    let hash = 2166136261;
-    for (let i = 0; i < pixels.length; i += 1) {
-      hash ^= pixels[i];
-      hash = Math.imul(hash, 16777619);
-    }
-    return String(hash >>> 0);
-  };
-}
-
-/**
- * Mount one HOW TO PLAY image while its slide is visible, then stop observing as
- * soon as the animated WebP proves that its rendered frame advances. The caller
- * owns slide visibility and must call the returned cleanup before hiding the slide.
+ * Mount one HOW TO PLAY image while its slide is visible. Chromium's <img>
+ * WebP decoder can play an infinite file once and then freeze, including
+ * after a same-bytes remount, so motion is painted on a canvas from
+ * ImageDecoder whenever that API can decode the file. Cleanup must run
+ * before the slide hides.
  *
  * @param {{
  *   slot: HTMLElement,
@@ -48,11 +22,13 @@ function createFrameSampler(img) {
  *     samples: number,
  *     elapsedMs: number,
  *   }) => void,
- *   sampleFrame?: (img: HTMLImageElement) => string,
  *   isVisible?: () => boolean,
  *   schedule?: typeof setTimeout,
  *   cancelSchedule?: typeof clearTimeout,
  *   now?: () => number,
+ *   ImageDecoder?: typeof globalThis.ImageDecoder,
+ *   fetchBuffer?: (url: string, signal: AbortSignal) => Promise<ArrayBuffer>,
+ *   paintFrame?: (canvas: HTMLCanvasElement, image: CanvasImageSource) => void,
  * }} options
  * @returns {() => void}
  */
@@ -63,38 +39,35 @@ export function startHowToArtPlayback({
   stillUrl,
   reducedMotion,
   onVerdict = () => {},
-  sampleFrame,
   isVisible = () => true,
   schedule = setTimeout,
   cancelSchedule = clearTimeout,
   now = () => performance.now(),
+  ImageDecoder: ImageDecoderCtor = globalThis.ImageDecoder,
+  fetchBuffer = (url, signal) => fetch(url, { signal }).then((res) => {
+    if (!res.ok) throw new Error(`motion-http-${res.status}`);
+    return res.arrayBuffer();
+  }),
+  paintFrame = (canvas, image) => {
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("2d canvas unavailable");
+    context.drawImage(image, 0, 0);
+  },
 }) {
   slot.dataset.art = "1";
-  for (const child of Array.from(slot.children)) {
-    if (child instanceof HTMLImageElement) child.remove();
-  }
-
-  const img = slot.ownerDocument.createElement("img");
-  img.alt = "";
-  img.decoding = "async";
-  img.draggable = false;
-  slot.append(img);
+  clearMedia(slot);
 
   let stopped = false;
   let settled = false;
   let timerId = null;
-  let samples = 0;
-  let firstHash = null;
-  let displayed = img;
+  let displayed = null;
+  let decoder = null;
+  const abort = new AbortController();
   const startedAt = now();
 
-  const finish = (status, reason) => {
+  const finish = (status, reason, samples = 0) => {
     if (stopped || settled) return;
     settled = true;
-    if (timerId != null) {
-      cancelSchedule(timerId);
-      timerId = null;
-    }
     onVerdict({
       token,
       status,
@@ -104,19 +77,40 @@ export function startHowToArtPlayback({
     });
   };
 
+  const stopTimer = () => {
+    if (timerId == null) return;
+    cancelSchedule(timerId);
+    timerId = null;
+  };
+
+  const mountImg = (src = "") => {
+    const img = slot.ownerDocument.createElement("img");
+    img.alt = "";
+    img.draggable = false;
+    displayed?.remove();
+    displayed = img;
+    slot.append(img);
+    if (src) img.src = src;
+    return img;
+  };
+
   const useStill = (reason) => {
+    if (stopped) return;
     if (!stillUrl) {
-      if (reason === "motion-load-error") {
-        img.remove();
+      if (reason === "motion-load-error" || reason.startsWith("motion-http")) {
+        displayed?.remove();
+        displayed = null;
         delete slot.dataset.art;
       }
       finish("fallback", `${reason}-no-still`);
       return;
     }
-    img.removeEventListener("load", onLoad);
-    img.removeEventListener("error", onError);
+    const img = displayed instanceof HTMLImageElement
+      ? displayed
+      : mountImg();
     img.addEventListener("error", () => {
       img.remove();
+      if (displayed === img) displayed = null;
       delete slot.dataset.art;
     }, { once: true });
     img.src = stillUrl;
@@ -124,77 +118,134 @@ export function startHowToArtPlayback({
   };
 
   if (reducedMotion) {
-    img.src = stillUrl ?? motionUrl ?? "";
+    mountImg(stillUrl ?? motionUrl ?? "");
     finish("fallback", stillUrl ? "reduced-motion" : "reduced-motion-no-still");
     return () => {
       stopped = true;
-      displayed.remove();
+      abort.abort();
+      displayed?.remove();
     };
   }
 
   if (!motionUrl) {
-    img.src = stillUrl ?? "";
+    mountImg(stillUrl ?? "");
     finish("fallback", "still-only");
     return () => {
       stopped = true;
-      displayed.remove();
+      abort.abort();
+      displayed?.remove();
     };
   }
 
-  let readFrame;
-  const checkFrame = () => {
-    if (stopped || settled) return;
-    if (!isVisible()) {
-      timerId = schedule(checkFrame, FRAME_CHECK_INTERVAL_MS);
-      return;
-    }
-    try {
-      readFrame ??= sampleFrame
-        ? () => sampleFrame(img)
-        : createFrameSampler(img);
-      const hash = readFrame();
-      samples += 1;
-      if (firstHash == null) {
-        firstHash = hash;
-      } else if (hash !== firstHash) {
-        // Chromium stops looping an infinite WebP after drawImage sampling
-        // (ONBOARD-WEBP-PT-1 FAIL 08-21: one 2.8s play, then a static last
-        // frame). Swap in a never-sampled copy so the file can loop.
-        const fresh = img.ownerDocument.createElement("img");
-        fresh.alt = "";
-        fresh.decoding = "async";
-        fresh.draggable = false;
-        const freshUrl = new URL(motionUrl, img.ownerDocument.baseURI);
-        freshUrl.searchParams.set("onboardLoop", String(Date.now()));
-        fresh.src = freshUrl.href;
-        displayed.replaceWith(fresh);
-        displayed = fresh;
-        finish("playing", "frame-change");
-        return;
-      }
-    } catch {
-      useStill("sample-error");
-      return;
-    }
-
-    if (samples >= FRAME_CHECK_LIMIT) {
-      useStill("no-frame-change");
-      return;
-    }
-    timerId = schedule(checkFrame, FRAME_CHECK_INTERVAL_MS);
+  const startImgFallback = (reasonIfError = "motion-load-error") => {
+    const img = mountImg(motionUrl);
+    img.addEventListener("load", () => finish("playing", "img-load"), { once: true });
+    img.addEventListener("error", () => useStill(reasonIfError), { once: true });
   };
 
-  const onLoad = () => checkFrame();
-  const onError = () => useStill("motion-load-error");
-  img.addEventListener("load", onLoad, { once: true });
-  img.addEventListener("error", onError, { once: true });
-  img.src = motionUrl;
+  const startDecoderLoop = async (buffer) => {
+    decoder = new ImageDecoderCtor({ data: buffer, type: MOTION_TYPE });
+    if (decoder.tracks?.ready) await decoder.tracks.ready;
+    if (stopped) return;
+    const track = decoder.tracks?.selectedTrack;
+    const frameCount = track?.frameCount ?? 0;
+    if (frameCount < 2) {
+      decoder.close();
+      decoder = null;
+      useStill("decoder-still");
+      return;
+    }
+
+    const canvas = slot.ownerDocument.createElement("canvas");
+    canvas.setAttribute("aria-hidden", "true");
+    displayed?.remove();
+    displayed = canvas;
+    slot.append(canvas);
+
+    let frameIndex = 0;
+    const tick = async () => {
+      if (stopped) return;
+      if (!isVisible()) {
+        timerId = schedule(tick, HIDDEN_POLL_MS);
+        return;
+      }
+      try {
+        const { image } = await decoder.decode({ frameIndex });
+        if (stopped) {
+          image.close?.();
+          return;
+        }
+        if (!canvas.width || !canvas.height) {
+          canvas.width = image.displayWidth || image.codedWidth || 1;
+          canvas.height = image.displayHeight || image.codedHeight || 1;
+        }
+        paintFrame(canvas, image);
+        const delay = Math.max(
+          MIN_FRAME_MS,
+          Math.round((image.duration ?? 100000) / 1000),
+        );
+        image.close?.();
+        frameIndex = (frameIndex + 1) % frameCount;
+        finish("playing", "decoder-loop", frameCount);
+        timerId = schedule(tick, delay);
+      } catch {
+        if (!stopped) useStill("decoder-error");
+      }
+    };
+    await tick();
+  };
+
+  const boot = async () => {
+    const supported = await decoderSupported(ImageDecoderCtor);
+    if (stopped) return;
+    if (supported) {
+      try {
+        const buffer = await fetchBuffer(motionUrl, abort.signal);
+        if (stopped) return;
+        await startDecoderLoop(buffer);
+        return;
+      } catch (err) {
+        if (stopped || err?.name === "AbortError") return;
+        const reason = String(err?.message ?? "").startsWith("motion-http")
+          ? "motion-load-error"
+          : "decoder-error";
+        useStill(reason);
+        return;
+      }
+    }
+    startImgFallback();
+  };
+  void boot();
 
   return () => {
     stopped = true;
-    if (timerId != null) cancelSchedule(timerId);
-    img.removeEventListener("load", onLoad);
-    img.removeEventListener("error", onError);
-    displayed.remove();
+    abort.abort();
+    stopTimer();
+    decoder?.close?.();
+    decoder = null;
+    displayed?.remove();
+    displayed = null;
   };
+}
+
+/**
+ * @param {typeof globalThis.ImageDecoder | undefined} Decoder
+ */
+async function decoderSupported(Decoder) {
+  if (typeof Decoder !== "function") return false;
+  if (typeof Decoder.isTypeSupported !== "function") return true;
+  try {
+    return await Decoder.isTypeSupported(MOTION_TYPE);
+  } catch {
+    return false;
+  }
+}
+
+/** @param {HTMLElement} slot */
+function clearMedia(slot) {
+  for (const child of Array.from(slot.children)) {
+    if (child instanceof HTMLImageElement || child instanceof HTMLCanvasElement) {
+      child.remove();
+    }
+  }
 }

@@ -37,11 +37,10 @@ deck: single column of text + chips, no empty frame.
   five tokens above are ever bundled; any other file dropped here is ignored.
 - `hydrateHowToArt()` runs once at menu init and sets `data-art="1"` for resolved
   slots, which stabilizes layout without mounting hidden images.
-- `startHowToArtForSlide()` mounts only the visible slide. A bounded 16x10 canvas
-  sample checks five frames over about 700 ms; the first changed frame keeps motion
-  by swapping in a never-sampled copy (Chromium stops looping a WebP after
-  `drawImage`), while no change selects the still. Paging or closing cancels the
-  check.
+- `startHowToArtForSlide()` mounts only the visible slide. Motion is painted on a
+  canvas from `ImageDecoder` so Chromium cannot freeze an `<img>` WebP after one
+  play. Browsers without that API keep a plain `<img>`. Load or decode failure
+  selects the still. Paging or closing cancels playback.
 
 ## AISLE 4's callouts — the one step that is not a drop-in
 

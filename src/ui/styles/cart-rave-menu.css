@@ -1936,14 +1936,16 @@ html, body {
 
 /* The art fills its framed box; 16:10 crops are COVER, AISLE 4's uncropped HUD
    is CONTAIN so nothing vital gets cut. */
-.cr-howto-slide-media img {
+.cr-howto-slide-media img,
+.cr-howto-slide-media canvas {
   display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.cr-howto-slide-media--hud img {
+.cr-howto-slide-media--hud img,
+.cr-howto-slide-media--hud canvas {
   object-fit: contain;
 }
 
@@ -2551,7 +2553,8 @@ html, body {
   /* The parent box is aspect-ratio:auto + max-height here, so a height:100% child
      would keep its intrinsic size and clip — size the art by the same cap the box
      uses, preserving the ratio. */
-  .cr-howto-slide-media[data-art] img {
+  .cr-howto-slide-media[data-art] img,
+  .cr-howto-slide-media[data-art] canvas {
     height: auto;
     width: auto;
     max-width: 100%;

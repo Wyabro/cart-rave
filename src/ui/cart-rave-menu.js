@@ -1518,9 +1518,8 @@ import { initGamepadTextEntry, openGamepadTextEntry } from "./gamepadTextEntry.j
   }
 
   /**
-   * Mount and verify only the art on the visible HOW TO PLAY slide. A hidden-tab
-   * or hidden-overlay check would misclassify browser throttling as frozen media,
-   * so those states never start a verdict window.
+   * Mount motion only on the visible HOW TO PLAY slide. Hidden-tab checks would
+   * pause a live decoder, so those states never start a verdict window.
    * @param {HTMLElement} slide
    */
   function startHowToArtForSlide(slide) {
