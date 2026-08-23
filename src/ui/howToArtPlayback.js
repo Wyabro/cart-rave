@@ -163,6 +163,7 @@ export function startHowToArtPlayback({
     slot.append(canvas);
 
     let frameIndex = 0;
+    let sized = false;
     const tick = async () => {
       if (stopped) return;
       if (!isVisible()) {
@@ -175,9 +176,10 @@ export function startHowToArtPlayback({
           image.close?.();
           return;
         }
-        if (!canvas.width || !canvas.height) {
+        if (!sized) {
           canvas.width = image.displayWidth || image.codedWidth || 1;
           canvas.height = image.displayHeight || image.codedHeight || 1;
+          sized = true;
         }
         paintFrame(canvas, image);
         const delay = Math.max(

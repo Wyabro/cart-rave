@@ -97,6 +97,8 @@ describe("HOW TO PLAY animated WebP playback", () => {
     await flush();
     const canvas = run.slot.querySelector("canvas");
     expect(canvas).toBeInstanceOf(HTMLCanvasElement);
+    expect(canvas.width).toBe(16);
+    expect(canvas.height).toBe(10);
     expect(run.slot.querySelector("img")).toBeNull();
     expect(paints).toEqual([0]);
     expect(run.onVerdict).toHaveBeenCalledWith(expect.objectContaining({
