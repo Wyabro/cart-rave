@@ -102,18 +102,16 @@ Live rows only. Shipped and closed cards live in
 |---|------|--------|
 | NET-LAG-1 | Friends/QP lag + rubber-band (F8 both machines) | wave 1 landed; 🅿️ **NET-LAG-1-PT-1** `[2pc]` parked by Wyatt 08-20 |
 | AUDIO-RAM-IMPACT-1 | ram crash SFX inaudible + soft taps silent (external playtest) | ✅ CLOSED 08-21 — Wyatt PT PASS on prod `67778a9f` (both rounds: `c4e7f082` + `0644094f`) |
-| ONBOARD-WEBP-1 | HOW TO PLAY WebP playback + fallback | shipped `14658bf8` Worker `e14acbd4`; 🅿️ **ONBOARD-WEBP-PT-1** on prod |
+| ONBOARD-WEBP-1 | HOW TO PLAY WebP playback + fallback | ✅ CLOSED 08-23 — Wyatt PASS **ONBOARD-WEBP-PT-1** on prod `14658bf8` (Worker `e14acbd4`) |
 | CLIENT-ID-AUTH-1 | clientId claim hijack guard (session-token proof of ownership) | shipped `e5ca329b` Worker `c789f236`; Wyatt PASS **CID-AUTH-PT-1** 08-22 |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 
 ### Next actions
 
-1. **ONBOARD-WEBP-PT-1** on prod `14658bf8` (Worker `e14acbd4`, hard-refresh).
-   **NET-LAG-1-PT-1** `[2pc]` is parked. Closed 08-21 PASSes:
-   **ONBOARD-JUMP-PT-1** · **QP-PLAYING-PT-1** ·
-   **FRIENDS-ROTATE-PT-1**. Do not start an external playtest until
-   Block 1 drains. Deferred: **SHARD-PT-2** (launch day).
-2. Same prod, two machines: **SNAP-FINITE-PT-1**. Console: `npm run dashboard`.
+1. **SNAP-FINITE-PT-1** `[2pc]` on prod (hard-refresh). Console:
+   `npm run dashboard`. **NET-LAG-1-PT-1** `[2pc]` is parked. Closed 08-23:
+   **ONBOARD-WEBP-PT-1**. Do not start an external playtest until Block 1
+   drains. Deferred: **SHARD-PT-2** (launch day).
 
 ## Open issues (top)
 
@@ -184,10 +182,9 @@ CLIENT-ID-AUTH-1 · RING-ALIAS-1.
 `gunzip_too_large` / `GunzipCapError`. POST `/api/captures` aborts
 gzip-base64 at `CAPTURE_STORE_MAX_CHARS`.
 
-2026-08-23 (**ONBOARD-WEBP-1** ship) — prod `14658bf8` Worker
-`e14acbd4-ce40-4e70-a349-06e5c40dd8f0`. VERIFY_OK `index-DiFdiFls.js`,
-28 refs, 0×404; live entry contains `decoder-loop`. **ONBOARD-WEBP-PT-1**
-on the deployed build (hard-refresh).
+2026-08-23 (**ONBOARD-WEBP-1**) — Wyatt PASS **ONBOARD-WEBP-PT-1** on prod
+`14658bf8` (Worker `e14acbd4`). VERIFY_OK `index-DiFdiFls.js`, live
+`decoder-loop`. Parent closes. Do not reopen.
 
 2026-08-23 (**ONBOARD-WEBP-1** wave 3) — PT still FAIL on prod `310a5f86`
 (play once ~2.8s, then freeze). Query remount did not isolate the decoder.

@@ -2,7 +2,7 @@
 
 > Historical log. Past entries may still say "Cart Rave" / `next-level` — that is intentional. Living naming rules: [brand.md](../brand.md).
 
-**Last Updated:** August 22, 2026
+**Last Updated:** August 23, 2026
 
 > **This doc = the past** — the single home for historical/completed items. For what works
 > *today* see [project-state.md](./project-state.md); for forward plans see [ROADMAP.md](./ROADMAP.md).
@@ -10,6 +10,20 @@
 Chronological record of shipped work, newest first.
 
 > **Convention:** As items ship, move their completed writeup here (out of ROADMAP.md / project-state.md).
+
+---
+
+### August 23, 2026 — ONBOARD-WEBP-1 (HOW TO PLAY WebP loops)
+
+- *(Playtest · Low)* **ONBOARD-WEBP-PT-1** — ✅ **PASS 08-23** on prod `14658bf8`
+  (Worker `e14acbd4`). All five HOW TO PLAY pictures loop while the slide stays
+  open. Parent **ONBOARD-WEBP-1** closes.
+- *(Engineering · High)* **ONBOARD-WEBP-1** — ✅ **CLOSED 08-23**. Chromium `<img>`
+  played infinite WebPs once (~2.8s) then froze. Query remounts (`onboardLoop`)
+  failed PT on prod `310a5f86`. Lever: paint frames on a canvas with
+  `ImageDecoder` (`src/ui/howToArtPlayback.js`). Browsers without that API keep
+  a plain `<img>`. Decode/load failure → still. Wyatt PASS **ONBOARD-WEBP-PT-1**.
+  Do not reopen **ONBOARD-SLIDES-1** · **ONBOARD-ART-1**.
 
 ---
 
