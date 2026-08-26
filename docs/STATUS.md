@@ -26,10 +26,10 @@ report phase-exit eligibility; they must not move the marker.
 ## Current focus
 
 **Playtesting and stabilization.** External playtest is gated on BACKLOG Block 1.
-**MENU-MUSIC-FIRST-1** — first-click retry was dropped while Howler held
-`_playLock` / a queued autoplay `play()`. Lever: kick the existing html5
-node on that retry. Playtest **MENU-MUSIC-FIRST-PT-1** (incognito; do not
-use `npm run dev`).
+**MENU-MUSIC-FIRST-1** shipped 08-26 — first-click retry kicks the html5
+node during Howler `_playLock`. Prod `d16fd523` Worker `b14cca2e`.
+VERIFY_OK `index-Bq-KNGFd.js`. Playtest **MENU-MUSIC-FIRST-PT-1**
+(incognito, hard-refresh; do not use `npm run dev`).
 **AUDIO-MIX-BALANCE-1** shipped 08-21 — in-game music bus ×0.4
 (`CONFIG.audio.gameMusicGain`; menu music unchanged), music slider default
 35→50 so all three default to 50. Wyatt PASS **AUDIO-MIX-BALANCE-PT-1**
@@ -171,6 +171,11 @@ or a suspected blocker (TS 7 · `cartrave4` UVs).
 - Local worker port is **8899** (`LOCAL_WORKER_PORT` in `src/config.js`). If it goes EACCES, re-check Windows HNS exclusions and move the port there.
 
 ## Last updated
+
+2026-08-26 (**MENU-MUSIC-FIRST-1** ship) — prod `d16fd523` Worker
+`b14cca2e-ca65-4f8a-ba9f-651440e58f61`. VERIFY_OK `index-Bq-KNGFd.js`
+(attempt 1, 28 refs, 0×404). Live `audioManager-CqyA-p58.js` has
+`!e._playLock&&!!e.playing()` and the `_playLock` kick path.
 
 2026-08-21 (stack ship) — prod `e5ca329b` Worker
 `c789f236-3738-4167-9aed-c228a9971547`. VERIFY_OK
