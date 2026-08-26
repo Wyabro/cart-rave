@@ -2,15 +2,15 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-08-23T09:14:09.797Z",
-    "commit": "c675d783"
+    "at": "2026-08-26T17:23:50.537Z",
+    "commit": "89722272"
   },
-  "source_digest": "7f6550ed",
+  "source_digest": "9958fcf6",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
     "production_url": "https://www.cartclash.lol/",
-    "mission": "Playtesting and stabilization — External playtest is gated on BACKLOG Block 1. AUDIO-MIX-BALANCE-1 shipped 08-21 — in-game music bus ×0.4 (`CONFIG.audio.gameMusicGain`; menu music unchanged), music slider default 35→50 so all three default to 50. Wyatt PASS AUDIO-MIX-BALANCE-PT-1 08-22 in local dev with a fresh profile. NET-LAG-1-PT-1 is parked by Wyatt (08-20). CART-POP-1 closed 08-21 — Wyatt PASS Storerooms F8 on prod `9051a0ce` (Worker `dfa5a26d`). Classic and Sundial already PASS. Do not retouch those floors. Do not reopen CART-POP-1 without new evidence. Tier A drained; Tier B/C, security sweep, and analytics gating are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Stay in this phase until Wyatt advances the marker.",
+    "mission": "Playtesting and stabilization — External playtest is gated on BACKLOG Block 1. MENU-MUSIC-FIRST-1 — first-click retry was dropped while Howler held `_playLock` / a queued autoplay `play()`. Lever: kick the existing html5 node on that retry. Playtest MENU-MUSIC-FIRST-PT-1 (incognito; do not use `npm run dev`). AUDIO-MIX-BALANCE-1 shipped 08-21 — in-game music bus ×0.4 (`CONFIG.audio.gameMusicGain`; menu music unchanged), music slider default 35→50 so all three default to 50. Wyatt PASS AUDIO-MIX-BALANCE-PT-1 08-22 in local dev with a fresh profile. NET-LAG-1-PT-1 is parked by Wyatt (08-20). CART-POP-1 closed 08-21 — Wyatt PASS Storerooms F8 on prod `9051a0ce` (Worker `dfa5a26d`). Classic and Sundial already PASS. Do not retouch those floors. Do not reopen CART-POP-1 without new evidence. Tier A drained; Tier B/C, security sweep, and analytics gating are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Stay in this phase until Wyatt advances the marker.",
     "phase": "Playtesting & stabilization — stabilize after Run 7; prove residuals; no auto-advance to RC",
     "phases": [
       {
@@ -1042,9 +1042,16 @@
       {
         "title": "Playtest owed",
         "counts": {
+          "Medium": 1,
           "Low": 3
         },
         "rows": [
+          {
+            "pri": "Medium",
+            "item": "MENU-MUSIC-FIRST-PT-1 — menu music starts on first visit after one click",
+            "notes": "**Owed: Wyatt playtest — MENU-MUSIC-FIRST-PT-1 — first visit, one click on the menu starts the music.** Parent **MENU-MUSIC-FIRST-1**. Do not use `npm run dev` — the DEV music gate hides this. Prod after ship, or `npm run build` then `npm run preview`. Incognito / cleared site data.<br>1. Incognito window. Load the site. Wait for the menu. Do not click yet.<br>2. Click anywhere on the menu once.<br>3. FAIL if music stays silent after that click. Silent before the click is autoplay policy, not a fail.<br>4. Press F8 if silent after the click.",
+            "ship1": null
+          },
           {
             "pri": "Low",
             "item": "NET-LAG-1-PT-1 — non-host own cart has no 1 m trail `[2pc]`",

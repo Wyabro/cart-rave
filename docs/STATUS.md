@@ -26,6 +26,10 @@ report phase-exit eligibility; they must not move the marker.
 ## Current focus
 
 **Playtesting and stabilization.** External playtest is gated on BACKLOG Block 1.
+**MENU-MUSIC-FIRST-1** — first-click retry was dropped while Howler held
+`_playLock` / a queued autoplay `play()`. Lever: kick the existing html5
+node on that retry. Playtest **MENU-MUSIC-FIRST-PT-1** (incognito; do not
+use `npm run dev`).
 **AUDIO-MIX-BALANCE-1** shipped 08-21 — in-game music bus ×0.4
 (`CONFIG.audio.gameMusicGain`; menu music unchanged), music slider default
 35→50 so all three default to 50. Wyatt PASS **AUDIO-MIX-BALANCE-PT-1**

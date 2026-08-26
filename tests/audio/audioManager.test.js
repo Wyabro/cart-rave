@@ -33,6 +33,8 @@ vi.mock("howler", () => {
       this._once = {};
       /** When true, load() stays "loading" until emitLoad() (async warm tests). */
       this.deferLoad = false;
+      /** When true, play() holds _playLock and playing() like an in-flight html5 promise. */
+      this.blockPlayPromise = false;
       /** Every value passed to volume() as a SETTER (MENU-MUSIC-VOL-1). */
       this.volumeCalls = [];
       MockHowl.instances.push(this);
@@ -77,6 +79,14 @@ vi.mock("howler", () => {
       if (this._state !== "loaded") {
         this._queue.push({ event: "play", action: () => this.play() });
         return null;
+      }
+      // * Howler html5: setParams() clears _paused (playing() true) and holds
+      // * _playLock until the media play() promise settles. Autoplay-blocked
+      // * first visits sit in this state until playerror.
+      if (this.blockPlayPromise) {
+        this._playLock = true;
+        this.isPlaying = true;
+        return 1;
       }
       this.isPlaying = true;
       this.opts.onplay?.call(this);
@@ -535,6 +545,50 @@ describe("menu playlist rotation", () => {
     expect(am.getAudioDebugState().menuTrackIdx).toBe(1);
     expect(tracks[1].isPlaying).toBe(true);
     expect(tracks[0].isPlaying).toBe(false);
+  });
+
+  it("first-gesture playMenuMusic kicks the html5 node while autoplay play() is locked", () => {
+    // * MENU-MUSIC-FIRST-1: boot play() is blocked by autoplay. Howler reports
+    // * playing() during _playLock. The first click used to no-op, then the
+    // * promise rejected with no retry.
+    const tracks = menuPlaylistHowls();
+    const el = tracks[0]._sounds[0]._node;
+    const elPlay = vi.fn().mockResolvedValue(undefined);
+    el.play = elPlay;
+
+    tracks[0].blockPlayPromise = true;
+    playMenuMusic(0);
+    expect(tracks[0]._playLock).toBe(true);
+    expect(tracks[0].isPlaying).toBe(true);
+    const howlPlays = tracks[0].playCalls;
+
+    playMenuMusic(1);
+
+    expect(getAudioDebugState().menuTrackIdx).toBe(0);
+    expect(elPlay).toHaveBeenCalled();
+    expect(tracks[0].playCalls).toBe(howlPlays);
+    expect(tracks[1].playCalls).toBe(0);
+  });
+
+  it("first-gesture playMenuMusic kicks the html5 node while a play is still queued", () => {
+    const tracks = menuPlaylistHowls();
+    tracks[0].deferLoad = true;
+    tracks[0]._state = "unloaded";
+    tracks[0]._queue.length = 0;
+    const el = tracks[0]._sounds[0]._node;
+    const elPlay = vi.fn().mockResolvedValue(undefined);
+    el.play = elPlay;
+
+    playMenuMusic(0);
+    expect(tracks[0]._queue.some((t) => t.event === "play")).toBe(true);
+    const howlPlays = tracks[0].playCalls;
+
+    playMenuMusic(1);
+
+    expect(getAudioDebugState().menuTrackIdx).toBe(0);
+    expect(elPlay).toHaveBeenCalled();
+    expect(tracks[0].playCalls).toBe(howlPlays);
+    expect(tracks[1].isPlaying).toBe(false);
   });
 });
 

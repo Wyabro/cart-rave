@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-23 at commit `c675d783` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `a351a252`
+> Generated 2026-08-26 at commit `89722272` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `de8f8ed8`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -14,7 +14,7 @@
 
 ## Mission
 
-Playtesting and stabilization — External playtest is gated on BACKLOG Block 1. AUDIO-MIX-BALANCE-1 shipped 08-21 — in-game music bus ×0.4 (`CONFIG.audio.gameMusicGain`; menu music unchanged), music slider default 35→50 so all three default to 50. Wyatt PASS AUDIO-MIX-BALANCE-PT-1 08-22 in local dev with a fresh profile. NET-LAG-1-PT-1 is parked by Wyatt (08-20). CART-POP-1 closed 08-21 — Wyatt PASS Storerooms F8 on prod `9051a0ce` (Worker `dfa5a26d`). Classic and Sundial already PASS. Do not retouch those floors. Do not reopen CART-POP-1 without new evidence. Tier A drained; Tier B/C, security sweep, and analytics gating are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Stay in this phase until Wyatt advances the marker.
+Playtesting and stabilization — External playtest is gated on BACKLOG Block 1. MENU-MUSIC-FIRST-1 — first-click retry was dropped while Howler held `_playLock` / a queued autoplay `play()`. Lever: kick the existing html5 node on that retry. Playtest MENU-MUSIC-FIRST-PT-1 (incognito; do not use `npm run dev`). AUDIO-MIX-BALANCE-1 shipped 08-21 — in-game music bus ×0.4 (`CONFIG.audio.gameMusicGain`; menu music unchanged), music slider default 35→50 so all three default to 50. Wyatt PASS AUDIO-MIX-BALANCE-PT-1 08-22 in local dev with a fresh profile. NET-LAG-1-PT-1 is parked by Wyatt (08-20). CART-POP-1 closed 08-21 — Wyatt PASS Storerooms F8 on prod `9051a0ce` (Worker `dfa5a26d`). Classic and Sundial already PASS. Do not retouch those floors. Do not reopen CART-POP-1 without new evidence. Tier A drained; Tier B/C, security sweep, and analytics gating are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Stay in this phase until Wyatt advances the marker.
 
 ## ACTIVE CARD
 

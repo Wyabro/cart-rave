@@ -77,12 +77,45 @@ function forEachMenuHowl(fn) {
   }
 }
 
+/** True when a menu Howl is actually audible — not an in-flight autoplay play(). */
+function menuHowlIsAudible(howl) {
+  if (!howl) return false;
+  try {
+    // * Howler html5 setParams() clears _paused (playing() true) and holds
+    // * _playLock until the media play() promise settles. A blocked autoplay
+    // * play() is not audible; treating it as playing() dropped the first-click
+    // * retry on first visit (MENU-MUSIC-FIRST-1).
+    if (/** @type {any} */ (howl)._playLock) return false;
+    return Boolean(howl.playing());
+  } catch {
+    return false;
+  }
+}
+
 /** @returns {boolean} */
 function anyMenuHowlPlaying() {
-  return menuMusicTracks.some((h) => {
-    try { return Boolean(h.playing()); } catch { return false; }
-  });
+  return menuMusicTracks.some((h) => menuHowlIsAudible(h));
 }
+
+/**
+ * Re-issue HTMLMediaElement.play() on an in-flight or queued Howl without
+ * allocating a second Sound. Must run on the first-click stack so Chrome
+ * attributes the play() to user activation.
+ * @param {Howl | null | undefined} howl
+ */
+function kickMenuHtml5Play(howl) {
+  const sounds = howl?._sounds;
+  if (!Array.isArray(sounds)) return;
+  for (const s of sounds) {
+    const el = s?._node;
+    if (!(el instanceof HTMLMediaElement)) continue;
+    try {
+      const p = el.play();
+      if (p && typeof p.catch === "function") p.catch(() => {});
+    } catch { /* ignore */ }
+  }
+}
+
 /** @type {Howl[]} */
 let gameMusicTracks = [];
 /**
@@ -598,14 +631,17 @@ function menuHowlHasQueuedPlay(howl) {
 /** @param {Howl | null | undefined} track */
 function startMenuTrack(track) {
   if (!track) return;
-  try {
-    if (track.playing()) return;
-  } catch { /* ignore */ }
+  if (menuHowlIsAudible(track)) return;
   // * Howler html5: play() while loading queues a Sound and leaves playing()
   // * false. A second play() without an id then allocates another Sound
-  // * (_inactiveSound) — same file, two elements. Skip if a play is in flight.
+  // * (_inactiveSound) — same file, two elements. Do not Howler.play() again
+  // * while locked or queued — kick the existing element so a first-click
+  // * retry still counts as user-gesture play (MENU-MUSIC-FIRST-1).
   const howl = /** @type {any} */ (track);
-  if (howl._playLock || menuHowlHasQueuedPlay(track)) return;
+  if (howl._playLock || menuHowlHasQueuedPlay(track)) {
+    kickMenuHtml5Play(howl);
+    return;
+  }
   if (track.state() === "unloaded") track.load();
   track.volume(_isMuted ? 0 : _musicVol);
   track.play();
