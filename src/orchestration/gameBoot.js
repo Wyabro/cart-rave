@@ -553,9 +553,9 @@ export function bootGameSystems(ctx) {
     // * FRIENDS-JOIN-1: only a player who TYPED a code can be told to check it. The
     // * room's creator waiting alone is the same observable state and must not see it.
     joinedViaTypedCode: () => refs.joinedViaTypedCode,
-    // * Pause-menu RESTART (solo/test-drive only): reuse the host solo re-entry
-    // * path — reset the world and re-run the countdown, no menu round-trip.
-    onRestart: () => onHostPlayAgainClick(),
+    // * Pause-menu RESTART ROUND (solo/test-drive only): replay this round.
+    // * Do not call onHostPlayAgainClick — that is rematch and advances RD.
+    onRestart: () => onHostRestartRoundClick(),
     onQualityTierChange: (tier) => handleQualityTierChange(tier),
     getQualityTier,
   });
@@ -688,6 +688,7 @@ export function bootGameSystems(ctx) {
     endRound,
     clearAutoContinuePodiumTimeout,
     handleSoloPauseOverlay,
+    onHostRestartRoundClick,
     onHostPlayAgainClick,
     clearPodiumRoundTimeout,
     resetResultsOverlayKey,

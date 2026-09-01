@@ -242,6 +242,8 @@ let _prevRoundPhase = null;
 let _observedRoundCount = 0;
 /** `startedAtMs` already counted into `_observedRoundCount`. */
 let _countedRoundStartedAtMs = 0;
+/** RESTART-ROUND-1: next new running `startedAtMs` replaces the current RD, does not add. */
+let _retainCurrentRound = false;
 /** Last rendered countdown digit; drives pulse animation only when the number changes. */
 let _lastCountdownN = null;
 /** Generation bumped every fresh countdown entry — guards a deferred catch-up beat
@@ -825,9 +827,15 @@ function updateTimer(roundState) {
       // * round. Count each distinct running startedAtMs instead — same
       // * increment for host and guests, even if HUD missed countdown
       // * (ESC, or a guest held off countdown then applied running).
+      // * RESTART-ROUND-1: pause replay arms retainCurrentRound() so a new
+      // * clock anchor does not become RD n+1. Skip only when a round was
+      // * already counted — count 0 must still become 1 or rematch freezes.
       if (roundStartedAtMs && roundStartedAtMs !== _countedRoundStartedAtMs) {
         _countedRoundStartedAtMs = roundStartedAtMs;
-        _observedRoundCount += 1;
+        if (!(_retainCurrentRound && _observedRoundCount >= 1)) {
+          _observedRoundCount += 1;
+        }
+        _retainCurrentRound = false;
       }
       elements.timerRd.textContent = `RD ${Math.max(1, _observedRoundCount)}`;
     }
@@ -1593,6 +1601,7 @@ export function init(options) {
   _prevRoundPhase = null;
   _observedRoundCount = 0;
   _countedRoundStartedAtMs = 0;
+  _retainCurrentRound = false;
   if (_countdownCatchupTimeoutId != null) {
     clearTimeout(_countdownCatchupTimeoutId);
     _countdownCatchupTimeoutId = null;
@@ -3159,6 +3168,15 @@ export function clearFeed() {
     // * permanent structure, not content.
     clearKillFeedRows();
   }
+}
+
+/**
+ * RESTART-ROUND-1: next distinct running `startedAtMs` keeps the current RD.
+ * First GO (count 0) still becomes RD 1 so rematch can advance after a
+ * countdown-time restart.
+ */
+export function retainCurrentRound() {
+  _retainCurrentRound = true;
 }
 
 export function showAudioWidget() {

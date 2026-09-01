@@ -59,4 +59,31 @@ describe("RD-COUNTER-1: HUD RD label from observed running rounds", () => {
     updateRunning(3000);
     expect(rdText()).toBe("RD 1");
   });
+
+  it("retainCurrentRound keeps RD 1 when a counted round gets a new startedAtMs", () => {
+    updateRunning(1000);
+    expect(rdText()).toBe("RD 1");
+    HUD.retainCurrentRound();
+    updateRunning(2000);
+    expect(rdText()).toBe("RD 1");
+  });
+
+  it("a new startedAtMs without retain still advances to RD 2", () => {
+    updateRunning(1000);
+    updateRunning(2000);
+    expect(rdText()).toBe("RD 2");
+  });
+
+  it("retain on count 0 still lands first GO on RD 1", () => {
+    HUD.retainCurrentRound();
+    updateRunning(1000);
+    expect(rdText()).toBe("RD 1");
+  });
+
+  it("after a count-0 retain, the next startedAtMs without retain is RD 2", () => {
+    HUD.retainCurrentRound();
+    updateRunning(1000);
+    updateRunning(2000);
+    expect(rdText()).toBe("RD 2");
+  });
 });

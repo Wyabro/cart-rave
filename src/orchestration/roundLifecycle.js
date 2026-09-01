@@ -1061,6 +1061,34 @@ function handleSoloPauseOverlay(open) {
   }
 }
 
+function onHostRestartRoundClick() {
+  if (!Netcode.getIsHost()) return;
+  const mode = detectGameMode();
+  if (mode !== "solo" && mode !== "testdrive") return;
+  cancelLastCartStandingFinish();
+  clearRoundCountdownTimeout();
+  gameCtx.slowMo.active = false;
+  lastResultsOverlayKey = null;
+  clearPodiumPresentation();
+  GameState.setRoundEndReason(null);
+  Netcode.resetClientPredictionState();
+  stopAllChargeSfx();
+  Entities.rematchResetWorld();
+  GameState.setSuddenDeath(false);
+  cleanupSuddenDeathState(getAllCartsRef() || []);
+  HUD.clearFeed();
+  // * startCountdown bails on phase==="running" (double-start guard). Solo pause
+  // * never leaves running, so drop to lobby first — same seam the old rematch
+  // * reuse needed, without sending playAgain or rotating arenas.
+  syncRoundPhase("lobby");
+  clearPodiumEndLatch();
+  GameState.setRoundStartedAtMs(0);
+  startCountdown(getRoundClockNowMs() + CONFIG.round.countdownMs);
+  if (GameState.getRoundState().phase === "countdown") {
+    HUD.retainCurrentRound();
+  }
+}
+
 function onHostPlayAgainClick() {
   if (!Netcode.getIsHost()) return;
   const mode = detectGameMode();
@@ -1184,6 +1212,7 @@ function onHostPlayAgainClick() {
     maybeScheduleAutoContinuePodium,
     updatePlayAgainCountdownLabel,
     handleSoloPauseOverlay,
+    onHostRestartRoundClick,
     onHostPlayAgainClick,
     recordPodiumStats,
     // Teardown / bridge helpers (rebind Lever B deps)
