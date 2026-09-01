@@ -13,6 +13,22 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### September 1, 2026 — RESTART-ROUND-1 (pause RESTART ROUND stays RD n)
+
+- *(Engineering · High)* **RESTART-ROUND-1** — ✅ **CLOSED 09-01** (`cac80b0d`).
+  Pause **RESTART ROUND** called rematch (`onHostPlayAgainClick` → new
+  `startedAtMs` → **RD-COUNTER-1** painted RD n+1). New
+  `onHostRestartRoundClick` replays the current solo/testdrive round.
+  HUD `retainCurrentRound()` keeps RD n. Scores 0, clock 150s, Sudden
+  Death off, kill feed cleared. Podium PLAY AGAIN still advances RD.
+  Do not reuse rematch. Do not reopen **RD-COUNTER-1**.
+- *(Playtest · Low)* **RESTART-ROUND-PT-1** — ✅ **PASS 09-01**. Wyatt
+  authorized close. Local Playwright on `npm run dev:local`: solo RD 1,
+  pause RESTART ROUND, GO still RD 1, clock 2:30, scores 0, Sudden Death
+  off. Not a prod check.
+
+---
+
 ### September 1, 2026 — SOFTGL-DISMISS-1 (software-GL modal one-shot)
 
 - *(Engineering · High)* **SOFTGL-DISMISS-1** — ✅ **CLOSED 09-01**. PLAY ANYWAY
