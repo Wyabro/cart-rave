@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-09-01 at commit `44aef474` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `139bfa7c`
+> Generated 2026-09-01 at commit `1e8c4ed4` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `c4eff6e8`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -14,7 +14,7 @@
 
 ## Mission
 
-Playtesting and stabilization — External playtest is gated on BACKLOG Block 1. SOFTGL-DISMISS-1 shipped 09-01 — PLAY ANYWAY is one-shot per tab. Owed SOFTGL-DISMISS-PT-1 (`npm run dev:local` + `?forcegpu=sw`). Next: RESTART-ROUND-1. Remaining High: PAUSE-SLIDER-DELAY-1, MENU-SHORTWIN-1, CG-ZIP-1, CG-COVERS-1. MENU-MUSIC-FIRST-PT-1 Wyatt PASS 09-01 on prod `d16fd523`. NET-LAG-1-PT-1 is parked (08-20). Do not retouch Classic / Sundial / Storerooms floors. Do not reopen CART-POP-1. Stay in this phase until Wyatt advances the marker.
+Playtesting and stabilization — External playtest is gated on BACKLOG Block 1. SOFTGL-DISMISS-1 closed 09-01 — PLAY ANYWAY is one-shot per tab. SOFTGL-DISMISS-PT-1 PASS (local `?forcegpu=sw`; Wyatt authorized). Next: RESTART-ROUND-1. Remaining High: PAUSE-SLIDER-DELAY-1, MENU-SHORTWIN-1, CG-ZIP-1, CG-COVERS-1. MENU-MUSIC-FIRST-PT-1 Wyatt PASS 09-01 on prod `d16fd523`. NET-LAG-1-PT-1 is parked (08-20). Do not retouch Classic / Sundial / Storerooms floors. Do not reopen CART-POP-1. Stay in this phase until Wyatt advances the marker.
 
 ## ACTIVE CARD
 
@@ -23,7 +23,6 @@ Block 1 High (one at a time): RESTART-ROUND-1 ·
 Assess and state the lane before editing. This heading names the card; it is **not** a lane assessment or permission to edit.
 
 Self-directed queue (one at a time, within the declared phase):
-- **SOFTGL-DISMISS-1** software-GL modal one-shot per session — shipped 09-01 — 🅿️ SOFTGL-DISMISS-PT-1 `[solo]`
 - **RESTART-ROUND-1** pause RESTART ROUND must not advance RD — High — Wyatt 09-01 prod `d16fd523`
 - **PAUSE-SLIDER-DELAY-1** pause overlay empty ~1 s before sliders — High — Wyatt 09-01 prod `d16fd523`
 - **MENU-SHORTWIN-1** menu readable at CrazyGames 1077×606 — High — pulled forward 09-01

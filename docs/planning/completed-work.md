@@ -15,11 +15,14 @@ Chronological record of shipped work, newest first.
 
 ### September 1, 2026 — SOFTGL-DISMISS-1 (software-GL modal one-shot)
 
-- *(Engineering · High)* **SOFTGL-DISMISS-1** — ✅ **SHIPPED 09-01**. PLAY ANYWAY
+- *(Engineering · High)* **SOFTGL-DISMISS-1** — ✅ **CLOSED 09-01**. PLAY ANYWAY
   stamps `SESSION_KEYS.softGlDismissed` (`cartRaveSoftGlDismissed`). Same-tab
   reload and context-restore reload skip `#cr-softgl-notice`. A new tab still
   shows it. Quality LOW floor unchanged. Do not reopen **SHOOT-SOFTGL-1**.
-  Owed: **SOFTGL-DISMISS-PT-1** (`npm run dev:local` + `?forcegpu=sw`).
+- *(Playtest · Low)* **SOFTGL-DISMISS-PT-1** — ✅ **PASS 09-01**. Wyatt could not
+  reliably hit software GL and authorized close. Local proof on `npm run dev`
+  + `?forcegpu=sw`: notice on first load, gone after PLAY ANYWAY reload, back
+  in a new browser context. Not a prod SwiftShader check.
 
 ---
 

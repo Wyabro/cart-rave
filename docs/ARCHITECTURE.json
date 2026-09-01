@@ -2,15 +2,15 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-09-01T17:30:36.329Z",
-    "commit": "44aef474"
+    "at": "2026-09-01T17:39:17.748Z",
+    "commit": "1e8c4ed4"
   },
-  "source_digest": "a37ad649",
+  "source_digest": "7b1f9dae",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
     "production_url": "https://www.cartclash.lol/",
-    "mission": "Playtesting and stabilization — External playtest is gated on BACKLOG Block 1. SOFTGL-DISMISS-1 shipped 09-01 — PLAY ANYWAY is one-shot per tab. Owed SOFTGL-DISMISS-PT-1 (`npm run dev:local` + `?forcegpu=sw`). Next: RESTART-ROUND-1. Remaining High: PAUSE-SLIDER-DELAY-1, MENU-SHORTWIN-1, CG-ZIP-1, CG-COVERS-1. MENU-MUSIC-FIRST-PT-1 Wyatt PASS 09-01 on prod `d16fd523`. NET-LAG-1-PT-1 is parked (08-20). Do not retouch Classic / Sundial / Storerooms floors. Do not reopen CART-POP-1. Stay in this phase until Wyatt advances the marker.",
+    "mission": "Playtesting and stabilization — External playtest is gated on BACKLOG Block 1. SOFTGL-DISMISS-1 closed 09-01 — PLAY ANYWAY is one-shot per tab. SOFTGL-DISMISS-PT-1 PASS (local `?forcegpu=sw`; Wyatt authorized). Next: RESTART-ROUND-1. Remaining High: PAUSE-SLIDER-DELAY-1, MENU-SHORTWIN-1, CG-ZIP-1, CG-COVERS-1. MENU-MUSIC-FIRST-PT-1 Wyatt PASS 09-01 on prod `d16fd523`. NET-LAG-1-PT-1 is parked (08-20). Do not retouch Classic / Sundial / Storerooms floors. Do not reopen CART-POP-1. Stay in this phase until Wyatt advances the marker.",
     "phase": "Playtesting & stabilization — stabilize after Run 7; prove residuals; no auto-advance to RC",
     "phases": [
       {
@@ -883,8 +883,8 @@
       {
         "id": "SOFTGL-DISMISS-1",
         "what": "software-GL modal one-shot per session",
-        "status": "shipped 09-01 — 🅿️ SOFTGL-DISMISS-PT-1 `[solo]`",
-        "state": "waiting"
+        "status": "✅ CLOSED 09-01 — SOFTGL-DISMISS-PT-1 PASS (local `?forcegpu=sw`)",
+        "state": "done"
       },
       {
         "id": "RESTART-ROUND-1",
@@ -1103,15 +1103,9 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Low": 4
+          "Low": 3
         },
         "rows": [
-          {
-            "pri": "Low",
-            "item": "SOFTGL-DISMISS-PT-1 — software-GL modal stays gone after PLAY ANYWAY `[solo]`",
-            "notes": "**Owed: Wyatt playtest — SOFTGL-DISMISS-PT-1 — after PLAY ANYWAY, reload does not bring the software-GL warning back.** Parent **SOFTGL-DISMISS-1**. Use `npm run dev:local` with `?forcegpu=sw`. Prod `?forcegpu=sw` does not show this modal. Keep that flag on reload and on the new tab. Skip if the modal never appears.<br>1. Load with `?forcegpu=sw`. See the software-mode warning. Click PLAY ANYWAY.<br>2. Reload the same tab. FAIL if the warning returns.<br>3. Open a new tab to the same URL. PASS if the warning shows again.",
-            "ship1": null
-          },
           {
             "pri": "Low",
             "item": "NET-LAG-1-PT-1 — non-host own cart has no 1 m trail `[2pc]`",

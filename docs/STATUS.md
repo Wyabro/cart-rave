@@ -26,8 +26,8 @@ report phase-exit eligibility; they must not move the marker.
 ## Current focus
 
 **Playtesting and stabilization.** External playtest is gated on BACKLOG Block 1.
-**SOFTGL-DISMISS-1** shipped 09-01 — PLAY ANYWAY is one-shot per tab.
-Owed **SOFTGL-DISMISS-PT-1** (`npm run dev:local` + `?forcegpu=sw`).
+**SOFTGL-DISMISS-1** closed 09-01 — PLAY ANYWAY is one-shot per tab.
+**SOFTGL-DISMISS-PT-1** PASS (local `?forcegpu=sw`; Wyatt authorized).
 Next: **RESTART-ROUND-1**. Remaining High: **PAUSE-SLIDER-DELAY-1**,
 **MENU-SHORTWIN-1**, **CG-ZIP-1**, **CG-COVERS-1**.
 **MENU-MUSIC-FIRST-PT-1** Wyatt PASS 09-01 on prod `d16fd523`.
@@ -71,7 +71,7 @@ Live rows only. Shipped and closed cards live in
 
 | # | What | Status |
 |---|------|--------|
-| SOFTGL-DISMISS-1 | software-GL modal one-shot per session | shipped 09-01 — 🅿️ **SOFTGL-DISMISS-PT-1** `[solo]` |
+| SOFTGL-DISMISS-1 | software-GL modal one-shot per session | ✅ CLOSED 09-01 — **SOFTGL-DISMISS-PT-1** PASS (local `?forcegpu=sw`) |
 | RESTART-ROUND-1 | pause RESTART ROUND must not advance RD | High — Wyatt 09-01 prod `d16fd523` |
 | PAUSE-SLIDER-DELAY-1 | pause overlay empty ~1 s before sliders | High — Wyatt 09-01 prod `d16fd523` |
 | MENU-SHORTWIN-1 | menu readable at CrazyGames 1077×606 | High — pulled forward 09-01 |
@@ -87,9 +87,10 @@ Live rows only. Shipped and closed cards live in
 
 1. Block 1 High (one at a time): **RESTART-ROUND-1** ·
    **PAUSE-SLIDER-DELAY-1** · **MENU-SHORTWIN-1** · **CG-ZIP-1** ·
-   **CG-COVERS-1**. Owed: **SOFTGL-DISMISS-PT-1** `[solo]`.
-   **SNAP-FINITE-PT-1** `[2pc]` still owed. **NET-LAG-1-PT-1** `[2pc]` is
-   parked. Closed 09-01: **MENU-MUSIC-FIRST-PT-1**. Deferred: **SHARD-PT-2**.
+   **CG-COVERS-1**. **SNAP-FINITE-PT-1** `[2pc]` still owed.
+   **NET-LAG-1-PT-1** `[2pc]` is parked. Closed 09-01:
+   **MENU-MUSIC-FIRST-PT-1** · **SOFTGL-DISMISS-PT-1**. Deferred:
+   **SHARD-PT-2**.
 
 ## Open issues (top)
 
@@ -146,8 +147,9 @@ or a suspected blocker (TS 7 · `cartrave4` UVs).
 
 ## Last updated
 
-2026-09-01 (**SOFTGL-DISMISS-1** ship) — PLAY ANYWAY session flag. Owed
-**SOFTGL-DISMISS-PT-1**. Next **RESTART-ROUND-1**.
+2026-09-01 (**SOFTGL-DISMISS-PT-1** PASS) — local `?forcegpu=sw`: notice
+on first load, gone after PLAY ANYWAY reload, back in a new context.
+Wyatt authorized. Parent closed. Next **RESTART-ROUND-1**.
 
 2026-09-01 — Wyatt: all six Crazy Games / prod-bug cards are High
 (**SOFTGL-DISMISS-1** · **RESTART-ROUND-1** · **PAUSE-SLIDER-DELAY-1** ·
