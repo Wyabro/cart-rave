@@ -2,7 +2,7 @@
 
 > Historical log. Past entries may still say "Cart Rave" / `next-level` — that is intentional. Living naming rules: [brand.md](../brand.md).
 
-**Last Updated:** August 23, 2026
+**Last Updated:** September 1, 2026
 
 > **This doc = the past** — the single home for historical/completed items. For what works
 > *today* see [project-state.md](./project-state.md); for forward plans see [ROADMAP.md](./ROADMAP.md).
@@ -10,6 +10,26 @@
 Chronological record of shipped work, newest first.
 
 > **Convention:** As items ship, move their completed writeup here (out of ROADMAP.md / project-state.md).
+
+---
+
+### September 1, 2026 — SOFTGL-DISMISS-1 (software-GL modal one-shot)
+
+- *(Engineering · High)* **SOFTGL-DISMISS-1** — ✅ **SHIPPED 09-01**. PLAY ANYWAY
+  stamps `SESSION_KEYS.softGlDismissed` (`cartRaveSoftGlDismissed`). Same-tab
+  reload and context-restore reload skip `#cr-softgl-notice`. A new tab still
+  shows it. Quality LOW floor unchanged. Do not reopen **SHOOT-SOFTGL-1**.
+  Owed: **SOFTGL-DISMISS-PT-1** (`npm run dev:local` + `?forcegpu=sw`).
+
+---
+
+### September 1, 2026 — MENU-MUSIC-FIRST-PT-1 PASS
+
+- *(Playtest · Medium)* **MENU-MUSIC-FIRST-PT-1** — ✅ **PASS 09-01** on prod `d16fd523`
+  (incognito, hard-refresh, cartclash.lol). Load, onboarding, play, and back-to-menu
+  all work. Menu music started on the first click. Parent **MENU-MUSIC-FIRST-1**
+  closes. Spun out (not this card): **SOFTGL-DISMISS-1**, **RESTART-ROUND-1**,
+  **PAUSE-SLIDER-DELAY-1**.
 
 ---
 

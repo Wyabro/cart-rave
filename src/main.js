@@ -123,7 +123,14 @@ applyDebugBootSideEffects();
   if (_dbgPreset) setSessionQualityTier(_dbgPreset);
 }
 import { installGlobalErrorReporting } from "./utils/errorReporter.js";
-import { STORAGE_KEYS, storageGet, storageSet } from "./utils/storage.js";
+import {
+  STORAGE_KEYS,
+  SESSION_KEYS,
+  storageGet,
+  storageSet,
+  sessionGet,
+  sessionSet,
+} from "./utils/storage.js";
 import { NPC_PERSONALITY_ORDER } from "./npcNames.js";
 import { CONFIG } from "./config.js";
 import { startGamepadUiNav } from "./ui/gamepadNav.js";
@@ -623,7 +630,7 @@ async function main() {
   // *     driver install. Multiple browsers all failing is this case.
   // *   - SwiftShader / llvmpipe → a real GPU exists but the browser has hardware
   // *     acceleration turned off (or blocklisted the GPU). Browser-setting fix.
-  if (isSoftwareRendererActive()) {
+  if (isSoftwareRendererActive() && sessionGet(SESSION_KEYS.softGlDismissed) !== "1") {
     const adapter = getSoftwareRendererName();
     const noDriver = /basic render|warp\b/i.test(adapter);
     const fixHtml = noDriver
@@ -666,7 +673,10 @@ async function main() {
       "margin-top:16px;width:100%;padding:9px 12px;border:1px solid #ff2bd6;border-radius:7px;"
       + "background:rgba(255,43,214,0.14);color:#f4eaff;font:12px 'Space Mono',monospace;"
       + "letter-spacing:0.08em;cursor:pointer;";
-    play.addEventListener("click", () => backdrop.remove(), { once: true });
+    play.addEventListener("click", () => {
+      sessionSet(SESSION_KEYS.softGlDismissed, "1");
+      backdrop.remove();
+    }, { once: true });
     card.appendChild(play);
     backdrop.appendChild(card);
     document.body.appendChild(backdrop);

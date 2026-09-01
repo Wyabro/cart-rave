@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-08-26 at commit `d16fd523` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `f0e30dd8`
+> Generated 2026-09-01 at commit `44aef474` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `139bfa7c`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -14,15 +14,21 @@
 
 ## Mission
 
-Playtesting and stabilization — External playtest is gated on BACKLOG Block 1. MENU-MUSIC-FIRST-1 shipped 08-26 — first-click retry kicks the html5 node during Howler `_playLock`. Prod `d16fd523` Worker `b14cca2e`. VERIFY_OK `index-Bq-KNGFd.js`. Playtest MENU-MUSIC-FIRST-PT-1 (incognito, hard-refresh; do not use `npm run dev`). AUDIO-MIX-BALANCE-1 shipped 08-21 — in-game music bus ×0.4 (`CONFIG.audio.gameMusicGain`; menu music unchanged), music slider default 35→50 so all three default to 50. Wyatt PASS AUDIO-MIX-BALANCE-PT-1 08-22 in local dev with a fresh profile. NET-LAG-1-PT-1 is parked by Wyatt (08-20). CART-POP-1 closed 08-21 — Wyatt PASS Storerooms F8 on prod `9051a0ce` (Worker `dfa5a26d`). Classic and Sundial already PASS. Do not retouch those floors. Do not reopen CART-POP-1 without new evidence. Tier A drained; Tier B/C, security sweep, and analytics gating are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 · NET-SD-1 closed. Stay in this phase until Wyatt advances the marker.
+Playtesting and stabilization — External playtest is gated on BACKLOG Block 1. SOFTGL-DISMISS-1 shipped 09-01 — PLAY ANYWAY is one-shot per tab. Owed SOFTGL-DISMISS-PT-1 (`npm run dev:local` + `?forcegpu=sw`). Next: RESTART-ROUND-1. Remaining High: PAUSE-SLIDER-DELAY-1, MENU-SHORTWIN-1, CG-ZIP-1, CG-COVERS-1. MENU-MUSIC-FIRST-PT-1 Wyatt PASS 09-01 on prod `d16fd523`. NET-LAG-1-PT-1 is parked (08-20). Do not retouch Classic / Sundial / Storerooms floors. Do not reopen CART-POP-1. Stay in this phase until Wyatt advances the marker.
 
 ## ACTIVE CARD
 
-SNAP-FINITE-PT-1 `[2pc]` on prod (hard-refresh). Console:
+Block 1 High (one at a time): RESTART-ROUND-1 ·
 
 Assess and state the lane before editing. This heading names the card; it is **not** a lane assessment or permission to edit.
 
 Self-directed queue (one at a time, within the declared phase):
+- **SOFTGL-DISMISS-1** software-GL modal one-shot per session — shipped 09-01 — 🅿️ SOFTGL-DISMISS-PT-1 `[solo]`
+- **RESTART-ROUND-1** pause RESTART ROUND must not advance RD — High — Wyatt 09-01 prod `d16fd523`
+- **PAUSE-SLIDER-DELAY-1** pause overlay empty ~1 s before sliders — High — Wyatt 09-01 prod `d16fd523`
+- **MENU-SHORTWIN-1** menu readable at CrazyGames 1077×606 — High — pulled forward 09-01
+- **CG-ZIP-1** CrazyGames Basic Launch zip of `dist/` — High — zip-only portal, ≤50 MB, no SDK
+- **CG-COVERS-1** CrazyGames covers + silent hover videos — High — Wyatt art, required to upload
 - **CLIENT-ID-AUTH-1** clientId claim hijack guard (session-token proof of ownership) — shipped `e5ca329b` Worker `c789f236`; Wyatt PASS CID-AUTH-PT-1 08-22
 
 ## Do not

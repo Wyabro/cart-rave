@@ -26,47 +26,14 @@ report phase-exit eligibility; they must not move the marker.
 ## Current focus
 
 **Playtesting and stabilization.** External playtest is gated on BACKLOG Block 1.
-**MENU-MUSIC-FIRST-1** shipped 08-26 — first-click retry kicks the html5
-node during Howler `_playLock`. Prod `d16fd523` Worker `b14cca2e`.
-VERIFY_OK `index-Bq-KNGFd.js`. Playtest **MENU-MUSIC-FIRST-PT-1**
-(incognito, hard-refresh; do not use `npm run dev`).
-**AUDIO-MIX-BALANCE-1** shipped 08-21 — in-game music bus ×0.4
-(`CONFIG.audio.gameMusicGain`; menu music unchanged), music slider default
-35→50 so all three default to 50. Wyatt PASS **AUDIO-MIX-BALANCE-PT-1**
-08-22 in local dev with a fresh profile.
-**NET-LAG-1-PT-1** is parked by Wyatt (08-20). **CART-POP-1** closed
-08-21 — Wyatt PASS Storerooms F8 on prod `9051a0ce` (Worker `dfa5a26d`).
-Classic and Sundial already PASS. Do not retouch those floors. Do not reopen
-**CART-POP-1** without new evidence. Tier A drained; Tier B/C, security sweep,
-and analytics gating are closed. Run 7 · NET-2 · NET-MIG-3 · NET-PRES-1 ·
-NET-SD-1 closed. Stay in this phase until Wyatt advances the marker.
-
-**DEMOTE-COUNTDOWN-1** shipped 08-19 — `startRunningAt` isHost guard + demoted host's countdown
-timer cleared via a new `onHostDemoted` callback. Wyatt PASS **DEMOTE-COUNTDOWN-PT-1** 08-22.
-
-**QP-PLAYING-1** landed 08-19 — QUICKPLAY pill `N PLAYING NOW`
-(`GET /api/playing`). Wyatt PASS **QP-PLAYING-PT-1** 08-21.
-Closed 08-20 — **PLAYREADY-RESET-FLAKE-1** (playReady-reset test
-load-tolerant). **FRIENDS-ROTATE-1** shipped 08-20 prod `1a740c79`
-(Worker `f50de02d`). Wyatt PASS **FRIENDS-ROTATE-PT-1** 08-21.
-
-**FEEDBACK-1** closed 08-19 — the podium match receipt prints a
-`LEAVE FEEDBACK ↗` survey line (`data-nav-skip`, new tab). Wyatt PASS
-**FEEDBACK-PT-1** (`npm run dev`). Not deployed. Filed
-**MENU-SHORTWIN-1** — measured, pre-existing: the menu command list
-already sits under the hint bar below ~618px viewport height (−12px slack at
-1280x600). Closed 08-19 playtest PASSes — **FEEDBACK-PT-1** (`npm run
-dev`) · **BOOT-TBT-PT-1** (prod `c3aecffe`) · **MENU-ARROW-PT-1** ·
-**PODIUM-DOUBLE-CREDIT-PT-1** (prod `0211a408`) · **SPILL-DOUBLE-VFX-PT-1**.
-Parents close. Deferred:
-**SHARD-PT-2**. PERF-CLASSIC-IGPU-1 wave B CLOSED — cap-372 names the gap:
-**render ≈ 90% of vis**. Next lever is the Classic render path
-(`recordbody` gated on a clean cell). No look change. Closed 08-18 —
-**KEYUP-STUCK-PT-1** · **SPECTATOR-ANNOUNCER-PT-1** · **RD-COUNTER-PT-1**
-(all prod `e3886b5f`) · **PERF-WATCH-PT-1** (`npm run dev`, `3f467334`) ·
-**CUSTOMIZE-SPAM-PT-1** (prod `a41987e7`) · **WARM-CLASSIC-JUICE-PT-1**
-(`951ea15d` / `npm run dev`). **PERF-WATCH-1** wave 1 landed (scale-up
-only); wave 2 stays open. Do not reopen GAMEPAD-LOBBY-1 or **PERF-PASS-1**.
+**SOFTGL-DISMISS-1** shipped 09-01 — PLAY ANYWAY is one-shot per tab.
+Owed **SOFTGL-DISMISS-PT-1** (`npm run dev:local` + `?forcegpu=sw`).
+Next: **RESTART-ROUND-1**. Remaining High: **PAUSE-SLIDER-DELAY-1**,
+**MENU-SHORTWIN-1**, **CG-ZIP-1**, **CG-COVERS-1**.
+**MENU-MUSIC-FIRST-PT-1** Wyatt PASS 09-01 on prod `d16fd523`.
+**NET-LAG-1-PT-1** is parked (08-20). Do not retouch Classic / Sundial /
+Storerooms floors. Do not reopen **CART-POP-1**. Stay in this phase until
+Wyatt advances the marker.
 
 **Closed cards keep their narrative in their own docs, not here** — Sundial
 ([handover](./planning/art-pass-sundial-handover.md); read its "Traps that cost time" before any
@@ -104,6 +71,12 @@ Live rows only. Shipped and closed cards live in
 
 | # | What | Status |
 |---|------|--------|
+| SOFTGL-DISMISS-1 | software-GL modal one-shot per session | shipped 09-01 — 🅿️ **SOFTGL-DISMISS-PT-1** `[solo]` |
+| RESTART-ROUND-1 | pause RESTART ROUND must not advance RD | High — Wyatt 09-01 prod `d16fd523` |
+| PAUSE-SLIDER-DELAY-1 | pause overlay empty ~1 s before sliders | High — Wyatt 09-01 prod `d16fd523` |
+| MENU-SHORTWIN-1 | menu readable at CrazyGames 1077×606 | High — pulled forward 09-01 |
+| CG-ZIP-1 | CrazyGames Basic Launch zip of `dist/` | High — zip-only portal, ≤50 MB, no SDK |
+| CG-COVERS-1 | CrazyGames covers + silent hover videos | High — Wyatt art, required to upload |
 | NET-LAG-1 | Friends/QP lag + rubber-band (F8 both machines) | wave 1 landed; 🅿️ **NET-LAG-1-PT-1** `[2pc]` parked by Wyatt 08-20 |
 | AUDIO-RAM-IMPACT-1 | ram crash SFX inaudible + soft taps silent (external playtest) | ✅ CLOSED 08-21 — Wyatt PT PASS on prod `67778a9f` (both rounds: `c4e7f082` + `0644094f`) |
 | ONBOARD-WEBP-1 | HOW TO PLAY WebP playback + fallback | ✅ CLOSED 08-23 — Wyatt PASS **ONBOARD-WEBP-PT-1** on prod `14658bf8` (Worker `e14acbd4`) |
@@ -112,10 +85,11 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. **SNAP-FINITE-PT-1** `[2pc]` on prod (hard-refresh). Console:
-   `npm run dashboard`. **NET-LAG-1-PT-1** `[2pc]` is parked. Closed 08-23:
-   **ONBOARD-WEBP-PT-1**. Do not start an external playtest until Block 1
-   drains. Deferred: **SHARD-PT-2** (launch day).
+1. Block 1 High (one at a time): **RESTART-ROUND-1** ·
+   **PAUSE-SLIDER-DELAY-1** · **MENU-SHORTWIN-1** · **CG-ZIP-1** ·
+   **CG-COVERS-1**. Owed: **SOFTGL-DISMISS-PT-1** `[solo]`.
+   **SNAP-FINITE-PT-1** `[2pc]` still owed. **NET-LAG-1-PT-1** `[2pc]` is
+   parked. Closed 09-01: **MENU-MUSIC-FIRST-PT-1**. Deferred: **SHARD-PT-2**.
 
 ## Open issues (top)
 
@@ -171,6 +145,18 @@ or a suspected blocker (TS 7 · `cartrave4` UVs).
 - Local worker port is **8899** (`LOCAL_WORKER_PORT` in `src/config.js`). If it goes EACCES, re-check Windows HNS exclusions and move the port there.
 
 ## Last updated
+
+2026-09-01 (**SOFTGL-DISMISS-1** ship) — PLAY ANYWAY session flag. Owed
+**SOFTGL-DISMISS-PT-1**. Next **RESTART-ROUND-1**.
+
+2026-09-01 — Wyatt: all six Crazy Games / prod-bug cards are High
+(**SOFTGL-DISMISS-1** · **RESTART-ROUND-1** · **PAUSE-SLIDER-DELAY-1** ·
+**MENU-SHORTWIN-1** · **CG-ZIP-1** · **CG-COVERS-1**).
+
+2026-09-01 — Wyatt PASS **MENU-MUSIC-FIRST-PT-1** on prod `d16fd523`.
+Filed **SOFTGL-DISMISS-1**, **RESTART-ROUND-1**, **PAUSE-SLIDER-DELAY-1**,
+**CG-ZIP-1**, **CG-COVERS-1**. Pulled **MENU-SHORTWIN-1** forward for
+CrazyGames iframe 1077×606.
 
 2026-08-26 (**MENU-MUSIC-FIRST-1** ship) — prod `d16fd523` Worker
 `b14cca2e-ca65-4f8a-ba9f-651440e58f61`. VERIFY_OK `index-Bq-KNGFd.js`

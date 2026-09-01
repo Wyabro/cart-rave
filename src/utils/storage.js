@@ -79,6 +79,11 @@ export const SESSION_KEYS = {
    * recover to the menu instead of auto-entering the room again.
    */
   engagedRoom: "cartRaveEngagedRoom",
+  /**
+   * "1" after PLAY ANYWAY on the software-GL notice. Survives reload /
+   * context-restore reload in this tab; a new tab still shows the notice.
+   */
+  softGlDismissed: "cartRaveSoftGlDismissed",
 };
 
 /**
