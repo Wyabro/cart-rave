@@ -15,7 +15,8 @@ Chronological record of shipped work, newest first.
 
 ### September 2, 2026 — MENU-SHORTWIN-1 (menu readable at 1077×606)
 
-- *(Engineering · High)* **MENU-SHORTWIN-1** — ✅ **CLOSED 09-02**. Short
+- *(Engineering · High)* **MENU-SHORTWIN-1** — ✅ **CLOSED 09-02** (`1d40cb4e`).
+  Shipped Worker `8ad14f71-55a1-4a83-bb60-7e7b2c1a7d94`. Short
   desktop (`min-width: 1025px` and `max-height: 640px`) tightens `.cr-hero`
   `padding-top` to 12px and `.cr-hero .cr-title-stack` margin to `4px 0 8px`.
   Command-row padding stays. Hint bar stays. Tagline stays. Measured at
