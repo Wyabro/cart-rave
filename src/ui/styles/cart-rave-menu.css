@@ -4064,6 +4064,14 @@ html, body {
 @media (min-width: 1025px) and (max-height: 680px) {
   .cr-menu-cart { display: none; }
 }
+/* MENU-SHORTWIN-1 — CrazyGames 1077×606 and other short desktop windows.
+   Command rows already sit on the 12px UI-SCALE-1 root floor. Reclaim px
+   title/hero spacing so SETTINGS clears the hint bar. Do not shrink
+   .cr-cmd padding. Do not hide the hint bar or the tagline. */
+@media (min-width: 1025px) and (max-height: 640px) {
+  .cr-hero { padding-top: 12px; }
+  .cr-hero .cr-title-stack { margin: 4px 0 8px; }
+}
 @media (max-width: 768px) {
   .cr-hintbar { gap: 12px; padding: 12px 16px; font-size: 11px; }
   .cr-hint-meta { display: none; }

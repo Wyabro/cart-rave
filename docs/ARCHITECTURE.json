@@ -2,15 +2,15 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-09-02T01:55:09.676Z",
-    "commit": "918955b9"
+    "at": "2026-09-02T08:14:16.033Z",
+    "commit": "f5cea56e"
   },
-  "source_digest": "29561258",
+  "source_digest": "abb468b3",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
     "production_url": "https://www.cartclash.lol/",
-    "mission": "Playtesting and stabilization — External playtest is gated on BACKLOG Block 1. SOFTGL-DISMISS-1 closed 09-01 — PLAY ANYWAY is one-shot per tab. SOFTGL-DISMISS-PT-1 PASS (local `?forcegpu=sw`; Wyatt authorized). RESTART-ROUND-1 closed 09-01 — RESTART-ROUND-PT-1 PASS (local Playwright; Wyatt authorized). PAUSE-SLIDER-DELAY-1 closed 09-01 — PAUSE-SLIDER-DELAY-PT-1 PASS (local Playwright; Wyatt authorized). Next: MENU-SHORTWIN-1. Remaining High: CG-ZIP-1, CG-COVERS-1. MENU-MUSIC-FIRST-PT-1 Wyatt PASS 09-01 on prod `d16fd523`. NET-LAG-1-PT-1 is parked (08-20). Do not retouch Classic / Sundial / Storerooms floors. Do not reopen CART-POP-1. Stay in this phase until Wyatt advances the marker.",
+    "mission": "Playtesting and stabilization — External playtest is gated on BACKLOG Block 1. SOFTGL-DISMISS-1 closed 09-01 — PLAY ANYWAY is one-shot per tab. SOFTGL-DISMISS-PT-1 PASS (local `?forcegpu=sw`; Wyatt authorized). RESTART-ROUND-1 closed 09-01 — RESTART-ROUND-PT-1 PASS (local Playwright; Wyatt authorized). PAUSE-SLIDER-DELAY-1 closed 09-01 — PAUSE-SLIDER-DELAY-PT-1 PASS (local Playwright; Wyatt authorized). MENU-SHORTWIN-1 closed 09-02 — short-desktop hero spacing; owed MENU-SHORTWIN-PT-1. Next: CG-ZIP-1. Remaining High: CG-COVERS-1. MENU-MUSIC-FIRST-PT-1 Wyatt PASS 09-01 on prod `d16fd523`. NET-LAG-1-PT-1 is parked (08-20). Do not retouch Classic / Sundial / Storerooms floors. Do not reopen CART-POP-1. Stay in this phase until Wyatt advances the marker.",
     "phase": "Playtesting & stabilization — stabilize after Run 7; prove residuals; no auto-advance to RC",
     "phases": [
       {
@@ -901,8 +901,8 @@
       {
         "id": "MENU-SHORTWIN-1",
         "what": "menu readable at CrazyGames 1077×606",
-        "status": "High — pulled forward 09-01",
-        "state": "waiting"
+        "status": "✅ CLOSED 09-02 — owed MENU-SHORTWIN-PT-1",
+        "state": "done"
       },
       {
         "id": "CG-ZIP-1",
@@ -948,7 +948,7 @@
       }
     ],
     "next_actions": [
-      "Block 1 High (one at a time): MENU-SHORTWIN-1 ·"
+      "Block 1 High (one at a time): CG-ZIP-1 · CG-COVERS-1."
     ],
     "open_issues": [
       {
@@ -963,18 +963,12 @@
       {
         "title": "Engineering",
         "counts": {
-          "High": 3,
+          "High": 2,
           "Medium": 4,
           "Partial": 1,
           "Low": 6
         },
         "rows": [
-          {
-            "pri": "High",
-            "item": "MENU-SHORTWIN-1 — main-menu command list slides under the hint bar on short desktop windows",
-            "notes": "**Pulled forward 09-01 for CrazyGames Basic QA.** High 09-01 (Wyatt). Their iframe **1077 × 606** is width > 1024 (desktop `.cr-hero`) and height < ~618 (known break). **Filed 08-19** (`npm run dev`, 1280px wide). Slack below `#cr-commandlist`: **+66px at 1280x720 · +27px at 1280x660 · −12px at 1280x600**. `.cr-cmd` padding is at its 12px floor. Candidates: let the hero scroll, drop the `--cr-hint-h` reserve on short windows, or hide the hint bar below ~640px height. Do not shrink `.cr-cmd` padding further. 907×510 is 907 wide so it uses the mobile stacked menu and is out of this card.",
-            "ship1": null
-          },
           {
             "pri": "High",
             "item": "CG-ZIP-1 — CrazyGames Basic Launch zip of `dist/`",
@@ -1091,9 +1085,15 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Low": 3
+          "Low": 4
         },
         "rows": [
+          {
+            "pri": "Low",
+            "item": "MENU-SHORTWIN-PT-1 — SETTINGS sits above the hint bar at 1077×606 `[solo]`",
+            "notes": "**Owed: Wyatt playtest — MENU-SHORTWIN-PT-1 — at 1077×606, SETTINGS is fully readable above the hint bar.** Parent **MENU-SHORTWIN-1**. Local `npm run dev:local` first.<br>1. Set the window to 1077×606. Open the main menu.<br>2. FAIL if SETTINGS (or any command row) sits under the hint bar, or if the hint bar is missing.<br>3. PASS if all seven rows are fully readable above the hint bar, and the hint bar still shows keyboard or gamepad hints.<br>4. Spot-check 1920×1080: tagline still visible. Do not FAIL for 907×510 stacked mobile.",
+            "ship1": null
+          },
           {
             "pri": "Low",
             "item": "NET-LAG-1-PT-1 — non-host own cart has no 1 m trail `[2pc]`",

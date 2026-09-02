@@ -2,7 +2,7 @@
 
 > Historical log. Past entries may still say "Cart Rave" / `next-level` — that is intentional. Living naming rules: [brand.md](../brand.md).
 
-**Last Updated:** September 1, 2026
+**Last Updated:** September 2, 2026
 
 > **This doc = the past** — the single home for historical/completed items. For what works
 > *today* see [project-state.md](./project-state.md); for forward plans see [ROADMAP.md](./ROADMAP.md).
@@ -10,6 +10,20 @@
 Chronological record of shipped work, newest first.
 
 > **Convention:** As items ship, move their completed writeup here (out of ROADMAP.md / project-state.md).
+
+---
+
+### September 2, 2026 — MENU-SHORTWIN-1 (menu readable at 1077×606)
+
+- *(Engineering · High)* **MENU-SHORTWIN-1** — ✅ **CLOSED 09-02**. Short
+  desktop (`min-width: 1025px` and `max-height: 640px`) tightens `.cr-hero`
+  `padding-top` to 12px and `.cr-hero .cr-title-stack` margin to `4px 0 8px`.
+  Command-row padding stays. Hint bar stays. Tagline stays. Measured at
+  1077×606: slack under `#cr-commandlist` **+3px → +35px**; hint bar 61px;
+  root font 12px. 1920×1080 unchanged. 907×510 is stacked mobile, out of
+  card. Do not shrink `.cr-cmd` padding. Do not hide `.cr-hintbar`.
+- *(Playtest · Low)* **MENU-SHORTWIN-PT-1** — owed. Local `npm run dev:local`
+  at 1077×606: SETTINGS above the hint bar, hint bar still visible.
 
 ---
 

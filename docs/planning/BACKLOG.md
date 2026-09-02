@@ -58,7 +58,7 @@ way the Block table still can.)*
 
 | Block | State | Next action |
 |-------|-------|-------------|
-| **1** — NOW (player-facing correctness) | 🟡 active | **MENU-SHORTWIN-1** · **CG-ZIP-1** · **CG-COVERS-1** |
+| **1** — NOW (player-facing correctness) | 🟡 active | **CG-ZIP-1** · **CG-COVERS-1** |
 | **2** — PRE-SHIP (before public post) | ✅ drained | 08-18 **CUSTOMIZE-SPAM-1** · **CUSTOMIZE-SPAM-PT-1** Wyatt PASS |
 | **3** — WYATT LANE (blocked on you) | ✅ drained | 08-17 **TRUST-1** · **LEADERBOARD-1** cut from V2 |
 | **4** — PERF RESIDUAL (measure-first) | 🟡 queued | **PERF-CLASSIC-IGPU-1** CLOSED 08-18 (gap named: render ≈ 90% of vis) · WARM-SOLO-1 · PERF-WATCH-1 · NET-PERF-1 / NET-PERF-3 |
@@ -71,9 +71,9 @@ way the Block table still can.)*
 <!-- BEGIN GENERATED counts — npm run backlog. Do not hand-edit. -->
 | Department | Open | High | Medium | Low |
 |---|---:|---:|---:|---:|
-| [Engineering](#engineering) | 14 | 3 | 4 | 6 (+1 partial) |
+| [Engineering](#engineering) | 13 | 2 | 4 | 6 (+1 partial) |
 | [Design / Gameplay](#design--gameplay) | 4 | 1 | 3 | 0 |
-| 🟢 [Playtest owed](#playtest-owed) | 3 | 0 | 0 | 3 |
+| 🟢 [Playtest owed](#playtest-owed) | 4 | 0 | 0 | 4 |
 | [Tech Debt](#tech-debt) | 14 | 0 | 3 | 11 |
 
 **35 open rows total.**
@@ -156,10 +156,10 @@ traffic; 7 is post-launch or parked. Priority ranks *inside* a block too (top fi
 Landed 09-01 — **SOFTGL-DISMISS-1** (software-GL modal one-shot per tab session); **SOFTGL-DISMISS-PT-1** PASS (local `?forcegpu=sw`, Wyatt authorized).
 Landed 09-01 — **RESTART-ROUND-1** (pause RESTART ROUND replays RD n); **RESTART-ROUND-PT-1** PASS (local Playwright 13/13, Wyatt authorized).
 Landed 09-01 — **PAUSE-SLIDER-DELAY-1** (pause AUDIO sliders on first panel paint); **PAUSE-SLIDER-DELAY-PT-1** PASS (local Playwright 13/13, Wyatt authorized). Parent closed.
-1. **MENU-SHORTWIN-1** — menu readable at CrazyGames iframe **1077 × 606**.
-2. **CG-ZIP-1** — `dist/` zip, `index.html` at root, ≤ 50 MB, no SDK, desktop-only listing.
-3. **CG-COVERS-1** — three covers + two silent videos (Wyatt art; required to upload).
-4. **NET-LAG-1** — Friends/QP lag + rubber-band (F8 both machines; measure first).
+Landed 09-02 — **MENU-SHORTWIN-1** (short-desktop hero spacing; SETTINGS above hint bar at 1077×606). Parent closed. Owed **MENU-SHORTWIN-PT-1**.
+1. **CG-ZIP-1** — `dist/` zip, `index.html` at root, ≤ 50 MB, no SDK, desktop-only listing.
+2. **CG-COVERS-1** — three covers + two silent videos (Wyatt art; required to upload).
+3. **NET-LAG-1** — Friends/QP lag + rubber-band (F8 both machines; measure first).
 Landed 08-23 — **ONBOARD-WEBP-1** (HOW TO PLAY WebP loops on canvas decoder); Wyatt PASS **ONBOARD-WEBP-PT-1**.
 Landed 08-21 — **FRIENDS-ROTATE-1** (Friends rematch rotates arenas); Wyatt PASS **FRIENDS-ROTATE-PT-1**.
 Landed 08-20 — **ONBOARD-JUMP-1** (HOW TO PLAY matches jump+boost); Wyatt PASS **ONBOARD-JUMP-PT-1**.
@@ -221,7 +221,6 @@ Rows follow work-order rank: High (Block 1) → Medium (Block 2, then Wyatt-bloc
 
 | Pri | Item | Notes |
 |-----|------|-------|
-| High | MENU-SHORTWIN-1 — main-menu command list slides under the hint bar on short desktop windows | **Pulled forward 09-01 for CrazyGames Basic QA.** High 09-01 (Wyatt). Their iframe **1077 × 606** is width > 1024 (desktop `.cr-hero`) and height < ~618 (known break). **Filed 08-19** (`npm run dev`, 1280px wide). Slack below `#cr-commandlist`: **+66px at 1280x720 · +27px at 1280x660 · −12px at 1280x600**. `.cr-cmd` padding is at its 12px floor. Candidates: let the hero scroll, drop the `--cr-hint-h` reserve on short windows, or hide the hint bar below ~640px height. Do not shrink `.cr-cmd` padding further. 907×510 is 907 wide so it uses the mobile stacked menu and is out of this card. |
 | High | CG-ZIP-1 — CrazyGames Basic Launch zip of `dist/` | **Filed 09-01.** High 09-01 (Wyatt). Portal is zip-only. No SDK. Total zip ≤ 50 MB / ≤ 1500 files. `index.html` at zip root. Relative paths already (`vite` `base: "./"`). List **desktop only** (mobile homepage cap is 20 MB). Measure after `npm run build` — do not guess. Multiplayer may still talk to the Worker the way Glitch does; solo vs bots is the Basic Launch proof. Known QA risk, not this card: podium `LEAVE FEEDBACK ↗` Google Form. Do not iframe `cartclash.lol`. |
 | High | NET-LAG-1 — Friends/QP lag + rubber-band before playtest | **Wave 1 landed 08-20.** Cause: NH-SMOOTH v3 display low-pass (`displayPosRate` 14) trailed ~1.6 m on a clean wire (cap-373/374 vs host 375, room `SAGO6`). Lever: non-host local mesh+camera **copy** the physics pose. Transport / host send / rewind-replay not this wave. **Owed: NET-LAG-1-PT-1, parked by Wyatt 08-20.** Do not restore lerp or add a catch-up distance gate on a vibration FAIL without a new ack. Do not reopen **NET-1** · **NET-2** · **NET-MIG-3**. |
 | ~~Medium~~ | ~~PERF-CLASSIC-IGPU-1 — Classic holds ~30 fps on Intel UHD after rsm 0.7~~ | ~~**Filed 08-18 from cap-371.** Friends Classic 33.8 fps vs Sundial 51–55; fewer draws (285 vs 310), +316k tris, +7.5 ms vis / +11.5 ms cpu. GPU wait almost same (unacc 7.3 vs 6.3). Wave B instrument: F8 `loopRound.visRenderMeanMs` / `visSyncMeanMs` / `visFxMeanMs` / `visHudMeanMs` / `visOtherMeanMs`. Do not ship `recordbody` until a clean cell. Do not reopen **PERF-PASS-1**. Wyatt sign-off on any look change.~~ **CLOSED 08-18 (wave B).** cap-372 names the gap: **render ≈ 90% of vis** — `visRenderMeanMs` 9.09 of `visMeanMs` 10.09; sync 0.41 / fx 0.13 / hud 0.40 / other 0.05 ≈ 1.0 ms total. Round `meanMs` 20.98 (fps 47.67), `pass: false`. The `recordbody` render lever is gated on a clean cell, not sync/fx/hud. Do not reopen **PERF-PASS-1**. A Classic render-path lever, if pursued, is a separate card. |
@@ -274,6 +273,7 @@ completed-work — do not restack it here.
 
 | Pri | Item | Notes |
 |-----|------|-------|
+| Low | MENU-SHORTWIN-PT-1 — SETTINGS sits above the hint bar at 1077×606 `[solo]` | **Owed: Wyatt playtest — MENU-SHORTWIN-PT-1 — at 1077×606, SETTINGS is fully readable above the hint bar.** Parent **MENU-SHORTWIN-1**. Local `npm run dev:local` first.<br>1. Set the window to 1077×606. Open the main menu.<br>2. FAIL if SETTINGS (or any command row) sits under the hint bar, or if the hint bar is missing.<br>3. PASS if all seven rows are fully readable above the hint bar, and the hint bar still shows keyboard or gamepad hints.<br>4. Spot-check 1920×1080: tagline still visible. Do not FAIL for 907×510 stacked mobile. |
 | Low | NET-LAG-1-PT-1 — non-host own cart has no 1 m trail `[2pc]` | **Owed: Wyatt playtest — NET-LAG-1-PT-1 — on the non-host, your cart stays under you while you drive.** Parent **NET-LAG-1**. Prod after ship, or `npm run dev:local` with `?diag=1` on both machines. Remaining input delay (~120 ms) is out of this check — do not FAIL for that if the trail is gone.<br>1. Friends match, two machines, `?diag=1`. Non-host drives for a full round.<br>2. FAIL if your cart trails about a meter behind where you are steering, or if it shakes or ticks many times a second.<br>3. PASS if the non-host cart stays under you (no rubber-band trail) and the host still feels tight.<br>4. Press F8 on both machines at the end. |
 | Low | SHARD-PT-2 — fifth human overflows to quickplay2 `[2pc]` | **Owed: Wyatt playtest — SHARD-PT-2 — the 5th concurrent Quickplay human lands on quickplay2 instead of "couldn't join".** Launch-day / public-post check — needs five real humans (Wyatt deferred 08-05). Rig already 5/5; SHARD-PT-1 PASSed on prod `9c333d1`. Prefer analytics: any `quickplay_shard_assigned` with `hops > 0` or `shard !== quickplay` counts.<br>1. When five humans can join Quickplay at once (public post), watch the 5th seat.<br>2. FAIL if they get the dead-end couldn't-join toast with no hop. PASS if they seat on an overflow shard (or analytics shows hops greater than 0).<br>3. Skip / leave open until launch day — do not FAIL for lack of five people. |
 | Low | SNAP-FINITE-PT-1 — snapshot finite guard changes nothing visible `[2pc]` | **Owed: Wyatt playtest — SNAP-FINITE-PT-1 — normal netplay is unchanged after every snapshot body write got a NaN guard (SNAP-FINITE-1).** Prod `e5ca329b` (Worker `c789f236`, hard-refresh).<br>1. Friends match, two machines. Drive, boost, ram, and hop for a full round on the non-host.<br>2. FAIL if any cart freezes in place, teleports to origin, ghosts through the floor, or remote carts stutter where they did not before.<br>3. PASS if remote carts track smoothly and collisions feel identical to pre-guard play.<br>4. Press F8 on both machines at round end. |
@@ -411,4 +411,5 @@ ONBOARD-WEBP-1, ONBOARD-WEBP-PT-1,
 MENU-MUSIC-FIRST-1, MENU-MUSIC-FIRST-PT-1,
 SOFTGL-DISMISS-1, SOFTGL-DISMISS-PT-1,
 RESTART-ROUND-1, RESTART-ROUND-PT-1,
-PAUSE-SLIDER-DELAY-1, PAUSE-SLIDER-DELAY-PT-1.
+PAUSE-SLIDER-DELAY-1, PAUSE-SLIDER-DELAY-PT-1,
+MENU-SHORTWIN-1.
