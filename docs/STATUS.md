@@ -29,9 +29,9 @@ report phase-exit eligibility; they must not move the marker.
 **SOFTGL-DISMISS-1** closed 09-01 — PLAY ANYWAY is one-shot per tab.
 **SOFTGL-DISMISS-PT-1** PASS (local `?forcegpu=sw`; Wyatt authorized).
 **RESTART-ROUND-1** closed 09-01 — **RESTART-ROUND-PT-1** PASS (local
-Playwright; Wyatt authorized). **PAUSE-SLIDER-DELAY-1** landed 09-01 —
-owed **PAUSE-SLIDER-DELAY-PT-1**. Next: **MENU-SHORTWIN-1**. Remaining
-High: **CG-ZIP-1**, **CG-COVERS-1**.
+Playwright; Wyatt authorized). **PAUSE-SLIDER-DELAY-1** closed 09-01 —
+**PAUSE-SLIDER-DELAY-PT-1** PASS (local Playwright; Wyatt authorized).
+Next: **MENU-SHORTWIN-1**. Remaining High: **CG-ZIP-1**, **CG-COVERS-1**.
 **MENU-MUSIC-FIRST-PT-1** Wyatt PASS 09-01 on prod `d16fd523`.
 **NET-LAG-1-PT-1** is parked (08-20). Do not retouch Classic / Sundial /
 Storerooms floors. Do not reopen **CART-POP-1**. Stay in this phase until
@@ -75,7 +75,7 @@ Live rows only. Shipped and closed cards live in
 |---|------|--------|
 | SOFTGL-DISMISS-1 | software-GL modal one-shot per session | ✅ CLOSED 09-01 — **SOFTGL-DISMISS-PT-1** PASS (local `?forcegpu=sw`) |
 | RESTART-ROUND-1 | pause RESTART ROUND must not advance RD | ✅ CLOSED 09-01 — **RESTART-ROUND-PT-1** PASS (local Playwright) |
-| PAUSE-SLIDER-DELAY-1 | pause overlay empty ~1 s before sliders | landed 09-01 — owed **PAUSE-SLIDER-DELAY-PT-1** `[solo]` |
+| PAUSE-SLIDER-DELAY-1 | pause overlay empty ~1 s before sliders | ✅ CLOSED 09-01 — **PAUSE-SLIDER-DELAY-PT-1** PASS (local Playwright) |
 | MENU-SHORTWIN-1 | menu readable at CrazyGames 1077×606 | High — pulled forward 09-01 |
 | CG-ZIP-1 | CrazyGames Basic Launch zip of `dist/` | High — zip-only portal, ≤50 MB, no SDK |
 | CG-COVERS-1 | CrazyGames covers + silent hover videos | High — Wyatt art, required to upload |
@@ -88,10 +88,10 @@ Live rows only. Shipped and closed cards live in
 ### Next actions
 
 1. Block 1 High (one at a time): **MENU-SHORTWIN-1** ·
-   **CG-ZIP-1** · **CG-COVERS-1**. Owed **PAUSE-SLIDER-DELAY-PT-1**
-   `[solo]`. **SNAP-FINITE-PT-1** `[2pc]` still owed. **NET-LAG-1-PT-1**
-   `[2pc]` is parked. Closed 09-01: **MENU-MUSIC-FIRST-PT-1** ·
-   **SOFTGL-DISMISS-PT-1** · **RESTART-ROUND-PT-1**. Deferred:
+   **CG-ZIP-1** · **CG-COVERS-1**. **SNAP-FINITE-PT-1** `[2pc]` still
+   owed. **NET-LAG-1-PT-1** `[2pc]` is parked. Closed 09-01:
+   **MENU-MUSIC-FIRST-PT-1** · **SOFTGL-DISMISS-PT-1** ·
+   **RESTART-ROUND-PT-1** · **PAUSE-SLIDER-DELAY-PT-1**. Deferred:
    **SHARD-PT-2**.
 
 ## Open issues (top)
@@ -149,9 +149,10 @@ or a suspected blocker (TS 7 · `cartrave4` UVs).
 
 ## Last updated
 
-2026-09-01 (**PAUSE-SLIDER-DELAY-1**) — pause body cards snap visible on
-Esc; no section stagger-reveal. Panel pop stays (~300 ms). Owed
-**PAUSE-SLIDER-DELAY-PT-1**. Next **MENU-SHORTWIN-1**.
+2026-09-01 (**PAUSE-SLIDER-DELAY-PT-1** PASS) — local Playwright on
+`npm run dev:local`: solo Esc, MUSIC / SFX / VOICE at opacity 1 on first
+panel paint, reopen matches, 13/13. Wyatt authorized. Parent closed.
+Next **MENU-SHORTWIN-1**.
 
 2026-09-01 (**RESTART-ROUND-PT-1** PASS) — local Playwright on
 `npm run dev:local`: solo RD 1, pause RESTART ROUND, GO still RD 1,

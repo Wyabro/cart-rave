@@ -15,14 +15,17 @@ Chronological record of shipped work, newest first.
 
 ### September 1, 2026 — PAUSE-SLIDER-DELAY-1 (pause sliders on first panel paint)
 
-- *(Engineering · High)* **PAUSE-SLIDER-DELAY-1** — ✅ **CLOSED 09-01**.
+- *(Engineering · High)* **PAUSE-SLIDER-DELAY-1** — ✅ **CLOSED 09-01** (`918955b9`).
   Esc overlay `resetEscOverlayAnimState` snapped `.escSections` to
   `opacity: 0`, then staggered `animateMenuReveal` (`delay: 180 + i*40`).
   AUDIO sliders live in those sections, so the pause body painted empty
   for a beat. Reset now snaps body cards to visible; the show path does
   not stagger-reveal them. Panel pop, title, and action slabs stay.
-  Do not FAIL the remaining ~300 ms panel fade. Owed:
-  **PAUSE-SLIDER-DELAY-PT-1**.
+  Do not FAIL the remaining ~300 ms panel fade.
+- *(Playtest · Low)* **PAUSE-SLIDER-DELAY-PT-1** — ✅ **PASS 09-01**. Wyatt
+  authorized close. Local Playwright on `npm run dev:local`: solo RUNNING,
+  Esc, MUSIC / SFX / VOICE opacity 1 at t=0 ms (panel still 0), panel 1
+  by 16 ms, reopen matches. 13/13. Not a prod check.
 
 ---
 
