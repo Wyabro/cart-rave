@@ -352,10 +352,12 @@ function resetEscOverlayAnimState(overlay) {
   if (title) title.style.opacity = "0";
   if (elements.escContext) elements.escContext.style.opacity = "0";
 
+  // * PAUSE-SLIDER-DELAY-1: AUDIO / CONTROLS stay painted on first panel paint.
+  // * Snap to visible so a cancelled mid-open cannot stick partial opacity.
   for (const section of elements.escSections) {
     if (!section) continue;
-    section.style.opacity = "0";
-    section.style.transform = "translateY(10px)";
+    section.style.opacity = "1";
+    section.style.transform = "";
   }
 
   // * Opacity ONLY on the action slabs. They carry their skew in CSS `transform`,
@@ -368,7 +370,8 @@ function resetEscOverlayAnimState(overlay) {
 }
 
 /**
- * Plays backdrop fade, panel pop, and staggered section reveals.
+ * Plays backdrop fade, panel pop, and staggered action-slab fades.
+ * Body cards (AUDIO / CONTROLS) stay visible — they do not stagger-reveal.
  */
 function animateEscOverlayShow() {
   const overlay = elements.escOverlay;
@@ -420,16 +423,6 @@ function animateEscOverlayShow() {
         if (token !== escEntranceToken) return;
         fadeIn(btn, 240, { ease: "outQuad" });
       }, 90 + i * 35);
-    });
-
-    elements.escSections.forEach((section, i) => {
-      if (!section) return;
-      animateMenuReveal(section, {
-        delay: 180 + i * 40,
-        duration: 260,
-        y: 10,
-        ease: "outExpo",
-      });
     });
   }, 16);
 }

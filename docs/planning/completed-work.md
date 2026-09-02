@@ -13,6 +13,19 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### September 1, 2026 — PAUSE-SLIDER-DELAY-1 (pause sliders on first panel paint)
+
+- *(Engineering · High)* **PAUSE-SLIDER-DELAY-1** — ✅ **CLOSED 09-01**.
+  Esc overlay `resetEscOverlayAnimState` snapped `.escSections` to
+  `opacity: 0`, then staggered `animateMenuReveal` (`delay: 180 + i*40`).
+  AUDIO sliders live in those sections, so the pause body painted empty
+  for a beat. Reset now snaps body cards to visible; the show path does
+  not stagger-reveal them. Panel pop, title, and action slabs stay.
+  Do not FAIL the remaining ~300 ms panel fade. Owed:
+  **PAUSE-SLIDER-DELAY-PT-1**.
+
+---
+
 ### September 1, 2026 — RESTART-ROUND-1 (pause RESTART ROUND stays RD n)
 
 - *(Engineering · High)* **RESTART-ROUND-1** — ✅ **CLOSED 09-01** (`cac80b0d`).
