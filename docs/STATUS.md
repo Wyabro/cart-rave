@@ -32,8 +32,9 @@ report phase-exit eligibility; they must not move the marker.
 Playwright; Wyatt authorized). **PAUSE-SLIDER-DELAY-1** closed 09-01 —
 **PAUSE-SLIDER-DELAY-PT-1** PASS (local Playwright; Wyatt authorized).
 **MENU-SHORTWIN-1** closed 09-02 — short-desktop hero spacing.
-**MENU-SHORTWIN-PT-1** PASS (local Playwright 1077×606). Next: **CG-ZIP-1**.
-Remaining High: **CG-COVERS-1**.
+**MENU-SHORTWIN-PT-1** PASS (local Playwright 1077×606).
+**CG-ZIP-1** closed 09-02 — `tmp/cart-clash-crazygames.zip` 23.96 MB / 182
+files. Owed **CG-ZIP-PT-1**. Next: **CG-COVERS-1**.
 **MENU-MUSIC-FIRST-PT-1** Wyatt PASS 09-01 on prod `d16fd523`.
 **NET-LAG-1-PT-1** is parked (08-20). Do not retouch Classic / Sundial /
 Storerooms floors. Do not reopen **CART-POP-1**. Stay in this phase until
@@ -79,7 +80,7 @@ Live rows only. Shipped and closed cards live in
 | RESTART-ROUND-1 | pause RESTART ROUND must not advance RD | ✅ CLOSED 09-01 — **RESTART-ROUND-PT-1** PASS (local Playwright) |
 | PAUSE-SLIDER-DELAY-1 | pause overlay empty ~1 s before sliders | ✅ CLOSED 09-01 — **PAUSE-SLIDER-DELAY-PT-1** PASS (local Playwright) |
 | MENU-SHORTWIN-1 | menu readable at CrazyGames 1077×606 | ✅ CLOSED 09-02 — **MENU-SHORTWIN-PT-1** PASS (local 1077×606) |
-| CG-ZIP-1 | CrazyGames Basic Launch zip of `dist/` | High — zip-only portal, ≤50 MB, no SDK |
+| CG-ZIP-1 | CrazyGames Basic Launch zip of `dist/` | ✅ CLOSED 09-02 — 23.96 MB / 182 files; **CG-ZIP-PT-1** owed |
 | CG-COVERS-1 | CrazyGames covers + silent hover videos | High — Wyatt art, required to upload |
 | NET-LAG-1 | Friends/QP lag + rubber-band (F8 both machines) | wave 1 landed; 🅿️ **NET-LAG-1-PT-1** `[2pc]` parked by Wyatt 08-20 |
 | AUDIO-RAM-IMPACT-1 | ram crash SFX inaudible + soft taps silent (external playtest) | ✅ CLOSED 08-21 — Wyatt PT PASS on prod `67778a9f` (both rounds: `c4e7f082` + `0644094f`) |
@@ -89,9 +90,9 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. Block 1 High (one at a time): **CG-ZIP-1** · **CG-COVERS-1**.
+1. Block 1 High (one at a time): **CG-COVERS-1**. Owed **CG-ZIP-PT-1**.
    **SNAP-FINITE-PT-1** `[2pc]` still owed. **NET-LAG-1-PT-1** `[2pc]`
-   is parked. Closed 09-02: **MENU-SHORTWIN-PT-1**. Closed 09-01:
+   is parked. Closed 09-02: **CG-ZIP-1** · **MENU-SHORTWIN-PT-1**. Closed 09-01:
    **MENU-MUSIC-FIRST-PT-1** · **SOFTGL-DISMISS-PT-1** ·
    **RESTART-ROUND-PT-1** · **PAUSE-SLIDER-DELAY-PT-1**. Deferred:
    **SHARD-PT-2**.
@@ -150,6 +151,11 @@ or a suspected blocker (TS 7 · `cartrave4` UVs).
 - Local worker port is **8899** (`LOCAL_WORKER_PORT` in `src/config.js`). If it goes EACCES, re-check Windows HNS exclusions and move the port there.
 
 ## Last updated
+
+2026-09-02 (**CG-ZIP-1** ship) — `npm run zip:cg` writes
+`tmp/cart-clash-crazygames.zip` (23.96 MB / 182 files, `index.html` at
+root). No SDK. Desktop-only listing. **CG-ZIP-PT-1** owed. Next
+**CG-COVERS-1**.
 
 2026-09-02 (**MENU-SHORTWIN-1** ship) — prod `1d40cb4e` Worker
 `8ad14f71-55a1-4a83-bb60-7e7b2c1a7d94`. VERIFY_OK `index-2r3-npAj.js`

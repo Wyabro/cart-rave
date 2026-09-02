@@ -160,6 +160,7 @@ npm run dev:party
 npm run build         # Vite → dist/
 npm run ship          # CF prod (cartclash.lol + workers.dev twin) — “ship it”
 npm run ship:glitch   # Glitch festival build — only after prod is good
+npm run zip:cg        # CrazyGames Basic Launch zip → tmp/cart-clash-crazygames.zip
 ```
 
 Lanes: [deploy-urls.md](./guides/deploy-urls.md).
@@ -202,6 +203,7 @@ Lanes: [deploy-urls.md](./guides/deploy-urls.md).
 | `npm run build` | Production build to `dist/` |
 | `npm run ship` | Build + deploy Worker to Cloudflare (lol + workers.dev) |
 | `npm run ship:glitch` | Build + upload Glitch festival build |
+| `npm run zip:cg` | Build + zip `dist/` for CrazyGames Basic Launch |
 | `npm run knip` | Unused export analysis |
 | `npm run typecheck` | Typecheck codebase with tsc |
 | `npm test` | Run Vitest unit tests |

@@ -1,12 +1,14 @@
 # Cart Clash — Deploy map
 
-Three lanes. Do not invent a second Cloudflare “prod.”
+Three ship lanes plus one portal **upload**. Do not invent a second Cloudflare “prod.”
+CrazyGames is not `npm run ship`.
 
 | Lane | Job | Command |
 |------|-----|---------|
 | **Local** | Daily test | `npm run dev:local` → `http://127.0.0.1:4000/` |
 | **Cloudflare** | Public prod | **“ship it”** → `npm run ship` |
 | **Glitch** | Festival copy of public | **“ship glitch”** → `npm run ship:glitch` (only after prod is good) |
+| **CrazyGames** | Basic Launch zip of `dist/` | **“zip cg”** → `npm run zip:cg` (Wyatt uploads; not a deploy) |
 
 ## Cloudflare (one Worker)
 
@@ -28,7 +30,22 @@ after ship often 404s while PoP HTML is stale — that is normal, not a failed d
 
 ## Glitch (separate)
 
-Static festival CDN. Multiplayer still talks to **public** CF (`cartclash.lol`).
+Static festival CDN. Unknown page hosts (including Glitch and CrazyGames) dial
+`WORKER_PUBLIC_HOST` (`cart-rave.wyabro.workers.dev`) — the same Worker as
+`cartclash.lol`. Do not add those CDN hosts to `WORKER_PAGE_HOSTS`.
+
+## CrazyGames (upload, not a ship)
+
+Zip-only portal. No SDK. Do **not** iframe `cartclash.lol`. List **desktop only**
+(zip is over the 20 MB mobile homepage cap). Covers are **CG-COVERS-1**.
+
+```powershell
+npm run zip:cg
+# writes tmp/cart-clash-crazygames.zip — index.html at zip root
+```
+
+`zip:cg` always builds first. Upload waits on covers. Basic Launch does not need
+the CrazyGames SDK; Quickplay / Friends still use the Worker fallback above.
 
 ```powershell
 npm run build
@@ -46,6 +63,7 @@ Version defaults to `GLITCH_GAME_VERSION` in `src/analytics/glitchConfig.js`. Ov
 |------------|------------|
 | **ship it** | `npm run qa` then `npm run ship` (CF only) — **skip re-qa** if this session already reported QA green by number on the **same `git rev-parse HEAD`** and no source files changed since |
 | **ship glitch** | `npm run ship:glitch` (Glitch only) |
+| **zip cg** | `npm run zip:cg` (writes `tmp/cart-clash-crazygames.zip`; Wyatt uploads) |
 | (daily test) | `npm run dev:local` — do **not** deploy to try a tweak |
 
 **Ship-it fast path:** Wyatt said **ship it** + QA already green this session on current HEAD + tree still clean at that SHA → run **`npm run ship` only**, then the post-ship poll below. Re-run full `npm run qa` if HEAD moved, files changed, or QA was never reported this session.

@@ -19,6 +19,7 @@
     "ship": "npm run build && npx wrangler deploy",
     "ship:glitch": "npm run build && node tools/glitch-deploy.mjs",
     "glitch:deploy": "node tools/glitch-deploy.mjs",
+    "zip:cg": "npm run build && node scripts/zip-crazygames.mjs",
     "compress:rave-gltf": "node scripts/compress-rave-gltf.mjs",
     "compress:groceries": "node scripts/compress-groceries.mjs",
     "fonts:fetch": "node scripts/fetch-fonts.mjs",

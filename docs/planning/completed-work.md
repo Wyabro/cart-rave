@@ -13,6 +13,23 @@ Chronological record of shipped work, newest first.
 
 ---
 
+### September 2, 2026 — CG-ZIP-1 (CrazyGames Basic Launch zip of dist/)
+
+- *(Engineering · High)* **CG-ZIP-1** — ✅ **CLOSED 09-02**. `npm run zip:cg`
+  builds then zips `dist/*` to `tmp/cart-clash-crazygames.zip`. Measured
+  **23.96 MB / 182 files** (caps 50 MB / 1500). `index.html` at zip root.
+  No wrapping `dist/` folder. No CrazyGames SDK. Excludes
+  `.chunk-manifest.json`, `robots.txt`, `sitemap.xml`, `site.webmanifest`.
+  Vite `base: "./"` unchanged. Unknown hosts still dial
+  `cart-rave.wyabro.workers.dev` (same Worker). Do not iframe
+  `cartclash.lol`. List desktop only. Upload waits on **CG-COVERS-1**.
+  Do not add the CrazyGames SDK on this card.
+- *(Playtest · Low)* **CG-ZIP-PT-1** — 🅿️ owed. Unzip the zip, serve that
+  folder, solo vs bots, then Friends on `lvh.me` so the client hits the
+  live Worker.
+
+---
+
 ### September 2, 2026 — MENU-SHORTWIN-1 (menu readable at 1077×606)
 
 - *(Engineering · High)* **MENU-SHORTWIN-1** — ✅ **CLOSED 09-02** (`1d40cb4e`).
