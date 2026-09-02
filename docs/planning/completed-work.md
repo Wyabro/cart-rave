@@ -22,8 +22,10 @@ Chronological record of shipped work, newest first.
   1077×606: slack under `#cr-commandlist` **+3px → +35px**; hint bar 61px;
   root font 12px. 1920×1080 unchanged. 907×510 is stacked mobile, out of
   card. Do not shrink `.cr-cmd` padding. Do not hide `.cr-hintbar`.
-- *(Playtest · Low)* **MENU-SHORTWIN-PT-1** — owed. Local `npm run dev:local`
-  at 1077×606: SETTINGS above the hint bar, hint bar still visible.
+- *(Playtest · Low)* **MENU-SHORTWIN-PT-1** — ✅ **PASS 09-02**. Live
+  Playwright on Vite `:4000` at **1077×606**: seven command rows, SETTINGS
+  26px above the hint bar, hint bar still shows KEYBOARD hints, tagline
+  stays. 1920×1080 tagline still visible. Build `348aa5b8`. Not a prod check.
 
 ---
 
