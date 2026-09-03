@@ -24,9 +24,12 @@ Chronological record of shipped work, newest first.
   `cart-rave.wyabro.workers.dev` (same Worker). Do not iframe
   `cartclash.lol`. List desktop only. Upload waits on **CG-COVERS-1**.
   Do not add the CrazyGames SDK on this card.
-- *(Playtest · Low)* **CG-ZIP-PT-1** — 🅿️ owed. Unzip the zip, serve that
-  folder, solo vs bots, then Friends on `lvh.me` so the client hits the
-  live Worker.
+- *(Playtest · Low)* **CG-ZIP-PT-1** — ✅ **PASS 09-02**. Local Playwright
+  on unzipped `tmp/cart-clash-crazygames.zip` (not `vite preview`). Menu
+  at 1077×606, seven commands, SOLO visible. PLAY SOLO reached countdown
+  on Sundial. Friends room `SHOP5` on `lvh.me` seated host slot 3 +
+  joiner slot 0 against live `workers.dev`. No game-asset 404s. Wyatt
+  delegated the run. Upload still waits on **CG-COVERS-1**.
 
 ---
 

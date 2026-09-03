@@ -2,15 +2,15 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-09-02T20:45:09.754Z",
-    "commit": "5ba2a954"
+    "at": "2026-09-03T00:11:14.450Z",
+    "commit": "9009130a"
   },
-  "source_digest": "33f79b6a",
+  "source_digest": "2d81c847",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
     "production_url": "https://www.cartclash.lol/",
-    "mission": "Playtesting and stabilization — External playtest is gated on BACKLOG Block 1. SOFTGL-DISMISS-1 closed 09-01 — PLAY ANYWAY is one-shot per tab. SOFTGL-DISMISS-PT-1 PASS (local `?forcegpu=sw`; Wyatt authorized). RESTART-ROUND-1 closed 09-01 — RESTART-ROUND-PT-1 PASS (local Playwright; Wyatt authorized). PAUSE-SLIDER-DELAY-1 closed 09-01 — PAUSE-SLIDER-DELAY-PT-1 PASS (local Playwright; Wyatt authorized). MENU-SHORTWIN-1 closed 09-02 — short-desktop hero spacing. MENU-SHORTWIN-PT-1 PASS (local Playwright 1077×606). CG-ZIP-1 closed 09-02 — `tmp/cart-clash-crazygames.zip` 23.96 MB / 182 files. Owed CG-ZIP-PT-1. Next: CG-COVERS-1. MENU-MUSIC-FIRST-PT-1 Wyatt PASS 09-01 on prod `d16fd523`. NET-LAG-1-PT-1 is parked (08-20). Do not retouch Classic / Sundial / Storerooms floors. Do not reopen CART-POP-1. Stay in this phase until Wyatt advances the marker.",
+    "mission": "Playtesting and stabilization — External playtest is gated on BACKLOG Block 1. SOFTGL-DISMISS-1 closed 09-01 — PLAY ANYWAY is one-shot per tab. SOFTGL-DISMISS-PT-1 PASS (local `?forcegpu=sw`; Wyatt authorized). RESTART-ROUND-1 closed 09-01 — RESTART-ROUND-PT-1 PASS (local Playwright; Wyatt authorized). PAUSE-SLIDER-DELAY-1 closed 09-01 — PAUSE-SLIDER-DELAY-PT-1 PASS (local Playwright; Wyatt authorized). MENU-SHORTWIN-1 closed 09-02 — short-desktop hero spacing. MENU-SHORTWIN-PT-1 PASS (local Playwright 1077×606). CG-ZIP-1 closed 09-02 — `tmp/cart-clash-crazygames.zip` 23.96 MB / 182 files. CG-ZIP-PT-1 PASS (local Playwright unzip + `lvh.me`). Next: CG-COVERS-1. MENU-MUSIC-FIRST-PT-1 Wyatt PASS 09-01 on prod `d16fd523`. NET-LAG-1-PT-1 is parked (08-20). Do not retouch Classic / Sundial / Storerooms floors. Do not reopen CART-POP-1. Stay in this phase until Wyatt advances the marker.",
     "phase": "Playtesting & stabilization — stabilize after Run 7; prove residuals; no auto-advance to RC",
     "phases": [
       {
@@ -907,7 +907,7 @@
       {
         "id": "CG-ZIP-1",
         "what": "CrazyGames Basic Launch zip of `dist/`",
-        "status": "✅ CLOSED 09-02 — 23.96 MB / 182 files; CG-ZIP-PT-1 owed",
+        "status": "✅ CLOSED 09-02 — 23.96 MB / 182 files; CG-ZIP-PT-1 PASS",
         "state": "done"
       },
       {
@@ -948,7 +948,7 @@
       }
     ],
     "next_actions": [
-      "Block 1 High (one at a time): CG-COVERS-1. Owed CG-ZIP-PT-1."
+      "Block 1 High (one at a time): CG-COVERS-1."
     ],
     "open_issues": [
       {
@@ -1079,15 +1079,9 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Low": 4
+          "Low": 3
         },
         "rows": [
-          {
-            "pri": "Low",
-            "item": "CG-ZIP-PT-1 — unzip the CrazyGames zip, solo boots, Friends reaches the Worker",
-            "notes": "**Owed: Wyatt playtest — CG-ZIP-PT-1 — unzip the zip, serve that folder, play one solo round vs bots, then Friends via lvh.me.** Parent **CG-ZIP-1**. Local: `tmp/cart-clash-crazygames.zip` from `npm run zip:cg`. Not a prod URL. Upload waits on **CG-COVERS-1**.<br>1. Unzip `tmp/cart-clash-crazygames.zip`. Confirm `index.html` is in that folder root.<br>2. Serve that folder. Open it at 1077×606. Do not use `npm run preview` of `dist/`.<br>3. FAIL if the menu does not boot, or if game assets 404, or if PLAY SOLO does not start a bot match.<br>4. Open the same server as `http://lvh.me:<port>/` (not `127.0.0.1`). Start FRIENDS. A second tab with that code must seat. FAIL if the socket never hellos.<br>5. Do not FAIL for covers, PLAYING NOW, analytics, or the Google Form.",
-            "ship1": null
-          },
           {
             "pri": "Low",
             "item": "NET-LAG-1-PT-1 — non-host own cart has no 1 m trail `[2pc]`",
