@@ -47,9 +47,17 @@ npm run zip:cg
 `zip:cg` always builds first. Upload waits on covers. Basic Launch does not need
 the CrazyGames SDK; Quickplay / Friends still use the Worker fallback above.
 
+Token lives in gitignored `.env.local` as `GLITCH_DEPLOY_TOKEN=gl_deploy_...`
+(same pattern as `ERROR_LOG_TOKEN`). Shell still wins if set. Never commit it.
+
+Mint once (not the title token, not the MCP token):
+
+1. Open https://www.glitch.fun/publishers/dashboard
+2. **Distribution** → Manage Games → **Cart Clash**
+3. **Setup with AI**
+4. Create a **distribution token** (`gl_deploy_*`)
+
 ```powershell
-npm run build
-$env:GLITCH_DEPLOY_TOKEN = "gl_deploy_..."   # shell only — never commit
 npm run ship:glitch
 ```
 

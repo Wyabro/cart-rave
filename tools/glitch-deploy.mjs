@@ -3,7 +3,9 @@
  * tools/glitch-deploy.mjs — Glitch multipart deploy (CI / trusted machine only).
  *
  * Env:
- *   GLITCH_DEPLOY_TOKEN      required — gl_deploy_* token (never commit)
+ *   GLITCH_DEPLOY_TOKEN      required — gl_deploy_* token (never commit).
+ *                            Shell wins; else a line in .env.local / .dev.vars / .env
+ *                            (same pattern as ERROR_LOG_TOKEN).
  *   GLITCH_VERSION           optional — default GLITCH_GAME_VERSION from glitchConfig.js
  *   GLITCH_BUILD_TYPE        optional — production|playtest|demo (default from glitchConfig)
  *   GLITCH_RESUME_BUILD_ID   optional — skip upload; poll this GameBuild id until ready/failed
@@ -13,10 +15,10 @@
  *
  * Usage:
  *   npm run build
- *   $env:GLITCH_DEPLOY_TOKEN="gl_deploy_..."; npm run ship:glitch
+ *   npm run ship:glitch
  */
 
-import { existsSync, statSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
@@ -31,13 +33,41 @@ const TITLE_ID = "bf9f27c8-27be-4996-a3f0-cc4dc68ad2bb";
 const API = `https://api.glitch.fun/api/titles/${TITLE_ID}`;
 const PART_SIZE = 5 * 1024 * 1024; // 5 MiB minimum (except last)
 
-const token = String(process.env.GLITCH_DEPLOY_TOKEN || "").trim();
+/**
+ * Shell first, then gitignored env files. Intentional copy of pull-captures
+ * loadToken — extract on a third consumer.
+ * @returns {string}
+ */
+function loadDeployToken() {
+  const fromEnv = String(process.env.GLITCH_DEPLOY_TOKEN || "").trim();
+  if (fromEnv) return fromEnv;
+  for (const rel of [".env.local", ".dev.vars", ".env"]) {
+    const p = join(ROOT, rel);
+    if (!existsSync(p)) continue;
+    const text = readFileSync(p, "utf8");
+    for (const line of text.split(/\r?\n/)) {
+      const m = line.match(/^\s*GLITCH_DEPLOY_TOKEN\s*=\s*(.+?)\s*$/);
+      if (!m) continue;
+      let v = m[1].trim();
+      if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+        v = v.slice(1, -1);
+      }
+      if (v) return v;
+    }
+  }
+  return "";
+}
+
+const token = loadDeployToken();
 const version = String(process.env.GLITCH_VERSION || GLITCH_GAME_VERSION).slice(0, 20);
 const buildType = String(process.env.GLITCH_BUILD_TYPE || GLITCH_BUILD_TYPE);
 const resumeBuildId = String(process.env.GLITCH_RESUME_BUILD_ID || "").trim();
 
 if (!token) {
-  console.error("[glitch:deploy] Set GLITCH_DEPLOY_TOKEN (gl_deploy_*) — never commit it.");
+  console.error("[glitch:deploy] Missing GLITCH_DEPLOY_TOKEN (gl_deploy_*).");
+  console.error("→ Add GLITCH_DEPLOY_TOKEN=gl_deploy_... to .env.local (gitignored).");
+  console.error("→ Mint it once: glitch.fun → Developers Dashboard → Distribution → Cart Clash → Setup with AI → distribution token.");
+  console.error("→ Do not use VITE_GLITCH_TITLE_TOKEN. That is the browser title token.");
   process.exit(1);
 }
 if (!["production", "playtest", "demo"].includes(buildType)) {

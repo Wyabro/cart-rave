@@ -22,3 +22,16 @@ describe("glitchConfig", () => {
     expect(matches).toHaveLength(0);
   });
 });
+
+describe("glitch-deploy token load", () => {
+  const src = readFileSync(new URL("../../tools/glitch-deploy.mjs", import.meta.url), "utf8");
+
+  it("reads GLITCH_DEPLOY_TOKEN from .env.local when the shell is empty", () => {
+    expect(src).toMatch(/function loadDeployToken\(/);
+    expect(src).toMatch(/process\.env\.GLITCH_DEPLOY_TOKEN/);
+    expect(src).toMatch(/["']\.env\.local["']/);
+    expect(src).toContain("GLITCH_DEPLOY_TOKEN");
+    const load = src.slice(src.indexOf("function loadDeployToken"), src.indexOf("const token = loadDeployToken"));
+    expect(load).not.toMatch(/VITE_GLITCH_TITLE_TOKEN/);
+  });
+});
