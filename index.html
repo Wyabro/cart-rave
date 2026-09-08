@@ -908,12 +908,11 @@
             <div class="cr-howto-slide-copy">
               <span class="cr-howto-slide-no">AISLE 1</span>
               <h3 class="cr-howto-slide-name" id="cr-howto-s1-hd">DRIVE</h3>
-              <p class="cr-howto-slide-body">
-                Steer with the stick, and <strong>hop</strong> to clear the pit or land on
-                someone. Boost gets its own aisle — it is worth the read.
+              <!-- ONBOARD-COPY-1: body + chips rebuild per input mode. Keyboard copy is
+                   the no-JS fallback; default input mode is keyboard. -->
+              <p class="cr-howto-slide-body" id="cr-howto-drive-body">
+                Steer with WASD. Press Space to hop.
               </p>
-              <!-- Rebuilt per input mode by renderHowToControls() — keyboard copy is wrong
-                   on a phone, and this screen is the first thing a first-run player sees. -->
               <div class="cr-howto-strip-row" id="cr-howto-controls" role="list"></div>
               <span class="cr-howto-pad" id="cr-howto-pad">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -933,9 +932,9 @@
                    accidental-brush filter, not a rule anyone feels — a deliberate tap lands
                    well above it. Naming a dead zone here would teach players to distrust
                    tapping, which is a real and useful move. -->
-              <p class="cr-howto-slide-body">
-                Tap for a quick shove · hold to wind up a much harder one. Hold all the way and
-                it fires on its own.
+              <p class="cr-howto-slide-body" id="cr-howto-boost-body">
+                Tap Shift for a quick shove · hold to wind up a much harder one. Hold all the way
+                and it fires on its own.
               </p>
               <div class="cr-howto-strip-row" role="list">
                 <span class="cr-howto-price" role="listitem"><span class="cr-howto-price-lbl">TAP</span><span class="cr-howto-price-val">QUICK SHOVE</span></span>

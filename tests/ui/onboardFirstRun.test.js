@@ -247,3 +247,60 @@ describe("ONBOARD-WEBP-1 — visible playback and fallback integration", () => {
     expect(body).toMatch(/reason:\s*verdict\.reason/);
   });
 });
+
+describe("ONBOARD-COPY-1 — AISLE 1–2 body matches live input mode", () => {
+  const html = readFileSync(new URL("../../index.html", import.meta.url), "utf8");
+
+  it("keeps one copy table for keyboard, gamepad, and touch", () => {
+    expect(menu).toMatch(/HOWTO_COPY\s*=\s*\{/);
+    expect(menu).toMatch(/drive:\s*"Steer with WASD\. Press Space to hop\."/);
+    expect(menu).toMatch(/drive:\s*"Steer with the stick\. Press A or LT to hop\."/);
+    expect(menu).toMatch(/drive:\s*"Drag the stick to steer\. Tap Hop\."/);
+    expect(menu).toMatch(/boost:\s*"Tap Shift for a quick shove/);
+    expect(menu).toMatch(/boost:\s*"Tap RT or B for a quick shove/);
+    expect(menu).toMatch(/boost:\s*"Tap Boost for a quick shove/);
+  });
+
+  it("does not teach pits — they are not on every arena", () => {
+    const start = menu.indexOf("const HOWTO_COPY");
+    const brace = menu.indexOf("{", start);
+    let depth = 0;
+    let end = brace;
+    for (let i = brace; i < menu.length; i += 1) {
+      if (menu[i] === "{") depth += 1;
+      else if (menu[i] === "}") {
+        depth -= 1;
+        if (depth === 0) {
+          end = i;
+          break;
+        }
+      }
+    }
+    const table = menu.slice(start, end + 1);
+    expect(table).not.toMatch(/pit/i);
+    expect(html).not.toMatch(/clear the pit/i);
+  });
+
+  it("paints AISLE 1–2 body from the same render as the chips", () => {
+    const body = fnBody(menu, "renderHowToControls");
+    expect(body).toMatch(/howtoDriveBodyEl\.textContent\s*=\s*copy\.drive/);
+    expect(body).toMatch(/howtoBoostBodyEl\.textContent\s*=\s*copy\.boost/);
+    expect(fnBody(menu, "openHowToScreen")).toMatch(/renderHowToControls\(/);
+    expect(fnBody(menu, "initHowToScreen")).toMatch(/renderHowToControls\(mode\)/);
+  });
+
+  it("names both gamepad boost and hop buttons, and does not label B as BACK", () => {
+    expect(menu).toMatch(/keys:\s*\["RT",\s*"B"\]\s*,\s*label:\s*"BOOST"/);
+    expect(menu).toMatch(/keys:\s*\["A",\s*"LT"\]\s*,\s*label:\s*"HOP"/);
+    const gpStart = menu.indexOf("gamepad: [");
+    const gp = menu.slice(gpStart, menu.indexOf("touch: [", gpStart));
+    expect(gp).not.toMatch(/label:\s*"BACK"/);
+  });
+
+  it("ships keyboard copy in the HTML fallback, not stick-next-to-WASD", () => {
+    expect(html).toMatch(/id="cr-howto-drive-body"/);
+    expect(html).toMatch(/id="cr-howto-boost-body"/);
+    expect(html).toMatch(/Steer with WASD\. Press Space to hop\./);
+    expect(html).toMatch(/Tap Shift for a quick shove/);
+  });
+});

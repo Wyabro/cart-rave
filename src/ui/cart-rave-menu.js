@@ -354,6 +354,8 @@ import { initGamepadTextEntry, openGamepadTextEntry } from "./gamepadTextEntry.j
   const howtoNextBtn = $("cr-howto-next");
   const howtoPosEl = $("cr-howto-pos");
   const howtoControlsEl = $("cr-howto-controls");
+  const howtoDriveBodyEl = $("cr-howto-drive-body");
+  const howtoBoostBodyEl = $("cr-howto-boost-body");
   const howtoPadEl = $("cr-howto-pad");
   const howtoMenuBtn = root?.querySelector('[data-action="howto"]');
   const howtoMenuLabel = /** @type {HTMLElement | null} */ (
@@ -1324,10 +1326,10 @@ import { initGamepadTextEntry, openGamepadTextEntry } from "./gamepadTextEntry.j
   // ─── How To Play overlay screen ────────────────────────────────────────────
 
   /**
-   * ONBOARD-SLIDES-1: per-input-mode controls for AISLE 1. WASD/SHIFT/SPACE is simply
-   * wrong copy on a phone, and this overlay is the first thing a first-run player sees —
-   * so the chips rematch the live device off the same setInputMode signal the Settings
-   * controls table already uses, not a poll.
+   * ONBOARD-SLIDES-1 / ONBOARD-COPY-1: per-input-mode chips + body for AISLE 1–2.
+   * WASD/SHIFT/SPACE is wrong copy on a phone, and "Steer with the stick" is wrong
+   * copy next to WASD — both rematch the live device off the same setInputMode
+   * signal the Settings controls table already uses, not a poll.
    * @type {Record<'keyboard'|'gamepad'|'touch', Array<{ keys: string[], wide?: boolean, label: string }>>}
    */
   const HOWTO_CONTROLS = {
@@ -1340,9 +1342,8 @@ import { initGamepadTextEntry, openGamepadTextEntry } from "./gamepadTextEntry.j
     ],
     gamepad: [
       { keys: ["L STICK"], wide: true, label: "MOVE" },
-      { keys: ["RT"], label: "BOOST" },
-      { keys: ["A"], label: "HOP" },
-      { keys: ["B"], label: "BACK" },
+      { keys: ["RT", "B"], label: "BOOST" },
+      { keys: ["A", "LT"], label: "HOP" },
       { keys: ["START"], wide: true, label: "MENU" },
     ],
     touch: [
@@ -1352,30 +1353,53 @@ import { initGamepadTextEntry, openGamepadTextEntry } from "./gamepadTextEntry.j
     ],
   };
 
+  /**
+   * AISLE 1–2 body. Hop names the button only — pits are not on every arena.
+   * @type {Record<'keyboard'|'gamepad'|'touch', { drive: string, boost: string }>}
+   */
+  const HOWTO_COPY = {
+    keyboard: {
+      drive: "Steer with WASD. Press Space to hop.",
+      boost: "Tap Shift for a quick shove · hold to wind up a much harder one. Hold all the way and it fires on its own.",
+    },
+    gamepad: {
+      drive: "Steer with the stick. Press A or LT to hop.",
+      boost: "Tap RT or B for a quick shove · hold to wind up a much harder one. Hold all the way and it fires on its own.",
+    },
+    touch: {
+      drive: "Drag the stick to steer. Tap Hop.",
+      boost: "Tap Boost for a quick shove · hold to wind up a much harder one. Hold all the way and it fires on its own.",
+    },
+  };
+
   /** @param {'keyboard'|'gamepad'|'touch'} [mode] */
   function renderHowToControls(mode = getInputMode()) {
-    if (!howtoControlsEl) return;
-    const rows = HOWTO_CONTROLS[mode] ?? HOWTO_CONTROLS.keyboard;
-    howtoControlsEl.replaceChildren(
-      ...rows.map((row) => {
-        const chip = document.createElement("span");
-        chip.className = "cr-howto-ctl";
-        chip.setAttribute("role", "listitem");
-        const keys = document.createElement("span");
-        keys.className = "cr-howto-keys";
-        for (const k of row.keys) {
-          const kbd = document.createElement("kbd");
-          if (row.wide) kbd.className = "wide";
-          kbd.textContent = k;
-          keys.appendChild(kbd);
-        }
-        const label = document.createElement("span");
-        label.className = "cr-howto-ctl-lbl";
-        label.textContent = row.label;
-        chip.append(keys, label);
-        return chip;
-      }),
-    );
+    if (howtoControlsEl) {
+      const rows = HOWTO_CONTROLS[mode] ?? HOWTO_CONTROLS.keyboard;
+      howtoControlsEl.replaceChildren(
+        ...rows.map((row) => {
+          const chip = document.createElement("span");
+          chip.className = "cr-howto-ctl";
+          chip.setAttribute("role", "listitem");
+          const keys = document.createElement("span");
+          keys.className = "cr-howto-keys";
+          for (const k of row.keys) {
+            const kbd = document.createElement("kbd");
+            if (row.wide) kbd.className = "wide";
+            kbd.textContent = k;
+            keys.appendChild(kbd);
+          }
+          const label = document.createElement("span");
+          label.className = "cr-howto-ctl-lbl";
+          label.textContent = row.label;
+          chip.append(keys, label);
+          return chip;
+        }),
+      );
+    }
+    const copy = HOWTO_COPY[mode] ?? HOWTO_COPY.keyboard;
+    if (howtoDriveBodyEl) howtoDriveBodyEl.textContent = copy.drive;
+    if (howtoBoostBodyEl) howtoBoostBodyEl.textContent = copy.boost;
     // * "PLUG & PLAY" is noise to someone already holding a pad, and nonsense on touch.
     if (howtoPadEl) howtoPadEl.hidden = mode !== "keyboard";
   }
