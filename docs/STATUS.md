@@ -36,8 +36,8 @@ Playwright; Wyatt authorized). **PAUSE-SLIDER-DELAY-1** closed 09-01 —
 **CG-ZIP-1** closed 09-02 — `tmp/cart-clash-crazygames.zip` 23.96 MB / 182
 files. **CG-ZIP-PT-1** PASS (local Playwright unzip + `lvh.me`). Next:
 **CG-COVERS-1**.
-**ONBOARD-COPY-1** landed 09-07 — HOW TO PLAY AISLE 1+2 matches live
-input. Owed: **ONBOARD-COPY-PT-1**.
+**ONBOARD-COPY-1** shipped 09-08 — prod `39010c93` Worker
+`0c962927-fae5-49ba-877e-19b814190ec8`. Owed: **ONBOARD-COPY-PT-1**.
 **MENU-MUSIC-FIRST-PT-1** Wyatt PASS 09-01 on prod `d16fd523`.
 **NET-LAG-1-PT-1** is parked (08-20). Do not retouch Classic / Sundial /
 Storerooms floors. Do not reopen **CART-POP-1**. Stay in this phase until
@@ -85,7 +85,7 @@ Live rows only. Shipped and closed cards live in
 | MENU-SHORTWIN-1 | menu readable at CrazyGames 1077×606 | ✅ CLOSED 09-02 — **MENU-SHORTWIN-PT-1** PASS (local 1077×606) |
 | CG-ZIP-1 | CrazyGames Basic Launch zip of `dist/` | ✅ CLOSED 09-02 — 23.96 MB / 182 files; **CG-ZIP-PT-1** PASS |
 | CG-COVERS-1 | CrazyGames covers + silent hover videos | High — Wyatt art, required to upload |
-| ONBOARD-COPY-1 | HOW TO PLAY AISLE 1+2 copy matches live input | landed — **ONBOARD-COPY-PT-1** owed |
+| ONBOARD-COPY-1 | HOW TO PLAY AISLE 1+2 copy matches live input | shipped `39010c93` Worker `0c962927`; **ONBOARD-COPY-PT-1** owed |
 | NET-LAG-1 | Friends/QP lag + rubber-band (F8 both machines) | wave 1 landed; 🅿️ **NET-LAG-1-PT-1** `[2pc]` parked by Wyatt 08-20 |
 | AUDIO-RAM-IMPACT-1 | ram crash SFX inaudible + soft taps silent (external playtest) | ✅ CLOSED 08-21 — Wyatt PT PASS on prod `67778a9f` (both rounds: `c4e7f082` + `0644094f`) |
 | ONBOARD-WEBP-1 | HOW TO PLAY WebP playback + fallback | ✅ CLOSED 08-23 — Wyatt PASS **ONBOARD-WEBP-PT-1** on prod `14658bf8` (Worker `e14acbd4`) |
@@ -95,8 +95,9 @@ Live rows only. Shipped and closed cards live in
 ### Next actions
 
 1. Block 1 High (one at a time): **CG-COVERS-1**.
-   **SNAP-FINITE-PT-1** `[2pc]` still owed. **NET-LAG-1-PT-1** `[2pc]`
-   is parked. Closed 09-02: **CG-ZIP-PT-1** · **CG-ZIP-1** · **MENU-SHORTWIN-PT-1**. Closed 09-01:
+   **ONBOARD-COPY-PT-1** `[solo]` owed on prod. **SNAP-FINITE-PT-1** `[2pc]`
+   still owed. **NET-LAG-1-PT-1** `[2pc]` is parked. Closed 09-02:
+   **CG-ZIP-PT-1** · **CG-ZIP-1** · **MENU-SHORTWIN-PT-1**. Closed 09-01:
    **MENU-MUSIC-FIRST-PT-1** · **SOFTGL-DISMISS-PT-1** ·
    **RESTART-ROUND-PT-1** · **PAUSE-SLIDER-DELAY-PT-1**. Deferred:
    **SHARD-PT-2**.
@@ -155,6 +156,11 @@ or a suspected blocker (TS 7 · `cartrave4` UVs).
 - Local worker port is **8899** (`LOCAL_WORKER_PORT` in `src/config.js`). If it goes EACCES, re-check Windows HNS exclusions and move the port there.
 
 ## Last updated
+
+2026-09-08 (**ONBOARD-COPY-1** ship) — prod `39010c93` Worker
+`0c962927-fae5-49ba-877e-19b814190ec8`. VERIFY_OK `index-CLCGsbQj.js`
+(attempt 1, 28 refs, 0×404). Live entry has `Steer with WASD. Press Space to hop.`
+Owed: **ONBOARD-COPY-PT-1**. Next **CG-COVERS-1**.
 
 2026-09-02 (**CG-ZIP-PT-1** PASS) — local Playwright on unzipped zip:
 menu 1077×606, solo countdown on Sundial, Friends `SHOP5` seated two
