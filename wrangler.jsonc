@@ -17,7 +17,8 @@
   },
   "assets": {
     "directory": "dist",
-    "binding": "ASSETS"
+    "binding": "ASSETS",
+    "not_found_handling": "404-page"
   },
   // * Public domain cutover: Custom Domains on the same Worker (not Pages/Vercel).
   // * Cloudflare creates DNS + certs on deploy. workers.dev stays staging — keep it ON.

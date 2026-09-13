@@ -51,17 +51,19 @@
   <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
   <link rel="manifest" href="/site.webmanifest">
-  <!-- Cloudflare Web Analytics -->
-  <script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "a70a717112504e64abbf43758adf2fa0"}'></script>
-  <!-- End Cloudflare Web Analytics -->
-  <!-- Glitch festival web analytics (api.glitch.fun). Skips when gameplay analytics is opted out. -->
-  <script>
+  <!-- Optional analytics: enabled by default; all providers respect the saved opt-out. -->
+  <script id="cc-analytics-loader">
     (function () {
       try {
         var q = new URLSearchParams(location.search).get("analytics");
         if (q === "off" || q === "0" || q === "false") return;
         if (localStorage.getItem("cartRaveAnalytics") === "off") return;
       } catch (e) { /* private mode / blocked storage — still load */ }
+      var cf = document.createElement("script");
+      cf.src = "https://static.cloudflareinsights.com/beacon.min.js";
+      cf.async = true;
+      cf.setAttribute("data-cf-beacon", '{"token":"a70a717112504e64abbf43758adf2fa0"}');
+      document.head.appendChild(cf);
       var s = document.createElement("script");
       s.src = "https://api.glitch.fun/js/game-analytics.js";
       s.async = true;
@@ -1172,6 +1174,16 @@
           </div>
 
           <p class="cr-settings-footnote">AUTO-QUALITY MAY STEP DOWN DURING HEAVY FRAMES</p>
+        </section>
+
+        <section class="cr-screen-card cr-screen-card--wide" aria-labelledby="cr-settings-privacy-hd">
+          <div class="cr-screen-card-hd" id="cr-settings-privacy-hd">PRIVACY &amp; SUPPORT</div>
+          <p class="cr-settings-footnote">ANALYTICS IS ON BY DEFAULT. CHANGE YOUR CHOICE ON THE PRIVACY PAGE.</p>
+          <div class="cr-settings-row cr-settings-info-links">
+            <a class="cr-btn cr-settings-chip" href="/privacy/">PRIVACY &amp; ANALYTICS</a>
+            <a class="cr-btn cr-settings-chip" href="/terms/">TERMS</a>
+            <a class="cr-btn cr-settings-chip" href="mailto:redshiftstudiossupport@gmail.com">CONTACT</a>
+          </div>
         </section>
 
         <section class="cr-screen-card cr-screen-card--wide" aria-labelledby="cr-settings-ctl-hd">

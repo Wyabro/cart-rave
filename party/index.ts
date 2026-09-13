@@ -2152,9 +2152,9 @@ export default {
     if (!isParty && env.ASSETS) {
       try {
         const assetResponse = await env.ASSETS.fetch(request);
-        if (assetResponse.status !== 404) {
-          return withAssetCacheHeaders(request, assetResponse);
-        }
+        // Keep the asset service's branded 404 body and status. API handlers and
+        // multiplayer routes are resolved above, before this static-asset branch.
+        return withAssetCacheHeaders(request, assetResponse);
       } catch (err) {
         console.error("[cart-rave] ASSETS fetch error:", err);
       }

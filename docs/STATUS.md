@@ -26,6 +26,11 @@ report phase-exit eligibility; they must not move the marker.
 ## Current focus
 
 **Playtesting and stabilization.** External playtest is gated on BACKLOG Block 1.
+**SITE-TRUST-1** local implementation 09-13: privacy, terms, contact, saved
+analytics choice (on by default, Wyatt), branded 404, smaller share PNG.
+Publisher: Redshift Studios. Support: redshiftstudiossupport@gmail.com.
+Production is unchanged. Ship authorization and **SITE-TRUST-PT-1** are owed.
+Checks: QA 2,432/2,432 and build pass; local desktop/narrow-page review pass.
 **SOFTGL-DISMISS-1** closed 09-01 — PLAY ANYWAY is one-shot per tab.
 **SOFTGL-DISMISS-PT-1** PASS (local `?forcegpu=sw`; Wyatt authorized).
 **RESTART-ROUND-1** closed 09-01 — **RESTART-ROUND-PT-1** PASS (local
@@ -94,7 +99,7 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. Block 1 High (one at a time): **CG-COVERS-1**.
+1. Current authorized work: **SITE-TRUST-1**. Then Block 1 High: **CG-COVERS-1**.
    **ONBOARD-COPY-PT-1** `[solo]` owed on prod. **SNAP-FINITE-PT-1** `[2pc]`
    still owed. **NET-LAG-1-PT-1** `[2pc]` is parked. Closed 09-02:
    **CG-ZIP-PT-1** · **CG-ZIP-1** · **MENU-SHORTWIN-PT-1**. Closed 09-01:

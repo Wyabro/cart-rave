@@ -2,15 +2,15 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-09-08T07:35:16.100Z",
-    "commit": "39010c93"
+    "at": "2026-09-13T23:43:49.737Z",
+    "commit": "cc986068"
   },
-  "source_digest": "43216395",
+  "source_digest": "9ec082ef",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
     "production_url": "https://www.cartclash.lol/",
-    "mission": "Playtesting and stabilization — External playtest is gated on BACKLOG Block 1. SOFTGL-DISMISS-1 closed 09-01 — PLAY ANYWAY is one-shot per tab. SOFTGL-DISMISS-PT-1 PASS (local `?forcegpu=sw`; Wyatt authorized). RESTART-ROUND-1 closed 09-01 — RESTART-ROUND-PT-1 PASS (local Playwright; Wyatt authorized). PAUSE-SLIDER-DELAY-1 closed 09-01 — PAUSE-SLIDER-DELAY-PT-1 PASS (local Playwright; Wyatt authorized). MENU-SHORTWIN-1 closed 09-02 — short-desktop hero spacing. MENU-SHORTWIN-PT-1 PASS (local Playwright 1077×606). CG-ZIP-1 closed 09-02 — `tmp/cart-clash-crazygames.zip` 23.96 MB / 182 files. CG-ZIP-PT-1 PASS (local Playwright unzip + `lvh.me`). Next: CG-COVERS-1. ONBOARD-COPY-1 shipped 09-08 — prod `39010c93` Worker `0c962927-fae5-49ba-877e-19b814190ec8`. Owed: ONBOARD-COPY-PT-1. MENU-MUSIC-FIRST-PT-1 Wyatt PASS 09-01 on prod `d16fd523`. NET-LAG-1-PT-1 is parked (08-20). Do not retouch Classic / Sundial / Storerooms floors. Do not reopen CART-POP-1. Stay in this phase until Wyatt advances the marker.",
+    "mission": "Playtesting and stabilization — External playtest is gated on BACKLOG Block 1. SITE-TRUST-1 local implementation 09-13: privacy, terms, contact, saved analytics choice (on by default, Wyatt), branded 404, smaller share PNG. Publisher: Redshift Studios. Support: redshiftstudiossupport@gmail.com. Production is unchanged. Ship authorization and SITE-TRUST-PT-1 are owed. Checks: QA 2,432/2,432 and build pass; local desktop/narrow-page review pass. SOFTGL-DISMISS-1 closed 09-01 — PLAY ANYWAY is one-shot per tab. SOFTGL-DISMISS-PT-1 PASS (local `?forcegpu=sw`; Wyatt authorized). RESTART-ROUND-1 closed 09-01 — RESTART-ROUND-PT-1 PASS (local Playwright; Wyatt authorized). PAUSE-SLIDER-DELAY-1 closed 09-01 — PAUSE-SLIDER-DELAY-PT-1 PASS (local Playwright; Wyatt authorized). MENU-SHORTWIN-1 closed 09-02 — short-desktop hero spacing. MENU-SHORTWIN-PT-1 PASS (local Playwright 1077×606). CG-ZIP-1 closed 09-02 — `tmp/cart-clash-crazygames.zip` 23.96 MB / 182 files. CG-ZIP-PT-1 PASS (local Playwright unzip + `lvh.me`). Next: CG-COVERS-1. ONBOARD-COPY-1 shipped 09-08 — prod `39010c93` Worker `0c962927-fae5-49ba-877e-19b814190ec8`. Owed: ONBOARD-COPY-PT-1. MENU-MUSIC-FIRST-PT-1 Wyatt PASS 09-01 on prod `d16fd523`. NET-LAG-1-PT-1 is parked (08-20). Do not retouch Classic / Sundial / Storerooms floors. Do not reopen CART-POP-1. Stay in this phase until Wyatt advances the marker.",
     "phase": "Playtesting & stabilization — stabilize after Run 7; prove residuals; no auto-advance to RC",
     "phases": [
       {
@@ -954,7 +954,7 @@
       }
     ],
     "next_actions": [
-      "Block 1 High (one at a time): CG-COVERS-1."
+      "Current authorized work: SITE-TRUST-1. Then Block 1 High: CG-COVERS-1."
     ],
     "open_issues": [
       {
@@ -969,12 +969,18 @@
       {
         "title": "Engineering",
         "counts": {
-          "High": 1,
+          "High": 2,
           "Medium": 4,
           "Partial": 1,
           "Low": 6
         },
         "rows": [
+          {
+            "pri": "High",
+            "item": "SITE-TRUST-1 — public information and analytics choice",
+            "notes": "**Authorized 09-13. Critical: static routing.** Publisher Redshift Studios; support redshiftstudiossupport@gmail.com; analytics on by default per Wyatt. Settings links to privacy choice, terms, and email. All optional provider loaders respect saved off. Public pages load no game or analytics. Preserve real 404 status and API/multiplayer routes. PNG uses a reduced palette (1,137,264 to 300,645 bytes). Local implementation; ship authorization pending. Checks: default/saved/URL choice, blocked storage, route tests, build, QA, desktop and narrow-page inspection. No claim of legal compliance or human PASS.",
+            "ship1": null
+          },
           {
             "pri": "High",
             "item": "NET-LAG-1 — Friends/QP lag + rubber-band before playtest",
@@ -1091,9 +1097,15 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Low": 4
+          "Low": 5
         },
         "rows": [
+          {
+            "pri": "Low",
+            "item": "SITE-TRUST-PT-1 — privacy choice and public pages `[solo]`",
+            "notes": "**Owed: Wyatt playtest — SITE-TRUST-PT-1 — privacy controls and public pages work.** Parent **SITE-TRUST-1**. Local implementation, not yet deployed. Use local preview, or production after ship.<br>1. Open Settings. Open Privacy & Analytics. Confirm Redshift Studios and the support email.<br>2. Turn analytics off. Return to the game. Reopen the privacy page; the off choice stays saved. Turn it on again.<br>3. Check Terms and the contact link. Do not send a test email.<br>4. On a phone-sized window, confirm readable text and usable controls. With the Worker running, open an unknown path; confirm the branded 404 and return link.<br>5. PASS if the choice persists and all links work. Otherwise record the failing step.",
+            "ship1": null
+          },
           {
             "pri": "Low",
             "item": "ONBOARD-COPY-PT-1 — HOW TO PLAY AISLE 1+2 matches the live input `[solo]`",
