@@ -91,7 +91,7 @@ Live rows only. Shipped and closed cards live in
 | CG-COVERS-1 | CrazyGames covers + silent hover videos | High — Wyatt art, required to upload |
 | ONBOARD-COPY-1 | HOW TO PLAY AISLE 1+2 copy matches live input | ✅ CLOSED 09-14 — Wyatt PASS **ONBOARD-COPY-PT-1** on prod `39010c93` |
 | NET-LAG-1 | Friends/QP lag + rubber-band (F8 both machines) | wave 1 trail PASS 09-14; residual lag open (Wyatt: non-host lag drags experience, looks amateur) |
-| RAM-ARREST-1 | silent ram on solver-arrested contact (SNAP-FINITE-PT-1 FAIL) | 🔧 active — presentation fallback, physics live-gated |
+| RAM-ARREST-1 | silent ram on solver-arrested contact (SNAP-FINITE-PT-1 FAIL) | ✅ shipped `6c5c139b` Worker `8476ccfb`; **SNAP-FINITE-PT-1** retest owed |
 | AUDIO-RAM-IMPACT-1 | ram crash SFX inaudible + soft taps silent (external playtest) | ✅ CLOSED 08-21 — Wyatt PT PASS on prod `67778a9f` (both rounds: `c4e7f082` + `0644094f`) |
 | ONBOARD-WEBP-1 | HOW TO PLAY WebP playback + fallback | ✅ CLOSED 08-23 — Wyatt PASS **ONBOARD-WEBP-PT-1** on prod `14658bf8` (Worker `e14acbd4`) |
 | CLIENT-ID-AUTH-1 | clientId claim hijack guard (session-token proof of ownership) | shipped `e5ca329b` Worker `c789f236`; Wyatt PASS **CID-AUTH-PT-1** 08-22 |
@@ -99,9 +99,7 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. **RAM-ARREST-1** (agent active). **CG-COVERS-1** (Wyatt art). **SNAP-FINITE-PT-1** `[2pc]` owed — FAIL 09-14 (non-host ram ~50% no-op).
-   **NET-LAG-1** residual lag open. Closed 09-14: **ONBOARD-COPY-PT-1** · **ONBOARD-COPY-1** ·
-   **NET-LAG-1-PT-1** (trail). Deferred: **SHARD-PT-2** (launch day, held open).
+1. **SNAP-FINITE-PT-1** `[2pc]` retest owed on prod `6c5c139b`. **CG-COVERS-1** (Wyatt art). **NET-LAG-1** residual lag open. Shipped 09-14: **RAM-ARREST-1** (VERIFY_OK `index-BQxMmoL7.js`, 28 refs, 0×404). Closed 09-14: **ONBOARD-COPY-PT-1** · **ONBOARD-COPY-1** · **NET-LAG-1-PT-1** (trail). Deferred: **SHARD-PT-2** (launch day, held open).
    Closed 09-02: **CG-ZIP-PT-1** · **CG-ZIP-1** · **MENU-SHORTWIN-PT-1**.
    Closed 09-01: **MENU-MUSIC-FIRST-PT-1** · **SOFTGL-DISMISS-PT-1** ·
    **RESTART-ROUND-PT-1** · **PAUSE-SLIDER-DELAY-PT-1**.
@@ -160,6 +158,11 @@ or a suspected blocker (TS 7 · `cartrave4` UVs).
 - Local worker port is **8899** (`LOCAL_WORKER_PORT` in `src/config.js`). If it goes EACCES, re-check Windows HNS exclusions and move the port there.
 
 ## Last updated
+
+2026-09-14 (**RAM-ARREST-1** ship) — commit `6c5c139b` Worker
+`8476ccfb-660b-4d67-a9bc-ba902c4516f4`. VERIFY_OK `index-BQxMmoL7.js`
+(attempt 1, 28 refs, 0×404). Presentation fallback on solver-arrested
+contact; physics live-gated. Owed: **SNAP-FINITE-PT-1** retest `[2pc]` + F8.
 
 2026-09-08 (**ONBOARD-COPY-1** ship) — prod `39010c93` Worker
 `0c962927-fae5-49ba-877e-19b814190ec8`. VERIFY_OK `index-CLCGsbQj.js`

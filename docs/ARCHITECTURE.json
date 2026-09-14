@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-09-14T05:04:40.665Z",
-    "commit": "6838f6cf"
+    "at": "2026-09-14T05:13:44.140Z",
+    "commit": "6c5c139b"
   },
-  "source_digest": "e8154e6c",
+  "source_digest": "1cfa22b1",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -937,8 +937,8 @@
       {
         "id": "RAM-ARREST-1",
         "what": "silent ram on solver-arrested contact (SNAP-FINITE-PT-1 FAIL)",
-        "status": "🔧 active — presentation fallback, physics live-gated",
-        "state": "waiting"
+        "status": "✅ shipped `6c5c139b` Worker `8476ccfb`; SNAP-FINITE-PT-1 retest owed",
+        "state": "done"
       },
       {
         "id": "AUDIO-RAM-IMPACT-1",
@@ -966,7 +966,7 @@
       }
     ],
     "next_actions": [
-      "RAM-ARREST-1 (agent active). CG-COVERS-1 (Wyatt art). SNAP-FINITE-PT-1 `[2pc]` owed — FAIL 09-14 (non-host ram ~50% no-op)."
+      "SNAP-FINITE-PT-1 `[2pc]` retest owed on prod `6c5c139b`. CG-COVERS-1 (Wyatt art). NET-LAG-1 residual lag open. Shipped 09-14: RAM-ARREST-1 (VERIFY_OK `index-BQxMmoL7.js`, 28 refs, 0×404). Closed 09-14: ONBOARD-COPY-PT-1 · ONBOARD-COPY-1 · NET-LAG-1-PT-1 (trail). Deferred: SHARD-PT-2 (launch day, held open)."
     ],
     "open_issues": [
       {
@@ -1115,7 +1115,7 @@
           {
             "pri": "Low",
             "item": "SNAP-FINITE-PT-1 — snapshot finite guard changes nothing visible `[2pc]`",
-            "notes": "**Owed: Wyatt playtest — SNAP-FINITE-PT-1 — normal netplay is unchanged after every snapshot body write got a NaN guard (SNAP-FINITE-1).** Prod `e5ca329b` (Worker `c789f236`, hard-refresh).<br>1. Friends match, two machines. Drive, boost, ram, and hop for a full round on the non-host.<br>2. FAIL if any cart freezes in place, teleports to origin, ghosts through the floor, or remote carts stutter where they did not before.<br>3. PASS if remote carts track smoothly and collisions feel identical to pre-guard play.<br>4. Press F8 on both machines at round end.",
+            "notes": "**Owed: Wyatt playtest — SNAP-FINITE-PT-1 — normal netplay is unchanged after every snapshot body write got a NaN guard (SNAP-FINITE-1).** Prod `6c5c139b` (entry `index-BQxMmoL7.js`, hard-refresh https://www.cartclash.lol/). Retest: non-host rams must read (crash SFX + trash) — **RAM-ARREST-1** fallback shipped.<br>1. Friends match, two machines. Drive, boost, ram, and hop for a full round on the non-host.<br>2. FAIL if any cart freezes in place, teleports to origin, ghosts through the floor, or remote carts stutter where they did not before. FAIL if non-host rams stay silent with no trash.<br>3. PASS if remote carts track smoothly and collisions feel identical to pre-guard play.<br>4. Press F8 on both machines at round end.",
             "ship1": null
           }
         ]

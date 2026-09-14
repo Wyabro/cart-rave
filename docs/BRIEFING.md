@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-09-14 at commit `6838f6cf` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `5cc356e9`
+> Generated 2026-09-14 at commit `6c5c139b` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `ce23707e`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -18,14 +18,13 @@ Playtesting and stabilization — External playtest is gated on BACKLOG Block 1.
 
 ## ACTIVE CARD
 
-RAM-ARREST-1 (agent active). CG-COVERS-1 (Wyatt art). SNAP-FINITE-PT-1 `[2pc]` owed — FAIL 09-14 (non-host ram ~50% no-op)
+SNAP-FINITE-PT-1 `[2pc]` retest owed on prod `6c5c139b`. CG-COVERS-1 (Wyatt art). NET-LAG-1 residual lag open. Shipped 09-14: RAM-ARREST-1 (VERIFY_OK `index-BQxMmoL7.js`, 28 refs, 0×404). Closed 09-14: ONBOARD-COPY-PT-1 · ONBOARD-COPY-1 · NET-LAG-1-PT-1 (trail). Deferred: SHARD-PT-2 (launch day, held open)
 
 Assess and state the lane before editing. This heading names the card; it is **not** a lane assessment or permission to edit.
 
 Self-directed queue (one at a time, within the declared phase):
 - **CG-COVERS-1** CrazyGames covers + silent hover videos — High — Wyatt art, required to upload
 - **NET-LAG-1** Friends/QP lag + rubber-band (F8 both machines) — wave 1 trail PASS 09-14; residual lag open (Wyatt: non-host lag drags experience, looks amateur)
-- **RAM-ARREST-1** silent ram on solver-arrested contact (SNAP-FINITE-PT-1 FAIL) — 🔧 active — presentation fallback, physics live-gated
 - **CLIENT-ID-AUTH-1** clientId claim hijack guard (session-token proof of ownership) — shipped `e5ca329b` Worker `c789f236`; Wyatt PASS CID-AUTH-PT-1 08-22
 
 ## Do not
