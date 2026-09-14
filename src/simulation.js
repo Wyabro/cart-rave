@@ -1275,9 +1275,104 @@ export function resolveCartRamCollision(c1, c2) {
  * @param {object} callbacks Injected helpers (FX, local cart, host broadcast).
  * @param {boolean} isHost Whether this client is the room host.
  */
-export function applyRammingImpulse(rammer, victim, rammerState, victimState, callbacks, isHost, nowMs) {
+/**
+ * Shared knockback/FX math for one closing speed, so the live post-collision
+ * read and the solver-arrest fallback present identical curves.
+ *
+ * RAM-ARREST-1 — pure math, no side effects. Callers gate impulse, combo,
+ * and host-tail eligibility; intensity alone never credits anything.
+ */
+function ramKnockbackForClosing(closingSpeed, victim, isBoosting) {
+  const victimWeight01 = victim.cargoFullness01 ?? 0;
+  const cargoCfg = CONFIG.cargo;
+  let cargoRamIncoming = 1;
+  if (cargoCfg) {
+    const full = Math.max(1, cargoCfg.fullScore ?? 8);
+    const baselineW = (cargoCfg.baselinePoints ?? 3) / full;
+    const at0 = cargoCfg.ramIncomingAtStripped ?? 1;
+    const at1 = cargoCfg.ramIncomingAtBoss ?? 1;
+    if (baselineW <= 1e-6) {
+      cargoRamIncoming = THREE.MathUtils.lerp(at0, at1, victimWeight01);
+    } else if (victimWeight01 <= baselineW) {
+      cargoRamIncoming = THREE.MathUtils.lerp(at0, 1, victimWeight01 / baselineW);
+    } else {
+      cargoRamIncoming = THREE.MathUtils.lerp(
+        1,
+        at1,
+        (victimWeight01 - baselineW) / (1 - baselineW),
+      );
+    }
+  }
+  const impulseMagBase = Math.max(
+    0,
+    Math.min(
+      CONFIG.ramming.strength * closingSpeed * getBodyMass(victim.body) * cargoRamIncoming,
+      CONFIG.ramming.maxImpulse
+    )
+  );
+  const boostMul = CONFIG.ramming.boostImpulseMultiplier ?? 2;
+  const impulseMag = isBoosting ? impulseMagBase * boostMul : impulseMagBase;
+  return { impulseMag, fxIntensity: Math.min(impulseMag / CONFIG.ramming.maxImpulse, 1.35) };
+}
+
+/**
+ * Impact presentation for one qualified contact (SFX, trash, squash, shake).
+ *
+ * RAM-ARREST-1 — extracted verbatim from applyRammingImpulse's live path; no
+ * physics, attribution, combo, or tail writes. Reconcile replay stays quiet via
+ * the localRammerOptimistic gate, exactly as before.
+ */
+function fireRamContactPresentation(rammer, victim, rp, vp, fxIntensity, isRammerBoosting, callbacks, isHost) {
   const playCollisionRef = callbacks?.playCollision;
   const spawnTrashBurstRef = callbacks?.spawnTrashBurst;
+  const fxOpts = { isBoosting: isRammerBoosting };
+
+  // * Host plays FX locally; non-host normally replays from the snapshot collisions[] tail
+  // * so prediction did not double-spawn particles. NH-HIT: non-host still feels late
+  // * rams vs NPCs (RTT + input jitter + 40Hz snap) even with a strong host (cap-89/90).
+  // * When the local cart is the rammer on the live prediction path, fire presentation
+  // * immediately; note the pair into the collision FX dedupe so the host tail is quiet
+  // * for ~250ms (same window as NET-PRES-1). Reconcile replay keeps FX null.
+  const localRammerOptimistic =
+    !isHost
+    && !callbacks?.isReconcileReplay
+    && callbacks?.localCart === rammer
+    && fxIntensity > 0;
+  if (isHost || localRammerOptimistic) {
+    if (playCollisionRef) {
+      playCollisionRef(fxIntensity, fxOpts);
+    }
+    if (spawnTrashBurstRef && GameState.getRoundState().phase === "running") {
+      const midpoint = { x: (rp.x + vp.x) / 2, y: (rp.y + vp.y) / 2, z: (rp.z + vp.z) / 2 };
+      spawnTrashBurstRef(midpoint, fxIntensity, "cart", fxOpts);
+    }
+    if (callbacks?.onLocalRamImpact && callbacks.localCart === rammer) {
+      callbacks.onLocalRamImpact(fxIntensity, isRammerBoosting);
+    } else if (isHost && callbacks?.onLocalHitTaken && callbacks.localCart === victim) {
+      // * Hit-from direction in world XZ: from victim toward rammer (where the blow came from).
+      // * HUD maps this into cart-local sides (left/right/front/rear → screen edges).
+      // * Host-only here — non-host victim feedback still comes from the collision tail.
+      callbacks.onLocalHitTaken(
+        fxIntensity,
+        isRammerBoosting,
+        -_toVictim.x,
+        -_toVictim.z,
+      );
+    }
+    if (callbacks?.onCartImpactSquash) {
+      callbacks.onCartImpactSquash(rammer, victim, fxIntensity);
+    }
+    if (localRammerOptimistic) {
+      const slotA = rammer.slotIndex;
+      const slotB = victim.slotIndex;
+      if (typeof slotA === "number" && typeof slotB === "number") {
+        callbacks.noteOptimisticCollisionFx?.(slotA, slotB, slotA);
+      }
+    }
+  }
+}
+
+export function applyRammingImpulse(rammer, victim, rammerState, victimState, callbacks, isHost, nowMs) {
 
   // * Knockback + crit read the rammer's LIVE (post-collision) velocity, so forward-ram feel
   // * matches the pre-fix game. A near-stationary reverse shove reads ~0 here → no ram impulse
@@ -1306,83 +1401,12 @@ export function applyRammingImpulse(rammer, victim, rammerState, victimState, ca
       const vv = victimState.linvel;
       const closingSpeed = Math.max(speed, speed + (-(vv.x * _planarDir.x + vv.z * _planarDir.z)));
 
-      const victimWeight01 = victim.cargoFullness01 ?? 0;
-      const cargoCfg = CONFIG.cargo;
-      let cargoRamIncoming = 1;
-      if (cargoCfg) {
-        const full = Math.max(1, cargoCfg.fullScore ?? 8);
-        const baselineW = (cargoCfg.baselinePoints ?? 3) / full;
-        const at0 = cargoCfg.ramIncomingAtStripped ?? 1;
-        const at1 = cargoCfg.ramIncomingAtBoss ?? 1;
-        if (baselineW <= 1e-6) {
-          cargoRamIncoming = THREE.MathUtils.lerp(at0, at1, victimWeight01);
-        } else if (victimWeight01 <= baselineW) {
-          cargoRamIncoming = THREE.MathUtils.lerp(at0, 1, victimWeight01 / baselineW);
-        } else {
-          cargoRamIncoming = THREE.MathUtils.lerp(
-            1,
-            at1,
-            (victimWeight01 - baselineW) / (1 - baselineW),
-          );
-        }
-      }
-      const impulseMagBase = Math.max(
-        0,
-        Math.min(
-          CONFIG.ramming.strength * closingSpeed * getBodyMass(victim.body) * cargoRamIncoming,
-          CONFIG.ramming.maxImpulse
-        )
-      );
-      const boostMul = CONFIG.ramming.boostImpulseMultiplier ?? 2;
-      const impulseMag = isRammerBoosting ? impulseMagBase * boostMul : impulseMagBase;
-      fxIntensity = Math.min(impulseMag / CONFIG.ramming.maxImpulse, 1.35);
-      const fxOpts = { isBoosting: isRammerBoosting };
+      const { impulseMag, fxIntensity: liveIntensity } = ramKnockbackForClosing(closingSpeed, victim, isRammerBoosting);
+      fxIntensity = liveIntensity;
 
       const impulse = { x: _planarDir.x * impulseMag, y: 0, z: _planarDir.z * impulseMag };
 
-      // * Host plays FX locally; non-host normally replays from the snapshot collisions[] tail
-      // * so prediction did not double-spawn particles. NH-HIT: non-host still feels late
-      // * rams vs NPCs (RTT + input jitter + 40Hz snap) even with a strong host (cap-89/90).
-      // * When the local cart is the rammer on the live prediction path, fire presentation
-      // * immediately; note the pair into the collision FX dedupe so the host tail is quiet
-      // * for ~250ms (same window as NET-PRES-1). Reconcile replay keeps FX null.
-      const localRammerOptimistic =
-        !isHost
-        && !callbacks?.isReconcileReplay
-        && callbacks?.localCart === rammer
-        && fxIntensity > 0;
-      if (isHost || localRammerOptimistic) {
-        if (playCollisionRef) {
-          playCollisionRef(fxIntensity, fxOpts);
-        }
-        if (spawnTrashBurstRef && GameState.getRoundState().phase === "running") {
-          const midpoint = { x: (rp.x + vp.x) / 2, y: (rp.y + vp.y) / 2, z: (rp.z + vp.z) / 2 };
-          spawnTrashBurstRef(midpoint, fxIntensity, "cart", fxOpts);
-        }
-        if (callbacks?.onLocalRamImpact && callbacks.localCart === rammer) {
-          callbacks.onLocalRamImpact(fxIntensity, isRammerBoosting);
-        } else if (isHost && callbacks?.onLocalHitTaken && callbacks.localCart === victim) {
-          // * Hit-from direction in world XZ: from victim toward rammer (where the blow came from).
-          // * HUD maps this into cart-local sides (left/right/front/rear → screen edges).
-          // * Host-only here — non-host victim feedback still comes from the collision tail.
-          callbacks.onLocalHitTaken(
-            fxIntensity,
-            isRammerBoosting,
-            -_toVictim.x,
-            -_toVictim.z,
-          );
-        }
-        if (callbacks?.onCartImpactSquash) {
-          callbacks.onCartImpactSquash(rammer, victim, fxIntensity);
-        }
-        if (localRammerOptimistic) {
-          const slotA = rammer.slotIndex;
-          const slotB = victim.slotIndex;
-          if (typeof slotA === "number" && typeof slotB === "number") {
-            callbacks.noteOptimisticCollisionFx?.(slotA, slotB, slotA);
-          }
-        }
-      }
+      fireRamContactPresentation(rammer, victim, rp, vp, fxIntensity, isRammerBoosting, callbacks, isHost);
 
       // Spread impulse
       const steps = CONFIG.ramming.spreadSteps;
@@ -1396,6 +1420,23 @@ export function applyRammingImpulse(rammer, victim, rammerState, victimState, ca
         victim.pendingRam.remainingSteps = Math.max(victim.pendingRam.remainingSteps, steps);
         victim.pendingRam.totalSteps = Math.max(victim.pendingRam.totalSteps, steps);
       }
+      victim.lastRamTimeMs = nowMs;
+      rammer.lastRamTimeMs = nowMs;
+    }
+  }
+  // * RAM-ARREST-1 — solver-arrested qualified contact: both callers only invoke us
+  // * after resolveCartRamCollision qualified this pair pre-step, but the live
+  // * post-collision read above came back below threshold, so no impulse or FX fired.
+  // * Fire presentation from the pre-step closing speed so the hit reads instead of
+  // * vanishing. Physics (pendingRam), combo tier, and host tail stay live-gated by
+  // * design (AI-1 reverse-shove decoupling, SPILL-RAM-CREDIT-1 spill-time credit).
+  // * lastRamTimeMs stamps: the contact happened, so the announcer must not call it
+  // * a near miss.
+  if (fxIntensity <= 0) {
+    const preClosing = getRammingQualificationScore(rammerState, victimState);
+    if (preClosing > 0) {
+      const { fxIntensity: arrestedIntensity } = ramKnockbackForClosing(preClosing, victim, isRammerBoosting);
+      fireRamContactPresentation(rammer, victim, rp, vp, arrestedIntensity, isRammerBoosting, callbacks, isHost);
       victim.lastRamTimeMs = nowMs;
       rammer.lastRamTimeMs = nowMs;
     }
