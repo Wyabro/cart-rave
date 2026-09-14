@@ -42,7 +42,14 @@ import { probeGpu } from "../utils/gpuCaps.js";
 import { initAnalytics, trackEvent, trackGlitchEvent, getAnalyticsDebugState } from "./analytics.js";
 // * CHUNK-MEMBER-1 L1: leaf only — never import gameLoop (re-eagers the deferred graph).
 import { resetMatchFrameTelemetry, getMatchFrameTelemetry } from "./matchFrameTelemetry.js";
-import { installGlitchPlatform, trackGlitchGameEvent } from "./glitchPlatform.js";
+import {
+  getGlitchInstallId,
+  getGlitchSessionId,
+  getGlitchUserInstallId,
+  getGlitchValidation,
+  installGlitchPlatform,
+  trackGlitchGameEvent,
+} from "./glitchPlatform.js";
 
 /**
  * @typedef {object} GameplayAnalyticsDeps
@@ -345,7 +352,13 @@ export function installGameplayAnalytics(deps) {
   });
 
   // — Observability of the observer: expose internals as a diag probe (?diag only) —
-  registerDiagProbe("analytics", getAnalyticsDebugState);
+  registerDiagProbe("analytics", () => ({
+    ...getAnalyticsDebugState(),
+    glitchInstallId: getGlitchInstallId(),
+    glitchUserInstallId: getGlitchUserInstallId(),
+    glitchSessionId: getGlitchSessionId(),
+    glitchValid: getGlitchValidation()?.valid ?? null,
+  }));
 }
 
 /** @param {any} state @returns {Set<string>} */

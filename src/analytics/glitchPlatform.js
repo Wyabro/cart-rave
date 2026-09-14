@@ -1,8 +1,9 @@
 /**
  * glitchPlatform.js — Glitch install / validate / heartbeat / GameEvent client.
  *
- * Uses exact routes from Glitch Technical + Reports docs. Title token only
- * (never deploy token). Opt-out mirrors cartRaveAnalytics. Failures never break play.
+ * Runtime title-token routes only. Never call token CRUD, retention reports,
+ * or other admin-JWT endpoints from the shipped client. Failures never break
+ * play (free jam on cartclash.lol). Opt-out mirrors cartRaveAnalytics.
  */
 
 import {
@@ -24,9 +25,22 @@ let installId = null;
 let userInstallId = null;
 /** @type {string | null} */
 let sessionId = null;
+/** @type {{ valid: boolean, reason: string | null, raw: unknown } | null} */
+let lastValidation = null;
 /** @type {ReturnType<typeof setInterval> | null} */
 let heartbeatTimer = null;
+/** @type {(() => void) | null} */
+let onVisibility = null;
+/** @type {(() => void) | null} */
+let onPageHide = null;
 let started = false;
+/**
+ * False when Desktop App passed install_id but not user_install_id.
+ * Create-by-user_install_id would mint a different row and steal identity.
+ */
+let allowCreateHeartbeat = true;
+/** Desktop App launch install_id; create must not replace it. */
+let pinnedInstallId = null;
 
 function newId() {
   try {
@@ -37,16 +51,29 @@ function newId() {
   return `cc_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
+/**
+ * Desktop App may append title_id, game_id, install_id, user_install_id, session_id.
+ * Read them before minting local fallbacks. Do not send title_id/game_id on create —
+ * those are not create-install fields.
+ */
 function readLaunchParams() {
   try {
     const q = new URLSearchParams(window.location.search || "");
     return {
+      title_id: q.get("title_id") || null,
+      game_id: q.get("game_id") || null,
       install_id: q.get("install_id") || null,
       user_install_id: q.get("user_install_id") || null,
       session_id: q.get("session_id") || null,
     };
   } catch {
-    return { install_id: null, user_install_id: null, session_id: null };
+    return {
+      title_id: null,
+      game_id: null,
+      install_id: null,
+      user_install_id: null,
+      session_id: null,
+    };
   }
 }
 
@@ -87,7 +114,7 @@ async function glitchFetch(path, opts = {}) {
       "Content-Type": "application/json",
     },
     body: opts.body ? JSON.stringify(opts.body) : undefined,
-    keepalive: opts.method === "POST",
+    keepalive: opts.method === "POST" || !opts.method,
   });
   let json = null;
   try {
@@ -96,6 +123,16 @@ async function glitchFetch(path, opts = {}) {
     json = null;
   }
   return { res, json };
+}
+
+function denialReason(json, status) {
+  if (typeof json?.reason === "string" && json.reason) return json.reason;
+  if (typeof json?.code === "string" && json.code) return json.code;
+  if (status === 401) return "UNAUTHENTICATED";
+  if (status === 403) return "ACCESS_DENIED";
+  if (status === 404) return "INSTALL_NOT_FOUND";
+  if (status === 422) return "VALIDATION_ERROR";
+  return `HTTP_${status}`;
 }
 
 function installBody() {
@@ -108,52 +145,83 @@ function installBody() {
     operating_system: device.operating_system,
     game_version: GLITCH_GAME_VERSION,
     build_type: GLITCH_BUILD_TYPE,
-    session_id: sessionId,
-    device_id: storageGet(STORAGE_KEYS.clientId) || undefined,
   };
+  if (sessionId) body.session_id = String(sessionId).slice(0, 255);
+  const deviceId = storageGet(STORAGE_KEYS.clientId);
+  if (deviceId) body.device_id = String(deviceId).slice(0, 255);
+  const userName = storageGet(STORAGE_KEYS.username);
+  if (userName) body.user_name = String(userName).slice(0, 255);
   return body;
 }
 
+function persistInstallId(id) {
+  if (typeof id !== "string" || !id) return;
+  if (pinnedInstallId && id !== pinnedInstallId) return;
+  installId = id;
+  storageSet(STORAGE_KEYS.glitchInstallId, id);
+}
+
+function clearPersistedInstallId() {
+  pinnedInstallId = null;
+  installId = null;
+  storageSet(STORAGE_KEYS.glitchInstallId, "");
+  try {
+    localStorage.removeItem(STORAGE_KEYS.glitchInstallId);
+  } catch { /* ignore */ }
+}
+
+/**
+ * POST /titles/{id}/installs — create or heartbeat by reusing user_install_id.
+ * @returns {Promise<{ ok: boolean, status: number, reason: string | null, id: string | null }>}
+ */
 async function createOrHeartbeatInstall() {
   const { res, json } = await glitchFetch(`${TITLE_PATH}/installs`, {
     body: installBody(),
   });
-  if (!res.ok) {
-    const err = new Error(`glitch install HTTP ${res.status}`);
-    /** @type {any} */ (err).status = res.status;
-    /** @type {any} */ (err).json = json;
-    throw err;
+  const id = typeof json?.data?.id === "string" ? json.data.id : null;
+  if (res.status === 401 || res.status === 403 || res.status === 422 || !res.ok) {
+    return { ok: false, status: res.status, reason: denialReason(json, res.status), id: null };
   }
-  const id = json?.data?.id;
-  if (typeof id === "string" && id) {
-    installId = id;
-    storageSet(STORAGE_KEYS.glitchInstallId, id);
-  }
-  return installId;
+  persistInstallId(id);
+  return { ok: true, status: res.status, reason: null, id };
 }
 
+/**
+ * POST /titles/{id}/installs/{install_id}/validate
+ * @param {string} id
+ */
 async function validateInstall(id) {
+  const deviceId = storageGet(STORAGE_KEYS.clientId);
+  /** @type {Record<string, unknown>} */
+  const body = {};
+  if (deviceId) body.device_id = String(deviceId).slice(0, 255);
   const { res, json } = await glitchFetch(`${TITLE_PATH}/installs/${id}/validate`, {
-    body: {},
+    body,
   });
-  if (res.status === 404 || json?.reason === "INSTALL_NOT_FOUND" || json?.code === "INSTALL_NOT_FOUND") {
+  const reason = denialReason(json, res.status);
+  if (res.status === 404 || reason === "INSTALL_NOT_FOUND") {
     return { valid: false, reason: "INSTALL_NOT_FOUND", raw: json };
   }
   if (!res.ok) {
-    return { valid: false, reason: json?.reason || json?.code || `HTTP_${res.status}`, raw: json };
+    return { valid: false, reason, raw: json };
   }
   return {
     valid: Boolean(json?.valid),
-    reason: json?.reason || json?.code || null,
+    reason: json?.valid ? null : reason,
     raw: json,
   };
+}
+
+function pulseHeartbeat() {
+  if (!allowCreateHeartbeat) return;
+  void createOrHeartbeatInstall().catch(() => {});
 }
 
 function startHeartbeat() {
   stopHeartbeat();
   heartbeatTimer = setInterval(() => {
     if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
-    void createOrHeartbeatInstall().catch(() => {});
+    pulseHeartbeat();
   }, HEARTBEAT_MS);
 }
 
@@ -164,12 +232,98 @@ function stopHeartbeat() {
   }
 }
 
+function unbindLifecycle() {
+  if (onVisibility && typeof document !== "undefined") {
+    document.removeEventListener("visibilitychange", onVisibility);
+  }
+  if (onPageHide && typeof window !== "undefined") {
+    window.removeEventListener("pagehide", onPageHide);
+  }
+  onVisibility = null;
+  onPageHide = null;
+}
+
+function bindLifecycle() {
+  unbindLifecycle();
+  onVisibility = () => {
+    if (document.visibilityState === "hidden") pulseHeartbeat();
+  };
+  onPageHide = () => {
+    stopHeartbeat();
+    pulseHeartbeat();
+  };
+  document.addEventListener("visibilitychange", onVisibility);
+  window.addEventListener("pagehide", onPageHide);
+}
+
+function toastDenial(reason) {
+  if (!reason || reason === "INSTALL_NOT_FOUND") return;
+  try {
+    window.CartRave?.showToast?.(`Glitch access: ${reason}`, 5000);
+  } catch { /* ignore */ }
+}
+
+/** @returns {string | null} */
+export function getGlitchInstallId() {
+  return installId;
+}
+
+/** @returns {string | null} */
+export function getGlitchUserInstallId() {
+  return userInstallId;
+}
+
+/** @returns {string | null} */
+export function getGlitchSessionId() {
+  return sessionId;
+}
+
+/** @returns {{ valid: boolean, reason: string | null, raw: unknown } | null} */
+export function getGlitchValidation() {
+  return lastValidation;
+}
+
+/**
+ * @param {{ valid: boolean, reason: string | null, raw: unknown }} check
+ * @returns {{ installId: string | null, valid: boolean | null }}
+ */
+function finishBoot(check) {
+  lastValidation = check;
+  if (check.valid === false && check.reason && check.reason !== "INSTALL_NOT_FOUND") {
+    toastDenial(check.reason);
+  }
+  startHeartbeat();
+  bindLifecycle();
+  return { installId, valid: check.valid };
+}
+
+/**
+ * Create/heartbeat, then validate. Used when no launch install_id, or after 404.
+ * @returns {Promise<{ installId: string | null, valid: boolean | null }>}
+ */
+async function createThenValidate() {
+  const created = await createOrHeartbeatInstall();
+  if (created.status === 401 || created.status === 403 || created.status === 422) {
+    lastValidation = { valid: false, reason: created.reason, raw: null };
+    return { installId, valid: false };
+  }
+  if (!installId) return { installId: null, valid: null };
+
+  let check = await validateInstall(installId);
+  if (!check.valid && check.reason === "INSTALL_NOT_FOUND") {
+    clearPersistedInstallId();
+    const retry = await createOrHeartbeatInstall();
+    if (retry.ok && installId) check = await validateInstall(installId);
+  }
+  return finishBoot(check);
+}
+
 /**
  * Boot Glitch identity: reuse Desktop App query ids when present, else localStorage.
  * @returns {Promise<{ installId: string | null, valid: boolean | null }>}
  */
 export async function installGlitchPlatform() {
-  if (started) return { installId, valid: installId ? true : null };
+  if (started) return { installId, valid: lastValidation?.valid ?? (installId ? true : null) };
   started = true;
   if (!enabled()) return { installId: null, valid: null };
 
@@ -184,48 +338,31 @@ export async function installGlitchPlatform() {
   sessionId = launch.session_id || newId();
   storageSet(STORAGE_KEYS.glitchSessionId, sessionId);
 
-  if (launch.install_id) {
-    installId = launch.install_id;
-    storageSet(STORAGE_KEYS.glitchInstallId, installId);
-  } else {
-    installId = storageGet(STORAGE_KEYS.glitchInstallId);
-  }
+  allowCreateHeartbeat = true;
+  if (launch.install_id) persistInstallId(launch.install_id);
+  else persistInstallId(storageGet(STORAGE_KEYS.glitchInstallId));
 
   try {
-    await createOrHeartbeatInstall();
-    if (!installId) return { installId: null, valid: null };
-
-    let check = await validateInstall(installId);
-    if (!check.valid && check.reason === "INSTALL_NOT_FOUND") {
-      storageSet(STORAGE_KEYS.glitchInstallId, "");
-      try {
-        localStorage.removeItem(STORAGE_KEYS.glitchInstallId);
-      } catch { /* ignore */ }
-      installId = null;
-      await createOrHeartbeatInstall();
-      if (installId) check = await validateInstall(installId);
-    }
-    // * Free browser jam: soft-fail access denials (toast path optional). Still heartbeat.
-    if (check.valid === false && check.reason && check.reason !== "INSTALL_NOT_FOUND") {
-      try {
-        window.CartRave?.showToast?.(`Glitch access: ${check.reason}`, 5000);
-      } catch { /* ignore */ }
-    }
-    startHeartbeat();
-
-    const onHide = () => {
-      if (document.visibilityState === "hidden") {
-        void createOrHeartbeatInstall().catch(() => {});
+    // * Desktop App install_id is the Glitch row. Validate it before any create.
+    // * Create uses user_install_id; a leftover local key would mint a new row.
+    if (launch.install_id) {
+      pinnedInstallId = launch.install_id;
+      persistInstallId(launch.install_id);
+      allowCreateHeartbeat = Boolean(launch.user_install_id);
+      const check = await validateInstall(launch.install_id);
+      if (!check.valid && check.reason === "INSTALL_NOT_FOUND") {
+        clearPersistedInstallId();
+        allowCreateHeartbeat = true;
+        return await createThenValidate();
       }
-    };
-    document.addEventListener("visibilitychange", onHide);
-    window.addEventListener("pagehide", () => {
-      stopHeartbeat();
-      void createOrHeartbeatInstall().catch(() => {});
-    });
-
-    return { installId, valid: check.valid };
+      if (allowCreateHeartbeat) {
+        await createOrHeartbeatInstall().catch(() => {});
+      }
+      return finishBoot(check);
+    }
+    return await createThenValidate();
   } catch (err) {
+    if (err?.name === "AbortError") return { installId, valid: null };
     // eslint-disable-next-line no-console
     console.warn("[glitch] platform init failed", err?.message || err);
     return { installId, valid: null };
@@ -234,10 +371,11 @@ export async function installGlitchPlatform() {
 
 /**
  * POST /titles/{id}/events — requires game_install_id from create install.
+ * Admin list/report GETs stay out of the client.
  * @param {string} stepKey
  * @param {string} actionKey
  * @param {Record<string, unknown>} [metadata]
- * @param {{ step_label?: string, event_label?: string }} [labels]
+ * @param {{ step_label?: string, event_label?: string, step_description?: string, event_description?: string }} [labels]
  * @returns {Promise<boolean>}
  */
 export async function trackGlitchGameEvent(stepKey, actionKey, metadata, labels) {
@@ -252,10 +390,25 @@ export async function trackGlitchGameEvent(stepKey, actionKey, metadata, labels)
     };
     if (labels?.step_label) body.step_label = String(labels.step_label).slice(0, 255);
     if (labels?.event_label) body.event_label = String(labels.event_label).slice(0, 255);
+    if (labels?.step_description) body.step_description = String(labels.step_description).slice(0, 255);
+    if (labels?.event_description) body.event_description = String(labels.event_description).slice(0, 255);
     if (metadata && typeof metadata === "object") body.metadata = metadata;
     const { res } = await glitchFetch(`${TITLE_PATH}/events`, { body });
     return res.ok;
   } catch {
     return false;
   }
+}
+
+/** Test-only singleton reset. */
+export function __resetGlitchPlatformForTest() {
+  stopHeartbeat();
+  unbindLifecycle();
+  installId = null;
+  userInstallId = null;
+  sessionId = null;
+  lastValidation = null;
+  started = false;
+  allowCreateHeartbeat = true;
+  pinnedInstallId = null;
 }

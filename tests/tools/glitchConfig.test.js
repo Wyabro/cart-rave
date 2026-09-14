@@ -23,6 +23,19 @@ describe("glitchConfig", () => {
   });
 });
 
+describe("glitchPlatform runtime surface", () => {
+  const src = readFileSync(new URL("../../src/analytics/glitchPlatform.js", import.meta.url), "utf8");
+
+  it("never ships admin or deploy routes from the runtime client", () => {
+    expect(src).not.toMatch(/\/tokens/);
+    expect(src).not.toMatch(/\/retentions/);
+    expect(src).not.toMatch(/\/analytics\/events-summary/);
+    expect(src).not.toMatch(/createTitleToken|listTitleTokens|revokeTitleToken/);
+    expect(src).not.toMatch(/GLITCH_DEPLOY_TOKEN|gl_deploy_/);
+    expect(src).not.toMatch(/listInstalls|viewInstall/);
+  });
+});
+
 describe("glitch-deploy token load", () => {
   const src = readFileSync(new URL("../../tools/glitch-deploy.mjs", import.meta.url), "utf8");
 
