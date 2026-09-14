@@ -12,6 +12,15 @@ Chronological record of shipped work, newest first.
 > **Convention:** As items ship, move their completed writeup here (out of ROADMAP.md / project-state.md).
 
 ---
+### September 14, 2026 — TASTE-P4-1 (Wyatt close, no lever)
+
+- *(Design · Medium)* **TASTE-P4-1** — ✅ **CLOSED 09-14** (Wyatt). Pass-4 follow-up knobs (nitro duty-cycle, dead braking knob, maxImpulse-vs-boost, airControlFactor, HUD readability) need no change — game feels fine. Reopen only on 3+ felt instances.
+
+### September 14, 2026 — CG-COVERS-1 / CAM-COMFORT-1 (Wyatt close)
+
+- *(Design · High)* **CG-COVERS-1** — ✅ **CLOSED 09-14** (Wyatt). CrazyGames covers + silent hover videos done. Upload unblocked.
+- *(Design · Medium)* **CAM-COMFORT-1** — ✅ **CLOSED 09-14** (Wyatt). Camera motion-sickness report closed with no code lever; no comfort-DoD pursued.
+
 ### September 14, 2026 — ONBOARD-COPY-1 / NET-LAG-1-PT-1 (playtest closes)
 
 - *(Engineering · High)* **ONBOARD-COPY-1** — ✅ **CLOSED 09-14** (`39010c93`).

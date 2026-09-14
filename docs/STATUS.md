@@ -26,9 +26,10 @@ report phase-exit eligibility; they must not move the marker.
 ## Current focus
 
 **Playtesting and stabilization.** External playtest is gated on BACKLOG Block 1.
+**CG-COVERS-1** closed 09-14 (Wyatt). **CAM-COMFORT-1** closed 09-14 (Wyatt, no lever).
 **SITE-TRUST-1** closed 09-14 — prod `c58c96ff` Worker
 `aed9d44e-7139-4af7-92ee-1625307d7147`. **SITE-TRUST-PT-1** Wyatt PASS
-on prod. Next: **CG-COVERS-1**.
+on prod. Next: **NET-LAG-1** residual + **SNAP-FINITE-PT-1** retest.
 **SOFTGL-DISMISS-1** closed 09-01 — PLAY ANYWAY is one-shot per tab.
 **SOFTGL-DISMISS-PT-1** PASS (local `?forcegpu=sw`; Wyatt authorized).
 **RESTART-ROUND-1** closed 09-01 — **RESTART-ROUND-PT-1** PASS (local
@@ -37,8 +38,7 @@ Playwright; Wyatt authorized). **PAUSE-SLIDER-DELAY-1** closed 09-01 —
 **MENU-SHORTWIN-1** closed 09-02 — short-desktop hero spacing.
 **MENU-SHORTWIN-PT-1** PASS (local Playwright 1077×606).
 **CG-ZIP-1** closed 09-02 — `tmp/cart-clash-crazygames.zip` 23.96 MB / 182
-files. **CG-ZIP-PT-1** PASS (local Playwright unzip + `lvh.me`). Next:
-**CG-COVERS-1**.
+files. **CG-ZIP-PT-1** PASS (local Playwright unzip + `lvh.me`).
 **ONBOARD-COPY-1** closed 09-14 — prod `39010c93` Worker
 `0c962927-fae5-49ba-877e-19b814190ec8`. **ONBOARD-COPY-PT-1** Wyatt PASS.
 **MENU-MUSIC-FIRST-PT-1** Wyatt PASS 09-01 on prod `d16fd523`.
@@ -88,18 +88,18 @@ Live rows only. Shipped and closed cards live in
 | MENU-SHORTWIN-1 | menu readable at CrazyGames 1077×606 | ✅ CLOSED 09-02 — **MENU-SHORTWIN-PT-1** PASS (local 1077×606) |
 | CG-ZIP-1 | CrazyGames Basic Launch zip of `dist/` | ✅ CLOSED 09-02 — 23.96 MB / 182 files; **CG-ZIP-PT-1** PASS |
 | SITE-TRUST-1 | public information and analytics choice | ✅ CLOSED 09-14 — **SITE-TRUST-PT-1** PASS (prod `c58c96ff`) |
-| CG-COVERS-1 | CrazyGames covers + silent hover videos | High — Wyatt art, required to upload |
 | ONBOARD-COPY-1 | HOW TO PLAY AISLE 1+2 copy matches live input | ✅ CLOSED 09-14 — Wyatt PASS **ONBOARD-COPY-PT-1** on prod `39010c93` |
 | NET-LAG-1 | Friends/QP lag + rubber-band (F8 both machines) | wave 1 trail PASS 09-14; residual lag open (Wyatt: non-host lag drags experience, looks amateur) |
 | RAM-ARREST-1 | silent ram on solver-arrested contact (SNAP-FINITE-PT-1 FAIL) | ✅ shipped `6c5c139b` Worker `8476ccfb`; **SNAP-FINITE-PT-1** retest owed |
 | AUDIO-RAM-IMPACT-1 | ram crash SFX inaudible + soft taps silent (external playtest) | ✅ CLOSED 08-21 — Wyatt PT PASS on prod `67778a9f` (both rounds: `c4e7f082` + `0644094f`) |
 | ONBOARD-WEBP-1 | HOW TO PLAY WebP playback + fallback | ✅ CLOSED 08-23 — Wyatt PASS **ONBOARD-WEBP-PT-1** on prod `14658bf8` (Worker `e14acbd4`) |
 | CLIENT-ID-AUTH-1 | clientId claim hijack guard (session-token proof of ownership) | shipped `e5ca329b` Worker `c789f236`; Wyatt PASS **CID-AUTH-PT-1** 08-22 |
+| CLUTCH-SLOMO-1 | SD-deciding KO slow-mo before podium | ✅ shipped Worker `c214c758` (VERIFY_OK `index-D28UWcmx.js`); **CLUTCH-SLOMO-PT-1** owed on prod |
 | BRAND-1 | Domain cutover | 🧊 frozen ([brand.md](./brand.md)) |
 
 ### Next actions
 
-1. **SNAP-FINITE-PT-1** `[2pc]` retest owed on prod `6c5c139b`. **CG-COVERS-1** (Wyatt art). **NET-LAG-1** residual lag open. Shipped 09-14: **RAM-ARREST-1** (VERIFY_OK `index-BQxMmoL7.js`, 28 refs, 0×404). Closed 09-14: **ONBOARD-COPY-PT-1** · **ONBOARD-COPY-1** · **NET-LAG-1-PT-1** (trail). Deferred: **SHARD-PT-2** (launch day, held open).
+1. **SNAP-FINITE-PT-1** `[2pc]` retest owed on prod `6c5c139b`. **NET-LAG-1** residual lag open. Shipped 09-14: **CLUTCH-SLOMO-1** (VERIFY_OK `index-D28UWcmx.js`, 28 refs, 0×404, symbol live). Owed: **CLUTCH-SLOMO-PT-1** (prod). Closed 09-14: **TASTE-P4-1** · **CG-COVERS-1** · **CAM-COMFORT-1** · **ONBOARD-COPY-PT-1** · **ONBOARD-COPY-1** · **NET-LAG-1-PT-1** (trail). Deferred: **SHARD-PT-2** (launch day, held open).
    Closed 09-02: **CG-ZIP-PT-1** · **CG-ZIP-1** · **MENU-SHORTWIN-PT-1**.
    Closed 09-01: **MENU-MUSIC-FIRST-PT-1** · **SOFTGL-DISMISS-PT-1** ·
    **RESTART-ROUND-PT-1** · **PAUSE-SLIDER-DELAY-PT-1**.
@@ -158,6 +158,12 @@ or a suspected blocker (TS 7 · `cartrave4` UVs).
 - Local worker port is **8899** (`LOCAL_WORKER_PORT` in `src/config.js`). If it goes EACCES, re-check Windows HNS exclusions and move the port there.
 
 ## Last updated
+
+2026-09-14 (**CLUTCH-SLOMO-1** ship) — Worker
+`c214c758-075f-470c-8007-77df06dfdb6e`. VERIFY_OK `index-D28UWcmx.js`
+(attempt 1, 28 refs, 0×404). Symbol `setSlowMoStartMs` live in
+`gameBoot-cwnC8SEL.js`. SD-win defers ~1.2s slow-mo, then endRound.
+Owed: **CLUTCH-SLOMO-PT-1** on prod (hard-refresh https://www.cartclash.lol/).
 
 2026-09-14 (**RAM-ARREST-1** ship) — commit `6c5c139b` Worker
 `8476ccfb-660b-4d67-a9bc-ba902c4516f4`. VERIFY_OK `index-BQxMmoL7.js`
