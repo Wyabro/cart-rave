@@ -2,15 +2,15 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-09-14T04:01:51.253Z",
-    "commit": "093671a5"
+    "at": "2026-09-14T05:04:40.665Z",
+    "commit": "6838f6cf"
   },
-  "source_digest": "059b4350",
+  "source_digest": "e8154e6c",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
     "production_url": "https://www.cartclash.lol/",
-    "mission": "Playtesting and stabilization — External playtest is gated on BACKLOG Block 1. SITE-TRUST-1 closed 09-14 — prod `c58c96ff` Worker `aed9d44e-7139-4af7-92ee-1625307d7147`. SITE-TRUST-PT-1 Wyatt PASS on prod. Next: CG-COVERS-1. SOFTGL-DISMISS-1 closed 09-01 — PLAY ANYWAY is one-shot per tab. SOFTGL-DISMISS-PT-1 PASS (local `?forcegpu=sw`; Wyatt authorized). RESTART-ROUND-1 closed 09-01 — RESTART-ROUND-PT-1 PASS (local Playwright; Wyatt authorized). PAUSE-SLIDER-DELAY-1 closed 09-01 — PAUSE-SLIDER-DELAY-PT-1 PASS (local Playwright; Wyatt authorized). MENU-SHORTWIN-1 closed 09-02 — short-desktop hero spacing. MENU-SHORTWIN-PT-1 PASS (local Playwright 1077×606). CG-ZIP-1 closed 09-02 — `tmp/cart-clash-crazygames.zip` 23.96 MB / 182 files. CG-ZIP-PT-1 PASS (local Playwright unzip + `lvh.me`). Next: CG-COVERS-1. ONBOARD-COPY-1 shipped 09-08 — prod `39010c93` Worker `0c962927-fae5-49ba-877e-19b814190ec8`. Owed: ONBOARD-COPY-PT-1. MENU-MUSIC-FIRST-PT-1 Wyatt PASS 09-01 on prod `d16fd523`. NET-LAG-1-PT-1 is parked (08-20). Do not retouch Classic / Sundial / Storerooms floors. Do not reopen CART-POP-1. Stay in this phase until Wyatt advances the marker.",
+    "mission": "Playtesting and stabilization — External playtest is gated on BACKLOG Block 1. SITE-TRUST-1 closed 09-14 — prod `c58c96ff` Worker `aed9d44e-7139-4af7-92ee-1625307d7147`. SITE-TRUST-PT-1 Wyatt PASS on prod. Next: CG-COVERS-1. SOFTGL-DISMISS-1 closed 09-01 — PLAY ANYWAY is one-shot per tab. SOFTGL-DISMISS-PT-1 PASS (local `?forcegpu=sw`; Wyatt authorized). RESTART-ROUND-1 closed 09-01 — RESTART-ROUND-PT-1 PASS (local Playwright; Wyatt authorized). PAUSE-SLIDER-DELAY-1 closed 09-01 — PAUSE-SLIDER-DELAY-PT-1 PASS (local Playwright; Wyatt authorized). MENU-SHORTWIN-1 closed 09-02 — short-desktop hero spacing. MENU-SHORTWIN-PT-1 PASS (local Playwright 1077×606). CG-ZIP-1 closed 09-02 — `tmp/cart-clash-crazygames.zip` 23.96 MB / 182 files. CG-ZIP-PT-1 PASS (local Playwright unzip + `lvh.me`). Next: CG-COVERS-1. ONBOARD-COPY-1 closed 09-14 — prod `39010c93` Worker `0c962927-fae5-49ba-877e-19b814190ec8`. ONBOARD-COPY-PT-1 Wyatt PASS. MENU-MUSIC-FIRST-PT-1 Wyatt PASS 09-01 on prod `d16fd523`. NET-LAG-1-PT-1 PASS 09-14 (trail gone); residual lag open. Do not retouch Classic / Sundial / Storerooms floors. Do not reopen CART-POP-1. Stay in this phase until Wyatt advances the marker.",
     "phase": "Playtesting & stabilization — stabilize after Run 7; prove residuals; no auto-advance to RC",
     "phases": [
       {
@@ -925,14 +925,20 @@
       {
         "id": "ONBOARD-COPY-1",
         "what": "HOW TO PLAY AISLE 1+2 copy matches live input",
-        "status": "shipped `39010c93` Worker `0c962927`; ONBOARD-COPY-PT-1 owed",
-        "state": "waiting"
+        "status": "✅ CLOSED 09-14 — Wyatt PASS ONBOARD-COPY-PT-1 on prod `39010c93`",
+        "state": "done"
       },
       {
         "id": "NET-LAG-1",
         "what": "Friends/QP lag + rubber-band (F8 both machines)",
-        "status": "wave 1 landed; 🅿️ NET-LAG-1-PT-1 `[2pc]` parked by Wyatt 08-20",
-        "state": "locked"
+        "status": "wave 1 trail PASS 09-14; residual lag open (Wyatt: non-host lag drags experience, looks amateur)",
+        "state": "waiting"
+      },
+      {
+        "id": "RAM-ARREST-1",
+        "what": "silent ram on solver-arrested contact (SNAP-FINITE-PT-1 FAIL)",
+        "status": "🔧 active — presentation fallback, physics live-gated",
+        "state": "waiting"
       },
       {
         "id": "AUDIO-RAM-IMPACT-1",
@@ -960,7 +966,7 @@
       }
     ],
     "next_actions": [
-      "CG-COVERS-1. ONBOARD-COPY-PT-1 `[solo]` owed on prod."
+      "RAM-ARREST-1 (agent active). CG-COVERS-1 (Wyatt art). SNAP-FINITE-PT-1 `[2pc]` owed — FAIL 09-14 (non-host ram ~50% no-op)."
     ],
     "open_issues": [
       {
@@ -975,7 +981,7 @@
       {
         "title": "Engineering",
         "counts": {
-          "High": 1,
+          "High": 2,
           "Medium": 4,
           "Partial": 1,
           "Low": 6
@@ -984,7 +990,13 @@
           {
             "pri": "High",
             "item": "NET-LAG-1 — Friends/QP lag + rubber-band before playtest",
-            "notes": "**Wave 1 landed 08-20.** Cause: NH-SMOOTH v3 display low-pass (`displayPosRate` 14) trailed ~1.6 m on a clean wire (cap-373/374 vs host 375, room `SAGO6`). Lever: non-host local mesh+camera **copy** the physics pose. Transport / host send / rewind-replay not this wave. **Owed: NET-LAG-1-PT-1, parked by Wyatt 08-20.** Do not restore lerp or add a catch-up distance gate on a vibration FAIL without a new ack. Do not reopen **NET-1** · **NET-2** · **NET-MIG-3**.",
+            "notes": "**Wave 1 landed 08-20.** Cause: NH-SMOOTH v3 display low-pass (`displayPosRate` 14) trailed ~1.6 m on a clean wire (cap-373/374 vs host 375, room `SAGO6`). Lever: non-host local mesh+camera **copy** the physics pose. Transport / host send / rewind-replay not this wave. **NET-LAG-1-PT-1 PASS 09-14** (trail gone). Residual open per Wyatt 09-14 note: significant non-host lag drags experience, looks amateur — next wave measures input delay path. Do not restore lerp or add a catch-up distance gate on a vibration FAIL without a new ack. Do not reopen **NET-1** · **NET-2** · **NET-MIG-3**.",
+            "ship1": null
+          },
+          {
+            "pri": "High",
+            "item": "RAM-ARREST-1 — silent ram on solver-arrested qualified contact",
+            "notes": "**Filed 09-14 from SNAP-FINITE-PT-1 FAIL** (silent non-host rams ~50%, no SFX). Lever: presentation fallback from pre-step closing when live post-collision reads ~0 (`simulation.js` `applyRammingImpulse` + `ramKnockbackForClosing` + `fireRamContactPresentation`). Physics (`pendingRam`), combo tier, host tail stay live-gated (AI-1). Tests: `tests/effects/optimisticLocalHitFx.test.js` +3. Retest: **SNAP-FINITE-PT-1** `[2pc]` + F8 both machines (owed — no F8 rig this wave).",
             "ship1": null
           },
           {
@@ -1058,7 +1070,7 @@
       {
         "title": "Design / Gameplay",
         "counts": {
-          "High": 2,
+          "High": 1,
           "Medium": 3
         },
         "rows": [
@@ -1066,12 +1078,6 @@
             "pri": "High",
             "item": "CG-COVERS-1 — CrazyGames cover images + hover videos",
             "notes": "**Filed 09-01.** High 09-01 (Wyatt). Required to submit, not to build `dist/`. Sizes: landscape 1920×1080, portrait 800×1200, square 800×800. Videos: 15–20 s, no sound, landscape 16:9 1080p and portrait 2:3 1080p. Title on covers only. No \"Play now\", borders, or store logos. [Game covers](https://docs.crazygames.com/requirements/game-covers/).",
-            "ship1": null
-          },
-          {
-            "pri": "High",
-            "item": "ONBOARD-COPY-1 — HOW TO PLAY AISLE 1+2 copy matches live input",
-            "notes": "**Filed 09-07.** Chips already swap; body is frozen as \"Steer with the stick\" next to WASD. AISLE 1+2 body + gamepad chips (RT·B, A·LT) follow `onInputModeChange`, same as chips. **AISLE 1:** Keyboard \"Steer with WASD. Press Space to hop.\" · Gamepad \"Steer with the stick. Press A or LT to hop.\" · Touch \"Drag the stick to steer. Tap Hop.\" **AISLE 2:** Keyboard \"Tap Shift…\" · Gamepad \"Tap RT or B…\" · Touch \"Tap Boost…\" then the shared hold/auto-fire line. No pit mention (not on every arena). Files: `index.html`, `src/ui/cart-rave-menu.js`, `tests/ui/onboardFirstRun.test.js`. Out of scope: AISLE 3–8, LOAD_TIPS, pause/settings tables. Shipped 09-08 prod `39010c93` Worker `0c962927`. Playtest: **ONBOARD-COPY-PT-1**.",
             "ship1": null
           },
           {
@@ -1097,21 +1103,9 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Low": 4
+          "Low": 2
         },
         "rows": [
-          {
-            "pri": "Low",
-            "item": "ONBOARD-COPY-PT-1 — HOW TO PLAY AISLE 1+2 matches the live input `[solo]`",
-            "notes": "**Owed: Wyatt playtest — ONBOARD-COPY-PT-1 — HOW TO PLAY names the buttons for the device you are using.** Parent **ONBOARD-COPY-1**. Prod `39010c93` (Worker `0c962927`, hard-refresh https://www.cartclash.lol/).<br>1. Open HOW TO PLAY on keyboard. AISLE 1 says steer with WASD and press Space to hop. AISLE 2 names Shift. FAIL if it says stick next to WASD, or mentions a pit.<br>2. Plug in a pad (or press a pad button). AISLE 1 says stick and A or LT. AISLE 2 names RT or B. Chips show RT and B for boost, A and LT for hop. FAIL if B is labeled BACK, or if copy does not change when the pad wakes.<br>3. On a phone, AISLE 1 says drag the stick and tap Hop. AISLE 2 names Boost.",
-            "ship1": null
-          },
-          {
-            "pri": "Low",
-            "item": "NET-LAG-1-PT-1 — non-host own cart has no 1 m trail `[2pc]`",
-            "notes": "**Owed: Wyatt playtest — NET-LAG-1-PT-1 — on the non-host, your cart stays under you while you drive.** Parent **NET-LAG-1**. Prod after ship, or `npm run dev:local` with `?diag=1` on both machines. Remaining input delay (~120 ms) is out of this check — do not FAIL for that if the trail is gone.<br>1. Friends match, two machines, `?diag=1`. Non-host drives for a full round.<br>2. FAIL if your cart trails about a meter behind where you are steering, or if it shakes or ticks many times a second.<br>3. PASS if the non-host cart stays under you (no rubber-band trail) and the host still feels tight.<br>4. Press F8 on both machines at the end.",
-            "ship1": null
-          },
           {
             "pri": "Low",
             "item": "SHARD-PT-2 — fifth human overflows to quickplay2 `[2pc]`",

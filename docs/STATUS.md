@@ -39,10 +39,10 @@ Playwright; Wyatt authorized). **PAUSE-SLIDER-DELAY-1** closed 09-01 —
 **CG-ZIP-1** closed 09-02 — `tmp/cart-clash-crazygames.zip` 23.96 MB / 182
 files. **CG-ZIP-PT-1** PASS (local Playwright unzip + `lvh.me`). Next:
 **CG-COVERS-1**.
-**ONBOARD-COPY-1** shipped 09-08 — prod `39010c93` Worker
-`0c962927-fae5-49ba-877e-19b814190ec8`. Owed: **ONBOARD-COPY-PT-1**.
+**ONBOARD-COPY-1** closed 09-14 — prod `39010c93` Worker
+`0c962927-fae5-49ba-877e-19b814190ec8`. **ONBOARD-COPY-PT-1** Wyatt PASS.
 **MENU-MUSIC-FIRST-PT-1** Wyatt PASS 09-01 on prod `d16fd523`.
-**NET-LAG-1-PT-1** is parked (08-20). Do not retouch Classic / Sundial /
+**NET-LAG-1-PT-1** PASS 09-14 (trail gone); residual lag open. Do not retouch Classic / Sundial /
 Storerooms floors. Do not reopen **CART-POP-1**. Stay in this phase until
 Wyatt advances the marker.
 
@@ -89,8 +89,9 @@ Live rows only. Shipped and closed cards live in
 | CG-ZIP-1 | CrazyGames Basic Launch zip of `dist/` | ✅ CLOSED 09-02 — 23.96 MB / 182 files; **CG-ZIP-PT-1** PASS |
 | SITE-TRUST-1 | public information and analytics choice | ✅ CLOSED 09-14 — **SITE-TRUST-PT-1** PASS (prod `c58c96ff`) |
 | CG-COVERS-1 | CrazyGames covers + silent hover videos | High — Wyatt art, required to upload |
-| ONBOARD-COPY-1 | HOW TO PLAY AISLE 1+2 copy matches live input | shipped `39010c93` Worker `0c962927`; **ONBOARD-COPY-PT-1** owed |
-| NET-LAG-1 | Friends/QP lag + rubber-band (F8 both machines) | wave 1 landed; 🅿️ **NET-LAG-1-PT-1** `[2pc]` parked by Wyatt 08-20 |
+| ONBOARD-COPY-1 | HOW TO PLAY AISLE 1+2 copy matches live input | ✅ CLOSED 09-14 — Wyatt PASS **ONBOARD-COPY-PT-1** on prod `39010c93` |
+| NET-LAG-1 | Friends/QP lag + rubber-band (F8 both machines) | wave 1 trail PASS 09-14; residual lag open (Wyatt: non-host lag drags experience, looks amateur) |
+| RAM-ARREST-1 | silent ram on solver-arrested contact (SNAP-FINITE-PT-1 FAIL) | 🔧 active — presentation fallback, physics live-gated |
 | AUDIO-RAM-IMPACT-1 | ram crash SFX inaudible + soft taps silent (external playtest) | ✅ CLOSED 08-21 — Wyatt PT PASS on prod `67778a9f` (both rounds: `c4e7f082` + `0644094f`) |
 | ONBOARD-WEBP-1 | HOW TO PLAY WebP playback + fallback | ✅ CLOSED 08-23 — Wyatt PASS **ONBOARD-WEBP-PT-1** on prod `14658bf8` (Worker `e14acbd4`) |
 | CLIENT-ID-AUTH-1 | clientId claim hijack guard (session-token proof of ownership) | shipped `e5ca329b` Worker `c789f236`; Wyatt PASS **CID-AUTH-PT-1** 08-22 |
@@ -98,13 +99,12 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. **CG-COVERS-1**. **ONBOARD-COPY-PT-1** `[solo]` owed on prod.
-   **SNAP-FINITE-PT-1** `[2pc]` still owed. **NET-LAG-1-PT-1** `[2pc]`
-   is parked. Closed 09-14: **SITE-TRUST-PT-1** · **SITE-TRUST-1**.
+1. **RAM-ARREST-1** (agent active). **CG-COVERS-1** (Wyatt art). **SNAP-FINITE-PT-1** `[2pc]` owed — FAIL 09-14 (non-host ram ~50% no-op).
+   **NET-LAG-1** residual lag open. Closed 09-14: **ONBOARD-COPY-PT-1** · **ONBOARD-COPY-1** ·
+   **NET-LAG-1-PT-1** (trail). Deferred: **SHARD-PT-2** (launch day, held open).
    Closed 09-02: **CG-ZIP-PT-1** · **CG-ZIP-1** · **MENU-SHORTWIN-PT-1**.
    Closed 09-01: **MENU-MUSIC-FIRST-PT-1** · **SOFTGL-DISMISS-PT-1** ·
-   **RESTART-ROUND-PT-1** · **PAUSE-SLIDER-DELAY-PT-1**. Deferred:
-   **SHARD-PT-2**.
+   **RESTART-ROUND-PT-1** · **PAUSE-SLIDER-DELAY-PT-1**.
 
 ## Open issues (top)
 

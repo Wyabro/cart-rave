@@ -12,6 +12,23 @@ Chronological record of shipped work, newest first.
 > **Convention:** As items ship, move their completed writeup here (out of ROADMAP.md / project-state.md).
 
 ---
+### September 14, 2026 — ONBOARD-COPY-1 / NET-LAG-1-PT-1 (playtest closes)
+
+- *(Engineering · High)* **ONBOARD-COPY-1** — ✅ **CLOSED 09-14** (`39010c93`).
+  Shipped Worker `0c962927-fae5-49ba-877e-19b814190ec8`. HOW TO PLAY AISLE 1+2
+  body + gamepad chips follow `onInputModeChange`. Files: `index.html`,
+  `src/ui/cart-rave-menu.js`, `tests/ui/onboardFirstRun.test.js`.
+- *(Playtest · Low)* **ONBOARD-COPY-PT-1** — ✅ **PASS 09-14**. Wyatt PASS
+  on prod `39010c93` (hard-refresh https://www.cartclash.lol/). Keyboard WASD/Space +
+  Shift, pad stick/A·LT + RT·B, touch stick/Hop + Boost all match live input mode.
+- *(Playtest · Low)* **NET-LAG-1-PT-1** — ✅ **PASS 09-14**. Trail gone, host still
+  tight. Residual open: Wyatt note significant non-host lag drags experience, looks
+  amateur — input-delay path stays on parent **NET-LAG-1**, no lerp restore without new ack.
+  **SHARD-PT-2** held open per standing launch-day rule (needs five humans / public post),
+  not closed on this export.
+
+---
+
 
 ### September 14, 2026 — SITE-TRUST-1 (public information and analytics choice)
 
