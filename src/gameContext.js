@@ -78,6 +78,7 @@ export function createGameContext() {
           isSlowMoActive: () => state.slowMo.active,
           getSlowMoStartMs: () => state.slowMo.startMs,
           setSlowMoActive: (active) => { state.slowMo.active = active; },
+          setSlowMoStartMs: (startMs) => { state.slowMo.startMs = startMs; },
           SLOW_MO_TIME_SCALE: state.slowMo.timeScale,
           SLOW_MO_DURATION_MS: state.slowMo.durationMs,
         };

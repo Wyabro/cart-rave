@@ -18,6 +18,7 @@ import { armRoundStartRenderProbe } from "../gameLoop.js";
 import {
   cleanupSuddenDeathState,
   ensureSuddenDeathOnHostPromote,
+  deferSuddenDeathWin,
 } from "../gameFlow.js";
 import {
   shouldAllowPodiumEnd,
@@ -956,8 +957,12 @@ function endRound(scoringSlot = null) {
 }
 
 // * Wire Sudden Death win callback — addScore fires this on first score during SD.
+// * CLUTCH-SLOMO-1: finite scorers defer through the gameFlow latch (~1.2s slow-mo
+// * under the gameplay cam); the latch fires endRound. Null scorers end now.
 GameState.setSuddenDeathWinCallback((scoringSlot) => {
-  endRound(scoringSlot);
+  if (!deferSuddenDeathWin(scoringSlot, getRoundClockNowMs(), GameState.getRoundState().startedAtMs)) {
+    endRound(scoringSlot);
+  }
 });
 
 function clearAutoContinuePodiumTimeout() {

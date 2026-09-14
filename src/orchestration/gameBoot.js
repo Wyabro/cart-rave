@@ -119,7 +119,7 @@ import {
   runPhysicsStep,
   updateVisualsAndEffects,
 } from "../gameLoop.js";
-import { cleanupSuddenDeathState, updateGameFlow } from "../gameFlow.js";
+import { cleanupSuddenDeathState, deferSuddenDeathWin, updateGameFlow } from "../gameFlow.js";
 import { getRoundClockNowMs } from "../roundClock.js";
 import { ROUND_DURATION_MS } from "../../shared/roundConstants.js";
 import { sampleArenaReactive } from "../levels/arenaReactiveLights.js";
@@ -1333,8 +1333,13 @@ export function bootGameSystems(ctx) {
   };
 
   // * Wire Sudden Death win callback — addScore fires this on first score during SD.
+  // * CLUTCH-SLOMO-1: finite scorers defer through the gameFlow latch (slow-mo then
+  // * delayed endRound); null scorers end now. This registration runs after
+  // * roundLifecycle's and wins — both route through the same latch.
   GameState.setSuddenDeathWinCallback((scoringSlot) => {
-    endRound(scoringSlot);
+    if (!deferSuddenDeathWin(scoringSlot, getRoundClockNowMs(), GameState.getRoundState().startedAtMs)) {
+      endRound(scoringSlot);
+    }
   });
 
   let hostHiddenAtMs = null;

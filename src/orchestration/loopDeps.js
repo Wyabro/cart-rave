@@ -193,6 +193,9 @@ export function createLoopDeps(deps) {
       maybeTriggerNpcOpportunisticRamBoost,
       maybeTriggerNpcOpportunisticHop,
       endRound,
+      // * CLUTCH-SLOMO-1: deferred SD win drives the host slow-mo from gameFlow.
+      setSlowMoActive: (...args) => gameCtx.getSlowMoDeps().setSlowMoActive(...args),
+      setSlowMoStartMs: (...args) => gameCtx.getSlowMoDeps().setSlowMoStartMs(...args),
       addScore: GameState.addScore,
       isScoreTied: GameState.isScoreTied,
       setSuddenDeath: GameState.setSuddenDeath,

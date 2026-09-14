@@ -24,6 +24,59 @@ let suddenDeathEnteredAtMs = null;
 export function resetSuddenDeathStalemateForTest() {
   suddenDeathEnteredAtMs = null;
 }
+/**
+ * CLUTCH-SLOMO-1: deferred Sudden Death win. The SD-win callback arms this
+ * instead of ending the round synchronously, so the deciding KO plays ~1.2s
+ * in slow-mo under the gameplay camera before updateGameFlow fires endRound.
+ * Round-clock domain (same as startedAtMs writers) so a host promotion or a
+ * frozen tab cannot strand or stretch the window. The startedAtMs stamp drops
+ * stale latches from a previous round without touching reset sites.
+ */
+const CLUTCH_SLOMO_DELAY_MS = 1200;
+/** @type {{ scorer: number, dueMs: number, startedAtMs: number, slowMoStarted: boolean } | null} */
+let clutchSlowMoLatch = null;
+
+/** Test-only: clears the clutch latch (module state persists across vitest cases). */
+export function resetClutchSlowMoForTest() {
+  clutchSlowMoLatch = null;
+}
+
+/**
+ * SD-win callback entry. Returns true when the win is deferred (caller must NOT
+ * call endRound — the latch fires it from updateGameFlow). False means end now:
+ * null/NaN scorer (stalemate path) or an already-armed latch (second score in
+ * the window must not extend or double it).
+ */
+export function deferSuddenDeathWin(scoringSlot, roundNowMs, startedAtMs) {
+  if (!Number.isFinite(scoringSlot)) return false;
+  if (clutchSlowMoLatch != null) return true;
+  if (!Number.isFinite(roundNowMs) || !Number.isFinite(startedAtMs)) return false;
+  clutchSlowMoLatch = {
+    scorer: scoringSlot,
+    dueMs: roundNowMs + CLUTCH_SLOMO_DELAY_MS,
+    startedAtMs,
+    slowMoStarted: false,
+  };
+  return true;
+}
+
+/** True while a latch for this round is armed (slow-mo should be running). */
+export function isClutchSlowMoArmed(startedAtMs) {
+  return clutchSlowMoLatch != null && clutchSlowMoLatch.startedAtMs === startedAtMs;
+}
+
+/**
+ * Fires the armed latch once its due time passes. Returns the scorer, or null
+ * when nothing is due (no latch, stale round, or window still open).
+ */
+export function consumeClutchSlowMoDue(roundNowMs, startedAtMs) {
+  if (clutchSlowMoLatch == null || clutchSlowMoLatch.startedAtMs !== startedAtMs) return null;
+  if (roundNowMs < clutchSlowMoLatch.dueMs) return null;
+  const { scorer } = clutchSlowMoLatch;
+  clutchSlowMoLatch = null;
+  return scorer;
+}
+
 
 /**
  * @typedef {object} GameFlowDeps
@@ -43,8 +96,10 @@ export function resetSuddenDeathStalemateForTest() {
  * @property {(slotIndex: number) => void} [onCartRespawn]
  * @property {(nowMs: number, npc: object) => void} maybeTriggerNpcOpportunisticRamBoost
  * @property {(nowMs: number, npc: object) => void} [maybeTriggerNpcOpportunisticHop]
- * @property {() => void} endRound
+ * @property {(scoringSlot?: number | null) => void} endRound
  * @property {(slot: object | null | undefined) => number} colorHexForSlot
+ * @property {(active: boolean) => void} [setSlowMoActive] CLUTCH-SLOMO-1: host slow-mo flag (gameCtx).
+ * @property {(startMs: number) => void} [setSlowMoStartMs] CLUTCH-SLOMO-1: slow-mo window start (performance.now domain).
  * @property {object | null | undefined} hud
  * @property {() => void} sendHostRound
  * @property {() => object | null} getPartySocket
@@ -155,6 +210,23 @@ export function updateGameFlow(deps, context) {
       ? context.roundNowMs
       : getRoundClockNowMs();
     const roundDurationMs = deps.CONFIG.round?.durationMs ?? ROUND_DURATION_MS;
+    // * CLUTCH-SLOMO-1: deferred SD win outranks everything below. First sighting
+    // * starts the host slow-mo (gameplay cam still live — podium comes at due);
+    // * at due the latch fires endRound once. Stalemate/timer paths cannot collide:
+    // * the cap needs 45s and expiry requires !isSuddenDeath.
+    if (roundState.isSuddenDeath && isClutchSlowMoArmed(roundState.startedAtMs)) {
+      if (!clutchSlowMoLatch.slowMoStarted) {
+        clutchSlowMoLatch.slowMoStarted = true;
+        deps.setSlowMoActive?.(true);
+        deps.setSlowMoStartMs?.(now);
+      }
+      const dueScorer = consumeClutchSlowMoDue(roundNowMs, roundState.startedAtMs);
+      if (dueScorer != null) {
+        deps.endRound(dueScorer);
+        return;
+      }
+    }
+
 
     // * Run-6: Sudden Death stalemate cap. SD only ends on a resolving KO — on a
     // * solid-floor arena two cagey drivers can circle forever (live MP capture sat

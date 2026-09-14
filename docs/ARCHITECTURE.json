@@ -2,15 +2,15 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-09-14T05:13:44.140Z",
-    "commit": "6c5c139b"
+    "at": "2026-09-14T05:59:20.613Z",
+    "commit": "1fa96e42"
   },
-  "source_digest": "1cfa22b1",
+  "source_digest": "644e05fc",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
     "production_url": "https://www.cartclash.lol/",
-    "mission": "Playtesting and stabilization — External playtest is gated on BACKLOG Block 1. SITE-TRUST-1 closed 09-14 — prod `c58c96ff` Worker `aed9d44e-7139-4af7-92ee-1625307d7147`. SITE-TRUST-PT-1 Wyatt PASS on prod. Next: CG-COVERS-1. SOFTGL-DISMISS-1 closed 09-01 — PLAY ANYWAY is one-shot per tab. SOFTGL-DISMISS-PT-1 PASS (local `?forcegpu=sw`; Wyatt authorized). RESTART-ROUND-1 closed 09-01 — RESTART-ROUND-PT-1 PASS (local Playwright; Wyatt authorized). PAUSE-SLIDER-DELAY-1 closed 09-01 — PAUSE-SLIDER-DELAY-PT-1 PASS (local Playwright; Wyatt authorized). MENU-SHORTWIN-1 closed 09-02 — short-desktop hero spacing. MENU-SHORTWIN-PT-1 PASS (local Playwright 1077×606). CG-ZIP-1 closed 09-02 — `tmp/cart-clash-crazygames.zip` 23.96 MB / 182 files. CG-ZIP-PT-1 PASS (local Playwright unzip + `lvh.me`). Next: CG-COVERS-1. ONBOARD-COPY-1 closed 09-14 — prod `39010c93` Worker `0c962927-fae5-49ba-877e-19b814190ec8`. ONBOARD-COPY-PT-1 Wyatt PASS. MENU-MUSIC-FIRST-PT-1 Wyatt PASS 09-01 on prod `d16fd523`. NET-LAG-1-PT-1 PASS 09-14 (trail gone); residual lag open. Do not retouch Classic / Sundial / Storerooms floors. Do not reopen CART-POP-1. Stay in this phase until Wyatt advances the marker.",
+    "mission": "Playtesting and stabilization — External playtest is gated on BACKLOG Block 1. CG-COVERS-1 closed 09-14 (Wyatt). CAM-COMFORT-1 closed 09-14 (Wyatt, no lever). SITE-TRUST-1 closed 09-14 — prod `c58c96ff` Worker `aed9d44e-7139-4af7-92ee-1625307d7147`. SITE-TRUST-PT-1 Wyatt PASS on prod. Next: NET-LAG-1 residual + SNAP-FINITE-PT-1 retest. SOFTGL-DISMISS-1 closed 09-01 — PLAY ANYWAY is one-shot per tab. SOFTGL-DISMISS-PT-1 PASS (local `?forcegpu=sw`; Wyatt authorized). RESTART-ROUND-1 closed 09-01 — RESTART-ROUND-PT-1 PASS (local Playwright; Wyatt authorized). PAUSE-SLIDER-DELAY-1 closed 09-01 — PAUSE-SLIDER-DELAY-PT-1 PASS (local Playwright; Wyatt authorized). MENU-SHORTWIN-1 closed 09-02 — short-desktop hero spacing. MENU-SHORTWIN-PT-1 PASS (local Playwright 1077×606). CG-ZIP-1 closed 09-02 — `tmp/cart-clash-crazygames.zip` 23.96 MB / 182 files. CG-ZIP-PT-1 PASS (local Playwright unzip + `lvh.me`). ONBOARD-COPY-1 closed 09-14 — prod `39010c93` Worker `0c962927-fae5-49ba-877e-19b814190ec8`. ONBOARD-COPY-PT-1 Wyatt PASS. MENU-MUSIC-FIRST-PT-1 Wyatt PASS 09-01 on prod `d16fd523`. NET-LAG-1-PT-1 PASS 09-14 (trail gone); residual lag open. Do not retouch Classic / Sundial / Storerooms floors. Do not reopen CART-POP-1. Stay in this phase until Wyatt advances the marker.",
     "phase": "Playtesting & stabilization — stabilize after Run 7; prove residuals; no auto-advance to RC",
     "phases": [
       {
@@ -917,12 +917,6 @@
         "state": "done"
       },
       {
-        "id": "CG-COVERS-1",
-        "what": "CrazyGames covers + silent hover videos",
-        "status": "High — Wyatt art, required to upload",
-        "state": "waiting"
-      },
-      {
         "id": "ONBOARD-COPY-1",
         "what": "HOW TO PLAY AISLE 1+2 copy matches live input",
         "status": "✅ CLOSED 09-14 — Wyatt PASS ONBOARD-COPY-PT-1 on prod `39010c93`",
@@ -959,6 +953,12 @@
         "state": "waiting"
       },
       {
+        "id": "CLUTCH-SLOMO-1",
+        "what": "SD-deciding KO slow-mo before podium",
+        "status": "✅ shipped Worker `c214c758` (VERIFY_OK `index-D28UWcmx.js`); CLUTCH-SLOMO-PT-1 owed on prod",
+        "state": "done"
+      },
+      {
         "id": "BRAND-1",
         "what": "Domain cutover",
         "status": "🧊 frozen ([brand.md](./brand.md))",
@@ -966,7 +966,7 @@
       }
     ],
     "next_actions": [
-      "SNAP-FINITE-PT-1 `[2pc]` retest owed on prod `6c5c139b`. CG-COVERS-1 (Wyatt art). NET-LAG-1 residual lag open. Shipped 09-14: RAM-ARREST-1 (VERIFY_OK `index-BQxMmoL7.js`, 28 refs, 0×404). Closed 09-14: ONBOARD-COPY-PT-1 · ONBOARD-COPY-1 · NET-LAG-1-PT-1 (trail). Deferred: SHARD-PT-2 (launch day, held open)."
+      "SNAP-FINITE-PT-1 `[2pc]` retest owed on prod `6c5c139b`. NET-LAG-1 residual lag open. Shipped 09-14: CLUTCH-SLOMO-1 (VERIFY_OK `index-D28UWcmx.js`, 28 refs, 0×404, symbol live). Owed: CLUTCH-SLOMO-PT-1 (prod). Closed 09-14: TASTE-P4-1 · CG-COVERS-1 · CAM-COMFORT-1 · ONBOARD-COPY-PT-1 · ONBOARD-COPY-1 · NET-LAG-1-PT-1 (trail). Deferred: SHARD-PT-2 (launch day, held open)."
     ],
     "open_issues": [
       {
@@ -1070,32 +1070,13 @@
       {
         "title": "Design / Gameplay",
         "counts": {
-          "High": 1,
-          "Medium": 3
+          "Medium": 1
         },
         "rows": [
           {
-            "pri": "High",
-            "item": "CG-COVERS-1 — CrazyGames cover images + hover videos",
-            "notes": "**Filed 09-01.** High 09-01 (Wyatt). Required to submit, not to build `dist/`. Sizes: landscape 1920×1080, portrait 800×1200, square 800×800. Videos: 15–20 s, no sound, landscape 16:9 1080p and portrait 2:3 1080p. Title on covers only. No \"Play now\", borders, or store logos. [Game covers](https://docs.crazygames.com/requirements/game-covers/).",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "CAM-COMFORT-1 — camera too close/fast; playtester motion sickness",
-            "notes": "**Filed 08-21 from external playtest feedback:** tester could only play a few minutes before motion sickness; suspects camera proximity/speed. First pass is evidence + definition-of-done (which camera constants — distance, follow rate, FOV/shake — and how much), mirroring MOTION-A11Y-1's gate; it becomes a code card after that. Distinct from MOTION-A11Y-1 (`prefers-reduced-motion`) and NET-LAG-1's camera-pose work (do not restore lerp per that card). Needs a comfort playtest to confirm any lever.",
-            "ship1": null
-          },
-          {
-            "pri": "Medium",
-            "item": "TASTE-P4-1 — Taste-tuning follow-ups from Pass 4",
-            "notes": "Only reopen with playtest evidence (D-GP4-1).",
-            "ship1": null
-          },
-          {
             "pri": "Medium",
             "item": "CLUTCH-SLOMO-1 — Clutch slow-mo (Pass 5 deferral)",
-            "notes": "Taste-gated.",
+            "notes": "✅ shipped 09-14 Worker `c214c758` (VERIFY_OK `index-D28UWcmx.js`). SD-win latch + ~1.2s slow-mo; **CLUTCH-SLOMO-PT-1** owed.",
             "ship1": null
           }
         ]
@@ -1103,7 +1084,8 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Low": 2
+          "Low": 2,
+          "Medium": 1
         },
         "rows": [
           {
@@ -1116,6 +1098,12 @@
             "pri": "Low",
             "item": "SNAP-FINITE-PT-1 — snapshot finite guard changes nothing visible `[2pc]`",
             "notes": "**Owed: Wyatt playtest — SNAP-FINITE-PT-1 — normal netplay is unchanged after every snapshot body write got a NaN guard (SNAP-FINITE-1).** Prod `6c5c139b` (entry `index-BQxMmoL7.js`, hard-refresh https://www.cartclash.lol/). Retest: non-host rams must read (crash SFX + trash) — **RAM-ARREST-1** fallback shipped.<br>1. Friends match, two machines. Drive, boost, ram, and hop for a full round on the non-host.<br>2. FAIL if any cart freezes in place, teleports to origin, ghosts through the floor, or remote carts stutter where they did not before. FAIL if non-host rams stay silent with no trash.<br>3. PASS if remote carts track smoothly and collisions feel identical to pre-guard play.<br>4. Press F8 on both machines at round end.",
+            "ship1": null
+          },
+          {
+            "pri": "Medium",
+            "item": "CLUTCH-SLOMO-PT-1 — SD-deciding KO stretches before podium",
+            "notes": "**Owed: Wyatt playtest — CLUTCH-SLOMO-PT-1 — the Sudden Death deciding fall plays in slow-mo before the podium.** Prod `c214c758` (entry `index-D28UWcmx.js`, hard-refresh https://www.cartclash.lol/). Force SD (tie at timer), watch the deciding KO.<br>1. Solo or Friends to a tied timer → Sudden Death.<br>2. FAIL if the podium cuts the instant the winner scores (no stretch), if the game hangs ~1s with no end, or if a regulation end slows.<br>3. PASS if the deciding fall visibly stretches ~1s under the gameplay cam, then the normal podium lands and the Clutch Winner daily still credits.",
             "ship1": null
           }
         ]
