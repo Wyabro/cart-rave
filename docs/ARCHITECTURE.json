@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-09-14T05:59:20.613Z",
-    "commit": "1fa96e42"
+    "at": "2026-09-14T19:51:59.987Z",
+    "commit": "a29736a1"
   },
-  "source_digest": "644e05fc",
+  "source_digest": "da1e5b8a",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
@@ -1084,10 +1084,16 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "Low": 2,
-          "Medium": 1
+          "Medium": 2,
+          "Low": 2
         },
         "rows": [
+          {
+            "pri": "Medium",
+            "item": "JOIN-LOAD-PT-1 — second player joins a live round and can drive `[2pc]`",
+            "notes": "**Owed: Wyatt playtest — JOIN-LOAD-PT-1 — a second player can join a live Quickplay round and drive.** Prod `a29736a1` Worker `241bb329-6ef1-444a-ab1c-82fbd47114c7` (entry `index-CEplJ-zV.js`, hard-refresh https://www.cartclash.lol/). Local battery 8/8 before ship.<br>1. Host starts Quickplay and waits until the round is running.<br>2. Second machine joins that same room mid-round.<br>3. FAIL if the joiner stays on the loading overlay, never gets a cart, or the tab dies.<br>4. PASS if the joiner seats, drives off spawn, and the host still drives.",
+            "ship1": null
+          },
           {
             "pri": "Low",
             "item": "SHARD-PT-2 — fifth human overflows to quickplay2 `[2pc]`",

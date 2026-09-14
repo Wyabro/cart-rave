@@ -12,6 +12,13 @@ Chronological record of shipped work, newest first.
 > **Convention:** As items ship, move their completed writeup here (out of ROADMAP.md / project-state.md).
 
 ---
+### September 14, 2026 — BOOT-TBT-1 join-load follow-up
+
+- *(Engineering · Critical)* **BOOT-TBT-1** follow-up — ✅ **SHIPPED 09-14** (`a29736a1`).
+  Worker `241bb329-6ef1-444a-ab1c-82fbd47114c7`. Menu preview and play-entry no
+  longer mutate the same Rapier world. VERIFY_OK `index-CEplJ-zV.js`, 28 refs,
+  0×404. Battery 8/8. Playtest owed: **JOIN-LOAD-PT-1**. Do not reopen CART-POP-1 visuals.
+
 ### September 14, 2026 — TASTE-P4-1 (Wyatt close, no lever)
 
 - *(Design · Medium)* **TASTE-P4-1** — ✅ **CLOSED 09-14** (Wyatt). Pass-4 follow-up knobs (nitro duty-cycle, dead braking knob, maxImpulse-vs-boost, airControlFactor, HUD readability) need no change — game feels fine. Reopen only on 3+ felt instances.
