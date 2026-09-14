@@ -26,12 +26,9 @@ report phase-exit eligibility; they must not move the marker.
 ## Current focus
 
 **Playtesting and stabilization.** External playtest is gated on BACKLOG Block 1.
-**SITE-TRUST-1** shipped 09-14 — prod `c58c96ff` Worker
-`aed9d44e-7139-4af7-92ee-1625307d7147`. Privacy, terms, contact, Leave
-Feedback under Controls, saved analytics choice (on by default), branded
-404, smaller share PNG. Publisher: Redshift Studios. Support:
-redshiftstudiossupport@gmail.com. Owed: **SITE-TRUST-PT-1**. Checks: QA
-2,435/2,435; post-ship VERIFY_OK entry `/assets/index-_uKl7Ppw.js`.
+**SITE-TRUST-1** closed 09-14 — prod `c58c96ff` Worker
+`aed9d44e-7139-4af7-92ee-1625307d7147`. **SITE-TRUST-PT-1** Wyatt PASS
+on prod. Next: **CG-COVERS-1**.
 **SOFTGL-DISMISS-1** closed 09-01 — PLAY ANYWAY is one-shot per tab.
 **SOFTGL-DISMISS-PT-1** PASS (local `?forcegpu=sw`; Wyatt authorized).
 **RESTART-ROUND-1** closed 09-01 — **RESTART-ROUND-PT-1** PASS (local
@@ -90,7 +87,7 @@ Live rows only. Shipped and closed cards live in
 | PAUSE-SLIDER-DELAY-1 | pause overlay empty ~1 s before sliders | ✅ CLOSED 09-01 — **PAUSE-SLIDER-DELAY-PT-1** PASS (local Playwright) |
 | MENU-SHORTWIN-1 | menu readable at CrazyGames 1077×606 | ✅ CLOSED 09-02 — **MENU-SHORTWIN-PT-1** PASS (local 1077×606) |
 | CG-ZIP-1 | CrazyGames Basic Launch zip of `dist/` | ✅ CLOSED 09-02 — 23.96 MB / 182 files; **CG-ZIP-PT-1** PASS |
-| SITE-TRUST-1 | public information and analytics choice | shipped `c58c96ff` Worker `aed9d44e`; **SITE-TRUST-PT-1** owed |
+| SITE-TRUST-1 | public information and analytics choice | ✅ CLOSED 09-14 — **SITE-TRUST-PT-1** PASS (prod `c58c96ff`) |
 | CG-COVERS-1 | CrazyGames covers + silent hover videos | High — Wyatt art, required to upload |
 | ONBOARD-COPY-1 | HOW TO PLAY AISLE 1+2 copy matches live input | shipped `39010c93` Worker `0c962927`; **ONBOARD-COPY-PT-1** owed |
 | NET-LAG-1 | Friends/QP lag + rubber-band (F8 both machines) | wave 1 landed; 🅿️ **NET-LAG-1-PT-1** `[2pc]` parked by Wyatt 08-20 |
@@ -101,11 +98,11 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. **SITE-TRUST-PT-1** owed on prod `c58c96ff`. Then Block 1 High: **CG-COVERS-1**.
-   **ONBOARD-COPY-PT-1** `[solo]` owed on prod. **SNAP-FINITE-PT-1** `[2pc]`
-   still owed. **NET-LAG-1-PT-1** `[2pc]` is parked. Closed 09-02:
-   **CG-ZIP-PT-1** · **CG-ZIP-1** · **MENU-SHORTWIN-PT-1**. Closed 09-01:
-   **MENU-MUSIC-FIRST-PT-1** · **SOFTGL-DISMISS-PT-1** ·
+1. **CG-COVERS-1**. **ONBOARD-COPY-PT-1** `[solo]` owed on prod.
+   **SNAP-FINITE-PT-1** `[2pc]` still owed. **NET-LAG-1-PT-1** `[2pc]`
+   is parked. Closed 09-14: **SITE-TRUST-PT-1** · **SITE-TRUST-1**.
+   Closed 09-02: **CG-ZIP-PT-1** · **CG-ZIP-1** · **MENU-SHORTWIN-PT-1**.
+   Closed 09-01: **MENU-MUSIC-FIRST-PT-1** · **SOFTGL-DISMISS-PT-1** ·
    **RESTART-ROUND-PT-1** · **PAUSE-SLIDER-DELAY-PT-1**. Deferred:
    **SHARD-PT-2**.
 

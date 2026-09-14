@@ -2,7 +2,7 @@
 
 > Historical log. Past entries may still say "Cart Rave" / `next-level` — that is intentional. Living naming rules: [brand.md](../brand.md).
 
-**Last Updated:** September 2, 2026
+**Last Updated:** September 14, 2026
 
 > **This doc = the past** — the single home for historical/completed items. For what works
 > *today* see [project-state.md](./project-state.md); for forward plans see [ROADMAP.md](./ROADMAP.md).
@@ -10,6 +10,23 @@
 Chronological record of shipped work, newest first.
 
 > **Convention:** As items ship, move their completed writeup here (out of ROADMAP.md / project-state.md).
+
+---
+
+### September 14, 2026 — SITE-TRUST-1 (public information and analytics choice)
+
+- *(Engineering · High)* **SITE-TRUST-1** — ✅ **CLOSED 09-14** (`c58c96ff`).
+  Shipped Worker `aed9d44e-7139-4af7-92ee-1625307d7147`. Privacy, terms,
+  contact, branded 404, smaller share PNG. Publisher: Redshift Studios.
+  Support: redshiftstudiossupport@gmail.com. Analytics on by default.
+  Settings: Privacy & Support under Controls, includes Leave Feedback
+  (same Google form as the podium). Public pages load no game or
+  analytics. Optional provider loaders respect saved off. QA 2,435/2,435.
+  VERIFY_OK `index-_uKl7Ppw.js`. No claim of legal compliance.
+- *(Playtest · Low)* **SITE-TRUST-PT-1** — ✅ **PASS 09-14**. Wyatt PASS
+  on prod `c58c96ff` (hard-refresh https://www.cartclash.lol/). Privacy
+  choice persists. Terms, Contact, Leave Feedback, branded 404, and
+  Settings layout (support under Controls, no extra scrollbar) work.
 
 ---
 

@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-09-14 at commit `c58c96ff` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `15a014d5`
+> Generated 2026-09-14 at commit `093671a5` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `e357c981`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -14,16 +14,15 @@
 
 ## Mission
 
-Playtesting and stabilization — External playtest is gated on BACKLOG Block 1. SITE-TRUST-1 shipped 09-14 — prod `c58c96ff` Worker `aed9d44e-7139-4af7-92ee-1625307d7147`. Privacy, terms, contact, Leave Feedback under Controls, saved analytics choice (on by default), branded 404, smaller share PNG. Publisher: Redshift Studios. Support: redshiftstudiossupport@gmail.com. Owed: SITE-TRUST-PT-1. Checks: QA 2,435/2,435; post-ship VERIFY_OK entry `/assets/index-_uKl7Ppw.js`. SOFTGL-DISMISS-1 closed 09-01 — PLAY ANYWAY is one-shot per tab. SOFTGL-DISMISS-PT-1 PASS (local `?forcegpu=sw`; Wyatt authorized). RESTART-ROUND-1 closed 09-01 — RESTART-ROUND-PT-1 PASS (local Playwright; Wyatt authorized). PAUSE-SLIDER-DELAY-1 closed 09-01 — PAUSE-SLIDER-DELAY-PT-1 PASS (local Playwright; Wyatt authorized). MENU-SHORTWIN-1 closed 09-02 — short-desktop hero spacing. MENU-SHORTWIN-PT-1 PASS (local Playwright 1077×606). CG-ZIP-1 closed 09-02 — `tmp/cart-clash-crazygames.zip` 23.96 MB / 182 files. CG-ZIP-PT-1 PASS (local Playwright unzip + `lvh.me`). Next: CG-COVERS-1. ONBOARD-COPY-1 shipped 09-08 — prod `39010c93` Worker `0c962927-fae5-49ba-877e-19b814190ec8`. Owed: ONBOARD-COPY-PT-1. MENU-MUSIC-FIRST-PT-1 Wyatt PASS 09-01 on prod `d16fd523`. NET-LAG-1-PT-1 is parked (08-20). Do not retouch Classic / Sundial / Storerooms floors. Do not reopen CART-POP-1. Stay in this phase until Wyatt advances the marker.
+Playtesting and stabilization — External playtest is gated on BACKLOG Block 1. SITE-TRUST-1 closed 09-14 — prod `c58c96ff` Worker `aed9d44e-7139-4af7-92ee-1625307d7147`. SITE-TRUST-PT-1 Wyatt PASS on prod. Next: CG-COVERS-1. SOFTGL-DISMISS-1 closed 09-01 — PLAY ANYWAY is one-shot per tab. SOFTGL-DISMISS-PT-1 PASS (local `?forcegpu=sw`; Wyatt authorized). RESTART-ROUND-1 closed 09-01 — RESTART-ROUND-PT-1 PASS (local Playwright; Wyatt authorized). PAUSE-SLIDER-DELAY-1 closed 09-01 — PAUSE-SLIDER-DELAY-PT-1 PASS (local Playwright; Wyatt authorized). MENU-SHORTWIN-1 closed 09-02 — short-desktop hero spacing. MENU-SHORTWIN-PT-1 PASS (local Playwright 1077×606). CG-ZIP-1 closed 09-02 — `tmp/cart-clash-crazygames.zip` 23.96 MB / 182 files. CG-ZIP-PT-1 PASS (local Playwright unzip + `lvh.me`). Next: CG-COVERS-1. ONBOARD-COPY-1 shipped 09-08 — prod `39010c93` Worker `0c962927-fae5-49ba-877e-19b814190ec8`. Owed: ONBOARD-COPY-PT-1. MENU-MUSIC-FIRST-PT-1 Wyatt PASS 09-01 on prod `d16fd523`. NET-LAG-1-PT-1 is parked (08-20). Do not retouch Classic / Sundial / Storerooms floors. Do not reopen CART-POP-1. Stay in this phase until Wyatt advances the marker.
 
 ## ACTIVE CARD
 
-SITE-TRUST-PT-1 owed on prod `c58c96ff`. Then Block 1 High: CG-COVERS-1
+CG-COVERS-1. ONBOARD-COPY-PT-1 `[solo]` owed on prod
 
 Assess and state the lane before editing. This heading names the card; it is **not** a lane assessment or permission to edit.
 
 Self-directed queue (one at a time, within the declared phase):
-- **SITE-TRUST-1** public information and analytics choice — shipped `c58c96ff` Worker `aed9d44e`; SITE-TRUST-PT-1 owed
 - **CG-COVERS-1** CrazyGames covers + silent hover videos — High — Wyatt art, required to upload
 - **ONBOARD-COPY-1** HOW TO PLAY AISLE 1+2 copy matches live input — shipped `39010c93` Worker `0c962927`; ONBOARD-COPY-PT-1 owed
 - **CLIENT-ID-AUTH-1** clientId claim hijack guard (session-token proof of ownership) — shipped `e5ca329b` Worker `c789f236`; Wyatt PASS CID-AUTH-PT-1 08-22
