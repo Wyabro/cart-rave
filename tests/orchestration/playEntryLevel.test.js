@@ -8,6 +8,7 @@ import { resolvePlayEntryLevelId } from "../../src/bootstrap.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const bootstrapSrc = readFileSync(join(here, "../../src/bootstrap.js"), "utf8");
+const gameBootSrc = readFileSync(join(here, "../../src/orchestration/gameBoot.js"), "utf8");
 const levelOrchSrc = readFileSync(join(here, "../../src/orchestration/levelOrchestration.js"), "utf8");
 const levelMgrSrc = readFileSync(join(here, "../../src/levels/levelManager.js"), "utf8");
 
@@ -48,6 +49,37 @@ describe("ensureSessionCartsReady adopt order (source)", () => {
     expect(adoptBlock).toMatch(/lastPlayEntryWarm = false/);
     expect(adoptBlock).toMatch(/consumeRaveJuiceJustBuilt/);
     expect(adoptBlock).toMatch(/lastPlayEntryWarm = true/);
+  });
+});
+
+describe("commitLevelLoad Rapier mutex (source)", () => {
+  it("serializes overlapping preview and play-entry loads", () => {
+    expect(levelOrchSrc).toMatch(/let commitLevelLoadChain = Promise\.resolve\(\)/);
+    expect(levelOrchSrc).toMatch(/await prev/);
+    expect(levelOrchSrc).toMatch(/beginRapierExclusive\(\)/);
+    expect(levelOrchSrc).toMatch(/endRapierExclusive\(\)/);
+  });
+});
+
+describe("grocery pool vs cart bootstrap (source)", () => {
+  it("awaits grocery Rapier bodies before bootstrapSessionCarts", () => {
+    const groceryAt = bootstrapSrc.indexOf("waitForGroceryPool");
+    const cartsAt = bootstrapSrc.indexOf("d.bootstrapSessionCarts(bootstrapGen)");
+    expect(groceryAt).toBeGreaterThan(-1);
+    expect(cartsAt).toBeGreaterThan(groceryAt);
+  });
+});
+
+describe("shouldSkipTiming during Rapier world mutation (source)", () => {
+  it("skips sim while level swap, world bootstrap, or cart bootstrap is in flight", () => {
+    const skipAt = gameBootSrc.indexOf("shouldSkipTiming: () => {");
+    const skipEnd = gameBootSrc.indexOf("},", skipAt);
+    const skipBlock = gameBootSrc.slice(skipAt, skipEnd);
+    expect(skipBlock).toMatch(/isRapierExclusive\(\)/);
+    expect(skipBlock).toMatch(/isLevelSwapping\(\)/);
+    expect(skipBlock).toMatch(/isWorldBootstrapInFlight\(\)/);
+    expect(skipBlock).toMatch(/isSessionCartBootstrapInFlight\(\)/);
+    expect(skipBlock).toMatch(/allCartsRef/);
   });
 });
 

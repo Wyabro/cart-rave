@@ -68,6 +68,7 @@ import {
   whenModeEntryHidden,
 } from "../ui/loadingScreen.js";
 import { setGamepadUiActive } from "../ui/gamepadNav.js";
+import { isRapierExclusive } from "../physics/rapierInstance.js";
 import { applyPauseInputLifecycle } from "./pauseInputLifecycle.js";
 import {
   cancelMenuPreviewTimers,
@@ -86,7 +87,9 @@ import {
   ensureSessionCartsReady,
   ensureWorldBootstrapped,
   initBootstrap,
+  isSessionCartBootstrapInFlight,
   isSessionCartsReady,
+  isWorldBootstrapInFlight,
   isWorldBootstrapped,
 } from "../bootstrap.js";
 import { animateCartBoostPulse, crossfadeElement } from "../animations.js";
@@ -789,6 +792,7 @@ export function bootGameSystems(ctx) {
     getHelloGate: () => /** @type {any} */ (helloGate),
     getAllCartsRef: () => refs.allCartsRef,
     bootstrapSessionCarts,
+    waitForGroceryPool: () => level.waitForGroceryPool(),
   });
 
   // --- Quickplay arena rotation gens (round lifecycle; rotation impl is in levelOrchestration) ---
@@ -1486,6 +1490,14 @@ export function bootGameSystems(ctx) {
     shouldPumpWhileHidden: loop.shouldPumpHiddenHost,
     shouldSkipTiming: () => {
       if (refs.menuVisible) return true;
+      // * BOOT-TBT-1 yields inside initArena / cart bootstrap. Stepping Rapier
+      // * during those holes double-borrows the WASM world on joiners (aliasing panic).
+      if (isRapierExclusive()) return true;
+      if (isLevelSwapping()) return true;
+      if (isWorldBootstrapInFlight()) return true;
+      if (isSessionCartBootstrapInFlight()) return true;
+      // * Gap: world exists, carts not yet spawned (mid-join hello/slot wait).
+      if (isWorldBootstrapped() && !(refs.allCartsRef?.length > 0)) return true;
       // * Solo/testdrive ESC freezes physics + frame timing (real pause).
       if (HUD.isEscOverlayVisible()) {
         const mode = Netcode.detectGameMode();

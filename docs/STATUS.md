@@ -46,6 +46,9 @@ files. **CG-ZIP-PT-1** PASS (local Playwright unzip + `lvh.me`).
 Storerooms floors. Do not reopen **CART-POP-1**. Stay in this phase until
 Wyatt advances the marker.
 
+**Battery 09-14 (unpushed):** complete suite **8/8** (`battery-2026-09-14T19-06-46-756Z.json`).
+Joiner Rapier aliasing: serialize `commitLevelLoad` so menu preview and play-entry cannot mutate the same world. Skip sim while exclusive / no carts. Do not reopen **CART-POP-1** visuals.
+
 **Closed cards keep their narrative in their own docs, not here** — Sundial
 ([handover](./planning/art-pass-sundial-handover.md); read its "Traps that cost time" before any
 capture, and judge phase changes against a ~1.2% construction-noise floor, not zero), Fight Night

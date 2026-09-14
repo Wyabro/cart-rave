@@ -7,9 +7,10 @@
 // * CHUNK-DEFER-1 L1b: do not static-import cartRaveGltf — bootstrap is still eager.
 import { resolveLevelId, LEVEL_STORAGE_KEY } from "./levels/index.js";
 import { storageGet } from "./utils/storage.js";
-import { withModeEntryLoading, yieldForPaint } from "./ui/loadingScreen.js";
+import { withModeEntryLoading } from "./ui/loadingScreen.js";
 import { getNetcode } from "./netcode/load.js";
 import { markBootPhase } from "./utils/bootTimeline.js";
+import { beginRapierExclusive, endRapierExclusive, isRapierExclusive } from "./physics/rapierInstance.js";
 
 /** @returns {Promise<unknown>} */
 function prefetchRaveGltf() {
@@ -89,6 +90,9 @@ let lastPlayEntryWarm = false;
  * @property {() => { getGeneration: () => number, isReceived: () => boolean, getFirstPromise: () => Promise<void> }} getHelloGate
  * @property {() => Array<object> | null | undefined} getAllCartsRef
  * @property {(expectedGen: number) => Array<object> | null} bootstrapSessionCarts
+ * @property {() => Promise<void>} [waitForGroceryPool] Resolves when the grocery Rapier
+ *   pool has finished createRigidBody (or immediately if none is in flight). Cart
+ *   bootstrap awaits this so grocery and cart body creates cannot overlap.
  * @property {(opts?: { warm?: boolean, juiceFresh?: boolean }) => Promise<void>} [warmupBeforeRoundStart] Compiles the live
  *   scene's shader programs (carts + arena + VFX warmup anchors) after carts exist. Solo's
  *   game-start fires when ensureSessionCartsReady resolves, so awaiting this inside
@@ -162,6 +166,17 @@ export function isWorldBootstrapInFlight() {
 }
 
 /**
+ * True while {@link ensureSessionCartsReady} is building or warming session carts.
+ * Game loop must not `world.step` in this window — BOOT-TBT-1 yields inside
+ * `initArena` / cart bootstrap, and a concurrent Rapier mutate panics wasm-bindgen
+ * ("recursive use of an object" / `unreachable`) and poisons the joiner world.
+ * @returns {boolean}
+ */
+export function isSessionCartBootstrapInFlight() {
+  return Boolean(sessionCartBootstrapPromise);
+}
+
+/**
  * Ensures Rapier WASM and the core arena are loaded.
  *
  * BOOT-PERF-1: not sticky-first-wins. Callers pass the **selected** arena; a mid-flight
@@ -199,6 +214,7 @@ export function ensureWorldBootstrapped(levelIdOverride) {
   // * (Rapier WASM + arena build) — the NET-2 join-freeze mechanism, now measurable.
   markBootPhase("world-init-start", { level: levelArg, gen });
 
+  beginRapierExclusive();
   worldBootstrapPromise = (async () => {
     if (prev) {
       try {
@@ -238,6 +254,8 @@ export function ensureWorldBootstrapped(levelIdOverride) {
       worldBootstrapTarget = null;
     }
     throw err;
+  }).finally(() => {
+    endRapierExclusive();
   });
 
   return worldBootstrapPromise;
@@ -263,6 +281,7 @@ export function resetWorldBootstrapForTest() {
   worldBootstrapTarget = null;
   idleWorldWarmSuppressed = false;
   lastPlayEntryWarm = false;
+  while (isRapierExclusive()) endRapierExclusive();
 }
 
 /**
@@ -315,6 +334,7 @@ export async function ensureSessionCartsReady() {
   if (existing?.length) return existing;
 
   if (!sessionCartBootstrapPromise) {
+    beginRapierExclusive();
     sessionCartBootstrapPromise = (async () => {
       if (import.meta.env.DEV) {
         // eslint-disable-next-line no-console
@@ -357,7 +377,11 @@ export async function ensureSessionCartsReady() {
           err,
         );
       });
-      await yieldForPaint();
+      if (typeof d.waitForGroceryPool === "function") {
+        await d.waitForGroceryPool().catch((err) => {
+          console.warn("[bootstrap] grocery pool init failed before carts — continuing.", err);
+        });
+      }
       if (import.meta.env.DEV) {
         // eslint-disable-next-line no-console
         console.log("[bootstrap] Hello received, creating carts from slots", {
@@ -388,6 +412,7 @@ export async function ensureSessionCartsReady() {
       if (created) markBootPhase("carts-ready");
       return created;
     })().finally(() => {
+      endRapierExclusive();
       if (bootstrapGen === helloGate.getGeneration()) {
         sessionCartBootstrapPromise = null;
       }

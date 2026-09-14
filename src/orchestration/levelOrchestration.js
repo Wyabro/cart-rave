@@ -16,7 +16,7 @@ import {
 import { applyPostFxAblation, getDebugParams } from "../utils/debugParams.js";
 import { mark } from "../utils/perfSpans.js";
 import { markBootPhase } from "../utils/bootTimeline.js";
-import { RAPIER, initRapier, getRapierBuild } from "../physics/rapierInstance.js";
+import { RAPIER, initRapier, getRapierBuild, beginRapierExclusive, endRapierExclusive } from "../physics/rapierInstance.js";
 import * as Simulation from "../simulation.js";
 import * as Effects from "../effects.js";
 import * as GroceryPool from "../effects/groceryPool.js";
@@ -131,6 +131,10 @@ export function createLevelOrchestration(deps) {
   /** @type {string | null} */
   let pendingArenaRotationLevelId = null;
   let arenaRotationInFlight = false;
+  /** @type {Promise<void> | null} */
+  let groceryInitPromise = null;
+  /** Serializes overlapping preview + play-entry loads on the same Rapier world. */
+  let commitLevelLoadChain = Promise.resolve();
 
   async function rebuildForQualityChange() {
     const knobs = getQualityKnobs();
@@ -620,6 +624,22 @@ export function createLevelOrchestration(deps) {
   }
 
   async function commitLevelLoad(selected, opts) {
+    const prev = commitLevelLoadChain;
+    let release = () => {};
+    commitLevelLoadChain = new Promise((resolve) => {
+      release = resolve;
+    });
+    await prev;
+    beginRapierExclusive();
+    try {
+      await commitLevelLoadBody(selected, opts);
+    } finally {
+      endRapierExclusive();
+      release();
+    }
+  }
+
+  async function commitLevelLoadBody(selected, opts) {
     // * ?perf=1 (DEV): per-phase swap breakdown. loadLevel is the mesh/collider build;
     // * rebuildForQualityChange re-applies the active tier after the legacy low/high split.
     const perfOn = import.meta.env.DEV && typeof location !== "undefined"
@@ -668,10 +688,11 @@ export function createLevelOrchestration(deps) {
       recordColliderHandles = [recordCollider.handle];
     }
     // * Groceries are cosmetic and unneeded until the first hit — don't block the level
-    // * swap on their ~3 MB of GLBs. init() is idempotent and pool consumers no-op
-    // * until it resolves.
-    const groceryReady = GroceryPool.init(scene, world);
-    if (import.meta.env.DEV) groceryReady.catch((err) => console.warn("[GroceryPool] init failed:", err));
+    // * swap on their ~3 MB of GLBs. Fetch stays parallel; cart bootstrap awaits
+    // * waitForGroceryPool so Rapier body creates cannot overlap initCarts (joiner
+    // * wasm-bindgen aliasing panic after a warm Vite cache).
+    groceryInitPromise = GroceryPool.init(scene, world);
+    if (import.meta.env.DEV) groceryInitPromise.catch((err) => console.warn("[GroceryPool] init failed:", err));
     applyLoadedLevelSideEffects(selected);
     lap("sideEffects");
     // * Levels build for the legacy low/high split internally; re-apply the active
@@ -844,6 +865,7 @@ export function createLevelOrchestration(deps) {
     drainPendingArenaRotation,
     pickNextQuickplayArenaId,
     rotateLoadedArenaInPlace,
+    waitForGroceryPool: () => groceryInitPromise ?? Promise.resolve(),
     // Shared state accessors for main() loop / bridge / sim deps
     get world() { return world; },
     get eventQueue() { return eventQueue; },

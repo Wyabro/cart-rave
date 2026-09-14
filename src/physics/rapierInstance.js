@@ -30,6 +30,28 @@ let _initPromise = null;
 let _build = null;
 
 /**
+ * Depth lock around Rapier world mutation (arena load, grocery bodies, cart spawn).
+ * Game loop and CART-POP contact probes must not call into the same WASM world
+ * while this is > 0 — nested createRigidBody panics wasm-bindgen ("unsafe aliasing").
+ */
+let _exclusiveDepth = 0;
+
+/** @returns {void} */
+export function beginRapierExclusive() {
+  _exclusiveDepth += 1;
+}
+
+/** @returns {void} */
+export function endRapierExclusive() {
+  _exclusiveDepth = Math.max(0, _exclusiveDepth - 1);
+}
+
+/** @returns {boolean} */
+export function isRapierExclusive() {
+  return _exclusiveDepth > 0;
+}
+
+/**
  * Minimal wasm module that requires simd128 (`i8x16.splat` + `drop`).
  * Used to avoid fetching the SIMD package on browsers that cannot run it.
  *

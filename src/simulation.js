@@ -2,7 +2,7 @@
 
 import * as THREE from "three";
 import { mark } from "./utils/perfSpans.js";
-import { RAPIER } from "./physics/rapierInstance.js";
+import { RAPIER, isRapierExclusive } from "./physics/rapierInstance.js";
 import { CONFIG } from "./config.js";
 import * as GameState from "./stores/gameStore.js";
 import { queueHostCollisionEvent } from "./hostCollisionBatch.js";
@@ -4074,6 +4074,9 @@ export function __resetCartPopProbeForTest() {
  */
 function sampleCartPopSupportTimeline(world, allCarts, nowMs, callbacks) {
   if (typeof window === "undefined" || !window.__ccDiagActive) return;
+  // * Nested contactPairsWith+contactPair borrows the WASM world; skip while
+  // * arena/cart/grocery bodies are being created (mpIntegration ?diag joiner panic).
+  if (isRapierExclusive()) return;
   if (!world?.contactPairsWith || !world?.contactPair) return;
 
   for (const cart of allCarts || []) {
@@ -4122,6 +4125,7 @@ function sampleCartPopProbe(world, allCarts, nowMs) {
     _cartPopProbeState = new WeakMap();
     return;
   }
+  if (isRapierExclusive()) return;
   if (!world?.contactPairsWith || !world?.contactPair) return;
 
   const cartHandles = new Set();
