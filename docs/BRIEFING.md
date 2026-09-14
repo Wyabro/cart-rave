@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-09-13 at commit `cc986068` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `8fcf1421`
+> Generated 2026-09-14 at commit `25bf1b38` on `cart-clash`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `fe479703`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -14,15 +14,16 @@
 
 ## Mission
 
-Playtesting and stabilization — External playtest is gated on BACKLOG Block 1. SITE-TRUST-1 local implementation 09-13: privacy, terms, contact, saved analytics choice (on by default, Wyatt), branded 404, smaller share PNG. Publisher: Redshift Studios. Support: redshiftstudiossupport@gmail.com. Production is unchanged. Ship authorization and SITE-TRUST-PT-1 are owed. Checks: QA 2,432/2,432 and build pass; local desktop/narrow-page review pass. SOFTGL-DISMISS-1 closed 09-01 — PLAY ANYWAY is one-shot per tab. SOFTGL-DISMISS-PT-1 PASS (local `?forcegpu=sw`; Wyatt authorized). RESTART-ROUND-1 closed 09-01 — RESTART-ROUND-PT-1 PASS (local Playwright; Wyatt authorized). PAUSE-SLIDER-DELAY-1 closed 09-01 — PAUSE-SLIDER-DELAY-PT-1 PASS (local Playwright; Wyatt authorized). MENU-SHORTWIN-1 closed 09-02 — short-desktop hero spacing. MENU-SHORTWIN-PT-1 PASS (local Playwright 1077×606). CG-ZIP-1 closed 09-02 — `tmp/cart-clash-crazygames.zip` 23.96 MB / 182 files. CG-ZIP-PT-1 PASS (local Playwright unzip + `lvh.me`). Next: CG-COVERS-1. ONBOARD-COPY-1 shipped 09-08 — prod `39010c93` Worker `0c962927-fae5-49ba-877e-19b814190ec8`. Owed: ONBOARD-COPY-PT-1. MENU-MUSIC-FIRST-PT-1 Wyatt PASS 09-01 on prod `d16fd523`. NET-LAG-1-PT-1 is parked (08-20). Do not retouch Classic / Sundial / Storerooms floors. Do not reopen CART-POP-1. Stay in this phase until Wyatt advances the marker.
+Playtesting and stabilization — External playtest is gated on BACKLOG Block 1. SITE-TRUST-1 shipped 09-14 — prod `25bf1b38` Worker `2ac86fc0-f463-4f69-88cf-71b720fb903f`. Privacy, terms, contact, saved analytics choice (on by default), branded 404, smaller share PNG. Publisher: Redshift Studios. Support: redshiftstudiossupport@gmail.com. Owed: SITE-TRUST-PT-1. Checks: QA 2,432/2,432; post-ship VERIFY_OK entry `/assets/index-DuRqnkJB.js`; privacy/terms 200; branded 404. SOFTGL-DISMISS-1 closed 09-01 — PLAY ANYWAY is one-shot per tab. SOFTGL-DISMISS-PT-1 PASS (local `?forcegpu=sw`; Wyatt authorized). RESTART-ROUND-1 closed 09-01 — RESTART-ROUND-PT-1 PASS (local Playwright; Wyatt authorized). PAUSE-SLIDER-DELAY-1 closed 09-01 — PAUSE-SLIDER-DELAY-PT-1 PASS (local Playwright; Wyatt authorized). MENU-SHORTWIN-1 closed 09-02 — short-desktop hero spacing. MENU-SHORTWIN-PT-1 PASS (local Playwright 1077×606). CG-ZIP-1 closed 09-02 — `tmp/cart-clash-crazygames.zip` 23.96 MB / 182 files. CG-ZIP-PT-1 PASS (local Playwright unzip + `lvh.me`). Next: CG-COVERS-1. ONBOARD-COPY-1 shipped 09-08 — prod `39010c93` Worker `0c962927-fae5-49ba-877e-19b814190ec8`. Owed: ONBOARD-COPY-PT-1. MENU-MUSIC-FIRST-PT-1 Wyatt PASS 09-01 on prod `d16fd523`. NET-LAG-1-PT-1 is parked (08-20). Do not retouch Classic / Sundial / Storerooms floors. Do not reopen CART-POP-1. Stay in this phase until Wyatt advances the marker.
 
 ## ACTIVE CARD
 
-Current authorized work: SITE-TRUST-1. Then Block 1 High: CG-COVERS-1
+SITE-TRUST-PT-1 owed on prod `25bf1b38`. Then Block 1 High: CG-COVERS-1
 
 Assess and state the lane before editing. This heading names the card; it is **not** a lane assessment or permission to edit.
 
 Self-directed queue (one at a time, within the declared phase):
+- **SITE-TRUST-1** public information and analytics choice — shipped `25bf1b38` Worker `2ac86fc0`; SITE-TRUST-PT-1 owed
 - **CG-COVERS-1** CrazyGames covers + silent hover videos — High — Wyatt art, required to upload
 - **ONBOARD-COPY-1** HOW TO PLAY AISLE 1+2 copy matches live input — shipped `39010c93` Worker `0c962927`; ONBOARD-COPY-PT-1 owed
 - **CLIENT-ID-AUTH-1** clientId claim hijack guard (session-token proof of ownership) — shipped `e5ca329b` Worker `c789f236`; Wyatt PASS CID-AUTH-PT-1 08-22
