@@ -1,6 +1,6 @@
 ---
 name: brainstorming
-description: "Use when the ask is a new gameplay system, a player-facing feature, or a card whose \"done\" is ambiguous — before writing the plan or touching code. Not for config changes, known-line fixes, or a lever with one obvious value."
+description: "Use when the ask is a new gameplay system, a player-facing feature, or a card whose \"done\" is ambiguous — before writing the plan or touching code. Also when Wyatt says plan CARD-ID / plan the card, asks for an adversarial review of the plan before ack, asks to unpark a parked BACKLOG card, or asks to research then come back with stronger ideas. Not for config changes, known-line fixes, or a lever with one obvious value."
 version: 1.0.0
 ---
 
@@ -16,6 +16,7 @@ weight matches the card. Nothing in this skill restricts which skill you use aft
 | Ask | This skill |
 |---|---|
 | New gameplay system, player-facing feature, ambiguous "done" | Yes — start here |
+| Wyatt types plan CARD-ID / plan the card | Yes — start here, even if the goal looks clear |
 | Multi-file or behavior-changing edit with a clear goal | No — go straight to the step 0 plan (goal · files · asserts · risks) |
 | Config change, known-line fix, one obvious lever value | No — just do it |
 
@@ -43,14 +44,16 @@ immediately rather than spending questions on details of something that has to b
 > "This looks like three cards: X, Y, Z. They can ship independently. Which one is the
 > active card?"
 
-New ideas that fall out go to [BACKLOG.md](../../../docs/planning/BACKLOG.md). Recording an
-idea is not a priority change.
+New ideas go to this repo's board (`BACKLOG.md`, `Tasks.md`, or the file AGENTS.md names).
+Do not write cart-rave `docs/planning/BACKLOG.md` from another repo. Recording an idea is
+not a priority change.
 
 ## Propose 2–3 approaches, recommendation first
 
-Lead with the one you recommend and say why. Give each a real trade-off — cost, risk, what
-it forecloses — not three flavors of the same thing. If two approaches differ only
-cosmetically, you have one approach.
+Lead with the one you recommend and say why. If Wyatt says the ideas are weak or the space
+moves fast, research current competitors on the web first, then return with 2–3 stronger
+approaches. Give each a real trade-off — cost, risk, what it forecloses — not three flavors
+of the same thing. If two approaches differ only cosmetically, you have one approach.
 
 **YAGNI ruthlessly.** Cut every feature from every option that the stated goal does not
 require. The version you present should already be the trimmed one.
@@ -68,11 +71,13 @@ playtest owed, and it belongs in the card.
 ## Landing it
 
 The design becomes a **BACKLOG card**, in the existing format. No new spec tree, no separate
-design doc.
+design doc. If Wyatt asks whether parked cards should be done, name the parked card and what
+doing it entails. Wait for ack before it becomes the active card.
 
 Then stop. Wyatt's explicit ack on the plan is the gate — a written design is not permission
-to code, exactly as BRIEFING's ACTIVE CARD is not. Once acked, the normal loop resumes: one
-card, one lever, ~45-minute timebox.
+to code, exactly as BRIEFING's ACTIVE CARD is not. If Wyatt asks for an adversarial review,
+attack the plan (what fails, what is fake, what is missing) and wait. Do not code. Once
+acked, the normal loop resumes: one card, one lever, ~45-minute timebox.
 
 ## Red flags
 
