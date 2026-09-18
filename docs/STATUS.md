@@ -45,8 +45,9 @@ files. **CG-ZIP-PT-1** PASS (local Playwright unzip + `lvh.me`).
 **NET-LAG-1-PT-1** PASS 09-14 (trail gone); residual lag open. Do not retouch Classic / Sundial /
 Storerooms floors. Do not reopen **CART-POP-1**. Stay in this phase until
 Wyatt advances the marker.
-**GLITCH-TECH-1** unshipped — Desktop App `install_id` validates first; local
-`user_install_id` cannot replace it.
+**GLITCH-TECH-1** shipped 09-18 — prod `4ab166a8` Worker
+`57c54d38-5a8c-4660-aa1f-4e4c2b1eb934`. VERIFY_OK `index-B5xOzF-P.js`, 28 refs,
+0×404, `/installs/` + `/validate` live. Owed: **GLITCH-TECH-PT-1**.
 
 **BOOT-TBT-1 join-load ship 09-14:** prod `a29736a1` Worker
 `241bb329-6ef1-444a-ab1c-82fbd47114c7`. VERIFY_OK `index-CEplJ-zV.js`, 28 refs,
