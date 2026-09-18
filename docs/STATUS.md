@@ -26,8 +26,9 @@ report phase-exit eligibility; they must not move the marker.
 ## Current focus
 
 **Playtesting and stabilization.** External playtest is gated on BACKLOG Block 1.
-**NIGHT-SHIFT-CITY-2** active (Wyatt ack 09-18) — local Fourside skyline; visual PASS
-owed on `?level=rooftop`. SNAP-FINITE-PT-1 and NET-LAG-1 wait.
+**NIGHT-SHIFT-CITY-2** closed PASS 09-18 (`47ad5d80`). Residual
+**NIGHT-SHIFT-DETAIL-1**. Next Night Shift card: **NIGHT-SHIFT-PICKER-1** (not
+active until ack). SNAP-FINITE-PT-1 and NET-LAG-1 wait.
 **CG-COVERS-1** closed 09-14 (Wyatt). **CAM-COMFORT-1** closed 09-14 (Wyatt, no lever).
 **SITE-TRUST-1** closed 09-14 — prod `c58c96ff` Worker
 `aed9d44e-7139-4af7-92ee-1625307d7147`. **SITE-TRUST-PT-1** Wyatt PASS

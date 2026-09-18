@@ -2,7 +2,7 @@
 
 > Historical log. Past entries may still say "Cart Rave" / `next-level` — that is intentional. Living naming rules: [brand.md](../brand.md).
 
-**Last Updated:** September 14, 2026
+**Last Updated:** September 18, 2026
 
 > **This doc = the past** — the single home for historical/completed items. For what works
 > *today* see [project-state.md](./project-state.md); for forward plans see [ROADMAP.md](./ROADMAP.md).
@@ -10,6 +10,20 @@
 Chronological record of shipped work, newest first.
 
 > **Convention:** As items ship, move their completed writeup here (out of ROADMAP.md / project-state.md).
+
+---
+### September 18, 2026 — NIGHT-SHIFT-CITY-2 CLOSED PASS: Fourside skyline improvement
+
+- *(Art · Medium)* **NIGHT-SHIFT-CITY-2** — ✅ **CLOSED PASS 09-18** per Wyatt
+  (`47ad5d80`). Local improvement pass, not shipped. Near band is 5 authored
+  landmarks that rise above the roof as visual-only backdrop. Mid/far keep
+  density with moon and sky gaps. Window grids are instanced panes. Moon is a
+  yellow disc. Playable roof stays the brightest surface. No new colliders,
+  physics, netcode, menu, or Quickplay. Focused Night Shift tests 10/10; QA
+  7/7 with 2,467 tests. Captures: `.diag-captures/night-shift-city-2-wide.png`,
+  `.diag-captures/night-shift-city-2-moon.png`. Residual **NIGHT-SHIFT-DETAIL-1**
+  (more set dressing). Next Night Shift card: **NIGHT-SHIFT-PICKER-1**. Do not
+  reopen **NIGHT-SHIFT-CITY-1**.
 
 ---
 ### September 14, 2026 — BOOT-TBT-1 join-load follow-up
