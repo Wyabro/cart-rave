@@ -4,7 +4,13 @@ import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 
 export const NIGHT_SHIFT_CITY_SEED = 0x4e534331;
-export const NIGHT_SHIFT_MAST_BUILDING_ID = "near-7";
+export const NIGHT_SHIFT_MAST_BUILDING_ID = "near-1";
+export const NIGHT_SHIFT_MOON = Object.freeze({
+  x: -82,
+  y: 58,
+  z: -235,
+  radius: 26,
+});
 export const NIGHT_SHIFT_NEON_COLORS = Object.freeze({
   cyan: 0x36d8e8,
   violet: 0xa45cff,
@@ -12,11 +18,30 @@ export const NIGHT_SHIFT_NEON_COLORS = Object.freeze({
   blue: 0x4aa8ff,
 });
 const NEON_KEYS = Object.freeze(Object.keys(NIGHT_SHIFT_NEON_COLORS));
+const MOON_AZIMUTH = Math.atan2(NIGHT_SHIFT_MOON.z, NIGHT_SHIFT_MOON.x);
+const SKYLINE_CORE_COLOR = 0x182446;
+const SKYLINE_EXTENDED_COLOR = 0x130f2b;
+const LANDMARK_CROWN_COLOR = 0x1c4a3c;
+const LANDMARK_CORNICE_COLOR = 0x3d3426;
 
 const BAND_SPECS = Object.freeze([
-  Object.freeze({ id: "near", count: 10, radiusMin: 94, radiusMax: 132, roofMin: -26, roofMax: -11, bottomY: -118, widthMin: 24, widthMax: 44, depthMin: 22, depthMax: 42 }),
-  Object.freeze({ id: "mid", count: 18, radiusMin: 145, radiusMax: 230, roofMin: -54, roofMax: -28, bottomY: -134, widthMin: 23, widthMax: 48, depthMin: 22, depthMax: 46 }),
-  Object.freeze({ id: "far", count: 32, radiusMin: 250, radiusMax: 420, roofMin: -88, roofMax: -48, bottomY: -164, widthMin: 28, widthMax: 68, depthMin: 28, depthMax: 64 }),
+  Object.freeze({ id: "near", count: 5, radiusMin: 98, radiusMax: 118, roofMin: -22, roofMax: -11, bottomY: -118, widthMin: 28, widthMax: 46, depthMin: 24, depthMax: 38 }),
+  Object.freeze({ id: "mid", count: 16, radiusMin: 145, radiusMax: 230, roofMin: -54, roofMax: -28, bottomY: -134, widthMin: 23, widthMax: 48, depthMin: 22, depthMax: 46 }),
+  Object.freeze({ id: "far", count: 28, radiusMin: 250, radiusMax: 420, roofMin: -88, roofMax: -48, bottomY: -164, widthMin: 28, widthMax: 68, depthMin: 28, depthMax: 64 }),
+]);
+
+const NEAR_LANDMARKS = Object.freeze([
+  Object.freeze({ landmark: "crown-mast", silhouette: "crown", width: 36, depth: 32, roofY: 24, setbackScale: 0.62, setbackRatio: 0.58, crownHeight: 6.2, antennaHeight: 0 }),
+  Object.freeze({ landmark: "step-tower", silhouette: "setback", width: 30, depth: 30, roofY: 32, setbackScale: 0.7, setbackRatio: 0.42, crownHeight: 0, antennaHeight: 0 }),
+  Object.freeze({ landmark: "wide-midrise", silhouette: "slab", width: 52, depth: 28, roofY: 8, setbackScale: 1, setbackRatio: 1, crownHeight: 0, antennaHeight: 0 }),
+  Object.freeze({ landmark: "twin-slab", silhouette: "slab", width: 44, depth: 26, roofY: 16, setbackScale: 1, setbackRatio: 1, crownHeight: 0, antennaHeight: 0 }),
+  Object.freeze({ landmark: "spire", silhouette: "crown", width: 22, depth: 22, roofY: 40, setbackScale: 0.55, setbackRatio: 0.62, crownHeight: 9.5, antennaHeight: 11 }),
+]);
+
+const CITY_GAPS = Object.freeze([
+  Object.freeze({ center: MOON_AZIMUTH, width: 0.48 }),
+  Object.freeze({ center: MOON_AZIMUTH + 2.05, width: 0.42 }),
+  Object.freeze({ center: MOON_AZIMUTH - 1.55, width: 0.36 }),
 ]);
 
 const LOW_MID_COUNT = 10;
@@ -42,31 +67,93 @@ function makeRng(seed) {
   };
 }
 
+/** @param {number} delta */
+function angularAbs(delta) {
+  const wrapped = ((delta + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
+  return Math.abs(wrapped);
+}
+
+/** @param {number} angle @param {readonly { center: number, width: number }[]} gaps */
+function isInGap(angle, gaps) {
+  return gaps.some((gap) => angularAbs(angle - gap.center) < gap.width / 2);
+}
+
 /**
- * Produces the complete city layout before any Three.js object is allocated. The band ranges
- * keep every skyline roof well below the driveable arena and leave a wide gameplay clearance.
+ * Spreads `count` angles through the complement of a single gap so near landmarks stay readable.
+ *
+ * @param {number} count
+ * @param {number} gapCenter
+ * @param {number} gapWidth
+ * @param {() => number} random
+ * @param {number} jitterScale
+ */
+function usableArcAngles(count, gapCenter, gapWidth, random, jitterScale) {
+  const usable = Math.PI * 2 - gapWidth;
+  const start = gapCenter + gapWidth / 2;
+  const step = usable / count;
+  const angles = [];
+  for (let index = 0; index < count; index += 1) {
+    const jitter = (random() - 0.5) * step * jitterScale;
+    angles.push(start + (index + 0.5) * step + jitter);
+  }
+  return angles;
+}
+
+/**
+ * @param {number} count
+ * @param {readonly { center: number, width: number }[]} gaps
+ * @param {() => number} random
+ * @param {number} minNeighbor
+ */
+function sampleAnglesOutsideGaps(count, gaps, random, minNeighbor) {
+  const angles = [];
+  for (let attempt = 0; attempt < 400 && angles.length < count; attempt += 1) {
+    const angle = random() * Math.PI * 2;
+    if (isInGap(angle, gaps)) continue;
+    if (angles.some((other) => angularAbs(angle - other) < minNeighbor)) continue;
+    angles.push(angle);
+  }
+  for (let attempt = 0; attempt < 200 && angles.length < count; attempt += 1) {
+    const angle = random() * Math.PI * 2;
+    if (!isInGap(angle, gaps)) angles.push(angle);
+  }
+  return angles;
+}
+
+/**
+ * Produces the complete city layout before any Three.js object is allocated. Near buildings are
+ * authored landmarks that may rise above the playable roof as visual-only backdrop. Mid and far
+ * keep density below the roof and leave dark sky gaps, including the moon hole.
  *
  * @param {number} [seed]
  */
 export function createNightShiftCityPlan(seed = NIGHT_SHIFT_CITY_SEED) {
   const random = makeRng(seed);
   const buildings = [];
+  const moonGap = CITY_GAPS[0];
 
   for (const band of BAND_SPECS) {
-    const angleStep = (Math.PI * 2) / band.count;
-    const angleOffset = random() * angleStep;
+    const angles = band.id === "near"
+      ? usableArcAngles(band.count, moonGap.center, moonGap.width, random, 0.28)
+      : sampleAnglesOutsideGaps(band.count, CITY_GAPS, random, band.id === "mid" ? 0.18 : 0.12);
     for (let index = 0; index < band.count; index += 1) {
-      const angle = angleOffset + index * angleStep + (random() - 0.5) * angleStep * 0.54;
-      const radius = band.radiusMin + random() * (band.radiusMax - band.radiusMin);
-      const roofY = band.roofMin + random() * (band.roofMax - band.roofMin);
-      const width = band.widthMin + random() * (band.widthMax - band.widthMin);
-      const depth = band.depthMin + random() * (band.depthMax - band.depthMin);
+      const angle = angles[index] ?? random() * Math.PI * 2;
+      const landmark = band.id === "near" ? NEAR_LANDMARKS[index] : null;
+      const radius = landmark
+        ? (band.radiusMin + band.radiusMax) / 2
+        : band.radiusMin + random() * (band.radiusMax - band.radiusMin);
+      const roofY = landmark?.roofY ?? (band.roofMin + random() * (band.roofMax - band.roofMin));
+      const width = landmark?.width ?? (band.widthMin + random() * (band.widthMax - band.widthMin));
+      const depth = landmark?.depth ?? (band.depthMin + random() * (band.depthMax - band.depthMin));
       const silhouetteRoll = random();
-      const silhouette = silhouetteRoll < 0.18 ? "slab" : silhouetteRoll < 0.76 ? "setback" : "crown";
+      const silhouette = landmark?.silhouette
+        ?? (silhouetteRoll < 0.18 ? "slab" : silhouetteRoll < 0.76 ? "setback" : "crown");
+      const neonChance = band.id === "near" ? 0.4 : band.id === "mid" ? 0.12 : 0.06;
       const neonRoll = random();
       buildings.push(Object.freeze({
         id: `${band.id}-${index + 1}`,
         band: band.id,
+        landmark: landmark?.landmark ?? null,
         detail: band.id === "near" || (band.id === "mid" && index < LOW_MID_COUNT) ? "core" : "extended",
         x: round3(Math.cos(angle) * radius),
         z: round3(Math.sin(angle) * radius),
@@ -76,11 +163,13 @@ export function createNightShiftCityPlan(seed = NIGHT_SHIFT_CITY_SEED) {
         roofY: round3(roofY),
         bottomY: band.bottomY,
         silhouette,
-        setbackScale: round3(0.58 + random() * 0.2),
-        setbackRatio: round3(0.55 + random() * 0.18),
-        crownHeight: silhouette === "crown" ? round3(3.5 + random() * 3) : 0,
-        antennaHeight: silhouette === "crown" && random() < 0.62 ? round3(4 + random() * 6) : 0,
-        neonAccent: neonRoll < 0.3
+        setbackScale: landmark?.setbackScale ?? round3(0.58 + random() * 0.2),
+        setbackRatio: landmark?.setbackRatio ?? round3(0.55 + random() * 0.18),
+        crownHeight: landmark?.crownHeight ?? (silhouette === "crown" ? round3(3.5 + random() * 3) : 0),
+        antennaHeight: landmark?.antennaHeight ?? (
+          silhouette === "crown" && random() < 0.62 ? round3(4 + random() * 6) : 0
+        ),
+        neonAccent: neonRoll < neonChance
           ? NEON_KEYS[Math.floor(random() * NEON_KEYS.length)]
           : null,
       }));
@@ -90,68 +179,126 @@ export function createNightShiftCityPlan(seed = NIGHT_SHIFT_CITY_SEED) {
   return Object.freeze({
     seed: seed >>> 0,
     buildings: Object.freeze(buildings),
-    bandCounts: Object.freeze(Object.fromEntries(BAND_SPECS.map((band) => [band.id, band.count]))),
+    bandCounts: Object.freeze({
+      near: buildings.filter((building) => building.band === "near").length,
+      mid: buildings.filter((building) => building.band === "mid").length,
+      far: buildings.filter((building) => building.band === "far").length,
+    }),
     lowBuildingCount: buildings.filter((building) => building.detail === "core").length,
   });
+}
+
+/**
+ * @param {ReturnType<typeof createNightShiftCityPlan>["buildings"][number]} building
+ * @param {number} x
+ * @param {number} y
+ * @param {number} z
+ * @param {number} width
+ * @param {number} height
+ * @param {number} depth
+ * @param {number} [color]
+ */
+function massBox(building, x, y, z, width, height, depth, color) {
+  return {
+    x,
+    y,
+    z,
+    yaw: building.yaw,
+    width,
+    height,
+    depth,
+    color: color ?? (building.detail === "core" ? SKYLINE_CORE_COLOR : SKYLINE_EXTENDED_COLOR),
+  };
 }
 
 /** @param {ReturnType<typeof createNightShiftCityPlan>["buildings"][number]} building */
 function compileBuildingMasses(building) {
   const totalHeight = building.roofY - building.bottomY;
+  const midY = (building.roofY + building.bottomY) / 2;
+  const bodyColor = building.detail === "core" ? SKYLINE_CORE_COLOR : SKYLINE_EXTENDED_COLOR;
+
+  if (building.landmark === "twin-slab") {
+    const offset = building.width * 0.28;
+    const slabWidth = building.width * 0.42;
+    const axisX = Math.cos(building.yaw);
+    const axisZ = -Math.sin(building.yaw);
+    return [
+      massBox(building, building.x + axisX * offset, midY, building.z + axisZ * offset, slabWidth, totalHeight, building.depth),
+      massBox(building, building.x - axisX * offset, midY, building.z - axisZ * offset, slabWidth, totalHeight, building.depth),
+    ];
+  }
+
+  if (building.landmark === "wide-midrise") {
+    return [
+      massBox(building, building.x, midY, building.z, building.width, totalHeight, building.depth),
+      massBox(
+        building,
+        building.x,
+        building.roofY + 1.1,
+        building.z,
+        building.width * 1.04,
+        2.2,
+        building.depth * 1.04,
+        LANDMARK_CORNICE_COLOR,
+      ),
+    ];
+  }
+
+  if (building.landmark === "step-tower") {
+    const tiers = [1, 0.74, 0.5];
+    const slice = totalHeight / tiers.length;
+    return tiers.map((scale, index) => massBox(
+      building,
+      building.x,
+      building.bottomY + slice * (index + 0.5),
+      building.z,
+      building.width * scale,
+      slice,
+      building.depth * scale,
+    ));
+  }
+
   if (building.silhouette === "slab") {
-    return [{
-      x: building.x,
-      y: (building.roofY + building.bottomY) / 2,
-      z: building.z,
-      yaw: building.yaw,
-      width: building.width,
-      height: totalHeight,
-      depth: building.depth,
-    }];
+    return [massBox(building, building.x, midY, building.z, building.width, totalHeight, building.depth)];
   }
 
   const setbackY = building.bottomY + totalHeight * building.setbackRatio;
   const masses = [
-    {
-      x: building.x,
-      y: (setbackY + building.bottomY) / 2,
-      z: building.z,
-      yaw: building.yaw,
-      width: building.width,
-      height: setbackY - building.bottomY,
-      depth: building.depth,
-    },
-    {
-      x: building.x,
-      y: (building.roofY + setbackY) / 2,
-      z: building.z,
-      yaw: building.yaw,
-      width: building.width * building.setbackScale,
-      height: building.roofY - setbackY,
-      depth: building.depth * building.setbackScale,
-    },
+    massBox(building, building.x, (setbackY + building.bottomY) / 2, building.z, building.width, setbackY - building.bottomY, building.depth),
+    massBox(
+      building,
+      building.x,
+      (building.roofY + setbackY) / 2,
+      building.z,
+      building.width * building.setbackScale,
+      building.roofY - setbackY,
+      building.depth * building.setbackScale,
+    ),
   ];
 
   if (building.silhouette === "crown") {
-    masses.push({
-      x: building.x,
-      y: building.roofY + building.crownHeight / 2,
-      z: building.z,
-      yaw: building.yaw,
-      width: building.width * building.setbackScale * 0.7,
-      height: building.crownHeight,
-      depth: building.depth * building.setbackScale * 0.7,
-    });
+    const crownColor = building.landmark ? LANDMARK_CROWN_COLOR : bodyColor;
+    masses.push(massBox(
+      building,
+      building.x,
+      building.roofY + building.crownHeight / 2,
+      building.z,
+      building.width * building.setbackScale * 0.7,
+      building.crownHeight,
+      building.depth * building.setbackScale * 0.7,
+      crownColor,
+    ));
     if (building.antennaHeight > 0) {
-      masses.push({
-        x: building.x,
-        y: building.roofY + building.crownHeight + building.antennaHeight / 2,
-        z: building.z,
-        yaw: building.yaw,
-        width: 0.65,
-        height: building.antennaHeight,
-        depth: 0.65,
-      });
+      masses.push(massBox(
+        building,
+        building.x,
+        building.roofY + building.crownHeight + building.antennaHeight / 2,
+        building.z,
+        0.65,
+        building.antennaHeight,
+        0.65,
+        crownColor,
+      ));
     }
   }
   return masses;
@@ -759,40 +906,53 @@ function getInwardFacadeFrame(building, y, surfaceOffset) {
   };
 }
 
+/** @param {number} r @param {number} g @param {number} b */
+function rgbToHex(r, g, b) {
+  return (Math.round(r * 255) << 16) | (Math.round(g * 255) << 8) | Math.round(b * 255);
+}
+
 /** @param {ReturnType<typeof createNightShiftCityPlan>} plan */
 function buildWindowBuffers(plan) {
-  const corePositions = [];
-  const coreColors = [];
-  const extendedPositions = [];
-  const extendedColors = [];
+  /** @type {Array<{ x: number, y: number, z: number, yaw: number, width: number, height: number, depth: number, color: number }>} */
+  const core = [];
+  /** @type {typeof core} */
+  const extended = [];
   const random = makeRng(plan.seed ^ 0xbb67ae85);
 
   for (const building of plan.buildings) {
-    const positions = building.detail === "core" ? corePositions : extendedPositions;
-    const colors = building.detail === "core" ? coreColors : extendedColors;
-    const rows = Math.max(2, Math.floor((building.roofY - building.bottomY) / 8));
+    const specs = building.detail === "core" ? core : extended;
+    const rowStep = building.detail === "core" ? 5.2 : 8;
+    const columnStep = building.detail === "core" ? 4.2 : 7;
+    const litChance = building.detail === "core" ? 0.82 : 0.62;
+    const paneWidth = building.detail === "core" ? 2.2 : 3.2;
+    const paneHeight = building.detail === "core" ? 3.0 : 4.2;
+    const rows = Math.max(2, Math.floor((building.roofY - building.bottomY) / rowStep));
 
     for (let row = 1; row < rows; row += 1) {
-      const rowY = building.bottomY + row * 8;
-      const rowFacade = getInwardFacadeFrame(building, rowY, 0.12);
-      const columns = Math.max(2, Math.floor(rowFacade.faceWidth / 7));
+      const rowY = building.bottomY + row * rowStep;
+      const rowFacade = getInwardFacadeFrame(building, rowY, 0.14);
+      const columns = Math.max(2, Math.floor(rowFacade.faceWidth / columnStep));
       for (let column = 0; column < columns; column += 1) {
-        if (random() > 0.56) continue;
-        const y = rowY + (random() - 0.5) * 0.7;
-        const facade = getInwardFacadeFrame(building, y, 0.12);
+        if (random() > litChance) continue;
+        const y = rowY + (random() - 0.5) * 0.35;
+        const facade = getInwardFacadeFrame(building, y, 0.14);
         const across = ((column + 0.5) / columns - 0.5) * facade.faceWidth * 0.78;
-        positions.push(
-          facade.x + facade.tangentX * across,
+        const brightness = 0.58 + random() * 0.42;
+        const cool = random() < 0.16;
+        specs.push({
+          x: facade.x + facade.tangentX * across,
           y,
-          facade.z + facade.tangentZ * across,
-        );
-        const brightness = 0.48 + random() * 0.52;
-        const cool = random() < 0.24;
-        colors.push(
-          brightness * (cool ? 0.62 : 1),
-          brightness * (cool ? 0.8 : 0.66),
-          brightness * (cool ? 1 : 0.34),
-        );
+          z: facade.z + facade.tangentZ * across,
+          yaw: Math.atan2(facade.normalX, facade.normalZ),
+          width: paneWidth,
+          height: paneHeight,
+          depth: building.detail === "core" ? 0.22 : 0.3,
+          color: rgbToHex(
+            brightness * (cool ? 0.62 : 1),
+            brightness * (cool ? 0.8 : 0.84),
+            brightness * (cool ? 1 : 0.44),
+          ),
+        });
       }
     }
   }
@@ -800,54 +960,37 @@ function buildWindowBuffers(plan) {
   // The arena's own tower needs occupied floors below the roof. These four facade grids make
   // the drop legible from the chase camera instead of reading as one unbroken black slab.
   const towerFaces = [
-    { axis: "x", fixed: 36.45 },
-    { axis: "x", fixed: -36.45 },
-    { axis: "z", fixed: 36.45 },
-    { axis: "z", fixed: -36.45 },
+    { axis: "x", fixed: 36.45, yaw: Math.PI / 2 },
+    { axis: "x", fixed: -36.45, yaw: -Math.PI / 2 },
+    { axis: "z", fixed: 36.45, yaw: 0 },
+    { axis: "z", fixed: -36.45, yaw: Math.PI },
   ];
   for (const face of towerFaces) {
-    for (let row = 0; row < 11; row += 1) {
-      for (let column = 0; column < 8; column += 1) {
-        if (random() > 0.42) continue;
-        const across = -28 + column * 8;
-        const y = -9 - row * 7.2;
-        if (face.axis === "x") corePositions.push(face.fixed, y, across);
-        else corePositions.push(across, y, face.fixed);
-        const brightness = 0.54 + random() * 0.46;
-        const cool = random() < 0.2;
-        coreColors.push(
-          brightness * (cool ? 0.6 : 1),
-          brightness * (cool ? 0.82 : 0.64),
-          brightness * (cool ? 1 : 0.3),
-        );
+    for (let row = 0; row < 14; row += 1) {
+      for (let column = 0; column < 12; column += 1) {
+        if (random() > 0.58) continue;
+        const across = -30 + column * 5.4;
+        const y = -8 - row * 5.8;
+        const brightness = 0.6 + random() * 0.4;
+        const cool = random() < 0.18;
+        core.push({
+          x: face.axis === "x" ? face.fixed : across,
+          y,
+          z: face.axis === "z" ? face.fixed : across,
+          yaw: face.yaw,
+          width: 2.0,
+          height: 2.6,
+          depth: 0.18,
+          color: rgbToHex(
+            brightness * (cool ? 0.6 : 1),
+            brightness * (cool ? 0.82 : 0.8),
+            brightness * (cool ? 1 : 0.38),
+          ),
+        });
       }
     }
   }
-  return { corePositions, coreColors, extendedPositions, extendedColors };
-}
-
-/**
- * @param {number[]} positions
- * @param {number[]} colors
- * @param {string} name
- */
-function createWindowPoints(positions, colors, name) {
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
-  geometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
-  const material = new THREE.PointsMaterial({
-    color: 0xffffff,
-    vertexColors: true,
-    size: 2.4,
-    sizeAttenuation: false,
-    transparent: true,
-    opacity: 0.94,
-    fog: false,
-    depthWrite: false,
-  });
-  const points = new THREE.Points(geometry, material);
-  points.name = name;
-  return points;
+  return { core, extended };
 }
 
 /** @param {ReturnType<typeof createNightShiftCityPlan>} plan */
@@ -979,28 +1122,29 @@ export function createNightShiftCityArchitecture(root, plan, spawnPlatforms, mat
 
   const coreSkyline = new THREE.InstancedMesh(unitBox, materials.skylineCore, coreSpecs.length);
   coreSkyline.name = "night-shift-skyline-core";
-  writeBoxInstances(coreSkyline, coreSpecs);
+  writeColoredBoxInstances(coreSkyline, coreSpecs);
   const extendedSkyline = new THREE.InstancedMesh(unitBox, materials.skylineExtended, extendedSpecs.length);
   extendedSkyline.name = "night-shift-skyline-extended";
-  writeBoxInstances(extendedSkyline, extendedSpecs);
+  writeColoredBoxInstances(extendedSkyline, extendedSpecs);
 
   const windowBuffers = buildWindowBuffers(plan);
-  const coreWindows = createWindowPoints(
-    windowBuffers.corePositions,
-    windowBuffers.coreColors,
-    "night-shift-windows-core",
-  );
-  const extendedWindows = createWindowPoints(
-    windowBuffers.extendedPositions,
-    windowBuffers.extendedColors,
-    "night-shift-windows-extended",
-  );
+  const windowMaterial = new THREE.MeshBasicMaterial({
+    color: 0xffffff,
+    fog: true,
+    toneMapped: false,
+  });
+  const coreWindows = new THREE.InstancedMesh(unitBox, windowMaterial, Math.max(1, windowBuffers.core.length));
+  coreWindows.name = "night-shift-windows-core";
+  writeColoredBoxInstances(coreWindows, windowBuffers.core);
+  const extendedWindows = new THREE.InstancedMesh(unitBox, windowMaterial, Math.max(1, windowBuffers.extended.length));
+  extendedWindows.name = "night-shift-windows-extended";
+  writeColoredBoxInstances(extendedWindows, windowBuffers.extended);
 
   const neonSignSpecs = buildNeonSignSpecs(plan);
   const neonMaterial = new THREE.MeshBasicMaterial({
-    color: 0xffffff,
-    fog: false,
-    toneMapped: false,
+    color: 0x6e6e6e,
+    fog: true,
+    toneMapped: true,
   });
   const coreNeon = new THREE.InstancedMesh(unitBox, neonMaterial, neonSignSpecs.core.length);
   coreNeon.name = "night-shift-neon-core";
@@ -1035,8 +1179,8 @@ export function createNightShiftCityArchitecture(root, plan, spawnPlatforms, mat
     fullBuildingCount: coreSpecs.length + extendedSpecs.length,
     lowTowerCount: plan.lowBuildingCount,
     fullTowerCount: plan.buildings.length,
-    lowWindowCount: windowBuffers.corePositions.length / 3,
-    fullWindowCount: (windowBuffers.corePositions.length + windowBuffers.extendedPositions.length) / 3,
+    lowWindowCount: windowBuffers.core.length,
+    fullWindowCount: windowBuffers.core.length + windowBuffers.extended.length,
     lowNeonSignCount: neonSignSpecs.core.length,
     fullNeonSignCount: neonSignSpecs.core.length + neonSignSpecs.extended.length,
     structuralBeamCount: beams.length,
@@ -1074,10 +1218,7 @@ export function createNightShiftCityArchitecture(root, plan, spawnPlatforms, mat
         extendedNeon,
       );
       unitBox.dispose();
-      coreWindows.geometry.dispose();
-      extendedWindows.geometry.dispose();
-      coreWindows.material.dispose();
-      extendedWindows.material.dispose();
+      windowMaterial.dispose();
       neonMaterial.dispose();
       delete root.userData.nightShiftCity;
     },
@@ -1093,13 +1234,13 @@ export function createNightShiftCityArchitecture(root, plan, spawnPlatforms, mat
  */
 export function createNightShiftAtmosphere(scene, root) {
   const previousFog = scene.fog;
-  scene.fog = new THREE.FogExp2(0x070d19, 0.0018);
+  scene.fog = new THREE.FogExp2(0x0a1833, 0.00115);
 
-  const moonGeometry = new THREE.SphereGeometry(12, 24, 12);
-  const moonMaterial = new THREE.MeshBasicMaterial({ color: 0xc7d7ff, fog: false });
+  const moonGeometry = new THREE.SphereGeometry(NIGHT_SHIFT_MOON.radius, 24, 12);
+  const moonMaterial = new THREE.MeshBasicMaterial({ color: 0xd8c48a, fog: false, toneMapped: true });
   const moon = new THREE.Mesh(moonGeometry, moonMaterial);
   moon.name = "night-shift-moon";
-  moon.position.set(-82, 54, -235);
+  moon.position.set(NIGHT_SHIFT_MOON.x, NIGHT_SHIFT_MOON.y, NIGHT_SHIFT_MOON.z);
 
   const glowGeometry = new THREE.CircleGeometry(430, 48);
   const glowMaterial = new THREE.MeshBasicMaterial({

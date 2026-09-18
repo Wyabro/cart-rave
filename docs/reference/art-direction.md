@@ -84,6 +84,10 @@ brightness. Each arena expresses it differently, and an arena is not broken for 
 - **Sundial Station (`zanzibar`)** — golden-hour mood arena, warm and open. It is *not dark*,
   and its exposure budget of `0.528` — the highest of the four — is correct behavior rather than
   a violation of anything.
+- **Night Shift (`rooftop`)** — mall-roof party over a night city. Fourside composition: navy
+  sky, a large moon, window-lit towers with dark gaps, a few landmark silhouettes. The playable
+  roof is the brightest, most worn surface. City neon stays secondary. Not a Smash walk-off,
+  and not a UFO or helicopter copy.
 
   **The sun key and the sun disc do not agree, by intent (D-SUNDIAL-OQ8, 08-02).** The key light
   sits at **9.93°** elevation while the visible disc sits at **1.87°** on the waterline. That 8°
@@ -124,6 +128,7 @@ files. The real inventory:
 | **Cart Rave** | Vinyl floor — albedo + normal + roughness, with groove lands/valleys, 36 hairline radial play-wear scratches, dust and fingerprint blotches ([`arena.js:180`](../../src/levels/arena.js:180)). Pit wall — albedo + normal + roughness plated panels ([`arena.js:33`](../../src/levels/arena.js:33)). Booths — metal + grille albedo ([`arena.js:320`](../../src/levels/arena.js:320)). |
 | **The Storerooms** | ~9 builders — carpet, wallpaper, ceiling, concrete, prop-surface (carton/cardboard), furniture (wood/fabric/metal/plastic) — plus wet-floor, tape, and arrow canvases ([`backroomsSupermarket.js:150`](../../src/levels/backroomsSupermarket.js:150)–`596`). |
 | **Sundial Station** | ~12 builders — deck albedo + deck roughness (plate seams, bolt rings, rust streaks, 46 traffic-wear scuff arcs, hazard band), water normal, foam, panel, vent grille, hazard stripe, hologlyphs ([`zanzibarPlatform.js:144`](../../src/levels/zanzibarPlatform.js:144)+). |
+| **Night Shift** | Roof / facade / metal wear maps ([`nightShiftMaterials.js`](../../src/levels/nightShiftMaterials.js)). Authored near landmarks, window grids, moon, and city bands ([`nightShiftVisuals.js`](../../src/levels/nightShiftVisuals.js)). |
 | **The carts** | **None.** Zero maps on any slot ([`cart.js:118`](../../src/carts/cart.js:118)–`152`). |
 
 So "preserve what we've established" holds further than a first read suggests. The arenas

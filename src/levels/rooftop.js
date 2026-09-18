@@ -213,7 +213,7 @@ export function initRooftop(scene, world, config) {
   const previousCenterHole = config.record.centerHole;
   const previousBackground = scene.background;
   config.record.centerHole = { enabled: false };
-  scene.background = new THREE.Color(0x0a1222);
+  scene.background = new THREE.Color(0x0c1c3a);
 
   const materialBundle = createNightShiftMaterialBundle();
   const {
@@ -237,10 +237,10 @@ export function initRooftop(scene, world, config) {
   const edgeColliderHandles = [];
   const spawnPlatforms = getNightShiftSpawnPlatforms(config);
 
-  const moonHemi = new THREE.HemisphereLight(0xa8c6ff, 0x151b2b, 2.25);
-  const roofKey = new THREE.DirectionalLight(0x9eb7ff, 3.2);
+  const moonHemi = new THREE.HemisphereLight(0xa8c6ff, 0x151b2b, 2.15);
+  const roofKey = new THREE.DirectionalLight(0xe8f0ff, 4.6);
   roofKey.position.set(-20, 32, 18);
-  const cityUplight = new THREE.PointLight(0xff7855, 115, 260, 2);
+  const cityUplight = new THREE.PointLight(0xff7855, 42, 220, 2);
   cityUplight.position.set(0, -28, 0);
   root.add(moonHemi, roofKey, cityUplight);
 

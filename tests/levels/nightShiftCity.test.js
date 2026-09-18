@@ -4,8 +4,10 @@ import {
   createNightShiftCityPlan,
   NIGHT_SHIFT_CITY_SEED,
   NIGHT_SHIFT_MAST_BUILDING_ID,
+  NIGHT_SHIFT_MOON,
   NIGHT_SHIFT_NEON_COLORS,
 } from "../../src/levels/nightShiftVisuals.js";
+import { readFileSync } from "node:fs";
 import * as THREE from "three";
 
 function createTestMaterials(material) {
@@ -55,26 +57,53 @@ describe("Night Shift city architecture", () => {
 
   it("allocates all three depth bands and keeps a lean Low silhouette", () => {
     const plan = createNightShiftCityPlan();
-    expect(plan.bandCounts).toEqual({ near: 10, mid: 18, far: 32 });
-    expect(plan.buildings).toHaveLength(60);
-    expect(plan.lowBuildingCount).toBe(20);
-    expect(plan.buildings.filter((building) => building.detail === "extended")).toHaveLength(40);
+    expect(plan.bandCounts).toEqual({ near: 5, mid: 16, far: 28 });
+    expect(plan.buildings).toHaveLength(49);
+    expect(plan.lowBuildingCount).toBe(15);
+    expect(plan.buildings.filter((building) => building.detail === "extended")).toHaveLength(34);
     expect(new Set(plan.buildings.map((building) => building.silhouette)))
       .toEqual(new Set(["slab", "setback", "crown"]));
     const neonBuildings = plan.buildings.filter((building) => building.neonAccent);
-    expect(neonBuildings.length).toBeGreaterThanOrEqual(12);
-    expect(neonBuildings.length).toBeLessThanOrEqual(24);
+    expect(neonBuildings.length).toBeGreaterThanOrEqual(3);
+    expect(neonBuildings.length).toBeLessThanOrEqual(14);
     expect(neonBuildings.every((building) => building.neonAccent in NIGHT_SHIFT_NEON_COLORS))
       .toBe(true);
   });
 
-  it("keeps every skyline mass below and clear of the playable tower", () => {
+  it("authors 4-6 near landmarks and leaves a moon gap in the skyline", () => {
+    const plan = createNightShiftCityPlan();
+    const near = plan.buildings.filter((building) => building.band === "near");
+    expect(near.length).toBeGreaterThanOrEqual(4);
+    expect(near.length).toBeLessThanOrEqual(6);
+    expect(near.every((building) => typeof building.landmark === "string")).toBe(true);
+    expect(near.some((building) => building.id === NIGHT_SHIFT_MAST_BUILDING_ID)).toBe(true);
+    const moonAngle = Math.atan2(NIGHT_SHIFT_MOON.z, NIGHT_SHIFT_MOON.x);
+    for (const building of plan.buildings) {
+      const angle = Math.atan2(building.z, building.x);
+      const delta = Math.abs(
+        ((angle - moonAngle + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI,
+      );
+      expect(delta).toBeGreaterThan(0.18);
+    }
+  });
+
+  it("keeps city visuals free of Rapier colliders", () => {
+    const source = readFileSync(new URL("../../src/levels/nightShiftVisuals.js", import.meta.url), "utf8");
+    expect(source).not.toMatch(/from ["'][^"']*rapier/i);
+    expect(source).not.toMatch(/new RAPIER|RAPIER\./);
+  });
+
+  it("keeps every skyline mass outside the playable tower", () => {
     const plan = createNightShiftCityPlan();
     for (const building of plan.buildings) {
       const radius = Math.hypot(building.x, building.z);
       expect(radius).toBeGreaterThanOrEqual(93.99);
-      expect(building.roofY).toBeLessThanOrEqual(-10);
       expect(building.bottomY).toBeLessThan(building.roofY);
+      if (building.band === "near") {
+        expect(building.roofY).toBeLessThan(48);
+      } else {
+        expect(building.roofY).toBeLessThanOrEqual(-10);
+      }
     }
   });
 
@@ -97,8 +126,8 @@ describe("Night Shift city architecture", () => {
     expect(architecture.extendedSkyline.visible).toBe(false);
     expect(architecture.extendedWindows.visible).toBe(false);
     expect(architecture.extendedNeon.visible).toBe(false);
-    expect(architecture.diagnostics.lowTowerCount).toBe(20);
-    expect(architecture.diagnostics.lowBuildingCount).toBeGreaterThan(20);
+    expect(architecture.diagnostics.lowTowerCount).toBe(15);
+    expect(architecture.diagnostics.lowBuildingCount).toBeGreaterThan(15);
     expect(architecture.diagnostics.lowWindowCount).toBeGreaterThan(0);
     expect(architecture.diagnostics.lowNeonSignCount).toBeGreaterThan(0);
     expect(architecture.diagnostics.lowDrawCalls).toBe(9);
@@ -110,8 +139,8 @@ describe("Night Shift city architecture", () => {
     expect(architecture.extendedSkyline.visible).toBe(true);
     expect(architecture.extendedWindows.visible).toBe(true);
     expect(architecture.extendedNeon.visible).toBe(true);
-    expect(architecture.diagnostics.fullTowerCount).toBe(60);
-    expect(architecture.diagnostics.fullBuildingCount).toBeGreaterThan(60);
+    expect(architecture.diagnostics.fullTowerCount).toBe(49);
+    expect(architecture.diagnostics.fullBuildingCount).toBeGreaterThan(49);
     expect(architecture.diagnostics.fullWindowCount)
       .toBeGreaterThan(architecture.diagnostics.lowWindowCount);
     expect(architecture.diagnostics.fullNeonSignCount)
@@ -134,10 +163,13 @@ describe("Night Shift city architecture", () => {
     );
     const extendedBuildings = plan.buildings.filter((building) => building.detail === "extended");
     const detachedWindows = [];
-    const positions = architecture.extendedWindows.geometry.getAttribute("position");
     const point = new THREE.Vector3();
-    for (let index = 0; index < positions.count; index += 1) {
-      point.fromBufferAttribute(positions, index);
+    const windowMatrix = new THREE.Matrix4();
+    const windowRotation = new THREE.Quaternion();
+    const windowScale = new THREE.Vector3();
+    for (let index = 0; index < architecture.extendedWindows.count; index += 1) {
+      architecture.extendedWindows.getMatrixAt(index, windowMatrix);
+      windowMatrix.decompose(point, windowRotation, windowScale);
       if (!extendedBuildings.some((building) => touchesFacade(point, building))) {
         detachedWindows.push(index);
       }
