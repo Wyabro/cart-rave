@@ -7,7 +7,7 @@ import { recordDiagEvent } from "./utils/diagnostics.js";
 import { getFocusSnapshot, longTasksForGap, readAndResetGapFocusLatch } from "./utils/longTaskProbe.js";
 import { spansOverlapping } from "./utils/perfSpans.js";
 import { tickAiStallWatchdog } from "./utils/aiStallWatchdog.js";
-import { trimPendingForReconcileReplay } from "./utils/reconcileReplay.js";
+import { selectPendingForReconcileReplay } from "./utils/reconcileReplay.js";
 import { headingYawFromQuat, wrapAngleRad } from "./simulation.js";
 import { getRoundClockNowMs } from "./roundClock.js";
 // * FREEZE-TELEMETRY-1 counters live in analytics/matchFrameTelemetry.js (eager leaf) so
@@ -495,19 +495,21 @@ export function runPhysicsStep(loopState, deps, context) {
             // Hard-snap local cart body to host authoritative state
             deps.applySnapshotToCartBody(localCart, cartSnap);
 
-            // Replay outstanding inputs in sequence (bounded — see trimPendingForReconcileReplay).
+            // Replay a continuous oldest-first slice without deleting newer unacked input.
+            // The fixed budget protects Intel clients; retained history prevents high RTT
+            // from turning budget pressure into permanent prediction holes.
             const pendingInputs = deps.getPendingInputs ? deps.getPendingInputs() : [];
             const replayMax = predCfg?.reconcileReplayMaxSteps ?? 8;
-            const dropped = trimPendingForReconcileReplay(pendingInputs, replayMax);
-            if (dropped > 0 && deps.netcode?.noteReconcileReplayTruncate) {
-              deps.netcode.noteReconcileReplayTruncate(dropped);
+            const replaySelection = selectPendingForReconcileReplay(pendingInputs, replayMax);
+            const replayInputs = replaySelection.inputs;
+            if (replaySelection.deferredCount > 0) {
+              deps.netcode?.noteReconcileReplayDeferred?.(replaySelection.deferredCount);
             }
             // * Skip-replay only after multi-tick host silence (≥500ms). Cap-13 combat
-            // * (errMax 5.3m, 4 skips, 3 drops): skip-on-any-truncate hard-snapped the
-            // * body, cleared pending, and zeroed vis offset — "hit then reverse hard".
-            // * After efdca62 (keep oldest N), a truncate still leaves a continuous
-            // * stream from host ack; replaying that is correct. Skip only when the
-            // * snap itself crossed a long gap (stale hold-era pending / desync).
+            // * (errMax 5.3m, 4 skips, 3 historical drops): skip-on-any-budget-pressure
+            // * hard-snapped the body and zeroed vis offset — "hit then reverse hard".
+            // * The selected oldest-N remains continuous from host truth. Skip only when
+            // * the snap itself crossed a long gap (stale hold-era pending / desync).
             const arrivalGapMs = typeof deps.netcode?.getLastSnapshotArrivalGapMs === "function"
               ? deps.netcode.getLastSnapshotArrivalGapMs()
               : 0;
@@ -570,8 +572,8 @@ export function runPhysicsStep(loopState, deps, context) {
                 },
               };
 
-              for (let i = 0; i < pendingInputs.length; i++) {
-                const input = pendingInputs[i];
+              for (let i = 0; i < replayInputs.length; i++) {
+                const input = replayInputs[i];
                 deps.runFixedPhysicsStep({
                   world: deps.world,
                   eventQueue: deps.eventQueue,

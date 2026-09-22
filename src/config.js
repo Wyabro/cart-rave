@@ -428,12 +428,11 @@ export const CONFIG = {
     remoteInputStaleMs: 300,
     // * Max queued remote input frames per peer (drop oldest when exceeded).
     inputJitterQueueMax: 24,
-    // * Non-host prediction history cap (physics-rate samples). ~400 ms at 60 Hz.
-    // * Run-7 Match A: 120 (~2s) fed a reconcile death spiral on the Intel non-host
-    // * (pending hit the cap → 120 Rapier steps/snap → snapHz 40→13 + 72 m teleports)
-    // * while the 4090 host stayed clean. Keep this in the same ballpark as
-    // * prediction.reconcileReplayMaxSteps.
-    predictionPendingInputsMax: 24,
+    // * Non-host prediction history cap (physics-rate samples). 60 ≈ 1s at 60 Hz,
+    // * which retains the measured 718ms ack spike with headroom. History retention
+    // * is separate from replay work: prediction.reconcileReplayMaxSteps remains 12,
+    // * so a longer network window cannot recreate the Intel Rapier-step death spiral.
+    predictionPendingInputsMax: 60,
     // * How long to wait for Cloudflare TURN credentials before opening WebRTC with STUN-only.
     turnCredentialsTimeoutMs: 2500,
     // * Min time between host WebRTC re-offer attempts for the same peer (mid-match recovery).
@@ -474,9 +473,9 @@ export const CONFIG = {
       maxCorrectionM: 6.0,
       // * NET-PERF-1 (run-7): max Rapier fixed-steps per host snapshot on the non-host.
       // * After the body hard-snaps to host truth, only the oldest N unacked inputs are
-      // * replayed (continuous extension of host; newer ones dropped). 12 ≈ 200 ms at
-      // * 60 Hz — covers normal RTT with headroom; Intel retest had ~3% over33 so we can
-      // * afford more than the initial 8 that still felt "hit 1s late".
+      // * replayed (continuous extension of host; newer ones are retained and deferred).
+      // * 12 ≈ 200 ms at 60 Hz. This keeps the Intel replay cost fixed while high-RTT
+      // * clients preserve input history for later acknowledgement windows.
       reconcileReplayMaxSteps: 12,
       // * Run-7 combat retest (efdca62): when host snaps go silent longer than this (ms),
       // * non-host prediction freezes instead of driving a ghost world. Host freezes of
@@ -487,8 +486,8 @@ export const CONFIG = {
       // * so a hitchy non-host does not false-trip hold while the host keeps sending (2e).
       holdAfterSnapGapMs: 150,
       // * Reconcile skip-replay threshold (ms between snapshot tHost stamps). Only long
-      // * host silences hard-snap without replaying; truncating newest under
-      // * reconcileReplayMaxSteps still replays the continuous oldest-N (cap-13).
+      // * host silences hard-snap without replaying; a budgeted reconcile still replays
+      // * the continuous oldest-N while retaining the deferred suffix.
       skipReplayAfterSnapGapMs: 500,
     },
   },

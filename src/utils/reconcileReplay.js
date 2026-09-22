@@ -5,23 +5,25 @@
  * spiral). Cap steps so potato non-hosts stay alive.
  *
  * Pending is oldest-first and already pruned to seq > host ack. Replay must be a
- * *continuous* extension of host truth — keep the **oldest** `maxSteps` frames and
- * drop the newest. (Run-7 hit-delay: keeping newest / dropping oldest punched a
- * hole in the input stream, so the body was reconstructed wrong every snap and
- * combat only "caught up" when a later host snapshot teleported poses — felt like
- * ~1s late hits both ways.)
+ * *continuous* extension of host truth, so select the **oldest** `maxSteps` frames.
+ * Newer frames stay in the live pending history. A later host acknowledgement
+ * advances the window and makes those deferred frames eligible for replay.
  *
- * Mutates `pending` in place (the live netcode array). Returns how many were dropped.
- * @param {{ seq?: number }[]} pending
+ * This function never mutates the live netcode array. Deleting deferred frames here
+ * loses player input whenever acknowledgement latency exceeds the replay budget.
+ * @template T
+ * @param {T[]} pending
  * @param {number} maxSteps
- * @returns {number}
+ * @returns {{ inputs: T[], deferredCount: number }}
  */
-export function trimPendingForReconcileReplay(pending, maxSteps) {
-  if (!Array.isArray(pending) || pending.length === 0) return 0;
-  const cap = Number(maxSteps);
-  if (!(cap > 0) || pending.length <= cap) return 0;
-  const drop = pending.length - cap;
-  // * Drop from the tail (newest). Index 0 stays the first unacked after host ack.
-  pending.splice(cap, drop);
-  return drop;
+export function selectPendingForReconcileReplay(pending, maxSteps) {
+  if (!Array.isArray(pending) || pending.length === 0) {
+    return { inputs: [], deferredCount: 0 };
+  }
+  const cap = Math.max(0, Math.floor(Number(maxSteps) || 0));
+  const replayCount = Math.min(pending.length, cap);
+  return {
+    inputs: pending.slice(0, replayCount),
+    deferredCount: pending.length - replayCount,
+  };
 }

@@ -1076,10 +1076,12 @@ const netFlowStats = {
   reconcileErrLastM: 0,
   reconcileErrMaxM: 0,
   reconcileTeleports: 0,
-  // * NET-PERF-1: how many unacked inputs were dropped because reconcileReplayMaxSteps
-  // * capped the Rapier replay (run-7 Match A death spiral).
-  reconcileReplayDrops: 0,
-  reconcileReplayTrimEvents: 0,
+  // * Reconcile CPU-budget pressure. Deferred steps remain in pendingInputs and can
+  // * enter a later replay window; these counters do not mean input loss.
+  reconcileReplayDeferredSteps: 0,
+  reconcileReplayBudgetEvents: 0,
+  // * True input-history loss when acknowledgement delay exceeds the bounded history.
+  predictionHistoryDrops: 0,
   // * How many reconciles skipped Rapier replay after a long snap gap (run-7 combat).
   reconcileReplaySkips: 0,
   // * NET-LAG-1 input-path proof: local sample → host-applied ack returned in a snapshot.
@@ -1129,8 +1131,9 @@ function resetNetFlowStats() {
   netFlowStats.reconcileErrLastM = 0;
   netFlowStats.reconcileErrMaxM = 0;
   netFlowStats.reconcileTeleports = 0;
-  netFlowStats.reconcileReplayDrops = 0;
-  netFlowStats.reconcileReplayTrimEvents = 0;
+  netFlowStats.reconcileReplayDeferredSteps = 0;
+  netFlowStats.reconcileReplayBudgetEvents = 0;
+  netFlowStats.predictionHistoryDrops = 0;
   netFlowStats.reconcileReplaySkips = 0;
   resetLatencyAccumulator(netFlowStats.inputAckLatency);
   resetLatencyAccumulator(netFlowStats.inputAckActiveLatency);
@@ -1299,14 +1302,14 @@ export function noteReconcileError(errM, teleported) {
 }
 
 /**
- * Count unacked inputs dropped by gameLoop's reconcileReplayMaxSteps cap.
- * @param {number} dropped
+ * Count unacked inputs deferred by gameLoop's fixed replay-step budget.
+ * @param {number} deferred
  */
-export function noteReconcileReplayTruncate(dropped) {
-  const n = Number(dropped) || 0;
+export function noteReconcileReplayDeferred(deferred) {
+  const n = Number(deferred) || 0;
   if (n <= 0) return;
-  netFlowStats.reconcileReplayDrops += n;
-  netFlowStats.reconcileReplayTrimEvents += 1;
+  netFlowStats.reconcileReplayDeferredSteps += n;
+  netFlowStats.reconcileReplayBudgetEvents += 1;
 }
 
 /** Count a reconcile that hard-snapped without replaying (overload / long snap gap). */
@@ -1348,8 +1351,13 @@ export function getNetFlowStats() {
     reconcileErrLastM: Math.round(netFlowStats.reconcileErrLastM * 1000) / 1000,
     reconcileErrMaxM: Math.round(netFlowStats.reconcileErrMaxM * 1000) / 1000,
     reconcileTeleports: netFlowStats.reconcileTeleports,
-    reconcileReplayDrops: netFlowStats.reconcileReplayDrops,
-    reconcileReplayTrimEvents: netFlowStats.reconcileReplayTrimEvents,
+    // * Compatibility for existing capture readers. Replay budgeting no longer drops
+    // * input, so these retired loss counters remain present and stay at zero.
+    reconcileReplayDrops: 0,
+    reconcileReplayTrimEvents: 0,
+    reconcileReplayDeferredSteps: netFlowStats.reconcileReplayDeferredSteps,
+    reconcileReplayBudgetEvents: netFlowStats.reconcileReplayBudgetEvents,
+    predictionHistoryDrops: netFlowStats.predictionHistoryDrops,
     reconcileReplaySkips: netFlowStats.reconcileReplaySkips,
     inputAck: {
       ...summarizeLatency(netFlowStats.inputAckLatency),
@@ -2792,13 +2800,7 @@ export function sampleLocalInputForTick() {
     input: inputFrame,
     tClient: nowMs,
   });
-  // * Cap prediction history so a stalled snapshot stream (ICE grace, host tab
-  // * freeze, migration gap) cannot grow this list without bound. Drop oldest —
-  // * on recovery, reconcile replays only the recent window (same as a long lag spike).
-  const pendingMax = CONFIG.net.predictionPendingInputsMax ?? 120;
-  while (pendingInputs.length > pendingMax) {
-    pendingInputs.shift();
-  }
+  capPendingInputHistory();
 
   if (hostId) {
     if (netTestOn) __dbgInputCounters.sends += 1;
@@ -4687,14 +4689,10 @@ export const __netcodeTestHooks = {
       input: { throttle: 0, steer: 0, nitro: false, hop: false, ...input },
       tClient,
     });
-    const pendingMax = CONFIG.net.predictionPendingInputsMax ?? 120;
-    while (pendingInputs.length > pendingMax) pendingInputs.shift();
+    capPendingInputHistory();
   },
   /** Cap helper used by sampleLocalInputForTick — tests can re-apply after bulk push. */
-  capPendingInputsForTest: () => {
-    const pendingMax = CONFIG.net.predictionPendingInputsMax ?? 120;
-    while (pendingInputs.length > pendingMax) pendingInputs.shift();
-  },
+  capPendingInputsForTest: () => capPendingInputHistory(),
   // * NET-1 rematch spawn reapply (host_spawn mid-arena-swap).
   applyHostSpawnSnapshot: (msg) => applyHostSpawnSnapshot(msg),
   setLastCartsCache: (carts, isSpawn = false) => {
@@ -5006,6 +5004,24 @@ function handleRemoteHostState(state) {
 
 export function getPendingInputs() {
   return pendingInputs;
+}
+
+/**
+ * Bound retained prediction history without changing the separate Rapier replay budget.
+ * Dropping here means the host acknowledgement exceeded the supported history window,
+ * so count it as true input-history loss for F8 evidence.
+ * @returns {number}
+ */
+function capPendingInputHistory() {
+  const configuredMax = Math.floor(Number(CONFIG.net.predictionPendingInputsMax) || 0);
+  const pendingMax = Math.max(1, configuredMax || 120);
+  let dropped = 0;
+  while (pendingInputs.length > pendingMax) {
+    pendingInputs.shift();
+    dropped += 1;
+  }
+  netFlowStats.predictionHistoryDrops += dropped;
+  return dropped;
 }
 
 export function prunePendingInputs(ackSeq, { recordAck = true } = {}) {

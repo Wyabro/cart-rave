@@ -10,6 +10,7 @@ import {
   sampleAuthoritativeCartState,
   getPendingInputs,
   getNetFlowStats,
+  noteReconcileReplayDeferred,
   prunePendingInputs,
   getLatestSnap,
   applyCartState,
@@ -235,6 +236,25 @@ describe("rewind and replay input buffering", () => {
     });
   });
 
+  it("retains the captured 718 ms acknowledgement window", () => {
+    hooks.resetNetState();
+    hooks.resetNetFlowStatsForTest();
+    for (let seq = 1; seq <= 44; seq += 1) {
+      hooks.pushPendingInputForTest(seq, 1000 + ((seq - 1) * (1000 / 60)));
+    }
+    vi.spyOn(performance, "now").mockReturnValue(1718);
+
+    prunePendingInputs(1);
+
+    expect(getNetFlowStats().inputAck).toMatchObject({
+      samples: 1,
+      lastMs: 718,
+      missingSamples: 0,
+    });
+    expect(getNetFlowStats().predictionHistoryDrops).toBe(0);
+    expect(getPendingInputs()[0].seq).toBe(2);
+  });
+
   it("keeps an active-input sample when one ack also covers a newer idle frame", () => {
     hooks.resetNetFlowStatsForTest();
     hooks.pushPendingInputForTest(1, 900, { throttle: 1 });
@@ -275,6 +295,22 @@ describe("rewind and replay input buffering", () => {
       localCandidateType: "srflx",
       remoteCandidateType: "relay",
       relay: true,
+    });
+  });
+
+  it("reports replay budget pressure as deferred work rather than input loss", () => {
+    hooks.resetNetFlowStatsForTest();
+
+    noteReconcileReplayDeferred(2);
+    noteReconcileReplayDeferred(3);
+    noteReconcileReplayDeferred(0);
+
+    expect(getNetFlowStats()).toMatchObject({
+      reconcileReplayDrops: 0,
+      reconcileReplayTrimEvents: 0,
+      reconcileReplayDeferredSteps: 5,
+      reconcileReplayBudgetEvents: 2,
+      predictionHistoryDrops: 0,
     });
   });
 
@@ -339,6 +375,7 @@ describe("rewind and replay input buffering", () => {
     // * Oldest frames dropped — remaining are the newest `max` seqs.
     expect(getPendingInputs()[0].seq).toBe(41);
     expect(getPendingInputs()[max - 1].seq).toBe(max + 40);
+    expect(getNetFlowStats().predictionHistoryDrops).toBe(40);
   });
 });
 
