@@ -1126,6 +1126,7 @@ async function main() {
       getLatestSnap: () => getNetcode()?.getLatestSnap(),
       getAxis: () => Input.getAxis(),
       getPendingInputCount: () => (getNetcode()?.getPendingInputs() ?? []).length,
+      getNetFlowStats: () => getNetcode()?.getNetFlowStats?.() ?? null,
       getPendingMidJoinConnId: () => gameRefs.pendingMidRoundJoinRespawnConnId,
       getInputCounters: () => getNetcode()?.__netcodeTestHooks?.getInputCounters?.(),
       getShouldPredict: () => getNetcode()?.shouldUseClientPrediction() ?? false,

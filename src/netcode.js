@@ -999,6 +999,15 @@ const netFlowStats = {
   reconcileReplayTrimEvents: 0,
   // * How many reconciles skipped Rapier replay after a long snap gap (run-7 combat).
   reconcileReplaySkips: 0,
+  // * NET-LAG-1 input-path proof: local sample → host-applied ack returned in a snapshot.
+  // * No wire field is added: pendingInputs already retains the local sample timestamp,
+  // * and ackSeq already means "host applied through this input sequence".
+  inputAckSamples: 0,
+  inputAckAgeSumMs: 0,
+  inputAckAgeLastMs: 0,
+  inputAckAgeMaxMs: 0,
+  inputAckLastSeq: 0,
+  inputAckMissingSamples: 0,
   lastGapEventMs: 0,
   // * Most recent inter-arrival gap (ms). Prefer tHost delta; wall fallback without tHost.
   // * gameLoop skips replay only when this exceeds prediction.skipReplayAfterSnapGapMs.
@@ -1037,6 +1046,12 @@ function resetNetFlowStats() {
   netFlowStats.reconcileReplayDrops = 0;
   netFlowStats.reconcileReplayTrimEvents = 0;
   netFlowStats.reconcileReplaySkips = 0;
+  netFlowStats.inputAckSamples = 0;
+  netFlowStats.inputAckAgeSumMs = 0;
+  netFlowStats.inputAckAgeLastMs = 0;
+  netFlowStats.inputAckAgeMaxMs = 0;
+  netFlowStats.inputAckLastSeq = 0;
+  netFlowStats.inputAckMissingSamples = 0;
   netFlowStats.lastArrivalGapMs = 0;
   netFlowStats.sendGapCount = 0;
   netFlowStats.sendGapSumMs = 0;
@@ -1219,6 +1234,20 @@ export function getNetFlowStats() {
     reconcileReplayDrops: netFlowStats.reconcileReplayDrops,
     reconcileReplayTrimEvents: netFlowStats.reconcileReplayTrimEvents,
     reconcileReplaySkips: netFlowStats.reconcileReplaySkips,
+    inputAck: {
+      samples: netFlowStats.inputAckSamples,
+      lastMs: netFlowStats.inputAckSamples > 0
+        ? Math.round(netFlowStats.inputAckAgeLastMs)
+        : null,
+      avgMs: netFlowStats.inputAckSamples > 0
+        ? Math.round((netFlowStats.inputAckAgeSumMs / netFlowStats.inputAckSamples) * 10) / 10
+        : null,
+      maxMs: netFlowStats.inputAckSamples > 0
+        ? Math.round(netFlowStats.inputAckAgeMaxMs)
+        : null,
+      lastSeq: netFlowStats.inputAckLastSeq || null,
+      missingSamples: netFlowStats.inputAckMissingSamples,
+    },
     windowMs: netFlowStats.startedMs > 0 ? Math.round(performance.now() - netFlowStats.startedMs) : 0,
     // * NET-RING-1: authoritative-ring traffic quality since the last epoch bump.
     ring: {
@@ -4834,7 +4863,34 @@ export function getPendingInputs() {
   return pendingInputs;
 }
 
-export function prunePendingInputs(ackSeq) {
+export function prunePendingInputs(ackSeq, { recordAck = true } = {}) {
+  const ack = Number(ackSeq);
+  if (
+    recordAck
+    && Number.isFinite(ack)
+    && ack > netFlowStats.inputAckLastSeq
+  ) {
+    let newestAcked = null;
+    for (let index = pendingInputs.length - 1; index >= 0; index -= 1) {
+      const candidate = pendingInputs[index];
+      if (candidate.seq <= ack && candidate.seq > netFlowStats.inputAckLastSeq) {
+        newestAcked = candidate;
+        break;
+      }
+    }
+    if (newestAcked?.tClient != null && Number.isFinite(newestAcked.tClient)) {
+      const ageMs = Math.max(0, performance.now() - newestAcked.tClient);
+      netFlowStats.inputAckSamples += 1;
+      netFlowStats.inputAckAgeLastMs = ageMs;
+      netFlowStats.inputAckAgeSumMs += ageMs;
+      if (ageMs > netFlowStats.inputAckAgeMaxMs) netFlowStats.inputAckAgeMaxMs = ageMs;
+    } else {
+      // * Ack advanced beyond the retained prediction window. Record the evidence gap
+      // * instead of reporting a falsely healthy latency sample.
+      netFlowStats.inputAckMissingSamples += 1;
+    }
+    netFlowStats.inputAckLastSeq = ack;
+  }
   pendingInputs = pendingInputs.filter(item => item.seq > ackSeq);
 }
 

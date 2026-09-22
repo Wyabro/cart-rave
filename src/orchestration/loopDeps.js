@@ -342,7 +342,7 @@ export function createLoopDeps(deps) {
       runFixedPhysicsStep: Simulation.runFixedPhysicsStep,
       getSimulationCallbacks: (isHost) => (isHost ? hostSimCallbacks : clientSimCallbacks),
       getPendingInputs: () => Netcode.getPendingInputs(),
-      prunePendingInputs: (ackSeq) => Netcode.prunePendingInputs(ackSeq),
+      prunePendingInputs: (ackSeq, options) => Netcode.prunePendingInputs(ackSeq, options),
       getLatestSnap: () => Netcode.getLatestSnap(),
       applySnapshotToCartBody: (cartBody, snap) => Netcode.applySnapshotToCartBody(cartBody, snap),
       doRespawn: Entities.doRespawn,

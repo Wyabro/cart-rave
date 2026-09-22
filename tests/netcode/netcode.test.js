@@ -9,6 +9,7 @@ import {
   declashNpcSlotColors,
   sampleAuthoritativeCartState,
   getPendingInputs,
+  getNetFlowStats,
   prunePendingInputs,
   getLatestSnap,
   applyCartState,
@@ -67,7 +68,10 @@ beforeEach(() => {
   hooks.resetNetState();
   GameState.resetRoundToLobby();
 });
-afterEach(() => registerGameCallbacks({}));
+afterEach(() => {
+  vi.restoreAllMocks();
+  registerGameCallbacks({});
+});
 
 describe("bufferAuthoritativeState", () => {
   it("drops stale and duplicate sequence numbers", () => {
@@ -171,9 +175,83 @@ describe("rewind and replay input buffering", () => {
     expect(getPendingInputs()[0].seq).toBe(3);
   });
 
+  it("measures local sample to host-applied acknowledgement age without a wire change", () => {
+    hooks.resetNetFlowStatsForTest();
+    hooks.pushPendingInputForTest(1, 900);
+    hooks.pushPendingInputForTest(2, 950);
+    hooks.pushPendingInputForTest(3, 1000);
+    const now = vi.spyOn(performance, "now").mockReturnValue(1100);
+
+    prunePendingInputs(2);
+    expect(getNetFlowStats().inputAck).toEqual({
+      samples: 1,
+      lastMs: 150,
+      avgMs: 150,
+      maxMs: 150,
+      lastSeq: 2,
+      missingSamples: 0,
+    });
+
+    now.mockReturnValue(1200);
+    prunePendingInputs(3);
+    expect(getNetFlowStats().inputAck).toEqual({
+      samples: 2,
+      lastMs: 200,
+      avgMs: 175,
+      maxMs: 200,
+      lastSeq: 3,
+      missingSamples: 0,
+    });
+
+    // Duplicate acks must not bias the sample distribution.
+    prunePendingInputs(3);
+    expect(getNetFlowStats().inputAck.samples).toBe(2);
+  });
+
+  it("reports when an ack advances beyond the retained prediction window", () => {
+    hooks.resetNetFlowStatsForTest();
+    const pendingMax = CONFIG.net.predictionPendingInputsMax ?? 120;
+    for (let seq = 1; seq <= pendingMax + 1; seq += 1) {
+      hooks.pushPendingInputForTest(seq, 1000 + seq);
+    }
+
+    prunePendingInputs(1);
+    expect(getNetFlowStats().inputAck).toMatchObject({
+      samples: 0,
+      lastSeq: 1,
+      missingSamples: 1,
+    });
+  });
+
+  it("does not count a clear-all sentinel as a host acknowledgement", () => {
+    hooks.resetNetFlowStatsForTest();
+    hooks.pushPendingInputForTest(1, 900);
+
+    prunePendingInputs(Number.MAX_SAFE_INTEGER, { recordAck: false });
+    expect(getPendingInputs()).toHaveLength(0);
+    expect(getNetFlowStats().inputAck).toEqual({
+      samples: 0,
+      lastMs: null,
+      avgMs: null,
+      maxMs: null,
+      lastSeq: null,
+      missingSamples: 0,
+    });
+
+    hooks.pushPendingInputForTest(2, 1100);
+    vi.spyOn(performance, "now").mockReturnValue(1200);
+    prunePendingInputs(2);
+    expect(getNetFlowStats().inputAck).toMatchObject({
+      samples: 1,
+      lastMs: 100,
+      lastSeq: 2,
+      missingSamples: 0,
+    });
+  });
+
   it("resetClientPredictionState clears pending inputs and the snapshot buffer", () => {
     // * Drain any leftover frames from prior cases (pendingInputs is module state).
-    prunePendingInputs(Number.MAX_SAFE_INTEGER);
+    prunePendingInputs(Number.MAX_SAFE_INTEGER, { recordAck: false });
     getPendingInputs().push({ seq: 9, input: { throttle: 1, steer: 0 } });
     hooks.bufferState(1000, 50, snap(1, 0, 0));
     expect(getPendingInputs().length).toBe(1);

@@ -273,7 +273,7 @@ export function applySlowMoToDt(deps, dt) {
  * @property {(isHost: boolean) => object} getSimulationCallbacks
  * @property {(args: object) => void} runFixedPhysicsStep
  * @property {() => Array<object>} [getPendingInputs]
- * @property {(ackSeq: number) => void} [prunePendingInputs]
+ * @property {(ackSeq: number, options?: { recordAck?: boolean }) => void} [prunePendingInputs]
  * @property {() => object | null} [getLatestSnap]
  * @property {(cart: object, snap: object) => void} [applySnapshotToCartBody]
  * @property {(cart: object) => void} [doRespawn]
@@ -452,11 +452,11 @@ export function runPhysicsStep(loopState, deps, context) {
               deps.applySnapshotToCartBody(localCart, cartSnap);
               clearReconcileVisOffset(localCart); // Respawn teleports clean — no eased correction
               snapPhysicsPrevToBody(localCart);
-              deps.prunePendingInputs(99999999); // Clear all inputs on respawn
+              deps.prunePendingInputs(99999999, { recordAck: false }); // Clear all inputs on respawn
             } else {
               // * Keep death pose glued to host while shatter plays (prediction is held).
               // * Drop ALL pending — pre-death throttle must not survive into respawn replay.
-              deps.prunePendingInputs(99999999);
+              deps.prunePendingInputs(99999999, { recordAck: false });
               if (cartSnap.s === true) {
                 deps.applySnapshotToCartBody(localCart, cartSnap);
                 clearReconcileVisOffset(localCart);
@@ -469,7 +469,7 @@ export function runPhysicsStep(loopState, deps, context) {
             // * drive-through. Clear pending so respawn does not inherit ghost throttle.
             // * Tip-over grocery spill alone (s:true, no shatter/respawn) must NOT enter
             // * here — that froze non-host drive (cap-84).
-            deps.prunePendingInputs(99999999);
+            deps.prunePendingInputs(99999999, { recordAck: false });
             deps.applySnapshotToCartBody(localCart, cartSnap);
             clearReconcileVisOffset(localCart);
             snapPhysicsPrevToBody(localCart);
@@ -485,7 +485,7 @@ export function runPhysicsStep(loopState, deps, context) {
               deps.applySnapshotToCartBody(localCart, cartSnap);
               clearReconcileVisOffset(localCart);
               snapPhysicsPrevToBody(localCart);
-              deps.prunePendingInputs(99999999);
+              deps.prunePendingInputs(99999999, { recordAck: false });
             } else {
 
             // * Remember the predicted pose so the visual can ease across the correction
@@ -518,7 +518,7 @@ export function runPhysicsStep(loopState, deps, context) {
               // * Drop the untrusted pending stream — leaving it caused post-stall
               // * "phantom movement" when the next healthy snap replayed silence-era
               // * throttle (Intel retest after 4a9f7f8).
-              deps.prunePendingInputs(99999999);
+              deps.prunePendingInputs(99999999, { recordAck: false });
               // * Record pre→host error for F8 probes, then clear visual offset so a
               // * multi-meter post-stall correction does not ease-slide across the arena.
               if (havePrePose) {

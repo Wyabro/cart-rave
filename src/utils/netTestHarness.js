@@ -24,6 +24,7 @@
  * @property {() => Array<any> | null} getCarts allCartsRef (per-slot; holes are null).
  * @property {() => Array<any> | null} getNetSlots Per-slot lobby records ({connId,kind,color}|null).
  * @property {() => { seq?: number, carts?: Array<any> } | null} getLatestSnap Newest host snapshot.
+ * @property {() => object} [getNetFlowStats] Snapshot cadence, reconcile, and input-ack metrics.
  * @property {() => { forward: number, turn: number } | null} [getAxis] Live sampled input axis (debug).
  * @property {() => number} [getPendingInputCount] Unacked predicted input frames (debug).
  * @property {() => object} [getInputCounters] Netcode input-path counters (drain/sample/send/ingest).
@@ -118,6 +119,7 @@ export function installNetTestHarness(deps) {
         latestSnapSeq: snap ? (snap.seq ?? null) : null,
         axis: deps.getAxis ? deps.getAxis() : null,
         pending: deps.getPendingInputCount ? deps.getPendingInputCount() : null,
+        flow: deps.getNetFlowStats ? deps.getNetFlowStats() : null,
         counters: deps.getInputCounters ? deps.getInputCounters() : null,
         predict: deps.getShouldPredict ? deps.getShouldPredict() : null,
         mode: deps.getMode ? deps.getMode() : null,
