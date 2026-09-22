@@ -46,10 +46,11 @@ files. **CG-ZIP-PT-1** PASS (local Playwright unzip + `lvh.me`).
 **ONBOARD-COPY-1** closed 09-14 — prod `39010c93` Worker
 `0c962927-fae5-49ba-877e-19b814190ec8`. **ONBOARD-COPY-PT-1** Wyatt PASS.
 **MENU-MUSIC-FIRST-PT-1** Wyatt PASS 09-01 on prod `d16fd523`.
-**NET-LAG-1-PT-1** PASS 09-14 (trail gone); residual lag open. Measurement slice shipped 09-22
-(`78b75efd`, Worker `a115d29f`): prod Quickplay 6/6, Friends 14/14; non-host input ack
-59 samples, 128.6 ms average, 269 ms maximum, 0 missing. This is automated protocol proof,
-not a human feel PASS. Do not retouch Classic / Sundial /
+**NET-LAG-1-PT-1** PASS 09-14 (trail gone); residual lag open. Measurement shipped 09-22
+(`814a385f`, Worker `e2e61343`): prod Quickplay 6/6, Friends 14/14; headless 128.6 ms input-ack
+was not ping or feel proof. Unshipped visible same-machine split: prediction 13.9 ms; active ack
+56.2 ms average / 68 ms p95; host queue 45.5 ms average / 56 ms p95; RTT 11.1 ms average /
+49 ms p95. Real 2-PC internet proof and human feel remain owed. Do not retouch Classic / Sundial /
 Storerooms floors. Do not reopen **CART-POP-1**. Stay in this phase until
 Wyatt advances the marker.
 **GLITCH-TECH-1** shipped 09-18 — prod `4ab166a8` Worker
@@ -103,7 +104,7 @@ Live rows only. Shipped and closed cards live in
 | CG-ZIP-1 | CrazyGames Basic Launch zip of `dist/` | ✅ CLOSED 09-02 — 23.96 MB / 182 files; **CG-ZIP-PT-1** PASS |
 | SITE-TRUST-1 | public information and analytics choice | ✅ CLOSED 09-14 — **SITE-TRUST-PT-1** PASS (prod `c58c96ff`) |
 | ONBOARD-COPY-1 | HOW TO PLAY AISLE 1+2 copy matches live input | ✅ CLOSED 09-14 — Wyatt PASS **ONBOARD-COPY-PT-1** on prod `39010c93` |
-| NET-LAG-1 | Friends/QP lag + rubber-band (F8 both machines) | measurement shipped `78b75efd`; prod QP 6/6 + Friends 14/14; input ack avg 128.6 ms / max 269 ms / 0 missing; real 2-PC feel test still owed |
+| NET-LAG-1 | Friends/QP lag + rubber-band (F8 both machines) | split measurement unshipped; visible local run: prediction 13.9 ms, active ack avg 56.2 / p95 68 ms, host queue avg 45.5 / p95 56 ms; real 2-PC internet + feel test owed |
 | RAM-ARREST-1 | silent ram on solver-arrested contact (SNAP-FINITE-PT-1 FAIL) | ✅ shipped `6c5c139b` Worker `8476ccfb`; **SNAP-FINITE-PT-1** retest owed |
 | AUDIO-RAM-IMPACT-1 | ram crash SFX inaudible + soft taps silent (external playtest) | ✅ CLOSED 08-21 — Wyatt PT PASS on prod `67778a9f` (both rounds: `c4e7f082` + `0644094f`) |
 | ONBOARD-WEBP-1 | HOW TO PLAY WebP playback + fallback | ✅ CLOSED 08-23 — Wyatt PASS **ONBOARD-WEBP-PT-1** on prod `14658bf8` (Worker `e14acbd4`) |
@@ -113,7 +114,7 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. **SNAP-FINITE-PT-1** `[2pc]` retest owed on prod `6c5c139b`. **NET-LAG-1** residual lag open. Shipped 09-14: **CLUTCH-SLOMO-1** (VERIFY_OK `index-D28UWcmx.js`, 28 refs, 0×404, symbol live). Owed: **CLUTCH-SLOMO-PT-1** (prod). Closed 09-14: **TASTE-P4-1** · **CG-COVERS-1** · **CAM-COMFORT-1** · **ONBOARD-COPY-PT-1** · **ONBOARD-COPY-1** · **NET-LAG-1-PT-1** (trail). Deferred: **SHARD-PT-2** (launch day, held open).
+1. **NET-LAG-1** ship the split measurement only on Wyatt's `ship it`, then run the real 2-PC internet + feel test. **SNAP-FINITE-PT-1** `[2pc]` retest owed on prod `6c5c139b`. Shipped 09-14: **CLUTCH-SLOMO-1** (VERIFY_OK `index-D28UWcmx.js`, 28 refs, 0×404, symbol live). Owed: **CLUTCH-SLOMO-PT-1** (prod). Closed 09-14: **TASTE-P4-1** · **CG-COVERS-1** · **CAM-COMFORT-1** · **ONBOARD-COPY-PT-1** · **ONBOARD-COPY-1** · **NET-LAG-1-PT-1** (trail). Deferred: **SHARD-PT-2** (launch day, held open).
    Closed 09-02: **CG-ZIP-PT-1** · **CG-ZIP-1** · **MENU-SHORTWIN-PT-1**.
    Closed 09-01: **MENU-MUSIC-FIRST-PT-1** · **SOFTGL-DISMISS-PT-1** ·
    **RESTART-ROUND-PT-1** · **PAUSE-SLIDER-DELAY-PT-1**.

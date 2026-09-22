@@ -43,6 +43,7 @@ class MockRTCPeerConnection {
     this.addedIce = [];
     this.closed = false;
     this.restartIceCalls = 0;
+    this.statsReport = new Map();
     createdPCs.push(this);
   }
   createDataChannel(label) { const dc = new MockRTCDataChannel(label); this.dataChannels.push(dc); return dc; }
@@ -53,6 +54,7 @@ class MockRTCPeerConnection {
   async addIceCandidate(c) { this.addedIce.push(c); }
   setConfiguration(config) { this.config = config; }
   restartIce() { this.restartIceCalls += 1; }
+  async getStats() { return this.statsReport; }
   close() { this.closed = true; this.iceConnectionState = "closed"; }
 }
 
@@ -106,6 +108,52 @@ describe("host is the offerer (createOffer is now reachable)", () => {
     await P2P.initiateP2PConnection("clientA");
     await P2P.handleSignalingMessage({ type: MSG.sdpAnswer, fromConnId: "clientA", sdp: { type: "answer", sdp: "A" } });
     expect(createdPCs[0].remoteDescription).toEqual({ type: "answer", sdp: "A" }); // ✓ SDP answer received
+  });
+});
+
+describe("selected WebRTC transport stats", () => {
+  it("reports RTT and relay use from the transport-selected candidate pair", async () => {
+    P2P.initP2P({ host: true, sendSignal: () => {}, onInput: () => {}, onState: () => {} });
+    await P2P.initiateP2PConnection("clientA");
+    createdPCs[0].statsReport = new Map([
+      ["transport", { id: "transport", type: "transport", selectedCandidatePairId: "pair" }],
+      ["pair", {
+        id: "pair", type: "candidate-pair", state: "succeeded", currentRoundTripTime: 0.052,
+        localCandidateId: "local", remoteCandidateId: "remote",
+      }],
+      ["local", { id: "local", type: "local-candidate", candidateType: "host" }],
+      ["remote", { id: "remote", type: "remote-candidate", candidateType: "relay" }],
+    ]);
+
+    await expect(P2P.getPeerTransportStats("clientA")).resolves.toEqual({
+      rttMs: 52,
+      localCandidateType: "host",
+      remoteCandidateType: "relay",
+      relay: true,
+    });
+  });
+
+  it("falls back to a nominated successful pair and rejects missing RTT", async () => {
+    P2P.initP2P({ host: true, sendSignal: () => {}, onInput: () => {}, onState: () => {} });
+    await P2P.initiateP2PConnection("clientA");
+    createdPCs[0].statsReport = new Map([
+      ["pair", {
+        id: "pair", type: "candidate-pair", state: "succeeded", nominated: true,
+        currentRoundTripTime: 0.031, localCandidateId: "local", remoteCandidateId: "remote",
+      }],
+      ["local", { id: "local", candidateType: "srflx" }],
+      ["remote", { id: "remote", candidateType: "host" }],
+    ]);
+    await expect(P2P.getPeerTransportStats("clientA")).resolves.toMatchObject({
+      rttMs: 31,
+      relay: false,
+    });
+
+    createdPCs[0].statsReport = new Map([
+      ["pair", { id: "pair", type: "candidate-pair", state: "succeeded", nominated: true }],
+    ]);
+    await expect(P2P.getPeerTransportStats("clientA")).resolves.toBeNull();
+    await expect(P2P.getPeerTransportStats("missing")).resolves.toBeNull();
   });
 });
 

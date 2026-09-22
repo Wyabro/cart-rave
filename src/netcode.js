@@ -958,6 +958,7 @@ export function clearHostRemoteInputs() {
   remoteInputsByConnId.clear();
   remoteInputQueuesByConnId.clear();
   remoteNitroLatchedByConnId.clear();
+  hostInputTimingByConnId.clear();
 }
 
 /**
@@ -981,6 +982,88 @@ export function resetClientPredictionState() {
 // * (cap-16/24: dozens of gaps>100 while host sendGapsOver100 was 1–3). Gaps + silence
 // * now prefer host tHost domain so hold/skip-replay track host send, not client rAF.
 // * Host-side sendGap* counters remain the ground truth on the host F8.
+const LATENCY_BUCKET_CEILINGS_MS = [33, 50, 75, 100, 150, 250, 500];
+const LATENCY_QUANTILE_MAX_MS = 2000;
+
+function createLatencyAccumulator() {
+  return {
+    samples: 0,
+    sumMs: 0,
+    lastMs: 0,
+    maxMs: 0,
+    buckets: new Array(8).fill(0),
+    quantiles: new Uint32Array(LATENCY_QUANTILE_MAX_MS + 2),
+    quantileMinMs: LATENCY_QUANTILE_MAX_MS + 1,
+    quantileMaxMs: 0,
+  };
+}
+
+function resetLatencyAccumulator(acc) {
+  acc.samples = 0;
+  acc.sumMs = 0;
+  acc.lastMs = 0;
+  acc.maxMs = 0;
+  acc.buckets.fill(0);
+  acc.quantiles.fill(0);
+  acc.quantileMinMs = LATENCY_QUANTILE_MAX_MS + 1;
+  acc.quantileMaxMs = 0;
+}
+
+function recordLatency(acc, valueMs) {
+  const ms = Math.max(0, Number(valueMs) || 0);
+  acc.samples += 1;
+  acc.sumMs += ms;
+  acc.lastMs = ms;
+  if (ms > acc.maxMs) acc.maxMs = ms;
+  const bucket = LATENCY_BUCKET_CEILINGS_MS.findIndex((ceiling) => ms <= ceiling);
+  acc.buckets[bucket >= 0 ? bucket : LATENCY_BUCKET_CEILINGS_MS.length] += 1;
+  const quantileMs = Math.min(Math.round(ms), LATENCY_QUANTILE_MAX_MS + 1);
+  acc.quantiles[quantileMs] += 1;
+  acc.quantileMinMs = Math.min(acc.quantileMinMs, quantileMs);
+  acc.quantileMaxMs = Math.max(acc.quantileMaxMs, quantileMs);
+}
+
+function summarizeLatency(acc) {
+  let p95Ms = null;
+  if (acc.samples > 0) {
+    const rank = Math.ceil(acc.samples * 0.95);
+    let seen = 0;
+    for (let index = acc.quantileMinMs; index <= acc.quantileMaxMs; index += 1) {
+      seen += acc.quantiles[index];
+      if (seen >= rank) {
+        p95Ms = index <= LATENCY_QUANTILE_MAX_MS ? index : Math.round(acc.maxMs);
+        break;
+      }
+    }
+  }
+  return {
+    samples: acc.samples,
+    lastMs: acc.samples > 0 ? Math.round(acc.lastMs) : null,
+    avgMs: acc.samples > 0 ? Math.round((acc.sumMs / acc.samples) * 10) / 10 : null,
+    p95Ms,
+    maxMs: acc.samples > 0 ? Math.round(acc.maxMs) : null,
+    buckets: {
+      le33: acc.buckets[0], le50: acc.buckets[1], le75: acc.buckets[2],
+      le100: acc.buckets[3], le150: acc.buckets[4], le250: acc.buckets[5],
+      le500: acc.buckets[6], gt500: acc.buckets[7],
+    },
+  };
+}
+
+function isActiveInput(input) {
+  return Boolean(
+    Math.abs(Number(input?.throttle) || 0) > 0.01
+    || Math.abs(Number(input?.steer) || 0) > 0.01
+    || input?.nitro
+    || input?.hop,
+  );
+}
+
+const hostInputTimingByConnId = new Map();
+let transportStatsSampleStartedMs = -Infinity;
+let transportStatsSampleInFlight = false;
+let netFlowStatsGeneration = 0;
+
 const netFlowStats = {
   startedMs: 0,
   lastArriveMs: 0,
@@ -1002,12 +1085,14 @@ const netFlowStats = {
   // * NET-LAG-1 input-path proof: local sample → host-applied ack returned in a snapshot.
   // * No wire field is added: pendingInputs already retains the local sample timestamp,
   // * and ackSeq already means "host applied through this input sequence".
-  inputAckSamples: 0,
-  inputAckAgeSumMs: 0,
-  inputAckAgeLastMs: 0,
-  inputAckAgeMaxMs: 0,
+  inputAckLatency: createLatencyAccumulator(),
+  inputAckActiveLatency: createLatencyAccumulator(),
   inputAckLastSeq: 0,
   inputAckMissingSamples: 0,
+  transportRttLatency: createLatencyAccumulator(),
+  transportLocalCandidateType: null,
+  transportRemoteCandidateType: null,
+  transportRelay: null,
   lastGapEventMs: 0,
   // * Most recent inter-arrival gap (ms). Prefer tHost delta; wall fallback without tHost.
   // * gameLoop skips replay only when this exceeds prediction.skipReplayAfterSnapGapMs.
@@ -1033,6 +1118,7 @@ const netFlowStats = {
 };
 
 function resetNetFlowStats() {
+  netFlowStatsGeneration += 1;
   netFlowStats.startedMs = performance.now();
   netFlowStats.lastArriveMs = 0;
   netFlowStats.lastTHost = 0;
@@ -1046,12 +1132,17 @@ function resetNetFlowStats() {
   netFlowStats.reconcileReplayDrops = 0;
   netFlowStats.reconcileReplayTrimEvents = 0;
   netFlowStats.reconcileReplaySkips = 0;
-  netFlowStats.inputAckSamples = 0;
-  netFlowStats.inputAckAgeSumMs = 0;
-  netFlowStats.inputAckAgeLastMs = 0;
-  netFlowStats.inputAckAgeMaxMs = 0;
+  resetLatencyAccumulator(netFlowStats.inputAckLatency);
+  resetLatencyAccumulator(netFlowStats.inputAckActiveLatency);
   netFlowStats.inputAckLastSeq = 0;
   netFlowStats.inputAckMissingSamples = 0;
+  resetLatencyAccumulator(netFlowStats.transportRttLatency);
+  netFlowStats.transportLocalCandidateType = null;
+  netFlowStats.transportRemoteCandidateType = null;
+  netFlowStats.transportRelay = null;
+  transportStatsSampleStartedMs = -Infinity;
+  transportStatsSampleInFlight = false;
+  hostInputTimingByConnId.clear();
   netFlowStats.lastArrivalGapMs = 0;
   netFlowStats.sendGapCount = 0;
   netFlowStats.sendGapSumMs = 0;
@@ -1142,6 +1233,32 @@ function noteSnapshotArrival(tHost) {
   if (tHostValid && (netFlowStats.lastTHost <= 0 || tHost > netFlowStats.lastTHost)) {
     netFlowStats.lastTHost = tHost;
   }
+  maybeSampleTransportStats(nowMs);
+}
+
+function maybeSampleTransportStats(nowMs) {
+  if (isHost || !hostId || transportStatsSampleInFlight) return;
+  if (nowMs - transportStatsSampleStartedMs < 1000) return;
+  transportStatsSampleStartedMs = nowMs;
+  transportStatsSampleInFlight = true;
+  const generation = netFlowStatsGeneration;
+  void P2P.getPeerTransportStats(hostId)
+    .then((stats) => {
+      if (!stats || generation !== netFlowStatsGeneration) return;
+      recordTransportStats(stats);
+    })
+    .catch(() => {})
+    .finally(() => {
+      if (generation === netFlowStatsGeneration) transportStatsSampleInFlight = false;
+    });
+}
+
+function recordTransportStats(stats) {
+  if (!stats || !Number.isFinite(stats.rttMs)) return;
+  recordLatency(netFlowStats.transportRttLatency, stats.rttMs);
+  netFlowStats.transportLocalCandidateType = stats.localCandidateType ?? null;
+  netFlowStats.transportRemoteCandidateType = stats.remoteCandidateType ?? null;
+  netFlowStats.transportRelay = typeof stats.relay === "boolean" ? stats.relay : null;
 }
 
 /**
@@ -1235,19 +1352,23 @@ export function getNetFlowStats() {
     reconcileReplayTrimEvents: netFlowStats.reconcileReplayTrimEvents,
     reconcileReplaySkips: netFlowStats.reconcileReplaySkips,
     inputAck: {
-      samples: netFlowStats.inputAckSamples,
-      lastMs: netFlowStats.inputAckSamples > 0
-        ? Math.round(netFlowStats.inputAckAgeLastMs)
-        : null,
-      avgMs: netFlowStats.inputAckSamples > 0
-        ? Math.round((netFlowStats.inputAckAgeSumMs / netFlowStats.inputAckSamples) * 10) / 10
-        : null,
-      maxMs: netFlowStats.inputAckSamples > 0
-        ? Math.round(netFlowStats.inputAckAgeMaxMs)
-        : null,
+      ...summarizeLatency(netFlowStats.inputAckLatency),
+      active: summarizeLatency(netFlowStats.inputAckActiveLatency),
       lastSeq: netFlowStats.inputAckLastSeq || null,
       missingSamples: netFlowStats.inputAckMissingSamples,
     },
+    transport: {
+      ...summarizeLatency(netFlowStats.transportRttLatency),
+      localCandidateType: netFlowStats.transportLocalCandidateType,
+      remoteCandidateType: netFlowStats.transportRemoteCandidateType,
+      relay: netFlowStats.transportRelay,
+    },
+    hostInput: Object.fromEntries(
+      [...hostInputTimingByConnId.entries()].map(([connId, timing]) => [connId, {
+        queue: summarizeLatency(timing.queue),
+        active: summarizeLatency(timing.active),
+      }]),
+    ),
     windowMs: netFlowStats.startedMs > 0 ? Math.round(performance.now() - netFlowStats.startedMs) : 0,
     // * NET-RING-1: authoritative-ring traffic quality since the last epoch bump.
     ring: {
@@ -2444,6 +2565,7 @@ export function disconnectPartySession() {
   remoteInputQueuesByConnId = new Map();
   remoteNitroLatchedByConnId = new Map();
   hostLastProcessedInputSeq = new Map();
+  hostInputTimingByConnId.clear();
   pendingInputs = [];
   callbacks.resetReconciliationState();
 }
@@ -2730,6 +2852,7 @@ export function setAuthorityMode(nextIsHost) {
     remoteInputQueuesByConnId.clear();
     remoteNitroLatchedByConnId.clear();
     hostLastProcessedInputSeq.clear();
+    hostInputTimingByConnId.clear();
     pendingInputs = [];
     callbacks.resetReconciliationState();
 
@@ -2950,6 +3073,7 @@ function applyHostMigration(msg) {
   remoteInputQueuesByConnId.clear();
   remoteNitroLatchedByConnId.clear();
   hostLastProcessedInputSeq.clear();
+  hostInputTimingByConnId.clear();
   pendingInputs = [];
   inputSeq = 0;
   resetClientPredictionState();
@@ -3719,6 +3843,9 @@ export function initNetcode(roomOverride) {
         for (const id of hostLastProcessedInputSeq.keys()) {
           if (!liveConnIds.has(id)) hostLastProcessedInputSeq.delete(id);
         }
+        for (const id of hostInputTimingByConnId.keys()) {
+          if (!liveConnIds.has(id)) hostInputTimingByConnId.delete(id);
+        }
         for (const id of peerReconnectNotBeforeMs.keys()) {
           if (!liveConnIds.has(id)) peerReconnectNotBeforeMs.delete(id);
         }
@@ -4432,6 +4559,7 @@ export const __netcodeTestHooks = {
     remoteInputQueuesByConnId = new Map();
     remoteInputsByConnId = new Map();
     remoteNitroLatchedByConnId = new Map();
+    hostInputTimingByConnId.clear();
     pendingInputs = [];
     inputSeq = 0;
     recentHostFallByVictim.clear();
@@ -4539,16 +4667,24 @@ export const __netcodeTestHooks = {
   drainRemoteInputJitterBuffers: () => drainRemoteInputJitterBuffers(),
   getHostLastProcessedInputSeq: (connId) => hostLastProcessedInputSeq.get(connId) || 0,
   getRemoteInputQueueLength: (connId) => remoteInputQueuesByConnId.get(connId)?.length ?? 0,
+  getHostInputTimingForTest: (connId) => {
+    const timing = hostInputTimingByConnId.get(connId);
+    return timing ? {
+      queue: summarizeLatency(timing.queue),
+      active: summarizeLatency(timing.active),
+    } : null;
+  },
   getRemoteNitroLatched: (connId) => remoteNitroLatchedByConnId.get(connId),
   getInputCounters: () => ({ ...__dbgInputCounters }),
   /** Push synthetic pending prediction frames (non-host history). */
   /** 2e: host-domain snap gap / silence unit tests. */
   noteSnapshotArrivalForTest: (tHost) => noteSnapshotArrival(tHost),
   resetNetFlowStatsForTest: () => resetNetFlowStats(),
-  pushPendingInputForTest: (seq, tClient = performance.now()) => {
+  recordTransportStatsForTest: (stats) => recordTransportStats(stats),
+  pushPendingInputForTest: (seq, tClient = performance.now(), input = {}) => {
     pendingInputs.push({
       seq,
-      input: { throttle: 0, steer: 0, nitro: false, hop: false },
+      input: { throttle: 0, steer: 0, nitro: false, hop: false, ...input },
       tClient,
     });
     const pendingMax = CONFIG.net.predictionPendingInputsMax ?? 120;
@@ -4654,6 +4790,15 @@ function drainRemoteInputJitterBuffers() {
       const applied = queue.shift();
       if (netTestOn) __dbgInputCounters.drainApplied += 1;
       appliedAny = true;
+
+      let timing = hostInputTimingByConnId.get(connId);
+      if (!timing) {
+        timing = { queue: createLatencyAccumulator(), active: createLatencyAccumulator() };
+        hostInputTimingByConnId.set(connId, timing);
+      }
+      const queueAgeMs = now - applied.t;
+      recordLatency(timing.queue, queueAgeMs);
+      if (isActiveInput(applied)) recordLatency(timing.active, queueAgeMs);
 
       if (applied.seq > 0) {
         const existingSeq = hostLastProcessedInputSeq.get(connId) || 0;
@@ -4871,23 +5016,30 @@ export function prunePendingInputs(ackSeq, { recordAck = true } = {}) {
     && ack > netFlowStats.inputAckLastSeq
   ) {
     let newestAcked = null;
+    let newestActiveAcked = null;
     for (let index = pendingInputs.length - 1; index >= 0; index -= 1) {
       const candidate = pendingInputs[index];
       if (candidate.seq <= ack && candidate.seq > netFlowStats.inputAckLastSeq) {
-        newestAcked = candidate;
-        break;
+        if (!newestAcked) newestAcked = candidate;
+        if (isActiveInput(candidate.input)) {
+          newestActiveAcked = candidate;
+          break;
+        }
       }
     }
     if (newestAcked?.tClient != null && Number.isFinite(newestAcked.tClient)) {
       const ageMs = Math.max(0, performance.now() - newestAcked.tClient);
-      netFlowStats.inputAckSamples += 1;
-      netFlowStats.inputAckAgeLastMs = ageMs;
-      netFlowStats.inputAckAgeSumMs += ageMs;
-      if (ageMs > netFlowStats.inputAckAgeMaxMs) netFlowStats.inputAckAgeMaxMs = ageMs;
+      recordLatency(netFlowStats.inputAckLatency, ageMs);
     } else {
       // * Ack advanced beyond the retained prediction window. Record the evidence gap
       // * instead of reporting a falsely healthy latency sample.
       netFlowStats.inputAckMissingSamples += 1;
+    }
+    if (newestActiveAcked?.tClient != null && Number.isFinite(newestActiveAcked.tClient)) {
+      recordLatency(
+        netFlowStats.inputAckActiveLatency,
+        Math.max(0, performance.now() - newestActiveAcked.tClient),
+      );
     }
     netFlowStats.inputAckLastSeq = ack;
   }

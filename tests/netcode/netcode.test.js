@@ -178,7 +178,7 @@ describe("rewind and replay input buffering", () => {
   it("measures local sample to host-applied acknowledgement age without a wire change", () => {
     hooks.resetNetFlowStatsForTest();
     hooks.pushPendingInputForTest(1, 900);
-    hooks.pushPendingInputForTest(2, 950);
+    hooks.pushPendingInputForTest(2, 950, { throttle: 1 });
     hooks.pushPendingInputForTest(3, 1000);
     const now = vi.spyOn(performance, "now").mockReturnValue(1100);
 
@@ -187,7 +187,13 @@ describe("rewind and replay input buffering", () => {
       samples: 1,
       lastMs: 150,
       avgMs: 150,
+      p95Ms: 150,
       maxMs: 150,
+      buckets: {
+        le33: 0, le50: 0, le75: 0, le100: 0,
+        le150: 1, le250: 0, le500: 0, gt500: 0,
+      },
+      active: expect.objectContaining({ samples: 1, p95Ms: 150 }),
       lastSeq: 2,
       missingSamples: 0,
     });
@@ -198,7 +204,13 @@ describe("rewind and replay input buffering", () => {
       samples: 2,
       lastMs: 200,
       avgMs: 175,
+      p95Ms: 200,
       maxMs: 200,
+      buckets: {
+        le33: 0, le50: 0, le75: 0, le100: 0,
+        le150: 1, le250: 1, le500: 0, gt500: 0,
+      },
+      active: expect.objectContaining({ samples: 1, p95Ms: 150 }),
       lastSeq: 3,
       missingSamples: 0,
     });
@@ -223,6 +235,49 @@ describe("rewind and replay input buffering", () => {
     });
   });
 
+  it("keeps an active-input sample when one ack also covers a newer idle frame", () => {
+    hooks.resetNetFlowStatsForTest();
+    hooks.pushPendingInputForTest(1, 900, { throttle: 1 });
+    hooks.pushPendingInputForTest(2, 950);
+    vi.spyOn(performance, "now").mockReturnValue(1100);
+
+    prunePendingInputs(2);
+
+    expect(getNetFlowStats().inputAck).toMatchObject({
+      samples: 1,
+      lastMs: 150,
+      active: { samples: 1, lastMs: 200, p95Ms: 200 },
+      lastSeq: 2,
+    });
+  });
+
+  it("summarizes WebRTC RTT and selected candidate types", () => {
+    hooks.resetNetFlowStatsForTest();
+    hooks.recordTransportStatsForTest({
+      rttMs: 41.2,
+      localCandidateType: "srflx",
+      remoteCandidateType: "relay",
+      relay: true,
+    });
+    hooks.recordTransportStatsForTest({
+      rttMs: 62.6,
+      localCandidateType: "srflx",
+      remoteCandidateType: "relay",
+      relay: true,
+    });
+
+    expect(getNetFlowStats().transport).toMatchObject({
+      samples: 2,
+      lastMs: 63,
+      avgMs: 51.9,
+      p95Ms: 63,
+      maxMs: 63,
+      localCandidateType: "srflx",
+      remoteCandidateType: "relay",
+      relay: true,
+    });
+  });
+
   it("does not count a clear-all sentinel as a host acknowledgement", () => {
     hooks.resetNetFlowStatsForTest();
     hooks.pushPendingInputForTest(1, 900);
@@ -233,7 +288,13 @@ describe("rewind and replay input buffering", () => {
       samples: 0,
       lastMs: null,
       avgMs: null,
+      p95Ms: null,
       maxMs: null,
+      buckets: {
+        le33: 0, le50: 0, le75: 0, le100: 0,
+        le150: 0, le250: 0, le500: 0, gt500: 0,
+      },
+      active: expect.objectContaining({ samples: 0, p95Ms: null }),
       lastSeq: null,
       missingSamples: 0,
     });
@@ -442,7 +503,7 @@ describe("host input jitter ackSeq (apply, not receive)", () => {
       11,
     );
     hooks.handleRemoteClientInput(
-      { throttle: 0, steer: 1, nitro: false, hop: false },
+      { throttle: 0, steer: 0, nitro: false, hop: false },
       "peerB",
       12,
     );
@@ -453,6 +514,10 @@ describe("host input jitter ackSeq (apply, not receive)", () => {
 
     expect(hooks.getRemoteInputQueueLength("peerB")).toBe(0);
     expect(hooks.getHostLastProcessedInputSeq("peerB")).toBe(12);
+    expect(hooks.getHostInputTimingForTest("peerB")).toMatchObject({
+      queue: { samples: 2 },
+      active: { samples: 1 },
+    });
   });
 
   it("acks the highest applied seq when multiple frames drain in one pass", async () => {

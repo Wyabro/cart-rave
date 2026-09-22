@@ -723,3 +723,47 @@ export function getIceDisconnectGraceMs() {
 export function hasPeerConnection(connId) {
   return peerConnections.has(connId);
 }
+
+/**
+ * Read the selected ICE candidate pair without adding a game protocol message.
+ * `currentRoundTripTime` is seconds in the WebRTC stats API; expose milliseconds.
+ * @param {string} connId
+ * @returns {Promise<{ rttMs: number, localCandidateType: string | null, remoteCandidateType: string | null, relay: boolean } | null>}
+ */
+export async function getPeerTransportStats(connId) {
+  const pc = peerConnections.get(connId);
+  if (!pc || typeof pc.getStats !== "function") return null;
+
+  const report = await pc.getStats();
+  let pair = null;
+  for (const stat of report.values()) {
+    if (stat?.type === "transport" && stat.selectedCandidatePairId) {
+      pair = report.get(stat.selectedCandidatePairId) ?? null;
+      break;
+    }
+  }
+  if (!pair) {
+    for (const stat of report.values()) {
+      if (
+        stat?.type === "candidate-pair"
+        && stat.state === "succeeded"
+        && (stat.selected === true || stat.nominated === true)
+      ) {
+        pair = stat;
+        break;
+      }
+    }
+  }
+  if (!pair || !Number.isFinite(pair.currentRoundTripTime)) return null;
+
+  const local = pair.localCandidateId ? report.get(pair.localCandidateId) : null;
+  const remote = pair.remoteCandidateId ? report.get(pair.remoteCandidateId) : null;
+  const localCandidateType = typeof local?.candidateType === "string" ? local.candidateType : null;
+  const remoteCandidateType = typeof remote?.candidateType === "string" ? remote.candidateType : null;
+  return {
+    rttMs: Math.max(0, pair.currentRoundTripTime * 1000),
+    localCandidateType,
+    remoteCandidateType,
+    relay: localCandidateType === "relay" || remoteCandidateType === "relay",
+  };
+}
