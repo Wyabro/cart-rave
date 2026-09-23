@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-09-22 at commit `04d1727d` on `HEAD`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `b60bfd28`
+> Generated 2026-09-23 at commit `8fa504ac` on `codex/net-lag-reconcile`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `d183dc17`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -14,16 +14,16 @@
 
 ## Mission
 
-Playtesting and stabilization — External playtest is gated on BACKLOG Block 1. NIGHT-SHIFT-CITY-2 closed PASS 09-18 (`47ad5d80`). Wyatt pulled NIGHT-SHIFT-PICKER-1 then NIGHT-SHIFT-QP-1 to Block 1 (not active until ack in the next window). Residual NIGHT-SHIFT-DETAIL-1. SNAP-FINITE-PT-1 and NET-LAG-1 wait. CG-COVERS-1 closed 09-14 (Wyatt). CAM-COMFORT-1 closed 09-14 (Wyatt, no lever). SITE-TRUST-1 closed 09-14 — prod `c58c96ff` Worker `aed9d44e-7139-4af7-92ee-1625307d7147`. SITE-TRUST-PT-1 Wyatt PASS on prod. SOFTGL-DISMISS-1 closed 09-01 — PLAY ANYWAY is one-shot per tab. SOFTGL-DISMISS-PT-1 PASS (local `?forcegpu=sw`; Wyatt authorized). RESTART-ROUND-1 closed 09-01 — RESTART-ROUND-PT-1 PASS (local Playwright; Wyatt authorized). PAUSE-SLIDER-DELAY-1 closed 09-01 — PAUSE-SLIDER-DELAY-PT-1 PASS (local Playwright; Wyatt authorized). MENU-SHORTWIN-1 closed 09-02 — short-desktop hero spacing. MENU-SHORTWIN-PT-1 PASS (local Playwright 1077×606). CG-ZIP-1 closed 09-02 — `tmp/cart-clash-crazygames.zip` 23.96 MB / 182 files. CG-ZIP-PT-1 PASS (local Playwright unzip + `lvh.me`). ONBOARD-COPY-1 closed 09-14 — prod `39010c93` Worker `0c962927-fae5-49ba-877e-19b814190ec8`. ONBOARD-COPY-PT-1 Wyatt PASS. MENU-MUSIC-FIRST-PT-1 Wyatt PASS 09-01 on prod `d16fd523`. NET-LAG-1-PT-1 PASS 09-14 (trail gone). Real 2-PC FAIL 09-22: active ack ~241 ms, RTT 200–217 ms average / 489 ms p95, 939 replay drops, 33.6 m max correction, 7 teleports. Local fix retains unacked input while keeping replay at 12 steps; NET-LAG-PT-2 owed after ship. Do not retouch Classic / Sundial / Storerooms floors. Do not reopen CART-POP-1. Stay in this phase until Wyatt advances the marker. GLITCH-TECH-1 shipped 09-18 — prod `4ab166a8` Worker `57c54d38-5a8c-4660-aa1f-4e4c2b1eb934`. VERIFY_OK `index-B5xOzF-P.js`, 28 refs, 0×404, `/installs/` + `/validate` live. Owed: GLITCH-TECH-PT-1.
+Playtesting and stabilization — External playtest is gated on BACKLOG Block 1. NIGHT-SHIFT-CITY-2 closed PASS 09-18 (`47ad5d80`). Wyatt pulled NIGHT-SHIFT-PICKER-1 then NIGHT-SHIFT-QP-1 to Block 1 (not active until ack in the next window). Residual NIGHT-SHIFT-DETAIL-1. SNAP-FINITE-PT-1 and NET-LAG-1 wait. CG-COVERS-1 closed 09-14 (Wyatt). CAM-COMFORT-1 closed 09-14 (Wyatt, no lever). SITE-TRUST-1 closed 09-14 — prod `c58c96ff` Worker `aed9d44e-7139-4af7-92ee-1625307d7147`. SITE-TRUST-PT-1 Wyatt PASS on prod. SOFTGL-DISMISS-1 closed 09-01 — PLAY ANYWAY is one-shot per tab. SOFTGL-DISMISS-PT-1 PASS (local `?forcegpu=sw`; Wyatt authorized). RESTART-ROUND-1 closed 09-01 — RESTART-ROUND-PT-1 PASS (local Playwright; Wyatt authorized). PAUSE-SLIDER-DELAY-1 closed 09-01 — PAUSE-SLIDER-DELAY-PT-1 PASS (local Playwright; Wyatt authorized). MENU-SHORTWIN-1 closed 09-02 — short-desktop hero spacing. MENU-SHORTWIN-PT-1 PASS (local Playwright 1077×606). CG-ZIP-1 closed 09-02 — `tmp/cart-clash-crazygames.zip` 23.96 MB / 182 files. CG-ZIP-PT-1 PASS (local Playwright unzip + `lvh.me`). ONBOARD-COPY-1 closed 09-14 — prod `39010c93` Worker `0c962927-fae5-49ba-877e-19b814190ec8`. ONBOARD-COPY-PT-1 Wyatt PASS. MENU-MUSIC-FIRST-PT-1 Wyatt PASS 09-01 on prod `d16fd523`. NET-LAG-1-PT-1 PASS 09-14 (trail gone). Real 2-PC FAIL 09-22: active ack ~241 ms, RTT 200–217 ms average / 489 ms p95, 939 replay drops, 33.6 m max correction, 7 teleports. Fix shipped `8fa504ac`, Worker `7bb04c34`: replay retains unacked input while staying capped at 12 steps. Prod Quickplay 6/6, Friends 14/14; NET-LAG-PT-2 owed. Do not retouch Classic / Sundial / Storerooms floors. Do not reopen CART-POP-1. Stay in this phase until Wyatt advances the marker. GLITCH-TECH-1 shipped 09-18 — prod `4ab166a8` Worker `57c54d38-5a8c-4660-aa1f-4e4c2b1eb934`. VERIFY_OK `index-B5xOzF-P.js`, 28 refs, 0×404, `/installs/` + `/validate` live. Owed: GLITCH-TECH-PT-1.
 
 ## ACTIVE CARD
 
-NET-LAG-1 push/ship the local replay-history fix, then run NET-LAG-PT-2 `[2pc]`. SNAP-FINITE-PT-1 `[2pc]` retest owed on prod `6c5c139b`. Owed: CLUTCH-SLOMO-PT-1 (prod). Deferred: SHARD-PT-2 (launch day)
+Run NET-LAG-PT-2 `[2pc]` on prod `8fa504ac`. SNAP-FINITE-PT-1 `[2pc]` retest owed on prod `6c5c139b`. Owed: CLUTCH-SLOMO-PT-1 (prod). Deferred: SHARD-PT-2 (launch day)
 
 Assess and state the lane before editing. This heading names the card; it is **not** a lane assessment or permission to edit.
 
 Self-directed queue (one at a time, within the declared phase):
-- **NET-LAG-1** Friends/QP lag + rubber-band (F8 both machines) — 2-PC FAIL: ~241 ms ack, 939 replay drops, 33.6 m correction, 7 teleports; local fix retains input with fixed…
+- **NET-LAG-1** Friends/QP lag + rubber-band (F8 both machines) — wave 2 shipped `8fa504ac`, Worker `7bb04c34`; VERIFY_OK `index-Bgsw9GFQ.js`, 28 refs, symbol live; prod QP…
 - **CLIENT-ID-AUTH-1** clientId claim hijack guard (session-token proof of ownership) — shipped `e5ca329b` Worker `c789f236`; Wyatt PASS CID-AUTH-PT-1 08-22
 
 ## Do not
