@@ -2,7 +2,7 @@
 
 > Historical log. Past entries may still say "Cart Rave" / `next-level` — that is intentional. Living naming rules: [brand.md](../brand.md).
 
-**Last Updated:** September 18, 2026
+**Last Updated:** September 24, 2026
 
 > **This doc = the past** — the single home for historical/completed items. For what works
 > *today* see [project-state.md](./project-state.md); for forward plans see [ROADMAP.md](./ROADMAP.md).
@@ -10,6 +10,16 @@
 Chronological record of shipped work, newest first.
 
 > **Convention:** As items ship, move their completed writeup here (out of ROADMAP.md / project-state.md).
+
+---
+### September 24, 2026 — NET-LAG-DIAG-PT-1 evidence received
+
+- *(Playtest · High)* **NET-LAG-DIAG-PT-1** — ✅ **CAPTURED 09-24** on
+  diagnostic build `820176d2`. Wyatt supplied non-host cap 404, host cap 405,
+  and a non-host video. The non-host trace showed 0.22 m pre-snap error and
+  13.56 m post-replay error after six steps near cart contact. This is cause
+  evidence, not a visual PASS for **NET-LAG-PT-2**. Replay-ram fix `de25d4d7`
+  shipped next; human retest remains open.
 
 ---
 ### September 18, 2026 — NIGHT-SHIFT-CITY-2 CLOSED PASS: Fourside skyline improvement

@@ -1,8 +1,8 @@
 # Cart Clash — Agent Briefing
 
 > **GENERATED — do not hand-edit.** Regenerate: `npm run briefing` (the pre-commit hook does this on every commit; `npm run qa` only *checks* freshness, read-only).
-> Generated 2026-09-25 at commit `820176d2` on `codex/net-lag-rootcause`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
-> Source digest: `e37a2d23`
+> Generated 2026-09-25 at commit `de25d4d7` on `codex/net-lag-rootcause`. If docs/STATUS.md's digested sections have changed since, `npm run briefing:check` (inside `npm run qa`) fails until this is regenerated.
+> Source digest: `71dd942c`
 
 **Read order (every tool, cold start):** this file → [AGENTS.md](../AGENTS.md) (canonical rules + how work is executed) → [docs/STATUS.md](./STATUS.md) top sections → `npm run dashboard` for observed evidence (git/gates/captures) when you can run npm → deeper docs only as needed.
 
@@ -14,16 +14,16 @@
 
 ## Mission
 
-Playtesting and stabilization — External playtest is gated on BACKLOG Block 1. NIGHT-SHIFT-CITY-2 closed PASS 09-18 (`47ad5d80`). Wyatt pulled NIGHT-SHIFT-PICKER-1 then NIGHT-SHIFT-QP-1 to Block 1 (not active until ack in the next window). Residual NIGHT-SHIFT-DETAIL-1. SNAP-FINITE-PT-1 and NET-LAG-1 wait. CG-COVERS-1 closed 09-14 (Wyatt). CAM-COMFORT-1 closed 09-14 (Wyatt, no lever). SITE-TRUST-1 closed 09-14 — prod `c58c96ff` Worker `aed9d44e-7139-4af7-92ee-1625307d7147`. SITE-TRUST-PT-1 Wyatt PASS on prod. SOFTGL-DISMISS-1 closed 09-01 — PLAY ANYWAY is one-shot per tab. SOFTGL-DISMISS-PT-1 PASS (local `?forcegpu=sw`; Wyatt authorized). RESTART-ROUND-1 closed 09-01 — RESTART-ROUND-PT-1 PASS (local Playwright; Wyatt authorized). PAUSE-SLIDER-DELAY-1 closed 09-01 — PAUSE-SLIDER-DELAY-PT-1 PASS (local Playwright; Wyatt authorized). MENU-SHORTWIN-1 closed 09-02 — short-desktop hero spacing. MENU-SHORTWIN-PT-1 PASS (local Playwright 1077×606). CG-ZIP-1 closed 09-02 — `tmp/cart-clash-crazygames.zip` 23.96 MB / 182 files. CG-ZIP-PT-1 PASS (local Playwright unzip + `lvh.me`). ONBOARD-COPY-1 closed 09-14 — prod `39010c93` Worker `0c962927-fae5-49ba-877e-19b814190ec8`. ONBOARD-COPY-PT-1 Wyatt PASS. MENU-MUSIC-FIRST-PT-1 Wyatt PASS 09-01 on prod `d16fd523`. NET-LAG-1-PT-1 PASS 09-14 (trail gone). NET-LAG-PT-2 FAIL 09-24: caps 400/402 show 11/10 hard corrections up to 19.9/22.1 m, RTT 29/5 ms average, zero history drops. Cause open. Bounded F8 correction trace shipped `820176d2`, Worker `e0573a74`, entry `index-MgKvsR2U.js`: 28 refs, 0×404, symbol live; prod Friends 14/14. NET-LAG-DIAG-PT-1 owed on two machines. Trace is evidence, not a fix. Do not retouch Classic / Sundial / Storerooms floors. Do not reopen CART-POP-1. Stay in this phase until Wyatt advances the marker. GLITCH-TECH-1 shipped 09-18 — prod `4ab166a8` Worker `57c54d38-5a8c-4660-aa1f-4e4c2b1eb934`. VERIFY_OK `index-B5xOzF-P.js`, 28 refs, 0×404, `/installs/` + `/validate` live. Owed: GLITCH-TECH-PT-1.
+Playtesting and stabilization — External playtest is gated on BACKLOG Block 1. NIGHT-SHIFT-CITY-2 closed PASS 09-18 (`47ad5d80`). Wyatt pulled NIGHT-SHIFT-PICKER-1 then NIGHT-SHIFT-QP-1 to Block 1 (not active until ack in the next window). Residual NIGHT-SHIFT-DETAIL-1. SNAP-FINITE-PT-1 and NET-LAG-1 wait. CG-COVERS-1 closed 09-14 (Wyatt). CAM-COMFORT-1 closed 09-14 (Wyatt, no lever). SITE-TRUST-1 closed 09-14 — prod `c58c96ff` Worker `aed9d44e-7139-4af7-92ee-1625307d7147`. SITE-TRUST-PT-1 Wyatt PASS on prod. SOFTGL-DISMISS-1 closed 09-01 — PLAY ANYWAY is one-shot per tab. SOFTGL-DISMISS-PT-1 PASS (local `?forcegpu=sw`; Wyatt authorized). RESTART-ROUND-1 closed 09-01 — RESTART-ROUND-PT-1 PASS (local Playwright; Wyatt authorized). PAUSE-SLIDER-DELAY-1 closed 09-01 — PAUSE-SLIDER-DELAY-PT-1 PASS (local Playwright; Wyatt authorized). MENU-SHORTWIN-1 closed 09-02 — short-desktop hero spacing. MENU-SHORTWIN-PT-1 PASS (local Playwright 1077×606). CG-ZIP-1 closed 09-02 — `tmp/cart-clash-crazygames.zip` 23.96 MB / 182 files. CG-ZIP-PT-1 PASS (local Playwright unzip + `lvh.me`). ONBOARD-COPY-1 closed 09-14 — prod `39010c93` Worker `0c962927-fae5-49ba-877e-19b814190ec8`. ONBOARD-COPY-PT-1 Wyatt PASS. MENU-MUSIC-FIRST-PT-1 Wyatt PASS 09-01 on prod `d16fd523`. NET-LAG-1-PT-1 PASS 09-14 (trail gone). NET-LAG-PT-2 FAIL 09-24. Caps 404/405 completed NET-LAG-DIAG-PT-1: non-host replay changed a 0.22 m pre-snap error into 13.56 m after 6 steps; no history drops. Replay ram impulses were disabled in `de25d4d7`, Worker `c5123875`. Live entry `index-C20rnYth.js`: 28 refs, 0×404, symbol live; prod Friends 14/14. Human NET-LAG-PT-2 retest owed; no visual PASS yet. Do not retouch Classic / Sundial / Storerooms floors. Do not reopen CART-POP-1. Stay in this phase until Wyatt advances the marker. GLITCH-TECH-1 shipped 09-18 — prod `4ab166a8` Worker `57c54d38-5a8c-4660-aa1f-4e4c2b1eb934`. VERIFY_OK `index-B5xOzF-P.js`, 28 refs, 0×404, `/installs/` + `/validate` live. Owed: GLITCH-TECH-PT-1.
 
 ## ACTIVE CARD
 
-After diagnostic ship, run NET-LAG-DIAG-PT-1 `[2pc]`; NET-LAG-PT-2 stays FAIL until a cause-specific fix gets Wyatt PASS. SNAP-FINITE-PT-1 `[2pc]` retest owed on prod `6c5c139b`. Owed: CLUTCH-SLOMO-PT-1 (prod). Deferred: SHARD-PT-2 (launch day)
+Run NET-LAG-PT-2 `[2pc]` on prod `de25d4d7`; only Wyatt can give visual PASS. SNAP-FINITE-PT-1 `[2pc]` retest owed on prod `6c5c139b`. Owed: CLUTCH-SLOMO-PT-1 (prod). Deferred: SHARD-PT-2 (launch day)
 
 Assess and state the lane before editing. This heading names the card; it is **not** a lane assessment or permission to edit.
 
 Self-directed queue (one at a time, within the declared phase):
-- **NET-LAG-1** Friends/QP lag + rubber-band (F8 both machines) — trace shipped `820176d2`, Worker `e0573a74`; prod Friends 14/14; NET-LAG-DIAG-PT-1 owed; NET-LAG-PT-2 remains…
+- **NET-LAG-1** Friends/QP lag + rubber-band (F8 both machines) — replay-ram fix `de25d4d7`, Worker `c5123875`; prod Friends 14/14; NET-LAG-PT-2 human retest owed
 - **CLIENT-ID-AUTH-1** clientId claim hijack guard (session-token proof of ownership) — shipped `e5ca329b` Worker `c789f236`; Wyatt PASS CID-AUTH-PT-1 08-22
 
 ## Do not
