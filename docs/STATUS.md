@@ -46,14 +46,12 @@ files. **CG-ZIP-PT-1** PASS (local Playwright unzip + `lvh.me`).
 **ONBOARD-COPY-1** closed 09-14 — prod `39010c93` Worker
 `0c962927-fae5-49ba-877e-19b814190ec8`. **ONBOARD-COPY-PT-1** Wyatt PASS.
 **MENU-MUSIC-FIRST-PT-1** Wyatt PASS 09-01 on prod `d16fd523`.
-**NET-LAG-1-PT-1** PASS 09-14 (trail gone). Wave 2 shipped `8fa504ac` but
-**NET-LAG-PT-2 FAIL** on two Intel non-host matches: caps 400/402 show 11/10
-hard corrections, max 19.9/22.1 m, RTT 29/5 ms average, zero history drops,
-5/7 replay-budget events. Video 09-24 shows repeated arena swings around the
-local cart. The captures do not support input-history loss or routine network
-delay as the main cause; the source of physics divergence is open. Next:
-bounded pre-host/post-replay F8 trace, then
-one cause-specific fix. Do not retouch Classic / Sundial /
+**NET-LAG-1-PT-1** PASS 09-14 (trail gone). **NET-LAG-PT-2 FAIL** 09-24:
+caps 400/402 show 11/10 hard corrections up to 19.9/22.1 m, RTT 29/5 ms
+average, zero history drops. Cause open. Bounded F8 correction trace shipped
+`820176d2`, Worker `e0573a74`, entry `index-MgKvsR2U.js`: 28 refs, 0×404,
+symbol live; prod Friends 14/14. **NET-LAG-DIAG-PT-1** owed on two machines.
+Trace is evidence, not a fix. Do not retouch Classic / Sundial /
 Storerooms floors. Do not reopen **CART-POP-1**. Stay in this phase until
 Wyatt advances the marker.
 **GLITCH-TECH-1** shipped 09-18 — prod `4ab166a8` Worker
@@ -107,7 +105,7 @@ Live rows only. Shipped and closed cards live in
 | CG-ZIP-1 | CrazyGames Basic Launch zip of `dist/` | ✅ CLOSED 09-02 — 23.96 MB / 182 files; **CG-ZIP-PT-1** PASS |
 | SITE-TRUST-1 | public information and analytics choice | ✅ CLOSED 09-14 — **SITE-TRUST-PT-1** PASS (prod `c58c96ff`) |
 | ONBOARD-COPY-1 | HOW TO PLAY AISLE 1+2 copy matches live input | ✅ CLOSED 09-14 — Wyatt PASS **ONBOARD-COPY-PT-1** on prod `39010c93` |
-| NET-LAG-1 | Friends/QP lag + rubber-band (F8 both machines) | wave 2 `8fa504ac` on prod; Wyatt NET-LAG-PT-2 FAIL 09-24 despite low RTT and zero input-history loss; correction trace pending |
+| NET-LAG-1 | Friends/QP lag + rubber-band (F8 both machines) | trace shipped `820176d2`, Worker `e0573a74`; prod Friends 14/14; NET-LAG-DIAG-PT-1 owed; NET-LAG-PT-2 remains FAIL |
 | RAM-ARREST-1 | silent ram on solver-arrested contact (SNAP-FINITE-PT-1 FAIL) | ✅ shipped `6c5c139b` Worker `8476ccfb`; **SNAP-FINITE-PT-1** retest owed |
 | AUDIO-RAM-IMPACT-1 | ram crash SFX inaudible + soft taps silent (external playtest) | ✅ CLOSED 08-21 — Wyatt PT PASS on prod `67778a9f` (both rounds: `c4e7f082` + `0644094f`) |
 | ONBOARD-WEBP-1 | HOW TO PLAY WebP playback + fallback | ✅ CLOSED 08-23 — Wyatt PASS **ONBOARD-WEBP-PT-1** on prod `14658bf8` (Worker `e14acbd4`) |
