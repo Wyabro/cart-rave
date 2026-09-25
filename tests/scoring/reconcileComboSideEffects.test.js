@@ -99,7 +99,7 @@ describe("applyRammingImpulse — reconcile replay side effects", () => {
     expect(getMatchStats().localSpills).toBe(1);
   });
 
-  it("isReconcileReplay suppresses combo increment and challenge records", () => {
+  it("isReconcileReplay does not create a second physical ram or progression event", () => {
     const rammer = ramCart(0, SHOVER_POS, { x: 0, y: 0, z: -8 });
     const victim = ramCart(1, VICTIM_POS, { x: 0, y: 0, z: 0 });
     rammer.comboTier = 1;
@@ -114,10 +114,25 @@ describe("applyRammingImpulse — reconcile replay side effects", () => {
       1000,
     );
 
-    // * Knockback still applies (prediction correctness); progression side effects do not.
-    expect(victim.pendingRam).toBeDefined();
+    // The remote cart is at a display-delayed pose during replay. A new ram here
+    // is not a replay of host physics and can launch the local cart on every snap.
+    expect(victim.pendingRam).toBeUndefined();
     expect(rammer.comboTier).toBe(1);
     expect(GameState.setLocalCombo).not.toHaveBeenCalled();
     expect(ChallengeTracker.record).not.toHaveBeenCalled();
+  });
+
+  it("does not launch the local victim from a boosted remote replay contact", () => {
+    const rammer = ramCart(1, SHOVER_POS, { x: 0, y: 0, z: -20 });
+    const localVictim = ramCart(0, VICTIM_POS, { x: 0, y: 0, z: 0 });
+    rammer.ramBoostActiveUntilMs = 2000;
+
+    applyRammingImpulse(
+      rammer, localVictim, stateOf(SHOVER_POS), stateOf(VICTIM_POS),
+      { localCart: localVictim, isReconcileReplay: true }, false, 1000,
+    );
+
+    expect(localVictim.pendingRam).toBeUndefined();
+    expect(GameState.recordHit).not.toHaveBeenCalled();
   });
 });

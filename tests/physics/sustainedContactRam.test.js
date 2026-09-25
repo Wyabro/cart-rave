@@ -54,7 +54,7 @@ function makeEventQueue() {
   };
 }
 
-function step(allCarts, eventQueue, now) {
+function step(allCarts, eventQueue, now, callbacks = {}, isHost = true) {
   runFixedPhysicsStep({
     world: { step: () => {} },
     eventQueue,
@@ -64,14 +64,32 @@ function step(allCarts, eventQueue, now) {
     npcs: [],
     dt: 1 / 60,
     now,
-    isHost: true,
-    callbacks: {},
+    isHost,
+    callbacks,
   });
 }
 
 describe("sustained-contact ram re-qualification", () => {
   beforeEach(() => {
     GameState.replaceLastHitBy(new Map());
+  });
+
+  it("does not create a replay ram but lets a later live contact qualify", () => {
+    const rammer = makeCart(0, 1, -FAST);
+    const victim = makeCart(1, 0, 0);
+    const eq = makeEventQueue();
+    let applied = 0;
+    victim.body.applyImpulse = () => { applied += 1; };
+
+    eq.queue(rammer.collider.handle, victim.collider.handle, true);
+    step([rammer, victim], eq, 1000, { isReconcileReplay: true }, false);
+    expect(applied).toBe(0);
+    expect(victim.pendingRam).toBeNull();
+    expect(GameState.getLastHitBy().get(1)).toBeUndefined();
+
+    step([rammer, victim], eq, 1016, {}, false);
+    expect(victim.pendingRam).not.toBeNull();
+    expect(applied).toBe(0); // new live hit is queued for the next physics tick
   });
 
   it("a slow first touch that later turns into a real shove qualifies mid-contact", () => {

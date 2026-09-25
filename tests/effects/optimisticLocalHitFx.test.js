@@ -107,7 +107,7 @@ describe("applyRammingImpulse — NH-HIT optimistic local hit FX", () => {
     expect(spawnTrashBurst).not.toHaveBeenCalled();
     expect(onLocalRamImpact).not.toHaveBeenCalled();
     expect(noteOptimisticCollisionFx).not.toHaveBeenCalled();
-    expect(victim.pendingRam).toBeDefined();
+    expect(victim.pendingRam).toBeUndefined();
   });
 
   it("does not fire when local cart is not the rammer", () => {

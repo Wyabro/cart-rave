@@ -1373,6 +1373,10 @@ function fireRamContactPresentation(rammer, victim, rp, vp, fxIntensity, isRamme
 }
 
 export function applyRammingImpulse(rammer, victim, rammerState, victimState, callbacks, isHost, nowMs) {
+  // Reconcile replays local inputs against display-delayed remote bodies, not the
+  // remote state that the host used. A fresh ram here is not authoritative and
+  // can add a full knockback impulse on every incoming snapshot.
+  if (callbacks?.isReconcileReplay) return;
 
   // * Knockback + crit read the rammer's LIVE (post-collision) velocity, so forward-ram feel
   // * matches the pre-fix game. A near-stationary reverse shove reads ~0 here → no ram impulse
@@ -3724,7 +3728,7 @@ function processCollisionEvents(world, eventQueue, allCarts, callbacks, isHost, 
         const rec = { a: c1, b: c2, lastRamAtMs: 0 };
         _activeCartContacts.set(cartPairKey(c1, c2), rec);
         const ram = resolveCartRamCollision(c1, c2);
-        if (ram) {
+        if (ram && !callbacks?.isReconcileReplay) {
           applyRammingImpulse(
             ram.rammer,
             ram.victim,
@@ -3851,7 +3855,7 @@ function processCollisionEvents(world, eventQueue, allCarts, callbacks, isHost, 
     }
     if (nowMs - rec.lastRamAtMs < RAM_SUSTAINED_REQUALIFY_MS) continue;
     const ram = resolveCartRamCollision(a, b);
-    if (ram) {
+    if (ram && !callbacks?.isReconcileReplay) {
       applyRammingImpulse(ram.rammer, ram.victim, ram.rammerState, ram.victimState, callbacks, isHost, nowMs);
       rec.lastRamAtMs = nowMs;
     } else if (nowMs - (rec.lastSoftTapAtMs || 0) >= SOFT_TAP_COOLDOWN_MS) {
@@ -4473,6 +4477,9 @@ export function runFixedPhysicsStep({
     // * the Rapier step vs shatter VFX / PA audio (perfSpans → longframe.spans).
     mark("physics.step", () => world.step(eventQueue));
     Object.assign(_collisionCallbacks, callbacks);
+    // This object is reused. A replay-only flag must not leak into the next
+    // live step when its callback set does not include the flag.
+    _collisionCallbacks.isReconcileReplay = Boolean(callbacks.isReconcileReplay);
     _collisionCallbacks.localCart = localCart;
     processCollisionEvents(world, eventQueue, allCarts, _collisionCallbacks, isHost, now);
     // * PIT-PT-1 probe (temporary, ?diag only) — post-step pose, so it sees where the
