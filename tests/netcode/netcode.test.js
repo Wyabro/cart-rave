@@ -10,6 +10,7 @@ import {
   sampleAuthoritativeCartState,
   getPendingInputs,
   getNetFlowStats,
+  noteReconcileError,
   noteReconcileReplayDeferred,
   prunePendingInputs,
   getLatestSnap,
@@ -312,6 +313,23 @@ describe("rewind and replay input buffering", () => {
       reconcileReplayBudgetEvents: 2,
       predictionHistoryDrops: 0,
     });
+  });
+
+  it("keeps a bounded, resettable record of large reconcile corrections", () => {
+    hooks.resetNetFlowStatsForTest();
+    noteReconcileError(0.5, false, { snapSeq: 1 });
+    expect(getNetFlowStats().reconcileTrace).toEqual([]);
+
+    for (let snapSeq = 2; snapSeq <= 30; snapSeq += 1) {
+      noteReconcileError(6.5, true, { snapSeq, preToHostM: 7.2, replayedInputs: 4 });
+    }
+    const trace = getNetFlowStats().reconcileTrace;
+    expect(trace).toHaveLength(24);
+    expect(trace[0]).toMatchObject({ snapSeq: 7, preToHostM: 7.2, replayedInputs: 4, correctionM: 6.5, teleported: true });
+    expect(trace.at(-1)).toMatchObject({ snapSeq: 30, correctionM: 6.5 });
+
+    hooks.resetNetFlowStatsForTest();
+    expect(getNetFlowStats().reconcileTrace).toEqual([]);
   });
 
   it("does not count a clear-all sentinel as a host acknowledgement", () => {

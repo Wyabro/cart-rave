@@ -61,7 +61,10 @@ describe("SHELF-RAIL-1 — shelf boards read as bolted bay sections", () => {
   it("the 114 m board is split into bays with a 4 cm seam gap", () => {
     const start = src.indexOf("const boardLen = WALL_SPAN - 10;");
     expect(start).toBeGreaterThan(-1);
-    const block = src.slice(start, start + 700);
+    const push = src.indexOf("pushFadeBox(shelfWoodParts", start);
+    expect(push).toBeGreaterThan(start);
+    expect(push - start).toBeLessThan(1500);
+    const block = src.slice(start, push + 180);
     expect(block).toMatch(/const boardSeamGap = 0\.04;/);
     expect(block).toMatch(/const bayCount = Math\.max\(2, Math\.round\(boardLen \/ uprightStep\)\);/);
     expect(block).toMatch(/const bayLen = \(boardLen - boardSeamGap \* \(bayCount - 1\)\) \/ bayCount;/);

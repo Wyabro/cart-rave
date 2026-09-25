@@ -2,15 +2,15 @@
   "schema_version": 1,
   "generated": {
     "by": "tools/architecture.mjs",
-    "at": "2026-09-23T05:17:38.838Z",
-    "commit": "8fa504ac"
+    "at": "2026-09-25T04:25:23.242Z",
+    "commit": "7c7d1e91"
   },
-  "source_digest": "8f9a8b8f",
+  "source_digest": "c8628352",
   "project": {
     "name": "Cart Clash",
     "one_liner": "Browser-based 4-player shopping-cart physics sumo — neon carts ram opponents off arena edges or into voids to score; 150-second rounds, Sudden Death on ties.",
     "production_url": "https://www.cartclash.lol/",
-    "mission": "Playtesting and stabilization — External playtest is gated on BACKLOG Block 1. NIGHT-SHIFT-CITY-2 closed PASS 09-18 (`47ad5d80`). Wyatt pulled NIGHT-SHIFT-PICKER-1 then NIGHT-SHIFT-QP-1 to Block 1 (not active until ack in the next window). Residual NIGHT-SHIFT-DETAIL-1. SNAP-FINITE-PT-1 and NET-LAG-1 wait. CG-COVERS-1 closed 09-14 (Wyatt). CAM-COMFORT-1 closed 09-14 (Wyatt, no lever). SITE-TRUST-1 closed 09-14 — prod `c58c96ff` Worker `aed9d44e-7139-4af7-92ee-1625307d7147`. SITE-TRUST-PT-1 Wyatt PASS on prod. SOFTGL-DISMISS-1 closed 09-01 — PLAY ANYWAY is one-shot per tab. SOFTGL-DISMISS-PT-1 PASS (local `?forcegpu=sw`; Wyatt authorized). RESTART-ROUND-1 closed 09-01 — RESTART-ROUND-PT-1 PASS (local Playwright; Wyatt authorized). PAUSE-SLIDER-DELAY-1 closed 09-01 — PAUSE-SLIDER-DELAY-PT-1 PASS (local Playwright; Wyatt authorized). MENU-SHORTWIN-1 closed 09-02 — short-desktop hero spacing. MENU-SHORTWIN-PT-1 PASS (local Playwright 1077×606). CG-ZIP-1 closed 09-02 — `tmp/cart-clash-crazygames.zip` 23.96 MB / 182 files. CG-ZIP-PT-1 PASS (local Playwright unzip + `lvh.me`). ONBOARD-COPY-1 closed 09-14 — prod `39010c93` Worker `0c962927-fae5-49ba-877e-19b814190ec8`. ONBOARD-COPY-PT-1 Wyatt PASS. MENU-MUSIC-FIRST-PT-1 Wyatt PASS 09-01 on prod `d16fd523`. NET-LAG-1-PT-1 PASS 09-14 (trail gone). Real 2-PC FAIL 09-22: active ack ~241 ms, RTT 200–217 ms average / 489 ms p95, 939 replay drops, 33.6 m max correction, 7 teleports. Fix shipped `8fa504ac`, Worker `7bb04c34`: replay retains unacked input while staying capped at 12 steps. Prod Quickplay 6/6, Friends 14/14; NET-LAG-PT-2 owed. Do not retouch Classic / Sundial / Storerooms floors. Do not reopen CART-POP-1. Stay in this phase until Wyatt advances the marker. GLITCH-TECH-1 shipped 09-18 — prod `4ab166a8` Worker `57c54d38-5a8c-4660-aa1f-4e4c2b1eb934`. VERIFY_OK `index-B5xOzF-P.js`, 28 refs, 0×404, `/installs/` + `/validate` live. Owed: GLITCH-TECH-PT-1.",
+    "mission": "Playtesting and stabilization — External playtest is gated on BACKLOG Block 1. NIGHT-SHIFT-CITY-2 closed PASS 09-18 (`47ad5d80`). Wyatt pulled NIGHT-SHIFT-PICKER-1 then NIGHT-SHIFT-QP-1 to Block 1 (not active until ack in the next window). Residual NIGHT-SHIFT-DETAIL-1. SNAP-FINITE-PT-1 and NET-LAG-1 wait. CG-COVERS-1 closed 09-14 (Wyatt). CAM-COMFORT-1 closed 09-14 (Wyatt, no lever). SITE-TRUST-1 closed 09-14 — prod `c58c96ff` Worker `aed9d44e-7139-4af7-92ee-1625307d7147`. SITE-TRUST-PT-1 Wyatt PASS on prod. SOFTGL-DISMISS-1 closed 09-01 — PLAY ANYWAY is one-shot per tab. SOFTGL-DISMISS-PT-1 PASS (local `?forcegpu=sw`; Wyatt authorized). RESTART-ROUND-1 closed 09-01 — RESTART-ROUND-PT-1 PASS (local Playwright; Wyatt authorized). PAUSE-SLIDER-DELAY-1 closed 09-01 — PAUSE-SLIDER-DELAY-PT-1 PASS (local Playwright; Wyatt authorized). MENU-SHORTWIN-1 closed 09-02 — short-desktop hero spacing. MENU-SHORTWIN-PT-1 PASS (local Playwright 1077×606). CG-ZIP-1 closed 09-02 — `tmp/cart-clash-crazygames.zip` 23.96 MB / 182 files. CG-ZIP-PT-1 PASS (local Playwright unzip + `lvh.me`). ONBOARD-COPY-1 closed 09-14 — prod `39010c93` Worker `0c962927-fae5-49ba-877e-19b814190ec8`. ONBOARD-COPY-PT-1 Wyatt PASS. MENU-MUSIC-FIRST-PT-1 Wyatt PASS 09-01 on prod `d16fd523`. NET-LAG-1-PT-1 PASS 09-14 (trail gone). Wave 2 shipped `8fa504ac` but NET-LAG-PT-2 FAIL on two Intel non-host matches: caps 400/402 show 11/10 hard corrections, max 19.9/22.1 m, RTT 29/5 ms average, zero history drops, 5/7 replay-budget events. Video 09-24 shows repeated arena swings around the local cart. The captures do not support input-history loss or routine network delay as the main cause; the source of physics divergence is open. Next: bounded pre-host/post-replay F8 trace, then one cause-specific fix. Do not retouch Classic / Sundial / Storerooms floors. Do not reopen CART-POP-1. Stay in this phase until Wyatt advances the marker. GLITCH-TECH-1 shipped 09-18 — prod `4ab166a8` Worker `57c54d38-5a8c-4660-aa1f-4e4c2b1eb934`. VERIFY_OK `index-B5xOzF-P.js`, 28 refs, 0×404, `/installs/` + `/validate` live. Owed: GLITCH-TECH-PT-1.",
     "phase": "Playtesting & stabilization — stabilize after Run 7; prove residuals; no auto-advance to RC",
     "phases": [
       {
@@ -925,7 +925,7 @@
       {
         "id": "NET-LAG-1",
         "what": "Friends/QP lag + rubber-band (F8 both machines)",
-        "status": "wave 2 shipped `8fa504ac`, Worker `7bb04c34`; VERIFY_OK `index-Bgsw9GFQ.js`, 28 refs, symbol live; prod QP 6/6 + Friends 14/14; NET-LAG-PT-2 owed",
+        "status": "wave 2 `8fa504ac` on prod; Wyatt NET-LAG-PT-2 FAIL 09-24 despite low RTT and zero input-history loss; correction trace pending",
         "state": "waiting"
       },
       {
@@ -966,7 +966,7 @@
       }
     ],
     "next_actions": [
-      "Run NET-LAG-PT-2 `[2pc]` on prod `8fa504ac`. SNAP-FINITE-PT-1 `[2pc]` retest owed on prod `6c5c139b`. Owed: CLUTCH-SLOMO-PT-1 (prod). Deferred: SHARD-PT-2 (launch day)."
+      "After diagnostic ship, run NET-LAG-DIAG-PT-1 `[2pc]`; NET-LAG-PT-2 stays FAIL until a cause-specific fix gets Wyatt PASS. SNAP-FINITE-PT-1 `[2pc]` retest owed on prod `6c5c139b`. Owed: CLUTCH-SLOMO-PT-1 (prod). Deferred: SHARD-PT-2 (launch day)."
     ],
     "open_issues": [
       {
@@ -990,7 +990,7 @@
           {
             "pri": "High",
             "item": "NET-LAG-1 — Friends/QP lag + rubber-band before playtest",
-            "notes": "**Wave 1 landed 08-20. NET-LAG-1-PT-1 PASS 09-14** (trail gone). **2-PC FAIL 09-22:** direct srflx path RTT 200–217 ms average / 489 ms p95; active ack ~241 ms; host queue ~46 ms; 939 replay drops, 33.6 m max correction, 7 teleports. Root cause: the 12-step CPU cap deleted the live newest unacked inputs on every reconcile. **Wave 2 shipped `8fa504ac`, Worker `7bb04c34`:** select oldest 12 without mutation, retain 60 frames (~1s), separate deferred-work from true-loss diagnostics. VERIFY_OK `index-Bgsw9GFQ.js`, 28 refs, symbol live; prod Quickplay 6/6 + Friends 14/14. **NET-LAG-PT-2** owed. Do not lower the host jitter buffer, restore lerp, or increase replay steps without new evidence.",
+            "notes": "**Wave 1 landed 08-20. NET-LAG-1-PT-1 PASS 09-14** (trail gone). **2-PC FAIL 09-22:** direct srflx path RTT 200–217 ms average / 489 ms p95; active ack ~241 ms; host queue ~46 ms; 939 replay drops, 33.6 m max correction, 7 teleports. Root cause: the 12-step CPU cap deleted the live newest unacked inputs on every reconcile. **Wave 2 shipped `8fa504ac`, Worker `7bb04c34`:** select oldest 12 without mutation, retain 60 frames (~1s), separate deferred-work from true-loss diagnostics. VERIFY_OK `index-Bgsw9GFQ.js`, 28 refs, symbol live; prod Quickplay 6/6 + Friends 14/14. **NET-LAG-PT-2 FAIL 09-24:** caps 400/402 show 11/10 hard corrections up to 19.9/22.1 m, RTT 29/5 ms average, zero history drops, and 5/7 replay-budget events. Root cause of remaining divergence open. Bounded pre-host/post-replay trace prepared for next diagnostic capture. Do not lower the host jitter buffer, restore lerp, or increase replay steps without new evidence.",
             "ship1": null
           },
           {
@@ -1091,13 +1091,13 @@
           {
             "pri": "High",
             "item": "NIGHT-SHIFT-PICKER-1 — Night Shift selectable in the arena list",
-            "notes": "**Top 09-18 (Wyatt, new-window).** Follows NIGHT-SHIFT-CITY-2 PASS `47ad5d80`. Player: Solo and Friends host can pick Night Shift and play a round. Not Quickplay (that is **NIGHT-SHIFT-QP-1**). Not more city art (**NIGHT-SHIFT-DETAIL-1**). Today the menu builds `LEVEL_OPTIONS` from `ARENA_CATALOG.filter(quickplay)` in `src/ui/cart-rave-menu.js`, so rooftop is hidden even though it is in the catalog. `index.html` has no `data-level=\"rooftop\"` card. Catalog `quickplay: false`, empty `music`, empty ambience, unlock hint \"Blockout\". `MULTIPLAYER_LEVEL_IDS` already allows rooftop. `FREE_LEVEL` stays `zanzibar`. Lever: show production arenas in the menu without flipping `quickplay` (keep `testArena` out). Add a Night Shift menu card. Assign a temporary existing music list and an existing ambience bed so Solo is not silent — do not author new audio. Change unlock hint off \"Blockout\". Tests: `tests/levels/arenaCatalog.test.js`, `arenaBrowse.test.js`, `arenaMenuOrder.test.js`, `friendsLevel.test.js`. Fail if Night Shift is missing from Solo/Friends pick, if it enters `QUICKPLAY_ARENA_IDS`, or if Test Arena appears. Done: Wyatt playtest — pick Night Shift in Solo, play a round. Lane: Standard. Seed a Playtest-owed row with `<br>N.` steps when it ships.",
+            "notes": "**Top 09-18 (Wyatt, new-window).** Follows NIGHT-SHIFT-CITY-2 PASS `47ad5d80`. Player: Solo and Friends host can pick Night Shift and play a round. Not Quickplay (that is **NIGHT-SHIFT-QP-1**). Not more city art (**NIGHT-SHIFT-DETAIL-1**). Today the menu builds `LEVEL_OPTIONS` from `ARENA_CATALOG.filter(quickplay)` in `src/ui/cart-rave-menu.js`, so rooftop is hidden even though it is in the catalog. `index.html` has no `data-level=\"rooftop\"` card. Catalog `quickplay: false`, empty `music`, empty ambience, unlock hint \"Blockout\". `MULTIPLAYER_LEVEL_IDS` already allows rooftop. `FREE_LEVEL` stays `zanzibar`. Lever: show production arenas in the menu without flipping `quickplay` (keep `testArena` out). Add a Night Shift menu card. Assign a temporary existing music list and an existing ambience bed so Solo is not silent — do not author new audio. Change unlock hint off \"Blockout\". Tests: `tests/levels/arenaCatalog.test.js`, `arenaBrowse.test.js`, `arenaMenuOrder.test.js`, `friendsLevel.test.js`. Fail if Night Shift is missing from Solo/Friends pick, if it enters `QUICKPLAY_ARENA_IDS`, or if Test Arena appears. After implementation: Wyatt checks that Night Shift can be picked in Solo and played for one round. Lane: Standard. Seed a Playtest-owed row with `<br>N.` steps when it ships.",
             "ship1": null
           },
           {
             "pri": "High",
             "item": "NIGHT-SHIFT-QP-1 — Night Shift in Quickplay rotation",
-            "notes": "**Top 09-18 (Wyatt).** Depends on **NIGHT-SHIFT-PICKER-1**. Player: a public Quickplay room can roll Night Shift. Files: `shared/arenaPool.js` `QUICKPLAY_ARENA_IDS`, `src/levels/arenaCatalog.js` `quickplay: true`. Catalog music + ambience bed must be non-empty (arenaCatalog test). Prefetch uses the same pool. Worker initial arena pool must match catalog order (QP-ORDER-1). Lane: **Critical** (shared arena pool / public rooms). Fail if Night Shift never appears in QP, if `testArena` leaks into MP, or if catalog quickplay ids drift from `QUICKPLAY_ARENA_IDS`. Done: Wyatt playtest — Quickplay can start on Night Shift. Do not ship without PICKER.",
+            "notes": "**Top 09-18 (Wyatt).** Depends on **NIGHT-SHIFT-PICKER-1**. Player: a public Quickplay room can roll Night Shift. Files: `shared/arenaPool.js` `QUICKPLAY_ARENA_IDS`, `src/levels/arenaCatalog.js` `quickplay: true`. Catalog music + ambience bed must be non-empty (arenaCatalog test). Prefetch uses the same pool. Worker initial arena pool must match catalog order (QP-ORDER-1). Lane: **Critical** (shared arena pool / public rooms). Fail if Night Shift never appears in QP, if `testArena` leaks into MP, or if catalog quickplay ids drift from `QUICKPLAY_ARENA_IDS`. After implementation: Wyatt checks that Quickplay can start on Night Shift. Do not ship without PICKER.",
             "ship1": null
           },
           {
@@ -1111,7 +1111,7 @@
       {
         "title": "Playtest owed",
         "counts": {
-          "High": 1,
+          "High": 2,
           "Medium": 3,
           "Low": 2
         },
@@ -1119,7 +1119,13 @@
           {
             "pri": "High",
             "item": "NET-LAG-PT-2 — high-RTT non-host stays visually stable `[2pc]`",
-            "notes": "**Owed: Wyatt playtest — NET-LAG-PT-2 — maximum visual stability with slightly softer input response.** Prod `8fa504ac`, Worker `7bb04c34-cda5-4777-bd49-15db25bfdd35`, entry `index-Bgsw9GFQ.js`. Use Friends on the same two machines that produced caps 396–399.<br>1. Hard-refresh https://www.cartclash.lol/ on both machines with `?diag=1&nettest=1`; host a Friends room and play on the non-host for two minutes.<br>2. Drive, turn, boost, ram, and recover from collisions while the host also moves.<br>3. Press F8 on both machines after any snap and again near round end.<br>4. FAIL if the non-host repeatedly teleports or loses current steering; fail evidence if `predictionHistoryDrops` is above 0. PASS only if the non-host path stays continuous and the softer response is playable.",
+            "notes": "**Owed: Wyatt playtest — NET-LAG-PT-2 — human retest after a cause-specific fix.** FAIL 09-24 on prod `8fa504ac`, Worker `7bb04c34-cda5-4777-bd49-15db25bfdd35`: repeated non-host hard corrections in Friends caps 400/402 and video. Do not retest this diagnostic-only build.<br>1. After a cause-specific fix ships, hard-refresh on the same two machines with `?diag=1&nettest=1` and play Friends for two minutes.<br>2. Drive, turn, boost, ram, and recover from collisions while the host also moves.<br>3. FAIL if the non-host repeatedly snaps or loses current steering. PASS only if the path stays continuous and input response is playable.<br>4. Press F8 on both machines at round end.",
+            "ship1": null
+          },
+          {
+            "pri": "High",
+            "item": "NET-LAG-DIAG-PT-1 — capture the source of non-host correction `[2pc]`",
+            "notes": "**Owed: Wyatt playtest — NET-LAG-DIAG-PT-1 — capture correction evidence; pushed but not yet deployed.** This capture is evidence, not a PASS for NET-LAG-PT-2.<br>1. After diagnostic ship, hard-refresh https://www.cartclash.lol/?diag=1&nettest=1 on both machines. Host a Friends room and play on the non-host.<br>2. Drive, turn, boost, and ram while both carts move. Press F8 on the non-host immediately after a visible snap; press F8 on the host in the same round.<br>3. Report the time of the snap and a short non-host video if possible. Confirm the non-host capture has `reconcileTrace` entries with `preToHostM`, `postToHostM`, `replayedInputs`, `pendingCount`, and `snapshotGapMs`.<br>4. If a snap occurs but the trace is empty, report that as diagnostic failure. Do not mark visual stability PASS from this capture.",
             "ship1": null
           },
           {

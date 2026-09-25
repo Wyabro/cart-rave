@@ -68,7 +68,7 @@ function captureReconcilePrePose(cart) {
 }
 
 /** Folds the post-correction pose delta into the cart's visual offset (see block comment). */
-function accumulateReconcileVisOffset(cart, pcfg, noteReconcileError) {
+function accumulateReconcileVisOffset(cart, pcfg, noteReconcileError, traceContext = null) {
   const t = cart?.body?.translation?.();
   const r = cart?.body?.rotation?.();
   if (!t || !r || !pcfg) return;
@@ -77,11 +77,28 @@ function accumulateReconcileVisOffset(cart, pcfg, noteReconcileError) {
   const dz = _reconPre.z - t.z;
   const errM = Math.hypot(dx, dy, dz);
   const maxM = pcfg.maxCorrectionM ?? 4.0;
+  // * Only ?diag sessions allocate trace context. Keep the last large corrections
+  // * in F8 so a 20m jump can be attributed to pre-snapshot drift or replay.
+  let trace = null;
+  if (traceContext && errM >= 1) {
+    const host = traceContext.hostPos;
+    const postVelocity = cart.body.linvel?.() ?? null;
+    trace = {
+      ...traceContext,
+      prePos: [_reconPre.x, _reconPre.y, _reconPre.z],
+      postPos: [t.x, t.y, t.z],
+      preToHostM: Math.hypot(_reconPre.x - host[0], _reconPre.y - host[1], _reconPre.z - host[2]),
+      postToHostM: Math.hypot(t.x - host[0], t.y - host[1], t.z - host[2]),
+      yawCorrectionRad: wrapAngleRad(_reconPre.yaw - headingYawFromQuat(r)),
+      postVelocity: postVelocity ? [postVelocity.x, postVelocity.y, postVelocity.z] : null,
+      postRamSteps: cart.pendingRam?.remainingSteps ?? 0,
+    };
+  }
   const off = cart._reconcileVisOffset || (cart._reconcileVisOffset = { x: 0, y: 0, z: 0, yaw: 0 });
   if (errM >= maxM) {
     // * Teleport-scale correction (respawn, hard desync): snap the visual too.
     off.x = 0; off.y = 0; off.z = 0; off.yaw = 0;
-    noteReconcileError?.(errM, true);
+    noteReconcileError?.(errM, true, trace);
     return;
   }
   // * NH-SMOOTH v2 (cap-82): cap how much one snap may add to the ease debt. Full dx on
@@ -112,7 +129,7 @@ function accumulateReconcileVisOffset(cart, pcfg, noteReconcileError) {
   // * A heading offset past ~86° means prediction and host disagree about which way
   // * the cart faces — easing that reads as drunk steering; snap heading instead.
   if (Math.abs(off.yaw) > 1.5) off.yaw = 0;
-  noteReconcileError?.(errM, false);
+  noteReconcileError?.(errM, false, trace);
 }
 
 /**
@@ -491,6 +508,11 @@ export function runPhysicsStep(loopState, deps, context) {
             // * Remember the predicted pose so the visual can ease across the correction
             // * instead of jerking with the body snap below (run-4 rubberbanding).
             const havePrePose = captureReconcilePrePose(localCart);
+            const diagReconcile = typeof window !== "undefined" && window.__ccDiagActive;
+            const preVelocity = diagReconcile && localCart.body?.linvel
+              ? localCart.body.linvel()
+              : null;
+            const preRamSteps = diagReconcile ? (localCart.pendingRam?.remainingSteps ?? 0) : 0;
 
             // Hard-snap local cart body to host authoritative state
             deps.applySnapshotToCartBody(localCart, cartSnap);
@@ -515,6 +537,23 @@ export function runPhysicsStep(loopState, deps, context) {
               : 0;
             const skipReplayGapMs = predCfg?.skipReplayAfterSnapGapMs ?? 500;
             const skipReplay = skipReplayGapMs > 0 && arrivalGapMs >= skipReplayGapMs;
+            const traceContext = diagReconcile ? {
+              snapSeq: latestSnap.seq,
+              ackSeq,
+              hostPos: [...cartSnap.p],
+              hostVelocity: Array.isArray(cartSnap.lv) ? [...cartSnap.lv] : null,
+              preVelocity: preVelocity ? [preVelocity.x, preVelocity.y, preVelocity.z] : null,
+              preRamSteps,
+              pendingCount: pendingInputs.length,
+              oldestPendingSeq: pendingInputs[0]?.seq ?? null,
+              newestPendingSeq: pendingInputs.at(-1)?.seq ?? null,
+              replayedInputs: skipReplay ? 0 : replayInputs.length,
+              deferredInputs: replaySelection.deferredCount,
+              snapshotGapMs: arrivalGapMs,
+              frameDtMs: Math.round(dt * 1000),
+              substeps,
+              skipReplay,
+            } : null;
             if (skipReplay) {
               deps.netcode?.noteReconcileReplaySkip?.();
               // * Drop the untrusted pending stream — leaving it caused post-stall
@@ -528,6 +567,7 @@ export function runPhysicsStep(loopState, deps, context) {
                   localCart,
                   predCfg,
                   deps.netcode?.noteReconcileError,
+                  traceContext,
                 );
               }
               clearReconcileVisOffset(localCart);
@@ -595,6 +635,7 @@ export function runPhysicsStep(loopState, deps, context) {
                   localCart,
                   predCfg,
                   deps.netcode?.noteReconcileError,
+                  traceContext,
                 );
               }
               // * NH-SMOOTH: kill prev→body alpha stretch across the hard snap (see block comment).

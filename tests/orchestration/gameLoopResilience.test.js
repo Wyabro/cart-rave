@@ -4,7 +4,9 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import {
   runGameLoop,
+  runPhysicsStep,
   createGameLoopState,
+  resetReconciliationState,
 } from "../../src/gameLoop.js";
 // * CHUNK-MEMBER-1 L1: counters live on the analytics leaf, not gameLoop exports.
 import {
@@ -417,5 +419,85 @@ describe("match frame telemetry (FREEZE-TELEMETRY-1)", () => {
     resetMatchFrameTelemetry();
 
     expect(getMatchFrameTelemetry()).toEqual({ maxFrameMs: 0, framesOver33: 0 });
+  });
+});
+
+describe("non-host reconcile trace", () => {
+  afterEach(() => {
+    delete window.__ccDiagActive;
+    resetReconciliationState();
+  });
+
+  it("separates the pre-snapshot error from replay movement in a large correction", () => {
+    resetReconciliationState();
+    window.__ccDiagActive = true;
+    const position = { x: 0, y: 0, z: 0 };
+    const body = {
+      translation: () => ({ ...position }),
+      rotation: () => ({ x: 0, y: 0, z: 0, w: 1 }),
+      linvel: () => ({ x: 1, y: 0, z: 0 }),
+    };
+    const cart = {
+      body,
+      prevPosition: { x: 0, y: 0, z: 0 },
+      prevRotation: { x: 0, y: 0, z: 0, w: 1 },
+      hasSpilled: false,
+    };
+    const noteReconcileError = vi.fn();
+    const pending = [2, 3].map((seq) => ({ seq, tClient: seq * 16, input: { throttle: 1 } }));
+    const snap = {
+      seq: 9,
+      carts: [{ p: [10, 0, 0], q: [0, 0, 0, 1], lv: [0, 0, 0], av: [0, 0, 0], ackSeq: 1 }],
+    };
+    const state = createGameLoopState();
+    state.accumulator = 0;
+
+    const deps = {
+      getNetSlots: () => [{ kind: "human" }],
+      getLocalSlotIndex: () => 0,
+      getLocalCart: () => cart,
+      isHost: () => false,
+      shouldUseClientPrediction: () => true,
+      getHostMigrationFreezeUntilMs: () => 0,
+      updateRemoteCartNetTargets: () => {},
+      syncRemoteCartBodiesForPrediction: () => {},
+      getRoundState: () => ({ phase: "running" }),
+      getLatestSnap: () => snap,
+      prunePendingInputs: () => {},
+      applySnapshotToCartBody: () => { position.x = snap.carts[0].p[0]; },
+      getPendingInputs: () => pending,
+      getAllCartsRef: () => [cart],
+      getSimulationCallbacks: () => ({}),
+      runFixedPhysicsStep: () => { position.x += 1; },
+      CONFIG: { fixedTimeStep: 1 / 60, maxSubsteps: 2, net: { prediction: { reconcileReplayMaxSteps: 12, maxCorrectionM: 6 } } },
+      netcode: {
+        getSnapshotSilenceMs: () => 0,
+        getLastSnapshotArrivalGapMs: () => 25,
+        noteReconcileError,
+      },
+    };
+    runPhysicsStep(state, deps, { now: 1000, dt: 0.016 });
+
+    expect(noteReconcileError).toHaveBeenCalledTimes(1);
+    const [correctionM, teleported, trace] = noteReconcileError.mock.calls[0];
+    expect(correctionM).toBe(12);
+    expect(teleported).toBe(true);
+    expect(trace).toMatchObject({
+      snapSeq: 9,
+      ackSeq: 1,
+      pendingCount: 2,
+      replayedInputs: 2,
+      deferredInputs: 0,
+      preToHostM: 10,
+      postToHostM: 2,
+      frameDtMs: 16,
+    });
+
+    // Diagnostics must not make a partial body stub (or teardown edge) fatal.
+    delete body.linvel;
+    snap.seq = 10;
+    snap.carts[0].p = [20, 0, 0];
+    runPhysicsStep(state, deps, { now: 1016, dt: 0.016 });
+    expect(noteReconcileError.mock.calls[1][2]).toMatchObject({ preVelocity: null, postVelocity: null });
   });
 });

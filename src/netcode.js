@@ -1076,6 +1076,9 @@ const netFlowStats = {
   reconcileErrLastM: 0,
   reconcileErrMaxM: 0,
   reconcileTeleports: 0,
+  // * F8-only correction samples. A bounded tail lets the next capture distinguish
+  // * pre-snapshot divergence from replay-created movement without per-frame logs.
+  reconcileTrace: [],
   // * Reconcile CPU-budget pressure. Deferred steps remain in pendingInputs and can
   // * enter a later replay window; these counters do not mean input loss.
   reconcileReplayDeferredSteps: 0,
@@ -1131,6 +1134,7 @@ function resetNetFlowStats() {
   netFlowStats.reconcileErrLastM = 0;
   netFlowStats.reconcileErrMaxM = 0;
   netFlowStats.reconcileTeleports = 0;
+  netFlowStats.reconcileTrace.length = 0;
   netFlowStats.reconcileReplayDeferredSteps = 0;
   netFlowStats.reconcileReplayBudgetEvents = 0;
   netFlowStats.predictionHistoryDrops = 0;
@@ -1294,11 +1298,17 @@ export function getLastSnapshotArrivalGapMs() {
  * Reconcile-error hook for gameLoop (deps.netcode — gameLoop cannot import netcode, cycle).
  * @param {number} errM Positional error between predicted and host-authoritative pose.
  * @param {boolean} teleported True when the correction exceeded prediction.maxCorrectionM.
+ * @param {Record<string, unknown> | null} [trace] F8-only pre/snapshot/post context.
  */
-export function noteReconcileError(errM, teleported) {
+export function noteReconcileError(errM, teleported, trace = null) {
   netFlowStats.reconcileErrLastM = errM;
   if (errM > netFlowStats.reconcileErrMaxM) netFlowStats.reconcileErrMaxM = errM;
   if (teleported) netFlowStats.reconcileTeleports += 1;
+  if (trace && errM >= 1) {
+    const samples = netFlowStats.reconcileTrace;
+    samples.push({ atEpochMs: Date.now(), correctionM: Math.round(errM * 1000) / 1000, teleported, ...trace });
+    if (samples.length > 24) samples.shift();
+  }
 }
 
 /**
@@ -1351,6 +1361,7 @@ export function getNetFlowStats() {
     reconcileErrLastM: Math.round(netFlowStats.reconcileErrLastM * 1000) / 1000,
     reconcileErrMaxM: Math.round(netFlowStats.reconcileErrMaxM * 1000) / 1000,
     reconcileTeleports: netFlowStats.reconcileTeleports,
+    reconcileTrace: netFlowStats.reconcileTrace.slice(),
     // * Compatibility for existing capture readers. Replay budgeting no longer drops
     // * input, so these retired loss counters remain present and stay at zero.
     reconcileReplayDrops: 0,
