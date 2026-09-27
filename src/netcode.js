@@ -1913,7 +1913,7 @@ export function applyCartState(cart, snap, options = {}) {
       cart._lastNetAngvel.y = av[1];
       cart._lastNetAngvel.z = av[2];
     }
-    if (cart.body) {
+    if (cart.body && !interpolate) {
       cart.body.setAngvel({ x: av[0], y: av[1], z: av[2] }, true);
     }
   }
@@ -2119,12 +2119,14 @@ export function updateRemoteCartNetTargets(localSlotIndex) {
 }
 
 /**
- * Snaps remote cart physics bodies to their interpolated net targets.
- * Keeps predicted local-cart collisions aligned with where remote carts appear on screen.
+ * Rewinds remote physics to the same host tick as the local cart before replay.
+ * Delayed render targets never drive these bodies. Between snapshots, the whole
+ * prediction world advances together instead of repeating stale contacts.
  *
  * @param {number} localSlotIndex Slot index of the local human player (skipped).
+ * @param {object} snapshot Replay origin. Does not change delayed render targets.
  */
-export function syncRemoteCartBodiesForPrediction(localSlotIndex) {
+export function syncRemoteCartBodiesForPrediction(localSlotIndex, snapshot) {
   // * NET-MIG-3: remotes stay collider-disabled until first post-epoch snap; do not
   // * re-arm them by snapping bodies to stale _netTarget* / lastCartsCache poses.
   if (hostMigrationAwaitingFirstSnap) return;
@@ -2134,18 +2136,14 @@ export function syncRemoteCartBodiesForPrediction(localSlotIndex) {
     if (slotIndex === localSlotIndex) continue;
     const cart = allCarts[slotIndex];
     if (!cart?.body) continue;
-    if (cart._netTargetPos) {
-      const p = cart._netTargetPos;
-      cart.body.setTranslation({ x: p.x, y: p.y, z: p.z }, true);
-    }
-    if (cart._netTargetQuat) {
-      const q = cart._netTargetQuat;
-      cart.body.setRotation({ x: q.x, y: q.y, z: q.z, w: q.w }, true);
-    }
-    const lv = cart._lastNetLinvel;
-    if (lv) {
-      cart.body.setLinvel({ x: lv.x || 0, y: lv.y || 0, z: lv.z || 0 }, true);
-    }
+    const snap = getCartSnap(snapshot?.carts, slotIndex);
+    if (!snap) continue;
+    if (isFiniteVec3(snap.p)) cart.body.setTranslation({ x: snap.p[0], y: snap.p[1], z: snap.p[2] }, true);
+    if (isFiniteQuat(snap.q)) cart.body.setRotation({ x: snap.q[0], y: snap.q[1], z: snap.q[2], w: snap.q[3] }, true);
+    if (isFiniteVec3(snap.lv)) cart.body.setLinvel({ x: snap.lv[0], y: snap.lv[1], z: snap.lv[2] }, true);
+    if (isFiniteVec3(snap.av)) cart.body.setAngvel({ x: snap.av[0], y: snap.av[1], z: snap.av[2] }, true);
+    // A predicted impulse belongs to the discarded future, not this host pose.
+    cart.pendingRam = null;
   }
 }
 

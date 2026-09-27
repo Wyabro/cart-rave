@@ -121,6 +121,7 @@ import {
   runGameLoop,
   runPhysicsStep,
   updateVisualsAndEffects,
+  prepareLocalCartDisplayPose,
 } from "../gameLoop.js";
 import { cleanupSuddenDeathState, deferSuddenDeathWin, updateGameFlow } from "../gameFlow.js";
 import { getRoundClockNowMs } from "../roundClock.js";
@@ -1626,6 +1627,17 @@ export function bootGameSystems(ctx) {
     frameCtx.physicsAlpha = physicsStep.alpha;
 
     const localCart = localCartForConnId();
+    if (!Netcode.getIsHost() && localCart?.body) {
+      const hitStop = cart.getHitStop();
+      const running = GameState.getRoundState().phase === "running";
+      const displayNow = performance.now();
+      if (!(running && displayNow < hitStop.until)) {
+        prepareLocalCartDisplayPose(
+          localCart, physicsStep.alpha, CONFIG.cart.visualOffset, dt,
+          CONFIG.net.prediction, running && displayNow < hitStop.blendUntil,
+        );
+      }
+    }
 
     // * True near-miss detection — a boosting opponent whooshing past without contact
     // * earns the local player a close_call. Cheap: three distance checks per frame.
@@ -1692,11 +1704,8 @@ export function bootGameSystems(ctx) {
       if (!inHitStop) {
         let playerPos = localCart.body.translation();
         let playerRot = localCart.body.rotation();
-        // * NET-LAG-1: non-host only — follow `_displayPos` (copy of the physics mesh)
-        // * so camera and mesh stay on the same pose (CAM-1). frameVisuals only *updates*
-        // * `_displayPos` for non-host local; if we still read it after host promote (or
-        // * any stale flag), the camera freezes while the body drives on (cart moves,
-        // * view stuck). Host always tracks the live body (+ optional reconcile offset).
+        // Follow the pose prepared after this frame's physics. Reading last frame's
+        // display here makes camera motion disagree with the cart on every correction.
         const useDisplayPose = !Netcode.getIsHost()
           && localCart._displayReady
           && localCart._displayPos
@@ -1709,8 +1718,12 @@ export function bootGameSystems(ctx) {
           playerRot = localCart._displayQuat;
         } else {
           // * Host promote / respawn: drop stale non-host display so a later demote reseeds.
-          if (Netcode.getIsHost() && localCart._displayReady) {
+          if (Netcode.getIsHost()) {
             localCart._displayReady = false;
+            const staleCorrection = localCart._reconcileVisOffset;
+            if (staleCorrection) {
+              staleCorrection.x = staleCorrection.y = staleCorrection.z = staleCorrection.yaw = 0;
+            }
           }
           const ro = localCart._reconcileVisOffset;
           if (ro && (ro.x !== 0 || ro.y !== 0 || ro.z !== 0)) {

@@ -56,6 +56,51 @@ const _hitStopQuat = new THREE.Quaternion();
 /** Reconcile visual-offset scratch (world-Y heading twist) — see gameLoop.js capture side. */
 const _reconYawQuat = new THREE.Quaternion();
 const _yUpAxis = new THREE.Vector3(0, 1, 0);
+const _localDisplayTarget = new THREE.Vector3();
+const _localDisplayRotation = new THREE.Quaternion();
+
+/** Prepare once after physics, before both camera update and mesh rendering. */
+export function prepareLocalCartDisplayPose(cart, alpha, visualOffset, dt, prediction, blendFromHitStop = false) {
+  if (!cart?.body) return;
+  const p = cart.body.translation();
+  const q = cart.body.rotation();
+  const prev = cart.prevPosition || p;
+  const prevQ = cart.prevRotation || q;
+  const a = alpha == null ? 1 : clamp(alpha, 0, 1);
+  _localDisplayTarget.set(
+    prev.x + (p.x - prev.x) * a,
+    prev.y + (p.y - prev.y) * a + visualOffset,
+    prev.z + (p.z - prev.z) * a,
+  );
+  _localDisplayRotation.set(prevQ.x, prevQ.y, prevQ.z, prevQ.w);
+  _interpCurrQuat.set(q.x, q.y, q.z, q.w);
+  _localDisplayRotation.slerp(_interpCurrQuat, a);
+  const correction = cart._reconcileVisOffset;
+  if (correction) {
+    _localDisplayTarget.x += correction.x;
+    _localDisplayTarget.y += correction.y;
+    _localDisplayTarget.z += correction.z;
+    _reconYawQuat.setFromAxisAngle(_yUpAxis, correction.yaw);
+    _localDisplayRotation.premultiply(_reconYawQuat);
+    // Decay only the correction error. Ordinary driving is never low-pass filtered.
+    const posDecay = Math.exp(-(prediction?.reconcilePosRate ?? 3.2) * dt);
+    const rotDecay = Math.exp(-(prediction?.reconcileRotRate ?? 2.5) * dt);
+    correction.x *= posDecay;
+    correction.y *= posDecay;
+    correction.z *= posDecay;
+    correction.yaw *= rotDecay;
+  }
+  if (!cart._displayPos) cart._displayPos = new THREE.Vector3();
+  if (!cart._displayQuat) cart._displayQuat = new THREE.Quaternion();
+  if (blendFromHitStop && cart._displayReady) {
+    const blend = 1 - Math.pow(0.25, dt * 60);
+    cart._displayPos.lerp(_localDisplayTarget, blend);
+    cart._displayQuat.slerp(_localDisplayRotation, blend);
+  } else {
+    applyDisplayPoseFollow(cart._displayPos, cart._displayQuat, _localDisplayTarget, _localDisplayRotation);
+  }
+  cart._displayReady = true;
+}
 
 // * Living Cargo per-frame context scratch (no per-frame object literal).
 const _cargoCtx = { localSlotIndex: -1, netSlots: /** @type {Array<object>} */ ([]), roundPhase: "" };
@@ -334,21 +379,11 @@ export function updateVisualsAndEffects(deps, frameCtx) {
       _hitStopQuat.slerp(c.mesh.quaternion, blendAlpha);
       c.mesh.quaternion.copy(_hitStopQuat);
     }
-    // * NET-LAG-1: non-host local mesh+camera copy the physics pose. v3's display
-    // * low-pass (displayPosRate 14) trailed ~v/rate meters on a clean wire
-    // * (cap-373: 1.63 m xz, errLast 1 mm). Camera still reads `_displayPos` (CAM-1).
-    // * Physics body + reconcile metrics unchanged. v1/v2 offset is drained so it
-    // * cannot re-enter via the host-promote camera fallback.
-    if (!deps.isHost() && slotIndex === localSlotIndexForFrame) {
-      if (!c._displayPos) c._displayPos = new THREE.Vector3();
-      if (!c._displayQuat) c._displayQuat = new THREE.Quaternion();
-      applyDisplayPoseFollow(c._displayPos, c._displayQuat, c.mesh.position, c.mesh.quaternion);
-      c._displayReady = true;
+    // Camera and mesh consume the same pose prepared after this frame's physics.
+    if (!deps.isHost() && slotIndex === localSlotIndexForFrame && c._displayReady) {
       c.mesh.position.copy(c._displayPos);
       c.mesh.quaternion.copy(c._displayQuat);
       bodyY = c._displayPos.y - visualOffset;
-      const ro = c._reconcileVisOffset;
-      if (ro) { ro.x = 0; ro.y = 0; ro.z = 0; ro.yaw = 0; }
     }
     // * Pose write dirties this root; force=false still propagates to children.
     c.mesh.updateMatrixWorld(false);

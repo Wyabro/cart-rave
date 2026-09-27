@@ -10,11 +10,12 @@ import { tickAiStallWatchdog } from "./utils/aiStallWatchdog.js";
 import { selectPendingForReconcileReplay } from "./utils/reconcileReplay.js";
 import { headingYawFromQuat, wrapAngleRad } from "./simulation.js";
 import { getRoundClockNowMs } from "./roundClock.js";
+import { Quaternion } from "three";
 // * FREEZE-TELEMETRY-1 counters live in analytics/matchFrameTelemetry.js (eager leaf) so
 // * gameplayAnalytics never static-imports this file (CHUNK-MEMBER-1 L1 re-eager cut).
 import { recordMatchFrameForTelemetry } from "./analytics/matchFrameTelemetry.js";
 
-export { updateVisualsAndEffects, armRoundStartRenderProbe } from "./frameVisuals.js";
+export { updateVisualsAndEffects, armRoundStartRenderProbe, prepareLocalCartDisplayPose } from "./frameVisuals.js";
 
 /** @type {object[] | null} */
 let _npcCache = null;
@@ -35,14 +36,13 @@ let _lastLongFrameLogMs = 0;
 // * EVERY snapshot (up to 40Hz) whenever prediction diverged at all. Instead of snapping
 // * the visual too, the pre-correction ↔ post-correction pose delta accumulates into
 // * cart._reconcileVisOffset, which frameVisuals applies to the mesh and decays to zero
-// * at CONFIG.net.prediction.reconcilePosRate/reconcileRotRate (those knobs were dead
-// * config until now). Physics stays authoritative; only the rendered pose eases.
-// *
-// * NH-SMOOTH: after the body hard-snaps, also refresh prevPosition/prevRotation to the
-// * post-reconcile body. frameVisuals lerps prev→body with physics alpha; leaving prev on
-// * the pre-snap prediction made that lerp fight the visual offset every snap (~40Hz) —
-// * joiner drive read as "drunk/slop" even with clean net (cap-78/79: errMax ~1.4m, 0 teleports).
+// * at CONFIG.net.prediction.reconcilePosRate/reconcileRotRate. Physics stays
+// * authoritative; only correction error eases. Both interpolation endpoints move
+// * into the corrected frame so the normal fixed-step interpolation stays continuous.
 const _reconPre = { x: 0, y: 0, z: 0, yaw: 0 };
+const _reconPreRotation = new Quaternion();
+const _reconRotationDelta = new Quaternion();
+const _reconPreviousRotation = new Quaternion();
 
 
 function clearReconcileVisOffset(cart) {
@@ -64,7 +64,29 @@ function captureReconcilePrePose(cart) {
   if (!t || !r) return false;
   _reconPre.x = t.x; _reconPre.y = t.y; _reconPre.z = t.z;
   _reconPre.yaw = headingYawFromQuat(r);
+  _reconPreRotation.set(r.x, r.y, r.z, r.w);
   return true;
+}
+
+// Move both ends of physics interpolation into the corrected coordinate frame.
+// The visual correction cancels this move. Resetting prev to current instead
+// advances the rendered cart by a partial physics tick on every host snapshot.
+function rebasePhysicsPrevAfterReconcile(cart) {
+  if (!cart?.body || !cart.prevPosition || !cart.prevRotation) return;
+  const p = cart.body.translation();
+  const q = cart.body.rotation();
+  cart.prevPosition.x += p.x - _reconPre.x;
+  cart.prevPosition.y += p.y - _reconPre.y;
+  cart.prevPosition.z += p.z - _reconPre.z;
+  _reconRotationDelta.set(q.x, q.y, q.z, q.w)
+    .multiply(_reconPreRotation.invert());
+  const prev = cart.prevRotation;
+  _reconPreviousRotation.set(prev.x, prev.y, prev.z, prev.w)
+    .premultiply(_reconRotationDelta);
+  prev.x = _reconPreviousRotation.x;
+  prev.y = _reconPreviousRotation.y;
+  prev.z = _reconPreviousRotation.z;
+  prev.w = _reconPreviousRotation.w;
 }
 
 /** Folds the post-correction pose delta into the cart's visual offset (see block comment). */
@@ -101,23 +123,11 @@ function accumulateReconcileVisOffset(cart, pcfg, noteReconcileError, traceConte
     noteReconcileError?.(errM, true, trace);
     return;
   }
-  // * NH-SMOOTH v2 (cap-82): cap how much one snap may add to the ease debt. Full dx on
-  // * combat rams piled debt until it hit maxM and hard-cleared — a full-screen pop while
-  // * snap cadence stayed healthy. Overflow of residual debt is clamped (not zeroed).
-  let adx = dx;
-  let ady = dy;
-  let adz = dz;
-  const addCap = pcfg.reconcileVisAddCapM ?? 0.45;
-  const addLen = Math.hypot(adx, ady, adz);
-  if (addCap > 0 && addLen > addCap) {
-    const s = addCap / addLen;
-    adx *= s;
-    ady *= s;
-    adz *= s;
-  }
-  off.x += adx;
-  off.y += ady;
-  off.z += adz;
+  // Preserve continuity across the complete correction. A per-snapshot add cap
+  // exposes the rest as an immediate jump, even for an ordinary sub-metre error.
+  off.x += dx;
+  off.y += dy;
+  off.z += dz;
   const debt = Math.hypot(off.x, off.y, off.z);
   if (debt > maxM && debt > 1e-8) {
     const s = maxM / debt;
@@ -126,9 +136,6 @@ function accumulateReconcileVisOffset(cart, pcfg, noteReconcileError, traceConte
     off.z *= s;
   }
   off.yaw = wrapAngleRad(off.yaw + wrapAngleRad(_reconPre.yaw - headingYawFromQuat(r)));
-  // * A heading offset past ~86° means prediction and host disagree about which way
-  // * the cart faces — easing that reads as drunk steering; snap heading instead.
-  if (Math.abs(off.yaw) > 1.5) off.yaw = 0;
   noteReconcileError?.(errM, false, trace);
 }
 
@@ -285,7 +292,7 @@ export function applySlowMoToDt(deps, dt) {
  * @property {() => object} getRemoteInputsByConnId
  * @property {() => number} getHostMigrationFreezeUntilMs
  * @property {(localSlotIndex: number) => void} updateRemoteCartNetTargets
- * @property {(localSlotIndex: number) => void} syncRemoteCartBodiesForPrediction
+ * @property {(localSlotIndex: number, snapshot: object) => void} syncRemoteCartBodiesForPrediction
  * @property {(slotIndex: number) => object | null} sampleAuthoritativeCartState
  * @property {(isHost: boolean) => object} getSimulationCallbacks
  * @property {(args: object) => void} runFixedPhysicsStep
@@ -386,8 +393,9 @@ export function runPhysicsStep(loopState, deps, context) {
     } else {
       // 1. Interpolate remote players from the host snapshot buffer (not the local cart).
       deps.updateRemoteCartNetTargets(localSlotIndex);
-      // 2. Align remote physics bodies so prediction collides against current net poses.
-      deps.syncRemoteCartBodiesForPrediction(localSlotIndex);
+      // 2. Continue the coherent physics world from the last host-tick replay.
+      // Moving remote bodies back to delayed render targets here repeats contacts
+      // against the local cart's newer pose and can inject large solver velocities.
 
       // * Hold live prediction when the host is silent or we are in a true death path.
       // * Run-7 efdca62 retest: multi-second host freezes left Intel driving a ghost
@@ -574,6 +582,9 @@ export function runPhysicsStep(loopState, deps, context) {
               snapPhysicsPrevToBody(localCart);
             } else {
               const allCarts = deps.getAllCartsRef();
+              // Local and remote collision bodies must start replay at the same
+              // host tick. Render targets are intentionally older and stay separate.
+              deps.syncRemoteCartBodiesForPrediction(localSlotIndex, latestSnap);
               const liveSim = deps.getSimulationCallbacks(false);
               const replayCallbacks = {
                 ...liveSim,
@@ -638,8 +649,8 @@ export function runPhysicsStep(loopState, deps, context) {
                   traceContext,
                 );
               }
-              // * NH-SMOOTH: kill prev→body alpha stretch across the hard snap (see block comment).
-              snapPhysicsPrevToBody(localCart);
+              if (havePrePose) rebasePhysicsPrevAfterReconcile(localCart);
+              else snapPhysicsPrevToBody(localCart);
             }
             } // hasSpilled forced-respawn else
           } // cartSnap.s alive branch

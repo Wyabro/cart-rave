@@ -337,7 +337,7 @@ export function createLoopDeps(deps) {
       getRemoteInputsByConnId: () => Netcode.getRemoteInputsByConnId(),
       getHostMigrationFreezeUntilMs: () => Netcode.getHostMigrationFreezeUntilMs(),
       updateRemoteCartNetTargets: (idx) => Netcode.updateRemoteCartNetTargets(idx),
-      syncRemoteCartBodiesForPrediction: (idx) => Netcode.syncRemoteCartBodiesForPrediction(idx),
+      syncRemoteCartBodiesForPrediction: (idx, snapshot) => Netcode.syncRemoteCartBodiesForPrediction(idx, snapshot),
       sampleAuthoritativeCartState: (idx) => Netcode.sampleAuthoritativeCartState(idx),
       runFixedPhysicsStep: Simulation.runFixedPhysicsStep,
       getSimulationCallbacks: (isHost) => (isHost ? hostSimCallbacks : clientSimCallbacks),

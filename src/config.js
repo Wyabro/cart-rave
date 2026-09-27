@@ -447,10 +447,9 @@ export const CONFIG = {
     // * frameVisuals applies to the mesh (and main.js feeds to the follow camera) while
     // * decaying it at the rates below. Run-4 "laggy-rubberbandy" fix.
     // * NH-SMOOTH: v1 prev-pose+rates, v2 soft debt — both failed live (cap-82/83).
-    // * v3: display-pose low-pass (parked). NET-LAG-1: non-host local mesh+camera
-    // * copy the physics pose; displayPosRate / displayRotRate are unused. Restore
-    // * only on a vibration FAIL — do not re-add a catch-up distance gate.
-    // * Physics hard-snap unchanged. Legacy offset knobs remain for metrics / fallback.
+    // * NET-LAG-1: camera and mesh share the current physics-alpha pose plus a
+    // * decaying correction offset. Ordinary driving is not low-pass filtered.
+    // * displayPosRate / displayRotRate and the v2 speed/add caps remain unused.
     prediction: {
       // * Visual positional correction decay (1/s). Higher = snappier settle to host truth.
       reconcilePosRate: 3.2,

@@ -1373,9 +1373,7 @@ function fireRamContactPresentation(rammer, victim, rp, vp, fxIntensity, isRamme
 }
 
 export function applyRammingImpulse(rammer, victim, rammerState, victimState, callbacks, isHost, nowMs) {
-  // Reconcile replays local inputs against display-delayed remote bodies, not the
-  // remote state that the host used. A fresh ram here is not authoritative and
-  // can add a full knockback impulse on every incoming snapshot.
+  // Replaying inputs cannot establish a new authoritative ram contact.
   if (callbacks?.isReconcileReplay) return;
 
   // * Knockback + crit read the rammer's LIVE (post-collision) velocity, so forward-ram feel
@@ -1414,15 +1412,20 @@ export function applyRammingImpulse(rammer, victim, rammerState, victimState, ca
 
       // Spread impulse
       const steps = CONFIG.ramming.spreadSteps;
-      if (!victim.pendingRam) {
-        victim.pendingRam = { impulse, remainingSteps: steps, totalSteps: steps };
-      } else {
-        const appliedFraction = 1 - (victim.pendingRam.remainingSteps / victim.pendingRam.totalSteps);
-        victim.pendingRam.impulse.x = (victim.pendingRam.impulse.x * (1 - appliedFraction)) + impulse.x;
-        victim.pendingRam.impulse.y = (victim.pendingRam.impulse.y * (1 - appliedFraction)) + impulse.y;
-        victim.pendingRam.impulse.z = (victim.pendingRam.impulse.z * (1 - appliedFraction)) + impulse.z;
-        victim.pendingRam.remainingSteps = Math.max(victim.pendingRam.remainingSteps, steps);
-        victim.pendingRam.totalSteps = Math.max(victim.pendingRam.totalSteps, steps);
+      // Remote bodies are delayed in live client prediction. Repeated contacts
+      // there must not invent knockback that the next host snapshot reverses.
+      // Keep immediate contact effects above; only the host applies the force.
+      if (isHost) {
+        if (!victim.pendingRam) {
+          victim.pendingRam = { impulse, remainingSteps: steps, totalSteps: steps };
+        } else {
+          const appliedFraction = 1 - (victim.pendingRam.remainingSteps / victim.pendingRam.totalSteps);
+          victim.pendingRam.impulse.x = (victim.pendingRam.impulse.x * (1 - appliedFraction)) + impulse.x;
+          victim.pendingRam.impulse.y = (victim.pendingRam.impulse.y * (1 - appliedFraction)) + impulse.y;
+          victim.pendingRam.impulse.z = (victim.pendingRam.impulse.z * (1 - appliedFraction)) + impulse.z;
+          victim.pendingRam.remainingSteps = Math.max(victim.pendingRam.remainingSteps, steps);
+          victim.pendingRam.totalSteps = Math.max(victim.pendingRam.totalSteps, steps);
+        }
       }
       victim.lastRamTimeMs = nowMs;
       rammer.lastRamTimeMs = nowMs;
