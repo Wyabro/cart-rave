@@ -182,7 +182,7 @@ export function buildSessionBridgeContext(deps) {
  * @param {() => unknown} deps.getAllCartsRef
  * @param {{ current: unknown }} deps.resetSimTimingRef
  * @param {(cart: unknown, nowMs: number, opts?: object) => void} deps.triggerRamBoost
- * @param {(cart: unknown, nowMs: number) => void} deps.triggerHop
+ * @param {(cart: unknown, nowMs: number, opts?: { presentationOnly?: boolean }) => void} deps.triggerHop
  * @param {Function} deps.triggerCartShatter
  * @param {Function} deps.doRespawn
  * @param {((axis: () => { forward: number, turn: number }) => void)=} deps.assignLocalAxisRef

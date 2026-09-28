@@ -1117,19 +1117,21 @@ function attemptLocalHop() {
   Input.requestHop();
 }
 
-function triggerHop(cart, nowMs) {
+function triggerHop(cart, nowMs, { presentationOnly = false } = {}) {
   if (!cart?.body) return;
   if (nowMs - cart.lastHopAtMs < CONFIG.cart.hop.cooldownMs) return;
   cart.lastHopAtMs = nowMs;
   // * Arm one-shot landing feedback (rising-edge floor contact in simulation).
   cart.hopAwaitingLand = true;
   cart.hopAirborne = false;
-  cart.body.applyImpulse({ x: 0, y: CONFIG.cart.hop.impulse, z: 0 }, true);
+  if (!presentationOnly) {
+    cart.body.applyImpulse({ x: 0, y: CONFIG.cart.hop.impulse, z: 0 }, true);
+  }
   if (cart === localCartForConnId()) {
     AudioManager.playSfx("hop");
   } else {
     // * Remote humans and NPCs hop audibly too (covers host-side sim hops AND the
-    // * non-host snap.h replay, which routes through this same function).
+    // * non-host snap.h presentation, which skips the physics impulse).
     AudioManager.playSfx("hop", undefined, { volume: 0.45 });
   }
 }

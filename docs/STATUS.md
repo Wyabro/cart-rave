@@ -47,14 +47,14 @@ files. **CG-ZIP-PT-1** PASS (local Playwright unzip + `lvh.me`).
 `0c962927-fae5-49ba-877e-19b814190ec8`. **ONBOARD-COPY-PT-1** Wyatt PASS.
 **MENU-MUSIC-FIRST-PT-1** Wyatt PASS 09-01 on prod `d16fd523`.
 **NET-LAG-1-PT-1** PASS 09-14 (trail gone). **NET-LAG-PT-2 FAIL** 09-24.
-**NET-LAG-1 shipped 09-27:** `266fe5df`, Worker `314dff9d`. One host-tick timeline for replay and live
-prediction; host-only custom knockback; correction-only visual easing; camera
-and mesh use the same frame pose. Latest two-Chrome GPU run with 60 ms added
-RTT: three contact sequences, 0 hard corrections, max correction 1.703 m,
-0 input-history drops. Production driving: 0 hard corrections, max 1.149 m.
-Typecheck/build pass. Full QA waived by Wyatt. Live `index-DyrtQsfW.js`:
-28 refs, 0 missing; `gameBoot-CQJjJVtd.js` bytes match the local build.
-Human **NET-LAG-PT-2** retest owed; no visual PASS yet. Do not retouch Classic / Sundial /
+**NET-LAG-1 prod:** `266fe5df`, Worker `314dff9d`. Coherent prediction and display timelines;
+host-only custom knockback. Assets verified. Wyatt reports improved two-PC play;
+captures 407/408 still show two hard corrections (max 18.059 m).
+**Follow-up release approved:** ordered input, boost-end timer ownership, and presentation-only hops.
+Smoothing/replay budgets unchanged. Stale display and client-ram tests now check the shipped rules.
+Tests: 2,500/2,500; full battery: 8/8 (report `battery-2026-09-28T06-04-20-766Z.json`).
+Final QA and deployment pending. Roll back to Worker `314dff9d` if boot or multiplayer fails.
+Human **NET-LAG-PT-2** remains open. Do not retouch Classic / Sundial /
 Storerooms floors. Do not reopen **CART-POP-1**. Stay in this phase until
 Wyatt advances the marker.
 **GLITCH-TECH-1** shipped 09-18 — prod `4ab166a8` Worker
@@ -108,7 +108,7 @@ Live rows only. Shipped and closed cards live in
 | CG-ZIP-1 | CrazyGames Basic Launch zip of `dist/` | ✅ CLOSED 09-02 — 23.96 MB / 182 files; **CG-ZIP-PT-1** PASS |
 | SITE-TRUST-1 | public information and analytics choice | ✅ CLOSED 09-14 — **SITE-TRUST-PT-1** PASS (prod `c58c96ff`) |
 | ONBOARD-COPY-1 | HOW TO PLAY AISLE 1+2 copy matches live input | ✅ CLOSED 09-14 — Wyatt PASS **ONBOARD-COPY-PT-1** on prod `39010c93` |
-| NET-LAG-1 | Friends/QP lag + rubber-band (F8 both machines) | `266fe5df`, Worker `314dff9d`; local contacts and production driving: 0 hard corrections; NET-LAG-PT-2 human verdict owed |
+| NET-LAG-1 | Friends/QP lag + rubber-band (F8 both machines) | Input/boost/hop follow-up: 2,500 tests, battery 8/8; final QA and authorized ship pending. |
 | RAM-ARREST-1 | silent ram on solver-arrested contact (SNAP-FINITE-PT-1 FAIL) | ✅ shipped `6c5c139b` Worker `8476ccfb`; **SNAP-FINITE-PT-1** retest owed |
 | AUDIO-RAM-IMPACT-1 | ram crash SFX inaudible + soft taps silent (external playtest) | ✅ CLOSED 08-21 — Wyatt PT PASS on prod `67778a9f` (both rounds: `c4e7f082` + `0644094f`) |
 | ONBOARD-WEBP-1 | HOW TO PLAY WebP playback + fallback | ✅ CLOSED 08-23 — Wyatt PASS **ONBOARD-WEBP-PT-1** on prod `14658bf8` (Worker `e14acbd4`) |
@@ -118,7 +118,7 @@ Live rows only. Shipped and closed cards live in
 
 ### Next actions
 
-1. **NET-LAG-PT-2** `[2pc]` on prod `266fe5df` needs Wyatt's visual verdict. Assets and two-client production driving are verified; do not infer human PASS. Owed: **SNAP-FINITE-PT-1**, **CLUTCH-SLOMO-PT-1** (prod). Deferred: **SHARD-PT-2** (launch day).
+1. **NET-LAG-1:** run full checks and battery, then ship (authorized). Patch: `.diag-captures/net-lag-rootcause`. Retest: **NET-LAG-PT-2** `[2pc]`. Owed: **SNAP-FINITE-PT-1**, **CLUTCH-SLOMO-PT-1**. Deferred: **SHARD-PT-2** (launch day).
    Closed 09-02: **CG-ZIP-PT-1** · **CG-ZIP-1** · **MENU-SHORTWIN-PT-1**.
    Closed 09-01: **MENU-MUSIC-FIRST-PT-1** · **SOFTGL-DISMISS-PT-1** ·
    **RESTART-ROUND-PT-1** · **PAUSE-SLIDER-DELAY-PT-1**.

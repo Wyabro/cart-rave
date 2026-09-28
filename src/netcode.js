@@ -1719,8 +1719,16 @@ export function applySnapshotToCartBody(cart, snap) {
     }
     cart.isRamBoosting = true;
     cart.isBoosting = true;
+    cart._localHostBoostUntilMs = cart.ramBoostActiveUntilMs;
   } else {
+    // End only the window installed by the last host boost. Local prediction
+    // can start a newer burst before an old host end packet arrives.
+    if (cart._localHostBoostLatched
+      && cart.ramBoostActiveUntilMs === cart._localHostBoostUntilMs) {
+      cart.ramBoostActiveUntilMs = 0;
+    }
     cart._localHostBoostLatched = false;
+    cart._localHostBoostUntilMs = 0;
     cart.isRamBoosting = false;
     cart.isBoosting = false;
   }
@@ -1974,7 +1982,8 @@ export function applyCartState(cart, snap, options = {}) {
   }
 
   if (snap.h && !cart._prevRemoteHopping) {
-    if (triggerHopRef) triggerHopRef(cart, performance.now());
+    // Snapshot velocity already contains the hop. Present it without a second impulse.
+    if (triggerHopRef) triggerHopRef(cart, performance.now(), { presentationOnly: true });
     cart.takeoffPy = Array.isArray(snap.p) ? snap.p[1] : 0;
   }
   cart._prevRemoteHopping = Boolean(snap.h);
@@ -4740,14 +4749,20 @@ function handleRemoteClientInput(input, fromConnId, seq) {
   const steer = Math.max(-1, Math.min(1, Number.isFinite(input.steer) ? input.steer : 0));
   const nitro = Boolean(input.nitro);
   const hop = Boolean(input.hop);
-  const seqNum = typeof seq === "number" && Number.isFinite(seq) ? seq : 0;
+  if (!Number.isSafeInteger(seq) || seq <= 0) return;
+  const seqNum = seq;
+  if (seqNum <= (hostLastProcessedInputSeq.get(fromConnId) || 0)) return;
 
   let queue = remoteInputQueuesByConnId.get(fromConnId);
   if (!queue) {
     queue = [];
     remoteInputQueuesByConnId.set(fromConnId, queue);
   }
-  queue.push({
+  // The DataChannel is unordered. Keep unacknowledged frames in sequence order
+  // so earlier action edges survive the jitter window without replacing newer axes.
+  const insertAt = queue.findIndex((frame) => frame.seq >= seqNum);
+  if (insertAt >= 0 && queue[insertAt].seq === seqNum) return;
+  queue.splice(insertAt < 0 ? queue.length : insertAt, 0, {
     seq: seqNum,
     throttle,
     steer,

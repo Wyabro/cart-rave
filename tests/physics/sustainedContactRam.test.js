@@ -74,7 +74,7 @@ describe("sustained-contact ram re-qualification", () => {
     GameState.replaceLastHitBy(new Map());
   });
 
-  it("does not create a replay ram but lets a later live contact qualify", () => {
+  it("keeps replay and live client contacts non-authoritative, but lets the host qualify", () => {
     const rammer = makeCart(0, 1, -FAST);
     const victim = makeCart(1, 0, 0);
     const eq = makeEventQueue();
@@ -88,7 +88,13 @@ describe("sustained-contact ram re-qualification", () => {
     expect(GameState.getLastHitBy().get(1)).toBeUndefined();
 
     step([rammer, victim], eq, 1016, {}, false);
+    expect(victim.pendingRam).toBeNull();
+    expect(applied).toBe(0);
+    expect(GameState.getLastHitBy().get(1)).toBeUndefined();
+
+    step([rammer, victim], eq, 1600, {}, true);
     expect(victim.pendingRam).not.toBeNull();
+    expect(GameState.getLastHitBy().get(1)?.attackerSlotIndex).toBe(0);
     expect(applied).toBe(0); // new live hit is queued for the next physics tick
   });
 

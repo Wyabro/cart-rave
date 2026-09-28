@@ -625,6 +625,96 @@ describe("host input jitter ackSeq (apply, not receive)", () => {
   });
 });
 
+describe("NET-LAG-1 ordered remote input", () => {
+  let now;
+  let hop;
+  let boost;
+  beforeEach(() => {
+    now = 1000;
+    vi.spyOn(performance, "now").mockImplementation(() => now);
+    GameState.setRoundPhase("running");
+    hooks.setHostStateForTest({
+      isHost: true, youConnId: "host",
+      netSlots: [{ slotId: 0, kind: "human", connId: "peer" }],
+    });
+    hop = vi.fn();
+    boost = vi.fn();
+    setRefs({ triggerHopRef: hop, triggerRamBoostRef: boost, getAllCartsRef: () => [{}] });
+  });
+  afterEach(() => setRefs({ triggerHopRef: null, triggerRamBoostRef: null, getAllCartsRef: () => null }));
+  function send(seq, extra = {}) {
+    hooks.handleRemoteClientInput({ throttle: 1, steer: 0.5, ...extra }, "peer", seq);
+  }
+  function drain() {
+    now += (CONFIG.net.inputJitterBufferMs ?? 40) + 1;
+    hooks.drainRemoteInputJitterBuffers();
+  }
+
+  it("applies reordered frames in sequence order without losing the earlier hop", () => {
+    send(20);
+    send(19, { throttle: -1, steer: -1, hop: true });
+    drain();
+    expect(hop).toHaveBeenCalledTimes(1);
+    expect(getRemoteInputsByConnId().get("peer")).toMatchObject({ throttle: 1, steer: 0.5 });
+    expect(hooks.getHostLastProcessedInputSeq("peer")).toBe(20);
+  });
+
+  it("rejects late and duplicate inputs after acknowledgement, including action edges", () => {
+    send(20);
+    drain();
+    const appliedAt = getRemoteInputsByConnId().get("peer").lastAppliedMs;
+    send(19, { throttle: -1, nitro: true, hop: true });
+    send(20, { throttle: -1, nitro: true, hop: true });
+    drain();
+    expect(getRemoteInputsByConnId().get("peer")).toMatchObject({ throttle: 1, nitro: false, lastAppliedMs: appliedAt });
+    expect(hop).not.toHaveBeenCalled();
+    expect(boost).not.toHaveBeenCalled();
+    expect(hooks.getHostLastProcessedInputSeq("peer")).toBe(20);
+  });
+
+  it("deduplicates queued hops before they are applied", () => {
+    send(20, { hop: true });
+    send(20, { hop: true });
+    drain();
+    expect(hop).toHaveBeenCalledTimes(1);
+  });
+
+  it("waits for the reordered earlier frame to reach the jitter delay", () => {
+    send(20);
+    now += 10;
+    send(19, { throttle: -1, hop: true });
+    now += (CONFIG.net.inputJitterBufferMs ?? 40) - 5;
+    hooks.drainRemoteInputJitterBuffers();
+    expect(hooks.getHostLastProcessedInputSeq("peer")).toBe(0);
+    drain();
+    expect(hop).toHaveBeenCalledTimes(1);
+    expect(getRemoteInputsByConnId().get("peer").throttle).toBe(1);
+  });
+
+  it("accepts a new sequence after a connection reset", () => {
+    send(20);
+    drain();
+    disconnectPartySession();
+    hooks.setHostStateForTest({
+      isHost: true, youConnId: "host",
+      netSlots: [{ slotId: 0, kind: "human", connId: "peer" }],
+    });
+    send(1, { throttle: -1 });
+    drain();
+    expect(hooks.getHostLastProcessedInputSeq("peer")).toBe(1);
+    expect(getRemoteInputsByConnId().get("peer").throttle).toBe(-1);
+  });
+
+  it.each([undefined, NaN, Infinity, 0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1])("rejects invalid sequence %s", (seq) => {
+    send(seq, { hop: true, nitro: true });
+    drain();
+    expect(hooks.getRemoteInputQueueLength("peer")).toBe(0);
+    expect(hooks.getHostLastProcessedInputSeq("peer")).toBe(0);
+    expect(hop).not.toHaveBeenCalled();
+    expect(boost).not.toHaveBeenCalled();
+  });
+});
+
 describe("INPUT-LOCK-1 host remote clear + drain gate", () => {
   function humanSlots(...connIds) {
     return connIds.map((connId, i) => ({
@@ -1512,6 +1602,39 @@ describe("applySnapshotToCartBody local boost whoosh (BOOST-SFX-NONHOST-1)", () 
     cart.ramBoostActiveUntilMs = 0;
     return cart;
   }
+
+  it("ends the host-confirmed physics boost when the host sends false", () => {
+    const clock = vi.spyOn(performance, "now").mockReturnValue(1000);
+    const cart = chargingCart();
+    applySnapshotToCartBody(cart, boostSnap());
+    clock.mockReturnValue(3600);
+    applySnapshotToCartBody(cart, boostSnap());
+    expect(cart.ramBoostActiveUntilMs).toBe(3880);
+    clock.mockReturnValue(3630);
+    applySnapshotToCartBody(cart, boostSnap({ b: false }));
+    expect(cart.ramBoostActiveUntilMs).toBe(0);
+    expect(cart._localHostBoostLatched).toBe(false);
+  });
+
+  it("does not cancel a new predicted boost before host confirmation", () => {
+    const cart = chargingCart();
+    cart.isChargingBoost = false;
+    cart.ramBoostActiveUntilMs = 5000;
+    applySnapshotToCartBody(cart, boostSnap({ b: false }));
+    expect(cart.ramBoostActiveUntilMs).toBe(5000);
+  });
+
+  it("preserves a newer local burst if the previous host boost ends late", () => {
+    const clock = vi.spyOn(performance, "now").mockReturnValue(1000);
+    const cart = chargingCart();
+    applySnapshotToCartBody(cart, boostSnap());
+    // A new local burst starts after the previous window, before its end packet arrives.
+    clock.mockReturnValue(4000);
+    cart.ramBoostActiveUntilMs = 6550;
+    applySnapshotToCartBody(cart, boostSnap({ b: false }));
+    expect(cart.ramBoostActiveUntilMs).toBe(6550);
+    expect(cart._localHostBoostLatched).toBe(false);
+  });
 
   it("plays whoosh once when a rising-edge snap.b converts a live charge", () => {
     const onRemoteBoostStart = vi.fn();
